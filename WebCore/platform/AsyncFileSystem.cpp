@@ -34,51 +34,41 @@
 #if ENABLE(FILE_SYSTEM)
 
 #include "AsyncFileSystemCallbacks.h"
+#include "ExceptionCode.h"
 #include "FileSystem.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-#if !PLATFORM(CHROMIUM)
+const char AsyncFileSystem::persistentPathPrefix[] = "persistent";
+const size_t AsyncFileSystem::persistentPathPrefixLength = sizeof(AsyncFileSystem::persistentPathPrefix) - 1;
+const char AsyncFileSystem::temporaryPathPrefix[] = "temporary";
+const size_t AsyncFileSystem::temporaryPathPrefixLength = sizeof(AsyncFileSystem::temporaryPathPrefix) - 1;
+
+#if !PLATFORM(CHROMIUM) && !PLATFORM(GTK) && !PLATFORM(BLACKBERRY)
 bool AsyncFileSystem::isAvailable()
 {
     notImplemented();
     return false;
 }
 
-PassOwnPtr<AsyncFileSystem> AsyncFileSystem::create(Type, const String&)
+bool AsyncFileSystem::isValidType(Type type)
+{
+    return type == Temporary || type == Persistent;
+}
+
+PassOwnPtr<AsyncFileSystem> AsyncFileSystem::create(Type)
 {
     notImplemented();
-    return 0;
+    return nullptr;
 }
 
-// Default implementation.
 void AsyncFileSystem::openFileSystem(const String& basePath, const String& storageIdentifier, Type type, bool, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    String typeString = (type == Persistent) ? "Persistent" : "Temporary";
-
-    String name = storageIdentifier;
-    name += ":";
-    name += typeString;
-
-    String rootPath = basePath;
-    rootPath.append(PlatformFilePathSeparator);
-    rootPath += storageIdentifier;
-    rootPath.append(PlatformFilePathSeparator);
-    rootPath += typeString;
-    rootPath.append(PlatformFilePathSeparator);
-
-    callbacks->didOpenFileSystem(name, AsyncFileSystem::create(type, rootPath));
+    notImplemented();
+    callbacks->didFail(NOT_SUPPORTED_ERR);
 }
 #endif
-
-// Default implementation.
-String AsyncFileSystem::virtualToPlatformPath(const String& path) const
-{
-    ASSERT(!m_platformRootPath.isEmpty());
-    String virtualPath = path;
-    return m_platformRootPath + virtualPath.replace('/', PlatformFilePathSeparator);
-}
 
 } // namespace
 

@@ -33,7 +33,7 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_export_cred(OM_uint32 *minor_status,
 		     gss_cred_id_t cred_handle,
 		     gss_buffer_t cred_token)
@@ -47,7 +47,7 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
     char *str;
 
     GSSAPI_KRB5_INIT (&context);
-    
+
     if (handle->usage != GSS_C_INITIATE && handle->usage != GSS_C_BOTH) {
 	*minor_status = GSS_KRB5_S_G_BAD_USAGE;
 	return GSS_S_FAILURE;
@@ -100,14 +100,14 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
-	
+
 	ret = krb5_cc_get_full_name(context, handle->ccache, &str);
 	if (ret) {
 	    krb5_storage_free(sp);
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
-	
+
 	ret = krb5_store_string(sp, str);
 	free(str);
 	if (ret) {
@@ -161,7 +161,7 @@ _gsskrb5_export_cred(OM_uint32 *minor_status,
     return GSS_S_COMPLETE;
 }
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_import_cred(OM_uint32 * minor_status,
 		     gss_buffer_t cred_token,
 		     gss_cred_id_t * cred_handle)
@@ -234,7 +234,7 @@ _gsskrb5_import_cred(OM_uint32 * minor_status,
 	    *minor_status = ret;
 	    return GSS_S_FAILURE;
 	}
-	
+
 	ret = krb5_cc_resolve(context, str, &id);
 	krb5_xfree(str);
 	if (ret) {
@@ -385,3 +385,69 @@ _gsskrb5_cred_label_set(OM_uint32 *minor_status, gss_cred_id_t cred_handle,
 
     return GSS_S_COMPLETE;
 }
+
+
+OM_uint32
+_gsskrb5_appl_change_password(OM_uint32 *minor_status,
+			      gss_name_t name,
+			      const char *oldpw,
+			      const char *newpw)
+{
+    krb5_data result_code_string, result_string;
+    krb5_get_init_creds_opt *opt = NULL;
+    krb5_context context;
+    krb5_principal principal = (krb5_principal)name;
+    krb5_creds kcred;
+    krb5_error_code ret;
+    int result_code;
+
+    GSSAPI_KRB5_INIT (&context);
+
+    memset(&kcred, 0, sizeof(kcred));
+
+    ret = krb5_get_init_creds_opt_alloc(context, &opt);
+    if (ret)
+	goto out;
+
+    krb5_get_init_creds_opt_set_tkt_life(opt, 300);
+    krb5_get_init_creds_opt_set_forwardable(opt, FALSE);
+    krb5_get_init_creds_opt_set_proxiable(opt, FALSE);
+
+    ret = krb5_get_init_creds_password(context,
+				       &kcred,
+				       principal,
+				       oldpw,
+				       NULL,
+				       NULL,
+				       0,
+				       "kadmin/changepw",
+				       opt);
+    if (ret)
+	goto out;
+    
+    ret = krb5_set_password(context, &kcred, newpw, NULL,
+			    &result_code, &result_code_string, &result_string);
+    if (ret)
+	goto out;
+
+    krb5_data_free(&result_string);
+    krb5_data_free(&result_code_string);
+
+    if (result_code) {
+	krb5_set_error_message(context, KRB5KRB_AP_ERR_BAD_INTEGRITY, 
+			       "Failed to change invalid password: %d", result_code);
+	ret = KRB5KRB_AP_ERR_BAD_INTEGRITY;
+	goto out;
+    }
+
+ out:
+    if (opt)
+	krb5_get_init_creds_opt_free(context, opt);
+    krb5_free_cred_contents(context, &kcred);
+
+    *minor_status = ret;
+
+    return ret ? GSS_S_FAILURE : GSS_S_COMPLETE;
+}
+
+

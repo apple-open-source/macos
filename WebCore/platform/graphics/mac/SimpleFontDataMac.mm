@@ -1,30 +1,27 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #import "config.h"
@@ -56,13 +53,24 @@ using namespace std;
 namespace WebCore {
   
 const float smallCapsFontSizeMultiplier = 0.7f;
-static inline float scaleEmToUnits(float x, unsigned unitsPerEm) { return x / unitsPerEm; }
+
+static bool fontHasVerticalGlyphs(CTFontRef ctFont)
+{
+    // The check doesn't look neat but this is what AppKit does for vertical writing...
+    RetainPtr<CFArrayRef> tableTags(AdoptCF, CTFontCopyAvailableTables(ctFont, kCTFontTableOptionNoOptions));
+    CFIndex numTables = CFArrayGetCount(tableTags.get());
+    for (CFIndex index = 0; index < numTables; ++index) {
+        CTFontTableTag tag = (CTFontTableTag)(uintptr_t)CFArrayGetValueAtIndex(tableTags.get(), index);
+        if (tag == kCTFontTableVhea || tag == kCTFontTableVORG)
+            return true;
+    }
+    return false;
+}
 
 static bool initFontData(SimpleFontData* fontData)
 {
     if (!fontData->platformData().cgFont())
         return false;
-
 
     return true;
 }
@@ -100,6 +108,37 @@ static NSString* pathFromFont(NSFont *font)
 }
 #endif // __LP64__
 #endif // !ERROR_DISABLED
+
+const SimpleFontData* SimpleFontData::getCompositeFontReferenceFontData(NSFont *key) const
+{
+    if (key && !CFEqual(RetainPtr<CFStringRef>(AdoptCF, CTFontCopyPostScriptName(CTFontRef(key))).get(), CFSTR("LastResort"))) {
+        if (!m_derivedFontData)
+            m_derivedFontData = DerivedFontData::create(isCustomFont());
+        if (!m_derivedFontData->compositeFontReferences)
+            m_derivedFontData->compositeFontReferences.adoptCF(CFDictionaryCreateMutable(kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks, NULL));
+        else {
+            const SimpleFontData* found = static_cast<const SimpleFontData*>(CFDictionaryGetValue(m_derivedFontData->compositeFontReferences.get(), static_cast<const void *>(key)));
+            if (found)
+                return found;
+        }
+        if (CFMutableDictionaryRef dictionary = m_derivedFontData->compositeFontReferences.get()) {
+            bool isUsingPrinterFont = platformData().isPrinterFont();
+            NSFont *substituteFont = isUsingPrinterFont ? [key printerFont] : [key screenFont];
+
+            CTFontSymbolicTraits traits = CTFontGetSymbolicTraits(toCTFontRef(substituteFont));
+            bool syntheticBold = platformData().syntheticBold() && !(traits & kCTFontBoldTrait);
+            bool syntheticOblique = platformData().syntheticOblique() && !(traits & kCTFontItalicTrait);
+
+            FontPlatformData substitutePlatform(substituteFont, platformData().size(), isUsingPrinterFont, syntheticBold, syntheticOblique, platformData().orientation(), platformData().textOrientation(), platformData().widthVariant());
+            SimpleFontData* value = new SimpleFontData(substitutePlatform, isCustomFont());
+            if (value) {
+                CFDictionaryAddValue(dictionary, key, value);
+                return value;
+            }
+        }
+    }
+    return 0;
+}
 
 void SimpleFontData::platformInit()
 {
@@ -214,18 +253,8 @@ void SimpleFontData::platformInit()
         descent = 3;
     }
     
-    if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
-        // The check doesn't look neat but this is what AppKit does for vertical writing...
-        RetainPtr<CFArrayRef> tableTags(AdoptCF, CTFontCopyAvailableTables(m_platformData.ctFont(), kCTFontTableOptionExcludeSynthetic));
-        CFIndex numTables = CFArrayGetCount(tableTags.get());
-        for (CFIndex index = 0; index < numTables; ++index) {
-            CTFontTableTag tag = (CTFontTableTag)(uintptr_t)CFArrayGetValueAtIndex(tableTags.get(), index);
-            if (tag == kCTFontTableVhea || tag == kCTFontTableVORG) {
-                m_hasVerticalGlyphs = true;
-                break;
-            }
-        }
-    }
+    if (platformData().orientation() == Vertical && !isTextOrientationFallback())
+        m_hasVerticalGlyphs = fontHasVerticalGlyphs(m_platformData.ctFont());
 
     float xHeight;
 
@@ -308,7 +337,7 @@ PassOwnPtr<SimpleFontData> SimpleFontData::createScaledFontData(const FontDescri
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     float size = m_platformData.size() * scaleFactor;
-    FontPlatformData scaledFontData([[NSFontManager sharedFontManager] convertFont:m_platformData.font() toSize:size], size, false, false, m_platformData.orientation());
+    FontPlatformData scaledFontData([[NSFontManager sharedFontManager] convertFont:m_platformData.font() toSize:size], size, m_platformData.isPrinterFont(), false, false, m_platformData.orientation());
 
     // AppKit resets the type information (screen/printer) when you convert a font to a different size.
     // We have to fix up the font that we're handed back.
@@ -399,19 +428,73 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    CGSize advance;
+    CGSize advance = CGSizeZero;
     if (platformData().orientation() == Horizontal || m_isBrokenIdeographFallback) {
-        NSFont* font = platformData().font();
-        float pointSize = platformData().m_size;
-        CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
-        if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
-            LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
-            advance.width = 0;
+        NSFont *font = platformData().font();
+        if (font && platformData().isColorBitmapFont())
+            advance = NSSizeToCGSize([font advancementForGlyph:glyph]);
+        else {
+            float pointSize = platformData().m_size;
+            CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
+            if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
+                LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
+                advance.width = 0;
+            }
         }
     } else
         CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), kCTFontVerticalOrientation, &glyph, &advance, 1);
 
     return advance.width + m_syntheticBoldOffset;
+}
+
+struct ProviderInfo {
+    const UChar* characters;
+    size_t length;
+    CFDictionaryRef attributes;
+};
+
+static const UniChar* provideStringAndAttributes(CFIndex stringIndex, CFIndex* count, CFDictionaryRef* attributes, void* context)
+{
+    ProviderInfo* info = static_cast<struct ProviderInfo*>(context);
+    if (stringIndex < 0 || static_cast<size_t>(stringIndex) >= info->length)
+        return 0;
+
+    *count = info->length - stringIndex;
+    *attributes = info->attributes;
+    return info->characters + stringIndex;
+}
+
+bool SimpleFontData::canRenderCombiningCharacterSequence(const UChar* characters, size_t length) const
+{
+    ASSERT(isMainThread());
+
+    if (!m_combiningCharacterSequenceSupport)
+        m_combiningCharacterSequenceSupport = adoptPtr(new HashMap<String, bool>);
+
+    WTF::HashMap<String, bool>::AddResult addResult = m_combiningCharacterSequenceSupport->add(String(characters, length), false);
+    if (!addResult.isNewEntry)
+        return addResult.iterator->second;
+
+    RetainPtr<CGFontRef> cgFont(AdoptCF, CTFontCopyGraphicsFont(platformData().ctFont(), 0));
+
+    ProviderInfo info = { characters, length, getCFStringAttributes(0, platformData().orientation()) };
+    RetainPtr<CTLineRef> line(AdoptCF, wkCreateCTLineWithUniCharProvider(&provideStringAndAttributes, 0, &info));
+
+    CFArrayRef runArray = CTLineGetGlyphRuns(line.get());
+    CFIndex runCount = CFArrayGetCount(runArray);
+
+    for (CFIndex r = 0; r < runCount; r++) {
+        CTRunRef ctRun = static_cast<CTRunRef>(CFArrayGetValueAtIndex(runArray, r));
+        ASSERT(CFGetTypeID(ctRun) == CTRunGetTypeID());
+        CFDictionaryRef runAttributes = CTRunGetAttributes(ctRun);
+        CTFontRef runFont = static_cast<CTFontRef>(CFDictionaryGetValue(runAttributes, kCTFontAttributeName));
+        RetainPtr<CGFontRef> runCGFont(AdoptCF, CTFontCopyGraphicsFont(runFont, 0));
+        if (!CFEqual(runCGFont.get(), cgFont.get()))
+            return false;
+    }
+
+    addResult.iterator->second = true;
+    return true;
 }
 
 } // namespace WebCore

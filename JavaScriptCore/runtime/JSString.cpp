@@ -36,37 +36,46 @@ static const unsigned substringFromRopeCutoff = 4;
 
 const ClassInfo JSString::s_info = { "string", 0, 0, 0, CREATE_METHOD_TABLE(JSString) };
 
-void JSString::RopeBuilder::expand()
+void JSRopeString::RopeBuilder::expand()
 {
-    ASSERT(m_index == JSString::s_maxInternalRopeLength);
+    ASSERT(m_index == JSRopeString::s_maxInternalRopeLength);
     JSString* jsString = m_jsString;
     m_jsString = jsStringBuilder(&m_globalData);
     m_index = 0;
     append(jsString);
 }
 
-JSString::~JSString()
+void JSString::destroy(JSCell* cell)
 {
-    ASSERT(vptr() == JSGlobalData::jsStringVPtr);
+    JSString* thisObject = jsCast<JSString*>(cell);
+    thisObject->JSString::~JSString();
 }
 
 void JSString::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSString* thisObject = jsCast<JSString*>(cell);
     Base::visitChildren(thisObject, visitor);
-    for (size_t i = 0; i < s_maxInternalRopeLength && thisObject->m_fibers[i]; ++i)
-        visitor.append(&thisObject->m_fibers[i]);
+    
+    if (thisObject->isRope())
+        static_cast<JSRopeString*>(thisObject)->visitFibers(visitor);
 }
 
-void JSString::resolveRope(ExecState* exec) const
+void JSRopeString::visitFibers(SlotVisitor& visitor)
+{
+    for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
+        visitor.append(&m_fibers[i]);
+}
+
+void JSRopeString::resolveRope(ExecState* exec) const
 {
     ASSERT(isRope());
 
     if (is8Bit()) {
         LChar* buffer;
-        if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer))
+        if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer)) {
+            Heap::heap(this)->reportExtraMemoryCost(newImpl->cost());
             m_value = newImpl.release();
-        else {
+        } else {
             outOfMemory(exec);
             return;
         }
@@ -91,9 +100,10 @@ void JSString::resolveRope(ExecState* exec) const
     }
 
     UChar* buffer;
-    if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer))
+    if (RefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer)) {
+        Heap::heap(this)->reportExtraMemoryCost(newImpl->cost());
         m_value = newImpl.release();
-    else {
+    } else {
         outOfMemory(exec);
         return;
     }
@@ -125,7 +135,7 @@ void JSString::resolveRope(ExecState* exec) const
 // Vector before performing any concatenation, but by working backwards we likely
 // only fill the queue with the number of substrings at any given level in a
 // rope-of-ropes.)    
-void JSString::resolveRopeSlowCase8(LChar* buffer) const
+void JSRopeString::resolveRopeSlowCase8(LChar* buffer) const
 {
     LChar* position = buffer + m_length; // We will be working backwards over the rope.
     Vector<JSString*, 32> workQueue; // Putting strings into a Vector is only OK because there are no GC points in this method.
@@ -141,8 +151,9 @@ void JSString::resolveRopeSlowCase8(LChar* buffer) const
         workQueue.removeLast();
 
         if (currentFiber->isRope()) {
-            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiber->m_fibers[i]; ++i)
-                workQueue.append(currentFiber->m_fibers[i].get());
+            JSRopeString* currentFiberAsRope = static_cast<JSRopeString*>(currentFiber);
+            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->m_fibers[i]; ++i)
+                workQueue.append(currentFiberAsRope->m_fibers[i].get());
             continue;
         }
 
@@ -156,7 +167,7 @@ void JSString::resolveRopeSlowCase8(LChar* buffer) const
     ASSERT(!isRope());
 }
 
-void JSString::resolveRopeSlowCase(UChar* buffer) const
+void JSRopeString::resolveRopeSlowCase(UChar* buffer) const
 {
     UChar* position = buffer + m_length; // We will be working backwards over the rope.
     Vector<JSString*, 32> workQueue; // These strings are kept alive by the parent rope, so using a Vector is OK.
@@ -169,8 +180,9 @@ void JSString::resolveRopeSlowCase(UChar* buffer) const
         workQueue.removeLast();
 
         if (currentFiber->isRope()) {
-            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiber->m_fibers[i]; ++i)
-                workQueue.append(currentFiber->m_fibers[i].get());
+            JSRopeString* currentFiberAsRope = static_cast<JSRopeString*>(currentFiber);
+            for (size_t i = 0; i < s_maxInternalRopeLength && currentFiberAsRope->m_fibers[i]; ++i)
+                workQueue.append(currentFiberAsRope->m_fibers[i].get());
             continue;
         }
 
@@ -184,25 +196,17 @@ void JSString::resolveRopeSlowCase(UChar* buffer) const
     ASSERT(!isRope());
 }
 
-void JSString::outOfMemory(ExecState* exec) const
+void JSRopeString::outOfMemory(ExecState* exec) const
 {
     for (size_t i = 0; i < s_maxInternalRopeLength && m_fibers[i]; ++i)
         m_fibers[i].clear();
-    ASSERT(!isRope());
+    ASSERT(isRope());
     ASSERT(m_value == UString());
     if (exec)
         throwOutOfMemoryError(exec);
 }
 
-JSValue JSString::replaceCharacter(ExecState* exec, UChar character, const UString& replacement)
-{
-    size_t matchPosition = value(exec).find(character);
-    if (matchPosition == notFound)
-        return JSValue(this);
-    return jsString(exec, m_value.substringSharingImpl(0, matchPosition), replacement, value(exec).substringSharingImpl(matchPosition + 1));
-}
-
-JSString* JSString::getIndexSlowCase(ExecState* exec, unsigned i)
+JSString* JSRopeString::getIndexSlowCase(ExecState* exec, unsigned i)
 {
     ASSERT(isRope());
     resolveRope(exec);
@@ -236,14 +240,9 @@ double JSString::toNumber(ExecState* exec) const
     return jsToNumber(value(exec));
 }
 
-UString JSString::toString(ExecState* exec) const
-{
-    return value(exec);
-}
-
 inline StringObject* StringObject::create(ExecState* exec, JSGlobalObject* globalObject, JSString* string)
 {
-    StringObject* object = new (allocateCell<StringObject>(*exec->heap())) StringObject(exec->globalData(), globalObject->stringObjectStructure());
+    StringObject* object = new (NotNull, allocateCell<StringObject>(*exec->heap())) StringObject(exec->globalData(), globalObject->stringObjectStructure());
     object->finishCreation(exec->globalData(), string);
     return object;
 }
@@ -265,10 +264,6 @@ bool JSString::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifie
     // This function should only be called by JSValue::get.
     if (thisObject->getStringPropertySlot(exec, propertyName, slot))
         return true;
-    if (propertyName == exec->propertyNames().underscoreProto) {
-        slot.setValue(exec->lexicalGlobalObject()->stringPrototype());
-        return true;
-    }
     slot.setBase(thisObject);
     JSObject* object;
     for (JSValue prototype = exec->lexicalGlobalObject()->stringPrototype(); !prototype.isNull(); prototype = object->prototype()) {

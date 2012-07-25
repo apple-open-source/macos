@@ -31,13 +31,14 @@
 #include <wtf/RetainPtr.h>
 #if USE(CFNETWORK)
 #include <CoreFoundation/CFStream.h>
-#else
-
-#ifdef __OBJC__
-@class NSError;
-#else
-class NSError;
 #endif
+#if PLATFORM(WIN)
+#include <windows.h>
+#include <wincrypt.h> // windows.h must be included before wincrypt.h.
+#endif
+
+#if PLATFORM(MAC)
+OBJC_CLASS NSError;
 #endif
 
 namespace WebCore {
@@ -68,7 +69,9 @@ public:
     ResourceError(CFStreamError error);
     CFStreamError cfStreamError() const;
     operator CFStreamError() const;
-#else
+#endif
+
+#if PLATFORM(MAC)
     ResourceError(NSError *);
     NSError *nsError() const;
     operator NSError *() const;
@@ -84,6 +87,9 @@ private:
     bool m_dataIsUpToDate;
 #if USE(CFNETWORK)
     mutable RetainPtr<CFErrorRef> m_platformError;
+#if PLATFORM(MAC)
+    mutable RetainPtr<NSError> m_platformNSError;
+#endif
 #if PLATFORM(WIN)
     RetainPtr<CFDataRef> m_certificate;
 #endif

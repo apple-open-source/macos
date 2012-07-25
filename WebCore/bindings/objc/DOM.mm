@@ -112,7 +112,6 @@ static void createElementClassMap()
     addElementClass(HTMLNames::imgTag, [DOMHTMLImageElement class]);
     addElementClass(HTMLNames::inputTag, [DOMHTMLInputElement class]);
     addElementClass(HTMLNames::insTag, [DOMHTMLModElement class]);
-    addElementClass(HTMLNames::isindexTag, [DOMHTMLIsIndexElement class]);
     addElementClass(HTMLNames::labelTag, [DOMHTMLLabelElement class]);
     addElementClass(HTMLNames::legendTag, [DOMHTMLLegendElement class]);
     addElementClass(HTMLNames::liTag, [DOMHTMLLIElement class]);
@@ -147,13 +146,13 @@ static void createElementClassMap()
 
 #if ENABLE(SVG_DOM_OBJC_BINDINGS)
     addElementClass(SVGNames::aTag, [DOMSVGAElement class]);
+    addElementClass(SVGNames::altGlyphDefTag, [DOMSVGAltGlyphDefElement class]);
     addElementClass(SVGNames::altGlyphTag, [DOMSVGAltGlyphElement class]);
-#if ENABLE(SVG_ANIMATION)
+    addElementClass(SVGNames::altGlyphItemTag, [DOMSVGAltGlyphItemElement class]);
     addElementClass(SVGNames::animateTag, [DOMSVGAnimateElement class]);
     addElementClass(SVGNames::animateColorTag, [DOMSVGAnimateColorElement class]);
     addElementClass(SVGNames::animateTransformTag, [DOMSVGAnimateTransformElement class]);
     addElementClass(SVGNames::setTag, [DOMSVGSetElement class]);
-#endif
     addElementClass(SVGNames::circleTag, [DOMSVGCircleElement class]);
     addElementClass(SVGNames::clipPathTag, [DOMSVGClipPathElement class]);
     addElementClass(SVGNames::cursorTag, [DOMSVGCursorElement class]);
@@ -196,6 +195,7 @@ static void createElementClassMap()
     addElementClass(SVGNames::font_face_srcTag, [DOMSVGFontFaceSrcElement class]);
     addElementClass(SVGNames::font_face_uriTag, [DOMSVGFontFaceUriElement class]);
     addElementClass(SVGNames::glyphTag, [DOMSVGGlyphElement class]);
+    addElementClass(SVGNames::glyphRefTag, [DOMSVGGlyphRefElement class]);
 #endif
     addElementClass(SVGNames::gTag, [DOMSVGGElement class]);
     addElementClass(SVGNames::imageTag, [DOMSVGImageElement class]);
@@ -264,7 +264,7 @@ static NSArray *kit(const Vector<IntRect>& rects)
 - (NSString *)description
 {
     if (!_internal)
-        return [NSString stringWithFormat:@"<%@: null>", [[self class] description], self];
+        return [NSString stringWithFormat:@"<%@: null>", [[self class] description]];
 
     NSString *value = [self nodeValue];
     if (value)
@@ -327,8 +327,6 @@ Class kitClass(WebCore::Node* impl)
             // FIXME: Create an XPath objective C wrapper
             // See http://bugs.webkit.org/show_bug.cgi?id=8755
             return nil;
-        case WebCore::Node::SHADOW_ROOT_NODE:
-            return [DOMNode class];
     }
     ASSERT_NOT_REACHED();
     return nil;
@@ -341,11 +339,6 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
 
     if (WebCore::Node* node = eventTarget->toNode())
         return kit(node);
-
-#if ENABLE(SVG_DOM_OBJC_BINDINGS)
-    if (WebCore::SVGElementInstance* svgElementInstance = eventTarget->toSVGElementInstance())
-        return kit(svgElementInstance);
-#endif
 
     // We don't have an ObjC binding for XMLHttpRequest.
 
@@ -396,6 +389,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     range->textRects(rects);
     return kit(rects);
 }
+
 @end
 
 @implementation DOMRange (DOMRangeExtensions)
@@ -405,6 +399,16 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     // FIXME: The call to updateLayoutIgnorePendingStylesheets should be moved into WebCore::Range.
     core(self)->ownerDocument()->updateLayoutIgnorePendingStylesheets();
     return core(self)->boundingBox();
+}
+
+- (NSImage *)renderedImageForcingBlackText:(BOOL)forceBlackText
+{
+    WebCore::Range* range = core(self);
+    WebCore::Frame* frame = range->ownerDocument()->frame();
+    if (!frame)
+        return nil;
+
+    return frame->rangeImage(range, forceBlackText);
 }
 
 - (NSArray *)textRects
@@ -438,7 +442,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     WebCore::CachedImage* cachedImage = static_cast<WebCore::RenderImage*>(renderer)->cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return nil;
-    return cachedImage->image()->getNSImage();
+    return cachedImage->imageForRenderer(renderer)->getNSImage();
 }
 
 @end
@@ -463,7 +467,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     WebCore::CachedImage* cachedImage = static_cast<WebCore::RenderImage*>(renderer)->cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return nil;
-    return (NSData *)cachedImage->image()->getTIFFRepresentation();
+    return (NSData *)cachedImage->imageForRenderer(renderer)->getTIFFRepresentation();
 }
 
 - (NSURL *)_getURLAttribute:(NSString *)name

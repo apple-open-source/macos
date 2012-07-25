@@ -21,7 +21,7 @@ EXTRA_DIST=xmlcatalog_man.xml tutorial/*.html tutorial/*.c tutorial/*.pdf \
 	   API*.html *.1 *.xsl *.html *.gif w3c.png html/*.html \
 	   html/*.png libxml2-api.xml index.py search.php \
 	   apibuild.py libxml2.xsa xmllint.xml xmlcatalog_man.xml \
-	   README.docs
+	   README.docs symbols.xml
 
 
 man_MANS = xmllint.1 xmlcatalog.1
@@ -32,7 +32,7 @@ else
 all:
 endif
 
-api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h
+api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h $(srcdir)/site.xsl
 
 web: $(PAGES)
 
@@ -89,8 +89,10 @@ $(WIN32_DIR)/libxml2.def.src: libxml2-api.xml
 	  $(XSLTPROC) -o $(WIN32_DIR)/libxml2.def.src \
 	  --nonet $(WIN32_DIR)/defgen.xsl libxml2-api.xml ; fi )
 
-libxml2-api.xml libxml2-refs.xml: apibuild.py ../include/libxml/*.h ../*.c
+libxml2-api.xml libxml2-refs.xml ../libxml2.syms: apibuild.py symbols.xml syms.xsl checkapisym.xsl ../include/libxml/*.h ../*.c
 	-(./apibuild.py)
+	($(XSLTPROC) checkapisym.xsl libxml2-api.xml)
+	($(XSLTPROC) -o ../libxml2.syms syms.xsl symbols.xml)
 	-@(cd .. ; $(MAKE) rebuild_testapi)
 
 
@@ -109,18 +111,18 @@ maintainer-clean-local: clean-local
 rebuild: api all
 
 install-data-local: 
-	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)
+	@MKDIR_P@ $(DESTDIR)$(HTML_DIR)
 	-@INSTALL@ -m 0644 $(srcdir)/xml.html $(srcdir)/encoding.html $(srcdir)/FAQ.html $(srcdir)/structure.gif $(srcdir)/DOM.gif $(srcdir)/smallfootonly.gif $(srcdir)/redhat.gif $(srcdir)/libxml.gif $(srcdir)/w3c.png $(srcdir)/Libxml2-Logo-180x168.gif $(srcdir)/Libxml2-Logo-90x34.gif $(DESTDIR)$(HTML_DIR)
-	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/html
+	@MKDIR_P@ $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.html $(DESTDIR)$(HTML_DIR)/html
 	-@INSTALL@ -m 0644 $(srcdir)/html/*.png $(DESTDIR)$(HTML_DIR)/html
-	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/tutorial
+	@MKDIR_P@ $(DESTDIR)$(HTML_DIR)/tutorial
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/*.* \
 		$(DESTDIR)$(HTML_DIR)/tutorial
-	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/tutorial/images
+	@MKDIR_P@ $(DESTDIR)$(HTML_DIR)/tutorial/images
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/images/*.* \
 		$(DESTDIR)$(HTML_DIR)/tutorial/images
-	$(mkinstalldirs) $(DESTDIR)$(HTML_DIR)/tutorial/images/callouts
+	@MKDIR_P@ $(DESTDIR)$(HTML_DIR)/tutorial/images/callouts
 	-@INSTALL@ -m 0644 $(srcdir)/tutorial/images/callouts/*.* \
 		$(DESTDIR)$(HTML_DIR)/tutorial/images/callouts
 

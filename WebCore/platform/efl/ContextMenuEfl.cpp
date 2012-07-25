@@ -20,9 +20,13 @@
  */
 
 #include "config.h"
+
+#if ENABLE(CONTEXT_MENUS)
+
 #include "ContextMenu.h"
 
 #include "NotImplemented.h"
+#include "PlatformMenuDescription.h"
 
 namespace WebCore {
 
@@ -52,6 +56,52 @@ ContextMenu::ContextMenu()
 {
     notImplemented();
 }
+
+ContextMenu::~ContextMenu()
+{
+}
+
+void ContextMenu::appendItem(ContextMenuItem& item)
+{
+    m_items.append(item);
+}
+
+void ContextMenu::insertItem(unsigned position, ContextMenuItem& item)
+{
+    m_items.insert(position, item);
+}
+
+unsigned ContextMenu::itemCount() const
+{
+    return m_items.size();
+}
+
+void ContextMenu::setPlatformDescription(PlatformMenuDescription)
+{
+    notImplemented();
+}
+
+PlatformMenuDescription ContextMenu::platformDescription() const
+{
+    return const_cast<PlatformMenuDescription>(&m_items);
+}
+
+PlatformMenuDescription ContextMenu::releasePlatformDescription()
+{
+    return PlatformMenuDescription();
+}
+
+PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>& menuItemVector)
+{
+    notImplemented();
+    return 0;
+}
+
+Vector<ContextMenuItem> contextMenuItemVector(const Vector<ContextMenuItem>* items)
+{
+    return *items;
+}
 #endif
 
 }
+#endif // ENABLE(CONTEXT_MENUS)

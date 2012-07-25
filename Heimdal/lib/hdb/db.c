@@ -65,12 +65,24 @@ DB_lock(krb5_context context, HDB *db, int operation)
 {
     DB *d = (DB*)db->hdb_db;
     int fd = (*d->fd)(d);
+    krb5_error_code ret;
+
+    if (db->lock_count > 0) {
+	db->lock_count++;
+	if (db->lock_type == HDB_WLOCK || db->lock_type == operation)
+	    return 0;
+    }
+
     if(fd < 0) {
 	krb5_set_error_message(context, HDB_ERR_CANT_LOCK_DB,
 			       "Can't lock database: %s", db->hdb_name);
 	return HDB_ERR_CANT_LOCK_DB;
     }
-    return hdb_lock(fd, operation);
+    ret = hdb_lock(fd, operation);
+    if (ret)
+	return ret;
+    db->lock_count++;
+    return 0;
 }
 
 static krb5_error_code
@@ -78,6 +90,14 @@ DB_unlock(krb5_context context, HDB *db)
 {
     DB *d = (DB*)db->hdb_db;
     int fd = (*d->fd)(d);
+
+    if (db->lock_count > 1) {
+	db->lock_count--;
+	return 0;
+    }
+    heim_assert(db->lock_count == 1, "HDB lock/unlock sequence does not match");
+    db->lock_count--;
+
     if(fd < 0) {
 	krb5_set_error_message(context, HDB_ERR_CANT_LOCK_DB,
 			       "Can't unlock database: %s", db->hdb_name);
@@ -318,7 +338,7 @@ hdb_db_create(krb5_context context, HDB **db,
     (*db)->hdb_capability_flags = HDB_CAP_F_HANDLE_ENTERPRISE_PRINCIPAL;
     (*db)->hdb_open = DB_open;
     (*db)->hdb_close = DB_close;
-    (*db)->hdb_fetch = _hdb_fetch;
+    (*db)->hdb_fetch_kvno = _hdb_fetch_kvno;
     (*db)->hdb_store = _hdb_store;
     (*db)->hdb_remove = _hdb_remove;
     (*db)->hdb_firstkey = DB_firstkey;

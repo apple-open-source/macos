@@ -39,6 +39,7 @@
 
 namespace WebCore {
 
+class DOMWindow;
 class InjectedScriptManager;
 class InspectorFrontend;
 class InspectorObject;
@@ -50,9 +51,9 @@ class ScriptValue;
 class ConsoleMessage {
     WTF_MAKE_NONCOPYABLE(ConsoleMessage); WTF_MAKE_FAST_ALLOCATED;
 public:
-    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, unsigned li, const String& u);
+    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, const String& u, unsigned li, const String& requestId = String());
     ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
-    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, const String& responseUrl, unsigned long identifier);
+    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, const String& responseUrl, const String& requestId);
     ~ConsoleMessage();
 
     void addToFrontend(InspectorFrontend::Console*, InjectedScriptManager*);
@@ -64,6 +65,10 @@ public:
     const String& message() const { return m_message; }
     MessageType type() const { return m_type; }
 
+    void windowCleared(DOMWindow*);
+
+    unsigned argumentCount();
+
 private:
     MessageSource m_source;
     MessageType m_type;
@@ -71,10 +76,10 @@ private:
     String m_message;
     RefPtr<ScriptArguments> m_arguments;
     RefPtr<ScriptCallStack> m_callStack;
-    unsigned m_line;
     String m_url;
+    unsigned m_line;
     unsigned m_repeatCount;
-    unsigned int m_requestId;
+    String m_requestId;
 };
 
 } // namespace WebCore

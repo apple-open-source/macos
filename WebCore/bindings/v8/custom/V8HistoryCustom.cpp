@@ -37,14 +37,32 @@
 #include "V8Binding.h"
 #include "V8BindingState.h"
 #include "V8DOMWindow.h"
+#include "V8HiddenPropertyName.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
 
+v8::Handle<v8::Value> V8History::stateAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.History.state");
+    History* history = V8History::toNative(info.Holder());
+
+    v8::Handle<v8::Value> value = info.Holder()->GetHiddenValue(V8HiddenPropertyName::state());
+
+    if (!value.IsEmpty() && !history->stateChanged())
+        return value;
+
+    SerializedScriptValue* serialized = history->state();
+    value = serialized ? serialized->deserialize(0, info.GetIsolate()) : v8::Handle<v8::Value>(v8::Null());
+    info.Holder()->SetHiddenValue(V8HiddenPropertyName::state(), value);
+
+    return value;
+}
+
 v8::Handle<v8::Value> V8History::pushStateCallback(const v8::Arguments& args)
 {
     bool didThrow = false;
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0], didThrow);
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0], 0, 0, didThrow, args.GetIsolate());
     if (didThrow)
         return v8::Undefined();
 
@@ -62,13 +80,14 @@ v8::Handle<v8::Value> V8History::pushStateCallback(const v8::Arguments& args)
     ExceptionCode ec = 0;
     History* history = V8History::toNative(args.Holder());
     history->stateObjectAdded(historyState.release(), title, url, History::StateObjectPush, ec);
+    args.Holder()->DeleteHiddenValue(V8HiddenPropertyName::state());
     return throwError(ec);
 }
 
 v8::Handle<v8::Value> V8History::replaceStateCallback(const v8::Arguments& args)
 {
     bool didThrow = false;
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0], didThrow);
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(args[0], 0, 0, didThrow, args.GetIsolate());
     if (didThrow)
         return v8::Undefined();
 
@@ -86,6 +105,7 @@ v8::Handle<v8::Value> V8History::replaceStateCallback(const v8::Arguments& args)
     ExceptionCode ec = 0;
     History* history = V8History::toNative(args.Holder());
     history->stateObjectAdded(historyState.release(), title, url, History::StateObjectReplace, ec);
+    args.Holder()->DeleteHiddenValue(V8HiddenPropertyName::state());
     return throwError(ec);
 }
 

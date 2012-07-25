@@ -23,9 +23,7 @@
 #ifndef _IONETWORKMEDIUM_H
 #define _IONETWORKMEDIUM_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 #include <net/if_media.h>
 
@@ -169,14 +167,11 @@ enum {
     kIONetworkLinkActive       = IFM_ACTIVE     // link is up/active.
 };
 
-#ifdef __cplusplus
-}
-#endif
-
-//===========================================================================
-// IONetworkMedium class.
+__END_DECLS
 
 #ifdef KERNEL
+//===========================================================================
+// IONetworkMedium class.
 
 #include <libkern/c++/OSObject.h>
 #include <libkern/c++/OSSymbol.h>

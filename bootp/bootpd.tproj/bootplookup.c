@@ -23,8 +23,7 @@
 #include <stdio.h>
 #include <servers/bootstrap.h>
 #include <DirectoryService/DirServicesConst.h>
-#include <DSlibinfoMIG_types.h>
-#include <DSlibinfoMIG.h>
+#include <opendirectory/DSlibinfoMIG_types.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <arpa/inet.h>

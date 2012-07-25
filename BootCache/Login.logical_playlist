@@ -1,106 +1,37 @@
-/Applications/Address Book.app/Contents/Resources/AppIcon.icns
-/Applications/App Store.app/Contents/PlugIns/DockTile.docktileplugin/Contents/MacOS/DockTile
-/Applications/App Store.app/Contents/Resources/appStore.icns
-/Applications/App Store.app/Contents/Resources/appstoreupdateagent
-/Applications/App Store.app/Contents/Resources/updatechecker
-/Applications/Automator.app/Contents/Resources/Automator.icns
-/Applications/Calculator.app/Contents/Resources/Calculator.icns
-/Applications/Chess.app/Contents/Resources/chess.icns
-/Applications/DVD Player.app/Contents/Resources/app.icns
-/Applications/Dashboard.app/Contents/Resources/Dashboard.icns
-/Applications/Dictionary.app/Contents/Resources/Dictionary.icns
-/Applications/FaceTime.app/Contents/PlugIns/FaceTime.docktileplugin/Contents/MacOS/FaceTime
 /Applications/FaceTime.app/Contents/Resources/FaceTime.icns
-/Applications/Image Capture.app/Contents/Resources/ImageCapture.icns
-/Applications/Launchpad.app/Contents/Resources/Launchpad.icns
-/Applications/Mail.app/Contents/Resources/app.icns
-/Applications/Mission Control.app/Contents/Resources/expose.icns
-/Applications/Photo Booth.app/Contents/Resources/PhotoBooth.icns
-/Applications/Preview.app/Contents/Resources/Preview.icns
-/Applications/Preview.app/Contents/Resources/pdf.icns
-/Applications/QuickTime Player.app/Contents/Resources/QuickTimePlayerX.icns
+/Applications/Game Center.app/Contents/Resources/GameCenter.icns
+/Applications/Messages.app/Contents/Resources/Messages.icns
+/Applications/Reminders.app/Contents/Resources/Reminders.icns
 /Applications/Safari.app/Contents/Resources/compass.icns
-/Applications/Stickies.app/Contents/Resources/Stickies.icns
-/Applications/System Preferences.app/Contents/PlugIns/SystemPreferencesDockTile.docktileplugin/Contents/MacOS/SystemPreferencesDockTile
-/Applications/System Preferences.app/Contents/Resources/PrefApp.icns
-/Applications/TextEdit.app/Contents/Resources/Edit.icns
-/Applications/Time Machine.app/Contents/Resources/backup.icns
-/Applications/Utilities/Activity Monitor.app/Contents/Resources/ActivityMonitor.icns
-/Applications/Utilities/AirPort Utility.app/Contents/Resources/AirPortUtility.icns
-/Applications/Utilities/AppleScript Editor.app/Contents/Resources/SEScriptEditorX.icns
-/Applications/Utilities/Audio MIDI Setup.app/Contents/Resources/AudioMIDISetup.icns
-/Applications/Utilities/Bluetooth File Exchange.app/Contents/Resources/BluetoothFileExchange.icns
-/Applications/Utilities/Boot Camp Assistant.app/Contents/Resources/DA.icns
-/Applications/Utilities/ColorSync Utility.app/Contents/Resources/ColorSyncUtility.icns
-/Applications/Utilities/Console.app/Contents/Resources/Console.icns
-/Applications/Utilities/DigitalColor Meter.app/Contents/Resources/AppIcons.icns
-/Applications/Utilities/Disk Utility.app/Contents/Resources/DFA.icns
-/Applications/Utilities/Grab.app/Contents/Resources/appicon.icns
-/Applications/Utilities/Grapher.app/Contents/Resources/Grapher.icns
-/Applications/Utilities/Java Preferences.app/Contents/Resources/Java Plugin Settings.icns
-/Applications/Utilities/Keychain Access.app/Contents/Resources/Keychain.icns
-/Applications/Utilities/Migration Assistant.app/Contents/Resources/MigrateAsst.icns
-/Applications/Utilities/Network Utility.app/Contents/Resources/Network Utility.icns
-/Applications/Utilities/Podcast Capture.app/Contents/Resources/PodcastCapture.icns
-/Applications/Utilities/Podcast Publisher.app/Contents/Resources/Podcast Publisher.icns
-/Applications/Utilities/RAID Utility.app/Contents/Resources/RAIDUtility.icns
-/Applications/Utilities/System Information.app/Contents/Resources/ASP.icns
-/Applications/Utilities/Terminal.app/Contents/Resources/Terminal.icns
-/Applications/Utilities/VoiceOver Utility.app/Contents/Resources/voiceover.icns
-/Applications/Utilities/X11.app/Contents/Resources/X11.icns
-/Applications/iCal.app/Contents/Resources/App.icns
-/Applications/iCal.app/Contents/Resources/iCalDockTilePlugIn.docktileplugin/Contents/MacOS/iCalDockTilePlugIn
-/Applications/iCal.app/Contents/Resources/iCalDockTilePlugIn.docktileplugin/Contents/Resources/App-empty.icns
-/Applications/iChat.app/Contents/Resources/iChat.icns
-/Applications/iTunes.app/Contents/Resources/iTunes.icns
-/Library/Desktop Pictures/Andromeda Galaxy.jpg
+/Library/Desktop Pictures/Galaxy.jpg
 /Library/Preferences/com.apple.SetupAssistant.plist
 /Library/Widgets/Calculator.wdgt/Default.png
+/Library/Widgets/Calendar.wdgt/Calendar.widgetplugin/Contents/MacOS/Calendar
+/Library/Widgets/Calendar.wdgt/Default.png
 /Library/Widgets/Weather.wdgt/Default.png
 /Library/Widgets/World Clock.wdgt/Default.png
 /Library/Widgets/World Clock.wdgt/WorldClock.widgetplugin/Contents/MacOS/WorldClock
-/Library/Widgets/iCal.wdgt/Calendar.widgetplugin/Contents/MacOS/Calendar
-/Library/Widgets/iCal.wdgt/Default.png
-/System/Library/CoreServices/AirPort Base Station Agent.app/Contents/MacOS/AirPort Base Station Agent
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/AirDrop.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/BurnableFolderIcon.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/DesktopFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/DocumentsFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/DownloadsFolder.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericDocumentIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFileServerIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFolderIcon.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericNetworkIcon.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/LockedBadgeIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/MovieFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/MusicFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/PicturesFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/PublicFolderIcon.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarAirDrop.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarApplicationsFolder.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarDocumentsFolder.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarInternalDisk.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarDisplay.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarLaptop.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarMacMini.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarMacPro.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarMoviesFolder.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarNetwork.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarPC.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarPicturesFolder.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebariDisk.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebarTimeCapsule.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/SidebariMac.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarAppsFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarDesktopFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarDocumentsFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarDownloadsFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarMovieFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarMusicFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarPicturesFolderIcon.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarPublicFolderIcon.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.cinema-display.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.imac-aluminum-20.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.imac-aluminum-24.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.imac-iSight-24.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.imac-unibody-21.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.imac-unibody-27.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbook-unibody.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbook-white.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookair-11-unibody.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookair-13-unibody.icns
@@ -109,140 +40,94 @@
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookpro-15-unibody.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookpro-15.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookpro-17-unibody.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macbookpro-17.icns
+/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macmini-unibody-no-optical.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macmini-unibody.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macmini.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.macpro.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.powerbook-g4-17.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.powermac-g5.icns
 /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/com.apple.time-capsule.icns
-/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/public.generic-pc.icns
 /System/Library/CoreServices/Dock.app/Contents/MacOS/Dock
-/System/Library/CoreServices/Dock.app/Contents/Resources/English.lproj/InfoPlist.strings
-/System/Library/CoreServices/Dock.app/Contents/Resources/English.lproj/Localizable.strings
 /System/Library/CoreServices/Dock.app/Contents/Resources/ExitFullscreen.png
 /System/Library/CoreServices/Dock.app/Contents/Resources/ExitFullscreenPressed.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/LaunchPadLayout.plist
 /System/Library/CoreServices/Dock.app/Contents/Resources/defaultdesktop.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/ecsb_closebox.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/ecsb_group.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/ecsb_highlight.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/ecsb_shadow.png
+/System/Library/CoreServices/Dock.app/Contents/Resources/ectl_search_background.png
+/System/Library/CoreServices/Dock.app/Contents/Resources/ectl_search_close.png
+/System/Library/CoreServices/Dock.app/Contents/Resources/ectl_search_loupe.png
 /System/Library/CoreServices/Dock.app/Contents/Resources/empty.png
 /System/Library/CoreServices/Dock.app/Contents/Resources/exitarrow.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/finder128.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/indicator_medium_simple.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/left1.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/left2.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/left3.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/left4.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/left5.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/notloaded.icns
+/System/Library/CoreServices/Dock.app/Contents/Resources/finder.png
 /System/Library/CoreServices/Dock.app/Contents/Resources/pirelli.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/separatorstraight-horizontal.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/trashempty.png
-/System/Library/CoreServices/Dock.app/Contents/Resources/trashfull.png
-/System/Library/CoreServices/Dock.app/Contents/XPCServices/com.apple.dock.ecti.xpc/Contents/Info.plist
-/System/Library/CoreServices/Dock.app/Contents/XPCServices/com.apple.dock.extra.xpc/Contents/Info.plist
-/System/Library/CoreServices/Dock.app/Contents/XPCServices/com.apple.dock.extra.xpc/Contents/MacOS/com.apple.dock.extra
-/System/Library/CoreServices/Dock.app/Contents/XPCServices/com.apple.dock.extra.xpc/Contents/Resources/en.lproj/InfoPlist.strings
+/System/Library/CoreServices/Dock.app/Contents/_CodeSignature/CodeResources
 /System/Library/CoreServices/Expansion Slot Utility.app/Contents/Resources/PCIESlotCheck
 /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder
-/System/Library/CoreServices/Finder.app/Contents/Resources/BurnableFolderIcon.icns
 /System/Library/CoreServices/Finder.app/Contents/Resources/English.lproj/ArrangeByMenu.nib
 /System/Library/CoreServices/Finder.app/Contents/Resources/English.lproj/Localizable.strings
 /System/Library/CoreServices/Finder.app/Contents/Resources/English.lproj/MenuBar.nib
-/System/Library/CoreServices/Finder.app/Contents/Resources/MyLibraries/myDocuments.cannedSearch/Resources/allMyFiles.icns
-/System/Library/CoreServices/Menu Extras/AirPort.menu/Contents/MacOS/AirPort
-/System/Library/CoreServices/Menu Extras/Battery.menu/Contents/Resources/AlertTriangle.pdf
-/System/Library/CoreServices/Menu Extras/Battery.menu/Contents/Resources/BatteryCharging.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/MacOS/Bluetooth
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_BrokenConnection.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_Connected.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_Error.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_Idle.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_Idle_Discoverable.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/BlueTooth_Off.pdf
-/System/Library/CoreServices/Menu Extras/Bluetooth.menu/Contents/Resources/lowbatt.pdf
-/System/Library/CoreServices/Menu Extras/TimeMachine.menu/Contents/MacOS/TimeMachine
-/System/Library/CoreServices/Menu Extras/TimeMachine.menu/Contents/Resources/TMRotatingArrow.pdf
-/System/Library/CoreServices/Menu Extras/User.menu/Contents/MacOS/User
-/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/UserSwitcher.pdf
-/System/Library/CoreServices/Menu Extras/Volume.menu/Contents/Resources/Volume1.pdf
-/System/Library/CoreServices/Menu Extras/Volume.menu/Contents/Resources/Volume2.pdf
-/System/Library/CoreServices/Menu Extras/Volume.menu/Contents/Resources/Volume3.pdf
+/System/Library/CoreServices/Finder.app/Contents/_CodeSignature/CodeResources
+/System/Library/CoreServices/MRTAgent.app/Contents/Resources/English.lproj/MainMenu.nib
+/System/Library/CoreServices/NetworkBrowserAgent
+/System/Library/CoreServices/NotificationCenter.app/Contents/MacOS/NotificationCenter
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/NCprefs.tiff
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/en.lproj/NCDNDWidget.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/en.lproj/NCNotificationTableController.nib
+/System/Library/CoreServices/NotificationCenter.app/Contents/Resources/linen.tiff
 /System/Library/CoreServices/Search.bundle/Contents/MacOS/Search
 /System/Library/CoreServices/Search.bundle/Contents/Resources/MDSearchMenuIcon.pdf
-/System/Library/CoreServices/Software Update.app/Contents/Resources/Software Update.icns
+/System/Library/CoreServices/SocialPushAgent.app/Contents/MacOS/SocialPushAgent
 /System/Library/CoreServices/SystemUIServer.app/Contents/MacOS/SystemUIServer
-/System/Library/CoreServices/SystemVersion.plist
-/System/Library/CoreServices/UserAccountUpdater
 /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
 /System/Library/CoreServices/talagent
-/System/Library/Extensions/AppleACPIPlatform.kext/Contents/MacOS/AppleACPIPlatform
-/System/Library/Extensions/AppleAHCIPort.kext/Contents/MacOS/AppleAHCIPort
-/System/Library/Extensions/AppleIntelCPUPowerManagement.kext/Contents/MacOS/AppleIntelCPUPowerManagement
-/System/Library/Extensions/AppleLSIFusionMPT.kext/Contents/MacOS/AppleLSIFusionMPT
-/System/Library/Extensions/AppleRAID.kext/Contents/MacOS/AppleRAID
-/System/Library/Extensions/AppleRAIDCard.kext/Contents/MacOS/AppleRAIDCard
 /System/Library/Extensions/GeForceGLDriver.bundle/Contents/MacOS/GeForceGLDriver
-/System/Library/Extensions/IOCDStorageFamily.kext/Contents/Info.plist
-/System/Library/Extensions/IOCDStorageFamily.kext/Contents/Resources/CD.icns
-/System/Library/Extensions/IOStorageFamily.kext/Contents/Info.plist
-/System/Library/Extensions/IOStorageFamily.kext/Contents/Resources/Internal.icns
-/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/Resources/ReadOnlyDB/annex_aux
+/System/Library/Fonts/Helvetica.dfont
+/System/Library/Fonts/HelveticaNeue.dfont
 /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/ATS.framework/Versions/A/Resources/ReadOnlyDB/fontregistry.readonly
 /System/Library/Frameworks/CalendarStore.framework/Versions/A/Resources/CalendarStore.calmomd/CurrentModel.omo
-/System/Library/Frameworks/CalendarStore.framework/Versions/A/Resources/iCal Helper.app/Contents/MacOS/iCal Helper
-/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Resources/Extras2.rsrc
-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/CFNetwork.framework/Versions/A/Support/cookied
-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Resources/English.lproj/schema.strings
+/System/Library/Frameworks/CalendarStore.framework/Versions/A/Resources/CalendarStore.calmomd/VersionInfo.plist
 /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/Support/SFLConvertGlobalLoginItemsTool
-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/OSServices.framework/Versions/A/Support/SFLIconTool
-/System/Library/Frameworks/IMServicePlugIn.framework/Versions/A/IMServicePlugIn
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/ImageFormats/sfixed14_rgba.dylib
-/System/Library/Frameworks/OpenCL.framework/Versions/A/Libraries/ImageFormats/unorm8_bgra.dylib
-/System/Library/Frameworks/PubSub.framework/Versions/A/Resources/PubSubAgent.app/Contents/MacOS/PubSubAgent
-/System/Library/Frameworks/QuickLook.framework/Versions/A/PlugIns/SystemPlugins.plist
-/System/Library/Frameworks/QuickLook.framework/Versions/A/Resources/quicklookd.app/Contents/MacOS/quicklookd
-/System/Library/Keychains/SystemTrustSettings.plist
-/System/Library/PrivateFrameworks/Apple80211.framework/Apple80211
+/System/Library/Frameworks/IMServicePlugIn.framework/Versions/A/Frameworks/IMServicePlugInSupport.framework/Versions/A/IMServicePlugInSupport
+/System/Library/Frameworks/Social.framework/Versions/A/Social
+/System/Library/PrivateFrameworks/AVVoiceController.framework/Versions/A/AVVoiceController
+/System/Library/PrivateFrameworks/AccountsDaemon.framework/Versions/A/AccountsDaemon
+/System/Library/PrivateFrameworks/ApplePushService.framework/Versions/A/ApplePushService
+/System/Library/PrivateFrameworks/ApplePushService.framework/apsctl
+/System/Library/PrivateFrameworks/ApplePushService.framework/apsd
+/System/Library/PrivateFrameworks/AssistantServices.framework/Versions/A/AssistantServices
+/System/Library/PrivateFrameworks/AssistantServices.framework/assistantd
 /System/Library/PrivateFrameworks/Calculate.framework/Versions/A/Calculate
-/System/Library/PrivateFrameworks/CoreUI.framework/Versions/A/Resources/SArtFile.bin
+/System/Library/PrivateFrameworks/CalendarAgent.framework/Executables/CalendarAgent
+/System/Library/PrivateFrameworks/CalendarAgent.framework/Versions/A/CalendarAgent
 /System/Library/PrivateFrameworks/FamilyControls.framework/Versions/A/Resources/pcdCheck
-/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/kcm
 /System/Library/PrivateFrameworks/ICANotifications.framework/Versions/A/ICANotifications
-/System/Library/PrivateFrameworks/IMCore.framework/Versions/A/Frameworks/IMDaemonCore.framework/Versions/A/IMDaemonCore
 /System/Library/PrivateFrameworks/IMCore.framework/imagent.app/Contents/MacOS/imagent
-/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/FUSMenuAvatarMask.png
-/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/FUSMenuAvatarOverlay.png
-/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/NetInfo
-/System/Library/PrivateFrameworks/PreferencePanesSupport.framework/Versions/A/PreferencePanesSupport
-/System/Library/PrivateFrameworks/SpotlightIndex.framework/Versions/A/SpotlightIndex
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/Resources/IncompatibleAppDisplay.app/Contents/MacOS/IncompatibleAppDisplay
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/Resources/IncompatibleAppDisplay.app/Contents/Resources/English.lproj/IncompatibleAppMain.nib
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/Resources/compatchecker
-/System/Library/PrivateFrameworks/SystemMigration.framework/Versions/A/SystemMigration
+/System/Library/PrivateFrameworks/IMDAppleServices.framework/Versions/A/IMDAppleServices
+/System/Library/PrivateFrameworks/IMDPersistence.framework/Versions/A/IMDPersistence
+/System/Library/PrivateFrameworks/IMDaemonCore.framework/Versions/A/IMDaemonCore
+/System/Library/PrivateFrameworks/IMFoundation.framework/XPCServices/IMRemoteURLConnectionAgent.xpc/Contents/MacOS/IMRemoteURLConnectionAgent
+/System/Library/PrivateFrameworks/IMTranscoding.framework/Versions/A/IMTranscoding
+/System/Library/PrivateFrameworks/IMTransferServices.framework/Versions/A/IMTransferServices
+/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/avatarMask.png
+/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/avatarMask@2x.png
+/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/avatarWhiteRing.png
+/System/Library/PrivateFrameworks/LoginUIKit.framework/Versions/A/Frameworks/LoginUICore.framework/Versions/A/Resources/avatarWhiteRing@2x.png
+/System/Library/PrivateFrameworks/Marco.framework/Versions/A/Marco
+/System/Library/PrivateFrameworks/MessageProtection.framework/Versions/A/MessageProtection
+/System/Library/PrivateFrameworks/OAuth.framework/Versions/A/OAuth
+/System/Library/PrivateFrameworks/SAObjects.framework/Versions/A/SAObjects
+/System/Library/PrivateFrameworks/SPSupport.framework/Versions/A/SPSupport
 /System/Library/PrivateFrameworks/SystemUIPlugin.framework/Versions/A/SystemUIPlugin
+/System/Library/PrivateFrameworks/TCC.framework/Versions/A/Resources/tccd
 /System/Library/PrivateFrameworks/Uninstall.framework/Versions/A/Uninstall
+/System/Library/PrivateFrameworks/XPCObjects.framework/Versions/A/XPCObjects
 /System/Library/PrivateFrameworks/iPod.framework/Versions/A/iPod
+/System/Library/UserEventPlugins/ACRRDaemon.plugin/Contents/MacOS/ACRRDaemon
 /System/Library/UserEventPlugins/AirPortUserAgent.plugin/Contents/MacOS/AirPortUserAgent
+/System/Library/UserEventPlugins/AppleHIDMouseAgent.plugin/Contents/MacOS/AppleHIDMouseAgent
+/System/Library/UserEventPlugins/AssistantUEA.plugin/Contents/MacOS/AssistantUEA
 /System/Library/UserEventPlugins/BTMMPortInUseAgent.plugin/Contents/MacOS/BTMMPortInUseAgent
-/System/Library/UserEventPlugins/CaptiveUserAgent.plugin/Contents/MacOS/CaptiveUserAgent
-/System/Library/UserEventPlugins/DiskUnmountWatcher.plugin/Contents/MacOS/DiskUnmountWatcher
-/System/Library/UserEventPlugins/EAPOLMonitor.plugin/Contents/MacOS/EAPOLMonitor
-/System/Library/UserEventPlugins/GSSNotificationForwarder.plugin/Contents/MacOS/GSSNotificationForwarder
-/System/Library/UserEventPlugins/PrinterMonitor.plugin/Contents/MacOS/PrinterMonitor
-/System/Library/UserEventPlugins/SCMonitor.plugin/Contents/MacOS/SCMonitor
-/System/Library/UserEventPlugins/com.apple.TimeMachine.plugin/Contents/MacOS/com.apple.TimeMachine
-/System/Library/UserEventPlugins/iCalAlarmAgent.plugin/Contents/MacOS/iCalAlarmAgent
-/System/Library/XPCServices/com.apple.qtkitserver.xpc/Contents/MacOS/com.apple.qtkitserver
+/System/Library/UserEventPlugins/BTMMPortInUseAgent.plugin/Contents/Resources/BTMMDisable.app/Contents/MacOS/BTMMDisable
 /usr/lib/dyld
 /usr/libexec/automountd
 /usr/libexec/launchproxyls
-/usr/libexec/od_user_homes
-/usr/libexec/warmd_agent
 /usr/libexec/xpcproxy
 /usr/sbin/filecoordinationd
 /usr/sbin/pboard
-/usr/share/icu/icudt46l.dat
+/usr/sbin/usernoted

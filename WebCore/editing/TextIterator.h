@@ -42,7 +42,9 @@ enum TextIteratorBehavior {
     TextIteratorEntersTextControls = 1 << 1,
     TextIteratorEmitsTextsWithoutTranscoding = 1 << 2,
     TextIteratorIgnoresStyleVisibility = 1 << 3,
-    TextIteratorEmitsObjectReplacementCharacters = 1 << 4
+    TextIteratorEmitsObjectReplacementCharacters = 1 << 4,
+    TextIteratorEmitsOriginalText = 1 << 5,
+    TextIteratorStopsOnFormControls = 1 << 6
 };
     
 // FIXME: Can't really answer this question correctly without knowing the white-space mode.
@@ -88,7 +90,7 @@ public:
     ~TextIterator();
     explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
 
-    bool atEnd() const { return !m_positionNode; }
+    bool atEnd() const { return !m_positionNode || m_shouldStop; }
     void advance();
     
     int length() const { return m_textLength; }
@@ -99,7 +101,7 @@ public:
      
     static int rangeLength(const Range*, bool spacesForReplacedElements = false);
     static PassRefPtr<Range> rangeFromLocationAndLength(Element* scope, int rangeLocation, int rangeLength, bool spacesForReplacedElements = false);
-    static bool locationAndLengthFromRange(const Range*, size_t& location, size_t& length);
+    static bool getLocationAndLengthFromRange(Element* scope, const Range*, size_t& location, size_t& length);
     static PassRefPtr<Range> subrange(Range* entireRange, int characterOffset, int characterCount);
     
 private:
@@ -176,12 +178,18 @@ private:
 
     // Used when we want texts for copying, pasting, and transposing.
     bool m_emitsTextWithoutTranscoding;
+    // Used in pasting inside password field.
+    bool m_emitsOriginalText;
     // Used when deciding text fragment created by :first-letter should be looked into.
     bool m_handledFirstLetter;
     // Used when the visibility of the style should not affect text gathering.
     bool m_ignoresStyleVisibility;
     // Used when emitting the special 0xFFFC character is required.
     bool m_emitsObjectReplacementCharacters;
+    // Used when the iteration should stop if form controls are reached.
+    bool m_stopsOnFormControls;
+    // Used when m_stopsOnFormControls is set to determine if the iterator should keep advancing.
+    bool m_shouldStop;
 };
 
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
@@ -192,7 +200,7 @@ public:
     SimplifiedBackwardsTextIterator();
     explicit SimplifiedBackwardsTextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
     
-    bool atEnd() const { return !m_positionNode; }
+    bool atEnd() const { return !m_positionNode || m_shouldStop; }
     void advance();
     
     int length() const { return m_textLength; }
@@ -244,6 +252,12 @@ private:
 
     // Should handle first-letter renderer in the next call to handleTextNode.
     bool m_shouldHandleFirstLetter;
+
+    // Used when the iteration should stop if form controls are reached.
+    bool m_stopsOnFormControls;
+
+    // Used when m_stopsOnFormControls is set to determine if the iterator should keep advancing.
+    bool m_shouldStop;
 };
 
 // Builds on the text iterator, adding a character position so we can walk one

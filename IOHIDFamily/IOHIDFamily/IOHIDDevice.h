@@ -40,6 +40,7 @@ class   IOHIDEventQueue;
 class   IOHIDInterface;
 class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
+class   IOHIDAsyncReportQueue;
 
 /*!
     @typedef IOHIDCompletionAction
@@ -128,6 +129,7 @@ private:
         IOHIDInterface *        interfaceNub;
         IOHIDElementPrivate *   rollOverElement;
         OSArray *               hierarchElements;
+        IOHIDAsyncReportQueue * asyncReportQueue;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -685,7 +687,15 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  9);
     virtual OSNumber * newReportIntervalNumber() const;
     
-    OSMetaClassDeclareReservedUnused(IOHIDDevice, 10);
+    OSMetaClassDeclareReservedUsed(IOHIDDevice, 10);
+    virtual IOReturn handleReportWithTimeAsync(
+                                  AbsoluteTime         timeStamp,
+                                  IOMemoryDescriptor * report,
+                                  IOHIDReportType      reportType,
+                                  IOOptionBits         options,
+                                  UInt32               completionTimeout,
+                                  IOHIDCompletion *    completion);
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 11);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 12);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 13);

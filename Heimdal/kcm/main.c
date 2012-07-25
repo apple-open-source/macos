@@ -108,7 +108,6 @@ main(int argc, char **argv)
     if (detach_from_console)
 	daemon(0, 0);
 #endif
-    pidfile(NULL);
     kcm_session_setup_handler();
 
     kcm_read_dump(kcm_context);

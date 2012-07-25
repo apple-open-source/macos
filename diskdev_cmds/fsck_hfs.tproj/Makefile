@@ -16,7 +16,7 @@ Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 export CONFIG_HFS_TRIM ?= 1
 
 Extra_CC_Flags = -DCONFIG_HFS_TRIM=$(CONFIG_HFS_TRIM) -Wall -Werror \
-	-Wno-error=deprecated-declarations -Idfalib
+	-Wno-error=deprecated-declarations  -Wno-error=unused-function -Idfalib
 
 Extra_LD_Flags = -dead_strip \
 	-L"$(SYMROOT)" -ldfalib -framework IOKit -framework CoreFoundation

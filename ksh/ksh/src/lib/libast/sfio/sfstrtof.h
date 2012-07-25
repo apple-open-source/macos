@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -33,6 +33,7 @@
  *	S2F_function	the function name
  *	S2F_static	<0:export =0:extern >0:static
  *	S2F_type	0:float 1:double 2:long.double
+ *	S2F_qualifier	1 for optional [fFlL] qualifier suffix
  *	S2F_size	1 for interface with size_t second arg
  *	S2F_scan	1 for alternate interface with these arguments:
  *				void* handle
@@ -210,6 +211,8 @@ S2F_function(str, end) char* str; char** end;
 	int			decimal = 0;
 	int			thousand = 0;
 	int			part = 0;
+	int			back_part;
+	S2F_batch		back_n;
 	S2F_number		v;
 	S2F_number		p;
 	S2F_part_t		parts[16];
@@ -284,6 +287,8 @@ S2F_function(str, end) char* str; char** end;
 					m = -m;
 			}
 
+#if S2F_qualifier
+
 			/*
 			 * consume the optional suffix
 			 */
@@ -297,6 +302,7 @@ S2F_function(str, end) char* str; char** end;
 				c = GET(s);
 				break;
 			}
+#endif
 			PUT(s);
 			if (v == 0)
 				return negative ? -v : v;
@@ -369,7 +375,7 @@ S2F_function(str, end) char* str; char** end;
 		}
 		do c = GET(s); while (c && !isspace(c));
 		PUT(s);
-		return S2F_nan;
+		return negative ? -S2F_nan : S2F_nan;
 	}
 	else if (c < '1' || c > '9')
 	{
@@ -411,8 +417,23 @@ S2F_function(str, end) char* str; char** end;
 		else if (c != thousand)
 			break;
 		else if (!(m = digits))
+		{
+			SET(s, t, b);
 			break;
+		}
+		else
+		{
+			SET(s, t, b);
+			back_n = n;
+			back_part = part;
+		}
 		c = GET(s);
+	}
+	if (m && (digits - m) != 3)
+	{
+		REV(s, t, b);
+		n = back_n;
+		part = back_part;
 	}
 
 	/*
@@ -449,6 +470,8 @@ S2F_function(str, end) char* str; char** end;
 			digits += n;
 	}
 
+#if S2F_qualifier
+
 	/*
 	 * consume the optional suffix
 	 */
@@ -462,6 +485,7 @@ S2F_function(str, end) char* str; char** end;
 		c = GET(s);
 		break;
 	}
+#endif
 	PUT(s);
 
 	/*

@@ -36,6 +36,7 @@ namespace WebKit {
 WebProcessCreationParameters::WebProcessCreationParameters()
     : shouldTrackVisitedLinks(false)
     , shouldAlwaysUseComplexTextCodePath(false)
+    , shouldUseFontSmoothing(true)
     , defaultRequestTimeoutInterval(INT_MAX)
 #if PLATFORM(MAC)
     , nsURLCacheMemoryCapacity(0)
@@ -60,11 +61,16 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encodeEnum(cacheModel);
     encoder->encode(shouldTrackVisitedLinks);
     encoder->encode(shouldAlwaysUseComplexTextCodePath);
+    encoder->encode(shouldUseFontSmoothing);
     encoder->encode(iconDatabaseEnabled);
-    encoder->encode(languageCode);
+#if ENABLE(PLUGIN_PROCESS)
+    encoder->encode(disablePluginProcessMessageTimeout);
+#endif
+    encoder->encode(languages);
     encoder->encode(textCheckerState);
+    encoder->encode(fullKeyboardAccessEnabled);
     encoder->encode(defaultRequestTimeoutInterval);
-#if USE(CFURLSTORAGESESSIONS)
+#if PLATFORM(MAC) || USE(CFURLSTORAGESESSIONS)
     encoder->encode(uiProcessBundleIdentifier);
 #endif
 #if PLATFORM(MAC)
@@ -75,6 +81,7 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     encoder->encode(nsURLCacheDiskCapacity);
     encoder->encode(acceleratedCompositingPort);
     encoder->encode(uiProcessBundleResourcePath);
+    encoder->encode(webInspectorBaseDirectory);
 #elif PLATFORM(WIN)
     encoder->encode(shouldPaintNativeControls);
     encoder->encode(cfURLCachePath);
@@ -87,6 +94,13 @@ void WebProcessCreationParameters::encode(CoreIPC::ArgumentEncoder* encoder) con
     if (storageSession)
         CoreIPC::encode(encoder, storageSession);
 #endif // USE(CFURLSTORAGESESSIONS)
+#endif
+#if PLATFORM(QT)
+    encoder->encode(cookieStorageDirectory);
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    encoder->encode(notificationPermissions);
 #endif
 }
 
@@ -116,15 +130,24 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
         return false;
     if (!decoder->decode(parameters.shouldAlwaysUseComplexTextCodePath))
         return false;
+    if (!decoder->decode(parameters.shouldUseFontSmoothing))
+        return false;
     if (!decoder->decode(parameters.iconDatabaseEnabled))
         return false;
-    if (!decoder->decode(parameters.languageCode))
+#if ENABLE(PLUGIN_PROCESS)
+    if (!decoder->decode(parameters.disablePluginProcessMessageTimeout))
+        return false;
+#endif
+
+    if (!decoder->decode(parameters.languages))
         return false;
     if (!decoder->decode(parameters.textCheckerState))
         return false;
+    if (!decoder->decode(parameters.fullKeyboardAccessEnabled))
+        return false;
     if (!decoder->decode(parameters.defaultRequestTimeoutInterval))
         return false;
-#if USE(CFURLSTORAGESESSIONS)
+#if PLATFORM(MAC) || USE(CFURLSTORAGESESSIONS)
     if (!decoder->decode(parameters.uiProcessBundleIdentifier))
         return false;
 #endif
@@ -144,6 +167,8 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
         return false;
     if (!decoder->decode(parameters.uiProcessBundleResourcePath))
         return false;
+    if (!decoder->decode(parameters.webInspectorBaseDirectory))
+        return false;
 #elif PLATFORM(WIN)
     if (!decoder->decode(parameters.shouldPaintNativeControls))
         return false;
@@ -162,6 +187,16 @@ bool WebProcessCreationParameters::decode(CoreIPC::ArgumentDecoder* decoder, Web
     if (hasStorageSession && !CoreIPC::decode(decoder, parameters.serializedDefaultStorageSession))
         return false;
 #endif // USE(CFURLSTORAGESESSIONS)
+#endif
+
+#if PLATFORM(QT)
+    if (!decoder->decode(parameters.cookieStorageDirectory))
+        return false;
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    if (!decoder->decode(parameters.notificationPermissions))
+        return false;
 #endif
 
     return true;

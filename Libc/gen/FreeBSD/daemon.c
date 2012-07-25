@@ -33,6 +33,10 @@ static char sccsid[] = "@(#)daemon.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/daemon.c,v 1.8 2007/01/09 00:27:53 imp Exp $");
 
+#ifndef VARIANT_PRE1050
+#include <mach/mach.h>
+#include <servers/bootstrap.h>
+#endif /* !VARIANT_PRE1050 */
 #include "namespace.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -41,6 +45,33 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/daemon.c,v 1.8 2007/01/09 00:27:53 imp Exp 
 #include <signal.h>
 #include <unistd.h>
 #include "un-namespace.h"
+
+#ifndef VARIANT_PRE1050
+static void
+move_to_root_bootstrap(void)
+{
+	mach_port_t parent_port = 0;
+	mach_port_t previous_port = 0;
+
+	do {
+		if (previous_port) {
+			mach_port_deallocate(mach_task_self(), previous_port);
+			previous_port = parent_port;
+		} else {
+			previous_port = bootstrap_port;
+		}
+
+		if (bootstrap_parent(previous_port, &parent_port) != 0) {
+			return;
+		}
+	} while (parent_port != previous_port);
+
+	task_set_bootstrap_port(mach_task_self(), parent_port);
+	bootstrap_port = parent_port;
+}
+#endif /* !VARIANT_PRE1050 */
+
+int daemon(int, int) __DARWIN_1050(daemon);
 
 int
 daemon(nochdir, noclose)
@@ -57,7 +88,9 @@ daemon(nochdir, noclose)
 	sa.sa_handler = SIG_IGN;
 	sa.sa_flags = 0;
 	osa_ok = _sigaction(SIGHUP, &sa, &osa);
-
+#ifndef VARIANT_PRE1050
+	move_to_root_bootstrap();
+#endif /* !VARIANT_PRE1050 */
 	switch (fork()) {
 	case -1:
 		return (-1);

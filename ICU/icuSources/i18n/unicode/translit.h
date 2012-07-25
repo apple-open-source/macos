@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (C) 1999-2008, International Business Machines
+* Copyright (C) 1999-2011, International Business Machines
 * Corporation and others. All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -277,6 +277,7 @@ private:
         void*   pointer;
     };
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Return a token containing an integer.
      * @return a token containing an integer.
@@ -290,6 +291,7 @@ private:
      * @internal
      */
     inline static Token pointerToken(void*);
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * A function that creates and returns a Transliterator.  When
@@ -652,7 +654,7 @@ private:
      *
      * <p>If this transliterator has a filter, break up the input text into runs
      * of unfiltered characters.  Pass each run to
-     * <subclass>.handleTransliterate().
+     * subclass.handleTransliterate().
      *
      * <p>In incremental mode, if rollback is TRUE, perform a special
      * incremental procedure in which several passes are made over the input
@@ -1014,6 +1016,7 @@ public:
 
 protected:
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * @internal
      * @param id the ID being registered
@@ -1073,6 +1076,7 @@ protected:
     static void _registerSpecialInverse(const UnicodeString& target,
                                         const UnicodeString& inverseTarget,
                                         UBool bidirectional);
+#endif  /* U_HIDE_INTERNAL_API */
 
 public:
 
@@ -1178,6 +1182,7 @@ public:
 
 protected:
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Non-mutexed internal method
      * @internal
@@ -1220,6 +1225,7 @@ protected:
                                                const UnicodeString& source,
                                                const UnicodeString& target,
                                                UnicodeString& result);
+#endif  /* U_HIDE_INTERNAL_API */
 
 protected:
 
@@ -1266,6 +1272,7 @@ private:
     static UBool initializeRegistry(UErrorCode &status);
 
 public:
+#ifndef U_HIDE_OBSOLETE_API
     /**
      * Return the number of IDs currently registered with the system.
      * To retrieve the actual IDs, call getAvailableID(i) with
@@ -1288,6 +1295,7 @@ public:
      * may become invalid if another thread calls unregister
      */
     static const UnicodeString& U_EXPORT2 getAvailableID(int32_t index);
+#endif  /* U_HIDE_OBSOLETE_API */
 };
 
 inline int32_t Transliterator::getMaximumContextLength(void) const {
@@ -1301,6 +1309,7 @@ inline void Transliterator::setID(const UnicodeString& id) {
     ID.truncate(ID.length()-1);
 }
 
+#ifndef U_HIDE_INTERNAL_API
 inline Transliterator::Token Transliterator::integerToken(int32_t i) {
     Token t;
     t.integer = i;
@@ -1312,6 +1321,7 @@ inline Transliterator::Token Transliterator::pointerToken(void* p) {
     t.pointer = p;
     return t;
 }
+#endif
 
 U_NAMESPACE_END
 

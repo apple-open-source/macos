@@ -30,21 +30,23 @@
 #include <vssym32.h>
 
 #include "CSSValueKeywords.h"
-#include "CurrentTime.h"
 #include "FontSelector.h"
 #include "FontUtilsChromiumWin.h"
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
+#include "HWndDC.h"
 #include "MediaControlElements.h"
 #include "PaintInfo.h"
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include "RenderBox.h"
 #include "RenderProgress.h"
 #include "RenderSlider.h"
 #include "ScrollbarTheme.h"
 #include "SystemInfo.h"
 #include "TransparencyWin.h"
+#include <wtf/CurrentTime.h>
+
 
 // FIXME: This dependency should eventually be removed.
 #include <skia/ext/skia_utils_win.h>
@@ -100,18 +102,11 @@ public:
 
 private:
 
-    static bool canvasHasMultipleLayers(const SkCanvas* canvas)
-    {
-        SkCanvas::LayerIter iter(const_cast<SkCanvas*>(canvas), false);
-        iter.next(); // There is always at least one layer.
-        return !iter.done(); // There is > 1 layer if the the iterator can stil advance.
-    }
-
     static TransparencyWin::LayerMode getLayerMode(GraphicsContext* context, TransparencyWin::TransformMode transformMode)
     {
         if (context->platformContext()->isDrawingToImageBuffer()) // Might have transparent background.
             return TransparencyWin::WhiteLayer;
-        if (canvasHasMultipleLayers(context->platformContext()->canvas())) // Needs antialiasing help.
+        if (context->platformContext()->canvas()->isDrawingToLayer()) // Needs antialiasing help.
             return TransparencyWin::OpaqueCompositeLayer;
         // Nothing interesting.
         return transformMode == TransparencyWin::KeepTransform ? TransparencyWin::NoLayer : TransparencyWin::OpaqueCompositeLayer;
@@ -142,7 +137,7 @@ bool ThemePainter::s_hasInstance = false;
 static void getNonClientMetrics(NONCLIENTMETRICS* metrics)
 {
     static UINT size = (windowsVersion() >= WindowsVista) ?
-        (sizeof NONCLIENTMETRICS) : NONCLIENTMETRICS_SIZE_PRE_VISTA;
+        sizeof(NONCLIENTMETRICS) : NONCLIENTMETRICS_SIZE_PRE_VISTA;
     metrics->cbSize = size;
     bool success = !!SystemParametersInfo(SPI_GETNONCLIENTMETRICS, size, metrics, 0);
     ASSERT(success);
@@ -158,6 +153,7 @@ static FontDescription labelFont;
 static bool supportsFocus(ControlPart appearance)
 {
     switch (appearance) {
+    case SquareButtonPart:
     case PushButtonPart:
     case ButtonPart:
     case DefaultButtonPart:
@@ -177,13 +173,12 @@ static float systemFontSize(const LOGFONT& font)
     if (size < 0) {
         HFONT hFont = CreateFontIndirect(&font);
         if (hFont) {
-            HDC hdc = GetDC(0); // What about printing?  Is this the right DC?
+            HWndDC hdc(0); // What about printing? Is this the right DC?
             if (hdc) {
                 HGDIOBJ hObject = SelectObject(hdc, hFont);
                 TEXTMETRIC tm;
                 GetTextMetrics(hdc, &tm);
                 SelectObject(hdc, hObject);
-                ReleaseDC(0, hdc);
                 size = tm.tmAscent;
             }
             DeleteObject(hFont);
@@ -208,13 +203,11 @@ static float pointsToPixels(float points)
 {
     static float pixelsPerInch = 0.0f;
     if (!pixelsPerInch) {
-        HDC hdc = GetDC(0); // What about printing?  Is this the right DC?
-        if (hdc) { // Can this ever actually be NULL?
+        HWndDC hdc(0); // What about printing? Is this the right DC?
+        if (hdc) // Can this ever actually be NULL?
             pixelsPerInch = GetDeviceCaps(hdc, LOGPIXELSY);
-            ReleaseDC(0, hdc);
-        } else {
+        else
             pixelsPerInch = 96.0f;
-        }
     }
 
     static const float pointsPerInch = 72.0f;
@@ -238,7 +231,7 @@ PassRefPtr<RenderTheme> RenderThemeChromiumWin::create()
 
 PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
 {
-    static RenderTheme* rt = RenderThemeChromiumWin::create().releaseRef();
+    static RenderTheme* rt = RenderThemeChromiumWin::create().leakRef();
     return rt;
 }
 
@@ -248,12 +241,13 @@ bool RenderThemeChromiumWin::supportsFocusRing(const RenderStyle* style) const
     // except push buttons. For buttons we use the windows PBS_DEFAULTED
     // styling to give it a blue border.
     return style->appearance() == ButtonPart
-            || style->appearance() == PushButtonPart;
+            || style->appearance() == PushButtonPart
+            || style->appearance() == SquareButtonPart;
 }
 
 Color RenderThemeChromiumWin::platformActiveSelectionBackgroundColor() const
 {
-    if (PlatformBridge::layoutTestMode())
+    if (PlatformSupport::layoutTestMode())
         return Color(0x00, 0x00, 0xff); // Royal blue.
     COLORREF color = GetSysColor(COLOR_HIGHLIGHT);
     return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
@@ -261,7 +255,7 @@ Color RenderThemeChromiumWin::platformActiveSelectionBackgroundColor() const
 
 Color RenderThemeChromiumWin::platformInactiveSelectionBackgroundColor() const
 {
-    if (PlatformBridge::layoutTestMode())
+    if (PlatformSupport::layoutTestMode())
         return Color(0x99, 0x99, 0x99); // Medium gray.
     COLORREF color = GetSysColor(COLOR_GRAYTEXT);
     return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
@@ -269,7 +263,7 @@ Color RenderThemeChromiumWin::platformInactiveSelectionBackgroundColor() const
 
 Color RenderThemeChromiumWin::platformActiveSelectionForegroundColor() const
 {
-    if (PlatformBridge::layoutTestMode())
+    if (PlatformSupport::layoutTestMode())
         return Color(0xff, 0xff, 0xcc); // Pale yellow.
     COLORREF color = GetSysColor(COLOR_HIGHLIGHTTEXT);
     return Color(GetRValue(color), GetGValue(color), GetBValue(color), 0xff);
@@ -390,26 +384,26 @@ static int cssValueIdToSysColorIndex(int cssValueId)
 Color RenderThemeChromiumWin::systemColor(int cssValueId) const
 {
     int sysColorIndex = cssValueIdToSysColorIndex(cssValueId);
-    if (PlatformBridge::layoutTestMode() || (sysColorIndex == -1))
+    if (PlatformSupport::layoutTestMode() || (sysColorIndex == -1))
         return RenderTheme::systemColor(cssValueId);
 
     COLORREF color = GetSysColor(sysColorIndex);
     return Color(GetRValue(color), GetGValue(color), GetBValue(color));
 }
 
-void RenderThemeChromiumWin::adjustSliderThumbSize(RenderObject* o) const
+void RenderThemeChromiumWin::adjustSliderThumbSize(RenderStyle* style) const
 {
     // These sizes match what WinXP draws for various menus.
     const int sliderThumbAlongAxis = 11;
     const int sliderThumbAcrossAxis = 21;
-    if (o->style()->appearance() == SliderThumbHorizontalPart) {
-        o->style()->setWidth(Length(sliderThumbAlongAxis, Fixed));
-        o->style()->setHeight(Length(sliderThumbAcrossAxis, Fixed));
-    } else if (o->style()->appearance() == SliderThumbVerticalPart) {
-        o->style()->setWidth(Length(sliderThumbAcrossAxis, Fixed));
-        o->style()->setHeight(Length(sliderThumbAlongAxis, Fixed));
+    if (style->appearance() == SliderThumbHorizontalPart) {
+        style->setWidth(Length(sliderThumbAlongAxis, Fixed));
+        style->setHeight(Length(sliderThumbAcrossAxis, Fixed));
+    } else if (style->appearance() == SliderThumbVerticalPart) {
+        style->setWidth(Length(sliderThumbAcrossAxis, Fixed));
+        style->setHeight(Length(sliderThumbAlongAxis, Fixed));
     } else
-        RenderThemeChromiumSkia::adjustSliderThumbSize(o);
+        RenderThemeChromiumSkia::adjustSliderThumbSize(style);
 }
 
 bool RenderThemeChromiumWin::paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r)
@@ -426,7 +420,7 @@ bool RenderThemeChromiumWin::paintButton(RenderObject* o, const PaintInfo& i, co
     const ThemeData& themeData = getThemeData(o);
 
     ThemePainter painter(i.context, r);
-    PlatformBridge::paintButton(painter.context(),
+    PlatformSupport::paintButton(painter.context(),
                                 themeData.m_part,
                                 themeData.m_state,
                                 themeData.m_classicState,
@@ -444,7 +438,7 @@ bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const PaintInfo& 
     const ThemeData& themeData = getThemeData(o);
 
     ThemePainter painter(i.context, r);
-    PlatformBridge::paintTrackbar(painter.context(),
+    PlatformSupport::paintTrackbar(painter.context(),
                                   themeData.m_part,
                                   themeData.m_state,
                                   themeData.m_classicState,
@@ -459,7 +453,7 @@ bool RenderThemeChromiumWin::paintSliderThumb(RenderObject* o, const PaintInfo& 
 
 static int menuListButtonWidth()
 {
-    static int width = PlatformBridge::layoutTestMode() ? kStandardMenuListButtonWidth : GetSystemMetrics(SM_CXVSCROLL);
+    static int width = PlatformSupport::layoutTestMode() ? kStandardMenuListButtonWidth : GetSystemMetrics(SM_CXVSCROLL);
     return width;
 }
 
@@ -507,11 +501,11 @@ bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const PaintInfo& i, 
 
     // Get the correct theme data for a textfield and paint the menu.
     ThemePainter painter(i.context, rect);
-    PlatformBridge::paintMenuList(painter.context(),
-                                  CP_DROPDOWNBUTTON,
-                                  determineState(o),
-                                  determineClassicState(o),
-                                  painter.drawRect());
+    PlatformSupport::paintMenuList(painter.context(),
+                                   CP_DROPDOWNBUTTON,
+                                   determineState(o),
+                                   determineClassicState(o),
+                                   painter.drawRect());
     return false;
 }
 
@@ -560,11 +554,11 @@ unsigned RenderThemeChromiumWin::determineState(RenderObject* o, ControlSubPart 
 unsigned RenderThemeChromiumWin::determineSliderThumbState(RenderObject* o)
 {
     unsigned result = TUS_NORMAL;
-    if (!isEnabled(o->parent()))
+    if (!isEnabled(o))
         result = TUS_DISABLED;
-    else if (supportsFocus(o->style()->appearance()) && isFocused(o->parent()))
+    else if (supportsFocus(o->style()->appearance()) && isFocused(o))
         result = TUS_FOCUSED;
-    else if (toRenderSlider(o->parent())->inDragMode())
+    else if (isPressed(o))
         result = TUS_PRESSED;
     else if (isHovered(o))
         result = TUS_HOT;
@@ -586,9 +580,9 @@ unsigned RenderThemeChromiumWin::determineClassicState(RenderObject* o, ControlS
         return result;   
 
     if (part == SliderThumbHorizontalPart || part == SliderThumbVerticalPart) {
-        if (!isEnabled(o->parent()))
+        if (!isEnabled(o))
             result = DFCS_INACTIVE;
-        else if (toRenderSlider(o->parent())->inDragMode()) // Active supersedes hover
+        else if (isPressed(o)) // Active supersedes hover
             result = DFCS_PUSHED;
         else if (isHovered(o))
             result = DFCS_HOT;
@@ -623,6 +617,7 @@ ThemeData RenderThemeChromiumWin::getThemeData(RenderObject* o, ControlSubPart s
         result.m_state = determineState(o);
         result.m_classicState = DFCS_BUTTONRADIO;
         break;
+    case SquareButtonPart:
     case PushButtonPart:
     case ButtonPart:
         result.m_part = BP_PUSHBUTTON;
@@ -672,7 +667,7 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
                                                     bool drawEdges)
 {
     // Fallback to white if the specified color object is invalid.
-    // (Note PlatformBridge::paintTextField duplicates this check).
+    // (Note PlatformSupport::paintTextField duplicates this check).
     Color backgroundColor(Color::white);
     if (o->style()->visitedDependentColor(CSSPropertyBackgroundColor).isValid())
         backgroundColor = o->style()->visitedDependentColor(CSSPropertyBackgroundColor);
@@ -696,14 +691,14 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
     {
         const ThemeData& themeData = getThemeData(o);
         ThemePainter painter(i.context, r);
-        PlatformBridge::paintTextField(painter.context(),
-                                       themeData.m_part,
-                                       themeData.m_state,
-                                       themeData.m_classicState,
-                                       painter.drawRect(),
-                                       backgroundColor,
-                                       fillContentArea,
-                                       drawEdges);
+        PlatformSupport::paintTextField(painter.context(),
+                                        themeData.m_part,
+                                        themeData.m_state,
+                                        themeData.m_classicState,
+                                        painter.drawRect(),
+                                        backgroundColor,
+                                        fillContentArea,
+                                        drawEdges);
         // End of block commits the painter before restoring context.
     }
     if (o->style()->hasBorderRadius())
@@ -711,9 +706,9 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
     return false;
 }
 
-void RenderThemeChromiumWin::adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+void RenderThemeChromiumWin::adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle* style, Element*) const
 {
-    int width = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+    int width = ScrollbarTheme::theme()->scrollbarThickness();
     style->setWidth(Length(width, Fixed));
     style->setMinWidth(Length(width, Fixed));
 }
@@ -727,22 +722,22 @@ bool RenderThemeChromiumWin::paintInnerSpinButton(RenderObject* object, const Pa
         half.setHeight(rect.height() / 2);
         const ThemeData& upThemeData = getThemeData(object, SpinButtonUp);
         ThemePainter upPainter(info.context, half);
-        PlatformBridge::paintSpinButton(upPainter.context(),
-                                        upThemeData.m_part,
-                                        upThemeData.m_state,
-                                        upThemeData.m_classicState,
-                                        upPainter.drawRect());
+        PlatformSupport::paintSpinButton(upPainter.context(),
+                                         upThemeData.m_part,
+                                         upThemeData.m_state,
+                                         upThemeData.m_classicState,
+                                         upPainter.drawRect());
     }
 
     {
         half.setY(rect.y() + rect.height() / 2);
         const ThemeData& downThemeData = getThemeData(object, SpinButtonDown);
         ThemePainter downPainter(info.context, half);
-        PlatformBridge::paintSpinButton(downPainter.context(),
-                                        downThemeData.m_part,
-                                        downThemeData.m_state,
-                                        downThemeData.m_classicState,
-                                        downPainter.drawRect());
+        PlatformSupport::paintSpinButton(downPainter.context(),
+                                         downThemeData.m_part,
+                                         downThemeData.m_state,
+                                         downThemeData.m_classicState,
+                                         downPainter.drawRect());
     }
     return false;
 }
@@ -765,7 +760,7 @@ double RenderThemeChromiumWin::animationDurationForProgressBar(RenderProgress* r
     return progressAnimationFrameRate;
 }
 
-void RenderThemeChromiumWin::adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+void RenderThemeChromiumWin::adjustProgressBarStyle(StyleResolver*, RenderStyle*, Element*) const
 {
 }
 
@@ -780,7 +775,7 @@ bool RenderThemeChromiumWin::paintProgressBar(RenderObject* o, const PaintInfo& 
     IntRect valueRect = renderProgress->isDeterminate() ? determinateProgressValueRectFor(renderProgress, r) : IntRect(0, 0, 0, 0);
     double animatedSeconds = renderProgress->animationStartTime() ?  WTF::currentTime() - renderProgress->animationStartTime() : 0;
     ThemePainter painter(i.context, r);
-    PlatformBridge::paintProgressBar(painter.context(), r, valueRect, renderProgress->isDeterminate(), animatedSeconds);
+    PlatformSupport::paintProgressBar(painter.context(), r, valueRect, renderProgress->isDeterminate(), animatedSeconds);
     return false;
 }
 

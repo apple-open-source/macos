@@ -32,6 +32,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <Security/Security.h>
+#include <Security/SecCertificatePriv.h>
 #include <Security/SecItem.h>	// only needed for Mac OS X 10.6[.x]
 
 __BEGIN_DECLS
@@ -144,7 +145,7 @@ _IORegistryEntrySearchCFProperty	(
 					CFStringRef             key,
 					CFAllocatorRef          allocator,
 					IOOptionBits            options
-					);
+					) CF_RETURNS_RETAINED;
 #define IORegistryEntrySearchCFProperty _IORegistryEntrySearchCFProperty
 
 kern_return_t
@@ -232,34 +233,34 @@ _SecItemCopyMatching			(
 
 OSStatus
 _SecKeychainCopyDomainDefault		(
-					SecPreferencesDomain			domain,
-					SecKeychainRef				*keychain
+					SecPreferencesDomain		domain,
+					SecKeychainRef			*keychain
 					);
 #define SecKeychainCopyDomainDefault _SecKeychainCopyDomainDefault
 
 OSStatus
 _SecKeychainGetPreferenceDomain		(
-					SecPreferencesDomain			*domain
+					SecPreferencesDomain		*domain
 					);
 #define SecKeychainGetPreferenceDomain _SecKeychainGetPreferenceDomain
 
 OSStatus
 _SecKeychainOpen			(
-					const char				*pathName,
-					SecKeychainRef				*keychain
+					const char			*pathName,
+					SecKeychainRef			*keychain
 					);
 #define SecKeychainOpen _SecKeychainOpen
 
 OSStatus
 _SecKeychainSetDomainDefault		(
-					SecPreferencesDomain			domain,
-					SecKeychainRef				keychain
+					SecPreferencesDomain		domain,
+					SecKeychainRef			keychain
 					);
 #define SecKeychainSetDomainDefault _SecKeychainSetDomainDefault
 
 OSStatus
 _SecKeychainSetPreferenceDomain		(
-					SecPreferencesDomain			domain
+					SecPreferencesDomain		domain
 					);
 #define SecKeychainSetPreferenceDomain _SecKeychainSetPreferenceDomain
 
@@ -315,13 +316,27 @@ _SecTrustedApplicationCreateFromPath	(
 					);
 #define SecTrustedApplicationCreateFromPath _SecTrustedApplicationCreateFromPath
 
-#endif	// !TARGET_OS_IPHONE
+#else	// TARGET_OS_IPHONE
+
+CFStringRef _kSecPropertyKeyValue();
+#define kSecPropertyKeyValue _kSecPropertyKeyValue()
+
+CFStringRef _kSecPropertyKeyLabel();
+#define kSecPropertyKeyLabel _kSecPropertyKeyLabel()
+
+CFArrayRef
+_SecCertificateCopyProperties		(
+					SecCertificateRef		certRef
+					);
+#define SecCertificateCopyProperties _SecCertificateCopyProperties
+
+#endif	// TARGET_OS_IPHONE
 
 SecCertificateRef
-_SecCertificateCreateWithData(
-			      CFAllocatorRef allocator,
-			      CFDataRef data
-			      );
+_SecCertificateCreateWithData		(
+					CFAllocatorRef			allocator,
+					CFDataRef			data
+					);
 #define SecCertificateCreateWithData _SecCertificateCreateWithData
 
 __END_DECLS

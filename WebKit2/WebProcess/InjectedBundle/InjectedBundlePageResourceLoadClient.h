@@ -44,7 +44,7 @@ class APIObject;
 class WebPage;
 class WebFrame;
 
-class InjectedBundlePageResourceLoadClient : public APIClient<WKBundlePageResourceLoadClient> {
+class InjectedBundlePageResourceLoadClient : public APIClient<WKBundlePageResourceLoadClient, kWKBundlePageResourceLoadClientCurrentVersion> {
 public:
     void didInitiateLoadForResource(WebPage*, WebFrame*, uint64_t identifier, const WebCore::ResourceRequest&, bool pageIsProvisionallyLoading);
     void willSendRequestForFrame(WebPage*, WebFrame*, uint64_t identifier, WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
@@ -52,6 +52,8 @@ public:
     void didReceiveContentLengthForResource(WebPage*, WebFrame*, uint64_t identifier, uint64_t contentLength);
     void didFinishLoadForResource(WebPage*, WebFrame*, uint64_t identifier);
     void didFailLoadForResource(WebPage*, WebFrame*, uint64_t identifier, const WebCore::ResourceError&);
+    bool shouldCacheResponse(WebPage*, WebFrame*, uint64_t identifier);
+    bool shouldUseCredentialStorage(WebPage*, WebFrame*, uint64_t identifier);
 };
 
 } // namespace WebKit

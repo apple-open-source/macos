@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -116,9 +116,9 @@ struct bits {
 	{ RTF_BLACKHOLE,'B' },
 	{ RTF_BROADCAST,'b' },
 	{ RTF_IFSCOPE,	'I' },
-#ifdef RTF_IFREF
 	{ RTF_IFREF,	'i' },
-#endif /* RTF_IFREF */
+	{ RTF_PROXY,	'Y' },
+	{ RTF_ROUTER,	'r' },
 	{ 0 }
 };
 

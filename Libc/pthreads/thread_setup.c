@@ -51,7 +51,7 @@
 
 #if defined(__ppc__) || defined(__ppc64__)
 #include <architecture/ppc/cframe.h>
-#elif defined(__arm__)
+#elif defined(__arm__) 
 #include <architecture/arm/cframe.h>
 #endif
 

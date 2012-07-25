@@ -20,6 +20,7 @@ error_code SERVICE_NOMATCH,	"Unacceptable service used"
 error_code NOT_SEEKABLE,	"File descriptor not seekable"
 error_code TOO_BIG,		"Offset too large"
 error_code STORAGE_UUID,	"Failed parsing/writing UUID"
+error_code BAD_HDBENT_ENCODING,	"Invalid HDB entry encoding"
 
 index 64
 prefix HEIM_PKINIT

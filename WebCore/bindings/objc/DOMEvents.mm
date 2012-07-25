@@ -38,37 +38,40 @@
 #import "DOMTextEvent.h"
 #import "DOMWheelEvent.h"
 #import "Event.h"
+#import "EventNames.h"
 
 #if ENABLE(SVG_DOM_OBJC_BINDINGS)
 #import "DOMSVGZoomEvent.h"
 #endif
+
+using WebCore::eventNames;
 
 Class kitClass(WebCore::Event* impl)
 {
     if (impl->isUIEvent()) {
         if (impl->isKeyboardEvent())
             return [DOMKeyboardEvent class];
-        if (impl->isTextEvent())
-            return [DOMTextEvent class];
         if (impl->isMouseEvent())
             return [DOMMouseEvent class];
-        if (impl->isWheelEvent())
+        if (impl->hasInterface(eventNames().interfaceForTextEvent))
+            return [DOMTextEvent class];
+        if (impl->hasInterface(eventNames().interfaceForWheelEvent))
             return [DOMWheelEvent class];        
 #if ENABLE(SVG_DOM_OBJC_BINDINGS)
-        if (impl->isSVGZoomEvent())
+        if (impl->hasInterface(eventNames().interfaceForSVGZoomEvent))
             return [DOMSVGZoomEvent class];
 #endif
         return [DOMUIEvent class];
     }
-    if (impl->isMutationEvent())
+    if (impl->hasInterface(eventNames().interfaceForMutationEvent))
         return [DOMMutationEvent class];
-    if (impl->isOverflowEvent())
+    if (impl->hasInterface(eventNames().interfaceForOverflowEvent))
         return [DOMOverflowEvent class];
-    if (impl->isMessageEvent())
+    if (impl->hasInterface(eventNames().interfaceForMessageEvent))
         return [DOMMessageEvent class];
-    if (impl->isProgressEvent())
+    if (impl->hasInterface(eventNames().interfaceForProgressEvent) || impl->hasInterface(eventNames().interfaceForXMLHttpRequestProgressEvent))
         return [DOMProgressEvent class];
-    if (impl->isBeforeLoadEvent())
+    if (impl->hasInterface(eventNames().interfaceForBeforeLoadEvent))
         return [DOMBeforeLoadEvent class];
     return [DOMEvent class];
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -208,7 +208,7 @@ char boundifname[IFNAMSIZ];
 #endif /* IP_FORCE_OUT_IFP */
 int nocell;
 int how_traffic_class = 0;
-int traffic_class = -1;
+int traffic_class = SO_TC_CTL;	/* use control class, by default */
 int no_dup = 0;
 
 /* counters */
@@ -719,14 +719,14 @@ main(argc, argv)
 	if (options & F_SO_DONTROUTE)
 		(void)setsockopt(s, SOL_SOCKET, SO_DONTROUTE, (char *)&hold,
 		    sizeof(hold));
-	if (how_traffic_class == 1 && traffic_class > 0) {
-		(void)setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS, (void *)&traffic_class,
-						 sizeof(traffic_class));
-	} 
+	if (how_traffic_class < 2 && traffic_class >= 0) {
+		(void) setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
+		    (void *)&traffic_class, sizeof (traffic_class));
+	}
 	if (how_traffic_class > 0) {
 		int on = 1;
-		(void)setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS, (void *)&on,
-						 sizeof(on));
+		(void) setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS,
+		    (void *)&on, sizeof (on));
 	}
 #ifdef IPSEC
 #ifdef IPSEC_POLICY_IPSEC
@@ -1117,7 +1117,7 @@ pinger(void)
 		ip->ip_sum = in_cksum((u_short *)outpackhdr, cc);
 		packet = outpackhdr;
 	}
-	if (how_traffic_class == 2) {
+	if (how_traffic_class > 1 && traffic_class >= 0) {
 		struct msghdr msg;
 		struct iovec iov;
 		char *cmbuf[CMSG_SPACE(sizeof(int))];

@@ -44,6 +44,7 @@
 #include "structs.h"
 
 #include "bless.h"
+#include "bless_private.h"
 #include "protos.h"
 
 int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {

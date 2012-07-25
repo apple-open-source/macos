@@ -211,7 +211,7 @@ print_file_error:
 	PrtMsgX(em, Pn, cleanup, 1);
     (void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", (unsigned int)tfsb.st_ino);
     ibuf[sizeof(szbuf) - 1] = '\0';
-    (void) snprintf(xlnk, sizeof(xlnk) - 1, "%d", tfsb.st_nlink);
+    (void) snprintf(xlnk, sizeof(xlnk) - 1, "%d", (int)tfsb.st_nlink);
     ibuf[sizeof(szbuf) - 1] = '\0';
     (void) snprintf(szbuf, sizeof(szbuf) - 1, "%d", sz);
     szbuf[sizeof(szbuf) - 1] = '\0';

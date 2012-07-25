@@ -1,9 +1,9 @@
 /*
- * "$Id: notify.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: notify.c 7337 2008-02-22 04:44:04Z mike $"
  *
  *   Notification routines for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2005-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -33,7 +33,7 @@
  *
  * The returned string must be freed by the caller using @code free@.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 char *					/* O - Subject string or @code NULL@ */
@@ -164,7 +164,7 @@ cupsNotifySubject(cups_lang_t *lang,	/* I - Language data */
  *
  * The returned string must be freed by the caller using @code free@.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 char *					/* O - Message text or @code NULL@ */
@@ -198,5 +198,5 @@ cupsNotifyText(cups_lang_t *lang,	/* I - Language data */
 
 
 /*
- * End of "$Id: notify.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: notify.c 7337 2008-02-22 04:44:04Z mike $".
  */

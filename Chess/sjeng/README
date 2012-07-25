@@ -259,20 +259,6 @@ been given the possibility to obtain it for a charge no more
 than the cost of physically performing the source distribution.
 If not, please contact gcp@sjeng.org.
 
-Sjeng includes tablebase accessing code written by Andrew Kadatch
-and Eugene Nalimov. This code is contained in the files tbindex.cpp
-and tbdecode.h and is copyrighted by them, all rights reserved.
-This code does _not_ fall under the GPL. You are hereby given the
-additional right to compile and link Sjeng with this code, as well
-as to distribute the resulting executable and code under the 
-conditions of the GPL, except for the files tbindex.cpp and 
-tbdecode.h, which do not fall under the GPL, but may also be 
-distributed together with Sjeng.
-
-The author regrets having to include this non-free code with
-Sjeng, but no free replacement of the same quality is availble
-yet.
-
 
 What is bughouse ?
 ------------------

@@ -44,7 +44,7 @@ ContextMenuItem* ContextMenu::itemWithId(int id)
 
 ContextMenu::ContextMenu()
 {
-    m_platformDescription = new wxMenu(0);
+    m_platformDescription = new wxMenu((long)0);
 }
 
 ContextMenu::~ContextMenu()
@@ -109,4 +109,12 @@ PlatformMenuDescription ContextMenu::releasePlatformDescription()
     m_platformDescription = 0;
 
     return description;
+}
+
+unsigned ContextMenu::itemCount() const
+{
+    if (m_platformDescription)
+        return m_platformDescription->GetMenuItemCount();
+    
+    return 0;
 }

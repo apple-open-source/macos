@@ -148,8 +148,8 @@ static int black_saccers(int square)
       f = TRUE;
     }
   else if (rank(square) == 4 &&
-	   board[square + 35] == bpawn ||
-	   board[square + 37] == bpawn)
+	   (board[square + 35] == bpawn ||
+	   board[square + 37] == bpawn))
     {
       f = TRUE;
     }
@@ -232,8 +232,8 @@ static int white_saccers(int square)
       f = TRUE;
     }
   else if (rank(square) == 5 &&
-	   board[square - 35] == wpawn ||
-	   board[square - 37] == wpawn)
+	   (board[square - 35] == wpawn ||
+	   board[square - 37] == wpawn))
     {
       f = TRUE;
     }
@@ -298,7 +298,7 @@ int32_t suicide_mid_eval (void) {
   int isolated, backwards, i, a, j;
   int32_t score = 0;
   int in_cache;
-  int wb = 0, bb = 0, wbc, bbc;
+  int wb = 0, bb = 0, wbc = 0, bbc = 0;
   int wk = 0, bk = 0, wr = 0, br = 0;
   int wn = 0, bn = 0, wp = 0, bp = 0;
   

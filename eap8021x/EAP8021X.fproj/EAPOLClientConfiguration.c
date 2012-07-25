@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <notify.h>
+#include <pthread.h>
 #include "EAP.h"
 #include "EAPClientProperties.h"
 #include "EAPOLControlTypes.h"

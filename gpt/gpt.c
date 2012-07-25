@@ -605,6 +605,9 @@ gpt_open(const char *dev)
 	if ((fd = open(device_path, mode)) != -1)
 		goto found;
 
+	if (strncmp(dev, _PATH_DEV, strlen(_PATH_DEV)) == 0)
+		return (-1);
+
 	snprintf(device_path, sizeof(device_path), "%s%s", _PATH_DEV, dev);
 	device_name = device_path + strlen(_PATH_DEV);
 	if ((fd = open(device_path, mode)) != -1)

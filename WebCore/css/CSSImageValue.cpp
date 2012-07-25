@@ -21,7 +21,10 @@
 #include "config.h"
 #include "CSSImageValue.h"
 
+#include "CSSCursorImageValue.h"
+#include "CSSParser.h"
 #include "CSSValueKeywords.h"
+#include "Document.h"
 #include "MemoryCache.h"
 #include "CachedImage.h"
 #include "CachedResourceLoader.h"
@@ -30,29 +33,34 @@
 
 namespace WebCore {
 
-CSSImageValue::CSSImageValue(const String& url)
-    : CSSPrimitiveValue(url, CSS_URI)
+CSSImageValue::CSSImageValue(ClassType classType, const String& url)
+    : CSSValue(classType)
+    , m_url(url)
     , m_accessedImage(false)
 {
 }
 
-CSSImageValue::CSSImageValue()
-    : CSSPrimitiveValue(CSSValueNone)
+CSSImageValue::CSSImageValue(const String& url)
+    : CSSValue(ImageClass)
+    , m_url(url)
+    , m_accessedImage(false)
+{
+}
+
+CSSImageValue::CSSImageValue(const String& url, StyleImage* image)
+    : CSSValue(ImageClass)
+    , m_url(url)
+    , m_image(image)
     , m_accessedImage(true)
 {
 }
 
 CSSImageValue::~CSSImageValue()
 {
-    if (m_image && m_image->isCachedImage())
-        static_cast<StyleCachedImage*>(m_image.get())->cachedImage()->removeClient(this);
 }
 
 StyleImage* CSSImageValue::cachedOrPendingImage()
 {
-    if (getIdent() == CSSValueNone)
-        return 0;
-
     if (!m_image)
         m_image = StylePendingImage::create(this);
 
@@ -61,7 +69,9 @@ StyleImage* CSSImageValue::cachedOrPendingImage()
 
 StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader* loader)
 {
-    return cachedImage(loader, getStringValue());
+    if (isCursorImageValue())
+        return static_cast<CSSCursorImageValue*>(this)->cachedImage(loader);
+    return cachedImage(loader, m_url);
 }
 
 StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader* loader, const String& url)
@@ -71,12 +81,11 @@ StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader* loader, const
     if (!m_accessedImage) {
         m_accessedImage = true;
 
-        if (CachedImage* cachedImage = loader->requestImage(url)) {
-            cachedImage->addClient(this);
+        ResourceRequest request(loader->document()->completeURL(url));
+        if (CachedImage* cachedImage = loader->requestImage(request))
             m_image = StyleCachedImage::create(cachedImage);
-        }
     }
-    
+
     return (m_image && m_image->isCachedImage()) ? static_cast<StyleCachedImage*>(m_image.get()) : 0;
 }
 
@@ -89,10 +98,21 @@ String CSSImageValue::cachedImageURL()
 
 void CSSImageValue::clearCachedImage()
 {
-    if (m_image && m_image->isCachedImage())
-        static_cast<StyleCachedImage*>(m_image.get())->cachedImage()->removeClient(this);
     m_image = 0;
     m_accessedImage = false;
+}
+
+String CSSImageValue::customCssText() const
+{
+    return "url(" + quoteCSSURLIfNeeded(m_url) + ")";
+}
+
+PassRefPtr<CSSValue> CSSImageValue::cloneForCSSOM() const
+{
+    // NOTE: We expose CSSImageValues as URI primitive values in CSSOM to maintain old behavior.
+    RefPtr<CSSPrimitiveValue> uriValue = CSSPrimitiveValue::create(m_url, CSSPrimitiveValue::CSS_URI);
+    uriValue->setCSSOMSafe();
+    return uriValue.release();
 }
 
 } // namespace WebCore

@@ -1321,6 +1321,9 @@ extern int (*acl_hook) __P((u_char *user, int len));
 		}										\
 	} while(0)
 
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
+
 #endif /* __APPLE__ */
 
 #endif /* __PPP_H__ */

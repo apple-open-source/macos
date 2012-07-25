@@ -39,6 +39,7 @@
 #include "EAPUtil.h"
 #include "printdata.h"
 #include "EAPClientModule.h"
+#include "nbo.h"
 
 int
 EAPCodeValid(EAPCode code)
@@ -258,5 +259,18 @@ EAPPacketCreate(void * buf, int buf_size,
 	*ret_size_p = size;
     }
     return (pkt_p);
+}
+
+void
+EAPPacketSetLength(EAPPacketRef pkt, uint16_t length)
+{
+    net_uint16_set(pkt->length, length);
+    return;
+}
+
+uint16_t
+EAPPacketGetLength(const EAPPacketRef pkt)
+{
+    return net_uint16_get(pkt->length);
 }
 

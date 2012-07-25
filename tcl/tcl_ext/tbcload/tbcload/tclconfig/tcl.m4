@@ -1754,7 +1754,7 @@ dnl AC_CHECK_TOOL(AR, ar)
 			for v in CFLAGS CPPFLAGS LDFLAGS; do
 			    eval 'hold_'$v'="$'$v'";'$v'="`echo "$'$v' "|sed -e "s/-arch ppc / /g" -e "s/-arch i386 / /g"`"'
 			done
-			CPPFLAGS="$CPPFLAGS -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS=1 ${TCL_INCLUDES} ${TK_INCLUDES}"
+			CPPFLAGS="$CPPFLAGS -DUSE_TCL_STUBS=1 -DUSE_TK_STUBS=1 `eval "echo ${TCL_INCLUDES} ${TK_INCLUDES}"`"
 			LDFLAGS="$LDFLAGS ${TCL_STUB_LIB_SPEC} ${TK_STUB_LIB_SPEC}"
 			AC_TRY_LINK([#include <tk.h>], [Tk_InitStubs(NULL, "", 0);],
 			    tcl_cv_lib_tk_64=yes, tcl_cv_lib_tk_64=no)
@@ -3555,7 +3555,7 @@ AC_DEFUN([TEA_PRIVATE_TK_HEADERS], [
 	   TK_INCLUDES="${TK_INCLUDES} -I\"${TK_SRC_DIR_NATIVE}/generic/ttk\""
 	fi
 	if test "${TEA_WINDOWINGSYSTEM}" != "x11"; then
-	   TK_INCLUDES="${TK_INCLUDES} -I\"${TK_XLIB_DIR_NATIVE}\""
+	   TK_INCLUDES="${TK_INCLUDES} -I${TK_XLIB_DIR_NATIVE}"
 	fi
 	if test "${TEA_WINDOWINGSYSTEM}" = "aqua"; then
 	   TK_INCLUDES="${TK_INCLUDES} -I\"${TK_SRC_DIR_NATIVE}/macosx\""

@@ -94,7 +94,7 @@ private:
     void applyRelativeFontStyleChange(EditingStyle*);
     void applyInlineStyle(EditingStyle*);
     void fixRangeAndApplyInlineStyle(EditingStyle*, const Position& start, const Position& end);
-    void applyInlineStyleToNodeRange(EditingStyle*, Node* startNode, Node* pastEndNode);
+    void applyInlineStyleToNodeRange(EditingStyle*, PassRefPtr<Node> startNode, PassRefPtr<Node> pastEndNode);
     void addBlockStyle(const StyleChange&, HTMLElement*);
     void addInlineStyleIfNeeded(EditingStyle*, PassRefPtr<Node> start, PassRefPtr<Node> end, EAddStyledElement = AddStyledElement);
     void splitTextAtStart(const Position& start, const Position& end);
@@ -129,7 +129,8 @@ private:
     IsInlineElementToRemoveFunction m_isInlineElementToRemoveFunction;
 };
 
-bool isStyleSpan(const Node*);
+bool isLegacyAppleStyleSpan(const Node*);
+bool isStyleSpanOrSpanWithOnlyStyleAttribute(const Element*);
 PassRefPtr<HTMLElement> createStyleSpanElement(Document*);
 
 } // namespace WebCore

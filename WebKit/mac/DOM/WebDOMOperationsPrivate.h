@@ -32,10 +32,6 @@
 @interface DOMElement (WebDOMElementOperationsPrivate)
 + (DOMElement *)_DOMElementFromJSContext:(JSContextRef)context value:(JSValueRef)value;
 - (NSString *)_markerTextForListItem;
-- (JSValueRef)_shadowRoot:(JSContextRef)context;
-- (JSValueRef)_ensureShadowRoot:(JSContextRef)context;
-- (void)_removeShadowRoot;
-- (NSString *)_shadowPseudoId;
 @end
 
 @interface DOMDocument (WebDOMDocumentOperationsPrivate)
@@ -50,4 +46,10 @@
 @interface DOMNode (WebDOMNodeOperationsPendingPublic)
 - (NSString *)markupString;
 - (NSRect)_renderRect:(bool *)isReplaced;
+@end
+
+typedef BOOL (^WebArchiveSubframeFilter)(WebFrame* subframe);
+
+@interface DOMNode (WebDOMNodeOperationsPrivate)
+- (WebArchive *)webArchiveByFilteringSubframes:(WebArchiveSubframeFilter)webArchiveSubframeFilter;
 @end

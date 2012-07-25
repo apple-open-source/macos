@@ -26,6 +26,7 @@
 
 #include "GraphicsContext.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGRoot.h"
 #include "SVGElement.h"
 #include "SVGMarkerElement.h"
 #include "SVGRenderSupport.h"
@@ -48,8 +49,8 @@ RenderSVGResourceMarker::~RenderSVGResourceMarker()
 void RenderSVGResourceMarker::layout()
 {
     // Invalidate all resources if our layout changed.
-    if (m_everHadLayout && selfNeedsLayout())
-        removeAllClientsFromCache();
+    if (everHadLayout() && selfNeedsLayout())
+        RenderSVGRoot::addResourceForClientInvalidation(this);
 
     // RenderSVGHiddenContainer overwrites layout(). We need the
     // layouting of RenderSVGContainer for calculating  local
@@ -97,7 +98,8 @@ FloatPoint RenderSVGResourceMarker::referencePoint() const
     SVGMarkerElement* marker = static_cast<SVGMarkerElement*>(node());
     ASSERT(marker);
 
-    return FloatPoint(marker->refX().value(marker), marker->refY().value(marker));
+    SVGLengthContext lengthContext(marker);
+    return FloatPoint(marker->refX().value(lengthContext), marker->refY().value(lengthContext));
 }
 
 float RenderSVGResourceMarker::angle() const
@@ -106,7 +108,7 @@ float RenderSVGResourceMarker::angle() const
     ASSERT(marker);
 
     float angle = -1;
-    if (marker->orientType() == SVGMarkerElement::SVG_MARKER_ORIENT_ANGLE)
+    if (marker->orientType() == SVGMarkerOrientAngle)
         angle = marker->orientAngle().value();
 
     return angle;
@@ -118,7 +120,7 @@ AffineTransform RenderSVGResourceMarker::markerTransformation(const FloatPoint& 
     ASSERT(marker);
 
     float markerAngle = angle();
-    bool useStrokeWidth = (marker->markerUnits() == SVGMarkerElement::SVG_MARKERUNITS_STROKEWIDTH);
+    bool useStrokeWidth = marker->markerUnits() == SVGMarkerUnitsStrokeWidth;
 
     AffineTransform transform;
     transform.translate(origin.x(), origin.y());
@@ -132,7 +134,7 @@ void RenderSVGResourceMarker::draw(PaintInfo& paintInfo, const AffineTransform& 
     PaintInfo info(paintInfo);
     GraphicsContextStateSaver stateSaver(*info.context);
     info.applyTransform(transform);
-    RenderSVGContainer::paint(info, 0, 0);
+    RenderSVGContainer::paint(info, IntPoint());
 }
 
 AffineTransform RenderSVGResourceMarker::markerContentTransformation(const AffineTransform& contentTransformation, const FloatPoint& origin, float strokeWidth) const
@@ -163,9 +165,10 @@ void RenderSVGResourceMarker::calcViewport()
 
     SVGMarkerElement* marker = static_cast<SVGMarkerElement*>(node());
     ASSERT(marker);
-
-    float w = marker->markerWidth().value(marker);
-    float h = marker->markerHeight().value(marker);
+    
+    SVGLengthContext lengthContext(marker);
+    float w = marker->markerWidth().value(lengthContext);
+    float h = marker->markerHeight().value(lengthContext);
     m_viewport = FloatRect(0, 0, w, h);
 }
 

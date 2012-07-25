@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 1999-2010, International Business Machines
+ * Copyright (c) 1999-2011, International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************
  *   Date        Name        Description
@@ -19,6 +19,7 @@
 #include "rbbidata.h"
 #include "cstring.h"
 #include "ubrkimpl.h"
+#include "unicode/locid.h"
 #include "unicode/ustring.h"
 #include "unicode/utext.h"
 #include "cmemory.h"
@@ -29,10 +30,10 @@
 
 
 #define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) {\
-errln("Failure at file %s, line %d, error = %s", __FILE__, __LINE__, u_errorName(status));}}
+dataerrln("Failure at file %s, line %d, error = %s", __FILE__, __LINE__, u_errorName(status));}}
 
-#define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
-errln("Test Failure at file %s, line %d", __FILE__, __LINE__);}}
+#define TEST_ASSERT(expr) {if ((expr) == FALSE) { \
+    errln("Test Failure at file %s, line %d: \"%s\" is false.\n", __FILE__, __LINE__, #expr);};}
 
 void RBBIAPITest::TestCloneEquals()
 {
@@ -1090,7 +1091,87 @@ void RBBIAPITest::TestCreateFromRBBIData() {
             errln("create RuleBasedBreakIterator from RBBIData (non-adopted): ICU Error \"%s\"\n", u_errorName(status) );
         }
     }
+
+    // getBinaryRules() and RuleBasedBreakIterator(uint8_t binaryRules, ...)
+    //
+    status = U_ZERO_ERROR;
+    RuleBasedBreakIterator *rb = (RuleBasedBreakIterator *)BreakIterator::createWordInstance(Locale::getEnglish(), status);
+    if (rb == NULL || U_FAILURE(status)) {
+        dataerrln("Unable to create BreakIterator::createWordInstance (Locale::getEnglish) - %s", u_errorName(status));
+    } else {
+        uint32_t length;
+        const uint8_t *rules = rb->getBinaryRules(length);
+        RuleBasedBreakIterator *rb2 = new RuleBasedBreakIterator(rules, length, status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(*rb == *rb2);
+        UnicodeString words = "one two three ";
+        rb2->setText(words);
+        int wordCounter = 0;
+        while (rb2->next() != UBRK_DONE) {
+            wordCounter++;
+        }
+        TEST_ASSERT(wordCounter == 6);
+
+        status = U_ZERO_ERROR;
+        RuleBasedBreakIterator *rb3 = new RuleBasedBreakIterator(rules, length-1, status);
+        TEST_ASSERT(status == U_ILLEGAL_ARGUMENT_ERROR);
+
+        delete rb;
+        delete rb2;
+        delete rb3;
+    }
 }
+
+
+void RBBIAPITest::TestRefreshInputText() {
+    /*
+     *  RefreshInput changes out the input of a Break Iterator without
+     *    changing anything else in the iterator's state.  Used with Java JNI,
+     *    when Java moves the underlying string storage.   This test
+     *    runs BreakIterator::next() repeatedly, moving the text in the middle of the sequence.
+     *    The right set of boundaries should still be found.
+     */
+    UChar testStr[]  = {0x20, 0x41, 0x20, 0x42, 0x20, 0x43, 0x20, 0x44, 0x0};  /* = " A B C D"  */
+    UChar movedStr[] = {0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,  0};
+    UErrorCode status = U_ZERO_ERROR;
+    UText ut1 = UTEXT_INITIALIZER;
+    UText ut2 = UTEXT_INITIALIZER;
+    RuleBasedBreakIterator *bi = (RuleBasedBreakIterator *)BreakIterator::createLineInstance(Locale::getEnglish(), status);
+    TEST_ASSERT_SUCCESS(status);
+
+    utext_openUChars(&ut1, testStr, -1, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    if (U_SUCCESS(status)) {
+        bi->setText(&ut1, status);
+        TEST_ASSERT_SUCCESS(status);
+
+        /* Line boundaries will occur before each letter in the original string */
+        TEST_ASSERT(1 == bi->next());
+        TEST_ASSERT(3 == bi->next());
+
+        /* Move the string, kill the original string.  */
+        u_strcpy(movedStr, testStr);
+        u_memset(testStr, 0x20, u_strlen(testStr));
+        utext_openUChars(&ut2, movedStr, -1, &status);
+        TEST_ASSERT_SUCCESS(status);
+        RuleBasedBreakIterator *returnedBI = &bi->refreshInputText(&ut2, status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(bi == returnedBI);
+
+        /* Find the following matches, now working in the moved string. */
+        TEST_ASSERT(5 == bi->next());
+        TEST_ASSERT(7 == bi->next());
+        TEST_ASSERT(8 == bi->next());
+        TEST_ASSERT(UBRK_DONE == bi->next());
+    
+        utext_close(&ut1);
+        utext_close(&ut2);
+    }
+    delete bi;
+
+}
+
 
 //---------------------------------------------
 // runIndexedTest
@@ -1123,6 +1204,7 @@ void RBBIAPITest::runIndexedTest( int32_t index, UBool exec, const char* &name, 
 #else
         case  9: case 10: case 11: case 12: case 13: name = "skip"; break;
 #endif
+        case 14: name = "TestRefreshInputText"; if (exec) TestRefreshInputText(); break;
 
         default: name = ""; break; // needed to end loop
     }

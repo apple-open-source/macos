@@ -33,6 +33,7 @@
 
 #include <QKeyEvent>
 #include <ctype.h>
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -585,6 +586,10 @@ static String keyTextForKeyEvent(const QKeyEvent* event)
     case Qt::Key_Backtab:
         if (event->text().isNull())
             return "\t";
+        break;
+    case Qt::Key_Enter:
+        if (event->text().isNull())
+            return "\r";
     }
     return event->text();
 }
@@ -592,28 +597,38 @@ static String keyTextForKeyEvent(const QKeyEvent* event)
 PlatformKeyboardEvent::PlatformKeyboardEvent(QKeyEvent* event)
 {
     const int state = event->modifiers();
-    m_type = (event->type() == QEvent::KeyRelease) ? KeyUp : KeyDown;
+    m_type = (event->type() == QEvent::KeyRelease) ? PlatformEvent::KeyUp : PlatformEvent::KeyDown;
+
+    m_modifiers = 0;
+    if ((state & Qt::ShiftModifier) || event->key() == Qt::Key_Backtab) // Simulate Shift+Tab with Key_Backtab
+        m_modifiers |= ShiftKey;
+    if (state & Qt::ControlModifier)
+        m_modifiers |= CtrlKey;
+    if (state & Qt::AltModifier)
+        m_modifiers |= AltKey;
+    if (state & Qt::MetaModifier)
+        m_modifiers |= MetaKey;
+
     m_text = keyTextForKeyEvent(event);
     m_unmodifiedText = m_text; // FIXME: not correct
     m_keyIdentifier = keyIdentifierForQtKeyCode(event->key());
     m_autoRepeat = event->isAutoRepeat();
-    m_ctrlKey = (state & Qt::ControlModifier);
-    m_altKey = (state & Qt::AltModifier);
-    m_metaKey = (state & Qt::MetaModifier);
     m_isKeypad = (state & Qt::KeypadModifier);
+    m_isSystemKey = false;
     m_windowsVirtualKeyCode = windowsKeyCodeForKeyEvent(event->key(), m_isKeypad);
     m_nativeVirtualKeyCode = event->nativeVirtualKey();
-    m_shiftKey = (state & Qt::ShiftModifier) || event->key() == Qt::Key_Backtab; // Simulate Shift+Tab with Key_Backtab
+    m_macCharCode = 0;
     m_qtEvent = event;
+    m_timestamp = WTF::currentTime();
 }
 
 void PlatformKeyboardEvent::disambiguateKeyDownEvent(Type type, bool)
 {
     // Can only change type from KeyDown to RawKeyDown or Char, as we lack information for other conversions.
-    ASSERT(m_type == KeyDown);
+    ASSERT(m_type == PlatformEvent::KeyDown);
     m_type = type;
 
-    if (type == RawKeyDown) {
+    if (type == PlatformEvent::RawKeyDown) {
         m_text = String();
         m_unmodifiedText = String();
     } else {

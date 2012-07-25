@@ -55,7 +55,7 @@ krb5_kdc_windc_init(krb5_context context)
 	windcft = _krb5_plugin_get_symbol(e);
 	if (windcft->minor_version < KRB5_WINDC_PLUGIN_MINOR)
 	    continue;
-	
+
 	(*windcft->init)(context, &windcctx);
 	break;
     }
@@ -84,8 +84,10 @@ _kdc_pac_generate(krb5_context context,
 krb5_error_code
 _kdc_pac_verify(krb5_context context,
 		const krb5_principal client_principal,
+		const krb5_principal delegated_proxy_principal,
 		hdb_entry_ex *client,
 		hdb_entry_ex *server,
+		hdb_entry_ex *krbtgt,
 		krb5_pac *pac,
 		int *verified)
 {
@@ -95,7 +97,9 @@ _kdc_pac_verify(krb5_context context,
 	return 0;
 
     ret = windcft->pac_verify(windcctx, context,
-			      client_principal, client, server, pac);
+			      client_principal,
+			      delegated_proxy_principal,
+			      client, server, krbtgt, pac);
     if (ret == 0)
 	*verified = 1;
     return ret;
@@ -107,7 +111,7 @@ _kdc_check_access(krb5_context context,
 		  hdb_entry_ex *client_ex, const char *client_name,
 		  hdb_entry_ex *server_ex, const char *server_name,
 		  KDC_REQ *req,
-		  krb5_data *e_data)
+		  METHOD_DATA *method_data)
 {
     if (windcft == NULL || windcft->client_access == NULL)
 	    return kdc_check_flags(context, config,
@@ -119,5 +123,5 @@ _kdc_check_access(krb5_context context,
 				    context, config, 
 				    client_ex, client_name, 
 				    server_ex, server_name, 
-				    req, e_data);
+				    req, method_data);
 }

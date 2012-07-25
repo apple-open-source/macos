@@ -21,12 +21,13 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 export LIBTOOL_CMD_SEP = +
 
 # For building fat
-export MACOSX_DEPLOYMENT_TARGET = 10.7
+export MACOSX_DEPLOYMENT_TARGET = 10.8
 export LD_TWOLEVEL_NAMESPACE = 1
 # We want to create dSYM files in fixup, which means we can't strip until then; so make
 # strip a no-op.
 export STRIP = /bin/echo
 STRIP2 = /usr/bin/strip
+LIPO = /usr/bin/lipo
 
 Install_Target = install
 Extra_Configure_Flags += --prefix=/usr --with-iodbc-inidir=/Library/ODBC --disable-gui TMPDIR=$(OBJROOT)
@@ -57,7 +58,11 @@ fixup:
 	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbc.2.dylib; \
 	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbcinst.2.dylib; \
 	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctest; \
+	${LIPO} -thin x86_64 $(RC_Install_Prefix)/bin/iodbctest -output $(RC_Install_Prefix)/bin/tmp; \
+	${MV} $(RC_Install_Prefix)/bin/tmp $(RC_Install_Prefix)/bin/iodbctest; \
 	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctestw; \
+	${LIPO} -thin x86_64 $(RC_Install_Prefix)/bin/iodbctestw -output $(RC_Install_Prefix)/bin/tmp; \
+	${MV} $(RC_Install_Prefix)/bin/tmp $(RC_Install_Prefix)/bin/iodbctestw; \
 
 	${MKDIR} $(RC_Install_Prefix)/local/OpenSourceVersions; \
 	${CP} $(SRCROOT)/iodbc.plist $(RC_Install_Prefix)/local/OpenSourceVersions/; \

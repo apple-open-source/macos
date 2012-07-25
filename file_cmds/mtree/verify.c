@@ -245,7 +245,7 @@ miss(NODE *p, char *tail)
 			(void)printf("%s: permissions not set: %s\n",
 			    path, strerror(errno));
 		if ((p->flags & F_FLAGS) && p->st_flags &&
-		    chflags(path, p->st_flags))
+		    chflags(path, (u_int)p->st_flags))
 			(void)printf("%s: file flags not set: %s\n",
 			    path, strerror(errno));
 	}

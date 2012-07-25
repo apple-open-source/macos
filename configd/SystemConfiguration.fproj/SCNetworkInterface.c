@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -161,6 +161,7 @@ static SCNetworkInterfacePrivate __kSCNetworkInterfaceIPv4	= {
 	NULL,					// localization arg2
 	NULL,					// [layered] interface
 	NULL,					// prefs
+	NULL,					// store
 	NULL,					// serviceID
 	NULL,					// unsaved
 	NULL,					// entity_device
@@ -203,6 +204,7 @@ static SCNetworkInterfacePrivate __kSCNetworkInterfaceLoopback	= {
 	NULL,					// localization arg2
 	NULL,					// [layered] interface
 	NULL,					// prefs
+	NULL,					// store
 	NULL,					// serviceID
 	NULL,					// unsaved
 	NULL,					// entity_device
@@ -515,6 +517,9 @@ __SCNetworkInterfaceDeallocate(CFTypeRef cf)
 	if (interfacePrivate->prefs != NULL)
 		CFRelease(interfacePrivate->prefs);
 
+	if (interfacePrivate->store != NULL)
+		CFRelease(interfacePrivate->store);
+
 	if (interfacePrivate->serviceID != NULL)
 		CFRelease(interfacePrivate->serviceID);
 
@@ -748,6 +753,7 @@ __SCNetworkInterfaceCreatePrivate(CFAllocatorRef	allocator,
 	interfacePrivate->localized_arg2		= NULL;
 	interfacePrivate->interface			= (interface != NULL) ? CFRetain(interface) : NULL;
 	interfacePrivate->prefs				= (prefs     != NULL) ? CFRetain(prefs)     : NULL;
+	interfacePrivate->store				= NULL;
 	interfacePrivate->serviceID			= (serviceID != NULL) ? CFRetain(serviceID) : NULL;
 	interfacePrivate->unsaved			= NULL;
 	interfacePrivate->entity_device			= NULL;
@@ -832,7 +838,8 @@ __SCNetworkInterfaceSupportsVLAN(CFStringRef bsd_if)
 	}
 
 	// check the link type and hwassist flags
-	ifm = (struct if_msghdr *)buf;
+	// ALIGN: buf is aligned
+	ifm = (struct if_msghdr *)(void *)buf;
 	switch (ifm->ifm_type) {
 		case RTM_IFINFO : {
 #if	defined(IF_HWASSIST_VLAN_TAGGING) && defined(IF_HWASSIST_VLAN_MTU)
@@ -947,7 +954,7 @@ _SCVLANInterfaceCreatePrivate(CFAllocatorRef		allocator,
 #pragma mark Interface ordering
 
 
-static CFArrayRef
+static CF_RETURNS_RETAINED CFArrayRef
 split_path(CFStringRef path)
 {
 	CFArrayRef		components;
@@ -1239,7 +1246,7 @@ static const CFStringRef	slot_prefixes[]	= {
 };
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 pci_slot(io_registry_entry_t interface, CFTypeRef *pci_slot_name)
 {
 	kern_return_t		kr;
@@ -1335,7 +1342,7 @@ compare_bsdNames(const void *val1, const void *val2, void *context)
 }
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 pci_port(CFTypeRef slot_name, int ift, CFStringRef bsdName)
 {
 	CFIndex			n;
@@ -2485,7 +2492,7 @@ createInterface(io_registry_entry_t interface, processInterface func)
 }
 
 
-static CFArrayRef
+static CF_RETURNS_RETAINED CFArrayRef
 findMatchingInterfaces(CFDictionaryRef matching, processInterface func)
 {
 	CFMutableArrayRef	interfaces;
@@ -2686,7 +2693,7 @@ __addExtendedConfigurationType(const void *key, const void *value, void *context
 }
 
 
-static CFArrayRef
+static CF_RETURNS_RETAINED CFArrayRef
 extendedConfigurationTypes(SCNetworkInterfaceRef interface)
 {
 	CFIndex				i;
@@ -2975,6 +2982,7 @@ findInterface(CFArrayRef interfaces, CFStringRef match_if)
 	return NULL;
 }
 
+#if	!TARGET_OS_IPHONE
 static SCNetworkInterfaceRef
 findBondInterface(SCPreferencesRef prefs, CFStringRef ifDevice)
 {
@@ -2993,6 +3001,7 @@ findBondInterface(SCPreferencesRef prefs, CFStringRef ifDevice)
 	}
 	return interface;
 }
+#endif	// !TARGET_OS_IPHONE
 
 static SCNetworkInterfaceRef
 findBridgeInterface(SCPreferencesRef prefs, CFStringRef ifDevice)
@@ -3047,9 +3056,11 @@ _SCNetworkInterfaceCreateWithBSDName(CFAllocatorRef		allocator,
 					   &kCFTypeDictionaryValueCallBacks);
 	CFDictionarySetValue(entity, kSCPropNetInterfaceDeviceName, bsdName);
 
+#if	!TARGET_OS_IPHONE
 	if ((flags & kIncludeBondInterfaces) == 0) {
 		CFDictionarySetValue(entity, CFSTR("_NO_BOND_INTERFACES_"), kCFBooleanTrue);
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	if ((flags & kIncludeBridgeInterfaces) == 0) {
 		CFDictionarySetValue(entity, CFSTR("_NO_BRIDGE_INTERFACES_"), kCFBooleanTrue);
@@ -3321,10 +3332,11 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 				if (prefs == NULL) {
 					break;
 				}
+#if	!TARGET_OS_IPHONE
 				if (!CFDictionaryContainsKey(interface_entity, CFSTR("_NO_BOND_INTERFACES_"))) {
 					interfacePrivate = (SCNetworkInterfacePrivateRef)findBondInterface(prefs, ifDevice);
 				}
-
+#endif	// !TARGET_OS_IPHONE
 				if ((interfacePrivate == NULL)
 				    && !CFDictionaryContainsKey(interface_entity, CFSTR("_NO_BRIDGE_INTERFACES_"))) {
 					interfacePrivate = (SCNetworkInterfacePrivateRef)findBridgeInterface(prefs, ifDevice);
@@ -3512,6 +3524,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 		__SCNetworkInterfaceSetService((SCNetworkInterfaceRef)interfacePrivate,
 					       service);
 
+#if	!TARGET_OS_IPHONE
 		// set prefs & serviceID to Bond member interfaces
 		if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeBond)) {
 			CFIndex		i;
@@ -3527,6 +3540,7 @@ _SCNetworkInterfaceCreateWithEntity(CFAllocatorRef		allocator,
 				__SCNetworkInterfaceSetService(member, service);
 			}
 		}
+#endif	// !TARGET_OS_IPHONE
 
 		// set prefs & serviceID to Bridge member interfaces
 		if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeBridge)) {
@@ -3652,6 +3666,50 @@ __SCNetworkInterfaceCopyAll_RS232()
 
 	return new_interfaces;
 }
+
+
+#if	!TARGET_OS_IPHONE
+static void
+addBTPANInterface(SCPreferencesRef prefs, CFMutableArrayRef all_interfaces)
+{
+	CFIndex		i;
+	CFIndex		n;
+	CFArrayRef	services;
+
+	n = CFArrayGetCount(all_interfaces);
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+
+		interface = CFArrayGetValueAtIndex(all_interfaces, i);
+		if (_SCNetworkInterfaceIsBluetoothPAN(interface)) {
+			// if we already have a BT-PAN interface
+			return;
+		}
+	}
+
+	services = SCNetworkServiceCopyAll(prefs);
+	if (services != NULL) {
+		n = CFArrayGetCount(services);
+		for (i = 0; i < n; i++) {
+			SCNetworkInterfaceRef	interface;
+			SCNetworkServiceRef	service;
+
+			service = CFArrayGetValueAtIndex(services, i);
+			interface = SCNetworkServiceGetInterface(service);
+			if ((interface != NULL) &&
+			    _SCNetworkInterfaceIsBluetoothPAN(interface)) {
+				// include BT-PAN interface
+				CFArrayAppendValue(all_interfaces, interface);
+				break;
+			}
+		}
+
+		CFRelease(services);
+	}
+
+	return;
+}
+#endif	// !TARGET_OS_IPHONE
 
 
 static void
@@ -3783,11 +3841,13 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 		}
 	}
 	if (prefs != NULL) {
+#if	!TARGET_OS_IPHONE
 		new_interfaces = SCBondInterfaceCopyAll(prefs);
 		if (new_interfaces != NULL) {
 			add_interfaces(all_interfaces, new_interfaces);
 			CFRelease(new_interfaces);
 		}
+#endif	// !TARGET_OS_IPHONE
 
 		new_interfaces = SCBridgeInterfaceCopyAll(prefs);
 		if (new_interfaces != NULL) {
@@ -3800,6 +3860,11 @@ _SCNetworkInterfaceCopyAllWithPreferences(SCPreferencesRef prefs)
 			add_interfaces(all_interfaces, new_interfaces);
 			CFRelease(new_interfaces);
 		}
+
+#if	!TARGET_OS_IPHONE
+		// add BT-PAN interface
+		addBTPANInterface(prefs, all_interfaces);
+#endif	// !TARGET_OS_IPHONE
 
 		if (temp_preferences) CFRelease(prefs);
 	}
@@ -4740,15 +4805,9 @@ _SCNetworkInterfaceForceConfigurationRefresh(CFStringRef ifName)
 {
 	CFStringRef		key;
 	Boolean			ok     = FALSE;
-	SCDynamicStoreRef	store;
 
 	if (!isA_CFString(ifName)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
-		return FALSE;
-	}
-
-	store = SCDynamicStoreCreate(NULL, CFSTR("_SCNetworkInterfaceForceConfigurationRefresh"), NULL, NULL);
-	if (store == NULL) {
 		return FALSE;
 	}
 
@@ -4756,9 +4815,8 @@ _SCNetworkInterfaceForceConfigurationRefresh(CFStringRef ifName)
 							    kSCDynamicStoreDomainState,
 							    ifName,
 							    kSCEntNetRefreshConfiguration);
-	ok = SCDynamicStoreNotifyValue(store, key);
+	ok = SCDynamicStoreNotifyValue(NULL, key);
 	CFRelease(key);
-	CFRelease(store);
 	return ok;
 }
 
@@ -6422,12 +6480,14 @@ __SCNetworkInterfaceIsMember(SCPreferencesRef prefs, SCNetworkInterfaceRef inter
 
 	members = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
+#if	!TARGET_OS_IPHONE
 	// add Bond [member] interfaces
 	interfaces = SCBondInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
 		__SCBondInterfaceListCollectMembers(interfaces, members);
 		CFRelease(interfaces);
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	// add Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);
@@ -6529,4 +6589,142 @@ __SCNetworkInterfaceSetDeepConfiguration(SCNetworkSetRef set, SCNetworkInterface
 	}
 
 	return;
+}
+
+
+SCNetworkInterfaceRef
+_SCNetworkInterfaceCopyActive(SCDynamicStoreRef store, CFStringRef bsdName)
+{
+	SCNetworkInterfaceRef		interface;
+
+	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, bsdName, kIncludeAllVirtualInterfaces);
+	if (interface == NULL) {
+		return NULL;
+	}
+
+	if (store != NULL) {
+		SCNetworkInterfacePrivateRef	interfacePrivate =
+			(SCNetworkInterfacePrivateRef)interface;
+
+		CFRetain(store);
+		interfacePrivate->store = store;
+	}
+
+	return interface;
+}
+
+
+SCNetworkServicePrimaryRank
+SCNetworkInterfaceGetPrimaryRank(SCNetworkInterfaceRef interface)
+{
+	CFDictionaryRef			entity;
+	SCNetworkInterfacePrivateRef	interfacePrivate =
+						(SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			ifName;
+	Boolean				ok	= FALSE;
+	CFStringRef			path;
+	SCNetworkServicePrimaryRank	rank	= kSCNetworkServicePrimaryRankDefault;
+	SCDynamicStoreRef		session;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if ((ifName == NULL) || (interfacePrivate->store == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return rank;
+	}
+
+	session = interfacePrivate->store;
+
+	path = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							     kSCDynamicStoreDomainState,
+							     ifName,
+							     kSCEntNetService);
+	entity = SCDynamicStoreCopyValue(session, path);
+	CFRelease(path);
+
+	if (entity != NULL) {
+		if (isA_CFDictionary(entity)) {
+			CFStringRef rankStr =
+				CFDictionaryGetValue(entity, kSCPropNetServicePrimaryRank);
+			ok = __str_to_rank(rankStr, &rank);
+		}
+		CFRelease(entity);
+	}
+
+	if (!ok) {
+		rank = kSCNetworkServicePrimaryRankDefault;
+		_SCErrorSet(kSCStatusInvalidArgument);
+	} else if (rank == kSCNetworkServicePrimaryRankDefault) {
+		_SCErrorSet(kSCStatusOK);
+	}
+
+	return (rank);
+}
+
+Boolean
+SCNetworkInterfaceSetPrimaryRank(SCNetworkInterfaceRef interface,
+				 SCNetworkServicePrimaryRank newRank)
+{
+	CFDictionaryRef			entity;
+	SCNetworkInterfacePrivateRef 	interfacePrivate =
+					(SCNetworkInterfacePrivateRef)interface;
+	CFStringRef			ifName;
+	CFMutableDictionaryRef		newEntity;
+	Boolean				ok		= TRUE;
+	CFStringRef			path		= NULL;
+	CFStringRef			rankStr;
+	SCDynamicStoreRef		session;
+
+	ifName = SCNetworkInterfaceGetBSDName(interface);
+	if ((ifName == NULL) || (interfacePrivate->store == NULL)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	session = interfacePrivate->store;
+
+	ok = __rank_to_str(newRank, &rankStr);
+	if (!ok) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	path = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							     kSCDynamicStoreDomainState,
+							     ifName,
+							     kSCEntNetService);
+
+	entity = SCDynamicStoreCopyValue(session, path);
+	if (entity != NULL) {
+		if (!isA_CFDictionary(entity)) {
+			CFRelease(entity);
+			_SCErrorSet(kSCStatusFailed);
+			goto done;
+		}
+		newEntity = CFDictionaryCreateMutableCopy(NULL, 0, entity);
+		CFRelease(entity);
+	} else {
+		newEntity = CFDictionaryCreateMutable(NULL,
+						      0,
+						      &kCFTypeDictionaryKeyCallBacks,
+						      &kCFTypeDictionaryValueCallBacks);
+	}
+
+	if (rankStr != NULL) {
+		CFDictionarySetValue(newEntity, kSCPropNetServicePrimaryRank, rankStr);
+	} else {
+		CFDictionaryRemoveValue(newEntity, kSCPropNetServicePrimaryRank);
+	}
+
+	if (CFDictionaryGetCount(newEntity) > 0) {
+		ok = SCDynamicStoreSetValue(session, path, newEntity);
+	} else {
+		ok = SCDynamicStoreRemoveValue(session, path);
+	}
+
+	CFRelease(newEntity);
+
+    done :
+
+	if (path != NULL)	CFRelease(path);
+	return ok;
 }

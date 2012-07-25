@@ -1,0 +1,183 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FD2C35E914B6720C00514451 /* UNCUserNotification.c in Sources */ = {isa = PBXBuildFile; fileRef = FD2C35E614B6720C00514451 /* UNCUserNotification.c */; };
+		FD2C35EA14B6720C00514451 /* UNCUserNotification.h in Headers */ = {isa = PBXBuildFile; fileRef = FD2C35E714B6720C00514451 /* UNCUserNotification.h */; settings = {ATTRIBUTES = (Private, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		FD2C35DE14B671AA00514451 /* libunc.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libunc.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD2C35E614B6720C00514451 /* UNCUserNotification.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = UNCUserNotification.c; sourceTree = "<group>"; };
+		FD2C35E714B6720C00514451 /* UNCUserNotification.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = UNCUserNotification.h; sourceTree = "<group>"; };
+		FD2C35EC14B675B100514451 /* Libunc.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Libunc.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FD2C35DB14B671AA00514451 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FD2C35CE14B6717B00514451 = {
+			isa = PBXGroup;
+			children = (
+				FD2C35E414B6720C00514451 /* Libunc */,
+				FD2C35EB14B675B100514451 /* xcconfigs */,
+				FD2C35DF14B671AA00514451 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FD2C35DF14B671AA00514451 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FD2C35DE14B671AA00514451 /* libunc.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FD2C35E414B6720C00514451 /* Libunc */ = {
+			isa = PBXGroup;
+			children = (
+				FD2C35E614B6720C00514451 /* UNCUserNotification.c */,
+				FD2C35E714B6720C00514451 /* UNCUserNotification.h */,
+			);
+			path = Libunc;
+			sourceTree = "<group>";
+		};
+		FD2C35EB14B675B100514451 /* xcconfigs */ = {
+			isa = PBXGroup;
+			children = (
+				FD2C35EC14B675B100514451 /* Libunc.xcconfig */,
+			);
+			path = xcconfigs;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FD2C35DC14B671AA00514451 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD2C35EA14B6720C00514451 /* UNCUserNotification.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FD2C35DD14B671AA00514451 /* Libunc */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD2C35E214B671AA00514451 /* Build configuration list for PBXNativeTarget "Libunc" */;
+			buildPhases = (
+				FD2C35DA14B671AA00514451 /* Sources */,
+				FD2C35DB14B671AA00514451 /* Frameworks */,
+				FD2C35DC14B671AA00514451 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Libunc;
+			productName = libunc;
+			productReference = FD2C35DE14B671AA00514451 /* libunc.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FD2C35D014B6717B00514451 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = FD2C35D314B6717B00514451 /* Build configuration list for PBXProject "UserNotification" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FD2C35CE14B6717B00514451;
+			productRefGroup = FD2C35DF14B671AA00514451 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FD2C35DD14B671AA00514451 /* Libunc */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FD2C35DA14B671AA00514451 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD2C35E914B6720C00514451 /* UNCUserNotification.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FD2C35D614B6717B00514451 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		FD2C35E114B671AA00514451 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FD2C35EC14B675B100514451 /* Libunc.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_PREFIX = lib;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/lib/system;
+				PRODUCT_NAME = unc;
+				PROVISIONING_PROFILE = "";
+				STRIP_INSTALLED_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FD2C35D314B6717B00514451 /* Build configuration list for PBXProject "UserNotification" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD2C35D614B6717B00514451 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD2C35E214B671AA00514451 /* Build configuration list for PBXNativeTarget "Libunc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD2C35E114B671AA00514451 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FD2C35D014B6717B00514451 /* Project object */;
+}

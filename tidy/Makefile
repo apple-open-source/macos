@@ -5,7 +5,7 @@
 
 # Project info
 Project               = tidy
-BuildNumber           = 15.6
+BuildNumber           = 15.10
 UserType              = Administrator
 ToolType              = Libraries
 
@@ -40,18 +40,18 @@ OSV     = $(ActualDSTROOT)/usr/local/OpenSourceVersions
 OSL     = $(ActualDSTROOT)/usr/local/OpenSourceLicenses
 
 install::
-	TIDY_APPLE_CHANGES=1 RANLIB=ranlib CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActuallDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installhdrs devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
-	TIDY_APPLE_CHANGES=1 RANLIB=ranlib CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installib devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
+	TIDY_APPLE_CHANGES=1 RANLIB=$(RANLIB) CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActuallDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installhdrs devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
+	TIDY_APPLE_CHANGES=1 RANLIB=$(RANLIB) CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installib devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
 	$(CC) $(CFLAGS) -dynamiclib $(SECTORDER_FLAGS) -o "$(ActualDSTROOT)/usr/lib/libtidy.A.dylib" "$(OBJROOT)/tidy/lib/libtidy.a" -install_name "/usr/lib/libtidy.A.dylib" -all_load -compatibility_version 1.0.0 -current_version 1.0.0
-	ln -s "libtidy.A.dylib" "$(ActualDSTROOT)/usr/lib/libtidy.dylib"
-	TIDY_APPLE_CHANGES=1 RANLIB=ranlib CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr" LIBDIR="$(ActualDSTROOT)/usr/lib"
-	TIDY_APPLE_CHANGES=1 RANLIB=ranlib CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
+	$(LN) -s "libtidy.A.dylib" "$(ActualDSTROOT)/usr/lib/libtidy.dylib"
+	TIDY_APPLE_CHANGES=1 RANLIB=$(RANLIB) CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installexes devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr" LIBDIR="$(ActualDSTROOT)/usr/lib"
+	TIDY_APPLE_CHANGES=1 RANLIB=$(RANLIB) CFLAGS="$(CFLAGS) -fno-common" runinst_prefix="$(ActualDSTROOT)/usr" devinst_prefix="$(ActualDSTROOT)/usr" $(MAKE) -C "$(OBJROOT)/$(Project)/build/gmake" installmanpage_apple devinst_prefix="$(ActualDSTROOT)/usr" runinst_prefix="$(ActualDSTROOT)/usr"
 ifndef TIDY_DEBUG
-	strip "$(ActualDSTROOT)/usr/bin/tab2space"
-	strip "$(ActualDSTROOT)/usr/bin/tidy"
-	strip -x "$(ActualDSTROOT)/usr/lib/libtidy.A.dylib"
+	$(STRIP) "$(ActualDSTROOT)/usr/bin/tab2space"
+	$(STRIP) "$(ActualDSTROOT)/usr/bin/tidy"
+	$(STRIP) -x "$(ActualDSTROOT)/usr/lib/libtidy.A.dylib"
 endif
-	rm -f "$(ActualDSTROOT)/usr/lib/libtidy.a"
+	$(RM) "$(ActualDSTROOT)/usr/lib/libtidy.a"
 
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

@@ -19,7 +19,6 @@
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005D</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000054</string>
 		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000001B</string>
-		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000056</string>
 	</array>
 	<key>name</key>
 	<array>
@@ -42,7 +41,6 @@
 		<string>_calendar</string>
 		<string>_jabber</string>
 		<string>_postfix</string>
-		<string>_xgridagent</string>
 	</array>
 </dict>
 </plist>

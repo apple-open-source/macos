@@ -1097,7 +1097,10 @@ IOBlockStorageDriver::decommissionMedia(bool forcible)
             m->detachFromParent(parent, gIODTPlane);
         }
 
+        if (!m->isInactive()) {
         m->terminate();
+        }
+
         m->release();
     }
 
@@ -1170,9 +1173,21 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
     block = byteStart           / context->block.size;
     nblks = buffer->getLength() / context->block.size;
 
-/* Now the protocol-specific provider implements the actual
+    /* Now the protocol-specific provider implements the actual
      * start of the data transfer: */
 
+#if TARGET_OS_EMBEDDED
+    // This is where we adjust the offset for this access to the nand layer.
+    // We already maintain this buffer's file offset in attributes.fileOffset
+#ifdef __LP64__
+    if (!attributes) {
+        attributes = &context->request.attributes;
+    }
+    attributes->adjustedOffset = ((SInt64)byteStart - (SInt64)context->original.byteStart);
+#else /* !__LP64__ */
+    context->request.attributes.adjustedOffset = ((SInt64)byteStart - (SInt64)context->original.byteStart);
+#endif /* !__LP64__ */
+#endif /* TARGET_OS_EMBEDDED */
 #ifdef __LP64__
     result = getProvider()->doAsyncReadWrite(buffer,block,nblks,attributes,completion);
 #else /* !__LP64__ */
@@ -2501,6 +2516,7 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
 
     callback = deblocker->getThreadCallback();
 
+#if !TARGET_OS_EMBEDDED
     if ( callback == 0 )
     {
         if ( deblocker->setThreadCallback(deblockRequestExecute) == false )
@@ -2508,6 +2524,7 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
             status = kIOReturnNoMemory;
         }
     }
+#endif /* !TARGET_OS_EMBEDDED */
 
     // Determine whether an error occurred or whether there are no more stages.
 
@@ -3149,6 +3166,12 @@ void IOBlockStorageDriver::breakUpRequest(
               /* withRequestBufferOffset              */ 0 );
     }
 
+    if ( breakSize == 0 )
+    {
+        complete(completion, kIOReturnDMAError);
+        return;
+    }
+
     // If the request doesn't exceed our transfer constaints, we do
     // short-circuit the break-up and call executeRequest directly.
 
@@ -3161,10 +3184,6 @@ void IOBlockStorageDriver::breakUpRequest(
 #endif /* !__LP64__ */
         return;
     }
-
-    // Round the sub-transfer size to a block boundary.
-
-    breakSize = IOTrunc(breakSize, context->block.size);
 
     // Build a breaker object.
 
@@ -3243,6 +3262,7 @@ void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
 
     callback = breaker->getThreadCallback();
 
+#if !TARGET_OS_EMBEDDED
     if ( callback == 0 )
     {
         if ( breaker->setThreadCallback(breakUpRequestExecute) == false )
@@ -3250,6 +3270,7 @@ void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
             status = kIOReturnNoMemory;
         }
     }
+#endif /* !TARGET_OS_EMBEDDED */
 
     // Determine whether an error occurred or whether there are no more stages.
 
@@ -3354,11 +3375,13 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
             return;
         }
 #else /* !__LP64__ */
+#if !TARGET_OS_EMBEDDED
         if (attributes->reserved0064)
         {
             complete(completion, kIOReturnBadArgument);
             return;
         }
+#endif /* !TARGET_OS_EMBEDDED */
 #endif /* !__LP64__ */
     }
 

@@ -68,7 +68,7 @@ gcvt(double value, int ndigit, char *buf)
 			sign = 0;
 		src = digits;
 		*dst++ = *src++;
-		*dst++ = *lconv->decimal_point;
+		dst = stpcpy(dst, lconv->decimal_point);
 		while (*src != '\0')
 			*dst++ = *src++;
 		*dst++ = 'e';
@@ -101,7 +101,7 @@ gcvt(double value, int ndigit, char *buf)
 		if (*src != '\0') {
 			if (src == digits)
 				*dst++ = '0';	/* zero before decimal point */
-			*dst++ = *lconv->decimal_point;
+			dst = stpcpy(dst, lconv->decimal_point);
 			for (i = decpt; digits[i] != '\0'; i++) {
 				*dst++ = digits[i];
 			}

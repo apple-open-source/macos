@@ -33,14 +33,17 @@ AEP_Version	= 20100324
 AEP_LicenseFile	= $(Sources)/COPYING
 AEP_Patches	= manpages.patch \
 		PR-3795936.long-username.patch \
-	        PR-3886477.ftpd.c.patch \
+		PR-3886477.ftpd.c.patch \
 		PR-4608716.ls.c.patch \
 		PR-4581099.ftpd.c.patch \
 		PR-4616924.ftpd.c.patch \
 		PR-5815072.ftpd.c.patch \
 		print.c.patch \
 		sacl.patch \
-		gss.patch
+		gss.patch \
+		PR-10519551.patch \
+		PR-10452181.conf.c.patch \
+		PR-10804931.patch
 AEP_ConfigDir	= $(ETCDIR)
 AEP_ConfigFiles	= ftpd.conf
 AEP_LaunchdConfigs	= ftp.plist

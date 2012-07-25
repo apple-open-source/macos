@@ -29,6 +29,10 @@
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 
+namespace WTF {
+class String;
+}
+
 namespace WebCore {
     class ResourceHandle;
     class ResourceRequest;
@@ -47,12 +51,16 @@ public:
     static DownloadManager& shared();
 
     void startDownload(uint64_t downloadID, WebPage* initiatingPage, const WebCore::ResourceRequest&);
-    void convertHandleToDownload(uint64_t downloadID, WebPage* initiatingPage, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest& initialRequest, const WebCore::ResourceResponse&);
+    void convertHandleToDownload(uint64_t downloadID, WebPage* initiatingPage, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     void cancelDownload(uint64_t downloadID);
 
     void downloadFinished(Download*);
     bool isDownloading() const { return !m_downloads.isEmpty(); }
+
+#if PLATFORM(QT)
+    void startTransfer(uint64_t downloadID, const WTF::String& destination);
+#endif
 
 private:
     DownloadManager();

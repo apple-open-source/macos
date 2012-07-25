@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>-D</string>
+		<string>/Library/Server/PostgreSQL/Data</string>
+		<string>-c</string>
+		<string>unix_socket_directory=/var/pgsql_socket</string>
+		<string>-c</string>
+		<string>logging_collector=on</string>
+		<string>-c</string>
+		<string>log_connections=on</string>
+		<string>-c</string>
+		<string>log_lock_waits=on</string>
+		<string>-c</string>
+		<string>log_statement=ddl</string>
+		<string>-c</string>
+		<string>log_line_prefix=%t </string>
+		<string>-c</string>
+		<string>listen_addresses=</string>
+		<string>-c</string>
+		<string>log_directory=/Library/Logs/PostgreSQL</string>
+		<string>-c</string>
+		<string>log_filename=PostgreSQL.log</string>
+		<string>-c</string>
+		<string>unix_socket_group=_postgres</string>
+		<string>-c</string>
+		<string>unix_socket_permissions=0770</string>
+	</array>
+</dict>
+</plist>

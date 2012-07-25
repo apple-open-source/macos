@@ -50,11 +50,11 @@
  *
  *  @returns a gss_error code, see gss_display_status() about printing
  *         the error code.
- *	  
+ *
  *  @ingroup gssapi
  */
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_canonicalize_name(OM_uint32 *minor_status,
     const gss_name_t input_name,
     const gss_OID mech_type,
@@ -87,27 +87,12 @@ gss_canonicalize_name(OM_uint32 *minor_status,
 	 * Now we make a new name and mark it as an MN.
 	 */
 	*minor_status = 0;
-	name = malloc(sizeof(struct _gss_name));
+	name = _gss_create_name(new_canonical_name, m);
 	if (!name) {
 		m->gm_release_name(minor_status, &new_canonical_name);
 		*minor_status = ENOMEM;
 		return (GSS_S_FAILURE);
 	}
-	memset(name, 0, sizeof(struct _gss_name));
-
-	mn = malloc(sizeof(struct _gss_mechanism_name));
-	if (!mn) {
-		m->gm_release_name(minor_status, &new_canonical_name);
-		free(name);
-		*minor_status = ENOMEM;
-		return (GSS_S_FAILURE);
-	}
-
-	SLIST_INIT(&name->gn_mn);
-	mn->gmn_mech = m;
-	mn->gmn_mech_oid = &m->gm_mech_oid;
-	mn->gmn_name = new_canonical_name;
-	SLIST_INSERT_HEAD(&name->gn_mn, mn, gmn_link);
 
 	*output_name = (gss_name_t) name;
 

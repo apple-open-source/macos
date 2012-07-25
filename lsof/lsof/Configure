@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.159 2010/07/29 15:59:28 abe Exp $
+# $Id: Configure,v 1.160 2011/09/27 17:27:20 abe Exp $
 
 # LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -72,8 +72,8 @@ LSOF_VF=version
 #	$LSOF_AFSV	    AFS version
 #	$LSOF_AR	    archive command and its arguments for making the
 #			    lsof library
-#	$LSOF_ARCH	    Unix dialect architecture as a string -- may be
-#			    supplied externally
+#	$LSOF_ARCH	    Unix dialect architecture as a string (may be
+#			    supplied externally)
 #	$LSOF_CC	    C compiler name (may be supplied externally)
 #	$LSOF_CCV	    C compiler version (may be supplied externally)
 #	$LSOF_CDIR	    configuration directory
@@ -100,8 +100,6 @@ LSOF_VF=version
 #			    (default = /usr/include)
 #	$LSOF_LD	    loader name if not $LSOF_CC
 #	$LSOF_LIB_NO	    if "N" don't configure the lsof library
-#	$LSOF_LINUX_INCL    temporary variable for holding path to Linux
-#			    include files
 #	$LSOF_LOCALSUFFIX   local suffix for Makefile
 #	$LSOF_NBSD_BUFQH    NetBSD <sys/bufq.h> copy status
 #	$LSOF_NBSD_PTYFS    NetBSD ${NETBSD_SYS}/sys/fs/ptyfs/ copy status
@@ -134,8 +132,8 @@ LSOF_VF=version
 #	$LSOF_TSTXO	    test extra objects (for $LSOF_TSTXOC)
 #	$LSOF_TSTXOC	    test extra objects file
 #	$LSOF_UNSUP	    Lsof is unsupported on this dialect
-#	$LSOF_VERS	    Unix dialect version as a decimal number -- may
-#			    be supplied externally
+#	$LSOF_VERS	    Unix dialect version as a decimal number (may
+#			    be supplied externally)
 #	$LSOF_VSTR	    Unix dialect version as a string -- may be supplied
 #			    externally
 
@@ -174,7 +172,6 @@ else
 fi	# }
 LSOF_LD=""
 LSOF_LIB_NO=""
-LSOF_LINUX_INCL=""
 LSOF_PL=""
 if test "X$LSOF_RANLIB" = "X"	# {
 then
@@ -883,13 +880,16 @@ case $LSOF_TGT in	# {
       10.*)			# Mac OS X 10.6 (SnowLeopard)
  	LSOF_VERS=1000
  	;;
-      11.*)			# a coming version of Mac OS?
+      11.*)			# Mac OS X 10.7 (Lion)
  	LSOF_VERS=1100
+ 	;;
+      12.*)			# a coming version of Mac OS?
+ 	LSOF_VERS=1200
  	;;
       *)
 	echo Unknown Darwin release: `uname -r`
-	echo Assuming Darwin 10.0
-	LSOF_VERS=1000
+	echo Assuming Darwin 11.0
+	LSOF_VERS=1100
 	;;
       esac	# }
     fi	# }
@@ -918,13 +918,13 @@ case $LSOF_TGT in	# {
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1="net/ndrv_var.h net/raw_cb.h netinet/ip_var.h netinet/tcp_var.h sys/eventvar.h sys/file_internal.h sys/mount_internal.h sys/proc_internal.h sys/vnode_internal.h"
       ;;
-    900|1000)
+    900|1000|1100)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       LSOF_UNSUP=""
       LSOF_TSTBIGF=" "			# enable LTbigf test
       ;;
-    1100)
+    1200)
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       LSOF_TMP1=""
       ;;
@@ -1566,14 +1566,26 @@ kernel generation process.
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=7030
 	;;
+      7.4*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=7040
+	;;
       7*)
 	LSOF_VERS=7000
 	echo "!!!WARNING!!!  Unsupported FreeBSD version: $LSOF_VSTR"
 	echo "!!!WARNING!!!  Configuring for FreeBSD 7.0"
 	;;
-      8*)
+      8.0*)
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=8000
+	;;
+      8.1*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=8010
+	;;
+      8.2*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=8020
 	;;
       9*)
 	LSOF_TSTBIGF=" "
@@ -1596,7 +1608,7 @@ kernel generation process.
     # Clear LSOF_UNSUP message for supported versions of FreeBSD.
     
     case $LSOF_VERS in  # {
-    4090|7000|7010|7020|7030|8000|9000)
+    4090|6040|8000|8020|9000)
       LSOF_UNSUP=""
       ;;
     esac	# }
@@ -1682,7 +1694,7 @@ kernel generation process.
 	LSOF_CFGF="$LSOF_CFGF -DHASVMLOCKH"
       fi	# }
       ;;
-    4000|4010|4020|4030|4040|4050|4060|4070|4080|4090|4100|4110|5000|5010|5020|5030|5040|5050|6000|6010|6020|6030|6040|7000|7010|7020|7030|8000|9000)
+    4000|4010|4020|4030|4040|4050|4060|4070|4080|4090|4100|4110|5000|5010|5020|5030|5040|5050|6000|6010|6020|6030|6040|7000|7010|7020|7030|7040|8000|8010|8020|9000)
       if test -r ${LSOF_INCLUDE}/nfs/rpcv2.h	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASRPCV2H"
@@ -1900,6 +1912,11 @@ FBSD_MINOR3
 	    LSOF_FBSD_ZFS=1
 	    LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DFREEBSDV=$LSOF_VERS"
 	    LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DHAS_ZFS"
+	    grep -q z_phys ${LSOF_FBSD_ZFS_SYS}/contrib/opensolaris/uts/common/fs/zfs/sys/zfs_znode.h
+	    if test $? -eq 0	# {
+	    then
+	      LSOF_FBSD_ZFS_CFGF="$LSOF_FBSD_ZFS_CFGF -DHAS_Z_PHYS"
+	    fi	# }
 	  fi	# }
 	  if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
 	  then
@@ -2011,6 +2028,14 @@ LOCKF_OWNER4
 		LSOF_CFGF="$LSOF_CFGF -DHAS_NO_6PPCB"
 	      fi	# }
 	    fi	# }
+	    if test -r ${LSOF_INCLUDE}/sys/conf.h	# {
+	    then
+	      grep -q 'doadump(boolean_t)' ${LSOF_INCLUDE}/sys/conf.h
+	      if test $? -eq 0	# {
+	      then
+		LSOF_CFGF="$LSOF_CFGF -DNEEDS_BOOLEAN_T"
+	      fi	# }
+	    fi	# |
 	  fi	# }
 	fi	# }
       fi	# }
@@ -2661,7 +2686,25 @@ LOCKF_OWNER4
       LSOF_CC=cc
       LSOF_CCV=`$LSOF_CC -v 2>&1 | sed -n 's/.*version \(.*\)/\1/p'`
     fi	# }
+    if test "X$LINUX_CONF_CC" = "X"	# {
+    then
+      LINUX_CONF_CC=$LSOF_CC
+    fi	#}
     LSOF_DIALECT_DIR=""
+    if test "X$LINUX_INCL" = "X" # {
+    then
+      LINUX_INCL=/usr/include
+    else
+      LSOF_DINC="$LSOF_DINC -I${LINUX_INCL}"
+    fi	# }
+    if test "X$LINUX_VERSION_CODE" = "X" # {
+    then
+      if test -r "$LINUX_INCL/linux/version.h" # {
+      then
+        LINUX_VERSION_CODE=`cat $LINUX_INCL/linux/version.h | sed -n 's/.\+LINUX_VERSION_CODE \([[:digit:]]\+\)$/\1/p'`
+      fi # }
+    fi # }
+    LSOF_VSTR=`echo $LINUX_VERSION_CODE | perl -e '$version=<STDIN>; chomp($version); printf("%d.%d.%d\n", ($version >> 16) & 0xFF, ($version >> 8) & 0xFF, $version & 0xFF);'`
     if test "X$LSOF_VSTR" = "X"	# {
     then
       LSOF_VSTR=`uname -r`
@@ -2693,7 +2736,7 @@ LOCKF_OWNER4
 
     if test "X$LINUX_CLIB" = "X"	# {
     then
-      echo -n "Testing C library type with $LSOF_CC ... "
+      echo -n "Testing C library type with $LINUX_CONF_CC ... "
       rm -f ${LSOF_TMPC}.*
       cat > $LSOF_TMPC.c << .LSOF_END_HERE_DOC1
 #include <features.h>
@@ -2707,7 +2750,7 @@ printf("\n");
 #endif
 return(0); }
 .LSOF_END_HERE_DOC1
-      $LSOF_CC ${LSOF_TMPC}.c -I$LSOF_INCLUDE -o ${LSOF_TMPC}.x > /dev/null 2>&1
+      $LINUX_CONF_CC ${LSOF_TMPC}.c -I$LSOF_INCLUDE -o ${LSOF_TMPC}.x > /dev/null 2>&1
       if test -x ${LSOF_TMPC}.x	# {
       then
 	LINUX_CLIB=`${LSOF_TMPC}.x`
@@ -2741,6 +2784,13 @@ return(0); }
     if test -r ${LSOF_INCLUDE}/netinet/ip6.h	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+    fi	# }
+
+    # Test for <rpc/rpc.h>.
+
+    if ! test -r ${LSOF_INCLUDE}/rpc/rpc.h	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASNORPC_H"
     fi	# }
 
     # Test for SELinux support.
@@ -4617,10 +4667,38 @@ return(0); }
 	    LSOF_CFGF="$LSOF_CFGF -DHASSOUXSOUA"
 	  fi	# }
 	fi	# }
+	if test $LSOF_VERS -lt 110000	# {
+	then
+
+	# Do tests specific to Solaris 9 and 10.
+
+	  if test -r ${LSOF_INCLUDE}/sys/lgrp_user.h      # {
+	  then
+	    if test -r ${LSOF_INCLUDE}/sys/lgrp.h      # {
+	    then
+	      grep lgrp_root ${LSOF_INCLUDE}/sys/lgrp_user.h > /dev/null 2>&1
+	      if test $? -eq 0	# {
+	      then
+		grep lgrp_root ${LSOF_INCLUDE}/sys/lgrp.h > /dev/null 2>&1
+		if test $? -eq 0
+		then
+		  LSOF_CFGF="$LSOF_CFGF -DHAS_LGRP_ROOT_CONFLICT"
+		fi	# }
+	      fi	# }
+	    fi	# }
+	  fi	# }
+	fi	# }
       fi	# }
 
       # Do tests specific to Solaris 10 and above.
 
+      if test $LSOF_VERS -eq 100000	# {
+      then
+	if test -r ${LSOF_INCLUDE}/sys/socket_proto.h	# {
+	then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_SOCKET_PROTO_H"
+	fi	# }
+      fi	# }
       if test $LSOF_VERS -ge 100000	# {
       then
 	if test -r ${LSOF_INCLUDE}/inet/ipclassifier.h	# {
@@ -4708,6 +4786,17 @@ return(0); }
 	touch ./solaris11/sys/extdirent.h
 	echo "./solaris11/sys/extdirent.h created"
 	LSOF_CFGF="$LSOF_CFGF -I`pwd`/solaris11"
+	if test -r ${LSOF_INCLUDE}/sys/mutex.h	# {
+	then
+
+	# Check <sys/mutex.h> 'for pad_mutex_t;'.
+
+	  grep 'pad_mutex_t;' ${LSOF_INCLUDE}/sys/mutex.h > /dev/null 2>&1
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_PAD_MUTEX"
+	  fi	# }
+	fi	# )
       fi	# }
 
       # If -lctf was added to LSOF_CFGL, define HAS_LIBCTF.

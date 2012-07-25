@@ -29,7 +29,7 @@ typedef struct {
 } xmlUnicodeRange;
 
 typedef struct {
-    xmlUnicodeRange *table;
+    const xmlUnicodeRange *table;
     int		    numentries;
 } xmlUnicodeNameTable;
 
@@ -930,8 +930,8 @@ static const xmlChSRange xmlZS[] = {{0x20, 0x20}, {0xa0, 0xa0},
     {0x202f, 0x202f}, {0x205f, 0x205f}, {0x3000, 0x3000} };
 static const xmlChRangeGroup xmlZG = {9,0,(xmlChSRangePtr)xmlZS,NULL};
 
-static const xmlUnicodeNameTable xmlUnicodeBlockTbl = {(xmlUnicodeRange *)xmlUnicodeBlocks, 128};
-static const xmlUnicodeNameTable xmlUnicodeCatTbl = {(xmlUnicodeRange *)xmlUnicodeCats, 36};
+static const xmlUnicodeNameTable xmlUnicodeBlockTbl = {xmlUnicodeBlocks, 128};
+static const xmlUnicodeNameTable xmlUnicodeCatTbl = {xmlUnicodeCats, 36};
 
 /**
  * xmlUnicodeLookup:
@@ -945,7 +945,7 @@ static const xmlUnicodeNameTable xmlUnicodeCatTbl = {(xmlUnicodeRange *)xmlUnico
 static xmlIntFunc
 *xmlUnicodeLookup(const xmlUnicodeNameTable *tptr, const char *tname) {
     int low, high, mid, cmp;
-    xmlUnicodeRange *sptr;
+    xmlUnicodeRange const * sptr;
 
     if ((tptr == NULL) || (tname == NULL)) return(NULL);
 

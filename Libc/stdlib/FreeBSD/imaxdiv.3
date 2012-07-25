@@ -40,10 +40,10 @@
 The
 .Fn imaxdiv
 function computes the value of
-.Fa numer
+.Fa numer ,
 divided by
-.Fa denom
-and returns the stored result in the form of the
+.Fa denom .
+The stored result is returned in the form of the
 .Vt imaxdiv_t
 type.
 .Pp
@@ -52,7 +52,7 @@ The
 type is defined as:
 .Bd -literal -offset indent
 typedef struct {
-	intmax_t quot; /* Quotient. */
+	intmax_t quot; /* Quotient.  */
 	intmax_t rem;  /* Remainder. */
 } imaxdiv_t;
 .Ed

@@ -19,6 +19,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/nrand48.c,v 1.2 2002/03/22 21:52:05 obrien 
 long
 nrand48(unsigned short xseed[3])
 {
-	_dorand48(xseed);
-	return ((long) xseed[2] << 15) + ((long) xseed[1] >> 1);
+	uint48 tmp;
+	DORAND48(tmp, xseed);
+	return (tmp >> 17) & 0x7fffffff;
 }

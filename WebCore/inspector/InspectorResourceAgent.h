@@ -31,11 +31,11 @@
 #ifndef InspectorResourceAgent_h
 #define InspectorResourceAgent_h
 
+#include "InspectorBaseAgent.h"
 #include "InspectorFrontend.h"
 #include "PlatformString.h"
 
-#include <wtf/OwnPtr.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
@@ -52,14 +52,14 @@ class Document;
 class DocumentLoader;
 class Frame;
 class InspectorArray;
+class InspectorClient;
 class InspectorFrontend;
-class InspectorFrontendProxy;
 class InspectorObject;
 class InspectorPageAgent;
 class InspectorState;
 class InstrumentingAgents;
 class KURL;
-class EventsCollector;
+class NetworkResourcesData;
 class Page;
 class ResourceError;
 class ResourceRequest;
@@ -67,22 +67,23 @@ class ResourceResponse;
 class SharedBuffer;
 
 #if ENABLE(WEB_SOCKETS)
+struct WebSocketFrame;
 class WebSocketHandshakeRequest;
 class WebSocketHandshakeResponse;
 #endif
 
 typedef String ErrorString;
 
-class InspectorResourceAgent : public RefCounted<InspectorResourceAgent> {
+class InspectorResourceAgent : public InspectorBaseAgent<InspectorResourceAgent>, public InspectorBackendDispatcher::NetworkCommandHandler {
 public:
-    static PassRefPtr<InspectorResourceAgent> create(InstrumentingAgents* instrumentingAgents, InspectorPageAgent* pageAgent, InspectorState* state)
+    static PassOwnPtr<InspectorResourceAgent> create(InstrumentingAgents* instrumentingAgents, InspectorPageAgent* pageAgent, InspectorClient* client, InspectorState* state)
     {
-        return adoptRef(new InspectorResourceAgent(instrumentingAgents, pageAgent, state));
+        return adoptPtr(new InspectorResourceAgent(instrumentingAgents, pageAgent, client, state));
     }
 
-    void setFrontend(InspectorFrontend*);
-    void clearFrontend();
-    void restore();
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void clearFrontend();
+    virtual void restore();
 
     static PassRefPtr<InspectorResourceAgent> restore(Page*, InspectorState*, InspectorFrontend*);
 
@@ -91,43 +92,70 @@ public:
     void willSendRequest(unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, DocumentLoader* laoder, const ResourceResponse&);
-    void didReceiveContentLength(unsigned long identifier, int dataLength, int encodedDataLength);
-    void didFinishLoading(unsigned long identifier, double finishTime);
-    void didFailLoading(unsigned long identifier, const ResourceError&);
-    void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
+    void didReceiveData(unsigned long identifier, const char* data, int dataLength, int encodedDataLength);
+    void didFinishLoading(unsigned long identifier, DocumentLoader*, double finishTime);
+    void didFailLoading(unsigned long identifier, DocumentLoader*, const ResourceError&);
+    void didLoadResourceFromMemoryCache(DocumentLoader*, CachedResource*);
+    void mainFrameNavigated(DocumentLoader*);
     void setInitialScriptContent(unsigned long identifier, const String& sourceString);
+    void didReceiveScriptResponse(unsigned long identifier);
     void setInitialXHRContent(unsigned long identifier, const String& sourceString);
+    void didReceiveXHRResponse(unsigned long identifier);
+    void willLoadXHRSynchronously();
+    void didLoadXHRSynchronously();
+
     void applyUserAgentOverride(String* userAgent);
+
+    // FIXME: InspectorResourceAgent should now be aware of style recalculation.
+    void willRecalculateStyle();
+    void didRecalculateStyle();
+    void didScheduleStyleRecalculation(Document*);
+
+    PassRefPtr<TypeBuilder::Network::Initiator> buildInitiatorObject(Document*);
 
 #if ENABLE(WEB_SOCKETS)
     void didCreateWebSocket(unsigned long identifier, const KURL& requestURL);
     void willSendWebSocketHandshakeRequest(unsigned long identifier, const WebSocketHandshakeRequest&);
     void didReceiveWebSocketHandshakeResponse(unsigned long identifier, const WebSocketHandshakeResponse&);
     void didCloseWebSocket(unsigned long identifier);
+    void didReceiveWebSocketFrame(unsigned long identifier, const WebSocketFrame&);
+    void didSendWebSocketFrame(unsigned long identifier, const WebSocketFrame&);
+    void didReceiveWebSocketFrameError(unsigned long identifier, const String&);
 #endif
 
-    bool backgroundEventsCollectionEnabled();
+    // called from Internals for layout test purposes.
+    void setResourcesDataSizeLimitsFromInternals(int maximumResourcesContentSize, int maximumSingleResourceContentSize);
 
-    // Called from frontend 
-    void enable(ErrorString*);
-    void disable(ErrorString*);
-    void setUserAgentOverride(ErrorString*, const String& userAgent);
-    void setExtraHeaders(ErrorString*, PassRefPtr<InspectorObject>);
+    // Called from frontend
+    virtual void enable(ErrorString*);
+    virtual void disable(ErrorString*);
+    virtual void setUserAgentOverride(ErrorString*, const String& userAgent);
+    virtual void setExtraHTTPHeaders(ErrorString*, const RefPtr<InspectorObject>&);
+    virtual void getResponseBody(ErrorString*, const String& requestId, String* content, bool* base64Encoded);
+    // FIXME: this seems to be unsued.
+    void clearCache(ErrorString*, const String* const optionalPreservedLoaderId);
 
+    virtual void canClearBrowserCache(ErrorString*, bool*);
+    virtual void clearBrowserCache(ErrorString*);
+    virtual void canClearBrowserCookies(ErrorString*, bool*);
+    virtual void clearBrowserCookies(ErrorString*);
+    virtual void setCacheDisabled(ErrorString*, bool cacheDisabled);
 
 private:
-    InspectorResourceAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorState*);
+    InspectorResourceAgent(InstrumentingAgents*, InspectorPageAgent*, InspectorClient*, InspectorState*);
 
     void enable();
 
-    InstrumentingAgents* m_instrumentingAgents;
     InspectorPageAgent* m_pageAgent;
-    InspectorState* m_state;
-    OwnPtr<EventsCollector> m_eventsCollector;
+    InspectorClient* m_client;
     InspectorFrontend::Network* m_frontend;
-    OwnPtr<InspectorFrontend::Network> m_mockFrontend;
-    OwnPtr<InspectorFrontendProxy> m_inspectorFrontendProxy;
     String m_userAgentOverride;
+    OwnPtr<NetworkResourcesData> m_resourcesData;
+    bool m_loadingXHRSynchronously;
+
+    // FIXME: InspectorResourceAgent should now be aware of style recalculation.
+    RefPtr<TypeBuilder::Network::Initiator> m_styleRecalculationInitiator;
+    bool m_isRecalculatingStyle;
 };
 
 } // namespace WebCore

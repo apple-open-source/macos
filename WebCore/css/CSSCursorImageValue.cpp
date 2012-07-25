@@ -17,7 +17,7 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- */ 
+ */
 
 #include "config.h"
 #include "CSSCursorImageValue.h"
@@ -30,6 +30,7 @@
 
 #if ENABLE(SVG)
 #include "SVGCursorElement.h"
+#include "SVGLengthContext.h"
 #include "SVGNames.h"
 #include "SVGURIReference.h"
 #endif
@@ -43,9 +44,9 @@ static inline bool isSVGCursorIdentifier(const String& url)
     return kurl.hasFragmentIdentifier();
 }
 
-static inline SVGCursorElement* resourceReferencedByCursorElement(const String& fragmentId, TreeScope* scope)
+static inline SVGCursorElement* resourceReferencedByCursorElement(const String& url, Document* document)
 {
-    Element* element = scope->getElementById(SVGURIReference::getTarget(fragmentId));
+    Element* element = SVGURIReference::targetElementFromIRIString(url, document);
     if (element && element->hasTagName(SVGNames::cursorTag))
         return static_cast<SVGCursorElement*>(element);
 
@@ -54,7 +55,7 @@ static inline SVGCursorElement* resourceReferencedByCursorElement(const String& 
 #endif
 
 CSSCursorImageValue::CSSCursorImageValue(const String& url, const IntPoint& hotSpot)
-    : CSSImageValue(url)
+    : CSSImageValue(CursorImageClass, url)
     , m_hotSpot(hotSpot)
 {
 }
@@ -62,8 +63,7 @@ CSSCursorImageValue::CSSCursorImageValue(const String& url, const IntPoint& hotS
 CSSCursorImageValue::~CSSCursorImageValue()
 {
 #if ENABLE(SVG)
-    const String& url = getStringValue();
-    if (!isSVGCursorIdentifier(url))
+    if (!isSVGCursorIdentifier(url()))
         return;
 
     HashSet<SVGElement*>::const_iterator it = m_referencedElements.begin();
@@ -72,7 +72,7 @@ CSSCursorImageValue::~CSSCursorImageValue()
     for (; it != end; ++it) {
         SVGElement* referencedElement = *it;
         referencedElement->cursorImageValueRemoved();
-        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, referencedElement->treeScope()))
+        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url(), referencedElement->document()))
             cursorElement->removeClient(referencedElement);
     }
 #endif
@@ -86,16 +86,16 @@ bool CSSCursorImageValue::updateIfSVGCursorIsUsed(Element* element)
     if (!element || !element->isSVGElement())
         return false;
 
-    const String& url = getStringValue();
-    if (!isSVGCursorIdentifier(url))
+    if (!isSVGCursorIdentifier(url()))
         return false;
 
-    if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, element->treeScope())) {
+    if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url(), element->document())) {
         // FIXME: This will override hot spot specified in CSS, which is probably incorrect.
-        float x = roundf(cursorElement->x().value(0));
+        SVGLengthContext lengthContext(0);
+        float x = roundf(cursorElement->x().value(lengthContext));
         m_hotSpot.setX(static_cast<int>(x));
 
-        float y = roundf(cursorElement->y().value(0));
+        float y = roundf(cursorElement->y().value(lengthContext));
         m_hotSpot.setY(static_cast<int>(y));
 
         if (cachedImageURL() != element->document()->completeURL(cursorElement->href()))
@@ -114,17 +114,15 @@ bool CSSCursorImageValue::updateIfSVGCursorIsUsed(Element* element)
 
 StyleCachedImage* CSSCursorImageValue::cachedImage(CachedResourceLoader* loader)
 {
-    String url = getStringValue();
-
-#if ENABLE(SVG) 
-    if (isSVGCursorIdentifier(url) && loader && loader->document()) {
+#if ENABLE(SVG)
+    if (isSVGCursorIdentifier(url()) && loader && loader->document()) {
         // FIXME: This will fail if the <cursor> element is in a shadow DOM (bug 59827)
-        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, loader->document()))
-            url = cursorElement->href();
+        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url(), loader->document()))
+            return CSSImageValue::cachedImage(loader, cursorElement->href());
     }
 #endif
 
-    return CSSImageValue::cachedImage(loader, url);
+    return CSSImageValue::cachedImage(loader, url());
 }
 
 #if ENABLE(SVG)

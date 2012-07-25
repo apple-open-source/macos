@@ -1325,7 +1325,7 @@ check-am: all-am
 	$(MAKE) $(AM_MAKEFLAGS) $(check_SCRIPTS)
 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-am
-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA) \
+all-am: Makefile $(LTLIBRARIES) $(SCRIPTS) $(MANS) $(DATA) \
 		$(HEADERS) config.h
 install-binPROGRAMS: install-libLTLIBRARIES
 
@@ -1391,7 +1391,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-binPROGRAMS install-binSCRIPTS \
+install-exec-am: install-binSCRIPTS \
 	install-libLTLIBRARIES
 
 install-html: install-html-am

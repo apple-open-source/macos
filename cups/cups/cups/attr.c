@@ -1,9 +1,9 @@
 /*
- * "$Id: attr.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: attr.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   PPD model-specific attribute routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -30,7 +30,7 @@
 /*
  * 'ppdFindAttr()' - Find the first matching attribute.
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 ppd_attr_t *				/* O - Attribute or @code NULL@ if not found */
@@ -87,7 +87,7 @@ ppdFindAttr(ppd_file_t *ppd,		/* I - PPD file data */
 /*
  * 'ppdFindNextAttr()' - Find the next matching attribute.
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 ppd_attr_t *				/* O - Attribute or @code NULL@ if not found */
@@ -331,5 +331,5 @@ _ppdNormalizeMakeAndModel(
 
 
 /*
- * End of "$Id: attr.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: attr.c 9042 2010-03-24 00:45:34Z mike $".
  */

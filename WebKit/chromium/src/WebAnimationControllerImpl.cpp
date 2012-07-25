@@ -36,7 +36,7 @@
 
 #include "WebElement.h"
 #include "WebFrameImpl.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 
 using namespace WebCore;
 
@@ -84,7 +84,7 @@ unsigned WebAnimationControllerImpl::numberOfActiveAnimations() const
     AnimationController* controller = animationController();
     if (!controller)
         return 0;
-    return controller->numberOfActiveAnimations();
+    return controller->numberOfActiveAnimations(m_frameImpl->frame()->document());
 }
 
 void WebAnimationControllerImpl::suspendAnimations() const

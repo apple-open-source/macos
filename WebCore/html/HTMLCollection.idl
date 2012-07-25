@@ -21,19 +21,18 @@
 module html {
 
     interface [
-        HasIndexGetter,
-        HasNameGetter,
-        CustomCall,
-        CustomToJS,
-        GenerateIsReachable,
-        Polymorphic
+        IndexedGetter,
+        NamedGetter,
+        CustomToJSObject,
+        JSGenerateIsReachable,
+        ObjCPolymorphic
     ] HTMLCollection {
         readonly attribute unsigned long length;
-        [Custom] Node item(in unsigned long index);
-        [Custom] Node namedItem(in DOMString name);
+        Node item(in [Optional=DefaultIsUndefined] unsigned long index);
+        [Custom] Node namedItem(in [Optional=DefaultIsUndefined] DOMString name);
 
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
-        NodeList tags(in DOMString name);
+        NodeList tags(in [Optional=DefaultIsUndefined] DOMString name);
 #endif
     };
 

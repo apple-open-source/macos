@@ -165,7 +165,7 @@ struct _heimdal_syslog_data{
     int priority;
 };
 
-static void
+static void KRB5_CALLCONV
 log_syslog(const char *timestr,
 	   const char *msg,
 	   void *data)
@@ -175,7 +175,7 @@ log_syslog(const char *timestr,
     syslog(s->priority, "%s", msg);
 }
 
-static void
+static void KRB5_CALLCONV
 close_syslog(void *data)
 {
     free(data);
@@ -216,7 +216,7 @@ struct file_data{
     int freefilename;
 };
 
-static void
+static void KRB5_CALLCONV
 log_file(const char *timestr,
 	 const char *msg,
 	 void *data)
@@ -242,7 +242,7 @@ log_file(const char *timestr,
 	fclose(fd);
 }
 
-static void
+static void KRB5_CALLCONV
 close_file(void *data)
 {
     struct file_data *f = data;
@@ -508,7 +508,7 @@ _krb5_debugx(krb5_context context,
 
     if (context == NULL || context->debug_dest == NULL)
 	return;
-	
+
     va_start(ap, fmt);
     krb5_vlog(context, context->debug_dest, level, fmt, ap);
     va_end(ap);

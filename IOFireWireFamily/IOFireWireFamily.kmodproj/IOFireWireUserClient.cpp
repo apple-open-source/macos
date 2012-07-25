@@ -28,6 +28,9 @@
 */
 /*
 	$Log: IOFireWireUserClient.cpp,v $
+	Revision 1.162  2011/12/17 00:57:00  calderon
+	<rdar://problem/9589404> IOFireWireUserClient allows arbitrarily sized stack allocations.
+
 	Revision 1.161  2009/05/08 01:10:34  calderon
 	<rdar://6863576> FireWire tracepoints should be inlined for performance
 
@@ -2173,13 +2176,18 @@ IOFireWireUserClient::localConfigDirectory_addEntry_Buffer (
 		copyUserData( (IOVirtualAddress)buffer, (IOVirtualAddress)data->getBytesNoCopy(), kr_size ) ;
 		
 		OSString * desc = NULL ;
-		if ( descCString )
+		if ( descCString && (descLen < 1024) )
 		{
-			char cStr[ descLen ] ;
-			copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
-			
-			cStr[ descLen ] = 0 ;
-			desc = OSString::withCString( cStr ) ;
+			char * cStr = new char[ descLen ];
+			if ( cStr )
+			{
+				copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
+				
+				cStr[ descLen-1 ] = 0 ;
+				desc = OSString::withCString( cStr ) ;
+				
+				delete [] cStr;
+			}
 		}
 		
 		error = dir->addEntry ( key, data, desc ) ;
@@ -2214,13 +2222,18 @@ IOFireWireUserClient::localConfigDirectory_addEntry_UInt32 (
 	}
 	
 	OSString * desc = NULL ;
-	if ( descCString )
+	if ( descCString && (descLen < 1024) )
 	{
-		char cStr[ descLen ] ;
-		copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
-		
-		cStr[ descLen ] = 0 ;
-		desc = OSString::withCString( cStr ) ;
+		char * cStr = new char[ descLen ];
+		if ( cStr )
+		{
+			copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
+			
+			cStr[ descLen-1 ] = 0 ;
+			desc = OSString::withCString( cStr ) ;
+			
+			delete [] cStr;
+		}
 	}
 
 	IOReturn error = dir->addEntry(key, value, desc) ;
@@ -2252,14 +2265,18 @@ IOFireWireUserClient::localConfigDirectory_addEntry_FWAddr (
 	}
 
 	OSString * desc = NULL ;
-	if ( descCString )
+	if ( descCString && (descLen < 1024) )
 	{
-		char cStr[ descLen ] ;
-		copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
-
-		cStr[ descLen ] = 0 ;
-		
-		desc = OSString::withCString( cStr ) ;
+		char * cStr = new char[ descLen ];
+		if ( cStr )
+		{
+			copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
+			
+			cStr[ descLen-1 ] = 0 ;
+			desc = OSString::withCString( cStr ) ;
+			
+			delete [] cStr;
+		}
 	}
 
 	IOReturn error = dir->addEntry( key, *value, desc ) ;
@@ -2314,14 +2331,18 @@ IOFireWireUserClient::localConfigDirectory_addEntry_UnitDir (
 		{
 			OSString * desc = NULL ;
 			
-			if ( descCString )
+			if ( descCString && (descLen < 1024) )
 			{
-				char cStr[ descLen ] ;
-				copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
-	
-				cStr[ descLen ] = 0 ;
-				
-				desc = OSString::withCString( cStr ) ;
+				char * cStr = new char[ descLen ];
+				if ( cStr )
+				{
+					copyUserData( (IOVirtualAddress)descCString, (IOVirtualAddress)cStr, descLen ) ;
+					
+					cStr[ descLen-1 ] = 0 ;
+					desc = OSString::withCString( cStr ) ;
+					
+					delete [] cStr;
+				}
 			}
 		
 			error = dir->addEntry( key, value, desc ) ;

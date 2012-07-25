@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -52,7 +52,7 @@ static int whence(Shell_t *,char**, int);
 int	b_command(register int argc,char *argv[],void *extra)
 {
 	register int n, flags=0;
-	register Shell_t *shp = (Shell_t*)extra;
+	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
 	opt_info.index = opt_info.offset = 0;
 	while((n = optget(argv,sh_optcommand))) switch(n)
 	{
@@ -95,7 +95,7 @@ int	b_command(register int argc,char *argv[],void *extra)
 int	b_whence(int argc,char *argv[],void *extra)
 {
 	register int flags=0, n;
-	register Shell_t *shp = (Shell_t*)extra;
+	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
 	NOT_USED(argc);
 	if(*argv[0]=='t')
 		flags = V_FLAG;
@@ -141,9 +141,7 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 	Dt_t *root;
 	Namval_t *nq;
 	char *notused;
-#ifdef PATH_BFPATH
-	Pathcomp_t *pp;
-#endif
+	Pathcomp_t *pp=0;
 	int notrack = 1;
 	if(flags&Q_FLAG)
 		flags &= ~A_FLAG;
@@ -153,9 +151,6 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 		aflag = ((flags&A_FLAG)!=0);
 		cp = 0;
 		np = 0;
-#ifdef PATH_BFPATH
-		pp = 0;
-#endif
 		if(flags&P_FLAG)
 			goto search;
 		if(flags&Q_FLAG)
@@ -200,7 +195,12 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 				if(nv_isnull(np))
 					cp = sh_translate(is_ufunction);
 				else if(is_abuiltin(np))
-					cp = sh_translate(is_builtin);
+				{
+					if(nv_isattr(np,BLT_SPC))
+						cp = sh_translate(is_spcbuiltin);
+					else
+						cp = sh_translate(is_builtin);
+				}
 				else
 					cp = sh_translate(is_function);
 			}
@@ -218,69 +218,69 @@ static int whence(Shell_t *shp,char **argv, register int flags)
 			cp=0;
 			notrack=1;
 		}
-#ifdef PATH_BFPATH
-		if(path_search(name,pp,2))
-			cp = name;
-		else
+		do
 		{
-			cp = stakptr(PATH_OFFSET);
-			if(*cp==0)
-				cp = 0;
-			else if(*cp!='/')
+			if(path_search(shp,name,&pp,2+(aflag>1)))
+				cp = name;
+			else
 			{
-				cp = path_fullname(cp);
-				tofree=1;
-			}
-		}
-#else
-		if(path_search(name,cp,2))
-			cp = name;
-		else
-			cp = shp->lastpath;
-		shp->lastpath = 0;
-#endif
-		if(flags&Q_FLAG)
-			r |= !cp;
-		else if(cp)
-		{
-			if(flags&V_FLAG)
-			{
-				if(*cp!= '/')
+				cp = stakptr(PATH_OFFSET);
+				if(*cp==0)
+					cp = 0;
+				else if(*cp!='/')
 				{
-#ifdef PATH_BFPATH
-					if(!np && (np=nv_search(name,shp->track_tree,0)))
-						sfprintf(sfstdout,"%s %s %s/%s\n",name,sh_translate(is_talias),path_pwd(0),cp);
-					else if(!np || nv_isnull(np))
-#else
-					if(!np || nv_isnull(np))
-#endif
-						sfprintf(sfstdout,"%s%s\n",name,sh_translate(is_ufunction));
-					continue;
+					cp = path_fullname(shp,cp);
+					tofree=1;
 				}
-				sfputr(sfstdout,sh_fmtq(name),' ');
-				/* built-in version of program */
-				if(*cp=='/' && (np=nv_search(cp,shp->bltin_tree,0)))
-					msg = sh_translate(is_builtver);
-				/* tracked aliases next */
-				else if(!notrack || strchr(name,'/'))
-					msg = sh_translate("is");
-				else
-					msg = sh_translate(is_talias);
-				sfputr(sfstdout,msg,' ');
 			}
-			sfputr(sfstdout,sh_fmtq(cp),'\n');
-			if(tofree)
-				free((char*)cp);
-		}
-		else if(aflag<=1) 
-		{
-			r |= 1;
-			if(flags&V_FLAG)
+			if(flags&Q_FLAG)
 			{
-				sfprintf(sfstdout,sh_translate(e_found),sh_fmtq(name));
-				sfputc(sfstdout,'\n');
+				pp = 0;
+				r |= !cp;
 			}
-		}
+			else if(cp)
+			{
+				if(flags&V_FLAG)
+				{
+					if(*cp!= '/')
+					{
+						if(!np && (np=nv_search(name,shp->track_tree,0)))
+							sfprintf(sfstdout,"%s %s %s/%s\n",name,sh_translate(is_talias),path_pwd(shp,0),cp);
+						else if(!np || nv_isnull(np))
+							sfprintf(sfstdout,"%s%s\n",name,sh_translate(is_ufunction));
+						continue;
+					}
+					sfputr(sfstdout,sh_fmtq(name),' ');
+					/* built-in version of program */
+					if(*cp=='/' && (np=nv_search(cp,shp->bltin_tree,0)))
+						msg = sh_translate(is_builtver);
+					/* tracked aliases next */
+					else if(aflag>1 || !notrack || strchr(name,'/'))
+						msg = sh_translate("is");
+					else
+						msg = sh_translate(is_talias);
+					sfputr(sfstdout,msg,' ');
+				}
+				sfputr(sfstdout,sh_fmtq(cp),'\n');
+				if(aflag)
+				{
+					if(aflag<=1)
+						aflag++;
+					if (pp)
+						pp = pp->next;
+				}
+				else
+					pp = 0;
+				if(tofree)
+					free((char*)cp);
+			}
+			else if(aflag<=1) 
+			{
+				r |= 1;
+				if(flags&V_FLAG)
+					 errormsg(SH_DICT,ERROR_exit(0),e_found,sh_fmtq(name));
+			}
+		} while(pp);
 	}
 	return(r);
 }

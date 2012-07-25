@@ -36,7 +36,9 @@
 #include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
+#include "RenderNamedFlowThread.h"
 #include "RenderQuote.h"
+#include "RenderRegion.h"
 #include "RenderStyle.h"
 #include "RenderTextFragment.h"
 #include "RenderView.h"
@@ -61,6 +63,14 @@ void RenderObjectChildList::destroyLeftoverChildren()
     }
 }
 
+static RenderNamedFlowThread* renderNamedFlowThreadContainer(RenderObject* object)
+{
+    while (object && object->isAnonymousBlock() && !object->isRenderNamedFlowThread())
+        object = object->parent();
+
+    return object && object->isRenderNamedFlowThread() ? toRenderNamedFlowThread(object) : 0;
+}
+
 RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, RenderObject* oldChild, bool fullRemove)
 {
     ASSERT(oldChild->parent() == owner);
@@ -68,7 +78,7 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
     // So that we'll get the appropriate dirty bit set (either that a normal flow child got yanked or
     // that a positioned child got yanked).  We also repaint, so that the area exposed when the child
     // disappears gets repainted properly.
-    if (!owner->documentBeingDestroyed() && fullRemove && oldChild->m_everHadLayout) {
+    if (!owner->documentBeingDestroyed() && fullRemove && oldChild->everHadLayout()) {
         oldChild->setNeedsLayoutAndPrefWidthsRecalc();
         if (oldChild->isBody())
             owner->view()->repaint();
@@ -84,8 +94,8 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
         // if we remove visible child from an invisible parent, we don't know the layer visibility any more
         RenderLayer* layer = 0;
         if (owner->style()->visibility() != VISIBLE && oldChild->style()->visibility() == VISIBLE && !oldChild->hasLayer()) {
-            layer = owner->enclosingLayer();
-            layer->dirtyVisibleContentStatus();
+            if ((layer = owner->enclosingLayer()))
+                layer->dirtyVisibleContentStatus();
         }
 
          // Keep our layer hierarchy updated.
@@ -100,6 +110,18 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
 
         if (oldChild->isPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(oldChild);
+
+        if (oldChild->isRenderRegion())
+            toRenderRegion(oldChild)->detachRegion();
+
+        if (oldChild->inRenderFlowThread() && oldChild->isBox()) {
+            oldChild->enclosingRenderFlowThread()->removeRenderBoxRegionInfo(toRenderBox(oldChild));
+            if (oldChild->canHaveRegionStyle())
+                oldChild->enclosingRenderFlowThread()->clearRenderBoxCustomStyle(toRenderBox(oldChild));
+        }
+
+        if (RenderNamedFlowThread* containerFlowThread = renderNamedFlowThreadContainer(owner))
+            containerFlowThread->removeFlowChild(oldChild);
 
 #if ENABLE(SVG)
         // Update cached boundaries in SVG renderers, if a child is removed.
@@ -160,7 +182,7 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
         RenderLayer* layer = 0;
         if (newChild->firstChild() || newChild->hasLayer()) {
             layer = owner->enclosingLayer();
-            newChild->addLayers(layer, newChild);
+            newChild->addLayers(layer);
         }
 
         // if the new child is visible but this object was not, tell the layer it has some visible content
@@ -175,9 +197,16 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
         if (newChild->isListItem())
             toRenderListItem(newChild)->updateListMarkerNumbers();
 
-        if (!newChild->isFloatingOrPositioned() && owner->childrenInline())
+        if (!newChild->isFloating() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(newChild);
+
+        if (newChild->isRenderRegion())
+            toRenderRegion(newChild)->attachRegion();
+
+        if (RenderNamedFlowThread* containerFlowThread = renderNamedFlowThreadContainer(owner))
+            containerFlowThread->addFlowChild(newChild);
     }
+
     RenderCounter::rendererSubtreeAttached(newChild);
     RenderQuote::rendererSubtreeAttached(newChild);
     newChild->setNeedsLayoutAndPrefWidthsRecalc(); // Goes up the containing block hierarchy.
@@ -220,7 +249,7 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
         RenderLayer* layer = 0;
         if (child->firstChild() || child->hasLayer()) {
             layer = owner->enclosingLayer();
-            child->addLayers(layer, child);
+            child->addLayers(layer);
         }
 
         // if the new child is visible but this object was not, tell the layer it has some visible content
@@ -237,6 +266,12 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
 
         if (!child->isFloating() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(child);
+
+        if (child->isRenderRegion())
+            toRenderRegion(child)->attachRegion();
+
+        if (RenderNamedFlowThread* containerFlowThread = renderNamedFlowThreadContainer(owner))
+            containerFlowThread->addFlowChild(child, beforeChild);
     }
 
     RenderCounter::rendererSubtreeAttached(child);
@@ -311,6 +346,88 @@ RenderObject* RenderObjectChildList::afterPseudoElementRenderer(const RenderObje
     return last;
 }
 
+void RenderObjectChildList::updateBeforeAfterStyle(RenderObject* child, PseudoId type, RenderStyle* pseudoElementStyle)
+{
+    if (!child || child->style()->styleType() != type)
+        return;
+
+    // We have generated content present still. We want to walk this content and update our
+    // style information with the new pseudo-element style.
+    child->setStyle(pseudoElementStyle);
+
+    RenderObject* beforeAfterParent = findBeforeAfterParent(child);
+    if (!beforeAfterParent)
+        return;
+
+    // When beforeAfterParent is not equal to child (e.g. in tables),
+    // we need to create new styles inheriting from pseudoElementStyle
+    // on all the intermediate parents (leaving their display same).
+    if (beforeAfterParent != child) {
+        RenderObject* curr = beforeAfterParent;
+        while (curr && curr != child) {
+            ASSERT(curr->isAnonymous());
+            RefPtr<RenderStyle> newStyle = RenderStyle::create();
+            newStyle->inheritFrom(pseudoElementStyle);
+            newStyle->setDisplay(curr->style()->display());
+            newStyle->setStyleType(curr->style()->styleType());
+            curr->setStyle(newStyle);
+            curr = curr->parent();
+        }
+    }
+
+    // Note that if we ever support additional types of generated content (which should be way off
+    // in the future), this code will need to be patched.
+    for (RenderObject* genChild = beforeAfterParent->firstChild(); genChild; genChild = genChild->nextSibling()) {
+        if (genChild->isText())
+            // Generated text content is a child whose style also needs to be set to the pseudo-element style.
+            genChild->setStyle(pseudoElementStyle);
+        else if (genChild->isImage()) {
+            // Images get an empty style that inherits from the pseudo.
+            RefPtr<RenderStyle> style = RenderStyle::create();
+            style->inheritFrom(pseudoElementStyle);
+            genChild->setStyle(style.release());
+        } else {
+            // RenderListItem may insert a list marker here. We do not need to care about this case.
+            // Otherwise, genChild must be a first-letter container. updateFirstLetter() will take care of it.
+            ASSERT(genChild->isListMarker() || genChild->style()->styleType() == FIRST_LETTER);
+        }
+    }
+}
+
+static RenderObject* createRenderForBeforeAfterContent(RenderObject* owner, const ContentData* content, RenderStyle* pseudoElementStyle)
+{
+    RenderObject* renderer = 0;
+    switch (content->type()) {
+    case CONTENT_NONE:
+        break;
+    case CONTENT_TEXT:
+        renderer = new (owner->renderArena()) RenderTextFragment(owner->document() /* anonymous object */, static_cast<const TextContentData*>(content)->text().impl());
+        renderer->setStyle(pseudoElementStyle);
+        break;
+    case CONTENT_OBJECT: {
+        RenderImage* image = new (owner->renderArena()) RenderImage(owner->document()); // anonymous object
+        RefPtr<RenderStyle> style = RenderStyle::create();
+        style->inheritFrom(pseudoElementStyle);
+        image->setStyle(style.release());
+        if (const StyleImage* styleImage = static_cast<const ImageContentData*>(content)->image())
+            image->setImageResource(RenderImageResourceStyleImage::create(const_cast<StyleImage*>(styleImage)));
+        else
+            image->setImageResource(RenderImageResource::create());
+        renderer = image;
+        break;
+    }
+    case CONTENT_COUNTER:
+        renderer = new (owner->renderArena()) RenderCounter(owner->document(), *static_cast<const CounterContentData*>(content)->counter());
+        renderer->setStyle(pseudoElementStyle);
+        break;
+    case CONTENT_QUOTE:
+        renderer = new (owner->renderArena()) RenderQuote(owner->document(), static_cast<const QuoteContentData*>(content)->quote());
+        renderer->setStyle(pseudoElementStyle);
+        break;
+    }
+    return renderer;
+}
+
 void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, PseudoId type, const RenderObject* styledObject)
 {
     // Double check that the document did in fact use generated content rules.  Otherwise we should not have been called.
@@ -356,7 +473,7 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // If we don't want generated content any longer, or if we have generated content, but it's no longer
     // identical to the new content data we want to build render objects for, then we nuke all
     // of the old generated content.
-    if (oldContentPresent && (!newContentWanted || Node::diff(child->style(), pseudoElementStyle) == Node::Detach)) {
+    if (oldContentPresent && (!newContentWanted || Node::diff(child->style(), pseudoElementStyle, owner->document()) == Node::Detach)) {
         // Nuke the child. 
         if (child->style()->styleType() == type) {
             oldContentPresent = false;
@@ -370,7 +487,7 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     if (!newContentWanted)
         return;
 
-    if (owner->isRenderInline() && !pseudoElementStyle->isDisplayInlineType() && pseudoElementStyle->floating() == FNONE &&
+    if (owner->isRenderInline() && !pseudoElementStyle->isDisplayInlineType() && !pseudoElementStyle->isFloating() &&
         !(pseudoElementStyle->position() == AbsolutePosition || pseudoElementStyle->position() == FixedPosition))
         // According to the CSS2 spec (the end of section 12.1), the only allowed
         // display values for the pseudo style are NONE and INLINE for inline flows.
@@ -380,89 +497,27 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
         pseudoElementStyle->setDisplay(INLINE);
 
     if (oldContentPresent) {
-        if (child && child->style()->styleType() == type) {
-            // We have generated content present still.  We want to walk this content and update our
-            // style information with the new pseudo-element style.
-            child->setStyle(pseudoElementStyle);
-
-            RenderObject* beforeAfterParent = findBeforeAfterParent(child);
-            if (!beforeAfterParent)
-                return;
-
-            // When beforeAfterParent is not equal to child (e.g. in tables),
-            // we need to create new styles inheriting from pseudoElementStyle 
-            // on all the intermediate parents (leaving their display same).
-            if (beforeAfterParent != child) {
-                RenderObject* curr = beforeAfterParent;
-                while (curr && curr != child) {
-                    ASSERT(curr->isAnonymous());
-                    RefPtr<RenderStyle> newStyle = RenderStyle::create();
-                    newStyle->inheritFrom(pseudoElementStyle);
-                    newStyle->setDisplay(curr->style()->display());
-                    newStyle->setStyleType(curr->style()->styleType());
-                    curr->setStyle(newStyle);
-                    curr = curr->parent();
-                }
-            }
-
-            // Note that if we ever support additional types of generated content (which should be way off
-            // in the future), this code will need to be patched.
-            for (RenderObject* genChild = beforeAfterParent->firstChild(); genChild; genChild = genChild->nextSibling()) {
-                if (genChild->isText())
-                    // Generated text content is a child whose style also needs to be set to the pseudo-element style.
-                    genChild->setStyle(pseudoElementStyle);
-                else if (genChild->isImage()) {
-                    // Images get an empty style that inherits from the pseudo.
-                    RefPtr<RenderStyle> style = RenderStyle::create();
-                    style->inheritFrom(pseudoElementStyle);
-                    genChild->setStyle(style.release());
-                } else {
-                    // RenderListItem may insert a list marker here. We do not need to care about this case.
-                    // Otherwise, genChild must be a first-letter container. updateFirstLetter() will take care of it.
-                    ASSERT(genChild->isListMarker() || genChild->style()->styleType() == FIRST_LETTER);
-                }
-            }
-        }
+        updateBeforeAfterStyle(child, type, pseudoElementStyle);
         return; // We've updated the generated content. That's all we needed to do.
     }
     
     RenderObject* insertBefore = (type == BEFORE) ? owner->virtualChildren()->firstChild() : 0;
+    if (insertBefore && insertBefore->isAnonymousBlock() && insertBefore->childrenInline() && !insertBefore->isEmpty()) {
+        // We are going to add the "before" element. We have to check whether the "insertBefore" element
+        // is an anonymous block with inline children. If it is, then we should insert the "before" element
+        // before the first inline child of the anonymous block, otherwise we will end up with the "before"
+        // element in a different block. We do this only when the anonymous block has children, otherwise
+        // we end up with the before element in a wrong block.
+        insertBefore = insertBefore->firstChild();
+    }
 
     // Generated content consists of a single container that houses multiple children (specified
     // by the content property).  This generated content container gets the pseudo-element style set on it.
     RenderObject* generatedContentContainer = 0;
-    
+
     // Walk our list of generated content and create render objects for each.
     for (const ContentData* content = pseudoElementStyle->contentData(); content; content = content->next()) {
-        RenderObject* renderer = 0;
-        switch (content->type()) {
-            case CONTENT_NONE:
-                break;
-            case CONTENT_TEXT:
-                renderer = new (owner->renderArena()) RenderTextFragment(owner->document() /* anonymous object */, content->text());
-                renderer->setStyle(pseudoElementStyle);
-                break;
-            case CONTENT_OBJECT: {
-                RenderImage* image = new (owner->renderArena()) RenderImage(owner->document()); // anonymous object
-                RefPtr<RenderStyle> style = RenderStyle::create();
-                style->inheritFrom(pseudoElementStyle);
-                image->setStyle(style.release());
-                if (StyleImage* styleImage = content->image())
-                    image->setImageResource(RenderImageResourceStyleImage::create(styleImage));
-                else
-                    image->setImageResource(RenderImageResource::create());
-                renderer = image;
-                break;
-            }
-        case CONTENT_COUNTER:
-            renderer = new (owner->renderArena()) RenderCounter(owner->document(), *content->counter());
-            renderer->setStyle(pseudoElementStyle);
-            break;
-        case CONTENT_QUOTE:
-            renderer = new (owner->renderArena()) RenderQuote(owner->document(), content->quote());
-            renderer->setStyle(pseudoElementStyle);
-            break;
-        }
+        RenderObject* renderer =  createRenderForBeforeAfterContent(owner, content, pseudoElementStyle);
 
         if (renderer) {
             if (!generatedContentContainer) {
@@ -478,7 +533,15 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
                     renderer->destroy();
                     return;
                 }
-                owner->addChild(generatedContentContainer, insertBefore);
+
+                // When we don't have a first child and are part of a continuation chain,
+                // insertBefore is incorrectly set to zero above, which causes the :before
+                // child to end up at the end of continuation chain.
+                // See https://bugs.webkit.org/show_bug.cgi?id=78380.
+                if (!insertBefore && type == BEFORE && owner->virtualContinuation())
+                    owner->addChildIgnoringContinuation(generatedContentContainer, 0);
+                else
+                    owner->addChild(generatedContentContainer, insertBefore);
             }
             if (generatedContentContainer->isChildAllowed(renderer, pseudoElementStyle))
                 generatedContentContainer->addChild(renderer);

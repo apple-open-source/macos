@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.39 2010/07/29 15:59:28 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.40 2011/09/07 19:13:49 abe Exp $";
 #endif
 
 
@@ -121,7 +121,9 @@ struct l_dev *Devtp = (struct l_dev *)NULL;
 char **Dstk = (char **)NULL;	/* the directory stack */
 int Dstkx = 0;			/* Dstk[] index */
 int Dstkn = 0;			/* Dstk[] entries allocated */
-
+efsys_list_t *Efsysl = (efsys_list_t *)NULL;
+				/* file systems for which kernel blocks are
+				 * to be eliminated */
 int ErrStat = 0;		/* path stat() error count */
 uid_t Euid;			/* effective UID of this lsof process */
 int Fand = 0;			/* -a option status */
@@ -156,11 +158,13 @@ int Foffset = 0;		/* -o option status */
 int Fovhd = 0;			/* -O option status */
 int Fport = 1;			/* -P option status */
 
-#if	defined(HASPMAPENABLED)
+#if	!defined(HASNORPC_H)
+# if	defined(HASPMAPENABLED)
 int FportMap = 1;		/* +|-M option status */
-#else	/* !defined(HASPMAPENABLED) */
+# else	/* !defined(HASPMAPENABLED) */
 int FportMap = 0;		/* +|-M option status */
-#endif	/* defined(HASPMAPENABLED) */
+# endif	/* defined(HASPMAPENABLED) */
+#endif	/* !defined(HASNORPC_H) */
 
 int Fpgid = 0;			/* -g option status */
 int Fppid = 0;			/* -R option status */

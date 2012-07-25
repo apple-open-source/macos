@@ -136,6 +136,9 @@
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
 
+/* Define to 1 if you have the <poll.h> header file. */
+#undef HAVE_POLL_H
+
 /* Define to 1 if you have the `printf' function. */
 #undef HAVE_PRINTF
 
@@ -252,9 +255,6 @@
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
 
-/* Name of package */
-#undef PACKAGE
-
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
 
@@ -270,26 +270,17 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Define to 1 if the C compiler supports function prototypes. */
-#undef PROTOTYPES
-
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
 
 /* Support for IPv6 */
 #undef SUPPORT_IP6
 
-/* Version number of package */
-#undef VERSION
-
 /* Determine what socket length (socklen_t) data type is */
 #undef XML_SOCKLEN_T
 
 /* Using the Win32 Socket implementation */
 #undef _WINSOCKAPI_
-
-/* Define like PROTOTYPES; this can be used by system headers. */
-#undef __PROTOTYPES
 
 /* Win32 Std C name mangling work-around */
 #undef snprintf

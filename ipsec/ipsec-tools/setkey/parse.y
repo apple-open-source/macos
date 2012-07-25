@@ -56,6 +56,7 @@
 #include <errno.h>
 #include <stdlib.h>
 
+#include "var.h"
 #include "libpfkey.h"
 #include "vchar.h"
 #include "extern.h"
@@ -862,7 +863,10 @@ setkeymsg_spdaddr(type, upper, policy, srcs, splen, dsts, dplen)
 	int dplen;
 {
 	struct sadb_msg *msg;
-	char buf[BUFSIZ];
+	union {                         // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        char buf[BUFSIZ];
+    }   u_buf;
 	int l, l0;
 	struct sadb_address m_addr;
 	struct addrinfo *s, *d;
@@ -876,7 +880,7 @@ setkeymsg_spdaddr(type, upper, policy, srcs, splen, dsts, dplen)
 	int saved_level, saved_id = 0;
 #endif
 
-	msg = (struct sadb_msg *)buf;
+	msg = (struct sadb_msg *)&u_buf;
 
 	if (!srcs || !dsts)
 		return -1;
@@ -885,8 +889,8 @@ setkeymsg_spdaddr(type, upper, policy, srcs, splen, dsts, dplen)
 	setkeymsg0(msg, type, SADB_SATYPE_UNSPEC, 0);
 	l = sizeof(struct sadb_msg);
 
-	sp = (struct sadb_x_policy*) (buf + l);
-	memcpy(buf + l, policy->buf, policy->len);
+	sp = ALIGNED_CAST(struct sadb_x_policy*)(u_buf.buf + l);
+	memcpy(u_buf.buf + l, policy->buf, policy->len);
 	l += policy->len;
 
 	l0 = l;
@@ -924,7 +928,7 @@ setkeymsg_spdaddr(type, upper, policy, srcs, splen, dsts, dplen)
 			    (splen >= 0 ? splen : plen);
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), (caddr_t)sa, salen);
 
 			/* set dst */
@@ -938,12 +942,12 @@ setkeymsg_spdaddr(type, upper, policy, srcs, splen, dsts, dplen)
 			    (dplen >= 0 ? dplen : plen);
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), sa, salen);
 
 			msg->sadb_msg_len = PFKEY_UNIT64(l);
 
-			sendkeymsg(buf, l);
+			sendkeymsg(u_buf.buf, l);
 
 #ifdef HAVE_POLICY_FWD
 			/* create extra call for FWD policy */
@@ -989,20 +993,23 @@ setkeymsg_spdaddr_tag(type, tag, policy)
 	vchar_t *policy;
 {
 	struct sadb_msg *msg;
-	char buf[BUFSIZ];
+	union {                         // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        char buf[BUFSIZ];
+    }   u_buf;
 	int l, l0;
 #ifdef SADB_X_EXT_TAG
 	struct sadb_x_tag m_tag;
 #endif
 	int n;
 
-	msg = (struct sadb_msg *)buf;
+	msg = (struct sadb_msg *)&u_buf;
 
 	/* fix up length afterwards */
 	setkeymsg0(msg, type, SADB_SATYPE_UNSPEC, 0);
 	l = sizeof(struct sadb_msg);
 
-	memcpy(buf + l, policy->buf, policy->len);
+	memcpy(u_buf.buf + l, policy->buf, policy->len);
 	l += policy->len;
 
 	l0 = l;
@@ -1021,7 +1028,7 @@ setkeymsg_spdaddr_tag(type, tag, policy)
 
 	msg->sadb_msg_len = PFKEY_UNIT64(l);
 
-	sendkeymsg(buf, l);
+	sendkeymsg(u_buf.buf, l);
 
 	return 0;
 }
@@ -1036,7 +1043,10 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 	int no_spi;
 {
 	struct sadb_msg *msg;
-	char buf[BUFSIZ];
+	union {                         // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        char buf[BUFSIZ];
+    }   u_buf;
 	int l, l0, len;
 	struct sadb_sa m_sa;
 	struct sadb_x_sa2 m_sa2;
@@ -1047,7 +1057,7 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 	struct sockaddr *sa;
 	int salen;
 
-	msg = (struct sadb_msg *)buf;
+	msg = (struct sadb_msg *)&u_buf;
 
 	if (!srcs || !dsts)
 		return -1;
@@ -1067,7 +1077,7 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 		m_sa.sadb_sa_encrypt = p_alg_enc;
 		m_sa.sadb_sa_flags = p_ext;
 
-		memcpy(buf + l, &m_sa, len);
+		memcpy(u_buf.buf + l, &m_sa, len);
 		l += len;
 
 		len = sizeof(struct sadb_x_sa2);
@@ -1076,7 +1086,7 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 		m_sa2.sadb_x_sa2_mode = p_mode;
 		m_sa2.sadb_x_sa2_reqid = p_reqid;
 
-		memcpy(buf + l, &m_sa2, len);
+		memcpy(u_buf.buf + l, &m_sa2, len);
 		l += len;
 	}
 
@@ -1114,7 +1124,7 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 			m_addr.sadb_address_prefixlen = plen;
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), sa, salen);
 
 			/* set dst */
@@ -1127,12 +1137,12 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 			m_addr.sadb_address_prefixlen = plen;
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), sa, salen);
 
 			msg->sadb_msg_len = PFKEY_UNIT64(l);
 
-			sendkeymsg(buf, l);
+			sendkeymsg(u_buf.buf, l);
 
 			n++;
 		}
@@ -1147,7 +1157,7 @@ setkeymsg_addr(type, satype, srcs, dsts, no_spi)
 #ifdef SADB_X_EXT_NAT_T_TYPE
 static u_int16_t get_port (struct addrinfo *addr)
 {
-	struct sockaddr *s = addr->ai_addr;
+	struct sockaddr_storage *s = addr->ai_addr;
 	u_int16_t port = 0;
 
 	switch (s->sa_family) {
@@ -1181,7 +1191,10 @@ setkeymsg_add(type, satype, srcs, dsts)
 	struct addrinfo *dsts;
 {
 	struct sadb_msg *msg;
-	char buf[BUFSIZ];
+	union {                         // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        char buf[BUFSIZ];
+    }   u_buf;
 	int l, l0, len;
 	struct sadb_sa m_sa;
 	struct sadb_x_sa2 m_sa2;
@@ -1192,7 +1205,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 	struct sockaddr *sa;
 	int salen;
 
-	msg = (struct sadb_msg *)buf;
+	msg = (struct sadb_msg *)&u_buf;
 
 	if (!srcs || !dsts)
 		return -1;
@@ -1215,7 +1228,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 		m.key.sadb_key_bits = p_key_enc_len * 8;
 		m.key.sadb_key_reserved = 0;
 
-		setvarbuf(buf, &l, &m.ext, sizeof(m.key),
+		setvarbuf(u_buf.buf, &l, &m.ext, sizeof(m.key),
 			p_key_enc, p_key_enc_len);
 	}
 
@@ -1233,7 +1246,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 		m.key.sadb_key_bits = p_key_auth_len * 8;
 		m.key.sadb_key_reserved = 0;
 
-		setvarbuf(buf, &l, &m.ext, sizeof(m.key),
+		setvarbuf(u_buf.buf, &l, &m.ext, sizeof(m.key),
 			p_key_auth, p_key_auth_len);
 	}
 
@@ -1249,7 +1262,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 		m_lt.sadb_lifetime_addtime = p_lt_hard;
 		m_lt.sadb_lifetime_usetime = 0;
 
-		memcpy(buf + l, &m_lt, slen);
+		memcpy(u_buf.buf + l, &m_lt, slen);
 		l += slen;
 	}
 
@@ -1265,7 +1278,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 		m_lt.sadb_lifetime_addtime = p_lt_soft;
 		m_lt.sadb_lifetime_usetime = 0;
 
-		memcpy(buf + l, &m_lt, slen);
+		memcpy(u_buf.buf + l, &m_lt, slen);
 		l += slen;
 	}
 
@@ -1279,7 +1292,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 	m_sa.sadb_sa_encrypt = p_alg_enc;
 	m_sa.sadb_sa_flags = p_ext;
 
-	memcpy(buf + l, &m_sa, len);
+	memcpy(u_buf.buf + l, &m_sa, len);
 	l += len;
 
 	len = sizeof(struct sadb_x_sa2);
@@ -1288,7 +1301,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 	m_sa2.sadb_x_sa2_mode = p_mode;
 	m_sa2.sadb_x_sa2_reqid = p_reqid;
 
-	memcpy(buf + l, &m_sa2, len);
+	memcpy(u_buf.buf + l, &m_sa2, len);
 	l += len;
 
 #ifdef SADB_X_EXT_NAT_T_TYPE
@@ -1366,7 +1379,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 			m_addr.sadb_address_prefixlen = plen;
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), sa, salen);
 
 			/* set dst */
@@ -1379,7 +1392,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 			m_addr.sadb_address_prefixlen = plen;
 			m_addr.sadb_address_reserved = 0;
 
-			setvarbuf(buf, &l, (struct sadb_ext *)&m_addr,
+			setvarbuf(u_buf.buf, &l, (struct sadb_ext *)&m_addr,
 			    sizeof(m_addr), sa, salen);
 
 #ifdef SADB_X_EXT_NAT_T_TYPE
@@ -1408,7 +1421,7 @@ setkeymsg_add(type, satype, srcs, dsts)
 #endif
 			msg->sadb_msg_len = PFKEY_UNIT64(l);
 
-			sendkeymsg(buf, l);
+			sendkeymsg(u_buf.buf, l);
 
 			n++;
 		}

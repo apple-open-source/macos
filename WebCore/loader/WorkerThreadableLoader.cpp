@@ -44,8 +44,8 @@
 #include "WorkerContext.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerThread.h"
+#include <wtf/MainThread.h>
 #include <wtf/OwnPtr.h>
-#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 using namespace std;
@@ -111,10 +111,11 @@ void WorkerThreadableLoader::MainThreadBridge::mainThreadCreateLoader(ScriptExec
     Document* document = static_cast<Document*>(context);
 
     OwnPtr<ResourceRequest> request(ResourceRequest::adopt(requestData));
+    request->setHTTPReferrer(outgoingReferrer);
     // FIXME: If the a site requests a local resource, then this will return a non-zero value but the sync path
     // will return a 0 value.  Either this should return 0 or the other code path should do a callback with
     // a failure.
-    thisPtr->m_mainThreadLoader = DocumentThreadableLoader::create(document, thisPtr, *request, options, outgoingReferrer);
+    thisPtr->m_mainThreadLoader = DocumentThreadableLoader::create(document, thisPtr, *request, options);
     ASSERT(thisPtr->m_mainThreadLoader);
 }
 
@@ -177,16 +178,16 @@ void WorkerThreadableLoader::MainThreadBridge::didSendData(unsigned long long by
     m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&workerContextDidSendData, m_workerClientWrapper, bytesSent, totalBytesToBeSent), m_taskMode);
 }
 
-static void workerContextDidReceiveResponse(ScriptExecutionContext* context, RefPtr<ThreadableLoaderClientWrapper> workerClientWrapper, PassOwnPtr<CrossThreadResourceResponseData> responseData)
+static void workerContextDidReceiveResponse(ScriptExecutionContext* context, RefPtr<ThreadableLoaderClientWrapper> workerClientWrapper, unsigned long identifier, PassOwnPtr<CrossThreadResourceResponseData> responseData)
 {
     ASSERT_UNUSED(context, context->isWorkerContext());
     OwnPtr<ResourceResponse> response(ResourceResponse::adopt(responseData));
-    workerClientWrapper->didReceiveResponse(*response);
+    workerClientWrapper->didReceiveResponse(identifier, *response);
 }
 
-void WorkerThreadableLoader::MainThreadBridge::didReceiveResponse(const ResourceResponse& response)
+void WorkerThreadableLoader::MainThreadBridge::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
 {
-    m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&workerContextDidReceiveResponse, m_workerClientWrapper, response), m_taskMode);
+    m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&workerContextDidReceiveResponse, m_workerClientWrapper, identifier, response), m_taskMode);
 }
 
 static void workerContextDidReceiveData(ScriptExecutionContext* context, RefPtr<ThreadableLoaderClientWrapper> workerClientWrapper, PassOwnPtr<Vector<char> > vectorData)
@@ -246,18 +247,6 @@ static void workerContextDidFailRedirectCheck(ScriptExecutionContext* context, R
 void WorkerThreadableLoader::MainThreadBridge::didFailRedirectCheck()
 {
     m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&workerContextDidFailRedirectCheck, m_workerClientWrapper), m_taskMode);
-}
-
-static void workerContextDidReceiveAuthenticationCancellation(ScriptExecutionContext* context, RefPtr<ThreadableLoaderClientWrapper> workerClientWrapper, PassOwnPtr<CrossThreadResourceResponseData> responseData)
-{
-    ASSERT_UNUSED(context, context->isWorkerContext());
-    OwnPtr<ResourceResponse> response(ResourceResponse::adopt(responseData));
-    workerClientWrapper->didReceiveAuthenticationCancellation(*response);
-}
-
-void WorkerThreadableLoader::MainThreadBridge::didReceiveAuthenticationCancellation(const ResourceResponse& response)
-{
-    m_loaderProxy.postTaskForModeToWorkerContext(createCallbackTask(&workerContextDidReceiveAuthenticationCancellation, m_workerClientWrapper, response), m_taskMode);
 }
 
 } // namespace WebCore

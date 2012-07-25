@@ -1,6 +1,8 @@
-CC = /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/gcc-4.2
-SYSROOT = /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.Internal.sdk
-PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
+SDK = xcodebuild -showsdks | sed -n 's/.*\(iphoneos.*internal\)/\1/p' | head -1
+CC = /Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/llvm-gcc-4.2
+SYSROOT = echo /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS*.Internal.sdk
+SYSROOTP = /Developer/Platforms/iPhoneOS.platform
+PF_INC = -F`$(SYSROOT)`/System/Library/PrivateFrameworks
 
 certattrs: EAPCertificateUtil.c
 	cc -Wall -DTEST_EAPSecCertificateCopyAttributesDictionary -g -o certattrs EAPCertificateUtil.c myCFUtil.c EAPSecurity.c EAPTLSUtil.c printdata.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
@@ -38,8 +40,8 @@ eapsectrust: EAPTLSUtil.c
 test_server_names: EAPTLSUtil.c
 	cc -Wall -I. -DTEST_SERVER_NAMES -g -o test_server_names EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c printdata.c myCFUtil.c -framework Security -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
-simtlv: eapsim_plugin.c
-	cc -g -Wall -I. -DTEST_TLVLIST_PARSE -o simtlv eapsim_plugin.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+simtlv: eapsim_plugin.c SIMAccess.c
+	cc -g -Wall -Wcast-align -I. -DTEST_TLVLIST_PARSE -o simtlv eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
 rand_dups: eapsim_plugin.c
 	cc -g -Wall -I. -DTEST_RAND_DUPS -o rand_dups fips186prf.c fr_sha1.c myCFUtil.c eapsim_plugin.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
@@ -59,16 +61,16 @@ fips186prf_p: fips186prf.c
 sim_crypto_p: eapsim_plugin.c
 	$(CC) -arch armv6 -isysroot $(SYSROOT) -g -Wall -I. -DTEST_SIM_CRYPTO -o sim_crypto_p eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
-simtlv_p: eapsim_plugin.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -g -Wall -I. -DTEST_TLVLIST_PARSE -o simtlv_p eapsim_plugin.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
+simtlv_p: eapsim_plugin.c SIMAccess.c
+	$(CC) -arch armv6 -isysroot $(SYSROOT) -g -Wcast-align -Wall -I. -DTEST_TLVLIST_PARSE -o simtlv_p eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -F/System/Library/PrivateFrameworks
 
 siminfo: eapsim_plugin.c
 	$(CC) -arch armv6 -isysroot $(SYSROOT) -I. -g -Wall -DTEST_SIM_INFO -o siminfo eapsim_plugin.c SIMAccess.c fips186prf.c fr_sha1.c myCFUtil.c printdata.c -framework CoreFoundation -framework SystemConfiguration -framework CoreTelephony $(PF_INC)
 	codesign -s - -f siminfo
 
 SIMAccess: SIMAccess.c
-	$(CC) -DTEST_SIMACCESS -arch armv6 -isysroot $(SYSROOT) -I. -g -Wall -o SIMAccess SIMAccess.c printdata.c -framework CoreFoundation -framework CoreTelephony $(PF_INC)
-	codesign -s - -f SIMAccess
+	xcrun -sdk `$(SDK)` cc -DTARGET_OS_EMBEDDED -isysroot `$(SYSROOT)` -DTEST_SIMACCESS -arch armv7 -I. -g -Wall -o SIMAccess SIMAccess.c printdata.c -framework CoreFoundation -framework CoreTelephony $(PF_INC)
+	CODESIGN_ALLOCATE=/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/codesign_allocate xcrun -sdk `$(SDK)` codesign -s - -f --entitlements ../eapolclient.tproj/entitlements.plist SIMAccess
 
 verify_server: EAPTLSUtil.c
 	cc -g -DTEST_EAPTLSVerifyServerCertificateChain -o verify_server EAPTLSUtil.c EAPCertificateUtil.c EAPSecurity.c myCFUtil.c printdata.c -framework CoreFoundation -framework Security -F/System/Library/PrivateFrameworks

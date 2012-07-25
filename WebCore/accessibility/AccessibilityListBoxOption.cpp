@@ -83,9 +83,18 @@ bool AccessibilityListBoxOption::isSelected() const
     return static_cast<HTMLOptionElement*>(m_optionElement)->selected();
 }
 
-IntRect AccessibilityListBoxOption::elementRect() const
+bool AccessibilityListBoxOption::isSelectedOptionActive() const
 {
-    IntRect rect;
+    HTMLSelectElement* listBoxParentNode = listBoxOptionParentNode();
+    if (!listBoxParentNode)
+        return false;
+
+    return listBoxParentNode->activeSelectionEndListIndex() == listBoxOptionIndex();
+}
+
+LayoutRect AccessibilityListBoxOption::elementRect() const
+{
+    LayoutRect rect;
     if (!m_optionElement)
         return rect;
     
@@ -97,10 +106,10 @@ IntRect AccessibilityListBoxOption::elementRect() const
     if (!listBoxRenderer)
         return rect;
     
-    IntRect parentRect = listBoxRenderer->document()->axObjectCache()->getOrCreate(listBoxRenderer)->boundingBoxRect();
+    LayoutRect parentRect = listBoxRenderer->document()->axObjectCache()->getOrCreate(listBoxRenderer)->boundingBoxRect();
     int index = listBoxOptionIndex();
     if (index != -1)
-        rect = toRenderListBox(listBoxRenderer)->itemBoundingBoxRect(parentRect.x(), parentRect.y(), index);
+        rect = toRenderListBox(listBoxRenderer)->itemBoundingBoxRect(parentRect.location(), index);
     
     return rect;
 }
@@ -180,7 +189,7 @@ void AccessibilityListBoxOption::setSelected(bool selected)
         return;
     
     // Convert from the entire list index to the option index.
-    int optionIndex = static_cast<SelectElement*>(selectElement)->listToOptionIndex(listBoxOptionIndex());
+    int optionIndex = selectElement->listToOptionIndex(listBoxOptionIndex());
     selectElement->accessKeySetSelectedIndex(optionIndex);
 }
 
@@ -207,7 +216,7 @@ int AccessibilityListBoxOption::listBoxOptionIndex() const
     if (!selectElement) 
         return -1;
     
-    const Vector<Element*>& listItems = selectElement->listItems();
+    const Vector<HTMLElement*>& listItems = selectElement->listItems();
     unsigned length = listItems.size();
     for (unsigned i = 0; i < length; i++)
         if (listItems[i] == m_optionElement)

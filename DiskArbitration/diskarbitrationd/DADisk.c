@@ -63,10 +63,8 @@ struct __DADisk
     io_object_t            _propertyNotification;
     CFDataRef              _serialization;
     DADiskState            _state;
-    gid_t                  _userEGID;
-    uid_t                  _userEUID;
-    gid_t                  _userRGID;
-    uid_t                  _userRUID;
+    gid_t                  _userGID;
+    uid_t                  _userUID;
 };
 
 typedef struct __DADisk __DADisk;
@@ -140,10 +138,8 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_propertyNotification = IO_OBJECT_NULL;
         disk->_serialization        = NULL;
         disk->_state                = 0;
-        disk->_userEGID             = ___GID_WHEEL;
-        disk->_userEUID             = ___UID_ROOT;
-        disk->_userRGID             = ___GID_WHEEL;
-        disk->_userRUID             = ___UID_ROOT;
+        disk->_userGID              = ___GID_WHEEL;
+        disk->_userUID              = ___UID_ROOT;
 
         assert( disk->_description );
         assert( disk->_id          );
@@ -813,22 +809,6 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
      * Create the disk state -- owner.
      */
 
-    object = CFDictionaryGetValue( disk->_description, kDADiskDescriptionMediaRemovableKey );
-
-    if ( object == kCFBooleanTrue )
-    {
-        disk->_userRGID = ___GID_UNKNOWN;
-        disk->_userRUID = ___UID_UNKNOWN;
-    }
-
-    object = CFDictionaryGetValue( disk->_description, kDADiskDescriptionDeviceInternalKey );
-
-    if ( object == kCFBooleanFalse )
-    {
-        disk->_userRGID = ___GID_UNKNOWN;
-        disk->_userRUID = ___UID_UNKNOWN;
-    }
-
     object = IORegistryEntrySearchCFProperty( media,
                                               kIOServicePlane,
                                               CFSTR( "owner-uid" ),
@@ -844,15 +824,13 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
             CFNumberGetValue( object, kCFNumberIntType, &value );
 
-            disk->_userEUID = value;
-            disk->_userRUID = value;
+            disk->_userUID = value;
 
             user = getpwuid( value );
 
             if ( user )
             {
-                disk->_userEGID = user->pw_gid;
-                disk->_userRGID = user->pw_gid;
+                disk->_userGID = user->pw_gid;
             }
         }
 
@@ -873,8 +851,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
             CFNumberGetValue( object, kCFNumberIntType, &value );
 
-            disk->_userEGID = value;
-            disk->_userRGID = value;
+            disk->_userGID = value;
         }
 
         CFRelease( object );
@@ -1021,15 +998,13 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                         disk->_state |= kDADiskStateStagedAuthorize;
                         disk->_state |= kDADiskStateStagedMount;
 
-                        disk->_userEUID = fs->f_owner;
-                        disk->_userRUID = fs->f_owner;
+                        disk->_userUID = fs->f_owner;
 
                         user = getpwuid( fs->f_owner );
 
                         if ( user )
                         {
-                            disk->_userEGID = user->pw_gid;
-                            disk->_userRGID = user->pw_gid;
+                            disk->_userGID = user->pw_gid;
                         }
                     }
 
@@ -1170,24 +1145,14 @@ CFTypeID DADiskGetTypeID( void )
     return __kDADiskTypeID;
 }
 
-gid_t DADiskGetUserEGID( DADiskRef disk )
+gid_t DADiskGetUserGID( DADiskRef disk )
 {
-    return disk->_userEGID;
+    return disk->_userGID;
 }
 
-uid_t DADiskGetUserEUID( DADiskRef disk )
+uid_t DADiskGetUserUID( DADiskRef disk )
 {
-    return disk->_userEUID;
-}
-
-gid_t DADiskGetUserRGID( DADiskRef disk )
-{
-    return disk->_userRGID;
-}
-
-uid_t DADiskGetUserRUID( DADiskRef disk )
-{
-    return disk->_userRUID;
+    return disk->_userUID;
 }
 
 void DADiskInitialize( void )
@@ -1375,14 +1340,4 @@ void DADiskSetState( DADiskRef disk, DADiskState state, Boolean value )
 {
     disk->_state &= ~state;
     disk->_state |= value ? state : 0;
-}
-
-void DADiskSetUserEGID( DADiskRef disk, gid_t userGID )
-{
-    disk->_userEGID = userGID;
-}
-
-void DADiskSetUserEUID( DADiskRef disk, uid_t userUID )
-{
-    disk->_userEUID = userUID;
 }

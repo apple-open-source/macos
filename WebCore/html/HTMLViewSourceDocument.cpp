@@ -28,6 +28,7 @@
 #include "Attribute.h"
 #include "DOMImplementation.h"
 #include "HTMLAnchorElement.h"
+#include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLDivElement.h"
@@ -52,7 +53,7 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(Frame* frame, const KURL& url, co
     , m_type(mimeType)
 {
     setUsesBeforeAfterRules(true);
-    setUsesViewSourceStyles(true);
+    setIsViewSource(true);
 
     setCompatibilityMode(QuirksMode);
     lockCompatibilityMode();
@@ -60,11 +61,7 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(Frame* frame, const KURL& url, co
 
 PassRefPtr<DocumentParser> HTMLViewSourceDocument::createParser()
 {
-    if (m_type == "text/html" || m_type == "application/xhtml+xml" || m_type == "image/svg+xml" || DOMImplementation::isXMLMIMEType(m_type)
-#if ENABLE(XHTMLMP)
-        || m_type == "application/vnd.wap.xhtml+xml"
-#endif
-        )
+    if (m_type == "text/html" || m_type == "application/xhtml+xml" || m_type == "image/svg+xml" || DOMImplementation::isXMLMIMEType(m_type))
         return HTMLViewSourceParser::create(this);
 
     return TextViewSourceParser::create(this);
@@ -82,9 +79,7 @@ void HTMLViewSourceDocument::createContainingTable()
     // Create a line gutter div that can be used to make sure the gutter extends down the height of the whole
     // document.
     RefPtr<HTMLDivElement> div = HTMLDivElement::create(this);
-    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
-    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-gutter-backdrop"));
-    div->setAttributeMap(attrs.release());
+    div->setAttribute(classAttr, "webkit-line-gutter-backdrop");
     body->parserAddChild(div);
     div->attach();
 
@@ -103,22 +98,24 @@ void HTMLViewSourceDocument::addSource(const String& source, HTMLToken& token)
         createContainingTable();
 
     switch (token.type()) {
-    case HTMLToken::Uninitialized:
+    case HTMLTokenTypes::Uninitialized:
         ASSERT_NOT_REACHED();
         break;
-    case HTMLToken::DOCTYPE:
+    case HTMLTokenTypes::DOCTYPE:
         processDoctypeToken(source, token);
         break;
-    case HTMLToken::EndOfFile:
+    case HTMLTokenTypes::EndOfFile:
+        if (!m_tbody->hasChildNodes())
+            addLine(String());
         break;
-    case HTMLToken::StartTag:
-    case HTMLToken::EndTag:
+    case HTMLTokenTypes::StartTag:
+    case HTMLTokenTypes::EndTag:
         processTagToken(source, token);
         break;
-    case HTMLToken::Comment:
+    case HTMLTokenTypes::Comment:
         processCommentToken(source, token);
         break;
-    case HTMLToken::Character:
+    case HTMLTokenTypes::Character:
         processCharacterToken(source, token);
         break;
     }
@@ -188,9 +185,7 @@ PassRefPtr<Element> HTMLViewSourceDocument::addSpanWithClassName(const AtomicStr
     }
 
     RefPtr<HTMLElement> span = HTMLElement::create(spanTag, this);
-    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
-    attrs->addAttribute(Attribute::createMapped(classAttr, className));
-    span->setAttributeMap(attrs.release());
+    span->setAttribute(classAttr, className);
     m_current->parserAddChild(span);
     span->attach();
     return span.release();
@@ -205,17 +200,13 @@ void HTMLViewSourceDocument::addLine(const AtomicString& className)
 
     // Create a cell that will hold the line number (it is generated in the stylesheet using counters).
     RefPtr<HTMLTableCellElement> td = HTMLTableCellElement::create(tdTag, this);
-    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
-    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-number"));
-    td->setAttributeMap(attrs.release());
+    td->setAttribute(classAttr, "webkit-line-number");
     trow->parserAddChild(td);
     td->attach();
 
     // Create a second cell for the line contents
     td = HTMLTableCellElement::create(tdTag, this);
-    attrs = NamedNodeMap::create();
-    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-content"));
-    td->setAttributeMap(attrs.release());
+    td->setAttribute(classAttr, "webkit-line-content");
     trow->parserAddChild(td);
     td->attach();
     m_current = m_td = td;
@@ -234,6 +225,16 @@ void HTMLViewSourceDocument::addLine(const AtomicString& className)
     }
 }
 
+void HTMLViewSourceDocument::finishLine()
+{
+    if (!m_current->hasChildNodes()) {
+        RefPtr<HTMLBRElement> br = HTMLBRElement::create(this);
+        m_current->parserAddChild(br);
+        br->attach();
+    }
+    m_current = m_tbody;
+}
+
 void HTMLViewSourceDocument::addText(const String& text, const AtomicString& className)
 {
     if (text.isEmpty())
@@ -245,23 +246,20 @@ void HTMLViewSourceDocument::addText(const String& text, const AtomicString& cla
     unsigned size = lines.size();
     for (unsigned i = 0; i < size; i++) {
         String substring = lines[i];
+        if (m_current == m_tbody)
+            addLine(className);
         if (substring.isEmpty()) {
             if (i == size - 1)
                 break;
-            substring = " ";
+            finishLine();
+            continue;
         }
-        if (m_current == m_tbody)
-            addLine(className);
         RefPtr<Text> t = Text::create(this, substring);
         m_current->parserAddChild(t);
         t->attach();
         if (i < size - 1)
-            m_current = m_tbody;
+            finishLine();
     }
-
-    // Set current to m_tbody if the last character was a newline.
-    if (text[text.length() - 1] == '\n')
-        m_current = m_tbody;
 }
 
 int HTMLViewSourceDocument::addRange(const String& source, int start, int end, const String& className, bool isLink, bool isAnchor)
@@ -286,9 +284,7 @@ int HTMLViewSourceDocument::addRange(const String& source, int start, int end, c
 PassRefPtr<Element> HTMLViewSourceDocument::addBase(const AtomicString& href)
 {
     RefPtr<HTMLBaseElement> base = HTMLBaseElement::create(baseTag, this);
-    RefPtr<NamedNodeMap> attributeMap = NamedNodeMap::create();
-    attributeMap->addAttribute(Attribute::createMapped(hrefAttr, href));
-    base->setAttributeMap(attributeMap.release());
+    base->setAttribute(hrefAttr, href);
     m_current->parserAddChild(base);
     base->attach();
     return base.release();
@@ -301,16 +297,14 @@ PassRefPtr<Element> HTMLViewSourceDocument::addLink(const AtomicString& url, boo
 
     // Now create a link for the attribute value instead of a span.
     RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::create(this);
-    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
     const char* classValue;
     if (isAnchor)
         classValue = "webkit-html-attribute-value webkit-html-external-link";
     else
         classValue = "webkit-html-attribute-value webkit-html-resource-link";
-    attrs->addAttribute(Attribute::createMapped(classAttr, classValue));
-    attrs->addAttribute(Attribute::createMapped(targetAttr, "_blank"));
-    attrs->addAttribute(Attribute::createMapped(hrefAttr, url));
-    anchor->setAttributeMap(attrs.release());
+    anchor->setAttribute(classAttr, classValue);
+    anchor->setAttribute(targetAttr, "_blank");
+    anchor->setAttribute(hrefAttr, url);
     m_current->parserAddChild(anchor);
     anchor->attach();
     return anchor.release();

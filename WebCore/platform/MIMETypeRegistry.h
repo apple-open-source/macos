@@ -36,9 +36,8 @@ namespace WebCore {
 class MIMETypeRegistry {
 public:
     static String getMIMETypeForExtension(const String& extension);
-#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
-    static String getMIMETypeForExtensionThreadSafe(const String& extension);
-#endif
+    static String getWellKnownMIMETypeForExtension(const String& extension);
+
     static Vector<String> getExtensionsForMIMEType(const String& type);
     static String getPreferredExtensionForMIMEType(const String& type);
     static String getMediaMIMETypeForExtension(const String& extension);
@@ -85,6 +84,8 @@ public:
     static HashSet<String>& getSupportedNonImageMIMETypes();
     static HashSet<String>& getSupportedMediaMIMETypes();
     static HashSet<String>& getUnsupportedTextMIMETypes();
+
+    static String getNormalizedMIMEType(const String&);
 };
 
 const String& defaultMIMEType();

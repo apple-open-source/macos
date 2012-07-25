@@ -146,6 +146,7 @@ typedef enum {
 #define CFNUMBER_BOOL		"CFNumber (0 or 1)"
 #define CFSTRING		"CFString"
 
+#define ARP			"ARP"
 #define ACCESSPOINTNAME		"AccessPointName"
 #define ACSP			"ACSP"			// Apple Client Server Protocol
 #define ACTIVE			"Active"
@@ -274,6 +275,7 @@ typedef enum {
 #define LCP			"LCP"
 #define LINK			"Link"
 #define LINKLOCAL		"LinkLocal"
+#define LINKQUALITY		"LinkQuality"
 #define LOCALCERTIFICATE	"LocalCertificate"
 #define LOCALHOSTNAME		"LocalHostName"
 #define LOCALIDENTIFIER		"LocalIdentifier"
@@ -348,6 +350,7 @@ typedef enum {
 #define REMINDER		"Reminder"
 #define REMINDERTIME		"ReminderTime"
 #define REMOTEADDRESS		"RemoteAddress"
+#define RESOLVED		"Resolved"
 #define RETRYCONNECTTIME	"RetryConnectTime"
 #define ROOTSEPARATOR		"RootSeparator"
 #define ROUTE			"Route"
@@ -503,6 +506,7 @@ static schemaDefinition names[] = {
   { GROUP_PRIVATE, NETENT, "Network Entity Keys", NULL, NULL },
 
     { SC_10_5_PRIVATE, NETENT, EAPOL, NULL, CFDICTIONARY },
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETENT, LINKQUALITY, NULL, CFDICTIONARY}, 
     { SC_10_7_IPHONE_4_0_PRIVATE, NETENT, LOOPBACK, NULL, CFDICTIONARY },
     { SC_10_6_IPHONE_3_0_PRIVATE, NETENT, ONDEMAND, NULL, CFDICTIONARY },
     { SC_10_6_IPHONE_2_0_PRIVATE, NETENT, SERVICE, "__SERVICE__", CFDICTIONARY },
@@ -718,6 +722,9 @@ static schemaDefinition names[] = {
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV4 ROUTE, SUBNETMASK, NULL, CFSTRING },
     { SC_10_7_IPHONE_4_0_PRIVATE, NETPROP IPV4 ROUTE, GATEWAY ADDRESS, NULL, CFSTRING },
     { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP IPV4, ARP RESOLVED HARDWARE ADDRESS, NULL, CFSTRING },
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP IPV4, ARP RESOLVED IP ADDRESS, NULL, CFSTRING },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP IPV6, KEY_PREFIX NETENT IPV6 " Entity Keys", NULL, NULL },
 
@@ -757,6 +764,11 @@ static schemaDefinition names[] = {
     { SC_10_1, NETPROP LINK, ACTIVE, NULL, CFBOOLEAN },
     { SC_10_2, NETPROP LINK, DETACHING, NULL, CFBOOLEAN },
     { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, NETPROP LINK, KEY_PREFIX NETENT LINKQUALITY " Entity Keys", NULL, NULL },
+
+    { SC_10_7_IPHONE_5_0_PRIVATE, NETPROP, LINKQUALITY, NULL, CFNUMBER},
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP MODEM, KEY_PREFIX NETENT MODEM " (Hardware) Entity Keys", NULL, NULL },
 

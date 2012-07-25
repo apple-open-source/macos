@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -143,10 +143,12 @@ _dnsinfo_parse_nameserver(char *token)
 
 		switch (sa->sa_family) {
 			case AF_INET :
-				((struct sockaddr_in *)sa)->sin_port = port;
+				/* ALIGN: cast ok, sockaddr was malloc'd */
+				((struct sockaddr_in *)(void *)sa)->sin_port = port;
 				break;
 			case AF_INET6 :
-				((struct sockaddr_in6 *)sa)->sin6_port = port;
+				/* ALIGN: cast ok, sockaddr was malloc'd */
+				((struct sockaddr_in6 *)(void *)sa)->sin6_port = port;
 				break;
 		}
 	}
@@ -182,7 +184,8 @@ _dnsinfo_parse_sortaddr(char *token)
 		// if not AF_INET
 		goto done;
 	} else {
-		addr = ((struct sockaddr_in *)sa)->sin_addr;
+		/* ALIGN: cast ok, sockaddr was malloc'd */
+		addr = ((struct sockaddr_in *)(void *)sa)->sin_addr;
 		free(sa);
 		sa = NULL;
 	}
@@ -196,7 +199,8 @@ _dnsinfo_parse_sortaddr(char *token)
 			// if mask not AF_INET
 			goto done;
 		} else {
-			mask = ((struct sockaddr_in *)sa)->sin_addr;
+			/* ALIGN: cast ok, sockaddr was malloc'd */
+			mask = ((struct sockaddr_in *)(void *)sa)->sin_addr;
 			free(sa);
 			sa = NULL;
 		}

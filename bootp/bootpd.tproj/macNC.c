@@ -309,7 +309,7 @@ set_file_size(int fd, off_t size)
 {
 #ifdef F_SETSIZE
     fcntl(fd, F_SETSIZE, &size);
-#endif F_SETSIZE
+#endif /* F_SETSIZE */
     return (ftruncate(fd, size));
 }
 

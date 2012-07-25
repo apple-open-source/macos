@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,9 +58,7 @@
 #include "printdata.h"
 #include "fips186prf.h"
 #include "SIMAccess.h"
-
-#define INLINE 	static __inline__
-#define STATIC	static
+#include "nbo.h"
 
 #define EAP_SIM_NAME		"EAP-SIM"
 #define EAP_SIM_NAME_LENGTH	(sizeof(EAP_SIM_NAME) - 1)
@@ -770,40 +768,17 @@ blocks_are_duplicated(const uint8_t * blocks, int n_blocks, int block_size)
 STATIC void
 fill_with_random(uint8_t * buf, int len)
 {
-    int			i;
-    int			n;
-    u_int32_t * 	p = (u_int32_t *)buf;
-    
-    n = len / sizeof(*p);
-    for (i = 0; i < n; i++, p++) {
-	*p = arc4random();
+    int             i;
+    int             n;
+    void *          p;
+    uint32_t        random;
+
+    n = len / sizeof(random);
+    for (i = 0, p = buf; i < n; i++, p += sizeof(random)) {
+        random = arc4random();
+        bcopy(&random, p, sizeof(random));
     }
     return;
-}
-
-/*
- * Function: uint16_set
- * Purpose:
- *   Set a field in a structure that's at least two bytes long to the given
- *   value, putting it into network byte order
- */
-INLINE void
-uint16_set(uint8_t * field, uint16_t value)
-{
-    *((uint16_t *)field) = htons(value);
-    return;
-}
-
-/*
- * Function: uint16_get
- * Purpose:
- *   Get a field in a structure that's at least two bytes long, converting
- *   to host byte order.
- */
-INLINE uint16_t
-uint16_get(const uint8_t * field)
-{
-    return (ntohs(*((uint16_t *)field)));
 }
 
 /**
@@ -893,7 +868,7 @@ TLVBufferAddIdentity(TLVBufferRef tb_p,
 	       TLVBufferErrorString(tb_p));
 	return (FALSE);
     }
-    uint16_set(attr.at_identity->id_actual_length, identity_length);
+    net_uint16_set(attr.at_identity->id_actual_length, identity_length);
     bcopy(identity, attr.at_identity->id_identity, identity_length);
     return (TRUE);
 }
@@ -935,7 +910,7 @@ TLVBufferAddCounter(TLVBufferRef tb_p, uint16_t at_counter)
 	       TLVBufferErrorString(tb_p));
 	return (FALSE);
     }
-    uint16_set(counter_p->co_counter, at_counter);
+    net_uint16_set(counter_p->co_counter, at_counter);
     return (TRUE);
 }
 
@@ -953,7 +928,7 @@ TLVBufferAddCounterTooSmall(TLVBufferRef tb_p)
 	       TLVBufferErrorString(tb_p));
 	return (FALSE);
     }
-    uint16_set(counter_too_small_p->cs_reserved, 0);
+    net_uint16_set(counter_too_small_p->cs_reserved, 0);
     return (TRUE);
 }
 
@@ -1154,7 +1129,7 @@ TLVCheckValidity(TLVListRef tlvs_p, TLVRef tlv_p)
 	    ret = kTLVBad;
 	    break;
 	}
-	len = uint16_get(attr.at_identity->id_actual_length);
+	len = net_uint16_get(attr.at_identity->id_actual_length);
 	if (len > (tlv_length - offset)) {
 	    snprintf(tlvs_p->err_str, sizeof(tlvs_p->err_str),
 		    "%s actual length %d > TLV length %d",
@@ -1323,12 +1298,12 @@ TLVPrint(FILE * f, TLVRef tlv_p)
 	fprintf(f, "\n");
 	break;
     case kAT_VERSION_LIST:
-	len = uint16_get(attr.at_version_list->vl_actual_length);
+	len = net_uint16_get(attr.at_version_list->vl_actual_length);
 	count = len / sizeof(uint16_t);
 	fprintf(f, _WIDTH "s: Actual Length %d\n", field_name, len);
 	for (scan = attr.at_version_list->vl_version_list, i = 0;
 	     i < count; i++, scan += sizeof(uint16_t)) {
-	    uint16_t	this_vers = uint16_get(scan);
+	    uint16_t	this_vers = net_uint16_get(scan);
 
 	    fprintf(f, _WIDTH "d:\t%04d\n", i, this_vers);
 	}
@@ -1342,7 +1317,7 @@ TLVPrint(FILE * f, TLVRef tlv_p)
     case kAT_IDENTITY:
     case kAT_NEXT_PSEUDONYM:
     case kAT_NEXT_REAUTH_ID:
-	len = uint16_get(attr.at_identity->id_actual_length);
+	len = net_uint16_get(attr.at_identity->id_actual_length);
 	fprintf(f, _WIDTH "s: Actual Length %d\n", field_name, len);
 	fprint_data(f, attr.at_identity->id_identity, len);
 	pad_len = (tlv_length - offsetof(AT_IDENTITY, id_identity)) - len;
@@ -1365,7 +1340,7 @@ TLVPrint(FILE * f, TLVRef tlv_p)
     case kAT_COUNTER:
     case kAT_CLIENT_ERROR_CODE:
     case kAT_NOTIFICATION:
-	val16 = uint16_get(attr.at_selected_version->sv_selected_version);
+	val16 = net_uint16_get(attr.at_selected_version->sv_selected_version);
 	fprintf(f, _WIDTH "s:\t%04d\n", field_name, val16);
 	break;
     case kAT_PERMANENT_ID_REQ:
@@ -1422,7 +1397,7 @@ TLVCreateString(TLVRef tlv_p)
     AT_IDENTITY *	id_p = (AT_IDENTITY *)tlv_p;
     CFStringRef		str;
 
-    len = uint16_get(id_p->id_actual_length);
+    len = net_uint16_get(id_p->id_actual_length);
     data = CFDataCreateWithBytesNoCopy(NULL, id_p->id_identity, len,
 				       kCFAllocatorNull);
     str = CFStringCreateFromExternalRepresentation(NULL, data,
@@ -1468,10 +1443,10 @@ EAPSIMContextSetLastIdentity(EAPSIMContextRef context, CFDataRef identity_data)
 
 STATIC void
 EAPSIMContextSetVersionList(EAPSIMContextRef context,
-			    const uint16_t * list, int count)
+			    const void * list, int count)
 {
     if (list != NULL) {
-	int	size = count * sizeof(*list);
+	int	size = count * sizeof(uint16_t);
 
 	if (context->version_list != NULL
 	    && count == context->version_list_count
@@ -1746,7 +1721,7 @@ eapsim_make_response(EAPSIMContextRef context,
     pkt->identifier = in_pkt->identifier;
     pkt->type = kEAPTypeEAPSIM;
     pkt->subtype = subtype;
-    uint16_set(pkt->reserved, 0);
+    net_uint16_set(pkt->reserved, 0);
     return ((EAPPacketRef)pkt);
 }
 
@@ -1767,7 +1742,7 @@ eapsim_make_client_error(EAPSIMContextRef context,
 	       TLVBufferErrorString(&tb));
 	return (NULL);
     }
-    uint16_set(attr.at_client_error_code->ce_client_error_code, code);
+    net_uint16_set(attr.at_client_error_code->ce_client_error_code, code);
     EAPPacketSetLength(pkt,
 		       offsetof(EAPSIMPacket, attrs) + TLVBufferUsed(&tb));
 
@@ -1822,10 +1797,10 @@ eapsim_start(EAPClientPluginDataRef plugin,
 	*client_status = kEAPClientStatusProtocolError;
 	goto done;
     }
-    count = uint16_get(version_list_p->vl_actual_length) / sizeof(uint16_t);
+    count = net_uint16_get(version_list_p->vl_actual_length) / sizeof(uint16_t);
     for (i = 0, scan = version_list_p->vl_version_list;
 	 i < count; i++, scan += sizeof(uint16_t)) {
-	uint16_t	this_vers = uint16_get(scan);
+	uint16_t	this_vers = net_uint16_get(scan);
 
 	/* we only support version 1 */
 	if (this_vers == kEAPSIMVersion1) {
@@ -1842,7 +1817,6 @@ eapsim_start(EAPClientPluginDataRef plugin,
     if (count > 1) {
 	/* if there was more than one version, save the list */
 	EAPSIMContextSetVersionList(context, 
-				    (const uint16_t *)
 				    version_list_p->vl_version_list, count);
     }
     else {
@@ -1988,7 +1962,7 @@ eapsim_start(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(attr.at_selected_version->sv_selected_version,
+    net_uint16_set(attr.at_selected_version->sv_selected_version,
 	       kEAPSIMVersion1);
 
     /* set the AT_NONCE_MT attribute */
@@ -2000,7 +1974,7 @@ eapsim_start(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(attr.at_nonce_mt->nm_reserved, 0);
+    net_uint16_set(attr.at_nonce_mt->nm_reserved, 0);
     bcopy(context->nonce_mt, attr.at_nonce_mt->nm_nonce_mt,
 	  sizeof(context->nonce_mt));
 
@@ -2334,7 +2308,7 @@ eapsim_challenge(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(mac_p->ma_reserved, 0);
+    net_uint16_set(mac_p->ma_reserved, 0);
     EAPPacketSetLength(pkt,
 		       offsetof(EAPSIMPacket, attrs) + TLVBufferUsed(&tb));
     /* compute/set the MAC value */
@@ -2543,7 +2517,7 @@ eapsim_reauthentication(EAPClientPluginDataRef plugin,
     }
 
     /* check the at_counter */
-    at_counter = uint16_get(counter_p->co_counter);
+    at_counter = net_uint16_get(counter_p->co_counter);
     if (at_counter < context->at_counter) {
 	force_fullauth = TRUE;
     }
@@ -2571,7 +2545,7 @@ eapsim_reauthentication(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(iv_p->iv_reserved, 0);
+    net_uint16_set(iv_p->iv_reserved, 0);
     fill_with_random(iv_p->iv_initialization_vector, 
 		     sizeof(iv_p->iv_initialization_vector));
 
@@ -2636,7 +2610,7 @@ eapsim_reauthentication(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(encr_data_p->ed_reserved, 0);
+    net_uint16_set(encr_data_p->ed_reserved, 0);
     if (eapsim_encrypt(&context->key_info, iv_p->iv_initialization_vector,
 		       encr_buffer, TLVBufferUsed(&encr_tb),
 		       encr_data_p->ed_encrypted_data) == FALSE) {
@@ -2656,7 +2630,7 @@ eapsim_reauthentication(EAPClientPluginDataRef plugin,
 	pkt = NULL;
 	goto done;
     }
-    uint16_set(mac_p->ma_reserved, 0);
+    net_uint16_set(mac_p->ma_reserved, 0);
 
     /* set the packet length */
     EAPPacketSetLength(pkt,
@@ -2779,9 +2753,7 @@ eapsim_process(EAPClientPluginDataRef plugin,
 	break;
     case kEAPCodeFailure:
 	context->previous_identifier = -1;
-	if (context->state == kEAPSIMClientStateFailure) {
-	    context->plugin_state = kEAPClientStateFailure;
-	}
+	context->plugin_state = kEAPClientStateFailure;
 	break;
     default:
 	break;
@@ -3348,7 +3320,7 @@ main(int argc, char * argv[])
 		TLVBufferErrorString(&tlv_buf));
 	exit(2);
     }
-    uint16_set(attr.at_selected_version->sv_selected_version,
+    net_uint16_set(attr.at_selected_version->sv_selected_version,
 	       kEAPSIMVersion1);
     pkt->code = kEAPCodeResponse;
     pkt->identifier = 1;

@@ -283,7 +283,7 @@ PluginPackage* PluginDatabase::findPlugin(const KURL& url, String& mimeType)
         return pluginForMIMEType(mimeType);
     
     String filename = url.lastPathComponent();
-    if (filename.endsWith("/"))
+    if (filename.endsWith('/'))
         return 0;
     
     int extensionPos = filename.reverseFind('.');
@@ -323,7 +323,7 @@ bool PluginDatabase::add(PassRefPtr<PluginPackage> prpPackage)
 
     RefPtr<PluginPackage> package = prpPackage;
 
-    if (!m_plugins.add(package).second)
+    if (!m_plugins.add(package).isNewEntry)
         return false;
 
     m_pluginsByPath.add(package->path(), package);
@@ -356,7 +356,7 @@ void PluginDatabase::clear()
 #endif
 }
 
-#if (!OS(WINCE)) && (!OS(SYMBIAN)) && (!OS(WINDOWS) || !ENABLE(NETSCAPE_PLUGIN_API))
+#if (!OS(WINCE)) && (!OS(WINDOWS) || !ENABLE(NETSCAPE_PLUGIN_API))
 // For Safari/Win the following three methods are implemented
 // in PluginDatabaseWin.cpp, but if we can use WebCore constructs
 // for the logic we should perhaps move it here under XP_WIN?
@@ -428,7 +428,9 @@ bool PluginDatabase::isPreferredPluginDirectory(const String& path)
 {
     String preferredPath = homeDirectoryPath();
 
-#if defined(XP_UNIX)
+#if PLATFORM(BLACKBERRY)
+    preferredPath = BlackBerry::Platform::Client::get()->getApplicationPluginDirectory().c_str();
+#elif defined(XP_UNIX)
     preferredPath.append(String("/.mozilla/plugins"));
 #elif defined(XP_MACOSX)
     preferredPath.append(String("/Library/Internet Plug-Ins"));
@@ -464,7 +466,7 @@ void PluginDatabase::getPluginPathsInDirectories(HashSet<String>& paths) const
     }
 }
 
-#endif // !OS(SYMBIAN) && !OS(WINDOWS)
+#endif // !OS(WINDOWS)
 
 #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
 
@@ -574,7 +576,7 @@ void PluginDatabase::loadPersistentMetadataCache()
 
         RefPtr<PluginPackage> package = PluginPackage::createPackageFromCache(path, lastModified, name, desc, mimeDesc);
 
-        if (package && cachedPlugins.add(package).second) {
+        if (package && cachedPlugins.add(package).isNewEntry) {
             cachedPluginPathsWithTimes.add(package->path(), package->lastModified());
             cachedPluginsByPath.add(package->path(), package);
         }

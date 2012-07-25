@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,15 +35,11 @@ __private_extern__
 int
 __SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key, Boolean internal)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	int				sc_status	= kSCStatusOK;
 	CFDictionaryRef			dict;
 	Boolean				newValue	= FALSE;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
 	CFDataRef			value;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
@@ -54,15 +50,7 @@ __SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	}
 
 	/*
-	 * 1. Ensure that we hold the lock.
-	 */
-	sc_status = __SCDynamicStoreLock(store, TRUE);
-	if (sc_status != kSCStatusOK) {
-		return sc_status;
-	}
-
-	/*
-	 * 2. Tickle the value in the dynamic store
+	 * Tickle the value in the dynamic store
 	 */
 	dict = CFDictionaryGetValue(storeData, key);
 	if (!dict || !CFDictionaryGetValueIfPresent(dict, kSCDData, (const void **)&value)) {
@@ -80,10 +68,10 @@ __SCDynamicStoreNotifyValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 		CFRelease(value);
 	}
 
-	/*
-	 * 3. Release our lock.
-	 */
-	__SCDynamicStoreUnlock(store, TRUE);
+	if (!internal) {
+		/* push changes */
+		__SCDynamicStorePush();
+	}
 
 	return sc_status;
 }
@@ -94,8 +82,8 @@ kern_return_t
 _confignotify(mach_port_t 		server,
 	      xmlData_t			keyRef,		/* raw XML bytes */
 	      mach_msg_type_number_t	keyLen,
-	      int			*sc_status
-)
+	      int			*sc_status,
+	      audit_token_t		audit_token)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
 	serverSessionRef	mySession;
@@ -113,7 +101,16 @@ _confignotify(mach_port_t 		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		mySession = tempSession(server, CFSTR("SCDynamicStoreNotifyValue"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
+	}
+
+	if (!hasWriteAccess(mySession)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 

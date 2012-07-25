@@ -30,6 +30,7 @@
 #include "Element.h"
 #include "htmlediting.h"
 #include "TextIterator.h"
+#include "TreeScopeAdjuster.h"
 #include "VisiblePosition.h"
 #include "visible_units.h"
 #include "Range.h"
@@ -44,45 +45,51 @@ VisibleSelection::VisibleSelection()
     : m_affinity(DOWNSTREAM)
     , m_selectionType(NoSelection)
     , m_baseIsFirst(true)
+    , m_isDirectional(false)
 {
 }
 
-VisibleSelection::VisibleSelection(const Position& pos, EAffinity affinity)
+VisibleSelection::VisibleSelection(const Position& pos, EAffinity affinity, bool isDirectional)
     : m_base(pos)
     , m_extent(pos)
     , m_affinity(affinity)
+    , m_isDirectional(isDirectional)
 {
     validate();
 }
 
-VisibleSelection::VisibleSelection(const Position& base, const Position& extent, EAffinity affinity)
+VisibleSelection::VisibleSelection(const Position& base, const Position& extent, EAffinity affinity, bool isDirectional)
     : m_base(base)
     , m_extent(extent)
     , m_affinity(affinity)
+    , m_isDirectional(isDirectional)
 {
     validate();
 }
 
-VisibleSelection::VisibleSelection(const VisiblePosition& pos)
+VisibleSelection::VisibleSelection(const VisiblePosition& pos, bool isDirectional)
     : m_base(pos.deepEquivalent())
     , m_extent(pos.deepEquivalent())
     , m_affinity(pos.affinity())
+    , m_isDirectional(isDirectional)
 {
     validate();
 }
 
-VisibleSelection::VisibleSelection(const VisiblePosition& base, const VisiblePosition& extent)
+VisibleSelection::VisibleSelection(const VisiblePosition& base, const VisiblePosition& extent, bool isDirectional)
     : m_base(base.deepEquivalent())
     , m_extent(extent.deepEquivalent())
     , m_affinity(base.affinity())
+    , m_isDirectional(isDirectional)
 {
     validate();
 }
 
-VisibleSelection::VisibleSelection(const Range* range, EAffinity affinity)
+VisibleSelection::VisibleSelection(const Range* range, EAffinity affinity, bool isDirectional)
     : m_base(range->startPosition())
     , m_extent(range->endPosition())
     , m_affinity(affinity)
+    , m_isDirectional(isDirectional)
 {
     validate();
 }
@@ -220,7 +227,7 @@ static PassRefPtr<Range> makeSearchRange(const Position& pos)
 
 bool VisibleSelection::isAll(EditingBoundaryCrossingRule rule) const
 {
-    return !shadowTreeRootNode() && visibleStart().previous(rule).isNull() && visibleEnd().next(rule).isNull();
+    return !nonBoundaryShadowTreeRootNode() && visibleStart().previous(rule).isNull() && visibleEnd().next(rule).isNull();
 }
 
 void VisibleSelection::appendTrailingWhitespace()
@@ -380,8 +387,6 @@ void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity(Text
             m_start = startOfSentence(VisiblePosition(m_start, m_affinity)).deepEquivalent();
             m_end = endOfSentence(VisiblePosition(m_end, m_affinity)).deepEquivalent();
             break;
-        case WebKitVisualWordGranularity:
-            break;
     }
     
     // Make sure we do not have a dangling start or end.
@@ -457,22 +462,18 @@ void VisibleSelection::adjustSelectionToAvoidCrossingShadowBoundaries()
     if (m_base.isNull() || m_start.isNull() || m_end.isNull())
         return;
 
-    Node* startRootNode = m_start.anchorNode()->shadowTreeRootNode();
-    Node* endRootNode = m_end.anchorNode()->shadowTreeRootNode();
-
-    if (!startRootNode && !endRootNode)
-        return;
-
-    if (startRootNode == endRootNode)
+    if (m_start.anchorNode()->treeScope() == m_end.anchorNode()->treeScope())
         return;
 
     if (m_baseIsFirst) {
-        m_extent = startRootNode ? lastPositionInNode(startRootNode) : positionBeforeNode(endRootNode->shadowHost());
+        m_extent = TreeScopeAdjuster(m_start.anchorNode()->treeScope()).adjustPositionBefore(m_end);
         m_end = m_extent;
     } else {
-        m_extent = endRootNode ? firstPositionInNode(endRootNode) : positionAfterNode(startRootNode->shadowHost());
+        m_extent = TreeScopeAdjuster(m_end.anchorNode()->treeScope()).adjustPositionAfter(m_start);
         m_start = m_extent;
     }
+
+    ASSERT(m_start.anchorNode()->treeScope() == m_end.anchorNode()->treeScope());
 }
 
 void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
@@ -597,9 +598,9 @@ Element* VisibleSelection::rootEditableElement() const
     return editableRootForPosition(start());
 }
 
-Node* VisibleSelection::shadowTreeRootNode() const
+Node* VisibleSelection::nonBoundaryShadowTreeRootNode() const
 {
-    return start().deprecatedNode() ? start().deprecatedNode()->shadowTreeRootNode() : 0;
+    return start().deprecatedNode() ? start().deprecatedNode()->nonBoundaryShadowTreeRootNode() : 0;
 }
 
 #ifndef NDEBUG

@@ -14,6 +14,8 @@
 		5253CEA90D5AAB640041AE31 /* IOATAPIProtocolTransport.h in Headers */ = {isa = PBXBuildFile; fileRef = 06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */; settings = {ATTRIBUTES = (Project, ); }; };
 		5253CEAC0D5AAB640041AE31 /* IOATAPIProtocolTransport.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 06B48B22FFC1B5E711CE15BF /* IOATAPIProtocolTransport.cpp */; settings = {ATTRIBUTES = (); }; };
 		5253CEB80D5AABB20041AE31 /* IOATAPIProtocolTransport.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 06B48B24FFC1B5E711CE15BF /* IOATAPIProtocolTransport.h */; };
+		5289027D143552850056B997 /* IOATAPIProtocolTransportDebugging.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 47628E090D6626B4004D8B8E /* IOATAPIProtocolTransportDebugging.h */; };
+		5289027E143552850056B997 /* IOATAPIProtocolTransportTimeStamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 47628D400D5B96D5004D8B8E /* IOATAPIProtocolTransportTimeStamps.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -55,6 +57,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		5289027C143552480056B997 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/storage/ata";
+			dstSubfolderSpec = 0;
+			files = (
+				5289027D143552850056B997 /* IOATAPIProtocolTransportDebugging.h in CopyFiles */,
+				5289027E143552850056B997 /* IOATAPIProtocolTransportTimeStamps.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -65,6 +78,7 @@
 		47628E090D6626B4004D8B8E /* IOATAPIProtocolTransportDebugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOATAPIProtocolTransportDebugging.h; sourceTree = "<group>"; };
 		5253CEB30D5AAB640041AE31 /* Info-IOATAPIProtocolTransport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOATAPIProtocolTransport.plist"; sourceTree = "<group>"; };
 		5253CEB40D5AAB640041AE31 /* IOATAPIProtocolTransport.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOATAPIProtocolTransport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		528E2F1114338757008DDFD1 /* IOATAPIProtocolTransport.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOATAPIProtocolTransport.xcconfig; sourceTree = "<group>"; };
 		E6816C881092355500F524E7 /* ATAPILogger.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = ATAPILogger.xcodeproj; path = ATAPILogger/ATAPILogger.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -82,6 +96,7 @@
 		06B48B19FFC1B5E711CE15BF /* IOATAPIProtocolTransport */ = {
 			isa = PBXGroup;
 			children = (
+				528E2F1114338757008DDFD1 /* IOATAPIProtocolTransport.xcconfig */,
 				E6816C5F1092347600F524E7 /* Source */,
 				E6816C7E1092351F00F524E7 /* Tools */,
 				06B48B2BFFC1B5E711CE15BF /* Products */,
@@ -153,6 +168,7 @@
 				5253CEAE0D5AAB640041AE31 /* Rez */,
 				5253CEB90D5AABD00041AE31 /* CopyFiles */,
 				47628D3E0D5B9660004D8B8E /* CopyFiles */,
+				5289027C143552480056B997 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -269,6 +285,7 @@
 		};
 		5253CEB00D5AAB640041AE31 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F1114338757008DDFD1 /* IOATAPIProtocolTransport.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -277,6 +294,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = "Info-IOATAPIProtocolTransport.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
@@ -300,11 +318,13 @@
 		};
 		5253CEB10D5AAB640041AE31 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F1114338757008DDFD1 /* IOATAPIProtocolTransport.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = "Info-IOATAPIProtocolTransport.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
@@ -328,9 +348,11 @@
 		};
 		5253CEB20D5AAB640041AE31 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F1114338757008DDFD1 /* IOATAPIProtocolTransport.xcconfig */;
 			buildSettings = {
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INFOPLIST_FILE = "Info-IOATAPIProtocolTransport.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;

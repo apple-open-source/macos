@@ -7,7 +7,7 @@ Project               = libxml2
 UserType              = Administrator
 ToolType              = Libraries
 Extra_Configure_Flags = --enable-static=no --with-python=no --with-iconv=no --with-icu=yes
-GnuAfterInstall       = extract-symbols fix-libraries install-plist remove-autom4te-cache
+GnuAfterInstall       = extract-symbols fix-libraries remove-gtk-doc install-plist remove-autom4te-cache
 
 SectOrder_LD_Flags    =
 ifeq ($(shell test -f /usr/local/lib/OrderFiles/libxml2.order && echo yes),yes)
@@ -33,8 +33,11 @@ extract-symbols:
 
 fix-libraries:
 	# <rdar://problem/5077277>: change library_names to acommodate that we don't install a dylib with minor.micro versioning.
-	sed -i "" -e 's/\(library_names=.*\) libxml2\.2\.6\...\.dylib/\1/' $(DSTROOT)/usr/lib/libxml2.la
-	$(RM) $(DSTROOT)/usr/lib/libxml2.2.6.??.dylib
+	sed -i "" -e 's/\(library_names=.*\) libxml2\.2\.[^.]*\.[^.]*\.dylib/\1/' $(DSTROOT)/usr/lib/libxml2.la
+	$(RM) $(DSTROOT)/usr/lib/libxml2.2.*.dylib
+
+remove-gtk-doc:
+	$(RM) -rf $(DSTROOT)/usr/share/gtk-doc/
 
 
 OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
@@ -47,4 +50,4 @@ install-plist:
 
 
 remove-autom4te-cache:
-	rm -rf $(SRCROOT)/$(Project)/autom4te.cache
+	$(RM) -rf $(SRCROOT)/$(Project)/autom4te.cache

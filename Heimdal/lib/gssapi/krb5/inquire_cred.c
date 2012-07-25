@@ -35,7 +35,7 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32 _gsskrb5_inquire_cred
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_cred
 (OM_uint32 * minor_status,
  const gss_cred_id_t cred_handle,
  gss_name_t * output_name,
@@ -87,18 +87,25 @@ OM_uint32 _gsskrb5_inquire_cred
 	    return GSS_S_NO_CRED;
 	}
     } else {
-	krb5_error_code kret;
-	krb5_ccache ccache;
+	gsskrb5_cred handle;
 	
-	icred = (gsskrb5_cred)cred_handle;
+	handle = (gsskrb5_cred)cred_handle;
+
+	if (handle->keytab)
+	    acred = handle;
+	else
+	    icred = handle;
 
 	/*
 	 * double check that the credential is still in the cache if
 	 * we have a initiator only cache.
 	 */
 
-	if (icred->usage == GSS_C_INITIATE && icred->principal != NULL) {
-	    kret = krb5_cc_cache_match(context, icred->principal, &ccache);
+	if (handle->usage == GSS_C_INITIATE && handle->principal != NULL) {
+	    krb5_error_code kret;
+	    krb5_ccache ccache;
+
+	    kret = krb5_cc_cache_match(context, handle->principal, &ccache);
 	    if (kret == 0) {
 		krb5_cc_close(context, ccache);
 	    } else {
@@ -116,12 +123,12 @@ OM_uint32 _gsskrb5_inquire_cred
     if (output_name != NULL) {
 	if (icred && icred->principal != NULL) {
 	    gss_name_t name;
-	
+
 	    if (acred && acred->principal)
 		name = (gss_name_t)acred->principal;
 	    else
 		name = (gss_name_t)icred->principal;
-		
+
             ret = _gsskrb5_duplicate_name(minor_status, name, output_name);
             if (ret)
 		goto out;

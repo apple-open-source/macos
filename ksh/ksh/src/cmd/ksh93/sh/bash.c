@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -37,8 +37,6 @@
 #endif 
 #define BASH_VERSION	BASH_MAJOR "." BASH_MINOR "." BASH_PATCH "(" BASH_BUILD ")-" BASH_RELEASE 
 
-
-void	sh_applyopts(Shopt_t);
 
 extern const char	bash_pre_rc[];
 
@@ -288,10 +286,10 @@ int     b_shopt(int argc,register char *argv[],void *extra)
 		else if(setflag&SET_UNSET)
 			for(n=0;n<4;n++)
 				newflags.v[n] &= ~opt.v[n];
-		sh_applyopts(newflags);
+		sh_applyopts(shp,newflags);
 		shp->options = newflags;
 		if(is_option(&newflags,SH_XTRACE))
-			sh_trace(argv,1);
+			sh_trace(shp,argv,1);
 	}
 	else if(!(setflag&SET_NOARGS)) /* no -s,-u but args, ret=0 if opt&mask==mask */
 	{
@@ -310,7 +308,7 @@ int     b_shopt(int argc,register char *argv[],void *extra)
    mode < 0: shutdown
 */
 
-void bash_init(int mode)
+void bash_init(Shell_t *shp,int mode)
 {
 	Sfio_t		*iop;
 	Namval_t	*np;
@@ -321,7 +319,7 @@ void bash_init(int mode)
 	{
 		/* termination code */
 		if(sh_isoption(SH_LOGIN_SHELL) && !sh_isoption(SH_POSIX))
-			sh_source(&sh, NiL, sh_mactry((char*)e_bash_logout));
+			sh_source(shp, NiL, sh_mactry(shp,(char*)e_bash_logout));
 		return;	
 	}
 
@@ -336,7 +334,7 @@ void bash_init(int mode)
 		sh_onoption(SH_CMDHIST);
 		sh_onoption(SH_LITHIST);
 		sh_onoption(SH_NOEMPTYCMDCOMPL);
-		if(sh.login_sh==2)
+		if(shp->login_sh==2)
 			sh_onoption(SH_LOGIN_SHELL);
 		if(strcmp(astconf("CONFORMANCE",0,0),"standard")==0)
 			sh_onoption(SH_POSIX);
@@ -355,13 +353,13 @@ void bash_init(int mode)
 		/* set up some variables needed for --version
 		 * needs to go here because --version option is parsed before the init script.
 		 */
-		if(np=nv_open("HOSTTYPE",sh.var_tree,0))
+		if(np=nv_open("HOSTTYPE",shp->var_tree,0))
 			nv_putval(np, BASH_HOSTTYPE, NV_NOFREE);
-		if(np=nv_open("MACHTYPE",sh.var_tree,0))
+		if(np=nv_open("MACHTYPE",shp->var_tree,0))
 			nv_putval(np, BASH_MACHTYPE, NV_NOFREE);
-		if(np=nv_open("BASH_VERSION",sh.var_tree,0))
+		if(np=nv_open("BASH_VERSION",shp->var_tree,0))
 			nv_putval(np, BASH_VERSION, NV_NOFREE);
-		if(np=nv_open("BASH_VERSINFO",sh.var_tree,0))
+		if(np=nv_open("BASH_VERSINFO",shp->var_tree,0))
 		{
 			char *argv[7];
 			argv[0] = BASH_MAJOR;
@@ -380,7 +378,7 @@ void bash_init(int mode)
 	/* rest of init stage */
 
 	/* restrict BASH_ENV */
-	if(np=nv_open("BASH_ENV",sh.var_tree,0))
+	if(np=nv_open("BASH_ENV",shp->var_tree,0))
 	{
 		const Namdisc_t *dp = nv_discfun(NV_DCRESTRICT);
 		Namfun_t *fp = calloc(dp->dsize,1);
@@ -389,7 +387,7 @@ void bash_init(int mode)
 	}
 
 	/* open GLOBIGNORE node */
-	if(np=nv_open("GLOBIGNORE",sh.var_tree,0))
+	if(np=nv_open("GLOBIGNORE",shp->var_tree,0))
 	{
 		const Namdisc_t *dp = &SH_GLOBIGNORE_disc;
 		Namfun_t *fp = calloc(dp->dsize,1);
@@ -408,13 +406,13 @@ void bash_init(int mode)
 		}
 		login_files[n++] = (char*)e_profile;
 	}
-	sh.login_files = login_files;
+	shp->login_files = login_files;
 reinit:
 	xtrace = sh_isoption(SH_XTRACE);
 	sh_offoption(SH_XTRACE);
 	verbose = sh_isoption(SH_VERBOSE);
 	sh_offoption(SH_VERBOSE);
-	if(np = nv_open("SHELLOPTS", sh.var_tree, NV_NOADD))
+	if(np = nv_open("SHELLOPTS", shp->var_tree, NV_NOADD))
 		nv_offattr(np,NV_RDONLY);
 	iop = sfopen(NULL, bash_pre_rc, "s");
 	sh_eval(iop,0);

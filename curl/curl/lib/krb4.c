@@ -7,7 +7,7 @@
  *
  * Copyright (c) 1995, 1996, 1997, 1998, 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
- * Copyright (c) 2004 - 2010 Daniel Stenberg
+ * Copyright (c) 2004 - 2011 Daniel Stenberg
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -44,11 +44,9 @@
 #ifndef CURL_DISABLE_FTP
 #ifdef HAVE_KRB4
 
-#include <stdlib.h>
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif
-#include <string.h>
 #include <krb.h>
 #include <des.h>
 
@@ -88,9 +86,9 @@ strlcpy (char *dst, const char *src, size_t dst_sz)
   size_t n;
   char *p;
 
-  for (p = dst, n = 0;
-       n + 1 < dst_sz && *src != '\0';
-       ++p, ++src, ++n)
+  for(p = dst, n = 0;
+      n + 1 < dst_sz && *src != '\0';
+      ++p, ++src, ++n)
     *p = *src;
   *p = '\0';
   if(*src == '\0')
@@ -203,7 +201,7 @@ krb4_auth(void *app_data, struct connectdata *conn)
   int ret;
   char *p;
   unsigned char *ptr;
-  size_t len;
+  size_t len = 0;
   KTEXT_ST adat;
   MSG_DAT msg_data;
   int checksum;
@@ -214,6 +212,7 @@ krb4_auth(void *app_data, struct connectdata *conn)
   int l = sizeof(conn->local_addr);
   struct SessionHandle *data = conn->data;
   CURLcode result;
+  size_t base64_sz = 0;
 
   if(getsockname(conn->sock[FIRSTSOCKET],
                  (struct sockaddr *)LOCAL_ADDR, &l) < 0)
@@ -249,8 +248,10 @@ krb4_auth(void *app_data, struct connectdata *conn)
   }
 #endif
 
-  if(Curl_base64_encode(conn->data, (char *)adat.dat, adat.length, &p) < 1) {
-    Curl_failf(data, "Out of memory base64-encoding");
+  result = Curl_base64_encode(conn->data, (char *)adat.dat, adat.length,
+                              &p, &base64_sz);
+  if(result) {
+    Curl_failf(data, "base64-encoding: %s", curl_easy_strerror(result));
     return AUTH_CONTINUE;
   }
 
@@ -264,7 +265,7 @@ krb4_auth(void *app_data, struct connectdata *conn)
   if(Curl_GetFTPResponse(&nread, conn, NULL))
     return -1;
 
-  if(data->state.buffer[0] != '2'){
+  if(data->state.buffer[0] != '2') {
     Curl_failf(data, "Server didn't accept auth data");
     return AUTH_ERROR;
   }
@@ -275,10 +276,15 @@ krb4_auth(void *app_data, struct connectdata *conn)
     return AUTH_ERROR;
   }
   p += 5;
-  len = Curl_base64_decode(p, &ptr);
+  result = Curl_base64_decode(p, &ptr, &len);
+  if(result) {
+    Curl_failf(data, "base64-decoding: %s", curl_easy_strerror(result));
+    return AUTH_ERROR;
+  }
   if(len > sizeof(adat.dat)-1) {
     free(ptr);
-    len=0;
+    ptr = NULL;
+    len = 0;
   }
   if(!len || !ptr) {
     Curl_failf(data, "Failed to decode base64 from server");
@@ -332,11 +338,12 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   char *name;
   char *p;
   char passwd[100];
-  size_t tmp;
+  size_t tmp = 0;
   ssize_t nread;
   enum protection_level save;
   CURLcode result;
   unsigned char *ptr;
+  size_t base64_sz = 0;
 
   save = krb4_set_command_prot(conn, PROT_PRIVATE);
 
@@ -349,7 +356,7 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   if(result)
     return result;
 
-  if(conn->data->state.buffer[0] != '3'){
+  if(conn->data->state.buffer[0] != '3') {
     krb4_set_command_prot(conn, save);
     return CURLE_FTP_WEIRD_SERVER_REPLY;
   }
@@ -362,10 +369,15 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   }
 
   p += 2;
-  tmp = Curl_base64_decode(p, &ptr);
+  result = Curl_base64_decode(p, &ptr, &tmp);
+  if(result) {
+    Curl_failf(conn->data, "base64-decoding: %s", curl_easy_strerror(result));
+    return result;
+  }
   if(tmp >= sizeof(tkt.dat)) {
     free(ptr);
-    tmp=0;
+    ptr = NULL;
+    tmp = 0;
   }
   if(!tmp || !ptr) {
     Curl_failf(conn->data, "Failed to decode base64 in reply");
@@ -406,11 +418,12 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   memset(key, 0, sizeof(key));
   memset(schedule, 0, sizeof(schedule));
   memset(passwd, 0, sizeof(passwd));
-  if(Curl_base64_encode(conn->data, (char *)tktcopy.dat, tktcopy.length, &p)
-     < 1) {
-    failf(conn->data, "Out of memory base64-encoding.");
+  result = Curl_base64_encode(conn->data, (char *)tktcopy.dat, tktcopy.length,
+                              &p, &base64_sz);
+  if(result) {
+    Curl_failf(conn->data, "base64-encoding: %s", curl_easy_strerror(result));
     krb4_set_command_prot(conn, save);
-    return CURLE_OUT_OF_MEMORY;
+    return result;
   }
   memset (tktcopy.dat, 0, tktcopy.length);
 

@@ -35,6 +35,7 @@
 #include <wtf/text/StringHash.h>
 
 #include <QFont>
+#include <QFontDatabase>
 #if HAVE(QRAWFONT)
 #include <QTextLayout>
 #endif
@@ -48,35 +49,29 @@ void FontCache::platformInit()
 }
 
 #if HAVE(QRAWFONT)
-static QRawFont rawFontForCharacters(const QString& string, const QFont& requestedFont)
+static QRawFont rawFontForCharacters(const QString& string, const QRawFont& font)
 {
-    QFont font(requestedFont);
-    font.setStyleStrategy(QFont::NoFontMerging);
-
-    QTextLayout layout(string, font);
+    QTextLayout layout(string);
+    layout.setRawFont(font);
     layout.beginLayout();
     layout.createLine();
     layout.endLayout();
 
-    QList<QGlyphs> glyphList = layout.glyphs();
-
-    ASSERT(glyphList.size() == 1);
-
-    const QGlyphs& glyphs(glyphList.at(0));
-    QVector<quint32> glyphIndexes = glyphs.glyphIndexes();
-
-    if (glyphIndexes.isEmpty())
+    QList<QGlyphRun> glyphList = layout.glyphRuns();
+    ASSERT(glyphList.size() <= 1);
+    if (!glyphList.size())
         return QRawFont();
 
-    return glyphs.font();
+    const QGlyphRun& glyphs(glyphList.at(0));
+    return glyphs.rawFont();
 }
-#endif
+#endif // HAVE(QRAWFONT)
 
 const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, const UChar* characters, int length)
 {
 #if HAVE(QRAWFONT)
     QString qstring = QString::fromRawData(reinterpret_cast<const QChar*>(characters), length);
-    QRawFont computedFont = rawFontForCharacters(qstring, font.font());
+    QRawFont computedFont = rawFontForCharacters(qstring, font.rawFont());
     if (!computedFont.isValid())
         return 0;
     FontPlatformData alternateFont(computedFont);
@@ -94,10 +89,10 @@ SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
     return 0;
 }
 
-SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription, ShouldRetain shouldRetain)
 {
     const AtomicString fallbackFamily = QFont(fontDescription.family().family()).lastResortFamily();
-    return getCachedFontData(new FontPlatformData(fontDescription, fallbackFamily));
+    return getCachedFontData(new FontPlatformData(fontDescription, fallbackFamily), shouldRetain);
 }
 
 void FontCache::getTraitsInFamily(const AtomicString&, Vector<unsigned>&)
@@ -106,6 +101,9 @@ void FontCache::getTraitsInFamily(const AtomicString&, Vector<unsigned>&)
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& familyName)
 {
+    QFontDatabase db;
+    if (!db.hasFamily(familyName))
+        return 0;
     return new FontPlatformData(fontDescription, familyName);
 }
 

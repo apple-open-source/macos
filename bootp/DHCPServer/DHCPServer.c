@@ -156,7 +156,7 @@ show_date(CFAbsoluteTime t)
     dump_gregorian_date(d);
     return;
 }
-#endif TEST_DHCPHOSTLIST
+#endif /* TEST_DHCPHOSTLIST */
 
 static CFArrayRef
 cook_for_dhcp(CFArrayRef arr) 
@@ -330,4 +330,4 @@ main(int argc, char * argv[])
     }
     exit(0);
 }
-#endif TEST_DHCPHOSTLIST
+#endif /* TEST_DHCPHOSTLIST */

@@ -28,12 +28,32 @@
 
 #import <WebKitSystemInterface.h>
 
+@interface WKTextInputView : NSTextView {
+}
+@end
+
+@implementation WKTextInputView
+
+- (NSArray *)validAttributesForMarkedText
+{
+    // Let TSM know that a bottom input window would be created for marked text.
+    NSArray *regularAttributes = [super validAttributesForMarkedText];
+    NSMutableArray *floatingWindowAttributes = [NSMutableArray arrayWithArray:regularAttributes];
+    [floatingWindowAttributes addObject:@"__NSUsesFloatingInputWindow"];
+    return floatingWindowAttributes;
+}
+
+@end
+
 @interface WKTextInputPanel : NSPanel {
     NSTextView *_inputTextView;
 }
 
 - (NSTextInputContext *)_inputContext;
-- (BOOL)_interpretKeyEvent:(NSEvent *)event string:(NSString **)string;
+- (BOOL)_interpretKeyEvent:(NSEvent *)event usingLegacyCocoaTextInput:(BOOL)usingLegacyCocoaTextInput string:(NSString **)string;
+
+- (BOOL)_hasMarkedText;
+- (void)_unmarkText;
 
 @end
 
@@ -62,7 +82,7 @@
      
     [self setFrame:frame display:NO];
         
-    _inputTextView = [[NSTextView alloc] initWithFrame:[(NSView *)self.contentView frame]];        
+    _inputTextView = [[WKTextInputView alloc] initWithFrame:[(NSView *)self.contentView frame]];
     _inputTextView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable | NSViewMaxXMargin | NSViewMinXMargin | NSViewMaxYMargin | NSViewMinYMargin;
         
     NSScrollView* scrollView = [[NSScrollView alloc] initWithFrame:[(NSView *)self.contentView frame]];
@@ -75,19 +95,20 @@
     return self;
 }
 
-- (void)_keyboardInputSourceChanged
+- (void)_unmarkText
 {
     [_inputTextView setString:@""];
     [self orderOut:nil];
 }
 
-- (BOOL)_interpretKeyEvent:(NSEvent *)event string:(NSString **)string
+- (BOOL)_interpretKeyEvent:(NSEvent *)event usingLegacyCocoaTextInput:(BOOL)usingLegacyCocoaTextInput string:(NSString **)string
 {
     BOOL hadMarkedText = [_inputTextView hasMarkedText];
  
     *string = nil;
 
     // Let TSM know that a bottom input window would be created for marked text.
+    // FIXME: Can be removed once we can rely on __NSUsesFloatingInputWindow (or a better API) being available everywhere.
     EventRef carbonEvent = static_cast<EventRef>(const_cast<void*>([event eventRef]));
     if (carbonEvent) {
         Boolean ignorePAH = true;
@@ -104,8 +125,14 @@
 
         return YES;
     }
-    
-    if (hadMarkedText) {
+
+    bool shouldReturnTextString = hadMarkedText;
+
+    // In the updated Cocoa text input model spec, we always want to return the text even if the text view didn't have marked text.
+    if (!usingLegacyCocoaTextInput)
+        shouldReturnTextString = true;
+
+    if (shouldReturnTextString) {
         [self orderOut:nil];
 
         NSString *text = [[_inputTextView textStorage] string];
@@ -120,6 +147,11 @@
 - (NSTextInputContext *)_inputContext
 {
     return [_inputTextView inputContext];
+}
+
+- (BOOL)_hasMarkedText
+{
+    return [_inputTextView hasMarkedText];
 }
 
 @end
@@ -151,14 +183,19 @@
     return [_panel _inputContext];
 }
 
-- (BOOL)interpretKeyEvent:(NSEvent *)event string:(NSString **)string
+- (BOOL)hasMarkedText
 {
-    return [_panel _interpretKeyEvent:event string:string];
+    return [_panel _hasMarkedText];
 }
 
-- (void)keyboardInputSourceChanged
+- (BOOL)interpretKeyEvent:(NSEvent *)event usingLegacyCocoaTextInput:(BOOL)usingLegacyCocoaTextInput string:(NSString **)string
 {
-    [_panel _keyboardInputSourceChanged];
+    return [_panel _interpretKeyEvent:event usingLegacyCocoaTextInput:usingLegacyCocoaTextInput string:string];
+}
+
+- (void)unmarkText
+{
+    [_panel _unmarkText];
 }
 
 @end

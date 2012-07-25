@@ -27,12 +27,22 @@
  * SUCH DAMAGE.
  */
 
+#if defined(VARIANT_CANCELABLE) || defined(VARIANT_PRE1050)
+#undef __DARWIN_NON_CANCELABLE
+#endif /* VARIANT_CANCELABLE */
+
+#ifdef VARIANT_DARWINEXTSN
+#define _DARWIN_UNLIMITED_SELECT
+#endif /* VARIANT_DARWINEXTSN */
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/pselect.c,v 1.6 2002/10/12 16:13:37 mike Exp $");
 
 #include "namespace.h"
+#include <sys/types.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <errno.h>
 #include <signal.h>

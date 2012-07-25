@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -31,7 +31,7 @@
 
 /*
  * Principal Author: Brian Wellington
- * $Id$
+ * $Id: hmac_link.c,v 1.19 2011-01-11 23:47:13 tbox Exp $
  */
 
 #include <config.h>
@@ -325,6 +325,8 @@ static dst_func_t hmacmd5_functions = {
 	hmacmd5_parse,
 	NULL, /*%< cleanup */
 	NULL, /*%< fromlabel */
+	NULL, /*%< dump */
+	NULL, /*%< restore */
 };
 
 isc_result_t
@@ -599,6 +601,8 @@ static dst_func_t hmacsha1_functions = {
 	hmacsha1_parse,
 	NULL, /* cleanup */
 	NULL, /* fromlabel */
+	NULL, /* dump */
+	NULL, /* restore */
 };
 
 isc_result_t
@@ -875,6 +879,8 @@ static dst_func_t hmacsha224_functions = {
 	hmacsha224_parse,
 	NULL, /* cleanup */
 	NULL, /* fromlabel */
+	NULL, /* dump */
+	NULL, /* restore */
 };
 
 isc_result_t
@@ -1151,6 +1157,8 @@ static dst_func_t hmacsha256_functions = {
 	hmacsha256_parse,
 	NULL, /* cleanup */
 	NULL, /* fromlabel */
+	NULL, /* dump */
+	NULL, /* restore */
 };
 
 isc_result_t
@@ -1427,6 +1435,8 @@ static dst_func_t hmacsha384_functions = {
 	hmacsha384_parse,
 	NULL, /* cleanup */
 	NULL, /* fromlabel */
+	NULL, /* dump */
+	NULL, /* restore */
 };
 
 isc_result_t
@@ -1703,6 +1713,8 @@ static dst_func_t hmacsha512_functions = {
 	hmacsha512_parse,
 	NULL, /* cleanup */
 	NULL, /* fromlabel */
+	NULL, /* dump */
+	NULL, /* restore */
 };
 
 isc_result_t

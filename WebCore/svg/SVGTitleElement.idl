@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGTitleElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGTitleElement : SVGElement,
                                                   SVGLangSpace,
                                                   SVGStylable {
     };

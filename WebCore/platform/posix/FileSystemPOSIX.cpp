@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <libgen.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -182,10 +183,9 @@ bool getFileModificationTime(const String& path, time_t& result)
 
 String pathByAppendingComponent(const String& path, const String& component)
 {
-    if (path.endsWith("/"))
+    if (path.endsWith('/'))
         return path + component;
-    else
-        return path + "/" + component;
+    return path + "/" + component;
 }
 
 bool makeAllDirectories(const String& path)
@@ -252,6 +252,30 @@ Vector<String> listDirectory(const String& path, const String& filter)
         closedir(dir);
     }
     return entries;
+}
+#endif
+
+#if !PLATFORM(MAC)
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
+{
+    char buffer[PATH_MAX];
+    const char* tmpDir = getenv("TMPDIR");
+
+    if (!tmpDir)
+        tmpDir = "/tmp";
+
+    if (snprintf(buffer, PATH_MAX, "%s/%sXXXXXX", tmpDir, prefix.utf8().data()) >= PATH_MAX)
+        goto end;
+
+    handle = mkstemp(buffer);
+    if (handle < 0)
+        goto end;
+
+    return String::fromUTF8(buffer);
+
+end:
+    handle = invalidPlatformFileHandle;
+    return String();
 }
 #endif
 

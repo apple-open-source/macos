@@ -26,8 +26,11 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGAnimatedNumber {
-        attribute [StrictTypeChecking] float baseVal;
+    interface [
+        Conditional=SVG
+    ] SVGAnimatedNumber {
+        attribute [StrictTypeChecking] float baseVal
+            setter raises(DOMException);
         readonly attribute float animVal;
     };
 

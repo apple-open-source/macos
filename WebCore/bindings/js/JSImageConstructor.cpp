@@ -31,8 +31,9 @@ using namespace JSC;
 namespace WebCore {
 
 ASSERT_CLASS_FITS_IN_CELL(JSImageConstructor);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSImageConstructor);
 
-const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", &DOMConstructorWithDocument::s_info, 0, 0, CREATE_METHOD_TABLE(JSImageConstructor) };
+const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSImageConstructor) };
 
 JSImageConstructor::JSImageConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
     : DOMConstructorWithDocument(structure, globalObject)
@@ -48,7 +49,7 @@ void JSImageConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* glob
 
 static EncodedJSValue JSC_HOST_CALL constructImage(ExecState* exec)
 {
-    JSImageConstructor* jsConstructor = static_cast<JSImageConstructor*>(exec->callee());
+    JSImageConstructor* jsConstructor = jsCast<JSImageConstructor*>(exec->callee());
     Document* document = jsConstructor->document();
     if (!document)
         return throwVMError(exec, createReferenceError(exec, "Image constructor associated document is unavailable"));

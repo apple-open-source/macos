@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,7 @@ typedef struct {
     uint8_t			our_router_hwaddr[MAX_LINK_ADDR_LEN];
     int				our_router_hwaddr_len;
     RTADVSocketRef		sock;
+    boolean_t			lladdr_ok; /* ok to send link-layer address */
     DHCPv6ClientRef		dhcp_client;
     struct in6_addr *		dns_servers;
     int				dns_servers_count;
@@ -152,15 +153,6 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
     switch (event_id) {
     case IFEventID_start_e:
-#if 0
-	/* forwarding not allowed */
-	if (inet6_forwarding_is_enabled()) {
-	    my_log(LOG_ERR, "RTADV %s: IPv6 forwarding is enabled",
-		   if_name(if_p));
-	    rtadv_failed(service_p, ipconfig_status_invalid_operation_e);
-	    break;
-	}
-#endif 0
 	my_log(LOG_DEBUG, "RTADV: start %s", if_name(if_p));
 	rtadv_cancel_pending_events(service_p);
 	RTADVSocketEnableReceive(rtadv->sock,
@@ -193,7 +185,8 @@ rtadv_start(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	my_log(LOG_DEBUG, 
 	       "RTADV %s: sending Router Solicitation (%d of %d)",
 	       if_name(if_p), rtadv->try, MAX_RTR_SOLICITATIONS);
-	error = RTADVSocketSendSolicitation(rtadv->sock);
+	error = RTADVSocketSendSolicitation(rtadv->sock,
+					    rtadv->lladdr_ok);
 	switch (error) {
 	case 0:
 	case ENXIO:
@@ -314,38 +307,48 @@ rtadv_create_signature(ServiceRef service_p,
 
 STATIC void
 rtadv_address_changed(ServiceRef service_p,
-		      inet6_addrlist_t * addr_list_p,
-		      boolean_t ok_to_start)
+		      inet6_addrlist_t * addr_list_p)
 {
     interface_t *	if_p = service_interface(service_p);
+    inet6_addrinfo_t *	linklocal;
     Service_rtadv_t *	rtadv = (Service_rtadv_t *)ServiceGetPrivate(service_p);
 
-    if (addr_list_p == NULL || addr_list_p->count == 0) {
-	/* no addresses configured, nothing to do */
+    linklocal = inet6_addrlist_get_linklocal(addr_list_p);
+    if (linklocal == NULL) {
+	/* no linklocal address assigned, nothing to do */
+	my_log(LOG_DEBUG,
+	       "RTADV %s: link-local address not present",
+	       if_name(if_p));
 	return;
     }
+    if ((linklocal->addr_flags & IN6_IFF_NOTREADY) != 0) {
+	/* linklocal address isn't ready */
+	my_log(LOG_DEBUG,
+	       "RTADV %s: link-local address is not ready",
+	       if_name(if_p));
+	return;
+    }
+#ifdef IN6_IFF_DADPROGRESS
+    rtadv->lladdr_ok = (linklocal->addr_flags & IN6_IFF_DADPROGRESS) == 0;
+    my_log(LOG_DEBUG,
+	   "RTADV %s: link-layer option in Router Solicitation is %sOK",
+	   if_name(if_p), rtadv->lladdr_ok ? "" : "not ");
+#else /* IN6_IFF_DADPROGRESS */
+    rtadv->lladdr_ok = TRUE;
+#endif /* IN6_IFF_DADPROGRESS */
 
-    /* 
-     * When the link-local address is assigned initially, the flags change 
-     * from tenative to non-tentative, which means it's now possible to
-     * successfully transmit Router Solicitation requests.
-     */
-    if (addr_list_p->count == 1
-	&& IN6_IS_ADDR_LINKLOCAL(&(addr_list_p->list[0].addr))) {
-	if (ok_to_start) {
-	    link_status_t	link_status = service_link_status(service_p);
+    if (rtadv->try == 0) {
+	link_status_t	link_status = service_link_status(service_p);
 	
-	    if (link_status.valid == TRUE) {
-		if (link_status.active == TRUE) {
-		    my_log(LOG_DEBUG,
-			   "RTADV %s: address state changed - restarting",
-			   if_name(if_p));
-		    rtadv_start(service_p, IFEventID_start_e, NULL);
-		    return;
-		}
+	if (link_status.valid == TRUE) {
+	    if (link_status.active == TRUE) {
+		my_log(LOG_DEBUG,
+		       "RTADV %s: link-local address is ready, starting",
+		       if_name(if_p));
+		rtadv_start(service_p, IFEventID_start_e, NULL);
+		return;
 	    }
 	}
-	return;
     }
     else {
 	int			count;
@@ -367,6 +370,9 @@ rtadv_address_changed(ServiceRef service_p,
 	/* only copy autoconf and DHCP addresses */
 	for (i = 0, count = 0, scan = addr_list_p->list; 
 	     i < addr_list_p->count; i++, scan++) {
+	    if ((scan->addr_flags & IN6_IFF_NOTREADY) != 0) {
+		continue;
+	    }
 	    if ((scan->addr_flags & IN6_IFF_AUTOCONF) != 0
 		|| inet6_addrlist_contains_address(&dhcp_addr_list, scan)) {
 		list[count++] = *scan;
@@ -398,25 +404,28 @@ rtadv_address_changed(ServiceRef service_p,
 }
 
 STATIC void
-rtadv_simulate_address_changed(ServiceRef service_p)
+rtadv_dhcp_callback(void * callback_arg, DHCPv6ClientRef client)
 {
     inet6_addrlist_t	addrs;
+    ServiceRef		service_p = (ServiceRef)callback_arg;
 
     inet6_addrlist_copy(&addrs, if_link_index(service_interface(service_p)));
-    rtadv_address_changed(service_p, &addrs, FALSE);
+    rtadv_address_changed(service_p, &addrs);
     inet6_addrlist_free(&addrs);
     return;
 }
 
 STATIC void
-rtadv_dhcp_callback(void * callback_arg, DHCPv6ClientRef client)
+rtadv_init(ServiceRef service_p)
 {
-    ServiceRef		service_p = (ServiceRef)callback_arg;
+    inet6_addrlist_t	addrs;
 
-    rtadv_simulate_address_changed(service_p);
+    inet6_addrlist_copy(&addrs,
+			if_link_index(service_interface(service_p)));
+    rtadv_address_changed(service_p, &addrs);
+    inet6_addrlist_free(&addrs);
     return;
 }
-
 
 PRIVATE_EXTERN ipconfig_status_t
 rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
@@ -471,8 +480,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 						rtadv_dhcp_callback,
 						service_p);
 	}
-	rtadv_start(service_p, IFEventID_start_e, NULL);
-	rtadv_simulate_address_changed(service_p);
+	rtadv_init(service_p);
 	break;
 
     stop:
@@ -515,7 +523,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv->dhcp_client != NULL) {
 	    DHCPv6ClientAddressChanged(rtadv->dhcp_client, event_data);
 	}
-	rtadv_address_changed(service_p, event_data, TRUE);
+	rtadv_address_changed(service_p, event_data);
 	break;
     case IFEventID_renew_e:
     case IFEventID_link_status_changed_e: {
@@ -525,6 +533,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	if (rtadv == NULL) {
 	    return (ipconfig_status_internal_error_e);
 	}
+	rtadv->try = 0;
 	link_status = service_link_status(service_p);
 	if (link_status.valid == TRUE) {
 	    if (link_status.active == TRUE) {
@@ -538,7 +547,7 @@ rtadv_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		    service_publish_failure(service_p,
 					    ipconfig_status_network_changed_e);
 		}
-		rtadv_start(service_p, IFEventID_start_e, NULL);
+		rtadv_init(service_p);
 	    }
 	}
 	break;

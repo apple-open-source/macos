@@ -21,38 +21,37 @@
 #define GradientAttributes_h
 
 #if ENABLE(SVG)
-#include "Color.h"
-#include "Gradient.h"
+#include "SVGGradientElement.h"
 #include "SVGLength.h"
 
 namespace WebCore {
 
 struct GradientAttributes {
     GradientAttributes()
-        : m_spreadMethod(SpreadMethodPad)
-        , m_boundingBoxMode(true)
+        : m_spreadMethod(SVGSpreadMethodPad)
+        , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
         , m_spreadMethodSet(false)
-        , m_boundingBoxModeSet(false)
+        , m_gradientUnitsSet(false)
         , m_gradientTransformSet(false)
         , m_stopsSet(false)
     {
     }
 
-    GradientSpreadMethod spreadMethod() const { return m_spreadMethod; }
-    bool boundingBoxMode() const { return m_boundingBoxMode; }
+    SVGSpreadMethodType spreadMethod() const { return m_spreadMethod; }
+    SVGUnitTypes::SVGUnitType gradientUnits() const { return m_gradientUnits; }
     AffineTransform gradientTransform() const { return m_gradientTransform; }
     const Vector<Gradient::ColorStop>& stops() const { return m_stops; }
 
-    void setSpreadMethod(GradientSpreadMethod value)
+    void setSpreadMethod(SVGSpreadMethodType value)
     {
         m_spreadMethod = value;
         m_spreadMethodSet = true;
     }
 
-    void setBoundingBoxMode(bool value)
+    void setGradientUnits(SVGUnitTypes::SVGUnitType unitType)
     {
-        m_boundingBoxMode = value;
-        m_boundingBoxModeSet = true;
+        m_gradientUnits = unitType;
+        m_gradientUnitsSet = true;
     }
 
     void setGradientTransform(const AffineTransform& value)
@@ -68,20 +67,20 @@ struct GradientAttributes {
     } 
 
     bool hasSpreadMethod() const { return m_spreadMethodSet; }
-    bool hasBoundingBoxMode() const { return m_boundingBoxModeSet; }
+    bool hasGradientUnits() const { return m_gradientUnitsSet; }
     bool hasGradientTransform() const { return m_gradientTransformSet; }
     bool hasStops() const { return m_stopsSet; }
 
 private:
     // Properties
-    GradientSpreadMethod m_spreadMethod;
-    bool m_boundingBoxMode;
+    SVGSpreadMethodType m_spreadMethod;
+    SVGUnitTypes::SVGUnitType m_gradientUnits;
     AffineTransform m_gradientTransform;
     Vector<Gradient::ColorStop> m_stops;
 
     // Property states
     bool m_spreadMethodSet : 1;
-    bool m_boundingBoxModeSet : 1;
+    bool m_gradientUnitsSet : 1;
     bool m_gradientTransformSet : 1;
     bool m_stopsSet : 1;
 };

@@ -8,7 +8,7 @@
 #define __STDC_LIMIT_MACROS 1
 #include "unicode/utypes.h"
 
-#if !UCONFIG_NO_BREAK_ITERATION && defined(U_DARWIN)
+#if !UCONFIG_NO_BREAK_ITERATION && U_PLATFORM_IS_DARWIN_BASED
 
 #include "brkeng.h"
 #include "dictbe.h"
@@ -30,6 +30,8 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdint.h>
+// The following is now already included by platform.h (included indirectly by
+// utypes.h) if U_PLATFORM_IS_DARWIN_BASED but it doesn't hurt to re-include here
 #include <TargetConditionals.h>
 
 U_NAMESPACE_BEGIN
@@ -202,7 +204,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		
 		// Iterate the dictionary directories and accumulate in dirGlob
 		NSSearchPathEnumerationState state = NSStartSearchPathEnumeration(NSLibraryDirectory, (NSSearchPathDomainMask) (NSUserDomainMask|NSLocalDomainMask|NSNetworkDomainMask));
-		while (state = NSGetNextSearchPathEnumeration(state, path)) {
+		while ((state = NSGetNextSearchPathEnumeration(state, path)) != 0) {
 			// First get the directory itself. We should never overflow, but use strlcat anyway
 			// to avoid a crash if we do.
 			strlcat(path, "/Dictionaries", sizeof(path));
@@ -234,7 +236,7 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 		globFlags &= ~GLOB_APPEND;
 		char **pathsp = dirGlob.gl_pathv;
 		const char *dictpath;
-		while (dictpath = *pathsp++) {
+		while ((dictpath = *pathsp++) != NULL) {
 			// Stat the directory -- ignore if stat failure
 			if (!stat(dictpath, &dictStat)) {
 				// Glob the dictionaries in the directory
@@ -371,4 +373,4 @@ AppleLanguageBreakFactory::loadDictionaryFor(UScriptCode script, int32_t breakTy
 
 U_NAMESPACE_END
 
-#endif /* #if !UCONFIG_NO_BREAK_ITERATION && defined(U_DARWIN) */
+#endif /* #if !UCONFIG_NO_BREAK_ITERATION && U_PLATFORM_IS_DARWIN_BASED */

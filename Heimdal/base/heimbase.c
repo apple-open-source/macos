@@ -60,6 +60,10 @@ struct heim_base_mem {
 #define PTR2BASE(ptr) (((struct heim_base *)ptr) - 1)
 #define BASE2PTR(ptr) ((void *)(((struct heim_base *)ptr) + 1))
 
+#ifdef HEIM_BASE_NEED_ATOMIC_MUTEX
+HEIMDAL_MUTEX _heim_base_mutex = HEIMDAL_MUTEX_INITIALIZER;
+#endif
+
 /*
  * Auto release structure
  */
@@ -155,8 +159,6 @@ _heim_get_isa(heim_object_t ptr)
     if (heim_base_is_tagged(ptr)) {
 	if (heim_base_is_tagged_object(ptr))
 	    return tagged_isa[heim_base_tagged_object_tid(ptr)];
-	if (heim_base_is_tagged_string(ptr))
-	    return &_heim_string_object;
 	heim_abort("not a supported tagged type");
     }
     p = PTR2BASE(ptr);
@@ -320,7 +322,29 @@ heim_base_once_f(heim_base_once_t *once, void *ctx, void (*func)(void *))
 #ifdef HAVE_DISPATCH_DISPATCH_H
     dispatch_once_f(once, ctx, func);
 #else
-    #error "write heim_base_once_t"
+    static HEIMDAL_MUTEX mutex = HEIMDAL_MUTEX_INITIALIZER;
+    HEIMDAL_MUTEX_lock(&mutex);
+    if (*once == 0) {
+	*once = 1;
+	HEIMDAL_MUTEX_unlock(&mutex);
+	func(ctx);
+	HEIMDAL_MUTEX_lock(&mutex);
+	*once = 2;
+	HEIMDAL_MUTEX_unlock(&mutex);
+    } else if (*once == 2) {
+	HEIMDAL_MUTEX_unlock(&mutex);
+    } else {
+	HEIMDAL_MUTEX_unlock(&mutex);
+	while (1) {
+	    struct timeval tv = { 0, 1000 };
+	    select(0, NULL, NULL, NULL, &tv);
+	    HEIMDAL_MUTEX_lock(&mutex);
+	    if (*once == 2)
+		break;
+	    HEIMDAL_MUTEX_unlock(&mutex);
+	}
+	HEIMDAL_MUTEX_unlock(&mutex);
+    }
 #endif
 }
 
@@ -332,6 +356,7 @@ heim_base_once_f(heim_base_once_t *once, void *ctx, void (*func)(void *))
 const char *__crashreporter_info__ = NULL;
 asm(".desc ___crashreporter_info__, 0x10");
 #endif
+
 
 /**
  * Abort and log the failure (using syslog)

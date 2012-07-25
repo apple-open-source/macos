@@ -37,13 +37,11 @@ class SVGFilter : public Filter {
 public:
     static PassRefPtr<SVGFilter> create(const AffineTransform&, const FloatRect&, const FloatRect&, const FloatRect&, bool);
 
-    virtual bool effectBoundingBoxMode() const { return m_effectBBoxMode; }
-
-    virtual FloatRect filterRegionInUserSpace() const { return m_filterRegion; }
+    FloatRect filterRegionInUserSpace() const { return m_filterRegion; }
     virtual FloatRect filterRegion() const { return m_absoluteFilterRegion; }
 
     virtual FloatPoint mapAbsolutePointToLocalPoint(const FloatPoint& point) const { return m_absoluteTransform.inverse().mapPoint(point); }
-    FloatRect mapLocalRectToAbsoluteRect(const FloatRect& rect) const { return m_absoluteTransform.mapRect(rect); }
+    const AffineTransform& absoluteTransform() const { return m_absoluteTransform; }
 
     virtual float applyHorizontalScale(float value) const;
     virtual float applyVerticalScale(float value) const;

@@ -44,12 +44,14 @@ static char *ccache_str = NULL;
 static char *ticket_flags_str = NULL;
 static TicketFlags ticket_flags;
 static char *keytab_file = NULL;
-static char *enc_type = "des-cbc-md5";
+static char *enctype_string = NULL;
 static int   expiration_time = 3600;
 static struct getarg_strings client_addresses;
 static int   version_flag = 0;
 static int   help_flag = 0;
 static int   use_krb5 = 1;
+
+static const char *enc_type = "des-cbc-md5";
 
 /*
  *
@@ -83,7 +85,7 @@ encode_ticket (krb5_context context,
     copy_PrincipalName(&cred->client->name, &et.cname);
     {
 	krb5_data empty_string;
-	
+
 	krb5_data_zero(&empty_string);
 	et.transited.tr_type = DOMAIN_X500_COMPRESS;
 	et.transited.contents = empty_string;
@@ -103,14 +105,19 @@ encode_ticket (krb5_context context,
     if (ret)
 	krb5_err(context, 1, ret, "EncTicketPart");
 
-    krb5_crypto_init(context, skey, etype, &crypto);
-    krb5_encrypt_EncryptedData (context,
-				crypto,
-				KRB5_KU_TICKET,
-				buf,
-				len,
-				skvno,
-				&ticket.enc_part);
+    ret = krb5_crypto_init(context, skey, etype, &crypto);
+    if (ret)
+	krb5_err(context, 1, ret, "krb5_crypto_init");
+    ret = krb5_encrypt_EncryptedData (context,
+				      crypto,
+				      KRB5_KU_TICKET,
+				      buf,
+				      len,
+				      skvno,
+				      &ticket.enc_part);
+    if (ret)
+	krb5_err(context, 1, ret, "krb5_encrypt_EncryptedData");
+
     free(buf);
     krb5_crypto_destroy(context, crypto);
 
@@ -263,21 +270,21 @@ struct getargs args[] = {
     { "ccache", 0, arg_string, &ccache_str,
       "name of kerberos 5 credential cache", "cache-name"},
     { "server", 's', arg_string, &server_principal_str,
-      "name of server principal" },
+      "name of server principal", NULL },
     { "client", 'c', arg_string, &client_principal_str,
-      "name of client principal" },
+      "name of client principal", NULL },
     { "keytab", 'k', arg_string, &keytab_file,
-      "name of keytab file" },
+      "name of keytab file", NULL },
     { "krb5", '5', arg_flag,	 &use_krb5,
-      "create a kerberos 5 ticket"},
+      "create a kerberos 5 ticket", NULL },
     { "expire-time", 'e', arg_integer, &expiration_time,
-      "lifetime of ticket in seconds" },
+      "lifetime of ticket in seconds", NULL },
     { "client-addresses", 'a', arg_strings, &client_addresses,
-      "addresses of client" },
-    { "enc-type", 't', arg_string, 	&enc_type,
-      "encryption type" },
+      "addresses of client", NULL },
+    { "enc-type", 't', arg_string, 	&enctype_string,
+      "encryption type", NULL },
     { "ticket-flags", 'f', arg_string,   &ticket_flags_str,
-      "ticket flags for krb5 ticket" },
+      "ticket flags for krb5 ticket", NULL },
     { "version", 0,  arg_flag,		&version_flag,	"Print version",
       NULL },
     { "help",	 0,  arg_flag,		&help_flag,	NULL,
@@ -297,7 +304,7 @@ usage (int ret)
 int
 main (int argc, char **argv)
 {
-    int optind = 0;
+    int optidx = 0;
     krb5_error_code ret;
     krb5_context context;
     krb5_keytab kt;
@@ -308,23 +315,26 @@ main (int argc, char **argv)
     if (ret)
 	errx(1, "krb5_init_context failed: %u", ret);
 
-    if (getarg (args, sizeof(args) / sizeof(args[0]), argc, argv,
-		&optind))
-	usage (1);
+    if (getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optidx))
+	usage(1);
 
     if (help_flag)
-	usage (0);
+	usage(0);
 
     if (version_flag) {
 	print_version(NULL);
 	return 0;
     }
 
-    setup_env (context, &kt);
+    if (enctype_string)
+	enc_type = enctype_string;
+
+    setup_env(context, &kt);
 
     if (use_krb5)
-	create_krb5_tickets (context, kt);
+	create_krb5_tickets(context, kt);
 
-    krb5_kt_close (context, kt);
+    krb5_kt_close(context, kt);
+
     return 0;
 }

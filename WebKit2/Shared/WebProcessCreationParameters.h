@@ -31,6 +31,7 @@
 #include "TextCheckerState.h"
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
@@ -56,6 +57,7 @@ struct WebProcessCreationParameters {
     String applicationCacheDirectory;    
     String databaseDirectory;
     String localStorageDirectory;
+
     Vector<String> urlSchemesRegistererdAsEmptyDocument;
     Vector<String> urlSchemesRegisteredAsSecure;
     Vector<String> urlSchemesForWhichDomainRelaxationIsForbidden;
@@ -67,16 +69,23 @@ struct WebProcessCreationParameters {
     bool shouldTrackVisitedLinks;
 
     bool shouldAlwaysUseComplexTextCodePath;
+    bool shouldUseFontSmoothing;
 
     bool iconDatabaseEnabled;
 
-    String languageCode;
+#if ENABLE(PLUGIN_PROCESS)
+    bool disablePluginProcessMessageTimeout;
+#endif
+
+    Vector<String> languages;
 
     TextCheckerState textCheckerState;
 
+    bool fullKeyboardAccessEnabled;
+
     double defaultRequestTimeoutInterval;
 
-#if USE(CFURLSTORAGESESSIONS)
+#if PLATFORM(MAC) || USE(CFURLSTORAGESESSIONS)
     String uiProcessBundleIdentifier;
 #endif
 
@@ -94,6 +103,8 @@ struct WebProcessCreationParameters {
 
     String uiProcessBundleResourcePath;
 
+    String webInspectorBaseDirectory;
+
 #elif PLATFORM(WIN)
     String cfURLCachePath;
     uint64_t cfURLCacheDiskCapacity;
@@ -107,6 +118,13 @@ struct WebProcessCreationParameters {
     RetainPtr<CFDataRef> serializedDefaultStorageSession;
 #endif // USE(CFURLSTORAGESESSIONS)
 #endif // PLATFORM(WIN)
+#if PLATFORM(QT)
+    String cookieStorageDirectory;
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    HashMap<String, bool> notificationPermissions;
+#endif
 };
 
 } // namespace WebKit

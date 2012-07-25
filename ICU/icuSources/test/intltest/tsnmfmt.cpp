@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2009, International Business Machines Corporation
+ * Copyright (c) 1997-2011, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -11,6 +11,7 @@
 #include "unicode/decimfmt.h"
 #include "tsnmfmt.h"
 #include "putilimp.h"
+#include "cstring.h"
 #include <float.h>
 #include <stdlib.h>
 
@@ -94,11 +95,13 @@ IntlTestNumberFormat::testLocale(/* char* par, */const Locale& locale, const Uni
     fFormat = NumberFormat::createPercentInstance(locale, fStatus);
     testFormat(/* par */);
 	
-    name = "Scientific test";
-    logln((UnicodeString)name + " (" + localeName + ")");
-    fStatus = U_ZERO_ERROR;
-    fFormat = NumberFormat::createScientificInstance(locale, fStatus);
-    testFormat(/* par */);
+    if (uprv_strcmp(locale.getName(), "en_US_POSIX") != 0) {
+        name = "Scientific test";
+        logln((UnicodeString)name + " (" + localeName + ")");
+        fStatus = U_ZERO_ERROR;
+        fFormat = NumberFormat::createScientificInstance(locale, fStatus);
+        testFormat(/* par */);
+    }
 }
 
 double IntlTestNumberFormat::randDouble()
@@ -176,7 +179,7 @@ IntlTestNumberFormat::testFormat(/* char* par */)
     DecimalFormat *s = (DecimalFormat*)fFormat;
     logln((UnicodeString)"  Pattern " + s->toPattern(str));
 
-#if defined(OS390) || defined(OS400)
+#if U_PF_OS390 <= U_PLATFORM && U_PLATFORM <= U_PF_OS400
     tryIt(-2.02147304840132e-68);
     tryIt(3.88057859588817e-68); // Test rounding when only some digits are shown because exponent is close to -maxfrac
     tryIt(-2.64651110485945e+65); // Overflows to +INF when shown as a percent
@@ -193,7 +196,7 @@ IntlTestNumberFormat::testFormat(/* char* par */)
     // These fail due to round-off
     // The least significant digit drops by one during each format-parse cycle.
     // Both numbers DON'T have a round-off problem when multiplied by 100! (shown as %)
-#ifdef OS390
+#if U_PLATFORM == U_PF_OS390
     tryIt(-9.18228054496402e+64);
     tryIt(-9.69413034454191e+64);
 #else
@@ -201,7 +204,7 @@ IntlTestNumberFormat::testFormat(/* char* par */)
     tryIt(-9.69413034454191e+273);
 #endif
 
-#ifndef OS390
+#if U_PLATFORM != U_PF_OS390
     tryIt(1.234e-200);
     tryIt(-2.3e-168);
 
@@ -216,9 +219,9 @@ IntlTestNumberFormat::testFormat(/* char* par */)
     tryIt(1.234e-50);
     tryIt(9.99999999999996);
     tryIt(9.999999999999996);
-
-	tryIt(5.06e-27);
 	
+	tryIt(5.06e-27);
+
     tryIt((int32_t)INT32_MIN);
     tryIt((int32_t)INT32_MAX);
     tryIt((double)INT32_MIN);

@@ -1,7 +1,7 @@
 /* ------------------------------------------------------------------ */
 /* Decimal Number arithmetic module                                   */
 /* ------------------------------------------------------------------ */
-/* Copyright (c) IBM Corporation, 2000-2010.  All rights reserved.    */
+/* Copyright (c) IBM Corporation, 2000-2012.  All rights reserved.    */
 /*                                                                    */
 /* This software is made available under the terms of the             */
 /* ICU License -- ICU 1.8.1 and later.                                */
@@ -181,6 +181,7 @@
 #include "cmemory.h"               /* for uprv_malloc, etc., in ICU */
 #include "decNumber.h"             /* base number library  */
 #include "decNumberLocal.h"        /* decNumber local types, etc.  */
+#include "uassert.h"
 
 /* Constants */
 /* Public lookup table used by the D2U macro  */
@@ -1392,6 +1393,10 @@ U_CAPI decNumber * U_EXPORT2 uprv_decNumberLogB(decNumber *res, const decNumber 
 /* fastpath in decLnOp.  The final division is done to the requested  */
 /* precision.                                                         */
 /* ------------------------------------------------------------------ */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 U_CAPI decNumber * U_EXPORT2 uprv_decNumberLog10(decNumber *res, const decNumber *rhs,
                           decContext *set) {
   uInt status=0, ignore=0;         /* status accumulators  */
@@ -1527,6 +1532,9 @@ U_CAPI decNumber * U_EXPORT2 uprv_decNumberLog10(decNumber *res, const decNumber
   #endif
   return res;
   } /* decNumberLog10  */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic pop
+#endif
 
 /* ------------------------------------------------------------------ */
 /* decNumberMax -- compare two Numbers and return the maximum         */
@@ -2800,6 +2808,10 @@ U_CAPI decNumber * U_EXPORT2 uprv_decNumberShift(decNumber *res, const decNumber
 /* result setexp(approx, e div 2)  % fix exponent                     */
 /* end sqrt                                                           */
 /* ------------------------------------------------------------------ */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 U_CAPI decNumber * U_EXPORT2 uprv_decNumberSquareRoot(decNumber *res, const decNumber *rhs,
                                 decContext *set) {
   decContext workset, approxset;   /* work contexts  */
@@ -3129,6 +3141,9 @@ U_CAPI decNumber * U_EXPORT2 uprv_decNumberSquareRoot(decNumber *res, const decN
   #endif
   return res;
   } /* decNumberSquareRoot  */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic pop
+#endif
 
 /* ------------------------------------------------------------------ */
 /* decNumberSubtract -- subtract two Numbers                          */
@@ -4059,6 +4074,8 @@ static decNumber * decAddOp(decNumber *res, const decNumber *lhs,
     #endif
 
     /* add [A+B*m] or subtract [A+B*(-m)]  */
+    U_ASSERT(rhs->digits > 0);
+    U_ASSERT(lhs->digits > 0);
     res->digits=decUnitAddSub(lhs->lsu, D2U(lhs->digits),
                               rhs->lsu, D2U(rhs->digits),
                               rhsshift, acc, mult)
@@ -4971,6 +4988,10 @@ static decNumber * decMultiplyOp(decNumber *res, const decNumber *lhs,
       /* (rounded up to a multiple of 8 bytes), and the uLong  */
       /* accumulator starts offset the appropriate number of units  */
       /* to the right to avoid overwrite during the unchunking.  */
+
+      /* Make sure no signed int overflow below. This is always true */
+      /* if the given numbers have less digits than DEC_MAX_DIGITS. */
+      U_ASSERT(iacc <= INT32_MAX/sizeof(uLong));
       needbytes=iacc*sizeof(uLong);
       #if DECDPUN==1
       zoff=(iacc+7)/8;        /* items to offset by  */
@@ -5512,7 +5533,7 @@ decNumber * decExpOp(decNumber *res, const decNumber *rhs,
 /*           where x is truncated (NB) into the range 10 through 99,  */
 /*           and then c = k>>2 and e = k&3.                           */
 /* ------------------------------------------------------------------ */
-const uShort LNnn[90]={9016,  8652,  8316,  8008,  7724,  7456,  7208,
+static const uShort LNnn[90]={9016,  8652,  8316,  8008,  7724,  7456,  7208,
   6972,  6748,  6540,  6340,  6148,  5968,  5792,  5628,  5464,  5312,
   5164,  5020,  4884,  4748,  4620,  4496,  4376,  4256,  4144,  4032,
  39233, 38181, 37157, 36157, 35181, 34229, 33297, 32389, 31501, 30629,
@@ -5584,6 +5605,10 @@ const uShort LNnn[90]={9016,  8652,  8316,  8008,  7724,  7456,  7208,
 /* 5. The static buffers are larger than might be expected to allow   */
 /*    for calls from decNumberPower.                                  */
 /* ------------------------------------------------------------------ */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 decNumber * decLnOp(decNumber *res, const decNumber *rhs,
                     decContext *set, uInt *status) {
   uInt ignore=0;                   /* working status accumulator  */
@@ -5805,6 +5830,9 @@ decNumber * decLnOp(decNumber *res, const decNumber *rhs,
   /* [status is handled by caller]  */
   return res;
   } /* decLnOp  */
+#if defined(__clang__) || (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 406))
+#pragma GCC diagnostic pop
+#endif
 
 /* ------------------------------------------------------------------ */
 /* decQuantizeOp  -- force exponent to requested value                */
@@ -6978,6 +7006,7 @@ static void decSetCoeff(decNumber *dn, decContext *set, const Unit *lsu,
     if (cut==0) quot=*up;          /* is at bottom of unit  */
      else /* cut>0 */ {            /* it's not at bottom of unit  */
       #if DECDPUN<=4
+        U_ASSERT(cut >= 0 && cut <= 4);
         quot=QUOT10(*up, cut);
         rem=*up-quot*powers[cut];
       #else

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.91.2.13 2010/04/19 16:53:01 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  * 
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

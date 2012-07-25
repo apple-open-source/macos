@@ -116,7 +116,6 @@ void notifyTest( char * arg )
                         notify,
                         type,
                         IOServiceMatching( arg ),
-//                      IOOpenFirmwarePathMatching( masterPort, 0, arg ),
 //                      IOBSDNameMatching( masterPort, 0, arg ),
                         &ServiceArrivalCallback, (void *) notify,
                         &note1 )

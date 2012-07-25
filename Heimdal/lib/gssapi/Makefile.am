@@ -13,8 +13,7 @@ AM_CPPFLAGS += \
 	-I$(srcdir)/krb5 \
 	-I$(srcdir)/spnego \
 	$(INCLUDE_libintl) \
-	$(INCLUDE_hcrypto) \
-	$(INCLUDE_krb4)
+	$(INCLUDE_hcrypto)
 
 lib_LTLIBRARIES = libgssapi.la
 
@@ -60,6 +59,7 @@ krb5src = \
 	krb5/inquire_names_for_mech.c \
 	krb5/inquire_sec_context_by_oid.c \
 	krb5/iter_cred.c \
+	krb5/pname_to_uid.c \
 	krb5/process_context_token.c \
 	krb5/prf.c \
 	krb5/release_buffer.c \
@@ -71,6 +71,7 @@ krb5src = \
 	krb5/set_sec_context_option.c \
 	krb5/ticket_flags.c \
 	krb5/unwrap.c \
+	krb5/authorize_localname.c \
 	krb5/verify_mic.c \
 	krb5/wrap.c
 
@@ -78,10 +79,14 @@ mechsrc = \
 	mech/context.h \
 	mech/context.c \
 	mech/cred.h \
+	mech/compat.h \
 	mech/doxygen.c \
 	mech/gss_accept_sec_context.c \
 	mech/gss_acquire_cred.c \
+	mech/gss_acquire_cred_ext.c \
+	mech/gss_acquire_cred_with_password.c \
 	mech/gss_add_cred.c \
+	mech/gss_add_cred_with_password.c \
 	mech/gss_add_oid_set_member.c \
 	mech/gss_aeap.c \
 	mech/gss_buffer_set.c \
@@ -91,15 +96,19 @@ mechsrc = \
 	mech/gss_create_empty_oid_set.c \
 	mech/gss_cred.c \
 	mech/gss_decapsulate_token.c \
+	mech/gss_delete_name_attribute.c \
 	mech/gss_delete_sec_context.c \
 	mech/gss_display_name.c \
+	mech/gss_display_name_ext.c \
 	mech/gss_display_status.c \
 	mech/gss_duplicate_name.c \
 	mech/gss_duplicate_oid.c \
 	mech/gss_encapsulate_token.c \
 	mech/gss_export_name.c \
+	mech/gss_export_name_composite.c \
 	mech/gss_export_sec_context.c \
 	mech/gss_get_mic.c \
+	mech/gss_get_name_attribute.c \
 	mech/gss_import_name.c \
 	mech/gss_import_sec_context.c \
 	mech/gss_indicate_mechs.c \
@@ -109,12 +118,16 @@ mechsrc = \
 	mech/gss_inquire_cred_by_mech.c \
 	mech/gss_inquire_cred_by_oid.c \
 	mech/gss_inquire_mechs_for_name.c \
+	mech/gss_inquire_name.c \
 	mech/gss_inquire_names_for_mech.c \
 	mech/gss_krb5.c \
 	mech/gss_mech_switch.c \
+	mech/gss_mo.c \
 	mech/gss_names.c \
+	mech/gss_oid.c \
 	mech/gss_oid_equal.c \
 	mech/gss_oid_to_str.c \
+	mech/gss_pname_to_uid.c \
 	mech/gss_process_context_token.c \
 	mech/gss_pseudo_random.c \
 	mech/gss_release_buffer.c \
@@ -124,12 +137,14 @@ mechsrc = \
 	mech/gss_release_oid_set.c \
 	mech/gss_seal.c \
 	mech/gss_set_cred_option.c \
+	mech/gss_set_name_attribute.c \
 	mech/gss_set_sec_context_option.c \
 	mech/gss_sign.c \
 	mech/gss_store_cred.c \
 	mech/gss_test_oid_set_member.c \
 	mech/gss_unseal.c \
 	mech/gss_unwrap.c \
+	mech/gss_authorize_localname.c \
 	mech/gss_utils.c \
 	mech/gss_verify.c \
 	mech/gss_verify_mic.c \
@@ -180,6 +195,7 @@ ntlmsrc = \
 	ntlm/inquire_mechs_for_name.c \
 	ntlm/inquire_names_for_mech.c \
 	ntlm/inquire_sec_context_by_oid.c \
+	ntlm/iter_cred.c \
 	ntlm/process_context_token.c \
 	ntlm/release_cred.c \
 	ntlm/release_name.c \
@@ -201,7 +217,9 @@ nodist_libgssapi_la_SOURCES  = \
 	gssapi_asn1-template.c \
 	$(BUILT_SOURCES)
 
-libgssapi_la_LDFLAGS = -version-info 2:0:0
+libgssapi_la_DEPENDENCIES = version-script.map
+
+libgssapi_la_LDFLAGS = -version-info 3:0:0
 
 if versionscript
 libgssapi_la_LDFLAGS += $(LDFLAGS_VERSION_SCRIPT)$(srcdir)/version-script.map
@@ -223,10 +241,12 @@ noinst_HEADERS = \
 	ntlm/ntlm-private.h \
 	spnego/spnego-private.h \
 	krb5/gsskrb5-private.h
+
 nobase_include_HEADERS = \
 	gssapi/gssapi.h \
 	gssapi/gssapi_krb5.h \
 	gssapi/gssapi_ntlm.h \
+	gssapi/gssapi_oid.h \
 	gssapi/gssapi_spnego.h
 
 gssapidir = $(includedir)/gssapi
@@ -259,10 +279,8 @@ BUILT_SOURCES = $(spnego_files:.x=.c) $(gssapi_files:.x=.c)
 
 CLEANFILES = $(BUILT_SOURCES) \
 	gkrb5_err.h gkrb5_err.c \
-	$(spnego_files) spnego_asn1.h* spnego_asn1-priv.h* spnego_asn1_files \
-	spnego_asn1-template.c \
-	$(gssapi_files) gssapi_asn1.h* gssapi_asn1-priv.h* gssapi_asn1_files \
-	gssapi_asn1-template.c \
+	$(spnego_files) spnego_asn1*.h* spnego_asn1_files spnego_asn1-template.c \
+	$(gssapi_files) gssapi_asn1*.h* gssapi_asn1_files gssapi_asn1-template.c \
 	gss-commands.h gss-commands.c
 
 $(spnego_files) spnego_asn1.hx spnego_asn1-priv.hx: spnego_asn1_files
@@ -288,8 +306,8 @@ test_cfx_SOURCES = krb5/test_cfx.c
 
 check_PROGRAMS = test_acquire_cred $(TESTS)
 
-bin_PROGRAMS = gss
-noinst_PROGRAMS = test_cred test_kcred test_context test_gssntlm
+bin_PROGRAMS = gsstool
+noinst_PROGRAMS = test_cred test_kcred test_context test_ntlm
 
 test_context_SOURCES = test_context.c test_common.c test_common.h
 test_gssntlm_SOURCES = test_gssntlm.c test_common.c test_common.h
@@ -305,10 +323,10 @@ LDADD = libgssapi.la \
 
 # gss
 
-dist_gss_SOURCES = gsstool.c
-nodist_gss_SOURCES = gss-commands.c gss-commands.h
+dist_gsstool_SOURCES = gsstool.c
+nodist_gsstool_SOURCES = gss-commands.c gss-commands.h
 
-gss_LDADD = libgssapi.la \
+gsstool_LDADD = libgssapi.la \
 	$(top_builddir)/lib/sl/libsl.la \
 	$(top_builddir)/lib/krb5/libkrb5.la \
 	$(LIB_readline) \
@@ -317,9 +335,12 @@ gss_LDADD = libgssapi.la \
 gss-commands.c gss-commands.h: gss-commands.in
 	$(SLC) $(srcdir)/gss-commands.in
 
-$(gss_OBJECTS): gss-commands.h
+$(gsstool_OBJECTS): gss-commands.h
 
 EXTRA_DIST = \
+	NTMakefile \
+	libgssapi-version.rc \
+	libgssapi-exports.def \
 	$(man_MANS) \
 	krb5/gkrb5_err.et \
 	mech/gssapi.asn1 \
@@ -330,6 +351,19 @@ EXTRA_DIST = \
 
 $(libgssapi_la_OBJECTS): gkrb5_err.h gssapi_asn1.h gssapi_asn1-priv.h
 $(libgssapi_la_OBJECTS): spnego_asn1.h spnego_asn1-priv.h
+$(libgssapi_la_OBJECTS): $(srcdir)/gssapi/gssapi_oid.h
+$(libgssapi_la_OBJECTS): $(srcdir)/gssapi/gssapi_protos.h
+$(libgssapi_la_OBJECTS): $(srcdir)/gssapi/gssapi_private.h
 
 gkrb5_err.h gkrb5_err.c: $(srcdir)/krb5/gkrb5_err.et
 	$(COMPILE_ET) $(srcdir)/krb5/gkrb5_err.et
+
+$(srcdir)/gssapi/gssapi_oid.h $(srcdir)/mech/gss_oid.c:
+	perl $(srcdir)/gen-oid.pl -b base -h $(srcdir)/oid.txt > $(srcdir)/gssapi/gssapi_oid.h
+	perl $(srcdir)/gen-oid.pl -b base $(srcdir)/oid.txt > $(srcdir)/mech/gss_oid.c
+
+$(srcdir)/gssapi/gssapi_protos.h:
+	cd $(srcdir) && perl ../../cf/make-proto.pl -E GSS_LIB -q -P comment -o gssapi/gssapi_protos.h $(dist_libgssapi_la_SOURCES) || rm -f gssapi_protos.h
+
+$(srcdir)/gssapi/gssapi_private.h:
+	cd $(srcdir) && perl ../../cf/make-proto.pl -q -P comment -p gssapi_private.h $(mechsrc) || rm -f gssapi_private.h

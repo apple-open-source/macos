@@ -28,10 +28,11 @@
 
 #include "NPV8Object.h"
 
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include "DOMWindow.h"
 #include "Frame.h"
-#include "OwnArrayPtr.h"
+#include "NPObjectWrapper.h"
+#include <wtf/OwnArrayPtr.h>
 #include "PlatformString.h"
 #include "ScriptSourceCode.h"
 #include "UserGestureIndicator.h"
@@ -43,12 +44,6 @@
 #include "npruntime_impl.h"
 #include "npruntime_priv.h"
 
-#if PLATFORM(CHROMIUM)
-#include <bindings/npruntime.h>
-#else
-#include "npruntime.h"
-#endif
-
 #include <stdio.h>
 #include <wtf/StringExtras.h>
 
@@ -58,8 +53,17 @@ namespace WebCore {
 
 WrapperTypeInfo* npObjectTypeInfo()
 {
-    static WrapperTypeInfo typeInfo = { 0, 0, 0 };
+    static WrapperTypeInfo typeInfo = { 0, 0, 0, 0 };
     return &typeInfo;
+}
+
+typedef Vector<V8NPObject*> V8NPObjectVector;
+typedef HashMap<int, V8NPObjectVector> V8NPObjectMap;
+
+static V8NPObjectMap* staticV8NPObjectMap()
+{
+    DEFINE_STATIC_LOCAL(V8NPObjectMap, v8npObjectMap, ());
+    return &v8npObjectMap;
 }
 
 // FIXME: Comments on why use malloc and free.
@@ -71,6 +75,25 @@ static NPObject* allocV8NPObject(NPP, NPClass*)
 static void freeV8NPObject(NPObject* npObject)
 {
     V8NPObject* v8NpObject = reinterpret_cast<V8NPObject*>(npObject);
+    if (int v8ObjectHash = v8NpObject->v8Object->GetIdentityHash()) {
+        V8NPObjectMap::iterator iter = staticV8NPObjectMap()->find(v8ObjectHash);
+        if (iter != staticV8NPObjectMap()->end()) {
+            V8NPObjectVector& objects = iter->second;
+            for (size_t index = 0; index < objects.size(); ++index) {
+                if (objects.at(index) == v8NpObject) {
+                    objects.remove(index);
+                    break;
+                }
+            }
+            if (objects.isEmpty())
+                staticV8NPObjectMap()->remove(v8ObjectHash);
+        } else
+            ASSERT_NOT_REACHED();
+    } else {
+        ASSERT(!v8::Context::InContext());
+        staticV8NPObjectMap()->clear();
+    }
+
 #ifndef NDEBUG
     V8GCController::unregisterGlobalHandle(v8NpObject, v8NpObject->v8Object);
 #endif
@@ -126,12 +149,32 @@ NPObject* npCreateV8ScriptObject(NPP npp, v8::Handle<v8::Object> object, DOMWind
         }
     }
 
+    int v8ObjectHash = object->GetIdentityHash();
+    ASSERT(v8ObjectHash);
+    V8NPObjectMap::iterator iter = staticV8NPObjectMap()->find(v8ObjectHash);
+    if (iter != staticV8NPObjectMap()->end()) {
+        V8NPObjectVector& objects = iter->second;
+        for (size_t index = 0; index < objects.size(); ++index) {
+            V8NPObject* v8npObject = objects.at(index);
+            if (v8npObject->rootObject == root) {
+                ASSERT(v8npObject->v8Object == object);
+                _NPN_RetainObject(&v8npObject->object);
+                return reinterpret_cast<NPObject*>(v8npObject);
+            }
+        }
+    } else {
+        iter = staticV8NPObjectMap()->set(v8ObjectHash, V8NPObjectVector()).iterator;
+    }
+
     V8NPObject* v8npObject = reinterpret_cast<V8NPObject*>(_NPN_CreateObject(npp, &V8NPObjectClass));
     v8npObject->v8Object = v8::Persistent<v8::Object>::New(object);
 #ifndef NDEBUG
     V8GCController::registerGlobalHandle(NPOBJECT, v8npObject, v8npObject->v8Object);
 #endif
     v8npObject->rootObject = root;
+
+    iter->second.append(v8npObject);
+
     return reinterpret_cast<NPObject*>(v8npObject);
 }
 
@@ -251,7 +294,7 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
 
 bool _NPN_Evaluate(NPP npp, NPObject* npObject, NPString* npScript, NPVariant* result)
 {
-    bool popupsAllowed = PlatformBridge::popupsAllowed(npp);
+    bool popupsAllowed = PlatformSupport::popupsAllowed(npp);
     return _NPN_EvaluateHelper(npp, popupsAllowed, npObject, npScript, result);
 }
 
@@ -261,8 +304,13 @@ bool _NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npObject, NPStri
     if (!npObject)
         return false;
 
-    if (npObject->_class != npScriptObjectClass)
-        return false;
+    if (npObject->_class != npScriptObjectClass) {
+        // Check if the object passed in is wrapped. If yes, then we need to invoke on the underlying object.
+        NPObject* actualObject = NPObjectWrapper::getUnderlyingNPObject(npObject);
+        if (!actualObject)
+            return false;
+        npObject = actualObject;
+    }
 
     v8::HandleScope handleScope;
     v8::Handle<v8::Context> context = toV8Context(npp, npObject);
@@ -275,21 +323,15 @@ bool _NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npObject, NPStri
     v8::Context::Scope scope(context);
     ExceptionCatcher exceptionCatcher;
 
+    // FIXME: Is this branch still needed after switching to using UserGestureIndicator?
     String filename;
     if (!popupsAllowed)
         filename = "npscript";
 
-    // Set popupsAllowed flag to the current execution frame, so WebKit can get
-    // right gesture status for popups initiated from plugins.
-    Frame* frame = proxy->frame();
-    ASSERT(frame);
-    bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
-    frame->script()->setAllowPopupsFromPlugin(popupsAllowed);
-
     String script = String::fromUTF8(npScript->UTF8Characters, npScript->UTF8Length);
+
+    UserGestureIndicator gestureIndicator(popupsAllowed ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
     v8::Local<v8::Value> v8result = proxy->evaluate(ScriptSourceCode(script, KURL(ParsedURLString, filename)), 0);
-    // Restore the old flag.
-    frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);
 
     if (v8result.IsEmpty())
         return false;

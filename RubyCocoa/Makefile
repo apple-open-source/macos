@@ -25,7 +25,7 @@ RUN_TESTS = 0
 
 build::
 	(cd $(SRCROOT)/$(Project) \
-	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin11.0 --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/unmaintained_templates" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false \
+	&& /usr/bin/ruby install.rb config --prefix=$(RUBYUSR) --site-ruby=$(DSTRUBYDIR)/1.8 --so-dir=$(DSTRUBYDIR)/1.8/universal-darwin`uname -r | cut -d. -f1-2` --frameworks="$(DSTROOT)/System/Library/Frameworks" --xcode-extras="$(DSTROOT)/unmaintained_templates" --examples="$(DSTROOT)/Developer/Examples/Ruby" --documentation="$(DSTROOT)/Developer/Documentation" --gen-bridge-support=false --build-as-embeddable=false \
 	&& /usr/bin/ruby install.rb setup \
 	&& (if [ $(RUN_TESTS)"" = "1" ]; then (cd tests && (DYLD_FRAMEWORK_PATH=../framework/build /usr/bin/ruby -I../lib -I../ext/rubycocoa testall.rb || exit 1)); fi) \
 	&& /usr/bin/ruby install.rb install \
@@ -58,7 +58,7 @@ AEP_Version    = $(FullProjectVersion)
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tgz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff disable_threading_hacks.diff
+AEP_Patches    = fix_install.rb.diff fix_ext_rubycocoa_extconf.rb.diff disable_threading_hacks.diff fix_metaconfig.diff
 
 # Extract the source.
 install_source::

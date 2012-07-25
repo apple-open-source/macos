@@ -26,8 +26,6 @@
 #ifndef ApplicationCacheGroup_h
 #define ApplicationCacheGroup_h
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "DOMApplicationCache.h"
 #include "KURL.h"
 #include "PlatformString.h"
@@ -78,6 +76,8 @@ public:
     
     void update(Frame*, ApplicationCacheUpdateOption); // FIXME: Frame should not be needed when updating without browsing context.
     void cacheDestroyed(ApplicationCache*);
+    
+    void abort(Frame*);
 
     bool cacheIsBeingUpdated(const ApplicationCache* cache) const { return cache == m_cacheBeingUpdated; }
 
@@ -103,7 +103,6 @@ private:
     static void postListenerTask(ApplicationCacheHost::EventID, int progressTotal, int progressDone, DocumentLoader*);
 
     void scheduleReachedMaxAppCacheSizeCallback();
-    void scheduleReachedOriginQuotaCallback();
 
     PassRefPtr<ResourceHandle> createResourceHandle(const KURL&, ApplicationCacheResource* newestCachedResource);
 
@@ -120,13 +119,13 @@ private:
     void didReceiveManifestData(const char*, int);
     void didFinishLoadingManifest();
     void didReachMaxAppCacheSize();
-    void didReachOriginQuota(PassRefPtr<Frame> frame);
+    void didReachOriginQuota(int64_t totalSpaceNeeded);
     
     void startLoadingEntry();
     void deliverDelayedMainResources();
     void checkIfLoadIsComplete();
     void cacheUpdateFailed();
-    void cacheUpdateFailedDueToOriginQuota();
+    void recalculateAvailableSpaceInQuota();
     void manifestNotFound();
     
     void addEntry(const String&, unsigned type);
@@ -200,16 +199,12 @@ private:
     RefPtr<ApplicationCacheResource> m_manifestResource;
     RefPtr<ResourceHandle> m_manifestHandle;
 
-    int64_t m_loadedSize;
     int64_t m_availableSpaceInQuota;
-    bool m_originQuotaReached;
+    bool m_originQuotaExceededPreviously;
 
     friend class ChromeClientCallbackTimer;
-    friend class OriginQuotaReachedCallbackTimer;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #endif // ApplicationCacheGroup_h

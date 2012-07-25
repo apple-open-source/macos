@@ -69,17 +69,12 @@ void JSDocument::setLocation(ExecState* exec, JSValue value)
     if (!frame)
         return;
 
-    String str = ustringToString(value.toString(exec));
+    UString locationString = value.toString(exec)->value(exec);
+    if (exec->hadException())
+        return;
 
-    Frame* lexicalFrame = asJSDOMWindow(exec->lexicalGlobalObject())->impl()->frame();
-
-    // IE and Mozilla both resolve the URL relative to the source frame,
-    // not the target frame.
-    Frame* activeFrame = asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
-    str = activeFrame->document()->completeURL(str).string();
-
-    frame->navigationScheduler()->scheduleLocationChange(lexicalFrame->document()->securityOrigin(),
-        str, activeFrame->loader()->outgoingReferrer(), !activeFrame->script()->anyPageIsProcessingUserGesture(), false);
+    if (Location* location = frame->domWindow()->location())
+        location->setHref(ustringToString(locationString), activeDOMWindow(exec), firstDOMWindow(exec));
 }
 
 JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Document* document)
@@ -118,7 +113,7 @@ JSValue JSDocument::createTouchList(ExecState* exec)
 {
     RefPtr<TouchList> touchList = TouchList::create();
 
-    for (int i = 0; i < exec->argumentCount(); i++)
+    for (size_t i = 0; i < exec->argumentCount(); i++)
         touchList->append(toTouch(exec->argument(i)));
 
     return toJS(exec, globalObject(), touchList.release());

@@ -37,7 +37,7 @@
 #ifndef _H_ACLS
 #define _H_ACLS
 
-#include <securityd_server/sscommon.h>
+#include <securityd_client/sscommon.h>
 #include <security_cdsa_utilities/cssmacl.h>
 #include <security_cdsa_utilities/context.h>
 #include <security_cdsa_utilities/acl_process.h>

@@ -26,10 +26,10 @@
 #ifndef WebSpeechInputResult_h
 #define WebSpeechInputResult_h
 
-#include "WebCommon.h"
-#include "WebPrivatePtr.h"
-#include "WebString.h"
-#include "WebVector.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 namespace WebCore {
 class SpeechInputResult;
@@ -42,10 +42,12 @@ namespace WebKit {
 class WebSpeechInputResult {
 public:
     WebSpeechInputResult() { }
+    WebSpeechInputResult(const WebSpeechInputResult& other) { assign(other); }
     ~WebSpeechInputResult() { reset(); }
 
-    WEBKIT_API void set(const WebString& utterance, double confidence);
-    WEBKIT_API void reset();
+    WEBKIT_EXPORT void assign(const WebString& utterance, double confidence);
+    WEBKIT_EXPORT void assign(const WebSpeechInputResult& other);
+    WEBKIT_EXPORT void reset();
 
 #if WEBKIT_IMPLEMENTATION
     WebSpeechInputResult(const WTF::PassRefPtr<WebCore::SpeechInputResult>&);

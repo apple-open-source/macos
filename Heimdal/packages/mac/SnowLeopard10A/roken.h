@@ -207,13 +207,6 @@ ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
     issuid(void);
 
 
-ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL get_window_size(int fd, struct winsize *);
-
-
-
-
-
-
 #define copyhostent rk_copyhostent
 ROKEN_LIB_FUNCTION struct hostent * ROKEN_LIB_CALL
 copyhostent (const struct hostent *);

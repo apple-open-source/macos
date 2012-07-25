@@ -24,6 +24,7 @@
 #ifndef KeyboardEvent_h
 #define KeyboardEvent_h
 
+#include "EventDispatchMediator.h"
 #include "UIEventWithKeyState.h"
 #include <wtf/Vector.h>
 
@@ -86,7 +87,8 @@ namespace WebCore {
 
         int keyCode() const; // key code for keydown and keyup, character for keypress
         int charCode() const; // character code for keypress, 0 for keydown and keyup
-    
+
+        virtual const AtomicString& interfaceName() const;
         virtual bool isKeyboardEvent() const;
         virtual int which() const;
 
@@ -117,9 +119,9 @@ namespace WebCore {
 
 class KeyboardEventDispatchMediator : public EventDispatchMediator {
 public:
-    explicit KeyboardEventDispatchMediator(PassRefPtr<KeyboardEvent>);
-
+    static PassRefPtr<KeyboardEventDispatchMediator> create(PassRefPtr<KeyboardEvent>);
 private:
+    explicit KeyboardEventDispatchMediator(PassRefPtr<KeyboardEvent>);
     virtual bool dispatchEvent(EventDispatcher*) const;
 };
 

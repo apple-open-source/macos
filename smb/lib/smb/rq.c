@@ -53,7 +53,7 @@
 #include <netsmb/smb_conn.h>
 #include <smbclient/ntstatus.h>
 
-struct smb_rq {
+struct smb_usr_rq {
 	u_char			rq_cmd;
 	struct mbchain	rq_rq;
 	struct mdchain	rq_rp;
@@ -123,9 +123,9 @@ int smb_localpath_to_ntwrkpath(struct smb_ctx *ctx,
 	return -1;
 }
 
-int smb_rq_init(struct smb_ctx *ctx, u_char cmd, uint16_t flags2, struct smb_rq **rqpp)
+int smb_usr_rq_init(struct smb_ctx *ctx, u_char cmd, uint16_t flags2, struct smb_usr_rq **rqpp)
 {
-	struct smb_rq *rqp;
+	struct smb_usr_rq *rqp;
 	
 	rqp = malloc(sizeof(*rqp));
 	if (rqp == NULL)
@@ -133,17 +133,17 @@ int smb_rq_init(struct smb_ctx *ctx, u_char cmd, uint16_t flags2, struct smb_rq 
 	bzero(rqp, sizeof(*rqp));
 	rqp->rq_cmd = cmd;
 	rqp->rq_ctx = ctx;
-	smb_rq_setflags2(rqp, flags2);
+	smb_usr_rq_setflags2(rqp, flags2);
 	mb_init(&rqp->rq_rq);
 	md_init(&rqp->rq_rp);
 	*rqpp = rqp;
 	return 0;
 }
 
-int smb_rq_init_rcvsize(struct smb_ctx *ctx, u_char cmd, uint16_t flags2, 
-						size_t rpbufsz, struct smb_rq **rqpp)
+int smb_usr_rq_init_rcvsize(struct smb_ctx *ctx, u_char cmd, uint16_t flags2, 
+						size_t rpbufsz, struct smb_usr_rq **rqpp)
 {
-	struct smb_rq *rqp;
+	struct smb_usr_rq *rqp;
 
 	rqp = malloc(sizeof(*rqp));
 	if (rqp == NULL)
@@ -151,7 +151,7 @@ int smb_rq_init_rcvsize(struct smb_ctx *ctx, u_char cmd, uint16_t flags2,
 	bzero(rqp, sizeof(*rqp));
 	rqp->rq_cmd = cmd;
 	rqp->rq_ctx = ctx;
-	smb_rq_setflags2(rqp, flags2);
+	smb_usr_rq_setflags2(rqp, flags2);
 	mb_init(&rqp->rq_rq);
 	md_init_rcvsize(&rqp->rq_rp, rpbufsz);
 	*rqpp = rqp;
@@ -159,40 +159,40 @@ int smb_rq_init_rcvsize(struct smb_ctx *ctx, u_char cmd, uint16_t flags2,
 }
 
 void
-smb_rq_done(struct smb_rq *rqp)
+smb_usr_rq_done(struct smb_usr_rq *rqp)
 {
 	mb_done((mbchain_t)&rqp->rq_rp);
 	md_done((mdchain_t)&rqp->rq_rq);
 	free(rqp);
 }
 
-mbchain_t smb_rq_getrequest(struct smb_rq *rqp)
+mbchain_t smb_usr_rq_getrequest(struct smb_usr_rq *rqp)
 {
 	return &rqp->rq_rq;
 }
 
 
-mdchain_t smb_rq_getreply(struct smb_rq *rqp)
+mdchain_t smb_usr_rq_getreply(struct smb_usr_rq *rqp)
 {
 	return &rqp->rq_rp;
 }
 
-uint32_t smb_rq_get_error(struct smb_rq *rqp)
+uint32_t smb_usr_rq_get_error(struct smb_usr_rq *rqp)
 {
 	return rqp->nt_error;
 }
 
-uint32_t smb_rq_flags2(struct smb_rq *rqp)
+uint32_t smb_usr_rq_flags2(struct smb_usr_rq *rqp)
 {
 	return rqp->flags2;
 }
 
-uint32_t smb_rq_nt_error(struct smb_rq *rqp)
+uint32_t smb_usr_rq_nt_error(struct smb_usr_rq *rqp)
 {
 	return rqp->nt_error;
 }
 
-void smb_rq_setflags2(struct smb_rq *rqp, uint32_t flags2)
+void smb_usr_rq_setflags2(struct smb_usr_rq *rqp, uint32_t flags2)
 {
 	/* We only support SMB_FLAGS2_DFS, log the failure reset the flags to zero */
 	if (flags2 && (flags2 != SMB_FLAGS2_DFS)) {
@@ -203,13 +203,13 @@ void smb_rq_setflags2(struct smb_rq *rqp, uint32_t flags2)
 	rqp->flags2 = flags2;
 }
 
-void smb_rq_wstart(struct smb_rq *rqp)
+void smb_usr_rq_wstart(struct smb_usr_rq *rqp)
 {
 	rqp->wcount = (uint8_t *)mb_reserve(&rqp->rq_rq, sizeof(uint8_t));
 	rqp->rq_rq.mb_count = 0;
 }
 
-void smb_rq_wend(struct smb_rq *rqp)
+void smb_usr_rq_wend(struct smb_usr_rq *rqp)
 {
 	if (rqp->wcount == NULL) {
 		smb_log_info("%s: no word count pointer?", ASL_LEVEL_ERR, __FUNCTION__);
@@ -220,13 +220,13 @@ void smb_rq_wend(struct smb_rq *rqp)
 	*rqp->wcount = rqp->rq_rq.mb_count / 2;
 }
 
-void smb_rq_bstart(struct smb_rq *rqp)
+void smb_usr_rq_bstart(struct smb_usr_rq *rqp)
 {
 	rqp->bcount = (uint16_t *)mb_reserve(&rqp->rq_rq, sizeof(uint16_t));
 	rqp->rq_rq.mb_count = 0;
 }
 
-void smb_rq_bend(struct smb_rq *rqp)
+void smb_usr_rq_bend(struct smb_usr_rq *rqp)
 {
 	uint16_t bcnt;
 	
@@ -251,8 +251,8 @@ void smb_rq_bend(struct smb_rq *rqp)
  * Given a UTF8 string, convert it to a network string and place it in
  * the buffer. 
  */
-int smb_put_dmem(struct smb_ctx *ctx, mbchain_t mbp, const char *src, 
-				 size_t src_size, int flags, size_t *lenp)
+int smb_usr_put_dmem(struct smb_ctx *ctx, mbchain_t mbp, const char *src, 
+            			size_t src_size, int flags, size_t *lenp)
 {
 	size_t dest_size = (src_size * 2) + 2 + 2;
 	void *dst = NULL;
@@ -262,8 +262,7 @@ int smb_put_dmem(struct smb_ctx *ctx, mbchain_t mbp, const char *src,
 	if (src_size == 0)
 		goto done;
 
-	if (ctx->ct_vc_caps & SMB_CAP_UNICODE)
-		mb_put_padbyte(mbp);
+    mb_put_padbyte(mbp);
 
 	dst = mb_getbuffer(mbp, dest_size);
 	if (dst == NULL) {
@@ -291,32 +290,28 @@ done:
  * Given a UTF8 string, convert it to a network string and place it in
  * the buffer. Now add the NULL byte/bytes.
  */
-int smb_rq_put_dstring(struct smb_ctx *ctx, mbchain_t mbp, const char *src, 
+int smb_usr_rq_put_dstring(struct smb_ctx *ctx, mbchain_t mbp, const char *src, 
 					size_t maxlen, int flags, size_t *lenp)
 {
 	int error;
 	
-	error = smb_put_dmem(ctx, mbp, src, maxlen, flags, lenp);
+	error = smb_usr_put_dmem(ctx, mbp, src, maxlen, flags, lenp);
 	if (error)
 		return error;
-	if (ctx->ct_vc_caps & SMB_CAP_UNICODE) {
-		if (lenp )
-			*lenp += 2;
-		return mb_put_uint16le(mbp, 0);
-	}
-	if (lenp )
-		*lenp += 1;
-	return mb_put_uint8(mbp, 0);
+	
+    if (lenp )
+        *lenp += 2;
+    return mb_put_uint16le(mbp, 0);
 }
 
 int
-smb_rq_simple(struct smb_rq *rqp)
+smb_usr_rq_simple(struct smb_usr_rq *rqp)
 {
 	struct smbioc_rq krq;
 	mbchain_t mbp;
 	mdchain_t mdp;
 
-	mbp = smb_rq_getrequest(rqp);
+	mbp = smb_usr_rq_getrequest(rqp);
 	mb_pullup(mbp);
 	bzero(&krq, sizeof(krq));
 	krq.ioc_version = SMB_IOC_STRUCT_VERSION;
@@ -327,7 +322,7 @@ smb_rq_simple(struct smb_rq *rqp)
 	krq.ioc_tbytes = (rqp->bcount) ? (uint8_t *)rqp->bcount+sizeof(*rqp->bcount) : NULL;
 	krq.ioc_flags2 = rqp->flags2;
 
-	mdp = smb_rq_getreply(rqp);
+	mdp = smb_usr_rq_getreply(rqp);
 	krq.ioc_rpbufsz = (int32_t)mbuf_maxlen(mdp->md_top);
 	krq.ioc_rpbuf = mbuf_data(mdp->md_top);
 	
@@ -352,7 +347,7 @@ smb_rq_simple(struct smb_rq *rqp)
 }
 
 int
-smb_t2_request(struct smb_ctx *ctx, int setupcount, uint16_t *setup,
+smb_usr_t2_request(struct smb_ctx *ctx, int setupcount, uint16_t *setup,
 			   const char *name,
 			   uint16_t tparamcnt, const void *tparam,
 			   uint16_t tdatacnt, const void *tdata,

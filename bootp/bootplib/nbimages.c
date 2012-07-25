@@ -298,13 +298,13 @@ stat_file(const char * dir, const char * file)
 #if 0
 	fprintf(stderr, "stat %s failed, %s\n",
 		path, strerror(errno));
-#endif 0
+#endif /* 0 */
 	return (FALSE);
     }
     if ((sb.st_mode & S_IFREG) == 0) {
 #if 0
 	fprintf(stderr, "%s is not a file\n", path);
-#endif 0
+#endif /* 0 */
 	return (FALSE);
     }
     return (TRUE);
@@ -1344,7 +1344,7 @@ my_log(int priority, const char *message, ...)
     vsyslog(priority, message, ap);
     return;
 }
-#endif 0
+#endif /* 0 */
 
 int
 main(int argc, char * argv[])
@@ -1366,4 +1366,4 @@ main(int argc, char * argv[])
     exit(0);
 }
 
-#endif TEST_NBIMAGES
+#endif /* TEST_NBIMAGES */

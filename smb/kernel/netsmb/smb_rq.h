@@ -90,7 +90,7 @@ struct smb_rq {
 	uint32_t		sr_flags;
 	int				sr_rpsize;
 	vfs_context_t	sr_context;
-	int				sr_timo;
+	int				sr_timo;        /* Only used for Echo req to dequeue */
 	struct timespec 	sr_timesent;
 	int				sr_lerror;
 	uint8_t			*sr_rqsig;

@@ -27,14 +27,27 @@
 
 #include "GraphicsContext.h"
 #include "RenderView.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGSVGElement.h"
+#include "SVGUseElement.h"
 
 namespace WebCore {
 
 RenderSVGViewportContainer::RenderSVGViewportContainer(SVGStyledElement* node)
     : RenderSVGContainer(node)
+    , m_didTransformToRootUpdate(false)
+    , m_isLayoutSizeChanged(false)
+    , m_needsTransformUpdate(true)
 {
+}
+
+void RenderSVGViewportContainer::determineIfLayoutSizeChanged()
+{
+    if (!node()->hasTagName(SVGNames::svgTag))
+        return;
+
+    m_isLayoutSizeChanged = static_cast<SVGSVGElement*>(node())->hasRelativeLengths() && selfNeedsLayout();
 }
 
 void RenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
@@ -45,19 +58,76 @@ void RenderSVGViewportContainer::applyViewportClip(PaintInfo& paintInfo)
 
 void RenderSVGViewportContainer::calcViewport()
 {
-     SVGElement* element = static_cast<SVGElement*>(node());
-     if (element->hasTagName(SVGNames::svgTag)) {
-         SVGSVGElement* svg = static_cast<SVGSVGElement*>(element);
+    SVGElement* element = static_cast<SVGElement*>(node());
+    if (!element->hasTagName(SVGNames::svgTag))
+        return;
+    SVGSVGElement* svg = static_cast<SVGSVGElement*>(element);
+    FloatRect oldViewport = m_viewport;
 
-         FloatRect oldViewport = m_viewport;
-         m_viewport = FloatRect(svg->x().value(svg)
-                                , svg->y().value(svg)
-                                , svg->width().value(svg)
-                                , svg->height().value(svg));
+    SVGLengthContext lengthContext(element);
+    m_viewport = FloatRect(svg->x().value(lengthContext), svg->y().value(lengthContext), svg->width().value(lengthContext), svg->height().value(lengthContext));
 
-        if (oldViewport != m_viewport)
-            setNeedsBoundariesUpdate();
+    SVGElement* correspondingElement = svg->correspondingElement();
+    if (correspondingElement && svg->isInShadowTree()) {
+        const HashSet<SVGElementInstance*>& instances = correspondingElement->instancesForElement();
+        ASSERT(!instances.isEmpty());
+
+        SVGUseElement* useElement = 0;
+        const HashSet<SVGElementInstance*>::const_iterator end = instances.end();
+        for (HashSet<SVGElementInstance*>::const_iterator it = instances.begin(); it != end; ++it) {
+            const SVGElementInstance* instance = (*it);
+            ASSERT(instance->correspondingElement()->hasTagName(SVGNames::svgTag) || instance->correspondingElement()->hasTagName(SVGNames::symbolTag));
+            if (instance->shadowTreeElement() == svg) {
+                ASSERT(correspondingElement == instance->correspondingElement());
+                useElement = instance->directUseElement();
+                if (!useElement)
+                    useElement = instance->correspondingUseElement();
+                break;
+            }
+        }
+
+        ASSERT(useElement);
+        bool isSymbolElement = correspondingElement->hasTagName(SVGNames::symbolTag);
+
+        // Spec (<use> on <symbol>): This generated 'svg' will always have explicit values for attributes width and height.
+        // If attributes width and/or height are provided on the 'use' element, then these attributes
+        // will be transferred to the generated 'svg'. If attributes width and/or height are not specified,
+        // the generated 'svg' element will use values of 100% for these attributes.
+
+        // Spec (<use> on <svg>): If attributes width and/or height are provided on the 'use' element, then these
+        // values will override the corresponding attributes on the 'svg' in the generated tree.
+
+        SVGLengthContext lengthContext(element);
+        if (useElement->hasAttribute(SVGNames::widthAttr))
+            m_viewport.setWidth(useElement->width().value(lengthContext));
+        else if (isSymbolElement && svg->hasAttribute(SVGNames::widthAttr)) {
+            SVGLength containerWidth(LengthModeWidth, "100%");
+            m_viewport.setWidth(containerWidth.value(lengthContext));
+        }
+
+        if (useElement->hasAttribute(SVGNames::heightAttr))
+            m_viewport.setHeight(useElement->height().value(lengthContext));
+        else if (isSymbolElement && svg->hasAttribute(SVGNames::heightAttr)) {
+            SVGLength containerHeight(LengthModeHeight, "100%");
+            m_viewport.setHeight(containerHeight.value(lengthContext));
+        }
     }
+
+    if (oldViewport != m_viewport) {
+        m_didTransformToRootUpdate = true;
+        setNeedsBoundariesUpdate();
+        setNeedsTransformUpdate();
+    }
+}
+
+bool RenderSVGViewportContainer::calculateLocalTransform() 
+{
+    if (!m_needsTransformUpdate)
+        return false;
+    
+    m_localToParentTransform = AffineTransform::translation(m_viewport.x(), m_viewport.y()) * viewportTransform();
+    m_needsTransformUpdate = false;
+    return true;
 }
 
 AffineTransform RenderSVGViewportContainer::viewportTransform() const
@@ -68,14 +138,6 @@ AffineTransform RenderSVGViewportContainer::viewportTransform() const
     }
 
     return AffineTransform();
-}
-
-const AffineTransform& RenderSVGViewportContainer::localToParentTransform() const
-{
-    m_localToParentTransform = AffineTransform::translation(m_viewport.x(), m_viewport.y()) * viewportTransform();
-    return m_localToParentTransform;
-    // If this class were ever given a localTransform(), then the above would read:
-    // return viewportTranslation * localTransform() * viewportTransform()
 }
 
 bool RenderSVGViewportContainer::pointIsInsideViewportClip(const FloatPoint& pointInParent)

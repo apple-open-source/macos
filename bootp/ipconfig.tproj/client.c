@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,7 +177,8 @@ S_bsdp_get_packet(mach_port_t server, int argc, char * argv[])
 	    goto done;
 	}
     }
-    dhcp = (struct dhcp *)CFDataGetBytePtr(response);
+    /* ALIGN: CFDataGetBytePtr is aligned to at least sizeof(uint64) */
+    dhcp = (struct dhcp *)(void *)CFDataGetBytePtr(response);
     length = CFDataGetLength(response);
     bsdp_print_packet(dhcp, length, 0);
     ret = 0;
@@ -218,7 +219,9 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
 	    goto done;
 	}
     }
-    dhcp = (struct dhcp *)CFDataGetBytePtr(response);
+
+    /* ALIGN: CFDataGetBytePtr is aligned to at least sizeof(uint64) */
+    dhcp = (struct dhcp *)(void *)CFDataGetBytePtr(response);
     length = CFDataGetLength(response);
     if (dhcpol_parse_packet(&options, dhcp, length, NULL) == FALSE) {
 	goto done;
@@ -287,7 +290,7 @@ S_if_addr(mach_port_t server, int argc, char * argv[])
     kret = ipconfig_if_addr(server, name, (ip_address_t *)&ip, &status);
     if (kret != KERN_SUCCESS) {
 	fprintf(stderr, "get if addr %s failed, %s\n", name,
-		mach_error_string(status));
+		mach_error_string(kret));
     }
     if (status == ipconfig_status_success_e) {
 	printf("%s\n", inet_ntoa(ip));
@@ -352,7 +355,7 @@ S_get_option(mach_port_t server, int argc, char * argv[])
 static int
 S_get_packet(mach_port_t server, int argc, char * argv[])
 {
-    inline_data_t 	data;
+    uint32_t		data[sizeof(inline_data_t)/sizeof(uint32_t)];
     unsigned int 	data_len = sizeof(data);
     kern_return_t	kret;
     if_name_t		name;
@@ -361,7 +364,7 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
 
     ret = 1;
     strlcpy(name, argv[0], sizeof(name));
-    kret = ipconfig_get_packet(server, name, data, &data_len, &status);
+    kret = ipconfig_get_packet(server, name, (void *)data, &data_len, &status);
     if (kret != KERN_SUCCESS) {
 	fprintf(stderr, "ipconfig_get_packet failed, %s\n", 
 		mach_error_string(kret));
@@ -370,7 +373,8 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    dhcp_print_packet((struct dhcp *)data, data_len);
+    /* ALIGN: inline_data_t is aligned at least sizeof(uint32_t) bytes */
+    dhcp_print_packet((struct dhcp *)(void *)data, data_len);
     ret = 0;
 
  done:
@@ -779,7 +783,7 @@ S_set_something(mach_port_t server, int argc, char * argv[])
     }
     return (0);
 }
-#endif IPCONFIG_TEST_NO_ENTRY
+#endif /* IPCONFIG_TEST_NO_ENTRY */
 
 static int
 S_add_or_set_service(mach_port_t server, int argc, char * argv[], bool add)
@@ -993,7 +997,7 @@ static const struct command_info {
     { "getifaddr", S_if_addr, 1, "<interface name>", 1, 0 },
 #if 0
     { "waitif", S_wait_if, 1, " <interface name>", 1, 0 },
-#endif 0
+#endif /* 0 */
     { "ifcount", S_if_count, 0, "", 1, 0 },
     { "getoption", S_get_option, 2, 
       " <interface name | \"\" > <option name> | <option code>", 1, 0 },
@@ -1010,7 +1014,7 @@ static const struct command_info {
     { "setverbose", S_set_verbose, 1, "0 | 1", 1, 0 },
 #ifdef IPCONFIG_TEST_NO_ENTRY
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
-#endif IPCONFIG_TEST_NO_ENTRY
+#endif /* IPCONFIG_TEST_NO_ENTRY */
     { "addService", S_add_service, 2, 
       "<interface name> <method> <method args>\n"
       "<method> is one of " METHOD_LIST,

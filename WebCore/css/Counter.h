@@ -37,11 +37,18 @@ public:
     String listStyle() const { return m_listStyle ? m_listStyle->getStringValue() : String(); }
     String separator() const { return m_separator ? m_separator->getStringValue() : String(); }
 
-    int listStyleNumber() const { return m_listStyle ? m_listStyle->getIntValue() : 0; }
+    int listStyleIdent() const { return m_listStyle ? m_listStyle->getIdent() : 0; }
 
     void setIdentifier(PassRefPtr<CSSPrimitiveValue> identifier) { m_identifier = identifier; }
     void setListStyle(PassRefPtr<CSSPrimitiveValue> listStyle) { m_listStyle = listStyle; }
     void setSeparator(PassRefPtr<CSSPrimitiveValue> separator) { m_separator = separator; }
+    
+    PassRefPtr<Counter> cloneForCSSOM() const
+    {
+        return create(m_identifier ? m_identifier->cloneForCSSOM() : 0
+            , m_listStyle ? m_listStyle->cloneForCSSOM() : 0
+            , m_separator ? m_separator->cloneForCSSOM() : 0);
+    }
 
 private:
     Counter(PassRefPtr<CSSPrimitiveValue> identifier, PassRefPtr<CSSPrimitiveValue> listStyle, PassRefPtr<CSSPrimitiveValue> separator)
@@ -52,7 +59,7 @@ private:
     }
 
     RefPtr<CSSPrimitiveValue> m_identifier; // string
-    RefPtr<CSSPrimitiveValue> m_listStyle; // int
+    RefPtr<CSSPrimitiveValue> m_listStyle; // ident
     RefPtr<CSSPrimitiveValue> m_separator; // string
 };
 

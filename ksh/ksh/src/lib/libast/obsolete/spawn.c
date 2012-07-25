@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -88,7 +88,7 @@ spawnvpe(const char* name, char* const argv[], char* const envv[])
 	char			buffer[PATH_MAX];
 
 	if (*path != '/')
-		path = pathpath(buffer, name, NULL, PATH_REGULAR|PATH_EXECUTE);
+		path = pathpath(name, NULL, PATH_REGULAR|PATH_EXECUTE, buffer, sizeof(buffer));
 	if ((pid = spawnve(path, argv, envv)) >= 0)
 		return pid;
 	if (errno == ENOEXEC)

@@ -30,7 +30,7 @@ GnuAfterInstall = install-plists remove-dirs copy-to-symroot-and-strip fix-man-p
 
 # These variables find all the freeradius executable & library files
 # in $(DSTROOT).  They are used for generating dsyms & symbol stripping.
-fr_file_finder = $(notdir $(shell /usr/bin/file -h $(addsuffix /*,$(1)) | /usr/bin/grep universal | /usr/bin/sed -e s/:.*//))
+fr_file_finder = $(notdir $(shell /usr/bin/file -h $(addsuffix /*,$(1)) | /usr/bin/grep 'Mach-O' | /usr/bin/sed -e s/:.*//))
 fr_bin_files  = $(call fr_file_finder,$(DSTROOT)/usr/bin)
 fr_sbin_files = $(call fr_file_finder,$(DSTROOT)/usr/sbin)
 fr_lib_files  = $(call fr_file_finder,$(DSTROOT)/usr/lib/freeradius)
@@ -65,6 +65,8 @@ install-plists:
 	$(INSTALL) -m 644 $(SRCROOT)/freeradius/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/freeradius.txt
 	$(MKDIR) -p $(DSTROOT)/usr/local/OpenSourceVersions
 	$(INSTALL) -m 644 $(SRCROOT)/freeradius.plist $(DSTROOT)/usr/local/OpenSourceVersions/freeradius.plist
+	$(MKDIR) -p $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL) -m 644 $(SRCROOT)/org.freeradius.radiusd.plist $(DSTROOT)/System/Library/LaunchDaemons/
 
 remove-dirs:
 	$(RMDIR) $(DSTROOT)/private/var/run
@@ -80,5 +82,5 @@ copy-to-symroot-and-strip:
 	cd $(DSTROOT)/usr/lib/freeradius && $(CP) $(fr_lib_files) $(SYMROOT) && $(STRIP) -x $(fr_lib_files)
 
 fix-man-pages:
-	cd $(DSTROOT)/usr/share/man/man8 && ln -fs radiusd.8.gz checkrad.8.gz
-	cd $(DSTROOT)/usr/share/man/man8 && ln -fs radiusd.8.gz rc.radiusd.8.gz
+	cd $(DSTROOT)/usr/share/man/man8 && ln -fs radiusd.8 checkrad.8
+	cd $(DSTROOT)/usr/share/man/man8 && ln -fs radiusd.8 rc.radiusd.8

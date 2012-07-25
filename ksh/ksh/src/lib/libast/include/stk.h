@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -71,6 +71,7 @@ extern char*		stkcopy(Stk_t*,const char*);
 extern char*		stkset(Stk_t*, char*, unsigned);
 extern char*		_stkseek(Stk_t*, unsigned);
 extern char*		stkfreeze(Stk_t*, unsigned);
+extern int		stkon(Stk_t*, char *);
 
 #undef	extern
 

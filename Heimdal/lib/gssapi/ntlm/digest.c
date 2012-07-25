@@ -222,7 +222,9 @@ dstg_type3(OM_uint32 *minor_status,
 	   ntlm_ctx ntlmctx,
 	   void *ctx,
 	   const struct ntlm_type3 *type3,
+	   ntlm_cred acceptor_cred,
 	   uint32_t *flags,
+	   uint32_t *avflags,
 	   struct ntlm_buf *sessionkey,
 	   ntlm_name *name, struct ntlm_buf *uuid,
 	   struct ntlm_buf *pac)
@@ -233,8 +235,8 @@ dstg_type3(OM_uint32 *minor_status,
     NTLMReply rep;
     heim_idata dreq, drep;
     size_t size;
-
-    *flags = 0;
+    
+    *avflags = *flags = 0;
 
     sessionkey->data = NULL;
     sessionkey->length = 0;
@@ -259,6 +261,14 @@ dstg_type3(OM_uint32 *minor_status,
     req.lmChallengeResponse.length = type3->lm.length;
     req.encryptedSessionKey.data = type3->sessionkey.data;
     req.encryptedSessionKey.length = type3->sessionkey.length;
+    req.t2targetname = ntlmctx->ti.domainname;
+    if (acceptor_cred) {
+	req.acceptorUser = acceptor_cred->user;
+	req.acceptorDomain = acceptor_cred->domain;
+    } else {
+	req.acceptorUser = "";
+	req.acceptorDomain = "";
+    }
 
     /* take care of type3->targetname ? */
 
@@ -295,8 +305,9 @@ dstg_type3(OM_uint32 *minor_status,
     }
 
     *flags = rep.ntlmFlags;
-    
-    if (rep.flags & nTLM_anonymous)
+    *avflags = rep.avflags;
+
+    if (rep.avflags & NTLM_TI_AV_FLAG_GUEST)
 	*flags |= NTLM_NEG_ANONYMOUS;
 
     /* handle session key */

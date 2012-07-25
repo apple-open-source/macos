@@ -1,4 +1,4 @@
-/*	$KAME: timer.c,v 1.4 2000/05/27 11:30:43 jinmei Exp $	*/
+/*	$KAME: timer.c,v 1.9 2002/06/10 19:59:47 itojun Exp $	*/
 
 /*
  * Copyright (C) 1998 WIDE Project.
@@ -27,8 +27,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/usr.sbin/rtadvd/timer.c,v 1.1.2.2 2001/07/03 11:02:14 ume Exp $
  */
 
 #include <sys/time.h>
@@ -37,16 +35,14 @@
 #include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
 #include <search.h>
-#endif
 #include "timer.h"
 
 static struct rtadvd_timer timer_head;
 
 #define MILLION 1000000
 #define TIMEVAL_EQUAL(t1,t2) ((t1)->tv_sec == (t2)->tv_sec &&\
- (t1)->tv_usec == (t2)->tv_usec) 
+ (t1)->tv_usec == (t2)->tv_usec)
 
 static struct timeval tm_max = {0x7fffffff, 0x7fffffff};
 
@@ -60,15 +56,15 @@ rtadvd_timer_init()
 }
 
 struct rtadvd_timer *
-rtadvd_add_timer(void (*timeout) __P((void *)),
-		void (*update) __P((void *, struct timeval *)),
-		 void *timeodata, void *updatedata)
+rtadvd_add_timer(struct rtadvd_timer *(*timeout)(void *),
+    void (*update)(void *, struct timeval *),
+    void *timeodata, void *updatedata)
 {
 	struct rtadvd_timer *newtimer;
 
 	if ((newtimer = malloc(sizeof(*newtimer))) == NULL) {
 		syslog(LOG_ERR,
-		       "<%s> can't allocate memory", __FUNCTION__);
+		       "<%s> can't allocate memory", __func__);
 		exit(1);
 	}
 
@@ -76,12 +72,7 @@ rtadvd_add_timer(void (*timeout) __P((void *)),
 
 	if (timeout == NULL) {
 		syslog(LOG_ERR,
-		       "<%s> timeout function unspecfied", __FUNCTION__);
-		exit(1);
-	}
-	if (update == NULL) {
-		syslog(LOG_ERR,
-		       "<%s> update function unspecfied", __FUNCTION__);
+		       "<%s> timeout function unspecified", __func__);
 		exit(1);
 	}
 	newtimer->expire = timeout;
@@ -122,7 +113,7 @@ rtadvd_set_timer(struct timeval *tm, struct rtadvd_timer *timer)
 }
 
 /*
- * Check expiration for each timer. If a timer is expired,
+ * Check expiration for each timer. If a timer expires,
  * call the expire function for the timer and update the timer.
  * Return the next interval for select() call.
  */
@@ -131,34 +122,34 @@ rtadvd_check_timer()
 {
 	static struct timeval returnval;
 	struct timeval now;
-	struct rtadvd_timer *tm = timer_head.next;
+	struct rtadvd_timer *tm = timer_head.next, *tm_next;
 
 	gettimeofday(&now, NULL);
 
 	timer_head.tm = tm_max;
 
-	while(tm != &timer_head) {
+	for (tm = timer_head.next; tm != &timer_head; tm = tm_next) {
+		tm_next = tm->next;
+
 		if (TIMEVAL_LEQ(tm->tm, now)) {
-			(*tm->expire)(tm->expire_data);
-			(*tm->update)(tm->update_data, &tm->tm);
+			if (((*tm->expire)(tm->expire_data) == NULL))
+				continue; /* the timer was removed */
+			if (tm->update)
+				(*tm->update)(tm->update_data, &tm->tm);
 			TIMEVAL_ADD(&tm->tm, &now, &tm->tm);
 		}
 
 		if (TIMEVAL_LT(tm->tm, timer_head.tm))
 			timer_head.tm = tm->tm;
-
-		tm = tm->next;
 	}
 
 	if (TIMEVAL_EQUAL(&tm_max, &timer_head.tm)) {
 		/* no need to timeout */
 		return(NULL);
-	}
-	else if (TIMEVAL_LT(timer_head.tm, now)) {
+	} else if (TIMEVAL_LT(timer_head.tm, now)) {
 		/* this may occur when the interval is too small */
 		returnval.tv_sec = returnval.tv_usec = 0;
-	}
-	else
+	} else
 		TIMEVAL_SUB(&timer_head.tm, &now, &returnval);
 	return(&returnval);
 }
@@ -172,7 +163,7 @@ rtadvd_timer_rest(struct rtadvd_timer *timer)
 	if (TIMEVAL_LEQ(timer->tm, now)) {
 		syslog(LOG_DEBUG,
 		       "<%s> a timer must be expired, but not yet",
-		       __FUNCTION__);
+		       __func__);
 		returnval.tv_sec = returnval.tv_usec = 0;
 	}
 	else

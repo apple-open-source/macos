@@ -35,8 +35,6 @@
 
 namespace WebCore {
 
-class ApplicationCacheResource;
-
 class MediaPlayerPrivateAVFoundation : public MediaPlayerPrivateInterface {
 public:
 
@@ -157,14 +155,12 @@ protected:
     virtual float mediaTimeForTimeValue(float) const = 0;
 
     virtual bool supportsFullscreen() const;
+    virtual bool supportsScanning() const { return true; }
 
     // Required interfaces for concrete derived classes.
     virtual void createAVAssetForURL(const String&) = 0;
     virtual void createAVPlayer() = 0;
     virtual void createAVPlayerItem() = 0;
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    virtual void createAVAssetForCacheResource(ApplicationCacheResource*) = 0;
-#endif
 
     enum ItemStatus {
         MediaPlayerAVPlayerItemStatusDoesNotExist,
@@ -245,6 +241,8 @@ protected:
     void invalidateCachedDuration();
 
     const String& assetURL() const { return m_assetURL; }
+
+    MediaPlayer* player() { return m_player; }
 
 private:
     MediaPlayer* m_player;

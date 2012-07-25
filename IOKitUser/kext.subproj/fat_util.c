@@ -144,7 +144,7 @@ fat_iterator fat_iterator_open(const char * path, int macho_only)
         goto finish;
     }
 
-    if (stat_buf.st_size < sizeof(struct mach_header)) {
+    if (stat_buf.st_size < (off_t)sizeof(struct mach_header)) {
         goto finish;
     }
 

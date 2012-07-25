@@ -75,8 +75,9 @@ void LayerTreeHostCA::initialize()
     if (m_webPage->hasPageOverlay())
         createPageOverlayLayer();
 
-    platformInitialize(m_layerTreeContext);
+    platformInitialize();
 
+    setLayerFlushSchedulingEnabled(!m_webPage->drawingArea() || !m_webPage->drawingArea()->layerTreeStateIsFrozen());
     scheduleLayerFlush();
 }
 
@@ -202,12 +203,12 @@ void LayerTreeHostCA::paintContents(const GraphicsLayer* graphicsLayer, Graphics
     }
 }
 
-bool LayerTreeHostCA::showDebugBorders() const
+bool LayerTreeHostCA::showDebugBorders(const GraphicsLayer*) const
 {
     return m_webPage->corePage()->settings()->showDebugBorders();
 }
 
-bool LayerTreeHostCA::showRepaintCounter() const
+bool LayerTreeHostCA::showRepaintCounter(const GraphicsLayer*) const
 {
     return m_webPage->corePage()->settings()->showRepaintCounter();
 }

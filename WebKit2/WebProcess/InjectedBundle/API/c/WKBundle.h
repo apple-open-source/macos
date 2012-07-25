@@ -49,12 +49,16 @@ struct WKBundleClient {
 };
 typedef struct WKBundleClient WKBundleClient;
 
+enum { kWKBundleClientCurrentVersion = 0 };
+
 WK_EXPORT WKTypeID WKBundleGetTypeID();
 
 WK_EXPORT void WKBundleSetClient(WKBundleRef bundle, WKBundleClient * client);
 
 WK_EXPORT void WKBundlePostMessage(WKBundleRef bundle, WKStringRef messageName, WKTypeRef messageBody);
 WK_EXPORT void WKBundlePostSynchronousMessage(WKBundleRef bundle, WKStringRef messageName, WKTypeRef messageBody, WKTypeRef* returnData);
+
+WK_EXPORT WKConnectionRef WKBundleGetApplicationConnection(WKBundleRef bundle);
 
 WK_EXPORT void WKBundleReportException(JSContextRef, JSValueRef exception);
 

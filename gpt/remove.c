@@ -199,7 +199,7 @@ cmd_remove(int argc, char *argv[])
 		fd = gpt_open(argv[optind++]);
 		if (fd == -1) {
 			warn("unable to open device '%s'", device_name);
-			continue;
+			return (1);
 		}
 
 		rem(fd);

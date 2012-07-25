@@ -497,9 +497,6 @@ static /**/const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 /* Define if you have the function `initgroups'. */
 #define HAVE_INITGROUPS 1
 
-/* Define to 1 if you have the `initstate' function. */
-#define HAVE_INITSTATE 1
-
 /* Define if you have the function `innetgr'. */
 #define HAVE_INNETGR 1
 
@@ -760,9 +757,6 @@ static /**/const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 
 /* Define to 1 if you have the `setsockopt' function. */
 #define HAVE_SETSOCKOPT 1
-
-/* Define to 1 if you have the `setstate' function. */
-#define HAVE_SETSTATE 1
 
 /* Define to 1 if you have the `setutent' function. */
 /* #undef HAVE_SETUTENT */
@@ -1397,7 +1391,7 @@ static /**/const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 #define PACKAGE_NAME "Heimdal"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "Heimdal 1.3.99"
+#define PACKAGE_STRING "Heimdal 1.5.1apple1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "heimdal"
@@ -1552,7 +1546,7 @@ struct sockaddr_in;
 #  endif
 #endif
 
-
+#define rk_rename(__rk_rn_from,__rk_rn_to) rename(__rk_rn_from,__rk_rn_to)
 
 
 /* Set this to the default system lead string for telnetd 

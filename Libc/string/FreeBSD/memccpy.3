@@ -39,27 +39,35 @@
 .Sh SYNOPSIS
 .In string.h
 .Ft void *
-.Fn memccpy "void *dst" "const void *src" "int c" "size_t len"
+.Fo memccpy
+.Fa "void *restrict s1"
+.Fa "const void *restrict s2"
+.Fa "int c"
+.Fa "size_t n"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn memccpy
 function
 copies bytes from string
-.Fa src
+.Fa s2
 to string
-.Fa dst .
+.Fa s1 .
 If the character
 .Fa c
 (as converted to an unsigned char) occurs in the string
-.Fa src ,
+.Fa s2 ,
 the copy stops and a pointer to the byte after the copy of
 .Fa c
 in the string
-.Fa dst
+.Fa s1
 is returned.
 Otherwise,
-.Fa len
+.Fa n
 bytes are copied, and a NULL pointer is returned.
+.Pp
+The source and destination strings should not overlap, as the
+behavior is undefined.
 .Sh SEE ALSO
 .Xr bcopy 3 ,
 .Xr memcpy 3 ,

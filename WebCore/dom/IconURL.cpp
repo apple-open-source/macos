@@ -33,25 +33,20 @@
 
 namespace WebCore {
 
-size_t toIconIndex(IconType type)
+IconURL IconURL::defaultIconURL(const KURL& url, IconType type)
 {
-    size_t index = 0;
-    switch (type) {
-    case Favicon:
-        index = 0;
-        break;
-#if ENABLE(TOUCH_ICON_LOADING)
-    case TouchPrecomposedIcon:
-        index = 1;
-        break;
-    case TouchIcon:
-        index = 2;
-        break;
-#endif
-    default:
-        ASSERT_NOT_REACHED();
-    }
-    return index;
+    IconURL result(url, emptyString(), emptyString(), type);
+    result.m_isDefaultIcon = true;
+    return result;
+}
+
+bool operator==(const IconURL& lhs, const IconURL& rhs)
+{
+    return lhs.m_iconType == rhs.m_iconType
+           && lhs.m_isDefaultIcon == rhs.m_isDefaultIcon
+           && lhs.m_iconURL == rhs.m_iconURL
+           && lhs.m_sizes == rhs.m_sizes
+           && lhs.m_mimeType == rhs.m_mimeType;
 }
 
 }

@@ -1,3 +1,8 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 /*
  * Generate challange for APOP and CRAM-MD5
  */
@@ -24,7 +29,7 @@ typedef struct heim_HMAC_MD5_STATE_s {
     uint32_t ostate[4];
 } heim_CRAM_MD5_STATE;
 
-typedef struct heim_cram_md5 *heim_cram_md5;
+typedef struct heim_cram_md5_data *heim_cram_md5;
 
 char *
 heim_cram_md5_create(const char *challenge, const char *password);
@@ -56,7 +61,6 @@ heim_cram_md5_free(heim_cram_md5 ctx);
  * response = read_from_client();
  *
  * heim_digest_parse_response(d, response);
- * 
  * const char *user = heim_digest_get_key(d, "username");
  * heim_digest_set_key(d, "password", "sommar17");
  *
@@ -126,3 +130,6 @@ heim_digest_userhash(const char *user, const char *realm, const char *password);
 const char *
 heim_digest_server_response(heim_digest_t context);
 
+#ifdef __cplusplus
+}
+#endif

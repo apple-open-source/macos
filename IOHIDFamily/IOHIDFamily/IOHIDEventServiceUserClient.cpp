@@ -24,6 +24,32 @@
 #include "IOHIDEventServiceQueue.h"
 #include "IOHIDEventData.h"
 #include "IOHIDEvent.h"
+#include "IOHIDPrivateKeys.h"
+
+
+#define kQueueSizeMin   0
+#define kQueueSizeFake  128
+#define kQueueSizeMax   4096
+
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+// __IOHIDEventServiceQueueFake
+//++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+class __IOHIDEventServiceQueueFake {
+public:    
+    IOHIDEventServiceQueue * queue;
+    
+    __IOHIDEventServiceQueueFake() { 
+        queue = IOHIDEventServiceQueue::withCapacity(kQueueSizeFake);        
+    };
+    ~__IOHIDEventServiceQueueFake() {
+        queue->release();
+    };
+};
+
+static __IOHIDEventServiceQueueFake __fakeQueue;
+
+
 //===========================================================================
 // IOHIDEventServiceUserClient class
 
@@ -170,11 +196,6 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
     _client = owningTask;
     
     task_reference (_client);
-
-    _queue = IOHIDEventServiceQueue::withCapacity(4096);
-    
-    if ( !_queue )
-        return false;
     
     return true;
 }
@@ -184,12 +205,33 @@ bool IOHIDEventServiceUserClient::initWithTask(task_t owningTask, void * securit
 //==============================================================================
 bool IOHIDEventServiceUserClient::start( IOService * provider )
 {
+    OSObject *  object;
+    uint32_t    queueSize = kQueueSizeMax;
+    
     if ( !super::start(provider) )
         return false;
         
     _owner = OSDynamicCast(IOHIDEventService, provider);
     if ( !_owner )
         return false;
+    
+    object = provider->copyProperty(kIOHIDEventServiceQueueSize);
+    if ( OSDynamicCast(OSNumber, object) ) {
+        queueSize = ((OSNumber*)object)->unsigned32BitValue();
+        queueSize = min(kQueueSizeMax, queueSize);
+    }
+    OSSafeReleaseNULL(object);
+    
+    if ( queueSize ) {
+        _queue = IOHIDEventServiceQueue::withCapacity(queueSize);
+    } else {
+        _queue = __fakeQueue.queue;
+        if ( _queue )
+            _queue->retain();
+    }
+    
+    if ( !_queue )
+        return false;    
             
     return true;
 }
@@ -367,7 +409,7 @@ void IOHIDEventServiceUserClient::eventServiceCallback(
                                 IOHIDEvent *                    event, 
                                 IOOptionBits                    options)
 {
-    if (!_queue || !_queue->getState())
+    if (!_queue || !_queue->getState() || _queue == __fakeQueue.queue )
         return;
         
     //enqueue the event

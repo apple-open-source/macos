@@ -27,6 +27,9 @@
 #include <stdint.h>
 #include <Availability.h>
 
+#define NOTIFY_OPT_DEMUX 0x00000001
+#define NOTIFY_OPT_REGEN 0x00000002
+
 uint32_t notify_suspend_pid(pid_t pid)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
@@ -35,5 +38,8 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
 uint32_t notify_simple_post(const char *name)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+
+void notify_set_options(uint32_t opts)
+__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_6_0);
 
 #endif /* __NOTIFY_PRIVATE_H__ */

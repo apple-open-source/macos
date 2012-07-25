@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGStopElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGStopElement : SVGElement,
                                                  SVGStylable {
         readonly attribute SVGAnimatedNumber offset;
     };

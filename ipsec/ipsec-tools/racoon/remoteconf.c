@@ -80,9 +80,6 @@
 #include "nattraversal.h"
 #include "isakmp_frag.h"
 #include "genlist.h"
-#ifdef HAVE_OPENSSL
-#include "rsalist.h"
-#endif
 
 static TAILQ_HEAD(_rmtree, remoteconf) rmtree;
 
@@ -102,12 +99,16 @@ char *script_names[SCRIPT_MAX + 1] = { "phase1_up", "phase1_down" };
  */
 struct remoteconf *
 getrmconf_strict(remote, allow_anon)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 	int allow_anon;
 {
 	struct remoteconf *p;
 	struct remoteconf *p_withport_besteffort = NULL;
+	struct remoteconf *p_with_prefix = NULL;
+	struct remoteconf *p_with_prefix_besteffort = NULL;
+    int                last_prefix = 0;
 	struct remoteconf *anon = NULL;
+    
 	int withport;
 	char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
@@ -123,7 +124,7 @@ getrmconf_strict(remote, allow_anon)
 	 * In an ideal world, we would be able to have remote conf with
 	 * port, and the port could be a wildcard. That test could be used.
 	 */
-	switch (remote->sa_family) {
+	switch (remote->ss_family) {
 	case AF_INET:
 		if (((struct sockaddr_in *)remote)->sin_port != IPSEC_PORT_ANY)
 			withport = 1;
@@ -139,14 +140,14 @@ getrmconf_strict(remote, allow_anon)
 
 	default:
 		plog(LLV_ERROR2, LOCATION, NULL,
-			"invalid ip address family: %d\n", remote->sa_family);
+			"invalid ip address family: %d\n", remote->ss_family);
 		return NULL;
 	}
 
-	if (remote->sa_family == AF_UNSPEC)
+	if (remote->ss_family == AF_UNSPEC)
 		snprintf (buf, sizeof(buf), "%s", "anonymous");
 	else {
-		GETNAMEINFO(remote, addr, port);
+		GETNAMEINFO((struct sockaddr *)remote, addr, port);
 		snprintf(buf, sizeof(buf), "%s%s%s%s", addr,
 			withport ? "[" : "",
 			withport ? port : "",
@@ -157,20 +158,40 @@ getrmconf_strict(remote, allow_anon)
 		if (p->to_delete || p->to_remove) {
 			continue;
 		}
-		if ((remote->sa_family == AF_UNSPEC
-		     && remote->sa_family == p->remote->sa_family)
-		 || (!withport && cmpsaddrwop(remote, p->remote) == 0)
-		 || (withport && cmpsaddrstrict(remote, p->remote) == 0)) {
-			plog(LLV_DEBUG, LOCATION, NULL,
-				"configuration found for %s.\n", buf);
+        
+		if (remote->ss_family == AF_UNSPEC
+		     && remote->ss_family == p->remote->ss_family) {
+            plog(LLV_DEBUG, LOCATION, NULL,
+                 "configuration found for %s.\n", buf);
 			return p;
-		} else if (withport && cmpsaddrwop(remote, p->remote) == 0) {
-			// for withport: save the pointer for the best-effort search
-			p_withport_besteffort = p;
-		}
+        }
+        if (p->remote_prefix == 0) {
+            if ((!withport && cmpsaddrwop(remote, p->remote) == 0)
+                || (withport && cmpsaddrstrict(remote, p->remote) == 0)) {
+                    plog(LLV_DEBUG, LOCATION, NULL,
+                         "configuration found for %s.\n", buf);
+                    return p;
+                } else if (withport && cmpsaddrwop(remote, p->remote) == 0) {
+                    // for withport: save the pointer for the best-effort search
+                    p_withport_besteffort = p;
+                }
+        } else {
+            if ((!withport && cmpsaddrwop_withprefix(remote, p->remote, p->remote_prefix) == 0)
+                || (withport && cmpsaddrstrict_withprefix(remote, p->remote, p->remote_prefix) == 0)) {
+                if (p->remote_prefix >= last_prefix) {
+                    p_with_prefix = p;
+                    last_prefix = p->remote_prefix;
+                }
+            } else if (withport && cmpsaddrwop_withprefix(remote, p->remote, p->remote_prefix) == 0) {
+                if (p->remote_prefix >= last_prefix) {
+                    p_with_prefix_besteffort = p;
+                    last_prefix = p->remote_prefix;
+                }
+            }
+        }
 
 		/* save the pointer to the anonymous configuration */
-		if (p->remote->sa_family == AF_UNSPEC)
+		if (p->remote->ss_family == AF_UNSPEC)
 			anon = p;
 	}
 
@@ -179,7 +200,16 @@ getrmconf_strict(remote, allow_anon)
 			 "configuration found for %s.\n", buf);
 		return p_withport_besteffort;
 	}
-	
+    if (p_with_prefix) {
+        plog(LLV_DEBUG, LOCATION, NULL,
+             "configuration found for %s.\n", buf);
+        return p_with_prefix;
+    }
+    if (p_with_prefix_besteffort) {
+        plog(LLV_DEBUG, LOCATION, NULL,
+             "configuration found for %s.\n", buf);
+        return p_with_prefix_besteffort;
+    }
 	if (allow_anon && anon != NULL) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"anonymous configuration selected for %s.\n", buf);
@@ -205,12 +235,12 @@ no_remote_configs(ignore_anonymous)
 
 	TAILQ_FOREACH(p, &rmtree, chain) {
 		if (ignore_anonymous) {
-			if (p->remote->sa_family == AF_UNSPEC)	/* anonymous */
+			if (p->remote->ss_family == AF_UNSPEC)	/* anonymous */
 				continue;
 		}
 #if !TARGET_OS_EMBEDDED
 		// ignore the default btmm ipv6 config thats always present in racoon.conf
-		if (p->remote->sa_family == AF_INET6 &&
+		if (p->remote->ss_family == AF_INET6 &&
 			p->idvtype == IDTYPE_USERFQDN &&
 			p->idv != NULL &&
 			p->idv->l == default_idv_len &&
@@ -225,7 +255,7 @@ no_remote_configs(ignore_anonymous)
 
 struct remoteconf *
 getrmconf(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	return getrmconf_strict(remote, 1);
 }
@@ -284,7 +314,7 @@ newrmconf()
 	new->idvl_p = genlist_init();
 	new->nonce_size = DEFAULT_NONCE_SIZE;
 	new->passive = FALSE;
-	new->ike_frag = FALSE;
+	new->ike_frag = ISAKMP_FRAG_FORCE;
 	new->esp_frag = IP_MAXPACKET;
 	new->ini_contact = TRUE;
 	new->mode_cfg = FALSE;
@@ -310,10 +340,6 @@ newrmconf()
 	new->to_remove = FALSE;
 	new->to_delete = FALSE;
 	new->linked_to_ph1 = 0;
-#ifdef HAVE_OPENSSL
-	new->rsa_private = genlist_init();
-	new->rsa_public = genlist_init();
-#endif
 	new->idv = NULL;
 	new->key = NULL;
 
@@ -335,7 +361,7 @@ newrmconf()
 
 struct remoteconf *
 copyrmconf(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	struct remoteconf *new, *old;
 
@@ -343,7 +369,7 @@ copyrmconf(remote)
 	if (old == NULL) {
 		plog (LLV_ERROR, LOCATION, NULL,
 		      "Remote configuration for '%s' not found!\n",
-		      saddr2str (remote));
+		      saddr2str((struct sockaddr *)remote));
 		return NULL;
 	}
 
@@ -378,15 +404,34 @@ duprmconf (rmconf)
 	struct remoteconf *rmconf;
 {
 	struct remoteconf *new;
+	int i;
 
 	new = racoon_calloc(1, sizeof(*new));
 	if (new == NULL)
 		return NULL;
 	memcpy (new, rmconf, sizeof (*new));
-	// FIXME: We should duplicate the proposal as well.
+	// FIXME: We should duplicate remote, proposal, etc.
 	// This is now handled in the cfparse.y
 	// new->proposal = ...;
-	
+
+	// zero-out pointers
+	new->remote = NULL;
+	new->keychainCertRef = NULL;	/* peristant keychain ref for cert */
+	new->shared_secret = NULL;	/* shared secret */
+	new->open_dir_auth_group = NULL;	/* group to be used to authorize user */
+	new->proposal = NULL;
+	new->cacertfile = NULL;
+	for (i = 0; i <= SCRIPT_MAX; i++)
+		new->script[i] = NULL;
+	new->to_remove = FALSE;
+	new->to_delete = FALSE;
+	new->linked_to_ph1 = 0;
+	new->idv = NULL;
+	new->key = NULL;
+#ifdef ENABLE_HYBRID
+	new->xauth = NULL;
+#endif
+
 	/* duplicate dynamic structures */
 	if (new->etypes)
 		new->etypes=dupetypes(new->etypes);
@@ -468,12 +513,6 @@ delrmconf(rmconf)
 		racoon_free(rmconf->cacertfile);
 	if (rmconf->prhead)
 		proposalspec_free(rmconf->prhead);
-#ifdef HAVE_OPENSSL
-	if (rmconf->rsa_private)
-		genlist_free(rmconf->rsa_private, rsa_key_free);
-	if (rmconf->rsa_public)
-		genlist_free(rmconf->rsa_public, rsa_key_free);	
-#endif
 	if (rmconf->shared_secret)
 		vfree(rmconf->shared_secret);
 	if (rmconf->keychainCertRef)
@@ -670,10 +709,14 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 	char buf[1024], *pbuf;
 
 	pbuf = buf;
-	pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "remote %s", saddr2str(p->remote));
+    if (p->remote_prefix)
+        pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "remote %s", 
+                         saddr2str_with_prefix((struct sockaddr *)p->remote, p->remote_prefix));
+    else
+        pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "remote %s", saddr2str((struct sockaddr *)p->remote));
 	if (p->inherited_from)
 		pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), " inherit %s",
-				saddr2str(p->inherited_from->remote));
+				saddr2str((struct sockaddr *)p->inherited_from->remote));
 	plog(LLV_INFO, LOCATION, NULL, "%s {\n", buf);
 	pbuf = buf;
 	pbuf += snprintf(pbuf, sizeof(buf) - (pbuf - buf), "\texchange_type ");
@@ -747,7 +790,7 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 		plog(LLV_INFO, LOCATION, NULL,
 			"\t/* prop_no=%d, trns_no=%d, rmconf=%s */\n",
 			prop->prop_no, prop->trns_no,
-			saddr2str(prop->rmconf->remote));
+			saddr2str((struct sockaddr *)prop->rmconf->remote));
 		plog(LLV_INFO, LOCATION, NULL, "\tproposal {\n");
 		plog(LLV_INFO, LOCATION, NULL, "\t\tlifetime time %lu sec;\n",
 			(long)prop->lifetime);
@@ -795,10 +838,7 @@ script_path_add(path)
 {
 	char *script_dir;
 	vchar_t *new_path;
-	vchar_t *new_storage;
-	vchar_t **sp;
 	size_t len;
-	size_t size;
 
 	script_dir = lcconf->pathinfo[LC_PATHTYPE_SCRIPT];
 
@@ -850,18 +890,3 @@ dupisakmpsa(struct isakmpsa *sa)
 
 }
 
-#ifdef HAVE_OPENSSL
-void
-rsa_key_free(void *entry)
-{
-	struct rsa_key *key = (struct rsa_key *)entry;
-	
-	if (key->src)
-		free(key->src);
-	if (key->dst)
-		free(key->dst);
-	if (key->rsa)
-		RSA_free(key->rsa);
-	free(key);
-}
-#endif

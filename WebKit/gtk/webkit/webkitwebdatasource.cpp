@@ -143,7 +143,7 @@ static void webkit_web_data_source_init(WebKitWebDataSource* webDataSource)
  * Creates a new #WebKitWebDataSource instance. The URL of the
  * #WebKitWebDataSource will be set to "about:blank".
  *
- * Return: a new #WebKitWebDataSource.
+ * Returns: a new #WebKitWebDataSource.
  *
  * Since: 1.1.14
  */
@@ -280,7 +280,7 @@ WebKitNetworkRequest* webkit_web_data_source_get_request(WebKitWebDataSource* we
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_data_source_get_encoding(WebKitWebDataSource* webDataSource)
+const gchar* webkit_web_data_source_get_encoding(WebKitWebDataSource* webDataSource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), NULL);
 
@@ -390,7 +390,7 @@ WebKitWebResource* webkit_web_data_source_get_main_resource(WebKitWebDataSource*
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_data_source_get_unreachable_uri(WebKitWebDataSource* webDataSource)
+const gchar* webkit_web_data_source_get_unreachable_uri(WebKitWebDataSource* webDataSource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), NULL);
 
@@ -434,7 +434,7 @@ WebKitWebDataSource* kitNew(PassRefPtr<WebKit::DocumentLoader> loader)
 {
     WebKitWebDataSource* webDataSource = WEBKIT_WEB_DATA_SOURCE(g_object_new(WEBKIT_TYPE_WEB_DATA_SOURCE, NULL));
     WebKitWebDataSourcePrivate* priv = webDataSource->priv;
-    priv->loader = loader.releaseRef();
+    priv->loader = loader.leakRef();
 
     return webDataSource;
 }

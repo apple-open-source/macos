@@ -122,8 +122,9 @@ smbfs_notified_vnode(struct smbnode *np, int throttleBack, uint32_t events,
 	struct vnode_attr vattr;
 	vnode_t		vp;
 	
-	if ((np->d_fid == 0) || (smbnode_lock(np, SMBFS_SHARED_LOCK) != 0))
+	if ((np->d_fid == 0) || (smbnode_lock(np, SMBFS_SHARED_LOCK) != 0)) {
 		return; /* Nothing to do here */
+    }
 	
 	np->attribute_cache_timer = 0;
 	np->n_symlink_cache_timer = 0;
@@ -131,9 +132,10 @@ smbfs_notified_vnode(struct smbnode *np, int throttleBack, uint32_t events,
 	 * The fid changed while we were blocked just unlock and get out. If we are
 	 * throttling back then skip this notify.  
 	 */  
-	if ((np->d_fid == 0) || throttleBack)
+	if ((np->d_fid == 0) || throttleBack) {
 		goto done;
-	
+    }
+
 	np->n_lastvop = smbfs_notified_vnode;
 	vp = np->n_vnode;
     
@@ -480,11 +482,12 @@ process_notify_items(struct smbfs_notify_change *notify, vfs_context_t context)
 		switch (watchItem->state) {
 			case kCancelNotify:
                 if (notify->pollOnly == TRUE) {
-                    /* request was already removed from the queue */
+                    /* request already removed from the iod queue */
                     reset_notify_change(watchItem, FALSE);
                 } else {
                     reset_notify_change(watchItem, TRUE);
                 }
+                
 				lck_mtx_lock(&watchItem->watch_statelock);
 				/* Wait for the user process to dequeue and free the item */
 				watchItem->state = kWaitingForRemoval;
@@ -627,7 +630,7 @@ smbfs_notify_change_create_thread(struct smbmount *smp)
 	kern_return_t	result;
 	thread_t		thread;
 
-	MALLOC(notify, struct smbfs_notify_change *, sizeof(*notify), M_TEMP, 
+	SMB_MALLOC(notify, struct smbfs_notify_change *, sizeof(*notify), M_TEMP, 
 		   M_WAITOK | M_ZERO);
 	smp->notify_thread = notify;
 	
@@ -642,7 +645,7 @@ smbfs_notify_change_create_thread(struct smbmount *smp)
 	if (result != KERN_SUCCESS) {
 		SMBERROR("can't start notify change thread: result = %d\n", result);
 		smp->notify_thread = NULL;
-		free(notify, M_SMBIOD);
+		SMB_FREE(notify, M_SMBIOD);
 		return; 
 	}
 	thread_deallocate(thread);
@@ -683,7 +686,7 @@ smbfs_notify_change_destroy_thread(struct smbmount *smp)
 	}
 	lck_mtx_destroy(&notify->notify_statelock, smbfs_mutex_group);
 	lck_mtx_destroy(&notify->watch_list_lock, smbfs_mutex_group);
-	free(notify, M_TEMP);
+	SMB_FREE(notify, M_TEMP);
 }
 
 /*
@@ -697,7 +700,7 @@ enqueue_notify_change_request(struct smbfs_notify_change *notify,
 {
 	struct watch_item *watchItem;
 	
-	MALLOC(watchItem, struct watch_item *, sizeof(*watchItem), M_TEMP, M_WAITOK | M_ZERO);
+	SMB_MALLOC(watchItem, struct watch_item *, sizeof(*watchItem), M_TEMP, M_WAITOK | M_ZERO);
 	lck_mtx_init(&watchItem->watch_statelock, smbfs_mutex_group, smbfs_lock_attr);
 	watchItem->isRoot = vnode_isvroot(np->n_vnode);		
 	watchItem->np = np;
@@ -750,7 +753,7 @@ dequeue_notify_change_request(struct smbfs_notify_change *notify,
 			msleep(watchItem, &notify->watch_list_lock, PWAIT, 
 				   "notify watchItem cancel", NULL);
 			STAILQ_REMOVE(&notify->watch_list, watchItem, watch_item, entries);
-			FREE(watchItem, M_TEMP);
+			SMB_FREE(watchItem, M_TEMP);
 			watchItem = NULL;
 			break;
 		}
@@ -785,7 +788,8 @@ smbfs_start_change_notify(struct smb_share *share, struct smbnode *np,
 		}
 		np->d_kqrefcnt++;
 		/* Setting SMB2_SYNCHRONIZE because XP does. */
-		error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA | SMB2_SYNCHRONIZE,  context, &np->d_fid);
+		error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA | SMB2_SYNCHRONIZE,
+                              &np->d_fid, context);
 		if (error)	{
 			/* Open failed so turn on polling */
 			np->n_flag |= N_POLLNOTIFY;
@@ -822,7 +826,7 @@ smbfs_stop_change_notify(struct smb_share *share, struct smbnode *np,
 						 int forceClose, vfs_context_t context, int *releaseLock)
 {	
 	struct smbmount *smp = np->n_mount;
-	uint16_t		fid;
+	uint16_t fid;
 	
 	if (forceClose)
 		np->d_kqrefcnt = 0;
@@ -906,8 +910,8 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 	}
 	SMBDEBUG("%s is being reopened for monitoring\n", np->n_name);
 	/* 
-	 * We only set the capabilities VOL_CAP_INT_REMOTE_EVENT if the
-	 * server supports SMB_CAP_NT_SMBS. So if they calls us without checking the
+	 * We set the capabilities VOL_CAP_INT_REMOTE_EVENT for all supported
+	 * servers. So if they call us without checking the
 	 * capabilities then they get what they get.
 	 *
 	 * Setting SMB2_SYNCHRONIZE because XP does.
@@ -915,7 +919,7 @@ smbfs_restart_change_notify(struct smb_share *share, struct smbnode *np,
 	 * Now reopen the directory.
 	 */
 	error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA | SMB2_SYNCHRONIZE,  
-						  context, &np->d_fid);
+						  &np->d_fid, context);
 	if (error) {
 		SMBWARNING("Attempting to reopen %s failed %d\n", np->n_name, error);
 		return;

@@ -29,13 +29,14 @@
 #include "config.h"
 #include "NetscapePlugInStreamLoader.h"
 
-#include "FrameLoader.h"
 #include "DocumentLoader.h"
+#include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 
 namespace WebCore {
 
 NetscapePlugInStreamLoader::NetscapePlugInStreamLoader(Frame* frame, NetscapePlugInStreamLoaderClient* client)
-    : ResourceLoader(frame, true, true)
+    : ResourceLoader(frame, ResourceLoaderOptions(SendCallbacks, SniffContent, DoNotBufferData, AllowStoredCredentials, AskClientForCrossOriginCredentials, SkipSecurityCheck))
     , m_client(client)
 {
 }
@@ -47,7 +48,6 @@ NetscapePlugInStreamLoader::~NetscapePlugInStreamLoader()
 PassRefPtr<NetscapePlugInStreamLoader> NetscapePlugInStreamLoader::create(Frame* frame, NetscapePlugInStreamLoaderClient* client, const ResourceRequest& request)
 {
     RefPtr<NetscapePlugInStreamLoader> loader(adoptRef(new NetscapePlugInStreamLoader(frame, client)));
-    loader->setShouldBufferData(false);
     loader->documentLoader()->addPlugInStreamLoader(loader.get());
     if (!loader->init(request))
         return 0;
@@ -87,9 +87,10 @@ void NetscapePlugInStreamLoader::didReceiveResponse(const ResourceResponse& resp
     
     if (m_client->wantsAllStreams())
         return;
-    
-    if (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400)
-        cancel(frameLoader()->fileDoesNotExistError(response));
+
+    // Status code can be null when serving from a Web archive.
+    if (response.httpStatusCode() && (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400))
+        cancel(frameLoader()->client()->fileDoesNotExistError(response));
 }
 
 void NetscapePlugInStreamLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)

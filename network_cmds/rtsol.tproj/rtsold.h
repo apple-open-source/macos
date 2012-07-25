@@ -59,6 +59,7 @@ struct ifinfo {
 #define IFS_PROBE	2
 #define IFS_DOWN	3
 #define IFS_TENTATIVE	4
+#define IFS_OPTIMISTIC	5
 
 /* rtsold.c */
 extern struct timeval tm_max;

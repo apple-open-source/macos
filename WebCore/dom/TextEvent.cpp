@@ -57,6 +57,11 @@ PassRefPtr<TextEvent> TextEvent::createForDrop(PassRefPtr<AbstractView> view, co
     return adoptRef(new TextEvent(view, data, TextEventInputDrop));
 }
 
+PassRefPtr<TextEvent> TextEvent::createForDictation(PassRefPtr<AbstractView> view, const String& data, const Vector<DictationAlternative>& dictationAlternatives)
+{
+    return adoptRef(new TextEvent(view, data, dictationAlternatives));
+}
+
 TextEvent::TextEvent()
     : m_inputType(TextEventInputKeyboard)
     , m_shouldSmartReplace(false)
@@ -85,6 +90,16 @@ TextEvent::TextEvent(PassRefPtr<AbstractView> view, const String& data, PassRefP
 {
 }
 
+TextEvent::TextEvent(PassRefPtr<AbstractView> view, const String& data, const Vector<DictationAlternative>& dictationAlternatives)
+    : UIEvent(eventNames().textInputEvent, true, true, view, 0)
+    , m_inputType(TextEventInputDictation)
+    , m_data(data)
+    , m_shouldSmartReplace(false)
+    , m_shouldMatchStyle(false)
+    , m_dictationAlternatives(dictationAlternatives)
+{
+}
+
 TextEvent::~TextEvent()
 {
 }
@@ -99,9 +114,9 @@ void TextEvent::initTextEvent(const AtomicString& type, bool canBubble, bool can
     m_data = data;
 }
 
-bool TextEvent::isTextEvent() const
+const AtomicString& TextEvent::interfaceName() const
 {
-    return true;
+    return eventNames().interfaceForTextEvent;
 }
 
 } // namespace WebCore

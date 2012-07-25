@@ -27,16 +27,16 @@ Index: src/fileio.c
  #define BUFSIZE		8192	/* size of normal write buffer */
  #define SMBUFSIZE	256	/* size of emergency write buffer */
  
-@@ -2875,6 +2879,9 @@
-     curbuf->b_marks_read = TRUE;
- }
+@@ -3220,6 +3217,9 @@
+     int		    write_undo_file = FALSE;
+     context_sha256_T sha_ctx;
  #endif
 +#ifdef HAVE_COPYFILE
 +    copyfile_state_t	copyfile_state = NULL;
 +#endif
  
- #if defined(FEAT_CRYPT) || defined(PROTO)
- /*
+     if (fname == NULL || *fname == NUL)	/* safety check */
+ 	return FAIL;
 @@ -3659,6 +3666,13 @@
      if (!newfile)
  	acl = mch_get_acl(fname);

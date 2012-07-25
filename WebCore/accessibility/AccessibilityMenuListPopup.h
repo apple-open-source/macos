@@ -41,16 +41,17 @@ public:
 
     virtual bool isEnabled() const;
     virtual bool isOffScreen() const;
+    virtual bool accessibilityIsIgnored() const;
 
     void didUpdateActiveOption(int optionIndex);
+
 
 private:
     AccessibilityMenuListPopup();
 
     virtual bool isMenuListPopup() const { return true; }
 
-    virtual IntRect elementRect() const { return IntRect(); }
-    virtual IntSize size() const { return IntSize(); }
+    virtual LayoutRect elementRect() const { return LayoutRect(); }
     virtual AccessibilityRole roleValue() const { return MenuListPopupRole; }
 
     virtual bool isVisible() const;

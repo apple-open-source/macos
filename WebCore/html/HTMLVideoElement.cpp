@@ -34,30 +34,34 @@
 #include "ChromeClient.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "Frame.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderVideo.h"
+#include "ScriptController.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document* document)
-    : HTMLMediaElement(tagName, document)
+inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document* document, bool createdByParser)
+    : HTMLMediaElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(videoTag));
 }
 
-PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    return adoptRef(new HTMLVideoElement(tagName, document));
+    RefPtr<HTMLVideoElement> videoElement(adoptRef(new HTMLVideoElement(tagName, document, createdByParser)));
+    videoElement->suspendIfNeeded();
+    return videoElement.release();
 }
 
-bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style) 
+bool HTMLVideoElement::rendererIsNeeded(const NodeRenderingContext& context) 
 {
-    return HTMLElement::rendererIsNeeded(style); 
+    return HTMLElement::rendererIsNeeded(context); 
 }
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
@@ -91,7 +95,24 @@ void HTMLVideoElement::detach()
         m_imageLoader.clear();
 }
 
-void HTMLVideoElement::parseMappedAttribute(Attribute* attr)
+void HTMLVideoElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+{
+    if (attr->name() == widthAttr)
+        addHTMLLengthToStyle(style, CSSPropertyWidth, attr->value());
+    else if (attr->name() == heightAttr)
+        addHTMLLengthToStyle(style, CSSPropertyHeight, attr->value());
+    else
+        HTMLMediaElement::collectStyleForAttribute(attr, style);
+}
+
+bool HTMLVideoElement::isPresentationAttribute(const QualifiedName& name) const
+{
+    if (name == widthAttr || name == heightAttr)
+        return true;
+    return HTMLMediaElement::isPresentationAttribute(name);
+}
+
+void HTMLVideoElement::parseAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
 
@@ -111,12 +132,8 @@ void HTMLVideoElement::parseMappedAttribute(Attribute* attr)
                 toRenderImage(renderer())->imageResource()->setCachedImage(0); 
         }
 #endif
-    } else if (attrName == widthAttr)
-        addCSSLength(attr, CSSPropertyWidth, attr->value());
-    else if (attrName == heightAttr)
-        addCSSLength(attr, CSSPropertyHeight, attr->value());
-    else
-        HTMLMediaElement::parseMappedAttribute(attr);
+    } else
+        HTMLMediaElement::parseAttribute(attr);
 }
 
 bool HTMLVideoElement::supportsFullscreen() const
@@ -125,14 +142,18 @@ bool HTMLVideoElement::supportsFullscreen() const
     if (!page) 
         return false;
 
-    if (!player() || !player()->supportsFullscreen() || !player()->hasVideo())
+    if (!player() || !player()->supportsFullscreen())
         return false;
 
-    // Check with the platform client.
 #if ENABLE(FULLSCREEN_API)
+    // If the full screen API is enabled and is supported for the current element
+    // do not require that the player has a video track to enter full screen.
     if (page->chrome()->client()->supportsFullScreenForElement(this, false))
         return true;
 #endif
+
+    if (!player()->hasVideo())
+        return false;
 
     return page->chrome()->client()->supportsFullscreenForNode(this);
 }
@@ -195,8 +216,16 @@ void HTMLVideoElement::setDisplayMode(DisplayMode mode)
 
     HTMLMediaElement::setDisplayMode(mode);
 
-    if (player() && player()->canLoadPoster())
-        player()->setPoster(poster);
+    if (player() && player()->canLoadPoster()) {
+        bool canLoad = true;
+        if (!poster.isEmpty()) {
+            Frame* frame = document()->frame();
+            FrameLoader* loader = frame ? frame->loader() : 0;
+            canLoad = loader && loader->willLoadMediaElementURL(poster);
+        }
+        if (canLoad)
+            player()->setPoster(poster);
+    }
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     if (renderer() && displayMode() != oldMode)
@@ -227,17 +256,17 @@ bool HTMLVideoElement::hasAvailableVideoFrame() const
     if (!player())
         return false;
     
-    return player()->hasAvailableVideoFrame();
+    return player()->hasVideo() && player()->hasAvailableVideoFrame();
 }
 
-void HTMLVideoElement::webkitEnterFullscreen(bool isUserGesture, ExceptionCode& ec)
+void HTMLVideoElement::webkitEnterFullscreen(ExceptionCode& ec)
 {
     if (isFullscreen())
         return;
 
     // Generate an exception if this isn't called in response to a user gesture, or if the 
     // element does not support fullscreen.
-    if ((requireUserGestureForFullScreen() && !isUserGesture) || !supportsFullscreen()) {
+    if ((userGestureRequiredForFullscreen() && !ScriptController::processingUserGesture()) || !supportsFullscreen()) {
         ec = INVALID_STATE_ERR;
         return;
     }
@@ -261,11 +290,11 @@ bool HTMLVideoElement::webkitDisplayingFullscreen()
     return isFullscreen();
 }
 
-void HTMLVideoElement::willMoveToNewOwnerDocument()
+void HTMLVideoElement::didMoveToNewDocument(Document* oldDocument)
 {
     if (m_imageLoader)
-        m_imageLoader->elementWillMoveToNewOwnerDocument();
-    HTMLMediaElement::willMoveToNewOwnerDocument();
+        m_imageLoader->elementDidMoveToNewDocument();
+    HTMLMediaElement::didMoveToNewDocument(oldDocument);
 }
 
 #if ENABLE(MEDIA_STATISTICS)

@@ -62,4 +62,4 @@ int		dynarray_count(dynarray_t * list);
 void *		dynarray_element(dynarray_t * list, int i);
 int		dynarray_index(dynarray_t * list, void * element);
 
-#endif _S_DYNARRAY_H
+#endif /* _S_DYNARRAY_H */

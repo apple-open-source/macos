@@ -432,10 +432,12 @@ void init_game (void) {
   result = no_result;
   captures = FALSE;
 
-  piece_count = 32;
+  /* reset_piece_square fills these in */
+  piece_count = 0;
 
   Material = 0;
 
+  memset(pieces, 0, sizeof(pieces));
   memset(is_promoted, 0, sizeof(is_promoted));
   memset(holding, 0, sizeof(holding));
 
@@ -748,16 +750,18 @@ void reset_piece_square (void) {
 
    /* reset the piece / square tables: */
 
-   int i, promoted_board[144];
+   int i, j, promoted_board[144];
 
    memset(promoted_board, 0, sizeof(promoted_board));
 
    /* save our promoted info as we cant determine it from the board */
+   for (i = 1, j = 1; j <= piece_count && i<62; i++) {
+     if(is_promoted[i]) {
+       promoted_board[pieces[i]] = 1;
+     }
+     if (pieces[i] != 0) j++;
+   }
 
-   for (i = 1; i <= piece_count; i++)
-     if(is_promoted[i])
-	 promoted_board[pieces[i]] = 1;
-   
    Material = 0;
 
    piece_count = 0;
@@ -1201,6 +1205,7 @@ void reset_board (void) {
 
   Material = 0;
 
+  memset(pieces, 0, sizeof(pieces));
   memset(is_promoted, 0, sizeof(is_promoted));
   memset(holding, 0, sizeof(holding));
 

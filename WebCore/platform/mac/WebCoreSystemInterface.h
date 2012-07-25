@@ -41,11 +41,14 @@ typedef struct CGColor *CGColorRef;
 typedef struct CGFont *CGFontRef;
 typedef struct CGColorSpace *CGColorSpaceRef;
 typedef struct CGPattern *CGPatternRef;
+typedef struct CGPath *CGMutablePathRef;
 typedef unsigned short CGGlyph;
 typedef struct __CFReadStream * CFReadStreamRef;
 typedef struct __CFRunLoop * CFRunLoopRef;
 typedef struct __CFHTTPMessage *CFHTTPMessageRef;
 typedef struct _CFURLResponse *CFURLResponseRef;
+typedef const struct _CFURLRequest *CFURLRequestRef;
+typedef const struct __CTFont * CTFontRef;
 typedef const struct __CTLine * CTLineRef;
 typedef const struct __CTTypesetter * CTTypesetterRef;
 typedef const struct __AXUIElement *AXUIElementRef;
@@ -67,64 +70,56 @@ typedef struct _NSPoint NSPoint;
 typedef struct _NSRect NSRect;
 #endif
 
-#ifdef __OBJC__
-@class AVAsset;
-@class NSArray;
-@class NSButtonCell;
-@class NSCursor;
-@class NSData;
-@class NSDate;
-@class NSEvent;
-@class NSFont;
-@class NSHTTPCookie;
-@class NSImage;
-@class NSMenu;
-@class NSMutableURLRequest;
-@class NSString;
-@class NSTextFieldCell;
-@class NSURL;
-@class NSURLConnection;
-@class NSURLRequest;
-@class NSURLResponse;
-@class NSView;
-@class QTMovie;
-@class QTMovieView;
-#else
-class AVAsset;
-class NSArray;
-class NSButtonCell;
-class NSCursor;
-class NSData;
-class NSDate;
-class NSEvent;
-class NSFont;
-class NSHTTPCookie;
-class NSImage;
-class NSMenu;
-class NSMutableArray;
-class NSMutableURLRequest;
-class NSURL;
-class NSURLRequest;
-class NSString;
-class NSTextFieldCell;
-class NSURLConnection;
-class NSURLResponse;
-class NSView;
-class QTMovie;
-class QTMovieView;
+#if USE(CFNETWORK)
+typedef struct OpaqueCFHTTPCookieStorage*  CFHTTPCookieStorageRef;
+typedef struct _CFURLProtectionSpace* CFURLProtectionSpaceRef;
+typedef struct _CFURLCredential* WKCFURLCredentialRef;
+typedef struct _CFURLRequest* CFMutableURLRequestRef;
+typedef const struct _CFURLRequest* CFURLRequestRef;
 #endif
+
+OBJC_CLASS AVAsset;
+OBJC_CLASS CALayer;
+OBJC_CLASS NSArray;
+OBJC_CLASS NSButtonCell;
+OBJC_CLASS NSControl;
+OBJC_CLASS NSCursor;
+OBJC_CLASS NSData;
+OBJC_CLASS NSDate;
+OBJC_CLASS NSEvent;
+OBJC_CLASS NSFont;
+OBJC_CLASS NSHTTPCookie;
+OBJC_CLASS NSImage;
+OBJC_CLASS NSMenu;
+OBJC_CLASS NSMutableURLRequest;
+OBJC_CLASS NSString;
+OBJC_CLASS NSTextFieldCell;
+OBJC_CLASS NSURL;
+OBJC_CLASS NSURLConnection;
+OBJC_CLASS NSURLRequest;
+OBJC_CLASS NSURLResponse;
+OBJC_CLASS NSView;
+OBJC_CLASS NSWindow;
+OBJC_CLASS QTMovie;
+OBJC_CLASS QTMovieView;
+OBJC_CLASS WebFilterEvaluator;
 
 extern "C" {
 
 // In alphabetical order.
 
 extern void (*wkAdvanceDefaultButtonPulseAnimation)(NSButtonCell *);
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+extern void (*wkCALayerEnumerateRectsBeingDrawnWithBlock)(CALayer *, CGContextRef, void (^block)(CGRect rect));
+#endif
+
 extern BOOL (*wkCGContextGetShouldSmoothFonts)(CGContextRef);
 typedef enum {
     wkPatternTilingNoDistortion,
     wkPatternTilingConstantSpacingMinimalDistortion,
     wkPatternTilingConstantSpacing
 } wkPatternTiling;
+extern void (*wkCGContextResetClip)(CGContextRef);
 extern CGPatternRef (*wkCGPatternCreateWithImageAndTransform)(CGImageRef, CGAffineTransform, int);
 extern CFReadStreamRef (*wkCreateCustomCFReadStream)(void *(*formCreate)(CFReadStreamRef, void *), 
     void (*formFinalize)(CFReadStreamRef, void *), 
@@ -158,8 +153,25 @@ extern double (*wkGetNSURLResponseCalculatedExpiration)(NSURLResponse *response)
 extern NSDate *(*wkGetNSURLResponseLastModifiedDate)(NSURLResponse *response);
 extern BOOL (*wkGetNSURLResponseMustRevalidate)(NSURLResponse *response);
 extern void (*wkGetWheelEventDeltas)(NSEvent*, float* deltaX, float* deltaY, BOOL* continuous);
+extern UInt8 (*wkGetNSEventKeyChar)(NSEvent *);
 extern BOOL (*wkHitTestMediaUIPart)(int part, int themeStyle, CGRect bounds, CGPoint point);
 extern void (*wkMeasureMediaUIPart)(int part, int themeStyle, CGRect *bounds, CGSize *naturalSize);
+extern NSView *(*wkCreateMediaUIBackgroundView)(void);
+
+typedef enum {
+    wkMediaUIControlTimeline,
+    wkMediaUIControlSlider,
+    wkMediaUIControlPlayPauseButton,
+    wkMediaUIControlExitFullscreenButton,
+    wkMediaUIControlRewindButton,
+    wkMediaUIControlFastForwardButton,
+    wkMediaUIControlVolumeUpButton,
+    wkMediaUIControlVolumeDownButton
+} wkMediaUIControlType;
+extern NSControl *(*wkCreateMediaUIControl)(int);
+
+extern void (*wkWindowSetAlpha)(NSWindow *, float);
+extern void (*wkWindowSetScaledFrame)(NSWindow *, NSRect, NSRect);
 extern BOOL (*wkMediaControllerThemeAvailable)(int themeStyle);
 extern void (*wkPopupMenu)(NSMenu*, NSPoint location, float width, NSView*, int selectedItem, NSFont*);
 extern unsigned (*wkQTIncludeOnlyModernMediaFileTypes)(void);
@@ -190,15 +202,16 @@ extern void (*wkSignalCFReadStreamEnd)(CFReadStreamRef stream);
 extern void (*wkSignalCFReadStreamError)(CFReadStreamRef stream, CFStreamError *error);
 extern void (*wkSignalCFReadStreamHasBytes)(CFReadStreamRef stream);
 extern unsigned (*wkInitializeMaximumHTTPConnectionCountPerHost)(unsigned preferredConnectionCount);
-extern int (*wkGetHTTPPipeliningPriority)(NSURLRequest *);
+extern int (*wkGetHTTPPipeliningPriority)(CFURLRequestRef);
 extern void (*wkSetHTTPPipeliningMaximumPriority)(int maximumPriority);
-extern void (*wkSetHTTPPipeliningPriority)(NSMutableURLRequest *, int priority);
+extern void (*wkSetHTTPPipeliningPriority)(CFURLRequestRef, int priority);
 extern void (*wkSetHTTPPipeliningMinimumFastLanePriority)(int priority);
 extern void (*wkSetCONNECTProxyForStream)(CFReadStreamRef, CFStringRef proxyHost, CFNumberRef proxyPort);
 extern void (*wkSetCONNECTProxyAuthorizationForStream)(CFReadStreamRef, CFStringRef proxyAuthorizationString);
 extern CFHTTPMessageRef (*wkCopyCONNECTProxyResponse)(CFReadStreamRef, CFURLRef responseURL);
 
 extern void (*wkGetGlyphsForCharacters)(CGFontRef, const UniChar[], CGGlyph[], size_t);
+extern bool (*wkGetVerticalGlyphsForCharacters)(CTFontRef, const UniChar[], CGGlyph[], size_t);
 
 extern BOOL (*wkUseSharedMediaUI)();
 
@@ -223,8 +236,10 @@ extern CTLineRef (*wkCreateCTLineWithUniCharProvider)(const UniChar* (*provide)(
 
 extern CTTypesetterRef (*wkCreateCTTypesetterWithUniCharProviderAndOptions)(const UniChar* (*provide)(CFIndex stringIndex, CFIndex* charCount, CFDictionaryRef* attributes, void*), void (*dispose)(const UniChar* chars, void*), void*, CFDictionaryRef options);
 
+#if PLATFORM(MAC) && USE(CA)
 extern CGContextRef (*wkIOSurfaceContextCreate)(IOSurfaceRef surface, unsigned width, unsigned height, CGColorSpaceRef colorSpace);
 extern CGImageRef (*wkIOSurfaceContextCreateImage)(CGContextRef context);
+#endif
 
 extern int (*wkRecommendedScrollerStyle)(void);
 
@@ -270,6 +285,50 @@ extern CFURLRef (*wkGetCFURLResponseURL)(CFURLResponseRef);
 extern CFHTTPMessageRef (*wkGetCFURLResponseHTTPResponse)(CFURLResponseRef);
 extern CFStringRef (*wkCopyCFURLResponseSuggestedFilename)(CFURLResponseRef);
 extern void (*wkSetCFURLResponseMIMEType)(CFURLResponseRef, CFStringRef mimeType);
+
+#if USE(CFNETWORK)
+extern CFHTTPCookieStorageRef (*wkGetDefaultHTTPCookieStorage)();
+extern WKCFURLCredentialRef (*wkCopyCredentialFromCFPersistentStorage)(CFURLProtectionSpaceRef protectionSpace);
+extern void (*wkSetCFURLRequestShouldContentSniff)(CFMutableURLRequestRef, bool);
+extern CFArrayRef (*wkCFURLRequestCopyHTTPRequestBodyParts)(CFURLRequestRef);
+extern void (*wkCFURLRequestSetHTTPRequestBodyParts)(CFMutableURLRequestRef, CFArrayRef bodyParts);
+extern void (*wkSetRequestStorageSession)(CFURLStorageSessionRef, CFMutableURLRequestRef);
+#endif
+extern void (*wkSetMetadataURL)(NSString *urlString, NSString *referrer, NSString *path);
+    
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#import <dispatch/dispatch.h>
+
+extern dispatch_source_t (*wkCreateVMPressureDispatchOnMainQueue)(void);
+
+#endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+extern NSString *(*wkGetMacOSXVersionString)(void);
+extern bool (*wkExecutableWasLinkedOnOrBeforeLion)(void);
+#endif
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+extern void (*wkCGPathAddRoundedRect)(CGMutablePathRef path, const CGAffineTransform* matrix, CGRect rect, CGFloat cornerWidth, CGFloat cornerHeight);
+#endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+extern BOOL (*wkFilterIsManagedSession)(void);
+extern WebFilterEvaluator *(*wkFilterCreateInstance)(NSURLResponse *);
+extern void (*wkFilterRelease)(WebFilterEvaluator *);
+extern BOOL (*wkFilterWasBlocked)(WebFilterEvaluator *);
+extern const char* (*wkFilterAddData)(WebFilterEvaluator *, const char* data, int* length);
+extern const char* (*wkFilterDataComplete)(WebFilterEvaluator *, int* length);
+
+extern CGFloat (*wkNSElasticDeltaForTimeDelta)(CGFloat initialPosition, CGFloat initialVelocity, CGFloat elapsedTime);
+extern CGFloat (*wkNSElasticDeltaForReboundDelta)(CGFloat delta);
+extern CGFloat (*wkNSReboundDeltaForElasticDelta)(CGFloat delta);
+#endif
+
 }
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+extern void (*wkCFURLRequestAllowAllPostCaching)(CFURLRequestRef);
+#endif
 
 #endif

@@ -37,8 +37,9 @@
 
 namespace JSC {
 
-JSVariableObject::~JSVariableObject()
+void JSVariableObject::destroy(JSCell* cell)
 {
+    jsCast<JSVariableObject*>(cell)->JSVariableObject::~JSVariableObject();
 }
 
 bool JSVariableObject::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName)
@@ -72,7 +73,7 @@ bool JSVariableObject::symbolTableGet(const Identifier& propertyName, PropertyDe
     return false;
 }
 
-void JSVariableObject::putWithAttributes(JSObject*, ExecState*, const Identifier&, JSValue, unsigned)
+void JSVariableObject::putDirectVirtual(JSObject*, ExecState*, const Identifier&, JSValue, unsigned)
 {
     ASSERT_NOT_REACHED();
 }

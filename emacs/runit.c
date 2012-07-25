@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <pwd.h>
+#include <unistd.h>
+#include <err.h>
 
 #include "dumpemacs.h"
 

@@ -323,22 +323,22 @@ static uint64_t fileVersion(DWORD leastSignificant, DWORD mostSignificant)
     return version.QuadPart;
 }
 
-bool PluginInfoStore::getPluginInfo(const String& pluginPath, Plugin& plugin)
+bool PluginInfoStore::getPluginInfo(const String& pluginPath, PluginModuleInfo& plugin)
 {
     return NetscapePluginModule::getPluginInfo(pluginPath, plugin);
 }
 
-static bool isOldWindowsMediaPlayerPlugin(const PluginInfoStore::Plugin& plugin)
+static bool isOldWindowsMediaPlayerPlugin(const PluginModuleInfo& plugin)
 {
     return equalIgnoringCase(plugin.info.file, "npdsplay.dll");
 }
 
-static bool isNewWindowsMediaPlayerPlugin(const PluginInfoStore::Plugin& plugin)
+static bool isNewWindowsMediaPlayerPlugin(const PluginModuleInfo& plugin)
 {
     return equalIgnoringCase(plugin.info.file, "np-mswmp.dll");
 }
 
-bool PluginInfoStore::shouldUsePlugin(Vector<Plugin>& alreadyLoadedPlugins, const Plugin& plugin)
+bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin)
 {
     if (plugin.info.name == "Citrix ICA Client") {
         // The Citrix ICA Client plug-in requires a Mozilla-based browser; see <rdar://6418681>.
@@ -395,7 +395,7 @@ bool PluginInfoStore::shouldUsePlugin(Vector<Plugin>& alreadyLoadedPlugins, cons
     // only the first. <http://webkit.org/b/58469>
     String pluginFileName = pathGetFileName(plugin.path);
     for (size_t i = 0; i < alreadyLoadedPlugins.size(); ++i) {
-        const Plugin& loadedPlugin = alreadyLoadedPlugins[i];
+        const PluginModuleInfo& loadedPlugin = alreadyLoadedPlugins[i];
 
         // If a plug-in with the same filename already exists, we don't want to load it.
         if (equalIgnoringCase(pluginFileName, pathGetFileName(loadedPlugin.path)))

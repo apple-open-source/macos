@@ -293,7 +293,8 @@ void IOHIDPointing::setupProperties()
     OSNumber *  number  = NULL;
     
 	// Store the resolution
-    if ( number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDPointerResolutionKey)) )
+	number = (OSNumber*)_provider->copyProperty(kIOHIDPointerResolutionKey);
+    if ( OSDynamicCast(OSNumber, number) )
     {
         IOFixed newResolution = number->unsigned32BitValue();
         if ( newResolution != 0 ) {
@@ -306,9 +307,11 @@ void IOHIDPointing::setupProperties()
     {
         setProperty(kIOHIDPointerResolutionKey, _resolution, 32);
     }
+    OSSafeReleaseNULL(number);
     
 	// Store the scroll resolution
-    if ( number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDScrollResolutionKey)) )
+	number = (OSNumber*)_provider->copyProperty(kIOHIDScrollResolutionKey);
+    if ( OSDynamicCast(OSNumber, number) )
     {
         _scrollResolution = number->unsigned32BitValue();
         setProperty(kIOHIDScrollResolutionKey, number);
@@ -318,17 +321,22 @@ void IOHIDPointing::setupProperties()
     {
         setProperty(kIOHIDScrollResolutionKey, _scrollResolution, 32);
     }
+    OSSafeReleaseNULL(number);
 	
 	// deal with buttons
-	if ( _numButtons == 1 && (number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDPointerButtonCountKey))))
+	if ( (_numButtons == 1) && 
+	     (NULL != (number = (OSNumber*)_provider->copyProperty(kIOHIDPointerButtonCountKey))) && 
+	     OSDynamicCast(OSNumber, number) )
 	{
 		_numButtons = number->unsigned32BitValue();
 		_isDispatcher = FALSE;
 	}
+    OSSafeReleaseNULL(number);
 
     if ( _isDispatcher )
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
 
+    // vtn3: These unsafe, but unlikely to cause a problem. Additionally, making it "safe" is going to be cumbersome and irritating.
     setProperty(kIOHIDScrollAccelerationTypeKey, _provider->getProperty( kIOHIDScrollAccelerationTypeKey ));
     setProperty(kIOHIDPointerAccelerationTypeKey, _provider->getProperty( kIOHIDPointerAccelerationTypeKey ));
         

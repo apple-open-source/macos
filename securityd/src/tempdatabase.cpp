@@ -110,14 +110,10 @@ void TempDatabase::getSecurePassphrase(const Context &context,
     uint32 verify = context.getInt(CSSM_ATTRIBUTE_VERIFY_PASSPHRASE, CSSMERR_CSSM_ATTRIBUTE_NOT_IN_CONTEXT);
     
     CssmData *promptData = context.get<CssmData>(CSSM_ATTRIBUTE_PROMPT);
-    const char *prompt = NULL; 
 	
-	if (promptData)
-		prompt = *promptData;
-    
     QueryGenericPassphrase agentQuery;
     agentQuery.inferHints(Server::process());
-    agentQuery(prompt, verify, passphrase);
+    agentQuery(promptData, verify, passphrase);
 }
 
 

@@ -24,8 +24,14 @@
 
 #include "WebDOMTestInterface.h"
 
+#include "KURL.h"
+#include "Node.h"
 #include "TestInterface.h"
+#include "TestSupplemental.h"
+#include "WebDOMNode.h"
+#include "WebDOMString.h"
 #include "WebExceptionHandler.h"
+#include "wtf/text/AtomicString.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -65,7 +71,7 @@ WebDOMTestInterface& WebDOMTestInterface::operator=(const WebDOMTestInterface& c
 
 WebCore::TestInterface* WebDOMTestInterface::impl() const
 {
-    return m_impl ? m_impl->impl.get() : 0;
+    return m_impl ? WTF::getPtr(m_impl->impl) : 0;
 }
 
 WebDOMTestInterface::~WebDOMTestInterface()
@@ -73,6 +79,76 @@ WebDOMTestInterface::~WebDOMTestInterface()
     delete m_impl;
     m_impl = 0;
 }
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+WebDOMString WebDOMTestInterface::supplementalStr1() const
+{
+    if (!impl())
+        return WebDOMString();
+
+    return static_cast<const WTF::String&>(TestSupplemental::supplementalStr1(impl()));
+}
+
+#endif
+#if ENABLE(Condition11) || ENABLE(Condition12)
+WebDOMString WebDOMTestInterface::supplementalStr2() const
+{
+    if (!impl())
+        return WebDOMString();
+
+    return static_cast<const WTF::String&>(TestSupplemental::supplementalStr2(impl()));
+}
+
+void WebDOMTestInterface::setSupplementalStr2(const WebDOMString& newSupplementalStr2)
+{
+    if (!impl())
+        return;
+
+    TestSupplemental::setSupplementalStr2(impl(), newSupplementalStr2);
+}
+
+#endif
+#if ENABLE(Condition11) || ENABLE(Condition12)
+WebDOMNode WebDOMTestInterface::supplementalNode() const
+{
+    if (!impl())
+        return WebDOMNode();
+
+    return toWebKit(WTF::getPtr(TestSupplemental::supplementalNode(impl())));
+}
+
+void WebDOMTestInterface::setSupplementalNode(const WebDOMNode& newSupplementalNode)
+{
+    if (!impl())
+        return;
+
+    TestSupplemental::setSupplementalNode(impl(), toWebCore(newSupplementalNode));
+}
+
+#endif
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+void WebDOMTestInterface::supplementalMethod1()
+{
+    if (!impl())
+        return;
+
+    WebCore::TestSupplemental::supplementalMethod1(impl());
+}
+
+#endif
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+void WebDOMTestInterface::supplementalMethod4()
+{
+    if (!impl())
+        return;
+
+    WebCore::TestSupplemental::supplementalMethod4(impl());
+}
+
+#endif
 
 WebCore::TestInterface* toWebCore(const WebDOMTestInterface& wrapper)
 {

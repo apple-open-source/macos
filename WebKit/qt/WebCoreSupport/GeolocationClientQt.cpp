@@ -37,7 +37,11 @@
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 
-using namespace QtMobility;
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+#include <QGeoPositionInfoSource>
+#elif QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QtLocation/QGeoPositionInfoSource>
+#endif
 
 namespace WebCore {
 
@@ -60,7 +64,7 @@ void GeolocationClientQt::geolocationDestroyed()
     delete this;
 }
 
-void GeolocationClientQt::positionUpdated(const QGeoPositionInfo &geoPosition)
+void GeolocationClientQt::positionUpdated(const QGeoPositionInfo& geoPosition)
 {
     if (!geoPosition.isValid())
         return;
@@ -90,7 +94,7 @@ void GeolocationClientQt::positionUpdated(const QGeoPositionInfo &geoPosition)
                                                  providesHeading, heading, providesSpeed, speed);
 
     WebCore::Page* page = QWebPagePrivate::core(m_page);
-    page->geolocationController()->positionChanged(m_lastPosition.get());
+    GeolocationController::from(page)->positionChanged(m_lastPosition.get());
 }
 
 void GeolocationClientQt::startUpdating()
@@ -101,7 +105,7 @@ void GeolocationClientQt::startUpdating()
     if (!m_location) {
         WebCore::Page* page = QWebPagePrivate::core(m_page);
         RefPtr<WebCore::GeolocationError> error = GeolocationError::create(GeolocationError::PositionUnavailable, failedToStartServiceErrorMessage);
-        page->geolocationController()->errorOccurred(error.get());
+        GeolocationController::from(page)->errorOccurred(error.get());
         return;
     }
 

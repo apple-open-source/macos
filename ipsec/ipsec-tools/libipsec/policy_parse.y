@@ -84,7 +84,7 @@
 #include <errno.h>
 
 #include "config.h"
-
+#include "var.h"
 #include "ipsec_strerror.h"
 #include "libpfkey.h"
 
@@ -105,17 +105,17 @@ static int offset = 0;			/* offset of pbuf */
 static int p_dir, p_type, p_protocol, p_mode, p_level, p_reqid;
 static u_int32_t p_priority = 0;
 static long p_priority_offset = 0;
-static struct sockaddr *p_src = NULL;
-static struct sockaddr *p_dst = NULL;
+static struct sockaddr_storage *p_src = NULL;
+static struct sockaddr_storage *p_dst = NULL;
 
 struct _val;
 extern void yyerror __P((char *msg));
-static struct sockaddr *parse_sockaddr __P((struct _val *addrbuf,
+static struct sockaddr_storage *parse_sockaddr __P((struct _val *addrbuf,
     struct _val *portbuf));
 static int rule_check __P((void));
 static int init_x_policy __P((void));
-static int set_x_request __P((struct sockaddr *, struct sockaddr *));
-static int set_sockaddr __P((struct sockaddr *));
+static int set_x_request __P((struct sockaddr_storage *, struct sockaddr_storage *));
+static int set_sockaddr __P((struct sockaddr_storage *));
 static void policy_parse_request_init __P((void));
 static void *policy_parse __P((const char *, int));
 
@@ -390,7 +390,7 @@ yyerror(msg)
 	return;
 }
 
-static struct sockaddr *
+static struct sockaddr_storage *
 parse_sockaddr(addrbuf, portbuf)
 	struct _val *addrbuf;
 	struct _val *portbuf;
@@ -399,7 +399,7 @@ parse_sockaddr(addrbuf, portbuf)
 	char *addr;
 	char *serv = NULL;
 	int error;
-	struct sockaddr *newaddr = NULL;
+	struct sockaddr_storage *newaddr = NULL;
 	int addr_len;
 	int serv_len;
 
@@ -481,7 +481,7 @@ rule_check()
 				return -1;
 			}
 		}
-		else if (p_src->sa_family != p_dst->sa_family) {
+		else if (p_src->ss_family != p_dst->ss_family) {
 			__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
 			return -1;
 		}
@@ -508,7 +508,7 @@ init_x_policy()
 	tlen = sizeof(struct sadb_x_policy);
 
 	memset(pbuf, 0, tlen);
-	p = (struct sadb_x_policy *)pbuf;
+	p = ALIGNED_CAST(struct sadb_x_policy *)pbuf;
 	p->sadb_x_policy_len = 0;	/* must update later */
 	p->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
 	p->sadb_x_policy_type = p_type;
@@ -534,15 +534,15 @@ init_x_policy()
 
 static int
 set_x_request(src, dst)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 {
 	struct sadb_x_ipsecrequest *p;
 	int reqlen;
 	u_int8_t *n;
 
 	reqlen = sizeof(*p)
-		+ (src ? sysdep_sa_len(src) : 0)
-		+ (dst ? sysdep_sa_len(dst) : 0);
+		+ (src ? sysdep_sa_len((struct sockaddr *)src) : 0)
+		+ (dst ? sysdep_sa_len((struct sockaddr *)dst) : 0);
 	tlen += reqlen;		/* increment to total length */
 
 	n = realloc(pbuf, tlen);
@@ -552,7 +552,7 @@ set_x_request(src, dst)
 	}
 	pbuf = n;
 
-	p = (struct sadb_x_ipsecrequest *)&pbuf[offset];
+	p = ALIGNED_CAST(struct sadb_x_ipsecrequest *)&pbuf[offset];    // Wcast-align fix - malloc'd buffer/offset 64 bit multiple
 	p->sadb_x_ipsecrequest_len = reqlen;
 	p->sadb_x_ipsecrequest_proto = p_protocol;
 	p->sadb_x_ipsecrequest_mode = p_mode;
@@ -569,7 +569,7 @@ set_x_request(src, dst)
 
 static int
 set_sockaddr(addr)
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 {
 	if (addr == NULL) {
 		__ipsec_errcode = EIPSEC_NO_ERROR;
@@ -578,9 +578,9 @@ set_sockaddr(addr)
 
 	/* tlen has already incremented */
 
-	memcpy(&pbuf[offset], addr, sysdep_sa_len(addr));
+	memcpy(&pbuf[offset], addr, sysdep_sa_len((struct sockaddr *)addr));
 
-	offset += sysdep_sa_len(addr);
+	offset += sysdep_sa_len((struct sockaddr *)addr);
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 	return 0;
@@ -631,7 +631,7 @@ policy_parse(msg, msglen)
 	}
 
 	/* update total length */
-	((struct sadb_x_policy *)pbuf)->sadb_x_policy_len = PFKEY_UNIT64(tlen);
+	(ALIGNED_CAST(struct sadb_x_policy *)pbuf)->sadb_x_policy_len = PFKEY_UNIT64(tlen);
 
 	__ipsec_errcode = EIPSEC_NO_ERROR;
 

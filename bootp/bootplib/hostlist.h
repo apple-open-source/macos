@@ -90,4 +90,4 @@ hostbyaddr(struct hosts * hosts, u_char hwtype, void * hwaddr, int hwlen,
 }
 
 
-#endif _S_HOSTLIST_H
+#endif /* _S_HOSTLIST_H */

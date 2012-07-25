@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,8 +27,17 @@
 
 #include "lclib.h"
 #include "lclang.h"
+#include "FEATURE/locale"
 
 #include <ctype.h>
+
+typedef struct Local_s
+{
+	const char*	name;
+	int		size;
+} Local_t;
+
+#undef	setlocale	/* this file deals with the system locale */
 
 static Lc_numeric_t	default_numeric = { '.', -1 };
 
@@ -125,6 +134,7 @@ lcindex(int category, int min)
 	case LC_COLLATE:	return AST_LC_COLLATE;
 	case LC_CTYPE:		return AST_LC_CTYPE;
 	case LC_IDENTIFICATION:	return AST_LC_IDENTIFICATION;
+	case LC_LANG:		return AST_LC_LANG;
 	case LC_MEASUREMENT:	return AST_LC_MEASUREMENT;
 	case LC_MESSAGES:	return AST_LC_MESSAGES;
 	case LC_MONETARY:	return AST_LC_MONETARY;
@@ -260,6 +270,8 @@ canonical(const Lc_language_t* lp, const Lc_territory_t* tp, const Lc_charset_t*
 	register char*		s;
 	register char*		e;
 	register const char*	t;
+	char*			p;
+	char*			r;
 
 	if (!(flags & (LC_abbreviated|LC_default|LC_local|LC_qualified|LC_verbose)))
 		flags |= LC_abbreviated;
@@ -294,10 +306,15 @@ canonical(const Lc_language_t* lp, const Lc_territory_t* tp, const Lc_charset_t*
 	}
 	if (s < e)
 	{
-		if (tp && tp != &lc_territories[0] && (!(flags & (LC_abbreviated|LC_default)) || !lp || !streq(lp->code, tp->code)))
+		if (tp && tp != &lc_territories[0])
 		{
+			r = 0;
 			if (lp)
+			{
+				if ((flags & (LC_abbreviated|LC_default)) && streq(lp->code, tp->code))
+					r = s;
 				*s++ = '_';
+			}
 			if (flags & LC_verbose)
 			{
 				u = 1;
@@ -316,16 +333,36 @@ canonical(const Lc_language_t* lp, const Lc_territory_t* tp, const Lc_charset_t*
 			}
 			else
 				for (t = tp->code; s < e && (*s = toupper(*t++)); s++);
+			if (r)
+			{
+				*s = 0;
+				if ((p = setlocale(LC_MESSAGES, 0)) && (p = strdup(p)))
+				{
+					if (!setlocale(LC_MESSAGES, buf))
+					{
+						*r = 0;
+						if (!setlocale(LC_MESSAGES, buf))
+							*r = '_';
+					}
+					setlocale(LC_MESSAGES, p);
+					free(p);
+				}
+			}
 		}
 		if (lp && (!(flags & (LC_abbreviated|LC_default)) || cp != lp->charset) && s < e)
 		{
 			*s++ = '.';
-			for (t = cp->code; s < e && (c = *t++); s++)
-			{
-				if (islower(c))
-					c = toupper(c);
-				*s = c;
-			}
+			t = cp->code;
+			if (streq(cp->code, "utf8") && (t = _locale_utf8_str))
+				for (; s < e && (c = *t++); s++)
+					*s = c;
+			else
+				for (t = cp->code; s < e && (c = *t++); s++)
+				{
+					if (islower(c))
+						c = toupper(c);
+					*s = c;
+				}
 		}
 		for (c = '@'; ap && s < e; ap = ap->next)
 			if (!(flags & (LC_abbreviated|LC_default|LC_verbose)) || !(ap->attribute->flags & LC_default))
@@ -407,6 +444,7 @@ lcmake(const char* name)
 	int				z;
 	char				buf[PATH_MAX / 2];
 	char				tmp[PATH_MAX / 2];
+	Local_t				local[2];
 
 	if (!(t = name) || !*t)
 		return &default_lc;
@@ -504,6 +542,10 @@ lcmake(const char* name)
 		}
 	}
 	*s = 0;
+#if AHA
+	if ((ast.locale.set & AST_LC_debug) && !(ast.locale.set & AST_LC_internal))
+		sfprintf(sfstderr, "locale make %s language=%s territory=%s charset=%s attributes=%s\n", name, language_name, territory_name, charset_name, attributes_name);
+#endif
 	tp = 0;
 	cp = ppa = 0;
 	al = 0;
@@ -528,6 +570,8 @@ lcmake(const char* name)
 				n = 1;
 		}
 	}
+	else if (streq(s, "c") || streq(s, "posix"))
+		lp = &lc_languages[0];
 	else
 		lp = 0;
 	if (!lp || !lp->code)
@@ -571,7 +615,15 @@ lcmake(const char* name)
 				name = ((Lc_language_t*)lp)->code = ((Lc_language_t*)lp)->name = (const char*)(lp + 1);
 				memcpy((char*)lp->code, s, z - 1);
 				tp = &lc_territories[0];
-				cp = ((Lc_language_t*)lp)->charset = &lc_charsets[0];
+				cp = &lc_charsets[0];
+				if (charset_name)
+					for (ppa = lc_charsets; ppa->code; ppa++)
+						if (match_charset(charset_name, ppa))
+						{
+							cp = ppa;
+							break;
+						}
+				((Lc_language_t*)lp)->charset = cp;
 				al = 0;
 				goto override;
 			}
@@ -612,9 +664,12 @@ lcmake(const char* name)
 				for (tp = lc_territories; tp->code; tp++)
 					if (streq(s, tp->code))
 					{
-						for (i = 0; i < elementsof(tp->languages) && lp != tp->languages[i]; i++);
-						if (i >= elementsof(tp->languages))
-							tp = 0;
+						if (lp != &lc_languages[0])
+						{
+							for (i = 0; i < elementsof(tp->languages) && lp != tp->languages[i]; i++);
+							if (i >= elementsof(tp->languages))
+								tp = 0;
+						}
 						break;
 					}
 			}
@@ -685,6 +740,10 @@ lcmake(const char* name)
 		for (cp = lc_charsets; cp->code; cp++)
 			if (match_charset(s, cp))
 				break;
+#if AHA
+	if ((ast.locale.set & AST_LC_debug) && !(ast.locale.set & AST_LC_internal))
+		sfprintf(sfstderr, "locale make %s charset_name=%s cp=%s ppa=%s lp=%s\n", name, charset_name, cp ? cp->code : 0, ppa, lp->charset);
+#endif
 	if (!cp || !cp->code)
 		cp = ppa ? ppa : lp->charset;
  mapped:
@@ -696,13 +755,42 @@ lcmake(const char* name)
 
  override:
 	n = strlen(name) + 1;
+	local[0].name = default_lc.name;
+	local[0].size = strlen(local[0].name);
+	local[1].name = default_lc.code;
+	local[1].size = strlen(local[1].name);
+	i = -1;
+	for (c = 0; c < elementsof(local); ++c)
+		if (strneq(name, local[c].name, local[c].size))
+		{
+			switch (name[local[c].size])
+			{
+			case '.':
+			case '_':
+			case 0:
+				i = c;
+				z += local[!i].size + n;
+				break;
+			}
+			break;
+		}
 	if (!(lc = newof(0, Lc_t, 1, n + z)))
 		return 0;
 	strcpy((char*)(lc->name = (const char*)(lc + 1)), name);
-	strcpy((char*)(lc->code = lc->name + n), s);
+	lc->code = lc->name + n;
+	if (i >= 0)
+	{
+		lc->flags |= LC_local;
+		strcpy((char*)lc->code, local[!i].name);
+		strcpy((char*)lc->code + local[!i].size, name + local[i].size);
+	}
+	else
+		strcpy((char*)lc->code, s);
 	lc->language = lp ? lp : &lc_languages[0];
 	lc->territory = tp ? tp : &lc_territories[0];
 	lc->charset = cp ? cp : &lc_charsets[0];  
+	if (streq(lc->charset->code, "utf8"))
+		lc->flags |= LC_utf8;
 	lc->attributes = al;
 	for (i = 0; i < elementsof(lc->info); i++)
 		lc->info[i].lc = lc;
@@ -719,6 +807,8 @@ lcmake(const char* name)
 #endif
 	lc->next = lcs;
 	lcs = lc;
+	if ((ast.locale.set & AST_LC_debug) && !(ast.locale.set & AST_LC_internal))
+		sfprintf(sfstderr, "locale make %17s %16s %16s %16s language=%s territory=%s charset=%s%s\n", "", lc->name, lc->code, "", lc->language->name, lc->territory->name, lc->charset->code, (lc->flags & LC_local) ? " local" : "");
 	return lc;
 }
 

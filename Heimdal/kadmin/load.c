@@ -153,7 +153,7 @@ parse_keys(hdb_entry *ent, char *str)
     krb5_error_code ret;
     int tmp;
     char *p;
-    int i;
+    size_t i;
 
     p = strsep(&str, ":");
     if (sscanf(p, "%d", &tmp) != 1)
@@ -205,7 +205,7 @@ parse_keys(hdb_entry *ent, char *str)
 	    if (key->salt == NULL)
 		krb5_errx (context, 1, "malloc: out of memory");
 	    key->salt->type = type;
-		
+
 	    if (p_len) {
 		if(*p == '\"') {
 		    ret = krb5_data_copy(&key->salt->salt, p + 1, p_len - 2);
@@ -411,7 +411,7 @@ doit(const char *filename, int mergep, int new_realm_name)
 	    }
 	}
 	p = skip_next(p);
-	
+
 	e.key = p;
 	p = skip_next(p);
 
@@ -454,14 +454,14 @@ doit(const char *filename, int mergep, int new_realm_name)
 	    krb5_free_error_message(context, msg);
 	    continue;
 	}
-	
+
 	if (parse_keys(&ent.entry, e.key)) {
 	    fprintf (stderr, "%s:%d:error parsing keys (%s)\n",
 		     filename, line, e.key);
 	    hdb_free_entry (context, &ent);
 	    continue;
 	}
-	
+
 	if (parse_event(&ent.entry.created_by, e.created) == -1) {
 	    fprintf (stderr, "%s:%d:error parsing created event (%s)\n",
 		     filename, line, e.created);

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Mathias Bynens (mathias@qiwi.be)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -294,7 +295,7 @@ ALWAYS_INLINE TokenType LiteralParser<LChar>::Lexer::lexIdentifier(LiteralParser
 template <>
 ALWAYS_INLINE TokenType LiteralParser<UChar>::Lexer::lexIdentifier(LiteralParserToken<UChar>& token)
 {
-    while (m_ptr < m_end && (isASCIIAlphanumeric(*m_ptr) || *m_ptr == '_' || *m_ptr == '$'))
+    while (m_ptr < m_end && (isASCIIAlphanumeric(*m_ptr) || *m_ptr == '_' || *m_ptr == '$' || *m_ptr == 0x200C || *m_ptr == 0x200D))
         m_ptr++;
     token.stringIs8Bit = 0;
     token.stringToken16 = token.start;
@@ -330,12 +331,12 @@ ALWAYS_INLINE void setParserTokenString<UChar>(LiteralParserToken<UChar>& token,
 
 template <ParserMode mode, typename CharType, LChar terminator> static inline bool isSafeStringCharacter(LChar c)
 {
-    return (c >= ' ' && c != '\\' && c != terminator) || c == '\t';
+    return (c >= ' ' && c != '\\' && c != terminator) || (c == '\t' && mode != StrictJSON);
 }
 
 template <ParserMode mode, typename CharType, UChar terminator> static inline bool isSafeStringCharacter(UChar c)
 {
-    return (c >= ' ' && (mode == StrictJSON || c <= 0xff) && c != '\\' && c != terminator) || c == '\t';
+    return (c >= ' ' && (mode == StrictJSON || c <= 0xff) && c != '\\' && c != terminator) || (c == '\t' && mode != StrictJSON);
 }
 
 template <typename CharType>
@@ -528,16 +529,8 @@ TokenType LiteralParser<CharType>::Lexer::lexNumber(LiteralParserToken<CharType>
     
     token.type = TokNumber;
     token.end = m_ptr;
-    Vector<char, 64> buffer(token.end - token.start + 1);
-    int i;
-    for (i = 0; i < token.end - token.start; i++) {
-        ASSERT(static_cast<char>(token.start[i]) == token.start[i]);
-        buffer[i] = static_cast<char>(token.start[i]);
-    }
-    buffer[i] = 0;
-    char* end;
-    token.numberToken = WTF::strtod(buffer.data(), &end);
-    ASSERT(buffer.data() + (token.end - token.start) == end);
+    size_t parsedLength;
+    token.numberToken = parseDouble(token.start, token.end - token.start, parsedLength);
     return TokNumber;
 }
 

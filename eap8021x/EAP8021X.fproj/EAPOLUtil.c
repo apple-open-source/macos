@@ -36,6 +36,7 @@
 #include "EAPUtil.h"
 #include "EAPOLUtil.h"
 #include "printdata.h"
+#include "nbo.h"
 
 static bool
 EAPOLPacketTypeValid(EAPOLPacketType type)
@@ -282,3 +283,59 @@ EAPOLPacketValid(EAPOLPacketRef eapol_p, unsigned int length, FILE * f)
     return (eapol_body_valid(eapol_p, length, f));
 }
 
+void
+EAPOLPacketSetLength(EAPOLPacketRef pkt, uint16_t length)
+{
+    net_uint16_set(pkt->body_length, length);
+    return;
+}
+
+uint16_t
+EAPOLPacketGetLength(const EAPOLPacketRef pkt)
+{
+    return (net_uint16_get(pkt->body_length));
+}
+
+void
+EAPOLRC4KeyDescriptorSetLength(EAPOLRC4KeyDescriptorRef pkt, uint16_t length)
+{
+    net_uint16_set(pkt->key_length, length);
+    return;
+}
+
+void
+EAPOLKeyDescriptorSetLength(EAPOLKeyDescriptorRef pkt, uint16_t length)
+{
+    EAPOLRC4KeyDescriptorSetLength(pkt, length);
+    return;
+}
+
+uint16_t
+EAPOLRC4KeyDescriptorGetLength(const EAPOLRC4KeyDescriptorRef pkt)
+{
+    return (net_uint16_get(pkt->key_length));
+}
+
+uint16_t
+EAPOLKeyDescriptorGetLength(const EAPOLKeyDescriptorRef pkt)
+{
+    return (EAPOLRC4KeyDescriptorGetLength(pkt));
+}
+
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (net_uint16_get(pkt->key_length));
+}
+
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetInformation(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (net_uint16_get(pkt->key_information));
+}
+
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetKeyDataLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
+{
+    return (net_uint16_get(pkt->key_data_length));
+}

@@ -58,7 +58,7 @@ private:
     {
     }
 
-    virtual void appendBytes(DocumentWriter*, const char*, int, bool);
+    virtual void appendBytes(DocumentWriter*, const char*, size_t);
 
     void createDocumentStructure();
 
@@ -70,9 +70,7 @@ void PluginDocumentParser::createDocumentStructure()
     ExceptionCode ec;
     RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
     document()->appendChild(rootElement, ec);
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     static_cast<HTMLHtmlElement*>(rootElement.get())->insertedByParser();
-#endif
 
     if (document()->frame() && document()->frame()->loader())
         document()->frame()->loader()->dispatchDocumentElementAvailable();
@@ -80,7 +78,7 @@ void PluginDocumentParser::createDocumentStructure()
     RefPtr<Element> body = document()->createElement(bodyTag, false);
     body->setAttribute(marginwidthAttr, "0");
     body->setAttribute(marginheightAttr, "0");
-    body->setAttribute(bgcolorAttr, "rgb(38,38,38)");
+    body->setAttribute(styleAttr, "background-color: rgb(38,38,38)");
 
     rootElement->appendChild(body, ec);
         
@@ -103,9 +101,8 @@ void PluginDocumentParser::createDocumentStructure()
     body->appendChild(embedElement, ec);    
 }
 
-void PluginDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
+void PluginDocumentParser::appendBytes(DocumentWriter*, const char*, size_t)
 {
-    ASSERT(!m_embedElement);
     if (m_embedElement)
         return;
 
@@ -133,7 +130,7 @@ void PluginDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
             // In a plugin document, the main resource is the plugin. If we have a null widget, that means
             // the loading of the plugin was cancelled, which gives us a null mainResourceLoader(), so we
             // need to have this call in a null check of the widget or of mainResourceLoader().
-            frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
+            frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(DoNotBufferData);
         }
     }
 

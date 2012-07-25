@@ -26,8 +26,8 @@
 #ifndef WebGeolocationPermissionRequest_h
 #define WebGeolocationPermissionRequest_h
 
-#include "WebCommon.h"
-#include "WebPrivatePtr.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
 
 namespace WebCore {
 class Geolocation;
@@ -43,8 +43,8 @@ class WebSecurityOrigin;
 // WebGeolocationClient::cancelPermissionRequest (request cancelled).
 class WebGeolocationPermissionRequest {
 public:
-    WEBKIT_API WebSecurityOrigin securityOrigin() const;
-    WEBKIT_API void setIsAllowed(bool);
+    WEBKIT_EXPORT WebSecurityOrigin securityOrigin() const;
+    WEBKIT_EXPORT void setIsAllowed(bool);
 
 #if WEBKIT_IMPLEMENTATION
     WebGeolocationPermissionRequest(WebCore::Geolocation* geolocation)

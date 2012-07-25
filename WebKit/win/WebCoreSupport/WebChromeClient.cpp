@@ -42,6 +42,7 @@
 #include <WebCore/ContextMenu.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/FileChooser.h>
+#include <WebCore/FileIconLoader.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
@@ -73,7 +74,7 @@ static const size_t maxFilePathsListSize = USHRT_MAX;
 
 WebChromeClient::WebChromeClient(WebView* webView)
     : m_webView(webView)
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     , m_notificationsDelegate(new WebDesktopNotificationsDelegate(webView))
 #endif
 {
@@ -459,13 +460,13 @@ IntRect WebChromeClient::windowResizerRect() const
     return IntRect();
 }
 
-void WebChromeClient::invalidateWindow(const IntRect& windowRect, bool immediate)
+void WebChromeClient::invalidateRootView(const IntRect& windowRect, bool immediate)
 {
     ASSERT(core(m_webView->topLevelFrame()));
     m_webView->repaint(windowRect, false /*contentChanged*/, immediate, false /*repaintContentOnly*/);
 }
 
-void WebChromeClient::invalidateContentsAndWindow(const IntRect& windowRect, bool immediate)
+void WebChromeClient::invalidateContentsAndRootView(const IntRect& windowRect, bool immediate)
 {
     ASSERT(core(m_webView->topLevelFrame()));
     m_webView->repaint(windowRect, true /*contentChanged*/, immediate /*immediate*/, false /*repaintContentOnly*/);
@@ -484,7 +485,7 @@ void WebChromeClient::scroll(const IntSize& delta, const IntRect& scrollViewRect
     m_webView->scrollBackingStore(core(m_webView->topLevelFrame())->view(), delta.width(), delta.height(), scrollViewRect, clipRect);
 }
 
-IntRect WebChromeClient::windowToScreen(const IntRect& rect) const
+IntRect WebChromeClient::rootViewToScreen(const IntRect& rect) const
 {
     HWND viewWindow;
     if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
@@ -500,7 +501,7 @@ IntRect WebChromeClient::windowToScreen(const IntRect& rect) const
     return result;
 }
 
-IntPoint WebChromeClient::screenToWindow(const IntPoint& point) const
+IntPoint WebChromeClient::screenToRootView(const IntPoint& point) const
 {
     POINT result = point;
 
@@ -538,8 +539,11 @@ void WebChromeClient::mouseDidMoveOverElement(const HitTestResult& result, unsig
     uiDelegate->mouseDidMoveOverElement(m_webView, element.get(), modifierFlags);
 }
 
-bool WebChromeClient::shouldMissingPluginMessageBeButton() const
+bool WebChromeClient::shouldUnavailablePluginMessageBeButton(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
+    if (pluginUnavailabilityReason != RenderEmbeddedObject::PluginMissing)
+        return false;
+
     COMPtr<IWebUIDelegate> uiDelegate;
     if (FAILED(m_webView->uiDelegate(&uiDelegate)))
         return false;
@@ -550,8 +554,10 @@ bool WebChromeClient::shouldMissingPluginMessageBeButton() const
     return uiDelegatePrivate3;
 }
 
-void WebChromeClient::missingPluginButtonClicked(Element* element) const
+void WebChromeClient::unavailablePluginButtonClicked(Element* element, RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason) const
 {
+    ASSERT_UNUSED(pluginUnavailabilityReason, pluginUnavailabilityReason == RenderEmbeddedObject::PluginMissing);
+
     COMPtr<IWebUIDelegate> uiDelegate;
     if (FAILED(m_webView->uiDelegate(&uiDelegate)))
         return;
@@ -576,7 +582,7 @@ void WebChromeClient::print(Frame* frame)
         uiDelegate->printFrame(m_webView, kit(frame));
 }
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& databaseIdentifier)
 {
     COMPtr<WebSecurityOrigin> origin(AdoptCOM, WebSecurityOrigin::createInstance(frame->document()->securityOrigin()));
@@ -613,19 +619,19 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 }
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+// FIXME: Move this include to the top of the file with the other includes.
 #include "ApplicationCacheStorage.h"
+
 void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     // FIXME: Free some space.
     notImplemented();
 }
 
-void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t)
 {
     notImplemented();
 }
-#endif
 
 void WebChromeClient::populateVisitedLinks()
 {
@@ -642,89 +648,6 @@ void WebChromeClient::populateVisitedLinks()
     history->addVisitedLinksToPageGroup(m_webView->page()->group());
 }
 
-bool WebChromeClient::paintCustomScrollbar(GraphicsContext* context, const FloatRect& rect, ScrollbarControlSize size, 
-                                           ScrollbarControlState state, ScrollbarPart pressedPart, bool vertical,
-                                           float value, float proportion, ScrollbarControlPartMask parts)
-{
-    if (context->paintingDisabled())
-        return false;
-
-    COMPtr<IWebUIDelegate> delegate = uiDelegate();
-    if (!delegate)
-        return false;
-
-    WebScrollbarControlPartMask webParts = WebNoScrollPart;
-    if (parts & BackButtonStartPart) // FIXME: Hyatt, what about BackButtonEndPart?
-        webParts |= WebBackButtonPart;
-    if (parts & BackTrackPart)
-        webParts |= WebBackTrackPart;
-    if (parts & ThumbPart)
-        webParts |= WebThumbPart;
-    if (parts & ForwardTrackPart)
-        webParts |= WebForwardTrackPart;
-    if (parts & ForwardButtonStartPart) // FIXME: Hyatt, what about ForwardButtonEndPart?
-        webParts |= WebForwardButtonPart;
-
-    WebScrollbarControlPart webPressedPart = WebNoScrollPart;
-    switch (pressedPart) {
-        case BackButtonStartPart: // FIXME: Hyatt, what about BackButtonEndPart?
-            webPressedPart = WebBackButtonPart;
-            break;
-        case BackTrackPart:
-            webPressedPart = WebBackTrackPart;
-            break;
-        case ThumbPart:
-            webPressedPart = WebThumbPart;
-            break;
-        case ForwardTrackPart:
-            webPressedPart = WebForwardTrackPart;
-            break;
-        case ForwardButtonStartPart: // FIXME: Hyatt, what about ForwardButtonEndPart?
-            webPressedPart = WebForwardButtonPart;
-            break;
-        default:
-            break;
-    }
-
-    WebScrollBarControlSize webSize;
-    switch (size) {
-        case SmallScrollbar:
-            webSize = WebSmallScrollbar;
-            break;
-        case RegularScrollbar:
-        default:
-            webSize = WebRegularScrollbar;
-    }
-    WebScrollbarControlState webState = 0;
-    if (state & ActiveScrollbarState)
-        webState |= WebActiveScrollbarState;
-    if (state & EnabledScrollbarState)
-        webState |= WebEnabledScrollbarState;
-    if (state & PressedScrollbarState)
-        webState |= WebPressedScrollbarState;
-    
-    RECT webRect = enclosingIntRect(rect);
-    LocalWindowsContext windowsContext(context, webRect);
-    HRESULT hr = delegate->paintCustomScrollbar(m_webView, windowsContext.hdc(), webRect, webSize, webState, webPressedPart, 
-                                                          vertical, value, proportion, webParts);
-    return SUCCEEDED(hr);
-}
-
-bool WebChromeClient::paintCustomScrollCorner(GraphicsContext* context, const FloatRect& rect)
-{
-    if (context->paintingDisabled())
-        return false;
-
-    COMPtr<IWebUIDelegate> delegate = uiDelegate();
-    if (!delegate)
-        return false;
-
-    RECT webRect = enclosingIntRect(rect);
-    LocalWindowsContext windowsContext(context, webRect);
-    HRESULT hr = delegate->paintCustomScrollCorner(m_webView, windowsContext.hdc(), webRect);
-    return SUCCEEDED(hr);
-}
-
 void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChooser)
 {
     RefPtr<FileChooser> fileChooser = prpFileChooser;
@@ -733,7 +656,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     if (FAILED(m_webView->viewWindow(reinterpret_cast<OLE_HANDLE*>(&viewWindow))))
         return;
 
-    bool multiFile = fileChooser->allowsMultipleFiles();
+    bool multiFile = fileChooser->settings().allowsMultipleFiles;
     Vector<WCHAR> fileBuf(multiFile ? maxFilePathsListSize : MAX_PATH);
 
     OPENFILENAME ofn;
@@ -783,9 +706,9 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     // FIXME: Show some sort of error if too many files are selected and the buffer is too small.  For now, this will fail silently.
 }
 
-void WebChromeClient::chooseIconForFiles(const Vector<WTF::String>& filenames, WebCore::FileChooser* chooser)
+void WebChromeClient::loadIconForFiles(const Vector<WTF::String>& filenames, WebCore::FileIconLoader* loader)
 {
-    chooser->iconLoaded(Icon::createIconForFiles(filenames));
+    loader->notifyFinished(Icon::createIconForFiles(filenames));
 }
 
 void WebChromeClient::setCursor(const Cursor& cursor)
@@ -865,6 +788,12 @@ bool WebChromeClient::selectItemWritingDirectionIsNatural()
 
 bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
 {
+    return false;
+}
+
+bool WebChromeClient::hasOpenedPopup() const
+{
+    notImplemented();
     return false;
 }
 

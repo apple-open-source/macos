@@ -57,7 +57,6 @@ static const struct CompositOpToXfermodeMode {
     { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
     { CompositeXOR,             SkXfermode::kXor_Mode },
     { CompositePlusDarker,      SkXfermode::kDarken_Mode },
-    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
     { CompositePlusLighter,     SkXfermode::kPlus_Mode }
 };
 
@@ -107,57 +106,14 @@ Color SkPMColorToWebCoreColor(SkPMColor pm)
     return SkPMColorToColor(pm);
 }
 
-void IntersectRectAndRegion(const SkRegion& region, const SkRect& srcRect, SkRect* destRect) {
-    // The cliperator requires an int rect, so we round out.
-    SkIRect srcRectRounded;
-    srcRect.roundOut(&srcRectRounded);
-
-    // The Cliperator will iterate over a bunch of rects where our transformed
-    // rect and the clipping region (which may be non-square) overlap.
-    SkRegion::Cliperator cliperator(region, srcRectRounded);
-    if (cliperator.done()) {
+void ClipRectToCanvas(const SkCanvas& canvas, const SkRect& srcRect, SkRect* destRect)
+{
+    if (!canvas.getClipBounds(destRect) || !destRect->intersect(srcRect))
         destRect->setEmpty();
-        return;
-    }
-
-    // Get the union of all visible rects in the clip that overlap our bitmap.
-    SkIRect currentVisibleRect = cliperator.rect();
-    cliperator.next();
-    while (!cliperator.done()) {
-        currentVisibleRect.join(cliperator.rect());
-        cliperator.next();
-    }
-
-    destRect->set(currentVisibleRect);
-}
-
-void ClipRectToCanvas(const SkCanvas& canvas, const SkRect& srcRect, SkRect* destRect) {
-    // Translate into the canvas' coordinate space. This is where the clipping
-    // region applies.
-    SkRect transformedSrc;
-    canvas.getTotalMatrix().mapRect(&transformedSrc, srcRect);
-
-    // Do the intersection.
-    SkRect transformedDest;
-    IntersectRectAndRegion(canvas.getTotalClip(), transformedSrc, &transformedDest);
-
-    // Now transform it back into world space.
-    SkMatrix inverseTransform;
-    canvas.getTotalMatrix().invert(&inverseTransform);
-    inverseTransform.mapRect(destRect, transformedDest);
 }
 
 bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::FillType ft)
 {
-    SkRegion rgn;
-    SkRegion clip;
-
-    SkPath::FillType originalFillType = originalPath->getFillType();
-
-    const SkPath* path = originalPath;
-    SkPath scaledPath;
-    int scale = 1;
-
     SkRect bounds = originalPath->getBounds();
 
     // We can immediately return false if the point is outside the bounding
@@ -169,31 +125,34 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     if (fX < bounds.fLeft || fX > bounds.fRight || fY < bounds.fTop || fY > bounds.fBottom)
         return false;
 
+    // Scale the path to a large size before hit testing for two reasons:
+    // 1) Skia has trouble with coordinates close to the max signed 16-bit values, so we scale larger paths down.
+    //    TODO: when Skia is patched to work properly with large values, this will not be necessary.
+    // 2) Skia does not support analytic hit testing, so we scale paths up to do raster hit testing with subpixel accuracy.
+    SkScalar biggestCoord = std::max(std::max(std::max(bounds.fRight, bounds.fBottom), -bounds.fLeft), -bounds.fTop);
+    if (SkScalarNearlyZero(biggestCoord))
+        return false;
+    biggestCoord = std::max(std::max(biggestCoord, fX + 1), fY + 1);
+
+    const SkScalar kMaxCoordinate = SkIntToScalar(1 << 15);
+    SkScalar scale = SkScalarDiv(kMaxCoordinate, biggestCoord);
+
+    SkRegion rgn;  
+    SkRegion clip;
+    SkMatrix m;
+    SkPath scaledPath;
+
+    SkPath::FillType originalFillType = originalPath->getFillType();
     originalPath->setFillType(ft);
 
-    // Skia has trouble with coordinates close to the max signed 16-bit values
-    // If we have those, we need to scale. 
-    //
-    // TODO: remove this code once Skia is patched to work properly with large
-    // values
-    const SkScalar kMaxCoordinate = SkIntToScalar(1<<15);
-    SkScalar biggestCoord = std::max(std::max(std::max(bounds.fRight, bounds.fBottom), -bounds.fLeft), -bounds.fTop);
+    m.setScale(scale, scale);
+    originalPath->transform(m, &scaledPath);
 
-    if (biggestCoord > kMaxCoordinate) {
-        scale = SkScalarCeil(SkScalarDiv(biggestCoord, kMaxCoordinate));
-
-        SkMatrix m;
-        m.setScale(SkScalarInvert(SkIntToScalar(scale)), SkScalarInvert(SkIntToScalar(scale)));
-        originalPath->transform(m, &scaledPath);
-        path = &scaledPath;
-    }
-
-    int x = static_cast<int>(floorf(point.x() / scale));
-    int y = static_cast<int>(floorf(point.y() / scale));
+    int x = static_cast<int>(floorf(0.5f + point.x() * scale));
+    int y = static_cast<int>(floorf(0.5f + point.y() * scale));
     clip.setRect(x - 1, y - 1, x + 1, y + 1);
 
-    bool contains = rgn.setPath(*path, clip);
-
+    bool contains = rgn.setPath(scaledPath, clip);
     originalPath->setFillType(originalFillType);
     return contains;
 }

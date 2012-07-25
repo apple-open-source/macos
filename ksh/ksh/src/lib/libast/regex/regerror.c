@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -25,7 +25,7 @@
  * posix regex error message handler
  */
 
-static const char id[] = "\n@(#)$Id: regex (AT&T Research) 2004-05-24 $\0\n";
+static const char id[] = "\n@(#)$Id: regex (AT&T Research) 2010-09-22 $\0\n";
 
 #include "reglib.h"
 
@@ -45,7 +45,7 @@ static const char*	reg_error[] =
 	/* REG_BADBR	*/	"invalid {...} digits",
 	/* REG_ERANGE	*/	"invalid [...] range endpoint",
 	/* REG_ESPACE	*/	"out of space",
-	/* REG_BADRPT	*/	"unary op not preceeded by re",
+	/* REG_BADRPT	*/	"unary op not preceded by re",
 	/* REG_ENULL	*/	"empty subexpr in pattern",
 	/* REG_ECOUNT	*/	"re component count overflow",
 	/* REG_BADESC	*/	"invalid \\char escape",
@@ -69,7 +69,7 @@ regerror(int code, const regex_t* p, char* buf, size_t size)
 		s = (const char*)"unknown error";
 	if (size)
 	{
-		strncpy(buf, s, size);
+		strlcpy(buf, s, size);
 		buf[size - 1] = 0;
 	}
 	else

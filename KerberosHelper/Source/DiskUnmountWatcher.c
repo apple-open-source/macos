@@ -26,6 +26,7 @@
 #include <ApplicationServices/ApplicationServicesPriv.h>
 
 #include "UserEventAgentInterface.h"
+#include "NetworkAuthenticationHelper.h"
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -37,7 +38,7 @@ typedef struct {
     CFUUIDRef factoryID;
     UInt32 refCount;
 
-    CFRunLoopRef rl;
+    dispatch_queue_t queue;
     DASessionRef session;
 } DiskUnmountWatcher;
 
@@ -120,10 +121,10 @@ DiskUnmountWatcherDelete(DiskUnmountWatcher *instance) {
 
     asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "UserEventAgentFactory: %s", __func__);
 
-    DASessionUnscheduleFromRunLoop(instance->session, instance->rl, kCFRunLoopDefaultMode);
+    DASessionSetDispatchQueue(instance->session, NULL);
 
     CFRelease(instance->session);
-    CFRelease(instance->rl);
+    dispatch_release(instance->queue);
 
     if (factoryID) {
 	CFPlugInRemoveInstanceForFactory(factoryID);
@@ -143,7 +144,7 @@ DiskUnmountWatcherInstall(void *pinstance)
     instance->session = DASessionCreate(kCFAllocatorDefault);
 
     DARegisterDiskDisappearedCallback(instance->session, NULL, callback, NULL);
-    DASessionScheduleWithRunLoop(instance->session, instance->rl, kCFRunLoopDefaultMode);
+    DASessionSetDispatchQueue(instance->session, instance->queue);
 }
 
 
@@ -213,8 +214,7 @@ DiskUnmountWatcherCreate(CFAllocatorRef allocator, CFUUIDRef factoryID)
 	CFPlugInAddInstanceForFactory(factoryID);
     }
 
-    instance->rl = CFRunLoopGetCurrent();
-    CFRetain(instance->rl);
+    instance->queue = dispatch_queue_create("com.apple.GSS.DiskUnmounterWatcher", NULL);
 
     instance->refCount = 1;
     return instance;

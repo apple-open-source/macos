@@ -27,46 +27,23 @@
 #ifndef ScrollbarThemeChromiumMac_h
 #define ScrollbarThemeChromiumMac_h
 
-#include "ScrollbarThemeComposite.h"
-
-// This file (and its associated .mm file) is a clone of ScrollbarThemeMac.h.
-// See the .mm file for details.
+#include "ScrollbarThemeMac.h"
 
 namespace WebCore {
 
-class ScrollbarThemeChromiumMac : public ScrollbarThemeComposite {
+class ScrollbarThemeChromiumMac : public ScrollbarThemeMac {
 public:
     ScrollbarThemeChromiumMac();
     virtual ~ScrollbarThemeChromiumMac();
 
-    virtual bool paint(Scrollbar*, GraphicsContext* context, const IntRect& damageRect);
+    virtual bool paint(ScrollbarThemeClient*, GraphicsContext*, const IntRect& damageRect);
 
-    virtual int scrollbarThickness(ScrollbarControlSize = RegularScrollbar);
+    virtual void paintOverhangAreas(ScrollView*, GraphicsContext*, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect);
+    
+private:
+    void paintGivenTickmarks(GraphicsContext*, ScrollbarThemeClient*, const IntRect&, const Vector<IntRect>&);
 
-    virtual bool supportsControlTints() const { return true; }
-
-    virtual double initialAutoscrollTimerDelay();
-    virtual double autoscrollTimerDelay();
-
-    virtual ScrollbarButtonsPlacement buttonsPlacement() const;
-
-    virtual void registerScrollbar(Scrollbar*);
-    virtual void unregisterScrollbar(Scrollbar*);
-
-protected:
-    virtual bool hasButtons(Scrollbar*);
-    virtual bool hasThumb(Scrollbar*);
-
-    virtual IntRect backButtonRect(Scrollbar*, ScrollbarPart, bool painting = false);
-    virtual IntRect forwardButtonRect(Scrollbar*, ScrollbarPart, bool painting = false);
-    virtual IntRect trackRect(Scrollbar*, bool painting = false);
-
-    virtual int minimumThumbLength(Scrollbar*);
-
-    virtual bool shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent&);
-
-public:
-    void preferencesChanged();
+    RefPtr<Pattern> m_overhangPattern;
 };
 
 }

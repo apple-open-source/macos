@@ -51,11 +51,31 @@ GKAS(step_acceptor_completed);
 HEIMDAL_MUTEX gssapi_keytab_mutex = HEIMDAL_MUTEX_INITIALIZER;
 krb5_keytab _gsskrb5_keytab;
 
+static krb5_error_code
+validate_keytab(krb5_context context, const char *name, krb5_keytab *id)
+{
+    krb5_error_code ret;
+
+    ret = krb5_kt_resolve(context, name, id);
+    if (ret)
+	return ret;
+
+    ret = krb5_kt_have_content(context, *id);
+    if (ret) {
+	krb5_kt_close(context, *id);
+	*id = NULL;
+    }
+
+    return ret;
+}
+
 OM_uint32
-_gsskrb5_register_acceptor_identity (const char *identity)
+_gsskrb5_register_acceptor_identity(OM_uint32 *min_stat, const char *identity)
 {
     krb5_context context;
     krb5_error_code ret;
+
+    *min_stat = 0;
 
     ret = _gsskrb5_init(&context);
     if(ret)
@@ -70,22 +90,29 @@ _gsskrb5_register_acceptor_identity (const char *identity)
     if (identity == NULL) {
 	ret = krb5_kt_default(context, &_gsskrb5_keytab);
     } else {
-	char *p = NULL;
-
-	if (strncmp(identity, "HDB:", 4) == 0)
-	    p = strdup(identity);
-	else
-	    asprintf(&p, "FILE:%s", identity);
-	if(p == NULL) {
-	    HEIMDAL_MUTEX_unlock(&gssapi_keytab_mutex);
-	    return GSS_S_FAILURE;
+	/*
+	 * First check if we can the keytab as is and if it has content...
+	 */
+	ret = validate_keytab(context, identity, &_gsskrb5_keytab);
+	/*
+	 * if it doesn't, lets prepend FILE: and try again
+	 */
+	if (ret) {
+	    char *p = NULL;
+	    ret = asprintf(&p, "FILE:%s", identity);
+	    if(ret < 0 || p == NULL) {
+		HEIMDAL_MUTEX_unlock(&gssapi_keytab_mutex);
+		return GSS_S_FAILURE;
+	    }
+	    ret = validate_keytab(context, p, &_gsskrb5_keytab);
+	    free(p);
 	}
-	ret = krb5_kt_resolve(context, p, &_gsskrb5_keytab);
-	free(p);
     }
     HEIMDAL_MUTEX_unlock(&gssapi_keytab_mutex);
-    if(ret)
+    if(ret) {
+	*min_stat = ret;
 	return GSS_S_FAILURE;
+    }
     return GSS_S_COMPLETE;
 }
 
@@ -114,12 +141,13 @@ _gsskrb5i_is_cfx(krb5_context context, gsskrb5_ctx ctx, int acceptor)
 
     if (key == NULL)
 	return;
-	
+
     switch (key->keytype) {
     case ETYPE_DES_CBC_CRC:
     case ETYPE_DES_CBC_MD4:
     case ETYPE_DES_CBC_MD5:
     case ETYPE_DES3_CBC_MD5:
+    case ETYPE_OLD_DES3_CBC_SHA1:
     case ETYPE_DES3_CBC_SHA1:
     case ETYPE_ARCFOUR_HMAC_MD5:
     case ETYPE_ARCFOUR_HMAC_MD5_56:
@@ -202,7 +230,7 @@ gsskrb5_accept_delegated_token
 
     if (delegated_cred_handle) {
 	gsskrb5_cred handle;
-	
+
 	ret = _gsskrb5_krb5_import_cred(minor_status,
 					ccache,
 					NULL,
@@ -319,6 +347,10 @@ send_error_token(OM_uint32 *minor_status,
     krb5_principal ap_req_server = NULL;
     krb5_error_code ret;
     krb5_data outbuf;
+    /* this e_data value encodes KERB_AP_ERR_TYPE_SKEW_RECOVERY which
+       tells windows to try again with the corrected timestamp. See
+       [MS-KILE] 2.2.1 KERB-ERROR-DATA */
+    krb5_data e_data = { 7, rk_UNCONST("\x30\x05\xa1\x03\x02\x01\x02") };
 
     /* build server from request if the acceptor had not selected one */
     if (server == NULL && indata) {
@@ -341,7 +373,7 @@ send_error_token(OM_uint32 *minor_status,
 	server = ap_req_server;
     }
 
-    ret = krb5_mk_error(context, kret, NULL, NULL, NULL,
+    ret = krb5_mk_error(context, kret, NULL, &e_data, NULL,
 			server, NULL, NULL, &outbuf);
     if (ap_req_server)
 	krb5_free_principal(context, ap_req_server);
@@ -429,7 +461,7 @@ iakerb_acceptor_start(OM_uint32 * minor_status,
 
     } else {
 	/* XXX dont support non local realms right now */
-	ret = EINVAL;
+	*minor_status = EINVAL;
 	return GSS_S_FAILURE;
     }
     
@@ -529,6 +561,7 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
     krb5_keytab keytab = NULL;
     int is_cfx = 0;
     const gsskrb5_cred acceptor_cred = (gsskrb5_cred)acceptor_cred_handle;
+    krb5_boolean is_hostbased_service = FALSE;
 
     /*
      * We may, or may not, have an escapsulation.
@@ -555,6 +588,11 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	keytab = acceptor_cred->keytab;
     }
 
+    is_hostbased_service = 
+	(acceptor_cred &&
+	 acceptor_cred->principal &&
+	 krb5_principal_is_gss_hostbased_service(context, acceptor_cred->principal));
+
     /*
      * We need to check the ticket and create the AP-REP packet
      */
@@ -564,7 +602,7 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	krb5_rd_req_out_ctx out = NULL;
 	krb5_principal server = NULL;
 
-	if (acceptor_cred)
+	if (acceptor_cred && !is_hostbased_service)
 	    server = acceptor_cred->principal;
 
 	kret = krb5_rd_req_in_ctx_alloc(context, &in);
@@ -628,6 +666,18 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	    if (flags & KRB5_RD_REQ_OUT_PAC_VALID)
 		ctx->more_flags |= PAC_VALID;
 	}
+	if (kret == 0 && is_hostbased_service) {
+	    krb5_principal sp = ctx->ticket->server;
+
+	    if (sp->name.name_string.len < 1 ||
+		strcmp(sp->name.name_string.val[0], acceptor_cred->principal->name.name_string.val[0]) != 0)
+	    {
+		kret = KRB5KRB_AP_WRONG_PRINC;
+		krb5_set_error_message(context, ret, "Expecting service %s but got %s",
+				       acceptor_cred->principal->name.name_string.val[0],
+				       sp->name.name_string.val[0]);
+	    }
+	}
 
 	ctx->endtime = ctx->ticket->ticket.endtime;
 
@@ -648,8 +698,8 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 			       ctx->ticket->client,
 			       &ctx->source);
     if (kret) {
-	ret = GSS_S_FAILURE;
 	*minor_status = kret;
+	return GSS_S_FAILURE;
     }
 
     kret = krb5_copy_principal(context,
@@ -831,10 +881,10 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
     if(ctx->flags & GSS_C_MUTUAL_FLAG) {
 	krb5_data outbuf;
 	int use_subkey = 0;
-	
+
 	_gsskrb5i_is_cfx(context, ctx, 1);
 	is_cfx = (ctx->more_flags & IS_CFX);
-	
+
 	if (is_cfx || (ap_options & AP_OPTS_USE_SUBKEY)) {
 	    use_subkey = 1;
 	} else {
@@ -862,7 +912,7 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 				   KRB5_AUTH_CONTEXT_USE_SUBKEY,
 				   NULL);
 	}
-	
+
 	kret = krb5_mk_rep(context,
 			   ctx->auth_context,
 			   &outbuf);
@@ -870,7 +920,7 @@ gsskrb5_acceptor_start(OM_uint32 * minor_status,
 	    *minor_status = kret;
 	    return GSS_S_FAILURE;
 	}
-	
+
 	if (IS_DCE_STYLE(ctx)) {
 	    output_token->length = outbuf.length;
 	    output_token->value = outbuf.data;
@@ -949,7 +999,7 @@ acceptor_wait_for_dcestyle(OM_uint32 * minor_status,
     krb5_error_code kret;
     krb5_data inbuf;
     int32_t r_seq_number, l_seq_number;
-	
+
     /*
      * We know it's GSS_C_DCE_STYLE so we don't need to decapsulate the AP_REP
      */
@@ -996,7 +1046,7 @@ acceptor_wait_for_dcestyle(OM_uint32 * minor_status,
     {
 	krb5_ap_rep_enc_part *repl;
 	int32_t auth_flags;
-		
+
 	krb5_auth_con_removeflags(context,
 				  ctx->auth_context,
 				  KRB5_AUTH_CONTEXT_DO_TIME,
@@ -1025,7 +1075,7 @@ acceptor_wait_for_dcestyle(OM_uint32 * minor_status,
 	if (lifetime_rec == 0) {
 	    return GSS_S_CONTEXT_EXPIRED;
 	}
-	
+
 	if (time_rec) *time_rec = lifetime_rec;
     }
 
@@ -1083,7 +1133,7 @@ acceptor_wait_for_dcestyle(OM_uint32 * minor_status,
     {
 	kret = krb5_auth_con_setremoteseqnumber(context,
 						ctx->auth_context,
-						r_seq_number);	
+						r_seq_number);
 	if (kret) {
 	    *minor_status = kret;
 	    return GSS_S_FAILURE;
@@ -1093,7 +1143,6 @@ acceptor_wait_for_dcestyle(OM_uint32 * minor_status,
     return gsskrb5_acceptor_ready(minor_status, ctx, context,
 				  delegated_cred_handle);
 }
-
 
 
 static OM_uint32

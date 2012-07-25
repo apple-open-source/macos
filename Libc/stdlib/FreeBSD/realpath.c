@@ -35,12 +35,40 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/realpath.c,v 1.20 2003/05/28 08:23:01 fj
 #include "namespace.h"
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/attr.h>
+#include <sys/vnode.h>
 #include "un-namespace.h"
+
+struct attrs {
+	u_int32_t len;
+	attrreference_t name;
+	dev_t dev;
+	fsobj_type_t type;
+	fsobj_id_t id;
+	char buf[PATH_MAX];
+};
+
+#ifndef BUILDING_VARIANT
+__private_extern__ struct attrlist _rp_alist = {
+	ATTR_BIT_MAP_COUNT,
+	0,
+	ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_OBJTYPE | ATTR_CMN_OBJID,
+	0,
+	0,
+	0,
+	0,
+};
+#else /* BUILDING_VARIANT */
+__private_extern__ struct attrlist _rp_alist;
+#endif /* BUILDING_VARIANT */
+
+extern char * __private_getcwd(char *, size_t, int);
 
 /*
  * char *realpath(const char *path, char resolved[PATH_MAX]);
@@ -50,36 +78,89 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/realpath.c,v 1.20 2003/05/28 08:23:01 fj
  * in which case the path which caused trouble is left in (resolved).
  */
 char *
-realpath(const char *path, char resolved[PATH_MAX])
+realpath(const char *path, char inresolved[PATH_MAX])
 {
+	struct attrs attrs;
 	struct stat sb;
 	char *p, *q, *s;
-	size_t left_len, resolved_len;
+	size_t left_len, resolved_len, save_resolved_len;
 	unsigned symlinks;
-	int serrno, slen;
+	int serrno, slen, useattrs, islink;
 	char left[PATH_MAX], next_token[PATH_MAX], symlink[PATH_MAX];
+	dev_t dev, lastdev;
+	struct statfs sfs;
+	static dev_t rootdev;
+	static int rootdev_inited = 0;
+	ino_t inode;
+	char *resolved;
 
+	if (path == NULL) {
+		errno = EINVAL;
+		return (NULL);
+	}
+#if __DARWIN_UNIX03
+	if (*path == 0) {
+		errno = ENOENT;
+		return (NULL);
+	}
+#endif /* __DARWIN_UNIX03 */
+	/*
+	 * Extension to the standard; if inresolved == NULL, allocate memory
+	 */
+	if (!inresolved) {
+	    if ((resolved = malloc(PATH_MAX)) == NULL) return (NULL);
+	} else {
+	    resolved = inresolved;
+	}
+	if (!rootdev_inited) {
+		rootdev_inited = 1;
+		if (stat("/", &sb) < 0) {
+error_return:
+			if (!inresolved) {
+				int e = errno;
+				free(resolved);
+				errno = e;
+			}
+			return (NULL);
+		}
+		rootdev = sb.st_dev;
+	}
 	serrno = errno;
 	symlinks = 0;
 	if (path[0] == '/') {
 		resolved[0] = '/';
 		resolved[1] = '\0';
-		if (path[1] == '\0')
+		if (path[1] == '\0') {
 			return (resolved);
+		}
 		resolved_len = 1;
 		left_len = strlcpy(left, path + 1, sizeof(left));
 	} else {
-		if (getcwd(resolved, PATH_MAX) == NULL) {
+#if !defined(VARIANT_DARWINEXTSN) && __DARWIN_UNIX03
+		/* 4447159: don't use GETPATH, so this will fail if */
+		/* if parent directories are not readable, as per POSIX */
+		if (__private_getcwd(resolved, PATH_MAX, 0) == NULL)
+#else /* VARIANT_DARWINEXTSN || !__DARWIN_UNIX03 */
+		if (__private_getcwd(resolved, PATH_MAX, 1) == NULL)
+#endif /* !VARIANT_DARWINEXTSN && __DARWIN_UNIX03 */
+		{
 			strlcpy(resolved, ".", PATH_MAX);
-			return (NULL);
+			goto error_return;
 		}
 		resolved_len = strlen(resolved);
 		left_len = strlcpy(left, path, sizeof(left));
 	}
 	if (left_len >= sizeof(left) || resolved_len >= PATH_MAX) {
 		errno = ENAMETOOLONG;
-		return (NULL);
+		goto error_return;
 	}
+	if (resolved_len > 1) {
+		if (stat(resolved, &sb) < 0) {
+			goto error_return;
+		}
+		lastdev = sb.st_dev;
+	} else
+		lastdev = rootdev;
 
 	/*
 	 * Iterate over path components in `left'.
@@ -93,7 +174,7 @@ realpath(const char *path, char resolved[PATH_MAX])
 		s = p ? p : left + left_len;
 		if (s - left >= sizeof(next_token)) {
 			errno = ENAMETOOLONG;
-			return (NULL);
+			goto error_return;
 		}
 		memcpy(next_token, left, s - left);
 		next_token[s - left] = '\0';
@@ -103,7 +184,7 @@ realpath(const char *path, char resolved[PATH_MAX])
 		if (resolved[resolved_len - 1] != '/') {
 			if (resolved_len + 1 >= PATH_MAX) {
 				errno = ENAMETOOLONG;
-				return (NULL);
+				goto error_return;
 			}
 			resolved[resolved_len++] = '/';
 			resolved[resolved_len] = '\0';
@@ -127,6 +208,13 @@ realpath(const char *path, char resolved[PATH_MAX])
 		}
 
 		/*
+		 * Save resolved_len, so that we can later null out
+		 * the the appended next_token, and replace with the
+		 * real name (matters on case-insensitive filesystems).
+		 */
+		save_resolved_len = resolved_len;
+
+		/*
 		 * Append the next path component and lstat() it. If
 		 * lstat() fails we still can return successfully if
 		 * there are no more path components left.
@@ -134,27 +222,89 @@ realpath(const char *path, char resolved[PATH_MAX])
 		resolved_len = strlcat(resolved, next_token, PATH_MAX);
 		if (resolved_len >= PATH_MAX) {
 			errno = ENAMETOOLONG;
-			return (NULL);
+			goto error_return;
 		}
-		if (lstat(resolved, &sb) != 0) {
+		if (getattrlist(resolved, &_rp_alist, &attrs, sizeof(attrs), FSOPT_NOFOLLOW) == 0) {
+			useattrs = 1;
+			islink = (attrs.type == VLNK);
+			dev = attrs.dev;
+			inode = attrs.id.fid_objno;
+		} else if (errno == ENOTSUP || errno == EINVAL) {
+			if ((useattrs = lstat(resolved, &sb)) == 0) {
+				islink = S_ISLNK(sb.st_mode);
+				dev = sb.st_dev;
+				inode = sb.st_ino;
+			}
+		} else
+			useattrs = -1;
+		if (useattrs < 0) {
+#if !__DARWIN_UNIX03
 			if (errno == ENOENT && p == NULL) {
 				errno = serrno;
 				return (resolved);
 			}
-			return (NULL);
+#endif /* !__DARWIN_UNIX03 */
+			goto error_return;
 		}
-		if (S_ISLNK(sb.st_mode)) {
+		if (dev != lastdev) {
+			/*
+			 * We have crossed a mountpoint.  For volumes like UDF
+			 * the getattrlist name may not match the actual
+			 * mountpoint, so we just copy the mountpoint directly.
+			 * (3703138).  However, the mountpoint may not be
+			 * accessible, as when chroot-ed, so check first.
+			 * There may be a file on the chroot-ed volume with
+			 * the same name as the mountpoint, so compare device
+			 * and inode numbers.
+			 */
+			lastdev = dev;
+			if (statfs(resolved, &sfs) == 0 && lstat(sfs.f_mntonname, &sb) == 0 && dev == sb.st_dev && inode == sb.st_ino) {
+				/*
+				 * However, it's possible that the mountpoint
+				 * path matches, even though it isn't the real
+				 * path in the chroot-ed environment, so check
+				 * that each component of the mountpoint
+				 * is a directory (and not a symlink)
+				 */
+				char temp[sizeof(sfs.f_mntonname)];
+				char *cp;
+				int ok = 1;
+
+				strcpy(temp, sfs.f_mntonname);
+				for(;;) {
+					if ((cp = strrchr(temp, '/')) == NULL) {
+						ok = 0;
+						break;
+					}
+					if (cp <= temp)
+						break;
+					*cp = 0;
+					if (lstat(temp, &sb) < 0 || (sb.st_mode & S_IFMT) != S_IFDIR) {
+						ok = 0;
+						break;
+					}
+				}
+				if (ok) {
+					resolved_len = strlcpy(resolved, sfs.f_mntonname, PATH_MAX);
+					continue;
+				}
+			}
+			/* if we fail, use the other methods. */
+		}
+		if (islink) {
 			if (symlinks++ > MAXSYMLINKS) {
 				errno = ELOOP;
-				return (NULL);
+				goto error_return;
 			}
 			slen = readlink(resolved, symlink, sizeof(symlink) - 1);
-			if (slen < 0)
-				return (NULL);
+			if (slen < 0) {
+				goto error_return;
+			}
 			symlink[slen] = '\0';
 			if (symlink[0] == '/') {
 				resolved[1] = 0;
 				resolved_len = 1;
+				lastdev = rootdev;
 			} else if (resolved_len > 1) {
 				/* Strip the last path component. */
 				resolved[resolved_len - 1] = '\0';
@@ -172,7 +322,7 @@ realpath(const char *path, char resolved[PATH_MAX])
 				if (symlink[slen - 1] != '/') {
 					if (slen + 1 >= sizeof(symlink)) {
 						errno = ENAMETOOLONG;
-						return (NULL);
+						goto error_return;
 					}
 					symlink[slen] = '/';
 					symlink[slen + 1] = 0;
@@ -180,11 +330,34 @@ realpath(const char *path, char resolved[PATH_MAX])
 				left_len = strlcat(symlink, left, sizeof(left));
 				if (left_len >= sizeof(left)) {
 					errno = ENAMETOOLONG;
-					return (NULL);
+					goto error_return;
 				}
 			}
 			left_len = strlcpy(left, symlink, sizeof(left));
+		} else if (useattrs) {
+			/*
+			 * attrs already has the real name.
+			 */
+
+			resolved[save_resolved_len] = '\0';
+			resolved_len = strlcat(resolved, (const char *)&attrs.name + attrs.name.attr_dataoffset, PATH_MAX);
+			if (resolved_len >= PATH_MAX) {
+				errno = ENAMETOOLONG;
+				goto error_return;
+			}
 		}
+		/*
+		 * For the case of useattrs == 0, we could scan the directory
+		 * and try to match the inode.  There are many problems with
+		 * this: (1) the directory may not be readable, (2) for multiple
+		 * hard links, we would find the first, but not necessarily
+		 * the one specified in the path, (3) we can't try to do
+		 * a case-insensitive search to match the right one in (2),
+		 * because the underlying filesystem may do things like
+		 * decompose composed characters.  For most cases, doing
+		 * nothing is the right thing when useattrs == 0, so we punt
+		 * for now.
+		 */
 	}
 
 	/*

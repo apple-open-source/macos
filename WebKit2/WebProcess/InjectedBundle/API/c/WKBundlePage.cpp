@@ -34,10 +34,16 @@
 #include "WebFullScreenManager.h"
 #include "WebImage.h"
 #include "WebPage.h"
+#include "WebRenderLayer.h"
+#include "WebRenderObject.h"
 #include "WebURL.h"
 #include "WebURLRequest.h"
 
+#include <WebCore/AXObjectCache.h>
+#include <WebCore/AccessibilityObject.h>
+#include <WebCore/Frame.h>
 #include <WebCore/KURL.h>
+#include <WebCore/Page.h>
 
 using namespace WebKit;
 
@@ -48,58 +54,44 @@ WKTypeID WKBundlePageGetTypeID()
 
 void WKBundlePageSetContextMenuClient(WKBundlePageRef pageRef, WKBundlePageContextMenuClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
+#if ENABLE(CONTEXT_MENUS)
     toImpl(pageRef)->initializeInjectedBundleContextMenuClient(wkClient);
+#endif
 }
 
 void WKBundlePageSetEditorClient(WKBundlePageRef pageRef, WKBundlePageEditorClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleEditorClient(wkClient);
 }
 
 void WKBundlePageSetFormClient(WKBundlePageRef pageRef, WKBundlePageFormClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleFormClient(wkClient);
 }
 
 void WKBundlePageSetPageLoaderClient(WKBundlePageRef pageRef, WKBundlePageLoaderClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleLoaderClient(wkClient);
 }
 
 void WKBundlePageSetResourceLoadClient(WKBundlePageRef pageRef, WKBundlePageResourceLoadClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleResourceLoadClient(wkClient);
 }
 
 void WKBundlePageSetPolicyClient(WKBundlePageRef pageRef, WKBundlePagePolicyClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundlePolicyClient(wkClient);
 }
 
 void WKBundlePageSetUIClient(WKBundlePageRef pageRef, WKBundlePageUIClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleUIClient(wkClient);
 }
 
 void WKBundlePageSetFullScreenClient(WKBundlePageRef pageRef, WKBundlePageFullScreenClient* wkClient)
 {
 #if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeInjectedBundleFullScreenClient(wkClient);
 #endif
 }
@@ -139,7 +131,55 @@ WKBundlePageGroupRef WKBundlePageGetPageGroup(WKBundlePageRef pageRef)
 
 WKBundleFrameRef WKBundlePageGetMainFrame(WKBundlePageRef pageRef)
 {
-    return toAPI(toImpl(pageRef)->mainFrame());
+    return toAPI(toImpl(pageRef)->mainWebFrame());
+}
+
+void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
+{
+#if HAVE(ACCESSIBILITY)
+    if (!pageRef)
+        return 0;
+    
+    WebCore::Page* page = toImpl(pageRef)->corePage();
+    if (!page)
+        return 0;
+    
+    WebCore::Frame* core = page->mainFrame();
+    if (!core || !core->document())
+        return 0;
+    
+    WebCore::AXObjectCache::enableAccessibility();
+
+    WebCore::AccessibilityObject* root = core->document()->axObjectCache()->rootObject();
+    if (!root)
+        return 0;
+    
+    return root->wrapper();
+#else
+    return 0;
+#endif
+}
+
+void* WKAccessibilityFocusedObject(WKBundlePageRef pageRef)
+{
+#if HAVE(ACCESSIBILITY)
+    if (!pageRef)
+        return 0;
+    
+    WebCore::Page* page = toImpl(pageRef)->corePage();
+    if (!page)
+        return 0;
+
+    WebCore::AXObjectCache::enableAccessibility();
+
+    WebCore::AccessibilityObject* focusedObject = WebCore::AXObjectCache::focusedUIElementForPage(page);
+    if (!focusedObject)
+        return 0;
+    
+    return focusedObject->wrapper();
+#else
+    return 0;
+#endif
 }
 
 void WKBundlePageStopLoading(WKBundlePageRef pageRef)
@@ -285,4 +325,69 @@ void WKBundlePageSimulateMouseUp(WKBundlePageRef page, int button, WKPoint posit
 void WKBundlePageSimulateMouseMotion(WKBundlePageRef page, WKPoint position, double time)
 {
     toImpl(page)->simulateMouseMotion(toIntPoint(position), time);
+}
+
+uint64_t WKBundlePageGetRenderTreeSize(WKBundlePageRef pageRef)
+{
+    return toImpl(pageRef)->renderTreeSize();
+}
+
+WKRenderObjectRef WKBundlePageCopyRenderTree(WKBundlePageRef pageRef)
+{
+    return toAPI(WebRenderObject::create(toImpl(pageRef)).leakRef());
+}
+
+WKRenderLayerRef WKBundlePageCopyRenderLayerTree(WKBundlePageRef pageRef)
+{
+    return toAPI(WebRenderLayer::create(toImpl(pageRef)).leakRef());
+}
+
+void WKBundlePageSetPaintedObjectsCounterThreshold(WKBundlePageRef page, uint64_t threshold)
+{
+    toImpl(page)->setPaintedObjectsCounterThreshold(threshold);
+}
+
+void WKBundlePageSetTracksRepaints(WKBundlePageRef pageRef, bool trackRepaints)
+{
+    toImpl(pageRef)->setTracksRepaints(trackRepaints);
+}
+
+bool WKBundlePageIsTrackingRepaints(WKBundlePageRef pageRef)
+{
+    return toImpl(pageRef)->isTrackingRepaints();
+}
+
+void WKBundlePageResetTrackedRepaints(WKBundlePageRef pageRef)
+{
+    toImpl(pageRef)->resetTrackedRepaints();
+}
+
+WKArrayRef WKBundlePageCopyTrackedRepaintRects(WKBundlePageRef pageRef)
+{
+    return toAPI(toImpl(pageRef)->trackedRepaintRects().leakRef());
+}
+
+WKStringRef WKBundlePageViewportConfigurationAsText(WKBundlePageRef pageRef, int deviceDPI, int deviceWidth, int deviceHeight, int availableWidth, int availableHeight)
+{
+    return toCopiedAPI(toImpl(pageRef)->viewportConfigurationAsText(deviceDPI, deviceWidth, deviceHeight, availableWidth, availableHeight));
+}
+
+void WKBundlePageSetComposition(WKBundlePageRef pageRef, WKStringRef text, int from, int length)
+{
+    toImpl(pageRef)->setCompositionForTesting(toImpl(text)->string(), from, length);
+}
+
+bool WKBundlePageHasComposition(WKBundlePageRef pageRef)
+{
+    return toImpl(pageRef)->hasCompositionForTesting();
+}
+
+void WKBundlePageConfirmComposition(WKBundlePageRef pageRef)
+{
+    toImpl(pageRef)->confirmCompositionForTesting(String());
+}
+
+void WKBundlePageConfirmCompositionWithText(WKBundlePageRef pageRef, WKStringRef text)
+{
+    toImpl(pageRef)->confirmCompositionForTesting(toImpl(text)->string());
 }

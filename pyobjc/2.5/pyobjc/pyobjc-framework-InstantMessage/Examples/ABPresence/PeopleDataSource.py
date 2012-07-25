@@ -127,7 +127,7 @@ class PeopleDataSource (NSObject):
 
     # Posted from ServiceWatcher
     # We should reload the tableview, because the user has changed the
-    # status images that iChat is using.
+    # status images that Messages is using.
     def statusImagesChanged_(self, notification):
 	self._table.reloadData()
 

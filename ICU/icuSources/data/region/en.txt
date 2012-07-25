@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en.xml
@@ -76,6 +76,7 @@ en{
         BM{"Bermuda"}
         BN{"Brunei"}
         BO{"Bolivia"}
+        BQ{"Bonaire, Sint Eustatius, and Saba"}
         BR{"Brazil"}
         BS{"Bahamas"}
         BT{"Bhutan"}
@@ -100,6 +101,7 @@ en{
         CS{"Serbia and Montenegro"}
         CU{"Cuba"}
         CV{"Cape Verde"}
+        CW{"Curaçao"}
         CX{"Christmas Island"}
         CY{"Cyprus"}
         CZ{"Czech Republic"}
@@ -259,8 +261,10 @@ en{
         SN{"Senegal"}
         SO{"Somalia"}
         SR{"Suriname"}
+        SS{"South Sudan"}
         ST{"São Tomé and Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Syria"}
         SZ{"Swaziland"}
         TA{"Tristan da Cunha"}
@@ -302,5 +306,5 @@ en{
         ZW{"Zimbabwe"}
         ZZ{"Unknown Region"}
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.67.6"}
 }

@@ -61,6 +61,7 @@ static struct mntopt mopts[] = {
 	{ "streams",	0, SMBFS_MNT_STREAMS_ON, 1 },
 	{ "notification",	1, SMBFS_MNT_NOTIFY_OFF, 1 },
 	{ "soft",	0, SMBFS_MNT_SOFT, 1 },
+	{ "timemachine",	0, SMBFS_MNT_TIME_MACHINE, 1 },
 	{ NULL, 0, 0, 0 }
 };
 
@@ -190,6 +191,10 @@ int main(int argc, char *argv[])
 	if ((altflags & SMBFS_MNT_SOFT) == SMBFS_MNT_SOFT) {
 		/* Make this a soft mount */
 		mntOptions |= kSMBMntOptionSoftMount;
+	}
+	if ((altflags & SMBFS_MNT_TIME_MACHINE) == SMBFS_MNT_TIME_MACHINE) {
+		/* Make this a tm mount */
+		mntOptions |= kSMBReservedTMMount;
 	}
 	
 	status = SMBOpenServerEx(url, &serverConnection, options);

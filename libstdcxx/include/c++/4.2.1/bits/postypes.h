@@ -120,6 +120,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       operator streamoff() const { return _M_off; }
 
       /// Remember the value of @a st.
+#if BUILDING_LIBSTDCXX
+      __attribute__((used))
+#endif
       void
       state(_StateT __st)
       { _M_state = __st; }

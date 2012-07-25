@@ -47,6 +47,9 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/ndbm.c,v 1.7 2007/01/09 00:27:51 imp Ex
 #include <string.h>
 #include <errno.h>
 
+#include <db.h>
+#define _DBM
+typedef DB DBM;
 #include <ndbm.h>
 #include "hash.h"
 
@@ -58,7 +61,8 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/ndbm.c,v 1.7 2007/01/09 00:27:51 imp Ex
 extern DBM *
 dbm_open(file, flags, mode)
 	const char *file;
-	int flags, mode;
+	int flags;
+	mode_t mode;
 {
 	HASHINFO info;
 	char path[MAXPATHLEN];
@@ -124,10 +128,14 @@ dbm_firstkey(db)
 	int status;
 	datum retkey;
 	DBT dbtretkey, dbtretdata;
+	HTAB *htab = (HTAB *)(db->internal);
 
 	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_FIRST);
-	if (status)
+	if (status) {
 		dbtretkey.data = NULL;
+		htab->nextkey_eof = 1;
+	} else
+		htab->nextkey_eof = 0;
 	retkey.dptr = dbtretkey.data;
 	retkey.dsize = dbtretkey.size;
 	return (retkey);
@@ -142,13 +150,20 @@ extern datum
 dbm_nextkey(db)
 	DBM *db;
 {
-	int status;
+	int status = 1;
 	datum retkey;
 	DBT dbtretkey, dbtretdata;
+	HTAB *htab = (HTAB *)(db->internal);
 
-	status = (db->seq)(db, &dbtretkey, &dbtretdata, R_NEXT);
-	if (status)
+	if (htab->nextkey_eof)
 		dbtretkey.data = NULL;
+	else {
+		status = (db->seq)(db, &dbtretkey, &dbtretdata, R_NEXT);
+		if (status) {
+			dbtretkey.data = NULL;
+			htab->nextkey_eof = 1;
+		}
+	}
 	retkey.dptr = dbtretkey.data;
 	retkey.dsize = dbtretkey.size;
 	return (retkey);

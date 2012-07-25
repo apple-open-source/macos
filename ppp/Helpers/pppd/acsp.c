@@ -218,6 +218,11 @@ acsp_stop_plugin(acsp_ext *ext)
     ext->process(ext->context, &ext->in, &ext->out);
 }
 
+/* Wcast-align fix - The input and output buffers used by pppd are aligned(4)
+ * which makes them still aligned(4) after the 4 byte ppp header is removed.
+ * These routines expect the packet buffer to have such alignment.
+ */
+ 
 //------------------------------------------------------------
 // acsp_data_input
 //------------------------------------------------------------
@@ -226,7 +231,7 @@ acsp_data_input(int unit, u_char *packet, int len)
 {
     
     acsp_ext 	*ext;
-    acsp_packet *pkt = (acsp_packet*)packet;
+    acsp_packet *pkt = ALIGNED_CAST(acsp_packet*)packet;    
     
     if (len < ACSP_HDR_SIZE) {
         error("ACSP packet received was too short\n");
@@ -289,14 +294,14 @@ acsp_output(acsp_ext *ext)
                     ptr = ext->out.data;	// add address, control, and proto
                     *ptr++ = 0xff;
                     *ptr++ = 0x03;
-                    *((u_int16_t*)ptr) = htons(PPP_ACSP);
+                    *(ALIGNED_CAST(u_int16_t*)ptr) = htons(PPP_ACSP);
                     ptr += 2;
                     
                     if (ext->out.action == ACSP_ACTION_SEND_WITH_TIMEOUT) {
                         if (ext->timer_state != ACSP_TIMERSTATE_STOPPED)
                             UNTIMEOUT(acsp_timeout, ext);
                         ext->timer_state = ACSP_TIMERSTATE_PACKET;
-                        ext->last_seq = ((acsp_packet*)ptr)->seq; 
+                        ext->last_seq = (ALIGNED_CAST(acsp_packet*)ptr)->seq; 
                         TIMEOUT(acsp_timeout, ext, ACSP_TIMEOUT_VALUE);
                     }                    
                     output(0, ext->out.data, ext->out.data_len);
@@ -439,6 +444,7 @@ typedef struct acsp_domain {
 } acsp_domain;
 
 // structure of domain data in a packet
+#define ACSP_DOMAIN_DATA_HDRSIZE    6
 typedef struct acsp_domain_data {
     u_int32_t	server;
     u_int16_t	len;
@@ -1052,10 +1058,11 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
     u_int16_t		space, len;
     int			slen;
     acsp_route_data	*route_data;
-    acsp_domain_data	*domain_data;
+    acsp_domain_data	domain_data;
+    u_int8_t *outPtr;
     
     
-    pkt = (acsp_packet*)(context->buf + 4);	// leave space for address, control, and protocol
+    pkt = ALIGNED_CAST(acsp_packet*)(context->buf + 4);	// leave space for address, control, and protocol
     space = MIN(context->buf_size, acsp_in->mtu) - 4;
     
     if (context->state == PLUGIN_STATE_INITIAL) {
@@ -1072,7 +1079,7 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
 
     switch (context->type) {   
         case CI_ROUTES:
-            route_data = (acsp_route_data*)pkt->data;
+            route_data = ALIGNED_CAST(acsp_route_data*)pkt->data;
             while (context->next_to_send && space >= len + sizeof(acsp_route_data)) {
                 route_data->address = ((acsp_route*)context->next_to_send)->address.s_addr;
                 route_data->mask = ((acsp_route*)context->next_to_send)->mask.s_addr;
@@ -1084,14 +1091,16 @@ static void acsp_plugin_send(acsp_plugin_context* context, ACSP_Input* acsp_in, 
             }
             break;
     	case CI_DOMAINS:
-            domain_data = (acsp_domain_data*)pkt->data;
+            // WCast-align fix - use memcpy for unaligned access
+            outPtr = pkt->data;
             while (context->next_to_send && space >= (len + (slen = strlen(((acsp_domain*)(context->next_to_send))->name)) + 6)) {
-                domain_data->server = ((acsp_domain*)(context->next_to_send))->server.s_addr;
-                domain_data->len = htons(slen);
-                memcpy(domain_data->name, ((acsp_domain*)(context->next_to_send))->name, slen);
-                len += (slen + 6);
+                domain_data.server = ((acsp_domain*)(context->next_to_send))->server.s_addr;
+                domain_data.len = htons(slen);
+                memcpy(outPtr, &domain_data, ACSP_DOMAIN_DATA_HDRSIZE);
+                memcpy(outPtr + ACSP_DOMAIN_DATA_HDRSIZE, ((acsp_domain*)(context->next_to_send))->name, slen);
+                len += (slen + ACSP_DOMAIN_DATA_HDRSIZE);
                 context->next_to_send = ((acsp_domain*)(context->next_to_send))->next;
-                domain_data = (acsp_domain_data*)(domain_data->name + slen);
+                outPtr += (ACSP_DOMAIN_DATA_HDRSIZE + slen);
             }
             break;
     }
@@ -1126,7 +1135,7 @@ static void acsp_plugin_send_ack(acsp_plugin_context* context, ACSP_Input* acsp_
     acsp_packet 	*inPkt, *outPkt;
 
     inPkt = (acsp_packet*)acsp_in->data;
-    outPkt = (acsp_packet*)(context->buf + 4);	// leave space for address, control, and protocol
+    outPkt = ALIGNED_CAST(acsp_packet*)(context->buf + 4);	// leave space for address, control, and protocol
     outPkt->type = context->type;
     outPkt->seq = inPkt->seq;
     outPkt->flags = htons(ACSP_FLAG_ACK);
@@ -1149,7 +1158,8 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
     acsp_domain		*domain;
     int			len, domain_len;
     acsp_route_data	*route_data;
-    acsp_domain_data	*domain_data;
+    acsp_domain_data domain_data;
+    u_int8_t        *inPtr;
     
     len = acsp_in->data_len - ACSP_HDR_SIZE;
     pkt = acsp_in->data;
@@ -1160,7 +1170,7 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
                 error("ACSP plugin: received packet with invalid len\n");
                 return -1;
             }
-            route_data = (acsp_route_data*)pkt->data;
+            route_data = ALIGNED_CAST(acsp_route_data*)pkt->data;
             while (len > 4) {
                 if ((route = (acsp_route*)malloc(sizeof(acsp_route))) == 0) {
                     error("ACSP plugin: no memory\n");
@@ -1179,25 +1189,27 @@ static int acsp_plugin_read(acsp_plugin_context* context, ACSP_Input* acsp_in)
             break;
         
         case CI_DOMAINS:
-            domain_data = (acsp_domain_data*)pkt->data;
+            // WCast-align fix - this routine changed to use memcpy for unaligned access
+            inPtr = pkt->data;
             while (len > 2) {
+                memcpy(&domain_data, inPtr, ACSP_DOMAIN_DATA_HDRSIZE);
                 if ((domain = (acsp_domain*)malloc(sizeof(acsp_domain))) == 0) {
                     error("ACSP plugin: no memory\n");
                     return -1;
                 }
-                domain_len = ntohs(domain_data->len);
+                domain_len = ntohs(domain_data.len);
                 if ((domain->name = malloc(domain_len + 1)) == 0) {
                     error("ACSP plugin: no memory\n");
                     free(domain);
                     return -1;
                 }
-                domain->server.s_addr = domain_data->server;
-                memcpy(domain->name, domain_data->name, domain_len);
+                domain->server.s_addr = domain_data.server;
+                memcpy(domain->name, inPtr + ACSP_DOMAIN_DATA_HDRSIZE, domain_len);
                 *(domain->name + domain_len) = 0;	// zero terminate
                 domain->next = (acsp_domain*)context->list;
                 context->list = domain;
-                len -= (domain_len + 6);
-                domain_data = (acsp_domain_data*)(domain_data->name + domain_len);
+                len -= (domain_len + ACSP_DOMAIN_DATA_HDRSIZE);
+                inPtr += (ACSP_DOMAIN_DATA_HDRSIZE + domain_len);
             }
             break;
         
@@ -1412,6 +1424,11 @@ static void acsp_plugin_add_domains(acsp_domain	*domain)
     while (domain) {
         if (str = CFStringCreateWithCString(NULL, domain->name, kCFStringEncodingUTF8)) {
 			err = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSSearchDomains, str, 0, kSCPropNetDNSSupplementalMatchDomains, str, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+#ifndef kSCPropNetProxiesSupplementalMatchDomains			
+#define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
+#define kSCPropNetProxiesSupplementalMatchOrders kSCPropNetDNSSupplementalMatchOrders
+#endif
+			if (err) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, str, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, clean);
 			CFRelease(str);
             if (err == 0) {
                 error("ACSP plugin: error adding domain name\n");
@@ -1500,7 +1517,7 @@ cksum(unsigned char *data, int len)
 	long sum = 0;
 	
 	while (len > 1) {
-		sum += *((unsigned short *)data);
+		sum += *(ALIGNED_CAST(unsigned short *)data);
 		data += sizeof(unsigned short);
 		if (sum & 0x80000000)
 			sum = (sum & 0xFFFF) + (sum >> 16);
@@ -1738,7 +1755,7 @@ acsp_ipdata_input_server(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	struct dhcp reply;
 	u_int32_t	l;
 
-	dp = (struct dhcp_packet *)pkt;
+	dp = ALIGNED_CAST(struct dhcp_packet *)pkt;
 
 	/* basic length sanity check */
 	if (len < (sizeof(struct dhcp_packet) + 7)) {  // dhcp packet + cookie + inform
@@ -1751,11 +1768,11 @@ acsp_ipdata_input_server(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	src.s_addr = dp->dhcp.dp_ciaddr.s_addr;
 	
 	p = dp->dhcp.dp_options;
-	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+    GETLONG(l, p);
+	if (l != DHCP_COOKIE) {
 		warning("DHCP packet received with incorrect cookie\n");
 		return;
 	}
-	p+=4;
 
 	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || *p++ != DHCP_OPTION_MSG_TYPE_INFORM) {
 		warning("DHCP packet received with incorrect message type\n");
@@ -1937,13 +1954,13 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	struct dhcp_packet *dp;
 	struct	in_addr src;
 	u_char *p;
-	u_int32_t masklen, addrlen, i, mask;
+	u_int32_t masklen, addrlen, i, mask, l;
 	char str[2048];
 	acsp_route  *route;
 	acsp_domain *domain_list = NULL, *domain;
 	char *str_p, *tok, *delim;
 	
-	dp = (struct dhcp_packet *)pkt;
+	dp = ALIGNED_CAST(struct dhcp_packet *)pkt;
 
 	/* basic length sanity check */
 	if (len < (sizeof(struct dhcp_packet) + 7)) {  // dhcp packet + cookie + inform
@@ -1961,11 +1978,11 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 	src.s_addr = ntohl(dp->dhcp.dp_ciaddr.s_addr);
 	
 	p = dp->dhcp.dp_options;
-	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+    GETLONG(l, p);
+	if (l != DHCP_COOKIE) {
 		warning("DHCP packet received with incorrect cookie\n");
 		return;
 	}
-	p+=4;
 
 	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || *p++ != DHCP_OPTION_MSG_TYPE_ACK) {
 		warning("DHCP packet received with incorrect message type\n");
@@ -1992,7 +2009,7 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 		
 		switch (optcode) {
 			case DHCP_OPTION_SUBNET_MASK:
-				mask = *(u_int32_t *)p;
+                memcpy(&mask, p, sizeof(u_int32_t));        // Wcast-align fix - memcpy for unaligned access
 				if (mask &&
 					dhcp_context->ouraddr.s_addr == ouraddr &&
 					dhcp_context->netmask.s_addr != mask) {
@@ -2051,8 +2068,10 @@ acsp_ipdata_input_client(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_in
 					addrlen = (masklen / 8);
 					if (masklen % 8)
 						addrlen++;
-					route->address.s_addr = (*(u_int32_t*)(&p[i+1])) & route->mask.s_addr;
-					route->router.s_addr = *(u_int32_t*)(&p[i+1+addrlen]);
+                    
+                    memcpy(&route->address.s_addr, &p[i+1], sizeof(route->address.s_addr));         // Wcast-align fix - memcpy for unaligned access
+					route->address.s_addr &= route->mask.s_addr;
+					memcpy(&route->router.s_addr, &p[i+1+addrlen], sizeof(route->router.s_addr));   
 					route->flags = ACSP_ROUTEFLAGS_PRIVATE;
 					route->installed = 0;
 					route->next = (acsp_route*)dhcp_context->route;
@@ -2183,7 +2202,7 @@ acsp_ipdata_input(int unit, u_char *pkt, int len, u_int32_t ouraddr, u_int32_t h
 {
 	struct dhcp_packet *dp;
 
-	dp = (struct dhcp_packet *)pkt;
+	dp = ALIGNED_CAST(struct dhcp_packet *)pkt;
 
 	/* check if we received a DHCP broadcast from a client */
 	if (acsp_intercept_dhcp
@@ -2282,12 +2301,12 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 	int i, isbootp = 0, len = plen;
 	struct dhcp *dp;
 	struct dhcp_packet *packet;
-	u_int32_t masklen, addrlen, addr, router, mask;
+	u_int32_t masklen, addrlen, addr, router, mask, l;
 	char str[2048];
 	u_int32_t cookie;
 	char str2[16];
 
-	packet = (struct dhcp_packet *)pkt;
+	packet = ALIGNED_CAST(struct dhcp_packet *)pkt;
 
 	/* check if we received a DHCP broadcast from a client */
 	isbootp = 
@@ -2333,14 +2352,14 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 	}
 	
 	p = dp->dp_options;
-	cookie = ntohl(*(u_int32_t *)p);
-	if (ntohl(*(u_int32_t *)p) != DHCP_COOKIE) {
+    GETLONG(l, p);
+	cookie = l;
+	if (cookie != DHCP_COOKIE) {
 		printer(arg, " <cookie invalid!>");
 		return 0;
 	}
 	if (debug > 1)
 		printer(arg, " <cookie 0x%x>", DHCP_COOKIE);
-	p+=4;
 
 	if (*p++ != DHCP_OPTION_MSG_TYPE || *p++ != 1 || (*p != DHCP_OPTION_MSG_TYPE_INFORM && *p != DHCP_OPTION_MSG_TYPE_ACK)) {
 		printer(arg, " <type invalid!>");
@@ -2397,7 +2416,9 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 				printer(arg, " <server id %s>",  str);
 				break;
 			case DHCP_OPTION_LEASE_TIME:
-				printer(arg, " <lease time %d sec>",  ntohl(*(u_int32_t*)p));
+                GETLONG(l, p);                  // Wcast-align fix - unaligned access
+				printer(arg, " <lease time %d sec>",  l);
+                p -= 4;
 				break;
 			case DHCP_OPTION_SUBNET_MASK:
 				printer(arg, " <subnet mask %d.%d.%d.%d>",  p[0], p[1], p[2], p[3]);
@@ -2416,8 +2437,11 @@ acsp_ipdata_print(pkt, plen, printer, arg)
 					addrlen = (masklen / 8);
 					if (masklen % 8)
 						addrlen++;
-					addr = ntohl(*(u_int32_t*)(&p[i+1])) & mask;
-					router = ntohl(*(u_int32_t*)(&p[i+1+addrlen]));
+                    // Wcast-align fix - memcpy for unaligned access
+                    memcpy(&l, &p[i+1], sizeof(l));        
+					addr = ntohl(l) & mask;
+                    memcpy(&l, &p[i+1+addrlen], sizeof(l));
+					router = ntohl(l);
 					i += addrlen + 1 + sizeof(in_addr_t);
 					printer(arg, " %d.%d.%d.%d/%d.%d.%d.%d/%d.%d.%d.%d", 
 						(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr  >> 8) & 0xFF, addr & 0xFF, 
@@ -2461,10 +2485,11 @@ void *arg;
 	u_int16_t         flags;
 	int               slen;
     u_char           *pstart = p;
-	acsp_packet      *pkt = (acsp_packet *)p;
+	acsp_packet      *pkt = ALIGNED_CAST(acsp_packet *)p;
     acsp_route_data	 *route_data;
 	uint16_t          route_flags;
-    acsp_domain_data *domain_data;
+    u_int8_t          *ptr;
+    acsp_domain_data  domain_data_aligned;  
 	int               domain_name_len;
 	char              addr_str[INET_ADDRSTRLEN];
 	char              mask_str[INET_ADDRSTRLEN];
@@ -2480,7 +2505,7 @@ void *arg;
 		flags = ntohs(pkt->flags);
 
 	    if (pkt->type == CI_ROUTES) {
-            route_data = (__typeof__(route_data))pkt->data;
+            route_data = ALIGNED_CAST(__typeof__(route_data))pkt->data;
 			ACSP_PRINTPKT_PAYLOAD("CI_ROUTES");
             while (len >= sizeof(*route_data)) {
 				route_flags = ntohs(route_data->flags);
@@ -2494,27 +2519,28 @@ void *arg;
             }
 			p = (__typeof__(p))route_data;
 		} else if (pkt->type == CI_DOMAINS) {
-            domain_data = (__typeof__(domain_data))pkt->data;
+            ptr = pkt->data;
 			ACSP_PRINTPKT_PAYLOAD("CI_DOMAINS");
-            while (len >= sizeof(*domain_data)) {
-                slen = ntohs(domain_data->len);
+            while (len >= sizeof(acsp_domain_data)) {
+                memcpy(&domain_data_aligned, ptr, sizeof(acsp_domain_data));      // Wcast-align fix - memcpy for unaligned move
+                slen = ntohs(domain_data_aligned.len);
 				domain_name_len = MIN(slen, sizeof(domain_name));
 				if (slen) {
-					memcpy(domain_name, domain_data->name, domain_name_len);
+					memcpy(domain_name, ((acsp_domain_data *)(void*)ptr)->name, domain_name_len);
 				}
 				domain_name[domain_name_len] = 0;
-				if (domain_data->server) {
+				if (domain_data_aligned.server) {
 					printer(arg, "\n    <domain: name %s, server %s>",
 							domain_name,
-							addr2ascii(AF_INET, &domain_data->server, sizeof(domain_data->server), addr_str));
+							addr2ascii(AF_INET, &domain_data_aligned.server, sizeof(domain_data_aligned.server), addr_str));
 				} else {
 					printer(arg, "\n    <domain: name %s>",
 							domain_name);
 				}
-                len -= (slen + offsetof(__typeof__(*domain_data), name));
-                domain_data = (__typeof__(domain_data))(domain_data->name + slen);
+                len -= (ACSP_DOMAIN_DATA_HDRSIZE + slen);
+                ptr += (ACSP_DOMAIN_DATA_HDRSIZE + slen);
             }
-			p = (__typeof__(p))domain_data;
+			p = (__typeof__(p))ptr;
 		} else {
 			ACSP_PRINTPKT_PAYLOAD(NULL);
 			p = pkt->data;

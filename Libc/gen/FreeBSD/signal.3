@@ -52,9 +52,7 @@
 .Pp
 .nr in-synopsis-section 1
 .\" XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
-or in
-.Fx Ap s
-equivalent but easier to read typedef'd version:
+or in the equivalent but easier to read typedef'd version:
 .Ft typedef "void \*(lp*sig_t\*(rp \*(lpint\*(rp" ;
 .Pp
 .Ft sig_t
@@ -67,9 +65,9 @@ is a simplified interface to the more general
 .Xr sigaction 2
 facility.
 .Pp
-Signals allow the manipulation of a process from outside its
-domain as well as allowing the process to manipulate itself or
-copies of itself (children).
+Signals allow the manipulation of a process from outside its domain,
+as well as allowing the process to manipulate itself
+or copies of itself (children).
 There are two general types of signals:
 those that cause termination of a process and those that do not.
 Signals which cause termination of a program might result from
@@ -82,11 +80,10 @@ Signals are optionally generated
 when a process resumes after being stopped,
 when the status of child processes changes,
 or when input is ready at the control terminal.
-Most signals result in the termination of the process receiving them
-if no action
-is taken; some signals instead cause the process receiving them
-to be stopped, or are simply discarded if the process has not
-requested otherwise.
+Most signals result in the termination of the process receiving them,
+if no action is taken;
+some signals instead cause the process receiving them to be stopped,
+or are simply discarded if the process has not requested otherwise.
 Except for the
 .Dv SIGKILL
 and
@@ -140,7 +137,6 @@ is possible on a descriptor (see
 .It 29 Ta Dv SIGINFO Ta "discard signal" Ta "status request from keyboard"
 .It 30 Ta Dv SIGUSR1 Ta "terminate process" Ta "User defined signal 1"
 .It 31 Ta Dv SIGUSR2 Ta "terminate process" Ta "User defined signal 2"
-.It 32 Ta Dv SIGTHR Ta "terminate process" Ta "thread interrupt"
 .El
 .Pp
 The
@@ -156,7 +152,7 @@ should be
 A
 .Dv SIG_DFL
 resets the default action.
-To ignore the signal
+To ignore the signal,
 .Fa func
 should be
 .Dv SIG_IGN .
@@ -192,7 +188,7 @@ The affected system calls include
 .Xr write 2 ,
 .Xr sendto 2 ,
 .Xr recvfrom 2 ,
-.Xr sendmsg 2
+.Xr sendmsg 2 ,
 and
 .Xr recvmsg 2
 on a communications channel or a low speed device

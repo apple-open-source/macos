@@ -45,6 +45,7 @@
 #include "AccessibilityScrollView.h"
 #include "AccessibilityScrollbar.h"
 #include "AccessibilitySlider.h"
+#include "AccessibilitySpinButton.h"
 #include "AccessibilityTable.h"
 #include "AccessibilityTableCell.h"
 #include "AccessibilityTableColumn.h"
@@ -128,6 +129,9 @@ AccessibilityObject* AXObjectCache::focusedImageMapUIElement(HTMLAreaElement* ar
     
 AccessibilityObject* AXObjectCache::focusedUIElementForPage(const Page* page)
 {
+    if (!gAccessibilityEnabled)
+        return 0;
+
     // get the focused node in the page
     Document* focusedDocument = page->focusController()->focusedOrMainFrame()->document();
     Node* focusedNode = focusedDocument->focusedNode();
@@ -177,7 +181,7 @@ AccessibilityObject* AXObjectCache::get(RenderObject* renderer)
     ASSERT(!HashTraits<AXID>::isDeletedValue(axID));
     if (!axID)
         return 0;
-    
+
     return m_objects.get(axID).get();    
 }
 
@@ -287,11 +291,17 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject* renderer)
     
 AccessibilityObject* AXObjectCache::rootObject()
 {
+    if (!gAccessibilityEnabled)
+        return 0;
+    
     return getOrCreate(m_document->view());
 }
 
 AccessibilityObject* AXObjectCache::rootObjectForFrame(Frame* frame)
 {
+    if (!gAccessibilityEnabled)
+        return 0;
+
     if (!frame)
         return 0;
     return getOrCreate(frame->view());
@@ -323,6 +333,12 @@ AccessibilityObject* AXObjectCache::getOrCreate(AccessibilityRole role)
         break;
     case MenuListOptionRole:
         obj = AccessibilityMenuListOption::create();
+        break;
+    case SpinButtonRole:
+        obj = AccessibilitySpinButton::create();
+        break;
+    case SpinButtonPartRole:
+        obj = AccessibilitySpinButtonPart::create();
         break;
     default:
         obj = 0;
@@ -516,6 +532,11 @@ void AXObjectCache::postNotification(AccessibilityObject* object, Document* docu
         postPlatformNotification(object, notification);
 }
 
+void AXObjectCache::checkedStateChanged(RenderObject* renderer)
+{
+    postNotification(renderer, AXObjectCache::AXCheckedStateChanged, true);
+}
+
 void AXObjectCache::selectedChildrenChanged(RenderObject* renderer)
 {
     // postToElement is false so that you can pass in any child of an element and it will go up the parent tree
@@ -523,14 +544,28 @@ void AXObjectCache::selectedChildrenChanged(RenderObject* renderer)
     postNotification(renderer, AXSelectedChildrenChanged, false);
 }
 
-void AXObjectCache::nodeTextChangeNotification(RenderObject* renderer, AXTextChange textChange, unsigned offset, unsigned count)
+void AXObjectCache::nodeTextChangeNotification(RenderObject* renderer, AXTextChange textChange, unsigned offset, const String& text)
 {
     if (!renderer)
         return;
 
     // Delegate on the right platform
     AccessibilityObject* obj = getOrCreate(renderer);
-    nodeTextChangePlatformNotification(obj, textChange, offset, count);
+    nodeTextChangePlatformNotification(obj, textChange, offset, text);
+}
+
+void AXObjectCache::frameLoadingEventNotification(Frame* frame, AXLoadingEvent loadingEvent)
+{
+    if (!frame)
+        return;
+
+    // Delegate on the right platform
+    RenderView* contentRenderer = frame->contentRenderer();
+    if (!contentRenderer)
+        return;
+
+    AccessibilityObject* obj = getOrCreate(contentRenderer);
+    frameLoadingEventPlatformNotification(obj, loadingEvent);
 }
 #endif
 
@@ -581,7 +616,7 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(TextMarkerData& 
         return VisiblePosition();
     
     // FIXME: Accessability should make it clear these are DOM-compliant offsets or store Position objects.
-    VisiblePosition visiblePos = VisiblePosition(Position(textMarkerData.node, textMarkerData.offset), textMarkerData.affinity);
+    VisiblePosition visiblePos = VisiblePosition(createLegacyEditingPosition(textMarkerData.node, textMarkerData.offset), textMarkerData.affinity);
     Position deepPos = visiblePos.deepEquivalent();
     if (deepPos.isNull())
         return VisiblePosition();
@@ -636,5 +671,27 @@ void AXObjectCache::textMarkerDataForVisiblePosition(TextMarkerData& textMarkerD
     
     cache->setNodeInUse(domNode);
 }
-    
+
+const Element* AXObjectCache::rootAXEditableElement(const Node* node)
+{
+    const Element* result = node->rootEditableElement();
+    const Element* element = node->isElementNode() ? toElement(node) : node->parentElement();
+
+    for (; element; element = element->parentElement()) {
+        if (nodeIsTextControl(element))
+            result = element;
+    }
+
+    return result;
+}
+
+bool AXObjectCache::nodeIsTextControl(const Node* node)
+{
+    if (!node)
+        return false;
+
+    const AccessibilityObject* axObject = getOrCreate(node->renderer());
+    return axObject && axObject->isTextControl();
+}
+
 } // namespace WebCore

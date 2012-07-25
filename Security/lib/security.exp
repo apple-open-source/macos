@@ -347,6 +347,7 @@ _kSecGuestAttributeMachPort
 _kSecGuestAttributePid
 _kSecRequirementKeyInfoPlist
 _kSecRequirementKeyEntitlements
+_kSecRequirementKeyIdentifier
 _kSecCFErrorArchitecture
 _kSecCFErrorPath
 _kSecCFErrorPattern
@@ -367,6 +368,7 @@ _SecTaskCopyValuesForEntitlements
 _SecAssessmentCreate
 _SecAssessmentCopyResult
 _SecAssessmentUpdate
+_SecAssessmentCopyUpdate
 _SecAssessmentControl
 _kSecAssessmentContextKeyOperation
 _kSecAssessmentOperationTypeExecute
@@ -378,12 +380,16 @@ _kSecAssessmentUpdateOperationAdd
 _kSecAssessmentUpdateOperationRemove
 _kSecAssessmentUpdateOperationEnable
 _kSecAssessmentUpdateOperationDisable
+_kSecAssessmentUpdateOperationFind
 _kSecAssessmentUpdateKeyAuthorization
 _kSecAssessmentUpdateKeyAllow
 _kSecAssessmentUpdateKeyExpires
 _kSecAssessmentUpdateKeyLabel
 _kSecAssessmentUpdateKeyPriority
 _kSecAssessmentUpdateKeyRemarks
+_kSecAssessmentUpdateKeyRow
+_kSecAssessmentUpdateKeyCount
+_kSecAssessmentUpdateKeyFound
 _kSecAssessmentAssessmentAuthority
 _kSecAssessmentAssessmentAuthorityOverride
 _kSecAssessmentAssessmentAuthorityRow
@@ -391,6 +397,16 @@ _kSecAssessmentAssessmentFromCache
 _kSecAssessmentAssessmentOriginator
 _kSecAssessmentAssessmentSource
 _kSecAssessmentAssessmentVerdict
+_kSecAssessmentRuleKeyID
+_kSecAssessmentRuleKeyPriority
+_kSecAssessmentRuleKeyAllow
+_kSecAssessmentRuleKeyLabel
+_kSecAssessmentRuleKeyRemarks
+_kSecAssessmentRuleKeyRequirement
+_kSecAssessmentRuleKeyType
+_kSecAssessmentRuleKeyExpires
+_kSecAssessmentRuleKeyDisabled
+_kSecAssessmentRuleKeyBookmark
 
 # libsecurity_cssm
 #####################################################################################
@@ -1380,16 +1396,19 @@ _SecCertificateCopyPreferred
 _SecCertificateCopyPublicKey
 _SecCertificateCopySubjectSummary
 _SecCertificateCreateFromData
+_SecCertificateCreateWithBytes
 _SecCertificateCreateWithData
 _SecCertificateFindByEmail
 _SecCertificateFindByIssuerAndSN
 _SecCertificateFindBySubjectKeyID
 _SecCertificateGetAlgorithmID
 _SecCertificateGetCLHandle
+_SecCertificateGetBytePtr
 _SecCertificateGetCommonName
 _SecCertificateGetData
 _SecCertificateGetEmailAddress
 _SecCertificateGetIssuer
+_SecCertificateGetLength
 _SecCertificateGetSubject
 _SecCertificateGetType
 _SecCertificateGetTypeID
@@ -1455,6 +1474,7 @@ _kSecAttrPRFHmacAlgSHA384
 _kSecAttrPRFHmacAlgSHA512
 _kSecAttrSalt
 _kSecAttrRounds
+_SecECKeyGetNamedCurve
 _SecItemExport
 _SecItemImport
 _SecKeyCreate
@@ -1465,6 +1485,7 @@ _SecKeyEncrypt
 _SecKeyGenerate
 _SecKeyGeneratePair
 _SecKeyGetAlgorithmID
+_SecKeyGetAlgorithmId
 _SecKeyGetBlockSize
 _SecKeyGetCSPHandle
 _SecKeyGetCSSMKey
@@ -1474,6 +1495,8 @@ _SecKeyGetTypeID
 _SecKeyImportPair
 _SecKeyRawSign
 _SecKeyRawVerify
+_SecKeySignDigest
+_SecKeyVerifyDigest
 _SecKeyGenerateSymmetric
 _SecKeyCreateFromData
 _SecKeyGeneratePairAsync
@@ -1852,6 +1875,8 @@ _SecSMIMEFindBulkAlgForRecipients
 #####################################################################################
 _SSLAddDistinguishedName
 _SSLClose
+_SSLContextGetTypeID
+_SSLCreateContext
 _SSLDisposeContext
 _SSLGetAllowsAnyRoot
 _SSLGetAllowsExpiredCerts
@@ -1876,6 +1901,8 @@ _SSLGetPeerID
 _SSLGetPeerSecTrust
 _SSLGetProtocolVersion
 _SSLGetProtocolVersionEnabled
+_SSLGetProtocolVersionMax
+_SSLGetProtocolVersionMin
 _SSLGetResumableSessionInfo
 _SSLGetRsaBlinding
 _SSLGetSessionOption
@@ -1900,6 +1927,9 @@ _SSLSetCertificate
 _SSLGetCertificate
 _SSLSetClientSideAuthenticate
 _SSLSetConnection
+_SSLSetDatagramHelloCookie
+_SSLSetMaxDatagramRecordSize
+_SSLGetMaxDatagramRecordSize
 _SSLSetDiffieHellmanParams
 _SSLSetEnableCertVerify
 _SSLSetEnabledCiphers
@@ -1910,6 +1940,8 @@ _SSLSetPeerDomainName
 _SSLSetPeerID
 _SSLSetProtocolVersion
 _SSLSetProtocolVersionEnabled
+_SSLSetProtocolVersionMax
+_SSLSetProtocolVersionMin
 _SSLSetRsaBlinding
 _SSLSetTrustedRoots
 _SSLWrite
@@ -1929,6 +1961,10 @@ _SSLSetECDSACurves
 _SSLGetNumberOfClientAuthTypes
 _SSLGetClientAuthTypes
 _SSLGetNegotiatedClientAuthType
+_SSLGetNumberOfSignatureAlgorithms
+_SSLGetSignatureAlgorithms
+_SSLNewDatagramContext
+_SSLGetDatagramWriteSize
 
 # libsecurity_transform
 #####################################################################################
@@ -1953,6 +1989,7 @@ _kSecDigestMD5
 _kSecDigestSHA1
 _kSecDigestSHA2
 _kSecDigestHMACSHA1
+_kSecDigestHMACMD5
 _kSecDigestHMACKeyAttribute
 _kSecDigestHMACSHA2
 _SecExternalSourceTransformCreate

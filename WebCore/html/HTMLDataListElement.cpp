@@ -47,11 +47,10 @@ PassRefPtr<HTMLDataListElement> HTMLDataListElement::create(const QualifiedName&
     return adoptRef(new HTMLDataListElement(tagName, document));
 }
 
-PassRefPtr<HTMLCollection> HTMLDataListElement::options()
+HTMLCollection* HTMLDataListElement::options()
 {
-    return HTMLCollection::create(this, DataListOptions);
+    return ensureCachedHTMLCollection(DataListOptions);
 }
 
 }  // namespace WebCore
-
 #endif  // ENABLE(DATALIST)

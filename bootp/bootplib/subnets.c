@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -160,7 +160,7 @@ S_timestamp(char * msg)
 	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
     tvp = tv;
 }
-#endif DEBUG
+#endif /* DEBUG */
 
 static void
 SubnetPrint(SubnetRef subnet)
@@ -742,11 +742,10 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 
 static OptionTLVRef
 copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list, 
-				    char * buf, int buf_space)
+				    OptionTLVRef list, int buf_space)
 {
     int			count;
     int			i;
-    OptionTLVRef	list = (OptionTLVRef)buf;
     char *		start_options;
 
     count = CFArrayGetCount(option_list);
@@ -764,7 +763,7 @@ copyOptionsDataArrayToOptionTLVList(CFArrayRef option_list,
 	return (NULL);
     }
     buf_space -= sizeof(OptionTLV) * count;
-    start_options = buf + sizeof(OptionTLV) * count;
+    start_options = (char *)list + sizeof(OptionTLV) * count;
     for (i = 0; i < count; i++) {
 	CFDataRef	data;
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(option_list, i);
@@ -1024,8 +1023,9 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     /* copy the options */
     if (option_list != NULL) {
 	subnet->options_count = CFArrayGetCount(option_list);
+	/* ALIGN: offset aligned (from malloc), cast safe. */
 	subnet->options = 
-	    copyOptionsDataArrayToOptionTLVList(option_list, offset,
+	    copyOptionsDataArrayToOptionTLVList(option_list, (void *)offset,
 						option_space);
 	offset += option_space;
 	CFRelease(option_list);
@@ -1328,4 +1328,4 @@ main(int argc, const char * argv[])
     }
     exit(0);
 }
-#endif TEST_SUBNETS
+#endif /* TEST_SUBNETS */

@@ -1174,14 +1174,16 @@ IOReturn IOAudioEngine::startClient(IOAudioEngineUserClient *userClient)
 				release();
 				return kIOReturnNotPermitted;
 			}
-			
-			if ( isInactive() )
-			{
-				release();
-				return kIOReturnNoDevice;
-			}			
 		}
 		
+        //  <rdar://11200354> If ::stop() is called while it is in command sleep, then the command gate
+        //  will no longer be valid afterwards.
+        if (isInactive() || (NULL == commandGate))
+        {
+            release();
+            return kIOReturnNoDevice;
+        }			
+        
 		release();
 	}
 

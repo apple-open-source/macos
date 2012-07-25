@@ -26,12 +26,10 @@
 
 module events {
 
-    interface BeforeLoadEvent : Event {
-        void initBeforeLoadEvent(in DOMString type,
-                                 in boolean canBubble, 
-                                 in boolean cancelable,
-                                 in DOMString url);
-        readonly attribute DOMString url;
+    interface [
+        ConstructorTemplate=Event
+    ] BeforeLoadEvent : Event {
+        readonly attribute [InitializedByEventConstructor] DOMString url;
     };
 
 }

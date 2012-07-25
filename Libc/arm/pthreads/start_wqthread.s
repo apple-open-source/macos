@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,5 +36,10 @@
         .align 2
         .globl _start_wqthread
 _start_wqthread:
-    stmfd sp!, {r4, r5}
+	stmfd sp!, {r4, r5}
 	bl __pthread_wqthread
+
+// Stackshots will show the routine that happens to link immediately following
+// _start_wqthread.  So we add an extra instruction (nop) to make stackshots
+// more readable.
+        nop

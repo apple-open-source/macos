@@ -29,29 +29,23 @@
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
-
+#include <wtf/text/WTFString.h>
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
 #endif
-
 #if PLATFORM(GTK)
 #include <PasteboardHelper.h>
 #endif
+#include <wtf/Vector.h>
 
 // FIXME: This class is too high-level to be in the platform directory, since it
 // uses the DOM and makes calls to Editor. It should either be divested of its
 // knowledge of the frame and editor or moved into the editing directory.
 
 #if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSFileWrapper;
-@class NSPasteboard;
-@class NSArray;
-#else
-class NSFileWrapper;
-class NSPasteboard;
-class NSArray;
-#endif
+OBJC_CLASS NSAttributedString;
+OBJC_CLASS NSFileWrapper;
+OBJC_CLASS NSArray;
 #endif
 
 #if PLATFORM(WIN)
@@ -66,31 +60,32 @@ typedef struct HWND__* HWND;
 namespace WebCore {
 
 #if PLATFORM(MAC)
-extern NSString *WebArchivePboardType;
-extern NSString *WebSmartPastePboardType;
-extern NSString *WebURLNamePboardType;
-extern NSString *WebURLPboardType;
-extern NSString *WebURLsWithTitlesPboardType;
+extern const char* WebArchivePboardType;
+extern const char* WebSmartPastePboardType;
+extern const char* WebURLNamePboardType;
+extern const char* WebURLPboardType;
+extern const char* WebURLsWithTitlesPboardType;
 #endif
 
+    class ArchiveResource;
+class Clipboard;
 class DocumentFragment;
 class Frame;
 class HitTestResult;
 class KURL;
 class Node;
 class Range;
-class ArchiveResource;
+class SharedBuffer;
     
 class Pasteboard {
     WTF_MAKE_NONCOPYABLE(Pasteboard); WTF_MAKE_FAST_ALLOCATED;
 public:
 #if PLATFORM(MAC)
-    //Helper functions to allow Clipboard to share code
-    static void writeSelection(NSPasteboard*, NSArray* pasteboardTypes, Range* selectedRange, bool canSmartCopyOrDelete, Frame*);
-    static void writeURL(NSPasteboard* pasteboard, NSArray* types, const KURL& url, const String& titleStr, Frame* frame);
-    static void writePlainText(NSPasteboard* pasteboard, const String& text);
-
-    Pasteboard(NSPasteboard *);
+    // This is required to support OS X services.
+    void writeSelectionForTypes(const Vector<String>& pasteboardTypes, bool canSmartCopyOrDelete, Frame*);
+    Pasteboard(const String& pasteboardName);
+    static String getStringSelection(Frame*);
+    static PassRefPtr<SharedBuffer> getDataSelection(Frame*, const String& pasteboardType);
 #endif
     
     static Pasteboard* generalPasteboard();
@@ -98,10 +93,7 @@ public:
     void writePlainText(const String&);
     void writeURL(const KURL&, const String&, Frame* = 0);
     void writeImage(Node*, const KURL&, const String& title);
-#if PLATFORM(MAC)
-    void writeFileWrapperAsRTFDAttachment(NSFileWrapper*);
-    String asURL(Frame*);
-#endif
+    void writeClipboard(Clipboard*);
     void clear();
     bool canSmartReplace();
     PassRefPtr<DocumentFragment> documentFragment(Frame*, PassRefPtr<Range>, bool allowPlainText, bool& chosePlainText);
@@ -113,8 +105,6 @@ public:
 #endif
 
 #if PLATFORM(GTK)
-    void setHelper(PasteboardHelper*);
-    PasteboardHelper* helper();
     ~Pasteboard();
 #endif
 
@@ -122,10 +112,7 @@ private:
     Pasteboard();
 
 #if PLATFORM(MAC)
-    RetainPtr<NSPasteboard> m_pasteboard;
-    PassRefPtr<DocumentFragment> documentFragmentWithImageResource(Frame* frame, PassRefPtr<ArchiveResource> resource);
-    PassRefPtr<DocumentFragment> documentFragmentWithRtf(Frame* frame, NSString* pboardType);
-    NSURL *getBestURL(Frame *);
+    String m_pasteboardName;
 #endif
 
 #if PLATFORM(WIN)
@@ -138,10 +125,6 @@ private:
 
 #if PLATFORM(CHROMIUM)
     PasteboardPrivate p;
-#endif
-
-#if PLATFORM(GTK)
-    PasteboardHelper* m_helper;
 #endif
 };
 

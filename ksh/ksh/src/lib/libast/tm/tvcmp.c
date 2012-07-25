@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -32,15 +32,15 @@ int
 tvcmp(register const Tv_t* a, register const Tv_t* b)
 {
 	if (a->tv_sec < b->tv_sec)
-		return 1;
-	if (a->tv_sec > b->tv_sec)
 		return -1;
+	if (a->tv_sec > b->tv_sec)
+		return 1;
 	if (a->tv_nsec != TV_NSEC_IGNORE && b->tv_nsec != TV_NSEC_IGNORE)
 	{
 		if (a->tv_nsec < b->tv_nsec)
-			return 1;
-		if (a->tv_nsec > b->tv_nsec)
 			return -1;
+		if (a->tv_nsec > b->tv_nsec)
+			return 1;
 	}
 	return 0;
 }

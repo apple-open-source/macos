@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/de.xml
@@ -33,7 +33,6 @@ de{
         054{"Melanesien"}
         057{"Mikronesisches Inselgebiet"}
         061{"Polynesien"}
-        062{"Süd-Zentralasien"}
         142{"Asien"}
         143{"Zentralasien"}
         145{"Westasien"}
@@ -41,9 +40,7 @@ de{
         151{"Osteuropa"}
         154{"Nordeuropa"}
         155{"Westeuropa"}
-        172{"Gemeinschaft Unabhängiger Staaten"}
-        419{"Lateinamerika und Karibik"}
-        830{"Kanalinseln"}
+        419{"Lateinamerika"}
         AC{"Ascension"}
         AD{"Andorra"}
         AE{"Vereinigte Arabische Emirate"}
@@ -99,6 +96,7 @@ de{
         CS{"Serbien und Montenegro"}
         CU{"Kuba"}
         CV{"Kap Verde"}
+        CW{"Curaçao"}
         CX{"Weihnachtsinsel"}
         CY{"Zypern"}
         CZ{"Tschechische Republik"}
@@ -260,6 +258,7 @@ de{
         SR{"Suriname"}
         ST{"São Tomé und Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Syrien"}
         SZ{"Swasiland"}
         TA{"Tristan da Cunha"}
@@ -299,7 +298,7 @@ de{
         ZA{"Südafrika"}
         ZM{"Sambia"}
         ZW{"Simbabwe"}
-        ZZ{"Unbekannte oder ungültige Region"}
+        ZZ{"Unbekannte Region"}
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.67.6"}
 }

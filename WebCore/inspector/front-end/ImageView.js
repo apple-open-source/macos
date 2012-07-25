@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @extends {WebInspector.ResourceView}
+ * @constructor
+ */
 WebInspector.ImageView = function(resource)
 {
     WebInspector.ResourceView.call(this, resource);
@@ -39,9 +43,8 @@ WebInspector.ImageView.prototype = {
         return true;
     },
 
-    show: function(parentElement)
+    wasShown: function()
     {
-        WebInspector.ResourceView.prototype.show.call(this, parentElement);
         this._createContentIfNeeded();
     },
 
@@ -57,6 +60,7 @@ WebInspector.ImageView.prototype = {
         var imagePreviewElement = document.createElement("img");
         imagePreviewElement.addStyleClass("resource-image-view");
         imageContainer.appendChild(imagePreviewElement);
+        imagePreviewElement.addEventListener("contextmenu", this._contextMenu.bind(this), true);
 
         this._container = document.createElement("div");
         this._container.className = "info";
@@ -85,7 +89,7 @@ WebInspector.ImageView.prototype = {
                 { name: WebInspector.UIString("File size"), value: Number.bytesToString(resourceSize) },
                 { name: WebInspector.UIString("MIME type"), value: this.resource.mimeType }
             ];
-    
+
             infoListElement.removeChildren();
             for (var i = 0; i < imageProperties.length; ++i) {
                 var dt = document.createElement("dt");
@@ -100,7 +104,7 @@ WebInspector.ImageView.prototype = {
             infoListElement.appendChild(dt);
             var dd = document.createElement("dd");
             var externalResource = true;
-            dd.appendChild(WebInspector.linkifyURLAsNode(this.resource.url, null, null, externalResource));
+            dd.appendChild(WebInspector.linkifyURLAsNode(this.resource.url, undefined, undefined, externalResource));
             infoListElement.appendChild(dd);
 
             this._container.appendChild(infoListElement);
@@ -118,6 +122,24 @@ WebInspector.ImageView.prototype = {
         if (content.length > 1 && content[content.length - 2] === "=")
             size--;
         return size;
+    },
+
+    _contextMenu: function(event)
+    {
+        var contextMenu = new WebInspector.ContextMenu();
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Copy image URL" : "Copy Image URL"), this._copyImageURL.bind(this));
+        contextMenu.appendItem(WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Open image in new tab" : "Open Image in New Tab"), this._openInNewTab.bind(this));
+        contextMenu.show(event);
+    },
+
+    _copyImageURL: function(event)
+    {
+        InspectorFrontendHost.copyText(this.resource.url);
+    },
+
+    _openInNewTab: function(event)
+    {
+        InspectorFrontendHost.openInNewTab(this.resource.url);
     }
 }
 

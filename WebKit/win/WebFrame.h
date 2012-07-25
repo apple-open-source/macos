@@ -33,6 +33,7 @@
 
 #include "AccessibleDocument.h"
 
+#include <WebCore/AdjustViewSizeOrNot.h>
 #include <WebCore/FrameWin.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/KURL.h>
@@ -47,6 +48,7 @@ namespace WebCore {
     class AuthenticationChallenge;
     class DocumentLoader;
     class Element;
+    class FloatSize;
     class Frame;
     class GraphicsContext;
     class HTMLFrameOwnerElement;
@@ -105,6 +107,8 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE DOMDocument( 
         /* [retval][out] */ IDOMDocument** document);
+
+    virtual HRESULT STDMETHODCALLTYPE DOMWindow(/* [retval][out] */ IDOMWindow**);
     
     virtual HRESULT STDMETHODCALLTYPE frameElement( 
         /* [retval][out] */ IDOMHTMLElement **frameElement);
@@ -255,7 +259,6 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE pauseAnimation(BSTR animationName, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE pauseTransition(BSTR propertyName, IDOMNode*, double secondsFromNow, BOOL* transitionWasRunning);
-    virtual HRESULT STDMETHODCALLTYPE pauseSVGAnimation(BSTR elementId, IDOMNode*, double secondsFromNow, BOOL* animationWasRunning);
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
     virtual HRESULT STDMETHODCALLTYPE suspendAnimations();
     virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
@@ -281,6 +284,8 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE clearOpener();
 
+    virtual HRESULT STDMETHODCALLTYPE setTextDirection(BSTR);
+
     // IWebDocumentText
     virtual HRESULT STDMETHODCALLTYPE supportsTextEncoding( 
         /* [retval][out] */ BOOL* result);
@@ -300,7 +305,7 @@ public:
     virtual void detachedFromParent2();
     virtual void detachedFromParent3();
     virtual void cancelPolicyCheck();
-    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
+    virtual void dispatchWillSendSubmitEvent(PassRefPtr<WebCore::FormState>);
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainFrameDocumentReady(bool);
@@ -324,7 +329,7 @@ public:
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&);
-    virtual WebCore::ResourceError interruptForPolicyChangeError(const WebCore::ResourceRequest&);
+    virtual WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&);
@@ -333,12 +338,12 @@ public:
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction, const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
-    virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     virtual bool dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int length);
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
     virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
-    virtual void startDownload(const WebCore::ResourceRequest&);
+    virtual void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = String());
         
     virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL, const Vector<WTF::String>& paramNames, const Vector<WTF::String>& paramValues);
 
@@ -387,7 +392,7 @@ protected:
     void loadHTMLString(BSTR string, BSTR baseURL, BSTR unreachableURL);
     void loadData(PassRefPtr<WebCore::SharedBuffer>, BSTR mimeType, BSTR textEncodingName, BSTR baseURL, BSTR failingURL);
     const Vector<WebCore::IntRect>& computePageRects(HDC printDC);
-    void setPrinting(bool printing, float minPageWidth, float maxPageWidth, float minPageHeight, bool adjustViewSize);
+    void setPrinting(bool printing, const WebCore::FloatSize& pageSize, const WebCore::FloatSize& originalPageSize, float maximumShrinkRatio, WebCore::AdjustViewSizeOrNot);
     void headerAndFooterHeights(float*, float*);
     WebCore::IntRect printerMarginRect(HDC);
     void spoolPage (PlatformGraphicsContext* pctx, WebCore::GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate*, float headerHeight, float footerHeight, UINT page, UINT pageCount);

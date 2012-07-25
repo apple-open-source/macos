@@ -107,9 +107,9 @@ open_pty(void)
     {
 	char *clone[] = {
 	    "/dev/ptc",
-	    "/dev/ptmx", 
+	    "/dev/ptmx",
 	    "/dev/ptm",
-	    "/dev/ptym/clone", 
+	    "/dev/ptym/clone",
 	    NULL
 	};
 	char **q;
@@ -249,6 +249,8 @@ eval_parent(pid_t pid)
 	    len = strlen(c->str);
 
 	    while (i < len) {
+		alarm(timeout);
+
 		if (c->str[i] == '\\' && i < len - 1) {
 		    char ctrl;
 		    i++;
@@ -267,6 +269,7 @@ eval_parent(pid_t pid)
 			errx(1, "command refused input (line %u)", c->lineno);
 		}
 		i++;
+		alarm(0);
 	    }
 	    break;
 	}
@@ -274,8 +277,14 @@ eval_parent(pid_t pid)
 	    abort();
 	}
     }
-    while(read(master, &in, sizeof(in)) > 0)
+    alarm(timeout);
+    while(read(master, &in, sizeof(in)) > 0) {
+	alarm(timeout);
 	printf("%c", in);
+    }
+    alarm(0);
+    if (alarmset == SIGALRM)
+	errx(1, "timeout waiting for trailing data");
 
     if (verbose)
 	printf("[end of program]\n");
@@ -286,7 +295,11 @@ eval_parent(pid_t pid)
     {
 	int ret, status;
 
+	alarm(timeout);
 	ret = waitpid(pid, &status, 0);
+	alarm(0);
+	if (alarmset == SIGALRM)
+	    errx(1, "timeout waiting child to exit");
 	if (ret == -1)
 	    err(1, "waitpid");
 	if (WIFEXITED(status) && WEXITSTATUS(status))
@@ -372,7 +385,7 @@ main(int argc, char **argv)
 	    sa.sa_handler = caught_signal;
 	    sa.sa_flags = 0;
 	    sigemptyset (&sa.sa_mask);
-	
+
 	    sigaction(SIGALRM, &sa, NULL);
 	}
 

@@ -2,14 +2,14 @@
  * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * keychain_find.c
@@ -38,6 +38,8 @@
 #include <Security/SecKeychainSearch.h>
 #include <Security/SecCertificate.h>
 #include <CoreFoundation/CFString.h>
+#include <ctype.h>
+
 
 // SecDigestGetData, SecKeychainSearchCreateForCertificateByEmail, SecCertificateFindByEmail
 #include <Security/SecCertificatePriv.h>
@@ -67,7 +69,7 @@ find_first_generic_password(CFTypeRef keychainOrArray,
 
 	SecKeychainAttribute attrs[8]; // maximum number of searchable attributes
 	SecKeychainAttributeList attrList = { 0, attrs };
-	
+
 	// the primary key for a generic password item (i.e. the combination of
 	// attributes which determine whether the item is unique) consists of:
 	// { kSecAccountItemAttr, kSecServiceItemAttr }
@@ -75,7 +77,7 @@ find_first_generic_password(CFTypeRef keychainOrArray,
 	// if we have a primary key, we don't need to search on other attributes
 	// (and we don't want to, if non-primary attributes are being updated)
 	Boolean primaryKey = (accountName && serviceName);
-	
+
 	// build the attribute list for searching
 	if ((UInt32)itemCreator != 0 && !primaryKey) {
 		attrs[attrList.count].tag = kSecCreatorItemAttr;
@@ -125,7 +127,7 @@ find_first_generic_password(CFTypeRef keychainOrArray,
 		attrs[attrList.count].data = (void*)accountName;
 		attrList.count++;
 	}
-	
+
 	status = SecKeychainSearchCreateFromAttributes(keychainOrArray, kSecGenericPasswordItemClass, &attrList, &searchRef);
 	if (status) {
 		sec_perror("SecKeychainSearchCreateFromAttributes", status);
@@ -140,7 +142,7 @@ find_first_generic_password(CFTypeRef keychainOrArray,
 cleanup:
 	if (searchRef)
 		CFRelease(searchRef);
-	
+
 	return itemRef;
 }
 
@@ -168,10 +170,10 @@ find_first_internet_password(CFTypeRef keychainOrArray,
 	OSStatus status = noErr;
 	SecKeychainSearchRef searchRef = NULL;
 	SecKeychainItemRef itemRef = NULL;
-	
+
 	SecKeychainAttribute attrs[12]; // maximum number of searchable attributes
 	SecKeychainAttributeList attrList = { 0, attrs };
-			  
+
 	// the primary key for an internet password item (i.e. the combination of
 	// attributes which determine whether the item is unique) consists of:
 	// { kSecAccountItemAttr, kSecSecurityDomainItemAttr, kSecServerItemAttr,
@@ -182,7 +184,7 @@ find_first_internet_password(CFTypeRef keychainOrArray,
 	// (and we don't want to, if non-primary attributes are being updated)
 	Boolean primaryKey = (accountName && securityDomain && serverName &&
 						  protocol && authenticationType && port && path);
-	
+
 	// build the attribute list for searching
 	if ((UInt32)itemCreator != 0 && !primaryKey) {
 		attrs[attrList.count].tag = kSecCreatorItemAttr;
@@ -256,7 +258,7 @@ find_first_internet_password(CFTypeRef keychainOrArray,
 		attrs[attrList.count].data = (SecAuthenticationType *)&authenticationType;
 		attrList.count++;
 	}
-	
+
 	status = SecKeychainSearchCreateFromAttributes(keychainOrArray, kSecInternetPasswordItemClass, &attrList, &searchRef);
 	if (status) {
 		sec_perror("SecKeychainSearchCreateFromAttributes", status);
@@ -267,11 +269,11 @@ find_first_internet_password(CFTypeRef keychainOrArray,
 	if (status) {
 		itemRef = NULL;
 	}
-	
+
 cleanup:
 	if (searchRef)
 		CFRelease(searchRef);
-	
+
 	return itemRef;
 }
 
@@ -292,12 +294,12 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 	OSStatus status = noErr;
 	SecKeychainSearchRef searchRef = NULL;
 	SecKeychainItemRef uniqueItemRef = NULL;
-	
+
 	status = SecKeychainSearchCreateFromAttributes(keychainOrArray, kSecCertificateItemClass, NULL, &searchRef);
 	if (status) {
 		return uniqueItemRef;
 	}
-	
+
 	// check input hash string and convert to data
 	CSSM_DATA hashData = { 0, NULL };
 	if (hash) {
@@ -306,14 +308,14 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 		hashData.Data = (uint8 *)malloc(hashData.Length);
 		fromHex(hash, &hashData);
 	}
-	
+
 	// filter candidates against the hash (or the name, if no hash provided)
 	CFStringRef matchRef = (name) ? CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8) : NULL;
 	Boolean exactMatch = FALSE;
-	
+
 	CSSM_DATA certData = { 0, NULL };
 	SecKeychainItemRef candidate = NULL;
-	
+
 	while (SecKeychainSearchCopyNext(searchRef, &candidate) == noErr) {
 		SecCertificateRef cert = (SecCertificateRef)candidate;
 		if (SecCertificateGetData(cert, &certData) != noErr) {
@@ -344,7 +346,7 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 			char *nameBuf = (char *)malloc(bufLen);
 			if (!CFStringGetCString(nameRef, nameBuf, bufLen-1, kCFStringEncodingUTF8))
 				nameBuf[0]=0;
-			
+
 			CFRange find = { kCFNotFound, 0 };
 			if (nameRef && matchRef)
 				find = CFStringFind(nameRef, matchRef, kCFCompareCaseInsensitive | kCFCompareNonliteral);
@@ -385,14 +387,51 @@ find_unique_certificate(CFTypeRef keychainOrArray,
 			safe_CFRelease(&nameRef);
 		}
 	}
-	
+
 	safe_CFRelease(&searchRef);
 	safe_CFRelease(&matchRef);
 	if (hashData.Data) {
 		free(hashData.Data);
 	}
-	
+
 	return uniqueItemRef;
+}
+
+static OSStatus
+do_password_item_printing(	SecKeychainItemRef itemRef,
+                          Boolean get_password,
+                          Boolean password_stdout)
+{
+    OSStatus result = noErr;
+    void *passwordData = NULL;
+    UInt32 passwordLength = 0;
+
+    if(get_password) {
+		result = SecKeychainItemCopyContent(itemRef, NULL, NULL, &passwordLength, &passwordData);
+		if(result != noErr) return result;
+    }
+    if(!password_stdout) {
+        print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
+		if(get_password) {
+			fputs("password: ", stderr);
+			print_buffer(stderr, passwordLength, passwordData);
+			fputc('\n', stderr);
+		}
+    } else {
+        char *password = (char *) passwordData;
+        int doHex = 0;
+        for(int i=0; i<passwordLength; i++) if(!isprint(password[i])) doHex = 1;
+        if(doHex) {
+            for(int i=0; i<passwordLength; i++) printf("%02x", password[i]);
+        } else {
+            for(int i=0; i<passwordLength; i++) putchar(password[i]);
+        }
+        putchar('\n');
+    }
+
+    if (passwordData) SecKeychainItemFreeContent(NULL, passwordData);
+    return noErr;
+
 }
 
 static int
@@ -405,12 +444,11 @@ do_keychain_find_generic_password(CFTypeRef keychainOrArray,
 	const char *label,
 	const char *serviceName,
 	const char *accountName,
-	Boolean get_password)
+	Boolean get_password,
+	Boolean password_stdout)
 {
 	OSStatus result = noErr;
     SecKeychainItemRef itemRef = NULL;
-	void *passwordData = NULL;
-    UInt32 passwordLength = 0;
 
 	itemRef = find_first_generic_password(keychainOrArray,
 										  itemCreator,
@@ -421,30 +459,15 @@ do_keychain_find_generic_password(CFTypeRef keychainOrArray,
 										  label,
 										  serviceName,
 										  accountName);
-	if (!itemRef) {
+
+    if(itemRef) {
+        result = do_password_item_printing(itemRef, get_password, password_stdout);
+    } else {
 		result = errSecItemNotFound;
 		sec_perror("SecKeychainSearchCopyNext", result);
-		goto cleanup;
 	}
 
-	if (get_password) {
-		result = SecKeychainItemCopyContent(itemRef, NULL, NULL, &passwordLength, &passwordData);
-	}
-
-	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
-
-	if (get_password)
-	{
-		fputs("password: ", stderr);
-		print_buffer(stderr, passwordLength, passwordData); 
-		fputc('\n', stderr);
-	}
-
-cleanup:
-	if (passwordData)
-		SecKeychainItemFreeContent(NULL, passwordData);
-	if (itemRef)
-		CFRelease(itemRef);
+	if (itemRef) CFRelease(itemRef);
 
 	return result;
 }
@@ -463,7 +486,7 @@ do_keychain_delete_generic_password(CFTypeRef keychainOrArray,
 	OSStatus result = noErr;
     SecKeychainItemRef itemRef = NULL;
 	void *passwordData = NULL;
-	
+
 	itemRef = find_first_generic_password(keychainOrArray,
 										  itemCreator,
 										  itemType,
@@ -478,11 +501,11 @@ do_keychain_delete_generic_password(CFTypeRef keychainOrArray,
 		sec_perror("SecKeychainSearchCopyNext", result);
 		goto cleanup;
 	}
-	
+
 	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
 
 	result = SecKeychainItemDelete(itemRef);
-	
+
 	fputs("password has been deleted.\n", stderr);
 
 cleanup:
@@ -490,7 +513,7 @@ cleanup:
 		SecKeychainItemFreeContent(NULL, passwordData);
 	if (itemRef)
 		CFRelease(itemRef);
-	
+
 	return result;
 }
 
@@ -508,13 +531,12 @@ do_keychain_find_internet_password(CFTypeRef keychainOrArray,
 	UInt16 port,
 	SecProtocolType protocol,
 	SecAuthenticationType authenticationType,
-	Boolean get_password)
+	Boolean get_password,
+	Boolean password_stdout)
 {
 	OSStatus result = noErr;
     SecKeychainItemRef itemRef = NULL;
-	void *passwordData = NULL;
-    UInt32 passwordLength = 0;
-	
+
 	itemRef = find_first_internet_password(keychainOrArray,
 										   itemCreator,
 										   itemType,
@@ -528,31 +550,13 @@ do_keychain_find_internet_password(CFTypeRef keychainOrArray,
 										   port,
 										   protocol,
 										   authenticationType);
-	if (!itemRef) {
+    if(itemRef) {
+        result = do_password_item_printing(itemRef, get_password, password_stdout);
+    } else {
 		result = errSecItemNotFound;
 		sec_perror("SecKeychainSearchCopyNext", result);
-		goto cleanup;
 	}
-	
-	if (get_password) {
-		result = SecKeychainItemCopyContent(itemRef, NULL, NULL, &passwordLength, &passwordData);
-	}
-	
-	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
-	
-	if (get_password)
-	{
-		fputs("password: ", stderr);
-		print_buffer(stderr, passwordLength, passwordData); 
-		fputc('\n', stderr);
-	}
-	
-cleanup:
-	if (passwordData)
-		SecKeychainItemFreeContent(NULL, passwordData);
-	if (itemRef)
-		CFRelease(itemRef);
-	
+
 	return result;
 }
 
@@ -593,7 +597,7 @@ do_keychain_delete_internet_password(CFTypeRef keychainOrArray,
 		sec_perror("SecKeychainSearchCopyNext", result);
 		goto cleanup;
 	}
-	
+
 	print_keychain_item_attributes(stdout, itemRef, FALSE, FALSE, FALSE, FALSE);
 
 	result = SecKeychainItemDelete(itemRef);
@@ -665,7 +669,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 					safe_CFRelease(&nameRef);
 					safe_CFRelease(&itemRef);
 					continue; // no match
-				}					
+				}
 				safe_CFRelease(&nameRef);
 			}
 			safe_CFRelease(&certificateRef);
@@ -695,7 +699,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 							safe_CFRelease(&nameRef);
 							safe_CFRelease(&itemRef);
 							continue; // no match
-						}					
+						}
 						safe_CFRelease(&nameRef);
 					}
 					break; // we have a match!
@@ -728,7 +732,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 				fprintf(stdout, "\n");
 			}
 		}
-		
+
 		if (print_email)
 		{
 			CFArrayRef emailAddresses = NULL;
@@ -774,7 +778,7 @@ do_keychain_find_certificate(CFTypeRef keychainOrArray,
 				sec_perror("SecCertificateGetData", result);
 				goto cleanup;
 			}
-	
+
 			print_buffer_pem(stdout, "CERTIFICATE", certData.Length, certData.Data);
 		}
 		else
@@ -802,7 +806,7 @@ keychain_delete_internet_password(int argc, char * const *argv)
     SecAuthenticationType authenticationType = 0;
 	CFTypeRef keychainOrArray = NULL;
 	int ch, result = 0;
-	
+
 	/*
 	 *	"    -a  Match \"account\" string\n"
 	 *	"    -c  Match \"creator\" (four-character code)\n"
@@ -817,7 +821,7 @@ keychain_delete_internet_password(int argc, char * const *argv)
 	 *	"    -s  Match \"server\" string\n"
 	 *	"    -t  Match \"authenticationType\" (four-character code)\n"
 	 */
-	
+
 	while ((ch = getopt(argc, argv, "ha:c:C:d:D:hgj:l:p:P:r:s:t:")) != -1)
 	{
 		switch (ch)
@@ -868,12 +872,12 @@ keychain_delete_internet_password(int argc, char * const *argv)
 				goto cleanup;
 		}
 	}
-	
+
 	argc -= optind;
 	argv += optind;
-	
+
     keychainOrArray = keychain_create_array(argc, argv);
-	
+
 	result = do_keychain_delete_internet_password(keychainOrArray,
 												itemCreator,
 												itemType,
@@ -890,7 +894,7 @@ keychain_delete_internet_password(int argc, char * const *argv)
 cleanup:
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);
-	
+
 	return result;
 }
 
@@ -906,6 +910,7 @@ keychain_find_internet_password(int argc, char * const *argv)
 	CFTypeRef keychainOrArray = NULL;
 	int ch, result = 0;
 	Boolean get_password = FALSE;
+	Boolean password_stdout = FALSE;
 
 	/*
 	 *	"    -a  Match \"account\" string\n"
@@ -921,9 +926,10 @@ keychain_find_internet_password(int argc, char * const *argv)
 	 *	"    -s  Match \"server\" string\n"
 	 *	"    -t  Match \"authenticationType\" (four-character code)\n"
 	 *	"    -g  Display the password for the item found\n"
+     *	"    -w  Display the password(only) for the item(s) found\n"
 	 */
 
-	while ((ch = getopt(argc, argv, "ha:c:C:d:D:hgj:l:p:P:r:s:t:")) != -1)
+	while ((ch = getopt(argc, argv, "ha:c:C:d:D:hgj:l:p:P:r:s:wt:")) != -1)
 	{
 		switch (ch)
 		{
@@ -966,6 +972,10 @@ keychain_find_internet_password(int argc, char * const *argv)
 		case 's':
 			serverName = optarg;
 			break;
+		case 'w':
+			get_password = TRUE;
+			password_stdout = TRUE;
+			break;
         case 't':
 			result = parse_fourcharcode(optarg, &authenticationType);
 			if (result) goto cleanup;
@@ -976,7 +986,7 @@ keychain_find_internet_password(int argc, char * const *argv)
 			goto cleanup;
 		}
 	}
-  
+
 	argc -= optind;
 	argv += optind;
 
@@ -995,7 +1005,8 @@ keychain_find_internet_password(int argc, char * const *argv)
 												port,
 												protocol,
 												authenticationType,
-												get_password);
+												get_password,
+												password_stdout);
 cleanup:
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);
@@ -1011,7 +1022,7 @@ keychain_delete_generic_password(int argc, char * const *argv)
 	FourCharCode itemCreator = 0, itemType = 0;
 	CFTypeRef keychainOrArray = nil;
 	int ch, result = 0;
-	
+
 	/*
 	 *	"    -a  Match \"account\" string\n"
 	 *	"    -c  Match \"creator\" (four-character code)\n"
@@ -1022,7 +1033,7 @@ keychain_delete_generic_password(int argc, char * const *argv)
 	 *	"    -l  Match \"label\" string\n"
 	 *	"    -s  Match \"service\" string\n"
 	 */
-	
+
 	while ((ch = getopt(argc, argv, "ha:c:C:D:G:j:l:s:g")) != -1)
 	{
 		switch  (ch)
@@ -1059,12 +1070,12 @@ keychain_delete_generic_password(int argc, char * const *argv)
 				goto cleanup;
 		}
 	}
-	
+
 	argc -= optind;
 	argv += optind;
-	
+
     keychainOrArray = keychain_create_array(argc, argv);
-	
+
 	result = do_keychain_delete_generic_password(keychainOrArray,
 											   itemCreator,
 											   itemType,
@@ -1077,7 +1088,7 @@ keychain_delete_generic_password(int argc, char * const *argv)
 cleanup:
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);
-	
+
 	return result;
 }
 
@@ -1090,6 +1101,7 @@ keychain_find_generic_password(int argc, char * const *argv)
 	CFTypeRef keychainOrArray = nil;
 	int ch, result = 0;
 	Boolean get_password = FALSE;
+	Boolean password_stdout = FALSE;
 
 	/*
 	 *	"    -a  Match \"account\" string\n"
@@ -1101,9 +1113,10 @@ keychain_find_generic_password(int argc, char * const *argv)
 	 *	"    -l  Match \"label\" string\n"
 	 *	"    -s  Match \"service\" string\n"
 	 *	"    -g  Display the password for the item(s) found\n"
+	 *	"    -w  Display the password(only) for the item(s) found\n"
 	 */
 
-	while ((ch = getopt(argc, argv, "ha:c:C:D:G:j:l:s:g")) != -1)
+	while ((ch = getopt(argc, argv, "ha:c:C:D:G:j:l:s:wg")) != -1)
 	{
 		switch  (ch)
 		{
@@ -1133,6 +1146,10 @@ keychain_find_generic_password(int argc, char * const *argv)
 		case 's':
 			serviceName = optarg;
 			break;
+		case 'w':
+			password_stdout = TRUE;
+			get_password = TRUE;
+			break;
 		case 'g':
 			get_password = TRUE;
 			break;
@@ -1142,7 +1159,7 @@ keychain_find_generic_password(int argc, char * const *argv)
 			goto cleanup;
 		}
 	}
-  
+
 	argc -= optind;
 	argv += optind;
 
@@ -1157,7 +1174,8 @@ keychain_find_generic_password(int argc, char * const *argv)
 											   label,
 											   serviceName,
 											   accountName,
-											   get_password);
+											   get_password,
+											   password_stdout);
 cleanup:
 	if (keychainOrArray)
 		CFRelease(keychainOrArray);
@@ -1298,7 +1316,7 @@ keychain_dump(int argc, char * const *argv)
 			return 2; /* @@@ Return 2 triggers usage message. */
 		}
 	}
-  
+
 	argc -= optind;
 	argv += optind;
 

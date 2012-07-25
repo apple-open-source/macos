@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -31,7 +31,8 @@
 #include <stdio.h>
 #include <fcntl.h>
 
-#include <mach/vm_types.h>
+#include <Kernel/mach/vm_types.h>
+#include <Kernel/mach/vm_param.h>
 
 #include <mach-o/swap.h>
 
@@ -287,6 +288,83 @@ finish:
 }
 
 /*******************************************************************************
+ *
+ *******************************************************************************/
+typedef struct {
+    struct dysymtab_command * dysymtab;
+} _dysymtab_scan;
+
+static macho_seek_result __macho_lc_is_dysymtab(
+                                                struct load_command * lc_cmd,
+                                                const void          * file_end,
+                                                uint8_t               swap,
+                                                void                * user_data);
+
+/******************************************************************************/
+
+macho_seek_result macho_find_dysymtab(
+                                      const void             * file_start,
+                                      const void             * file_end,
+                                      struct dysymtab_command ** dysymtab)
+{
+    macho_seek_result result = macho_seek_result_not_found;
+    _dysymtab_scan      dysym_data;
+    
+    bzero(&dysym_data, sizeof(dysym_data));
+    
+    if (dysymtab) {
+        *dysymtab = NULL;
+    }
+    
+    result = macho_scan_load_commands(file_start,
+                                      file_end, &__macho_lc_is_dysymtab, &dysym_data);
+    
+    if (result == macho_seek_result_found) {
+        if (dysymtab) {
+            *dysymtab = dysym_data.dysymtab;
+        }
+    }
+    
+    return result;
+}
+
+/******************************************************************************/
+
+static macho_seek_result __macho_lc_is_dysymtab(
+                                                struct load_command * lc_cmd,
+                                                const void          * file_end,
+                                                uint8_t               swap,
+                                                void                * user_data)
+{
+    macho_seek_result   result = macho_seek_result_not_found;
+    _dysymtab_scan      * dysym_data = (_dysymtab_scan *)user_data;
+    uint32_t            cmd;
+    
+    if ((void *)(lc_cmd + sizeof(struct load_command)) > file_end) {
+        result = macho_seek_result_error;
+        goto finish;
+    }
+    
+    cmd = CondSwapInt32(swap, lc_cmd->cmd);
+    
+    if (cmd == LC_DYSYMTAB) {
+        uint32_t cmd_size = CondSwapInt32(swap, lc_cmd->cmdsize);
+        
+        if ((cmd_size != sizeof(struct dysymtab_command)) ||
+            ((void *)(lc_cmd + sizeof(struct dysymtab_command)) > file_end)) {
+            result = macho_seek_result_error;
+            goto finish;
+        }
+        dysym_data->dysymtab = (struct dysymtab_command *)lc_cmd;
+        result = macho_seek_result_found;
+        goto finish;
+    }
+    
+finish:
+    return result;
+}
+
+/*******************************************************************************
 * macho_find_uuid()
 *
 * Returns a pointer to the UUID bytes.
@@ -318,7 +396,7 @@ macho_seek_result __uuid_callback(
 macho_seek_result macho_find_uuid(
     const void * file_start,
     const void * file_end,
-    char       * uuid)
+    char       **uuid)
 {
     macho_seek_result  result;
     struct _uuid_scan seek_uuid;
@@ -480,6 +558,43 @@ static macho_seek_result __macho_sect_in_lc(
     }
 
 finish:
+    return result;
+}
+
+/*******************************************************************************
+ * macho_find_source_version()
+ *
+ * Returns the contents of the version field of an LC_SOURCE_VERSION load
+ * command.
+ *******************************************************************************/
+static macho_seek_result __source_version_callback(
+                                  struct load_command * load_command,
+                                  const void * file_end,
+                                  uint8_t swap __unused,
+                                  void * user_data)
+{
+    uint64_t    *versionPtr = (uint64_t *) user_data;
+
+    if (load_command->cmd == LC_SOURCE_VERSION) {
+        struct source_version_command * sv_command = (struct source_version_command *)load_command;
+        if (((void *)load_command + load_command->cmdsize) > file_end) {
+            return macho_seek_result_error;
+        }
+        *versionPtr = sv_command->version;
+        return macho_seek_result_found;
+    }
+    return macho_seek_result_not_found;
+}
+
+macho_seek_result macho_find_source_version(
+                                  const void * file_start,
+                                  const void * file_end,
+                                  uint64_t   * version)
+{
+    macho_seek_result  result;
+
+    *version = 0;
+    result = macho_scan_load_commands(file_start, file_end, __source_version_callback, version);
     return result;
 }
 
@@ -998,3 +1113,178 @@ finish:
     return result;
 }
 
+/*******************************************************************************
+ * remove the symbol table and string table from the LINKEDIT segment, leaving *
+ * any relocation data within the segment.                                     *
+*******************************************************************************/
+boolean_t macho_trim_linkedit(
+    u_char  *macho,
+    u_long  *amount_trimmed)
+{
+    boolean_t result = FALSE;
+    struct mach_header *mach_hdr;
+    struct mach_header_64 *mach_hdr64;
+    u_char *src, *dst;
+    uint32_t ncmds, cmdsize;
+    boolean_t swap = FALSE;
+    boolean_t is32bit = FALSE;
+    u_int i;
+    u_char *linkedit_segment = NULL;
+    struct symtab_command *symtab = NULL;
+    struct dysymtab_command *dysymtab = NULL;
+
+    *amount_trimmed = 0;    /* initialize */
+
+    swap = macho_swap(macho);
+
+    mach_hdr = (struct mach_header *) macho;
+    mach_hdr64 = (struct mach_header_64 *) macho;
+
+    /* Find the start of the load commands */
+
+    if (mach_hdr->magic == MH_MAGIC) {
+        src = dst = macho + sizeof(*mach_hdr);
+        ncmds = mach_hdr->ncmds;
+        is32bit = TRUE;
+    } else if (mach_hdr->magic == MH_MAGIC_64) {
+        src = dst = macho + sizeof(*mach_hdr64);
+        ncmds = mach_hdr64->ncmds;
+        is32bit = FALSE;
+    } else {
+        goto finish;
+    }
+
+    /* find any LINKEDIT-related load commands */
+
+    for (i = 0; i < ncmds; ++i, src += cmdsize) {
+        struct load_command * lc = (struct load_command *) src;
+        struct segment_command *seg = (struct segment_command *) src;
+        struct segment_command_64 *seg64 = (struct segment_command_64 *) src;
+
+        cmdsize = lc->cmdsize;
+
+        /* First, identify the load commands of interest */
+        switch (lc->cmd) {
+            case LC_SEGMENT:
+                if (!strncmp(seg->segname, SEG_LINKEDIT, sizeof(SEG_LINKEDIT) - 1)) {
+                    linkedit_segment = src;
+                }
+                break;
+                
+            case LC_SEGMENT_64:
+                if (!strncmp(seg64->segname, SEG_LINKEDIT, sizeof(SEG_LINKEDIT) - 1)) {
+                    linkedit_segment = src;
+                }
+                break;
+                
+            case LC_SYMTAB:
+                symtab = (struct symtab_command *) src;
+                break;
+                
+            case LC_DYSYMTAB:
+                dysymtab = (struct dysymtab_command *) src;
+                break;
+        }
+    }
+
+    /* was a LINKEDIT segment found? (it damned well better be there!) */
+    if (linkedit_segment == NULL)
+        goto finish;	/* yowza! */
+
+    /* if no DYSYMTAB command was found, just remove the entire LINKEDIT segment */
+    if (dysymtab == NULL) {
+        if (swap) macho_unswap(macho);
+        return (macho_remove_linkedit(macho, amount_trimmed));
+    }
+    else {
+
+        /* Calculate size of symbol table (including strings):
+         *   # of symbols * sizeof (nlist | nlist_64)...
+         *   + size of string table...
+         *   aligned to 8-byte boundary
+         */
+        u_long symtab_size = (((symtab->nsyms
+                                * (is32bit ? sizeof(struct nlist) : sizeof(struct nlist_64)))
+                               + symtab->strsize) + 7 ) & ~7;
+
+        /* calculate size of relocation entries */
+        u_long reloc_size = dysymtab->nlocrel * sizeof(struct relocation_info);
+
+        /* cache old vmsize */
+        u_long  old_vmsize = 
+            (is32bit
+                ? ((struct segment_command *)    linkedit_segment)->vmsize
+                : ((struct segment_command_64 *) linkedit_segment)->vmsize);
+
+        /* calculate new segment size after removal of symtab/stringtab data */
+        u_long  new_vmsize = round_page(reloc_size);
+
+        /* If the relocation entries are positioned within the LINKEDIT segment AFTER
+         * the symbol table, those entries must be moved within the segment. Otherwise,
+         * the segment can simply be truncated to remove the symbol table.
+         */
+        if (symtab->symoff < dysymtab->locreloff) {
+            /* move them up within the segment, overwriting the existing symbol table */
+            memmove(macho + symtab->symoff, macho + dysymtab->locreloff, reloc_size);
+            
+            /* update the header field */
+            dysymtab->locreloff = symtab->symoff;
+            
+            /* clear now-unused data within the segment */
+            bzero(macho + dysymtab->locreloff + reloc_size, symtab_size);
+        }
+        else {
+            /* symtab/stringtab entries are located after the relocation entries
+             * in the segment. Therefore, we just have to truncate the segment
+             * appropriately
+             */
+            bzero(macho + symtab->symoff, symtab_size);	/* wipe any existing data */
+        }
+
+        /* update LINKEDIT segment command with new size */
+        if (is32bit) {
+            ((struct segment_command *) linkedit_segment)->vmsize = 
+            ((struct segment_command *) linkedit_segment)->filesize = new_vmsize;
+        }
+        else {
+            ((struct segment_command_64 *) linkedit_segment)->vmsize = 
+            ((struct segment_command_64 *) linkedit_segment)->filesize = new_vmsize;
+        }
+
+        /* notify caller of # of bytes removed from segment */
+        *amount_trimmed = old_vmsize - new_vmsize;
+    }
+
+    /* now that the LINKEDIT segment contents have been adjusted properly, we must
+     * remove the actual SYMTAB load command from the header
+     */
+    src = dst;  /* reset for second pass through header */
+    for (i = 0; i < ncmds; ++i, src += cmdsize) {
+        struct load_command * lc = (struct load_command *) src;
+
+        cmdsize = lc->cmdsize;
+
+        if (lc->cmd == LC_SYMTAB) {
+            if (is32bit) {
+                mach_hdr->ncmds--;
+                mach_hdr->sizeofcmds -= cmdsize;
+            } else {
+                mach_hdr64->ncmds--;
+                mach_hdr64->sizeofcmds -= cmdsize;
+            }
+            bzero(src, lc->cmdsize);	/* zap the SYMTAB command */
+        }
+        else {
+            /* move remaining load commands up within the header */
+            if (dst != src) {
+                memmove(dst, src, cmdsize);
+            }
+            dst += cmdsize;
+        }
+    }
+
+    result = TRUE;
+finish:
+    if (swap) macho_unswap(macho);
+    return result;
+}

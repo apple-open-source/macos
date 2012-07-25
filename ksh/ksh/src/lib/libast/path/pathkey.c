@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -32,13 +32,26 @@
  *	ATTRIBUTES	list of attribute names
  */
 
+#define _AST_API_H	1
+
 #include <ast.h>
 #include <ctype.h>
 #include <fs3d.h>
 #include <preroot.h>
+#include <ls.h>
 
 char*
-pathkey(char* key, char* attr, const char* lang, const char* tool, const char* apath)
+pathkey(char* key, char* attr, const char* lang, const char* tool, const char* path)
+{
+	return pathkey_20100601(lang, tool, path, key, 16, attr, PATH_MAX);
+}
+
+#undef	_AST_API_H
+
+#include <ast_api.h>
+
+char*
+pathkey_20100601(const char* lang, const char* tool, const char* apath, char* key, size_t keysize, char* attr, size_t attrsize)
 {
 	register char*		path = (char*)apath;
 	register char*		s;
@@ -53,6 +66,9 @@ pathkey(char* key, char* attr, const char* lang, const char* tool, const char* a
 	char*			env[elementsof(usr) + 3];
 	char*			ver[2];
 	char			tmp[PATH_MAX];
+#if _UWIN
+	struct stat		st;
+#endif
 
 	static char		let[] = "ABCDEFGHIJKLMNOP";
 
@@ -83,7 +99,7 @@ pathkey(char* key, char* attr, const char* lang, const char* tool, const char* a
 				flags = 0;
 			else
 			{
-				strcpy(tmp, path);
+				strlcpy(tmp, path, sizeof(tmp));
 				*(flags = tmp + (flags - path)) = 0;
 				path = tmp;
 			}
@@ -93,7 +109,7 @@ pathkey(char* key, char* attr, const char* lang, const char* tool, const char* a
 		 * 3D
 		 */
 
-		if (fs3d(FS3D_TEST) && (c = mount(path, tmp, FS3D_GET|FS3D_ALL|FS3D_SIZE(PATH_MAX), NiL)) > 1 && c < PATH_MAX)
+		if (!flags && fs3d(FS3D_TEST) && (c = mount(path, tmp, FS3D_GET|FS3D_ALL|FS3D_SIZE(PATH_MAX), NiL)) > 1 && c < PATH_MAX)
 			path = tmp;
 
 		/*
@@ -114,6 +130,15 @@ pathkey(char* key, char* attr, const char* lang, const char* tool, const char* a
 #else
 		if ((k = getenv("VIRTUAL_ROOT")) && *k == '/')
 		{
+			n = memsum(k, strlen(k), n);
+			if (attr)
+				attr = strcopy(attr, k);
+		}
+#endif
+#if _UWIN
+		if (!stat("/", &st) && st.st_ino != 8 * sizeof(char*) && (st.st_ino == 32 || st.st_ino == 64))
+		{
+			k = sizeof(char*) == 4 ? "/64" : "/32";
 			n = memsum(k, strlen(k), n);
 			if (attr)
 				attr = strcopy(attr, k);
@@ -151,7 +176,7 @@ pathkey(char* key, char* attr, const char* lang, const char* tool, const char* a
 		if (!(k = getenv("PROBE_ATTRIBUTES")))
 			k = getenv("VERSION_ENVIRONMENT");
 		if (k)
-			while (c < elementsof(usr))
+			while (c < (elementsof(usr) - 1))
 			{
 				while (*k && (*k == ':' || *k == ' '))
 					k++;

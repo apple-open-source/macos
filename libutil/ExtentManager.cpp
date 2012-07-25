@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009,2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,27 +121,49 @@ ExtentManager::RemoveBlockRangeExtent(off_t blockAddr, off_t numBlocks)
 		}
 		if (BeforeExtent(ext, *curIt)) // we are done
 			break;
-		// overlapped extents
+		
+		//
+		// If we get here, the input extent and *curIt have at least one block in common.
+		// That is, they overlap in some way.  Thus *curIt needs to change, be removed,
+		// or be split into two non-contiguous extents.
+		//
+		
 		if (curIt->blockAddr >= ext.blockAddr &&
 			curIt->blockAddr + curIt->numBlocks <= ext.blockAddr + ext.numBlocks) {
-			// *curIt is totally within ext, remove curIt
+			//
+			// The input extent totally contains *curIt, so remove *curIt.
+			//
 			curIt = extentList.erase(curIt);
 		} else if (curIt->blockAddr < ext.blockAddr &&
 			curIt->blockAddr + curIt->numBlocks > ext.blockAddr + ext.numBlocks) {
-			// ext is totally within *curIt, split ext into two
+			//
+			// The input extent does not include the start of *curIt, nor the end of *curIt,
+			// so split *curIt into two extents.
+			//
 			newExt.blockAddr = ext.blockAddr + ext.numBlocks;
 			newExt.numBlocks = curIt->blockAddr + curIt->numBlocks - newExt.blockAddr;
 			curIt->numBlocks = ext.blockAddr - curIt->blockAddr;
 			curIt++;
 			extentList.insert(curIt, newExt); // throws bad_alloc when out of memory
 			curIt++;	
-		} else { // remove part of ext
-			if (curIt->blockAddr >= ext.blockAddr) { // remove the former part of *curIt
-				assert(curIt->blockAddr + curIt->numBlocks > newExt.blockAddr);
+		} else {
+			//
+			// The input extent contains either the start or the end of *curIt, but not both.
+			// The remove will leave either the end or the start of *curIt (respectively) and
+			// not change the number of extents in the list.
+			//
+			if (curIt->blockAddr >= ext.blockAddr) {
+				//
+				// Remove the start of *curIt by updating both its starting block and size.
+				//
+				assert(curIt->blockAddr + curIt->numBlocks > ext.blockAddr + ext.numBlocks);
 				newExt.blockAddr = ext.blockAddr + ext.numBlocks;
 				newExt.numBlocks = curIt->blockAddr + curIt->numBlocks - newExt.blockAddr;
 				*curIt = newExt;
-			} else { // remove the latter part of *curIt
+			} else {
+				//
+				// Remove the end of *curIt by updating its size.
+				//
 				curIt->numBlocks = ext.blockAddr - curIt->blockAddr;
 			}
 			curIt++;
@@ -169,3 +191,115 @@ ExtentManager::DebugPrint()
 	}
 	printf("\n");
 }
+
+
+#if UNIT_TEST
+
+/*
+clang++ -arch i386 -arch x86_64 -DUNIT_TEST ExtentManager.cpp -o ExtentManager && ./ExtentManager
+*/
+
+#include <cstdio>
+#include <cstdlib>
+
+const char *DebugDescription(class ExtentManager *extMan)
+{
+	char *result = strdup("");
+	char *temp;
+	
+	ListExtIt it;
+
+	for (it = extMan->extentList.begin(); it != extMan->extentList.end(); it++) {
+		temp = result;
+		asprintf(&result, "%s[%lld, %lld] ", temp, it->blockAddr, it->numBlocks);
+		free(temp);
+	}
+	
+	return result;
+}
+
+int SimpleTestCase(off_t addAddr, off_t addBlocks, off_t removeAddr, off_t removeBlocks, const char *expectedResult)
+{
+	class ExtentManager extMan;
+	const char *actualResult;
+	int result = 0;
+	
+	extMan.Init(512, 512, 512*999);
+	extMan.AddBlockRangeExtent(addAddr, addBlocks);
+	extMan.RemoveBlockRangeExtent(removeAddr, removeBlocks);
+	actualResult = DebugDescription(&extMan);
+	if (strcmp(actualResult, expectedResult))
+	{
+		fprintf(stderr,
+				"SimpleTestCase(%lld, %lld, %lld, %lld) failed.\n"
+				"    Expected result: %s\n"
+				"      Actual result: %s\n",
+				addAddr, addBlocks, removeAddr, removeBlocks,
+				expectedResult, actualResult);
+		result = 1;
+	}
+	free((void *)actualResult);
+	
+	return result;
+}
+
+int main(void)
+{
+	int failed = 0;
+	class ExtentManager *extMan;
+	
+	// Create an extent, and remove one contained inside,
+	// leaving the start and end of the original extent.
+	// Create: [xxxxxxxxxx]
+	// Remove:   [......]
+	failed |= SimpleTestCase(10, 10, 12, 6, "[0, 0] [10, 2] [18, 2] [999, 0] ");
+
+	// Create an extent, and remove the whole extent.
+	// Create: [xxxxxxxxxx]
+	// Remove: [..........]
+	failed |= SimpleTestCase(10, 10, 10, 10, "[0, 0] [999, 0] ");
+	
+	// Create an extent, and remove the first part of the extent.
+	// Create: [xxxxxxxxxx]
+	// Remove: [......]
+	failed |= SimpleTestCase(10, 10, 10, 6, "[0, 0] [16, 4] [999, 0] ");
+
+	// Create an extent, and remove the last part of the extent.
+	// Create: [xxxxxxxxxx]
+	// Remove:     [......]
+	failed |= SimpleTestCase(10, 10, 14, 6, "[0, 0] [10, 4] [999, 0] ");
+	
+	// Create an extent and remove before the start, through the middle.
+	// Create:     [xxxxxxxxxx]
+	// Remove: [..........]
+	failed |= SimpleTestCase(10, 10, 6, 10, "[0, 0] [16, 4] [999, 0] ");
+
+	// Create an extent and remove from middle to past the end.
+	// Create: [xxxxxxxxxx]
+	// Remove:     [..........]
+	failed |= SimpleTestCase(10, 10, 14, 10, "[0, 0] [10, 4] [999, 0] ");
+	
+	// Create an extent and remove from before through past end.
+	// Create:   [xxxxxxxxxx]
+	// Remove: [..............]
+	failed |= SimpleTestCase(10, 10, 6, 18, "[0, 0] [999, 0] ");
+	
+	// Create an extent and remove purely before the extent.
+	// Create:      [xxxxxxxxxx]
+	// Remove: [...]
+	failed |= SimpleTestCase(10, 10, 2, 5, "[0, 0] [10, 10] [999, 0] ");
+	
+	// Create an extent and remove purely after the extent.
+	// Create: [xxxxxxxxxx]
+	// Remove:              [...]
+	failed |= SimpleTestCase(10, 10, 22, 5, "[0, 0] [10, 10] [999, 0] ");
+	
+	if (failed)
+		printf("FAIL!\n");
+	else
+		printf("Success.\n");
+	
+	return failed;
+}
+
+#endif /* UNIT_TEST */

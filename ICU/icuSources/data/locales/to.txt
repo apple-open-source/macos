@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/to.xml
@@ -20,7 +20,7 @@ to{
     LocaleScript{
         "Latn",
     }
-    Version{"2.0.47.65"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -43,7 +43,7 @@ to{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"d EEE"}
+                Ed{"d E"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
                 M{"L"}
@@ -60,9 +60,9 @@ to{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M-yyyy"}
-                yMEd{"EEE, d/M/yyyy"}
+                yMEd{"E, d/M/yyyy"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE d MMM y"}
+                yMMMEd{"E d MMM y"}
                 yMMMM{"MMMM y"}
                 yQ{"yyyy Q"}
                 yQQQ{"y QQQ"}
@@ -123,11 +123,9 @@ to{
                     relative{
                         "-1"{"ʻaneafi"}
                         "-2"{"ʻaneheafi"}
-                        "-3"{"ʻAho tolu kuoʻosi"}
                         "0"{"ʻaho⸍ni"}
                         "1"{"ʻapongipongi"}
                         "2"{"ʻahepongipongi"}
-                        "3"{"ʻAho tolu kahaʻu"}
                     }
                 }
                 dayperiod{
@@ -175,9 +173,6 @@ to{
                 MMMEd{
                     M{"E, d MMM - E, d MMM"}
                     d{"E, d MMM - E, d MMM"}
-                }
-                MMMM{
-                    M{"LLLL–LLLL"}
                 }
                 MMMd{
                     M{"d MMM - d MMM"}
@@ -320,8 +315,8 @@ to{
         }
     }
     delimiters{
-        alternateQuotationEnd{"»"}
-        alternateQuotationStart{"«"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
         quotationEnd{"”"}
         quotationStart{"“"}
     }

@@ -1,4 +1,4 @@
-/* $Id: stub.h,v 1.1 2003/06/04 00:27:13 marka Exp $ */
+/* $Id: stub.h,v 1.1.1.1 2003-06-04 00:27:13 marka Exp $ */
 
 #ifndef STUB_H
 #define STUB_H

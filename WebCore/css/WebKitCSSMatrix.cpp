@@ -20,18 +20,18 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "WebKitCSSMatrix.h"
 
 #include "CSSParser.h"
-#include "CSSStyleSelector.h"
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "ExceptionCode.h"
+#include "StylePropertySet.h"
+#include "StyleResolver.h"
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
@@ -41,7 +41,7 @@ WebKitCSSMatrix::WebKitCSSMatrix(const TransformationMatrix& m)
 {
 }
 
-WebKitCSSMatrix::WebKitCSSMatrix(const String& s, ExceptionCode& ec) 
+WebKitCSSMatrix::WebKitCSSMatrix(const String& s, ExceptionCode& ec)
 {
     setMatrixValue(s, ec);
 }
@@ -52,9 +52,12 @@ WebKitCSSMatrix::~WebKitCSSMatrix()
 
 void WebKitCSSMatrix::setMatrixValue(const String& string, ExceptionCode& ec)
 {
-    RefPtr<CSSMutableStyleDeclaration> styleDeclaration = CSSMutableStyleDeclaration::create();
-    if (CSSParser::parseValue(styleDeclaration.get(), CSSPropertyWebkitTransform, string, true, true)) {
-        // Convert to TransformOperations. This can fail if a property 
+    if (string.isEmpty())
+        return;
+
+    RefPtr<StylePropertySet> styleDeclaration = StylePropertySet::create();
+    if (CSSParser::parseValue(styleDeclaration.get(), CSSPropertyWebkitTransform, string, true, CSSStrictMode, 0)) {
+        // Convert to TransformOperations. This can fail if a property
         // requires style (i.e., param uses 'ems' or 'exs')
         RefPtr<CSSValue> value = styleDeclaration->getPropertyCSSValue(CSSPropertyWebkitTransform);
 
@@ -63,11 +66,11 @@ void WebKitCSSMatrix::setMatrixValue(const String& string, ExceptionCode& ec)
             return;
 
         TransformOperations operations;
-        if (!CSSStyleSelector::createTransformOperations(value.get(), 0, 0, operations)) {
+        if (!StyleResolver::createTransformOperations(value.get(), 0, 0, operations)) {
             ec = SYNTAX_ERR;
             return;
         }
-        
+
         // Convert transform operations to a TransformationMatrix. This can fail
         // if a param has a percentage ('%')
         TransformationMatrix t;
@@ -77,10 +80,10 @@ void WebKitCSSMatrix::setMatrixValue(const String& string, ExceptionCode& ec)
                 return;
             }
         }
-        
+
         // set the matrix
         m_matrix = t;
-    } else if (!string.isEmpty()) // There is something there but parsing failed
+    } else // There is something there but parsing failed.
         ec = SYNTAX_ERR;
 }
 
@@ -99,7 +102,7 @@ PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::inverse(ExceptionCode& ec) const
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    
+
     return WebKitCSSMatrix::create(m_matrix.inverse());
 }
 
@@ -129,7 +132,7 @@ PassRefPtr<WebKitCSSMatrix> WebKitCSSMatrix::rotate(double rotX, double rotY, do
 {
     if (isnan(rotX))
         rotX = 0;
-        
+
     if (isnan(rotY) && isnan(rotZ)) {
         rotZ = rotX;
         rotX = 0;

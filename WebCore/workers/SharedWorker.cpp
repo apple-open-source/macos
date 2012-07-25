@@ -49,7 +49,7 @@ inline SharedWorker::SharedWorker(ScriptExecutionContext* context)
 {
 }
 
-PassRefPtr<SharedWorker> SharedWorker::create(const String& url, const String& name, ScriptExecutionContext* context, ExceptionCode& ec)
+PassRefPtr<SharedWorker> SharedWorker::create(ScriptExecutionContext* context, const String& url, const String& name, ExceptionCode& ec)
 {
     RefPtr<SharedWorker> worker = adoptRef(new SharedWorker(context));
 
@@ -57,6 +57,8 @@ PassRefPtr<SharedWorker> SharedWorker::create(const String& url, const String& n
     worker->m_port = channel->port1();
     OwnPtr<MessagePortChannel> remotePort = channel->port2()->disentangle(ec);
     ASSERT(remotePort);
+
+    worker->suspendIfNeeded();
 
     KURL scriptURL = worker->resolveURL(url, ec);
     if (scriptURL.isEmpty())
@@ -71,6 +73,11 @@ PassRefPtr<SharedWorker> SharedWorker::create(const String& url, const String& n
 
 SharedWorker::~SharedWorker()
 {
+}
+
+const AtomicString& SharedWorker::interfaceName() const
+{
+    return eventNames().interfaceForSharedWorker;
 }
 
 } // namespace WebCore

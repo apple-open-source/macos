@@ -55,4 +55,4 @@ identifierToStringWithBuffer(uint8_t type, const void * identifier, int len,
 void *
 identifierFromString(const char * str, uint8_t * type, int * len);
 
-#endif _S_HOST_IDENTIFIER_H
+#endif /* _S_HOST_IDENTIFIER_H */

@@ -1,19 +1,19 @@
 /***********************************************************************
  * Copyright (c) 2009, Secure Endpoints Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  * - Redistributions of source code must retain the above copyright
  *   notice, this list of conditions and the following disclaimer.
- * 
+ *
  * - Redistributions in binary form must reproduce the above copyright
  *   notice, this list of conditions and the following disclaimer in
  *   the documentation and/or other materials provided with the
  *   distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -26,12 +26,10 @@
  * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
  * OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  **********************************************************************/
 
-#ifdef HAVE_CONFIG_H
 #include<config.h>
-#endif
 
 #include <stdlib.h>
 #include <io.h>
@@ -55,14 +53,71 @@ struct _dirent_dirinfo {
 
 #define INITIAL_ENTRIES 16
 
+/**
+ * Create a filespec for use with _findfirst() using a path spec
+ *
+ * If the last component of the path spec contains wildcards, we let
+ * it be.  If the last component doesn't end with a slash, we add one.
+ */
+static const char *
+filespec_from_dir_path(const char * path, char * buffer, size_t cch_buffer)
+{
+    char *comp, *t;
+    size_t pos;
+    int found_sep = 0;
+
+    if (strcpy_s(buffer, cch_buffer, path) != 0)
+        return NULL;
+
+    comp = strrchr(buffer, '\\');
+    if (comp == NULL)
+        comp = buffer;
+    else
+        found_sep = 1;
+
+    t = strrchr(comp, '/');
+    if (t != NULL) {
+        comp = t;
+        found_sep = 1;
+    }
+
+    if (found_sep)
+        comp++;
+
+    pos = strcspn(comp, "*?");
+    if (comp[pos] != '\0')
+        return buffer;
+
+    /* We don't append a slash if pos == 0 because that changes the
+     * meaning:
+     *
+     * "*.*" is all files in the current directory.
+     * "\*.*" is all files in the root directory of the current drive.
+     */
+    if (pos > 0 && comp[pos - 1] != '\\' &&
+        comp[pos - 1] != '/') {
+        strcat_s(comp, cch_buffer - (comp - buffer), "\\");
+    }
+
+    strcat_s(comp, cch_buffer - (comp - buffer), "*.*");
+
+    return buffer;
+}
+
 ROKEN_LIB_FUNCTION DIR * ROKEN_LIB_CALL
-opendir(const char * filespec)
+opendir(const char * path)
 {
     DIR *              dp;
     struct _finddata_t fd;
     intptr_t           fd_handle;
+    const char         *filespec;
+    char               path_buffer[1024];
 
     memset(&fd, 0, sizeof(fd));
+
+    filespec = filespec_from_dir_path(path, path_buffer, sizeof(path_buffer)/sizeof(char));
+    if (filespec == NULL)
+        return NULL;
 
     fd_handle = _findfirst(filespec, &fd);
 
@@ -87,7 +142,7 @@ opendir(const char * filespec)
     }
 
     do {
-        long len = strlen(fd.name);
+        size_t len = strlen(fd.name);
         struct dirent * e;
 
         if (dp->n_entries == dp->nc_entries) {

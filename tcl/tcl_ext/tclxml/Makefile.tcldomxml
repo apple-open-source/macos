@@ -27,5 +27,4 @@ build install clean almostclean::
 	$(_v) $(MAKE) -f Makefile.tclxslt $@ \
 	    Extra_TEA_Configure_Flags="--with-$(Project)=$(OBJROOT)" \
 	    AM_CPPFLAGS="$(AM_CPPFLAGS) -I$(Sources)" \
-	    TclExtHtmlDir="$(TclExtHtmlDir)" \
 	    OBJROOT="$(OBJROOT)/../../tclxslt" DSTROOT="$(DSTROOT)"

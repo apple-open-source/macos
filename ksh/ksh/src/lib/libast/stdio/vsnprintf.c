@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -24,32 +24,29 @@
 #include "stdhdr.h"
 
 int
-vsnprintf(char* s, int n, const char* fmt, va_list args)
+vsnprintf(char* s, int n, const char* form, va_list args)
 {
-	Sfio_t	f;
-	int	v;
+	Sfio_t*	f;
+	ssize_t	rv;
 
-	if (!s)
+	/* make a temp stream */
+	if(!(f = sfnew(NIL(Sfio_t*),NIL(char*),(size_t)SF_UNBOUND,
+                        -1,SF_WRITE|SF_STRING)) )
 		return -1;
 
-	/*
-	 * make a fake stream
-	 */
+	if((rv = sfvprintf(f,form,args)) >= 0 )
+	{	if(s && n > 0)
+		{	if((rv+1) >= n)
+				n--;
+			else
+				n = rv;
+			memcpy(s, f->data, n);
+			s[n] = 0;
+		}
+		_Sfi = rv;
+	}
 
-	SFCLEAR(&f, NiL);
-	f.flags = SF_STRING|SF_WRITE;
-	f.bits = SF_PRIVATE;
-	f.mode = SF_WRITE;
-	f.size = n - 1;
-	f.data = f.next = f.endr = (uchar*)s;
-	f.endb = f.endw = f.data + f.size;
+	sfclose(f);
 
-	/*
-	 * call and fix up
-	 */
-
-	v = sfvprintf(&f, fmt, args);
-	*f.next = 0;
-	_Sfi = f.next - f.data;
-	return v;
+	return rv;
 }

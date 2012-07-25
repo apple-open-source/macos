@@ -1,8 +1,8 @@
 /* backend.c - routines for dealing with back-end databases */
-/* $OpenLDAP: pkg/ldap/servers/slapd/backend.c,v 1.362.2.32 2010/04/14 22:59:08 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -464,12 +464,17 @@ void backend_destroy_one( BackendDB *bd, int dynamic )
 	}
 	acl_destroy( bd->be_acl );
 	limits_destroy( bd->be_limits );
+	if ( bd->be_extra_anlist ) {
+		anlist_free( bd->be_extra_anlist, 1, NULL );
+	}
 	if ( !BER_BVISNULL( &bd->be_update_ndn ) ) {
 		ch_free( bd->be_update_ndn.bv_val );
 	}
 	if ( bd->be_update_refs ) {
 		ber_bvarray_free( bd->be_update_refs );
 	}
+
+	ldap_pvt_thread_mutex_destroy( &bd->be_pcl_mutex );
 
 	if ( dynamic ) {
 		free( bd );
@@ -620,6 +625,7 @@ backend_db_init(
 		/* If we created and linked this be, remove it and free it */
 		if ( !b0 ) {
 			LDAP_STAILQ_REMOVE(&backendDB, be, BackendDB, be_next);
+			ldap_pvt_thread_mutex_destroy( &be->be_pcl_mutex );
 			ch_free( be );
 			be = NULL;
 			nbackends--;
@@ -1048,7 +1054,7 @@ backend_check_restrictions(
 		requires |= op->o_bd->be_requires;
 		bssf = &op->o_bd->be_ssf_set.sss_ssf;
 		fssf = &ssfs.sss_ssf;
-		for ( i=0; i<sizeof(ssfs)/sizeof(slap_ssf_t); i++ ) {
+		for ( i=0; i < (int)(sizeof(ssfs)/sizeof(slap_ssf_t)); i++ ) {
 			if ( bssf[i] ) fssf[i] = bssf[i];
 		}
 	}
@@ -1670,7 +1676,7 @@ fe_acl_attribute(
 
 		a = attr_find( e->e_attrs, entry_at );
 		if ( a == NULL ) {
-			SlapReply	rs = { 0 };
+			SlapReply	rs = { REP_SEARCH };
 			AttributeName	anlist[ 2 ];
 
 			anlist[ 0 ].an_name = entry_at->ad_cname;
@@ -1683,8 +1689,7 @@ fe_acl_attribute(
  			 * to do no harm to entries */
  			rs.sr_entry = e;
   			rc = backend_operational( op, &rs );
- 			rs.sr_entry = NULL;
- 
+
 			if ( rc == LDAP_SUCCESS ) {
 				if ( rs.sr_operational_attrs ) {
 					freeattr = 1;
@@ -1789,15 +1794,18 @@ backend_access(
 	slap_mask_t		*mask )
 {
 	Entry		*e = NULL;
-	void		*o_priv = op->o_private, *e_priv = NULL;
+	void		*o_priv, *e_priv = NULL;
 	int		rc = LDAP_INSUFFICIENT_ACCESS;
-	Backend		*be = op->o_bd;
+	Backend		*be;
 
 	/* pedantic */
 	assert( op != NULL );
 	assert( op->o_conn != NULL );
 	assert( edn != NULL );
 	assert( access > ACL_NONE );
+
+	be = op->o_bd;
+	o_priv = op->o_private;
 
 	if ( !op->o_bd ) {
 		op->o_bd = select_backend( edn, 0 );
@@ -1835,7 +1843,7 @@ backend_access(
 		} else {
 			a = attr_find( e->e_attrs, entry_at );
 			if ( a == NULL ) {
-				SlapReply	rs = { 0 };
+				SlapReply	rs = { REP_SEARCH };
 				AttributeName	anlist[ 2 ];
 
 				anlist[ 0 ].an_name = entry_at->ad_cname;
@@ -1850,7 +1858,6 @@ backend_access(
 				 * to do no harm to entries */
 				rs.sr_entry = e;
 				rc = backend_operational( op, &rs );
-				rs.sr_entry = NULL;
 
 				if ( rc == LDAP_SUCCESS ) {
 					if ( rs.sr_operational_attrs ) {

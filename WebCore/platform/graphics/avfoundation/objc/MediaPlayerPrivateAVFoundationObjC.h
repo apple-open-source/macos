@@ -30,28 +30,20 @@
 
 #include "MediaPlayerPrivateAVFoundation.h"
 
-#ifdef __OBJC__
-@class AVAsset;
-@class AVPlayer;
-@class AVPlayerItem;
-@class AVPlayerLayer;
-@class AVAssetImageGenerator;
-@class WebCoreAVFMovieObserver;
-#else
-class AVAsset;
-class AVPlayer;
-class AVPlayerItem;
-class AVPlayerLayer;
-class AVAssetImageGenerator;
-class WebCoreAVFMovieObserver;
+OBJC_CLASS AVAsset;
+OBJC_CLASS AVPlayer;
+OBJC_CLASS AVPlayerItem;
+OBJC_CLASS AVPlayerLayer;
+OBJC_CLASS AVAssetImageGenerator;
+OBJC_CLASS WebCoreAVFMovieObserver;
+
+#ifndef __OBJC__
 typedef struct objc_object *id;
 #endif
 
 typedef struct CGImage *CGImageRef;
 
 namespace WebCore {
-
-class ApplicationCacheResource;
 
 class MediaPlayerPrivateAVFoundationObjC : public MediaPlayerPrivateAVFoundation {
 public:
@@ -90,9 +82,6 @@ private:
     virtual void createAVPlayer();
     virtual void createAVPlayerItem();
     virtual void createAVAssetForURL(const String& url);
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    virtual void createAVAssetForCacheResource(ApplicationCacheResource*);
-#endif
     virtual MediaPlayerPrivateAVFoundation::ItemStatus playerItemStatus() const;
     virtual MediaPlayerPrivateAVFoundation::AssetStatus assetStatus() const;
 

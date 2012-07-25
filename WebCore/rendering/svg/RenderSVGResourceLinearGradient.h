@@ -39,10 +39,13 @@ public:
     virtual RenderSVGResourceType resourceType() const { return s_resourceType; }
     static RenderSVGResourceType s_resourceType;
 
-    virtual bool boundingBoxMode() const { return m_attributes.boundingBoxMode(); }
+    virtual SVGUnitTypes::SVGUnitType gradientUnits() const { return m_attributes.gradientUnits(); }
     virtual void calculateGradientTransform(AffineTransform& transform) { transform = m_attributes.gradientTransform(); }
-    virtual void collectGradientAttributes(SVGGradientElement*);
-    virtual void buildGradient(GradientData*, SVGGradientElement*) const;
+    virtual bool collectGradientAttributes(SVGGradientElement*);
+    virtual void buildGradient(GradientData*) const;
+
+    FloatPoint startPoint(const LinearGradientAttributes&) const;
+    FloatPoint endPoint(const LinearGradientAttributes&) const;
 
 private:
     LinearGradientAttributes m_attributes;

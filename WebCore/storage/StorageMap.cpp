@@ -26,8 +26,6 @@
 #include "config.h"
 #include "StorageMap.h"
 
-#if ENABLE(DOM_STORAGE)
-
 namespace WebCore {
 
 PassRefPtr<StorageMap> StorageMap::create(unsigned quota)
@@ -133,9 +131,9 @@ PassRefPtr<StorageMap> StorageMap::setItem(const String& key, const String& valu
     }
     m_currentLength = newLength;
 
-    pair<HashMap<String, String>::iterator, bool> addResult = m_map.add(key, value);
-    if (!addResult.second)
-        addResult.first->second = value;
+    HashMap<String, String>::AddResult addResult = m_map.add(key, value);
+    if (!addResult.isNewEntry)
+        addResult.iterator->second = value;
 
     invalidateIterator();
 
@@ -173,8 +171,8 @@ void StorageMap::importItem(const String& key, const String& value)
 {
     // Be sure to copy the keys/values as items imported on a background thread are destined
     // to cross a thread boundary
-    pair<HashMap<String, String>::iterator, bool> result = m_map.add(key.isolatedCopy(), value.isolatedCopy());
-    ASSERT_UNUSED(result, result.second);  // True if the key didn't exist previously.
+    HashMap<String, String>::AddResult result = m_map.add(key.isolatedCopy(), value.isolatedCopy());
+    ASSERT_UNUSED(result, result.isNewEntry); // True if the key didn't exist previously.
 
     ASSERT(m_currentLength + key.length() >= m_currentLength);
     m_currentLength += key.length();
@@ -183,5 +181,3 @@ void StorageMap::importItem(const String& key, const String& value)
 }
 
 }
-
-#endif // ENABLE(DOM_STORAGE)

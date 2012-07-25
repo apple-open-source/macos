@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(DOM_STORAGE) && ENABLE(INSPECTOR)
+#if ENABLE(INSPECTOR)
 
 #include "InspectorDOMStorageResource.h"
 
@@ -42,6 +42,7 @@
 #include "InspectorValues.h"
 #include "SecurityOrigin.h"
 #include "Storage.h"
+#include "StorageArea.h"
 #include "StorageEvent.h"
 
 using namespace JSC;
@@ -50,13 +51,13 @@ namespace WebCore {
 
 int InspectorDOMStorageResource::s_nextUnusedId = 1;
 
-InspectorDOMStorageResource::InspectorDOMStorageResource(Storage* domStorage, bool isLocalStorage, Frame* frame)
+InspectorDOMStorageResource::InspectorDOMStorageResource(StorageArea* storageArea, bool isLocalStorage, Frame* frame)
     :  EventListener(InspectorDOMStorageResourceType)
-    , m_domStorage(domStorage)
+    , m_storageArea(storageArea)
     , m_isLocalStorage(isLocalStorage)
     , m_frame(frame)
     , m_frontend(0)
-    , m_id(s_nextUnusedId++)
+    , m_id(String::number(s_nextUnusedId++))
     , m_reportingChangesToFrontend(false)
 {
 }
@@ -71,10 +72,10 @@ void InspectorDOMStorageResource::bind(InspectorFrontend* frontend)
     ASSERT(!m_frontend);
     m_frontend = frontend->domstorage();
 
-    RefPtr<InspectorObject> jsonObject = InspectorObject::create();
-    jsonObject->setString("host", m_frame->document()->securityOrigin()->host());
-    jsonObject->setBoolean("isLocalStorage", m_isLocalStorage);
-    jsonObject->setNumber("id", m_id);
+    RefPtr<TypeBuilder::DOMStorage::Entry> jsonObject = TypeBuilder::DOMStorage::Entry::create()
+        .setHost(m_frame->document()->securityOrigin()->host())
+        .setIsLocalStorage(m_isLocalStorage)
+        .setId(m_id);
     m_frontend->addDOMStorage(jsonObject);
 }
 
@@ -102,7 +103,7 @@ void InspectorDOMStorageResource::startReportingChangesToFrontend()
 void InspectorDOMStorageResource::handleEvent(ScriptExecutionContext*, Event* event)
 {
     ASSERT(m_frontend);
-    if (event->type() != eventNames().storageEvent || !event->isStorageEvent())
+    if (event->type() != eventNames().storageEvent || event->hasInterface(eventNames().interfaceForStorageEvent))
         return;
 
     StorageEvent* storageEvent = static_cast<StorageEvent*>(event);
@@ -120,5 +121,5 @@ bool InspectorDOMStorageResource::operator==(const EventListener& listener)
 
 } // namespace WebCore
 
-#endif // ENABLE(DOM_STORAGE) && ENABLE(INSPECTOR)
+#endif // ENABLE(INSPECTOR)
 

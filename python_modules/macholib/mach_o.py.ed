@@ -1,0 +1,8 @@
+/^LC_REGISTRY = {/-1i
+# Used to represent unknown load commands
+class unknown_command(Structure):
+    _fields_ = (
+    )
+
+.
+w

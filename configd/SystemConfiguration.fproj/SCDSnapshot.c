@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,16 +42,20 @@
 Boolean
 SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	int				sc_status;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return FALSE;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return FALSE;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		/* sorry, you must have an open session to play */
 		_SCErrorSet(kSCStatusNoStoreServer);
@@ -62,21 +66,11 @@ SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 
 	status = snapshot(storePrivate->server, (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreSnapshot snapshot(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreSnapshot snapshot()")) {
+		goto retry;
 	}
 
 	if (sc_status != kSCStatusOK) {

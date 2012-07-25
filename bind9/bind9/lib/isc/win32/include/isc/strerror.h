@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: strerror.h,v 1.5 2007/06/19 23:47:20 tbox Exp $ */
+/* $Id: strerror.h,v 1.5 2007-06-19 23:47:20 tbox Exp $ */
 
 #ifndef ISC_STRERROR_H
 #define ISC_STRERROR_H

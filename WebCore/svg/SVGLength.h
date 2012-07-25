@@ -22,34 +22,22 @@
 #define SVGLength_h
 
 #if ENABLE(SVG)
-#include "ExceptionCode.h"
+#include "AnimationUtilities.h"
+#include "SVGLengthContext.h"
+#include "SVGParsingError.h"
 #include "SVGPropertyTraits.h"
 
 namespace WebCore {
 
 class CSSPrimitiveValue;
+class QualifiedName;
 
-enum SVGLengthType {
-    LengthTypeUnknown = 0,
-    LengthTypeNumber = 1,
-    LengthTypePercentage = 2,
-    LengthTypeEMS = 3,
-    LengthTypeEXS = 4,
-    LengthTypePX = 5,
-    LengthTypeCM = 6,
-    LengthTypeMM = 7,
-    LengthTypeIN = 8,
-    LengthTypePT = 9,
-    LengthTypePC = 10
+typedef int ExceptionCode;
+
+enum SVGLengthNegativeValuesMode {
+    AllowNegativeLengths,
+    ForbidNegativeLengths
 };
-
-enum SVGLengthMode {
-    LengthModeWidth = 0,
-    LengthModeHeight,
-    LengthModeOther
-};
-
-class SVGElement;
 
 class SVGLength {
 public:
@@ -68,17 +56,22 @@ public:
         SVG_LENGTHTYPE_PC = LengthTypePC
     };
 
-    SVGLength(SVGLengthMode mode = LengthModeOther, const String& valueAsString = String());
+    SVGLength(SVGLengthMode = LengthModeOther, const String& valueAsString = String());
+    SVGLength(const SVGLengthContext&, float, SVGLengthMode = LengthModeOther, SVGLengthType = LengthTypeNumber);
     SVGLength(const SVGLength&);
 
     SVGLengthType unitType() const;
+    SVGLengthMode unitMode() const;
 
     bool operator==(const SVGLength&) const;
     bool operator!=(const SVGLength&) const;
 
-    float value(const SVGElement* context) const;
-    float value(const SVGElement* context, ExceptionCode&) const;
-    void setValue(float, const SVGElement* context, ExceptionCode&);
+    static SVGLength construct(SVGLengthMode, const String&, SVGParsingError&, SVGLengthNegativeValuesMode = AllowNegativeLengths);
+
+    float value(const SVGLengthContext&) const;
+    float value(const SVGLengthContext&, ExceptionCode&) const;
+    void setValue(float, const SVGLengthContext&, ExceptionCode&);
+    void setValue(const SVGLengthContext&, float, SVGLengthMode, SVGLengthType, ExceptionCode&);
 
     float valueInSpecifiedUnits() const { return m_valueInSpecifiedUnits; }
     void setValueInSpecifiedUnits(float value) { m_valueInSpecifiedUnits = value; }
@@ -87,9 +80,10 @@ public:
 
     String valueAsString() const;
     void setValueAsString(const String&, ExceptionCode&);
-
+    void setValueAsString(const String&, SVGLengthMode, ExceptionCode&);
+    
     void newValueSpecifiedUnits(unsigned short, float valueInSpecifiedUnits, ExceptionCode&);
-    void convertToSpecifiedUnits(unsigned short, const SVGElement* context, ExceptionCode&);
+    void convertToSpecifiedUnits(unsigned short, const SVGLengthContext&, ExceptionCode&);
 
     // Helper functions
     inline bool isRelative() const
@@ -98,20 +92,70 @@ public:
         return type == LengthTypePercentage || type == LengthTypeEMS || type == LengthTypeEXS;
     }
 
+    bool isZero() const 
+    { 
+        return !m_valueInSpecifiedUnits;
+    }
+
     static SVGLength fromCSSPrimitiveValue(CSSPrimitiveValue*);
     static PassRefPtr<CSSPrimitiveValue> toCSSPrimitiveValue(const SVGLength&);
+    static SVGLengthMode lengthModeForAnimatedLengthAttribute(const QualifiedName&);
 
-private:
-    bool determineViewport(const SVGElement* context, float& width, float& height) const;
+    SVGLength blend(const SVGLength& from, float progress) const
+    {
+        SVGLengthType toType = unitType();
+        SVGLengthType fromType = from.unitType();
+        if ((from.isZero() && isZero())
+            || fromType == LengthTypeUnknown
+            || toType == LengthTypeUnknown
+            || (!from.isZero() && fromType != LengthTypePercentage && toType == LengthTypePercentage)
+            || (!isZero() && fromType == LengthTypePercentage && toType != LengthTypePercentage)
+            || (!from.isZero() && !isZero() && (fromType == LengthTypeEMS || fromType == LengthTypeEXS) && fromType != toType))
+            return *this;
 
-    float convertValueFromPercentageToUserUnits(float value, const SVGElement* context, ExceptionCode&) const;
-    float convertValueFromUserUnitsToPercentage(float value, const SVGElement* context, ExceptionCode&) const;
+        SVGLength length;
+        ExceptionCode ec = 0;
 
-    float convertValueFromUserUnitsToEMS(float value, const SVGElement* context, ExceptionCode&) const;
-    float convertValueFromEMSToUserUnits(float value, const SVGElement* context, ExceptionCode&) const;
+        if (fromType == LengthTypePercentage || toType == LengthTypePercentage) {
+            float fromPercent = from.valueAsPercentage() * 100;
+            float toPercent = valueAsPercentage() * 100;
+            length.newValueSpecifiedUnits(LengthTypePercentage, WebCore::blend(fromPercent, toPercent, progress), ec);
+            if (ec)
+                return SVGLength();
+            return length;
+        }
 
-    float convertValueFromUserUnitsToEXS(float value, const SVGElement* context, ExceptionCode&) const;
-    float convertValueFromEXSToUserUnits(float value, const SVGElement* context, ExceptionCode&) const;
+        if (fromType == toType || from.isZero() || isZero() || fromType == LengthTypeEMS || fromType == LengthTypeEXS) {
+            float fromValue = from.valueInSpecifiedUnits();
+            float toValue = valueInSpecifiedUnits();
+            if (isZero())
+                length.newValueSpecifiedUnits(fromType, WebCore::blend(fromValue, toValue, progress), ec);
+            else
+                length.newValueSpecifiedUnits(toType, WebCore::blend(fromValue, toValue, progress), ec);
+            if (ec)
+                return SVGLength();
+            return length;
+        }
+
+        ASSERT(!isRelative());
+        ASSERT(!from.isRelative());
+
+        SVGLengthContext nonRelativeLengthContext(0);
+        float fromValueInUserUnits = nonRelativeLengthContext.convertValueToUserUnits(from.valueInSpecifiedUnits(), from.unitMode(), fromType, ec);
+        if (ec)
+            return SVGLength();
+
+        float fromValue = nonRelativeLengthContext.convertValueFromUserUnits(fromValueInUserUnits, unitMode(), toType, ec);
+        if (ec)
+            return SVGLength();
+
+        float toValue = valueInSpecifiedUnits();
+        length.newValueSpecifiedUnits(toType, WebCore::blend(fromValue, toValue, progress), ec);
+
+        if (ec)
+            return SVGLength();
+        return length;
+    }
 
 private:
     float m_valueInSpecifiedUnits;

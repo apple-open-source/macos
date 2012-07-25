@@ -35,14 +35,19 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "KURL.h"
-#include <wtf/OwnPtr.h>
-#include "PluginView.h"
-#include "RefCounted.h"
+#include "WebCore/plugins/PluginView.h"
 #include "ResourceError.h"
 #include "ResourceResponse.h"
 #include <QUrl>
 #include <qobject.h>
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/RefCounted.h>
+
+QT_BEGIN_NAMESPACE
+class QNetworkReply;
+QT_END_NAMESPACE
+
 class QWebFrame;
 
 namespace WebCore {
@@ -62,12 +67,12 @@ class FrameLoaderClientQt : public QObject, public FrameLoaderClient {
 
     friend class ::QWebFrame;
     void callPolicyFunction(FramePolicyFunction function, PolicyAction action);
-    void callErrorPageExtension(const ResourceError&);
+    bool callErrorPageExtension(const ResourceError&);
+
 signals:
-    void loadStarted();
     void loadProgress(int d);
-    void loadFinished(bool);
     void titleChanged(const QString& title);
+    void unsupportedContent(QNetworkReply*);
 
 public:
     FrameLoaderClientQt();
@@ -78,7 +83,7 @@ public:
 
     virtual bool hasWebView() const; // mainly for assertions
 
-    virtual void makeRepresentation(DocumentLoader*);
+    virtual void makeRepresentation(DocumentLoader*) { }
     virtual void forceLayout();
     virtual void forceLayoutForNonHTML();
 
@@ -130,11 +135,10 @@ public:
 
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
-    virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
+    virtual void dispatchWillSendSubmitEvent(PassRefPtr<FormState>) { }
     virtual void dispatchWillSubmitForm(FramePolicyFunction, PassRefPtr<FormState>);
 
-    virtual void dispatchDidLoadMainResource(DocumentLoader*);
-    virtual void revertToProvisionalState(DocumentLoader*);
+    virtual void revertToProvisionalState(DocumentLoader*) { }
     virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
 
     virtual void postProgressStartedNotification();
@@ -143,7 +147,7 @@ public:
 
     virtual void setMainFrameDocumentReady(bool);
 
-    virtual void startDownload(const WebCore::ResourceRequest&);
+    virtual void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = String());
 
     virtual void willChangeTitle(DocumentLoader*);
     virtual void didChangeTitle(DocumentLoader*);
@@ -155,16 +159,14 @@ public:
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(HistoryItem*) const;
     virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
-    virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
-    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
-    virtual void dispatchDidChangeBackForwardIndex() const;
     virtual void didDisplayInsecureContent();
     virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
+    virtual void didDetectXSS(const KURL&, bool didBlockEntirePage);
 
     virtual ResourceError cancelledError(const ResourceRequest&);
     virtual ResourceError blockedError(const ResourceRequest&);
     virtual ResourceError cannotShowURLError(const ResourceRequest&);
-    virtual ResourceError interruptForPolicyChangeError(const ResourceRequest&);
+    virtual ResourceError interruptedForPolicyChangeError(const ResourceRequest&);
 
     virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&);
     virtual ResourceError fileDoesNotExistError(const ResourceResponse&);
@@ -200,12 +202,10 @@ public:
     virtual void dispatchDidBecomeFrameset(bool);
 
     virtual bool canCachePage() const;
-    virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+    virtual void download(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
-    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool);
     virtual void redirectDataToPlugin(Widget* pluginWidget);
 
@@ -220,8 +220,8 @@ public:
 
 #if USE(V8)
     // A frame's V8 context was created or destroyed.
-    virtual void didCreateScriptContextForFrame();
-    virtual void didDestroyScriptContextForFrame();
+    virtual void didCreateScriptContext(v8::Handle<v8::Context>, int, int);
+    virtual void willReleaseScriptContext(v8::Handle<v8::Context>, int);
 
     // A context untied to a frame was created (through evaluateInIsolatedWorld).
     // This context is not tied to the lifetime of its frame, and is destroyed
@@ -230,7 +230,7 @@ public:
 
     // Returns true if we should allow the given V8 extension to be added to
     // the script context at the currently loading page and given extension group.
-    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
+    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup, int worldID) { return false; }
 #endif
 
     virtual void registerForIconNotification(bool);
@@ -242,9 +242,11 @@ public:
     const KURL& lastRequestedUrl() const { return m_lastRequestedUrl; }
 
     static bool dumpFrameLoaderCallbacks;
+    static bool dumpProgressFinishedCallback;
     static bool dumpUserGestureInFrameLoaderCallbacks;
     static bool dumpResourceLoadCallbacks;
     static bool dumpResourceResponseMIMETypes;
+    static bool dumpWillCacheResponseCallbacks;
     static QString dumpResourceLoadCallbacksPath;
     static bool sendRequestReturnsNullOnRedirect;
     static bool sendRequestReturnsNull;
@@ -259,6 +261,9 @@ private slots:
     void onIconLoadedForPageURL(const QString&);
 
 private:
+    void emitLoadStarted();
+    void emitLoadFinished(bool ok);
+
     Frame *m_frame;
     QWebFrame *m_webFrame;
     ResourceResponse m_response;
@@ -267,13 +272,8 @@ private:
     WebCore::PluginView* m_pluginView;
     bool m_hasSentResponseToPlugin;
 
-    // True if makeRepresentation was called.  We don't actually have a concept
-    // of a "representation", but we need to know when we're expected to have one.
-    // See finishedLoading().
-    bool m_hasRepresentation;
-
     KURL m_lastRequestedUrl;
-    ResourceError m_loadError;
+    bool m_isOriginatingLoad;
 };
 
 }

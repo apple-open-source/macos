@@ -31,7 +31,7 @@
 #include "config.h"
 #include "PluginDataChromium.h"
 
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 
 namespace WebCore {
 
@@ -50,7 +50,7 @@ public:
     const Vector<PluginInfo>& plugins()
     {
         if (!m_loaded) {
-            PlatformBridge::plugins(m_refresh, &m_plugins);
+            PlatformSupport::plugins(m_refresh, &m_plugins);
             m_loaded = true;
             m_refresh = false;
         }
@@ -63,24 +63,28 @@ private:
     bool m_refresh;
 };
 
-static PluginCache pluginCache;
+static PluginCache& pluginCache()
+{
+    DEFINE_STATIC_LOCAL(PluginCache, cache, ());
+    return cache;
+}
 
 void PluginData::initPlugins(const Page*)
 {
-    const Vector<PluginInfo>& plugins = pluginCache.plugins();
+    const Vector<PluginInfo>& plugins = pluginCache().plugins();
     for (size_t i = 0; i < plugins.size(); ++i)
         m_plugins.append(plugins[i]);
 }
 
 void PluginData::refresh()
 {
-    pluginCache.reset(true);
-    pluginCache.plugins();  // Force the plugins to be reloaded now.
+    pluginCache().reset(true);
+    pluginCache().plugins(); // Force the plugins to be reloaded now.
 }
 
 String getPluginMimeTypeFromExtension(const String& extension)
 {
-    const Vector<PluginInfo>& plugins = pluginCache.plugins();
+    const Vector<PluginInfo>& plugins = pluginCache().plugins();
     for (size_t i = 0; i < plugins.size(); ++i) {
         for (size_t j = 0; j < plugins[i].mimes.size(); ++j) {
             const MimeClassInfo& mime = plugins[i].mimes[j];

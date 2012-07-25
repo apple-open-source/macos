@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,15 +41,10 @@ __private_extern__
 int
 __SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex, CFArrayRef *subKeys)
 {
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFMutableArrayRef		keyArray;
 	CFIndex				storeCnt;
 	CFStringRef			storeStr;
 	CFDictionaryRef			storeValue;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (isRegex) {
 		*subKeys = patternCopyMatches(key);
@@ -104,10 +99,11 @@ _configlist(mach_port_t			server,
 	    int				isRegex,
 	    xmlDataOut_t		*listRef,	/* raw XML bytes */
 	    mach_msg_type_number_t	*listLen,
-	    int				*sc_status
-)
+	    int				*sc_status,
+	    audit_token_t		audit_token)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
+	CFIndex			len;
 	serverSessionRef	mySession;
 	Boolean			ok;
 	CFArrayRef		subKeys;			/* array of CFStringRef's */
@@ -128,8 +124,12 @@ _configlist(mach_port_t			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		goto done;
+		mySession = tempSession(server, CFSTR("SCDynamicStoreCopyKeyList"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
 	}
 
 	*sc_status = __SCDynamicStoreCopyKeyList(mySession->store, key, isRegex != 0, &subKeys);
@@ -138,7 +138,8 @@ _configlist(mach_port_t			server,
 	}
 
 	/* serialize the list of keys */
-	ok = _SCSerialize(subKeys, NULL, (void **)listRef, (CFIndex *)listLen);
+	ok = _SCSerialize(subKeys, NULL, (void **)listRef, &len);
+	*listLen = len;
 	CFRelease(subKeys);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;

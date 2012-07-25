@@ -113,7 +113,7 @@ static void master_unthrottle(MASTER_SERV *serv)
 	event_cancel_timer(master_unthrottle_wrapper, (char *) serv);
 	if (msg_verbose)
 	    msg_info("throttle released for command %s", serv->path);
-	master_avail_listen(serv);		/* XXX interface botch */
+	master_avail_listen(serv);
     }
 }
 
@@ -133,6 +133,7 @@ static void master_throttle(MASTER_SERV *serv)
 			    serv->throttle_delay);
 	if (msg_verbose)
 	    msg_info("throttling command %s", serv->path);
+	master_avail_listen(serv);
     }
 }
 
@@ -286,8 +287,7 @@ static void master_delete_child(MASTER_PROC *proc)
     serv->total_proc--;
     if (proc->avail == MASTER_STAT_AVAIL)
 	master_avail_less(serv, proc);
-    else if (MASTER_LIMIT_OK(serv->max_proc, serv->total_proc)
-	     && serv->avail_proc < 1)
+    else
 	master_avail_listen(serv);
     binhash_delete(master_child_table, (char *) &proc->pid,
 		   sizeof(proc->pid), (void (*) (char *)) 0);

@@ -30,12 +30,15 @@
 #include <Heimdal/locate_plugin.h>
 
 #include <GSS/gssapi.h>
+#include <GSS/gssapi_spi.h>
 #include <GSS/gssapi_spnego.h>
 #include <GSS/spnego_asn1.h>
 
 #include "LKDCHelper.h"
 
 #include <Carbon/Carbon.h>
+#include <CoreServices/CoreServices.h>
+#include <CoreServices/CoreServicesPriv.h>
 #include <Security/Security.h>
 #include <Security/SecCertificateOIDs.h>
 #include <Security/SecCertificatePriv.h>
@@ -46,6 +49,17 @@
 #include <netdb.h>
 
 #include <asl.h>
+
+#include "DeconstructServiceName.h"
+#include "utils.h"
+#include "lookupDSLocalKDC.h"
+
+int
+der_print_heim_oid (
+	const heim_oid */*oid*/,
+	char /*delim*/,
+	char **/*str*/);
+
 
 #define DEBUG 0  /* Set to non-zero for more debug spew than you want. */
 
@@ -201,7 +215,6 @@ lookup_by_kdc(KRBhelperContext *hCtx, const char *name, char **realm)
 {
     krb5_error_code ret;
     krb5_cccol_cursor cursor;
-    krb5_data data;
     krb5_ccache id;
     krb5_creds mcred, *creds;
 
@@ -237,18 +250,6 @@ lookup_by_kdc(KRBhelperContext *hCtx, const char *name, char **realm)
 	    KHLog ("Failed to unparse name %s () - %d", __func__, ret);
 	    goto next;
 	}
-
-	ret = krb5_cc_get_config(hCtx->krb5_ctx, id, NULL, "windows", &data);
-	KHLog ("%s is %sa windows principal %s () - %d", 
-	       clientname,  (ret == 0) ? "" : "not ", __func__, ret);
-	if (ret) {
-	    free(clientname);
-	    krb5_free_principal(hCtx->krb5_ctx, mcred.client);
-	    goto next;
-	}
-	krb5_data_free(&data);
-		
-	/* XXX check not expired */
 
 	ret = krb5_principal_set_realm(hCtx->krb5_ctx, mcred.server, mcred.client->realm);
 	if (ret) {
@@ -298,11 +299,26 @@ strcmp_trailer(const char *f, const char *p)
 static int
 is_local_hostname(const char *host)
 {
+    static dispatch_once_t once;
+    static char *btmmDomain;
+
+    dispatch_once(&once, ^{
+	    CFStringRef d = _CSBackToMyMacCopyDomain();
+	    if (d) {
+		__KRBCreateUTF8StringFromCFString(d, &btmmDomain);
+		CFRelease(d);
+		if (btmmDomain) {
+		    size_t len = strlen(btmmDomain);
+		    if (len > 0 && btmmDomain[len - 1] == '.')
+			btmmDomain[len - 1] = '\0';
+		}
+	    }
+	});
+
+
     if (strcmp_trailer(host, ".local") == 0)
 	return 1;
-    if (strcmp_trailer(host, ".members.mac.com") == 0)
-	return 1;
-    if (strcmp_trailer(host, ".members.me.com") == 0)
+    if (btmmDomain && strcmp_trailer(host, btmmDomain) == 0)
 	return 1;
     if (strchr(host, '.'))
 	return 1;
@@ -870,37 +886,6 @@ KRBCopyServicePrincipalInfo (KRBHelperContextRef inKerberosSession, CFStringRef 
     return err;
 }
 
-/* 
- * Obtain a mallocd C-string representation of a certificate's SHA1 digest. 
- * Only error is a NULL return indicating memory failure. 
- * Caller must free the returned string.
- */
-static char *pkinit_cert_hash_str(const krb5_data *cert)
-{
-    CC_SHA1_CTX ctx;
-    char *outstr;
-    char *cpOut;
-    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
-    unsigned dex;
-    
-    assert(cert != NULL);
-    CC_SHA1_Init(&ctx);
-    CC_SHA1_Update(&ctx, cert->data, cert->length);
-    CC_SHA1_Final(digest, &ctx);
-    
-    outstr = (char *)malloc((2 * CC_SHA1_DIGEST_LENGTH) + 1);
-    if(outstr == NULL) {
-	return NULL;
-    }
-    cpOut = outstr;
-    for(dex=0; dex<CC_SHA1_DIGEST_LENGTH; dex++) {
-	sprintf(cpOut, "%02X", (unsigned)(digest[dex]));
-	cpOut += 2;
-    }
-    *cpOut = '\0';
-    return outstr;
-}
-
 static CFTypeRef
 search_array(CFArrayRef array, CFTypeRef key)
 {
@@ -981,22 +966,12 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
     }
     
     if (NULL != certRef && SecCertificateGetTypeID() == CFGetTypeID (certRef)) {
-        krb5_data kcert;
 	const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
 	const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
         
-        /* get the cert data */
-	CFDataRef certData = SecCertificateCopyData(certRef);
-        if (NULL == certData) { goto Error; }
-        
-        kcert.length = CFDataGetLength(certData);
-        kcert.data = (void *)CFDataGetBytePtr(certData);
+	useClientName = NAHCopyMMeUserNameFromCertificate(certRef);
+	if (useClientName == NULL) { goto Error; }
 
-        cert_hash = pkinit_cert_hash_str(&kcert);
-	CFRelease(certData);
-        if (NULL == cert_hash) { goto Error; }
-
-        useClientName = CFStringCreateWithCString (NULL, cert_hash, kCFStringEncodingASCII);
         usingCertificate = 1;
 
         if (NULL != useClientName) {
@@ -1580,6 +1555,7 @@ KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change, int excl)
     krb5_context kcontext = NULL;
     krb5_ccache id = NULL;
     krb5_error_code kret;
+    krb5_data data;
 
     KHLog ("[[[ KRBCredChangeReferenceCount: %d", change);
 
@@ -1593,14 +1569,23 @@ KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change, int excl)
     if (ret != noErr)
 	goto out;
 
+    /* Skip SSO cred-caches */
+    ret = k5_ok(krb5_cc_get_config(kcontext, id, NULL, "nah-created", &data));
+    if (ret) {
+	ret = 0;
+	goto out;
+    }
+    krb5_data_free(&data);
+
     if (change > 0) 
 	ret = krb5_cc_hold(kcontext, id);
     else
 	ret = krb5_cc_unhold(kcontext, id);
 
-    krb5_cc_close(kcontext, id);
-
  out:
+    if (id)
+	krb5_cc_close(kcontext, id);
+
     KHLog ("]]] KRBCredChangeReferenceCount: %d", (int)ret);
 
     if (kcontext)
@@ -1628,14 +1613,15 @@ OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
     krb5_context kcontext = NULL;
     krb5_ccache id = NULL;
     krb5_data data;
-    char *str = NULL, *label = NULL;
+    char *label = NULL;
 
-    if (__KRBCreateUTF8StringFromCFString (identifier, &str) != noErr) {
+    label = NAHCreateRefLabelFromIdentifier(identifier);
+    if (label == NULL) {
 	ret = memFullErr;
 	goto out;
     }
 
-    KHLog ("[[[ KRBCredAddReferenceAndLabel: label %s", str);
+    KHLog ("%s", "[[[ KRBCredAddReferenceAndLabel");
 
     kret = k5_ok(krb5_init_context(&kcontext));
     if (0 != kret) {
@@ -1658,12 +1644,6 @@ OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
     data.data = (void *)"1";
     data.length = 1;
 
-    asprintf(&label, "ref:%s", str);
-    if (label == NULL) {
-	ret = memFullErr;
-	goto out;
-    }
-
     kret = krb5_cc_set_config(kcontext, id, NULL, label, &data);
     if (kret) {
 	ret = memFullErr;
@@ -1675,15 +1655,13 @@ OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
 	goto out;
 
  out:
-    KHLog ("]]] KRBCredAddReferenceAndLabel () = %d", (int)ret);
+    KHLog ("]]] KRBCredAddReferenceAndLabel () = %d (label %s)", (int)ret, label);
     if (id)
 	krb5_cc_close(kcontext, id);
     if (kcontext)
 	krb5_free_context(kcontext);
     if (label)
 	free(label);
-    if (str)
-	free(str);
 
     return ret;
 }
@@ -1885,8 +1863,6 @@ KRBCreateNegTokenLegacyNTLM(CFAllocatorRef alloc)
 	CFRelease(empty);
     return dict;
 }
-
-
 
 /*
   ;; Local Variables: **

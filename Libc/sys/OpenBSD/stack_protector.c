@@ -28,65 +28,112 @@
  */
 
 #include <sys/param.h>
-#include <sys/sysctl.h>
 #include <signal.h>
 #include <string.h>
-#include <syslog.h>
+#include <stdlib.h>
+#include <asl.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include "CrashReporterClient.h"
+#include "libproc.h"
+#include "_simple.h"
 
-extern int __sysctl(int *, u_int, void *, size_t *, void *, size_t);
-
-long __guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-static void __guard_setup(void) __attribute__ ((constructor));
-void __stack_smash_handler(char func[], int damaged __attribute__((unused)));
+#define	GUARD_MAX 8
+long __stack_chk_guard[GUARD_MAX] = {0, 0, 0, 0, 0, 0, 0, 0};
+void __abort(void) __dead2;
+void __guard_setup(const char *apple[]) __attribute__ ((visibility ("hidden")));
+void __stack_chk_fail(void);
 
 static void
-__guard_setup(void)
+__guard_from_kernel(const char *str)
 {
-	int mib[2];
-	size_t len;
+	unsigned long long val;
+	char tmp[20], *p;
+	int idx = 0;
 
-	if (__guard[0] != 0)
+	/* Skip over the 'stack_guard=' key to the list of values */
+	str = strchr(str, '=');
+	if (str == NULL)
 		return;
+	str++;
 
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_ARND;
-
-	len = sizeof(__guard);
-	if (__sysctl(mib, 2, __guard, &len, NULL, 0) == -1 ||
-	    len != sizeof(__guard)) {
-		/* If sysctl was unsuccessful, use the "terminator canary". */
-		((unsigned char *)__guard)[0] = 0;
-		((unsigned char *)__guard)[1] = 0;
-		((unsigned char *)__guard)[2] = '\n';
-		((unsigned char *)__guard)[3] = 255;
+	while (str && idx < GUARD_MAX) {
+		/*
+		 * Pull the next numeric string out of the list and convert it to
+		 * a real number.
+		 */
+		strlcpy(tmp, str, 20);
+		p = strchr(tmp, ',');
+		if (p)
+			*p = '\0';
+		val = strtoull(tmp, NULL, 0);
+		__stack_chk_guard[idx] = (long)(val & ((unsigned long) -1));
+		idx++;
+		if ((str = strchr(str, ',')) != NULL)
+			str++;
 	}
 }
 
-/*ARGSUSED*/
 void
-__stack_smash_handler(char func[], int damaged)
+__guard_setup(const char *apple[])
 {
-	struct syslog_data sdata = SYSLOG_DATA_INIT;
-	const char message[] = "stack overflow in function %s";
-	struct sigaction sa;
-	sigset_t mask;
+	int fd;
+	size_t len;
+	const char **p;
 
-	/* Immediately block all signal handlers from running code */
-	sigfillset(&mask);
-	sigdelset(&mask, SIGABRT);
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+	if (__stack_chk_guard[0] != 0)
+		return;
 
+	for (p = apple; p && *p; p++) {
+		if (strstr(*p, "stack_guard") == *p) {
+			__guard_from_kernel(*p);
+			if (__stack_chk_guard[0] != 0)
+				return;
+		}
+	}
+
+	fd = open ("/dev/urandom", 0);
+	if (fd != -1) {
+		len = read (fd, (char*)&__stack_chk_guard, sizeof(__stack_chk_guard));
+		close(fd);
+		if (len == sizeof(__stack_chk_guard) && 
+                    *__stack_chk_guard != 0)
+			return;
+	}
+
+	/* If If a random generator can't be used, the protector switches the guard
+           to the "terminator canary" */
+	((unsigned char *)__stack_chk_guard)[0] = 0;
+	((unsigned char *)__stack_chk_guard)[1] = 0;
+	((unsigned char *)__stack_chk_guard)[2] = '\n';
+	((unsigned char *)__stack_chk_guard)[3] = 255;
+}
+
+#define STACKOVERFLOW	"] stack overflow"
+
+void
+__stack_chk_fail()
+{
+	char n[16]; // bigger than will hold the digits in a pid_t
+	char *np;
+	int pid = getpid();
+	char message[sizeof(n) + sizeof(STACKOVERFLOW)] = "[";
+	char prog[2*MAXCOMLEN+1] = {0};
+
+	proc_name(pid, prog, 2*MAXCOMLEN);
+	prog[2*MAXCOMLEN] = 0;
+	np = n + sizeof(n);
+	*--np = 0;
+	while(pid > 0) {
+	    *--np = (pid % 10) + '0';
+	    pid /= 10;
+	}
+	strlcat(message, np, sizeof(message));
+	strlcat(message, STACKOVERFLOW, sizeof(message));
 	/* This may fail on a chroot jail... */
-	syslog_r(LOG_CRIT, &sdata, message, func);
+	_simple_asl_log_prog(ASL_LEVEL_CRIT, "user", message, prog);
 
-	bzero(&sa, sizeof(struct sigaction));
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	sa.sa_handler = SIG_DFL;
-	sigaction(SIGABRT, &sa, NULL);
-
-	kill(getpid(), SIGABRT);
-
-	_exit(127);
+	CRSetCrashLogMessage(message);
+	__abort();
 }

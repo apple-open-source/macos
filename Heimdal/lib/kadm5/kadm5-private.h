@@ -57,18 +57,19 @@ _kadm5_connect (void */*handle*/);
 kadm5_ret_t
 _kadm5_error_code (kadm5_ret_t /*code*/);
 
-int
-_kadm5_exists_keys (
-	Key */*keys1*/,
-	int /*len1*/,
-	Key */*keys2*/,
-	int /*len2*/);
-
 void
 _kadm5_free_keys (
 	krb5_context /*context*/,
 	int /*len*/,
 	Key */*keys*/);
+
+kadm5_ret_t
+kadm5_store_principal_ent_nokeys(krb5_storage *sp,
+				 kadm5_principal_ent_t princ);
+
+kadm5_ret_t
+kadm5_store_fake_key_data(krb5_storage *sp,
+		          krb5_key_data *key);
 
 void
 _kadm5_init_keys (
@@ -101,7 +102,7 @@ _kadm5_set_keys (
 	kadm5_server_context */*context*/,
 	hdb_entry */*ent*/,
 	const char */*password*/,
-	krb5_enctype *);
+	uint32_t n_ks_tuple, krb5_key_salt_tuple *ks_tuple);
 
 kadm5_ret_t
 _kadm5_set_keys2 (
@@ -118,12 +119,12 @@ _kadm5_set_keys3 (
 	krb5_keyblock */*keyblocks*/);
 
 kadm5_ret_t
-_kadm5_set_keys_randomly (
-	kadm5_server_context */*context*/,
-	hdb_entry */*ent*/,
-	krb5_enctype *enctypes,
-	krb5_keyblock **/*new_keys*/,
-	int */*n_keys*/);
+_kadm5_set_keys_randomly (kadm5_server_context *context,
+			  hdb_entry *ent,
+			  int n_ks_tuple,
+			  krb5_key_salt_tuple *ks_tuple,
+			  krb5_keyblock **new_keys,
+			  int *n_keys);
 
 kadm5_ret_t
 _kadm5_set_modifier (
@@ -237,13 +238,15 @@ kadm5_ret_t
 kadm5_c_chpass_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	int keepold,
 	const char */*password*/,
-	krb5_enctype *enctypes);
+	int, krb5_key_salt_tuple *);
 
 kadm5_ret_t
 kadm5_c_chpass_principal_with_key (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	int keepold,
 	int /*n_key_data*/,
 	krb5_key_data */*key_data*/);
 
@@ -253,7 +256,8 @@ kadm5_c_create_principal (
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
 	const char */*password*/,
-	krb5_enctype *enctypes);
+	int n_ks_tuple,
+	krb5_key_salt_tuple *ks_tuple);
 
 kadm5_ret_t
 kadm5_c_delete_principal (
@@ -358,7 +362,9 @@ kadm5_ret_t
 kadm5_c_randkey_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
-	krb5_enctype *enctypes,
+	int keepold,
+	int n_ks_tuple,
+	krb5_key_salt_tuple *ks_tuple,
 	krb5_keyblock **/*new_keys*/,
 	int */*n_keys*/);
 
@@ -459,20 +465,23 @@ kadm5_ret_t
 kadm5_s_chpass_principal (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	int keepold,
 	const char */*password*/,
-	krb5_enctype *enctypes);
+	int, krb5_key_salt_tuple *);
 
 kadm5_ret_t
 kadm5_s_chpass_principal_cond (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	int keepold,
 	const char */*password*/,
-	krb5_enctype *enctypes);
+	int, krb5_key_salt_tuple *);
 
 kadm5_ret_t
 kadm5_s_chpass_principal_with_key (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
+	int keepold,
 	int /*n_key_data*/,
 	krb5_key_data */*key_data*/);
 
@@ -482,7 +491,8 @@ kadm5_s_create_principal (
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
 	const char */*password*/,
-	krb5_enctype *enctypes);
+	int n_ks_tuple,
+	krb5_key_salt_tuple *ks_tuple);
 
 kadm5_ret_t
 kadm5_s_create_principal_with_key (
@@ -590,12 +600,13 @@ kadm5_s_modify_principal (
 	uint32_t /*mask*/);
 
 kadm5_ret_t
-kadm5_s_randkey_principal (
-	void */*server_handle*/,
-	krb5_principal /*princ*/,
-	krb5_enctype *enctypes,
-	krb5_keyblock **/*new_keys*/,
-	int */*n_keys*/);
+kadm5_s_randkey_principal(void *server_handle,
+			  krb5_principal princ,
+			  krb5_boolean keepold,
+			  int n_ks_tuple,
+			  krb5_key_salt_tuple *ks_tuple,
+			  krb5_keyblock **new_keys,
+			  int *n_keys);
 
 kadm5_ret_t
 kadm5_s_rename_principal (
@@ -607,6 +618,12 @@ krb5_error_code
 _kadm5_xdr_ret_gacred(krb5_data *data, struct _kadm5_xdr_gacred *gacred);
 
 krb5_error_code
-_kadm5_store_enctypes(krb5_storage *sp, krb5_enctype *enctypes);
+_kadm5_store_ks_tuple(krb5_storage *sp, uint32_t n_ks_tuple, krb5_key_salt_tuple *ks_tuple);
+
+krb5_error_code
+_kadm5_ret_ks_tuple(krb5_storage *sp, uint32_t *n_ks_tuple, krb5_key_salt_tuple **ks_tuple);
+
+int
+_kadm5_exists_keys_hist(Key *keys1, int len1, HDB_Ext_KeySet *hist_keys);
 
 #endif /* __kadm5_private_h__ */

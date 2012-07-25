@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,6 +26,7 @@
 #include	"shtable.h"
 #include	"name.h"
 #include	"defs.h"
+#include	"variables.h"
 
 /*
  * This is the list of built-in shell variables and default values
@@ -46,7 +47,7 @@ const struct shtable2 shtab_variables[] =
 	"EDITOR",	0,				(char*)0,
 	"MAILCHECK",	NV_NOFREE|NV_INTEGER,		(char*)0,
 	"RANDOM",	NV_NOFREE|NV_INTEGER,		(char*)0,
-	"ENV",		NV_NOFREE,			"$HOME/.kshrc",
+	"ENV",		NV_NOFREE,			(char*)0,
 	"HISTFILE",	0,				(char*)0,
 	"HISTSIZE",	0,				(char*)0,
 	"HISTEDIT",	NV_NOFREE,			(char*)0,
@@ -75,7 +76,9 @@ const struct shtable2 shtab_variables[] =
 	"LC_MESSAGES",	0,				(char*)0,
 	"LC_NUMERIC",	0,				(char*)0,
 	"FIGNORE",	0,				(char*)0,
-	".sh",		NV_TABLE|NV_RDONLY|NV_NOFREE|NV_NOPRINT,(char*)0,
+	"KSH_VERSION",	0,				(char*)0,
+	"JOBMAX",	NV_NOFREE|NV_INTEGER,		(char*)0,
+	".sh",		NV_TABLE|NV_NOFREE|NV_NOPRINT,	(char*)0,
 	".sh.edchar",	0,				(char*)0,
 	".sh.edcol",	0,				(char*)0,
 	".sh.edtext",	0,				(char*)0,
@@ -91,6 +94,11 @@ const struct shtable2 shtab_variables[] =
 	".sh.fun",	0,				(char*)0,
 	".sh.subshell",	NV_INTEGER|NV_SHORT|NV_NOFREE,	(char*)0,
 	".sh.level",	0,				(char*)0,
+	".sh.lineno",	NV_INTEGER,			(char*)0,
+	".sh.stats",	0,				(char*)0,
+	".sh.math",	0,				(char*)0,
+	".sh.pool",	0,				(char*)0,
+	"SHLVL",	NV_INTEGER|NV_NOFREE|NV_EXPORT,	(char*)0,
 #if SHOPT_FS_3D
 	"VPATH",	0,				(char*)0,
 #endif /* SHOPT_FS_3D */
@@ -102,4 +110,26 @@ const struct shtable2 shtab_variables[] =
 #endif /* apollo */
 	"",	0,					(char*)0
 };
+
+const char *nv_discnames[] = { "get", "set", "append", "unset", "getn", 0 };
+
+#ifdef SHOPT_STATS
+const Shtable_t shtab_stats[] =
+{
+	"arg_cachehits",	STAT_ARGHITS,
+	"arg_expands",		STAT_ARGEXPAND,
+	"comsubs",		STAT_COMSUB,
+	"forks",		STAT_FORKS,
+	"funcalls",		STAT_FUNCT,
+	"globs",		STAT_GLOBS,
+	"linesread",		STAT_READS,
+	"nv_cachehit",		STAT_NVHITS,
+	"nv_opens",		STAT_NVOPEN,
+	"pathsearch",		STAT_PATHS,
+	"posixfuncall",		STAT_SVFUNCT,
+	"simplecmds",		STAT_SCMDS,
+	"spawns",		STAT_SPAWN,
+	"subshell",		STAT_SUBSHELL
+};
+#endif /* SHOPT_STATS */
 

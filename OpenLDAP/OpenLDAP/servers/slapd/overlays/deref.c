@@ -1,8 +1,8 @@
 /* deref.c - dereference overlay */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/deref.c,v 1.7.2.5 2010/04/13 20:23:44 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * Portions Copyright 2008 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -210,7 +210,7 @@ deref_parseCtrl (
 			}
 		}
 
-		if ( ds->ds_derefAttr->ad_type->sat_syntax != slap_schema.si_syn_distinguishedName ) {
+		if ( !( ds->ds_derefAttr->ad_type->sat_syntax->ssyn_flags & SLAP_SYNTAX_DN )) {
 			if ( ctrl->ldctl_iscritical ) {
 				rs->sr_text = "Dereference control: derefAttr syntax not distinguishedName";
 				rs->sr_err = LDAP_PROTOCOL_ERROR;

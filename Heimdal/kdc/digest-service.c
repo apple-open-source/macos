@@ -40,6 +40,8 @@
 typedef struct pk_client_params pk_client_params;
 struct DigestREQ;
 struct Kx509Request;
+typedef struct kdc_request_desc *kdc_request_t;
+
 #include <kdc-private.h>
 
 #include <asn1-common.h>
@@ -66,7 +68,22 @@ struct Kx509Request;
 #define HAVE_APPLE_NETLOGON 1
 #endif
 
+
+#ifdef __APPLE__
+#include <sandbox.h>
+
+static int sandbox_flag = 1;
+#endif
+static int use_unix_flag = 0;
+static int help_flag = 0;
+static int version_flag = 0;
+
+
+
 static krb5_kdc_configuration *config = NULL;
+
+static void
+fillin_hostinfo(struct ntlm_targetinfo *ti);
 
 static const char *
 derive_version_ntq(const NTLMRequest2 *ntq)
@@ -105,6 +122,109 @@ log_complete(krb5_context context,
 
 
 #ifdef ENABLE_NTLM
+
+static int
+validate_local(krb5_context context,
+	       const char *key,
+	       const char *local,
+	       const char *client)
+{
+    if (local == NULL)
+	return 0;
+    if (client == NULL || strcmp(local, client) != 0) {
+	kdc_log(context, config, 1, "validate failed for key %s: %s client: %s",
+		key, local, client ? client : "<not sent>");
+	return EAUTH;
+    }
+    return 0;
+}
+
+/*
+ * Validate that the client sent back the expected target info,
+ * the important keys are:
+ * - servername
+ * - timestamp
+ */
+
+static int
+validate_targetinfo(krb5_context context,
+		    struct ntlm_buf *tibuf,
+		    const char *domain,
+		    const char *acceptorUser,
+		    uint32_t *avflags)
+{
+    struct ntlm_targetinfo localti;
+    struct ntlm_targetinfo ti;
+    int ret;
+
+    if (tibuf->length == 0)
+	return EAUTH;
+
+    memset(&localti, 0, sizeof(localti));
+
+    fillin_hostinfo(&localti);
+
+    ret = heim_ntlm_decode_targetinfo(tibuf, 1, &ti);
+    if (ret)
+	goto out;
+
+    if (ti.timestamp) {
+	time_t now = time(NULL);
+	/*
+	 * "now" should be equal or forward in compared to
+	 * ti.timestamp, but lets be liberal here.
+	 */
+	if (abs(now - heim_ntlm_ts2unixtime(ti.timestamp)) > heim_ntlm_time_skew) {
+	    ret = EAUTH;
+	    goto out;
+	}
+    }
+
+    ret = validate_local(context, "servername", localti.servername, ti.servername);
+    if (ret)
+	goto out;
+    ret = validate_local(context, "domainname", domain, ti.domainname);
+    if (ret)
+	goto out;
+    if (domain == NULL) {
+	ret = validate_local(context, "domainname", localti.domainname, ti.domainname);
+	if (ret)
+	    goto out;
+    }
+
+    *avflags = ti.avflags;
+
+    /*
+     * Check that the service that the client send is matching what
+     * the server claims to be.
+     */
+    if (acceptorUser[0] != '\0' && ti.targetname) {
+	const char *p = strchr(ti.targetname, '/');
+	size_t len = strlen(acceptorUser);
+
+	if (p && len != (p - ti.targetname) &&
+	    strncasecmp(ti.targetname, acceptorUser, len) != 0)
+	{
+	    ret = EAUTH;
+	    goto out;
+	}
+    }
+
+    /* more validation here
+    char *dnstreename;
+    char *targetname;
+    uint32_t avflags;
+    struct ntlm_buf channel_bindings;
+    */
+
+ out:
+    heim_ntlm_free_targetinfo(&ti);
+    heim_ntlm_free_targetinfo(&localti);
+
+    return ret;
+}
+
+
 
 struct ntlm_ftable {
     void		*ctx;
@@ -166,7 +286,7 @@ kdc_authenticate(void *ctx,
     krb5_principal_set_type(context, client, KRB5_NT_NTLM);
     
     ret = _kdc_db_fetch(context, config, client,
-			HDB_F_GET_CLIENT, NULL, &user);
+			HDB_F_GET_CLIENT, NULL, NULL, &user);
     krb5_free_principal(context, client);
     if (ret)
 	goto failed;
@@ -259,6 +379,13 @@ kdc_authenticate(void *ctx,
 	
 	memset(ntlmv2, 0, sizeof(ntlmv2));
 	
+	ret = validate_targetinfo(context, &targetinfo, ntq->t2targetname, ntq->acceptorUser,
+				  &ntp.avflags);
+	if (ret) {
+	    kdc_log(context, config, 2, "NTLMv2 targetinfo validation failed");
+	    goto failed;
+	}
+
 	ntp.targetinfo.data = targetinfo.data;
 	ntp.targetinfo.length = targetinfo.length;
 	
@@ -266,7 +393,7 @@ kdc_authenticate(void *ctx,
 	struct ntlm_buf answer;
 	uint8_t challenge[8];
 	uint8_t usk[16];
-	CCDigestRef ctx;
+	CCDigestRef digest;
 	
 	ntlm_version = "ntlmv1";
 	
@@ -275,22 +402,25 @@ kdc_authenticate(void *ctx,
 	    goto failed;
 	}
 	
-	if (ntq->lmchallenge.length != 8)
+	if (ntq->lmchallenge.length != 8) {
+	    ret = EINVAL;
 	    goto failed;
+	}
 	
 	if (ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION) {
 	    unsigned char sessionhash[CC_MD5_DIGEST_LENGTH];
-	    CCDigestRef md5ctx;
 	    
 	    /* the first first 8 bytes is the challenge, what is the other 16 bytes ? */
-	    if (ntq->lmChallengeResponse.length != 24)
+	    if (ntq->lmChallengeResponse.length != 24) {
+		ret = EINVAL;
 		goto failed;
+	    }
 	    
-	    md5ctx = CCDigestCreate(kCCDigestMD5);
-	    CCDigestUpdate(md5ctx, ntq->lmchallenge.data, 8);
-	    CCDigestUpdate(md5ctx, ntq->lmChallengeResponse.data, 8);
-	    CCDigestFinal(md5ctx, sessionhash);
-	    CCDigestDestroy(md5ctx);
+	    digest = CCDigestCreate(kCCDigestMD5);
+	    CCDigestUpdate(digest, ntq->lmchallenge.data, 8);
+	    CCDigestUpdate(digest, ntq->lmChallengeResponse.data, 8);
+	    CCDigestFinal(digest, sessionhash);
+	    CCDigestDestroy(digest);
 	    memcpy(challenge, sessionhash, sizeof(challenge));
 	} else {
 	    memcpy(challenge, ntq->lmchallenge.data, ntq->lmchallenge.length);
@@ -312,12 +442,12 @@ kdc_authenticate(void *ctx,
 	}
 	free(answer.data);
 	
-	ctx = CCDigestCreate(kCCDigestMD4);
-	CCDigestUpdate(ctx,
+	digest = CCDigestCreate(kCCDigestMD4);
+	CCDigestUpdate(digest,
 		       key->key.keyvalue.data,
 		       key->key.keyvalue.length);
-	CCDigestFinal(ctx, usk);
-	CCDigestDestroy(ctx);
+	CCDigestFinal(digest, usk);
+	CCDigestDestroy(digest);
 	
 	
 	if ((ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION) != 0) {
@@ -371,85 +501,6 @@ failed:
     if (user)
 	_kdc_free_ent (context, user);
     
-    return ret;
-}
-
-/*
- *
- */
-
-static uint32_t
-guest_flags(void *ctx)
-{
-    return 0;
-}
-
-static int
-guest_authenticate(void *ctx,
-		   krb5_context context,
-		   const NTLMRequest2 *ntq,
-		   void *response_ctx,
-		   void (response)(void *, const NTLMReply *ntp))
-{
-    unsigned char sessionkey[16];
-    krb5_data sessionkeydata;
-    NTLMReply ntp;
-    int is_guest = (strcasecmp("GUEST", ntq->loginUserName) == 0);
-    int ret = EINVAL;
-    
-    memset(&ntp, 0, sizeof(ntp));
-
-    if (is_guest || (ntq->ntlmFlags & NTLM_NEG_ANONYMOUS)) {
-	kdc_log(context, config, 2,
-		"digest-request: found guest, let in");
-	ntp.flags |= nTLM_anonymous;
-	ntp.user = "GUEST";
-	ntp.domain = ntq->loginDomainName;
-	if (ntp.user == NULL || ntp.domain == NULL)
-	    goto out;
-	
-	if (is_guest) {
-	    /* no password */
-	    CCDigest(kCCDigestMD4, (void *)"", 0, sessionkey);
-	}
-    } else {
-	ret = EINVAL;
-	goto out;
-    }
-    
-    
-    if (ntq->ntlmFlags & NTLM_NEG_KEYEX) {
-	struct ntlm_buf base, enc, sess;
-	
-	base.data = sessionkey;
-	base.length = sizeof(sessionkey);
-	enc.data = ntq->encryptedSessionKey.data;
-	enc.length = ntq->encryptedSessionKey.length;
-	
-	ret = heim_ntlm_keyex_unwrap(&base, &enc, &sess);
-	if (ret != 0)
-	    goto out;
-	if (sess.length != sizeof(sessionkey)) {
-	    heim_ntlm_free_buf(&sess);
-	    ret = EINVAL;
-	    goto out;
-	}
-	memcpy(sessionkey, sess.data, sizeof(sessionkey));
-	heim_ntlm_free_buf(&sess);
-    }
-
-    sessionkeydata.data = sessionkey;
-    sessionkeydata.length = sizeof(sessionkey);
-    ntp.sessionkey = &sessionkeydata;
-
-    ntp.ntlmFlags = ntq->ntlmFlags;
-    ntp.success = 1;
-    
-    response(response_ctx, &ntp);
-    ret = 0;
-out:
-    log_complete(context, "guest", &ntp, ret, derive_version_ntq(ntq));
-
     return ret;
 }
 
@@ -537,7 +588,7 @@ load_meta_keys(void)
 
 
 static int
-od_init(krb5_context config, void **ctx)
+od_init(krb5_context context, void **ctx)
 {
     static dispatch_once_t once;
     struct ntlmod *c;
@@ -574,6 +625,9 @@ od_flags(void *ctx)
     CFArrayRef subnodes;
     ODNodeRef node;
     CFIndex num;
+
+    if (gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_SESSION_KEY, NULL))
+	return 0;
 
     node = ODNodeCreateWithName(kCFAllocatorDefault, kODSessionDefault, CFSTR("/LDAPv3"), NULL);
     if (node == NULL)
@@ -758,6 +812,148 @@ out:
 
 #endif
 
+/*
+ *
+ */
+
+static uint32_t
+guest_flags(void *ctx)
+{
+    return 0;
+}
+
+static int
+guest_authenticate(void *ctx,
+		   krb5_context context,
+		   const NTLMRequest2 *ntq,
+		   void *response_ctx,
+		   void (response)(void *, const NTLMReply *ntp))
+{
+    unsigned char sessionkey[16];
+    krb5_data sessionkeydata;
+    NTLMReply ntp;
+    int is_guest = (strcasecmp("GUEST", ntq->loginUserName) == 0);
+    int ret = EINVAL;
+    
+    memset(&ntp, 0, sizeof(ntp));
+
+    if (is_guest || (ntq->ntlmFlags & NTLM_NEG_ANONYMOUS)) {
+	kdc_log(context, config, 2,
+		"digest-request: found guest, let in");
+	ntp.avflags |= NTLM_TI_AV_FLAG_GUEST;
+	ntp.user = "GUEST";
+
+#ifdef HAVE_OPENDIRECTORY
+	ntp.domain = ntlmDomain;
+#endif
+	if (ntp.domain == NULL)
+	    ntp.domain = ntq->loginDomainName;
+
+	if (ntp.user == NULL || ntp.domain == NULL)
+	    goto out;
+	
+	if (is_guest) {
+	    /* no password */
+	    CCDigest(kCCDigestMD4, (void *)"", 0, sessionkey);
+	}
+    } else {
+	ret = EINVAL;
+	goto out;
+    }
+    
+    if ((ntq->ntlmFlags & NTLM_NEG_ANONYMOUS)) {
+
+    } else if (ntq->ntChallengeResponse.length != 24) {
+	size_t len = MIN(ntq->ntChallengeResponse.length, 16);
+	struct ntlm_buf targetinfo, answer;
+	uint8_t ntlmv2[16];
+	CCHmacContext c;
+
+	answer.length = ntq->ntChallengeResponse.length;
+	answer.data = ntq->ntChallengeResponse.data;
+	
+	ret = heim_ntlm_verify_ntlm2(sessionkey,
+				     sizeof(sessionkey),
+				     ntq->loginUserName,
+				     ntq->loginDomainName,
+				     0,
+				     ntq->lmchallenge.data,
+				     &answer,
+				     &targetinfo,
+				     ntlmv2);
+	if (ret) {
+	    kdc_log(context, config, 2,
+		    "digest-request: guest authentication failed: %d", ret);
+	    goto out;
+	}
+
+	free(targetinfo.data);
+	    
+	kdc_log(context, config, 2,
+		"digest-request: basic key");
+	
+	CCHmacInit(&c, kCCHmacAlgMD5, ntlmv2, sizeof(ntlmv2));
+	CCHmacUpdate(&c, ntq->ntChallengeResponse.data, len);
+	CCHmacFinal(&c, sessionkey);
+	memset(&c, 0, sizeof(c));
+    } else {
+	CCDigestRef digest;
+	uint8_t usk[16];
+
+	digest = CCDigestCreate(kCCDigestMD4);
+	CCDigestUpdate(digest, sessionkey, sizeof(sessionkey));
+	CCDigestFinal(digest, usk);
+	CCDigestDestroy(digest);
+
+	if ((ntq->ntlmFlags & NTLM_NEG_NTLM2_SESSION) != 0) {
+	    CCHmacContext hc;
+	    
+	    CCHmacInit(&hc, kCCHmacAlgMD5, usk, sizeof(usk));
+	    CCHmacUpdate(&hc, ntq->lmchallenge.data, 8);
+	    CCHmacUpdate(&hc, ntq->lmChallengeResponse.data, 8);
+	    CCHmacFinal(&hc, sessionkey);
+	    memset(&hc, 0, sizeof(hc));
+	} else {
+	    memcpy(sessionkey, usk, sizeof(sessionkey));
+	}
+
+    }
+    
+    if (ntq->ntlmFlags & NTLM_NEG_KEYEX) {
+	struct ntlm_buf base, enc, sess;
+	
+	base.data = sessionkey;
+	base.length = sizeof(sessionkey);
+	enc.data = ntq->encryptedSessionKey.data;
+	enc.length = ntq->encryptedSessionKey.length;
+	
+	ret = heim_ntlm_keyex_unwrap(&base, &enc, &sess);
+	if (ret != 0)
+	    goto out;
+	if (sess.length != sizeof(sessionkey)) {
+	    heim_ntlm_free_buf(&sess);
+	    ret = EINVAL;
+	    goto out;
+	}
+	memcpy(sessionkey, sess.data, sizeof(sessionkey));
+	heim_ntlm_free_buf(&sess);
+    }
+
+    sessionkeydata.data = sessionkey;
+    sessionkeydata.length = sizeof(sessionkey);
+    ntp.sessionkey = &sessionkeydata;
+
+    ntp.ntlmFlags = ntq->ntlmFlags;
+    ntp.success = 1;
+    
+    response(response_ctx, &ntp);
+    ret = 0;
+out:
+    log_complete(context, "guest", &ntp, ret, derive_version_ntq(ntq));
+
+    return ret;
+}
+
 #ifdef HAVE_APPLE_NETLOGON
 
 #define LOGON_USER				0x00000001L
@@ -922,7 +1118,7 @@ init_nt_framework(void *ctx)
 
 
 static int
-netr_init(krb5_context config, void **ctx)
+netr_init(krb5_context context, void **ctx)
 {
     static heim_base_once_t init_once = HEIM_BASE_ONCE_INIT;
     NETLOGON_PROBE_STATUS probeStatus;
@@ -1190,6 +1386,40 @@ complete_callback(void *ctx, const NTLMReply *ntp)
 }
 
 /*
+ *
+ */
+
+static void
+fillin_hostinfo(struct ntlm_targetinfo *ti)
+{
+    char local_hostname[MAXHOSTNAMELEN], *p;
+
+    if (netlogonServer && ti->servername == NULL)
+	ti->servername = strdup(netlogonServer);
+
+    if (gethostname(local_hostname, sizeof(local_hostname)) < 0)
+	return;
+    local_hostname[sizeof(local_hostname) - 1] = '\0';
+
+    /* make up a server name */
+    ti->dnsservername = strdup(local_hostname);
+
+    p = strchr(local_hostname, '.');
+    if (p) {
+	*p = '\0';
+	p++;
+    }
+    if (ti->servername == NULL) {
+	strupr(local_hostname);
+	ti->servername = strdup(local_hostname);
+    }
+
+    if (p && p[0])
+	ti->dnsdomainname = strdup(p);
+}
+
+
+/*
  * Given the configuration, try to return the NTLM domain that is our
  * default DOMAIN.
  *
@@ -1201,7 +1431,7 @@ complete_callback(void *ctx, const NTLMReply *ntp)
 
 static krb5_error_code
 get_ntlm_domain(krb5_context context,
-		krb5_kdc_configuration *config,
+		krb5_kdc_configuration *lconfig,
 		const char *indomain,
 		struct ntlm_targetinfo *ti)
 {
@@ -1219,16 +1449,16 @@ get_ntlm_domain(krb5_context context,
 	    continue;
 
 	if (indomain == NULL || strcmp(indomain, ti->domainname) == 0)
-	    return 0;
+	    goto dnsinfo;
 
 	heim_ntlm_free_targetinfo(ti);
     }
 
-    for (i = 0; i < config->num_db; i++) {
-	if (config->db[i]->hdb_get_ntlm_domain == NULL)
+    for (i = 0; i < lconfig->num_db; i++) {
+	if (lconfig->db[i]->hdb_get_ntlm_domain == NULL)
 	    continue;
-	ret = config->db[i]->hdb_get_ntlm_domain(context,
-						 config->db[i],
+	ret = lconfig->db[i]->hdb_get_ntlm_domain(context,
+						 lconfig->db[i],
 						 &domain);
 	if (ret == 0 && domain)
 	    break;
@@ -1238,28 +1468,11 @@ get_ntlm_domain(krb5_context context,
 
     memset(ti, 0, sizeof(*ti));
 
-    /* make up a server name */
-    {
-	char local_hostname[MAXHOSTNAMELEN];
-	char *p;
-
-	if (gethostname(local_hostname, sizeof(local_hostname)) < 0) {
-	    free(domain);
-	    return EINVAL;
-	}
-
-	p = strchr(local_hostname, '.');
-	if (p)
-	    *p = '\0';
-	strupr(local_hostname);
-
-	ti->servername = strdup(local_hostname);
-	if (ti->servername == NULL) {
-	    free(domain);
-	    return ENOMEM;
-	}
-    }
     ti->domainname = domain;
+
+ dnsinfo:
+
+    fillin_hostinfo(ti);
 
     return 0;
 }
@@ -1298,6 +1511,8 @@ process_NTLMInit(krb5_context context,
     if (ret)
 	goto failed;
     
+    ti.timestamp = heim_ntlm_unix2ts_time(time(NULL));
+
     kdc_log(context, config, 1, "digest-request: init return domain: %s server: %s",
 	    ti.domainname, ti.servername);
     
@@ -1386,13 +1601,49 @@ ntlm_service(void *ctx, const heim_idata *req,
 
 #endif
 
+static struct getargs args[] = {
+#ifdef __APPLE__
+    {	"sandbox",	0, 	arg_negative_flag, &sandbox_flag,
+	"use sandbox or not"
+    },
+#endif /* __APPLE__ */
+    {	"unix",		0, 	arg_flag, &use_unix_flag,
+	"support unix sockets"
+    },
+    {	"help",		'h',	arg_flag,   &help_flag },
+    {	"version",	'v',	arg_flag,   &version_flag }
+};
+
+static int num_args = sizeof(args) / sizeof(args[0]);
+
+static void
+usage(int ret)
+{
+    arg_printusage (args, num_args, NULL, "");
+    exit (ret);
+}
+
+
 int
 main(int argc, char **argv)
 {
     krb5_context context;
-    int ret;
+    int ret, optidx = 0;
 
     setprogname(argv[0]);
+
+    __gss_ntlm_is_digest_service = 1;
+
+    if (getarg(args, num_args, argc, argv, &optidx))
+	usage(1);
+
+    if (help_flag)
+	usage(0);
+
+    if (version_flag) {
+	print_version(NULL);
+	exit(0);
+    }
 
     ret = krb5_init_context(&context);
     if (ret)
@@ -1408,6 +1659,15 @@ main(int argc, char **argv)
     if (ret)
 	krb5_err(context, 1, ret, "krb5_kdc_set_dbinfo");
 
+#ifdef __APPLE__
+    if (sandbox_flag) {
+	char *errorstring;
+	ret = sandbox_init("kdc", SANDBOX_NAMED, &errorstring);
+	if (ret)
+	    errx(1, "sandbox_init failed: %d: %s", ret, errorstring);
+    }
+#endif
+
 #ifdef ENABLE_NTLM
 #if __APPLE__
     {
@@ -1416,6 +1676,10 @@ main(int argc, char **argv)
 				    ntlm_service, context, &mach);
     }
 #endif
+    if (use_unix_flag) {
+	heim_sipc un;
+	heim_sipc_service_unix("org.h5l.ntlm-service", ntlm_service, NULL, &un);
+    }
 #endif
     heim_sipc_timeout(60);
 

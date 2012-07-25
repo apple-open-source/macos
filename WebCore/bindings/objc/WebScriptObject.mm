@@ -143,8 +143,8 @@ static void _didExecute(WebScriptObject *obj)
     ASSERT(imp);
 
     _private->imp = imp;
-    _private->rootObject = rootObject.releaseRef();
-    _private->originRootObject = originRootObject.releaseRef();
+    _private->rootObject = rootObject.leakRef();
+    _private->originRootObject = originRootObject.leakRef();
 
     WebCore::addJSWrapper(self, imp);
 
@@ -168,8 +168,8 @@ static void _didExecute(WebScriptObject *obj)
     if (_private->originRootObject)
         _private->originRootObject->deref();
 
-    _private->rootObject = rootObject.releaseRef();
-    _private->originRootObject = originRootObject.releaseRef();
+    _private->rootObject = rootObject.leakRef();
+    _private->originRootObject = originRootObject.leakRef();
 }
 
 - (id)_initWithJSObject:(JSC::JSObject*)imp originRootObject:(PassRefPtr<JSC::Bindings::RootObject>)originRootObject rootObject:(PassRefPtr<JSC::Bindings::RootObject>)rootObject
@@ -221,7 +221,7 @@ static void _didExecute(WebScriptObject *obj)
     if (!_private->originRootObject->isValid())
         return false;
 
-    return static_cast<JSDOMWindowBase*>(root->globalObject())->allowsAccessFrom(_private->originRootObject->globalObject());
+    return jsCast<JSDOMWindowBase*>(root->globalObject())->allowsAccessFrom(_private->originRootObject->globalObject());
 }
 
 - (void)dealloc
@@ -330,12 +330,6 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     [self _rootObject]->globalObject()->globalData().timeoutChecker.start();
     JSValue returnValue = JSMainThreadExecState::evaluate(exec, [self _rootObject]->globalObject()->globalScopeChain(), makeSource(String(script)), JSC::JSValue(), 0);
     [self _rootObject]->globalObject()->globalData().timeoutChecker.stop();
-
-    if (exec->hadException()) {
-        addExceptionToConsole(exec);
-        returnValue = jsUndefined();
-        exec->clearException();
-    }
 
     id resultObj = [WebScriptObject _convertValueToObjcValue:returnValue originRootObject:[self _originRootObject] rootObject:[self _rootObject]];
     
@@ -492,7 +486,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     ASSERT(!exec->hadException());
 
     JSLock lock(SilenceAssertionsOnly);
-    [self _imp]->methodTable()->putByIndex([self _imp], exec, index, convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]));
+    [self _imp]->methodTable()->putByIndex([self _imp], exec, index, convertObjcValueToValue(exec, &value, ObjcObjectType, [self _rootObject]), false);
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -525,7 +519,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
         if (object->inherits(&JSHTMLElement::s_info)) {
             // Plugin elements cache the instance internally.
-            HTMLElement* el = static_cast<JSHTMLElement*>(object)->impl();
+            HTMLElement* el = jsCast<JSHTMLElement*>(object)->impl();
             ObjcInstance* instance = static_cast<ObjcInstance*>(pluginInstance(el));
             if (instance)
                 return instance->getObject();
@@ -594,11 +588,6 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
 @end
 
-
-@interface WebUndefined (Overrides)
-- (void)dealloc NO_RETURN_DUE_TO_ASSERT;
-@end
-
 @implementation WebUndefined
 
 + (id)allocWithZone:(NSZone *)unusedZone
@@ -656,7 +645,6 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
 - (void)dealloc
 {
-//    ASSERT_NOT_REACHED();
     return;
     [super dealloc]; // make -Wdealloc-check happy
 }

@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -29,7 +29,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: dst_internal.h,v 1.29 2011-01-11 23:47:13 tbox Exp $ */
 
 #ifndef DST_DST_INTERNAL_H
 #define DST_DST_INTERNAL_H 1
@@ -94,8 +94,6 @@ struct dst_key {
 	unsigned int	key_alg;	/*%< algorithm of the key */
 	isc_uint32_t	key_flags;	/*%< flags of the public key */
 	isc_uint16_t	key_id;		/*%< identifier of the key */
-	isc_uint16_t	key_rid;	/*%< identifier of the key when
-					     revoked */
 	isc_uint16_t	key_bits;	/*%< hmac digest bits */
 	dns_rdataclass_t key_class;	/*%< class of the key record */
 	isc_mem_t	*mctx;		/*%< memory context */
@@ -130,6 +128,7 @@ struct dst_key {
 	int		fmt_minor;     /*%< private key format, minor version */
 
 	dst_func_t *    func;	       /*%< crypto package specific functions */
+	isc_buffer_t   *key_tkeytoken; /*%< TKEY token data */
 };
 
 struct dst_context {
@@ -192,6 +191,9 @@ struct dst_func {
 
 	isc_result_t (*fromlabel)(dst_key_t *key, const char *engine,
 				  const char *label, const char *pin);
+	isc_result_t (*dump)(dst_key_t *key, isc_mem_t *mctx, char **buffer,
+			     int *length);
+	isc_result_t (*restore)(dst_key_t *key, const char *keystr);
 };
 
 /*%
@@ -210,6 +212,9 @@ isc_result_t dst__opensslrsa_init(struct dst_func **funcp,
 isc_result_t dst__openssldsa_init(struct dst_func **funcp);
 isc_result_t dst__openssldh_init(struct dst_func **funcp);
 isc_result_t dst__gssapi_init(struct dst_func **funcp);
+#ifdef HAVE_OPENSSL_GOST
+isc_result_t dst__opensslgost_init(struct dst_func **funcp);
+#endif
 
 /*%
  * Destructors

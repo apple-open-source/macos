@@ -1,0 +1,285 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */; };
+		4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F03058161C400846F0C /* trampolineClient.cpp */; };
+		4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C481F04058161C400846F0C /* trampolineServer.cpp */; };
+		4CF36FB3058138F800834D11 /* AuthorizationTags.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9605322F76009E6ADA /* AuthorizationTags.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB4058138F800834D11 /* AuthSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9805322F76009E6ADA /* AuthSession.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB5058138F800834D11 /* Authorization.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9005322F76009E6ADA /* Authorization.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB6058138F800834D11 /* AuthorizationDB.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9305322F76009E6ADA /* AuthorizationDB.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB70581390400834D11 /* AuthorizationPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9405322F76009E6ADA /* AuthorizationPlugin.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB80581390400834D11 /* AuthorizationTagsPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 40C767090534CCDB008AC043 /* AuthorizationTagsPriv.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36FB90581390400834D11 /* AuthorizationPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 40BC5D9505322F76009E6ADA /* AuthorizationPriv.h */; settings = {ATTRIBUTES = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB336146F100D000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
+			remoteInfo = libsecurity_utilitiesDTrace;
+		};
+		1844615D146E92F900B12992 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
+			remoteInfo = libsecurity_utilities;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		18446154146E928E00B12992 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		18446155146E928E00B12992 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18446156146E928E00B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		18446157146E928E00B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		40BC5D9005322F76009E6ADA /* Authorization.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Authorization.h; path = lib/Authorization.h; sourceTree = "<group>"; };
+		40BC5D9305322F76009E6ADA /* AuthorizationDB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationDB.h; path = lib/AuthorizationDB.h; sourceTree = "<group>"; };
+		40BC5D9405322F76009E6ADA /* AuthorizationPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationPlugin.h; path = lib/AuthorizationPlugin.h; sourceTree = "<group>"; };
+		40BC5D9505322F76009E6ADA /* AuthorizationPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationPriv.h; path = lib/AuthorizationPriv.h; sourceTree = "<group>"; };
+		40BC5D9605322F76009E6ADA /* AuthorizationTags.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationTags.h; path = lib/AuthorizationTags.h; sourceTree = "<group>"; };
+		40BC5D9805322F76009E6ADA /* AuthSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthSession.h; path = lib/AuthSession.h; sourceTree = "<group>"; };
+		40C767090534CCDB008AC043 /* AuthorizationTagsPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AuthorizationTagsPriv.h; path = lib/AuthorizationTagsPriv.h; sourceTree = "<group>"; };
+		4C481F03058161C400846F0C /* trampolineClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trampolineClient.cpp; path = lib/trampolineClient.cpp; sourceTree = "<group>"; };
+		4C481F04058161C400846F0C /* trampolineServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = trampolineServer.cpp; path = lib/trampolineServer.cpp; sourceTree = "<group>"; };
+		4C6848A005815EE4003AC7B2 /* privPort.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = privPort.h; path = lib/privPort.h; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_authorization.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_authorization.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CCB0023058005D500981D43 /* security_authorization.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; name = security_authorization.exp; path = lib/security_authorization.exp; sourceTree = "<group>"; };
+		C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Authorization.cpp; path = lib/Authorization.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		18446153146E928E00B12992 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18446154146E928E00B12992 /* base.xcconfig */,
+				18446155146E928E00B12992 /* debug.xcconfig */,
+				18446156146E928E00B12992 /* lib.xcconfig */,
+				18446157146E928E00B12992 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		18446159146E92F800B12992 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1844615E146E92F900B12992 /* libsecurity_utilities.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */,
+				C2A593CE052E3A8400AF1EE3 /* lib */,
+				18446153146E928E00B12992 /* config */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_authorization.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C2A593CE052E3A8400AF1EE3 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				40C767090534CCDB008AC043 /* AuthorizationTagsPriv.h */,
+				40BC5D9005322F76009E6ADA /* Authorization.h */,
+				40BC5D9305322F76009E6ADA /* AuthorizationDB.h */,
+				40BC5D9505322F76009E6ADA /* AuthorizationPriv.h */,
+				40BC5D9805322F76009E6ADA /* AuthSession.h */,
+				40BC5D9605322F76009E6ADA /* AuthorizationTags.h */,
+				C2A593D3052E3AC700AF1EE3 /* Authorization.cpp */,
+				40BC5D9405322F76009E6ADA /* AuthorizationPlugin.h */,
+				4C6848A005815EE4003AC7B2 /* privPort.h */,
+				4CCB0023058005D500981D43 /* security_authorization.exp */,
+				4C481F03058161C400846F0C /* trampolineClient.cpp */,
+				4C481F04058161C400846F0C /* trampolineServer.cpp */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CF36FB3058138F800834D11 /* AuthorizationTags.h in Headers */,
+				4CF36FB4058138F800834D11 /* AuthSession.h in Headers */,
+				4CF36FB80581390400834D11 /* AuthorizationTagsPriv.h in Headers */,
+				4CF36FB90581390400834D11 /* AuthorizationPriv.h in Headers */,
+				4CF36FB5058138F800834D11 /* Authorization.h in Headers */,
+				4CF36FB6058138F800834D11 /* AuthorizationDB.h in Headers */,
+				4CF36FB70581390400834D11 /* AuthorizationPlugin.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_authorization */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2B30987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_authorization" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB337146F100D000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_authorization;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurityd;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_authorization.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD2B70987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_authorization" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 18446159146E92F800B12992 /* Products */;
+					ProjectRef = 18446158146E92F800B12992 /* libsecurity_utilities.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_authorization */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		1844615E146E92F900B12992 /* libsecurity_utilities.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_utilities.a;
+			remoteRef = 1844615D146E92F900B12992 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				40BC5D9B053230FA009E6ADA /* Authorization.cpp in Sources */,
+				4C481F05058161C400846F0C /* trampolineClient.cpp in Sources */,
+				4C481F06058161C400846F0C /* trampolineServer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB337146F100D000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_utilitiesDTrace;
+			targetProxy = 182BB336146F100D000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2B40987FCDD001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18446155146E928E00B12992 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD2B60987FCDD001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18446157146E928E00B12992 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD2B80987FCDD001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD2BA0987FCDD001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18446156146E928E00B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2B30987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_authorization" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2B40987FCDD001272E0 /* Debug */,
+				C27AD2B60987FCDD001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD2B70987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_authorization" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2B80987FCDD001272E0 /* Debug */,
+				C27AD2BA0987FCDD001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

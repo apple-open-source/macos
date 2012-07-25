@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -56,7 +56,7 @@ tmpoff(register char* s, size_t z, register const char* p, register int n, int d
 		}
 		else
 			*s++ = '-';
-		s += sfsprintf(s, e - s, "%02d%02d", n / 60, n % 60);
+		s += sfsprintf(s, e - s, "%02d%s%02d", n / 60, d == -24*60 ? ":" : "", n % 60);
 	}
 	return s;
 }

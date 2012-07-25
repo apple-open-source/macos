@@ -42,7 +42,7 @@ using namespace HTMLNames;
 
 inline bool keyMatchesId(AtomicStringImpl* key, Element* element)
 {
-    return element->hasID() && element->getIdAttribute().impl() == key;
+    return element->getIdAttribute().impl() == key;
 }
 
 inline bool keyMatchesMapName(AtomicStringImpl* key, Element* element)
@@ -69,14 +69,14 @@ void DocumentOrderedMap::add(AtomicStringImpl* key, Element* element)
     if (!m_duplicateCounts.contains(key)) {
         // Fast path. The key is not already in m_duplicateCounts, so we assume that it's
         // also not already in m_map and try to add it. If that add succeeds, we're done.
-        pair<Map::iterator, bool> addResult = m_map.add(key, element);
-        if (addResult.second)
+        Map::AddResult addResult = m_map.add(key, element);
+        if (addResult.isNewEntry)
             return;
 
         // The add failed, so this key was already cached in m_map.
         // There are multiple elements with this key. Remove the m_map
         // cache for this key so get searches for it next time it is called.
-        m_map.remove(addResult.first);
+        m_map.remove(addResult.iterator);
         m_duplicateCounts.add(key);
     } else {
         // There are multiple elements with this key. Remove the m_map
@@ -108,6 +108,7 @@ template<bool keyMatches(AtomicStringImpl*, Element*)>
 inline Element* DocumentOrderedMap::get(AtomicStringImpl* key, const TreeScope* scope) const
 {
     ASSERT(key);
+    ASSERT(scope);
 
     m_map.checkConsistency();
 
@@ -117,7 +118,7 @@ inline Element* DocumentOrderedMap::get(AtomicStringImpl* key, const TreeScope* 
 
     if (m_duplicateCounts.contains(key)) {
         // We know there's at least one node that matches; iterate to find the first one.
-        for (Node* node = scope->firstChild(); node; node = node->traverseNextNode()) {
+        for (Node* node = scope->rootNode()->firstChild(); node; node = node->traverseNextNode()) {
             if (!node->isElementNode())
                 continue;
             element = static_cast<Element*>(node);

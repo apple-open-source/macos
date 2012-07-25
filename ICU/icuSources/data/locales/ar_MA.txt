@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ar_MA.xml
@@ -10,20 +10,16 @@ ar_MA{
     NumberElements{
         default{"latn"}
     }
-    Version{"2.0.48.49"}
+    Version{"2.0.61.77"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                7,
-                4,
-            }
             DateTimePatterns{
                 "zzzz h:mm:ss a",
                 "z h:mm:ss a",
                 "h:mm:ss a",
                 "h:mm a",
                 "EEEE، d MMMM، y",
-                "‏d MMMM، y",
+                "d MMMM، y",
                 "yyyy/MM/dd",
                 "yyyy/M/d",
                 "{1} {0}",
@@ -54,12 +50,6 @@ ar_MA{
                 yMMMd{
                     d{"d‏–d MMM، y"}
                 }
-            }
-            weekend:intvector{
-                6,
-                0,
-                7,
-                86400000,
             }
         }
     }

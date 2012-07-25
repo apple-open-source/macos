@@ -470,7 +470,7 @@ perform_pax_invalid_action(ARCHD * arcn, int err)
 	return rc;
 }
 
-void
+static void
 delete_keywords(char * pattern)
 {
 	int i;
@@ -607,7 +607,7 @@ pax_opt(void)
 	return(0);
 }
 
-int
+static int
 expand_extended_headers(ARCHD *arcn, HD_USTAR *hd)
 {
 	char mybuf[BLKMULT];
@@ -1149,7 +1149,7 @@ substitute_percent(char * header, char * filename)
 	return (strdup(&buf[0]));
 }
 
-int
+static int
 generate_pax_ext_header_and_data(ARCHD *arcn, int nfields, int *table, 
 				char header_type, char * header_name, char * header_name_requested)
 {

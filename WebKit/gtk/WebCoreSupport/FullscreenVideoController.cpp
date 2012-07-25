@@ -19,7 +19,7 @@
 
 #include "config.h"
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !defined(GST_API_VERSION_1)
 
 #include "FullscreenVideoController.h"
 
@@ -368,7 +368,7 @@ bool FullscreenVideoController::canPlay() const
 void FullscreenVideoController::play()
 {
     if (m_mediaElement)
-        m_mediaElement->play(m_mediaElement->processingUserGesture());
+        m_mediaElement->play();
 
     playStateChanged();
     showHud(true);
@@ -377,7 +377,7 @@ void FullscreenVideoController::play()
 void FullscreenVideoController::pause()
 {
     if (m_mediaElement)
-        m_mediaElement->pause(m_mediaElement->processingUserGesture());
+        m_mediaElement->pause();
 
     playStateChanged();
     showHud(false);
@@ -531,7 +531,11 @@ void FullscreenVideoController::createHud()
 
     g_signal_connect(m_hudWindow, "motion-notify-event", G_CALLBACK(onFullscreenGtkMotionNotifyEvent), this);
 
+#ifdef GTK_API_VERSION_2
     GtkWidget* hbox = gtk_hbox_new(FALSE, 4);
+#else
+    GtkWidget* hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+#endif
     gtk_container_add(GTK_CONTAINER(m_hudWindow), hbox);
 
     m_playPauseAction = gtk_action_new("play", _("Play / Pause"), _("Play or pause the media"), PAUSE_ICON_NAME);
@@ -546,7 +550,11 @@ void FullscreenVideoController::createHud()
     gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, TRUE, 0);
 
     GtkAdjustment* adjustment = GTK_ADJUSTMENT(gtk_adjustment_new(0.0, 0.0, 100.0, 0.1, 1.0, 1.0));
+#ifdef GTK_API_VERSION_2
     m_timeHScale = gtk_hscale_new(adjustment);
+#else
+    m_timeHScale = gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, adjustment);
+#endif
     gtk_scale_set_draw_value(GTK_SCALE(m_timeHScale), FALSE);
     gtk_range_set_show_fill_level(GTK_RANGE(m_timeHScale), TRUE);
     g_signal_connect(m_timeHScale, "button-press-event", G_CALLBACK(timeScaleButtonPressed), this);

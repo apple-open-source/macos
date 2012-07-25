@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: byaddr_test.c,v 1.28 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: byaddr_test.c,v 1.28 2007-06-19 23:46:59 tbox Exp $ */
 
 /*! \file
  * \author

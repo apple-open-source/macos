@@ -32,10 +32,9 @@
 #include <Security/SecTrust.h>
 #include <Security/SecKey.h>
 #include <Security/SecIdentity.h>
-
+#include <Security/SecItem.h>
 #include <TargetConditionals.h>
 #if TARGET_OS_EMBEDDED
-#include <Security/SecItem.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicyPriv.h>
 #include <Security/SecCertificatePriv.h>
@@ -63,11 +62,8 @@
 
 #include "crypto_cssm.h"
 
-#if TARGET_OS_EMBEDDED
+
 static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef);
-#else
-static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef);
-#endif
 
 #if !TARGET_OS_EMBEDDED
 static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef);
@@ -77,9 +73,9 @@ static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
 static SecPolicyRef
 crypto_cssm_x509cert_get_SecPolicyRef (CFStringRef hostname)
 {
-	OSStatus			status;
 	SecPolicyRef		policyRef = NULL;
 #if !TARGET_OS_EMBEDDED
+    OSStatus			status;
 	CSSM_OID			ourPolicyOID = CSSMOID_APPLE_TP_IP_SEC; 
 
 	// get our policy object
@@ -103,27 +99,14 @@ crypto_cssm_x509cert_get_SecPolicyRef (CFStringRef hostname)
 SecCertificateRef
 crypto_cssm_x509cert_get_SecCertificateRef (vchar_t *cert)
 {
-	OSStatus			status;
 	SecCertificateRef	certRef = NULL;
-#if !TARGET_OS_EMBEDDED
-	CSSM_DATA			certData;
 
-	// create cert ref
-	certData.Length = cert->l;
-	certData.Data = (uint8 *)cert->v;
-	status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
-										  &certRef);
-	if (status != noErr && status != -1) {
-		plog(LLV_ERROR, LOCATION, NULL, 
-			 "error %d %s.\n", status, GetSecurityErrorString(status));
-	}
-#else
 	CFDataRef cert_data = CFDataCreateWithBytesNoCopy(NULL, cert->v, cert->l, kCFAllocatorNull);
     if (cert_data) {
         certRef = SecCertificateCreateWithData(NULL, cert_data);
         CFRelease(cert_data);
     }
-#endif
+
 	if (certRef == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL, 
 			 "unable to create a certRef.\n");
@@ -217,11 +200,7 @@ crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
 /*
  * Verify cert using security framework
  */
-#if TARGET_OS_EMBEDDED
 int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname, SecKeyRef *publicKeyRef)
-#else
-int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname)
-#endif
 {
 	cert_t             *p;
 	cert_status_t       certStatus = 0;
@@ -281,11 +260,7 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 	}
 	
 	// evaluate cert
-#if TARGET_OS_EMBEDDED
 	status = EvaluateCert(certArrayRef, certArrayRefNumValues, policyRef, publicKeyRef);
-#else
-	status = EvaluateCert(certArrayRef, certArrayRefNumValues, policyRef);
-#endif
 	
 	while (certArrayRefNumValues) {
 		CFRelease(certArrayRef[--certArrayRefNumValues]);
@@ -306,12 +281,11 @@ int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef
 	
 }
 
-#if TARGET_OS_EMBEDDED
+
 int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature)
 {
 	return SecKeyRawVerify(publicKeyRef, kSecPaddingPKCS1, hash->v, hash->l, signature->v, signature->l);	
 }
-#endif
 
 /*
  * Encrypt a hash via CSSM using the private key in the keychain
@@ -325,132 +299,16 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 	SecKeyRef						privateKeyRef = NULL;
 	vchar_t							*sig = NULL;
 
-#if !TARGET_OS_EMBEDDED
-	CSSM_SIZE						bytesEncrypted = 0;
-	SecCertificateRef				certificateRef = NULL;
-	SecIdentitySearchRef			idSearchRef = NULL;
-	SecKeychainRef 					keychainRef = NULL;
-	const CSSM_KEY					*cssmKey = NULL;
-	CSSM_CSP_HANDLE 				cspHandle = nil;
-	CSSM_CC_HANDLE					cssmContextHandle = nil;
-	const CSSM_ACCESS_CREDENTIALS	*credentials = NULL;
-	CSSM_DATA						clearData;
-	CSSM_DATA						cipherData;
-	CSSM_DATA						remData;
-	CSSM_CONTEXT_ATTRIBUTE			newAttr;
-
-	remData.Length = 0;
-	remData.Data = 0;
-
-	if (persistentCertRef) {	
-		// get cert from keychain
-		status = SecKeychainItemCopyFromPersistentReference(persistentCertRef, (SecKeychainItemRef*)&certificateRef);
-		if (status != noErr)
-			goto end;
-	
-		// get keychain ref where cert is contained
-		status = SecKeychainItemCopyKeychain((SecKeychainItemRef)certificateRef, &keychainRef);
-		if (status != noErr)
-			goto end;
-	
-		// get identity from the certificate
-		status = SecIdentityCreateWithCertificate(keychainRef, certificateRef, &identityRef);
-		if (status != noErr)
-			goto end;	
-			
-	} else {
-	
-		// copy system keychain
-		status = CopySystemKeychain(&keychainRef);
-		if (status != noErr)
-			goto end;
-
-		// serach for first identity in system keychain
-		status = SecIdentitySearchCreate(keychainRef, CSSM_KEYUSE_SIGN, &idSearchRef);
-		if (status != noErr)
-			goto end;
-		
-		status = SecIdentitySearchCopyNext(idSearchRef, &identityRef);
-		if (status != noErr)
-			goto end;
-
-		// get certificate from identity
-		status = SecIdentityCopyCertificate(identityRef, &certificateRef);
-		if (status != noErr)
-			goto end;
-	}
-	
-	// get private key from identity
-	status = SecIdentityCopyPrivateKey(identityRef, &privateKeyRef);
-	if (status != noErr)
-		goto end;
-		
-	// get CSSM_KEY pointer from key ref
-	status = SecKeyGetCSSMKey(privateKeyRef, &cssmKey);
-	if (status != noErr)
-		goto end;
-		
-	// get CSSM CSP handle
-	status = SecKeychainGetCSPHandle(keychainRef, &cspHandle);
-	if (status != noErr)
-		goto end;
-		
-	// create CSSM credentials to unlock private key for encryption - no UI to be used
-	status = SecKeyGetCredentials(privateKeyRef, CSSM_ACL_AUTHORIZATION_ENCRYPT,
-				kSecCredentialTypeNoUI, &credentials);
-	if (status != noErr)
-		goto end;	
-
-	// create asymmetric context for encryption
-	status = CSSM_CSP_CreateAsymmetricContext(cspHandle, CSSM_ALGID_RSA, credentials, cssmKey, 
-			CSSM_PADDING_PKCS1, &cssmContextHandle);
-	if (status != noErr)
-		goto end;
-		
-	// add mode attribute to use private key for encryption
-	newAttr.AttributeType     = CSSM_ATTRIBUTE_MODE;
-	newAttr.AttributeLength   = sizeof(uint32);
-	newAttr.Attribute.Data    = (CSSM_DATA_PTR)CSSM_ALGMODE_PRIVATE_KEY;
-	status = CSSM_UpdateContextAttributes(cssmContextHandle, 1, &newAttr);
-	if(status != noErr)
-		goto end;
-			
-	// and finally - encrypt data
-	clearData.Length = hash->l;
-	clearData.Data = (uint8 *)hash->v;
-	cipherData.Length = 0;
-	cipherData.Data = NULL;
-	status = CSSM_EncryptData(cssmContextHandle, &clearData, 1, &cipherData, 1, &bytesEncrypted, 
-						&remData);
-	if (status != noErr)
-		goto end;
-	
-	if (remData.Length != 0) {	// something didn't go right - should be zero
-		status = -1;
-		plog(LLV_ERROR, LOCATION, NULL, 
-			"unencrypted data remaining after encrypting hash.\n");
-		goto end;
-	}
-
-	// alloc buffer for result
-	sig = vmalloc(0);
-	if (sig == NULL)
-		goto end;
-		
-	sig->l = cipherData.Length;
-	sig->v = (caddr_t)cipherData.Data;
-
-#else
 
 	CFDictionaryRef		persistFind = NULL;
-	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef };
-	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
-
-	#define SIG_BUF_SIZE 1024
+	const void			*keys_persist[] = { kSecReturnRef, kSecValuePersistentRef, kSecClass};
+	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef, kSecClassIdentity};
+    
+#define SIG_BUF_SIZE 1024
 	
 	/* find identity by persistent ref */
 	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
-		(sizeof(keys_persist) / sizeof(*keys_persist)), NULL, NULL);
+                                     (sizeof(keys_persist) / sizeof(*keys_persist)), NULL, NULL);
 	if (persistFind == NULL)
 		goto end;
 	
@@ -468,9 +326,7 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 		goto end;
 	
 	status = SecKeyRawSign(privateKeyRef, kSecPaddingPKCS1, hash->v,
-		hash->l, sig->v, &sig->l);				
-
-#endif	
+                           hash->l, sig->v, &sig->l);				
 					
 		
 end:
@@ -479,19 +335,8 @@ end:
 	if (privateKeyRef)
 		CFRelease(privateKeyRef);
 		
-#if !TARGET_OS_EMBEDDED
-	if (certificateRef)
-		CFRelease(certificateRef);
-	if (keychainRef)
-		CFRelease(keychainRef);
-	if (idSearchRef)
-		CFRelease(idSearchRef);
-	if (cssmContextHandle)
-		CSSM_DeleteContext(cssmContextHandle);
-#else
 	if (persistFind)
 		CFRelease(persistFind);
-#endif
 	
 	if (status != noErr) {
 		if (sig) {
@@ -677,23 +522,13 @@ end:
 /*
  * Evaluate the trust of a cert using the policy provided
  */
-#if TARGET_OS_EMBEDDED
 static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef)
-#else
-static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef)
-
-#endif
 {
 	OSStatus					status;
 	SecTrustRef					trustRef = 0;
 	SecTrustResultType 			evalResult;
 
-#if TARGET_OS_EMBEDDED	
 	CFArrayRef					errorStrings;
-#else
-	CSSM_TP_APPLE_EVIDENCE_INFO			*statusChain;
-	CFArrayRef					certChain;
-#endif
 	
 	CFArrayRef	cfCertRef = CFArrayCreate((CFAllocatorRef) NULL, (void*)evalCertArray, evalCertArrayNumValues,
 								&kCFTypeArrayCallBacks);
@@ -722,9 +557,6 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 			case kSecTrustResultProceed:
 				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultProceed.\n");
 				break;
-			case kSecTrustResultConfirm:
-				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultConfirm.\n");
-				break;
 			case kSecTrustResultDeny:
 				plog(LLV_DEBUG, LOCATION, NULL, "eval result = kSecTrustResultDeny.\n");
 				break;
@@ -745,8 +577,6 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 				break;
 		}
 
-
-#if TARGET_OS_EMBEDDED			
 		errorStrings =  SecTrustCopyProperties(trustRef);
 		if (errorStrings) {
 			
@@ -776,29 +606,13 @@ static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCert
 			plog(LLV_ERROR, LOCATION, NULL, "-----------------------------------------------------.\n");			
 			CFRelease(errorStrings);
 		}
-		
-#else
-		SecTrustGetResult(trustRef, &evalResult, &certChain, &statusChain);
-		plog(LLV_ERROR, LOCATION, NULL, "Cert status bits = 0x%x.\n", statusChain->StatusBits);
-		plog(LLV_ERROR, LOCATION, NULL, "Cert status NumStatusCodes = 0x%x.\n", statusChain->NumStatusCodes);
-		{
-			int i;
-			for (i = 0; i < statusChain->NumStatusCodes; i++)		
-				plog(LLV_ERROR, LOCATION, NULL, "Cert status code i = 0x%x  %d.\n", *(statusChain->StatusCodes + i), *(statusChain->StatusCodes + i));
-		}
-		plog(LLV_ERROR, LOCATION, NULL, "Cert status Index = %d.\n", statusChain->Index);
-		CFRelease(certChain);
-#endif
-		
+				
 		status = -1;
 		goto end;
 	}
 			
-	
-#if TARGET_OS_EMBEDDED
 	/* get and return the public key */
 	*publicKeyRef = SecTrustCopyPublicKey(trustRef);
-#endif
 	
 end:
 	if (cfCertRef)

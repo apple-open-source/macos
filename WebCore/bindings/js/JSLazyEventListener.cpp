@@ -28,6 +28,7 @@
 #include <runtime/JSLock.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/TextPosition.h>
 
 using namespace JSC;
 
@@ -35,13 +36,13 @@ namespace WebCore {
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, eventListenerCounter, ("JSLazyEventListener"));
 
-JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& eventParameterName, const String& code, Node* node, const String& sourceURL, int lineNumber, JSObject* wrapper, DOMWrapperWorld* isolatedWorld)
+JSLazyEventListener::JSLazyEventListener(const String& functionName, const String& eventParameterName, const String& code, Node* node, const String& sourceURL, const TextPosition& position, JSObject* wrapper, DOMWrapperWorld* isolatedWorld)
     : JSEventListener(0, wrapper, true, isolatedWorld)
     , m_functionName(functionName)
     , m_eventParameterName(eventParameterName)
     , m_code(code)
     , m_sourceURL(sourceURL)
-    , m_lineNumber(lineNumber)
+    , m_position(position)
     , m_originalNode(node)
 {
     // We don't retain the original node because we assume it
@@ -52,8 +53,8 @@ JSLazyEventListener::JSLazyEventListener(const String& functionName, const Strin
 
     // A JSLazyEventListener can be created with a line number of zero when it is created with
     // a setAttribute call from JavaScript, so make the line number 1 in that case.
-    if (m_lineNumber == 0)
-        m_lineNumber = 1;
+    if (m_position == TextPosition::belowRangePosition())
+        m_position = TextPosition::minimumPosition();
 
 #ifndef NDEBUG
     eventListenerCounter.increment();
@@ -96,13 +97,14 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     args.append(jsNontrivialString(exec, stringToUString(m_eventParameterName)));
     args.append(jsString(exec, m_code));
 
-    JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(exec, exec->lexicalGlobalObject(), args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_lineNumber); // FIXME: is globalExec ok?
+    JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(exec, exec->lexicalGlobalObject(), args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_position); // FIXME: is globalExec ok?
     if (exec->hadException()) {
+        reportCurrentException(exec);
         exec->clearException();
         return 0;
     }
 
-    JSFunction* listenerAsFunction = static_cast<JSFunction*>(jsFunction);
+    JSFunction* listenerAsFunction = jsCast<JSFunction*>(jsFunction);
     if (m_originalNode) {
         if (!wrapper()) {
             // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
@@ -113,7 +115,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
 
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
-        listenerAsFunction->setScope(exec->globalData(), static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, listenerAsFunction->scope()));
+        listenerAsFunction->setScope(exec->globalData(), jsCast<JSNode*>(wrapper())->pushEventHandlerScope(exec, listenerAsFunction->scope()));
     }
 
     // Since we only parse once, there's no need to keep data used for parsing around anymore.

@@ -1,8 +1,5 @@
-
 /*
- *
- * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
- *
+ * (C) Copyright IBM Corp. 1998-2011 - All Rights Reserved
  */
 
 #ifndef __LAYOUTENGINE_H
@@ -65,6 +62,14 @@ class LEGlyphStorage;
  * @stable ICU 2.8
  */
 class U_LAYOUT_API LayoutEngine : public UObject {
+public:
+#ifndef U_HIDE_INTERNAL_API
+    /** @internal Flag to request kerning. */
+    static const le_int32 kTypoFlagKern;
+    /** @internal Flag to request ligatures. */
+    static const le_int32 kTypoFlagLiga;
+#endif  /* U_HIDE_INTERNAL_API */
+
 protected:
     /**
      * The object which holds the glyph storage
@@ -115,6 +120,7 @@ protected:
      */
     le_bool fFilterZeroWidth;
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * This constructs an instance for a given font, script and language. Subclass constructors
      * must call this constructor.
@@ -122,8 +128,8 @@ protected:
      * @param fontInstance - the font for the text
      * @param scriptCode - the script for the text
      * @param languageCode - the language for the text
-     * @param typoFlags - the typographic control flags for the text.  Set bit 1 if kerning
-     * is desired, set bit 2 if ligature formation is desired.  Others are reserved.
+     * @param typoFlags - the typographic control flags for the text (a bitfield).  Use kTypoFlagKern
+     * if kerning is desired, kTypoFlagLiga if ligature formation is desired.  Others are reserved.
      * @param success - set to an error code if the operation fails
      *
      * @see LEFontInstance
@@ -131,12 +137,15 @@ protected:
      *
      * @internal
      */
-    LayoutEngine(const LEFontInstance *fontInstance, 
-                 le_int32 scriptCode, 
-                 le_int32 languageCode, 
+    LayoutEngine(const LEFontInstance *fontInstance,
+                 le_int32 scriptCode,
+                 le_int32 languageCode,
                  le_int32 typoFlags,
                  LEErrorCode &success);
+#endif  /* U_HIDE_INTERNAL_API */
 
+    // Do not enclose the protected default constructor with #ifndef U_HIDE_INTERNAL_API
+    // or else the compiler will create a public default constructor.
     /**
      * This overrides the default no argument constructor to make it
      * difficult for clients to call it. Clients are expected to call
@@ -277,6 +286,7 @@ protected:
      */
     virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror, LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * This is a convenience method that forces the advance width of mark
      * glyphs to be zero, which is required for proper selection and highlighting.
@@ -311,7 +321,7 @@ protected:
      * @internal
      */
     static void adjustMarkGlyphs(const LEUnicode chars[], le_int32 charCount, le_bool reverse, LEGlyphStorage &glyphStorage, LEGlyphFilter *markFilter, LEErrorCode &success);
-
+#endif  /* U_HIDE_INTERNAL_API */
 
 public:
     /**
@@ -493,4 +503,3 @@ public:
 
 U_NAMESPACE_END
 #endif
-

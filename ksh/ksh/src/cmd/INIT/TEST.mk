@@ -1,7 +1,7 @@
 /*
  * regression test support
  *
- * @(#)TEST.mk (AT&T Labs Research) 2006-06-27
+ * @(#)TEST.mk (AT&T Labs Research) 2009-03-19
  *
  * test management is still in the design phase
  */
@@ -9,16 +9,18 @@
 /*
  * three forms for :TEST:
  *
- *	:TEST: [--] xxx yyy ...
+ *	:TEST: xxx yyy ...
  *
- *		$(REGRESS) $(REGRESSFLAGS) xxx.tst xxx
- *		$(REGRESS) $(REGRESSFLAGS) yyy.tst yyy
- *
- *		-- disables .c .sh search
+ *		$(REGRESS) $(REGRESSFLAGS) xxx.tst
+ *		$(REGRESS) $(REGRESSFLAGS) yyy.tst
  *
  *	:TEST: xxx.tst yyy ...
  *
  *		$(REGRESS) $(REGRESSFLAGS) xxx.tst yyy ...
+ *
+ *	:TEST: xxx.c [ :: test-prereq ... :: ] [ args [ : args ... ] ]
+ *
+ *	:TEST: xxx.sh [ :: test-prereq ... :: ] [ args [ : args ... ] ]
  *
  *	xxx :TEST: prereq ...
  *		[ action ]
@@ -29,6 +31,9 @@
 ":TEST:" : .MAKE .OPERATOR
 	local B G P S T
 	test : .INSERT .TESTINIT
+	if "$("tests":T=FD)"
+		.SOURCE : tests
+	end
 	P := $(>:O=1)
 	if "$(P:N=*.tst)" && ! "$(@:V)"
 		B := $(P:B)
@@ -59,11 +64,39 @@
 					set +x; (ulimit -c 0) >/dev/null 2>&1 && ulimit -c 0; set -x
 					$(@:V)
 			end
+		elif "$(>:V:O>1)"
+			local I A V X S R=0
+			for A $(>:V:O>1)
+				if A == "::"
+					let R = !R
+				elif A == ":"
+					let I = I + 1
+					test.$(T).$(I) := $(V:V)
+					V =
+					X := $(X:V)$(S)$$(*) $$(test.$(T).$(I):T=*)
+					S = $("\n")
+				elif R
+					test.$(A) : .VIRTUAL .FORCE
+					test.$(T) : test.$(A)
+				else
+					V += $(A:V)
+				end
+			end
+			if V
+				let I = I + 1
+				test.$(T).$(I) := $(V:V)
+				X := $(X:V)$(S)$$(*) $$(test.$(T).$(I):T=*)
+			end
+			eval
+				test.$$(T) : $$(B)
+					set +x; (ulimit -c 0) >/dev/null 2>&1 && ulimit -c 0; set -x
+					$(X:V)
+			end
 		else
 			eval
 				test.$$(T) : $$(B)
 					set +x; (ulimit -c 0) >/dev/null 2>&1 && ulimit -c 0; set -x
-					$$(*) $(>:V:O>1)
+					$$(*)
 			end
 		end
 	elif ! "$(<:V)"
@@ -74,7 +107,7 @@
 			else
 				if ! G
 					T =
-				elif ! ( T = "$(B:A=.TARGET)" )
+				elif ! ( T = "$(B:A=.COMMAND)" ) && ! "$(B:A=.TARGET)"
 					for S .c .sh
 						if "$(B:B:S=$(S):T=F)"
 							:INSTALLDIR: $(B)
@@ -85,8 +118,8 @@
 					end
 				end
 				test : - test.$(B)
-				test.$(B) : $(B).tst $(T)
-					$(REGRESS) $(REGRESSFLAGS) $(*)
+				test.$(B) : $(T) - $(B).tst
+					$(REGRESS) $(REGRESSFLAGS) $(*:N=*.tst) $(*:N!=*.tst)
 				:SAVE: $(B).tst
 			end
 		end
@@ -118,7 +151,7 @@
 			end
 		else
 			test : - test.$(<)
-			test.$(<) : $(<).tst $(<)
+			test.$(<) : $(<).tst $(<:A=.COMMAND)
 				$(REGRESS) $(REGRESSFLAGS) $(*)
 		end
 	end
@@ -146,7 +179,7 @@ MKTESTFLAGS = --style=regress
  * otherwise the script is accepted if it exists
  *
  * this avoids the case where a fresh build with no state
- * would regenerate the test script and encode current
+ * would regenerate the test script and capture current
  * behavior instead of expected behavior
  */
 

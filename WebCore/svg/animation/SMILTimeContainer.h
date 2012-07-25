@@ -59,30 +59,24 @@ public:
     void begin();
     void pause();
     void resume();
-    
-    void setDocumentOrderIndexesDirty() { m_documentOrderIndexesDirty = true; }
+    void setElapsed(SMILTime);
 
-    // Move to a specific time. Only used for DRT testing purposes.
-    void sampleAnimationAtTime(const String& elementId, double seconds);
+    void setDocumentOrderIndexesDirty() { m_documentOrderIndexesDirty = true; }
 
 private:
     SMILTimeContainer(SVGSVGElement* owner);
     
     void timerFired(Timer<SMILTimeContainer>*);
     void startTimer(SMILTime fireTime, SMILTime minimumDelay = 0);
-    void updateAnimations(SMILTime elapsed);
+    void updateAnimations(SMILTime elapsed, bool seekToTime = false);
     
     void updateDocumentOrderIndexes();
     void sortByPriority(Vector<SVGSMILElement*>& smilElements, SMILTime elapsed);
     
-    typedef pair<SVGElement*, QualifiedName> ElementAttributePair;
-    String baseValueFor(ElementAttributePair);
-    
     double m_beginTime;
     double m_pauseTime;
     double m_accumulatedPauseTime;
-    double m_nextManualSampleTime;
-    String m_nextSamplingTarget;
+    double m_presetStartTime;
 
     bool m_documentOrderIndexesDirty;
     
@@ -90,9 +84,6 @@ private:
 
     typedef HashSet<SVGSMILElement*> TimingElementSet;
     TimingElementSet m_scheduledAnimations;
-    
-    typedef HashMap<ElementAttributePair, String> BaseValueMap;
-    BaseValueMap m_savedBaseValues;
 
     SVGSVGElement* m_ownerSVGElement;
 };

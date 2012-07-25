@@ -56,12 +56,12 @@ DES3_random_key(krb5_context context,
 
 
 #ifdef DES3_OLD_ENCTYPE
-static struct key_type keytype_des3 = {
-    KEYTYPE_DES3,
+static struct _krb5_key_type keytype_des3 = {
+    ETYPE_OLD_DES3_CBC_SHA1,
     "des3",
     168,
     24,
-    sizeof(struct evp_schedule),
+    sizeof(struct _krb5_evp_schedule),
     DES3_random_key,
     _krb5_evp_schedule,
     _krb5_des3_salt,
@@ -71,12 +71,12 @@ static struct key_type keytype_des3 = {
 };
 #endif
 
-static struct key_type keytype_des3_derived = {
-    KEYTYPE_DES3,
+static struct _krb5_key_type keytype_des3_derived = {
+    ETYPE_OLD_DES3_CBC_SHA1,
     "des3",
     168,
     24,
-    sizeof(struct evp_schedule),
+    sizeof(struct _krb5_evp_schedule),
     DES3_random_key,
     _krb5_evp_schedule,
     _krb5_des3_salt_derived,
@@ -88,7 +88,7 @@ static struct key_type keytype_des3_derived = {
 #ifdef DES3_OLD_ENCTYPE
 static krb5_error_code
 RSA_MD5_DES3_checksum(krb5_context context,
-		      struct key_data *key,
+		      struct _krb5_key_data *key,
 		      const void *data,
 		      size_t len,
 		      unsigned usage,
@@ -99,7 +99,7 @@ RSA_MD5_DES3_checksum(krb5_context context,
 
 static krb5_error_code
 RSA_MD5_DES3_verify(krb5_context context,
-		    struct key_data *key,
+		    struct _krb5_key_data *key,
 		    const void *data,
 		    size_t len,
 		    unsigned usage,
@@ -108,7 +108,7 @@ RSA_MD5_DES3_verify(krb5_context context,
     return _krb5_des_verify(context, kCCDigestMD5, key, data, len, C);
 }
 
-struct checksum_type _krb5_checksum_rsa_md5_des3 = {
+struct _krb5_checksum_type _krb5_checksum_rsa_md5_des3 = {
     CKSUMTYPE_RSA_MD5_DES3,
     "rsa-md5-des3",
     64,
@@ -119,7 +119,7 @@ struct checksum_type _krb5_checksum_rsa_md5_des3 = {
 };
 #endif
 
-struct checksum_type _krb5_checksum_hmac_sha1_des3 = {
+struct _krb5_checksum_type _krb5_checksum_hmac_sha1_des3 = {
     CKSUMTYPE_HMAC_SHA1_DES3,
     "hmac-sha1-des3",
     64,
@@ -130,7 +130,7 @@ struct checksum_type _krb5_checksum_hmac_sha1_des3 = {
 };
 
 #ifdef DES3_OLD_ENCTYPE
-struct encryption_type _krb5_enctype_des3_cbc_md5 = {
+struct _krb5_encryption_type _krb5_enctype_des3_cbc_md5 = {
     ETYPE_DES3_CBC_MD5,
     "des3-cbc-md5",
     8,
@@ -146,7 +146,7 @@ struct encryption_type _krb5_enctype_des3_cbc_md5 = {
 };
 #endif
 
-struct encryption_type _krb5_enctype_des3_cbc_sha1 = {
+struct _krb5_encryption_type _krb5_enctype_des3_cbc_sha1 = {
     ETYPE_DES3_CBC_SHA1,
     "des3-cbc-sha1",
     8,
@@ -162,7 +162,7 @@ struct encryption_type _krb5_enctype_des3_cbc_sha1 = {
 };
 
 #ifdef DES3_OLD_ENCTYPE
-struct encryption_type _krb5_enctype_old_des3_cbc_sha1 = {
+struct _krb5_encryption_type _krb5_enctype_old_des3_cbc_sha1 = {
     ETYPE_OLD_DES3_CBC_SHA1,
     "old-des3-cbc-sha1",
     8,
@@ -178,7 +178,7 @@ struct encryption_type _krb5_enctype_old_des3_cbc_sha1 = {
 };
 #endif
 
-struct encryption_type _krb5_enctype_des3_cbc_none = {
+struct _krb5_encryption_type _krb5_enctype_des3_cbc_none = {
     ETYPE_DES3_CBC_NONE,
     "des3-cbc-none",
     8,

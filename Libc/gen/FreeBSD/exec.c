@@ -48,7 +48,11 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/exec.c,v 1.27 2009/12/05 18:55:16 ed Exp $"
 #include "un-namespace.h"
 #include "libc_private.h"
 
-extern char **environ;
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+
+int
+_execvpe(const char *name, char * const argv[], char * const envp[]);
 
 int
 execl(const char *name, const char *arg, ...)
@@ -259,8 +263,9 @@ retry:		(void)_execve(bp, argv, envp);
 	}
 	if (eacces)
 		errno = EACCES;
-	else
+	else if (cur)
 		errno = ENOENT;
+	/* else use existing errno from _execve */
 done:
 	return (-1);
 }
@@ -271,7 +276,7 @@ execvP(const char *name, const char *path, char * const argv[])
 	return execvPe(name, path, argv, environ);
 }
 
-int
+__private_extern__ int
 _execvpe(const char *name, char * const argv[], char * const envp[])
 {
 	const char *path;

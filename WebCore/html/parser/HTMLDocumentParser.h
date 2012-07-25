@@ -35,7 +35,7 @@
 #include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
 #include "Timer.h"
-#include "XSSFilter.h"
+#include "XSSAuditor.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
@@ -73,12 +73,13 @@ public:
     static void parseDocumentFragment(const String&, DocumentFragment*, Element* contextElement, FragmentScriptingPermission = FragmentScriptingAllowed);
     
     static bool usePreHTML5ParserQuirks(Document*);
+    static unsigned maximumDOMTreeDepth(Document*);
 
     HTMLTokenizer* tokenizer() const { return m_tokenizer.get(); }
     String sourceForToken(const HTMLToken&);
 
-    virtual TextPosition0 textPosition() const;
-    virtual int lineNumber() const;
+    virtual TextPosition textPosition() const;
+    virtual OrdinalNumber lineNumber() const;
 
     virtual void suspendScheduledTasks();
     virtual void resumeScheduledTasks();
@@ -134,9 +135,8 @@ private:
 
     bool isParsingFragment() const;
     bool isScheduledForResume() const;
-    bool inScriptExecution() const;
     bool inPumpSession() const { return m_pumpSessionNestingLevel > 0; }
-    bool shouldDelayEnd() const { return inPumpSession() || isWaitingForScripts() || inScriptExecution() || isScheduledForResume(); }
+    bool shouldDelayEnd() const { return inPumpSession() || isWaitingForScripts() || isScheduledForResume() || isExecutingScript(); }
 
     ScriptController* script() const;
 
@@ -149,9 +149,10 @@ private:
     OwnPtr<HTMLScriptRunner> m_scriptRunner;
     OwnPtr<HTMLTreeBuilder> m_treeBuilder;
     OwnPtr<HTMLPreloadScanner> m_preloadScanner;
+    OwnPtr<HTMLPreloadScanner> m_insertionPreloadScanner;
     OwnPtr<HTMLParserScheduler> m_parserScheduler;
     HTMLSourceTracker m_sourceTracker;
-    XSSFilter m_xssFilter;
+    XSSAuditor m_xssAuditor;
 
     bool m_endWasDelayed;
     unsigned m_pumpSessionNestingLevel;

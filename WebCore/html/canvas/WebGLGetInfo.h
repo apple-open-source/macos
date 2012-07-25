@@ -39,6 +39,7 @@
 #include <wtf/Int32Array.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Uint32Array.h>
 #include <wtf/Uint8Array.h>
 
 namespace WebCore {
@@ -67,28 +68,30 @@ public:
         kTypeWebGLRenderbuffer,
         kTypeWebGLTexture,
         kTypeWebGLUnsignedByteArray,
+        kTypeWebGLUnsignedIntArray,
         kTypeWebGLVertexArrayObjectOES,
     };
 
-    WebGLGetInfo(bool value);
+    explicit WebGLGetInfo(bool value);
     WebGLGetInfo(const bool* value, int size);
-    WebGLGetInfo(float value);
-    WebGLGetInfo(int value);
+    explicit WebGLGetInfo(float value);
+    explicit WebGLGetInfo(int value);
     // Represents the null value and type.
     WebGLGetInfo();
-    WebGLGetInfo(const String& value);
-    WebGLGetInfo(unsigned int value);
-    WebGLGetInfo(PassRefPtr<WebGLBuffer> value);
-    WebGLGetInfo(PassRefPtr<Float32Array> value);
-    WebGLGetInfo(PassRefPtr<WebGLFramebuffer> value);
-    WebGLGetInfo(PassRefPtr<Int32Array> value);
+    explicit WebGLGetInfo(const String& value);
+    explicit WebGLGetInfo(unsigned int value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLBuffer> value);
+    explicit WebGLGetInfo(PassRefPtr<Float32Array> value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLFramebuffer> value);
+    explicit WebGLGetInfo(PassRefPtr<Int32Array> value);
     // FIXME: implement WebGLObjectArray
     // WebGLGetInfo(PassRefPtr<WebGLObjectArray> value);
-    WebGLGetInfo(PassRefPtr<WebGLProgram> value);
-    WebGLGetInfo(PassRefPtr<WebGLRenderbuffer> value);
-    WebGLGetInfo(PassRefPtr<WebGLTexture> value);
-    WebGLGetInfo(PassRefPtr<Uint8Array> value);
-    WebGLGetInfo(PassRefPtr<WebGLVertexArrayObjectOES> value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLProgram> value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLRenderbuffer> value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLTexture> value);
+    explicit WebGLGetInfo(PassRefPtr<Uint8Array> value);
+    explicit WebGLGetInfo(PassRefPtr<Uint32Array> value);
+    explicit WebGLGetInfo(PassRefPtr<WebGLVertexArrayObjectOES> value);
 
     virtual ~WebGLGetInfo();
 
@@ -110,6 +113,7 @@ public:
     PassRefPtr<WebGLRenderbuffer> getWebGLRenderbuffer() const;
     PassRefPtr<WebGLTexture> getWebGLTexture() const;
     PassRefPtr<Uint8Array> getWebGLUnsignedByteArray() const;
+    PassRefPtr<Uint32Array> getWebGLUnsignedIntArray() const;
     PassRefPtr<WebGLVertexArrayObjectOES> getWebGLVertexArrayObjectOES() const;
 
 private:
@@ -130,6 +134,7 @@ private:
     RefPtr<WebGLRenderbuffer> m_webglRenderbuffer;
     RefPtr<WebGLTexture> m_webglTexture;
     RefPtr<Uint8Array> m_webglUnsignedByteArray;
+    RefPtr<Uint32Array> m_webglUnsignedIntArray;
     RefPtr<WebGLVertexArrayObjectOES> m_webglVertexArrayObject;
 };
 

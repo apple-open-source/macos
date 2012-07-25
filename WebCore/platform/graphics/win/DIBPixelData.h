@@ -26,11 +26,13 @@
 #ifndef DIBPixelData_h
 #define DIBPixelData_h
 
+#include "IntRect.h"
 #include "IntSize.h"
 #include <windows.h>
 
-#if !USE(CG)
-// UInt8 is defined in CoreFoundation/CFBase.h
+#if USE(CG)
+#include <CoreFoundation/CFBase.h>
+#else
 typedef unsigned char UInt8;
 #endif
 
@@ -58,6 +60,7 @@ class DIBPixelData {
         const IntSize& size() const { return m_size; }
         unsigned bytesPerRow() const { return m_bytesPerRow; }
         unsigned short bitsPerPixel() const { return m_bitsPerPixel; }
+        static void setRGBABitmapAlpha(HDC, const IntRect&, unsigned char);
 
     private:
         UInt8* m_bitmapBuffer;

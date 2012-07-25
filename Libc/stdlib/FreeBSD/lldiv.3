@@ -40,10 +40,10 @@
 The
 .Fn lldiv
 function computes the value of
-.Fa numer
+.Fa numer ,
 divided by
-.Fa denom
-and returns the stored result in the form of the
+.Fa denom .
+It returns the stored result in the form of the
 .Vt lldiv_t
 type.
 .Pp
@@ -52,7 +52,7 @@ The
 type is defined as:
 .Bd -literal -offset indent
 typedef struct {
-	long long quot; /* Quotient. */
+	long long quot; /* Quotient.  */
 	long long rem;  /* Remainder. */
 } lldiv_t;
 .Ed

@@ -31,9 +31,9 @@
 #include <vsstyle.h>
 
 #include "GraphicsContext.h"
-#include "PlatformBridge.h"
 #include "PlatformContextSkia.h"
 #include "PlatformMouseEvent.h"
+#include "PlatformSupport.h"
 #include "Scrollbar.h"
 #include "SystemInfo.h"
 
@@ -61,7 +61,7 @@ int ScrollbarThemeChromiumWin::scrollbarThickness(ScrollbarControlSize controlSi
 {
     static int thickness;
     if (!thickness) {
-        if (PlatformBridge::layoutTestMode())
+        if (PlatformSupport::layoutTestMode())
             return kMacScrollbarSize[controlSize];
         thickness = GetSystemMetrics(SM_CXVSCROLL);
     }
@@ -73,7 +73,7 @@ bool ScrollbarThemeChromiumWin::invalidateOnMouseEnterExit()
     return windowsVersion() >= WindowsVista;
 }
 
-bool ScrollbarThemeChromiumWin::shouldSnapBackToDragOrigin(Scrollbar* scrollbar, const PlatformMouseEvent& evt)
+bool ScrollbarThemeChromiumWin::shouldSnapBackToDragOrigin(ScrollbarThemeClient* scrollbar, const PlatformMouseEvent& evt)
 {
     // Find the rect within which we shouldn't snap, by expanding the track rect
     // in both dimensions.
@@ -84,14 +84,14 @@ bool ScrollbarThemeChromiumWin::shouldSnapBackToDragOrigin(Scrollbar* scrollbar,
     rect.inflateY((horz ? kOffSideMultiplier : kOffEndMultiplier) * thickness);
 
     // Convert the event to local coordinates.
-    IntPoint mousePosition = scrollbar->convertFromContainingWindow(evt.pos());
+    IntPoint mousePosition = scrollbar->convertFromContainingWindow(evt.position());
     mousePosition.move(scrollbar->x(), scrollbar->y());
 
     // We should snap iff the event is outside our calculated rect.
     return !rect.contains(mousePosition);
 }
 
-void ScrollbarThemeChromiumWin::paintTrackPiece(GraphicsContext* gc, Scrollbar* scrollbar, const IntRect& rect, ScrollbarPart partType)
+void ScrollbarThemeChromiumWin::paintTrackPiece(GraphicsContext* gc, ScrollbarThemeClient* scrollbar, const IntRect& rect, ScrollbarPart partType)
 {
     bool horz = scrollbar->orientation() == HorizontalScrollbar;
 
@@ -104,7 +104,7 @@ void ScrollbarThemeChromiumWin::paintTrackPiece(GraphicsContext* gc, Scrollbar* 
     IntRect alignRect = trackRect(scrollbar, false);
 
     // Draw the track area before/after the thumb on the scroll bar.
-    PlatformBridge::paintScrollbarTrack(
+    PlatformSupport::paintScrollbarTrack(
         gc,
         partId,
         getThemeState(scrollbar, partType),
@@ -113,7 +113,7 @@ void ScrollbarThemeChromiumWin::paintTrackPiece(GraphicsContext* gc, Scrollbar* 
         alignRect);
 }
 
-void ScrollbarThemeChromiumWin::paintButton(GraphicsContext* gc, Scrollbar* scrollbar, const IntRect& rect, ScrollbarPart part)
+void ScrollbarThemeChromiumWin::paintButton(GraphicsContext* gc, ScrollbarThemeClient* scrollbar, const IntRect& rect, ScrollbarPart part)
 {
     bool horz = scrollbar->orientation() == HorizontalScrollbar;
 
@@ -124,19 +124,19 @@ void ScrollbarThemeChromiumWin::paintButton(GraphicsContext* gc, Scrollbar* scro
         partId = horz ? DFCS_SCROLLRIGHT : DFCS_SCROLLDOWN;
 
     // Draw the thumb (the box you drag in the scroll bar to scroll).
-    PlatformBridge::paintScrollbarArrow(
+    PlatformSupport::paintScrollbarArrow(
         gc,
         getThemeArrowState(scrollbar, part),
         partId | getClassicThemeState(scrollbar, part),
         rect);
 }
 
-void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, Scrollbar* scrollbar, const IntRect& rect)
+void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, ScrollbarThemeClient* scrollbar, const IntRect& rect)
 {
     bool horz = scrollbar->orientation() == HorizontalScrollbar;
 
     // Draw the thumb (the box you drag in the scroll bar to scroll).
-    PlatformBridge::paintScrollbarThumb(
+    PlatformSupport::paintScrollbarThumb(
         gc,
         horz ? SBP_THUMBBTNHORZ : SBP_THUMBBTNVERT,
         getThemeState(scrollbar, ThumbPart),
@@ -144,7 +144,7 @@ void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, Scrollbar* scrol
         rect);
 
     // Draw the gripper (the three little lines on the thumb).
-    PlatformBridge::paintScrollbarThumb(
+    PlatformSupport::paintScrollbarThumb(
         gc,
         horz ? SBP_GRIPPERHORZ : SBP_GRIPPERVERT,
         getThemeState(scrollbar, ThumbPart),
@@ -152,7 +152,7 @@ void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, Scrollbar* scrol
         rect);
 }
 
-int ScrollbarThemeChromiumWin::getThemeState(Scrollbar* scrollbar, ScrollbarPart part) const
+int ScrollbarThemeChromiumWin::getThemeState(ScrollbarThemeClient* scrollbar, ScrollbarPart part) const
 {
     // When dragging the thumb, draw thumb pressed and other segments normal
     // regardless of where the cursor actually is.  See also four places in
@@ -171,7 +171,7 @@ int ScrollbarThemeChromiumWin::getThemeState(Scrollbar* scrollbar, ScrollbarPart
     return (scrollbar->pressedPart() == part) ? SCRBS_PRESSED : SCRBS_NORMAL;
 }
 
-int ScrollbarThemeChromiumWin::getThemeArrowState(Scrollbar* scrollbar, ScrollbarPart part) const
+int ScrollbarThemeChromiumWin::getThemeArrowState(ScrollbarThemeClient* scrollbar, ScrollbarPart part) const
 {
     // We could take advantage of knowing the values in the state enum to write
     // some simpler code, but treating the state enum as a black box seems
@@ -221,7 +221,7 @@ int ScrollbarThemeChromiumWin::getThemeArrowState(Scrollbar* scrollbar, Scrollba
     return (scrollbar->pressedPart() == part) ? ABS_DOWNPRESSED : ABS_DOWNNORMAL;
 }
 
-int ScrollbarThemeChromiumWin::getClassicThemeState(Scrollbar* scrollbar, ScrollbarPart part) const
+int ScrollbarThemeChromiumWin::getClassicThemeState(ScrollbarThemeClient* scrollbar, ScrollbarPart part) const
 {
     // When dragging the thumb, draw the buttons normal even when hovered.
     if (scrollbar->pressedPart() == ThumbPart)
@@ -235,12 +235,12 @@ int ScrollbarThemeChromiumWin::getClassicThemeState(Scrollbar* scrollbar, Scroll
     return (scrollbar->pressedPart() == part) ? (DFCS_PUSHED | DFCS_FLAT) : 0;
 }
 
-bool ScrollbarThemeChromiumWin::shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent& evt)
+bool ScrollbarThemeChromiumWin::shouldCenterOnThumb(ScrollbarThemeClient*, const PlatformMouseEvent& evt)
 {
     return evt.shiftKey() && evt.button() == LeftButton;
 }
 
-IntSize ScrollbarThemeChromiumWin::buttonSize(Scrollbar* scrollbar)
+IntSize ScrollbarThemeChromiumWin::buttonSize(ScrollbarThemeClient* scrollbar)
 {
     // Our desired rect is essentially thickness by thickness.
 
@@ -256,7 +256,7 @@ IntSize ScrollbarThemeChromiumWin::buttonSize(Scrollbar* scrollbar)
     // test mode so that should be enough to result in repeatable results, but
     // preserving this hack avoids having to rebaseline pixel tests.
     const int kLayoutTestModeGirth = 17;
-    int girth = PlatformBridge::layoutTestMode() ? kLayoutTestModeGirth : thickness;
+    int girth = PlatformSupport::layoutTestMode() ? kLayoutTestModeGirth : thickness;
 
     if (scrollbar->orientation() == HorizontalScrollbar) {
         int width = scrollbar->width() < 2 * girth ? scrollbar->width() / 2 : girth;

@@ -179,11 +179,19 @@ typedef struct {
     const char **milter_argv;		/* SMTP command vector */
     ssize_t milter_argc;		/* SMTP command vector */
     const char *milter_reject_text;	/* input to call-back from Milter */
+
+    /*
+     * EHLO temporary space.
+     */
+    VSTRING *ehlo_buf;
+    ARGV   *ehlo_argv;
 } SMTPD_STATE;
 
 #define SMTPD_FLAG_HANGUP	   (1<<0)	/* 421/521 disconnect */
 #define SMTPD_FLAG_ILL_PIPELINING  (1<<1)	/* inappropriate pipelining */
+#define SMTPD_FLAG_AUTH_USED	   (1<<2)	/* don't reuse SASL state */
 
+ /* Security: don't reset SMTPD_FLAG_AUTH_USED. */
 #define SMTPD_MASK_MAIL_KEEP		~0	/* keep all after MAIL reset */
 
 #define SMTPD_STATE_XFORWARD_INIT  (1<<0)	/* xforward preset done */
@@ -276,6 +284,7 @@ extern void smtpd_state_reset(SMTPD_STATE *);
 #define CLIENT_PROTO_UNKNOWN	CLIENT_ATTR_UNKNOWN
 #define CLIENT_IDENT_UNKNOWN	0
 #define CLIENT_DOMAIN_UNKNOWN	0
+#define CLIENT_LOGIN_UNKNOWN	0
 
 #define IS_AVAIL_CLIENT_ATTR(v)	((v) && strcmp((v), CLIENT_ATTR_UNKNOWN))
 
@@ -292,6 +301,9 @@ extern void smtpd_state_reset(SMTPD_STATE *);
   * If running in stand-alone mode, do not try to talk to Postfix daemons but
   * write to queue file instead.
   */
+#define SMTPD_STAND_ALONE_STREAM(stream) \
+	(stream == VSTREAM_IN && getuid() != var_owner_uid)
+
 #define SMTPD_STAND_ALONE(state) \
 	(state->client == VSTREAM_IN && getuid() != var_owner_uid)
 
@@ -381,7 +393,8 @@ extern double smtpd_space_multf;
 #define PW_SERVER_LOGIN			0x0001
 #define PW_SERVER_PLAIN			0x0002
 #define PW_SERVER_CRAM_MD5		0x0004
-#define PW_SERVER_GSSAPI		0x0008
+#define PW_SERVER_DIGEST_MD5		0x0008
+#define PW_SERVER_GSSAPI		0x0010
 
 extern int		smtpd_pw_server_sasl_opts;
 #endif /* __APPLE_OS_X_SERVER__ */

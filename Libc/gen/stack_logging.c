@@ -118,8 +118,9 @@ unsigned stack_logging_get_unique_stack(unsigned **table, unsigned *table_num_pa
 stack_logging_record_list_t *stack_logging_the_record_list = NULL;
 
 int stack_logging_enable_logging = 0;
-
 int stack_logging_dontcompact = 0;
+int stack_logging_finished_init = 0;
+int stack_logging_postponed = 0;
 
 static int stack_logging_spin_lock = 0;
 

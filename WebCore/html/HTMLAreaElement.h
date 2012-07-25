@@ -24,7 +24,7 @@
 #define HTMLAreaElement_h
 
 #include "HTMLAnchorElement.h"
-#include "IntSize.h"
+#include "LayoutTypes.h"
 #include <wtf/OwnArrayPtr.h>
 
 namespace WebCore {
@@ -39,9 +39,9 @@ public:
 
     bool isDefault() const { return m_shape == Default; }
 
-    bool mapMouseEvent(int x, int y, const IntSize&, HitTestResult&);
+    bool mapMouseEvent(LayoutPoint location, const LayoutSize&, HitTestResult&);
 
-    IntRect computeRect(RenderObject*) const;
+    LayoutRect computeRect(RenderObject*) const;
     Path computePath(RenderObject*) const;
 
     // The parent map's image.
@@ -50,7 +50,7 @@ public:
 private:
     HTMLAreaElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool supportsFocus() const;
     virtual String target() const;
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
@@ -58,15 +58,20 @@ private:
     virtual bool isFocusable() const;
     virtual void updateFocusAppearance(bool /*restorePreviousSelection*/);
     virtual void setFocus(bool);
-    
+
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const OVERRIDE;
+    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
+#endif
+
     enum Shape { Default, Poly, Rect, Circle, Unknown };
-    Path getRegion(const IntSize&) const;
+    Path getRegion(const LayoutSize&) const;
     void invalidateCachedRegion();
 
     OwnPtr<Path> m_region;
     OwnArrayPtr<Length> m_coords;
     int m_coordsLen;
-    IntSize m_lastSize;
+    LayoutSize m_lastSize;
     Shape m_shape;
 };
 

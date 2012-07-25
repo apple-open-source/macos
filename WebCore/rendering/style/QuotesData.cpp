@@ -28,24 +28,24 @@ QuotesData* QuotesData::create(int stringCount)
     char* tmp = new char[sizeof(QuotesData)+sizeof(String)*stringCount];
     if (!tmp)
         return 0;
-    new (tmp) QuotesData(stringCount);
+    QuotesData* ret = new (tmp) QuotesData(stringCount);
     for (int i = 0; i < stringCount; ++i)
         new (tmp +sizeof(QuotesData) + sizeof(String)*i) String();
-    return reinterpret_cast<QuotesData*>(tmp);
+    return ret;
 }
 
-bool QuotesData::operator==(const QuotesData& other) const
+bool QuotesData::equal(const QuotesData* quotesData1, const QuotesData* quotesData2)
 {
-    if (this == &other)
+    if (quotesData1 == quotesData2)
         return true;
-    if (!&other || !this)
+    if (!quotesData1 || !quotesData2)
         return false;
-    if (length != other.length)
+    if (quotesData1->length != quotesData2->length)
         return false;
-    const String* myData = data();
-    const String* otherData = other.data();
-    for (int i = length-1; i >= 0; --i)
-        if (myData[i] != otherData[i])
+    const String* data1 = quotesData1->data();
+    const String* data2 = quotesData2->data();
+    for (int i = quotesData1->length - 1; i >= 0; --i)
+        if (data1[i] != data2[i])
             return false;
     return true;
 }

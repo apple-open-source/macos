@@ -33,9 +33,13 @@
 #pragma mark -
 #pragma mark CaptiveNetwork.framework APIs (exported through the SystemConfiguration.framework)
 
+
+#if	TARGET_OS_EMBEDDED
 const CFStringRef kCNNetworkInfoKeySSIDData    = CFSTR("SSIDDATA");
 const CFStringRef kCNNetworkInfoKeySSID        = CFSTR("SSID");
 const CFStringRef kCNNetworkInfoKeyBSSID       = CFSTR("BSSID");
+#endif	// TARGET_OS_EMBEDDED
+
 
 static void *
 __loadCaptiveNetwork(void) {
@@ -104,6 +108,8 @@ CNCopySupportedInterfaces(void)
 	return dyfunc ? dyfunc() : NULL;
 }
 
+
+#if	TARGET_OS_EMBEDDED
 CFDictionaryRef
 CNCopyCurrentNetworkInfo(CFStringRef	interfaceName)
 {
@@ -114,3 +120,4 @@ CNCopyCurrentNetworkInfo(CFStringRef	interfaceName)
 	}
 	return dyfunc ? dyfunc(interfaceName) : NULL;
 }
+#endif	// TARGET_OS_EMBEDDED

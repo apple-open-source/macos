@@ -1,1 +1,0 @@
-FreeBSD/ftok.c

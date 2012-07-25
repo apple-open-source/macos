@@ -26,18 +26,18 @@
 #include "config.h"
 #include "StorageAreaSync.h"
 
-#if ENABLE(DOM_STORAGE)
-
 #include "EventNames.h"
 #include "FileSystem.h"
 #include "HTMLElement.h"
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
+#include "SQLiteTransaction.h"
 #include "SecurityOrigin.h"
 #include "StorageAreaImpl.h"
 #include "StorageSyncManager.h"
 #include "StorageTracker.h"
 #include "SuddenTermination.h"
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -254,7 +254,9 @@ void StorageAreaSync::openDatabase(OpenDatabaseParamType openingStrategy)
         return;
     }
 
-    if (!m_database.executeCommand("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value TEXT NOT NULL ON CONFLICT FAIL)")) {
+    migrateItemTableIfNeeded();
+
+    if (!m_database.executeCommand("CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB NOT NULL ON CONFLICT FAIL)")) {
         LOG_ERROR("Failed to create table ItemTable for local storage");
         markImported();
         m_databaseOpenFailed = true;
@@ -262,6 +264,49 @@ void StorageAreaSync::openDatabase(OpenDatabaseParamType openingStrategy)
     }
 
     StorageTracker::tracker().setOriginDetails(m_databaseIdentifier, databaseFilename);
+}
+
+void StorageAreaSync::migrateItemTableIfNeeded()
+{
+    if (!m_database.tableExists("ItemTable"))
+        return;
+
+    {
+        SQLiteStatement query(m_database, "SELECT value FROM ItemTable LIMIT 1");
+        // this query isn't ever executed.
+        if (query.isColumnDeclaredAsBlob(0))
+            return;
+    }
+
+    // alter table for backward compliance, change the value type from TEXT to BLOB.
+    static const char* commands[] = {
+        "DROP TABLE IF EXISTS ItemTable2",
+        "CREATE TABLE ItemTable2 (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB NOT NULL ON CONFLICT FAIL)",
+        "INSERT INTO ItemTable2 SELECT * from ItemTable",
+        "DROP TABLE ItemTable",
+        "ALTER TABLE ItemTable2 RENAME TO ItemTable",
+        0,
+    };
+
+    SQLiteTransaction transaction(m_database, false);
+    transaction.begin();
+    for (size_t i = 0; commands[i]; ++i) {
+        if (!m_database.executeCommand(commands[i])) {
+            LOG_ERROR("Failed to migrate table ItemTable for local storage when executing: %s", commands[i]);
+            transaction.rollback();
+
+            // finally it will try to keep a backup of ItemTable for the future restoration.
+            // NOTICE: this will essentially DELETE the current database, but that's better
+            // than continually hitting this case and never being able to use the local storage.
+            // if this is ever hit, it's definitely a bug.
+            ASSERT_NOT_REACHED();
+            if (!m_database.executeCommand("ALTER TABLE ItemTable RENAME TO Backup_ItemTable"))
+                LOG_ERROR("Failed to save ItemTable after migration job failed.");
+
+            return;
+        }
+    }
+    transaction.commit();
 }
 
 void StorageAreaSync::performImport()
@@ -286,7 +331,7 @@ void StorageAreaSync::performImport()
 
     int result = query.step();
     while (result == SQLResultRow) {
-        itemMap.set(query.getColumnText(0), query.getColumnText(1));
+        itemMap.set(query.getColumnText(0), query.getColumnBlobAsString(1));
         result = query.step();
     }
 
@@ -384,6 +429,8 @@ void StorageAreaSync::sync(bool clearItems, const HashMap<String, String>& items
 
     HashMap<String, String>::const_iterator end = items.end();
 
+    SQLiteTransaction transaction(m_database);
+    transaction.begin();
     for (HashMap<String, String>::const_iterator it = items.begin(); it != end; ++it) {
         // Based on the null-ness of the second argument, decide whether this is an insert or a delete.
         SQLiteStatement& query = it->second.isNull() ? remove : insert;
@@ -392,7 +439,7 @@ void StorageAreaSync::sync(bool clearItems, const HashMap<String, String>& items
 
         // If the second argument is non-null, we're doing an insert, so bind it as the value.
         if (!it->second.isNull())
-            query.bindText(2, it->second);
+            query.bindBlob(2, it->second);
 
         int result = query.step();
         if (result != SQLResultDone) {
@@ -402,6 +449,7 @@ void StorageAreaSync::sync(bool clearItems, const HashMap<String, String>& items
 
         query.reset();
     }
+    transaction.commit();
 }
 
 void StorageAreaSync::performSync()
@@ -471,7 +519,5 @@ void StorageAreaSync::scheduleSync()
 {
     syncTimerFired(&m_syncTimer);
 }
-    
-} // namespace WebCore
 
-#endif // ENABLE(DOM_STORAGE)
+} // namespace WebCore

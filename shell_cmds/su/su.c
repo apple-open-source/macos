@@ -106,7 +106,7 @@ __FBSDID("$FreeBSD: src/usr.bin/su/su.c,v 1.91 2009/12/13 03:14:06 delphij Exp $
 #include <security/openpam.h>
 
 #ifdef __APPLE__
-#include <Security/AuthSession.h>
+#include <bsm/audit_session.h>
 #endif /* __APPLE__ */
 
 #define PAM_END() do {							\
@@ -448,11 +448,19 @@ main(int argc, char *argv[])
 #ifdef __APPLE__
 	/* 8530846 */
 	if (asthem) {
-		retcode = SessionCreate(0, 0);
-		if (retcode != noErr) {
-			syslog(LOG_ERR, "SessionCreate: %d", retcode);
+        auditinfo_addr_t auinfo = {
+            .ai_termid = { .at_type = AU_IPv4 },
+            .ai_asid = AU_ASSIGN_ASID,
+            .ai_auid = getuid(),
+            .ai_flags = 0,
+        };
+        if (setaudit_addr(&auinfo, sizeof(auinfo)) == 0) {
+            char session[16];
+            snprintf(session, sizeof(session), "%x", auinfo.ai_asid);
+            setenv("SECURITYSESSIONID", session, 1);
+        } else {
 			errx(1, "failed to create session.");
-		}
+        }
 	}
 #endif /* __APPLE__ */
 

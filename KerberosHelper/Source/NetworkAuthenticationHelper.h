@@ -1,5 +1,6 @@
 
 #import <CoreFoundation/CoreFoundation.h>
+#import <Security/Security.h>
 
 typedef struct NAHData *NAHRef;
 typedef struct NAHSelectionData *NAHSelectionRef;
@@ -143,6 +144,9 @@ NAHCredAddReference(CFStringRef referenceKey);
 Boolean
 NAHCredRemoveReference(CFStringRef referenceKey);
 
+char *
+NAHCreateRefLabelFromIdentifier(CFStringRef identifier);
+
 extern CFStringRef kGSSAPIMechNTLM;
 extern CFStringRef kGSSAPIMechKerberos;
 extern CFStringRef kGSSAPIMechKerberosU2U;
@@ -150,3 +154,6 @@ extern CFStringRef kGSSAPIMechKerberosMicrosoft;
 extern CFStringRef kGSSAPIMechPKU2U;
 extern CFStringRef kGSSAPIMechIAKerb;
 extern CFStringRef kGSSAPIMechSPNEGO;
+
+CFStringRef
+NAHCopyMMeUserNameFromCertificate(SecCertificateRef cert);

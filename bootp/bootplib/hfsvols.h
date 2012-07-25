@@ -57,4 +57,4 @@ hfsVol_t *		hfsVolList_lookup(hfsVolList_t vols, u_char * name);
 boolean_t		hfs_get_dirID(u_int32_t volumeID, 
 				      u_char * path, u_int32_t * dirID_p);
 int			hfs_set_file_size(int fd, off_t size);
-#endif _S_HFSVOLS_H
+#endif /* _S_HFSVOLS_H */

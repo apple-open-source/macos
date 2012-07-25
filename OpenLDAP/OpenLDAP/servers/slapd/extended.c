@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/extended.c,v 1.92.2.7 2010/04/13 20:23:14 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,7 +120,6 @@ do_extended(
 )
 {
 	struct berval reqdata = {0, NULL};
-	ber_tag_t tag;
 	ber_len_t len;
 
 	Debug( LDAP_DEBUG_TRACE, "%s do_extended\n",
@@ -142,8 +141,6 @@ do_extended(
 		goto done;
 	}
 
-	tag = ber_peek_tag( op->o_ber, &len );
-	
 	if( ber_peek_tag( op->o_ber, &len ) == LDAP_TAG_EXOP_REQ_VALUE ) {
 		if( ber_scanf( op->o_ber, "m", &reqdata ) == LBER_ERROR ) {
 			Debug( LDAP_DEBUG_ANY, "%s do_extended: ber_scanf failed\n",
@@ -247,10 +244,12 @@ fe_extended( Operation *op, SlapReply *rs )
 
 		if ( rs->sr_rspoid != NULL ) {
 			free( (char *)rs->sr_rspoid );
+			rs->sr_rspoid = NULL;
 		}
 
 		if ( rs->sr_rspdata != NULL ) {
 			ber_bvfree( rs->sr_rspdata );
+			rs->sr_rspdata = NULL;
 		}
 	} /* end of OpenLDAP extended operation */
 

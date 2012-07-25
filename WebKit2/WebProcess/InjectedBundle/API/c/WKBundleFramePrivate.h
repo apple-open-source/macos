@@ -42,7 +42,8 @@ WK_EXPORT WKStringRef WKBundleFrameCopyCounterValue(WKBundleFrameRef frame, JSOb
 WK_EXPORT WKStringRef WKBundleFrameCopyMarkerText(WKBundleFrameRef frame, JSObjectRef element);
 WK_EXPORT JSValueRef WKBundleFrameGetComputedStyleIncludingVisitedInfo(WKBundleFrameRef frame, JSObjectRef element);
 WK_EXPORT unsigned WKBundleFrameGetNumberOfActiveAnimations(WKBundleFrameRef frame);
-WK_EXPORT bool WKBundleFramePauseAnimationOnElementWithId(WKBundleFrameRef frame, WKStringRef name, WKStringRef elementID, double time);
+WK_EXPORT bool WKBundleFramePauseAnimationOnElementWithId(WKBundleFrameRef frame, WKStringRef animationName, WKStringRef elementID, double time);
+WK_EXPORT bool WKBundleFramePauseTransitionOnElementWithId(WKBundleFrameRef frame, WKStringRef propertyName, WKStringRef elementID, double time);
 WK_EXPORT void WKBundleFrameSuspendAnimations(WKBundleFrameRef frame);
 WK_EXPORT void WKBundleFrameResumeAnimations(WKBundleFrameRef frame);
 WK_EXPORT unsigned WKBundleFrameGetPendingUnloadCount(WKBundleFrameRef frame);
@@ -50,6 +51,7 @@ WK_EXPORT WKStringRef WKBundleFrameCopyLayerTreeAsText(WKBundleFrameRef frame);
 WK_EXPORT void WKBundleFrameClearOpener(WKBundleFrameRef frame);
 
 WK_EXPORT bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frame);
+WK_EXPORT void WKBundleFrameSetTextDirection(WKBundleFrameRef frame, WKStringRef);
 
 #ifdef __cplusplus
 }

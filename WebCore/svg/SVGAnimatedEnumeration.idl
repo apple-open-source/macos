@@ -25,8 +25,11 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGAnimatedEnumeration {
-        attribute [StrictTypeChecking] unsigned short baseVal;
+    interface [
+        Conditional=SVG
+    ] SVGAnimatedEnumeration {
+        attribute [StrictTypeChecking] unsigned short baseVal
+            setter raises(DOMException);
         readonly attribute unsigned short animVal;
     };
 

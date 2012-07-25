@@ -1,4 +1,4 @@
-/* $OpenBSD: sshd.c,v 1.375 2010/04/16 01:47:26 djm Exp $ */
+/* $OpenBSD: sshd.c,v 1.385 2011/06/23 09:34:13 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -118,12 +118,8 @@
 #endif
 #include "monitor_wrap.h"
 #include "roaming.h"
+#include "ssh-sandbox.h"
 #include "version.h"
-
-#ifdef __APPLE_SANDBOX_PRIVSEP_CHILDREN__
-#include <sandbox.h>
-#define SB_NAME "sshd"
-#endif
 
 #ifdef USE_SECURITY_SESSION_API
 #include <Security/AuthSession.h>
@@ -607,16 +603,6 @@ privsep_preauth_child(void)
 	/* Demote the private keys to public keys. */
 	demote_sensitive_data();
 
-#ifdef __APPLE_SANDBOX_PRIVSEP_CHILDREN__
-	char *error = NULL;
-	if (0 != sandbox_init(SB_NAME, SANDBOX_NAMED_EXTERNAL, &error)) {
-		verbose("%s: failed to load Seatbelt profile: %s", __func__, error);
-		sandbox_free_error(error);
-	} else {
-		debug("privsep_preauth: successfully loaded Seatbelt profile for unprivileged child");
-	}
-#endif
-
 	/* Change our root directory */
 	if (chroot(_PATH_PRIVSEP_CHROOT_DIR) == -1)
 		fatal("chroot(\"%s\"): %s", _PATH_PRIVSEP_CHROOT_DIR,
@@ -643,42 +629,69 @@ privsep_preauth(Authctxt *authctxt)
 {
 	int status;
 	pid_t pid;
+	struct ssh_sandbox *box = NULL;
 
 	/* Set up unprivileged child process to deal with network data */
 	pmonitor = monitor_init();
 	/* Store a pointer to the kex for later rekeying */
 	pmonitor->m_pkex = &xxx_kex;
 
+	if (use_privsep == PRIVSEP_SANDBOX)
+		box = ssh_sandbox_init();
 	pid = fork();
 	if (pid == -1) {
 		fatal("fork of unprivileged child failed");
 	} else if (pid != 0) {
 		debug2("Network child is on pid %ld", (long)pid);
 
-		close(pmonitor->m_recvfd);
+		if (box != NULL)
+			ssh_sandbox_parent_preauth(box, pid);
 		pmonitor->m_pid = pid;
 		monitor_child_preauth(authctxt, pmonitor);
-		close(pmonitor->m_sendfd);
 
 		/* Sync memory */
 		monitor_sync(pmonitor);
 
 		/* Wait for the child's exit status */
-		while (waitpid(pid, &status, 0) < 0)
+		while (waitpid(pid, &status, 0) < 0) {
 			if (errno != EINTR)
-				break;
-		return (1);
+				fatal("%s: waitpid: %s", __func__,
+				    strerror(errno));
+		}
+		if (WIFEXITED(status)) {
+			if (WEXITSTATUS(status) != 0)
+				fatal("%s: preauth child exited with status %d",
+				    __func__, WEXITSTATUS(status));
+		} else if (WIFSIGNALED(status))
+			fatal("%s: preauth child terminated by signal %d",
+			    __func__, WTERMSIG(status));
+		if (box != NULL)
+			ssh_sandbox_parent_finish(box);
+		return 1;
 	} else {
 		/* child */
-
 		close(pmonitor->m_sendfd);
+		close(pmonitor->m_log_recvfd);
+
+		/* Arrange for logging to be sent to the monitor */
+		set_log_handler(mm_log_handler, pmonitor);
 
 		/* Demote the child */
+#ifdef	__APPLE_SANDBOX_NAMED_EXTERNAL__
+		/* We need to do this before we chroot() so we can read sshd.sb */
+		if (box != NULL)
+			ssh_sandbox_child(box);
+#endif
 		if (getuid() == 0 || geteuid() == 0)
 			privsep_preauth_child();
 		setproctitle("%s", "[net]");
+#ifndef __APPLE_SANDBOX_NAMED_EXTERNAL__
+		if (box != NULL)
+			ssh_sandbox_child(box);
+#endif
+
+		return 0;
 	}
-	return (0);
 }
 
 static void
@@ -704,7 +717,6 @@ privsep_postauth(Authctxt *authctxt)
 		fatal("fork of unprivileged child failed");
 	else if (pmonitor->m_pid != 0) {
 		verbose("User child is on pid %ld", (long)pmonitor->m_pid);
-		close(pmonitor->m_recvfd);
 		buffer_clear(&loginmsg);
 		monitor_child_postauth(pmonitor);
 
@@ -712,7 +724,10 @@ privsep_postauth(Authctxt *authctxt)
 		exit(0);
 	}
 
+	/* child */
+
 	close(pmonitor->m_sendfd);
+	pmonitor->m_sendfd = -1;
 
 	/* Demote the private keys to public keys. */
 	demote_sensitive_data();
@@ -752,6 +767,7 @@ list_hostkey_types(void)
 		switch (key->type) {
 		case KEY_RSA:
 		case KEY_DSA:
+		case KEY_ECDSA:
 			if (buffer_len(&b) > 0)
 				buffer_append(&b, ",", 1);
 			p = key_ssh_name(key);
@@ -767,6 +783,7 @@ list_hostkey_types(void)
 		case KEY_DSA_CERT_V00:
 		case KEY_RSA_CERT:
 		case KEY_DSA_CERT:
+		case KEY_ECDSA_CERT:
 			if (buffer_len(&b) > 0)
 				buffer_append(&b, ",", 1);
 			p = key_ssh_name(key);
@@ -793,6 +810,7 @@ get_hostkey_by_type(int type, int need_private)
 		case KEY_DSA_CERT_V00:
 		case KEY_RSA_CERT:
 		case KEY_DSA_CERT:
+		case KEY_ECDSA_CERT:
 			key = sensitive_data.host_certificates[i];
 			break;
 		default:
@@ -1131,7 +1149,7 @@ server_accept_loop(int *sock_in, int *sock_out, int *newsock, int *config_s)
 			    (int) received_sigterm);
 			close_listen_socks();
 			unlink(options.pid_file);
-			exit(255);
+			exit(received_sigterm == SIGTERM ? 0 : 255);
 		}
 		if (key_used && key_do_regen) {
 			generate_ephemeral_server_key();
@@ -1322,7 +1340,6 @@ main(int ac, char **av)
 	(void)set_auth_parameters(ac, av);
 #endif
 	__progname = ssh_get_progname(av[0]);
-	init_rng();
 
 	/* Save argv. Duplicate so setproctitle emulation doesn't clobber it */
 	saved_argc = ac;
@@ -1483,7 +1500,7 @@ main(int ac, char **av)
 	else
 		closefrom(REEXEC_DEVCRYPTO_RESERVED_FD);
 
-	SSLeay_add_all_algorithms();
+	OpenSSL_add_all_algorithms();
 
 	/*
 	 * Force logging to stderr until we have loaded the private host
@@ -1595,6 +1612,7 @@ main(int ac, char **av)
 			break;
 		case KEY_RSA:
 		case KEY_DSA:
+		case KEY_ECDSA:
 			sensitive_data.have_ssh2_key = 1;
 			break;
 		}
@@ -2099,7 +2117,8 @@ main(int ac, char **av)
 	/* The connection has been terminated. */
 	packet_get_state(MODE_IN, NULL, NULL, NULL, &ibytes);
 	packet_get_state(MODE_OUT, NULL, NULL, NULL, &obytes);
-	verbose("Transferred: sent %llu, received %llu bytes", obytes, ibytes);
+	verbose("Transferred: sent %llu, received %llu bytes",
+	    (unsigned long long)obytes, (unsigned long long)ibytes);
 
 	verbose("Closing connection to %.500s port %d", remote_ip, remote_port);
 
@@ -2369,6 +2388,8 @@ do_ssh2_kex(void)
 		myproposal[PROPOSAL_COMP_ALGS_CTOS] =
 		myproposal[PROPOSAL_COMP_ALGS_STOC] = "none,zlib@openssh.com";
 	}
+	if (options.kex_algorithms != NULL)
+		myproposal[PROPOSAL_KEX_ALGS] = options.kex_algorithms;
 
 	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = list_hostkey_types();
 
@@ -2420,6 +2441,7 @@ do_ssh2_kex(void)
 	kex->kex[KEX_DH_GRP14_SHA1] = kexdh_server;
 	kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
 	kex->kex[KEX_DH_GEX_SHA256] = kexgex_server;
+	kex->kex[KEX_ECDH_SHA2] = kexecdh_server;
 #ifdef GSSAPI
 	if (options.gss_keyex) {
 		kex->kex[KEX_GSS_GRP1_SHA1] = kexgss_server;

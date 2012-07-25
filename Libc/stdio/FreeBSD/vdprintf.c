@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vdprintf.c,v 1.1 2009/03/04 03:38:51 das Exp $");
 
+#include "xlocale_private.h"
+
 #include "namespace.h"
 #include <errno.h>
 #include <limits.h>
@@ -37,11 +39,16 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vdprintf.c,v 1.1 2009/03/04 03:38:51 das 
 #include "local.h"
 
 int
-vdprintf(int fd, const char * __restrict fmt, va_list ap)
+vdprintf_l(int fd, locale_t loc, const char * __restrict fmt, va_list ap)
 {
 	FILE f;
 	unsigned char buf[BUFSIZ];
 	int ret;
+	struct __sFILEX ext;
+	f._extra = &ext;
+	INITEXTRA(&f);
+
+	NORMALIZE_LOCALE(loc);
 
 	if (fd > SHRT_MAX) {
 		errno = EMFILE;
@@ -59,8 +66,13 @@ vdprintf(int fd, const char * __restrict fmt, va_list ap)
 	f._orientation = 0;
 	bzero(&f._mbstate, sizeof(f._mbstate));
 
-	if ((ret = __vfprintf(&f, fmt, ap)) < 0)
+	if ((ret = __vfprintf(&f, loc, fmt, ap)) < 0)
 		return (ret);
 
 	return (__fflush(&f) ? EOF : ret);
+}
+
+int
+vdprintf(int fd, const char * __restrict fmt, va_list ap) {
+	return vdprintf_l(fd, __current_locale(), fmt, ap);
 }

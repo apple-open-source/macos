@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -22,7 +22,7 @@
 #ifndef _SFIO_H
 #define _SFIO_H	1
 
-#define SFIO_VERSION	20050202L
+#define SFIO_VERSION	20080717L
 
 /*	Public header file for the sfio library
 **
@@ -48,6 +48,7 @@ typedef ssize_t		(*Sfread_f)_ARG_((Sfio_t*, Void_t*, size_t, Sfdisc_t*));
 typedef ssize_t		(*Sfwrite_f)_ARG_((Sfio_t*, const Void_t*, size_t, Sfdisc_t*));
 typedef Sfoff_t		(*Sfseek_f)_ARG_((Sfio_t*, Sfoff_t, int, Sfdisc_t*));
 typedef int		(*Sfexcept_f)_ARG_((Sfio_t*, int, Void_t*, Sfdisc_t*));
+typedef int		(*Sfwalk_f)_ARG_((Sfio_t*, Void_t*));
 
 /* discipline structure */
 struct _sfdisc_s
@@ -181,6 +182,7 @@ struct _sffmt_s
 /* for the notify function and discipline exception */
 #define SF_NEW		0	/* new stream				*/
 #define SF_SETFD	(-1)	/* about to set the file descriptor 	*/
+#define SF_MTACCESS	(-2)	/* starting a multi-threaded stream	*/
 
 #define SF_BUFSIZE	8192	/* default buffer size			*/
 #define SF_UNBOUND	(-1)	/* unbounded buffer size		*/
@@ -231,6 +233,7 @@ extern Sfio_t*		sfpopen _ARG_((Sfio_t*, const char*, const char*));
 extern Sfio_t*		sfstack _ARG_((Sfio_t*, Sfio_t*));
 extern Sfio_t*		sfswap _ARG_((Sfio_t*, Sfio_t*));
 extern Sfio_t*		sftmp _ARG_((size_t));
+extern int		sfwalk _ARG_((Sfwalk_f, Void_t*, int));
 extern int		sfpurge _ARG_((Sfio_t*));
 extern int		sfpoll _ARG_((Sfio_t**, int, int));
 extern Void_t*		sfreserve _ARG_((Sfio_t*, ssize_t, int));
@@ -240,7 +243,7 @@ extern int		sfclrlock _ARG_((Sfio_t*));
 extern Void_t*		sfsetbuf _ARG_((Sfio_t*, Void_t*, size_t));
 extern Sfdisc_t*	sfdisc _ARG_((Sfio_t*,Sfdisc_t*));
 extern int		sfraise _ARG_((Sfio_t*, int, Void_t*));
-extern int		sfnotify _ARG_((void(*)(Sfio_t*, int, int)));
+extern int		sfnotify _ARG_((void(*)(Sfio_t*, int, void*)));
 extern int		sfset _ARG_((Sfio_t*, int, int));
 extern int		sfsetfd _ARG_((Sfio_t*, int));
 extern Sfio_t*		sfpool _ARG_((Sfio_t*, Sfio_t*, int));

@@ -20,13 +20,14 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CSSFontFace_h
 #define CSSFontFace_h
 
 #include "FontTraitsMask.h"
+#include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -43,7 +44,6 @@ class SimpleFontData;
 class CSSFontFace : public RefCounted<CSSFontFace> {
 public:
     static PassRefPtr<CSSFontFace> create(FontTraitsMask traitsMask, bool isLocalFallback = false) { return adoptRef(new CSSFontFace(traitsMask, isLocalFallback)); }
-    ~CSSFontFace();
 
     FontTraitsMask traitsMask() const { return m_traitsMask; }
 
@@ -60,7 +60,7 @@ public:
 
     bool isLocalFallback() const { return m_isLocalFallback; }
 
-    void addSource(CSSFontFaceSource*);
+    void addSource(PassOwnPtr<CSSFontFaceSource>);
 
     void fontLoaded(CSSFontFaceSource*);
 
@@ -96,7 +96,7 @@ private:
     FontTraitsMask m_traitsMask;
     Vector<UnicodeRange> m_ranges;
     HashSet<CSSSegmentedFontFace*> m_segmentedFontFaces;
-    Vector<CSSFontFaceSource*> m_sources;
+    Vector<OwnPtr<CSSFontFaceSource> > m_sources;
     CSSFontFaceSource* m_activeSource;
     bool m_isLocalFallback;
 };

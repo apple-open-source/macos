@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2010, International Business Machines
+*   Copyright (C) 1997-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -289,7 +289,7 @@
 /**
   * Unicode code point for '@' separating keywords from the locale string.
   * @see ULOC_KEYWORD_SEPARATOR
-  * @draft ICU 4.6
+  * @stable ICU 4.6
   */
 #define ULOC_KEYWORD_SEPARATOR_UNICODE 0x40
 
@@ -302,7 +302,7 @@
 /**
   * Unicode code point for '=' for assigning value to a keyword.
   * @see ULOC_KEYWORD_ASSIGN
-  * @draft ICU 4.6 
+  * @stable ICU 4.6 
   */
 #define ULOC_KEYWORD_ASSIGN_UNICODE 0x3D
 
@@ -315,7 +315,7 @@
 /**
   * Unicode code point for ';' separating keywords
   * @see ULOC_KEYWORD_ITEM_SEPARATOR
-  * @draft ICU 4.6
+  * @stable ICU 4.6
   */
 #define ULOC_KEYWORD_ITEM_SEPARATOR_UNICODE 0x3B
 
@@ -353,7 +353,7 @@ typedef enum {
   ULOC_DATA_LOCALE_TYPE_LIMIT = 3
 } ULocDataLocaleType ;
 
-
+#ifndef U_HIDE_SYSTEM_API
 /**
  * Gets ICU's default locale.  
  * The returned string is a snapshot in time, and will remain valid
@@ -388,6 +388,7 @@ uloc_getDefault(void);
 U_STABLE void U_EXPORT2
 uloc_setDefault(const char* localeID,
         UErrorCode*       status);
+#endif  /* U_HIDE_SYSTEM_API */
 
 /**
  * Gets the language code for the specified locale.
@@ -1065,7 +1066,7 @@ uloc_minimizeSubtags(const char*    localeID,
          int32_t minimizedLocaleIDCapacity,
          UErrorCode* err);
 
-/** 
+/**
  * Returns a locale ID for the specified BCP47 language tag string.
  * If the specified language tag contains any ill-formed subtags,
  * the first such subtag and all following subtags are ignored.
@@ -1081,12 +1082,12 @@ uloc_minimizeSubtags(const char*    localeID,
  * @param localeID  the output buffer receiving a locale ID for the
  *                  specified BCP47 language tag.
  * @param localeIDCapacity  the size of the locale ID output buffer.
- * @param parsedLength  if not NULL, succsessfully parsed length
+ * @param parsedLength  if not NULL, successfully parsed length
  *                      for the input language tag is set.
  * @param err       error information if receiving the locald ID
  *                  failed.
  * @return          the length of the locale ID.
- * @draft ICU 4.2
+ * @stable ICU 4.2
  */
 U_DRAFT int32_t U_EXPORT2
 uloc_forLanguageTag(const char* langtag,
@@ -1095,7 +1096,7 @@ uloc_forLanguageTag(const char* langtag,
                     int32_t* parsedLength,
                     UErrorCode* err);
 
-/** 
+/**
  * Returns a well-formed language tag for this locale ID. 
  * <p> 
  * <b>Note</b>: When <code>strict</code> is FALSE, any locale
@@ -1104,7 +1105,7 @@ uloc_forLanguageTag(const char* langtag,
  * TRUE, this function sets U_ILLEGAL_ARGUMENT_ERROR to the
  * <code>err</code> if any locale fields do not satisfy the
  * BCP47 syntax requirement.
- * @param localeID  the input lcoale ID
+ * @param localeID  the input locale ID
  * @param langtag   the output buffer receiving BCP47 language
  *                  tag for the locale ID.
  * @param langtagCapacity   the size of the BCP47 language tag
@@ -1114,7 +1115,7 @@ uloc_forLanguageTag(const char* langtag,
  * @param err       error information if receiving the language
  *                  tag failed.
  * @return          The length of the BCP47 language tag.
- * @draft ICU 4.2
+ * @stable ICU 4.2
  */
 U_DRAFT int32_t U_EXPORT2
 uloc_toLanguageTag(const char* localeID,

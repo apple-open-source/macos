@@ -25,13 +25,13 @@
 #ifndef StyleRareNonInheritedData_h
 #define StyleRareNonInheritedData_h
 
+#include "CSSWrapShapes.h"
 #include "CounterDirectives.h"
 #include "CursorData.h"
 #include "DataRef.h"
 #include "FillLayer.h"
 #include "LineClampValue.h"
 #include "NinePieceImage.h"
-#include "StyleTransformData.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
@@ -39,15 +39,23 @@
 namespace WebCore {
 
 class AnimationList;
-class CSSStyleSelector;
 class ShadowData;
+class StyleDeprecatedFlexibleBoxData;
+#if ENABLE(CSS_FILTERS)
+class StyleFilterData;
+#endif
 class StyleFlexibleBoxData;
+#if ENABLE(CSS_GRID_LAYOUT)
+class StyleGridData;
+class StyleGridItemData;
+#endif
 class StyleMarqueeData;
 class StyleMultiColData;
 class StyleReflection;
+class StyleResolver;
 class StyleTransformData;
 
-struct ContentData;
+class ContentData;
 struct LengthSize;
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -76,41 +84,48 @@ public:
     bool operator==(const StyleRareNonInheritedData&) const;
     bool operator!=(const StyleRareNonInheritedData& o) const { return !(*this == o); }
 
-    bool contentDataEquivalent(const StyleRareNonInheritedData& o) const;
-    bool shadowDataEquivalent(const StyleRareNonInheritedData& o) const;
-    bool reflectionDataEquivalent(const StyleRareNonInheritedData& o) const;
+    bool contentDataEquivalent(const StyleRareNonInheritedData&) const;
+    bool counterDataEquivalent(const StyleRareNonInheritedData&) const;
+    bool shadowDataEquivalent(const StyleRareNonInheritedData&) const;
+    bool reflectionDataEquivalent(const StyleRareNonInheritedData&) const;
     bool animationDataEquivalent(const StyleRareNonInheritedData&) const;
     bool transitionDataEquivalent(const StyleRareNonInheritedData&) const;
+
+    float opacity; // Whether or not we're transparent.
+
+    float m_aspectRatioDenominator;
+    float m_aspectRatioNumerator;
+
+    short m_counterIncrement;
+    short m_counterReset;
+
+    float m_perspective;
+    Length m_perspectiveOriginX;
+    Length m_perspectiveOriginY;
 
     LineClampValue lineClamp; // An Apple extension.
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<StyleDashboardRegion> m_dashboardRegions;
 #endif
-    float opacity; // Whether or not we're transparent.
 
-    DataRef<StyleFlexibleBoxData> flexibleBox; // Flexible box properties 
-    DataRef<StyleMarqueeData> marquee; // Marquee properties
+    DataRef<StyleDeprecatedFlexibleBoxData> m_deprecatedFlexibleBox; // Flexible box properties
+    DataRef<StyleFlexibleBoxData> m_flexibleBox;
+    DataRef<StyleMarqueeData> m_marquee; // Marquee properties
     DataRef<StyleMultiColData> m_multiCol; //  CSS3 multicol properties
     DataRef<StyleTransformData> m_transform; // Transform properties (rotate, scale, skew, etc.)
+
+#if ENABLE(CSS_FILTERS)
+    DataRef<StyleFilterData> m_filter; // Filter operations (url, sepia, blur, etc.)
+#endif
+
+#if ENABLE(CSS_GRID_LAYOUT)
+    DataRef<StyleGridData> m_grid;
+    DataRef<StyleGridItemData> m_gridItem;
+#endif
 
     OwnPtr<ContentData> m_content;
     OwnPtr<CounterDirectiveMap> m_counterDirectives;
 
-    unsigned userDrag : 2; // EUserDrag
-    bool textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
-    unsigned marginBeforeCollapse : 2; // EMarginCollapse
-    unsigned marginAfterCollapse : 2; // EMarginCollapse
-    unsigned matchNearestMailBlockquoteColor : 1; // EMatchNearestMailBlockquoteColor, FIXME: This property needs to be eliminated. It should never have been added.
-    unsigned m_appearance : 6; // EAppearance
-    unsigned m_borderFit : 1; // EBorderFit
-    unsigned m_textCombine : 1; // CSS3 text-combine properties
-    
-    short m_counterIncrement;
-    short m_counterReset;
-
-#if USE(ACCELERATED_COMPOSITING)
-    bool m_runningAcceleratedAnimation : 1;
-#endif
     OwnPtr<ShadowData> m_boxShadow;  // For box-shadow decorations.
     
     RefPtr<StyleReflection> m_boxReflect;
@@ -121,14 +136,48 @@ public:
     FillLayer m_mask;
     NinePieceImage m_maskBoxImage;
 
-    ETransformStyle3D m_transformStyle3D;
-    EBackfaceVisibility m_backfaceVisibility;
-    float m_perspective;
-    Length m_perspectiveOriginX;
-    Length m_perspectiveOriginY;
-
     LengthSize m_pageSize;
-    PageSizeType m_pageSizeType;
+
+    RefPtr<CSSWrapShape> m_wrapShapeInside;
+    RefPtr<CSSWrapShape> m_wrapShapeOutside;
+    Length m_wrapMargin;
+    Length m_wrapPadding;
+    
+    Color m_visitedLinkBackgroundColor;
+    Color m_visitedLinkOutlineColor;
+    Color m_visitedLinkBorderLeftColor;
+    Color m_visitedLinkBorderRightColor;
+    Color m_visitedLinkBorderTopColor;
+    Color m_visitedLinkBorderBottomColor;
+
+    AtomicString m_flowThread;
+    AtomicString m_regionThread;
+    unsigned m_regionOverflow : 1; // RegionOverflow
+
+    unsigned m_regionBreakAfter : 2; // EPageBreak
+    unsigned m_regionBreakBefore : 2; // EPageBreak
+    unsigned m_regionBreakInside : 2; // EPageBreak
+
+    unsigned m_pageSizeType : 2; // PageSizeType
+    unsigned m_transformStyle3D : 1; // ETransformStyle3D
+    unsigned m_backfaceVisibility : 1; // EBackfaceVisibility
+
+    unsigned userDrag : 2; // EUserDrag
+    unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
+    unsigned marginBeforeCollapse : 2; // EMarginCollapse
+    unsigned marginAfterCollapse : 2; // EMarginCollapse
+    unsigned matchNearestMailBlockquoteColor : 1; // EMatchNearestMailBlockquoteColor, FIXME: This property needs to be eliminated. It should never have been added.
+    unsigned m_appearance : 6; // EAppearance
+    unsigned m_borderFit : 1; // EBorderFit
+    unsigned m_textCombine : 1; // CSS3 text-combine properties
+
+    unsigned m_wrapFlow: 3; // WrapFlow
+    unsigned m_wrapThrough: 1; // WrapThrough
+
+    bool m_hasAspectRatio : 1; // Whether or not an aspect ratio has been specified.
+#if USE(ACCELERATED_COMPOSITING)
+    bool m_runningAcceleratedAnimation : 1;
+#endif
 
 private:
     StyleRareNonInheritedData();

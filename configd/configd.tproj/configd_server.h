@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,8 @@ int		server_shutdown	(void);
 void		server_loop	(void);
 
 kern_return_t	_snapshot	(mach_port_t		server,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configopen	(mach_port_t		server,
 				 xmlData_t		nameRef,
@@ -63,22 +64,14 @@ kern_return_t	_configopen	(mach_port_t		server,
 				 int			*sc_status,
 				 audit_token_t		audit_token);
 
-kern_return_t	_configclose	(mach_port_t		server,
-				 int			*sc_status);
-
-kern_return_t	_configlock	(mach_port_t		server,
-				 int			*sc_status);
-
-kern_return_t	_configunlock	(mach_port_t		server,
-				 int			*sc_status);
-
 kern_return_t	_configlist	(mach_port_t server,
 				 xmlData_t		keyRef,
 				 mach_msg_type_number_t	keyLen,
 				 int			isRegex,
 				 xmlDataOut_t		*listRef,
 				 mach_msg_type_number_t	*listLen,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configadd	(mach_port_t 		server,
 				 xmlData_t		keyRef,
@@ -86,7 +79,8 @@ kern_return_t	_configadd	(mach_port_t 		server,
 				 xmlData_t		dataRef,
 				 mach_msg_type_number_t	dataLen,
 				 int			*newInstance,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configadd_s	(mach_port_t 		server,
 				 xmlData_t		keyRef,
@@ -102,7 +96,8 @@ kern_return_t	_configget	(mach_port_t		server,
 				 xmlDataOut_t		*dataRef,
 				 mach_msg_type_number_t	*dataLen,
 				 int			*newInstance,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configset	(mach_port_t		server,
 				 xmlData_t		keyRef,
@@ -110,22 +105,20 @@ kern_return_t	_configset	(mach_port_t		server,
 				 xmlData_t		dataRef,
 				 mach_msg_type_number_t	dataLen,
 				 int			*newInstance,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configremove	(mach_port_t		server,
 				 xmlData_t		keyRef,
 				 mach_msg_type_number_t	keyLen,
-				 int			*sc_status);
-
-kern_return_t	_configtouch	(mach_port_t 		server,
-				 xmlData_t		keyRef,
-				 mach_msg_type_number_t	keyLen,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_confignotify	(mach_port_t 		server,
 				 xmlData_t		keyRef,
 				 mach_msg_type_number_t	keyLen,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configget_m	(mach_port_t		server,
 				 xmlData_t		keysRef,
@@ -134,7 +127,8 @@ kern_return_t	_configget_m	(mach_port_t		server,
 				 mach_msg_type_number_t	patternsLen,
 				 xmlDataOut_t		*dataRef,
 				 mach_msg_type_number_t	*dataLen,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configset_m	(mach_port_t		server,
 				 xmlData_t		dataRef,
@@ -143,7 +137,8 @@ kern_return_t	_configset_m	(mach_port_t		server,
 				 mach_msg_type_number_t	removeLen,
 				 xmlData_t		notifyRef,
 				 mach_msg_type_number_t	notifyLen,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_notifyadd	(mach_port_t		server,
 				 xmlData_t		keyRef,

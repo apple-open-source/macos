@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <pwd.h>
 #include <grp.h>
+#include <uuid/uuid.h>
 #include <netdb.h>
 #include <aliasdb.h>
 #include <fstab.h>
@@ -150,9 +151,9 @@ typedef void (*list_async_callback)(si_list_t *, uint32_t, void *);
 typedef struct grouplist_s
 {
 	char *gl_user;
-	gid_t gl_basegid;
 	int gl_count;
-	gid_t **gl_gid;
+	int gl_gid_siz;
+	gid_t *gl_gid;
 } si_grouplist_t;
 
 typedef struct addrinfo_s
@@ -211,13 +212,15 @@ struct si_mod_vtable_s
 
 	si_item_t *(*sim_user_byname)(struct si_mod_s *si, const char *name);
 	si_item_t *(*sim_user_byuid)(struct si_mod_s *si, uid_t uid);
+	si_item_t *(*sim_user_byuuid)(struct si_mod_s *si, uuid_t uuid);
 	si_list_t *(*sim_user_all)(struct si_mod_s *si);
 
 	si_item_t *(*sim_group_byname)(struct si_mod_s *si, const char *name);
 	si_item_t *(*sim_group_bygid)(struct si_mod_s *si, gid_t gid);
+	si_item_t *(*sim_group_byuuid)(struct si_mod_s *si, uuid_t uuid);
 	si_list_t *(*sim_group_all)(struct si_mod_s *si);
 
-	si_item_t *(*sim_grouplist)(struct si_mod_s *si, const char *name);
+	si_item_t *(*sim_grouplist)(struct si_mod_s *si, const char *name, uint32_t count);
 
 	si_list_t *(*sim_netgroup_byname)(struct si_mod_s *si, const char *name);
 	int (*sim_in_netgroup)(struct si_mod_s *si, const char *name, const char *host, const char *user, const char *domain);
@@ -296,13 +299,15 @@ int si_item_is_valid(si_item_t *item);
 
 si_item_t *si_user_byname(si_mod_t *si, const char *name);
 si_item_t *si_user_byuid(si_mod_t *si, uid_t uid);
+si_item_t *si_user_byuuid(si_mod_t *si, uuid_t uuid);
 si_list_t *si_user_all(si_mod_t *si);
 
 si_item_t *si_group_byname(si_mod_t *si, const char *name);
 si_item_t *si_group_bygid(si_mod_t *si, gid_t gid);
+si_item_t *si_group_byuuid(si_mod_t *si, uuid_t uuid);
 si_list_t *si_group_all(si_mod_t *si);
 
-si_item_t *si_grouplist(si_mod_t *si, const char *name);
+si_item_t *si_grouplist(si_mod_t *si, const char *name, uint32_t count);
 
 int si_in_netgroup(struct si_mod_s *si, const char *name, const char *host, const char *user, const char *domain);
 si_list_t *si_netgroup_byname(struct si_mod_s *si, const char *name);

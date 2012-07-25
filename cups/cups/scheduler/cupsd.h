@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsd.h 9766 2011-05-11 22:17:34Z mike $"
+ * "$Id: cupsd.h 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Main header file for the CUPS scheduler.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -82,12 +82,10 @@ extern const char *cups_hstrerror(int);
  * Defaults...
  */
 
-#define DEFAULT_HISTORY		1	/* Preserve job history? */
-#define DEFAULT_FILES		0	/* Preserve job files? */
+#define DEFAULT_HISTORY		INT_MAX	/* Preserve job history? */
+#define DEFAULT_FILES		86400	/* Preserve job files? */
 #define DEFAULT_TIMEOUT		300	/* Timeout during requests/updates */
 #define DEFAULT_KEEPALIVE	30	/* Timeout between requests */
-#define DEFAULT_INTERVAL	30	/* Interval between browse updates */
-#define DEFAULT_CHARSET		"utf-8"	/* Default charset */
 
 
 /*
@@ -118,6 +116,7 @@ extern const char *cups_hstrerror(int);
 #include "printers.h"
 #include "classes.h"
 #include "job.h"
+#include "colorman.h"
 #include "conf.h"
 #include "banners.h"
 #include "dirsvc.h"
@@ -183,10 +182,7 @@ extern void		cupsdInitEnv(void);
 extern int		cupsdLoadEnv(char *envp[], int envmax);
 extern void		cupsdSetEnv(const char *name, const char *value);
 extern void		cupsdSetEnvf(const char *name, const char *value, ...)
-#ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 2, 3)))
-#endif /* __GNUC__ */
-;
+			__attribute__ ((__format__ (__printf__, 2, 3)));
 extern void		cupsdUpdateEnv(void);
 
 /* file.c */
@@ -210,10 +206,7 @@ extern char		*cupsdMakeUUID(const char *name, int number,
 extern void		cupsdReleaseSignals(void);
 extern void		cupsdSetString(char **s, const char *v);
 extern void		cupsdSetStringf(char **s, const char *f, ...)
-#ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 2, 3)))
-#endif /* __GNUC__ */
-;
+			__attribute__ ((__format__ (__printf__, 2, 3)));
 
 /* process.c */
 extern void		*cupsdCreateProfile(int job_id);
@@ -244,5 +237,5 @@ extern void		cupsdStopServer(void);
 
 
 /*
- * End of "$Id: cupsd.h 9766 2011-05-11 22:17:34Z mike $".
+ * End of "$Id: cupsd.h 9042 2010-03-24 00:45:34Z mike $".
  */

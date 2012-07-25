@@ -18,22 +18,27 @@
 
 #include "config.h"
 #include "WebKitWebSourceGStreamer.h"
-#if USE(GSTREAMER)
+
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "Document.h"
-#include "GOwnPtr.h"
-#include "GRefPtr.h"
+#include "Frame.h"
 #include "GRefPtrGStreamer.h"
+#include "MediaPlayer.h"
 #include "NetworkingContext.h"
-#include "Noncopyable.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include <wtf/text/CString.h>
+ 
 #include <gst/app/gstappsrc.h>
 #include <gst/pbutils/missing-plugins.h>
+
+#include <wtf/Noncopyable.h>
+#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
@@ -62,6 +67,7 @@ struct _WebKitWebSrcPrivate {
     gchar* uri;
 
     RefPtr<WebCore::Frame> frame;
+    WebCore::MediaPlayer* player;
 
     StreamingClient* client;
     RefPtr<ResourceHandle> resourceHandle;
@@ -106,22 +112,23 @@ static GstStaticPadTemplate srcTemplate = GST_STATIC_PAD_TEMPLATE("src",
 GST_DEBUG_CATEGORY_STATIC(webkit_web_src_debug);
 #define GST_CAT_DEFAULT webkit_web_src_debug
 
-static void webKitWebSrcUriHandlerInit(gpointer gIface,
-                                            gpointer ifaceData);
+static void webKitWebSrcUriHandlerInit(gpointer gIface, gpointer ifaceData);
 
-static void webKitWebSrcFinalize(GObject* object);
-static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue* value, GParamSpec* pspec);
-static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value, GParamSpec* pspec);
-static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStateChange transition);
-static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query);
+static void webKitWebSrcFinalize(GObject*);
+static void webKitWebSrcSetProperty(GObject*, guint propertyID, const GValue*, GParamSpec*);
+static void webKitWebSrcGetProperty(GObject*, guint propertyID, GValue*, GParamSpec*);
+static GstStateChangeReturn webKitWebSrcChangeState(GstElement*, GstStateChange);
 
-static void webKitWebSrcNeedDataCb(GstAppSrc* appsrc, guint length, gpointer userData);
-static void webKitWebSrcEnoughDataCb(GstAppSrc* appsrc, gpointer userData);
-static gboolean webKitWebSrcSeekDataCb(GstAppSrc* appsrc, guint64 offset, gpointer userData);
+static gboolean webKitWebSrcQueryWithParent(GstPad*, GstObject*, GstQuery*);
+#ifndef GST_API_VERSION_1
+static gboolean webKitWebSrcQuery(GstPad*, GstQuery*);
+#endif
 
-static void webKitWebSrcStop(WebKitWebSrc* src, bool seeking);
-static gboolean webKitWebSrcSetUri(GstURIHandler*, const gchar*);
-static const gchar* webKitWebSrcGetUri(GstURIHandler*);
+static void webKitWebSrcNeedDataCb(GstAppSrc*, guint length, gpointer userData);
+static void webKitWebSrcEnoughDataCb(GstAppSrc*, gpointer userData);
+static gboolean webKitWebSrcSeekDataCb(GstAppSrc*, guint64 offset, gpointer userData);
+
+static void webKitWebSrcStop(WebKitWebSrc*, bool);
 
 static GstAppSrcCallbacks appsrcCallbacks = {
     webKitWebSrcNeedDataCb,
@@ -130,32 +137,12 @@ static GstAppSrcCallbacks appsrcCallbacks = {
     { 0 }
 };
 
-static void doInit(GType gtype)
-{
-    static const GInterfaceInfo uriHandlerInfo = {
-        webKitWebSrcUriHandlerInit,
-        0, 0
-    };
-
-    GST_DEBUG_CATEGORY_INIT(webkit_web_src_debug, "webkitwebsrc", 0, "websrc element");
-    g_type_add_interface_static(gtype, GST_TYPE_URI_HANDLER,
-                                &uriHandlerInfo);
-}
-
-GST_BOILERPLATE_FULL(WebKitWebSrc, webkit_web_src, GstBin, GST_TYPE_BIN, doInit);
-
-static void webkit_web_src_base_init(gpointer klass)
-{
-    GstElementClass* eklass = GST_ELEMENT_CLASS(klass);
-
-    gst_element_class_add_pad_template(eklass,
-                                       gst_static_pad_template_get(&srcTemplate));
-    gst_element_class_set_details_simple(eklass,
-                                         (gchar*) "WebKit Web source element",
-                                         (gchar*) "Source",
-                                         (gchar*) "Handles HTTP/HTTPS uris",
-                                         (gchar*) "Sebastian Dröge <sebastian.droege@collabora.co.uk>");
-}
+#define webkit_web_src_parent_class parent_class
+// We split this out into another macro to avoid a check-webkit-style error.
+#define WEBKIT_WEB_SRC_CATEGORY_INIT GST_DEBUG_CATEGORY_INIT(webkit_web_src_debug, "webkitwebsrc", 0, "websrc element");
+G_DEFINE_TYPE_WITH_CODE(WebKitWebSrc, webkit_web_src, GST_TYPE_BIN,
+                         G_IMPLEMENT_INTERFACE(GST_TYPE_URI_HANDLER, webKitWebSrcUriHandlerInit);
+                         WEBKIT_WEB_SRC_CATEGORY_INIT);
 
 static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
 {
@@ -165,6 +152,18 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
     oklass->finalize = webKitWebSrcFinalize;
     oklass->set_property = webKitWebSrcSetProperty;
     oklass->get_property = webKitWebSrcGetProperty;
+
+    gst_element_class_add_pad_template(eklass,
+                                       gst_static_pad_template_get(&srcTemplate));
+#ifdef GST_API_VERSION_1
+    gst_element_class_set_metadata(eklass,
+#else
+    gst_element_class_set_details_simple(eklass,
+#endif
+                                         (gchar*) "WebKit Web source element",
+                                         (gchar*) "Source",
+                                         (gchar*) "Handles HTTP/HTTPS uris",
+                                         (gchar*) "Sebastian Dröge <sebastian.droege@collabora.co.uk>");
 
     // icecast stuff
     g_object_class_install_property(oklass,
@@ -222,22 +221,14 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
     g_type_class_add_private(klass, sizeof(WebKitWebSrcPrivate));
 }
 
-static void webkit_web_src_init(WebKitWebSrc* src,
-                                WebKitWebSrcClass* gKlass)
+static void webkit_web_src_init(WebKitWebSrc* src)
 {
-    GstPadTemplate* padTemplate = gst_static_pad_template_get(&srcTemplate);
-    GstPad* targetpad;
+    GRefPtr<GstPadTemplate> padTemplate = adoptGRef(gst_static_pad_template_get(&srcTemplate));
     WebKitWebSrcPrivate* priv = WEBKIT_WEB_SRC_GET_PRIVATE(src);
 
     src->priv = priv;
 
     priv->client = new StreamingClient(src);
-
-    priv->srcpad = gst_ghost_pad_new_no_target_from_template("src",
-                                                             padTemplate);
-
-    gst_element_add_pad(GST_ELEMENT(src), priv->srcpad);
-    gst_pad_set_query_function(priv->srcpad, webKitWebSrcQuery);
 
     priv->appsrc = GST_APP_SRC(gst_element_factory_make("appsrc", 0));
     if (!priv->appsrc) {
@@ -250,9 +241,18 @@ static void webkit_web_src_init(WebKitWebSrc* src,
 
     gst_bin_add(GST_BIN(src), GST_ELEMENT(priv->appsrc));
 
-    targetpad = gst_element_get_static_pad(GST_ELEMENT(priv->appsrc), "src");
-    gst_ghost_pad_set_target(GST_GHOST_PAD(priv->srcpad), targetpad);
-    gst_object_unref(targetpad);
+
+    GRefPtr<GstPad> targetPad = adoptGRef(gst_element_get_static_pad(GST_ELEMENT(priv->appsrc), "src"));
+    priv->srcpad = gst_ghost_pad_new_from_template("src", targetPad.get(), padTemplate.get());
+
+    gst_element_add_pad(GST_ELEMENT(src), priv->srcpad);
+
+#ifdef GST_API_VERSION_1
+    GST_OBJECT_FLAG_SET(priv->srcpad, GST_PAD_FLAG_NEED_PARENT);
+    gst_pad_set_query_function(priv->srcpad, webKitWebSrcQueryWithParent);
+#else
+    gst_pad_set_query_function(priv->srcpad, webKitWebSrcQuery);
+#endif
 
     gst_app_src_set_callbacks(priv->appsrc, &appsrcCallbacks, src, 0);
     gst_app_src_set_emit_signals(priv->appsrc, FALSE);
@@ -303,7 +303,11 @@ static void webKitWebSrcSetProperty(GObject* object, guint propID, const GValue*
         priv->iradioMode = g_value_get_boolean(value);
         break;
     case PROP_LOCATION:
-        webKitWebSrcSetUri(reinterpret_cast<GstURIHandler*>(src), g_value_get_string(value));
+#ifdef GST_API_VERSION_1
+        gst_uri_handler_set_uri(reinterpret_cast<GstURIHandler*>(src), g_value_get_string(value), 0);
+#else
+        gst_uri_handler_set_uri(reinterpret_cast<GstURIHandler*>(src), g_value_get_string(value));
+#endif
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, pspec);
@@ -333,7 +337,7 @@ static void webKitWebSrcGetProperty(GObject* object, guint propID, GValue* value
         g_value_set_string(value, priv->iradioTitle);
         break;
     case PROP_LOCATION:
-        g_value_set_string(value, webKitWebSrcGetUri(reinterpret_cast<GstURIHandler*>(src)));
+        g_value_set_string(value, priv->uri);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, pspec);
@@ -353,7 +357,9 @@ static void webKitWebSrcStop(WebKitWebSrc* src, bool seeking)
     priv->resourceHandle = 0;
 
     if (priv->frame && !seeking)
-        priv->frame.release();
+        priv->frame.clear();
+
+    priv->player = 0;
 
     GST_OBJECT_LOCK(src);
     if (priv->needDataID)
@@ -412,21 +418,17 @@ static bool webKitWebSrcStart(WebKitWebSrc* src)
     KURL url = KURL(KURL(), priv->uri);
 
     ResourceRequest request(url);
-    request.setTargetType(ResourceRequestBase::TargetIsMedia);
     request.setAllowCookies(true);
 
     NetworkingContext* context = 0;
-    if (priv->frame) {
-        Document* document = priv->frame->document();
-        if (document)
-            request.setHTTPReferrer(document->documentURI());
-
-        FrameLoader* loader = priv->frame->loader();
-        if (loader) {
-            loader->addExtraFieldsToSubresourceRequest(request);
-            context = loader->networkingContext();
-        }
+    FrameLoader* loader = priv->frame ? priv->frame->loader() : 0;
+    if (loader) {
+        loader->addExtraFieldsToSubresourceRequest(request);
+        context = loader->networkingContext();
     }
+
+    if (priv->player)
+        request.setHTTPReferrer(priv->player->referrer());
 
     // Let Apple web servers know we want to access their nice movie trailers.
     if (!g_ascii_strcasecmp("movies.apple.com", url.host().utf8().data())
@@ -499,15 +501,13 @@ static GstStateChangeReturn webKitWebSrcChangeState(GstElement* element, GstStat
     return ret;
 }
 
-static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
+static gboolean webKitWebSrcQueryWithParent(GstPad* pad, GstObject* parent, GstQuery* query)
 {
-    GRefPtr<GstElement> src = adoptGRef(gst_pad_get_parent_element(pad));
-    WebKitWebSrc* webkitSrc = WEBKIT_WEB_SRC(src.get());
+    WebKitWebSrc* webkitSrc = WEBKIT_WEB_SRC(GST_ELEMENT(parent));
     gboolean result = FALSE;
 
     switch (GST_QUERY_TYPE(query)) {
-    case GST_QUERY_DURATION:
-    {
+    case GST_QUERY_DURATION: {
         GstFormat format;
 
         gst_query_parse_duration(query, &format, NULL);
@@ -519,24 +519,79 @@ static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
         }
         break;
     }
-    case GST_QUERY_URI:
-    {
+    case GST_QUERY_URI: {
         gst_query_set_uri(query, webkitSrc->priv->uri);
         result = TRUE;
         break;
     }
-    default:
+    default: {
+        GRefPtr<GstPad> target = adoptGRef(gst_ghost_pad_get_target(GST_GHOST_PAD_CAST(pad)));
+
+        // Forward the query to the proxy target pad.
+        if (target)
+            result = gst_pad_query(target.get(), query);
         break;
     }
-
-    if (!result)
-        result = gst_pad_query_default(pad, query);
+    }
 
     return result;
 }
 
+#ifndef GST_API_VERSION_1
+static gboolean webKitWebSrcQuery(GstPad* pad, GstQuery* query)
+{
+    GRefPtr<GstElement> src = adoptGRef(gst_pad_get_parent_element(pad));
+    return webKitWebSrcQueryWithParent(pad, GST_OBJECT(src.get()), query);
+}
+#endif
+
 // uri handler interface
 
+#ifdef GST_API_VERSION_1
+static GstURIType webKitWebSrcUriGetType(GType)
+{
+    return GST_URI_SRC;
+}
+
+const gchar* const* webKitWebSrcGetProtocols(GType)
+{
+    static const char* protocols[] = {"http", "https", 0 };
+    return protocols;
+}
+
+static gchar* webKitWebSrcGetUri(GstURIHandler* handler)
+{
+    return g_strdup(WEBKIT_WEB_SRC(handler)->priv->uri);
+}
+
+static gboolean webKitWebSrcSetUri(GstURIHandler* handler, const gchar* uri, GError** error)
+{
+    WebKitWebSrc* src = WEBKIT_WEB_SRC(handler);
+    WebKitWebSrcPrivate* priv = src->priv;
+
+    if (GST_STATE(src) >= GST_STATE_PAUSED) {
+        GST_ERROR_OBJECT(src, "URI can only be set in states < PAUSED");
+        return FALSE;
+    }
+
+    g_free(priv->uri);
+    priv->uri = 0;
+
+    if (!uri)
+        return TRUE;
+
+    KURL url(KURL(), uri);
+
+    if (!url.isValid() || !url.protocolIsInHTTPFamily()) {
+        g_set_error(error, GST_URI_ERROR, GST_URI_ERROR_BAD_URI, "Invalid URI '%s'", uri);
+        return FALSE;
+    }
+
+    priv->uri = g_strdup(url.string().utf8().data());
+    return TRUE;
+}
+
+#else
 static GstURIType webKitWebSrcUriGetType(void)
 {
     return GST_URI_SRC;
@@ -545,16 +600,12 @@ static GstURIType webKitWebSrcUriGetType(void)
 static gchar** webKitWebSrcGetProtocols(void)
 {
     static gchar* protocols[] = {(gchar*) "http", (gchar*) "https", 0 };
-
     return protocols;
 }
 
 static const gchar* webKitWebSrcGetUri(GstURIHandler* handler)
 {
-    WebKitWebSrc* src = WEBKIT_WEB_SRC(handler);
-    WebKitWebSrcPrivate* priv = src->priv;
-
-    return priv->uri;
+    return g_strdup(WEBKIT_WEB_SRC(handler)->priv->uri);
 }
 
 static gboolean webKitWebSrcSetUri(GstURIHandler* handler, const gchar* uri)
@@ -575,7 +626,7 @@ static gboolean webKitWebSrcSetUri(GstURIHandler* handler, const gchar* uri)
 
     KURL url(KURL(), uri);
 
-    if (!url.isValid() || !url.protocolInHTTPFamily()) {
+    if (!url.isValid() || !url.protocolIsInHTTPFamily()) {
         GST_ERROR_OBJECT(src, "Invalid URI '%s'", uri);
         return FALSE;
     }
@@ -583,6 +634,7 @@ static gboolean webKitWebSrcSetUri(GstURIHandler* handler, const gchar* uri)
     priv->uri = g_strdup(url.string().utf8().data());
     return TRUE;
 }
+#endif
 
 static void webKitWebSrcUriHandlerInit(gpointer gIface, gpointer ifaceData)
 {
@@ -691,11 +743,17 @@ static gboolean webKitWebSrcSeekDataCb(GstAppSrc* appsrc, guint64 offset, gpoint
     return TRUE;
 }
 
-void webKitWebSrcSetFrame(WebKitWebSrc* src, WebCore::Frame* frame)
+void webKitWebSrcSetMediaPlayer(WebKitWebSrc* src, WebCore::MediaPlayer* player)
 {
     WebKitWebSrcPrivate* priv = src->priv;
+    WebCore::Frame* frame = 0;
+
+    WebCore::Document* document = player->mediaPlayerClient()->mediaPlayerOwningDocument();
+    if (document)
+        frame = document->frame();
 
     priv->frame = frame;
+    priv->player = player;
 }
 
 StreamingClient::StreamingClient(WebKitWebSrc* src) : m_src(src)
@@ -731,7 +789,13 @@ void StreamingClient::didReceiveResponse(ResourceHandle*, const ResourceResponse
         length += priv->requestedOffset;
         gst_app_src_set_size(priv->appsrc, length);
         if (!priv->haveAppSrc27) {
+#ifdef GST_API_VERSION_1
+            GstSegment* segment = &GST_BASE_SRC(priv->appsrc)->segment;
+            segment->duration = length;
+            segment->format = GST_FORMAT_BYTES;
+#else
             gst_segment_set_duration(&GST_BASE_SRC(priv->appsrc)->segment, GST_FORMAT_BYTES, length);
+#endif
             gst_element_post_message(GST_ELEMENT(priv->appsrc),
                                      gst_message_new_duration(GST_OBJECT(priv->appsrc),
                                                               GST_FORMAT_BYTES, length));
@@ -748,14 +812,17 @@ void StreamingClient::didReceiveResponse(ResourceHandle*, const ResourceResponse
         gint64 icyMetaInt = g_ascii_strtoll(value.utf8().data(), &endptr, 10);
             
         if (endptr && *endptr == '\0' && icyMetaInt > 0) {
-            GstCaps* caps = gst_caps_new_simple("application/x-icy", "metadata-interval", G_TYPE_INT, (gint) icyMetaInt, NULL);
+            GRefPtr<GstCaps> caps = adoptGRef(gst_caps_new_simple("application/x-icy", "metadata-interval", G_TYPE_INT, (gint) icyMetaInt, NULL));
 
-            gst_app_src_set_caps(priv->appsrc, caps);
-            gst_caps_unref(caps);
+            gst_app_src_set_caps(priv->appsrc, caps.get());
         }
     }
 
+#ifdef GST_API_VERSION_1
+    GstTagList* tags = gst_tag_list_new_empty();
+#else
     GstTagList* tags = gst_tag_list_new();
+#endif
     value = response.httpHeaderField("icy-name");
     if (!value.isEmpty()) {
         g_free(priv->iradioName);
@@ -788,7 +855,11 @@ void StreamingClient::didReceiveResponse(ResourceHandle*, const ResourceResponse
     if (gst_tag_list_is_empty(tags))
         gst_tag_list_free(tags);
     else
+#ifdef GST_API_VERSION_1
+        gst_pad_push_event(GST_PAD_CAST(m_src->priv->srcpad), gst_event_new_tag(tags));
+#else
         gst_element_found_tags_for_pad(GST_ELEMENT(m_src), m_src->priv->srcpad, tags);
+#endif
 }
 
 void StreamingClient::didReceiveData(ResourceHandle* handle, const char* data, int length, int encodedDataLength)
@@ -804,13 +875,21 @@ void StreamingClient::didReceiveData(ResourceHandle* handle, const char* data, i
 
     GstBuffer* buffer = gst_buffer_new_and_alloc(length);
 
+#ifdef GST_API_VERSION_1
+    gst_buffer_fill(buffer, 0, data, length);
+#else
     memcpy(GST_BUFFER_DATA(buffer), data, length);
+#endif
     GST_BUFFER_OFFSET(buffer) = priv->offset;
     priv->offset += length;
     GST_BUFFER_OFFSET_END(buffer) = priv->offset;
 
     GstFlowReturn ret = gst_app_src_push_buffer(priv->appsrc, buffer);
+#ifdef GST_API_VERSION_1
+    if (ret != GST_FLOW_OK && ret != GST_FLOW_EOS)
+#else
     if (ret != GST_FLOW_OK && ret != GST_FLOW_UNEXPECTED)
+#endif
         GST_ELEMENT_ERROR(m_src, CORE, FAILED, (0), (0));
 }
 

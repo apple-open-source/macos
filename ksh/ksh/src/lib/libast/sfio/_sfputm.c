@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,10 +27,10 @@
 */
 
 #if __STD_C
-int _sfputm(reg Sfio_t* f, Sfulong_t v, Sfulong_t m)
+int _sfputm(Sfio_t* f, Sfulong_t v, Sfulong_t m)
 #else
 int _sfputm(f,v,m)
-reg Sfio_t*	f;	/* write a portable ulong to this stream */
+Sfio_t*		f;	/* write a portable ulong to this stream */
 Sfulong_t	v;	/* the unsigned value to be written */
 Sfulong_t	m;	/* the max value of the range */
 #endif
@@ -39,8 +39,9 @@ Sfulong_t	m;	/* the max value of the range */
 	reg uchar	*s, *ps;
 	reg ssize_t	n, p;
 	uchar		c[N_ARRAY];
+	SFMTXDECL(f);
 
-	SFMTXSTART(f, -1);
+	SFMTXENTER(f, -1);
 
 	if(v > m || (f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0) )
 		SFMTXRETURN(f, -1);

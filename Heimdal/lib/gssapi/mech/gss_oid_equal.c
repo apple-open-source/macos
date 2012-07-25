@@ -43,12 +43,12 @@
  *
  * @return non-zero when both oid are the same OID, zero when they are
  *         not the same.
- *         
+ *
  * @ingroup gssapi
  */
 
-int GSSAPI_LIB_FUNCTION
-gss_oid_equal(const gss_OID a, const gss_OID b)
+GSSAPI_LIB_FUNCTION int GSSAPI_LIB_CALL
+gss_oid_equal(gss_const_OID a, gss_const_OID b)
 {
     if (a == b && a != GSS_C_NO_OID)
 	return 1;

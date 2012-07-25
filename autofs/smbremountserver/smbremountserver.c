@@ -33,8 +33,8 @@
 /*
  * This is a bit ugly.
  *
- * We're doing this in a subprocess so that we run with the GSSD special
- * port that the kernel asked automountd to use.
+ * We're doing this in a subprocess so that we run in the audit
+ * session that the kernel asked automountd to use.
  *
  * However, we need to be passed a Rodent Of Unusual Size, err, umm, a
  * blob of variable size to pass to the SMBRemountServer call.  That's
@@ -91,7 +91,7 @@ main()
 		    bytes_read, byte_count);
 		return 2;
 	}
-	
+
 	/*
 	 * OK, do this in a subsubprocess, so our parent can wait for us
 	 * to exit and thus reap us, without blocking waiting for

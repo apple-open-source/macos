@@ -1,17 +1,58 @@
 /*
 	File:		MBCInteractivePlayer.mm
 	Contains:	An agent representing a local human player
-	Version:	1.0
-	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCInteractivePlayer.h"
+#import "MBCEngine.h"
 #import "MBCBoardView.h"
-#import "MBCController.h"
+#import "MBCBoardWin.h"
 #import "MBCLanguageModel.h"
+#import "MBCController.h"
+#import "MBCDocument.h"
 
 #import <ApplicationServices/ApplicationServices.h>
-
+#include <dispatch/dispatch.h>
 //
 // Private selector to set the help text in the speech feedback window
 //
@@ -26,6 +67,7 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	OSErr				status = 0;
 	OSErr				recStatus = 0;
 	SRRecognitionResult	recResult = 0;
+    SRRecognizer        recognizer;
 	
 	status = AEGetParamPtr(theAEevt,keySRSpeechStatus,typeSInt16,
 					&actualType, (Ptr)&recStatus, sizeof(status), &actualSize);
@@ -33,10 +75,19 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 		status = recStatus;
 
 	if (!status)
+		status = AEGetParamPtr(theAEevt,keySRRecognizer,
+							   typeSRRecognizer, &actualType, 
+							   (Ptr)&recognizer,
+							   sizeof(SRRecognizer), &actualSize);
+	if (!status)
 		status = AEGetParamPtr(theAEevt,keySRSpeechResult,
 							   typeSRSpeechResult, &actualType, 
 							   (Ptr)&recResult,
 							   sizeof(SRRecognitionResult), &actualSize);
+    if (!status) {
+        Size sz = sizeof(refcon);
+        status = SRGetProperty(recognizer, kSRRefCon, &refcon, &sz);
+    }
 	if (!status) {
 		[reinterpret_cast<MBCInteractivePlayer *>(refcon) 	
 						 recognized:recResult];
@@ -46,51 +97,44 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	return status;
 }
 
-NSString * LocalizedString(NSDictionary * localization, NSString * key, NSString * fallback)
+void SpeakStringWhenReady(NSSpeechSynthesizer * synth, NSString * text)
 {
-	NSString * value = [localization valueForKey:key];
-
-	return value ? value : fallback;
+    static NSSpeechSynthesizer  * sLastSynth;
+    static NSMutableArray       * sSynthQueue;
+    
+    if (synth) {
+        if (!sSynthQueue)
+            sSynthQueue = [[NSMutableArray alloc] initWithCapacity:1];
+        [sSynthQueue addObject:[NSArray arrayWithObjects:synth, text, nil]];
+    }
+    if (sLastSynth) {
+        if ([sLastSynth isSpeaking]) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, [sSynthQueue count] ? 100*NSEC_PER_MSEC : NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+                SpeakStringWhenReady(nil, nil);
+            });
+            return;
+        } else {
+            [sLastSynth release];
+            sLastSynth = nil;
+        }
+    }
+    if ([sSynthQueue count]) {
+        NSArray *   job = [sSynthQueue objectAtIndex:0];
+ 
+        sLastSynth = [[job objectAtIndex:0] retain];
+        [sLastSynth startSpeakingString:[job objectAtIndex:1]];
+        [sSynthQueue removeObjectAtIndex:0];
+    }
 }
-
-BOOL OldSquares(NSString * fmtString)
-{
-	/* We used to specify squares as "%c %d", now we use "%@ %@". To avoid
-	   breakage during the transition, we allow both 
-	*/
-	NSRange r = [fmtString rangeOfString:@"%c"];
-	if (r.length)
-		return YES;
-	r = [fmtString rangeOfString:@"$c"];
-	if (r.length)
-		return YES;	
-
-	return NO;
-}
-
-#define LOC(key, fallback) LocalizedString(localization, key, fallback)
 
 @implementation MBCInteractivePlayer
-
-- (id) initWithController:(MBCController *)controller
-{
-	[super init];
-
-	fController	= controller;
-	fRecSystem	= 0;
-	fRecognizer = 0;
-	fSpeechHelp	= 0;
-	fStartingSR = false;
-
-	return self;
-}
 
 - (void) makeSpeechHelp
 {
 	NSPropertyListFormat	format;
 
 	NSString * path = 
-		[[NSBundle mainBundle] pathForResource: @"SpeechHelp" ofType: @"xml"];
+		[[NSBundle mainBundle] pathForResource: @"SpeechHelp" ofType: @"plist"];
 	NSData *	help 	= 
 		[NSData dataWithContentsOfFile:path];
 	NSMutableDictionary * prop = 
@@ -113,6 +157,25 @@ BOOL OldSquares(NSString * fmtString)
 			retain];
 }
 
+- (void) initSR
+{
+	if (SROpenRecognitionSystem(&fRecSystem, kSRDefaultRecognitionSystemID))
+		return;
+	SRNewRecognizer(fRecSystem, &fRecognizer, kSRDefaultSpeechSource);
+    SRSetProperty(fRecognizer, kSRRefCon, &self, sizeof(self));
+	short modes = kSRHasFeedbackHasListenModes;
+	SRSetProperty(fRecognizer, kSRFeedbackAndListeningModes, &modes, sizeof(short));
+	SRNewLanguageModel(fRecSystem, &fModel, "<moves>", 7);
+	fLanguageModel = 
+    [[MBCLanguageModel alloc] initWithRecognitionSystem:fRecSystem];
+	if (fSpeechHelp)
+		SRSetProperty(fRecognizer, kSRCommandsDisplayCFPropListRef,
+					  [fSpeechHelp bytes], [fSpeechHelp length]);
+	fStartingSR = false;
+	[self performSelectorOnMainThread:@selector(updateNeedMouse:)
+                           withObject:self waitUntilDone:NO];
+}
+
 - (void) updateNeedMouse:(id)arg
 {
 	BOOL	wantMouse;
@@ -122,7 +185,11 @@ BOOL OldSquares(NSString * fmtString)
 	else
 		wantMouse = fSide == kBlackSide || fSide == kBothSides;
 
-	[[fController view] wantMouse:wantMouse];
+    if (wantMouse && [fDocument gameDone])
+        wantMouse = NO;
+    
+	[[fController gameView] wantMouse:wantMouse];
+    [[NSApp delegate] updateApplicationBadge];
 
 	if ([fController listenForMoves]) {
 		//
@@ -132,9 +199,18 @@ BOOL OldSquares(NSString * fmtString)
 			if (fStartingSR) {
 					; // Current starting, will update later
 			} else if (!fRecSystem) {
+                static dispatch_once_t  sInitOnce;
+                static dispatch_queue_t sInitQueue;
+                dispatch_once(&sInitOnce, ^{
+                    sInitQueue = dispatch_queue_create("InitSR", DISPATCH_QUEUE_SERIAL);
+                    AEInstallEventHandler(kAESpeechSuite, kAESpeechDone, 
+                                          NewAEEventHandlerUPP(HandleSpeechDoneAppleEvent), 
+                                          NULL, false);
+                });
 				fStartingSR = true;
-				[NSThread detachNewThreadSelector:@selector(initSR:) 
-						  toTarget:self withObject:nil];
+                dispatch_async(sInitQueue, ^{
+                    [self initSR];
+                });
 			} else {
 				if (!fSpeechHelp) {
 					[self makeSpeechHelp];
@@ -168,102 +244,117 @@ BOOL OldSquares(NSString * fmtString)
 	}
 }
 
-- (void) initSR:(id)arg
+- (void)allowedToListen:(BOOL)allowed
 {
-	if (!fRecognizer) // very first time
-		AEInstallEventHandler(kAESpeechSuite, kAESpeechDone, 
-							  NewAEEventHandlerUPP(HandleSpeechDoneAppleEvent), 
-							  reinterpret_cast<SRefCon>(self), false);
-	if (SROpenRecognitionSystem(&fRecSystem, kSRDefaultRecognitionSystemID))
-		return;
-	SRNewRecognizer(fRecSystem, &fRecognizer, kSRDefaultSpeechSource);
-	short modes = kSRHasFeedbackHasListenModes;
-	SRSetProperty(fRecognizer, kSRFeedbackAndListeningModes, &modes, sizeof(short));
-	SRNewLanguageModel(fRecSystem, &fModel, "<moves>", 7);
-	fLanguageModel = 
-		[[MBCLanguageModel alloc] initWithRecognitionSystem:fRecSystem];
-	if (fSpeechHelp)
-		SRSetProperty(fRecognizer, kSRCommandsDisplayCFPropListRef,
-					  [fSpeechHelp bytes], [fSpeechHelp length]);
-	fStartingSR = false;
-	[self performSelectorOnMainThread:@selector(updateNeedMouse:)
-		  withObject:self waitUntilDone:NO];
+    if (allowed)
+        [self updateNeedMouse:self];
+    else if (fRecSystem)
+        SRStopListening(fRecognizer);
+}
+
+- (void) removeChessObservers
+{
+    if (!fHasObservers)
+        return;
+    
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
+    [notificationCenter removeObserver:self name:MBCWhiteMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCBlackMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCIllegalMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCTakebackNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCGameEndNotification object:nil];
+    [fDocument removeObserver:self forKeyPath:@"Result"];
+    
+    fHasObservers = NO;
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
+{
+    [self updateNeedMouse:self];
+}
+
+- (void)dealloc
+{
+    [self removeChessObservers];
+    [super dealloc];
 }
 
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
 {
 	fVariant	=   variant;
 	fLastSide	=	
-		([[[MBCController controller] board] numMoves] & 1) 
+		([[fController board] numMoves] & 1) 
 		? kWhiteSide : kBlackSide;
-	
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
+    [self removeChessObservers];
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
 	switch (fSide = sideToPlay) {
 	case kWhiteSide:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(humanMoved:)
 			name:MBCWhiteMoveNotification
-			object:nil];
-		[[NSNotificationCenter defaultCenter] 
+			object:fDocument];
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	case kBlackSide:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCWhiteMoveNotification
-			object:nil];
-		[[NSNotificationCenter defaultCenter] 
+			object:fDocument];
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(humanMoved:)
 			name:MBCBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	case kBothSides:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(humanMoved:)
 			name:MBCWhiteMoveNotification
-			object:nil];
-		[[NSNotificationCenter defaultCenter] 
+			object:fDocument];
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(humanMoved:)
 			name:MBCBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	case kNeitherSide:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCWhiteMoveNotification
-			object:nil];
-		[[NSNotificationCenter defaultCenter] 
+			object:fDocument];
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	}
-	[[NSNotificationCenter defaultCenter] 
+	[notificationCenter 
 		addObserver:self
 		selector:@selector(reject:)
 		name:MBCIllegalMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
+		object:fDocument];
+	[notificationCenter 
 		addObserver:self
 		selector:@selector(takeback:)
 		name:MBCTakebackNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
+		object:fDocument];
+	[notificationCenter 
 		addObserver:self
-		selector:@selector(speakMove:)
+		selector:@selector(gameEnded:)
 		name:MBCGameEndNotification
-		object:nil];
+		object:fDocument];
+    [fDocument addObserver:self forKeyPath:@"Result" options:NSKeyValueObservingOptionNew context:nil];
+    fHasObservers = YES;
 
 	[self updateNeedMouse:self];
 }
@@ -271,12 +362,14 @@ BOOL OldSquares(NSString * fmtString)
 - (void) reject:(NSNotification *)n
 {
 	NSBeep();
-	[[fController view] unselectPiece];
+	[[fController gameView] unselectPiece];
 }
 
 - (void) takeback:(NSNotification *)n
 {
-	[self updateNeedMouse:self];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self updateNeedMouse:self];
+    });
 }
 
 - (void) switchSides:(NSNotification *)n
@@ -286,158 +379,71 @@ BOOL OldSquares(NSString * fmtString)
 	[self updateNeedMouse:self];
 }
 
-static NSString *	sPieceName[] = {
-	@"", @"king", @"queen", @"bishop", @"knight", @"rook", @"pawn"
-};
-
-static NSString * 	sFileKey[] = {
-	@"file_a", @"file_b", @"file_c", @"file_d", @"file_e", @"file_f", @"file_g", @"file_h"
-};
-
-static NSString * 	sFileDefault[] = {
-	@"A", @"B", @"C", @"D", @"E", @"F", @"G", @"H"
-};
-
-#define LOC_FILE(f) LOC(sFileKey[(f)-'a'], sFileDefault[(f)-'a'])
-
-static NSString * 	sRankKey[] = {
-	@"rank_1", @"rank_2", @"rank_3", @"rank_4", @"rank_5", @"rank_6", @"rank_7", @"rank_8"
-};
-
-static NSString * 	sRankDefault[] = {
-	@"1", @"2", @"3", @"4", @"5", @"6", @"7", @"8"
-};
-
-#define LOC_RANK(r) LOC(sRankKey[(r)-1], sRankDefault[(r)-1])
-
 - (BOOL)useAlternateSynthForMove:(MBCMove *)move
 {
-	BOOL blackMove = Color(move->fPiece)==kBlackPiece;
-	BOOL altIsBlack= fSide == kNeitherSide || fSide == kBothSides || fSide == kBlackSide;
-
-	return blackMove == altIsBlack;
+    if (fSide == kBothSides || fSide == kNeitherSide)
+        return [[fController board] sideOfMove:move] == kBlackSide;
+    else
+        return fSide == [[fController board] sideOfMove:move];
 }
 
 - (NSString *)stringFromMove:(MBCMove *)move
 {
 	NSDictionary * localization = [self useAlternateSynthForMove:move] 
 		? [fController alternateLocalization]
-		: [fController defaultLocalization];
+		: [fController primaryLocalization];
 
-	switch (move->fCommand) {
-	case kCmdDrop: {
-		NSString * format  	= LOC(@"drop_fmt", @"%@ %c %d.");
-		NSString * pkey 	= [NSString stringWithFormat:@"%@_d", sPieceName[Piece(move->fPiece)]];
-		NSString * pdef 	= [NSString stringWithFormat:@"drop @% at", sPieceName[Piece(move->fPiece)]];
-		NSString * ploc 	= LOC(pkey, pdef);
-		char	   col  	= Col(move->fToSquare);
-		int		   row  	= Row(move->fToSquare);
-		if (OldSquares(format)) 
-			return [NSString stringWithFormat:format, ploc, toupper(col), row];
-		else
-			return [NSString stringWithFormat:format, ploc, LOC_FILE(col), LOC_RANK(row)];
-	}
-	case kCmdPMove:
-	case kCmdMove: {
-		MBCBoard *	board = [fController board];
-		MBCPiece	piece;
-		MBCPiece	victim;
-		MBCPiece	promo;
-
-		if (!move->fCastling)
-			[board tryCastling:move];
-		switch (move->fCastling) {
-		case kCastleQueenside:
-			return LOC(@"qcastle_fmt", @"Castle [[emph +]]queen side.");
-		case kCastleKingside:
-			return LOC(@"kcastle_fmt", @"Castle [[emph +]]king side.");
-		default: 
-			if (move->fPiece) { // Move already executed
-				piece 	= move->fPiece;
-				victim	= move->fVictim;
-			} else {
-				piece 	= [board oldContents:move->fFromSquare];
-				victim	= [board oldContents:move->fToSquare];
-			}
-			promo	= move->fPromotion;
-			NSString * pname = LOC(sPieceName[Piece(piece)], sPieceName[Piece(piece)]);
-			char	   fcol  = Col(move->fFromSquare);
-			int		   frow  = Row(move->fFromSquare);
-			char	   tcol  = Col(move->fToSquare);
-			int		   trow  = Row(move->fToSquare);
-			if (promo) {
-				NSString * format = victim
-					? LOC(@"cpromo_fmt", @"%@ %c %d takes %c %d %@.")
-					: LOC(@"promo_fmt", @"%@ %c %d to %c %d %@.");
-				NSString * pkey  = [NSString stringWithFormat:@"%@_p", sPieceName[Piece(promo)]];
-				NSString * pdef  = [NSString stringWithFormat:@"promoting to %@", sPieceName[Piece(promo)]];
-				NSString * ploc  = LOC(pkey, pdef);
-
-				if (OldSquares(format))
-					return [NSString stringWithFormat:format, pname,
-									 toupper(fcol), frow, toupper(tcol), trow, 
-									 ploc];
-				else
-					return [NSString stringWithFormat:format, pname,
-									 LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow),
-									 ploc];
-			} else {
-				NSString * format = victim
-					? LOC(@"cmove_fmt", @"%@ %c %d takes %c %d.")
-					: LOC(@"move_fmt", @"%@ %c %d to %c %d.");
-
-				if (OldSquares(format))
-					return [NSString stringWithFormat:format, pname,
-									 toupper(fcol), frow, toupper(tcol), trow];
-				else
-					return [NSString stringWithFormat:format, pname,
-									 LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow)];
-			}
-		}}
-	case kCmdWhiteWins:
-		switch (fVariant) {
-		case kVarSuicide:
-		case kVarLosers:
-			return LOC(@"white_win", @"White wins!");
-		default:
-			return LOC(@"check_mate", @"[[emph +]]Check mate!");
-		}
-	case kCmdBlackWins:
-		switch (fVariant) {
-		case kVarSuicide:
-		case kVarLosers:
-			return LOC(@"black_win", @"Black wins!");
-		default:
-			return LOC(@"check_mate", @"[[emph +]]Check mate!");
-		}
-	case kCmdDraw:
-		return LOC(@"draw", @"The game is a draw!");
-	default:
-		return @"";
-	}
+    return [[fController board] stringFromMove:move withLocalization:localization];
 }
 
-- (void) speakMove:(MBCMove *)move text:(NSString *)text
+- (NSString *)stringForCheck:(MBCMove *)move
 {
-	//
-	// We only wait for speech to end before speaking the next move
-	// to allow a maximum in concurrency.
-	//
-	while (SpeechBusy() > 0)
-		;
+	NSDictionary * localization = [self useAlternateSynthForMove:move] 
+        ? [fController alternateLocalization]
+        : [fController primaryLocalization];
+    
+    return LOC(@"check", @"Check!");
+}
+
+- (void) speakMove:(MBCMove *)move text:(NSString *)text check:(BOOL)check
+{
 	NSSpeechSynthesizer * synth = [self useAlternateSynthForMove:move] 
 		? [fController alternateSynth]
-		: [fController defaultSynth];
-
-	[synth startSpeakingString:text];
-}
+		: [fController primarySynth];
+    
+    if (!check || (move->fCheck && !move->fCheckMate))
+        SpeakStringWhenReady(synth, text);
+        if (!check && move->fCheck)
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 200*NSEC_PER_MSEC), 
+                           dispatch_get_main_queue(), ^{
+                [self speakMove:move text:[self stringForCheck:move] check:YES];
+            });
+ }
 
 - (void) speakMove:(NSNotification *)notification
 {
-	MBCMove * 	move = reinterpret_cast<MBCMove *>([notification object]);
+	MBCMove * 	move = reinterpret_cast<MBCMove *>([notification userInfo]);
+    
 	NSString *	text = [self stringFromMove:move];
 
-	[self speakMove:move text:text];
+	[self speakMove:move text:text check:NO];
+}
+
+- (void) gameEnded:(NSNotification *)notification
+{
+    MBCSide humanSide   = [fDocument humanSide];
+    BOOL    wasHumanMove;
+    if (humanSide == kBothSides) {
+        wasHumanMove = YES;
+    } else if (humanSide == kNeitherSide) {
+        wasHumanMove = NO;
+    } else {
+        MBCMove * 	move = reinterpret_cast<MBCMove *>([notification userInfo]);
+        wasHumanMove    = [[fController board] sideOfMove:move] == humanSide;
+    }
+    if (wasHumanMove ? [fController speakHumanMoves] : [fController speakMoves]) 
+        if (![fDocument gameDone]) // Game was not previously finished
+            [self speakMove:notification];
 }
 
 - (void) speakMove:(MBCMove *) move withWrapper:(NSString *)wrapper
@@ -447,7 +453,7 @@ static NSString * 	sRankDefault[] = {
 		NSString *  wrapped = 
 			[NSString stringWithFormat:wrapper, text];
 	
-		[self speakMove:move text:wrapped];
+		[self speakMove:move text:wrapped check:NO];
 	}
 }
 
@@ -458,7 +464,7 @@ static NSString * 	sRankDefault[] = {
 
 	NSDictionary * localization = [self useAlternateSynthForMove:move] 
 		? [fController alternateLocalization]
-		: [fController defaultLocalization];
+		: [fController primaryLocalization];
 
 	[self speakMove:move withWrapper:LOC(@"suggest_fmt", @"I would suggest \"%@\"")];
 }
@@ -470,23 +476,27 @@ static NSString * 	sRankDefault[] = {
 
 	NSDictionary * localization = [self useAlternateSynthForMove:move] 
 		? [fController alternateLocalization]
-		: [fController defaultLocalization];
+		: [fController primaryLocalization];
 
 	[self speakMove:move withWrapper:LOC(@"last_move_fmt", @"The last move was \"%@\"")];
 }
 
 - (void) opponentMoved:(NSNotification *)notification
 {
-	if ([fController speakMoves]) 
-		[self speakMove:notification];
-	[self switchSides:notification];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([fController speakMoves]) 
+            [self speakMove:notification];
+        [self switchSides:notification];
+    });
 }
 
 - (void) humanMoved:(NSNotification *)notification
 {
-	if ([fController speakHumanMoves]) 
-		[self speakMove:notification];
-	[self switchSides:notification];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if ([fController speakHumanMoves]) 
+            [self speakMove:notification];
+        [self switchSides:notification];
+    });
 }
 
 - (void) startSelection:(MBCSquare)square
@@ -507,18 +517,18 @@ static NSString * 	sRankDefault[] = {
 
 	if (Color(piece) == (fLastSide==kBlackSide ? kWhitePiece : kBlackPiece)) {
 		fFromSquare	=  square;
-		[[fController view] selectPiece:piece at:square];
+		[[fController gameView] selectPiece:piece at:square];
 	}
 }
 
 - (void) endSelection:(MBCSquare)square animate:(BOOL)animate
 {
 	if (fFromSquare == square) {
-		[[fController view] clickPiece];
+		[[fController gameView] clickPiece];
 
 		return;
 	} else if (square > kSyntheticSquare) {
-		[[fController view] unselectPiece];
+		[[fController gameView] unselectPiece];
 		
 		return;
 	}
@@ -544,7 +554,7 @@ static NSString * 	sRankDefault[] = {
 	 (fLastSide==kBlackSide 
 	  ? MBCUncheckedWhiteMoveNotification
 	  : MBCUncheckedBlackMoveNotification)
-	 object:move];
+	 object:fDocument userInfo:(id)move];
 }
 
 - (void) recognized:(SRRecognitionResult)result
@@ -565,7 +575,7 @@ static NSString * 	sRankDefault[] = {
 				notification = MBCUncheckedBlackMoveNotification;
 			[[NSNotificationCenter defaultCenter] 
 				postNotificationName:notification
-				object:move];
+             object:fDocument userInfo:(id)move];
 		}
 	}
 }

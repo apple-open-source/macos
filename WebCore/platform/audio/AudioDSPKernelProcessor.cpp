@@ -39,7 +39,7 @@
 namespace WebCore {
 
 // setNumberOfChannels() may later be called if the object is not yet in an "initialized" state.
-AudioDSPKernelProcessor::AudioDSPKernelProcessor(double sampleRate, unsigned numberOfChannels)
+AudioDSPKernelProcessor::AudioDSPKernelProcessor(float sampleRate, unsigned numberOfChannels)
     : AudioProcessor(sampleRate)
     , m_numberOfChannels(numberOfChannels)
     , m_hasJustReset(true)
@@ -56,8 +56,9 @@ void AudioDSPKernelProcessor::initialize()
     // Create processing kernels, one per channel.
     for (unsigned i = 0; i < numberOfChannels(); ++i)
         m_kernels.append(createKernel());
-
+        
     m_initialized = true;
+    m_hasJustReset = true;
 }
 
 void AudioDSPKernelProcessor::uninitialize()
@@ -70,7 +71,7 @@ void AudioDSPKernelProcessor::uninitialize()
     m_initialized = false;
 }
 
-void AudioDSPKernelProcessor::process(AudioBus* source, AudioBus* destination, size_t framesToProcess)
+void AudioDSPKernelProcessor::process(const AudioBus* source, AudioBus* destination, size_t framesToProcess)
 {
     ASSERT(source && destination);
     if (!source || !destination)
@@ -87,7 +88,7 @@ void AudioDSPKernelProcessor::process(AudioBus* source, AudioBus* destination, s
         return;
         
     for (unsigned i = 0; i < m_kernels.size(); ++i)
-        m_kernels[i]->process(source->channel(i)->data(), destination->channel(i)->data(), framesToProcess);
+        m_kernels[i]->process(source->channel(i)->data(), destination->channel(i)->mutableData(), framesToProcess);
 }
 
 // Resets filter state
@@ -106,9 +107,24 @@ void AudioDSPKernelProcessor::reset()
 
 void AudioDSPKernelProcessor::setNumberOfChannels(unsigned numberOfChannels)
 {
+    if (numberOfChannels == m_numberOfChannels)
+        return;
+        
     ASSERT(!isInitialized());
     if (!isInitialized())
         m_numberOfChannels = numberOfChannels;
+}
+
+double AudioDSPKernelProcessor::tailTime() const
+{
+    // It is expected that all the kernels have the same tailTime.
+    return !m_kernels.isEmpty() ? m_kernels.first()->tailTime() : 0;
+}
+
+double AudioDSPKernelProcessor::latencyTime() const
+{
+    // It is expected that all the kernels have the same latencyTime.
+    return !m_kernels.isEmpty() ? m_kernels.first()->latencyTime() : 0;
 }
 
 } // namespace WebCore

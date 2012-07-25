@@ -27,6 +27,7 @@
 #include <sys/cdefs.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <bsm/libbsm.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <bootstrap_priv.h>
@@ -44,6 +45,7 @@
 
 #include "LKDCHelper-main.h"
 #include "LKDCHelper.h"
+#include "utils.h"
 
 /* MIG Generated files */
 #include "LKDCHelperMessage.h"

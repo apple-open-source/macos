@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -25,12 +25,12 @@
  * 
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#ifdef __DYNAMIC__
 
 #include <TargetConditionals.h>	// for TARGET_OS_EMBEDDED
 
 #include <_libkernel_init.h>
 #include <dlfcn.h>
+#include <errno.h>
 
 struct ProgramVars; /* forward reference */
 
@@ -44,32 +44,34 @@ extern void _dyld_initializer(void);		// from libdyld.a
 extern void libdispatch_init(void);		// from libdispatch.a
 extern void _libxpc_initializer(void);		// from libxpc
 
-// system library atfork handlers
-extern void _cthread_fork_prepare();
-extern void _cthread_fork_parent();
-extern void _cthread_fork_child();
-extern void _cthread_fork_child_postinit();
+// signal malloc stack logging that initialisation has finished
+extern void __stack_logging_early_finished(void); // form libsystem_c.dylib
 
-extern void _mach_fork_child();
-extern void _cproc_fork_child();
-extern void _libc_fork_child();
-extern void _notify_fork_child();
-extern void _dyld_fork_child();
-extern void xpc_atfork_prepare();
-extern void xpc_atfork_parent();
-extern void xpc_atfork_child();
+// system library atfork handlers
+extern void _cthread_fork_prepare(void);
+extern void _cthread_fork_parent(void);
+extern void _cthread_fork_child(void);
+extern void _cthread_fork_child_postinit(void);
+
+extern void _mach_fork_child(void);
+extern void _cproc_fork_child(void);
+extern void _libc_fork_child(void);
+extern void _notify_fork_child(void);
+extern void _dyld_fork_child(void);
+extern void xpc_atfork_prepare(void);
+extern void xpc_atfork_parent(void);
+extern void xpc_atfork_child(void);
 
 // advance decls for below;
-void libSystem_atfork_prepare();
-void libSystem_atfork_parent();
-void libSystem_atfork_child();
+void libSystem_atfork_prepare(void);
+void libSystem_atfork_parent(void);
+void libSystem_atfork_child(void);
 
 // from mig_support.c in libc
-mach_port_t _mig_get_reply_port();
+mach_port_t _mig_get_reply_port(void);
 void _mig_set_reply_port(mach_port_t);
 
 void cthread_set_errno_self(int);
-int* __error(void);
 
 /*
  * libsyscall_initializer() initializes all of libSystem.dylib <rdar://problem/4892197>
@@ -94,32 +96,35 @@ void libSystem_initializer(int argc, const char* argv[], const char* envp[], con
 	__keymgr_initializer();
 	_dyld_initializer();
 	libdispatch_init();
-#if !TARGET_OS_EMBEDDED || __IPHONE_OS_VERSION_MAX_ALLOWED >= 50000 // __IPHONE_5_0
 	_libxpc_initializer();
-#endif
+
+	__stack_logging_early_finished();
+
+	/* <rdar://problem/11588042>
+	 * C99 standard has the following in section 7.5(3):
+	 * "The value of errno is zero at program startup, but is never set
+	 * to zero by any library function."
+	 */
+	errno = 0;
 }
 
 /*
  * libSystem_atfork_{prepare,parent,child}() are called by libc when we fork, then we deal with running fork handlers
  * for everyone else.
  */
-void libSystem_atfork_prepare()
+void libSystem_atfork_prepare(void)
 {
-#if !TARGET_OS_EMBEDDED || __IPHONE_OS_VERSION_MAX_ALLOWED >= 50000 // __IPHONE_5_0
 	xpc_atfork_prepare();
-#endif
 	_cthread_fork_prepare();
 }
 
-void libSystem_atfork_parent()
+void libSystem_atfork_parent(void)
 {
 	_cthread_fork_parent();
-#if !TARGET_OS_EMBEDDED || __IPHONE_OS_VERSION_MAX_ALLOWED >= 50000 // __IPHONE_5_0
 	xpc_atfork_parent();
-#endif
 }
 
-void libSystem_atfork_child()
+void libSystem_atfork_child(void)
 {
 	_dyld_fork_child();
 	_cthread_fork_child();
@@ -129,9 +134,7 @@ void libSystem_atfork_child()
 	_cproc_fork_child();
 	_libc_fork_child();
 	_notify_fork_child();
-#if !TARGET_OS_EMBEDDED || __IPHONE_OS_VERSION_MAX_ALLOWED >= 50000 // __IPHONE_5_0
 	xpc_atfork_child();
-#endif
 
 	_cthread_fork_child_postinit();
 }
@@ -140,7 +143,7 @@ void libSystem_atfork_child()
  *  Old crt1.o glue used to call through mach_init_routine which was used to initialize libSystem.
  *  LibSystem now auto-initializes but mach_init_routine is left for binary compatibility.
  */
-static void mach_init_old() {}
+static void mach_init_old(void) {}
 void (*mach_init_routine)(void) = &mach_init_old;
 
 /*
@@ -148,5 +151,3 @@ void (*mach_init_routine)(void) = &mach_init_old;
  */
 const char *__crashreporter_info__;
 asm (".desc __crashreporter_info__, 0x10");
-
-#endif /* __DYNAMIC__ */

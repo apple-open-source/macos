@@ -142,7 +142,7 @@ krb5_principal_get_realm(krb5_context context,
 			 krb5_const_principal principal)
 {
     return princ_realm(principal);
-}			
+}
 
 KRB5_LIB_FUNCTION const char* KRB5_LIB_CALL
 krb5_principal_get_comp_string(krb5_context context,
@@ -428,7 +428,7 @@ unparse_name_fixed(krb5_context context,
 		   int flags)
 {
     size_t idx = 0;
-    int i;
+    size_t i;
     int short_form = (flags & KRB5_PRINCIPAL_UNPARSE_SHORT) != 0;
     int no_realm = (flags & KRB5_PRINCIPAL_UNPARSE_NO_REALM) != 0;
     int display = (flags & KRB5_PRINCIPAL_UNPARSE_DISPLAY) != 0;
@@ -551,7 +551,7 @@ unparse_name(krb5_context context,
 	     int flags)
 {
     size_t len = 0, plen;
-    int i;
+    size_t i;
     krb5_error_code ret;
     /* count length */
     if (princ_realm(principal)) {
@@ -721,7 +721,7 @@ krb5_build_principal(krb5_context context,
  * @ingroup krb5_principal
  */
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_make_principal(krb5_context context,
 		    krb5_principal *principal,
 		    krb5_const_realm realm,
@@ -917,7 +917,7 @@ krb5_principal_compare_any_realm(krb5_context context,
 				 krb5_const_principal princ1,
 				 krb5_const_principal princ2)
 {
-    int i;
+    size_t i;
     if(princ_num_comp(princ1) != princ_num_comp(princ2))
 	return FALSE;
     for(i = 0; i < princ_num_comp(princ1); i++){
@@ -932,7 +932,7 @@ _krb5_principal_compare_PrincipalName(krb5_context context,
 				      krb5_const_principal princ1,
 				      PrincipalName *princ2)
 {
-    int i;
+    size_t i;
     if (princ_num_comp(princ1) != princ2->name_string.len)
 	return FALSE;
     for(i = 0; i < princ_num_comp(princ1); i++){
@@ -1001,7 +1001,7 @@ krb5_principal_match(krb5_context context,
 		     krb5_const_principal princ,
 		     krb5_const_principal pattern)
 {
-    int i;
+    size_t i;
     if(princ_num_comp(princ) != princ_num_comp(pattern))
 	return FALSE;
     if(fnmatch(princ_realm(pattern), princ_realm(princ), 0) != 0)
@@ -1012,437 +1012,6 @@ krb5_principal_match(krb5_context context,
     }
     return TRUE;
 }
-
-#if defined(KRB4) || !defined(HEIMDAL_SMALLER)
-
-static struct v4_name_convert {
-    const char *from;
-    const char *to;
-} default_v4_name_convert[] = {
-    { "ftp",	"ftp" },
-    { "hprop",	"hprop" },
-    { "pop",	"pop" },
-    { "imap",	"imap" },
-    { "rcmd",	"host" },
-    { "smtp",	"smtp" },
-    { NULL, NULL }
-};
-
-#endif
-
-#ifdef KRB4
-
-/*
- * return the converted instance name of `name' in `realm'.
- * look in the configuration file and then in the default set above.
- * return NULL if no conversion is appropriate.
- */
-
-static const char*
-get_name_conversion(krb5_context context, const char *realm, const char *name)
-{
-    struct v4_name_convert *q;
-    const char *p;
-
-    p = krb5_config_get_string(context, NULL, "realms", realm,
-			       "v4_name_convert", "host", name, NULL);
-    if(p == NULL)
-	p = krb5_config_get_string(context, NULL, "libdefaults",
-				   "v4_name_convert", "host", name, NULL);
-    if(p)
-	return p;
-
-    /* XXX should be possible to override default list */
-    p = krb5_config_get_string(context, NULL,
-			       "realms",
-			       realm,
-			       "v4_name_convert",
-			       "plain",
-			       name,
-			       NULL);
-    if(p)
-	return NULL;
-    p = krb5_config_get_string(context, NULL,
-			       "libdefaults",
-			       "v4_name_convert",
-			       "plain",
-			       name,
-			       NULL);
-    if(p)
-	return NULL;
-    for(q = default_v4_name_convert; q->from; q++)
-	if(strcmp(q->from, name) == 0)
-	    return q->to;
-    return NULL;
-}
-
-/*
- * convert the v4 principal `name.instance@realm' to a v5 principal in `princ'.
- * if `resolve', use DNS.
- * if `func', use that function for validating the conversion
- */
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal_ext2(krb5_context context,
-			     const char *name,
-			     const char *instance,
-			     const char *realm,
-			     krb5_boolean (*func)(krb5_context,
-						  void *, krb5_principal),
-			     void *funcctx,
-			     krb5_boolean resolve,
-			     krb5_principal *princ)
-{
-    const char *p;
-    krb5_error_code ret;
-    krb5_principal pr;
-    char host[MAXHOSTNAMELEN];
-    char local_hostname[MAXHOSTNAMELEN];
-
-    /* do the following: if the name is found in the
-       `v4_name_convert:host' part, is assumed to be a `host' type
-       principal, and the instance is looked up in the
-       `v4_instance_convert' part. if not found there the name is
-       (optionally) looked up as a hostname, and if that doesn't yield
-       anything, the `default_domain' is appended to the instance
-       */
-
-    if(instance == NULL)
-	goto no_host;
-    if(instance[0] == 0){
-	instance = NULL;
-	goto no_host;
-    }
-    p = get_name_conversion(context, realm, name);
-    if(p == NULL)
-	goto no_host;
-    name = p;
-    p = krb5_config_get_string(context, NULL, "realms", realm,
-			       "v4_instance_convert", instance, NULL);
-    if(p){
-	instance = p;
-	ret = krb5_make_principal(context, &pr, realm, name, instance, NULL);
-	if (ret)
-	    return ret;
-	if(func == NULL || (*func)(context, funcctx, pr)){
-	    *princ = pr;
-	    return 0;
-	}
-	krb5_free_principal(context, pr);
-	*princ = NULL;
-	krb5_clear_error_message (context);
-	return HEIM_ERR_V4_PRINC_NO_CONV;
-    }
-    if(resolve){
-	krb5_boolean passed = FALSE;
-	char *inst = NULL;
-#ifdef USE_RESOLVER
-	struct rk_dns_reply *r;
-
-	r = rk_dns_lookup(instance, "aaaa");
-	if (r) {
-	    if (r->head && r->head->type == rk_ns_t_aaaa) {
-		inst = strdup(r->head->domain);
-		passed = TRUE;
-	    }
-	    rk_dns_free_data(r);
-	} else {
-	    r = rk_dns_lookup(instance, "a");
-	    if (r) {
-		if(r->head && r->head->type == rk_ns_t_a) {
-		    inst = strdup(r->head->domain);
-		    passed = TRUE;
-		}
-		rk_dns_free_data(r);
-	    }
-	}
-#else
-	struct addrinfo hints, *ai;
-	
-	memset (&hints, 0, sizeof(hints));
-	hints.ai_flags = AI_CANONNAME;
-	ret = getaddrinfo(instance, NULL, &hints, &ai);
-	if (ret == 0) {
-	    const struct addrinfo *a;
-	    for (a = ai; a != NULL; a = a->ai_next) {
-		if (a->ai_canonname != NULL) {
-		    inst = strdup (a->ai_canonname);
-		    passed = TRUE;
-		    break;
-		}
-	    }
-	    freeaddrinfo (ai);
-	}
-#endif
-	if (passed) {
-	    if (inst == NULL) {
-		krb5_set_error_message(context, ENOMEM,
-				       N_("malloc: out of memory", ""));
-		return ENOMEM;
-	    }
-	    strlwr(inst);
-	    ret = krb5_make_principal(context, &pr, realm, name, inst,
-				      NULL);
-	    free (inst);
-	    if(ret == 0) {
-		if(func == NULL || (*func)(context, funcctx, pr)){
-		    *princ = pr;
-		    return 0;
-		}
-		krb5_free_principal(context, pr);
-	    }
-	}
-    }
-    if(func != NULL) {
-	snprintf(host, sizeof(host), "%s.%s", instance, realm);
-	strlwr(host);
-	ret = krb5_make_principal(context, &pr, realm, name, host, NULL);
-	if (ret)
-	    return ret;
-	if((*func)(context, funcctx, pr)){
-	    *princ = pr;
-	    return 0;
-	}
-	krb5_free_principal(context, pr);
-    }
-
-    /*
-     * if the instance is the first component of the local hostname,
-     * the converted host should be the long hostname.
-     */
-
-    if (func == NULL &&
-        gethostname (local_hostname, sizeof(local_hostname)) == 0 &&
-        strncmp(instance, local_hostname, strlen(instance)) == 0 &&
-	local_hostname[strlen(instance)] == '.') {
-	strlcpy(host, local_hostname, sizeof(host));
-	goto local_host;
-    }
-
-    {
-	char **domains, **d;
-	domains = krb5_config_get_strings(context, NULL, "realms", realm,
-					  "v4_domains", NULL);
-	for(d = domains; d && *d; d++){
-	    snprintf(host, sizeof(host), "%s.%s", instance, *d);
-	    ret = krb5_make_principal(context, &pr, realm, name, host, NULL);
-	    if (ret) {
-		krb5_config_free_strings(domains);
-		return ret;
-	    }
-	    if(func == NULL || (*func)(context, funcctx, pr)){
-		*princ = pr;
-		krb5_config_free_strings(domains);
-		return 0;
-	    }
-	    krb5_free_principal(context, pr);
-	}
-	krb5_config_free_strings(domains);
-    }
-
-
-    p = krb5_config_get_string(context, NULL, "realms", realm,
-			       "default_domain", NULL);
-    if(p == NULL){
-	/* this should be an error, just faking a name is not good */
-	krb5_clear_error_message (context);
-	return HEIM_ERR_V4_PRINC_NO_CONV;
-    }
-	
-    if (*p == '.')
-	++p;
-    snprintf(host, sizeof(host), "%s.%s", instance, p);
-local_host:
-    ret = krb5_make_principal(context, &pr, realm, name, host, NULL);
-    if (ret)
-	return ret;
-    if(func == NULL || (*func)(context, funcctx, pr)){
-	*princ = pr;
-	return 0;
-    }
-    krb5_free_principal(context, pr);
-    krb5_clear_error_message (context);
-    return HEIM_ERR_V4_PRINC_NO_CONV;
-no_host:
-    p = krb5_config_get_string(context, NULL,
-			       "realms",
-			       realm,
-			       "v4_name_convert",
-			       "plain",
-			       name,
-			       NULL);
-    if(p == NULL)
-	p = krb5_config_get_string(context, NULL,
-				   "libdefaults",
-				   "v4_name_convert",
-				   "plain",
-				   name,
-				   NULL);
-    if(p)
-	name = p;
-
-    ret = krb5_make_principal(context, &pr, realm, name, instance, NULL);
-    if (ret)
-	return ret;
-    if(func == NULL || (*func)(context, funcctx, pr)){
-	*princ = pr;
-	return 0;
-    }
-    krb5_free_principal(context, pr);
-    krb5_clear_error_message (context);
-    return HEIM_ERR_V4_PRINC_NO_CONV;
-}
-
-#endif /* KRB4 */
-
-#ifndef HEIMDAL_SMALLER
-
-static int
-check_list(const krb5_config_binding *l, const char *name, const char **out)
-{
-    while(l){
-	if (l->type != krb5_config_string)
-	    continue;
-	if(strcmp(name, l->u.string) == 0) {
-	    *out = l->name;
-	    return 1;
-	}
-	l = l->next;
-    }
-    return 0;
-}
-
-static int
-name_convert(krb5_context context, const char *name, const char *realm,
-	     const char **out)
-{
-    const krb5_config_binding *l;
-    l = krb5_config_get_list (context,
-			      NULL,
-			      "realms",
-			      realm,
-			      "v4_name_convert",
-			      "host",
-			      NULL);
-    if(l && check_list(l, name, out))
-	return KRB5_NT_SRV_HST;
-    l = krb5_config_get_list (context,
-			      NULL,
-			      "libdefaults",
-			      "v4_name_convert",
-			      "host",
-			      NULL);
-    if(l && check_list(l, name, out))
-	return KRB5_NT_SRV_HST;
-    l = krb5_config_get_list (context,
-			      NULL,
-			      "realms",
-			      realm,
-			      "v4_name_convert",
-			      "plain",
-			      NULL);
-    if(l && check_list(l, name, out))
-	return KRB5_NT_UNKNOWN;
-    l = krb5_config_get_list (context,
-			      NULL,
-			      "libdefaults",
-			      "v4_name_convert",
-			      "host",
-			      NULL);
-    if(l && check_list(l, name, out))
-	return KRB5_NT_UNKNOWN;
-
-    /* didn't find it in config file, try built-in list */
-#ifdef KRB4
-    {
-	struct v4_name_convert *q;
-	for(q = default_v4_name_convert; q->from; q++) {
-	    if(strcmp(name, q->to) == 0) {
-		*out = q->from;
-		return KRB5_NT_SRV_HST;
-	    }
-	}
-    }
-#endif
-    return -1;
-}
-
-/*
- * convert the v5 principal in `principal' into a v4 corresponding one
- * in `name, instance, realm'
- * this is limited interface since there's no length given for these
- * three parameters.  They have to be 40 bytes each (ANAME_SZ).
- */
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_524_conv_principal(krb5_context context,
-			const krb5_principal principal,
-			char *name,
-			char *instance,
-			char *realm)
-{
-    const char *n, *i, *r;
-    char tmpinst[40];
-    int type = princ_type(principal);
-    const int aname_sz = 40;
-
-    r = principal->realm;
-
-    switch(principal->name.name_string.len){
-    case 1:
-	n = principal->name.name_string.val[0];
-	i = "";
-	break;
-    case 2:
-	n = principal->name.name_string.val[0];
-	i = principal->name.name_string.val[1];
-	break;
-    default:
-	krb5_set_error_message(context, KRB5_PARSE_MALFORMED,
-			       N_("cannot convert a %d "
-				  "component principal", ""),
-			       principal->name.name_string.len);
-	return KRB5_PARSE_MALFORMED;
-    }
-
-    {
-	const char *tmp;
-	int t = name_convert(context, n, r, &tmp);
-	if(t >= 0) {
-	    type = t;
-	    n = tmp;
-	}
-    }
-
-    if(type == KRB5_NT_SRV_HST){
-	char *p;
-
-	strlcpy (tmpinst, i, sizeof(tmpinst));
-	p = strchr(tmpinst, '.');
-	if(p)
-	    *p = 0;
-	i = tmpinst;
-    }
-
-    if (strlcpy (name, n, aname_sz) >= aname_sz) {
-	krb5_set_error_message(context, KRB5_PARSE_MALFORMED,
-			       N_("too long name component to convert", ""));
-	return KRB5_PARSE_MALFORMED;
-    }
-    if (strlcpy (instance, i, aname_sz) >= aname_sz) {
-	krb5_set_error_message(context, KRB5_PARSE_MALFORMED,
-			       N_("too long instance component to convert", ""));
-	return KRB5_PARSE_MALFORMED;
-    }
-    if (strlcpy (realm, r, aname_sz) >= aname_sz) {
-	krb5_set_error_message(context, KRB5_PARSE_MALFORMED,
-			       N_("too long realm component to convert", ""));
-	return KRB5_PARSE_MALFORMED;
-    }
-    return 0;
-}
-
-#endif /* !HEIMDAL_SMALLER */
 
 /**
  * Create a principal for the service running on hostname. If
@@ -1459,7 +1028,7 @@ krb5_524_conv_principal(krb5_context context,
  *
  * @ingroup krb5_principal
  */
-			
+
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_sname_to_principal (krb5_context context,
 			 const char *hostname,
@@ -1471,7 +1040,7 @@ krb5_sname_to_principal (krb5_context context,
     char localhost[MAXHOSTNAMELEN];
     char **realms;
     size_t len;
-	
+
     if(type != KRB5_NT_SRV_HST && type != KRB5_NT_UNKNOWN) {
 	krb5_set_error_message(context, KRB5_SNAME_UNSUPP_NAMETYPE,
 			       N_("unsupported name type %d", ""),
@@ -1485,7 +1054,7 @@ krb5_sname_to_principal (krb5_context context,
 	    krb5_set_error_message(context, ret,
 				   N_("Failed to get local hostname", ""));
 	    return ret;
-	}	
+	}
 	localhost[sizeof(localhost) - 1] = '\0';
     } else {
 	strlcpy(localhost, hostname, sizeof(localhost));
@@ -1541,7 +1110,7 @@ static const struct {
     { "ENT_PRINCIPAL_AND_ID", KRB5_NT_ENT_PRINCIPAL_AND_ID },
     { "MS_PRINCIPAL", KRB5_NT_MS_PRINCIPAL },
     { "MS_PRINCIPAL_AND_ID", KRB5_NT_MS_PRINCIPAL_AND_ID },
-    { NULL }
+    { NULL, 0 }
 };
 
 /**
@@ -1550,7 +1119,7 @@ static const struct {
  * @ingroup krb5_principal
  */
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_parse_nametype(krb5_context context, const char *str, int32_t *nametype)
 {
     size_t i;
@@ -1630,9 +1199,43 @@ krb5_principal_is_pku2u(krb5_context context, krb5_const_principal principal)
  * @ingroup krb5_principal
  */
 
-krb5_boolean KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_principal_is_krbtgt(krb5_context context, krb5_const_principal p)
 {
     return p->name.name_string.len == 2 &&
 	strcmp(p->name.name_string.val[0], KRB5_TGS_NAME) == 0;
+}
+
+/**
+ * Returns true iff name is an WELLKNOWN:ORG.H5L.HOSTBASED-SERVICE
+ *
+ * @ingroup krb5_principal
+ */
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_gss_hostbased_service(krb5_context context,
+					krb5_const_principal principal)
+{
+    if (principal == NULL)
+	return FALSE;
+    if (principal->name.name_string.len != 2)
+	return FALSE;
+    if (strcmp(principal->name.name_string.val[1], KRB5_GSS_HOSTBASED_SERVICE_NAME) != 0)
+	return FALSE;
+    return TRUE;
+}
+
+/**
+ * Check if the cname part of the principal is a initial or renewed krbtgt principal
+ *
+ * @ingroup krb5_principal
+ */
+
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_root_krbtgt(krb5_context context, krb5_const_principal p)
+{
+    return p->name.name_string.len == 2 &&
+	strcmp(p->name.name_string.val[0], KRB5_TGS_NAME) == 0 &&
+	strcmp(p->name.name_string.val[1], p->realm) == 0;
 }

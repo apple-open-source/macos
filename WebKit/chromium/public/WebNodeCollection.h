@@ -31,7 +31,7 @@
 #ifndef WebNodeCollection_h
 #define WebNodeCollection_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebCore { class HTMLCollection; }
 #if WEBKIT_IMPLEMENTATION
@@ -54,12 +54,14 @@ public:
         return *this;
     }
 
-    WEBKIT_API void reset();
-    WEBKIT_API void assign(const WebNodeCollection&);
+    bool isNull() const { return !m_private; }
 
-    WEBKIT_API unsigned length() const;
-    WEBKIT_API WebNode nextItem() const;
-    WEBKIT_API WebNode firstItem() const;
+    WEBKIT_EXPORT void reset();
+    WEBKIT_EXPORT void assign(const WebNodeCollection&);
+
+    WEBKIT_EXPORT unsigned length() const;
+    WEBKIT_EXPORT WebNode nextItem() const;
+    WEBKIT_EXPORT WebNode firstItem() const;
 
 #if WEBKIT_IMPLEMENTATION
     WebNodeCollection(const WTF::PassRefPtr<WebCore::HTMLCollection>&);

@@ -193,7 +193,7 @@ public:
     int createBreakStatement(int, const Identifier*, int, int, int, int) { return 1; }
     int createContinueStatement(int, int, int, int, int) { return 1; }
     int createContinueStatement(int, const Identifier*, int, int, int, int) { return 1; }
-    int createTryStatement(int, int, const Identifier*, bool, int, int, int, int) { return 1; }
+    int createTryStatement(int, int, const Identifier*, int, int, int, int) { return 1; }
     int createSwitchStatement(int, int, int, int, int, int, int) { return 1; }
     int createWhileStatement(int, int, int, int, int) { return 1; }
     int createWithStatement(int, int, int, int, int, int, int) { return 1; }
@@ -209,6 +209,12 @@ public:
         if (!strict)
             return Property(type);
         return Property(name, type);
+    }
+    template <bool strict> Property createGetterOrSetterProperty(JSGlobalData* globalData, int, PropertyNode::Type type, double name, int, int, int, int, int, int)
+    {
+        if (!strict)
+            return Property(type);
+        return Property(&globalData->parserArena->identifierArena().makeNumericIdentifier(globalData, name), type);
     }
 
     void appendStatement(int, int) { }

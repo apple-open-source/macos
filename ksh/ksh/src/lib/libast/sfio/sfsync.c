@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -88,11 +88,12 @@ reg Sfio_t*	f;	/* stream to be synchronized */
 {
 	int	local, rv, mode, lock;
 	Sfio_t*	origf;
+	SFMTXDECL(f);
 
 	if(!(origf = f) )
 		return _sfall();
 
-	SFMTXSTART(origf,-1);
+	SFMTXENTER(origf,-1);
 
 	GETLOCAL(origf,local);
 

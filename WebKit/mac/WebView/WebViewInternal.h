@@ -34,19 +34,26 @@
 #import "WebTypesInternal.h"
 
 #ifdef __cplusplus
+#import <WebCore/AlternativeTextClient.h>
+#import <WebCore/FindOptions.h>
+#import <WebCore/FloatRect.h>
+#import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 
 #include <wtf/Forward.h>
+#include <wtf/RetainPtr.h>
 
 namespace WebCore {
-    class Element;
-    class Frame;
-    class HistoryItem;
-    class KURL;
-    class KeyboardEvent;
-    class Page;
-    class RenderBox;
-    class Node;
+class Element;
+class Event;
+class Frame;
+class HistoryItem;
+class KURL;
+class KeyboardEvent;
+class Page;
+class RenderBox;
+class Node;
+struct DictationAlternative;
 }
 #endif
 
@@ -55,6 +62,12 @@ namespace WebCore {
 @class WebNodeHighlight;
 
 #ifdef __cplusplus
+
+WebCore::FindOptions coreOptions(WebFindOptions options);
+
+#if USE(DICTATION_ALTERNATIVES)
+OBJC_CLASS NSTextAlternatives;
+#endif
 
 @interface WebView (WebViewEditingExtras)
 - (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
@@ -82,8 +95,6 @@ namespace WebCore {
 - (void)_dispatchDidReceiveIconFromWebFrame:(WebFrame *)webFrame;
 #endif
 
-- (void)_selectionChanged;
-
 #if USE(ACCELERATED_COMPOSITING)
 - (BOOL)_needsOneShotDrawingSynchronization;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
@@ -94,17 +105,21 @@ namespace WebCore {
 - (void)_scheduleGlibContextIterations;
 #endif
 
+#if USE(AUTOCORRECTION_PANEL)
+- (void)handleAcceptedAlternativeText:(NSString*)text;
+#endif
+
+#if USE(DICTATION_ALTERNATIVES)
+- (void)_getWebCoreDictationAlternatives:(Vector<WebCore::DictationAlternative>&)alternatives fromTextAlternatives:(const Vector<WebCore::TextAlternativeWithRange>&)alternativesWithRange;
+- (void)_showDictationAlternativeUI:(const WebCore::FloatRect&)boundingBoxOfDictatedText forDictationContext:(uint64_t)dictationContext;
+- (void)_dismissDictationAlternativeUI;
+- (void)_removeDictationAlternatives:(uint64_t)dictationContext;
+- (Vector<String>)_dictationAlternatives:(uint64_t)dictationContext;
+#endif
+
 @end
 
 #endif
-
-@interface WebView (WebViewEventHandling)
-- (void)_closingEventHandling;
-- (void)_updateMouseoverWithFakeEvent;
-- (void)_cancelUpdateMouseoverTimer;
-- (void)_stopAutoscrollTimer;
-- (void)_setToolTip:(NSString *)toolTip;
-@end
 
 // FIXME: Temporary way to expose methods that are in the wrong category inside WebView.
 @interface WebView (WebViewOtherInternal)
@@ -115,6 +130,7 @@ namespace WebCore {
 #ifdef __cplusplus
 - (WebCore::Page*)page;
 - (void)_setGlobalHistoryItem:(WebCore::HistoryItem*)historyItem;
+- (WTF::String)_userAgentString;
 #endif
 
 - (NSMenu *)_menuForElement:(NSDictionary *)element defaultItems:(NSArray *)items;
@@ -177,8 +193,6 @@ namespace WebCore {
 - (BOOL)_canResetZoom:(BOOL)isTextOnly;
 - (IBAction)_resetZoom:(id)sender isTextOnly:(BOOL)isTextOnly;
 
-- (BOOL)_mustDrawUnionedRect:(NSRect)rect singleRects:(const NSRect *)rects count:(NSInteger)count;
-
 + (BOOL)_canHandleRequest:(NSURLRequest *)request forMainFrame:(BOOL)forMainFrame;
 
 - (void)_setInsertionPasteboard:(NSPasteboard *)pasteboard;
@@ -196,5 +210,9 @@ namespace WebCore {
 - (void)_exitFullScreenForElement:(WebCore::Element*)element;
 - (void)_fullScreenRendererChanged:(WebCore::RenderBox*)renderer;
 #endif
+
+// Conversion functions between WebCore root view coordinates and web view coordinates.
+- (NSPoint)_convertPointFromRootView:(NSPoint)point;
+- (NSRect)_convertRectFromRootView:(NSRect)rect;
 
 @end

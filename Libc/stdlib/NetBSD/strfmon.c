@@ -41,6 +41,8 @@ __RCSID("$NetBSD: strfmon.c,v 1.7 2009/01/30 23:46:03 lukem Exp $");
 #include <monetary.h>
 #endif
 
+#include "xlocale_private.h"
+
 #include <sys/types.h>
 #include <ctype.h>
 #include <errno.h>
@@ -75,9 +77,9 @@ __RCSID("$NetBSD: strfmon.c,v 1.7 2009/01/30 23:46:03 lukem Exp $");
 		PRINT(*tmps++);					\
 } while (/* CONSTCOND */ 0)
 
-#define GET_NUMBER(VAR)	do {					\
+#define GET_NUMBER(VAR,LOC)	do {				\
 	VAR = 0;						\
-	while (isdigit((unsigned char)*fmt)) {			\
+	while (isdigit_l((unsigned char)*fmt, (LOC))) {			\
 		VAR *= 10;					\
 		VAR += *fmt - '0';				\
 		if (VAR > 0x00ffffff)				\
@@ -99,15 +101,13 @@ __RCSID("$NetBSD: strfmon.c,v 1.7 2009/01/30 23:46:03 lukem Exp $");
 	groups++;						\
 } while (/* CONSTCOND */ 0)
 
-static void __setup_vars(int, char *, char *, char *, const char **);
-static int __calc_left_pad(int, char *);
-static char *__format_grouped_double(double, int *, int, int, int);
+static void __setup_vars(int, char *, char *, char *, const char **, struct lconv *);
+static int __calc_left_pad(int, char *, struct lconv *);
+static char *__format_grouped_double(double, int *, int, int, int, struct lconv *, locale_t);
 
-ssize_t
-strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
-    ...)
+static ssize_t
+_strfmon(char * __restrict s, size_t maxsize, locale_t loc, const char * __restrict format, va_list ap)
 {
-	va_list		ap;
 	char 		*dst;		/* output destination pointer */
 	const char 	*fmt;		/* current format poistion pointer */
 	struct lconv 	*lc;		/* pointer to lconv structure */
@@ -131,9 +131,7 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 	char		*tmpptr;	/* temporary vars */
 	int		sverrno;
 
-        va_start(ap, format);
-
-	lc = localeconv();
+	lc = localeconv_l(loc);
 	dst = s;
 	fmt = format;
 	asciivalue = NULL;
@@ -197,9 +195,9 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 		}
 
 		/* field Width */
-		if (isdigit((unsigned char)*fmt)) {
+		if (isdigit_l((unsigned char)*fmt, loc)) {
 			ptrdiff_t d = dst - s;
-			GET_NUMBER(width);
+			GET_NUMBER(width, loc);
 			/* Do we have enough space to put number with
 			 * required width ?
 			 */
@@ -210,16 +208,16 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 
 		/* Left precision */
 		if (*fmt == '#') {
-			if (!isdigit((unsigned char)*++fmt))
+			if (!isdigit_l((unsigned char)*++fmt, loc))
 				goto format_error;
-			GET_NUMBER(left_prec);
+			GET_NUMBER(left_prec, loc);
 		}
 
 		/* Right precision */
 		if (*fmt == '.') {
-			if (!isdigit((unsigned char)*++fmt))
+			if (!isdigit_l((unsigned char)*++fmt, loc))
 				goto format_error;
-			GET_NUMBER(right_prec);
+			GET_NUMBER(right_prec, loc);
 		}
 
 		/* Conversion Characters */
@@ -239,8 +237,10 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 			free(currency_symbol);
 		if (flags & USE_INTL_CURRENCY) {
 			currency_symbol = strdup(lc->int_curr_symbol);
-			if (currency_symbol != NULL)
+			if (currency_symbol != NULL) {
 				space_char = *(currency_symbol+3);
+				currency_symbol[3] = '\0';
+			}
 		} else
 			currency_symbol = strdup(lc->currency_symbol);
 
@@ -259,21 +259,21 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 		/* fill left_prec with amount of padding chars */
 		if (left_prec >= 0) {
 			pad_size = __calc_left_pad((flags ^ IS_NEGATIVE),
-							currency_symbol) -
-				   __calc_left_pad(flags, currency_symbol);
+							currency_symbol, lc) -
+				   __calc_left_pad(flags, currency_symbol, lc);
 			if (pad_size < 0)
 				pad_size = 0;
 		}
 
 		asciivalue = __format_grouped_double(value, &flags,
-				left_prec, right_prec, pad_char);
+				left_prec, right_prec, pad_char, lc, loc);
 		if (asciivalue == NULL)
 			goto end_error;		/* errno already set     */
 						/* to ENOMEM by malloc() */
 
 		/* set some variables for later use */
 		__setup_vars(flags, &cs_precedes, &sep_by_space,
-				&sign_posn, &signstr);
+				&sign_posn, &signstr, lc);
 
 		/*
 		 * Description of some LC_MONETARY's values:
@@ -333,8 +333,11 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 				} else if (sep_by_space == 1)
 					PRINT(space_char);
 			}
-		} else if (sign_posn == 1)
+		} else if (sign_posn == 1) {
 			PRINTS(signstr);
+			if (sep_by_space == 2)
+				PRINT(' ');
+		}
 
 		PRINTS(asciivalue);
 
@@ -368,8 +371,12 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 			PRINTS(signstr);
 		}
 
-		if (sign_posn == 0 && (flags & IS_NEGATIVE))
-			PRINT(')');
+		if (sign_posn == 0) {
+			if (flags & IS_NEGATIVE)
+				PRINT(')');
+			else if (left_prec >= 0)
+				PRINT(' ');
+		}
 
 		if (dst - tmpptr < width) {
 			if (flags & LEFT_JUSTIFY) {
@@ -386,7 +393,6 @@ strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
 	}
 
 	PRINT('\0');
-	va_end(ap);
 	free(asciivalue);
 	free(currency_symbol);
 	return (dst - s - 1);	/* return size of put data except trailing '\0' */
@@ -405,14 +411,12 @@ end_error:
 	if (currency_symbol != NULL)
 		free(currency_symbol);
 	errno = sverrno;
-	va_end(ap);
 	return (-1);
 }
 
 static void
 __setup_vars(int flags, char *cs_precedes, char *sep_by_space,
-		char *sign_posn, const char **signstr) {
-	struct lconv *lc = localeconv();
+		char *sign_posn, const char **signstr, struct lconv *lc) {
 
 	if ((flags & IS_NEGATIVE) && (flags & USE_INTL_CURRENCY)) {
 		*cs_precedes = lc->int_n_cs_precedes;
@@ -448,13 +452,13 @@ __setup_vars(int flags, char *cs_precedes, char *sep_by_space,
 }
 
 static int
-__calc_left_pad(int flags, char *cur_symb) {
+__calc_left_pad(int flags, char *cur_symb, struct lconv *lc) {
 
 	char cs_precedes, sep_by_space, sign_posn;
 	const char *signstr;
 	int left_chars = 0;
 
-	__setup_vars(flags, &cs_precedes, &sep_by_space, &sign_posn, &signstr);
+	__setup_vars(flags, &cs_precedes, &sep_by_space, &sign_posn, &signstr, lc);
 
 	if (cs_precedes != 0) {
 		left_chars += strlen(cur_symb);
@@ -463,6 +467,10 @@ __calc_left_pad(int flags, char *cur_symb) {
 	}
 
 	switch (sign_posn) {
+		case 0:
+			if (flags & IS_NEGATIVE)
+				left_chars++;
+			break;
 		case 1:
 			left_chars += strlen(signstr);
 			break;
@@ -498,9 +506,11 @@ get_groups(int size, char *grouping) {
 }
 
 /* convert double to ASCII */
+__private_extern__ const char *__fix_nogrouping(const char *);
+
 static char *
 __format_grouped_double(double value, int *flags,
-			int left_prec, int right_prec, int pad_char) {
+			int left_prec, int right_prec, int pad_char, struct lconv *lc, locale_t loc) {
 
 	char		*rslt;
 	char		*avalue;
@@ -512,14 +522,13 @@ __format_grouped_double(double value, int *flags,
 
 	int		padded;
 
-	struct lconv	*lc = localeconv();
 	char		*grouping;
 	char		decimal_point;
 	char		thousands_sep;
 
 	int groups = 0;
 
-	grouping = lc->mon_grouping;
+	grouping = __fix_nogrouping(lc->mon_grouping);
 	decimal_point = *lc->mon_decimal_point;
 	if (decimal_point == '\0')
 		decimal_point = *lc->decimal_point;
@@ -546,9 +555,9 @@ __format_grouped_double(double value, int *flags,
 		left_prec += get_groups(left_prec, grouping);
 
 	/* convert to string */
-	snprintf(fmt, sizeof(fmt), "%%%d.%df", left_prec + right_prec + 1,
+	snprintf_l(fmt, sizeof(fmt), loc, "%%%d.%df", left_prec + right_prec + 1,
 	    right_prec);
-	avalue_size = asprintf(&avalue, fmt, value);
+	avalue_size = asprintf_l(&avalue, loc, fmt, value);
 	if (avalue_size < 0)
 		return (NULL);
 
@@ -620,4 +629,31 @@ __format_grouped_double(double value, int *flags,
 	memmove(rslt, bufend, bufsize);
 	free(avalue);
 	return (rslt);
+}
+
+ssize_t
+strfmon(char * __restrict s, size_t maxsize, const char * __restrict format,
+    ...)
+{
+	ssize_t		ret;
+	va_list		ap;
+
+	va_start(ap, format);
+	ret = _strfmon(s, maxsize, __current_locale(), format, ap);
+	va_end(ap);
+	return ret;
+}
+
+ssize_t
+strfmon_l(char * __restrict s, size_t maxsize, locale_t loc,
+    const char * __restrict format, ...)
+{
+	ssize_t		ret;
+	va_list		ap;
+
+	NORMALIZE_LOCALE(loc);
+	va_start(ap, format);
+	ret = _strfmon(s, maxsize, loc, format, ap);
+	va_end(ap);
+	return ret;
 }

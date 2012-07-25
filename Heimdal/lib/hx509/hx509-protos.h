@@ -160,6 +160,13 @@ hx509_ca_tbs_set_template (
 	hx509_cert /*cert*/);
 
 int
+hx509_ca_tbs_set_unique (
+	hx509_context /*context*/,
+	hx509_ca_tbs /*tbs*/,
+	const heim_bit_string */*subjectUniqueID*/,
+	const heim_bit_string */*issuerUniqueID*/);
+
+int
 hx509_ca_tbs_subject_expand (
 	hx509_context /*context*/,
 	hx509_ca_tbs /*tbs*/,
@@ -208,12 +215,6 @@ hx509_cert_get_SPKI_AlgorithmIdentifier (
 	hx509_cert /*p*/,
 	AlgorithmIdentifier */*alg*/);
 
-int
-hx509_cert_get_appleid (
-	hx509_context /*context*/,
-	hx509_cert /*cert*/,
-	char **/*appleid*/);
-
 hx509_cert_attribute
 hx509_cert_get_attribute (
 	hx509_cert /*cert*/,
@@ -233,6 +234,12 @@ hx509_cert_get_issuer (
 	hx509_cert /*p*/,
 	hx509_name */*name*/);
 
+int
+hx509_cert_get_issuer_unique_id (
+	hx509_context /*context*/,
+	hx509_cert /*p*/,
+	heim_bit_string */*issuer*/);
+
 time_t
 hx509_cert_get_notAfter (hx509_cert /*p*/);
 
@@ -250,18 +257,18 @@ hx509_cert_get_subject (
 	hx509_name */*name*/);
 
 int
+hx509_cert_get_subject_unique_id (
+	hx509_context /*context*/,
+	hx509_cert /*p*/,
+	heim_bit_string */*subject*/);
+
+int
 hx509_cert_have_private_key (hx509_cert /*p*/);
 
 int
 hx509_cert_init (
 	hx509_context /*context*/,
 	const Certificate */*c*/,
-	hx509_cert */*cert*/);
-
-int
-hx509_cert_init_SecFramework (
-	hx509_context /*context*/,
-	void * /*identity*/,
 	hx509_cert */*cert*/);
 
 int
@@ -276,6 +283,14 @@ hx509_cert_keyusage_print (
 	hx509_context /*context*/,
 	hx509_cert /*c*/,
 	char **/*s*/);
+
+int
+hx509_cert_public_encrypt (
+	hx509_context /*context*/,
+	const heim_octet_string */*cleartext*/,
+	const hx509_cert /*p*/,
+	heim_oid */*encryption_oid*/,
+	heim_octet_string */*ciphertext*/);
 
 hx509_cert
 hx509_cert_ref (hx509_cert /*cert*/);
@@ -457,19 +472,6 @@ hx509_cms_unwrap_ContentInfo (
 	int */*have_data*/);
 
 int
-hx509_cms_verify_signed (
-	hx509_context /*context*/,
-	hx509_verify_ctx /*ctx*/,
-	unsigned int /*flags*/,
-	const void */*data*/,
-	size_t /*length*/,
-	const heim_octet_string */*signedContent*/,
-	hx509_certs /*pool*/,
-	heim_oid */*contentType*/,
-	heim_octet_string */*content*/,
-	heim_array_t */*signer_evaluate*/);
-
-int
 hx509_cms_wrap_ContentInfo (
 	const heim_oid */*oid*/,
 	const heim_octet_string */*buf*/,
@@ -603,6 +605,11 @@ hx509_crypto_set_key_name (
 	hx509_crypto /*crypto*/,
 	const char */*name*/);
 
+void
+hx509_crypto_set_padding (
+	hx509_crypto /*crypto*/,
+	int /*padding_type*/);
+
 int
 hx509_crypto_set_params (
 	hx509_context /*context*/,
@@ -659,27 +666,8 @@ hx509_err (
 	const char */*fmt*/,
 	...);
 
-int
-hx509_evaluate_cert (
-	hx509_context /*context*/,
-	hx509_verify_ctx /*ctx*/,
-	hx509_cert /*cert*/,
-	hx509_certs /*pool*/,
-	hx509_evaluate */*validate*/);
-
-void
-hx509_evaluate_free (hx509_evaluate /*data*/);
-
-hx509_cert
-hx509_evaluate_get_cert (
-	hx509_evaluate /*data*/,
-	size_t /*offset*/);
-
-size_t
-hx509_evaluate_get_length (hx509_evaluate /*data*/);
-
-hx509_cert
-hx509_evaluate_get_ta (hx509_evaluate /*data*/);
+hx509_private_key_ops *
+hx509_find_private_alg (const heim_oid */*oid*/);
 
 void
 hx509_free_error_string (char */*str*/);
@@ -781,19 +769,6 @@ void
 hx509_name_free (hx509_name */*name*/);
 
 int
-hx509_name_from_Name (
-	const Name */*n*/,
-	hx509_name */*name*/);
-
-int
-hx509_name_get_component (
-	hx509_name /*name*/,
-	int /*rdn*/,
-	const heim_oid */*type*/,
-	unsigned */*count*/,
-	char **/*str*/);
-
-int
 hx509_name_is_null_p (const hx509_name /*name*/);
 
 int
@@ -847,6 +822,15 @@ hx509_parse_name (
 	hx509_context /*context*/,
 	const char */*str*/,
 	hx509_name */*name*/);
+
+int
+hx509_parse_private_key (
+	hx509_context /*context*/,
+	const AlgorithmIdentifier */*keyai*/,
+	const void */*data*/,
+	size_t /*len*/,
+	hx509_key_format_t /*format*/,
+	hx509_private_key */*private_key*/);
 
 int
 hx509_peer_info_add_cms_alg (
@@ -917,6 +901,34 @@ hx509_print_stdout (
 	va_list /*va*/);
 
 int
+hx509_private_key2SPKI (
+	hx509_context /*context*/,
+	hx509_private_key /*private_key*/,
+	SubjectPublicKeyInfo */*spki*/);
+
+void
+hx509_private_key_assign_rsa (
+	hx509_private_key /*key*/,
+	void */*ptr*/);
+
+int
+hx509_private_key_free (hx509_private_key */*key*/);
+
+int
+hx509_private_key_init (
+	hx509_private_key */*key*/,
+	hx509_private_key_ops */*ops*/,
+	void */*keydata*/);
+
+int
+hx509_private_key_private_decrypt (
+	hx509_context /*context*/,
+	const heim_octet_string */*ciphertext*/,
+	const heim_oid */*encryption_oid*/,
+	hx509_private_key /*p*/,
+	heim_octet_string */*cleartext*/);
+
+int
 hx509_prompt_hidden (hx509_prompt_type /*type*/);
 
 int
@@ -972,6 +984,38 @@ hx509_query_unparse_stats (
 	hx509_context /*context*/,
 	int /*printtype*/,
 	FILE */*out*/);
+
+void
+hx509_request_free (hx509_request */*req*/);
+
+int
+hx509_request_get_SubjectPublicKeyInfo (
+	hx509_context /*context*/,
+	hx509_request /*req*/,
+	SubjectPublicKeyInfo */*key*/);
+
+int
+hx509_request_get_name (
+	hx509_context /*context*/,
+	hx509_request /*req*/,
+	hx509_name */*name*/);
+
+int
+hx509_request_init (
+	hx509_context /*context*/,
+	hx509_request */*req*/);
+
+int
+hx509_request_set_SubjectPublicKeyInfo (
+	hx509_context /*context*/,
+	hx509_request /*req*/,
+	const SubjectPublicKeyInfo */*key*/);
+
+int
+hx509_request_set_name (
+	hx509_context /*context*/,
+	hx509_request /*req*/,
+	hx509_name /*name*/);
 
 int
 hx509_revoke_add_crl (
@@ -1178,6 +1222,61 @@ hx509_xfree (void */*ptr*/);
 
 int
 yywrap (void);
+
+int
+hx509_name_from_Name (
+	const Name */*n*/,
+	hx509_name */*name*/);
+
+size_t
+hx509_evaluate_get_length(hx509_evaluate data);
+
+hx509_cert
+hx509_evaluate_get_cert(hx509_evaluate data, size_t offset);
+
+hx509_cert
+hx509_evaluate_get_ta(hx509_evaluate data);
+
+void
+hx509_evaluate_free(hx509_evaluate data);
+
+int
+hx509_evaluate_cert(hx509_context context,
+		    hx509_verify_ctx ctx,
+		    hx509_cert cert,
+		    hx509_certs pool,
+		    hx509_evaluate *validate);
+
+int
+hx509_cert_get_appleid(hx509_context context, hx509_cert cert, char **appleid);
+
+int
+hx509_name_get_component(hx509_name name, int rdn, const heim_oid *type, unsigned *count, char **str);
+
+int
+hx509_cms_verify_signed(hx509_context context,
+			hx509_verify_ctx ctx,
+			unsigned int flags,
+			const void *data,
+			size_t length,
+			const heim_octet_string *signedContent,
+			hx509_certs pool,
+			heim_oid *contentType,
+			heim_octet_string *content,
+			heim_array_t *signer_evaluate);
+
+
+int
+hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert *cert);
+
+int
+hx509_cert_set_persistent(hx509_cert cert, heim_octet_string *persistent);
+
+int
+hx509_cert_get_persistent(hx509_cert cert, heim_octet_string *persistent);
+
+int
+hx509_query_match_persistent(hx509_query *q, heim_octet_string *ident);
 
 #ifdef __cplusplus
 }

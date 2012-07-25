@@ -24,7 +24,16 @@
 #ifndef _IOKIT_IOUSBDeviceClass_H
 #define _IOKIT_IOUSBDeviceClass_H
 
+// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
+#if 0
+#if defined(MAC_OS_X_VERSION_10_8)
+#undef SUPPORTS_SS_USB
+#else
 #define SUPPORTS_SS_USB 1
+#endif
+#else
+#define SUPPORTS_SS_USB 1
+#endif
 
 #include <IOKit/usb/IOUSBLib.h>
 #include <asl.h>

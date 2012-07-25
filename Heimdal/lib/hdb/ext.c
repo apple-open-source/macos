@@ -39,7 +39,7 @@
 krb5_error_code
 hdb_entry_check_mandatory(krb5_context context, const hdb_entry *ent)
 {
-    int i;
+    size_t i;
 
     if (ent->extensions == NULL)
 	return 0;
@@ -65,13 +65,13 @@ hdb_entry_check_mandatory(krb5_context context, const hdb_entry *ent)
 HDB_extension *
 hdb_find_extension(const hdb_entry *entry, int type)
 {
-    int i;
+    size_t i;
 
     if (entry->extensions == NULL)
 	return NULL;
 
     for (i = 0; i < entry->extensions->len; i++)
-	if (entry->extensions->val[i].data.element == type)
+	if (entry->extensions->val[i].data.element == (unsigned)type)
 	    return &entry->extensions->val[i];
     return NULL;
 }
@@ -114,7 +114,7 @@ hdb_replace_extension(krb5_context context,
 	Der_type replace_type, list_type;
 	unsigned int replace_tag, list_tag;
 	size_t size;
-	int i;
+	size_t i;
 
 	ret = der_get_tag(ext->data.u.asn1_ellipsis.data,
 			  ext->data.u.asn1_ellipsis.length,
@@ -182,13 +182,13 @@ hdb_clear_extension(krb5_context context,
 		    hdb_entry *entry,
 		    int type)
 {
-    int i;
+    size_t i;
 
     if (entry->extensions == NULL)
 	return 0;
 
     for (i = 0; i < entry->extensions->len; i++) {
-	if (entry->extensions->val[i].data.element == type) {
+	if (entry->extensions->val[i].data.element == (unsigned)type) {
 	    free_HDB_extension(&entry->extensions->val[i]);
 	    memmove(&entry->extensions->val[i],
 		    &entry->extensions->val[i + 1],
@@ -482,4 +482,68 @@ hdb_entry_get_aliases(const hdb_entry *entry, const HDB_Ext_Aliases **a)
 	*a = NULL;
 
     return 0;
+}
+
+unsigned int
+hdb_entry_get_kvno_diff_clnt(const hdb_entry *entry)
+{
+    const HDB_extension *ext;
+
+    ext = hdb_find_extension(entry,
+			     choice_HDB_extension_data_hist_kvno_diff_clnt);
+    if (ext)
+	return ext->data.u.hist_kvno_diff_clnt;
+    return 1;
+}
+
+krb5_error_code
+hdb_entry_set_kvno_diff_clnt(krb5_context context, hdb_entry *entry,
+			     unsigned int diff)
+{
+    HDB_extension ext;
+
+    if (diff > 16384)
+	return EINVAL;
+    ext.data.element = choice_HDB_extension_data_hist_kvno_diff_clnt;
+    ext.data.u.hist_kvno_diff_clnt = diff;
+    return hdb_replace_extension(context, entry, &ext);
+}
+
+krb5_error_code
+hdb_entry_clear_kvno_diff_clnt(krb5_context context, hdb_entry *entry)
+{
+    return hdb_clear_extension(context, entry,
+			       choice_HDB_extension_data_hist_kvno_diff_clnt);
+}
+
+unsigned int
+hdb_entry_get_kvno_diff_svc(const hdb_entry *entry)
+{
+    const HDB_extension *ext;
+
+    ext = hdb_find_extension(entry,
+			     choice_HDB_extension_data_hist_kvno_diff_svc);
+    if (ext)
+	return ext->data.u.hist_kvno_diff_svc;
+    return 1024; /* max_life effectively provides a better default */
+}
+
+krb5_error_code
+hdb_entry_set_kvno_diff_svc(krb5_context context, hdb_entry *entry,
+			    unsigned int diff)
+{
+    HDB_extension ext;
+
+    if (diff > 16384)
+	return EINVAL;
+    ext.data.element = choice_HDB_extension_data_hist_kvno_diff_svc;
+    ext.data.u.hist_kvno_diff_svc = diff;
+    return hdb_replace_extension(context, entry, &ext);
+}
+
+krb5_error_code
+hdb_entry_clear_kvno_diff_svc(krb5_context context, hdb_entry *entry)
+{
+    return hdb_clear_extension(context, entry,
+			       choice_HDB_extension_data_hist_kvno_diff_svc);
 }

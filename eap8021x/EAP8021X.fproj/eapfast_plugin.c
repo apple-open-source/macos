@@ -62,9 +62,7 @@
 #include <TargetConditionals.h>
 #include "myCFUtil.h"
 #include "printdata.h"
-
-#define INLINE 	static __inline__
-#define STATIC	static
+#include "nbo.h"
 
 #define EAP_FAST_NAME		"EAP-FAST"
 #define EAP_FAST_NAME_LENGTH	(sizeof(EAP_FAST_NAME) - 1)
@@ -104,14 +102,15 @@ typedef struct AuthorityIDData_s {
 INLINE uint16_t
 AuthorityIDDataGetType(const AuthorityIDDataRef auid)
 {
-    return (ntohs(*((uint16_t *)auid->auid_type)));
+    return (net_uint16_get(auid->auid_type));
 }
 
 INLINE uint16_t
 AuthorityIDDataGetLength(const AuthorityIDDataRef auid)
 {
-    return (ntohs(*((uint16_t *)auid->auid_length)));
+    return (net_uint16_get(auid->auid_length));
 }
+
 enum {
     kAuthorityIDDataType = 4
 };	
@@ -190,27 +189,27 @@ typedef struct TLV_s {
 INLINE void
 TLVSetLength(TLVRef tlv, TLVLength length)
 {
-    *((TLVLength *)tlv->tlv_length) = htons(length);
+    net_uint16_set(tlv->tlv_length, length);
     return;
 }
 
 INLINE TLVLength
 TLVGetLength(const TLVRef tlv)
 {
-    return (ntohs(*((TLVLength *)tlv->tlv_length)));
+    return (net_uint16_get(tlv->tlv_length));
 }
 
 INLINE void
 TLVSetType(TLVRef tlv, TLVType type)
 {
-    *((TLVType *)tlv->tlv_type) = htons(type);
+    net_uint16_set(tlv->tlv_type, type);
     return;
 }
 
 INLINE TLVType
 TLVGetType(const TLVRef tlv)
 {
-    return (ntohs(*((TLVType *)tlv->tlv_type)));
+    return (net_uint16_get(tlv->tlv_type));
 }
 
 INLINE bool
@@ -241,14 +240,14 @@ typedef uint16_t TLVStatus;
 INLINE void
 ResultTLVSetStatus(ResultTLVRef tlv, TLVStatus status)
 {
-    *((TLVStatus *)tlv->res_status) = htons(status);
+    net_uint16_set(tlv->res_status, status);
     return;
 }
 
 INLINE TLVStatus
 ResultTLVGetStatus(const ResultTLVRef tlv)
 {
-    return ((TLVStatus)ntohs(*((TLVStatus *)tlv->res_status)));
+    return (net_uint16_get(tlv->res_status));
 }
 
 typedef struct NAKTLV_s {
@@ -265,27 +264,27 @@ typedef uint32_t VendorId;
 INLINE void
 NAKTLVSetVendorId(NAKTLVRef tlv, VendorId vendor_id)
 {
-    *((VendorId *)tlv->na_vendor_id) = htonl(vendor_id);
+    net_uint32_set(tlv->na_vendor_id, vendor_id);
     return;
 }
 
 INLINE VendorId
 NAKTLVGetVendorId(NAKTLVRef tlv)
 {
-    return ((VendorId)ntohl(*((VendorId *)tlv->na_vendor_id)));
+    return (net_uint32_get(tlv->na_vendor_id));
 }
 
 INLINE void
 NAKTLVSetNAKType(NAKTLVRef tlv, TLVType nak_type)
 {
-    *((TLVType *)tlv->na_nak_type) = htons(nak_type);
+    net_uint16_set(tlv->na_nak_type, nak_type);
     return;
 }
 
 INLINE TLVType
 NAKTLVGetNAKType(NAKTLVRef tlv)
 {
-    return ((TLVType)ntohs(*((TLVType *)tlv->na_nak_type)));
+    return (net_uint16_get(tlv->na_nak_type));
 }
 
 typedef struct ErrorTLV_s {
@@ -304,15 +303,14 @@ typedef uint32_t ErrorTLVErrorCode;
 INLINE void
 ErrorTLVSetErrorCode(ErrorTLVRef tlv, ErrorTLVErrorCode error_code)
 {
-    *((ErrorTLVErrorCode *)tlv->er_error_code) = htonl(error_code);
+    net_uint32_set(tlv->er_error_code, error_code);
     return;
 }
 
 INLINE ErrorTLVErrorCode
 ErrorTLVGetErrorCode(const ErrorTLVRef tlv)
 {
-    return ((ErrorTLVErrorCode)
-	    ntohl(*((ErrorTLVErrorCode *)tlv->er_error_code)));
+    return ((ErrorTLVErrorCode)net_uint32_get(tlv->er_error_code));
 }
 
 typedef struct VendorSpecificTLV_s {
@@ -344,14 +342,14 @@ INLINE void
 IntermediateResultTLVSetStatus(IntermediateResultTLVRef tlv,
 			       TLVStatus status)
 {
-    *((TLVStatus *)tlv->ir_status) = htons(status);
+    net_uint16_set(tlv->ir_status, status);
     return;
 }
 
 INLINE TLVStatus
 IntermediateResultTLVGetStatus(const IntermediateResultTLVRef tlv)
 {
-    return ((TLVStatus)ntohs(*((TLVStatus *)tlv->ir_status)));
+    return (net_uint16_get(tlv->ir_status));
 }
 
 typedef struct CryptoBindingTLV_s {
@@ -462,14 +460,14 @@ typedef struct PACTypeTLV_s {
 INLINE void
 PACTypeTLVSetPACType(PACTypeTLVRef tlv, PACType pac_type)
 {
-    *((PACType *)tlv->pt_pac_type) = htons(pac_type);
+    net_uint16_set(tlv->pt_pac_type, pac_type);
     return;
 }
 
 INLINE PACType
 PACTypeTLVGetPACType(const PACTypeTLVRef tlv)
 {
-    return ((PACType)ntohs(*((PACType *)tlv->pt_pac_type)));
+    return net_uint16_get(tlv->pt_pac_type);
 }
 
 typedef struct PACTLVAttributeList_s {
@@ -701,74 +699,6 @@ BufferAdvanceWritePtr(BufferRef buf, int size)
 #define kAuthorityIDInfo	CFSTR("AuthorityIDInfo")
 #define kInitiatorID		CFSTR("InitiatorID")
 
-#if ! TARGET_OS_EMBEDDED
-
-static OSStatus
-mySecAccessCreateWithUid(uid_t uid, SecAccessRef * ret_access)
-{
-    /* make the "uid/gid" ACL subject, this is a CSSM_LIST_ELEMENT chain */
-    CSSM_ACL_PROCESS_SUBJECT_SELECTOR	selector = {
-	CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,
-	CSSM_ACL_MATCH_UID,	/* active fields mask: match uids (only) */
-	uid,			/* effective user id to match */
-	0			/* effective group id to match */
-    };
-    CSSM_LIST_ELEMENT 		subject2 = {
-	NULL,			/* NextElement */
-	0,			/* WordID */
-	CSSM_LIST_ELEMENT_DATUM	/* ElementType */
-    };
-    CSSM_LIST_ELEMENT 		subject1 = {
-	&subject2,		/* NextElement */
-	CSSM_ACL_SUBJECT_TYPE_PROCESS, /* WordID */
-	CSSM_LIST_ELEMENT_WORDID /* ElementType */
-    };
-    /* rights granted (replace with individual list if desired) */
-    CSSM_ACL_AUTHORIZATION_TAG	rights[] = {
-	CSSM_ACL_AUTHORIZATION_ANY
-    };
-    /* owner component (right to change ACL) */
-    CSSM_ACL_OWNER_PROTOTYPE	owner = {
-	{ // TypedSubject
-	    CSSM_LIST_TYPE_UNKNOWN,	/* type of this list */
-	    &subject1,			/* head of the list */
-	    &subject2			/* tail of the list */
-	},
-	FALSE				/* Delegate */
-    };
-    /* ACL entry */
-    CSSM_ACL_ENTRY_INFO		acls[] = {
-	{
-	    { /* EntryPublicInfo */
-		{ /* TypedSubject */
-		    CSSM_LIST_TYPE_UNKNOWN, /* type of this list */
-		    &subject1,		/* head of the list */
-		    &subject2		/* tail of the list */
-		},
-		FALSE,			/* Delegate */
-		{			/* Authorization */
-		    sizeof(rights) / sizeof(rights[0]), /* NumberOfAuthTags */
-		    rights		/* AuthTags */
-		},
-		{			/* TimeRange */
-		},
-		{			/* EntryTag */
-		}
-	    },
-	    0				/* EntryHandle */
-	}
-    };
-
-    subject2.Element.Word.Data = (UInt8 *)&selector;
-    subject2.Element.Word.Length = sizeof(selector);
-    return (SecAccessCreateFromOwnerAndACL(&owner,
-					   sizeof(acls) / sizeof(acls[0]),
-					   acls,
-					   ret_access));
-}
-
-#endif /* TARGET_OS_EMBEDDED */
-
 STATIC CFArrayRef
 pac_list_copy(void)
 {
@@ -958,11 +888,18 @@ pac_keychain_init_items(bool system_mode,
     *access_p = NULL;
 #else /* TARGET_OS_EMBEDDED */
     if (system_mode) {
-	status = mySecAccessCreateWithUid(0, access_p);
-	if (status != noErr) {
-	    syslog(LOG_NOTICE,
-		   "EAP-FAST: mySecAccessCreateWithUid failed, %s (%d)",
-		   EAPSecurityErrorString(status), (int)status);
+	CFErrorRef	error = NULL;
+
+	*access_p = SecAccessCreateWithOwnerAndACL(0, 0, kSecUseOnlyUID,
+						   NULL, &error);
+	if (*access_p == NULL) {
+	    status = errSecAllocate;
+	    if (error != NULL) {
+		syslog(LOG_NOTICE,
+		       "EAP-FAST: mySecAccessCreateWithUid failed, %d",
+		       (int)CFErrorGetCode(error));
+		CFRelease(error);
+	    }
 	    goto done;
 	}
     }
@@ -1283,7 +1220,8 @@ T_PRF(const void * key, int key_length,
       void * key_material, int key_material_length)
 {
     uint8_t *		data;
-    uint8_t		data_buf[256];
+    /* ALIGN: data_buf is aligned to at least sizeof(uint16_t) */
+    uint16_t		data_buf[256/sizeof(uint16_t)];
     int			data_length;
     int			i;
     int			left;
@@ -1307,7 +1245,7 @@ T_PRF(const void * key, int key_length,
 	data = (uint8_t *)malloc(data_length);
     }
     else {
-	data = data_buf;
+	data = (uint8_t *)data_buf;
     }
     left = key_material_length;
     output = key_material;
@@ -1326,8 +1264,8 @@ T_PRF(const void * key, int key_length,
 	    memcpy(offset, seed, seed_length);
 	    offset += seed_length;
 	}
-	*((uint16_t *)offset) = outputlength;
-	offset += sizeof(outputlength);
+    net_uint16_set((void *)offset, key_material_length);
+    offset += sizeof(uint16_t);
 	*offset++ = i + 1;
 
 	/* Ti = HMAC-SHA1 (key, [T(i-1) +] S + outputlength + i) */
@@ -1341,7 +1279,7 @@ T_PRF(const void * key, int key_length,
 	output += sizeof(t_buf);
 	left -= sizeof(t_buf);
     }
-    if (data != data_buf) {
+    if ((void *)data != (void *)data_buf) {
 	free(data);
     }
     return;
@@ -3235,7 +3173,9 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     RequestType		type;
     memoryBufferRef	write_buf = &context->write_buffer; 
 
-    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)in_pkt;
+    /* ALIGN: void * cast OK, we don't expect proper alignment */
+    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)(void *)in_pkt;
+    
     if (in_length < sizeof(*eaptls_in)) {
 	syslog(LOG_NOTICE, "eapfast_request: length %d < %ld",
 	       in_length, sizeof(*eaptls_in));
@@ -3265,7 +3205,7 @@ eapfast_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	    goto ignore;
 	}
 	tls_message_length 
-	    = ntohl(*((u_int32_t *)eaptls_in_l->tls_message_length));
+	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
 	    syslog(LOG_NOTICE, 
 		   "eapfast_request: received message too large, %d > %d",
@@ -3666,7 +3606,10 @@ eapfast_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
 	    pkt->identifier, length, eaptls_pkt->flags,
 	    (EAPFASTPacketFlagsFlags(eaptls_pkt->flags) != 0) ? " [" : "");
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)pkt;
+
+    /* ALIGN: void * cast OK, we don't expect proper alignment */ 
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)(void *)pkt;
+    
     data_ptr = eaptls_pkt->tls_data;
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
@@ -3678,7 +3621,7 @@ eapfast_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    data_ptr = eaptls_pkt_l->tls_data;
 	    data_length = length - sizeof(EAPTLSLengthIncludedPacket);
 	    tls_message_length 
-		= ntohl(*((u_int32_t *)eaptls_pkt_l->tls_message_length));
+            = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
 	    fprintf(out_f, " length=%u", tls_message_length);
 	
 	}

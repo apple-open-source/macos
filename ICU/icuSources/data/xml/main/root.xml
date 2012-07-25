@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!--
- Copyright (c) 2010 International Business Machines Corporation and others. All rights reserved.
+ Copyright (c) 2010-2012 International Business Machines Corporation and others. All rights reserved.
 -->
 <!DOCTYPE ldml SYSTEM "http://www.unicode.org/repos/cldr/trunk/common/dtd/ldml.dtd"
 [
@@ -10,8 +10,8 @@
 >
 <ldml>
     <identity>
-        <version number="$Revision: 1.1.1.5 $"/>
-        <generation date="$Date: 2010/03/11 00:27:01 $"/>
+        <version number="$Revision: 1.1.1.6 $"/>
+        <generation date="$Date: 2012/02/28 06:06:20 $"/>
         <language type="root"/> 
     </identity>
     <characters>
@@ -22,22 +22,6 @@
         </special>
     </characters>
   <dates>
-    <calendars>
-        <calendar type="chinese">
-            <special xmlns:icu="http://www.icu-project.org/">
-                <!--
-                 IsLeapMonth {
-                        "",
-                        "*"
-                   }
-                 -->
-                <icu:isLeapMonth>
-                    <icu:nonLeapSymbol/>
-                    <icu:leapSymbol>*</icu:leapSymbol>
-                </icu:isLeapMonth>
-            </special>
-        </calendar>
-    </calendars>
     <timeZoneNames>
       <zone type="">
         <long>

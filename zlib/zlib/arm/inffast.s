@@ -4,6 +4,8 @@
 
 #include <arm/arch.h>
 
+	.syntax unified
+
 // the follow assembly code was hard wired to POSTINC not defined, 
 
 #if 0			// #ifdef POSTINC
@@ -261,7 +263,7 @@ L_length_base:							// r2=op, r1=lmask
 	mov		r6, r1						// len = (unsigned) this.val;
 	beq		L_op_is_zero					// if op==0, branch to L_op_is_zero
 	cmp		r2, bits					// op vs bits
-	ldrhib	r3, [in, #1]!				// if (op>bits) r3 = (PUP(in));
+	ldrbhi	r3, [in, #1]!				// if (op>bits) r3 = (PUP(in));
 	rsb		ip, r2, #32					// 32-op
 	addhi	hold, hold, r3, asl bits	// if (op>bits) hold += (unsigned long)(PUP(in)) << bits;
     ror 	r3, hold, r2				// (hold<<(32-op))
@@ -323,11 +325,11 @@ L_distance_base:			// this is invoked from if ((op&16)!=0)
 
 	and		r2, ip, #15					// op &= 15;
 	cmp		r2, bits					// op vs bits
-	ldrhib	r3, [in, #1]!				// if (op > bits) (PUP(in))
+	ldrbhi	r3, [in, #1]!				// if (op > bits) (PUP(in))
 	addhi	hold, hold, r3, asl bits	// 		hold += (unsigned long)(PUP(in)) << bits;
 	addhi	bits, bits, #8				//		bits += 8;	
 	cmphi	r2, bits					// 		internel (bits < op)
-	ldrhib	r3, [in, #1]!				//		if (op > bits) (PUP(in))
+	ldrbhi	r3, [in, #1]!				//		if (op > bits) (PUP(in))
 
 	rsb		ip, r2, #32					// (32-op)
 	addhi	hold, hold, r3, asl bits	//			hold += (unsigned long)(PUP(in)) << bits;

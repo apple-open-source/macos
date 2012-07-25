@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2002-2006, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2006, 2008-2010, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,19 +199,9 @@ typedef __darwin_useconds_t	useconds_t;
 #endif /* __DARWIN_C_LEVEL */
 
 #define	__ILP32_OFF32          (-1)
-#define	__ILP32_OFFBIG         (-1)
-#define	__LP64_OFF64           (-1)
-#define	__LPBIG_OFFBIG         (-1)
-
-#ifdef __LP64__
-#undef __LP64_OFF64
-#define __LP64_OFF64           (1)
-#undef __LPBIG_OFFBIG
-#define __LPBIG_OFFBIG         (1)
-#else
-#undef	__ILP32_OFFBIG
-#define __ILP32_OFFBIG         (1)
-#endif
+#define	__ILP32_OFFBIG         (1)
+#define	__LP64_OFF64           (1)
+#define	__LPBIG_OFFBIG         (1)
 
 #if __DARWIN_C_LEVEL >= 200112L
 #define	_POSIX_V6_ILP32_OFF32		__ILP32_OFF32
@@ -861,6 +851,7 @@ int	 iruserok_sa(const void *, int, int, const char *, const char *);
 int	 issetugid(void);
 char	*mkdtemp(char *);
 int	 mknod(const char *, mode_t, dev_t);
+int	 mkpath_np(const char *path, mode_t omode) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0); /* returns errno */
 int	 mkstemp(char *);
 int	 mkstemps(char *, int);
 char	*mktemp(char *);
@@ -976,6 +967,12 @@ struct searchstate;
 int	 searchfs(const char *, struct fssearchblock *, unsigned long *, unsigned int, unsigned int, struct searchstate *);
 int	 fsctl(const char *,unsigned long,void*,unsigned int);
 int	 ffsctl(int,unsigned long,void*,unsigned int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
+
+#define	SYNC_VOLUME_FULLSYNC	0x01	/* Flush data and metadata to platter, not just to disk cache */
+#define SYNC_VOLUME_WAIT	0x02	/* Wait for sync to complete */
+
+int	fsync_volume_np(int, int) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	sync_volume_np(const char *, int) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 
 extern int optreset;
 

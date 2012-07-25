@@ -43,12 +43,13 @@ up-to-date.  Many thanks.
 #define MCMagicLen	8
 #define MCMagic		"*nazgul*"
 
-#define MCMajorVer	1L
+#define MCMajorVer	1
 #define MCMinorVer	0
 
 /* For or'd constants */
-#define MCMakeId(s,m)		(unsigned long) ( ((unsigned short)s << (sizeof(short)*8)) \
+#define MCMakeId(s,m)		(u_int32_t) ( ((unsigned short)s << (sizeof(short)*8)) \
 						 | (unsigned short)m )
+
 
 /*
  * Critical note here.  Sets and Messages *MUST* be stored in ascending
@@ -88,37 +89,43 @@ typedef union {
     struct _MCSetT	*set;
 } MCOffsetT;
 
+#ifdef __LP64__
+#pragma pack(4)
+#endif /* __LP64__ */
 /*
  * MCMsgT - Message structure (disk and runtime)
  */
 typedef struct _MCMsgT {
-    long	msgId;		/* Id of this message */
+    int32_t	msgId;		/* Id of this message */
     MCOffsetT	msg;		/* Relative offset on disk or pointer in memory */
-    long	invalid;	/* Valid on disk, loaded in memory */
+    int32_t	invalid;	/* Valid on disk, loaded in memory */
 } MCMsgT;
 
 /*
  * MCSetT - Set structure (disk and runtime)
  */
 typedef struct _MCSetT {
-    long	setId;		/* Id of this set */
+    int32_t	setId;		/* Id of this set */
     off_t	nextSet;	/* Offset of next set on disk */
     union {
 	off_t	firstMsg;	/* Offset to first Msg (while on disk) */
 	MCMsgT	*msgs;		/* Pointer to array of msgs (in mem, loaded) */
     } u;
     MCOffsetT	data;		/* Offset to data, or pointer to data */
-    long	dataLen;	/* Length of data area on disk */
-    long	numMsgs;	/* Number of messages */
-    long	invalid;	/* Valid on disk, loaded in memory */
+    int32_t	dataLen;	/* Length of data area on disk */
+    int32_t	numMsgs;	/* Number of messages */
+    int32_t	invalid;	/* Valid on disk, loaded in memory */
 } MCSetT;
+#ifdef __LP64__
+#pragma pack()
+#endif /* __LP64__ */
 
 /*
  * MCCatT - Runtime catalog pointer
  */
 typedef struct {
     FILE        *fp;            /* File descriptor of catalog (if load-on-demand) */
-    long	numSets;	/* Number of sets */
+    int32_t	numSets;	/* Number of sets */
     MCSetT	*sets;		/* Pointer to the sets */
     off_t	firstSet;	/* Offset of first set on disk */
 } MCCatT;
@@ -128,10 +135,10 @@ typedef struct {
  */
 typedef struct {
     char	magic[MCMagicLen];	/* Magic cookie "*nazgul*" */
-    long	majorVer;		/* ++ on incompatible changes */
-    long	minorVer;		/* ++ on compatible changes */
-    long	flags;			/* Informational flags */
-    long	numSets;		/* Number of valid Sets */
+    int32_t	majorVer;		/* ++ on incompatible changes */
+    int32_t	minorVer;		/* ++ on compatible changes */
+    int32_t	flags;			/* Informational flags */
+    int32_t	numSets;		/* Number of valid Sets */
     off_t	firstSet;		/* Offset of first set on disk */
 } MCHeaderT;
 

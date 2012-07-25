@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Igalia S.L.
+ * Copyright (C) 2011 ProFUSION embedded systems
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,6 +81,19 @@ void appendWebCorePathToCairoContext(cairo_t* context, const Path& path)
     appendPathToCairoContext(context, path.platformPath()->context());
 }
 
+void appendRegionToCairoContext(cairo_t* to, const cairo_region_t* region)
+{
+    if (!region)
+        return;
+
+    const int rectCount = cairo_region_num_rectangles(region);
+    for (int i = 0; i < rectCount; ++i) {
+        cairo_rectangle_int_t rect;
+        cairo_region_get_rectangle(region, i, &rect);
+        cairo_rectangle(to, rect.x, rect.y, rect.width, rect.height);
+    }
+}
+
 cairo_operator_t toCairoOperator(CompositeOperator op)
 {
     switch (op) {
@@ -106,16 +120,11 @@ cairo_operator_t toCairoOperator(CompositeOperator op)
     case CompositeXOR:
         return CAIRO_OPERATOR_XOR;
     case CompositePlusDarker:
-#if CAIRO_VERSION >= CAIRO_VERSION_ENCODE(1, 10, 0)
         return CAIRO_OPERATOR_DARKEN;
-#else
-        return CAIRO_OPERATOR_SATURATE;
-#endif
-    case CompositeHighlight:
-        // There is no Cairo equivalent for CompositeHighlight.
-        return CAIRO_OPERATOR_OVER;
     case CompositePlusLighter:
         return CAIRO_OPERATOR_ADD;
+    case CompositeDifference:
+        return CAIRO_OPERATOR_DIFFERENCE;
     default:
         return CAIRO_OPERATOR_SOURCE;
     }
@@ -173,6 +182,19 @@ PassRefPtr<cairo_surface_t> copyCairoImageSurface(cairo_surface_t* originalSurfa
     cairo_set_operator(cr.get(), CAIRO_OPERATOR_SOURCE);
     cairo_paint(cr.get());
     return newSurface.release();
+}
+
+void copyRectFromCairoSurfaceToContext(cairo_surface_t* from, cairo_t* to, const IntSize& offset, const IntRect& rect)
+{
+    cairo_set_source_surface(to, from, offset.width(), offset.height());
+    cairo_rectangle(to, rect.x(), rect.y(), rect.width(), rect.height());
+    cairo_fill(to);
+}
+
+void copyRectFromOneSurfaceToAnother(cairo_surface_t* from, cairo_surface_t* to, const IntSize& offset, const IntRect& rect)
+{
+    RefPtr<cairo_t> context = adoptRef(cairo_create(to));
+    copyRectFromCairoSurfaceToContext(from, context.get(), offset, rect);
 }
 
 } // namespace WebCore

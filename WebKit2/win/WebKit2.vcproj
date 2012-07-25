@@ -395,6 +395,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\APIClientTraits.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\APIClientTraits.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\APIObject.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\APIObject.h"
 				>
 			</File>
@@ -415,10 +427,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\Shared\ContextMenuState.h"
-				>
-			</File>
-			<File
 				RelativePath="..\Shared\DictionaryPopupInfo.cpp"
 				>
 			</File>
@@ -428,6 +436,10 @@
 			</File>
 			<File
 				RelativePath="..\Shared\DrawingAreaInfo.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\EditorState.cpp"
 				>
 			</File>
 			<File
@@ -599,6 +611,22 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\WebConnection.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebConnection.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebConnectionClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebConnectionClient.h"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\WebContextMenuItem.cpp"
 				>
 			</File>
@@ -663,11 +691,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\Shared\WebGeometry.h"
+				>
+			</File>
+			<File
 				RelativePath="..\Shared\WebGraphicsContext.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\Shared\WebGraphicsContext.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebHitTestResult.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebHitTestResult.h"
 				>
 			</File>
 			<File
@@ -744,6 +784,22 @@
 			</File>
 			<File
 				RelativePath="..\Shared\WebProcessCreationParameters.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebRenderLayer.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebRenderLayer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebRenderObject.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Shared\WebRenderObject.h"
 				>
 			</File>
 			<File
@@ -826,6 +882,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\Shared\API\c\WKConnectionRef.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKConnectionRef.h"
+					>
+				</File>
+				<File
 					RelativePath="..\Shared\API\c\WKContextMenuItem.cpp"
 					>
 				</File>
@@ -867,6 +931,10 @@
 				</File>
 				<File
 					RelativePath="..\Shared\API\c\WKFindOptions.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKGeometry.cpp"
 					>
 				</File>
 				<File
@@ -915,6 +983,22 @@
 				</File>
 				<File
 					RelativePath="..\Shared\API\c\WKPageLoadTypes.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKRenderLayer.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKRenderLayer.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKRenderObject.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\API\c\WKRenderObject.h"
 					>
 				</File>
 				<File
@@ -1137,20 +1221,60 @@
 						>
 					</File>
 				</Filter>
+				<Filter
+					Name="cairo"
+					>
+					<File
+						RelativePath="..\Shared\API\c\cairo\WKImageCairo.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Production|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\Shared\API\c\cairo\WKImageCairo.h"
+						>
+					</File>
+				</Filter>
 			</Filter>
 			<Filter
 				Name="CoreIPCSupport"
 				>
 				<File
-					RelativePath="..\Shared\CoreIPCSupport\DrawingAreaMessageKinds.h"
-					>
-				</File>
-				<File
-					RelativePath="..\Shared\CoreIPCSupport\DrawingAreaProxyMessageKinds.h"
-					>
-				</File>
-				<File
 					RelativePath="..\Shared\CoreIPCSupport\InjectedBundleMessageKinds.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\CoreIPCSupport\WebConnectionMessageKinds.h"
 					>
 				</File>
 				<File
@@ -1230,17 +1354,10 @@
 					>
 				</File>
 				<File
-					RelativePath="..\Shared\win\UpdateChunk.cpp"
+					RelativePath="..\Shared\win\ShareableBitmapWin.cpp"
 					>
 				</File>
 				<File
-					RelativePath="..\Shared\win\UpdateChunk.h"
-					>
-				</File>
-				<File
-                    RelativePath="..\Shared\win\ShareableBitmapWin.cpp"
-                    >
-				</File><File
 					RelativePath="..\Shared\win\WebCoreArgumentCodersWin.cpp"
 					>
 				</File>
@@ -1314,26 +1431,6 @@
 				>
 				<File
 					RelativePath="..\Shared\cg\ShareableBitmapCG.cpp"
-					>
-					<FileConfiguration
-						Name="Debug_Cairo_CFLite|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo_CFLite|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\Shared\cg\WebCoreArgumentCodersCG.cpp"
 					>
 					<FileConfiguration
 						Name="Debug_Cairo_CFLite|Win32"
@@ -1457,6 +1554,14 @@
 				Name="Plugins"
 				>
 				<File
+					RelativePath="..\Shared\Plugins\PluginModuleInfo.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\Shared\Plugins\PluginModuleInfo.h"
+					>
+				</File>
+				<File
 					RelativePath="..\Shared\Plugins\PluginQuirks.h"
 					>
 				</File>
@@ -1485,6 +1590,14 @@
 		<Filter
 			Name="WebProcess"
 			>
+			<File
+				RelativePath="..\WebProcess\WebConnectionToUIProcess.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\WebProcess\WebConnectionToUIProcess.h"
+				>
+			</File>
 			<File
 				RelativePath="..\WebProcess\WebKitMain.cpp"
 				>
@@ -1797,6 +1910,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\WebProcess\WebCoreSupport\WebNotificationClient.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\WebCoreSupport\WebNotificationClient.h"
+					>
+				</File>
+				<File
 					RelativePath="..\WebProcess\WebCoreSupport\WebPlatformStrategies.cpp"
 					>
 				</File>
@@ -1861,14 +1982,6 @@
 				Name="WebPage"
 				>
 				<File
-					RelativePath="..\WebProcess\WebPage\ChunkedUpdateDrawingArea.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\WebProcess\WebPage\ChunkedUpdateDrawingArea.h"
-					>
-				</File>
-				<File
 					RelativePath="..\WebProcess\WebPage\DecoderAdapter.cpp"
 					>
 				</File>
@@ -1902,6 +2015,14 @@
 				</File>
 				<File
 					RelativePath="..\WebProcess\WebPage\EncoderAdapter.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\WebPage\EventDispatcher.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\WebPage\EventDispatcher.h"
 					>
 				</File>
 				<File
@@ -1942,14 +2063,6 @@
 				</File>
 				<File
 					RelativePath="..\WebProcess\WebPage\WebContextMenu.h"
-					>
-				</File>
-				<File
-					RelativePath="..\WebProcess\WebPage\WebEditCommand.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\WebProcess\WebPage\WebEditCommand.h"
 					>
 				</File>
 				<File
@@ -2000,18 +2113,22 @@
 					RelativePath="..\WebProcess\WebPage\WebPageGroupProxy.h"
 					>
 				</File>
+				<File
+					RelativePath="..\WebProcess\WebPage\WebUndoStep.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\WebPage\WebUndoStep.h"
+					>
+				</File>
 				<Filter
 					Name="win"
 					>
 					<File
-						RelativePath="..\WebProcess\WebPage\win\ChunkedUpdateDrawingAreaWin.cpp"
-						>
-					</File>
-					<File
 						RelativePath="..\WebProcess\WebPage\win\DrawingAreaImplWin.cpp"
 						>
 					</File>
-                    <File
+					<File
 						RelativePath="..\WebProcess\WebPage\win\LayerTreeHostWin.cpp"
 						>
 					</File>
@@ -2237,6 +2354,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\WebProcess\InjectedBundle\InjectedBundleDOMWindowExtension.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\InjectedBundle\InjectedBundleDOMWindowExtension.h"
+					>
+				</File>
+				<File
 					RelativePath="..\WebProcess\InjectedBundle\InjectedBundleHitTestResult.cpp"
 					>
 				</File>
@@ -2360,6 +2485,14 @@
 						</File>
 						<File
 							RelativePath="..\WebProcess\InjectedBundle\API\c\WKBundleBackForwardListItem.h"
+							>
+						</File>
+						<File
+							RelativePath="..\WebProcess\InjectedBundle\API\c\WKBundleDOMWindowExtension.cpp"
+							>
+						</File>
+						<File
+							RelativePath="..\WebProcess\InjectedBundle\API\c\WKBundleDOMWindowExtension.h"
 							>
 						</File>
 						<File
@@ -2616,18 +2749,30 @@
 					RelativePath="..\WebProcess\FullScreen\WebFullScreenManager.h"
 					>
 				</File>
-				<Filter
-					Name="win"
+			</Filter>
+			<Filter
+				Name="Notifications (User)"
+				>
+				<File
+					RelativePath="..\WebProcess\Notifications\NotificationPermissionRequestManager.cpp"
 					>
-					<File
-						RelativePath="..\WebProcess\FullScreen\win\WebFullScreenManagerWin.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\WebProcess\FullScreen\win\WebFullScreenManagerWin.h"
-						>
-					</File>
-				</Filter>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Notifications\NotificationPermissionRequestManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Notifications\WebNotificationManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Notifications\WebNotificationManager.h"
+					>
+				</File>
+				<File
+					RelativePath="..\WebProcess\Notifications\WebNotificationManager.messages.in"
+					>
+				</File>
 			</Filter>
 		</Filter>
 		<Filter
@@ -2639,14 +2784,6 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\BackingStore.h"
-				>
-			</File>
-			<File
-				RelativePath="..\UIProcess\ChunkedUpdateDrawingAreaProxy.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\UIProcess\ChunkedUpdateDrawingAreaProxy.h"
 				>
 			</File>
 			<File
@@ -2746,6 +2883,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\UIProcess\WebConnectionToWebProcess.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebConnectionToWebProcess.h"
+				>
+			</File>
+			<File
 				RelativePath="..\UIProcess\WebContext.cpp"
 				>
 			</File>
@@ -2755,6 +2900,14 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebContext.messages.in"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebContextConnectionClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebContextConnectionClient.h"
 				>
 			</File>
 			<File
@@ -2907,6 +3060,14 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebGeolocationProvider.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebGrammarDetail.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebGrammarDetail.h"
 				>
 			</File>
 			<File
@@ -3067,6 +3228,22 @@
 			</File>
 			<File
 				RelativePath="..\UIProcess\WebResourceLoadClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebTextChecker.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebTextChecker.h"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebTextCheckerClient.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\UIProcess\WebTextCheckerClient.h"
 				>
 			</File>
 			<File
@@ -3236,6 +3413,22 @@
 						>
 					</File>
 					<File
+						RelativePath="..\UIProcess\API\C\WKGrammarDetail.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKGrammarDetail.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKHitTestResult.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKHitTestResult.h"
+						>
+					</File>
+					<File
 						RelativePath="..\UIProcess\API\C\WKIconDatabase.cpp"
 						>
 					</File>
@@ -3277,6 +3470,26 @@
 					</File>
 					<File
 						RelativePath="..\UIProcess\API\C\WKNavigationData.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKNotification.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKNotification.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKNotificationManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKNotificationManager.h"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKNotificationProvider.h"
 						>
 					</File>
 					<File
@@ -3355,6 +3568,14 @@
 						RelativePath="..\UIProcess\API\C\WKResourceCacheManager.h"
 						>
 					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKTextChecker.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\UIProcess\API\C\WKTextChecker.h"
+						>
+					</File>
 					<Filter
 						Name="cg"
 						>
@@ -3404,22 +3625,6 @@
 						>
 						<File
 							RelativePath="..\UIProcess\API\C\win\WKAPICastWin.h"
-							>
-						</File>
-						<File
-							RelativePath="..\UIProcess\API\C\win\WKGrammarDetail.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\UIProcess\API\C\win\WKGrammarDetail.h"
-							>
-						</File>
-						<File
-							RelativePath="..\UIProcess\API\C\win\WKTextChecker.cpp"
-							>
-						</File>
-						<File
-							RelativePath="..\UIProcess\API\C\win\WKTextChecker.h"
 							>
 						</File>
 						<File
@@ -3557,10 +3762,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\UIProcess\win\ChunkedUpdateDrawingAreaProxyWin.cpp"
-					>
-				</File>
-				<File
 					RelativePath="..\UIProcess\win\TextCheckerWin.cpp"
 					>
 				</File>
@@ -3581,14 +3782,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\UIProcess\win\WebGrammarDetail.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\UIProcess\win\WebGrammarDetail.h"
-					>
-				</File>
-				<File
 					RelativePath="..\UIProcess\win\WebInspectorProxyWin.cpp"
 					>
 				</File>
@@ -3606,22 +3799,6 @@
 				</File>
 				<File
 					RelativePath="..\UIProcess\win\WebProcessProxyWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\UIProcess\win\WebTextChecker.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\UIProcess\win\WebTextChecker.h"
-					>
-				</File>
-				<File
-					RelativePath="..\UIProcess\win\WebTextCheckerClient.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\UIProcess\win\WebTextCheckerClient.h"
 					>
 				</File>
 				<File
@@ -3669,6 +3846,54 @@
 					</File>
 				</Filter>
 			</Filter>
+			<Filter
+				Name="Notifications (User)"
+				>
+				<File
+					RelativePath="..\UIProcess\Notifications\NotificationPermissionRequest.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\NotificationPermissionRequest.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\NotificationPermissionRequestManagerProxy.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\NotificationPermissionRequestManagerProxy.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotification.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotification.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotificationManagerProxy.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotificationManagerProxy.h"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotificationManagerProxy.messages.in"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotificationProvider.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\UIProcess\Notifications\WebNotificationProvider.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Platform"
@@ -3694,27 +3919,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\Platform\Region.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Platform\Region.h"
-				>
-			</File>
-			<File
-				RelativePath="..\Platform\RunLoop.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\Platform\RunLoop.h"
-				>
-			</File>
-			<File
 				RelativePath="..\Platform\SharedMemory.h"
-				>
-			</File>
-			<File
-				RelativePath="..\Platform\WorkItem.h"
 				>
 			</File>
 			<File
@@ -3761,10 +3966,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\Platform\win\RunLoopWin.cpp"
-					>
-				</File>
-				<File
 					RelativePath="..\Platform\win\SharedMemoryWin.cpp"
 					>
 				</File>
@@ -3778,6 +3979,10 @@
 				>
 				<File
 					RelativePath="..\Platform\CoreIPC\ArgumentCoder.h"
+					>
+				</File>
+				<File
+					RelativePath="..\Platform\CoreIPC\ArgumentCoders.cpp"
 					>
 				</File>
 				<File
@@ -4014,6 +4219,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\EventDispatcherMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\EventDispatcherMessages.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebApplicationCacheManagerMessageReceiver.cpp"
 				>
 			</File>
@@ -4166,6 +4379,22 @@
 				>
 			</File>
 			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebNotificationManagerMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebNotificationManagerMessages.h"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebNotificationManagerProxyMessageReceiver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebNotificationManagerProxyMessages.h"
+				>
+			</File>
+			<File
 				RelativePath="$(ConfigurationBuildDir)\obj\$(ProjectName)\DerivedSources\WebPageMessageReceiver.cpp"
 				>
 			</File>
@@ -4238,6 +4467,14 @@
 				</File>
 				<File
 					RelativePath="..\Scripts\webkit2\messages_unittest.py"
+					>
+				</File>
+				<File
+					RelativePath="..\Scripts\webkit2\model.py"
+					>
+				</File>
+				<File
+					RelativePath="..\Scripts\webkit2\parser.py"
 					>
 				</File>
 			</Filter>

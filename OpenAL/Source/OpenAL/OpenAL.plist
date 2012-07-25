@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2003-11-12</string>
+	<key>OpenSourceLicense</key>
+	<string>LGPL 2.1 (with clarification from Creative Labs)</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>OpenAL.txt</string>
+	<key>OpenSourceModifications</key>
+	<string></string>
+	<key>OpenSourceProject</key>
+	<string>OpenAL</string>
+	<key>OpenSourceSHA1</key>
+	<string>345ada582eed14706a63d33aa4dee4e2a9d3c0da</string>
+	<key>OpenSourceURL</key>
+	<string>http://developer.creative.com/articles/article.asp?cat=1&amp;sbcat=31&amp;top=38&amp;aid=97&amp;file=OpenAL_Installer_OSX.dmg</string>
+	<key>OpenSourceVersion</key>
+	<string>1.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://developer.creative.com/landing.asp?cat=1&amp;sbcat=31&amp;top=38</string>
+</dict>
+</plist>

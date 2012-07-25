@@ -32,47 +32,54 @@
 
 #include "AudioDestinationChromium.h"
 
-#include "AudioSourceProvider.h"
+#include "AudioPullFIFO.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
+#include "platform/WebKitPlatformSupport.h"
+
+#include <public/Platform.h>
 
 using namespace WebKit;
 
 namespace WebCore {
 
-// Buffer size that the Chromium audio system will call us back with.
-#if OS(DARWIN)
-// For Mac OS X the chromium audio backend uses a low-latency CoreAudio API, so a low buffer size is possible.
-const unsigned callbackBufferSize = 128;
-#else
-// This value may need to be tuned based on the OS.
-// FIXME: It may be possible to reduce this value once real-time threads
-// and other Chromium audio improvements are made.
-const unsigned callbackBufferSize = 2048;
-#endif
-
 // Buffer size at which the web audio engine will render.
 const unsigned renderBufferSize = 128;
 
-const unsigned renderCountPerCallback = callbackBufferSize / renderBufferSize;
+// Size of the FIFO
+const size_t fifoSize = 8192;
 
 // FIXME: add support for multi-channel.
 const unsigned numberOfChannels = 2;
 
 // Factory method: Chromium-implementation
-PassOwnPtr<AudioDestination> AudioDestination::create(AudioSourceProvider& provider, double sampleRate)
+PassOwnPtr<AudioDestination> AudioDestination::create(AudioSourceProvider& provider, float sampleRate)
 {
     return adoptPtr(new AudioDestinationChromium(provider, sampleRate));
 }
 
-AudioDestinationChromium::AudioDestinationChromium(AudioSourceProvider& provider, double sampleRate)
+AudioDestinationChromium::AudioDestinationChromium(AudioSourceProvider& provider, float sampleRate)
     : m_provider(provider)
     , m_renderBus(numberOfChannels, renderBufferSize, false)
     , m_sampleRate(sampleRate)
     , m_isPlaying(false)
 {
-    m_audioDevice = adoptPtr(webKitClient()->createAudioDevice(callbackBufferSize, numberOfChannels, sampleRate, this));
-    ASSERT(m_audioDevice.get());
+    // Use the optimal buffer size recommended by the audio backend.
+    m_callbackBufferSize = WebKit::Platform::current()->audioHardwareBufferSize();
+
+    // Quick exit if the requested size is too large.
+    ASSERT(m_callbackBufferSize + renderBufferSize <= fifoSize);
+    if (m_callbackBufferSize + renderBufferSize > fifoSize)
+        return;
+    
+    m_audioDevice = adoptPtr(WebKit::Platform::current()->createAudioDevice(m_callbackBufferSize, numberOfChannels, sampleRate, this));
+    ASSERT(m_audioDevice);
+
+    // Create a FIFO to handle the possibility of the callback size
+    // not being a multiple of the render size. If the FIFO already
+    // contains enough data, the data will be provided directly.
+    // Otherwise, the FIFO will call the provider enough times to
+    // satisfy the request for data.
+    m_fifo = adoptPtr(new AudioPullFIFO(provider, numberOfChannels, fifoSize, renderBufferSize));
 }
 
 AudioDestinationChromium::~AudioDestinationChromium()
@@ -82,7 +89,7 @@ AudioDestinationChromium::~AudioDestinationChromium()
 
 void AudioDestinationChromium::start()
 {
-    if (!m_isPlaying && m_audioDevice.get()) {
+    if (!m_isPlaying && m_audioDevice) {
         m_audioDevice->start();
         m_isPlaying = true;
     }
@@ -90,15 +97,15 @@ void AudioDestinationChromium::start()
 
 void AudioDestinationChromium::stop()
 {
-    if (m_isPlaying && m_audioDevice.get()) {
+    if (m_isPlaying && m_audioDevice) {
         m_audioDevice->stop();
         m_isPlaying = false;
     }
 }
 
-double AudioDestination::hardwareSampleRate()
+float AudioDestination::hardwareSampleRate()
 {
-    return webKitClient()->audioHardwareSampleRate();
+    return static_cast<float>(WebKit::Platform::current()->audioHardwareSampleRate());
 }
 
 // Pulls on our provider to get the rendered audio stream.
@@ -110,18 +117,15 @@ void AudioDestinationChromium::render(const WebVector<float*>& audioData, size_t
         return;
     }
         
-    bool isBufferSizeGood = numberOfFrames == callbackBufferSize;
+    bool isBufferSizeGood = numberOfFrames == m_callbackBufferSize;
     if (!isBufferSizeGood) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    // Split up the callback buffer into smaller chunks which we'll render one after the other.
-    for (unsigned i = 0; i < renderCountPerCallback; ++i) {
-        m_renderBus.setChannelMemory(0, audioData[0] + i * renderBufferSize, renderBufferSize);
-        m_renderBus.setChannelMemory(1, audioData[1] + i * renderBufferSize, renderBufferSize);
-        m_provider.provideInput(&m_renderBus, renderBufferSize);
-    }
+    m_renderBus.setChannelMemory(0, audioData[0], numberOfFrames);
+    m_renderBus.setChannelMemory(1, audioData[1], numberOfFrames);
+    m_fifo->consume(&m_renderBus, numberOfFrames);
 }
 
 } // namespace WebCore

@@ -7,7 +7,7 @@
 
 
 /* Current release of ppp, MUST be changed before submission */
-#define CURRENT_RELEASE_TAG		"560.13"
+#define CURRENT_RELEASE_TAG		"596.13"
 
 /* Current working tag */
 #define CURRENT_DEVELOPMENT_TAG		"3468584"

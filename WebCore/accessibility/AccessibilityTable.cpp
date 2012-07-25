@@ -170,7 +170,7 @@ bool AccessibilityTable::isDataTable() const
             if (!row && isTHCell)
                 headersInFirstRowCount++;
 
-            // If the first column is comprised of all <tg> tags, assume it is a data table.
+            // If the first column is comprised of all <th> tags, assume it is a data table.
             if (!col && isTHCell)
                 headersInFirstColumnCount++;
             
@@ -279,6 +279,11 @@ void AccessibilityTable::clearChildren()
     AccessibilityRenderObject::clearChildren();
     m_rows.clear();
     m_columns.clear();
+
+    if (m_headerContainer) {
+        m_headerContainer->detachFromParent();
+        m_headerContainer = 0;
+    }
 }
 
 void AccessibilityTable::addChildren()
@@ -299,6 +304,7 @@ void AccessibilityTable::addChildren()
 
     // go through all the available sections to pull out the rows
     // and add them as children
+    // FIXME: This will skip a table with just a tfoot. Should fix by using RenderTable::topSection.
     RenderTableSection* tableSection = table->header();
     if (!tableSection)
         tableSection = table->firstBody();
@@ -343,7 +349,7 @@ void AccessibilityTable::addChildren()
             }
         }
         
-        tableSection = table->sectionBelow(tableSection, true);
+        tableSection = table->sectionBelow(tableSection, SkipEmptySections);
     }
     
     // make the columns based on the number of columns in the first body
@@ -365,12 +371,13 @@ void AccessibilityTable::addChildren()
 AccessibilityObject* AccessibilityTable::headerContainer()
 {
     if (m_headerContainer)
-        return m_headerContainer;
+        return m_headerContainer.get();
     
-    m_headerContainer = static_cast<AccessibilityTableHeaderContainer*>(axObjectCache()->getOrCreate(TableHeaderContainerRole));
-    m_headerContainer->setParent(this);
-    
-    return m_headerContainer;
+    AccessibilityMockObject* tableHeader = toAccessibilityMockObject(axObjectCache()->getOrCreate(TableHeaderContainerRole));
+    tableHeader->setParent(this);
+
+    m_headerContainer = tableHeader;
+    return m_headerContainer.get();
 }
 
 AccessibilityObject::AccessibilityChildrenVector& AccessibilityTable::columns()
@@ -446,7 +453,18 @@ unsigned AccessibilityTable::rowCount()
     
     return m_rows.size();
 }
+
+int AccessibilityTable::tableLevel() const
+{
+    int level = 0;
+    for (AccessibilityObject* obj = static_cast<AccessibilityObject*>(const_cast<AccessibilityTable*>(this)); obj; obj = obj->parentObject()) {
+        if (obj->isAccessibilityTable())
+            ++level;
+    }
     
+    return level;
+}
+
 AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column, unsigned row)
 {
     if (!m_renderer || !m_renderer->isTable())
@@ -455,6 +473,7 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
     updateChildrenIfNecessary();
     
     RenderTable* table = toRenderTable(m_renderer);
+    // FIXME: This will skip a table with just a tfoot. Should fix by using RenderTable::topSection.
     RenderTableSection* tableSection = table->header();
     if (!tableSection)
         tableSection = table->firstBody();
@@ -478,20 +497,22 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
             if (!cell) {
                 
                 // first try rows
-                for (int testRow = sectionSpecificRow-1; testRow >= 0; --testRow) {
+                for (int testRow = sectionSpecificRow - 1; testRow >= 0; --testRow) {
                     cell = tableSection->primaryCellAt(testRow, column);
                     // cell overlapped. use this one
-                    if (cell && ((cell->row() + (cell->rowSpan()-1)) >= (int)sectionSpecificRow))
+                    ASSERT(cell->rowSpan() >= 1);
+                    if (cell && ((cell->rowIndex() + (cell->rowSpan() - 1)) >= sectionSpecificRow))
                         break;
                     cell = 0;
                 }
                 
                 if (!cell) {
                     // try cols
-                    for (int testCol = column-1; testCol >= 0; --testCol) {
+                    for (int testCol = column - 1; testCol >= 0; --testCol) {
                         cell = tableSection->primaryCellAt(sectionSpecificRow, testCol);
                         // cell overlapped. use this one
-                        if (cell && ((cell->col() + (cell->colSpan()-1)) >= (int)column))
+                        ASSERT(cell->rowSpan() >= 1);
+                        if (cell && ((cell->col() + (cell->colSpan() - 1)) >= column))
                             break;
                         cell = 0;
                     }
@@ -506,7 +527,7 @@ AccessibilityTableCell* AccessibilityTable::cellForColumnAndRow(unsigned column,
         // we didn't find anything between the rows we should have
         if (row < rowCount)
             break;
-        tableSection = table->sectionBelow(tableSection, true);        
+        tableSection = table->sectionBelow(tableSection, SkipEmptySections);
     }
     
     if (!cell)

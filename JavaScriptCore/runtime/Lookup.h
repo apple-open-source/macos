@@ -126,7 +126,7 @@ namespace JSC {
                 createTable(&exec->globalData());
         }
 
-        void deleteTable() const;
+        JS_EXPORT_PRIVATE void deleteTable() const;
 
         // Find an entry in the table, and return the entry.
         ALWAYS_INLINE const HashEntry* entry(JSGlobalData* globalData, const Identifier& identifier) const
@@ -218,10 +218,10 @@ namespace JSC {
         }
 
         // Convert the hash table keys to identifiers.
-        void createTable(JSGlobalData*) const;
+        JS_EXPORT_PRIVATE void createTable(JSGlobalData*) const;
     };
 
-    bool setUpStaticFunctionSlot(ExecState*, const HashEntry*, JSObject* thisObject, const Identifier& propertyName, PropertySlot&);
+    JS_EXPORT_PRIVATE bool setUpStaticFunctionSlot(ExecState*, const HashEntry*, JSObject* thisObject, const Identifier& propertyName, PropertySlot&);
 
     /**
      * This method does it all (looking in the hashtable, checking for function
@@ -348,10 +348,10 @@ namespace JSC {
      * is found it sets the value and returns true, else it returns false.
      */
     template <class ThisImp>
-    inline bool lookupPut(ExecState* exec, const Identifier& propertyName, JSValue value, const HashTable* table, ThisImp* thisObj)
+    inline bool lookupPut(ExecState* exec, const Identifier& propertyName, JSValue value, const HashTable* table, ThisImp* thisObj, bool shouldThrow = false)
     {
         const HashEntry* entry = table->entry(exec, propertyName);
-
+        
         if (!entry)
             return false;
 
@@ -360,6 +360,8 @@ namespace JSC {
             thisObj->putDirect(exec->globalData(), propertyName, value);
         else if (!(entry->attributes() & ReadOnly))
             entry->propertyPutter()(exec, thisObj, value);
+        else if (shouldThrow)
+            throwTypeError(exec, StrictModeReadonlyPropertyWriteError);
 
         return true;
     }
@@ -373,7 +375,7 @@ namespace JSC {
     template <class ThisImp, class ParentImp>
     inline void lookupPut(ExecState* exec, const Identifier& propertyName, JSValue value, const HashTable* table, ThisImp* thisObj, PutPropertySlot& slot)
     {
-        if (!lookupPut<ThisImp>(exec, propertyName, value, table, thisObj))
+        if (!lookupPut<ThisImp>(exec, propertyName, value, table, thisObj, slot.isStrictMode()))
             ParentImp::put(thisObj, exec, propertyName, value, slot); // not found: forward to parent
     }
 

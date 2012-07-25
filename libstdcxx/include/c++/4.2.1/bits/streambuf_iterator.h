@@ -155,6 +155,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       // 110 istreambuf_iterator::equal not const
       // NB: there is also number 111 (NAD, Future) pending on this function.
       /// Return true both iterators are end or both are not end.
+#if BUILDING_LIBSTDCXX
+      __attribute__((used))
+#endif
       bool
       equal(const istreambuf_iterator& __b) const
       {

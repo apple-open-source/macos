@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2004, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include <arm/arch.h>
 #endif
 #include <TargetConditionals.h>
+#include <stdint.h>
 
 /*
 ** Define macros for inline pthread_getspecific() usage.
@@ -98,27 +99,27 @@
 /* Keys 30-39 for Graphic frameworks usage */
 #define _PTHREAD_TSD_SLOT_OPENGL	30	/* backwards compat sake */
 #define __PTK_FRAMEWORK_OPENGL_KEY	30
-#define __PTK_FRAMEWORK_GRAPHICS_KEY1	31  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY2	32  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY3	33  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY4	34  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY5	35  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY6	36  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY7	37  
-#define __PTK_FRAMEWORK_GRAPHICS_KEY8	38  
+#define __PTK_FRAMEWORK_GRAPHICS_KEY1	31
+#define __PTK_FRAMEWORK_GRAPHICS_KEY2	32
+#define __PTK_FRAMEWORK_GRAPHICS_KEY3	33
+#define __PTK_FRAMEWORK_GRAPHICS_KEY4	34
+#define __PTK_FRAMEWORK_GRAPHICS_KEY5	35
+#define __PTK_FRAMEWORK_GRAPHICS_KEY6	36
+#define __PTK_FRAMEWORK_GRAPHICS_KEY7	37
+#define __PTK_FRAMEWORK_GRAPHICS_KEY8	38
 #define __PTK_FRAMEWORK_GRAPHICS_KEY9	39
 
 /* Keys 40-49 for Objective-C runtime usage */
-#define __PTK_FRAMEWORK_OBJC_KEY0	40  
+#define __PTK_FRAMEWORK_OBJC_KEY0	40
 #define __PTK_FRAMEWORK_OBJC_KEY1	41
-#define __PTK_FRAMEWORK_OBJC_KEY2  	42
-#define __PTK_FRAMEWORK_OBJC_KEY3  	43
-#define __PTK_FRAMEWORK_OBJC_KEY4  	44
-#define __PTK_FRAMEWORK_OBJC_KEY5  	45
-#define __PTK_FRAMEWORK_OBJC_KEY6  	46
-#define __PTK_FRAMEWORK_OBJC_KEY7  	47
+#define __PTK_FRAMEWORK_OBJC_KEY2	42
+#define __PTK_FRAMEWORK_OBJC_KEY3	43
+#define __PTK_FRAMEWORK_OBJC_KEY4	44
+#define __PTK_FRAMEWORK_OBJC_KEY5	45
+#define __PTK_FRAMEWORK_OBJC_KEY6	46
+#define __PTK_FRAMEWORK_OBJC_KEY7	47
 #define __PTK_FRAMEWORK_OBJC_KEY8	48
-#define __PTK_FRAMEWORK_OBJC_KEY9  	49
+#define __PTK_FRAMEWORK_OBJC_KEY9	49
 
 /* Keys 50-59 for Core Foundation usage */
 #define __PTK_FRAMEWORK_COREFOUNDATION_KEY0	50
@@ -175,6 +176,8 @@
 #define __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY2		92
 #define __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY3		93
 #define __PTK_FRAMEWORK_JAVASCRIPTCORE_KEY4		94
+/* Keys 95 for CoreText */
+#define __PTK_FRAMEWORK_CORETEXT_KEY0			95
 
 /* Keys 110-119 for Garbage Collection */
 #define __PTK_FRAMEWORK_GC_KEY0		110
@@ -200,6 +203,7 @@ extern "C" {
 #endif
 
 extern void *pthread_getspecific(unsigned long);
+extern int pthread_setspecific(unsigned long, const void *);
 /* setup destructor function for static key as it is not created with pthread_key_create() */
 int       pthread_key_init_np(int, void (*)(void *));
 
@@ -209,25 +213,13 @@ int       pthread_key_init_np(int, void (*)(void *));
 
 typedef int pthread_lock_t;
 
+__inline__ static int
+_pthread_has_direct_tsd(void)
+{
 #if TARGET_IPHONE_SIMULATOR
-
-/* Similator will use the host implementation, so bypass the macro that is in the target code */
-
-inline static int
-_pthread_has_direct_tsd(void)
-{
+	/* Simulator will use the host implementation, so bypass the macro that is in the target code */
 	return 0;
-}
-	
-#define _pthread_getspecific_direct(key) pthread_getspecific(key)
-#define _pthread_setspecific_direct(key, val) pthread_setspecific(key, val)
-
-#else /* TARGET_IPHONE_SIMULATOR */
-
-inline static int
-_pthread_has_direct_tsd(void)
-{
-#if defined(__ppc__)
+#elif defined(__ppc__)
 	int *caps = (int *)_COMM_PAGE_CPU_CAPABILITIES;
 	if (*caps & kFastThreadLocalStorage) {
 		return 1;
@@ -238,71 +230,70 @@ _pthread_has_direct_tsd(void)
 	return 1;
 #endif
 }
-	
-/* To be used with static constant keys only */
-inline static void *
-_pthread_getspecific_direct(unsigned long slot) 
-{
-        void *ret;
 
+#if TARGET_IPHONE_SIMULATOR || defined(__ppc__) || defined(__ppc64__) || \
+	(defined(__arm__) && !defined(_ARM_ARCH_7) && defined(_ARM_ARCH_6) && defined(__thumb__))
+
+#define _pthread_getspecific_direct(key) pthread_getspecific((key))
+#define _pthread_setspecific_direct(key, val) pthread_setspecific((key), (val))
+
+#else
+
+/* To be used with static constant keys only */
+__inline__ static void *
+_pthread_getspecific_direct(unsigned long slot)
+{
+	void *ret;
 #if defined(__i386__) || defined(__x86_64__)
-	asm("mov %%gs:%1, %0" : "=r" (ret) : "m" (*(void **)(slot * sizeof(void *))));
-#elif defined(__ppc64__) || defined(__ppc__)
-	ret = pthread_getspecific(slot);
-#elif defined(__arm__) && defined(_ARM_ARCH_6) && !defined(_ARM_ARCH_7) && defined(__thumb__) && !defined(__OPTIMIZE__)
-        ret = pthread_getspecific(slot);
-#elif defined(__arm__) && defined(_ARM_ARCH_6)
-        void **__pthread_tsd;
-        __asm__ (
-		"mrc p15, 0, %0, c13, c0, 3\n"
-		"bic %0, %0, #3\n"
-		: "=r"(__pthread_tsd));
-        ret = __pthread_tsd[slot];
-#elif defined(__arm__) && !defined(_ARM_ARCH_6)
-        register void **__pthread_tsd asm ("r9");
-        ret = __pthread_tsd[slot];
-#else     
-#error no pthread_getspecific_direct implementation for this arch
+	__asm__("mov %%gs:%1, %0" : "=r" (ret) : "m" (*(void **)(slot * sizeof(void *))));
+#elif (defined(__arm__) && (defined(_ARM_ARCH_6) || defined(_ARM_ARCH_5))) 
+	void **__pthread_tsd;
+#if defined(__arm__) && defined(_ARM_ARCH_6)
+	uintptr_t __pthread_tpid;
+	__asm__("mrc p15, 0, %0, c13, c0, 3" : "=r" (__pthread_tpid));
+	__pthread_tsd = (void**)(__pthread_tpid & ~0x3ul);
+#elif defined(__arm__) && defined(_ARM_ARCH_5)
+	register uintptr_t __pthread_tpid asm ("r9");
+	__pthread_tsd = (void**)__pthread_tpid;
 #endif
-        return ret;
+	ret = __pthread_tsd[slot];
+#else
+#error no _pthread_getspecific_direct implementation for this arch
+#endif
+	return ret;
 }
 
-#if  defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 /* To be used with static constant keys only */
-inline static int
-_pthread_setspecific_direct(unsigned long slot, void * val) 
+__inline__ static int
+_pthread_setspecific_direct(unsigned long slot, void * val)
 {
-
 #if defined(__i386__)
 #if defined(__PIC__)
-	asm("movl %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "rn" (val));
+	__asm__("movl %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "rn" (val));
 #else
-	asm("movl %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "ri" (val));
+	__asm__("movl %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "ri" (val));
 #endif
 #elif defined(__x86_64__)
 	/* PIC is free and cannot be disabled, even with: gcc -mdynamic-no-pic ... */
-	asm("movq %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "rn" (val));
-#elif defined(__arm__) && defined(_ARM_ARCH_6)
-        void **__pthread_tsd;
-        __asm__ (
-		"mrc p15, 0, %0, c13, c0, 3\n"
-		"bic %0, %0, #3\n"
-		: "=r"(__pthread_tsd));
-        __pthread_tsd[slot] = val;
-#elif defined(__arm__) && !defined(_ARM_ARCH_6)
-	register void **__pthread_tsd asm ("r9");
+	__asm__("movq %1,%%gs:%0" : "=m" (*(void **)(slot * sizeof(void *))) : "rn" (val));
+#elif (defined(__arm__) && (defined(_ARM_ARCH_6) || defined(_ARM_ARCH_5))) 
+	void **__pthread_tsd;
+#if defined(__arm__) && defined(_ARM_ARCH_6)
+	uintptr_t __pthread_tpid;
+	__asm__("mrc p15, 0, %0, c13, c0, 3" : "=r" (__pthread_tpid));
+	__pthread_tsd = (void**)(__pthread_tpid & ~0x3ul);
+#elif defined(__arm__) && defined(_ARM_ARCH_5)
+	register uintptr_t __pthread_tpid asm ("r9");
+	__pthread_tsd = (void**)__pthread_tpid;
+#endif
 	__pthread_tsd[slot] = val;
-#endif
-	return(0);
-}
-#elif defined(__ppc__)  || defined(__ppc64__)
-/* To be used with static constant keys only */
-#define _pthread_setspecific_direct(key, val) pthread_setspecific(key, val)
 #else
-#error no pthread_setspecific_direct implementation for this arch
+#error no _pthread_setspecific_direct implementation for this arch
 #endif
+	return 0;
+}
 
-#endif /* TARGET_IPHONE_SIMULATOR */
+#endif
 
 #define LOCK_INIT(l)	((l) = 0)
 #define LOCK_INITIALIZER 0

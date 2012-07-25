@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: win32.c,v 1.5 2009/10/26 23:47:35 tbox Exp $ */
+/* $Id: win32.c,v 1.5 2009-10-26 23:47:35 tbox Exp $ */
 
 /* $Id */
 

@@ -1,6 +1,6 @@
 Project        = pcre
 ProjectVersion = 8.02
-Patches        = Makefile.in.diff
+Patches        = Makefile.in.diff no-programs.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -27,11 +27,6 @@ install::
 		--disable-cpp
 	$(MAKE) -C $(OBJROOT)
 	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
-
-	for bin in pcregrep pcretest; do \
-		$(CP) $(DSTROOT)$(PREFIX)/bin/$${bin} $(SYMROOT); \
-		$(STRIP) -x $(DSTROOT)$(PREFIX)/bin/$${bin}; \
-	done
 
 	for lib in .0 posix.0; do \
 		$(CP) $(DSTROOT)$(LIBDIR)/libpcre$${lib}.dylib $(SYMROOT); \

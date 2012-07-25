@@ -23,9 +23,9 @@
 
 /*
  *  ccdebug.c - CommonCrypto debug macros
- *  MacTomCrypt
  *
  */
+
 
 #include "ccdebug.h"
 #include <stdlib.h>
@@ -33,36 +33,43 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/queue.h>
 
-static char *std_log_prefix = "###CommonCrypto Function: %s - %s";
+
+static char *std_log_prefix = "###CommonCrypto : %s - %s";
 static const char *std_ident = "CommonCrypto";
 static const char *std_facility = "CipherSuite";
-static uint32_t	std_options = 0;
+static uint32_t	 std_options = 0;
 
 static aslclient aslhandle = NULL;
 static aslmsg msgptr = NULL;
 
 static void
 ccdebug_init() {
-	char *ccEnvStdErr = getenv("CC_STDERR");
-	
-	if(ccEnvStdErr != NULL && strncmp(ccEnvStdErr, "yes", 3) == 0) std_options |= ASL_OPT_STDERR;
-	aslhandle = asl_open(std_ident, std_facility, std_options);
-
-	msgptr = asl_new(ASL_TYPE_MSG);
-	asl_set(msgptr, ASL_KEY_FACILITY, "com.apple.infosec");
+    static dispatch_once_t init;
+    dispatch_once(&init, ^{
+        char *ccEnvStdErr = getenv("CC_STDERR");
+        
+        if(ccEnvStdErr != NULL && strncmp(ccEnvStdErr, "yes", 3) == 0) std_options |= ASL_OPT_STDERR;
+        aslhandle = asl_open(std_ident, std_facility, std_options);
+        msgptr = asl_new(ASL_TYPE_MSG);
+        asl_set(msgptr, ASL_KEY_FACILITY, "com.apple.platformsec");
+    });
 }
 	
-	
+#define LINESIZE 256
+
 void
 ccdebug_imp(int level, char *funcname, char *format, ...) {
 	va_list argp;
-	char fmtbuffer[256];
+	char fmtbuffer[LINESIZE];
 
-	if(aslhandle == NULL) ccdebug_init();
+	ccdebug_init();
 	
-	sprintf(fmtbuffer, std_log_prefix, funcname, format);
 	va_start(argp, format);
+	snprintf(fmtbuffer, LINESIZE, std_log_prefix, funcname, format);
 	asl_vlog(aslhandle, msgptr, level, fmtbuffer, argp);
 	va_end(argp);
 }
+

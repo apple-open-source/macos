@@ -56,6 +56,7 @@ AM_YFLAGS = -d
 dist_libhx509_la_SOURCES = \
 	ca.c \
 	cert.c \
+	char_map.h \
 	cms.c \
 	collector.c \
 	crypto.c \
@@ -90,11 +91,14 @@ dist_libhx509_la_SOURCES = \
 
 sel-lex.c: sel-gram.h
 
+libhx509_la_DEPENDENCIES = version-script.map
+
 libhx509_la_LIBADD = \
 	$(LIB_com_err) \
 	$(LIB_hcrypto) \
 	$(top_builddir)/lib/asn1/libasn1.la \
 	$(top_builddir)/lib/wind/libwind.la \
+	$(top_builddir)/base/libheimbase.la \
 	$(LIBADD_roken) \
 	$(LIB_dlopen)
 
@@ -201,6 +205,9 @@ LDADD = libhx509.la
 test_soft_pkcs11_LDADD = libhx509.la
 test_soft_pkcs11_CPPFLAGS = -I$(srcdir)/ref
 
+test_name_CPPFLAGS = $(INCLUDE_hcrypto)
+test_name_LDADD = libhx509.la $(LIB_roken)
+
 TESTS = $(SCRIPT_TESTS) $(PROGRAM_TESTS)
 
 PROGRAM_TESTS = 		\
@@ -298,12 +305,18 @@ test_query: test_query.in Makefile
 	mv test_query.tmp test_query
 
 EXTRA_DIST = \
+	NTMakefile \
+	hxtool-version.rc \
+	libhx509-exports.def \
 	version-script.map \
 	crmf.asn1 \
 	hx509_err.et \
 	hxtool-commands.in \
+	quote.py \
 	ocsp.asn1 \
+	ocsp.opt \
 	pkcs10.asn1 \
+	pkcs10.opt \
 	test_ca.in \
 	test_chain.in \
 	test_cert.in \
@@ -419,6 +432,7 @@ EXTRA_DIST = \
 	data/test.crt \
 	data/test.key \
 	data/test.p12 \
+	data/win-u16-in-printablestring.der \
 	data/yutaka-pad-broken-ca.pem \
 	data/yutaka-pad-broken-cert.pem \
 	data/yutaka-pad-ok-ca.pem \

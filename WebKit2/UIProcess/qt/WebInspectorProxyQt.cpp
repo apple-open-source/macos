@@ -39,7 +39,7 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     return 0;
 }
 
-void WebInspectorProxy::platformOpen(bool)
+void WebInspectorProxy::platformOpen()
 {
     notImplemented();
 }
@@ -54,9 +54,21 @@ void WebInspectorProxy::platformBringToFront()
     notImplemented();
 }
 
+bool WebInspectorProxy::platformIsFront()
+{
+    notImplemented();
+    return false;
+}
+
 void WebInspectorProxy::platformInspectedURLChanged(const String&)
 {
     notImplemented();
+}
+
+unsigned WebInspectorProxy::platformInspectedWindowHeight()
+{
+    notImplemented();
+    return 0;
 }
 
 void WebInspectorProxy::platformAttach()
@@ -75,6 +87,12 @@ void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned)
 }
 
 String WebInspectorProxy::inspectorPageURL() const
+{
+    notImplemented();
+    return String();
+}
+
+String WebInspectorProxy::inspectorBaseURL() const
 {
     notImplemented();
     return String();

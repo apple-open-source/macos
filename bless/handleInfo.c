@@ -60,8 +60,6 @@
 
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 
                               char *bootdevice);
-static int interpretOFString(BLContextPtr context, CFStringRef ofString, 
-                              char *bootdevice);
 
 static void addElements(const void *key, const void *value, void *context);
 
@@ -117,32 +115,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
         if(ret)
             return 1;
         
-        if(preboot == kBLPreBootEnvType_OpenFirmware) {
-            
-            CFStringRef     ofbootdev = NULL;
-            
-            ret = BLCopyOpenFirmwareNVRAMVariableAsString(context,
-                                                 CFSTR("boot-device"),
-                                                 &ofbootdev);
-            
-            if(ret || ofbootdev == NULL) {
-                blesscontextprintf(context, kBLLogLevelError,
-                                   "Can't access \"boot-device\" NVRAM variable\n");
-                return 1;
-            }
-            
-            blesscontextprintf(context, kBLLogLevelVerbose,  "Current OpenFirmware boot device string is: '%s'\n",
-                               BLGetCStringDescription(ofbootdev));                    
-
-            
-            ret = interpretOFString(context, ofbootdev, currentDev);
-            if(ret) {
-                blesscontextprintf(context, kBLLogLevelError,
-                                   "Can't interpet OpenFirmware boot device\n");
-                return 2;                    
-            }
-            
-        } else if(preboot == kBLPreBootEnvType_EFI) {
+        if (preboot == kBLPreBootEnvType_EFI) {
             CFStringRef     efibootdev = NULL;
             
             ret = BLCopyEFINVRAMVariableAsString(context,
@@ -412,38 +385,6 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 	CFRelease(dict);
     
     return 0;
-}
-
-static int interpretOFString(BLContextPtr context, CFStringRef ofString, 
-                              char *bootdevice)
-{
-    int                 ret;
-    char currentString[1024];
-    
-    if(!CFStringGetCString(ofString, currentString, sizeof(currentString), kCFStringEncodingUTF8)) {
-        return 1;
-    }
-    
-    // since there are no new OpenFirmware-based machines, just support
-    // enet: and enet1:
-    
-    if(strncmp(currentString, "enet:", strlen("enet:")) == 0
-        || strncmp(currentString, "enet1:", strlen("enet1:")) == 0) {
-         blesscontextprintf(context, kBLLogLevelVerbose,  "Synthesizing BSDP boot device\n" );
-         strcpy(bootdevice, "bsdp://en0@255.255.255.255");
-        return 0;
-     } else {
-         ret = BLGetDeviceForOpenFirmwarePath(context, currentString, bootdevice);
-         if(ret) {
-             blesscontextprintf(context, kBLLogLevelError,  "Can't get device for %s: %d\n", currentString, ret );
-             return 1;
-         }
-         return 0;
-     }
-
-    blesscontextprintf(context, kBLLogLevelError,  "Could not interpret boot device as either network or disk\n" );
-    
-    return 1;
 }
 
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, 

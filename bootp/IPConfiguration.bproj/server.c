@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,8 @@
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFPropertyList.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include <bsm/libbsm.h>
+#include <TargetConditionals.h>
 
 #include "dprintf.h"
 #include "ipconfigServer.h"
@@ -40,7 +42,60 @@
 #include "globals.h"
 
 static uid_t S_uid = -1;
-static gid_t S_gid = -1;
+static pid_t S_pid = -1;
+
+
+#if ! TARGET_OS_EMBEDDED
+#define	kIPConfigurationServiceEntitlement	NULL
+
+static boolean_t
+S_has_entitlement(audit_token_t token, CFStringRef entitlement)
+{
+    return (FALSE);
+}
+
+#else /* ! TARGET_OS_EMBEDDED */
+#define	kIPConfigurationServiceEntitlement	CFSTR("com.apple.IPConfigurationService")	/* boolean */
+
+#include <Security/SecTask.h>
+static boolean_t
+S_has_entitlement(audit_token_t token, CFStringRef entitlement)
+{
+    boolean_t		ret = FALSE;
+    SecTaskRef		task;
+
+    task = SecTaskCreateWithAuditToken(NULL, token);
+    if (task != NULL) {
+	CFBooleanRef	allow;
+
+	allow = SecTaskCopyValueForEntitlement(task, entitlement, NULL);
+	if (allow != NULL) {
+	    if (isA_CFBoolean(allow) != NULL) {
+		ret = CFBooleanGetValue(allow);
+	    }
+	    CFRelease(allow);
+	}
+	CFRelease(task);
+    }
+    return (ret);
+}
+#endif /* ! TARGET_OS_EMBEDDED */
+
+static void
+S_process_audit_token(audit_token_t audit_token)
+{
+    audit_token_to_au32(audit_token,
+			NULL,		/* auidp */
+			&S_uid,		/* euid */
+			NULL,		/* egid */
+			NULL,		/* ruid */
+			NULL,		/* rgid */
+			&S_pid,		/* pid */
+			NULL,		/* asid */
+			NULL);		/* tid */
+    return;
+}
+
 
 static CFPropertyListRef
 my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
@@ -74,32 +129,12 @@ method_info_from_xml_data(xmlData_t xml_data,
     if (xml_data != NULL) {
 	plist = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
 							    xml_data_len);
-	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
-			    xml_data_len);
     }
     status = ipconfig_method_info_from_plist(plist, method_p, method_data_p);
     if (plist != NULL) {
 	CFRelease(plist);
     }
     return (status);
-}
-
-static __inline__ void
-read_trailer(mig_reply_error_t * request)
-{
-    mach_msg_format_0_trailer_t	*trailer;
-    trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
-					      round_msg(request->Head.msgh_size));
-
-    if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
-	(trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-	S_uid = trailer->msgh_sender.val[0];
-	S_gid = trailer->msgh_sender.val[1];
-    }
-    else {
-	S_uid = -1;
-	S_gid = -1;
-    }
 }
 
 kern_return_t
@@ -154,12 +189,14 @@ kern_return_t
 _ipconfig_set(mach_port_t p, if_name_t name,
 	      xmlData_t xml_data,
 	      mach_msg_type_number_t xml_data_len,
-	      ipconfig_status_t * ret_status)
+	      ipconfig_status_t * ret_status,
+	      audit_token_t audit_token)
 {
     ipconfig_method_t		method;
     ipconfig_method_data_t *	method_data;
     ipconfig_status_t		status;
 
+    S_process_audit_token(audit_token);
     if (S_uid != 0) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
@@ -174,14 +211,20 @@ _ipconfig_set(mach_port_t p, if_name_t name,
 	free(method_data);
     }
  done:
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }
 
 kern_return_t
 _ipconfig_set_verbose(mach_port_t p, int verbose,
-		      ipconfig_status_t * status)
+		      ipconfig_status_t * status,
+		      audit_token_t audit_token)
 {
+    S_process_audit_token(audit_token);
     if (S_uid != 0) {
 	*status = ipconfig_status_permission_denied_e;
     }
@@ -207,26 +250,42 @@ _ipconfig_add_service(mach_port_t p,
 		      mach_msg_type_number_t xml_data_len,
 		      inline_data_t service_id,
 		      mach_msg_type_number_t * service_id_len,
-		      ipconfig_status_t * ret_status)
+		      ipconfig_status_t * ret_status,
+		      audit_token_t audit_token)
 {
     ipconfig_method_t		method;
     ipconfig_method_data_t *	method_data;
+    CFPropertyListRef		plist = NULL;
     ipconfig_status_t		status;
 
-    if (S_uid != 0) {
+    S_process_audit_token(audit_token);
+    if (S_uid != 0
+	&& !S_has_entitlement(audit_token,
+			      kIPConfigurationServiceEntitlement)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
-    status = method_info_from_xml_data(xml_data, xml_data_len,
-				       &method, &method_data);
+    if (xml_data != NULL) {
+	plist = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
+							    xml_data_len);
+    }
+    status = ipconfig_method_info_from_plist(plist, &method, &method_data);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = add_service(name, method, method_data, service_id, service_id_len);
+    status = add_service(name, method, method_data, service_id, service_id_len,
+			 plist, S_pid);
     if (method_data != NULL) {
 	free(method_data);
     }
  done:
+    if (plist != NULL) {
+	CFRelease(plist);
+    }
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }
@@ -238,13 +297,17 @@ _ipconfig_set_service(mach_port_t p,
 		      mach_msg_type_number_t xml_data_len,
 		      inline_data_t service_id,
 		      mach_msg_type_number_t * service_id_len,
-		      ipconfig_status_t * ret_status)
+		      ipconfig_status_t * ret_status,
+		      audit_token_t audit_token)
 {
     ipconfig_method_t		method;
     ipconfig_method_data_t *	method_data;
     ipconfig_status_t		status;
 
-    if (S_uid != 0) {
+    S_process_audit_token(audit_token);
+    if (S_uid != 0
+	&& !S_has_entitlement(audit_token,
+			      kIPConfigurationServiceEntitlement)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -259,6 +322,10 @@ _ipconfig_set_service(mach_port_t p,
 	free(method_data);
     }
  done:
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }
@@ -267,11 +334,15 @@ kern_return_t
 _ipconfig_remove_service_with_id(mach_port_t server,
 				 inline_data_t service_id,
 				 mach_msg_type_number_t service_id_len,
-				 ipconfig_status_t * ret_status)
+				 ipconfig_status_t * ret_status,
+				 audit_token_t audit_token)
 {
     ipconfig_status_t	status;
 
-    if (S_uid != 0) {
+    S_process_audit_token(audit_token);
+    if (S_uid != 0
+	&& !S_has_entitlement(audit_token,
+			      kIPConfigurationServiceEntitlement)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -308,6 +379,10 @@ _ipconfig_find_service(mach_port_t server,
     }
 
  done:
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }
@@ -317,13 +392,17 @@ _ipconfig_remove_service(mach_port_t server,
 			 if_name_t name,
 			 xmlData_t xml_data,
 			 mach_msg_type_number_t xml_data_len,
-			 ipconfig_status_t * ret_status)
+			 ipconfig_status_t * ret_status,
+			 audit_token_t audit_token)
 {
     ipconfig_method_t		method;
     ipconfig_method_data_t *	method_data;
     ipconfig_status_t		status;
 
-    if (S_uid != 0) {
+    S_process_audit_token(audit_token);
+    if (S_uid != 0
+	&& !S_has_entitlement(audit_token,
+			      kIPConfigurationServiceEntitlement)) {
 	status = ipconfig_status_permission_denied_e;
 	goto done;
     }
@@ -338,6 +417,10 @@ _ipconfig_remove_service(mach_port_t server,
     }
 
  done:
+    if (xml_data != NULL) {
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
     *ret_status = status;
     return (KERN_SUCCESS);
 }
@@ -358,13 +441,12 @@ server_active()
 static void
 S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-    char 		reply_buf[2048 + 256];
+    uint64_t 		reply_buf[(2048 + 256)/sizeof(uint64_t)];
     mach_msg_options_t 	options = 0;
     mig_reply_error_t * request = (mig_reply_error_t *)msg;
     mig_reply_error_t *	reply;
     mach_msg_return_t 	r = MACH_MSG_SUCCESS;
 
-    read_trailer(request);
     if (_ipconfig_subsystem.maxsize > sizeof(reply_buf)) {
 	syslog(LOG_NOTICE, "IPConfiguration server: %d > %ld",
 	       _ipconfig_subsystem.maxsize, sizeof(reply_buf));
@@ -372,7 +454,7 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	    malloc(_ipconfig_subsystem.maxsize);
     }
     else {
-	reply = (mig_reply_error_t *)reply_buf;
+	reply = (mig_reply_error_t *)(void *)reply_buf;
     }
     if (ipconfig_server(&request->Head, &reply->Head) == FALSE) {
 	my_log(LOG_INFO, "IPConfiguration: unknown message ID (%d) received",
@@ -417,7 +499,8 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
  done_once:
     /* Copied from Libc/mach/mach_msg.c:mach_msg_server_once(): End */
 
-    if (reply != (mig_reply_error_t *)reply_buf) {
+    /* ALIGN: reply_buf is aligned to at least sizeof(uint64_t) bytes */
+    if (reply != (mig_reply_error_t *)(void *)reply_buf) {
 	free(reply);
     }
 

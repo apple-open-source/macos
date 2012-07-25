@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/th.xml
@@ -25,6 +25,7 @@ th{
         "Thai",
     }
     NumberElements{
+        default{"latn"}
         latn{
             patterns{
                 currencyFormat{"¤#,##0.00;¤-#,##0.00"}
@@ -45,8 +46,9 @@ th{
                 plusSign{"+"}
             }
         }
+        native{"thai"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -65,8 +67,7 @@ th{
                 "{1}, {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
-                Gy{"G y"}
+                Ed{"E d"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -85,9 +86,9 @@ th{
                 ms{"mm:ss"}
                 y{"G y"}
                 yM{"M/yyyy"}
-                yMEd{"EEE d/M/yyyy"}
+                yMEd{"E d/M/yyyy"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE d MMM y"}
+                yMMMEd{"E d MMM y"}
                 yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/yyyy"}
@@ -227,7 +228,7 @@ th{
                 "{1}, {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
+                Ed{"E d"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -246,9 +247,9 @@ th{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/yyyy"}
-                yMEd{"EEE d/M/yyyy"}
+                yMEd{"E d/M/yyyy"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE d MMM y"}
+                yMMMEd{"E d MMM y"}
                 yMMMM{"MMMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/yyyy"}
@@ -311,11 +312,9 @@ th{
                     relative{
                         "-1"{"เมื่อวาน"}
                         "-2"{"เมื่อวานซืน"}
-                        "-3"{"สามวันก่อน"}
                         "0"{"วันนี้"}
                         "1"{"พรุ่งนี้"}
                         "2"{"มะรืนนี้"}
-                        "3"{"สามวันต่อจากนี้"}
                     }
                 }
                 dayperiod{
@@ -628,7 +627,7 @@ th{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
+                Ed{"E d"}
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMd{"d MMM"}
@@ -636,7 +635,7 @@ th{
                 yyyy{"G yy"}
                 yyyyM{"M/GGGGG yy"}
                 yyyyMMM{"MMM G yy"}
-                yyyyMMMEd{"EEE d MMM G y"}
+                yyyyMMMEd{"E d MMM G y"}
                 yyyyMMMd{"d MMM G y"}
                 yyyyQ{"Q GGGGG yy"}
             }
@@ -1136,7 +1135,7 @@ th{
                 "{1}, {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
+                Ed{"E d"}
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMd{"d MMM"}
@@ -1144,7 +1143,7 @@ th{
                 yyyy{"G yy"}
                 yyyyM{"M/GGGGG yy"}
                 yyyyMMM{"MMM G yy"}
-                yyyyMMMEd{"EEE d MMM G y"}
+                yyyyMMMEd{"E d MMM G y"}
                 yyyyMMMd{"d MMM G y"}
                 yyyyQ{"Q GGGGG yy"}
             }
@@ -1173,23 +1172,93 @@ th{
         day{
             other{"{0} วัน"}
         }
+        day-future{
+            0{"ในอีก 0 วัน"}
+            1{"ในอีก 1 วัน"}
+            other{"ในอีก {0} วัน"}
+        }
+        day-past{
+            0{"0 วันที่ผ่านมา"}
+            1{"1 วันที่ผ่านมา"}
+            other{"{0} วันที่ผ่านมา"}
+        }
         hour{
             other{"{0} ชั่วโมง"}
+        }
+        hour-future{
+            0{"ในอีก 0 ชั่วโมง"}
+            1{"ในอีก 1 ชั่วโมง"}
+            other{"ในอีก {0} ชั่วโมง"}
+        }
+        hour-past{
+            0{"0 ชั่วโมงที่ผ่านมา"}
+            1{"1 ชั่วโมงที่ผ่านมา"}
+            other{"{0} ชั่วโมงที่ผ่านมา"}
         }
         minute{
             other{"{0} นาที"}
         }
+        minute-future{
+            0{"ในอีก 0 นาที"}
+            1{"ในอีก 1 นาที"}
+            other{"ในอีก {0} นาที"}
+        }
+        minute-past{
+            0{"0 นาทีที่ผ่านมา"}
+            1{"1 นาทีที่ผ่านมา"}
+            other{"{0} นาทีที่ผ่านมา"}
+        }
         month{
             other{"{0} เดือน"}
+        }
+        month-future{
+            0{"ในอีก 0 เดือน"}
+            1{"ในอีก 1 เดือน"}
+            other{"ในอีก {0} เดือน"}
+        }
+        month-past{
+            0{"0 เดือนที่ผ่านมา"}
+            1{"1 เดือนที่ผ่านมา"}
+            other{"{0} เดือนที่ผ่านมา"}
         }
         second{
             other{"{0} วินาที"}
         }
+        second-future{
+            0{"ในอีก 0 วินาที"}
+            1{"ในอีก 1 วินาที"}
+            other{"ในอีก {0} วินาที"}
+        }
+        second-past{
+            0{"0 วินาทีที่ผ่านมา"}
+            1{"1 วินาทีที่ผ่านมา"}
+            other{"{0} วินาทีที่ผ่านมา"}
+        }
         week{
             other{"{0} สัปดาห์"}
         }
+        week-future{
+            0{"ในอีก 0 สัปดาห์"}
+            1{"ในอีก 1 สัปดาห์"}
+            other{"ในอีก {0} สัปดาห์"}
+        }
+        week-past{
+            0{"0 สัปดาห์ที่ผ่านมา"}
+            1{"1 สัปดาห์ที่ผ่านมา"}
+            other{"{0} สัปดาห์ที่ผ่านมา"}
+        }
         year{
             other{"{0} ปี"}
+        }
+        year-future{
+            0{"ในอีก 0 ปี"}
+            1{"ในอีก 1 ปี"}
+            other{"ในอีก {0} ปี"}
+        }
+        year-past{
+            0{"0 ปีที่แล้ว"}
+            1{"1 year ago"}
+            other{"{0} ปีที่แล้ว"}
         }
     }
     unitsShort{

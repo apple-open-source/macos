@@ -28,15 +28,15 @@ extern "C" {
 
 
 enum {
-    BLOCK_DEALLOCATING =      (0x0001),
-    BLOCK_REFCOUNT_MASK =     (0xfffe),
-    BLOCK_NEEDS_FREE =        (1 << 24),
-    BLOCK_HAS_COPY_DISPOSE =  (1 << 25),
-    BLOCK_HAS_CTOR =          (1 << 26), // helpers have C++ code
-    BLOCK_IS_GC =             (1 << 27),
-    BLOCK_IS_GLOBAL =         (1 << 28),
-    BLOCK_USE_STRET =         (1 << 29), // undefined if !BLOCK_HAS_SIGNATURE
-    BLOCK_HAS_SIGNATURE  =    (1 << 30)
+    BLOCK_DEALLOCATING =      (0x0001),  // runtime
+    BLOCK_REFCOUNT_MASK =     (0xfffe),  // runtime
+    BLOCK_NEEDS_FREE =        (1 << 24), // runtime
+    BLOCK_HAS_COPY_DISPOSE =  (1 << 25), // compiler
+    BLOCK_HAS_CTOR =          (1 << 26), // compiler: helpers have C++ code
+    BLOCK_IS_GC =             (1 << 27), // runtime
+    BLOCK_IS_GLOBAL =         (1 << 28), // compiler
+    BLOCK_USE_STRET =         (1 << 29), // compiler: undefined if !BLOCK_HAS_SIGNATURE
+    BLOCK_HAS_SIGNATURE  =    (1 << 30)  // compiler
 };
 
 // revised new layout
@@ -63,7 +63,7 @@ struct Block_descriptor_3 {
 
 struct Block_layout {
     void *isa;
-    int flags;
+    volatile int flags; // contains ref count
     int reserved; 
     void (*invoke)(void *, ...);
     struct Block_descriptor_1 *descriptor;
@@ -74,8 +74,8 @@ struct Block_layout {
 struct Block_byref {
     void *isa;
     struct Block_byref *forwarding;
-    int flags;//refcount;
-    int size;
+    volatile int flags; // contains ref count
+    unsigned int size;
     void (*byref_keep)(struct Block_byref *dst, struct Block_byref *src);
     void (*byref_destroy)(struct Block_byref *);
     // long shared[0];
@@ -85,7 +85,7 @@ struct Block_byref_header {
     void *isa;
     struct Block_byref *forwarding;
     int flags;
-    int size;
+    unsigned int size;
 };
 
 
@@ -98,6 +98,12 @@ enum {
     BLOCK_FIELD_IS_BYREF    =  8,  // the on stack structure holding the __block variable
     BLOCK_FIELD_IS_WEAK     = 16,  // declared __weak, only used in byref copy helpers
     BLOCK_BYREF_CALLER      = 128, // called from __block (byref) copy/dispose support routines.
+};
+
+enum {
+    BLOCK_ALL_COPY_DISPOSE_FLAGS = 
+        BLOCK_FIELD_IS_OBJECT | BLOCK_FIELD_IS_BLOCK | BLOCK_FIELD_IS_BYREF |
+        BLOCK_FIELD_IS_WEAK | BLOCK_BYREF_CALLER
 };
 
 // Runtime entry point called by compiler when assigning objects inside copy helper routines
@@ -113,7 +119,7 @@ BLOCK_EXPORT void _Block_object_dispose(const void *object, const int flags);
 // Other support functions
 
 // runtime entry to get total size of a closure
-BLOCK_EXPORT unsigned long int Block_size(void *aBlock);
+BLOCK_EXPORT size_t Block_size(void *aBlock);
 
 // indicates whether block was compiled with compiler that sets the ABI related metadata bits
 BLOCK_EXPORT bool _Block_has_signature(void *aBlock)
@@ -145,10 +151,14 @@ BLOCK_EXPORT bool _Block_isDeallocating(const void *aBlock)
 
 // the raw data space for runtime classes for blocks
 // class+meta used for stack, malloc, and collectable based blocks
-BLOCK_EXPORT void * _NSConcreteMallocBlock[32];
-BLOCK_EXPORT void * _NSConcreteAutoBlock[32];
-BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32];
-BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32];
+BLOCK_EXPORT void * _NSConcreteMallocBlock[32]
+    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+BLOCK_EXPORT void * _NSConcreteAutoBlock[32]
+    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+BLOCK_EXPORT void * _NSConcreteFinalizingBlock[32]
+    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+BLOCK_EXPORT void * _NSConcreteWeakBlockVariable[32]
+    __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 // declared in Block.h
 // BLOCK_EXPORT void * _NSConcreteGlobalBlock[32];
 // BLOCK_EXPORT void * _NSConcreteStackBlock[32];

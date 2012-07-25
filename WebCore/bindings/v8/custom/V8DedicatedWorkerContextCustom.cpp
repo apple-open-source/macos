@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,31 +33,49 @@
 #if ENABLE(WORKERS)
 #include "V8DedicatedWorkerContext.h"
 
+#include <wtf/ArrayBuffer.h>
 #include "DedicatedWorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 #include "V8Binding.h"
-#include "V8MessagePortCustom.h"
 #include "V8Proxy.h"
+#include "V8Utilities.h"
 #include "V8WorkerContextEventListener.h"
 
 namespace WebCore {
 
-v8::Handle<v8::Value> V8DedicatedWorkerContext::postMessageCallback(const v8::Arguments& args)
+static v8::Handle<v8::Value> handlePostMessageCallback(const v8::Arguments& args, bool extendedTransfer)
 {
-    INC_STATS(L"DOM.DedicatedWorkerContext.postMessage");
     DedicatedWorkerContext* workerContext = V8DedicatedWorkerContext::toNative(args.Holder());
-    bool didThrow = false;
-    RefPtr<SerializedScriptValue> message = SerializedScriptValue::create(args[0], didThrow);
-    if (didThrow)
-        return v8::Undefined();
-    MessagePortArray portArray;
+    MessagePortArray ports;
+    ArrayBufferArray arrayBuffers;
     if (args.Length() > 1) {
-        if (!getMessagePortArray(args[1], portArray))
+        if (!extractTransferables(args[1], ports, arrayBuffers))
             return v8::Undefined();
     }
+    bool didThrow = false;
+    RefPtr<SerializedScriptValue> message =
+        SerializedScriptValue::create(args[0],
+                                      &ports,
+                                      extendedTransfer ? &arrayBuffers : 0,
+                                      didThrow,
+                                      args.GetIsolate());
+    if (didThrow)
+        return v8::Undefined();
     ExceptionCode ec = 0;
-    workerContext->postMessage(message.release(), &portArray, ec);
+    workerContext->postMessage(message.release(), &ports, ec);
     return throwError(ec);
+}
+
+v8::Handle<v8::Value> V8DedicatedWorkerContext::postMessageCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.DedicatedWorkerContext.postMessage");
+    return handlePostMessageCallback(args, false);
+}
+
+v8::Handle<v8::Value> V8DedicatedWorkerContext::webkitPostMessageCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.DedicatedWorkerContext.postMessage");
+    return handlePostMessageCallback(args, true);
 }
 
 } // namespace WebCore

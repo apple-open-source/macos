@@ -53,19 +53,12 @@
 #define	__aligned(x)
 #define	__section(x)
 #else
-#if __GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3
 #define	__packed	__attribute__((__packed__))
 #define	__aligned(x)	__attribute__((__aligned__(x)))
 #define	__section(x)	__attribute__((__section__(x)))
 #endif
-#endif
 
-/* XXX: should use `#if __STDC_VERSION__ < 199901'. */
-#if !(__GNUC__ == 2 && __GNUC_MINOR__ >= 7 || __GNUC__ >= 3)
-#define	__func__	NULL
-#endif
-
-#if __GNUC__ >= 2 && !defined(__STRICT_ANSI__) || __STDC_VERSION__ >= 199901
+#if !defined(__STRICT_ANSI__) || __STDC_VERSION__ >= 199901
 #define	__LONG_LONG_SUPPORTED
 #endif
 
@@ -75,84 +68,16 @@
  */
 #define	__offsetof(type, field)	((size_t)(&((type *)0)->field))
 
-/* Compiler-dependent macros that rely on FreeBSD-specific extensions. */
-#if __FreeBSD_cc_version >= 300001 && __FreeBSD_cc_version < 500003
-#define	__printf0like(fmtarg, firstvararg) \
-	    __attribute__((__format__ (__printf0__, fmtarg, firstvararg)))
-#else
-#define	__printf0like(fmtarg, firstvararg)
-#endif
-
-#ifdef __GNUC__
 #define	__strong_reference(sym,aliassym)	\
 	extern __typeof (sym) aliassym __attribute__ ((__alias__ (#sym)));
-#ifdef __APPLE__
 #define	__weak_reference(sym,alias)
 #define	__warn_references(sym,msg)
-#else // ! __APPLE__
-#ifdef __STDC__
-#define	__weak_reference(sym,alias)	\
-	__asm__(".weak " #alias);	\
-	__asm__(".equ "  #alias ", " #sym)
-#define	__warn_references(sym,msg)	\
-	__asm__(".section .gnu.warning." #sym);	\
-	__asm__(".asciz \"" msg "\"");	\
-	__asm__(".previous")
-#else
-#define	__weak_reference(sym,alias)	\
-	__asm__(".weak alias");		\
-	__asm__(".equ alias, sym")
-#define	__warn_references(sym,msg)	\
-	__asm__(".section .gnu.warning.sym"); \
-	__asm__(".asciz \"msg\"");	\
-	__asm__(".previous")
-#endif	/* __STDC__ */
-#endif // __APPLE__
-#endif	/* __GNUC__ */
-
-/*
- * Embed the rcs id of a source file in the resulting library.  Note that in
- * more recent ELF binutils, we use .ident allowing the ID to be stripped.
- * Usage:
- *	__FBSDID("$FreeBSD: /repoman/r/ncvs/src/sys/sys/cdefs.h,v 1.68 2002/10/21 20:50:30 mike Exp $");
- */
-#ifndef	__FBSDID
-#if !defined(lint) && !defined(STRIP_FBSDID)
-#define	__FBSDID(s)	__IDSTRING(__CONCAT(__rcsid_,__LINE__),s)
-#else
-#define	__FBSDID(s)	struct __hack
-#endif
-#endif
-
-#ifndef	__RCSID
-#ifndef	NO__RCSID
-#define	__RCSID(s)	__IDSTRING(__CONCAT(__rcsid_,__LINE__),s)
-#else
-#define	__RCSID(s)
-#endif
-#endif
 
 #ifndef	__RCSID_SOURCE
 #ifndef	NO__RCSID_SOURCE
 #define	__RCSID_SOURCE(s)	__IDSTRING(__CONCAT(__rcsid_source_,__LINE__),s)
 #else
 #define	__RCSID_SOURCE(s)
-#endif
-#endif
-
-#ifndef	__SCCSID
-#ifndef	NO__SCCSID
-#define	__SCCSID(s)	__IDSTRING(__CONCAT(__sccsid_,__LINE__),s)
-#else
-#define	__SCCSID(s)
-#endif
-#endif
-
-#ifndef	__COPYRIGHT
-#ifndef	NO__COPYRIGHT
-#define	__COPYRIGHT(s)	__IDSTRING(__CONCAT(__copyright_,__LINE__),s)
-#else
-#define	__COPYRIGHT(s)
 #endif
 #endif
 

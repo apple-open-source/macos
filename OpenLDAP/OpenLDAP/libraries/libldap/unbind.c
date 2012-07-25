@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.56.2.8 2010/06/10 17:39:48 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,13 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
+
+/* An Unbind Request looks like this:
+ *
+ *	UnbindRequest ::= [APPLICATION 2] NULL
+ *
+ * and has no response.  (Source: RFC 4511)
+ */
 
 #ifdef LDAP_RESPONSE_RB_TREE
 #include "rb_response.h"
@@ -76,6 +83,30 @@ ldap_ld_free(
 {
 	LDAPMessage	*lm, *next;
 	int		err = LDAP_SUCCESS;
+    LDAP_MUTEX_LOCK( &ld->ld_ldcmutex );
+	/* Someone else is still using this ld. */
+	if (ld->ld_ldcrefcnt > 1) {	/* but not last thread */
+		/* clean up self only */
+		ld->ld_ldcrefcnt--;
+		if ( ld->ld_error != NULL ) {
+			LDAP_FREE( ld->ld_error );
+			ld->ld_error = NULL;
+		}
+
+		if ( ld->ld_matched != NULL ) {
+			LDAP_FREE( ld->ld_matched );
+			ld->ld_matched = NULL;
+		}
+		if ( ld->ld_referrals != NULL) {
+			LDAP_VFREE(ld->ld_referrals);
+			ld->ld_referrals = NULL;
+		}  
+		LDAP_MUTEX_UNLOCK( &ld->ld_ldcmutex );
+		LDAP_FREE( (char *) ld );
+		return( err );
+	}
+
+	/* This ld is the last thread. */
 
 	/* free LDAP structure and outstanding requests/responses */
 #ifdef LDAP_R_COMPILE
@@ -88,23 +119,21 @@ ldap_ld_free(
 	 */
 	ldap_pvt_clear_search_results_callback( ld );
 #endif
-	ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
 #endif
+	LDAP_MUTEX_LOCK( &ld->ld_req_mutex );
 	while ( ld->ld_requests != NULL ) {
 		ldap_free_request( ld, ld->ld_requests );
 	}
+	LDAP_MUTEX_UNLOCK( &ld->ld_req_mutex );
+	LDAP_MUTEX_LOCK( &ld->ld_conn_mutex );
 
 	/* free and unbind from all open connections */
 	while ( ld->ld_conns != NULL ) {
 		ldap_free_connection( ld, ld->ld_conns, 1, close );
 	}
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
-#endif
+	LDAP_MUTEX_UNLOCK( &ld->ld_conn_mutex );
+	LDAP_MUTEX_LOCK( &ld->ld_res_mutex );
 
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
-#endif
 #ifdef LDAP_RESPONSE_RB_TREE
     ldap_resp_rbt_free( ld );
 #else
@@ -118,9 +147,8 @@ ldap_ld_free(
 		LDAP_FREE( ld->ld_abandoned );
 		ld->ld_abandoned = NULL;
 	}
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
-#endif
+	LDAP_MUTEX_UNLOCK( &ld->ld_res_mutex );
+	LDAP_MUTEX_LOCK( &ld->ld_ldopts_mutex );
 
 	/* final close callbacks */
 	{
@@ -144,7 +172,7 @@ ldap_ld_free(
 		ld->ld_matched = NULL;
 	}
 
-	if( ld->ld_referrals != NULL) {
+	if ( ld->ld_referrals != NULL) {
 		LDAP_VFREE(ld->ld_referrals);
 		ld->ld_referrals = NULL;
 	}  
@@ -221,20 +249,32 @@ ldap_ld_free(
 		LDAP_FREE( ld->ld_options.ldo_sasl_fqdn );
 		ld->ld_options.ldo_sasl_fqdn = NULL;
 	}
-	
+    LDAP_MUTEX_UNLOCK( &ld->ld_ldopts_mutex );	
 	ber_sockbuf_free( ld->ld_sb );   
    
 #ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_destroy( &ld->ld_msgid_mutex );
+	ldap_pvt_thread_mutex_destroy( &ld->ld_conn_mutex );
 	ldap_pvt_thread_mutex_destroy( &ld->ld_req_mutex );
 	ldap_pvt_thread_mutex_destroy( &ld->ld_res_mutex );
-	ldap_pvt_thread_mutex_destroy( &ld->ld_conn_mutex );
+	ldap_pvt_thread_mutex_destroy( &ld->ld_abandon_mutex );
+	ldap_pvt_thread_mutex_destroy( &ld->ld_ldopts_mutex );
+	ldap_pvt_thread_mutex_unlock( &ld->ld_ldcmutex );
+	ldap_pvt_thread_mutex_destroy( &ld->ld_ldcmutex );
 #endif
 #ifndef NDEBUG
 	LDAP_TRASH(ld);
 #endif
+	LDAP_FREE( (char *) ld->ldc );
 	LDAP_FREE( (char *) ld );
    
 	return( err );
+}
+
+int
+ldap_destroy( LDAP *ld )
+{
+	return ( ldap_ld_free( ld, 1, NULL, NULL ) );
 }
 
 int
@@ -266,7 +306,7 @@ ldap_send_unbind(
 		return( ld->ld_errno );
 	}
 
-	id = ++(ld)->ld_msgid;
+	LDAP_NEXT_MSGID(ld, id);
 
 	/* fill it in */
 	if ( ber_printf( ber, "{itn" /*}*/, id,

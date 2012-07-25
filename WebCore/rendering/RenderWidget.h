@@ -41,8 +41,6 @@ public:
     void widgetPositionsUpdated();
     IntRect windowClipRect() const;
 
-    void showSubstituteImage(PassRefPtr<Image>);
-
     void notifyWidget(WidgetNotification);
     
     static void suspendWidgetHierarchyUpdates();
@@ -60,21 +58,22 @@ protected:
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     virtual void layout();
-    virtual void paint(PaintInfo&, int x, int y);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
+    virtual CursorDirective getCursor(const LayoutPoint&, Cursor&) const;
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
 private:
     virtual bool isWidget() const { return true; }
 
+    virtual void willBeDestroyed();
     virtual void destroy();
     virtual void setSelectionState(SelectionState);
     virtual void setOverlapTestResult(bool);
 
-    bool setWidgetGeometry(const IntRect&, const IntSize&);
+    bool setWidgetGeometry(const LayoutRect&);
     bool updateWidgetGeometry();
 
     RefPtr<Widget> m_widget;
-    RefPtr<Image> m_substituteImage;
     FrameView* m_frameView;
     IntRect m_clipRect; // The rectangle needs to remain correct after scrolling, so it is stored in content view coordinates, and not clipped to window.
     int m_refCount;

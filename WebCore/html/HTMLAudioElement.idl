@@ -24,7 +24,10 @@
  */
 
 module html {
-    interface [Conditional=VIDEO] HTMLAudioElement : HTMLMediaElement {
-    
+    interface [
+        ActiveDOMObject,
+        Conditional=VIDEO,
+        NamedConstructor=Audio(in [Optional=DefaultIsNullString] DOMString src)
+    ] HTMLAudioElement : HTMLMediaElement {
     };
 }

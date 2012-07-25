@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2002, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,6 +56,7 @@
 #include "gen_dhcp_parse_table.h"
 #include "util.h"
 #include "DNSNameList.h"
+#include "nbo.h"
 
 /*
  * Module: dhcpoa (dhcp options area)
@@ -159,19 +160,19 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 	      }
 	      return (FALSE);
 	  }
-	  *((unsigned short *)buf) = htons(us);
+	  net_uint16_set(buf, us);
 	  *len_p = type_info->size;
 	  break;
       }
       case dhcptype_int32_e: {
 	  long l = strtol(str, 0, 0);
-	  *((int32_t *)buf) = htonl(l);
+	  net_uint32_set(buf, l);
 	  *len_p = type_info->size;
 	  break;
       }
       case dhcptype_uint32_e: {
 	  unsigned long ul = strtoul(str, 0, 0);
-	  *((uint32_t *)buf) = htonl(ul);
+	  net_uint32_set(buf, ul);
 	  *len_p = type_info->size;
 	  break;
       }
@@ -185,7 +186,7 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
 	      }
 	      return (FALSE);
 	  }
-	  *((struct in_addr *)buf) = ip;
+	  bcopy(&ip, buf, sizeof(ip));
 	  *len_p = type_info->size;
 	  break;
       }
@@ -278,16 +279,16 @@ dhcptype_to_str(char * tmp, size_t maxtmplen,
 	snprintf(tmp, maxtmplen, "%d", *((uint8_t *)opt));
 	break;
     case dhcptype_uint16_e:
-	snprintf(tmp, maxtmplen, "%d", ntohs(*((u_int16_t *)opt)));
+	snprintf(tmp, maxtmplen, "%d", net_uint16_get(opt));
 	break;
     case dhcptype_int32_e:
-	snprintf(tmp, maxtmplen, "%d", ntohl(*((int32_t *)opt)));
+	snprintf(tmp, maxtmplen, "%d", net_uint32_get(opt));
 	break;
     case dhcptype_uint32_e:
-	snprintf(tmp, maxtmplen, "%u", ntohl(*((u_int32_t *)opt)));
+	snprintf(tmp, maxtmplen, "%u", net_uint32_get(opt));
 	break;
     case dhcptype_ip_e:
-	snprintf(tmp, maxtmplen, IP_FORMAT, IP_LIST((struct in_addr *)opt));
+	snprintf(tmp, maxtmplen, IP_FORMAT, IP_LIST(opt));
 	break;
     case dhcptype_string_e:
 	if (len < maxtmplen) {
@@ -323,7 +324,7 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
 	  break;
 	
       case dhcptype_ip_e:
-	  fprintf(f, IP_FORMAT, IP_LIST((struct in_addr *)option));
+	  fprintf(f, IP_FORMAT, IP_LIST(opt));
 	  break;
 	
       case dhcptype_string_e: {
@@ -341,12 +342,12 @@ dhcptype_fprint_simple(FILE * f, dhcptype_t type,
 	break;
 
       case dhcptype_uint16_e:
-	fprintf(f, "0x%x", ntohs(*((uint16_t *)option)));
+	fprintf(f, "0x%x", net_uint16_get(option));
 	break;
 
       case dhcptype_int32_e:
       case dhcptype_uint32_e:
-	fprintf(f, "0x%x", (unsigned int)ntohl(*((uint32_t *)option)));
+	fprintf(f, "0x%x", net_uint32_get(option));
 	break;
 
       case dhcptype_dns_namelist_e: {
@@ -1517,4 +1518,4 @@ main()
     }
     exit(0);
 }
-#endif TEST_DHCP_OPTIONS
+#endif /* TEST_DHCP_OPTIONS */

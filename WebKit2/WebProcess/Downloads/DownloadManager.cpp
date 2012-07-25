@@ -53,11 +53,11 @@ void DownloadManager::startDownload(uint64_t downloadID, WebPage* initiatingPage
     m_downloads.set(downloadID, download.leakPtr());
 }
 
-void DownloadManager::convertHandleToDownload(uint64_t downloadID, WebPage* initiatingPage, ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest& initialRequest, const ResourceResponse& response)
+void DownloadManager::convertHandleToDownload(uint64_t downloadID, WebPage* initiatingPage, ResourceHandle* handle, const ResourceRequest& request, const ResourceResponse& response)
 {
     OwnPtr<Download> download = Download::create(downloadID, request);
 
-    download->startWithHandle(initiatingPage, handle, initialRequest, response);
+    download->startWithHandle(initiatingPage, handle, response);
     ASSERT(!m_downloads.contains(downloadID));
     m_downloads.set(downloadID, download.leakPtr());
 }
@@ -78,5 +78,14 @@ void DownloadManager::downloadFinished(Download* download)
 
     delete download;
 }
+
+#if PLATFORM(QT)
+void DownloadManager::startTransfer(uint64_t downloadID, const String& destination)
+{
+    ASSERT(m_downloads.contains(downloadID));
+    Download* download = m_downloads.get(downloadID);
+    download->startTransfer(destination);
+}
+#endif
 
 } // namespace WebKit

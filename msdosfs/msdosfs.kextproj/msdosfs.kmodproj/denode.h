@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2002-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -246,20 +246,6 @@ struct denode {
 } while (0);
 
 
-/*
- * This overlays the fid structure (see mount.h)
- */
-struct defid {
-	uint16_t defid_len;	/* length of structure */
-	uint16_t defid_pad;	/* force 32-bit alignment of next field */
-
-	uint32_t defid_dirclust;	/* cluster this dir entry came from */
-	uint32_t defid_dirofs;	/* offset of entry within the cluster */
-#if 0
-	uint32_t	defid_gen;	/* generation number */
-#endif
-};
-
 extern int (**msdosfs_vnodeop_p)(void *);
 
 int msdosfs_vnop_lookup(struct vnop_lookup_args *ap);
@@ -282,7 +268,8 @@ int msdosfs_vnop_blockmap(struct vnop_blockmap_args *ap);
 void msdosfs_hash_init(void);
 void msdosfs_hash_uninit(void);
 int msdosfs_deget(struct msdosfsmount *pmp, uint32_t dirclust, uint32_t diroffset, vnode_t dvp, struct componentname *cnp, struct denode **, vfs_context_t context);
-int msdosfs_uniqdosname(struct denode *, struct componentname *, u_char *, u_int8_t *lower_case, vfs_context_t context);
+int msdosfs_scan_dir_for_short_name(struct denode *dep, u_char short_name[SHORT_NAME_LEN], vfs_context_t context);
+int msdosfs_uniqdosname(struct denode *dep, u_char short_name[SHORT_NAME_LEN], uint32_t dir_offset, vfs_context_t context);
 
 int msdosfs_readep(struct msdosfsmount *pmp, uint32_t dirclu, uint32_t dirofs,  struct buf **bpp, struct dosdirentry **epp, vfs_context_t context);
 int readde(struct denode *dep, struct buf **bpp, struct dosdirentry **epp, vfs_context_t context);
@@ -294,7 +281,7 @@ int msdosfs_deupdat(struct denode *dep, int waitfor, vfs_context_t context);
 int msdosfs_removede(struct denode *pdep, uint32_t offset, vfs_context_t context);
 int msdosfs_detrunc(struct denode *dep, uint32_t length, int flags, vfs_context_t context);
 int msdosfs_doscheckpath( struct denode *source, struct denode *target, vfs_context_t context);
-int msdosfs_findslots(struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, uint32_t *offset, uint32_t *long_count, vfs_context_t context);
+int msdosfs_findslots(struct denode *dep, struct componentname *cnp, uint8_t short_name[SHORT_NAME_LEN], int *needs_generation, uint8_t *lower_case, uint32_t *offset, uint32_t *long_count, vfs_context_t context);
 uint32_t msdosfs_defileid(struct denode *dep);
 int msdosfs_dir_flush(struct denode *dep, int sync);
 int msdosfs_dir_invalidate(struct denode *dep);

@@ -36,11 +36,21 @@ static char sccsid[] = "@(#)vprintf.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vprintf.c,v 1.11 2007/01/09 00:28:08 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdio.h>
 
 int
 vprintf(const char * __restrict fmt, __va_list ap)
 {
 
-	return (vfprintf(stdout, fmt, ap));
+	return (vfprintf_l(stdout, __current_locale(), fmt, ap));
+}
+
+int
+vprintf_l(locale_t loc, const char * __restrict fmt, __va_list ap)
+{
+
+	/* no need to call NORMALIZE_LOCALE(loc) because vfprintf_l will */
+	return (vfprintf_l(stdout, loc, fmt, ap));
 }

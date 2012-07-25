@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -582,20 +582,21 @@ b_fmt(int argc, char** argv, void *context)
 	fmt.retain = 0;
 	fmt.section = 1;
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
-	while (n = optget(argv, usage))
-		switch (n)
+	for (;;)
+	{
+		switch (n = optget(argv, usage))
 		{
 		case 'c':
 		case 'o':
 		case 's':
 		case 'u':
 			setoption(&fmt, n);
-			break;
+			continue;
 		case 'w':
 			if (opt_info.num < TABSZ || opt_info.num>= sizeof(outbuf))
 				error(2, "width out of range");
 			fmt.endbuf = &outbuf[opt_info.num];
-			break;
+			continue;
 		case ':':
 			error(2, "%s", opt_info.arg);
 			break;
@@ -603,6 +604,8 @@ b_fmt(int argc, char** argv, void *context)
 			error(ERROR_usage(2), "%s", opt_info.arg);
 			break;
 		}
+		break;
+	}
 	argv += opt_info.index;
 	if (error_info.errors)
 		error(ERROR_usage(2), "%s", optusage(NiL));

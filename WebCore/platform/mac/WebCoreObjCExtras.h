@@ -26,11 +26,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <CoreFoundation/CFBase.h>
 #include <objc/objc.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// Use WebCFAutorelease to return an object made by a CoreFoundation
+// "create" or "copy" function as an autoreleased and garbage collected
+// object. CF objects need to be "made collectable" for autorelease to work
+// properly under GC.
+static inline id WebCoreCFAutorelease(CFTypeRef obj)
+{
+    if (obj)
+        CFMakeCollectable(obj);
+    [(id)obj autorelease];
+    return (id)obj;
+}
 
 void WebCoreObjCFinalizeOnMainThread(Class cls);
 

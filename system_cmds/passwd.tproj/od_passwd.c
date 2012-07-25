@@ -25,6 +25,10 @@
 #include <pwd.h>
 #include <sys/sysctl.h>
 
+#include "passwd.h"
+
+#ifdef INFO_OPEN_DIRECTORY
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <OpenDirectory/OpenDirectory.h>
 #include <OpenDirectory/OpenDirectoryPriv.h>
@@ -226,3 +230,5 @@ od_passwd(char* uname, char* locn, char* aname)
 #endif
 	return 0;
 }
+
+#endif /* INFO_OPEN_DIRECTORY */

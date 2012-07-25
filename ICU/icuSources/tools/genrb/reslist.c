@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2010, International Business Machines
+*   Copyright (C) 2000-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -24,7 +24,9 @@
 #include "errmsg.h"
 
 #include "uarrsort.h"
+#include "uelement.h"
 #include "uinvchar.h"
+#include "ustr_imp.h"
 
 /*
  * Align binary data at a 16-byte offset from the start of the resource bundle,
@@ -884,13 +886,13 @@ struct SResource* array_open(struct SRBRoot *bundle, const char *tag, const stru
 }
 
 static int32_t U_CALLCONV
-string_hash(const UHashTok key) {
+string_hash(const UElement key) {
     const struct SResource *res = (struct SResource *)key.pointer;
-    return uhash_hashUCharsN(res->u.fString.fChars, res->u.fString.fLength);
+    return ustr_hashUCharsN(res->u.fString.fChars, res->u.fString.fLength);
 }
 
 static UBool U_CALLCONV
-string_comp(const UHashTok key1, const UHashTok key2) {
+string_comp(const UElement key1, const UElement key2) {
     const struct SResource *res1 = (struct SResource *)key1.pointer;
     const struct SResource *res2 = (struct SResource *)key2.pointer;
     return 0 == u_strCompare(res1->u.fString.fChars, res1->u.fString.fLength,
@@ -898,7 +900,7 @@ string_comp(const UHashTok key1, const UHashTok key2) {
                              FALSE);
 }
 
-struct SResource *string_open(struct SRBRoot *bundle, char *tag, const UChar *value, int32_t len, const struct UString* comment, UErrorCode *status) {
+struct SResource *string_open(struct SRBRoot *bundle, const char *tag, const UChar *value, int32_t len, const struct UString* comment, UErrorCode *status) {
     struct SResource *res = res_open(bundle, tag, comment, status);
     if (U_FAILURE(*status)) {
         return NULL;
@@ -966,7 +968,7 @@ struct SResource *string_open(struct SRBRoot *bundle, char *tag, const UChar *va
 }
 
 /* TODO: make alias_open and string_open use the same code */
-struct SResource *alias_open(struct SRBRoot *bundle, char *tag, UChar *value, int32_t len, const struct UString* comment, UErrorCode *status) {
+struct SResource *alias_open(struct SRBRoot *bundle, const char *tag, UChar *value, int32_t len, const struct UString* comment, UErrorCode *status) {
     struct SResource *res = res_open(bundle, tag, comment, status);
     if (U_FAILURE(*status)) {
         return NULL;
@@ -991,7 +993,7 @@ struct SResource *alias_open(struct SRBRoot *bundle, char *tag, UChar *value, in
 }
 
 
-struct SResource* intvector_open(struct SRBRoot *bundle, char *tag, const struct UString* comment, UErrorCode *status) {
+struct SResource* intvector_open(struct SRBRoot *bundle, const char *tag, const struct UString* comment, UErrorCode *status) {
     struct SResource *res = res_open(bundle, tag, comment, status);
     if (U_FAILURE(*status)) {
         return NULL;
@@ -1008,7 +1010,7 @@ struct SResource* intvector_open(struct SRBRoot *bundle, char *tag, const struct
     return res;
 }
 
-struct SResource *int_open(struct SRBRoot *bundle, char *tag, int32_t value, const struct UString* comment, UErrorCode *status) {
+struct SResource *int_open(struct SRBRoot *bundle, const char *tag, int32_t value, const struct UString* comment, UErrorCode *status) {
     struct SResource *res = res_open(bundle, tag, comment, status);
     if (U_FAILURE(*status)) {
         return NULL;

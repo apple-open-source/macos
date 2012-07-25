@@ -27,6 +27,7 @@
 #include "Options.h"
 
 #include <limits>
+#include <wtf/NumberOfCores.h>
 #include <wtf/PageBlock.h>
 
 #if OS(DARWIN) && ENABLE(PARALLEL_GC)
@@ -44,6 +45,8 @@
 
 namespace JSC { namespace Options {
 
+bool useJIT;
+
 unsigned maximumOptimizationCandidateInstructionCount;
 
 unsigned maximumFunctionForCallInlineCandidateInstructionCount;
@@ -51,11 +54,12 @@ unsigned maximumFunctionForConstructInlineCandidateInstructionCount;
 
 unsigned maximumInliningDepth;
 
-int32_t executionCounterValueForOptimizeAfterWarmUp;
-int32_t executionCounterValueForOptimizeAfterLongWarmUp;
-int32_t executionCounterValueForDontOptimizeAnytimeSoon;
-int32_t executionCounterValueForOptimizeSoon;
-int32_t executionCounterValueForOptimizeNextInvocation;
+int32_t thresholdForJITAfterWarmUp;
+int32_t thresholdForJITSoon;
+
+int32_t thresholdForOptimizeAfterWarmUp;
+int32_t thresholdForOptimizeAfterLongWarmUp;
+int32_t thresholdForOptimizeSoon;
 
 int32_t executionCounterIncrementForLoop;
 int32_t executionCounterIncrementForReturn;
@@ -71,6 +75,7 @@ double osrExitProminenceForFrequentExitSite;
 
 unsigned largeFailCountThresholdBase;
 unsigned largeFailCountThresholdBaseForLoop;
+unsigned forcedOSRExitCountForReoptimization;
 
 unsigned reoptimizationRetryCounterMax;
 unsigned reoptimizationRetryCounterStep;
@@ -91,6 +96,19 @@ unsigned numberOfGCMarkers;
 unsigned opaqueRootMergeThreshold;
 
 #if ENABLE(RUN_TIME_HEURISTICS)
+static bool parse(const char* string, bool& value)
+{
+    if (!strcasecmp(string, "true") || !strcasecmp(string, "yes") || !strcmp(string, "1")) {
+        value = true;
+        return true;
+    }
+    if (!strcasecmp(string, "false") || !strcasecmp(string, "no") || !strcmp(string, "0")) {
+        value = false;
+        return true;
+    }
+    return false;
+}
+
 static bool parse(const char* string, int32_t& value)
 {
     return sscanf(string, "%d", &value) == 1;
@@ -129,18 +147,21 @@ void setHeuristic(T& variable, const char* name, U value)
 
 void initializeOptions()
 {
-    SET(maximumOptimizationCandidateInstructionCount, 1000);
+    SET(useJIT, true);
     
-    SET(maximumFunctionForCallInlineCandidateInstructionCount, 150);
-    SET(maximumFunctionForConstructInlineCandidateInstructionCount, 80);
+    SET(maximumOptimizationCandidateInstructionCount, 10000);
+    
+    SET(maximumFunctionForCallInlineCandidateInstructionCount, 180);
+    SET(maximumFunctionForConstructInlineCandidateInstructionCount, 100);
     
     SET(maximumInliningDepth, 5);
 
-    SET(executionCounterValueForOptimizeAfterWarmUp,     -1000);
-    SET(executionCounterValueForOptimizeAfterLongWarmUp, -5000);
-    SET(executionCounterValueForDontOptimizeAnytimeSoon, std::numeric_limits<int32_t>::min());
-    SET(executionCounterValueForOptimizeSoon,            -1000);
-    SET(executionCounterValueForOptimizeNextInvocation,  0);
+    SET(thresholdForJITAfterWarmUp,     100);
+    SET(thresholdForJITSoon,            100);
+
+    SET(thresholdForOptimizeAfterWarmUp,     1000);
+    SET(thresholdForOptimizeAfterLongWarmUp, 5000);
+    SET(thresholdForOptimizeSoon,            1000);
 
     SET(executionCounterIncrementForLoop,   1);
     SET(executionCounterIncrementForReturn, 15);
@@ -154,8 +175,9 @@ void initializeOptions()
     
     SET(osrExitProminenceForFrequentExitSite, 0.3);
 
-    SET(largeFailCountThresholdBase,        20);
-    SET(largeFailCountThresholdBaseForLoop, 1);
+    SET(largeFailCountThresholdBase,         20);
+    SET(largeFailCountThresholdBaseForLoop,  1);
+    SET(forcedOSRExitCountForReoptimization, 250);
 
     SET(reoptimizationRetryCounterStep, 1);
 
@@ -174,12 +196,8 @@ void initializeOptions()
     SET(opaqueRootMergeThreshold,             1000);
 
     int cpusToUse = 1;
-#if OS(DARWIN) && ENABLE(PARALLEL_GC)
-    int name[2];
-    size_t valueSize = sizeof(cpusToUse);
-    name[0] = CTL_HW;
-    name[1] = HW_AVAILCPU;
-    sysctl(name, 2, &cpusToUse, &valueSize, 0, 0);
+#if ENABLE(PARALLEL_GC)
+    cpusToUse = WTF::numberOfProcessorCores();
 #endif
     // We don't scale so well beyond 4.
     if (cpusToUse > 4)
@@ -190,11 +208,9 @@ void initializeOptions()
     
     SET(numberOfGCMarkers, cpusToUse);
 
-    ASSERT(executionCounterValueForDontOptimizeAnytimeSoon <= executionCounterValueForOptimizeAfterLongWarmUp);
-    ASSERT(executionCounterValueForOptimizeAfterLongWarmUp <= executionCounterValueForOptimizeAfterWarmUp);
-    ASSERT(executionCounterValueForOptimizeAfterWarmUp <= executionCounterValueForOptimizeSoon);
-    ASSERT(executionCounterValueForOptimizeAfterWarmUp < 0);
-    ASSERT(executionCounterValueForOptimizeSoon <= executionCounterValueForOptimizeNextInvocation);
+    ASSERT(thresholdForOptimizeAfterLongWarmUp >= thresholdForOptimizeAfterWarmUp);
+    ASSERT(thresholdForOptimizeAfterWarmUp >= thresholdForOptimizeSoon);
+    ASSERT(thresholdForOptimizeAfterWarmUp >= 0);
     
     // Compute the maximum value of the reoptimization retry counter. This is simply
     // the largest value at which we don't overflow the execute counter, when using it
@@ -202,11 +218,11 @@ void initializeOptions()
     // up being 18, so this loop is not so terrible; it probably takes up ~100 cycles
     // total on a 32-bit processor.
     reoptimizationRetryCounterMax = 0;
-    while ((static_cast<int64_t>(executionCounterValueForOptimizeAfterLongWarmUp) << (reoptimizationRetryCounterMax + 1)) >= static_cast<int64_t>(std::numeric_limits<int32_t>::min()))
+    while ((static_cast<int64_t>(thresholdForOptimizeAfterLongWarmUp) << (reoptimizationRetryCounterMax + 1)) <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
         reoptimizationRetryCounterMax++;
     
-    ASSERT((static_cast<int64_t>(executionCounterValueForOptimizeAfterLongWarmUp) << reoptimizationRetryCounterMax) < 0);
-    ASSERT((static_cast<int64_t>(executionCounterValueForOptimizeAfterLongWarmUp) << reoptimizationRetryCounterMax) >= static_cast<int64_t>(std::numeric_limits<int32_t>::min()));
+    ASSERT((static_cast<int64_t>(thresholdForOptimizeAfterLongWarmUp) << reoptimizationRetryCounterMax) > 0);
+    ASSERT((static_cast<int64_t>(thresholdForOptimizeAfterLongWarmUp) << reoptimizationRetryCounterMax) <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
 }
 
 } } // namespace JSC::Options

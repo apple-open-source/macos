@@ -7,6 +7,30 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		FD033C9E1484562E00AD35B6 /* libarchive_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD033CA01484562E00AD35B6 /* Build configuration list for PBXAggregateTarget "libarchive_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD033CA31484563A00AD35B6 /* PBXTargetDependency */,
+				FD033CA51484563E00AD35B6 /* PBXTargetDependency */,
+				FD033CA71484564000AD35B6 /* PBXTargetDependency */,
+			);
+			name = libarchive_executables;
+			productName = libarchive_executables;
+		};
+		FD033CA81484564700AD35B6 /* libarchive_libs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD033CA91484564700AD35B6 /* Build configuration list for PBXAggregateTarget "libarchive_libs" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD033CAC1484564E00AD35B6 /* PBXTargetDependency */,
+			);
+			name = libarchive_libs;
+			productName = libarchive_libs;
+		};
 		FD9B8A3D104DCC260096D791 /* All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD9B8A56104DCC830096D791 /* Build configuration list for PBXAggregateTarget "All" */;
@@ -14,10 +38,8 @@
 				3F080EB811E7B70A0066F666 /* simulator cleanup */,
 			);
 			dependencies = (
-				FD9B8A41104DCC2B0096D791 /* PBXTargetDependency */,
-				FDE953D21148822E0033A30A /* PBXTargetDependency */,
-				FD9B8A43104DCC2D0096D791 /* PBXTargetDependency */,
-				FD9B8A63104DCC9E0096D791 /* PBXTargetDependency */,
+				FD033CAE1484565800AD35B6 /* PBXTargetDependency */,
+				FD033CB01484565900AD35B6 /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -117,33 +139,47 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		FD9B8A40104DCC2B0096D791 /* PBXContainerItemProxy */ = {
+		FD033CA21484563A00AD35B6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FD9B8960104D9F050096D791;
-			remoteInfo = libarchive;
+			remoteGlobalIDString = FDE953BF114881CA0033A30A;
+			remoteInfo = libarchive_fe;
 		};
-		FD9B8A42104DCC2D0096D791 /* PBXContainerItemProxy */ = {
+		FD033CA41484563E00AD35B6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B8A1D104DCB9A0096D791;
 			remoteInfo = tar;
 		};
-		FD9B8A62104DCC9E0096D791 /* PBXContainerItemProxy */ = {
+		FD033CA61484564000AD35B6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B8A51104DCC630096D791;
 			remoteInfo = cpio;
 		};
-		FDE953D11148822E0033A30A /* PBXContainerItemProxy */ = {
+		FD033CAB1484564E00AD35B6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FDE953BF114881CA0033A30A;
-			remoteInfo = libarchive_fe;
+			remoteGlobalIDString = FD9B8960104D9F050096D791;
+			remoteInfo = libarchive;
+		};
+		FD033CAD1484565800AD35B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD033CA81484564700AD35B6;
+			remoteInfo = libarchive_libs;
+		};
+		FD033CAF1484565900AD35B6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B894E104D9EED0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD033C9E1484562E00AD35B6;
+			remoteInfo = libarchive_executables;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -557,6 +593,8 @@
 			projectRoot = "";
 			targets = (
 				FD9B8A3D104DCC260096D791 /* All */,
+				FD033CA81484564700AD35B6 /* libarchive_libs */,
+				FD033C9E1484562E00AD35B6 /* libarchive_executables */,
 				FD9B8960104D9F050096D791 /* libarchive */,
 				FDE953BF114881CA0033A30A /* libarchive_fe */,
 				FD9B8A1D104DCB9A0096D791 /* tar */,
@@ -752,29 +790,53 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		FD9B8A41104DCC2B0096D791 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD9B8960104D9F050096D791 /* libarchive */;
-			targetProxy = FD9B8A40104DCC2B0096D791 /* PBXContainerItemProxy */;
-		};
-		FD9B8A43104DCC2D0096D791 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD9B8A1D104DCB9A0096D791 /* tar */;
-			targetProxy = FD9B8A42104DCC2D0096D791 /* PBXContainerItemProxy */;
-		};
-		FD9B8A63104DCC9E0096D791 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FD9B8A51104DCC630096D791 /* cpio */;
-			targetProxy = FD9B8A62104DCC9E0096D791 /* PBXContainerItemProxy */;
-		};
-		FDE953D21148822E0033A30A /* PBXTargetDependency */ = {
+		FD033CA31484563A00AD35B6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDE953BF114881CA0033A30A /* libarchive_fe */;
-			targetProxy = FDE953D11148822E0033A30A /* PBXContainerItemProxy */;
+			targetProxy = FD033CA21484563A00AD35B6 /* PBXContainerItemProxy */;
+		};
+		FD033CA51484563E00AD35B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD9B8A1D104DCB9A0096D791 /* tar */;
+			targetProxy = FD033CA41484563E00AD35B6 /* PBXContainerItemProxy */;
+		};
+		FD033CA71484564000AD35B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD9B8A51104DCC630096D791 /* cpio */;
+			targetProxy = FD033CA61484564000AD35B6 /* PBXContainerItemProxy */;
+		};
+		FD033CAC1484564E00AD35B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD9B8960104D9F050096D791 /* libarchive */;
+			targetProxy = FD033CAB1484564E00AD35B6 /* PBXContainerItemProxy */;
+		};
+		FD033CAE1484565800AD35B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD033CA81484564700AD35B6 /* libarchive_libs */;
+			targetProxy = FD033CAD1484565800AD35B6 /* PBXContainerItemProxy */;
+		};
+		FD033CB01484565900AD35B6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD033C9E1484562E00AD35B6 /* libarchive_executables */;
+			targetProxy = FD033CAF1484565900AD35B6 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FD033C9F1484562E00AD35B6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FD033CAA1484564700AD35B6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FD9B8950104D9EED0096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -853,6 +915,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FD033CA01484562E00AD35B6 /* Build configuration list for PBXAggregateTarget "libarchive_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD033C9F1484562E00AD35B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		FD033CA91484564700AD35B6 /* Build configuration list for PBXAggregateTarget "libarchive_libs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD033CAA1484564700AD35B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		FD9B8951104D9EED0096D791 /* Build configuration list for PBXProject "libarchive" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

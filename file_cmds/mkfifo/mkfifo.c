@@ -100,7 +100,7 @@ main(argc, argv)
 		default:
 			usage();
 		}
-	argc -= optind;
+//	argc -= optind;
 	argv += optind;
 	if (argv[0] == NULL)
 		usage();

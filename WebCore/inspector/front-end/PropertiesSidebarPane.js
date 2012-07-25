@@ -26,10 +26,16 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.SidebarPane}
+ */
 WebInspector.PropertiesSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Properties"));
 }
+
+WebInspector.PropertiesSidebarPane._objectGroupName = "properties-sidebar-pane";
 
 WebInspector.PropertiesSidebarPane.prototype = {
     update: function(node)
@@ -42,21 +48,31 @@ WebInspector.PropertiesSidebarPane.prototype = {
             return;
         }
 
-        WebInspector.RemoteObject.resolveNode(node, nodeResolved.bind(this));
+        WebInspector.RemoteObject.resolveNode(node, WebInspector.PropertiesSidebarPane._objectGroupName, nodeResolved.bind(this));
 
         function nodeResolved(object)
         {
             if (!object)
                 return;
-            object.evaluate("var proto = this; result = {}; var counter = 1; while (proto) { result[counter++] = proto; proto = proto.__proto__ }; return result;", nodePrototypesReady.bind(this));
+            function protoList()
+            {
+                var proto = this;
+                var result = {};
+                var counter = 1;
+                while (proto) {
+                    result[counter++] = proto;
+                    proto = proto.__proto__;
+                }
+                return result;
+            }
+            object.callFunction(protoList, undefined, nodePrototypesReady.bind(this));
             object.release();
         }
 
-        function nodePrototypesReady(error, objectPayload, wasThrown)
+        function nodePrototypesReady(object)
         {
-            if (error || wasThrown)
+            if (!object)
                 return;
-            var object = WebInspector.RemoteObject.fromPayload(objectPayload);
             object.getOwnProperties(fillSection.bind(this));
         }
 
@@ -71,7 +87,7 @@ WebInspector.PropertiesSidebarPane.prototype = {
 
             // Get array of prototype user-friendly names.
             for (var i = 0; i < prototypes.length; ++i) {
-                if (!parseInt(prototypes[i].name))
+                if (!parseInt(prototypes[i].name, 10))
                     continue;
 
                 var prototype = prototypes[i].value;

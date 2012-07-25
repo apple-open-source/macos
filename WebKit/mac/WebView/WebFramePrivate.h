@@ -74,6 +74,7 @@ typedef enum {
 - (NSColor *)_bodyBackgroundColor;
 - (BOOL)_isFrameSet;
 - (BOOL)_firstLayoutDone;
+- (BOOL)_isVisuallyNonEmpty;
 - (WebFrameLoadType)_loadType;
 
 // These methods take and return NSRanges based on the root editable element as the positional base.
@@ -102,10 +103,6 @@ typedef enum {
 // This method is only intended to be used for testing the CSS animation and transition system.
 - (BOOL)_pauseAnimation:(NSString*)name onNode:(DOMNode *)node atTime:(NSTimeInterval)time;
 - (BOOL)_pauseTransitionOfProperty:(NSString*)name onNode:(DOMNode*)node atTime:(NSTimeInterval)time;
-
-// Pause a given SVG animation on the target node at a specific time.
-// This method is only intended to be used for testing the SVG animation system.
-- (BOOL)_pauseSVGAnimation:(NSString*)elementId onSMILNode:(DOMNode *)node atTime:(NSTimeInterval)time;
 
 // Returns the total number of currently running animations (includes both CSS transitions and CSS animations).
 - (unsigned)_numberOfActiveAnimations;
@@ -138,11 +135,6 @@ typedef enum {
 - (void)setAccessibleName:(NSString *)name;
 
 - (NSString*)_layerTreeAsText;
-
-// Returns whether there is a spelling marker in the specified range of the focused node.
-- (BOOL)hasSpellingMarker:(int)location length:(int)length;
-
-- (BOOL)hasGrammarMarker:(int)from length:(int)length;
 
 // The top of the accessibility tree.
 - (id)accessibilityRoot;

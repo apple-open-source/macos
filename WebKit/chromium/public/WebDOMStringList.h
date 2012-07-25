@@ -31,9 +31,9 @@
 #ifndef WebDOMStringList_h
 #define WebDOMStringList_h
 
-#include "WebCommon.h"
-#include "WebPrivatePtr.h"
-#include "WebString.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
+#include "platform/WebString.h"
 
 namespace WebCore { class DOMStringList; }
 #if WEBKIT_IMPLEMENTATION
@@ -46,7 +46,7 @@ class WebDOMStringList {
 public:
     ~WebDOMStringList() { reset(); }
 
-    WEBKIT_API WebDOMStringList();
+    WEBKIT_EXPORT WebDOMStringList();
     WebDOMStringList(const WebDOMStringList& l) { assign(l); }
     WebDOMStringList& operator=(const WebDOMStringList& l)
     {
@@ -54,12 +54,12 @@ public:
         return *this;
     }
 
-    WEBKIT_API void reset();
-    WEBKIT_API void assign(const WebDOMStringList&);
+    WEBKIT_EXPORT void reset();
+    WEBKIT_EXPORT void assign(const WebDOMStringList&);
 
-    WEBKIT_API void append(const WebString&);
-    WEBKIT_API unsigned length() const;
-    WEBKIT_API WebString item(unsigned) const;
+    WEBKIT_EXPORT void append(const WebString&);
+    WEBKIT_EXPORT unsigned length() const;
+    WEBKIT_EXPORT WebString item(unsigned) const;
 
 #if WEBKIT_IMPLEMENTATION
     WebDOMStringList(const WTF::PassRefPtr<WebCore::DOMStringList>&);

@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef MediaQueryEvaluator_h
@@ -31,11 +31,11 @@
 #include "PlatformString.h"
 
 namespace WebCore {
-class CSSStyleSelector;
 class Frame;
-class RenderStyle;
-class MediaList;
 class MediaQueryExp;
+class MediaQuerySet;
+class RenderStyle;
+class StyleResolver;
 
 /**
  * Class that evaluates css media queries as defined in
@@ -75,7 +75,7 @@ public:
     bool mediaTypeMatchSpecific(const char* mediaTypeToMatch) const;
 
     /** Evaluates a list of media queries */
-    bool eval(const MediaList*, CSSStyleSelector* = 0) const;
+    bool eval(const MediaQuerySet*, StyleResolver* = 0) const;
 
     /** Evaluates media query subexpression, ie "and (media-feature: value)" part */
     bool eval(const MediaQueryExp*) const;

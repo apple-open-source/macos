@@ -128,7 +128,8 @@ static unsigned long UNCPackContents(char *buffer, const char **contents, int to
     
     APPEND(kUNCDictionaryEpilogue); APPEND("\n");
     APPEND(kUNCPlistEpilogue); APPEND("\n");
-#undef APPEND(x)
+#undef APPEND
+#undef APPENDN
     
     return b - buffer;
 }

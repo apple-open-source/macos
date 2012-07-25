@@ -36,10 +36,8 @@
 #include <WebCore/SharedBuffer.h>
 #include <utility>
 
-#if PLATFORM(QT)
-#include <QX11Info>
-#elif PLATFORM(GTK)
-#include <gdk/gdkx.h>
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#include "NetscapeSandboxFunctions.h"
 #endif
 
 using namespace WebCore;
@@ -414,14 +412,16 @@ static const unsigned WKNVSupportsCompositingCoreAnimationPluginsBool = 74656;
 // Whether the browser expects a non-retained Core Animation layer.
 static const unsigned WKNVExpectsNonretainedLayer = 74657;
 
-// The Core Animation render server port.
-static const unsigned WKNVCALayerRenderServerPort = 71879;
+// Whether plug-in code is allowed to enter (arbitrary) sandbox for the process.
+static const unsigned WKNVAllowedToEnterSandbox = 74658;
+
+// WKNVSandboxFunctions = 74659 is defined in NetscapeSandboxFunctions.h
 
 #endif
 
 static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
 {
-    switch (variable) {
+    switch (static_cast<unsigned>(variable)) {
         case NPNVWindowNPObject: {
             RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
             PluginDestructionProtector protector(plugin.get());
@@ -471,6 +471,20 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             *(NPBool*)value = true;
             break;
 
+        case NPNVsupportsUpdatedCocoaTextInputBool: {
+            // The plug-in is asking whether we support the updated Cocoa text input model.
+            // If we haven't yet delivered a key down event to the plug-in, we can opt into the updated
+            // model and say that we support it. Otherwise, we'll just fall back and say that we don't support it.
+            RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+            bool supportsUpdatedTextInput = !plugin->hasHandledAKeyDownEvent();
+            if (supportsUpdatedTextInput)
+                plugin->setPluginWantsLegacyCocoaTextInput(false);
+
+            *reinterpret_cast<NPBool*>(value) = supportsUpdatedTextInput;
+            break;
+        }
+
         case WKNVCALayerRenderServerPort: {
             RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
 
@@ -487,6 +501,18 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
             break;
         }
 
+        case WKNVAllowedToEnterSandbox:
+            *(NPBool*)value = true;
+            break;
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+        case WKNVSandboxFunctions:
+        {
+            *(WKNSandboxFunctions **)value = netscapeSandboxFunctions();
+            break;
+        }
+#endif
+
 #ifndef NP_NO_QUICKDRAW
         case NPNVsupportsQuickDrawBool:
             // We don't support the QuickDraw drawing model.
@@ -495,8 +521,7 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
 #endif
 #ifndef NP_NO_CARBON
        case NPNVsupportsCarbonBool:
-            // FIXME: We should support the Carbon event model.
-            *(NPBool*)value = false;
+            *(NPBool*)value = true;
             break;
 #endif
 #elif PLATFORM(WIN)
@@ -509,16 +534,12 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
            *(NPBool*)value = true;
            break;
 #elif PLUGIN_ARCHITECTURE(X11)
-       case NPNVxDisplay:
-#if PLATFORM(QT)
-           *reinterpret_cast<Display**>(value) = QX11Info::display();
+       case NPNVxDisplay: {
+           if (!npp)
+               return NPERR_GENERIC_ERROR;
+           *reinterpret_cast<Display**>(value) = NetscapePlugin::x11HostDisplay();
            break;
-#elif PLATFORM(GTK)
-           *reinterpret_cast<Display**>(value) = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
-           break;
-#else
-           goto default;
-#endif
+       }
        case NPNVSupportsXEmbedBool:
            *static_cast<NPBool*>(value) = true;
            break;
@@ -527,23 +548,9 @@ static NPError NPN_GetValue(NPP npp, NPNVariable variable, void *value)
            break;
 
        case NPNVToolkit: {
-#if PLATFORM(GTK)
-           *reinterpret_cast<uint32_t*>(value) = 2;
-#else
-           const uint32_t expectedGTKToolKitVersion = 2;
-
-           // Set the expected GTK version if we know that this plugin needs it or if the plugin call us
-           // with a null instance. The latter is the case with NSPluginWrapper plugins.
-           bool requiresGTKToolKitVersion;
-           if (!npp)
-               requiresGTKToolKitVersion = true;
-           else {
-               RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
-               requiresGTKToolKitVersion = plugin->quirks().contains(PluginQuirks::RequiresGTKToolKit);
-           }
-
-           *reinterpret_cast<uint32_t*>(value) = requiresGTKToolKitVersion ? expectedGTKToolKitVersion : 0;
-#endif
+           // Gtk based plugins need to be assured about the toolkit version.
+           const uint32_t expectedGtkToolKitVersion = 2;
+           *reinterpret_cast<uint32_t*>(value) = expectedGtkToolKitVersion;
            break;
        }
 
@@ -596,6 +603,12 @@ static NPError NPN_SetValue(NPP npp, NPPVariable variable, void *value)
 
 static void NPN_InvalidateRect(NPP npp, NPRect* invalidRect)
 {
+#if PLUGIN_ARCHITECTURE(X11)
+    // NSPluginWrapper, a plugin wrapper binary that allows running 32-bit plugins
+    // on 64-bit architectures typically used in X11, will sometimes give us a null NPP here.
+    if (!npp)
+        return;
+#endif
     RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
     plugin->invalidate(invalidRect);
 }
@@ -676,12 +689,6 @@ static void NPN_ReleaseObject(NPObject *npObject)
 
 static bool NPN_Invoke(NPP npp, NPObject *npObject, NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result)
 {
-    if (RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp)) {
-        bool returnValue;
-        if (plugin->tryToShortCircuitInvoke(npObject, methodName, arguments, argumentCount, returnValue, *result))
-            return returnValue;
-    }
-
     if (npObject->_class->invoke)
         return npObject->_class->invoke(npObject, methodName, arguments, argumentCount, result);
 
@@ -794,9 +801,11 @@ static bool NPN_Enumerate(NPP npp, NPObject* npObject, NPIdentifier** identifier
     return false;
 }
 
-static void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void*), void* userData)
+static void NPN_PluginThreadAsyncCall(NPP npp, void (*function)(void*), void* userData)
 {
-    notImplemented();
+    RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+    plugin->pluginThreadAsyncCall(function, userData);
 }
 
 static bool NPN_Construct(NPP npp, NPObject* npObject, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result)
@@ -932,15 +941,18 @@ static NPError NPN_GetAuthenticationInfo(NPP npp, const char* protocol, const ch
     return NPERR_NO_ERROR;
 }
 
-static uint32_t NPN_ScheduleTimer(NPP instance, uint32_t interval, NPBool repeat, void (*timerFunc)(NPP npp, uint32_t timerID))
+static uint32_t NPN_ScheduleTimer(NPP npp, uint32_t interval, NPBool repeat, void (*timerFunc)(NPP npp, uint32_t timerID))
 {
-    notImplemented();
-    return NPERR_GENERIC_ERROR;
+    RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+    return plugin->scheduleTimer(interval, repeat, timerFunc);
 }
 
-static void NPN_UnscheduleTimer(NPP instance, uint32_t timerID)
+static void NPN_UnscheduleTimer(NPP npp, uint32_t timerID)
 {
-    notImplemented();
+    RefPtr<NetscapePlugin> plugin = NetscapePlugin::fromNPP(npp);
+
+    plugin->unscheduleTimer(timerID);
 }
 
 #if PLATFORM(MAC)

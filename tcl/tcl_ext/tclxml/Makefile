@@ -23,12 +23,10 @@ include ../TEA.make
 
 TclExtDir             = Tclxml
 
-MAKE_ARGS             = TclExtHtmlDir="$(TclExtHtmlDir)" DSTROOT="$(DSTROOT)"
+MAKE_ARGS             = DSTROOT="$(DSTROOT)"
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/README.html "$(DSTROOT)/$(TclExtHtmlDir)"/ReadMe-$(ProjectName).html
-	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/$(Project).html "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/$(Project).n "$(DSTROOT)/$(TclExtManDir)"
 
 # the tclexpat subproject is built by a separate Makefile

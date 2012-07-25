@@ -123,90 +123,73 @@ validate_proxy_content(CFMutableDictionaryRef	proxies,
 }
 
 
-CFDictionaryRef
-SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
+static void
+normalize_scoped_proxy(const void *key, const void *value, void *context);
+
+
+static void
+normalize_supplemental_proxy(const void *value, void *context);
+
+
+static CF_RETURNS_RETAINED CFDictionaryRef
+__SCNetworkProxiesCopyNormalized(CFDictionaryRef proxy)
 {
 	CFArrayRef		array;
-	CFStringRef		key;
-	CFMutableDictionaryRef	newProxies	= NULL;
+	CFMutableDictionaryRef	newProxy;
 	CFNumberRef		num;
-	CFDictionaryRef		proxies;
-	Boolean			tempSession	= FALSE;
+	CFDictionaryRef		scoped;
+	CFArrayRef		supplemental;
 
-
-	/* copy proxy information from dynamic store */
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyProxies"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			return NULL;
-		}
-		tempSession = TRUE;
+	if (!isA_CFDictionary(proxy)) {
+		proxy = CFDictionaryCreate(NULL,
+					   NULL,
+					   NULL,
+					   0,
+					   &kCFTypeDictionaryKeyCallBacks,
+					   &kCFTypeDictionaryValueCallBacks);
+		return proxy;
 	}
 
-	key = SCDynamicStoreKeyCreateProxies(NULL);
-	proxies = SCDynamicStoreCopyValue(store, key);
-	CFRelease(key);
+	newProxy = CFDictionaryCreateMutableCopy(NULL, 0, proxy);
 
-    validate :
-
-	if (proxies != NULL) {
-		if (isA_CFDictionary(proxies)) {
-			newProxies = CFDictionaryCreateMutableCopy(NULL, 0, proxies);
-		}
-		CFRelease(proxies);
-	}
-
-	if (newProxies == NULL) {
-		newProxies = CFDictionaryCreateMutable(NULL,
-						       0,
-						       &kCFTypeDictionaryKeyCallBacks,
-						       &kCFTypeDictionaryValueCallBacks);
-	}
-
-	/* validate [and augment] proxy content */
-
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesFTPEnable,
 			       kSCPropNetProxiesFTPProxy,
 			       kSCPropNetProxiesFTPPort,
 			       "ftp",
 			       21);
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesGopherEnable,
 			       kSCPropNetProxiesGopherProxy,
 			       kSCPropNetProxiesGopherPort,
 			       "gopher",
 			       70);
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesHTTPEnable,
 			       kSCPropNetProxiesHTTPProxy,
 			       kSCPropNetProxiesHTTPPort,
 			       "http",
 			       80);
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesHTTPSEnable,
 			       kSCPropNetProxiesHTTPSProxy,
 			       kSCPropNetProxiesHTTPSPort,
 			       "https",
 			       443);
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesRTSPEnable,
 			       kSCPropNetProxiesRTSPProxy,
 			       kSCPropNetProxiesRTSPPort,
 			       "rtsp",
 			       554);
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesSOCKSEnable,
 			       kSCPropNetProxiesSOCKSProxy,
 			       kSCPropNetProxiesSOCKSPort,
 			       "socks",
 			       1080);
-	if (CFDictionaryContainsKey(newProxies, kSCPropNetProxiesProxyAutoConfigURLString)) {
-		validate_proxy_content(newProxies,
+	if (CFDictionaryContainsKey(newProxy, kSCPropNetProxiesProxyAutoConfigURLString)) {
+		validate_proxy_content(newProxy,
 				       kSCPropNetProxiesProxyAutoConfigEnable,
 				       kSCPropNetProxiesProxyAutoConfigURLString,
 				       NULL,
@@ -214,16 +197,16 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 				       0);
 
 		// and we can't have both URLString and JavaScript keys
-		CFDictionaryRemoveValue(newProxies, kSCPropNetProxiesProxyAutoConfigJavaScript);
+		CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesProxyAutoConfigJavaScript);
 	} else {
-		validate_proxy_content(newProxies,
+		validate_proxy_content(newProxy,
 				       kSCPropNetProxiesProxyAutoConfigEnable,
 				       kSCPropNetProxiesProxyAutoConfigJavaScript,
 				       NULL,
 				       NULL,
 				       0);
 	}
-	validate_proxy_content(newProxies,
+	validate_proxy_content(newProxy,
 			       kSCPropNetProxiesProxyAutoDiscoveryEnable,
 			       NULL,
 			       NULL,
@@ -231,7 +214,7 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 			       0);
 
 	// validate FTP passive setting
-	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesFTPPassive);
+	num = CFDictionaryGetValue(newProxy, kSCPropNetProxiesFTPPassive);
 	if (num != NULL) {
 		int	enabled	= 0;
 
@@ -240,7 +223,7 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 			// if we don't like the enabled key/value
 			enabled = 1;
 			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
-			CFDictionarySetValue(newProxies,
+			CFDictionarySetValue(newProxy,
 					     kSCPropNetProxiesFTPPassive,
 					     num);
 			CFRelease(num);
@@ -248,7 +231,7 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 	}
 
 	// validate proxy exception list
-	array = CFDictionaryGetValue(newProxies, kSCPropNetProxiesExceptionsList);
+	array = CFDictionaryGetValue(newProxy, kSCPropNetProxiesExceptionsList);
 	if (array != NULL) {
 		CFIndex		i;
 		CFIndex		n;
@@ -266,12 +249,12 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 		}
 
 		if (n == 0) {
-			CFDictionaryRemoveValue(newProxies, kSCPropNetProxiesExceptionsList);
+			CFDictionaryRemoveValue(newProxy, kSCPropNetProxiesExceptionsList);
 		}
 	}
 
 	// validate exclude simple hostnames setting
-	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesExcludeSimpleHostnames);
+	num = CFDictionaryGetValue(newProxy, kSCPropNetProxiesExcludeSimpleHostnames);
 	if (num != NULL) {
 		int	enabled;
 
@@ -280,18 +263,110 @@ SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 			// if we don't like the enabled key/value
 			enabled = 0;
 			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
-			CFDictionarySetValue(newProxies,
+			CFDictionarySetValue(newProxy,
 					     kSCPropNetProxiesExcludeSimpleHostnames,
 					     num);
 			CFRelease(num);
 		}
 	}
 
+	// cleanup scoped proxies
+	scoped = CFDictionaryGetValue(newProxy, kSCPropNetProxiesScoped);
+	if (isA_CFDictionary(scoped)) {
+		CFMutableDictionaryRef	newScoped;
 
-	proxies = CFDictionaryCreateCopy(NULL, newProxies);
-	CFRelease(newProxies);
+		newScoped = CFDictionaryCreateMutable(NULL,
+						      0,
+						      &kCFTypeDictionaryKeyCallBacks,
+						      &kCFTypeDictionaryValueCallBacks);
+		CFDictionaryApplyFunction(scoped,
+					  normalize_scoped_proxy,
+					  newScoped);
+		CFDictionarySetValue(newProxy, kSCPropNetProxiesScoped, newScoped);
+		CFRelease(newScoped);
+	}
 
-	if (tempSession)	CFRelease(store);
+	// cleanup split/supplemental proxies
+	supplemental = CFDictionaryGetValue(newProxy, kSCPropNetProxiesSupplemental);
+	if (isA_CFArray(supplemental)) {
+		CFMutableArrayRef	newSupplemental;
+
+		newSupplemental = CFArrayCreateMutable(NULL,
+						       0,
+						       &kCFTypeArrayCallBacks);
+		CFArrayApplyFunction(supplemental,
+				     CFRangeMake(0, CFArrayGetCount(supplemental)),
+				     normalize_supplemental_proxy,
+				     newSupplemental);
+		CFDictionarySetValue(newProxy, kSCPropNetProxiesSupplemental, newSupplemental);
+		CFRelease(newSupplemental);
+	}
+
+	proxy = CFDictionaryCreateCopy(NULL,newProxy);
+	CFRelease(newProxy);
+
+	return proxy;
+}
+
+
+static void
+normalize_scoped_proxy(const void *key, const void *value, void *context)
+{
+	CFStringRef		interface	= (CFStringRef)key;
+	CFDictionaryRef		proxy		= (CFDictionaryRef)value;
+	CFMutableDictionaryRef	newScoped	= (CFMutableDictionaryRef)context;
+
+	proxy = __SCNetworkProxiesCopyNormalized(proxy);
+	CFDictionarySetValue(newScoped, interface, proxy);
+	CFRelease(proxy);
+
+	return;
+}
+
+
+static void
+normalize_supplemental_proxy(const void *value, void *context)
+{
+	CFDictionaryRef		proxy		= (CFDictionaryRef)value;
+	CFMutableArrayRef	newSupplemental	= (CFMutableArrayRef)context;
+
+	proxy = __SCNetworkProxiesCopyNormalized(proxy);
+	CFArrayAppendValue(newSupplemental, proxy);
+	CFRelease(proxy);
+
+	return;
+}
+
+
+CFDictionaryRef
+SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
+{
+	CFStringRef		key;
+	CFDictionaryRef		proxies;
+
+
+	/* copy proxy information from dynamic store */
+
+	key = SCDynamicStoreKeyCreateProxies(NULL);
+	proxies = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+
+
+	if (proxies != NULL) {
+		CFDictionaryRef	base	= proxies;
+
+		proxies = __SCNetworkProxiesCopyNormalized(base);
+		CFRelease(base);
+	} else {
+		proxies = CFDictionaryCreate(NULL,
+					     NULL,
+					     NULL,
+					     0,
+					     &kCFTypeDictionaryKeyCallBacks,
+					     &kCFTypeDictionaryValueCallBacks);
+	}
+
+
 	return proxies;
 }
 
@@ -356,7 +431,7 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 	if (server != NULL) {
 		CFIndex			i;
 		CFMutableArrayRef	matching	= NULL;
-		CFIndex			n;
+		CFIndex			n		= 0;
 		CFIndex			server_len;
 		CFArrayRef		supplemental;
 
@@ -370,18 +445,16 @@ SCNetworkProxiesCopyMatching(CFDictionaryRef	globalConfiguration,
 		server_len = CFStringGetLength(server);
 
 		supplemental = CFDictionaryGetValue(globalConfiguration, kSCPropNetProxiesSupplemental);
-		if (supplemental == NULL) {
-			// if no supplemental configurations
-			goto done;
+		if (supplemental != NULL) {
+			if (!isA_CFArray(supplemental)) {
+				// if corrupt proxy configuration
+				sc_status = kSCStatusFailed;
+				goto done;
+			}
+
+			n = CFArrayGetCount(supplemental);
 		}
 
-		if (!isA_CFArray(supplemental)) {
-			// if corrupt proxy configuration
-			sc_status = kSCStatusFailed;
-			goto done;
-		}
-
-		n = CFArrayGetCount(supplemental);
 		for (i = 0; i < n; i++) {
 			CFStringRef	domain;
 			CFIndex		domain_len;

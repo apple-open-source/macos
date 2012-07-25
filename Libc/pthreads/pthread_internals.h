@@ -63,6 +63,7 @@ typedef struct _pthread_attr_t pthread_attr_t;
 #include <stdlib.h>
 #include <limits.h>
 #include <errno.h>
+#include <TargetConditionals.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <libkern/OSAtomic.h>
@@ -88,9 +89,15 @@ extern  size_t pthreadsize;
 /*
  * Compiled-in limits
  */
+#if TARGET_OS_EMBEDDED
+#define _EXTERNAL_POSIX_THREAD_KEYS_MAX 256
+#define _INTERNAL_POSIX_THREAD_KEYS_MAX 256
+#define _INTERNAL_POSIX_THREAD_KEYS_END 512
+#else
 #define _EXTERNAL_POSIX_THREAD_KEYS_MAX 512
 #define _INTERNAL_POSIX_THREAD_KEYS_MAX 256
 #define _INTERNAL_POSIX_THREAD_KEYS_END 768
+#endif
 
 /*
  * Threads
@@ -580,7 +587,7 @@ extern struct __pthread_workqueue_pool __pthread_workqueue_pool_head;        /* 
 
 #include "pthread_spis.h"
 
-#if defined(__i386__) || defined(__ppc64__) || defined(__x86_64__) || (defined(__arm__) && (defined(_ARM_ARCH_7) || !defined(_ARM_ARCH_6) || !defined(__thumb__)))
+#if defined(__i386__) || defined(__ppc64__) || defined(__x86_64__) || (defined(__arm__) && (defined(_ARM_ARCH_7) || !defined(_ARM_ARCH_6) || !defined(__thumb__))) 
 /*
  * Inside libSystem, we can use r13 or %gs directly to get access to the
  * thread-specific data area. The current thread is in the first slot.

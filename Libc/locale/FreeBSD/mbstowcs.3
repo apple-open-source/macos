@@ -37,7 +37,8 @@
 .Dt MBSTOWCS 3
 .Os
 .Sh NAME
-.Nm mbstowcs
+.Nm mbstowcs ,
+.Nm mbstowcs_l
 .Nd convert a character string to a wide-character string
 .Sh LIBRARY
 .Lb libc
@@ -45,21 +46,39 @@
 .In stdlib.h
 .Ft size_t
 .Fo mbstowcs
-.Fa "wchar_t * restrict wcstring" "const char * restrict mbstring"
-.Fa "size_t nwchars"
+.Fa "wchar_t *restrict pwcs"
+.Fa "const char *restrict s"
+.Fa "size_t n"
+.Fc
+.In stdlib.h
+.In xlocale.h
+.Ft size_t
+.Fo mbstowcs_l
+.Fa "wchar_t *restrict pwcs"
+.Fa "const char *restrict s"
+.Fa "size_t n"
+.Fa "locale_t loc"
 .Fc
 .Sh DESCRIPTION
 The
 .Fn mbstowcs
 function converts a multibyte character string
-.Fa mbstring
-beginning in the initial conversion state
+.Fa s ,
+beginning in the initial conversion state,
 into a wide character string
-.Fa wcstring .
+.Fa pwcs .
 No more than
-.Fa nwchars
+.Fa n
 wide characters are stored.
-A terminating null wide character is appended if there is room.
+A terminating null wide character is appended, if there is room.
+.Pp
+Although the
+.Fn mbstowcs
+function uses the current locale, the
+.Fn mbstowcs_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn mbstowcs
@@ -79,7 +98,8 @@ The conversion state is invalid.
 .Sh SEE ALSO
 .Xr mbsrtowcs 3 ,
 .Xr mbtowc 3 ,
-.Xr multibyte 3
+.Xr multibyte 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn mbstowcs

@@ -73,8 +73,13 @@ extern int _pthread_cond_wait(pthread_cond_t *cond,
 			const struct timespec *abstime,
 			int isRelative,
 			int isconforming);
-extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
 extern int __sigwait(const sigset_t *set, int *sig);
+
+#ifdef VARIANT_CANCELABLE
+extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
+#else
+extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec)  __asm__("___semwait_signal_nocancel");
+#endif
 
 /*
  * Wait for a thread to terminate and obtain its exit value.
@@ -284,6 +289,10 @@ sigwait(const sigset_t * set, int * sig)
 
 	if (__sigwait(set, sig) == -1) {
 		err = errno;
+
+#ifdef VARIANT_CANCELABLE
+		_pthread_testcancel(pthread_self(), 1);
+#endif /* VARIANT_CANCELABLE */
 		
 		/* 
 		 * EINTR that isn't a result of pthread_cancel()

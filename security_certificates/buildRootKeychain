@@ -42,12 +42,12 @@ set GOT_ERROR=NO
 
 foreach root (*)
 	echo Processing $root...
-	if (( "$root" == "AppleDEVIDCA.cer" )) then
+	if (( "$root" == "AppleDEVID.cer" )) then
 		echo "  skipping intermediate $root for trust"
 		$SECURITY -q add-certificates -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
 	else
 		$SECURITY -q add-trusted-cert -i "$SETTINGS_FILE_PATH" -o "$SETTINGS_FILE_PATH" -k "$ROOT_CERT_KC_PATH" "$root" || exit(1)
-	endif
+	endif	
 end
 
 # After adding the trusted roots, add trust settings to explicitly distrust certs

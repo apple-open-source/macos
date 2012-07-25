@@ -31,8 +31,10 @@
 
 #include "ArgList.h"
 #include "JSCell.h"
+#include "JSFunction.h"
 #include "JSValue.h"
 #include "JSObject.h"
+#include "LLIntData.h"
 #include "Opcode.h"
 #include "RegisterFile.h"
 
@@ -42,9 +44,10 @@ namespace JSC {
 
     class CodeBlock;
     class EvalExecutable;
+    class ExecutableBase;
     class FunctionExecutable;
-    class JSFunction;
     class JSGlobalObject;
+    class LLIntOffsetsExtractor;
     class ProgramExecutable;
     class Register;
     class ScopeChainNode;
@@ -60,6 +63,63 @@ namespace JSC {
         DidReachBreakpoint,
         WillLeaveCallFrame,
         WillExecuteStatement
+    };
+
+    enum StackFrameCodeType {
+        StackFrameGlobalCode,
+        StackFrameEvalCode,
+        StackFrameFunctionCode,
+        StackFrameNativeCode
+    };
+
+    struct StackFrame {
+        Strong<JSObject> callee;
+        StackFrameCodeType codeType;
+        Strong<ExecutableBase> executable;
+        int line;
+        UString sourceURL;
+        UString toString(CallFrame* callFrame) const
+        {
+            bool hasSourceURLInfo = !sourceURL.isNull() && !sourceURL.isEmpty();
+            bool hasLineInfo = line > -1;
+            String traceLine;
+            JSObject* stackFrameCallee = callee.get();
+
+            switch (codeType) {
+            case StackFrameEvalCode:
+                if (hasSourceURLInfo) {
+                    traceLine = hasLineInfo ? String::format("eval code@%s:%d", sourceURL.ascii().data(), line) 
+                                            : String::format("eval code@%s", sourceURL.ascii().data());
+                } else
+                    traceLine = String::format("eval code");
+                break;
+            case StackFrameNativeCode: {
+                if (callee) {
+                    UString functionName = getCalculatedDisplayName(callFrame, stackFrameCallee);
+                    traceLine = String::format("%s@[native code]", functionName.ascii().data());
+                } else
+                    traceLine = "[native code]";
+                break;
+            }
+            case StackFrameFunctionCode: {
+                UString functionName = getCalculatedDisplayName(callFrame, stackFrameCallee);
+                if (hasSourceURLInfo) {
+                    traceLine = hasLineInfo ? String::format("%s@%s:%d", functionName.ascii().data(), sourceURL.ascii().data(), line)
+                                            : String::format("%s@%s", functionName.ascii().data(), sourceURL.ascii().data());
+                } else
+                    traceLine = String::format("%s\n", functionName.ascii().data());
+                break;
+            }
+            case StackFrameGlobalCode:
+                if (hasSourceURLInfo) {
+                    traceLine = hasLineInfo ? String::format("global code@%s:%d", sourceURL.ascii().data(), line)
+                                            : String::format("global code@%s", sourceURL.ascii().data());
+                } else
+                    traceLine = String::format("global code");
+                    
+            }
+            return traceLine.impl();
+        }
     };
 
     class TopCallFrameSetter {
@@ -79,41 +139,68 @@ namespace JSC {
         JSGlobalData& globalData;
         CallFrame* oldCallFrame;
     };
+    
+    class NativeCallFrameTracer {
+    public:
+        ALWAYS_INLINE NativeCallFrameTracer(JSGlobalData* global, CallFrame* callFrame)
+        {
+            ASSERT(global);
+            ASSERT(callFrame);
+            global->topCallFrame = callFrame;
+        }
+    };
 
-#if PLATFORM(IOS)
     // We use a smaller reentrancy limit on iPhone because of the high amount of
     // stack space required on the web thread.
-    enum { MaxLargeThreadReentryDepth = 93, MaxSmallThreadReentryDepth = 16 };
+#if PLATFORM(IOS)
+    enum { MaxLargeThreadReentryDepth = 64, MaxSmallThreadReentryDepth = 16 };
 #else
     enum { MaxLargeThreadReentryDepth = 256, MaxSmallThreadReentryDepth = 16 };
 #endif // PLATFORM(IOS)
 
     class Interpreter {
         WTF_MAKE_FAST_ALLOCATED;
-        friend class JIT;
         friend class CachedCall;
+        friend class LLIntOffsetsExtractor;
+        friend class JIT;
     public:
         Interpreter();
+        ~Interpreter();
+        
+        void initialize(LLInt::Data*, bool canUseJIT);
 
         RegisterFile& registerFile() { return m_registerFile; }
         
         Opcode getOpcode(OpcodeID id)
         {
-            #if ENABLE(COMPUTED_GOTO_INTERPRETER)
-                return m_opcodeTable[id];
-            #else
-                return id;
-            #endif
+            ASSERT(m_initialized);
+#if ENABLE(COMPUTED_GOTO_CLASSIC_INTERPRETER) || ENABLE(LLINT)
+            return m_opcodeTable[id];
+#else
+            return id;
+#endif
         }
 
         OpcodeID getOpcodeID(Opcode opcode)
         {
-            #if ENABLE(COMPUTED_GOTO_INTERPRETER)
-                ASSERT(isOpcode(opcode));
-                return m_opcodeIDTable.get(opcode);
-            #else
-                return opcode;
-            #endif
+            ASSERT(m_initialized);
+#if ENABLE(LLINT)
+            ASSERT(isOpcode(opcode));
+            return m_opcodeIDTable.get(opcode);
+#elif ENABLE(COMPUTED_GOTO_CLASSIC_INTERPRETER)
+            ASSERT(isOpcode(opcode));
+            if (!m_classicEnabled)
+                return static_cast<OpcodeID>(bitwise_cast<uintptr_t>(opcode));
+
+            return m_opcodeIDTable.get(opcode);
+#else
+            return opcode;
+#endif
+        }
+        
+        bool classicEnabled()
+        {
+            return m_classicEnabled;
         }
 
         bool isOpcode(Opcode);
@@ -125,7 +212,7 @@ namespace JSC {
         JSValue execute(EvalExecutable*, CallFrame*, JSValue thisValue, ScopeChainNode*, int globalRegisterOffset);
 
         JSValue retrieveArgumentsFromVMCode(CallFrame*, JSFunction*) const;
-        JS_EXPORT_PRIVATE JSValue retrieveCallerFromVMCode(CallFrame*, JSFunction*) const;
+        JSValue retrieveCallerFromVMCode(CallFrame*, JSFunction*) const;
         JS_EXPORT_PRIVATE void retrieveLastCaller(CallFrame*, int& lineNumber, intptr_t& sourceID, UString& sourceURL, JSValue& function) const;
         
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
@@ -134,6 +221,9 @@ namespace JSC {
 
         NEVER_INLINE HandlerInfo* throwException(CallFrame*&, JSValue&, unsigned bytecodeOffset);
         NEVER_INLINE void debug(CallFrame*, DebugHookID, int firstLine, int lastLine);
+        static const UString getTraceLine(CallFrame*, StackFrameCodeType, const UString&, int);
+        JS_EXPORT_PRIVATE static void getStackTrace(JSGlobalData*, Vector<StackFrame>& results);
+        static void addStackTraceIfNecessary(CallFrame*, JSObject* error);
 
         void dumpSampleData(ExecState* exec);
         void startSampling();
@@ -145,7 +235,7 @@ namespace JSC {
         void endRepeatCall(CallFrameClosure&);
         JSValue execute(CallFrameClosure&);
 
-#if ENABLE(INTERPRETER)
+#if ENABLE(CLASSIC_INTERPRETER)
         NEVER_INLINE bool resolve(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveSkip(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveGlobal(CallFrame*, Instruction*, JSValue& exceptionValue);
@@ -159,7 +249,7 @@ namespace JSC {
         void uncacheGetByID(CodeBlock*, Instruction* vPC);
         void tryCachePutByID(CallFrame*, CodeBlock*, Instruction*, JSValue baseValue, const PutPropertySlot&);
         void uncachePutByID(CodeBlock*, Instruction* vPC);        
-#endif // ENABLE(INTERPRETER)
+#endif // ENABLE(CLASSIC_INTERPRETER)
 
         NEVER_INLINE bool unwindCallFrame(CallFrame*&, JSValue, unsigned& bytecodeOffset, CodeBlock*&);
 
@@ -182,10 +272,18 @@ namespace JSC {
 
         RegisterFile m_registerFile;
         
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if ENABLE(LLINT)
+        Opcode* m_opcodeTable; // Maps OpcodeID => Opcode for compiling
+        HashMap<Opcode, OpcodeID> m_opcodeIDTable; // Maps Opcode => OpcodeID for decompiling
+#elif ENABLE(COMPUTED_GOTO_CLASSIC_INTERPRETER)
         Opcode m_opcodeTable[numOpcodeIDs]; // Maps OpcodeID => Opcode for compiling
         HashMap<Opcode, OpcodeID> m_opcodeIDTable; // Maps Opcode => OpcodeID for decompiling
 #endif
+
+#if !ASSERT_DISABLED
+        bool m_initialized;
+#endif
+        bool m_classicEnabled;
     };
 
     // This value must not be an object that would require this conversion (WebCore's global object).

@@ -373,29 +373,29 @@ LEFDE13:
 .globl _test_rbx_r14.eh
 _test_rbx_r14.eh:
 LSFDE13a:
-	.set L$set$27,LEFDE13a-LASFDE13a
-	.long L$set$27
+	.set L$set$27a,LEFDE13a-LASFDE13a
+	.long L$set$27a
 LASFDE13a:
 	.long	LASFDE13a-EH_frame1
 	.quad	LFB8a-.
-	.set L$set$28,LFE8a-LFB8a
-	.quad L$set$28
+	.set L$set$28a,LFE8a-LFB8a
+	.quad L$set$28a
 	.byte	0x0
 	.byte	0x4
-	.set L$set$29,LCFI16a-LFB8a
-	.long L$set$29
+	.set L$set$29a,LCFI16a-LFB8a
+	.long L$set$29a
 	.byte	0xe
 	.byte	0x10
 	.byte	0x86
 	.byte	0x2
 	.byte	0x4
-	.set L$set$30,LCFI17a-LCFI16a
-	.long L$set$30
+	.set L$set$30a,LCFI17a-LCFI16a
+	.long L$set$30a
 	.byte	0xd
 	.byte	0x6
 	.byte	0x4
-	.set L$set$31,LCFI20a-LCFI17a
-	.long L$set$31
+	.set L$set$31a,LCFI20a-LCFI17a
+	.long L$set$31a
 	.byte	0x8e
 	.byte	0x3
 	.byte	0x83
@@ -480,29 +480,29 @@ LEFDE21:
 .globl _test_r14_r13_r12_rbx.eh
 _test_r14_r13_r12_rbx.eh:
 LSFDE21a:
-	.set L$set$47,LEFDE21a-LASFDE21a
-	.long L$set$47
+	.set L$set$47a,LEFDE21a-LASFDE21a
+	.long L$set$47a
 LASFDE21a:
 	.long	LASFDE21a-EH_frame1
 	.quad	LFB4a-.
-	.set L$set$48,LFE4a-LFB4a
-	.quad L$set$48
+	.set L$set$48a,LFE4a-LFB4a
+	.quad L$set$48a
 	.byte	0x0
 	.byte	0x4
-	.set L$set$49,LCFI38a-LFB4a
-	.long L$set$49
+	.set L$set$49a,LCFI38a-LFB4a
+	.long L$set$49a
 	.byte	0xe
 	.byte	0x10
 	.byte	0x86
 	.byte	0x2
 	.byte	0x4
-	.set L$set$50,LCFI39a-LCFI38a
-	.long L$set$50
+	.set L$set$50a,LCFI39a-LCFI38a
+	.long L$set$50a
 	.byte	0xd
 	.byte	0x6
 	.byte	0x4
-	.set L$set$51,LCFI44a-LCFI39a
-	.long L$set$51
+	.set L$set$51a,LCFI44a-LCFI39a
+	.long L$set$51a
 	.byte	0x8e
 	.byte	0x6
 	.byte	0x8d
@@ -558,29 +558,29 @@ LEFDE23:
 .globl _test_r13_rbx_r14_r15_r12.eh
 _test_r13_rbx_r14_r15_r12.eh:
 LSFDE23a:
-	.set L$set$52,LEFDE23a-LASFDE23a
-	.long L$set$52
+	.set L$set$52a,LEFDE23a-LASFDE23a
+	.long L$set$52a
 LASFDE23a:
 	.long	LASFDE23a-EH_frame1
 	.quad	LFB3a-.
-	.set L$set$53,LFE3a-LFB3a
-	.quad L$set$53
+	.set L$set$53a,LFE3a-LFB3a
+	.quad L$set$53a
 	.byte	0x0
 	.byte	0x4
-	.set L$set$54,LCFI45a-LFB3a
-	.long L$set$54
+	.set L$set$54a,LCFI45a-LFB3a
+	.long L$set$54a
 	.byte	0xe
 	.byte	0x10
 	.byte	0x86
 	.byte	0x2
 	.byte	0x4
-	.set L$set$55,LCFI46a-LCFI45a
-	.long L$set$55
+	.set L$set$55a,LCFI46a-LCFI45a
+	.long L$set$55a
 	.byte	0xd
 	.byte	0x6
 	.byte	0x4
-	.set L$set$56,LCFI52a-LCFI46a
-	.long L$set$56
+	.set L$set$56a,LCFI52a-LCFI46a
+	.long L$set$56a
 	.byte	0x8c
 	.byte	0x3
 	.byte	0x8f

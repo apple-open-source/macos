@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -41,7 +37,7 @@ static const char sccsid[] = "@(#)function.c	8.10 (Berkeley) 5/4/95";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.63 2009/09/04 20:01:16 trasz Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.71 2011/06/13 05:22:07 avatar Exp $");
 
 #include <sys/param.h>
 #include <sys/ucred.h>
@@ -50,10 +46,6 @@ __FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.63 2009/09/04 20:01:16 trasz
 #include <sys/acl.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
-#include <sys/timeb.h>
-#ifdef __APPLE__
-#include <sys/xattr.h>
-#endif /* __APPLE__ */
 
 #include <dirent.h>
 #include <err.h>
@@ -70,15 +62,16 @@ __FBSDID("$FreeBSD: src/usr.bin/find/function.c,v 1.63 2009/09/04 20:01:16 trasz
 #include <unistd.h>
 #include <ctype.h>
 
-#include "find.h"
-
 #ifdef __APPLE__
 #include <sys/sysctl.h>
+#include <sys/xattr.h>
 #include <libgen.h>
 #include <get_compat.h>
 #else
 #define COMPAT_MODE(func, mode) 1
 #endif
+
+#include "find.h"
 
 static PLAN *palloc(OPTION *);
 static long long find_parsenum(PLAN *, const char *, char *, char *);
@@ -88,6 +81,7 @@ static char *nextarg(OPTION *, char ***);
 extern char **environ;
 
 static PLAN *lastexecplus = NULL;
+int execplus_error;
 
 #define	COMPARE(a, b) do {						\
 	switch (plan->flags & F_ELG_MASK) {				\
@@ -622,7 +616,7 @@ f_empty(PLAN *plan __unused, FTSENT *entry)
 		empty = 1;
 		dir = opendir(entry->fts_accpath);
 		if (dir == NULL)
-			err(1, "%s", entry->fts_accpath);
+			return 0;
 		for (dp = readdir(dir); dp; dp = readdir(dir))
 			if (dp->d_name[0] != '.' ||
 			    (dp->d_name[1] != '\0' &&
@@ -726,8 +720,10 @@ doexec:	if ((plan->flags & F_NEEDOK) && !queryuser(plan->e_argv))
 		plan->e_psize = plan->e_pbsize;
 	}
 	pid = waitpid(pid, &status, 0);
-	if (plan->flags & F_EXECPLUS && WIFEXITED(status) && WEXITSTATUS(status))
-		_exit(WEXITSTATUS(status));
+	if (plan->flags & F_EXECPLUS && WIFEXITED(status) && WEXITSTATUS(status) && !execplus_error) {
+		/* Test 140 (8907531, 10656525) */
+		execplus_error = WEXITSTATUS(status);
+	}
 	return (pid != -1 && WIFEXITED(status) && !WEXITSTATUS(status));
 }
 
@@ -834,7 +830,7 @@ done:	*argvp = argv + 1;
 
 /* Finish any pending -exec ... {} + functions. */
 void
-finish_execplus()
+finish_execplus(void)
 {
 	PLAN *p;
 
@@ -915,7 +911,8 @@ f_fstype(PLAN *plan, FTSENT *entry)
 	static dev_t curdev;	/* need a guaranteed illegal dev value */
 	static int first = 1;
 	struct statfs sb;
-	static int val_type, val_flags;
+	static int val_flags;
+	static char fstype[sizeof(sb.f_fstypename)];
 	char *p, save[2] = {0,0};
 
 	if ((plan->flags & F_MTMASK) == F_MTUNKNOWN)
@@ -957,13 +954,13 @@ f_fstype(PLAN *plan, FTSENT *entry)
 		 * always copy both of them.
 		 */
 		val_flags = sb.f_flags;
-		val_type = sb.f_type;
+		strlcpy(fstype, sb.f_fstypename, sizeof(fstype));
 	}
 	switch (plan->flags & F_MTMASK) {
 	case F_MTFLAG:
 		return val_flags & plan->mt_data;
 	case F_MTTYPE:
-		return val_type == plan->mt_data;
+		return (strncmp(fstype, plan->c_data, sizeof(fstype)) == 0);
 	default:
 		abort();
 	}
@@ -974,22 +971,11 @@ c_fstype(OPTION *option, char ***argvp)
 {
 	char *fsname;
 	PLAN *new;
-	struct vfsconf vfc;
 
 	fsname = nextarg(option, argvp);
 	ftsoptions &= ~FTS_NOSTAT;
 
 	new = palloc(option);
-
-	/*
-	 * Check first for a filesystem name.
-	 */
-	if (getvfsbyname(fsname, &vfc) == 0) {
-		new->flags |= F_MTTYPE;
-		new->mt_data = vfc.vfc_typenum;
-		return new;
-	}
-
 	switch (*fsname) {
 	case 'l':
 		if (!strcmp(fsname, "local")) {
@@ -1007,12 +993,8 @@ c_fstype(OPTION *option, char ***argvp)
 		break;
 	}
 
-	/*
-	 * We need to make filesystem checks for filesystems
-	 * that exists but aren't in the kernel work.
-	 */
-	fprintf(stderr, "Warning: Unknown filesystem type %s\n", fsname);
-	new->flags |= F_MTUNKNOWN;
+	new->flags |= F_MTTYPE;
+	new->c_data = fsname;
 	return new;
 }
 
@@ -1221,7 +1203,7 @@ c_newer(OPTION *option, char ***argvp)
 	new = palloc(option);
 	/* compare against what */
 	if (option->flags & F_TIME2_T) {
-		new->t_data = get_date(fn_or_tspec, (struct timeb *) 0);
+		new->t_data = get_date(fn_or_tspec);
 		if (new->t_data == (time_t) -1)
 			errx(1, "Can't parse date/time: %s", fn_or_tspec);
 	} else {
@@ -1231,6 +1213,8 @@ c_newer(OPTION *option, char ***argvp)
 			new->t_data = sb.st_ctime;
 		else if (option->flags & F_TIME2_A)
 			new->t_data = sb.st_atime;
+		else if (option->flags & F_TIME2_B)
+			new->t_data = sb.st_birthtime;
 		else
 			new->t_data = sb.st_mtime;
 	}

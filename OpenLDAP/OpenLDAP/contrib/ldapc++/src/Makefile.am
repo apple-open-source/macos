@@ -1,7 +1,7 @@
-# $OpenLDAP: pkg/ldap/contrib/ldapc++/src/Makefile.am,v 1.10.2.7 2008/07/09 22:18:57 quanah Exp $
+# $OpenLDAP$
 
 ###
-# Copyright 2000-2008, OpenLDAP Foundation, All Rights Reserved.
+# Copyright 2000-2011 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 
@@ -48,7 +48,8 @@ libldapcpp_la_SOURCES = LDAPAddRequest.cpp \
 			LdifWriter.cpp \
 			SaslInteraction.cpp \
 			SaslInteractionHandler.cpp \
-			StringList.cpp 
+			StringList.cpp \
+			TlsOptions.cpp
 
 include_HEADERS = LDAPAsynConnection.h \
 			LDAPAttribute.h \
@@ -82,7 +83,8 @@ include_HEADERS = LDAPAsynConnection.h \
 			LdifWriter.h \
 			SaslInteraction.h \
 			SaslInteractionHandler.h \
-			StringList.h 
+			StringList.h \
+			TlsOptions.h
 
 noinst_HEADERS = ac/time.h \
 		debug.h \

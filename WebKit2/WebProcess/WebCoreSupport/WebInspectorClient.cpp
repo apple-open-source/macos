@@ -28,11 +28,9 @@
 
 #if ENABLE(INSPECTOR)
 
-#include "WebInspectorFrontendClient.h"
 #include "WebInspector.h"
 #include "WebPage.h"
 #include <WebCore/InspectorController.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 
 using namespace WebCore;
@@ -41,20 +39,35 @@ namespace WebKit {
 
 void WebInspectorClient::inspectorDestroyed()
 {
+    closeInspectorFrontend();
     delete this;
 }
 
 void WebInspectorClient::openInspectorFrontend(InspectorController*)
 {
     WebPage* inspectorPage = m_page->inspector()->createInspectorPage();
-    ASSERT(inspectorPage);
-    if (!inspectorPage)
-        return;
-
-    inspectorPage->corePage()->inspectorController()->setInspectorFrontendClient(adoptPtr(new WebInspectorFrontendClient(m_page, inspectorPage)));
+    ASSERT_UNUSED(inspectorPage, inspectorPage);
 }
 
-void WebInspectorClient::highlight(Node*)
+void WebInspectorClient::closeInspectorFrontend()
+{
+    if (m_page->inspector()) {
+        m_page->inspector()->didClose();
+    }
+}
+
+void WebInspectorClient::bringFrontendToFront()
+{
+    m_page->inspector()->bringToFront();
+}
+
+void WebInspectorClient::didResizeMainFrame(Frame*)
+{
+    if (m_page->inspector())
+        m_page->inspector()->updateDockingAvailability();
+}
+
+void WebInspectorClient::highlight()
 {
     if (!m_highlightOverlay) {
         RefPtr<PageOverlay> highlightOverlay = PageOverlay::create(this);
@@ -75,10 +88,19 @@ bool WebInspectorClient::sendMessageToFrontend(const String& message)
     WebInspector* inspector = m_page->inspector();
     if (!inspector)
         return false;
+
+#if ENABLE(INSPECTOR_SERVER)
+    if (inspector->hasRemoteFrontendConnected()) {
+        inspector->sendMessageToRemoteFrontend(message);
+        return true;
+    }
+#endif
+
     WebPage* inspectorPage = inspector->inspectorPage();
-    if (!inspectorPage)
-        return false;
-    return doDispatchMessageOnFrontendPage(inspectorPage->corePage(), message);
+    if (inspectorPage)
+        return doDispatchMessageOnFrontendPage(inspectorPage->corePage(), message);
+
+    return false;
 }
 
 void WebInspectorClient::pageOverlayDestroyed(PageOverlay*)
@@ -101,7 +123,7 @@ void WebInspectorClient::didMoveToWebPage(PageOverlay*, WebPage*)
 
 void WebInspectorClient::drawRect(PageOverlay* overlay, WebCore::GraphicsContext& context, const WebCore::IntRect& dirtyRect)
 {
-    m_page->corePage()->inspectorController()->drawNodeHighlight(context);
+    m_page->corePage()->inspectorController()->drawHighlight(context);
 }
 
 bool WebInspectorClient::mouseEvent(PageOverlay*, const WebMouseEvent&)

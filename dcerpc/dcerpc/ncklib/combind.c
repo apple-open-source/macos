@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -99,7 +99,7 @@
 #include <cs_s.h>	/* I18N codesets definitions */
 #include <comtwrflr.h>
 
-
+
 /*
 **++
 **
@@ -707,7 +707,11 @@ PUBLIC void rpc_binding_copy
     rpc_cs_tags_eval_p_t    tags_s_p;
     rpc_cs_tags_eval_p_t    tags_d_p;
 
-    assert(src_binding_rep != NULL);
+    if (src_binding_rep == NULL)
+    {
+        *status = rpc_s_invalid_arg;
+        return;
+    }
 
     CODING_ERROR (status);
     RPC_VERIFY_INIT ();
@@ -716,7 +720,11 @@ PUBLIC void rpc_binding_copy
     if (*status != rpc_s_ok)
         return;
 
-    assert(src_binding_rep->rpc_addr != NULL);
+    if (src_binding_rep->rpc_addr == NULL)
+    {
+        *status = rpc_s_invalid_arg;
+        return;
+    }
 
     (*rpc_g_naf_id[src_binding_rep->rpc_addr->sa.family].epv
         ->naf_addr_copy)
@@ -1268,7 +1276,198 @@ CLEANUP:
         *binding_h = NULL;
     }
 }
-
+
+
+PRIVATE void rpc__string_netaddr_escape
+(
+    unsigned_char_p_t   netaddr,
+    unsigned_char_p_t   *escaped_netaddr,
+    unsigned32          *status
+)
+{
+    unsigned_char_p_t   saved_netaddr;
+    unsigned_char_p_t   escaped_netaddr_ptr;
+    size_t              escaped_string_size = 1; /* include null at end */
+
+    CODING_ERROR (status);
+
+    /*
+     * if the output argument is NULL, don't do anything
+     */
+    if (escaped_netaddr == NULL)
+    {
+        *status = rpc_s_ok;
+        return;
+    }
+    
+    /*
+     * if the input argument is NULL, return NULL
+     */
+    if (netaddr == NULL)
+    {
+        *escaped_netaddr = NULL;
+        *status = rpc_s_ok;
+        return;
+    }
+
+    /*
+     * calculate total size of the string including escaped out chars
+     */
+    saved_netaddr = netaddr;
+    while (*netaddr != '\0')
+    {
+        switch (*netaddr) 
+        {
+            case ' ':
+            case '@':
+            case ':':
+            case '[':
+            case ']':
+            case ',':
+            case '\\':
+                /* have to add one more char due to adding '\' */
+                escaped_string_size += 2;
+                break;
+                
+            default:
+                escaped_string_size += 1;
+                break;
+        }
+        netaddr++;
+    }
+    
+    /*
+     * heap allocate storage for the escaped string
+     */
+    RPC_MEM_ALLOC (*escaped_netaddr,
+                   unsigned_char_p_t,
+                   escaped_string_size,
+                   RPC_C_MEM_STRING,
+                   RPC_C_MEM_WAITOK);
+
+    escaped_netaddr_ptr = *escaped_netaddr;
+    
+    /* make sure string ends in null */
+    memset(escaped_netaddr_ptr, 0, escaped_string_size);
+    
+    /*
+     * copy chars and escape as needed
+     */
+    netaddr = saved_netaddr;
+    while (*netaddr != '\0')
+    {
+        switch (*netaddr) 
+        {
+            case ' ':
+            case '@':
+            case ':':
+            case '[':
+            case ']':
+            case ',':
+            case '\\':
+                /* add escape char of '\' followed by the char */
+                *(escaped_netaddr_ptr++) = '\\';
+                *(escaped_netaddr_ptr++) = *(netaddr++);
+                break;
+                
+            default:
+                /* no need to escape, just copy the char */
+                *(escaped_netaddr_ptr++) = *(netaddr++);
+                break;
+        }
+    }
+
+    *status = rpc_s_ok;
+    return;
+}
+
+
+PRIVATE void rpc__string_netaddr_unescape
+(
+ unsigned_char_p_t   escaped_netaddr,
+ unsigned_char_p_t   *netaddr,
+ unsigned32          *status
+)
+{
+    unsigned_char_p_t   netaddr_ptr;
+    size_t              escaped_string_size;
+    unsigned_char_p_t   p1, p2;
+    
+    CODING_ERROR (status);
+    
+    /*
+     * if the output argument is NULL, don't do anything
+     */
+    if (netaddr == NULL)
+    {
+        *status = rpc_s_ok;
+        return;
+    }
+    
+    /*
+     * if the input argument is NULL, return NULL
+     */
+    if (escaped_netaddr == NULL)
+    {
+        *netaddr = NULL;
+        *status = rpc_s_ok;
+        return;
+    }
+    
+    /*
+     * The unescaped string will be the same length or shorter than 
+     * the escaped string so allocate same size as the escaped string.
+     */
+    escaped_string_size = strlen ((char*) escaped_netaddr);
+    
+    /*
+     * heap allocate storage for the unescaped string
+     */
+    RPC_MEM_ALLOC (*netaddr,
+                   unsigned_char_p_t,
+                   escaped_string_size + 1,
+                   RPC_C_MEM_STRING,
+                   RPC_C_MEM_WAITOK);
+    
+    netaddr_ptr = *netaddr;
+    
+    /* make sure string ends in null */
+    memset(netaddr_ptr, 0, escaped_string_size + 1);
+    
+    /*
+     * copy the string, filtering out escape chars
+     */
+    p2 = netaddr_ptr;
+    p1 = escaped_netaddr;
+    
+    while (*p1 != '\0')
+    {
+        switch (*p1) 
+        {
+            case '\\':
+                /* skip escape char of '\' and just copy the char */
+                if (p1[1] != '\0') {
+                    p1++;
+                    *(p2++) = *(p1++);
+                }
+                else {
+                    /* must be at end of escaped string so just copy the '\' */
+                    *(p2++) = *(p1++);
+                }
+                break;
+                
+            default:
+                /* no need to unescape, just copy the char */
+                *(p2++) = *(p1++);
+                break;
+        }
+    }
+
+    *status = rpc_s_ok;
+    return;
+}
+
+
 /*
 **++
 **
@@ -1337,6 +1536,7 @@ PUBLIC void rpc_string_binding_parse
     boolean                 get_endpoint;
     unsigned32              temp_status;
     size_t                  len;
+    unsigned_char_p_t       escaped_netaddr;
 
     CODING_ERROR (status);
     RPC_VERIFY_INIT ();
@@ -1624,7 +1824,7 @@ PUBLIC void rpc_string_binding_parse
     {
         if (*string_object_uuid != NULL)
         {
-            rpc__strsqz (*string_object_uuid, TRUE);
+            rpc__strsqz (*string_object_uuid);
         }
         else
         {
@@ -1643,7 +1843,7 @@ PUBLIC void rpc_string_binding_parse
     {
         if (*protseq != NULL)
         {
-            rpc__strsqz (*protseq, TRUE);
+            rpc__strsqz (*protseq);
         }
         else
         {
@@ -1662,12 +1862,25 @@ PUBLIC void rpc_string_binding_parse
     {
         if (*netaddr != NULL)
         {
-#if HAVE_SMBCLIENT_FRAMEWORK
-            /* This handles Bonjour names which may have spaces/tabs */
-            rpc__strsqz (*netaddr, FALSE);
-#else
-            rpc__strsqz (*netaddr, TRUE);
-#endif
+            /* 
+             * call rpc__strsqz before unescaping so that dont lose any escaped
+             * spaces
+             */
+            rpc__strsqz (*netaddr);
+
+            /* unescape the netaddr before returning it */
+            escaped_netaddr = *netaddr;
+            rpc__string_netaddr_unescape(escaped_netaddr, netaddr, &temp_status);
+            if (temp_status == rpc_s_ok)
+            {
+                /* free the escaped netaddr */
+                rpc_string_free (&escaped_netaddr, &temp_status);
+            }
+            else
+            {
+                /* error occurred so restore original netaddr */
+                *netaddr = escaped_netaddr;
+            }
         }
         else
         {
@@ -1686,7 +1899,7 @@ PUBLIC void rpc_string_binding_parse
     {
         if (*endpoint != NULL)
         {
-            rpc__strsqz (*endpoint, TRUE);
+            rpc__strsqz (*endpoint);
         }
         else
         {
@@ -1705,7 +1918,7 @@ PUBLIC void rpc_string_binding_parse
     {
         if (*network_options != NULL)
         {
-            rpc__strsqz (*network_options, TRUE);
+            rpc__strsqz (*network_options);
 
             /*
              * clip the trailing separator off the network options string
@@ -1827,6 +2040,8 @@ PUBLIC void rpc_string_binding_compose
 {
     unsigned_char_p_t   string_binding_ptr;
     unsigned32          string_binding_size = 1;
+    unsigned_char_p_t   escaped_netaddr = NULL;
+    unsigned_char_p_t   temp_netaddr = NULL;
 
     CODING_ERROR (status);
     RPC_VERIFY_INIT ();
@@ -1858,7 +2073,19 @@ PUBLIC void rpc_string_binding_compose
 
     if (netaddr != NULL)
     {
-        string_binding_size += strlen ((char *) netaddr) + 1;
+        /* escape out the netaddr string */
+        rpc__string_netaddr_escape(netaddr, &escaped_netaddr, status);
+        if (*status == rpc_s_ok)
+        {
+            /* add in the len of the escaped string */
+            string_binding_size += strlen ((char *) escaped_netaddr) + 1;
+        }
+        else
+        {
+            /* error occurred so add in the len of netaddr */
+            string_binding_size += strlen ((char *) netaddr) + 1;
+        }
+        
     }
 
     if (endpoint != NULL)
@@ -1912,12 +2139,28 @@ PUBLIC void rpc_string_binding_compose
     /*
      * fill in the network address
      */
-    if (netaddr != NULL)
+    if (escaped_netaddr != NULL)
     {
-        while (*netaddr != '\0')
+        temp_netaddr = escaped_netaddr;
+        while (*temp_netaddr != '\0')
         {
-            *(string_binding_ptr++) = *(netaddr++);
+            *(string_binding_ptr++) = *(temp_netaddr++);
         }
+        rpc_string_free (&escaped_netaddr, status);
+    } 
+    else
+    {
+        /* 
+         * maybe an error occurred when trying to escape the netaddr? 
+         * try to copy in the original netaddr
+         */
+        if (netaddr != NULL)
+        {
+            while (*netaddr != '\0')
+            {
+                *(string_binding_ptr++) = *(netaddr++);
+            }
+        } 
     }
 
     if (endpoint != NULL || network_options != NULL)

@@ -39,6 +39,7 @@
 #include "Timer.h"
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -50,7 +51,6 @@ static void purgeScratchBuffer()
     gScratchBuffer = 0;
 }
 
-// FIXME: Perhaps we can share some of this code with the ContextShadowCairo.
 // Widget rendering needs a scratch image as the buffer for the intermediate
 // render. Instead of creating and destroying the buffer for every operation,
 // we create a buffer which will be automatically purged via a timer.
@@ -58,9 +58,10 @@ class PurgeScratchBufferTimer : public TimerBase {
 private:
     virtual void fired() { purgeScratchBuffer(); }
 };
-static PurgeScratchBufferTimer purgeScratchBufferTimer;
+
 static void scheduleScratchBufferPurge()
 {
+    DEFINE_STATIC_LOCAL(PurgeScratchBufferTimer, purgeScratchBufferTimer, ());
     if (purgeScratchBufferTimer.isActive())
         purgeScratchBufferTimer.stop();
     purgeScratchBufferTimer.startOneShot(2);

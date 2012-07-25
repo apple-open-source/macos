@@ -26,38 +26,74 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.SidebarPane}
+ */
 WebInspector.MetricsSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Metrics"));
+
+    WebInspector.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.StyleSheetChanged, this._styleSheetOrMediaQueryResultChanged, this);
+    WebInspector.cssModel.addEventListener(WebInspector.CSSStyleModel.Events.MediaQueryResultChanged, this._styleSheetOrMediaQueryResultChanged, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrModified, this._attributesUpdated, this);
+    WebInspector.domAgent.addEventListener(WebInspector.DOMAgent.Events.AttrRemoved, this._attributesUpdated, this);
 }
 
 WebInspector.MetricsSidebarPane.prototype = {
+    /**
+     * @param {WebInspector.DOMNode=} node
+     */
     update: function(node)
     {
         if (node)
             this.node = node;
-        else
-            node = this.node;
+        this._innerUpdate();
+    },
+
+    _innerUpdate: function()
+    {
+        // "style" attribute might have changed. Update metrics unless they are being edited
+        // (if a CSS property is added, a StyleSheetChanged event is dispatched).
+        if (this._isEditingMetrics)
+            return;
+
+        // FIXME: avoid updates of a collapsed pane.
+        var node = this.node;
 
         if (!node || node.nodeType() !== Node.ELEMENT_NODE) {
             this.bodyElement.removeChildren();
             return;
         }
 
-        var self = this;
-        var callback = function(style) {
-            if (!style)
+        function callback(style)
+        {
+            if (!style || this.node !== node)
                 return;
-            self._update(style);
-        };
-        WebInspector.cssModel.getComputedStyleAsync(node.id, callback);
+            this._updateMetrics(style);
+        }
+        WebInspector.cssModel.getComputedStyleAsync(node.id, WebInspector.panels.elements.sidebarPanes.styles.forcedPseudoClasses, callback.bind(this));
 
-        var inlineStyleCallback = function(style) {
-            if (!style)
+        function inlineStyleCallback(style)
+        {
+            if (!style || this.node !== node)
                 return;
-            self.inlineStyle = style;
-        };
-        WebInspector.cssModel.getInlineStyleAsync(node.id, inlineStyleCallback);
+            this.inlineStyle = style;
+        }
+        WebInspector.cssModel.getInlineStylesAsync(node.id, inlineStyleCallback.bind(this));
+    },
+
+    _styleSheetOrMediaQueryResultChanged: function()
+    {
+        this._innerUpdate();
+    },
+
+    _attributesUpdated: function(event)
+    {
+        if (this.node !== event.data.node)
+            return;
+
+        this._innerUpdate();
     },
 
     _getPropertyValueAsPx: function(style, propertyName)
@@ -77,54 +113,28 @@ WebInspector.MetricsSidebarPane.prototype = {
 
     _highlightDOMNode: function(showHighlight, mode, event)
     {
-        function enclosingOrSelfWithClassInArray(element, classNames)
-        {
-            for (var node = element; node && node !== element.ownerDocument; node = node.parentNode) {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    for (var i = 0; i < classNames.length; ++i) {
-                        if (node.hasStyleClass(classNames[i]))
-                            return node;
-                    }
-                }
-            }
-            return null;
-        }
-
-        function getBoxRectangleElement(element)
-        {
-            if (!element)
-                return null;
-            return enclosingOrSelfWithClassInArray(element, ["metrics", "margin", "border", "padding", "content"]);
-        }
-
-        event.stopPropagation();
-        var fromElement = getBoxRectangleElement(event.fromElement);
-        var toElement = getBoxRectangleElement(event.toElement);
-
-        if (fromElement === toElement)
-            return;
-
-        if (showHighlight) {
-            // Into element.
-            if (this.node && toElement)
-                toElement.addStyleClass("hovered");
-            var nodeId = this.node ? this.node.id : 0;
-        } else {
-            // Out of element.
-            if (fromElement)
-                fromElement.removeStyleClass("hovered");
-            var nodeId = 0;
-        }
+        event.consume();
+        var nodeId = showHighlight && this.node ? this.node.id : 0;
         if (nodeId) {
             if (this._highlightMode === mode)
                 return;
             this._highlightMode = mode;
-        } else
+            WebInspector.domAgent.highlightDOMNode(nodeId, mode);
+        } else {
             delete this._highlightMode;
-        WebInspector.highlightDOMNode(nodeId, mode);
+            WebInspector.domAgent.hideDOMNodeHighlight();
+        }
+
+        for (var i = 0; this._boxElements && i < this._boxElements.length; ++i) {
+            var element = this._boxElements[i];
+            if (!nodeId || mode === "all" || element._name === mode)
+                element.style.backgroundColor = element._backgroundColor;
+            else
+                element.style.backgroundColor = "";
+        }
     },
 
-    _update: function(style)
+    _updateMetrics: function(style)
     {
         // Updating with computed style.
         var metricsElement = document.createElement("div");
@@ -201,8 +211,16 @@ WebInspector.MetricsSidebarPane.prototype = {
         };
 
         var boxes = ["content", "padding", "border", "margin", "position"];
+        var boxColors = [
+            WebInspector.Color.PageHighlight.Content,
+            WebInspector.Color.PageHighlight.Padding,
+            WebInspector.Color.PageHighlight.Border,
+            WebInspector.Color.PageHighlight.Margin,
+            WebInspector.Color.fromRGBA(0, 0, 0, 0)
+        ];
         var boxLabels = [WebInspector.UIString("content"), WebInspector.UIString("padding"), WebInspector.UIString("border"), WebInspector.UIString("margin"), WebInspector.UIString("position")];
-        var previousBox;
+        var previousBox = null;
+        this._boxElements = [];
         for (var i = 0; i < boxes.length; ++i) {
             var name = boxes[i];
 
@@ -215,8 +233,11 @@ WebInspector.MetricsSidebarPane.prototype = {
 
             var boxElement = document.createElement("div");
             boxElement.className = name;
-            boxElement.addEventListener("mouseover", this._highlightDOMNode.bind(this, true, name), false);
-            boxElement.addEventListener("mouseout", this._highlightDOMNode.bind(this, false, ""), false);
+            boxElement._backgroundColor = boxColors[i].toString("original");
+            boxElement._name = name;
+            boxElement.style.backgroundColor = boxElement._backgroundColor;
+            boxElement.addEventListener("mouseover", this._highlightDOMNode.bind(this, true, name === "position" ? "all" : name), false);
+            this._boxElements.push(boxElement);
 
             if (name === "content") {
                 var widthElement = document.createElement("span");
@@ -254,12 +275,9 @@ WebInspector.MetricsSidebarPane.prototype = {
         }
 
         metricsElement.appendChild(previousBox);
-        metricsElement.addEventListener("mouseover", this._highlightDOMNode.bind(this, true, ""), false);
-        metricsElement.addEventListener("mouseout", this._highlightDOMNode.bind(this, false, ""), false);
+        metricsElement.addEventListener("mouseover", this._highlightDOMNode.bind(this, false, ""), false);
         this.bodyElement.removeChildren();
         this.bodyElement.appendChild(metricsElement);
-
-        WebInspector.highlightDOMNode(0);
     },
 
     startEditing: function(targetElement, box, styleProperty, computedStyle)
@@ -272,12 +290,11 @@ WebInspector.MetricsSidebarPane.prototype = {
         context.keyDownHandler = boundKeyDown;
         targetElement.addEventListener("keydown", boundKeyDown, false);
 
-        WebInspector.panels.elements.startEditingStyle();
-        WebInspector.startEditing(targetElement, {
-            context: context,
-            commitHandler: this.editingCommitted.bind(this),
-            cancelHandler: this.editingCancelled.bind(this)
-        });
+        this._isEditingMetrics = true;
+
+        var config = new WebInspector.EditingConfig(this.editingCommitted.bind(this), this.editingCancelled.bind(this), context);
+        WebInspector.startEditing(targetElement, config);
+
         window.getSelection().setBaseAndExtent(targetElement, 0, targetElement, 1);
     },
 
@@ -292,7 +309,7 @@ WebInspector.MetricsSidebarPane.prototype = {
             return;
 
         var selectionRange = selection.getRangeAt(0);
-        if (selectionRange.commonAncestorContainer !== element && !selectionRange.commonAncestorContainer.isDescendant(element))
+        if (!selectionRange.commonAncestorContainer.isSelfOrDescendant(element))
             return;
 
         var originalValue = element.textContent;
@@ -302,9 +319,9 @@ WebInspector.MetricsSidebarPane.prototype = {
         var matches = /(.*?)(-?(?:\d+(?:\.\d+)?|\.\d+))(.*)/.exec(wordString);
         var replacementString;
         if (matches && matches.length) {
-            prefix = matches[1];
-            suffix = matches[3];
-            number = WebInspector.StylesSidebarPane.alteredFloatNumber(parseFloat(matches[2]), event);
+            var prefix = matches[1];
+            var suffix = matches[3];
+            var number = WebInspector.StylesSidebarPane.alteredFloatNumber(parseFloat(matches[2]), event);
             if (number === null) {
                 // Need to check for null explicitly.
                 return;
@@ -340,7 +357,7 @@ WebInspector.MetricsSidebarPane.prototype = {
         delete this.originalPropertyData;
         delete this.previousPropertyDataCandidate;
         element.removeEventListener("keydown", context.keyDownHandler, false);
-        WebInspector.panels.elements.endEditingStyle();
+        delete this._isEditingMetrics;
     },
 
     editingCancelled: function(element, context)
@@ -362,7 +379,6 @@ WebInspector.MetricsSidebarPane.prototype = {
     {
         if (!this.inlineStyle) {
             // Element has no renderer.
-            delete this.originalPropertyValue;
             return this.editingCancelled(element, context); // nothing changed, so cancel
         }
 
@@ -384,8 +400,7 @@ WebInspector.MetricsSidebarPane.prototype = {
 
         if (computedStyle.getPropertyValue("box-sizing") === "border-box" && (styleProperty === "width" || styleProperty === "height")) {
             if (!userInput.match(/px$/)) {
-                WebInspector.log("For elements with box-sizing: border-box, only absolute content area dimensions can be applied", WebInspector.ConsoleMessage.MessageLevel.Error);
-                WebInspector.showConsole();
+                WebInspector.log("For elements with box-sizing: border-box, only absolute content area dimensions can be applied", WebInspector.ConsoleMessage.MessageLevel.Error, true);
                 return;
             }
 
@@ -410,10 +425,11 @@ WebInspector.MetricsSidebarPane.prototype = {
             self.inlineStyle = style;
             if (!("originalPropertyData" in self))
                 self.originalPropertyData = self.previousPropertyDataCandidate;
-            if ("_highlightMode" in self) {
-                WebInspector.highlightDOMNode(0, "");
-                WebInspector.highlightDOMNode(self.node.id, self._highlightMode);
+
+            if (typeof self._highlightMode !== "undefined") {
+                WebInspector.domAgent.highlightDOMNode(self.node.id, self._highlightMode);
             }
+
             if (commitEditor) {
                 self.dispatchEventToListeners("metrics edited");
                 self.update();
@@ -427,7 +443,7 @@ WebInspector.MetricsSidebarPane.prototype = {
                 continue;
 
             this.previousPropertyDataCandidate = property;
-            property.setValue(userInput, commitEditor, callback);
+            property.setValue(userInput, commitEditor, true, callback);
             return;
         }
 

@@ -247,16 +247,16 @@ test2()
 	free(m);
 
 	printf("spdsetidx()\n");
-	if (pfkey_send_spdsetidx(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spdsetidx(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, sp1, splen1, 0) < 0)
 		errx(1, "ERROR: %s", ipsec_strerror());
 	m = pfkey_recv(so);
 	free(m);
 	
 	printf("spdupdate()\n");
-	if (pfkey_send_spdupdate(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spdupdate(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, sp2, splen2, 0) < 0)
 		errx(1, "ERROR: %s", ipsec_strerror());
 	m = pfkey_recv(so);
@@ -266,16 +266,16 @@ test2()
 	sleep(4);
 
 	printf("spddelete()\n");
-	if (pfkey_send_spddelete(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spddelete(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, sp1, splen1, 0) < 0)
 		errx(1, "ERROR: %s", ipsec_strerror());
 	m = pfkey_recv(so);
 	free(m);
 
 	printf("spdadd()\n");
-	if (pfkey_send_spdadd(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spdadd(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, sp2, splen2, 0) < 0)
 		errx(1, "ERROR: %s", ipsec_strerror());
 	spid = test2sub(so);
@@ -296,16 +296,16 @@ test2()
 	free(m);
 
 	printf("spdadd() with lifetime's 10(s)\n");
-	if (pfkey_send_spdadd2(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spdadd2(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, 0, 10, sp2, splen2, 0) < 0)
 		errx(1, "ERROR: %s", ipsec_strerror());
 	spid = test2sub(so);
 
 	/* expecting failure */
 	printf("spdupdate()\n");
-	if (pfkey_send_spdupdate(so, (struct sockaddr *)addr, 128,
-				(struct sockaddr *)addr, 128,
+	if (pfkey_send_spdupdate(so, (struct sockaddr_storage *)addr, 128,
+				(struct sockaddr_storage *)addr, 128,
 				255, sp2, splen2, 0) == 0) {
 		warnx("ERROR: expecting failure.");
 	}

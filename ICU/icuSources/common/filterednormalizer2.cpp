@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2009-2010, International Business Machines
+*   Copyright (C) 2009-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -25,6 +25,8 @@
 #include "cpputils.h"
 
 U_NAMESPACE_BEGIN
+
+FilteredNormalizer2::~FilteredNormalizer2() {}
 
 UnicodeString &
 FilteredNormalizer2::normalize(const UnicodeString &src,
@@ -151,6 +153,21 @@ FilteredNormalizer2::normalizeSecondAndAppend(UnicodeString &first,
 UBool
 FilteredNormalizer2::getDecomposition(UChar32 c, UnicodeString &decomposition) const {
     return set.contains(c) && norm2.getDecomposition(c, decomposition);
+}
+
+UBool
+FilteredNormalizer2::getRawDecomposition(UChar32 c, UnicodeString &decomposition) const {
+    return set.contains(c) && norm2.getRawDecomposition(c, decomposition);
+}
+
+UChar32
+FilteredNormalizer2::composePair(UChar32 a, UChar32 b) const {
+    return (set.contains(a) && set.contains(b)) ? norm2.composePair(a, b) : U_SENTINEL;
+}
+
+uint8_t
+FilteredNormalizer2::getCombiningClass(UChar32 c) const {
+    return set.contains(c) ? norm2.getCombiningClass(c) : 0;
 }
 
 UBool

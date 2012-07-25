@@ -21,3 +21,30 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <arm/arch.h>
+
+#ifdef _ARM_ARCH_5
+	.text
+
+	.align	2
+	.globl	_ffs
+_ffs:
+	.globl	_ffsl
+_ffsl:
+	rsb		r3, r0, #0
+	and		r0, r0, r3
+	clz		r0, r0
+	rsb		r0, r0, #32
+	bx		lr
+
+	.align	2
+	.globl _fls
+_fls:
+	.globl	_flsl
+_flsl:
+	clz		r0, r0
+	rsb		r0, r0, #32
+	bx		lr
+#else
+#error need to define ffs for this architecture
+#endif

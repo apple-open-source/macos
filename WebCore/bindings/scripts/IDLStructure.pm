@@ -32,7 +32,7 @@ struct( idlDocument => {
     fileName => '$'  # file name
 });
 
-# Used to represent 'interface' / 'exception' blocks
+# Used to represent 'interface' blocks
 struct( domClass => {
     name => '$',      # Class identifier (without module)
     parents => '@',      # List of strings
@@ -40,10 +40,13 @@ struct( domClass => {
     functions => '@',    # List of 'domFunction'
     attributes => '@',    # List of 'domAttribute'    
     extendedAttributes => '$', # Extended attributes
+    constructor => '$', # Constructor
+    isException => '$', # Used for exception interfaces
 });
 
 # Used to represent domClass contents (name of method, signature)
 struct( domFunction => {
+    isStatic => '$',
     signature => '$',    # Return type/Object name/extended attributes
     parameters => '@',    # List of 'domSignature'
     raisesExceptions => '@',  # Possibly raised exceptions.
@@ -70,6 +73,7 @@ struct( domConstant => {
     name => '$',      # DOM Constant identifier
     type => '$',      # Type of data
     value => '$',      # Constant value
+    extendedAttributes => '$', # Extended attributes
 });
 
 # Helpers
@@ -85,26 +89,23 @@ our $constValue = '("[^"\r\n]*")|(0[xX][a-fA-F0-9]+)|(-?[0-9]*)';
 our $idlDataType = '[a-zA-Z0-9\ ]';   # Generic data type identifier
 
 # Magic IDL parsing regular expressions
-my $supportedTypes = "((?:unsigned )?(?:int|short|(?:long )?long)|(?:$idlIdNs*))";
+my $supportedTypes = "((?:(?:unsigned )?(?:int|short|(?:long )?long)|(?:$idlIdNs*))(?:\\[\\]|<(?:$idlIdNsList*)>)?)";
 
-# Special IDL notations
-our $extendedAttributeSyntax = '\[[^]]*\]'; # Used for extended attributes
+# Special IDL notations. This regular expression extracts the string between the first [ and its corresponding ].
+our $extendedAttributeSyntax = qr/\[[^\[\]]*(?:(??{$IDLStructure::extendedAttributeSyntax})[^\[\]]*)*\]/x; # Used for extended attributes
 
 # Regular expression based IDL 'syntactical tokenizer' used in the IDLParser
 our $moduleSelector = 'module\s*(' . $idlId . '*)\s*{';
 our $moduleNSSelector = 'module\s*(' . $idlId . '*)\s*\[ns\s*(' . $idlIdNs . '*)\s*(' . $idlIdNs . '*)\]\s*;';
-our $constantSelector = 'const\s*' . $supportedTypes . '\s*(' . $idlType . '*)\s*=\s*(' . $constValue . ')';
+our $constantSelector = '(' . $extendedAttributeSyntax . ' )?const\s+' . $supportedTypes . '\s*(' . $idlType . '*)\s*=\s*(' . $constValue . ')';
 our $raisesSelector = 'raises\s*\((' . $idlIdNsList . '*)\s*\)';
 our $getterRaisesSelector = '\bgetter\s+raises\s*\((' . $idlIdNsList . '*)\s*\)';
 our $setterRaisesSelector = '\bsetter\s+raises\s*\((' . $idlIdNsList . '*)\s*\)';
 
 our $typeNamespaceSelector = '((?:' . $idlId . '*::)*)\s*(' . $idlDataType . '*)';
 
-our $exceptionSelector = 'exception\s*(' . $idlIdNs . '*)\s*([a-zA-Z\s{;]*};)';
-our $exceptionSubSelector = '{\s*' . $supportedTypes . '\s*(' . $idlType . '*)\s*;\s*}';
-
-our $interfaceSelector = 'interface\s*((?:' . $extendedAttributeSyntax . ' )?)(' . $idlIdNs . '*)\s*(?::(\s*[^{]*))?{([-a-zA-Z0-9_"=\s(),;:\[\]&\|]*)';
-our $interfaceMethodSelector = '\s*((?:' . $extendedAttributeSyntax . ' )?)' . $supportedTypes . '\s*(' . $idlIdNs . '*)\s*\(\s*([a-zA-Z0-9:\s,=\[\]]*)';
+our $interfaceSelector = '(interface|exception)\s*((?:' . $extendedAttributeSyntax . ' )?)(' . $idlIdNs . '*)\s*(?::(\s*[^{]*))?{([-a-zA-Z0-9_"=\s(),;:\[\]<>&\|]*)';
+our $interfaceMethodSelector = '\s*((?:' . $extendedAttributeSyntax . ' )?)(static\s+)?' . $supportedTypes . '\s*(' . $idlIdNs . '*)\s*\(\s*([a-zA-Z0-9:\s,=\[\]<>]*)';
 our $interfaceParameterSelector = '(in|out)\s*((?:' . $extendedAttributeSyntax . ' )?)' . $supportedTypes . '\s*(' . $idlIdNs . '*)';
 
 our $interfaceAttributeSelector = '\s*(readonly attribute|attribute)\s*(' . $extendedAttributeSyntax . ' )?' . $supportedTypes . '\s*(' . $idlType . '*)';

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,28 +26,31 @@
  *
  * convert \X character constants in s in place
  * the length of the converted s is returned (may have embedded \0's)
+ * wide chars absent locale guidance default to UTF-8
+ * strexp() FMT_EXP_* flags passed to chrexp() for selective conversion
  */
 
 #include <ast.h>
 
 int
-stresc(register char* s)
+strexp(register char* s, int flags)
 {
 	register char*		t;
 	register unsigned int	c;
 	char*			b;
 	char*			e;
+	int			w;
 
 	b = t = s;
 	while (c = *s++)
 	{
 		if (c == '\\')
 		{
-			c = chresc(s - 1, &e);
+			c = chrexp(s - 1, &e, &w, flags);
 			s = e;
-			if (c > UCHAR_MAX)
+			if (w)
 			{
-				t += wctomb(t, c);
+				t += mbwide() ? mbconv(t, c) : wc2utf8(t, c);
 				continue;
 			}
 		}
@@ -55,4 +58,10 @@ stresc(register char* s)
 	}
 	*t = 0;
 	return t - b;
+}
+
+int
+stresc(register char* s)
+{
+	return strexp(s, FMT_EXP_CHAR|FMT_EXP_LINE|FMT_EXP_WIDE);
 }

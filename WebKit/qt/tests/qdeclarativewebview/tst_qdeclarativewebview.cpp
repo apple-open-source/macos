@@ -2,19 +2,17 @@
 #include <QAction>
 #include <QColor>
 #include <QDebug>
+#include <QDeclarativeItem>
+#include <QDeclarativeView>
 #include <QDeclarativeComponent>
 #include <QDeclarativeEngine>
-#include <QDeclarativeItem>
 #include <QDeclarativeProperty>
-#include <QDeclarativeView>
 #include <QDir>
 #include <QGraphicsWebView>
 #include <QTest>
 #include <QVariant>
 #include <QWebFrame>
 #include "qdeclarativewebview_p.h"
-
-QT_BEGIN_NAMESPACE
 
 class tst_QDeclarativeWebView : public QObject {
     Q_OBJECT
@@ -23,6 +21,7 @@ public:
     tst_QDeclarativeWebView();
 
 private slots:
+    void initTestCase();
     void cleanupTestCase();
 
     void basicProperties();
@@ -85,6 +84,12 @@ static void removeRecursive(const QString& dirname)
     QDir().rmdir(dirname);
 }
 
+void tst_QDeclarativeWebView::initTestCase()
+{
+    QWebSettings::setIconDatabasePath(tmpDir());
+    QWebSettings::enablePersistentStorage(tmpDir());
+}
+
 void tst_QDeclarativeWebView::cleanupTestCase()
 {
     removeRecursive(tmpDir());
@@ -99,11 +104,11 @@ void tst_QDeclarativeWebView::basicProperties()
 
     QObject* wv = component.create();
     QVERIFY(wv);
+    waitForSignal(wv, SIGNAL(iconChanged()));
     QTRY_COMPARE(wv->property("progress").toDouble(), 1.0);
     QCOMPARE(wv->property("title").toString(), QLatin1String("Basic"));
     QTRY_COMPARE(qvariant_cast<QPixmap>(wv->property("icon")).width(), 48);
-    QEXPECT_FAIL("", "'icon' property isn't working", Continue);
-    QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap("qrc:///resources/basic.png"));
+    QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap(":/resources/basic.png"));
     QCOMPARE(wv->property("statusText").toString(), QLatin1String("status here"));
     QCOMPARE(strippedHtml(fileContents(":/resources/basic.html")), strippedHtml(wv->property("html").toString()));
     QEXPECT_FAIL("", "TODO: get preferred width from QGraphicsWebView result", Continue);
@@ -134,7 +139,7 @@ void tst_QDeclarativeWebView::basicProperties()
 
 void tst_QDeclarativeWebView::elementAreaAt()
 {
-    QSKIP("This test should be changed to test 'heuristicZoom' instead.", SkipAll);
+    W_QSKIP("This test should be changed to test 'heuristicZoom' instead.", SkipAll);
     QDeclarativeEngine engine;
     QDeclarativeComponent component(&engine, QUrl("qrc:///resources/elements.qml"));
     checkNoErrors(component);
@@ -165,6 +170,7 @@ void tst_QDeclarativeWebView::historyNav()
 
     QObject* wv = component.create();
     QVERIFY(wv);
+    waitForSignal(wv, SIGNAL(iconChanged()));
 
     QAction* reloadAction = wv->property("reload").value<QAction*>();
     QVERIFY(reloadAction);
@@ -179,8 +185,7 @@ void tst_QDeclarativeWebView::historyNav()
         QTRY_COMPARE(wv->property("progress").toDouble(), 1.0);
         QCOMPARE(wv->property("title").toString(), QLatin1String("Basic"));
         QTRY_COMPARE(qvariant_cast<QPixmap>(wv->property("icon")).width(), 48);
-        QEXPECT_FAIL("", "'icon' property isn't working", Continue);
-        QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap("qrc:///data/basic.png"));
+        QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap(":/resources/basic.png"));
         QCOMPARE(wv->property("statusText").toString(), QLatin1String("status here"));
         QCOMPARE(strippedHtml(fileContents(":/resources/basic.html")), strippedHtml(wv->property("html").toString()));
         QEXPECT_FAIL("", "TODO: get preferred width from QGraphicsWebView result", Continue);
@@ -192,25 +197,29 @@ void tst_QDeclarativeWebView::historyNav()
         QVERIFY(!forwardAction->isEnabled());
         QVERIFY(!stopAction->isEnabled());
         reloadAction->trigger();
+        waitForSignal(wv, SIGNAL(iconChanged()));
     }
 
     wv->setProperty("url", QUrl("qrc:///resources/forward.html"));
+    waitForSignal(wv, SIGNAL(iconChanged()));
     QTRY_COMPARE(wv->property("progress").toDouble(), 1.0);
     QCOMPARE(wv->property("title").toString(), QLatin1String("Forward"));
     QTRY_COMPARE(qvariant_cast<QPixmap>(wv->property("icon")).width(), 32);
-    QEXPECT_FAIL("", "'icon' property isn't working", Continue);
-    QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap("qrc:///resources/forward.png"));
+    QCOMPARE(qvariant_cast<QPixmap>(wv->property("icon")), QPixmap(":/resources/forward.png"));
     QCOMPARE(strippedHtml(fileContents(":/resources/forward.html")), strippedHtml(wv->property("html").toString()));
     QCOMPARE(wv->property("url").toUrl(), QUrl("qrc:///resources/forward.html"));
     QCOMPARE(wv->property("status").toInt(), int(QDeclarativeWebView::Ready));
     QCOMPARE(wv->property("statusText").toString(), QString());
 
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=61042", Continue);
     QVERIFY(reloadAction->isEnabled());
     QVERIFY(backAction->isEnabled());
     QVERIFY(!forwardAction->isEnabled());
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=61042", Continue);
     QVERIFY(!stopAction->isEnabled());
 
     backAction->trigger();
+    waitForSignal(wv, SIGNAL(loadFinished()));
 
     QTRY_COMPARE(wv->property("progress").toDouble(), 1.0);
     QCOMPARE(wv->property("title").toString(), QLatin1String("Basic"));
@@ -269,17 +278,21 @@ void tst_QDeclarativeWebView::loadError()
 
 void tst_QDeclarativeWebView::multipleWindows()
 {
-    QSKIP("Rework this test to not depend on QDeclarativeGrid", SkipAll);
     QDeclarativeEngine engine;
     QDeclarativeComponent component(&engine, QUrl("qrc:///resources/newwindows.qml"));
     checkNoErrors(component);
 
-//    QDeclarativeGrid *grid = qobject_cast<QDeclarativeGrid*>(component.create());
-//    QVERIFY(grid != 0);
-//    QTRY_COMPARE(grid->children().count(), 2+4); // Component, Loader (with 1 WebView), 4 new-window WebViews
-//    QDeclarativeItem* popup = qobject_cast<QDeclarativeItem*>(grid->children().at(2)); // first popup after Component and Loader.
-//    QVERIFY(popup != 0);
-//    QTRY_COMPARE(popup->x(), 150.0);
+    QDeclarativeItem* rootItem = qobject_cast<QDeclarativeItem*>(component.create());
+    QVERIFY(rootItem);
+
+    QTRY_COMPARE(rootItem->property("pagesOpened").toInt(), 4);
+
+    QDeclarativeProperty prop(rootItem, "firstPageOpened");
+    QObject* firstPageOpened = qvariant_cast<QObject*>(prop.read());
+    QVERIFY(firstPageOpened);
+
+    QDeclarativeProperty xProp(firstPageOpened, "x");
+    QTRY_COMPARE(xProp.read().toReal(), qreal(150.0));
 }
 
 void tst_QDeclarativeWebView::newWindowComponent()
@@ -541,5 +554,3 @@ void tst_QDeclarativeWebView::checkNoErrors(const QDeclarativeComponent& compone
 
 QTEST_MAIN(tst_QDeclarativeWebView)
 #include "tst_qdeclarativewebview.moc"
-
-QT_END_NAMESPACE

@@ -21,24 +21,24 @@
 #include "AXObjectCache.h"
 
 #include "AccessibilityObject.h"
-#include "AccessibilityObjectWrapperAtk.h"
 #include "Document.h"
 #include "Element.h"
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
+#include "HTMLSelectElement.h"
 #include "Range.h"
-#include "SelectElement.h"
 #include "TextIterator.h"
+#include "WebKitAccessibleWrapperAtk.h"
 
 namespace WebCore {
 
 void AXObjectCache::detachWrapper(AccessibilityObject* obj)
 {
-    webkit_accessible_detach(WEBKIT_ACCESSIBLE(obj->wrapper()));
+    webkitAccessibleDetach(WEBKIT_ACCESSIBLE(obj->wrapper()));
 }
 
 void AXObjectCache::attachWrapper(AccessibilityObject* obj)
 {
-    AtkObject* atkObj = ATK_OBJECT(webkit_accessible_new(obj));
+    AtkObject* atkObj = ATK_OBJECT(webkitAccessibleNew(obj));
     obj->setWrapper(atkObj);
     g_object_unref(atkObj);
 }
@@ -84,7 +84,7 @@ static void notifyChildrenSelectionChange(AccessibilityObject* object)
     g_signal_emit_by_name(object->wrapper(), "selection-changed");
 
     // Find the item where the selection change was triggered from.
-    SelectElement* select = toSelectElement(static_cast<Element*>(object->node()));
+    HTMLSelectElement* select = toHTMLSelectElement(object->node());
     if (!select)
         return;
     int changedItemIndex = select->activeSelectionStartListIndex();
@@ -158,9 +158,8 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* coreObject, AX
     }
 }
 
-static void emitTextChanged(AccessibilityObject* object, AXObjectCache::AXTextChange textChange, unsigned offset, unsigned count)
+static void emitTextChanged(AccessibilityObject* object, AXObjectCache::AXTextChange textChange, unsigned offset, const String& text)
 {
-    // Get the axObject for the parent object
     AtkObject* wrapper = object->parentObjectUnignored()->wrapper();
     if (!wrapper || !ATK_IS_TEXT(wrapper))
         return;
@@ -169,26 +168,53 @@ static void emitTextChanged(AccessibilityObject* object, AXObjectCache::AXTextCh
     CString detail;
     switch (textChange) {
     case AXObjectCache::AXTextInserted:
-        detail = "text-changed::insert";
+        detail = "text-insert";
         break;
     case AXObjectCache::AXTextDeleted:
-        detail = "text-changed::delete";
+        detail = "text-remove";
         break;
     }
 
     if (!detail.isNull())
-        g_signal_emit_by_name(wrapper, detail.data(), offset, count);
+        g_signal_emit_by_name(wrapper, detail.data(), offset, text.length(), text.utf8().data());
 }
 
-void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject* object, AXTextChange textChange, unsigned offset, unsigned count)
+void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject* object, AXTextChange textChange, unsigned offset, const String& text)
 {
-    // Sanity check
-    if (count < 1 || !object || !object->isAccessibilityRenderObject())
+    if (!object || !object->isAccessibilityRenderObject() || text.isEmpty())
         return;
 
     Node* node = object->node();
-    RefPtr<Range> range = Range::create(node->document(),  Position(node->parentNode(), 0), Position(node, 0));
-    emitTextChanged(object, textChange, offset + TextIterator::rangeLength(range.get()), count);
+    RefPtr<Range> range = Range::create(node->document(), node->parentNode(), 0, node, 0);
+    emitTextChanged(object, textChange, offset + TextIterator::rangeLength(range.get()), text);
+}
+
+void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject* object, AXLoadingEvent loadingEvent)
+{
+    if (!object)
+        return;
+
+    AtkObject* axObject = object->wrapper();
+    if (!axObject || !ATK_IS_DOCUMENT(axObject))
+        return;
+
+    switch (loadingEvent) {
+    case AXObjectCache::AXLoadingStarted:
+        g_signal_emit_by_name(axObject, "state-change", "busy", true);
+        break;
+    case AXObjectCache::AXLoadingReloaded:
+        g_signal_emit_by_name(axObject, "state-change", "busy", true);
+        g_signal_emit_by_name(axObject, "reload");
+        break;
+    case AXObjectCache::AXLoadingFailed:
+        g_signal_emit_by_name(axObject, "load-stopped");
+        g_signal_emit_by_name(axObject, "state-change", "busy", false);
+        break;
+    case AXObjectCache::AXLoadingFinished:
+        g_signal_emit_by_name(axObject, "load-complete");
+        g_signal_emit_by_name(axObject, "state-change", "busy", false);
+        break;
+    }
 }
 
 void AXObjectCache::handleFocusedUIElementChanged(RenderObject* oldFocusedRender, RenderObject* newFocusedRender)

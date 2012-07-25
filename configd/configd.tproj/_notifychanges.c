@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2006, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,10 +43,6 @@ __SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store, CFArrayRef *notifierKe
 	CFDictionaryRef			info;
 	CFMutableDictionaryRef		newInfo;
 
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
-
 	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 	info = CFDictionaryGetValue(sessionData, sessionKey);
 	if ((info == NULL) ||
@@ -81,6 +77,7 @@ _notifychanges(mach_port_t			server,
 	       int				*sc_status
 )
 {
+	CFIndex			len;
 	serverSessionRef	mySession = getSession(server);
 	CFArrayRef		notifierKeys;	/* array of CFStringRef's */
 	Boolean			ok;
@@ -99,7 +96,8 @@ _notifychanges(mach_port_t			server,
 	}
 
 	/* serialize the array of keys */
-	ok = _SCSerialize(notifierKeys, NULL, (void **)listRef, (CFIndex *)listLen);
+	ok = _SCSerialize(notifierKeys, NULL, (void **)listRef, &len);
+	*listLen = len;
 	CFRelease(notifierKeys);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;

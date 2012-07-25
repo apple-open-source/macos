@@ -26,7 +26,11 @@
 
 #include <QtCore/qobject.h>
 #include <QtCore/qurl.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QtWidgets/qwidget.h>
+#else
 #include <QtGui/qwidget.h>
+#endif
 
 QT_BEGIN_NAMESPACE
 class QNetworkProxy;
@@ -105,7 +109,6 @@ public:
         OpenImageInNewWindow,
         DownloadImageToDisk,
         CopyImageToClipboard,
-        CopyImageUrlToClipboard,
 
         Back,
         Forward,
@@ -179,6 +182,8 @@ public:
 
         StopScheduledPageRefresh,
 
+        CopyImageUrlToClipboard,
+
         WebActionCount
     };
 
@@ -227,7 +232,7 @@ public:
         inline qreal devicePixelRatio() const { return m_devicePixelRatio; }
         inline bool isUserScalable() const { return m_isUserScalable; }
         inline bool isValid() const { return m_isValid; }
-        inline QSize size() const { return m_size; }
+        inline QSizeF size() const { return m_size; }
 
     private:
         QSharedDataPointer<QtViewportAttributesPrivate> d;
@@ -237,7 +242,7 @@ public:
         qreal m_devicePixelRatio;
         bool m_isUserScalable;
         bool m_isValid;
-        QSize m_size;
+        QSizeF m_size;
 
         friend class WebCore::ChromeClientQt;
         friend class QWebPage;
@@ -393,7 +398,7 @@ Q_SIGNALS:
     void microFocusChanged();
     void contentsChanged();
     void databaseQuotaExceeded(QWebFrame* frame, QString databaseName);
-    void applicationCacheQuotaExceeded(QWebSecurityOrigin* origin, quint64 defaultOriginQuota);
+    void applicationCacheQuotaExceeded(QWebSecurityOrigin* origin, quint64 defaultOriginQuota, quint64 totalSpaceNeeded);
 
     void saveFrameStateRequested(QWebFrame* frame, QWebHistoryItem* item);
     void restoreFrameStateRequested(QWebFrame* frame);

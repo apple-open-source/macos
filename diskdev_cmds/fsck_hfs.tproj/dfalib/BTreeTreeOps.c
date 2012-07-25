@@ -33,6 +33,7 @@
 */
 
 #include "BTreePrivate.h"
+#include "../fsck_debug.h"
 extern char debug;
 extern void plog(const char *fmt, ...);
 
@@ -244,7 +245,15 @@ OSStatus	SearchTree	(BTreeControlBlockPtr	 btreePtr,
         //
         if (((BTNodeDescriptor*)nodeRec.buffer)->height != level)
         {
-				if (debug) fprintf(stderr, "%s(%d):  height %d != level %d\n", __FUNCTION__, __LINE__, ((BTNodeDescriptor*)nodeRec.buffer)->height, level);
+				if (debug)
+				{
+					fprintf(stderr, "%s(line %d):  height %d != level %d\n", __FUNCTION__, __LINE__, ((BTNodeDescriptor*)nodeRec.buffer)->height, level);
+					fprintf(stderr, "    curNodeNum = %u\n", curNodeNum);
+					if (cur_debug_level & d_dump_node)
+					{
+						HexDump(nodeRec.buffer, nodeRec.blockSize, true);
+					}
+                }
                 err = fsBTInvalidNodeErr;
                 goto ReleaseAndExit;
         }

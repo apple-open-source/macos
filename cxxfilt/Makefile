@@ -14,9 +14,10 @@ UserType              = Developer
 ToolType              = Commands
 Install_Prefix	      = /usr/local
 Extra_Configure_Flags = --target=$(FAKE_TARGET) \
-			--without-target-subdir --enable-install-libiberty \
-			--disable-nls $(HOST_TARGET_FLAGS)
+			--without-target-subdir \
+			--disable-nls $(HOST_TARGET_FLAGS) --disable-werror
 Extra_CC_Flags        = -mdynamic-no-pic
+Extra_LD_Flags        = -lc++
 GnuAfterInstall       = post-install install-plist
 
 # It's a GNU Source project
@@ -29,7 +30,7 @@ AEP_Version    = 070207
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = libiberty-demangle-5046344.patch libiberty-printf.patch stat64.patch demangle.patch
+AEP_Patches    = libiberty-demangle-5046344.patch libiberty-printf.patch stat64.patch demangle.patch cxa_demangle.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -60,6 +61,8 @@ post-install:
 	$(RM) -r $(DSTROOT)/usr/share/info $(DSTROOT)/usr/local/bin
 	$(RM) -r $(DSTROOT)/usr/local/$(FAKE_TARGET)
 	$(RM) $(DSTROOT)/usr/share/man/man1/$(FAKE_TARGET)-*
+	$(RM) -r $(DSTROOT)/usr/local/include
+	$(RM) -r $(DSTROOT)/usr/local/lib
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses

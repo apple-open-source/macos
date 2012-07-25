@@ -22,14 +22,22 @@
 
 #include "config.h"
 #include "Event.h"
-#include "EventDispatcher.h"
-#include "EventTarget.h"
 
+#include "EventDispatcher.h"
+#include "EventNames.h"
+#include "EventTarget.h"
 #include "UserGestureIndicator.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
+
+EventInit::EventInit()
+    : bubbles(false)
+    , cancelable(false)
+{
+}
+
 
 Event::Event()
     : m_canBubble(false)
@@ -60,6 +68,21 @@ Event::Event(const AtomicString& eventType, bool canBubbleArg, bool cancelableAr
 {
 }
 
+Event::Event(const AtomicString& eventType, const EventInit& initializer)
+    : m_type(eventType)
+    , m_canBubble(initializer.bubbles)
+    , m_cancelable(initializer.cancelable)
+    , m_propagationStopped(false)
+    , m_immediatePropagationStopped(false)
+    , m_defaultPrevented(false)
+    , m_defaultHandled(false)
+    , m_cancelBubble(false)
+    , m_eventPhase(0)
+    , m_currentTarget(0)
+    , m_createTime(convertSecondsToDOMTimeStamp(currentTime()))
+{
+}
+
 Event::~Event()
 {
 }
@@ -69,14 +92,23 @@ void Event::initEvent(const AtomicString& eventTypeArg, bool canBubbleArg, bool 
     if (dispatched())
         return;
 
+    m_propagationStopped = false;
+    m_immediatePropagationStopped = false;
+    m_defaultPrevented = false;
+
     m_type = eventTypeArg;
     m_canBubble = canBubbleArg;
     m_cancelable = cancelableArg;
 }
 
-bool Event::isCustomEvent() const
+const AtomicString& Event::interfaceName() const
 {
-    return false;
+    return eventNames().interfaceForEvent;
+}
+
+bool Event::hasInterface(const AtomicString& name) const
+{
+    return interfaceName() == name;
 }
 
 bool Event::isUIEvent() const
@@ -89,22 +121,7 @@ bool Event::isMouseEvent() const
     return false;
 }
 
-bool Event::isMutationEvent() const
-{
-    return false;
-}
-
 bool Event::isKeyboardEvent() const
-{
-    return false;
-}
-
-bool Event::isTextEvent() const
-{
-    return false;
-}
-
-bool Event::isCompositionEvent() const
 {
     return false;
 }
@@ -119,162 +136,12 @@ bool Event::isClipboardEvent() const
     return false;
 }
 
-bool Event::isWheelEvent() const
-{
-    return false;
-}
-
-bool Event::isMessageEvent() const
+bool Event::storesResultAsString() const
 {
     return false;
 }
 
 bool Event::isBeforeTextInsertedEvent() const
-{
-    return false;
-}
-
-bool Event::isOverflowEvent() const
-{
-    return false;
-}
-
-bool Event::isPageTransitionEvent() const
-{
-    return false;
-}
-
-bool Event::isPopStateEvent() const
-{
-    return false;
-}
-
-bool Event::isProgressEvent() const
-{
-    return false;
-}
-
-bool Event::isWebKitAnimationEvent() const
-{
-    return false;
-}
-
-bool Event::isWebKitTransitionEvent() const
-{
-    return false;
-}
-
-bool Event::isXMLHttpRequestProgressEvent() const
-{
-    return false;
-}
-
-bool Event::isBeforeLoadEvent() const
-{
-    return false;
-}
-
-bool Event::isHashChangeEvent() const
-{
-    return false;
-}
-
-#if ENABLE(SVG)
-bool Event::isSVGZoomEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(DOM_STORAGE)
-bool Event::isStorageEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-bool Event::isIDBVersionChangeEvent() const
-{
-    return false;
-}
-#endif
-
-bool Event::isErrorEvent() const
-{
-    return false;
-}
-
-#if ENABLE(TOUCH_EVENTS)
-bool Event::isTouchEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(DEVICE_ORIENTATION)
-bool Event::isDeviceMotionEvent() const
-{
-    return false;
-}
-
-bool Event::isDeviceOrientationEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(WEB_AUDIO)
-bool Event::isAudioProcessingEvent() const
-{
-    return false;
-}
-
-bool Event::isOfflineAudioCompletionEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(INPUT_SPEECH)
-bool Event::isSpeechInputEvent() const
-{
-    return false;
-}
-#endif
-
-#if ENABLE(WEB_SOCKETS)
-bool Event::isCloseEvent() const
-{
-    return false;
-}
-#endif
-
-bool Event::fromUserGesture()
-{
-    if (!UserGestureIndicator::processingUserGesture())
-        return false;
-
-    const AtomicString& type = this->type();
-    return
-        // mouse events
-        type == eventNames().clickEvent || type == eventNames().mousedownEvent 
-        || type == eventNames().mouseupEvent || type == eventNames().dblclickEvent 
-        // keyboard events
-        || type == eventNames().keydownEvent || type == eventNames().keypressEvent
-        || type == eventNames().keyupEvent
-#if ENABLE(TOUCH_EVENTS)
-        // touch events
-        || type == eventNames().touchstartEvent || type == eventNames().touchmoveEvent
-        || type == eventNames().touchendEvent || type == eventNames().touchcancelEvent
-#endif
-        // other accepted events
-        || type == eventNames().selectEvent || type == eventNames().changeEvent
-        || type == eventNames().focusEvent || type == eventNames().blurEvent
-        || type == eventNames().submitEvent;
-}
-
-bool Event::storesResultAsString() const
 {
     return false;
 }
@@ -304,20 +171,6 @@ void Event::setUnderlyingEvent(PassRefPtr<Event> ue)
         if (e == this)
             return;
     m_underlyingEvent = ue;
-}
-
-EventDispatchMediator::EventDispatchMediator(PassRefPtr<Event> event)
-    : m_event(event)
-{
-}
-
-EventDispatchMediator::~EventDispatchMediator()
-{
-}
-
-bool EventDispatchMediator::dispatchEvent(EventDispatcher* dispatcher) const
-{
-    return dispatcher->dispatchEvent(m_event.get());
 }
 
 } // namespace WebCore

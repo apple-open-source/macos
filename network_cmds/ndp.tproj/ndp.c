@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -169,7 +169,7 @@ int set __P((int, char **));
 void get __P((char *));
 int delete __P((char *));
 void dump __P((struct in6_addr *));
-void dump_ext __P((struct in6_addr *));
+void dump_ext __P((struct in6_addr *, int));
 static struct in6_nbrinfo *getnbrinfo __P((struct in6_addr *addr,
 					   int ifindex, int));
 static char *ether_str __P((struct sockaddr_dl *));
@@ -205,11 +205,12 @@ main(argc, argv)
 {
 	int ch;
 	int aflag = 0, dflag = 0, sflag = 0, Hflag = 0,
-		pflag = 0, rflag = 0, Pflag = 0, Rflag = 0, lflag = 0;
+		pflag = 0, rflag = 0, Pflag = 0, Rflag = 0, lflag = 0,
+		xflag = 0;
 
 	pid = getpid();
 //	thiszone = gmt2local(0);
-	while ((ch = getopt(argc, argv, "acndfIilprstA:HPR")) != -1)
+	while ((ch = getopt(argc, argv, "acndfIilprstA:HPRx")) != -1)
 		switch ((char)ch) {
 		case 'a':
 			aflag = 1;
@@ -275,6 +276,10 @@ main(argc, argv)
 		case 'R':
 			Rflag = 1;
 			break;
+		case 'x':
+			xflag = 1;
+			lflag = 1;
+			break;
 		default:
 			usage();
 		}
@@ -284,7 +289,7 @@ main(argc, argv)
 
 	if (aflag || cflag) {
 		if (lflag)
-			dump_ext(0);
+			dump_ext(0, xflag);
 		else
 			dump(0);
 		exit(0);
@@ -593,7 +598,6 @@ dump(addr)
 	struct rt_msghdr *rtm;
 	struct sockaddr_in6 *sin;
 	struct sockaddr_dl *sdl;
-	extern int h_errno;
 	struct in6_nbrinfo *nbi;
 	struct timeval time;
 	int addrwidth;
@@ -785,8 +789,9 @@ again:;
  * Dump the entire neighbor cache (extended)
  */
 void
-dump_ext(addr)
+dump_ext(addr, xflag)
 	struct in6_addr *addr;
+	int xflag;
 {
 	int mib[6];
 	size_t needed;
@@ -794,7 +799,6 @@ dump_ext(addr)
 	struct rt_msghdr_ext *ertm;
 	struct sockaddr_in6 *sin;
 	struct sockaddr_dl *sdl;
-	extern int h_errno;
 	struct in6_nbrinfo *nbi;
 	struct timeval time;
 	int addrwidth;
@@ -804,11 +808,15 @@ dump_ext(addr)
 	char *ifname;
 
 	/* Print header */
-	if (!tflag && !cflag)
-		printf("%-*.*s %-*.*s %*.*s %-9.9s %-9.9s %2s %4s %4s\n",
+	if (!tflag && !cflag) {
+		printf("%-*.*s %-*.*s %*.*s %-9.9s %-9.9s %2s %4s %4s",
 		    W_ADDR, W_ADDR, "Neighbor", W_LL, W_LL, "Linklayer Address",
 		    W_IF, W_IF, "Netif", "Expire(O)", "Expire(I)", "St",
 		    "Flgs", "Prbs");
+		if (xflag)
+			printf(" %-7.7s %-7.7s %-7.7s", "RSSI", "LQM", "NPM");
+		printf("\n");
+	}
 
 again:;
 	mib[0] = CTL_NET;
@@ -980,6 +988,54 @@ again:;
 
 		if (prbs)
 			printf(" %4d", prbs);
+
+		if (xflag) {
+			if (!prbs)
+				printf(" %-4.4s", "none");
+
+			if (ertm->rtm_ri.ri_rssi != IFNET_RSSI_UNKNOWN)
+				printf(" %7d", ertm->rtm_ri.ri_rssi);
+			else
+				printf(" %-7.7s", "unknown");
+
+			switch (ertm->rtm_ri.ri_lqm)
+			{
+			case IFNET_LQM_THRESH_OFF:
+				printf(" %-7.7s", "off");
+				break;
+			case IFNET_LQM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_LQM_THRESH_POOR:
+				printf(" %-7.7s", "poor");
+				break;
+			case IFNET_LQM_THRESH_GOOD:
+				printf(" %-7.7s", "good");
+				break;
+			default:
+				printf(" %7d", ertm->rtm_ri.ri_lqm);
+				break;
+			}
+
+			switch (ertm->rtm_ri.ri_npm)
+			{
+			case IFNET_NPM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_NPM_THRESH_NEAR:
+				printf(" %-7.7s", "near");
+				break;
+			case IFNET_NPM_THRESH_GENERAL:
+				printf(" %-7.7s", "general");
+				break;
+			case IFNET_NPM_THRESH_FAR:
+				printf(" %-7.7s", "far");
+				break;
+			default:
+				printf(" %7d", ertm->rtm_ri.ri_npm);
+				break;
+			}
+		}
 
 		printf("\n");
 	}
@@ -1184,6 +1240,8 @@ ifinfo(argc, argv)
 		}\
 	} while (0)
 		SETFLAG("nud", ND6_IFF_PERFORMNUD);
+		SETFLAG("proxy_prefixes", ND6_IFF_PROXY_PREFIXES);
+		SETFLAG("ignore_na", ND6_IFF_IGNORE_NA);
 
 		ND.flags = newflags;
 		if (ioctl(s, SIOCSIFINFO_FLAGS, (caddr_t)&nd) < 0) {
@@ -1229,6 +1287,12 @@ ifinfo(argc, argv)
 		printf("\nFlags: ");
 		if ((ND.flags & ND6_IFF_PERFORMNUD) != 0)
 			printf("PERFORMNUD ");
+		if ((ND.flags & ND6_IFF_PROXY_PREFIXES) != 0)
+			printf("PROXY_PREFIXES ");
+		if ((ND.flags & ND6_IFF_IFDISABLED) != 0)
+			printf("IFDISABLED ");
+		if ((ND.flags & ND6_IFF_IGNORE_NA) != 0)
+			printf("IGNORE_NA ");
 	}
 	putc('\n', stdout);
 #undef ND
@@ -1386,12 +1450,13 @@ plist()
 		 * meaning of fields, especially flags, is very different
 		 * by origin.  notify the difference to the users.
 		 */
-		printf("flags=%s%s%s%s%s%s%s",
+		printf("flags=%s%s%s%s%s%s%s%s",
 		       p->raflags.onlink ? "L" : "",
 		       p->raflags.autonomous ? "A" : "",
 		       (p->flags & NDPRF_ONLINK) != 0 ? "O" : "",
 		       (p->flags & NDPRF_DETACHED) != 0 ? "D" : "",
 		       (p->flags & NDPRF_IFSCOPE) != 0 ? "I" : "",
+		       (p->flags & NDPRF_PRPROXY) != 0 ? "Y" : "",
 #ifdef NDPRF_HOME
 		       (p->flags & NDPRF_HOME) != 0 ? "H" : "",
 #else

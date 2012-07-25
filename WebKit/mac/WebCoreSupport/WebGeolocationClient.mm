@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,8 @@
 
 #import "WebGeolocationClient.h"
 
+#if ENABLE(GEOLOCATION)
+
 #import "WebDelegateImplementationCaching.h"
 #import "WebFrameInternal.h"
 #import "WebGeolocationPositionInternal.h"
@@ -37,7 +39,7 @@
 
 using namespace WebCore;
 
-@interface WebGeolocationPolicyListener : NSObject <WebGeolocationPolicyListener>
+@interface WebGeolocationPolicyListener : NSObject <WebAllowDenyPolicyListener>
 {
     RefPtr<Geolocation> _geolocation;
 }
@@ -88,11 +90,7 @@ void WebGeolocationClient::requestPermission(Geolocation* geolocation)
 
 GeolocationPosition* WebGeolocationClient::lastPosition()
 {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
     return core([[m_webView _geolocationProvider] lastPosition]);
-#else
-    return 0;
-#endif
 }
 
 @implementation WebGeolocationPolicyListener
@@ -117,3 +115,4 @@ GeolocationPosition* WebGeolocationClient::lastPosition()
 
 @end
 
+#endif // ENABLE(GEOLOCATION)

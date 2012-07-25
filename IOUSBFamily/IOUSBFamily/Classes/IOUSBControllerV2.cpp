@@ -36,6 +36,7 @@
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+
 #include "USBTracepoints.h"
 
 #define CONTROLLERV2_USE_KPRINTF 0
@@ -499,8 +500,8 @@ IOUSBControllerV2::DoCreateEP(OSObject *owner,
         if( (maxBurst != 0) || (maxStreams != 0) )
         {
             USBLog(1,"%s[%p]::DoCreateEP, SuperSpeed create EP, but controller doesn't support it. maxStreams: %d, maxBurst: %d", me->getName(), me, (int)maxStreams, (int)maxBurst);
-            return kIOReturnUnsupported;
         }
+		return kIOReturnUnsupported;
     }
 #endif
 	

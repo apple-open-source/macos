@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.64 2010/07/29 15:59:28 abe Exp $
+ * $Id: lsof.h,v 1.65 2011/09/07 19:13:49 abe Exp $
  */
 
 
@@ -345,9 +345,10 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_STREAM	47		/* stream node */
 #define	N_TMP		48		/* tmpfs node */
 #define	N_UFS		49		/* UNIX file system node */
-#define	N_VXFS		50		/* Veritas file system node */
-#define	N_XFS		51		/* XFS node */
-#define	N_ZFS		52		/* ZFS node */
+#define	N_UNKN		50		/* unknown node type */
+#define	N_VXFS		51		/* Veritas file system node */
+#define	N_XFS		52		/* XFS node */
+#define	N_ZFS		53		/* ZFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -510,6 +511,17 @@ extern struct drive_Nl Drive_Nl[];	/* defined in dstore.c */
  * Global storage definitions (including their structure definitions)
  */
 
+typedef struct efsys_list {
+	char *path;			/* path to file system for which kernel
+					 * blocks are to be eliminated */
+	int pathl;			/* path length */
+	int rdlnk;			/* avoid readlink(2) if non-zero */
+	struct mounts *mp;		/* local mount table entry pointer */
+	struct efsys_list *next;	/* next efsys_list entry pointer */
+} efsys_list_t;
+extern efsys_list_t *Efsysl;		/* file systems for which kernel blocks
+					 * are to be eliminated */
+
 struct int_lst {
 	int i;				/* integer argument */
 	int f;				/* find state -- meaningful only if
@@ -609,7 +621,11 @@ extern int Fnlink;
 extern int Foffset;
 extern int Fovhd;
 extern int Fport;
+
+# if	!defined(HASNORPC_H)
 extern int FportMap;
+# endif	/* !defined(HASNORPC_H) */
+
 extern int Fpgid;
 extern int Fppid;
 extern int Fsize;

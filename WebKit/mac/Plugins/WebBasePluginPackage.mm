@@ -29,6 +29,7 @@
 #import <WebKit/WebBasePluginPackage.h>
 
 #import <algorithm>
+#import <WebCore/RunLoop.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebKit/WebKitNSStringExtras.h>
 #import <WebKit/WebNSObjectExtras.h>
@@ -37,7 +38,6 @@
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
 #import <wtf/MainThread.h>
-#import <wtf/Threading.h>
 #import <wtf/Vector.h>
 #import <wtf/text/CString.h>
 
@@ -70,6 +70,7 @@ using namespace WebCore;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -94,6 +95,11 @@ using namespace WebCore;
     return WebCFAutorelease(WKCopyCFLocalizationPreferredName(NULL));
 }
 
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+// FIXME: Rewrite this in terms of -[NSURL URLByResolvingBookmarkData:…].
 static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 {
     NSString *newPath = [thePath stringByResolvingSymlinksInPath];
@@ -119,6 +125,9 @@ static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 
     return newPath;
 }
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
 - (id)initWithPath:(NSString *)pluginPath
 {
@@ -454,9 +463,22 @@ static inline void swapIntsInHeader(uint32_t* rawData, size_t length)
     [pluginDatabases removeObject:database];
 }
 
-- (WTF::String)bundleIdentifier
+- (String)bundleIdentifier
 {
     return CFBundleGetIdentifier(cfBundle.get());
+}
+
+- (String)bundleVersion
+{
+    CFDictionaryRef infoDictionary = CFBundleGetInfoDictionary(cfBundle.get());
+    if (!infoDictionary)
+        return String();
+
+    CFTypeRef bundleVersionString = CFDictionaryGetValue(infoDictionary, kCFBundleVersionKey);
+    if (!bundleVersionString || CFGetTypeID(bundleVersionString) != CFStringGetTypeID())
+        return String();
+
+    return reinterpret_cast<CFStringRef>(bundleVersionString);
 }
 
 @end

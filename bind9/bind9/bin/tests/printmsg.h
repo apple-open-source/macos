@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: printmsg.h,v 1.12 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: printmsg.h,v 1.12 2007-06-19 23:46:59 tbox Exp $ */
 
 #ifndef TEST_PRINTMSG_H
 #define TEST_PRINTMSG_H

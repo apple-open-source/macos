@@ -298,6 +298,7 @@ ExitStatus setPrelinkedKernelArgs(
 Boolean setDefaultKernel(KextcacheArgs * toolArgs);
 Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs);
 void setSystemExtensionsFolders(KextcacheArgs * toolArgs);
+ExitStatus doUpdateVolume(KextcacheArgs *toolArgs);
 
 void checkKextdSpawnedFilter(Boolean kernelFlag);
 ExitStatus checkArgs(KextcacheArgs * toolArgs);

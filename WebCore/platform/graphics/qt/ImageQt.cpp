@@ -34,46 +34,61 @@
 
 #include "AffineTransform.h"
 #include "BitmapImage.h"
-#include "ContextShadow.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageObserver.h"
 #include "PlatformString.h"
+#include "ShadowBlur.h"
 #include "StillImageQt.h"
-#include "qwebsettings.h"
 
-#include <QPixmap>
-#include <QPainter>
+#include <QCoreApplication>
+#include <QDebug>
 #include <QImage>
 #include <QImageReader>
+#include <QPainter>
+#include <QPixmap>
 #include <QTransform>
 
-#include <QDebug>
-
 #include <math.h>
+
+typedef QHash<QByteArray, QPixmap> WebGraphicHash;
+Q_GLOBAL_STATIC(WebGraphicHash, _graphics)
+
+static void earlyClearGraphics()
+{
+    _graphics()->clear();
+}
+
+static WebGraphicHash* graphics()
+{
+    WebGraphicHash* hash = _graphics();
+
+    if (hash->isEmpty()) {
+
+        // prevent ~QPixmap running after ~QApplication (leaks native pixmaps)
+        qAddPostRoutine(earlyClearGraphics);
+
+        // QWebSettings::MissingImageGraphic
+        hash->insert("missingImage", QPixmap(QLatin1String(":webkit/resources/missingImage.png")));
+        // QWebSettings::MissingPluginGraphic
+        hash->insert("nullPlugin", QPixmap(QLatin1String(":webkit/resources/nullPlugin.png")));
+        // QWebSettings::DefaultFrameIconGraphic
+        hash->insert("urlIcon", QPixmap(QLatin1String(":webkit/resources/urlIcon.png")));
+        // QWebSettings::TextAreaSizeGripCornerGraphic
+        hash->insert("textAreaResizeCorner", QPixmap(QLatin1String(":webkit/resources/textAreaResizeCorner.png")));
+        // QWebSettings::DeleteButtonGraphic
+        hash->insert("deleteButton", QPixmap(QLatin1String(":webkit/resources/deleteButton.png")));
+        // QWebSettings::InputSpeechButtonGraphic
+        hash->insert("inputSpeech", QPixmap(QLatin1String(":webkit/resources/inputSpeech.png")));
+    }
+
+    return hash;
+}
 
 // This function loads resources into WebKit
 static QPixmap loadResourcePixmap(const char *name)
 {
-    QPixmap pixmap;
-    if (qstrcmp(name, "missingImage") == 0)
-        pixmap = QWebSettings::webGraphic(QWebSettings::MissingImageGraphic);
-    else if (qstrcmp(name, "nullPlugin") == 0)
-        pixmap = QWebSettings::webGraphic(QWebSettings::MissingPluginGraphic);
-    else if (qstrcmp(name, "urlIcon") == 0)
-        pixmap = QWebSettings::webGraphic(QWebSettings::DefaultFrameIconGraphic);
-    else if (qstrcmp(name, "textAreaResizeCorner") == 0)
-        pixmap = QWebSettings::webGraphic(QWebSettings::TextAreaSizeGripCornerGraphic);
-    else if (qstrcmp(name, "deleteButton") == 0)
-        pixmap = QWebSettings::webGraphic(QWebSettings::DeleteButtonGraphic);
-    else if (!qstrcmp(name, "inputSpeech"))
-        pixmap = QWebSettings::webGraphic(QWebSettings::InputSpeechButtonGraphic);
-    else if (!qstrcmp(name, "searchCancelButton"))
-        pixmap = QWebSettings::webGraphic(QWebSettings::SearchCancelButtonGraphic);
-    else if (!qstrcmp(name, "searchCancelButtonPressed"))
-        pixmap = QWebSettings::webGraphic(QWebSettings::SearchCancelButtonPressedGraphic);
-
-    return pixmap;
+    return graphics()->value(name);
 }
 
 namespace WebCore {
@@ -99,6 +114,15 @@ bool FrameData::clear(bool clearMetadata)
 PassRefPtr<Image> Image::loadPlatformResource(const char* name)
 {
     return StillImage::create(loadResourcePixmap(name));
+}
+
+void Image::setPlatformResource(const char* name, const QPixmap& pixmap)
+{
+    WebGraphicHash* h = graphics();
+    if (pixmap.isNull())
+        h->remove(name);
+    else
+        h->insert(name, pixmap);
 }
 
 void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const AffineTransform& patternTransform,
@@ -168,15 +192,15 @@ BitmapImage::BitmapImage(QPixmap* pixmap, ImageObserver* observer)
     , m_repetitionCount(cAnimationNone)
     , m_repetitionCountStatus(Unknown)
     , m_repetitionsComplete(0)
+    , m_decodedSize(0)
+    , m_frameCount(1)
     , m_isSolidColor(false)
     , m_checkedForSolidColor(false)
     , m_animationFinished(true)
     , m_allDataReceived(true)
     , m_haveSize(true)
     , m_sizeAvailable(true)
-    , m_decodedSize(0)
     , m_haveFrameCount(true)
-    , m_frameCount(1)
 {
     initPlatformData();
 
@@ -224,11 +248,11 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
     CompositeOperator previousOperator = ctxt->compositeOperation();
     ctxt->setCompositeOperation(!image->hasAlpha() && op == CompositeSourceOver ? CompositeCopy : op);
 
-    ContextShadow* shadow = ctxt->contextShadow();
-    if (shadow->m_type != ContextShadow::NoShadow) {
-        QPainter* shadowPainter = shadow->beginShadowLayer(ctxt, normalizedDst);
-        if (shadowPainter) {
-            shadowPainter->setOpacity(static_cast<qreal>(shadow->m_color.alpha()) / 255);
+    if (ctxt->hasShadow()) {
+        ShadowBlur* shadow = ctxt->shadowBlur();
+        GraphicsContext* shadowContext = shadow->beginShadowLayer(ctxt, normalizedDst);
+        if (shadowContext) {
+            QPainter* shadowPainter = shadowContext->platformContext();
             shadowPainter->drawPixmap(normalizedDst, *image, normalizedSrc);
             shadow->endShadowLayer(ctxt);
         }

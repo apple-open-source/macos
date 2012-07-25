@@ -58,7 +58,14 @@ WebString WebIDBIndexImpl::storeName() const
     return m_backend->storeName();
 }
 
-WebString WebIDBIndexImpl::keyPath() const
+WebIDBKeyPath WebIDBIndexImpl::keyPath() const
+{
+    return WebIDBKeyPath(m_backend->keyPath());
+}
+
+// FIXME: Remove this method once callers are updated.
+// http://webkit.org/b/84207
+WebString WebIDBIndexImpl::keyPathString() const
 {
     return m_backend->keyPath();
 }
@@ -66,6 +73,11 @@ WebString WebIDBIndexImpl::keyPath() const
 bool WebIDBIndexImpl::unique() const
 {
     return m_backend->unique();
+}
+
+bool WebIDBIndexImpl::multiEntry() const
+{
+    return m_backend->multiEntry();
 }
 
 void WebIDBIndexImpl::openObjectCursor(const WebIDBKeyRange& keyRange, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
@@ -78,12 +90,17 @@ void WebIDBIndexImpl::openKeyCursor(const WebIDBKeyRange& keyRange, unsigned sho
     m_backend->openKeyCursor(keyRange, direction, IDBCallbacksProxy::create(adoptPtr(callbacks)), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
-void WebIDBIndexImpl::getObject(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
+void WebIDBIndexImpl::count(const WebIDBKeyRange& keyRange,  WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
+{
+    m_backend->count(keyRange, IDBCallbacksProxy::create(adoptPtr(callbacks)), transaction.getIDBTransactionBackendInterface(), ec);
+}
+
+void WebIDBIndexImpl::getObject(const WebIDBKeyRange& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
     m_backend->get(keyRange, IDBCallbacksProxy::create(adoptPtr(callbacks)), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
-void WebIDBIndexImpl::getKey(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
+void WebIDBIndexImpl::getKey(const WebIDBKeyRange& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
     m_backend->getKey(keyRange, IDBCallbacksProxy::create(adoptPtr(callbacks)), transaction.getIDBTransactionBackendInterface(), ec);
 }

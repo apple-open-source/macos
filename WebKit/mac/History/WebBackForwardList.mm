@@ -42,14 +42,15 @@
 #import <WebCore/HistoryItem.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageCache.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/Settings.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
+#import <wtf/MainThread.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/StdLibExtras.h>
-#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -91,7 +92,7 @@ WebBackForwardList *kit(BackForwardListImpl* backForwardList)
     if (!self)
         return nil;
 
-    _private = reinterpret_cast<WebBackForwardListPrivate*>(backForwardList.releaseRef());
+    _private = reinterpret_cast<WebBackForwardListPrivate*>(backForwardList.leakRef());
     backForwardLists().set(core(self), self);
     return self;
 }
@@ -104,6 +105,7 @@ WebBackForwardList *kit(BackForwardListImpl* backForwardList)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 

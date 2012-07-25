@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 
 #define	MAXLINKS	8
 
-static CFMutableArrayRef
+static CF_RETURNS_RETAINED CFMutableArrayRef
 normalizePath(CFStringRef path)
 {
 	CFMutableArrayRef	elements;

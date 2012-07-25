@@ -26,6 +26,7 @@
 #define FontDescription_h
 
 #include "FontFamily.h"
+#include "FontFeatureSettings.h"
 #include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include "FontSmoothingMode.h"
@@ -33,9 +34,14 @@
 #include "FontWidthVariant.h"
 #include "TextOrientation.h"
 #include "TextRenderingMode.h"
+#include "WebKitFontFamilyNames.h"
 #include <wtf/MathExtras.h>
 
+#include <wtf/RefPtr.h>
+
 namespace WebCore {
+
+using namespace WebKitFontFamilyNames;
 
 enum FontWeight {
     FontWeight100,
@@ -66,6 +72,10 @@ public:
     enum GenericFamilyType { NoFamily, StandardFamily, SerifFamily, SansSerifFamily, 
                              MonospaceFamily, CursiveFamily, FantasyFamily, PictographFamily };
 
+    enum Kerning { AutoKerning, NormalKerning, NoneKerning };
+
+    enum LigaturesState { NormalLigaturesState, DisabledLigaturesState, EnabledLigaturesState };
+
     FontDescription()
         : m_specifiedSize(0)
         , m_computedSize(0)
@@ -79,10 +89,15 @@ public:
         , m_genericFamily(NoFamily)
         , m_usePrinterFont(false)
         , m_renderingMode(NormalRenderingMode)
+        , m_kerning(AutoKerning)
+        , m_commonLigaturesState(NormalLigaturesState)
+        , m_discretionaryLigaturesState(NormalLigaturesState)
+        , m_historicalLigaturesState(NormalLigaturesState)
         , m_keywordSize(0)
         , m_fontSmoothing(AutoSmoothing)
         , m_textRendering(AutoTextRendering)
         , m_isSpecifiedFont(false)
+        , m_script(USCRIPT_COMMON)
     {
     }
 
@@ -103,17 +118,24 @@ public:
     GenericFamilyType genericFamily() const { return static_cast<GenericFamilyType>(m_genericFamily); }
     bool usePrinterFont() const { return m_usePrinterFont; }
     // only use fixed default size when there is only one font family, and that family is "monospace"
-    bool useFixedDefaultSize() const { return genericFamily() == MonospaceFamily && !family().next() && family().family() == "-webkit-monospace"; }
+    bool useFixedDefaultSize() const { return genericFamily() == MonospaceFamily && !family().next() && family().family() == monospaceFamily; }
     FontRenderingMode renderingMode() const { return static_cast<FontRenderingMode>(m_renderingMode); }
+    Kerning kerning() const { return static_cast<Kerning>(m_kerning); }
+    LigaturesState commonLigaturesState() const { return static_cast<LigaturesState>(m_commonLigaturesState); }
+    LigaturesState discretionaryLigaturesState() const { return static_cast<LigaturesState>(m_discretionaryLigaturesState); }
+    LigaturesState historicalLigaturesState() const { return static_cast<LigaturesState>(m_historicalLigaturesState); }
     unsigned keywordSize() const { return m_keywordSize; }
     FontSmoothingMode fontSmoothing() const { return static_cast<FontSmoothingMode>(m_fontSmoothing); }
     TextRenderingMode textRenderingMode() const { return static_cast<TextRenderingMode>(m_textRendering); }
+    UScriptCode script() const { return m_script; }
 
     FontTraitsMask traitsMask() const;
     bool isSpecifiedFont() const { return m_isSpecifiedFont; }
-    FontOrientation orientation() const { return m_orientation; }
-    TextOrientation textOrientation() const { return m_textOrientation; }
-    FontWidthVariant widthVariant() const { return m_widthVariant; }
+    FontOrientation orientation() const { return static_cast<FontOrientation>(m_orientation); }
+    TextOrientation textOrientation() const { return static_cast<TextOrientation>(m_textOrientation); }
+    FontWidthVariant widthVariant() const { return static_cast<FontWidthVariant>(m_widthVariant); }
+    FontFeatureSettings* featureSettings() const { return m_featureSettings.get(); }
+    FontDescription makeNormalFeatureSettings() const;
 
     void setFamily(const FontFamily& family) { m_familyList = family; }
     void setComputedSize(float s) { ASSERT(isfinite(s)); m_computedSize = s; }
@@ -131,6 +153,10 @@ public:
     void setUsePrinterFont(bool p) { m_usePrinterFont = p; }
 #endif
     void setRenderingMode(FontRenderingMode mode) { m_renderingMode = mode; }
+    void setKerning(Kerning kerning) { m_kerning = kerning; }
+    void setCommonLigaturesState(LigaturesState commonLigaturesState) { m_commonLigaturesState = commonLigaturesState; }
+    void setDiscretionaryLigaturesState(LigaturesState discretionaryLigaturesState) { m_discretionaryLigaturesState = discretionaryLigaturesState; }
+    void setHistoricalLigaturesState(LigaturesState historicalLigaturesState) { m_historicalLigaturesState = historicalLigaturesState; }
     void setKeywordSize(unsigned s) { m_keywordSize = s; }
     void setFontSmoothing(FontSmoothingMode smoothing) { m_fontSmoothing = smoothing; }
     void setTextRenderingMode(TextRenderingMode rendering) { m_textRendering = rendering; }
@@ -138,28 +164,36 @@ public:
     void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
     void setTextOrientation(TextOrientation textOrientation) { m_textOrientation = textOrientation; }
     void setWidthVariant(FontWidthVariant widthVariant) { m_widthVariant = widthVariant; }
+    void setScript(UScriptCode s) { m_script = s; }
+    void setFeatureSettings(PassRefPtr<FontFeatureSettings> settings) { m_featureSettings = settings; }
 
 private:
     FontFamily m_familyList; // The list of font families to be used.
+    RefPtr<FontFeatureSettings> m_featureSettings;
 
     float m_specifiedSize;   // Specified CSS value. Independent of rendering issues such as integer
                              // rounding, minimum font sizes, and zooming.
     float m_computedSize;    // Computed size adjusted for the minimum font size and the zoom factor.  
 
-    FontOrientation m_orientation; // Whether the font is rendering on a horizontal line or a vertical line.
-    TextOrientation m_textOrientation; // Only used by vertical text. Determines the default orientation for non-ideograph glyphs.
+    unsigned m_orientation : 1; // FontOrientation - Whether the font is rendering on a horizontal line or a vertical line.
+    unsigned m_textOrientation : 1; // TextOrientation - Only used by vertical text. Determines the default orientation for non-ideograph glyphs.
 
-    FontWidthVariant m_widthVariant;
+    unsigned m_widthVariant : 2; // FontWidthVariant
 
     unsigned m_italic : 1; // FontItalic
     unsigned m_smallCaps : 1; // FontSmallCaps
-    bool m_isAbsoluteSize : 1;   // Whether or not CSS specified an explicit size
-                                 // (logical sizes like "medium" don't count).
+    unsigned m_isAbsoluteSize : 1; // Whether or not CSS specified an explicit size
+                                  // (logical sizes like "medium" don't count).
     unsigned m_weight : 8; // FontWeight
     unsigned m_genericFamily : 3; // GenericFamilyType
-    bool m_usePrinterFont : 1;
+    unsigned m_usePrinterFont : 1;
 
     unsigned m_renderingMode : 1;  // Used to switch between CG and GDI text on Windows.
+    unsigned m_kerning : 2; // Kerning
+
+    unsigned m_commonLigaturesState : 2;
+    unsigned m_discretionaryLigaturesState : 2;
+    unsigned m_historicalLigaturesState : 2;
 
     unsigned m_keywordSize : 4; // We cache whether or not a font is currently represented by a CSS keyword (e.g., medium).  If so,
                            // then we can accurately translate across different generic families to adjust for different preference settings
@@ -167,7 +201,8 @@ private:
 
     unsigned m_fontSmoothing : 2; // FontSmoothingMode
     unsigned m_textRendering : 2; // TextRenderingMode
-    bool m_isSpecifiedFont : 1; // True if a web page specifies a non-generic font family as the first font family.
+    unsigned m_isSpecifiedFont : 1; // True if a web page specifies a non-generic font family as the first font family.
+    UScriptCode m_script; // Used to help choose an appropriate font for generic font families.
 };
 
 inline bool FontDescription::operator==(const FontDescription& other) const
@@ -182,13 +217,19 @@ inline bool FontDescription::operator==(const FontDescription& other) const
         && m_genericFamily == other.m_genericFamily
         && m_usePrinterFont == other.m_usePrinterFont
         && m_renderingMode == other.m_renderingMode
+        && m_kerning == other.m_kerning
+        && m_commonLigaturesState == other.m_commonLigaturesState
+        && m_discretionaryLigaturesState == other.m_discretionaryLigaturesState
+        && m_historicalLigaturesState == other.m_historicalLigaturesState
         && m_keywordSize == other.m_keywordSize
         && m_fontSmoothing == other.m_fontSmoothing
         && m_textRendering == other.m_textRendering
         && m_isSpecifiedFont == other.m_isSpecifiedFont
         && m_orientation == other.m_orientation
         && m_textOrientation == other.m_textOrientation
-        && m_widthVariant == other.m_widthVariant;
+        && m_widthVariant == other.m_widthVariant
+        && m_script == other.m_script
+        && m_featureSettings == other.m_featureSettings;
 }
 
 }

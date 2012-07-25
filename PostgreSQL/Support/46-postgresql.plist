@@ -5,7 +5,7 @@
 	<key>ServiceName</key>
 	<string>postgresql</string>
 	<key>BackupBinaryPath</key>
-	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<string>/Applications/Server.app/Contents/ServerRoot/usr/libexec/server_backup/postgresql_backup.rb</string>
 	<key>BackupLog</key>
 	<string>/private/var/log/server_backup/postgresql_backup.log</string>
 	<key>BackupActions</key>
@@ -24,7 +24,7 @@
 	<key>PostBackupServiceCommands</key>
 	<array/>
 	<key>RestoreBinaryPath</key>
-	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<string>/Applications/Server.app/Contents/ServerRoot/usr/libexec/server_backup/postgresql_backup.rb</string>
 	<key>RestoreLog</key>
 	<string>/private/var/log/server_backup/postgresql_restore.log</string>
 	<key>RestoreActions</key>
@@ -39,7 +39,7 @@
 	<key>PostRestoreServiceCommands</key>
 	<array/>
 	<key>VerifyBinaryPath</key>
-	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<string>/Applications/Server.app/Contents/ServerRoot/usr/libexec/server_backup/postgresql_backup.rb</string>
 	<key>VerifyLog</key>
 	<string>/private/var/log/server_backup/postgresql_verify.log</string>
 	<key>VerifyActions</key>
@@ -54,6 +54,6 @@
 	<key>ExclusionPaths</key>
 	<array/>
 	<key>Version</key>
-	<string>10.7</string>
+	<string>10.8</string>
 </dict>
 </plist>

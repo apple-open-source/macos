@@ -831,7 +831,7 @@ get_default_encoding()
 		strlcat(buffer, __kCFUserEncodingFileName, sizeof(buffer));
 
 		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
-			size_t readSize;
+			ssize_t readSize;
 
 			readSize = read(fd, buffer, MAXPATHLEN);
 			buffer[(readSize < 0 ? 0 : readSize)] = '\0';

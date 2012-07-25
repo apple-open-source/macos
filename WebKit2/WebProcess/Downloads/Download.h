@@ -38,8 +38,17 @@ OBJC_CLASS NSURLDownload;
 OBJC_CLASS WKDownloadAsDelegate;
 #endif
 
+#if PLATFORM(GTK)
+#include <WebCore/ResourceHandle.h>
+#include <WebCore/ResourceHandleClient.h>
+#endif
+
 #if USE(CFNETWORK)
 #include <CFNetwork/CFURLDownloadPriv.h>
+#endif
+
+#if PLATFORM(EFL)
+#include <FileDownloaderEfl.h>
 #endif
 
 namespace CoreIPC {
@@ -60,6 +69,14 @@ class DownloadAuthenticationClient;
 class SandboxExtension;
 class WebPage;
 
+#if PLATFORM(QT)
+class QtFileDownloader;
+#endif
+
+#if PLATFORM(EFL)
+class FileDownloaderEfl;
+#endif
+
 class Download : public CoreIPC::MessageSender<Download> {
     WTF_MAKE_NONCOPYABLE(Download);
 public:
@@ -71,7 +88,7 @@ public:
     uint64_t destinationID() const { return downloadID(); }
 
     void start(WebPage* initiatingWebPage);
-    void startWithHandle(WebPage* initiatingPage, WebCore::ResourceHandle*, const WebCore::ResourceRequest& initialRequest, const WebCore::ResourceResponse&);
+    void startWithHandle(WebPage* initiatingPage, WebCore::ResourceHandle*, const WebCore::ResourceResponse&);
     void cancel();
 
     uint64_t downloadID() const { return m_downloadID; }
@@ -88,6 +105,10 @@ public:
     void didFail(const WebCore::ResourceError&, const CoreIPC::DataReference& resumeData);
     void didCancel(const CoreIPC::DataReference& resumeData);
     void didDecideDestination(const String&, bool allowOverwrite);
+
+#if PLATFORM(QT)
+    void startTransfer(const String& destination);
+#endif
 
 #if USE(CFNETWORK)
     const String& destination() const { return m_destination; }
@@ -125,6 +146,16 @@ private:
 #if USE(CFNETWORK)
     RetainPtr<CFURLDownloadRef> m_download;
     RefPtr<DownloadAuthenticationClient> m_authenticationClient;
+#endif
+#if PLATFORM(QT)
+    QtFileDownloader* m_qtDownloader;
+#endif
+#if PLATFORM(GTK)
+    OwnPtr<WebCore::ResourceHandleClient> m_downloadClient;
+    RefPtr<WebCore::ResourceHandle> m_resourceHandle;
+#endif
+#if PLATFORM(EFL)
+    OwnPtr<FileDownloaderEfl> m_fileDownloader;
 #endif
 };
 

@@ -67,3 +67,40 @@ void DPRINTF (unsigned long type, char *fmt, ...)
 		va_end(ap);
 	}
 }
+
+void HexDump(const void *p_arg, unsigned length, int showOffsets)
+{
+	const u_int8_t *p = p_arg;
+	unsigned i;
+	char ascii[17];
+	u_int8_t byte;
+	
+	ascii[16] = '\0';
+	
+	for (i=0; i<length; ++i)
+	{
+		if (showOffsets && (i & 0xF) == 0)
+			plog("%08X: ", i);
+
+		byte = p[i];
+		plog("%02X ", byte);
+		if (byte < 32 || byte > 126)
+			ascii[i & 0xF] = '.';
+		else
+			ascii[i & 0xF] = byte;
+		
+		if ((i & 0xF) == 0xF)
+		{
+			plog("  %s\n", ascii);
+		}
+	}
+	
+	if (i & 0xF)
+	{
+		unsigned j;
+		for (j = i & 0xF; j < 16; ++j)
+			plog("   ");
+		ascii[i & 0xF] = 0;
+		plog("  %s\n", ascii);
+	}
+}

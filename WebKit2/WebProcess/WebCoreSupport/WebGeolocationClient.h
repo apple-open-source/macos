@@ -26,8 +26,6 @@
 #ifndef WebGeolocationClient_h
 #define WebGeolocationClient_h
 
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-
 #include <WebCore/GeolocationClient.h>
 
 namespace WebKit {
@@ -44,23 +42,21 @@ public:
     virtual ~WebGeolocationClient();
 
 private:
-    virtual void geolocationDestroyed();
+    virtual void geolocationDestroyed() OVERRIDE;
 
-    virtual void startUpdating();
-    virtual void stopUpdating();
-    virtual void setEnableHighAccuracy(bool);
+    virtual void startUpdating() OVERRIDE;
+    virtual void stopUpdating() OVERRIDE;
+    virtual void setEnableHighAccuracy(bool) OVERRIDE;
 
-    virtual WebCore::GeolocationPosition* lastPosition();
+    virtual WebCore::GeolocationPosition* lastPosition() OVERRIDE;
 
-    virtual void requestPermission(WebCore::Geolocation*);
-    virtual void cancelPermissionRequest(WebCore::Geolocation*);
+    virtual void requestPermission(WebCore::Geolocation*) OVERRIDE;
+    virtual void cancelPermissionRequest(WebCore::Geolocation*) OVERRIDE;
 
 
     WebPage* m_page;
 };
 
 } // namespace WebKit
-
-#endif // ENABLE(CLIENT_BASED_GEOLOCATION)
 
 #endif // WebGeolocationClient_h

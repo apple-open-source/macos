@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Portions Copyright (c) 2003-2010 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -41,16 +39,16 @@ routine _notify_server_post
 	server : mach_port_t;
 	name : notify_name;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_register_plain
 (
 	server : mach_port_t;
 	name : notify_name;
-	out client_id : int;
+	out token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_register_check
@@ -59,9 +57,9 @@ routine _notify_server_register_check
 	name : notify_name;
 	out size : int;
 	out slot : int;
-	out client_id : int;
+	out token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_register_signal
@@ -69,9 +67,9 @@ routine _notify_server_register_signal
 	server : mach_port_t;
 	name : notify_name;
 	sig: int;
-	out client_id : int;
+	out token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_register_file_descriptor
@@ -80,20 +78,20 @@ routine _notify_server_register_file_descriptor
 	name : notify_name;
 	fileport : mach_port_move_send_t;
 	ntoken : int;
-	out client_id : int;
+	out token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_register_mach_port
 (
 	server : mach_port_t;
 	name : notify_name;
-	fileport : mach_port_move_send_t;
+	port : mach_port_move_send_t;
 	ntoken : int;
-	out client_id : int;
+	out token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_set_owner
@@ -103,7 +101,7 @@ routine _notify_server_set_owner
 	user : int;
 	group : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_get_owner
@@ -113,7 +111,7 @@ routine _notify_server_get_owner
 	out user : int;
 	out group : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_set_access
@@ -122,7 +120,7 @@ routine _notify_server_set_access
 	name : notify_name;
 	mode : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_get_access
@@ -131,7 +129,7 @@ routine _notify_server_get_access
 	name : notify_name;
 	out mode : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_release_name
@@ -139,86 +137,86 @@ routine _notify_server_release_name
 	server : mach_port_t;
 	name : notify_name;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_cancel
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_check
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out check : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_get_state
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out state : uint64_t;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_set_state
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	state : uint64_t;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_get_val
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out val : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_set_val
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	val : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_monitor_file
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	path : notify_name;
 	flags : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_suspend
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_resume
 (
 	server : mach_port_t;
-	client_id : int;
+	token : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_suspend_pid
@@ -226,7 +224,7 @@ routine _notify_server_suspend_pid
 	server : mach_port_t;
 	pid : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 routine _notify_server_resume_pid
@@ -234,12 +232,156 @@ routine _notify_server_resume_pid
 	server : mach_port_t;
 	pid : int;
 	out status : int;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
 );
 
 simpleroutine _notify_server_simple_post
 (
 	server : mach_port_t;
 	name : notify_name;
-	ServerAuditToken token : audit_token_t
+	ServerAuditToken audit : audit_token_t
+);
+
+/* Additions for version 2 - more async support */
+
+routine _notify_server_post_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	out name_id : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_post_3
+(
+	server : mach_port_t;
+	name_id : uint64_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_post_4
+(
+	server : mach_port_t;
+	name : notify_name;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_register_plain_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	token : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_register_check_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	token: int;
+	out size : int;
+	out slot : int;
+	out name_id : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_register_signal_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	token : int;
+	sig: int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_register_file_descriptor_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	token: int;
+	fileport : mach_port_move_send_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_register_mach_port_2
+(
+	server : mach_port_t;
+	name : notify_name;
+	token: int;
+	port : mach_port_move_send_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_cancel_2
+(
+	server : mach_port_t;
+	token : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_get_state_2
+(
+	server : mach_port_t;
+	name_id : uint64_t;
+	out state : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_get_state_3
+(
+	server : mach_port_t;
+	token : int;
+	out state : uint64_t;
+	out nid : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_set_state_2
+(
+	server : mach_port_t;
+	name_id : uint64_t;
+	state : uint64_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_set_state_3
+(
+	server : mach_port_t;
+	token : int;
+	state : uint64_t;
+	out nid : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_monitor_file_2
+(
+	server : mach_port_t;
+	token : int;
+	path : notify_name;
+	flags : int;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_regenerate
+(
+	server : mach_port_t;
+	name : notify_name;
+	token : int;
+	reg_type : uint32_t;
+	port : mach_port_make_send_t;
+	sig: int;
+	prev_slot: int;
+	prev_state : uint64_t;
+	prev_time : uint64_t;
+	path : notify_name;
+	path_flags: int;
+	out new_slot : int;
+	out new_name_id : uint64_t;
+	out status : int;
+	ServerAuditToken audit : audit_token_t
 );

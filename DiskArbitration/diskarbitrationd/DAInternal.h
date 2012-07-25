@@ -32,8 +32,6 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define ___GID_ADMIN 80
-
 #define ___GID_WHEEL 0
 #define ___UID_ROOT  0
 
@@ -42,6 +40,15 @@ extern "C" {
 
 #define _kDAAgentName  "com.apple.DiskArbitration.DiskArbitrationAgent"
 #define _kDADaemonName "com.apple.DiskArbitration.diskarbitrationd"
+
+enum
+{
+    _kDAAuthorizeOptionDefault                   = 0x00000000,
+    _kDAAuthorizeOptionAuthenticateAdministrator = 0x00000001,
+    _kDAAuthorizeOptionIsOwner                   = 0x00080000
+};
+
+typedef UInt32 _DAAuthorizeOptions;
 
 enum
 {
@@ -112,7 +119,6 @@ __private_extern__ const CFStringRef _kDARequestStateKey;          /* ( CFNumber
 __private_extern__ const CFStringRef _kDARequestUserGIDKey;        /* ( CFNumber     ) */
 __private_extern__ const CFStringRef _kDARequestUserUIDKey;        /* ( CFNumber     ) */
 
-__private_extern__ int          ___isadmin( uid_t uid );
 __private_extern__ int          ___statfs( const char * path, struct statfs * buf, int flags );
 __private_extern__ Boolean      ___CFArrayContainsValue( CFArrayRef array, const void * value );
 __private_extern__ void         ___CFArrayRemoveValue( CFMutableArrayRef array, const void * value );

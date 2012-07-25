@@ -401,6 +401,21 @@
 
 - (NSComparisonResult)compare:(NSNumber *)aNumber
 {
+	if ([aNumber isKindOfClass:[NSNumber class]] && ![aNumber isMemberOfClass: [OC_PythonNumber class]]) {
+		if (PyLong_Check(value)) {
+			PY_LONG_LONG r;
+			r = PyLong_AsLongLong(value);
+			if (r == -1 && PyErr_Occurred()) {
+				PyErr_Print();
+				PyErr_Clear();
+			} else {
+				return [super compare:aNumber];
+			}
+		} else {
+			return [super compare:aNumber];
+		}
+	}
+
 	PyObjC_BEGIN_WITH_GIL
 		PyObject* other = PyObjC_IdToPython(aNumber);
 		if (other == NULL) {

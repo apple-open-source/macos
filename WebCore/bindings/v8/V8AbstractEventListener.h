@@ -89,8 +89,7 @@ namespace WebCore {
         }
 
         // Provides access to the underlying handle for GC. Returned
-        // value might be a weak handle and so not guaranteed to stay
-        // alive.
+        // value is a weak handle and so not guaranteed to stay alive.
         v8::Persistent<v8::Object> existingListenerObjectPersistentHandle()
         {
             return m_listener;
@@ -124,10 +123,9 @@ namespace WebCore {
 
         virtual v8::Local<v8::Value> callListenerFunction(ScriptExecutionContext*, v8::Handle<v8::Value> jsevent, Event*) = 0;
 
-        v8::Persistent<v8::Object> m_listener;
+        virtual bool shouldPreventDefault(v8::Local<v8::Value> returnValue);
 
-        // Indicates if the above handle is weak.
-        bool m_isWeak;
+        v8::Persistent<v8::Object> m_listener;
 
         // Indicates if this is an HTML type listener.
         bool m_isAttribute;

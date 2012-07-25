@@ -40,9 +40,9 @@ class HTMLPlugInElement : public HTMLFrameOwnerElement {
 public:
     virtual ~HTMLPlugInElement();
 
-    PassScriptInstance getInstance() const;
+    PassScriptInstance getInstance();
 
-    Widget* pluginWidget() const;
+    Widget* pluginWidget();
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* getNPObject();
@@ -57,19 +57,19 @@ protected:
     HTMLPlugInElement(const QualifiedName& tagName, Document*);
 
     virtual void detach();
-
-    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
     bool m_inBeforeLoadEventHandler;
+    // Subclasses should use guardedDispatchBeforeLoadEvent instead of calling dispatchBeforeLoadEvent directly.
+    bool guardedDispatchBeforeLoadEvent(const String& sourceURL);
 
 private:
+    bool dispatchBeforeLoadEvent(const String& sourceURL); // Not implemented, generates a compile error if subclasses call this by mistake.
+
     virtual void defaultEventHandler(Event*);
 
-    virtual RenderWidget* renderWidgetForJSBindings() const = 0;
-
-protected:
-    AtomicString m_name;
+    virtual RenderWidget* renderWidgetForJSBindings() = 0;
 
 private:
     mutable ScriptInstance m_instance;

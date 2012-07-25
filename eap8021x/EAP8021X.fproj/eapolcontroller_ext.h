@@ -26,13 +26,15 @@
 
 #include <mach/mach_init.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 
 #define EAPOLCONTROLLER_SERVER		"com.apple.network.EAPOLController"
 
 static __inline__ kern_return_t
 eapolcontroller_server_port(mach_port_t * server)
 {
-    return (bootstrap_look_up(bootstrap_port, EAPOLCONTROLLER_SERVER, server));
+    return (bootstrap_look_up2(bootstrap_port, EAPOLCONTROLLER_SERVER, server,
+                               0, BOOTSTRAP_PRIVILEGED_SERVER));
 }
 
 #endif /* _EAPOLCONTROLLER_EXT_H */

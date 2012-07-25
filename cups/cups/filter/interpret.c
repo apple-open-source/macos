@@ -1,9 +1,9 @@
 /*
- * "$Id: interpret.c 9788 2011-05-19 02:50:54Z mike $"
+ * "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $"
  *
  *   PPD command interpreter for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -40,7 +40,7 @@
  * Include necessary headers...
  */
 
-#include "image-private.h"
+#include <cups/raster-private.h>
 
 
 /*
@@ -144,7 +144,7 @@ static void		DEBUG_stack(_cups_ps_stack_t *st);
  * @code pop@, @code roll@, @code setpagedevice@, and @code stopped@ operators
  * are supported.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
@@ -204,7 +204,7 @@ cupsRasterInterpretPPD(
 
 #ifdef __APPLE__
  /*
-  * cupsInteger0 is also used for the total page count on Mac OS X; set an
+  * cupsInteger0 is also used for the total page count on OS X; set an
   * uncommon default value so we can tell if the driver is using cupsInteger0.
   */
 
@@ -1387,7 +1387,7 @@ setpagedevice(
   * Found the start of the dictionary, empty the stack to this point...
   */
 
-  st->num_objs = obj - st->objs;
+  st->num_objs = (int)(obj - st->objs);
 
  /*
   * Now pull /name and value pairs from the dictionary...
@@ -1684,5 +1684,5 @@ DEBUG_stack(_cups_ps_stack_t *st)	/* I - Stack */
 
 
 /*
- * End of "$Id: interpret.c 9788 2011-05-19 02:50:54Z mike $".
+ * End of "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $".
  */

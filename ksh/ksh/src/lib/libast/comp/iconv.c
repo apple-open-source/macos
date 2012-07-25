@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -1113,11 +1113,11 @@ error(DEBUG_TRACE, "AHA#%d _ast_iconv_open f=%s:%s:%d t=%s:%s:%d\n", __LINE__, f
 	if (fc >= 0 && tc >= 0)
 		cc->from.map = ccmap(fc, tc);
 #if _lib_iconv_open
-	else if ((cc->cvt = iconv_open(to, fr)) != (iconv_t)(-1))
+	else if ((cc->cvt = iconv_open(t, f)) != (iconv_t)(-1) || (cc->cvt = iconv_open(to, fr)) != (iconv_t)(-1))
 		cc->from.fun = (_ast_iconv_f)iconv;
 #endif
 #if _UWIN
-	else if ((cc->cvt = _win_iconv_open(cc, to, fr)) != (_ast_iconv_t)(-1))
+	else if ((cc->cvt = _win_iconv_open(cc, t, f)) != (_ast_iconv_t)(-1) || (cc->cvt = _win_iconv_open(cc, to, fr)) != (_ast_iconv_t)(-1))
 		cc->from.fun = (_ast_iconv_f)_win_iconv;
 #endif
 	else
@@ -1330,6 +1330,8 @@ _ast_iconv(_ast_iconv_t cd, char** fb, size_t* fn, char** tb, size_t* tn)
 	return n;
 }
 
+#define OK		((size_t)-1)
+
 /*
  * write *fb size *fn to op
  * fb,fn updated on return
@@ -1337,26 +1339,46 @@ _ast_iconv(_ast_iconv_t cd, char** fb, size_t* fn, char** tb, size_t* tn)
  */
 
 ssize_t
-_ast_iconv_write(_ast_iconv_t cd, Sfio_t* op, char** fb, size_t* fn, size_t* e)
+_ast_iconv_write(_ast_iconv_t cd, Sfio_t* op, char** fb, size_t* fn, Iconv_disc_t* disc)
 {
+	char*		fo = *fb;
 	char*		tb;
 	char*		ts;
+	size_t*		e;
 	size_t		tn;
 	size_t		r;
+	int		ok;
+	Iconv_disc_t	compat;
 
+	/*
+	 * the old api had optional size_t* instead of Iconv_disc_t*
+	 */
+
+	if (!disc || disc->version < 20110101L || disc->version >= 30000101L)
+	{
+		e = (size_t*)disc;
+		disc = &compat;
+		iconv_init(disc, 0);
+	}
+	else
+		e = 0;
 	r = 0;
 	tn = 0;
-	while (*fn > 0)
+	ok = 1;
+	while (ok && *fn > 0)
 	{
-		if (!(tb = (char*)sfreserve(op, -(tn + 1), SF_WRITE|SF_LOCKR)))
-			return r ? r : -1;
+		if (!(tb = (char*)sfreserve(op, -(tn + 1), SF_WRITE|SF_LOCKR)) || !(tn = sfvalue(op)))
+		{
+			if (!r)
+				r = -1;
+			break;
+		}
 		ts = tb;
-		tn = sfvalue(op);
 #if DEBUG_TRACE
 error(DEBUG_TRACE, "AHA#%d iconv_write ts=%p tn=%d", __LINE__, ts, tn);
 		for (;;)
 #else
-		while (_ast_iconv(cd, fb, fn, &ts, &tn) == (size_t)(-1))
+		while (*fn > 0 && _ast_iconv(cd, fb, fn, &ts, &tn) == (size_t)(-1))
 #endif
 		{
 #if DEBUG_TRACE
@@ -1364,26 +1386,46 @@ error(DEBUG_TRACE, "AHA#%d iconv_write ts=%p tn=%d", __LINE__, ts, tn);
 error(DEBUG_TRACE, "AHA#%d iconv_write %d => %d `%-.*s'", __LINE__, *fn, tn, *fn, *fb);
 			_r = _ast_iconv(cd, fb, fn, &ts, &tn);
 error(DEBUG_TRACE, "AHA#%d iconv_write %d => %d [%d]", __LINE__, *fn, tn, _r);
-			if (_r != (size_t)(-1))
+			if (_r != (size_t)(-1) || !fn)
 				break;
 #endif
-			if (errno == E2BIG)
+			switch (errno)
+			{
+			case E2BIG:
 				break;
-			if (e)
-				(*e)++;
-			if (!tn)
+			case EINVAL:
+				if (disc->errorf)
+					(*disc->errorf)(NiL, disc, ERROR_SYSTEM|2, "incomplete multibyte sequence at offset %I*u", sizeof(fo), *fb - fo);
+				goto bad;
+			default:
+				if (disc->errorf)
+					(*disc->errorf)(NiL, disc, ERROR_SYSTEM|2, "invalid multibyte sequence at offset %I*u", sizeof(fo), *fb - fo);
+			bad:
+				disc->errors++;
+				if (!(disc->flags & ICONV_FATAL))
+				{
+					if (!(disc->flags & ICONV_OMIT) && tn > 0)
+					{
+						*ts++ = (disc->fill >= 0) ? disc->fill : **fb;
+						tn--;
+					}
+					(*fb)++;
+					(*fn)--;
+					continue;
+				}
+				ok = 0;
 				break;
-			*ts++ = *(*fb)++;
-			tn--;
-			(*fn)--;
+			}
+			break;
 		}
 #if DEBUG_TRACE
 error(DEBUG_TRACE, "AHA#%d iconv_write %d", __LINE__, ts - tb);
 #endif
-
 		sfwrite(op, tb, ts - tb);
 		r += ts - tb;
 	}
+	if (e)
+		*e = disc->errors;
 	return r;
 }
 
@@ -1392,50 +1434,97 @@ error(DEBUG_TRACE, "AHA#%d iconv_write %d", __LINE__, ts - tb);
  */
 
 ssize_t
-_ast_iconv_move(_ast_iconv_t cd, Sfio_t* ip, Sfio_t* op, size_t n, size_t* e)
+_ast_iconv_move(_ast_iconv_t cd, Sfio_t* ip, Sfio_t* op, size_t n, Iconv_disc_t* disc)
 {
 	char*		fb;
 	char*		fs;
 	char*		tb;
 	char*		ts;
+	size_t*		e;
+	size_t		fe;
 	size_t		fn;
 	size_t		fo;
+	size_t		ft;
 	size_t		tn;
 	size_t		i;
 	ssize_t		r = 0;
+	int		ok = 1;
 	int		locked;
+	Iconv_disc_t	compat;
 
-	fn = n;
-	for (;;)
+	/*
+	 * the old api had optional size_t* instead of Iconv_disc_t*
+	 */
+
+	if (!disc || disc->version < 20110101L || disc->version >= 30000101L)
 	{
-		if (fn != SF_UNBOUND)
-			fn = -((ssize_t)(fn & (((size_t)(~0))>>1)));
-		if (!(fb = (char*)sfreserve(ip, fn, locked = SF_LOCKR)) &&
-		    !(fb = (char*)sfreserve(ip, fn, locked = 0)))
+		e = (size_t*)disc;
+		disc = &compat;
+		iconv_init(disc, 0);
+	}
+	else
+		e = 0;
+	tb = 0;
+	fe = OK;
+	ft = 0;
+	fn = n;
+	do
+	{
+		if (n != SF_UNBOUND)
+			n = -((ssize_t)(n & (((size_t)(~0))>>1)));
+		if ((!(fb = (char*)sfreserve(ip, n, locked = SF_LOCKR)) || !(fo = sfvalue(ip))) &&
+		    (!(fb = (char*)sfreserve(ip, n, locked = 0)) || !(fo = sfvalue(ip))))
 			break;
 		fs = fb;
-		fn = fo = sfvalue(ip);
+		fn = fo;
 		if (!(tb = (char*)sfreserve(op, SF_UNBOUND, SF_WRITE|SF_LOCKR)))
 		{
-			sfread(ip, fb, 0);
-			return r ? r : -1;
+			if (!r)
+				r = -1;
+			break;
 		}
 		ts = tb;
 		tn = sfvalue(op);
-		while (_ast_iconv(cd, &fs, &fn, &ts, &tn) != (size_t)(-1) && fn > 0)
+		while (fn > 0 && _ast_iconv(cd, &fs, &fn, &ts, &tn) == (size_t)(-1))
 		{
-			if (tn > 0)
+			switch (errno)
 			{
-				*ts++ = '_';
-				tn--;
+			case E2BIG:
+				break;
+			case EINVAL:
+				if (fe == ft + (fo - fn))
+				{
+					fe = OK;
+					if (disc->errorf)
+						(*disc->errorf)(NiL, disc, ERROR_SYSTEM|2, "incomplete multibyte sequence at offset %I*u", sizeof(ft), ft + (fo - fn));
+					goto bad;
+				}
+				fe = ft;
+				break;
+			default:
+				if (disc->errorf)
+					(*disc->errorf)(NiL, disc, ERROR_SYSTEM|2, "invalid multibyte sequence at offset %I*u", sizeof(ft), ft + (fo - fn));
+			bad:
+				disc->errors++;
+				if (!(disc->flags & ICONV_FATAL))
+				{
+					if (!(disc->flags & ICONV_OMIT) && tn > 0)
+					{
+						*ts++ = (disc->fill >= 0) ? disc->fill : *fs;
+						tn--;
+					}
+					fs++;
+					fn--;
+					continue;
+				}
+				ok = 0;
+				break;
 			}
-			if (e)
-				(*e)++;
-			fs++;
-			fn--;
+			break;
 		}
 		sfwrite(op, tb, ts - tb);
 		r += ts - tb;
+		ts = tb;
 		if (locked)
 			sfread(ip, fb, fs - fb);
 		else
@@ -1447,9 +1536,23 @@ _ast_iconv_move(_ast_iconv_t cd, Sfio_t* ip, Sfio_t* op, size_t n, size_t* e)
 				break;
 			n -= fs - fb;
 		}
+		ft += (fs - fb);
 		if (fn == fo)
 			fn++;
+	} while (ok);
+	if (fb && locked)
+		sfread(ip, fb, 0);
+	if (tb)
+	{
+		sfwrite(op, tb, 0);
+		if (ts > tb)
+		{
+			sfwrite(op, tb, ts - tb);
+			r += ts - tb;
+		}
 	}
+	if (e)
+		*e = disc->errors;
 	return r;
 }
 

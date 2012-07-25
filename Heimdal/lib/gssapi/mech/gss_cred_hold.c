@@ -43,7 +43,7 @@ gss_cred_hold(OM_uint32 *min_stat, gss_cred_id_t cred_handle)
 
     *min_stat = 0;
 
-    SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+    HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 
 	if (mc->gmc_mech->gm_cred_hold == NULL)
 	    continue;
@@ -63,7 +63,7 @@ gss_cred_unhold(OM_uint32 *min_stat, gss_cred_id_t cred_handle)
 
     *min_stat = 0;
 
-    SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+    HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 
 	if (mc->gmc_mech->gm_cred_unhold == NULL)
 	    continue;

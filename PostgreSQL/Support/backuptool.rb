@@ -3,9 +3,12 @@
 #
 # Author:: Apple Inc.
 # Documentation:: Apple Inc.
-# Copyright © 2011, Apple Inc.
-# License:: All rights reserved.
+# Copyright (c) 2012 Apple Inc. All Rights Reserved.
 #
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
 
 require 'ftools'
 require 'logger'
@@ -61,7 +64,7 @@ class BackupTool
 	#
 	# Constants
 	#
-	PLIST_PARENT = "/etc/server_backup"
+	PLIST_PARENT = "/Applications/Server.app/Contents/ServerRoot/etc/server_backup"
 	LOG_PARENT = "/Library/Logs"
 	COMMANDS = %w[help version backup browse restore size verify]
 	DATASETS = %w[configuration data all]
@@ -129,7 +132,7 @@ class BackupTool
 		$log.debug("#{method}(#{svc_name})")
 		settings = Hash.new
 		begin
-			if !self.launch("/usr/sbin/serveradmin settings #{svc_name}") do |output|
+			if !self.launch("/Applications/Server.app/Contents/ServerRoot/usr/sbin/serveradmin settings #{svc_name}") do |output|
 				output.each_line do |line|
 					key,val = line.strip.split(' = ')
 					$log.debug("#{method}() - serveradmin(8) returned \'#{key} = #{val}\'")

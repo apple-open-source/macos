@@ -775,6 +775,9 @@ possibilities
 			the lsof distribution for information on
 			when HASENVDC is used or ignored.)
 
+    HASEOPT		indicates the dialect supports the -e option to
+			eliminate kernel blocks on a named file system.
+
     HASEXT2FS           is defined for BSD dialects for which ext2fs
 			file system support can be provided.  A value
 			of 1 indicates that the i_e2din member does not
@@ -922,6 +925,11 @@ possibilities
     HASLFS		indicates the *BSD dialect has log-structured
 			file system support.
 
+    HAS_LGRP_ROOT_CONFLICT
+			indicates the Solaris 9 or Solaris 10 system has 
+			a conflict over the lgrp_root symbol in the
+			<sys/lgrp.h> and <sys/lgrp_user.h> header files.
+
     HAS_LIBCTF		indicates the Solaris 10 and above system has
 			the CTF library.
 
@@ -998,6 +1006,9 @@ possibilities
 			long long type.  This definition is used by
 			the built-in snprintf() support of lib/snpf.c.
 
+    HASNORPC_H		indicates the dialect has no /usr/include/rpc/rpc.h
+			header file.
+
     HAS_NO_SI_UDEV	indicates the FreeBSD 6 and higher system has
 			no si_udev member in its cdev structure.
 
@@ -1021,6 +1032,9 @@ possibilities
     HAS_PC_DIRENTPERSEC
 			indicates the Solaris 10 system's <sys/fs/pc_node.h>
 			header file has the pc_direntpersec() macro.
+
+    HAS_PAD_MUTEX	indicates the Solaris 11 system has the pad_mutex_t
+			typedef in its <sys/mutex.h> header file.
 
     HASPERSDC           enables the use of a personal device cache
 			file path and specifies a format by which
@@ -1156,6 +1170,9 @@ possibilities
 
     HAS_SI_PRIV         indicates the FreeBSD 6.0 and higher cdev
 			structure has an si_priv member.
+
+    HAS_SOCKET_PROTO_H	indicates the Solaris 10 system has the header file
+			<sys/socket_proto.h>.
 
     HASSOUXSOUA		indicates that the Solaris <sys/socketvar.h> has
 			soua_* members in its so_ux_addr structure.
@@ -1389,6 +1406,9 @@ possibilities
 
     NCACHELDSFX		defines C code to be executed after calling
 			ncache_load().
+
+    NEEDS_BOOLEAN_T	indicates the FreeBSD 9 and above system needs a
+			boolean_t definition for <sys/conf.h>.
 
     NEVER_HASDCACHE	keeps the Customize script from offering to
 			change HASDCACHE by its presence anywhere
@@ -1802,4 +1822,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-July 29, 2010
+September 27, 2011

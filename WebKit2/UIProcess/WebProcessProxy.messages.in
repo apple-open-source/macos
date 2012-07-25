@@ -28,19 +28,13 @@ messages -> WebProcessProxy {
     ShouldTerminate() -> (bool shouldTerminate)
 
 #if ENABLE(PLUGIN_PROCESS)
-    GetPluginProcessConnection(WTF::String pluginPath) -> (CoreIPC::MachPort connectionHandle) Delayed
+    GetPluginProcessConnection(WTF::String pluginPath) -> (CoreIPC::Attachment connectionHandle) Delayed
     PluginSyncMessageSendTimedOut(WTF::String pluginPath)
 #endif
 
 #if PLATFORM(MAC)
-    SecItemCopyMatching(WebKit::SecItemRequestData query) -> (WebKit::SecItemResponseData result)
-    SecItemAdd(WebKit::SecItemRequestData query) -> (WebKit::SecItemResponseData result)
-    SecItemUpdate(WebKit::SecItemRequestData query) -> (WebKit::SecItemResponseData result)
-    SecItemDelete(WebKit::SecItemRequestData query) -> (WebKit::SecItemResponseData result)
-    
-    SecKeychainItemCopyContent(WebKit::SecKeychainItemRequestData query) -> (WebKit::SecKeychainItemResponseData result)
-    SecKeychainItemCreateFromContent(WebKit::SecKeychainItemRequestData query) -> (WebKit::SecKeychainItemResponseData result)
-    SecKeychainItemModifyContent(WebKit::SecKeychainItemRequestData query) -> (WebKit::SecKeychainItemResponseData result)
+    SecItemRequest(uint64_t requestID, WebKit::SecItemRequestData request) DispatchOnConnectionQueue
+    SecKeychainItemRequest(uint64_t requestID, WebKit::SecKeychainItemRequestData request) DispatchOnConnectionQueue
 #endif
 
 }

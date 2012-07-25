@@ -1,1 +1,0 @@
-FreeBSD/wcsrchr.c

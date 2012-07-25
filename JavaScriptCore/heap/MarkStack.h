@@ -26,6 +26,7 @@
 #ifndef MarkStack_h
 #define MarkStack_h
 
+#include "CopiedSpace.h"
 #include "HandleTypes.h"
 #include "Options.h"
 #include "JSValue.h"
@@ -111,7 +112,7 @@ namespace JSC {
     private:
         MarkStackSegment* m_topSegment;
         
-        void expand();
+        JS_EXPORT_PRIVATE void expand();
         
         MarkStackSegmentAllocator& m_allocator;
 
@@ -177,10 +178,11 @@ namespace JSC {
 
 #if ENABLE(PARALLEL_GC)
         void markingThreadMain();
-        static void* markingThreadStartFunc(void* heap);
+        static void markingThreadStartFunc(void* heap);
 #endif
 
         JSGlobalData* m_globalData;
+        CopiedSpace* m_copiedSpace;
         
         MarkStackSegmentAllocator m_segmentAllocator;
         
@@ -204,7 +206,7 @@ namespace JSC {
         friend class HeapRootVisitor; // Allowed to mark a JSValue* or JSCell** directly.
 
     public:
-        MarkStack(MarkStackThreadSharedData&, void* jsArrayVPtr, void* jsFinalObjectVPtr, void* jsStringVPtr);
+        MarkStack(MarkStackThreadSharedData&);
         ~MarkStack();
 
         void append(ConservativeRoots&);
@@ -241,7 +243,7 @@ namespace JSC {
         }
 
     protected:
-        static void validate(JSCell*);
+        JS_EXPORT_PRIVATE static void validate(JSCell*);
 
         void append(JSValue*);
         void append(JSValue*, size_t count);
@@ -250,7 +252,7 @@ namespace JSC {
         void internalAppend(JSCell*);
         void internalAppend(JSValue);
         
-        void mergeOpaqueRoots();
+        JS_EXPORT_PRIVATE void mergeOpaqueRoots();
         
         void mergeOpaqueRootsIfNecessary()
         {
@@ -267,9 +269,6 @@ namespace JSC {
         }
         
         MarkStackArray m_stack;
-        void* m_jsArrayVPtr;
-        void* m_jsFinalObjectVPtr;
-        void* m_jsStringVPtr;
         HashSet<void*> m_opaqueRoots; // Handle-owning data structures not visible to the garbage collector.
         
 #if !ASSERT_DISABLED
@@ -286,11 +285,8 @@ namespace JSC {
         MarkStackThreadSharedData& m_shared;
     };
 
-    inline MarkStack::MarkStack(MarkStackThreadSharedData& shared, void* jsArrayVPtr, void* jsFinalObjectVPtr, void* jsStringVPtr)
+    inline MarkStack::MarkStack(MarkStackThreadSharedData& shared)
         : m_stack(shared.m_segmentAllocator)
-        , m_jsArrayVPtr(jsArrayVPtr)
-        , m_jsFinalObjectVPtr(jsFinalObjectVPtr)
-        , m_jsStringVPtr(jsStringVPtr)
 #if !ASSERT_DISABLED
         , m_isCheckingForDefaultMarkViolation(false)
         , m_isDraining(false)

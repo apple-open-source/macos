@@ -322,7 +322,7 @@ xauth_attr_reply(iph1, attr, id)
 		if (throttle_delay > 0) {
 			char *str;
 
-			str = saddrwop2str(iph1->remote);
+			str = saddrwop2str((struct sockaddr *)iph1->remote);
 
 			plog(LLV_ERROR, LOCATION, NULL, 
 			    "Throttling in action for %s: delay %lds\n",
@@ -644,7 +644,7 @@ PAM_conv(msg_count, msg, rsp, dontcare)
 int
 xauth_login_pam(port, raddr, usr, pwd)
 	int port;
-	struct sockaddr *raddr;
+	struct sockaddr_storage *raddr;
 	char *usr;
 	char *pwd;
 {
@@ -1588,7 +1588,6 @@ isakmp_xauth_set(iph1, attr)
 {
 	int type;
 	vchar_t *buffer = NULL;
-	char *data;
 	struct xauth_state *xst;
 	size_t dlen = 0;
 	char* mraw = NULL;

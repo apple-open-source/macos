@@ -112,4 +112,4 @@ SubnetGetMask(SubnetRef subnet);
 bool
 SubnetDoesAllocate(SubnetRef subnet);
 
-#endif _S_BOOTPLIB_SUBNETS_H
+#endif /* _S_BOOTPLIB_SUBNETS_H */

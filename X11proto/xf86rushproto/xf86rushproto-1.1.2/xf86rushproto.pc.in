@@ -1,9 +1,0 @@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
- 
-Name: XF86RushProto
-Description: XF86Rush extension headers
-Version: @PACKAGE_VERSION@
-Cflags: -I${includedir}

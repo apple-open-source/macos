@@ -33,10 +33,12 @@ namespace JSC {
 
         static NumberConstructor* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, NumberPrototype* numberPrototype)
         {
-            NumberConstructor* constructor = new (allocateCell<NumberConstructor>(*exec->heap())) NumberConstructor(globalObject, structure);
+            NumberConstructor* constructor = new (NotNull, allocateCell<NumberConstructor>(*exec->heap())) NumberConstructor(globalObject, structure);
             constructor->finishCreation(exec, numberPrototype);
             return constructor;
         }
+
+        static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
 
         static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
         static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);

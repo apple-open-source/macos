@@ -21,37 +21,38 @@
 module core {
 
     interface [
-        GenerateIsReachable=ImplElementRoot,
-        CustomMarkFunction,
-        HasIndexGetter,
-        HasNameGetter
+        JSGenerateIsReachable=ImplElementRoot,
+        JSCustomMarkFunction,
+        IndexedGetter,
+        NamedGetter,
+        V8CustomToJSObject
     ] NamedNodeMap {
 
-        Node getNamedItem(in DOMString name);
+        Node getNamedItem(in [Optional=DefaultIsUndefined] DOMString name);
 
-        Node setNamedItem(in Node node)
+        Node setNamedItem(in [Optional=DefaultIsUndefined] Node node)
             raises(DOMException);
 
-        Node removeNamedItem(in DOMString name)
+        Node removeNamedItem(in [Optional=DefaultIsUndefined] DOMString name)
             raises(DOMException);
 
-        Node item(in unsigned long index);
+        Node item(in [Optional=DefaultIsUndefined] unsigned long index);
         
         readonly attribute unsigned long length;
 
 
         // Introduced in DOM Level 2:
 
-        [OldStyleObjC] Node getNamedItemNS(in [ConvertNullToNullString] DOMString namespaceURI, 
-                                           in DOMString localName)
+        [ObjCLegacyUnnamedParameters] Node getNamedItemNS(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI, 
+                                           in [Optional=DefaultIsUndefined] DOMString localName)
             // FIXME: the implementation does take an exceptioncode parameter.
             /*raises(DOMException)*/;
 
-        Node setNamedItemNS(in Node node)
+        Node setNamedItemNS(in [Optional=DefaultIsUndefined] Node node)
             raises(DOMException);
 
-        [OldStyleObjC] Node removeNamedItemNS(in [ConvertNullToNullString] DOMString namespaceURI, 
-                                              in DOMString localName)
+        [ObjCLegacyUnnamedParameters] Node removeNamedItemNS(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI, 
+                                              in [Optional=DefaultIsUndefined] DOMString localName)
             raises(DOMException);
 
     };

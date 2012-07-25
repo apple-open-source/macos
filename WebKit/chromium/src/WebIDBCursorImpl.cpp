@@ -72,6 +72,11 @@ void WebIDBCursorImpl::update(const WebSerializedScriptValue& value, WebIDBCallb
     m_idbCursorBackend->update(value, IDBCallbacksProxy::create(adoptPtr(callbacks)), ec);
 }
 
+void WebIDBCursorImpl::advance(unsigned long count, WebIDBCallbacks* callbacks, WebExceptionCode& ec)
+{
+    m_idbCursorBackend->advance(count, IDBCallbacksProxy::create(adoptPtr(callbacks)), ec);
+}
+
 void WebIDBCursorImpl::continueFunction(const WebIDBKey& key, WebIDBCallbacks* callbacks, WebExceptionCode& ec)
 {
     m_idbCursorBackend->continueFunction(key, IDBCallbacksProxy::create(adoptPtr(callbacks)), ec);
@@ -80,6 +85,16 @@ void WebIDBCursorImpl::continueFunction(const WebIDBKey& key, WebIDBCallbacks* c
 void WebIDBCursorImpl::deleteFunction(WebIDBCallbacks* callbacks, WebExceptionCode& ec)
 {
     m_idbCursorBackend->deleteFunction(IDBCallbacksProxy::create(adoptPtr(callbacks)), ec);
+}
+
+void WebIDBCursorImpl::prefetchContinue(int numberToFetch, WebIDBCallbacks* callbacks, WebExceptionCode& ec)
+{
+    m_idbCursorBackend->prefetchContinue(numberToFetch, IDBCallbacksProxy::create(adoptPtr(callbacks)), ec);
+}
+
+void WebIDBCursorImpl::prefetchReset(int usedPrefetches, int unusedPrefetches)
+{
+    m_idbCursorBackend->prefetchReset(usedPrefetches, unusedPrefetches);
 }
 
 } // namespace WebKit

@@ -23,7 +23,7 @@
 #ifndef WebDOMTestCallback_h
 #define WebDOMTestCallback_h
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #include <WebDOMObject.h>
 #include <WebDOMString.h>
@@ -35,9 +35,9 @@ class TestCallback;
 class WebDOMClass1;
 class WebDOMClass2;
 class WebDOMClass3;
-class WebDOMClass5;
-class WebDOMClass6;
+class WebDOMClass8;
 class WebDOMDOMStringList;
+class WebDOMThisClass;
 
 class WebDOMTestCallback : public WebDOMObject {
 public:
@@ -51,8 +51,9 @@ public:
     bool callbackWithClass1Param(const WebDOMClass1& class1Param);
     bool callbackWithClass2Param(const WebDOMClass2& class2Param, const WebDOMString& strArg);
     int callbackWithNonBoolReturnType(const WebDOMClass3& class3Param);
-    int customCallback(const WebDOMClass5& class5Param, const WebDOMClass6& class6Param);
     bool callbackWithStringList(const WebDOMDOMStringList& listParam);
+    bool callbackWithBoolean(bool boolParam);
+    bool callbackRequiresThisToPass(const WebDOMClass8& class8Param, const WebDOMThisClass& thisClassParam);
 
     WebCore::TestCallback* impl() const;
 
@@ -65,5 +66,5 @@ WebCore::TestCallback* toWebCore(const WebDOMTestCallback&);
 WebDOMTestCallback toWebKit(WebCore::TestCallback*);
 
 #endif
-#endif // ENABLE(DATABASE)
+#endif // ENABLE(SQL_DATABASE)
 

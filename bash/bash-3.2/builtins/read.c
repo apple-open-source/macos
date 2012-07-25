@@ -43,6 +43,8 @@
 extern int errno;
 #endif
 
+extern int posixly_correct;
+
 #if defined (READLINE)
 static void reset_attempted_completion_function __P((char *));
 static char *edit_line __P((char *));
@@ -84,7 +86,7 @@ read_builtin (list)
 {
   register char *varname;
   int size, i, nr, pass_next, saw_escape, eof, opt, retval, code, print_ps2;
-  int input_is_tty, input_is_pipe, unbuffered_read, skip_ctlesc, skip_ctlnul;
+  int input_is_tty, input_is_pipe, unbuffered_read;
   int raw, edit, nchars, silent, have_timeout, fd;
   unsigned int tmout;
   intmax_t intval;
@@ -556,7 +558,8 @@ add_char:
 
   /* Remove IFS white space at the beginning of the input string.  If
      $IFS is null, no field splitting is performed. */
-  for (t = input_string; ifs_chars && *ifs_chars && spctabnl(*t) && isifs(*t); t++)
+    
+    for (t = input_string; ifs_chars && *ifs_chars && (posixly_correct ? posix_whitespace(*t) : spctabnl(*t)) && isifs(*t); t++)
     ;
   input_string = t;
 

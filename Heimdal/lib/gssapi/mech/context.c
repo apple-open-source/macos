@@ -201,8 +201,49 @@ gss_mg_set_error_string(gss_OID mech,
 
 #ifdef __APPLE__
 
+#include <CoreFoundation/CoreFoundation.h>
+
+CFErrorRef
+_gss_mg_cferror(OM_uint32 major_status,
+		OM_uint32 minor_status,
+		gss_const_OID mech)
+{
+    struct mg_thread_ctx *mg;
+    CFErrorRef e;
+    size_t n;
+#define MAX_ERROR_DESC 1
+    void const *keys[MAX_ERROR_DESC];
+    void const *values[MAX_ERROR_DESC];
+
+    n = 0;
+
+    mg = _gss_mechglue_thread();
+    if (mg && minor_status == mg->min_stat && mg->min_error.length != 0) {
+	values[n] = CFStringCreateWithFormat(NULL, NULL, CFSTR("%.*s"),
+					     (int)mg->min_error.length,
+					     mg->min_error.value);
+	keys[n] = kCFErrorDescriptionKey;
+	n++;
+    }
+
+    heim_assert(n <= MAX_ERROR_DESC, "too many error descriptors");
+
+    e = CFErrorCreateWithUserInfoKeysAndValues(NULL,
+					       CFSTR("org.h5l.GSS"),
+					       (CFIndex)major_status,
+					       keys,
+					       values,
+					       n);
+    while(n)
+	CFRelease(values[--n]);
+    
+    return e;
+}
+
+
+
 static CFTypeRef
-GetKeyFromFile(CFStringRef domain, CFStringRef key)
+CopyKeyFromFile(CFStringRef domain, CFStringRef key)
 {
     CFReadStreamRef s;
     CFDictionaryRef d;
@@ -211,7 +252,7 @@ GetKeyFromFile(CFStringRef domain, CFStringRef key)
     CFURLRef url;
     CFTypeRef val;
     
-    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%s.plist"), domain);
+    file = CFStringCreateWithFormat(NULL, 0, CFSTR("/Library/Preferences/%@.plist"), domain);
     if (file == NULL)
 	return NULL;
     
@@ -249,20 +290,21 @@ GetKeyFromFile(CFStringRef domain, CFStringRef key)
 
 
 CFTypeRef
-_gss_mg_get_key(CFStringRef domain, CFStringRef key)
+_gss_mg_copy_key(CFStringRef domain, CFStringRef key)
 {
     CFTypeRef val;
+
     /*
-     * If we are are not allowed to touch the filesystem, go grab the
-     * plist directly and try to handle it ourself.
+     * First prefer system file, then user copy if we are allowed to
+     * touch user home directory.
      */
-    
-    if (krb5_homedir_access(NULL)) {
+
+    val = CopyKeyFromFile(domain, key);
+
+    if (val == NULL && krb5_homedir_access(NULL)) {
 	val = CFPreferencesCopyAppValue(key, domain);
 	if (val == NULL)
 	    val = CFPreferencesCopyValue(key, domain, kCFPreferencesAnyUser, kCFPreferencesAnyHost);
-    } else {
-	val = GetKeyFromFile(domain, key);
     }
     return val;
 }
@@ -277,7 +319,7 @@ init_log(void *ptr)
 {
     CFTypeRef val;
     
-    val = _gss_mg_get_key(CFSTR("com.apple.GSS"), CFSTR("DebugLevel"));
+    val = _gss_mg_copy_key(CFSTR("com.apple.GSS"), CFSTR("DebugLevel"));
     if (val == NULL)
 	return;
     
@@ -314,7 +356,7 @@ _gss_mg_log(int level, const char *fmt, ...)
 	return;
 
     va_start(ap, fmt);
-    asl_vlog(asl, NULL, LOG_DEBUG, fmt, ap);
+    asl_vlog(asl, NULL, LOG_NOTICE, fmt, ap);
     va_end(ap);
 }
 
@@ -335,14 +377,14 @@ _gss_mg_log_name(int level, struct _gss_name *name, gss_OID mech_type, const cha
 
     if (_gss_find_mn(&junk, name, mech_type, &mn) == GSS_S_COMPLETE) {
 	OM_uint32 maj_stat = GSS_S_COMPLETE;
-	gss_buffer_desc name;
+	gss_buffer_desc namebuf;
 
 	if (mn == NULL) {
-	    name.value = "no name";
-	    name.length = strlen((char *)name.value);
+	    namebuf.value = "no name";
+	    namebuf.length = strlen((char *)namebuf.value);
 	} else {
 	    maj_stat = m->gm_display_name(&junk, mn->gmn_name,
-					  &name, NULL);
+					  &namebuf, NULL);
 	}
 	if (maj_stat == GSS_S_COMPLETE) {
 	    char *str = NULL;
@@ -354,10 +396,10 @@ _gss_mg_log_name(int level, struct _gss_name *name, gss_OID mech_type, const cha
 
 	    if (str)
 	        _gss_mg_log(level, "%s %.*s", str,
-			    (int)name.length, (char *)name.value);
+			    (int)namebuf.length, (char *)namebuf.value);
 	    free(str);
 	    if (mn != NULL)
-		gss_release_buffer(&junk, &name);
+		gss_release_buffer(&junk, &namebuf);
 	}
     }
 
@@ -379,7 +421,7 @@ _gss_mg_log_cred(int level, struct _gss_cred *cred, const char *fmt, ...)
     va_end(ap);
 
     if (cred) {
-	SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+	HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 	    _gss_mg_log(1, "%s: %s", str, mc->gmc_mech->gm_name);
 	}
     } else {
@@ -400,7 +442,7 @@ load_plugins(void *ptr)
     krb5_context context;
     if (krb5_init_context(&context))
 	return;
-    _krb5_load_plugins(context, "gss", paths);
+    krb5_load_plugins(context, "gss", paths);
     krb5_free_context(context);
 }
 	

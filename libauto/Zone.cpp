@@ -49,6 +49,7 @@
 #include <mach-o/dyld_priv.h>
 #include <sys/mman.h>
 #include <Block.h>
+#include <dispatch/private.h>
 
 struct auto_zone_cursor {
     auto_zone_t *zone;
@@ -231,6 +232,9 @@ namespace Auto {
         
         // need to wait for NMOS.
         _compaction_disabled = true;
+        
+        _collection_queue = NULL;
+        _zone_init_predicate = 0;
 
 #if TARGET_IPHONE_SIMULATOR
 #       warning no TLV support on iOS simulator

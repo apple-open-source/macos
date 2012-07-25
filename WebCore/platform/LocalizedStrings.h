@@ -38,7 +38,9 @@ namespace WebCore {
     String searchableIndexIntroduction();
     String submitButtonDefaultLabel();
     String fileButtonChooseFileLabel();
+    String fileButtonChooseMultipleFilesLabel();
     String fileButtonNoFileSelectedLabel();
+    String fileButtonNoFilesSelectedLabel();
     String defaultDetailsSummaryText();
 
 #if PLATFORM(MAC)
@@ -52,7 +54,7 @@ namespace WebCore {
     String contextMenuItemTagOpenImageInNewWindow();
     String contextMenuItemTagDownloadImageToDisk();
     String contextMenuItemTagCopyImageToClipboard();
-#if PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
     String contextMenuItemTagCopyImageUrlToClipboard();
 #endif
     String contextMenuItemTagOpenFrameInNewWindow();
@@ -67,8 +69,18 @@ namespace WebCore {
     String contextMenuItemTagDelete();
     String contextMenuItemTagInputMethods();
     String contextMenuItemTagUnicode();
+    String contextMenuItemTagUnicodeInsertLRMMark();
+    String contextMenuItemTagUnicodeInsertRLMMark();
+    String contextMenuItemTagUnicodeInsertLREMark();
+    String contextMenuItemTagUnicodeInsertRLEMark();
+    String contextMenuItemTagUnicodeInsertLROMark();
+    String contextMenuItemTagUnicodeInsertRLOMark();
+    String contextMenuItemTagUnicodeInsertPDFMark();
+    String contextMenuItemTagUnicodeInsertZWSMark();
+    String contextMenuItemTagUnicodeInsertZWJMark();
+    String contextMenuItemTagUnicodeInsertZWNJMark();
 #endif
-#if PLATFORM(GTK) || PLATFORM(QT)
+#if PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
     String contextMenuItemTagSelectAll();
 #endif
     String contextMenuItemTagNoGuessesFound();
@@ -139,7 +151,7 @@ namespace WebCore {
     String AXHeadingText();
     String AXDefinitionListTermText();
     String AXDefinitionListDefinitionText();
-
+    String AXFooterRoleDescriptionText();
 #if PLATFORM(MAC)
     String AXARIAContentGroupText(const String& ariaType);
 #endif
@@ -155,6 +167,7 @@ namespace WebCore {
 
     String missingPluginText();
     String crashedPluginText();
+    String insecurePluginVersionText();
     String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
 
@@ -170,6 +183,10 @@ namespace WebCore {
     String keygenMenuItem1024();
     String keygenMenuItem2048();
     String keygenKeychainItemName(const String& host);
+#endif
+
+#if PLATFORM(IOS)
+    String htmlSelectMultipleItems(size_t num);
 #endif
 
     String imageTitle(const String& filename, const IntSize& size);
@@ -195,12 +212,20 @@ namespace WebCore {
     String validationMessageRangeUnderflowText(const String& minimum);
     String validationMessageRangeOverflowText(const String& maximum);
     String validationMessageStepMismatchText(const String& base, const String& step);
+#if ENABLE(CALENDAR_PICKER)
+    String calendarTodayText();
+    String calendarClearText();
+    String dateFormatYearText();
+    String dateFormatMonthText();
+    String dateFormatDayInMonthText();
+#endif
 
-
+#if !PLATFORM(CHROMIUM)
 #define WEB_UI_STRING(string, description) WebCore::localizedString(string)
 #define WEB_UI_STRING_KEY(string, key, description) WebCore::localizedString(key)
 
     String localizedString(const char* key);
+#endif
 
 } // namespace WebCore
 

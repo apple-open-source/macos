@@ -37,9 +37,8 @@
 #define DES3_OLD_ENCTYPE 1
 #endif
 
-struct checksum_type *_krb5_checksum_types[] = {
-    &_krb5_checksum_hmac_sha1_aes128,
-    &_krb5_checksum_hmac_sha1_aes256,
+struct _krb5_checksum_type *_krb5_checksum_types[] = {
+    &_krb5_checksum_none,
 #ifdef HEIM_KRB5_DES
     &_krb5_checksum_crc32,
     &_krb5_checksum_rsa_md4,
@@ -51,13 +50,10 @@ struct checksum_type *_krb5_checksum_types[] = {
 #endif
     &_krb5_checksum_rsa_md5,
     &_krb5_checksum_sha1,
-#ifdef HEIM_KRB5_DES3
     &_krb5_checksum_hmac_sha1_des3,
-#endif
-#ifdef HEIM_KRB5_ARCFOUR
-    &_krb5_checksum_hmac_md5,
-#endif
-    &_krb5_checksum_none
+    &_krb5_checksum_hmac_sha1_aes128,
+    &_krb5_checksum_hmac_sha1_aes256,
+    &_krb5_checksum_hmac_md5
 };
 
 int _krb5_num_checksums
@@ -67,24 +63,24 @@ int _krb5_num_checksums
  * these should currently be in reverse preference order.
  * (only relevant for !F_PSEUDO) */
 
-struct encryption_type *_krb5_etypes[] = {
+struct _krb5_encryption_type *_krb5_etypes[] = {
     &_krb5_enctype_aes256_cts_hmac_sha1,
     &_krb5_enctype_aes128_cts_hmac_sha1,
 #ifdef HEIM_KRB5_DES3
     &_krb5_enctype_des3_cbc_sha1,
     &_krb5_enctype_des3_cbc_none, /* used by the gss-api mech */
-#endif
-#ifdef HEIM_KRB5_ARCFOUR
-    &_krb5_enctype_arcfour_hmac_md5,
-#endif
 #ifdef DES3_OLD_ENCTYPE
     &_krb5_enctype_des3_cbc_md5,
     &_krb5_enctype_old_des3_cbc_sha1,
 #endif
+#endif
+#ifdef HEIM_KRB5_ARCFOUR
+    &_krb5_enctype_arcfour_hmac_md5,
+#endif
 #ifdef HEIM_KRB5_DES
-    &_krb5_enctype_des_cbc_crc,
-    &_krb5_enctype_des_cbc_md4,
     &_krb5_enctype_des_cbc_md5,
+    &_krb5_enctype_des_cbc_md4,
+    &_krb5_enctype_des_cbc_crc,
     &_krb5_enctype_des_cbc_none,
 #ifndef __APPLE_PRIVATE__
     &_krb5_enctype_des_cfb64_none,

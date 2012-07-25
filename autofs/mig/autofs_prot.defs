@@ -65,7 +65,7 @@ routine autofs_mount(
 	in issubtrigger	: boolean_t;		/* is this a subtrigger? */
 	in mntpnt_fsid	: fsid_t;		/* fsid of FS on which we're mounting */
 	in sendereuid	: uint32_t;		/* EUID of process sending request */
-	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
+	in auditsesid	: int32_t;		/* audit session id of the process sending request */
 	out mr_type	: int;			/* enum autofs_stat */
 	out fsid	: fsid_t;		/* fsid of FS we mounted */
 	out retflags	: uint32_t;		/* assorted MOUNT_RETF_ flags */
@@ -187,7 +187,7 @@ routine autofs_mount_url(
 	in opts		: autofs_opts;		/* mount options; null string if none */
 	in mntpnt_fsid	: fsid_t;		/* fsid of FS on which we're mounting */
 	in sendereuid	: uint32_t;		/* EUID of process sending request */
-	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
+	in auditsesid	: int32_t;		/* audit session id of the process sending request */
 	out fsid	: fsid_t;		/* fsid of FS we mounted */
 	out retflags	: uint32_t;		/* assorted MOUNT_RETF_ flags */
 	out err		: int;
@@ -202,6 +202,6 @@ routine autofs_mount_url(
 simpleroutine autofs_smb_remount_server(
 	server		: mach_port_t;
 	in blob		: byte_buffer, dealloc;	/* opaque blob */
-	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
+	in asid		: int32_t;  /* Audit session id of caller */
 	ServerSecToken token : security_token_t
 );

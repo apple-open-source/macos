@@ -76,7 +76,7 @@ Session &AuthHostInstance::session() const
 
 bool AuthHostInstance::inDarkWake()
 {
-	return this->session().server().inDarkWake();
+	return session().server().inDarkWake();
 }
 
 void

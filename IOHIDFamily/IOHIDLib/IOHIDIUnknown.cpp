@@ -37,7 +37,7 @@
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
-void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
+void *IOHIDLibFactory(CFAllocatorRef allocator __unused, CFUUIDRef typeID)
 {
     if (CFEqual(typeID, kIOHIDDeviceUserClientTypeID))
         return (void *) IOHIDObsoleteDeviceClass::alloc();

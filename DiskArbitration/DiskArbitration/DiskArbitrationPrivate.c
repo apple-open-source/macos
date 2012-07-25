@@ -57,7 +57,7 @@ static CFMutableSetRef        __gDiskArbUnmountList                 = NULL;
 
 #endif /* !__LP64__ */
 
-__private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, const char * right );
+__private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOptions options, DADiskRef disk, const char * right );
 
 __private_extern__ DADiskRef    _DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
 __private_extern__ char *       _DADiskGetID( DADiskRef disk );
@@ -2509,7 +2509,7 @@ DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 {
     DAReturn status;
 
-    status = _DAAuthorize( _DADiskGetSession( disk ), NULL, _kDAAuthorizeRightAdopt );
+    status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionDefault, disk, _kDAAuthorizeRightAdopt );
 
     if ( status == kDAReturnSuccess )
     {
@@ -2523,7 +2523,7 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
 {
     DAReturn status;
 
-    status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightEncode );
+    status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightEncode );
 
     if ( status == kDAReturnSuccess )
     {

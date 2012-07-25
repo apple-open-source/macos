@@ -1,3 +1,92 @@
+11-01-27 date: add { -R, --rfc-2822, -T, --rfc-3339=type }
+11-01-03 chgrp.c: --symlink => --physical
+10-12-10 rm.c: fix not-writable logic
+10-12-01 tee.c: add iterrupt logic for slow open(1) -- needs to be generalized
+10-11-30 chgrp.c: add -N,--numeric to bypass name lookup
+10-10-20 cp: add --timestamps (preserv timestamps and permissions)
+10-10-20 ln: fix 'cannot replace existing file' logic
+10-10-10 cp,mv: add --remove-destination
+10-08-11 cp.c,expr.c: use conformance("standard",0) test
+10-08-11 cut.c: use mbnsize() instead of mblen() (for ast C.UTF-8)
+10-07-28 chgrp.c,chmod.c,cksum.c: fts_path for diagnostics, not fts_accpath!
+10-06-14 rm.c: fix -rfu logic
+10-06-12 paste.c: repeat after me: do not modify argv[i]
+10-06-01 sync with ast api 20100601
+10-05-09 tail.c: fix -0f bug that inially listed the entire file
+10-05-06 basename.c: add { -a,--all -s,--suffux=suffix } from BSD
+10-04-12 cat.c: fix -v bug that dumped core and make consistent with cmp --print-chars
+10-04-11 cmp.c: add --print-bytes, --count=n, --differences=n
+10-04-08 vmstate.c: add { method flags } vars for Vmstat_t.mode
+10-04-08 mkdir.c: fix check for { S_ISUID S_ISGID S_ISVTX } after successful mkdir(2)
+10-04-01 stty.c: add --fd=fd option
+10-03-23 tail.c: fix -f large initial offset bug that didn't copy all data
+10-03-07 tail.c: sfsync(sfstdout) after all -f done, fix -f partial line
+10-03-05 mktemp.c: add --regress=seed for testing
+10-03-05 vmstate.c: add
+10-01-26 tail.c: -f sleep(1) only if no progress from last round of checks
+10-01-20 fts_fix.[ch]: use <fts_fix.h> instead of <fts.h> (see fts_fix.c)
+10-01-20 cp.c: free(state) if called from old shell
+09-12-10 join.c: <wctype.h> for iswspace()!
+09-12-04 cmd.h: fix CMD_DYNAMIC logic
+09-12-04 cut.c: handle -d mb
+09-12-03 mkdir.c: add --verbose
+09-11-30 cat.c,date.c,cksum.c: drop setlocale() call already done by optget()
+09-11-30 join.c: handle -t mb
+09-11-28 wclib.c: { -w -L } mb independent of -m
+09-11-28 paste.c: handle -d mb
+09-11-28 uniq.c: handle -s mb
+09-11-28 cksum.c: FTS_SEEDOTDIR by default
+09-09-09 fds.c: add --unit=fd
+09-08-25 tail.c: initialize Tail_t.fifo=0 !!
+09-08-15 tail.c: fix fifo logic
+09-08-11 wc.c: add setlocale(LC_CTYPE,"C") cleanup, add utf8 optimzations
+09-08-10 uniq.c: replace -c 1..9999 sfsprintf() with inline conversion
+09-08-01 join.c: fix empty field null pointer deref
+09-07-23 pathchk.c: add -P,--path and -a,--all
+09-07-02 chgrp.c,chmod.c,cksum.c: fts_flags() default only if not --recursive
+09-06-19 cmd.h,cmdinit.c: add ERROR_CALLBACK for ERROR_NOTIFY main() callback
+09-06-19 mktemp.c: --unsafe now checks and prints path but does create
+09-06-19 tee.c: add ERROR_CALLBACK for tee_cleanup() sfio discipline pop
+09-06-18 rm.c: handle interrupts during interactive query
+09-06-18 cp.c: handle interrupts during interactive query
+09-05-25 tail.c: fix old style option logic to handle --invalid-long-option
+09-05-24 tail.c: -r == +1r
+09-05-01 mktemp.c: handle foo/prefix, add -p dir and -u
+09-03-31 cat.c: handle --no* options
+09-03-15 tail.c: fix --timeout termination logic
+09-03-03 tee.c: clean up sfio disciplines on error
+09-03-03 cat.c: fix -v|-e|-n|-B interaction bugs
+09-02-14 tail.c: fix VSC failures
+09-02-14 join.c: fix VSC failure
+09-02-02 uniq.c: document -number == -fnumber, +number == -snumber
+09-02-02 tail.c: fix usage[] for negative offsets, add sun -b
+09-02-02 mktemp.c: add
+09-02-02 features/utsname: UWIN _UNAME_os_DEFAULT => UWIN
+09-01-31 dirname.c: add experimental { -f -r -x } for pathpath(3)
+09-01-05 cmp.c: fix EOF diagnostic to conform to posix
+09-01-03 mkfifo.c: fix --mode=mode logic
+08-12-07 date.c: add %[_][EO]K for [space pad] [full|long] iso docs
+08-11-10 stty.c: check for -t grouping so -tostop != -t -ostop
+08-10-15 rm.c: handle 'rm -f x x' => exit 0
+08-09-08 stty.c: #ifdef guard TAB[012] -- freebsd: damn the posix, full speed ahead
+08-06-17 shcmd.h: move to libast
+08-04-24 uniq.c: add optget() 'n' option for -1 => -f1
+08-04-24 getconf.c: clarify diffs between "name - value" and "name = value"
+08-04-01 cut.c: add write error check
+08-04-01 paste.c: fix --noserial stream vector access bug
+08-04-01 pids.c: add ls/ps style --format=format
+08-04-01 stty.c: fix off2 unitialized reference
+08-03-28 chgrp.c: add --before=file
+08-03-14 pids.c: add
+08-03-11 chgrp.c: fix -m to use uid:gid as lookup key
+08-02-11 Makefile: add -lmd possibly required by sumlib.o -- hack alert
+08-01-30 expr.c: fix <=0 type that broke substr * 1 * -- wow
+07-12-13 cp.c: fix builtin state reinitialization
+07-11-29 rev.c: honor multibyte locales
+07-11-27 cp.c: open non-existent destination with O_EXCL
+07-11-27 stty.c: add -t,--terminal-group to list tty pgrp
+07-11-27 cksum.c: --silent -s => -S, -s == -x sys5 for gnu compatibility
+07-11-11 tee.c: drop ancient bsd compatibility "-" operand => SIGINT
 07-10-29 cksum.c: add SUM_LEGACY for -r
 07-10-12 cp.c: plug usage string memory leak by using per-builtin state
 07-09-21 cksum.c: add sumprint() default scale arg, --scale, --bsd for solaris
@@ -149,7 +238,7 @@
 00-10-31 mkdir: handle races by checking EEXIST
 00-09-20 cp: copy argv to stack before modifying in place
 00-05-18 add setlocale(LC_ALL,"")
-00-04-30 join: drop wierd opt_info.argv reference
+00-04-30 join: drop weird opt_info.argv reference
 00-03-17 expr: add == operator -- duh
 	 cp,ln,mv: delay pathcanon() on destination to verify `cp a b/.'
 	 getconf: use astgetconf for proper message control

@@ -173,6 +173,9 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	_M_sync(const_cast<char_type*>(_M_string.data()), 0, __len);
       }
 
+#if __TARGETING_4_0_DYLIB
+	// basic_stringbuf::showmanyc() not exported from libstdc++.6.0.4 dylib
+#else
       virtual streamsize
       showmanyc()
       { 
@@ -184,7 +187,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  }
 	return __ret;
       }
-
+#endif
       virtual int_type
       underflow();
 

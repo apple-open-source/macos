@@ -1,24 +1,19 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/bn_IN.xml
 // *
 // ***************************************************************************
 bn_IN{
-    Version{"2.0.47.53"}
+    Version{"2.0.59.53"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                1,
-                4,
-            }
             fields{
                 day{
                     relative{
                         "-2"{"গতপরশু"}
-                        "-3"{"গততরশু"}
                     }
                 }
                 hour{
@@ -43,12 +38,6 @@ bn_IN{
                         "বার্ষিক",
                     }
                 }
-            }
-            weekend:intvector{
-                1,
-                0,
-                1,
-                86400000,
             }
         }
     }

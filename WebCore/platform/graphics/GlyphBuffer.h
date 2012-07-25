@@ -35,7 +35,7 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 #include <CoreGraphics/CGGeometry.h>
 #endif
 
@@ -43,7 +43,7 @@
 #include <ApplicationServices/ApplicationServices.h>
 #endif
 
-#if USE(CAIRO) || (PLATFORM(WX) && defined(__WXGTK__))
+#if USE(CAIRO) || (PLATFORM(WX) && defined(wxUSE_CAIRO) && wxUSE_CAIRO)
 #include <cairo.h>
 #endif
 
@@ -51,7 +51,7 @@ namespace WebCore {
 
 class SimpleFontData;
 
-#if USE(CAIRO)
+#if USE(CAIRO) || (PLATFORM(WX) && defined(wxUSE_CAIRO) && wxUSE_CAIRO)
 // FIXME: Why does Cairo use such a huge struct instead of just an offset into an array?
 typedef cairo_glyph_t GlyphBufferGlyph;
 #elif OS(WINCE)
@@ -62,7 +62,7 @@ typedef Glyph GlyphBufferGlyph;
 
 // CG uses CGSize instead of FloatSize so that the result of advances()
 // can be passed directly to CGContextShowGlyphsWithAdvances in FontMac.mm
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
 typedef CGSize GlyphBufferAdvance;
 #elif OS(WINCE)
 // There is no cross-platform code that uses the height of GlyphBufferAdvance,
@@ -117,7 +117,7 @@ public:
 
     Glyph glyphAt(int index) const
     {
-#if USE(CAIRO)
+#if USE(CAIRO) || (PLATFORM(WX) && defined(wxUSE_CAIRO) && wxUSE_CAIRO)
         return m_glyphs[index].index;
 #else
         return m_glyphs[index];
@@ -126,7 +126,7 @@ public:
 
     float advanceAt(int index) const
     {
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
         return m_advances[index].width;
 #elif OS(WINCE)
         return m_advances[index];
@@ -149,7 +149,7 @@ public:
     {
         m_fontData.append(font);
 
-#if USE(CAIRO)
+#if USE(CAIRO) || (PLATFORM(WX) && defined(wxUSE_CAIRO) && wxUSE_CAIRO)
         cairo_glyph_t cairoGlyph;
         cairoGlyph.index = glyph;
         m_glyphs.append(cairoGlyph);
@@ -157,7 +157,7 @@ public:
         m_glyphs.append(glyph);
 #endif
 
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
         CGSize advance = { width, 0 };
         m_advances.append(advance);
 #elif OS(WINCE)
@@ -180,7 +180,7 @@ public:
     void add(Glyph glyph, const SimpleFontData* font, GlyphBufferAdvance advance)
     {
         m_fontData.append(font);
-#if USE(CAIRO)
+#if USE(CAIRO) || (PLATFORM(WX) && defined(wxUSE_CAIRO) && wxUSE_CAIRO)
         cairo_glyph_t cairoGlyph;
         cairoGlyph.index = glyph;
         m_glyphs.append(cairoGlyph);
@@ -196,7 +196,7 @@ public:
     {
         ASSERT(!isEmpty());
         GlyphBufferAdvance& lastAdvance = m_advances.last();
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
         lastAdvance.width += width;
 #elif OS(WINCE)
         lastAdvance += width;

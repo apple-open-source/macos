@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CSSUnicodeRangeValue_h
@@ -39,16 +39,15 @@ public:
         return adoptRef(new CSSUnicodeRangeValue(from, to));
     }
 
-    virtual ~CSSUnicodeRangeValue();
-
     UChar32 from() const { return m_from; }
     UChar32 to() const { return m_to; }
 
-    virtual String cssText() const;
+    String customCssText() const;
 
 private:
     CSSUnicodeRangeValue(UChar32 from, UChar32 to)
-        : m_from(from)
+        : CSSValue(UnicodeRangeClass)
+        , m_from(from)
         , m_to(to)
     {
     }

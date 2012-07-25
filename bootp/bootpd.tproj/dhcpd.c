@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@
 #include "subnets.h"
 #include "bootpdfile.h"
 #include "bootplookup.h"
+#include "nbo.h"
 
 
 typedef long			dhcp_time_secs_t;
@@ -175,9 +176,7 @@ dhcp_max_message_size(dhcpol_t * options)
     opt = dhcpol_find(options, dhcptag_max_dhcp_message_size_e,
 		      &opt_len, NULL);
     if (opt != NULL && opt_len == 2) {
-	u_int16_t 	sval;
-
-	sval = ntohs(*((u_int16_t *)opt));
+	u_int16_t sval = net_uint16_get(opt);
 	if (sval > DHCP_PACKET_MIN) {
 	    val = sval;
 	}

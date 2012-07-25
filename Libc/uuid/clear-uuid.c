@@ -1,1 +1,0 @@
-uuidsrc/clear.c

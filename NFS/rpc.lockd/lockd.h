@@ -64,6 +64,7 @@ struct nfs_conf_lockd {
 	int host_monitor_cache_timeout;
 	int port;
 	int send_using_tcp;
+	int send_using_mnt_transport;
 	int shutdown_delay_client;
 	int shutdown_delay_server;
 	int tcp;

@@ -243,6 +243,27 @@ rrc_rotate(void *data, size_t len, uint16_t rrc, krb5_boolean unrotate)
     return 0;
 }
 
+static OM_uint32
+_gk_allocate_buffer(OM_uint32 *minor_status, gss_iov_buffer_desc *buffer, size_t size)
+{
+    if (buffer->type & GSS_IOV_BUFFER_FLAG_ALLOCATED) {
+	if (buffer->buffer.length == size)
+	    return GSS_S_COMPLETE;
+	free(buffer->buffer.value);
+    }
+
+    buffer->buffer.value = malloc(size);
+    buffer->buffer.length = size;
+    if (buffer->buffer.value == NULL) {
+	*minor_status = ENOMEM;
+	return GSS_S_FAILURE;
+    }
+    buffer->type |= GSS_IOV_BUFFER_FLAG_ALLOCATED;
+
+    return GSS_S_COMPLETE;
+}
+
+
 OM_uint32
 _gk_verify_buffers(OM_uint32 *minor_status,
 		   struct gsskrb5_crypto *ctx,
@@ -294,7 +315,8 @@ _gssapi_wrap_cfx_iov(OM_uint32 *minor_status,
     gss_iov_buffer_desc *header, *trailer, *padding;
     size_t gsshsize, k5hsize;
     size_t gsstsize, k5tsize;
-    size_t i, rrc = 0, ec = 0;
+    size_t rrc = 0, ec = 0;
+    int i;
     gss_cfx_wrap_token token;
     krb5_error_code ret;
     unsigned usage;
@@ -399,8 +421,8 @@ _gssapi_wrap_cfx_iov(OM_uint32 *minor_status,
 	    rrc -= ec;
 	gsshsize += gsstsize;
 	gsstsize = 0;
-    } else if (GSS_IOV_BUFFER_FLAGS(trailer->type) & GSS_IOV_BUFFER_TYPE_FLAG_ALLOCATE) {
-	major_status = _gss_mg_allocate_buffer(minor_status, trailer, gsstsize);
+    } else if (GSS_IOV_BUFFER_FLAGS(trailer->type) & GSS_IOV_BUFFER_FLAG_ALLOCATE) {
+	major_status = _gk_allocate_buffer(minor_status, trailer, gsstsize);
 	if (major_status)
 	    goto failure;
     } else if (trailer->buffer.length < gsstsize) {
@@ -414,8 +436,8 @@ _gssapi_wrap_cfx_iov(OM_uint32 *minor_status,
      *
      */
 
-    if (GSS_IOV_BUFFER_FLAGS(header->type) & GSS_IOV_BUFFER_TYPE_FLAG_ALLOCATE) {
-	major_status = _gss_mg_allocate_buffer(minor_status, header, gsshsize);
+    if (GSS_IOV_BUFFER_FLAGS(header->type) & GSS_IOV_BUFFER_FLAG_ALLOCATE) {
+	major_status = _gk_allocate_buffer(minor_status, header, gsshsize);
 	if (major_status != GSS_S_COMPLETE)
 	    goto failure;
     } else if (header->buffer.length < gsshsize) {
@@ -573,7 +595,7 @@ _gssapi_wrap_cfx_iov(OM_uint32 *minor_status,
 	  plain packet:
 
 	  {data | "header" | gss-trailer (krb5 checksum)
-	  
+
 	  don't do RRC != 0
 
 	*/
@@ -656,7 +678,7 @@ unrotate_iov(OM_uint32 *minor_status, size_t rrc, gss_iov_buffer_desc *iov, int 
 	    GSS_IOV_BUFFER_TYPE(iov[i].type) == GSS_IOV_BUFFER_TYPE_PADDING ||
 	    GSS_IOV_BUFFER_TYPE(iov[i].type) == GSS_IOV_BUFFER_TYPE_TRAILER)
 	    len += iov[i].buffer.length;
-    
+
     p = malloc(len);
     if (p == NULL) {
 	*minor_status = ENOMEM;
@@ -675,7 +697,7 @@ unrotate_iov(OM_uint32 *minor_status, size_t rrc, gss_iov_buffer_desc *iov, int 
 		q += iov[i].buffer.length;
 	    }
     }
-    assert((q - p) == len);
+    assert((size_t)(q - p) == len);
 
     /* unrotate first part */
     q = p + rrc;
@@ -1176,8 +1198,16 @@ OM_uint32 _gssapi_wrap_cfx(OM_uint32 *minor_status,
 	return GSS_S_FAILURE;
     }
 
-    /* Always rotate encrypted token (if any) and checksum to header */
-    rrc = (conf_req_flag ? sizeof(*token) : 0) + (uint16_t)cksumsize;
+    /* 
+     * We actually want to always rotate encrypted token (if any) and
+     * checksum to header with the checksum size or token, but since
+     * pure Java Kerberos can't handle that, we have to do RRC = 0
+     * when using non-DCE-style.
+     */
+    if (GK5C_IS_DCE_STYLE(ctx))
+	rrc = (conf_req_flag ? sizeof(*token) : 0) + (uint16_t)cksumsize;
+    else
+	rrc = 0;
 
     output_message_buffer->length = wrapped_len;
     output_message_buffer->value = malloc(output_message_buffer->length);

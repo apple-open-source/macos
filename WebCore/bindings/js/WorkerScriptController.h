@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,8 +57,8 @@ namespace WebCore {
             return m_workerContextWrapper.get();
         }
 
-        ScriptValue evaluate(const ScriptSourceCode&);
-        ScriptValue evaluate(const ScriptSourceCode&, ScriptValue* exception);
+        void evaluate(const ScriptSourceCode&);
+        void evaluate(const ScriptSourceCode&, ScriptValue* exception);
 
         void setException(ScriptValue);
 
@@ -67,11 +68,14 @@ namespace WebCore {
         // forbidExecution()/isExecutionForbidden() to guard against reentry into JS.
         // Can be called from any thread.
         void scheduleExecutionTermination();
+        bool isExecutionTerminating() const;
 
         // Called on Worker thread when JS exits with termination exception caused by forbidExecution() request,
         // or by Worker thread termination code to prevent future entry into JS.
         void forbidExecution();
         bool isExecutionForbidden() const;
+
+        void disableEval();
 
         JSC::JSGlobalData* globalData() { return m_globalData.get(); }
 
@@ -87,6 +91,7 @@ namespace WebCore {
         WorkerContext* m_workerContext;
         JSC::Strong<JSWorkerContext> m_workerContextWrapper;
         bool m_executionForbidden;
+        mutable Mutex m_scheduledTerminationMutex;
     };
 
 } // namespace WebCore

@@ -23,7 +23,7 @@
 <DIV CLASS="title">
 <H1 CLASS="doc-title">OpenLDAP Software 2.4 Administrator's Guide</H1>
 <ADDRESS CLASS="doc-author">The OpenLDAP Project &lt;<A HREF="http://www.openldap.org/">http://www.openldap.org/</A>&gt;</ADDRESS>
-<ADDRESS CLASS="doc-modified">5 October 2009</ADDRESS>
+<ADDRESS CLASS="doc-modified">25 November 2011</ADDRESS>
 <BR CLEAR="All">
 </DIV>
 <DIV CLASS="contents">
@@ -462,9 +462,7 @@
 <BR>
 <A HREF="#SHA password storage scheme">14.4.5. SHA password storage scheme</A>
 <BR>
-<A HREF="#SASL password storage scheme">14.4.6. SASL password storage scheme</A>
-<BR>
-<A HREF="#KERBEROS password storage scheme">14.4.7. KERBEROS password storage scheme</A></UL>
+<A HREF="#SASL password storage scheme">14.4.6. SASL password storage scheme</A></UL>
 <BR>
 <A HREF="#Pass-Through authentication">14.5. Pass-Through authentication</A><UL>
 <A HREF="#Configuring slapd to use an authentication provider">14.5.1. Configuring slapd to use an authentication provider</A>
@@ -483,11 +481,13 @@
 <BR>
 <A HREF="#DIGEST-MD5">15.2.3. DIGEST-MD5</A>
 <BR>
-<A HREF="#Mapping Authentication Identities">15.2.4. Mapping Authentication Identities</A>
+<A HREF="#EXTERNAL">15.2.4. EXTERNAL</A>
 <BR>
-<A HREF="#Direct Mapping">15.2.5. Direct Mapping</A>
+<A HREF="#Mapping Authentication Identities">15.2.5. Mapping Authentication Identities</A>
 <BR>
-<A HREF="#Search-based mappings">15.2.6. Search-based mappings</A></UL>
+<A HREF="#Direct Mapping">15.2.6. Direct Mapping</A>
+<BR>
+<A HREF="#Search-based mappings">15.2.7. Search-based mappings</A></UL>
 <BR>
 <A HREF="#SASL Proxy Authorization">15.3. SASL Proxy Authorization</A><UL>
 <A HREF="#Uses of Proxy Authorization">15.3.1. Uses of Proxy Authorization</A>
@@ -810,83 +810,83 @@
 <BR>
 <A HREF="#Result Codes">H.2. Result Codes</A>
 <BR>
-<A HREF="#{{success (0)}}">H.3. <EM>success (0)</EM></A>
+<A HREF="#success (0)">H.3. success (0)</A>
 <BR>
-<A HREF="#{{operationsError (1)}}">H.4. <EM>operationsError (1)</EM></A>
+<A HREF="#operationsError (1)">H.4. operationsError (1)</A>
 <BR>
-<A HREF="#{{protocolError (2)}}">H.5. <EM>protocolError (2)</EM></A>
+<A HREF="#protocolError (2)">H.5. protocolError (2)</A>
 <BR>
-<A HREF="#{{timeLimitExceeded (3)}}">H.6. <EM>timeLimitExceeded (3)</EM></A>
+<A HREF="#timeLimitExceeded (3)">H.6. timeLimitExceeded (3)</A>
 <BR>
-<A HREF="#{{sizeLimitExceeded (4)}}">H.7. <EM>sizeLimitExceeded (4)</EM></A>
+<A HREF="#sizeLimitExceeded (4)">H.7. sizeLimitExceeded (4)</A>
 <BR>
-<A HREF="#{{compareFalse (5)}}">H.8. <EM>compareFalse (5)</EM></A>
+<A HREF="#compareFalse (5)">H.8. compareFalse (5)</A>
 <BR>
-<A HREF="#{{compareTrue (6)}}">H.9. <EM>compareTrue (6)</EM></A>
+<A HREF="#compareTrue (6)">H.9. compareTrue (6)</A>
 <BR>
-<A HREF="#{{authMethodNotSupported (7)}}">H.10. <EM>authMethodNotSupported (7)</EM></A>
+<A HREF="#authMethodNotSupported (7)">H.10. authMethodNotSupported (7)</A>
 <BR>
-<A HREF="#{{strongerAuthRequired (8)}}">H.11. <EM>strongerAuthRequired (8)</EM></A>
+<A HREF="#strongerAuthRequired (8)">H.11. strongerAuthRequired (8)</A>
 <BR>
-<A HREF="#{{referral (10)}}">H.12. <EM>referral (10)</EM></A>
+<A HREF="#referral (10)">H.12. referral (10)</A>
 <BR>
-<A HREF="#{{adminLimitExceeded (11)}}">H.13. <EM>adminLimitExceeded (11)</EM></A>
+<A HREF="#adminLimitExceeded (11)">H.13. adminLimitExceeded (11)</A>
 <BR>
-<A HREF="#{{unavailableCriticalExtension (12)}}">H.14. <EM>unavailableCriticalExtension (12)</EM></A>
+<A HREF="#unavailableCriticalExtension (12)">H.14. unavailableCriticalExtension (12)</A>
 <BR>
-<A HREF="#{{confidentialityRequired (13)}}">H.15. <EM>confidentialityRequired (13)</EM></A>
+<A HREF="#confidentialityRequired (13)">H.15. confidentialityRequired (13)</A>
 <BR>
-<A HREF="#{{saslBindInProgress (14)}}">H.16. <EM>saslBindInProgress (14)</EM></A>
+<A HREF="#saslBindInProgress (14)">H.16. saslBindInProgress (14)</A>
 <BR>
-<A HREF="#{{noSuchAttribute (16)}}">H.17. <EM>noSuchAttribute (16)</EM></A>
+<A HREF="#noSuchAttribute (16)">H.17. noSuchAttribute (16)</A>
 <BR>
-<A HREF="#{{undefinedAttributeType (17)}}">H.18. <EM>undefinedAttributeType (17)</EM></A>
+<A HREF="#undefinedAttributeType (17)">H.18. undefinedAttributeType (17)</A>
 <BR>
-<A HREF="#{{inappropriateMatching (18)}}">H.19. <EM>inappropriateMatching (18)</EM></A>
+<A HREF="#inappropriateMatching (18)">H.19. inappropriateMatching (18)</A>
 <BR>
-<A HREF="#{{constraintViolation (19)}}">H.20. <EM>constraintViolation (19)</EM></A>
+<A HREF="#constraintViolation (19)">H.20. constraintViolation (19)</A>
 <BR>
-<A HREF="#{{attributeOrValueExists (20)}}">H.21. <EM>attributeOrValueExists (20)</EM></A>
+<A HREF="#attributeOrValueExists (20)">H.21. attributeOrValueExists (20)</A>
 <BR>
-<A HREF="#{{invalidAttributeSyntax (21)}}">H.22. <EM>invalidAttributeSyntax (21)</EM></A>
+<A HREF="#invalidAttributeSyntax (21)">H.22. invalidAttributeSyntax (21)</A>
 <BR>
-<A HREF="#{{noSuchObject (32)}}">H.23. <EM>noSuchObject (32)</EM></A>
+<A HREF="#noSuchObject (32)">H.23. noSuchObject (32)</A>
 <BR>
-<A HREF="#{{aliasProblem (33)}}">H.24. <EM>aliasProblem (33)</EM></A>
+<A HREF="#aliasProblem (33)">H.24. aliasProblem (33)</A>
 <BR>
-<A HREF="#{{invalidDNSyntax (34)}}">H.25. <EM>invalidDNSyntax (34)</EM></A>
+<A HREF="#invalidDNSyntax (34)">H.25. invalidDNSyntax (34)</A>
 <BR>
-<A HREF="#{{aliasDereferencingProblem (36)}}">H.26. <EM>aliasDereferencingProblem (36)</EM></A>
+<A HREF="#aliasDereferencingProblem (36)">H.26. aliasDereferencingProblem (36)</A>
 <BR>
-<A HREF="#{{inappropriateAuthentication (48)}}">H.27. <EM>inappropriateAuthentication (48)</EM></A>
+<A HREF="#inappropriateAuthentication (48)">H.27. inappropriateAuthentication (48)</A>
 <BR>
-<A HREF="#{{invalidCredentials (49)}}">H.28. <EM>invalidCredentials (49)</EM></A>
+<A HREF="#invalidCredentials (49)">H.28. invalidCredentials (49)</A>
 <BR>
-<A HREF="#{{insufficientAccessRights (50)}}">H.29. <EM>insufficientAccessRights (50)</EM></A>
+<A HREF="#insufficientAccessRights (50)">H.29. insufficientAccessRights (50)</A>
 <BR>
-<A HREF="#{{busy (51)}}">H.30. <EM>busy (51)</EM></A>
+<A HREF="#busy (51)">H.30. busy (51)</A>
 <BR>
-<A HREF="#{{unavailable (52)}}">H.31. <EM>unavailable (52)</EM></A>
+<A HREF="#unavailable (52)">H.31. unavailable (52)</A>
 <BR>
-<A HREF="#{{unwillingToPerform (53)}}">H.32. <EM>unwillingToPerform (53)</EM></A>
+<A HREF="#unwillingToPerform (53)">H.32. unwillingToPerform (53)</A>
 <BR>
-<A HREF="#{{loopDetect (54)}}">H.33. <EM>loopDetect (54)</EM></A>
+<A HREF="#loopDetect (54)">H.33. loopDetect (54)</A>
 <BR>
-<A HREF="#{{namingViolation (64)}}">H.34. <EM>namingViolation (64)</EM></A>
+<A HREF="#namingViolation (64)">H.34. namingViolation (64)</A>
 <BR>
-<A HREF="#{{objectClassViolation (65)}}">H.35. <EM>objectClassViolation (65)</EM></A>
+<A HREF="#objectClassViolation (65)">H.35. objectClassViolation (65)</A>
 <BR>
-<A HREF="#{{notAllowedOnNonLeaf (66)}}">H.36. <EM>notAllowedOnNonLeaf (66)</EM></A>
+<A HREF="#notAllowedOnNonLeaf (66)">H.36. notAllowedOnNonLeaf (66)</A>
 <BR>
-<A HREF="#{{notAllowedOnRDN (67)}}">H.37. <EM>notAllowedOnRDN (67)</EM></A>
+<A HREF="#notAllowedOnRDN (67)">H.37. notAllowedOnRDN (67)</A>
 <BR>
-<A HREF="#{{entryAlreadyExists (68)}}">H.38. <EM>entryAlreadyExists (68)</EM></A>
+<A HREF="#entryAlreadyExists (68)">H.38. entryAlreadyExists (68)</A>
 <BR>
-<A HREF="#{{objectClassModsProhibited (69)}}">H.39. <EM>objectClassModsProhibited (69)</EM></A>
+<A HREF="#objectClassModsProhibited (69)">H.39. objectClassModsProhibited (69)</A>
 <BR>
-<A HREF="#{{affectsMultipleDSAs (71)}}">H.40. <EM>affectsMultipleDSAs (71)</EM></A>
+<A HREF="#affectsMultipleDSAs (71)">H.40. affectsMultipleDSAs (71)</A>
 <BR>
-<A HREF="#{{other (80)}}">H.41. <EM>other (80)</EM></A></UL>
+<A HREF="#other (80)">H.41. other (80)</A></UL>
 <BR>
 <A HREF="#Glossary">I. Glossary</A><UL>
 <A HREF="#Terms">I.1. Terms</A>
@@ -913,7 +913,7 @@
 <HR>
 <H1><A NAME="Preface">Preface</A></H1>
 <H2>Copyright</H2>
-<P>Copyright 1998-2008, The <A HREF="http://www.openldap.org/foundation/">OpenLDAP Foundation</A>, <EM>All Rights Reserved</EM>.</P>
+<P>Copyright 1998-2011, The <A HREF="http://www.openldap.org/foundation/">OpenLDAP Foundation</A>, <EM>All Rights Reserved</EM>.</P>
 <P>Copyright 1992-1996, Regents of the <A HREF="http://www.umich.edu/">University of Michigan</A>, <EM>All Rights Reserved</EM>.</P>
 <P>This document is considered a part of OpenLDAP Software.  This document is subject to terms of conditions set forth in <A HREF="#OpenLDAP Software Copyright Notices">OpenLDAP Software Copyright Notices</A> and the <A HREF="#OpenLDAP Public License">OpenLDAP Public License</A>. Complete copies of the notices and associated license can be found in Appendix K and L, respectively.</P>
 <P>Portions of OpenLDAP Software and this document may be copyright by other parties and/or subject to additional restrictions.  Individual source files should be consulted for additional copyright notices.</P>
@@ -988,6 +988,7 @@ Support Pages
 </TR>
 </TABLE>
 
+<P>This document is not a complete reference for OpenLDAP software; the manual pages are the definitive documentation. For best results, you should use the manual pages that were installed on your system with your version of OpenLDAP software so that you're looking at documentation that matches the code. While the OpenLDAP web site also provides the manual pages for convenience, you can not assume that they corresond to the particular version you're running.</P>
 <H2>Acknowledgments</H2>
 <P>The <A HREF="http://www.openldap.org/project/">OpenLDAP Project</A> is comprised of a team of volunteers.  This document would not be possible without their contribution of time and energy.</P>
 <P>The OpenLDAP Project would also like to thank the <A HREF="http://www.umich.edu/~dirsvcs/ldap/ldap.html">University of Michigan LDAP Team</A> for building the foundation of LDAP software and information to which OpenLDAP Software is built upon.  This document is based upon University of Michigan document: <A HREF="http://www.umich.edu/~dirsvcs/ldap/doc/guides/slapd/guide.pdf">The SLAPD and SLURPD Administrators Guide</A>.</P>
@@ -1085,7 +1086,7 @@ Support Pages
 <P><EM>slapd</EM>(8) is an LDAP directory server that runs on many different platforms. You can use it to provide a directory service of your very own.  Your directory can contain pretty much anything you want to put in it. You can connect it to the global LDAP directory service, or run a service all by yourself. Some of slapd's more interesting features and capabilities include:</P>
 <P><B>LDAPv3</B>: <EM>slapd</EM> implements version 3 of <TERM>Lightweight Directory Access Protocol</TERM>. <EM>slapd</EM> supports LDAP over both <TERM>IPv4</TERM> and <TERM>IPv6</TERM> and Unix <TERM>IPC</TERM>.</P>
 <P><B><TERM>Simple Authentication and Security Layer</TERM></B>: <EM>slapd</EM> supports strong authentication and data security (integrity and confidentiality) services through the use of SASL.  <EM>slapd</EM>'s SASL implementation utilizes <A HREF="http://asg.web.cmu.edu/sasl/sasl-library.html">Cyrus SASL</A> software which supports a number of mechanisms including <TERM>DIGEST-MD5</TERM>, <TERM>EXTERNAL</TERM>, and <TERM>GSSAPI</TERM>.</P>
-<P><B><TERM>Transport Layer Security</TERM></B>: <EM>slapd</EM> supports certificate-based authentication and data security (integrity and confidentiality) services through the use of TLS (or SSL).  <EM>slapd</EM>'s TLS implementation can utilize either <A HREF="http://www.openssl.org/">OpenSSL</A> or <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A> software.</P>
+<P><B><TERM>Transport Layer Security</TERM></B>: <EM>slapd</EM> supports certificate-based authentication and data security (integrity and confidentiality) services through the use of TLS (or SSL).  <EM>slapd</EM>'s TLS implementation can utilize <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> software.</P>
 <P><B>Topology control</B>: <EM>slapd</EM> can be configured to restrict access at the socket layer based upon network topology information. This feature utilizes <EM>TCP wrappers</EM>.</P>
 <P><B>Access control</B>: <EM>slapd</EM> provides a rich and powerful access control facility, allowing you to control access to the information in your database(s). You can control access to entries based on LDAP authorization information, <TERM>IP</TERM> address, domain name and other criteria.  <EM>slapd</EM> supports both <EM>static</EM> and <EM>dynamic</EM> access control information.</P>
 <P><B>Internationalization</B>: <EM>slapd</EM> supports Unicode and language tags.</P>
@@ -1327,8 +1328,8 @@ This command will search for and retrieve every entry in the database.</OL>
 <H2><A NAME="Prerequisite software">4.2. Prerequisite software</A></H2>
 <P>OpenLDAP Software relies upon a number of software packages distributed by third parties.  Depending on the features you intend to use, you may have to download and install a number of additional software packages.  This section details commonly needed third party software packages you might have to install.  However, for an up-to-date prerequisite information, the <TT>README</TT> document should be consulted.  Note that some of these third party packages may depend on additional software packages.  Install each package per the installation instructions provided with it.</P>
 <H3><A NAME="{{TERM[expand]TLS}}">4.2.1. <TERM>Transport Layer Security</TERM></A></H3>
-<P>OpenLDAP clients and servers require installation of either <A HREF="http://www.openssl.org/">OpenSSL</A> or <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A> <TERM>TLS</TERM> libraries to provide <TERM>Transport Layer Security</TERM> services.  Though some operating systems may provide these libraries as part of the base system or as an optional software component, OpenSSL and GnuTLS often require separate installation.</P>
-<P>OpenSSL is available from <A HREF="http://www.openssl.org/">http://www.openssl.org/</A>. GnuTLS is available from <A HREF="http://www.gnu.org/software/gnutls/">http://www.gnu.org/software/gnutls/</A>.</P>
+<P>OpenLDAP clients and servers require installation of <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> <TERM>TLS</TERM> libraries to provide <TERM>Transport Layer Security</TERM> services.  Though some operating systems may provide these libraries as part of the base system or as an optional software component, OpenSSL, GnuTLS, and Mozilla NSS often require separate installation.</P>
+<P>OpenSSL is available from <A HREF="http://www.openssl.org/">http://www.openssl.org/</A>. GnuTLS is available from <A HREF="http://www.gnu.org/software/gnutls/">http://www.gnu.org/software/gnutls/</A>. Mozilla NSS is available from <A HREF="http://developer.mozilla.org/en/NSS">http://developer.mozilla.org/en/NSS</A>.</P>
 <P>OpenLDAP Software will not be fully LDAPv3 compliant unless OpenLDAP's <TT>configure</TT> detects a usable TLS library.</P>
 <H3><A NAME="{{TERM[expand]SASL}}">4.2.2. <TERM>Simple Authentication and Security Layer</TERM></A></H3>
 <P>OpenLDAP clients and servers require installation of <A HREF="http://asg.web.cmu.edu/sasl/sasl-library.html">Cyrus SASL</A> libraries to provide <TERM>Simple Authentication and Security Layer</TERM> services.  Though some operating systems may provide this library as part of the base system or as an optional software component, Cyrus SASL often requires separate installation.</P>
@@ -1412,14 +1413,14 @@ Specify additional libraries
 <PRE>
         [[env] settings] ./configure [options]
 </PRE>
-<P>As an example, let's assume that we want to install OpenLDAP with BDB backend and TCP Wrappers support.  By default, BDB is enabled and TCP Wrappers is not.  So, we just need to specify <TT>--with-wrappers</TT> to include TCP Wrappers support:</P>
+<P>As an example, let's assume that we want to install OpenLDAP with BDB backend and TCP Wrappers support.  By default, BDB is enabled and TCP Wrappers is not.  So, we just need to specify <TT>--enable-wrappers</TT> to include TCP Wrappers support:</P>
 <PRE>
-        ./configure --with-wrappers
+        ./configure --enable-wrappers
 </PRE>
 <P>However, this will fail to locate dependent software not installed in system directories.  For example, if TCP Wrappers headers and libraries are installed in <TT>/usr/local/include</TT> and <TT>/usr/local/lib</TT> respectively, the <TT>configure</TT> script should be called as follows:</P>
 <PRE>
         env CPPFLAGS=&quot;-I/usr/local/include&quot; LDFLAGS=&quot;-L/usr/local/lib&quot; \
-                ./configure --with-wrappers
+                ./configure --enable-wrappers
 </PRE>
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>Some shells, such as those derived from the Bourne <EM>sh</EM>(1), do not require use of the <EM>env</EM>(1) command.  In some cases, environmental variables have to be specified using alternative syntaxes.
@@ -1458,11 +1459,20 @@ Specify additional libraries
 <HR>
 <H1><A NAME="Configuring slapd">5. Configuring slapd</A></H1>
 <P>Once the software has been built and installed, you are ready to configure <EM>slapd</EM>(8) for use at your site.</P>
-<P>Unlike previous OpenLDAP releases, the slapd(8) runtime configuration in 2.3 (and later) is fully LDAP-enabled and can be managed using the standard LDAP operations with data in <TERM>LDIF</TERM>. The LDAP configuration engine allows all of slapd's configuration options to be changed on the fly, generally without requiring a server restart for the changes to take effect.</P>
-<P>The old style <EM>slapd.conf</EM>(5) file is still supported, but must be converted to the new <EM>slapd-config</EM>(5) format to allow runtime changes to be saved. While the old style configuration uses a single file, normally installed as <TT>/usr/local/etc/openldap/slapd.conf</TT>, the new style uses a slapd backend database to store the configuration. The configuration database normally resides in the <TT>/usr/local/etc/openldap/slapd.d</TT> directory. An alternate configuration directory (or file) can be specified via a command-line option to <EM>slapd</EM>(8).</P>
-<P>This chapter briefly discusses converting to the new style configuration, then describes the general format of the configuration system, followed by a detailed description of commonly used config settings.</P>
+<P>OpenLDAP 2.3 and later have transitioned to using a dynamic runtime configuration engine, <EM>slapd-config</EM>(5).  <EM>slapd-config</EM>(5)</P>
+<UL>
+<LI>is fully LDAP-enabled
+<LI>is managed using the standard LDAP operations
+<LI>stores its configuration data in an <TERM>LDIF</TERM> database, generally in the <TT>/usr/local/etc/openldap/slapd.d</TT> directory.
+<LI>allows all of slapd's configuration options to be changed on the fly, generally without requiring a server restart for the changes to take effect.</UL>
+<P>This chapter describes the general format of the <EM>slapd-config</EM>(5) configuration system, followed by a detailed description of commonly used settings.</P>
+<P>The older style <EM>slapd.conf</EM>(5) file is still supported, but its use is deprecated and support for it will be withdrawn in a future OpenLDAP release.  Configuring <EM>slapd</EM>(8) via <EM>slapd.conf</EM>(5) is described in the next chapter.</P>
+<P>Refer to <EM>slapd</EM>(8) for information on how to have slapd automatically convert from <EM>slapd.conf</EM>(5) to <EM>slapd-config</EM>(5).</P>
 <P><HR WIDTH="80%" ALIGN="Left">
-<STRONG>Note: </STRONG>some of the backends and of the distributed overlays do not support runtime configuration yet.  In those cases, the old style <EM>slapd.conf</EM>(5) file must be used.
+<STRONG>Note: </STRONG>Although the <EM>slapd-config</EM>(5) system stores its configuration as (text-based) LDIF files, you should <EM>never</EM> edit any of the LDIF files directly.  Configuration changes should be performed via LDAP operations, e.g. <EM>ldapadd</EM>(1), <EM>ldapdelete</EM>(1), or <EM>ldapmodify</EM>(1).
+<HR WIDTH="80%" ALIGN="Left"></P>
+<P><HR WIDTH="80%" ALIGN="Left">
+<STRONG>Note: </STRONG>You will need to continue to use the older <EM>slapd.conf</EM>(5) configuration system if your OpenLDAP installation requires the use of one or more backends or overlays that have not been updated to use the <EM>slapd-config</EM>(5) system.  As of OpenLDAP 2.4.25, the only official backends that have not yet been updated to use <EM>slapd-config</EM>(5) are <EM>slapd-meta</EM>(5) and <EM>slapd-sql</EM>(5).  There may be additional contributed or experimental overlays that also have not been updated.
 <HR WIDTH="80%" ALIGN="Left"></P>
 <H2><A NAME="Configuration Layout">5.1. Configuration Layout</A></H2>
 <P>The slapd configuration is stored as a special LDAP directory with a predefined schema and DIT. There are specific objectClasses used to carry global configuration options, schema definitions, backend and database definitions, and assorted other items. A sample config tree is shown in Figure 5.1.</P>
@@ -2208,64 +2218,90 @@ olcDbIndex: objectClass eq
  19.    olcAccess: to * by * read
  20.
 </PRE>
-<P>Line 15 is a comment. Lines 16-18 identify this entry as the global database entry. Line 19 is a global access control. It applies to all entries (after any applicable database-specific access controls).</P>
+<P>Line 15 is a comment. Lines 16-18 identify this entry as the global database entry. Line 19 is a global access control. It applies to all entries (after any applicable database-specific access controls). Line 20 is a blank line.</P>
+<P>The next entry defines the config backend.</P>
+<PRE>
+ 21.    # set a rootpw for the config database so we can bind.
+ 22.    # deny access to everyone else.
+ 23.    dn: olcDatabase=config,cn=config
+ 24.    objectClass: olcDatabaseConfig
+ 25.    olcDatabase: config
+ 26.    olcRootPW: {SSHA}XKYnrjvGT3wZFQrDD5040US592LxsdLy
+ 27.    olcAccess: to * by * none
+ 28.
+</PRE>
+<P>Lines 21-22 are comments. Lines 23-25 identify this entry as the config database entry. Line 26 defines the <EM>super-user</EM> password for this database. (The DN defaults to <EM>&quot;cn=config&quot;</EM>.) Line 27 denies all access to this database, so only the super-user will be able to access it. (This is already the default access on the config database. It is just listed here for illustration, and to reiterate that unless a means to authenticate as the super-user is explicitly configured, the config database will be inaccessible.)</P>
+<P>Line 28 is a blank line.</P>
 <P>The next entry defines a BDB backend that will handle queries for things in the &quot;dc=example,dc=com&quot; portion of the tree. Indices are to be maintained for several attributes, and the <TT>userPassword</TT> attribute is to be protected from unauthorized access.</P>
 <PRE>
- 21.    # BDB definition for example.com
- 22.    dn: olcDatabase=bdb,cn=config
- 23.    objectClass: olcDatabaseConfig
- 24.    objectClass: olcBdbConfig
- 25.    olcDatabase: bdb
- 26.    olcSuffix: &quot;dc=example,dc=com&quot;
- 27.    olcDbDirectory: /usr/local/var/openldap-data
- 28.    olcRootDN: &quot;cn=Manager,dc=example,dc=com&quot;
- 29.    olcRootPW: secret
- 30.    olcDbIndex: uid pres,eq
- 31.    olcDbIndex: cn,sn,uid pres,eq,approx,sub
- 32.    olcDbIndex: objectClass eq
- 33.    olcAccess: to attrs=userPassword
- 34.      by self write
- 35.      by anonymous auth
- 36.      by dn.base=&quot;cn=Admin,dc=example,dc=com&quot; write
- 37.      by * none
- 38.    olcAccess: to *
- 39.      by self write
- 40.      by dn.base=&quot;cn=Admin,dc=example,dc=com&quot; write
- 41.      by * read
- 42.
+ 29.    # BDB definition for example.com
+ 30.    dn: olcDatabase=bdb,cn=config
+ 31.    objectClass: olcDatabaseConfig
+ 32.    objectClass: olcBdbConfig
+ 33.    olcDatabase: bdb
+ 34.    olcSuffix: &quot;dc=example,dc=com&quot;
+ 35.    olcDbDirectory: /usr/local/var/openldap-data
+ 36.    olcRootDN: &quot;cn=Manager,dc=example,dc=com&quot;
+ 37.    olcRootPW: secret
+ 38.    olcDbIndex: uid pres,eq
+ 39.    olcDbIndex: cn,sn,uid pres,eq,approx,sub
+ 40.    olcDbIndex: objectClass eq
+ 41.    olcAccess: to attrs=userPassword
+ 42.      by self write
+ 43.      by anonymous auth
+ 44.      by dn.base=&quot;cn=Admin,dc=example,dc=com&quot; write
+ 45.      by * none
+ 46.    olcAccess: to *
+ 47.      by self write
+ 48.      by dn.base=&quot;cn=Admin,dc=example,dc=com&quot; write
+ 49.      by * read
+ 50.
 </PRE>
-<P>Line 21 is a comment. Lines 22-25 identify this entry as a BDB database configuration entry.  Line 26 specifies the DN suffix for queries to pass to this database. Line 27 specifies the directory in which the database files will live.</P>
-<P>Lines 28 and 29 identify the database <EM>super-user</EM> entry and associated password. This entry is not subject to access control or size or time limit restrictions.</P>
-<P>Lines 30 through 32 indicate the indices to maintain for various attributes.</P>
-<P>Lines 33 through 41 specify access control for entries in this database. For all applicable entries, the <TT>userPassword</TT> attribute is writable by the entry itself and by the &quot;admin&quot; entry.  It may be used for authentication/authorization purposes, but is otherwise not readable. All other attributes are writable by the entry and the &quot;admin&quot; entry, but may be read by all users (authenticated or not).</P>
-<P>Line 42 is a blank line, indicating the end of this entry.</P>
-<P>The next section of the example configuration file defines another BDB database. This one handles queries involving the <TT>dc=example,dc=net</TT> subtree but is managed by the same entity as the first database.  Note that without line 52, the read access would be allowed due to the global access rule at line 19.</P>
+<P>Line 29 is a comment. Lines 30-33 identify this entry as a BDB database configuration entry.  Line 34 specifies the DN suffix for queries to pass to this database. Line 35 specifies the directory in which the database files will live.</P>
+<P>Lines 36 and 37 identify the database <EM>super-user</EM> entry and associated password. This entry is not subject to access control or size or time limit restrictions.</P>
+<P>Lines 38 through 40 indicate the indices to maintain for various attributes.</P>
+<P>Lines 41 through 49 specify access control for entries in this database. For all applicable entries, the <TT>userPassword</TT> attribute is writable by the entry itself and by the &quot;admin&quot; entry.  It may be used for authentication/authorization purposes, but is otherwise not readable. All other attributes are writable by the entry and the &quot;admin&quot; entry, but may be read by all users (authenticated or not).</P>
+<P>Line 50 is a blank line, indicating the end of this entry.</P>
+<P>The next entry defines another BDB database. This one handles queries involving the <TT>dc=example,dc=net</TT> subtree but is managed by the same entity as the first database.  Note that without line 60, the read access would be allowed due to the global access rule at line 19.</P>
 <PRE>
- 43.    # BDB definition for example.net
- 44.    dn: olcDatabase=bdb,cn=config
- 45.    objectClass: olcDatabaseConfig
- 46.    objectClass: olcBdbConfig
- 47.    olcDatabase: bdb
- 48.    olcSuffix: &quot;dc=example,dc=net&quot;
- 49.    olcDbDirectory: /usr/local/var/openldap-data-net
- 50.    olcRootDN: &quot;cn=Manager,dc=example,dc=com&quot;
- 51.    olcDbIndex: objectClass eq
- 52.    olcAccess: to * by users read
+ 51.    # BDB definition for example.net
+ 52.    dn: olcDatabase=bdb,cn=config
+ 53.    objectClass: olcDatabaseConfig
+ 54.    objectClass: olcBdbConfig
+ 55.    olcDatabase: bdb
+ 56.    olcSuffix: &quot;dc=example,dc=net&quot;
+ 57.    olcDbDirectory: /usr/local/var/openldap-data-net
+ 58.    olcRootDN: &quot;cn=Manager,dc=example,dc=com&quot;
+ 59.    olcDbIndex: objectClass eq
+ 60.    olcAccess: to * by users read
 </PRE>
 <H2><A NAME="Converting old style {{slapd.conf}}(5) file to {{cn=config}} format">5.4. Converting old style <EM>slapd.conf</EM>(5) file to <EM>cn=config</EM> format</A></H2>
+<P>Before converting to the <EM>cn=config</EM> format you should make sure that the config backend is properly configured in your existing config file. While the config backend is always present inside slapd, by default it is only accessible by its rootDN, and there are no default credentials assigned so unless you explicitly configure a means to authenticate to it, it will be unusable.</P>
+<P>If you do not already have a <TT>database config</TT> section, add something like this to the end of <TT>slapd.conf</TT></P>
+<PRE>
+ database config
+ rootpw VerySecret
+</PRE>
+<P><HR WIDTH="80%" ALIGN="Left">
+<STRONG>Note: </STRONG>Since the config backend can be used to load arbitrary code into the slapd process, it is extremely important to carefully guard whatever credentials are used to access it. Since simple passwords are vulnerable to password guessing attacks, it is usually better to omit the rootpw and only use SASL authentication for the config rootDN.
+<HR WIDTH="80%" ALIGN="Left"></P>
 <P>An existing <EM>slapd.conf</EM>(5) file can be converted to the new format using <EM>slaptest</EM>(8) or any of the slap tools:</P>
 <PRE>
         slaptest -f /usr/local/etc/openldap/slapd.conf -F /usr/local/etc/openldap/slapd.d
 </PRE>
-<P>You can then discard the old <EM>slapd.conf</EM>(5) file. Make sure to launch <EM>slapd</EM>(8) with the <EM>-F</EM> option to specify the configuration directory.</P>
+<P>Test that you can access entries under <TT>cn=config</TT> using the default <EM>rootdn</EM> and the <EM>rootpw</EM> configured above:</P>
+<PRE>
+        ldapsearch -x -D cn=config -w VerySecret -b cn=config
+</PRE>
+<P>You can then discard the old <EM>slapd.conf</EM>(5) file. Make sure to launch <EM>slapd</EM>(8) with the <EM>-F</EM> option to specify the configuration directory if you are not using the default directory path.</P>
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>When converting from the slapd.conf format to slapd.d format, any included files will also be integrated into the resulting configuration database.
 <HR WIDTH="80%" ALIGN="Left"></P>
 <P></P>
 <HR>
 <H1><A NAME="The slapd Configuration File">6. The slapd Configuration File</A></H1>
-<P>Once the software has been built and installed, you are ready to configure <EM>slapd</EM>(8) for use at your site. The slapd runtime configuration is primarily accomplished through the <EM>slapd.conf</EM>(5) file, normally installed in the <TT>/usr/local/etc/openldap</TT> directory.</P>
-<P>An alternate configuration file location can be specified via a command-line option to <EM>slapd</EM>(8). This chapter describes the general format of the <EM>slapd.conf</EM>(5) configuration file, followed by a detailed description of commonly used config file directives.</P>
+<P>This chapter describes configuring <EM>slapd</EM>(8) via the <EM>slapd.conf</EM>(5) configuration file.  <EM>slapd.conf</EM>(5) has been deprecated and should only be used if your site requires one of the backends that hasn't yet been updated to work with the newer <EM>slapd-config</EM>(5) system.  Configuring <EM>slapd</EM>(8) via <EM>slapd-config</EM>(5) is described in the previous chapter.</P>
+<P>The <EM>slapd.conf</EM>(5) file is normally installed in the <TT>/usr/local/etc/openldap</TT> directory.  An alternate configuration file location can be specified via a command-line option to <EM>slapd</EM>(8).</P>
 <H2><A NAME="Configuration File Format">6.1. Configuration File Format</A></H2>
 <P>The <EM>slapd.conf</EM>(5) file consists of three types of configuration information: global, backend specific, and database specific.  Global information is specified first, followed by information associated with a particular backend type, which is then followed by information associated with a particular database instance.  Global directives can be overridden in backend and/or database directives, and backend directives can be overridden by database directives.</P>
 <P>Blank lines and comment lines beginning with a '<TT>#</TT>' character are ignored.  If a line begins with whitespace, it is considered a continuation of the previous line (even if the previous line is a comment).</P>
@@ -2313,7 +2349,7 @@ olcDbIndex: objectClass eq
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>You should be careful when using this directive - there is no small limit on the number of nested include directives, and no loop detection is done.
 <HR WIDTH="80%" ALIGN="Left"></P>
-<H4><A NAME="loglevel &lt;integer&gt;">6.2.1.5. loglevel &lt;integer&gt;</A></H4>
+<H4><A NAME="loglevel &lt;level&gt;">6.2.1.5. loglevel &lt;level&gt;</A></H4>
 <P>This directive specifies the level at which debugging statements and operation statistics should be syslogged (currently logged to the <EM>syslogd</EM>(8) <TT>LOG_LOCAL4</TT> facility). You must have configured OpenLDAP <TT>--enable-debug</TT> (the default) for this to work (except for the two statistics levels, which are always enabled). Log levels may be specified as integers or by keyword. Multiple log levels may be used and the levels are additive. To display what numbers correspond to what kind of debugging, invoke slapd with <TT>-d?</TT> or consult the table below. The possible values for &lt;integer&gt; are:</P>
 <TABLE CLASS="columns" BORDER ALIGN='Center'>
 <CAPTION ALIGN=top>Table 6.1: Debugging Levels</CAPTION>
@@ -2561,7 +2597,7 @@ only messages that get logged whatever log level is set
 <H4><A NAME="backend &lt;type&gt;">6.2.2.1. backend &lt;type&gt;</A></H4>
 <P>This directive marks the beginning of a backend declaration. <TT>&lt;type&gt;</TT> should be one of the supported backend types listed in Table 6.2.</P>
 <TABLE CLASS="columns" BORDER ALIGN='Center'>
-<CAPTION ALIGN=top>Table 5.2: Database Backends</CAPTION>
+<CAPTION ALIGN=top>Table 6.2: Database Backends</CAPTION>
 <TR CLASS="heading">
 <TD>
 <STRONG>Types</STRONG>
@@ -2838,7 +2874,61 @@ SQL Programmable backend
 <PRE>
         -h &lt;URLs&gt;
 </PRE>
-<P>This option specifies alternative listener configurations.  The default is <TT>ldap:///</TT> which implies <TERM>LDAP</TERM> over <TERM>TCP</TERM> on all interfaces on the default LDAP port 389.  You can specify specific host-port pairs or other protocol schemes (such as <TT>ldaps://</TT> or <TT>ldapi://</TT>).  For example, <TT>-h &quot;ldaps:// ldap://127.0.0.1:666&quot;</TT> will create two listeners: one for the (non-standard) <TT>ldaps://</TT> scheme on all interfaces on the default <TT>ldaps://</TT> port 636, and one for the standard <TT>ldap://</TT> scheme on the <TT>localhost</TT> (<EM>loopback</EM>) interface on port 666.  Hosts may be specified using using hostnames or <TERM>IPv4</TERM> or <TERM>IPv6</TERM> addresses.  Port values must be numeric.</P>
+<P>This option specifies alternative listener configurations.  The default is <TT>ldap:///</TT> which implies <TERM>LDAP</TERM> over <TERM>TCP</TERM> on all interfaces on the default LDAP port 389.  You can specify specific host-port pairs or other protocol schemes (such as <TT>ldaps://</TT> or <TT>ldapi://</TT>).</P>
+<TABLE CLASS="columns" BORDER>
+<TR CLASS="heading">
+<TD>
+<STRONG>URL</STRONG>
+</TD>
+<TD>
+<STRONG>Protocol</STRONG>
+</TD>
+<TD>
+<STRONG>Transport</STRONG>
+</TD>
+</TR>
+<TR>
+<TD>
+ldap:///
+</TD>
+<TD>
+LDAP
+</TD>
+<TD>
+TCP port 389
+</TD>
+</TR>
+<TR>
+<TD>
+ldaps:///
+</TD>
+<TD>
+LDAP over SSL
+</TD>
+<TD>
+TCP port 636
+</TD>
+</TR>
+<TR>
+<TD>
+ldapi:///
+</TD>
+<TD>
+LDAP
+</TD>
+<TD>
+IPC (Unix-domain socket)
+</TD>
+</TR>
+</TABLE>
+
+<P>For example, <TT>-h &quot;ldaps:// ldap://127.0.0.1:666&quot;</TT> will create two listeners: one for the (non-standard) <TT>ldaps://</TT> scheme on all interfaces on the default <TT>ldaps://</TT> port 636, and one for the standard <TT>ldap://</TT> scheme on the <TT>localhost</TT> (<EM>loopback</EM>) interface on port 666.  Hosts may be specified using using hostnames or <TERM>IPv4</TERM> or <TERM>IPv6</TERM> addresses.  Port values must be numeric.</P>
+<P>For LDAP over IPC, the pathname of the Unix-domain socket can be encoded in the URL. Note that directory separators must be URL-encoded, like any other characters that are special to URLs. Thus the socket <TT>/usr/local/var/ldapi</TT> must be encoded as</P>
+<PRE>
+        ldapi://%2Fusr%2Flocal%2Fvar%2Fldapi
+</PRE>
+<P>ldapi: is described in detail in <EM>Using LDAP Over IPC Mechanisms</EM> [<A HREF="http://tools.ietf.org/html/draft-chu-ldap-ldapi-00">Chu-LDAPI</A>]</P>
+<P>Note that the ldapi:/// transport is not widely implemented: non-OpenLDAP clients may not be able to use it.</P>
 <PRE>
         -n &lt;service-name&gt;
 </PRE>
@@ -3077,7 +3167,7 @@ only messages that get logged whatever log level is set
 <P>Access to your directory can be configured via two methods, the first using <A HREF="#The slapd Configuration File">The slapd Configuration File</A> and the second using the <EM>slapd-config</EM>(5) format (<A HREF="#Configuring slapd">Configuring slapd</A>).</P>
 <P>The default access control policy is allow read by all clients. Regardless of what access control policy is defined, the <EM>rootdn</EM> is always allowed full rights (i.e. auth, search, compare, read and write) on everything and anything.</P>
 <P>As a consequence, it's useless (and results in a performance penalty) to explicitly list the <EM>rootdn</EM> among the <EM>&lt;by&gt;</EM> clauses.</P>
-<P>The following sections will describe Access Control Lists in more details and follow with some examples and recommendations.</P>
+<P>The following sections will describe Access Control Lists in greater depth and follow with some examples and recommendations. See <EM>slapd.access</EM>(5) for complete details.</P>
 <H2><A NAME="Access Control via Static Configuration">8.2. Access Control via Static Configuration</A></H2>
 <P>Access to entries and attributes is controlled by the access configuration file directive. The general form of an access line is:</P>
 <PRE>
@@ -3776,7 +3866,7 @@ needed to manage
 </PRE>
 <P>This ACL grants read permissions to authenticated users while denying others (i.e.: anonymous users).</P>
 <H3><A NAME="Controlling rootdn access">8.4.3. Controlling rootdn access</A></H3>
-<P>You could specify the <EM>rootdn</EM> in <EM>slapd.conf</EM>(5) or {[slapd.d}} without specifying a <EM>rootpw</EM>. Then you have to add an actual directory entry with the same dn, e.g.:</P>
+<P>You could specify the <EM>rootdn</EM> in <EM>slapd.conf</EM>(5) or <EM>slapd.d</EM> without specifying a <EM>rootpw</EM>. Then you have to add an actual directory entry with the same dn, e.g.:</P>
 <PRE>
     dn: cn=Manager,o=MyOrganization
     cn: Manager
@@ -3816,7 +3906,7 @@ needed to manage
         by group.exact=&quot;cn=Administrators,dc=example,dc=com&quot; write
         by * auth
 </PRE>
-<P>Like by {[dn}} clauses, one can also use <EM>expand</EM> to expand the group name based upon the regular expression matching of the target, that is, the to <EM>dn.regex</EM>). For instance,</P>
+<P>Like by <EM>dn</EM> clauses, one can also use <EM>expand</EM> to expand the group name based upon the regular expression matching of the target, that is, the to <EM>dn.regex</EM>). For instance,</P>
 <PRE>
     access to dn.regex=&quot;(.+,)?ou=People,(dc=[^,]+,dc=[^,]+)$&quot;
              attrs=children,entry,uid
@@ -4020,7 +4110,7 @@ needed to manage
       by users read
 </PRE>
 <P>The general rule is: &quot;special access rules first, generic access rules last&quot;</P>
-<P>See also <EM>slapd.access</EM>(8), loglevel 128 and <EM>slapacl</EM>(8) for debugging information.</P>
+<P>See also <EM>slapd.access</EM>(5), loglevel 128 and <EM>slapacl</EM>(8) for debugging information.</P>
 <H2><A NAME="Sets - Granting rights based on relationships">8.5. Sets - Granting rights based on relationships</A></H2>
 <P>Sets are best illustrated via examples. The following sections will present a few set ACL examples in order to facilitate their understanding.</P>
 <P>(Sets in Access Controls FAQ Entry: <A HREF="http://www.openldap.org/faq/data/cache/1133.html">http://www.openldap.org/faq/data/cache/1133.html</A>)</P>
@@ -4126,7 +4216,7 @@ needed to manage
    [uid=mary,ou=people,dc=example,dc=com]/secretary = uid=jane,ou=people,dc=example,dc=com
 </PRE>
 <P>The end result is that when Jane accesses John's entry, she will be granted write access to the specified attributes. Better yet, this will happen to any entry she accesses which has Mary as the manager.</P>
-<P>This is all cool and nice, but perhaps gives to much power to secretaries. Maybe we need to further restrict it. For example, let's only allow executive secretaries to have this power:</P>
+<P>This is all cool and nice, but perhaps gives too much power to secretaries. Maybe we need to further restrict it. For example, let's only allow executive secretaries to have this power:</P>
 <PRE>
  access to dn.exact=&quot;uid=john,ou=people,dc=example,dc=com&quot;
    attrs=carLicense,homePhone,mobile,pager,telephoneNumber
@@ -4527,6 +4617,15 @@ Members of a group
 <P></P>
 <HR>
 <H1><A NAME="Backends">11. Backends</A></H1>
+<P>Backends do the actual work of storing or retrieving data in response to LDAP requests. Backends may be compiled statically into <EM>slapd</EM>, or when module support is enabled, they may be dynamically loaded.</P>
+<P>If your installation uses dynamic modules, you may need to add the relevant <EM>moduleload</EM> directives to the examples that follow. The name of the module for a backend is usually of the form:</P>
+<PRE>
+        back_&lt;backend name&gt;.la
+</PRE>
+<P>So for example, if you need to load the <EM>hdb</EM> backend, you would configure</P>
+<PRE>
+        moduleload back_hdb.la
+</PRE>
 <H2><A NAME="Berkeley DB Backends">11.1. Berkeley DB Backends</A></H2>
 <H3><A NAME="Overview">11.1.1. Overview</A></H3>
 <P>The <EM>bdb</EM> backend to <EM>slapd</EM>(8) is the recommended primary backend for a normal <EM>slapd</EM> database.  It uses the Oracle Berkeley DB (<TERM>BDB</TERM>) package to store data. It makes extensive use of indexing and caching (see the <A HREF="#Tuning">Tuning</A> section) to speed data access.</P>
@@ -4577,11 +4676,6 @@ Members of a group
         rootdn    &quot;cn=LDIF,dc=suretecsystems,dc=com&quot;
         rootpw    LDIF
 </PRE>
-<P>You'll notice that when compared to examples below, there is no:</P>
-<PRE>
-   moduleload  back_ldif.la
-</PRE>
-<P>directive. This is because <EM>back_ldif</EM> is always built in by default as it is used by <EM>slapd-config(5)</EM>, which again is built in by default.</P>
 <P>If we add the <EM>dcObject</EM> for <EM>dc=suretecsystems,dc=com</EM>, you can see how this is added behind the scenes on the file system:</P>
 <PRE>
    dn: dc=suretecsystems,dc=com
@@ -4640,9 +4734,6 @@ Members of a group
 <PRE>
         include ./schema/core.schema
 
-        modulepath  /usr/local/libexec/openldap
-        moduleload  back_monitor.la
-
         database monitor
         rootdn &quot;cn=monitoring,cn=Monitor&quot;
         rootpw monitoring
@@ -4699,13 +4790,10 @@ Members of a group
 <H3><A NAME="back-null Configuration">11.6.2. back-null Configuration</A></H3>
 <P>This has to be one of the shortest configurations you'll ever do. In order to test this, your <TT>slapd.conf</TT> file would look like:</P>
 <PRE>
-        modulepath  /usr/local/libexec/openldap
-        moduleload  back_null.la
         database null
         suffix &quot;cn=Nothing&quot;
         bind on
 </PRE>
-<P>The first two directives are only applicable if you've enabled module support and haven't &quot;built-in&quot; <EM>slapd-null(5)</EM> support (why would you?).</P>
 <P><EM>bind on</EM> means:</P>
 <P><EM>&quot;Allow binds as any DN in this backend's suffix, with any password. The default is &quot;off&quot;.&quot;</EM></P>
 <P>To test this backend with <EM>ldapsearch</EM>:</P>
@@ -4735,9 +4823,6 @@ Members of a group
 <P>The configuration using <TT>slapd.conf</TT> a slightly longer, but not much. For example:</P>
 <PRE>
         include ./schema/core.schema
-
-        modulepath  /usr/local/libexec/openldap
-        moduleload  back_passwd.la
 
         database passwd
         suffix &quot;cn=passwd&quot;
@@ -5089,7 +5174,7 @@ Members of a group
         chain-return-error TRUE
 </PRE>
 <H3><A NAME="Read-Back of Chained Modifications">12.3.4. Read-Back of Chained Modifications</A></H3>
-<P>Occasionally, applications want to read back the data that they just wrote. If a modification requested to a shadow server was silently chained to its producer, an immediate read could result in receiving data not yet synchronized. In those cases, clients should use the <B>dontusecopy</B> control to ensure they are directed to the authoritative source for that piece of data.</P>
+<P>Occasionally, applications want to read back the data that they just wrote. If a modification requested to a shadow server was silently chained to its provider, an immediate read could result in receiving data not yet synchronized. In those cases, clients should use the <B>dontusecopy</B> control to ensure they are directed to the authoritative source for that piece of data.</P>
 <P>This control usually causes a referral to the actual source of the data to be returned.  However, when the <EM>slapo-chain(5)</EM> overlay is used, it intercepts the referral being returned in response to the <B>dontusecopy</B> control, and tries to fetch the requested data.</P>
 <H3><A NAME="Further Information">12.3.5. Further Information</A></H3>
 <P><EM>slapo-chain(5)</EM></P>
@@ -5219,17 +5304,23 @@ Members of a group
 <P>The configuration for a dynamic group is similar. Let's see an example which would automatically populate an <TT>allusers</TT> group with all the user accounts in the directory.</P>
 <P>In <TT>slapd.conf</TT>(5):</P>
 <PRE>
+       include /path/to/dyngroup.schema
+       ...
        overlay dynlist
-       dynlist-attrset groupOfNames labeledURI member
+       dynlist-attrset groupOfURLs labeledURI member
 </PRE>
+<OL>
+<LI>
+<LI>Note: We must include the <TT>dyngroup.schema</TT> file that defines the
+<LI><TT>groupOfURLs</TT> objectClass used in this example.</OL>
 <P>Let's apply it to the following entry:</P>
 <PRE>
        cn=allusers,ou=group,dc=example,dc=com
        cn: all
-       objectClass: groupOfNames
+       objectClass: groupOfURLs
        labeledURI: ldap:///ou=people,dc=example,dc=com??one?(objectClass=inetOrgPerson)
 </PRE>
-<P>The behavior is similar to the dynamic list configuration we had before: whenever an entry with the <TT>groupOfNames</TT> object class is retrieved, the search specified in the <TT>labeledURI</TT> attribute is performed. But this time, only the distinguished names of the results are added, and as values of the <TT>member</TT> attribute.</P>
+<P>The behavior is similar to the dynamic list configuration we had before: whenever an entry with the <TT>groupOfURLs</TT> object class is retrieved, the search specified in the <TT>labeledURI</TT> attribute is performed. But this time, only the distinguished names of the results are added, and as values of the <TT>member</TT> attribute.</P>
 <P>This is what we get:</P>
 <P><CENTER><IMG SRC="allusersgroup-en.png" ALIGN="center"></CENTER></P>
 <P ALIGN="Center">Figure X.Y: Dynamic Group for all users</P>
@@ -5246,8 +5337,7 @@ Members of a group
 <PRE>
         include /usr/share/openldap/schema/core.schema
         include /usr/share/openldap/schema/cosine.schema
-        modulepath      /usr/lib/openldap
-        moduleload      memberof.la
+
         authz-regexp &quot;gidNumber=0\\\+uidNumber=0,cn=peercred,cn=external,cn=auth&quot;
                 &quot;cn=Manager,dc=example,dc=com&quot;
         database        bdb
@@ -5309,49 +5399,79 @@ Members of a group
 <P>The cache replacement policy removes the least recently used (LRU) query and entries belonging to only that query. Queries are allowed a maximum time to live (TTL) in the cache thus providing weak consistency. A background task periodically checks the cache for expired queries and removes them.</P>
 <P>The Proxy Cache paper (<A HREF="http://www.openldap.org/pub/kapurva/proxycaching.pdf">http://www.openldap.org/pub/kapurva/proxycaching.pdf</A>) provides design and implementation details.</P>
 <H3><A NAME="Proxy Cache Configuration">12.9.2. Proxy Cache Configuration</A></H3>
-<P>The cache configuration specific directives described below must appear after a <TT>overlay proxycache</TT> directive within a <TT>&quot;database meta&quot;</TT> or <TT>database ldap</TT> section of the server's <EM>slapd.conf</EM>(5) file.</P>
+<P>The cache configuration specific directives described below must appear after a <TT>overlay pcache</TT> directive within a <TT>&quot;database meta&quot;</TT> or <TT>&quot;database ldap&quot;</TT> section of the server's <EM>slapd.conf</EM>(5) file.</P>
 <H4><A NAME="Setting cache parameters">12.9.2.1. Setting cache parameters</A></H4>
 <PRE>
- proxyCache &lt;DB&gt; &lt;maxentries&gt; &lt;nattrsets&gt; &lt;entrylimit&gt; &lt;period&gt;
+ pcache &lt;DB&gt; &lt;maxentries&gt; &lt;nattrsets&gt; &lt;entrylimit&gt; &lt;period&gt;
 </PRE>
-<P>This directive enables proxy caching and sets general cache parameters.  The &lt;DB&gt; parameter specifies which underlying database is to be used to hold cached entries.  It should be set to <TT>bdb</TT> or <TT>hdb</TT>.  The &lt;maxentries&gt; parameter specifies the total number of entries which may be held in the cache.  The &lt;nattrsets&gt; parameter specifies the total number of attribute sets (as specified by the <TT>proxyAttrSet</TT> directive) that may be defined.  The &lt;entrylimit&gt; parameter specifies the maximum number of entries in a cacheable query.  The &lt;period&gt; specifies the consistency check period (in seconds).  In each period, queries with expired TTLs are removed.</P>
+<P>This directive enables proxy caching and sets general cache parameters.  The &lt;DB&gt; parameter specifies which underlying database is to be used to hold cached entries.  It should be set to <TT>bdb</TT> or <TT>hdb</TT>.  The &lt;maxentries&gt; parameter specifies the total number of entries which may be held in the cache.  The &lt;nattrsets&gt; parameter specifies the total number of attribute sets (as specified by the <TT>pcacheAttrset</TT> directive) that may be defined.  The &lt;entrylimit&gt; parameter specifies the maximum number of entries in a cacheable query.  The &lt;period&gt; specifies the consistency check period (in seconds).  In each period, queries with expired TTLs are removed.</P>
 <H4><A NAME="Defining attribute sets">12.9.2.2. Defining attribute sets</A></H4>
 <PRE>
- proxyAttrset &lt;index&gt; &lt;attrs...&gt;
+ pcacheAttrset &lt;index&gt; &lt;attrs...&gt;
 </PRE>
-<P>Used to associate a set of attributes to an index. Each attribute set is associated with an index number from 0 to &lt;numattrsets&gt;-1. These indices are used by the proxyTemplate directive to define cacheable templates.</P>
+<P>Used to associate a set of attributes to an index. Each attribute set is associated with an index number from 0 to &lt;numattrsets&gt;-1. These indices are used by the pcacheTemplate directive to define cacheable templates.</P>
 <H4><A NAME="Specifying cacheable templates">12.9.2.3. Specifying cacheable templates</A></H4>
 <PRE>
- proxyTemplate &lt;prototype_string&gt; &lt;attrset_index&gt; &lt;TTL&gt;
+ pcacheTemplate &lt;prototype_string&gt; &lt;attrset_index&gt; &lt;TTL&gt;
 </PRE>
 <P>Specifies a cacheable template and the &quot;time to live&quot; (in sec) &lt;TTL&gt; for queries belonging to the template. A template is described by its prototype filter string and set of required attributes identified by &lt;attrset_index&gt;.</P>
-<H4><A NAME="Example">12.9.2.4. Example</A></H4>
+<H4><A NAME="Example for slapd.conf">12.9.2.4. Example for slapd.conf</A></H4>
 <P>An example <EM>slapd.conf</EM>(5) database section for a caching server which proxies for the <TT>&quot;dc=example,dc=com&quot;</TT> subtree held at server <TT>ldap.example.com</TT>.</P>
 <PRE>
         database        ldap
         suffix          &quot;dc=example,dc=com&quot;
         rootdn          &quot;dc=example,dc=com&quot;
         uri             ldap://ldap.example.com/
-        overlay proxycache
-        proxycache    bdb 100000 1 1000 100
-        proxyAttrset  0 mail postaladdress telephonenumber
-        proxyTemplate (sn=) 0 3600
-        proxyTemplate (&amp;(sn=)(givenName=)) 0 3600
-        proxyTemplate (&amp;(departmentNumber=)(secretary=*)) 0 3600
+        overlay pcache
+        pcache         bdb 100000 1 1000 100
+        pcacheAttrset  0 mail postaladdress telephonenumber
+        pcacheTemplate (sn=) 0 3600
+        pcacheTemplate (&amp;(sn=)(givenName=)) 0 3600
+        pcacheTemplate (&amp;(departmentNumber=)(secretary=*)) 0 3600
 
         cachesize 20
         directory ./testrun/db.2.a
         index       objectClass eq
         index       cn,sn,uid,mail  pres,eq,sub
 </PRE>
-<H5><A NAME="Cacheable Queries">12.9.2.4.1. Cacheable Queries</A></H5>
-<P>A LDAP search query is cacheable when its filter matches one of the templates as defined in the &quot;proxyTemplate&quot; statements and when it references only the attributes specified in the corresponding attribute set. In the example above the attribute set number 0 defines that only the attributes: <TT>mail postaladdress telephonenumber</TT> are cached for the following proxyTemplates.</P>
-<H5><A NAME="Examples:">12.9.2.4.2. Examples:</A></H5>
+<H4><A NAME="Example for slapd-config">12.9.2.5. Example for slapd-config</A></H4>
+<P>The same example as a LDIF file for back-config for a caching server which proxies for the <TT>&quot;dc=example,dc=com&quot;</TT> subtree held at server <TT>ldap.example.com</TT>.</P>
+<PRE>
+   dn: olcDatabase={2}ldap
+   objectClass: olcDatabaseConfig
+   objectClass: olcLDAPConfig
+   olcDatabase: {2}ldap
+   olcSuffix: dc=example,dc=com
+   olcRootDN: dc=example,dc=com
+   olcDbURI: &quot;ldap://ldap.example.com&quot;
+
+   dn: olcOverlay={0}pcache
+   objectClass: olcOverlayConfig
+   objectClass: olcPcacheConfig
+   olcOverlay: {0}pcache
+   olcPcache: bdb 100000 1 1000 100
+   olcPcacheAttrset: 0 mail postalAddress telephoneNumber
+   olcPcacheTemplate: &quot;(sn=)&quot; 0 3600 0 0 0
+   olcPcacheTemplate: &quot;(&amp;(sn=)(givenName=))&quot; 0 3600 0 0 0
+   olcPcacheTemplate: &quot;(&amp;(departmentNumber=)(secretary=))&quot; 0 3600
+
+   dn: olcDatabase={0}hdb
+   objectClass: olcHdbConfig
+   objectClass: olcPcacheDatabase
+   olcDatabase: {0}hdb
+   olcDbDirectory: ./testrun/db.2.a
+   olcDbCacheSize: 20
+   olcDbIndex: objectClass eq
+   olcDbIndex: cn,sn,uid,mail  pres,eq,sub
+</PRE>
+<H5><A NAME="Cacheable Queries">12.9.2.5.1. Cacheable Queries</A></H5>
+<P>A LDAP search query is cacheable when its filter matches one of the templates as defined in the &quot;pcacheTemplate&quot; statements and when it references only the attributes specified in the corresponding attribute set. In the example above the attribute set number 0 defines that only the attributes: <TT>mail postaladdress telephonenumber</TT> are cached for the following pcacheTemplates.</P>
+<H5><A NAME="Examples:">12.9.2.5.2. Examples:</A></H5>
 <PRE>
         Filter: (&amp;(sn=Richard*)(givenName=jack))
         Attrs: mail telephoneNumber
 </PRE>
-<P>is cacheable, because it matches the template <TT>(&amp;(sn=)(givenName=))</TT> and its attributes are contained in proxyAttrset 0.</P>
+<P>is cacheable, because it matches the template <TT>(&amp;(sn=)(givenName=))</TT> and its attributes are contained in pcacheAttrset 0.</P>
 <PRE>
         Filter: (&amp;(sn=Richard*)(telephoneNumber))
         Attrs: givenName
@@ -5471,6 +5591,7 @@ Members of a group
 <P ALIGN="Center">Figure X.Y: Maintaining referential integrity in groups</P>
 <P>Notice that if we rename (<TT>modrdn</TT>) the <TT>john</TT> entry to, say, <TT>jsmith</TT>, the refint overlay will also rename the reference in the <TT>member</TT> attribute, so the group membership stays correct.</P>
 <P>If we removed all users from the directory who are a member of this group, then the end result would be a single member in the group: <TT>cn=admin,dc=example,dc=com</TT>. This is the <TT>refint_nothing</TT> parameter kicking into action so that the schema is not violated.</P>
+<P>The <EM>rootdn</EM> must be set for the database as refint runs as the <EM>rootdn</EM> to gain access to make its updates.  The <EM>rootpw</EM> does not need to be set.</P>
 <H3><A NAME="Further Information">12.11.3. Further Information</A></H3>
 <P><EM>slapo-refint(5)</EM></P>
 <H2><A NAME="Return Code">12.12. Return Code</A></H2>
@@ -5558,11 +5679,6 @@ Members of a group
 
        pidfile     ./slapd.pid
        argsfile    ./slapd.args
-
-       modulepath  /usr/local/libexec/openldap
-       moduleload  back_bdb.la
-       moduleload  back_ldap.la
-       moduleload  translucent.la
 
        database    bdb
        suffix      &quot;dc=suretecsystems,dc=com&quot;
@@ -5911,7 +6027,7 @@ x-my-ObjectClass
 </TABLE>
 
 <P>You are, of course, free to design a hierarchy suitable to your organizational needs under your organization's OID. No matter what hierarchy you choose, you should maintain a registry of assignments you make.  This can be a simple flat file or something more sophisticated such as the <EM>OpenLDAP OID Registry</EM> (<A HREF="http://www.openldap.org/faq/index.cgi?file=197">http://www.openldap.org/faq/index.cgi?file=197</A>).</P>
-<P>For more information about Object Identifiers (and a listing service) see <A HREF="http://www.alvestrand.no/harald/objectid/">http://www.alvestrand.no/harald/objectid/</A>.</P>
+<P>For more information about Object Identifiers (and a listing service) see <A HREF="http://www.alvestrand.no/objectid/">http://www.alvestrand.no/objectid/</A>.</P>
 <UL>
 <EM>Under no circumstances should you hijack OID namespace!</EM></UL>
 <P>To obtain a registered OID at <EM>no cost</EM>, apply for a OID under the <A HREF="http://www.iana.org/">Internet Assigned Numbers Authority</A> (ORG:IANA) maintained <EM>Private Enterprise</EM> arc. Any private enterprise (organization) may request a <TERM>Private Enterprise Number</TERM> (PEN) to be assigned under this arc. Just fill out the IANA form at <A HREF="http://pen.iana.org/pen/PenApplication.page">http://pen.iana.org/pen/PenApplication.page</A> and your official PEN will be sent to you usually within a few days. Your base OID will be something like <TT>1.3.6.1.4.1.X</TT> where <TT>X</TT> is an integer.</P>
@@ -6480,12 +6596,6 @@ object identifier
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>This is not the same as using SASL to authenticate the LDAP session.
 <HR WIDTH="80%" ALIGN="Left"></P>
-<H3><A NAME="KERBEROS password storage scheme">14.4.7. KERBEROS password storage scheme</A></H3>
-<P>This is not really a password storage scheme at all. It uses the value of the <EM>userPassword</EM> attribute to delegate password verification to Kerberos.</P>
-<P><HR WIDTH="80%" ALIGN="Left">
-<STRONG>Note: </STRONG>This is not the same as using Kerberos authentication of the LDAP session.
-<HR WIDTH="80%" ALIGN="Left"></P>
-<P>This scheme could be said to defeat the advantages of Kerberos by causing the Kerberos password to be exposed to the <EM>slapd</EM> server (and possibly on the network as well).</P>
 <H2><A NAME="Pass-Through authentication">14.5. Pass-Through authentication</A></H2>
 <P>Since OpenLDAP 2.0 <EM>slapd</EM> has had the ability to delegate password verification to a separate process. This uses the <EM>sasl_checkpass(3)</EM> function so it can use any back-end server that Cyrus SASL supports for checking passwords. The choice is very wide, as one option is to use <EM>saslauthd(8)</EM> which in turn can use local files, Kerberos, an IMAP server, another LDAP server, or anything supported by the PAM mechanism.</P>
 <P>The server must be built with the <TT>--enable-spasswd</TT> configuration option to enable pass-through authentication.</P>
@@ -6498,9 +6608,6 @@ object identifier
  userPassword: {SASL}username@realm
 </PRE>
 <P>The <EM>username</EM> and <EM>realm</EM> are passed to the SASL authentication mechanism and are used to identify the account whose password is to be verified. This allows arbitrary mapping between entries in OpenLDAP and accounts known to the backend authentication service.</P>
-<P><HR WIDTH="80%" ALIGN="Left">
-<STRONG>Note: </STRONG>There is no support for changing passwords in the backend via <EM>slapd</EM>.
-<HR WIDTH="80%" ALIGN="Left"></P>
 <P>It would be wise to use access control to prevent users from changing their passwords through LDAP where they have pass-through authentication enabled.</P>
 <H3><A NAME="Configuring slapd to use an authentication provider">14.5.1. Configuring slapd to use an authentication provider</A></H3>
 <P>Where an entry has a &quot;{SASL}&quot; password value, OpenLDAP delegates the whole process of validating that entry's password to Cyrus SASL. All the configuration is therefore done in SASL config files.</P>
@@ -6576,7 +6683,8 @@ object identifier
 <P>Some mechanisms, such as PLAIN and LOGIN, offer no greater security over LDAP <EM>simple</EM> authentication.  Like LDAP <EM>simple</EM> authentication, such mechanisms should not be used unless you have adequate security protections in place.  It is recommended that these mechanisms be used only in conjunction with <TERM>Transport Layer Security</TERM> (TLS).  Use of PLAIN and LOGIN are not discussed further in this document.</P>
 <P>The DIGEST-MD5 mechanism is the mandatory-to-implement authentication mechanism for LDAPv3.  Though DIGEST-MD5 is not a strong authentication mechanism in comparison with trusted third party authentication systems (such as <TERM>Kerberos</TERM> or public key systems), it does offer significant protections against a number of attacks.  Unlike the <TERM>CRAM-MD5</TERM> mechanism, it prevents chosen plaintext attacks.  DIGEST-MD5 is favored over the use of plaintext password mechanisms.  The CRAM-MD5 mechanism is deprecated in favor of DIGEST-MD5.  Use of <A HREF="#DIGEST-MD5">DIGEST-MD5</A> is discussed below.</P>
 <P>The GSSAPI mechanism utilizes <TERM>GSS-API</TERM> <TERM>Kerberos</TERM> V to provide secure authentication services.  The KERBEROS_V4 mechanism is available for those using Kerberos IV.  Kerberos is viewed as a secure, distributed authentication system suitable for both small and large enterprises.  Use of <A HREF="#GSSAPI">GSSAPI</A> and <A HREF="#KERBEROS_V4">KERBEROS_V4</A> are discussed below.</P>
-<P>The EXTERNAL mechanism utilizes authentication services provided by lower level network services such as <TERM>TLS</TERM> (TLS).  When used in conjunction with <TERM>TLS</TERM> <TERM>X.509</TERM>-based public key technology, EXTERNAL offers strong authentication.  Use of EXTERNAL is discussed in the <A HREF="#Using TLS">Using TLS</A> chapter.</P>
+<P>The EXTERNAL mechanism utilizes authentication services provided by lower level network services such as <TERM>Transport Layer Security</TERM> (<TERM>TLS</TERM>).  When used in conjunction with <TERM>TLS</TERM> <TERM>X.509</TERM>-based public key technology, EXTERNAL offers strong authentication. TLS is discussed in the <A HREF="#Using TLS">Using TLS</A> chapter.</P>
+<P>EXTERNAL can also be used with the <TT>ldapi:///</TT> transport, as Unix-domain sockets can report the UID and GID of the client process.</P>
 <P>There are other strong authentication mechanisms to choose from, including <TERM>OTP</TERM> (one time passwords) and <TERM>SRP</TERM> (secure remote passwords).  These mechanisms are not discussed in this document.</P>
 <H2><A NAME="SASL Authentication">15.2. SASL Authentication</A></H2>
 <P>Getting basic SASL authentication running involves a few steps. The first step configures your slapd server environment so that it can communicate with client programs using the security system in place at your site. This usually involves setting up a service key, a public key, or other form of secret. The second step concerns mapping authentication identities to LDAP <TERM>DN</TERM>'s, which depends on how entries are laid out in your directory. An explanation of the first step will be given in the next section using Kerberos V4 as an example mechanism. The steps necessary for your site's authentication mechanism will be similar, but a guide to every mechanism available under SASL is beyond the scope of this chapter. The second step is described in the section <A HREF="#Mapping Authentication Identities">Mapping Authentication Identities</A>.</P>
@@ -6663,7 +6771,29 @@ object identifier
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>in each of the above cases, no authorization identity (e.g. <TT>-X</TT>) was provided.   Unless you are attempting <A HREF="#SASL Proxy Authorization">SASL Proxy Authorization</A>, no authorization identity should be specified. The server will infer an authorization identity from authentication identity (as described below).
 <HR WIDTH="80%" ALIGN="Left"></P>
-<H3><A NAME="Mapping Authentication Identities">15.2.4. Mapping Authentication Identities</A></H3>
+<H3><A NAME="EXTERNAL">15.2.4. EXTERNAL</A></H3>
+<P>The SASL EXTERNAL mechanism makes use of an authentication performed by a lower-level protocol: usually <TERM>TLS</TERM> or Unix <TERM>IPC</TERM></P>
+<P>Each transport protocol returns Authentication Identities in its own format:</P>
+<H4><A NAME="TLS Authentication Identity Format">15.2.4.1. TLS Authentication Identity Format</A></H4>
+<P>This is the Subject DN from the client-side certificate. Note that DNs are displayed differently by LDAP and by X.509, so a certificate issued to</P>
+<PRE>
+        C=gb, O=The Example Organisation, CN=A Person
+</PRE>
+<P>will produce an authentication identity of:</P>
+<PRE>
+        cn=A Person,o=The Example Organisation,c=gb
+</PRE>
+<P>Note that you must set a suitable value for TLSVerifyClient to make the server request the use of a client-side certificate. Without this, the SASL EXTERNAL mechanism will not be offered. Refer to the <A HREF="#Using TLS">Using TLS</A> chapter for details.</P>
+<H4><A NAME="IPC (ldapi:///) Identity Format">15.2.4.2. IPC (ldapi:///) Identity Format</A></H4>
+<P>This is formed from the Unix UID and GID of the client process:</P>
+<PRE>
+        gidNumber=&lt;number&gt;+uidNumber=&lt;number&gt;,cn=peercred,cn=external,cn=auth
+</PRE>
+<P>Thus, a client process running as <TT>root</TT> will be:</P>
+<PRE>
+        gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth
+</PRE>
+<H3><A NAME="Mapping Authentication Identities">15.2.5. Mapping Authentication Identities</A></H3>
 <P>The authentication mechanism in the slapd server will use SASL library calls to obtain the authenticated user's &quot;username&quot;, based on whatever underlying authentication mechanism was used.  This username is in the namespace of the authentication mechanism, and not in the normal LDAP namespace. As stated in the sections above, that username is reformatted into an authentication request DN of the form</P>
 <PRE>
         uid=&lt;username&gt;,cn=&lt;realm&gt;,cn=&lt;mechanism&gt;,cn=auth
@@ -6685,7 +6815,7 @@ object identifier
 <P>The authentication request DN is compared to the search pattern using the regular expression functions <EM>regcomp</EM>() and <EM>regexec</EM>(), and if it matches, it is rewritten as the replacement pattern. If there are multiple <TT>authz-regexp</TT> directives, only the first whose search pattern matches the authentication identity is used. The string that is output from the replacement pattern should be the authentication DN of the user or an LDAP URL.  If replacement string produces a DN, the entry named by this DN need not be held by this server.  If the replace string produces an LDAP URL, that LDAP URL must evaluate to one and only one entry held by this server.</P>
 <P>The search pattern can contain any of the regular expression characters listed in <EM>regexec</EM>(3C). The main characters of note are dot &quot;.&quot;, asterisk &quot;*&quot;, and the open and close parenthesis &quot;(&quot; and &quot;)&quot;.  Essentially, the dot matches any character, the asterisk allows zero or more repeats of the immediately preceding character or pattern, and terms in parenthesis are remembered for the replacement pattern.</P>
 <P>The replacement pattern will produce either a DN or URL referring to the user.  Anything from the authentication request DN that matched a string in parenthesis in the search pattern is stored in the variable &quot;$1&quot;. That variable &quot;$1&quot; can appear in the replacement pattern, and will be replaced by the string from the authentication request DN. If there were multiple sets of parentheses in the search pattern, the variables $2, $3, etc are used.</P>
-<H3><A NAME="Direct Mapping">15.2.5. Direct Mapping</A></H3>
+<H3><A NAME="Direct Mapping">15.2.6. Direct Mapping</A></H3>
 <P>Where possible, direct mapping of the authentication request DN to the user's DN is generally recommended.  Aside from avoiding the expense of searching for the user's DN, it allows mapping to DNs which refer to entries not held by this server.</P>
 <P>Suppose the authentication request DN is written as:</P>
 <PRE>
@@ -6709,7 +6839,7 @@ object identifier
 </PRE>
 <P>Be careful about setting the search pattern too leniently, however, since it may mistakenly allow persons to become authenticated as a DN to which they should not have access.  It is better to write several strict directives than one lenient directive which has security holes.  If there is only one authentication mechanism in place at your site, and zero or one realms in use, you might be able to map between authentication identities and LDAP DN's with a single <TT>authz-regexp</TT> directive.</P>
 <P>Don't forget to allow for the case where the realm is omitted as well as the case with an explicitly specified realm. This may well require a separate <TT>authz-regexp</TT> directive for each case, with the explicit-realm entry being listed first.</P>
-<H3><A NAME="Search-based mappings">15.2.6. Search-based mappings</A></H3>
+<H3><A NAME="Search-based mappings">15.2.7. Search-based mappings</A></H3>
 <P>There are a number of cases where mapping to a LDAP URL may be appropriate.  For instance, some sites may have person objects located in multiple areas of the LDAP tree, such as if there were an <TT>ou=accounting</TT> tree and an <TT>ou=engineering</TT> tree, with persons interspersed between them.  Or, maybe the desired mapping must be based upon information in the user's information. Consider the need to map the above authentication request DN to user whose entry is as follows:</P>
 <PRE>
         dn: cn=Mark Adamson,ou=People,dc=Example,dc=COM
@@ -6811,7 +6941,7 @@ object identifier
 <STRONG>Note: </STRONG>For generating certifcates, please reference <A HREF="http://www.openldap.org/faq/data/cache/185.html">http://www.openldap.org/faq/data/cache/185.html</A>
 <HR WIDTH="80%" ALIGN="Left"></P>
 <H2><A NAME="TLS Certificates">16.1. TLS Certificates</A></H2>
-<P>TLS uses <TERM>X.509</TERM> certificates to carry client and server identities.  All servers are required to have valid certificates, whereas client certificates are optional.  Clients must have a valid certificate in order to authenticate via SASL EXTERNAL. For more information on creating and managing certificates, see the <A HREF="http://www.openssl.org/">OpenSSL</A> documentation.</P>
+<P>TLS uses <TERM>X.509</TERM> certificates to carry client and server identities.  All servers are required to have valid certificates, whereas client certificates are optional.  Clients must have a valid certificate in order to authenticate via SASL EXTERNAL. For more information on creating and managing certificates, see the <A HREF="http://www.openssl.org/">OpenSSL</A>, <A HREF="http://www.gnu.org/software/gnutls/">GnuTLS</A>, or <A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A> documentation, depending on which TLS implementation libraries you are using.</P>
 <H3><A NAME="Server Certificates">16.1.1. Server Certificates</A></H3>
 <P>The <TERM>DN</TERM> of a server certificate must use the <TT>CN</TT> attribute to name the server, and the <TT>CN</TT> must carry the server's fully qualified domain name. Additional alias names and wildcards may be present in the <TT>subjectAltName</TT> certificate extension.  More details on server certificate names are in <A HREF="http://www.rfc-editor.org/rfc/rfc4513.txt">RFC4513</A>.</P>
 <H3><A NAME="Client Certificates">16.1.2. Client Certificates</A></H3>
@@ -6825,28 +6955,68 @@ object identifier
 <P>This directive specifies the <TERM>PEM</TERM>-format file containing certificates for the CA's that slapd will trust. The certificate for the CA that signed the server certificate must be included among these certificates. If the signing CA was not a top-level (root) CA, certificates for the entire sequence of CA's from the signing CA to the top-level CA should be present. Multiple certificates are simply appended to the file; the order is not significant.</P>
 <H4><A NAME="TLSCACertificatePath &lt;path&gt;">16.2.1.2. TLSCACertificatePath &lt;path&gt;</A></H4>
 <P>This directive specifies the path of a directory that contains individual <TERM>CA</TERM> certificates in separate files.  In addition, this directory must be specially managed using the OpenSSL <EM>c_rehash</EM> utility. When using this feature, the OpenSSL library will attempt to locate certificate files based on a hash of their name and serial number. The <EM>c_rehash</EM> utility is used to generate symbolic links with the hashed names that point to the actual certificate files. As such, this option can only be used with a filesystem that actually supports symbolic links. In general, it is simpler to use the <TT>TLSCACertificateFile</TT> directive instead.</P>
+<P>When using Mozilla NSS, this directive can be used to specify the path of the directory containing the NSS certificate and key database files.  The <EM>certutil</EM> command can be used to add a <TERM>CA</TERM> certificate:</P>
+<PRE>
+        certutil -d &lt;path&gt; -A -n &quot;name of CA cert&quot; -t CT,, -a -i /path/to/cacertfile.pem
+</PRE>
+<UL>
+This command will add a CA certficate stored in the PEM (ASCII) formatted
+<BR>
+file named /path/to/cacertfile.pem.  <TT>-t CT,,</TT> means that the certificate is
+<BR>
+trusted to be a CA issuing certs for use in TLS clients and servers.</UL>
 <H4><A NAME="TLSCertificateFile &lt;filename&gt;">16.2.1.3. TLSCertificateFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the slapd server certificate. Certificates are generally public information and require no special protection.</P>
+<P>When using Mozilla NSS, if using a cert/key database (specified with <TT>TLSCACertificatePath</TT>), this directive specifies the name of the certificate to use:</P>
+<PRE>
+       TLSCertificateFile Server-Cert
+</PRE>
+<UL>
+If using a token other than the internal built in token, specify the
+<BR>
+token name first, followed by a colon:</UL>
+<PRE>
+       TLSCertificateFile my hardware device:Server-Cert
+</PRE>
+<UL>
+Use <TT>certutil -L</TT> to list the certificates by name:</UL>
+<PRE>
+       certutil -d /path/to/certdbdir -L
+</PRE>
 <H4><A NAME="TLSCertificateKeyFile &lt;filename&gt;">16.2.1.4. TLSCertificateKeyFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the private key that matches the certificate stored in the <TT>TLSCertificateFile</TT> file. Private keys themselves are sensitive data and are usually password encrypted for protection. However, the current implementation doesn't support encrypted keys so the key must not be encrypted and the file itself must be protected carefully.</P>
+<P>When using Mozilla NSS, this directive specifies the name of a file that contains the password for the key for the certificate specified with <TT>TLSCertificateFile</TT>.  The modutil command can be used to turn off password protection for the cert/key database.  For example, if <TT>TLSCACertificatePath</TT> specifes /etc/openldap/certdb as the location of the cert/key database, use modutil to change the password to the empty string:</P>
+<PRE>
+        modutil -dbdir /etc/openldap/certdb -changepw 'NSS Certificate DB'
+</PRE>
+<UL>
+You must have the old password, if any.  Ignore the WARNING about the running
+<BR>
+browser.  Press 'Enter' for the new password.</UL>
 <H4><A NAME="TLSCipherSuite &lt;cipher-suite-spec&gt;">16.2.1.5. TLSCipherSuite &lt;cipher-suite-spec&gt;</A></H4>
 <P>This directive configures what ciphers will be accepted and the preference order. <TT>&lt;cipher-suite-spec&gt;</TT> should be a cipher specification for OpenSSL. You can use the command</P>
 <PRE>
         openssl ciphers -v ALL
 </PRE>
 <P>to obtain a verbose list of available cipher specifications.</P>
-<P>To obtain the list of ciphers in GNUtls use:</P>
+<P>Besides the individual cipher names, the specifiers <TT>HIGH</TT>, <TT>MEDIUM</TT>, <TT>LOW</TT>, <TT>EXPORT</TT>, and <TT>EXPORT40</TT> may be helpful, along with <TT>TLSv1</TT>, <TT>SSLv3</TT>, and <TT>SSLv2</TT>.</P>
+<P>To obtain the list of ciphers in GnuTLS use:</P>
 <PRE>
         gnutls-cli -l
 </PRE>
-<P>Besides the individual cipher names, the specifiers <TT>HIGH</TT>, <TT>MEDIUM</TT>, <TT>LOW</TT>, <TT>EXPORT</TT>, and <TT>EXPORT40</TT> may be helpful, along with <TT>TLSv1</TT>, <TT>SSLv3</TT>, and <TT>SSLv2</TT>.</P>
+<P>When using Mozilla NSS, the OpenSSL cipher suite specifications are used and translated into the format used internally by Mozilla NSS.  There isn't an easy way to list the cipher suites from the command line.  The authoritative list is in the source code for Mozilla NSS in the file sslinfo.c in the structure</P>
+<PRE>
+       static const SSLCipherSuiteInfo suiteInfo[]
+</PRE>
 <H4><A NAME="TLSRandFile &lt;filename&gt;">16.2.1.6. TLSRandFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file to obtain random bits from when <TT>/dev/urandom</TT> is not available. If the system provides <TT>/dev/urandom</TT> then this option is not needed, otherwise a source of random data must be configured.  Some systems (e.g. Linux) provide <TT>/dev/urandom</TT> by default, while others (e.g. Solaris) require the installation of a patch to provide it, and others may not support it at all. In the latter case, EGD or PRNGD should be installed, and this directive should specify the name of the EGD/PRNGD socket. The environment variable <TT>RANDFILE</TT> can also be used to specify the filename. Also, in the absence of these options, the <TT>.rnd</TT> file in the slapd user's home directory may be used if it exists. To use the <TT>.rnd</TT> file, just create the file and copy a few hundred bytes of arbitrary data into the file. The file is only used to provide a seed for the pseudo-random number generator, and it doesn't need very much data to work.</P>
+<P>This directive is ignored with GnuTLS and Mozilla NSS.</P>
 <H4><A NAME="TLSEphemeralDHParamFile &lt;filename&gt;">16.2.1.7. TLSEphemeralDHParamFile &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains parameters for Diffie-Hellman ephemeral key exchange.  This is required in order to use a DSA certificate on the server side (i.e. <TT>TLSCertificateKeyFile</TT> points to a DSA key).  Multiple sets of parameters can be included in the file; all of them will be processed.  Parameters can be generated using the following command</P>
 <PRE>
         openssl dhparam [-dsaparam] -out &lt;filename&gt; &lt;numbits&gt;
 </PRE>
+<P>This directive is ignored with GnuTLS and Mozilla NSS.</P>
 <H4><A NAME="TLSVerifyClient { never | allow | try | demand }">16.2.1.8. TLSVerifyClient { never | allow | try | demand }</A></H4>
 <P>This directive specifies what checks to perform on client certificates in an incoming TLS session, if any. This option is set to <TT>never</TT> by default, in which case the server never asks the client for a certificate. With a setting of <TT>allow</TT> the server will ask for a client certificate; if none is provided the session proceeds normally. If a certificate is provided but the server is unable to verify it, the certificate is ignored and the session proceeds normally, as if no certificate had been provided. With a setting of <TT>try</TT> the certificate is requested, and if none is provided, the session proceeds normally. If a certificate is provided and it cannot be verified, the session is immediately terminated. With a setting of <TT>demand</TT> the certificate is requested and a valid certificate must be provided, otherwise the session is immediately terminated.</P>
 <P><HR WIDTH="80%" ALIGN="Left">
@@ -6859,9 +7029,25 @@ object identifier
 <H4><A NAME="TLS_CACERT &lt;filename&gt;">16.2.2.1. TLS_CACERT &lt;filename&gt;</A></H4>
 <P>This is equivalent to the server's <TT>TLSCACertificateFile</TT> option. As noted in the <A HREF="#TLS Configuration">TLS Configuration</A> section, a client typically may need to know about more CAs than a server, but otherwise the same considerations apply.</P>
 <H4><A NAME="TLS_CACERTDIR &lt;path&gt;">16.2.2.2. TLS_CACERTDIR &lt;path&gt;</A></H4>
-<P>This is equivalent to the server's <TT>TLSCACertificatePath</TT> option. The specified directory must be managed with the OpenSSL <EM>c_rehash</EM> utility as well.</P>
+<P>This is equivalent to the server's <TT>TLSCACertificatePath</TT> option. The specified directory must be managed with the OpenSSL <EM>c_rehash</EM> utility as well.  If using Mozilla NSS, &lt;path&gt; may contain a cert/key database.</P>
 <H4><A NAME="TLS_CERT &lt;filename&gt;">16.2.2.3. TLS_CERT &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the client certificate. This is a user-only directive and can only be specified in a user's <EM>.ldaprc</EM> file.</P>
+<P>When using Mozilla NSS, if using a cert/key database (specified with <TT>TLS_CACERTDIR</TT>), this directive specifies the name of the certificate to use:</P>
+<PRE>
+       TLS_CERT Certificate for Sam Carter
+</PRE>
+<UL>
+If using a token other than the internal built in token, specify the
+<BR>
+token name first, followed by a colon:</UL>
+<PRE>
+       TLS_CERT my hardware device:Certificate for Sam Carter
+</PRE>
+<UL>
+Use <TT>certutil -L</TT> to list the certificates by name:</UL>
+<PRE>
+       certutil -d /path/to/certdbdir -L
+</PRE>
 <H4><A NAME="TLS_KEY &lt;filename&gt;">16.2.2.4. TLS_KEY &lt;filename&gt;</A></H4>
 <P>This directive specifies the file that contains the private key that matches the certificate stored in the <TT>TLS_CERT</TT> file. The same constraints mentioned for <TT>TLSCertificateKeyFile</TT> apply here. This is also a user-only directive.</P>
 <H4><A NAME="TLS_RANDFILE &lt;filename&gt;">16.2.2.5. TLS_RANDFILE &lt;filename&gt;</A></H4>
@@ -6961,7 +7147,7 @@ object identifier
 <UL>
 <LI>Disadvantages of LDAP Sync replication:</UL>
 <P>LDAP Sync replication is an object-based replication mechanism. When any attribute value in a replicated object is changed on the provider, each consumer fetches and processes the complete changed object, including <B>both the changed and unchanged attribute values</B> during replication. One advantage of this approach is that when multiple changes occur to a single object, the precise sequence of those changes need not be preserved; only the final state of the entry is significant. But this approach may have drawbacks when the usage pattern involves single changes to multiple objects.</P>
-<P>For example, suppose you have a database consisting of 100,000 objects of 1 KB each. Further, suppose you routinely run a batch job to change the value of a single two-byte attribute value that appears in each of the 100,000 objects on the master. Not counting LDAP and TCP/IP protocol overhead, each time you run this job each consumer will transfer and process <B>1 GB</B> of data to process <B>200KB of changes!</B></P>
+<P>For example, suppose you have a database consisting of 102,400 objects of 1 KB each. Further, suppose you routinely run a batch job to change the value of a single two-byte attribute value that appears in each of the 102,400 objects on the master. Not counting LDAP and TCP/IP protocol overhead, each time you run this job each consumer will transfer and process <B>100 MB</B> of data to process <B>200KB of changes!</B></P>
 <P>99.98% of the data that is transmitted and processed in a case like this will be redundant, since it represents values that did not change. This is a waste of valuable transmission and processing bandwidth and can cause an unacceptable replication backlog to develop. While this situation is extreme, it serves to demonstrate a very real problem that is encountered in some LDAP deployments.</P>
 <UL>
 <LI>Where Delta-syncrepl comes in:</UL>
@@ -7002,8 +7188,7 @@ object identifier
 <LI>MirrorMode is not what is termed as a Multi-Master solution. This is because writes have to go to just one of the mirror nodes at a time
 <LI>MirrorMode can be termed as Active-Active Hot-Standby, therefore an external server (slapd in proxy mode) or device (hardware load balancer) is needed to manage which provider is currently active
 <LI>Backups are managed slightly differently<UL>
-<LI>If backing up the Berkeley database itself and periodically backing up the transaction log files, then the same member of the mirror pair needs to be used to collect logfiles until the next database backup is taken
-<LI>To ensure that both databases are consistent, each database might have to be put in read-only mode while performing a slapcat.</UL>
+<LI>If backing up the Berkeley database itself and periodically backing up the transaction log files, then the same member of the mirror pair needs to be used to collect logfiles until the next database backup is taken</UL>
 <LI>Delta-Syncrepl is not yet supported</UL>
 <P>For configuration, please see the <A HREF="#MirrorMode">MirrorMode</A> section below</P>
 <H3><A NAME="Syncrepl Proxy Mode">18.2.4. Syncrepl Proxy Mode</A></H3>
@@ -8089,20 +8274,16 @@ Database objects of instances of this backend
        db_stat -d
 </PRE>
 <P>will tell you how many internal pages are present in a database. You should check this number for both dn2id and id2entry.</P>
-<P>Also note that <EM>id2entry</EM> always uses 16KB per &quot;page&quot;, while <EM>dn2id</EM> uses whatever the underlying filesystem uses, typically 4 or 8KB. To avoid thrashing the, your cache must be at least as large as the number of internal pages in both the <EM>dn2id</EM> and <EM>id2entry</EM> databases, plus some extra space to accommodate the actual leaf data pages.</P>
+<P>Also note that <EM>id2entry</EM> always uses 16KB per &quot;page&quot;, while <EM>dn2id</EM> uses whatever the underlying filesystem uses, typically 4 or 8KB. To avoid thrashing, your cache must be at least as large as the number of internal pages in both the <EM>dn2id</EM> and <EM>id2entry</EM> databases, plus some extra space to accommodate the actual leaf data pages.</P>
 <P>For example, in my OpenLDAP 2.4 test database, I have an input LDIF file that's about 360MB. With the back-hdb backend this creates a <EM>dn2id.bdb</EM> that's 68MB, and an <EM>id2entry</EM> that's 800MB. db_stat tells me that <EM>dn2id</EM> uses 4KB pages, has 433 internal pages, and 6378 leaf pages. The id2entry uses 16KB pages, has 52 internal pages, and 45912 leaf pages. In order to efficiently retrieve any single entry in this database, the cache should be at least</P>
 <PRE>
        (433+1) * 4KB + (52+1) * 16KB in size: 1736KB + 848KB =~ 2.5MB.
 </PRE>
 <P>This doesn't take into account other library overhead, so this is even lower than the barest minimum. The default cache size, when nothing is configured, is only 256KB.</P>
-<P>This 2.5MB number also doesn't take indexing into account. Each indexed attribute uses another database file of its own, using a Hash structure.</P>
-<P>Unlike the B-trees, where you only need to touch one data page to find an entry of interest, doing an index lookup generally touches multiple keys, and the point of a hash structure is that the keys are evenly distributed across the data space. That means there's no convenient compact subset of the database that you can keep in the cache to insure quick operation, you can pretty much expect references to be scattered across the whole thing. My strategy here would be to provide enough cache for at least 50% of all of the hash data.</P>
+<P>This 2.5MB number also doesn't take indexing into account. Each indexed attribute results in another database file.  Earlier versions of OpenLDAP kept these index databases in Hash format, but from OpenLDAP 2.2 onward the index databases are in B-tree format so the same procedure can be used to calculate the necessary amount of cache for each index database.</P>
+<P>For example, if your only index is for the objectClass attribute and db_stat reveals that <EM>objectClass.bdb</EM> has 339 internal pages and uses 4096 byte pages, the additional cache needed for just this attribute index is</P>
 <PRE>
-   (Number of hash buckets + number of overflow pages + number of duplicate pages) * page size / 2.
-</PRE>
-<P>The objectClass index for my example database is 5.9MB and uses 3 hash buckets and 656 duplicate pages. So:</P>
-<PRE>
-   ( 3 + 656 ) * 4KB / 2 =~ 1.3MB.
+       (339+1) * 4KB =~ 1.3MB.
 </PRE>
 <P>With only this index enabled, I'd figure at least a 4MB cache for this backend. (Of course you're using a single cache shared among all of the database files, so the cache pages will most likely get used for something other than what you accounted for, but this gives you a fighting chance.)</P>
 <P>With this 4MB cache I can slapcat this entire database on my 1.3GHz PIII in 1 minute, 40 seconds. With the cache doubled to 8MB, it still takes the same 1:40s. Once you've got enough cache to fit the B-tree internal pages, increasing it further won't have any effect until the cache really is large enough to hold 100% of the data pages. I don't have enough free RAM to hold all the 800MB id2entry data, so 4MB is good enough.</P>
@@ -8318,7 +8499,7 @@ Database objects of instances of this backend
 <P>The following sections attempt to summarize the most common causes of LDAP errors when using OpenLDAP</P>
 <H2><A NAME="Common causes of LDAP errors">C.1. Common causes of LDAP errors</A></H2>
 <H3><A NAME="ldap_*: Can\'t contact LDAP server">C.1.1. ldap_*: Can't contact LDAP server</A></H3>
-<P>The {[B:Can't contact LDAP server}} error is usually returned when the LDAP server cannot be contacted. This may occur for many reasons:</P>
+<P>The <B>Can't contact LDAP server</B> error is usually returned when the LDAP server cannot be contacted. This may occur for many reasons:</P>
 <UL>
 <LI>the LDAP server is not running; this can be checked by running, for example,</UL>
 <PRE>
@@ -8575,7 +8756,7 @@ Database objects of instances of this backend
 <H3><A NAME="GSSAPI: gss_acquire_cred: Miscellaneous failure; Permission denied;">C.2.4. GSSAPI: gss_acquire_cred: Miscellaneous failure; Permission denied;</A></H3>
 <P>This message means that slapd is not running as root and, thus, it cannot get its Kerberos 5 key from the keytab, usually file /etc/krb5.keytab.</P>
 <P>A keytab file is used to store keys that are to be used by services or daemons that are started at boot time. It is very important that these secrets are kept beyond reach of intruders.</P>
-<P>That's why the default keytab file is owned by root and protected from being read by others. Do not mess with these permissions, build a different keytab file for slapd instead.</P>
+<P>That's why the default keytab file is owned by root and protected from being read by others. Do not mess with these permissions, build a different keytab file for slapd instead, and make sure it is owned by the user that slapd runs as.</P>
 <P>To do this, start kadmin, and enter the following commands:</P>
 <PRE>
      addprinc -randkey ldap/ldap.example.com@EXAMPLE.COM
@@ -8583,7 +8764,7 @@ Database objects of instances of this backend
 </PRE>
 <P>Then, on the shell, do:</P>
 <PRE>
-     chown ldap.ldap /etc/openldap/ldap.keytab
+     chown ldap:ldap /etc/openldap/ldap.keytab
      chmod 600 /etc/openldap/ldap.keytab
 </PRE>
 <P>Now you have to tell slapd (well, actually tell the gssapi library in Kerberos 5 that is invoked by Cyrus SASL) where to find the new keytab. You do this by setting the environment variable KRB5_KTNAME like this:</P>
@@ -8640,9 +8821,9 @@ Database objects of instances of this backend
 <P>There might well be other reasons; the contents of the log file should help clarifying them.</P>
 <P>Tests that fire up multiple instances of slapd typically log to tests/testrun/slapd.&lt;n&gt;.log, with a distinct &lt;n&gt; for each instance of slapd; list tests/testrun/ for possible values of &lt;n&gt;.</P>
 <H3><A NAME="ldap_*: Internal (implementation specific) error (80) - additional info: entry index delete failed">C.2.8. ldap_*: Internal (implementation specific) error (80) - additional info: entry index delete failed</A></H3>
-<P>This seems to be related with wrong ownership of the BDB's dir (/var/lib/ldap) and files.</P>
+<P>This seems to be related with wrong ownership of the BDB's dir (/var/lib/ldap) and files. The files must be owned by the user that slapd runs as.</P>
 <PRE>
-    chmod -R openldap:openldap /var/lib/ldap
+    chown -R ldap:ldap /var/lib/ldap
 </PRE>
 <P>fixes it in Debian</P>
 <H3><A NAME="ldap_sasl_interactive_bind_s: Can\'t contact LDAP server (-1)">C.2.9. ldap_sasl_interactive_bind_s: Can't contact LDAP server (-1)</A></H3>
@@ -8703,6 +8884,17 @@ Database objects of instances of this backend
 </TD>
 <TD>
 <TT>2.0.1</TT>
+</TD>
+</TR>
+<TR>
+<TD>
+&nbsp;
+</TD>
+<TD>
+<TT>&nbsp;<A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A></TT>
+</TD>
+<TD>
+<TT>3.12.9</TT>
 </TD>
 </TR>
 <TR>
@@ -8802,6 +8994,39 @@ Database Software
 </TD>
 <TD>
 <TT>4.7</TT>
+</TD>
+</TR>
+<TR>
+<TD>
+&nbsp;
+</TD>
+<TD>
+<TT>&nbsp;</TT>
+</TD>
+<TD>
+<TT>4.8</TT>
+</TD>
+</TR>
+<TR>
+<TD>
+&nbsp;
+</TD>
+<TD>
+<TT>&nbsp;</TT>
+</TD>
+<TD>
+<TT>5.0</TT>
+</TD>
+</TR>
+<TR>
+<TD>
+&nbsp;
+</TD>
+<TD>
+<TT>&nbsp;</TT>
+</TD>
+<TD>
+<TT>5.1</TT>
 </TD>
 </TR>
 <TR>
@@ -8923,8 +9148,8 @@ TCP Wrappers
 <P></P>
 <HR>
 <H1><A NAME="LDAP Result Codes">H. LDAP Result Codes</A></H1>
-<P>For the purposes of this guide, we have incorporated the standard LDAP result codes from <EM>Appendix A.  LDAP Result Codes</EM> of rfc4511, a copy of which can be found in <TT>doc/rfc</TT> of the OpenLDAP source code.</P>
-<P>We have expanded the description of each error in relation to the OpenLDAP toolsets. LDAP extensions may introduce extension-specific result codes, which are not part of rfc4511. OpenLDAP returns the result codes related to extensions it implements. Their meaning is documented in the extension they are related to.</P>
+<P>For the purposes of this guide, we have incorporated the standard LDAP result codes from <EM>Appendix A.  LDAP Result Codes</EM> of <A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A>, a copy of which can be found in <TT>doc/rfc</TT> of the OpenLDAP source code.</P>
+<P>We have expanded the description of each error in relation to the OpenLDAP toolsets. LDAP extensions may introduce extension-specific result codes, which are not part of RFC4511. OpenLDAP returns the result codes related to extensions it implements. Their meaning is documented in the extension they are related to.</P>
 <H2><A NAME="Non-Error Result Codes">H.1. Non-Error Result Codes</A></H2>
 <P>These result codes (called &quot;non-error&quot; result codes) do not indicate an error condition:</P>
 <PRE>
@@ -8938,93 +9163,93 @@ TCP Wrappers
 <P>The <EM>referral</EM> and <EM>saslBindInProgress</EM> result codes indicate the client needs to take additional action to complete the operation.</P>
 <H2><A NAME="Result Codes">H.2. Result Codes</A></H2>
 <P>Existing LDAP result codes are described as follows:</P>
-<H2><A NAME="{{success (0)}}">H.3. <EM>success (0)</EM></A></H2>
+<H2><A NAME="success (0)">H.3. success (0)</A></H2>
 <P>Indicates the successful completion of an operation.</P>
 <P><HR WIDTH="80%" ALIGN="Left">
 <STRONG>Note: </STRONG>this code is not used with the Compare operation.  See <A HREF="#compareFalse (5)">compareFalse (5)</A> and <A HREF="#compareTrue (6)">compareTrue (6)</A>.
 <HR WIDTH="80%" ALIGN="Left"></P>
-<H2><A NAME="{{operationsError (1)}}">H.4. <EM>operationsError (1)</EM></A></H2>
+<H2><A NAME="operationsError (1)">H.4. operationsError (1)</A></H2>
 <P>Indicates that the operation is not properly sequenced with relation to other operations (of same or different type).</P>
-<P>For example, this code is returned if the client attempts to StartTLS [RFC4346] while there are other uncompleted operations or if a TLS layer was already installed.</P>
-<H2><A NAME="{{protocolError (2)}}">H.5. <EM>protocolError (2)</EM></A></H2>
+<P>For example, this code is returned if the client attempts to StartTLS (<A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A> Section 4.14) while there are other uncompleted operations or if a TLS layer was already installed.</P>
+<H2><A NAME="protocolError (2)">H.5. protocolError (2)</A></H2>
 <P>Indicates the server received data that is not well-formed.</P>
 <P>For Bind operation only, this code is also used to indicate that the server does not support the requested protocol version.</P>
 <P>For Extended operations only, this code is also used to indicate that the server does not support (by design or configuration) the Extended operation associated with the <EM>requestName</EM>.</P>
 <P>For request operations specifying multiple controls, this may be used to indicate that the server cannot ignore the order of the controls as specified, or that the combination of the specified controls is invalid or unspecified.</P>
-<H2><A NAME="{{timeLimitExceeded (3)}}">H.6. <EM>timeLimitExceeded (3)</EM></A></H2>
+<H2><A NAME="timeLimitExceeded (3)">H.6. timeLimitExceeded (3)</A></H2>
 <P>Indicates that the time limit specified by the client was exceeded before the operation could be completed.</P>
-<H2><A NAME="{{sizeLimitExceeded (4)}}">H.7. <EM>sizeLimitExceeded (4)</EM></A></H2>
+<H2><A NAME="sizeLimitExceeded (4)">H.7. sizeLimitExceeded (4)</A></H2>
 <P>Indicates that the size limit specified by the client was exceeded before the operation could be completed.</P>
-<H2><A NAME="{{compareFalse (5)}}">H.8. <EM>compareFalse (5)</EM></A></H2>
+<H2><A NAME="compareFalse (5)">H.8. compareFalse (5)</A></H2>
 <P>Indicates that the Compare operation has successfully completed and the assertion has evaluated to FALSE or Undefined.</P>
-<H2><A NAME="{{compareTrue (6)}}">H.9. <EM>compareTrue (6)</EM></A></H2>
+<H2><A NAME="compareTrue (6)">H.9. compareTrue (6)</A></H2>
 <P>Indicates that the Compare operation has successfully completed and the assertion has evaluated to TRUE.</P>
-<H2><A NAME="{{authMethodNotSupported (7)}}">H.10. <EM>authMethodNotSupported (7)</EM></A></H2>
+<H2><A NAME="authMethodNotSupported (7)">H.10. authMethodNotSupported (7)</A></H2>
 <P>Indicates that the authentication method or mechanism is not supported.</P>
-<H2><A NAME="{{strongerAuthRequired (8)}}">H.11. <EM>strongerAuthRequired (8)</EM></A></H2>
+<H2><A NAME="strongerAuthRequired (8)">H.11. strongerAuthRequired (8)</A></H2>
 <P>Indicates the server requires strong(er) authentication in order to complete the operation.</P>
 <P>When used with the Notice of Disconnection operation, this code indicates that the server has detected that an established security association between the client and server has unexpectedly failed or been compromised.</P>
-<H2><A NAME="{{referral (10)}}">H.12. <EM>referral (10)</EM></A></H2>
-<P>Indicates that a referral needs to be chased to complete the operation (see Section 4.1.10).</P>
-<H2><A NAME="{{adminLimitExceeded (11)}}">H.13. <EM>adminLimitExceeded (11)</EM></A></H2>
+<H2><A NAME="referral (10)">H.12. referral (10)</A></H2>
+<P>Indicates that a referral needs to be chased to complete the operation (see <A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A> Section 4.1.10).</P>
+<H2><A NAME="adminLimitExceeded (11)">H.13. adminLimitExceeded (11)</A></H2>
 <P>Indicates that an administrative limit has been exceeded.</P>
-<H2><A NAME="{{unavailableCriticalExtension (12)}}">H.14. <EM>unavailableCriticalExtension (12)</EM></A></H2>
-<P>Indicates a critical control is unrecognized (see Section 4.1.11).</P>
-<H2><A NAME="{{confidentialityRequired (13)}}">H.15. <EM>confidentialityRequired (13)</EM></A></H2>
+<H2><A NAME="unavailableCriticalExtension (12)">H.14. unavailableCriticalExtension (12)</A></H2>
+<P>Indicates a critical control is unrecognized (see <A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A> Section 4.1.11).</P>
+<H2><A NAME="confidentialityRequired (13)">H.15. confidentialityRequired (13)</A></H2>
 <P>Indicates that data confidentiality protections are required.</P>
-<H2><A NAME="{{saslBindInProgress (14)}}">H.16. <EM>saslBindInProgress (14)</EM></A></H2>
-<P>Indicates the server requires the client to send a new bind request, with the same SASL mechanism, to continue the authentication process (see Section 4.2).</P>
-<H2><A NAME="{{noSuchAttribute (16)}}">H.17. <EM>noSuchAttribute (16)</EM></A></H2>
+<H2><A NAME="saslBindInProgress (14)">H.16. saslBindInProgress (14)</A></H2>
+<P>Indicates the server requires the client to send a new bind request, with the same SASL mechanism, to continue the authentication process (see <A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A> Section 4.2).</P>
+<H2><A NAME="noSuchAttribute (16)">H.17. noSuchAttribute (16)</A></H2>
 <P>Indicates that the named entry does not contain the specified attribute or attribute value.</P>
-<H2><A NAME="{{undefinedAttributeType (17)}}">H.18. <EM>undefinedAttributeType (17)</EM></A></H2>
+<H2><A NAME="undefinedAttributeType (17)">H.18. undefinedAttributeType (17)</A></H2>
 <P>Indicates that a request field contains an unrecognized attribute description.</P>
-<H2><A NAME="{{inappropriateMatching (18)}}">H.19. <EM>inappropriateMatching (18)</EM></A></H2>
+<H2><A NAME="inappropriateMatching (18)">H.19. inappropriateMatching (18)</A></H2>
 <P>Indicates that an attempt was made (e.g., in an assertion) to use a matching rule not defined for the attribute type concerned.</P>
-<H2><A NAME="{{constraintViolation (19)}}">H.20. <EM>constraintViolation (19)</EM></A></H2>
+<H2><A NAME="constraintViolation (19)">H.20. constraintViolation (19)</A></H2>
 <P>Indicates that the client supplied an attribute value that does not conform to the constraints placed upon it by the data model.</P>
 <P>For example, this code is returned when multiple values are supplied to an attribute that has a SINGLE-VALUE constraint.</P>
-<H2><A NAME="{{attributeOrValueExists (20)}}">H.21. <EM>attributeOrValueExists (20)</EM></A></H2>
+<H2><A NAME="attributeOrValueExists (20)">H.21. attributeOrValueExists (20)</A></H2>
 <P>Indicates that the client supplied an attribute or value to be added to an entry, but the attribute or value already exists.</P>
-<H2><A NAME="{{invalidAttributeSyntax (21)}}">H.22. <EM>invalidAttributeSyntax (21)</EM></A></H2>
+<H2><A NAME="invalidAttributeSyntax (21)">H.22. invalidAttributeSyntax (21)</A></H2>
 <P>Indicates that a purported attribute value does not conform to the syntax of the attribute.</P>
-<H2><A NAME="{{noSuchObject (32)}}">H.23. <EM>noSuchObject (32)</EM></A></H2>
+<H2><A NAME="noSuchObject (32)">H.23. noSuchObject (32)</A></H2>
 <P>Indicates that the object does not exist in the DIT.</P>
-<H2><A NAME="{{aliasProblem (33)}}">H.24. <EM>aliasProblem (33)</EM></A></H2>
+<H2><A NAME="aliasProblem (33)">H.24. aliasProblem (33)</A></H2>
 <P>Indicates that an alias problem has occurred.  For example, the code may used to indicate an alias has been dereferenced that names no object.</P>
-<H2><A NAME="{{invalidDNSyntax (34)}}">H.25. <EM>invalidDNSyntax (34)</EM></A></H2>
+<H2><A NAME="invalidDNSyntax (34)">H.25. invalidDNSyntax (34)</A></H2>
 <P>Indicates that an LDAPDN or RelativeLDAPDN field (e.g., search base, target entry, ModifyDN newrdn, etc.) of a request does not conform to the required syntax or contains attribute values that do not conform to the syntax of the attribute's type.</P>
-<H2><A NAME="{{aliasDereferencingProblem (36)}}">H.26. <EM>aliasDereferencingProblem (36)</EM></A></H2>
+<H2><A NAME="aliasDereferencingProblem (36)">H.26. aliasDereferencingProblem (36)</A></H2>
 <P>Indicates that a problem occurred while dereferencing an alias.  Typically, an alias was encountered in a situation where it was not allowed or where access was denied.</P>
-<H2><A NAME="{{inappropriateAuthentication (48)}}">H.27. <EM>inappropriateAuthentication (48)</EM></A></H2>
+<H2><A NAME="inappropriateAuthentication (48)">H.27. inappropriateAuthentication (48)</A></H2>
 <P>Indicates the server requires the client that had attempted to bind anonymously or without supplying credentials to provide some form of credentials.</P>
-<H2><A NAME="{{invalidCredentials (49)}}">H.28. <EM>invalidCredentials (49)</EM></A></H2>
+<H2><A NAME="invalidCredentials (49)">H.28. invalidCredentials (49)</A></H2>
 <P>Indicates that the provided credentials (e.g., the user's name and password) are invalid.</P>
-<H2><A NAME="{{insufficientAccessRights (50)}}">H.29. <EM>insufficientAccessRights (50)</EM></A></H2>
+<H2><A NAME="insufficientAccessRights (50)">H.29. insufficientAccessRights (50)</A></H2>
 <P>Indicates that the client does not have sufficient access rights to perform the operation.</P>
-<H2><A NAME="{{busy (51)}}">H.30. <EM>busy (51)</EM></A></H2>
+<H2><A NAME="busy (51)">H.30. busy (51)</A></H2>
 <P>Indicates that the server is too busy to service the operation.</P>
-<H2><A NAME="{{unavailable (52)}}">H.31. <EM>unavailable (52)</EM></A></H2>
+<H2><A NAME="unavailable (52)">H.31. unavailable (52)</A></H2>
 <P>Indicates that the server is shutting down or a subsystem necessary to complete the operation is offline.</P>
-<H2><A NAME="{{unwillingToPerform (53)}}">H.32. <EM>unwillingToPerform (53)</EM></A></H2>
+<H2><A NAME="unwillingToPerform (53)">H.32. unwillingToPerform (53)</A></H2>
 <P>Indicates that the server is unwilling to perform the operation.</P>
-<H2><A NAME="{{loopDetect (54)}}">H.33. <EM>loopDetect (54)</EM></A></H2>
+<H2><A NAME="loopDetect (54)">H.33. loopDetect (54)</A></H2>
 <P>Indicates that the server has detected an internal loop (e.g., while dereferencing aliases or chaining an operation).</P>
-<H2><A NAME="{{namingViolation (64)}}">H.34. <EM>namingViolation (64)</EM></A></H2>
+<H2><A NAME="namingViolation (64)">H.34. namingViolation (64)</A></H2>
 <P>Indicates that the entry's name violates naming restrictions.</P>
-<H2><A NAME="{{objectClassViolation (65)}}">H.35. <EM>objectClassViolation (65)</EM></A></H2>
+<H2><A NAME="objectClassViolation (65)">H.35. objectClassViolation (65)</A></H2>
 <P>Indicates that the entry violates object class restrictions.</P>
-<H2><A NAME="{{notAllowedOnNonLeaf (66)}}">H.36. <EM>notAllowedOnNonLeaf (66)</EM></A></H2>
+<H2><A NAME="notAllowedOnNonLeaf (66)">H.36. notAllowedOnNonLeaf (66)</A></H2>
 <P>Indicates that the operation is inappropriately acting upon a non-leaf entry.</P>
-<H2><A NAME="{{notAllowedOnRDN (67)}}">H.37. <EM>notAllowedOnRDN (67)</EM></A></H2>
+<H2><A NAME="notAllowedOnRDN (67)">H.37. notAllowedOnRDN (67)</A></H2>
 <P>Indicates that the operation is inappropriately attempting to remove a value that forms the entry's relative distinguished name.</P>
-<H2><A NAME="{{entryAlreadyExists (68)}}">H.38. <EM>entryAlreadyExists (68)</EM></A></H2>
+<H2><A NAME="entryAlreadyExists (68)">H.38. entryAlreadyExists (68)</A></H2>
 <P>Indicates that the request cannot be fulfilled (added, moved, or renamed) as the target entry already exists.</P>
-<H2><A NAME="{{objectClassModsProhibited (69)}}">H.39. <EM>objectClassModsProhibited (69)</EM></A></H2>
+<H2><A NAME="objectClassModsProhibited (69)">H.39. objectClassModsProhibited (69)</A></H2>
 <P>Indicates that an attempt to modify the object class(es) of an entry's 'objectClass' attribute is prohibited.</P>
 <P>For example, this code is returned when a client attempts to modify the structural object class of an entry.</P>
-<H2><A NAME="{{affectsMultipleDSAs (71)}}">H.40. <EM>affectsMultipleDSAs (71)</EM></A></H2>
+<H2><A NAME="affectsMultipleDSAs (71)">H.40. affectsMultipleDSAs (71)</A></H2>
 <P>Indicates that the operation cannot be performed as it would affect multiple servers (DSAs).</P>
-<H2><A NAME="{{other (80)}}">H.41. <EM>other (80)</EM></A></H2>
+<H2><A NAME="other (80)">H.41. other (80)</A></H2>
 <P>Indicates the server has encountered an internal error.</P>
 <P></P>
 <HR>
@@ -10409,6 +10634,14 @@ University of Michigan LDAP Team
 </TR>
 <TR>
 <TD>
+<A HREF="http://developer.mozilla.org/en/NSS">MozNSS</A>
+</TD>
+<TD>
+<A HREF="http://developer.mozilla.org/en/NSS">http://developer.mozilla.org/en/NSS</A>
+</TD>
+</TR>
+<TR>
+<TD>
 <A HREF="http://www.openldap.org/">OpenLDAP</A>
 </TD>
 <TD>
@@ -10707,7 +10940,7 @@ PS
 </TR>
 <TR>
 <TD>
-<A HREF="http://www.rfc-editor.org/rfc/rfc4512.txt">RFC4511</A>
+<A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">RFC4511</A>
 </TD>
 <TD>
 Lightweight Directory Access Protocol (LDAP): The Protocol
@@ -10716,7 +10949,7 @@ Lightweight Directory Access Protocol (LDAP): The Protocol
 PS
 </TD>
 <TD>
-<A HREF="http://www.rfc-editor.org/rfc/rfc4512.txt">http://www.rfc-editor.org/rfc/rfc4512.txt</A>
+<A HREF="http://www.rfc-editor.org/rfc/rfc4511.txt">http://www.rfc-editor.org/rfc/rfc4511.txt</A>
 </TD>
 </TR>
 <TR>
@@ -10857,6 +11090,20 @@ X
 </TD>
 <TD>
 <A HREF="http://www.rfc-editor.org/rfc/rfc4533.txt">http://www.rfc-editor.org/rfc/rfc4533.txt</A>
+</TD>
+</TR>
+<TR>
+<TD>
+<A HREF="http://tools.ietf.org/html/draft-chu-ldap-ldapi-00">Chu-LDAPI</A>
+</TD>
+<TD>
+Using LDAP Over IPC Mechanisms
+</TD>
+<TD>
+ID
+</TD>
+<TD>
+<A HREF="http://tools.ietf.org/html/draft-chu-ldap-ldapi-00">http://tools.ietf.org/html/draft-chu-ldap-ldapi-00</A>
 </TD>
 </TR>
 </TABLE>
@@ -11053,7 +11300,7 @@ operates.
 <HR>
 <H1><A NAME="OpenLDAP Software Copyright Notices">K. OpenLDAP Software Copyright Notices</A></H1>
 <H2><A NAME="OpenLDAP Copyright Notice">K.1. OpenLDAP Copyright Notice</A></H2>
-<P>Copyright 1998-2008 The OpenLDAP Foundation.<BR><EM>All rights reserved.</EM></P>
+<P>Copyright 1998-2011 The OpenLDAP Foundation.<BR><EM>All rights reserved.</EM></P>
 <P>Redistribution and use in source and binary forms, with or without modification, are permitted <EM>only as authorized</EM> by the <A HREF="#OpenLDAP Public License">OpenLDAP Public License</A>.</P>
 <P>A copy of this license is available in file <TT>LICENSE</TT> in the top-level directory of the distribution or, alternatively, at &lt;<A HREF="http://www.OpenLDAP.org/license.html">http://www.OpenLDAP.org/license.html</A>&gt;.</P>
 <P>OpenLDAP is a registered trademark of the OpenLDAP Foundation.</P>
@@ -11062,9 +11309,9 @@ operates.
 <P>This work also contains materials derived from public sources.</P>
 <P>Additional information about OpenLDAP software can be obtained at &lt;<A HREF="http://www.OpenLDAP.org/">http://www.OpenLDAP.org/</A>&gt;.</P>
 <H2><A NAME="Additional Copyright Notices">K.2. Additional Copyright Notices</A></H2>
-<P>Portions Copyright 1998-2008 Kurt D. Zeilenga.<BR>Portions Copyright 1998-2006 Net Boolean Incorporated.<BR>Portions Copyright 2001-2006 IBM Corporation.<BR><EM>All rights reserved.</EM></P>
+<P>Portions Copyright 1998-2011 Kurt D. Zeilenga.<BR>Portions Copyright 1998-2006 Net Boolean Incorporated.<BR>Portions Copyright 2001-2006 IBM Corporation.<BR><EM>All rights reserved.</EM></P>
 <P>Redistribution and use in source and binary forms, with or without modification, are permitted only as authorized by the <A HREF="#OpenLDAP Public License">OpenLDAP Public License</A>.</P>
-<P>Portions Copyright 1999-2007 Howard Y.H. Chu.<BR>Portions Copyright 1999-2007 Symas Corporation.<BR>Portions Copyright 1998-2003 Hallvard B. Furuseth.<BR>Portions Copyright 2007-2009 Gavin Henry.<BR>Portions Copyright 2007-2009 Suretec Systems Limited.<BR><EM>All rights reserved.</EM></P>
+<P>Portions Copyright 1999-2008 Howard Y.H. Chu.<BR>Portions Copyright 1999-2008 Symas Corporation.<BR>Portions Copyright 1998-2003 Hallvard B. Furuseth.<BR>Portions Copyright 2007-2011 Gavin Henry.<BR>Portions Copyright 2007-2011 Suretec Systems Limited.<BR><EM>All rights reserved.</EM></P>
 <P>Redistribution and use in source and binary forms, with or without modification, are permitted provided that this notice is preserved. The names of the copyright holders may not be used to endorse or promote products derived from this software without their specific prior written permission.  This software is provided ``as is'' without express or implied warranty.</P>
 <H2><A NAME="University of Michigan Copyright Notice">K.3. University of Michigan Copyright Notice</A></H2>
 <P>Portions Copyright 1992-1996 Regents of the University of Michigan.<BR><EM>All rights reserved.</EM></P>
@@ -11130,7 +11377,7 @@ distribute verbatim copies of this document is granted.
 <P>
 <FONT COLOR="#808080" FACE="Arial,Verdana,Helvetica" SIZE="1"><B>
 ________________<BR>
-<SMALL>&copy; Copyright 2008, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
+<SMALL>&copy; Copyright 2011, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
 
 </DIV>
 

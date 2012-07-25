@@ -50,7 +50,7 @@ class AudioProcessor;
 class AudioDSPKernelProcessor : public AudioProcessor {
 public:
     // numberOfChannels may be later changed if object is not yet in an "initialized" state
-    AudioDSPKernelProcessor(double sampleRate, unsigned numberOfChannels);
+    AudioDSPKernelProcessor(float sampleRate, unsigned numberOfChannels);
 
     // Subclasses create the appropriate type of processing kernel here.
     // We'll call this to create a kernel for each channel.
@@ -59,11 +59,14 @@ public:
     // AudioProcessor methods
     virtual void initialize();
     virtual void uninitialize();
-    virtual void process(AudioBus* source, AudioBus* destination, size_t framesToProcess);
+    virtual void process(const AudioBus* source, AudioBus* destination, size_t framesToProcess);
     virtual void reset();
     virtual void setNumberOfChannels(unsigned numberOfChannels);
 
     unsigned numberOfChannels() const { return m_numberOfChannels; }
+
+    virtual double tailTime() const OVERRIDE;
+    virtual double latencyTime() const OVERRIDE;
 
 protected:
     unsigned m_numberOfChannels;

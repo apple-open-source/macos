@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,7 +96,13 @@ static const char *dlEventName[] = {
 	"KEV_DL_WAKEFLAGS_CHANGED",
 #ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
 	"KEV_DL_IF_IDLE_ROUTE_REFCNT",
-#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
+#endif
+#ifdef  KEV_DL_IFCAP_CHANGED
+	"KEV_DL_IFCAP_CHANGED",
+#endif
+#ifdef  KEV_DL_LINK_QUALITY_METRIC_CHANGED
+	"KEV_DL_LINK_QUALITY_METRIC_CHANGED",
+#endif
 };
 
 static const char *inet6EventName[] = {
@@ -108,6 +114,13 @@ static const char *inet6EventName[] = {
 	"KEV_INET6_NEW_RTADV_ADDR",
 	"KEV_INET6_DEFROUTER"
 };
+
+#ifdef	KEV_ND6_SUBCLASS
+static const char *nd6EventNameString[] = {
+	"",
+	"KEV_ND6_RA"
+};
+#endif	// KEV_ND6_SUBCLASS
 
 __private_extern__ Boolean		network_changed	= FALSE;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
@@ -398,6 +411,21 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					break;
 				}
 
+#ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
+				case KEV_DL_IF_IDLE_ROUTE_REFCNT: {
+					/*
+					 * interface route refcnt idle
+					 */
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					interface_update_idle_state(ifr_name);
+					break;
+				}
+#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
+
 				case KEV_DL_LINK_OFF :
 				case KEV_DL_LINK_ON :
 					/*
@@ -411,6 +439,22 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 					link_update_status(ifr_name, FALSE);
 					break;
 
+#ifdef  KEV_DL_LINK_QUALITY_METRIC_CHANGED
+				case KEV_DL_LINK_QUALITY_METRIC_CHANGED: {
+					struct kev_dl_link_quality_metric_data * lqm_data;
+					lqm_data = (struct kev_dl_link_quality_metric_data *) event_data;
+
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					copy_if_name(ev, ifr_name, sizeof(ifr_name));
+					interface_update_quality_metric(ifr_name,
+								   lqm_data->link_quality_metric);
+					break;
+				}
+#endif  // KEV_DL_LINK_QUALITY_METRIC_CHANGED
+
 				case KEV_DL_SIFFLAGS :
 				case KEV_DL_SIFMETRICS :
 				case KEV_DL_SIFMTU :
@@ -421,9 +465,9 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 				case KEV_DL_DELMULTI :
 				case KEV_DL_LINK_ADDRESS_CHANGED :
 				case KEV_DL_WAKEFLAGS_CHANGED :
-#ifdef	KEV_DL_IF_IDLE_ROUTE_REFCNT
-				case KEV_DL_IF_IDLE_ROUTE_REFCNT :
-#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT
+#ifdef  KEV_DL_IFCAP_CHANGED
+				case KEV_DL_IFCAP_CHANGED :
+#endif	// KEV_DL_IFCAP_CHANGED
 					break;
 
 				default :
@@ -432,6 +476,20 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 			}
 			break;
 		}
+#ifdef	KEV_ND6_SUBCLASS
+		case KEV_ND6_SUBCLASS : {
+			eventName = nd6EventNameString(ev_msg->event_code);
+			switch (ev_msg->event_code) {
+				case KEV_KEV_ND6_RA :
+					break;
+
+				default :
+					handled = FALSE;
+					break;
+			}
+			break;
+		}
+#endif	// KEV_ND6_SUBCLASS
 		case KEV_LOG_SUBCLASS : {
 			break;
 		}
@@ -457,8 +515,11 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 {
 	int			so		= CFSocketGetNative(s);
 	int			status;
-	char			buf[1024];
-	struct kern_event_msg	*ev_msg		= (struct kern_event_msg *)&buf[0];
+	union {
+		char			bytes[1024];
+		struct kern_event_msg	ev_msg1;	// first kernel event
+	} buf;
+	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
 	int			offset		= 0;
 
 	status = recv(so, &buf, sizeof(buf), 0);
@@ -499,7 +560,7 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 				break;
 		}
 		offset += ev_msg->total_size;
-		ev_msg = (struct kern_event_msg *)&buf[offset];
+		ev_msg = (struct kern_event_msg *)(void *)&buf.bytes[offset];
 	}
 
 	cache_write(store);

@@ -158,14 +158,14 @@ _gss_ntlm_acquire_cred(OM_uint32 * min_stat,
 }
 
 OM_uint32
-_gss_ntlm_acquire_cred_ex(gss_status_id_t status,
-			  const gss_name_t desired_name,
-			  OM_uint32 flags,
-			  OM_uint32 time_req,
-			  gss_cred_usage_t cred_usage,
-			  gss_auth_identity_t identity,
-			  void *ctx,
-			  void (*complete)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, OM_uint32))
+_gss_ntlm_acquire_cred_ext(OM_uint32 * minor_status,
+			   const gss_name_t desired_name,
+			   gss_const_OID credential_type,
+			   const void *credential_data,
+			   OM_uint32 time_req,
+			   gss_const_OID desired_mech,
+			   gss_cred_usage_t cred_usage,
+			   gss_cred_id_t * output_cred_handle)
 {
     ntlm_name name = (ntlm_name) desired_name;
     OM_uint32 major;
@@ -179,34 +179,44 @@ _gss_ntlm_acquire_cred_ex(gss_status_id_t status,
     kcmuuid_t uuid;
     ssize_t sret;
 
-    if (identity == NULL)
+    if (credential_data == NULL)
 	return GSS_S_FAILURE;
 
-    if (identity == NULL)
+    if (!gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD))
 	return GSS_S_FAILURE;
 
-    if (name == NULL && identity->username == NULL)
+    if (name == NULL)
 	return GSS_S_FAILURE;
 	
     ret = krb5_init_context(&context);
     if (ret)
 	return GSS_S_FAILURE;
 
-    heim_ntlm_nt_key(identity->password, &buf);
+    {
+	gss_buffer_t buffer;
+	char *password;
+	
+	buffer = (gss_buffer_t)credential_data;
+	password = malloc(buffer->length + 1);
+	if (password == NULL) {
+	    ret = ENOMEM;
+	    goto out;
+	}
+	memcpy(password, buffer->value, buffer->length);
+	password[buffer->length] = '\0';
+	
+	heim_ntlm_nt_key(password, &buf);
+	memset(password, 0, strlen(password));
+	free(password);
+    }
 
     data.data = buf.data;
     data.length = buf.length;
 	
     krb5_kcm_storage_request(context, KCM_OP_ADD_NTLM_CRED, &request);
 	
-    if (name) {
-	krb5_store_stringz(request, name->user);
-	krb5_store_stringz(request, name->domain);
-    } else {
-	krb5_store_stringz(request, identity->username);
-	krb5_store_stringz(request, identity->realm ? identity->realm : "");
-    }
-	
+    krb5_store_stringz(request, name->user);
+    krb5_store_stringz(request, name->domain);
     krb5_store_data(request, data);
     
     ret = krb5_kcm_call(context, request, &response, &response_data);
@@ -232,18 +242,13 @@ _gss_ntlm_acquire_cred_ex(gss_status_id_t status,
 	goto out;
     }
 
-    if (name) {
-	dn->user = strdup(name->user);
-	dn->domain = strdup(name->domain);
-    } else {
-	dn->user = strdup(identity->username);
-	dn->domain = strdup(identity->realm ? identity->realm : "");
-    }
+    dn->user = strdup(name->user);
+    dn->domain = strdup(name->domain);
     dn->flags = NTLM_UUID;
     memcpy(dn->uuid, uuid, sizeof(dn->uuid));
 
-    complete(ctx, GSS_S_COMPLETE, status, (gss_cred_id_t)dn, GSS_C_INDEFINITE);
-
+    *output_cred_handle = (gss_cred_id_t)dn;
+    
     major = GSS_S_COMPLETE;
  out:
 

@@ -1,0 +1,305 @@
+--- postgresql-9.0.5/src/backend/libpq/auth.c	2011-09-22 15:00:48.000000000 -0700
++++ postgresql/src/backend/libpq/auth.c	2011-10-19 15:12:25.000000000 -0700
+@@ -28,6 +28,7 @@
+ #include <arpa/inet.h>
+ #include <unistd.h>
+ #include <stddef.h>
++#include <poll.h>
+ 
+ #include "libpq/auth.h"
+ #include "libpq/crypt.h"
+@@ -2634,7 +2635,7 @@
+ 	struct addrinfo *serveraddrs;
+ 	char		portstr[128];
+ 	ACCEPT_TYPE_ARG3 addrsize;
+-	fd_set		fdset;
++	struct pollfd	pfd;
+ 	struct timeval endtime;
+ 	int			i,
+ 				r;
+@@ -2801,6 +2802,8 @@
+ 	 */
+ 	gettimeofday(&endtime, NULL);
+ 	endtime.tv_sec += RADIUS_TIMEOUT;
++	pfd.fd = sock;
++	pfd.events = POLLIN;
+ 
+ 	while (true)
+ 	{
+@@ -2817,13 +2820,10 @@
+ 			closesocket(sock);
+ 			return STATUS_ERROR;
+ 		}
+-		timeout.tv_sec = timeoutval / 1000000;
+-		timeout.tv_usec = timeoutval % 1000000;
+ 
+-		FD_ZERO(&fdset);
+-		FD_SET(sock, &fdset);
+-
+-		r = select(sock + 1, &fdset, NULL, NULL, &timeout);
++		pfd.revents = 0;
++		/* timeoutval is in usecs; poll(2) takes msecs. */
++		r = poll(&pfd, 1, (timeoutval / 1000));
+ 		if (r < 0)
+ 		{
+ 			if (errno == EINTR)
+diff -aur postgresql-9.0.1/src/backend/postmaster/pgstat.c postgresql/src/backend/postmaster/pgstat.c
+--- postgresql-9.0.1/src/backend/postmaster/pgstat.c	2010-10-01 07:25:44.000000000 -0700
++++ postgresql/src/backend/postmaster/pgstat.c	2010-12-14 12:36:07.000000000 -0800
+@@ -302,10 +302,9 @@
+ 			   *addr,
+ 				hints;
+ 	int			ret;
+-	fd_set		rset;
+-	struct timeval tv;
++	struct pollfd pfd;
+ 	char		test_byte;
+-	int			sel_res;
++	int			poll_res;
+ 	int			tries = 0;
+ 
+ #define TESTBYTEVAL ((char) 199)
+@@ -430,25 +429,24 @@
+ 		 */
+ 		for (;;)				/* need a loop to handle EINTR */
+ 		{
+-			FD_ZERO(&rset);
+-			FD_SET(pgStatSock, &rset);
++			pfd.fd = pgStatSock;
++			pfd.events = POLLIN;
++			pfd.revents = 0;
+ 
+-			tv.tv_sec = 0;
+-			tv.tv_usec = 500000;
+-			sel_res = select(pgStatSock + 1, &rset, NULL, NULL, &tv);
+-			if (sel_res >= 0 || errno != EINTR)
++			poll_res = poll(&pfd, 1, 500);
++			if (poll_res >= 0 || errno != EINTR)
+ 				break;
+ 		}
+-		if (sel_res < 0)
++		if (poll_res < 0)
+ 		{
+ 			ereport(LOG,
+ 					(errcode_for_socket_access(),
+-					 errmsg("select() failed in statistics collector: %m")));
++					 errmsg("poll() failed in statistics collector: %m")));
+ 			closesocket(pgStatSock);
+ 			pgStatSock = PGINVALID_SOCKET;
+ 			continue;
+ 		}
+-		if (sel_res == 0 || !FD_ISSET(pgStatSock, &rset))
++		if (poll_res == 0 || (pfd.revents & POLLIN) == 0)
+ 		{
+ 			/*
+ 			 * This is the case we actually think is likely, so take pains to
+diff -aur postgresql-9.0.2/src/backend/postmaster/postmaster.c postgresql/src/backend/postmaster/postmaster.c
+--- postgresql-9.0.2/src/backend/postmaster/postmaster.c	2010-12-13 18:55:50.000000000 -0800
++++ postgresql/src/backend/postmaster/postmaster.c	2010-12-14 12:36:07.000000000 -0800
+@@ -79,6 +79,7 @@
+ #include <arpa/inet.h>
+ #include <netdb.h>
+ #include <limits.h>
++#include <poll.h>
+ 
+ #ifdef HAVE_SYS_SELECT_H
+ #include <sys/select.h>
+@@ -347,7 +348,7 @@
+ static int	BackendStartup(Port *port);
+ static int	ProcessStartupPacket(Port *port, bool SSLdone);
+ static void processCancelRequest(Port *port, void *pkt);
+-static int	initMasks(fd_set *rmask);
++static int	initPollfds(struct pollfd *fds);
+ static void report_fork_failure_to_client(Port *port, int errnum);
+ static CAC_state canAcceptConnections(void);
+ static long PostmasterRandom(void);
+@@ -1347,19 +1348,18 @@
+ static int
+ ServerLoop(void)
+ {
+-	fd_set		readmask;
++	struct pollfd pfds[MAXLISTEN];
+ 	int			nSockets;
+ 	time_t		now,
+ 				last_touch_time;
+ 
+ 	last_touch_time = time(NULL);
+ 
+-	nSockets = initMasks(&readmask);
++	nSockets = initPollfds(pfds);
+ 
+ 	for (;;)
+ 	{
+-		fd_set		rmask;
+-		int			selres;
++		int			pollres;
+ 
+ 		/*
+ 		 * Wait for a connection request to arrive.
+@@ -1371,24 +1371,17 @@
+ 		 * any new connections, so we don't call select() at all; just sleep
+ 		 * for a little bit with signals unblocked.
+ 		 */
+-		memcpy((char *) &rmask, (char *) &readmask, sizeof(fd_set));
+ 
+ 		PG_SETMASK(&UnBlockSig);
+ 
+ 		if (pmState == PM_WAIT_DEAD_END)
+ 		{
+ 			pg_usleep(100000L); /* 100 msec seems reasonable */
+-			selres = 0;
++			pollres = 0;
+ 		}
+ 		else
+ 		{
+-			/* must set timeout each time; some OSes change it! */
+-			struct timeval timeout;
+-
+-			timeout.tv_sec = 60;
+-			timeout.tv_usec = 0;
+-
+-			selres = select(nSockets, &rmask, NULL, NULL, &timeout);
++			pollres = poll(pfds, nSockets, 60 * 1000);
+ 		}
+ 
+ 		/*
+@@ -1397,14 +1390,14 @@
+ 		 */
+ 		PG_SETMASK(&BlockSig);
+ 
+-		/* Now check the select() result */
+-		if (selres < 0)
++		/* Now check the poll() result */
++		if (pollres < 0)
+ 		{
+ 			if (errno != EINTR && errno != EWOULDBLOCK)
+ 			{
+ 				ereport(LOG,
+ 						(errcode_for_socket_access(),
+-						 errmsg("select() failed in postmaster: %m")));
++						 errmsg("poll() failed in postmaster: %m")));
+ 				return STATUS_ERROR;
+ 			}
+ 		}
+@@ -1413,7 +1406,7 @@
+ 		 * New connection pending on any of our sockets? If so, fork a child
+ 		 * process to deal with it.
+ 		 */
+-		if (selres > 0)
++		if (pollres > 0)
+ 		{
+ 			int			i;
+ 
+@@ -1421,7 +1414,7 @@
+ 			{
+ 				if (ListenSocket[i] == PGINVALID_SOCKET)
+ 					break;
+-				if (FD_ISSET(ListenSocket[i], &rmask))
++				if (pfds[i].revents & POLLIN)
+ 				{
+ 					Port	   *port;
+ 
+@@ -1505,30 +1498,27 @@
+ 
+ 
+ /*
+- * Initialise the masks for select() for the ports we are listening on.
++ * Initialise the pollfds for poll() for the ports we are listening on.
+  * Return the number of sockets to listen on.
+  */
+ static int
+-initMasks(fd_set *rmask)
++initPollfds(struct pollfd *pfds)
+ {
+-	int			maxsock = -1;
+ 	int			i;
+ 
+-	FD_ZERO(rmask);
+-
+ 	for (i = 0; i < MAXLISTEN; i++)
+ 	{
+ 		int			fd = ListenSocket[i];
+ 
+ 		if (fd == PGINVALID_SOCKET)
+ 			break;
+-		FD_SET(fd, rmask);
+-
+-		if (fd > maxsock)
+-			maxsock = fd;
++		pfds->fd = fd;
++		pfds->events = POLLIN;
++		pfds->revents = 0;
++		pfds++;
+ 	}
+ 
+-	return maxsock + 1;
++	return i;
+ }
+ 
+ 
+diff -aur postgresql-9.0.1/src/backend/postmaster/syslogger.c postgresql/src/backend/postmaster/syslogger.c
+--- postgresql-9.0.1/src/backend/postmaster/syslogger.c	2010-10-01 07:25:44.000000000 -0700
++++ postgresql/src/backend/postmaster/syslogger.c	2010-12-14 12:36:07.000000000 -0800
+@@ -30,6 +30,7 @@
+ #include <unistd.h>
+ #include <sys/stat.h>
+ #include <sys/time.h>
++#include <poll.h>
+ 
+ #include "lib/stringinfo.h"
+ #include "libpq/pqsignal.h"
+@@ -292,8 +293,7 @@
+ #ifndef WIN32
+ 		int			bytesRead;
+ 		int			rc;
+-		fd_set		rfds;
+-		struct timeval timeout;
++		struct pollfd pfd;
+ #endif
+ 
+ 		if (got_SIGHUP)
+@@ -371,22 +371,20 @@
+ 		/*
+ 		 * Wait for some data, timing out after 1 second
+ 		 */
+-		FD_ZERO(&rfds);
+-		FD_SET(syslogPipe[0], &rfds);
++		pfd.fd = syslogPipe[0];
++		pfd.events = POLLIN;
++		pfd.revents = 0;
+ 
+-		timeout.tv_sec = 1;
+-		timeout.tv_usec = 0;
+-
+-		rc = select(syslogPipe[0] + 1, &rfds, NULL, NULL, &timeout);
++		rc = poll(&pfd, 1, 1000);
+ 
+ 		if (rc < 0)
+ 		{
+ 			if (errno != EINTR)
+ 				ereport(LOG,
+ 						(errcode_for_socket_access(),
+-						 errmsg("select() failed in logger process: %m")));
++						 errmsg("poll() failed in logger process: %m")));
+ 		}
+-		else if (rc > 0 && FD_ISSET(syslogPipe[0], &rfds))
++		else if (rc > 0 && (pfd.revents & POLLIN) != 0)
+ 		{
+ 			bytesRead = piperead(syslogPipe[0],
+ 								 logbuffer + bytes_in_logbuffer,
+diff -ur postgresql-9.0.1/src/port/pgsleep.c postgresql/src/port/pgsleep.c
+--- postgresql-9.0.1/src/port/pgsleep.c.orig	2010-01-02 10:58:13.000000000 -0600
++++ postgresql/src/port/pgsleep.c	2010-10-02 17:06:56.000000000 -0500
+@@ -36,11 +36,7 @@
+ 	if (microsec > 0)
+ 	{
+ #ifndef WIN32
+-		struct timeval delay;
+-
+-		delay.tv_sec = microsec / 1000000L;
+-		delay.tv_usec = microsec % 1000000L;
+-		(void) select(0, NULL, NULL, NULL, &delay);
++		usleep(microsec);
+ #else
+ 		SleepEx((microsec < 500 ? 1 : (microsec + 500) / 1000), FALSE);
+ #endif

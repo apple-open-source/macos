@@ -17,6 +17,7 @@ ifeq ($(Embedded),NO)
 	SubProjects += vsdbutil.tproj
 else
 	SubProjects += setclass.tproj
+	SubProjects += newfs_hfs_debug.tproj
 endif
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

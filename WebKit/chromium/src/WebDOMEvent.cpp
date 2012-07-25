@@ -32,8 +32,11 @@
 #include "WebDOMEvent.h"
 
 #include "Event.h"
+#include "EventNames.h"
 #include "Node.h"
 #include <wtf/PassRefPtr.h>
+
+using WebCore::eventNames;
 
 namespace WebKit {
 
@@ -62,8 +65,13 @@ void WebDOMEvent::assign(WebDOMEventPrivate* p)
 }
 
 WebDOMEvent::WebDOMEvent(const WTF::PassRefPtr<WebCore::Event>& event)
-    : m_private(static_cast<WebDOMEventPrivate*>(event.releaseRef()))
+    : m_private(static_cast<WebDOMEventPrivate*>(event.leakRef()))
 {
+}
+
+WebDOMEvent::operator WTF::PassRefPtr<WebCore::Event>() const
+{
+    return static_cast<WebCore::Event*>(m_private);
 }
 
 WebString WebDOMEvent::type() const
@@ -114,28 +122,28 @@ bool WebDOMEvent::isMouseEvent() const
     return m_private->isMouseEvent();
 }
 
-bool WebDOMEvent::isMutationEvent() const
-{
-    ASSERT(m_private);
-    return m_private->isMutationEvent();
-}
-
 bool WebDOMEvent::isKeyboardEvent() const
 {
     ASSERT(m_private);
     return m_private->isKeyboardEvent();
 }
 
+bool WebDOMEvent::isMutationEvent() const
+{
+    ASSERT(m_private);
+    return m_private->hasInterface(WebCore::eventNames().interfaceForMutationEvent);
+}
+
 bool WebDOMEvent::isTextEvent() const
 {
     ASSERT(m_private);
-    return m_private->isTextEvent();
+    return m_private->hasInterface(eventNames().interfaceForTextEvent);
 }
 
 bool WebDOMEvent::isCompositionEvent() const
 {
     ASSERT(m_private);
-    return m_private->isCompositionEvent();
+    return m_private->hasInterface(eventNames().interfaceForCompositionEvent);
 }
 
 bool WebDOMEvent::isDragEvent() const
@@ -153,13 +161,13 @@ bool WebDOMEvent::isClipboardEvent() const
 bool WebDOMEvent::isMessageEvent() const
 {
     ASSERT(m_private);
-    return m_private->isMessageEvent();
+    return m_private->hasInterface(eventNames().interfaceForMessageEvent);
 }
 
 bool WebDOMEvent::isWheelEvent() const
 {
     ASSERT(m_private);
-    return m_private->isWheelEvent();
+    return m_private->hasInterface(eventNames().interfaceForWheelEvent);
 }
 
 bool WebDOMEvent::isBeforeTextInsertedEvent() const
@@ -171,49 +179,49 @@ bool WebDOMEvent::isBeforeTextInsertedEvent() const
 bool WebDOMEvent::isOverflowEvent() const
 {
     ASSERT(m_private);
-    return m_private->isOverflowEvent();
+    return m_private->hasInterface(eventNames().interfaceForOverflowEvent);
 }
 
 bool WebDOMEvent::isPageTransitionEvent() const
 {
     ASSERT(m_private);
-    return m_private->isPageTransitionEvent();
+    return m_private->hasInterface(eventNames().interfaceForPageTransitionEvent);
 }
 
 bool WebDOMEvent::isPopStateEvent() const
 {
     ASSERT(m_private);
-    return m_private->isPopStateEvent();
+    return m_private->hasInterface(eventNames().interfaceForPopStateEvent);
 }
 
 bool WebDOMEvent::isProgressEvent() const
 {
     ASSERT(m_private);
-    return m_private->isProgressEvent();
+    return m_private->hasInterface(eventNames().interfaceForProgressEvent);
 }
 
 bool WebDOMEvent::isXMLHttpRequestProgressEvent() const
 {
     ASSERT(m_private);
-    return m_private->isXMLHttpRequestProgressEvent();
+    return m_private->hasInterface(eventNames().interfaceForXMLHttpRequestProgressEvent);
 }
 
 bool WebDOMEvent::isWebKitAnimationEvent() const
 {
     ASSERT(m_private);
-    return m_private->isWebKitAnimationEvent();
+    return m_private->hasInterface(eventNames().interfaceForWebKitAnimationEvent);
 }
 
 bool WebDOMEvent::isWebKitTransitionEvent() const
 {
     ASSERT(m_private);
-    return m_private->isWebKitTransitionEvent();
+    return m_private->hasInterface(eventNames().interfaceForWebKitTransitionEvent);
 }
 
 bool WebDOMEvent::isBeforeLoadEvent() const
 {
     ASSERT(m_private);
-    return m_private->isBeforeLoadEvent();
+    return m_private->hasInterface(eventNames().interfaceForBeforeLoadEvent);
 }
 
 } // namespace WebKit

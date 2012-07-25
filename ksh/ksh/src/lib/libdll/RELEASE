@@ -1,3 +1,14 @@
+10-10-20 dllscan.c: version arg "-" => 0
+10-10-19 dllplug.c: fix bug that wiped out dlopen() error message
+10-10-19 dllplug.c: un-localize lookup names (happens with cut and paste)
+10-10-19 dllscan.c: still no code for implicit libs missed by dlopen()
+10-08-02 dllplug.c: fix local path dllcheck() call
+10-05-28 dllplug.c: add dllplugin() with dllcheck() version check
+10-05-28 dllcheck.c: add dllcheck() to do plugin_version() checks
+10-05-28 dllerror.c: add dllerror(int retain) for dll*() and dl*() messages
+09-11-17 dllscan.c: handle name[-.]version in dlsopen()
+09-04-15 dllopen.c: add, use dllopen() internally to wrap dlopen()
+08-05-12 dllscan.c: LIBSUFFIX==.dylib => default plugin version match 0.0
 06-10-11 dllscan.c: check sfstruse() return values -- doh
 06-01-25 dllplug.c: add errorf() library message for dlopen() error
 05-02-14 dllscan.c: "" || "-" => NiL

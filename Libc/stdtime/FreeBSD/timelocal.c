@@ -28,14 +28,13 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdtime/timelocal.c,v 1.25 2003/06/13 00:14:07 jkh Exp $");
 
+#include "xlocale_private.h"
+
 #include <stddef.h>
+#include <string.h>
 
 #include "ldpart.h"
 #include "timelocal.h"
-
-static struct lc_time_T _time_locale;
-static int _time_using_locale;
-static char *time_locale_buf;
 
 #define LCTIME_SIZE (sizeof(struct lc_time_T) / sizeof(char *))
 
@@ -99,19 +98,57 @@ static const struct lc_time_T	_C_time_locale = {
 	"%I:%M:%S %p"
 };
 
-struct lc_time_T *
-__get_current_time_locale(void)
+__private_extern__ struct lc_time_T *
+__get_current_time_locale(locale_t loc)
 {
-	return (_time_using_locale
-		? &_time_locale
+	return (loc->_time_using_locale
+		? &loc->__lc_time->_time_locale
 		: (struct lc_time_T *)&_C_time_locale);
 }
 
-int
-__time_load_locale(const char *name)
+__private_extern__ int
+__time_load_locale(const char *name, locale_t loc)
 {
-	return (__part_load_locale(name, &_time_using_locale,
-			&time_locale_buf, "LC_TIME",
+	int ret;
+	struct __xlocale_st_time *xp;
+	static struct __xlocale_st_time *cache = NULL;
+
+	/* 'name' must be already checked. */
+	if (strcmp(name, "C") == 0 || strcmp(name, "POSIX") == 0) {
+		loc->_time_using_locale = 0;
+		XL_RELEASE(loc->__lc_time);
+		loc->__lc_time = NULL;
+		return (_LDP_CACHE);
+	}
+
+	/*
+	 * If the locale name is the same as our cache, use the cache.
+	 */
+	if (cache && cache->_time_locale_buf && strcmp(name, cache->_time_locale_buf) == 0) {
+		loc->_time_using_locale = 1;
+		XL_RELEASE(loc->__lc_time);
+		loc->__lc_time = cache;
+		XL_RETAIN(loc->__lc_time);
+		return (_LDP_CACHE);
+	}
+	if ((xp = (struct __xlocale_st_time *)malloc(sizeof(*xp))) == NULL)
+		return _LDP_ERROR;
+	xp->__refcount = 1;
+	xp->__free_extra = (__free_extra_t)__ldpart_free_extra;
+	xp->_time_locale_buf = NULL;
+
+	ret = __part_load_locale(name, &loc->_time_using_locale,
+			&xp->_time_locale_buf, "LC_TIME",
 			LCTIME_SIZE, LCTIME_SIZE,
-			(const char **)&_time_locale));
+			(const char **)&xp->_time_locale);
+	if (ret == _LDP_LOADED) {
+		XL_RELEASE(loc->__lc_time);
+		loc->__lc_time = xp;
+		XL_RELEASE(cache);
+		cache = xp;
+		XL_RETAIN(cache);
+	} else if (ret == _LDP_ERROR)
+		free(xp);
+
+	return (ret);
 }

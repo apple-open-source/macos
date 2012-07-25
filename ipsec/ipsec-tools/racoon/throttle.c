@@ -70,20 +70,20 @@ struct throttle_list throttle_list = TAILQ_HEAD_INITIALIZER(throttle_list);
 
 struct throttle_entry *
 throttle_add(addr)
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 {
 	struct throttle_entry *te;
 	size_t len;
 
 	len = sizeof(*te) 
 	    - sizeof(struct sockaddr_storage) 
-	    + sysdep_sa_len(addr);
+	    + sysdep_sa_len((struct sockaddr *)addr);
 
 	if ((te = racoon_malloc(len)) == NULL)
 		return NULL;
 
 	te->penalty = time(NULL) + isakmp_cfg_config.auth_throttle;
-	memcpy(&te->host, addr, sysdep_sa_len(addr));
+	memcpy(&te->host, addr, sysdep_sa_len((struct sockaddr *)addr));
 	TAILQ_INSERT_HEAD(&throttle_list, te, next);
 
 	return te;
@@ -91,7 +91,7 @@ throttle_add(addr)
 
 int
 throttle_host(addr, authfail) 
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 	int authfail;
 {
 	struct throttle_entry *te;
@@ -114,7 +114,7 @@ restart:
 			goto restart;
 		}
 			
-		if (cmpsaddrwop(addr, (struct sockaddr *)&te->host) == 0) {
+		if (cmpsaddrwop(addr, (struct sockaddr_storage *)&te->host) == 0) {
 			found = 1;
 			break;
 		}

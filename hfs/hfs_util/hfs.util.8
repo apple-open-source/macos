@@ -76,7 +76,7 @@ An optional size may
 be specified (e.g. 32M for a 32 megabyte journal).
 .It Fl k 
 Get the UUID key for the HFS file system at
-.Ar device
+.Ar device .
 .It Fl m
 Mount the HFS file system located on
 .Ar device
@@ -133,6 +133,12 @@ or
 or
 .Ar nodev
 .El
+.Pp
+Note that for the 
+.Ar device
+references above, you must only supply the last component of the path to the 
+device in question, such as disk0s2 rather than /dev/disk0s2. 
+
 .Sh SEE ALSO 
 .Xr diskarbitrationd 8
 .Sh HISTORY

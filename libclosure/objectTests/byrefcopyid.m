@@ -36,7 +36,7 @@ int CalledDealloc = 0;
     CalledRetain = 1;
     return [super retain];
 }
-- (void)release {
+- (oneway void)release {
     CalledRelease = 1;
     [super release];
 }

@@ -30,7 +30,7 @@
 
 namespace WebKit {
 
-class APIObject : public RefCounted<APIObject> {
+class APIObject : public ThreadSafeRefCounted<APIObject> {
 public:
     enum Type {
         // Base types
@@ -39,6 +39,7 @@ public:
         TypeAuthenticationChallenge,
         TypeAuthenticationDecisionListener,
         TypeCertificateInfo,
+        TypeConnection,
         TypeContextMenuItem,
         TypeCredential,
         TypeData,
@@ -47,6 +48,8 @@ public:
         TypeGraphicsContext,
         TypeImage,
         TypeProtectionSpace,
+        TypeRenderLayer,
+        TypeRenderObject,
         TypeSecurityOrigin,
         TypeSerializedScriptValue,
         TypeString,
@@ -59,6 +62,11 @@ public:
         TypeBoolean,
         TypeDouble,
         TypeUInt64,
+        
+        // Geometry types
+        TypePoint,
+        TypeSize,
+        TypeRect,
         
         // UIProcess types
         TypeApplicationCacheManager,
@@ -75,23 +83,30 @@ public:
         TypeFullScreenManager,
         TypeGeolocationManager,
         TypeGeolocationPermissionRequest,
+        TypeHitTestResult,
         TypeGeolocationPosition,
+        TypeGrammarDetail,
         TypeIconDatabase,
         TypeInspector,
         TypeKeyValueStorageManager,
         TypeMediaCacheManager,
         TypeNavigationData,
+        TypeNotification,
+        TypeNotificationManager,
+        TypeNotificationPermissionRequest,
         TypeOpenPanelParameters,
         TypeOpenPanelResultListener,
         TypePage,
         TypePageGroup,
         TypePluginSiteDataManager,
         TypePreferences,
+        TypeTextChecker,
 
         // Bundle types
         TypeBundle,
         TypeBundleBackForwardList,
         TypeBundleBackForwardListItem,
+        TypeBundleDOMWindowExtension,
         TypeBundleFrame,
         TypeBundleHitTestResult,
         TypeBundleInspector,
@@ -105,9 +120,10 @@ public:
 
         // Platform specific
         TypeEditCommandProxy,
-        TypeGrammarDetail,
-        TypeTextChecker,
-        TypeView
+        TypeView,
+#if USE(SOUP)
+        TypeSoupRequestManager,
+#endif
     };
 
     virtual ~APIObject()
@@ -117,9 +133,7 @@ public:
     virtual Type type() const = 0;
 
 protected:
-    APIObject()
-    {
-    }
+    APIObject();
 };
 
 } // namespace WebKit

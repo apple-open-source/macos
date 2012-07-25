@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,96 +21,32 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+// #define COMMON_SYMMETRIC_KEYWRAP_FUNCTIONS
 #include "CommonSymmetricKeywrap.h"
+#include "CommonCryptor.h"
+#include "CommonCryptorPriv.h"
 #include <AssertMacros.h>
-#include <stdint.h>
-#include <libkern/OSByteOrder.h>
+#include "ccdebug.h"
 
 
-static const uint8_t rfc3394_iv_data[] = { 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6 };
+static const uint8_t rfc3394_iv_data[] = { 0xA6, 0xA6, 0xA6, 0xA6, 0xA6, 0xA6,
+	0xA6, 0xA6 };
 
 const uint8_t* CCrfc3394_iv = rfc3394_iv_data;
 const size_t CCrfc3394_ivLen = sizeof(rfc3394_iv_data);
 
 static uint64_t 
-pack64(uint8_t *iv, size_t ivLen)
+pack64(const uint8_t *iv, size_t ivLen)
 {
 	uint64_t retval;
 	int i;
 	
-	for(i=0, retval=0; i<8; i++) retval = (retval<<8) + iv[i];
+	for(i=0, retval=0; i<8; i++)
+		retval = (retval<<8) + iv[i];
 	return retval;
 }
 
-#if KERNEL
 
-#include <crypto/aes.h>
-#include <libkern/OSByteOrder.h>
-
-#define AES128_KEK 1
-#define AES192_KEK 0
-#define AES256_KEK 0
-
-#define debug kprintf
-
-static bool 
-aes_operation(bool encrypt, const uint8_t *kek, size_t kek_len, uint8_t *block)
-{
-    uint64_t iv[2] = { 0 };
-
-    if (encrypt) {
-        aes_encrypt_ctx encrypt_ctx[1];
-        switch(kek_len) {
-#if AES128_KEK
-            case 16: aes_encrypt_key128(kek, encrypt_ctx); break;
-#endif
-#if AES192_KEK
-            case 24: aes_encrypt_key192(kek, encrypt_ctx); break;
-#endif
-#if AES256_KEK
-            case 32: aes_encrypt_key256(kek, encrypt_ctx); break;
-#endif
-            default: return false;
-        }
-        aes_encrypt_cbc(block, (uint8_t*)iv, 1, block, encrypt_ctx);
-    } else {
-        aes_decrypt_ctx decrypt_ctx[1];
-        switch(kek_len) {
-#if AES128_KEK
-            case 16: aes_decrypt_key128(kek, decrypt_ctx); break;
-#endif
-#if AES192_KEK
-            case 24: aes_decrypt_key192(kek, decrypt_ctx); break;
-#endif
-#if AES256_KEK
-            case 32: aes_decrypt_key256(kek, decrypt_ctx); break;
-#endif
-            default: return false;
-        }
-        aes_decrypt_cbc(block, (uint8_t*)iv, 1, block, decrypt_ctx);
-    }
-
-    return true;
-}
-
-#else
-
-#include "CommonCryptor.h"
-
-#define debug printf
-
-static bool 
-aes_operation(bool encrypt, const uint8_t *kek, size_t kek_len, uint8_t *block)
-{
-    uint64_t iv[2] = { 0 };
-    size_t bytes_moved = 0;
-
-    return (0 == CCCrypt(encrypt? kCCEncrypt : kCCDecrypt, 
-                kCCAlgorithmAES128, 0, kek, kek_len, iv, 
-                block, kCCBlockSizeAES128,
-                block, kCCBlockSizeAES128, &bytes_moved));
-}
-#endif
 
 
 /*
@@ -147,13 +83,16 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm algorithm,
 {
     uint32_t n = rawKeyLen / 8; /* key size in 64 bit blocks */
     uint64_t (*R)[2]; /* R is a two-dimensional array, with n rows of 2 columns */
-    int i, j, err;
-	
-	// allocate R
+    int i, j, err = 0;
+    struct ccmode_ecb *ccmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCEncrypt).ecb;
+
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    ccecb_ctx_decl(ccmode->size, ctx);
 	R = calloc(n, sizeof(uint64_t[2])); 
-    require_action(R, out, err = -1);
+	
     // don't wrap with something smaller
-    require_action(rawKeyLen >= kekLen, out, err = -1);
+    // require_action(rawKeyLen <= kekLen, out, err = -1);
+
     // kek multiple of 64 bits: 128, 192, 256
     require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = -1);
     // wrapped_key_len 64 bits larger than key_len
@@ -167,10 +106,12 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm algorithm,
 	
     R[0][0] = kek_iv;
 
+    ccmode->init(ccmode, &ctx, kekLen, kek);
+
     for (j = 0; j < 6; j++) {
         for (i = 0; i < n; i++)
         {
-            require_action(aes_operation(true, kek, kekLen, (uint8_t*)&R[i][0]), out, err = -1);
+            ccmode->ecb(&ctx, 1, (uint8_t*)&R[i][0], (uint8_t*)&R[i][0]);
             R[(i + 1) % n][0] = R[i][0] ^ _OSSwapInt64((n*j)+i+1);
         }
     }
@@ -180,9 +121,12 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm algorithm,
     for (i = 0; i < n; i++)
         memcpy(wrappedKey + 8 + i * 8, &R[i][1], 8);
 
-    err = 0;
+    for(i=0; i<n; i++)
+        for(j=0; j<2; j++)
+            R[i][j] = 0;
+
 out:
-    if (R) free(R);
+	if (R) free(R);
     return err;
 }
 
@@ -197,26 +141,30 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm algorithm,
 {
     uint32_t n = wrappedKeyLen/8 - 1; /* raw key size in 64 bit blocks */
     uint64_t (*R)[2]; /* R is a two-dimensional array, with n rows of 2 columns */
-    int i, j, err;
+    int i, j, err = 0;
+    struct ccmode_ecb *ccmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCDecrypt).ecb;
 
-	// allocate R
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    ccecb_ctx_decl(ccmode->size, ctx);
+
 	R = calloc(n, sizeof(uint64_t[2])); 
-    require_action(R, out, err = -1);
-	// kek multiple of 64 bits: 128, 192, 256
-    require_action(kekLen == 16 || kekLen == 32, out, err = -1);
+
+    // kek multiple of 64 bits: 128, 192, 256
+    require_action(kekLen == 16 || kekLen == 24 || kekLen == 32, out, err = -1);
     // wrapped_key_len 64 bits larger than key_len
-    require_action(rawKeyLen && (*rawKeyLen >= wrappedKeyLen - 64/8), out, err = -1);
+    // require_action(rawKeyLen && (*rawKeyLen <= wrappedKeyLen - 64/8), out, err = -1);
 
     // R[0][1] = C[0] ... R[1][n-1] = C[n-1]
     memcpy(&R[0][0], wrappedKey, 64/8); 
     for (i = 0; i < n; i++)
         memcpy(&R[i][1], wrappedKey + (64/8) * (i+1), 64/8);
 
+    ccmode->init(ccmode, &ctx, kekLen, kek);
     for (j = 5; j >= 0; j--) {
         for (i = n - 1; i >= 0; i--)
         {
-           R[i][0] = R[(i + 1) % n][0] ^ _OSSwapInt64((n*j)+i+1);
-            require_action(aes_operation(false, kek, kekLen, (uint8_t*)&R[i][0]), out, err = -1);
+            R[i][0] = R[(i + 1) % n][0] ^ _OSSwapInt64((n*j)+i+1);
+            ccmode->ecb(&ctx, 1, (uint8_t*)&R[i][0], (uint8_t*)&R[i][0]);
         }
     }
 
@@ -231,8 +179,10 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm algorithm,
 
     // clean all stack variables
 
-    err = 0;
-    
+    for(i=0; i<n; i++)
+        for(j=0; j<2; j++)
+            R[i][j] = 0;
+
 out:
 	if (R) free(R);
     return err;
@@ -242,12 +192,14 @@ out:
 size_t
 CCSymmetricWrappedSize( CCWrappingAlgorithm algorithm, size_t rawKeyLen)
 {
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
 	return (rawKeyLen + 8);
 }
 
 size_t
 CCSymmetricUnwrappedSize( CCWrappingAlgorithm algorithm, size_t wrappedKeyLen)
 {
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
     return (wrappedKeyLen - 8);
 }
 

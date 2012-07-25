@@ -1,5 +1,5 @@
 /*
- * "$Id: statbuf.c 9350 2010-11-04 23:23:25Z mike $"
+ * "$Id: statbuf.c 7674 2008-06-18 23:18:32Z mike $"
  *
  *   Status buffer routines for the CUPS scheduler.
  *
@@ -326,5 +326,5 @@ cupsdStatBufUpdate(
 
 
 /*
- * End of "$Id: statbuf.c 9350 2010-11-04 23:23:25Z mike $".
+ * End of "$Id: statbuf.c 7674 2008-06-18 23:18:32Z mike $".
  */

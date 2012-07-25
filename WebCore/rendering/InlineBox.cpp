@@ -20,17 +20,36 @@
 #include "config.h"
 #include "InlineBox.h"
 
+#include "Frame.h"
 #include "HitTestResult.h"
 #include "InlineFlowBox.h"
+#include "Page.h"
 #include "PaintInfo.h"
 #include "RenderArena.h"
 #include "RenderBlock.h"
 #include "RootInlineBox.h"
 
+#ifndef NDEBUG
+#include <stdio.h>
+#endif
+
 using namespace std;
 
 namespace WebCore {
-    
+
+class SameSizeAsInlineBox {
+    virtual ~SameSizeAsInlineBox() { }
+    void* a[4];
+    FloatPoint b;
+    float c;
+    uint32_t d : 32;
+#ifndef NDEBUG
+    bool f;
+#endif
+};
+
+COMPILE_ASSERT(sizeof(InlineBox) == sizeof(SameSizeAsInlineBox), InlineBox_size_guard);
+
 #ifndef NDEBUG
 static bool inInlineBoxDetach;
 #endif
@@ -65,7 +84,7 @@ void InlineBox::destroy(RenderArena* renderArena)
     renderArena->free(*(size_t *)this, this);
 }
 
-void* InlineBox::operator new(size_t sz, RenderArena* renderArena) throw()
+void* InlineBox::operator new(size_t sz, RenderArena* renderArena)
 {
     return renderArena->allocate(sz);
 }
@@ -120,25 +139,33 @@ void InlineBox::showBox(int printedCharacters) const
 }
 #endif
 
-int InlineBox::logicalHeight() const
+float InlineBox::logicalHeight() const
 {
-#if ENABLE(SVG)
     if (hasVirtualLogicalHeight())
         return virtualLogicalHeight();
-#endif
     
     if (renderer()->isText())
-        return m_isText ? renderer()->style(m_firstLine)->fontMetrics().height() : 0;
+        return m_bitfields.isText() ? renderer()->style(isFirstLineStyle())->fontMetrics().height() : 0;
     if (renderer()->isBox() && parent())
         return isHorizontal() ? toRenderBox(m_renderer)->height() : toRenderBox(m_renderer)->width();
 
     ASSERT(isInlineFlowBox());
     RenderBoxModelObject* flowObject = boxModelObject();
-    const FontMetrics& fontMetrics = renderer()->style(m_firstLine)->fontMetrics();
-    int result = fontMetrics.height();
+    const FontMetrics& fontMetrics = renderer()->style(isFirstLineStyle())->fontMetrics();
+    float result = fontMetrics.height();
     if (parent())
         result += flowObject->borderAndPaddingLogicalHeight();
     return result;
+}
+
+LayoutUnit InlineBox::baselinePosition(FontBaseline baselineType) const
+{
+    return boxModelObject()->baselinePosition(baselineType, m_bitfields.firstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine);
+}
+
+LayoutUnit InlineBox::lineHeight() const
+{
+    return boxModelObject()->lineHeight(m_bitfields.firstLine(), isHorizontal() ? HorizontalLine : VerticalLine, PositionOnContainingLine);
 }
 
 int InlineBox::caretMinOffset() const 
@@ -151,11 +178,6 @@ int InlineBox::caretMaxOffset() const
     return m_renderer->caretMaxOffset(); 
 }
 
-unsigned InlineBox::caretMaxRenderedOffset() const 
-{ 
-    return 1; 
-}
-
 void InlineBox::dirtyLineBoxes()
 {
     markDirty();
@@ -165,42 +187,41 @@ void InlineBox::dirtyLineBoxes()
 
 void InlineBox::deleteLine(RenderArena* arena)
 {
-    if (!m_extracted && m_renderer->isBox())
+    if (!m_bitfields.extracted() && m_renderer->isBox())
         toRenderBox(m_renderer)->setInlineBoxWrapper(0);
     destroy(arena);
 }
 
 void InlineBox::extractLine()
 {
-    m_extracted = true;
+    m_bitfields.setExtracted(true);
     if (m_renderer->isBox())
         toRenderBox(m_renderer)->setInlineBoxWrapper(0);
 }
 
 void InlineBox::attachLine()
 {
-    m_extracted = false;
+    m_bitfields.setExtracted(false);
     if (m_renderer->isBox())
         toRenderBox(m_renderer)->setInlineBoxWrapper(this);
 }
 
 void InlineBox::adjustPosition(float dx, float dy)
 {
-    m_x += dx;
-    m_y += dy;
+    m_topLeft.move(dx, dy);
 
     if (m_renderer->isReplaced()) 
         toRenderBox(m_renderer)->move(dx, dy); 
 }
 
-void InlineBox::paint(PaintInfo& paintInfo, int tx, int ty, int /* lineTop */, int /*lineBottom*/)
+void InlineBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
 {
     if (!paintInfo.shouldPaintWithinRoot(renderer()) || (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection))
         return;
 
-    IntPoint childPoint = IntPoint(tx, ty);
+    LayoutPoint childPoint = paintOffset;
     if (parent()->renderer()->style()->isFlippedBlocksWritingMode()) // Faster than calling containingBlock().
-        childPoint = renderer()->containingBlock()->flipForWritingMode(toRenderBox(renderer()), childPoint, RenderBox::ParentToChildFlippingAdjustment);
+        childPoint = renderer()->containingBlock()->flipForWritingModeForChild(toRenderBox(renderer()), childPoint);
     
     // Paint all phases of replaced elements atomically, as though the replaced element established its
     // own stacking context.  (See Appendix E.2, section 6.4 on inline block/table elements in the CSS2.1
@@ -208,25 +229,25 @@ void InlineBox::paint(PaintInfo& paintInfo, int tx, int ty, int /* lineTop */, i
     bool preservePhase = paintInfo.phase == PaintPhaseSelection || paintInfo.phase == PaintPhaseTextClip;
     PaintInfo info(paintInfo);
     info.phase = preservePhase ? paintInfo.phase : PaintPhaseBlockBackground;
-    renderer()->paint(info, childPoint.x(), childPoint.y());
+    renderer()->paint(info, childPoint);
     if (!preservePhase) {
         info.phase = PaintPhaseChildBlockBackgrounds;
-        renderer()->paint(info, childPoint.x(), childPoint.y());
+        renderer()->paint(info, childPoint);
         info.phase = PaintPhaseFloat;
-        renderer()->paint(info, childPoint.x(), childPoint.y());
+        renderer()->paint(info, childPoint);
         info.phase = PaintPhaseForeground;
-        renderer()->paint(info, childPoint.x(), childPoint.y());
+        renderer()->paint(info, childPoint);
         info.phase = PaintPhaseOutline;
-        renderer()->paint(info, childPoint.x(), childPoint.y());
+        renderer()->paint(info, childPoint);
     }
 }
 
-bool InlineBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const IntPoint& pointInContainer, int tx, int ty, int /* lineTop */, int /*lineBottom*/)
+bool InlineBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit /* lineTop */, LayoutUnit /*lineBottom*/)
 {
     // Hit test all phases of replaced elements atomically, as though the replaced element established its
     // own stacking context.  (See Appendix E.2, section 6.4 on inline block/table elements in the CSS2.1
     // specification.)
-    return renderer()->hitTest(request, result, pointInContainer, tx, ty);
+    return renderer()->hitTest(request, result, pointInContainer, accumulatedOffset);
 }
 
 const RootInlineBox* InlineBox::root() const
@@ -247,39 +268,24 @@ RootInlineBox* InlineBox::root()
 
 bool InlineBox::nextOnLineExists() const
 {
-    if (!m_determinedIfNextOnLineExists) {
-        m_determinedIfNextOnLineExists = true;
+    if (!m_bitfields.determinedIfNextOnLineExists()) {
+        m_bitfields.setDeterminedIfNextOnLineExists(true);
 
         if (!parent())
-            m_nextOnLineExists = false;
+            m_bitfields.setNextOnLineExists(false);
         else if (nextOnLine())
-            m_nextOnLineExists = true;
+            m_bitfields.setNextOnLineExists(true);
         else
-            m_nextOnLineExists = parent()->nextOnLineExists();
+            m_bitfields.setNextOnLineExists(parent()->nextOnLineExists());
     }
-    return m_nextOnLineExists;
-}
-
-bool InlineBox::prevOnLineExists() const
-{
-    if (!m_determinedIfPrevOnLineExists) {
-        m_determinedIfPrevOnLineExists = true;
-        
-        if (!parent())
-            m_prevOnLineExists = false;
-        else if (prevOnLine())
-            m_prevOnLineExists = true;
-        else
-            m_prevOnLineExists = parent()->prevOnLineExists();
-    }
-    return m_prevOnLineExists;
+    return m_bitfields.nextOnLineExists();
 }
 
 InlineBox* InlineBox::nextLeafChild() const
 {
     InlineBox* leaf = 0;
     for (InlineBox* box = nextOnLine(); box && !leaf; box = box->nextOnLine())
-        leaf = box->isLeaf() ? box : static_cast<InlineFlowBox*>(box)->firstLeafChild();
+        leaf = box->isLeaf() ? box : toInlineFlowBox(box)->firstLeafChild();
     if (!leaf && parent())
         leaf = parent()->nextLeafChild();
     return leaf;
@@ -289,12 +295,28 @@ InlineBox* InlineBox::prevLeafChild() const
 {
     InlineBox* leaf = 0;
     for (InlineBox* box = prevOnLine(); box && !leaf; box = box->prevOnLine())
-        leaf = box->isLeaf() ? box : static_cast<InlineFlowBox*>(box)->lastLeafChild();
+        leaf = box->isLeaf() ? box : toInlineFlowBox(box)->lastLeafChild();
     if (!leaf && parent())
         leaf = parent()->prevLeafChild();
     return leaf;
 }
-    
+
+InlineBox* InlineBox::nextLeafChildIgnoringLineBreak() const
+{
+    InlineBox* leaf = nextLeafChild();
+    if (leaf && leaf->isLineBreak())
+        return 0;
+    return leaf;
+}
+
+InlineBox* InlineBox::prevLeafChildIgnoringLineBreak() const
+{
+    InlineBox* leaf = prevLeafChild();
+    if (leaf && leaf->isLineBreak())
+        return 0;
+    return leaf;
+}
+
 RenderObject::SelectionState InlineBox::selectionState()
 {
     return renderer()->selectionState();
@@ -306,7 +328,7 @@ bool InlineBox::canAccommodateEllipsis(bool ltr, int blockEdge, int ellipsisWidt
     if (!m_renderer || !m_renderer->isReplaced())
         return true;
     
-    IntRect boxRect(m_x, 0, m_logicalWidth, 10);
+    IntRect boxRect(left(), 0, m_logicalWidth, 10);
     IntRect ellipsisRect(ltr ? blockEdge - ellipsisWidth : blockEdge, 0, ellipsisWidth, 10);
     return !(boxRect.intersects(ellipsisRect));
 }
@@ -319,7 +341,7 @@ float InlineBox::placeEllipsisBox(bool, float, float, float, bool&)
 
 void InlineBox::clearKnownToHaveNoOverflow()
 { 
-    m_knownToHaveNoOverflow = false;
+    m_bitfields.setKnownToHaveNoOverflow(false);
     if (parent() && parent()->knownToHaveNoOverflow())
         parent()->clearKnownToHaveNoOverflow();
 }
@@ -349,14 +371,14 @@ FloatPoint InlineBox::flipForWritingMode(const FloatPoint& point)
     return root()->block()->flipForWritingMode(point);
 }
 
-void InlineBox::flipForWritingMode(IntRect& rect)
+void InlineBox::flipForWritingMode(LayoutRect& rect)
 {
     if (!renderer()->style()->isFlippedBlocksWritingMode())
         return;
     root()->block()->flipForWritingMode(rect);
 }
 
-IntPoint InlineBox::flipForWritingMode(const IntPoint& point)
+LayoutPoint InlineBox::flipForWritingMode(const LayoutPoint& point)
 {
     if (!renderer()->style()->isFlippedBlocksWritingMode())
         return point;

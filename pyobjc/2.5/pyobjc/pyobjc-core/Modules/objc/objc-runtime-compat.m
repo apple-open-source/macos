@@ -981,7 +981,7 @@ size_t PyObjC_methodlist_magic(Class cls)
 
 #endif
 
-#if defined(__x86_64__)
+#if __OBJC2__
 
 @implementation Protocol (NSOBjectCompat)
 - self

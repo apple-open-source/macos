@@ -1914,11 +1914,8 @@ static int webdav_read_bytes(vnode_t vp, uio_t a_uio, vfs_context_t context)
 	error = server_error = 0;
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 
-	/* don't bother if the range starts at offset 0,
-	 * or if the read is too big for an out-of-band read.
-	 */
-	if ( (uio_offset(a_uio) == 0) ||
-		 (uio_resid(a_uio) > WEBDAV_MAX_IO_BUFFER_SIZE) )
+	/* don't bother if the range starts at offset 0 */
+	if ( (uio_offset(a_uio) == 0) )
 	{
 		/* return an error so the caller will wait */
 		error = EINVAL;
@@ -3041,16 +3038,32 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	vnode_t tvp = ap->a_tvp;
 	vnode_t tdvp = ap->a_tdvp;
 	vnode_t fdvp = ap->a_fdvp;
-	struct webdavnode *fdpt, *fpt, *tdpt, *tpt;
-	struct webdavnode *lock_arr[4];
-	int i;
-	struct componentname *tcnp;
-	int error = 0, server_error = 0;
+	struct componentname *tcnp = ap->a_tcnp;
+	struct webdavnode *fdpt;
+	struct webdavnode *fpt;
+	struct webdavnode *tdpt;
+	struct webdavnode *tpt;
+	struct webdavmount *wmp = VFSTOWEBDAV(vnode_mount(fvp));
+	struct webdavnode *lock_order[4] = {NULL};
+	int lock_cnt = 0;
+	int ii;
+	int vtype;
+	int error = 0;
+	int server_error = 0;
 	struct webdav_request_rename request_rename;
 
 	START_MARKER("webdav_vnop_rename");
 
-	tcnp = ap->a_tcnp;
+
+	/* Check for cross-device rename */
+	if ((vnode_mount(fvp) != vnode_mount(tdvp)) ||
+		(tvp && (vnode_mount(fvp) != vnode_mount(tvp))))
+		return (EXDEV);
+
+	vtype = vnode_vtype(fvp);
+	if ( (vtype != VDIR) && (vtype != VREG) && (vtype != VLNK) )
+		return (EINVAL);
+
 	fdpt = VTOWEBDAV(fdvp);
 	fpt = VTOWEBDAV(fvp);
 	tdpt = VTOWEBDAV(tdvp);
@@ -3058,77 +3071,65 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 		tpt = VTOWEBDAV(tvp);
 	else
 		tpt = NULL;
-	
+
 	/*
-	 * Determine parent-child locking order and store in lock_arr.
+	 * First lets deal with the parents. If they are the same only lock the from
+	 * vnode, otherwise see if one is the parent of the other. We always want
+	 * to lock in parent child order if we can. If they are not the parent of
+	 * each other then lock in address order.
 	 */
-	bzero(lock_arr, sizeof(lock_arr));
-	i = 0;
-	
-	if (fdvp == tdpt->pt_parent) {
-		/* fdvp is the parent of tdvp, lock fdpt first */
-		lock_arr[i++] = fdpt;
-		lock_arr[i++] = fpt;
-		if (tdpt != fpt)
-			lock_arr[i++] = tdpt;
-		if ( (tpt != NULL) && (tpt != fpt) )
-			lock_arr[i++] = tpt;
-	} else if (tdvp == fdpt->pt_parent) {
-		/* tdvp is the parent of fdvp, lock tdpt first */
-		lock_arr[i++] = tdpt;
-		if (tpt != NULL)
-			lock_arr[i++] = tpt;
-		if (fdpt != tpt)
-			lock_arr[i++] = fdpt;
-		if (fpt != tpt)
-			lock_arr[i++] = fpt;
+	lck_mtx_lock(&wmp->pm_renamelock);
+	if (fdvp == tdvp)
+		lock_order[lock_cnt++] = fdpt;
+	else if (fdpt->pt_parent  && (fdpt->pt_parent == tdvp)) {
+		lock_order[lock_cnt++] = tdpt;
+		lock_order[lock_cnt++] = fdpt;
+	} else if (tdpt->pt_parent && (tdpt->pt_parent == fdvp)) {
+		lock_order[lock_cnt++] = fdpt;
+		lock_order[lock_cnt++] = tdpt;
+	} else if (fdpt < tdpt) {
+		lock_order[lock_cnt++] = fdpt;
+		lock_order[lock_cnt++] = tdpt;
 	} else {
-		/* no immediate parent-child relationship, */
-		/* fallback to node address order (lower address first) */
-		if (fdpt < tdpt) {
-			/* lock fdvp first */
-			lock_arr[i++] = fdpt;
-			lock_arr[i++] = fpt;
-			lock_arr[i++] = tdpt;
-			if ( (tpt != NULL) && (tpt != fpt) )
-				lock_arr[i++] = tpt;
-		} else if(tdpt < fdpt) {
-			/* lock tdvp first */
-			lock_arr[i++] = tdpt;
-			if (tpt != NULL)
-				lock_arr[i++] = tpt;
-			lock_arr[i++] = fdpt;
-			if (fpt != tpt)
-				lock_arr[i++] = fpt;
+		lock_order[lock_cnt++] = tdpt;
+		lock_order[lock_cnt++] = fdpt;
+	}
+	/*
+	 * Now lets deal with the children. If any of the following is true then just
+	 * lock the from vnode:
+	 *		1. The to vnode doesn't exist
+	 *		2. The to vnode and from vnodes are the same
+	 *		3. The to vnode and the from parent vnodes are the same, I know
+	 *		   it's strange but can happen.
+	 * Otherwise, lock in address order
+	 */
+	if ((tvp == NULL) || (tvp == fvp) || (tvp == fdvp))
+		lock_order[lock_cnt++] = fpt;
+	else {
+		if (fpt < tpt) {
+			lock_order[lock_cnt++] = fpt;
+			lock_order[lock_cnt++] = tpt;
 		} else {
-			/* 'from' and 'to' directories are the same. */
-			/* Lock child nodes in node address order. */
-			lock_arr[i++] = fdpt;
-			if (fpt < tpt) {
-				lock_arr[i++] = fpt;
-				if (tpt != NULL)
-					lock_arr[i++] = tpt;
-			} else {
-				if (tpt != NULL)
-					lock_arr[i++] = tpt;
-				lock_arr[i++] = fpt;
-			}
+			lock_order[lock_cnt++] = tpt;
+			lock_order[lock_cnt++] = fpt;
 		}
 	}
 
-	/* lock all the nodes in order */
-	for (i = 0; i < 4; i++) {
-		if (lock_arr[i]) {
-			webdav_lock(lock_arr[i], WEBDAV_EXCLUSIVE_LOCK);
-			lock_arr[i]->pt_lastvop = webdav_vnop_rename;
+
+	lck_mtx_unlock(&wmp->pm_renamelock);
+
+	for (ii = 0; ii < lock_cnt; ii++)
+	{
+		if (lock_order[ii])
+		{
+			webdav_lock(lock_order[ii], WEBDAV_EXCLUSIVE_LOCK);
+			lock_order[ii]->pt_lastvop = webdav_vnop_rename;
 		}
-		else
-			break;
 	}
-	
+
 	cache_purge(fvp);
-	
-	webdav_copy_creds(ap->a_context, &request_rename.pcr);	
+
+	webdav_copy_creds(ap->a_context, &request_rename.pcr);
 	request_rename.from_dir_id = VTOWEBDAV(fdvp)->pt_obj_id;
 	request_rename.from_obj_id = VTOWEBDAV(fvp)->pt_obj_id;
 	request_rename.to_dir_id = VTOWEBDAV(tdvp)->pt_obj_id;
@@ -3136,9 +3137,10 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	request_rename.to_name_length = tcnp->cn_namelen;
 
 	error = webdav_sendmsg(WEBDAV_RENAME, VFSTOWEBDAV(vnode_mount(fvp)),
-		&request_rename, offsetof(struct webdav_request_rename, to_name), 
-		tcnp->cn_nameptr, tcnp->cn_namelen, 
+		&request_rename, offsetof(struct webdav_request_rename, to_name),
+		tcnp->cn_nameptr, tcnp->cn_namelen,
 		&server_error, NULL, 0);
+
 	if ( (error == 0) && (server_error != 0) )
 	{
 		if ( server_error == ESTALE )
@@ -3170,7 +3172,7 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 		{
 			cache_purge(tvp);
 		}
-		
+
 		/* if no errors, we know tvp was deleted */
 		if ( error == 0 )
 		{
@@ -3178,23 +3180,25 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 			(void) vnode_recycle(tvp); /* we don't care if the recycle was done or not */
 		}
 	}
-	
+
 	/* parent directories may have changed (even if error) so force readdir to reload */
 	VTOWEBDAV(fdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
 	VTOWEBDAV(tdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
-	
+
 	/* Purge negative cache entries in the destination directory */
 	if (VTOWEBDAV(tdvp)->pt_status & WEBDAV_NEGNCENTRIES)
 	{
 		VTOWEBDAV(tdvp)->pt_status &= ~WEBDAV_NEGNCENTRIES;
-		cache_purge_negatives(tdvp);		
+		cache_purge_negatives(tdvp);
 	}
 
 done:
 	/* Unlock all nodes in reverse order */
-	for ( i = 3; i >= 0; i--)
-		if (lock_arr[i])
-			webdav_unlock(lock_arr[i]);
+	for ( ii = lock_cnt - 1; ii >= 0; ii--)
+	{
+		if (lock_order[ii])
+			webdav_unlock(lock_order[ii]);
+	}
 
 	RET_ERR("webdav_vnop_rename", error);
 }

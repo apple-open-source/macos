@@ -47,10 +47,12 @@
 #include "dy_framework.h"
 
 #include <fcntl.h>
-#include <libproc.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <sys/errno.h>
+
+
+const AuthorizationRef	kSCPreferencesUseEntitlementAuthorization	= (AuthorizationRef)CFSTR("UseEntitlement");
 
 
 static __inline__ CFTypeRef
@@ -218,7 +220,6 @@ __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 {
 	CFDataRef		data		= NULL;
 	CFMutableDictionaryRef	info;
-	char			name[64]	= "???";
 	CFNumberRef		num;
 	Boolean			ok;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
@@ -258,8 +259,7 @@ __SCPreferencesCreate_helper(SCPreferencesRef prefs)
 	CFRelease(num);
 
 	// save process name
-	(void) proc_name(getpid(), name, sizeof(name));
-	str = CFStringCreateWithCString(NULL, name, kCFStringEncodingUTF8);
+	str = CFStringCreateWithCString(NULL, getprogname(), kCFStringEncodingUTF8);
 	CFDictionarySetValue(info, CFSTR("PROC_NAME"), str);
 	CFRelease(str);
 
@@ -542,7 +542,7 @@ __SCPreferencesAccess(SCPreferencesRef	prefs)
 
 	if (statBuf.st_size > 0) {
 		CFDictionaryRef		dict;
-		CFErrorRef		error;
+		CFErrorRef		error	= NULL;
 		CFMutableDataRef	xmlData;
 
 		/*
@@ -631,9 +631,13 @@ SCPreferencesCreateWithAuthorization(CFAllocatorRef	allocator,
 {
 	SCPreferencesRef	prefs;
 
-#if	TARGET_OS_IPHONE
-	authorization = (AuthorizationRef)1;
-#endif	// TARGET_OS_IPHONE
+#if	!TARGET_OS_IPHONE
+	if (authorization == NULL) {
+		authorization = kSCPreferencesUseEntitlementAuthorization;
+	}
+#else	// !TARGET_OS_IPHONE
+	authorization = kSCPreferencesUseEntitlementAuthorization;
+#endif	// !TARGET_OS_IPHONE
 
 	prefs = SCPreferencesCreateWithOptions(allocator, name, prefsID, authorization, NULL);
 	return prefs;
@@ -658,21 +662,35 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 	}
 
 	if (authorization != NULL) {
+		CFMutableDictionaryRef	authorizationDict;
+		CFBundleRef		bundle;
+		CFStringRef		bundleID	= NULL;
+
+		authorizationDict =  CFDictionaryCreateMutable(NULL,
+							       0,
+							       &kCFTypeDictionaryKeyCallBacks,
+							       &kCFTypeDictionaryValueCallBacks);
 #if	!TARGET_OS_IPHONE
-		AuthorizationExternalForm	extForm;
-		OSStatus			os_status;
+		if (authorization != kSCPreferencesUseEntitlementAuthorization) {
+			CFDataRef 			authorizationRefData;
+			AuthorizationExternalForm	extForm;
+			OSStatus			os_status;
 
-		os_status = AuthorizationMakeExternalForm(authorization, &extForm);
-		if (os_status != errAuthorizationSuccess) {
-			SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen AuthorizationMakeExternalForm() failed"));
-			_SCErrorSet(kSCStatusInvalidArgument);
-			return NULL;
+			os_status = AuthorizationMakeExternalForm(authorization, &extForm);
+			if (os_status != errAuthorizationSuccess) {
+				SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen AuthorizationMakeExternalForm() failed"));
+				_SCErrorSet(kSCStatusInvalidArgument);
+				CFRelease(authorizationDict);
+				return NULL;
+			}
+
+			authorizationRefData = CFDataCreate(NULL, (const UInt8 *)extForm.bytes, sizeof(extForm.bytes));
+			CFDictionaryAddValue(authorizationDict,
+					     kSCHelperAuthAuthorization,
+					     authorizationRefData);
+			CFRelease(authorizationRefData);
 		}
-
-		authorizationData = CFDataCreate(NULL, (const UInt8 *)extForm.bytes, sizeof(extForm.bytes));
-#else	// !TARGET_OS_IPHONE
-		CFBundleRef	bundle;
-		CFStringRef	bundleID	= NULL;
+#endif
 
 		/* get the application/executable/bundle name */
 		bundle = CFBundleGetMainBundle();
@@ -700,10 +718,18 @@ SCPreferencesCreateWithOptions(CFAllocatorRef	allocator,
 		if (bundleID == NULL) {
 			bundleID = CFStringCreateWithFormat(NULL, NULL, CFSTR("Unknown(%d)"), getpid());
 		}
-
-		_SCSerializeString(bundleID, &authorizationData, NULL, NULL);
+		CFDictionaryAddValue(authorizationDict,
+				     kSCHelperAuthCallerInfo,
+				     bundleID);
 		CFRelease(bundleID);
-#endif	// !TARGET_OS_IPHONE
+
+		if (authorizationDict != NULL) {
+			_SCSerialize((CFPropertyListRef)authorizationDict,
+				     &authorizationData,
+				     NULL,
+				     NULL);
+			CFRelease(authorizationDict);
+		}
 	}
 
 	prefsPrivate = __SCPreferencesCreate(allocator, name, prefsID, authorizationData, options);

@@ -64,8 +64,12 @@ namespace std
     // http://gcc.gnu.org/onlinedocs/gcc-3.0.2/gcc_6.html#SEC118
     virtual ~bad_alloc() throw();
 
+#if __TARGETING_4_0_DYLIB
+	// bad_alloc::what() not exported from libstdc++.6.0.4 dylib
+#else
     // See comment in eh_exception.cc.
     virtual const char* what() const throw();
+#endif
   };
 
   struct nothrow_t { };

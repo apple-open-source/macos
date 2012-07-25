@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,21 +80,31 @@
 #include "myCFUtil.h"
 #include "ClientControlInterface.h"
 
-#define START_PERIOD_SECS		30
-#define AUTH_PERIOD_SECS		30
+#define START_PERIOD_SECS		5
+#define START_ATTEMPTS_MAX		3
+#define AUTH_PERIOD_SECS		5
+#define AUTH_ATTEMPTS_MAX		4
 #define HELD_PERIOD_SECS		60
-#define LINK_ACTIVE_PERIOD_SECS		4
+#define LINK_ACTIVE_PERIOD_SECS		5
 #define LINK_INACTIVE_PERIOD_SECS	1
-#define MAX_START			3
 
 #define BAD_IDENTIFIER		(-1)
 
+#define kSupplicant		CFSTR("Supplicant")
+#define kStartPeriodSeconds	CFSTR("StartPeriodSeconds")
+#define kStartAttemptsMax	CFSTR("StartAttemptsMax")
+#define kAuthPeriodSeconds	CFSTR("AuthPeriodSeconds")
+#define kAuthAttemptsMax	CFSTR("AuthAttemptsMax")
+#define kHeldPeriodSeconds	CFSTR("HeldPeriodSeconds")
+
 static int	S_start_period_secs = START_PERIOD_SECS;
+static int	S_start_attempts_max = START_ATTEMPTS_MAX;
 static int	S_auth_period_secs = AUTH_PERIOD_SECS;
+static int	S_auth_attempts_max = AUTH_ATTEMPTS_MAX;
 static int	S_held_period_secs = HELD_PERIOD_SECS;
+
 static int	S_link_active_period_secs = LINK_ACTIVE_PERIOD_SECS;
 static int	S_link_inactive_period_secs = LINK_INACTIVE_PERIOD_SECS;
-static int	S_max_start = MAX_START;	
 
 struct eap_client {
     EAPClientModuleRef		module;
@@ -159,6 +169,7 @@ struct Supplicant_s {
 #endif /* ! TARGET_OS_EMBEDDED */
 
     int				start_count;
+    int				auth_attempts_count;
 
     bool			no_authenticator;
 
@@ -958,7 +969,7 @@ process_key(SupplicantRef supp, EAPOLPacketRef eapol_p)
 static void
 clear_wpa_key_info(SupplicantRef supp)
 {
-    (void)EAPOLSocketSetPMK(supp->sock, NULL, 0);
+    (void)EAPOLSocketSetWPAKey(supp->sock, NULL, 0, NULL, 0);
     supp->pmk_set = FALSE;
     return;
 }
@@ -966,17 +977,22 @@ clear_wpa_key_info(SupplicantRef supp)
 static void
 set_wpa_key_info(SupplicantRef supp)
 {
-    uint8_t *	session_key;
-    int		session_key_length;
+    const uint8_t *	server_key;
+    int			server_key_length;
+    const uint8_t *	session_key;
+    int			session_key_length;
 
     if (supp->pmk_set) {
 	/* already set */
 	return;
     }
     session_key = eap_client_session_key(supp, &session_key_length);
+    server_key = eap_client_server_key(supp, &server_key_length);
     if (session_key != NULL
-	&& EAPOLSocketSetPMK(supp->sock, session_key,
-			     session_key_length)) {
+	&& server_key != NULL
+	&& EAPOLSocketSetWPAKey(supp->sock, 
+				session_key, session_key_length,
+				server_key, server_key_length)) {
 	supp->pmk_set = TRUE;
     }
     return;
@@ -992,6 +1008,7 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
     switch (event) {
     case kSupplicantEventStart:
 	Supplicant_cancel_pending_events(supp);
+	supp->auth_attempts_count = 0;
 	supp->state = kSupplicantStateAuthenticated;
 	free_last_packet(supp);
 #if ! TARGET_OS_EMBEDDED
@@ -1219,7 +1236,7 @@ Supplicant_connecting(SupplicantRef supp, SupplicantEvent event,
 	/* FALL THROUGH */
     case kSupplicantEventTimeout:
 	if (rx == NULL) {
-	    if (supp->start_count == S_max_start) {
+	    if (supp->start_count == S_start_attempts_max) {
 		/* no response from Authenticator */
 		Supplicant_no_authenticator(supp, kSupplicantEventStart, NULL);
 		break;
@@ -1327,6 +1344,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
     
     switch (event) { 
     case kSupplicantEventStart:
+	supp->auth_attempts_count++;
 	EAPAcceptTypesReset(&supp->eap_accept);
 	Supplicant_cancel_pending_events(supp);
 	supp->state = kSupplicantStateAcquired;
@@ -1414,7 +1432,14 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 	break;
 
     case kSupplicantEventTimeout:
-	Supplicant_connecting(supp, kSupplicantEventStart, NULL);
+	if (supp->auth_attempts_count >= S_auth_attempts_max) {
+	    supp->auth_attempts_count = 0;
+	    supp->last_status = kEAPClientStatusAuthenticationStalled;
+	    Supplicant_held(supp, kSupplicantEventStart, NULL);
+	}
+	else {
+	    Supplicant_connecting(supp, kSupplicantEventStart, NULL);
+	}
 	break;
     default:
 	break;
@@ -2068,6 +2093,10 @@ present_alert_dialogue(SupplicantRef supp)
 	/* trust settings not correct */
 	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_SERVER_NOT_TRUSTED");
 	break;
+    case kEAPClientStatusAuthenticationStalled:
+	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_AUTHENTICATION_STALLED");
+	break;
+
     default:
 	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_DEFAULT");
 	break;
@@ -2405,6 +2434,12 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	    clear_sec_identity(supp);
 	    clear_username(supp);
 	    clear_password(supp);
+#if ! TARGET_OS_EMBEDDED
+	    if (EAPOLSocketIsWireless(supp->sock)) {
+		/* force a re-association so we immediately prompt the user */
+		EAPOLSocketReassociate(supp->sock);
+	    }
+#endif /* ! TARGET_OS_EMBEDDED */
 	}
 	supp->last_status = kEAPClientStatusOK;
 	supp->last_error = 0;
@@ -2443,6 +2478,7 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 		respond_to_notification(supp, req_p->identifier);
 		break;
 	    default:
+		Supplicant_authenticating(supp, kSupplicantEventStart, evdata);
 		break;
 	    }
 	    break;
@@ -2742,9 +2778,23 @@ S_set_credentials(SupplicantRef supp)
     if (system_mode && S_system_mode_use_ad(supp->config_dict)) {
 	CFStringRef	username_cf = NULL;
 	CFStringRef	password_cf = NULL;
+	CFStringRef	domain_cf = NULL;
 	
-	if (ODActiveDirectoryTrustInfoCopy(NULL, &username_cf, &password_cf)
-	    && username_cf != NULL && password_cf != NULL) {
+	if (ODActiveDirectoryTrustInfoCopy(&domain_cf,
+	                                   &username_cf, 
+	                                   &password_cf)
+	    && username_cf != NULL && password_cf != NULL) 
+	{
+	    if (domain_cf != NULL) {
+		/* Create the fully-qualified user name */
+		CFMutableStringRef fqusername_cf = 
+		    CFStringCreateMutableCopy(NULL, 0, domain_cf);
+		CFStringAppend(fqusername_cf, CFSTR("\\"));
+		CFStringAppend(fqusername_cf, username_cf);
+		CFRelease(username_cf);
+		username_cf = fqusername_cf;
+	    }
+
 	    name = my_CFStringToCString(username_cf, kCFStringEncodingUTF8);
 	    password = my_CFStringToCString(password_cf, kCFStringEncodingUTF8);
 	    if (name != NULL) {
@@ -2756,6 +2806,7 @@ S_set_credentials(SupplicantRef supp)
 	}
 	my_CFRelease(&username_cf);
 	my_CFRelease(&password_cf);
+	my_CFRelease(&domain_cf);
 	if (name == NULL || password == NULL) {
 	    eapolclient_log(kLogFlagBasic,
 			    "System Mode can't find AD account information\n");
@@ -3248,6 +3299,7 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
 {
     struct timeval	t = {0, 0};
 
+    supp->auth_attempts_count = 0;
     if (active) {
 
 	t.tv_sec = S_link_active_period_secs;
@@ -3497,3 +3549,27 @@ Supplicant_simulate_success(SupplicantRef supp)
     return;
 }
 
+PRIVATE_EXTERN void
+Supplicant_set_globals(SCPreferencesRef prefs)
+{
+    CFDictionaryRef	plist;
+
+    if (prefs == NULL) {
+	return;
+    }
+    plist = SCPreferencesGetValue(prefs, kSupplicant);
+    if (isA_CFDictionary(plist) == NULL) {
+	return;
+    }
+    S_start_period_secs
+	= get_plist_int(plist, kStartPeriodSeconds, START_PERIOD_SECS);
+    S_start_attempts_max
+	= get_plist_int(plist, kStartAttemptsMax, START_ATTEMPTS_MAX);
+    S_auth_period_secs 
+	= get_plist_int(plist, kAuthPeriodSeconds, AUTH_PERIOD_SECS);
+    S_auth_attempts_max
+	= get_plist_int(plist, kAuthAttemptsMax, AUTH_ATTEMPTS_MAX);
+    S_held_period_secs
+	= get_plist_int(plist, kHeldPeriodSeconds, HELD_PERIOD_SECS);
+    return;
+}

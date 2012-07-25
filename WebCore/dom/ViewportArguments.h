@@ -27,7 +27,7 @@
 #ifndef ViewportArguments_h
 #define ViewportArguments_h
 
-#include "IntSize.h"
+#include "FloatSize.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -43,7 +43,7 @@ enum ViewportErrorCode {
 };
 
 struct ViewportAttributes {
-    IntSize layoutSize;
+    FloatSize layoutSize;
 
     float devicePixelRatio;
 
@@ -56,6 +56,11 @@ struct ViewportAttributes {
 
 struct ViewportArguments {
 
+    enum Type {
+        Implicit,
+        ViewportMeta
+    } type;
+
     enum {
         ValueAuto = -1,
         ValueDesktopWidth = -2,
@@ -67,8 +72,9 @@ struct ViewportArguments {
         ValueHighDPI = -8
     };
 
-    ViewportArguments()
-        : initialScale(ValueAuto)
+    ViewportArguments(Type type = Implicit)
+        : type(type)
+        , initialScale(ValueAuto)
         , minimumScale(ValueAuto)
         , maximumScale(ValueAuto)
         , width(ValueAuto)
@@ -88,6 +94,8 @@ struct ViewportArguments {
 
     bool operator==(const ViewportArguments& other) const
     {
+        // Used for figuring out whether to reset the viewport or not,
+        // thus we are not taking type into account.
         return initialScale == other.initialScale
             && minimumScale == other.minimumScale
             && maximumScale == other.maximumScale
@@ -99,6 +107,8 @@ struct ViewportArguments {
 };
 
 ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktopWidth, int deviceWidth, int deviceHeight, int deviceDPI, IntSize visibleViewport);
+void restrictMinimumScaleFactorToViewportSize(ViewportAttributes& result, IntSize visibleViewport);
+void restrictScaleFactorToInitialScaleIfNotUserScalable(ViewportAttributes& result);
 
 void setViewportFeature(const String& keyString, const String& valueString, Document*, void* data);
 void reportViewportWarning(Document*, ViewportErrorCode, const String& replacement1, const String& replacement2);

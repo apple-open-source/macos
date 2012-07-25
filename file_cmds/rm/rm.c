@@ -419,7 +419,6 @@ rm_overwrite(file, sbp)
 	int bsize, fd, wlen;
 	char *buf = NULL;
 
-	fd = -1;
 	if (sbp == NULL) {
 		if (lstat(file, &sb))
 			goto err;
@@ -438,7 +437,7 @@ rm_overwrite(file, sbp)
 #define	PASS(byte) {							\
 	memset(buf, byte, bsize);					\
 	for (len = sbp->st_size; len > 0; len -= wlen) {		\
-		wlen = len < bsize ? len : bsize;			\
+		wlen = len < bsize ? (int)len : bsize;			\
 		if (write(fd, buf, wlen) != wlen)			\
 			goto err;					\
 	}								\

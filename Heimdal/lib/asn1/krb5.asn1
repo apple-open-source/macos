@@ -63,6 +63,8 @@ EXPORTS
 	PA-ServerReferralData,
 	PA-SvrReferralData,
 	PADATA-TYPE,
+	PA-FX-FAST-REQUEST,
+	PA-FX-FAST-REPLY,
 	Principal,
 	PrincipalName,
 	Principals,
@@ -72,7 +74,13 @@ EXPORTS
 	Ticket,
 	TicketFlags,
 	TransitedEncoding,
-	TypedData
+	TypedData,
+	KrbFastResponse,
+	KrbFastFinished,
+	KrbFastReq,
+	KrbFastArmor,
+	KDCFastState,
+	KDCFastCookie
 	;
 
 NAME-TYPE ::= INTEGER {
@@ -175,6 +183,7 @@ PADATA-TYPE ::= INTEGER {
 	KRB5-PADATA-EPAK-AS-REP(146),
 	KRB5-PADATA-PKINIT-KX(147),		-- krb-wg-anon
 	KRB5-PADATA-PKU2U-NAME(148),		-- zhu-pku2u
+	KRB5-PADATA-REQ-ENC-PA-REP(149),	--
 	KRB5-PADATA-SUPPORTED-ETYPES(165)	-- MS-KILE
 }
 
@@ -223,32 +232,32 @@ CKSUMTYPE ::= INTEGER {
 
 --enctypes
 ENCTYPE ::= INTEGER {
-	ETYPE_NULL(0),
-	ETYPE_DES_CBC_CRC(1),
-	ETYPE_DES_CBC_MD4(2),
-	ETYPE_DES_CBC_MD5(3),
-	ETYPE_DES3_CBC_MD5(5),
-	ETYPE_OLD_DES3_CBC_SHA1(7),
-	ETYPE_SIGN_DSA_GENERATE(8),
-	ETYPE_ENCRYPT_RSA_PRIV(9),
-	ETYPE_ENCRYPT_RSA_PUB(10),
-	ETYPE_DES3_CBC_SHA1(16),	-- with key derivation
-	ETYPE_AES128_CTS_HMAC_SHA1_96(17),
-	ETYPE_AES256_CTS_HMAC_SHA1_96(18),
-	ETYPE_ARCFOUR_HMAC_MD5(23),
-	ETYPE_ARCFOUR_HMAC_MD5_56(24),
-	ETYPE_ENCTYPE_PK_CROSS(48),
+	KRB5_ENCTYPE_NULL(0),
+	KRB5_ENCTYPE_DES_CBC_CRC(1),
+	KRB5_ENCTYPE_DES_CBC_MD4(2),
+	KRB5_ENCTYPE_DES_CBC_MD5(3),
+	KRB5_ENCTYPE_DES3_CBC_MD5(5),
+	KRB5_ENCTYPE_OLD_DES3_CBC_SHA1(7),
+	KRB5_ENCTYPE_SIGN_DSA_GENERATE(8),
+	KRB5_ENCTYPE_ENCRYPT_RSA_PRIV(9),
+	KRB5_ENCTYPE_ENCRYPT_RSA_PUB(10),
+	KRB5_ENCTYPE_DES3_CBC_SHA1(16),	-- with key derivation
+	KRB5_ENCTYPE_AES128_CTS_HMAC_SHA1_96(17),
+	KRB5_ENCTYPE_AES256_CTS_HMAC_SHA1_96(18),
+	KRB5_ENCTYPE_ARCFOUR_HMAC_MD5(23),
+	KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56(24),
+	KRB5_ENCTYPE_ENCTYPE_PK_CROSS(48),
 -- some "old" windows types
-	ETYPE_ARCFOUR_MD4(-128),
-	ETYPE_ARCFOUR_HMAC_OLD(-133),
-	ETYPE_ARCFOUR_HMAC_OLD_EXP(-135),
+	KRB5_ENCTYPE_ARCFOUR_MD4(-128),
+	KRB5_ENCTYPE_ARCFOUR_HMAC_OLD(-133),
+	KRB5_ENCTYPE_ARCFOUR_HMAC_OLD_EXP(-135),
 -- these are for Heimdal internal use
-	ETYPE_DES_CBC_NONE(-0x1000),
-	ETYPE_DES3_CBC_NONE(-0x1001),
-	ETYPE_DES_CFB64_NONE(-0x1002),
-	ETYPE_DES_PCBC_NONE(-0x1003),
-	ETYPE_DIGEST_MD5_NONE(-0x1004),		-- private use, lukeh@padl.com
-	ETYPE_CRAM_MD5_NONE(-0x1005)		-- private use, lukeh@padl.com
+	KRB5_ENCTYPE_DES_CBC_NONE(-0x1000),
+	KRB5_ENCTYPE_DES3_CBC_NONE(-0x1001),
+	KRB5_ENCTYPE_DES_CFB64_NONE(-0x1002),
+	KRB5_ENCTYPE_DES_PCBC_NONE(-0x1003),
+	KRB5_ENCTYPE_DIGEST_MD5_NONE(-0x1004),		-- private use, lukeh@padl.com
+	KRB5_ENCTYPE_CRAM_MD5_NONE(-0x1005)		-- private use, lukeh@padl.com
 }
 
 
@@ -321,7 +330,8 @@ TicketFlags ::= BIT STRING {
 	hw-authent(11),
 	transited-policy-checked(12),
 	ok-as-delegate(13),
-	anonymous(14)
+	anonymous(14),
+	enc-pa-rep(15)
 }
 
 KDCOptions ::= BIT STRING {
@@ -626,7 +636,7 @@ ChangePasswdDataMS ::= SEQUENCE {
 	targrealm[2]		Realm OPTIONAL
 }
 
-EtypeList ::= SEQUENCE OF krb5int32
+EtypeList ::= SEQUENCE OF ENCTYPE
 	-- the client's proposed enctype list in
 	-- decreasing preference order, favorite choice first
 
@@ -767,12 +777,12 @@ PA-ServerReferralData ::= SEQUENCE {
 FastOptions ::= BIT STRING {
 	    reserved(0),
 	    hide-client-names(1),
-	    kdc-follow--referrals(16)
+	    kdc-follow-referrals(16)
 }
 
 KrbFastReq ::= SEQUENCE {
 	fast-options [0] FastOptions,
-	padata       [1] SEQUENCE OF PA-DATA,
+	padata       [1] METHOD-DATA,
 	req-body     [2] KDC-REQ-BODY,
 	...
 }
@@ -799,15 +809,15 @@ KrbFastFinished ::= SEQUENCE {
 	usec        [1] krb5int32,
 	crealm      [2] Realm,
 	cname       [3] PrincipalName,
-	checksum    [4] Checksum,
-	ticket-checksum [5] Checksum,
+	ticket-checksum [4] Checksum,
 	...
 }
 
 KrbFastResponse ::= SEQUENCE {
-	padata      [0] SEQUENCE OF PA-DATA,
-	rep-key     [1] EncryptionKey OPTIONAL,
-	finished    [2] KrbFastFinished OPTIONAL,
+	padata      	[0] METHOD-DATA,
+        strengthen-key	[1] EncryptionKey OPTIONAL,
+	finished	[2] KrbFastFinished OPTIONAL,
+        nonce		[3] krb5uint32,
 	...
 }
 
@@ -819,6 +829,26 @@ KrbFastArmoredRep ::= SEQUENCE {
 PA-FX-FAST-REPLY ::= CHOICE {
 	armored-data [0] KrbFastArmoredRep,
 	...
+}
+
+KDCFastFlags ::= BIT STRING {
+	use_reply_key(0),
+	reply_key_used(1),
+	reply_key_replaced(2),
+	kdc_verfied(3)
+}
+
+-- KDCFastState is stored in FX_COOKIE
+KDCFastState ::= SEQUENCE {
+	flags [0] KDCFastFlags,
+	expiration [1] GeneralizedTime,
+	fast-state [2] METHOD-DATA,
+	expected-pa-types [3] SEQUENCE OF PADATA-TYPE OPTIONAL
+}
+
+KDCFastCookie ::= SEQUENCE {
+	version [0] UTF8String,
+	cookie [1] EncryptedData
 }
 
 END

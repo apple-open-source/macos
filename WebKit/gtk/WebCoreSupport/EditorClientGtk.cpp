@@ -26,7 +26,6 @@
 
 #include "DataObjectGtk.h"
 #include "DumpRenderTreeSupportGtk.h"
-#include "EditCommand.h"
 #include "Editor.h"
 #include "EventNames.h"
 #include "FocusController.h"
@@ -36,16 +35,19 @@
 #include "markup.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "PasteboardHelperGtk.h"
+#include "PasteboardHelper.h"
 #include "PlatformKeyboardEvent.h"
+#include "UndoStep.h"
 #include "WebKitDOMBinding.h"
 #include "WebKitDOMCSSStyleDeclarationPrivate.h"
 #include "WebKitDOMHTMLElementPrivate.h"
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitDOMRangePrivate.h"
 #include "WindowsKeyboardCodes.h"
+#include "webkitglobals.h"
 #include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
+#include "webkitspellchecker.h"
 #include "webkitwebsettingsprivate.h"
 #include "webkitwebviewprivate.h"
 #include <wtf/text/CString.h>
@@ -60,75 +62,28 @@ using namespace WebCore;
 
 namespace WebKit {
 
-static void imContextCommitted(GtkIMContext* context, const gchar* compositionString, EditorClient* client)
-{
-    Frame* frame = core(static_cast<WebKitWebView*>(client->webView()))->focusController()->focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
-        return;
-
-    // If this signal fires during a keydown event when we are not in the middle
-    // of a composition, then treat this 'commit' as a normal key event and just
-    // change the editable area right before the keypress event.
-    if (client->treatContextCommitAsKeyEvent()) {
-        client->updatePendingComposition(compositionString);
-        return;
-    }
-
-    // If this signal fires during a mousepress event when we are in the middle
-    // of a composition, skip this 'commit' because the composition is already confirmed. 
-    if (client->preventNextCompositionCommit()) 
-        return;
- 
-    frame->editor()->confirmComposition(String::fromUTF8(compositionString));
-    client->clearPendingComposition();
-}
-
-static void imContextPreeditChanged(GtkIMContext* context, EditorClient* client)
-{
-    Frame* frame = core(static_cast<WebKitWebView*>(client->webView()))->focusController()->focusedOrMainFrame();
-    if (!frame || !frame->editor()->canEdit())
-        return;
-
-    // We ignore the provided PangoAttrList for now.
-    GOwnPtr<gchar> newPreedit(0);
-    gtk_im_context_get_preedit_string(context, &newPreedit.outPtr(), 0, 0);
-
-    String preeditString = String::fromUTF8(newPreedit.get());
-    Vector<CompositionUnderline> underlines;
-    underlines.append(CompositionUnderline(0, preeditString.length(), Color(0, 0, 0), false));
-    frame->editor()->setComposition(preeditString, underlines, 0, 0);
-}
-
-
-void EditorClient::updatePendingComposition(const gchar* newComposition)
-{
-    // The IMContext may signal more than one completed composition in a row,
-    // in which case we want to append them, rather than overwrite the old one.
-    if (!m_pendingComposition)
-        m_pendingComposition.set(g_strdup(newComposition));
-    else
-        m_pendingComposition.set(g_strconcat(m_pendingComposition.get(), newComposition, NULL));
-}
-
 void EditorClient::willSetInputMethodState()
 {
 }
 
 void EditorClient::setInputMethodState(bool active)
 {
-    WebKitWebViewPrivate* priv = m_webView->priv;
+    m_webView->priv->imFilter.setEnabled(active);
+}
 
-    if (active)
-        gtk_im_context_focus_in(priv->imContext.get());
-    else
-        gtk_im_context_focus_out(priv->imContext.get());
+bool EditorClient::shouldShowUnicodeMenu()
+{
+    if (gtk_major_version > 2 || (gtk_major_version == 2 && gtk_minor_version >= 10)) {
+        GtkSettings* settings = gtk_widget_get_settings(GTK_WIDGET(m_webView));
+        if (!settings)
+            return true;
 
-#ifdef MAEMO_CHANGES
-    if (active)
-        hildon_gtk_im_context_show(priv->imContext.get());
-    else
-        hildon_gtk_im_context_hide(priv->imContext.get());
-#endif
+        gboolean enabled;
+        g_object_get(settings, "gtk-show-unicode-menu", &enabled, NULL);
+        return enabled;
+    }
+
+    return true;
 }
 
 bool EditorClient::shouldDeleteRange(Range* range)
@@ -171,8 +126,6 @@ int EditorClient::spellCheckerDocumentTag()
 
 bool EditorClient::shouldBeginEditing(WebCore::Range* range)
 {
-    clearPendingComposition();
-
     gboolean accept = TRUE;
     GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-begin-editing", kitRange.get(), &accept);
@@ -181,8 +134,6 @@ bool EditorClient::shouldBeginEditing(WebCore::Range* range)
 
 bool EditorClient::shouldEndEditing(WebCore::Range* range)
 {
-    clearPendingComposition();
-
     gboolean accept = TRUE;
     GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-end-editing", kitRange.get(), &accept);
@@ -233,10 +184,10 @@ bool EditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, E
     return accept;
 }
 
-bool EditorClient::shouldApplyStyle(WebCore::CSSStyleDeclaration* declaration, WebCore::Range* range)
+bool EditorClient::shouldApplyStyle(WebCore::StylePropertySet* set, WebCore::Range* range)
 {
     gboolean accept = TRUE;
-    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(declaration));
+    GRefPtr<WebKitDOMCSSStyleDeclaration> kitDeclaration(kit(set->ensureCSSStyleDeclaration()));
     GRefPtr<WebKitDOMRange> kitRange(adoptGRef(kit(range)));
     g_signal_emit_by_name(m_webView, "should-apply-style", kitDeclaration.get(), kitRange.get(), &accept);
     return accept;
@@ -289,45 +240,35 @@ static void setSelectionPrimaryClipboardIfNeeded(WebKitWebView* webView)
     if (!targetFrame->selection()->isRange())
         return;
 
-    dataObject->clear();
+    dataObject->clearAll();
     dataObject->setRange(targetFrame->selection()->toNormalizedRange());
 
     viewSettingClipboard = webView;
     GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(webView));
     g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
-    pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
+    PasteboardHelper::defaultPasteboardHelper()->writeClipboardContents(clipboard, PasteboardHelper::DoNotIncludeSmartPaste, callback);
     viewSettingClipboard = 0;
 }
 #endif
 
-void EditorClient::respondToChangedSelection()
+void EditorClient::respondToChangedSelection(Frame* frame)
 {
     g_signal_emit_by_name(m_webView, "selection-changed");
 
-    WebKitWebViewPrivate* priv = m_webView->priv;
-    WebCore::Page* corePage = core(m_webView);
-    Frame* targetFrame = corePage->focusController()->focusedOrMainFrame();
-
-    if (!targetFrame)
-        return;
-
-    if (targetFrame->editor()->ignoreCompositionSelectionChange())
+    if (!frame)
         return;
 
 #if PLATFORM(X11)
     setSelectionPrimaryClipboardIfNeeded(m_webView);
 #endif
 
-    if (!targetFrame->editor()->hasComposition())
+    if (m_updatingComposition || !frame->editor()->hasComposition() || frame->editor()->ignoreCompositionSelectionChange())
         return;
 
     unsigned start;
     unsigned end;
-    if (!targetFrame->editor()->getCompositionSelection(start, end)) {
-        // gtk_im_context_reset() clears the composition for us.
-        gtk_im_context_reset(priv->imContext.get());
-        targetFrame->editor()->confirmCompositionWithoutDisturbingSelection();
-    }
+    if (!frame->editor()->getCompositionSelection(start, end))
+        m_webView->priv->imFilter.resetContext();
 }
 
 void EditorClient::didEndEditing()
@@ -345,18 +286,18 @@ void EditorClient::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-void EditorClient::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> command)
+void EditorClient::registerUndoStep(WTF::PassRefPtr<WebCore::UndoStep> step)
 {
     if (undoStack.size() == maximumUndoStackDepth)
         undoStack.removeFirst();
     if (!m_isInRedo)
         redoStack.clear();
-    undoStack.append(command);
+    undoStack.append(step);
 }
 
-void EditorClient::registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand> command)
+void EditorClient::registerRedoStep(WTF::PassRefPtr<WebCore::UndoStep> step)
 {
-    redoStack.append(command);
+    redoStack.append(step);
 }
 
 void EditorClient::clearUndoRedoOperations()
@@ -388,23 +329,23 @@ bool EditorClient::canRedo() const
 void EditorClient::undo()
 {
     if (canUndo()) {
-        RefPtr<WebCore::EditCommand> command(*(--undoStack.end()));
+        RefPtr<WebCore::UndoStep> step(*(--undoStack.end()));
         undoStack.remove(--undoStack.end());
         // unapply will call us back to push this command onto the redo stack.
-        command->unapply();
+        step->unapply();
     }
 }
 
 void EditorClient::redo()
 {
     if (canRedo()) {
-        RefPtr<WebCore::EditCommand> command(*(--redoStack.end()));
+        RefPtr<WebCore::UndoStep> step(*(--redoStack.end()));
         redoStack.remove(--redoStack.end());
 
         ASSERT(!m_isInRedo);
         m_isInRedo = true;
         // reapply will call us back to push this command onto the undo stack.
-        command->reapply();
+        step->reapply();
         m_isInRedo = false;
     }
 }
@@ -423,10 +364,14 @@ void EditorClient::pageDestroyed()
     delete this;
 }
 
+void EditorClient::setSmartInsertDeleteEnabled(bool enabled)
+{
+    m_smartInsertDeleteEnabled = enabled;
+}
+
 bool EditorClient::smartInsertDeleteEnabled()
 {
-    notImplemented();
-    return false;
+    return m_smartInsertDeleteEnabled;
 }
 
 bool EditorClient::isSelectTrailingWhitespaceEnabled()
@@ -470,13 +415,45 @@ bool EditorClient::executePendingEditorCommands(Frame* frame, bool allowTextInse
     }
 
     m_pendingEditorCommands.clear();
-
-    // If we successfully completed all editor commands, then
-    // this signals a canceling of the composition.
-    if (success)
-        clearPendingComposition();
-
     return success;
+}
+
+bool EditorClient::handleInputMethodKeyboardEvent(KeyboardEvent* event)
+{
+    if (event->type() != eventNames().keydownEvent)
+        return false;
+
+    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    if (!platformEvent)
+        return false;
+
+    Frame* frame = core(m_webView)->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->editor()->canEdit())
+        return false;
+
+    const CompositionResults& compositionResults = platformEvent->compositionResults();
+    if (!compositionResults.compositionUpdated())
+        return false;
+
+    m_updatingComposition = true;
+
+    // PlatformKeyboardEvent returns an empty string when there are composition results.
+    // That prevents the delivery of keypress, which is the behavior we want for composition
+    // events. See EventHandler::keyEvent. 
+    ASSERT(platformEvent->text().isNull());
+
+    if (!compositionResults.confirmedComposition.isNull())
+        frame->editor()->confirmComposition(compositionResults.confirmedComposition);
+
+    String preedit = compositionResults.preedit;
+    if (!preedit.isNull()) {
+        Vector<CompositionUnderline> underlines;
+        underlines.append(CompositionUnderline(0, preedit.length(), Color(1, 1, 1), false));
+        frame->editor()->setComposition(preedit, underlines, compositionResults.preeditCursorOffset, compositionResults.preeditCursorOffset);
+    }
+
+    m_updatingComposition = false;
+    return true;
 }
 
 void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
@@ -490,6 +467,9 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
     if (!platformEvent)
         return;
 
+    if (handleInputMethodKeyboardEvent(event))
+        return;
+
     KeyBindingTranslator::EventType type = event->type() == eventNames().keydownEvent ?
         KeyBindingTranslator::KeyDown : KeyBindingTranslator::KeyPress;
     m_keyBindingTranslator.getEditorCommandsForKeyEvent(platformEvent->gdkEventKey(), type, m_pendingEditorCommands);
@@ -498,7 +478,7 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
         // During RawKeyDown events if an editor command will insert text, defer
         // the insertion until the keypress event. We want keydown to bubble up
         // through the DOM first.
-        if (platformEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
+        if (platformEvent->type() == PlatformEvent::RawKeyDown) {
             if (executePendingEditorCommands(frame, false))
                 event->setDefaultHandled();
 
@@ -519,124 +499,41 @@ void EditorClient::handleKeyboardEvent(KeyboardEvent* event)
     // This is just a normal text insertion, so wait to execute the insertion
     // until a keypress event happens. This will ensure that the insertion will not
     // be reflected in the contents of the field until the keyup DOM event.
-    if (event->type() == eventNames().keypressEvent) {
+    if (event->type() != eventNames().keypressEvent)
+        return;
 
-        // If we have a pending composition at this point, it happened while
-        // filtering a keypress, so we treat it as a normal text insertion.
-        // This will also ensure that if the keypress event handler changed the
-        // currently focused node, the text is still inserted into the original
-        // node (insertText() has this logic, but confirmComposition() does not).
-        if (m_pendingComposition) {
-            frame->editor()->insertText(String::fromUTF8(m_pendingComposition.get()), event);
-            clearPendingComposition();
-            event->setDefaultHandled();
+    // Don't insert null or control characters as they can result in unexpected behaviour
+    if (event->charCode() < ' ')
+        return;
 
-        } else {
-            // Don't insert null or control characters as they can result in unexpected behaviour
-            if (event->charCode() < ' ')
-                return;
+    // Don't insert anything if a modifier is pressed
+    if (platformEvent->ctrlKey() || platformEvent->altKey())
+        return;
 
-            // Don't insert anything if a modifier is pressed
-            if (platformEvent->ctrlKey() || platformEvent->altKey())
-                return;
-
-            if (frame->editor()->insertText(platformEvent->text(), event))
-                event->setDefaultHandled();
-        }
-    }
+    if (frame->editor()->insertText(platformEvent->text(), event))
+        event->setDefaultHandled();
 }
 
 void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    Frame* targetFrame = core(m_webView)->focusController()->focusedOrMainFrame();
-    if (!targetFrame || !targetFrame->editor()->canEdit())
-        return;
-
-    WebKitWebViewPrivate* priv = m_webView->priv;
-
-    m_preventNextCompositionCommit = false;
-
-    // Some IM contexts (e.g. 'simple') will act as if they filter every
-    // keystroke and just issue a 'commit' signal during handling. In situations
-    // where the 'commit' signal happens during filtering and there is no active
-    // composition, act as if the keystroke was not filtered. The one exception to
-    // this is when the keyval parameter of the GdkKeyEvent is 0, which is often
-    // a key event sent by the IM context for committing the current composition.
-
-    // Here is a typical sequence of events for the 'simple' context:
-    // 1. GDK key press event -> webkit_web_view_key_press_event
-    // 2. Keydown event -> EditorClient::handleInputMethodKeydown
-    //     gtk_im_context_filter_keypress returns true, but there is a pending
-    //     composition so event->preventDefault is not called (below).
-    // 3. Keydown event bubbles through the DOM
-    // 4. Keydown event -> EditorClient::handleKeyboardEvent
-    //     No action taken.
-    // 4. GDK key release event -> webkit_web_view_key_release_event
-    // 5. gtk_im_context_filter_keypress is called on the release event.
-    //     Simple does not filter most key releases, so the event continues.
-    // 6. Keypress event bubbles through the DOM.
-    // 7. Keypress event -> EditorClient::handleKeyboardEvent
-    //     pending composition is inserted.
-    // 8. Keyup event bubbles through the DOM.
-    // 9. Keyup event -> EditorClient::handleKeyboardEvent
-    //     No action taken.
-
-    // There are two situations where we do filter the keystroke:
-    // 1. The IMContext instructed us to filter and we have no pending composition.
-    // 2. The IMContext did not instruct us to filter, but the keystroke caused a
-    //    composition in progress to finish. It seems that sometimes SCIM will finish
-    //    a composition and not mark the keystroke as filtered.
-    m_treatContextCommitAsKeyEvent = (!targetFrame->editor()->hasComposition())
-         && event->keyEvent()->gdkEventKey()->keyval;
-    clearPendingComposition();
-    if ((gtk_im_context_filter_keypress(priv->imContext.get(), event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
-        || (!m_treatContextCommitAsKeyEvent && !targetFrame->editor()->hasComposition()))
-        event->preventDefault();
-
-    m_treatContextCommitAsKeyEvent = false;
-}
-
-void EditorClient::handleInputMethodMousePress()
-{
-    Frame* targetFrame = core(m_webView)->focusController()->focusedOrMainFrame();
-
-    if (!targetFrame || !targetFrame->editor()->canEdit())
-        return;
-
-    WebKitWebViewPrivate* priv = m_webView->priv;
-
-    // When a mouse press fires, the commit signal happens during a composition.
-    // In this case, if the focused node is changed, the commit signal happens in a diffrent node.
-    // Therefore, we need to confirm the current compositon and ignore the next commit signal. 
-    GOwnPtr<gchar> newPreedit(0);
-    gtk_im_context_get_preedit_string(priv->imContext.get(), &newPreedit.outPtr(), 0, 0);
-    
-    if (g_utf8_strlen(newPreedit.get(), -1)) {
-        targetFrame->editor()->confirmComposition();
-        m_preventNextCompositionCommit = true;
-        gtk_im_context_reset(priv->imContext.get());
-    } 
+    // Input method results are handled in handleKeyboardEvent, so that we can wait
+    // to trigger composition updates until after the keydown event handler. This better
+    // matches other browsers.
 }
 
 EditorClient::EditorClient(WebKitWebView* webView)
     : m_isInRedo(false)
 #if ENABLE(SPELLCHECK)
-    , m_textCheckerClient(webView)
+    , m_textCheckerClient(WEBKIT_SPELL_CHECKER(webkit_get_text_checker()))
 #endif
     , m_webView(webView)
-    , m_preventNextCompositionCommit(false)
-    , m_treatContextCommitAsKeyEvent(false)
+    , m_smartInsertDeleteEnabled(false)
+    , m_updatingComposition(false)
 {
-    WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_connect(priv->imContext.get(), "commit", G_CALLBACK(imContextCommitted), this);
-    g_signal_connect(priv->imContext.get(), "preedit-changed", G_CALLBACK(imContextPreeditChanged), this);
 }
 
 EditorClient::~EditorClient()
 {
-    WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextCommitted, this);
-    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextPreeditChanged, this);
 }
 
 void EditorClient::textFieldDidBeginEditing(Element*)

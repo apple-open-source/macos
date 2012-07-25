@@ -54,7 +54,7 @@ namespace WebCore {
         virtual Color platformActiveSelectionForegroundColor() const;
         virtual Color platformInactiveSelectionForegroundColor() const;
 
-        virtual void adjustSliderThumbSize(RenderObject*) const;
+        virtual void adjustSliderThumbSize(RenderStyle*) const;
 
         static void setCaretBlinkInterval(double interval);
         virtual double caretBlinkIntervalInternal() const;
@@ -71,8 +71,10 @@ namespace WebCore {
         virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
         virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual void adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintInnerSpinButton(RenderObject*, const PaintInfo&, const IntRect&);
+
+        virtual bool popsMenuBySpaceOrReturn() const OVERRIDE { return true; }
 
 #if ENABLE(PROGRESS_TAG)
         virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
@@ -83,10 +85,11 @@ namespace WebCore {
                                        unsigned inactiveBackgroundColor,
                                        unsigned inactiveForegroundColor);
 
-    private:
+    protected:
         RenderThemeChromiumLinux();
         virtual ~RenderThemeChromiumLinux();
 
+    private:
         // A general method asking if any control tinting is supported at all.
         virtual bool supportsControlTints() const;
 

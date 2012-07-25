@@ -20,23 +20,23 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "StyleMedia.h"
 
-#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
+#include "StyleResolver.h"
 
 namespace WebCore {
 
 StyleMedia::StyleMedia(Frame* frame)
-    : m_frame(frame)
+    : DOMWindowProperty(frame)
 {
 }
 
@@ -60,16 +60,14 @@ bool StyleMedia::matchMedium(const String& query) const
     if (!documentElement)
         return false;
 
-    CSSStyleSelector* styleSelector = document->styleSelector();
-    if (!styleSelector)
+    StyleResolver* styleResolver = document->styleResolver();
+    if (!styleResolver)
         return false;
 
-    RefPtr<RenderStyle> rootStyle = styleSelector->styleForElement(documentElement, 0 /*defaultParent*/, false /*allowSharing*/, true /*resolveForRootDefault*/);
-    RefPtr<MediaList> media = MediaList::create();
+    RefPtr<RenderStyle> rootStyle = styleResolver->styleForElement(documentElement, 0 /*defaultParent*/, DisallowStyleSharing, MatchOnlyUserAgentRules);
 
-    ExceptionCode ec = 0;
-    media->setMediaText(query, ec);
-    if (ec)
+    RefPtr<MediaQuerySet> media = MediaQuerySet::create();
+    if (!media->parse(query))
         return false;
 
     MediaQueryEvaluator screenEval(type(), m_frame, rootStyle.get());

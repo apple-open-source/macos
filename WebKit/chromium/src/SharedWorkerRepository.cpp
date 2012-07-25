@@ -34,22 +34,25 @@
 
 #include "SharedWorkerRepository.h"
 
+#include "ContentSecurityPolicy.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "InspectorInstrumentation.h"
 #include "MessagePortChannel.h"
 #include "PlatformMessagePortChannel.h"
 #include "ScriptExecutionContext.h"
 #include "SharedWorker.h"
+#include "WebContentSecurityPolicy.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
 #include "WebMessagePortChannel.h"
 #include "WebSharedWorker.h"
 #include "WebSharedWorkerRepository.h"
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebKitPlatformSupport.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerScriptLoaderClient.h"
 
@@ -70,10 +73,11 @@ public:
         , m_name(name)
         , m_webWorker(webWorker)
         , m_port(port)
-        , m_scriptLoader(ResourceRequestBase::TargetIsSharedWorker)
+        , m_scriptLoader(WorkerScriptLoader::create())
         , m_loading(false)
         , m_responseAppCacheID(0)
     {
+        m_scriptLoader->setTargetType(ResourceRequest::TargetIsSharedWorker);
     }
 
     ~SharedWorkerScriptLoader();
@@ -81,8 +85,8 @@ public:
     static void stopAllLoadersForContext(ScriptExecutionContext*);
 
 private:
-    // WorkerScriptLoaderClient callback
-    virtual void didReceiveResponse(const ResourceResponse&);
+    // WorkerScriptLoaderClient callbacks
+    virtual void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
     virtual void notifyFinished();
 
     virtual void connected();
@@ -96,7 +100,7 @@ private:
     String m_name;
     OwnPtr<WebSharedWorker> m_webWorker;
     OwnPtr<MessagePortChannel> m_port;
-    WorkerScriptLoader m_scriptLoader;
+    RefPtr<WorkerScriptLoader> m_scriptLoader;
     bool m_loading;
     long long m_responseAppCacheID;
 };
@@ -134,10 +138,11 @@ void SharedWorkerScriptLoader::load()
     if (m_webWorker->isStarted())
         sendConnect();
     else {
-        m_scriptLoader.loadAsynchronously(m_worker->scriptExecutionContext(), m_url, DenyCrossOriginRequests, this);
         // Keep the worker + JS wrapper alive until the resource load is complete in case we need to dispatch an error event.
         m_worker->setPendingActivity(m_worker.get());
         m_loading = true;
+
+        m_scriptLoader->loadAsynchronously(m_worker->scriptExecutionContext(), m_url, DenyCrossOriginRequests, this);
     }
 }
 
@@ -151,20 +156,24 @@ static WebMessagePortChannel* getWebPort(PassOwnPtr<MessagePortChannel> port)
     return webPort;
 }
 
-void SharedWorkerScriptLoader::didReceiveResponse(const ResourceResponse& response)
+void SharedWorkerScriptLoader::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
 {
     m_responseAppCacheID = response.appCacheID();
+    InspectorInstrumentation::didReceiveScriptResponse(m_worker->scriptExecutionContext(), identifier);
 }
 
 void SharedWorkerScriptLoader::notifyFinished()
 {
-    if (m_scriptLoader.failed()) {
+    if (m_scriptLoader->failed()) {
         m_worker->dispatchEvent(Event::create(eventNames().errorEvent, false, true));
         delete this;
     } else {
-        InspectorInstrumentation::scriptImported(m_worker->scriptExecutionContext(), m_scriptLoader.identifier(), m_scriptLoader.script());
+        InspectorInstrumentation::scriptImported(m_worker->scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
         // Pass the script off to the worker, then send a connect event.
-        m_webWorker->startWorkerContext(m_url, m_name, m_worker->scriptExecutionContext()->userAgent(m_url), m_scriptLoader.script(), m_responseAppCacheID);
+        m_webWorker->startWorkerContext(m_url, m_name, m_worker->scriptExecutionContext()->userAgent(m_url), m_scriptLoader->script(),
+                                        m_worker->scriptExecutionContext()->contentSecurityPolicy()->header(),
+                                        static_cast<WebKit::WebContentSecurityPolicyType>(m_worker->scriptExecutionContext()->contentSecurityPolicy()->headerType()),
+                                        m_responseAppCacheID);
         sendConnect();
     }
 }
@@ -183,8 +192,8 @@ void SharedWorkerScriptLoader::connected()
 
 bool SharedWorkerRepository::isAvailable()
 {
-    // Allow the WebKitClient to determine if SharedWorkers are available.
-    return WebKit::webKitClient()->sharedWorkerRepository();
+    // Allow the WebKitPlatformSupport to determine if SharedWorkers are available.
+    return WebKit::webKitPlatformSupport()->sharedWorkerRepository();
 }
 
 static WebSharedWorkerRepository::DocumentID getId(void* document)
@@ -197,7 +206,7 @@ void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr
 {
     // This should not be callable unless there's a SharedWorkerRepository for
     // this context (since isAvailable() should have returned null).
-    ASSERT(WebKit::webKitClient()->sharedWorkerRepository());
+    ASSERT(WebKit::webKitPlatformSupport()->sharedWorkerRepository());
 
     // No nested workers (for now) - connect() should only be called from document context.
     ASSERT(worker->scriptExecutionContext()->isDocument());
@@ -212,7 +221,7 @@ void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr
         return;
     }
 
-    WebKit::webKitClient()->sharedWorkerRepository()->addSharedWorker(
+    WebKit::webKitPlatformSupport()->sharedWorkerRepository()->addSharedWorker(
         webWorker.get(), getId(document));
 
     // The loader object manages its own lifecycle (and the lifecycles of the two worker objects).
@@ -223,7 +232,7 @@ void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr
 
 void SharedWorkerRepository::documentDetached(Document* document)
 {
-    WebSharedWorkerRepository* repo = WebKit::webKitClient()->sharedWorkerRepository();
+    WebSharedWorkerRepository* repo = WebKit::webKitPlatformSupport()->sharedWorkerRepository();
     if (repo)
         repo->documentDetached(getId(document));
 
@@ -234,7 +243,7 @@ void SharedWorkerRepository::documentDetached(Document* document)
 
 bool SharedWorkerRepository::hasSharedWorkers(Document* document)
 {
-    WebSharedWorkerRepository* repo = WebKit::webKitClient()->sharedWorkerRepository();
+    WebSharedWorkerRepository* repo = WebKit::webKitPlatformSupport()->sharedWorkerRepository();
     return repo && repo->hasSharedWorkers(getId(document));
 }
 

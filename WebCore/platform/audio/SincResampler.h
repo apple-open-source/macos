@@ -30,6 +30,7 @@
 #define SincResampler_h
 
 #include "AudioArray.h"
+#include "AudioSourceProvider.h"
 
 namespace WebCore {
 
@@ -43,11 +44,11 @@ public:
     SincResampler(double scaleFactor, unsigned kernelSize = 32, unsigned numberOfKernelOffsets = 32);
     
     // Processes numberOfSourceFrames from source to produce numberOfSourceFrames / scaleFactor frames in destination.
-    void process(float* source, float* destination, unsigned numberOfSourceFrames);
-    
-    // FIXME: we can add a process() method which takes an input source callback function for streaming applications
-    // where the entire input buffer is not all available.
-    
+    void process(const float* source, float* destination, unsigned numberOfSourceFrames);
+
+    // Process with input source callback function for streaming applications.
+    void process(AudioSourceProvider*, float* destination, size_t framesToProcess);
+
 protected:
     void initializeKernel();
     void consumeSource(float* buffer, unsigned numberOfSourceFrames);
@@ -70,8 +71,14 @@ protected:
     // Source is copied into this buffer for each processing pass.
     AudioFloatArray m_inputBuffer;
 
-    float* m_source;
+    const float* m_source;
     unsigned m_sourceFramesAvailable;
+    
+    // m_sourceProvider is used to provide the audio input stream to the resampler.
+    AudioSourceProvider* m_sourceProvider;    
+
+    // The buffer is primed once at the very beginning of processing.
+    bool m_isBufferPrimed;
 };
 
 } // namespace WebCore

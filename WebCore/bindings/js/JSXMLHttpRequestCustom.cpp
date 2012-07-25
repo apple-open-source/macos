@@ -83,10 +83,10 @@ void JSXMLHttpRequest::visitChildren(JSCell* cell, SlotVisitor& visitor)
 JSValue JSXMLHttpRequest::open(ExecState* exec)
 {
     if (exec->argumentCount() < 2)
-        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
+        return throwError(exec, createNotEnoughArgumentsError(exec));
 
-    const KURL& url = impl()->scriptExecutionContext()->completeURL(ustringToString(exec->argument(1).toString(exec)));
-    String method = ustringToString(exec->argument(0).toString(exec));
+    const KURL& url = impl()->scriptExecutionContext()->completeURL(ustringToString(exec->argument(1).toString(exec)->value(exec)));
+    String method = ustringToString(exec->argument(0).toString(exec)->value(exec));
 
     ExceptionCode ec = 0;
     if (exec->argumentCount() >= 3) {
@@ -129,7 +129,7 @@ JSValue JSXMLHttpRequest::send(ExecState* exec)
         else if (val.inherits(&JSArrayBuffer::s_info))
             impl()->send(toArrayBuffer(val), ec);
         else
-            impl()->send(ustringToString(val.toString(exec)), ec);
+            impl()->send(ustringToString(val.toString(exec)->value(exec)), ec);
     }
 
     int signedLineNumber;
@@ -201,17 +201,6 @@ JSValue JSXMLHttpRequest::response(ExecState* exec) const
     }
 
     return jsUndefined();
-}
-
-EncodedJSValue JSC_HOST_CALL JSXMLHttpRequestConstructor::constructJSXMLHttpRequest(ExecState* exec)
-{
-    JSXMLHttpRequestConstructor* jsConstructor = static_cast<JSXMLHttpRequestConstructor*>(exec->callee());
-    ScriptExecutionContext* context = jsConstructor->scriptExecutionContext();
-    if (!context)
-        return throwVMError(exec, createReferenceError(exec, "XMLHttpRequest constructor associated document is unavailable"));
-
-    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(context);
-    return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), XMLHttpRequest, xmlHttpRequest.get()));
 }
 
 } // namespace WebCore

@@ -1,0 +1,10 @@
+//
+//  MacOSXClient.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+
+SDKROOT = iphoneos5.0.internal
+OTHER_CFLAGS = -fstack-protector-all -Wstack-protector -DSHA256_USE_ASSEMBLY=1 -DCC_iOS
+PRODUCT_NAME = commonCrypto

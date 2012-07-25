@@ -1,0 +1,16 @@
+diff -Naur tnftpd-20100324/src/ftpd.c tnftpd/src/ftpd.c
+--- tnftpd-20100324/src/ftpd.c	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/ftpd.c	2012-02-07 12:29:45.000000000 -0800
+@@ -4090,6 +4090,12 @@
+ 			if (pw == NULL
+ 			    || strcmp(pw->pw_name, tmpl_user) != 0) {
+ 				pw = sgetpwnam(tmpl_user);
++				if (pw == NULL) {
++					syslog(LOG_ERR, "sgetpwnam returned NULL for: %s",
++					    tmpl_user);
++					rval = -1;
++					break;
++				}
+ 				if (ftpd_debug)
+ 					syslog(LOG_DEBUG,
+ 					    "auth_pam: PAM changed "

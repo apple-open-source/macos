@@ -28,6 +28,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.DataGridNode}
+ */
 WebInspector.ShowMoreDataGridNode = function(callback, nextCount, allCount)
 {
     function populate(count)
@@ -72,6 +76,15 @@ WebInspector.ShowMoreDataGridNode.prototype = {
             cell = document.createElement("td");
             this._element.appendChild(cell);
         }
+    },
+
+    /**
+     * @override
+     * @return {number}
+     */
+    nodeHeight: function()
+    {
+        return 33;
     }
 };
 

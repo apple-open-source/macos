@@ -1,6 +1,8 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+ "http://www.w3.org/TR/html4/loose.dtd">
 <html><head>
 <title>curl_easy_getinfo man page</title>
-<meta name="generator" content="roffit 0.7">
+<meta name="generator" content="roffit">
 <STYLE type="text/css">
 P.level0 {
  padding-left: 2em;
@@ -68,9 +70,9 @@ p.roffit {
 <p class="level0"><a name="CURLINFOAPPCONNECTTIME"></a><span class="nroffip">CURLINFO_APPCONNECT_TIME</span> 
 <p class="level1">Pass a pointer to a double to receive the time, in seconds, it took from the start until the SSL/SSH connect/handshake to the remote host was completed. This time is most often very near to the PRETRANSFER time, except for cases such as HTTP pippelining where the pretransfer time can be delayed due to waits in line for the pipeline and more. (Added in 7.19.0) 
 <p class="level0"><a name="CURLINFOPRETRANSFERTIME"></a><span class="nroffip">CURLINFO_PRETRANSFER_TIME</span> 
-<p class="level1">Pass a pointer to a double to receive the time, in seconds, it took from the start until the file transfer is just about to begin. This includes all pre-transfer commands and negotiations that are specific to the particular protocol(s) involved. 
+<p class="level1">Pass a pointer to a double to receive the time, in seconds, it took from the start until the file transfer is just about to begin. This includes all pre-transfer commands and negotiations that are specific to the particular protocol(s) involved. It does <span Class="emphasis">not</span> involve the sending of the protocol- specific request that triggers a transfer. 
 <p class="level0"><a name="CURLINFOSTARTTRANSFERTIME"></a><span class="nroffip">CURLINFO_STARTTRANSFER_TIME</span> 
-<p class="level1">Pass a pointer to a double to receive the time, in seconds, it took from the start until the first byte is just about to be transferred. This includes CURLINFO_PRETRANSFER_TIME and also the time the server needs to calculate the result. 
+<p class="level1">Pass a pointer to a double to receive the time, in seconds, it took from the start until the first byte is received by libcurl. This includes CURLINFO_PRETRANSFER_TIME and also the time the server needs to calculate the result. 
 <p class="level0"><a name="CURLINFOREDIRECTTIME"></a><span class="nroffip">CURLINFO_REDIRECT_TIME</span> 
 <p class="level1">Pass a pointer to a double to receive the total time, in seconds, it took for all redirection steps include name lookup, connect, pretransfer and transfer before final transaction was started. CURLINFO_REDIRECT_TIME contains the complete execution time for multiple redirections.  (Added in 7.9.7) 
 <p class="level0"><a name="CURLINFOREDIRECTCOUNT"></a><span class="nroffip">CURLINFO_REDIRECT_COUNT</span> 
@@ -140,19 +142,9 @@ p.roffit {
 <p class="level1">Applications wishing to resume an RTSP session on another connection should retreive this info before closing the active connection. 
 <p class="level0"><a name="CURLINFORTSPCSEQRECV"></a><span class="nroffip">CURLINFO_RTSP_CSEQ_RECV</span> 
 <p class="level1">Pass a pointer to a long to receive the most recently received CSeq from the server. If your application encounters a <span Class="emphasis">CURLE_RTSP_CSEQ_ERROR</span> then you may wish to troubleshoot and/or fix the CSeq mismatch by peeking at this value. <a name="TIMES"></a><h2 class="nroffsh">TIMES</h2>
-<p class="level0"><pre>
-<p class="level0">An overview of the six time values available from curl_easy_getinfo()
- <p class="level0">curl_easy_perform()
- &nbsp;   |
- &nbsp;   |--NAMELOOKUP
- &nbsp;   |--|--CONNECT
- &nbsp;   |--|--|--APPCONNECT
- &nbsp;   |--|--|--|--PRETRANSFER
- &nbsp;   |--|--|--|--|--STARTTRANSFER
- &nbsp;   |--|--|--|--|--|--TOTAL
- &nbsp;   |--|--|--|--|--|--REDIRECT
- </pre>
-
+<p class="level0">
+<p class="level0">An overview of the six time values available from curl_easy_getinfo() 
+<p class="level0">curl_easy_perform() &nbsp;   | &nbsp;   |--NAMELOOKUP &nbsp;   |--|--CONNECT &nbsp;   |--|--|--APPCONNECT &nbsp;   |--|--|--|--PRETRANSFER &nbsp;   |--|--|--|--|--STARTTRANSFER &nbsp;   |--|--|--|--|--|--TOTAL &nbsp;   |--|--|--|--|--|--REDIRECT 
 <p class="level0">
 <p class="level0"><a name="NAMELOOKUP"></a><span class="nroffip">NAMELOOKUP</span> 
 <p class="level1"><a class="emphasis" href="#CURLINFONAMELOOKUPTIME">CURLINFO_NAMELOOKUP_TIME</a>. The time it took from the start until the name resolving was completed. 
@@ -163,7 +155,7 @@ p.roffit {
 <p class="level0"><a name="PRETRANSFER"></a><span class="nroffip">PRETRANSFER</span> 
 <p class="level1"><a class="emphasis" href="#CURLINFOPRETRANSFERTIME">CURLINFO_PRETRANSFER_TIME</a>. The time it took from the start until the file transfer is just about to begin. This includes all pre-transfer commands and negotiations that are specific to the particular protocol(s) involved. 
 <p class="level0"><a name="STARTTRANSFER"></a><span class="nroffip">STARTTRANSFER</span> 
-<p class="level1"><a class="emphasis" href="#CURLINFOSTARTTRANSFERTIME">CURLINFO_STARTTRANSFER_TIME</a>. The time it took from the start until the first byte is just about to be transferred. 
+<p class="level1"><a class="emphasis" href="#CURLINFOSTARTTRANSFERTIME">CURLINFO_STARTTRANSFER_TIME</a>. The time it took from the start until the first byte is received by libcurl. 
 <p class="level0"><a name="TOTAL"></a><span class="nroffip">TOTAL</span> 
 <p class="level1"><a class="emphasis" href="#CURLINFOTOTALTIME">CURLINFO_TOTAL_TIME</a>. Total time of the previous request. 
 <p class="level0"><a name="REDIRECT"></a><span class="nroffip">REDIRECT</span> 

@@ -64,6 +64,10 @@ occurs within a small time window (usually a fraction of a second) of another
 NORMAL I/O request, the thread that issues the THROTTLE I/O is forced to sleep
 for a certain interval. This slows down the thread that issues the THROTTLE I/O
 so that NORMAL I/Os can utilize most of the disk I/O bandwidth.
+Furthermore, a NORMAL I/O request may bypass a previously issued THROTTLE I/O
+request in kernel or driver queues and be sent to the device first.
+In some circumstances, very large THROTTLE I/O requests will be broken
+into smaller requests which are then issued serially.
 .It IOPOL_PASSIVE
 The PASSIVE I/Os are a special type of NORMAL I/O that are processed the same as
 NORMAL I/Os but are ignored by the THROTTLE I/Os so that the threads issuing
@@ -130,10 +134,51 @@ will fail if:
 .It Bq Er EINVAL
 Policy is not one of the values defined in this manual.
 .El
+.Sh NOTES
+The thread or process with THROTTLE I/O policy enabled will be generally
+prevented from having an adverse effect on the throughput or latency of
+the normal I/Os of other processes.
+However, there are a few considerations that users of the THROTTLE I/O policy should keep in mind:
+.Pp
+Consider using the
+.Dv F_NOCACHE
+.Xr fcntl 2
+command to prevent caching when using the THROTTLE I/O policy.
+This will reduce contention for available caches with NORMAL I/O.
+.Pp
+Large read requests will automatically be broken up into smaller requests
+to avoid stalling NORMAL I/O requests.
+However, due to the consistency guarantees provided to contiguous writes,
+this can not be done automatically for large writes.
+If a thread or process with THROTTLE I/O policy enabled will be issuing
+large writes, consider the use of the
+.Dv F_SINGLE_WRITER
+.Xr fcntl 2
+command.
+This will indicate to the system that there is only one thread writing to
+the file and allow automatic division of large writes.
+.Pp
+Write-heavy THROTTLE I/O workloads may fill a drive’s track (write) cache.
+Subsequent NORMAL I/O writes must then wait for enough of the track cache
+to be flushed before they can continue.
+If the writes issued as THROTTLE I/O are small and not contiguous, many
+seeks may be incurred before space is available for a subsequent NORMAL
+I/O write.
+Issuers of THROTTLE I/O should attempt to issue their writes sequentially
+or to locations in a single small area of the drive (i.e. different
+positions in the same file) to ensure good spacial locality.
+.Pp
+The
+.Dv F_FULLFSYNC
+.Xr fcntl 2
+command can cause very long system-wide IO stalls.
+Users of THROTTLE I/O should issue this command only if absolutely necessary.
 .Sh SEE ALSO
 .Xr nice 3 ,
 .Xr getpriority 2 ,
 .Xr setpriority 2 ,
+.Xr fcntl 2 ,
+.Xr open 2 ,
 .Xr renice 8
 .Sh HISTORY
 The

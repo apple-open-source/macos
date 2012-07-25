@@ -32,7 +32,7 @@
 
 vars = {
   'chromium_svn': 'http://src.chromium.org/svn/trunk/src',
-  'chromium_rev': '84365'
+  'chromium_rev': '135445'
 }
 
 deps = {
@@ -42,10 +42,10 @@ deps = {
   # build tools
   'build':
     Var('chromium_svn')+'/build@'+Var('chromium_rev'),
-  'tools/data_pack':
-    Var('chromium_svn')+'/tools/data_pack@'+Var('chromium_rev'),
   'tools/gyp':
     From('chromium_deps', 'src/tools/gyp'),
+  'tools/clang':
+    Var('chromium_svn')+'/tools/clang@'+Var('chromium_rev'),
 
   # Basic tools
   'base':
@@ -54,12 +54,12 @@ deps = {
   # skia dependencies
   'skia':
     Var('chromium_svn')+'/skia@'+Var('chromium_rev'),
-  'third_party/skia/gpu':
-    From('chromium_deps', 'src/third_party/skia/gpu'),
   'third_party/skia/src':
     From('chromium_deps', 'src/third_party/skia/src'),
   'third_party/skia/include':
     From('chromium_deps', 'src/third_party/skia/include'),
+  'third_party/skia/third_party/glu':
+    From('chromium_deps', 'src/third_party/skia/third_party/glu'),
 
   # testing
   'testing':
@@ -77,6 +77,8 @@ deps = {
     Var('chromium_svn')+'/net@'+Var('chromium_rev'),
   'crypto':
     Var('chromium_svn')+'/crypto@'+Var('chromium_rev'),
+  'dbus':
+    Var('chromium_svn')+'/dbus@'+Var('chromium_rev'),
   'sdch':
     Var('chromium_svn')+'/sdch@'+Var('chromium_rev'),
   'sdch/open-vcdiff':
@@ -87,8 +89,6 @@ deps = {
   # webkit dependencies
   'webkit': Var('chromium_svn')+'/webkit@'+Var('chromium_rev'),
 
-  'app':
-    Var('chromium_svn')+'/app@'+Var('chromium_rev'), # needed by appcache
   'gpu':
     Var('chromium_svn')+'/gpu@'+Var('chromium_rev'),
   'ipc':
@@ -99,6 +99,8 @@ deps = {
     Var('chromium_svn')+'/printing@'+Var('chromium_rev'),
   'ppapi':
     Var('chromium_svn')+'/ppapi@'+Var('chromium_rev'),
+  'sql':
+    Var('chromium_svn')+'/sql@'+Var('chromium_rev'),
   'third_party/angle':  # needed by the gpu process
     From('chromium_deps', 'src/third_party/angle'),
   'third_party/libvpx': # needed by webkit/media
@@ -107,16 +109,20 @@ deps = {
     From('chromium_deps', 'src/third_party/ffmpeg'),
   'third_party/libjingle/source':
     From('chromium_deps', 'src/third_party/libjingle/source'),
-  'third_party/libwebp':
-    Var('chromium_svn')+'/third_party/libwebp@'+Var('chromium_rev'),
   'tools/grit':
-    Var('chromium_svn')+'/tools/grit@'+Var('chromium_rev'),
+    From('chromium_deps', 'src/tools/grit'),
+  'tools/gritsettings':
+    Var('chromium_svn')+'/tools/gritsettings@'+Var('chromium_rev'),
   'tools/generate_stubs':
     Var('chromium_svn')+'/tools/generate_stubs@'+Var('chromium_rev'),
+  'tools/win':
+    Var('chromium_svn')+'/tools/win@'+Var('chromium_rev'),
   'ui':
     Var('chromium_svn')+'/ui@'+Var('chromium_rev'), # needed by app
 
   # other third party
+  'third_party/pyftpdlib/src':
+    From('chromium_deps', 'src/third_party/pyftpdlib/src'),
   'third_party/icu':
     From('chromium_deps', 'src/third_party/icu'),
   'third_party/ots':
@@ -125,10 +131,14 @@ deps = {
     From('chromium_deps', 'src/third_party/yasm/source/patched-yasm'),
   'third_party/libjpeg_turbo':
     From('chromium_deps', 'src/third_party/libjpeg_turbo'),
-  'third_party/leveldb':
-    From('chromium_deps', 'src/third_party/leveldb'),
+  'third_party/leveldatabase/src':
+    From('chromium_deps', 'src/third_party/leveldatabase/src'),
   'third_party/snappy/src':
     From('chromium_deps', 'src/third_party/snappy/src'),
+  'third_party/sfntly/cpp/src':
+    From('chromium_deps', 'src/third_party/sfntly/cpp/src'),
+  'third_party/v8-i18n':
+    From('chromium_deps', 'src/third_party/v8-i18n'),
   'third_party':
     Var('chromium_svn')+'/third_party@'+Var('chromium_rev'),
 }
@@ -137,8 +147,6 @@ deps_os = {
   'win': {
     'third_party/cygwin':
       From('chromium_deps', 'src/third_party/cygwin'),
-    'third_party/ffmpeg/binaries/chromium/win/ia32':
-      From('chromium_deps', 'src/third_party/ffmpeg/binaries/chromium/win/ia32'),
     'third_party/lighttpd':
       From('chromium_deps', 'src/third_party/lighttpd'),
     'third_party/nss':
@@ -155,8 +163,14 @@ deps_os = {
     # Linux, actually.
     'tools/xdisplaycheck':
       Var('chromium_svn')+'/tools/xdisplaycheck@'+Var('chromium_rev'),
+    'third_party/gold':
+      From('chromium_deps', 'src/third_party/gold'),
     'third_party/openssl':
       From('chromium_deps', 'src/third_party/openssl'),
+  },
+  'android': {
+    'third_party/freetype':
+      'https://git.chromium.org/chromium/src/third_party/freetype.git',
   },
 }
 
@@ -193,6 +207,11 @@ include_rules = [
 
 
 hooks = [
+  {
+    # Pull clang on mac.
+    "pattern": ".",
+    "action": ["python", "tools/clang/scripts/update.py", "--mac-only"],
+  },
   {
     # A change to any file in this directory should run the gyp generator.
     'pattern': '.',

@@ -24,9 +24,10 @@
  */
 
 #include "config.h"
-#include "JSDeviceMotionEvent.h"
 
 #if ENABLE(DEVICE_ORIENTATION)
+
+#include "JSDeviceMotionEvent.h"
 
 #include "DeviceMotionData.h"
 #include "DeviceMotionEvent.h"
@@ -163,7 +164,7 @@ JSValue JSDeviceMotionEvent::interval(ExecState*) const
 
 JSValue JSDeviceMotionEvent::initDeviceMotionEvent(ExecState* exec)
 {
-    const String& type = ustringToString(exec->argument(0).toString(exec));
+    const String& type = ustringToString(exec->argument(0).toString(exec)->value(exec));
     bool bubbles = exec->argument(1).toBoolean(exec);
     bool cancelable = exec->argument(2).toBoolean(exec);
 

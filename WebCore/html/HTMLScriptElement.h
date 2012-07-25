@@ -44,11 +44,9 @@ public:
 private:
     HTMLScriptElement(const QualifiedName&, Document*, bool wasInsertedByParser, bool alreadyStarted);
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
     virtual bool isURLAttribute(Attribute*) const;
 
@@ -66,7 +64,7 @@ private:
 
     virtual void dispatchLoadEvent();
 
-    PassRefPtr<Element> cloneElementWithoutAttributesAndChildren() const;
+    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren();
 };
 
 } //namespace

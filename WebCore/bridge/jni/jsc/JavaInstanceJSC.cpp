@@ -33,8 +33,8 @@
 #include "JSDOMBinding.h"
 #include "JavaArrayJSC.h"
 #include "JavaClassJSC.h"
-#include "JavaMethod.h"
-#include "JavaString.h"
+#include "JavaMethodJSC.h"
+#include "JavaStringJSC.h"
 #include "Logging.h"
 #include "jni_jsobject.h"
 #include "runtime_method.h"
@@ -52,7 +52,7 @@ using namespace WebCore;
 JavaInstance::JavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
     : Instance(rootObject)
 {
-    m_instance = new JobjectWrapper(instance);
+    m_instance = JobjectWrapper::create(instance);
     m_class = 0;
 }
 
@@ -81,7 +81,7 @@ void JavaInstance::virtualEnd()
 Class* JavaInstance::getClass() const
 {
     if (!m_class)
-        m_class = new JavaClass (m_instance->m_instance);
+        m_class = new JavaClass (m_instance->instance());
     return m_class;
 }
 
@@ -89,7 +89,7 @@ JSValue JavaInstance::stringValue(ExecState* exec) const
 {
     JSLock lock(SilenceAssertionsOnly);
 
-    jstring stringValue = (jstring)callJNIMethod<jobject>(m_instance->m_instance, "toString", "()Ljava/lang/String;");
+    jstring stringValue = (jstring)callJNIMethod<jobject>(m_instance->instance(), "toString", "()Ljava/lang/String;");
 
     // Should throw a JS exception, rather than returning ""? - but better than a null dereference.
     if (!stringValue)
@@ -104,24 +104,26 @@ JSValue JavaInstance::stringValue(ExecState* exec) const
 
 JSValue JavaInstance::numberValue(ExecState*) const
 {
-    jdouble doubleValue = callJNIMethod<jdouble>(m_instance->m_instance, "doubleValue", "()D");
+    jdouble doubleValue = callJNIMethod<jdouble>(m_instance->instance(), "doubleValue", "()D");
     return jsNumber(doubleValue);
 }
 
 JSValue JavaInstance::booleanValue() const
 {
-    jboolean booleanValue = callJNIMethod<jboolean>(m_instance->m_instance, "booleanValue", "()Z");
+    jboolean booleanValue = callJNIMethod<jboolean>(m_instance->instance(), "booleanValue", "()Z");
     return jsBoolean(booleanValue);
 }
 
 class JavaRuntimeMethod : public RuntimeMethod {
 public:
+    typedef RuntimeMethod Base;
+
     static JavaRuntimeMethod* create(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, Bindings::MethodList& list)
     {
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
         // We need to pass in the right global object for "i".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<JavaRuntimeMethod>(exec);
-        JavaRuntimeMethod* method = new (allocateCell<JavaRuntimeMethod>(*exec->heap())) JavaRuntimeMethod(globalObject, domStructure, list);
+        JavaRuntimeMethod* method = new (NotNull, allocateCell<JavaRuntimeMethod>(*exec->heap())) JavaRuntimeMethod(globalObject, domStructure, list);
         method->finishCreation(exec->globalData(), name);
         return method;
     }
@@ -185,14 +187,14 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
     }
 
     const JavaMethod* jMethod = static_cast<const JavaMethod*>(method);
-    LOG(LiveConnect, "JavaInstance::invokeMethod call %s %s on %p", UString(jMethod->name().impl()).utf8().data(), jMethod->signature(), m_instance->m_instance);
+    LOG(LiveConnect, "JavaInstance::invokeMethod call %s %s on %p", UString(jMethod->name().impl()).utf8().data(), jMethod->signature(), m_instance->instance());
 
     Vector<jvalue> jArgs(count);
 
     for (i = 0; i < count; i++) {
         CString javaClassName = jMethod->parameterAt(i).utf8();
         jArgs[i] = convertValueToJValue(exec, m_rootObject.get(), exec->argument(i), javaTypeFromClassName(javaClassName.data()), javaClassName.data());
-        LOG(LiveConnect, "JavaInstance::invokeMethod arg[%d] = %s", i, exec->argument(i).toString(exec).ascii().data());
+        LOG(LiveConnect, "JavaInstance::invokeMethod arg[%d] = %s", i, exec->argument(i).toString(exec)->value(exec).ascii().data());
     }
 
     jvalue result;
@@ -206,23 +208,16 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
 
     bool handled = false;
     if (rootObject->nativeHandle()) {
-        jobject obj = m_instance->m_instance;
+        jobject obj = m_instance->instance();
         JSValue exceptionDescription;
         const char *callingURL = 0; // FIXME, need to propagate calling URL to Java
         jmethodID methodId = getMethodID(obj, jMethod->name().utf8().data(), jMethod->signature());
         handled = dispatchJNICall(exec, rootObject->nativeHandle(), obj, jMethod->isStatic(), jMethod->returnType(), methodId, jArgs.data(), result, callingURL, exceptionDescription);
         if (exceptionDescription) {
-            throwError(exec, createError(exec, exceptionDescription.toString(exec)));
+            throwError(exec, createError(exec, exceptionDescription.toString(exec)->value(exec)));
             return jsUndefined();
         }
     }
-
-// This is a deprecated code path which should not be required on Android.
-// Remove this guard once Bug 39476 is fixed.
-#if PLATFORM(ANDROID)
-    if (!handled)
-        result = callJNIMethod(m_instance->m_instance, jMethod->returnType(), jMethod->name().utf8().data(), jMethod->signature(), jArgs.data());
-#endif
 
     switch (jMethod->returnType()) {
     case JavaTypeVoid:
@@ -250,7 +245,7 @@ JSValue JavaInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
                         // and so it does between different versions of LiveConnect spec. There should not be multiple code paths to do the same work.
                         if (nativeHandle == 1 /* UndefinedHandle */)
                             return jsUndefined();
-                        return static_cast<JSObject*>(jlong_to_ptr(nativeHandle));
+                        return jlong_to_impptr(nativeHandle);
                     } else
                         return JavaInstance::create(result.l, rootObject)->createRuntimeObject(exec);
                 }

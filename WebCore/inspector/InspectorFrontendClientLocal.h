@@ -32,6 +32,7 @@
 #define InspectorFrontendClientLocal_h
 
 #include "InspectorFrontendClient.h"
+#include "PlatformString.h"
 #include "ScriptState.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -39,6 +40,7 @@
 namespace WebCore {
 
 class InspectorController;
+class InspectorBackendDispatchTask;
 class InspectorFrontendHost;
 class Page;
 
@@ -63,16 +65,39 @@ public:
 
     virtual void requestAttachWindow();
     virtual void requestDetachWindow();
+    virtual void requestSetDockSide(const String&) { }
     virtual void changeAttachedWindowHeight(unsigned);
-    virtual bool canAttachWindow();
-    virtual void saveAs(const String&, const String&) { }
+    virtual void openInNewTab(const String& url);
+    virtual bool canSave() { return false; }
+    virtual void save(const String&, const String&, bool) { }
+    virtual void append(const String&, const String&) { }
 
     virtual void attachWindow() = 0;
     virtual void detachWindow() = 0;
 
     virtual void sendMessageToBackend(const String& message);
 
+    bool canAttachWindow();
+    void setDockingUnavailable(bool);
+
     static unsigned constrainedAttachedWindowHeight(unsigned preferredHeight, unsigned totalWindowHeight);
+
+    // Direct Frontend API
+    bool isDebuggingEnabled();
+    void setDebuggingEnabled(bool);
+
+    bool isTimelineProfilingEnabled();
+    void setTimelineProfilingEnabled(bool);
+
+    bool isProfilingJavaScript();
+    void startProfilingJavaScript();
+    void stopProfilingJavaScript();
+
+    void showConsole();
+
+    void showMainResourceForFrame(Frame*);
+    
+    void showResources();
 
 protected:
     virtual void setAttachedWindowHeight(unsigned) = 0;
@@ -80,6 +105,9 @@ protected:
     void restoreAttachedWindowHeight();
 
 private:
+    bool evaluateAsBoolean(const String& expression);
+    void evaluateOnLoad(const String& expression);
+
     friend class FrontendMenuProvider;
     InspectorController* m_inspectorController;
     Page* m_frontendPage;
@@ -87,6 +115,9 @@ private:
     // TODO(yurys): this ref shouldn't be needed.
     RefPtr<InspectorFrontendHost> m_frontendHost;
     OwnPtr<InspectorFrontendClientLocal::Settings> m_settings;
+    bool m_frontendLoaded;
+    Vector<String> m_evaluateOnLoad;
+    OwnPtr<InspectorBackendDispatchTask> m_dispatchTask;
 };
 
 } // namespace WebCore

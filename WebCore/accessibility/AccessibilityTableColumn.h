@@ -54,16 +54,14 @@ public:
     void setColumnIndex(int columnIndex) { m_columnIndex = columnIndex; }
     int columnIndex() const { return m_columnIndex; }    
     
-    virtual const AccessibilityChildrenVector& children();
     virtual void addChildren();
     virtual void setParent(AccessibilityObject*);
     
-    virtual IntSize size() const;
-    virtual IntRect elementRect() const;
+    virtual LayoutRect elementRect() const;
     
 private:    
-    int m_columnIndex;
-    IntRect m_columnRect;
+    unsigned m_columnIndex;
+    LayoutRect m_columnRect;
     
     AccessibilityObject* headerObjectForSection(RenderTableSection*, bool thTagRequired);
 };

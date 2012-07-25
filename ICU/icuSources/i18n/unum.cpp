@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2010, International Business Machines
+*   Copyright (C) 1996-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 * Modification History:
@@ -24,6 +24,7 @@
 #include "unicode/fmtable.h"
 #include "unicode/dcfmtsym.h"
 #include "unicode/curramt.h"
+#include "unicode/localpointer.h"
 #include "uassert.h"
 #include "cpputils.h"
 #include "cstring.h"
@@ -38,78 +39,45 @@ unum_open(  UNumberFormatStyle    style,
             int32_t            patternLength,
             const    char*     locale,
             UParseError*       parseErr,
-            UErrorCode*        status)
-{
-
-    if(U_FAILURE(*status))
-    {
-        return 0;
+            UErrorCode*        status) {
+    if(U_FAILURE(*status)) {
+        return NULL;
     }
 
-    UNumberFormat *retVal = 0;
+    NumberFormat *retVal = NULL;
 
     switch(style) {
     case UNUM_DECIMAL:
-        if(locale == 0)
-            retVal = (UNumberFormat*)NumberFormat::createInstance(*status);
-        else
-            retVal = (UNumberFormat*)NumberFormat::createInstance(Locale(locale),
-            *status);
-        break;
-
     case UNUM_CURRENCY:
-        if(locale == 0)
-            retVal = (UNumberFormat*)NumberFormat::createCurrencyInstance(*status);
-        else
-            retVal = (UNumberFormat*)NumberFormat::createCurrencyInstance(Locale(locale),
-            *status);
-        break;
-
     case UNUM_PERCENT:
-        if(locale == 0)
-            retVal = (UNumberFormat*)NumberFormat::createPercentInstance(*status);
-        else
-            retVal = (UNumberFormat*)NumberFormat::createPercentInstance(Locale(locale),
-            *status);
-        break;
-
     case UNUM_SCIENTIFIC:
-        if(locale == 0)
-            retVal = (UNumberFormat*)NumberFormat::createScientificInstance(*status);
-        else
-            retVal = (UNumberFormat*)NumberFormat::createScientificInstance(Locale(locale),
-            *status);
+        retVal = NumberFormat::createInstance(Locale(locale), style, *status);
         break;
 
     case UNUM_PATTERN_DECIMAL: {
         UParseError tErr;
         /* UnicodeString can handle the case when patternLength = -1. */
         const UnicodeString pat(pattern, patternLength);
-        DecimalFormatSymbols *syms = 0;
 
         if(parseErr==NULL){
             parseErr = &tErr;
         }
 
-        if(locale == 0)
-            syms = new DecimalFormatSymbols(*status);
-        else
-            syms = new DecimalFormatSymbols(Locale(locale), *status);
-
-        if(syms == 0) {
+        DecimalFormatSymbols *syms = new DecimalFormatSymbols(Locale(locale), *status);
+        if(syms == NULL) {
             *status = U_MEMORY_ALLOCATION_ERROR;
-            return 0;
+            return NULL;
         }
         if (U_FAILURE(*status)) {
             delete syms;
-            return 0;
+            return NULL;
         }
 
-        retVal = (UNumberFormat*)new DecimalFormat(pat, syms, *parseErr, *status);
-        if(retVal == 0) {
+        retVal = new DecimalFormat(pat, syms, *parseErr, *status);
+        if(retVal == NULL) {
             delete syms;
         }
-                               } break;
+    } break;
 
 #if U_HAVE_RBNF
     case UNUM_PATTERN_RULEBASED: {
@@ -121,36 +89,36 @@ unum_open(  UNumberFormatStyle    style,
             parseErr = &tErr;
         }
         
-        retVal = (UNumberFormat*)new RuleBasedNumberFormat(pat, Locale(locale), *parseErr, *status);
+        retVal = new RuleBasedNumberFormat(pat, Locale(locale), *parseErr, *status);
     } break;
 
     case UNUM_SPELLOUT:
-        retVal = (UNumberFormat*)new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale(locale), *status);
+        retVal = new RuleBasedNumberFormat(URBNF_SPELLOUT, Locale(locale), *status);
         break;
 
     case UNUM_ORDINAL:
-        retVal = (UNumberFormat*)new RuleBasedNumberFormat(URBNF_ORDINAL, Locale(locale), *status);
+        retVal = new RuleBasedNumberFormat(URBNF_ORDINAL, Locale(locale), *status);
         break;
 
     case UNUM_DURATION:
-        retVal = (UNumberFormat*)new RuleBasedNumberFormat(URBNF_DURATION, Locale(locale), *status);
+        retVal = new RuleBasedNumberFormat(URBNF_DURATION, Locale(locale), *status);
         break;
 
     case UNUM_NUMBERING_SYSTEM:
-        retVal = (UNumberFormat*)new RuleBasedNumberFormat(URBNF_NUMBERING_SYSTEM, Locale(locale), *status);
+        retVal = new RuleBasedNumberFormat(URBNF_NUMBERING_SYSTEM, Locale(locale), *status);
         break;
 #endif
 
     default:
         *status = U_UNSUPPORTED_ERROR;
-        return 0;
+        return NULL;
     }
 
-    if(retVal == 0 && U_SUCCESS(*status)) {
+    if(retVal == NULL && U_SUCCESS(*status)) {
         *status = U_MEMORY_ALLOCATION_ERROR;
     }
 
-    return retVal;
+    return reinterpret_cast<UNumberFormat *>(retVal);
 }
 
 U_CAPI void U_EXPORT2
@@ -351,24 +319,18 @@ parseRes(Formattable& res,
          const   UChar*          text,
          int32_t         textLength,
          int32_t         *parsePos /* 0 = start */,
-         UBool parseCurrency,
          UErrorCode      *status)
 {
     if(U_FAILURE(*status))
         return;
     
-    int32_t len = (textLength == -1 ? u_strlen(text) : textLength);
-    const UnicodeString src((UChar*)text, len, len);
+    const UnicodeString src((UBool)(textLength == -1), text, textLength);
     ParsePosition pp;
     
     if(parsePos != 0)
         pp.setIndex(*parsePos);
     
-    if (parseCurrency) {
-        ((const NumberFormat*)fmt)->parseCurrency(src, res, pp);
-    } else {
-        ((const NumberFormat*)fmt)->parse(src, res, pp);
-    }
+    ((const NumberFormat*)fmt)->parse(src, res, pp);
     
     if(pp.getErrorIndex() != -1) {
         *status = U_PARSE_ERROR;
@@ -388,7 +350,7 @@ unum_parse(    const   UNumberFormat*  fmt,
         UErrorCode      *status)
 {
     Formattable res;
-    parseRes(res, fmt, text, textLength, parsePos, FALSE, status);
+    parseRes(res, fmt, text, textLength, parsePos, status);
     return res.getLong(*status);
 }
 
@@ -400,7 +362,7 @@ unum_parseInt64(    const   UNumberFormat*  fmt,
         UErrorCode      *status)
 {
     Formattable res;
-    parseRes(res, fmt, text, textLength, parsePos, FALSE, status);
+    parseRes(res, fmt, text, textLength, parsePos, status);
     return res.getInt64(*status);
 }
 
@@ -412,7 +374,7 @@ unum_parseDouble(    const   UNumberFormat*  fmt,
             UErrorCode      *status)
 {
     Formattable res;
-    parseRes(res, fmt, text, textLength, parsePos, FALSE, status);
+    parseRes(res, fmt, text, textLength, parsePos, status);
     return res.getDouble(*status);
 }
 
@@ -433,7 +395,7 @@ unum_parseDecimal(const UNumberFormat*  fmt,
         return -1;
     }
     Formattable res;
-    parseRes(res, fmt, text, textLength, parsePos, FALSE, status);
+    parseRes(res, fmt, text, textLength, parsePos, status);
     StringPiece sp = res.getDecimalNumber(*status);
     if (U_FAILURE(*status)) {
        return -1;
@@ -443,6 +405,7 @@ unum_parseDecimal(const UNumberFormat*  fmt,
         uprv_strncpy(outBuf, sp.data(), sp.size());
         *status = U_STRING_NOT_TERMINATED_WARNING;
     } else {
+        U_ASSERT(outBufLength > 0);
         uprv_strcpy(outBuf, sp.data());
     }
     return sp.size();
@@ -455,15 +418,33 @@ unum_parseDoubleCurrency(const UNumberFormat* fmt,
                          int32_t* parsePos, /* 0 = start */
                          UChar* currency,
                          UErrorCode* status) {
-    Formattable res;
-    parseRes(res, fmt, text, textLength, parsePos, TRUE, status);
+    double doubleVal = 0.0;
     currency[0] = 0;
-    const CurrencyAmount* c;
-    if (res.getType() == Formattable::kObject &&
-        (c = dynamic_cast<const CurrencyAmount*>(res.getObject())) != NULL) {
-        u_strcpy(currency, c->getISOCurrency());
+    if (U_FAILURE(*status)) {
+        return doubleVal;
     }
-    return res.getDouble(*status);
+    const UnicodeString src((UBool)(textLength == -1), text, textLength);
+    ParsePosition pp;
+    if (parsePos != NULL) {
+        pp.setIndex(*parsePos);
+    }
+    *status = U_PARSE_ERROR; // assume failure, reset if succeed
+    LocalPointer<CurrencyAmount> currAmt(((const NumberFormat*)fmt)->parseCurrency(src, pp));
+    if (pp.getErrorIndex() != -1) {
+        if (parsePos != NULL) {
+            *parsePos = pp.getErrorIndex();
+        }
+    } else {
+        if (parsePos != NULL) {
+            *parsePos = pp.getIndex();
+        }
+        if (pp.getIndex() > 0) {
+            *status = U_ZERO_ERROR;
+            u_strcpy(currency, currAmt->getISOCurrency());
+            doubleVal = currAmt->getNumber().getDouble(*status);
+        }
+    }
+    return doubleVal;
 }
 
 U_CAPI const char* U_EXPORT2
@@ -483,6 +464,11 @@ unum_getAttribute(const UNumberFormat*          fmt,
           UNumberFormatAttribute  attr)
 {
   const NumberFormat* nf = reinterpret_cast<const NumberFormat*>(fmt);
+  if ( attr == UNUM_LENIENT_PARSE ) {
+    // Supported for all subclasses
+    return nf->isLenient();
+  }
+  // The remaining attributea are only supported for DecimalFormat
   const DecimalFormat* df = dynamic_cast<const DecimalFormat*>(nf);
   if (df != NULL) {
     switch(attr) {
@@ -542,20 +528,9 @@ unum_getAttribute(const UNumberFormat*          fmt,
     case UNUM_SECONDARY_GROUPING_SIZE:
         return df->getSecondaryGroupingSize();
 
-    case UNUM_LENIENT_PARSE:
-    	return ! df->isParseStrict();
-
     default:
         /* enums out of sync? unsupported enum? */
         break;
-    }
-  } else {
-    const RuleBasedNumberFormat* rbnf = dynamic_cast<const RuleBasedNumberFormat*>(nf);
-    U_ASSERT(rbnf != NULL);
-    if (attr == UNUM_LENIENT_PARSE) {
-#if !UCONFIG_NO_COLLATION
-      return rbnf->isLenient();
-#endif
     }
   }
 
@@ -568,6 +543,11 @@ unum_setAttribute(    UNumberFormat*          fmt,
             int32_t                 newValue)
 {
   NumberFormat* nf = reinterpret_cast<NumberFormat*>(fmt);
+  if ( attr == UNUM_LENIENT_PARSE ) {
+    // Supported for all subclasses
+    return nf->setLenient(newValue != 0);
+  }
+  // The remaining attributea are only supported for DecimalFormat
   DecimalFormat* df = dynamic_cast<DecimalFormat*>(nf);
   if (df != NULL) {
     switch(attr) {
@@ -646,21 +626,9 @@ unum_setAttribute(    UNumberFormat*          fmt,
         df->setSecondaryGroupingSize(newValue);
         break;
 
-    case UNUM_LENIENT_PARSE:
-    	df->setParseStrict(newValue == 0);
-    	break;
-
     default:
         /* Shouldn't get here anyway */
         break;
-    }
-  } else {
-    RuleBasedNumberFormat* rbnf = dynamic_cast<RuleBasedNumberFormat*>(nf);
-    U_ASSERT(rbnf != NULL);
-    if (attr == UNUM_LENIENT_PARSE) {
-#if !UCONFIG_NO_COLLATION
-      rbnf->setLenient((UBool)newValue);
-#endif
     }
   }
 }
@@ -769,8 +737,7 @@ unum_setTextAttribute(    UNumberFormat*                    fmt,
     if(U_FAILURE(*status))
         return;
 
-    int32_t len = (newValueLength == -1 ? u_strlen(newValue) : newValueLength);
-    const UnicodeString val((UChar*)newValue, len, len);
+    UnicodeString val(newValue, newValueLength);
     NumberFormat* nf = reinterpret_cast<NumberFormat*>(fmt);
     DecimalFormat* df = dynamic_cast<DecimalFormat*>(nf);
     if (df != NULL) {
@@ -792,11 +759,11 @@ unum_setTextAttribute(    UNumberFormat*                    fmt,
         break;
         
       case UNUM_PADDING_CHARACTER:
-        df->setPadCharacter(*newValue);
+        df->setPadCharacter(val);
         break;
         
       case UNUM_CURRENCY_CODE:
-        df->setCurrency(newValue, *status);
+        df->setCurrency(val.getTerminatedBuffer(), *status);
         break;
         
       default:
@@ -807,7 +774,7 @@ unum_setTextAttribute(    UNumberFormat*                    fmt,
       RuleBasedNumberFormat* rbnf = dynamic_cast<RuleBasedNumberFormat*>(nf);
       U_ASSERT(rbnf != NULL);
       if (tag == UNUM_DEFAULT_RULESET) {
-        rbnf->setDefaultRuleSet(newValue, *status);
+        rbnf->setDefaultRuleSet(val, *status);
       } else {
         *status = U_UNSUPPORTED_ERROR;
       }
@@ -856,7 +823,7 @@ unum_getSymbol(const UNumberFormat *fmt,
     if(status==NULL || U_FAILURE(*status)) {
         return 0;
     }
-    if(fmt==NULL || (uint16_t)symbol>=UNUM_FORMAT_SYMBOL_COUNT) {
+    if(fmt==NULL || symbol< 0 || symbol>=UNUM_FORMAT_SYMBOL_COUNT) {
         *status=U_ILLEGAL_ARGUMENT_ERROR;
         return 0;
     }
@@ -883,7 +850,7 @@ unum_setSymbol(UNumberFormat *fmt,
     if(status==NULL || U_FAILURE(*status)) {
         return;
     }
-    if(fmt==NULL || (uint16_t)symbol>=UNUM_FORMAT_SYMBOL_COUNT || value==NULL || length<-1) {
+    if(fmt==NULL || symbol< 0 || symbol>=UNUM_FORMAT_SYMBOL_COUNT || value==NULL || length<-1) {
         *status=U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }

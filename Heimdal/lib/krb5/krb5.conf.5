@@ -163,7 +163,7 @@ manual page.
 .It ...
 .It Li }
 .El
-This is deprecated, see the 
+This is deprecated, see the
 .Li capaths
 section below.
 .It Li default_cc_type = Va cctype
@@ -177,7 +177,14 @@ Only support variable now is
 .Li %{uid}
 that expands to the current user id.
 .It Li default_etypes = Va etypes ...
-A list of default encryption types to use.
+A list of default encryption types to use. (Default: all enctypes if
+allow_weak_crypto = TRUE, else all enctypes except single DES enctypes.)
+.It Li default_as_etypes = Va etypes ...
+A list of default encryption types to use in AS requests.  (Default: the
+value of default_etypes.)
+.It Li default_tgs_etypes = Va etypes ...
+A list of default encryption types to use in TGS requests.  (Default:
+the value of default_etypes.)
 .It Li default_etypes_des = Va etypes ...
 A list of default encryption types to use when requesting a DES credential.
 .It Li default_keytab_name = Va keytab
@@ -250,6 +257,11 @@ older than Heimdal 0.7.
 Setting this flag to
 .Dv TRUE
 make it store the MIT way, this is default for Heimdal 0.7.
+.It Li check-rd-req-server
+If set to "ignore", the framework will ignore any the server input to
+.Xr krb5_rd_req 3,
+this is very useful when the GSS-API server input the
+wrong server name into the gss_accept_sec_context call.
 .El
 .It Li [domain_realm]
 This is a list of mappings from DNS domain to Kerberos realm.
@@ -335,7 +347,7 @@ obtain credentials for a service in the
 .Va server-realm .
 Secondly, it tells the KDC (and other servers) which realms are
 allowed in a multi-hop traversal from
-.Va client-realm 
+.Va client-realm
 to
 .Va server-realm .
 Except for the client case, the order of the realms are not important.
@@ -360,7 +372,7 @@ manual page for a list of defined destinations.
 .Bl -tag -width "xxx" -offset indent
 .It Li dbname Li = Va DATABASENAME
 Use this database for this realm.
-See the info documetation how to configure diffrent database backends.
+See the info documetation how to configure different database backends.
 .It Li realm Li = Va REALM
 Specifies the realm that will be stored in this database.
 It realm isn't set, it will used as the default database, there can
@@ -402,6 +414,24 @@ Default is the same as
 Should the kdc answer kdc-requests over http.
 .It Li enable-kaserver = Va BOOL
 If this kdc should emulate the AFS kaserver.
+.It Li as-use-strongest-session-key = Va BOOL
+If this is TRUE then the KDC will prefer the strongest key from the
+client's AS-REQ enctype list, that is also supported by the KDC and the
+target principal, for the ticket session key. Else it will prefer the
+first key from the client's AS-REQ enctype list that is also supported
+by the KDC and the target principal. Defaults to TRUE.
+.It Li preauth-use-strongest-session-key = Va BOOL
+Like as-use-strongest-session-key, but applies to the session key
+enctype selection for PA-ETYPE-INFO2 (i.e., for password-based
+pre-authentication). Defaults to TRUE.
+.It Li tgs-use-strongest-session-key = Va BOOL
+Like as-use-strongest-session-key, but applies to the session key
+enctype of tickets issued by the TGS. Defaults to TRUE.
+.It Li use-strongest-server-key = Va BOOL
+If TRUE then the KDC picks, for the ticket encrypted part's key, the
+first supported enctype from the target service principal's hdb entry's
+current keyset. Else the KDC picks the first supported enctype from the
+target service principal's hdb entry's current keyset. Defaults to TRUE.
 .It Li check-ticket-addresses = Va BOOL
 Verify the addresses in the tickets used in tgs requests.
 .\" XXX
@@ -476,7 +506,7 @@ When true, this is the same as
 .Pp
 and is only left for backwards compatibility.
 .El
-.It Li [password-quality]
+.It Li [password_quality]
 Check the Password quality assurance in the info documentation for
 more information.
 .Bl -tag -width "xxx" -offset indent

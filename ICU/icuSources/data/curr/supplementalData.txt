@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/supplementalData.xml
@@ -205,6 +205,11 @@ supplementalData:table(nofallback){
         }
         AQ{
             {
+                id{"XXX"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
             }
         }
         AR{
@@ -514,6 +519,20 @@ supplementalData:table(nofallback){
                     -761470784,
                 }
             }
+            {
+                id{"BEL"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"BEC"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         BF{
             {
@@ -672,6 +691,13 @@ supplementalData:table(nofallback){
                     -1881407904,
                 }
             }
+            {
+                id{"BOV"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         BR{
             {
@@ -770,10 +796,6 @@ supplementalData:table(nofallback){
                 from:intvector{ /** 1907-01-01  */
                     -463,
                     419518048,
-                }
-                to:intvector{ /** 1974-04-16  */
-                    29,
-                    -1322378880,
                 }
             }
         }
@@ -945,6 +967,20 @@ supplementalData:table(nofallback){
                     -336896224,
                 }
             }
+            {
+                id{"CHE"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"CHW"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         CI{
             {
@@ -983,6 +1019,13 @@ supplementalData:table(nofallback){
                     1272350048,
                 }
             }
+            {
+                id{"CLF"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         CM{
             {
@@ -1001,6 +1044,13 @@ supplementalData:table(nofallback){
                     413492000,
                 }
             }
+            {
+                id{"CNX"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         CO{
             {
@@ -1008,6 +1058,13 @@ supplementalData:table(nofallback){
                 from:intvector{ /** 1905-01-01  */
                     -478,
                     1772027488,
+                }
+            }
+            {
+                id{"COU"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
                 }
             }
         }
@@ -1259,6 +1316,13 @@ supplementalData:table(nofallback){
                     1878994880,
                 }
             }
+            {
+                id{"ECV"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         EE{
             {
@@ -1346,6 +1410,20 @@ supplementalData:table(nofallback){
                 to:intvector{ /** 2002-02-28  */
                     235,
                     -1436161856,
+                }
+            }
+            {
+                id{"ESA"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"ESB"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
                 }
             }
         }
@@ -2337,6 +2415,20 @@ supplementalData:table(nofallback){
                     -1436161856,
                 }
             }
+            {
+                id{"LUC"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"LUL"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         LV{
             {
@@ -2724,6 +2816,17 @@ supplementalData:table(nofallback){
                     -736730976,
                 }
             }
+            {
+                id{"MVP"}
+                from:intvector{ /** 1947-01-01  */
+                    -169,
+                    3133024,
+                }
+                to:intvector{ /** 1981-07-01  */
+                    80,
+                    -736730976,
+                }
+            }
         }
         MW{
             {
@@ -2751,6 +2854,13 @@ supplementalData:table(nofallback){
                 to:intvector{ /** 1992-12-31  */
                     162,
                     1032018048,
+                }
+            }
+            {
+                id{"MXV"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
                 }
             }
         }
@@ -3612,6 +3722,26 @@ supplementalData:table(nofallback){
                 }
             }
         }
+        SS{
+            {
+                id{"SSP"}
+                from:intvector{ /** 2011-07-18  */
+                    301,
+                    -1770903392,
+                }
+            }
+            {
+                id{"SDG"}
+                from:intvector{ /** 2007-01-10  */
+                    272,
+                    156155488,
+                }
+                to:intvector{ /** 2011-09-01  */
+                    301,
+                    1055383904,
+                }
+            }
+        }
         ST{
             {
                 id{"STD"}
@@ -4018,6 +4148,20 @@ supplementalData:table(nofallback){
                     694083168,
                 }
             }
+            {
+                id{"USN"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"USS"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         UY{
             {
@@ -4036,6 +4180,13 @@ supplementalData:table(nofallback){
                 to:intvector{ /** 1993-03-01  */
                     168,
                     -2893024,
+                }
+            }
+            {
+                id{"UYI"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
                 }
             }
         }
@@ -4269,6 +4420,13 @@ supplementalData:table(nofallback){
                     594361536,
                 }
             }
+            {
+                id{"ZAL"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
         }
         ZM{
             {
@@ -4353,6 +4511,127 @@ supplementalData:table(nofallback){
                 to:intvector{ /** 1980-04-18  */
                     73,
                     -825739904,
+                }
+            }
+        }
+        ZZ{
+            {
+                id{"XAG"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XAU"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XBA"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XBB"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XBC"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XBD"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XDR"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XEU"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XFO"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XFU"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XPD"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XPT"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XRE"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XSU"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XTS"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XUA"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
+                }
+            }
+            {
+                id{"XXX"}
+                from:intvector{ /** 9999-12-31  */
+                    58993,
+                    351827072,
                 }
             }
         }

@@ -35,7 +35,7 @@ use File::Spec::Functions;
 
 my $srcRoot = realpath(File::Spec->catfile(dirname(abs_path($0)), "../.."));
 my $incFromRoot = abs_path($ARGV[0]);
-my @platformPrefixes = ("brew", "cf", "chromium", "curl", "efl", "gtk", "haiku", "mac", "qt", "soup", "v8", "win", "wx");
+my @platformPrefixes = ("blackberry", "cf", "chromium", "curl", "efl", "gtk", "mac", "qt", "soup", "v8", "win", "wx");
 my @frameworks = ( "JavaScriptCore", "WebCore", "WebKit2");
 my @skippedPrefixes;
 my @frameworkHeaders;
@@ -64,7 +64,7 @@ foreach (@frameworks) {
 sub collectNeededHeaders {
     my $filePath = $File::Find::name;
     my $file = $_;
-    if ($filePath =~ '\.h$|\.cpp$|\.c$') {
+    if ($filePath =~ '\.h$|\.cpp$|\.c$|\.mm$') {
         open(FILE, "<$file") or die "Could not open $filePath.\n";
         while (<FILE>) {
            if (m/^#.*<$framework\/(.*\.h)/) {

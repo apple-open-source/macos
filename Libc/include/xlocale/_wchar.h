@@ -31,10 +31,8 @@ wint_t	fgetwc_l(FILE *, locale_t);
 wchar_t	*fgetws_l(wchar_t * __restrict, int, FILE * __restrict, locale_t);
 wint_t	fputwc_l(wchar_t, FILE *, locale_t);
 int	fputws_l(const wchar_t * __restrict, FILE * __restrict, locale_t);
-int	fwprintf_l(FILE * __restrict, locale_t, const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(fwprintf_l);
-int	fwscanf_l(FILE * __restrict, locale_t, const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(fwscanf_l);
+int	fwprintf_l(FILE * __restrict, locale_t, const wchar_t * __restrict, ...);
+int	fwscanf_l(FILE * __restrict, locale_t, const wchar_t * __restrict, ...);
 wint_t	getwc_l(FILE *, locale_t);
 wint_t	getwchar_l(locale_t);
 size_t	mbrlen_l(const char * __restrict, size_t, mbstate_t * __restrict,
@@ -47,19 +45,15 @@ size_t	mbsrtowcs_l(wchar_t * __restrict, const char ** __restrict, size_t,
 wint_t	putwc_l(wchar_t, FILE *, locale_t);
 wint_t	putwchar_l(wchar_t, locale_t);
 int	swprintf_l(wchar_t * __restrict, size_t n, locale_t,
-		const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(swprintf_l);
+		const wchar_t * __restrict, ...);
 int	swscanf_l(const wchar_t * __restrict, locale_t,
-		const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(swscanf_l);
+		const wchar_t * __restrict, ...);
 wint_t	ungetwc_l(wint_t, FILE *, locale_t);
 int	vfwprintf_l(FILE * __restrict, locale_t, const wchar_t * __restrict,
-		__darwin_va_list) __DARWIN_LDBL_COMPAT2(vfwprintf_l);
+		__darwin_va_list);
 int	vswprintf_l(wchar_t * __restrict, size_t n, locale_t,
-		const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vswprintf_l);
-int	vwprintf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vwprintf_l);
+		const wchar_t * __restrict, __darwin_va_list);
+int	vwprintf_l(locale_t, const wchar_t * __restrict, __darwin_va_list);
 size_t	wcrtomb_l(char * __restrict, wchar_t, mbstate_t * __restrict,
 	    locale_t);
 int	wcscoll_l(const wchar_t *, const wchar_t *, locale_t);
@@ -89,10 +83,8 @@ size_t	wcsxfrm_l(wchar_t * __restrict, const wchar_t * __restrict, size_t,
 	    locale_t);
 int	wctob_l(wint_t, locale_t);
 int	wcwidth_l(wchar_t, locale_t);
-int	wprintf_l(locale_t, const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(wprintf_l);
-int	wscanf_l(locale_t, const wchar_t * __restrict, ...)
-		__DARWIN_LDBL_COMPAT2(wscanf_l);
+int	wprintf_l(locale_t, const wchar_t * __restrict, ...);
+int	wscanf_l(locale_t, const wchar_t * __restrict, ...);
 __END_DECLS
  
  
@@ -104,16 +96,13 @@ __END_DECLS
 #if __DARWIN_C_LEVEL >= 200112L
 __BEGIN_DECLS
 int	vfwscanf_l(FILE * __restrict, locale_t, const wchar_t * __restrict,
-		__darwin_va_list) __DARWIN_LDBL_COMPAT2(vfwscanf_l);
+		__darwin_va_list);
 int	vswscanf_l(const wchar_t * __restrict, locale_t,
-		const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vswscanf_l);
-int	vwscanf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vwscanf_l);
+		const wchar_t * __restrict, __darwin_va_list);
+int	vwscanf_l(locale_t, const wchar_t * __restrict, __darwin_va_list);
 float	wcstof_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t);
 long double
-	wcstold_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t)
-	    __DARWIN_LDBL_COMPAT2(wcstold_l);
+	wcstold_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t);
 #if !__DARWIN_NO_LONG_LONG
 long long
 	wcstoll_l(const wchar_t * __restrict, wchar_t ** __restrict, int,

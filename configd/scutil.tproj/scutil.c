@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,11 +97,16 @@ static const struct option longopts[] = {
 	{ "dns",		no_argument,		NULL,	0	},
 	{ "get",		required_argument,	NULL,	0	},
 	{ "help",		no_argument,		NULL,	'?'	},
+	{ "nc",			required_argument,	NULL,	0	},
 	{ "net",		no_argument,		NULL,	0	},
+	{ "nwi",		no_argument,		NULL,	0	},
 	{ "prefs",		no_argument,		NULL,	0	},
 	{ "proxy",		no_argument,		NULL,	0	},
 	{ "set",		required_argument,	NULL,	0	},
-	{ "nc",			required_argument,	NULL,	0	},
+	{ "snapshot",		no_argument,		NULL,	0	},
+	{ "user",		required_argument,	NULL,	0	},
+	{ "password",		required_argument,	NULL,	0	},
+	{ "secret",		required_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
@@ -299,6 +304,9 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s --proxy\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tshow \"proxy\" configuration.\n"));
+	SCPrint(TRUE, stderr, CFSTR("\n"));
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --nwi\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("\tshow network information\n"));
 
 	if (getenv("ENABLE_EXPERIMENTAL_SCUTIL_COMMANDS")) {
 		SCPrint(TRUE, stderr, CFSTR("\n"));
@@ -322,9 +330,11 @@ main(int argc, char * const argv[])
 {
 	Boolean			doDNS	= FALSE;
 	Boolean			doNet	= FALSE;
+	Boolean			doNWI	= FALSE;
 	Boolean			doPrefs	= FALSE;
 	Boolean			doProxy	= FALSE;
 	Boolean			doReach	= FALSE;
+	Boolean			doSnap	= FALSE;
 	char			*get	= NULL;
 	extern int		optind;
 	int			opt;
@@ -377,8 +387,14 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "get") == 0) {
 				get = optarg;
 				xStore++;
+			} else if (strcmp(longopts[opti].name, "nc") == 0) {
+				nc_cmd = optarg;
+				xStore++;
 			} else if (strcmp(longopts[opti].name, "net") == 0) {
 				doNet = TRUE;
+				xStore++;
+			} else if (strcmp(longopts[opti].name, "nwi") == 0) {
+				doNWI = TRUE;
 				xStore++;
 			} else if (strcmp(longopts[opti].name, "prefs") == 0) {
 				doPrefs = TRUE;
@@ -389,9 +405,15 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "set") == 0) {
 				set = optarg;
 				xStore++;
-			} else if (strcmp(longopts[opti].name, "nc") == 0) {
-				nc_cmd = optarg;
+			} else if (strcmp(longopts[opti].name, "snapshot") == 0) {
+				doSnap = TRUE;
 				xStore++;
+			} else if (strcmp(longopts[opti].name, "user") == 0) {
+				username = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+			} else if (strcmp(longopts[opti].name, "password") == 0) {
+				password = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+			} else if (strcmp(longopts[opti].name, "secret") == 0) {
+				sharedsecret = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
 			}
 			break;
 		case '?':
@@ -428,6 +450,21 @@ main(int argc, char * const argv[])
 	if (doDNS) {
 		do_showDNSConfiguration(argc, (char **)argv);
 		/* NOT REACHED */
+	}
+
+	if (doNWI) {
+		do_nwi(argc, (char**)argv);
+		/* NOT REACHED */
+	}
+
+	if (doSnap) {
+		if (!enablePrivateAPI || (geteuid() != 0)) {
+			usage(prog);
+		}
+
+		do_open(0, NULL);	/* open the dynamic store */
+		do_snapshot(argc, (char**)argv);
+		exit(0);
 	}
 
 	/* are we looking up a preference value */

@@ -1,8 +1,8 @@
 /* tools.c - tools for slap tools */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/tools.c,v 1.105.2.19 2010/04/14 23:54:26 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -90,14 +90,18 @@ static ldap_pvt_thread_cond_t bdb_tool_index_cond_work;
 #ifdef USE_TRICKLE
 static ldap_pvt_thread_mutex_t bdb_tool_trickle_mutex;
 static ldap_pvt_thread_cond_t bdb_tool_trickle_cond;
+static ldap_pvt_thread_cond_t bdb_tool_trickle_cond_end;
 
 static void * bdb_tool_trickle_task( void *ctx, void *ptr );
+static int bdb_tool_trickle_active;
 #endif
 
 static void * bdb_tool_index_task( void *ctx, void *ptr );
 
 static int
 bdb_tool_entry_get_int( BackendDB *be, ID id, Entry **ep );
+
+static int bdb_tool_threads;
 
 int bdb_tool_entry_open(
 	BackendDB *be, int mode )
@@ -127,6 +131,7 @@ int bdb_tool_entry_open(
 #ifdef USE_TRICKLE
 			ldap_pvt_thread_mutex_init( &bdb_tool_trickle_mutex );
 			ldap_pvt_thread_cond_init( &bdb_tool_trickle_cond );
+			ldap_pvt_thread_cond_init( &bdb_tool_trickle_cond_end );
 			ldap_pvt_thread_pool_submit( &connection_pool, bdb_tool_trickle_task, bdb->bi_dbenv );
 #endif
 
@@ -135,14 +140,17 @@ int bdb_tool_entry_open(
 			ldap_pvt_thread_cond_init( &bdb_tool_index_cond_work );
 			if ( bdb->bi_nattrs ) {
 				int i;
-				bdb_tool_index_threads = ch_malloc( slap_tool_thread_max * sizeof( int ));
-				bdb_tool_index_rec = ch_malloc( bdb->bi_nattrs * sizeof( IndexRec ));
-				bdb_tool_index_tcount = slap_tool_thread_max - 1;
-				for (i=1; i<slap_tool_thread_max; i++) {
-					int *ptr = ch_malloc( sizeof( int ));
-					*ptr = i;
-					ldap_pvt_thread_pool_submit( &connection_pool,
-						bdb_tool_index_task, ptr );
+				bdb_tool_threads = slap_tool_thread_max - 1;
+				if ( bdb_tool_threads > 1 ) {
+					bdb_tool_index_threads = ch_malloc( bdb_tool_threads * sizeof( int ));
+					bdb_tool_index_rec = ch_malloc( bdb->bi_nattrs * sizeof( IndexRec ));
+					bdb_tool_index_tcount = bdb_tool_threads - 1;
+					for (i=1; i<bdb_tool_threads; i++) {
+						int *ptr = ch_malloc( sizeof( int ));
+						*ptr = i;
+						ldap_pvt_thread_pool_submit( &connection_pool,
+							bdb_tool_index_task, ptr );
+					}
 				}
 			}
 			bdb_tool_info = bdb;
@@ -159,13 +167,43 @@ int bdb_tool_entry_close(
 		slapd_shutdown = 1;
 #ifdef USE_TRICKLE
 		ldap_pvt_thread_mutex_lock( &bdb_tool_trickle_mutex );
+
+		/* trickle thread may not have started yet */
+		while ( !bdb_tool_trickle_active )
+			ldap_pvt_thread_cond_wait( &bdb_tool_trickle_cond_end,
+					&bdb_tool_trickle_mutex );
+
 		ldap_pvt_thread_cond_signal( &bdb_tool_trickle_cond );
+		while ( bdb_tool_trickle_active )
+			ldap_pvt_thread_cond_wait( &bdb_tool_trickle_cond_end,
+					&bdb_tool_trickle_mutex );
 		ldap_pvt_thread_mutex_unlock( &bdb_tool_trickle_mutex );
 #endif
-		ldap_pvt_thread_mutex_lock( &bdb_tool_index_mutex );
-		bdb_tool_index_tcount = slap_tool_thread_max - 1;
-		ldap_pvt_thread_cond_broadcast( &bdb_tool_index_cond_work );
-		ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
+		if ( bdb_tool_threads > 1 ) {
+			ldap_pvt_thread_mutex_lock( &bdb_tool_index_mutex );
+
+			/* There might still be some threads starting */
+			while ( bdb_tool_index_tcount > 0 ) {
+				ldap_pvt_thread_cond_wait( &bdb_tool_index_cond_main,
+						&bdb_tool_index_mutex );
+			}
+
+			bdb_tool_index_tcount = bdb_tool_threads - 1;
+			ldap_pvt_thread_cond_broadcast( &bdb_tool_index_cond_work );
+
+			/* Make sure all threads are stopped */
+			while ( bdb_tool_index_tcount > 0 ) {
+				ldap_pvt_thread_cond_wait( &bdb_tool_index_cond_main,
+					&bdb_tool_index_mutex );
+			}
+			ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
+
+			ch_free( bdb_tool_index_threads );
+			ch_free( bdb_tool_index_rec );
+			bdb_tool_index_tcount = bdb_tool_threads - 1;
+		}
+		bdb_tool_info = NULL;
+		slapd_shutdown = 0;
 	}
 
 	if( eh.bv.bv_val ) {
@@ -214,10 +252,12 @@ ID bdb_tool_entry_next(
 {
 	int rc;
 	ID id;
-	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
+	struct bdb_info *bdb;
 
 	assert( be != NULL );
 	assert( slapMode & SLAP_TOOL_MODE );
+
+	bdb = (struct bdb_info *) be->be_private;
 	assert( bdb != NULL );
 
 next:;
@@ -547,7 +587,7 @@ bdb_tool_index_add(
 	if ( !bdb->bi_nattrs )
 		return 0;
 
-	if ( slapMode & SLAP_TOOL_QUICK ) {
+	if ( bdb_tool_threads > 1 ) {
 		IndexRec *ir;
 		int i, rc;
 		Attribute *a;
@@ -565,20 +605,20 @@ bdb_tool_index_add(
 		bdb_tool_ix_op = op;
 		ldap_pvt_thread_mutex_lock( &bdb_tool_index_mutex );
 		/* Wait for all threads to be ready */
-		while ( bdb_tool_index_tcount ) {
+		while ( bdb_tool_index_tcount > 0 ) {
 			ldap_pvt_thread_cond_wait( &bdb_tool_index_cond_main, 
 				&bdb_tool_index_mutex );
 		}
-		for ( i=1; i<slap_tool_thread_max; i++ )
+		for ( i=1; i<bdb_tool_threads; i++ )
 			bdb_tool_index_threads[i] = LDAP_BUSY;
-		bdb_tool_index_tcount = slap_tool_thread_max - 1;
+		bdb_tool_index_tcount = bdb_tool_threads - 1;
 		ldap_pvt_thread_cond_broadcast( &bdb_tool_index_cond_work );
 		ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
 		rc = bdb_index_recrun( op, bdb, ir, e->e_id, 0 );
 		if ( rc )
 			return rc;
 		ldap_pvt_thread_mutex_lock( &bdb_tool_index_mutex );
-		for ( i=1; i<slap_tool_thread_max; i++ ) {
+		for ( i=1; i<bdb_tool_threads; i++ ) {
 			if ( bdb_tool_index_threads[i] == LDAP_BUSY ) {
 				ldap_pvt_thread_cond_wait( &bdb_tool_index_cond_main, 
 					&bdb_tool_index_mutex );
@@ -603,7 +643,7 @@ ID bdb_tool_entry_put(
 	struct berval *text )
 {
 	int rc;
-	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
+	struct bdb_info *bdb;
 	DB_TXN *tid = NULL;
 	Operation op = {0};
 	Opheader ohdr = {0};
@@ -617,6 +657,8 @@ ID bdb_tool_entry_put(
 
 	Debug( LDAP_DEBUG_TRACE, "=> " LDAP_XSTRING(bdb_tool_entry_put)
 		"( %ld, \"%s\" )\n", (long) e->e_id, e->e_dn, 0 );
+
+	bdb = (struct bdb_info *) be->be_private;
 
 	if (! (slapMode & SLAP_TOOL_QUICK)) {
 	rc = TXN_BEGIN( bdb->bi_dbenv, NULL, &tid, 
@@ -718,12 +760,11 @@ int bdb_tool_entry_reindex(
 	Operation op = {0};
 	Opheader ohdr = {0};
 
-	assert( tool_base == NULL );
-	assert( tool_filter == NULL );
-
 	Debug( LDAP_DEBUG_ARGS,
 		"=> " LDAP_XSTRING(bdb_tool_entry_reindex) "( %ld )\n",
 		(long) id, 0, 0 );
+	assert( tool_base == NULL );
+	assert( tool_filter == NULL );
 
 	/* No indexes configured, nothing to do. Could return an
 	 * error here to shortcut things.
@@ -852,7 +893,7 @@ ID bdb_tool_entry_modify(
 	struct berval *text )
 {
 	int rc;
-	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
+	struct bdb_info *bdb;
 	DB_TXN *tid = NULL;
 	Operation op = {0};
 	Opheader ohdr = {0};
@@ -869,6 +910,8 @@ ID bdb_tool_entry_modify(
 	Debug( LDAP_DEBUG_TRACE,
 		"=> " LDAP_XSTRING(bdb_tool_entry_modify) "( %ld, \"%s\" )\n",
 		(long) e->e_id, e->e_dn, 0 );
+
+	bdb = (struct bdb_info *) be->be_private;
 
 	if (! (slapMode & SLAP_TOOL_QUICK)) {
 		if( cursor ) {
@@ -1231,6 +1274,8 @@ bdb_tool_trickle_task( void *ctx, void *ptr )
 	int wrote;
 
 	ldap_pvt_thread_mutex_lock( &bdb_tool_trickle_mutex );
+	bdb_tool_trickle_active = 1;
+	ldap_pvt_thread_cond_signal( &bdb_tool_trickle_cond_end );
 	while ( 1 ) {
 		ldap_pvt_thread_cond_wait( &bdb_tool_trickle_cond,
 			&bdb_tool_trickle_mutex );
@@ -1238,6 +1283,8 @@ bdb_tool_trickle_task( void *ctx, void *ptr )
 			break;
 		env->memp_trickle( env, 30, &wrote );
 	}
+	bdb_tool_trickle_active = 0;
+	ldap_pvt_thread_cond_signal( &bdb_tool_trickle_cond_end );
 	ldap_pvt_thread_mutex_unlock( &bdb_tool_trickle_mutex );
 
 	return NULL;
@@ -1257,9 +1304,14 @@ bdb_tool_index_task( void *ctx, void *ptr )
 			ldap_pvt_thread_cond_signal( &bdb_tool_index_cond_main );
 		ldap_pvt_thread_cond_wait( &bdb_tool_index_cond_work,
 			&bdb_tool_index_mutex );
-		ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
-		if ( slapd_shutdown )
+		if ( slapd_shutdown ) {
+			bdb_tool_index_tcount--;
+			if ( !bdb_tool_index_tcount )
+				ldap_pvt_thread_cond_signal( &bdb_tool_index_cond_main );
+			ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
 			break;
+		}
+		ldap_pvt_thread_mutex_unlock( &bdb_tool_index_mutex );
 
 		bdb_tool_index_threads[base] = bdb_index_recrun( bdb_tool_ix_op,
 			bdb_tool_info, bdb_tool_index_rec, bdb_tool_ix_id, base );

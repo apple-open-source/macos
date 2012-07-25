@@ -37,6 +37,7 @@
 #include "Frame.h"
 #include "FrameLoaderClientImpl.h"
 #include "PlatformString.h"
+#include <wtf/Compiler.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 
@@ -56,11 +57,12 @@ class ChromePrintContext;
 class WebDataSourceImpl;
 class WebInputElement;
 class WebFrameClient;
-class WebPasswordAutocompleteListener;
 class WebPerformance;
 class WebPluginContainerImpl;
 class WebView;
 class WebViewImpl;
+
+template <typename T> class WebVector;
 
 // Implementation of WebFrame, note that this is a reference counted object.
 class WebFrameImpl : public WebFrame, public RefCounted<WebFrameImpl> {
@@ -69,19 +71,21 @@ public:
     virtual WebString name() const;
     virtual void setName(const WebString&);
     virtual long long identifier() const;
-    virtual WebURL url() const;
     virtual WebVector<WebIconURL> iconURLs(int iconTypes) const;
-    virtual WebURL openSearchDescriptionURL() const;
-    virtual WebString encoding() const;
+    virtual WebReferrerPolicy referrerPolicy() const;
     virtual WebSize scrollOffset() const;
     virtual void setScrollOffset(const WebSize&);
+    virtual WebSize minimumScrollOffset() const;
+    virtual WebSize maximumScrollOffset() const;
     virtual WebSize contentsSize() const;
     virtual int contentsPreferredWidth() const;
     virtual int documentElementScrollHeight() const;
     virtual bool hasVisibleContent() const;
+    virtual bool hasHorizontalScrollbar() const;
+    virtual bool hasVerticalScrollbar() const;
     virtual WebView* view() const;
     virtual WebFrame* opener() const;
-    virtual void clearOpener();
+    virtual void setOpener(const WebFrame*);
     virtual WebFrame* parent() const;
     virtual WebFrame* top() const;
     virtual WebFrame* firstChild() const;
@@ -93,22 +97,29 @@ public:
     virtual WebFrame* findChildByName(const WebString&) const;
     virtual WebFrame* findChildByExpression(const WebString&) const;
     virtual WebDocument document() const;
-    virtual void forms(WebVector<WebFormElement>&) const;
     virtual WebAnimationController* animationController();
     virtual WebPerformance performance() const;
-    virtual WebSecurityOrigin securityOrigin() const;
-    virtual void grantUniversalAccess();
     virtual NPObject* windowObject() const;
     virtual void bindToWindowObject(const WebString& name, NPObject*);
     virtual void executeScript(const WebScriptSource&);
     virtual void executeScriptInIsolatedWorld(
-        int worldId, const WebScriptSource* sources, unsigned numSources,
+        int worldID, const WebScriptSource* sources, unsigned numSources,
         int extensionGroup);
+    virtual void setIsolatedWorldSecurityOrigin(int worldID, const WebSecurityOrigin&);
     virtual void addMessageToConsole(const WebConsoleMessage&);
     virtual void collectGarbage();
+    virtual bool checkIfRunInsecureContent(const WebURL&) const;
 #if WEBKIT_USING_V8
     virtual v8::Handle<v8::Value> executeScriptAndReturnValue(
         const WebScriptSource&);
+    virtual void executeScriptInIsolatedWorld(
+        int worldID, const WebScriptSource* sourcesIn, unsigned numSources,
+        int extensionGroup, WebVector<v8::Local<v8::Value> >* results);
+    virtual v8::Handle<v8::Value> callFunctionEvenIfScriptDisabled(
+        v8::Handle<v8::Function>,
+        v8::Handle<v8::Object>,
+        int argc,
+        v8::Handle<v8::Value> argv[]);
     virtual v8::Local<v8::Context> mainWorldScriptContext() const;
     virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
                                                    const WebString& name,
@@ -119,7 +130,6 @@ public:
                                                   const WebString& filePath,
                                                   bool isDirectory);
 #endif
-    virtual bool insertStyleText(const WebString& css, const WebString& id);
     virtual void reload(bool ignoreCache);
     virtual void loadRequest(const WebURLRequest&);
     virtual void loadHistoryItem(const WebHistoryItem&);
@@ -139,8 +149,6 @@ public:
     virtual bool isViewSourceModeEnabled() const;
     virtual void setReferrerForRequest(WebURLRequest&, const WebURL& referrer);
     virtual void dispatchWillSendRequest(WebURLRequest&);
-    // FIXME: Remove this overload when clients have been changed to pass options.
-    virtual WebURLLoader* createAssociatedURLLoader();
     virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&);
     virtual void commitDocumentData(const char* data, size_t length);
     virtual unsigned unloadListenerCount() const;
@@ -152,19 +160,22 @@ public:
     virtual void unmarkText();
     virtual bool hasMarkedText() const;
     virtual WebRange markedRange() const;
+    virtual void setSelectionToRange(const WebRange&) OVERRIDE;
     virtual bool firstRectForCharacterRange(unsigned location, unsigned length, WebRect&) const;
     virtual size_t characterIndexForPoint(const WebPoint&) const;
-    virtual bool executeCommand(const WebString&);
+    virtual bool executeCommand(const WebString&, const WebNode& = WebNode());
     virtual bool executeCommand(const WebString&, const WebString& value);
     virtual bool isCommandEnabled(const WebString&) const;
     virtual void enableContinuousSpellChecking(bool);
     virtual bool isContinuousSpellCheckingEnabled() const;
+    virtual void requestTextChecking(const WebElement&);
     virtual bool hasSelection() const;
     virtual WebRange selectionRange() const;
     virtual WebString selectionAsText() const;
     virtual WebString selectionAsMarkup() const;
     virtual bool selectWordAroundCaret();
     virtual void selectRange(const WebPoint& start, const WebPoint& end);
+    virtual void selectRange(const WebRange&);
     virtual int printBegin(const WebSize& pageSize,
                            const WebNode& constrainToNode,
                            int printerDPI,
@@ -172,6 +183,8 @@ public:
     virtual float printPage(int pageToPrint, WebCanvas*);
     virtual float getPrintPageShrink(int page);
     virtual void printEnd();
+    virtual bool isPrintScalingDisabledForPlugin(const WebNode&);
+    virtual bool hasCustomPageSizeStyle(int pageIndex);
     virtual bool isPageBoxVisible(int pageIndex);
     virtual void pageSizeAndMarginsInPixels(int pageIndex,
                                             WebSize& pageSize,
@@ -179,6 +192,8 @@ public:
                                             int& marginRight,
                                             int& marginBottom,
                                             int& marginLeft);
+    virtual WebString pageProperty(const WebString& propertyName, int pageIndex);
+    virtual void printPagesWithBoundaries(WebCanvas*, const WebSize&);
     virtual bool find(
         int identifier, const WebString& searchText, const WebFindOptions&,
         bool wrapWithinFrame, WebRect* selectionRect);
@@ -189,14 +204,19 @@ public:
     virtual void cancelPendingScopingEffort();
     virtual void increaseMatchCount(int count, int identifier);
     virtual void resetMatchCount();
-    virtual bool registerPasswordListener(
-        WebInputElement, WebPasswordAutocompleteListener*);
-    virtual void notifiyPasswordListenerOfAutocomplete(
-        const WebInputElement&);
+
+    virtual void handleIntentResult(int, const WebString&);
+    virtual void handleIntentFailure(int, const WebString&);
+
+    virtual void addEventListener(const WebString& eventType,
+                                  WebDOMEventListener*, bool useCapture);
+    virtual void removeEventListener(const WebString& eventType,
+                                     WebDOMEventListener*, bool useCapture);
+    virtual bool dispatchEvent(const WebDOMEvent&);
 
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;
-    virtual WebString renderTreeAsText(bool showDebugInfo = false) const;
+    virtual WebString renderTreeAsText(RenderAsTextControls toShow = RenderAsTextNormal) const;
     virtual WebString counterValueForElementById(const WebString& id) const;
     virtual WebString markerTextForListItem(const WebElement&) const;
     virtual int pageNumberForElementById(const WebString& id,
@@ -205,13 +225,10 @@ public:
     virtual WebRect selectionBoundsRect() const;
 
     virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const;
-    virtual bool pauseSVGAnimation(const WebString& animationId,
-                                   double time,
-                                   const WebString& elementId);
     virtual WebString layerTreeAsText(bool showDebugInfo = false) const;
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
-    ~WebFrameImpl();
+    virtual ~WebFrameImpl();
 
     // Called by the WebViewImpl to initialize its main frame:
     void initializeAsMainFrame(WebViewImpl*);
@@ -219,9 +236,6 @@ public:
     PassRefPtr<WebCore::Frame> createChildFrame(
         const WebCore::FrameLoadRequest&, WebCore::HTMLFrameOwnerElement*);
 
-    void layout();
-    void paint(WebCanvas*, const WebRect&);
-    void paintWithContext(WebCore::GraphicsContext&, const WebRect&);
     void createFrameView();
 
     static WebFrameImpl* fromFrame(WebCore::Frame* frame);
@@ -244,7 +258,7 @@ public:
     // Returns which frame has an active match. This function should only be
     // called on the main frame, as it is the only frame keeping track. Returned
     // value can be 0 if no frame has an active match.
-    const WebFrameImpl* activeMatchFrame() const { return m_activeMatchFrame; }
+    const WebFrameImpl* activeMatchFrame() const { return m_currentActiveMatchFrame; }
 
     // When a Find operation ends, we want to set the selection to what was active
     // and set focus to the first focusable node we find (starting with the first
@@ -260,12 +274,6 @@ public:
     // If the parameter is true, allow the document to be scrolled.
     // Otherwise, disallow scrolling.
     void setCanHaveScrollbars(bool);
-
-    // Returns the password autocomplete listener associated with the passed
-    // user name input element, or 0 if none available.
-    // Note that the returned listener is owner by the WebFrameImpl and should not
-    // be kept around as it is deleted when the page goes away.
-    WebPasswordAutocompleteListener* getPasswordListener(const WebCore::HTMLInputElement*);
 
     WebFrameClient* client() const { return m_client; }
     void setClient(WebFrameClient* client) { m_client = client; }
@@ -329,9 +337,6 @@ private:
     // Determines whether to invalidate the content area and scrollbar.
     void invalidateIfNecessary();
 
-    // Clears the map of password listeners.
-    void clearPasswordListeners();
-
     void loadJavaScriptURL(const WebCore::KURL&);
 
     // Returns a hit-tested VisiblePosition for the given point
@@ -347,13 +352,13 @@ private:
 
     // A way for the main frame to keep track of which frame has an active
     // match. Should be 0 for all other frames.
-    WebFrameImpl* m_activeMatchFrame;
+    WebFrameImpl* m_currentActiveMatchFrame;
 
     // The range of the active match for the current frame.
     RefPtr<WebCore::Range> m_activeMatch;
 
-    // The index of the active match.
-    int m_activeMatchIndex;
+    // The index of the active match for the current frame.
+    int m_activeMatchIndexInCurrentFrame;
 
     // This flag is used by the scoping effort to determine if we need to figure
     // out which rectangle is the active match. Once we find the active
@@ -400,12 +405,6 @@ private:
     // Valid between calls to BeginPrint() and EndPrint(). Containts the print
     // information. Is used by PrintPage().
     OwnPtr<ChromePrintContext> m_printContext;
-
-    // The input fields that are interested in edit events and their associated
-    // listeners.
-    typedef HashMap<RefPtr<WebCore::HTMLInputElement>,
-                    WebPasswordAutocompleteListener*> PasswordListenerMap;
-    PasswordListenerMap m_passwordListeners;
 
     // Keeps a reference to the frame's WebAnimationController.
     WebAnimationControllerImpl m_animationController;

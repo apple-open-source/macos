@@ -189,6 +189,12 @@ heim_ntlm_verify_ntlm2 (
 	struct ntlm_buf */*infotarget*/,
 	unsigned char ntlmv2[16]);
 
+uint64_t
+heim_ntlm_unix2ts_time(time_t unix_time);
+
+time_t
+heim_ntlm_ts2unixtime(uint64_t t);
+
 #ifdef __cplusplus
 }
 #endif

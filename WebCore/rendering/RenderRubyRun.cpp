@@ -34,6 +34,7 @@
 
 #include "RenderRubyBase.h"
 #include "RenderRubyText.h"
+#include "RenderText.h"
 #include "RenderView.h"
 
 using namespace std;
@@ -73,6 +74,9 @@ bool RenderRubyRun::isEmpty() const
 RenderRubyText* RenderRubyRun::rubyText() const
 {
     RenderObject* child = firstChild();
+    // If in future it becomes necessary to support floating or positioned ruby text,
+    // layout will have to be changed to handle them properly.
+    ASSERT(!child || !child->isRubyText() || !child->isFloatingOrPositioned());
     return child && child->isRubyText() ? static_cast<RenderRubyText*>(child) : 0;
 }
 
@@ -159,7 +163,7 @@ void RenderRubyRun::removeChild(RenderObject* child)
         RenderObject* rightNeighbour = nextSibling();
         if (base && rightNeighbour && rightNeighbour->isRubyRun()) {
             // Ruby run without a base can happen only at the first run.
-            RenderRubyRun* rightRun = static_cast<RenderRubyRun*>(rightNeighbour);
+            RenderRubyRun* rightRun = toRenderRubyRun(rightNeighbour);
             if (rightRun->hasRubyBase()) {
                 RenderRubyBase* rightBase = rightRun->rubyBaseSafe();
                 // Collect all children in a single base, then swap the bases.
@@ -195,8 +199,7 @@ void RenderRubyRun::removeChild(RenderObject* child)
 RenderRubyBase* RenderRubyRun::createRubyBase() const
 {
     RenderRubyBase* rb = new (renderArena()) RenderRubyBase(document() /* anonymous */);
-    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyle(style());
-    newStyle->setDisplay(BLOCK);
+    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(style(), BLOCK);
     newStyle->setTextAlign(CENTER); // FIXME: use WEBKIT_CENTER?
     rb->setStyle(newStyle.release());
     return rb;
@@ -206,8 +209,7 @@ RenderRubyRun* RenderRubyRun::staticCreateRubyRun(const RenderObject* parentRuby
 {
     ASSERT(parentRuby && parentRuby->isRuby());
     RenderRubyRun* rr = new (parentRuby->renderArena()) RenderRubyRun(parentRuby->document() /* anonymous */);
-    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyle(parentRuby->style());
-    newStyle->setDisplay(INLINE_BLOCK);
+    RefPtr<RenderStyle> newStyle = RenderStyle::createAnonymousStyleWithDisplay(parentRuby->style(), INLINE_BLOCK);
     rr->setStyle(newStyle.release());
     return rr;
 }
@@ -219,7 +221,7 @@ RenderObject* RenderRubyRun::layoutSpecialExcludedChild(bool relayoutChildren)
     if (!rt)
         return 0;
     if (relayoutChildren)
-        rt->setChildNeedsLayout(true, false);
+        rt->setChildNeedsLayout(true, MarkOnlyThis);
     rt->layoutIfNeeded();
     return rt;
 }
@@ -233,8 +235,8 @@ void RenderRubyRun::layout()
     if (!rt)
         return;
     
-    int lastLineRubyTextBottom = rt->logicalHeight();
-    int firstLineRubyTextTop = 0;
+    LayoutUnit lastLineRubyTextBottom = rt->logicalHeight();
+    LayoutUnit firstLineRubyTextTop = 0;
     RootInlineBox* rootBox = rt->lastRootBox();
     if (rootBox) {
         // In order to align, we have to ignore negative leading.
@@ -243,7 +245,7 @@ void RenderRubyRun::layout()
     }
 
     if (!style()->isFlippedLinesWritingMode()) {
-        int firstLineTop = 0;
+        LayoutUnit firstLineTop = 0;
         if (RenderRubyBase* rb = rubyBase()) {
             RootInlineBox* rootBox = rb->firstRootBox();
             if (rootBox)
@@ -253,7 +255,7 @@ void RenderRubyRun::layout()
         
         rt->setLogicalTop(-lastLineRubyTextBottom + firstLineTop);
     } else {
-        int lastLineBottom = logicalHeight();
+        LayoutUnit lastLineBottom = logicalHeight();
         if (RenderRubyBase* rb = rubyBase()) {
             RootInlineBox* rootBox = rb->lastRootBox();
             if (rootBox)
@@ -286,11 +288,8 @@ void RenderRubyRun::getOverhang(bool firstLine, RenderObject* startRenderer, Ren
         return;
 
     int logicalWidth = this->logicalWidth();
-
-    // No more than half a ruby is allowed to overhang.
-    int logicalLeftOverhang = rubyText->style(firstLine)->fontSize() / 2;
-    int logicalRightOverhang = logicalLeftOverhang;
-
+    int logicalLeftOverhang = numeric_limits<int>::max();
+    int logicalRightOverhang = numeric_limits<int>::max();
     for (RootInlineBox* rootInlineBox = rubyBase->firstRootBox(); rootInlineBox; rootInlineBox = rootInlineBox->nextRootBox()) {
         logicalLeftOverhang = min<int>(logicalLeftOverhang, rootInlineBox->logicalLeft());
         logicalRightOverhang = min<int>(logicalRightOverhang, logicalWidth - rootInlineBox->logicalRight());
@@ -304,6 +303,15 @@ void RenderRubyRun::getOverhang(bool firstLine, RenderObject* startRenderer, Ren
 
     if (!endRenderer || !endRenderer->isText() || endRenderer->style(firstLine)->fontSize() > rubyBase->style(firstLine)->fontSize())
         endOverhang = 0;
+
+    // We overhang a ruby only if the neighboring render object is a text.
+    // We can overhang the ruby by no more than half the width of the neighboring text
+    // and no more than half the font size.
+    int halfWidthOfFontSize = rubyText->style(firstLine)->fontSize() / 2;
+    if (startOverhang)
+        startOverhang = min<int>(startOverhang, min<int>(toRenderText(startRenderer)->minLogicalWidth(), halfWidthOfFontSize));
+    if (endOverhang)
+        endOverhang = min<int>(endOverhang, min<int>(toRenderText(endRenderer)->minLogicalWidth(), halfWidthOfFontSize));
 }
 
 } // namespace WebCore

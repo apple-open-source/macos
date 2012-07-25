@@ -18,6 +18,7 @@
 ;;; Allow NTP specific files
 (allow file-read-data file-read-metadata
        (literal "/private/etc/ntp-restrict.conf")
+       (literal "/private/etc/ntp_opendirectory.conf")
        (regex "^/private/etc/ntp\\.(conf|keys)$")
        (literal "/private/var/mobile/Library/Preferences/ntp.conf")
        (regex "^/private/etc/(services|hosts)$")
@@ -39,7 +40,9 @@
        (remote udp))
 
 (allow mach-lookup
-       (global-name "com.apple.SystemConfiguration.configd"))
+       (global-name "com.apple.networkd")
+       (global-name "com.apple.SystemConfiguration.configd")
+       (global-name "com.apple.SystemConfiguration.SCNetworkReachability"))
 
 (allow system-set-time)
 (allow system-socket)

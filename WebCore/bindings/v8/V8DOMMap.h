@@ -38,9 +38,6 @@
 namespace WebCore {
     class DOMDataStore;
     class Node;
-#if ENABLE(SVG)
-    class SVGElementInstance;
-#endif
 
     template <class KeyType, class ValueType> class AbstractWeakReferenceMap {
     public:
@@ -141,9 +138,6 @@ namespace WebCore {
         DOMWrapperMap(v8::WeakReferenceCallback callback) : WeakReferenceMap<KeyType, v8::Object>(callback) { }
     };
 
-    // An opaque class that represents a set of DOM wrappers.
-    class DOMDataStore;
-
     // A utility class to manage the lifetime of set of DOM wrappers.
     class DOMDataStoreHandle {
     public:
@@ -157,25 +151,21 @@ namespace WebCore {
     };
 
     // A map from DOM node to its JS wrapper.
-    DOMNodeMapping& getDOMNodeMap();
-    void visitDOMNodesInCurrentThread(DOMWrapperMap<Node>::Visitor*);
+    DOMNodeMapping& getDOMNodeMap(v8::Isolate* = 0);
+    DOMNodeMapping& getActiveDOMNodeMap(v8::Isolate* = 0);
+    void visitDOMNodes(DOMWrapperMap<Node>::Visitor*);
+    void visitActiveDOMNodes(DOMWrapperMap<Node>::Visitor*);
 
     // A map from a DOM object (non-node) to its JS wrapper. This map does not contain the DOM objects which can have pending activity (active dom objects).
-    DOMWrapperMap<void>& getDOMObjectMap();
-    void visitDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor*);
+    DOMWrapperMap<void>& getDOMObjectMap(v8::Isolate* = 0);
+    void visitDOMObjects(DOMWrapperMap<void>::Visitor*);
 
     // A map from a DOM object to its JS wrapper for DOM objects which can have pending activity.
-    DOMWrapperMap<void>& getActiveDOMObjectMap();
-    void visitActiveDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor*);
+    DOMWrapperMap<void>& getActiveDOMObjectMap(v8::Isolate* = 0);
+    void visitActiveDOMObjects(DOMWrapperMap<void>::Visitor*);
 
     // This should be called to remove all DOM objects associated with the current thread when it is tearing down.
-    void removeAllDOMObjectsInCurrentThread();
-
-#if ENABLE(SVG)
-    // A map for SVGElementInstances to its JS wrapper.
-    DOMWrapperMap<SVGElementInstance>& getDOMSVGElementInstanceMap();
-    void visitSVGElementInstancesInCurrentThread(DOMWrapperMap<SVGElementInstance>::Visitor*);
-#endif
+    void removeAllDOMObjects();
 
     void enableFasterDOMStoreAccess();
 } // namespace WebCore

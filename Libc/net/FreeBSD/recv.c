@@ -40,11 +40,21 @@ __FBSDID("$FreeBSD: src/lib/libc/net/recv.c,v 1.4 2007/01/09 00:28:02 imp Exp $"
 #include <stddef.h>
 #include "un-namespace.h"
 
+#ifdef VARIANT_CANCELABLE
+ssize_t __recvfrom(int, void *, size_t, int, struct sockaddr * __restrict, socklen_t * __restrict);
+#else /* !VARIANT_CANCELABLE */
+ssize_t __recvfrom_nocancel(int, void *, size_t, int, struct sockaddr * __restrict, socklen_t * __restrict);
+#endif /* VARIANT_CANCELABLE */
+
 ssize_t
 recv(s, buf, len, flags)
 	int s, flags;
 	size_t len;
 	void *buf;
 {
-	return (_recvfrom(s, buf, len, flags, NULL, 0));
+#ifdef VARIANT_CANCELABLE
+	return (__recvfrom(s, buf, len, flags, NULL, 0));
+#else /* !VARIANT_CANCELABLE */
+	return (__recvfrom_nocancel(s, buf, len, flags, NULL, 0));
+#endif /* VARIANT_CANCELABLE */
 }

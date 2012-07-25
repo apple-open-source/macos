@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,50 +30,22 @@
 
 #include "config.h"
 #include "SocketStreamHandle.h"
+#include "SocketStreamHandleInternal.h"
 
 #if ENABLE(WEB_SOCKETS)
 
 #include "Logging.h"
 #include "NotImplemented.h"
 #include "SocketStreamHandleClient.h"
-#include "WebData.h"
+#include "platform/WebData.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
-#include "WebSocketStreamHandle.h"
-#include "WebSocketStreamHandleClient.h"
-#include "WebURL.h"
+#include "platform/WebKitPlatformSupport.h"
+#include "platform/WebSocketStreamHandle.h"
 #include <wtf/PassOwnPtr.h>
 
 using namespace WebKit;
 
 namespace WebCore {
-
-class SocketStreamHandleInternal : public WebSocketStreamHandleClient {
-public:
-    static PassOwnPtr<SocketStreamHandleInternal> create(SocketStreamHandle* handle)
-    {
-        return adoptPtr(new SocketStreamHandleInternal(handle));
-    }
-    virtual ~SocketStreamHandleInternal();
-
-    void connect(const KURL&);
-    int send(const char*, int);
-    void close();
-
-    virtual void didOpenStream(WebSocketStreamHandle*, int);
-    virtual void didSendData(WebSocketStreamHandle*, int);
-    virtual void didReceiveData(WebSocketStreamHandle*, const WebData&);
-    virtual void didClose(WebSocketStreamHandle*);
-    virtual void didFail(WebSocketStreamHandle*, const WebSocketStreamError&);
-
-private:
-    explicit SocketStreamHandleInternal(SocketStreamHandle*);
-
-    SocketStreamHandle* m_handle;
-    OwnPtr<WebSocketStreamHandle> m_socket;
-    int m_maxPendingSendAllowed;
-    int m_pendingAmountSent;
-};
 
 SocketStreamHandleInternal::SocketStreamHandleInternal(SocketStreamHandle* handle)
     : m_handle(handle)
@@ -89,16 +61,19 @@ SocketStreamHandleInternal::~SocketStreamHandleInternal()
 
 void SocketStreamHandleInternal::connect(const KURL& url)
 {
-    m_socket = adoptPtr(webKitClient()->createSocketStreamHandle());
+    m_socket = adoptPtr(WebKit::Platform::current()->createSocketStreamHandle());
     LOG(Network, "connect");
-    ASSERT(m_socket.get());
+    ASSERT(m_socket);
+    ASSERT(m_handle);
+    if (m_handle->m_client)
+        m_handle->m_client->willOpenSocketStream(m_handle);
     m_socket->connect(url, this);
 }
 
 int SocketStreamHandleInternal::send(const char* data, int len)
 {
     LOG(Network, "send len=%d", len);
-    ASSERT(m_socket.get());
+    ASSERT(m_socket);
     if (m_pendingAmountSent + len >= m_maxPendingSendAllowed)
         len = m_maxPendingSendAllowed - m_pendingAmountSent - 1;
 
@@ -117,7 +92,8 @@ int SocketStreamHandleInternal::send(const char* data, int len)
 void SocketStreamHandleInternal::close()
 {
     LOG(Network, "close");
-    m_socket->close();
+    if (m_socket)
+        m_socket->close();
 }
     
 void SocketStreamHandleInternal::didOpenStream(WebSocketStreamHandle* socketHandle, int maxPendingSendAllowed)
@@ -125,12 +101,12 @@ void SocketStreamHandleInternal::didOpenStream(WebSocketStreamHandle* socketHand
     LOG(Network, "SocketStreamHandleInternal::didOpen %d",
         maxPendingSendAllowed);
     ASSERT(maxPendingSendAllowed > 0);
-    if (m_handle && m_socket.get()) {
+    if (m_handle && m_socket) {
         ASSERT(socketHandle == m_socket.get());
         m_maxPendingSendAllowed = maxPendingSendAllowed;
         m_handle->m_state = SocketStreamHandleBase::Open;
         if (m_handle->m_client) {
-            m_handle->m_client->didOpen(m_handle);
+            m_handle->m_client->didOpenSocketStream(m_handle);
             return;
         }
     }
@@ -141,7 +117,7 @@ void SocketStreamHandleInternal::didSendData(WebSocketStreamHandle* socketHandle
 {
     LOG(Network, "SocketStreamHandleInternal::didSendData %d", amountSent);
     ASSERT(amountSent > 0);
-    if (m_handle && m_socket.get()) {
+    if (m_handle && m_socket) {
         ASSERT(socketHandle == m_socket.get());
         m_pendingAmountSent -= amountSent;
         ASSERT(m_pendingAmountSent >= 0);
@@ -152,36 +128,36 @@ void SocketStreamHandleInternal::didSendData(WebSocketStreamHandle* socketHandle
 void SocketStreamHandleInternal::didReceiveData(WebSocketStreamHandle* socketHandle, const WebData& data)
 {
     LOG(Network, "didReceiveData");
-    if (m_handle && m_socket.get()) {
+    if (m_handle && m_socket) {
         ASSERT(socketHandle == m_socket.get());
         if (m_handle->m_client)
-            m_handle->m_client->didReceiveData(m_handle, data.data(), data.size());
+            m_handle->m_client->didReceiveSocketStreamData(m_handle, data.data(), data.size());
     }
 }
 
 void SocketStreamHandleInternal::didClose(WebSocketStreamHandle* socketHandle)
 {
     LOG(Network, "didClose");
-    if (m_handle && m_socket.get()) {
+    if (m_handle && m_socket) {
         ASSERT(socketHandle == m_socket.get());
         m_socket.clear();
         SocketStreamHandle* h = m_handle;
         m_handle = 0;
         if (h->m_client)
-            h->m_client->didClose(h);
+            h->m_client->didCloseSocketStream(h);
     }
 }
 
 void SocketStreamHandleInternal::didFail(WebSocketStreamHandle* socketHandle, const WebSocketStreamError& err)
 {
     LOG(Network, "didFail");
-    if (m_handle && m_socket.get()) {
+    if (m_handle && m_socket) {
         ASSERT(socketHandle == m_socket.get());
         m_socket.clear();
         SocketStreamHandle* h = m_handle;
         m_handle = 0;
         if (h->m_client)
-            h->m_client->didClose(h);  // didFail(h, err);
+            h->m_client->didCloseSocketStream(h); // didFail(h, err);
     }
 }
 
@@ -204,14 +180,14 @@ SocketStreamHandle::~SocketStreamHandle()
 
 int SocketStreamHandle::platformSend(const char* buf, int len)
 {
-    if (!m_internal.get())
+    if (!m_internal)
         return 0;
     return m_internal->send(buf, len);
 }
 
 void SocketStreamHandle::platformClose()
 {
-    if (m_internal.get())
+    if (m_internal)
         m_internal->close();
 }
 

@@ -1,0 +1,509 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FDB437171492ED0500D5E278 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDB437181492ED0500D5E278 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FDB4371D1492ED0C00D5E278 /* PBXTargetDependency */,
+				FDB4371F1492ED0E00D5E278 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FDB436F11492EBDB00D5E278 /* entry.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436EC1492EBDB00D5E278 /* entry.c */; };
+		FDB436F21492EBDB00D5E278 /* env.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436ED1492EBDB00D5E278 /* env.c */; };
+		FDB436F41492EBDB00D5E278 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436EF1492EBDB00D5E278 /* misc.c */; };
+		FDB437031492EC1200D5E278 /* cron.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436F91492EC1200D5E278 /* cron.c */; };
+		FDB437041492EC1200D5E278 /* database.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436FB1492EC1200D5E278 /* database.c */; };
+		FDB437051492EC1200D5E278 /* do_command.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436FC1492EC1200D5E278 /* do_command.c */; };
+		FDB437061492EC1200D5E278 /* job.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436FE1492EC1200D5E278 /* job.c */; };
+		FDB437081492EC1200D5E278 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB437011492EC1200D5E278 /* popen.c */; };
+		FDB437091492EC1200D5E278 /* user.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB437021492EC1200D5E278 /* user.c */; };
+		FDB4370A1492EC6B00D5E278 /* cron.8 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDB436F81492EC1200D5E278 /* cron.8 */; };
+		FDB437101492EC8700D5E278 /* crontab.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB4370E1492EC8700D5E278 /* crontab.c */; };
+		FDB437121492EC9700D5E278 /* crontab.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDB4370C1492EC8700D5E278 /* crontab.1 */; };
+		FDB437141492ECA600D5E278 /* crontab.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4370D1492EC8700D5E278 /* crontab.5 */; };
+		FDB437251492EE5000D5E278 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB437241492EE5000D5E278 /* libutil.dylib */; };
+		FDB4372C1492EEA600D5E278 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB4372B1492EEA600D5E278 /* IOKit.framework */; };
+		FDB4372F1492EEB600D5E278 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB4372E1492EEB600D5E278 /* CoreFoundation.framework */; };
+		FDB437301492EEBE00D5E278 /* libcron.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB436CC1492EB8500D5E278 /* libcron.a */; };
+		FDB437321492EF2700D5E278 /* libcron.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FDB436CC1492EB8500D5E278 /* libcron.a */; };
+		FDB437351492EFCD00D5E278 /* com.vix.cron.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = FDB437341492EFCB00D5E278 /* com.vix.cron.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FDB4371C1492ED0C00D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB436BD1492EB4400D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB436D31492EB8E00D5E278;
+			remoteInfo = cron;
+		};
+		FDB4371E1492ED0E00D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB436BD1492EB4400D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB436E01492EB9400D5E278;
+			remoteInfo = crontab;
+		};
+		FDB437201492ED1400D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB436BD1492EB4400D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB436CB1492EB8500D5E278;
+			remoteInfo = libcron;
+		};
+		FDB437221492ED1C00D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB436BD1492EB4400D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB436CB1492EB8500D5E278;
+			remoteInfo = libcron;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FDB436D21492EB8E00D5E278 /* Install man1 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB4370A1492EC6B00D5E278 /* cron.8 in Install man1 */,
+			);
+			name = "Install man1";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436DF1492EB9400D5E278 /* Install man1 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB437121492EC9700D5E278 /* crontab.1 in Install man1 */,
+			);
+			name = "Install man1";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB437131492EC9B00D5E278 /* Install man5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB437141492ECA600D5E278 /* crontab.5 in Install man5 */,
+			);
+			name = "Install man5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB437331492EFB200D5E278 /* Install launchd plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB437351492EFCD00D5E278 /* com.vix.cron.plist in Install launchd plist */,
+			);
+			name = "Install launchd plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FDB436CC1492EB8500D5E278 /* libcron.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcron.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB436D41492EB8E00D5E278 /* cron */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cron; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB436E11492EB9400D5E278 /* crontab */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = crontab; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB436EC1492EBDB00D5E278 /* entry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = entry.c; sourceTree = "<group>"; };
+		FDB436ED1492EBDB00D5E278 /* env.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = env.c; sourceTree = "<group>"; };
+		FDB436EF1492EBDB00D5E278 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
+		FDB436F81492EC1200D5E278 /* cron.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = cron.8; sourceTree = "<group>"; };
+		FDB436F91492EC1200D5E278 /* cron.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cron.c; sourceTree = "<group>"; };
+		FDB436FB1492EC1200D5E278 /* database.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = database.c; sourceTree = "<group>"; };
+		FDB436FC1492EC1200D5E278 /* do_command.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = do_command.c; sourceTree = "<group>"; };
+		FDB436FE1492EC1200D5E278 /* job.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = job.c; sourceTree = "<group>"; };
+		FDB437011492EC1200D5E278 /* popen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = popen.c; sourceTree = "<group>"; };
+		FDB437021492EC1200D5E278 /* user.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = user.c; sourceTree = "<group>"; };
+		FDB4370C1492EC8700D5E278 /* crontab.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = crontab.1; sourceTree = "<group>"; };
+		FDB4370D1492EC8700D5E278 /* crontab.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = crontab.5; sourceTree = "<group>"; };
+		FDB4370E1492EC8700D5E278 /* crontab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = crontab.c; sourceTree = "<group>"; };
+		FDB437241492EE5000D5E278 /* libutil.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil.dylib; path = /usr/lib/libutil.dylib; sourceTree = "<absolute>"; };
+		FDB4372B1492EEA600D5E278 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		FDB4372E1492EEB600D5E278 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		FDB437341492EFCB00D5E278 /* com.vix.cron.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.vix.cron.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FDB436C91492EB8500D5E278 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB436D11492EB8E00D5E278 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB437301492EEBE00D5E278 /* libcron.a in Frameworks */,
+				FDB437251492EE5000D5E278 /* libutil.dylib in Frameworks */,
+				FDB4372F1492EEB600D5E278 /* CoreFoundation.framework in Frameworks */,
+				FDB4372C1492EEA600D5E278 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB436DE1492EB9400D5E278 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB437321492EF2700D5E278 /* libcron.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FDB436BB1492EB4400D5E278 = {
+			isa = PBXGroup;
+			children = (
+				FDB437341492EFCB00D5E278 /* com.vix.cron.plist */,
+				FDB436F51492EC1200D5E278 /* cron */,
+				FDB4370B1492EC8700D5E278 /* crontab */,
+				FDB436EA1492EBDB00D5E278 /* lib */,
+				FDB437311492EEEA00D5E278 /* Frameworks & Libraries */,
+				FDB436CD1492EB8500D5E278 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FDB436CD1492EB8500D5E278 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436CC1492EB8500D5E278 /* libcron.a */,
+				FDB436D41492EB8E00D5E278 /* cron */,
+				FDB436E11492EB9400D5E278 /* crontab */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FDB436EA1492EBDB00D5E278 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436EC1492EBDB00D5E278 /* entry.c */,
+				FDB436ED1492EBDB00D5E278 /* env.c */,
+				FDB436EF1492EBDB00D5E278 /* misc.c */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		FDB436F51492EC1200D5E278 /* cron */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436F91492EC1200D5E278 /* cron.c */,
+				FDB436FB1492EC1200D5E278 /* database.c */,
+				FDB436FC1492EC1200D5E278 /* do_command.c */,
+				FDB436FE1492EC1200D5E278 /* job.c */,
+				FDB437011492EC1200D5E278 /* popen.c */,
+				FDB437021492EC1200D5E278 /* user.c */,
+				FDB436F81492EC1200D5E278 /* cron.8 */,
+			);
+			path = cron;
+			sourceTree = "<group>";
+		};
+		FDB4370B1492EC8700D5E278 /* crontab */ = {
+			isa = PBXGroup;
+			children = (
+				FDB4370E1492EC8700D5E278 /* crontab.c */,
+				FDB4370C1492EC8700D5E278 /* crontab.1 */,
+				FDB4370D1492EC8700D5E278 /* crontab.5 */,
+			);
+			path = crontab;
+			sourceTree = "<group>";
+		};
+		FDB437311492EEEA00D5E278 /* Frameworks & Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				FDB4372E1492EEB600D5E278 /* CoreFoundation.framework */,
+				FDB4372B1492EEA600D5E278 /* IOKit.framework */,
+				FDB437241492EE5000D5E278 /* libutil.dylib */,
+			);
+			name = "Frameworks & Libraries";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FDB436CA1492EB8500D5E278 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FDB436CB1492EB8500D5E278 /* libcron */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB436CE1492EB8500D5E278 /* Build configuration list for PBXNativeTarget "libcron" */;
+			buildPhases = (
+				FDB436C81492EB8500D5E278 /* Sources */,
+				FDB436C91492EB8500D5E278 /* Frameworks */,
+				FDB436CA1492EB8500D5E278 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libcron;
+			productName = libcron;
+			productReference = FDB436CC1492EB8500D5E278 /* libcron.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		FDB436D31492EB8E00D5E278 /* cron */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB436DB1492EB8E00D5E278 /* Build configuration list for PBXNativeTarget "cron" */;
+			buildPhases = (
+				FDB436D01492EB8E00D5E278 /* Sources */,
+				FDB436D11492EB8E00D5E278 /* Frameworks */,
+				FDB436D21492EB8E00D5E278 /* Install man1 */,
+				FDB437331492EFB200D5E278 /* Install launchd plist */,
+				FDB437361492EFEC00D5E278 /* Install misc */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FDB437211492ED1400D5E278 /* PBXTargetDependency */,
+			);
+			name = cron;
+			productName = cron;
+			productReference = FDB436D41492EB8E00D5E278 /* cron */;
+			productType = "com.apple.product-type.tool";
+		};
+		FDB436E01492EB9400D5E278 /* crontab */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB436E81492EB9400D5E278 /* Build configuration list for PBXNativeTarget "crontab" */;
+			buildPhases = (
+				FDB436DD1492EB9400D5E278 /* Sources */,
+				FDB436DE1492EB9400D5E278 /* Frameworks */,
+				FDB436DF1492EB9400D5E278 /* Install man1 */,
+				FDB437131492EC9B00D5E278 /* Install man5 */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FDB437231492ED1C00D5E278 /* PBXTargetDependency */,
+			);
+			name = crontab;
+			productName = crontab;
+			productReference = FDB436E11492EB9400D5E278 /* crontab */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FDB436BD1492EB4400D5E278 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = FDB436C01492EB4400D5E278 /* Build configuration list for PBXProject "cron" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FDB436BB1492EB4400D5E278;
+			productRefGroup = FDB436CD1492EB8500D5E278 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDB437171492ED0500D5E278 /* All */,
+				FDB436D31492EB8E00D5E278 /* cron */,
+				FDB436E01492EB9400D5E278 /* crontab */,
+				FDB436CB1492EB8500D5E278 /* libcron */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FDB437361492EFEC00D5E278 /* Install misc */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install misc";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/install_misc.sh";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FDB436C81492EB8500D5E278 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB436F11492EBDB00D5E278 /* entry.c in Sources */,
+				FDB436F21492EBDB00D5E278 /* env.c in Sources */,
+				FDB436F41492EBDB00D5E278 /* misc.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB436D01492EB8E00D5E278 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB437031492EC1200D5E278 /* cron.c in Sources */,
+				FDB437041492EC1200D5E278 /* database.c in Sources */,
+				FDB437051492EC1200D5E278 /* do_command.c in Sources */,
+				FDB437061492EC1200D5E278 /* job.c in Sources */,
+				FDB437081492EC1200D5E278 /* popen.c in Sources */,
+				FDB437091492EC1200D5E278 /* user.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDB436DD1492EB9400D5E278 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB437101492EC8700D5E278 /* crontab.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FDB4371D1492ED0C00D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB436D31492EB8E00D5E278 /* cron */;
+			targetProxy = FDB4371C1492ED0C00D5E278 /* PBXContainerItemProxy */;
+		};
+		FDB4371F1492ED0E00D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB436E01492EB9400D5E278 /* crontab */;
+			targetProxy = FDB4371E1492ED0E00D5E278 /* PBXContainerItemProxy */;
+		};
+		FDB437211492ED1400D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB436CB1492EB8500D5E278 /* libcron */;
+			targetProxy = FDB437201492ED1400D5E278 /* PBXContainerItemProxy */;
+		};
+		FDB437231492ED1C00D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB436CB1492EB8500D5E278 /* libcron */;
+			targetProxy = FDB437221492ED1C00D5E278 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FDB436C31492EB4400D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+			};
+			name = Release;
+		};
+		FDB436CF1492EB8500D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_PREFIX = lib;
+				PRODUCT_NAME = cron;
+				SKIP_INSTALL = YES;
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/cron";
+			};
+			name = Release;
+		};
+		FDB436DC1492EB8E00D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FDB436E91492EB9400D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_MODE_FLAG = 04755;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = "$(SRCROOT)/cron";
+			};
+			name = Release;
+		};
+		FDB437191492ED0500D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FDB436C01492EB4400D5E278 /* Build configuration list for PBXProject "cron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436C31492EB4400D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB436CE1492EB8500D5E278 /* Build configuration list for PBXNativeTarget "libcron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436CF1492EB8500D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB436DB1492EB8E00D5E278 /* Build configuration list for PBXNativeTarget "cron" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436DC1492EB8E00D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB436E81492EB9400D5E278 /* Build configuration list for PBXNativeTarget "crontab" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436E91492EB9400D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB437181492ED0500D5E278 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB437191492ED0500D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FDB436BD1492EB4400D5E278 /* Project object */;
+}

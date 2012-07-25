@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -91,7 +91,7 @@ error(int level, ...)
 	va_end(ap);
 }
 
-void
+int
 errorf(void* handle, void* discipline, int level, ...)
 {
 	va_list	ap;
@@ -99,4 +99,5 @@ errorf(void* handle, void* discipline, int level, ...)
 	va_start(ap, level);
 	errorv((discipline && handle) ? *((char**)handle) : (char*)handle, level, ap);
 	va_end(ap);
+	return 0;
 }

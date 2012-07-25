@@ -45,7 +45,10 @@ v8::Handle<v8::Value> V8WebKitPoint::constructorCallback(const v8::Arguments& ar
     INC_STATS("DOM.WebKitPoint.Constructor");
 
     if (!args.IsConstructCall())
-        return throwError("DOM object constructor cannot be called as a function.");
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
 
     float x = 0;
     float y = 0;
@@ -61,9 +64,9 @@ v8::Handle<v8::Value> V8WebKitPoint::constructorCallback(const v8::Arguments& ar
                 y = 0;
         }
     }
-    PassRefPtr<WebKitPoint> point = WebKitPoint::create(x, y);
-    point->ref();
+    RefPtr<WebKitPoint> point = WebKitPoint::create(x, y);
     V8DOMWrapper::setDOMWrapper(args.Holder(), &info, point.get());
+    V8DOMWrapper::setJSWrapperForDOMObject(point.release(), v8::Persistent<v8::Object>::New(args.Holder()));
     return args.Holder();
 }
 

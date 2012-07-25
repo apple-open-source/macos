@@ -280,3 +280,20 @@ _ldap_x_mb_to_utf8
 _ldap_x_mbs_to_utf8s
 # /System/Library/Framework/LDAP.framework/PrivateHeaders
 _ldap_set_search_results_callback
+# /usr/include/ldif.h
+_ldif_parse_line
+_ldif_parse_line2
+_ldif_open_url
+_ldif_fetch_url
+_ldif_getline
+_ldif_countlines
+_ldif_open
+_ldif_close
+_ldif_read_record
+_ldif_must_b64_encode_register
+_ldif_must_b64_encode_release
+_ldif_sput
+_ldif_sput_wrap
+_ldif_put
+_ldif_put_wrap
+_ldif_is_not_printable

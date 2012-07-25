@@ -1,13 +1,55 @@
 /*
 	File:		MBCGameInfo.mm
 	Contains:	Managing information about the current game
-	Version:	1.0
-	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCGameInfo.h"
 #import "MBCController.h"
 #import "MBCPlayer.h"
+#import "MBCDocument.h"
+#import "MBCUserDefaults.h"
+
+#import <GameKit/GameKit.h>
 
 //
 // Private Framework
@@ -18,92 +60,44 @@
 #include <regex.h>
 #include <algorithm>
 
-static NSTextTab * MakeTab(NSTextTabType type, float location)
-{
-	return [[[NSTextTab alloc] initWithType:type location:location] 
-			   autorelease];
-}
+NSArray *   sVoices;
 
 @implementation MBCGameInfo
 
-NSString * kMBCGameCity			= @"MBCGameCity";
-NSString * kMBCGameCountry		= @"MBCGameCountry";
+@synthesize document = fDocument;
+@synthesize moveList = fMoveList;
+@synthesize whiteEditable, blackEditable;
+
+NSString * kMBCShowMoveInTitle  = @"MBCShowMoveInTitle";
+//
+// Obsolete: Parsing the human name serves no purpose and carries some risk
+//
 NSString * kMBCHumanFirst		= @"MBCHumanFirst";
 NSString * kMBCHumanLast		= @"MBCHumanLast";
-NSString * kMBCGameEvent		= @"MBCGameEvent";
-NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
-
-+ (void) parseName:(NSString *)fullName intoFirst:(NSString **)firstName
-			  last:(NSString **)lastName
-{
-	// 
-	// Get name as UTF8. If the name is longer than 99 bytes, the last
-	// character might be bad if it's non-ASCII. What sane person would
-	// have such a long name anyway?
-	//
-	char	   n[100];
-	strlcpy(n, [fullName UTF8String], 100);
-	
-	char * first 	= n+strspn(n, " \t"); 	// Beginning of first name
-	char * last;
-	char * nb1  	= NULL;			 		// Beginning of last word
-	char * ne1  	= NULL;			 		// End of last word
-	char * nb2  	= NULL;			 		// Beginning of last but one word
-	char * ne2  	= NULL;			 		// End of last but two word
-	char * ne3  	= NULL;            		// End of last but three word
-
-	nb1	  = first;
-	ne1   = nb1+strcspn(nb1, " \t");
-
-	for (char * n; (n = ne1+strspn(ne1, " \t")) && *n; ) {
-		ne3	= ne2; 
-		nb2 = nb1;
-		ne2 = ne1;
-		nb1	= n;
-		ne1 = nb1+strcspn(nb1, " \t");
-	}
-
-	if (ne3 && *nb2 >= 'a' && *nb2 <= 'z') { 
-		//
-		// Name has at least 3 words and last but one is 
-		// lowercase, as in Ludwig van Beethoven
-		//
-		last = nb2;
-		*ne3 = 0;
-	} else if (ne2) {
-		//
-		// Name has at least two words. If 3 or more, last but one is 
-		// uppercase as in John Wayne Miller
-		//
-		last = nb1;
-		*ne2 = 0;
-	} else {		// Name is single word
-		last = ne1;
-		*ne1 = 0;
-	}
-	*firstName	= [NSString stringWithUTF8String:first];
-	*lastName	= [NSString stringWithUTF8String:last];
-}
 
 + (void)initialize
 {
-	//
-	// Parse the user name into last and first name
-	//
-	NSString * humanFirst;
-	NSString * humanLast;
+	NSUserDefaults * 	userDefaults = [NSUserDefaults standardUserDefaults];
+	NSString * humanName;
 
-	[MBCGameInfo parseName:NSFullUserName() 
-				 intoFirst:&humanFirst last:&humanLast];
+	//
+	// Deal with legacy user name default representation
+	//
+	if ([userDefaults stringForKey:kMBCHumanFirst]) {
+		humanName = [NSString stringWithFormat:@"%@ %@", 
+							  [userDefaults stringForKey:kMBCHumanFirst],
+							  [userDefaults stringForKey:kMBCHumanLast]];
+		[userDefaults removeObjectForKey:kMBCHumanFirst];
+		[userDefaults removeObjectForKey:kMBCHumanLast];
+	} else
+		humanName = NSFullUserName();
 
 	// 
-	// Get the city we might be in. This technique uses a private API and may not
-	// work in future revisions of Mac OS X. 
+	// Get the city we might be in. 
 	//
 	// PGN wants IOC codes for countries, which we're too lazy to convert.
 	//
-	NSDictionary*	cityInfoDict = [[NSUserDefaults standardUserDefaults] objectForKey:@"com.apple.preferences.timezone.selected_city"];    
-	GEOCity *		cityInfo = cityInfoDict ? [GEOCity cityWithDumpDictionary:cityInfoDict] : nil;
+	GEOCity *		cityInfo = [GEOCity systemCity];
 	NSString *		city 	= cityInfo ? [cityInfo displayName] : @"?";
 	NSString *		country	= cityInfo ? [[cityInfo country] displayName] : @"?";
 
@@ -113,312 +107,373 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	NSDictionary * defaults = 
 		[NSDictionary 
 			dictionaryWithObjectsAndKeys:
-				humanFirst, kMBCHumanFirst,
-				 humanLast, kMBCHumanLast,
+				 humanName, kMBCHumanName,
 			          city, kMBCGameCity,
    			       country, kMBCGameCountry,
 			         event, kMBCGameEvent,
 			nil];
-	[[NSUserDefaults standardUserDefaults] registerDefaults: defaults];
+	[userDefaults registerDefaults: defaults];
+    sVoices = [[NSSpeechSynthesizer availableVoices] retain];
 }
 
-+ (void)restoreWindowWithIdentifier:(NSString *)itemID state:(NSCoder *)coder completionHandler:(void (^)(NSWindow *, NSError *))handler {
-    handler([[MBCController controller] gameInfoWindow], NULL);
-}
+const int kNumFixedMenuItems = 2;
 
-- (id) init
+- (void)loadVoiceMenu:(id)menu
 {
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(updateMoves:)
-		name:MBCEndMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(takeback:)
-		name:MBCTakebackNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(updateMoves:)
-		name:MBCIllegalMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(gameEnd:)
-		name:MBCGameEndNotification
-		object:nil];
+    for (NSString * voiceIdentifier in sVoices) 
+        [menu addItemWithTitle:[[NSSpeechSynthesizer attributesForVoice:voiceIdentifier] objectForKey:NSVoiceName]];
+}
 
-	fOutcome	= nil;
-	fWhiteName	= nil;
-	fBlackName	= nil;
-	fStartDate	= nil;
-	fStartTime	= nil;
-	fResult		= nil;
-	fSetInfo	= false;
+- (NSString *)voiceAtIndex:(NSUInteger)menuIndex
+{
+    if (menuIndex < kNumFixedMenuItems)
+        return nil;
+    else 
+        return [sVoices objectAtIndex:menuIndex-kNumFixedMenuItems];
+}
 
-	return self;
+- (NSUInteger)indexForVoice:(NSString *)voiceId
+{
+    return [voiceId length] ? [sVoices indexOfObject:voiceId]+kNumFixedMenuItems : 0;
+}
+
+- (NSString *) localizedStyleName:(NSString *)name
+{
+	NSString * loc = NSLocalizedString(name, @"");
+    
+	return loc;
+}
+
+- (NSString *) unlocalizedStyleName:(NSString *)name
+{
+	NSString * unloc = [fStyleLocMap objectForKey:name];
+    
+	return unloc ? unloc : name;
 }
 
 - (void)awakeFromNib
 {
-	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
+    [self loadVoiceMenu:fPrimaryVoiceMenu];
+    [self loadVoiceMenu:fAlternateVoiceMenu];
 
-	[fShowMoveInTitle setIntValue:[defaults boolForKey:kMBCShowMoveInTitle]];
+	fStyleLocMap = [[NSMutableDictionary alloc] init];
+    [fBoardStyle removeAllItems];
+    [fPieceStyle removeAllItems];
+    
+	NSFileManager *	fileManager = [NSFileManager defaultManager];
+	NSString	  * stylePath	= 
+    [[[NSBundle mainBundle] resourcePath] 
+     stringByAppendingPathComponent:@"Styles"];
+	NSEnumerator  * styles 		= 
+    [[fileManager contentsOfDirectoryAtPath:stylePath error:nil] objectEnumerator];
+	while (NSString * style = [styles nextObject]) {
+		NSString * locStyle = [self localizedStyleName:style];
+		[fStyleLocMap setObject:style forKey:locStyle];
+		NSString * s = [stylePath stringByAppendingPathComponent:style];
+		if ([fileManager fileExistsAtPath:
+             [s stringByAppendingPathComponent:@"Board.plist"]]
+            )
+			[fBoardStyle addItemWithTitle:locStyle];
+		if ([fileManager fileExistsAtPath:
+             [s stringByAppendingPathComponent:@"Piece.plist"]]
+            )
+			[fPieceStyle addItemWithTitle:locStyle];
+	}
+}
+
+- (void) setPlayerAlias:(NSString *)playerID forKey:(NSString *)key
+{
+    if (!playerID)
+        playerID = [fDocument nonLocalPlayerID];
+    if (playerID)
+        [GKPlayer loadPlayersForIdentifiers:[NSArray arrayWithObject:playerID]
+            withCompletionHandler:^(NSArray *players, NSError *error) {
+                if (!error) {
+                    [fDocument setObject:[[players objectAtIndex:0] alias] forKey:key];
+                    [self updateMoves:nil];
+                }
+            }];
+}
+
+- (void) removeChessObservers
+{
+    if (!fHasObservers)
+        return;
+    
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
+    [notificationCenter removeObserver:self name:MBCEndMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCTakebackNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCIllegalMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCGameEndNotification object:nil];
+    
+    fHasObservers = NO;
+}
+
+- (void)dealloc
+{
+    [self removeChessObservers];
+    [super dealloc];
+}
+
+- (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
+{
+    [self removeChessObservers];
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
+	[notificationCenter 
+     addObserver:self
+     selector:@selector(updateMoves:)
+     name:MBCEndMoveNotification
+     object:fDocument];
+	[notificationCenter 
+     addObserver:self
+     selector:@selector(takeback:)
+     name:MBCTakebackNotification
+     object:fDocument];
+	[notificationCenter 
+     addObserver:self
+     selector:@selector(updateMoves:)
+     name:MBCIllegalMoveNotification
+     object:fDocument];
+	[notificationCenter 
+     addObserver:self
+     selector:@selector(gameEnd:)
+     name:MBCGameEndNotification
+     object:fDocument];
+    fHasObservers = YES;
+
+    //
+    // Fill in missing properties
+    //
+    NSUserDefaults *        defaults    =   [NSUserDefaults standardUserDefaults];
+    NSString *              human       =   [defaults stringForKey:kMBCHumanName];
+    NSString *              engine      =   NSLocalizedString(@"engine_player", @"Computer");
+    NSMutableDictionary *   props       =   fDocument.properties;
+    BOOL                    gameCenter  =   [fDocument remoteSide] != kNeitherSide;
+    
+    [self setWhiteEditable: !gameCenter && SideIncludesWhite(sideToPlay)];
+    [self setBlackEditable: !gameCenter && SideIncludesBlack(sideToPlay)];
+    
+    if (![props objectForKey:@"White"])
+        if (gameCenter)
+            [self setPlayerAlias:[props objectForKey:@"WhitePlayerID"] forKey:@"White"];
+        else if (SideIncludesWhite(sideToPlay))
+            [fDocument setObject:human forKey:@"White"];
+        else 
+            [fDocument setObject:engine forKey:@"White"];
+    if (![props objectForKey:@"Black"])
+        if (gameCenter)
+            [self setPlayerAlias:[props objectForKey:@"BlackPlayerID"] forKey:@"Black"];
+        else if (SideIncludesBlack(sideToPlay))
+            [fDocument setObject:human forKey:@"Black"];
+        else 
+            [fDocument setObject:engine forKey:@"Black"];
+
+    NSDate * now	= [NSDate date];
+    if (![props objectForKey:@"StartDate"])
+        [fDocument setObject:[now descriptionWithCalendarFormat:@"%Y.%m.%d" timeZone:nil locale:nil] 
+                      forKey:@"StartDate"];
+    if (![props objectForKey:@"StartTime"])
+        [fDocument setObject:[now descriptionWithCalendarFormat:@"%H:%M:%S" timeZone:nil locale:nil] 
+                      forKey:@"StartTime"];
+    if (![props objectForKey:@"Result"])
+        [fDocument setObject:@"*" forKey:@"Result"];
+    if (![props objectForKey:@"City"])
+        if (gameCenter)
+            [fDocument setObject:NSLocalizedString(@"cloud_city", @"Game Center") forKey:@"City"];
+        else
+            [fDocument setObject:[defaults stringForKey:kMBCGameCity] forKey:@"City"];
+    if (![props objectForKey:@"Country"])
+        if (gameCenter)
+            [fDocument setObject:NSLocalizedString(@"cloud_country", @"The Cloud") forKey:@"Country"];
+        else
+            [fDocument setObject:[defaults stringForKey:kMBCGameCountry] forKey:@"Country"];
+    if (![props objectForKey:@"Event"])
+        [fDocument setObject:[defaults stringForKey:kMBCGameEvent] forKey:@"Event"];
 
 	fRows	= 0;
-	fBoard	= [[MBCController controller] board];
-
-	if ([fInfoWindow respondsToSelector:@selector(setRestorationClass:)])
-		[fInfoWindow setRestorationClass:[self class]];
+    
+    [self updateMoves:nil];
 }
 
 - (void) updateMoves:(NSNotification *)notification
 {
+	[self willChangeValueForKey:@"gameTitle"];
+    NSDictionary * props = fDocument.properties;
+    if (![props objectForKey:@"White"])
+        [self setPlayerAlias:[props objectForKey:@"WhitePlayerID"] forKey:@"White"];
+    if (![props objectForKey:@"Black"])
+        [self setPlayerAlias:[props objectForKey:@"BlackPlayerID"] forKey:@"Black"];
 	[fMoveList reloadData];
 	[fMoveList setNeedsDisplay:YES];
-	fTitleNeedsUpdate = true;
 
 	int rows = [self numberOfRowsInTableView:fMoveList]; 
 	if (rows != fRows) {
 		fRows = rows;
 		[fMoveList scrollRowToVisible:rows-1];
 	}
+	[self didChangeValueForKey:@"gameTitle"];
 }
 
 - (void) takeback:(NSNotification *)notification
 {
-	[fOutcome release];
-	fOutcome 	= nil;
-	[fResult release];
-	fResult		= [@"*" retain];
+    [fDocument setObject:@"*" forKey:@"Result"];
+
 	[self updateMoves:notification];
 }
 
 - (void) gameEnd:(NSNotification *)notification
 {
-	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification object]);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification userInfo]);
 
-	[fResult autorelease];
-	[fOutcome autorelease];
-	switch (move->fCommand) {
-	case kCmdWhiteWins:
-		fResult		= @"1-0";
-		fOutcome	= NSLocalizedString(@"white_win_msg", @"White wins");
-		break;
-	case kCmdBlackWins:
-		fResult		= @"0-1";
-		fOutcome 	= NSLocalizedString(@"black_win_msg", @"Black wins");
-		break;
-	case kCmdDraw:
-		fResult		= @"1/2-1/2";
-		fOutcome 	= NSLocalizedString(@"draw_msg", @"Draw");
-		break;
-	default:
-		[fResult retain];
-		[fOutcome retain];
-		return;
-	}
-	[fResult retain];
-	[fOutcome retain];
-	[self updateTitle:nil];
+        switch (move->fCommand) {
+        case kCmdWhiteWins:
+            [fDocument setObject:@"1-0" forKey:@"Result"];
+            break;
+        case kCmdBlackWins:
+            [fDocument setObject:@"0-1" forKey:@"Result"];
+            break;
+        case kCmdDraw:
+            [fDocument setObject:@"1/2-1/2" forKey:@"Result"];
+            break;
+        default:
+            return;
+        }
+        [self updateMoves:notification];
+    });
 }
 
-- (NSDictionary *)getInfo
+- (NSString *)outcome
 {
-	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
-
-	return [NSDictionary dictionaryWithObjectsAndKeys:
-							 fWhiteName, @"White",
-						 fBlackName, @"Black",
-						 fStartDate, @"StartDate",
-						 fStartTime, @"StartTime",
-						 fResult, 	 @"Result",
-						 [defaults stringForKey:kMBCGameCity], 	  @"City",
-						 [defaults stringForKey:kMBCGameCountry], @"Country",
-						 [defaults stringForKey:kMBCGameEvent],   @"Event",
-						 nil];
+    NSString * result = [fDocument objectForKey:@"Result"];
+	if ([result isEqual:@"1-0"])
+		return NSLocalizedString(@"white_win_msg", @"White wins");
+	if ([result isEqual:@"0-1"])
+		return NSLocalizedString(@"black_win_msg", @"Black wins");
+	else if ([result isEqual:@"1/2-1/2"]) 
+		return NSLocalizedString(@"draw_msg", @"Draw");
+    
+    return nil;
 }
 
-- (void)setInfo:(NSDictionary *)dict
+- (void)editProperties:(NSWindow *)sheet modalForWindow:(NSWindow *)window
 {
-	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
-	NSString * 		human		=
-		[NSString stringWithFormat:@"%@ %@",
-				  [defaults stringForKey:kMBCHumanFirst],
-				  [defaults stringForKey:kMBCHumanLast]];
-	NSString * 		engine 		= NSLocalizedString(@"engine_player", @"Computer");
-
-	fSetInfo	= true;
-	[fWhiteName release];
-	[fBlackName release];
-	if (NSString * white = [dict objectForKey:@"White"])
-		fWhiteName 	= [white retain];
-	else if ([[dict objectForKey:@"WhiteType"] isEqual:kMBCHumanPlayer])
-		fWhiteName 	= [human retain];
-	else
-		fWhiteName 	= [engine retain];
-	if (NSString * black = [dict objectForKey:@"Black"])
-		fBlackName 	= [black retain];
-	else if ([[dict objectForKey:@"BlackType"] isEqual:kMBCHumanPlayer])
-		fBlackName 	= [human retain];
-	else
-		fBlackName 	= [engine retain];
-	[fStartDate release];
-	[fStartTime release];
-	[fResult	release];
-	fStartDate = [[dict objectForKey:@"StartDate"] retain];
-	fStartTime = [[dict objectForKey:@"StartTime"] retain];
-	fResult	   = [[dict objectForKey:@"Result"] retain];
-	if (NSString * city = [dict objectForKey:@"City"])
-		if (![city isEqual:[defaults stringForKey:kMBCGameCity]])
-			[defaults setObject:city forKey:kMBCGameCity];
-	if (NSString * country = [dict objectForKey:@"Country"])
-		if (![country isEqual:[defaults stringForKey:kMBCGameCountry]])
-			[defaults setObject:country forKey:kMBCGameCountry];
-	if (NSString * event = [dict objectForKey:@"Event"])
-		[defaults setObject:event forKey:kMBCGameEvent];
-		
-	[fOutcome release];
-	fOutcome = nil;
-	if ([fResult isEqual:@"1-0"])
-		fOutcome	= NSLocalizedString(@"white_win_msg", @"White wins");
-	if ([fResult isEqual:@"0-1"])
-		fOutcome 	= NSLocalizedString(@"black_win_msg", @"Black wins");
-	else if ([fResult isEqual:@"1/2-1/2"]) 
-		fOutcome 	= NSLocalizedString(@"draw_msg", @"Draw");
-	[fOutcome retain];
-}
-
-- (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
-{
-	[NSObject cancelPreviousPerformRequestsWithTarget:self];
-	if (!fSetInfo) {
-		NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
-		NSString * 		human		=
-			[NSString stringWithFormat:@"%@ %@",
-					  [defaults stringForKey:kMBCHumanFirst],
-					  [defaults stringForKey:kMBCHumanLast]];
-		NSString * 		engine 		= NSLocalizedString(@"engine_player", @"Computer");
-
-		[fWhiteName release];
-		[fBlackName release];
-		switch (fHuman = fSideToPlay = sideToPlay) {
-		case kWhiteSide:
-			fWhiteName 	= [human retain];
-			fBlackName 	= [engine retain];
-			break;
-		case kBlackSide:
-			fWhiteName 	= [engine retain];
-			fBlackName 	= [human retain];
-			break;
-		case kBothSides:
-			fWhiteName 	= [human retain];
-			fBlackName 	= [human retain];
-			fHuman	   	= kWhiteSide;
-			break;
-		case kNeitherSide:
-			fWhiteName 	= [engine retain];
-			fBlackName 	= [engine retain];
-			break;
-		}
-		[fStartDate release];
-		[fStartTime release];
-		[fResult release];
-		NSDate * now	= [NSDate date];
-		fStartDate		= [[now descriptionWithCalendarFormat:@"%Y.%m.%d"
-								timeZone:nil locale:nil] retain];
-		fStartTime		= [[now descriptionWithCalendarFormat:@"%H:%M:%S"
-								timeZone:nil locale:nil] retain];
-		fResult			= [@"*" retain];
-		[fOutcome release];
-		fOutcome = nil;
-	} else
-		fSetInfo	= false;
-
-	[self updateMoves:nil];
-	[self updateTitle:nil];
+    fEditedProperties = [[NSMutableDictionary alloc] init];
+    
+	[NSApp beginSheet:sheet
+       modalForWindow:window
+        modalDelegate:self
+       didEndSelector:@selector(didEndSheet:returnCode:contextInfo:)
+          contextInfo:nil];    
 }
 
 - (IBAction) editInfo:(id)sender
 {
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-	[fWhite setStringValue:fWhiteName];
-	[fBlack setStringValue:fBlackName];
-	[fCity setStringValue:[defaults stringForKey:kMBCGameCity]];
-	[fCountry setStringValue:[defaults stringForKey:kMBCGameCountry]];
-	[fEvent setStringValue:[defaults stringForKey:kMBCGameEvent]];
-
-	switch (fSideToPlay) {
-	case kWhiteSide:
-		[fWhite setEditable:YES];
-		[fBlack setSelectable:NO];
-		break;
-	case kBlackSide:
-		[fWhite setSelectable:NO];
-		[fBlack setEditable:YES];
-		break;
-	case kBothSides:
-		[fWhite setEditable:YES];
-		[fBlack setEditable:YES];
-		break;
-	case kNeitherSide:
-		[fWhite setSelectable:NO];
-		[fBlack setSelectable:NO];
-		break;
-	}
-
-	[NSApp beginSheet:fEditSheet
-		   modalForWindow:fInfoWindow
-		   modalDelegate:nil
-		   didEndSelector:nil
-		   contextInfo:nil];
-    [NSApp runModalForWindow:fEditSheet];
-	[NSApp endSheet:fEditSheet];
-	[fEditSheet orderOut:self];
-	[fInfoWindow makeKeyAndOrderFront:self];
+    [self editProperties:fEditSheet modalForWindow:[sender window]];
 }
 
-- (IBAction) cancelInfo:(id)sender
+- (void)editPreferencesForWindow:(NSWindow *)window
 {
-	[NSApp stopModal];
+    [fPrimaryVoiceMenu selectItemAtIndex:[self indexForVoice:[fDocument objectForKey:kMBCDefaultVoice]]];
+    [fAlternateVoiceMenu selectItemAtIndex:[self indexForVoice:[fDocument objectForKey:kMBCAlternateVoice]]];
+    [fBoardStyle selectItemWithTitle:[self localizedStyleName:[fDocument objectForKey:kMBCBoardStyle]]];
+    [fPieceStyle selectItemWithTitle:[self localizedStyleName:[fDocument objectForKey:kMBCPieceStyle]]];
+    
+    [self editProperties:fPrefsSheet modalForWindow:window];
 }
 
-- (IBAction) updateInfo:(id)sender
+- (id)valueForUndefinedKey:(NSString *)key
 {
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-	NSString *			human;
+    return [fDocument objectForKey:key];
+}
 
-	fWhiteName = [[fWhite stringValue] retain];
-	fBlackName = [[fBlack stringValue] retain];
+- (void)setValue:(id)value forUndefinedKey:(NSString *)key
+{
+    if (![fEditedProperties objectForKey:key]) {
+        id oldValue = [fDocument objectForKey:key];
+        if (!oldValue)
+            oldValue = [NSNull null];
+        [fEditedProperties setObject:oldValue forKey:key];
+    }
 
-	if (fHuman == kWhiteSide) 
-		human = fWhiteName;
-	else if (fHuman == kBlackSide) 
-		human = fBlackName;
-	else 
-		human = nil; // Both or neither are humans, no default to learn here
+    [fDocument setValue:value forKey:key];
+}
 
-	if (human) {
-		NSString *	humanFirst;
-		NSString * 	humanLast;
++ (NSSet *)keyPathsForValuesAffectingValueForKey:(NSString *)key
+{
+    if (isupper([key characterAtIndex:0]))
+        return [NSSet setWithObject:[@"document." stringByAppendingString:key]];
+    else 
+        return [NSSet set];
+}
 
-		[MBCGameInfo parseName:human
-					 intoFirst:&humanFirst last:&humanLast];
-		[defaults setObject:humanFirst forKey:kMBCHumanFirst];
-		[defaults setObject:humanLast forKey:kMBCHumanLast];
-	}
+- (void) didEndSheet:(NSWindow *)sheet returnCode:(NSInteger)returnCode contextInfo:(void *)ctx
+{
+    [sheet orderOut:self];
+}
 
-	NSString * cityName		= [fCity stringValue];
-	if (![cityName isEqual:[defaults stringForKey:kMBCGameCity]])
-		[defaults setObject:[fCity stringValue] forKey:kMBCGameCity];
-	NSString * countryName	= [fCountry stringValue];
-	if (![countryName isEqual:[defaults stringForKey:kMBCGameCountry]])
-		[defaults setObject:[fCountry stringValue] forKey:kMBCGameCountry];
-	[defaults setObject:[fEvent stringValue] forKey:kMBCGameEvent];
+- (IBAction) cancelProperties:(id)sender
+{
+    //
+    // Restore all the values that were changed
+    //
+	[NSApp endSheet:[sender window]];
+    for (NSString * prop in fEditedProperties) 
+        [fDocument setObject:[fEditedProperties objectForKey:prop] forKey:prop];
+    [fEditedProperties release];
+}
 
-	[self updateTitle:nil];
-	[NSApp stopModal];
+- (IBAction) updateProperties:(id)sender
+{
+    NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
+   
+    //
+    // Update defaults
+    //
+    for (NSString * edited in fEditedProperties) {
+        id val = [fDocument objectForKey:edited];
+        if ([edited isEqual:@"White"] 
+         || ([edited isEqual:@"Black"] && ![fEditedProperties objectForKey:@"White"])
+        )
+            [defaults setObject:val forKey:kMBCHumanName]; 
+        else if ([edited isEqual:@"City"] ||[edited isEqual:@"Country"] || [edited isEqual:@"Event"])
+            [defaults setObject:val forKey:[@"MBCGame" stringByAppendingString:edited]];
+        else if ([[edited substringToIndex:3] isEqual:@"MBC"])
+            [defaults setObject:val forKey:edited];
+    }
+    if ([fEditedProperties objectForKey:kMBCSearchTime])
+        [fDocument updateSearchTime];
+
+	[NSApp endSheet:[sender window]];
+    [fEditedProperties release];
+}
+
+- (IBAction) updateVoices:(id)sender;
+{
+    NSString * voice    = [self voiceAtIndex:[sender indexOfSelectedItem]];
+    NSString * pvoice   = voice ? voice : @"";
+    if ([sender tag])
+        [self setValue:pvoice forKey:kMBCAlternateVoice];
+    else
+        [self setValue:pvoice forKey:kMBCDefaultVoice];
+
+    NSSpeechSynthesizer *   selectedSynth = [[NSSpeechSynthesizer alloc] initWithVoice:voice];
+    NSString *              demoText      = 
+        [[NSSpeechSynthesizer attributesForVoice:[selectedSynth voice]] 
+         objectForKey:NSVoiceDemoText];
+    if (demoText)
+        [selectedSynth startSpeakingString:demoText];
+}
+
+- (IBAction) updateStyles:(id)sender;
+{
+	NSString *			boardStyle	= 
+        [self unlocalizedStyleName:[fBoardStyle titleOfSelectedItem]];
+	NSString *			pieceStyle  = 
+        [self unlocalizedStyleName:[fPieceStyle titleOfSelectedItem]];
+
+	[self setValue:boardStyle forKey:kMBCBoardStyle];
+	[self setValue:pieceStyle forKey:kMBCPieceStyle];
 }
 
 - (int)numberOfRowsInTableView:(NSTableView *)aTableView
@@ -428,23 +483,15 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 
 - (id)tableView:(NSTableView *)v objectValueForTableColumn:(NSTableColumn *)col row:(int)row
 {
-	//
-	// Defer title update until table gets redrawn
-	//
-	if (fTitleNeedsUpdate) {
-		[self performSelector:@selector(updateTitle:) withObject:nil
-			  afterDelay:0.01];
-		fTitleNeedsUpdate = false;
-	}
-
 	NSString * 		ident 	= [col identifier];
 	if ([ident isEqual:@"Move"]) {
 		return [NSNumber numberWithInt:row+1];
 	} else {
-		NSArray * identComp = [ident componentsSeparatedByString:@":"];
+		NSArray * identComp = [ident componentsSeparatedByString:@"."];
 		return [[fBoard move: row*2+[[identComp objectAtIndex:0] isEqual:@"Black"]] 
 				valueForKey:[identComp objectAtIndex:1]];
 	}
+    return nil;
 }
 
 - (BOOL)tableView:(NSTableView *)aTableView shouldSelectRow:(NSInteger)rowIndex
@@ -452,25 +499,48 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 	return NO; /* Disallow all selections */
 }
 
-- (IBAction) updateTitle:(id)sender
+- (NSString *)describeMove:(int)move
 {
+    NSDictionary * localization = nil;
+    
+    if (NSURL * url = [[NSBundle mainBundle] URLForResource:@"Spoken" withExtension:@"strings"
+                                    subdirectory:nil]
+    )
+        localization = [NSDictionary dictionaryWithContentsOfURL:url];
+    NSString * nr_fmt =
+        NSLocalizedStringFromTable(@"move_table_nr", @"Spoken", @"Move %d");
+    NSString * text = [NSString localizedStringWithFormat:nr_fmt, move];
+    int white = (move-1)*2;
+    if (white < [fBoard numMoves])
+        text = [text stringByAppendingFormat:@"\n\n%@",
+                [fBoard extStringFromMove:[fBoard move:white]
+                         withLocalization:localization]];
+    int black = move*2 - 1;
+    if (black < [fBoard numMoves])
+        text = [text stringByAppendingFormat:@"\n\n%@",
+                [fBoard extStringFromMove:[fBoard move:black]
+                         withLocalization:localization]];
+    
+    return text;
+}
+
+- (NSString *)gameTitle
+{
+    if (!fDocument || [fDocument brandNewGame])
+        return @"";
+    
 	NSString * 		move;
 	int		 		numMoves = [fBoard numMoves];		
-
-	if (sender) {
-		NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-
-		[defaults setBool:
-					  [fShowMoveInTitle intValue] forKey:kMBCShowMoveInTitle];
-	}
 	
-	if (numMoves && [fShowMoveInTitle intValue]) {
+	if (numMoves && [[NSUserDefaults standardUserDefaults] boolForKey:kMBCShowMoveInTitle]) {
 		NSNumber * moveNum = [NSNumber numberWithInt:(numMoves+1)/2];
 		NSString * moveStr = [NSNumberFormatter localizedStringFromNumber:moveNum 
 															  numberStyle:NSNumberFormatterDecimalStyle];
-		move = 	[NSString stringWithFormat:NSLocalizedString(@"title_move_line_fmt", @"%@. %@%@"),
-						  moveStr, numMoves&1 ? @"":@"... ",
+		move = 	[NSString localizedStringWithFormat:NSLocalizedString(@"title_move_line_fmt", @"%@. %@%@"),
+						  moveStr, numMoves&1 ? @"":@"\xE2\x80\xA6 ",
 						  [[fBoard lastMove] localizedText]];
+    } else if ([[fDocument objectForKey:@"Request"] isEqual:@"Takeback"]) {
+        move = NSLocalizedString(@"takeback_msg", @"Takeback requested");
 	} else if (!numMoves) {
 		move =	NSLocalizedString(@"new_msg", @"New Game");
 	} else if (numMoves & 1) {
@@ -479,106 +549,13 @@ NSString * kMBCShowMoveInTitle 	= @"MBCShowMoveInTitle";
 		move = 	NSLocalizedString(@"white_move_msg", @"White to move");
 	}
 
+	if (NSString * outcome = [self outcome])
+		move = outcome;
 	NSString * title =
-		[NSString stringWithFormat:NSLocalizedString(@"game_title_fmt", @"%@ - %@   (%@)"), 
-				  fWhiteName, fBlackName, move];
-	if (fOutcome)
-		title = [NSString stringWithFormat:NSLocalizedString(@"game_outcome_fmt", @"%@   %@"), title, fOutcome];
-	[fMainWindow setTitle:title];
-	unichar emdash = 0x2014;
-	[fMatchup setStringValue:
-				  [NSString stringWithFormat:@"%@\n%@\n%@", 
-							fWhiteName, 
-							[NSString stringWithCharacters:&emdash length:1],
-							fBlackName]];
-	fTitleNeedsUpdate = false;
-}
-
-- (NSSize)windowWillResize:(NSWindow *)sender toSize:(NSSize)proposedFrameSize
-{
-	[fMoveList setNeedsDisplay:YES];
-
-	return proposedFrameSize;
-}
-
-- (NSString *)pgnHeader
-{
-	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
-	NSString * 		wf;
-	NSString *		wl;
-	NSString *		bf;
-	NSString * 		bl;
-	[MBCGameInfo parseName:fWhiteName intoFirst:&wf last:&wl];
-	[MBCGameInfo parseName:fBlackName intoFirst:&bf last:&bl];
-	NSString *		humanw	=
-		[NSString stringWithFormat:@"%@, %@", wl, wf];
-	NSString *		humanb	=
-		[NSString stringWithFormat:@"%@, %@", bl, bf];
-	NSString * 		engine 		= 
-		[NSString stringWithFormat:@"Apple Chess %@",
-				  [[NSBundle mainBundle] 
-					  objectForInfoDictionaryKey:@"CFBundleVersion"]];
-	NSString * white;
-	NSString * black;
-	switch (fSideToPlay) {
-	case kWhiteSide:
-		white 	= humanw;
-		black 	= engine;
-		break;
-	case kBlackSide:
-		white 	= engine;
-		black	= humanb;
-		break;
-	case kBothSides:
-		white	= humanw;
-		black	= humanb;
-		
-		break;
-	case kNeitherSide:
-		white	= engine;
-		black	= engine;
-		break;
-	}
-
-	//
-	// PGN uses a standard format that is NOT localized
-	//
-	NSString * format = 
-		[NSString stringWithUTF8String:
-				  "[Event \"%@\"]\n"
-				  "[Site \"%@, %@\"]\n"
-				  "[Date \"%@\"]\n"
-				  "[Round \"-\"]\n"
-				  "[White \"%@\"]\n"
-				  "[Black \"%@\"]\n"
-				  "[Result \"%@\"]\n"
-				  "[Time \"%@\"]\n"];
-	return [NSString stringWithFormat:format,
-					 [defaults stringForKey:kMBCGameEvent],
-					 [defaults stringForKey:kMBCGameCity],
-					 [defaults stringForKey:kMBCGameCountry],
-					 fStartDate, white, black, fResult, fStartTime];
-}
-
-- (NSString *)pgnResult
-{
-	return fResult;
-}
-
-@end
-
-@interface MBCBoardWindowController : NSWindowController
-{
-}
-
-- (void)synchronizeWindowTitleWithDocumentName;
-
-@end
-
-@implementation MBCBoardWindowController
-
-- (void)synchronizeWindowTitleWithDocumentName
-{
+		[NSString localizedStringWithFormat:NSLocalizedString(@"game_title_fmt", @"%@ - %@   (%@)"), 
+				  [fDocument objectForKey:@"White"], [fDocument objectForKey:@"Black"], move];
+    
+    return title;
 }
 
 @end

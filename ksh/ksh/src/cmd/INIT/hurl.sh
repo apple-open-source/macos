@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#                     Copyright (c) 1994-2007 AT&T                     #
+#                     Copyright (c) 1994-2011 AT&T                     #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                               by AT&T                                #
@@ -20,7 +20,7 @@
 : copy http url data
 
 command=hurl
-agent="$command/2004-10-11 (AT&T Research)"
+agent="$command/2009-01-20 (AT&T Research)"
 authorize=
 verbose=0
 
@@ -28,7 +28,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	ARGV0="-a $command"
 	USAGE=$'
 [-?
-@(#)$Id: hurl (AT&T Research) 2006-01-30 $
+@(#)$Id: hurl (AT&T Research) 2009-01-20 $
 ]
 '$USAGE_LICENSE$'
 [+NAME?hurl - copy http url data]
@@ -46,6 +46,8 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 }
 [a:authorize?The url authorization user name and password, separated
 	by \b:\b (one colon character.)]:[user::password]
+[s:size?Terminate the data transmission after \abytes\a have been
+	transferred.]:[bytes]
 [v:verbose?Verbose trace.]
 
 url
@@ -65,9 +67,12 @@ usage()
 	exit 2
 }
 
+integer limit=0 total=0 block=8*1024
+
 while	getopts $ARGV0 "$USAGE" OPT
 do	case $OPT in
 	a)	authorize=$OPTARG ;;
+	s)	limit=$OPTARG ;;
 	v)	verbose=1 ;;
 	esac
 done
@@ -128,7 +133,7 @@ User-Agent: $agent${AUTHORIZE}
 					case $head in
 					Location:)
 						case $code in
-						301|302)url=$data
+						30[123])url=$data
 							continue 2
 							;;
 						esac
@@ -145,7 +150,11 @@ User-Agent: $agent${AUTHORIZE}
 					esac
 				done
 				case $code in
-				200)	cat
+				200)	if	(( limit ))
+					then	(( limit = (limit + block - 1) / block))
+						dd bs=$block count=$limit silent=1
+					else	cat
+					fi
 					exit
 					;;
 				401)	{

@@ -42,6 +42,7 @@ enum {
     kIOCFSerializeToBinary	= 0x00000001
 };
 
+CF_RETURNS_RETAINED
 CFDataRef
 IOCFSerialize( CFTypeRef object, CFOptionFlags options );
 

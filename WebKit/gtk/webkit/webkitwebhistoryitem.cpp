@@ -278,7 +278,7 @@ WebKitWebHistoryItem* webkit_web_history_item_new()
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
     RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create();
-    priv->historyItem = item.release().releaseRef();
+    priv->historyItem = item.release().leakRef();
     webkit_history_item_add(webHistoryItem, priv->historyItem);
 
     return webHistoryItem;
@@ -286,7 +286,7 @@ WebKitWebHistoryItem* webkit_web_history_item_new()
 
 /**
  * webkit_web_history_item_new_with_data:
- * @uri: the uri of the page
+ * @uri: the URI of the page
  * @title: the title of the page
  *
  * Creates a new #WebKitWebHistoryItem with the given URI and title
@@ -301,7 +301,7 @@ WebKitWebHistoryItem* webkit_web_history_item_new_with_data(const gchar* uri, co
     WebCore::KURL historyUri(WebCore::KURL(), uri);
     WTF::String historyTitle = WTF::String::fromUTF8(title);
     RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create(historyUri, historyTitle, 0);
-    priv->historyItem = item.release().releaseRef();
+    priv->historyItem = item.release().leakRef();
     webkit_history_item_add(webHistoryItem, priv->historyItem);
 
     return webHistoryItem;
@@ -313,7 +313,7 @@ WebKitWebHistoryItem* webkit_web_history_item_new_with_data(const gchar* uri, co
  *
  * Returns: the page title of @web_history_item
  */
-G_CONST_RETURN gchar* webkit_web_history_item_get_title(WebKitWebHistoryItem* webHistoryItem)
+const gchar* webkit_web_history_item_get_title(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
@@ -335,7 +335,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_title(WebKitWebHistoryItem* we
  *
  * Return value: the alternate title of @web_history_item
  */
-G_CONST_RETURN gchar* webkit_web_history_item_get_alternate_title(WebKitWebHistoryItem* webHistoryItem)
+const gchar* webkit_web_history_item_get_alternate_title(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
@@ -375,7 +375,7 @@ void webkit_web_history_item_set_alternate_title(WebKitWebHistoryItem* webHistor
  *
  * Return value: the URI of @web_history_item
  */
-G_CONST_RETURN gchar* webkit_web_history_item_get_uri(WebKitWebHistoryItem* webHistoryItem)
+const gchar* webkit_web_history_item_get_uri(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
@@ -397,7 +397,7 @@ G_CONST_RETURN gchar* webkit_web_history_item_get_uri(WebKitWebHistoryItem* webH
  *
  * Return value: the original URI of @web_history_item
  */
-G_CONST_RETURN gchar* webkit_web_history_item_get_original_uri(WebKitWebHistoryItem* webHistoryItem)
+const gchar* webkit_web_history_item_get_original_uri(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
@@ -452,14 +452,14 @@ WebKitWebHistoryItem* webkit_web_history_item_copy(WebKitWebHistoryItem* self)
     priv->uri = selfPrivate->uri;
     priv->originalUri = selfPrivate->originalUri;
 
-    priv->historyItem = selfPrivate->historyItem->copy().releaseRef();
+    priv->historyItem = selfPrivate->historyItem->copy().leakRef();
 
     return item;
 }
 
 /* private methods */
 
-G_CONST_RETURN gchar* webkit_web_history_item_get_target(WebKitWebHistoryItem* webHistoryItem)
+gchar* webkit_web_history_item_get_target(WebKitWebHistoryItem* webHistoryItem)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_HISTORY_ITEM(webHistoryItem), NULL);
 
@@ -521,7 +521,7 @@ WebKitWebHistoryItem* WebKit::kit(PassRefPtr<WebCore::HistoryItem> historyItem)
         webHistoryItem = WEBKIT_WEB_HISTORY_ITEM(g_object_new(WEBKIT_TYPE_WEB_HISTORY_ITEM, NULL));
         WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
-        priv->historyItem = item.release().releaseRef();
+        priv->historyItem = item.release().leakRef();
         webkit_history_item_add(webHistoryItem, priv->historyItem);
     }
 

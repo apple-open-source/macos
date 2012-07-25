@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/it.xml
@@ -14,6 +14,8 @@ it{
         calendar{"calendario"}
         collation{"collazione"}
         currency{"valuta"}
+        numbers{"Numeri"}
+        x{"Uso privato"}
     }
     Languages{
         aa{"afar"}
@@ -239,7 +241,6 @@ it{
         kaw{"kawi"}
         kbd{"kabardia"}
         kcg{"tyap"}
-        kfo{"kfo"}
         kg{"kongo"}
         kha{"khasi"}
         khi{"lingua khoisan"}
@@ -391,7 +392,6 @@ it{
         ro{"rumeno"}
         roa{"lingua romanza"}
         rom{"romani"}
-        root{"root"}
         ru{"russo"}
         rup{"arumeno"}
         rw{"kinyarwanda"}
@@ -446,7 +446,7 @@ it{
         sux{"sumero"}
         sv{"svedese"}
         sw{"swahili"}
-        swb{"Comoriano"}
+        swb{"comoriano"}
         syr{"siriaco"}
         ta{"tamil"}
         tai{"lingua tailandese"}
@@ -507,7 +507,7 @@ it{
         yi{"yiddish"}
         yo{"yoruba"}
         ypk{"lingue yupik"}
-        yue{"Cantonese"}
+        yue{"cantonese"}
         za{"zhuang"}
         zap{"zapotec"}
         zen{"zenaga"}
@@ -517,8 +517,11 @@ it{
         znd{"zande"}
         zu{"zulu"}
         zun{"zuni"}
-        zxx{"Nessun contenuto linguistico"}
+        zxx{"nessun contenuto linguistico"}
         zza{"zaza"}
+    }
+    LanguagesShort{
+        az{"azero"}
     }
     Scripts{
         Arab{"arabo"}
@@ -573,6 +576,7 @@ it{
         Khar{"kharoshthi"}
         Khmr{"khmer"}
         Knda{"kannada"}
+        Kore{"coreano"}
         Lana{"lanna"}
         Laoo{"lao"}
         Latf{"variante fraktur del latino"}
@@ -589,7 +593,7 @@ it{
         Mero{"meroitico"}
         Mlym{"malayalam"}
         Mong{"mongolo"}
-        Moon{"Moon"}
+        Moon{"moon"}
         Mtei{"meetei mayek"}
         Mymr{"myanmar"}
         Nkoo{"n'ko"}
@@ -634,32 +638,81 @@ it{
         Xsux{"sumero-accadiano cuneiforme"}
         Yiii{"yi"}
         Zinh{"ereditato"}
+        Zsym{"simboli"}
         Zxxx{"non scritto"}
         Zyyy{"comune"}
         Zzzz{"ignoto o non valido"}
+    }
+    Scripts%stand-alone{
+        Hans{"han semplificati"}
+        Hant{"han tradizionali"}
     }
     Types{
         calendar{
             buddhist{"calendario buddista"}
             chinese{"calendario cinese"}
+            coptic{"calendario copto"}
+            ethiopic{"calendario etiope"}
+            ethiopic-amete-alem{"calendario etiope Amete Alem"}
             gregorian{"calendario gregoriano"}
             hebrew{"calendario ebraico"}
             indian{"calendario nazionale indiano"}
             islamic{"calendario islamico"}
             islamic-civil{"calendario civile islamico"}
             japanese{"calendario giapponese"}
+            persian{"calendario persiano"}
+            roc{"calendario Minguo"}
         }
         collation{
             big5han{"cinese tradizionale"}
             dictionary{"ordinamento dizionario"}
-            direct{"ordine diretto"}
+            ducet{"ordinamento Unicode predefinito"}
             gb2312han{"cinese semplificato"}
             phonebook{"ordine elenco telefonico"}
+            phonetic{"ordine fonetico"}
             pinyin{"ordine pinyin"}
             reformed{"ordinamento riformato"}
+            search{"ricerca generica"}
             stroke{"ordine segni"}
             traditional{"ordine tradizionale"}
             unihan{"ordinamento tratto radicale"}
+        }
+        numbers{
+            arab{"Numeri indo-arabi"}
+            arabext{"Numeri indo-arabi estesi"}
+            armn{"Numeri armeni"}
+            armnlow{"Numeri minuscoli armeni"}
+            beng{"Numeri bengalesi"}
+            deva{"Numeri devanagari"}
+            ethi{"Numeri etiopi"}
+            fullwide{"Numeri a larghezza intera"}
+            geor{"Numeri gregoriani"}
+            grek{"Numeri greci"}
+            greklow{"Numeri minuscoli greci"}
+            gujr{"Numeri gujarati"}
+            guru{"Numeri Gurmukhi"}
+            hanidec{"Numeri decimali cinesi"}
+            hans{"Numeri in cinese semplificato"}
+            hansfin{"Numeri finanziari in cinese semplificato"}
+            hant{"Numeri in cinese tradizionale"}
+            hantfin{"Numeri finanziari in cinese tradizionale"}
+            hebr{"Numeri ebraici"}
+            jpan{"Numeri giapponesi"}
+            jpanfin{"Numeri finanziari giapponesi"}
+            khmr{"Numeri khmer"}
+            knda{"Numeri kannada"}
+            laoo{"Numeri lao"}
+            latn{"Numeri occidentali"}
+            mlym{"Numeri malayalam"}
+            mong{"Numeri mongoli"}
+            mymr{"Numeri birmani"}
+            orya{"Numeri oriya"}
+            roman{"Numeri romani"}
+            romanlow{"Numeri minuscoli romani"}
+            taml{"Numeri tamil"}
+            telu{"Numeri telugu"}
+            thai{"Numeri thailandesi"}
+            tibt{"Numeri tibetani"}
         }
     }
     Variants{
@@ -677,8 +730,9 @@ it{
         REVISED{"ortografia revisionata"}
         ROZAJ{"resiano"}
         SAAHO{"saho"}
+        SCOTLAND{"inglese standard - scozzese"}
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.67.6"}
     localeDisplayPattern{
         pattern{"{0} ({1})"}
         separator{", "}

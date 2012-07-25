@@ -2757,16 +2757,19 @@ open_socket(
 	/*
 	 * IPv6 specific options go here
 	 */
-
+    int flags6 = 0;
 	if (IS_IPV6(addr)) {
-		/* if tentative don't bind */
+		/* Avoid predictable bind errors */
 		struct in6_ifreq ifr6;
+        strlcpy(ifr6.ifr_name, interf->name, sizeof(ifr6.ifr_name));
 		ifr6.ifr_addr = *(struct sockaddr_in6 *)addr;
 		if (ioctl(fd, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
-			if (ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_NOTREADY) {
+			if (ifr6.ifr_ifru.ifru_flags6 & (IN6_IFF_NOTREADY|IN6_IFF_DETACHED|IN6_IFF_DEPRECATED)) {
 				closesocket(fd);
 				return INVALID_SOCKET;
-			}
+			} else {
+                flags6 = ifr6.ifr_ifru.ifru_flags6;
+            }
 		}
 #if defined(IPV6_V6ONLY)
 		if (isc_net_probe_ipv6only() == ISC_R_SUCCESS
@@ -2821,11 +2824,11 @@ open_socket(
 				scopetext[0] = 0;
 
 			msyslog(LOG_ERR,
-				"bind(%d) AF_INET%s %s%s#%d%s flags 0x%x failed: %m",
+				"bind(%d) AF_INET%s %s%s#%d%s flags 0x%x flags6 0x%x failed: %m",
 				fd, IS_IPV6(addr) ? "6" : "",
 				stoa(addr), scopetext, SRCPORT(addr),
 				IS_MCAST(addr) ? " (multicast)" : "",
-				interf->flags);
+				interf->flags, flags6);
 		}
 
 		closesocket(fd);

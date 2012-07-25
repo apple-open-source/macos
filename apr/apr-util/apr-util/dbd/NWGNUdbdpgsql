@@ -11,7 +11,7 @@ SUBDIRS = \
 #
 
 ifndef EnvironmentDefined
-include $(APR_WORK)\build\NWGNUhead.inc
+include $(APR_WORK)/build/NWGNUhead.inc
 endif
 
 #include $(APR)\build\NWGNUcustom.inc
@@ -27,8 +27,8 @@ endif
 
 # for now defined here - should finally go into build/NWGNUenvironment.inc
 PGSQL_INC = $(PGSQLSDK)/inc
-PGSQL_IMP = $(PGSQLSDK)/imp/libpq.imp
-PGSQL_LIB = $(PGSQLSDK)/lib/libpq.lib
+PGSQL_IMP = libpq.imp
+PGSQL_LIB = libpq.lib
 PGSQL_NLM = libpq
 
 #
@@ -38,8 +38,8 @@ PGSQL_NLM = libpq
 XINCDIRS	+= \
 			$(APR)/include/arch/netware \
 			$(APR)/include \
-			$(APRUTIL)/include \
-			$(APRUTIL)/include/private \
+			$(APU)/include \
+			$(APU)/include/private \
 			$(APR) \
 			$(PGSQL_INC) \
 			$(EOLIST)
@@ -68,6 +68,10 @@ XLFLAGS		+= \
 ifdef LINK_STATIC
 XLFLAGS		+= \
 			-l $(PGSQLSDK)/lib \
+			$(EOLIST)
+else
+XLFLAGS		+= \
+			-l $(PGSQLSDK)/imp \
 			$(EOLIST)
 endif
 
@@ -151,12 +155,12 @@ NLM_STACK_SIZE	= 8192
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= _LibCPrelude
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= _LibCPostlude
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -166,7 +170,7 @@ NLM_CHECK_SYM	=
 #
 # If these are specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS	= AUTOUNLOAD, PSEUDOPREEMPTION
+NLM_FLAGS	=
 
 #
 # If this is specified it will be linked in with the XDCData option in the def
@@ -179,7 +183,7 @@ XDCDATA		=
 # If there is an NLM target, put it here
 #
 TARGET_nlm = \
-	$(OBJDIR)\$(NLM_NAME).nlm \
+	$(OBJDIR)/$(NLM_NAME).nlm \
 	$(EOLIST)
 
 #
@@ -201,7 +205,7 @@ FILES_nlm_objs = \
 # These will be added as a library command in the link.opt file.
 #
 FILES_nlm_libs = \
-	libcpre.o \
+	$(PRELUDE) \
 	$(EOLIST)
 
 ifeq ($(LINK_STATIC),1)
@@ -244,7 +248,7 @@ FILE_nlm_copyright =
 # Any additional imports go here
 #
 FILES_nlm_Ximports = \
-	@$(APR)/aprlib.imp \
+	@aprlib.imp \
 	@libc.imp \
 	$(EOLIST)
 
@@ -291,7 +295,7 @@ install :: nlms FORCE
 # in this makefile
 #
 
-include $(APR_WORK)\build\NWGNUtail.inc
+include $(APRBUILD)/NWGNUtail.inc
 
 
 

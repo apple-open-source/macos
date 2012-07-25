@@ -1,4 +1,4 @@
-# Sample rcfile for Sjeng 10.0
+# Sample rcfile for Sjeng 11.x
 #
 # First number is size of hash table (transposition table) 
 # An entry is about 16 bytes, and there are three tables, 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,7 @@ static Boolean			_verbose	= FALSE;
 
 #define	HOSTNAME_NOTIFY_KEY	"com.apple.system.hostname"
 
+CFStringRef copy_dhcp_hostname(CFStringRef serviceID);
 
 static void
 set_hostname(CFStringRef hostname)
@@ -308,31 +309,6 @@ copy_primary_ip(SCDynamicStoreRef store, CFStringRef serviceID)
 	return address;
 }
 
-
-#define	DHCP_OPTION_HOSTNAME	12
-
-static CFStringRef
-copy_dhcp_name(SCDynamicStoreRef store, CFStringRef serviceID)
-{
-	CFDictionaryRef	info;
-	CFStringRef	name	= NULL;
-
-	info = SCDynamicStoreCopyDHCPInfo(store, serviceID);
-	if (info != NULL) {
-		CFDataRef	data;
-
-		data = DHCPInfoGetOptionData(info, DHCP_OPTION_HOSTNAME);
-		if (data != NULL) {
-			name = CFStringCreateFromExternalRepresentation(NULL, data, kCFStringEncodingUTF8);
-		}
-
-		CFRelease(info);
-	}
-
-	return name;
-}
-
-
 static void
 reverseDNSComplete(int32_t status, char *host, char *serv, void *context)
 {
@@ -472,50 +448,28 @@ getnameinfo_async_handleCFReply(CFMachPortRef port, void *msg, CFIndex size, voi
 static void
 start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 {
-	char				addr[64];
+	union {
+		struct sockaddr		sa;
+		struct sockaddr_in	sin;
+		struct sockaddr_in6	sin6;
+	} addr;
+	char				buf[64];
 	SCNetworkReachabilityFlags	flags;
 	Boolean				haveDNS;
 	Boolean				ok;
-	struct sockaddr			*sa;
-	struct sockaddr_in		sin;
-	struct sockaddr_in6		sin6;
 
-	if (_SC_cfstring_to_cstring(address, addr, sizeof(addr), kCFStringEncodingASCII) == NULL) {
+	if (_SC_cfstring_to_cstring(address, buf, sizeof(buf), kCFStringEncodingASCII) == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("could not convert [primary] address"));
 		return;
 	}
 
-	bzero(&sin, sizeof(sin));
-	sin.sin_len    = sizeof(sin);
-	sin.sin_family = AF_INET;
-
-	bzero(&sin6, sizeof(sin6));
-	sin6.sin6_len    = sizeof(sin6);
-	sin6.sin6_family = AF_INET6;
-
-	if (inet_aton(addr, &sin.sin_addr) == 1) {
-		/*
-		 * if IPv4 address
-		 */
-		sa = (struct sockaddr *)&sin;
-	} else if (inet_pton(AF_INET6, addr, &sin6.sin6_addr) == 1) {
-		/*
-		 * if IPv6 address
-		 */
-		char	*p;
-
-		p = strchr(addr, '%');
-		if (p != NULL) {
-			sin6.sin6_scope_id = if_nametoindex(p + 1);
-		}
-
-		sa = (struct sockaddr *)&sin6;
-	} else {
-		goto done;
+	if (_SC_string_to_sockaddr(buf, AF_UNSPEC, (void *)&addr, sizeof(addr)) == NULL) {
+		/* if not an IP[v6] address */
+		SCLog(TRUE, LOG_ERR, CFSTR("could not parse [primary] address"));
+		return;
 	}
 
-
-	ok = _SC_checkResolverReachabilityByAddress(&store, &flags, &haveDNS, sa);
+	ok = _SC_checkResolverReachabilityByAddress(&store, &flags, &haveDNS, &addr.sa);
 	if (ok) {
 		if (!(flags & kSCNetworkReachabilityFlagsReachable) ||
 		    (flags & kSCNetworkReachabilityFlagsConnectionRequired)) {
@@ -538,8 +492,8 @@ start_dns_query(SCDynamicStoreRef store, CFStringRef address)
 		(void) gettimeofday(&dnsQueryStart, NULL);
 
 		error = getnameinfo_async_start(&mp,
-						sa,
-						sa->sa_len,
+						&addr.sa,
+						addr.sa.sa_len,
 						NI_NAMEREQD,	// flags
 						reverseDNSComplete,
 						NULL);
@@ -612,7 +566,7 @@ update_hostname(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	// get DHCP provided name, if available
 
-	hostname = copy_dhcp_name(store, serviceID);
+	hostname = copy_dhcp_hostname(serviceID);
 	if (hostname != NULL) {
 		SCLog(TRUE, LOG_INFO, CFSTR("hostname (DHCP) = %@"), hostname);
 		set_hostname(hostname);

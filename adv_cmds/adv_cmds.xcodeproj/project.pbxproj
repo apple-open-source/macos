@@ -19,12 +19,26 @@
 			name = localedef;
 			productName = localedef2;
 		};
+		FD201DCD14369D0C00906237 /* pgrep */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD201DCE14369D0C00906237 /* Build configuration list for PBXAggregateTarget "pgrep" */;
+			buildPhases = (
+				FD201DD014369D1000906237 /* ShellScript */,
+			);
+			dependencies = (
+				FD201DD214369D5C00906237 /* PBXTargetDependency */,
+			);
+			name = pgrep;
+			productName = pgrep;
+		};
 		FDF2764E0FC60ECD00D7A3C6 /* Embedded */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FDF276580FC60EE600D7A3C6 /* Build configuration list for PBXAggregateTarget "Embedded" */;
 			buildPhases = (
 			);
 			dependencies = (
+				FD201DD614369D6700906237 /* PBXTargetDependency */,
+				FD201DBF14369B1700906237 /* PBXTargetDependency */,
 				FDF2766D0FC60F0D00D7A3C6 /* PBXTargetDependency */,
 				FDF2766B0FC60F0D00D7A3C6 /* PBXTargetDependency */,
 			);
@@ -46,8 +60,9 @@
 				FDF2775B0FC6102600D7A3C6 /* PBXTargetDependency */,
 				FD0D7FA9108FE5C3004F2A1C /* PBXTargetDependency */,
 				FDF277570FC6102600D7A3C6 /* PBXTargetDependency */,
-				FDF277550FC6102600D7A3C6 /* PBXTargetDependency */,
 				FDF277530FC6102600D7A3C6 /* PBXTargetDependency */,
+				FD201DD414369D6300906237 /* PBXTargetDependency */,
+				FD201DC114369B1D00906237 /* PBXTargetDependency */,
 				FDF2766F0FC60F0F00D7A3C6 /* PBXTargetDependency */,
 				FDF276710FC60F1300D7A3C6 /* PBXTargetDependency */,
 				FDF2776D0FC6102B00D7A3C6 /* PBXTargetDependency */,
@@ -61,6 +76,9 @@
 
 /* Begin PBXBuildFile section */
 		FD0D7FA4108FE58C004F2A1C /* localedef.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF277140FC60FDF00D7A3C6 /* localedef.1 */; };
+		FD201DC214369B4200906237 /* pkill.c in Sources */ = {isa = PBXBuildFile; fileRef = FD201DB014369AD000906237 /* pkill.c */; };
+		FD201DC314369B4600906237 /* pkill.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD201DAF14369AD000906237 /* pkill.1 */; };
+		FDCD383B143BC63000AB81C6 /* libsysmon.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDCD383A143BC63000AB81C6 /* libsysmon.dylib */; };
 		FDF2774B0FC6100400D7A3C6 /* cap_mkdb.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF276DE0FC60FDF00D7A3C6 /* cap_mkdb.c */; };
 		FDF277730FC6105F00D7A3C6 /* cap_mkdb.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF276DD0FC60FDF00D7A3C6 /* cap_mkdb.1 */; };
 		FDF277790FC610EC00D7A3C6 /* finger.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF276EC0FC60FDF00D7A3C6 /* finger.c */; };
@@ -99,8 +117,6 @@
 		FDF278370FC6167800D7A3C6 /* lex.l in Sources */ = {isa = PBXBuildFile; fileRef = FDF277220FC60FDF00D7A3C6 /* lex.l */; };
 		FDF278380FC6167800D7A3C6 /* yacc.y in Sources */ = {isa = PBXBuildFile; fileRef = FDF277260FC60FDF00D7A3C6 /* yacc.y */; };
 		FDF278A30FC61D8900D7A3C6 /* mklocale.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF277240FC60FDF00D7A3C6 /* mklocale.1 */; };
-		FDF278AE0FC61EE100D7A3C6 /* md.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF2771D0FC60FDF00D7A3C6 /* md.c */; };
-		FDF278B00FC61EF300D7A3C6 /* md.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF2771C0FC60FDF00D7A3C6 /* md.1 */; };
 		FDF278C60FC61FDF00D7A3C6 /* lsvfs.c in Sources */ = {isa = PBXBuildFile; fileRef = FDF277180FC60FDF00D7A3C6 /* lsvfs.c */; };
 		FDF278CA0FC61FFD00D7A3C6 /* lsvfs.1 in Install man1 */ = {isa = PBXBuildFile; fileRef = FDF277170FC60FDF00D7A3C6 /* lsvfs.1 */; };
 		FDF278D60FC6204E00D7A3C6 /* locale.cc in Sources */ = {isa = PBXBuildFile; fileRef = FDF2770A0FC60FDF00D7A3C6 /* locale.cc */; };
@@ -121,8 +137,43 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FD0D7F98108FE550004F2A1C /* localedef */;
+			remoteGlobalIDString = FD0D7F98108FE550004F2A1C;
 			remoteInfo = localedef;
+		};
+		FD201DBE14369B1700906237 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD201DB414369B0300906237;
+			remoteInfo = pkill;
+		};
+		FD201DC014369B1D00906237 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD201DB414369B0300906237;
+			remoteInfo = pkill;
+		};
+		FD201DD114369D5C00906237 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD201DB414369B0300906237;
+			remoteInfo = pkill;
+		};
+		FD201DD314369D6300906237 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD201DCD14369D0C00906237;
+			remoteInfo = pgrep;
+		};
+		FD201DD514369D6700906237 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD201DCD14369D0C00906237;
+			remoteInfo = pgrep;
 		};
 		FDF2766A0FC60F0D00D7A3C6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -158,13 +209,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = FDF276B00FC60F7600D7A3C6;
 			remoteInfo = mklocale;
-		};
-		FDF277540FC6102600D7A3C6 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = FDF276430FC60E9000D7A3C6 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = FDF276AA0FC60F6D00D7A3C6;
-			remoteInfo = md;
 		};
 		FDF277560FC6102600D7A3C6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -255,6 +299,16 @@
 				FD0D7FA4108FE58C004F2A1C /* localedef.1 in Install man1 */,
 			);
 			name = "Install man1";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FD201DB314369B0300906237 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				FD201DC314369B4600906237 /* pkill.1 in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FDF277780FC610A400D7A3C6 /* Install man1 */ = {
@@ -377,17 +431,6 @@
 			name = "Install man1";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		FDF278B30FC61F1F00D7A3C6 /* Install man1 */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				FDF278B00FC61EF300D7A3C6 /* md.1 in Install man1 */,
-			);
-			name = "Install man1";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		FDF278D50FC6201600D7A3C6 /* Install man1 */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -446,6 +489,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		FD201DAF14369AD000906237 /* pkill.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = pkill.1; path = pkill/pkill.1; sourceTree = "<group>"; };
+		FD201DB014369AD000906237 /* pkill.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = pkill.c; path = pkill/pkill.c; sourceTree = "<group>"; };
+		FD201DB514369B0400906237 /* pkill */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pkill; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDCD383A143BC63000AB81C6 /* libsysmon.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsysmon.dylib; path = /usr/lib/libsysmon.dylib; sourceTree = "<absolute>"; };
 		FDF2765C0FC60EF600D7A3C6 /* ps */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ps; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276640FC60EFD00D7A3C6 /* stty */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = stty; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276750FC60F2100D7A3C6 /* cap_mkdb */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cap_mkdb; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -456,7 +503,6 @@
 		FDF276930FC60F4B00D7A3C6 /* last */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = last; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276990FC60F5000D7A3C6 /* locale */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = locale; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276A50FC60F5E00D7A3C6 /* lsvfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lsvfs; sourceTree = BUILT_PRODUCTS_DIR; };
-		FDF276AB0FC60F6D00D7A3C6 /* md */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = md; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276B10FC60F7600D7A3C6 /* mklocale */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mklocale; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276B70FC60F7F00D7A3C6 /* tabs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tabs; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDF276BD0FC60F8400D7A3C6 /* tty */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tty; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -493,8 +539,6 @@
 		FDF277140FC60FDF00D7A3C6 /* localedef.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = localedef.1; sourceTree = "<group>"; };
 		FDF277170FC60FDF00D7A3C6 /* lsvfs.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = lsvfs.1; sourceTree = "<group>"; };
 		FDF277180FC60FDF00D7A3C6 /* lsvfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lsvfs.c; sourceTree = "<group>"; };
-		FDF2771C0FC60FDF00D7A3C6 /* md.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = md.1; sourceTree = "<group>"; };
-		FDF2771D0FC60FDF00D7A3C6 /* md.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md.c; sourceTree = "<group>"; };
 		FDF2771F0FC60FDF00D7A3C6 /* extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
 		FDF277210FC60FDF00D7A3C6 /* ldef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ldef.h; sourceTree = "<group>"; };
 		FDF277220FC60FDF00D7A3C6 /* lex.l */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.lex; path = lex.l; sourceTree = "<group>"; };
@@ -533,6 +577,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		FD201DB214369B0300906237 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDCD383B143BC63000AB81C6 /* libsysmon.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDF2765A0FC60EF600D7A3C6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -605,13 +657,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FDF276A90FC60F6D00D7A3C6 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		FDF276AF0FC60F7600D7A3C6 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -644,6 +689,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		FD201DAD14369AB300906237 /* pkill */ = {
+			isa = PBXGroup;
+			children = (
+				FD201DB014369AD000906237 /* pkill.c */,
+				FD201DAF14369AD000906237 /* pkill.1 */,
+			);
+			name = pkill;
+			sourceTree = "<group>";
+		};
 		FDF276410FC60E9000D7A3C6 = {
 			isa = PBXGroup;
 			children = (
@@ -652,6 +706,7 @@
 				FDF277B60FC6128800D7A3C6 /* libutil.dylib */,
 				FDF277E70FC6144400D7A3C6 /* libtermcap.dylib */,
 				FDF2795D0FC6272500D7A3C6 /* libl.a */,
+				FDCD383A143BC63000AB81C6 /* libsysmon.dylib */,
 			);
 			sourceTree = "<group>";
 		};
@@ -668,11 +723,11 @@
 				FDF276930FC60F4B00D7A3C6 /* last */,
 				FDF276990FC60F5000D7A3C6 /* locale */,
 				FDF276A50FC60F5E00D7A3C6 /* lsvfs */,
-				FDF276AB0FC60F6D00D7A3C6 /* md */,
 				FDF276B10FC60F7600D7A3C6 /* mklocale */,
 				FDF276B70FC60F7F00D7A3C6 /* tabs */,
 				FDF276BD0FC60F8400D7A3C6 /* tty */,
 				FDF276C30FC60F8A00D7A3C6 /* whois */,
+				FD201DB514369B0400906237 /* pkill */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -689,8 +744,8 @@
 				FDF277080FC60FDF00D7A3C6 /* locale */,
 				FDF2770C0FC60FDF00D7A3C6 /* localedef */,
 				FDF277160FC60FDF00D7A3C6 /* lsvfs */,
-				FDF2771A0FC60FDF00D7A3C6 /* md */,
 				FDF2771E0FC60FDF00D7A3C6 /* mklocale */,
+				FD201DAD14369AB300906237 /* pkill */,
 				FDF277270FC60FDF00D7A3C6 /* ps */,
 				FDF277320FC60FDF00D7A3C6 /* stty */,
 				FDF2773E0FC60FDF00D7A3C6 /* tabs */,
@@ -804,15 +859,6 @@
 			path = lsvfs;
 			sourceTree = "<group>";
 		};
-		FDF2771A0FC60FDF00D7A3C6 /* md */ = {
-			isa = PBXGroup;
-			children = (
-				FDF2771C0FC60FDF00D7A3C6 /* md.1 */,
-				FDF2771D0FC60FDF00D7A3C6 /* md.c */,
-			);
-			path = md;
-			sourceTree = "<group>";
-		};
 		FDF2771E0FC60FDF00D7A3C6 /* mklocale */ = {
 			isa = PBXGroup;
 			children = (
@@ -889,6 +935,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		FD201DB414369B0300906237 /* pkill */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD201DBC14369B0400906237 /* Build configuration list for PBXNativeTarget "pkill" */;
+			buildPhases = (
+				FD201DB114369B0300906237 /* Sources */,
+				FD201DB214369B0300906237 /* Frameworks */,
+				FD201DB314369B0300906237 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pkill;
+			productName = pkill;
+			productReference = FD201DB514369B0400906237 /* pkill */;
+			productType = "com.apple.product-type.tool";
+		};
 		FDF2765B0FC60EF600D7A3C6 /* ps */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDF276600FC60EF700D7A3C6 /* Build configuration list for PBXNativeTarget "ps" */;
@@ -1061,23 +1124,6 @@
 			productReference = FDF276A50FC60F5E00D7A3C6 /* lsvfs */;
 			productType = "com.apple.product-type.tool";
 		};
-		FDF276AA0FC60F6D00D7A3C6 /* md */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FDF276D10FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "md" */;
-			buildPhases = (
-				FDF276A80FC60F6D00D7A3C6 /* Sources */,
-				FDF276A90FC60F6D00D7A3C6 /* Frameworks */,
-				FDF278B30FC61F1F00D7A3C6 /* Install man1 */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = md;
-			productName = md;
-			productReference = FDF276AB0FC60F6D00D7A3C6 /* md */;
-			productType = "com.apple.product-type.tool";
-		};
 		FDF276B00FC60F7600D7A3C6 /* mklocale */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = FDF276D20FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "mklocale" */;
@@ -1153,7 +1199,11 @@
 			isa = PBXProject;
 			buildConfigurationList = FDF276460FC60E9000D7A3C6 /* Build configuration list for PBXProject "adv_cmds" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = FDF276410FC60E9000D7A3C6;
 			productRefGroup = FDF2765D0FC60EF600D7A3C6 /* Products */;
 			projectDirPath = "";
@@ -1170,8 +1220,9 @@
 				FDF276980FC60F5000D7A3C6 /* locale */,
 				FD0D7F98108FE550004F2A1C /* localedef */,
 				FDF276A40FC60F5E00D7A3C6 /* lsvfs */,
-				FDF276AA0FC60F6D00D7A3C6 /* md */,
 				FDF276B00FC60F7600D7A3C6 /* mklocale */,
+				FD201DCD14369D0C00906237 /* pgrep */,
+				FD201DB414369B0300906237 /* pkill */,
 				FDF2765B0FC60EF600D7A3C6 /* ps */,
 				FDF276630FC60EFD00D7A3C6 /* stty */,
 				FDF276B60FC60F7F00D7A3C6 /* tabs */,
@@ -1195,9 +1246,31 @@
 			shellPath = /bin/sh;
 			shellScript = "set -ex\n/usr/bin/install -m ${INSTALL_MODE_FLAG} ${SRCROOT}/localedef/localedef.pl ${INSTALL_DIR}/localedef\n${CHMOD} +x ${INSTALL_DIR}/localedef";
 		};
+		FD201DD014369D1000906237 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/variant_links.sh";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		FD201DB114369B0300906237 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD201DC214369B4200906237 /* pkill.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FDF276590FC60EF600D7A3C6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1295,14 +1368,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FDF276A80FC60F6D00D7A3C6 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FDF278AE0FC61EE100D7A3C6 /* md.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		FDF276AE0FC60F7600D7A3C6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1344,6 +1409,31 @@
 			target = FD0D7F98108FE550004F2A1C /* localedef */;
 			targetProxy = FD0D7FA8108FE5C3004F2A1C /* PBXContainerItemProxy */;
 		};
+		FD201DBF14369B1700906237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD201DB414369B0300906237 /* pkill */;
+			targetProxy = FD201DBE14369B1700906237 /* PBXContainerItemProxy */;
+		};
+		FD201DC114369B1D00906237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD201DB414369B0300906237 /* pkill */;
+			targetProxy = FD201DC014369B1D00906237 /* PBXContainerItemProxy */;
+		};
+		FD201DD214369D5C00906237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD201DB414369B0300906237 /* pkill */;
+			targetProxy = FD201DD114369D5C00906237 /* PBXContainerItemProxy */;
+		};
+		FD201DD414369D6300906237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD201DCD14369D0C00906237 /* pgrep */;
+			targetProxy = FD201DD314369D6300906237 /* PBXContainerItemProxy */;
+		};
+		FD201DD614369D6700906237 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD201DCD14369D0C00906237 /* pgrep */;
+			targetProxy = FD201DD514369D6700906237 /* PBXContainerItemProxy */;
+		};
 		FDF2766B0FC60F0D00D7A3C6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FDF276630FC60EFD00D7A3C6 /* stty */;
@@ -1368,11 +1458,6 @@
 			isa = PBXTargetDependency;
 			target = FDF276B00FC60F7600D7A3C6 /* mklocale */;
 			targetProxy = FDF277520FC6102600D7A3C6 /* PBXContainerItemProxy */;
-		};
-		FDF277550FC6102600D7A3C6 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = FDF276AA0FC60F6D00D7A3C6 /* md */;
-			targetProxy = FDF277540FC6102600D7A3C6 /* PBXContainerItemProxy */;
 		};
 		FDF277570FC6102600D7A3C6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1437,6 +1522,21 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = localedef;
+			};
+			name = Release;
+		};
+		FD201DBD14369B0400906237 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FD201DCF14369D0C00906237 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1577,17 +1677,6 @@
 			};
 			name = Release;
 		};
-		FDF276AD0FC60F6E00D7A3C6 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				GCC_WARN_ABOUT_RETURN_TYPE = NO;
-				GCC_WARN_MISSING_PARENTHESES = NO;
-				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = NO;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = md;
-			};
-			name = Release;
-		};
 		FDF276B30FC60F7700D7A3C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1631,6 +1720,22 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FD0D7F99108FE550004F2A1C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD201DBC14369B0400906237 /* Build configuration list for PBXNativeTarget "pkill" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD201DBD14369B0400906237 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD201DCE14369D0C00906237 /* Build configuration list for PBXAggregateTarget "pgrep" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD201DCF14369D0C00906237 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1735,14 +1840,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				FDF276A70FC60F5F00D7A3C6 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		FDF276D10FC60F9700D7A3C6 /* Build configuration list for PBXNativeTarget "md" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				FDF276AD0FC60F6E00D7A3C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

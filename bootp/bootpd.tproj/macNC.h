@@ -91,4 +91,4 @@ set_privs(const char * path, struct stat * sb_p, uid_t uid, gid_t gid,
 	  mode_t mode, boolean_t unlock);
 
 
-#endif _S_MACNC_H
+#endif /* _S_MACNC_H */

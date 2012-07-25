@@ -47,7 +47,7 @@ sub print_leaks
         my $leak_string = `leaks powerd`;
         push (@all_tools_output, $leak_string);
     }
-    push(@all_tools_output, "powerd leaks = ".$leaks_powerd_output);
+    push(@all_tools_output, "powerd leaks = ".$leaks_count_powerd);
     $last_leak_count_powerd = $leaks_count_powerd;
 }
 

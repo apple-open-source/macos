@@ -1,5 +1,5 @@
 /* lutil_meter.h - progress meters */
-/* $OpenLDAP: pkg/ldap/include/lutil_meter.h,v 1.1.2.1 2009/02/05 20:10:59 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
  * Copyright (c) 2009 by Matthew Backes, Symas Corp.

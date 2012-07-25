@@ -37,20 +37,19 @@ public:
 private:
     SVGFEGaussianBlurElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
     static const AtomicString& stdDeviationXIdentifier();
     static const AtomicString& stdDeviationYIdentifier();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_NUMBER(StdDeviationX, stdDeviationX)
-    DECLARE_ANIMATED_NUMBER(StdDeviationY, stdDeviationY)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEGaussianBlurElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_NUMBER(StdDeviationX, stdDeviationX)
+        DECLARE_ANIMATED_NUMBER(StdDeviationY, stdDeviationY)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

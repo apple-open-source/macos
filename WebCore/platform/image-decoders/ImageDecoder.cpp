@@ -31,7 +31,9 @@
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
+#if USE(WEBP)
 #include "WEBPImageDecoder.h"
+#endif
 #include "SharedBuffer.h"
 
 using namespace std;
@@ -57,12 +59,12 @@ unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const SharedB
 
 bool matchesGIFSignature(char* contents)
 {
-    return !memcmp(contents, "GIF8", 4);
+    return !memcmp(contents, "GIF87a", 6) || !memcmp(contents, "GIF89a", 6);
 }
 
 bool matchesPNGSignature(char* contents)
 {
-    return !memcmp(contents, "\x89\x50\x4E\x47", 4);
+    return !memcmp(contents, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8);
 }
 
 bool matchesJPEGSignature(char* contents)
@@ -189,14 +191,15 @@ bool ImageFrame::copyBitmapData(const ImageFrame& other)
 
 bool ImageFrame::setSize(int newWidth, int newHeight)
 {
-    // NOTE: This has no way to check for allocation failure if the requested
-    // size was too big...
-    m_backingStore.resize(newWidth * newHeight);
+    ASSERT(!width() && !height());
+    size_t backingStoreSize = newWidth * newHeight;
+    if (!m_backingStore.tryReserveCapacity(backingStoreSize))
+        return false;
+    m_backingStore.resize(backingStoreSize);
     m_bytes = m_backingStore.data();
     m_size = IntSize(newWidth, newHeight);
 
     zeroFillPixelData();
-
     return true;
 }
 

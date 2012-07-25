@@ -37,6 +37,7 @@ static char sccsid[] = "@(#)wbuf.c	8.1 (Berkeley) 6/4/93";
 __FBSDID("$FreeBSD: src/lib/libc/stdio/wbuf.c,v 1.12 2007/01/09 00:28:08 imp Exp $");
 
 #include <stdio.h>
+#include <errno.h>
 #include "local.h"
 
 /*
@@ -61,8 +62,10 @@ __swbuf(c, fp)
 	 * calls might wrap _w from negative to positive.
 	 */
 	fp->_w = fp->_lbfsize;
-	if (prepwrite(fp) != 0)
+	if (prepwrite(fp) != 0) {
+		errno = EBADF;
 		return (EOF);
+	}
 	c = (unsigned char)c;
 
 	ORIENT(fp, -1);

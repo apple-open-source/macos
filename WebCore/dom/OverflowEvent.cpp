@@ -29,7 +29,14 @@
 #include "EventNames.h"
 
 namespace WebCore {
-        
+
+OverflowEventInit::OverflowEventInit()
+    : orient(0)
+    , horizontalOverflow(false)
+    , verticalOverflow(false)
+{
+}
+
 OverflowEvent::OverflowEvent()
     : Event(eventNames().overflowchangedEvent, false, false)
     , m_orient(VERTICAL)
@@ -53,16 +60,24 @@ OverflowEvent::OverflowEvent(bool horizontalOverflowChanged, bool horizontalOver
         m_orient = VERTICAL;
 }
 
-bool OverflowEvent::isOverflowEvent() const
+OverflowEvent::OverflowEvent(const AtomicString& type, const OverflowEventInit& initializer)
+    : Event(type, initializer)
+    , m_orient(initializer.orient)
+    , m_horizontalOverflow(initializer.horizontalOverflow)
+    , m_verticalOverflow(initializer.verticalOverflow)
 {
-    return true;
+}
+
+const AtomicString& OverflowEvent::interfaceName() const
+{
+    return eventNames().interfaceForOverflowEvent;
 }
 
 void OverflowEvent::initOverflowEvent(unsigned short orient, bool horizontalOverflow, bool verticalOverflow)
 {
     if (dispatched())
         return;
-    
+
     m_orient = orient;
     m_horizontalOverflow = horizontalOverflow;
     m_verticalOverflow = verticalOverflow;

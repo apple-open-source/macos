@@ -1,4 +1,4 @@
-.ds VN 4.84
+.ds VN 4.85
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -17,6 +17,8 @@ lsof \- list open files
 .BI +|\-d " d"
 ] [
 .BI +|\-D " D"
+] [
+.BI +|\-e " s"
 ] [
 .B +|\-f [cfgGn]
 ] [
@@ -65,9 +67,9 @@ opened by processes for the following UNIX dialects:
 .PP
 .nf
 	AIX 5.3
-	Apple Darwin 9 (Mac OS X 10.5)
-	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.[0123], 8.0 and 9.0 for AMD64-based systems
+	Apple Darwin 9 and Mac OS X 10.[56]
+	FreeBSD 4.9 and 6.4 for x86-based systems
+	FreeBSD 8.[02] and 9.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 .fi
@@ -239,11 +241,10 @@ explaining each error.
 (Escape the `?' character as your shell requires.)
 .TP \w'names'u+4
 .B \-a
-This option causes list selection options to be ANDed, as described
-above.
+causes list selection options to be ANDed, as described above.
 .TP \w'names'u+4
 .BI \-A " A"
-This option is available on systems configured for AFS whose AFS
+is available on systems configured for AFS whose AFS
 kernel code is implemented via dynamic modules.
 It allows the
 .I lsof
@@ -259,7 +260,7 @@ symbols, and how they affect
 .IR lsof .
 .TP \w'names'u+4
 .B \-b
-This option causes
+causes
 .I lsof
 to avoid kernel functions that might block \-
 .IR lstat (2),
@@ -274,7 +275,7 @@ and
 sections for information on using this option.
 .TP \w'names'u+4
 .BI \-c " c"
-This option selects the listing of files for processes executing the
+selects the listing of files for processes executing the
 command that begins with the characters of
 .IR c .
 Multiple commands may be specified, using multiple
@@ -322,7 +323,7 @@ when lsof's
 option is specified.
 .TP \w'names'u+4
 .BI +c " w"
-This option defines the maximum number of initial characters of the name,
+defines the maximum number of initial characters of the name,
 supplied by the UNIX dialect, of the UNIX command associated with a process
 to be printed in the COMMAND column.
 (The
@@ -351,19 +352,20 @@ is less than the length of the column title, ``COMMAND'', it will
 be raised to that length.
 .TP \w'names'u+4
 .B \-C
-This option disables the reporting of any path name
+disables the reporting of any path name
 components from the kernel's name cache.
 See the
 .B "KERNEL NAME CACHE"
 section for more information.
 .TP \w'names'u+4
 .BI +d " s"
-This option causes
+causes
 .I lsof
 to search for all open instances of directory
 .I s
 and the files and directories it contains at its top level.
-This option does NOT descend the directory tree, rooted at
+.B +d
+does NOT descend the directory tree, rooted at
 .IR s .
 The
 .BI +D " D"
@@ -395,7 +397,7 @@ files that the user has permission to examine with the system
 function.
 .TP \w'names'u+4
 .BI \-d " s"
-This option specifies a list of file descriptors (FDs) to exclude from
+specifies a list of file descriptors (FDs) to exclude from
 or include in the output listing.
 The file descriptors are specified in the comma\-separated set
 .I s
@@ -424,7 +426,7 @@ See the description of File Descriptor (FD) output values in the
 section for more information on file descriptor names.
 .TP \w'names'u+4
 .BI +D " D"
-This option causes
+causes
 .I lsof
 to search for all open instances of directory
 .I D
@@ -468,7 +470,7 @@ When directory
 is large, these steps can take a long time, so use this option prudently.
 .TP \w'names'u+4
 .BI \-D " D"
-This option directs
+directs
 .I lsof's
 use of the device cache file.
 The use of this option is sometimes restricted.
@@ -586,6 +588,54 @@ This is the default device cache file function when no
 .B \-D
 option has been specified.
 .TP \w'names'u+4
+.BI +|\-e " s"
+exempts the file system whose path name is
+.I s
+from being subjected to kernel function calls that might block.
+The
+.B +e
+option exempts
+.IR stat (2),
+.IR lstat (2)
+and most
+.IR readlink (2)
+kernel function calls.
+The
+.B \-e
+option exempts only
+.IR stat(2)
+and
+.IR lstat (2)
+kernel function calls.
+Multiple file systems may be specified with separate
+.B +|\-e
+specifications and each may have
+.IR readlink (2)
+calls exempted or not.
+.IP
+This option is currently implemented only for Linux.
+.IP
+.B CAUTION:
+this option can easily be mis\-applied to other than
+the file system of interest, because it uses path name rather
+than the more reliable device and inode numbers.
+(Device and inode numbers are acquired via the potentially blocking
+.IR stat (2)
+kernel call and are thus not available, but see the
+.BI +|\-m " m"
+option as a possible alternative way to supply device numbers.)
+\fBUse this option with great care and fully specify the path name of the
+file system to be exempted.\fP
+.IP
+When open files on exempted file systems are reported, it may not be
+possible to obtain all their information.
+Therefore, some information columns will be blank, the characters ``UNKN''
+preface the values in the TYPE column, and the applicable exemption option
+is added in parentheses to the end of the NAME column.
+(Some device number information might be made available via the
+.BI +|\-m " m"
+option.)
+.TP \w'names'u+4
 .B +|\-f [cfgGn]
 .B f
 by itself clarifies how path name arguments are to be interpreted.
@@ -672,7 +722,7 @@ field output can be parsed by an AWK or Perl post\-filter script,
 or by a C program.
 .TP \w'names'u+4
 .BI \-F " f"
-This option specifies a character list,
+specifies a character list,
 .IR f ,
 that selects the fields to be output for processing by another program,
 and the character that terminates each output field.
@@ -714,7 +764,7 @@ will display a help list of the field identification characters.
 (Escape the `?' character as your shell requires.)
 .TP \w'names'u+4
 .BI \-g " [s]"
-This option excludes or selects the listing of files for the processes
+excludes or selects the listing of files for the processes
 whose optional process group IDentification (PGID) numbers are in the
 comma\-separated set
 .I s
@@ -734,7 +784,7 @@ option also enables the output display of PGID numbers.
 When specified without a PGID set that's all it does.
 .TP \w'names'u+4
 .BI \-i " [i]"
-This option selects the listing of files any of whose Internet address
+selects the listing of files any of whose Internet address
 matches the address specified in \fIi\fP.
 If no address is specified, this option selects the listing of all
 Internet and x.25 (HP\-UX) network files.
@@ -915,7 +965,7 @@ Here are some sample addresses:
 .fi
 .TP \w'names'u+4
 .B \-K
-This option selects the listing of tasks of processes, on dialects
+selects the listing of tasks of processes, on dialects
 where task reporting is supported.
 (If help output \- i.e., the output of the
 .B \-h
@@ -936,17 +986,18 @@ it were a task, but without a task ID.
 section.)
 .TP \w'names'u+4
 .BI \-k " k"
-This option specifies a kernel name list file,
+specifies a kernel name list file,
 .IR k ,
 in place of /vmunix, /mach, etc.
-This option is not available under AIX on the IBM RISC/System 6000.
+.B \-k
+is not available under AIX on the IBM RISC/System 6000.
 .TP \w'names'u+4
 .B \-l
-This option inhibits the conversion of user ID numbers to login names.
+inhibits the conversion of user ID numbers to login names.
 It is also useful when login name lookup is working improperly or slowly.
 .TP \w'names'u+4
 .BI +|\-L " [l]"
-This option enables (`+') or disables (`-') the listing of file link
+enables (`+') or disables (`-') the listing of file link
 counts, where they are available \- e.g., they aren't available
 for sockets, or most FIFOs and pipes.
 .IP
@@ -972,7 +1023,7 @@ For other link count comparisons, use field output (\fB\-F\fP)
 and a post\-processing script or program.
 .TP \w'names'u+4
 .BI +|\-m " m"
-This option specifies an alternate kernel memory file or activates
+specifies an alternate kernel memory file or activates
 mount table supplement processing.
 .IP
 The option form
@@ -1030,7 +1081,11 @@ options are available.
 .TP \w'names'u+4
 .B +|\-M
 Enables (\fB+\fP) or disables (\fB-\fP) the
-reporting of portmapper registrations for local TCP, UDP and UDPLITE ports.
+reporting of portmapper registrations for local TCP, UDP and UDPLITE ports,
+where port mapping is supported.
+(See the last paragraph of this option description for information about
+where portmapper registration reporting is suported.)
+.IP
 The default reporting mode is set by the
 .I lsof
 builder with the HASPMAPENABLED #define in the dialect's machine.h
@@ -1048,7 +1103,6 @@ or
 option will report the default mode.
 Disabling portmapper registration when it is already disabled or
 enabling it when already enabled is acceptable.
-.IP
 When portmapper registration reporting is enabled,
 .I lsof
 displays the portmapper registration (if any) for local TCP, UDP or
@@ -1086,9 +1140,20 @@ See the
 FAQ (The \fBFAQ\fP section gives its location.)
 for further discussion of portmapper registration
 reporting issues.
+.IP
+Portmapper registration reporting is supported only on dialects that
+have RPC header files.
+(Some Linux distributions with GlibC 2.14 do not have them.)
+When portmapper registration reporting is supported, the
+.B \-h
+or
+.B \-?
+help output will show the
+.B +|\-M
+option.
 .TP \w'names'u+4
 .B \-n
-This option inhibits the conversion of network numbers to 
+inhibits the conversion of network numbers to 
 host names for network files.
 Inhibiting conversion may make
 .I lsof
@@ -1096,10 +1161,10 @@ run faster.
 It is also useful when host name lookup is not working properly.
 .TP \w'names'u+4
 .B \-N
-This option selects the listing of NFS files.
+selects the listing of NFS files.
 .TP \w'names'u+4
 .BI \-o
-This option directs
+directs
 .I lsof
 to display file offset at all times.
 It causes the SIZE/OFF output column title to be changed to OFFSET.
@@ -1124,7 +1189,7 @@ displays whatever value \- size or offset \- is appropriate and
 available for the type of the file.
 .TP \w'names'u+4
 .BI \-o " o"
-This option defines the number of decimal digits (\fIo\fP) to be
+defines the number of decimal digits (\fIo\fP) to be
 printed after the ``0t'' for a file offset before the form is switched
 to ``0x...''.
 An
@@ -1138,7 +1203,8 @@ This option does NOT direct
 to display offset at all times; specify
 .B \-o
 (without a trailing number) to do that.
-This option only specifies the number of digits after ``0t'' in
+.BI \-o " o"
+only specifies the number of digits after ``0t'' in
 either mixed size and offset or offset\-only output.
 Thus, for example, to direct
 .I lsof
@@ -1161,7 +1227,7 @@ or
 option to determine the default that is in effect.
 .TP \w'names'u+4
 .B \-O
-This option directs
+directs
 .I lsof
 to bypass the strategy it uses to avoid being blocked by some
 kernel operations \- i.e., doing them in forked child processes.
@@ -1180,7 +1246,7 @@ to hang when the kernel doesn't respond to a function.
 Use this option cautiously.
 .TP \w'names'u+4
 .BI \-p " s"
-This option excludes or selects the listing of files for the processes
+excludes or selects the listing of files for the processes
 whose optional process IDentification (PID) numbers are in the
 comma\-separated set
 .I s
@@ -1195,7 +1261,7 @@ However, PID exclusions are applied without ORing or ANDing
 and take effect before other selection criteria are applied.
 .TP \w'names'u+4
 .B \-P
-This option inhibits the conversion of port numbers to port
+inhibits the conversion of port numbers to port
 names for network files.
 Inhibiting the conversion may make
 .I lsof
@@ -1203,7 +1269,7 @@ run a little faster.
 It is also useful when port name lookup is not working properly.
 .TP \w'names'u+4
 .BI +|\-r " [t[m<fmt>]]"
-This option puts
+puts
 .I lsof
 in repeat mode.
 There
@@ -1281,7 +1347,7 @@ or
 script, or a C program.
 .TP \w'names'u+4
 .B \-R
-This option directs lsof to list the Parent Process IDentification
+directs lsof to list the Parent Process IDentification
 number in the PPID column.
 .TP \w'names'u+4
 .BI \-s " [p:s]"
@@ -1360,7 +1426,7 @@ pipes, etc. \- lsof displays for their sizes the content amounts in
 their associated kernel buffers, if possible.
 .TP \w'names'u+4
 .BI \-S " [t]"
-This option specifies an optional time-out seconds value for kernel functions \-
+specifies an optional time-out seconds value for kernel functions \-
 .IR lstat (2),
 .IR readlink (2),
 and
@@ -1376,7 +1442,7 @@ See the
 section for more information.
 .TP \w'names'u+4
 .BI \-T " [t]"
-This option controls the reporting of some TCP/TPI information, also
+controls the reporting of some TCP/TPI information, also
 reported by
 .IR netstat (1),
 following the network addresses.
@@ -1478,17 +1544,18 @@ questions in the
 FAQ (The \fBFAQ\fP section gives its location.)
 .TP \w'names'u+4
 .B \-t 
-This option specifies that
+specifies that
 .I lsof
 should produce terse output with process identifiers only and no header \-
 e.g., so that the output may be piped to
 .IR kill (1).
-This option selects the
+.B \-t
+selects the
 .B \-w
 option.
 .TP \w'names'u+4
 .BI \-u " s"
-This option selects the listing of files for the user whose login names
+selects the listing of files for the user whose login names
 or user ID numbers are in the comma\-separated set
 .I s
 \&\- e.g., ``abe'',
@@ -1510,10 +1577,10 @@ to exclude the listing of files belonging to root processes,
 specify ``\-u^root'' or ``\-u^0''.
 .TP \w'names'u+4
 .B \-U
-This option selects the listing of UNIX domain socket files.
+selects the listing of UNIX domain socket files.
 .TP \w'names'u+4
 .B \-v
-This option selects the listing of
+selects the listing of
 .I lsof
 version information, including: revision number;
 when the
@@ -1532,7 +1599,7 @@ and system information, typically the output of
 option.
 .TP \w'names'u+4
 .B \-V
-This option directs
+directs
 .I lsof
 to indicate the items it was asked to list and failed to find \- command
 names, file names, Internet addresses or files, login names, NFS files,
@@ -1572,14 +1639,14 @@ option selects the
 .B \-w
 option.
 .TP \w'names'u+4
-.B \-x " [fl]"
-This option may accompany the
+.BI \-x " [fl]"
+may accompany the
 .B +d
 and
 .B +D
-options to direct their processing to cross over symbolic links
-and|or file system mount points encountered when scanning the
-directory (\fB+d\fP) or directory tree (\fB+D\fP).
+options to direct their processing to cross over symbolic
+links and|or file system mount points encountered when
+scanning the directory (\fB+d\fP) or directory tree (\fB+D\fP).
 .IP
 If
 .B -x
@@ -1738,7 +1805,7 @@ to other conditions specified by other options and arguments.
 .TP \w'names'u+4
 .BI \-Z " [Z]"
 specifies how SELinux security contexts are to be handled.
-This option and 'Z' field output character support are inhibited
+It and 'Z' field output character support are inhibited
 when SELinux is disabled in the running Linux kernel.
 See
 .B "OUTPUT FOR OTHER PROGRAMS"

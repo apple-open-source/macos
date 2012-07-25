@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 44;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -13,8 +13,9 @@
 			buildPhases = (
 			);
 			dependencies = (
-				89F255A30DAABEAD00CA7984 /* PBXTargetDependency */,
 				89F255A50DAABEAD00CA7984 /* PBXTargetDependency */,
+				D34E06641491B38E00EB61BE /* PBXTargetDependency */,
+				89F255A30DAABEAD00CA7984 /* PBXTargetDependency */,
 			);
 			name = BootCache;
 			productName = SmartReadahead;
@@ -29,6 +30,10 @@
 		7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */; };
 		7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246077213A9818100DDF965 /* Root.logical_playlist */; };
 		7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246076F13A9812600DDF965 /* Login.logical_playlist */; };
+		72A2930714C8FFF50080F826 /* DiskManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930614C8FFF50080F826 /* DiskManagement.framework */; };
+		72A2930A14C9000C0080F826 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930914C9000C0080F826 /* DiskArbitration.framework */; };
+		72A2930C14C9001B0080F826 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A2930B14C9001B0080F826 /* Foundation.framework */; };
+		72A7851314D8ACFD00157467 /* libCoreStorage.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 72A7851214D8ACFD00157467 /* libCoreStorage.dylib */; };
 		72B0D74D1166A66F00EAA900 /* BootCacheControl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B0D72D11669ED300EAA900 /* BootCacheControl.8 */; };
 		72B8453E126FEBD0009E3486 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
 		72B8453F126FEBD4009E3486 /* library.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F47C34001F78EE30ECA2C3D /* library.c */; };
@@ -40,13 +45,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		7220D94E126FF085009A4724 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72B84537126FE81E009E3486;
-			remoteInfo = libBootCache;
-		};
 		89F255A20DAABEAD00CA7984 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -61,12 +59,12 @@
 			remoteGlobalIDString = 89F255780DAABEAD00CA7984;
 			remoteInfo = BootCache.kext;
 		};
-		89F255A60DAABEAD00CA7984 /* PBXContainerItemProxy */ = {
+		D34E06631491B38E00EB61BE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 89F255910DAABEAD00CA7984;
-			remoteInfo = BootCacheControl;
+			remoteGlobalIDString = 72B84537126FE81E009E3486;
+			remoteInfo = libBootCache;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -112,6 +110,10 @@
 		7246077213A9818100DDF965 /* Root.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Root.logical_playlist; sourceTree = "<group>"; };
 		72565F281331B3C8008CA43A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		7294709713AADB3300FD8E8C /* LoginExtra.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LoginExtra.logical_playlist; sourceTree = "<group>"; };
+		72A2930614C8FFF50080F826 /* DiskManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskManagement.framework; path = /System/Library/PrivateFrameworks/DiskManagement.framework; sourceTree = "<absolute>"; };
+		72A2930914C9000C0080F826 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		72A2930B14C9001B0080F826 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		72A7851214D8ACFD00157467 /* libCoreStorage.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libCoreStorage.dylib; path = /usr/lib/libCoreStorage.dylib; sourceTree = "<absolute>"; };
 		72B0D72D11669ED300EAA900 /* BootCacheControl.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = BootCacheControl.8; sourceTree = "<group>"; };
 		72B84538126FE81E009E3486 /* libBootCache.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libBootCache.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		72DE477E13AC15F400CAA790 /* convert_playlist_to_logical_playlist.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = convert_playlist_to_logical_playlist.sh; sourceTree = "<group>"; };
@@ -144,6 +146,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72A7851314D8ACFD00157467 /* libCoreStorage.dylib in Frameworks */,
+				72A2930C14C9001B0080F826 /* Foundation.framework in Frameworks */,
+				72A2930A14C9000C0080F826 /* DiskArbitration.framework in Frameworks */,
+				72A2930714C8FFF50080F826 /* DiskManagement.framework in Frameworks */,
 				7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */,
 				720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */,
 				721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */,
@@ -203,6 +209,10 @@
 		72565F271331B395008CA43A /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				72A7851214D8ACFD00157467 /* libCoreStorage.dylib */,
+				72A2930B14C9001B0080F826 /* Foundation.framework */,
+				72A2930914C9000C0080F826 /* DiskArbitration.framework */,
+				72A2930614C8FFF50080F826 /* DiskManagement.framework */,
 				721C495F134D6EF800F70C2B /* IOKit.framework */,
 				72565F281331B3C8008CA43A /* CoreFoundation.framework */,
 			);
@@ -282,7 +292,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				89F255A70DAABEAD00CA7984 /* PBXTargetDependency */,
 			);
 			name = BootCache.kext;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -304,7 +313,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				7220D94F126FF085009A4724 /* PBXTargetDependency */,
 			);
 			name = BootCacheControl;
 			productInstallPath = /usr/sbin;
@@ -318,10 +326,10 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0440;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
-			compatibilityVersion = "Xcode 3.0";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -446,11 +454,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		7220D94F126FF085009A4724 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72B84537126FE81E009E3486 /* libBootCache */;
-			targetProxy = 7220D94E126FF085009A4724 /* PBXContainerItemProxy */;
-		};
 		89F255A30DAABEAD00CA7984 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 89F255910DAABEAD00CA7984 /* BootCacheControl */;
@@ -461,10 +464,10 @@
 			target = 89F255780DAABEAD00CA7984 /* BootCache.kext */;
 			targetProxy = 89F255A40DAABEAD00CA7984 /* PBXContainerItemProxy */;
 		};
-		89F255A70DAABEAD00CA7984 /* PBXTargetDependency */ = {
+		D34E06641491B38E00EB61BE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 89F255910DAABEAD00CA7984 /* BootCacheControl */;
-			targetProxy = 89F255A60DAABEAD00CA7984 /* PBXContainerItemProxy */;
+			target = 72B84537126FE81E009E3486 /* libBootCache */;
+			targetProxy = D34E06631491B38E00EB61BE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -472,19 +475,15 @@
 		42F550350A77D4BD00672F71 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -496,16 +495,12 @@
 		42F5503A0A77D4BD00672F71 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = "";
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -556,7 +551,6 @@
 		89F255890DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -572,7 +566,6 @@
 		89F2558E0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;

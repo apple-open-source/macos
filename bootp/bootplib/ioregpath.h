@@ -35,4 +35,4 @@ myIORegistryEntryCopyProperty(const char * path, CFStringRef prop);
 CFDictionaryRef
 myIORegistryEntryBSDNameMatchingCopyValue(const char * devname, Boolean parent);
 
-#endif _S_IOREGPATH_S
+#endif /* _S_IOREGPATH_S */

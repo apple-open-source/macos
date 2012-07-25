@@ -26,19 +26,13 @@
 
 #include "config.h"
 
-#include "JSScriptProfileNode.h"
-
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-#include <profiler/ProfileNode.h>
-#endif
 
-#include <runtime/JSArray.h>
+#include "JSScriptProfileNode.h"
 
 using namespace JSC;
 
 namespace WebCore {
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
 
 JSValue JSScriptProfileNode::callUID(ExecState*) const
 {
@@ -46,20 +40,6 @@ JSValue JSScriptProfileNode::callUID(ExecState*) const
     return result;
 }
 
-typedef Vector<RefPtr<ProfileNode> > ProfileNodesList;
-
-JSValue JSScriptProfileNode::children(ExecState* exec) const
-{
-    const ProfileNodesList& children = impl()->children();
-    MarkedArgumentBuffer list;
-
-    ProfileNodesList::const_iterator end = children.end();
-    for (ProfileNodesList::const_iterator iter = children.begin(); iter != end; ++iter)
-        list.append(toJS(exec, globalObject(), iter->get()));
-
-    return constructArray(exec, globalObject(), list);
-}
+} // namespace WebCore
 
 #endif
-
-} // namespace WebCore

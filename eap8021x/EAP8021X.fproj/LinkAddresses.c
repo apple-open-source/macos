@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2002, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -173,7 +173,8 @@ LinkAddresses_create()
 	struct sockaddr_dl *	sdl;
 	struct sockaddr_dl * 	new_p;
 
-	ifm = (struct if_msghdr *)&buf[offset];
+    /* ALIGN: buf is aligned to at least sizeof(int) bytes */
+	ifm = (struct if_msghdr *)(void *)&buf[offset];
 
 	switch (ifm->ifm_type) {
 	case RTM_IFINFO:

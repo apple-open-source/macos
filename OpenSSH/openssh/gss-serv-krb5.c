@@ -180,7 +180,7 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 		return;
 
 #ifdef HEIMDAL
-	if ((problem = krb5_cc_gen_new(krb_context, &krb5_fcc_ops, &ccache))) {
+	if ((problem = krb5_cc_gen_new(krb_context, &krb5_acc_ops, &ccache))) {
 		logit("krb5_cc_gen_new(): %.100s",
 		    krb5_get_err_text(krb_context, problem));
 		return;

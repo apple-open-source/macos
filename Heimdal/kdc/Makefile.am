@@ -2,7 +2,7 @@
 
 include $(top_srcdir)/Makefile.am.common
 
-AM_CPPFLAGS += $(INCLUDE_libintl) $(INCLUDE_krb4) $(INCLUDE_hcrypto) -I$(srcdir)/../lib/krb5
+AM_CPPFLAGS += $(INCLUDE_libintl) $(INCLUDE_hcrypto) -I$(srcdir)/../lib/krb5
 
 lib_LTLIBRARIES = libkdc.la
 
@@ -16,7 +16,7 @@ noinst_PROGRAMS = kdc-replay
 
 man_MANS = kdc.8 kstash.8 hprop.8 hpropd.8 string2key.8
 
-hprop_SOURCES = hprop.c mit_dump.c v4_dump.c hprop.h kadb.h 
+hprop_SOURCES = hprop.c mit_dump.c hprop.h
 hpropd_SOURCES = hpropd.c hprop.h
 
 kstash_SOURCES = kstash.c headers.h
@@ -37,15 +37,13 @@ libkdc_la_SOURCES = 		\
 	default_config.c 	\
 	set_dbinfo.c	 	\
 	digest.c		\
+	fast.c			\
 	kdc_locl.h		\
 	kerberos5.c		\
 	krb5tgs.c		\
 	pkinit.c		\
 	log.c			\
 	misc.c			\
-	524.c			\
-	kerberos4.c		\
-	kaserver.c		\
 	kx509.c			\
 	process.c		\
 	windc.c			\
@@ -71,7 +69,7 @@ $(srcdir)/kdc-private.h:
 hprop_LDADD = \
 	$(top_builddir)/lib/hdb/libhdb.la \
 	$(top_builddir)/lib/krb5/libkrb5.la \
-	$(LIB_kdb) $(LIB_krb4) \
+	$(LIB_kdb)  \
 	$(LIB_hcrypto) \
 	$(top_builddir)/lib/asn1/libasn1.la \
 	$(LIB_roken) \
@@ -80,7 +78,7 @@ hprop_LDADD = \
 hpropd_LDADD = \
 	$(top_builddir)/lib/hdb/libhdb.la \
 	$(top_builddir)/lib/krb5/libkrb5.la \
-	$(LIB_kdb) $(LIB_krb4) \
+	$(LIB_kdb)  \
 	$(LIB_hcrypto) \
 	$(top_builddir)/lib/asn1/libasn1.la \
 	$(LIB_roken) \
@@ -94,7 +92,7 @@ libkdc_la_LIBADD = \
 	$(LIB_pkinit) \
 	$(top_builddir)/lib/hdb/libhdb.la \
 	$(top_builddir)/lib/krb5/libkrb5.la \
-	$(LIB_kdb) $(LIB_krb4) \
+	$(LIB_kdb)  \
 	$(top_builddir)/lib/ntlm/libheimntlm.la \
 	$(LIB_hcrypto) \
 	$(top_builddir)/lib/asn1/libasn1.la \
@@ -103,7 +101,6 @@ libkdc_la_LIBADD = \
 
 LDADD = $(top_builddir)/lib/hdb/libhdb.la \
 	$(top_builddir)/lib/krb5/libkrb5.la \
-	$(LIB_krb4) \
 	$(LIB_hcrypto) \
 	$(top_builddir)/lib/asn1/libasn1.la \
 	$(LIB_roken) \
@@ -118,7 +115,8 @@ kdc_CFLAGS = $(CAPNG_CFLAGS)
 
 digest_service_LDADD = \
 	libkdc.la \
-	../lib/ipc/libheim-ipcs.la \
+	$(top_builddir)/lib/ntlm/libheimntlm.la \
+	$(top_builddir)/lib/ipc/libheim-ipcs.la \
 	$(LDADD) $(LIB_pidfile)
 kdc_replay_LDADD = libkdc.la $(LDADD) $(LIB_pidfile)
 
@@ -130,4 +128,12 @@ krb5_HEADERS = windc_plugin.h
 
 build_HEADERZ = $(krb5_HEADERS) # XXX
 
-EXTRA_DIST = $(man_MANS) version-script.map
+EXTRA_DIST = \
+	hprop-version.rc \
+	hpropd-version.rc \
+	kdc-version.rc \
+	kstash-version.rc \
+	libkdc-version.rc \
+	string2key-version.rc \
+	libkdc-exports.def \
+	NTMakefile $(man_MANS) version-script.map

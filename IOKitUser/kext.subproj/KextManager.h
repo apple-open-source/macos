@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -208,4 +208,4 @@ CFDictionaryRef KextManagerCopyLoadedKextInfo(
 
 __END_DECLS
 
-#endif __KEXTMANAGER_H__
+#endif /* __KEXTMANAGER_H__ */

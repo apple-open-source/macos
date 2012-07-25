@@ -7,15 +7,14 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		05097255094910D30034B52C /* all */ = {
+		05097255094910D30034B52C /* osx_executables */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = 05097264094910D30034B52C /* Build configuration list for PBXAggregateTarget "all" */;
+			buildConfigurationList = 05097264094910D30034B52C /* Build configuration list for PBXAggregateTarget "osx_executables" */;
 			buildPhases = (
 			);
 			dependencies = (
 				24B79F2A125A6556009FF51B /* PBXTargetDependency */,
 				050972FE094910D30034B52C /* PBXTargetDependency */,
-				0C885410133165C900942EB9 /* PBXTargetDependency */,
 				05097300094910D30034B52C /* PBXTargetDependency */,
 				05762B1D09D0C71C00EC18C1 /* PBXTargetDependency */,
 				24EE72D409EC994F008CF6B0 /* PBXTargetDependency */,
@@ -25,9 +24,65 @@
 				24C5F6FA0DC7ED3600E4BA01 /* PBXTargetDependency */,
 				05097308094910D30034B52C /* PBXTargetDependency */,
 				10830D2F0F5DE9A700937E9E /* PBXTargetDependency */,
+				0CE8649F1562E732003DF7D4 /* PBXTargetDependency */,
 			);
-			name = all;
+			name = osx_executables;
 			productName = all;
+		};
+		0CE864451562DF40003DF7D4 /* osx_base */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE864461562DF40003DF7D4 /* Build configuration list for PBXAggregateTarget "osx_base" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0CE8649D1562E045003DF7D4 /* PBXTargetDependency */,
+			);
+			name = osx_base;
+			productName = osx_base;
+		};
+		0CE8644A1562DF5A003DF7D4 /* osx */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE8644B1562DF5A003DF7D4 /* Build configuration list for PBXAggregateTarget "osx" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0CDA836E1566EF7200FCA0F6 /* PBXTargetDependency */,
+				0CDA83711566EF7400FCA0F6 /* PBXTargetDependency */,
+			);
+			name = osx;
+			productName = osx_executables;
+		};
+		0CE864891562DFE3003DF7D4 /* --- standalone --- */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE8648A1562DFE3003DF7D4 /* Build configuration list for PBXAggregateTarget "--- standalone ---" */;
+			buildPhases = (
+			);
+			dependencies = (
+			);
+			name = "--- standalone ---";
+			productName = "--- standalone ---";
+		};
+		0CE8648E1562E006003DF7D4 /* --- convenience --- */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE8648F1562E006003DF7D4 /* Build configuration list for PBXAggregateTarget "--- convenience ---" */;
+			buildPhases = (
+			);
+			dependencies = (
+			);
+			name = "--- convenience ---";
+			productName = "--- convenience ---";
+		};
+		0CE864931562E010003DF7D4 /* brtest */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 0CE864941562E010003DF7D4 /* Build configuration list for PBXAggregateTarget "brtest" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0CE864991562E01B003DF7D4 /* PBXTargetDependency */,
+				0CE8649B1562E01E003DF7D4 /* PBXTargetDependency */,
+			);
+			name = brtest;
+			productName = brtest;
 		};
 		10830D0E0F5DE85900937E9E /* embedded */ = {
 			isa = PBXAggregateTarget;
@@ -267,19 +322,47 @@
 			remoteGlobalIDString = 05762ABF09D0B98500EC18C1;
 			remoteInfo = kextfind;
 		};
-		0C88540F133165C900942EB9 /* PBXContainerItemProxy */ = {
+		0CDA836D1566EF7200FCA0F6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0CE864451562DF40003DF7D4;
+			remoteInfo = osx_base;
+		};
+		0CDA83701566EF7400FCA0F6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 05097255094910D30034B52C;
+			remoteInfo = osx_executables;
+		};
+		0CE864981562E01B003DF7D4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 0C8853F51331628200942EB9;
 			remoteInfo = libBootRoot;
 		};
-		0CB7CE681334960300014B66 /* PBXContainerItemProxy */ = {
+		0CE8649A1562E01E003DF7D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0C8853FF1331646A00942EB9;
+			remoteInfo = brtest_standalone;
+		};
+		0CE8649C1562E045003DF7D4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 0C8853F51331628200942EB9;
 			remoteInfo = libBootRoot;
+		};
+		0CE8649E1562E732003DF7D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1492D16B01E53C3C02CA2A87 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0C8853FF1331646A00942EB9;
+			remoteInfo = brtest_standalone;
 		};
 		10830D2C0F5DE9A300937E9E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1235,9 +1318,9 @@
 			productReference = 0C8853F61331628200942EB9 /* libBootRoot.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		0C8853FF1331646A00942EB9 /* brtest */ = {
+		0C8853FF1331646A00942EB9 /* brtest_standalone */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 0C8854061331646B00942EB9 /* Build configuration list for PBXNativeTarget "brtest" */;
+			buildConfigurationList = 0C8854061331646B00942EB9 /* Build configuration list for PBXNativeTarget "brtest_standalone" */;
 			buildPhases = (
 				0C8853FC1331646A00942EB9 /* Sources */,
 				0C8853FD1331646A00942EB9 /* Frameworks */,
@@ -1246,9 +1329,8 @@
 			buildRules = (
 			);
 			dependencies = (
-				0CB7CE691334960300014B66 /* PBXTargetDependency */,
 			);
-			name = brtest;
+			name = brtest_standalone;
 			productName = brtest;
 			productReference = 0C8854001331646A00942EB9 /* brtest */;
 			productType = "com.apple.product-type.tool";
@@ -1406,7 +1488,7 @@
 		1492D16B01E53C3C02CA2A87 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0410;
+				LastUpgradeCheck = 0440;
 			};
 			buildConfigurationList = 0509730E094910F30034B52C /* Build configuration list for PBXProject "kext_tools" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1423,10 +1505,15 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				05097255094910D30034B52C /* all */,
+				0CE8644A1562DF5A003DF7D4 /* osx */,
+				05097255094910D30034B52C /* osx_executables */,
+				0CE864451562DF40003DF7D4 /* osx_base */,
 				10830D0E0F5DE85900937E9E /* embedded */,
 				10830D120F5DE87100937E9E /* embedded-host */,
 				10830D1F0F5DE94B00937E9E /* Create system cache folders */,
+				0CE8648E1562E006003DF7D4 /* --- convenience --- */,
+				0CE864931562E010003DF7D4 /* brtest */,
+				0CE864891562DFE3003DF7D4 /* --- standalone --- */,
 				24057CDB124966600023CEF4 /* kcgen */,
 				506B28D3127755310047F9AE /* kcgen-embedded-host */,
 				24B79C9C125A63B8009FF51B /* kclist */,
@@ -1443,7 +1530,7 @@
 				24FD2F580DC1218F0065A35B /* kextutil */,
 				050972DD094910D30034B52C /* mkextunpack */,
 				0C8853F51331628200942EB9 /* libBootRoot */,
-				0C8853FF1331646A00942EB9 /* brtest */,
+				0C8853FF1331646A00942EB9 /* brtest_standalone */,
 			);
 		};
 /* End PBXProject section */
@@ -1687,15 +1774,35 @@
 			target = 05762ABF09D0B98500EC18C1 /* kextfind */;
 			targetProxy = 05762B1C09D0C71C00EC18C1 /* PBXContainerItemProxy */;
 		};
-		0C885410133165C900942EB9 /* PBXTargetDependency */ = {
+		0CDA836E1566EF7200FCA0F6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0C8853F51331628200942EB9 /* libBootRoot */;
-			targetProxy = 0C88540F133165C900942EB9 /* PBXContainerItemProxy */;
+			target = 0CE864451562DF40003DF7D4 /* osx_base */;
+			targetProxy = 0CDA836D1566EF7200FCA0F6 /* PBXContainerItemProxy */;
 		};
-		0CB7CE691334960300014B66 /* PBXTargetDependency */ = {
+		0CDA83711566EF7400FCA0F6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 05097255094910D30034B52C /* osx_executables */;
+			targetProxy = 0CDA83701566EF7400FCA0F6 /* PBXContainerItemProxy */;
+		};
+		0CE864991562E01B003DF7D4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 0C8853F51331628200942EB9 /* libBootRoot */;
-			targetProxy = 0CB7CE681334960300014B66 /* PBXContainerItemProxy */;
+			targetProxy = 0CE864981562E01B003DF7D4 /* PBXContainerItemProxy */;
+		};
+		0CE8649B1562E01E003DF7D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0C8853FF1331646A00942EB9 /* brtest_standalone */;
+			targetProxy = 0CE8649A1562E01E003DF7D4 /* PBXContainerItemProxy */;
+		};
+		0CE8649D1562E045003DF7D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0C8853F51331628200942EB9 /* libBootRoot */;
+			targetProxy = 0CE8649C1562E045003DF7D4 /* PBXContainerItemProxy */;
+		};
+		0CE8649F1562E732003DF7D4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0C8853FF1331646A00942EB9 /* brtest_standalone */;
+			targetProxy = 0CE8649E1562E732003DF7D4 /* PBXContainerItemProxy */;
 		};
 		10830D2D0F5DE9A300937E9E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1758,6 +1865,7 @@
 		05097265094910D30034B52C /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -1779,6 +1887,7 @@
 		05097266094910D30034B52C /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2025,7 +2134,7 @@
 		0509730F094910F30034B52C /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -2045,7 +2154,7 @@
 		05097310094910F30034B52C /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2167,8 +2276,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2182,7 +2291,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = brtest;
 				SDKROOT = "";
 			};
 			name = Development;
@@ -2191,8 +2300,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -2202,7 +2311,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = brtest;
 				SDKROOT = "";
 			};
 			name = Deployment;
@@ -2211,8 +2320,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -2222,7 +2331,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = brtest;
 				SDKROOT = "";
 			};
 			name = Analyze;
@@ -2230,7 +2339,7 @@
 		0CCC8FFE116EAC92004EBE10 /* Analyze */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -2248,6 +2357,7 @@
 		0CCC8FFF116EAC92004EBE10 /* Analyze */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2370,7 +2480,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2481,6 +2590,114 @@
 					"-Wno-unknown-pragmas",
 				);
 				ZERO_LINK = NO;
+			};
+			name = Analyze;
+		};
+		0CE864471562DF40003DF7D4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		0CE864481562DF40003DF7D4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		0CE864491562DF40003DF7D4 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
+		0CE8644C1562DF5A003DF7D4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		0CE8644D1562DF5A003DF7D4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		0CE8644E1562DF5A003DF7D4 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
+		0CE8648B1562DFE3003DF7D4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		0CE8648C1562DFE3003DF7D4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		0CE8648D1562DFE3003DF7D4 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
+		0CE864901562E006003DF7D4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		0CE864911562E006003DF7D4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		0CE864921562E006003DF7D4 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Analyze;
+		};
+		0CE864951562E010003DF7D4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = brtest;
+			};
+			name = Development;
+		};
+		0CE864961562E010003DF7D4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = brtest;
+			};
+			name = Deployment;
+		};
+		0CE864971562E010003DF7D4 /* Analyze */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = brtest;
 			};
 			name = Analyze;
 		};
@@ -2620,7 +2837,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
@@ -2634,7 +2850,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
@@ -2926,7 +3141,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		05097264094910D30034B52C /* Build configuration list for PBXAggregateTarget "all" */ = {
+		05097264094910D30034B52C /* Build configuration list for PBXAggregateTarget "osx_executables" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				05097265094910D30034B52C /* Development */,
@@ -3016,12 +3231,62 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
-		0C8854061331646B00942EB9 /* Build configuration list for PBXNativeTarget "brtest" */ = {
+		0C8854061331646B00942EB9 /* Build configuration list for PBXNativeTarget "brtest_standalone" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0C8854071331646B00942EB9 /* Development */,
 				0C8854081331646B00942EB9 /* Deployment */,
 				0C8854091331646B00942EB9 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		0CE864461562DF40003DF7D4 /* Build configuration list for PBXAggregateTarget "osx_base" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE864471562DF40003DF7D4 /* Development */,
+				0CE864481562DF40003DF7D4 /* Deployment */,
+				0CE864491562DF40003DF7D4 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		0CE8644B1562DF5A003DF7D4 /* Build configuration list for PBXAggregateTarget "osx" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE8644C1562DF5A003DF7D4 /* Development */,
+				0CE8644D1562DF5A003DF7D4 /* Deployment */,
+				0CE8644E1562DF5A003DF7D4 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		0CE8648A1562DFE3003DF7D4 /* Build configuration list for PBXAggregateTarget "--- standalone ---" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE8648B1562DFE3003DF7D4 /* Development */,
+				0CE8648C1562DFE3003DF7D4 /* Deployment */,
+				0CE8648D1562DFE3003DF7D4 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		0CE8648F1562E006003DF7D4 /* Build configuration list for PBXAggregateTarget "--- convenience ---" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE864901562E006003DF7D4 /* Development */,
+				0CE864911562E006003DF7D4 /* Deployment */,
+				0CE864921562E006003DF7D4 /* Analyze */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		0CE864941562E010003DF7D4 /* Build configuration list for PBXAggregateTarget "brtest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CE864951562E010003DF7D4 /* Development */,
+				0CE864961562E010003DF7D4 /* Deployment */,
+				0CE864971562E010003DF7D4 /* Analyze */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

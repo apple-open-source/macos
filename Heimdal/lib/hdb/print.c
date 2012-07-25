@@ -62,11 +62,12 @@ append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
 {
     krb5_error_code ret;
     char *s;
+    int rc;
     va_list ap;
     va_start(ap, fmt);
-    vasprintf(&s, fmt, ap);
+    rc = vasprintf(&s, fmt, ap);
     va_end(ap);
-    if(s == NULL) {
+    if(rc < 0) {
 	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
 	return ENOMEM;
     }
@@ -78,7 +79,8 @@ append_string(krb5_context context, krb5_storage *sp, const char *fmt, ...)
 static krb5_error_code
 append_hex(krb5_context context, krb5_storage *sp, krb5_data *data)
 {
-    int i, printable = 1;
+    int printable = 1;
+    size_t i;
     char *p;
 
     p = data->data;
@@ -126,7 +128,7 @@ static krb5_error_code
 entry2string_int (krb5_context context, krb5_storage *sp, hdb_entry *ent)
 {
     char *p;
-    int i;
+    size_t i;
     krb5_error_code ret;
 
     /* --- principal */
@@ -208,7 +210,7 @@ entry2string_int (krb5_context context, krb5_storage *sp, hdb_entry *ent)
     if(ent->extensions && ent->extensions->len > 0) {
 	for(i = 0; i < ent->extensions->len; i++) {
 	    void *d;
-	    size_t size, sz;
+	    size_t size, sz = 0;
 
 	    ASN1_MALLOC_ENCODE(HDB_extension, d, size,
 			       &ent->extensions->val[i], &sz, ret);
@@ -232,7 +234,6 @@ entry2string_int (krb5_context context, krb5_storage *sp, hdb_entry *ent)
 	}
     } else
 	append_string(context, sp, "-");
-
 
     return 0;
 }

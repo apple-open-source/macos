@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2006, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,10 @@
 #include "eventmon.h"
 #include "cache.h"
 #include "ev_dlil.h"
+
+#ifndef kSCEntNetIdleRoute
+#define kSCEntNetIdleRoute       CFSTR("IdleRoute")
+#endif  /* kSCEntNetIdleRoute */
 
 static CFStringRef
 create_interface_key(const char * if_name)
@@ -103,6 +107,88 @@ interface_update_status(const char *if_name, CFBooleanRef active,
 	return;
 }
 
+
+#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
+static CFStringRef
+create_linkquality_key(const char * if_name)
+{
+	CFStringRef		interface;
+	CFStringRef		key;
+
+	interface = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    interface,
+							    kSCEntNetLinkQuality);
+	CFRelease(interface);
+	return (key);
+}
+
+
+__private_extern__
+void
+interface_update_quality_metric(const char *if_name,
+				int quality)
+{
+	CFStringRef  		key             = NULL;
+	CFMutableDictionaryRef	newDict         = NULL;
+	CFNumberRef		linkquality     = NULL;
+
+	key = create_linkquality_key(if_name);
+	newDict = copy_entity(key);
+
+	if (quality != IFNET_LQM_THRESH_UNKNOWN) {
+		linkquality = CFNumberCreate(NULL, kCFNumberIntType, &quality);
+		CFDictionarySetValue(newDict, kSCPropNetLinkQuality, linkquality);
+		CFRelease(linkquality);
+	} else {
+		CFDictionaryRemoveValue(newDict, kSCPropNetLinkQuality);
+	}
+
+	/* update status */
+	if (CFDictionaryGetCount(newDict) > 0) {
+		cache_SCDynamicStoreSetValue(store, key, newDict);
+	} else {
+		cache_SCDynamicStoreRemoveValue(store, key);
+	}
+
+	CFRelease(key);
+	CFRelease(newDict);
+	return;
+}
+
+
+static
+void
+link_update_quality_metric(const char *if_name)
+{
+	struct ifreq	ifr;
+	int		quality = IFNET_LQM_THRESH_UNKNOWN;
+	int		sock;
+
+	sock = dgram_socket(AF_INET);
+	if (sock == -1) {
+		SCLog(TRUE, LOG_NOTICE, CFSTR("socket_get_link_quality: socket open failed,  %s"), strerror(errno));
+		goto done;
+	}
+
+	bzero((char *)&ifr, sizeof(ifr));
+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", if_name);
+
+	if (ioctl(sock, SIOCGIFLINKQUALITYMETRIC, (caddr_t)&ifr) != -1) {
+		quality = ifr.ifr_link_quality_metric;
+	}
+
+done:
+	interface_update_quality_metric(if_name, quality);
+	if (sock != -1)
+		close(sock);
+	return;
+
+}
+#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+
+
 __private_extern__
 void
 interface_detaching(const char *if_name)
@@ -128,6 +214,13 @@ interface_remove(const char *if_name)
 	key = create_interface_key(if_name);
 	cache_SCDynamicStoreRemoveValue(store, key);
 	CFRelease(key);
+
+#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
+	key = create_linkquality_key(if_name);
+	cache_SCDynamicStoreRemoveValue(store, key);
+	CFRelease(key);
+#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
+
 	return;
 }
 
@@ -223,6 +316,9 @@ link_add(const char *if_name)
 	}
 	cache_SCDynamicStoreSetValue(store, cacheKey, newDict);
 	link_update_status(if_name, TRUE);
+#ifdef KEV_DL_LINK_QUALITY_METRIC_CHANGED
+	link_update_quality_metric(if_name);
+#endif /* KEV_DL_LINK_QUALITY_METRIC_CHANGED */
 	CFRelease(cacheKey);
 	CFRelease(interface);
 	if (newDict)	CFRelease(newDict);
@@ -284,3 +380,61 @@ link_remove(const char *if_name)
 
 	return;
 }
+
+
+#ifdef KEV_DL_IF_IDLE_ROUTE_REFCNT
+#define INVALID_SOCKET_REF 	-1
+static
+int
+socket_reference_count(const char* if_name) {
+	struct ifreq	ifr;
+	int		ref = INVALID_SOCKET_REF;
+	int		s;
+
+	s = dgram_socket(AF_INET);
+	if (s == -1) {
+		return (ref);
+	}
+
+	bzero((char *)&ifr, sizeof(ifr));
+	snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", if_name);
+
+	if (ioctl(s, SIOCGIFGETRTREFCNT, (caddr_t)&ifr) != -1) {
+		ref = ifr.ifr_route_refcnt;
+	} else {
+		ref = INVALID_SOCKET_REF;
+	}
+	close(s);
+	return (ref);
+}
+
+
+__private_extern__
+void
+interface_update_idle_state(const char *if_name)
+{
+	CFStringRef		if_name_cf;
+	CFStringRef		key;
+	int			ref;
+
+	/* We will only update the SCDynamicStore if the idle ref count
+	 * is still 0 */
+	ref = socket_reference_count(if_name);
+	if (ref != 0) {
+		return;
+	}
+
+	if_name_cf = CFStringCreateWithCString(NULL, if_name,
+					       kCFStringEncodingASCII);
+
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    kSCEntNetIdleRoute);
+
+	cache_SCDynamicStoreNotifyValue(store, key);
+	CFRelease(key);
+	CFRelease(if_name_cf);
+	return;
+}
+#endif	// KEV_DL_IF_IDLE_ROUTE_REFCNT

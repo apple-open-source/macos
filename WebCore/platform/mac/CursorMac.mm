@@ -298,7 +298,11 @@ void Cursor::ensurePlatformCursor() const
         break;
 
     case Cursor::NotAllowed:
+#if !defined(BUILDING_ON_LEOPARD)
         m_platformCursor = [NSCursor operationNotAllowedCursor];
+#else
+        m_platformCursor = createNamedCursor("notAllowedCursor", 11, 11);
+#endif
         break;
 
     case Cursor::ZoomIn:

@@ -1,6 +1,6 @@
-// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPConnection.cpp,v 1.10.4.3 2008/04/14 23:28:11 quanah Exp $
+// $OpenLDAP$
 /*
- * Copyright 2000, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2011 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -375,4 +375,8 @@ void LDAPConnection::setConstraints(LDAPConstraints* cons){
 
 const LDAPConstraints* LDAPConnection::getConstraints() const{
     return LDAPAsynConnection::getConstraints();
+}
+
+TlsOptions LDAPConnection::getTlsOptions() const {
+    return LDAPAsynConnection::getTlsOptions();
 }

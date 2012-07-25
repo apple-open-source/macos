@@ -6,8 +6,8 @@ PROG=	crontab
 BINOWN=	root
 BINMODE=4555
 CFLAGS+=-I${.CURDIR}/../cron
-DPADD=	${LIBCRON} ${LIBMD} ${LIBCRYPTO}
-LDADD=	${LIBCRON} -lmd -lcrypto
+DPADD=	${LIBCRON}
+LDADD=	${LIBCRON}
 MAN1=	crontab.1 
 MAN5=   crontab.5
 

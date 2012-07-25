@@ -7,16 +7,38 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
+		FD7ABC9614770045007D197F /* bzip2_libs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD7ABC9814770045007D197F /* Build configuration list for PBXAggregateTarget "bzip2_libs" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD7ABC9B1477004C007D197F /* PBXTargetDependency */,
+			);
+			name = bzip2_libs;
+			productName = bzip2_libs;
+		};
+		FD7ABC9C147700E4007D197F /* bzip2_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD7ABC9D147700E4007D197F /* Build configuration list for PBXAggregateTarget "bzip2_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD7ABCA0147700EE007D197F /* PBXTargetDependency */,
+				FD7ABCA2147700EF007D197F /* PBXTargetDependency */,
+				FD7ABCA4147700F1007D197F /* PBXTargetDependency */,
+			);
+			name = bzip2_executables;
+			productName = bzip2_executables;
+		};
 		FD9B880B104C7F730096D791 /* All */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FD9B881E104C7F920096D791 /* Build configuration list for PBXAggregateTarget "All" */;
 			buildPhases = (
 			);
 			dependencies = (
-				FD9B8811104C7F8A0096D791 /* PBXTargetDependency */,
-				FD9B8815104C7F8D0096D791 /* PBXTargetDependency */,
-				FD9B8817104C7F8F0096D791 /* PBXTargetDependency */,
-				FD9B8819104C7F910096D791 /* PBXTargetDependency */,
+				FD7ABCA8147700F9007D197F /* PBXTargetDependency */,
+				FD7ABCA6147700F8007D197F /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = buildall;
@@ -73,49 +95,54 @@
 		FD9B883E104C82A30096D791 /* libbz2.1.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD9B87D9104C7E630096D791 /* libbz2.1.0.dylib */; };
 		FD9B8849104C82FF0096D791 /* bzlib.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9B8848104C82F80096D791 /* bzlib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		FD9B88AC104C8F3B0096D791 /* bzdiff in Copy Scripts */ = {isa = PBXBuildFile; fileRef = FD9B88A9104C8F3A0096D791 /* bzdiff */; };
-		FD9B88AD104C8F3B0096D791 /* bzgrep in Copy Scripts */ = {isa = PBXBuildFile; fileRef = FD9B88AA104C8F3A0096D791 /* bzgrep */; };
 		FD9B88AE104C8F3B0096D791 /* bzmore in Copy Scripts */ = {isa = PBXBuildFile; fileRef = FD9B88AB104C8F3A0096D791 /* bzmore */; };
 		FD9B88CB104C93D70096D791 /* bzdiff.1 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = FD9B88C6104C93C40096D791 /* bzdiff.1 */; };
-		FD9B88CC104C93D70096D791 /* bzgrep.1 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = FD9B88C7104C93C40096D791 /* bzgrep.1 */; };
 		FD9B88CD104C93D70096D791 /* bzip2.1 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = FD9B88C8104C93C40096D791 /* bzip2.1 */; };
 		FD9B88CE104C93D70096D791 /* bzmore.1 in Copy Man Pages */ = {isa = PBXBuildFile; fileRef = FD9B88C9104C93C40096D791 /* bzmore.1 */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		FD9B8810104C7F8A0096D791 /* PBXContainerItemProxy */ = {
+		FD7ABC9A1477004C007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B87D8104C7E630096D791;
-			remoteInfo = "libbz2 (dynamic)";
+			remoteInfo = libbz2.dylib;
 		};
-		FD9B8814104C7F8D0096D791 /* PBXContainerItemProxy */ = {
+		FD7ABC9F147700EE007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B87E8104C7EAE0096D791;
 			remoteInfo = bzip2;
 		};
-		FD9B8816104C7F8F0096D791 /* PBXContainerItemProxy */ = {
+		FD7ABCA1147700EF007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B87FA104C7ECB0096D791;
 			remoteInfo = bzip2recover;
 		};
-		FD9B8818104C7F910096D791 /* PBXContainerItemProxy */ = {
+		FD7ABCA3147700F1007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = FD9B880E104C7F830096D791;
 			remoteInfo = "Scripts and Documentation";
 		};
-		FD9B8871104C85C80096D791 /* PBXContainerItemProxy */ = {
+		FD7ABCA5147700F8007D197F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FD9B87D8104C7E630096D791;
-			remoteInfo = "libbz2 (dynamic)";
+			remoteGlobalIDString = FD7ABC9C147700E4007D197F;
+			remoteInfo = bzip2_executables;
+		};
+		FD7ABCA7147700F9007D197F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD9B87C6104C7D8B0096D791 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD7ABC9614770045007D197F;
+			remoteInfo = bzip2_libs;
 		};
 		FD9B88B8104C916C0096D791 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -141,7 +168,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88AC104C8F3B0096D791 /* bzdiff in Copy Scripts */,
-				FD9B88AD104C8F3B0096D791 /* bzgrep in Copy Scripts */,
 				FD9B88AE104C8F3B0096D791 /* bzmore in Copy Scripts */,
 			);
 			name = "Copy Scripts";
@@ -154,7 +180,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				FD9B88CB104C93D70096D791 /* bzdiff.1 in Copy Man Pages */,
-				FD9B88CC104C93D70096D791 /* bzgrep.1 in Copy Man Pages */,
 				FD9B88CD104C93D70096D791 /* bzip2.1 in Copy Man Pages */,
 				FD9B88CE104C93D70096D791 /* bzmore.1 in Copy Man Pages */,
 			);
@@ -351,7 +376,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				FD9B8872104C85C80096D791 /* PBXTargetDependency */,
 			);
 			name = bzip2;
 			productName = bzip2;
@@ -395,6 +419,8 @@
 			projectRoot = "";
 			targets = (
 				FD9B880B104C7F730096D791 /* All */,
+				FD7ABC9614770045007D197F /* bzip2_libs */,
+				FD7ABC9C147700E4007D197F /* bzip2_executables */,
 				FD9B87D8104C7E630096D791 /* libbz2.dylib */,
 				FD9B87E0104C7E830096D791 /* libbz2.a */,
 				FD9B87E8104C7EAE0096D791 /* bzip2 */,
@@ -545,30 +571,35 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		FD9B8811104C7F8A0096D791 /* PBXTargetDependency */ = {
+		FD7ABC9B1477004C007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD9B87D8104C7E630096D791 /* libbz2.dylib */;
-			targetProxy = FD9B8810104C7F8A0096D791 /* PBXContainerItemProxy */;
+			targetProxy = FD7ABC9A1477004C007D197F /* PBXContainerItemProxy */;
 		};
-		FD9B8815104C7F8D0096D791 /* PBXTargetDependency */ = {
+		FD7ABCA0147700EE007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD9B87E8104C7EAE0096D791 /* bzip2 */;
-			targetProxy = FD9B8814104C7F8D0096D791 /* PBXContainerItemProxy */;
+			targetProxy = FD7ABC9F147700EE007D197F /* PBXContainerItemProxy */;
 		};
-		FD9B8817104C7F8F0096D791 /* PBXTargetDependency */ = {
+		FD7ABCA2147700EF007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD9B87FA104C7ECB0096D791 /* bzip2recover */;
-			targetProxy = FD9B8816104C7F8F0096D791 /* PBXContainerItemProxy */;
+			targetProxy = FD7ABCA1147700EF007D197F /* PBXContainerItemProxy */;
 		};
-		FD9B8819104C7F910096D791 /* PBXTargetDependency */ = {
+		FD7ABCA4147700F1007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FD9B880E104C7F830096D791 /* Scripts and Documentation */;
-			targetProxy = FD9B8818104C7F910096D791 /* PBXContainerItemProxy */;
+			targetProxy = FD7ABCA3147700F1007D197F /* PBXContainerItemProxy */;
 		};
-		FD9B8872104C85C80096D791 /* PBXTargetDependency */ = {
+		FD7ABCA6147700F8007D197F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = FD9B87D8104C7E630096D791 /* libbz2.dylib */;
-			targetProxy = FD9B8871104C85C80096D791 /* PBXContainerItemProxy */;
+			target = FD7ABC9C147700E4007D197F /* bzip2_executables */;
+			targetProxy = FD7ABCA5147700F8007D197F /* PBXContainerItemProxy */;
+		};
+		FD7ABCA8147700F9007D197F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD7ABC9614770045007D197F /* bzip2_libs */;
+			targetProxy = FD7ABCA7147700F9007D197F /* PBXContainerItemProxy */;
 		};
 		FD9B88B9104C916C0096D791 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -583,6 +614,20 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		FD7ABC9714770045007D197F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FD7ABC9E147700E4007D197F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FD9B87C8104C7D8B0096D791 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -681,6 +726,22 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		FD7ABC9814770045007D197F /* Build configuration list for PBXAggregateTarget "bzip2_libs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD7ABC9714770045007D197F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD7ABC9D147700E4007D197F /* Build configuration list for PBXAggregateTarget "bzip2_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD7ABC9E147700E4007D197F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		FD9B87C9104C7D8B0096D791 /* Build configuration list for PBXProject "bzip2" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

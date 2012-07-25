@@ -151,7 +151,7 @@ interface_up(char *name)
 		return 0;
 	}
 
-	if (!(llflag & IN6_IFF_NOTREADY)) {
+	if (!(llflag & (IN6_IFF_NOTREADY | IN6_IFF_DADPROGRESS))) {
 		warnmsg(LOG_DEBUG, __FUNCTION__,
 			"%s is ready", name);
 		return(0);
@@ -160,6 +160,11 @@ interface_up(char *name)
 			warnmsg(LOG_DEBUG, __FUNCTION__, "%s is tentative",
 			       name);
 			return IFS_TENTATIVE;
+		}
+		if (llflag & IN6_IFF_OPTIMISTIC) {
+			warnmsg(LOG_DEBUG, __FUNCTION__, "%s is optimistic",
+			       name);
+			return IFS_OPTIMISTIC;
 		}
 		if (llflag & IN6_IFF_DUPLICATED)
 			warnmsg(LOG_DEBUG, __FUNCTION__, "%s is duplicated",

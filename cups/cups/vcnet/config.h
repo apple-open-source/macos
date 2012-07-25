@@ -1,5 +1,5 @@
 /*
- * "$Id: config.h 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: config.h 9306 2010-09-16 21:43:57Z mike $"
  *
  *   Configuration file for CUPS on Windows.
  *
@@ -86,8 +86,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v1.5.3"
-#define CUPS_MINIMAL "CUPS/1.5.3"
+#define CUPS_SVERSION "CUPS v1.6.0"
+#define CUPS_MINIMAL "CUPS/1.6.0"
 
 
 /*
@@ -599,7 +599,7 @@
 
 
 /*
- * Do we have Mac OS X 10.4's mbr_XXX functions?
+ * Do we have OS X 10.4's mbr_XXX functions?
  */
 
 /* #undef HAVE_MEMBERSHIP_H */
@@ -761,7 +761,7 @@
 
 
 /*
- * Location of Mac OS X localization bundle, if any.
+ * Location of OS X localization bundle, if any.
  */
 
 /* #undef CUPS_BUNDLEDIR */
@@ -784,5 +784,5 @@
 #endif /* !_CUPS_CONFIG_H_ */
 
 /*
- * End of "$Id: config.h 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: config.h 9306 2010-09-16 21:43:57Z mike $".
  */

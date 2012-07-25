@@ -151,8 +151,7 @@ typedef enum {
 # define N_(String) (String)
 
 /* STUFF FROM gas/as.h */
-#define COMMON
-COMMON subsegT now_subseg;
+extern subsegT now_subseg;
 
 /* STUFF FROM gas/config/tc-arm.h */
 #define ARM_FLAG_THUMB 		(1 << 0)	/* The symbol is a Thumb symbol rather than an Arm symbol.  */
@@ -951,7 +950,7 @@ void
 md_operand (expressionS * expr)
 {
   if (in_my_get_expression)
-    expr->X_op = O_illegal;
+    expr->X_op = (segT)O_illegal;
 }
 
 /* Register parsing.  */
@@ -7379,7 +7378,7 @@ encode_thumb32_addr_mode (int i, bfd_boolean is_t, bfd_boolean is_d)
   X(yield, bf10, f3af8001),			\
   X(wfe,   bf20, f3af8002),			\
   X(wfi,   bf30, f3af8003),			\
-  X(sev,   bf40, f3af9004), /* typo, 8004? */
+  X(sev,   bf40, f3af8004),
 
 /* To catch errors in encoding functions, the codes are all offset by
    0xF800, putting them in one of the 32-bit prefix ranges, ergo undefined
@@ -8910,7 +8909,8 @@ do_t_mul (void)
   if (unified_syntax && inst.instruction == T_MNEM_mul
       && (inst.cond == COND_ALWAYS || inst.operands[0].reg > 7
           || inst.operands[1].reg > 7 || inst.operands[2].reg > 7
-          || inst.operands[0].reg != inst.operands[2].reg))
+          || (inst.operands[0].reg != inst.operands[2].reg &&
+              inst.operands[0].reg != inst.operands[1].reg)))
 
     {
       inst.instruction = THUMB_OP32 (inst.instruction);
@@ -12717,6 +12717,10 @@ do_neon_ld_st_interleave (void)
   typebits = typetable[idx];
   
   constraint (typebits == -1, _("bad list type for instruction"));
+  /* Only VLD1/VST1 allows a size of 64.  As the comment above states, the <n>
+     of VLD<n>/VST<n> is in bits [9:8] of the initial bitmask. */
+  constraint (((inst.instruction >> 8) & 3) != 0 &&
+              et.size == 64, _("bad size for instruction"));
 
   inst.instruction &= ~0xf00;
   inst.instruction |= typebits << 8;
@@ -18270,6 +18274,8 @@ md_begin (void)
 	}
 	break;
       case CPU_SUBTYPE_ARM_V7:
+      case CPU_SUBTYPE_ARM_V7F:
+      case CPU_SUBTYPE_ARM_V7K:
 	{
 	  static const arm_feature_set arm_arch_v7_vfp_v3_plus_neon_v1 =
 	    ARM_FEATURE (ARM_AEXT_V7_ARM | ARM_EXT_V7M | ARM_EXT_DIV,

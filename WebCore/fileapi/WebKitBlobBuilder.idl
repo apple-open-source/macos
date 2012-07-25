@@ -30,18 +30,19 @@
 
 module html {
     interface [
-        CanBeConstructed,
-        GenerateNativeConverter,
-        NoStaticTables
+        Conditional=LEGACY_WEBKIT_BLOB_BUILDER,
+        Constructor,
+        JSGenerateToNativeObject,
+        JSNoStaticTables
     ] WebKitBlobBuilder {
 #if !defined(LANGUAGE_OBJECTIVE_C)
-        Blob getBlob(in [Optional, ConvertUndefinedOrNullToNullString] DOMString contentType);
+        Blob getBlob(in [Optional, TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString contentType);
 #endif
         void append(in Blob blob);
 #if defined(ENABLE_BLOB) && ENABLE_BLOB
         void append(in ArrayBuffer arrayBuffer);
 #endif
-        void append(in DOMString value, in [Optional, ConvertUndefinedOrNullToNullString] DOMString endings) raises (DOMException);
+        void append(in DOMString value, in [Optional, TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString endings) raises (DOMException);
     };
 
 }

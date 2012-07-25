@@ -45,11 +45,11 @@ PluginProcessManager::PluginProcessManager()
 {
 }
 
-void PluginProcessManager::getPluginProcessConnection(PluginInfoStore& pluginInfoStore, const String& pluginPath, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply)
+void PluginProcessManager::getPluginProcessConnection(const PluginInfoStore& pluginInfoStore, const String& pluginPath, PassRefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply)
 {
     ASSERT(!pluginPath.isNull());
 
-    PluginInfoStore::Plugin plugin = pluginInfoStore.infoForPluginWithPath(pluginPath);
+    PluginModuleInfo plugin = pluginInfoStore.infoForPluginWithPath(pluginPath);
     PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(plugin);
     pluginProcess->getPluginProcessConnection(reply);
 }
@@ -62,13 +62,13 @@ void PluginProcessManager::removePluginProcessProxy(PluginProcessProxy* pluginPr
     m_pluginProcesses.remove(vectorIndex);
 }
 
-void PluginProcessManager::getSitesWithData(const PluginInfoStore::Plugin& plugin, WebPluginSiteDataManager* webPluginSiteDataManager, uint64_t callbackID)
+void PluginProcessManager::getSitesWithData(const PluginModuleInfo& plugin, WebPluginSiteDataManager* webPluginSiteDataManager, uint64_t callbackID)
 {
     PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(plugin);
     pluginProcess->getSitesWithData(webPluginSiteDataManager, callbackID);
 }
 
-void PluginProcessManager::clearSiteData(const PluginInfoStore::Plugin& plugin, WebPluginSiteDataManager* webPluginSiteDataManager, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
+void PluginProcessManager::clearSiteData(const PluginModuleInfo& plugin, WebPluginSiteDataManager* webPluginSiteDataManager, const Vector<String>& sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
 {
     PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(plugin);
     pluginProcess->clearSiteData(webPluginSiteDataManager, sites, flags, maxAgeInSeconds, callbackID);
@@ -87,20 +87,23 @@ PluginProcessProxy* PluginProcessManager::pluginProcessWithPath(const String& pl
 {
     for (size_t i = 0; i < m_pluginProcesses.size(); ++i) {
         if (m_pluginProcesses[i]->pluginInfo().path == pluginPath)
-            return m_pluginProcesses[i];
+            return m_pluginProcesses[i].get();
     }
+
     return 0;
 }
 
-PluginProcessProxy* PluginProcessManager::getOrCreatePluginProcess(const PluginInfoStore::Plugin& plugin)
+PluginProcessProxy* PluginProcessManager::getOrCreatePluginProcess(const PluginModuleInfo& plugin)
 {
     if (PluginProcessProxy* pluginProcess = pluginProcessWithPath(plugin.path))
         return pluginProcess;
 
-    PluginProcessProxy* pluginProcess = PluginProcessProxy::create(this, plugin).leakPtr();
-    m_pluginProcesses.append(pluginProcess);
+    RefPtr<PluginProcessProxy> pluginProcess = PluginProcessProxy::create(this, plugin);
+    PluginProcessProxy* pluginProcessPtr = pluginProcess.get();
 
-    return pluginProcess;
+    m_pluginProcesses.append(pluginProcess.release());
+
+    return pluginProcessPtr;
 }
 
 } // namespace WebKit

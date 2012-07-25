@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -65,6 +65,10 @@ typedef struct regsubop_s
 #include <ctype.h>
 #include <errno.h>
 
+#if _BLD_DEBUG && !defined(_AST_REGEX_DEBUG)
+#define _AST_REGEX_DEBUG	1
+#endif
+
 #define MBSIZE(p)	((ast.tmp_int=mbsize(p))>0?ast.tmp_int:1)
 
 #undef	RE_DUP_MAX			/* posix puts this in limits.h!	*/
@@ -72,7 +76,7 @@ typedef struct regsubop_s
 #define RE_DUP_INF	(RE_DUP_MAX+1)	/* infinity, for *		*/
 #define BACK_REF_MAX	9
 
-#define REG_COMP	(REG_DELIMITED|REG_ESCAPE|REG_EXTENDED|REG_FIRST|REG_ICASE|REG_NOSUB|REG_NEWLINE|REG_SHELL|REG_AUGMENTED|REG_LEFT|REG_LITERAL|REG_MINIMAL|REG_NULL|REG_RIGHT|REG_LENIENT|REG_MUSTDELIM)
+#define REG_COMP	(~REG_EXEC)
 #define REG_EXEC	(REG_ADVANCE|REG_INVERT|REG_NOTBOL|REG_NOTEOL|REG_STARTEND)
 
 #define REX_NULL		0	/* null string (internal)	*/
@@ -259,7 +263,7 @@ extern int		_reg_iswblank(wint_t);
  * collation element support
  */
 
-#define COLL_KEY_MAX	15
+#define COLL_KEY_MAX	32
 
 #if COLL_KEY_MAX < MB_LEN_MAX
 #undef	COLL_KEY_MAX

@@ -35,21 +35,15 @@ namespace WebCore {
         virtual ~RenderSlider();
 
         bool inDragMode() const;
-        IntRect thumbRect();
 
     private:
         virtual const char* renderName() const { return "RenderSlider"; }
         virtual bool isSlider() const { return true; }
 
-        virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+        virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
         virtual void computePreferredLogicalWidths();
-        virtual void layout();
-
-        // FIXME: Eventually, the logic of manipulating slider thumb should move to
-        // SliderThumbElement and accessing shadowSliderThumb should not be necessary in this class.
-        SliderThumbElement* shadowSliderThumb() const;
-
         virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
+        virtual void layout();
     };
 
     inline RenderSlider* toRenderSlider(RenderObject* object)

@@ -271,6 +271,9 @@ static int MRepair( SGlobPtr GPtr )
 
 	if ( (GPtr->VIStat & S_OverlappingExtents) != 0 )
 	{
+		if (embedded == 1 && debug == 0)
+			return R_RFail;
+
 		err = FixOverlappingExtents( GPtr );						//	Isolate and fix Overlapping Extents
 		ReturnIfError( err );
 		
@@ -1074,6 +1077,11 @@ static OSErr FixOrphanInode(SGlobPtr GPtr, RepairOrderPtr p)
 	int retval;
 	uint32_t lost_found_id;
 	static int msg_display = 0;
+
+	if (embedded == 1 && debug == 0) {
+		retval = EPERM;
+		goto out;
+	}
 
 	/* Make sure that lost+found exists */ 
 	lost_found_id = CreateDirByName(GPtr, (u_char *)"lost+found", 
@@ -2890,6 +2898,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		/* Lookup record in catalog BTree */
 		err = GetCatalogRecord(GPtr, fileID, isHFSPlus, &catKey, &catRecord, &recordSize);
 		if (err) {
+			plog("%s: Could not get catalog record for fileID %u\n", __FUNCTION__, fileID);
 			goto out;
 		}
 
@@ -2925,6 +2934,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey, kNoHint, 
 								&catRecord, recordSize, &hint);
 		if (err) {
+			plog("%s: Could not replace catalog record for fileID %u\n", __FUNCTION__, fileID);
 			goto out;
 		}
 		didRepair = true;
@@ -2941,6 +2951,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = SearchBTreeRecord (GPtr->calculatedExtentsFCB, &extentKey, kNoHint, 
 								 &extentKey, &extentRecord, &recordSize, &hint);
 		if (err) {
+			plog("%s: Could not get overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID, forkType, extentStartBlock);
 			goto out;
 		}
 
@@ -2961,6 +2972,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 		err = ReplaceBTreeRecord(GPtr->calculatedExtentsFCB, &extentKey, hint,
 								&extentRecord, recordSize, &hint);
 		if (err) {
+			plog("%s: Could not replace overflow extents record for fileID %u, fork %u, start block %u\n", __FUNCTION__, fileID, forkType, extentStartBlock);
 			goto out;
 		}
 		didRepair = true;
@@ -3078,6 +3090,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 	UInt32				threadHint;
 	OSErr				err;
 	UInt16				recordSize;
+	UInt16				threadRecordSize;
 	SInt16				recordType;
 	SInt16				foundRecType;
 	SInt16				selCode				= 0x8001;	/* Get first record */
@@ -3141,7 +3154,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				BuildCatalogKey( cNodeID, nil, isHFSPlus, &key );
 
 				err = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint, 
-										 &tempKey, &threadRecord, &recordSize, &hint2 );
+										 &tempKey, &threadRecord, &threadRecordSize, &hint2 );
 
 				/* We found a thread record for this file/folder record. */
 				if (err == noErr) {
@@ -3183,7 +3196,24 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 									  foundKey.hfsPlus.nodeName.length * 2)))) {
 							err = btNotFound;
 							if (fsckGetVerbosity(GPtr->context) >= kDebugLog) {
+								unsigned maxLength = foundKey.hfsPlus.nodeName.length;
+								if (maxLength < threadRecord.hfsPlusThread.nodeName.length)
+									maxLength = threadRecord.hfsPlusThread.nodeName.length;
+								
 								plog ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
+								if (cur_debug_level & d_dump_record)
+								{
+									plog("\tFile/Folder record:\n");
+									HexDump(&foundKey, foundKey.hfsPlus.keyLength + 2, FALSE);
+									plog("--\n");
+									HexDump(&record, recordSize, FALSE);
+									plog("\n");
+									plog("\tThread record:\n");
+									HexDump(&tempKey, tempKey.hfsPlus.keyLength + 2, FALSE);
+									plog("--\n");
+									HexDump(&threadRecord, threadRecordSize, FALSE);
+									plog("\n");
+								}
 							}
 						}
 
@@ -3568,9 +3598,7 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	BuildCatalogKey(fileID, NULL, isHFSPlus, &catThreadKey);
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catThreadKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
-#if DEBUG_XATTR
 		plog ("%s: No matching catalog thread record found\n", __FUNCTION__);
-#endif
 		goto out;
 	}
 
@@ -3596,9 +3624,12 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	BuildCatalogKey(catRecord->hfsPlusThread.parentID, &catalogName, isHFSPlus, catKey); 
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, catKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
-#if DEBUG_XATTR	
 		plog ("%s: No matching catalog record found\n", __FUNCTION__);
-#endif
+		if (cur_debug_level & d_dump_record)
+		{
+			plog ("Searching for key:\n");
+			HexDump(catKey, CalcKeySize(GPtr->calculatedCatalogBTCB, (BTreeKey *)catKey), FALSE);
+		}
 		goto out;
 	}
 	
@@ -5487,6 +5518,9 @@ FixMissingThreadRecords( SGlob *GPtr )
 		// for that directory.  We will recreate the missing directory in our 
 		// lost+found directory.
 		if ( mtp->thread.parentID == 0 ) {
+			if (embedded == 1 && debug == 0) {
+				return( R_RFail );
+			}
 			if ( lostAndFoundDirID == 0 )
 				lostAndFoundDirID = CreateDirByName( GPtr , (u_char *)"lost+found", kHFSRootFolderID);
 			if ( lostAndFoundDirID == 0 ) {
@@ -5498,7 +5532,7 @@ FixMissingThreadRecords( SGlob *GPtr )
 			result = FixMissingDirectory( GPtr, mtp->threadID, lostAndFoundDirID );
 			if ( result != 0 ) {
 				if ( fsckGetVerbosity(GPtr->context) >= kDebugLog )
-					plog( "\tCould not recreate a missing directory \n" );
+					plog( "\tCould not recreate a missing directory (error %d)\n", result );
 				return( R_RFail );
 			}
 			else

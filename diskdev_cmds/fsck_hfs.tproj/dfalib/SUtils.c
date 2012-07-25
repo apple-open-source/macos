@@ -73,15 +73,15 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len, utf8plen)
 			*utf8p++ = ucs_ch;
 			utf8plen--;
 		} else if (ucs_ch < 0x800) {
-			utf8plen -= 2;
-			if (utf8plen < 0)
+			if (utf8plen < 2)	/* We're about to over-flow the buffer */
 				break;
+			utf8plen -= 2;
 			*utf8p++ = (ucs_ch >> 6)   | 0xc0;
 			*utf8p++ = (ucs_ch & 0x3f) | 0x80;
 		} else {	
-			utf8plen -= 3;
-			if (utf8plen < 0)
+			if (utf8plen < 3)	/* We're about to over-flow the buffer */
 				break;
+			utf8plen -= 3;
 			*utf8p++ = (ucs_ch >> 12)         | 0xe0;
 			*utf8p++ = ((ucs_ch >> 6) & 0x3f) | 0x80;
 			*utf8p++ = ((ucs_ch) & 0x3f)      | 0x80;
@@ -1581,6 +1581,82 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 
 } /* CompareVolHeaderBTreeSizes */
 
+
+/*
+ * This code should be removed after debugging is completed.
+ */
+#include <ctype.h>
+
+#ifndef MIN
+#define MIN(a, b) \
+	({ __typeof(a) _a = (a); __typeof(b) _b = (b);	\
+		(_a < _b) ? _a : _b; })
+#endif
+
+
+enum { WIDTH = 16, };
+
+static void
+DumpData(const void *data, size_t len)
+{
+	unsigned char *base = (unsigned char*)data;
+	unsigned char *end = base + len;
+	unsigned char *cp = base;
+	int allzeroes = 0;
+
+	while (cp < end) {
+		unsigned char *tend = MIN(end, cp + WIDTH);
+		unsigned char *tmp;
+		int i;
+		size_t gap = (cp + WIDTH) - tend;
+
+		if (gap != 0 || tend == end)
+			allzeroes = 0;
+		if (allzeroes) {
+			for (tmp = cp; tmp < tend; tmp++) {
+				if (*tmp) {
+					allzeroes = 0;
+					break;
+				}
+			}
+			if (allzeroes == 1) {
+				fprintf(stderr, ". . .\n");
+				allzeroes = 2;
+			}
+			if (allzeroes) {
+				cp += WIDTH;
+				continue;
+			}
+		}
+		allzeroes = 1;
+
+		fprintf(stderr, "%04x:  ", (int)(cp - base));
+		for (i = 0, tmp = cp; tmp < tend; tmp++) {
+			fprintf(stderr, "%02x", *tmp);
+			if (++i % 2 == 0)
+				fprintf(stderr, " ");
+			if (*tmp)
+				allzeroes = 0;
+		}
+		for (i = gap; i >= 0; i--) {
+			fprintf(stderr, "  ");
+			if (i % 2 == 1)
+				fprintf(stderr, " ");
+		}
+		fprintf(stderr, "    |");
+		for (tmp = cp; tmp < tend; tmp++) {
+			fprintf(stderr, "%c", isalnum(*tmp) ? *tmp : '.');
+		}
+		for (i = 0; i < gap; i++) {
+			fprintf(stderr, " ");
+		}
+		fprintf(stderr, "|\n");
+		cp += WIDTH;
+	}
+
+	return;
+
+}
 //******************************************************************************
 //	Routine:	VolumeObjectIsValid
 //
@@ -1593,23 +1669,47 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 Boolean VolumeObjectIsValid(void)
 {
 	VolumeObjectPtr	myVOPtr = GetVolumeObjectPtr();
+	Boolean retval = false;
 	
 	/* Check if the type is unknown type */
 	if (myVOPtr->volumeType == kUnknownVolumeType) {
-		return(false);
+		pwarn("volumeType is %d\n", kUnknownVolumeType);
+		goto done;
 	} 
 
 	/* Check if it is HFS+ volume */
 	if (VolumeObjectIsHFSPlus() == true) {
-		return(true);
+		retval = true;
+		goto done;
 	}
 		
 	/* Check if it is HFS volume */
 	if (VolumeObjectIsHFS() == true) {
-		return(true);
+		retval = true;
+		goto done;
 	}
 
-	return(false);
+done:
+	/*
+	 * This code should be removed after debugging is done.
+	 */
+	if (retval == false) {
+		UInt64 myBlockNum;
+		VolumeObjectPtr myVOPtr;
+		BlockDescriptor theBlockDesc;
+		OSErr err;
+
+		myVOPtr = GetVolumeObjectPtr();
+		GetVolumeObjectBlockNum(&myBlockNum);
+		err = GetVolumeBlock(myVOPtr->vcbPtr, myBlockNum, kGetBlock, &theBlockDesc);
+		if (err != noErr) {
+			fprintf(stderr, "%s: Cannot GetVolumetBlock: %d\n", __FUNCTION__, err);
+		} else {
+			uint8_t *ptr = (uint8_t*)theBlockDesc.buffer;
+			DumpData(ptr, theBlockDesc.blockSize);
+		}
+	}
+	return retval;
 } /* VolumeObjectIsValid */
 
 //******************************************************************************

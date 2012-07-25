@@ -74,18 +74,18 @@
 // downstream error messages more meaningful (since we're often logging the
 // errno value and message).  COMPILE_TIME_ASSERT() break schdirparent().
 #define PATHCPY(dst, src) do { \
-	    /* COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); */ \
-	    Boolean useErrno = (errno == 0); \
-	    if (useErrno)	errno = ENAMETOOLONG; \
-	    if (strlcpy(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
-	    if (useErrno)	errno = 0; \
+            /* COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); */ \
+            Boolean useErrno = (errno == 0); \
+            if (useErrno)       errno = ENAMETOOLONG; \
+            if (strlcpy(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
+            if (useErrno)       errno = 0; \
 } while(0)
 #define PATHCAT(dst, src) do { \
-	    COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); \
-	    Boolean useErrno = (errno == 0); \
-	    if (useErrno)	errno = ENAMETOOLONG; \
-	    if (strlcat(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
-	    if (useErrno)	errno = 0; \
+            COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); \
+            Boolean useErrno = (errno == 0); \
+            if (useErrno)       errno = ENAMETOOLONG; \
+            if (strlcat(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
+            if (useErrno)       errno = 0; \
 } while(0)
 
 // given that we call this function twice on an error path, it is tempting
@@ -197,29 +197,32 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
         goto finish;
     }
 
-    // output parameters
+    // save old directory if requested
+    if (olddir) {
+        if (-1 == (savedir = open(".", O_RDONLY)))  goto finish;
+    }
+
+    // attempt to switch to the directory
+    if ((bsderr = fchdir(dirfd)))               goto finish;
+
+    // set output parameters
+    if (olddir)             *olddir = savedir;
     if (child) {
         PATHCPY(child, path);      
         PATHCPY(child, basename(child));      
-   }
-    if (olddir) {
-        if (-1 == (savedir = open(".", O_RDONLY)))  goto finish;
-        *olddir = savedir;
     }
-
-    if ((bsderr = fchdir(dirfd)))               goto finish;
 
 finish:
     if (bsderr) {
-        if (savedir != -1)              close(savedir);
-        if (olddir && *olddir != -1)    close(*olddir);
+        if (savedir != -1)  close(savedir);
+	if (olddir)         *olddir = -1;
     }
-    if (dirfd != -1)    close(dirfd);
+    if (dirfd != -1)        close(dirfd);
 
     return bsderr;
 }
 
-// schdirparent() ensures O_CREAT will occur on right volume
+// have to rely on schdirparent so we don't accidentally O_CREAT
 int sopen(int fdvol, const char *path, int flags, mode_t mode /*'...' fancier*/)
 {
     int rfd = -1;
@@ -391,7 +394,7 @@ finish:
 int sdeepunlink(int fdvol, char *path)
 {
     int             rval = ELAST + 1;
-    int             firstErrno = 0; 	// FTS clears errno at the end :P
+    int             firstErrno = 0;     // FTS clears errno at the end :P
 
     char        *   const pathv[2] = { path, NULL };
     int             ftsoptions = 0;
@@ -402,8 +405,8 @@ int sdeepunlink(int fdvol, char *path)
     ftsoptions |= FTS_PHYSICAL;         // see symlinks
     ftsoptions |= FTS_XDEV;             // don't cross devices
     ftsoptions |= FTS_NOSTAT;           // fts_info tells us enough
+    ftsoptions |= FTS_NOCHDIR;          // only we should be using [f]chdir
 //  ftsoptions |= FTS_COMFOLLOW;        // if 'path' is symlink, remove link
-//  ftsoptions |= FTS_NOCHDIR;          // chdir is fine
 //  ftsoptions |= FTS_SEEDOT;           // we don't need "."
 
     rval = -1;
@@ -422,7 +425,7 @@ int sdeepunlink(int fdvol, char *path)
             case FTS_ERR:       // generic fcts_errno-borne error
             case FTS_NS:        // file for which stat(s) failed (not requested)
                 // rval |= fent->fts_errno;
-                if (!firstErrno) 	firstErrno = fent->fts_errno;
+                if (!firstErrno)        firstErrno = fent->fts_errno;
                 break;
 
             case FTS_SL:        // symbolic link
@@ -431,13 +434,13 @@ int sdeepunlink(int fdvol, char *path)
             case FTS_F:         // regular file
             case FTS_NSOK:      // no stat(2) requested (but not a dir?)
             default:            // in case FTS gets smarter in the future
-		// XX need to port RECERR() from update_boot.c
+                // XX need to port RECERR() from update_boot.c
                 rval |= sunlink(fdvol, fent->fts_accpath);
                 if (!firstErrno)        firstErrno = errno;
                 break;
 
             case FTS_DP:        // directory being visited in post-order
-		// XX need to port RECERR() from update_boot.c
+                // XX need to port RECERR() from update_boot.c
                 rval |= srmdir(fdvol, fent->fts_accpath);
                 if (!firstErrno)        firstErrno = errno;
                 break;
@@ -452,14 +455,14 @@ int sdeepunlink(int fdvol, char *path)
     }
 
     if (firstErrno) {
-	rval = -1;
-	errno = firstErrno;
+        rval = -1;
+        errno = firstErrno;
     }
 
 finish:
     // fts_read() clears errno if it completed
     if (rval == 0 && errno) {
-	rval = -1;
+        rval = -1;
     }
 
     return rval;

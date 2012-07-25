@@ -33,13 +33,17 @@
 #include "config.h"
 #include "SliderThumbElement.h"
 
+#include "CSSValueKeywords.h"
 #include "Event.h"
 #include "Frame.h"
 #include "HTMLInputElement.h"
 #include "HTMLParserIdioms.h"
 #include "MouseEvent.h"
+#include "RenderDeprecatedFlexibleBox.h"
 #include "RenderSlider.h"
 #include "RenderTheme.h"
+#include "ShadowRoot.h"
+#include "ShadowTree.h"
 #include "StepRange.h"
 #include <wtf/MathExtras.h>
 
@@ -47,25 +51,38 @@ using namespace std;
 
 namespace WebCore {
 
-// FIXME: Find a way to cascade appearance (see the layout method) and get rid of this class.
-class RenderSliderThumb : public RenderBlock {
-public:
-    RenderSliderThumb(Node*);
+inline static double sliderPosition(HTMLInputElement* element)
+{
+    StepRange range(element);
+    return range.proportionFromValue(range.valueFromElement(element));
+}
 
-private:
-    virtual void layout();
-};
+inline static bool hasVerticalAppearance(HTMLInputElement* input)
+{
+    ASSERT(input->renderer());
+    RenderStyle* sliderStyle = input->renderer()->style();
+    return sliderStyle->appearance() == SliderVerticalPart || sliderStyle->appearance() == MediaVolumeSliderPart;
+}
+
+SliderThumbElement* sliderThumbElementOf(Node* node)
+{
+    ASSERT(node);
+    ShadowRoot* shadow = node->toInputElement()->shadowTree()->oldestShadowRoot();
+    ASSERT(shadow);
+    Node* thumb = shadow->firstChild()->firstChild()->firstChild();
+    ASSERT(thumb);
+    return toSliderThumbElement(thumb);
+}
+
+// --------------------------------
 
 RenderSliderThumb::RenderSliderThumb(Node* node)
     : RenderBlock(node)
 {
 }
 
-void RenderSliderThumb::layout()
+void RenderSliderThumb::updateAppearance(RenderStyle* parentStyle)
 {
-    // FIXME: Hard-coding this cascade of appearance is bad, because it's something
-    // that CSS usually does. We need to find a way to express this in CSS.
-    RenderStyle* parentStyle = parent()->style();
     if (parentStyle->appearance() == SliderVerticalPart)
         style()->setAppearance(SliderThumbVerticalPart);
     else if (parentStyle->appearance() == SliderHorizontalPart)
@@ -74,20 +91,89 @@ void RenderSliderThumb::layout()
         style()->setAppearance(MediaSliderThumbPart);
     else if (parentStyle->appearance() == MediaVolumeSliderPart)
         style()->setAppearance(MediaVolumeSliderThumbPart);
+    else if (parentStyle->appearance() == MediaFullScreenVolumeSliderPart)
+        style()->setAppearance(MediaFullScreenVolumeSliderThumbPart);
+    if (style()->hasAppearance())
+        theme()->adjustSliderThumbSize(style());
+}
 
-    if (style()->hasAppearance()) {
-        // FIXME: This should pass the style, not the renderer, to the theme.
-        theme()->adjustSliderThumbSize(this);
-    }
+bool RenderSliderThumb::isSliderThumb() const
+{
+    return true;
+}
+
+void RenderSliderThumb::layout()
+{
+    // Do not cast node() to SliderThumbElement. This renderer is used for
+    // TrackLimitElement too.
+    HTMLInputElement* input = node()->shadowAncestorNode()->toInputElement();
+    bool isVertical = style()->appearance() == SliderThumbVerticalPart || style()->appearance() == MediaVolumeSliderThumbPart;
+
+    double fraction = sliderPosition(input) * 100;
+    if (isVertical)
+        style()->setTop(Length(100 - fraction, Percent));
+    else if (style()->isLeftToRightDirection())
+        style()->setLeft(Length(fraction, Percent));
+    else
+        style()->setRight(Length(fraction, Percent));
+
     RenderBlock::layout();
 }
 
+// --------------------------------
+
+// FIXME: Find a way to cascade appearance and adjust heights, and get rid of this class.
+// http://webkit.org/b/62535
+class RenderSliderContainer : public RenderDeprecatedFlexibleBox {
+public:
+    RenderSliderContainer(Node* node)
+        : RenderDeprecatedFlexibleBox(node) { }
+
+private:
+    virtual void layout();
+};
+
+void RenderSliderContainer::layout()
+{
+    HTMLInputElement* input = node()->shadowAncestorNode()->toInputElement();
+    bool isVertical = hasVerticalAppearance(input);
+    style()->setBoxOrient(isVertical ? VERTICAL : HORIZONTAL);
+    // Sets the concrete height if the height of the <input> is not fixed or a
+    // percentage value because a percentage height value of this box won't be
+    // based on the <input> height in such case.
+    Length inputHeight = input->renderer()->style()->height();
+    RenderObject* trackRenderer = node()->firstChild()->renderer();
+    if (!isVertical && input->renderer()->isSlider() && !inputHeight.isFixed() && !inputHeight.isPercent()) {
+        RenderObject* thumbRenderer = input->shadowTree()->oldestShadowRoot()->firstChild()->firstChild()->firstChild()->renderer();
+        if (thumbRenderer) {
+            style()->setHeight(thumbRenderer->style()->height());
+            if (trackRenderer)
+                trackRenderer->style()->setHeight(thumbRenderer->style()->height());
+        }
+    } else {
+        style()->setHeight(Length(100, Percent));
+        if (trackRenderer)
+            trackRenderer->style()->setHeight(Length());
+    }
+
+    RenderDeprecatedFlexibleBox::layout();
+
+    // Percentage 'top' for the thumb doesn't work if the parent style has no
+    // concrete height.
+    Node* track = node()->firstChild();
+    if (track && track->renderer()->isBox()) {
+        RenderBox* trackBox = track->renderBox();
+        trackBox->style()->setHeight(Length(trackBox->height() - trackBox->borderAndPaddingHeight(), Fixed));
+    }
+}
+
+// --------------------------------
+
 void SliderThumbElement::setPositionFromValue()
 {
-    // Since today the code to calculate position is in the RenderSlider layout
+    // Since the code to calculate position is in the RenderSliderThumb layout
     // path, we don't actually update the value here. Instead, we poke at the
     // renderer directly to trigger layout.
-    // FIXME: Move the logic of positioning the thumb here.
     if (renderer())
         renderer()->setNeedsLayout(true);
 }
@@ -97,43 +183,61 @@ RenderObject* SliderThumbElement::createRenderer(RenderArena* arena, RenderStyle
     return new (arena) RenderSliderThumb(this);
 }
 
-void SliderThumbElement::dragFrom(const IntPoint& point)
+bool SliderThumbElement::isEnabledFormControl() const
+{
+    return hostInput()->isEnabledFormControl();
+}
+
+bool SliderThumbElement::isReadOnlyFormControl() const
+{
+    return hostInput()->isReadOnlyFormControl();
+}
+
+Node* SliderThumbElement::focusDelegate()
+{
+    return hostInput();
+}
+
+void SliderThumbElement::dragFrom(const LayoutPoint& point)
 {
     setPositionFromPoint(point);
     startDragging();
 }
 
-void SliderThumbElement::setPositionFromPoint(const IntPoint& point)
+void SliderThumbElement::setPositionFromPoint(const LayoutPoint& point)
 {
     HTMLInputElement* input = hostInput();
-    ASSERT(input);
 
     if (!input->renderer() || !renderer())
         return;
 
-    IntPoint offset = roundedIntPoint(input->renderer()->absoluteToLocal(point, false, true));
-    RenderStyle* sliderStyle = input->renderer()->style();
-    bool isVertical = sliderStyle->appearance() == SliderVerticalPart || sliderStyle->appearance() == MediaVolumeSliderPart;
-
-    int trackSize;
-    int position;
-    int currentPosition;
+    LayoutPoint offset = roundedLayoutPoint(input->renderer()->absoluteToLocal(point, false, true));
+    bool isVertical = hasVerticalAppearance(input);
+    LayoutUnit trackSize;
+    LayoutUnit position;
+    LayoutUnit currentPosition;
+    // We need to calculate currentPosition from absolute points becaue the
+    // renderer for this node is usually on a layer and renderBox()->x() and
+    // y() are unusable.
+    // FIXME: This should probably respect transforms.
+    LayoutPoint absoluteThumbOrigin = renderBox()->absoluteBoundingBoxRectIgnoringTransforms().location();
+    LayoutPoint absoluteSliderContentOrigin = roundedLayoutPoint(input->renderer()->localToAbsolute());
     if (isVertical) {
         trackSize = input->renderBox()->contentHeight() - renderBox()->height();
         position = offset.y() - renderBox()->height() / 2;
-        currentPosition = renderBox()->y() - input->renderBox()->contentBoxRect().y();
+        currentPosition = absoluteThumbOrigin.y() - absoluteSliderContentOrigin.y();
     } else {
         trackSize = input->renderBox()->contentWidth() - renderBox()->width();
         position = offset.x() - renderBox()->width() / 2;
-        currentPosition = renderBox()->x() - input->renderBox()->contentBoxRect().x();
+        currentPosition = absoluteThumbOrigin.x() - absoluteSliderContentOrigin.x();
     }
-    position = max(0, min(position, trackSize));
+    position = max<LayoutUnit>(0, min(position, trackSize));
     if (position == currentPosition)
         return;
 
     StepRange range(input);
     double fraction = static_cast<double>(position) / trackSize;
-    if (isVertical)
+    if (isVertical || !renderBox()->style()->isLeftToRightDirection())
         fraction = 1 - fraction;
     double value = range.clampValue(range.valueFromProportion(fraction));
 
@@ -170,10 +274,22 @@ void SliderThumbElement::defaultEventHandler(Event* event)
         return;
     }
 
+    // FIXME: Should handle this readonly/disabled check in more general way.
+    // Missing this kind of check is likely to occur elsewhere if adding it in each shadow element.
+    HTMLInputElement* input = hostInput();
+    if (!input || input->isReadOnlyFormControl() || !input->isEnabledFormControl()) {
+        stopDragging();
+        HTMLDivElement::defaultEventHandler(event);
+        return;
+    }
+
     MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
     bool isLeftButton = mouseEvent->button() == LeftButton;
     const AtomicString& eventType = event->type();
 
+    // We intentionally do not call event->setDefaultHandled() here because
+    // MediaControlTimelineElement::defaultEventHandler() wants to handle these
+    // mouse events.
     if (eventType == eventNames().mousedownEvent && isLeftButton) {
         startDragging();
         return;
@@ -193,15 +309,16 @@ void SliderThumbElement::detach()
 {
     if (m_inDragMode) {
         if (Frame* frame = document()->frame())
-            frame->eventHandler()->setCapturingMouseEventsNode(0);      
+            frame->eventHandler()->setCapturingMouseEventsNode(0);
     }
     HTMLDivElement::detach();
 }
 
-HTMLInputElement* SliderThumbElement::hostInput()
+HTMLInputElement* SliderThumbElement::hostInput() const
 {
-    ASSERT(parentNode());
-    return static_cast<HTMLInputElement*>(parentNode()->shadowHost());
+    // Only HTMLInputElement creates SliderThumbElement instances as its shadow nodes.
+    // So, shadowAncestorNode() must be an HTMLInputElement.
+    return shadowAncestorNode()->toInputElement();
 }
 
 const AtomicString& SliderThumbElement::shadowPseudoId() const
@@ -210,5 +327,66 @@ const AtomicString& SliderThumbElement::shadowPseudoId() const
     return sliderThumb;
 }
 
+// --------------------------------
+
+inline TrackLimiterElement::TrackLimiterElement(Document* document)
+    : HTMLDivElement(HTMLNames::divTag, document)
+{
 }
 
+PassRefPtr<TrackLimiterElement> TrackLimiterElement::create(Document* document)
+{
+    RefPtr<TrackLimiterElement> element = adoptRef(new TrackLimiterElement(document));
+
+    element->setInlineStyleProperty(CSSPropertyVisibility, CSSValueHidden);
+    element->setInlineStyleProperty(CSSPropertyPosition, CSSValueStatic);
+
+    return element.release();
+}
+
+RenderObject* TrackLimiterElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderSliderThumb(this);
+}
+
+const AtomicString& TrackLimiterElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, sliderThumb, ("-webkit-slider-thumb"));
+    return sliderThumb;
+}
+
+TrackLimiterElement* trackLimiterElementOf(Node* node)
+{
+    ASSERT(node);
+    ASSERT(node->toInputElement()->hasShadowRoot());
+    ShadowRoot* shadow = node->toInputElement()->shadowTree()->oldestShadowRoot();
+    ASSERT(shadow);
+    Node* limiter = shadow->firstChild()->lastChild();
+    ASSERT(limiter);
+    return static_cast<TrackLimiterElement*>(limiter);
+}
+
+// --------------------------------
+
+inline SliderContainerElement::SliderContainerElement(Document* document)
+    : HTMLDivElement(HTMLNames::divTag, document)
+{
+}
+
+PassRefPtr<SliderContainerElement> SliderContainerElement::create(Document* document)
+{
+    return adoptRef(new SliderContainerElement(document));
+}
+
+RenderObject* SliderContainerElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderSliderContainer(this);
+}
+
+const AtomicString& SliderContainerElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, sliderThumb, ("-webkit-slider-container"));
+    return sliderThumb;
+}
+
+}

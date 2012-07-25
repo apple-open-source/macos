@@ -27,7 +27,9 @@
 #define DrawingArea_h
 
 #include "DrawingAreaInfo.h"
+#include <WebCore/FloatPoint.h>
 #include <WebCore/IntRect.h>
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -43,6 +45,7 @@ namespace WebCore {
 
 namespace WebKit {
 
+class LayerTreeHost;
 class WebPage;
 struct WebPageCreationParameters;
 
@@ -63,29 +66,38 @@ public:
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset) = 0;
 
     // FIXME: These should be pure virtual.
-    virtual void enableDisplayThrottling() { }
-    virtual void disableDisplayThrottling() { }
     virtual void pageBackgroundTransparencyChanged() { }
     virtual void forceRepaint() { }
+    virtual bool forceRepaintAsync(uint64_t callbackID) { return false; }
     virtual void setLayerTreeStateIsFrozen(bool) { }
+    virtual bool layerTreeStateIsFrozen() const { return false; }
+    virtual LayerTreeHost* layerTreeHost() const { return 0; }
 
     virtual void didInstallPageOverlay() { }
     virtual void didUninstallPageOverlay() { }
     virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) { }
+    virtual void setPageOverlayOpacity(float) { }
+    // If this function returns false, PageOverlay should apply opacity when painting.
+    virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
+    virtual void pageCustomRepresentationChanged() { }
 
     virtual void setPaintingEnabled(bool) { }
+    virtual void updatePreferences() { }
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*) = 0;
     virtual void scheduleCompositingLayerSync() = 0;
-    virtual void syncCompositingLayers() = 0;
 #endif
 
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
+#if USE(UI_SIDE_COMPOSITING)
+    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
+#endif
 
 #if PLATFORM(WIN)
     virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&) = 0;
 #endif
+
+    virtual void dispatchAfterEnsuringUpdatedScrollPosition(const Function<void ()>&);
 
 protected:
     DrawingArea(DrawingAreaType, WebPage*);
@@ -100,6 +112,13 @@ private:
     virtual void didUpdate() { }
     virtual void suspendPainting() { }
     virtual void resumePainting() { }
+    virtual void setLayerHostingMode(uint32_t) { }
+
+#if PLATFORM(MAC)
+    // Used by TiledCoreAnimationDrawingArea.
+    virtual void updateGeometry(const WebCore::IntSize& viewSize) { }
+    virtual void setDeviceScaleFactor(float) { }
+#endif
 };
 
 } // namespace WebKit

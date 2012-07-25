@@ -1,8 +1,8 @@
 /* tls.c - Handle tls/ssl. */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/tls2.c,v 1.4.2.10 2010/04/13 20:23:00 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,10 +37,6 @@
 
 #include "ldap-tls.h"
 
-#ifdef LDAP_R_COMPILE
-#include <ldap_pvt_thread.h>
-#endif
-
 static tls_impl *tls_imp = &ldap_int_tls_impl;
 #define HAS_TLS( sb )	ber_sockbuf_ctrl( sb, LBER_SB_OPT_HAS_IO, \
 				(void *)tls_imp->ti_sbio )
@@ -48,6 +44,7 @@ static tls_impl *tls_imp = &ldap_int_tls_impl;
 #ifdef __APPLE__
 #include <Security/Security.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
 static void tls_get_cert_from_keychain( char *host );
 #endif
@@ -282,13 +279,9 @@ ldap_pvt_tls_init_def_ctx( int is_server )
 {
 	struct ldapoptions *lo = LDAP_INT_GLOBAL_OPT();   
 	int rc;
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_lock( &tls_def_ctx_mutex );
-#endif
+	LDAP_MUTEX_LOCK( &tls_def_ctx_mutex );
 	rc = ldap_int_tls_init_ctx( lo, is_server );
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &tls_def_ctx_mutex );
-#endif
+	LDAP_MUTEX_UNLOCK( &tls_def_ctx_mutex );
 	return rc;
 }
 
@@ -599,6 +592,11 @@ ldap_pvt_tls_get_option( LDAP *ld, int option, void *arg )
 {
 	struct ldapoptions *lo;
 
+	if( option == LDAP_OPT_X_TLS_PACKAGE ) {
+		*(char **)arg = LDAP_STRDUP( tls_imp->ti_name );
+		return 0;
+	}
+
 	if( ld != NULL ) {
 		assert( LDAP_VALID( ld ) );
 
@@ -697,8 +695,7 @@ int
 ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 {
 	struct ldapoptions *lo;
-	int count = 0;
-	
+
 	if( ld != NULL ) {
 		assert( LDAP_VALID( ld ) );
 
@@ -809,22 +806,12 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 		if ( lo->ldo_tls_randfile ) LDAP_FREE (lo->ldo_tls_randfile );
 		lo->ldo_tls_randfile = arg ? LDAP_STRDUP( (char *) arg ) : NULL;
 		break;
-	case LDAP_OPT_X_TLS_PASSPHRASE_TOOL:
-		if ( lo->ldo_tls_passphrase_tool ) {
-			LDAP_VFREE ( lo->ldo_tls_passphrase_tool );
-			lo->ldo_tls_passphrase_tool = NULL;
-		}
-		while ( arg != NULL && ((char**)arg)[count] != NULL ) {
-			count++;
-		}
-		if (count > 0) {
-			lo->ldo_tls_passphrase_tool = LDAP_MALLOC( sizeof(char*) * ( count + 1 ) );
-			lo->ldo_tls_passphrase_tool[count] = NULL;
-		}
-		while (count-- > 0) {
-			lo->ldo_tls_passphrase_tool[count] = LDAP_STRDUP( ((char**)arg)[count] );
-		}
-		break;
+/*Apple Specific code*/            
+    case LDAP_OPT_X_TLS_PASSPHRASE:
+        if( lo->ldo_tls_passphrase) LDAP_FREE(lo->ldo_tls_passphrase);
+        lo->ldo_tls_passphrase = arg ? LDAP_STRDUP( (char*) arg) : NULL;
+        return 0;
+/*Apple Specific code*/            
 	case LDAP_OPT_X_TLS_NEWCTX:
 		if ( !arg ) return -1;
 		if ( lo->ldo_tls_ctx )
@@ -840,10 +827,14 @@ ldap_pvt_tls_set_option( LDAP *ld, int option, void *arg )
 int
 ldap_int_tls_start ( LDAP *ld, LDAPConn *conn, LDAPURLDesc *srv )
 {
-	Sockbuf *sb = conn->lconn_sb;
+	Sockbuf *sb;
 	char *host;
 	void *ssl;
 
+	if ( !conn )
+		return LDAP_PARAM_ERROR;
+
+	sb = conn->lconn_sb;
 	if( srv ) {
 		host = srv->lud_host;
 	} else {
@@ -878,7 +869,8 @@ ldap_int_tls_start ( LDAP *ld, LDAPConn *conn, LDAPURLDesc *srv )
 	/* 
 	 * compare host with name(s) in certificate
 	 */
-	if (ld->ld_options.ldo_tls_require_cert != LDAP_OPT_X_TLS_NEVER) {
+	if (ld->ld_options.ldo_tls_require_cert != LDAP_OPT_X_TLS_NEVER &&
+	    ld->ld_options.ldo_tls_require_cert != LDAP_OPT_X_TLS_ALLOW) {
 		ld->ld_errno = ldap_pvt_tls_check_hostname( ld, ssl, host );
 		if (ld->ld_errno != LDAP_SUCCESS) {
 #ifdef __APPLE__
@@ -1027,6 +1019,93 @@ find_oid( struct berval *oid )
 	return NULL;
 }
 
+/* Converts BER Bitstring value to LDAP BitString value (RFC4517)
+ *
+ * berValue    : IN
+ * rfc4517Value: OUT
+ *
+ * berValue and ldapValue should not be NULL
+ */
+
+#define BITS_PER_BYTE	8
+#define SQUOTE_LENGTH	1
+#define B_CHAR_LENGTH	1
+#define STR_OVERHEAD    (2*SQUOTE_LENGTH + B_CHAR_LENGTH)
+
+static int
+der_to_ldap_BitString (struct berval *berValue,
+                                   struct berval *ldapValue)
+{
+	ber_len_t bitPadding=0;
+	ber_len_t bits, maxBits;
+	char *tmpStr;
+	unsigned char byte;
+	ber_len_t bitLength;
+	ber_len_t valLen;
+	unsigned char* valPtr;
+
+	ldapValue->bv_len=0;
+	ldapValue->bv_val=NULL;
+
+	/* Gets padding and points to binary data */
+	valLen=berValue->bv_len;
+	valPtr=(unsigned char*)berValue->bv_val;
+	if (valLen) {
+		bitPadding=(ber_len_t)(valPtr[0]);
+		valLen--;
+		valPtr++;
+	}
+	/* If Block is non DER encoding fixes to DER encoding */
+	if (bitPadding >= BITS_PER_BYTE) {
+		if (valLen*BITS_PER_BYTE > bitPadding ) {
+			valLen-=(bitPadding/BITS_PER_BYTE);
+			bitPadding%=BITS_PER_BYTE;
+		} else {
+			valLen=0;
+			bitPadding=0;
+		}
+	}
+	/* Just in case bad encoding */
+	if (valLen*BITS_PER_BYTE < bitPadding ) {
+		bitPadding=0;
+		valLen=0;
+	}
+
+	/* Gets buffer to hold RFC4517 Bit String format */
+	bitLength=valLen*BITS_PER_BYTE-bitPadding;
+	tmpStr=LDAP_MALLOC(bitLength + STR_OVERHEAD + 1);
+
+	if (!tmpStr)
+		return LDAP_NO_MEMORY;
+
+	ldapValue->bv_val=tmpStr;
+	ldapValue->bv_len=bitLength + STR_OVERHEAD;
+
+	/* Formatting in '*binary-digit'B format */
+	maxBits=BITS_PER_BYTE;
+	*tmpStr++ ='\'';
+	while(valLen) {
+		byte=*valPtr;
+		if (valLen==1)
+			maxBits-=bitPadding;
+		for (bits=0; bits<maxBits; bits++) {
+			if (0x80 & byte)
+				*tmpStr='1';
+			else
+				*tmpStr='0';
+			tmpStr++;
+			byte<<=1;
+		}
+		valPtr++;
+		valLen--;
+	}
+	*tmpStr++ ='\'';
+	*tmpStr++ ='B';
+	*tmpStr=0;
+
+	return LDAP_SUCCESS;
+}
+
 /* Convert a structured DN from an X.509 certificate into an LDAPV3 DN.
  * x509_name must be raw DER. If func is non-NULL, the
  * constructed DN will use numeric OIDs to identify attributeTypes,
@@ -1169,6 +1248,8 @@ ldap_X509dn2bv( void *x509_name, struct berval *bv, LDAPDN_rewrite_func *func,
 					newAVA->la_attr = oidname->name;
 				}
 			}
+			newAVA->la_private = NULL;
+			newAVA->la_flags = LDAP_AVA_STRING;
 			tag = ber_get_stringbv( ber, &Val, LBER_BV_NOTERM );
 			switch(tag) {
 			case LBER_TAG_UNIVERSAL:
@@ -1181,22 +1262,29 @@ ldap_X509dn2bv( void *x509_name, struct berval *bv, LDAPDN_rewrite_func *func,
 				/* This uses 8-bit, assume ISO 8859-1 */
 				csize = 1;
 to_utf8:		rc = ldap_ucs_to_utf8s( &Val, csize, &newAVA->la_value );
+				newAVA->la_flags |= LDAP_AVA_NONPRINTABLE;
+allocd:
 				newAVA->la_flags |= LDAP_AVA_FREE_VALUE;
 				if (rc != LDAP_SUCCESS) goto nomem;
-				newAVA->la_flags = LDAP_AVA_NONPRINTABLE;
 				break;
 			case LBER_TAG_UTF8:
-				newAVA->la_flags = LDAP_AVA_NONPRINTABLE;
+				newAVA->la_flags |= LDAP_AVA_NONPRINTABLE;
 				/* This is already in UTF-8 encoding */
 			case LBER_TAG_IA5:
 			case LBER_TAG_PRINTABLE:
 				/* These are always 7-bit strings */
 				newAVA->la_value = Val;
+				break;
+			case LBER_BITSTRING:
+				/* X.690 bitString value converted to RFC4517 Bit String */
+				rc = der_to_ldap_BitString( &Val, &newAVA->la_value );
+				goto allocd;
 			default:
-				;
+				/* Not a string type at all */
+				newAVA->la_flags = 0;
+				newAVA->la_value = Val;
+				break;
 			}
-			newAVA->la_private = NULL;
-			newAVA->la_flags = LDAP_AVA_STRING;
 			newAVA++;
 		}
 		*newRDN++ = NULL;
@@ -1345,6 +1433,130 @@ tls_get_cert_from_keychain( char *host )
 	       "TLS: %s certificate in keychain for host \"%s\"\n",
 	       lo->ldo_tls_cert_ref ? "found" : "did not find", host, 0 );
 }
+
+int ldap_pvt_test_tls_settings(LDAP *ld)
+{
+    int rc = 0;
+    struct ldapoptions *lo;
+    
+	if( ld != NULL ) {
+		assert( LDAP_VALID( ld ) );
+        
+		if( !LDAP_VALID( ld ) ) {
+			return LDAP_OPT_ERROR;
+		}
+        
+		lo = &ld->ld_options;
+        
+	} else {
+		/* Get pointer to global option structure */
+		lo = LDAP_INT_GLOBAL_OPT();   
+		if ( lo == NULL ) {
+			return LDAP_NO_MEMORY;
+		}
+	}
+    if (lo->ldo_tls_cacertfile != NULL )
+    {
+        struct stat sb;
+        rc = lstat( lo->ldo_tls_cacertfile, &sb );
+        if ( rc != 0 )
+        {
+            Debug( LDAP_DEBUG_ANY, "TLS: "
+                  "could not load verify ca location (file:`%s').\n",
+                  lo->ldo_tls_cacertfile ? lo->ldo_tls_cacertfile : "",0,0 );
+            return LDAP_TLS_CACERTFILE_NOTFOUND;
+        }
+    }
+    if ( lo->ldo_tls_certfile != NULL)
+	{
+		struct stat sb;
+        rc = lstat( lo->ldo_tls_certfile, &sb );
+        if ( rc != 0 )
+        {
+            Debug( LDAP_DEBUG_ANY, "TLS: "
+                  "could not load verify cert location (file:`%s').\n",
+                  lo->ldo_tls_certfile ? lo->ldo_tls_certfile : "",0,0 );
+            return LDAP_TLS_CERTFILE_NOTFOUND; 
+        }
+	}
+    
+	/* Key validity is checked automatically if cert has already been set */
+	if ( lo->ldo_tls_keyfile )
+	{
+        struct stat sb;
+        rc = lstat( lo->ldo_tls_keyfile, &sb );
+        if ( rc != 0 )
+        {
+            Debug( LDAP_DEBUG_ANY, "TLS: "
+                  "could not load verify key location (file:`%s').\n",
+                  lo->ldo_tls_keyfile ? lo->ldo_tls_keyfile : "",0,0 );
+            return LDAP_TLS_CERTKEYFILE_NOTFOUND;
+        }
+	}
+    struct ldapoptions *global_lo = LDAP_INT_GLOBAL_OPT();
+	/*
+     * When a remembered passphrase is available, use it
+     */
+    if (global_lo->ldo_tls_passphrase != NULL) {
+        
+        SecKeychainRef keychainRef = NULL;
+        OSStatus status = SecKeychainOpen( SYSTEM_KEYCHAIN_PATH, &keychainRef );
+        if ( status != errSecSuccess ) {
+            Debug( LDAP_DEBUG_ANY, "TLS: SecKeychainOpen failed for keychain %s: %d",
+                  SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
+            syslog( LOG_ERR, "TLS: SecKeychainOpen failed for keychain %s: %d",
+                   SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
+            cssmPerror( "SecKeychainOpen", status );
+            return -1;
+        }
+        char *keychain_identifier = LDAP_STRDUP(global_lo->ldo_tls_passphrase);
+        CFStringRef keychainCFName = CFStringCreateWithCString(NULL, keychain_identifier, kCFStringEncodingUTF8);
+        if(keychainCFName)
+        {
+            CFRange foundRange;
+            if(CFStringFindWithOptions(keychainCFName, CFSTR("."), CFRangeMake(0, CFStringGetLength(keychainCFName)), kCFCompareCaseInsensitive, &foundRange) == true)
+            {
+                CFStringRef itemName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(0, foundRange.location));
+                CFStringRef accountName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(foundRange.location + 1, CFStringGetLength(keychainCFName) - foundRange.location));
+                char *item_name, *account_name;
+                void *passphraseBytes = nil;
+                UInt32 passphraseLength = 0;
+                
+                if(itemName)
+                {
+                    int length = CFStringGetLength(itemName);
+                    item_name = (char*)calloc(1, length + 1);
+                    CFStringGetCString(itemName, item_name, length +1, kCFStringEncodingUTF8);
+                }
+                if(accountName)
+                {
+                    int length = CFStringGetLength(accountName);
+                    account_name = (char*)calloc(1, length + 1);
+                    CFStringGetCString(accountName, account_name, length +1, kCFStringEncodingUTF8);
+                }
+                rc = SecKeychainFindGenericPassword(keychainRef, 
+                                                    strlen(item_name),item_name ,
+                                                    strlen(account_name), account_name,
+                                                    NULL, NULL, nil);
+                if(item_name)
+                    free(item_name);
+                if(account_name)
+                    free(account_name);
+                if(keychain_identifier)
+                    LDAP_FREE(keychain_identifier);
+                if(rc != 0)
+                {
+                    Debug( LDAP_DEBUG_ANY, "TLS: "
+                          "could not load verify passphrase in keychain.\n",0,0,0 );
+                    return LDAP_TLS_PASSPHRASE_NOTFOUND;
+                    
+                }
+            }
+        }
+    }
+    return rc;
+}
+
 #endif /* __APPLE__ */
 #endif /* HAVE_TLS */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Igalia S.L.
+ * Copyright (C) 2010, 2011, 2012 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,13 +24,14 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityObject.h"
-#include "AccessibilityObjectWrapperAtk.h"
 #include "NotImplemented.h"
 #include "Position.h"
 #include "Range.h"
 #include "RenderListMarker.h"
 #include "RenderObject.h"
 #include "TextIterator.h"
+#include "WebKitAccessibleUtil.h"
+#include "WebKitAccessibleWrapperAtk.h"
 #include "htmlediting.h"
 
 #include <atk/atk.h>
@@ -52,20 +53,12 @@ enum {
 
 static gpointer webkitAccessibleHyperlinkParentClass = 0;
 
-// Used to provide const char* returns.
-static const char* returnString(const String& str)
-{
-    static CString returnedString;
-    returnedString = str.utf8();
-    return returnedString.data();
-}
-
 static AccessibilityObject* core(WebKitAccessible* accessible)
 {
     if (!accessible || !WEBKIT_IS_ACCESSIBLE(accessible))
         return 0;
 
-    return webkit_accessible_get_accessibility_object(accessible);
+    return webkitAccessibleGetAccessibilityObject(accessible);
 }
 
 static AccessibilityObject* core(WebKitAccessibleHyperlink* link)

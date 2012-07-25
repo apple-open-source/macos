@@ -33,9 +33,12 @@
 
 #include "DOMWrapperWorld.h"
 #include "JSDedicatedWorkerContext.h"
-#include "JSSharedWorkerContext.h"
 #include "JSWorkerContext.h"
 #include "WorkerContext.h"
+
+#if ENABLE(SHARED_WORKERS)
+#include "JSSharedWorkerContext.h"
+#endif
 
 using namespace JSC;
 
@@ -57,8 +60,9 @@ void JSWorkerContextBase::finishCreation(JSGlobalData& globalData)
     ASSERT(inherits(&s_info));
 }
 
-JSWorkerContextBase::~JSWorkerContextBase()
+void JSWorkerContextBase::destroy(JSCell* cell)
 {
+    jsCast<JSWorkerContextBase*>(cell)->JSWorkerContextBase::~JSWorkerContextBase();
 }
 
 ScriptExecutionContext* JSWorkerContextBase::scriptExecutionContext() const
@@ -89,7 +93,7 @@ JSDedicatedWorkerContext* toJSDedicatedWorkerContext(JSValue value)
         return 0;
     const ClassInfo* classInfo = asObject(value)->classInfo();
     if (classInfo == &JSDedicatedWorkerContext::s_info)
-        return static_cast<JSDedicatedWorkerContext*>(asObject(value));
+        return jsCast<JSDedicatedWorkerContext*>(asObject(value));
     return 0;
 }
 
@@ -100,7 +104,7 @@ JSSharedWorkerContext* toJSSharedWorkerContext(JSValue value)
         return 0;
     const ClassInfo* classInfo = asObject(value)->classInfo();
     if (classInfo == &JSSharedWorkerContext::s_info)
-        return static_cast<JSSharedWorkerContext*>(asObject(value));
+        return jsCast<JSSharedWorkerContext*>(asObject(value));
     return 0;
 }
 #endif

@@ -54,11 +54,6 @@ namespace WebCore {
     enum EColorRendering {
         CR_AUTO, CR_OPTIMIZESPEED, CR_OPTIMIZEQUALITY
     };
-    
-    enum EImageRendering {
-        IR_AUTO, IR_OPTIMIZESPEED, IR_OPTIMIZEQUALITY
-    };
-
     enum EShapeRendering {
         SR_AUTO, SR_OPTIMIZESPEED, SR_CRISPEDGES, SR_GEOMETRICPRECISION
     };
@@ -108,6 +103,9 @@ namespace WebCore {
         SVGPaint::SVGPaintType paintType;
         Color paintColor;
         String paintUri;
+        SVGPaint::SVGPaintType visitedLinkPaintType;
+        Color visitedLinkPaintColor;
+        String visitedLinkPaintUri;
 
     private:
         StyleFillData();
@@ -135,6 +133,9 @@ namespace WebCore {
         SVGPaint::SVGPaintType paintType;
         Color paintColor;
         String paintUri;
+        SVGPaint::SVGPaintType visitedLinkPaintType;
+        Color visitedLinkPaintColor;
+        String visitedLinkPaintUri;
 
     private:        
         StyleStrokeData();

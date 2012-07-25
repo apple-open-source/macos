@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,6 +49,7 @@
 #include "configd.h"
 #include "configd_server.h"
 #include <SystemConfiguration/SCDPlugin.h>
+#include "SCNetworkReachabilityInternal.h"
 void	_SCDPluginExecInit();
 
 
@@ -59,11 +60,44 @@ void	_SCDPluginExecInit();
 #define	BUNDLE_DIR_EXTENSION	".bundle"
 
 
+#define PLUGIN_ALL(p)		CFSTR(p)
+#if	!TARGET_OS_EMBEDDED
+#define PLUGIN_MACOSX(p)	CFSTR(p)
+#define PLUGIN_IOS(p)		NULL
+#else	// !TARGET_OS_EMBEDDED
+#define PLUGIN_MACOSX(p)	NULL
+#define PLUGIN_IOS(p)		CFSTR(p)
+#endif	// !TARGET_OS_EMBEDDED
+
+// white-listed (ok-to-load) bundle identifiers
+static const CFStringRef	pluginWhitelist[]	= {
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.Apple80211"),
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.ApplicationFirewall"),
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.Bluetooth"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.EAPOLController"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPConfiguration"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.IPMonitor"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.InterfaceNamer"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.KernelEventMonitor"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.LinkConfiguration"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.Logger"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.PPPController"),
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.PreferencesMonitor"),
+#ifdef	HAVE_REACHABILITY_SERVER
+	PLUGIN_ALL   ("com.apple.SystemConfiguration.SCNetworkReachability"),
+#endif	// HAVE_REACHABILITY_SERVER
+	PLUGIN_MACOSX("com.apple.SystemConfiguration.wwanConfig"),
+	PLUGIN_MACOSX("com.apple.print.notification"),
+};
+#define	N_PLUGIN_WHITELIST	(sizeof(pluginWhitelist) / sizeof(pluginWhitelist[0]))
+
+
 typedef struct {
 	CFBundleRef				bundle;
 	Boolean					loaded;
 	Boolean					builtin;
 	Boolean					enabled;
+	Boolean					forced;
 	Boolean					verbose;
 	SCDynamicStoreBundleLoadFunction	load;
 	SCDynamicStoreBundleStartFunction	start;
@@ -91,8 +125,9 @@ extern SCDynamicStoreBundlePrimeFunction	prime_KernelEventMonitor;
 extern SCDynamicStoreBundleLoadFunction		load_LinkConfiguration;
 extern SCDynamicStoreBundleLoadFunction		load_PreferencesMonitor;
 extern SCDynamicStoreBundlePrimeFunction	prime_PreferencesMonitor;
-extern SCDynamicStoreBundleLoadFunction		load_NetworkIdentification;
-extern SCDynamicStoreBundlePrimeFunction	prime_NetworkIdentification;
+#ifdef	HAVE_REACHABILITY_SERVER
+extern SCDynamicStoreBundleLoadFunction		load_SCNetworkReachability;
+#endif	// HAVE_REACHABILITY_SERVER
 
 
 typedef struct {
@@ -134,19 +169,21 @@ static const builtin builtin_plugins[] = {
 		NULL
 	},
 	{
-		CFSTR("com.apple.SystemConfiguration.NetworkIdentification"),
-		&load_NetworkIdentification,
-		NULL,
-		&prime_NetworkIdentification,
-		NULL
-	},
-	{
 		CFSTR("com.apple.SystemConfiguration.PreferencesMonitor"),
 		&load_PreferencesMonitor,
 		NULL,
 		&prime_PreferencesMonitor,
 		NULL
-	}
+	},
+#ifdef	HAVE_REACHABILITY_SERVER
+	{
+		CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"),
+		&load_SCNetworkReachability,
+		NULL,
+		NULL,
+		NULL
+	},
+#endif	// HAVE_REACHABILITY_SERVER
 };
 
 
@@ -185,6 +222,7 @@ addBundle(CFBundleRef bundle, Boolean forceEnabled)
 	bundleInfo->loaded	= FALSE;
 	bundleInfo->builtin	= FALSE;
 	bundleInfo->enabled	= TRUE;
+	bundleInfo->forced	= forceEnabled;
 	bundleInfo->verbose	= FALSE;
 	bundleInfo->load	= NULL;
 	bundleInfo->start	= NULL;
@@ -211,16 +249,12 @@ addBundle(CFBundleRef bundle, Boolean forceEnabled)
 		}
 	}
 
-	if (forceEnabled) {
-		bundleInfo->enabled = TRUE;
-	}
-
 	CFArrayAppendValue(allBundles, bundleInfo);
 	return;
 }
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 shortBundleIdentifier(CFStringRef bundleID)
 {
 	CFIndex		len	= CFStringGetLength(bundleID);
@@ -363,6 +397,7 @@ forkBundle(CFBundleRef bundle, CFStringRef bundleID)
 static void
 loadBundle(const void *value, void *context) {
 	CFStringRef	bundleID;
+	Boolean		bundleAllowed;
 	bundleInfoRef	bundleInfo	= (bundleInfoRef)value;
 	Boolean		bundleExclude;
 	CFIndex		*nLoaded	= (CFIndex *)context;
@@ -377,26 +412,35 @@ loadBundle(const void *value, void *context) {
 
 	shortID = shortBundleIdentifier(bundleID);
 
-	bundleExclude = CFSetContainsValue(_plugins_exclude, bundleID);
-	if (!bundleExclude) {
-		if (shortID != NULL) {
-			bundleExclude = CFSetContainsValue(_plugins_exclude, shortID);
-		}
+	bundleAllowed = ((CFSetGetCount(_plugins_allowed) == 0)		||	// if no white-listing
+			 CFSetContainsValue(_plugins_allowed, bundleID)	||	// if [bundleID] white-listed
+			 ((shortID != NULL) &&
+			  CFSetContainsValue(_plugins_allowed, shortID))||	// if [short bundleID] white-listed
+			 bundleInfo->forced					// if "testing" plugin
+			);
+	if (!bundleAllowed) {
+		SCLog(TRUE, LOG_WARNING, CFSTR("skipped %@ (not allowed)"), bundleID);
+		goto done;
 	}
 
+	bundleExclude = (CFSetContainsValue(_plugins_exclude, bundleID)	||	// if [bundleID] excluded
+			 ((shortID != NULL) &&
+			  CFSetContainsValue(_plugins_exclude, shortID))	// if [short bundleID] excluded
+			);
 	if (bundleExclude) {
 		// sorry, this bundle has been excluded
 		SCLog(TRUE, LOG_NOTICE, CFSTR("skipped %@ (excluded)"), bundleID);
 		goto done;
 	}
 
-	if (!bundleInfo->enabled) {
+	if (!bundleInfo->enabled && !bundleInfo->forced) {
 		// sorry, this bundle has not been enabled
 		SCLog(TRUE, LOG_INFO, CFSTR("skipped %@ (disabled)"), bundleID);
 		goto done;
 	}
 
-	if (_plugins_fork) {
+	if (_plugins_fork &&
+	    !_SC_CFEqual(bundleID, CFSTR("com.apple.SystemConfiguration.SCNetworkReachability"))) {
 		forkBundle(bundleInfo->bundle, bundleID);
 		goto done;
 	}
@@ -899,10 +943,18 @@ __private_extern__
 void *
 plugin_exec(void *arg)
 {
+	int		i;
 	CFIndex		nLoaded		= 0;
 
 	/* keep track of bundles */
 	allBundles = CFArrayCreateMutable(NULL, 0, NULL);
+
+	/* add white-listed plugins to those we'll allow to be loaded */
+	for (i = 0; i < N_PLUGIN_WHITELIST; i++) {
+		if (pluginWhitelist[i] != NULL) {
+			CFSetSetValue(_plugins_allowed, pluginWhitelist[i]);
+		}
+	}
 
 	/* allow plug-ins to exec child/helper processes */
 	_SCDPluginExecInit();
@@ -974,6 +1026,39 @@ plugin_exec(void *arg)
 			CFRelease(bundle);
 		}
 		CFRelease(url);
+	}
+
+	/*
+	 * Look for the InterfaceNamer plugin, and move it to the start
+	 * of the list.
+	 *
+	 * Load the InterfaceNamer plugin (and thereby start its thread)
+	 * first in an attempt to minimize the amount of time that
+	 * opendirectoryd has to wait for the platform UUID to appear in
+	 * nvram.
+	 *
+	 * InterfaceNamer is responsible for creating the platform UUID on
+	 * platforms without a UUID in ROM. Until the platform UUID is created
+	 * and stashed in nvram, all calls to opendirectoryd to do things like
+	 * getpwuid() will block, because opendirectoryd will block while trying
+	 * to read the platform UUID from the kernel.
+	 *
+	 * As an example, dlopen() causes XPC to do some intialization, and
+	 * part of that initialization involves communicating with xpcd.
+	 * Since xpcd calls getpwuid_r() during its initialization, it will
+	 * block until the platform UUID is available.
+	 */
+	for (int i = 0; i < CFArrayGetCount(allBundles); i++) {
+		bundleInfoRef	bi		= (bundleInfoRef)CFArrayGetValueAtIndex(allBundles, i);
+		CFStringRef	bundleID	= CFBundleGetIdentifier(bi->bundle);
+
+		if (_SC_CFEqual(bundleID,
+		                CFSTR("com.apple.SystemConfiguration.InterfaceNamer")))
+		{
+			CFArrayRemoveValueAtIndex(allBundles, i);
+			CFArrayInsertValueAtIndex(allBundles, 0, bi);
+			break;
+		}
 	}
 
 #ifdef	DEBUG

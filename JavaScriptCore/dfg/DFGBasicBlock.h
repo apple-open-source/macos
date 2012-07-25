@@ -30,7 +30,7 @@
 
 #include "DFGAbstractValue.h"
 #include "DFGNode.h"
-#include "DFGOperands.h"
+#include "Operands.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
 
@@ -38,11 +38,9 @@ namespace JSC { namespace DFG {
 
 typedef Vector <BlockIndex, 2> PredecessorList;
 
-struct BasicBlock {
-    BasicBlock(unsigned bytecodeBegin, NodeIndex begin, unsigned numArguments, unsigned numLocals)
+struct BasicBlock : Vector<NodeIndex, 8> {
+    BasicBlock(unsigned bytecodeBegin, unsigned numArguments, unsigned numLocals)
         : bytecodeBegin(bytecodeBegin)
-        , begin(begin)
-        , end(NoNode)
         , isOSRTarget(false)
         , cfaHasVisited(false)
         , cfaShouldRevisit(false)
@@ -69,8 +67,6 @@ struct BasicBlock {
     // for other purposes due to inlining.
     unsigned bytecodeBegin;
     
-    NodeIndex begin;
-    NodeIndex end;
     bool isOSRTarget;
     bool cfaHasVisited;
     bool cfaShouldRevisit;
@@ -79,6 +75,7 @@ struct BasicBlock {
 #endif
     bool isReachable;
     
+    Vector<NodeIndex> phis;
     PredecessorList m_predecessors;
     
     Operands<NodeIndex, NodeIndexTraits> variablesAtHead;

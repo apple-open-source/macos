@@ -136,7 +136,7 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     IOService * service = provider->getProvider();
     
     // Check to see if this is a product of an IOHIDevice or IOHIDDevice shim
-    while (service = service->getProvider())
+    while ( NULL != (service = service->getProvider()) )
     {
         if(service->metaCast("IOHIDevice") || service->metaCast("IOHIDDevice"))
         {
@@ -156,10 +156,11 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     bzero( _reportHandlers, sizeof(IOHIDReportHandler) * kReportHandlerSlots );
     
     UInt32      bootProtocol    = 0;
-    OSNumber *  number          = (OSNumber *)_interface->getProperty("BootProtocol");
+    OSNumber *  number          = (OSNumber *)_interface->copyProperty("BootProtocol");
     
     if (number) 
         bootProtocol = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
         
     setProperty("BootProtocol", number);
 
@@ -253,7 +254,7 @@ UInt32 IOHIDEventDriver::getCountryCode ()
 //====================================================================================================
 // IOHIDEventDriver::handleStop
 //====================================================================================================
-void IOHIDEventDriver::handleStop(  IOService * provider )
+void IOHIDEventDriver::handleStop(  IOService * provider __unused )
 {
     //_interface->close(this);
 }
@@ -479,7 +480,7 @@ void IOHIDEventDriver::_handleInterruptReport (
                                 IOMemoryDescriptor *        report,
                                 IOHIDReportType             reportType,
                                 UInt32                      reportID,
-                                void *                      refcon)
+                                void *                      refcon __unused)
 {
     IOHIDEventDriver *  self = (IOHIDEventDriver *)target;
     
@@ -557,9 +558,11 @@ void IOHIDEventDriver::handleInterruptReport (
     IOHID_DEBUG(kIOHIDDebugCode_InturruptReport, reportType, reportID, elements ? elements->getCount() : -1, 0);
     
     if ( elements ) {
-    
-        if ( number = OSDynamicCast(OSNumber, getProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage)) )
+        number = (OSNumber*)copyProperty(kIOHIDAbsoluteAxisBoundsRemovalPercentage);
+        if ( OSDynamicCast(OSNumber, number) ) {
             absoluteAxisRemovalPercentage = number->unsigned32BitValue();
+        }
+        OSSafeReleaseNULL(number);
             
         count = elements->getCount();
         

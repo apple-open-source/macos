@@ -314,22 +314,22 @@ LEFDE9:
 .globl _test_edi.eh
 _test_edi.eh:
 LSFDE10:
-	.set L$set$12,LEFDE10-LASFDE10
-	.long L$set$12	# FDE Length
+	.set L$set$12a,LEFDE10-LASFDE10
+	.long L$set$12a	# FDE Length
 LASFDE10:
 	.long	LASFDE10-EH_frame1	# FDE CIE offset
 	.long	LFB11-.	# FDE initial location
-	.set L$set$13,LFE11-LFB11
-	.long L$set$13	# FDE address range
+	.set L$set$13a,LFE11-LFB11
+	.long L$set$13a	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$14,LCFI3-LFB11
-	.long L$set$14
+	.set L$set$14a,LCFI3-LFB11
+	.long L$set$14a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x8	# uleb128 0x8
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$15,LCFI4-LCFI3
-	.long L$set$15
+	.set L$set$15a,LCFI4-LCFI3
+	.long L$set$15a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x20	# uleb128 0x20
 	.byte	0x87	# DW_CFA_offset, column 0x7
@@ -484,22 +484,22 @@ LEFDE19:
 .globl _test_esi_ebp_ebx_edi.eh
 _test_esi_ebp_ebx_edi.eh:
 LSFDE19a:
-	.set L$set$32,LEFDE19a-LASFDE19a
-	.long L$set$32	# FDE Length
+	.set L$set$32a,LEFDE19a-LASFDE19a
+	.long L$set$32a	# FDE Length
 LASFDE19a:
 	.long	LASFDE19a-EH_frame1	# FDE CIE offset
 	.long	LFB5a-.	# FDE initial location
-	.set L$set$33,LFE5a-LFB5a
-	.long L$set$33	# FDE address range
+	.set L$set$33a,LFE5a-LFB5a
+	.long L$set$33a	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$34,LCFI21a-LFB5a
-	.long L$set$34
+	.set L$set$34a,LCFI21a-LFB5a
+	.long L$set$34a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x40	# uleb128 0x40
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$35,LCFI25a-LCFI21a
-	.long L$set$35
+	.set L$set$35a,LCFI25a-LCFI21a
+	.long L$set$35a
 	.byte	0x87	# DW_CFA_offset, column 0x7
 	.byte	0x2	# uleb128 0x2
 	.byte	0x83	# DW_CFA_offset, column 0x3

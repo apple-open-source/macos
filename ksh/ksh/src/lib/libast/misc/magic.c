@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -29,7 +29,7 @@
  * the sum of the hacks {s5,v10,planix} is _____ than the parts
  */
 
-static const char id[] = "\n@(#)$Id: magic library (AT&T Research) 2007-01-08 $\0\n";
+static const char id[] = "\n@(#)$Id: magic library (AT&T Research) 2011-01-28 $\0\n";
 
 static const char lib[] = "libast:magic";
 
@@ -396,11 +396,14 @@ static char*
 vcdecomp(char* b, char* e, unsigned char* m, unsigned char* x)
 {
 	unsigned char*	map;
+	const char*	o;
 	int		c;
 	int		n;
 	int		i;
+	int		a;
 
 	map = CCMAP(CC_ASCII, CC_NATIVE);
+	a = 0;
 	i = 1;
 	for (;;)
 	{
@@ -408,12 +411,47 @@ vcdecomp(char* b, char* e, unsigned char* m, unsigned char* x)
 			i = 0;
 		else
 			*b++ = '^';
-		while (b < e && m < x && (c = *m++))
+		if (m < (x - 1) && !*(m + 1))
 		{
-			if (map)
-				c = map[c];
-			*b++ = c;
+			/*
+			 * obsolete indices
+			 */
+
+			if (!a)
+			{
+				a = 1;
+				o = "old, ";
+				while (b < e && (c = *o++))
+					*b++ = c;
+			}
+			switch (*m)
+			{
+			case 0:		o = "delta"; break;
+			case 1:		o = "huffman"; break;
+			case 2:		o = "huffgroup"; break;
+			case 3:		o = "arith"; break;
+			case 4:		o = "bwt"; break;
+			case 5:		o = "rle"; break;
+			case 6:		o = "mtf"; break;
+			case 7:		o = "transpose"; break;
+			case 8:		o = "table"; break;
+			case 9:		o = "huffpart"; break;
+			case 50:	o = "map"; break;
+			case 100:	o = "recfm"; break;
+			case 101:	o = "ss7"; break;
+			default:	o = "UNKNOWN"; break;
+			}
+			m += 2;
+			while (b < e && (c = *o++))
+				*b++ = c;
 		}
+		else
+			while (b < e && m < x && (c = *m++))
+			{
+				if (map)
+					c = map[c];
+				*b++ = c;
+			}
 		if (b >= e)
 			break;
 		n = 0;
@@ -435,23 +473,26 @@ vcdecomp(char* b, char* e, unsigned char* m, unsigned char* x)
  */
 
 static char*
-ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsigned long off)
+ckmagic(register Magic_t* mp, const char* file, char* buf, char* end, struct stat* st, unsigned long off)
 {
 	register Entry_t*	ep;
 	register char*		p;
 	register char*		b;
 	register int		level = 0;
 	int			call = -1;
+	int			all = 0;
 	int			c;
+	int			str;
 	char*			q;
 	char*			t;
+	char*			cur;
 	char*			base = 0;
 	unsigned long		num;
 	unsigned long		mask;
 	regmatch_t		matches[10];
 
 	mp->swap = 0;
-	b = mp->msg[0] = buf;
+	b = mp->msg[0] = cur = buf;
 	mp->mime = mp->cap[0] = 0;
 	mp->keep[0] = 0;
 	for (ep = mp->magic; ep; ep = ep->next)
@@ -475,13 +516,20 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 		switch (ep->cont)
 		{
 		case '#':
-			if (mp->keep[level] && b > buf)
+			if (mp->keep[level] && b > cur)
 			{
+				if ((mp->flags & MAGIC_ALL) && b < (end - 3))
+				{
+					all = 1;
+					*b++ = '\n';
+					cur = b;
+					continue;
+				}
 				*b = 0;
 				return buf;
 			}
 			mp->swap = 0;
-			b = mp->msg[0] = buf;
+			b = mp->msg[0] = cur;
 			mp->mime = mp->cap[0] = 0;
 			if (ep->type == ' ')
 				continue;
@@ -512,6 +560,8 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			}
 			break;
 		}
+		p = "";
+		num = 0;
 		if (!ep->expr)
 			num = ep->offset + off;
 		else
@@ -650,9 +700,9 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			p = ep->value.sub->re_sub->re_buf;
 			q = T(ep->desc);
 			t = *q ? q : p;
-			if (mp->keep[level]++ && b > buf && *(b - 1) != ' ' && *t && *t != ',' && *t != '.' && *t != '\b')
+			if (mp->keep[level]++ && b > cur && b < end && *(b - 1) != ' ' && *t && *t != ',' && *t != '.' && *t != '\b')
 				*b++ = ' ';
-			b += sfsprintf(b, PATH_MAX - (b - buf), *q ? q : "%s", p + (*p == '\b'));
+			b += sfsprintf(b, end - b, *q ? q : "%s", p + (*p == '\b'));
 			if (ep->mime)
 				mp->mime = ep->mime;
 			goto checknest;
@@ -681,11 +731,11 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 				ccmapstr(mp->x2n, p, ep->mask);
 			}
 			q = T(ep->desc);
-			if (mp->keep[level]++ && b > buf && *(b - 1) != ' ' && *q && *q != ',' && *q != '.' && *q != '\b')
+			if (mp->keep[level]++ && b > cur && b < end && *(b - 1) != ' ' && *q && *q != ',' && *q != '.' && *q != '\b')
 				*b++ = ' ';
 			for (t = p; (c = *t) >= 0 && c <= 0177 && isprint(c) && c != '\n'; t++);
 			*t = 0;
-			b += sfsprintf(b, PATH_MAX - (b - buf), q + (*q == '\b'), p);
+			b += sfsprintf(b, end - b, q + (*q == '\b'), p);
 			*t = c;
 			if (ep->mime)
 				mp->mime = ep->mime;
@@ -776,13 +826,16 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 
 		case 'm':
 			c = mp->swap;
-			t = ckmagic(mp, file, b + (b > buf), st, num);
+			t = ckmagic(mp, file, b + (b > cur), end, st, num);
 			mp->swap = c;
-			if (!t)
+			if (t)
+			{
+				if (b > cur && b < end)
+					*b = ' ';
+				b += strlen(b);
+			}
+			else if (ep->cont == '&')
 				goto next;
-			if (b > buf)
-				*b = ' ';
-			b += strlen(b);
 			break;
 
 		case 'r':
@@ -874,25 +927,47 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			} while (*p++ & 0x80);
 			if (!(p = getdata(mp, num, c)))
 				goto next;
-			if (mp->keep[level]++ && b > buf && *(b - 1) != ' ')
+			if (mp->keep[level]++ && b > cur && b < (end - 1) && *(b - 1) != ' ')
 			{
 				*b++ = ',';
 				*b++ = ' ';
 			}
-			b = vcdecomp(b, buf + PATH_MAX, (unsigned char*)p, (unsigned char*)p + c);
+			b = vcdecomp(b, cur + PATH_MAX, (unsigned char*)p, (unsigned char*)p + c);
 			goto checknest;
 
 		}
 	swapped:
 		q = T(ep->desc);
-		if (mp->keep[level]++ && b > buf && *(b - 1) != ' ' && *q && *q != ',' && *q != '.' && *q != '\b')
+		if (mp->keep[level]++ && b > cur && b < end && *(b - 1) != ' ' && *q && *q != ',' && *q != '.' && *q != '\b')
 			*b++ = ' ';
-		if (ep->type == 'd' || ep->type == 'D')
-			b += sfsprintf(b, PATH_MAX - (b - buf), q + (*q == '\b'), fmttime("%?%l", (time_t)num));
+		if (*q == '\b')
+			q++;
+		str = 0;
+		for (t = q; *t; t++)
+			if (*t == '%' && (c = *(t + 1)))
+			{
+				if (c == '%')
+					t++;
+				else
+					while (c && c != '%')
+					{
+						if (c == 's')
+						{
+							str = 1;
+							break;
+						}
+						t++;
+						c = *(t + 1);
+					}
+			}
+		if (!str)
+			b += sfsprintf(b, end - b, q, num, 0, 0, 0, 0, 0, 0, 0);
+		else if (ep->type == 'd' || ep->type == 'D')
+			b += sfsprintf(b, end - b, q, fmttime("%?%QL", (time_t)num), 0, 0, 0, 0, 0, 0, 0);
 		else if (ep->type == 'v')
-			b += sfsprintf(b, PATH_MAX - (b - buf), q + (*q == '\b'), fmtversion(num));
+			b += sfsprintf(b, end - b, q, fmtversion(num), 0, 0, 0, 0, 0, 0, 0);
 		else
-			b += sfsprintf(b, PATH_MAX - (b - buf), q + (*q == '\b'), num);
+			b += sfsprintf(b, end - b, q, fmtnum(num, 0), 0, 0, 0, 0, 0, 0, 0);
 		if (ep->mime && *ep->mime)
 			mp->mime = ep->mime;
 	checknest:
@@ -917,7 +992,7 @@ ckmagic(register Magic_t* mp, const char* file, char* buf, struct stat* st, unsi
 			mp->keep[level] = 0;
 		goto checknest;
 	}
-	if (mp->keep[level] && b > buf)
+	if (all && b-- || mp->keep[level] && b > cur)
 	{
 		*b = 0;
 		return buf;
@@ -957,7 +1032,7 @@ ckenglish(register Magic_t* mp, int pun, int badpun)
  */
 
 static char*
-cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
+cklang(register Magic_t* mp, const char* file, char* buf, char* end, struct stat* st)
 {
 	register int		c;
 	register unsigned char*	b;
@@ -1457,17 +1532,17 @@ cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
 	if (code)
 	{
 		if (code == CC_ASCII)
-			sfsprintf(buf, PATH_MAX, "ascii %s%s", t, s);
+			sfsprintf(buf, end - buf, "ascii %s%s", t, s);
 		else
 		{
-			sfsprintf(buf, PATH_MAX, "ebcdic%d %s%s", code - 1, t, s);
+			sfsprintf(buf, end - buf, "ebcdic%d %s%s", code - 1, t, s);
 			mp->mime = "text/ebcdic";
 		}
 		s = buf;
 	}
 	else if (*t)
 	{
-		sfsprintf(buf, PATH_MAX, "%s%s", t, s);
+		sfsprintf(buf, end - buf, "%s%s", t, s);
 		s = buf;
 	}
 	return s;
@@ -1478,7 +1553,7 @@ cklang(register Magic_t* mp, const char* file, char* buf, struct stat* st)
  */
 
 static char*
-type(register Magic_t* mp, const char* file, struct stat* st, char* buf, int size)
+type(register Magic_t* mp, const char* file, struct stat* st, char* buf, char* end)
 {
 	register char*	s;
 	register char*	t;
@@ -1495,8 +1570,8 @@ type(register Magic_t* mp, const char* file, struct stat* st, char* buf, int siz
 		{
 			mp->mime = "x-system/lnk";
 			s = buf;
-			s += sfsprintf(s, PATH_MAX, T("symbolic link to "));
-			if (pathgetlink(file, s, size - (s - buf)) < 0)
+			s += sfsprintf(s, end - s, T("symbolic link to "));
+			if (pathgetlink(file, s, end - s) < 0)
 				return T("cannot read symbolic link text");
 			return buf;
 		}
@@ -1509,7 +1584,7 @@ type(register Magic_t* mp, const char* file, struct stat* st, char* buf, int siz
 		if (S_ISCHR(st->st_mode))
 		{
 			mp->mime = "x-system/chr";
-			sfsprintf(buf, PATH_MAX, T("character special (%s)"), fmtdev(st));
+			sfsprintf(buf, end - buf, T("character special (%s)"), fmtdev(st));
 			return buf;
 		}
 		if (S_ISFIFO(st->st_mode))
@@ -1541,8 +1616,8 @@ type(register Magic_t* mp, const char* file, struct stat* st, char* buf, int siz
 			mp->fbuf[mp->fbsz] = 0;
 			mp->xoff = 0;
 			mp->xbsz = 0;
-			if (!(s = ckmagic(mp, file, buf, st, 0)))
-				s = cklang(mp, file, buf, st);
+			if (!(s = ckmagic(mp, file, buf, end, st, 0)))
+				s = cklang(mp, file, buf, end, st);
 		}
 	}
 	if (!mp->mime)
@@ -2192,13 +2267,13 @@ magicload(register Magic_t* mp, const char* file, unsigned long flags)
 		{
 			if (list)
 			{
-				if (!(t = pathpath(mp->fbuf, s, "", PATH_REGULAR|PATH_READ)) && !strchr(s, '/'))
+				if (!(t = pathpath(s, "", PATH_REGULAR|PATH_READ, mp->fbuf, sizeof(mp->fbuf))) && !strchr(s, '/'))
 				{
 					strcpy(mp->fbuf, s);
 					sfprintf(mp->tmp, "%s/%s", MAGIC_DIR, mp->fbuf);
 					if (!(s = sfstruse(mp->tmp)))
 						goto nospace;
-					if (!(t = pathpath(mp->fbuf, s, "", PATH_REGULAR|PATH_READ)))
+					if (!(t = pathpath(s, "", PATH_REGULAR|PATH_READ, mp->fbuf, sizeof(mp->fbuf))))
 						goto next;
 				}
 				if (!(fp = sfopen(NiL, t, "r")))
@@ -2328,10 +2403,10 @@ magictype(register Magic_t* mp, Sfio_t* fp, const char* file, register struct st
 	{
 		if (mp->fp = fp)
 			off = sfseek(mp->fp, (off_t)0, SEEK_CUR);
-		s = type(mp, file, st, mp->tbuf, sizeof(mp->tbuf));
+		s = type(mp, file, st, mp->tbuf, &mp->tbuf[sizeof(mp->tbuf)-1]);
 		if (mp->fp)
 			sfseek(mp->fp, off, SEEK_SET);
-		if (!(mp->flags & MAGIC_MIME))
+		if (!(mp->flags & (MAGIC_MIME|MAGIC_ALL)))
 		{
 			if (S_ISREG(st->st_mode) && (st->st_size > 0) && (st->st_size < 128))
 				sfprintf(mp->tmp, "%s ", T("short"));

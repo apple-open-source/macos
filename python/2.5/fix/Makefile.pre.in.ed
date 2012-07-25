@@ -17,7 +17,7 @@ EXTRA_CFLAGS=	@EXTRA_CFLAGS@
 		test -z "$$a" || \
 		lipo $(BUILDPYTHON) $$a -output $(BUILDPYTHON)
 .
-/libtool/s//$(LIBTOOL)/
+/\/usr\/bin\/libtool/s//$(LIBTOOL)/
 /Terminal/d
 .-1s/ \\$//
 g/cd Mac /s/$/ BUILDEXE=$(BUILDEXE)/

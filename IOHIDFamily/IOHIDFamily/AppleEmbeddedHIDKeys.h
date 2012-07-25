@@ -49,13 +49,21 @@ __BEGIN_DECLS
  @constant kIOHIDOrientationTypeSouth
  @constant kIOHIDOrientationTypeEast
  @constant kIOHIDOrientationTypeWest
+ @constant kIOHIDOrientationTypeNorthEast
+ @constant kIOHIDOrientationTypeNorthWest
+ @constant kIOHIDOrientationTypeSoutEast
+ @constant kIOHIDOrientationTypeSouthWest
  */
 enum {
-    kIOHIDOrientationTypeUndefined	= 0,
-    kIOHIDOrientationTypeNorth		= 1,
-    kIOHIDOrientationTypeSouth		= 2,
-	kIOHIDOrientationTypeEast		= 3,
-	kIOHIDOrientationTypeWest		= 4
+    kIOHIDOrientationTypeUndefined  = 0,
+    kIOHIDOrientationTypeNorth      = 1,
+    kIOHIDOrientationTypeSouth      = 2,
+    kIOHIDOrientationTypeEast       = 3,
+    kIOHIDOrientationTypeWest       = 4,
+    kIOHIDOrientationTypeNorthEast  = 5,
+    kIOHIDOrientationTypeNorthWest  = 6,
+    kIOHIDOrientationTypeSouthEast  = 7,
+    kIOHIDOrientationTypeSouthWest  = 8
 };
 typedef uint32_t IOHIDOrientationType;
 
@@ -69,9 +77,9 @@ typedef uint32_t IOHIDOrientationType;
  @constant kIOHIDPlacementTypeBottom
  */
 enum {
-    kIOHIDPlacementTypeUndefined	= 0,
-    kIOHIDPlacementTypeTop			= 1,
-    kIOHIDPlacementTypeBottom		= 2
+    kIOHIDPlacementTypeUndefined = 0,
+    kIOHIDPlacementTypeTop       = 1,
+    kIOHIDPlacementTypeBottom    = 2
 };
 typedef uint32_t IOHIDPlacementType;
 

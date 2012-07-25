@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -38,8 +38,10 @@
 #define FPCL		(0100<<COMBITS)		/* close the pipe */
 #define FCOOP		(0200<<COMBITS)		/* cooperating process */
 #define FSHOWME		(0400<<COMBITS)		/* set for showme commands  */
+#define FALTPIPE	(02000<<COMBITS)	/* alternate pipes &| */
 #define FPOSIX		(02<<COMBITS)		/* posix semantics function */
 #define FLINENO		(04<<COMBITS)		/* for/case has line number */
+#define FOPTGET		(010<<COMBITS)		/* function calls getopts */
 
 #define TNEGATE		(01<<COMBITS)		/* ! inside [[...]] */
 #define TBINARY		(02<<COMBITS)		/* binary operator in [[...]] */
@@ -169,21 +171,23 @@ struct arithnod
 
 
 /* types of ionodes stored in iofile  */
-#define IOUFD	0x3f		/* file descriptor number mask */
-#define IOPUT	0x40		/* > redirection operator */
-#define IOAPP	0x80		/* >> redirection operator */
-#define IODOC	0x100		/* << redirection operator */
-#define IOMOV	0x200		/* <& or >& operators */
-#define IOCLOB	0x400		/* noclobber bit */
-#define IORDW	0x800		/* <> redirection operator */
-#define IORAW	0x1000		/* no expansion needed for filename */
-#define IOSTRG	0x2000		/* here-document stored as incore string */
-#define IOSTRIP 0x4000		/* strip leading tabs for here-document */
-#define IOQUOTE	0x8000		/* here-document delimiter was quoted */
-#define IOVNM	0x10000		/* iovname field is non-zero */
-#define IOLSEEK	0x20000		/* seek operators <# or >#  */
-#define IOARITH	0x40000		/* arithmetic seek <# ((expr))  */
-#define IOCOPY	IOCLOB		/* copy skipped lines onto standard output */
+#define IOUFD		0x3f	/* file descriptor number mask */
+#define IOPUT		0x40	/* > redirection operator */
+#define IOAPP		0x80	/* >> redirection operator */
+#define IODOC		0x100	/* << redirection operator */
+#define IOMOV		0x200	/* <& or >& operators */
+#define IOCLOB		0x400	/* noclobber bit */
+#define IORDW		0x800	/* <> redirection operator */
+#define IORAW		0x1000	/* no expansion needed for filename */
+#define IOSTRG		0x2000	/* here-document stored as incore string */
+#define IOSTRIP 	0x4000	/* strip leading tabs for here-document */
+#define IOQUOTE		0x8000	/* here-document delimiter was quoted */
+#define IOVNM		0x10000	/* iovname field is non-zero */
+#define IOLSEEK		0x20000	/* seek operators <# or >#  */
+#define IOARITH		0x40000	/* arithmetic seek <# ((expr))  */
+#define IOREWRITE	0x80000	/* arithmetic seek <# ((expr))  */
+#define IOCOPY		IOCLOB	/* copy skipped lines onto standard output */
+#define IOPROCSUB	IOARITH	/* process substitution redirection */
 
 union Shnode_u
 {
@@ -205,18 +209,13 @@ union Shnode_u
 	struct arithnod	ar;
 };
 
-extern void			sh_freeup(void);
+extern void			sh_freeup(Shell_t*);
 extern void			sh_funstaks(struct slnod*,int);
-extern Sfio_t 			*sh_subshell(Shnode_t*, int, int);
+extern Sfio_t 			*sh_subshell(Shell_t*,Shnode_t*, int, int);
 #if defined(__EXPORT__) && defined(_BLD_DLL) && defined(_BLD_shell) 
    __EXPORT__
 #endif
 extern int			sh_tdump(Sfio_t*, const Shnode_t*);
-extern Shnode_t			*sh_dolparen(void);
-extern Shnode_t			*sh_trestore(Sfio_t*);
-#if SHOPT_KIA
-    extern int 			kiaclose(void);
-    extern unsigned long 	kiaentity(const char*,int,int,int,int,unsigned long,int,int,const char*);
-#endif /* SHOPT_KIA */
+extern Shnode_t			*sh_trestore(Shell_t*, Sfio_t*);
 
 #endif /* _SHNODES_H */

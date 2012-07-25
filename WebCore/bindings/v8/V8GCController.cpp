@@ -37,8 +37,9 @@
 #include "DOMImplementation.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "MemoryUsageSupport.h"
 #include "MessagePort.h"
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include "RetainedDOMInfo.h"
 #include "RetainedObjectInfo.h"
 #include "V8Binding.h"
@@ -81,19 +82,18 @@ namespace WebCore {
 //    V8GCController::unregisterGlobalHandle(type, host, handle);
 // #endif
 //
-typedef HashMap<v8::Value*, GlobalHandleInfo*> GlobalHandleMap;
 
-static GlobalHandleMap& globalHandleMap()
+static GlobalHandleMap& currentGlobalHandleMap()
 {
-    DEFINE_STATIC_LOCAL(GlobalHandleMap, staticGlobalHandleMap, ());
-    return staticGlobalHandleMap;
+    return V8BindingPerIsolateData::current()->globalHandleMap();
 }
 
 // The function is the place to set the break point to inspect
 // live global handles. Leaks are often come from leaked global handles.
 static void enumerateGlobalHandles()
 {
-    for (GlobalHandleMap::iterator it = globalHandleMap().begin(), end = globalHandleMap().end(); it != end; ++it) {
+    GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+    for (GlobalHandleMap::iterator it = globalHandleMap.begin(), end = globalHandleMap.end(); it != end; ++it) {
         GlobalHandleInfo* info = it->second;
         UNUSED_PARAM(info);
         v8::Value* handle = it->first;
@@ -103,14 +103,16 @@ static void enumerateGlobalHandles()
 
 void V8GCController::registerGlobalHandle(GlobalHandleType type, void* host, v8::Persistent<v8::Value> handle)
 {
-    ASSERT(!globalHandleMap().contains(*handle));
-    globalHandleMap().set(*handle, new GlobalHandleInfo(host, type));
+    GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+    ASSERT(!globalHandleMap.contains(*handle));
+    globalHandleMap.set(*handle, new GlobalHandleInfo(host, type));
 }
 
 void V8GCController::unregisterGlobalHandle(void* host, v8::Persistent<v8::Value> handle)
 {
-    ASSERT(globalHandleMap().contains(*handle));
-    GlobalHandleInfo* info = globalHandleMap().take(*handle);
+    GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+    ASSERT(globalHandleMap.contains(*handle));
+    GlobalHandleInfo* info = globalHandleMap.take(*handle);
     ASSERT(info->m_host == host);
     delete info;
 }
@@ -142,12 +144,10 @@ public:
 
 #endif // NDEBUG
 
-class GCPrologueVisitor : public DOMWrapperMap<void>::Visitor {
+class SpecialCasePrologueObjectHandler {
 public:
-    void visitDOMWrapper(DOMDataStore* store, void* object, v8::Persistent<v8::Object> wrapper)
+    static bool process(void* object, v8::Persistent<v8::Object> wrapper, WrapperTypeInfo* typeInfo)
     {
-        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);  
-
         // Additional handling of message port ensuring that entangled ports also
         // have their wrappers entangled. This should ideally be handled when the
         // ports are actually entangled in MessagePort::entangle, but to avoid
@@ -160,7 +160,31 @@ public:
             MessagePort* port1 = static_cast<MessagePort*>(object);
             if (port1->isEntangled() || port1->hasPendingActivity())
                 wrapper.ClearWeak();
-        } else {
+            return true;
+        }
+        return false;
+    }
+};
+
+class SpecialCasePrologueNodeHandler {
+public:
+    static bool process(Node* object, v8::Persistent<v8::Object> wrapper, WrapperTypeInfo* typeInfo)
+    {
+        UNUSED_PARAM(object);
+        UNUSED_PARAM(wrapper);
+        UNUSED_PARAM(typeInfo);
+        return false;
+    }
+};
+
+template<typename T, typename S>
+class GCPrologueVisitor : public DOMWrapperMap<T>::Visitor {
+public:
+    void visitDOMWrapper(DOMDataStore* store, T* object, v8::Persistent<v8::Object> wrapper)
+    {
+        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);  
+
+        if (!S::process(object, wrapper, typeInfo)) {
             ActiveDOMObject* activeDOMObject = typeInfo->toActiveDOMObject(wrapper);
             if (activeDOMObject && activeDOMObject->hasPendingActivity())
                 wrapper.ClearWeak();
@@ -187,7 +211,7 @@ public:
 
     virtual intptr_t GetHash()
     {
-        return reinterpret_cast<intptr_t>(m_object);
+        return PtrHash<void*>::hash(m_object);
     }
     
     virtual const char* GetLabel()
@@ -268,7 +292,7 @@ typedef Vector<GrouperItem> GrouperList;
 // element of the tree to which it belongs.
 static GroupId calculateGroupId(Node* node)
 {
-    if (node->inDocument() || (node->hasTagName(HTMLNames::imgTag) && !static_cast<HTMLImageElement*>(node)->haveFiredLoadEvent()))
+    if (node->inDocument() || (node->hasTagName(HTMLNames::imgTag) && static_cast<HTMLImageElement*>(node)->hasPendingLoadEvent()))
         return GroupId(node->document());
 
     Node* root = node;
@@ -284,40 +308,6 @@ static GroupId calculateGroupId(Node* node)
     }
 
     return GroupId(root);
-}
-
-static GroupId calculateGroupId(StyleBase* styleBase)
-{
-    ASSERT(styleBase);
-    StyleBase* current = styleBase;
-    StyleSheet* styleSheet = 0;
-    while (true) {
-        // Special case: CSSStyleDeclarations might be either inline and in this case
-        // we need to group them with their node or regular ones.
-        if (current->isMutableStyleDeclaration()) {
-            CSSMutableStyleDeclaration* cssMutableStyleDeclaration = static_cast<CSSMutableStyleDeclaration*>(current);
-            if (cssMutableStyleDeclaration->isInlineStyleDeclaration())
-                return calculateGroupId(cssMutableStyleDeclaration->node());
-            // Either we have no parent, or this parent is a CSSRule.
-            ASSERT(cssMutableStyleDeclaration->parent() == cssMutableStyleDeclaration->parentRule());
-        }
-
-        if (current->isStyleSheet())
-            styleSheet = static_cast<StyleSheet*>(current);
-
-        StyleBase* parent = current->parent();
-        if (!parent)
-            break;
-        current = parent;
-    }
-
-    if (styleSheet) {
-        if (Node* ownerNode = styleSheet->ownerNode())
-            return calculateGroupId(ownerNode);
-        return GroupId(styleSheet);
-    }
-
-    return GroupId(current);
 }
 
 class GrouperVisitor : public DOMWrapperMap<Node>::Visitor, public DOMWrapperMap<void>::Visitor {
@@ -347,57 +337,6 @@ public:
 
     void visitDOMWrapper(DOMDataStore* store, void* object, v8::Persistent<v8::Object> wrapper)
     {
-        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);
-
-        if (typeInfo->isSubclass(&V8StyleSheetList::info)) {
-            StyleSheetList* styleSheetList = static_cast<StyleSheetList*>(object);
-            GroupId groupId(styleSheetList);
-            if (Document* document = styleSheetList->document())
-                groupId = GroupId(document);
-            m_grouper.append(GrouperItem(groupId, wrapper));
-
-        } else if (typeInfo->isSubclass(&V8DOMImplementation::info)) {
-            DOMImplementation* domImplementation = static_cast<DOMImplementation*>(object);
-            GroupId groupId(domImplementation);
-            if (Document* document = domImplementation->document())
-                groupId = GroupId(document);
-            m_grouper.append(GrouperItem(groupId, wrapper));
-
-        } else if (typeInfo->isSubclass(&V8StyleSheet::info) || typeInfo->isSubclass(&V8CSSRule::info)) {
-            m_grouper.append(GrouperItem(calculateGroupId(static_cast<StyleBase*>(object)), wrapper));
-
-        } else if (typeInfo->isSubclass(&V8CSSStyleDeclaration::info)) {
-            CSSStyleDeclaration* cssStyleDeclaration = static_cast<CSSStyleDeclaration*>(object);
-
-            GroupId groupId = calculateGroupId(cssStyleDeclaration);
-            m_grouper.append(GrouperItem(groupId, wrapper));
-
-            // Keep alive "dirty" primitive values (i.e. the ones that
-            // have user-added properties) by creating implicit
-            // references between the style declaration and the values
-            // in it.
-            if (cssStyleDeclaration->isMutableStyleDeclaration()) {
-                CSSMutableStyleDeclaration* cssMutableStyleDeclaration = static_cast<CSSMutableStyleDeclaration*>(cssStyleDeclaration);
-                Vector<v8::Persistent<v8::Value> > values;
-                values.reserveCapacity(cssMutableStyleDeclaration->length());
-                CSSMutableStyleDeclaration::const_iterator end = cssMutableStyleDeclaration->end();
-                for (CSSMutableStyleDeclaration::const_iterator it = cssMutableStyleDeclaration->begin(); it != end; ++it) {
-                    v8::Persistent<v8::Object> value = store->domObjectMap().get(it->value());
-                    if (!value.IsEmpty() && value->IsDirty())
-                        values.append(value);
-                }
-                if (!values.isEmpty())
-                    v8::V8::AddImplicitReferences(wrapper, values.data(), values.size());
-            }
-
-        } else if (typeInfo->isSubclass(&V8CSSRuleList::info)) {
-            CSSRuleList* cssRuleList = static_cast<CSSRuleList*>(object);
-            GroupId groupId(cssRuleList);
-            StyleList* styleList = cssRuleList->styleList();
-            if (styleList)
-                groupId = calculateGroupId(styleList);
-            m_grouper.append(GrouperItem(groupId, wrapper));
-        }
     }
 
     void applyGrouping()
@@ -452,30 +391,32 @@ void V8GCController::gcPrologue()
 
 #ifndef NDEBUG
     DOMObjectVisitor domObjectVisitor;
-    visitDOMObjectsInCurrentThread(&domObjectVisitor);
+    visitDOMObjects(&domObjectVisitor);
 #endif
 
     // Run through all objects with possible pending activity making their
     // wrappers non weak if there is pending activity.
-    GCPrologueVisitor prologueVisitor;
-    visitActiveDOMObjectsInCurrentThread(&prologueVisitor);
+    GCPrologueVisitor<void, SpecialCasePrologueObjectHandler> prologueObjectVisitor;
+    visitActiveDOMObjects(&prologueObjectVisitor);
+    GCPrologueVisitor<Node, SpecialCasePrologueNodeHandler> prologueNodeVisitor;
+    visitActiveDOMNodes(&prologueNodeVisitor);
 
     // Create object groups.
     GrouperVisitor grouperVisitor;
-    visitDOMNodesInCurrentThread(&grouperVisitor);
-    visitDOMObjectsInCurrentThread(&grouperVisitor);
+    visitDOMNodes(&grouperVisitor);
+    visitActiveDOMNodes(&grouperVisitor);
+    visitDOMObjects(&grouperVisitor);
     grouperVisitor.applyGrouping();
 
     // Clean single element cache for string conversions.
-    lastStringImpl = 0;
-    lastV8String.Clear();
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    data->stringCache()->clearOnGC();
 }
 
-class GCEpilogueVisitor : public DOMWrapperMap<void>::Visitor {
+class SpecialCaseEpilogueObjectHandler {
 public:
-    void visitDOMWrapper(DOMDataStore* store, void* object, v8::Persistent<v8::Object> wrapper)
+    static bool process(void* object, v8::Persistent<v8::Object> wrapper, WrapperTypeInfo* typeInfo)
     {
-        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);
         if (V8MessagePort::info.equals(typeInfo)) {
             MessagePort* port1 = static_cast<MessagePort*>(object);
             // We marked this port as reachable in GCPrologueVisitor.  Undo this now since the
@@ -483,7 +424,30 @@ public:
             // GCPrologueVisitor expects to see all handles marked as weak).
             if ((!wrapper.IsWeak() && !wrapper.IsNearDeath()) || port1->hasPendingActivity())
                 wrapper.MakeWeak(port1, &DOMDataStore::weakActiveDOMObjectCallback);
-        } else {
+            return true;
+        }
+        return false;
+    }
+};
+
+class SpecialCaseEpilogueNodeHandler {
+public:
+    static bool process(Node* object, v8::Persistent<v8::Object> wrapper, WrapperTypeInfo* typeInfo)
+    {
+        UNUSED_PARAM(object);
+        UNUSED_PARAM(wrapper);
+        UNUSED_PARAM(typeInfo);
+        return false;
+    }
+};
+
+template<typename T, typename S, v8::WeakReferenceCallback callback>
+class GCEpilogueVisitor : public DOMWrapperMap<T>::Visitor {
+public:
+    void visitDOMWrapper(DOMDataStore* store, T* object, v8::Persistent<v8::Object> wrapper)
+    {
+        WrapperTypeInfo* typeInfo = V8DOMWrapper::domWrapperType(wrapper);
+        if (!S::process(object, wrapper, typeInfo)) {
             ActiveDOMObject* activeDOMObject = typeInfo->toActiveDOMObject(wrapper);
             if (activeDOMObject && activeDOMObject->hasPendingActivity()) {
                 ASSERT(!wrapper.IsWeak());
@@ -492,7 +456,7 @@ public:
                 // may be a different pointer (in case ActiveDOMObject is not
                 // the main base class of the object's class) and pointer
                 // identity is required by DOM map functions.
-                wrapper.MakeWeak(object, &DOMDataStore::weakActiveDOMObjectCallback);
+                wrapper.MakeWeak(object, callback);
             }
         }
     }
@@ -504,8 +468,8 @@ namespace {
 
 int getMemoryUsageInMB()
 {
-#if PLATFORM(CHROMIUM) || PLATFORM(ANDROID)
-    return PlatformBridge::memoryUsageMB();
+#if PLATFORM(CHROMIUM)
+    return MemoryUsageSupport::memoryUsageMB();
 #else
     return 0;
 #endif
@@ -513,8 +477,8 @@ int getMemoryUsageInMB()
 
 int getActualMemoryUsageInMB()
 {
-#if PLATFORM(CHROMIUM) || PLATFORM(ANDROID)
-    return PlatformBridge::actualMemoryUsageMB();
+#if PLATFORM(CHROMIUM)
+    return MemoryUsageSupport::actualMemoryUsageMB();
 #else
     return 0;
 #endif
@@ -528,18 +492,20 @@ void V8GCController::gcEpilogue()
 
     // Run through all objects with pending activity making their wrappers weak
     // again.
-    GCEpilogueVisitor epilogueVisitor;
-    visitActiveDOMObjectsInCurrentThread(&epilogueVisitor);
+    GCEpilogueVisitor<void, SpecialCaseEpilogueObjectHandler, &DOMDataStore::weakActiveDOMObjectCallback> epilogueObjectVisitor;
+    visitActiveDOMObjects(&epilogueObjectVisitor);
+    GCEpilogueVisitor<Node, SpecialCaseEpilogueNodeHandler, &DOMDataStore::weakNodeCallback> epilogueNodeVisitor;
+    visitActiveDOMNodes(&epilogueNodeVisitor);
 
     workingSetEstimateMB = getActualMemoryUsageInMB();
 
 #ifndef NDEBUG
     // Check all survivals are weak.
     DOMObjectVisitor domObjectVisitor;
-    visitDOMObjectsInCurrentThread(&domObjectVisitor);
+    visitDOMObjects(&domObjectVisitor);
 
     EnsureWeakDOMNodeVisitor weakDOMNodeVisitor;
-    visitDOMNodesInCurrentThread(&weakDOMNodeVisitor);
+    visitDOMNodes(&weakDOMNodeVisitor);
 
     enumerateGlobalHandles();
 #endif
@@ -547,24 +513,14 @@ void V8GCController::gcEpilogue()
 
 void V8GCController::checkMemoryUsage()
 {
-#if PLATFORM(CHROMIUM) || PLATFORM(QT) && !OS(SYMBIAN)
-    // These values are appropriate for Chromium only.
-    const int lowUsageMB = 256;  // If memory usage is below this threshold, do not bother forcing GC.
-    const int highUsageMB = 1024;  // If memory usage is above this threshold, force GC more aggresively.
-    const int highUsageDeltaMB = 128;  // Delta of memory usage growth (vs. last workingSetEstimateMB) to force GC when memory usage is high.
-#elif PLATFORM(ANDROID)
-    // Query the PlatformBridge for memory thresholds as these vary device to device.
-    static const int lowUsageMB = PlatformBridge::lowMemoryUsageMB();
-    static const int highUsageMB = PlatformBridge::highMemoryUsageMB();
-    // We use a delta of -1 to ensure that when we are in a low memory situation we always trigger a GC.
-    static const int highUsageDeltaMB = -1;
-#else
-    return;
-#endif
-
+#if PLATFORM(CHROMIUM) || PLATFORM(QT)
+    const int lowMemoryUsageMB = MemoryUsageSupport::lowMemoryUsageMB();
+    const int highMemoryUsageMB = MemoryUsageSupport::highMemoryUsageMB();
+    const int highUsageDeltaMB = MemoryUsageSupport::highUsageDeltaMB();
     int memoryUsageMB = getMemoryUsageInMB();
-    if ((memoryUsageMB > lowUsageMB && memoryUsageMB > 2 * workingSetEstimateMB) || (memoryUsageMB > highUsageMB && memoryUsageMB > workingSetEstimateMB + highUsageDeltaMB))
+    if ((memoryUsageMB > lowMemoryUsageMB && memoryUsageMB > 2 * workingSetEstimateMB) || (memoryUsageMB > highMemoryUsageMB && memoryUsageMB > workingSetEstimateMB + highUsageDeltaMB))
         v8::V8::LowMemoryNotification();
+#endif
 }
 
 

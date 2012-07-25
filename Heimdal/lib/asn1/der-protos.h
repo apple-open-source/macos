@@ -9,16 +9,17 @@ extern "C" {
 #endif
 
 int
-asn1_fuzzer_done (void);
+asn1_fuzzer_method(const char *mode);
+
+void
+asn1_fuzzer_reset(void);
+
+void
+asn1_fuzzer_next(void);
 
 int
-asn1_fuzzer_method (const char */*mode*/);
+asn1_fuzzer_done(void);
 
-void
-asn1_fuzzer_next (void);
-
-void
-asn1_fuzzer_reset (void);
 
 int
 copy_heim_any (
@@ -71,8 +72,8 @@ der_copy_heim_integer (
 
 int
 der_copy_ia5_string (
-	const heim_printable_string */*from*/,
-	heim_printable_string */*to*/);
+	const heim_ia5_string */*from*/,
+	heim_ia5_string */*to*/);
 
 int
 der_copy_integer (
@@ -347,6 +348,11 @@ der_heim_universal_string_cmp (
 	const heim_universal_string */*p*/,
 	const heim_universal_string */*q*/);
 
+int
+der_ia5_string_cmp (
+	const heim_ia5_string */*p*/,
+	const heim_ia5_string */*q*/);
+
 size_t
 der_length_bit_string (const heim_bit_string */*k*/);
 
@@ -453,6 +459,11 @@ int
 der_print_hex_heim_integer (
 	const heim_integer */*data*/,
 	char **/*p*/);
+
+int
+der_printable_string_cmp (
+	const heim_printable_string */*p*/,
+	const heim_printable_string */*q*/);
 
 int
 der_put_bit_string (

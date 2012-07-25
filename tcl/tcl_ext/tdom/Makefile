@@ -24,12 +24,7 @@ GnuAfterInstall       = strip install-doc fix-config fix-perms
 # include TEA Tcl extension build support
 include ../TEA.make
 
-Install_Target        = install-binaries install-doc
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.{html,css} \
-	    "$(DSTROOT)/$(TclExtHtmlDir)"
+Install_Target        = install-binaries
 
 # the tnc subproject is built by a separate Makefile
 build install clean almostclean::

@@ -46,8 +46,8 @@ static const float gLineThick = 3.f;
 static const float gFractionBarWidth = 0.05f;
 static const float gDenominatorPad = 0.1f;
 
-RenderMathMLFraction::RenderMathMLFraction(Element* fraction) 
-    : RenderMathMLBlock(fraction)
+RenderMathMLFraction::RenderMathMLFraction(Element* element)
+    : RenderMathMLBlock(element)
     , m_lineThickness(gLineMedium)
 {
     setChildrenInline(false);
@@ -61,26 +61,26 @@ void RenderMathMLFraction::updateFromElement()
     
     Element* fraction = static_cast<Element*>(node());
     
-    RenderObject* numerator = firstChild();
+    RenderObject* numeratorWrapper = firstChild();
     String nalign = fraction->getAttribute(MathMLNames::numalignAttr);
     if (equalIgnoringCase(nalign, "left"))
-        numerator->style()->setTextAlign(LEFT);
+        numeratorWrapper->style()->setTextAlign(LEFT);
     else if (equalIgnoringCase(nalign, "right"))
-        numerator->style()->setTextAlign(RIGHT);
+        numeratorWrapper->style()->setTextAlign(RIGHT);
     else
-        numerator->style()->setTextAlign(CENTER);
+        numeratorWrapper->style()->setTextAlign(CENTER);
     
-    RenderObject* denominator = numerator->nextSibling();
-    if (!denominator)
+    RenderObject* denominatorWrapper = numeratorWrapper->nextSibling();
+    if (!denominatorWrapper)
         return;
     
     String dalign = fraction->getAttribute(MathMLNames::denomalignAttr);
     if (equalIgnoringCase(dalign, "left"))
-        denominator->style()->setTextAlign(LEFT);
+        denominatorWrapper->style()->setTextAlign(LEFT);
     else if (equalIgnoringCase(dalign, "right"))
-        denominator->style()->setTextAlign(RIGHT);
+        denominatorWrapper->style()->setTextAlign(RIGHT);
     else
-        denominator->style()->setTextAlign(CENTER);
+        denominatorWrapper->style()->setTextAlign(CENTER);
     
     // FIXME: parse units
     String thickness = fraction->getAttribute(MathMLNames::linethicknessAttr);
@@ -100,23 +100,32 @@ void RenderMathMLFraction::updateFromElement()
 
 void RenderMathMLFraction::addChild(RenderObject* child, RenderObject* beforeChild)
 {
-    RenderBlock* row = new (renderArena()) RenderMathMLBlock(node());
-    RefPtr<RenderStyle> rowStyle = makeBlockStyle();
+    RenderBlock* row = createAlmostAnonymousBlock();
     
-    rowStyle->setTextAlign(CENTER);
-    Length pad(static_cast<int>(rowStyle->fontSize() * gHorizontalPad), Fixed);
-    rowStyle->setPaddingLeft(pad);
-    rowStyle->setPaddingRight(pad);
+    row->style()->setTextAlign(CENTER);
+    Length pad(static_cast<int>(style()->fontSize() * gHorizontalPad), Fixed);
+    row->style()->setPaddingLeft(pad);
+    row->style()->setPaddingRight(pad);
     
     // Only add padding for rows as denominators
     bool isNumerator = isEmpty();
     if (!isNumerator) 
-        rowStyle->setPaddingTop(Length(2, Fixed));
+        row->style()->setPaddingTop(Length(2, Fixed));
     
-    row->setStyle(rowStyle.release());
     RenderBlock::addChild(row, beforeChild);
     row->addChild(child);
     updateFromElement();
+}
+
+RenderMathMLOperator* RenderMathMLFraction::unembellishedOperator()
+{
+    RenderObject* numeratorWrapper = firstChild();
+    if (!numeratorWrapper)
+        return 0;
+    RenderObject* numerator = numeratorWrapper->firstChild();
+    if (!numerator || !numerator->isRenderMathMLBlock())
+        return 0;
+    return toRenderMathMLBlock(numerator)->unembellishedOperator();
 }
 
 void RenderMathMLFraction::layout()
@@ -128,12 +137,11 @@ void RenderMathMLFraction::layout()
         m_lineThickness *= ceilf(gFractionBarWidth * style()->fontSize());
 
     RenderBlock::layout();
-
 }
 
-void RenderMathMLFraction::paint(PaintInfo& info, int tx, int ty)
+void RenderMathMLFraction::paint(PaintInfo& info, const LayoutPoint& paintOffset)
 {
-    RenderMathMLBlock::paint(info, tx, ty);
+    RenderMathMLBlock::paint(info, paintOffset);
     if (info.context->paintingDisabled() || info.phase != PaintPhaseForeground)
         return;
     
@@ -146,15 +154,16 @@ void RenderMathMLFraction::paint(PaintInfo& info, int tx, int ty)
         int adjustForThickness = m_lineThickness > 1 ? int(m_lineThickness / 2) : 1;
         if (int(m_lineThickness) % 2 == 1)
             adjustForThickness++;
+        // FIXME: This is numeratorWrapper, not numerator.
         RenderMathMLBlock* numerator = toRenderMathMLBlock(firstChild());
         if (numerator->isRenderMathMLRow())
-            verticalOffset = numerator->offsetHeight() + adjustForThickness;
+            verticalOffset = numerator->pixelSnappedOffsetHeight() + adjustForThickness;
         else 
-            verticalOffset = numerator->offsetHeight();        
+            verticalOffset = numerator->pixelSnappedOffsetHeight();        
     }
     
-    tx += x();
-    ty += y() + verticalOffset;
+    IntPoint adjustedPaintOffset = roundedIntPoint(paintOffset + location());
+    adjustedPaintOffset.setY(adjustedPaintOffset.y() + verticalOffset);
     
     GraphicsContextStateSaver stateSaver(*info.context);
     
@@ -162,25 +171,24 @@ void RenderMathMLFraction::paint(PaintInfo& info, int tx, int ty)
     info.context->setStrokeStyle(SolidStroke);
     info.context->setStrokeColor(style()->visitedDependentColor(CSSPropertyColor), ColorSpaceSRGB);
     
-    info.context->drawLine(IntPoint(tx, ty), IntPoint(tx + offsetWidth(), ty));
+    info.context->drawLine(adjustedPaintOffset, IntPoint(adjustedPaintOffset.x() + pixelSnappedOffsetWidth(), adjustedPaintOffset.y()));
 }
 
-int RenderMathMLFraction::baselinePosition(FontBaseline, bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
+LayoutUnit RenderMathMLFraction::baselinePosition(FontBaseline, bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
 {
     if (firstChild() && firstChild()->isRenderMathMLBlock()) {
-        RenderMathMLBlock* numerator = toRenderMathMLBlock(firstChild());
+        RenderMathMLBlock* numeratorWrapper = toRenderMathMLBlock(firstChild());
         RenderStyle* refStyle = style();
         if (previousSibling())
             refStyle = previousSibling()->style();
         else if (nextSibling())
             refStyle = nextSibling()->style();
         int shift = int(ceil((refStyle->fontMetrics().xHeight() + 1) / 2));
-        return numerator->offsetHeight() + shift;
+        return numeratorWrapper->pixelSnappedOffsetHeight() + shift;
     }
     return RenderBlock::baselinePosition(AlphabeticBaseline, firstLine, lineDirection, linePositionMode);
 }
 
 }
-
 
 #endif // ENABLE(MATHML)

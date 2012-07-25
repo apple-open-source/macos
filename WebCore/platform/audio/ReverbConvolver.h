@@ -30,6 +30,7 @@
 #define ReverbConvolver_h
 
 #include "AudioArray.h"
+#include "DirectConvolver.h"
 #include "FFTConvolver.h"
 #include "ReverbAccumulationBuffer.h"
 #include "ReverbConvolverStage.h"
@@ -52,7 +53,7 @@ public:
     ReverbConvolver(AudioChannel* impulseResponse, size_t renderSliceSize, size_t maxFFTSize, size_t convolverRenderPhase, bool useBackgroundThreads);
     ~ReverbConvolver();
 
-    void process(AudioChannel* sourceChannel, AudioChannel* destinationChannel, size_t framesToProcess);
+    void process(const AudioChannel* sourceChannel, AudioChannel* destinationChannel, size_t framesToProcess);
     void reset();
 
     size_t impulseResponseLength() const { return m_impulseResponseLength; }
@@ -62,6 +63,7 @@ public:
     bool useBackgroundThreads() const { return m_useBackgroundThreads; }
     void backgroundThreadEntry();
 
+    size_t latencyFrames() const;
 private:
     Vector<OwnPtr<ReverbConvolverStage> > m_stages;
     Vector<OwnPtr<ReverbConvolverStage> > m_backgroundStages;

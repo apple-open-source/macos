@@ -42,6 +42,7 @@
 #include <err.h>
 #include <roken.h>
 
+#include "asn1-common.h"
 #include "check-common.h"
 
 struct map_page {
@@ -191,12 +192,12 @@ int
 generic_test (const struct test_case *tests,
 	      unsigned ntests,
 	      size_t data_size,
-	      int (*encode)(unsigned char *, size_t, void *, size_t *),
-	      int (*length)(void *),
-	      int (*decode)(unsigned char *, size_t, void *, size_t *),
-	      int (*free_data)(void *),
+	      int (ASN1CALL *encode)(unsigned char *, size_t, void *, size_t *),
+	      int (ASN1CALL *length)(void *),
+	      int (ASN1CALL *decode)(unsigned char *, size_t, void *, size_t *),
+	      int (ASN1CALL *free_data)(void *),
 	      int (*cmp)(void *a, void *b),
-	      int (*copy)(const void *from, void *to))
+	      int (ASN1CALL *copy)(const void *from, void *to))
 {
     unsigned char *buf, *buf2;
     int i;
@@ -204,7 +205,9 @@ generic_test (const struct test_case *tests,
     void *data;
     struct map_page *data_map, *buf_map, *buf2_map;
 
+#ifdef HAVE_SIGACTION
     struct sigaction sa, osa;
+#endif
 
     for (i = 0; i < ntests; ++i) {
 	int ret;
@@ -215,6 +218,7 @@ generic_test (const struct test_case *tests,
 
 	current_state = "init";
 
+#ifdef HAVE_SIGACTION
 	sigemptyset (&sa.sa_mask);
 	sa.sa_flags = 0;
 #ifdef SA_RESETHAND
@@ -222,6 +226,7 @@ generic_test (const struct test_case *tests,
 #endif
 	sa.sa_handler = segv_handler;
 	sigaction (SIGSEGV, &sa, &osa);
+#endif
 
 	data = map_alloc(OVERRUN, NULL, data_size, &data_map);
 
@@ -237,7 +242,7 @@ generic_test (const struct test_case *tests,
 	    continue;
 	}
 	if (sz != tests[i].byte_len) {
-	    printf ("encoding of %s has wrong len (%lu != %lu)\n",
+ 	    printf ("encoding of %s has wrong len (%lu != %lu)\n",
 		    tests[i].name,
 		    (unsigned long)sz, (unsigned long)tests[i].byte_len);
 	    ++failures;
@@ -325,7 +330,9 @@ generic_test (const struct test_case *tests,
 	map_free(buf2_map, tests[i].name, "decode");
 	map_free(data_map, tests[i].name, "data");
 
+#ifdef HAVE_SIGACTION
 	sigaction (SIGSEGV, &osa, NULL);
+#endif
     }
     current_state = "done";
     return failures;
@@ -343,7 +350,7 @@ int
 generic_decode_fail (const struct test_case *tests,
 		     unsigned ntests,
 		     size_t data_size,
-		     int (*decode)(unsigned char *, size_t, void *, size_t *))
+		     int (ASN1CALL *decode)(unsigned char *, size_t, void *, size_t *))
 {
     unsigned char *buf;
     int i;
@@ -351,7 +358,9 @@ generic_decode_fail (const struct test_case *tests,
     void *data;
     struct map_page *data_map, *buf_map;
 
+#ifdef HAVE_SIGACTION
     struct sigaction sa, osa;
+#endif
 
     for (i = 0; i < ntests; ++i) {
 	int ret;
@@ -362,6 +371,7 @@ generic_decode_fail (const struct test_case *tests,
 
 	current_state = "init";
 
+#ifdef HAVE_SIGACTION
 	sigemptyset (&sa.sa_mask);
 	sa.sa_flags = 0;
 #ifdef SA_RESETHAND
@@ -369,6 +379,7 @@ generic_decode_fail (const struct test_case *tests,
 #endif
 	sa.sa_handler = segv_handler;
 	sigaction (SIGSEGV, &sa, &osa);
+#endif
 
 	data = map_alloc(OVERRUN, NULL, data_size, &data_map);
 
@@ -379,7 +390,7 @@ generic_decode_fail (const struct test_case *tests,
 	    sz = 4096;
 	    bytes = NULL;
 	}
-	
+
 	buf = map_alloc(OVERRUN, bytes, sz, &buf_map);
 
 	if (tests[i].byte_len == -1)
@@ -398,7 +409,9 @@ generic_decode_fail (const struct test_case *tests,
 	    map_free(buf_map, tests[i].name, "encode");
 	map_free(data_map, tests[i].name, "data");
 
+#ifdef HAVE_SIGACTION
 	sigaction (SIGSEGV, &osa, NULL);
+#endif
     }
     current_state = "done";
     return failures;

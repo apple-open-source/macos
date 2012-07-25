@@ -28,22 +28,22 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_indicate_mechs(OM_uint32 *minor_status,
     gss_OID_set *mech_set)
 {
 	struct _gss_mech_switch *m;
 	OM_uint32 major_status, junk;
 	gss_OID_set set;
-	int i;
+	size_t i;
 
 	_gss_load_mech();
 
 	major_status = gss_create_empty_oid_set(minor_status, mech_set);
 	if (major_status)
 		return (major_status);
-	
-	SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+
+	HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
 		if (m->gm_mech.gm_indicate_mechs) {
 			major_status = m->gm_mech.gm_indicate_mechs(
 			    minor_status, &set);

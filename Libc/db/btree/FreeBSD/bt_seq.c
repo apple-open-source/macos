@@ -369,18 +369,19 @@ __bt_first(BTREE *t, const DBT *key, EPG *erval, int *exactp)
 			 * occurs.
 			 */
 			if (ep->index == 0) {
+				PAGE *hprev;
 				if (h->prevpg == P_INVALID)
 					break;
 				if (h->pgno != save.page->pgno)
 					mpool_put(t->bt_mp, h, 0);
-				if ((h = mpool_get(t->bt_mp,
+				if ((hprev = mpool_get(t->bt_mp,
 				    h->prevpg, 0)) == NULL) {
 					if (h->pgno == save.page->pgno)
 						mpool_put(t->bt_mp,
 						    save.page, 0);
 					return (RET_ERROR);
 				}
-				ep->page = h;
+				ep->page = h = hprev;
 				ep->index = NEXTINDEX(h);
 			}
 			--ep->index;

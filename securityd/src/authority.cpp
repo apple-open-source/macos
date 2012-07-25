@@ -65,7 +65,7 @@ const audit_token_t &auditToken, bool operateAsLeastPrivileged)
 	mCreatorUid = mCreatorAuditToken.euid();
 	mCreatorGid = mCreatorAuditToken.egid();
 
-	if (sandbox_check(mCreatorPid, "authorization-right-obtain", SANDBOX_FILTER_NONE) != 0)
+	if (sandbox_check(mCreatorPid, "authorization-right-obtain", SANDBOX_CHECK_NO_REPORT) != 0)
 		mCreatorSandboxed = true;
 	else
 		mCreatorSandboxed = false;

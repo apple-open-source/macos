@@ -51,6 +51,20 @@ PassRefPtr<SVGStyleElement> SVGStyleElement::create(const QualifiedName& tagName
     return adoptRef(new SVGStyleElement(tagName, document, createdByParser));
 }
 
+bool SVGStyleElement::disabled() const
+{
+    if (!m_sheet)
+        return false;
+    
+    return m_sheet->disabled();
+}
+
+void SVGStyleElement::setDisabled(bool setDisabled)
+{
+    if (CSSStyleSheet* styleSheet = sheet())
+        styleSheet->setDisabled(setDisabled);
+}
+
 const AtomicString& SVGStyleElement::type() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("text/css"));
@@ -58,42 +72,60 @@ const AtomicString& SVGStyleElement::type() const
     return n.isNull() ? defaultValue : n;
 }
 
-void SVGStyleElement::setType(const AtomicString& type, ExceptionCode& ec)
+void SVGStyleElement::setType(const AtomicString& type, ExceptionCode&)
 {
-    setAttribute(SVGNames::typeAttr, type, ec);
+    setAttribute(SVGNames::typeAttr, type);
 }
 
 const AtomicString& SVGStyleElement::media() const
 {
     DEFINE_STATIC_LOCAL(const AtomicString, defaultValue, ("all"));
-    const AtomicString& n = getAttribute(SVGNames::mediaAttr);
+    const AtomicString& n = fastGetAttribute(SVGNames::mediaAttr);
     return n.isNull() ? defaultValue : n;
 }
 
-void SVGStyleElement::setMedia(const AtomicString& media, ExceptionCode& ec)
+void SVGStyleElement::setMedia(const AtomicString& media, ExceptionCode&)
 {
-    setAttribute(SVGNames::mediaAttr, media, ec);
+    setAttribute(SVGNames::mediaAttr, media);
 }
 
 String SVGStyleElement::title() const
 {
-    return getAttribute(SVGNames::titleAttr);
+    return fastGetAttribute(SVGNames::titleAttr);
 }
 
-void SVGStyleElement::setTitle(const AtomicString& title, ExceptionCode& ec)
+void SVGStyleElement::setTitle(const AtomicString& title, ExceptionCode&)
 {
-    setAttribute(SVGNames::titleAttr, title, ec);
+    setAttribute(SVGNames::titleAttr, title);
 }
 
-void SVGStyleElement::parseMappedAttribute(Attribute* attr)
+bool SVGStyleElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::titleAttr && m_sheet)
-        m_sheet->setTitle(attr->value());
-    else {
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        SVGElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::titleAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGStyleElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGElement::parseAttribute(attr);
+        return;
+    }
+
+    if (attr->name() == SVGNames::titleAttr) {
+        if (m_sheet)
+            m_sheet->setTitle(attr->value());
+        return;
+    }
+
+    if (SVGLangSpace::parseAttribute(attr))
+        return;
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGStyleElement::finishParsingChildren()
@@ -102,22 +134,25 @@ void SVGStyleElement::finishParsingChildren()
     SVGElement::finishParsingChildren();
 }
 
-void SVGStyleElement::insertedIntoDocument()
+Node::InsertionNotificationRequest SVGStyleElement::insertedInto(Node* rootParent)
 {
-    SVGElement::insertedIntoDocument();
-    StyleElement::insertedIntoDocument(document(), this);
+    SVGElement::insertedInto(rootParent);
+    if (rootParent->inDocument())
+        StyleElement::insertedIntoDocument(document(), this);
+    return InsertionDone;
 }
 
-void SVGStyleElement::removedFromDocument()
+void SVGStyleElement::removedFrom(Node* rootParent)
 {
-    SVGElement::removedFromDocument();
-    StyleElement::removedFromDocument(document(), this);
+    SVGElement::removedFrom(rootParent);
+    if (rootParent->inDocument())
+        StyleElement::removedFromDocument(document(), this);
 }
 
 void SVGStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    StyleElement::childrenChanged(this);
     SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    StyleElement::childrenChanged(this);
 }
 
 }

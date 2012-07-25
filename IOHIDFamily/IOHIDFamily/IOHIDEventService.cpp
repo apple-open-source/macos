@@ -195,11 +195,16 @@ bool IOHIDEventService::start ( IOService * provider )
     if (!_ejectTimerEventSource || (_workLoop->addEventSource(_ejectTimerEventSource) != kIOReturnSuccess))
         return false;
         
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDKeyboardEjectDelay));
-    if ( number )
+    number = (OSNumber*)copyProperty(kIOHIDKeyboardEjectDelay);
+    if ( OSDynamicCast(OSNumber, number) )
         _ejectDelayMS = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
         
-    _capsTimerEventSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::capsTimerCallback));
+    _capsTimerEventSource = 
+            IOTimerEventSource::timerEventSource(this, 
+                                                 OSMemberFunctionCast(IOTimerEventSource::Action, 
+                                                                      this, 
+                                                                      &IOHIDEventService::capsTimerCallback));
     if (!_capsTimerEventSource || (_workLoop->addEventSource(_capsTimerEventSource) != kIOReturnSuccess))
         return false;
     
@@ -214,9 +219,10 @@ bool IOHIDEventService::start ( IOService * provider )
     SET_HID_PROPERTIES(this);
     SET_HID_PROPERTIES_EMBEDDED(this);
         
-    number = OSDynamicCast(OSNumber, getProperty("BootProtocol"));
-    if (number)
+    number = (OSNumber*)copyProperty("BootProtocol");
+    if (OSDynamicCast(OSNumber, number))
         bootProtocol = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
         
     parseSupportedElements (getReportElements(), bootProtocol);
     
@@ -225,20 +231,24 @@ bool IOHIDEventService::start ( IOService * provider )
         OSDictionary * matchingDictionary = IOService::serviceMatching( "IOHIDEventService" );
         if ( matchingDictionary ) {
             OSDictionary *      propertyMatch = OSDictionary::withCapacity(4);
-            OSObject *          object;
             
             if (propertyMatch) {
-                object = getProperty(kIOHIDTransportKey);
+                OSObject *          object;
+                object = copyProperty(kIOHIDTransportKey);
                 if (object) propertyMatch->setObject(kIOHIDTransportKey, object);
+                OSSafeReleaseNULL(object);
                 
-                object = getProperty(kIOHIDVendorIDKey);
+                object = copyProperty(kIOHIDVendorIDKey);
                 if (object) propertyMatch->setObject(kIOHIDVendorIDKey, object);
+                OSSafeReleaseNULL(object);
                 
-                object = getProperty(kIOHIDProductIDKey);
+                object = copyProperty(kIOHIDProductIDKey);
                 if (object) propertyMatch->setObject(kIOHIDProductIDKey, object);
+                OSSafeReleaseNULL(object);
                 
-                object = getProperty(kIOHIDLocationIDKey);
+                object = copyProperty(kIOHIDLocationIDKey);
                 if (object) propertyMatch->setObject(kIOHIDLocationIDKey, object);
+                OSSafeReleaseNULL(object);
                 
                 matchingDictionary->setObject(gIOPropertyMatchKey, propertyMatch);
                 
@@ -430,24 +440,28 @@ void IOHIDEventService::calculateCapsLockDelay()
     _capsDelayMS = 0;
     
     // If this keyboard does not support delay, get out. Otherwise, use it.
-    delay = OSDynamicCast(OSNumber, getProperty(kIOHIDKeyboardCapsLockDelay));
-    if (!delay) goto GET_OUT;
+    delay = (OSNumber*)copyProperty(kIOHIDKeyboardCapsLockDelay);
+    if (!OSDynamicCast(OSNumber, delay)) 
+        goto GET_OUT;
     _capsDelayMS = delay->unsigned32BitValue();
     
     // If there is an override in place, use that.
-    delayOverride = OSDynamicCast(OSNumber, getProperty(kIOHIDKeyboardCapsLockDelayOverride));
-    if (delayOverride) {
+    
+    delayOverride = (OSNumber*)copyProperty(kIOHIDKeyboardCapsLockDelayOverride);
+    if (OSDynamicCast(OSNumber, delayOverride))
         _capsDelayMS = delayOverride->unsigned32BitValue();
-    }
+    OSSafeReleaseNULL(delayOverride);
     
     // If there is no delay at this point, get out.
-    if (!_capsDelayMS) goto GET_OUT;
+    if (!_capsDelayMS) 
+        goto GET_OUT;
     
     // At this point, we need to scan all of the modifier mappings (if any) to see
     // if the NX_MODIFIERKEY_ALPHALOCK is remapped to something other than the
     // NX_MODIFIERKEY_ALPHALOCK.
-    deviceParameters = OSDynamicCast(OSDictionary, getProperty(kIOHIDEventServicePropertiesKey));
-    if (!deviceParameters) goto GET_OUT;
+    deviceParameters = (OSDictionary*)copyProperty(kIOHIDEventServicePropertiesKey);
+    if (!OSDynamicCast(OSDictionary, deviceParameters)) 
+        goto GET_OUT;
     
     mappings = OSDynamicCast(OSArray, deviceParameters->getObject(kIOHIDKeyboardModifierMappingPairsKey));
     if (!mappings) goto GET_OUT;
@@ -485,6 +499,8 @@ void IOHIDEventService::calculateCapsLockDelay()
     }
     
 GET_OUT:
+    OSSafeReleaseNULL(deviceParameters);
+    OSSafeReleaseNULL(delay);
     IOHID_DEBUG(kIOHIDDebugCode_CalculatedCapsDelay, _capsDelayMS, 0, 0, 0);
 }
 
@@ -496,47 +512,56 @@ void IOHIDEventService::calculateStandardType()
     IOHIDStandardType   result = kIOHIDStandardTypeANSI;
     OSNumber *          number;
 
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDStandardTypeKey));
-    if ( number ) {
+    number = (OSNumber*)copyProperty(kIOHIDDeviceKeyboardStandardTypeKey);
+    if ( OSDynamicCast(OSNumber, number) ) {
         result = number->unsigned32BitValue();
     }
     else {
-        UInt16 productID    = getProductID();
-        UInt16 vendorID     = getVendorID();
-
-        if (vendorID == kIOUSBVendorIDAppleComputer) {
-        
-            switch (productID) {
-                case kprodUSBCosmoISOKbd:  //Cosmo ISO
-                case kprodUSBAndyISOKbd:  //Andy ISO
-                case kprodQ6ISOKbd:  //Q6 ISO
-                case kprodQ30ISOKbd:  //Q30 ISO
+        OSSafeReleaseNULL(number);
+        number = (OSNumber*)copyProperty(kIOHIDStandardTypeKey);
+        if ( OSDynamicCast(OSNumber, number) ) {
+            result = number->unsigned32BitValue();
+        }
+        else {
+            OSSafeReleaseNULL(number);
+            UInt16 productID    = getProductID();
+            UInt16 vendorID     = getVendorID();
+            
+            if (vendorID == kIOUSBVendorIDAppleComputer) {
+                
+                switch (productID) {
+                    case kprodUSBCosmoISOKbd:  //Cosmo ISO
+                    case kprodUSBAndyISOKbd:  //Andy ISO
+                    case kprodQ6ISOKbd:  //Q6 ISO
+                    case kprodQ30ISOKbd:  //Q30 ISO
 #if TARGET_OS_EMBEDDED
                         _shouldSwapISO = true;
 #endif /* TARGET_OS_EMBEDDED */
                         // fall through
-                case kprodFountainISOKbd:  //Fountain ISO
-                case kprodSantaISOKbd:  //Santa ISO
+                    case kprodFountainISOKbd:  //Fountain ISO
+                    case kprodSantaISOKbd:  //Santa ISO
                         result = kIOHIDStandardTypeISO;
                         break;
-                case kprodUSBCosmoJISKbd:  //Cosmo JIS
-                case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
-                case kprodQ6JISKbd:  //Q6 JIS
-                case kprodQ30JISKbd:  //Q30 JIS
-                case kprodFountainJISKbd:  //Fountain JIS
-                case kprodSantaJISKbd:  //Santa JIS
+                    case kprodUSBCosmoJISKbd:  //Cosmo JIS
+                    case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+                    case kprodQ6JISKbd:  //Q6 JIS
+                    case kprodQ30JISKbd:  //Q30 JIS
+                    case kprodFountainJISKbd:  //Fountain JIS
+                    case kprodSantaJISKbd:  //Santa JIS
                         result = kIOHIDStandardTypeJIS;
                         break;
+                }
+                
+                setProperty(kIOHIDStandardTypeKey, result, 32);
             }
-            
-            setProperty(kIOHIDStandardTypeKey, result, 32);
         }
     }
+    OSSafeReleaseNULL(number);
     
 #if TARGET_OS_EMBEDDED
     if ( !_shouldSwapISO && result == kIOHIDStandardTypeISO ) {
-        number = OSDynamicCast(OSNumber, getProperty("alt_handler_id"));
-        if ( number ) {
+        number = (OSNumber*)copyProperty("alt_handler_id");
+        if ( OSDynamicCast(OSNumber, number) ) {
             switch (number->unsigned32BitValue()) {
                 case kgestUSBCosmoISOKbd: 
                 case kgestUSBAndyISOKbd: 
@@ -548,6 +573,7 @@ void IOHIDEventService::calculateStandardType()
                     break;
             }
         }
+        OSSafeReleaseNULL(number);
     }
 #endif /* TARGET_OS_EMBEDDED */
 }
@@ -635,9 +661,8 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
         calculateCapsLockDelay();
         
     if ( properties->getObject(kIOHIDDeviceParametersKey) == kOSBooleanTrue ) {
-        OSDictionary * eventServiceProperties = OSDynamicCast(OSDictionary, copyProperty(kIOHIDEventServicePropertiesKey));
-        if ( eventServiceProperties ) {
-        
+        OSDictionary * eventServiceProperties = (OSDictionary*)copyProperty(kIOHIDEventServicePropertiesKey);
+        if ( OSDynamicCast(OSDictionary, eventServiceProperties) ) {
             if (eventServiceProperties->setOptions(0, 0) & OSDictionary::kImmutable) {
                 OSDictionary * temp = eventServiceProperties;
                 eventServiceProperties = OSDynamicCast(OSDictionary, temp->copyCollection());
@@ -648,6 +673,7 @@ IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
             }
         }
         else {
+            OSSafeReleaseNULL(eventServiceProperties);
             eventServiceProperties = OSDictionary::withCapacity(4);
         }
         
@@ -848,7 +874,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                 {
                     OSDictionary *tempPair = (OSDictionary *)functions->getObject(i);
                     
-                    if (found = tempPair->isEqualTo(pairRef))
+                    if ( NULL != (found = tempPair->isEqualTo(pairRef)) )
                         break;
                 }
                 
@@ -1346,7 +1372,7 @@ bool IOHIDEventService::handleIsOpen(const IOService * client) const
 //====================================================================================================
 // IOHIDEventService::handleStart
 //====================================================================================================
-bool IOHIDEventService::handleStart( IOService * provider )
+bool IOHIDEventService::handleStart( IOService * provider __unused )
 {
     return true;
 }
@@ -1354,7 +1380,7 @@ bool IOHIDEventService::handleStart( IOService * provider )
 //====================================================================================================
 // IOHIDEventService::handleStop
 //====================================================================================================
-void IOHIDEventService::handleStop(  IOService * provider )
+void IOHIDEventService::handleStop(  IOService * provider __unused )
 {}
 
 //====================================================================================================
@@ -1370,6 +1396,7 @@ OSString * IOHIDEventService::getTransport ()
 //====================================================================================================
 OSString * IOHIDEventService::getManufacturer ()
 {
+    // vtn3: This is not safe, but I am unsure how to fix it
     return _provider ? OSDynamicCast(OSString, _provider->getProperty(kIOHIDManufacturerKey)) : 0;
 }
 
@@ -1378,6 +1405,7 @@ OSString * IOHIDEventService::getManufacturer ()
 //====================================================================================================
 OSString * IOHIDEventService::getProduct ()
 {
+    // vtn3: This is not safe, but I am unsure how to fix it
     return _provider ? OSDynamicCast(OSString, _provider->getProperty(kIOHIDProductKey)) : 0;
 }
 
@@ -1386,6 +1414,7 @@ OSString * IOHIDEventService::getProduct ()
 //====================================================================================================
 OSString * IOHIDEventService::getSerialNumber ()
 {
+    // vtn3: This is not safe, but I am unsure how to fix it
     return _provider ? OSDynamicCast(OSString, _provider->getProperty(kIOHIDSerialNumberKey)) : 0;
 }
 
@@ -1397,9 +1426,10 @@ UInt32 IOHIDEventService::getLocationID ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDSerialNumberKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDSerialNumberKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);
 	}
     return value;
 }
@@ -1412,9 +1442,10 @@ UInt32 IOHIDEventService::getVendorID ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDVendorIDKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVendorIDKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);
 	}
     return value;
 }
@@ -1427,9 +1458,10 @@ UInt32 IOHIDEventService::getVendorIDSource ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDVendorIDSourceKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVendorIDSourceKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);			
 	}
     return value;
 }
@@ -1442,9 +1474,10 @@ UInt32 IOHIDEventService::getProductID ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDProductIDKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDProductIDKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);			
 	}
     return value;
 }
@@ -1457,9 +1490,10 @@ UInt32 IOHIDEventService::getVersion ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDVersionNumberKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDVersionNumberKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);			
 	}
     return value;
 }
@@ -1472,9 +1506,10 @@ UInt32 IOHIDEventService::getCountryCode ()
 	UInt32 value = 0;
 	
 	if ( _provider ) {
-		OSNumber * number = OSDynamicCast(OSNumber, _provider->getProperty(kIOHIDCountryCodeKey));
-		if ( number )
+		OSNumber * number = (OSNumber*)_provider->copyProperty(kIOHIDCountryCodeKey);
+		if ( OSDynamicCast(OSNumber, number) )
 			value = number->unsigned32BitValue();
+        OSSafeReleaseNULL(number);			
 	}
     return value;
 }
@@ -1491,9 +1526,9 @@ OSArray * IOHIDEventService::getReportElements()
 // IOHIDEventService::setElementValue
 //====================================================================================================
 void IOHIDEventService::setElementValue (
-                                UInt32                      usagePage,
-                                UInt32                      usage,
-                                UInt32                      value )
+                                UInt32                      usagePage __unused,
+                                UInt32                      usage __unused,
+                                UInt32                      value __unused )
 {
 }
 
@@ -1501,8 +1536,8 @@ void IOHIDEventService::setElementValue (
 // IOHIDEventService::getElementValue
 //====================================================================================================
 UInt32 IOHIDEventService::getElementValue ( 
-                                UInt32                      usagePage,
-                                UInt32                      usage )
+                                UInt32                      usagePage __unused,
+                                UInt32                      usage __unused )
 {
     return 0;
 }
@@ -1511,7 +1546,7 @@ UInt32 IOHIDEventService::getElementValue (
 //====================================================================================================
 // ejectTimerCallback
 //====================================================================================================
-void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender)
+void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender __unused)
 {
     NUB_LOCK;
     IOHID_DEBUG(kIOHIDDebugCode_EjectCallback, _ejectState, 0, 0, 0);
@@ -1531,7 +1566,7 @@ void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender)
 //====================================================================================================
 // capsTimerCallback
 //====================================================================================================
-void IOHIDEventService::capsTimerCallback(IOTimerEventSource *sender)
+void IOHIDEventService::capsTimerCallback(IOTimerEventSource *sender __unused)
 {
     NUB_LOCK;
     IOHID_DEBUG(kIOHIDDebugCode_CapsCallback, _capsState, 0, 0, 0);
@@ -1902,7 +1937,7 @@ void IOHIDEventService::dispatchTabletPointerEvent(
                                 SInt32                      x,
                                 SInt32                      y,
                                 SInt32                      z,
-                                IOGBounds *                 bounds,
+                                IOGBounds *                 bounds __unused,
                                 UInt32                      buttonState,
                                 SInt32                      tipPressure,
                                 SInt32                      tipPressureMin,
@@ -2021,9 +2056,9 @@ OSMetaClassDefineReservedUsed(IOHIDEventService,  0);
 OSArray * IOHIDEventService::getDeviceUsagePairs()
 {
     //RY: Correctly deal with kIOHIDDeviceUsagePairsKey
-    OSArray * providerUsagePairs = OSDynamicCast(OSArray, _provider->getProperty(kIOHIDDeviceUsagePairsKey));
+    OSArray * providerUsagePairs = (OSArray*)_provider->copyProperty(kIOHIDDeviceUsagePairsKey);
     
-    if ( providerUsagePairs && ( providerUsagePairs != _deviceUsagePairs ) ) {
+    if ( OSDynamicCast(OSArray, providerUsagePairs) && ( providerUsagePairs != _deviceUsagePairs ) ) {
         setProperty(kIOHIDDeviceUsagePairsKey, providerUsagePairs);
         if ( _deviceUsagePairs )
             _deviceUsagePairs->release();
@@ -2059,6 +2094,7 @@ OSArray * IOHIDEventService::getDeviceUsagePairs()
         }
     }
 #endif
+    OSSafeRelease(providerUsagePairs);
     
     return _deviceUsagePairs;
 }
@@ -2118,6 +2154,8 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
     void *                  context;
     Action                  action;
     
+    event->setDeviceID(getRegistryEntryID());
+
     IOHID_DEBUG(kIOHIDDebugCode_DispatchHIDEvent, options, 0, 0, 0);
     
     if ( !iterator )
@@ -2195,9 +2233,10 @@ OSMetaClassDefineReservedUsed(IOHIDEventService,  5);
 UInt32 IOHIDEventService::getReportInterval()
 {
     UInt32 interval = 8000; // default to 8 milliseconds
-    OSNumber *number = OSDynamicCast(OSNumber, getProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents));
-    if ( number )
-        interval = number->unsigned32BitValue();
+    OSObject *object = copyProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents);
+    if ( OSDynamicCast(OSNumber, object) )
+        interval = ((OSNumber*)object)->unsigned32BitValue();
+    OSSafeReleaseNULL(object);
     
     return interval;
 }

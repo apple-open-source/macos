@@ -48,11 +48,14 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ttyname.c,v 1.16 2004/01/06 18:26:14 nectar
 #include <string.h>
 #include <paths.h>
 #include <pthread.h>
+#include <errno.h>
 #include "un-namespace.h"
 
 #include "libc_private.h"
 
-static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
+#ifndef BUILDING_VARIANT
+static pthread_once_t ttyname_buf_control = PTHREAD_ONCE_INIT;
+static char *buf = NULL;
 static char *ttyname_threaded(int fd);
 static char *ttyname_unthreaded(int fd);
 
@@ -71,31 +74,63 @@ ttyname(int fd)
 		ret = ttyname_threaded(fd);
 	return (ret);
 }
+#endif /* !BUILDING_VARIANT */
 
+#if __DARWIN_UNIX03
+int
+#else /* !__DARWIN_UNIX03 */
 char *
-ttyname_r(int fd, char *buf, size_t len)
+#endif /* __DARWIN_UNIX03 */
+ttyname_r(int fd, char *thrbuf, size_t len)
 {
 	struct stat	sb;
-	char		*rval;
 
-	rval = NULL;
-
+#if __DARWIN_UNIX03
+	if (_fstat(fd, &sb) < 0)
+		return (EBADF);
 	/* Must be a terminal. */
 	if (!isatty(fd))
-		return (rval);
+		return (ENOTTY);
 	/* Must be a character device. */
-	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
-		return (rval);
+	if (!S_ISCHR(sb.st_mode))
+		return (ENOTTY);
 	/* Must have enough room */
 	if (len <= sizeof(_PATH_DEV))
-		return (rval);
+		return (ERANGE);
+#else /* !__DARWIN_UNIX03 */
+	/* Must be a terminal. */
+	if (!isatty(fd))
+		return (NULL);
+	/* Must be a character device. */
+	if (_fstat(fd, &sb))
+		return (NULL);
+	if (!S_ISCHR(sb.st_mode)) {
+		errno = ENOTTY;
+		return (NULL);
+	}
+	/* Must have enough room */
+	if (len <= sizeof(_PATH_DEV)) {
+		errno = ERANGE;
+		return (NULL);
+	}
+#endif /* __DARWIN_UNIX03 */
 
-	strcpy(buf, _PATH_DEV);
-	devname_r(sb.st_rdev, S_IFCHR,
-	    buf + strlen(buf), sizeof(buf) - strlen(buf));
-	return (buf);
+	strlcpy(thrbuf, _PATH_DEV, len);
+	if (devname_r(sb.st_rdev, S_IFCHR,
+	    thrbuf + strlen(thrbuf), len - strlen(thrbuf)) == NULL)
+#if __DARWIN_UNIX03
+		return (ERANGE);
+	return (0);
+#else /* !__DARWIN_UNIX03 */
+	{
+		errno = ERANGE;
+		return (NULL);
+	}
+	return (thrbuf);
+#endif /* __DARWIN_UNIX03 */
 }
 
+#ifndef BUILDING_VARIANT
 static char *
 ttyname_threaded(int fd)
 {
@@ -104,8 +139,12 @@ ttyname_threaded(int fd)
 	if (ttyname_init == 0) {
 		_pthread_mutex_lock(&ttyname_lock);
 		if (ttyname_init == 0) {
-			if (_pthread_key_create(&ttyname_key, free)) {
+			/* __PTK_LIBC_TTYNAME_KEY */
+			ttyname_key = __LIBC_PTHREAD_KEY_TTYNAME;
+			if (pthread_key_init_np(ttyname_key, free)) {
+				int save = errno;
 				_pthread_mutex_unlock(&ttyname_lock);
+				errno = save;
 				return (NULL);
 			}
 			ttyname_init = 1;
@@ -117,14 +156,26 @@ ttyname_threaded(int fd)
 	if ((buf = _pthread_getspecific(ttyname_key)) == NULL) {
 		if ((buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN)) != NULL) {
 			if (_pthread_setspecific(ttyname_key, buf) != 0) {
+				int save = errno;
 				free(buf);
+				errno = save;
 				return (NULL);
 			}
 		} else {
 			return (NULL);
 		}
 	}
+#if __DARWIN_UNIX03
+	return (ttyname_r(fd, buf, sizeof(_PATH_DEV) + MAXNAMLEN) == 0 ? buf : NULL);
+#else /* !__DARWIN_UNIX03 */
 	return (ttyname_r(fd, buf, sizeof(_PATH_DEV) + MAXNAMLEN));
+#endif /* __DARWIN_UNIX03 */
+}
+
+static void
+ttyname_buf_allocate(void)
+{
+	buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN);
 }
 
 static char *
@@ -137,11 +188,25 @@ ttyname_unthreaded(int fd)
 	if (tcgetattr(fd, &ttyb) < 0)
 		return (NULL);
 	/* Must be a character device. */
-	if (_fstat(fd, &sb) || !S_ISCHR(sb.st_mode))
+	if (_fstat(fd, &sb))
 		return (NULL);
+	if (!S_ISCHR(sb.st_mode)) {
+		errno = ENOTTY;
+		return (NULL);
+	}
 
-	strcpy(buf, _PATH_DEV);
-	devname_r(sb.st_rdev, S_IFCHR,
-	    buf + strlen(buf), sizeof(buf) - strlen(buf));
+	if (pthread_once(&ttyname_buf_control, ttyname_buf_allocate)
+		|| !buf) {
+		errno = ENOMEM;
+		return (NULL);
+	}
+
+	strlcpy(buf, _PATH_DEV, sizeof(_PATH_DEV) + MAXNAMLEN);
+	if (devname_r(sb.st_rdev, S_IFCHR,
+		buf + strlen(buf), sizeof(_PATH_DEV) + MAXNAMLEN - strlen(buf)) == NULL) {
+		errno = ERANGE;
+		return (NULL);
+	}
 	return (buf);
 }
+#endif /* !BUILDING_VARIANT */

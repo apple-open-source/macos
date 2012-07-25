@@ -71,6 +71,7 @@
 #if defined(__ppc__)
 #include <libkern/OSCrossEndian.h>
 #endif
+#include <dispatch/private.h> /* for at_fork handlers */
 
 
 extern int _pthread_setcancelstate_internal(int state, int *oldstate, int conforming);
@@ -96,6 +97,9 @@ static int  _new_pthread_create_suspended(pthread_t *thread,
 	       void *arg,
 		int create_susp);
 
+/* the registered libdispatch worker function */
+static void (*__libdispatch_workerfunction)(int, int, void *) = NULL;
+
 /* Get CPU capabilities from the kernel */
 __private_extern__ void _init_cpu_capabilities(void);
 
@@ -114,6 +118,47 @@ typedef struct _pthread_reap_msg_t {
 	mach_msg_trailer_t trailer;
 } pthread_reap_msg_t;
 
+/* Utilitie */
+
+__private_extern__ uintptr_t commpage_pfz_base=0;
+
+void __pthread_pfz_setup(const char *apple[]) __attribute__ ((visibility ("hidden")));
+
+static uintptr_t __pfz_from_kernel(const char *str)
+{
+	unsigned long tmpval;
+	/* Skip over key to the first value */
+	str = strchr(str, '=');
+	if (str == NULL)
+		return 0;
+	str++;
+	tmpval = strtoul(str, NULL, 0); /* may err by 0 or ULONG_MAX */
+	if (tmpval == ULONG_MAX)
+		tmpval = 0;
+
+	return (uintptr_t) tmpval;
+}
+
+void
+__pthread_pfz_setup(const char *apple[])
+{
+	const char **p;
+	for (p = apple; p && *p; p++) {
+		/* checking if matching apple variable is at begining */
+		if (strstr(*p, "pfz=") == *p) {
+			commpage_pfz_base = __pfz_from_kernel(*p);
+			bzero(*p,strlen(*p));
+			break;
+		}
+	}
+
+	if (commpage_pfz_base == 0)
+		commpage_pfz_base = _COMM_PAGE_TEXT_START;
+
+	return;
+}
+
+
 /* We'll implement this when the main thread is a pthread */
 /* Use the local _pthread struct to avoid malloc before our MiG reply port is set */
 static struct _pthread _thread = {0};
@@ -125,6 +170,8 @@ int __is_threaded = 0;
 /* _pthread_count is protected by _pthread_list_lock */
 static int _pthread_count = 1;
 int __unix_conforming = 0;
+static int __workqueue_newspis = 0;
+static int __workqueue_oldspis = 0;
 __private_extern__ size_t pthreadsize = 0;
 
 /* under rosetta we will use old style creation of threads */
@@ -219,6 +266,17 @@ extern void dispatch_atfork_child(void);
 #define WQOPS_QUEUE_REMOVE 2
 #define WQOPS_THREAD_RETURN 4
 #define WQOPS_THREAD_SETCONC  8
+#define WQOPS_QUEUE_NEWSPISUPP  0x10    /* this is to check for newer SPI support */
+#define WQOPS_QUEUE_REQTHREADS  0x20	/* request number of threads of a prio */
+
+/* flag values for reuse field in the libc side _pthread_wqthread */
+#define WQ_FLAG_THREAD_PRIOMASK		0x0000ffff
+#define WQ_FLAG_THREAD_OVERCOMMIT	0x00010000      /* thread is with overcommit prio */
+#define WQ_FLAG_THREAD_REUSE		0x00020000      /* thread is being reused */
+#define WQ_FLAG_THREAD_NEWSPI		0x00040000      /* the call is with new SPIs */
+
+
+#define WORKQUEUE_OVERCOMMIT 0x10000	/* the work_kernreturn() for overcommit in prio field */
 
 /*
  * Flags filed passed to bsdthread_create and back in pthread_start 
@@ -251,7 +309,6 @@ extern int __pthread_kill(mach_port_t, int);
 extern int __pthread_markcancel(int);
 extern int __workq_open(void);
 
-#define WORKQUEUE_OVERCOMMIT 0x10000
 
 extern int __workq_kernreturn(int, pthread_workitem_t, int, int);
 
@@ -259,7 +316,7 @@ extern int __workq_kernreturn(int, pthread_workitem_t, int, int);
 static const vm_address_t PTHREAD_STACK_HINT = 0xF0000000;
 #elif defined(__i386__) || defined(__x86_64__)
 static const vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
-#elif defined(__arm__)
+#elif defined(__arm__)  
 static const vm_address_t PTHREAD_STACK_HINT = 0x30000000;
 #else
 #error Need to define a stack address hint for this architecture
@@ -827,7 +884,7 @@ static void
 _pthread_body(pthread_t self)
 {
     _pthread_set_self(self);
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 	if( (self->thread_id = __thread_selfid()) == (__uint64_t)-1)
 		printf("Failed to set thread_id in _pthread_body\n");
 #endif
@@ -846,7 +903,7 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * f
 	if ((pflags & PTHREAD_START_CUSTOM) == 0) {
 		stackaddr = (char *)self;
 		_pthread_struct_init(self, attrs, stackaddr,  stacksize, 1, 1);
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		_pthread_set_self(self);
 #endif
 		LOCK(_pthread_list_lock);
@@ -860,7 +917,7 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * f
 			self->detached |= PTHREAD_CREATE_DETACHED;
 		}
 	}  else { 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		_pthread_set_self(self);
 #endif
 		LOCK(_pthread_list_lock);
@@ -880,7 +937,7 @@ _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * f
 	self->childrun = 1;
 	UNLOCK(_pthread_list_lock);
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 	if( (self->thread_id = __thread_selfid()) == (__uint64_t)-1)
 		printf("Failed to set thread_id in pthread_start\n");
 #endif
@@ -1117,7 +1174,7 @@ pthread_main_np(void)
 }
 
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 /* if we are passed in a pthread_t that is NULL, then we return
    the current thread's thread_id. So folks don't have to call
    pthread_self, in addition to us doing it, if they just want 
@@ -1169,17 +1226,22 @@ pthread_getname_np(pthread_t thread, char *threadname, size_t len)
 int
 pthread_setname_np(const char *threadname)
 {
-	int rval;
-	int len;
+	int rval = 0;
+	int len = 0;
+	pthread_t current_thread = pthread_self();
 
-	rval = 0;
-	len = strlen(threadname);
+	if (threadname != NULL)
+		len = strlen(threadname);
 
 	/* protytype is in pthread_internals.h */
 	rval = proc_setthreadname((void *)threadname, len);
-	if(rval == 0)
-	{
-		strlcpy((pthread_self())->pthread_name, threadname, MAXTHREADNAMESIZE);
+	if (rval == 0) {
+		if (threadname != NULL) {
+			strlcpy(current_thread->pthread_name, threadname, MAXTHREADNAMESIZE);
+		} else {
+			memset(current_thread->pthread_name, 0 , MAXTHREADNAMESIZE);
+		}
+
 	}
 	return rval;
 
@@ -1468,9 +1530,10 @@ pthread_detach(pthread_t thread)
 	int newstyle = 0;
 	int ret;
 
-	if ((ret = _pthread_lookup_thread(thread, NULL, 1)) != 0)
+	if ((ret = _pthread_lookup_thread(thread, NULL, 1)) != 0) {
 		return (ret); /* Not a valid thread */
-		
+	}
+
 	LOCK(thread->lock);
 	newstyle = thread->newstyle;
 	if (thread->detached & PTHREAD_CREATE_JOINABLE)
@@ -1508,7 +1571,7 @@ pthread_detach(pthread_t thread)
 }
 
 
-/* 
+/*
  * pthread_kill call to system call
  */
 int   
@@ -2115,14 +2178,14 @@ pthread_init(void)
 	_pthread_fork_child_postinit();
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	if (__oldstyle == 0) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (uintptr_t)(&thread->tsd[__PTK_LIBDISPATCH_KEY0]) - (uintptr_t)(&thread->tsd[0]));
 #else
 		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)), NULL, &workq_targetconc[0], (uintptr_t)&thread->tsd[__PTK_LIBDISPATCH_KEY0] - (uintptr_t)thread);
 #endif
 	}
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 	if( (thread->thread_id = __thread_selfid()) == (__uint64_t)-1)
 		printf("Failed to set thread_id in pthread_init\n");
 #endif
@@ -2192,7 +2255,7 @@ __private_extern__ void _pthread_fork_child(pthread_t p) {
 	__kdebug_trace(0x900000c, p, 0, 0, 10, 0);
 #endif
 	_pthread_count = 1;
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 	if( (p->thread_id = __thread_selfid()) == (__uint64_t)-1)
 		printf("Failed to set thread_id in pthread_fork_child\n");
 #endif
@@ -2467,6 +2530,10 @@ pthread_workqueue_init_np()
 {
 	int ret;
 
+	if (__workqueue_newspis != 0)
+		return(EPERM);
+	__workqueue_oldspis = 1;	
+
 	workqueue_list_lock();
 	ret =_pthread_work_internal_init();
 	workqueue_list_unlock();
@@ -2478,6 +2545,9 @@ int
 pthread_workqueue_requestconcurrency_np(int queue, int request_concurrency)
 {
 	int error = 0;
+
+	if (__workqueue_newspis != 0)
+		return(EPERM);
 
 	if (queue < 0 || queue > WORKQ_NUM_PRIOQUEUE)
 		return(EINVAL);
@@ -2512,13 +2582,33 @@ pthread_workqueue_atfork_parent(void)
 void
 pthread_workqueue_atfork_child(void)
 {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
+	pthread_t self = pthread_self();
+
+	__workqueue_list_lock = OS_SPINLOCK_INIT;
+
+	/* already using new spis? */
+	if (__workqueue_newspis != 0) {
+		/* prepare the kernel for workq action */
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
+		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (uintptr_t)(&self->tsd[__PTK_LIBDISPATCH_KEY0]) - (uintptr_t)(&self->tsd[0]));
+#else
+		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL,0);
+#endif
+		(void)__workq_open();
+		kernel_workq_setup = 1;
+		return;
+	}
+
+	/* not using old spis either? */
+	if (__workqueue_oldspis == 0)
+		return;
+
 	/* 
 	 * NOTE:  workq additions here  
 	 * are for i386,x86_64 only as
 	 * ppc and arm do not support it
 	 */
-	__workqueue_list_lock = OS_SPINLOCK_INIT;
 	if (kernel_workq_setup != 0){
 	   kernel_workq_setup = 0;
 	   _pthread_work_internal_init();
@@ -2533,12 +2623,12 @@ _pthread_work_internal_init(void)
 	int i, error;
 	pthread_workqueue_head_t headp;
 	pthread_workqueue_t wq;
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 	pthread_t self = pthread_self();
 #endif
 
 	if (kernel_workq_setup == 0) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (uintptr_t)(&self->tsd[__PTK_LIBDISPATCH_KEY0]) - (uintptr_t)(&self->tsd[0]));
 #else
 		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL,0);
@@ -2920,7 +3010,7 @@ post_nextworkitem(pthread_workqueue_t workq)
 				workq->kq_count++;
 				witem->flags |= PTH_WQITEM_KERN_COUNT;
 			}
-			OSAtomicIncrement32(&kernel_workq_count);
+			OSAtomicIncrement32Barrier(&kernel_workq_count);
 			workqueue_list_unlock();
 			
 			prio = workq->queueprio;
@@ -2929,7 +3019,7 @@ post_nextworkitem(pthread_workqueue_t workq)
 			}
 
 			if (( error =__workq_kernreturn(WQOPS_QUEUE_ADD, witem, workq->affinity, prio)) == -1) {
-				OSAtomicDecrement32(&kernel_workq_count);
+				OSAtomicDecrement32Barrier(&kernel_workq_count);
 				workqueue_list_lock();
 #if WQ_TRACE
 			__kdebug_trace(0x900007c, witem, workq, witem->func_arg, workq->kq_count, 0);
@@ -2965,10 +3055,25 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 #if WQ_DEBUG
 	pthread_t pself;
 #endif
+	int thread_reuse = 0;
+	int thread_priority = 0;
+	int thread_newspi = 0;
+	int thread_options = 0;
 
+	if (reuse & WQ_FLAG_THREAD_NEWSPI) {
+		thread_reuse = reuse & WQ_FLAG_THREAD_REUSE;
+		if ((reuse & WQ_FLAG_THREAD_OVERCOMMIT) != 0)
+			thread_options = WORKQ_ADDTHREADS_OPTION_OVERCOMMIT;
+		thread_priority = reuse & WQ_FLAG_THREAD_PRIOMASK;
+		thread_newspi = 1;
+		workq = NULL;
+	} else {
+		thread_reuse = (reuse == 0)? 0: WQ_FLAG_THREAD_REUSE;
+		workq = item->workq;
+	}
 
-	workq = item->workq;
-	if (reuse == 0) {
+	
+	if (thread_reuse == 0) {
 		/* reuse is set to 0, when a thread is newly created to run a workitem */
 		_pthread_struct_init(self, attrs, stackaddr,  DEFAULT_STACK_SIZE, 1, 1);
 		self->wqthread = 1;
@@ -2985,8 +3090,13 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 		__kdebug_trace(0x9000050, self, item, item->func_arg, 0, 0);
 #endif
 		self->kernel_thread = kport;
-		self->fun = (void *(*)(void *))item->func;
-		self->arg = item->func_arg;
+		if (thread_newspi != 0) {
+			self->fun = (void *(*)(void *))__libdispatch_workerfunction;
+			self->arg = thread_priority;
+		} else {
+			self->fun = (void *(*)(void *))item->func;
+			self->arg = item->func_arg;
+		}
 		/* Add to the pthread list */
 		LOCK(_pthread_list_lock);
 		TAILQ_INSERT_TAIL(&__pthread_head, self, plist);
@@ -2996,7 +3106,7 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 		_pthread_count++;
 		UNLOCK(_pthread_list_lock);
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 		if( (self->thread_id = __thread_selfid()) == (__uint64_t)-1)
 			printf("Failed to set thread_id in pthread_wqthread\n");
 #endif
@@ -3010,8 +3120,13 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 		if (self == NULL)
 			LIBC_ABORT("_pthread_wqthread: pthread %p setup to be NULL", self);
 
-		self->fun = (void *(*)(void *))item->func;
-		self->arg = item->func_arg;
+		if (thread_newspi != 0) {
+			self->fun = (void *(*)(void *))__libdispatch_workerfunction;
+			self->arg = NULL;
+		} else {
+			self->fun = (void *(*)(void *))item->func;
+			self->arg = item->func_arg;
+		}
 	}
 
 #if WQ_DEBUG
@@ -3037,21 +3152,24 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 	}
 #endif /* WQ_DEBUG */
 
-	self->cur_workq = workq;
-	self->cur_workitem = item;
-	OSAtomicDecrement32(&kernel_workq_count);
+	if (thread_newspi != 0) {
+		(*__libdispatch_workerfunction)(thread_priority, thread_options, NULL);
+		_pthread_workq_return(self);
+	 } else {
+		self->cur_workq = workq;
+		self->cur_workitem = item;
+		OSAtomicDecrement32Barrier(&kernel_workq_count);
 
-	ret = (int)(intptr_t)(*self->fun)(self->arg);
+		ret = (int)(intptr_t)(*self->fun)(self->arg);
+		/* If we reach here without going through the above initialization path then don't go through
+		* with the teardown code path ( e.g. setjmp/longjmp ). Instead just exit this thread.
+		*/
+		if (self != pthread_self()) {
+			pthread_exit(PTHREAD_CANCELED);
+		}
 
-	/* If we reach here without going through the above initialization path then don't go through
-	 * with the teardown code path ( e.g. setjmp/longjmp ). Instead just exit this thread.
-	 */
-	if(self != pthread_self()) {
-		pthread_exit(PTHREAD_CANCELED);
+		workqueue_exit(self, workq, item);
 	}
-	
-	workqueue_exit(self, workq, item);
-
 }
 
 static void
@@ -3150,6 +3268,61 @@ _pthread_workq_return(pthread_t self)
 
 /* XXXXXXXXXXXXX Pthread Workqueue functions XXXXXXXXXXXXXXXXXX */
 
+int
+pthread_workqueue_setdispatch_np(void (*worker_func)(int, int, void *))
+{
+	int error = 0;
+
+	if (__workqueue_oldspis != 0)
+		return(EPERM);
+
+	__workqueue_newspis = 1;	
+
+	if (__libdispatch_workerfunction == NULL) {
+		__libdispatch_workerfunction = worker_func;
+		/* check whether the kernel supports new SPIs */
+		error = __workq_kernreturn(WQOPS_QUEUE_NEWSPISUPP, NULL, 0, 0);
+		if (error == -1){
+			__libdispatch_workerfunction = NULL;
+			error = ENOTSUP;
+			__workqueue_newspis = 0;
+		} else  {
+			/* prepare the kernel for workq action */
+			(void)__workq_open();
+			kernel_workq_setup = 1;
+			if (__is_threaded == 0)
+				__is_threaded = 1;
+			__workqueue_newspis = 1;	
+		}
+	} else {
+		error = EBUSY;
+	}
+
+	return(error);
+}
+
+int
+pthread_workqueue_addthreads_np(int queue_priority, int options, int numthreads)
+{
+	int priority = queue_priority & WQ_FLAG_THREAD_PRIOMASK;
+	int error = 0;
+
+	/* new spi not inited yet?? */
+	if (__workqueue_newspis == 0)
+		return(EPERM);
+
+
+	if ((options & WORKQ_ADDTHREADS_OPTION_OVERCOMMIT) != 0)
+		priority |= WORKQUEUE_OVERCOMMIT;
+		
+		error = __workq_kernreturn(WQOPS_QUEUE_REQTHREADS, NULL, numthreads, priority);
+
+		if (error == -1)
+			return(errno);
+		else
+			return(0);
+}
+
 int 
 pthread_workqueue_create_np(pthread_workqueue_t * workqp, const pthread_workqueue_attr_t * attr)
 {
@@ -3161,6 +3334,12 @@ pthread_workqueue_create_np(pthread_workqueue_t * workqp, const pthread_workqueu
 		return(ENOTSUP);
 	}
 #endif
+	if (__workqueue_newspis != 0)
+		return(EPERM);
+
+	if (__workqueue_oldspis == 0)
+		__workqueue_oldspis = 1;	
+
 	if ((attr != NULL) && (attr->sig != PTHREAD_WORKQUEUE_ATTR_SIG)) {
 		return(EINVAL);
 	}
@@ -3198,6 +3377,9 @@ int
 pthread_workqueue_additem_np(pthread_workqueue_t workq, void ( *workitem_func)(void *), void * workitem_arg, pthread_workitem_handle_t * itemhandlep, unsigned int *gencountp)
 {
 	pthread_workitem_t witem;
+
+	if (__workqueue_newspis != 0)
+		return(EPERM);
 
 	if (valid_workq(workq) == 0) {
 		return(EINVAL);
@@ -3245,6 +3427,9 @@ pthread_workqueue_additem_np(pthread_workqueue_t workq, void ( *workitem_func)(v
 int
 pthread_workqueue_getovercommit_np(pthread_workqueue_t workq,  unsigned int *ocommp)
 {
+	if (__workqueue_newspis != 0)
+		return(EPERM);
+
         if (valid_workq(workq) == 0) {
                 return(EINVAL);
         }
@@ -3258,6 +3443,9 @@ pthread_workqueue_getovercommit_np(pthread_workqueue_t workq,  unsigned int *oco
 #else /* !BUILDING_VARIANT ] [ */
 extern int __unix_conforming;
 extern int _pthread_count;
+extern int __workqueue_newspis;
+extern int __workqueue_oldspis;
+
 extern pthread_lock_t _pthread_list_lock;
 extern void _pthread_testcancel(pthread_t thread, int isconforming);
 extern int _pthread_reap_thread(pthread_t th, mach_port_t kernel_thread, void **value_ptr, int conforming);

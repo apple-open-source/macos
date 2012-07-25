@@ -136,7 +136,7 @@ sub_wrap_size (
 }
 #endif
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_wrap_size_limit (
             OM_uint32 * minor_status,
             const gss_ctx_id_t context_handle,
@@ -168,21 +168,23 @@ _gsskrb5_wrap_size_limit (
 
   switch (key->keytype) {
 #ifdef HEIM_KRB5_DES
-  case ETYPE_DES_CBC_CRC:
-  case ETYPE_DES_CBC_MD4:
-  case ETYPE_DES_CBC_MD5:
+  case KRB5_ENCTYPE_DES_CBC_CRC :
+  case KRB5_ENCTYPE_DES_CBC_MD4 :
+  case KRB5_ENCTYPE_DES_CBC_MD5 :
       ret = sub_wrap_size(req_output_size, max_input_size, 8, 22);
-
       break;
 #endif
+
 #ifdef HEIM_KRB5_DES3
-  case ETYPE_DES3_CBC_SHA1:
+  case KRB5_ENCTYPE_DES3_CBC_MD5 :
+  case KRB5_ENCTYPE_DES3_CBC_SHA1 :
       ret = sub_wrap_size(req_output_size, max_input_size, 8, 34);
       break;
 #endif
+
 #ifdef HEIM_KRB5_ARCFOUR
-  case KEYTYPE_ARCFOUR:
-  case KEYTYPE_ARCFOUR_56:
+  case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5:
+  case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56:
       ret = _gssapi_wrap_size_arcfour(minor_status, ctx, context,
 				      conf_req_flag, qop_req,
 				      req_output_size, max_input_size, key);
@@ -219,7 +221,7 @@ wrap_des
   EVP_CIPHER_CTX des_ctx;
   DES_cblock deskey;
   DES_cblock zero;
-  int i;
+  size_t i;
   int32_t seq_number;
   size_t len, total_len, padlength, datalen;
 
@@ -535,7 +537,8 @@ wrap_des3
 }
 #endif
 
-OM_uint32 _gsskrb5_wrap
+OM_uint32 GSSAPI_CALLCONV
+_gsskrb5_wrap
            (OM_uint32 * minor_status,
             const gss_ctx_id_t context_handle,
             int conf_req_flag,
@@ -571,24 +574,27 @@ OM_uint32 _gsskrb5_wrap
 
   switch (key->keytype) {
 #ifdef HEIM_KRB5_DES
-  case ETYPE_DES_CBC_CRC:
-  case ETYPE_DES_CBC_MD4:
-  case ETYPE_DES_CBC_MD5:
+  case KRB5_ENCTYPE_DES_CBC_CRC :
+  case KRB5_ENCTYPE_DES_CBC_MD4 :
+  case KRB5_ENCTYPE_DES_CBC_MD5 :
       ret = wrap_des (minor_status, ctx, context, conf_req_flag,
 		      qop_req, input_message_buffer, conf_state,
 		      output_message_buffer, key);
       break;
 #endif
+
 #ifdef HEIM_KRB5_DES3
-  case ETYPE_DES3_CBC_SHA1:
+  case KRB5_ENCTYPE_DES3_CBC_MD5 :
+  case KRB5_ENCTYPE_DES3_CBC_SHA1 :
       ret = wrap_des3 (minor_status, ctx, context, conf_req_flag,
 		       qop_req, input_message_buffer, conf_state,
 		       output_message_buffer, key);
       break;
 #endif
+
 #ifdef HEIM_KRB5_ARCFOUR
-  case ETYPE_ARCFOUR_HMAC_MD5:
-  case ETYPE_ARCFOUR_HMAC_MD5_56:
+  case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5:
+  case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56:
       ret = _gssapi_wrap_arcfour (minor_status, ctx, context, conf_req_flag,
 				  qop_req, input_message_buffer, conf_state,
 				  output_message_buffer, key);

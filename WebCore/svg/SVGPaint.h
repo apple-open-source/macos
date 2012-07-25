@@ -79,13 +79,21 @@ public:
         return paint.release();
     }
 
+    static PassRefPtr<SVGPaint> createURIAndNone(const String& uri)
+    {
+        RefPtr<SVGPaint> paint = adoptRef(new SVGPaint(SVG_PAINTTYPE_URI_NONE, uri));
+        return paint.release();
+    }
+
     const SVGPaintType& paintType() const { return m_paintType; }
     String uri() const { return m_uri; }
 
     void setUri(const String&);
     void setPaint(unsigned short paintType, const String& uri, const String& rgbColor, const String& iccColor, ExceptionCode&);
 
-    bool matchesTargetURI(const String& referenceId);
+    String customCssText() const;
+
+    PassRefPtr<SVGPaint> cloneForCSSOM() const;
 
 private:
     friend class CSSComputedStyleDeclaration;
@@ -98,10 +106,8 @@ private:
     }
 
 private:
-    SVGPaint(const SVGPaintType&, String uri = String());
-
-    virtual bool isSVGPaint() const { return true; }
-    virtual String cssText() const;
+    SVGPaint(const SVGPaintType&, const String& uri = String());
+    SVGPaint(const SVGPaint& cloneFrom);
 
     SVGPaintType m_paintType;
     String m_uri;

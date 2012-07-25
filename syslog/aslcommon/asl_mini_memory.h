@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,8 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef __asl_mini_memory_H__
-#define __asl_mini_memory_H__
+#ifndef __ASL_MINI_MEMORY_H__
+#define __ASL_MINI_MEMORY_H__
 #include <stdint.h>
 #include <asl.h>
 
@@ -40,6 +40,7 @@ typedef struct
 {
 	uint32_t mid;
 	uint64_t time;
+	uint32_t nano;
 	uint8_t level;
 	uint8_t flags;
 	uint32_t pid;
@@ -72,4 +73,4 @@ uint32_t asl_mini_memory_fetch(asl_mini_memory_t *s, uint64_t mid, aslmsg *msg);
 
 uint32_t asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction);
 
-#endif __asl_mini_memory_H__
+#endif /* __ASL_MINI_MEMORY_H__ */

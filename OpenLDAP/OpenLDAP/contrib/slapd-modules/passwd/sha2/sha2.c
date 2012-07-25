@@ -1,4 +1,4 @@
-/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/passwd/sha2/sha2.c,v 1.1.2.1 2009/01/26 21:07:06 quanah Exp $ */
+/* $OpenLDAP$ */
 /*
  * FILE:	sha2.c
  * AUTHOR:	Aaron D. Gifford - http://www.aarongifford.com/

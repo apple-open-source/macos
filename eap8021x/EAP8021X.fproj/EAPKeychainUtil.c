@@ -190,6 +190,7 @@ EAPSecKeychainPasswordItemSet(SecKeychainRef keychain,
 #include <Security/SecACL.h>
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustedApplicationPriv.h>
+#include <Security/AuthorizationTags.h>
 
 const CFStringRef kEAPSecKeychainPropPassword = CFSTR("Password");
 const CFStringRef kEAPSecKeychainPropLabel = CFSTR("Label");
@@ -307,70 +308,6 @@ mySecKeychainAttributeListAddFromDict(mySecKeychainAttributeList * attr_list,
 }
 
 PRIVATE_EXTERN OSStatus
-EAPSecAccessCreateWithUid(uid_t uid, SecAccessRef * ret_access)
-{
-    /* make the "uid/gid" ACL subject, this is a CSSM_LIST_ELEMENT chain */
-    CSSM_ACL_PROCESS_SUBJECT_SELECTOR	selector = {
-	CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION,
-	CSSM_ACL_MATCH_UID,	/* active fields mask: match uids (only) */
-	uid,			/* effective user id to match */
-	0			/* effective group id to match */
-    };
-    CSSM_LIST_ELEMENT 		subject2 = {
-	NULL,			/* NextElement */
-	0,			/* WordID */
-	CSSM_LIST_ELEMENT_DATUM	/* ElementType */
-    };
-    CSSM_LIST_ELEMENT 		subject1 = {
-	&subject2,		/* NextElement */
-	CSSM_ACL_SUBJECT_TYPE_PROCESS, /* WordID */
-	CSSM_LIST_ELEMENT_WORDID /* ElementType */
-    };
-    /* rights granted (replace with individual list if desired) */
-    CSSM_ACL_AUTHORIZATION_TAG	rights[] = {
-	CSSM_ACL_AUTHORIZATION_ANY
-    };
-    /* owner component (right to change ACL) */
-    CSSM_ACL_OWNER_PROTOTYPE	owner = {
-	{ // TypedSubject
-	    CSSM_LIST_TYPE_UNKNOWN,	/* type of this list */
-	    &subject1,			/* head of the list */
-	    &subject2			/* tail of the list */
-	},
-	FALSE				/* Delegate */
-    };
-    /* ACL entry */
-    CSSM_ACL_ENTRY_INFO		acls[] = {
-	{
-	    { /* EntryPublicInfo */
-		{ /* TypedSubject */
-		    CSSM_LIST_TYPE_UNKNOWN, /* type of this list */
-		    &subject1,		/* head of the list */
-		    &subject2		/* tail of the list */
-		},
-		FALSE,			/* Delegate */
-		{			/* Authorization */
-		    sizeof(rights) / sizeof(rights[0]), /* NumberOfAuthTags */
-		    rights		/* AuthTags */
-		},
-		{			/* TimeRange */
-		},
-		{			/* EntryTag */
-		}
-	    },
-	    0				/* EntryHandle */
-	}
-    };
-
-    subject2.Element.Word.Data = (UInt8 *)&selector;
-    subject2.Element.Word.Length = sizeof(selector);
-    return (SecAccessCreateFromOwnerAndACL(&owner,
-					   sizeof(acls) / sizeof(acls[0]),
-					   acls,
-					   ret_access));
-}
-
-PRIVATE_EXTERN OSStatus
 EAPSecAccessCreateWithTrustedApplications(CFArrayRef trusted_apps,
 					  CFDataRef label_data,
 					  SecAccessRef * ret_access)
@@ -400,7 +337,7 @@ EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
     CFArrayRef		acl_list = NULL;
     SecAccessRef	access = NULL;
     CFStringRef 	prompt_description = NULL;
-    CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR prompt_selector;
+    SecKeychainPromptSelector prompt_selector;
     OSStatus		status;
 
     status = SecKeychainItemCopyAccess(item, &access);
@@ -412,15 +349,15 @@ EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
 	}
     }
     else {
-	status = SecAccessCopySelectedACLList(access,
-					      CSSM_ACL_AUTHORIZATION_DECRYPT,
-					      &acl_list);
-	if (status != noErr) {
+	acl_list
+	    = SecAccessCopyMatchingACLList(access, kSecACLAuthorizationDecrypt);
+	if (acl_list == NULL) {
+	    status = errSecAllocate;
 	    goto done;
 	}
 	acl = (SecACLRef)CFArrayGetValueAtIndex(acl_list, 0);
-	status = SecACLCopySimpleContents(acl, &app_list, &prompt_description,
-					  &prompt_selector);
+	status = SecACLCopyContents(acl, &app_list, &prompt_description, 
+				    &prompt_selector);
 	if (status == noErr && app_list != NULL) {
 	    int			count;
 	    int			i;
@@ -474,17 +411,17 @@ EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
 		/* no modifications required */
 		goto done;
 	    }
-	    status = SecACLSetSimpleContents(acl, new_list, prompt_description,
-					     &prompt_selector);
+	    status = SecACLSetContents(acl, new_list, prompt_description,
+				       prompt_selector);
 	    CFRelease(new_list);
 	    if (status != noErr) {
 		goto done;
 	    }
 	}
 	else {
-	    status = SecACLSetSimpleContents(acl, trusted_apps,
-					     prompt_description,
-					     &prompt_selector);
+	    status = SecACLSetContents(acl, trusted_apps,
+				       prompt_description,
+				       prompt_selector);
 	    if (status != noErr) {
 		goto done;
 	    }
@@ -806,11 +743,19 @@ EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
 	}
     }
     else if (allow_root != NULL && CFBooleanGetValue(allow_root)) {
-	status = EAPSecAccessCreateWithUid(0, &access);
-	if (status != noErr) {
-	    fprintf(stderr, "EAPSecKeychainPasswordItemCreate "
-		    "failed to get SecAccess for UID 0, %d\n",
-		    (int)status);
+	CFErrorRef	error;
+
+	access = SecAccessCreateWithOwnerAndACL(0, 0, kSecUseOnlyUID,
+						NULL, &error);
+	if (access == NULL) {
+	    status = errSecAllocate;
+	    if (error != NULL) {
+		fprintf(stderr,
+			"EAPSecKeychainPasswordItemCreate(): "
+			"SecAccessCreateWithOwnerAndACL() failed %d\n",
+			(int)CFErrorGetCode(error));
+		CFRelease(error);
+	    }
 	    goto done;
 	}
     }
@@ -835,6 +780,7 @@ EAPSecKeychainPasswordItemCreate(SecKeychainRef keychain,
 
  done:
     my_CFRelease(&unique_id);
+    my_CFRelease(&access);
     return (status);
 }
 
@@ -1202,11 +1148,16 @@ main(int argc, const char *argv[])
 
 #ifdef HAS_KEYCHAINS
 	  if (use_system) {
-	      status = EAPSecAccessCreateWithUid(0, &access);
-	      if (status != noErr) {
-		  fprintf(stderr,
-			  "EAPSecAccessCreateWithUid failed, %s (%d)\n",
-			  EAPSecurityErrorString(status), (int)status);
+	      CFErrorRef	error;
+
+	      access = SecAccessCreateWithOwnerAndACL(0, 0, kSecUseOnlyUID,
+						      NULL, &error);
+	      if (access == NULL) {
+		  if (error != NULL) {
+		      fprintf(stderr,
+			      "SecAccessCreateWithOwnerAndACL() failed %d\n",
+			      (int)CFErrorGetCode(error));
+		  }
 		  exit(2);
 	      }
 	  }

@@ -1,8 +1,8 @@
 /* tls_o.c - Handle tls/ssl using OpenSSL */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/tls_o.c,v 1.5.2.12 2010/04/15 21:25:28 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2008-2010 The OpenLDAP Foundation.
+ * Copyright 2008-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,10 +37,6 @@
 #include "ldap-int.h"
 #include "ldap-tls.h"
 
-#ifdef LDAP_R_COMPILE
-#include <ldap_pvt_thread.h>
-#endif
-
 #ifdef HAVE_OPENSSL_SSL_H
 #include <openssl/ssl.h>
 #include <openssl/x509v3.h>
@@ -70,8 +66,6 @@ static int tlso_verify_cb( int ok, X509_STORE_CTX *ctx );
 static int tlso_pphrase_cb( char *buf, int bufsize, int verify );
 static int tlso_verify_ok( int ok, X509_STORE_CTX *ctx );
 static RSA * tlso_tmp_rsa_cb( SSL *ssl, int is_export, int key_length );
-
-static char *ldap_pvt_tls_util_readfilter( char **args );
 EVP_PKEY *SSL_read_PrivateKey(FILE *fp, EVP_PKEY **key, int (*cb)());
 static DH * tlso_tmp_dh_cb( SSL *ssl, int is_export, int key_length );
 
@@ -129,107 +123,6 @@ static void tlso_thr_init( void )
 
 /*Apple Specific code*/
 
-#define MAX_STRING_LEN 1024
-
-
-pid_t
-forkandexec(
-			char	**args,
-			FILE	**rfp,
-			FILE	**wfp
-			)
-{
-	int	p2c[2] = { -1, -1 }, c2p[2];
-	pid_t	pid;
-	
-	if ( pipe( p2c ) != 0 || pipe( c2p ) != 0 ) {
-		Debug( LDAP_DEBUG_ANY, "pipe failed\n", 0, 0, 0 );
-		close( p2c[0] );
-		close( p2c[1] );
-		return( -1 );
-	}
-	
-	/*
-	 * what we're trying to set up looks like this:
-	 *	parent *wfp -> p2c[1] | p2c[0] -> stdin child
-	 *	parent *rfp <- c2p[0] | c2p[1] <- stdout child
-	 */
-	
-	fflush( NULL );
-# ifdef HAVE_THR
-	pid = fork1();
-# else
-	pid = fork();
-# endif
-	if ( pid == 0 ) {		/* child */
-		/*
-		 * child could deadlock here due to resources locked
-		 * by our parent
-		 *
-		 * If so, configure --without-threads.
-		 */
-		if ( dup2( p2c[0], 0 ) == -1 || dup2( c2p[1], 1 ) == -1 ) {
-			Debug( LDAP_DEBUG_ANY, "dup2 failed\n", 0, 0, 0 );
-			exit( EXIT_FAILURE );
-		}
-	}
-	close( p2c[0] );
-	close( c2p[1] );
-	if ( pid <= 0 ) {
-		close( p2c[1] );
-		close( c2p[0] );
-	}
-	switch ( pid ) {
-		case 0:
-			execv( args[0], args );
-			
-			Debug( LDAP_DEBUG_ANY, "execv failed\n", 0, 0, 0 );
-			exit( EXIT_FAILURE );
-			
-		case -1:	/* trouble */
-			Debug( LDAP_DEBUG_ANY, "fork failed\n", 0, 0, 0 );
-			return( -1 );
-	}
-	
-	/* parent */
-	if ( (*rfp = fdopen( c2p[0], "r" )) == NULL || (*wfp = fdopen( p2c[1],
-																  "w" )) == NULL ) {
-		Debug( LDAP_DEBUG_ANY, "fdopen failed\n", 0, 0, 0 );
-		close( c2p[0] );
-		close( p2c[1] );
-		
-		return( -1 );
-	}
-	
-	return( pid );
-}
-
-/*
- * Run a filter program and read the first line of its stdout output
- */
-char *ldap_pvt_tlso_util_readfilter( char **args )
-{
-    static char buf[MAX_STRING_LEN];
-    FILE *fp;
-    char c;
-    int k;
-    FILE *wfp;
-	
-	if ( forkandexec( args, &fp, &wfp) == -1 )
-        return NULL;
-    close(fileno(wfp));
-    for (k = 0;    read(fileno(fp), &c, 1) == 1
-		 && (k < MAX_STRING_LEN-1)       ; ) {
-        if (c == '\n' || c == '\r')
-            break;
-        buf[k++] = c;
-    }
-    buf[k] = '\0';
-    close(fileno(fp));
-	
-    return buf;
-}
-
 EVP_PKEY *SSL_read_PrivateKey(FILE *fp, EVP_PKEY **key, int (*cb)())
 {
     EVP_PKEY *rc;
@@ -269,6 +162,7 @@ EVP_PKEY *SSL_read_PrivateKey(FILE *fp, EVP_PKEY **key, int (*cb)())
     return rc;
 }
 
+#define SYSTEM_KEYCHAIN_PATH  "/Library/Keychains/System.keychain"
 int tlso_pphrase_cb( char *buf, int bufsize, int verify )
 {
     int len = -1;
@@ -277,29 +171,70 @@ int tlso_pphrase_cb( char *buf, int bufsize, int verify )
      * When a remembered passphrase is available, use it
      */
     if (lo->ldo_tls_passphrase != NULL) {
-        strncpy( buf, lo->ldo_tls_passphrase, bufsize );
-		buf[bufsize-1] = '\0';
-        len = strlen( buf );
-        return len;
+        
+        SecKeychainRef keychainRef = NULL;
+        OSStatus status = SecKeychainOpen( SYSTEM_KEYCHAIN_PATH, &keychainRef );
+        if ( status != errSecSuccess ) {
+            Debug( LDAP_DEBUG_ANY, "TLS: SecKeychainOpen failed for keychain %s: %d",
+                  SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
+            syslog( LOG_ERR, "TLS: SecKeychainOpen failed for keychain %s: %d",
+                   SYSTEM_KEYCHAIN_PATH, (int)status, 0 );
+            cssmPerror( "SecKeychainOpen", status );
+            return len;
+        }
+        char *keychain_identifier = LDAP_STRDUP(lo->ldo_tls_passphrase);
+        CFStringRef keychainCFName = CFStringCreateWithCString(NULL, keychain_identifier, kCFStringEncodingUTF8);
+        if(keychainCFName)
+        {
+            CFRange foundRange;
+            if(CFStringFindWithOptions(keychainCFName, CFSTR("."), CFRangeMake(0, CFStringGetLength(keychainCFName)), kCFCompareCaseInsensitive, &foundRange) == true)
+            {
+                CFStringRef itemName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(0, foundRange.location));
+                CFStringRef accountName = CFStringCreateWithSubstring(NULL, keychainCFName, CFRangeMake(foundRange.location + 1, CFStringGetLength(keychainCFName) - foundRange.location));
+                char *item_name, *account_name;
+                void *passphraseBytes = nil;
+                UInt32 passphraseLength = 0;
+                
+                if(itemName)
+                {
+                    int length = CFStringGetLength(itemName);
+                    item_name = (char*)calloc(1, length + 1);
+                    CFStringGetCString(itemName, item_name, length +1, kCFStringEncodingUTF8);
+                }
+                if(accountName)
+                {
+                    int length = CFStringGetLength(accountName);
+                    account_name = (char*)calloc(1, length + 1);
+                    CFStringGetCString(accountName, account_name, length +1, kCFStringEncodingUTF8);
+                }
+                status = SecKeychainFindGenericPassword(keychainRef, 
+                                                     strlen(item_name),item_name ,
+                                                     strlen(account_name), account_name,
+                                                     &passphraseLength, &passphraseBytes, nil);
+                if(status == 0)
+                {
+                    if(passphraseLength < bufsize)
+                    {
+                        memcpy(buf, passphraseBytes, passphraseLength);
+                        buf[passphraseLength] ='\0';
+                        len = strlen( buf );
+                    }
+                    SecKeychainItemFreeContent(nil, passphraseBytes);
+                }
+                if(item_name)
+                    free(item_name);
+                if(account_name)
+                    free(account_name);
+                if(keychain_identifier)
+                    LDAP_FREE(keychain_identifier);
+            }
+        }
     }
-	
-	if (lo->ldo_tls_passphrase_tool != NULL) {
-        char *result;
-		
-        result = ldap_pvt_tlso_util_readfilter( lo->ldo_tls_passphrase_tool );
-		if (result != NULL) {
-			strncpy( buf, result, bufsize );
-			buf[bufsize-1] = '\0';
-			len = strlen( buf );
-			lo->ldo_tls_passphrase = LDAP_STRDUP( buf );
-		}
-    }
-	
     /*
      * Ok, we now have the pass phrase
      * so return its length to OpenSSL...
      */
-    return (len);
+    return len;
 }
 /* Apple Specific code end*/
 
@@ -372,10 +307,6 @@ tlso_destroy( void )
 	if ( lo->ldo_tls_randfile ) {
 		LDAP_FREE( lo->ldo_tls_randfile );
 		lo->ldo_tls_randfile = NULL;
-	}
-	if ( lo->ldo_tls_passphrase_tool ) {
-		LDAP_VFREE( lo->ldo_tls_passphrase_tool );
-		lo->ldo_tls_passphrase_tool = NULL;
 	}
 	if ( lo->ldo_tls_passphrase ) {
 		memset( lo->ldo_tls_passphrase, 0, strlen(lo->ldo_tls_passphrase));
@@ -1441,14 +1372,10 @@ tlso_tmp_dh_cb( SSL *ssl, int is_export, int key_length )
 	int i;
 
 	/* Do we have params of this length already? */
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_lock( &tlso_dh_mutex );
-#endif
+	LDAP_MUTEX_LOCK( &tlso_dh_mutex );
 	for ( p = tlso_dhparams; p; p=p->next ) {
 		if ( p->keylength == key_length ) {
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_unlock( &tlso_dh_mutex );
-#endif
+			LDAP_MUTEX_UNLOCK( &tlso_dh_mutex );
 			return p->param;
 		}
 	}
@@ -1481,9 +1408,7 @@ tlso_tmp_dh_cb( SSL *ssl, int is_export, int key_length )
 		}
 	}
 
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &tlso_dh_mutex );
-#endif
+	LDAP_MUTEX_UNLOCK( &tlso_dh_mutex );
 	return dh;
 }
 
@@ -1575,6 +1500,7 @@ tlso_use_cert_from_keychain( struct ldapoptions *lo )
 
 	return rc;
 }
+
 #endif
 
 #endif /* HAVE_OPENSSL */

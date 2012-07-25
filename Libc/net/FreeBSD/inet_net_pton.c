@@ -18,6 +18,10 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char rcsid[] = "$Id: inet_net_pton.c,v 1.7.18.2 2008/08/26 04:42:43 marka Exp $";
 #endif
+
+/* the algorithms only can deal with ASCII, so we optimize for it */
+#define USE_ASCII
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/inet/inet_net_pton.c,v 1.4 2008/12/14 19:39:53 ume Exp $");
 

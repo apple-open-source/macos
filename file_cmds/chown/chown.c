@@ -69,7 +69,7 @@ __RCSID("$FreeBSD: src/usr.sbin/chown/chown.c,v 1.24 2002/07/17 16:22:24 dwmalon
 void	a_gid(const char *);
 void	a_uid(const char *);
 void	chownerr(const char *);
-u_long	id(const char *, const char *);
+static uid_t	id(const char *, const char *);
 void	usage(void);
 
 uid_t uid;
@@ -258,23 +258,17 @@ a_uid(const char *s)
 	uid = ((pw = getpwnam(s)) != NULL) ? pw->pw_uid : id(s, "user");
 }
 
-u_long
+static uid_t
 id(const char *name, const char *type)
 {
-	u_long val;
+	unsigned long val;
 	char *ep;
 
-	/*
-	 * XXX
-	 * We know that uid_t's and gid_t's are unsigned longs.
-	 */
 	errno = 0;
 	val = strtoul(name, &ep, 10);
-	if (errno)
-		err(1, "%s", name);
-	if (*ep != '\0')
+	if (errno || *ep != '\0' || val > UID_MAX)
 		errx(1, "%s: illegal %s name", name, type);
-	return (val);
+	return (uid_t)val;
 }
 
 void

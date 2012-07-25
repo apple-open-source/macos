@@ -29,5 +29,5 @@
 int ppp_mach_start_server();
 
 
-#endif _PPP_MACH_SERVER_H
+#endif /* _PPP_MACH_SERVER_H */
 

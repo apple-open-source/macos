@@ -277,7 +277,7 @@ basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength, 
 	
     /* add a trailing slash if needed */
     if ( path[length] != '/' ) {
-		strcat(path, "/");
+		strlcat(path, "/", length + 2);
     }
     
     /* find the first colon (if any) and the first slash */
@@ -563,7 +563,7 @@ AttemptMount(const char *urlPtr, const char *mountPointPtr,  u_int32_t options, 
 		*options_str = '\0';
 		if (fd != -1) {
 			/* add the -a<fd> option */
-			sprintf(options_str, "-a%d", fd);
+			snprintf(options_str, MAXNAMLEN + 21, "-a%d", fd);
 		}
 #if 0 /* XXX */
 		if (options & kSuppressAllUI) {
@@ -580,18 +580,18 @@ AttemptMount(const char *urlPtr, const char *mountPointPtr,  u_int32_t options, 
 			/* add the -v<volumename> option */
 			if (*options_str != '\0') {
 				/* add comma if there are already options */
-				strcat(options_str, ",");
+				strlcat(options_str, ",", MAXNAMLEN + 21);
 			}
-			strcat(options_str, "-v");
-			strcat(options_str, volumename);
+			strlcat(options_str, "-v", MAXNAMLEN + 21);
+			strlcat(options_str, volumename, MAXNAMLEN + 21);
 		}
 		if (hostisidisk) {
 			/* add the -s option */
 			if (*options_str != '\0') {
 				/* add comma if there are already options */
-				strcat(options_str, ",");
+				strlcat(options_str, ",", MAXNAMLEN + 21);
 			}
-			strcat(options_str, "-s");
+			strlcat(options_str, "-s", MAXNAMLEN + 21);
 		}
 		
 		if (*options_str == '\0') {
@@ -785,8 +785,11 @@ WebDAVMountURL(const char *url,
 				
 				if (write(fd, &be_len, sizeof be_len) > 0) {
 					if (write(fd, username, len) > 0) {
-						be_len = htonl(strlen(password));
-						if (write(fd, &be_len, sizeof be_len) > 0)
+						if (password)
+							be_len = htonl(strlen(password));
+						else
+							be_len = 0;
+						if ((write(fd, &be_len, sizeof be_len) > 0) && password)
 							write(fd, password, strlen(password));
 					}
 				}
@@ -804,8 +807,11 @@ WebDAVMountURL(const char *url,
 				be_len = htonl(len);
 				if (write(fd, &be_len, sizeof be_len) > 0) {
 					if (write(fd, proxy_username, len) > 0) {
-						be_len = htonl(strlen(proxy_password));
-						if (write(fd, &be_len, sizeof be_len) > 0)
+						if (proxy_password)
+							be_len = htonl(strlen(proxy_password));
+						else
+							be_len = 0;
+						if ((write(fd, &be_len, sizeof be_len) > 0) && proxy_password)
 							write(fd, proxy_password, strlen(proxy_password));
 					}
 				}
@@ -830,7 +836,7 @@ WebDAVMountURL(const char *url,
 		   url, mountpoint);
 #endif
 	
-    if (error = AttemptMount(url, mountpoint, options, fd, basename, hostisidisk)) {
+    if ((error = AttemptMount(url, mountpoint, options, fd, basename, hostisidisk))) {
 #if DEBUG_TRACE
 		syslog(LOG_DEBUG, 
 			   "WebDAV_MountURLWithAuthentication: AttemptMount returned %d\n", 
@@ -1093,6 +1099,7 @@ netfsError WebDAV_ParseURL(CFURLRef in_URL, CFDictionaryRef *out_URLParms)
     CFStringRef host = NULL;
     CFStringRef port = NULL;
     CFStringRef path = NULL;
+    CFStringRef unescaped_path = NULL;
     CFStringRef user = NULL;
     CFStringRef pass = NULL;
     netfsError error = 0;
@@ -1159,8 +1166,16 @@ netfsError WebDAV_ParseURL(CFURLRef in_URL, CFDictionaryRef *out_URLParms)
     /* Get optional path */
     path = CFURLCopyPath(in_URL);
     if (path != NULL) {
-		CFDictionarySetValue(mutableDict, kNetFSPathKey, path);
+		unescaped_path = CFURLCreateStringByReplacingPercentEscapes(NULL,
+			path, CFSTR(""));
+		if (unescaped_path == NULL) {
+			CFRelease(path);
+			error = ENOMEM;
+			goto exit;
+		}
 		CFRelease(path);
+		CFDictionarySetValue(mutableDict, kNetFSPathKey, unescaped_path);
+		CFRelease(unescaped_path);
     }
     
     /* If we reached this point we have no errors, 

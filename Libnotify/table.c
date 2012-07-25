@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Portions Copyright (c) 2003-2009 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,20 +25,38 @@
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
+#include <assumes.h>
 #include "table.h"
+
+/* osx_assumes() is not available in the Simulator <rdar://problem/9933432> */
+#include <TargetConditionals.h>
+#if TARGET_IPHONE_SIMULATOR
+#undef osx_assumes
+#define osx_assumes(e) ({ typeof(e) _e = (e); _e; })
+#endif
+
+#define KEY_UNKNOWN    0
+#define KEY_INT        1
+#define KEY_STR_MINE   2
+#define KEY_STR_SHARED 3
 
 #define DEFAULT_SIZE 256
 
 typedef struct table_node_s
 {
-	char *key;
-	uint32_t nkey;
+	union
+	{
+		char *string;
+		const char *const_string;
+		uint64_t uint64;
+	} key;
 	void *datum;
 	struct table_node_s *next;
 } table_node_t;
 
 typedef struct __table_private
 {
+	uint32_t type;
 	uint32_t bucket_count;
 	table_node_t **bucket;
 } table_private_t;
@@ -69,6 +85,7 @@ _nc_table_new(uint32_t n)
 
 	if (n == 0) n = DEFAULT_SIZE;
 
+	t->type = KEY_UNKNOWN;
 	t->bucket_count = n;
 	t->bucket = (table_node_t **)calloc(t->bucket_count, sizeof(table_node_t *));
 	if (t->bucket == NULL)
@@ -99,13 +116,15 @@ hash_key(int size, const char *key)
 }
 
 static uint32_t
-hash_nkey(int size, uint32_t key)
+hash_nkey(uint32_t size, uint64_t key)
 {
-	return (key % size);
+	uint32_t x = key;
+	uint32_t y = key >> 32;
+	return ((x ^ y) % size);
 }
 
 void *
-_nc_table_find(table_t *tin, const char *key)
+_nc_table_find_get_key(table_t *tin, const char *key, const char **shared_key)
 {
 	table_private_t *t;
 	table_node_t *n;
@@ -114,19 +133,31 @@ _nc_table_find(table_t *tin, const char *key)
 	if (tin == NULL) return NULL;
 	if (key == NULL) return NULL;
 
+	if (shared_key != NULL) *shared_key = NULL;
+
 	t = (table_private_t *)tin;
 	b = hash_key(t->bucket_count, key);
 
 	for (n = t->bucket[b]; n != NULL; n = n->next)
 	{
-		if ((n->key != NULL) && (!strcmp(key, n->key))) return n->datum;
+		if ((n->key.string != NULL) && (!strcmp(key, n->key.string)))
+		{
+			if (shared_key != NULL) *shared_key = n->key.const_string;
+			return n->datum;
+		}
 	}
 
 	return NULL;
 }
 
 void *
-_nc_table_find_n(table_t *tin, uint32_t key)
+_nc_table_find(table_t *tin, const char *key)
+{
+	return _nc_table_find_get_key(tin, key, NULL);
+}
+
+void *
+_nc_table_find_64(table_t *tin, uint64_t key)
 {
 	table_private_t *t;
 	table_node_t *n;
@@ -139,28 +170,104 @@ _nc_table_find_n(table_t *tin, uint32_t key)
 
 	for (n = t->bucket[b]; n != NULL; n = n->next)
 	{
-		if ((n->nkey != (uint32_t)-1) && (key == n->nkey)) return n->datum;
+		if ((n->key.uint64 != (uint64_t)-1) && (key == n->key.uint64)) return n->datum;
 	}
 
 	return NULL;
 }
 
-void
-_nc_table_insert(table_t *tin, const char *key, void *datum)
+void *
+_nc_table_find_n(table_t *tin, uint32_t key)
+{
+	uint64_t n64 = key;
+	return _nc_table_find_64(tin, n64);
+}
+
+static void
+_nc_table_insert_type(table_t *tin, int type, char *key, const char *ckey, void *datum)
 {
 	table_private_t *t;
 	table_node_t *n;
 	uint32_t b;
 
 	if (tin == NULL) return;
-	if (key == NULL) return;
+	if ((key == NULL) && (ckey == NULL)) return;
 	if (datum == NULL) return;
 
 	t = (table_private_t *)tin;
-	b = hash_key(t->bucket_count, key);
+	if (t->type == KEY_UNKNOWN) t->type = type;
+	else (void)osx_assumes(t->type == type);
+
 	n = (table_node_t *)malloc(sizeof(table_node_t));
-	n->key = strdup(key);
-	n->nkey = (uint32_t)-1;
+
+	if (key != NULL)
+	{
+		b = hash_key(t->bucket_count, key);
+		n->key.string = key;
+	}
+	else
+	{
+		b = hash_key(t->bucket_count, ckey);
+		n->key.const_string = ckey;
+	}
+
+	n->datum = datum;
+	n->next = t->bucket[b];
+	t->bucket[b] = n;
+}
+
+void
+_nc_table_insert(table_t *tin, const char *key, void *datum)
+{
+	char *dup;
+
+	if (tin == NULL) return;
+	if (key == NULL) return;
+	if (datum == NULL) return;
+
+	dup = strdup(key);
+	if (dup == NULL) return;
+
+	_nc_table_insert_type(tin, KEY_STR_MINE, dup, NULL, datum);
+}
+
+void
+_nc_table_insert_no_copy(table_t *tin, const char *key, void *datum)
+{
+	if (tin == NULL) return;
+	if (key == NULL) return;
+	if (datum == NULL) return;
+
+	_nc_table_insert_type(tin, KEY_STR_SHARED, NULL, key, datum);
+}
+
+void
+_nc_table_insert_pass(table_t *tin, char *key, void *datum)
+{
+	if (tin == NULL) return;
+	if (key == NULL) return;
+	if (datum == NULL) return;
+
+	_nc_table_insert_type(tin, KEY_STR_MINE, key, NULL, datum);
+}
+
+void
+_nc_table_insert_64(table_t *tin, uint64_t key, void *datum)
+{
+	table_private_t *t;
+	table_node_t *n;
+	uint32_t b;
+
+	if (tin == NULL) return;
+	if (datum == NULL) return;
+
+	t = (table_private_t *)tin;
+	if (t->type == KEY_UNKNOWN) t->type = KEY_INT;
+	else (void)osx_assumes(t->type == KEY_INT);
+
+	b = hash_nkey(t->bucket_count, key);
+	n = (table_node_t *)malloc(sizeof(table_node_t));
+	n->key.uint64 = key;
 	n->datum = datum;
 	n->next = t->bucket[b];
 	t->bucket[b] = n;
@@ -169,21 +276,8 @@ _nc_table_insert(table_t *tin, const char *key, void *datum)
 void
 _nc_table_insert_n(table_t *tin, uint32_t key, void *datum)
 {
-	table_private_t *t;
-	table_node_t *n;
-	uint32_t b;
-
-	if (tin == NULL) return;
-	if (datum == NULL) return;
-
-	t = (table_private_t *)tin;
-	b = hash_nkey(t->bucket_count, key);
-	n = (table_node_t *)malloc(sizeof(table_node_t));
-	n->key = NULL;
-	n->nkey = key;
-	n->datum = datum;
-	n->next = t->bucket[b];
-	t->bucket[b] = n;
+	uint64_t n64 = key;
+	_nc_table_insert_64(tin, n64, datum);
 }
 
 void
@@ -197,16 +291,46 @@ _nc_table_delete(table_t *tin, const char *key)
 	if (key == NULL) return;
 
 	t = (table_private_t *)tin;
+	(void)osx_assumes((t->type == KEY_STR_MINE) || (t->type == KEY_STR_SHARED));
+
 	b = hash_key(t->bucket_count, key);
 
 	p = NULL;
 	for (n = t->bucket[b]; n != NULL; n = n->next)
 	{
-		if ((n->key != NULL) && (!strcmp(key, n->key)))
+		if ((n->key.string != NULL) && (!strcmp(key, n->key.string)))
 		{
 			if (p == NULL) t->bucket[b] = n->next;
 			else p->next = n->next;
-			if (n->key != NULL) free(n->key);
+			if (t->type == KEY_STR_MINE) free(n->key.string);
+			free(n);
+			return;
+		}
+		p = n;
+	}
+}
+
+void
+_nc_table_delete_64(table_t *tin, uint64_t key)
+{
+	table_private_t *t;
+	table_node_t *n, *p;
+	uint32_t b;
+
+	if (tin == NULL) return;
+
+	t = (table_private_t *)tin;
+	(void)osx_assumes(t->type == KEY_INT);
+
+	b = hash_nkey(t->bucket_count, key);
+
+	p = NULL;
+	for (n = t->bucket[b]; n != NULL; n = n->next)
+	{
+		if ((n->key.uint64 != (uint64_t)-1) && (key == n->key.uint64))
+		{
+			if (p == NULL) t->bucket[b] = n->next;
+			else p->next = n->next;
 			free(n);
 			return;
 		}
@@ -217,28 +341,8 @@ _nc_table_delete(table_t *tin, const char *key)
 void
 _nc_table_delete_n(table_t *tin, uint32_t key)
 {
-	table_private_t *t;
-	table_node_t *n, *p;
-	uint32_t b;
-
-	if (tin == NULL) return;
-
-	t = (table_private_t *)tin;
-	b = hash_nkey(t->bucket_count, key);
-
-	p = NULL;
-	for (n = t->bucket[b]; n != NULL; n = n->next)
-	{
-		if ((n->nkey != (uint32_t)-1) && (key == n->nkey))
-		{
-			if (p == NULL) t->bucket[b] = n->next;
-			else p->next = n->next;
-			if (n->key != NULL) free(n->key);
-			free(n);
-			return;
-		}
-		p = n;
-	}
+	uint64_t n64 = key;
+	_nc_table_delete_64(tin, n64);
 }
 
 void *
@@ -328,7 +432,7 @@ _nc_table_free(table_t *tin)
 		for (n = t->bucket[b]; n != NULL; n = x)
 		{
 			x = n->next;
-			free(n->key);
+			if (t->type == KEY_STR_MINE) free(n->key.string);
 			free(n);
 		}
 	}
@@ -578,7 +682,7 @@ _nc_list_find_release(list_t *l, void *d)
 		_nc_list_release(l);
 		return p;
 	}
-		
+
 	for (p = l->next; p != NULL; p = p->next)
 	{
 		if (p->data == d)

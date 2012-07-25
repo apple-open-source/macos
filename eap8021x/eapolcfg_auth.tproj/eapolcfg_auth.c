@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,9 +50,11 @@
 #include <SystemConfiguration/SCValidation.h>
 #include "EAPOLClientConfiguration.h"
 #include "EAPOLClientConfigurationPrivate.h"
+#include "EAPCertificateUtil.h"
 #include "symbol_scope.h"
 #include "eapolcfg_authServer.h"
 #include "eapolcfg_auth_types.h"
+#include "myCFUtil.h"
 
 STATIC Boolean	S_handled_request;
 
@@ -91,26 +93,6 @@ my_CFPropertyListCreateVMData(CFPropertyListRef plist,
  done:
     my_CFRelease(&xml_data);
     return (data);
-}
-
-STATIC CFPropertyListRef
-my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
-{
-    CFPropertyListRef	plist;
-    CFDataRef		xml_data;
-
-    xml_data = CFDataCreateWithBytesNoCopy(NULL, 
-					   (const UInt8 *)data, data_len,
-					   kCFAllocatorNull);
-    if (xml_data == NULL) {
-	return (NULL);
-    }
-    plist = CFPropertyListCreateFromXMLData(NULL,
-					    xml_data,
-					    kCFPropertyListImmutable,
-					    NULL);
-    CFRelease(xml_data);
-    return (plist);
 }
 
 STATIC Boolean

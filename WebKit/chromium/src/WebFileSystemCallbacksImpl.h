@@ -32,9 +32,9 @@
 #define WebFileSystemCallbacksImpl_h
 
 #include "AsyncFileSystem.h"
-#include "WebFileSystem.h"
+#include "platform/WebFileSystem.h"
 #include "WebFileSystemCallbacks.h"
-#include "WebVector.h"
+#include "platform/WebVector.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -48,6 +48,7 @@ namespace WebKit {
 struct WebFileInfo;
 struct WebFileSystemEntry;
 class WebString;
+class WebURL;
 
 class WebFileSystemCallbacksImpl : public WebFileSystemCallbacks {
 public:
@@ -57,7 +58,7 @@ public:
     virtual void didSucceed();
     virtual void didReadMetadata(const WebFileInfo& info);
     virtual void didReadDirectory(const WebVector<WebFileSystemEntry>& entries, bool hasMore);
-    virtual void didOpenFileSystem(const WebString& name, const WebString& rootPath);
+    virtual void didOpenFileSystem(const WebString& name, const WebURL& rootURL);
     virtual void didFail(WebFileError error);
 
 private:

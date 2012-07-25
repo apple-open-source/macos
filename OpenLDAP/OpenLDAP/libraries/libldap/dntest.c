@@ -1,8 +1,8 @@
 /* dntest.c -- OpenLDAP DN API Test Program */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dntest.c,v 1.27.2.5 2010/04/13 20:22:56 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -81,11 +81,9 @@ main( int argc, char *argv[] )
 	}
 
 	if ( strcmp( argv[ 1 ], "-" ) == 0 ) {
-		size_t len;
-		
-		fgets( buf, sizeof( buf ), stdin );
-		len = strlen( buf );
-		if ( len > 0 && buf[ --len ] == '\n' ) {
+		size_t len = fgets( buf, sizeof( buf ), stdin ) ? strlen( buf ) : 0;
+
+		if ( len == 0 || buf[ --len ] == '\n' ) {
 			buf[ len ] = '\0';
 		}
 		strin = buf;
@@ -296,4 +294,3 @@ main( int argc, char *argv[] )
 
 	return( 0 );
 }
-

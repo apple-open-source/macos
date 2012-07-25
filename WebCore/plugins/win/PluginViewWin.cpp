@@ -472,6 +472,17 @@ void PluginView::setFocus(bool focused)
         SetFocus(platformPluginWidget());
 
     Widget::setFocus(focused);
+
+    if (!m_plugin || m_isWindowed)
+        return;
+
+    NPEvent npEvent;
+
+    npEvent.event = focused ? WM_SETFOCUS : WM_KILLFOCUS;
+    npEvent.wParam = 0;
+    npEvent.lParam = 0;
+
+    dispatchNPEvent(npEvent);
 }
 
 void PluginView::show()
@@ -508,13 +519,13 @@ bool PluginView::dispatchNPEvent(NPEvent& npEvent)
 
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
-    bool result = m_plugin->pluginFuncs()->event(m_instance, &npEvent);
+    bool accepted = !m_plugin->pluginFuncs()->event(m_instance, &npEvent);
     setCallingPlugin(false);
 
     if (shouldPop) 
         popPopupsEnabledState();
 
-    return result;
+    return accepted;
 }
 
 void PluginView::paintIntoTransformedContext(HDC hdc)
@@ -625,7 +636,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     // In the Qt port we always draw in an offscreen buffer and therefore need to preserve
     // the translation set in getWindowsContext.
 #if !PLATFORM(QT) && !OS(WINCE)
-    if (!context->inTransparencyLayer()) {
+    if (!context->isInTransparencyLayer()) {
         XFORM transform;
         GetWorldTransform(windowsContext.hdc(), &transform);
         transform.eDx = 0;
@@ -639,20 +650,26 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
 void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
+    ASSERT(m_plugin && !m_isWindowed);
+
     NPEvent npEvent;
 
-    npEvent.wParam = event->keyCode();    
+    npEvent.wParam = event->keyCode();
 
     if (event->type() == eventNames().keydownEvent) {
         npEvent.event = WM_KEYDOWN;
         npEvent.lParam = 0;
+    } else if (event->type() == eventNames().keypressEvent) {
+        npEvent.event = WM_CHAR;
+        npEvent.lParam = 0;
     } else if (event->type() == eventNames().keyupEvent) {
         npEvent.event = WM_KEYUP;
         npEvent.lParam = 0x8000;
-    }
+    } else
+        return;
 
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-    if (!dispatchNPEvent(npEvent))
+    if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
@@ -662,6 +679,8 @@ extern bool ignoreNextSetCursor;
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
+    ASSERT(m_plugin && !m_isWindowed);
+
     NPEvent npEvent;
 
     IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(IntPoint(event->pageX(), event->pageY()));
@@ -720,7 +739,8 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         return;
 
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
-    if (!dispatchNPEvent(npEvent))
+    // FIXME: Consider back porting the http://webkit.org/b/58108 fix here.
+    if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 
 #if !PLATFORM(QT) && !PLATFORM(WX) && !OS(WINCE)
@@ -728,7 +748,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     // and since we don't want that we set ignoreNextSetCursor to true here to prevent that.
     ignoreNextSetCursor = true;
     if (Page* page = m_parentFrame->page())
-        page->chrome()->client()->setLastSetCursorToCurrentCursor();    
+        page->chrome()->client()->setLastSetCursorToCurrentCursor();
 #endif
 }
 
@@ -1044,36 +1064,6 @@ PassRefPtr<Image> PluginView::snapshot()
 #else
     return 0;
 #endif
-}
-
-void PluginView::halt()
-{
-    ASSERT(!m_isHalted);
-    ASSERT(m_isStarted);
-
-#if !PLATFORM(QT)
-    // Show a screenshot of the plug-in.
-    toRenderWidget(m_element->renderer())->showSubstituteImage(snapshot());
-#endif
-
-    m_isHalted = true;
-    m_hasBeenHalted = true;
-
-    stop();
-    platformDestroy();
-}
-
-void PluginView::restart()
-{
-    ASSERT(!m_isStarted);
-    ASSERT(m_isHalted);
-
-    // Clear any substitute image.
-    toRenderWidget(m_element->renderer())->showSubstituteImage(0);
-
-    m_isHalted = false;
-    m_haveUpdatedPluginWidget = false;
-    start();
 }
 
 } // namespace WebCore

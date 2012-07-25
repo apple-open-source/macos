@@ -98,18 +98,21 @@ u_int32_t loglevel = 0;
 int
 com_init()
 {
-	struct sockaddr_un name;
+    union {             // Wcast-align fix - force alignment of sockaddr_un
+        struct sockaddr_storage ss; 
+        struct sockaddr_un name;
+    } u;
 
-	memset(&name, 0, sizeof(name));
-	name.sun_family = AF_UNIX;
-	snprintf(name.sun_path, sizeof(name.sun_path),
+	memset(&u, 0, sizeof(struct sockaddr_un));
+	u.name.sun_family = AF_UNIX;
+	snprintf(u.name.sun_path, sizeof(u.name.sun_path),
 		"%s", adminsock_path);
 
 	so = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (so < 0)
 		return -1;
 
-	if (connect(so, (struct sockaddr *)&name, sizeof(name)) < 0) {
+	if (connect(so, (struct sockaddr *)&u.ss, sizeof(struct sockaddr_un)) < 0) {
 		(void)close(so);
 		return -1;
 	}
@@ -136,8 +139,7 @@ int
 com_recv(combufp) 
 	vchar_t **combufp;
 {
-	struct admin_com h, *com;
-	caddr_t buf;
+	struct admin_com h;
 	int len;
 	int l = 0;
 	caddr_t p;
@@ -186,7 +188,7 @@ bad1:
  * Dumb plog functions (used by sockmisc.c) 
  */
 void
-plog_func(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
+plog_func(int pri, const char *func, struct sockaddr_storage *sa, const char *fmt, ...)
 {
 	va_list ap;
 

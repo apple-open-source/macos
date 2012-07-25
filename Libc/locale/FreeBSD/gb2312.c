@@ -28,6 +28,8 @@
 #include <sys/param.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/gb2312.c,v 1.10 2007/10/13 16:28:21 ache Exp $");
 
+#include "xlocale_private.h"
+
 #include <errno.h>
 #include <runetype.h>
 #include <stdlib.h>
@@ -35,34 +37,32 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/gb2312.c,v 1.10 2007/10/13 16:28:21 ache
 #include <wchar.h>
 #include "mblocal.h"
 
-extern int __mb_sb_limit;
+#define GB2312_MB_CUR_MAX	2
 
 static size_t	_GB2312_mbrtowc(wchar_t * __restrict, const char * __restrict,
-		    size_t, mbstate_t * __restrict);
-static int	_GB2312_mbsinit(const mbstate_t *);
+		    size_t, mbstate_t * __restrict, locale_t);
+static int	_GB2312_mbsinit(const mbstate_t *, locale_t);
 static size_t	_GB2312_wcrtomb(char * __restrict, wchar_t,
-		    mbstate_t * __restrict);
-
+		    mbstate_t * __restrict, locale_t);
 typedef struct {
 	int	count;
 	u_char	bytes[2];
 } _GB2312State;
 
-int
-_GB2312_init(_RuneLocale *rl)
+__private_extern__ int
+_GB2312_init(struct __xlocale_st_runelocale *xrl)
 {
 
-	_CurrentRuneLocale = rl;
-	__mbrtowc = _GB2312_mbrtowc;
-	__wcrtomb = _GB2312_wcrtomb;
-	__mbsinit = _GB2312_mbsinit;
-	__mb_cur_max = 2;
-	__mb_sb_limit = 128;
+	xrl->__mbrtowc = _GB2312_mbrtowc;
+	xrl->__wcrtomb = _GB2312_wcrtomb;
+	xrl->__mbsinit = _GB2312_mbsinit;
+	xrl->__mb_cur_max = GB2312_MB_CUR_MAX;
+	xrl->__mb_sb_limit = 128;
 	return (0);
 }
 
 static int
-_GB2312_mbsinit(const mbstate_t *ps)
+_GB2312_mbsinit(const mbstate_t *ps, locale_t loc __unused)
 {
 
 	return (ps == NULL || ((const _GB2312State *)ps)->count == 0);
@@ -93,7 +93,7 @@ _GB2312_check(const char *str, size_t n)
 
 static size_t
 _GB2312_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
-    mbstate_t * __restrict ps)
+    mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_GB2312State *gs;
 	wchar_t wc;
@@ -113,7 +113,7 @@ _GB2312_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 		pwc = NULL;
 	}
 
-	ncopy = MIN(MIN(n, MB_CUR_MAX), sizeof(gs->bytes) - gs->count);
+	ncopy = MIN(MIN(n, GB2312_MB_CUR_MAX), sizeof(gs->bytes) - gs->count);
 	memcpy(gs->bytes + gs->count, s, ncopy);
 	ocount = gs->count;
 	gs->count += ncopy;
@@ -133,7 +133,7 @@ _GB2312_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 }
 
 static size_t
-_GB2312_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
+_GB2312_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_GB2312State *gs;
 

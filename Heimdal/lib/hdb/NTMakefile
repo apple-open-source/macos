@@ -33,28 +33,11 @@ RELDIR=lib\hdb
 
 !include ../../windows/NTMakefile.w32 
 
-gen_files_hdb = \
-	$(OBJ)\asn1_Salt.x \
-	$(OBJ)\asn1_Key.x \
-	$(OBJ)\asn1_Event.x \
-	$(OBJ)\asn1_HDBFlags.x \
-	$(OBJ)\asn1_GENERATION.x \
-	$(OBJ)\asn1_HDB_Ext_PKINIT_acl.x \
-	$(OBJ)\asn1_HDB_Ext_PKINIT_cert.x \
-	$(OBJ)\asn1_HDB_Ext_PKINIT_hash.x \
-	$(OBJ)\asn1_HDB_Ext_Constrained_delegation_acl.x \
-	$(OBJ)\asn1_HDB_Ext_Lan_Manager_OWF.x \
-	$(OBJ)\asn1_HDB_Ext_Password.x \
-	$(OBJ)\asn1_HDB_Ext_Aliases.x \
-	$(OBJ)\asn1_HDB_extension.x \
-	$(OBJ)\asn1_HDB_extensions.x \
-	$(OBJ)\asn1_hdb_entry.x \
-	$(OBJ)\asn1_hdb_entry_alias.x \
-	$(OBJ)\asn1_hdb_keyset.x
+gen_files_hdb = $(OBJ)\asn1_hdb_asn1.x
 
 $(gen_files_hdb) $(OBJ)\hdb_asn1.hx $(OBJ)\hdb_asn1-priv.hx: $(BINDIR)\asn1_compile.exe hdb.asn1
 	cd $(OBJ)
-	$(BINDIR)\asn1_compile.exe $(SRCDIR)\hdb.asn1 hdb_asn1
+	$(BINDIR)\asn1_compile.exe --sequence=HDB-Ext-KeySet --sequence=Keys --one-code-file $(SRCDIR)\hdb.asn1 hdb_asn1
 	cd $(SRCDIR)
 
 $(gen_files_hdb:.x=.c): $$(@R).x
@@ -67,9 +50,7 @@ ldap_objs = $(OBJ)\hdb-ldap.obj
 
 $(ldap_dll): $(ldap_objs)
 	$(DLLGUILINK) -implib:$(ldap_lib)
-	$(_VC_MANIFEST_EMBED_DLL)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(DLLPREP)
 
 clean::
 	-$(RM) $(ldap_dll)
@@ -142,11 +123,16 @@ INCFILES=			\
 
 !ifndef STATICLIBS
 
+RES=$(OBJ)\libhdb-version.res
+
 $(LIBHDB): $(BINDIR)\libhdb.dll
 
-$(BINDIR)\libhdb.dll: $(libhdb_OBJs) $(ldap_lib) $(LIBKRB5) $(LIBASN1) $(LIBSQLITE) $(LIBCOMERR) $(LIBROKEN)
+$(BINDIR)\libhdb.dll: $(libhdb_OBJs) $(ldap_lib) $(LIBHEIMDAL) $(LIBSQLITE) $(LIBCOMERR) $(LIBROKEN) $(RES)
 	$(DLLGUILINK) -def:libhdb-exports.def -implib:$(LIBHDB)
 	$(DLLPREP)
+
+clean::
+	-$(RM) $(BINDIR)\libhdb.*
 
 !else
 
@@ -165,18 +151,17 @@ test:: test-binaries test-run
 
 test-binaries: $(OBJ)\test_dbinfo.exe $(OBJ)\test_hdbkeys.exe
 
-$(OBJ)\test_dbinfo.exe: $(OBJ)\test_dbinfo.obj $(LIBHDB) $(LIBKRB5) $(LIBROKEN) $(LIBVERS)
+$(OBJ)\test_dbinfo.exe: $(OBJ)\test_dbinfo.obj $(LIBHDB) $(LIBHEIMDAL) $(LIBROKEN) $(LIBVERS)
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
+	$(EXEPREP_NODIST)
 
-$(OBJ)\test_hdbkeys.exe: $(OBJ)\test_hdbkeys.obj $(LIBHDB) $(LIBKRB5) $(LIBROKEN) $(LIBASN1) $(LIBVERS)
+$(OBJ)\test_hdbkeys.exe: $(OBJ)\test_hdbkeys.obj $(LIBHDB) $(LIBHEIMDAL) $(LIBROKEN) $(LIBVERS)
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
+	$(EXEPREP_NODIST)
 
 test-run:
 	cd $(OBJ)
 	test_dbinfo.exe
-	test_hdbkeys.exe
 	cd $(SRCDIR)
 
 !ifdef OPENLDAP_INC
@@ -187,9 +172,13 @@ openldap_inc_flag=
 
 hdb_cflags=$(openldap_inc_flag) -I$(OBJ)
 
-{}.c{$(OBJ)}.obj:
-	$(C2OBJ) $(hdb_cflags)
+{}.c{$(OBJ)}.obj::
+	$(C2OBJ_P) $(hdb_cflags) -DASN1_LIB
 
-{$(OBJ)}.c{$(OBJ)}.obj:
-	$(C2OBJ) $(hdb_cflags)
+{$(OBJ)}.c{$(OBJ)}.obj::
+	$(C2OBJ_P) $(hdb_cflags)
 
+test-exports:
+	$(PERL) ..\..\cf\w32-check-exported-symbols.pl --vs version-script.map --def libhdb-exports.def
+
+test:: test-exports

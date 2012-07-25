@@ -135,7 +135,7 @@ int ppp_new_service(struct service *serv)
     CFURLRef		url;
     u_char			str[MAXPATHLEN], str2[32];
 
-   //  SCLog(TRUE, LOG_INFO, CFSTR("ppp_new_service, subtype = %%@, serviceID = %@\n"), serv->subtypeRef, serv->serviceID);
+   //  SCLog(TRUE, LOG_INFO, CFSTR("ppp_new_service, subtype = %%@, serviceID = %@."), serv->subtypeRef, serv->serviceID);
 
     serv->u.ppp.ndrv_socket = -1;
     serv->u.ppp.phase = PPP_IDLE;
@@ -207,6 +207,10 @@ void display_error(struct service *serv)
     if ((serv->flags & FLAG_ALERTERRORS) == 0)
         return;
 	
+#if !TARGET_OS_EMBEDDED
+    if (serv->flags & FLAG_DARKWAKE)
+        return;
+#endif
 	/* <rdar://6701793>, we do not want to display error if the device is gone and ppp ONTRAFFIC mode is enabled */
     if ((serv->flags & FLAG_ONTRAFFIC) && (serv->u.ppp.laststatus == EXIT_DEVICE_ERROR))
         return;
@@ -371,6 +375,7 @@ int ppp_setup_service(struct service *serv)
 		FLAG_SETUP_PREVENTIDLESLEEP +
 		FLAG_SETUP_DISCONNECTONFASTUSERSWITCH +
 		FLAG_SETUP_ONDEMAND +
+		FLAG_DARKWAKE + 
 		FLAG_SETUP_PERSISTCONNECTION);
 
 	my_CFRelease(&serv->systemprefs);
@@ -444,7 +449,7 @@ int ppp_setup_service(struct service *serv)
 			// config has changed, dialontraffic will need to be restarted
 			serv->flags |= FLAG_CONFIGCHANGEDNOW;
 			serv->flags &= ~FLAG_CONFIGCHANGEDLATER;
-			scnc_stop(serv, 0, SIGTERM);
+			scnc_stop(serv, 0, SIGTERM, SCNC_STOP_NONE);
 			break;
 
 		default :
@@ -495,7 +500,7 @@ int ppp_will_sleep(struct service *serv, int checking)
 		if (serv->u.ppp.phase != PPP_DORMANT || serv->u.ppp.phase != PPP_HOLDOFF) 
 			alert = 2;
 		if (!checking)
-			scnc_stop(serv, 0, SIGTERM);
+			scnc_stop(serv, 0, SIGTERM, SCNC_STOP_SYS_SLEEP);
 	}
         
     return delay + alert;
@@ -538,7 +543,7 @@ void ppp_log_out(struct service	*serv)
 
 	if (serv->u.ppp.phase != PPP_IDLE
 		&& (serv->flags & FLAG_SETUP_DISCONNECTONLOGOUT))
-		scnc_stop(serv, 0, SIGTERM);
+		scnc_stop(serv, 0, SIGTERM, SCNC_STOP_USER_LOGOUT);
 }
 
 /* -----------------------------------------------------------------------------
@@ -576,7 +581,7 @@ void ppp_log_switch(struct service *serv)
 					serv->flags |= FLAG_CONFIGCHANGEDNOW;
 				else
 					serv->flags &= ~FLAG_CONFIGCHANGEDNOW;
-				scnc_stop(serv, 0, SIGTERM);
+				scnc_stop(serv, 0, SIGTERM, SCNC_STOP_USER_SWITCH);
 			}
 	}
 }
@@ -1369,7 +1374,11 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
     // Radar #3124639.
     //writeparam(optfd, "looplocal");       
 
+#if !TARGET_OS_EMBEDDED
+    if (!(serv->flags & FLAG_ALERTPASSWORDS) || !needpasswd || serv->flags & FLAG_DARKWAKE)
+#else
     if (!(serv->flags & FLAG_ALERTPASSWORDS) || !needpasswd)
+#endif
         writeparam(optfd, "noaskpassword");
 
     get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPAuthPrompt, options, service, sopt, sizeof(sopt), &lval, empty_str);
@@ -1483,7 +1492,7 @@ int ppp_start(struct service *serv, CFDictionaryRef options, uid_t uid, gid_t gi
             serv->u.ppp.newconnectbootstrap = bootstrap;
             my_CFRetain(serv->u.ppp.newconnectopts);
 
-            scnc_stop(serv, 0, SIGTERM);
+            scnc_stop(serv, 0, SIGTERM, SCNC_STOP_NONE);
             serv->flags |= FLAG_CONNECT;
             return 0;
 
@@ -1757,6 +1766,8 @@ void exec_callback(pid_t pid, int status, struct rusage *rusage, void *context)
     my_CFRelease(&serv->connectopts);
     serv->connectopts = 0;
 
+	/* clean up dynamic store */
+	cleanup_dynamicstore((void*)serv);
 	if (allow_dispose(serv))
 		serv = 0;
 
@@ -1839,7 +1850,17 @@ int ppp_stop(struct service *serv, int signal)
             ppp_updatephase(serv, PPP_TERMINATE);
     }
 
-    kill(serv->u.ppp.pid, signal);
+    if (serv->u.ppp.controlfd[WRITE] != -1){
+        if (signal == SIGTERM)
+            writeparam(serv->u.ppp.controlfd[WRITE], "[TERMINATE]");
+        else if (signal == SIGHUP)
+            writeparam(serv->u.ppp.controlfd[WRITE], "[DISCONNECT]");
+        else {
+            kill(serv->u.ppp.pid, signal);
+        }
+    }else
+        kill(serv->u.ppp.pid, signal);
+
     return 0;
 }
 
@@ -1959,7 +1980,7 @@ ppp_disconnect_if_location_changed (struct service *serv, int phase)
 #if !TARGET_OS_EMBEDDED
 	if (serv->was_running && (phase == PPP_WAITING || phase == PPP_RUNNING) && (serv->subtype == PPP_TYPE_L2TP || serv->subtype == PPP_TYPE_PPTP)) {
 		if (disconnectIfVPNLocationChanged(serv)) {
-			SCLog(TRUE, LOG_NOTICE, CFSTR("PPP Controller: the underlying interface has changed networks\n"));
+			SCLog(TRUE, LOG_NOTICE, CFSTR("PPP Controller: the underlying interface has changed networks."));
 			return TRUE;
 		}
 	}
@@ -2016,7 +2037,7 @@ void ppp_updatephase(struct service *serv, int phase)
 
             /* check if setup has changed */
             if (serv->flags & FLAG_CONFIGCHANGEDLATER)
-                scnc_stop(serv, 0, SIGTERM);
+                scnc_stop(serv, 0, SIGTERM, SCNC_STOP_NONE);
             break;
     }
 }

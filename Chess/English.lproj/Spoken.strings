@@ -47,20 +47,29 @@
  * drop_fmt     -> "drop queen at f 7"
  * kcastle_fmt  -> "castle king side"
  * qcastle_fmt  -> "castle queen side"
+ * has_check_fmt-> "e 2 to e 4, check!"
+ * no_check_fmt -> "e 2 to e 4."
  */
 "move_fmt"      = "%@ %@ %@ to %@ %@";
 "cmove_fmt"     = "%@ %@ %@ takes %@ %@";
 "promo_fmt"     = "%@ %@ %@ to %@ %@, %@";
 "cpromo_fmt"    = "%@ %@ %@ takes %@ %@, %@";
 "drop_fmt"      = "%@ %@ %@";
-"kcastle_fmt"   = "castle [[emph +]]king side.";
-"qcastle_fmt"   = "castle [[emph +]]queen side.";
+"kcastle_fmt"   = "castle [[emph +]]king side";
+"qcastle_fmt"   = "castle [[emph +]]queen side";
+"has_check_fmt" = "%@, %@";
+"no_check_fmt"  = "%@.";
 
 /* Outcomes */
 "white_win"     = "white wins!";
 "black_win"     = "black wins!";
 "draw"          = "the game is a draw!";
+"check"         = "check!";
 "check_mate"    = "[[emph +]] check mate!";
+
+/* Accessibility description in move table */
+"move_table_nr"   = "Move %d:";
+"move_table_desc" = "Game Moves";
 
 /* Suggestions 
  * suggest_fmt   -> I would suggest "pawn e 2 to e 4"

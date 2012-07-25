@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -25,90 +25,47 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-WebInspector.Resource = function(identifier, url, loaderId)
+
+/**
+ * @constructor
+ * @extends {WebInspector.Object}
+ * @implements {WebInspector.ContentProvider}
+ * @param {?WebInspector.NetworkRequest} request
+ * @param {string} url
+ * @param {string} documentURL
+ * @param {NetworkAgent.FrameId} frameId
+ * @param {NetworkAgent.LoaderId} loaderId
+ * @param {WebInspector.ResourceType} type
+ * @param {string} mimeType
+ */
+WebInspector.Resource = function(request, url, documentURL, frameId, loaderId, type, mimeType)
 {
-    this.identifier = identifier;
+    this._request = request;
+    if (this._request)
+        this._request.setResource(this);
     this.url = url;
-    this.loaderId = loaderId;
-    this._startTime = -1;
-    this._endTime = -1;
-    this._category = WebInspector.resourceCategories.other;
-    this._pendingContentCallbacks = [];
+    this._documentURL = documentURL;
+    this._frameId = frameId;
+    this._loaderId = loaderId;
+    this._type = type || WebInspector.resourceTypes.Other;
+    this._mimeType = mimeType;
     this.history = [];
-}
 
-// Keep these in sync with WebCore::InspectorResource::Type
-WebInspector.Resource.Type = {
-    Document:   0,
-    Stylesheet: 1,
-    Image:      2,
-    Font:       3,
-    Script:     4,
-    XHR:        5,
-    WebSocket:  7,
-    Other:      8,
-
-    isTextType: function(type)
-    {
-        return (type === this.Document) || (type === this.Stylesheet) || (type === this.Script) || (type === this.XHR);
-    },
-
-    toUIString: function(type)
-    {
-        switch (type) {
-            case this.Document:
-                return WebInspector.UIString("Document");
-            case this.Stylesheet:
-                return WebInspector.UIString("Stylesheet");
-            case this.Image:
-                return WebInspector.UIString("Image");
-            case this.Font:
-                return WebInspector.UIString("Font");
-            case this.Script:
-                return WebInspector.UIString("Script");
-            case this.XHR:
-                return WebInspector.UIString("XHR");
-            case this.WebSocket:
-                return WebInspector.UIString("WebSocket");
-            case this.Other:
-            default:
-                return WebInspector.UIString("Other");
-        }
-    },
-
-    // Returns locale-independent string identifier of resource type (primarily for use in extension API).
-    // The IDs need to be kept in sync with webInspector.resoureces.Types object in ExtensionAPI.js.
-    toString: function(type)
-    {
-        switch (type) {
-            case this.Document:
-                return "document";
-            case this.Stylesheet:
-                return "stylesheet";
-            case this.Image:
-                return "image";
-            case this.Font:
-                return "font";
-            case this.Script:
-                return "script";
-            case this.XHR:
-                return "xhr";
-            case this.WebSocket:
-                return "websocket";
-            case this.Other:
-            default:
-                return "other";
-        }
-    }
+    /** @type {?string} */ this._content;
+    /** @type {boolean} */ this._contentEncoded;
+    this._pendingContentCallbacks = [];
 }
 
 WebInspector.Resource._domainModelBindings = [];
 
+/**
+ * @param {WebInspector.ResourceType} type
+ * @param {WebInspector.ResourceDomainModelBinding} binding
+ */
 WebInspector.Resource.registerDomainModelBinding = function(type, binding)
 {
-    WebInspector.Resource._domainModelBindings[type] = binding;
+    WebInspector.Resource._domainModelBindings[type.name()] = binding;
 }
-
 
 WebInspector.Resource._resourceRevisionRegistry = function()
 {
@@ -153,8 +110,12 @@ WebInspector.Resource.restoreRevisions = function()
     }
 
     // Schedule async storage.
-    setTimeout(persist, 0);}
+    setTimeout(persist, 0);
+}
 
+/**
+ * @param {WebInspector.Resource} resource
+ */
 WebInspector.Resource.persistRevision = function(resource)
 {
     if (!window.localStorage)
@@ -186,10 +147,23 @@ WebInspector.Resource.persistRevision = function(resource)
 }
 
 WebInspector.Resource.Events = {
-    RevisionAdded: 0
+    RevisionAdded: "revision-added",
+    MessageAdded: "message-added",
+    MessagesCleared: "messages-cleared",
 }
 
 WebInspector.Resource.prototype = {
+    /**
+     * @return {?WebInspector.NetworkRequest}
+     */
+    get request()
+    {
+        return this._request;
+    },
+
+    /**
+     * @return {string}
+     */
     get url()
     {
         return this._url;
@@ -197,502 +171,88 @@ WebInspector.Resource.prototype = {
 
     set url(x)
     {
-        if (this._url === x)
-            return;
-
         this._url = x;
-        delete this._parsedQueryParameters;
-
-        var parsedURL = x.asParsedURL();
-        this.domain = parsedURL ? parsedURL.host : "";
-        this.path = parsedURL ? parsedURL.path : "";
-        this.lastPathComponent = "";
-        if (parsedURL && parsedURL.path) {
-            // First cut the query params.
-            var path = parsedURL.path;
-            var indexOfQuery = path.indexOf("?");
-            if (indexOfQuery !== -1)
-                path = path.substring(0, indexOfQuery);
-
-            // Then take last path component.
-            var lastSlashIndex = path.lastIndexOf("/");
-            if (lastSlashIndex !== -1)
-                this.lastPathComponent = path.substring(lastSlashIndex + 1);
-        }
-        this.lastPathComponentLowerCase = this.lastPathComponent.toLowerCase();
+        this._parsedURL = new WebInspector.ParsedURL(x);
     },
 
+    get parsedURL()
+    {
+        return this._parsedURL;
+    },
+
+    /**
+     * @return {string}
+     */
     get documentURL()
     {
         return this._documentURL;
     },
 
-    set documentURL(x)
+    /**
+     * @return {NetworkAgent.FrameId}
+     */
+    get frameId()
     {
-        this._documentURL = x;
+        return this._frameId;
     },
 
+    /**
+     * @return {NetworkAgent.LoaderId}
+     */
+    get loaderId()
+    {
+        return this._loaderId;
+    },
+
+    /**
+     * @return {string}
+     */
     get displayName()
     {
-        if (this._displayName)
-            return this._displayName;
-        this._displayName = this.lastPathComponent;
-        if (!this._displayName)
-            this._displayName = this.displayDomain;
-        if (!this._displayName && this.url)
-            this._displayName = this.url.trimURL(WebInspector.mainResource ? WebInspector.mainResource.domain : "");
-        if (this._displayName === "/")
-            this._displayName = this.url;
-        return this._displayName;
+        return this._parsedURL.displayName;
     },
 
-    get displayDomain()
-    {
-        // WebInspector.Database calls this, so don't access more than this.domain.
-        if (this.domain && (!WebInspector.mainResource || (WebInspector.mainResource && this.domain !== WebInspector.mainResource.domain)))
-            return this.domain;
-        return "";
-    },
-
-    get startTime()
-    {
-        return this._startTime || -1;
-    },
-
-    set startTime(x)
-    {
-        this._startTime = x;
-    },
-
-    get responseReceivedTime()
-    {
-        return this._responseReceivedTime || -1;
-    },
-
-    set responseReceivedTime(x)
-    {
-        this._responseReceivedTime = x;
-    },
-
-    get endTime()
-    {
-        return this._endTime || -1;
-    },
-
-    set endTime(x)
-    {
-        if (this.timing && this.timing.requestTime) {
-            // Check against accurate responseReceivedTime.
-            this._endTime = Math.max(x, this.responseReceivedTime);
-        } else {
-            // Prefer endTime since it might be from the network stack.
-            this._endTime = x;
-            if (this._responseReceivedTime > x)
-                this._responseReceivedTime = x;
-        }
-    },
-
-    get duration()
-    {
-        if (this._endTime === -1 || this._startTime === -1)
-            return -1;
-        return this._endTime - this._startTime;
-    },
-
-    get latency()
-    {
-        if (this._responseReceivedTime === -1 || this._startTime === -1)
-            return -1;
-        return this._responseReceivedTime - this._startTime;
-    },
-
-    get receiveDuration()
-    {
-        if (this._endTime === -1 || this._responseReceivedTime === -1)
-            return -1;
-        return this._endTime - this._responseReceivedTime;
-    },
-
-    get resourceSize()
-    {
-        return this._resourceSize || 0;
-    },
-
-    set resourceSize(x)
-    {
-        this._resourceSize = x;
-    },
-
-    get transferSize()
-    {
-        if (this.cached)
-            return 0;
-        if (this.statusCode === 304) // Not modified
-            return this.responseHeadersSize;
-        if (this._transferSize !== undefined)
-            return this._transferSize;
-        // If we did not receive actual transfer size from network
-        // stack, we prefer using Content-Length over resourceSize as
-        // resourceSize may differ from actual transfer size if platform's
-        // network stack performed decoding (e.g. gzip decompression).
-        // The Content-Length, though, is expected to come from raw
-        // response headers and will reflect actual transfer length.
-        // This won't work for chunked content encoding, so fall back to
-        // resourceSize when we don't have Content-Length. This still won't
-        // work for chunks with non-trivial encodings. We need a way to
-        // get actual transfer size from the network stack.
-        var bodySize = Number(this.responseHeaders["Content-Length"] || this.resourceSize);
-        return this.responseHeadersSize + bodySize;
-    },
-
-    increaseTransferSize: function(x)
-    {
-        this._transferSize = (this._transferSize || 0) + x;
-    },
-
-    get finished()
-    {
-        return this._finished;
-    },
-
-    set finished(x)
-    {
-        if (this._finished === x)
-            return;
-
-        this._finished = x;
-
-        if (x) {
-            this._checkWarnings();
-            this.dispatchEventToListeners("finished");
-            if (this._pendingContentCallbacks.length)
-                this._innerRequestContent();
-        }
-    },
-
-    get failed()
-    {
-        return this._failed;
-    },
-
-    set failed(x)
-    {
-        this._failed = x;
-    },
-
-    get canceled()
-    {
-        return this._canceled;
-    },
-
-    set canceled(x)
-    {
-        this._canceled = x;
-    },
-
-    get category()
-    {
-        return this._category;
-    },
-
-    set category(x)
-    {
-        this._category = x;
-    },
-
-    get cached()
-    {
-        return this._cached;
-    },
-
-    set cached(x)
-    {
-        this._cached = x;
-        if (x)
-            delete this._timing;
-    },
-
-    get timing()
-    {
-        return this._timing;
-    },
-
-    set timing(x)
-    {
-        if (x && !this._cached) {
-            // Take startTime and responseReceivedTime from timing data for better accuracy.
-            // Timing's requestTime is a baseline in seconds, rest of the numbers there are ticks in millis.
-            this._startTime = x.requestTime;
-            this._responseReceivedTime = x.requestTime + x.receiveHeadersEnd / 1000.0;
-
-            this._timing = x;
-            this.dispatchEventToListeners("timing changed");
-        }
-    },
-
-    get mimeType()
-    {
-        return this._mimeType;
-    },
-
-    set mimeType(x)
-    {
-        this._mimeType = x;
-    },
-
+    /**
+     * @return {WebInspector.ResourceType}
+     */
     get type()
     {
-        return this._type;
+        return this._request ? this._request.type : this._type;
     },
 
-    set type(x)
+    /**
+     * @return {string}
+     */
+    get mimeType()
     {
-        if (this._type === x)
+        return this._request ? this._request.mimeType : this._mimeType;
+    },
+
+    /**
+     * @return {Array.<WebInspector.ConsoleMessage>}
+     */
+    get messages()
+    {
+        return this._messages || [];
+    },
+
+    /**
+     * @param {WebInspector.ConsoleMessage} msg
+     */
+    addMessage: function(msg)
+    {
+        if (!msg.isErrorOrWarning() || !msg.message)
             return;
 
-        this._type = x;
-
-        switch (x) {
-            case WebInspector.Resource.Type.Document:
-                this.category = WebInspector.resourceCategories.documents;
-                break;
-            case WebInspector.Resource.Type.Stylesheet:
-                this.category = WebInspector.resourceCategories.stylesheets;
-                break;
-            case WebInspector.Resource.Type.Script:
-                this.category = WebInspector.resourceCategories.scripts;
-                break;
-            case WebInspector.Resource.Type.Image:
-                this.category = WebInspector.resourceCategories.images;
-                break;
-            case WebInspector.Resource.Type.Font:
-                this.category = WebInspector.resourceCategories.fonts;
-                break;
-            case WebInspector.Resource.Type.XHR:
-                this.category = WebInspector.resourceCategories.xhr;
-                break;
-            case WebInspector.Resource.Type.WebSocket:
-                this.category = WebInspector.resourceCategories.websockets;
-                break;
-            case WebInspector.Resource.Type.Other:
-            default:
-                this.category = WebInspector.resourceCategories.other;
-                break;
-        }
+        if (!this._messages)
+            this._messages = [];
+        this._messages.push(msg);
+        this.dispatchEventToListeners(WebInspector.Resource.Events.MessageAdded, msg);
     },
 
-    get requestHeaders()
-    {
-        return this._requestHeaders || {};
-    },
-
-    set requestHeaders(x)
-    {
-        this._requestHeaders = x;
-        delete this._sortedRequestHeaders;
-        delete this._requestCookies;
-        delete this._responseHeadersSize;
-
-        this.dispatchEventToListeners("requestHeaders changed");
-    },
-
-    get requestHeadersText()
-    {
-        if (this._requestHeadersText !== undefined)
-            return this._requestHeadersText;
-
-        this._requestHeadersText = "";
-        for (var key in this.requestHeaders)
-            this._requestHeadersText += key + ": " + this.requestHeaders[key] + "\n"; 
-        return this._requestHeadersText;
-    },
-
-    set requestHeadersText(x)
-    {
-        this._requestHeadersText = x;
-        delete this._responseHeadersSize;
-
-        this.dispatchEventToListeners("requestHeaders changed");
-    },
-
-    get requestHeadersSize()
-    {
-        if (typeof(this._requestHeadersSize) === "undefined") {
-            if (this._requestHeadersText)
-                this._requestHeadersSize = this._requestHeadersText.length;
-            else 
-                this._requestHeadersSize = this._headersSize(this._requestHeaders)
-        }
-        return this._requestHeadersSize;
-    },
-
-    get sortedRequestHeaders()
-    {
-        if (this._sortedRequestHeaders !== undefined)
-            return this._sortedRequestHeaders;
-
-        this._sortedRequestHeaders = [];
-        for (var key in this.requestHeaders)
-            this._sortedRequestHeaders.push({header: key, value: this.requestHeaders[key]});
-        this._sortedRequestHeaders.sort(function(a,b) { return a.header.localeCompare(b.header) });
-
-        return this._sortedRequestHeaders;
-    },
-
-    requestHeaderValue: function(headerName)
-    {
-        return this._headerValue(this.requestHeaders, headerName);
-    },
-
-    get requestCookies()
-    {
-        if (!this._requestCookies)
-            this._requestCookies = WebInspector.CookieParser.parseCookie(this.requestHeaderValue("Cookie"));
-        return this._requestCookies;
-    },
-
-    get requestFormData()
-    {
-        return this._requestFormData;
-    },
-
-    set requestFormData(x)
-    {
-        this._requestFormData = x;
-        delete this._parsedFormParameters;
-    },
-
-    get responseHeaders()
-    {
-        return this._responseHeaders || {};
-    },
-
-    set responseHeaders(x)
-    {
-        this._responseHeaders = x;
-        delete this._responseHeadersSize;
-        delete this._sortedResponseHeaders;
-        delete this._responseCookies;
-
-        this.dispatchEventToListeners("responseHeaders changed");
-    },
-    
-    get responseHeadersText()
-    {
-        if (this._responseHeadersText !== undefined)
-            return this._responseHeadersText;
-        
-        this._responseHeadersText = "";
-        for (var key in this.responseHeaders)
-            this._responseHeadersText += key + ": " + this.responseHeaders[key] + "\n"; 
-        return this._responseHeadersText;
-    },
-
-    set responseHeadersText(x)
-    {
-        this._responseHeadersText = x;
-        delete this._responseHeadersSize;
-
-        this.dispatchEventToListeners("responseHeaders changed");
-    },
-    
-    get responseHeadersSize()
-    {
-        if (typeof(this._responseHeadersSize) === "undefined") {
-            if (this._responseHeadersText)
-                this._responseHeadersSize = this._responseHeadersText.length;
-            else 
-                this._responseHeadersSize = this._headersSize(this._responseHeaders)
-        }
-        return this._responseHeadersSize;
-    },
-    
-
-    get sortedResponseHeaders()
-    {
-        if (this._sortedResponseHeaders !== undefined)
-            return this._sortedResponseHeaders;
-
-        this._sortedResponseHeaders = [];
-        for (var key in this.responseHeaders)
-            this._sortedResponseHeaders.push({header: key, value: this.responseHeaders[key]});
-        this._sortedResponseHeaders.sort(function(a,b) { return a.header.localeCompare(b.header) });
-
-        return this._sortedResponseHeaders;
-    },
-
-    responseHeaderValue: function(headerName)
-    {
-        return this._headerValue(this.responseHeaders, headerName);
-    },
-
-    get responseCookies()
-    {
-        if (!this._responseCookies)
-            this._responseCookies = WebInspector.CookieParser.parseSetCookie(this.responseHeaderValue("Set-Cookie"));
-        return this._responseCookies;
-    },
-
-    get queryParameters()
-    {
-        if (this._parsedQueryParameters)
-            return this._parsedQueryParameters;
-        var queryString = this.url.split("?", 2)[1];
-        if (!queryString)
-            return;
-        this._parsedQueryParameters = this._parseParameters(queryString);
-        return this._parsedQueryParameters;
-    },
-
-    get formParameters()
-    {
-        if (this._parsedFormParameters)
-            return this._parsedFormParameters;
-        if (!this.requestFormData)
-            return;
-        var requestContentType = this.requestContentType();
-        if (!requestContentType || !requestContentType.match(/^application\/x-www-form-urlencoded\s*(;.*)?$/i))
-            return;
-        this._parsedFormParameters = this._parseParameters(this.requestFormData);
-        return this._parsedFormParameters;
-    },
-
-    _parseParameters: function(queryString)
-    {
-        function parseNameValue(pair)
-        {
-            var parameter = {};
-            var splitPair = pair.split("=", 2);
-
-            parameter.name = splitPair[0];
-            if (splitPair.length === 1)
-                parameter.value = "";
-            else
-                parameter.value = splitPair[1];
-            return parameter;
-        }
-        return queryString.split("&").map(parseNameValue);
-    },
-
-    _headerValue: function(headers, headerName)
-    {
-        headerName = headerName.toLowerCase();
-        for (var header in headers) {
-            if (header.toLowerCase() === headerName)
-                return headers[header];
-        }
-    },
-
-    _headersSize: function(headers)
-    {
-        // We should take actual headers size from network stack, when possible, but fall back to
-        // this lousy computation when no headers text is available.
-        var size = 0;
-        for (var header in headers)
-            size += header.length + headers[header].length + 4; // _typical_ overhead per header is ": ".length + "\r\n".length.
-        return size;
-    },
-
+    /**
+     * @return {number}
+     */
     get errors()
     {
         return this._errors || 0;
@@ -701,9 +261,11 @@ WebInspector.Resource.prototype = {
     set errors(x)
     {
         this._errors = x;
-        this.dispatchEventToListeners("errors-warnings-updated");
     },
 
+    /**
+     * @return {number}
+     */
     get warnings()
     {
         return this._warnings || 0;
@@ -712,104 +274,72 @@ WebInspector.Resource.prototype = {
     set warnings(x)
     {
         this._warnings = x;
-        this.dispatchEventToListeners("errors-warnings-updated");
     },
 
     clearErrorsAndWarnings: function()
     {
+        this._messages = [];
         this._warnings = 0;
         this._errors = 0;
-        this.dispatchEventToListeners("errors-warnings-updated");
+        this.dispatchEventToListeners(WebInspector.Resource.Events.MessagesCleared);
     },
 
-    _mimeTypeIsConsistentWithType: function()
-    {
-        // If status is an error, content is likely to be of an inconsistent type,
-        // as it's going to be an error message. We do not want to emit a warning
-        // for this, though, as this will already be reported as resource loading failure.
-        // Also, if a URL like http://localhost/wiki/load.php?debug=true&lang=en produces text/css and gets reloaded,
-        // it is 304 Not Modified and its guessed mime-type is text/php, which is wrong.
-        // Don't check for mime-types in 304-resources.
-        if (this.statusCode >= 400 || this.statusCode === 304)
-            return true;
-
-        if (typeof this.type === "undefined"
-            || this.type === WebInspector.Resource.Type.Other
-            || this.type === WebInspector.Resource.Type.XHR
-            || this.type === WebInspector.Resource.Type.WebSocket)
-            return true;
-
-        if (!this.mimeType)
-            return true; // Might be not known for cached resources with null responses.
-
-        if (this.mimeType in WebInspector.MIMETypes)
-            return this.type in WebInspector.MIMETypes[this.mimeType];
-
-        return false;
-    },
-
-    _checkWarnings: function()
-    {
-        for (var warning in WebInspector.Warnings)
-            this._checkWarning(WebInspector.Warnings[warning]);
-    },
-
-    _checkWarning: function(warning)
-    {
-        var msg;
-        switch (warning.id) {
-            case WebInspector.Warnings.IncorrectMIMEType.id:
-                if (!this._mimeTypeIsConsistentWithType())
-                    msg = new WebInspector.ConsoleMessage(WebInspector.ConsoleMessage.MessageSource.Other,
-                        WebInspector.ConsoleMessage.MessageType.Log,
-                        WebInspector.ConsoleMessage.MessageLevel.Warning,
-                        -1,
-                        this.url,
-                        1,
-                        String.sprintf(WebInspector.Warnings.IncorrectMIMEType.message, WebInspector.Resource.Type.toUIString(this.type), this.mimeType),
-                        null,
-                        null);
-                break;
-        }
-
-        if (msg)
-            WebInspector.console.addMessage(msg);
-    },
-
+    /**
+     * @return {?string}
+     */
     get content()
     {
         return this._content;
     },
 
+    /**
+     * @return {boolean}
+     */
+    get contentEncoded()
+    {
+        return this._contentEncoded;
+    },
+
+    /**
+     * @return {number}
+     */
     get contentTimestamp()
     {
         return this._contentTimestamp;
     },
 
-    setInitialContent: function(content)
-    {
-        this._content = content;
-    },
-
+    /**
+     * @return {boolean}
+     */
     isEditable: function()
     {
         if (this._actualResource)
             return false;
-        var binding = WebInspector.Resource._domainModelBindings[this.type];
+        var binding = WebInspector.Resource._domainModelBindings[this.type.name()];
         return binding && binding.canSetContent(this);
     },
 
+    /**
+     * @param {string} newContent
+     * @param {boolean} majorChange
+     * @param {function(?string)} callback
+     */
     setContent: function(newContent, majorChange, callback)
     {
-        if (!this.isEditable(this)) {
+        if (!this.isEditable()) {
             if (callback)
                 callback("Resource is not editable");
             return;
         }
-        var binding = WebInspector.Resource._domainModelBindings[this.type];
+        var binding = WebInspector.Resource._domainModelBindings[this.type.name()];
         binding.setContent(this, newContent, majorChange, callback);
     },
 
+    /**
+     * @param {string} newContent
+     * @param {Date=} timestamp
+     * @param {boolean=} restoringHistory
+     */
     addRevision: function(newContent, timestamp, restoringHistory)
     {
         var revision = new WebInspector.ResourceRevision(this, this._content, this._contentTimestamp);
@@ -819,9 +349,9 @@ WebInspector.Resource.prototype = {
         this._contentTimestamp = timestamp || new Date();
 
         this.dispatchEventToListeners(WebInspector.Resource.Events.RevisionAdded, revision);
-
         if (!restoringHistory)
             this._persistRevision();
+        WebInspector.resourceTreeModel.dispatchEventToListeners(WebInspector.ResourceTreeModel.EventTypes.ResourceContentCommitted, { resource: this, content: newContent });
     },
 
     _persistRevision: function()
@@ -829,24 +359,65 @@ WebInspector.Resource.prototype = {
         WebInspector.Resource.persistRevision(this);
     },
 
-    requestContent: function(callback)
+    /**
+     * @return {?string}
+     */
+    contentURL: function()
     {
-        // We do not support content retrieval for WebSockets at the moment.
-        // Since WebSockets are potentially long-living, fail requests immediately
-        // to prevent caller blocking until resource is marked as finished.
-        if (this.type === WebInspector.Resource.Type.WebSocket) {
-            callback(null, null);
-            return;
-        }
-        if (typeof this._content !== "undefined") {
-            callback(this.content, this._contentEncoded);
-            return;
-        }
-        this._pendingContentCallbacks.push(callback);
-        if (this.finished)
-            this._innerRequestContent();
+        return this._url;
     },
 
+    /**
+     * @param {function(?string, boolean, string)} callback
+     */
+    requestContent: function(callback)
+    {
+        if (typeof this._content !== "undefined") {
+            callback(this._content, !!this._contentEncoded, this.canonicalMimeType());
+            return;
+        }
+
+        this._pendingContentCallbacks.push(callback);
+        this._innerRequestContent();
+    },
+
+    canonicalMimeType: function()
+    {
+        if (this.type === WebInspector.resourceTypes.Document)
+            return "text/html";
+        if (this.type === WebInspector.resourceTypes.Script)
+            return "text/javascript";
+        if (this.type === WebInspector.resourceTypes.Stylesheet)
+            return "text/css";
+        return this.mimeType;
+    },
+
+    /**
+     * @param {string} query
+     * @param {boolean} caseSensitive
+     * @param {boolean} isRegex
+     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     */
+    searchInContent: function(query, caseSensitive, isRegex, callback)
+    {
+        /**
+         * @param {?Protocol.Error} error
+         * @param {Array.<PageAgent.SearchMatch>} searchMatches
+         */
+        function callbackWrapper(error, searchMatches)
+        {
+            callback(searchMatches || []);
+        }
+
+        if (this.frameId)
+            PageAgent.searchInResource(this.frameId, this.url, query, caseSensitive, isRegex, callbackWrapper);
+        else
+            callback([]);
+    },
+
+    /**
+     * @param {Element} image
+     */
     populateImageSource: function(image)
     {
         function onResourceContent()
@@ -854,27 +425,12 @@ WebInspector.Resource.prototype = {
             image.src = this._contentURL();
         }
 
-        if (Preferences.useDataURLForResourceImageIcons)
-            this.requestContent(onResourceContent.bind(this));
-        else
-            image.src = this.url;
+        this.requestContent(onResourceContent.bind(this));
     },
 
-    isDataURL: function()
-    {
-        return this.url.match(/^data:/i);
-    },
-    
-    requestContentType: function()
-    {
-        return this.requestHeaderValue("Content-Type");
-    },
-
-    isPingRequest: function()
-    {
-        return "text/ping" === this.requestContentType();
-    },
-    
+    /**
+     * @return {string}
+     */
     _contentURL: function()
     {
         const maxDataUrlSize = 1024 * 1024;
@@ -890,24 +446,36 @@ WebInspector.Resource.prototype = {
         if (this._contentRequested)
             return;
         this._contentRequested = true;
-        this._contentEncoded = !WebInspector.Resource.Type.isTextType(this.type);
 
-        function onResourceContent(data)
+        /**
+         * @param {?Protocol.Error} error
+         * @param {string} content
+         * @param {boolean} contentEncoded
+         */
+        function callback(error, content, contentEncoded)
         {
-            this._content = data;
-            this._originalContent = data;
+            this._content = error ? null : content;
+            this._contentEncoded = contentEncoded;
+            this._originalContent = content;
             var callbacks = this._pendingContentCallbacks.slice();
             for (var i = 0; i < callbacks.length; ++i)
-                callbacks[i](this._content, this._contentEncoded);
+                callbacks[i](this._content, this._contentEncoded, this.canonicalMimeType());
             this._pendingContentCallbacks.length = 0;
             delete this._contentRequested;
         }
-        WebInspector.networkManager.requestContent(this, this._contentEncoded, onResourceContent.bind(this));
+        PageAgent.getResourceContent(this.frameId, this.url, callback.bind(this));
     }
 }
 
 WebInspector.Resource.prototype.__proto__ = WebInspector.Object.prototype;
 
+/**
+ * @constructor
+ * @implements {WebInspector.ContentProvider}
+ * @param {WebInspector.Resource} resource
+ * @param {?string|undefined} content
+ * @param {number} timestamp
+ */
 WebInspector.ResourceRevision = function(resource, content, timestamp)
 {
     this._resource = resource;
@@ -916,19 +484,28 @@ WebInspector.ResourceRevision = function(resource, content, timestamp)
 }
 
 WebInspector.ResourceRevision.prototype = {
+    /**
+     * @return {WebInspector.Resource}
+     */
     get resource()
     {
         return this._resource;
     },
 
+    /**
+     * @return {number}
+     */
     get timestamp()
     {
         return this._timestamp;
     },
 
+    /**
+     * @return {?string}
+     */
     get content()
     {
-        return this._content;
+        return this._content || null;
     },
 
     revertToThis: function()
@@ -940,43 +517,73 @@ WebInspector.ResourceRevision.prototype = {
         this.requestContent(revert.bind(this));
     },
 
+    /**
+     * @return {?string}
+     */
+    contentURL: function()
+    {
+        return this._resource.url;
+    },
+
+    /**
+     * @param {function(?string, boolean, string)} callback
+     */
     requestContent: function(callback)
     {
         if (typeof this._content === "string") {
-            callback(this._content);
+            callback(this._content, false, this.resource.mimeType);
             return;
         }
 
         // If we are here, this is initial revision. First, look up content fetched over the wire.
         if (typeof this.resource._originalContent === "string") {
             this._content = this._resource._originalContent;
-            callback(this._content);
+            callback(this._content, false, this.resource.mimeType);
             return;
         }
 
-        // If unsuccessful, request the content.
-        function mycallback(content)
+        /**
+         * @param {?Protocol.Error} error
+         * @param {string} content
+         * @param {boolean} contentEncoded
+         */
+        function callbackWrapper(error, content, contentEncoded)
         {
-            this._content = content;
-            callback(content);
+            callback(error ? null : content, contentEncoded, this.resource.mimeType);
         }
-        WebInspector.networkManager.requestContent(this._resource, false, mycallback.bind(this));
-    }
-}
 
-WebInspector.ResourceDomainModelBinding = function()
-{
-}
-
-WebInspector.ResourceDomainModelBinding.prototype = {
-    canSetContent: function()
-    {
-        // Implemented by the domains.
-        return true;
+        PageAgent.getResourceContent(this._resource.frameId, this._resource.url, callbackWrapper.bind(this));
     },
 
-    setContent: function(resource, content, majorChange, callback)
+    /**
+     * @param {string} query
+     * @param {boolean} caseSensitive
+     * @param {boolean} isRegex
+     * @param {function(Array.<WebInspector.ContentProvider.SearchMatch>)} callback
+     */
+    searchInContent: function(query, caseSensitive, isRegex, callback)
     {
-        // Implemented by the domains.
+        callback([]);
     }
+}
+
+/**
+ * @interface
+ */
+WebInspector.ResourceDomainModelBinding = function() { }
+
+WebInspector.ResourceDomainModelBinding.prototype = {
+    /**
+     * @param {WebInspector.Resource} resource
+     * @return {boolean}
+     */
+    canSetContent: function(resource) { return true; },
+
+    /**
+     * @param {WebInspector.Resource} resource
+     * @param {string} content
+     * @param {boolean} majorChange
+     * @param {function(?string)} callback
+     */
+    setContent: function(resource, content, majorChange, callback) { }
 }

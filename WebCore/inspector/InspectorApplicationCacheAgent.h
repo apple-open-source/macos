@@ -25,12 +25,13 @@
 #ifndef InspectorApplicationCacheAgent_h
 #define InspectorApplicationCacheAgent_h
 
-#if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
+#if ENABLE(INSPECTOR)
 
 #include "ApplicationCacheHost.h"
+#include "InspectorBaseAgent.h"
 #include "InspectorFrontend.h"
 #include <wtf/Noncopyable.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -39,40 +40,52 @@ class InspectorArray;
 class InspectorAgent;
 class InspectorFrontend;
 class InspectorObject;
+class InspectorPageAgent;
 class InspectorValue;
+class InspectorState;
 class InstrumentingAgents;
 class Page;
 class ResourceResponse;
 
 typedef String ErrorString;
 
-class InspectorApplicationCacheAgent {
+class InspectorApplicationCacheAgent : public InspectorBaseAgent<InspectorApplicationCacheAgent>, public InspectorBackendDispatcher::ApplicationCacheCommandHandler {
     WTF_MAKE_NONCOPYABLE(InspectorApplicationCacheAgent); WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorApplicationCacheAgent(InstrumentingAgents*, Page*);
+    static PassOwnPtr<InspectorApplicationCacheAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state, InspectorPageAgent* pageAgent)
+    {
+        return adoptPtr(new InspectorApplicationCacheAgent(instrumentingAgents, state, pageAgent));
+    }
     ~InspectorApplicationCacheAgent() { }
 
-    void setFrontend(InspectorFrontend*);
-    void clearFrontend();
+    // InspectorBaseAgent
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void clearFrontend();
+    virtual void restore();
 
-    // Backend to Frontend
+    // InspectorInstrumentation API
     void updateApplicationCacheStatus(Frame*);
     void networkStateChanged();
 
-    // From Frontend
-    void getApplicationCaches(ErrorString*, RefPtr<InspectorObject>* applicationCaches);
+    // ApplicationCache API for InspectorFrontend
+    virtual void enable(ErrorString*);
+    virtual void getFramesWithManifests(ErrorString*, RefPtr<TypeBuilder::Array<TypeBuilder::ApplicationCache::FrameWithManifest> >& result);
+    virtual void getManifestForFrame(ErrorString*, const String& frameId, String* manifestURL);
+    virtual void getApplicationCacheForFrame(ErrorString*, const String& frameId, RefPtr<TypeBuilder::ApplicationCache::ApplicationCache>&);
 
 private:
-    PassRefPtr<InspectorObject> buildObjectForApplicationCache(const ApplicationCacheHost::ResourceInfoList&, const ApplicationCacheHost::CacheInfo&);
-    PassRefPtr<InspectorArray> buildArrayForApplicationCacheResources(const ApplicationCacheHost::ResourceInfoList&);
-    PassRefPtr<InspectorObject> buildObjectForApplicationCacheResource(const ApplicationCacheHost::ResourceInfo&);
+    InspectorApplicationCacheAgent(InstrumentingAgents*, InspectorState*, InspectorPageAgent*);
+    PassRefPtr<TypeBuilder::ApplicationCache::ApplicationCache> buildObjectForApplicationCache(const ApplicationCacheHost::ResourceInfoList&, const ApplicationCacheHost::CacheInfo&);
+    PassRefPtr<TypeBuilder::Array<TypeBuilder::ApplicationCache::ApplicationCacheResource> > buildArrayForApplicationCacheResources(const ApplicationCacheHost::ResourceInfoList&);
+    PassRefPtr<TypeBuilder::ApplicationCache::ApplicationCacheResource> buildObjectForApplicationCacheResource(const ApplicationCacheHost::ResourceInfo&);
 
-    InstrumentingAgents* m_instrumentingAgents;
-    Page* m_inspectedPage;
+    DocumentLoader* assertFrameWithDocumentLoader(ErrorString*, String frameId);
+
+    InspectorPageAgent* m_pageAgent;
     InspectorFrontend::ApplicationCache* m_frontend;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
+#endif // ENABLE(INSPECTOR)
 #endif // InspectorApplicationCacheAgent_h

@@ -84,6 +84,10 @@ static void size(
     char *arch_name,
     void *cookie);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 int
 main(
 int argc,

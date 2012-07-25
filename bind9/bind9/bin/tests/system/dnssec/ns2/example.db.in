@@ -1,4 +1,4 @@
-; Copyright (C) 2004, 2007-2012  Internet Systems Consortium, Inc. ("ISC")
+; Copyright (C) 2004, 2007-2011  Internet Systems Consortium, Inc. ("ISC")
 ; Copyright (C) 2000-2002  Internet Software Consortium.
 ;
 ; Permission to use, copy, modify, and/or distribute this software for any
@@ -13,7 +13,7 @@
 ; OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 ; PERFORMANCE OF THIS SOFTWARE.
 
-; $Id$
+; $Id: example.db.in,v 1.24.162.5 2011-02-28 14:25:16 fdupont Exp $
 
 $TTL 300	; 5 minutes
 @			IN SOA	mname1. . (
@@ -72,10 +72,6 @@ dynamic			A	10.53.0.3
 ; A insecure subdomain
 mustbesecure		NS	ns.mustbesecure
 ns.mustbesecure		A	10.53.0.3
-
-; A subdomain with expired signatures
-expired			NS	ns.expired
-ns.expired		A	10.53.0.3
 
 ; A rfc2535 signed zone w/ CNAME
 rfc2535			NS	ns.rfc2535

@@ -132,7 +132,7 @@ OSStatus HIDGetSpecificButtonCaps(HIDReportType reportType,
 /*
  *	The Collection must be in range
 */
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 /*
  *	Search only the scope of the Collection specified
@@ -347,7 +347,7 @@ OSStatus HIDGetSpecificButtonCapabilities(HIDReportType reportType,
 /*
  *	The Collection must be in range
 */
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 /*
  *	Search only the scope of the Collection specified

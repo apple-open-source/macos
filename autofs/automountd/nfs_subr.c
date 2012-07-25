@@ -76,18 +76,20 @@ convert_special(char **specialp, char *host, char *oldpath, char *newpath,
 	char *newspec;
 	char *p;
 	char *p1, *p2;
+	int len;
 
 	/*
 	 * Rebuild the URL. This is necessary because parse replica
 	 * assumes that nfs: is the host name.
 	 */
-	url = malloc(strlen("nfs:") + strlen(oldpath) + 1);
+	len = (int) (strlen("nfs:") + strlen(oldpath)) + 1;
+	url = malloc(len);
 
 	if (url == NULL)
 		return (-1);
 
-	strcpy(url, "nfs:");
-	strcat(url, oldpath);
+	strlcpy(url, "nfs:", len);
+	strlcat(url, oldpath, len);
 
 	/*
 	 * If we haven't done any conversion yet, allocate a buffer for it.

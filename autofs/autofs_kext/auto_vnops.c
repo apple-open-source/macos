@@ -678,12 +678,12 @@ auto_readdir(ap)
 	/*
 	 * Reject too-small user requests.
 	 */
-	if (user_alloc_count < DIRENT_RECLEN(1))
+	if (user_alloc_count < (user_ssize_t) DIRENT_RECLEN(1))
 		return (EINVAL);
 	/*
 	 * Trim too-large user requests.
 	 */
-	if (user_alloc_count > MAXDIRBUFSIZE)
+	if (user_alloc_count > (user_ssize_t) MAXDIRBUFSIZE)
 		user_alloc_count = MAXDIRBUFSIZE;
 	alloc_count = (u_int)user_alloc_count;
 

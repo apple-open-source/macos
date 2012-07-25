@@ -22,7 +22,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-
+#include <architecture/i386/asm_help.h>
 
 	.text
 	.align	2
@@ -45,7 +45,9 @@ __commpage_pthread_mutex_lock:
 	decl	%edx			    // decrement max spin count
 	jnz	1b			    // keep spinning
 2:
-	movl	$(_COMM_PAGE_PFZ_MUTEX_LOCK), %ecx
+	EXTERN_TO_REG(_commpage_pfz_base, %ecx)
+	movl	(%ecx), %ecx
+	addl	$(_COMM_TEXT_PFZ_MUTEX_LOCK_OFFSET), %ecx
 	call	*%ecx
 	testl	%ebx,%ebx		    // pending preemption?
 	jz	3f

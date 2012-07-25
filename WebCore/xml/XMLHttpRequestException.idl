@@ -28,9 +28,9 @@
 
 module xml {
 
-    interface [
-        NoStaticTables,
-        DontCheckEnums
+    exception [
+        JSNoStaticTables,
+        DoNotCheckConstants
     ] XMLHttpRequestException {
 
         readonly attribute unsigned short   code;
@@ -39,7 +39,7 @@ module xml {
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
         // Override in a Mozilla compatible format
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
         // XMLHttpRequestExceptionCode

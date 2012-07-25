@@ -29,6 +29,10 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)inet_network.c	8.1 (Berkeley) 6/4/93";
+
+/* the algorithms only can deal with ASCII, so we optimize for it */
+#define USE_ASCII
+
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/inet/inet_network.c,v 1.5 2008/01/14 22:55:20 cperciva Exp $");

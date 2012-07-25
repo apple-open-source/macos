@@ -20,12 +20,12 @@
 #ifndef FullscreenVideoController_h
 #define FullscreenVideoController_h
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !defined(GST_API_VERSION_1)
 
-#include "GRefPtr.h"
 #include "GStreamerGWorld.h"
 #include "HTMLMediaElement.h"
 #include <wtf/RefPtr.h>
+#include <wtf/gobject/GRefPtr.h>
 
 class FullscreenVideoController {
     WTF_MAKE_NONCOPYABLE(FullscreenVideoController);

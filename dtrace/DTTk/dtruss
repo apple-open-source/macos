@@ -416,7 +416,7 @@ dtrace='
  
 	/* print main data */
 	printf("%s(0x%X, \"%S\", 0x%X)\t\t = %d %s%d\n",probefunc,self->arg0,
-	    stringof(copyin(self->arg1,arg0)),self->arg2,(int)arg0,
+	    arg0 == -1 ? "" : stringof(copyin(self->arg1,arg0)),self->arg2,(int)arg0,
 	    self->code,(int)errno);
 	OPT_stack ? ustack()    : 1;
 	OPT_stack ? trace("\n") : 1;

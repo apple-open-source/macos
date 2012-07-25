@@ -2078,13 +2078,7 @@ typedef struct {
 
 static const TSCEItem tsceItems[] = {
     { "root",                  rootStandardOffsets, kLen_rootStandardOffsets },
-#if 1
-    /* No jamo tailorings in Apple version of search collator currently */
-    { "root@collation=search", rootStandardOffsets, kLen_rootStandardOffsets },
-#else
-    /* Use this when we do have jamo tailorings */
     { "root@collation=search", rootSearchOffsets,   kLen_rootSearchOffsets   },
-#endif
     { NULL,                    NULL,                0                        }
 };
 
@@ -2157,7 +2151,7 @@ static void TestSearchCollatorElements(void)
             }
             ucol_close(ucol);
         } else {
-            log_err("error, locale %s, ucol_open failed: %s\n", tsceItemPtr->locale, u_errorName(status) );
+            log_data_err("error, locale %s, ucol_open failed: %s\n", tsceItemPtr->locale, u_errorName(status) );
         }
     }
 }

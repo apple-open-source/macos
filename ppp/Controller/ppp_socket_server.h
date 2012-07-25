@@ -28,7 +28,7 @@ int ppp_socket_start_server();
 int ppp_socket_create_client(int s, int priviledged, uid_t uid, gid_t gid);
 void socket_client_notify(CFSocketRef ref, u_char *sid, u_int32_t link, u_long event, u_long error, u_int32_t flags);
 
-#endif _PPP_SOCKET_SERVER_H
+#endif /* _PPP_SOCKET_SERVER_H */
 
 
 

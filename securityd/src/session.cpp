@@ -210,6 +210,8 @@ void Session::invalidateAuthHosts()
 //
 void Session::processSystemSleep()
 {
+    SecurityAgent::Clients::killAllClients();
+
 	StLock<Mutex> _(mSessionLock);
 	for (SessionMap::const_iterator it = mSessions.begin(); it != mSessions.end(); it++)
 		it->second->allReferences(&DbCommon::sleepProcessing);
@@ -404,7 +406,7 @@ void Session::setAttributes(SessionAttributeBits bits)
 {
 	StLock<Mutex> _(*this);
 	updateAudit();
-	assert((bits & ~settableAttributes) == 0);
+//	assert((bits & ~settableAttributes) == 0);
 	mAudit.ai_flags = bits;
 	mAudit.set();
 }

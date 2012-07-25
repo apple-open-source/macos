@@ -47,8 +47,6 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strsignal.c,v 1.9 2010/01/24 10:35:26 um
 
 #define	UPREFIX		"Unknown signal"
 
-static char		sig_ebuf[NL_TEXTMAX];
-static char		sig_ebuf_err[NL_TEXTMAX];
 static once_t		sig_init_once = ONCE_INITIALIZER;
 static thread_key_t	sig_key;
 static int		sig_keycreated = 0;
@@ -64,25 +62,19 @@ sig_tlsalloc(void)
 {
 	char *ebuf = NULL;
 
-	if (thr_main() != 0)
-		ebuf = sig_ebuf;
-	else {
-		if (thr_once(&sig_init_once, sig_keycreate) != 0 ||
-		    !sig_keycreated)
+	if (thr_once(&sig_init_once, sig_keycreate) != 0 ||
+	    !sig_keycreated)
+		goto thr_err;
+	if ((ebuf = thr_getspecific(sig_key)) == NULL) {
+		if ((ebuf = malloc(NL_TEXTMAX * sizeof(char))) == NULL)
 			goto thr_err;
-		if ((ebuf = thr_getspecific(sig_key)) == NULL) {
-			if ((ebuf = malloc(sizeof(sig_ebuf))) == NULL)
-				goto thr_err;
-			if (thr_setspecific(sig_key, ebuf) != 0) {
-				free(ebuf);
-				ebuf = NULL;
-				goto thr_err;
-			}
+		if (thr_setspecific(sig_key, ebuf) != 0) {
+			free(ebuf);
+			ebuf = NULL;
+			goto thr_err;
 		}
 	}
 thr_err:
-	if (ebuf == NULL)
-		ebuf = sig_ebuf_err;
 	return (ebuf);
 }
 
@@ -103,15 +95,19 @@ strsignal(int num)
 #endif
 
 	ebuf = sig_tlsalloc();
+	if(ebuf == NULL) {
+		errno = ENOMEM;
+		return NULL;
+	}
 
-	if (num > 0 && num < sys_nsig) {
+	if (num > 0 && num < NSIG) {
 		n = strlcpy(ebuf,
 #if defined(NLS)
 			catgets(catd, 2, num, sys_siglist[num]),
 #else
 			sys_siglist[num],
 #endif
-			sizeof(sig_ebuf));
+			NL_TEXTMAX * sizeof(char));
 	} else {
 		n = strlcpy(ebuf,
 #if defined(NLS)
@@ -119,7 +115,7 @@ strsignal(int num)
 #else
 			UPREFIX,
 #endif
-			sizeof(sig_ebuf));
+			NL_TEXTMAX * sizeof(char));
 	}
 
 	signum = num;

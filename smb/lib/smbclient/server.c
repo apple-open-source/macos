@@ -352,6 +352,12 @@ SMBMountShareEx(
 		/* Mount the volume soft, return time out error durring reconnect. */
 		CFDictionarySetValue (mOptions, kNetFSSoftMountKey, kCFBooleanTrue);
 	}
+	
+	if (mountOptions & kSMBReservedTMMount) {
+		/* Mount the volume as a Time Machine mount. */
+		CFDictionarySetValue (mOptions, kTimeMachineMountKey, kCFBooleanTrue);
+	}
+
 	/*
 	 * Specify permissions that should be assigned to files and directories. The 
 	 * value must be specified as an octal numbers. A value of zero means use the
@@ -686,11 +692,6 @@ SMBGetServerProperties(
     /* Update the vc properties to make sure we have a current verison. */
 	smb_get_vc_properties(hContext);
     vc_flags = ((struct smb_ctx *)hContext)->ct_vc_flags;
-	
-
-	if (((struct smb_ctx *)hContext)->prefs.workAroundEMCPanic) {
-		properties->internalFlags |= kWorkAroundEMCPanic;
-	}
 	
     if (vc_flags & SMBV_GUEST_ACCESS) {
         properties->authType = kSMBAuthTypeGuest;

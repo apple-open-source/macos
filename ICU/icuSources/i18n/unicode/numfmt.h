@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-* Copyright (C) 1997-2010, International Business Machines Corporation and others.
+* Copyright (C) 1997-2012, International Business Machines Corporation and others.
 * All Rights Reserved.
 ********************************************************************************
 *
@@ -36,6 +36,9 @@
 #include "unicode/unum.h" // UNumberFormatStyle
 #include "unicode/locid.h"
 #include "unicode/stringpiece.h"
+#include "unicode/curramt.h"
+
+class NumberFormatTest;
 
 U_NAMESPACE_BEGIN
 
@@ -162,30 +165,6 @@ class StringEnumeration;
  */
 class U_I18N_API NumberFormat : public Format {
 public:
-
-    /**
-     * Constants for various number format styles.
-     * kNumberStyle specifies a normal number style of format.
-     * kCurrencyStyle specifies a currency format using currency symbol name,
-     * such as in "$1.00".
-     * kPercentStyle specifies a style of format to display percent.
-     * kScientificStyle specifies a style of format to display scientific number.
-     * kISOCurrencyStyle specifies a currency format using ISO currency code,
-     * such as in "USD1.00".
-     * kPluralCurrencyStyle specifies a currency format using currency plural
-     * names, such as in "1.00 US dollar" and "3.00 US dollars".
-     * @draft ICU 4.2
-     */
-    enum EStyles {
-        kNumberStyle,
-        kCurrencyStyle,
-        kPercentStyle,
-        kScientificStyle,
-        kIsoCurrencyStyle,
-        kPluralCurrencyStyle,
-        kStyleCount // ALWAYS LAST ENUM: number of styles
-    };
-
     /**
      * Alignment Field constants used to construct a FieldPosition object.
      * Signifies that the position of the integer part or fraction part of
@@ -195,29 +174,44 @@ public:
      * support identification of all number format fields, not just those
      * pertaining to alignment.
      *
+     * These constants are provided for backwards compatibility only.
+     * Please use the C style constants defined in the header file unum.h.
+     *
      * @see FieldPosition
      * @stable ICU 2.0
      */
     enum EAlignmentFields {
-        kIntegerField,
-        kFractionField,
-        kDecimalSeparatorField,
-        kExponentSymbolField,
-        kExponentSignField,
-        kExponentField,
-        kGroupingSeparatorField,
-        kCurrencyField,
-        kPercentField,
-        kPermillField,
-        kSignField,
+        /** @stable ICU 2.0 */
+        kIntegerField = UNUM_INTEGER_FIELD,
+        /** @stable ICU 2.0 */
+        kFractionField = UNUM_FRACTION_FIELD,
+        /** @stable ICU 2.0 */
+        kDecimalSeparatorField = UNUM_DECIMAL_SEPARATOR_FIELD,
+        /** @stable ICU 2.0 */
+        kExponentSymbolField = UNUM_EXPONENT_SYMBOL_FIELD,
+        /** @stable ICU 2.0 */
+        kExponentSignField = UNUM_EXPONENT_SIGN_FIELD,
+        /** @stable ICU 2.0 */
+        kExponentField = UNUM_EXPONENT_FIELD,
+        /** @stable ICU 2.0 */
+        kGroupingSeparatorField = UNUM_GROUPING_SEPARATOR_FIELD,
+        /** @stable ICU 2.0 */
+        kCurrencyField = UNUM_CURRENCY_FIELD,
+        /** @stable ICU 2.0 */
+        kPercentField = UNUM_PERCENT_FIELD,
+        /** @stable ICU 2.0 */
+        kPermillField = UNUM_PERMILL_FIELD,
+        /** @stable ICU 2.0 */
+        kSignField = UNUM_SIGN_FIELD,
 
     /**
      * These constants are provided for backwards compatibility only.
-     * Please use the C++ style constants defined above.
-     * @stable ICU 2.0
+     * Please use the constants defined in the header file unum.h.
      */
-        INTEGER_FIELD        = kIntegerField,
-        FRACTION_FIELD        = kFractionField
+        /** @stable ICU 2.0 */
+        INTEGER_FIELD        = UNUM_INTEGER_FIELD,
+        /** @stable ICU 2.0 */
+        FRACTION_FIELD       = UNUM_FRACTION_FIELD
     };
 
     /**
@@ -576,6 +570,7 @@ public:
                         Formattable& result,
                         UErrorCode& status) const;
 
+/* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
     /**
      * Parses text from the given string as a currency amount.  Unlike
      * the parse() method, this method will attempt to parse a generic
@@ -586,18 +581,17 @@ public:
      * (U+00A4) in its prefix or suffix.
      *
      * @param text the string to parse
-     * @param result output parameter to receive result. This will have
-     * its currency set to the parsed ISO currency code.
-     * @param pos input-output position; on input, the position within
-     * text to match; must have 0 <= pos.getIndex() < text.length();
-     * on output, the position after the last matched character. If
-     * the parse fails, the position in unchanged upon output.
-     * @return a reference to result
-     * @internal
+     * @param pos  input-output position; on input, the position within text
+     *             to match; must have 0 <= pos.getIndex() < text.length();
+     *             on output, the position after the last matched character.
+     *             If the parse fails, the position in unchanged upon output.
+     * @return     if parse succeeds, a pointer to a newly-created CurrencyAmount
+     *             object (owned by the caller) containing information about
+     *             the parsed currency; if parse fails, this is NULL.
+     * @draft ICU 49
      */
-    virtual Formattable& parseCurrency(const UnicodeString& text,
-                                       Formattable& result,
-                                       ParsePosition& pos) const;
+    virtual CurrencyAmount* parseCurrency(const UnicodeString& text,
+                                          ParsePosition& pos) const;
 
     /**
      * Return true if this format will parse numbers as integers
@@ -622,22 +616,23 @@ public:
     virtual void setParseIntegerOnly(UBool value);
 
     /**
-     * Return whether or not strict parsing is in effect.
+     * Sets whether lenient parsing should be enabled (it is off by default).
      *
-     * @return <code>TRUE</code> if strict parsing is in effect,
-     *         <code>FALSE</code> otherwise.
-     *  @internal
+     * @param enable <code>TRUE</code> if lenient parsing should be used,
+     *               <code>FALSE</code> otherwise.
+     * @stable ICU 4.8
      */
-    UBool isParseStrict(void) const;
+    virtual void setLenient(UBool enable);
 
     /**
-     * Set whether or not strict parsing should be used.
+     * Returns whether lenient parsing is enabled (it is off by default).
      *
-     * @param value <code>TRUE</code> if strict parsing should be used,
-     *              <code>FALSE</code> otherwise.
-     *  @internal
+     * @return <code>TRUE</code> if lenient parsing is enabled,
+     *         <code>FALSE</code> otherwise.
+     * @see #setLenient
+     * @stable ICU 4.8
      */
-    virtual void setParseStrict(UBool value);
+    virtual UBool isLenient(void) const;
 
     /**
      * Returns the default number format for the current default
@@ -663,13 +658,14 @@ public:
     /**
      * Creates the specified decimal format style of the desired locale.
      * @param desiredLocale    the given locale.
-     * @param choice           the given style.
-     * @param success          Output param filled with success/failure status.
+     * @param style            the given style.
+     * @param errorCode        Output param filled with success/failure status.
      * @return                 A new NumberFormat instance.
-     * @draft ICU 4.2
+     * @stable ICU 4.8
      */
-    static NumberFormat* U_EXPORT2 createInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
-
+    static NumberFormat* U_EXPORT2 createInstance(const Locale& desiredLocale,
+                                                  UNumberFormatStyle style,
+                                                  UErrorCode& errorCode);
 
     /**
      * Returns a currency format for the current default locale.
@@ -939,14 +935,18 @@ protected:
 
 private:
 
+    static UBool isStyleSupported(UNumberFormatStyle style);
+
     /**
      * Creates the specified decimal format style of the desired locale.
      * @param desiredLocale    the given locale.
-     * @param choice           the given style.
-     * @param success          Output param filled with success/failure status.
+     * @param style            the given style.
+     * @param errorCode        Output param filled with success/failure status.
      * @return                 A new NumberFormat instance.
      */
-    static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
+    static NumberFormat* makeInstance(const Locale& desiredLocale,
+                                      UNumberFormatStyle style,
+                                      UErrorCode& errorCode);
 
     UBool      fGroupingUsed;
     int32_t     fMaxIntegerDigits;
@@ -954,13 +954,14 @@ private:
     int32_t     fMaxFractionDigits;
     int32_t     fMinFractionDigits;
     UBool      fParseIntegerOnly;
-    UBool      fParseStrict;
+    UBool      fLenient; // TRUE => lenient parse is enabled
 
     // ISO currency code
     UChar      fCurrency[4];
 
-    friend class ICUNumberFormatFactory; // access to makeInstance, EStyles
+    friend class ICUNumberFormatFactory; // access to makeInstance
     friend class ICUNumberFormatService;
+    friend class ::NumberFormatTest;  // access to isStyleSupported()
 };
 
 #if !UCONFIG_NO_SERVICE
@@ -1056,9 +1057,9 @@ NumberFormat::isParseIntegerOnly() const
 }
 
 inline UBool
-NumberFormat::isParseStrict() const
+NumberFormat::isLenient() const
 {
-	return fParseStrict;
+    return fLenient;
 }
 
 inline UnicodeString&

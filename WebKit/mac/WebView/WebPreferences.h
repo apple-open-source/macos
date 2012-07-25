@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2012 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,6 @@
  */
 
 #import <Foundation/Foundation.h>
-
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-#define WebNSUInteger unsigned int
-#else
-#define WebNSUInteger NSUInteger
-#endif
 
 /*!
 @enum WebCacheModel
@@ -68,7 +62,7 @@ enum {
     WebCacheModelDocumentBrowser = 1,
     WebCacheModelPrimaryWebBrowser = 2
 };
-typedef WebNSUInteger WebCacheModel;
+typedef NSUInteger WebCacheModel;
 
 @class WebPreferencesPrivate;
 
@@ -437,6 +431,17 @@ caching behavior.
 */
 - (WebCacheModel)cacheModel;
 
-@end
+/*!
+    @method setSuppressesIncrementalRendering:
+    @param suppressesIncrementalRendering YES to suppress incremental rendering;
+    NO otherwise.
+*/
+- (void)setSuppressesIncrementalRendering:(BOOL)suppressesIncrementalRendering;
 
-#undef WebNSUInteger
+/*!
+    @method suppressesIncrementalRendering
+    @result YES if the WebView suppresses incremental rendering; NO otherwise.
+*/
+- (BOOL)suppressesIncrementalRendering;
+
+@end

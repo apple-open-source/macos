@@ -27,10 +27,13 @@
 #import "WKPrintingView.h"
 
 #import "Logging.h"
+#import "PDFKitImports.h"
 #import "PrintInfo.h"
 #import "WebData.h"
 #import "WebPageProxy.h"
 #import <PDFKit/PDFKit.h>
+#import <WebCore/WebCoreObjCExtras.h>
+#import <wtf/MainThread.h>
 
 using namespace WebKit;
 using namespace WebCore;
@@ -54,6 +57,14 @@ static BOOL isForcingPreviewUpdate;
     _wkView = wkView;
 
     return self;
+}
+
+- (void)dealloc
+{
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WKPrintingView class], self))
+        return;
+
+    [super dealloc];
 }
 
 - (BOOL)isFlipped
@@ -110,6 +121,8 @@ static BOOL isForcingPreviewUpdate;
 
 - (void)_adjustPrintingMarginsForHeaderAndFooter
 {
+    ASSERT(isMainThread()); // This funciton calls the client, which should only be done on main thread.
+
     NSPrintInfo *info = [_printOperation printInfo];
     NSMutableDictionary *infoDictionary = [info dictionary];
 
@@ -216,8 +229,8 @@ static void pageDidDrawToPDF(WKDataRef dataRef, WKErrorRef, void* untypedContext
             ASSERT([view _isPrintingPreview]);
 
             if (data) {
-                pair<HashMap<WebCore::IntRect, Vector<uint8_t> >::iterator, bool> entry = view->_pagePreviews.add(iter->second, Vector<uint8_t>());
-                entry.first->second.append(data->bytes(), data->size());
+                HashMap<WebCore::IntRect, Vector<uint8_t> >::AddResult entry = view->_pagePreviews.add(iter->second, Vector<uint8_t>());
+                entry.iterator->second.append(data->bytes(), data->size());
             }
             view->_expectedPreviewCallbacks.remove(context->callbackID);
             bool receivedResponseToLatestRequest = view->_latestExpectedPreviewCallback == context->callbackID;
@@ -364,7 +377,7 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
 
     [self _suspendAutodisplay];
     
-    [self _adjustPrintingMarginsForHeaderAndFooter];
+    [self performSelectorOnMainThread:@selector(_adjustPrintingMarginsForHeaderAndFooter) withObject:nil waitUntilDone:YES];
 
     if ([self _hasPageRects])
         *range = NSMakeRange(1, _printingPageRects.size());
@@ -397,33 +410,6 @@ static void prepareDataForPrintingOnSecondaryThread(void* untypedContext)
     }
     ASSERT_NOT_REACHED();
     return 0; // Invalid page number.
-}
-
-static NSString *pdfKitFrameworkPath()
-{
-    NSString *systemLibraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSSystemDomainMask, NO) objectAtIndex:0];
-    return [systemLibraryPath stringByAppendingPathComponent:@"Frameworks/Quartz.framework/Frameworks/PDFKit.framework"];
-}
-
-static Class classFromPDFKit(NSString *className)
-{
-    static NSBundle *pdfKitBundle = [NSBundle bundleWithPath:pdfKitFrameworkPath()];
-    [pdfKitBundle load];
-    return [pdfKitBundle classNamed:className];
-}
-
-static Class pdfAnnotationLinkClass()
-{
-    static Class pdfAnnotationLinkClass = classFromPDFKit(@"PDFAnnotationLink");
-    ASSERT(pdfAnnotationLinkClass);
-    return pdfAnnotationLinkClass;
-}
-
-static Class pdfDocumentClass()
-{
-    static Class pdfDocumentClass = classFromPDFKit(@"PDFDocument");
-    ASSERT(pdfDocumentClass);
-    return pdfDocumentClass;
 }
 
 - (void)_drawPDFDocument:(PDFDocument *)pdfDocument page:(unsigned)page atPoint:(NSPoint)point

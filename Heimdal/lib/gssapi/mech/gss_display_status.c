@@ -135,7 +135,7 @@ supplementary_error(OM_uint32 v)
 }
 
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_display_status(OM_uint32 *minor_status,
     OM_uint32 status_value,
     int status_type,
@@ -189,7 +189,7 @@ gss_display_status(OM_uint32 *minor_status,
 			oid.value = rk_UNCONST("unknown");
 			oid.length = 7;
 		}
-		
+
 		e = asprintf (&buf, "unknown mech-code %lu for mech %.*s",
 			  (unsigned long)status_value,
 			  (int)oid.length, (char *)oid.value);

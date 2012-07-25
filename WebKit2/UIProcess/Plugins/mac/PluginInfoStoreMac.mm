@@ -71,15 +71,15 @@ Vector<String> PluginInfoStore::individualPluginPaths()
     return Vector<String>();
 }
 
-bool PluginInfoStore::getPluginInfo(const String& pluginPath, Plugin& plugin)
+bool PluginInfoStore::getPluginInfo(const String& pluginPath, PluginModuleInfo& plugin)
 {
     return NetscapePluginModule::getPluginInfo(pluginPath, plugin);
 }
 
-bool PluginInfoStore::shouldUsePlugin(Vector<Plugin>& alreadyLoadedPlugins, const Plugin& plugin)
+bool PluginInfoStore::shouldUsePlugin(Vector<PluginModuleInfo>& alreadyLoadedPlugins, const PluginModuleInfo& plugin)
 {
     for (size_t i = 0; i < alreadyLoadedPlugins.size(); ++i) {
-        const Plugin& loadedPlugin = alreadyLoadedPlugins[i];
+        const PluginModuleInfo& loadedPlugin = alreadyLoadedPlugins[i];
 
         // If a plug-in with the same bundle identifier already exists, we don't want to load it.
         if (loadedPlugin.bundleIdentifier == plugin.bundleIdentifier)
@@ -87,6 +87,11 @@ bool PluginInfoStore::shouldUsePlugin(Vector<Plugin>& alreadyLoadedPlugins, cons
     }
 
     return true;
+}
+
+bool PluginInfoStore::shouldBlockPlugin(const PluginModuleInfo& plugin) const
+{
+    return WKShouldBlockPlugin(plugin.bundleIdentifier, plugin.versionString);
 }
 
 String PluginInfoStore::getMIMETypeForExtension(const String& extension)

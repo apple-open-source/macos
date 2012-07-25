@@ -682,7 +682,6 @@
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
 				);
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
@@ -692,6 +691,7 @@
 		FC791680103A35EB00CBA90E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				HEADER_SEARCH_PATHS = (
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
 					"$(PROJECT_DIR)/tcpdump",
@@ -700,6 +700,7 @@
 				);
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tcpdump;
+				WARNING_LDFLAGS = "";
 			};
 			name = Release;
 		};

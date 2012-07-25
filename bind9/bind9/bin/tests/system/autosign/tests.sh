@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2009-2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2009-2011  Internet Systems Consortium, Inc. ("ISC")
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: tests.sh,v 1.4.6.35 2012/02/07 00:34:28 each Exp $
+# $Id: tests.sh,v 1.12.18.16 2011-07-26 04:41:48 marka Exp $
 
 SYSTEMTESTTOP=..
 . $SYSTEMTESTTOP/conf.sh
@@ -634,7 +634,8 @@ status=`expr $status + $ret`
 
 echo "I:checking that revoked key is present ($n)"
 ret=0
-id=`cat rev.key`
+id=`sed 's/^K.+007+0*\([0-9]\)/\1/' < rev.key`
+id=`expr $id + 128 % 65536`
 $DIG $DIGOPTS +multi dnskey . @10.53.0.1 > dig.out.ns1.test$n || ret=1
 grep '; key id = '"$id"'$' dig.out.ns1.test$n > /dev/null || ret=1
 n=`expr $n + 1`
@@ -643,7 +644,8 @@ status=`expr $status + $ret`
 
 echo "I:checking that revoked key self-signs ($n)"
 ret=0
-id=`cat rev.key`
+id=`sed 's/^K.+007+0*\([0-9]\)/\1/' < rev.key`
+id=`expr $id + 128 % 65536`
 $DIG $DIGOPTS dnskey . @10.53.0.1 > dig.out.ns1.test$n || ret=1
 grep 'RRSIG.*'" $id "'\. ' dig.out.ns1.test$n > /dev/null || ret=1
 n=`expr $n + 1`
@@ -925,7 +927,7 @@ case $sleep in
 esac
 ret=0
 $DIG $DIGOPTS +multi dnskey . @10.53.0.1 > dig.out.ns1.test$n || ret=1
-grep '; key id = '"$oldid"'$' dig.out.ns1.test$n > /dev/null && ret=1
+grep '; key id =.*'"$oldid"'$' dig.out.ns1.test$n > /dev/null && ret=1
 n=`expr $n + 1`
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
@@ -943,7 +945,7 @@ echo "I:checking revoked key with duplicate key ID (failure expected) ($n)"
 lret=0
 id=30676
 $DIG $DIGOPTS +multi dnskey bar @10.53.0.2 > dig.out.ns2.test$n || lret=1
-grep '; key id = '"$id"'$' dig.out.ns2.test$n > /dev/null || lret=1
+grep '; key id =.*'"$id"'$' dig.out.ns2.test$n > /dev/null || lret=1
 $DIG $DIGOPTS dnskey bar @10.53.0.4 > dig.out.ns4.test$n || lret=1
 grep "flags:.*ad.*QUERY" dig.out.ns4.test$n > /dev/null || lret=1
 n=`expr $n + 1`
@@ -960,15 +962,15 @@ status=`expr $status + $ret`
 
 # this confirms that key events are never scheduled more than
 # a given number of seconds into the future, and that the last
-# event scheduled is within 10 seconds of expected interval.
+# event scheduled is precisely that far in the future.
 check_interval () {
         awk '/next key event/ {print $2 ":" $9}' $1/named.run |
 	sed 's/\.//g' |
             awk -F: '
                      {
                        x = ($6+ $5*60000 + $4*3600000) - ($3+ $2*60000 + $1*3600000);
-		       # abs(x) < 1000 ms treat as 'now'
-		       if (x < 1000 && x > -1000)
+		       # abs(x) < 500 ms treat as 'now'
+		       if (x < 500 && x > -500)
                          x = 0;
 		       # convert to seconds
 		       x = x/1000;
@@ -981,7 +983,7 @@ check_interval () {
                        if (int(x) > int(interval))
                          exit (1);
                      }
-                     END { if (int(x) > int(interval) || int(x) < int(interval-10)) exit(1) }' interval=$2
+                     END { if (int(x) != int(interval)) exit(1) }' interval=$2
         return $?
 }
 
@@ -991,39 +993,6 @@ check_interval ns1 3600 || ret=1
 check_interval ns2 3600 || ret=1
 check_interval ns3 3600 || ret=1
 n=`expr $n + 1`
-if [ $ret != 0 ]; then echo "I:failed"; fi
-status=`expr $status + $ret`
-
-echo "I:forcing full sign with unreadable keys ($n)"
-ret=0
-chmod 0 ns1/K.+*+*.key ns1/K.+*+*.private || ret=1
-$RNDC -c ../common/rndc.conf -s 10.53.0.1 -p 9953 sign . 2>&1 | sed 's/^/I:ns1 /'
-$DIG $DIGOPTS . @10.53.0.1 dnskey > dig.out.ns1.test$n || ret=1
-grep "status: NOERROR" dig.out.ns1.test$n > /dev/null || ret=1
-n=`expr $n + 1`
-if [ $ret != 0 ]; then echo "I:failed"; fi
-status=`expr $status + $ret`
-
-echo "I:test turning on auto-dnssec during reconfig ($n)"
-ret=0
-# first create a zone that doesn't have auto-dnssec
-rm -f ns3/*.nzf
-$RNDC -c ../common/rndc.conf -s 10.53.0.3 -p 9953 addzone reconf.example '{ type master; file "reconf.example.db"; };' 2>&1 | sed 's/^/I:ns3 /'
-rekey_calls=`grep "zone reconf.example.*next key event" ns3/named.run | wc -l`
-[ "$rekey_calls" -eq 0 ] || ret=1
-# ...then we add auto-dnssec and reconfigure
-nzf=`ls ns3/*.nzf`
-echo 'zone reconf.example { type master; file "reconf.example.db"; allow-update { any; }; auto-dnssec maintain; };' > $nzf
-$RNDC -c ../common/rndc.conf -s 10.53.0.3 -p 9953 reconfig 2>&1 | sed 's/^/I:ns3 /'
-for i in 0 1 2 3 4 5 6 7 8 9; do
-    lret=0
-    rekey_calls=`grep "zone reconf.example.*next key event" ns3/named.run | wc -l`
-    [ "$rekey_calls" -gt 0 ] || lret=1
-    if [ "$lret" = 0 ]; then break; fi
-    sleep 1
-done
-n=`expr $n + 1`
-if [ "$lret" != 0 ]; then ret=$lret; fi
 if [ $ret != 0 ]; then echo "I:failed"; fi
 status=`expr $status + $ret`
 

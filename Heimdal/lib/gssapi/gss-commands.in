@@ -60,6 +60,10 @@ command = {
 		type = "string"
 		argument = "gssapi mechanism"
 	}
+	option = {
+		long = "validate"
+		type = "flag"
+	}
 	min_args = "0"
 	max_args = "1"
 	argument = "[user name]"
@@ -67,6 +71,16 @@ command = {
 command = {
 	name = "list-credentials"
 	help = "List available credentials"
+	option = {
+		long = "verbose"
+		type = "flag"
+	}
+	option = {
+		long = "mech"
+		type = "string"
+		argument = "gssapi mechanism"
+	}
+
 	min_args = "0"
 	max_args = "0"
 }
@@ -159,6 +173,19 @@ command = {
 	help = "Set label on credential"
 	min_args = "2"
 	max_args = "3"
+}
+command = {
+	name = "attrs-for-mech"
+	help = "Print the attributes for mechs"
+	option = {
+		long = "all"
+		type = "flag"
+	}
+	option = {
+		long = "mech"
+		type = "string"
+		argument = "mechanism"
+	}
 }
 command = {
 	name = "help"

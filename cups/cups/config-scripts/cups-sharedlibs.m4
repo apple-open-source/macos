@@ -3,7 +3,7 @@ dnl "$Id: cups-sharedlibs.m4 9153 2010-06-16 00:48:25Z mike $"
 dnl
 dnl   Shared library support for CUPS.
 dnl
-dnl   Copyright 2007-2010 by Apple Inc.
+dnl   Copyright 2007-2012 by Apple Inc.
 dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -27,7 +27,6 @@ if test x$enable_shared != xno; then
 		SunOS*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -38,7 +37,6 @@ if test x$enable_shared != xno; then
 		UNIX_S*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -51,7 +49,6 @@ if test x$enable_shared != xno; then
 				ia64)
 					LIBCUPS="lib$cupsbase.so.2"
 					LIBCUPSCGI="libcupscgi.so.1"
-					LIBCUPSDRIVER="libcupsdriver.so.1"
 					LIBCUPSIMAGE="libcupsimage.so.2"
 					LIBCUPSMIME="libcupsmime.so.1"
 					LIBCUPSPPDC="libcupsppdc.so.1"
@@ -62,7 +59,6 @@ if test x$enable_shared != xno; then
 				*)
 					LIBCUPS="lib$cupsbase.sl.2"
 					LIBCUPSCGI="libcupscgi.sl.1"
-					LIBCUPSDRIVER="libcupsdriver.sl.1"
 					LIBCUPSIMAGE="libcupsimage.sl.2"
 					LIBCUPSMIME="libcupsmime.sl.1"
 					LIBCUPSPPDC="libcupsppdc.sl.1"
@@ -75,7 +71,6 @@ if test x$enable_shared != xno; then
 		IRIX)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -86,7 +81,6 @@ if test x$enable_shared != xno; then
 		OSF1* | Linux | GNU | *BSD*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -97,7 +91,6 @@ if test x$enable_shared != xno; then
 		Darwin*)
 			LIBCUPS="lib$cupsbase.2.dylib"
 			LIBCUPSCGI="libcupscgi.1.dylib"
-			LIBCUPSDRIVER="libcupsdriver.1.dylib"
 			LIBCUPSIMAGE="libcupsimage.2.dylib"
 			LIBCUPSMIME="libcupsmime.1.dylib"
 			LIBCUPSPPDC="libcupsppdc.1.dylib"
@@ -109,7 +102,6 @@ if test x$enable_shared != xno; then
 			LIBCUPS="lib${cupsbase}_s.a"
 			LIBCUPSBASE="${cupsbase}_s"
 			LIBCUPSCGI="libcupscgi_s.a"
-			LIBCUPSDRIVER="libcupsdriver_s.a"
 			LIBCUPSIMAGE="libcupsimage_s.a"
 			LIBCUPSMIME="libcupsmime_s.a"
 			LIBCUPSPPDC="libcupsppdc_s.a"
@@ -122,7 +114,6 @@ if test x$enable_shared != xno; then
 			echo "         option with compiler."
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -135,7 +126,6 @@ else
 	PICFLAG=0
 	LIBCUPS="lib$cupsbase.a"
 	LIBCUPSCGI="libcupscgi.a"
-	LIBCUPSDRIVER="libcupsdriver.a"
 	LIBCUPSIMAGE="libcupsimage.a"
 	LIBCUPSMIME="libcupsmime.a"
 	LIBCUPSPPDC="libcupsppdc.a"
@@ -143,20 +133,12 @@ else
 	DSOXX=":"
 fi
 
-# 32-bit and 64-bit libraries need variations of the standard
-# DSOFLAGS...
-DSO32FLAGS="$DSOFLAGS"
-DSO64FLAGS="$DSOFLAGS"
-
 AC_SUBST(DSO)
 AC_SUBST(DSOXX)
 AC_SUBST(DSOFLAGS)
-AC_SUBST(DSO32FLAGS)
-AC_SUBST(DSO64FLAGS)
 AC_SUBST(LIBCUPS)
 AC_SUBST(LIBCUPSBASE)
 AC_SUBST(LIBCUPSCGI)
-AC_SUBST(LIBCUPSDRIVER)
 AC_SUBST(LIBCUPSIMAGE)
 AC_SUBST(LIBCUPSMIME)
 AC_SUBST(LIBCUPSPPDC)
@@ -167,7 +149,6 @@ if test x$enable_shared = xno; then
 	LINKCUPSIMAGE="../filter/libcupsimage.a"
 
 	EXTLINKCUPS="-lcups"
-	EXTLINKCUPSDRIVER="-lcupsdriver"
 	EXTLINKCUPSIMAGE="-lcupsimage"
 else
 	if test $uname = AIX; then
@@ -175,20 +156,17 @@ else
 		LINKCUPSIMAGE="-lcupsimage_s"
 
 		EXTLINKCUPS="-lcups_s"
-		EXTLINKCUPSDRIVER="-lcupsdriver_s"
 		EXTLINKCUPSIMAGE="-lcupsimage_s"
 	else
 		LINKCUPS="-l${cupsbase}"
 		LINKCUPSIMAGE="-lcupsimage"
 
 		EXTLINKCUPS="-lcups"
-		EXTLINKCUPSDRIVER="-lcupsdriver"
 		EXTLINKCUPSIMAGE="-lcupsimage"
 	fi
 fi
 
 AC_SUBST(EXTLINKCUPS)
-AC_SUBST(EXTLINKCUPSDRIVER)
 AC_SUBST(EXTLINKCUPSIMAGE)
 AC_SUBST(LINKCUPS)
 AC_SUBST(LINKCUPSIMAGE)
@@ -201,7 +179,7 @@ if test "$DSO" != ":"; then
 	# rather than to the executables.  This makes things smaller if you
 	# are using any static libraries, and it also allows us to distribute
 	# a single DSO rather than a bunch...
-	DSOLIBS="\$(LIBTIFF) \$(LIBPNG) \$(LIBJPEG) \$(LIBZ)"
+	DSOLIBS="\$(LIBZ)"
 	IMGLIBS=""
 
 	# Tell the run-time linkers where to find a DSO.  Some platforms
@@ -213,13 +191,9 @@ if test "$DSO" != ":"; then
 			case "$uarch" in
 				ia64)
 					DSOFLAGS="-Wl,+s,+b,$libdir $DSOFLAGS"
-					DSO32FLAGS="-Wl,+s,+b,$LIB32DIR $DSO32FLAGS"
-					DSO64FLAGS="-Wl,+s,+b,$LIB64DIR $DSO64FLAGS"
 					;;
 				*)
                 			DSOFLAGS="+s +b $libdir $DSOFLAGS"
-                			DSO32FLAGS="+s +b $LIB32DIR $DSO32FLAGS"
-                			DSO64FLAGS="+s +b $LIB64DIR $DSO64FLAGS"
 					;;
 			esac
                 	LDFLAGS="$LDFLAGS -Wl,+s,+b,$libdir"
@@ -229,8 +203,6 @@ if test "$DSO" != ":"; then
                 	# Solaris...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-R$libdir $DSOFLAGS"
-				DSO32FLAGS="-R$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-R$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -R$libdir"
 				EXPORT_LDFLAGS="-R$libdir"
 			fi
@@ -239,8 +211,6 @@ if test "$DSO" != ":"; then
                         # *BSD...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-Wl,-R$libdir $DSOFLAGS"
-				DSO32FLAGS="-Wl,-R$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-Wl,-R$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -Wl,-R$libdir"
 				EXPORT_LDFLAGS="-Wl,-R$libdir"
 			fi
@@ -249,8 +219,6 @@ if test "$DSO" != ":"; then
                         # IRIX, Linux, and HURD...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-Wl,-rpath,$libdir $DSOFLAGS"
-				DSO32FLAGS="-Wl,-rpath,$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-Wl,-rpath,$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -Wl,-rpath,$libdir"
 				EXPORT_LDFLAGS="-Wl,-rpath,$libdir"
 			fi
@@ -258,7 +226,7 @@ if test "$DSO" != ":"; then
 	esac
 else
 	DSOLIBS=""
-	IMGLIBS="\$(LIBTIFF) \$(LIBPNG) \$(LIBJPEG) \$(LIBZ)"
+	IMGLIBS="\$(LIBZ)"
 fi
 
 AC_SUBST(DSOLIBS)

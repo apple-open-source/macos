@@ -28,47 +28,94 @@
 #include "FloatPoint.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
+#include "SVGAnimatedPointList.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGPointList.h"
 
 namespace WebCore {
+
+// Define custom animated property 'points'.
+const SVGPropertyInfo* SVGPolyElement::pointsPropertyInfo()
+{
+    static const SVGPropertyInfo* s_propertyInfo = 0;
+    if (!s_propertyInfo) {
+        s_propertyInfo = new SVGPropertyInfo(AnimatedPoints,
+                                             SVGNames::pointsAttr,
+                                             SVGNames::pointsAttr.localName(),
+                                             &SVGPolyElement::synchronizePoints,
+                                             &SVGPolyElement::lookupOrCreatePointsWrapper);
+    }
+    return s_propertyInfo;
+}
 
 // Animated property definitions
 DEFINE_ANIMATED_BOOLEAN(SVGPolyElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGPolyElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(points)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
 SVGPolyElement::SVGPolyElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
 {
+    registerAnimatedPropertiesForSVGPolyElement();    
 }
 
-void SVGPolyElement::parseMappedAttribute(Attribute* attr)
+bool SVGPolyElement::isSupportedAttribute(const QualifiedName& attrName)
 {
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::pointsAttr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGPolyElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledTransformableElement::parseAttribute(attr);
+        return;
+    }
+
     const AtomicString& value = attr->value();
     if (attr->name() == SVGNames::pointsAttr) {
         SVGPointList newList;
         if (!pointsListFromSVGData(newList, value))
             document()->accessSVGExtensions()->reportError("Problem parsing points=\"" + value + "\"");
 
-        if (SVGAnimatedListPropertyTearOff<SVGPointList>* list = m_animatablePointsList.get())
-            list->detachListWrappers(newList.size());
+        if (SVGAnimatedProperty* wrapper = SVGAnimatedProperty::lookupWrapper<SVGPolyElement, SVGAnimatedPointList, true>(this, pointsPropertyInfo()))
+            static_cast<SVGAnimatedPointList*>(wrapper)->detachListWrappers(newList.size());
 
         m_points.value = newList;
-    } else {
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        SVGStyledTransformableElement::parseMappedAttribute(attr);
+        return;
     }
+
+    if (SVGTests::parseAttribute(attr))
+        return;
+    if (SVGLangSpace::parseAttribute(attr))
+        return;
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGPolyElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
+        return;
+    }
 
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
     if (SVGTests::handleAttributeChange(this, attrName))
         return;
 
@@ -77,77 +124,46 @@ void SVGPolyElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
 
     if (attrName == SVGNames::pointsAttr) {
-        renderer->setNeedsPathUpdate();
+        renderer->setNeedsShapeUpdate();
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
-    if (SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+    if (SVGLangSpace::isKnownAttribute(attrName) || SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-}
-
-void SVGPolyElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeExternalResourcesRequired();
-        synchronizePoints();
-        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
-    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (attrName == SVGNames::pointsAttr)
-        synchronizePoints();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
+    ASSERT_NOT_REACHED();
 }
 
-AttributeToPropertyTypeMap& SVGPolyElement::attributeToPropertyTypeMap()
+void SVGPolyElement::synchronizePoints(void* contextElement)
 {
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGPolyElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::pointsAttr, AnimatedPoints);
-}
-
-void SVGPolyElement::synchronizePoints()
-{
-    if (!m_points.shouldSynchronize)
+    ASSERT(contextElement);
+    SVGPolyElement* ownerType = static_cast<SVGPolyElement*>(contextElement);
+    if (!ownerType->m_points.shouldSynchronize)
         return;
+    SVGAnimatedPropertySynchronizer<true>::synchronize(ownerType, pointsPropertyInfo()->attributeName, ownerType->m_points.value.valueAsString());
+}
 
-    SVGAnimatedPropertySynchronizer<true>::synchronize(this, SVGNames::pointsAttr, m_points.value.valueAsString());
+PassRefPtr<SVGAnimatedProperty> SVGPolyElement::lookupOrCreatePointsWrapper(void* contextElement)
+{
+    ASSERT(contextElement);
+    SVGPolyElement* ownerType = static_cast<SVGPolyElement*>(contextElement);
+    return SVGAnimatedProperty::lookupOrCreateWrapper<SVGPolyElement, SVGAnimatedPointList, SVGPointList, true>
+           (ownerType, pointsPropertyInfo(), ownerType->m_points.value);
 }
 
 SVGListPropertyTearOff<SVGPointList>* SVGPolyElement::points()
 {
-    if (!m_animatablePointsList) {
-        m_points.shouldSynchronize = true;
-        m_animatablePointsList = SVGAnimatedProperty::lookupOrCreateWrapper<SVGAnimatedListPropertyTearOff<SVGPointList> , SVGPointList>
-                                 (this, SVGNames::pointsAttr, SVGNames::pointsAttr.localName(), m_points.value);
-    }
-
-    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(m_animatablePointsList->baseVal());
+    m_points.shouldSynchronize = true;
+    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_pointer_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->baseVal());
 }
 
 SVGListPropertyTearOff<SVGPointList>* SVGPolyElement::animatedPoints()
 {
-    if (!m_animatablePointsList) {
-        m_points.shouldSynchronize = true;
-        m_animatablePointsList = SVGAnimatedProperty::lookupOrCreateWrapper<SVGAnimatedListPropertyTearOff<SVGPointList> , SVGPointList>
-                                 (this, SVGNames::pointsAttr, SVGNames::pointsAttr.localName(), m_points.value);
-    }
-
-    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(m_animatablePointsList->animVal());
+    m_points.shouldSynchronize = true;
+    return static_cast<SVGListPropertyTearOff<SVGPointList>*>(static_pointer_cast<SVGAnimatedPointList>(lookupOrCreatePointsWrapper(this))->animVal());
 }
 
 }

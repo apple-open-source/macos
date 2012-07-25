@@ -49,13 +49,25 @@ public:
     // InspectorClient methods:
     virtual void inspectorDestroyed();
     virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void closeInspectorFrontend();
+    virtual void bringFrontendToFront();
 
-    virtual void highlight(WebCore::Node*);
+    virtual void highlight();
     virtual void hideHighlight();
 
     virtual bool sendMessageToFrontend(const WTF::String&);
 
     virtual void updateInspectorStateCookie(const WTF::String&);
+
+    virtual bool canClearBrowserCache();
+    virtual void clearBrowserCache();
+    virtual bool canClearBrowserCookies();
+    virtual void clearBrowserCookies();
+
+    virtual bool canOverrideDeviceMetrics();
+    virtual void overrideDeviceMetrics(int, int, float, bool);
+    virtual void autoZoomPageToFitWidth();
+
 private:
     WebDevToolsAgentImpl* devToolsAgent();
 

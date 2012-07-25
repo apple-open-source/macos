@@ -29,7 +29,7 @@ tcpdump \- dump traffic on a network
 .na
 .B tcpdump
 [
-.B \-AbdDefgIKlLnNOpqRStuUvxX
+.B \-AbdDefgIkKlLnNOPpqRStuUvxX
 ] [
 .B \-B
 .I buffer_size
@@ -363,6 +363,10 @@ monitor mode will be shown; if
 is specified, only those link-layer types available when in monitor mode
 will be shown.
 .TP
+.B \-k
+Print the comment field from the libpcap packet header.
+Apple modification.
+.TP
 .B \-K
 Don't attempt to verify IP, TCP, or UDP checksums.  This is useful for
 interfaces that perform some or all of those checksum calculation in
@@ -410,6 +414,10 @@ instead of ``nic.ddn.mil''.
 Do not run the packet-matching code optimizer.
 This is useful only
 if you suspect a bug in the optimizer.
+.TP
+.B \-P
+Use the pcap-ng file format when saving files.
+Apple modification.
 .TP
 .B \-p
 \fIDon't\fP put the interface

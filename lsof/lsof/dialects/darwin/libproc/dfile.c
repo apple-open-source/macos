@@ -36,7 +36,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dfile.c,v 1.6 2009/03/25 19:21:37 abe Exp $";
+static char *rcsid = "$Id: dfile.c,v 1.7 2011/08/07 22:52:30 abe Exp $";
 #endif
 
 
@@ -167,6 +167,8 @@ enter_vnode_info(vip)
 		if (dev == mp->dev) {
 		    Lf->fsdir = mp->dir;
 		    Lf->fsdev = mp->fsname;
+		    if (mp->is_nfs && Fnfs)
+			Lf->sf |= SELNFS;
 		    break;
 		}
 	    }

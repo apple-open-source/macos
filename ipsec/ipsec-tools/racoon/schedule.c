@@ -239,7 +239,7 @@ sched_dump(buf, len)
 	caddr_t *buf;
 	int *len;
 {
-	caddr_t new;
+	struct scheddump *new;
 	struct sched *p;
 	struct scheddump *dst;
 	int cnt = 0;
@@ -257,10 +257,10 @@ sched_dump(buf, len)
 
 	*len = cnt * sizeof(*dst);
 
-	new = racoon_malloc(*len);
+	new = (struct scheddump *)racoon_malloc(*len);
 	if (new == NULL)
 		return -1;
-	dst = (struct scheddump *)new;
+	dst = new;
 
         p = TAILQ_FIRST(&sctree);
 	while (p) {
@@ -275,7 +275,7 @@ sched_dump(buf, len)
 		dst++;
 	}
 
-	*buf = new;
+	*buf = (caddr_t)new;
 
 	return 0;
 }

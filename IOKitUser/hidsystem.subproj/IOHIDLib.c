@@ -31,6 +31,10 @@
 #include <sys/types.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <libkern/OSByteOrder.h>
+#include <bootstrap_priv.h>
+#include <mach/mach.h>
+
+
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
@@ -87,8 +91,11 @@ static void _IOPMReportSoftwareHIDEvent(UInt32 eventType)
     mach_port_t         newConnection;
     kern_return_t       kern_result = KERN_SUCCESS;
 
-    kern_result = bootstrap_look_up(bootstrap_port, 
-                    kIOPMServerBootstrapName, &newConnection);
+    kern_result = bootstrap_look_up2(bootstrap_port, 
+                                     kIOPMServerBootstrapName, 
+                                     &newConnection, 
+                                     0, 
+                                     BOOTSTRAP_PRIVILEGED_SERVER);    
     if(KERN_SUCCESS == kern_result) {
         io_pm_hid_event_report_activity(newConnection, eventType);
         mach_port_deallocate(mach_task_self(), newConnection);
@@ -221,6 +228,48 @@ IOHIDSetModifierLockState( io_connect_t handle, int selector, bool state )
     
     err = IOConnectCallMethod(handle, 6,      // Index
                               inData, 2, NULL, 0,    // Input
+                              NULL, &outCount, NULL, NULL); // Output
+    
+    return err;
+}
+
+kern_return_t
+IOHIDRegisterVirtualDisplay( io_connect_t handle, UInt32 *display_token )
+{
+    kern_return_t err;
+    uint64_t        outData[1] = {0};
+    uint32_t        outCount = 1;
+    
+    err = IOConnectCallMethod(handle, 7,      // Index
+                              NULL, 0, NULL, 0,    // Input
+                              outData, &outCount, NULL, NULL); // Output
+    *display_token = outData[0];
+    return err;
+}
+
+kern_return_t
+IOHIDUnregisterVirtualDisplay( io_connect_t handle, UInt32 display_token )
+{
+    kern_return_t err;
+    uint64_t        inData[1] = {display_token};
+    uint32_t        outCount = 0;
+    
+    err = IOConnectCallMethod(handle, 8,      // Index
+                              inData, 1, NULL, 0,    // Input
+                              NULL, &outCount, NULL, NULL); // Output
+    
+    return err;
+}
+
+kern_return_t
+IOHIDSetVirtualDisplayBounds( io_connect_t handle, UInt32 display_token, const IOGBounds * bounds )
+{
+    kern_return_t err;
+    uint64_t        inData[5] = {display_token, bounds->minx, bounds->maxx, bounds->miny, bounds->maxy};
+    uint32_t        outCount = 0;
+    
+    err = IOConnectCallMethod(handle, 9,      // Index
+                              inData, 5, NULL, 0,    // Input
                               NULL, &outCount, NULL, NULL); // Output
     
     return err;

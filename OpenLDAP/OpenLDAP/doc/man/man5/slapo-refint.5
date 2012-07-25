@@ -1,7 +1,7 @@
 .TH SLAPO-REFINT 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 2004-2009 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 2004-2011 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapo-refint.5,v 1.5.2.8 2009/06/03 01:41:59 quanah Exp $
+.\" $OpenLDAP$
 .SH NAME
 slapo\-refint \- Referential Integrity overlay to slapd
 .SH SYNOPSIS
@@ -31,6 +31,12 @@ attribute containing that DN.
 Entries matching that search would have their
 .B manager
 attribute deleted and replaced by the new DN.
+.LP
+.B rootdn
+must be set for the database.  refint runs as the rootdn
+to gain access to make its updates.
+.B rootpw
+is not needed.
 .SH CONFIGURATION
 These
 .B slapd.conf

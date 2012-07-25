@@ -31,8 +31,9 @@
 #ifndef V8Proxy_h
 #define V8Proxy_h
 
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include "SharedPersistent.h"
+#include "StatsCounter.h"
 #include "V8AbstractEventListener.h"
 #include "V8DOMWindowShell.h"
 #include "V8DOMWrapper.h"
@@ -46,7 +47,7 @@
 #include <wtf/text/TextPosition.h>
 
 #if defined(ENABLE_DOM_STATS_COUNTERS) && PLATFORM(CHROMIUM)
-#define INC_STATS(name) PlatformBridge::incrementStatsCounter(name)
+#define INC_STATS(name) StatsCounter::incrementStatsCounter(name)
 #else
 #define INC_STATS(name)
 #endif
@@ -59,12 +60,11 @@ namespace WebCore {
     class Node;
     class ScriptExecutionContext;
     class ScriptSourceCode;
+    class SecurityOrigin;
+    class V8BindingPerContextData;
     class V8EventListener;
     class V8IsolatedContext;
     class WorldContextHandle;
-
-    // FIXME: use standard logging facilities in WebCore.
-    void logInfo(Frame*, const String& message, const String& url);
 
     // The following Batch structs and methods are used for setting multiple
     // properties on an ObjectTemplate, used from the generated bindings
@@ -141,27 +141,15 @@ namespace WebCore {
         void clearForNavigation();
         void clearForClose();
 
-        // FIXME: Need comment. User Gesture related.
-        bool inlineCode() const { return m_inlineCode; }
-        void setInlineCode(bool value) { m_inlineCode = value; }
-
-        bool timerCallback() const { return m_timerCallback; }
-        void setTimerCallback(bool value) { m_timerCallback = value; }
-
-        // Disconnects the proxy from its owner frame,
-        // and clears all timeouts on the DOM window.
-        void disconnectFrame();
-
         void finishedWithEvent(Event*) { }
 
         // Evaluate JavaScript in a new isolated world. The script gets its own
         // global scope, its own prototypes for intrinsic JavaScript objects (String,
         // Array, and so-on), and its own wrappers for all DOM nodes and DOM
         // constructors.
-        void evaluateInIsolatedWorld(int worldId, const Vector<ScriptSourceCode>& sources, int extensionGroup);
+        void evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup, WTF::Vector<v8::Local<v8::Value> >* result);
 
-        // Returns true if the proxy is currently executing a script in V8.
-        bool executingScript() const;
+        void setIsolatedWorldSecurityOrigin(int worldID, PassRefPtr<SecurityOrigin>);
 
         // Evaluate a script file in the current execution environment.
         // The caller must hold an execution context.
@@ -169,19 +157,20 @@ namespace WebCore {
         v8::Local<v8::Value> evaluate(const ScriptSourceCode&, Node*);
 
         // Run an already compiled script.
-        v8::Local<v8::Value> runScript(v8::Handle<v8::Script>, bool isInlineCode);
+        v8::Local<v8::Value> runScript(v8::Handle<v8::Script>);
 
         // Call the function with the given receiver and arguments.
         v8::Local<v8::Value> callFunction(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
 
-        // Call the function with the given receiver and arguments.
-        static v8::Local<v8::Value> callFunctionWithoutFrame(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
+        // call the function with the given receiver and arguments and report times to DevTools.
+        static v8::Local<v8::Value> instrumentedCallFunction(Frame*, v8::Handle<v8::Function>, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[]);
 
         // Call the function as constructor with the given arguments.
         v8::Local<v8::Value> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
 
         // Returns the window object associated with a context.
         static DOMWindow* retrieveWindow(v8::Handle<v8::Context>);
+
         // Returns V8Proxy object of the currently executing context.
         static V8Proxy* retrieve();
         // Returns V8Proxy object associated with a frame.
@@ -193,6 +182,7 @@ namespace WebCore {
         // a context.
         static Frame* retrieveFrame(v8::Handle<v8::Context>);
 
+        static V8BindingPerContextData* retrievePerContextData(Frame*);
 
         // The three functions below retrieve WebFrame instances relating the
         // currently executing JavaScript. Since JavaScript can make function calls
@@ -224,6 +214,7 @@ namespace WebCore {
         // linking time.
         static Frame* retrieveFrameForEnteredContext();
         static Frame* retrieveFrameForCurrentContext();
+        static DOMWindow* retrieveWindowForCallingContext();
         static Frame* retrieveFrameForCallingContext();
 
         // Returns V8 Context of a frame. If none exists, creates
@@ -238,27 +229,22 @@ namespace WebCore {
 
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
-        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* = 0);
+        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition& scriptStartPosition, v8::ScriptData* = 0);
 
         // If the exception code is different from zero, a DOM exception is
         // schedule to be thrown.
-        static void setDOMException(int exceptionCode);
+        static void setDOMException(int exceptionCode, v8::Isolate*);
 
         // Schedule an error object to be thrown.
-        static v8::Handle<v8::Value> throwError(ErrorType, const char* message);
+        static v8::Handle<v8::Value> throwError(ErrorType, const char* message, v8::Isolate* = 0);
 
         // Helpers for throwing syntax and type errors with predefined messages.
         static v8::Handle<v8::Value> throwTypeError();
-        static v8::Handle<v8::Value> throwSyntaxError();
-
-        template <typename T>
-        static v8::Handle<v8::Value> constructDOMObject(const v8::Arguments&, WrapperTypeInfo*);
-
-        template <typename T>
-        static v8::Handle<v8::Value> constructDOMObjectWithScriptExecutionContext(const v8::Arguments&, WrapperTypeInfo*);
+        static v8::Handle<v8::Value> throwNotEnoughArgumentsError();
 
         v8::Local<v8::Context> context();
         v8::Local<v8::Context> mainWorldContext();
+        bool matchesCurrentContext();
 
         // FIXME: This should eventually take DOMWrapperWorld argument!
         V8DOMWindowShell* windowShell() const { return m_windowShell.get(); }
@@ -274,35 +260,27 @@ namespace WebCore {
         static void registerExtensionWithV8(v8::Extension*);
         static bool registeredExtensionWithV8(v8::Extension*);
 
-        static const V8Extensions& extensions() { return m_extensions; }
+        static const V8Extensions& extensions();
 
         // Report an unsafe attempt to access the given frame on the console.
         static void reportUnsafeAccessTo(Frame* target);
 
     private:
-        void didLeaveScriptContext();
-
         void resetIsolatedWorlds();
 
         PassOwnPtr<v8::ScriptData> precompileScript(v8::Handle<v8::String>, CachedScript*);
-
-        // Returns false when we're out of memory in V8.
-        bool setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext);
 
         static const char* rangeExceptionName(int exceptionCode);
         static const char* eventExceptionName(int exceptionCode);
         static const char* xmlHttpRequestExceptionName(int exceptionCode);
         static const char* domExceptionName(int exceptionCode);
-
-#if ENABLE(XPATH)
         static const char* xpathExceptionName(int exceptionCode);
-#endif
 
 #if ENABLE(SVG)
         static const char* svgExceptionName(int exceptionCode);
 #endif
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
         static const char* sqlExceptionName(int exceptionCode);
 #endif
 
@@ -310,19 +288,6 @@ namespace WebCore {
 
         // For the moment, we have one of these.  Soon we will have one per DOMWrapperWorld.
         RefPtr<V8DOMWindowShell> m_windowShell;
-
-        // True for <a href="javascript:foo()"> and false for <script>foo()</script>.
-        // Only valid during execution.
-        bool m_inlineCode;
-
-        // True when executing from within a timer callback. Only valid during
-        // execution.
-        bool m_timerCallback;
-
-        // Track the recursion depth to be able to avoid too deep recursion. The V8
-        // engine allows much more recursion than KJS does so we need to guard against
-        // excessive recursion in the binding layer.
-        int m_recursion;
 
         // All of the extensions registered with the context.
         static V8Extensions m_extensions;
@@ -339,42 +304,10 @@ namespace WebCore {
         //        IsolatedContext directly.
         typedef HashMap<int, V8IsolatedContext*> IsolatedWorldMap;
         IsolatedWorldMap m_isolatedWorlds;
+        
+        typedef HashMap<int, RefPtr<SecurityOrigin> > IsolatedWorldSecurityOriginMap;
+        IsolatedWorldSecurityOriginMap m_isolatedWorldSecurityOrigins;
     };
-
-    template <typename T>
-    v8::Handle<v8::Value> V8Proxy::constructDOMObject(const v8::Arguments& args, WrapperTypeInfo* type)
-    {
-        if (!args.IsConstructCall())
-            return throwError(V8Proxy::TypeError, "DOM object constructor cannot be called as a function.");
-
-        // Note: it's OK to let this RefPtr go out of scope because we also call
-        // SetDOMWrapper(), which effectively holds a reference to obj.
-        RefPtr<T> obj = T::create();
-        V8DOMWrapper::setDOMWrapper(args.Holder(), type, obj.get());
-        obj->ref();
-        V8DOMWrapper::setJSWrapperForDOMObject(obj.get(), v8::Persistent<v8::Object>::New(args.Holder()));
-        return args.Holder();
-    }
-
-    template <typename T>
-    v8::Handle<v8::Value> V8Proxy::constructDOMObjectWithScriptExecutionContext(const v8::Arguments& args, WrapperTypeInfo* type)
-    {
-        if (!args.IsConstructCall())
-            return throwError(V8Proxy::TypeError, "");
-
-        ScriptExecutionContext* context = getScriptExecutionContext();
-        if (!context)
-            return throwError(V8Proxy::ReferenceError, "");
-
-        // Note: it's OK to let this RefPtr go out of scope because we also call
-        // SetDOMWrapper(), which effectively holds a reference to obj.
-        RefPtr<T> obj = T::create(context);
-        V8DOMWrapper::setDOMWrapper(args.Holder(), type, obj.get());
-        obj->ref();
-        V8DOMWrapper::setJSWrapperForDOMObject(obj.get(), v8::Persistent<v8::Object>::New(args.Holder()));
-        return args.Holder();
-    }
-
 
     v8::Local<v8::Context> toV8Context(ScriptExecutionContext*, const WorldContextHandle& worldContext);
 
@@ -389,34 +322,39 @@ namespace WebCore {
     {
         return v8::Local<v8::Boolean>();
     }
-    inline v8::Handle<v8::Primitive> throwError(const char* message, V8Proxy::ErrorType type = V8Proxy::TypeError)
+
+    inline v8::Handle<v8::Primitive> throwError(const char* message, v8::Isolate* isolate = 0)
     {
         if (!v8::V8::IsExecutionTerminating())
-            V8Proxy::throwError(type, message);
+            V8Proxy::throwError(V8Proxy::TypeError, message, isolate);
         return v8::Undefined();
     }
 
-    inline v8::Handle<v8::Primitive> throwError(ExceptionCode ec)
+    inline v8::Handle<v8::Primitive> throwError(const char* message, V8Proxy::ErrorType type, v8::Isolate* isolate = 0)
     {
         if (!v8::V8::IsExecutionTerminating())
-            V8Proxy::setDOMException(ec);
+            V8Proxy::throwError(type, message, isolate);
         return v8::Undefined();
     }
 
-    inline v8::Handle<v8::Primitive> throwError(v8::Local<v8::Value> exception)
+    inline v8::Handle<v8::Primitive> throwError(ExceptionCode ec, v8::Isolate* isolate = 0)
+    {
+        if (!v8::V8::IsExecutionTerminating())
+            V8Proxy::setDOMException(ec, isolate);
+        return v8::Undefined();
+    }
+
+    inline v8::Handle<v8::Primitive> throwError(v8::Local<v8::Value> exception, v8::Isolate* isolate = 0)
     {
         if (!v8::V8::IsExecutionTerminating())
             v8::ThrowException(exception);
         return v8::Undefined();
     }
 
-    template <class T> inline v8::Handle<v8::Object> toV8(PassRefPtr<T> object, v8::Local<v8::Object> holder)
-    {
-        object->ref();
-        V8DOMWrapper::setJSWrapperForDOMObject(object.get(), v8::Persistent<v8::Object>::New(holder));
-        return holder;
-    }
-
+    enum IndependentMode {
+        MarkIndependent,
+        DoNotMarkIndependent
+    };
 }
 
 #endif // V8Proxy_h

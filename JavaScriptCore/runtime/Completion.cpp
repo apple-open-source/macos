@@ -24,12 +24,13 @@
 #include "Completion.h"
 
 #include "CallFrame.h"
+#include "CodeProfiling.h"
 #include "JSGlobalObject.h"
 #include "JSLock.h"
 #include "Interpreter.h"
 #include "Parser.h"
 #include "Debugger.h"
-#include "WTFThreadData.h"
+#include <wtf/WTFThreadData.h>
 #include <stdio.h>
 
 namespace JSC {
@@ -54,6 +55,8 @@ JSValue evaluate(ExecState* exec, ScopeChainNode* scopeChain, const SourceCode& 
 {
     JSLock lock(exec);
     ASSERT(exec->globalData().identifierTable == wtfThreadData().currentIdentifierTable());
+
+    CodeProfiling profile(source);
 
     ProgramExecutable* program = ProgramExecutable::create(exec, source);
     if (!program) {

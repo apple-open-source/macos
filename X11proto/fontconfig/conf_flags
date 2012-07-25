@@ -1,1 +1,0 @@
---with-confdir=$X11_PREFIX/lib/X11/fontconfig --with-default-fonts=$X11_PREFIX/share/fonts --with-cache-dir=$X11_PREFIX/var/cache/fontconfig

@@ -35,7 +35,7 @@ class QualifiedName;
 
 class HTMLFormCollection : public HTMLCollection {
 public:
-    static PassRefPtr<HTMLFormCollection> create(PassRefPtr<HTMLFormElement>);
+    static PassOwnPtr<HTMLFormCollection> create(HTMLFormElement*);
 
     virtual ~HTMLFormCollection();
 
@@ -43,19 +43,14 @@ public:
     virtual Node* nextItem() const;
 
     virtual Node* namedItem(const AtomicString& name) const;
-    virtual Node* nextNamedItem(const AtomicString& name) const;
 
 private:
-    HTMLFormCollection(PassRefPtr<HTMLFormElement>);
+    HTMLFormCollection(HTMLFormElement*);
 
     virtual void updateNameCache() const;
     virtual unsigned calcLength() const;
 
-    static CollectionCache* formCollectionInfo(HTMLFormElement*);
-
     Element* getNamedItem(const QualifiedName& attrName, const AtomicString& name) const;
-    Element* nextNamedItemInternal(const String& name) const;
-
     Element* getNamedFormItem(const QualifiedName& attrName, const String& name, int duplicateNumber) const;
 
     mutable int currentPos;

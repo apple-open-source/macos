@@ -33,6 +33,8 @@
 
 #if ENABLE(FULLSCREEN_API)
 
+using namespace WebCore;
+
 namespace WebKit {
 
 void WebFullScreenManagerProxy::invalidate()
@@ -42,6 +44,23 @@ void WebFullScreenManagerProxy::invalidate()
     
     [m_webView closeFullScreenWindowController];
     m_webView = 0;
+}
+
+void WebFullScreenManagerProxy::close()
+{
+    if (!m_webView)
+        return;
+    [[m_webView fullScreenWindowController] close];
+}
+
+bool WebFullScreenManagerProxy::isFullScreen()
+{
+    if (!m_webView)
+        return false;
+    if (![m_webView hasFullScreenWindowController])
+        return false;
+
+    return [[m_webView fullScreenWindowController] isFullScreen];
 }
 
 void WebFullScreenManagerProxy::enterFullScreen()
@@ -57,54 +76,17 @@ void WebFullScreenManagerProxy::exitFullScreen()
         return;
     [[m_webView fullScreenWindowController] exitFullScreen];
 }
-
-void WebFullScreenManagerProxy::beganEnterFullScreenAnimation()
-{
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] beganEnterFullScreenAnimation];
-}
-
-void WebFullScreenManagerProxy::finishedEnterFullScreenAnimation(bool completed)
-{
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] finishedEnterFullScreenAnimation:completed];
-}
-
-void WebFullScreenManagerProxy::beganExitFullScreenAnimation()
-{
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] beganExitFullScreenAnimation];
-}
-
-void WebFullScreenManagerProxy::finishedExitFullScreenAnimation(bool completed)
-{
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] finishedExitFullScreenAnimation:completed];
-}
     
-void WebFullScreenManagerProxy::enterAcceleratedCompositingMode(const LayerTreeContext& context)
+void WebFullScreenManagerProxy::beganEnterFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] enterAcceleratedCompositingMode:context];
+    if (m_webView)
+        [[m_webView fullScreenWindowController] beganEnterFullScreenWithInitialFrame:initialFrame finalFrame:finalFrame];
 }
 
-void WebFullScreenManagerProxy::exitAcceleratedCompositingMode()
+void WebFullScreenManagerProxy::beganExitFullScreen(const IntRect& initialFrame, const IntRect& finalFrame)
 {
-    if (!m_webView)
-        return;
-    [[m_webView fullScreenWindowController] exitAcceleratedCompositingMode];
-}
-
-void WebFullScreenManagerProxy::getFullScreenRect(WebCore::IntRect& rect)
-{
-    if (!m_webView)
-        return;
-    rect = [[m_webView fullScreenWindowController] getFullScreenRect];
+    if (m_webView)
+        [[m_webView fullScreenWindowController] beganExitFullScreenWithInitialFrame:initialFrame finalFrame:finalFrame];
 }
 
 } // namespace WebKit

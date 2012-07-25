@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -130,18 +129,11 @@ typedef struct EAPMD5ResponsePacket_s {
     uint8_t		name[0];
 } EAPMD5ResponsePacket, *EAPMD5ResponsePacketRef;
 
-static __inline__ void
-EAPPacketSetLength(EAPPacketRef pkt, uint16_t length)
-{
-    *((u_short *)pkt->length) = htons(length);
-    return;
-}
+void
+EAPPacketSetLength(EAPPacketRef pkt, uint16_t length);
 
-static __inline__ uint16_t
-EAPPacketGetLength(const EAPPacketRef pkt)
-{
-    return (ntohs(*((u_short *)pkt->length)));
-}
+uint16_t
+EAPPacketGetLength(const EAPPacketRef pkt);
 
 #endif /* _EAP8021X_EAP_H */
 

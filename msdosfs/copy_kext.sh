@@ -35,29 +35,35 @@
 #
 
 configuration=Debug
+kext=msdosfs
 
-if [ $1 = -config ]; then
-	configuration="$2"
-	shift 2
+if [ "$1" = "-config" ]; then
+    configuration="$2"
+    shift 2
 fi
 
 if [ $# -eq 0 ]; then
-	if [ -z "$MACHINE" ]; then
-		echo 'No arguments, and $MACHINE not set!' 1>&2
-		exit 1
-	fi
-	set $MACHINE
+    if [ -z "$MACHINE" ]; then
+	echo 'No arguments, and $MACHINE not set!' 1>&2
+	exit 1
+    fi
+    set $MACHINE
 fi
+
+#
+# Determine the $BUILT_PRODUCTS_DIR for the given configuration
+#
+BUILT_PRODUCTS_DIR=$(xcodebuild -configuration $configuration -showBuildSettings 2>/dev/null | sed -n -E '1,$ s/[ \t]+BUILT_PRODUCTS_DIR = //p')
 
 for m
 do
-	ssh root@$m kextunload -b com.apple.filesystems.msdosfs
-	scp -r build/$configuration/msdosfs.kext root@$m:"~$USER"
-	ssh root@$m chgrp -R wheel "~$USER/msdosfs.kext"
-	ssh root@$m touch /System/Library/Extensions
-	ssh root@$m kextutil -s /tmp "~$USER/msdosfs.kext" || exit
-	mkdir -p /tmp/$m
-	scp root@$m:/tmp/"com.apple.*.sym" /tmp/$m
-	rm -rf /tmp/$m/msdosfs.kext{,.dSYM}
-	cp -r build/$configuration/msdosfs.kext{,.dSYM} /tmp/$m
+    ssh root@$m kextunload -b com.apple.filesystems.${kext}
+    scp -r "$BUILT_PRODUCTS_DIR/${kext}.kext" root@$m:"/var/tmp"
+    ssh root@$m chgrp -R wheel "/var/tmp/${kext}.kext"
+    ssh root@$m touch /System/Library/Extensions
+    ssh root@$m kextutil -s /tmp "/var/tmp/${kext}.kext" || exit
+    mkdir -p /tmp/$m
+    scp root@$m:/tmp/"com.apple.*.sym" /tmp/$m
+    rm -rf /tmp/$m/${kext}.kext{,.dSYM}
+    cp -r "$BUILT_PRODUCTS_DIR/${kext}.kext"{,.dSYM} /tmp/$m
 done

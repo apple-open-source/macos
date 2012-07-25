@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2007-2008, International Business Machines
+*   Copyright (C) 2007-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -16,8 +16,11 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uniset.h"
+#include "unicode/utf8.h"
+#include "unicode/utf16.h"
 #include "cmemory.h"
 #include "bmpset.h"
+#include "uassert.h"
 
 U_NAMESPACE_BEGIN
 
@@ -61,8 +64,11 @@ BMPSet::~BMPSet() {
  * start<limit<=0x800
  */
 static void set32x64Bits(uint32_t table[64], int32_t start, int32_t limit) {
-    int32_t lead=start>>6;
-    int32_t trail=start&0x3f;
+    U_ASSERT(start<limit);
+    U_ASSERT(limit<=0x800);
+
+    int32_t lead=start>>6;  // Named for UTF-8 2-byte lead byte with upper 5 bits.
+    int32_t trail=start&0x3f;  // Named for UTF-8 2-byte trail byte with lower 6 bits.
 
     // Set one bit indicating an all-one block.
     uint32_t bits=(uint32_t)1<<lead;
@@ -98,6 +104,9 @@ static void set32x64Bits(uint32_t table[64], int32_t start, int32_t limit) {
                 table[trail]|=bits;
             }
         }
+        // limit<=0x800. If limit==0x800 then limitLead=32 and limitTrail=0.
+        // In that case, bits=1<<limitLead is undefined but the bits value
+        // is not used because trail<limitTrail is already false.
         bits=1<<limitLead;
         for(trail=0; trail<limitTrail; ++trail) {
             table[trail]|=bits;

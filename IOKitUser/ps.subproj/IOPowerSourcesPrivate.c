@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 #include <mach/mach_port.h>
 #include <mach/vm_map.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 
 #include "IOSystemConfiguration.h"
 #include "IOPowerSources.h"
@@ -188,90 +189,6 @@ IOPSGetActiveBattery(CFTypeRef ps_blob)
     return ret_ups;
 }
 
-static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
-{
-    CFDictionaryRef the_dict = IOPSGetPowerSourceDescription(blob, id);
-    return CFDictionaryGetValue(the_dict, CFSTR(kIOPSPowerSourceStateKey));
-}
-
-/* _getProvidingPowerSourceType
- * Argument: 
- *  ps_blob: as returned from IOPSCopyPowerSourcesInfo()
- * Returns: 
- *  The current system power source.
- *  CFSTR("AC Power"), CFSTR("Battery Power"), CFSTR("UPS Power")
- */
-CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
-{
-    // CFArrayRef      batt_arr = NULL;
-    // CFArrayRef      ups_arr = NULL;
-    CFTypeRef       the_ups = NULL;
-    CFTypeRef       the_batt = NULL;
-    CFStringRef     ps_state = NULL;
-
-
-    if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMBatteryPowerKey)))
-    {
-        if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey))) {
-            // no batteries, no UPS -> AC Power
-            return CFSTR(kIOPMACPowerKey);
-        } else {
-            // optimization opportunity: needless loops inside IOPSGetActiveUPS
-            the_ups = IOPSGetActiveUPS(ps_blob);
-            if(!the_ups) return CFSTR(kIOPMACPowerKey);
-            ps_state = getPowerSourceState(ps_blob, the_ups);
-            if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
-            {
-                // no batteries, yes UPS, UPS is running off of AC power -> AC Power
-                return CFSTR(kIOPMACPowerKey);
-            } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
-            {
-                // no batteries, yes UPS, UPS is running off of Battery power -> UPS Power
-                return CFSTR(kIOPMUPSPowerKey);
-            }
-            
-        }
-        // Error in the data we were passed
-        return CFSTR(kIOPMACPowerKey);
-    } else {
-        // Optimization opportunity: needless loops inside IOPSGetActiveBattery
-        the_batt = IOPSGetActiveBattery(ps_blob);
-        if(!the_batt) return CFSTR(kIOPMACPowerKey);
-        ps_state = getPowerSourceState(ps_blob, the_batt);
-        if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
-        {
-            // Yes batteries, yes running on battery power -> Battery power
-            return CFSTR(kIOPMBatteryPowerKey);
-        } else {
-            // batteries are on AC power. let's check UPS.
-            // optimize.
-            if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey)))
-            {
-                // yes batteries on AC power, no UPS -> AC Power
-                return CFSTR(kIOPMACPowerKey);
-            } else {
-                the_ups = IOPSGetActiveUPS(ps_blob);
-                if(!the_ups) return CFSTR(kIOPMACPowerKey);
-                ps_state = getPowerSourceState(ps_blob, the_ups);
-                if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))                
-                {
-                    // yes batteries on AC power, UPS is on battery power -> UPS Power
-                    return CFSTR(kIOPMUPSPowerKey);
-                } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
-                {
-                    // yes batteries on AC Power, UPS is on AC Power -> AC Power
-                    return CFSTR(kIOPMACPowerKey);
-                }
-            }
-        }
-        // Error in the data we were passed.
-//        syslog(LOG_INFO, "PowerManagement: unexpected point 3 reached in _getProvidingPowerSourceType\n");
-    }
-
-    // Should not reach this point. Return something safe.
-    return CFSTR(kIOPMACPowerKey);
-}
-
 /***
  * int powerSourceSupported(CFStringRef)
  * takes: CFSTR of kIOPMACPowerKey, kIOPMBatteryPowerKey, kIOPMUPSPowerKey
@@ -356,7 +273,11 @@ static IOReturn _pm_connect(mach_port_t *newConnection)
         return kIOReturnBadArgument;
     }
 
-    kern_result = bootstrap_look_up(bootstrap_port, kIOPMServerBootstrapName, newConnection);
+    kern_result = bootstrap_look_up2(bootstrap_port, 
+                                     kIOPMServerBootstrapName, 
+                                     newConnection, 
+                                     0, 
+                                     BOOTSTRAP_PRIVILEGED_SERVER);    
     if(KERN_SUCCESS != kern_result) {
         return kIOReturnError;
     }
@@ -493,7 +414,7 @@ IOReturn IOPSSetPowerSourceDetails(
     
     // Pass the details off to powerd 
     io_pm_update_pspowersource(pm_server, dskey_str, 
-                CFDataGetBytePtr(flatDetails), CFDataGetLength(flatDetails), (int *)&ret);
+                (vm_offset_t) CFDataGetBytePtr(flatDetails), CFDataGetLength(flatDetails), (int *)&ret);
 
     _pm_disconnect(pm_server);
 

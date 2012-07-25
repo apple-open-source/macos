@@ -42,6 +42,7 @@
 #include "IOATAPIProtocolTransportDebugging.h"
 
 #include <IOKit/storage/ata/IOATAFamilyPriv.h>
+#include <IOKit/IOTimeStamp.h>
 
 
 #define ATAPI_PROTOCOL_TRANSPORT_DEBUGGING_LEVEL 0

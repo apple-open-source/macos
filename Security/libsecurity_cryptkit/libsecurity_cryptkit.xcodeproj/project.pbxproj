@@ -1,0 +1,762 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		051A6865074BAFAF00A097D5 /* ckconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323C00A8AF3B7F000001 /* ckconfig.h */; };
+		0536B29C074BC9A000F9F1AD /* byteRep.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264328E00A8B0197F000001 /* byteRep.c */; };
+		0536B29D074BC9A100F9F1AD /* byteRep.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323800A8AF3B7F000001 /* byteRep.h */; };
+		0536B29E074BC9A200F9F1AD /* ckconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323C00A8AF3B7F000001 /* ckconfig.h */; };
+		0536B29F074BC9A600F9F1AD /* ckMD5.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A700A8B0197F000001 /* ckMD5.c */; };
+		0536B2A0074BC9A700F9F1AD /* ckMD5.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325F00A8AF3B7F000001 /* ckMD5.h */; };
+		0536B2A1074BC9AA00F9F1AD /* ckSHA1.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432AA00A8B0197F000001 /* ckSHA1.c */; };
+		0536B2A2074BC9AB00F9F1AD /* ckSHA1.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326200A8AF3B7F000001 /* ckSHA1.h */; };
+		0536B2A3074BC9AC00F9F1AD /* ckSHA1_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A900A8B0197F000001 /* ckSHA1_priv.c */; };
+		0536B2A4074BC9AC00F9F1AD /* ckSHA1_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326100A8AF3B7F000001 /* ckSHA1_priv.h */; };
+		0536B2A5074BC9AD00F9F1AD /* ckutilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329100A8B0197F000001 /* ckutilities.c */; };
+		0536B2A6074BC9AE00F9F1AD /* ckutilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323D00A8AF3B7F000001 /* ckutilities.h */; };
+		0536B2A7074BC9B000F9F1AD /* Crypt.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323E00A8AF3B7F000001 /* Crypt.h */; };
+		0536B2A8074BC9B200F9F1AD /* CryptKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323F00A8AF3B7F000001 /* CryptKit.h */; };
+		0536B2A9074BC9B600F9F1AD /* CryptKitSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 05B98785074A980600A63360 /* CryptKitSA.h */; };
+		0536B2AA074BC9B800F9F1AD /* curveParamData.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324100A8AF3B7F000001 /* curveParamData.h */; };
+		0536B2AB074BC9BA00F9F1AD /* curveParams.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329200A8B0197F000001 /* curveParams.c */; };
+		0536B2AC074BC9BB00F9F1AD /* curveParams.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324300A8AF3B7F000001 /* curveParams.h */; };
+		0536B2AD074BC9BD00F9F1AD /* elliptic.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329400A8B0197F000001 /* elliptic.c */; };
+		0536B2AE074BC9BF00F9F1AD /* elliptic.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324700A8AF3B7F000001 /* elliptic.h */; };
+		0536B2AF074BC9C200F9F1AD /* enc64.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329600A8B0197F000001 /* enc64.c */; };
+		0536B2B0074BC9C300F9F1AD /* enc64.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324A00A8AF3B7F000001 /* enc64.h */; };
+		0536B2B1074BC9C500F9F1AD /* falloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329800A8B0197F000001 /* falloc.c */; };
+		0536B2B2074BC9C500F9F1AD /* falloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324B00A8AF3B7F000001 /* falloc.h */; };
+		0536B2B3074BC9C900F9F1AD /* feeDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324D00A8AF3B7F000001 /* feeDebug.h */; };
+		0536B2B4074BC9CB00F9F1AD /* feeDigitalSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329C00A8B0197F000001 /* feeDigitalSignature.c */; };
+		0536B2B5074BC9CC00F9F1AD /* feeDigitalSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324F00A8AF3B7F000001 /* feeDigitalSignature.h */; };
+		0536B2B6074BC9D000F9F1AD /* feeFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325300A8AF3B7F000001 /* feeFunctions.h */; };
+		0536B2B7074BC9D300F9F1AD /* feeHash.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A000A8B0197F000001 /* feeHash.c */; };
+		0536B2B8074BC9D400F9F1AD /* feeHash.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325400A8AF3B7F000001 /* feeHash.h */; };
+		0536B2B9074BC9D500F9F1AD /* feePublicKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A100A8B0197F000001 /* feePublicKey.c */; };
+		0536B2BA074BC9D600F9F1AD /* feePublicKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325500A8AF3B7F000001 /* feePublicKey.h */; };
+		0536B2BB074BC9D700F9F1AD /* feePublicKeyPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325600A8AF3B7F000001 /* feePublicKeyPrivate.h */; };
+		0536B2BC074BC9D900F9F1AD /* giantIntegers.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A400A8B0197F000001 /* giantIntegers.c */; };
+		0536B2BD074BC9DA00F9F1AD /* giantIntegers.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325900A8AF3B7F000001 /* giantIntegers.h */; };
+		0536B2BE074BC9DC00F9F1AD /* feeRandom.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325700A8AF3B7F000001 /* feeRandom.h */; };
+		0536B2BF074BC9DD00F9F1AD /* feeRandom.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A200A8B0197F000001 /* feeRandom.c */; };
+		0536B2C0074BC9E100F9F1AD /* giantPort_Generic.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325A00A8AF3B7F000001 /* giantPort_Generic.h */; };
+		0536B2C1074BC9E200F9F1AD /* giantPort_PPC.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A600A8B0197F000001 /* giantPort_PPC.c */; };
+		0536B2C2074BC9E400F9F1AD /* giantPort_PPC.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325D00A8AF3B7F000001 /* giantPort_PPC.h */; };
+		0536B2C3074BC9E500F9F1AD /* giantPort_PPC_Gnu.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325C00A8AF3B7F000001 /* giantPort_PPC_Gnu.h */; };
+		0536B2C4074BC9E600F9F1AD /* giantPort_PPC_Gnu.s in Sources */ = {isa = PBXBuildFile; fileRef = 726432A500A8B0197F000001 /* giantPort_PPC_Gnu.s */; };
+		0536B2C5074BC9EA00F9F1AD /* giantPortCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325E00A8AF3B7F000001 /* giantPortCommon.h */; };
+		0536B2C6074BC9ED00F9F1AD /* platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A800A8B0197F000001 /* platform.c */; };
+		0536B2C7074BC9EE00F9F1AD /* platform.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326000A8AF3B7F000001 /* platform.h */; };
+		054416BF074D5BAC00DD8A37 /* CipherFileDES.c in Sources */ = {isa = PBXBuildFile; fileRef = 054416BA074D5BAC00DD8A37 /* CipherFileDES.c */; };
+		054416C0074D5BAC00DD8A37 /* CipherFileDES.h in Headers */ = {isa = PBXBuildFile; fileRef = 054416BB074D5BAC00DD8A37 /* CipherFileDES.h */; };
+		054416C1074D5BAC00DD8A37 /* CipherFileFEED.c in Sources */ = {isa = PBXBuildFile; fileRef = 054416BC074D5BAC00DD8A37 /* CipherFileFEED.c */; };
+		054416C2074D5BAC00DD8A37 /* CipherFileFEED.h in Headers */ = {isa = PBXBuildFile; fileRef = 054416BD074D5BAC00DD8A37 /* CipherFileFEED.h */; };
+		054416C3074D5BAC00DD8A37 /* CipherFileTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 054416BE074D5BAC00DD8A37 /* CipherFileTypes.h */; };
+		054416CC074D5BDA00DD8A37 /* feeCipherFile.c in Sources */ = {isa = PBXBuildFile; fileRef = 054416CA074D5BDA00DD8A37 /* feeCipherFile.c */; };
+		054416CD074D5BDA00DD8A37 /* feeCipherFileAtom.c in Sources */ = {isa = PBXBuildFile; fileRef = 054416CB074D5BDA00DD8A37 /* feeCipherFileAtom.c */; };
+		05B98735074A94E900A63360 /* byteRep.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264328E00A8B0197F000001 /* byteRep.c */; };
+		05B98736074A94EA00A63360 /* byteRep.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323800A8AF3B7F000001 /* byteRep.h */; };
+		05B98737074A94EB00A63360 /* ckconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323C00A8AF3B7F000001 /* ckconfig.h */; };
+		05B98738074A94EC00A63360 /* ckDES.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329300A8B0197F000001 /* ckDES.c */; };
+		05B98739074A94ED00A63360 /* ckDES.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324400A8AF3B7F000001 /* ckDES.h */; };
+		05B9873A074A94EE00A63360 /* ckMD5.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A700A8B0197F000001 /* ckMD5.c */; };
+		05B9873B074A94EF00A63360 /* ckMD5.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325F00A8AF3B7F000001 /* ckMD5.h */; };
+		05B9873D074A959B00A63360 /* ckSHA1.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432AA00A8B0197F000001 /* ckSHA1.c */; };
+		05B9873E074A959C00A63360 /* ckSHA1.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326200A8AF3B7F000001 /* ckSHA1.h */; };
+		05B9873F074A959D00A63360 /* ckSHA1_priv.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A900A8B0197F000001 /* ckSHA1_priv.c */; };
+		05B98740074A959E00A63360 /* ckSHA1_priv.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326100A8AF3B7F000001 /* ckSHA1_priv.h */; };
+		05B98741074A959F00A63360 /* ckutilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329100A8B0197F000001 /* ckutilities.c */; };
+		05B98742074A95A000A63360 /* ckutilities.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323D00A8AF3B7F000001 /* ckutilities.h */; };
+		05B98743074A95A100A63360 /* Crypt.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323E00A8AF3B7F000001 /* Crypt.h */; };
+		05B98744074A95A200A63360 /* CryptKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264323F00A8AF3B7F000001 /* CryptKit.h */; };
+		05B98749074A95C700A63360 /* curveParamData.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324100A8AF3B7F000001 /* curveParamData.h */; };
+		05B9874A074A95C800A63360 /* curveParams.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329200A8B0197F000001 /* curveParams.c */; };
+		05B9874B074A95C900A63360 /* curveParams.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324300A8AF3B7F000001 /* curveParams.h */; };
+		05B9874D074A95D500A63360 /* ECDSA_Verify_Prefix.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324600A8AF3B7F000001 /* ECDSA_Verify_Prefix.h */; };
+		05B9874E074A95D600A63360 /* elliptic.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329400A8B0197F000001 /* elliptic.c */; };
+		05B9874F074A95D700A63360 /* elliptic.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324700A8AF3B7F000001 /* elliptic.h */; };
+		05B98750074A95D800A63360 /* ellipticMeasure.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324800A8AF3B7F000001 /* ellipticMeasure.h */; };
+		05B98751074A95D900A63360 /* ellipticProj.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329500A8B0197F000001 /* ellipticProj.c */; };
+		05B98752074A95DA00A63360 /* ellipticProj.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324900A8AF3B7F000001 /* ellipticProj.h */; };
+		05B98753074A95DB00A63360 /* enc64.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329600A8B0197F000001 /* enc64.c */; };
+		05B98754074A95DC00A63360 /* enc64.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324A00A8AF3B7F000001 /* enc64.h */; };
+		05B98755074A95DE00A63360 /* engineNSA127.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329700A8B0197F000001 /* engineNSA127.c */; };
+		05B98756074A95DF00A63360 /* falloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329800A8B0197F000001 /* falloc.c */; };
+		05B98757074A95E000A63360 /* falloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324B00A8AF3B7F000001 /* falloc.h */; };
+		05B98758074A95E100A63360 /* feeCipherFile.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324C00A8AF3B7F000001 /* feeCipherFile.h */; };
+		05B98759074A95E500A63360 /* feeDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324D00A8AF3B7F000001 /* feeDebug.h */; };
+		05B9875A074A95E600A63360 /* feeDES.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329B00A8B0197F000001 /* feeDES.c */; };
+		05B9875B074A95E700A63360 /* feeDES.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324E00A8AF3B7F000001 /* feeDES.h */; };
+		05B9875C074A95E800A63360 /* feeDigitalSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329C00A8B0197F000001 /* feeDigitalSignature.c */; };
+		05B9875D074A95E900A63360 /* feeDigitalSignature.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324F00A8AF3B7F000001 /* feeDigitalSignature.h */; };
+		05B9875E074A95EA00A63360 /* feeECDSA.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329D00A8B0197F000001 /* feeECDSA.c */; };
+		05B9875F074A95EB00A63360 /* feeECDSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325000A8AF3B7F000001 /* feeECDSA.h */; };
+		05B98760074A95EB00A63360 /* feeFEED.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329E00A8B0197F000001 /* feeFEED.c */; };
+		05B98761074A95ED00A63360 /* feeFEED.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325100A8AF3B7F000001 /* feeFEED.h */; };
+		05B98762074A95ED00A63360 /* feeFEEDExp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329F00A8B0197F000001 /* feeFEEDExp.c */; };
+		05B98763074A95EE00A63360 /* feeFEEDExp.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325200A8AF3B7F000001 /* feeFEEDExp.h */; };
+		05B98764074A95EF00A63360 /* feeFunctions.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325300A8AF3B7F000001 /* feeFunctions.h */; };
+		05B98765074A95F000A63360 /* feeHash.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A000A8B0197F000001 /* feeHash.c */; };
+		05B98766074A95F300A63360 /* feeHash.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325400A8AF3B7F000001 /* feeHash.h */; };
+		05B98767074A95F400A63360 /* feePublicKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A100A8B0197F000001 /* feePublicKey.c */; };
+		05B98768074A95F500A63360 /* feePublicKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325500A8AF3B7F000001 /* feePublicKey.h */; };
+		05B98769074A95F600A63360 /* feePublicKeyPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325600A8AF3B7F000001 /* feePublicKeyPrivate.h */; };
+		05B9876A074A95F700A63360 /* feeRandom.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A200A8B0197F000001 /* feeRandom.c */; };
+		05B9876B074A95F800A63360 /* feeRandom.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325700A8AF3B7F000001 /* feeRandom.h */; };
+		05B9876C074A95F900A63360 /* feeTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325800A8AF3B7F000001 /* feeTypes.h */; };
+		05B9876D074A95FA00A63360 /* giantIntegers.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A400A8B0197F000001 /* giantIntegers.c */; };
+		05B9876E074A95FB00A63360 /* giantIntegers.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325900A8AF3B7F000001 /* giantIntegers.h */; };
+		05B9876F074A95FC00A63360 /* giantPort_Generic.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325A00A8AF3B7F000001 /* giantPort_Generic.h */; };
+		05B98770074A95FD00A63360 /* giantPort_i486.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325B00A8AF3B7F000001 /* giantPort_i486.h */; };
+		05B98771074A95FE00A63360 /* giantPort_PPC.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A600A8B0197F000001 /* giantPort_PPC.c */; };
+		05B98772074A95FF00A63360 /* giantPort_PPC.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325D00A8AF3B7F000001 /* giantPort_PPC.h */; };
+		05B98773074A960000A63360 /* giantPort_PPC_Gnu.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325C00A8AF3B7F000001 /* giantPort_PPC_Gnu.h */; };
+		05B98774074A960200A63360 /* giantPort_PPC_Gnu.s in Sources */ = {isa = PBXBuildFile; fileRef = 726432A500A8B0197F000001 /* giantPort_PPC_Gnu.s */; };
+		05B98775074A960300A63360 /* giantPortCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264325E00A8AF3B7F000001 /* giantPortCommon.h */; };
+		05B98777074A960A00A63360 /* platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A800A8B0197F000001 /* platform.c */; };
+		05B98778074A960C00A63360 /* platform.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326000A8AF3B7F000001 /* platform.h */; };
+		05B98786074A980600A63360 /* CryptKitSA.h in Headers */ = {isa = PBXBuildFile; fileRef = 05B98785074A980600A63360 /* CryptKitSA.h */; };
+		05DBE17705CF09EE00CA0562 /* ckSHA1.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264326200A8AF3B7F000001 /* ckSHA1.h */; };
+		05F64B6205D01ADA007D1D8E /* ckDES.h in Headers */ = {isa = PBXBuildFile; fileRef = 7264324400A8AF3B7F000001 /* ckDES.h */; };
+		05F64B7505D01C0D007D1D8E /* ckSHA1.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432AA00A8B0197F000001 /* ckSHA1.c */; };
+		4C3EA7F1056AE8BE003C066F /* CryptKitAsn1.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3EA7EE056AE8BE003C066F /* CryptKitAsn1.cpp */; };
+		4C3EA7F2056AE8BE003C066F /* CryptKitAsn1.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C3EA7EF056AE8BE003C066F /* CryptKitAsn1.h */; };
+		4C3EA7F3056AE8BE003C066F /* CryptKitDER.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3EA7F0056AE8BE003C066F /* CryptKitDER.cpp */; };
+		726432AC00A8B0197F000001 /* byteRep.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264328E00A8B0197F000001 /* byteRep.c */; };
+		726432AF00A8B0197F000001 /* ckutilities.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329100A8B0197F000001 /* ckutilities.c */; };
+		726432B000A8B0197F000001 /* curveParams.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329200A8B0197F000001 /* curveParams.c */; };
+		726432B200A8B0197F000001 /* elliptic.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329400A8B0197F000001 /* elliptic.c */; };
+		726432B300A8B0197F000001 /* ellipticProj.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329500A8B0197F000001 /* ellipticProj.c */; };
+		726432B400A8B0197F000001 /* enc64.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329600A8B0197F000001 /* enc64.c */; };
+		726432B500A8B0197F000001 /* engineNSA127.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329700A8B0197F000001 /* engineNSA127.c */; };
+		726432B600A8B0197F000001 /* falloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329800A8B0197F000001 /* falloc.c */; };
+		726432B900A8B0197F000001 /* feeDES.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329B00A8B0197F000001 /* feeDES.c */; };
+		726432BA00A8B0197F000001 /* feeDigitalSignature.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329C00A8B0197F000001 /* feeDigitalSignature.c */; };
+		726432BB00A8B0197F000001 /* feeECDSA.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329D00A8B0197F000001 /* feeECDSA.c */; };
+		726432BC00A8B0197F000001 /* feeFEED.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329E00A8B0197F000001 /* feeFEED.c */; };
+		726432BD00A8B0197F000001 /* feeFEEDExp.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264329F00A8B0197F000001 /* feeFEEDExp.c */; };
+		726432BE00A8B0197F000001 /* feeHash.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A000A8B0197F000001 /* feeHash.c */; };
+		726432BF00A8B0197F000001 /* feePublicKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A100A8B0197F000001 /* feePublicKey.c */; };
+		726432C000A8B0197F000001 /* feeRandom.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A200A8B0197F000001 /* feeRandom.c */; };
+		726432C200A8B0197F000001 /* giantIntegers.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A400A8B0197F000001 /* giantIntegers.c */; };
+		726432C300A8B0197F000001 /* giantPort_PPC_Gnu.s in Sources */ = {isa = PBXBuildFile; fileRef = 726432A500A8B0197F000001 /* giantPort_PPC_Gnu.s */; };
+		726432C400A8B0197F000001 /* giantPort_PPC.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A600A8B0197F000001 /* giantPort_PPC.c */; };
+		726432C600A8B0197F000001 /* platform.c in Sources */ = {isa = PBXBuildFile; fileRef = 726432A800A8B0197F000001 /* platform.c */; };
+		9D3503C400C6EA9100A17CE7 /* HmacSha1Legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = 9D3503C100C6EA9100A17CE7 /* HmacSha1Legacy.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0535DCBE074A944D00805B04 /* libCryptKit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCryptKit.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0536B295074BC91A00F9F1AD /* CryptKitSignature.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = CryptKitSignature.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		054416BA074D5BAC00DD8A37 /* CipherFileDES.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = CipherFileDES.c; path = lib/CipherFileDES.c; sourceTree = SOURCE_ROOT; };
+		054416BB074D5BAC00DD8A37 /* CipherFileDES.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CipherFileDES.h; path = lib/CipherFileDES.h; sourceTree = SOURCE_ROOT; };
+		054416BC074D5BAC00DD8A37 /* CipherFileFEED.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = CipherFileFEED.c; path = lib/CipherFileFEED.c; sourceTree = SOURCE_ROOT; };
+		054416BD074D5BAC00DD8A37 /* CipherFileFEED.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CipherFileFEED.h; path = lib/CipherFileFEED.h; sourceTree = SOURCE_ROOT; };
+		054416BE074D5BAC00DD8A37 /* CipherFileTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CipherFileTypes.h; path = lib/CipherFileTypes.h; sourceTree = SOURCE_ROOT; };
+		054416CA074D5BDA00DD8A37 /* feeCipherFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = feeCipherFile.c; path = lib/feeCipherFile.c; sourceTree = SOURCE_ROOT; };
+		054416CB074D5BDA00DD8A37 /* feeCipherFileAtom.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = feeCipherFileAtom.c; path = lib/feeCipherFileAtom.c; sourceTree = SOURCE_ROOT; };
+		05B98785074A980600A63360 /* CryptKitSA.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CryptKitSA.h; path = lib/CryptKitSA.h; sourceTree = SOURCE_ROOT; };
+		182BB1F8146EF983000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB1F9146EF983000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB1FA146EF983000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB1FB146EF983000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		4C3EA7EE056AE8BE003C066F /* CryptKitAsn1.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CryptKitAsn1.cpp; sourceTree = "<group>"; };
+		4C3EA7EF056AE8BE003C066F /* CryptKitAsn1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CryptKitAsn1.h; sourceTree = "<group>"; };
+		4C3EA7F0056AE8BE003C066F /* CryptKitDER.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CryptKitDER.cpp; sourceTree = "<group>"; };
+		7264321600A8AD0A7F000001 /* libsecurity_cryptkit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_cryptkit.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		7264323800A8AF3B7F000001 /* byteRep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = byteRep.h; sourceTree = "<group>"; };
+		7264323C00A8AF3B7F000001 /* ckconfig.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckconfig.h; sourceTree = "<group>"; };
+		7264323D00A8AF3B7F000001 /* ckutilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckutilities.h; sourceTree = "<group>"; };
+		7264323E00A8AF3B7F000001 /* Crypt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Crypt.h; sourceTree = "<group>"; };
+		7264323F00A8AF3B7F000001 /* CryptKit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CryptKit.h; sourceTree = "<group>"; };
+		7264324000A8AF3B7F000001 /* CryptKitDER.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CryptKitDER.h; sourceTree = "<group>"; };
+		7264324100A8AF3B7F000001 /* curveParamData.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = curveParamData.h; sourceTree = "<group>"; };
+		7264324200A8AF3B7F000001 /* curveParamDataOld.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = curveParamDataOld.h; sourceTree = "<group>"; };
+		7264324300A8AF3B7F000001 /* curveParams.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = curveParams.h; sourceTree = "<group>"; };
+		7264324400A8AF3B7F000001 /* ckDES.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckDES.h; sourceTree = "<group>"; };
+		7264324500A8AF3B7F000001 /* ECDSA_Profile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ECDSA_Profile.h; sourceTree = "<group>"; };
+		7264324600A8AF3B7F000001 /* ECDSA_Verify_Prefix.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ECDSA_Verify_Prefix.h; sourceTree = "<group>"; };
+		7264324700A8AF3B7F000001 /* elliptic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = elliptic.h; sourceTree = "<group>"; };
+		7264324800A8AF3B7F000001 /* ellipticMeasure.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ellipticMeasure.h; sourceTree = "<group>"; };
+		7264324900A8AF3B7F000001 /* ellipticProj.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ellipticProj.h; sourceTree = "<group>"; };
+		7264324A00A8AF3B7F000001 /* enc64.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = enc64.h; sourceTree = "<group>"; };
+		7264324B00A8AF3B7F000001 /* falloc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = falloc.h; sourceTree = "<group>"; };
+		7264324C00A8AF3B7F000001 /* feeCipherFile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeCipherFile.h; sourceTree = "<group>"; };
+		7264324D00A8AF3B7F000001 /* feeDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeDebug.h; sourceTree = "<group>"; };
+		7264324E00A8AF3B7F000001 /* feeDES.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeDES.h; sourceTree = "<group>"; };
+		7264324F00A8AF3B7F000001 /* feeDigitalSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeDigitalSignature.h; sourceTree = "<group>"; };
+		7264325000A8AF3B7F000001 /* feeECDSA.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeECDSA.h; sourceTree = "<group>"; };
+		7264325100A8AF3B7F000001 /* feeFEED.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeFEED.h; sourceTree = "<group>"; };
+		7264325200A8AF3B7F000001 /* feeFEEDExp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeFEEDExp.h; sourceTree = "<group>"; };
+		7264325300A8AF3B7F000001 /* feeFunctions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeFunctions.h; sourceTree = "<group>"; };
+		7264325400A8AF3B7F000001 /* feeHash.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeHash.h; sourceTree = "<group>"; };
+		7264325500A8AF3B7F000001 /* feePublicKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feePublicKey.h; sourceTree = "<group>"; };
+		7264325600A8AF3B7F000001 /* feePublicKeyPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feePublicKeyPrivate.h; sourceTree = "<group>"; };
+		7264325700A8AF3B7F000001 /* feeRandom.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeRandom.h; sourceTree = "<group>"; };
+		7264325800A8AF3B7F000001 /* feeTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = feeTypes.h; sourceTree = "<group>"; };
+		7264325900A8AF3B7F000001 /* giantIntegers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantIntegers.h; sourceTree = "<group>"; };
+		7264325A00A8AF3B7F000001 /* giantPort_Generic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantPort_Generic.h; sourceTree = "<group>"; };
+		7264325B00A8AF3B7F000001 /* giantPort_i486.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantPort_i486.h; sourceTree = "<group>"; };
+		7264325C00A8AF3B7F000001 /* giantPort_PPC_Gnu.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantPort_PPC_Gnu.h; sourceTree = "<group>"; };
+		7264325D00A8AF3B7F000001 /* giantPort_PPC.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantPort_PPC.h; sourceTree = "<group>"; };
+		7264325E00A8AF3B7F000001 /* giantPortCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = giantPortCommon.h; sourceTree = "<group>"; };
+		7264325F00A8AF3B7F000001 /* ckMD5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckMD5.h; sourceTree = "<group>"; };
+		7264326000A8AF3B7F000001 /* platform.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = platform.h; sourceTree = "<group>"; };
+		7264326100A8AF3B7F000001 /* ckSHA1_priv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckSHA1_priv.h; sourceTree = "<group>"; };
+		7264326200A8AF3B7F000001 /* ckSHA1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ckSHA1.h; sourceTree = "<group>"; };
+		7264328E00A8B0197F000001 /* byteRep.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = byteRep.c; sourceTree = "<group>"; };
+		7264329100A8B0197F000001 /* ckutilities.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ckutilities.c; sourceTree = "<group>"; };
+		7264329200A8B0197F000001 /* curveParams.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = curveParams.c; sourceTree = "<group>"; };
+		7264329300A8B0197F000001 /* ckDES.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ckDES.c; sourceTree = "<group>"; };
+		7264329400A8B0197F000001 /* elliptic.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = elliptic.c; sourceTree = "<group>"; };
+		7264329500A8B0197F000001 /* ellipticProj.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ellipticProj.c; sourceTree = "<group>"; };
+		7264329600A8B0197F000001 /* enc64.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = enc64.c; sourceTree = "<group>"; };
+		7264329700A8B0197F000001 /* engineNSA127.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = engineNSA127.c; sourceTree = "<group>"; };
+		7264329800A8B0197F000001 /* falloc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = falloc.c; sourceTree = "<group>"; };
+		7264329B00A8B0197F000001 /* feeDES.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeDES.c; sourceTree = "<group>"; };
+		7264329C00A8B0197F000001 /* feeDigitalSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeDigitalSignature.c; sourceTree = "<group>"; };
+		7264329D00A8B0197F000001 /* feeECDSA.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeECDSA.c; sourceTree = "<group>"; };
+		7264329E00A8B0197F000001 /* feeFEED.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeFEED.c; sourceTree = "<group>"; };
+		7264329F00A8B0197F000001 /* feeFEEDExp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeFEEDExp.c; sourceTree = "<group>"; };
+		726432A000A8B0197F000001 /* feeHash.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeHash.c; sourceTree = "<group>"; };
+		726432A100A8B0197F000001 /* feePublicKey.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feePublicKey.c; sourceTree = "<group>"; };
+		726432A200A8B0197F000001 /* feeRandom.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = feeRandom.c; sourceTree = "<group>"; };
+		726432A400A8B0197F000001 /* giantIntegers.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = giantIntegers.c; sourceTree = "<group>"; };
+		726432A500A8B0197F000001 /* giantPort_PPC_Gnu.s */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.asm; path = giantPort_PPC_Gnu.s; sourceTree = "<group>"; };
+		726432A600A8B0197F000001 /* giantPort_PPC.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = giantPort_PPC.c; sourceTree = "<group>"; };
+		726432A700A8B0197F000001 /* ckMD5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ckMD5.c; sourceTree = "<group>"; };
+		726432A800A8B0197F000001 /* platform.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = platform.c; sourceTree = "<group>"; };
+		726432A900A8B0197F000001 /* ckSHA1_priv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ckSHA1_priv.c; sourceTree = "<group>"; };
+		726432AA00A8B0197F000001 /* ckSHA1.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ckSHA1.c; sourceTree = "<group>"; };
+		9D3503C100C6EA9100A17CE7 /* HmacSha1Legacy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = HmacSha1Legacy.c; sourceTree = "<group>"; };
+		9D3503C200C6EA9100A17CE7 /* HmacSha1Legacy.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = HmacSha1Legacy.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0535DCBC074A944D00805B04 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0536B293074BC91A00F9F1AD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7264322B00A8AD0A7F000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0FD07C9EFE8A174411CD283A = {
+			isa = PBXGroup;
+			children = (
+				7264321100A8ACCB7F000001 /* lib */,
+				182BB1F7146EF983000BF1F3 /* config */,
+				31DBE9B3FEEEE8F611CD283A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		182BB1F7146EF983000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB1F8146EF983000BF1F3 /* base.xcconfig */,
+				182BB1F9146EF983000BF1F3 /* debug.xcconfig */,
+				182BB1FA146EF983000BF1F3 /* lib.xcconfig */,
+				182BB1FB146EF983000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		31DBE9B3FEEEE8F611CD283A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7264321600A8AD0A7F000001 /* libsecurity_cryptkit.a */,
+				0535DCBE074A944D00805B04 /* libCryptKit.a */,
+				0536B295074BC91A00F9F1AD /* CryptKitSignature.a */,
+			);
+			name = Products;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		7264321100A8ACCB7F000001 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				054416CA074D5BDA00DD8A37 /* feeCipherFile.c */,
+				054416CB074D5BDA00DD8A37 /* feeCipherFileAtom.c */,
+				7264328E00A8B0197F000001 /* byteRep.c */,
+				7264323800A8AF3B7F000001 /* byteRep.h */,
+				054416BA074D5BAC00DD8A37 /* CipherFileDES.c */,
+				054416BB074D5BAC00DD8A37 /* CipherFileDES.h */,
+				054416BC074D5BAC00DD8A37 /* CipherFileFEED.c */,
+				054416BD074D5BAC00DD8A37 /* CipherFileFEED.h */,
+				054416BE074D5BAC00DD8A37 /* CipherFileTypes.h */,
+				7264323C00A8AF3B7F000001 /* ckconfig.h */,
+				7264329300A8B0197F000001 /* ckDES.c */,
+				7264324400A8AF3B7F000001 /* ckDES.h */,
+				726432A700A8B0197F000001 /* ckMD5.c */,
+				7264325F00A8AF3B7F000001 /* ckMD5.h */,
+				726432AA00A8B0197F000001 /* ckSHA1.c */,
+				7264326200A8AF3B7F000001 /* ckSHA1.h */,
+				726432A900A8B0197F000001 /* ckSHA1_priv.c */,
+				7264326100A8AF3B7F000001 /* ckSHA1_priv.h */,
+				7264329100A8B0197F000001 /* ckutilities.c */,
+				7264323D00A8AF3B7F000001 /* ckutilities.h */,
+				7264323E00A8AF3B7F000001 /* Crypt.h */,
+				05B98785074A980600A63360 /* CryptKitSA.h */,
+				7264323F00A8AF3B7F000001 /* CryptKit.h */,
+				4C3EA7EE056AE8BE003C066F /* CryptKitAsn1.cpp */,
+				4C3EA7EF056AE8BE003C066F /* CryptKitAsn1.h */,
+				4C3EA7F0056AE8BE003C066F /* CryptKitDER.cpp */,
+				7264324000A8AF3B7F000001 /* CryptKitDER.h */,
+				7264324100A8AF3B7F000001 /* curveParamData.h */,
+				7264324200A8AF3B7F000001 /* curveParamDataOld.h */,
+				7264329200A8B0197F000001 /* curveParams.c */,
+				7264324300A8AF3B7F000001 /* curveParams.h */,
+				7264324500A8AF3B7F000001 /* ECDSA_Profile.h */,
+				7264324600A8AF3B7F000001 /* ECDSA_Verify_Prefix.h */,
+				7264329400A8B0197F000001 /* elliptic.c */,
+				7264324700A8AF3B7F000001 /* elliptic.h */,
+				7264324800A8AF3B7F000001 /* ellipticMeasure.h */,
+				7264329500A8B0197F000001 /* ellipticProj.c */,
+				7264324900A8AF3B7F000001 /* ellipticProj.h */,
+				7264329600A8B0197F000001 /* enc64.c */,
+				7264324A00A8AF3B7F000001 /* enc64.h */,
+				7264329700A8B0197F000001 /* engineNSA127.c */,
+				7264329800A8B0197F000001 /* falloc.c */,
+				7264324B00A8AF3B7F000001 /* falloc.h */,
+				7264324C00A8AF3B7F000001 /* feeCipherFile.h */,
+				7264324D00A8AF3B7F000001 /* feeDebug.h */,
+				7264329B00A8B0197F000001 /* feeDES.c */,
+				7264324E00A8AF3B7F000001 /* feeDES.h */,
+				7264329C00A8B0197F000001 /* feeDigitalSignature.c */,
+				7264324F00A8AF3B7F000001 /* feeDigitalSignature.h */,
+				7264329D00A8B0197F000001 /* feeECDSA.c */,
+				7264325000A8AF3B7F000001 /* feeECDSA.h */,
+				7264329E00A8B0197F000001 /* feeFEED.c */,
+				7264325100A8AF3B7F000001 /* feeFEED.h */,
+				7264329F00A8B0197F000001 /* feeFEEDExp.c */,
+				7264325200A8AF3B7F000001 /* feeFEEDExp.h */,
+				7264325300A8AF3B7F000001 /* feeFunctions.h */,
+				726432A000A8B0197F000001 /* feeHash.c */,
+				7264325400A8AF3B7F000001 /* feeHash.h */,
+				726432A100A8B0197F000001 /* feePublicKey.c */,
+				7264325500A8AF3B7F000001 /* feePublicKey.h */,
+				7264325600A8AF3B7F000001 /* feePublicKeyPrivate.h */,
+				726432A200A8B0197F000001 /* feeRandom.c */,
+				7264325700A8AF3B7F000001 /* feeRandom.h */,
+				7264325800A8AF3B7F000001 /* feeTypes.h */,
+				726432A400A8B0197F000001 /* giantIntegers.c */,
+				7264325900A8AF3B7F000001 /* giantIntegers.h */,
+				7264325A00A8AF3B7F000001 /* giantPort_Generic.h */,
+				7264325B00A8AF3B7F000001 /* giantPort_i486.h */,
+				726432A600A8B0197F000001 /* giantPort_PPC.c */,
+				7264325D00A8AF3B7F000001 /* giantPort_PPC.h */,
+				7264325C00A8AF3B7F000001 /* giantPort_PPC_Gnu.h */,
+				726432A500A8B0197F000001 /* giantPort_PPC_Gnu.s */,
+				7264325E00A8AF3B7F000001 /* giantPortCommon.h */,
+				9D3503C100C6EA9100A17CE7 /* HmacSha1Legacy.c */,
+				9D3503C200C6EA9100A17CE7 /* HmacSha1Legacy.h */,
+				726432A800A8B0197F000001 /* platform.c */,
+				7264326000A8AF3B7F000001 /* platform.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0535DCBA074A944D00805B04 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05B98736074A94EA00A63360 /* byteRep.h in Headers */,
+				05B98737074A94EB00A63360 /* ckconfig.h in Headers */,
+				05B98739074A94ED00A63360 /* ckDES.h in Headers */,
+				05B9873B074A94EF00A63360 /* ckMD5.h in Headers */,
+				05B9873E074A959C00A63360 /* ckSHA1.h in Headers */,
+				05B98740074A959E00A63360 /* ckSHA1_priv.h in Headers */,
+				05B98742074A95A000A63360 /* ckutilities.h in Headers */,
+				05B98743074A95A100A63360 /* Crypt.h in Headers */,
+				05B98744074A95A200A63360 /* CryptKit.h in Headers */,
+				05B98749074A95C700A63360 /* curveParamData.h in Headers */,
+				05B9874B074A95C900A63360 /* curveParams.h in Headers */,
+				05B9874D074A95D500A63360 /* ECDSA_Verify_Prefix.h in Headers */,
+				05B9874F074A95D700A63360 /* elliptic.h in Headers */,
+				05B98750074A95D800A63360 /* ellipticMeasure.h in Headers */,
+				05B98752074A95DA00A63360 /* ellipticProj.h in Headers */,
+				05B98754074A95DC00A63360 /* enc64.h in Headers */,
+				05B98757074A95E000A63360 /* falloc.h in Headers */,
+				05B98758074A95E100A63360 /* feeCipherFile.h in Headers */,
+				05B98759074A95E500A63360 /* feeDebug.h in Headers */,
+				05B9875B074A95E700A63360 /* feeDES.h in Headers */,
+				05B9875D074A95E900A63360 /* feeDigitalSignature.h in Headers */,
+				05B9875F074A95EB00A63360 /* feeECDSA.h in Headers */,
+				05B98761074A95ED00A63360 /* feeFEED.h in Headers */,
+				05B98763074A95EE00A63360 /* feeFEEDExp.h in Headers */,
+				05B98764074A95EF00A63360 /* feeFunctions.h in Headers */,
+				05B98766074A95F300A63360 /* feeHash.h in Headers */,
+				05B98768074A95F500A63360 /* feePublicKey.h in Headers */,
+				05B98769074A95F600A63360 /* feePublicKeyPrivate.h in Headers */,
+				05B9876B074A95F800A63360 /* feeRandom.h in Headers */,
+				05B9876C074A95F900A63360 /* feeTypes.h in Headers */,
+				05B9876E074A95FB00A63360 /* giantIntegers.h in Headers */,
+				05B9876F074A95FC00A63360 /* giantPort_Generic.h in Headers */,
+				05B98770074A95FD00A63360 /* giantPort_i486.h in Headers */,
+				05B98772074A95FF00A63360 /* giantPort_PPC.h in Headers */,
+				05B98773074A960000A63360 /* giantPort_PPC_Gnu.h in Headers */,
+				05B98775074A960300A63360 /* giantPortCommon.h in Headers */,
+				05B98778074A960C00A63360 /* platform.h in Headers */,
+				05B98786074A980600A63360 /* CryptKitSA.h in Headers */,
+				054416C0074D5BAC00DD8A37 /* CipherFileDES.h in Headers */,
+				054416C2074D5BAC00DD8A37 /* CipherFileFEED.h in Headers */,
+				054416C3074D5BAC00DD8A37 /* CipherFileTypes.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0536B291074BC91A00F9F1AD /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0536B29D074BC9A100F9F1AD /* byteRep.h in Headers */,
+				0536B29E074BC9A200F9F1AD /* ckconfig.h in Headers */,
+				0536B2A0074BC9A700F9F1AD /* ckMD5.h in Headers */,
+				0536B2A2074BC9AB00F9F1AD /* ckSHA1.h in Headers */,
+				0536B2A4074BC9AC00F9F1AD /* ckSHA1_priv.h in Headers */,
+				0536B2A6074BC9AE00F9F1AD /* ckutilities.h in Headers */,
+				0536B2A7074BC9B000F9F1AD /* Crypt.h in Headers */,
+				0536B2A8074BC9B200F9F1AD /* CryptKit.h in Headers */,
+				0536B2A9074BC9B600F9F1AD /* CryptKitSA.h in Headers */,
+				0536B2AA074BC9B800F9F1AD /* curveParamData.h in Headers */,
+				0536B2AC074BC9BB00F9F1AD /* curveParams.h in Headers */,
+				0536B2AE074BC9BF00F9F1AD /* elliptic.h in Headers */,
+				0536B2B0074BC9C300F9F1AD /* enc64.h in Headers */,
+				0536B2B2074BC9C500F9F1AD /* falloc.h in Headers */,
+				0536B2B3074BC9C900F9F1AD /* feeDebug.h in Headers */,
+				0536B2B5074BC9CC00F9F1AD /* feeDigitalSignature.h in Headers */,
+				0536B2B6074BC9D000F9F1AD /* feeFunctions.h in Headers */,
+				0536B2B8074BC9D400F9F1AD /* feeHash.h in Headers */,
+				0536B2BA074BC9D600F9F1AD /* feePublicKey.h in Headers */,
+				0536B2BB074BC9D700F9F1AD /* feePublicKeyPrivate.h in Headers */,
+				0536B2BD074BC9DA00F9F1AD /* giantIntegers.h in Headers */,
+				0536B2BE074BC9DC00F9F1AD /* feeRandom.h in Headers */,
+				0536B2C0074BC9E100F9F1AD /* giantPort_Generic.h in Headers */,
+				0536B2C2074BC9E400F9F1AD /* giantPort_PPC.h in Headers */,
+				0536B2C3074BC9E500F9F1AD /* giantPort_PPC_Gnu.h in Headers */,
+				0536B2C5074BC9EA00F9F1AD /* giantPortCommon.h in Headers */,
+				0536B2C7074BC9EE00F9F1AD /* platform.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7264322900A8AD0A7F000001 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C3EA7F2056AE8BE003C066F /* CryptKitAsn1.h in Headers */,
+				05DBE17705CF09EE00CA0562 /* ckSHA1.h in Headers */,
+				05F64B6205D01ADA007D1D8E /* ckDES.h in Headers */,
+				051A6865074BAFAF00A097D5 /* ckconfig.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0535DCBD074A944D00805B04 /* libCryptKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3320987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libCryptKit" */;
+			buildPhases = (
+				0535DCBA074A944D00805B04 /* Headers */,
+				0535DCBB074A944D00805B04 /* Sources */,
+				0535DCBC074A944D00805B04 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libCryptKit;
+			productName = libCryptKit;
+			productReference = 0535DCBE074A944D00805B04 /* libCryptKit.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		0536B294074BC91A00F9F1AD /* CryptKitSignature */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3360987FCDE001272E0 /* Build configuration list for PBXNativeTarget "CryptKitSignature" */;
+			buildPhases = (
+				0536B291074BC91A00F9F1AD /* Headers */,
+				0536B292074BC91A00F9F1AD /* Sources */,
+				0536B293074BC91A00F9F1AD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CryptKitSignature;
+			productName = CryptKitSignature;
+			productReference = 0536B295074BC91A00F9F1AD /* CryptKitSignature.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		7264322800A8AD0A7F000001 /* libsecurity_cryptkit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD32E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_cryptkit" */;
+			buildPhases = (
+				7264322900A8AD0A7F000001 /* Headers */,
+				7264322A00A8AD0A7F000001 /* Sources */,
+				7264322B00A8AD0A7F000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_cryptkit;
+			productInstallPath = /usr/local/lib;
+			productName = CryptKit;
+			productReference = 7264321600A8AD0A7F000001 /* libsecurity_cryptkit.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0FD07C9DFE8A174411CD283A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD33A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cryptkit" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 0FD07C9EFE8A174411CD283A;
+			productRefGroup = 0FD07C9EFE8A174411CD283A;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7264322800A8AD0A7F000001 /* libsecurity_cryptkit */,
+				0535DCBD074A944D00805B04 /* libCryptKit */,
+				0536B294074BC91A00F9F1AD /* CryptKitSignature */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0535DCBB074A944D00805B04 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05B98735074A94E900A63360 /* byteRep.c in Sources */,
+				05B98738074A94EC00A63360 /* ckDES.c in Sources */,
+				05B9873A074A94EE00A63360 /* ckMD5.c in Sources */,
+				05B9873D074A959B00A63360 /* ckSHA1.c in Sources */,
+				05B9873F074A959D00A63360 /* ckSHA1_priv.c in Sources */,
+				05B98741074A959F00A63360 /* ckutilities.c in Sources */,
+				05B9874A074A95C800A63360 /* curveParams.c in Sources */,
+				05B9874E074A95D600A63360 /* elliptic.c in Sources */,
+				05B98751074A95D900A63360 /* ellipticProj.c in Sources */,
+				05B98753074A95DB00A63360 /* enc64.c in Sources */,
+				05B98755074A95DE00A63360 /* engineNSA127.c in Sources */,
+				05B98756074A95DF00A63360 /* falloc.c in Sources */,
+				05B9875A074A95E600A63360 /* feeDES.c in Sources */,
+				05B9875C074A95E800A63360 /* feeDigitalSignature.c in Sources */,
+				05B9875E074A95EA00A63360 /* feeECDSA.c in Sources */,
+				05B98760074A95EB00A63360 /* feeFEED.c in Sources */,
+				05B98762074A95ED00A63360 /* feeFEEDExp.c in Sources */,
+				05B98765074A95F000A63360 /* feeHash.c in Sources */,
+				05B98767074A95F400A63360 /* feePublicKey.c in Sources */,
+				05B9876A074A95F700A63360 /* feeRandom.c in Sources */,
+				05B9876D074A95FA00A63360 /* giantIntegers.c in Sources */,
+				05B98771074A95FE00A63360 /* giantPort_PPC.c in Sources */,
+				05B98774074A960200A63360 /* giantPort_PPC_Gnu.s in Sources */,
+				05B98777074A960A00A63360 /* platform.c in Sources */,
+				054416BF074D5BAC00DD8A37 /* CipherFileDES.c in Sources */,
+				054416C1074D5BAC00DD8A37 /* CipherFileFEED.c in Sources */,
+				054416CC074D5BDA00DD8A37 /* feeCipherFile.c in Sources */,
+				054416CD074D5BDA00DD8A37 /* feeCipherFileAtom.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0536B292074BC91A00F9F1AD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0536B29C074BC9A000F9F1AD /* byteRep.c in Sources */,
+				0536B29F074BC9A600F9F1AD /* ckMD5.c in Sources */,
+				0536B2A1074BC9AA00F9F1AD /* ckSHA1.c in Sources */,
+				0536B2A3074BC9AC00F9F1AD /* ckSHA1_priv.c in Sources */,
+				0536B2A5074BC9AD00F9F1AD /* ckutilities.c in Sources */,
+				0536B2AB074BC9BA00F9F1AD /* curveParams.c in Sources */,
+				0536B2AD074BC9BD00F9F1AD /* elliptic.c in Sources */,
+				0536B2AF074BC9C200F9F1AD /* enc64.c in Sources */,
+				0536B2B1074BC9C500F9F1AD /* falloc.c in Sources */,
+				0536B2B4074BC9CB00F9F1AD /* feeDigitalSignature.c in Sources */,
+				0536B2B7074BC9D300F9F1AD /* feeHash.c in Sources */,
+				0536B2B9074BC9D500F9F1AD /* feePublicKey.c in Sources */,
+				0536B2BC074BC9D900F9F1AD /* giantIntegers.c in Sources */,
+				0536B2BF074BC9DD00F9F1AD /* feeRandom.c in Sources */,
+				0536B2C1074BC9E200F9F1AD /* giantPort_PPC.c in Sources */,
+				0536B2C4074BC9E600F9F1AD /* giantPort_PPC_Gnu.s in Sources */,
+				0536B2C6074BC9ED00F9F1AD /* platform.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7264322A00A8AD0A7F000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				726432AC00A8B0197F000001 /* byteRep.c in Sources */,
+				726432AF00A8B0197F000001 /* ckutilities.c in Sources */,
+				4C3EA7F1056AE8BE003C066F /* CryptKitAsn1.cpp in Sources */,
+				4C3EA7F3056AE8BE003C066F /* CryptKitDER.cpp in Sources */,
+				726432B000A8B0197F000001 /* curveParams.c in Sources */,
+				726432B200A8B0197F000001 /* elliptic.c in Sources */,
+				726432B300A8B0197F000001 /* ellipticProj.c in Sources */,
+				726432B400A8B0197F000001 /* enc64.c in Sources */,
+				726432B500A8B0197F000001 /* engineNSA127.c in Sources */,
+				726432B600A8B0197F000001 /* falloc.c in Sources */,
+				726432B900A8B0197F000001 /* feeDES.c in Sources */,
+				726432BA00A8B0197F000001 /* feeDigitalSignature.c in Sources */,
+				726432BB00A8B0197F000001 /* feeECDSA.c in Sources */,
+				726432BC00A8B0197F000001 /* feeFEED.c in Sources */,
+				726432BD00A8B0197F000001 /* feeFEEDExp.c in Sources */,
+				726432BE00A8B0197F000001 /* feeHash.c in Sources */,
+				726432BF00A8B0197F000001 /* feePublicKey.c in Sources */,
+				726432C000A8B0197F000001 /* feeRandom.c in Sources */,
+				726432C200A8B0197F000001 /* giantIntegers.c in Sources */,
+				726432C400A8B0197F000001 /* giantPort_PPC.c in Sources */,
+				726432C300A8B0197F000001 /* giantPort_PPC_Gnu.s in Sources */,
+				9D3503C400C6EA9100A17CE7 /* HmacSha1Legacy.c in Sources */,
+				726432C600A8B0197F000001 /* platform.c in Sources */,
+				05F64B7505D01C0D007D1D8E /* ckSHA1.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD32F0987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DCK_SECURITY_BUILD",
+				);
+			};
+			name = Debug;
+		};
+		C27AD3310987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DCK_SECURITY_BUILD",
+				);
+			};
+			name = Release;
+		};
+		C27AD3330987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "-DCK_STANDALONE_BUILD";
+			};
+			name = Debug;
+		};
+		C27AD3350987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "-DCK_STANDALONE_BUILD";
+			};
+			name = Release;
+		};
+		C27AD3370987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F9146EF983000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "-DCK_MINIMUM_SIG_BUILD";
+			};
+			name = Debug;
+		};
+		C27AD3390987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1FB146EF983000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "-DCK_MINIMUM_SIG_BUILD";
+			};
+			name = Release;
+		};
+		C27AD33B0987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1FA146EF983000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD33D0987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1FA146EF983000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD32E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_cryptkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD32F0987FCDE001272E0 /* Debug */,
+				C27AD3310987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3320987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libCryptKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3330987FCDE001272E0 /* Debug */,
+				C27AD3350987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3360987FCDE001272E0 /* Build configuration list for PBXNativeTarget "CryptKitSignature" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3370987FCDE001272E0 /* Debug */,
+				C27AD3390987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD33A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_cryptkit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD33B0987FCDE001272E0 /* Debug */,
+				C27AD33D0987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0FD07C9DFE8A174411CD283A /* Project object */;
+}

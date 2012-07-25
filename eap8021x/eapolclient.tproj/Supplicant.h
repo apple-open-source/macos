@@ -81,5 +81,8 @@ Supplicant_stop(SupplicantRef supp);
 void
 Supplicant_simulate_success(SupplicantRef supp);
 
+void
+Supplicant_set_globals(SCPreferencesRef prefs);
+
 #endif /* _S_SUPPLICANT_H */
 

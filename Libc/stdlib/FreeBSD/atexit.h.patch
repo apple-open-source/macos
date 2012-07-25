@@ -1,8 +1,0 @@
---- atexit.h.bsdnew	2009-11-13 14:11:47.000000000 -0800
-+++ atexit.h	2009-11-13 14:11:47.000000000 -0800
-@@ -33,4 +33,4 @@
- /* must be at least 32 to guarantee ANSI conformance */
- #define	ATEXIT_SIZE	32
- 
--void __cxa_finalize(void *dso);
-+void __cxa_finalize(const void *dso);

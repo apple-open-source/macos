@@ -70,8 +70,8 @@ public:
     // next() and previous() will increment/decrement by a character cluster.
     VisiblePosition next(EditingBoundaryCrossingRule = CanCrossEditingBoundary) const;
     VisiblePosition previous(EditingBoundaryCrossingRule = CanCrossEditingBoundary) const;
-    VisiblePosition honorEditableBoundaryAtOrBefore(const VisiblePosition&) const;
-    VisiblePosition honorEditableBoundaryAtOrAfter(const VisiblePosition&) const;
+    VisiblePosition honorEditingBoundaryAtOrBefore(const VisiblePosition&) const;
+    VisiblePosition honorEditingBoundaryAtOrAfter(const VisiblePosition&) const;
 
     VisiblePosition left(bool stayInEditableContent = false) const;
     VisiblePosition right(bool stayInEditableContent = false) const;
@@ -79,6 +79,7 @@ public:
     UChar32 characterAfter() const;
     UChar32 characterBefore() const { return previous().characterAfter(); }
 
+    // FIXME: This does not handle [table, 0] correctly.
     Element* rootEditableElement() const { return m_deepPosition.isNotNull() ? m_deepPosition.deprecatedNode()->rootEditableElement() : 0; }
     
     void getInlineBoxAndOffset(InlineBox*& inlineBox, int& caretOffset) const
@@ -92,12 +93,12 @@ public:
     }
 
     // Rect is local to the returned renderer
-    IntRect localCaretRect(RenderObject*&) const;
+    LayoutRect localCaretRect(RenderObject*&) const;
     // Bounds of (possibly transformed) caret in absolute coords
     IntRect absoluteCaretBounds() const;
-    // Abs x position of the caret ignoring transforms.
+    // Abs x/y position of the caret ignoring transforms.
     // FIXME: navigation with transforms should be smarter.
-    int xOffsetForVerticalNavigation() const;
+    int lineDirectionPointForBlockDirectionNavigation() const;
     
 #ifndef NDEBUG
     void debugPosition(const char* msg = "") const;

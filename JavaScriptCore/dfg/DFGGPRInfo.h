@@ -273,6 +273,7 @@ public:
     static const GPRReg argumentGPR1 = X86Registers::edx; // regT1
     static const GPRReg returnValueGPR = X86Registers::eax; // regT0
     static const GPRReg returnValueGPR2 = X86Registers::edx; // regT1
+    static const GPRReg nonPreservedNonReturnGPR = X86Registers::ecx;
 
     static GPRReg toRegister(unsigned index)
     {
@@ -291,7 +292,6 @@ public:
         return result;
     }
 
-#ifndef NDEBUG
     static const char* debugName(GPRReg reg)
     {
         ASSERT(reg != InvalidGPRReg);
@@ -302,7 +302,6 @@ public:
         };
         return nameForRegister[reg];
     }
-#endif
 private:
 
     static const unsigned InvalidIndex = 0xffffffff;
@@ -343,6 +342,7 @@ public:
     static const GPRReg argumentGPR5 = X86Registers::r9;  // regT7
     static const GPRReg returnValueGPR = X86Registers::eax; // regT0
     static const GPRReg returnValueGPR2 = X86Registers::edx; // regT1
+    static const GPRReg nonPreservedNonReturnGPR = X86Registers::esi;
 
     static GPRReg toRegister(unsigned index)
     {
@@ -361,7 +361,6 @@ public:
         return result;
     }
 
-#ifndef NDEBUG
     static const char* debugName(GPRReg reg)
     {
         ASSERT(reg != InvalidGPRReg);
@@ -374,7 +373,6 @@ public:
         };
         return nameForRegister[reg];
     }
-#endif
 private:
 
     static const unsigned InvalidIndex = 0xffffffff;
@@ -388,18 +386,17 @@ private:
 class GPRInfo {
 public:
     typedef GPRReg RegisterType;
-    static const unsigned numberOfRegisters = 9;
+    static const unsigned numberOfRegisters = 8;
 
     // Temporary registers.
     static const GPRReg regT0 = ARMRegisters::r0;
     static const GPRReg regT1 = ARMRegisters::r1;
     static const GPRReg regT2 = ARMRegisters::r2;
     static const GPRReg regT3 = ARMRegisters::r4;
-    static const GPRReg regT4 = ARMRegisters::r7;
-    static const GPRReg regT5 = ARMRegisters::r8;
-    static const GPRReg regT6 = ARMRegisters::r9;
-    static const GPRReg regT7 = ARMRegisters::r10;
-    static const GPRReg regT8 = ARMRegisters::r11;
+    static const GPRReg regT4 = ARMRegisters::r8;
+    static const GPRReg regT5 = ARMRegisters::r9;
+    static const GPRReg regT6 = ARMRegisters::r10;
+    static const GPRReg regT7 = ARMRegisters::r11;
     // These registers match the baseline JIT.
     static const GPRReg cachedResultRegister = regT0;
     static const GPRReg cachedResultRegister2 = regT1;
@@ -415,11 +412,12 @@ public:
     static const GPRReg argumentGPR3 = ARMRegisters::r3; // FIXME!
     static const GPRReg returnValueGPR = ARMRegisters::r0; // regT0
     static const GPRReg returnValueGPR2 = ARMRegisters::r1; // regT1
+    static const GPRReg nonPreservedNonReturnGPR = ARMRegisters::r2;
 
     static GPRReg toRegister(unsigned index)
     {
         ASSERT(index < numberOfRegisters);
-        static const GPRReg registerForIndex[numberOfRegisters] = { regT0, regT1, regT2, regT3, regT4, regT5, regT6, regT7, regT8 };
+        static const GPRReg registerForIndex[numberOfRegisters] = { regT0, regT1, regT2, regT3, regT4, regT5, regT6, regT7 };
         return registerForIndex[index];
     }
 
@@ -427,13 +425,12 @@ public:
     {
         ASSERT(reg != InvalidGPRReg);
         ASSERT(reg < 16);
-        static const unsigned indexForRegister[16] = { 0, 1, 2, InvalidIndex, 3, InvalidIndex, InvalidIndex, 4, 5, 6, 7, 8, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex };
+        static const unsigned indexForRegister[16] = { 0, 1, 2, InvalidIndex, 3, InvalidIndex, InvalidIndex, InvalidIndex, 4, 5, 6, 7, InvalidIndex, InvalidIndex, InvalidIndex, InvalidIndex };
         unsigned result = indexForRegister[reg];
         ASSERT(result != InvalidIndex);
         return result;
     }
 
-#ifndef NDEBUG
     static const char* debugName(GPRReg reg)
     {
         ASSERT(reg != InvalidGPRReg);
@@ -446,7 +443,6 @@ public:
         };
         return nameForRegister[reg];
     }
-#endif
 private:
 
     static const unsigned InvalidIndex = 0xffffffff;

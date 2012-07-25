@@ -31,15 +31,8 @@
 #include <qwebelement.h>
 #include <qwebframe.h>
 
-#ifdef Q_OS_SYMBIAN
-#define VERIFY_INPUTMETHOD_HINTS(actual, expect) \
-    QVERIFY(actual & Qt::ImhNoAutoUppercase); \
-    QVERIFY(actual & Qt::ImhNoPredictiveText); \
-    QVERIFY(actual & expect);
-#else
 #define VERIFY_INPUTMETHOD_HINTS(actual, expect) \
     QVERIFY(actual == expect);
-#endif
 
 class tst_QWebView : public QObject
 {
@@ -140,16 +133,16 @@ void tst_QWebView::reusePage_data()
 void tst_QWebView::reusePage()
 {
     if (!QDir(TESTS_SOURCE_DIR).exists())
-        QSKIP(QString("This test requires access to resources found in '%1'").arg(TESTS_SOURCE_DIR).toLatin1().constData(), SkipAll);
+        W_QSKIP(QString("This test requires access to resources found in '%1'").arg(TESTS_SOURCE_DIR).toLatin1().constData(), SkipAll);
 
     QDir::setCurrent(TESTS_SOURCE_DIR);
 
     QFETCH(QString, html);
     QWebView* view1 = new QWebView;
-    QPointer<QWebPage> page = new QWebPage;
-    view1->setPage(page);
-    page->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
-    QWebFrame* mainFrame = page->mainFrame();
+    QWeakPointer<QWebPage> page = new QWebPage;
+    view1->setPage(page.data());
+    page.data()->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    QWebFrame* mainFrame = page.data()->mainFrame();
     mainFrame->setHtml(html, QUrl::fromLocalFile(TESTS_SOURCE_DIR));
     if (html.contains("</embed>")) {
         // some reasonable time for the PluginStream to feed test.swf to flash and start painting
@@ -162,12 +155,12 @@ void tst_QWebView::reusePage()
     QVERIFY(page != 0); // deleting view must not have deleted the page, since it's not a child of view
 
     QWebView *view2 = new QWebView;
-    view2->setPage(page);
+    view2->setPage(page.data());
     view2->show(); // in Windowless mode, you should still be able to see the plugin here
     QTest::qWaitForWindowShown(view2);
     delete view2;
 
-    delete page; // must not crash
+    delete page.data(); // must not crash
 
     QDir::setCurrent(QApplication::applicationDirPath());
 }
@@ -253,12 +246,7 @@ void tst_QWebView::focusInputTypes()
     // 'text' type
     QWebElement inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=text]"));
     QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
-#else
     QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
-#endif
     QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
 
     // 'password' field
@@ -300,12 +288,7 @@ void tst_QWebView::focusInputTypes()
     // 'text' type
     inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=text]"));
     QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
-#else
     QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
-#endif
     QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
 
     // 'password' field
@@ -317,12 +300,7 @@ void tst_QWebView::focusInputTypes()
     // 'text area' field
     inputElement = mainFrame->documentElement().findFirst(QLatin1String("textarea"));
     QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
-#if defined(Q_OS_SYMBIAN)
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
-    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
-#else
     QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
-#endif
     QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
 }
 

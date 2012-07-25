@@ -46,7 +46,7 @@ static char sccsid[] = "@(#)look.c	8.2 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/look/look.c,v 1.17 2004/07/19 11:12:02 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/look/look.c,v 1.18.10.2.4.1 2010/06/14 02:09:06 kensmith Exp $");
 
 /*
  * look -- find lines in a sorted list.
@@ -145,6 +145,10 @@ main(int argc, char *argv[])
 			err(2, "%s", file);
 		if (sb.st_size > SIZE_T_MAX)
 			errx(2, "%s: %s", file, strerror(EFBIG));
+		if (sb.st_size == 0) {
+			close(fd);
+			continue;
+		}
 		if ((front = mmap(NULL, (size_t)sb.st_size, PROT_READ, MAP_SHARED, fd, (off_t)0)) == MAP_FAILED)
 			err(2, "%s", file);
 		back = front + sb.st_size;
@@ -281,10 +285,8 @@ linear_search(wchar_t *string, unsigned char *front, unsigned char *back)
 		switch (compare(string, front, back)) {
 		case EQUAL:		/* Found it. */
 			return (front);
-			break;
 		case LESS:		/* No such string. */
 			return (NULL);
-			break;
 		case GREATER:		/* Keep going. */
 			break;
 		}

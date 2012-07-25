@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <sys/proc_info.h>
 
@@ -108,6 +109,12 @@ int proc_libversion(int *major, int * minor) __OSX_AVAILABLE_STARTING(__MAC_10_5
 
 int proc_setpcontrol(const int control) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 int proc_setpcontrol(const int control);
+
+int proc_track_dirty(pid_t pid, uint32_t flags);
+int proc_set_dirty(pid_t pid, bool dirty);
+int proc_get_dirty(pid_t pid, uint32_t *flags);
+
+int proc_terminate(pid_t pid, int *sig);
 
 __END_DECLS
 

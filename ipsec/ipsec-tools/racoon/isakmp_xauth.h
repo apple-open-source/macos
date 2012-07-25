@@ -118,7 +118,7 @@ int xauth_radius_init(void);
 #endif
 
 #ifdef HAVE_LIBPAM
-int xauth_login_pam(int, struct sockaddr *, char *, char *);
+int xauth_login_pam(int, struct sockaddr_storage *, char *, char *);
 #endif
 
 #ifdef HAVE_LIBLDAP

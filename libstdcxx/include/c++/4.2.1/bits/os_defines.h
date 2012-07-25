@@ -59,6 +59,9 @@
 #define	_DTRACE_CXA_RUNTIME_H
 
 #include <unistd.h>
+/* APPLE LOCAL begin version */
+#include <Availability.h>
+/* APPLE LOCAL end version */
 
 #ifdef	__cplusplus
 extern "C" {
@@ -103,6 +106,12 @@ extern int __dtrace_isenabled$cxa_runtime$cxa_exception_throw$v1(void);
 #ifndef __GNUC_LIBSTD__
 #define __GNUC_LIBSTD__ 4
 #define __GNUC_LIBSTD_MINOR__ 2
+#endif
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED
+	#define __TARGETING_4_0_DYLIB  0
+#else 
+	#define __TARGETING_4_0_DYLIB (__MAC_OS_X_VERSION_MIN_REQUIRED < 1060)
 #endif
 
 /* APPLE LOCAL end version */

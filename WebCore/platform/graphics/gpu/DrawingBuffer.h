@@ -33,6 +33,7 @@
 
 #include "GraphicsContext3D.h"
 #include "GraphicsLayer.h"
+#include "GraphicsTypes3D.h"
 #include "IntSize.h"
 
 #include <wtf/Noncopyable.h>
@@ -42,26 +43,36 @@
 #include <wtf/RetainPtr.h>
 #endif
 
-#if USE(SKIA)
-class GrContext;
-struct GrPlatformSurfaceDesc;
-#endif
-
 namespace WebCore {
-
+class CanvasRenderingContext;
+class GraphicsContext3D;
+class ImageData;
 #if PLATFORM(CHROMIUM)
-struct DrawingBufferInternal;
+class DrawingBufferPrivate;
 #endif
 
 // Manages a rendering target (framebuffer + attachment) for a canvas.  Can publish its rendering
 // results to a PlatformLayer for compositing.
 class DrawingBuffer : public RefCounted<DrawingBuffer> {
 public:
+    enum PreserveDrawingBuffer {
+        Preserve,
+        Discard
+    };
+
+    enum AlphaRequirement {
+        Alpha,
+        Opaque
+    };
+
+    static PassRefPtr<DrawingBuffer> create(GraphicsContext3D*, const IntSize&, PreserveDrawingBuffer, AlphaRequirement);
     friend class GraphicsContext3D;
-    
+
     ~DrawingBuffer();
 
-    void clearFramebuffer();
+    // Issues a glClear() on all framebuffers associated with this DrawingBuffer. The caller is responsible for
+    // making the context current and setting the clear values and masks. Modifies the framebuffer binding.
+    void clearFramebuffers(GC3Dbitfield clearMask);
 
     // Returns true if the buffer was successfully resized.
     bool reset(const IntSize&);
@@ -80,43 +91,59 @@ public:
 
     // Copies the multisample color buffer to the normal color buffer and leaves m_fbo bound
     void commit(long x = 0, long y = 0, long width = -1, long height = -1);
-    
-    bool multisample() const { return m_context && m_context->getContextAttributes().antialias && m_multisampleExtensionSupported; }
-    
-    Platform3DObject platformColorBuffer() const;
+
+    // commit should copy the full multisample buffer, and not respect the
+    // current scissor bounds. Track the state of the scissor test so that it
+    // can be disabled during calls to commit.
+    void setScissorEnabled(bool scissorEnabled) { m_scissorEnabled = scissorEnabled; }
+
+    // The DrawingBuffer needs to track the texture bound to texture unit 0.
+    // The bound texture is tracked to avoid costly queries during rendering.
+    void setTexture2DBinding(Platform3DObject texture) { m_texture2DBinding = texture; }
+
+    // The DrawingBuffer needs to track the currently bound framebuffer so it
+    // restore the binding when needed.
+    void setFramebufferBinding(Platform3DObject fbo) { m_framebufferBinding = fbo; }
+
+    // Bind to the m_framebufferBinding if it's not 0.
+    void restoreFramebufferBinding();
+
+    // Track the currently active texture unit. Texture unit 0 is used as host for a scratch
+    // texture.
+    void setActiveTextureUnit(GC3Dint textureUnit) { m_activeTextureUnit = textureUnit; }
+
+    bool multisample() const;
+
+    Platform3DObject framebuffer() const;
+
+    PassRefPtr<ImageData> paintRenderingResultsToImageData();
+
+    // Immediately releases ownership of all resources. Call upon loss of the
+    // graphics context to prevent freeing invalid resources.
+    void discardResources();
 
 #if USE(ACCELERATED_COMPOSITING)
     PlatformLayer* platformLayer();
-    void publishToPlatformLayer();
+    void prepareBackBuffer();
+    bool requiresCopyFromBackToFrontBuffer() const;
+    unsigned frontColorBuffer() const;
+    void paintCompositedResultsToCanvas(CanvasRenderingContext*);
 #endif
 
-#if PLATFORM(CHROMIUM)
-    class WillPublishCallback {
-        WTF_MAKE_NONCOPYABLE(WillPublishCallback);
-    public:
-        WillPublishCallback() { }
-        virtual ~WillPublishCallback() { }
-        
-        virtual void willPublish() = 0;
-    };
-
-    void setWillPublishCallback(PassOwnPtr<WillPublishCallback> callback) { m_callback = callback; }
-#endif
-
-#if USE(SKIA)
-    void setGrContext(GrContext* ctx);
-    void getGrPlatformSurfaceDesc(GrPlatformSurfaceDesc*);
-#endif
-
-    PassRefPtr<GraphicsContext3D> graphicsContext3D() const { return m_context; }
+    GraphicsContext3D* graphicsContext3D() const { return m_context.get(); }
 
 private:
-    static PassRefPtr<DrawingBuffer> create(GraphicsContext3D*, const IntSize&);
-    
-    DrawingBuffer(GraphicsContext3D*, const IntSize&, bool multisampleExtensionSupported, bool packedDepthStencilExtensionSupported);
-    
-    // Platform specific function called after reset() so each platform can do extra work if needed
-    void didReset();
+    DrawingBuffer(GraphicsContext3D*, const IntSize&, bool multisampleExtensionSupported,
+                  bool packedDepthStencilExtensionSupported, PreserveDrawingBuffer, AlphaRequirement);
+
+    void initialize(const IntSize&);
+
+    PreserveDrawingBuffer m_preserveDrawingBuffer;
+    AlphaRequirement m_alpha;
+    bool m_scissorEnabled;
+    Platform3DObject m_texture2DBinding;
+    Platform3DObject m_framebufferBinding;
+    GC3Denum m_activeTextureUnit;
 
     RefPtr<GraphicsContext3D> m_context;
     IntSize m_size;
@@ -124,6 +151,8 @@ private:
     bool m_packedDepthStencilExtensionSupported;
     Platform3DObject m_fbo;
     Platform3DObject m_colorBuffer;
+    Platform3DObject m_frontColorBuffer;
+    bool m_separateFrontTexture;
 
     // This is used when we have OES_packed_depth_stencil.
     Platform3DObject m_depthStencilBuffer;
@@ -137,16 +166,11 @@ private:
     Platform3DObject m_multisampleColorBuffer;
 
 #if PLATFORM(CHROMIUM)
-    OwnPtr<WillPublishCallback> m_callback;
-    OwnPtr<DrawingBufferInternal> m_internal;
+    OwnPtr<DrawingBufferPrivate> m_private;
 #endif
 
 #if PLATFORM(MAC)
     RetainPtr<WebGLLayer> m_platformLayer;
-#endif
-
-#if USE(SKIA)
-    GrContext* m_grContext;
 #endif
 };
 

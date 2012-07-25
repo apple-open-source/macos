@@ -36,9 +36,15 @@ WKTypeID WKSecurityOriginGetTypeID()
     return toAPI(WebSecurityOrigin::APIType);
 }
 
-WKSecurityOriginRef WKSecurityOriginCreateFromIdentifier(WKStringRef identifier)
+WKSecurityOriginRef WKSecurityOriginCreateFromString(WKStringRef string)
 {
-    RefPtr<WebSecurityOrigin> securityOrigin = WebSecurityOrigin::create(toImpl(identifier)->string());
+    RefPtr<WebSecurityOrigin> securityOrigin = WebSecurityOrigin::createFromString(toImpl(string)->string());
+    return toAPI(securityOrigin.release().leakRef());
+}
+
+WKSecurityOriginRef WKSecurityOriginCreateFromDatabaseIdentifier(WKStringRef identifier)
+{
+    RefPtr<WebSecurityOrigin> securityOrigin = WebSecurityOrigin::createFromDatabaseIdentifier(toImpl(identifier)->string());
     return toAPI(securityOrigin.release().leakRef());
 }
 
@@ -48,12 +54,22 @@ WKSecurityOriginRef WKSecurityOriginCreate(WKStringRef protocol, WKStringRef hos
     return toAPI(securityOrigin.release().leakRef());
 }
 
-WKStringRef WKSecurityOriginGetProtocol(WKSecurityOriginRef securityOrigin)
+WKStringRef WKSecurityOriginCopyDatabaseIdentifier(WKSecurityOriginRef securityOrigin)
+{
+    return toCopiedAPI(toImpl(securityOrigin)->databaseIdentifier());
+}
+
+WKStringRef WKSecurityOriginCopyToString(WKSecurityOriginRef securityOrigin)
+{
+    return toCopiedAPI(toImpl(securityOrigin)->toString());
+}
+
+WKStringRef WKSecurityOriginCopyProtocol(WKSecurityOriginRef securityOrigin)
 {
     return toCopiedAPI(toImpl(securityOrigin)->protocol());
 }
 
-WKStringRef WKSecurityOriginGetHost(WKSecurityOriginRef securityOrigin)
+WKStringRef WKSecurityOriginCopyHost(WKSecurityOriginRef securityOrigin)
 {
     return toCopiedAPI(toImpl(securityOrigin)->host());
 }
@@ -61,4 +77,18 @@ WKStringRef WKSecurityOriginGetHost(WKSecurityOriginRef securityOrigin)
 unsigned short WKSecurityOriginGetPort(WKSecurityOriginRef securityOrigin)
 {
     return toImpl(securityOrigin)->port();
+}
+
+// For backwards ABI compatibility.
+extern "C" WK_EXPORT WKStringRef WKSecurityOriginGetHost(WKSecurityOriginRef securityOrigin);
+extern "C" WK_EXPORT WKStringRef WKSecurityOriginGetProtocol(WKSecurityOriginRef securityOrigin);
+
+WKStringRef WKSecurityOriginGetHost(WKSecurityOriginRef securityOrigin)
+{
+    return WKSecurityOriginCopyHost(securityOrigin);
+}
+
+WKStringRef WKSecurityOriginGetProtocol(WKSecurityOriginRef securityOrigin)
+{
+    return WKSecurityOriginCopyProtocol(securityOrigin);
 }

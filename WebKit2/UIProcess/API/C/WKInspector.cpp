@@ -48,6 +48,11 @@ bool WKInspectorIsVisible(WKInspectorRef inspectorRef)
     return toImpl(inspectorRef)->isVisible();
 }
 
+bool WKInspectorIsFront(WKInspectorRef inspectorRef)
+{
+    return toImpl(inspectorRef)->isFront();
+}
+
 void WKInspectorShow(WKInspectorRef inspectorRef)
 {
     toImpl(inspectorRef)->show();
@@ -61,6 +66,16 @@ void WKInspectorClose(WKInspectorRef inspectorRef)
 void WKInspectorShowConsole(WKInspectorRef inspectorRef)
 {
     toImpl(inspectorRef)->showConsole();
+}
+
+void WKInspectorShowResources(WKInspectorRef inspectorRef)
+{
+    toImpl(inspectorRef)->showResources();
+}
+
+void WKInspectorShowMainResourceForFrame(WKInspectorRef inspectorRef, WKFrameRef frameRef)
+{
+    toImpl(inspectorRef)->showMainResourceForFrame(toImpl(frameRef));
 }
 
 bool WKInspectorIsAttached(WKInspectorRef inspectorRef)

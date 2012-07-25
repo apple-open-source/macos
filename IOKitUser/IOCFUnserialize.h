@@ -39,6 +39,7 @@ extern "C" {
 // on failure IOCFUnserialize sets errorString to a CFString object 
 // containing a error message suitable for logging and returns 0
 
+CF_RETURNS_RETAINED
 CFTypeRef
 IOCFUnserialize(const char *buffer,
                 CFAllocatorRef allocator,

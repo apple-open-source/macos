@@ -26,6 +26,7 @@
 #ifndef MemoryPressureHandler_h
 #define MemoryPressureHandler_h
 
+#include <time.h>
 #include <wtf/Platform.h>
 
 namespace WebCore {
@@ -44,6 +45,7 @@ private:
     ~MemoryPressureHandler();
 
     void respondToMemoryPressure();
+    void releaseMemory(bool critical);
 
     bool m_installed;
     time_t m_lastRespondTime;

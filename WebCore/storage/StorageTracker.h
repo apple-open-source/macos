@@ -26,8 +26,6 @@
 #ifndef StorageTracker_h
 #define StorageTracker_h
 
-#if ENABLE(DOM_STORAGE)
-    
 #include "PlatformString.h"
 #include "SQLiteDatabase.h"
 #include <wtf/HashSet.h>
@@ -37,8 +35,8 @@
 
 namespace WebCore {
 
-class LocalStorageTask;
-class LocalStorageThread;
+class StorageTask;
+class StorageThread;
 class SecurityOrigin;
 class StorageTrackerClient;    
 
@@ -46,16 +44,18 @@ class StorageTracker {
     WTF_MAKE_NONCOPYABLE(StorageTracker);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static void initializeTracker(const String& storagePath);
+    static void initializeTracker(const String& storagePath, StorageTrackerClient*);
     static StorageTracker& tracker();
-    static void scheduleTask(void*);
 
-    void importOriginIdentifiers();
+    void setDatabaseDirectoryPath(const String&);
+    String databaseDirectoryPath() const;
+
     void setOriginDetails(const String& originIdentifier, const String& databaseFile);
     
     void deleteAllOrigins();
     void deleteOrigin(SecurityOrigin*);
     void deleteOrigin(const String& originIdentifier);
+    bool originsLoaded() const { return m_finishedImportingOriginIdentifiers; }
     void origins(Vector<RefPtr<SecurityOrigin> >& result);
     long long diskUsageForOrigin(SecurityOrigin*);
     
@@ -76,12 +76,17 @@ public:
 
 private:
     StorageTracker(const String& storagePath);
+    static void scheduleTask(void*);
+
+    void internalInitialize();
 
     String trackerDatabasePath();
     void openTrackerDatabase(bool createIfDoesNotExist);
 
-    void setStorageDirectoryPath(const String&);
-
+    void importOriginIdentifiers();
+    static void notifyFinishedImportingOriginIdentifiersOnMainThread(void*);
+    void finishedImportingOriginIdentifiers();
+    
     void deleteTrackerFiles();
     String databasePathForOrigin(const String& originIdentifier);
 
@@ -108,13 +113,13 @@ private:
     OriginSet m_originSet;
     OriginSet m_originsBeingDeleted;
 
-    OwnPtr<LocalStorageThread> m_thread;
+    OwnPtr<StorageThread> m_thread;
     
     bool m_isActive;
+    bool m_needsInitialization;
+    bool m_finishedImportingOriginIdentifiers;
 };
     
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageTracker_h

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/compare.c,v 1.24.2.7 2010/04/13 20:23:42 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -98,7 +98,7 @@ backsql_compare( Operation *op, SlapReply *rs )
 	}
 
 	if ( is_at_operational( op->oq_compare.rs_ava->aa_desc->ad_type ) ) {
-		SlapReply	nrs = { 0 };
+		SlapReply	nrs = { REP_SEARCH };
 		Attribute	**ap;
 
 		for ( ap = &e.e_attrs; *ap; ap = &(*ap)->a_next )

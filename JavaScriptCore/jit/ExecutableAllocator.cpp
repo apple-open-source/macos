@@ -28,10 +28,21 @@
 #include "ExecutableAllocator.h"
 
 #if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
+#include "CodeProfiling.h"
+#include <wtf/HashSet.h>
 #include <wtf/MetaAllocator.h>
 #include <wtf/PageReservation.h>
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+#include <wtf/PassOwnPtr.h>
+#endif
+#include <wtf/ThreadingPrimitives.h>
 #include <wtf/VMTags.h>
 #endif
+
+// Uncomment to create an artificial executable memory usage limit. This limit
+// is imperfect and is primarily useful for testing the VM's ability to handle
+// out-of-executable-memory situations.
+// #define EXECUTABLE_MEMORY_LIMIT 1000000
 
 #if ENABLE(ASSEMBLER)
 
@@ -46,14 +57,47 @@ public:
     DemandExecutableAllocator()
         : MetaAllocator(32) // round up all allocations to 32 bytes
     {
+        MutexLocker lock(allocatorsMutex());
+        allocators().add(this);
         // Don't preallocate any memory here.
     }
     
     virtual ~DemandExecutableAllocator()
     {
+        {
+            MutexLocker lock(allocatorsMutex());
+            allocators().remove(this);
+        }
         for (unsigned i = 0; i < reservations.size(); ++i)
             reservations.at(i).deallocate();
     }
+
+    static size_t bytesAllocatedByAllAllocators()
+    {
+        size_t total = 0;
+        MutexLocker lock(allocatorsMutex());
+        for (HashSet<DemandExecutableAllocator*>::const_iterator allocator = allocators().begin(); allocator != allocators().end(); ++allocator)
+            total += (*allocator)->bytesAllocated();
+        return total;
+    }
+
+    static size_t bytesCommittedByAllocactors()
+    {
+        size_t total = 0;
+        MutexLocker lock(allocatorsMutex());
+        for (HashSet<DemandExecutableAllocator*>::const_iterator allocator = allocators().begin(); allocator != allocators().end(); ++allocator)
+            total += (*allocator)->bytesCommitted();
+        return total;
+    }
+
+#if ENABLE(META_ALLOCATOR_PROFILE)
+    static void dumpProfileFromAllAllocators()
+    {
+        MutexLocker lock(allocatorsMutex());
+        for (HashSet<DemandExecutableAllocator*>::const_iterator allocator = allocators().begin(); allocator != allocators().end(); ++allocator)
+            (*allocator)->dumpProfile();
+    }
+#endif
 
 protected:
     virtual void* allocateNewSpace(size_t& numPages)
@@ -63,6 +107,11 @@ protected:
         ASSERT(newNumPages >= numPages);
         
         numPages = newNumPages;
+        
+#ifdef EXECUTABLE_MEMORY_LIMIT
+        if (bytesAllocatedByAllAllocators() >= EXECUTABLE_MEMORY_LIMIT)
+            return 0;
+#endif
         
         PageReservation reservation = PageReservation::reserve(numPages * pageSize(), OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
         if (!reservation)
@@ -85,19 +134,50 @@ protected:
 
 private:
     Vector<PageReservation, 16> reservations;
+    static HashSet<DemandExecutableAllocator*>& allocators()
+    {
+        DEFINE_STATIC_LOCAL(HashSet<DemandExecutableAllocator*>, sAllocators, ());
+        return sAllocators;
+    }
+    static Mutex& allocatorsMutex()
+    {
+        DEFINE_STATIC_LOCAL(Mutex, mutex, ());
+        return mutex;
+    }
 };
 
-static DemandExecutableAllocator* allocator;
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+void ExecutableAllocator::initializeAllocator()
+{
+}
+#else
+static DemandExecutableAllocator* gAllocator;
+
+namespace {
+static inline DemandExecutableAllocator* allocator()
+{
+    return gAllocator;
+}
+}
 
 void ExecutableAllocator::initializeAllocator()
 {
-    ASSERT(!allocator);
-    allocator = new DemandExecutableAllocator();
+    ASSERT(!gAllocator);
+    gAllocator = new DemandExecutableAllocator();
+    CodeProfiling::notifyAllocator(gAllocator);
 }
+#endif
 
 ExecutableAllocator::ExecutableAllocator(JSGlobalData&)
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+    : m_allocator(adoptPtr(new  DemandExecutableAllocator()))
+#endif
 {
-    ASSERT(allocator);
+    ASSERT(allocator());
+}
+
+ExecutableAllocator::~ExecutableAllocator()
+{
 }
 
 bool ExecutableAllocator::isValid() const
@@ -107,26 +187,49 @@ bool ExecutableAllocator::isValid() const
 
 bool ExecutableAllocator::underMemoryPressure()
 {
+#ifdef EXECUTABLE_MEMORY_LIMIT
+    return DemandExecutableAllocator::bytesAllocatedByAllAllocators() > EXECUTABLE_MEMORY_LIMIT / 2;
+#else
     return false;
+#endif
 }
 
-PassRefPtr<ExecutableMemoryHandle> ExecutableAllocator::allocate(JSGlobalData&, size_t sizeInBytes)
+double ExecutableAllocator::memoryPressureMultiplier(size_t addedMemoryUsage)
 {
-    RefPtr<ExecutableMemoryHandle> result = allocator->allocate(sizeInBytes);
-    if (!result)
+    double result;
+#ifdef EXECUTABLE_MEMORY_LIMIT
+    size_t bytesAllocated = DemandExecutableAllocator::bytesAllocatedByAllAllocators() + addedMemoryUsage;
+    if (bytesAllocated >= EXECUTABLE_MEMORY_LIMIT)
+        bytesAllocated = EXECUTABLE_MEMORY_LIMIT;
+    result = static_cast<double>(EXECUTABLE_MEMORY_LIMIT) /
+        (EXECUTABLE_MEMORY_LIMIT - bytesAllocated);
+#else
+    UNUSED_PARAM(addedMemoryUsage);
+    result = 1.0;
+#endif
+    if (result < 1.0)
+        result = 1.0;
+    return result;
+
+}
+
+PassRefPtr<ExecutableMemoryHandle> ExecutableAllocator::allocate(JSGlobalData&, size_t sizeInBytes, void* ownerUID, JITCompilationEffort effort)
+{
+    RefPtr<ExecutableMemoryHandle> result = allocator()->allocate(sizeInBytes, ownerUID);
+    if (!result && effort == JITCompilationMustSucceed)
         CRASH();
     return result.release();
 }
 
 size_t ExecutableAllocator::committedByteCount()
 {
-    return allocator->bytesCommitted();
+    return DemandExecutableAllocator::bytesCommittedByAllocactors();
 }
 
 #if ENABLE(META_ALLOCATOR_PROFILE)
 void ExecutableAllocator::dumpProfile()
 {
-    allocator->dumpProfile();
+    DemandExecutableAllocator::dumpProfileFromAllAllocators();
 }
 #endif
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -43,7 +43,7 @@ Sfextern_t _Sfextern =
 	{ NIL(Sfpool_t*), 0, 0, 0, NIL(Sfio_t**) },	/* _Sfpool	*/
 	NIL(int(*)_ARG_((Sfio_t*,int))),		/* _Sfpmove	*/
 	NIL(Sfio_t*(*)_ARG_((Sfio_t*, Sfio_t*))),	/* _Sfstack	*/
-	NIL(void(*)_ARG_((Sfio_t*, int, int))),		/* _Sfnotify	*/
+	NIL(void(*)_ARG_((Sfio_t*, int, void*))),	/* _Sfnotify	*/
 	NIL(int(*)_ARG_((Sfio_t*))),			/* _Sfstdsync	*/
 	{ NIL(Sfread_f),				/* _Sfudisc	*/
 	  NIL(Sfwrite_f),
@@ -71,18 +71,20 @@ static Vtmutex_t	_Sfmtxin, _Sfmtxout, _Sfmtxerr;
 #define SFMTXIN		(&_Sfmtxin)
 #define SFMTXOUT	(&_Sfmtxout)
 #define SFMTXERR	(&_Sfmtxerr)
+#define SF_STDSAFE	SF_MTSAFE
 #else
 #define SFMTXIN		(0)
 #define SFMTXOUT	(0)
 #define SFMTXERR	(0)
+#define SF_STDSAFE	(0)
 #endif
 
 Sfio_t	_Sfstdin  = SFNEW(NIL(char*),-1,0,
-			  (SF_READ |SF_STATIC|SF_MTSAFE),NIL(Sfdisc_t*),SFMTXIN);
+			  (SF_READ |SF_STATIC|SF_STDSAFE),NIL(Sfdisc_t*),SFMTXIN);
 Sfio_t	_Sfstdout = SFNEW(NIL(char*),-1,1,
-			  (SF_WRITE|SF_STATIC|SF_MTSAFE),NIL(Sfdisc_t*),SFMTXOUT);
+			  (SF_WRITE|SF_STATIC|SF_STDSAFE),NIL(Sfdisc_t*),SFMTXOUT);
 Sfio_t	_Sfstderr = SFNEW(NIL(char*),-1,2,
-			  (SF_WRITE|SF_STATIC|SF_MTSAFE),NIL(Sfdisc_t*),SFMTXERR);
+			  (SF_WRITE|SF_STATIC|SF_STDSAFE),NIL(Sfdisc_t*),SFMTXERR);
 
 #undef	sfstdin
 #undef	sfstdout

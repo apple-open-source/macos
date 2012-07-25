@@ -28,6 +28,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @param {number} startLine
+ * @param {number} startColumn
+ * @param {number} endLine
+ * @param {number} endColumn
+ */
 WebInspector.TextRange = function(startLine, startColumn, endLine, endColumn)
 {
     this.startLine = startLine;
@@ -37,47 +44,114 @@ WebInspector.TextRange = function(startLine, startColumn, endLine, endColumn)
 }
 
 WebInspector.TextRange.prototype = {
+    /**
+     * @return {boolean}
+     */
     isEmpty: function()
     {
         return this.startLine === this.endLine && this.startColumn === this.endColumn;
     },
 
+    /**
+     * @return {number}
+     */
     get linesCount()
     {
         return this.endLine - this.startLine;
     },
 
+    collapseToEnd: function()
+    {
+        return new WebInspector.TextRange(this.endLine, this.endColumn, this.endLine, this.endColumn);
+    },
+
+    /**
+     * @return {WebInspector.TextRange}
+     */
+    normalize: function()
+    {
+        if (this.startLine > this.endLine || (this.startLine === this.endLine && this.startColumn > this.endColumn))
+            return new WebInspector.TextRange(this.endLine, this.endColumn, this.startLine, this.startColumn);
+        else
+            return this;
+    },
+
+    /**
+     * @return {WebInspector.TextRange}
+     */
     clone: function()
     {
-        return new WebInspector.TextRange(this.startLine, this.startColumn, this.endLine, this.endColumn); 
+        return new WebInspector.TextRange(this.startLine, this.startColumn, this.endLine, this.endColumn);
     }
 }
 
+/**
+ * @constructor
+ * @param {WebInspector.TextRange} newRange
+ * @param {string} originalText
+ */
+WebInspector.TextEditorCommand = function(newRange, originalText)
+{
+    this.newRange = newRange;
+    this.originalText = originalText;
+}
+
+/**
+ * @constructor
+ * @extends {WebInspector.Object}
+ */
 WebInspector.TextEditorModel = function()
 {
     this._lines = [""];
     this._attributes = [];
+    /** @type {Array.<WebInspector.TextEditorCommand>} */
     this._undoStack = [];
     this._noPunctuationRegex = /[^ !%&()*+,-.:;<=>?\[\]\^{|}~]+/;
     this._lineBreak = "\n";
 }
 
-WebInspector.TextEditorModel.prototype = {
-    set changeListener(changeListener)
-    {
-        this._changeListener = changeListener;
-    },
+WebInspector.TextEditorModel.Indent = {
+    TwoSpaces: "  ",
+    FourSpaces: "    ",
+    EightSpaces: "        ",
+    TabCharacter: "\t"
+}
 
+WebInspector.TextEditorModel.Events = {
+    TextChanged: "TextChanged"
+}
+
+WebInspector.TextEditorModel.endsWithBracketRegex = /[{(\[]\s*$/;
+
+WebInspector.TextEditorModel.prototype = {
+    /**
+     * @return {number}
+     */
     get linesCount()
     {
         return this._lines.length;
     },
 
+    /**
+     * @return {string}
+     */
     get text()
     {
         return this._lines.join(this._lineBreak);
     },
 
+    /**
+     * @return {string}
+     */
+    get lineBreak()
+    {
+        return this._lineBreak;
+    },
+
+    /**
+     * @param {number} lineNumber
+     * @return {string}
+     */
     line: function(lineNumber)
     {
         if (lineNumber >= this._lines.length)
@@ -85,32 +159,49 @@ WebInspector.TextEditorModel.prototype = {
         return this._lines[lineNumber];
     },
 
+    /**
+     * @param {number} lineNumber
+     * @return {number}
+     */
     lineLength: function(lineNumber)
     {
         return this._lines[lineNumber].length;
     },
 
-    setText: function(range, text)
+    /**
+     * @param {string} text 
+     */
+    setText: function(text)
     {
         text = text || "";
-        if (!range) {
-            range = new WebInspector.TextRange(0, 0, this._lines.length - 1, this._lines[this._lines.length - 1].length);
-            this._lineBreak = /\r\n/.test(text) ? "\r\n" : "\n";
-        }
-        var command = this._pushUndoableCommand(range);
+        var range = new WebInspector.TextRange(0, 0, this._lines.length - 1, this._lines[this._lines.length - 1].length);
+        this._lineBreak = /\r\n/.test(text) ? "\r\n" : "\n";
         var newRange = this._innerSetText(range, text);
-        command.range = newRange.clone();
+        this.dispatchEventToListeners(WebInspector.TextEditorModel.Events.TextChanged, { oldRange: range, newRange: newRange});
+    },
 
-        if (this._changeListener)
-            this._changeListener(range, newRange, command.text, text);
+    /**
+     * @param {WebInspector.TextRange} range
+     * @param {string} text
+     * @return {WebInspector.TextRange}
+     */
+    editRange: function(range, text)
+    {
+        var originalText = this.copyRange(range);
+        if (text === originalText)
+            return range; // Noop
+
+        var newRange = this._innerSetText(range, text);
+        this._pushUndoableCommand(newRange, originalText);
+        this.dispatchEventToListeners(WebInspector.TextEditorModel.Events.TextChanged, { oldRange: range, newRange: newRange });
         return newRange;
     },
 
-    set replaceTabsWithSpaces(replaceTabsWithSpaces)
-    {
-        this._replaceTabsWithSpaces = replaceTabsWithSpaces;
-    },
-
+    /**
+     * @param {WebInspector.TextRange} range
+     * @param {string} text
+     * @return {WebInspector.TextRange}
+     */
     _innerSetText: function(range, text)
     {
         this._eraseRange(range);
@@ -118,7 +209,6 @@ WebInspector.TextEditorModel.prototype = {
             return new WebInspector.TextRange(range.startLine, range.startColumn, range.startLine, range.startColumn);
 
         var newLines = text.split(/\r?\n/);
-        this._replaceTabsIfNeeded(newLines);
 
         var prefix = this._lines[range.startLine].substring(0, range.startColumn);
         var suffix = this._lines[range.startLine].substring(range.startColumn);
@@ -130,31 +220,44 @@ WebInspector.TextEditorModel.prototype = {
             postCaret += newLines[0].length;
         } else {
             this._setLine(range.startLine, prefix + newLines[0]);
-            for (var i = 1; i < newLines.length; ++i)
-                this._insertLine(range.startLine + i, newLines[i]);
+            this._insertLines(range, newLines);
             this._setLine(range.startLine + newLines.length - 1, newLines[newLines.length - 1] + suffix);
             postCaret = newLines[newLines.length - 1].length;
         }
+
         return new WebInspector.TextRange(range.startLine, range.startColumn,
                                           range.startLine + newLines.length - 1, postCaret);
     },
 
-    _replaceTabsIfNeeded: function(lines)
+    /**
+     * @param {WebInspector.TextRange} range
+     * @param {Array.<string>} newLines
+     */
+    _insertLines: function(range, newLines)
     {
-        if (!this._replaceTabsWithSpaces)
-            return;
-        var spaces = [ "    ", "   ", "  ", " "];
-        for (var i = 0; i < lines.length; ++i) {
-            var line = lines[i];
-            var index = line.indexOf("\t");
-            while (index !== -1) {
-                line = line.substring(0, index) + spaces[index % 4] + line.substring(index + 1);
-                index = line.indexOf("\t", index + 1);
-            }
-            lines[i] = line;
-        }
+        var lines = new Array(this._lines.length + newLines.length - 1);
+        for (var i = 0; i <= range.startLine; ++i)
+            lines[i] = this._lines[i];
+        // Line at [0] is already set via setLine.
+        for (var i = 1; i < newLines.length; ++i)
+            lines[range.startLine + i] = newLines[i];
+        for (var i = range.startLine + newLines.length; i < lines.length; ++i)
+            lines[i] = this._lines[i - newLines.length + 1];
+        this._lines = lines;
+
+        // Adjust attributes, attributes move with the first character of line.
+        var attributes = new Array(lines.length);
+        var insertionIndex = range.startColumn ? range.startLine + 1 : range.startLine;
+        for (var i = 0; i < insertionIndex; ++i)
+            attributes[i] = this._attributes[i];
+        for (var i = insertionIndex + newLines.length - 1; i < attributes.length; ++i)
+            attributes[i] = this._attributes[i - newLines.length + 1];
+        this._attributes = attributes;
     },
 
+    /**
+     * @param {WebInspector.TextRange} range
+     */
     _eraseRange: function(range)
     {
         if (range.isEmpty())
@@ -163,33 +266,39 @@ WebInspector.TextEditorModel.prototype = {
         var prefix = this._lines[range.startLine].substring(0, range.startColumn);
         var suffix = this._lines[range.endLine].substring(range.endColumn);
 
-        if (range.endLine > range.startLine)
-            this._removeLines(range.startLine + 1, range.endLine - range.startLine);
+        if (range.endLine > range.startLine) {
+            this._lines.splice(range.startLine + 1, range.endLine - range.startLine);
+            // Adjust attributes, attributes move with the first character of line.
+            this._attributes.splice(range.startColumn ? range.startLine + 1 : range.startLine, range.endLine - range.startLine);
+        }
         this._setLine(range.startLine, prefix + suffix);
     },
 
+    /**
+     * @param {number} lineNumber
+     * @param {string} text
+     */
     _setLine: function(lineNumber, text)
     {
         this._lines[lineNumber] = text;
     },
 
-    _removeLines: function(fromLine, count)
-    {
-        this._lines.splice(fromLine, count);
-        this._attributes.splice(fromLine, count);
-    },
-
-    _insertLine: function(lineNumber, text)
-    {
-        this._lines.splice(lineNumber, 0, text);
-        this._attributes.splice(lineNumber, 0, {});
-    },
-
+    /**
+     * @param {number} lineNumber
+     * @param {number} column
+     * @return {WebInspector.TextRange}
+     */
     wordRange: function(lineNumber, column)
     {
         return new WebInspector.TextRange(lineNumber, this.wordStart(lineNumber, column, true), lineNumber, this.wordEnd(lineNumber, column, true));
     },
 
+    /**
+     * @param {number} lineNumber
+     * @param {number} column
+     * @param {boolean} gapless
+     * @return {number}
+     */
     wordStart: function(lineNumber, column, gapless)
     {
         var line = this._lines[lineNumber];
@@ -198,6 +307,12 @@ WebInspector.TextEditorModel.prototype = {
         return prefixMatch && (!gapless || prefixMatch.index === 0) ? column - prefixMatch.index - prefixMatch[0].length : column;
     },
 
+    /**
+     * @param {number} lineNumber
+     * @param {number} column
+     * @param {boolean} gapless
+     * @return {number}
+     */
     wordEnd: function(lineNumber, column, gapless)
     {
         var line = this._lines[lineNumber];
@@ -206,6 +321,10 @@ WebInspector.TextEditorModel.prototype = {
         return suffixMatch && (!gapless || suffixMatch.index === 0) ? column + suffixMatch.index + suffixMatch[0].length : column;
     },
 
+    /**
+     * @param {WebInspector.TextRange} range
+     * @return {string}  
+     */
     copyRange: function(range)
     {
         if (!range)
@@ -223,6 +342,11 @@ WebInspector.TextEditorModel.prototype = {
         return clip.join(this._lineBreak);
     },
 
+    /**
+     * @param {number} line
+     * @param {string} name  
+     * @param {Object?} value  
+     */
     setAttribute: function(line, name, value)
     {
         var attrs = this._attributes[line];
@@ -233,12 +357,21 @@ WebInspector.TextEditorModel.prototype = {
         attrs[name] = value;
     },
 
+    /**
+     * @param {number} line
+     * @param {string} name  
+     * @return {Object|null} value  
+     */
     getAttribute: function(line, name)
     {
         var attrs = this._attributes[line];
         return attrs ? attrs[name] : null;
     },
 
+    /**
+     * @param {number} line
+     * @param {string} name
+     */
     removeAttribute: function(line, name)
     {
         var attrs = this._attributes[line];
@@ -246,15 +379,14 @@ WebInspector.TextEditorModel.prototype = {
             delete attrs[name];
     },
 
-    _pushUndoableCommand: function(range)
+    /**
+     * @param {WebInspector.TextRange} newRange
+     * @param {string} originalText
+     * @return {WebInspector.TextEditorCommand}
+     */
+    _pushUndoableCommand: function(newRange, originalText)
     {
-        var command = {
-            text: this.copyRange(range),
-            startLine: range.startLine,
-            startColumn: range.startColumn,
-            endLine: range.startLine,
-            endColumn: range.startColumn
-        };
+        var command = new WebInspector.TextEditorCommand(newRange.clone(), originalText);
         if (this._inUndo)
             this._redoStack.push(command);
         else {
@@ -265,38 +397,64 @@ WebInspector.TextEditorModel.prototype = {
         return command;
     },
 
-    undo: function(callback)
+    /**
+     * @param {function()=} beforeCallback
+     * @param {function(WebInspector.TextRange, WebInspector.TextRange)=} afterCallback
+     * @return {?WebInspector.TextRange}
+     */
+    undo: function(beforeCallback, afterCallback)
     {
+        if (!this._undoStack.length)
+            return null;
+
         this._markRedoableState();
 
         this._inUndo = true;
-        var range = this._doUndo(this._undoStack, callback);
+        var range = this._doUndo(this._undoStack, beforeCallback, afterCallback);
         delete this._inUndo;
 
         return range;
     },
 
-    redo: function(callback)
+    /**
+     * @param {function()=} beforeCallback
+     * @param {function(WebInspector.TextRange, WebInspector.TextRange)=} afterCallback
+     * @return {WebInspector.TextRange}
+     */
+    redo: function(beforeCallback, afterCallback)
     {
+        if (!this._redoStack || !this._redoStack.length)
+            return null;
         this.markUndoableState();
 
         this._inRedo = true;
-        var range = this._doUndo(this._redoStack, callback);
+        var range = this._doUndo(this._redoStack, beforeCallback, afterCallback);
         delete this._inRedo;
 
         return range;
     },
 
-    _doUndo: function(stack, callback)
+    /**
+     * @param {Array.<WebInspector.TextEditorCommand>} stack
+     * @param {function()=} beforeCallback
+     * @param {function(WebInspector.TextRange, WebInspector.TextRange)=} afterCallback
+     * @return {WebInspector.TextRange}
+     */
+    _doUndo: function(stack, beforeCallback, afterCallback)
     {
         var range = null;
         for (var i = stack.length - 1; i >= 0; --i) {
             var command = stack[i];
             stack.length = i;
 
-            range = this.setText(command.range, command.text);
-            if (callback)
-                callback(command.range, range);
+            if (beforeCallback)
+                beforeCallback();
+
+            range = this.editRange(command.newRange, command.originalText);
+
+            if (afterCallback)
+                afterCallback(command.newRange, range);
+
             if (i > 0 && stack[i - 1].explicit)
                 return range;
         }
@@ -320,3 +478,7 @@ WebInspector.TextEditorModel.prototype = {
         this._undoStack = [];
     }
 }
+
+WebInspector.TextEditorModel.prototype.__proto__ = WebInspector.Object.prototype;
+
+WebInspector.settings.textEditorIndent = WebInspector.settings.createSetting("textEditorIndent", WebInspector.TextEditorModel.Indent.FourSpaces);

@@ -23,14 +23,16 @@
 
 #include "ApplicationCacheStorage.h"
 #include "Chrome.h"
+#include "ContextMenuItem.h"
 #include "FrameNetworkingContextGtk.h"
-#include "GOwnPtr.h"
+#include "GtkUtilities.h"
 #include "IconDatabase.h"
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "Page.h"
 #include "PageCache.h"
 #include "PageGroup.h"
+#include "PlatformStrategiesGtk.h"
 #include "TextEncodingRegistry.h"
 #include "Pasteboard.h"
 #include "PasteboardHelperGtk.h"
@@ -39,15 +41,24 @@
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
 #include "webkitapplicationcache.h"
+#include "webkitfavicondatabase.h"
 #include "webkitglobalsprivate.h"
 #include "webkiticondatabase.h"
 #include "webkitsoupauthdialog.h"
+#include "webkitspellchecker.h"
+#include "webkitspellcheckerenchant.h"
 #include "webkitwebdatabase.h"
 #include "webkitwebplugindatabaseprivate.h"
 #include <libintl.h>
 #include <runtime/InitializeThreading.h>
 #include <stdlib.h>
-#include <wtf/Threading.h>
+#include <wtf/MainThread.h>
+#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
+
+#if USE(CLUTTER)
+#include <clutter-gtk/clutter-gtk.h>
+#endif
 
 static WebKitCacheModel cacheModel = WEBKIT_CACHE_MODEL_DEFAULT;
 
@@ -218,10 +229,7 @@ static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMes
         return NULL;
 
     GtkWidget* toplevel =  gtk_widget_get_toplevel(GTK_WIDGET(context->coreFrame()->page()->chrome()->platformPageClient()));
-    if (gtk_widget_is_toplevel(toplevel))
-        return toplevel;
-    else
-        return NULL;
+    return widgetIsOnscreenToplevelWindow(toplevel) ? toplevel : 0;
 }
 
 /**
@@ -232,6 +240,8 @@ static GtkWidget* currentToplevelCallback(WebKitSoupAuthDialog* feature, SoupMes
  * Return value: (transfer none): the current #WebKitIconDatabase
  *
  * Since: 1.3.13
+ *
+ * Deprecated: 1.8: Use webkit_get_favicon_database() instead
  */
 WebKitIconDatabase* webkit_get_icon_database()
 {
@@ -242,6 +252,243 @@ WebKitIconDatabase* webkit_get_icon_database()
         database = WEBKIT_ICON_DATABASE(g_object_new(WEBKIT_TYPE_ICON_DATABASE, NULL));
 
     return database;
+}
+
+/**
+ * webkit_get_favicon_database:
+ *
+ * Returns the #WebKitFaviconDatabase providing access to website
+ * icons.
+ *
+ * Return value: (transfer none): the current #WebKitFaviconDatabase
+ *
+ * Since: 1.8
+ */
+WebKitFaviconDatabase* webkit_get_favicon_database()
+{
+    webkitInit();
+
+    static WebKitFaviconDatabase* database = 0;
+    if (!database)
+        database = WEBKIT_FAVICON_DATABASE(g_object_new(WEBKIT_TYPE_FAVICON_DATABASE, NULL));
+
+    return database;
+}
+
+static GRefPtr<WebKitSpellChecker> textChecker = 0;
+
+static void webkitExit()
+{
+    g_object_unref(webkit_get_default_session());
+#if ENABLE(ICONDATABASE)
+    g_object_unref(webkit_get_favicon_database());
+#endif
+    textChecker = 0;
+}
+
+/**
+ * webkit_get_text_checker:
+ *
+ * Returns: the #WebKitSpellChecker used by WebKit, or %NULL if spell
+ * checking is not enabled
+ *
+ * Since: 1.5.1
+ **/
+GObject* webkit_get_text_checker()
+{
+    webkitInit();
+
+#if ENABLE(SPELLCHECK)
+    if (!textChecker)
+        textChecker = adoptGRef(WEBKIT_SPELL_CHECKER(g_object_new(WEBKIT_TYPE_SPELL_CHECKER_ENCHANT, NULL)));
+#endif
+
+    return G_OBJECT(textChecker.get());
+}
+
+/**
+ * webkit_set_text_checker:
+ * @checker: a #WebKitSpellChecker or %NULL
+ *
+ * Sets @checker as the spell checker to be used by WebKit. The API
+ * accepts GObject since in the future we might accept objects
+ * implementing multiple interfaces (for example, spell checking and
+ * grammar checking).
+ *
+ * Since: 1.5.1
+ **/
+void webkit_set_text_checker(GObject* checker)
+{
+    g_return_if_fail(!checker || WEBKIT_IS_SPELL_CHECKER(checker));
+
+    webkitInit();
+
+    // We need to do this because we need the cast, and casting NULL
+    // is not kosher.
+    textChecker = checker ? WEBKIT_SPELL_CHECKER(checker) : 0;
+}
+
+/**
+ * webkit_context_menu_item_get_action:
+ * @item: a #GtkMenuItem of the default context menu
+ *
+ * Returns the #WebKitContextMenuAction of the given @item. This function
+ * can be used to determine the items present in the default context menu.
+ * In order to inspect the default context menu, you should connect to
+ * #WebKitWebView::context-menu signal.
+ *
+ * <example>
+ * <title>Inspecting the default context menu</title>
+ * <programlisting>
+ * static gboolean context_menu_cb (WebKitWebView       *webView,
+ *                                  GtkWidget           *default_menu,
+ *                                  WebKitHitTestResult *hit_test_result,
+ *                                  gboolean             triggered_with_keyboard,
+ *                                  gpointer             user_data)
+ * {
+ *     GList *items = gtk_container_get_children (GTK_CONTAINER (default_menu));
+ *     GList *l;
+ *     GtkAction *action;
+ *     GtkWidget *sub_menu;
+ *
+ *     for (l = items; l; l = g_list_next (l)) {
+ *         GtkMenuItem *item = (GtkMenuItem *)l->data;
+ *
+ *         if (GTK_IS_SEPARATOR_MENU_ITEM (item)) {
+ *             /&ast; It's  separator, do nothing &ast;/
+ *             continue;
+ *         }
+ *
+ *         switch (webkit_context_menu_item_get_action (item)) {
+ *         case WEBKIT_CONTEXT_MENU_ACTION_NO_ACTION:
+ *             /&ast; No action for this item &ast;/
+ *             break;
+ *         /&ast; Don't allow to ope links from context menu &ast;/
+ *         case WEBKIT_CONTEXT_MENU_ACTION_OPEN_LINK:
+ *         case WEBKIT_CONTEXT_MENU_ACTION_OPEN_LINK_IN_NEW_WINDOW:
+ *             action = gtk_activatable_get_related_action (GTK_ACTIVATABLE (item));
+ *             gtk_action_set_sensitive (action, FALSE);
+ *             break;
+ *         default:
+ *             break;
+ *         }
+ *
+ *         sub_menu = gtk_menu_item_get_submenu (item);
+ *         if (sub_menu) {
+ *             GtkWidget *menu_item;
+ *
+ *             /&ast; Add custom action to submenu &ast;/
+ *             action = gtk_action_new ("CustomItemName", "Custom Action", NULL, NULL);
+ *             g_signal_connect (action, "activate", G_CALLBACK (custom_menu_item_activated), NULL);
+ *
+ *             menu_item = gtk_action_create_menu_item (action);
+ *             g_object_unref (action);
+ *             gtk_menu_shell_append (GTK_MENU_SHELL (sub_menu), menu_item);
+ *             gtk_widget_show (menu_item);
+ *         }
+ *     }
+ *
+ *     g_list_free(items);
+ * }
+ * </programlisting>
+ * </example>
+ *
+ * Note that you can get the #GtkAction of any item in the default context menu with
+ * gtk_activatable_get_related_action().
+ *
+ * Returns: the #WebKitContextMenuAction of the given @item
+ *
+ * Since: 1.10
+ */
+WebKitContextMenuAction webkit_context_menu_item_get_action(GtkMenuItem* item)
+{
+#if ENABLE(CONTEXT_MENUS)
+    g_return_val_if_fail(GTK_IS_MENU_ITEM(item), WEBKIT_CONTEXT_MENU_ACTION_NO_ACTION);
+
+    ContextMenuItem menuItem(item);
+    switch (menuItem.action()) {
+    case ContextMenuItemTagNoAction:
+        return WEBKIT_CONTEXT_MENU_ACTION_NO_ACTION;
+    case ContextMenuItemTagOpenLink:
+        return WEBKIT_CONTEXT_MENU_ACTION_OPEN_LINK;
+    case ContextMenuItemTagOpenLinkInNewWindow:
+        return WEBKIT_CONTEXT_MENU_ACTION_OPEN_LINK_IN_NEW_WINDOW;
+    case ContextMenuItemTagDownloadLinkToDisk:
+        return WEBKIT_CONTEXT_MENU_ACTION_DOWNLOAD_LINK_TO_DISK;
+    case ContextMenuItemTagCopyLinkToClipboard:
+        return WEBKIT_CONTEXT_MENU_ACTION_COPY_LINK_TO_CLIPBOARD;
+    case ContextMenuItemTagOpenImageInNewWindow:
+        return WEBKIT_CONTEXT_MENU_ACTION_OPEN_IMAGE_IN_NEW_WINDOW;
+    case ContextMenuItemTagDownloadImageToDisk:
+        return WEBKIT_CONTEXT_MENU_ACTION_DOWNLOAD_IMAGE_TO_DISK;
+    case ContextMenuItemTagCopyImageToClipboard:
+        return WEBKIT_CONTEXT_MENU_ACTION_COPY_IMAGE_TO_CLIPBOARD;
+    case ContextMenuItemTagCopyImageUrlToClipboard:
+        return WEBKIT_CONTEXT_MENU_ACTION_COPY_IMAGE_URL_TO_CLIPBOARD;
+    case ContextMenuItemTagOpenFrameInNewWindow:
+        return WEBKIT_CONTEXT_MENU_ACTION_OPEN_FRAME_IN_NEW_WINDOW;
+    case ContextMenuItemTagGoBack:
+        return WEBKIT_CONTEXT_MENU_ACTION_GO_BACK;
+    case ContextMenuItemTagGoForward:
+        return WEBKIT_CONTEXT_MENU_ACTION_GO_FORWARD;
+    case ContextMenuItemTagStop:
+        return WEBKIT_CONTEXT_MENU_ACTION_STOP;
+    case ContextMenuItemTagReload:
+        return WEBKIT_CONTEXT_MENU_ACTION_RELOAD;
+    case ContextMenuItemTagCopy:
+        return WEBKIT_CONTEXT_MENU_ACTION_COPY;
+    case ContextMenuItemTagCut:
+        return WEBKIT_CONTEXT_MENU_ACTION_CUT;
+    case ContextMenuItemTagPaste:
+        return WEBKIT_CONTEXT_MENU_ACTION_PASTE;
+    case ContextMenuItemTagDelete:
+        return WEBKIT_CONTEXT_MENU_ACTION_DELETE;
+    case ContextMenuItemTagSelectAll:
+        return WEBKIT_CONTEXT_MENU_ACTION_SELECT_ALL;
+    case ContextMenuItemTagInputMethods:
+        return WEBKIT_CONTEXT_MENU_ACTION_INPUT_METHODS;
+    case ContextMenuItemTagUnicode:
+        return WEBKIT_CONTEXT_MENU_ACTION_UNICODE;
+    case ContextMenuItemTagSpellingGuess:
+        return WEBKIT_CONTEXT_MENU_ACTION_SPELLING_GUESS;
+    case ContextMenuItemTagIgnoreSpelling:
+        return WEBKIT_CONTEXT_MENU_ACTION_IGNORE_SPELLING;
+    case ContextMenuItemTagLearnSpelling:
+        return WEBKIT_CONTEXT_MENU_ACTION_LEARN_SPELLING;
+    case ContextMenuItemTagIgnoreGrammar:
+        return WEBKIT_CONTEXT_MENU_ACTION_IGNORE_GRAMMAR;
+    case ContextMenuItemTagFontMenu:
+        return WEBKIT_CONTEXT_MENU_ACTION_FONT_MENU;
+    case ContextMenuItemTagBold:
+        return WEBKIT_CONTEXT_MENU_ACTION_BOLD;
+    case ContextMenuItemTagItalic:
+        return WEBKIT_CONTEXT_MENU_ACTION_ITALIC;
+    case ContextMenuItemTagUnderline:
+        return WEBKIT_CONTEXT_MENU_ACTION_UNDERLINE;
+    case ContextMenuItemTagOutline:
+        return WEBKIT_CONTEXT_MENU_ACTION_OUTLINE;
+    case ContextMenuItemTagInspectElement:
+        return WEBKIT_CONTEXT_MENU_ACTION_INSPECT_ELEMENT;
+    case ContextMenuItemTagOpenMediaInNewWindow:
+        return WEBKIT_CONTEXT_MENU_ACTION_OPEN_MEDIA_IN_NEW_WINDOW;
+    case ContextMenuItemTagCopyMediaLinkToClipboard:
+        return WEBKIT_CONTEXT_MENU_ACTION_COPY_MEDIA_LINK_TO_CLIPBOARD;
+    case ContextMenuItemTagToggleMediaControls:
+        return WEBKIT_CONTEXT_MENU_ACTION_TOGGLE_MEDIA_CONTROLS;
+    case ContextMenuItemTagToggleMediaLoop:
+        return WEBKIT_CONTEXT_MENU_ACTION_TOGGLE_MEDIA_LOOP;
+    case ContextMenuItemTagEnterVideoFullscreen:
+        return WEBKIT_CONTEXT_MENU_ACTION_ENTER_VIDEO_FULLSCREEN;
+    case ContextMenuItemTagMediaPlayPause:
+        return WEBKIT_CONTEXT_MENU_ACTION_MEDIA_PLAY_PAUSE;
+    case ContextMenuItemTagMediaMute:
+        return WEBKIT_CONTEXT_MENU_ACTION_MEDIA_MUTE;
+    default:
+        g_assert_not_reached();
+    }
+#else
+    return WEBKIT_CONTEXT_MENU_ACTION_NO_ACTION;
+#endif
 }
 
 void webkitInit()
@@ -257,23 +504,21 @@ void webkitInit()
     JSC::initializeThreading();
     WTF::initializeMainThread();
 
-    WebCore::InitializeLoggingChannelsIfNecessary();
+    WebCore::initializeLoggingChannelsIfNecessary();
+    PlatformStrategiesGtk::initialize();
 
     // We make sure the text codecs have been initialized, because
     // that may only be done by the main thread.
     atomicCanonicalTextEncodingName("UTF-8");
 
-    gchar* databaseDirectory = g_build_filename(g_get_user_data_dir(), "webkit", "databases", NULL);
-    webkit_set_web_database_directory_path(databaseDirectory);
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    WebCore::cacheStorage().setCacheDirectory(databaseDirectory);
-#endif
+    GOwnPtr<gchar> databaseDirectory(g_build_filename(g_get_user_data_dir(), "webkit", "databases", NULL));
+    webkit_set_web_database_directory_path(databaseDirectory.get());
 
-    g_free(databaseDirectory);
+    GOwnPtr<gchar> cacheDirectory(g_build_filename(g_get_user_cache_dir(), "webkitgtk", "applications", NULL));
+    WebCore::cacheStorage().setCacheDirectory(cacheDirectory.get());
 
     PageGroup::setShouldTrackVisitedLinks(true);
 
-    Pasteboard::generalPasteboard()->setHelper(WebKit::pasteboardHelperInstance());
     GOwnPtr<gchar> iconDatabasePath(g_build_filename(g_get_user_data_dir(), "webkit", "icondatabase", NULL));
     webkit_icon_database_set_path(webkit_get_icon_database(), iconDatabasePath.get());
 
@@ -284,20 +529,9 @@ void webkitInit()
     soup_session_add_feature(session, authDialog);
     g_object_unref(authDialog);
 
-    SoupSessionFeature* sniffer = static_cast<SoupSessionFeature*>(g_object_new(SOUP_TYPE_CONTENT_SNIFFER, NULL));
-    soup_session_add_feature(session, sniffer);
-    g_object_unref(sniffer);
+#if USE(CLUTTER)
+    gtk_clutter_init(0, 0);
+#endif
 
-    soup_session_add_feature_by_type(session, SOUP_TYPE_CONTENT_DECODER);
+    atexit(webkitExit);
 }
-
-namespace WebKit {
-
-PasteboardHelperGtk* pasteboardHelperInstance()
-{
-    static PasteboardHelperGtk* helper = new PasteboardHelperGtk();
-    return helper;
-}
-
-} /** end namespace WebKit */
-

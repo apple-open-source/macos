@@ -37,7 +37,7 @@ CFILES = append.c ar.c archive.c contents.c delete.c extract.c misc.c move.c \
 	 print.c replace.c 
 MAN1 = ar.1
 MAN5 = ar.5
-OBJS = $(CFILES:.c=.o) vers.o
+OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) $(HFILES) $(MAN1) $(MAN5) Makefile notes
 
 PRODUCT = ar
@@ -46,9 +46,6 @@ all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
 
 $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/$@ $(OBJS) $(LIBSTUFF)
-
-vers.c:
-	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
@@ -61,7 +58,7 @@ else
 endif
 
 clean: shlib_clean
-	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c
+	-rm -f $(SYMROOT)/$(PRODUCT).NEW
 
 shlib_clean:
 	-cd $(OFILE_DIR); rm -f $(OBJS)

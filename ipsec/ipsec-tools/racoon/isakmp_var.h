@@ -50,7 +50,7 @@ typedef struct { /* i_cookie + r_cookie */
 struct isakmp_gen;
 struct sched;
 
-struct sockaddr;
+struct sockaddr_storage;
 struct ph1handle;
 struct ph2handle;
 struct remoteconf;
@@ -60,8 +60,8 @@ struct isakmp_pl_ke;	/* XXX */
 struct isakmp_pl_nonce;	/* XXX */
 
 extern int isakmp_handler __P((int));
-extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr *,
-	struct sockaddr *, int));
+extern int isakmp_ph1begin_i __P((struct remoteconf *, struct sockaddr_storage *,
+	struct sockaddr_storage *, int));
 
 extern vchar_t *isakmp_parsewoh __P((int, struct isakmp_gen *, int));
 extern vchar_t *isakmp_parse __P((vchar_t *));
@@ -102,7 +102,7 @@ extern caddr_t isakmp_set_attr_l __P((caddr_t, int, u_int32_t));
 extern vchar_t *isakmp_add_attr_v __P((vchar_t *, int, caddr_t, int));
 extern vchar_t *isakmp_add_attr_l __P((vchar_t *, int, u_int32_t));
 
-extern int isakmp_newcookie __P((caddr_t, struct sockaddr *, struct sockaddr *));
+extern int isakmp_newcookie __P((caddr_t, struct sockaddr_storage *, struct sockaddr_storage *));
 
 extern int isakmp_p2ph __P((vchar_t **, struct isakmp_gen *));
 
@@ -119,12 +119,12 @@ extern vchar_t *isakmp_plist_append_initial_contact __P((struct ph1handle *,
 															struct payload_list *));
 
 #ifdef HAVE_PRINT_ISAKMP_C
-extern void isakmp_printpacket __P((vchar_t *, struct sockaddr *,
-	struct sockaddr *, int));
+extern void isakmp_printpacket __P((vchar_t *, struct sockaddr_storage *,
+	struct sockaddr_storage *, int));
 #endif
 
 extern int copy_ph1addresses __P(( struct ph1handle *,
-	struct remoteconf *, struct sockaddr *, struct sockaddr *));
+	struct remoteconf *, struct sockaddr_storage *, struct sockaddr_storage *));
 extern void log_ph1established __P((const struct ph1handle *));
 
 extern void script_hook __P((struct ph1handle *, int)); 
@@ -134,6 +134,6 @@ extern int script_exec __P((char *, int, char * const *));
 void purge_remote __P((struct ph1handle *));
 void delete_spd __P((struct ph2handle *));
 #ifdef INET6
-u_int32_t setscopeid __P((struct sockaddr *, struct sockaddr *));
+u_int32_t setscopeid __P((struct sockaddr_storage *, struct sockaddr_storage *));
 #endif
 #endif /* _ISAKMP_VAR_H */

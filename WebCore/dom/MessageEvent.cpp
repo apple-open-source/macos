@@ -33,14 +33,30 @@
 
 namespace WebCore {
 
-MessageEvent::MessageEvent()
-    : m_data(SerializedScriptValue::create())
+MessageEventInit::MessageEventInit()
 {
 }
 
-MessageEvent::MessageEvent(PassRefPtr<SerializedScriptValue> data, const String& origin, const String& lastEventId, PassRefPtr<DOMWindow> source, PassOwnPtr<MessagePortArray> ports)
+MessageEvent::MessageEvent()
+    : m_dataType(DataTypeScriptValue)
+{
+}
+
+MessageEvent::MessageEvent(const AtomicString& type, const MessageEventInit& initializer)
+    : Event(type, initializer)
+    , m_dataType(DataTypeScriptValue)
+    , m_dataAsScriptValue(initializer.data)
+    , m_origin(initializer.origin)
+    , m_lastEventId(initializer.lastEventId)
+    , m_source(initializer.source)
+    , m_ports(adoptPtr(new MessagePortArray(initializer.ports)))
+{
+}
+
+MessageEvent::MessageEvent(const ScriptValue& data, const String& origin, const String& lastEventId, PassRefPtr<DOMWindow> source, PassOwnPtr<MessagePortArray> ports)
     : Event(eventNames().messageEvent, false, false)
-    , m_data(data)
+    , m_dataType(DataTypeScriptValue)
+    , m_dataAsScriptValue(data)
     , m_origin(origin)
     , m_lastEventId(lastEventId)
     , m_source(source)
@@ -48,22 +64,84 @@ MessageEvent::MessageEvent(PassRefPtr<SerializedScriptValue> data, const String&
 {
 }
 
+MessageEvent::MessageEvent(PassRefPtr<SerializedScriptValue> data, const String& origin, const String& lastEventId, PassRefPtr<DOMWindow> source, PassOwnPtr<MessagePortArray> ports)
+    : Event(eventNames().messageEvent, false, false)
+    , m_dataType(DataTypeSerializedScriptValue)
+    , m_dataAsSerializedScriptValue(data)
+    , m_origin(origin)
+    , m_lastEventId(lastEventId)
+    , m_source(source)
+    , m_ports(ports)
+{
+}
+
+MessageEvent::MessageEvent(const String& data)
+    : Event(eventNames().messageEvent, false, false)
+    , m_dataType(DataTypeString)
+    , m_dataAsString(data)
+    , m_origin("")
+    , m_lastEventId("")
+{
+}
+
+MessageEvent::MessageEvent(PassRefPtr<Blob> data)
+    : Event(eventNames().messageEvent, false, false)
+    , m_dataType(DataTypeBlob)
+    , m_dataAsBlob(data)
+    , m_origin("")
+    , m_lastEventId("")
+{
+}
+
+MessageEvent::MessageEvent(PassRefPtr<ArrayBuffer> data)
+    : Event(eventNames().messageEvent, false, false)
+    , m_dataType(DataTypeArrayBuffer)
+    , m_dataAsArrayBuffer(data)
+    , m_origin("")
+    , m_lastEventId("")
+{
+}
+
 MessageEvent::~MessageEvent()
 {
+}
+
+void MessageEvent::initMessageEvent(const AtomicString& type, bool canBubble, bool cancelable, const ScriptValue& data, const String& origin, const String& lastEventId, DOMWindow* source, PassOwnPtr<MessagePortArray> ports)
+{
+    if (dispatched())
+        return;
+
+    initEvent(type, canBubble, cancelable);
+
+    m_dataType = DataTypeScriptValue;
+    m_dataAsScriptValue = data;
+    m_origin = origin;
+    m_lastEventId = lastEventId;
+    m_source = source;
+    m_ports = ports;
 }
 
 void MessageEvent::initMessageEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<SerializedScriptValue> data, const String& origin, const String& lastEventId, DOMWindow* source, PassOwnPtr<MessagePortArray> ports)
 {
     if (dispatched())
         return;
-        
+
     initEvent(type, canBubble, cancelable);
-    
-    m_data = data;
+
+    m_dataType = DataTypeSerializedScriptValue;
+    m_dataAsSerializedScriptValue = data;
     m_origin = origin;
     m_lastEventId = lastEventId;
     m_source = source;
     m_ports = ports;
+}
+
+// FIXME: Remove this when we have custom ObjC binding support.
+SerializedScriptValue* MessageEvent::data() const
+{
+    // WebSocket is not exposed in ObjC bindings, thus the data type should always be SerializedScriptValue.
+    ASSERT(m_dataType == DataTypeSerializedScriptValue);
+    return m_dataAsSerializedScriptValue.get();
 }
 
 // FIXME: remove this when we update the ObjC bindings (bug #28774).
@@ -75,6 +153,7 @@ MessagePort* MessageEvent::messagePort()
     return (*m_ports)[0].get();
 }
 
+// FIXME: remove this when we update the ObjC bindings (bug #28774).
 void MessageEvent::initMessageEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<SerializedScriptValue> data, const String& origin, const String& lastEventId, DOMWindow* source, MessagePort* port)
 {
     OwnPtr<MessagePortArray> ports;
@@ -85,9 +164,9 @@ void MessageEvent::initMessageEvent(const AtomicString& type, bool canBubble, bo
     initMessageEvent(type, canBubble, cancelable, data, origin, lastEventId, source, ports.release());
 }
 
-bool MessageEvent::isMessageEvent() const 
+const AtomicString& MessageEvent::interfaceName() const
 {
-    return true;
+    return eventNames().interfaceForMessageEvent;
 }
 
 } // namespace WebCore

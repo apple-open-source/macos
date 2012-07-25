@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -109,7 +109,7 @@ static void *
 __loadSecurity(void) {
 	static void *image = NULL;
 	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Versions/A/Security";
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -181,53 +181,58 @@ main(int argc, char **argv)
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "dvn", longopts, NULL)) != -1)
+	while ((opt = getopt_long(argc, argv, "dvn", longopts, NULL)) != -1) {
 		switch(opt) {
-		case 'd':
-			_sc_debug = TRUE;
-			_sc_log   = FALSE;	/* enable framework logging */
-			break;
-		case 'v':
-			_sc_verbose = TRUE;
-			break;
-		case 'n':
-			apply = FALSE;
-			break;
-		case '?':
-		default :
-			usage(command);
+			case 'd':
+				_sc_debug = TRUE;
+				_sc_log   = FALSE;	/* enable framework logging */
+				break;
+			case 'v':
+				_sc_verbose = TRUE;
+				break;
+			case 'n':
+				apply = FALSE;
+				break;
+			case '?':
+			default :
+				usage(command);
+		}
 	}
 	argc -= optind;
 	argv += optind;
 
 	prefix = CFStringCreateWithFormat(NULL, NULL, CFSTR("/%@/"), kSCPrefSets);
 
-	newSet = (argc == 1)
-			? CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman)
-			: CFRetain(CFSTR(""));
+	if (argc == 1) {
+		newSet = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+
+		/* check if a full path to the new "set" was specified */
+		if ((CFStringGetLength(newSet) > 0) && CFStringHasPrefix(newSet, prefix)) {
+			CFRange			range;
+			CFMutableStringRef	str;
+
+			str = CFStringCreateMutableCopy(NULL, 0, newSet);
+			CFRelease(newSet);
+
+			CFStringDelete(str, CFRangeMake(0, CFStringGetLength(prefix)));
+			newSet = CFStringCreateCopy(NULL, newSet);
+			CFRelease(str);
+
+			range = CFStringFind(newSet, CFSTR("/"), 0);
+			if (range.location != kCFNotFound) {
+				SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available\n."), newSet);
+				exit (1);
+			}
+		}
+	} else {
+		newSet = CFRetain(CFSTR(""));
+	}
+
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("Select Set Command"), NULL);
 	if (prefs == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("SCPreferencesCreate() failed\n"));
 		exit (1);
-	}
-
-	/* check if a full path to the new "set" was specified */
-	if ((CFStringGetLength(newSet) > 0) && CFStringHasPrefix(newSet, prefix)) {
-		CFRange			range;
-		CFMutableStringRef	str;
-
-		str = CFStringCreateMutableCopy(NULL, 0, newSet);
-		CFStringDelete(str, CFRangeMake(0, CFStringGetLength(prefix)));
-
-		range = CFStringFind(str, CFSTR("/"), 0);
-		if (range.location != kCFNotFound) {
-			SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available\n."), newSet);
-			exit (1);
-		}
-
-		CFRelease(newSet);
-		newSet = str;
 	}
 
 	sets = SCPreferencesGetValue(prefs, kSCPrefSets);

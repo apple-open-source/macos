@@ -21,6 +21,7 @@
 #ifndef CSSValue_h
 #define CSSValue_h
 
+#include "ExceptionCode.h"
 #include "KURLHash.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
@@ -28,53 +29,186 @@
 
 namespace WebCore {
 
-class CSSStyleSheet;
+class StyleSheetInternal;
+    
+// FIXME: The current CSSValue and subclasses should be turned into internal types (StyleValue).
+// The few subtypes that are actually exposed in CSSOM can be seen in the cloneForCSSOM() function.
+// They should be handled by separate wrapper classes.
 
-typedef int ExceptionCode;
-
+// Please don't expose more CSSValue types to the web.
 class CSSValue : public RefCounted<CSSValue> {
 public:
-    // FIXME: Change name to Type.
-    enum UnitTypes {
+    enum Type {
         CSS_INHERIT = 0,
         CSS_PRIMITIVE_VALUE = 1,
         CSS_VALUE_LIST = 2,
         CSS_CUSTOM = 3,
         CSS_INITIAL = 4
+
     };
 
-    virtual ~CSSValue() { }
+    // Override RefCounted's deref() to ensure operator delete is called on
+    // the appropriate subclass type.
+    void deref()
+    {
+        if (derefBase())
+            destroy();
+    }
 
-    // FIXME: Change this to return UnitTypes.
-    virtual unsigned short cssValueType() const { return CSS_CUSTOM; }
+    Type cssValueType() const;
 
-    virtual String cssText() const = 0;
+    String cssText() const;
     void setCssText(const String&, ExceptionCode&) { } // FIXME: Not implemented.
 
-    virtual bool isMutableValue() const { return false; }
+    bool isPrimitiveValue() const { return m_classType == PrimitiveClass; }
+    bool isValueList() const { return m_classType >= ValueListClass; }
 
-    virtual bool isBorderImageValue() const { return false; }
-    virtual bool isBorderImageSliceValue() const { return false; }
-    virtual bool isCursorImageValue() const { return false; }
-    virtual bool isFontFamilyValue() const { return false; }
-    virtual bool isFontValue() const { return false; }
-    virtual bool isImageGeneratorValue() const { return false; }
-    virtual bool isImageValue() const { return false; }
-    virtual bool isImplicitInitialValue() const { return false; }
-    virtual bool isPrimitiveValue() const { return false; }
-    virtual bool isReflectValue() const { return false; }
-    virtual bool isShadowValue() const { return false; }
-    virtual bool isTimingFunctionValue() const { return false; }
-    virtual bool isValueList() const { return false; }
-    virtual bool isWebKitCSSTransformValue() const { return false; }
-    virtual bool isCSSLineBoxContainValue() const { return false; }
-    
+    bool isAspectRatioValue() const { return m_classType == AspectRatioClass; }
+    bool isBorderImageSliceValue() const { return m_classType == BorderImageSliceClass; }
+    bool isCursorImageValue() const { return m_classType == CursorImageClass; }
+    bool isFontFeatureValue() const { return m_classType == FontFeatureClass; }
+    bool isFontValue() const { return m_classType == FontClass; }
+    bool isImageGeneratorValue() const { return m_classType >= CanvasClass && m_classType <= RadialGradientClass; }
+#if ENABLE(CSS_IMAGE_SET)
+    bool isImageSetValue() const { return m_classType == ImageSetClass; }
+#endif
+    bool isImageValue() const { return m_classType == ImageClass || m_classType == CursorImageClass; }
+    bool isImplicitInitialValue() const;
+    bool isInheritedValue() const { return m_classType == InheritedClass; }
+    bool isInitialValue() const { return m_classType == InitialClass; }
+    bool isReflectValue() const { return m_classType == ReflectClass; }
+    bool isShadowValue() const { return m_classType == ShadowClass; }
+    bool isCubicBezierTimingFunctionValue() const { return m_classType == CubicBezierTimingFunctionClass; }
+    bool isLinearTimingFunctionValue() const { return m_classType == LinearTimingFunctionClass; }
+    bool isStepsTimingFunctionValue() const { return m_classType == StepsTimingFunctionClass; }
+    bool isWebKitCSSTransformValue() const { return m_classType == WebKitCSSTransformClass; }
+    bool isCSSLineBoxContainValue() const { return m_classType == LineBoxContainClass; }
+    bool isCalculationValue() const {return m_classType == CalculationClass; }
+#if ENABLE(CSS_FILTERS)
+    bool isWebKitCSSFilterValue() const { return m_classType == WebKitCSSFilterClass; }
+#if ENABLE(CSS_SHADERS)
+    bool isWebKitCSSShaderValue() const { return m_classType == WebKitCSSShaderClass; }
+#endif
+#endif // ENABLE(CSS_FILTERS)
 #if ENABLE(SVG)
-    virtual bool isSVGColor() const { return false; }
-    virtual bool isSVGPaint() const { return false; }
+    bool isSVGColor() const { return m_classType == SVGColorClass || m_classType == SVGPaintClass; }
+    bool isSVGPaint() const { return m_classType == SVGPaintClass; }
+#endif
+    
+    bool isCSSOMSafe() const { return m_isCSSOMSafe; }
+    bool isSubtypeExposedToCSSOM() const
+    { 
+        return isPrimitiveValue() 
+#if ENABLE(SVG)
+            || isSVGColor()
+#endif
+            || isValueList();
+    }
+
+    PassRefPtr<CSSValue> cloneForCSSOM() const;
+
+    void addSubresourceStyleURLs(ListHashSet<KURL>&, const StyleSheetInternal*);
+
+protected:
+
+    static const size_t ClassTypeBits = 5;
+    enum ClassType {
+        PrimitiveClass,
+
+        // Image classes.
+        ImageClass,
+        CursorImageClass,
+
+        // Image generator classes.
+        CanvasClass,
+        CrossfadeClass,
+        LinearGradientClass,
+        RadialGradientClass,
+
+        // Timing function classes.
+        CubicBezierTimingFunctionClass,
+        LinearTimingFunctionClass,
+        StepsTimingFunctionClass,
+
+        // Other class types.
+        AspectRatioClass,
+        BorderImageSliceClass,
+        FontFeatureClass,
+        FontClass,
+        FontFaceSrcClass,
+        FunctionClass,
+
+        InheritedClass,
+        InitialClass,
+
+        ReflectClass,
+        ShadowClass,
+        UnicodeRangeClass,
+        LineBoxContainClass,
+        CalculationClass,
+#if ENABLE(CSS_FILTERS) && ENABLE(CSS_SHADERS)
+        WebKitCSSShaderClass,
+#endif
+#if ENABLE(SVG)
+        SVGColorClass,
+        SVGPaintClass,
 #endif
 
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*) { }
+        // List class types must appear after ValueListClass.
+        ValueListClass,
+#if ENABLE(CSS_IMAGE_SET)
+        ImageSetClass,
+#endif
+#if ENABLE(CSS_FILTERS)
+        WebKitCSSFilterClass,
+#endif
+        WebKitCSSTransformClass,
+        // Do not append non-list class types here.
+    };
+
+    static const size_t ValueListSeparatorBits = 2;
+    enum ValueListSeparator {
+        SpaceSeparator,
+        CommaSeparator,
+        SlashSeparator
+    };
+
+    ClassType classType() const { return static_cast<ClassType>(m_classType); }
+
+    explicit CSSValue(ClassType classType, bool isCSSOMSafe = false)
+        : m_isCSSOMSafe(isCSSOMSafe)
+        , m_isTextClone(false)
+        , m_primitiveUnitType(0)
+        , m_hasCachedCSSText(false)
+        , m_isQuirkValue(false)
+        , m_valueListSeparator(SpaceSeparator)
+        , m_classType(classType)
+    {
+    }
+
+    // NOTE: This class is non-virtual for memory and performance reasons.
+    // Don't go making it virtual again unless you know exactly what you're doing!
+
+    ~CSSValue() { }
+
+private:
+    void destroy();
+
+protected:
+    unsigned m_isCSSOMSafe : 1;
+    unsigned m_isTextClone : 1;
+    // The bits in this section are only used by specific subclasses but kept here
+    // to maximize struct packing.
+
+    // CSSPrimitiveValue bits:
+    unsigned m_primitiveUnitType : 7; // CSSPrimitiveValue::UnitTypes
+    mutable unsigned m_hasCachedCSSText : 1;
+    unsigned m_isQuirkValue : 1;
+
+    unsigned m_valueListSeparator : ValueListSeparatorBits;
+
+private:
+    unsigned m_classType : ClassTypeBits; // ClassType
 };
 
 } // namespace WebCore

@@ -49,8 +49,8 @@
 #define SUCCESS 1
 #define FAILURE 0
 
-static int GenerateIDString(char *idBuffer);
-static int PrimaryMACAddressFromSystem(char *addressBuffer);
+static int GenerateIDString(char *idBuffer, size_t idBufferLen);
+static int PrimaryMACAddressFromSystem(char *addressBuffer, size_t addressBufferLen);
 static kern_return_t GetPrimaryMACAddress(UInt8 *MACAddress);
 static kern_return_t FindPrimaryEthernetInterfaces(io_iterator_t *matchingServices);
 int base64Encode(const void *inSourceData, size_t inSourceSize, 
@@ -72,7 +72,7 @@ int GetEncodedSourceID(char encodedIdBuffer[32]) {
     if (encodedIdBuffer == NULL) return FAILURE;
     encodedIdBuffer[0] = '\0';
 	
-    if (GenerateIDString(idStr)) {
+    if (GenerateIDString(idStr, sizeof(idStr))) {
 
         /* Convert idStr to MD5 */
 		CC_MD5_Init(&md5_ctx);
@@ -99,7 +99,7 @@ out:
     return status;
 }
 
-static int GenerateIDString(char *idBuffer) {
+static int GenerateIDString(char *idBuffer, size_t idBufferLen) {
 
     char addressString[(kIOEthernetAddressSize * 2) + 1];
     const char *accountName = NULL;
@@ -114,9 +114,9 @@ static int GenerateIDString(char *idBuffer) {
         return FAILURE;
     }
 	
-    if (PrimaryMACAddressFromSystem(addressString) == SUCCESS) {
+    if (PrimaryMACAddressFromSystem(addressString, sizeof(addressString)) == SUCCESS) {
          
-        sprintf(idBuffer, "%s:%s", accountName, addressString);
+        snprintf(idBuffer, idBufferLen, "%s:%s", accountName, addressString);
         return SUCCESS;
     }
     else {
@@ -127,7 +127,7 @@ static int GenerateIDString(char *idBuffer) {
 /* Writes the MAC address of the primary interface to the addressBuffer argument as a 
  * human-readable hex string.
   */
-static int PrimaryMACAddressFromSystem(char *addressBuffer) {
+static int PrimaryMACAddressFromSystem(char *addressBuffer, size_t addressBufferLen) {
 
     int status = FAILURE, len = kIOEthernetAddressSize;
     UInt8 MACAddress[ kIOEthernetAddressSize ];
@@ -143,7 +143,7 @@ static int PrimaryMACAddressFromSystem(char *addressBuffer) {
             const UInt8 *addrPtr = &MACAddress[0];
             
             while ( len-- ) {
-                bufPtr += sprintf( bufPtr, "%2.2x", *addrPtr++ );
+                bufPtr += snprintf( bufPtr, addressBufferLen, "%2.2x", *addrPtr++ );
             }
     
             if (strlen(addressBuffer) > 0) {

@@ -25,7 +25,9 @@
 
 module core {
 
-    interface [OmitConstructor] Coordinates {
+    interface [
+        OmitConstructor
+    ] Coordinates {
         readonly attribute double latitude;
         readonly attribute double longitude;
         readonly attribute [Custom] double altitude;

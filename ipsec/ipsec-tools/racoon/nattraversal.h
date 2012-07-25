@@ -94,19 +94,19 @@ struct ph2natt {
   u_int8_t	type;
   u_int16_t	sport;
   u_int16_t	dport;
-  struct sockaddr	*oa;
+  struct sockaddr_storage	*oa;
   u_int16_t	frag;
 };
 
 int natt_vendorid (int vid);
-vchar_t *natt_hash_addr (struct ph1handle *iph1, struct sockaddr *addr);
+vchar_t *natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr);
 int natt_compare_addr_hash (struct ph1handle *iph1, vchar_t *natd_received, int natd_seq);
 int natt_udp_encap (int encmode);
 int natt_fill_options (struct ph1natt_options *opts, int version);
 void natt_float_ports (struct ph1handle *iph1);
 void natt_handle_vendorid (struct ph1handle *iph1, int vid_numeric);
 int create_natoa_payloads(struct ph2handle *iph2, vchar_t **, vchar_t **);
-struct sockaddr * process_natoa_payload(vchar_t *buf);
+struct sockaddr_storage * process_natoa_payload(vchar_t *buf);
 
 struct payload_list *
 isakmp_plist_append_natt_vids (struct payload_list *plist, vchar_t *vid_natt[MAX_NATT_VID_COUNT]);

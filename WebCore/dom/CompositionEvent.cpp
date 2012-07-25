@@ -55,9 +55,9 @@ void CompositionEvent::initCompositionEvent(const AtomicString& type, bool canBu
     m_data = data;
 }
 
-bool CompositionEvent::isCompositionEvent() const
+const AtomicString& CompositionEvent::interfaceName() const
 {
-    return true;
+    return eventNames().interfaceForCompositionEvent;
 }
 
 } // namespace WebCore

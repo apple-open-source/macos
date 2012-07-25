@@ -24,6 +24,7 @@
 
 #include <AssertMacros.h>
 #include <pthread.h>
+#include <mach/mach.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFBase.h>
 #include <IOKit/IOCFPlugIn.h>
@@ -33,6 +34,7 @@
 #include <IOKit/hid/IOHIDResourceUserClient.h>
 #include <IOKit/IODataQueueClient.h>
 #include "IOHIDUserDevice.h"
+#include <IOKit/IOKitLibPrivate.h>
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorRef          allocator, 
@@ -40,6 +42,7 @@ static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
 static void                 __IOHIDUserDeviceRelease( CFTypeRef object );
 static void                 __IOHIDUserDeviceRegister(void);
 static void                 __IOHIDUserDeviceQueueCallback(CFMachPortRef port, void *msg, CFIndex size, void *info);
+static void                 __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result);
 
 typedef struct __IOHIDUserDevice
 {
@@ -57,6 +60,12 @@ typedef struct __IOHIDUserDevice
         CFRunLoopSourceRef          source;
         IODataQueueMemory *         data;
     } queue;
+    
+    struct {
+        CFMachPortRef               port;
+        CFRunLoopSourceRef          source;
+        IODataQueueMemory *         data;
+    } async;
     
     struct {
         IOHIDUserDeviceReportCallback   callback;
@@ -82,6 +91,13 @@ static const CFRuntimeClass __IOHIDUserDeviceClass = {
 static pthread_once_t   __deviceTypeInit            = PTHREAD_ONCE_INIT;
 static CFTypeID         __kIOHIDUserDeviceTypeID    = _kCFRuntimeNotATypeID;
 static mach_port_t      __masterPort                = MACH_PORT_NULL;
+
+
+typedef struct __IOHIDDeviceHandleReportAsyncContext {
+    IOHIDUserDeviceHandleReportAsyncCallback   callback;
+    void *                          refcon;
+} IOHIDDeviceHandleReportAsyncContext;
+
 
 //------------------------------------------------------------------------------
 // __IOHIDUserDeviceRegister
@@ -154,6 +170,25 @@ void __IOHIDUserDeviceRelease( CFTypeRef object )
                    -1);
 
         device->queue.port = NULL;
+    }
+    
+    if ( device->async.source ) {
+        CFRelease(device->async.source);
+        device->async.source = NULL;
+    }
+    
+    if ( device->async.port ) {
+        mach_port_t port = CFMachPortGetPort(device->async.port);
+        
+        CFMachPortInvalidate(device->async.port);
+        CFRelease(device->async.port);
+        
+        mach_port_mod_refs(mach_task_self(),
+                           port,
+                           MACH_PORT_RIGHT_RECEIVE,
+                           -1);
+        
+        device->async.port = NULL;
     }
     
     if ( device->properties ) {
@@ -265,7 +300,28 @@ void IOHIDUserDeviceScheduleWithRunLoop(IOHIDUserDeviceRef device, CFRunLoopRef 
             device->queue.source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, device->queue.port, 0);
         }
     }
+    
+    if ( !device->async.port ) {
 
+        mach_port_t port = MACH_PORT_NULL;
+        
+        IOReturn ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &port);
+
+        if ( ret == kIOReturnSuccess && port != MACH_PORT_NULL ) {
+            CFMachPortContext context = {0, device, NULL, NULL, NULL};
+            
+            device->async.port = CFMachPortCreateWithPort(kCFAllocatorDefault, port, IODispatchCalloutFromCFMessage, &context, FALSE);
+        }
+    }
+    
+    if ( !device->async.source ) {
+        
+        if ( device->async.port ) {
+            device->async.source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, device->async.port, 0);
+        }
+    }
+    
+    CFRunLoopAddSource(runLoop, device->async.source, runLoopMode);
     CFRunLoopAddSource(runLoop, device->queue.source, runLoopMode);
     IOConnectSetNotificationPort(device->connect, 0, CFMachPortGetPort(device->queue.port), (uintptr_t)NULL);
 }
@@ -280,6 +336,7 @@ void IOHIDUserDeviceUnscheduleFromRunLoop(IOHIDUserDeviceRef device, CFRunLoopRe
         
     IOConnectSetNotificationPort(device->connect, 0, MACH_PORT_NULL, (uintptr_t)NULL);
     CFRunLoopRemoveSource(runLoop, device->queue.source, runLoopMode);
+    CFRunLoopRemoveSource(runLoop, device->async.source, runLoopMode);
 }
 
 //------------------------------------------------------------------------------
@@ -360,6 +417,48 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
 
 
 //------------------------------------------------------------------------------
+// __IOHIDUserDeviceHandleReportAsyncCallback
+//------------------------------------------------------------------------------
+void __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result)
+{
+    IOHIDDeviceHandleReportAsyncContext *pContext = (IOHIDDeviceHandleReportAsyncContext *)refcon;
+    
+    if (pContext->callback)
+        pContext->callback(pContext->refcon, result);
+
+    free(pContext);
+}
+
+//------------------------------------------------------------------------------
+// IOHIDUserDeviceHandleReportAsync
+//------------------------------------------------------------------------------
+IOReturn IOHIDUserDeviceHandleReportAsync(
+                                          IOHIDUserDeviceRef              device, 
+                                          uint8_t *                       report, 
+                                          CFIndex                         reportLength,
+                                          IOHIDUserDeviceHandleReportAsyncCallback callback,
+                                          void *                          refcon)
+{
+    IOHIDDeviceHandleReportAsyncContext *pContext = malloc(sizeof(IOHIDDeviceHandleReportAsyncContext));
+    
+    if (!pContext)
+        return kIOReturnNoMemory;
+
+    pContext->callback = callback;
+    pContext->refcon = refcon;
+    
+    mach_port_t wakePort = MACH_PORT_NULL;
+    uint64_t asyncRef[kOSAsyncRef64Count];
+    
+    wakePort = CFMachPortGetPort(device->async.port);
+    
+    asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)(uintptr_t)__IOHIDUserDeviceHandleReportAsyncCallback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)(uintptr_t)pContext;
+
+    return IOConnectCallAsyncStructMethod(device->connect, kIOHIDResourceDeviceUserClientMethodHandleReport, wakePort, asyncRef, kOSAsyncRef64Count, report, reportLength, NULL, NULL);
+}
+
+//------------------------------------------------------------------------------
 // IOHIDUserDeviceHandleReport
 //------------------------------------------------------------------------------
 IOReturn IOHIDUserDeviceHandleReport(
@@ -369,4 +468,5 @@ IOReturn IOHIDUserDeviceHandleReport(
 {
     return IOConnectCallStructMethod(device->connect, kIOHIDResourceDeviceUserClientMethodHandleReport, report, reportLength, NULL, NULL);
 }
+
 

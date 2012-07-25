@@ -33,11 +33,22 @@ static char sccsid[] = "@(#)atoi.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/atoi.c,v 1.6 2007/01/09 00:28:09 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdlib.h>
 
 int
 atoi(str)
 	const char *str;
 {
-	return (int)strtol(str, (char **)NULL, 10);
+	return (int)strtol_l(str, (char **)NULL, 10, __current_locale());
+}
+
+int
+atoi_l(str, loc)
+	const char *str;
+	locale_t loc;
+{
+	/* no need to call NORMALIZE_LOCALE(loc) because strtol_l will */
+	return (int)strtol_l(str, (char **)NULL, 10, loc);
 }

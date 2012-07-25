@@ -241,7 +241,7 @@ extern int var_smtp_mxsess_limit;
   */
 #define VAR_QUEUE_DIR	"queue_directory"
 #ifndef DEF_QUEUE_DIR
-#define DEF_QUEUE_DIR	"/Library/Server/Mail/Data/spool"	/* APPLE */
+#define DEF_QUEUE_DIR	"/var/spool/postfix"
 #endif
 extern char *var_queue_dir;
 
@@ -274,7 +274,7 @@ extern char *var_pid_dir;
   */
 #define VAR_DATA_DIR		"data_directory"
 #ifndef DEF_DATA_DIR
-#define DEF_DATA_DIR		"/Library/Server/Mail/Data/mta"		/* APPLE */
+#define DEF_DATA_DIR		"/var/lib/postfix"
 #endif
 extern char *var_data_dir;
 
@@ -577,7 +577,7 @@ extern char *var_mailbox_lock;
   */
 #define VAR_MAILBOX_LIMIT	"mailbox_size_limit"
 #define DEF_MAILBOX_LIMIT	(DEF_MESSAGE_LIMIT * 5)
-extern int var_mailbox_limit;
+extern long var_mailbox_limit;
 
  /*
   * Miscellaneous.
@@ -911,6 +911,14 @@ extern char *var_hash_queue_names;
 extern int var_hash_queue_depth;
 
  /*
+  * Short queue IDs contain the time in microseconds and file inode number.
+  * Long queue IDs also contain the time in seconds.
+  */
+#define VAR_LONG_QUEUE_IDS	"enable_long_queue_ids"
+#define DEF_LONG_QUEUE_IDS	0
+extern bool var_long_queue_ids;
+
+ /*
   * Multi-protocol support.
   */
 #define INET_PROTO_NAME_IPV4	"ipv4"
@@ -1072,9 +1080,9 @@ extern char *var_smtp_helo_name;
 extern bool var_smtp_rand_addr;
 
 #define VAR_SMTP_LINE_LIMIT	"smtp_line_length_limit"
-#define DEF_SMTP_LINE_LIMIT	990
+#define DEF_SMTP_LINE_LIMIT	998
 #define VAR_LMTP_LINE_LIMIT	"lmtp_line_length_limit"
-#define DEF_LMTP_LINE_LIMIT	990
+#define DEF_LMTP_LINE_LIMIT	998
 extern int var_smtp_line_limit;
 
 #define VAR_SMTP_PIX_THRESH	"smtp_pix_workaround_threshold_time"
@@ -1249,7 +1257,7 @@ extern char *var_smtpd_tls_CApath;
 extern char *var_smtpd_tls_proto;
 
 #define VAR_SMTPD_TLS_MAND_PROTO	"smtpd_tls_mandatory_protocols"
-#define DEF_SMTPD_TLS_MAND_PROTO	"SSLv3, TLSv1"
+#define DEF_SMTPD_TLS_MAND_PROTO	"!SSLv2"
 extern char *var_smtpd_tls_mand_proto;
 
 #define VAR_SMTPD_TLS_CIPH	"smtpd_tls_ciphers"
@@ -1285,8 +1293,8 @@ extern char *var_smtpd_tls_dh1024_param_file;
 extern char *var_smtpd_tls_eecdh;
 
 #define VAR_SMTPD_TLS_LOGLEVEL	"smtpd_tls_loglevel"
-#define DEF_SMTPD_TLS_LOGLEVEL	0
-extern int var_smtpd_tls_loglevel;
+#define DEF_SMTPD_TLS_LOGLEVEL	"0"
+extern char *var_smtpd_tls_loglevel;
 
 #define VAR_SMTPD_TLS_RECHEAD	"smtpd_tls_received_header"
 #define DEF_SMTPD_TLS_RECHEAD	0
@@ -1423,11 +1431,11 @@ extern char *var_smtp_tls_mand_excl;
 extern char *var_smtp_tls_fpt_dgst;
 
 #define VAR_SMTP_TLS_LOGLEVEL	"smtp_tls_loglevel"
-#define DEF_SMTP_TLS_LOGLEVEL	0
+#define DEF_SMTP_TLS_LOGLEVEL	"0"
 #define VAR_LMTP_TLS_LOGLEVEL	"lmtp_tls_loglevel"
-#define DEF_LMTP_TLS_LOGLEVEL	0
-extern int var_smtp_tls_loglevel;	/* In smtp(8) and tlsmgr(8) */
-extern int var_lmtp_tls_loglevel;	/* In tlsmgr(8) */
+#define DEF_LMTP_TLS_LOGLEVEL	"0"
+extern char *var_smtp_tls_loglevel;	/* In smtp(8) and tlsmgr(8) */
+extern char *var_lmtp_tls_loglevel;	/* In tlsmgr(8) */
 
 #define VAR_SMTP_TLS_NOTEOFFER	"smtp_tls_note_starttls_offer"
 #define DEF_SMTP_TLS_NOTEOFFER	0
@@ -1462,9 +1470,9 @@ extern char *var_smtp_tls_policy;
 extern char *var_smtp_tls_proto;
 
 #define VAR_SMTP_TLS_MAND_PROTO	"smtp_tls_mandatory_protocols"
-#define DEF_SMTP_TLS_MAND_PROTO	"SSLv3, TLSv1"
+#define DEF_SMTP_TLS_MAND_PROTO	"!SSLv2"
 #define VAR_LMTP_TLS_MAND_PROTO	"lmtp_tls_mandatory_protocols"
-#define DEF_LMTP_TLS_MAND_PROTO	"SSLv3, TLSv1"
+#define DEF_LMTP_TLS_MAND_PROTO	"!SSLv2"
 extern char *var_smtp_tls_mand_proto;
 
 #define VAR_SMTP_TLS_VFY_CMATCH	"smtp_tls_verify_cert_match"
@@ -1595,6 +1603,10 @@ extern char *var_smtp_sasl_tls_opts;
 #define DEF_LMTP_SASL_TLSV_OPTS	"$" VAR_LMTP_SASL_TLS_OPTS
 extern char *var_smtp_sasl_tlsv_opts;
 
+#define VAR_SMTP_DUMMY_MAIL_AUTH	"smtp_send_dummy_mail_auth"
+#define DEF_SMTP_DUMMY_MAIL_AUTH	0
+extern bool var_smtp_dummy_mail_auth;
+
  /*
   * LMTP server. The soft error limit determines how many errors an LMTP
   * client may make before we start to slow down; the hard error limit
@@ -1661,6 +1673,10 @@ extern char *var_lmtp_sasl_opts;
 #define VAR_LMTP_SASL_PATH	"lmtp_sasl_path"
 #define DEF_LMTP_SASL_PATH	""
 extern char *var_lmtp_sasl_path;
+
+#define VAR_LMTP_DUMMY_MAIL_AUTH	"lmtp_send_dummy_mail_auth"
+#define DEF_LMTP_DUMMY_MAIL_AUTH	0
+extern bool var_lmtp_dummy_mail_auth;
 
  /*
   * SASL-based relay etc. control.
@@ -1787,7 +1803,7 @@ extern int var_virt_expan_limit;
   */
 #define VAR_MESSAGE_LIMIT	"message_size_limit"
 #define DEF_MESSAGE_LIMIT	10240000
-extern int var_message_limit;
+extern long var_message_limit;
 
 #define VAR_QUEUE_MINFREE	"queue_minfree"
 #define DEF_QUEUE_MINFREE	0
@@ -2219,13 +2235,24 @@ extern int var_local_rcpt_code;
 				" $" VAR_SEND_BCC_MAPS \
 				" $" VAR_RCPT_BCC_MAPS \
 				" $" VAR_SMTP_GENERIC_MAPS \
-				" $" VAR_LMTP_GENERIC_MAPS
+				" $" VAR_LMTP_GENERIC_MAPS \
+				" $" VAR_ALIAS_MAPS
 extern char *var_proxy_read_maps;
 
 #define VAR_PROXY_WRITE_MAPS	"proxy_write_maps"
 #define DEF_PROXY_WRITE_MAPS	"$" VAR_SMTP_SASL_AUTH_CACHE_NAME \
-				" $" VAR_LMTP_SASL_AUTH_CACHE_NAME
+				" $" VAR_LMTP_SASL_AUTH_CACHE_NAME \
+				" $" VAR_VERIFY_MAP \
+				" $" VAR_PSC_CACHE_MAP
 extern char *var_proxy_write_maps;
+
+#define VAR_PROXY_READ_ACL	"proxy_read_access_list"
+#define DEF_PROXY_READ_ACL	"reject"
+extern char *var_proxy_read_acl;
+
+#define VAR_PROXY_WRITE_ACL	"proxy_write_access_list"
+#define DEF_PROXY_WRITE_ACL	"reject"
+extern char *var_proxy_write_acl;
 
  /*
   * Other.
@@ -2343,7 +2370,7 @@ extern char *var_virt_mailbox_base;
 
 #define VAR_VIRT_MAILBOX_LIMIT		"virtual_mailbox_limit"
 #define DEF_VIRT_MAILBOX_LIMIT		(5 * DEF_MESSAGE_LIMIT)
-extern int var_virt_mailbox_limit;
+extern long var_virt_mailbox_limit;
 
 #define VAR_VIRT_MAILBOX_LOCK		"virtual_mailbox_lock"
 #define DEF_VIRT_MAILBOX_LOCK		"fcntl, dotlock"
@@ -2609,6 +2636,10 @@ extern int var_verify_scan_cache;
 #define DEF_VERIFY_SENDER		"$" VAR_DOUBLE_BOUNCE
 extern char *var_verify_sender;
 
+#define VAR_VERIFY_SENDER_TTL		"address_verify_sender_ttl"
+#define DEF_VERIFY_SENDER_TTL		"0s"
+extern int var_verify_sender_ttl;
+
 #define VAR_VERIFY_POLL_COUNT		"address_verify_poll_count"
 #define DEF_VERIFY_POLL_COUNT		"${stress?1}${stress:3}"
 extern int var_verify_poll_count;
@@ -2672,6 +2703,10 @@ extern int var_sacl_cache_dis_exp;
 #define VAR_USE_SACL_CACHE		"use_sacl_cache"
 #define DEF_USE_SACL_CACHE		1
 extern int var_use_sacl_cache;
+
+#define	VAR_MIME_MAX_BODY_SIZE		"mime_max_body_size"
+#define	DEF_MIME_MAX_BODY_SIZE		0
+extern int var_mime_max_body_size;
 #endif
 
  /*
@@ -3062,33 +3097,20 @@ extern char *var_tls_eecdh_ultra;
 #define DEF_TLS_PREEMPT_CLIST	0
 extern bool var_tls_preempt_clist;
 
-#ifdef USE_TLS
-
- /*
-  * The tweak for CVE-2005-2969 is needed in some versions prior to 1.0.0
-  */
+ /* The tweak for CVE-2010-4180 is needed in some versions prior to 1.0.1 */
+ /* The tweak for CVE-2005-2969 is needed in some versions prior to 1.0.0 */
+#if defined(USE_TLS) && (OPENSSL_VERSION_NUMBER < 0x1000100fL)
 #if (OPENSSL_VERSION_NUMBER < 0x1000000fL)
-#define TLS_BUG_TWEAK_A	" CVE-2005-2969"
+#define TLS_BUG_TWEAKS		"CVE-2005-2969 CVE-2010-4180"
 #else
-#define TLS_BUG_TWEAK_A ""
+#define TLS_BUG_TWEAKS		"CVE-2010-4180"
 #endif
-
- /*
-  * The tweak for CVE-2010-4180 is needed in some versions prior to 1.0.1
-  */
-#if (OPENSSL_VERSION_NUMBER < 0x1000100fL)
-#define TLS_BUG_TWEAK_B	" CVE-2010-4180"
 #else
-#define TLS_BUG_TWEAK_B	" "
+#define TLS_BUG_TWEAKS		""
 #endif
-
-#else /* USE_TLS */
-#define TLS_BUG_TWEAK_A	""
-#define TLS_BUG_TWEAK_B	" "
-#endif /* USE_TLS */
 
 #define VAR_TLS_BUG_TWEAKS	"tls_disable_workarounds"
-#define DEF_TLS_BUG_TWEAKS	((TLS_BUG_TWEAK_A TLS_BUG_TWEAK_B)+1)
+#define DEF_TLS_BUG_TWEAKS	TLS_BUG_TWEAKS
 extern char *var_tls_bug_tweaks;
 
  /*
@@ -3227,7 +3249,7 @@ extern char *var_smtp_body_chks;
 
 #define VAR_SMTP_ADDR_PREF	"smtp_address_preference"
 #ifdef HAS_IPV6
-#define DEF_SMTP_ADDR_PREF	INET_PROTO_NAME_IPV6
+#define DEF_SMTP_ADDR_PREF	INET_PROTO_NAME_ANY
 #else
 #define DEF_SMTP_ADDR_PREF	INET_PROTO_NAME_IPV4
 #endif
@@ -3505,15 +3527,13 @@ extern char *var_psc_exp_filter;
 #define DEF_PSC_CMD_FILTER	""
 extern char *var_psc_cmd_filter;
 
-#define PSC_ACL_NAME_WL_MYNETWORKS "permit_mynetworks"
-#define PSC_ACL_NAME_WHITELIST	"permit"
-#define PSC_ACL_NAME_BLACKLIST	"reject"
-#define PSC_ACL_NAME_DUNNO	"dunno"
-#define PSC_ACL_NAME_ERROR	"error"
-
 #define VAR_PSC_ACL		"postscreen_access_list"
-#define DEF_PSC_ACL		PSC_ACL_NAME_WL_MYNETWORKS
+#define DEF_PSC_ACL		SERVER_ACL_NAME_WL_MYNETWORKS
 extern char *var_psc_acl;
+
+#define VAR_PSC_WLIST_IF	"postscreen_whitelist_interfaces"
+#define DEF_PSC_WLIST_IF	"static:all"
+extern char *var_psc_wlist_if;
 
 #define VAR_DNSBLOG_SERVICE	"dnsblog_service_name"
 #define DEF_DNSBLOG_SERVICE	MAIL_SERVICE_DNSBLOG
@@ -3632,7 +3652,7 @@ extern char *var_tlsp_tls_eecdh;
 
 #define VAR_TLSP_TLS_LOGLEVEL	"tlsproxy_tls_loglevel"
 #define DEF_TLSP_TLS_LOGLEVEL	"$" VAR_SMTPD_TLS_LOGLEVEL
-extern int var_tlsp_tls_loglevel;
+extern char *var_tlsp_tls_loglevel;
 
 #define VAR_TLSP_TLS_RECHEAD	"tlsproxy_tls_received_header"
 #define DEF_TLSP_TLS_RECHEAD	"$" VAR_SMTPD_TLS_RECHEAD
@@ -3656,6 +3676,37 @@ extern bool var_tlsp_tls_set_sessid;
 #define VAR_SMTPD_REJ_FOOTER	"smtpd_reject_footer"
 #define DEF_SMTPD_REJ_FOOTER	""
 extern char *var_smtpd_rej_footer;
+
+ /*
+  * Per-record time limit support.
+  */
+#define VAR_SMTPD_REC_DEADLINE	"smtpd_per_record_deadline"
+#define DEF_SMTPD_REC_DEADLINE	"${stress?yes}${stress:no}"
+extern bool var_smtpd_rec_deadline;
+
+#define VAR_SMTP_REC_DEADLINE	"smtp_per_record_deadline"
+#define DEF_SMTP_REC_DEADLINE	0
+#define VAR_LMTP_REC_DEADLINE	"lmtp_per_record_deadline"
+#define DEF_LMTP_REC_DEADLINE	0
+extern bool var_smtp_rec_deadline;
+
+ /*
+  * Postfix sendmail command compatibility features.
+  */
+#define SM_FIX_EOL_STRICT	"strict"
+#define SM_FIX_EOL_NEVER	"never"
+#define SM_FIX_EOL_ALWAYS	"always"
+
+#define VAR_SM_FIX_EOL		"sendmail_fix_line_endings"
+#define DEF_SM_FIX_EOL		SM_FIX_EOL_ALWAYS
+extern char *var_sm_fix_eol;
+
+ /*
+  * Gradual degradation, or fatal exit after table open error?
+  */
+#define VAR_DAEMON_OPEN_FATAL	"daemon_table_open_error_is_fatal"
+#define DEF_DAEMON_OPEN_FATAL	0
+extern bool var_daemon_open_fatal;
 
 /* LICENSE
 /* .ad

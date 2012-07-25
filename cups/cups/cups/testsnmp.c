@@ -1,5 +1,5 @@
 /*
- * "$Id: testsnmp.c 2069 2010-04-11 07:14:37Z msweet $"
+ * "$Id: testsnmp.c 3413 2011-09-07 22:48:34Z msweet $"
  *
  *   SNMP test program for CUPS.
  *
@@ -36,7 +36,7 @@
 static void	print_packet(cups_snmp_t *packet, void *data);
 static int	show_oid(int fd, const char *community,
 		         http_addr_t *addr, const char *s, int walk);
-static void	usage(void);
+static void	usage(void) __attribute__((noreturn));
 
 
 /*
@@ -119,7 +119,7 @@ main(int  argc,				/* I - Number of command-line args */
 		         ".1.3.6.1.2.1.43.10.2.1.4.1.1", walk))
       return (1);
   }
-  
+
   return (0);
 }
 
@@ -300,5 +300,5 @@ usage(void)
 
 
 /*
- * End of "$Id: testsnmp.c 2069 2010-04-11 07:14:37Z msweet $".
+ * End of "$Id: testsnmp.c 3413 2011-09-07 22:48:34Z msweet $".
  */

@@ -21,36 +21,14 @@
 #include "config.h"
 #include "JSDOMBinding.h"
 
-#include "DOMCoreException.h"
 #include "DOMObjectHashTableMap.h"
-#include "EventException.h"
-#include "ExceptionBase.h"
 #include "ExceptionCode.h"
-#include "FileException.h"
+#include "ExceptionHeaders.h"
+#include "ExceptionInterfaces.h"
 #include "Frame.h"
-#include "IDBDatabaseException.h"
-#include "JSDOMCoreException.h"
 #include "JSDOMWindowCustom.h"
-#include "JSEventException.h"
 #include "JSExceptionBase.h"
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-#include "JSFileException.h"
-#endif
-#include "JSRangeException.h"
-#include "JSSQLException.h"
-#if ENABLE(SVG)
-#include "JSSVGException.h"
-#endif
-#include "JSXMLHttpRequestException.h"
-#if ENABLE(XPATH)
-#include "JSXPathException.h"
-#endif
-#include "RangeException.h"
-#include "SQLException.h"
-#include "SVGException.h"
 #include "ScriptCallStack.h"
-#include "XMLHttpRequestException.h"
-#include "XPathException.h"
 #include <runtime/DateInstance.h>
 #include <runtime/Error.h>
 #include <runtime/ExceptionHelpers.h>
@@ -60,6 +38,9 @@ using namespace JSC;
 
 namespace WebCore {
 
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(DOMConstructorObject);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(DOMConstructorWithDocument);
+
 const JSC::HashTable* getHashTableForGlobalData(JSGlobalData& globalData, const JSC::HashTable* staticTable)
 {
     return DOMObjectHashTableMap::mapFor(globalData).get(staticTable);
@@ -68,7 +49,7 @@ const JSC::HashTable* getHashTableForGlobalData(JSGlobalData& globalData, const 
 JSValue jsStringSlowCase(ExecState* exec, JSStringCache& stringCache, StringImpl* stringImpl)
 {
     JSString* wrapper = jsString(exec, UString(stringImpl));
-    stringCache.add(stringImpl, Weak<JSString>(exec->globalData(), wrapper, currentWorld(exec)->stringWrapperOwner(), stringImpl));
+    stringCache.add(stringImpl, PassWeak<JSString>(wrapper, currentWorld(exec)->stringWrapperOwner(), stringImpl));
     return wrapper;
 }
 
@@ -139,14 +120,14 @@ String valueToStringWithNullCheck(ExecState* exec, JSValue value)
 {
     if (value.isNull())
         return String();
-    return ustringToString(value.toString(exec));
+    return ustringToString(value.toString(exec)->value(exec));
 }
 
 String valueToStringWithUndefinedOrNullCheck(ExecState* exec, JSValue value)
 {
     if (value.isUndefinedOrNull())
         return String();
-    return ustringToString(value.toString(exec));
+    return ustringToString(value.toString(exec)->value(exec));
 }
 
 JSValue jsDateOrNull(ExecState* exec, double value)
@@ -170,16 +151,16 @@ void reportException(ExecState* exec, JSValue exception)
     if (isTerminatedExecutionException(exception))
         return;
 
-    UString errorMessage = exception.toString(exec);
+    UString errorMessage = exception.toString(exec)->value(exec);
     JSObject* exceptionObject = exception.toObject(exec);
     int lineNumber = exceptionObject->get(exec, Identifier(exec, "line")).toInt32(exec);
-    UString exceptionSourceURL = exceptionObject->get(exec, Identifier(exec, "sourceURL")).toString(exec);
+    UString exceptionSourceURL = exceptionObject->get(exec, Identifier(exec, "sourceURL")).toString(exec)->value(exec);
     exec->clearException();
 
     if (ExceptionBase* exceptionBase = toExceptionBase(exception))
         errorMessage = stringToUString(exceptionBase->message() + ": "  + exceptionBase->description());
 
-    ScriptExecutionContext* scriptExecutionContext = static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
+    ScriptExecutionContext* scriptExecutionContext = jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->scriptExecutionContext();
 
     // scriptExecutionContext can be null when the relevant global object is a stale inner window object.
     // It's harmless to return here without reporting the exception to the log and the debugger in this case.
@@ -196,6 +177,11 @@ void reportCurrentException(ExecState* exec)
     reportException(exec, exception);
 }
 
+#define TRY_TO_CREATE_EXCEPTION(interfaceName) \
+    case interfaceName##Type: \
+        errorObject = toJS(exec, globalObject, interfaceName::create(description)); \
+        break;
+
 void setDOMException(ExecState* exec, ExceptionCode ec)
 {
     if (!ec || exec->hadException())
@@ -206,53 +192,18 @@ void setDOMException(ExecState* exec, ExceptionCode ec)
     // frames[0].document.createElement(null, null); // throws an exception which should have the subframes prototypes.
     JSDOMGlobalObject* globalObject = deprecatedGlobalObjectForPrototype(exec);
 
-    ExceptionCodeDescription description;
-    getExceptionCodeDescription(ec, description);
+    ExceptionCodeDescription description(ec);
 
     JSValue errorObject;
     switch (description.type) {
-        case DOMExceptionType:
-            errorObject = toJS(exec, globalObject, DOMCoreException::create(description));
-            break;
-        case RangeExceptionType:
-            errorObject = toJS(exec, globalObject, RangeException::create(description));
-            break;
-        case EventExceptionType:
-            errorObject = toJS(exec, globalObject, EventException::create(description));
-            break;
-        case XMLHttpRequestExceptionType:
-            errorObject = toJS(exec, globalObject, XMLHttpRequestException::create(description));
-            break;
-#if ENABLE(SVG)
-        case SVGExceptionType:
-            errorObject = toJS(exec, globalObject, SVGException::create(description).get());
-            break;
-#endif
-#if ENABLE(XPATH)
-        case XPathExceptionType:
-            errorObject = toJS(exec, globalObject, XPathException::create(description));
-            break;
-#endif
-#if ENABLE(DATABASE)
-        case SQLExceptionType:
-            errorObject = toJS(exec, globalObject, SQLException::create(description));
-            break;
-#endif
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-        case FileExceptionType:
-            errorObject = toJS(exec, globalObject, FileException::create(description));
-            break;
-#endif
-#if ENABLE(INDEXED_DATABASE)
-        case IDBDatabaseExceptionType:
-            errorObject = toJS(exec, globalObject, IDBDatabaseException::create(description));
-            break;
-#endif
+        DOM_EXCEPTION_INTERFACES_FOR_EACH(TRY_TO_CREATE_EXCEPTION)
     }
 
     ASSERT(errorObject);
     throwError(exec, errorObject);
 }
+
+#undef TRY_TO_CREATE_EXCEPTION
 
 DOMWindow* activeDOMWindow(ExecState* exec)
 {
@@ -264,12 +215,12 @@ DOMWindow* firstDOMWindow(ExecState* exec)
     return asJSDOMWindow(exec->dynamicGlobalObject())->impl();
 }
 
-bool checkNodeSecurity(ExecState* exec, Node* node)
+bool shouldAllowAccessToNode(ExecState* exec, Node* node)
 {
-    return node && allowsAccessFromFrame(exec, node->document()->frame());
+    return node && shouldAllowAccessToFrame(exec, node->document()->frame());
 }
 
-bool allowsAccessFromFrame(ExecState* exec, Frame* frame)
+bool shouldAllowAccessToFrame(ExecState* exec, Frame* frame)
 {
     if (!frame)
         return false;
@@ -277,7 +228,7 @@ bool allowsAccessFromFrame(ExecState* exec, Frame* frame)
     return window && window->allowsAccessFrom(exec);
 }
 
-bool allowsAccessFromFrame(ExecState* exec, Frame* frame, String& message)
+bool shouldAllowAccessToFrame(ExecState* exec, Frame* frame, String& message)
 {
     if (!frame)
         return false;
@@ -290,18 +241,6 @@ void printErrorMessageForFrame(Frame* frame, const String& message)
     if (!frame)
         return;
     frame->domWindow()->printErrorMessage(message);
-}
-
-// FIXME: We should remove or at least deprecate this function. Callers can use firstDOMWindow directly.
-Frame* toDynamicFrame(ExecState* exec)
-{
-    return firstDOMWindow(exec)->frame();
-}
-
-// FIXME: We should remove this function. Callers can use ScriptController directly.
-bool processingUserGesture()
-{
-    return ScriptController::processingUserGesture();
 }
 
 JSValue objectToStringFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
@@ -319,7 +258,7 @@ Structure* cacheDOMStructure(JSDOMGlobalObject* globalObject, Structure* structu
 {
     JSDOMStructureMap& structures = globalObject->structures();
     ASSERT(!structures.contains(classInfo));
-    return structures.set(classInfo, WriteBarrier<Structure>(globalObject->globalData(), globalObject, structure)).first->second.get();
+    return structures.set(classInfo, WriteBarrier<Structure>(globalObject->globalData(), globalObject, structure)).iterator->second.get();
 }
 
 JSC::JSObject* toJSSequence(ExecState* exec, JSValue value, unsigned& length)

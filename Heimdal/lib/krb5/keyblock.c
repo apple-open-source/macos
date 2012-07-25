@@ -65,7 +65,7 @@ krb5_free_keyblock_contents(krb5_context context,
 	if (keyblock->keyvalue.data != NULL)
 	    memset(keyblock->keyvalue.data, 0, keyblock->keyvalue.length);
 	krb5_data_free (&keyblock->keyvalue);
-	keyblock->keytype = ENCTYPE_NULL;
+	keyblock->keytype = KRB5_ENCTYPE_NULL;
     }
 }
 
@@ -131,7 +131,7 @@ krb5_copy_keyblock (krb5_context context,
 {
     krb5_error_code ret;
     krb5_keyblock *k;
-    
+
     *to = NULL;
 
     k = calloc (1, sizeof(*k));
@@ -155,7 +155,7 @@ krb5_copy_keyblock (krb5_context context,
  * @ingroup krb5_crypto
  */
 
-krb5_enctype
+KRB5_LIB_FUNCTION krb5_enctype KRB5_LIB_CALL
 krb5_keyblock_get_enctype(const krb5_keyblock *block)
 {
     return block->keytype;

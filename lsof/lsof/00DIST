@@ -113,6 +113,7 @@
 		4.82, March 25, 2009
 		4.83, January 18, 2010
 		4.84, July 29, 2010
+		4.85, September 27, 2011
 
 
 Dialects Supported
@@ -124,9 +125,9 @@ version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
 	AIX 5.3
-	Apple Darwin 9 (Mac OS X 10.5)
-	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.[0123], 8.0 and 9.0 for AMD64-based systems
+	Apple Darwin 9 and Mac OS X 10.[56]
+	FreeBSD 4.9 and 6.4 for x86-based systems
+	FreeBSD 8.[02] and 9.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
 	Solaris 9, 10 and 11
 
@@ -4508,8 +4509,90 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		provisions for the next ZFS version.  Added info about
 		the failure of the LTnlink test on ZFS file systems.
 
-		Corrected typo in Configure scripted, reported by Dmitry
-		Berezin [dmitryb@oit.rutgers.edu.
+		Corrected typo in Configure script, reported by Dmitry
+		Berezin <dmitryb@oit.rutgers.edu>.
+
+4.85		September 27, 2011
+		John Dzubera <Zube@CS.ColoState.EDU> kindly provided a patched
+		Solaris 9 test system with the lgrp_root conflict and I was
+		able to devise an automatic work-around for the conflict.  The
+		special note in .../dialects/sun/machine.h was removed and
+		the 17.28.1 FAQ entry was modified to reflect the update.
+
+		Added a Solaris 11 work-around for a typedef problem with
+		<sys/mutex.h>.  Carson Gaspar <carson@taltos.org> reported
+		the problem and supplied the work-around.
+
+		Added support for FreeBSD 7.4 and 8.2; tested on systems
+		provided by Larry Rosenman <ler@lerctr.org>.
+
+		Added support for 32 bit Solaris 11 lsof with mods supplied
+		by Jan Wortelboer <J.H.P.Wortelboer@uva.nl>.
+
+		Added Solaris 11 support for using an alternate genunix
+		location.  Bill Goodridge <bill@its.brooklyn.cuny.edu>
+		reported the alternate location.
+
+		Added further Linux cross configuration support to lsof's
+		Configure script.  The additional support was supplied by
+		Grant Erickson <erick205@umn.edu>.  See the descriptions of
+		the LINUX_* environmen  variables in 00XCONFIG for more
+		information.  Tested lsof on Linux kernel 2.6.32 and picked
+		some lint that surfaced during the test.
+
+		Added fixes and changes for Apple Mac OS X 10.6, provided by
+		Allan Nathanson <ajn@apple.com>.  Allan also provided a test
+		system.
+
+		Tested on FreeBSD 6.4 i386, using a test system provided by
+		Terry Kennedy <TERRY@tmk.com>.  Updated for recent FreeBSD ZFS
+		changes on an 8.2 amd64 test system also provided by Terry.
+
+		Changed documentation to indicate FreeBSD 7.x is no longer
+		supported, since I no longer have a test system.
+
+		Made some changes to the lsof man page, suggested by Navid
+		<evi1m4chine@googlemail.com>.
+
+		Added compensation for Solaris 10 systems that have patch
+		144488-10.  The patch requires that the new header file
+		<sys/socket_proto.h> be included while _KERNEL is defined.
+		Brett Bartick <Brett.bartick@nomura.com> reported the problem
+		first, followed by Stuart Anderson <anderson@ligo.caltech.edu>.
+		Michael Hocke <michael.hocke@nyu.edu> suggested a work-around
+		which I refined to limit it to the specific Solaris 10 instance
+		and then tested on a system provided by Charles Stephens
+		<cfs@cowlabs.com>
+
+		Added the +|-e option for Linux.  It exempts file systems
+		named by path from function calls that might block in the
+		kernel -- i.e., stat(2) and lstat(2), and when the +e form
+		is used, readlink (2).  The new packager of lsof for the
+		Linux Fedora and RHEL distributions, Peter Schiffer
+		<pschiffe@redhat.com>, asked for the feature so it could
+		be used with Clearcase file systems, whose implementation
+		can block stat(2) calls.  I consider this feature very risky
+		and easy to misuse -- e.g., specifying the file system as
+		'/' would exempt all file systems.  I don't intend to
+		propagate this option to any other UNIX dialect that lsof
+		currently supports.
+
+		Made FreeBSD 9 adjustment.
+
+		Fixed a Linux bug that prevented the display of paths for
+		abstact UNIX sockets.  Masatake Yamato <yamato@redhat.com>
+		reported the bug and supplied a patch.
+
+		Added compensation for the removal of RPC header files from
+		GlibC 2.14 for Linux.  Marek Behun <kabel@blackhole.sk>
+		reported the problem and supplied a patch.
+
+		Added support for Linux Netlink protocol.  Masatake Yamato
+		requested the support and supplied a patch.  Peter Schiffer
+		<pschiffe@redhat.com> provided a test system.
+
+		Corrected Linux UDP6-lite path.  The error was reported by
+		Masatake Yamato and he also supplied a patch.
 
 Vic Abell <abe@purdue.edu>
-July 29, 2010
+September 27, 2011

@@ -5,7 +5,7 @@
  * _SEAR_* macros for win32 self extracting archives -- see sear(1).
  */
 
-static char id[] = "\n@(#)$Id: ratz (Jean-loup Gailly, Mark Adler, Glenn Fowler) 1.2.3 2006-07-17 $\0\n";
+static char id[] = "\n@(#)$Id: ratz (Jean-loup Gailly, Mark Adler, Glenn Fowler) 1.2.3 2010-10-10 $\0\n";
 
 #if _PACKAGE_ast
 
@@ -13,7 +13,7 @@ static char id[] = "\n@(#)$Id: ratz (Jean-loup Gailly, Mark Adler, Glenn Fowler)
 #include <error.h>
 
 static const char usage[] =
-"[-?\n@(#)$Id: ratz (Jean-loup Gailly, Mark Adler, Glenn Fowler) 1.2.3 2006-07-17 $\n]"
+"[-?\n@(#)$Id: ratz (Jean-loup Gailly, Mark Adler, Glenn Fowler) 1.2.3 2010-10-10 $\n]"
 "[-author?Jean-loup Gailly]"
 "[-author?Mark Adler]"
 "[-author?Glenn Fowler <gsf@research.att.com>]"
@@ -30,6 +30,9 @@ static const char usage[] =
 "	executing any embedded installation scripts.]"
 "[c:cat|uncompress?Uncompress the standard input and copy it to the standard"
 "	output.]"
+#if defined(_SEAR_EXEC)
+"[i!:install?Execute the sear installation script.]"
+#endif
 "[l:local?Reject files that traverse outside the current directory.]"
 "[m:meter?Display a one line text meter showing archive read progress.]"
 "[n!:convert?In ebcdic environments convert text archive members from ascii"
@@ -77,6 +80,10 @@ static const char usage[] =
 
 #endif
 
+#ifndef O_BINARY
+#define O_BINARY	0
+#endif
+
 #if _PACKAGE_ast
 
 #define setmode(d,m)
@@ -94,7 +101,17 @@ static const char usage[] =
 #include <fcntl.h>
 #include <windows.h>
 
-#define mkdir(a,b)	mkdir(a)
+#define access		_access
+#define chmod		_chmod
+#define close		_close
+#define dup		_dup
+#define lseek		_lseek
+#define open		_open
+#define read		_read
+#define setmode		_setmode
+#define unlink		_unlink
+
+#define mkdir(a,b)	_mkdir(a)
 
 #else
 
@@ -756,7 +773,7 @@ typedef unsigned long  ulg;
 #endif
 
 /* Diagnostic functions */
-#ifdef DEBUG
+#ifdef Z_DEBUG
 #  include <stdio.h>
    extern int z_verbose;
    extern void z_error    OF((char *m));
@@ -1434,7 +1451,7 @@ typedef struct internal_state {
     uInt matches;       /* number of string matches in current block */
     int last_eob_len;   /* bit length of EOB code for last block */
 
-#ifdef DEBUG
+#ifdef Z_DEBUG
     ulg compressed_len; /* total bit length of compressed file mod 2^32 */
     ulg bits_sent;      /* bit length of compressed data sent mod 2^32 */
 #endif
@@ -1482,7 +1499,7 @@ void _tr_stored_block OF((deflate_state *s, charf *buf, ulg stored_len,
  * used.
  */
 
-#ifndef DEBUG
+#ifndef Z_DEBUG
 /* Inline versions of _tr_tally for speed: */
 
 #if defined(GEN_TREES_H) || !defined(STDC)
@@ -4425,13 +4442,13 @@ register char*	s;
 	return n;
 }
 
-#if defined(_SEAR_SEEK) || defined(_SEAR_EXEC)
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
 
 #ifndef PATH_MAX
 #define PATH_MAX	256
 #endif
 
-#define EXIT(n)	return(sear_exec((char*)0),(n))
+#define EXIT(n)	return(sear_exec((char*)0,(char**)0,(char*)0),(n))
 
 static int	sear_stdin;
 static char*	sear_tmp;
@@ -4508,9 +4525,8 @@ sear_rm_r(char* dir)
 				sear_rm_r(info.cFileName);
 		} while(FindNextFile(hp, &info));
 	FindClose(hp);
-	if (!SetCurrentDirectory(".."))
-		return;
-	RemoveDirectory(dir);
+	if (SetCurrentDirectory(".."))
+		RemoveDirectory(dir);
 }
 
 /*
@@ -4518,13 +4534,14 @@ sear_rm_r(char* dir)
  */
 
 static int
-sear_system(const char* command)
+sear_system(const char* command, int nowindow)
 {
 	PROCESS_INFORMATION	pinfo;
 	STARTUPINFO		sinfo;
 	char*			cp;
 	char			path[PATH_MAX];
 	int			n = *command == '"';
+	DWORD			flags = NORMAL_PRIORITY_CLASS;
 
 	strncpy(path, &command[n], PATH_MAX - 4);
 	n = n ? '"' : ' ';
@@ -4532,20 +4549,36 @@ sear_system(const char* command)
 		if (*cp == n)
 			break;
 	*cp = 0;
-	if (GetFileAttributes(path)==0xffffffff && GetLastError()==ERROR_FILE_NOT_FOUND)
+	if (GetFileAttributes(path) == 0xffffffff && GetLastError() == ERROR_FILE_NOT_FOUND)
 		strcpy(cp, ".exe");
 	ZeroMemory(&sinfo, sizeof(sinfo));
-	if (CreateProcess(path, (char*)command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, NULL, &sinfo, &pinfo))
+	if (nowindow)
+		flags |= CREATE_NO_WINDOW;
+	if (!CreateProcess(path, (char*)command, 0, 0, TRUE, flags, NULL, NULL, &sinfo, &pinfo))
+		n = GetLastError() == ERROR_FILE_NOT_FOUND ? 127 : 126;
+	else
 	{
 		CloseHandle(pinfo.hThread);
 		WaitForSingleObject(pinfo.hProcess, INFINITE);
 		if (!GetExitCodeProcess(pinfo.hProcess, &n))
 			n = 1;
 		CloseHandle(pinfo.hProcess);
+		Sleep(2 * 1000);
 	}
-	else
-		n = GetLastError() == ERROR_FILE_NOT_FOUND ? 127 : 126;
 	return n;
+}
+
+/*
+ * copy t to f but no farther than e
+ * next t returned
+ */
+
+static char*
+copy(char* t, const char* f, char* e)
+{
+	while (t < e && *f)
+		*t++ = *f++;
+	return t;
 }
 
 /*
@@ -4553,9 +4586,15 @@ sear_system(const char* command)
  */
 
 static int
-sear_exec(const char* cmd)
+sear_exec(const char* cmd, char* const* arg, char* operands)
 {
+	const char*	a;
+	char*		b;
+	char*		e;
 	int		r;
+	int		sh;
+	int		nowindow;
+	char		buf[1024];
 
 	fflush(stdout);
 	fflush(stderr);
@@ -4564,7 +4603,57 @@ sear_exec(const char* cmd)
 		close(0);
 		dup(sear_stdin);
 		close(sear_stdin);
-		r = cmd ? sear_system(cmd) : 1;
+		nowindow = 0;
+		if (cmd)
+		{
+			if (arg)
+				for (r = 0; arg[r]; r++)
+					if (!strcmp(arg[r], "remote"))
+					{
+						nowindow = 1;
+						break;
+					}
+			sh = 0;
+			for (a = cmd; *a && *a != ' '; a++)
+				if (a[0] == '.' && a[1] == 's' && a[2] == 'h' && (!a[3] || a[3] == ' '))
+				{
+					sh = 1;
+					break;
+				}
+			b = buf;
+			e = buf + sizeof(buf) - 1;
+			if (sh || arg)
+			{
+				if (sh)
+				{
+					b = copy(b, "ksh.exe ", e);
+					if (*cmd && *cmd != '/')
+						b = copy(b, "./", e);
+				}
+				b = copy(b, cmd, e);
+				while (a = *arg++)
+				{
+					if ((e - b) < 3)
+						break;
+					b = copy(b, " \"", e);
+					b = copy(b, a, e);
+					b = copy(b, "\"", e);
+				}
+			}
+			if (operands)
+			{
+				if (b == buf)
+					b = copy(b, cmd, e);
+				b = copy(b, " -- ", e);
+				b = copy(b, operands, e);
+			}
+			if (b > buf)
+			{
+				*b = 0;
+				cmd = (const char*)buf;
+			}
+		}
+		r = cmd ? sear_system(cmd, nowindow) : 1;
 		sear_rm_r(sear_tmp);
 	}
 	else
@@ -4607,6 +4696,10 @@ char**	argv;
 	char			buf[sizeof(header)];
 #if defined(_SEAR_OPTS)
 	char*			opts[4];
+#endif
+
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
+	int			install = 1;
 #endif
 
 	setmode(0, O_BINARY);
@@ -4665,6 +4758,11 @@ char**	argv;
 		case 'c':
 			unzip = 1;
 			continue;
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
+		case 'i':
+			install = 0;
+			continue;
+#endif
 		case 'l':
 			local = 1;
 			continue;
@@ -4717,6 +4815,11 @@ char**	argv;
 			case 'c':
 				unzip = 1;
 				continue;
+#if defined(_SEAR_EXEC) || defined(_SEAR_SEEK)
+			case 'i':
+				install = 0;
+				continue;
+#endif
 			case 'l':
 				local = 1;
 				continue;
@@ -4748,9 +4851,9 @@ char**	argv;
 #endif
 
 #if defined(_SEAR_SEEK)
-	if (sear_seek((off_t)_SEAR_SEEK, !list))
+	if (sear_seek((off_t)_SEAR_SEEK, install && !list))
 	{
-		Sleep(5 * 1000);
+		Sleep(2 * 1000);
 		return 1;
 	}
 #endif
@@ -5173,9 +5276,12 @@ char**	argv;
 	else if (verbose)
 		fprintf(stderr, "%lu file%s, %lu block%s\n", state.files, state.files == 1 ? "" : "s", state.blocks, state.blocks == 1 ? "" : "s");
 #if defined(_SEAR_EXEC)
-	if (sear_exec(_SEAR_EXEC))
+#if !defined(_SEAR_ARGS)
+#define _SEAR_ARGS	0
+#endif
+	if (install && sear_exec(_SEAR_EXEC, argv, _SEAR_ARGS))
 	{
-		Sleep(5 * 1000);
+		Sleep(2 * 1000);
 		return 1;
 	}
 #endif

@@ -563,28 +563,28 @@ SOURCE=..\libaprutil.rc
 
 
 "$(INTDIR)\apr_dbm_db-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbm_db" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_db" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_db - Win32 Debug"
 
 
 "$(INTDIR)\apr_dbm_db-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbm_db" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_db" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_db - x64 Release"
 
 
 "$(INTDIR)\apr_dbm_db-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbm_db" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_db" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_dbm_db - x64 Debug"
 
 
 "$(INTDIR)\apr_dbm_db-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_dbm_db" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_dbm_db-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_dbm_db" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

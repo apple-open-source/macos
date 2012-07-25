@@ -45,8 +45,8 @@ public:
 
     void setOptionsChanged(bool changed) { m_optionsChanged = changed; }
 
-    int listIndexAtOffset(int x, int y);
-    IntRect itemBoundingBoxRect(int tx, int ty, int index);
+    int listIndexAtOffset(const LayoutSize&);
+    LayoutRect itemBoundingBoxRect(const LayoutPoint&, int index);
 
     bool scrollToRevealElementAtListIndex(int index);
     bool listIndexIsVisible(int index);
@@ -62,26 +62,24 @@ private:
 
     virtual void updateFromElement();
 
-    virtual bool canHaveChildren() const { return false; }
-
     virtual bool hasControlClip() const { return true; }
-    virtual void paintObject(PaintInfo&, int tx, int ty);
-    virtual IntRect controlClipRect(int tx, int ty) const;
+    virtual void paintObject(PaintInfo&, const LayoutPoint&);
+    virtual LayoutRect controlClipRect(const LayoutPoint&) const;
 
-    virtual bool isPointInOverflowControl(HitTestResult&, int x, int y, int tx, int ty);
+    virtual bool isPointInOverflowControl(HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset);
 
     virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
     virtual bool logicalScroll(ScrollLogicalDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
 
     virtual void computePreferredLogicalWidths();
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
     virtual void computeLogicalHeight();
 
     virtual void layout();
 
-    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
+    virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint&);
 
-    virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
+    virtual bool canBeProgramaticallyScrolled() const { return true; }
     virtual void autoscroll();
     virtual void stopAutoscroll();
 
@@ -96,10 +94,10 @@ private:
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
     // ScrollableArea interface.
-    virtual int scrollSize(ScrollbarOrientation orientation) const;
+    virtual int scrollSize(ScrollbarOrientation) const;
     virtual int scrollPosition(Scrollbar*) const;
     virtual void setScrollOffset(const IntPoint&);
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
@@ -119,6 +117,9 @@ private:
     virtual bool shouldSuspendScrollAnimations() const;
     virtual bool isOnActivePage() const;
 
+    virtual ScrollableArea* enclosingScrollableArea() const;
+    virtual IntRect scrollableAreaBoundingBox() const OVERRIDE;
+
     // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
     void scrollTo(int newOffset);
 
@@ -126,14 +127,14 @@ private:
     PassRefPtr<Scrollbar> createScrollbar();
     void destroyScrollbar();
     
-    int itemHeight() const;
+    LayoutUnit itemHeight() const;
     void valueChanged(unsigned listIndex);
     int numVisibleItems() const;
     int numItems() const;
-    int listHeight() const;
-    void paintScrollbar(PaintInfo&, int tx, int ty);
-    void paintItemForeground(PaintInfo&, int tx, int ty, int listIndex);
-    void paintItemBackground(PaintInfo&, int tx, int ty, int listIndex);
+    LayoutUnit listHeight() const;
+    void paintScrollbar(PaintInfo&, const LayoutPoint&);
+    void paintItemForeground(PaintInfo&, const LayoutPoint&, int listIndex);
+    void paintItemBackground(PaintInfo&, const LayoutPoint&, int listIndex);
     void scrollToRevealSelection();
 
     bool m_optionsChanged;

@@ -52,6 +52,7 @@
 #include <stringops.h>
 #include <dict.h>
 #include <dict_sdbm.h>
+#include <warn_stat.h>
 
 #ifdef HAS_SDBM
 
@@ -76,13 +77,13 @@ static const char *dict_sdbm_lookup(DICT *dict, const char *name)
     datum   dbm_value;
     const char *result = 0;
 
+    dict->error = 0;
+
     /*
      * Sanity check.
      */
     if ((dict->flags & (DICT_FLAG_TRY1NULL | DICT_FLAG_TRY0NULL)) == 0)
 	msg_panic("dict_sdbm_lookup: no DICT_FLAG_TRY1NULL | DICT_FLAG_TRY0NULL flag");
-
-    dict_errno = 0;
 
     /*
      * Optionally fold the key.
@@ -141,12 +142,14 @@ static const char *dict_sdbm_lookup(DICT *dict, const char *name)
 
 /* dict_sdbm_update - add or update database entry */
 
-static void dict_sdbm_update(DICT *dict, const char *name, const char *value)
+static int dict_sdbm_update(DICT *dict, const char *name, const char *value)
 {
     DICT_SDBM *dict_sdbm = (DICT_SDBM *) dict;
     datum   dbm_key;
     datum   dbm_value;
     int     status;
+
+    dict->error = 0;
 
     /*
      * Sanity check.
@@ -217,6 +220,8 @@ static void dict_sdbm_update(DICT *dict, const char *name, const char *value)
     if ((dict->flags & DICT_FLAG_LOCK)
 	&& myflock(dict->lock_fd, INTERNAL_LOCK, MYFLOCK_OP_NONE) < 0)
 	msg_fatal("%s: unlock dictionary: %m", dict_sdbm->dict.name);
+
+    return (status);
 }
 
 /* dict_sdbm_delete - delete one entry from the dictionary */
@@ -226,6 +231,8 @@ static int dict_sdbm_delete(DICT *dict, const char *name)
     DICT_SDBM *dict_sdbm = (DICT_SDBM *) dict;
     datum   dbm_key;
     int     status = 1;
+
+    dict->error = 0;
 
     /*
      * Sanity check.
@@ -303,6 +310,9 @@ static int dict_sdbm_sequence(DICT *dict, const int function,
     DICT_SDBM *dict_sdbm = (DICT_SDBM *) dict;
     datum   dbm_key;
     datum   dbm_value;
+    int     status;
+
+    dict->error = 0;
 
     /*
      * Acquire a shared lock.
@@ -344,6 +354,7 @@ static int dict_sdbm_sequence(DICT *dict, const int function,
 	     * Copy the value so that it is guaranteed null terminated.
 	     */
 	    *value = SCOPY(dict_sdbm->val_buf, dbm_value.dptr, dbm_value.dsize);
+	    status = 0;
 	} else {
 
 	    /*
@@ -352,7 +363,7 @@ static int dict_sdbm_sequence(DICT *dict, const int function,
 	     */
 	    if (sdbm_error(dict_sdbm->dbm))
 		msg_fatal("error seeking %s: %m", dict_sdbm->dict.name);
-	    return (1);				/* no error: eof/not found
+	    status = 1;				/* no error: eof/not found
 						 * (should not happen!) */
 	}
     } else {
@@ -362,7 +373,7 @@ static int dict_sdbm_sequence(DICT *dict, const int function,
 	 */
 	if (sdbm_error(dict_sdbm->dbm))
 	    msg_fatal("error seeking %s: %m", dict_sdbm->dict.name);
-	return (1);				/* no error: eof/not found */
+	status = 1;				/* no error: eof/not found */
     }
 
     /*
@@ -372,7 +383,7 @@ static int dict_sdbm_sequence(DICT *dict, const int function,
 	&& myflock(dict->lock_fd, INTERNAL_LOCK, MYFLOCK_OP_NONE) < 0)
 	msg_fatal("%s: unlock dictionary: %m", dict_sdbm->dict.name);
 
-    return (0);
+    return (status);
 }
 
 /* dict_sdbm_close - disassociate from data base */
@@ -439,6 +450,8 @@ DICT   *dict_sdbm_open(const char *path, int open_flags, int dict_flags)
     if (fstat(dict_sdbm->dict.stat_fd, &st) < 0)
 	msg_fatal("dict_sdbm_open: fstat: %m");
     dict_sdbm->dict.mtime = st.st_mtime;
+    dict_sdbm->dict.owner.uid = st.st_uid;
+    dict_sdbm->dict.owner.status = (st.st_uid != 0);
 
     /*
      * Warn if the source file is newer than the indexed file, except when

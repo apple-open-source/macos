@@ -12,6 +12,11 @@ VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$
 
 RSYNC = rsync -rlpt
 PWD = $(shell pwd)
+
+ifeq ($(MAKECMDGOALS),)
+MAKECMDGOALS = build
+endif
+ifneq ($(filter build install,$(MAKECMDGOALS)),)
 ifndef DSTROOT
 ifdef DESTDIR
 export DSTROOT = $(shell mkdir -p '$(DESTDIR)' && echo '$(DESTDIR)')
@@ -23,12 +28,14 @@ ifndef OBJROOT
 export OBJROOT = $(shell mkdir -p '$(PWD)/OBJROOT' && echo '$(PWD)/OBJROOT')
 RSYNC += --exclude=OBJROOT
 endif
-ifndef SRCROOT
-export SRCROOT = $(PWD)
-endif
 ifndef SYMROOT
 export SYMROOT = $(shell mkdir -p '$(PWD)/SYMROOT' && echo '$(PWD)/SYMROOT')
 RSYNC += --exclude=SYMROOT
+endif
+endif
+
+ifndef SRCROOT
+export SRCROOT = $(PWD)
 endif
 ifndef RC_ARCHS
 export RC_ARCHS = $(shell arch)
@@ -198,14 +205,16 @@ mergedefault:
 MERGEMAN = /usr/share/man
 mergeman: domergeman customman listman
 
+# When merging man pages from the multiple versions, allow the man pages
+# to be compressed (.gz suffix) or not.
 domergeman:
 	@set -x && \
 	for vers in $(ORDEREDVERS); do \
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEMAN) && \
 	    for d in man*; do \
 		cd $$d && \
-		for f in `find . -type f -name \*.gz | sed 's,^\./,,'`; do \
-		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$vers&/"` && \
+		for f in `find . -type f -name '*.*' | sed 's,^\./,,'`; do \
+		    ff=`echo $$f | sed -E "s/\.[^.]*(.gz)?$$/$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
 			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
@@ -215,16 +224,21 @@ domergeman:
 	    done || exit 1; \
 	done
 
+# When adding custom python.1 and pythonw.1 man pages, autodetect if we are
+# compressing man pages, and if so, compress these custom man pages as well
 CUSTOMTEMP = .temp.1
 customman: $(OBJROOT)/wrappers
 	@set -x && \
 	cp -f $(FIX)/$(Project).1 $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP) && \
-	gzip $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP) && \
+	cd $(DSTROOT)$(MERGEMAN)/man1 && \
+	suffix='' && \
+	if ls | grep -q '\.gz$$'; then suffix='.gz'; fi && \
+	if [ "$${suffix}" ]; then gzip $(CUSTOMTEMP); fi && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
-	    rm -f $(DSTROOT)$(MERGEMAN)/man1/$$w.1.gz && \
-	    ln -f $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP).gz $(DSTROOT)$(MERGEMAN)/man1/$$w.1.gz || exit 1; \
+	    rm -f $${w}.1$${suffix} && \
+	    ln -f $(CUSTOMTEMP)$${suffix} $${w}.1$${suffix} || exit 1; \
 	done && \
-	rm -f $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP).gz
+	rm -f $(CUSTOMTEMP)$${suffix}
 
 listman:
 	cd $(DSTROOT)$(MERGEMAN) && find . ! -type d | sed 's,^\./,,' | sort > $(DSTROOT)$(VERSIONMANLIST)

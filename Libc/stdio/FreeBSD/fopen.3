@@ -36,8 +36,8 @@
 .Dt FOPEN 3
 .Os
 .Sh NAME
-.Nm fopen ,
 .Nm fdopen ,
+.Nm fopen ,
 .Nm freopen
 .Nd stream open functions
 .Sh LIBRARY
@@ -45,17 +45,27 @@
 .Sh SYNOPSIS
 .In stdio.h
 .Ft FILE *
-.Fn fopen "const char * restrict path" "const char * restrict mode"
+.Fo fdopen
+.Fa "int fildes"
+.Fa "const char *mode"
+.Fc
 .Ft FILE *
-.Fn fdopen "int fildes" "const char *mode"
+.Fo fopen
+.Fa "const char *restrict filename"
+.Fa "const char *restrict mode"
+.Fc
 .Ft FILE *
-.Fn freopen "const char *path" "const char *mode" "FILE *stream"
+.Fo freopen
+.Fa "const char *restrict filename"
+.Fa "const char *restrict mode"
+.Fa "FILE *restrict stream"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fopen
 function
 opens the file whose name is the string pointed to by
-.Fa path
+.Fa filename
 and associates a stream with it.
 .Pp
 The argument
@@ -103,6 +113,17 @@ This is strictly for compatibility with
 .St -isoC
 and has no effect; the ``b'' is ignored.
 .Pp
+Finally, as an extension to the standards (and thus may not be portable),
+.Fa mode
+string may end with the letter ``x'', which insists on creating a new file
+when used with ``w'' or ``a''.
+If
+.Fa path
+exists, then an error is returned (this is the equivalent of specifying
+.Dv O_EXCL
+with
+.Xr open 2 ) .
+.Pp
 Any created files will have mode
 .Pf \\*q Dv S_IRUSR
 \&|
@@ -144,7 +165,7 @@ The
 .Fn freopen
 function
 opens the file whose name is the string pointed to by
-.Fa path
+.Fa filename
 and associates the stream pointed to by
 .Fa stream
 with it.
@@ -156,7 +177,7 @@ argument is used just as in the
 function.
 .Pp
 If the
-.Fa path
+.Fa filename
 argument is
 .Dv NULL ,
 .Fn freopen
@@ -200,7 +221,7 @@ or
 .Sh RETURN VALUES
 Upon successful completion
 .Fn fopen ,
-.Fn fdopen
+.Fn fdopen ,
 and
 .Fn freopen
 return a

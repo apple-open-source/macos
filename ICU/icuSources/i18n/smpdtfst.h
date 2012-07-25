@@ -1,14 +1,15 @@
-//
-//  smpdtfst.h
-//
-//  Copyright (C) 2009, International Business Machines Corporation and others.
-//  All Rights Reserved.
-//
-//  This file contains declarations for the class SimpleDateFormatStaticSets
-//
-//  SimpleDateFormatStaticSets holds the UnicodeSets that are needed for lenient
-//  parsing of literal characters in date/time strings.
-//
+/*
+*******************************************************************************
+* Copyright (C) 2009-2011, International Business Machines Corporation and    *
+* others. All Rights Reserved.                                                *
+*******************************************************************************
+*
+* This file contains declarations for the class SimpleDateFormatStaticSets
+*
+* SimpleDateFormatStaticSets holds the UnicodeSets that are needed for lenient
+* parsing of literal characters in date/time strings.
+********************************************************************************
+*/
 
 #ifndef SMPDTFST_H
 #define SMPDTFST_H

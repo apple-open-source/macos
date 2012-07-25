@@ -31,6 +31,7 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOFilterInterruptEventSource.h>
 
+
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
 
@@ -1280,8 +1281,9 @@ AppleUSBEHCI::DeallocateTD (EHCIGeneralTransferDescriptorPtr pTD)
 IOReturn 
 AppleUSBEHCI::DeallocateED (AppleEHCIQueueHead *pED)
 {
-    USBLog(7, "AppleUSBEHCI[%p]::DeallocateED - deallocating %p",  this, pED);
+    USBLog(7, "AppleUSBEHCI[%p]::DeallocateED - AsyncListAddr(%08x) deallocating %08x and smashing physical link",  this, (int)_pEHCIRegisters->AsyncListAddr, (int)pED->_sharedPhysical);
     pED->_logicalNext = NULL;
+	pED->SetPhysicalLink(0xFEDCBA98);
 	
     if (_pLastFreeQH)
     {

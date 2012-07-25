@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/opendir.c,v 1.24 2008/04/16 18:40:52 delphi
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "un-namespace.h"
 
 #include "telldir.h"
@@ -65,29 +66,16 @@ __opendir2(const char *name, int flags)
 	int incr;
 	int saved_errno;
 	int unionstack;
-	struct stat statb;
 
 	/*
-	 * stat() before _open() because opening of special files may be
-	 * harmful.  _fstat() after open because the file may have changed.
+	 * Use O_DIRECTORY to only open directories (because opening of
+	 * special files may be harmful).  errno is set to ENOTDIR if
+	 * not a directory.
 	 */
-	if (stat(name, &statb) != 0)
+	if ((fd = _open(name, O_RDONLY | O_NONBLOCK | O_DIRECTORY | O_CLOEXEC)) == -1)
 		return (NULL);
-	if (!S_ISDIR(statb.st_mode)) {
-		errno = ENOTDIR;
-		return (NULL);
-	}
-	if ((fd = _open(name, O_RDONLY | O_NONBLOCK)) == -1)
-		return (NULL);
-	dirp = NULL;
-	if (_fstat(fd, &statb) != 0)
-		goto fail;
-	if (!S_ISDIR(statb.st_mode)) {
-		errno = ENOTDIR;
-		goto fail;
-	}
-	if (_fcntl(fd, F_SETFD, FD_CLOEXEC) == -1 ||
-	    (dirp = malloc(sizeof(DIR) + sizeof(struct _telldir))) == NULL)
+	dirp = malloc(sizeof(DIR) + sizeof(struct _telldir));
+	if (dirp == NULL)
 		goto fail;
 
 	dirp->dd_td = (struct _telldir *)((char *)dirp + sizeof(DIR));
@@ -111,8 +99,7 @@ __opendir2(const char *name, int flags)
 
 		if (_fstatfs(fd, &sfb) < 0)
 			goto fail;
-		unionstack = !strcmp(sfb.f_fstypename, "unionfs")
-		    || (sfb.f_flags & MNT_UNION);
+		unionstack = (sfb.f_flags & MNT_UNION);
 	} else {
 		unionstack = 0;
 	}
@@ -147,7 +134,11 @@ __opendir2(const char *name, int flags)
 				ddptr = buf + (len - space);
 			}
 
+#if __DARWIN_64_BIT_INO_T
+			n = __getdirentries64(fd, ddptr, space, &dirp->dd_td->seekoff);
+#else /* !__DARWIN_64_BIT_INO_T */
 			n = _getdirentries(fd, ddptr, space, &dirp->dd_seek);
+#endif /* __DARWIN_64_BIT_INO_T */
 			if (n > 0) {
 				ddptr += n;
 				space -= n;
@@ -255,14 +246,18 @@ __opendir2(const char *name, int flags)
 		dirp->dd_buf = malloc(dirp->dd_len);
 		if (dirp->dd_buf == NULL)
 			goto fail;
+#if __DARWIN_64_BIT_INO_T
+		dirp->dd_td->seekoff = 0;
+#else /* !__DARWIN_64_BIT_INO_T */
 		dirp->dd_seek = 0;
+#endif /* __DARWIN_64_BIT_INO_T */
 		flags &= ~DTF_REWIND;
 	}
 
 	dirp->dd_loc = 0;
 	dirp->dd_fd = fd;
 	dirp->dd_flags = flags;
-	dirp->dd_lock = NULL;
+	dirp->dd_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 
 	/*
 	 * Set up seek point for rewinddir.

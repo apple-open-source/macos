@@ -39,7 +39,10 @@
 .Sh SYNOPSIS
 .In utime.h
 .Ft int
-.Fn utime "const char *file" "const struct utimbuf *timep"
+.Fo utime
+.Fa "const char *path"
+.Fa "const struct utimbuf *times"
+.Fc
 .Sh DESCRIPTION
 .Bf -symbolic
 This interface is obsoleted by
@@ -48,28 +51,28 @@ This interface is obsoleted by
 .Pp
 The
 .Fn utime
-function sets the access and modification times of the named file from
-the
+function sets the access and modification times of the named file,
+based on the
 .Va actime
 and
 .Va modtime
 fields of the
 .Vt "struct utimbuf"
 pointed at by
-.Fa timep .
+.Fa times .
 .Pp
 If the times are specified (the
-.Fa timep
+.Fa times
 argument is
-.Pf non- Dv NULL )
+.Pf non- Dv NULL ) ,
 the caller must be the owner of the file or be the super-user.
 .Pp
 If the times are not specified (the
-.Fa timep
+.Fa times
 argument is
-.Dv NULL )
-the caller must be the owner of the file, have permission to write
-the file, or be the super-user.
+.Dv NULL ) ,
+the caller must be the owner of the file,
+have permission to write the file, or be the super-user.
 .Sh ERRORS
 The
 .Fn utime

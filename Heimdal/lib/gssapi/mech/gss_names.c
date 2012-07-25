@@ -31,7 +31,7 @@
 #include "mech_locl.h"
 
 OM_uint32
-_gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_OID mech,
+_gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_const_OID mech,
 	     struct _gss_mechanism_name **output_mn)
 {
 	OM_uint32 major_status;
@@ -44,7 +44,7 @@ _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_OID mech,
 	if (name == NULL)
 	    return GSS_S_COMPLETE;
 
-	SLIST_FOREACH(mn, &name->gn_mn, gmn_link) {
+	HEIM_SLIST_FOREACH(mn, &name->gn_mn, gmn_link) {
 		if (gss_oid_equal(mech, mn->gmn_mech_oid))
 			break;
 	}
@@ -64,7 +64,7 @@ _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_OID mech,
 		mn = malloc(sizeof(struct _gss_mechanism_name));
 		if (!mn)
 			return GSS_S_FAILURE;
-		
+
 		major_status = m->gm_import_name(minor_status,
 		    &name->gn_value,
 		    (name->gn_type.elements
@@ -78,7 +78,7 @@ _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_OID mech,
 
 		mn->gmn_mech = m;
 		mn->gmn_mech_oid = &m->gm_mech_oid;
-		SLIST_INSERT_HEAD(&name->gn_mn, mn, gmn_link);
+		HEIM_SLIST_INSERT_HEAD(&name->gn_mn, mn, gmn_link);
 	}
 	*output_mn = mn;
 	return 0;
@@ -89,37 +89,65 @@ _gss_find_mn(OM_uint32 *minor_status, struct _gss_name *name, gss_OID mech,
  * Make a name from an MN.
  */
 struct _gss_name *
-_gss_make_name(gssapi_mech_interface m, gss_name_t new_mn)
+_gss_create_name(gss_name_t new_mn, struct gssapi_mech_interface_desc *m)
 {
 	struct _gss_name *name;
 	struct _gss_mechanism_name *mn;
 
-	name = malloc(sizeof(struct _gss_name));
+	name = calloc(1, sizeof(struct _gss_name));
 	if (!name)
 		return (0);
-	memset(name, 0, sizeof(struct _gss_name));
 
-	mn = malloc(sizeof(struct _gss_mechanism_name));
-	if (!mn) {
-		free(name);
-		return (0);
+	HEIM_SLIST_INIT(&name->gn_mn);
+
+	if (new_mn) {
+		mn = malloc(sizeof(struct _gss_mechanism_name));
+		if (!mn) {
+			free(name);
+			return (0);
+		}
+
+		mn->gmn_mech = m;
+		mn->gmn_mech_oid = &m->gm_mech_oid;
+		mn->gmn_name = new_mn;
+		HEIM_SLIST_INSERT_HEAD(&name->gn_mn, mn, gmn_link);
 	}
-
-	SLIST_INIT(&name->gn_mn);
-	mn->gmn_mech = m;
-	mn->gmn_mech_oid = &m->gm_mech_oid;
-	mn->gmn_name = new_mn;
-	SLIST_INSERT_HEAD(&name->gn_mn, mn, gmn_link);
 
 	return (name);
 }
 
+/*
+ *
+ */
+
+void
+_gss_mg_release_name(struct _gss_name *name)
+{
+	OM_uint32 junk;
+
+	if (name->gn_type.elements)
+		free(name->gn_type.elements);
+	while (HEIM_SLIST_FIRST(&name->gn_mn)) {
+		struct _gss_mechanism_name *mn;
+		mn = HEIM_SLIST_FIRST(&name->gn_mn);
+		HEIM_SLIST_REMOVE_HEAD(&name->gn_mn, gmn_link);
+		mn->gmn_mech->gm_release_name(&junk, &mn->gmn_name);
+		free(mn);
+	}
+	gss_release_buffer(&junk, &name->gn_value);
+	free(name);
+}
+
+/*
+ *
+ */
+
 OM_uint32
 _gss_mech_import_name(OM_uint32 * minor_status,
-		      const gss_OID mech,
+		      gss_const_OID mech,
 		      struct _gss_name_type *names,
 		      const gss_buffer_t input_name_buffer,
-		      const gss_OID input_name_type,
+		      gss_const_OID input_name_type,
 		      gss_name_t * output_name)
 {
     struct _gss_name_type *name;

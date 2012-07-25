@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "InjectedScriptManager.h"
 
 #if ENABLE(INSPECTOR)
+
+#include "InjectedScriptManager.h"
 
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
@@ -99,6 +100,22 @@ void InjectedScriptManager::discardInjectedScripts()
     for (IdToInjectedScriptMap::iterator it = m_idToInjectedScript.begin(); it != end; ++it)
         discardInjectedScript(it->second.scriptState());
     m_idToInjectedScript.clear();
+}
+
+void InjectedScriptManager::discardInjectedScriptsFor(DOMWindow* window)
+{
+    Vector<long> idsToRemove;
+    IdToInjectedScriptMap::iterator end = m_idToInjectedScript.end();
+    for (IdToInjectedScriptMap::iterator it = m_idToInjectedScript.begin(); it != end; ++it) {
+        ScriptState* scriptState = it->second.scriptState();
+        if (window != domWindowFromScriptState(scriptState))
+            continue;
+        discardInjectedScript(scriptState);
+        idsToRemove.append(it->first);
+    }
+
+    for (size_t i = 0; i < idsToRemove.size(); i++)
+        m_idToInjectedScript.remove(idsToRemove[i]);
 }
 
 bool InjectedScriptManager::canAccessInspectedWorkerContext(ScriptState*)

@@ -30,35 +30,30 @@
 
 #include "config.h"
 #include "DOMData.h"
-
-#include "ChildThreadDOMData.h"
-#include "MainThreadDOMData.h"
+#include "V8Binding.h"
+#include "V8IsolatedContext.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLUniformLocation.h"
 
 namespace WebCore {
 
-DOMData::DOMData()
-    : m_owningThread(WTF::currentThread())
+DOMDataStore& DOMData::getCurrentStore(v8::Isolate* isolate)
 {
-}
-
-DOMData::~DOMData()
-{
-}
-
-DOMData* DOMData::getCurrent()
-{
-    if (WTF::isMainThread())
-        return MainThreadDOMData::getCurrent();
-
-    DEFINE_STATIC_LOCAL(WTF::ThreadSpecific<ChildThreadDOMData>, childThreadDOMData, ());
-    return childThreadDOMData;
+    DEFINE_STATIC_LOCAL(StaticDOMDataStore, defaultStore, ());
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    if (UNLIKELY(data->domDataStore() != 0))
+        return *data->domDataStore();
+    V8IsolatedContext* context = V8IsolatedContext::getEntered();
+    if (UNLIKELY(context != 0))
+        return *context->world()->domDataStore();
+    return defaultStore;
 }
 
 void DOMData::derefObject(WrapperTypeInfo* type, void* domObject)
 {
     type->derefObject(domObject);
 }
+
+
 
 } // namespace WebCore

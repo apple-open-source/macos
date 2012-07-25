@@ -341,7 +341,7 @@ compare_acl_permsets(acl_permset_t aperms, acl_permset_t bperms)
 	return MATCH_EXACT;
 }
 
-int
+static int
 compare_acl_flagsets(acl_flagset_t aflags, acl_flagset_t bflags)
 {
 	int i;
@@ -538,7 +538,7 @@ subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier, int* valid_perms)
 	return 0;
 }
 /* Add the perms specified in modifier to rentry */
-int
+static int
 merge_entry_perms(acl_entry_t rentry, acl_entry_t  modifier)
 {
 	acl_permset_t rperms, mperms;
@@ -679,7 +679,7 @@ ma_exit:
 }
 
 int
-modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level) {
+modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level, int follow) {
 	
 	acl_t oacl = NULL;
 	unsigned aindex  = 0, flag_new_acl = 0;
@@ -723,11 +723,18 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 		return (retval);
 	}
 
-	if (optflags & ACL_FROM_STDIN)
+	if (optflags & ACL_FROM_STDIN) {
 		oacl = acl_dup(modifier);
-	else {
-		oacl = acl_get_file(path, ACL_TYPE_EXTENDED);
-		
+	} else {
+		if (follow) {
+			oacl = acl_get_file(path, ACL_TYPE_EXTENDED);
+		} else {
+			int fd = open(path, O_SYMLINK);
+			if (fd != -1) {
+				oacl = acl_get_fd_np(fd, ACL_TYPE_EXTENDED);
+				close(fd);
+			}
+		}
 		if ((oacl == NULL) ||
 		    (acl_get_entry(oacl,ACL_FIRST_ENTRY, &newent) != 0)) {
 			if ((oacl = acl_init(1)) == NULL)
@@ -814,11 +821,23 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
  * "changeset" mechanism, common locking  strategy, or kernel
  * supplied reservation mechanism to prevent this race.
  */
-	if (!(optflags & (ACL_TO_STDOUT|ACL_CHECK_CANONICITY)) && 
-	    (0 != acl_set_file(path, ACL_TYPE_EXTENDED, oacl))){
-		if (!fflag)
-			warn("Failed to set ACL on file '%s'", path);
-		retval = 1;
+	if (!(optflags & (ACL_TO_STDOUT|ACL_CHECK_CANONICITY))) {
+		int status = -1;
+		if (follow) {
+	    		status = acl_set_file(path, ACL_TYPE_EXTENDED, oacl);
+		} else {
+			int fd = open(path, O_SYMLINK);
+			if (fd != -1) {
+				status = acl_set_fd_np(fd, oacl,
+							ACL_TYPE_EXTENDED);
+				close(fd);
+			}
+		}
+		if (status != 0) {
+			if (!fflag)
+				warn("Failed to set ACL on file '%s'", path);
+			retval = 1;
+		}
 	}
 	
 	if (oacl)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,108 +40,60 @@ class IONetworkInterface;
 
 class IONetworkStack : public IOService
 {
-    OSDeclareDefaultStructors( IONetworkStack )
+    OSDeclareFinalStructors( IONetworkStack )
 
 protected:
-    OSOrderedSet *   _ifSet;
-    OSDictionary *   _ifDict;
-    IONotifier *     _interfaceNotifier;
-    bool             _registerPrimaryInterface;
+    OSSet *             _ifListNaming;
+    OSArray *           _ifListDetach;
+    OSDictionary *      _ifPrefixDict;
+    IONotifier *        _ifNotifier;
+    IOLock *            _stateLock;
+    thread_call_t       _asyncThread;
 
-    struct ExpansionData { };
-    /*! @var reserved
-        Reserved for future use.  (Internal use only)  */
-    ExpansionData *_reserved;
+    static SInt32       orderNetworkInterfaces(
+                            const OSMetaClassBase * obj1,
+                            const OSMetaClassBase * obj2,
+                            void *                  ref );
 
+    virtual void        free( void );
 
-    static bool interfacePublished( void *      target,
-                                    void *      param,
-                                    IOService * service );
+    bool                interfacePublished(
+                            void *          refCon,
+                            IOService *     service,
+                            IONotifier *    notifier );
 
-    static void unregisterBSDInterface( IONetworkInterface * netif, thread_call_t );
+    void                asyncWork( void );
 
-    static void registerBSDInterface( IONetworkInterface * netif );
+    bool                insertNetworkInterface(
+                            IONetworkInterface * netif );
 
-    static SInt32 orderRegisteredInterfaces( const OSMetaClassBase * obj1,
-                                             const OSMetaClassBase * obj2,
-                                             void *     ref );
+    void                removeNetworkInterface(
+                            IONetworkInterface * netif );
 
-    static void completeRegistrationUsingArray( OSArray * array, thread_call_t );
+    uint32_t            getNextAvailableUnitNumber(
+                            const char *         name,
+                            uint32_t             startingUnit );
 
-    static void completeRegistration( OSArray * array, bool isSync );
+    bool                reserveInterfaceUnitNumber(
+                            IONetworkInterface * netif,
+                            uint32_t             unit,
+                            bool                 isUnitFixed );
 
-    virtual void free();
+    IOReturn            attachNetworkInterfaceToBSD(
+                            IONetworkInterface * netif );
 
-    virtual bool addInterface( IONetworkInterface * netif );
+    IOReturn            registerAllNetworkInterfaces( void );
 
-    virtual void removeInterface( IONetworkInterface * netif );
-
-    virtual IONetworkInterface * getInterface( UInt32 index );
-
-    virtual bool containsInterface( IONetworkInterface * netif );
-
-    virtual bool addRegisteredInterface( IONetworkInterface * netif );
-
-    virtual void removeRegisteredInterface( IONetworkInterface * netif );
-
-    virtual IONetworkInterface * getRegisteredInterface( const char * name,
-                                                         UInt32       unit );
-
-    virtual IONetworkInterface * getLastRegisteredInterface(const char * name);
-
-    virtual UInt32 getNextAvailableUnitNumber( const char * name,
-                                               UInt32       startingUnit = 0 );
-
-    virtual bool preRegisterInterface( IONetworkInterface * netif,
-                                       const char *         name,
-                                       UInt32               unit,
-                                       OSArray *            array,
-                                       bool                 fixedUnit = false );
+    IOReturn            registerNetworkInterface(
+                            IONetworkInterface * netif,
+                            uint32_t             unit,
+                            bool                 isUnitFixed );
 
 public:
-    enum {
-        kRegisterInterfaceWithFixedUnit = 0,
-        kRegisterInterface,
-        kRegisterAllInterfaces
-    };
-
-    static IONetworkStack * getNetworkStack();
-
-    virtual bool init( OSDictionary * properties );
-
-    virtual bool start( IOService * provider );
-
-    virtual void stop( IOService * provider );
-
-    virtual IOReturn registerAllInterfaces();
-    
-    virtual IOReturn registerPrimaryInterface( bool enable );
-
-    virtual IOReturn registerInterface( IONetworkInterface * netif,
-                                        const char *         name,
-                                        UInt32               unit      = 0,
-                                        bool                 isSync    = true,
-                                        bool                 fixedUnit = false );
-
-    virtual IOReturn message( UInt32      type,
-                              IOService * provider,
-                              void *      argument = 0 );
-
-    virtual IOReturn newUserClient( task_t           owningTask,
-                                    void *           security_id,
-                                    UInt32           type,
-                                    IOUserClient **  handler );
-
-    virtual IOReturn setProperties( OSObject * properties );
-
-    // Virtual function padding
-    OSMetaClassDeclareReservedUnused( IONetworkStack,  0);
-    OSMetaClassDeclareReservedUnused( IONetworkStack,  1);
-    OSMetaClassDeclareReservedUnused( IONetworkStack,  2);
-    OSMetaClassDeclareReservedUnused( IONetworkStack,  3);
-
+    virtual bool        start( IOService * provider );
+    virtual bool        didTerminate( IOService *, IOOptionBits, bool * );
+    virtual IOReturn    setProperties( OSObject * properties );
 };
 
 #endif /* KERNEL */
-
 #endif /* !_IONETWORKSTACK_H */

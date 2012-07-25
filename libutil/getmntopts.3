@@ -1,4 +1,4 @@
-.\"	$NetBSD: getmntopts.3,v 1.7 2004/02/24 15:12:51 wiz Exp $
+.\"	$NetBSD: getmntopts.3,v 1.12 2010/08/24 12:05:01 christos Exp $
 .\"
 .\" Copyright (c) 1994
 .\"	The Regents of the University of California.  All rights reserved.
@@ -29,7 +29,7 @@
 .\"
 .\"	@(#)getmntopts.3	8.3 (Berkeley) 3/30/95
 .\"
-.Dd April 11, 2003
+.Dd May 4, 2010
 .Dt GETMNTOPTS 3
 .Os
 .Sh NAME
@@ -51,7 +51,7 @@
 The
 .Fn getmntopts
 function takes a comma separated option list and a list
-of valid option names, and computes the bitmask
+of valid option names, and computes the bitmasks
 corresponding to the requested set of options.
 .Pp
 The string
@@ -76,9 +76,9 @@ has the following format:
 .Bd -literal
 struct mntopt {
 	const char *m_option;	/* option name */
-	int m_inverse;		/* is this a negative option, e.g., "dev" */
+	int m_inverse;		/* negative option, e.g., "dev" */
 	int m_flag;		/* bit to set, e.g., MNT_RDONLY */
-	int m_altloc;		/* non-zero to use altflagp rather than flagp */
+	int m_altloc;		/* use altflagp rather than flagp */
 };
 .Ed
 .Pp
@@ -127,7 +127,26 @@ entry.
 To simplify the program interface and ensure consistency across all
 programs, a general purpose macro,
 .Dv MOPT_STDOPTS ,
-is defined which contains an entry for all the generic VFS options.
+is defined which contains an entry for all the generic VFS options:
+.Bd -literal -offset indent
+MOPT_USERQUOTA,
+MOPT_GROUPQUOTA,
+MOPT_FSTAB_COMPAT,
+MOPT_NODEV,
+MOPT_NOEXEC,
+MOPT_NOSUID,
+MOPT_RDONLY,
+MOPT_UNION,
+MOPT_BROWSE,
+MOPT_AUTOMOUNTED,
+MOPT_DEFWRITE,
+MOPT_NOATIME,
+MOPT_PERMISSIONS,
+MOPT_IGNORE_OWNERSHIP,
+MOPT_QUARANTINE,
+MOPT_CPROTECT
+.Ed
+.Pp
 In addition, the macros
 .Dv MOPT_FORCE
 and
@@ -141,22 +160,82 @@ Finally, the table must be terminated by an entry with a
 .Dv NULL
 first element.
 .Pp
+.Fn getmntopts
+returns a
+.Li "mntoptparse_t"
+handle that can be used in subsequent
+.Fn getmntoptstr
+and
+.Fn getmntoptnum
+calls to fetch a value for an option and that must be freed with a call
+to
+.Fn freemntopts .
+If an error occurred, then if the external integer value
+.Va getmnt_silent
+is zero then
+.Fn getmntopts
+prints an error message and exits;
+if
+.Va getmnt_silent
+is non-zero then
+.Fn getmntopts
+returns
+.Dv NULL .
+.Pp
 The
 .Fn getmntoptstr
 function returns the string value of the named option, if such a value
-was set it the option string.
+was set in the option string.
+If the value was not set, then if the external integer value
+.Va getmnt_silent
+is zero then
+.Fn getmntoptstr
+prints an error message and exits;
+if
+.Va getmnt_silent
+is non-zero then
+.Fn getmntoptstr
+returns
+.Dv NULL .
 .Pp
 The
 .Fn getmntoptnum
-returns the long value of the named option, if such a value was set it the
+returns the long value of the named option, if such a value was set in the
 option string.
-It prints an error message and exits if the value was not
-set, or could not be converted from a string to a long.
+If the value was not set, or could not be converted from a string to a
+long, then if the external integer value
+.Va getmnt_silent
+is zero then
+.Fn getmntoptnum
+prints an error message and exits;
+if
+.Va getmnt_silent
+is non-zero then
+.Fn getmntoptnum
+returns \-1.
 .Pp
 The
 .Fn freemntopts
 frees the storage used by
 .Fn getmntopts .
+.Sh RETURN VALUES
+.Fn getmntopts
+returns
+.Dv NULL
+if an error occurred.
+Note that some bits may already have been set in
+.Va flagp
+and
+.Va altflagp
+even if
+.Dv NULL
+is returned.
+.Fn getmntoptstr
+returns
+.Dv NULL
+if an error occurred.
+.Fn getmntoptnum
+returns \-1 if an error occurred.
 .Sh EXAMPLES
 Most commands will use the standard option set.
 Local filesystems which support the
@@ -165,7 +244,7 @@ flag, would also have an
 .Dv MOPT_UPDATE
 entry.
 This can be declared and used as follows:
-.Bd -literal
+.Bd -literal -offset indent
 #include \*[Lt]mntopts.h\*[Gt]
 
 static const struct mntopt mopts[] = {
@@ -174,37 +253,33 @@ static const struct mntopt mopts[] = {
 	{ NULL }
 };
 
-...
+\&...
+
 long val;
-mntflags = mntaltflags = 0;
 mntoptparse_t mp;
-...
-if ((mp = getmntopts(options, mopts, \*[Am]mntflags, \*[Am]mntaltflags)) == NULL)
-	err(1, NULL);
-...
+mntflags = mntaltflags = 0;
+
+\&...
+
+mp = getmntopts(options, mopts, \*[Am]mntflags, \*[Am]mntaltflags);
+
+if (mp == NULL)
+	err(EXIT_FAILURE, "getmntopts");
+
+\&...
+
 val = getmntoptnum(mp, "rsize");
 freemntopts(mp);
 .Ed
-.Sh RETURN VALUE
-.Fn getmntopts
-returns
-.Dv NULL
-if an error occurred.
-.Fn getmntoptstr
-returns
-.Dv NULL
-if the option does not have an argument, or the option string.
-.Fn getmntoptnum
-returns \-1 if an error occurred and
-.Va getmnt_silent
-is set.
 .Sh DIAGNOSTICS
 If the external integer variable
 .Va getmnt_silent
-is non-zero then the
-.Fn getmntopts
-function displays an error message and exits if an
-unrecognized option is encountered.
+is zero then the
+.Fn getmntopts ,
+.Fn getmntoptstr ,
+and
+.Fn getmntoptnum
+functions display an error message and exit if an error occurred.
 By default
 .Va getmnt_silent
 is zero.

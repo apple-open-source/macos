@@ -27,16 +27,16 @@
 #include "RenderSVGInlineText.h"
 
 #include "CSSFontSelector.h"
-#include "CSSStyleSelector.h"
 #include "FloatConversion.h"
 #include "FloatQuad.h"
 #include "RenderBlock.h"
 #include "RenderSVGRoot.h"
 #include "RenderSVGText.h"
 #include "Settings.h"
-#include "SVGImageBufferTools.h"
 #include "SVGInlineTextBox.h"
+#include "SVGRenderingContext.h"
 #include "SVGRootInlineBox.h"
+#include "StyleResolver.h"
 #include "VisiblePosition.h"
 
 namespace WebCore {
@@ -68,33 +68,66 @@ static PassRefPtr<StringImpl> applySVGWhitespaceRules(PassRefPtr<StringImpl> str
 RenderSVGInlineText::RenderSVGInlineText(Node* n, PassRefPtr<StringImpl> string)
     : RenderText(n, applySVGWhitespaceRules(string, false))
     , m_scalingFactor(1)
+    , m_layoutAttributes(this)
 {
 }
 
-void RenderSVGInlineText::destroy()
+void RenderSVGInlineText::willBeDestroyed()
 {
-    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this))
-        textRenderer->setNeedsPositioningValuesUpdate();
+    RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this);
+    if (!textRenderer) {
+        RenderText::willBeDestroyed();
+        return;
+    }
 
-    RenderText::destroy();
+    Vector<SVGTextLayoutAttributes*> affectedAttributes;
+    textRenderer->layoutAttributesWillBeDestroyed(this, affectedAttributes);
+
+    RenderText::willBeDestroyed();
+    if (affectedAttributes.isEmpty())
+        return;
+
+    if (!documentBeingDestroyed())
+        textRenderer->rebuildLayoutAttributes(affectedAttributes);
+}
+
+void RenderSVGInlineText::setTextInternal(PassRefPtr<StringImpl> text)
+{
+    RenderText::setTextInternal(text);
+
+    // When the underlying text content changes, call both textDOMChanged() & layoutAttributesChanged()
+    // The former will clear the SVGTextPositioningElement cache, which depends on the textLength() of
+    // the RenderSVGInlineText objects, and thus needs to be rebuild. The latter will assure that the
+    // SVGTextLayoutAttributes associated with the RenderSVGInlineText will be updated.
+    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this)) {
+        textRenderer->invalidateTextPositioningElements();
+        textRenderer->layoutAttributesChanged(this);
+    }
 }
 
 void RenderSVGInlineText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderText::styleDidChange(diff, oldStyle);
+    updateScaledFont();
 
-    if (diff == StyleDifferenceLayout) {
-        // The text metrics may be influenced by style changes.
-        if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this))
-            textRenderer->setNeedsPositioningValuesUpdate();
+    bool newPreserves = style() ? style()->whiteSpace() == PRE : false;
+    bool oldPreserves = oldStyle ? oldStyle->whiteSpace() == PRE : false;
+    if (oldPreserves && !newPreserves) {
+        setText(applySVGWhitespaceRules(originalText(), false), true);
+        return;
     }
 
-    const RenderStyle* newStyle = style();
-    if (!newStyle || newStyle->whiteSpace() != PRE)
+    if (!oldPreserves && newPreserves) {
+        setText(applySVGWhitespaceRules(originalText(), true), true);
+        return;
+    }
+
+    if (diff != StyleDifferenceLayout)
         return;
 
-    if (!oldStyle || oldStyle->whiteSpace() != PRE)
-        setText(applySVGWhitespaceRules(originalText(), true), true);
+    // The text metrics may be influenced by style changes.
+    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this))
+        textRenderer->layoutAttributesChanged(this);
 }
 
 InlineTextBox* RenderSVGInlineText::createTextBox()
@@ -104,39 +137,42 @@ InlineTextBox* RenderSVGInlineText::createTextBox()
     return box;
 }
 
-IntRect RenderSVGInlineText::localCaretRect(InlineBox* box, int caretOffset, int*)
+LayoutRect RenderSVGInlineText::localCaretRect(InlineBox* box, int caretOffset, LayoutUnit*)
 {
-    if (!box->isInlineTextBox())
-        return IntRect();
+    if (!box || !box->isInlineTextBox())
+        return LayoutRect();
 
     InlineTextBox* textBox = static_cast<InlineTextBox*>(box);
     if (static_cast<unsigned>(caretOffset) < textBox->start() || static_cast<unsigned>(caretOffset) > textBox->start() + textBox->len())
-        return IntRect();
+        return LayoutRect();
 
     // Use the edge of the selection rect to determine the caret rect.
     if (static_cast<unsigned>(caretOffset) < textBox->start() + textBox->len()) {
-        IntRect rect = textBox->selectionRect(0, 0, caretOffset, caretOffset + 1);
-        int x = box->isLeftToRightDirection() ? rect.x() : rect.maxX();
-        return IntRect(x, rect.y(), caretWidth, rect.height());
+        LayoutRect rect = textBox->localSelectionRect(caretOffset, caretOffset + 1);
+        LayoutUnit x = box->isLeftToRightDirection() ? rect.x() : rect.maxX();
+        return LayoutRect(x, rect.y(), caretWidth, rect.height());
     }
 
-    IntRect rect = textBox->selectionRect(0, 0, caretOffset - 1, caretOffset);
-    int x = box->isLeftToRightDirection() ? rect.maxX() : rect.x();
-    return IntRect(x, rect.y(), caretWidth, rect.height());
+    LayoutRect rect = textBox->localSelectionRect(caretOffset - 1, caretOffset);
+    LayoutUnit x = box->isLeftToRightDirection() ? rect.maxX() : rect.x();
+    return LayoutRect(x, rect.y(), caretWidth, rect.height());
 }
 
-IntRect RenderSVGInlineText::linesBoundingBox() const
+FloatRect RenderSVGInlineText::floatLinesBoundingBox() const
 {
-    IntRect boundingBox;
+    FloatRect boundingBox;
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox())
         boundingBox.unite(box->calculateBoundaries());
     return boundingBox;
 }
 
+IntRect RenderSVGInlineText::linesBoundingBox() const
+{
+    return enclosingIntRect(floatLinesBoundingBox());
+}
+
 bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
 {
-    ASSERT(m_attributes.xValues().size() == textLength());
-    ASSERT(m_attributes.yValues().size() == textLength());
     ASSERT(position >= 0);
     ASSERT(position < static_cast<int>(textLength()));
 
@@ -144,30 +180,14 @@ bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
     if (!position && parent()->isSVGTextPath() && !previousSibling())
         return true;
 
-    int currentPosition = 0;
-    unsigned size = m_attributes.textMetricsValues().size();
-    for (unsigned i = 0; i < size; ++i) {
-        const SVGTextMetrics& metrics = m_attributes.textMetricsValues().at(i);
+    const SVGCharacterDataMap::const_iterator it = m_layoutAttributes.characterDataMap().find(static_cast<unsigned>(position + 1));
+    if (it == m_layoutAttributes.characterDataMap().end())
+        return false;
 
-        // We found the desired character.
-        if (currentPosition == position) {
-            return m_attributes.xValues().at(position) != SVGTextLayoutAttributes::emptyValue()
-                || m_attributes.yValues().at(position) != SVGTextLayoutAttributes::emptyValue();
-        }
-
-        currentPosition += metrics.length();
-        if (currentPosition > position)
-            break;
-    }
-
-    // The desired position is available in the x/y list, but not in the character data values list.
-    // That means the previous character data described a single glyph, consisting of multiple unicode characters.
-    // The consequence is that the desired character does not define a new absolute x/y position, even if present in the x/y test.
-    // This code is tested by svg/W3C-SVG-1.1/text-text-06-t.svg (and described in detail, why this influences chunk detection).
-    return false;
+    return it->second.x != SVGTextLayoutAttributes::emptyValue() || it->second.y != SVGTextLayoutAttributes::emptyValue();
 }
 
-VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
+VisiblePosition RenderSVGInlineText::positionForPoint(const LayoutPoint& point)
 {
     if (!firstTextBox() || !textLength())
         return createVisiblePosition(0, DOWNSTREAM);
@@ -179,7 +199,7 @@ VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
 
     // Map local point to absolute point, as the character origins stored in the text fragments use absolute coordinates.
     FloatPoint absolutePoint(point);
-    absolutePoint.move(containingBlock->x(), containingBlock->y());
+    absolutePoint.moveBy(containingBlock->location());
 
     float closestDistance = std::numeric_limits<float>::max();
     float closestDistancePosition = 0;
@@ -221,19 +241,6 @@ VisiblePosition RenderSVGInlineText::positionForPoint(const IntPoint& point)
     return createVisiblePosition(offset + closestDistanceBox->start(), offset > 0 ? VP_UPSTREAM_IF_POSSIBLE : DOWNSTREAM);
 }
 
-void RenderSVGInlineText::setStyle(PassRefPtr<RenderStyle> style)
-{
-    RenderText::setStyle(style);
-
-    // The cached scaledFont needs to be updated on every style set call. It
-    // is not similar to m_style which can get derived from parent's style and
-    // hence will get automatically updated on ancestor's style change. This is
-    // required, otherwise we will maintain stale font list in cached scaledFont
-    // when custom fonts are retired on Document::recalcStyle. See webkit bug
-    // https://bugs.webkit.org/show_bug.cgi?id=68060.
-    updateScaledFont();
-}
-
 void RenderSVGInlineText::updateScaledFont()
 {
     computeNewScaledFontForStyle(this, style(), m_scalingFactor, m_scaledFont);
@@ -246,25 +253,27 @@ void RenderSVGInlineText::computeNewScaledFontForStyle(RenderObject* renderer, c
 
     Document* document = renderer->document();
     ASSERT(document);
+    
+    StyleResolver* styleResolver = document->styleResolver();
+    ASSERT(styleResolver);
 
-    CSSStyleSelector* styleSelector = document->styleSelector();
-    ASSERT(styleSelector);
-
-    // Alter font-size to the right on-screen value, to avoid scaling the glyphs themselves.
+    // Alter font-size to the right on-screen value to avoid scaling the glyphs themselves, except when GeometricPrecision is specified
     AffineTransform ctm;
-    SVGImageBufferTools::calculateTransformationToOutermostSVGCoordinateSystem(renderer, ctm);
+    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(renderer, ctm);
     scalingFactor = narrowPrecisionToFloat(sqrt((pow(ctm.xScale(), 2) + pow(ctm.yScale(), 2)) / 2));
-    if (scalingFactor == 1 || !scalingFactor) {
+    if (scalingFactor == 1 || !scalingFactor || style->fontDescription().textRenderingMode() == GeometricPrecision) {
         scalingFactor = 1;
         scaledFont = style->font();
         return;
     }
 
     FontDescription fontDescription(style->fontDescription());
-    fontDescription.setComputedSize(CSSStyleSelector::getComputedSizeFromSpecifiedSize(document, scalingFactor, fontDescription.isAbsoluteSize(), fontDescription.computedSize(), DoNotUseSmartMinimumForFontSize));
+
+    // FIXME: We need to better handle the case when we compute very small fonts below (below 1pt).
+    fontDescription.setComputedSize(StyleResolver::getComputedSizeFromSpecifiedSize(document, scalingFactor, fontDescription.isAbsoluteSize(), fontDescription.computedSize(), DoNotUseSmartMinimumForFontSize));
 
     scaledFont = Font(fontDescription, 0, 0);
-    scaledFont.update(styleSelector->fontSelector());
+    scaledFont.update(styleResolver->fontSelector());
 }
 
 }

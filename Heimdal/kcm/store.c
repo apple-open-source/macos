@@ -142,7 +142,7 @@ kcm_store_io(krb5_context context,
     }
 
     uuid_copy(xtsEncrypt_InStruct.key_uuid, uuid);
-    xtsEncrypt_InStruct.bufferAddress = (uint64_t) inseed;
+    xtsEncrypt_InStruct.bufferAddress = (uint64_t) (intptr_t) inseed;
     xtsEncrypt_InStruct.bufferLength = (uint64_t) inseed_size;
     memset(xtsEncrypt_InStruct.tweak, 0, XTS_TWEAK_BYTES);
     

@@ -92,11 +92,7 @@ public:
         ASSERT_UNUSED(codeOriginIndex, codeOriginIndex < UINT_MAX);
         ASSERT_UNUSED(codeOriginIndex, codeOriginIndex == m_codeOriginIndex);
     }
-    
-    void assertNoCodeOriginIndex() const
-    {
-        ASSERT(m_codeOriginIndex == UINT_MAX);
-    }
+
 private:
 #if !ASSERT_DISABLED
     unsigned m_codeOriginIndex;
@@ -134,9 +130,9 @@ struct PropertyAccessRecord {
     enum RegisterMode { RegistersFlushed, RegistersInUse };
     
 #if USE(JSVALUE64)
-    PropertyAccessRecord(CodeOrigin codeOrigin, MacroAssembler::DataLabelPtr deltaCheckImmToCall, MacroAssembler::Call functionCall, MacroAssembler::Jump deltaCallToStructCheck, MacroAssembler::DataLabelCompact deltaCallToLoadOrStore, MacroAssembler::Label deltaCallToSlowCase, MacroAssembler::Label deltaCallToDone, int8_t baseGPR, int8_t valueGPR, int8_t scratchGPR, RegisterMode registerMode = RegistersInUse)
+    PropertyAccessRecord(CodeOrigin codeOrigin, MacroAssembler::DataLabelPtr deltaCheckImmToCall, MacroAssembler::Call functionCall, MacroAssembler::PatchableJump deltaCallToStructCheck, MacroAssembler::DataLabelCompact deltaCallToLoadOrStore, MacroAssembler::Label deltaCallToSlowCase, MacroAssembler::Label deltaCallToDone, int8_t baseGPR, int8_t valueGPR, int8_t scratchGPR, RegisterMode registerMode = RegistersInUse)
 #elif USE(JSVALUE32_64)
-    PropertyAccessRecord(CodeOrigin codeOrigin, MacroAssembler::DataLabelPtr deltaCheckImmToCall, MacroAssembler::Call functionCall, MacroAssembler::Jump deltaCallToStructCheck, MacroAssembler::DataLabelCompact deltaCallToTagLoadOrStore, MacroAssembler::DataLabelCompact deltaCallToPayloadLoadOrStore, MacroAssembler::Label deltaCallToSlowCase, MacroAssembler::Label deltaCallToDone, int8_t baseGPR, int8_t valueTagGPR, int8_t valueGPR, int8_t scratchGPR, RegisterMode registerMode = RegistersInUse)
+    PropertyAccessRecord(CodeOrigin codeOrigin, MacroAssembler::DataLabelPtr deltaCheckImmToCall, MacroAssembler::Call functionCall, MacroAssembler::PatchableJump deltaCallToStructCheck, MacroAssembler::DataLabelCompact deltaCallToTagLoadOrStore, MacroAssembler::DataLabelCompact deltaCallToPayloadLoadOrStore, MacroAssembler::Label deltaCallToSlowCase, MacroAssembler::Label deltaCallToDone, int8_t baseGPR, int8_t valueTagGPR, int8_t valueGPR, int8_t scratchGPR, RegisterMode registerMode = RegistersInUse)
 #endif
         : m_codeOrigin(codeOrigin)
         , m_deltaCheckImmToCall(deltaCheckImmToCall)
@@ -163,7 +159,7 @@ struct PropertyAccessRecord {
     CodeOrigin m_codeOrigin;
     MacroAssembler::DataLabelPtr m_deltaCheckImmToCall;
     MacroAssembler::Call m_functionCall;
-    MacroAssembler::Jump m_deltaCallToStructCheck;
+    MacroAssembler::PatchableJump m_deltaCallToStructCheck;
 #if USE(JSVALUE64)
     MacroAssembler::DataLabelCompact m_deltaCallToLoadOrStore;
 #elif USE(JSVALUE32_64)
@@ -191,36 +187,24 @@ struct PropertyAccessRecord {
 // call to be linked).
 class JITCompiler : public CCallHelpers {
 public:
-    JITCompiler(JSGlobalData* globalData, Graph& dfg, CodeBlock* codeBlock)
-        : CCallHelpers(globalData, codeBlock)
+    JITCompiler(Graph& dfg)
+        : CCallHelpers(&dfg.m_globalData, dfg.m_codeBlock)
         , m_graph(dfg)
         , m_currentCodeOriginIndex(0)
     {
     }
 
-    void compile(JITCode& entry);
-    void compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWithArityCheck);
+    bool compile(JITCode& entry);
+    bool compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWithArityCheck);
 
     // Accessors for properties.
     Graph& graph() { return m_graph; }
     
-    // Just get a token for beginning a call.
-    CallBeginToken nextCallBeginToken(CodeOrigin codeOrigin)
-    {
-        if (!codeOrigin.inlineCallFrame)
-            return CallBeginToken();
-        return CallBeginToken(m_currentCodeOriginIndex++);
-    }
-    
     // Get a token for beginning a call, and set the current code origin index in
     // the call frame.
-    CallBeginToken beginCall(CodeOrigin codeOrigin)
+    CallBeginToken beginCall()
     {
-        unsigned codeOriginIndex;
-        if (!codeOrigin.inlineCallFrame)
-            codeOriginIndex = UINT_MAX;
-        else
-            codeOriginIndex = m_currentCodeOriginIndex++;
+        unsigned codeOriginIndex = m_currentCodeOriginIndex++;
         store32(TrustedImm32(codeOriginIndex), tagFor(static_cast<VirtualRegister>(RegisterFile::ArgumentCount)));
         return CallBeginToken(codeOriginIndex);
     }
@@ -242,39 +226,27 @@ public:
     // Add a call out from JIT code, with an exception check.
     void addExceptionCheck(Call functionCall, CodeOrigin codeOrigin, CallBeginToken token)
     {
+        move(TrustedImm32(m_exceptionChecks.size()), GPRInfo::nonPreservedNonReturnGPR);
         m_exceptionChecks.append(CallExceptionRecord(functionCall, emitExceptionCheck(), codeOrigin, token));
     }
     
     // Add a call out from JIT code, with a fast exception check that tests if the return value is zero.
     void addFastExceptionCheck(Call functionCall, CodeOrigin codeOrigin, CallBeginToken token)
     {
+        move(TrustedImm32(m_exceptionChecks.size()), GPRInfo::nonPreservedNonReturnGPR);
         Jump exceptionCheck = branchTestPtr(Zero, GPRInfo::returnValueGPR);
         m_exceptionChecks.append(CallExceptionRecord(functionCall, exceptionCheck, codeOrigin, token));
     }
     
-    // Helper methods to check nodes for constants.
-    bool isConstant(NodeIndex nodeIndex) { return graph().isConstant(nodeIndex); }
-    bool isJSConstant(NodeIndex nodeIndex) { return graph().isJSConstant(nodeIndex); }
-    bool isInt32Constant(NodeIndex nodeIndex) { return graph().isInt32Constant(codeBlock(), nodeIndex); }
-    bool isDoubleConstant(NodeIndex nodeIndex) { return graph().isDoubleConstant(codeBlock(), nodeIndex); }
-    bool isNumberConstant(NodeIndex nodeIndex) { return graph().isNumberConstant(codeBlock(), nodeIndex); }
-    bool isBooleanConstant(NodeIndex nodeIndex) { return graph().isBooleanConstant(codeBlock(), nodeIndex); }
-    bool isFunctionConstant(NodeIndex nodeIndex) { return graph().isFunctionConstant(codeBlock(), nodeIndex); }
-    // Helper methods get constant values from nodes.
-    JSValue valueOfJSConstant(NodeIndex nodeIndex) { return graph().valueOfJSConstant(codeBlock(), nodeIndex); }
-    int32_t valueOfInt32Constant(NodeIndex nodeIndex) { return graph().valueOfInt32Constant(codeBlock(), nodeIndex); }
-    double valueOfNumberConstant(NodeIndex nodeIndex) { return graph().valueOfNumberConstant(codeBlock(), nodeIndex); }
-    bool valueOfBooleanConstant(NodeIndex nodeIndex) { return graph().valueOfBooleanConstant(codeBlock(), nodeIndex); }
-    JSFunction* valueOfFunctionConstant(NodeIndex nodeIndex) { return graph().valueOfFunctionConstant(codeBlock(), nodeIndex); }
-    
     // Helper methods to get predictions
     PredictedType getPrediction(Node& node) { return node.prediction(); }
     PredictedType getPrediction(NodeIndex nodeIndex) { return getPrediction(graph()[nodeIndex]); }
+    PredictedType getPrediction(Edge nodeUse) { return getPrediction(nodeUse.index()); }
 
 #if USE(JSVALUE32_64)
     void* addressOfDoubleConstant(NodeIndex nodeIndex)
     {
-        ASSERT(isNumberConstant(nodeIndex));
+        ASSERT(m_graph.isNumberConstant(nodeIndex));
         unsigned constantIndex = graph()[nodeIndex].constantNumber();
         return &(codeBlock()->constantRegister(FirstConstantRegisterIndex + constantIndex));
     }
@@ -319,12 +291,16 @@ public:
         // value of (None, []). But the old JIT may stash some values there. So we really
         // need (Top, TOP).
         for (size_t argument = 0; argument < basicBlock.variablesAtHead.numberOfArguments(); ++argument) {
-            if (basicBlock.variablesAtHead.argument(argument) == NoNode)
+            NodeIndex nodeIndex = basicBlock.variablesAtHead.argument(argument);
+            if (nodeIndex == NoNode || !m_graph[nodeIndex].shouldGenerate())
                 entry->m_expectedValues.argument(argument).makeTop();
         }
         for (size_t local = 0; local < basicBlock.variablesAtHead.numberOfLocals(); ++local) {
-            if (basicBlock.variablesAtHead.local(local) == NoNode)
+            NodeIndex nodeIndex = basicBlock.variablesAtHead.local(local);
+            if (nodeIndex == NoNode || !m_graph[nodeIndex].shouldGenerate())
                 entry->m_expectedValues.local(local).makeTop();
+            else if (m_graph[nodeIndex].variableAccessData()->shouldUseDoubleFormat())
+                entry->m_localsForcedDouble.set(local);
         }
 #else
         UNUSED_PARAM(basicBlock);
@@ -333,14 +309,6 @@ public:
 #endif
     }
 
-    ValueProfile* valueProfileFor(NodeIndex nodeIndex)
-    {
-        if (nodeIndex == NoNode)
-            return 0;
-        
-        return m_graph.valueProfileFor(nodeIndex, baselineCodeBlockFor(m_graph[nodeIndex].codeOrigin));
-    }
-    
 private:
     // Internal implementation to compile.
     void compileEntry();

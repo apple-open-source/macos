@@ -29,15 +29,15 @@
  */
 
 #include "config.h"
-#include "WebImage.h"
+#include "platform/WebImage.h"
 
 #include "Image.h"
 #include "ImageSource.h"
 #include "NativeImageSkia.h"
 #include "SharedBuffer.h"
 
-#include "WebData.h"
-#include "WebSize.h"
+#include "platform/WebData.h"
+#include "platform/WebSize.h"
 
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -81,7 +81,7 @@ WebImage WebImage::fromData(const WebData& data, const WebSize& desiredSize)
     if (!frame)
         return WebImage();
 
-    return WebImage(*frame);
+    return WebImage(frame->bitmap());
 }
 
 void WebImage::reset()
@@ -113,7 +113,7 @@ WebImage& WebImage::operator=(const PassRefPtr<Image>& image)
 {
     NativeImagePtr p;
     if (image.get() && (p = image->nativeImageForCurrentFrame()))
-        assign(*p);
+        assign(p->bitmap());
     else
         reset();
     return *this;

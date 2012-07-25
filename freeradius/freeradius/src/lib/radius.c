@@ -140,7 +140,7 @@ void fr_printf_log(const char *fmt, ...)
 	return;
 }
 
-static void print_hex(RADIUS_PACKET *packet)
+void rad_print_hex(RADIUS_PACKET *packet)
 {
 	int i;
 
@@ -210,6 +210,7 @@ static int rad_sendto(int sockfd, void *data, size_t data_len, int flags,
 		      fr_ipaddr_t *src_ipaddr, int src_port,
 		      fr_ipaddr_t *dst_ipaddr, int dst_port)
 {
+	int rcode;
 	struct sockaddr_storage	dst;
 	socklen_t		sizeof_dst;
 
@@ -228,26 +229,32 @@ static int rad_sendto(int sockfd, void *data, size_t data_len, int flags,
 
 #ifdef WITH_UDPFROMTO
 	/*
-	 *	Only IPv4 is supported for udpfromto.
-	 *
 	 *	And if they don't specify a source IP address, don't
 	 *	use udpfromto.
 	 */
-	if ((dst_ipaddr->af == AF_INET) &&
-	    (src_ipaddr->af != AF_UNSPEC)) {
-		return sendfromto(sockfd, data, data_len, flags,
-				  (struct sockaddr *)&src, sizeof_src,
-				  (struct sockaddr *)&dst, sizeof_dst);
+	if (((dst_ipaddr->af == AF_INET) || (dst_ipaddr->af == AF_INET6)) &&
+	    (src_ipaddr->af != AF_UNSPEC) &&
+	    !fr_inaddr_any(src_ipaddr)) {
+		rcode = sendfromto(sockfd, data, data_len, flags,
+				   (struct sockaddr *)&src, sizeof_src,
+				   (struct sockaddr *)&dst, sizeof_dst);
+		goto done;
 	}
 #else
 	src_ipaddr = src_ipaddr; /* -Wunused */
 #endif
 
 	/*
-	 *	No udpfromto, OR an IPv6 socket, fail gracefully.
+	 *	No udpfromto, fail gracefully.
 	 */
-	return sendto(sockfd, data, data_len, flags,
-		      (struct sockaddr *) &dst, sizeof_dst);
+	rcode = sendto(sockfd, data, data_len, flags,
+		       (struct sockaddr *) &dst, sizeof_dst);
+done:
+	if (rcode < 0) {
+		DEBUG("rad_send() failed: %s\n", strerror(errno));
+	}
+
+	return rcode;
 }
 
 
@@ -415,14 +422,14 @@ static ssize_t rad_recvfrom(int sockfd, uint8_t **pbuf, int flags,
 	 *	packet after "len" bytes.
 	 */
 #ifdef WITH_UDPFROMTO
-	if (dst.ss_family == AF_INET) {
+	if ((dst.ss_family == AF_INET) || (dst.ss_family == AF_INET6)) {
 		data_len = recvfromto(sockfd, buf, len, flags,
 				      (struct sockaddr *)&src, &sizeof_src,
 				      (struct sockaddr *)&dst, &sizeof_dst);
 	} else
 #endif
 		/*
-		 *	No udpfromto, OR an IPv6 socket.  Fail gracefully.
+		 *	No udpfromto, fail gracefully.
 		 */
 		data_len = recvfrom(sockfd, buf, len, flags,
 				    (struct sockaddr *)&src, &sizeof_src);
@@ -1358,8 +1365,12 @@ int rad_sign(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
 		uint8_t calc_auth_vector[AUTH_VECTOR_LEN];
 
 		switch (packet->code) {
-		case PW_ACCOUNTING_REQUEST:
 		case PW_ACCOUNTING_RESPONSE:
+			if (original && original->code == PW_STATUS_SERVER) {
+				goto do_ack;
+			}
+
+		case PW_ACCOUNTING_REQUEST:
 		case PW_DISCONNECT_REQUEST:
 		case PW_DISCONNECT_ACK:
 		case PW_DISCONNECT_NAK:
@@ -1369,6 +1380,7 @@ int rad_sign(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
 			memset(hdr->vector, 0, AUTH_VECTOR_LEN);
 			break;
 
+		do_ack:
 		case PW_AUTHENTICATION_ACK:
 		case PW_AUTHENTICATION_REJECT:
 		case PW_ACCESS_CHALLENGE:
@@ -1518,7 +1530,7 @@ int rad_send(RADIUS_PACKET *packet, const RADIUS_PACKET *original,
  *
  *	http://www.cs.rice.edu/~dwallach/pub/crosby-timing2009.pdf
  */
-static int digest_cmp(const uint8_t *a, const uint8_t *b, size_t length)
+int rad_digest_cmp(const uint8_t *a, const uint8_t *b, size_t length)
 {
 	int result = 0;
 	size_t i;
@@ -1559,7 +1571,7 @@ static int calc_acctdigest(RADIUS_PACKET *packet, const char *secret)
 	/*
 	 *	Return 0 if OK, 2 if not OK.
 	 */
-	if (digest_cmp(digest, packet->vector, AUTH_VECTOR_LEN) != 0) return 2;
+	if (rad_digest_cmp(digest, packet->vector, AUTH_VECTOR_LEN) != 0) return 2;
 	return 0;
 }
 
@@ -1602,7 +1614,7 @@ static int calc_replydigest(RADIUS_PACKET *packet, RADIUS_PACKET *original,
 	/*
 	 *	Return 0 if OK, 2 if not OK.
 	 */
-	if (digest_cmp(packet->vector, calc_digest, AUTH_VECTOR_LEN) != 0) return 2;
+	if (rad_digest_cmp(packet->vector, calc_digest, AUTH_VECTOR_LEN) != 0) return 2;
 	return 0;
 }
 
@@ -2068,8 +2080,13 @@ int rad_verify(RADIUS_PACKET *packet, RADIUS_PACKET *original,
 			default:
 				break;
 
-			case PW_ACCOUNTING_REQUEST:
 			case PW_ACCOUNTING_RESPONSE:
+				if (original &&
+				    (original->code == PW_STATUS_SERVER)) {
+					goto do_ack;
+				}
+
+			case PW_ACCOUNTING_REQUEST:
 			case PW_DISCONNECT_REQUEST:
 			case PW_DISCONNECT_ACK:
 			case PW_DISCONNECT_NAK:
@@ -2079,6 +2096,7 @@ int rad_verify(RADIUS_PACKET *packet, RADIUS_PACKET *original,
 			  	memset(packet->data + 4, 0, AUTH_VECTOR_LEN);
 				break;
 
+			do_ack:
 			case PW_AUTHENTICATION_ACK:
 			case PW_AUTHENTICATION_REJECT:
 			case PW_ACCESS_CHALLENGE:
@@ -2093,7 +2111,7 @@ int rad_verify(RADIUS_PACKET *packet, RADIUS_PACKET *original,
 			fr_hmac_md5(packet->data, packet->data_len,
 				    (const uint8_t *) secret, strlen(secret),
 				    calc_auth_vector);
-			if (digest_cmp(calc_auth_vector, msg_auth_vector,
+			if (rad_digest_cmp(calc_auth_vector, msg_auth_vector,
 				   sizeof(calc_auth_vector)) != 0) {
 				char buffer[32];
 				fr_strerror_printf("Received packet from %s with invalid Message-Authenticator!  (Shared secret is incorrect.)",
@@ -2242,7 +2260,7 @@ static VALUE_PAIR *data2vp(const RADIUS_PACKET *packet,
 	/*
 	 *	Decrypt the attribute.
 	 */
-	switch (vp->flags.encrypt) {
+	if (secret) switch (vp->flags.encrypt) {
 		/*
 		 *  User-Password
 		 */

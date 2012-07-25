@@ -36,7 +36,7 @@
 #include <WebCore/Document.h>
 #include <WebCore/KURL.h>
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 using namespace WebCore;
 
@@ -165,6 +165,10 @@ void WebDesktopNotificationsDelegate::notificationObjectDestroyed(Notification* 
         notificationDelegate()->notificationDestroyed(NotificationCOMWrapper::create(object));
 }
 
+void WebDesktopNotificationsDelegate::notificationControllerDestroyed()
+{
+}
+
 void WebDesktopNotificationsDelegate::requestPermission(SecurityOrigin* origin, PassRefPtr<VoidCallback> callback)
 {
     BString org(origin->toString());
@@ -172,13 +176,21 @@ void WebDesktopNotificationsDelegate::requestPermission(SecurityOrigin* origin, 
         notificationDelegate()->requestNotificationPermission(org);
 }
 
-NotificationPresenter::Permission WebDesktopNotificationsDelegate::checkPermission(const KURL& url)
+void WebDesktopNotificationsDelegate::requestPermission(SecurityOrigin*, PassRefPtr<NotificationPermissionCallback>)
+{
+}
+
+void WebDesktopNotificationsDelegate::cancelRequestsForPermission(ScriptExecutionContext* context)
+{
+}
+
+NotificationClient::Permission WebDesktopNotificationsDelegate::checkPermission(const KURL& url)
 {
     int out = 0;
     BString org(SecurityOrigin::create(url)->toString());
     if (hasNotificationDelegate())
         notificationDelegate()->checkNotificationPermission(org, &out);
-    return (NotificationPresenter::Permission) out;
+    return (NotificationClient::Permission) out;
 }
 
 bool WebDesktopNotificationsDelegate::hasNotificationDelegate()
@@ -203,4 +215,4 @@ COMPtr<IWebDesktopNotificationsDelegate> WebDesktopNotificationsDelegate::notifi
     return delegate;
 }
 
-#endif  // ENABLE(NOTIFICATIONS)
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)

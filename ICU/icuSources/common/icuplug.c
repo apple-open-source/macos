@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2009-2010, International Business Machines
+*   Copyright (C) 2009-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -20,6 +20,10 @@
 #include "putilimp.h"
 #include "ucln.h"
 #include <stdio.h>
+#ifdef __MVS__  /* defined by z/OS compiler */
+#define _POSIX_SOURCE
+#include <cics.h> /* 12 Nov 2011 JAM iscics() function */
+#endif
 
 #ifndef UPLUG_TRACE
 #define UPLUG_TRACE 0
@@ -578,12 +582,8 @@ uplug_initPlugFromLibrary(const char *libName, const char *sym, const char *conf
   lib = uplug_openLibrary(libName, status);
   if(lib!=NULL && U_SUCCESS(*status)) {
     UPlugEntrypoint *entrypoint = NULL;
-    /*
-     * ISO forbids the following cast.
-     *  See: http://www.trilithium.com/johan/2004/12/problem-with-dlsym/ 
-     */
-    entrypoint = (UPlugEntrypoint*)uprv_dl_sym(lib, sym, status);
-      
+    entrypoint = (UPlugEntrypoint*)uprv_dlsym_func(lib, sym, status);
+
     if(entrypoint!=NULL&&U_SUCCESS(*status)) {
       plug = uplug_initPlugFromEntrypointAndLibrary(entrypoint, config, lib, sym, status);
       if(plug!=NULL&&U_SUCCESS(*status)) {
@@ -671,9 +671,7 @@ static void uplug_loadWaitingPlugs(UErrorCode *status) {
         pluginToLoad->awaitingLoad = FALSE;
       } 
     }
-  }
-  currentLevel = uplug_getCurrentLevel();
-    
+  }    
   for(i=0;i<pluginCount;i++) {
     UErrorCode subStatus = U_ZERO_ERROR;
     UPlugData *pluginToLoad = &pluginList[i];
@@ -734,17 +732,37 @@ uplug_init(UErrorCode *status) {
     FILE *f;
         
         
+#ifdef OS390BATCH
+/* There are potentially a lot of ways to implement a plugin directory on OS390/zOS  */
+/* Keeping in mind that unauthorized file access is logged, monitored, and enforced  */
+/* I've chosen to open a DDNAME if BATCH and leave it alone for (presumably) UNIX    */
+/* System Services.  Alternative techniques might be allocating a member in          */
+/* SYS1.PARMLIB or setting an environment variable "ICU_PLUGIN_PATH" (?).  The       */
+/* DDNAME can be connected to a file in the HFS if need be.                          */
+
+    uprv_strncpy(plugin_file,"//DD:ICUPLUG", 2047);        /* JAM 20 Oct 2011 */
+#else
     uprv_strncpy(plugin_file, plugin_dir, 2047);
     uprv_strncat(plugin_file, U_FILE_SEP_STRING,2047);
     uprv_strncat(plugin_file, "icuplugins",2047);
     uprv_strncat(plugin_file, U_ICU_VERSION_SHORT ,2047);
     uprv_strncat(plugin_file, ".txt" ,2047);
+#endif
         
 #if UPLUG_TRACE
     DBG((stderr, "pluginfile= %s\n", plugin_file));
 #endif
         
-    f = fopen(plugin_file, "r");
+#ifdef __MVS__
+    if (iscics()) /* 12 Nov 2011 JAM */
+    {
+        f = NULL;
+    }
+    else
+#endif
+    {
+         f = fopen(plugin_file, "r");
+    }
 
     if(f != NULL) {
       char linebuf[1024];
@@ -759,29 +777,29 @@ uplug_init(UErrorCode *status) {
           continue;
         } else {
           p = linebuf;
-          while(*p&&isspace(*p))
+          while(*p&&isspace((int)*p))
             p++;
           if(!*p || *p=='#') continue;
           libName = p;
-          while(*p&&!isspace(*p)) {
+          while(*p&&!isspace((int)*p)) {
             p++;
           }
           if(!*p || *p=='#') continue; /* no tab after libname */
           *p=0; /* end of libname */
           p++;
-          while(*p&&isspace(*p)) {
+          while(*p&&isspace((int)*p)) {
             p++;
           }
           if(!*p||*p=='#') continue; /* no symname after libname +tab */
           symName = p;
-          while(*p&&!isspace(*p)) {
+          while(*p&&!isspace((int)*p)) {
             p++;
           }
                     
           if(*p) { /* has config */
             *p=0;
             ++p;
-            while(*p&&isspace(*p)) {
+            while(*p&&isspace((int)*p)) {
               p++;
             }
             if(*p) {
@@ -792,7 +810,7 @@ uplug_init(UErrorCode *status) {
           /* chop whitespace at the end of the config */
           if(config!=NULL&&*config!=0) {
             p = config+strlen(config);
-            while(p>config&&isspace(*(--p))) {
+            while(p>config&&isspace((int)*(--p))) {
               *p=0;
             }
           }
@@ -813,6 +831,7 @@ uplug_init(UErrorCode *status) {
           }
         }
       }
+      fclose(f);
     } else {
 #if UPLUG_TRACE
       DBG((stderr, "Can't open plugin file %s\n", plugin_file));

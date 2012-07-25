@@ -1,7 +1,7 @@
 /**
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2002, 2005, 2006, 2012 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,10 +22,8 @@
 #include "config.h"
 #include "CSSRuleList.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSRule.h"
-#include "StyleList.h"
-#include "WebKitCSSKeyframeRule.h"
+#include "CSSStyleSheet.h"
 
 namespace WebCore {
 
@@ -33,86 +31,24 @@ CSSRuleList::CSSRuleList()
 {
 }
 
-CSSRuleList::CSSRuleList(StyleList* list, bool omitCharsetRules)
-{
-    m_list = list;
-    if (list && omitCharsetRules) {
-        m_list = 0;
-        unsigned len = list->length();
-        for (unsigned i = 0; i < len; ++i) {
-            StyleBase* style = list->item(i);
-            if (style->isRule() && !style->isCharsetRule())
-                append(static_cast<CSSRule*>(style));
-        }
-    }
-}
-
 CSSRuleList::~CSSRuleList()
 {
 }
 
-unsigned CSSRuleList::length() const
-{
-    return m_list ? m_list->length() : m_lstCSSRules.size();
+StaticCSSRuleList::StaticCSSRuleList() 
+    : m_refCount(1)
+{ 
 }
 
-CSSRule* CSSRuleList::item(unsigned index)
+StaticCSSRuleList::~StaticCSSRuleList()
 {
-    if (m_list) {
-        StyleBase* rule = m_list->item(index);
-        ASSERT(!rule || rule->isRule());
-        return static_cast<CSSRule*>(rule);
-    }
-
-    if (index < m_lstCSSRules.size())
-        return m_lstCSSRules[index].get();
-    return 0;
 }
 
-void CSSRuleList::deleteRule(unsigned index)
-{
-    ASSERT(!m_list);
-
-    if (index >= m_lstCSSRules.size()) {
-        // FIXME: Should we throw an INDEX_SIZE_ERR exception here?
-        return;
-    }
-
-    if (m_lstCSSRules[index]->isKeyframeRule()) {
-        if (CSSMutableStyleDeclaration* style = static_cast<WebKitCSSKeyframeRule*>(m_lstCSSRules[index].get())->style())
-            style->setParent(0);
-    }
-
-    m_lstCSSRules[index]->setParent(0);
-    m_lstCSSRules.remove(index);
-}
-
-void CSSRuleList::append(CSSRule* rule)
-{
-    ASSERT(!m_list);
-    if (!rule) {
-        // FIXME: Should we throw an exception?
-        return;
-    }
-
-    m_lstCSSRules.append(rule);
-}
-
-unsigned CSSRuleList::insertRule(CSSRule* rule, unsigned index)
-{
-    ASSERT(!m_list);
-    if (!rule) {
-        // FIXME: Should we throw an exception?
-        return 0;
-    }
-
-    if (index > m_lstCSSRules.size()) {
-        // FIXME: Should we throw an INDEX_SIZE_ERR exception here?
-        return 0;
-    }
-
-    m_lstCSSRules.insert(index, rule);
-    return index;
+void StaticCSSRuleList::deref()
+{ 
+    ASSERT(m_refCount);
+    if (!--m_refCount)
+        delete this;
 }
 
 } // namespace WebCore

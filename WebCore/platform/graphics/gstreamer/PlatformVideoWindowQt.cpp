@@ -19,29 +19,36 @@
 
 #include "config.h"
 #include "PlatformVideoWindow.h"
+#if ENABLE(VIDEO) && USE(GSTREAMER) && !defined(GST_API_VERSION_1)
 
 #include "HTMLVideoElement.h"
 #include "PlatformVideoWindowPrivate.h"
 
+#include <QCursor>
 #include <QGuiApplication>
-#include <QDesktopWidget>
 #include <QKeyEvent>
 #include <QPalette>
+
 using namespace WebCore;
 
+#ifndef QT_NO_CURSOR
 static const int gHideMouseCursorDelay = 3000;
+#endif
 
 FullScreenVideoWindow::FullScreenVideoWindow()
-    : QWidget(0, Qt::Window)
-    , m_mediaElement(0)
+    : m_mediaElement(0)
 {
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     setAttribute(Qt::WA_NativeWindow);
-    setWindowModality(Qt::ApplicationModal);
     setAttribute(Qt::WA_NoSystemBackground, true);
     setAttribute(Qt::WA_PaintOnScreen, true);
+#endif
+    setWindowModality(Qt::ApplicationModal);
 
+#ifndef QT_NO_CURSOR
     m_cursorTimer.setSingleShot(true);
     connect(&m_cursorTimer, SIGNAL(timeout()), this, SLOT(hideCursor()));
+#endif
 }
 
 void FullScreenVideoWindow::setVideoElement(HTMLVideoElement* element)
@@ -49,24 +56,16 @@ void FullScreenVideoWindow::setVideoElement(HTMLVideoElement* element)
     m_mediaElement = element;
 }
 
-void FullScreenVideoWindow::closeEvent(QCloseEvent*)
-{
-    m_cursorTimer.stop();
-    setMouseTracking(false);
-    releaseMouse();
-    QApplication::restoreOverrideCursor();
-}
-
 void FullScreenVideoWindow::keyPressEvent(QKeyEvent* ev)
 {
     if (m_mediaElement && ev->key() == Qt::Key_Space) {
         if (!m_mediaElement->paused())
-            m_mediaElement->pause(true);
+            m_mediaElement->pause();
         else
-            m_mediaElement->play(true);
+            m_mediaElement->play();
     } else if (ev->key() == Qt::Key_Escape)
         emit closed();
-    QWidget::keyPressEvent(ev);
+    Base::keyPressEvent(ev);
 }
 
 bool FullScreenVideoWindow::event(QEvent* ev)
@@ -80,42 +79,67 @@ bool FullScreenVideoWindow::event(QEvent* ev)
         emit closed();
         ev->accept();
         return true;
+    case QEvent::Close:
+#ifndef QT_NO_CURSOR
+        m_cursorTimer.stop();
+#endif
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+        setMouseTracking(false);
+        releaseMouse();
+#endif
+#ifndef QT_NO_CURSOR
+        QGuiApplication::restoreOverrideCursor();
+#endif
+        break;
     default:
-        return QWidget::event(ev);
+        break;
     }
+    return Base::event(ev);
 }
 
 void FullScreenVideoWindow::showFullScreen()
 {
-    QWidget::showFullScreen();
+    Base::showFullScreen();
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     setMouseTracking(true);
+#endif
     raise();
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     setFocus();
+#endif
     hideCursor();
 }
 
 void FullScreenVideoWindow::hideCursor()
 {
-    QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+#ifndef QT_NO_CURSOR
+    QGuiApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+#endif
 }
 
 void FullScreenVideoWindow::showCursor()
 {
-    QApplication::restoreOverrideCursor();
+#ifndef QT_NO_CURSOR
+    QGuiApplication::restoreOverrideCursor();
     m_cursorTimer.start(gHideMouseCursorDelay);
+#endif
 }
 
 
 PlatformVideoWindow::PlatformVideoWindow()
 {
-    m_window = new FullScreenVideoWindow();
-    m_window->setWindowFlags(m_window->windowFlags() | Qt::FramelessWindowHint);
+    Base* win = new FullScreenVideoWindow();
+    m_window = win;
+    win->setWindowFlags(win->windowFlags() | Qt::FramelessWindowHint);
+    // FIXME: Port to Qt 5.
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     QPalette p;
     p.setColor(QPalette::Base, Qt::black);
     p.setColor(QPalette::Window, Qt::black);
-    m_window->setPalette(p);
-    m_window->showFullScreen();
-    m_videoWindowId = m_window->winId();
+    win->setPalette(p);
+#endif
+    win->showFullScreen();
+    m_videoWindowId = win->winId();
 }
 
 PlatformVideoWindow::~PlatformVideoWindow()
@@ -127,3 +151,4 @@ PlatformVideoWindow::~PlatformVideoWindow()
 void PlatformVideoWindow::prepareForOverlay(GstMessage*)
 {
 }
+#endif // ENABLE(VIDEO) && USE(GSTREAMER) && !defined(GST_API_VERSION_1)

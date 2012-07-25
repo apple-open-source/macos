@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 2004-2011 Apple Inc.
+# Copyright (c) 2004-2012 Apple Inc.
 #
 # get-mobility-info
 #
@@ -45,6 +45,10 @@ if [ $? -ne 0 ]; then
 fi
 
 cd "${WORKDIR}"
+
+echo ""
+echo "Please wait, collecting information and statistics"
+echo ""
 
 #
 # processes
@@ -103,6 +107,29 @@ ioreg -i -l -w 0					>  ioreg		2>&1
 ioreg -i -l -p IODeviceTree -w 0			>> ioreg		2>&1
 
 #
+# Power Management info
+#
+echo "#"						>  pmset
+echo "# pmset -g"					>> pmset
+echo "#"						>> pmset
+pmset -g						>> pmset		2>&1
+
+echo "#"						>> pmset
+echo "# pmset -g ps"					>> pmset
+echo "#"						>> pmset
+pmset -g ps						>> pmset		2>&1
+
+echo "#"						>> pmset
+echo "# pmset -g assertions"				>> pmset
+echo "#"						>> pmset
+pmset -g assertions					>> pmset		2>&1
+
+echo "#"						>> pmset
+echo "# pmset -g log"					>> pmset
+echo "#"						>> pmset
+pmset -g log  | tail -n 25000				>> pmset		2>&1
+
+#
 # Host name
 #
 hostname						> hostname		2>&1
@@ -129,7 +156,12 @@ fi
 #
 # Proxy configuration
 #
-scutil --proxy						> proxy-configuration	2>&1
+scutil -d -v --proxy					> proxy-configuration	2>&1
+
+#
+# Network information
+#
+scutil --nwi						> network-information	2>&1
 
 #
 # System / network preferences
@@ -139,7 +171,6 @@ for f in										\
 	/Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.nat.plist			\
-	/Library/Preferences/SystemConfiguration/com.apple.network.identification.plist	\
 	/Library/Preferences/SystemConfiguration/com.apple.smb.server.plist		\
 	/Library/Preferences/SystemConfiguration/com.apple.wifi.plist			\
 	/Library/Preferences/SystemConfiguration/preferences.plist			\
@@ -159,20 +190,16 @@ done
 #
 if   [ -e /etc/bootpd.plist ]; then
 	cat /etc/bootpd.plist							> bootpd.plist			2>&1
-	cat /etc/com.apple.named.proxy.conf					> com.apple.named.proxy.conf	2>&1
+	cat /etc/com.apple.named.proxy.conf					> com.apple.named.proxy.conf	2>/dev/null
 elif [ -e /Library/Preferences/SystemConfiguration/bootpd.plist ]; then
 	cat /Library/Preferences/SystemConfiguration/bootpd.plist		> bootpd.plist			2>&1
-	cat /Library/Preferences/SystemConfiguration/com.apple.named.proxy.conf	> com.apple.named.proxy.conf	2>&1
+	cat /Library/Preferences/SystemConfiguration/com.apple.named.proxy.conf	> com.apple.named.proxy.conf	2>/dev/null
 fi
 
 #
 # configd's cache
 #
-${PRIV} scutil -p <<_END_OF_INPUT
-open
-snapshot
-quit
-_END_OF_INPUT
+${PRIV} scutil -p --snapshot
 if [ -f /var/tmp/configd-store.plist ]; then
 	cat /var/tmp/configd-store.plist		> configd-store.plist	2>&1
 fi
@@ -185,26 +212,14 @@ fi
 if [ -f /var/tmp/configd-state ]; then
 	cat /var/tmp/configd-state			> configd-state		2>&1
 fi
-
-#
-# check configd's executable
-#
-if [ -x /usr/bin/codesign ]; then
-	echo  "#"									>> configd-state
-	echo  "# codesign --verbose --display --entitlements - /usr/libexec/configd"	>> configd-state
-	echo  "#"									>> configd-state
-	/usr/bin/codesign --verbose --display --entitlements - /usr/libexec/configd	>> configd-state 2>&1
-
-	echo  "#"									>> configd-state
-	echo  "# codesign --verbose --verify /usr/libexec/configd"			>> configd-state
-	echo  "#"									>> configd-state
-	/usr/bin/codesign --verbose --verify /usr/libexec/configd			>> configd-state 2>&1
+if [ -f /var/tmp/configd-reachability ]; then
+	cat /var/tmp/configd-reachability		> configd-reachability		2>&1
 fi
 
 #
 # network reachability
 #
-scutil -d -v -r www.apple.com				> reachability-info	2>&1
+scutil -d -v -r www.apple.com "" no-server		> reachability-info	2>&1
 if [ -x /usr/bin/dig -a -f /etc/resolv.conf ]; then
 	/usr/bin/dig -t any -c any www.apple.com	> dig-results		2>/dev/null
 fi
@@ -215,10 +230,11 @@ fi
 mount							> mounted-filesystems	2>&1
 
 #
-# mDNSResponder info
+# mDNSResponder, networkd info
 #
 if [ -x /usr/bin/killall ]; then
 	${PRIV} killall -INFO mDNSResponder
+	${PRIV} killall -INFO networkd
 
 	# and wait a short amount of time for mDNSResponder
 	# to actually log the requested information
@@ -344,6 +360,11 @@ echo "# netstat -i -n -d"				>> network-statistics
 echo "#"						>> network-statistics
 netstat -i -n -d					>> network-statistics	2>&1
 
+echo "#"						>> network-statistics
+echo "# netstat -g -n -s"				>> network-statistics
+echo "#"						>> network-statistics
+netstat -g -n -s					>> network-statistics	2>&1
+
 if [ -x /usr/sbin/ndp ]; then
 	echo "#"					>> network-statistics
 	echo "# ndp -n -a"				>> network-statistics
@@ -359,6 +380,14 @@ if [ -x /usr/sbin/ndp ]; then
 	echo "# ndp -n -r"				>> network-statistics
 	echo "#"					>> network-statistics
 	ndp -n -r					>> network-statistics	2>&1
+
+	for if in `ifconfig -l`
+	do
+		echo "#"				>> network-statistics
+		echo "# ndp -i ${if}"			>> network-statistics
+		echo "#"				>> network-statistics
+		ndp -i ${if}				>> network-statistics	2>&1
+	done
 fi
 
 if [ -x /sbin/ipfw ]; then
@@ -366,6 +395,13 @@ if [ -x /sbin/ipfw ]; then
 	echo "# ipfw -at show"				>> network-statistics
 	echo "#"					>> network-statistics
 	${PRIV} ipfw -at show				>> network-statistics	2>&1
+fi
+
+if [ -x /sbin/ip6fw ]; then
+	echo "#"					>> network-statistics
+	echo "# ip6fw -at show"			>> network-statistics
+	echo "#"					>> network-statistics
+	${PRIV} ip6fw -at show				>> network-statistics	2>&1
 fi
 
 if [ -x /sbin/pfctl ]; then
@@ -378,7 +414,7 @@ if [ -x /sbin/pfctl ]; then
 	echo "# pfctl -s References"			>> pf
 	echo "#"					>> pf
 	${PRIV} pfctl -s References			>> pf			2>&1
-	for ANCHOR in `pfctl -s Anchors 2>/dev/null`
+	for ANCHOR in `${PRIV} pfctl -s Anchors -v 2>/dev/null`
 	do
 		echo "=============================="	>> pf
 		echo "#"				>> pf
@@ -427,10 +463,9 @@ echo "#"						>  ipsec
 echo "# setkey -D"					>> ipsec
 echo "#"						>> ipsec
 ${PRIV} setkey -D					\
-| perl -nle '
+| perl -M'Digest::MD5 qw(md5_hex)' -l -n -e '
 	if (/^(\s+[AE]:\s+\S+\s+)"?(.*)"?\s*$/) {
-		chop($sha1=`echo "$2" | openssl sha1`);
-		printf "%s[SHA-1:%s]\n", $1, $sha1;
+		printf "%s[MD5:%s]%s\n", $1, md5_hex($2 . "\n"), $3;
 	} else {
 		printf "%s\n", $_;
 	}
@@ -453,10 +488,9 @@ do
 	echo "# ${CF}"					>> ipsec
 	echo "#"					>> ipsec
 	${PRIV} cat ${CF}				\
-	| perl -nle '
+	| perl -M'Digest::MD5 qw(md5_hex)' -l -n -e '
 		if (/^(\s+shared_secret\s+use\s+)"?([^\s;"]+)"?(.*)/) {
-			chop($sha1=`echo "$2" | openssl sha1`);
-			printf "%s[SHA-1:%s]%s\n", $1, $sha1, $3;
+			printf "%s[MD5:%s]%s\n", $1, md5_hex($2 . "\n"), $3;
 		} else {
 			printf "%s\n", $_;
 		}
@@ -514,23 +548,23 @@ BTMM_CHECKMACDOTCOM()
 BTMM_DIG()
 {
 	rm -f .digsync
-	
+
 	nc -6 -l "${BTMMPORT}" < .btmmfifo			\
 	| openssl s_client	-connect "${HOSTPORT}" -quiet	> .btmmfifo	2>.digsync &
-	
+
 	N_RETRY=0
 	while [ $N_RETRY -lt 50 -a ! -s .digsync ]
 	do
 		N_RETRY=$((N_RETRY + 1))
 		sleep 0.1
 	done
-	
+
 	dig @::1	-p "${BTMMPORT}"		\
 			-y "${TSIG}"			\
 			+short				\
 			+tcp				\
 			"${1}" "${2}"			2>/dev/null
-	
+
 	wait %1
 }
 
@@ -546,7 +580,7 @@ BTMM_UNIQUEIDFROMZONE()
 	fi
 }
 
-# get hostname, port, TSIG name and TSIG data from keychain 
+# get hostname, port, TSIG name and TSIG data from keychain
 # params: UNIQUEID
 BTMM_GETINFO()
 {
@@ -556,7 +590,7 @@ BTMM_GETINFO()
 	${PRIV} security find-generic-password		\
 		-s "${1}"				\
 		-g /Library/Keychains/System.keychain	\
-		2>&1					\
+		2>&1 > /dev/null			\
 	| sed -n 's/^password: \"\(.*\)\"$/\1/p'
 }
 
@@ -577,22 +611,24 @@ BTMM_RELAYINFO()
 	if [ $? -eq 0 ]; then
 		return
 	fi
-	
+
 	SECRET=`BTMM_GETINFO "btmmrelay:${1}"`
-	
+
 	if [ -z "${SECRET}" ]; then
 		echo "  No Relay keychain item."		>> btmm
 		return
 	fi
-	
+
 	if [ `echo "${SECRET}" | wc -l` -ne 1 ]; then
 		echo "  More than one Relay keychain item."	>> btmm
 		return
 	fi
-	
+
 	URLISH=`BTMM_URLISH "${DOMAIN}"`
 	ACCOUNT=`cat .btmminfo | sed -n 's/.*\"acct\"<blob>=\"\(.*\)\"/\1/p'`
-	KEYHASH="[SHA-1:`echo ${SECRET} | openssl sha1`]"
+	KEYHASH="`perl -M'Digest::SHA1 qw(sha1_hex)' -l -e '
+			printf "[SHA1:%s]\n", sha1_hex($ARGV[0] . "\n");
+	' ${SECRET}`"
 	echo "  RHP: ${URLISH}"					>> btmm
 	echo "  RAC: ${ACCOUNT}"				>> btmm
 	echo "  RKY: ${KEYHASH}"				>> btmm
@@ -601,10 +637,10 @@ BTMM_RELAYINFO()
 BTMM_REPORTZONE()
 {
 	DOMAIN="${1}"
-	
+
 	echo							>> btmm
 	echo "${DOMAIN}"					>> btmm
-	
+
 	DNSID=`BTMM_UNIQUEIDFROMZONE "${DOMAIN}"`
 	SECRET=`BTMM_GETINFO "${DNSID}"`
 
@@ -612,24 +648,36 @@ BTMM_REPORTZONE()
 		echo "  No DNS keychain item."			>> btmm
 		return
 	fi
-	
+
 	if [ `echo "${SECRET}" | wc -l` -ne 1 ]; then
 		echo "  More than one DNS keychain item."	>> btmm
 		return
 	fi
-	
+
 	URLISH=`BTMM_URLISH "${DOMAIN}"`
 	HOSTPORT=`echo "${URLISH}" | cut -d@ -f2`
 	ACCOUNT=`cat .btmminfo | sed -n 's/.*\"acct\"<blob>=\"\(.*\)\"/\1/p'`
 	TSIG="${ACCOUNT}:${SECRET}"
 
-	KEYHASH="[SHA-1:`echo ${SECRET} | openssl sha1`]"
+	KEYHASH="`perl -M'Digest::SHA1 qw(sha1_hex)' -l -e '
+			printf "[SHA1:%s]\n", sha1_hex($ARGV[0] . "\n");
+		' ${SECRET}`"
 	echo ""							>> btmm
 	echo "  DHP: ${URLISH}"					>> btmm
 	echo "  DAC: ${ACCOUNT}"				>> btmm
 	echo "  DKY: ${KEYHASH}"				>> btmm
-	
+
 	BTMM_RELAYINFO "${DOMAIN}"
+
+	REACHHOST=`echo "${HOSTPORT}" | cut -d: -f1`
+	STATUSES=`scutil -r "${REACHHOST}"`
+	for REACHSTATUS in `echo ${STATUSES} | tr -d ' ' | tr ',' ' '`; do
+		if [ "$REACHSTATUS" == "NotReachable" ] \
+			|| [ "$REACHSTATUS" == "ConnectionRequired" ]; then
+			echo "  Skipping DNS queries, no connectivity" 	>> btmm
+			return
+		fi
+	done
 
 	for TYPE in			\
 		_afpovertcp._tcp	\
@@ -744,12 +792,14 @@ for daemon in				\
 		pppd			\
 		racoon			\
 		socketfilterfw		\
+		InternetSharing		\
 		SCHelper		\
 		SCMonitor		\
 
 do
 	/bin/ls -1	/Library/Logs/DiagnosticReports/${daemon}_*.crash	\
 			/Library/Logs/CrashReporter/${daemon}_*.crash		\
+			/Library/Logs/CrashReporter/${daemon}_*.plist		\
 			2>/dev/null						\
 	| while read log
 	do
@@ -759,6 +809,21 @@ do
 		fi
 	done
 done
+
+#
+# system profiler
+#
+if [ -x /usr/sbin/system_profiler ]; then
+	system_profiler -xml 	SPEthernetDataType 	\
+				SPFibreChannelDataType	\
+				SPFireWireDataType 	\
+				SPFirewallDataType 	\
+				SPModemDataType		\
+				SPNetworkDataType 	\
+				SPThunderboltDataType 	\
+				SPWWANDataType 		\
+				SPAirPortDataType 	> system_profiler.spx	2>&1
+fi
 
 #
 # system usage statistics
@@ -781,9 +846,6 @@ zprint							>> system-statistics	2>&1
 echo "#"						>> system-statistics
 echo "# top -l5 -s2"					>> system-statistics
 echo "#"						>> system-statistics
-echo ""
-echo "Please wait, collecting statistics"
-echo ""
 top -s 2 -l 5						>> system-statistics	2>&1
 
 #

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -154,14 +154,22 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry->flags = ifap->ifa_flags;
 	      }
 	      bzero(&info, sizeof(info));
-	      info.addr = ((struct sockaddr_in *)ifap->ifa_addr)->sin_addr;
+	
+	      /* ALIGN: getifaddrs should align, cast ok. */	
+	      info.addr = ((struct sockaddr_in *)
+			   (void *)ifap->ifa_addr)->sin_addr;
+
 	      if (ifap->ifa_netmask != NULL) {
+		  /* ALIGN: getifaddrs should align, cast ok. */
 		  info.mask 
-		      = ((struct sockaddr_in *)ifap->ifa_netmask)->sin_addr;
+		      = ((struct sockaddr_in *)
+			 (void *)ifap->ifa_netmask)->sin_addr;
 	      }
 	      if (entry->flags & IFF_BROADCAST && ifap->ifa_broadaddr != NULL) {
+		  /* ALIGN: getifaddrs should align, cast ok. */
 		  info.broadcast 
-		      = ((struct sockaddr_in *)ifap->ifa_broadaddr)->sin_addr;
+		      = ((struct sockaddr_in *)(void *)
+				ifap->ifa_broadaddr)->sin_addr;
 	      }
 	      info.netaddr.s_addr = htonl(iptohl(info.addr)
 					  & iptohl(info.mask));
@@ -172,8 +180,11 @@ S_build_interface_list(interface_list_t * interfaces)
 	      struct sockaddr_dl * dl_p;
 	      interface_t *	entry;
 	      struct if_data *	if_data;
+		
+	      /* ALIGN: getifaddrs should align, cast ok. */
+	      dl_p = (struct sockaddr_dl *)
+		     (void *)ifap->ifa_addr;
 
-	      dl_p = (struct sockaddr_dl *)ifap->ifa_addr;
 	      entry = ifl_find_name(interfaces, name);
 	      if (entry == NULL) { /* new entry */
 		  entry = S_next_entry(interfaces, name);
@@ -527,7 +538,8 @@ if_link_update(interface_t * if_p)
 	fprintf(stderr, "sysctl() failed: %s", strerror(errno));
 	goto failed;
     }
-    ifm = (struct if_msghdr *)buf;
+    /* ALIGN: buf is aligned (from malloc), cast ok. */
+    ifm = (struct if_msghdr *)(void *)buf;
     switch (ifm->ifm_type) {
     case RTM_IFINFO:
 	dl_p = (struct sockaddr_dl *)(ifm + 1);
@@ -771,4 +783,4 @@ main()
     }
     exit(0);
 }
-#endif TEST_INTERFACES
+#endif /* TEST_INTERFACES */

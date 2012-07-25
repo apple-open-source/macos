@@ -1,8 +1,8 @@
 /* search.c - /etc/passwd backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/search.c,v 1.79.2.5 2010/04/13 20:23:36 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -123,6 +123,8 @@ passwd_back_search(
 				rs->sr_attrs = op->ors_attrs;
 				rs->sr_flags = REP_ENTRY_MODIFIABLE;
 				send_search_entry( op, rs );
+				rs->sr_flags = 0;
+				rs->sr_attrs = NULL;
 			}
 
 			entry_clean( &e );
@@ -173,6 +175,8 @@ passwd_back_search(
 					rs->sr_attrs = op->ors_attrs;
 					rs->sr_flags = REP_ENTRY_MODIFIABLE;
 					send_search_entry( op, rs );
+					rs->sr_flags = 0;
+					rs->sr_entry = NULL;
 				}
 
 				entry_clean( &e );
@@ -238,6 +242,9 @@ passwd_back_search(
 			rs->sr_attrs = op->ors_attrs;
 			rs->sr_flags = REP_ENTRY_MODIFIABLE;
 			send_search_entry( op, rs );
+			rs->sr_flags = 0;
+			rs->sr_entry = NULL;
+			rs->sr_attrs = NULL;
 		}
 
 		entry_clean( &e );

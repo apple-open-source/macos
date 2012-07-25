@@ -27,7 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/dprintf.c,v 1.1 2009/03/04 03:38:51 das Exp $");
 
-#define	_WITH_DPRINTF
+#include "xlocale_private.h"
+
 #include "namespace.h"
 #include <stdarg.h>
 #include <stdio.h>
@@ -40,7 +41,19 @@ dprintf(int fd, const char * __restrict fmt, ...)
 	int ret;
 
 	va_start(ap, fmt);
-	ret = vdprintf(fd, fmt, ap);
+	ret = vdprintf_l(fd, __current_locale(), fmt, ap);
+	va_end(ap);
+	return (ret);
+}
+
+int
+dprintf_l(int fd, locale_t loc, const char * __restrict fmt, ...)
+{
+	va_list ap;
+	int ret;
+
+	va_start(ap, fmt);
+	ret = vdprintf_l(fd, loc, fmt, ap);
 	va_end(ap);
 	return (ret);
 }

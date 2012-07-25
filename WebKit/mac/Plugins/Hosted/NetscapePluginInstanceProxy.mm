@@ -57,6 +57,7 @@
 #import <WebCore/ScriptController.h>
 #import <WebCore/ScriptValue.h>
 #import <WebCore/StringSourceProvider.h>
+#import <WebCore/UserGestureIndicator.h>
 #import <WebCore/npruntime_impl.h>
 #import <WebCore/runtime_object.h>
 #import <WebKitSystemInterface.h>
@@ -151,7 +152,7 @@ uint32_t NetscapePluginInstanceProxy::LocalObjectMap::idForObject(JSGlobalData& 
     } while (!m_objectIDCounter || m_objectIDCounter == static_cast<uint32_t>(-1) || m_idToJSObjectMap.contains(objectID));
 
     m_idToJSObjectMap.set(objectID, Strong<JSObject>(globalData, object));
-    m_jsObjectToIDMap.set(object, make_pair<uint32_t, uint32_t>(objectID, 1));
+    m_jsObjectToIDMap.set(object, make_pair(objectID, 1));
 
     return objectID;
 }
@@ -871,17 +872,13 @@ bool NetscapePluginInstanceProxy::evaluate(uint32_t objectID, const String& scri
     Strong<JSGlobalObject> globalObject(*pluginWorld()->globalData(), frame->script()->globalObject(pluginWorld()));
     ExecState* exec = globalObject->globalExec();
 
-    bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
-    frame->script()->setAllowPopupsFromPlugin(allowPopups);
-    
     globalObject->globalData().timeoutChecker.start();
-    JSValue result = JSC::evaluate(exec, globalObject->globalScopeChain(), makeSource(script));
-    globalObject->globalData().timeoutChecker.stop();
 
-    frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);
+    UserGestureIndicator gestureIndicator(allowPopups ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
     
-    if (!result)
-        result = jsUndefined();
+    JSValue result = JSC::evaluate(exec, globalObject->globalScopeChain(), makeSource(script));
+    
+    globalObject->globalData().timeoutChecker.stop();
     
     marshalValue(exec, result, resultData, resultLength);
     exec->clearException();
@@ -917,10 +914,7 @@ bool NetscapePluginInstanceProxy::invoke(uint32_t objectID, const Identifier& me
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
-    RefPtr<JSGlobalData> globalData = pluginWorld()->globalData();
-    globalData->timeoutChecker.start();
     JSValue value = call(exec, function, callType, callData, object->methodTable()->toThisObject(object, exec), argList);
-    globalData->timeoutChecker.stop();
         
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -952,10 +946,7 @@ bool NetscapePluginInstanceProxy::invokeDefault(uint32_t objectID, data_t argume
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
-    RefPtr<JSGlobalData> globalData = pluginWorld()->globalData();
-    globalData->timeoutChecker.start();
     JSValue value = call(exec, object, callType, callData, object->methodTable()->toThisObject(object, exec), argList);
-    globalData->timeoutChecker.stop();
     
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -988,10 +979,7 @@ bool NetscapePluginInstanceProxy::construct(uint32_t objectID, data_t argumentsD
     MarkedArgumentBuffer argList;
     demarshalValues(exec, argumentsData, argumentsLength, argList);
 
-    RefPtr<JSGlobalData> globalData = pluginWorld()->globalData();
-    globalData->timeoutChecker.start();
     JSValue value = JSC::construct(exec, object, constructType, constructData, argList);
-    globalData->timeoutChecker.stop();
     
     marshalValue(exec, value, resultData, resultLength);
     exec->clearException();
@@ -1088,7 +1076,7 @@ bool NetscapePluginInstanceProxy::setProperty(uint32_t objectID, unsigned proper
     JSLock lock(SilenceAssertionsOnly);    
     
     JSValue value = demarshalValue(exec, valueData, valueLength);
-    object->methodTable()->putByIndex(object, exec, propertyName, value);
+    object->methodTable()->putByIndex(object, exec, propertyName, value, false);
     
     exec->clearException();
     return true;
@@ -1255,13 +1243,30 @@ bool NetscapePluginInstanceProxy::enumerate(uint32_t objectID, data_t& resultDat
     return true;
 }
 
+static bool getObjectID(NetscapePluginInstanceProxy* pluginInstanceProxy, JSObject* object, uint64_t& objectID)
+{
+    if (object->classInfo() != &ProxyRuntimeObject::s_info)
+        return false;
+
+    ProxyRuntimeObject* runtimeObject = static_cast<ProxyRuntimeObject*>(object);
+    ProxyInstance* instance = runtimeObject->getInternalProxyInstance();
+    if (!instance)
+        return false;
+
+    if (instance->instanceProxy() != pluginInstanceProxy)
+        return false;
+
+    objectID = instance->objectID();
+    return true;
+}
+    
 void NetscapePluginInstanceProxy::addValueToArray(NSMutableArray *array, ExecState* exec, JSValue value)
 {
     JSLock lock(SilenceAssertionsOnly);
 
     if (value.isString()) {
         [array addObject:[NSNumber numberWithInt:StringValueType]];
-        [array addObject:ustringToString(value.toString(exec))];
+        [array addObject:ustringToString(value.toString(exec)->value(exec))];
     } else if (value.isNumber()) {
         [array addObject:[NSNumber numberWithInt:DoubleValueType]];
         [array addObject:[NSNumber numberWithDouble:value.toNumber(exec)]];
@@ -1272,12 +1277,10 @@ void NetscapePluginInstanceProxy::addValueToArray(NSMutableArray *array, ExecSta
         [array addObject:[NSNumber numberWithInt:NullValueType]];
     else if (value.isObject()) {
         JSObject* object = asObject(value);
-        if (object->classInfo() == &ProxyRuntimeObject::s_info) {
-            ProxyRuntimeObject* runtimeObject = static_cast<ProxyRuntimeObject*>(object);
-            if (ProxyInstance* instance = runtimeObject->getInternalProxyInstance()) {
-                [array addObject:[NSNumber numberWithInt:NPObjectValueType]];
-                [array addObject:[NSNumber numberWithInt:instance->objectID()]];
-            }
+        uint64_t objectID;
+        if (getObjectID(this, object, objectID)) {
+            [array addObject:[NSNumber numberWithInt:NPObjectValueType]];
+            [array addObject:[NSNumber numberWithInt:objectID]];
         } else {
             [array addObject:[NSNumber numberWithInt:JSObjectValueType]];
             [array addObject:[NSNumber numberWithInt:m_localObjects.idForObject(exec->globalData(), object)]];

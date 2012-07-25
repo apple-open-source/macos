@@ -43,12 +43,24 @@ WebGestureEvent::WebGestureEvent(Type type, const IntPoint& position, const IntP
     ASSERT(isGestureEventType(type));
 }
 
+WebGestureEvent::WebGestureEvent(Type type, const IntPoint& position, const IntPoint& globalPosition, Modifiers modifiers, double timestamp, const IntSize& area, const FloatPoint& delta)
+    : WebEvent(type, modifiers, timestamp)
+    , m_position(position)
+    , m_globalPosition(globalPosition)
+    , m_area(area)
+    , m_delta(delta)
+{
+    ASSERT(isGestureEventType(type));
+}
+
 void WebGestureEvent::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
     WebEvent::encode(encoder);
 
     encoder->encode(m_position);
     encoder->encode(m_globalPosition);
+    encoder->encode(m_area);
+    encoder->encode(m_delta);
 }
 
 bool WebGestureEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebGestureEvent& t)
@@ -59,12 +71,16 @@ bool WebGestureEvent::decode(CoreIPC::ArgumentDecoder* decoder, WebGestureEvent&
         return false;
     if (!decoder->decode(t.m_globalPosition))
         return false;
+    if (!decoder->decode(t.m_area))
+        return false;
+    if (!decoder->decode(t.m_delta))
+        return false;
     return true;
 }
 
 bool WebGestureEvent::isGestureEventType(Type type)
 {
-    return type == GestureScrollBegin || type == GestureScrollEnd;
+    return type == GestureScrollBegin || type == GestureScrollEnd || type == GestureSingleTap;
 }
 
 } // namespace WebKit

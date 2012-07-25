@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,13 +31,28 @@
 #ifndef V8ArrayBufferViewCustom_h
 #define V8ArrayBufferViewCustom_h
 
-#include "ArrayBuffer.h"
+#include <wtf/ArrayBuffer.h>
+#include "ExceptionCode.h"
 
 #include "V8ArrayBuffer.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
+
+
+// Check if the JavaScript 'set' method was already installed
+// on the prototype of the given typed array.
+bool fastSetInstalled(v8::Handle<v8::Object> array);
+
+// Install the JavaScript 'set' method on the prototype of
+// the given typed array.
+void installFastSet(v8::Handle<v8::Object> array);
+
+// Copy the elements from the source array to the typed destination array by
+// invoking the 'set' method of the destination array in JS.
+void copyElements(v8::Handle<v8::Object> destArray, v8::Handle<v8::Object> srcArray, uint32_t offset);
+
 
 // Template function used by the ArrayBufferView*Constructor callbacks.
 template<class ArrayClass, class ElementType>
@@ -54,25 +69,29 @@ v8::Handle<v8::Value> constructWebGLArrayWithArrayBufferArgument(const v8::Argum
         if (!ok)
             return throwError("Could not convert argument 1 to a number");
     }
-    if ((buf->byteLength() - offset) % sizeof(ElementType))
-        return throwError("ArrayBuffer length minus the byteOffset is not a multiple of the element size.", V8Proxy::RangeError);
-    uint32_t length = (buf->byteLength() - offset) / sizeof(ElementType);
+    uint32_t length = 0;
     if (argLen > 2) {
         length = toUInt32(args[2], ok);
         if (!ok)
             return throwError("Could not convert argument 2 to a number");
+    } else {
+        if ((buf->byteLength() - offset) % sizeof(ElementType))
+            return throwError("ArrayBuffer length minus the byteOffset is not a multiple of the element size.", V8Proxy::RangeError);
+        length = (buf->byteLength() - offset) / sizeof(ElementType);
     }
-
     RefPtr<ArrayClass> array = ArrayClass::create(buf, offset, length);
     if (!array) {
-        V8Proxy::setDOMException(INDEX_SIZE_ERR);
+        V8Proxy::setDOMException(INDEX_SIZE_ERR, args.GetIsolate());
         return notHandledByInterceptor();
     }
     // Transform the holder into a wrapper object for the array.
     V8DOMWrapper::setDOMWrapper(args.Holder(), type, array.get());
     if (hasIndexer)
         args.Holder()->SetIndexedPropertiesToExternalArrayData(array.get()->baseAddress(), arrayType, array.get()->length());
-    return toV8(array.release(), args.Holder());
+    v8::Persistent<v8::Object> wrapper = v8::Persistent<v8::Object>::New(args.Holder());
+    wrapper.MarkIndependent();
+    V8DOMWrapper::setJSWrapperForDOMObject(array.release(), wrapper);
+    return args.Holder();
 }
 
 // Template function used by the ArrayBufferView*Constructor callbacks.
@@ -80,7 +99,10 @@ template<class ArrayClass, class ElementType>
 v8::Handle<v8::Value> constructWebGLArray(const v8::Arguments& args, WrapperTypeInfo* type, v8::ExternalArrayType arrayType)
 {
     if (!args.IsConstructCall())
-        return throwError("DOM object constructor cannot be called as a function.");
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
 
     int argLen = args.Length();
     if (!argLen) {
@@ -98,7 +120,10 @@ v8::Handle<v8::Value> constructWebGLArray(const v8::Arguments& args, WrapperType
         // Do not call SetIndexedPropertiesToExternalArrayData on this
         // object. Not only is there no point from a performance
         // perspective, but doing so causes errors in the subset() case.
-        return toV8(array.release(), args.Holder());
+        v8::Persistent<v8::Object> wrapper = v8::Persistent<v8::Object>::New(args.Holder());
+        wrapper.MarkIndependent();
+        V8DOMWrapper::setJSWrapperForDOMObject(array.release(), wrapper);
+        return args.Holder();
     }
 
     // Supported constructors:
@@ -146,25 +171,25 @@ v8::Handle<v8::Value> constructWebGLArray(const v8::Arguments& args, WrapperType
     if (!array.get())
         return throwError("ArrayBufferView size is not a small enough positive integer.", V8Proxy::RangeError);
 
-    if (!srcArray.IsEmpty()) {
-        // Need to copy the incoming array into the newly created ArrayBufferView.
-        for (unsigned i = 0; i < len; i++) {
-            v8::Local<v8::Value> val = srcArray->Get(v8::Integer::NewFromUnsigned(i));
-            array->set(i, val->NumberValue());
-        }
-    }
 
     // Transform the holder into a wrapper object for the array.
     V8DOMWrapper::setDOMWrapper(args.Holder(), type, array.get());
     args.Holder()->SetIndexedPropertiesToExternalArrayData(array.get()->baseAddress(), arrayType, array.get()->length());
-    return toV8(array.release(), args.Holder());
+
+    if (!srcArray.IsEmpty())
+        copyElements(args.Holder(), srcArray, 0);
+
+    v8::Persistent<v8::Object> wrapper = v8::Persistent<v8::Object>::New(args.Holder());
+    wrapper.MarkIndependent();
+    V8DOMWrapper::setJSWrapperForDOMObject(array.release(), wrapper);
+    return args.Holder();
 }
 
 template <class CPlusPlusArrayType, class JavaScriptWrapperArrayType>
 v8::Handle<v8::Value> setWebGLArrayHelper(const v8::Arguments& args)
 {
     if (args.Length() < 1) {
-        V8Proxy::setDOMException(SYNTAX_ERR);
+        V8Proxy::setDOMException(SYNTAX_ERR, args.GetIsolate());
         return notHandledByInterceptor();
     }
 
@@ -176,9 +201,8 @@ v8::Handle<v8::Value> setWebGLArrayHelper(const v8::Arguments& args)
         uint32_t offset = 0;
         if (args.Length() == 2)
             offset = toUInt32(args[1]);
-        ExceptionCode ec = 0;
-        impl->set(src, offset, ec);
-        V8Proxy::setDOMException(ec);
+        if (!impl->set(src, offset))
+            V8Proxy::setDOMException(INDEX_SIZE_ERR, args.GetIsolate());
         return v8::Undefined();
     }
 
@@ -193,15 +217,20 @@ v8::Handle<v8::Value> setWebGLArrayHelper(const v8::Arguments& args)
             || offset + length > impl->length()
             || offset + length < offset)
             // Out of range offset or overflow
-            V8Proxy::setDOMException(INDEX_SIZE_ERR);
-        else
-            for (uint32_t i = 0; i < length; i++)
-                impl->set(offset + i, array->Get(v8::Integer::NewFromUnsigned(i))->NumberValue());
-
+            V8Proxy::setDOMException(INDEX_SIZE_ERR, args.GetIsolate());
+        else {
+            if (!fastSetInstalled(args.Holder())) {
+                installFastSet(args.Holder());
+                copyElements(args.Holder(), array, offset);
+            } else {
+                for (uint32_t i = 0; i < length; i++)
+                    impl->set(offset + i, array->Get(i)->NumberValue());
+            }
+        }
         return v8::Undefined();
     }
 
-    V8Proxy::setDOMException(SYNTAX_ERR);
+    V8Proxy::setDOMException(SYNTAX_ERR, args.GetIsolate());
     return notHandledByInterceptor();
 }
 

@@ -32,15 +32,10 @@ public:
 private:
     SVGMissingGlyphElement(const QualifiedName&, Document*);
 
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
-
-    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) { return false; }
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG_FONTS)
 #endif
-
-// vim:ts=4:noet

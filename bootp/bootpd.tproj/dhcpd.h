@@ -68,4 +68,4 @@ make_dhcp_reply(struct dhcp * reply, int pkt_size,
 int
 dhcp_max_message_size(dhcpol_t * client_options);
 
-#endif _S_DHCPD_H
+#endif /* _S_DHCPD_H */

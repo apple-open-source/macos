@@ -58,11 +58,9 @@ public:
     bool stitchTiles() const;
     bool setStitchTiles(bool);
 
-#if ENABLE(PARALLEL_JOBS)
     static void fillRegionWorker(void*);
-#endif
 
-    virtual void apply();
+    virtual void platformApplySoftware();
     virtual void dump();
     
     virtual void determineAbsolutePaintRect() { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
@@ -72,45 +70,58 @@ public:
 private:
     static const int s_blockSize = 256;
     static const int s_blockMask = s_blockSize - 1;
-#if ENABLE(PARALLEL_JOBS)
-    static const int s_minimalRectDimension = (100 * 100); // Empirical data limit for parallel jobs
-#endif
+
+    static const int s_minimalRectDimension = (100 * 100); // Empirical data limit for parallel jobs.
 
     struct PaintingData {
+        PaintingData(long paintingSeed, const IntSize& paintingSize)
+            : seed(paintingSeed)
+            , filterSize(paintingSize)
+        {
+        }
+
         long seed;
         int latticeSelector[2 * s_blockSize + 2];
         float gradient[4][2 * s_blockSize + 2][2];
-        int width; // How much to subtract to wrap for stitching.
-        int height;
-        int wrapX; // Minimum value to wrap.
-        int wrapY;
         IntSize filterSize;
 
-        PaintingData(long paintingSeed, const IntSize& paintingSize);
         inline long random();
     };
 
-#if ENABLE(PARALLEL_JOBS)
+    struct StitchData {
+        StitchData()
+            : width(0)
+            , wrapX(0)
+            , height(0)
+            , wrapY(0)
+        {
+        }
+
+        int width; // How much to subtract to wrap for stitching.
+        int wrapX; // Minimum value to wrap.
+        int height;
+        int wrapY;
+    };
+
     template<typename Type>
     friend class ParallelJobs;
 
     struct FillRegionParameters {
         FETurbulence* filter;
-        ByteArray* pixelArray;
+        Uint8ClampedArray* pixelArray;
         PaintingData* paintingData;
         int startY;
         int endY;
     };
 
     static void fillRegionWorker(FillRegionParameters*);
-#endif
 
     FETurbulence(Filter*, TurbulenceType, float, float, int, float, bool);
 
     inline void initPaint(PaintingData&);
-    float noise2D(int channel, PaintingData&, const FloatPoint&);
-    unsigned char calculateTurbulenceValueForPoint(int channel, PaintingData&, const FloatPoint&);
-    inline void fillRegion(ByteArray*, PaintingData&, int, int);
+    float noise2D(int channel, PaintingData&, StitchData&, const FloatPoint&);
+    unsigned char calculateTurbulenceValueForPoint(int channel, PaintingData&, StitchData&, const FloatPoint&);
+    inline void fillRegion(Uint8ClampedArray*, PaintingData&, int, int);
 
     TurbulenceType m_type;
     float m_baseFrequencyX;

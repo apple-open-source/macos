@@ -244,6 +244,10 @@ static uint64_t max(
 static void alignentries(
     void);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 int
 main(
 int argc,

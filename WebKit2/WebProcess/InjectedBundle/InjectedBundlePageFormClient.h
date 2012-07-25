@@ -45,7 +45,7 @@ class ImmutableDictionary;
 class WebFrame;
 class WebPage;
 
-class InjectedBundlePageFormClient : public APIClient<WKBundlePageFormClient> {
+class InjectedBundlePageFormClient : public APIClient<WKBundlePageFormClient, kWKBundlePageFormClientCurrentVersion> {
 public:
     void textFieldDidBeginEditing(WebPage*, WebCore::HTMLInputElement*, WebFrame*);
     void textFieldDidEndEditing(WebPage*, WebCore::HTMLInputElement*, WebFrame*);
@@ -53,6 +53,7 @@ public:
     void textDidChangeInTextArea(WebPage*, WebCore::HTMLTextAreaElement*, WebFrame*);
     bool shouldPerformActionInTextField(WebPage*, WebCore::HTMLInputElement*, WKInputFieldActionType, WebFrame*);    
     void willSubmitForm(WebPage*, WebCore::HTMLFormElement*, WebFrame*, WebFrame* sourceFrame, const Vector<std::pair<String, String> >&, RefPtr<APIObject>& userData);
+    void willSendSubmitEvent(WebPage*, WebCore::HTMLFormElement*, WebFrame*, WebFrame* sourceFrame, const Vector<std::pair<String, String> >&);
 };
 
 } // namespace WebKit

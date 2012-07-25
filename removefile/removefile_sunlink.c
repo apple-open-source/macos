@@ -190,7 +190,11 @@ overwrite(int stage, removefile_state_t state) {
     buffptr = align_buffer(state->buffer, count);
   }
   i = write(state->file, buffptr, state->file_size - count);
-  flush(state->file);
+  /*
+   * Only flush the data if we're doing more than one pass of writes.
+   */
+  if ((state->unlink_flags & (REMOVEFILE_SECURE_7_PASS | REMOVEFILE_SECURE_35_PASS | REMOVEFILE_SECURE_3_PASS)) != 0)
+    flush(state->file);
   lseek(state->file, 0, SEEK_SET);
 }
 

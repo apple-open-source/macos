@@ -33,11 +33,22 @@ static char sccsid[] = "@(#)atof.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/atof.c,v 1.6 2007/01/09 00:28:09 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdlib.h>
 
 double
 atof(ascii)
 	const char *ascii;
 {
-	return strtod(ascii, (char **)NULL);
+	return strtod_l(ascii, (char **)NULL, __current_locale());
+}
+
+double
+atof_l(ascii, loc)
+	const char *ascii;
+	locale_t loc;
+{
+	/* no need to call NORMALIZE_LOCALE(loc) because strtod_l will */
+	return strtod_l(ascii, (char **)NULL, loc);
 }

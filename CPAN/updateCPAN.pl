@@ -8,12 +8,22 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.12.inc';
-my @FilePreviousList = ('5.10.inc');
+my $FileCurrent = '5.14.inc';
+my @FilePreviousList = qw(5.12.inc 5.10.inc);
 my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
 
 my $download;
-Getopt::Long::GetOptions('d' => \$download);
+my @skip;
+my $skipfile;
+Getopt::Long::GetOptions('d' => \$download, 's=s' => \@skip, 'S=s' => \$skipfile);
+if(defined($skipfile)) {
+    my $s = IO::File->new($skipfile, 'r') or die "Can't open $skipfile\n";
+    while(<$s>) {
+	chomp;
+	push(@skip, $_);
+    }
+}
+my %Skip = map {($_, 1)} @skip;
 
 CPAN::HandleConfig->load;
 CPAN::Shell::setup_output;
@@ -97,6 +107,10 @@ my $importDate = importDate();
 for my $proj (sort(keys(%projectsCurrent))) {
     my $oldvers = $projectsCurrent{$proj};
     my $old = "$proj-$oldvers";
+    if($Skip{$old}) {
+	print "Skipping $old\n";
+	next;
+    }
     print "Update for $old\n";
     undef($found);
     $_ = $proj;
@@ -145,7 +159,11 @@ for my $proj (sort(keys(%projectsCurrent))) {
 	next;
     }
     ($name, $vers) = nameVers($new);
-    if($name eq $proj && $vers eq $oldvers) {
+    if($name ne $proj) {
+	print "    *** Module $proj combined into $name\n";
+	next;
+    }
+    if($vers eq $oldvers) {
 	print "    Already have $name-$vers\n";
 	next;
     }

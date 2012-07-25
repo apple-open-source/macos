@@ -41,12 +41,15 @@ private slots:
     void focusInputTypes();
     void crashOnSetScaleBeforeSetUrl();
     void widgetsRenderingThroughCache();
+    void windowResizeEvent();
+
 #if !(defined(WTF_USE_QT_MOBILE_THEME) && WTF_USE_QT_MOBILE_THEME)
     void setPalette_data();
     void setPalette();
 #endif
     void renderHints();
-#if defined(ENABLE_TILED_BACKING_STORE) && ENABLE_TILED_BACKING_STORE
+#if defined(WTF_USE_TILED_BACKING_STORE) && WTF_USE_TILED_BACKING_STORE
+    void bug57798();
     void bug56929();
 #endif
 #if defined(ENABLE_WEBGL) && ENABLE_WEBGL
@@ -198,7 +201,36 @@ void tst_QGraphicsWebView::widgetsRenderingThroughCache()
     QCOMPARE(referencePixmap.toImage(), viewWithTiling.toImage());
 }
 
-#if defined(ENABLE_TILED_BACKING_STORE) && ENABLE_TILED_BACKING_STORE
+#if defined(WTF_USE_TILED_BACKING_STORE) && WTF_USE_TILED_BACKING_STORE
+void tst_QGraphicsWebView::bug57798()
+{
+    // When content size grows from less than viewport size to more than that, tiles may need to be regenerated.
+
+    QGraphicsWebView* webView = new QGraphicsWebView();
+    webView->setGeometry(QRectF(0.0, 0.0, 100.0, 100.0));
+    QGraphicsView view(new QGraphicsScene());
+    view.scene()->setParent(&view);
+    view.scene()->addItem(webView);
+    webView->settings()->setAttribute(QWebSettings::TiledBackingStoreEnabled, true);
+    QStyleOptionGraphicsItem option;
+    option.exposedRect = view.sceneRect();
+    QImage img(view.width(), view.height(),
+    QImage::Format_ARGB32_Premultiplied);
+    QPainter painter(&img);
+    // This will not paint anything as the tiles are not ready, but will trigger tile creation with size (0, 0).
+    webView->paint(&painter, &option);
+    QApplication::processEvents();
+    QUrl url("qrc:///resources/greendiv.html");
+    webView->load(url);
+    QVERIFY(waitForSignal(webView, SIGNAL(loadFinished(bool))));
+    // This should trigger the recreation of the tiles.
+    webView->paint(&painter, &option);
+    QApplication::processEvents();
+    painter.fillRect(option.exposedRect, Qt::red); // This is here to ensure failure if paint does not paint anything
+    webView->paint(&painter, &option);
+    QCOMPARE(img.pixel(option.exposedRect.width() / 4, option.exposedRect.height() / 4), qRgba(0, 128, 0, 255));
+}
+
 void tst_QGraphicsWebView::bug56929()
 {
     // When rendering from tiles sychronous layout should not be triggered
@@ -210,7 +242,7 @@ void tst_QGraphicsWebView::bug56929()
     view.scene()->setParent(&view);
     view.scene()->addItem(webView);
     webView->settings()->setAttribute(QWebSettings::TiledBackingStoreEnabled, true);
-    QUrl url("qrc:///resources/56929.html");
+    QUrl url("qrc:///resources/greendiv.html");
     webView->load(url);
     QVERIFY(waitForSignal(webView, SIGNAL(loadFinished(bool))));
     QStyleOptionGraphicsItem option;
@@ -282,12 +314,7 @@ void tst_QGraphicsWebView::focusInputTypes()
 
     // 'text' type
     webView->fireMouseClick(QPointF(20.0, 10.0));
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
-    QVERIFY(webView->inputMethodHints() & Qt::ImhNoAutoUppercase);
-    QVERIFY(webView->inputMethodHints() & Qt::ImhNoPredictiveText);
-#else
     QVERIFY(webView->inputMethodHints() == Qt::ImhNone);
-#endif
 
     // 'password' field
     webView->fireMouseClick(QPointF(20.0, 60.0));
@@ -387,9 +414,11 @@ void tst_QGraphicsWebView::setPalette()
     if (!active) {
         controlView.show();
         QTest::qWaitForWindowShown(&controlView);
+        QApplication::setActiveWindow(&controlView);
         activeView = &controlView;
         controlView.activateWindow();
     } else {
+        QApplication::setActiveWindow(&view1);
         view1.activateWindow();
         activeView = &view1;
     }
@@ -440,9 +469,11 @@ void tst_QGraphicsWebView::setPalette()
     if (!active) {
         controlView.show();
         QTest::qWaitForWindowShown(&controlView);
+        QApplication::setActiveWindow(&controlView);
         activeView = &controlView;
         controlView.activateWindow();
     } else {
+        QApplication::setActiveWindow(&view2);
         view2.activateWindow();
         activeView = &view2;
     }
@@ -602,6 +633,53 @@ void tst_QGraphicsWebView::compareCanvasToImage(const QUrl& url, const QImage& r
     QVERIFY(compareImagesFuzzyPixelCount(target, reference, 0.01));
 }
 #endif
+
+class ResizeSpy : public QObject {
+    Q_OBJECT
+public slots:
+    void receiveResize(int width, int height)
+    {
+        m_size = QSize(width, height);
+        emit resized();
+    }
+
+    QSize size() const
+    {
+        return m_size;
+    }
+
+signals:
+    void resized();
+
+private:
+    QSize m_size;
+};
+
+void tst_QGraphicsWebView::windowResizeEvent()
+{
+    QGraphicsWebView webView;
+    ResizeSpy resizeSpy;
+    resizeSpy.setProperty("resizeCount", 0);
+
+    QString html = "<html><body><script>"
+                   "function onResize() { window.resizeSpy.receiveResize(window.innerWidth, window.innerHeight); }"
+                   "window.addEventListener('resize', onResize , false);"
+                   "</script></body></html>";
+
+    webView.page()->mainFrame()->setHtml(html);
+    webView.page()->mainFrame()->addToJavaScriptWindowObject("resizeSpy",
+                                                             &resizeSpy);
+    webView.setGeometry(QRect(0, 0, 50, 50));
+    QVERIFY(::waitForSignal(&resizeSpy, SIGNAL(resized()), 1000));
+    QCOMPARE(resizeSpy.size(), QSize(50, 50));
+
+    webView.page()->setActualVisibleContentRect(QRect(10, 10, 60, 60));
+    webView.setGeometry(QRect(0, 0, 100, 100));
+    waitForSignal(&resizeSpy, SIGNAL(resized()), 1000);
+
+    // This will be triggered without the fix on DOMWindow::innerHeight/Width
+    QCOMPARE(resizeSpy.size(), QSize(60, 60));
+}
 
 QTEST_MAIN(tst_QGraphicsWebView)
 

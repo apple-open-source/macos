@@ -610,6 +610,7 @@ make_symlink(const char *target, const char *path)
 	char linktarget[PATH_MAX + 1];
 	ssize_t pathlength;
 	struct statfs *mnt;
+	struct stat st;
 
 	/*
 	 * Does the target exist?
@@ -724,6 +725,15 @@ make_symlink(const char *target, const char *path)
 	if (symlink(target, path) == -1) {
 		pr_msg("can't create symlink from %s to %s: %m",
 		    path, target);
+	}
+
+	/*
+	 * Validate the symlink in case the path and target
+	 * don't match but still yield an ELOOP.
+	 */
+	if (stat(path, &st) < 0) {
+		pr_msg("Invalid symbolic link: %s to %s: %m", path, target);
+		(void) unlink(path);
 	}
 }
 

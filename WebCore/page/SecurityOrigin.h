@@ -29,7 +29,6 @@
 #ifndef SecurityOrigin_h
 #define SecurityOrigin_h
 
-#include "FrameLoaderTypes.h"
 #include "PlatformString.h"
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -40,11 +39,18 @@ class KURL;
 
 class SecurityOrigin : public ThreadSafeRefCounted<SecurityOrigin> {
 public:
+    enum Policy {
+        AlwaysDeny = 0,
+        AlwaysAllow,
+        Ask
+    };
+
+    static PassRefPtr<SecurityOrigin> create(const KURL&);
+    static PassRefPtr<SecurityOrigin> createUnique();
+
     static PassRefPtr<SecurityOrigin> createFromDatabaseIdentifier(const String&);
     static PassRefPtr<SecurityOrigin> createFromString(const String&);
     static PassRefPtr<SecurityOrigin> create(const String& protocol, const String& host, int port);
-    static PassRefPtr<SecurityOrigin> create(const KURL&, SandboxFlags = SandboxNone);
-    static PassRefPtr<SecurityOrigin> createEmpty();
 
     // Create a deep copy of this SecurityOrigin. This method is useful
     // when marshalling a SecurityOrigin to another thread.
@@ -55,9 +61,6 @@ public:
     // domain. The caller is responsible for validating newDomain.
     void setDomainFromDOM(const String& newDomain);
     bool domainWasSetInDOM() const { return m_domainWasSetInDOM; }
-
-    static void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const String&);
-    static bool isDomainRelaxationForbiddenForURLScheme(const String&);
 
     String protocol() const { return m_protocol; }
     String host() const { return m_host; }
@@ -113,20 +116,17 @@ public:
     // WARNING: This is an extremely powerful ability. Use with caution!
     void grantUniversalAccess();
 
-    bool isSandboxed(SandboxFlags mask) const { return m_sandboxFlags & mask; }
-
     bool canAccessDatabase() const { return !isUnique(); }
     bool canAccessLocalStorage() const { return !isUnique(); }
     bool canAccessCookies() const { return !isUnique(); }
     bool canAccessPasswordManager() const { return !isUnique(); }
     bool canAccessFileSystem() const { return !isUnique(); }
+    Policy canShowNotifications() const;
 
     // Technically, we should always allow access to sessionStorage, but we
     // currently don't handle creating a sessionStorage area for unique
     // origins.
     bool canAccessSessionStorage() const { return !isUnique(); }
-
-    bool isSecureTransitionTo(const KURL&) const;
 
     // The local SecurityOrigin is the most privileged SecurityOrigin.
     // The local SecurityOrigin can script any document, navigate to local
@@ -141,14 +141,9 @@ public:
     // addition, the SandboxOrigin flag is inherited by iframes.
     bool isUnique() const { return m_isUnique; }
 
-    // The empty SecurityOrigin is a unique security orign (in the sense of
-    // isUnique above) that was created for a "blank" document, such about
-    // about:blank. Empty origins differ from unique origins in that they can
-    // sometimes be replaced by non-empty origins, for example when an
-    // about:blank iframe inherits its security origin from its parent frame.
-    bool isEmpty() const;
-
     // Marks a file:// origin as being in a domain defined by its path.
+    // FIXME 81578: The naming of this is confusing. Files with restricted access to other local files
+    // still can have other privileges that can be remembered, thereby not making them unique.
     void enforceFilePathSeparation();
 
     // Convert this SecurityOrigin into a string. The string
@@ -162,6 +157,10 @@ public:
     // SecurityOrigin might be empty, or we might have explicitly decided that
     // we shouldTreatURLSchemeAsNoAccess.
     String toString() const;
+
+    // Similar to toString(), but does not take into account any factors that
+    // could make the string return "null".
+    String toRawString() const;
 
     // Serialize the security origin to a string that could be used as part of
     // file names. This format should be used in storage APIs only.
@@ -178,32 +177,14 @@ public:
     // (and whether it was set) but considering the host. It is used for postMessage.
     bool isSameSchemeHostPort(const SecurityOrigin*) const;
 
-    static bool shouldHideReferrer(const KURL&, const String& referrer);
-
-    enum LocalLoadPolicy {
-        AllowLocalLoadsForAll, // No restriction on local loads.
-        AllowLocalLoadsForLocalAndSubstituteData,
-        AllowLocalLoadsForLocalOnly,
-    };
-    static void setLocalLoadPolicy(LocalLoadPolicy);
-    static bool restrictAccessToLocal();
-    static bool allowSubstituteDataAccessToLocal();
-
-    static void addOriginAccessWhitelistEntry(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomains, bool allowDestinationSubdomains);
-    static void removeOriginAccessWhitelistEntry(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomains, bool allowDestinationSubdomains);
-    static void resetOriginAccessWhitelists();
-
 private:
-    SecurityOrigin(const KURL&, SandboxFlags);
+    SecurityOrigin();
+    explicit SecurityOrigin(const KURL&);
     explicit SecurityOrigin(const SecurityOrigin*);
 
     // FIXME: Rename this function to something more semantic.
     bool passesFileCheck(const SecurityOrigin*) const;
 
-    bool isAccessWhiteListed(const SecurityOrigin*) const;
-    bool isAccessToURLWhiteListed(const KURL&) const;
-
-    SandboxFlags m_sandboxFlags;
     String m_protocol;
     String m_host;
     mutable String m_encodedHost;
@@ -215,6 +196,7 @@ private:
     bool m_domainWasSetInDOM;
     bool m_canLoadLocalResources;
     bool m_enforceFilePathSeparation;
+    bool m_needsDatabaseIdentifierQuirkForFiles;
 };
 
 } // namespace WebCore

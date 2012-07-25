@@ -86,10 +86,8 @@ enum {
     kIOEthernetWakeOnPacketAddressMatch  = 0x00000002
 };
 
-/*
- * Kernel
- */
-#if defined(KERNEL) && defined(__cplusplus)
+#ifdef KERNEL
+#ifdef __cplusplus
 
 struct IOEthernetAddress {
 	UInt8 bytes[kIOEthernetAddressSize];
@@ -499,6 +497,6 @@ enum {
 typedef bool IOEnetPromiscuousMode;
 typedef bool IOEnetMulticastMode;
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IOETHERNETCONTROLLER_H */

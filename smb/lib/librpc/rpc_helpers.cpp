@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -149,6 +149,10 @@ rpc_binding::rpc_binding(const char * string_binding)
     rpc_binding_from_string_binding((idl_char *)string_binding,
 									&binding_handle, &status);
     if (status != rpc_s_ok) {
+        SMBLogInfo("rpc_binding_from_string_binding failed on <%s> status %#08x", 
+                   ASL_LEVEL_ERR, 
+                   string_binding == NULL ? "nullstr" : string_binding, 
+                   status);
         binding_handle = NULL;
     }
 }
@@ -170,18 +174,57 @@ make_rpc_binding(
 				 const char * EndPoint)
 {
     char * binding_string = NULL;
+    char * endpoint_string = NULL;
+    uint32_t status;
 	
     if (!EndPoint) {
         return rpc_binding();
     }
 	
     if (ServerName) {
-        asprintf(&binding_string,
-				 "ncacn_np:%s[\\\\pipe\\%s]",
-				 ServerName, EndPoint);
-    } else {
-        asprintf(&binding_string,
-				 "ncalrpc:[%s]", EndPoint);
+        /* add in the "\pipe\" to the endpoint */
+        asprintf(&endpoint_string, "\\pipe\\%s]", EndPoint);
+        
+        rpc_string_binding_compose(NULL, 
+                                   (idl_char *) "ncacn_np", 
+                                   (idl_char *) ServerName, 
+                                   (idl_char *) endpoint_string, 
+                                   NULL,
+                                   (idl_char **) &binding_string, 
+                                   &status);
+        if (status != 0) {
+            SMBLogInfo("rpc_string_binding_compose failed on <%s>:<%s> status %#08x", 
+                       ASL_LEVEL_ERR, 
+                       ServerName == NULL ? "nullstr" : ServerName, 
+                       EndPoint == NULL ? "nullstr" : EndPoint, 
+                       status);
+            
+            /* fallback to the old way instead */
+            asprintf(&binding_string, "ncacn_np:%s[%s]",
+                     ServerName, endpoint_string);
+        }
+        
+        if (endpoint_string != NULL) {
+            free(endpoint_string);
+        }
+    } 
+    else {
+        rpc_string_binding_compose(NULL, 
+                                   (idl_char *) "ncalrpc", 
+                                   NULL, 
+                                   (idl_char *) EndPoint, 
+                                   NULL, 
+                                   (idl_char **) &binding_string, 
+                                   &status);
+        if (status != 0) {
+            SMBLogInfo("rpc_string_binding_compose failed on <%s> status %#08x", 
+                       ASL_LEVEL_ERR, 
+                       EndPoint == NULL ? "nullstr" : EndPoint, 
+                       status);
+            
+            /* fallback to the old way instead */
+            asprintf(&binding_string, "ncalrpc:[%s]", EndPoint);
+        }
     }
 	
     if (!binding_string) {
@@ -189,7 +232,26 @@ make_rpc_binding(
     }
 	
     rpc_binding binding(binding_string);
-    free(binding_string);
+    
+    if (status == 0) {
+        /* rpc_string_binding_compose worked */
+        if (binding_string != NULL) {
+            rpc_string_free((idl_char **) &binding_string, &status);
+            if (status != 0) {
+                SMBLogInfo("rpc_string_free failed on <%s> status %#08x", 
+                           ASL_LEVEL_ERR, 
+                           binding_string == NULL ? "nullstr" : binding_string, 
+                           status);
+            }
+        }
+    }
+    else {
+        /* must have used asprintf */
+        if (binding_string != NULL) {
+            free(binding_string);
+        }
+    }
+    
     return binding;
 }
 

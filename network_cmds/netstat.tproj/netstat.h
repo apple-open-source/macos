@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,7 @@
 extern int	Aflag;	/* show addresses of protocol control block */
 extern int	aflag;	/* show all sockets (including servers) */
 extern int	bflag;	/* show i/f total bytes in/out */
+extern int	cflag;	/* show specific classq */
 extern int	dflag;	/* show i/f dropped packets */
 #if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 extern int	gflag;	/* show group (multicast) routing or stats */
@@ -85,7 +86,11 @@ extern int	prioflag; /* show packet priority  statistics */
 extern int	tflag;	/* show i/f watchdog timers */
 extern int	vflag;	/* more verbose */
 extern int	Wflag;	/* wide display */
+extern int	qflag;	/* Display ifclassq stats */
+extern int	Qflag;	/* Display opportunistic polling stats */
+extern int	xflag;	/* show extended link-layer reachability information */
 
+extern int	cq;	/* send classq index (-1 for all) */
 extern int	interval; /* repeat interval for i/f stats */
 
 extern char	*interface; /* desired i/f for stats, or NULL for all i/fs */
@@ -149,6 +154,8 @@ extern char	*netname(uint32_t, uint32_t);
 extern void	routepr(uint32_t);
 
 extern void	unixpr(void);
+extern void	aqstatpr(void);
+extern void	rxpollstatpr(void);
 
 #if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 extern void	mroutepr(void);

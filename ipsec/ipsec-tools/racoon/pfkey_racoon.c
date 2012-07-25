@@ -129,7 +129,7 @@ static int pk_recvspdget __P((caddr_t *));
 static int pk_recvspddump __P((caddr_t *));
 static int pk_recvspdflush __P((caddr_t *));
 static int pk_recvgetsastat __P((caddr_t *));
-static struct sadb_msg *pk_recv __P((int, int *));
+static struct sadb_msg *pk_recv __P((int, ssize_t *));
 
 static int (*pkrecvf[]) __P((caddr_t *)) = {
 NULL,
@@ -195,9 +195,9 @@ pfkey_process(msg)
 	caddr_t mhp[SADB_EXT_MAX + 1];
 	int error = -1;
 	
-	plog(LLV_DEBUG, LOCATION, NULL, "get pfkey %s message\n",
-		s_pfkey_type(msg->sadb_msg_type));
-	plogdump(LLV_DEBUG2, msg, msg->sadb_msg_len << 3);
+	//plog(LLV_DEBUG, LOCATION, NULL, "get pfkey %s message\n",
+	//	s_pfkey_type(msg->sadb_msg_type));
+	//plogdump(LLV_DEBUG2, msg, msg->sadb_msg_len << 3);
 
 	/* validity check */
 	if (msg->sadb_msg_errno) {
@@ -231,7 +231,7 @@ pfkey_process(msg)
 			ipsec_strerror());
 		goto end;
 	}
-	msg = (struct sadb_msg *)mhp[0];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];             // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
 
 	/* safety check */
 	if (msg->sadb_msg_type >= ARRAYLEN(pkrecvf)) {
@@ -267,7 +267,7 @@ int
 pfkey_handler()
 {
 	struct sadb_msg *msg;
-	int len;
+	ssize_t len;
 
 	if (slept_at || woke_at) {
 		plog(LLV_DEBUG, LOCATION, NULL,
@@ -286,6 +286,8 @@ pfkey_handler()
 			return -1;			
 		} else {
 			/* short message - msg not ready */
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "recv short message from pfkey\n");
 			return 0;
 		}
 	}
@@ -301,7 +303,7 @@ pfkey_post_handler()
 	if (slept_at || woke_at) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			 "ignoring (saved) pfkey messages until power-mgmt event is handled.\n");
-		return 0;
+		return;
 	}
 
 	TAILQ_FOREACH_SAFE(elem, &lcconf->saved_msg_queue, chain, elem_tmp) {
@@ -338,7 +340,7 @@ pfkey_dump_sadb(satype)
 	pid_t pid = getpid();
 	struct sadb_msg *msg = NULL;
 	size_t bl, ml;
-	int len;
+	ssize_t len;
 
 	if ((s = privsep_pfkey_open()) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -858,7 +860,7 @@ pfkey_timeover(iph2)
 {
 	plog(LLV_ERROR, LOCATION, NULL,
 		"%s give up to get IPsec-SA due to time up to wait.\n",
-		saddrwop2str(iph2->dst));
+		saddrwop2str((struct sockaddr *)iph2->dst));
 	SCHED_KILL(iph2->sce);
 
 	/* If initiator side, send error to kernel by SADB_ACQUIRE. */
@@ -883,7 +885,7 @@ int
 pk_sendgetspi(iph2)
 	struct ph2handle *iph2;
 {
-	struct sockaddr *src = NULL, *dst = NULL;
+	struct sockaddr_storage *src = NULL, *dst = NULL;
 	u_int satype, mode;
 	struct saprop *pp;
 	struct saproto *pr;
@@ -967,7 +969,7 @@ pk_recvgetspi(mhp)
 	struct sadb_msg *msg;
 	struct sadb_sa *sa;
 	struct ph2handle *iph2;
-	struct sockaddr *dst;
+	struct sockaddr_storage *dst;
 	int proto_id;
 	int allspiok, notfound;
 	struct saprop *pp;
@@ -980,9 +982,9 @@ pk_recvgetspi(mhp)
 			"inappropriate sadb getspi message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]); /* note SA dir */
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                     // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]); /* note SA dir */   
 
 	/* the message has to be processed or not ? */
 	if (msg->sadb_msg_pid != getpid()) {
@@ -1022,7 +1024,7 @@ pk_recvgetspi(mhp)
         if (!ike_session_update_ph2_ph1bind(iph2)) {
             plog(LLV_ERROR, LOCATION, NULL,
                  "can't proceed with getspi for  %s. no suitable ISAKMP-SA found \n",
-                 saddrwop2str(iph2->dst));
+                 saddrwop2str((struct sockaddr *)iph2->dst));
             unbindph12(iph2);
             remph2(iph2);
             delph2(iph2);
@@ -1054,7 +1056,7 @@ pk_recvgetspi(mhp)
 	if (notfound) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"get spi for unknown address %s\n",
-			saddrwop2str(iph2->dst));
+			saddrwop2str((struct sockaddr *)iph2->dst));
         unbindph12(iph2);
         remph2(iph2);
         delph2(iph2);
@@ -1086,7 +1088,7 @@ pk_sendupdate(iph2)
 	struct ph2handle *iph2;
 {
 	struct saproto *pr;
-	struct sockaddr *src = NULL, *dst = NULL;
+	struct sockaddr_storage *src = NULL, *dst = NULL;
 	u_int e_type, e_keylen, a_type, a_keylen, flags;
 	u_int satype, mode;
 	u_int64_t lifebyte = 0;
@@ -1166,7 +1168,7 @@ pk_sendupdate(iph2)
 			} else {
 				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
 					mode == IPSEC_MODE_TRANSPORT &&
-					src->sa_family == AF_INET) {
+					src->ss_family == AF_INET) {
 					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
 				}
 				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
@@ -1227,7 +1229,7 @@ pk_sendupdate(iph2)
 		 * But it is impossible because there is not key in the
 		 * information from the kernel.
 		 */
-		if (backupsa_to_file(satype, mode, dst, src,
+		if (backupsa_to_file(satype, mode, (struct sockaddr *)dst, (struct sockaddr *)src,
 				pr->spi, pr->reqid_in, 4,
 				pr->keymat->v,
 				e_type, e_keylen, a_type, a_keylen, flags,
@@ -1254,7 +1256,7 @@ pk_recvupdate(mhp)
 {
 	struct sadb_msg *msg;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	struct ph2handle *iph2;
 	u_int proto_id, encmode, sa_mode;
 	int incomplete = 0;
@@ -1273,14 +1275,14 @@ pk_recvupdate(mhp)
 			"inappropriate sadb update message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
-	sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                 // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];
 
 	sa_mode = mhp[SADB_X_EXT_SA2] == NULL
 		? IPSEC_MODE_ANY
-		: ((struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
+		: (ALIGNED_CAST(struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
 
 	/* the message has to be processed or not ? */
 	if (msg->sadb_msg_pid != getpid()) {
@@ -1412,7 +1414,7 @@ pk_sendadd(iph2)
 	struct ph2handle *iph2;
 {
 	struct saproto *pr;
-	struct sockaddr *src = NULL, *dst = NULL;
+	struct sockaddr_storage *src = NULL, *dst = NULL;
 	u_int e_type, e_keylen, a_type, a_keylen, flags;
 	u_int satype, mode;
 	u_int64_t lifebyte = 0;
@@ -1493,7 +1495,7 @@ pk_sendadd(iph2)
 			} else {
 				if (iph2->ph1->rmconf->natt_multiple_user == TRUE &&
 					mode == IPSEC_MODE_TRANSPORT &&
-					dst->sa_family == AF_INET) {
+					dst->ss_family == AF_INET) {
 					flags |= SADB_X_EXT_NATT_MULTIPLEUSERS;
 				}
 				if (iph2->ph1->natt_flags & NAT_DETECTED_PEER) {
@@ -1562,7 +1564,7 @@ pk_sendadd(iph2)
 		 * But it is impossible because there is not key in the
 		 * information from the kernel.
 		 */
-		if (backupsa_to_file(satype, mode, src, dst,
+		if (backupsa_to_file(satype, mode, (struct sockaddr *)src, (struct sockaddr *)dst,
 				pr->spi_p, pr->reqid_out, 4,
 				pr->keymat_p->v,
 				e_type, e_keylen, a_type, a_keylen, flags,
@@ -1589,7 +1591,7 @@ pk_recvadd(mhp)
 {
 	struct sadb_msg *msg;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	struct ph2handle *iph2;
 	u_int sa_mode;
 
@@ -1606,14 +1608,14 @@ pk_recvadd(mhp)
 			"inappropriate sadb add message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
-	sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                     // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];
 
 	sa_mode = mhp[SADB_X_EXT_SA2] == NULL
 		? IPSEC_MODE_ANY
-		: ((struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
+		: (ALIGNED_CAST(struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
 
 	/* the message has to be processed or not ? */
 	if (msg->sadb_msg_pid != getpid()) {
@@ -1650,7 +1652,7 @@ pk_recvadd(mhp)
 		{
 			u_int32_t address;
 			
-			if (iph2->dst->sa_family == AF_INET)
+			if (iph2->dst->ss_family == AF_INET)
 				address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
 			else
 				address = 0;
@@ -1668,7 +1670,7 @@ pk_recvexpire(mhp)
 {
 	struct sadb_msg *msg;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	struct ph2handle *iph2;
 	u_int proto_id, sa_mode;
 
@@ -1683,14 +1685,14 @@ pk_recvexpire(mhp)
 			"inappropriate sadb expire message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
-	src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                 // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];
+	src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
 	sa_mode = mhp[SADB_X_EXT_SA2] == NULL
 		? IPSEC_MODE_ANY
-		: ((struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
+		: (ALIGNED_CAST(struct sadb_x_sa2 *)mhp[SADB_X_EXT_SA2])->sadb_x_sa2_mode;
 
 	proto_id = pfkey2ipsecdoi_proto(msg->sadb_msg_satype);
 	if (proto_id == ~0) {
@@ -1783,7 +1785,7 @@ pk_recvacquire(mhp)
 	struct secpolicy *sp_out = NULL, *sp_in = NULL;
 #define MAXNESTEDSA	5	/* XXX */
 	struct ph2handle *iph2[MAXNESTEDSA];
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	int n;	/* # of phase 2 handler */
 
 	/* ignore this message because of local test mode. */
@@ -1799,10 +1801,10 @@ pk_recvacquire(mhp)
 			"inappropriate sadb acquire message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
-	src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                         // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
 	/* ignore if type is not IPSEC_POLICY_IPSEC */
 	if (xpl->sadb_x_policy_type != IPSEC_POLICY_IPSEC) {
@@ -1813,18 +1815,18 @@ pk_recvacquire(mhp)
 
 	/* ignore it if src is multicast address */
     {
-	struct sockaddr *sa = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	struct sockaddr_storage *sa = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
-	if ((sa->sa_family == AF_INET
+	if ((sa->ss_family == AF_INET
 	  && IN_MULTICAST(ntohl(((struct sockaddr_in *)sa)->sin_addr.s_addr)))
 #ifdef INET6
-	 || (sa->sa_family == AF_INET6
+	 || (sa->ss_family == AF_INET6
 	  && IN6_IS_ADDR_MULTICAST(&((struct sockaddr_in6 *)sa)->sin6_addr))
 #endif
 	) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"ignore due to multicast address: %s.\n",
-			saddrwop2str(sa));
+			saddrwop2str((struct sockaddr *)sa));
 		return 0;
 	}
     }
@@ -1839,7 +1841,8 @@ pk_recvacquire(mhp)
 		 *   than one in the policy, so kernel will drop them;
 		 * => therefore this acquire is not for us! --Aidas
 		 */
-		struct sockaddr *sa = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+                                                                    // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+		struct sockaddr_storage *sa = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);    
 		struct myaddrs *p;
 		int do_listen = 0;
 		for (p = lcconf->myaddrs; p; p = p->next) {
@@ -1852,7 +1855,7 @@ pk_recvacquire(mhp)
 		if (!do_listen) {
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"ignore because do not listen on source address : %s.\n",
-				saddrwop2str(sa));
+				saddrwop2str((struct sockaddr *)sa));
 			return 0;
 		}
 	}
@@ -1930,12 +1933,13 @@ pk_recvacquire(mhp)
 	iph2[n]->status = PHASE2ST_STATUS2;
 
 	/* set end addresses of SA */
-	iph2[n]->dst = dupsaddr(PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]));
+                                                // Wcast_align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	iph2[n]->dst = dupsaddr(ALIGNED_CAST(struct sockaddr *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]));     
 	if (iph2[n]->dst == NULL) {
 		delph2(iph2[n]);
 		return -1;
 	}
-	iph2[n]->src = dupsaddr(PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]));
+	iph2[n]->src = dupsaddr(ALIGNED_CAST(struct sockaddr *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]));
 	if (iph2[n]->src == NULL) {
 		delph2(iph2[n]);
 		return -1;
@@ -1948,7 +1952,7 @@ pk_recvacquire(mhp)
     {
 	vchar_t *idsrc, *iddst;
 
-	idsrc = ipsecdoi_sockaddr2id((struct sockaddr *)&sp_out->spidx.src,
+	idsrc = ipsecdoi_sockaddr2id(&sp_out->spidx.src,
 				sp_out->spidx.prefs, sp_out->spidx.ul_proto);
 	if (idsrc == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -1957,7 +1961,7 @@ pk_recvacquire(mhp)
 		delph2(iph2[n]);
 		return -1;
 	}
-	iddst = ipsecdoi_sockaddr2id((struct sockaddr *)&sp_out->spidx.dst,
+	iddst = ipsecdoi_sockaddr2id(&sp_out->spidx.dst,
 				sp_out->spidx.prefd, sp_out->spidx.ul_proto);
 	if (iddst == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -2030,7 +2034,7 @@ pk_recvdelete(mhp)
 {
 	struct sadb_msg *msg;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	struct ph2handle *iph2 = NULL;
 	u_int proto_id;
 
@@ -2046,10 +2050,10 @@ pk_recvdelete(mhp)
 			"inappropriate sadb delete message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-	sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
-	src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-	dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                 // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];
+	src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+	dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
 	/* the message has to be processed or not ? */
 	if (msg->sadb_msg_pid == getpid()) {
@@ -2068,8 +2072,8 @@ pk_recvdelete(mhp)
 	}
 
     plog(LLV_DEBUG2, LOCATION, NULL, "SADB delete message: proto-id %d\n", proto_id);
-    plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(src));
-    plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(dst));
+    plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str((struct sockaddr *)src));
+    plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str((struct sockaddr *)dst));
     
     if (!sa) {
         deleteallph2(src, dst, proto_id);
@@ -2131,7 +2135,7 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 	int *policylen0, type;
 	struct ph2handle *iph2;
 {
-	struct policyindex *spidx = (struct policyindex *)iph2->spidx_gen;
+	struct policyindex *spidx = iph2->spidx_gen;
 	struct sadb_x_policy *xpl;
 	struct sadb_x_ipsecrequest *xisr;
 	struct saproto *pr;
@@ -2146,8 +2150,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 		for (pr = iph2->approval->head; pr; pr = pr->next) {
 			xisrlen = sizeof(*xisr);
 			if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL) {
-				xisrlen += (sysdep_sa_len(iph2->src)
-				          + sysdep_sa_len(iph2->dst));
+				xisrlen += (sysdep_sa_len((struct sockaddr *)iph2->src)
+				          + sysdep_sa_len((struct sockaddr *)iph2->dst));
 			}
 
 			policylen += PFKEY_ALIGN8(xisrlen);
@@ -2162,7 +2166,7 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 		return -1;
 	}
 
-	xpl = (struct sadb_x_policy *)policy;
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)policy;
 	xpl->sadb_x_policy_len = PFKEY_UNIT64(policylen);
 	xpl->sadb_x_policy_exttype = SADB_X_EXT_POLICY;
 	xpl->sadb_x_policy_type = IPSEC_POLICY_IPSEC;
@@ -2208,8 +2212,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 		if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL) {
 			int src_len, dst_len;
 
-			src_len = sysdep_sa_len(iph2->src);
-			dst_len = sysdep_sa_len(iph2->dst);
+			src_len = sysdep_sa_len((struct sockaddr *)iph2->src);
+			dst_len = sysdep_sa_len((struct sockaddr *)iph2->dst);
 			xisrlen += src_len + dst_len;
 
 			memcpy(p, iph2->src, src_len);
@@ -2239,7 +2243,7 @@ int
 pk_sendspdupdate2(iph2)
 	struct ph2handle *iph2;
 {
-	struct policyindex *spidx = (struct policyindex *)iph2->spidx_gen;
+	struct policyindex *spidx = iph2->spidx_gen;
 	caddr_t policy = NULL;
 	int policylen = 0;
 	u_int64_t ltime, vtime;
@@ -2255,9 +2259,9 @@ pk_sendspdupdate2(iph2)
 
 	if (pfkey_send_spdupdate2(
 			lcconf->sock_pfkey,
-			(struct sockaddr *)&spidx->src,
+			&spidx->src,
 			spidx->prefs,
-			(struct sockaddr *)&spidx->dst,
+			&spidx->dst,
 			spidx->prefd,
 			spidx->ul_proto,
 			ltime, vtime,
@@ -2294,9 +2298,9 @@ pk_recvspdupdate(mhp)
 			"inappropriate sadb spdupdate message passed.\n");
 		return -1;
 	}
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];        // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 #ifdef HAVE_PFKEY_POLICY_PRIORITY
 	KEY_SETSECSPIDX(xpl->sadb_x_policy_dir,
@@ -2340,7 +2344,7 @@ int
 pk_sendspdadd2(iph2)
 	struct ph2handle *iph2;
 {
-	struct policyindex *spidx = (struct policyindex *)iph2->spidx_gen;
+	struct policyindex *spidx = iph2->spidx_gen;
 	caddr_t policy = NULL;
 	int policylen = 0;
 	u_int64_t ltime, vtime;
@@ -2356,9 +2360,9 @@ pk_sendspdadd2(iph2)
 
 	if (pfkey_send_spdadd2(
 			lcconf->sock_pfkey,
-			(struct sockaddr *)&spidx->src,
+			&spidx->src,
 			spidx->prefs,
-			(struct sockaddr *)&spidx->dst,
+			&spidx->dst,
 			spidx->prefd,
 			spidx->ul_proto,
 			ltime, vtime,
@@ -2395,9 +2399,9 @@ pk_recvspdadd(mhp)
 			"inappropriate sadb spdadd message passed.\n");
 		return -1;
 	}
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];    // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 #ifdef HAVE_PFKEY_POLICY_PRIORITY
 	KEY_SETSECSPIDX(xpl->sadb_x_policy_dir,
@@ -2441,7 +2445,7 @@ int
 pk_sendspddelete(iph2)
 	struct ph2handle *iph2;
 {
-	struct policyindex *spidx = (struct policyindex *)iph2->spidx_gen;
+	struct policyindex *spidx = iph2->spidx_gen;
 	caddr_t policy = NULL;
 	int policylen;
 
@@ -2453,9 +2457,9 @@ pk_sendspddelete(iph2)
 
 	if (pfkey_send_spddelete(
 			lcconf->sock_pfkey,
-			(struct sockaddr *)&spidx->src,
+			&spidx->src,
 			spidx->prefs,
-			(struct sockaddr *)&spidx->dst,
+			&spidx->dst,
 			spidx->prefd,
 			spidx->ul_proto,
 			policy, policylen, 0) < 0) {
@@ -2491,9 +2495,9 @@ pk_recvspddelete(mhp)
 			"inappropriate sadb spddelete message passed.\n");
 		return -1;
 	}
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];    // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 #ifdef HAVE_PFKEY_POLICY_PRIORITY
 	KEY_SETSECSPIDX(xpl->sadb_x_policy_dir,
@@ -2548,9 +2552,9 @@ pk_recvspdexpire(mhp)
 			"inappropriate sadb spdexpire message passed.\n");
 		return -1;
 	}
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];    // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 #ifdef HAVE_PFKEY_POLICY_PRIORITY
 	KEY_SETSECSPIDX(xpl->sadb_x_policy_dir,
@@ -2617,11 +2621,11 @@ pk_recvspddump(mhp)
 			"inappropriate sadb spddump message passed.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];         // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
 
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 	if (saddr == NULL || daddr == NULL || xpl == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -2820,9 +2824,9 @@ caddr_t *mhp;
              "inappropriate sadb getsastat response.\n");
 		return -1;
 	}
-	msg = (struct sadb_msg *)mhp[0];
-    session_id = (ike_session_t *)mhp[SADB_EXT_SESSION_ID];
-	stat_resp = (struct sadb_sastat *)mhp[SADB_EXT_SASTAT];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];                         // Wcast-align fix (void*) - mhp contains pointers to structs in an aligned buffer
+    session_id = ALIGNED_CAST(struct sadb_session_id *)mhp[SADB_EXT_SESSION_ID];
+	stat_resp = ALIGNED_CAST(struct sadb_sastat *)mhp[SADB_EXT_SASTAT];
 
 	/* the message has to be processed or not ? */
 	if (msg->sadb_msg_pid != getpid()) {
@@ -2840,7 +2844,7 @@ caddr_t *mhp;
              s_pfkey_type(msg->sadb_msg_type));
         return -1;
     }
-    session = (__typeof__(session))session_id->sadb_session_id_v[0];
+    session = ALIGNED_CAST(__typeof__(session))session_id->sadb_session_id_v[0];
 
     if (!stat_resp->sadb_sastat_list_len) {
 		plog(LLV_DEBUG, LOCATION, NULL,
@@ -2878,9 +2882,9 @@ pk_checkalg(class, calg, keylen)
 		sup = SADB_EXT_SUPPORTED_AUTH;
 		break;
 	case IPSECDOI_PROTO_IPCOMP:
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"compression algorithm can not be checked "
-			"because sadb message doesn't support it.\n");
+		//plog(LLV_DEBUG, LOCATION, NULL,
+		//	"compression algorithm can not be checked "
+		//	"because sadb message doesn't support it.\n");
 		return 0;
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -2918,7 +2922,7 @@ pk_checkalg(class, calg, keylen)
 static struct sadb_msg *
 pk_recv(so, lenp)
 	int so;
-	int *lenp;
+	ssize_t *lenp;
 {
 	struct sadb_msg *newmsg;
 	int reallen = 0; 
@@ -2933,7 +2937,13 @@ pk_recv(so, lenp)
 	if ((newmsg = racoon_calloc(1, reallen)) == NULL)
 		return NULL;
 
-	*lenp = recv(so, (caddr_t)newmsg, reallen, 0);
+	while ((*lenp = recv(so, (caddr_t)newmsg, reallen, 0)) < 0) {
+		if (errno == EINTR)
+			continue;
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to recv pfkey message: %s\n", strerror(errno));
+		break;
+	}
 	if (*lenp < 0) {
 		racoon_free(newmsg);
 		return NULL;	/*fatal*/
@@ -2969,9 +2979,9 @@ addnewsp(mhp)
 		return -1;
 	}
 
-	saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];
-	daddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
-	xpl = (struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
+	saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC];    // Wcast-align fix (void*) - mhp contains pointers to aligned structs in malloc'd msg buffer
+	daddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST];
+	xpl = ALIGNED_CAST(struct sadb_x_policy *)mhp[SADB_X_EXT_POLICY];
 
 	new = newsp();
 	if (new == NULL) {
@@ -3100,7 +3110,7 @@ addnewsp(mhp)
 					"becoming tlen < 0\n");
 			}
 
-			xisr = (struct sadb_x_ipsecrequest *)((caddr_t)xisr
+			xisr = ALIGNED_CAST(struct sadb_x_ipsecrequest *)((caddr_t)xisr
 			                 + xisr->sadb_x_ipsecrequest_len);
 		}
 	    }
@@ -3138,7 +3148,7 @@ addnewsp(mhp)
 /* proto/mode/src->dst spi */
 const char *
 sadbsecas2str(src, dst, proto, spi, mode)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	int proto;
 	u_int32_t spi;
 	int mode;
@@ -3169,13 +3179,13 @@ sadbsecas2str(src, dst, proto, spi, mode)
 	p += i;
 	blen -= i;
 
-	i = snprintf(p, blen, "%s->", saddr2str(src));
+	i = snprintf(p, blen, "%s->", saddr2str((struct sockaddr *)src));
 	if (i < 0 || i >= blen)
 		return NULL;
 	p += i;
 	blen -= i;
 
-	i = snprintf(p, blen, "%s ", saddr2str(dst));
+	i = snprintf(p, blen, "%s ", saddr2str((struct sockaddr *)dst));
 	if (i < 0 || i >= blen)
 		return NULL;
 	p += i;

@@ -28,12 +28,11 @@
 
 #include "BinarySemaphore.h"
 #include "CoreIPCMessageKinds.h"
-#include "RunLoop.h"
-#include "WebProcess.h"
-#include "WorkItem.h"
+#include <WebCore/RunLoop.h>
 #include <wtf/CurrentTime.h>
 
 using namespace std;
+using namespace WebCore;
 
 namespace CoreIPC {
 
@@ -55,7 +54,7 @@ public:
 #if PLATFORM(WIN)
     bool waitWhileDispatchingSentWin32Messages(double absoluteTime, const Vector<HWND>& windowsToReceiveMessages)
     {
-        return RunLoop::dispatchSentMessagesUntil(windowsToReceiveMessages, m_waitForSyncReplySemaphore, absoluteTime);
+        return Connection::dispatchSentMessagesUntil(windowsToReceiveMessages, m_waitForSyncReplySemaphore, absoluteTime);
     }
 #endif
 
@@ -101,15 +100,15 @@ private:
 PassRefPtr<Connection::SyncMessageState> Connection::SyncMessageState::getOrCreate(RunLoop* runLoop)
 {
     MutexLocker locker(syncMessageStateMapMutex());
-    pair<SyncMessageStateMap::iterator, bool> result = syncMessageStateMap().add(runLoop, 0);
+    SyncMessageStateMap::AddResult result = syncMessageStateMap().add(runLoop, 0);
 
-    if (!result.second) {
-        ASSERT(result.first->second);
-        return result.first->second;
+    if (!result.isNewEntry) {
+        ASSERT(result.iterator->second);
+        return result.iterator->second;
     }
 
     RefPtr<SyncMessageState> syncMessageState = adoptRef(new SyncMessageState(runLoop));
-    result.first->second = syncMessageState.get();
+    result.iterator->second = syncMessageState.get();
 
     return syncMessageState.release();
 }
@@ -142,7 +141,7 @@ bool Connection::SyncMessageState::processIncomingMessage(Connection* connection
         MutexLocker locker(m_mutex);
         
         if (!m_didScheduleDispatchMessagesWork) {
-            m_runLoop->scheduleWork(WorkItem::create(this, &SyncMessageState::dispatchMessageAndResetDidScheduleDispatchMessagesWork));
+            m_runLoop->dispatch(bind(&SyncMessageState::dispatchMessageAndResetDidScheduleDispatchMessagesWork, this));
             m_didScheduleDispatchMessagesWork = true;
         }
 
@@ -237,17 +236,23 @@ void Connection::setShouldExitOnSyncMessageSendFailure(bool shouldExitOnSyncMess
 
 void Connection::addQueueClient(QueueClient* queueClient)
 {
-    MutexLocker locker(m_connectionQueueClientsMutex);
-    ASSERT(!m_connectionQueueClients.contains(queueClient));
-
-    m_connectionQueueClients.append(queueClient);
+    m_connectionQueue.dispatch(bind(&Connection::addQueueClientOnWorkQueue, this, queueClient));
 }
 
 void Connection::removeQueueClient(QueueClient* queueClient)
 {
-    MutexLocker locker(m_connectionQueueClientsMutex);
-    size_t index = m_connectionQueueClients.find(queueClient);
+    m_connectionQueue.dispatch(bind(&Connection::removeQueueClientOnWorkQueue, this, queueClient));
+}
 
+void Connection::addQueueClientOnWorkQueue(QueueClient* queueClient)
+{
+    ASSERT(!m_connectionQueueClients.contains(queueClient));
+    m_connectionQueueClients.append(queueClient);
+}
+
+void Connection::removeQueueClientOnWorkQueue(QueueClient* queueClient)
+{
+    size_t index = m_connectionQueueClients.find(queueClient);
     ASSERT(index != notFound);
     m_connectionQueueClients.remove(index);
 }
@@ -269,7 +274,7 @@ void Connection::invalidate()
     // Reset the client.
     m_client = 0;
 
-    m_connectionQueue.scheduleWork(WorkItem::create(this, &Connection::platformInvalidate));
+    m_connectionQueue.dispatch(bind(&Connection::platformInvalidate, this));
 }
 
 void Connection::markCurrentlyDispatchedMessageAsInvalid()
@@ -312,7 +317,7 @@ bool Connection::sendMessage(MessageID messageID, PassOwnPtr<ArgumentEncoder> ar
     m_outgoingMessages.append(OutgoingMessage(messageID, arguments));
     
     // FIXME: We should add a boolean flag so we don't call this when work has already been scheduled.
-    m_connectionQueue.scheduleWork(WorkItem::create(this, &Connection::sendOutgoingMessages));
+    m_connectionQueue.dispatch(bind(&Connection::sendOutgoingMessages, this));
     return true;
 }
 
@@ -470,7 +475,7 @@ PassOwnPtr<ArgumentDecoder> Connection::waitForSyncReply(uint64_t syncRequestID,
             // FIXME: Although we run forever, any events incoming will cause us to drop out and exit out. This however doesn't
             // account for a timeout value passed in. Timeout is always NoTimeout in these cases, but that could change.
             RunLoop::current()->runForDuration(1e10);
-            timeout = currentTime() >= absoluteTime;
+            timedOut = currentTime() >= absoluteTime;
 #endif
         } else
             timedOut = !m_syncMessageState->wait(absoluteTime);
@@ -544,15 +549,14 @@ void Connection::processIncomingMessage(MessageID messageID, PassOwnPtr<Argument
     }
 
     // Hand off the message to the connection queue clients.
-    {
-        MutexLocker locker(m_connectionQueueClientsMutex);
+    for (size_t i = 0; i < m_connectionQueueClients.size(); ++i) {
+        bool didHandleMessage = false;
 
-        for (size_t i = 0; i < m_connectionQueueClients.size(); ++i) {
-            if (!m_connectionQueueClients[i]->willProcessMessageOnClientRunLoop(this, incomingMessage.messageID(), incomingMessage.arguments())) {
-                // A connection queue client handled the message, our work here is done.
-                incomingMessage.releaseArguments();
-                return;
-            }
+        m_connectionQueueClients[i]->didReceiveMessageOnConnectionWorkQueue(this, incomingMessage.messageID(), incomingMessage.arguments(), didHandleMessage);
+        if (didHandleMessage) {
+            // A connection queue client handled the message, our work here is done.
+            incomingMessage.releaseArguments();
+            return;
         }
     }
 
@@ -561,7 +565,7 @@ void Connection::processIncomingMessage(MessageID messageID, PassOwnPtr<Argument
 
 void Connection::postConnectionDidCloseOnConnectionWorkQueue()
 {
-    m_connectionQueue.scheduleWork(WorkItem::create(this, &Connection::connectionDidClose));
+    m_connectionQueue.dispatch(bind(&Connection::connectionDidClose, this));
 }
 
 void Connection::connectionDidClose()
@@ -582,7 +586,7 @@ void Connection::connectionDidClose()
     if (m_didCloseOnConnectionWorkQueueCallback)
         m_didCloseOnConnectionWorkQueueCallback(m_connectionQueue, this);
 
-    m_clientRunLoop->scheduleWork(WorkItem::create(this, &Connection::dispatchConnectionDidClose));
+    m_clientRunLoop->dispatch(bind(&Connection::dispatchConnectionDidClose, this));
 }
 
 void Connection::dispatchConnectionDidClose()
@@ -630,34 +634,23 @@ void Connection::dispatchSyncMessage(MessageID messageID, ArgumentDecoder* argum
 {
     ASSERT(messageID.isSync());
 
-    // Decode the sync request ID.
     uint64_t syncRequestID = 0;
-
     if (!arguments->decodeUInt64(syncRequestID) || !syncRequestID) {
         // We received an invalid sync message.
         arguments->markInvalid();
         return;
     }
 
-    // Create our reply encoder.
     OwnPtr<ArgumentEncoder> replyEncoder = ArgumentEncoder::create(syncRequestID);
-    
+
     // Hand off both the decoder and encoder to the client.
-    SyncReplyMode syncReplyMode = m_client->didReceiveSyncMessage(this, messageID, arguments, replyEncoder.get());
+    m_client->didReceiveSyncMessage(this, messageID, arguments, replyEncoder);
 
     // FIXME: If the message was invalid, we should send back a SyncMessageError.
     ASSERT(!arguments->isInvalid());
 
-    if (syncReplyMode == ManualReply) {
-        // The client will take ownership of the reply encoder and send it at some point in the future.
-        ArgumentEncoder *encoder = replyEncoder.leakPtr();
-        (void)encoder;
-
-        return;
-    }
-
-    // Send the reply.
-    sendSyncReply(replyEncoder.release());
+    if (replyEncoder)
+        sendSyncReply(replyEncoder.release());
 }
 
 void Connection::didFailToSendSyncMessage()
@@ -673,7 +666,7 @@ void Connection::enqueueIncomingMessage(IncomingMessage& incomingMessage)
     MutexLocker locker(m_incomingMessagesLock);
     m_incomingMessages.append(incomingMessage);
 
-    m_clientRunLoop->scheduleWork(WorkItem::create(this, &Connection::dispatchMessages));
+    m_clientRunLoop->dispatch(bind(&Connection::dispatchOneMessage, this));
 }
 
 void Connection::dispatchMessage(IncomingMessage& message)
@@ -710,21 +703,24 @@ void Connection::dispatchMessage(IncomingMessage& message)
     m_didReceiveInvalidMessage = oldDidReceiveInvalidMessage;
 }
 
-void Connection::dispatchMessages()
+void Connection::dispatchOneMessage()
 {
-    while (true) {
-        IncomingMessage incomingMessage;
+    IncomingMessage incomingMessage;
 
-        {
-            MutexLocker locker(m_incomingMessagesLock);
-            if (m_incomingMessages.isEmpty())
-                break;
+    {
+        MutexLocker locker(m_incomingMessagesLock);
+        if (m_incomingMessages.isEmpty())
+            return;
 
-            incomingMessage = m_incomingMessages.takeFirst();
-        }
-
-        dispatchMessage(incomingMessage);
+        incomingMessage = m_incomingMessages.takeFirst();
     }
+
+    dispatchMessage(incomingMessage);
+}
+
+void Connection::wakeUpRunLoop()
+{
+    m_clientRunLoop->wakeUp();
 }
 
 } // namespace CoreIPC

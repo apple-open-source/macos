@@ -22,7 +22,16 @@
 
 #include <AvailabilityMacros.h>
 
-#define SUPPORTS_SS_USB 1
+// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
+#if 0
+	#if defined(MAC_OS_X_VERSION_10_8)
+	    #undef SUPPORTS_SS_USB
+	#else
+	    #define SUPPORTS_SS_USB 1
+	#endif
+#else
+	#define SUPPORTS_SS_USB 1
+#endif
 
 //============= Stuff from USBHub.h that is not public =============
 
@@ -460,7 +469,11 @@ ErrorExit:
 {
     IOReturn						err;
     IOCFPlugInInterface				**iodev = NULL;		// requires <IOKit/IOCFPlugIn.h>
+#ifdef SUPPORTS_SS_USB
     IOUSBDeviceInterface500			**dev = NULL;
+#else
+    IOUSBDeviceInterface320			**dev = NULL;
+#endif
     SInt32							score;
 	uint32_t						locationID = 0;
 	uint32_t						ports = 0;
@@ -479,7 +492,11 @@ ErrorExit:
 		NSLog(@"PortStatusGather dealWithDevice: unable to create plugin. ret = %08x, iodev = %p\n", err, iodev);
 		goto finish;
     }
+#ifdef SUPPORTS_SS_USB
     err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID500), (LPVOID)&dev);
+#else
+    err = (*iodev)->QueryInterface(iodev, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID320), (LPVOID)&dev);
+#endif
 	IODestroyPlugInInterface(iodev);				// done with this
 	
     if (err || !*dev || !dev)
@@ -612,7 +629,7 @@ ErrorExit:
 				}
 				[errorCountString release];
 			}
-#endif
+
 			NSMutableString * bandwidthString = [[NSMutableString alloc] initWithCapacity:1];
 			[bandwidthString appendString:[NSString stringWithFormat:@"Bandwidth Available: %d bytes per %s", bandwidth, (deviceSpeed == kUSBDeviceSpeedSuper || deviceSpeed == kUSBDeviceSpeedHigh) ? "microframe" : "frame"]];
 			if( [bandwidthString length] > 0 )
@@ -622,7 +639,7 @@ ErrorExit:
 				[aNode release];
 			}
 			[bandwidthString release];
-
+#endif
 		}
 		[aPortNode release];
 	}

@@ -37,8 +37,8 @@ enum MessageClass {
     // Messages sent by the UI process to the web process.
     MessageClassAuthenticationManager,
     MessageClassDrawingArea,
-    MessageClassDrawingAreaLegacy,
     MessageClassInjectedBundle,
+    MessageClassLayerTreeHost,
     MessageClassWebApplicationCacheManager,
     MessageClassWebCookieManager,
     MessageClassWebDatabaseManager,
@@ -48,14 +48,19 @@ enum MessageClass {
     MessageClassWebInspector,
     MessageClassWebKeyValueStorageManager,
     MessageClassWebMediaCacheManager,
+    MessageClassWebNotificationManager,
     MessageClassWebPage,
     MessageClassWebProcess,
     MessageClassWebResourceCacheManager,
+    MessageClassEventDispatcher,
+#if USE(SOUP)
+    MessageClassWebSoupRequestManager,
+#endif
 
     // Messages sent by the web process to the UI process.
     MessageClassDownloadProxy,
     MessageClassDrawingAreaProxy,
-    MessageClassDrawingAreaProxyLegacy,
+    MessageClassLayerTreeHostProxy,
     MessageClassWebApplicationCacheManagerProxy,
     MessageClassWebContext,
     MessageClassWebContextLegacy,
@@ -67,9 +72,16 @@ enum MessageClass {
     MessageClassWebInspectorProxy,
     MessageClassWebKeyValueStorageManagerProxy,
     MessageClassWebMediaCacheManagerProxy,
+    MessageClassWebNotificationManagerProxy,
     MessageClassWebPageProxy,
     MessageClassWebProcessProxy,
     MessageClassWebResourceCacheManagerProxy,
+#if USE(SOUP)
+    MessageClassWebSoupRequestManagerProxy,
+#endif
+
+    // Messages sent to a WebConnection
+    MessageClassWebConnectionLegacy,
 
     // Messages sent by the UI process to the plug-in process.
     MessageClassPluginProcess,
@@ -82,6 +94,7 @@ enum MessageClass {
     MessageClassPluginControllerProxy,
 
     // Messages sent by the plug-in process to the web process.
+    MessageClassPluginProcessConnection,
     MessageClassPluginProxy,
 
     // NPObject messages sent by both the plug-in process and the web process.

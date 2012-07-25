@@ -47,6 +47,7 @@
 #include "localconf.h"
 #include "remoteconf.h"
 #include "vpn_control.h"
+#include "vpn_control_var.h"
 #include "proposal.h"
 #include "sainfo.h"
 #include "power_mgmt.h"
@@ -62,6 +63,7 @@
 								} while(0);
 
 const char *ike_session_stopped_by_vpn_disconnect = "Stopped by VPN disconnect";
+const char *ike_session_stopped_by_controller_comm_lost = "Stopped by loss of controller communication";
 const char *ike_session_stopped_by_flush          = "Stopped by Flush";
 const char *ike_session_stopped_by_idle           = "Stopped by Idle";
 const char *ike_session_stopped_by_xauth_timeout  = "Stopped by XAUTH timeout";
@@ -107,6 +109,7 @@ free_ike_session (ike_session_t *session)
 				gettimeofday(&session->stop_timestamp, NULL);
 			}
             if (session->term_reason != ike_session_stopped_by_vpn_disconnect ||
+                session->term_reason != ike_session_stopped_by_controller_comm_lost ||
                 session->term_reason != ike_session_stopped_by_flush ||
                 session->term_reason != ike_session_stopped_by_idle) {
                 is_failure = FALSE;
@@ -199,8 +202,8 @@ ike_session_get_rekey_lifetime (int local_spi_is_higher, u_int expiry_lifetime)
 
 // TODO: optimize this mess later
 ike_session_t *
-ike_session_get_session (struct sockaddr *local,
-						 struct sockaddr *remote,
+ike_session_get_session (struct sockaddr_storage *local,
+						 struct sockaddr_storage *remote,
 						 int              alloc_if_absent)
 {
 	ike_session_t    *p;
@@ -229,38 +232,38 @@ ike_session_get_session (struct sockaddr *local,
 	bzero(&id_default, sizeof(id_default));
 	bzero(&id_floated_default, sizeof(id_floated_default));
 	bzero(&id_wop, sizeof(id_wop));
-	if (local->sa_family == AF_INET) {
+	if (local->ss_family == AF_INET) {
 		memcpy(&id.local, local, sizeof(struct sockaddr_in));
 		memcpy(&id_default.local, local, sizeof(struct sockaddr_in));
 		memcpy(&id_floated_default.local, local, sizeof(struct sockaddr_in));
 		memcpy(&id_wop.local, local, sizeof(struct sockaddr_in));
-	} else if (local->sa_family == AF_INET6) {
+	} else if (local->ss_family == AF_INET6) {
 		memcpy(&id.local, local, sizeof(struct sockaddr_in6));
 		memcpy(&id_default.local, local, sizeof(struct sockaddr_in6));
 		memcpy(&id_floated_default.local, local, sizeof(struct sockaddr_in6));
 		memcpy(&id_wop.local, local, sizeof(struct sockaddr_in6));
 	}
-	set_port((struct sockaddr *)&id_default.local, PORT_ISAKMP);
-	set_port((struct sockaddr *)&id_floated_default.local, PORT_ISAKMP_NATT);
-	set_port((struct sockaddr *)&id_wop.local, 0);
-	if (remote->sa_family == AF_INET) {
+	set_port(&id_default.local, PORT_ISAKMP);
+	set_port(&id_floated_default.local, PORT_ISAKMP_NATT);
+	set_port(&id_wop.local, 0);
+	if (remote->ss_family == AF_INET) {
 		memcpy(&id.remote, remote, sizeof(struct sockaddr_in));
 		memcpy(&id_default.remote, remote, sizeof(struct sockaddr_in));
 		memcpy(&id_floated_default.remote, remote, sizeof(struct sockaddr_in));
 		memcpy(&id_wop.remote, remote, sizeof(struct sockaddr_in));
-	} else if (remote->sa_family == AF_INET6) {
+	} else if (remote->ss_family == AF_INET6) {
 		memcpy(&id.remote, remote, sizeof(struct sockaddr_in6));
 		memcpy(&id_default.remote, remote, sizeof(struct sockaddr_in6));
 		memcpy(&id_floated_default.remote, remote, sizeof(struct sockaddr_in6));
 		memcpy(&id_wop.remote, remote, sizeof(struct sockaddr_in6));
 	}
-	set_port((struct sockaddr *)&id_default.remote, PORT_ISAKMP);
-	set_port((struct sockaddr *)&id_floated_default.remote, PORT_ISAKMP_NATT);
-	set_port((struct sockaddr *)&id_wop.remote, 0);
+	set_port(&id_default.remote, PORT_ISAKMP);
+	set_port(&id_floated_default.remote, PORT_ISAKMP_NATT);
+	set_port(&id_wop.remote, 0);
 
 	plog(LLV_DEBUG, LOCATION, local,
 		 "start search for IKE-Session. target %s.\n",
-		 saddr2str(remote));			
+		 saddr2str((struct sockaddr *)remote));			
 
 	for (p = LIST_FIRST(&ike_session_tree); p; p = LIST_NEXT(p, chain)) {
 		plog(LLV_DEBUG, LOCATION, local,
@@ -279,17 +282,17 @@ ike_session_get_session (struct sockaddr *local,
 		if (memcmp(&p->session_id, &id, sizeof(id)) == 0) {
 			plog(LLV_DEBUG, LOCATION, local,
 				 "Pre-existing IKE-Session to %s. case 1.\n",
-				 saddr2str(remote));			
+				 saddr2str((struct sockaddr *)remote));			
 			return p;
 		} else if (is_isakmp_remote_port && memcmp(&p->session_id, &id_default, sizeof(id_default)) == 0) {
 			plog(LLV_DEBUG, LOCATION, local,
 				 "Pre-existing IKE-Session to %s. case 2.\n",
-				 saddr2str(remote));	
+				 saddr2str((struct sockaddr *)remote));	
 			return p;
 		} else if (is_isakmp_remote_port && p->ports_floated && memcmp(&p->session_id, &id_floated_default, sizeof(id_floated_default)) == 0) {
 			plog(LLV_DEBUG, LOCATION, local,
 				 "Pre-existing IKE-Session to %s. case 3.\n",
-				 saddr2str(remote));			
+				 saddr2str((struct sockaddr *)remote));			
 			return p;
 		} else if (is_isakmp_remote_port && memcmp(&p->session_id, &id_wop, sizeof(id_wop)) == 0) {
 			best_match = p;
@@ -468,8 +471,8 @@ ike_session_cleanup_xauth_timeout (void *arg)
 int
 ike_session_link_ph2_to_session (struct ph2handle *iph2)
 {
-	struct sockaddr *local;
-	struct sockaddr *remote;
+	struct sockaddr_storage *local;
+	struct sockaddr_storage *remote;
 	ike_session_t   *session;
 
 	if (!iph2) {
@@ -762,12 +765,12 @@ ike_session_update_ph2_ph1bind (struct ph2handle *iph2)
 void
 ike_session_ikev1_float_ports (struct ph1handle *iph1)
 {
-	struct sockaddr  *local, *remote;
+	struct sockaddr_storage  *local, *remote;
 	struct ph2handle *p;
 
 	if (iph1->parent_session) {
-		local  = (struct sockaddr *)&iph1->parent_session->session_id.local;
-		remote = (struct sockaddr *)&iph1->parent_session->session_id.remote;
+		local  = &iph1->parent_session->session_id.local;
+		remote = &iph1->parent_session->session_id.remote;
 
         set_port(local, extract_port(iph1->local));
         set_port(remote, extract_port(iph1->remote));
@@ -957,8 +960,8 @@ ike_session_cleanup_other_established_ph1s (ike_session_t    *session,
 			p->is_dying = 1;
 
 			//log deletion
-			local  = racoon_strdup(saddr2str(p->local));
-			remote = racoon_strdup(saddr2str(p->remote));
+			local  = racoon_strdup(saddr2str((struct sockaddr *)p->local));
+			remote = racoon_strdup(saddr2str((struct sockaddr *)p->remote));
 			STRDUP_FATAL(local);
 			STRDUP_FATAL(remote);
 			plog(LLV_DEBUG, LOCATION, NULL,
@@ -1093,7 +1096,7 @@ ike_session_stopped_by_controller (ike_session_t *session,
 }
 
 void
-ike_sessions_stopped_by_controller (struct sockaddr *remote,
+ike_sessions_stopped_by_controller (struct sockaddr_storage *remote,
                                     int              withport,
 								    const char      *reason)
 {
@@ -1144,12 +1147,12 @@ ike_session_purge_ph2s_by_ph1 (struct ph1handle *iph1)
 void
 ike_session_update_ph2_ports (struct ph2handle *iph2)
 {
-    struct sockaddr *local;
-    struct sockaddr *remote;
+    struct sockaddr_storage *local;
+    struct sockaddr_storage *remote;
     
 	if (iph2->parent_session) {
-		local  = (struct sockaddr *)&iph2->parent_session->session_id.local;
-		remote = (struct sockaddr *)&iph2->parent_session->session_id.remote;
+		local  = &iph2->parent_session->session_id.local;
+		remote = &iph2->parent_session->session_id.remote;
         
         set_port(iph2->src, extract_port(local));
         set_port(iph2->dst, extract_port(remote));
@@ -1305,9 +1308,10 @@ ike_session_cleanup (ike_session_t *session,
     }
 
     // send ipsecManager a notification
-    if (session->is_cisco_ipsec && reason && reason != ike_session_stopped_by_vpn_disconnect) {
+    if (session->is_cisco_ipsec && reason && reason != ike_session_stopped_by_vpn_disconnect
+            && reason != ike_session_stopped_by_controller_comm_lost) {
         u_int32_t address;
-        if (((struct sockaddr *)&session->session_id.remote)->sa_family == AF_INET) {
+        if ((&session->session_id.remote)->ss_family == AF_INET) {
             address = ((struct sockaddr_in *)&session->session_id.remote)->sin_addr.s_addr;
         } else {
             address = 0;
@@ -1474,7 +1478,7 @@ ike_session_is_id_ipany (vchar_t *ext_id)
 	} *id_ptr;
 	
 	/* ignore protocol and port */
-	id_ptr = (struct id *)ext_id->v;
+	id_ptr = ALIGNED_CAST(struct id *)ext_id->v;
 	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR &&
 	    id_ptr->addr == 0) {
 		return 1;
@@ -1500,7 +1504,7 @@ ike_session_is_id_portany (vchar_t *ext_id)
 	} *id_ptr;
 	
 	/* ignore addr */
-	id_ptr = (struct id *)ext_id->v;
+	id_ptr = ALIGNED_CAST(struct id *)ext_id->v;
 	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR &&
 	    id_ptr->port == 0) {
 		return 1;
@@ -1522,7 +1526,7 @@ ike_session_set_id_portany (vchar_t *ext_id)
 	} *id_ptr;
 	
 	/* ignore addr */
-	id_ptr = (struct id *)ext_id->v;
+	id_ptr = ALIGNED_CAST(struct id *)ext_id->v;
 	if (id_ptr->type == IPSECDOI_ID_IPV4_ADDR) {
 	    id_ptr->port = 0;
 		return;
@@ -1674,6 +1678,14 @@ ike_session_get_sainfo_r (struct ph2handle *iph2)
 				    ike_session_cmp_ph2_ids(iph2, p) == 0) {
 					plog(LLV_DEBUG2, LOCATION, NULL, "candidate ph2 matched in %s.\n", __FUNCTION__);
 					iph2->sainfo = p->sainfo;
+					if (iph2->sainfo) {
+						if (link_sainfo_to_ph2(iph2->sainfo) != 0) {
+							plog(LLV_ERROR, LOCATION, NULL,
+								 "failed to link sainfo\n");
+							iph2->sainfo = NULL;
+							return -1;
+						}
+					}
 					if (!iph2->spid) {
 						iph2->spid = p->spid;
 					} else {
@@ -1913,8 +1925,8 @@ ike_session_assert_session (ike_session_t *session)
 }
 
 int
-ike_session_assert (struct sockaddr *local, 
-					struct sockaddr *remote)
+ike_session_assert (struct sockaddr_storage *local, 
+					struct sockaddr_storage *remote)
 {
 	ike_session_t *sess;
 

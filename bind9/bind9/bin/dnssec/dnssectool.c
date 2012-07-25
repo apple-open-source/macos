@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009-2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009, 2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: dnssectool.c,v 1.58.36.5 2011/10/21 03:56:55 marka Exp $ */
+/* $Id: dnssectool.c,v 1.60 2010-01-19 23:48:56 tbox Exp $ */
 
 /*! \file */
 
@@ -406,23 +406,18 @@ set_keyversion(dst_key_t *key) {
 }
 
 isc_boolean_t
-key_collision(dst_key_t *dstkey, dns_name_t *name, const char *dir,
-	      isc_mem_t *mctx, isc_boolean_t *exact)
+key_collision(isc_uint16_t id, dns_name_t *name, const char *dir,
+	      dns_secalg_t alg, isc_mem_t *mctx, isc_boolean_t *exact)
 {
 	isc_result_t result;
 	isc_boolean_t conflict = ISC_FALSE;
 	dns_dnsseckeylist_t matchkeys;
 	dns_dnsseckey_t *key = NULL;
-	isc_uint16_t id, oldid;
-	isc_uint32_t rid, roldid;
-	dns_secalg_t alg;
+	isc_uint16_t oldid, diff;
+	isc_uint16_t bits = DNS_KEYFLAG_REVOKE;   /* flag bits to look for */
 
 	if (exact != NULL)
 		*exact = ISC_FALSE;
-
-	id = dst_key_id(dstkey);
-	rid = dst_key_rid(dstkey);
-	alg = dst_key_alg(dstkey);
 
 	ISC_LIST_INIT(matchkeys);
 	result = dns_dnssec_findmatchingkeys(name, dir, mctx, &matchkeys);
@@ -435,11 +430,10 @@ key_collision(dst_key_t *dstkey, dns_name_t *name, const char *dir,
 			goto next;
 
 		oldid = dst_key_id(key->key);
-		roldid = dst_key_rid(key->key);
-
-		if (oldid == rid || roldid == id || id == oldid) {
+		diff = (oldid > id) ? (oldid - id) : (id - oldid);
+		if ((diff & ~bits) == 0) {
 			conflict = ISC_TRUE;
-			if (id != oldid) {
+			if (diff != 0) {
 				if (verbose > 1)
 					fprintf(stderr, "Key ID %d could "
 						"collide with %d\n",
@@ -467,3 +461,4 @@ key_collision(dst_key_t *dstkey, dns_name_t *name, const char *dir,
 
 	return (conflict);
 }
+

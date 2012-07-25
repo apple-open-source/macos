@@ -24,7 +24,7 @@ endif
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-perms
+GnuAfterInstall       = strip fix-perms
 GnuNoBuild            = YES
 
 # include TEA Tcl extension build support
@@ -35,10 +35,6 @@ TclExtDir             = Tclresource
 build::
 	@echo "Building $(Project)..."
 	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.html "$(DSTROOT)/$(TclExtHtmlDir)"
 
 ifneq ($(Project),$(ProjectDoc))
 fetch extract wipe::

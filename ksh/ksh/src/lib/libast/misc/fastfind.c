@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -263,7 +263,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 						}
 					}
 				}
-				else if (pathpath(fp->encode.file, path, "", PATH_REGULAR|PATH_READ|PATH_WRITE))
+				else if (pathpath(path, "", PATH_REGULAR|PATH_READ|PATH_WRITE, fp->encode.file, sizeof(fp->encode.file)))
 				{
 					path = fp->encode.file;
 					break;
@@ -271,7 +271,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 				else if (b = strrchr(path, '/'))
 				{
 					sfsprintf(fp->encode.file, sizeof(fp->encode.file), "%-.*s", b - path, path);
-					if (pathpath(fp->encode.temp, fp->encode.file, "", PATH_EXECUTE|PATH_READ|PATH_WRITE) &&
+					if (pathpath(fp->encode.file, "", PATH_EXECUTE|PATH_READ|PATH_WRITE, fp->encode.temp, sizeof(fp->encode.temp)) &&
 					    !stat(fp->encode.temp, &st) && st.st_uid == uid && (st.st_mode & S_IWUSR))
 					{
 						sfsprintf(fp->encode.file, sizeof(fp->encode.file), "%s%s", fp->encode.temp, b);
@@ -413,7 +413,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 							break;
 					}
 				}
-				else if ((path = pathpath(fp->decode.path, path, "", PATH_REGULAR|PATH_READ)) && (fp->fp = sfopen(NiL, path, "r")))
+				else if ((path = pathpath(path, "", PATH_REGULAR|PATH_READ, fp->decode.path, sizeof(fp->decode.path))) && (fp->fp = sfopen(NiL, path, "r")))
 					break;
 			}
 		if (!fp->fp)
@@ -543,7 +543,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 							goto nospace;
 						else
 							sfsprintf(b, sizeof(fp->decode.temp) - 1, "%s/%s", p, s);
-						s = pathcanon(b, 0);
+						s = pathcanon(b, sizeof(fp->decode.temp), 0);
 						*s = '/';
 						*(s + 1) = 0;
 						if (!(fp->dirs[q] = vmstrdup(fp->vm, b)))
@@ -552,7 +552,7 @@ findopen(const char* file, const char* pattern, const char* type, Finddisc_t* di
 							(fp->dirs[q])[s - b] = 0;
 						q++;
 						*s = 0;
-						s = pathcanon(b, PATH_PHYSICAL);
+						s = pathcanon(b, sizeof(fp->decode.temp), PATH_PHYSICAL);
 						*s = '/';
 						*(s + 1) = 0;
 						if (!strneq(b, fp->dirs[q - 1], s - b))

@@ -25,13 +25,14 @@
 
 #include <IOKit/IOLocks.h>
 #include <IOKit/network/IOOutputQueue.h>
-#include <IOKit/network/IOPacketQueue.h>  // FIXME - remove
+#include <IOKit/network/IOPacketQueue.h>
 
 struct IOMbufQueue;
 
 /*! @class IOBasicOutputQueue
     @abstract A concrete implementation of an IOOutputQueue. 
-    @discussion This object uses a spinlock to protect the packet queue from multiple producers.
+    @discussion This object uses a mutex to protect the packet queue from
+    multiple producers.
     A single producer is promoted to become a consumer when the queue is
     not active. Otherwise, the producer will simply queue the packet and
     return without blocking.
@@ -61,15 +62,17 @@ private:
 protected:
     OSObject *            _target;
     IOOutputAction        _action;
+    UInt32                _priorities;
     IOOutputQueueStats *  _stats;
     IONetworkData *       _statsData;
-	IOSimpleLock *        _spinlock;
-    IOMbufQueue *         _inQueue;
-    IOMbufQueue *         _queues[2];
+	IOLock *              _queueLock;
+    IOMbufQueue *         _inQueues;
+    IOMbufQueue *         _primaryQueues;
+    IOMbufQueue *         _shadowQueues;
     volatile bool         _waitDequeueDone;
     volatile UInt32       _state;
     volatile UInt32       _serviceCount;
-
+    
 /*! @function serviceThread
     @abstract Provides an implementation for the serviceThread() method
     defined in IOOutputQueue.
@@ -127,7 +130,8 @@ public:
 
     virtual bool init(OSObject *     target,
                       IOOutputAction action,
-                      UInt32         capacity = 0);
+                      UInt32         capacity = 0,
+                      UInt32         priorities = 1);
 
 /*! @function withTarget
     @abstract Factory method that constructs and initializes an
@@ -141,6 +145,20 @@ public:
     static IOBasicOutputQueue * withTarget(IONetworkController * target,
                                            UInt32                capacity = 0);
 
+    /*! @function withTarget
+     @abstract Factory method that constructs and initializes an
+     IOBasicOutputQueue object.
+     @param target An IONetworkController object that will handle packets
+     removed from the queue.
+     @param capacity The initial capacity of the output queue.
+     @param priorities The number of traffic priorities supported
+     @result Returns an IOBasicOutputQueue object on success, or 0 otherwise. 
+     */
+    
+    static IOBasicOutputQueue * withTarget(IONetworkController * target,
+                                           UInt32                capacity,
+                                           UInt32                priorities);
+    
 /*! @function withTarget
     @abstract Factory method that constructs and initializes an
     IOBasicOutputQueue object.
@@ -156,6 +174,23 @@ public:
                                            IOOutputAction action,
                                            UInt32         capacity = 0);
 
+    /*! @function withTarget
+     @abstract Factory method that constructs and initializes an
+     IOBasicOutputQueue object.
+     @param target The object that will handle packets removed from the
+     queue.
+     @param action The function that will handle packets removed from the
+     queue.
+     @param capacity The initial capacity of the output queue.
+     @param priorities The number of traffic priorities supported
+     @result Returns an IOBasicOutputQueue object on success, or 0 otherwise. 
+     */
+    
+    static IOBasicOutputQueue * withTarget(OSObject *     target,
+                                           IOOutputAction action,
+                                           UInt32         capacity,
+                                           UInt32         priorities);
+    
 /*! @function enqueue
     @abstract Adds a packet, or a chain of packets,
     to the queue.

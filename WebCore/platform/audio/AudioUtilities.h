@@ -30,14 +30,16 @@ namespace WebCore {
 namespace AudioUtilities {
 
 // Standard functions for converting to and from decibel values from linear.
-double linearToDecibels(double);
-double decibelsToLinear(double);
+float linearToDecibels(float);
+float decibelsToLinear(float);
 
 // timeConstant is the time it takes a first-order linear time-invariant system
 // to reach the value 1 - 1/e (around 63.2%) given a step input response.
 // discreteTimeConstantForSampleRate() will return the discrete time-constant for the specific sampleRate.
 double discreteTimeConstantForSampleRate(double timeConstant, double sampleRate);
-    
+
+// Convert the time to a sample frame at the given sample rate.
+size_t timeToSampleFrame(double time, double sampleRate);
 } // AudioUtilites
 
 } // WebCore

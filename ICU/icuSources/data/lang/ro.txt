@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ro.xml
@@ -11,11 +11,11 @@
  */
 ro{
     Keys{
-        calendar{"calendar"}
+        calendar{"Calendar"}
         collation{"ordine de sortare"}
         currency{"monedă"}
-        numbers{"numere"}
-        x{"utilizare privată"}
+        numbers{"Numere"}
+        x{"Utilizare privată"}
     }
     Languages{
         ab{"abhază"}
@@ -344,6 +344,10 @@ ro{
         Zyyy{"comună"}
         Zzzz{"scriere necunoscută sau nevalidă"}
     }
+    Scripts%stand-alone{
+        Hans{"alfabet han simplificat"}
+        Hant{"alfabet han tradiţional"}
+    }
     Types{
         calendar{
             buddhist{"calendar budist"}
@@ -362,17 +366,17 @@ ro{
         }
         collation{
             big5han{"sortare pentru chineza tradițională - Big5"}
-            dictionary{"ordine de sortare a dicţionarului"}
-            direct{"sortare directă"}
-            ducet{"ordine de sortare Unicode implicită"}
+            dictionary{"Ordine de sortare a dicţionarului"}
+            ducet{"Ordine de sortare Unicode implicită"}
             gb2312han{"sortare pentru chineza simplificată - GB2312"}
             phonebook{"sortare după cartea de telefon"}
+            phonetic{"Ordine de sortare fonetică"}
             pinyin{"sortare pinyin"}
-            reformed{"ordine de sortare reformată"}
+            reformed{"Ordine de sortare reformată"}
             search{"Căutare cu scop general"}
             stroke{"ordine de sortare după trasare"}
             traditional{"sortare tradițională"}
-            unihan{"ordine de sortare a liniilor ideogramelor"}
+            unihan{"Ordine de sortare a liniilor ideogramelor"}
         }
         numbers{
             arab{"Cifre indo-arabe"}
@@ -414,9 +418,10 @@ ro{
     }
     Variants{
         PINYIN{"pinyin"}
+        SCOTLAND{"engleză standard scoțiană"}
         WADEGILE{"Wade-Giles"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"Limbă: {0}"}
         script{"Scriere: {0}"}

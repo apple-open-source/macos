@@ -818,7 +818,7 @@ static inline NSShadow *_shadowForShadowStyle(NSString *shadowStyle)
         NSUInteger textLength = [_attrStr length];
         NSTextAttachment *attachment = [[NSTextAttachment alloc] initWithFileWrapper:fileWrapper];
         NSTextAttachmentCell *cell;
-        NSString *string = [[NSString alloc] initWithFormat:(needsParagraph ? @"%C\n" : @"%C"), NSAttachmentCharacter];
+        NSString *string = [[NSString alloc] initWithFormat:(needsParagraph ? @"%C\n" : @"%C"), static_cast<unichar>(NSAttachmentCharacter)];
         NSRange rangeToReplace = NSMakeRange(textLength, 0);
         NSDictionary *attrs;
         if (fileWrapper) {
@@ -1693,8 +1693,10 @@ static NSInteger _colCompare(id block1, id block2, void *)
         if (!renderer)
             continue;
         RenderStyle* style = renderer->style();
-        NSFont *font = style->font().primaryFont()->getNSFont();
-        [attrs.get() setObject:font forKey:NSFontAttributeName];
+        if (style->textDecorationsInEffect() & UNDERLINE)
+            [attrs.get() setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
+        if (NSFont *font = style->font().primaryFont()->getNSFont())
+            [attrs.get() setObject:font forKey:NSFontAttributeName];
         if (style->visitedDependentColor(CSSPropertyColor).alpha())
             [attrs.get() setObject:nsColor(style->visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
         else
@@ -1759,7 +1761,7 @@ static NSFileWrapper *fileWrapperForElement(Element* element)
     if (!wrapper) {
         RenderImage* renderer = toRenderImage(element->renderer());
         if (renderer->cachedImage() && !renderer->cachedImage()->errorOccurred()) {
-            wrapper = [[NSFileWrapper alloc] initRegularFileWithContents:(NSData *)(renderer->cachedImage()->image()->getTIFFRepresentation())];
+            wrapper = [[NSFileWrapper alloc] initRegularFileWithContents:(NSData *)(renderer->cachedImage()->imageForRenderer(renderer)->getTIFFRepresentation())];
             [wrapper setPreferredFilename:@"image.tiff"];
             [wrapper autorelease];
         }

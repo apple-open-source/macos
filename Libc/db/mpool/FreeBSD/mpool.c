@@ -119,7 +119,7 @@ mpool_new(mp, pgnoaddr)
 
 	if (mp->npages == MAX_PAGE_NUMBER) {
 		(void)fprintf(stderr, "mpool_new: page allocation overflow.\n");
-		abort();
+		LIBC_ABORT("page allocation overflow");
 	}
 #ifdef STATISTICS
 	++mp->pagenew;
@@ -170,7 +170,7 @@ mpool_get(MPOOL *mp, pgno_t pgno,
 		if (bp->flags & MPOOL_PINNED) {
 			(void)fprintf(stderr,
 			    "mpool_get: page %d already pinned\n", bp->pgno);
-			abort();
+			LIBC_ABORT("page %d already pinned", bp->pgno);
 		}
 #endif
 		/*
@@ -241,7 +241,7 @@ mpool_put(MPOOL *mp, void *page, u_int flags)
 	if (!(bp->flags & MPOOL_PINNED)) {
 		(void)fprintf(stderr,
 		    "mpool_put: page %d not pinned\n", bp->pgno);
-		abort();
+		LIBC_ABORT("page %d not pinned", bp->pgno);
 	}
 #endif
 	bp->flags &= ~MPOOL_PINNED;
@@ -280,10 +280,16 @@ mpool_sync(MPOOL *mp)
 	BKT *bp;
 
 	/* Walk the lru chain, flushing any dirty pages to disk. */
-	TAILQ_FOREACH(bp, &mp->lqh, q)
-		if (bp->flags & MPOOL_DIRTY &&
-		    mpool_write(mp, bp) == RET_ERROR)
-			return (RET_ERROR);
+	TAILQ_FOREACH(bp, &mp->lqh, q) {
+		if (bp->flags & MPOOL_DIRTY)
+			if (mpool_write(mp, bp) == RET_ERROR) {
+				return (RET_ERROR);
+			} else {
+				/* 4874757: Re-run through the user's pgin filter. */
+				if (mp->pgin != NULL)
+					(mp->pgin)(mp->pgcookie, bp->pgno, bp->page);
+			}
+	}
 
 	/* Sync the file descriptor. */
 	return (_fsync(mp->fd) ? RET_ERROR : RET_SUCCESS);

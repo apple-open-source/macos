@@ -34,7 +34,7 @@
 
 
 /*
- * $Id: dlsof.h,v 1.6 2009/03/25 19:21:37 abe Exp $
+ * $Id: dlsof.h,v 1.7 2011/08/07 22:52:30 abe Exp $
  */
 
 
@@ -107,6 +107,7 @@ struct mounts {
 	INODETYPE inode;		/* directory st_ino */
 	mode_t mode;			/* directory st_mode */
 	mode_t fs_mode;			/* file system st_mode */
+	int is_nfs;			/* 1 if NFS file system, 0 if not */
         struct mounts *next;    	/* forward link */
 };
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,14 +31,15 @@
 #include "ActiveDOMObject.h"
 #include "ConsoleTypes.h"
 #include "KURL.h"
+#include "ScriptCallStack.h"
+#include "SecurityContext.h"
+#include "Supplementable.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
 #include <wtf/text/StringHash.h>
 
@@ -47,170 +49,176 @@
 
 namespace WebCore {
 
-    class Blob;
-    class DOMTimer;
-    class DOMURL;
-    class EventListener;
-    class EventTarget;
-    class MessagePort;
-    class ScriptCallStack;
-    class SecurityOrigin;
+class DOMTimer;
+class EventListener;
+class EventQueue;
+class EventTarget;
+class MessagePort;
 
-#if ENABLE(DATABASE)
-    class Database;
-    class DatabaseTaskSynchronizer;
-    class DatabaseThread;
+#if ENABLE(BLOB)
+class PublicURLManager;
 #endif
 
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-    class FileThread;
+#if ENABLE(BLOB)
+class FileThread;
 #endif
 
-    class ScriptExecutionContext {
+class ScriptExecutionContext : public SecurityContext, public Supplementable<ScriptExecutionContext> {
+public:
+    ScriptExecutionContext();
+    virtual ~ScriptExecutionContext();
+
+    virtual bool isDocument() const { return false; }
+    virtual bool isWorkerContext() const { return false; }
+
+    virtual bool isContextThread() const { return true; }
+    virtual bool isJSExecutionForbidden() const = 0;
+
+    const KURL& url() const { return virtualURL(); }
+    KURL completeURL(const String& url) const { return virtualCompleteURL(url); }
+
+    virtual String userAgent(const KURL&) const = 0;
+
+    virtual void disableEval() = 0;
+
+    bool sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL);
+    void reportException(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
+    void addConsoleMessage(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL = String(), unsigned lineNumber = 0, PassRefPtr<ScriptCallStack> = 0);
+    void addConsoleMessage(MessageSource, MessageType, MessageLevel, const String& message, PassRefPtr<ScriptCallStack>);
+
+#if ENABLE(BLOB)
+    PublicURLManager& publicURLManager();
+#endif
+    // Active objects are not garbage collected even if inaccessible, e.g. because their activity may result in callbacks being invoked.
+    bool canSuspendActiveDOMObjects();
+    // Active objects can be asked to suspend even if canSuspendActiveDOMObjects() returns 'false' -
+    // step-by-step JS debugging is one example.
+    virtual void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
+    virtual void resumeActiveDOMObjects();
+    virtual void stopActiveDOMObjects();
+
+    bool activeDOMObjectsAreSuspended() const { return m_activeDOMObjectsAreSuspended; }
+    bool activeDOMObjectsAreStopped() const { return m_activeDOMObjectsAreStopped; }
+
+    // Called from the constructor and destructors of ActiveDOMObject.
+    void didCreateActiveDOMObject(ActiveDOMObject*, void* upcastPointer);
+    void willDestroyActiveDOMObject(ActiveDOMObject*);
+
+    // Called after the construction of an ActiveDOMObject to synchronize suspend state.
+    void suspendActiveDOMObjectIfNeeded(ActiveDOMObject*);
+
+    typedef const HashMap<ActiveDOMObject*, void*> ActiveDOMObjectsMap;
+    ActiveDOMObjectsMap& activeDOMObjects() const { return m_activeDOMObjects; }
+
+    void didCreateDestructionObserver(ContextDestructionObserver*);
+    void willDestroyDestructionObserver(ContextDestructionObserver*);
+
+    virtual void suspendScriptedAnimationControllerCallbacks() { }
+    virtual void resumeScriptedAnimationControllerCallbacks() { }
+
+    // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
+    void processMessagePortMessagesSoon();
+    void dispatchMessagePortEvents();
+    void createdMessagePort(MessagePort*);
+    void destroyedMessagePort(MessagePort*);
+    const HashSet<MessagePort*>& messagePorts() const { return m_messagePorts; }
+
+    void ref() { refScriptExecutionContext(); }
+    void deref() { derefScriptExecutionContext(); }
+
+    class Task {
+        WTF_MAKE_NONCOPYABLE(Task);
+        WTF_MAKE_FAST_ALLOCATED;
     public:
-        ScriptExecutionContext();
-        virtual ~ScriptExecutionContext();
-
-        virtual bool isDocument() const { return false; }
-        virtual bool isWorkerContext() const { return false; }
-
-#if ENABLE(DATABASE)
-        virtual bool allowDatabaseAccess() const = 0;
-        virtual void databaseExceededQuota(const String& name) = 0;
-        DatabaseThread* databaseThread();
-        void setHasOpenDatabases() { m_hasOpenDatabases = true; }
-        bool hasOpenDatabases() const { return m_hasOpenDatabases; }
-        // When the database cleanup is done, cleanupSync will be signalled.
-        void stopDatabases(DatabaseTaskSynchronizer*);
-#endif
-        virtual bool isContextThread() const = 0;
-        virtual bool isJSExecutionForbidden() const = 0;
-
-        const KURL& url() const { return virtualURL(); }
-        KURL completeURL(const String& url) const { return virtualCompleteURL(url); }
-
-        virtual String userAgent(const KURL&) const = 0;
-
-        SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
-
-        bool sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL);
-        void reportException(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
-        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>) = 0;
-
-        // Active objects are not garbage collected even if inaccessible, e.g. because their activity may result in callbacks being invoked.
-        bool canSuspendActiveDOMObjects();
-        // Active objects can be asked to suspend even if canSuspendActiveDOMObjects() returns 'false' -
-        // step-by-step JS debugging is one example.
-        void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
-        void resumeActiveDOMObjects();
-        void stopActiveDOMObjects();
-        void createdActiveDOMObject(ActiveDOMObject*, void* upcastPointer);
-        void destroyedActiveDOMObject(ActiveDOMObject*);
-        typedef const HashMap<ActiveDOMObject*, void*> ActiveDOMObjectsMap;
-        ActiveDOMObjectsMap& activeDOMObjects() const { return m_activeDOMObjects; }
-
-        virtual void suspendScriptedAnimationControllerCallbacks() { }
-        virtual void resumeScriptedAnimationControllerCallbacks() { }
-
-        // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
-        void processMessagePortMessagesSoon();
-        void dispatchMessagePortEvents();
-        void createdMessagePort(MessagePort*);
-        void destroyedMessagePort(MessagePort*);
-        const HashSet<MessagePort*>& messagePorts() const { return m_messagePorts; }
-
-#if ENABLE(BLOB)
-        void createdDomUrl(DOMURL*);
-        void destroyedDomUrl(DOMURL*);
-        const HashSet<DOMURL*>& domUrls() const { return m_domUrls; }
-#endif
-        void ref() { refScriptExecutionContext(); }
-        void deref() { derefScriptExecutionContext(); }
-
-        class Task {
-            WTF_MAKE_NONCOPYABLE(Task); WTF_MAKE_FAST_ALLOCATED;
-        public:
-            Task() { }
-            virtual ~Task();
-            virtual void performTask(ScriptExecutionContext*) = 0;
-            // Certain tasks get marked specially so that they aren't discarded, and are executed, when the context is shutting down its message queue.
-            virtual bool isCleanupTask() const { return false; }
-        };
-
-        virtual void postTask(PassOwnPtr<Task>) = 0; // Executes the task on context's thread asynchronously.
-
-        void addTimeout(int timeoutId, DOMTimer*);
-        void removeTimeout(int timeoutId);
-        DOMTimer* findTimeout(int timeoutId);
-
-#if ENABLE(BLOB)
-        KURL createPublicBlobURL(Blob*);
-        void revokePublicBlobURL(const KURL&);
-#endif
-
-#if USE(JSC)
-        JSC::JSGlobalData* globalData();
-#endif
-
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-        FileThread* fileThread();
-        void stopFileThread();
-#endif
-
-        // Interval is in seconds.
-        void adjustMinimumTimerInterval(double oldMinimumTimerInterval);
-        virtual double minimumTimerInterval() const;
-
-    protected:
-        // Explicitly override the security origin for this script context.
-        // Note: It is dangerous to change the security origin of a script context
-        //       that already contains content.
-        void setSecurityOrigin(PassRefPtr<SecurityOrigin>);
-
-    private:
-        virtual const KURL& virtualURL() const = 0;
-        virtual KURL virtualCompleteURL(const String&) const = 0;
-
-        virtual EventTarget* errorEventTarget() = 0;
-        virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>) = 0;
-        bool dispatchErrorEvent(const String& errorMessage, int lineNumber, const String& sourceURL);
-
-        void closeMessagePorts();
-
-        RefPtr<SecurityOrigin> m_securityOrigin;
-
-        HashSet<MessagePort*> m_messagePorts;
-
-        HashMap<ActiveDOMObject*, void*> m_activeDOMObjects;
-        bool m_iteratingActiveDOMObjects;
-        bool m_inDestructor;
-
-        typedef HashMap<int, DOMTimer*> TimeoutMap;
-        TimeoutMap m_timeouts;
-
-#if ENABLE(BLOB)
-        HashSet<String> m_publicBlobURLs;
-        HashSet<DOMURL*> m_domUrls;
-#endif
-
-        virtual void refScriptExecutionContext() = 0;
-        virtual void derefScriptExecutionContext() = 0;
-
-        bool m_inDispatchErrorEvent;
-        class PendingException;
-        OwnPtr<Vector<OwnPtr<PendingException> > > m_pendingExceptions;
-
-#if ENABLE(DATABASE)
-        RefPtr<DatabaseThread> m_databaseThread;
-        bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
-#endif
-
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-        RefPtr<FileThread> m_fileThread;
-#endif
+        Task() { }
+        virtual ~Task();
+        virtual void performTask(ScriptExecutionContext*) = 0;
+        // Certain tasks get marked specially so that they aren't discarded, and are executed, when the context is shutting down its message queue.
+        virtual bool isCleanupTask() const { return false; }
     };
 
-} // namespace WebCore
+    virtual void postTask(PassOwnPtr<Task>) = 0; // Executes the task on context's thread asynchronously.
 
+    void addTimeout(int timeoutId, DOMTimer*);
+    void removeTimeout(int timeoutId);
+    DOMTimer* findTimeout(int timeoutId);
+
+#if USE(JSC)
+    JSC::JSGlobalData* globalData();
+#endif
+
+#if ENABLE(BLOB)
+    FileThread* fileThread();
+    void stopFileThread();
+#endif
+
+    // Interval is in seconds.
+    void adjustMinimumTimerInterval(double oldMinimumTimerInterval);
+    virtual double minimumTimerInterval() const;
+
+    virtual EventQueue* eventQueue() const = 0;
+
+protected:
+    class AddConsoleMessageTask : public Task {
+    public:
+        static PassOwnPtr<AddConsoleMessageTask> create(MessageSource source, MessageType type, MessageLevel level, const String& message)
+        {
+            return adoptPtr(new AddConsoleMessageTask(source, type, level, message));
+        }
+        virtual void performTask(ScriptExecutionContext*);
+    private:
+        AddConsoleMessageTask(MessageSource source, MessageType type, MessageLevel level, const String& message)
+            : m_source(source)
+            , m_type(type)
+            , m_level(level)
+            , m_message(message.isolatedCopy())
+        {
+        }
+        MessageSource m_source;
+        MessageType m_type;
+        MessageLevel m_level;
+        String m_message;
+    };
+
+private:
+    virtual const KURL& virtualURL() const = 0;
+    virtual KURL virtualCompleteURL(const String&) const = 0;
+
+    virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>) = 0;
+    virtual EventTarget* errorEventTarget() = 0;
+    virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, PassRefPtr<ScriptCallStack>) = 0;
+    bool dispatchErrorEvent(const String& errorMessage, int lineNumber, const String& sourceURL);
+
+    void closeMessagePorts();
+
+    HashSet<MessagePort*> m_messagePorts;
+    HashSet<ContextDestructionObserver*> m_destructionObservers;
+    HashMap<ActiveDOMObject*, void*> m_activeDOMObjects;
+    bool m_iteratingActiveDOMObjects;
+    bool m_inDestructor;
+
+    typedef HashMap<int, DOMTimer*> TimeoutMap;
+    TimeoutMap m_timeouts;
+
+    virtual void refScriptExecutionContext() = 0;
+    virtual void derefScriptExecutionContext() = 0;
+
+    bool m_inDispatchErrorEvent;
+    class PendingException;
+    OwnPtr<Vector<OwnPtr<PendingException> > > m_pendingExceptions;
+#if ENABLE(BLOB)
+    OwnPtr<PublicURLManager> m_publicURLManager;
+#endif
+
+    bool m_activeDOMObjectsAreSuspended;
+    ActiveDOMObject::ReasonForSuspension m_reasonForSuspendingActiveDOMObjects;
+    bool m_activeDOMObjectsAreStopped;
+
+#if ENABLE(BLOB)
+    RefPtr<FileThread> m_fileThread;
+#endif
+};
+
+} // namespace WebCore
 
 #endif // ScriptExecutionContext_h

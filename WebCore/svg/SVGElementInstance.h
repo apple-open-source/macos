@@ -35,6 +35,7 @@ void addChildNodesToDeletionQueue(GenericNode*& head, GenericNode*& tail, Generi
 
 class SVGUseElement;
 class SVGElementInstanceList;
+class SVGStyledElement;
 
 // SVGElementInstance mimics Node, but without providing all its functionality
 class SVGElementInstance : public TreeShared<SVGElementInstance>,
@@ -47,6 +48,7 @@ public:
 
     virtual ~SVGElementInstance();
 
+    virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const;
 
     virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
@@ -59,12 +61,8 @@ public:
     SVGUseElement* correspondingUseElement() const { return m_correspondingUseElement; }
     SVGUseElement* directUseElement() const { return m_directUseElement; }
     SVGElement* shadowTreeElement() const { return m_shadowTreeElement.get(); }
-    void clearChildren();
-    void clearUseElements()
-    {
-        m_directUseElement = 0;
-        m_correspondingUseElement = 0;
-    }
+
+    void detach();
 
     SVGElementInstance* parentNode() const { return parent(); }
     PassRefPtr<SVGElementInstanceList> childNodes();
@@ -77,6 +75,25 @@ public:
 
     Document* ownerDocument() const { return m_element ? m_element->ownerDocument() : 0; }
 
+    class InvalidationGuard {
+        WTF_MAKE_NONCOPYABLE(InvalidationGuard);
+    public:    
+        InvalidationGuard(SVGElement* element) : m_element(element) { }
+        ~InvalidationGuard() { SVGElementInstance::invalidateAllInstancesOfElement(m_element); }
+    private:
+        SVGElement* m_element;
+    };
+
+    class InstanceUpdateBlocker {
+        WTF_MAKE_NONCOPYABLE(InstanceUpdateBlocker);
+    public:
+        InstanceUpdateBlocker(SVGElement* targetElement);
+        ~InstanceUpdateBlocker();
+
+    private:
+        SVGStyledElement* m_targetElement;
+    };
+    
     static void invalidateAllInstancesOfElement(SVGElement*);
 
     using TreeShared<SVGElementInstance>::ref;
@@ -130,7 +147,6 @@ private:
     SVGElementInstance(SVGUseElement*, SVGUseElement*, PassRefPtr<SVGElement> originalElement);
 
     virtual Node* toNode() { return shadowTreeElement(); }
-    virtual SVGElementInstance* toSVGElementInstance() { return this; }
 
     void appendChild(PassRefPtr<SVGElementInstance> child);
     void setShadowTreeElement(SVGElement*);

@@ -41,7 +41,7 @@ class AudioBus;
 
 class AudioProcessor {
 public:
-    AudioProcessor(double sampleRate)
+    AudioProcessor(float sampleRate)
         : m_initialized(false)
         , m_sampleRate(sampleRate)
     {
@@ -54,7 +54,7 @@ public:
     virtual void uninitialize() = 0;
 
     // Processes the source to destination bus.  The number of channels must match in source and destination.
-    virtual void process(AudioBus* source, AudioBus* destination, size_t framesToProcess) = 0;
+    virtual void process(const AudioBus* source, AudioBus* destination, size_t framesToProcess) = 0;
 
     // Resets filter state
     virtual void reset() = 0;
@@ -63,11 +63,14 @@ public:
 
     bool isInitialized() const { return m_initialized; }
 
-    double sampleRate() const { return m_sampleRate; }
+    float sampleRate() const { return m_sampleRate; }
+
+    virtual double tailTime() const = 0;
+    virtual double latencyTime() const = 0;
 
 protected:
     bool m_initialized;
-    double m_sampleRate;
+    float m_sampleRate;
 };
 
 } // namespace WebCore

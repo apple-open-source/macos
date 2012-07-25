@@ -34,23 +34,21 @@ public:
 private:
     HTMLAppletElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     
-    virtual bool rendererIsNeeded(RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void finishParsingChildren();
 
     virtual void defaultEventHandler(Event*);
 
-    virtual RenderWidget* renderWidgetForJSBindings() const;
+    virtual RenderWidget* renderWidgetForJSBindings();
 
     void setupApplet() const;
     bool canEmbedJava() const;
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
-
-    AtomicString m_id;
+    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return true; }
+    virtual bool shouldRegisterAsExtraNamedItem() const OVERRIDE { return true; }
 };
 
 }

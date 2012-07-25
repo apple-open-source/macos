@@ -26,29 +26,20 @@
 #include "HTMLFormControlElement.h"
 
 #include "Attribute.h"
-#include "Chrome.h"
-#include "ChromeClient.h"
-#include "Document.h"
-#include "DocumentParser.h"
-#include "ElementRareData.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Frame.h"
+#include "HTMLFieldSetElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
-#include "HTMLNames.h"
-#include "LabelsNodeList.h"
-#include "Page.h"
+#include "HTMLLegendElement.h"
 #include "RenderBox.h"
-#include "RenderTextControl.h"
 #include "RenderTheme.h"
 #include "ScriptEventListener.h"
 #include "ValidationMessage.h"
 #include "ValidityState.h"
-#include <limits>
 #include <wtf/Vector.h>
-#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -56,8 +47,10 @@ using namespace HTMLNames;
 using namespace std;
 
 HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
-    : HTMLElement(tagName, document)
-    , FormAssociatedElement(form)
+    : LabelableElement(tagName, document)
+    , m_fieldSetAncestor(0)
+    , m_legendAncestor(0)
+    , m_ancestorsValid(false)
     , m_disabled(false)
     , m_readOnly(false)
     , m_required(false)
@@ -66,17 +59,15 @@ HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Doc
     , m_willValidate(true)
     , m_isValid(true)
     , m_wasChangedSinceLastFormControlChangeEvent(false)
+    , m_hasAutofocused(false)
+    , m_hasDataListAncestor(false)
 {
-    if (!this->form())
-        setForm(findFormAncestor());
-    if (this->form())
-        this->form()->registerFormElement(this);
+    setForm(form ? form : findFormAncestor());
+    setHasCustomWillOrDidRecalcStyle();
 }
 
 HTMLFormControlElement::~HTMLFormControlElement()
 {
-    if (form())
-        form()->removeFormElement(this);
 }
 
 void HTMLFormControlElement::detach()
@@ -85,21 +76,58 @@ void HTMLFormControlElement::detach()
     HTMLElement::detach();
 }
 
+String HTMLFormControlElement::formEnctype() const
+{
+    return FormSubmission::Attributes::parseEncodingType(fastGetAttribute(formenctypeAttr));
+}
+
+void HTMLFormControlElement::setFormEnctype(const String& value)
+{
+    setAttribute(formenctypeAttr, value);
+}
+
+String HTMLFormControlElement::formMethod() const
+{
+    return FormSubmission::Attributes::methodString(FormSubmission::Attributes::parseMethodType(fastGetAttribute(formmethodAttr)));
+}
+
+void HTMLFormControlElement::setFormMethod(const String& value)
+{
+    setAttribute(formmethodAttr, value);
+}
+
 bool HTMLFormControlElement::formNoValidate() const
 {
     return fastHasAttribute(formnovalidateAttr);
 }
 
-void HTMLFormControlElement::parseMappedAttribute(Attribute* attr)
+void HTMLFormControlElement::updateAncestors() const
 {
-    if (attr->name() == disabledAttr) {
+    m_fieldSetAncestor = 0;
+    m_legendAncestor = 0;
+    m_hasDataListAncestor = false;
+    for (ContainerNode* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
+        if (!m_legendAncestor && ancestor->hasTagName(legendTag))
+            m_legendAncestor = static_cast<HTMLLegendElement*>(ancestor);
+        if (!m_fieldSetAncestor && ancestor->hasTagName(fieldsetTag))
+            m_fieldSetAncestor = static_cast<HTMLFieldSetElement*>(ancestor);
+        if (!m_hasDataListAncestor && ancestor->hasTagName(datalistTag))
+            m_hasDataListAncestor = true;
+        if (m_hasDataListAncestor && m_fieldSetAncestor)
+            break;
+    }
+    m_ancestorsValid = true;
+}
+
+void HTMLFormControlElement::parseAttribute(Attribute* attr)
+{
+    if (attr->name() == formAttr)
+        formAttributeChanged();
+    else if (attr->name() == disabledAttr) {
         bool oldDisabled = m_disabled;
         m_disabled = !attr->isNull();
-        if (oldDisabled != m_disabled) {
-            setNeedsStyleRecalc();
-            if (renderer() && renderer()->style()->hasAppearance())
-                renderer()->theme()->stateChanged(renderer(), EnabledState);
-        }
+        if (oldDisabled != m_disabled)
+            disabledAttributeChanged();
     } else if (attr->name() == readonlyAttr) {
         bool oldReadOnly = m_readOnly;
         m_readOnly = !attr->isNull();
@@ -111,13 +139,26 @@ void HTMLFormControlElement::parseMappedAttribute(Attribute* attr)
     } else if (attr->name() == requiredAttr) {
         bool oldRequired = m_required;
         m_required = !attr->isNull();
-        if (oldRequired != m_required) {
-            setNeedsValidityCheck();
-            setNeedsStyleRecalc(); // Updates for :required :optional classes.
-        }
+        if (oldRequired != m_required)
+            requiredAttributeChanged();
     } else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::parseAttribute(attr);
     setNeedsWillValidateCheck();
+}
+
+void HTMLFormControlElement::disabledAttributeChanged()
+{
+    setNeedsStyleRecalc();
+    if (renderer() && renderer()->style()->hasAppearance())
+        renderer()->theme()->stateChanged(renderer(), EnabledState);
+}
+
+void HTMLFormControlElement::requiredAttributeChanged()
+{
+    setNeedsValidityCheck();
+    // Style recalculation is needed because style selectors may include
+    // :required and :optional pseudo-classes.
+    setNeedsStyleRecalc();
 }
 
 static bool shouldAutofocus(HTMLFormControlElement* element)
@@ -128,7 +169,9 @@ static bool shouldAutofocus(HTMLFormControlElement* element)
         return false;
     if (element->document()->ignoreAutofocus())
         return false;
-    if (element->isReadOnlyFormControl())
+    if (element->document()->isSandboxed(SandboxAutomaticFeatures))
+        return false;
+    if (element->hasAutofocused())
         return false;
 
     // FIXME: Should this set of hasTagName checks be replaced by a
@@ -147,7 +190,7 @@ static bool shouldAutofocus(HTMLFormControlElement* element)
     return false;
 }
 
-static void focusPostAttach(Node* element) 
+static void focusPostAttach(Node* element, unsigned)
 { 
     static_cast<Element*>(element)->focus(); 
     element->deref(); 
@@ -168,6 +211,7 @@ void HTMLFormControlElement::attach()
         renderer()->updateFromElement();
 
     if (shouldAutofocus(this)) {
+        setAutofocused();
         ref();
         queuePostAttachCallback(focusPostAttach, this);
     }
@@ -175,42 +219,31 @@ void HTMLFormControlElement::attach()
     resumePostAttachCallbacks();
 }
 
-void HTMLFormControlElement::willMoveToNewOwnerDocument()
+void HTMLFormControlElement::didMoveToNewDocument(Document* oldDocument)
 {
-    FormAssociatedElement::willMoveToNewOwnerDocument();
-    HTMLElement::willMoveToNewOwnerDocument();
+    FormAssociatedElement::didMoveToNewDocument(oldDocument);
+    HTMLElement::didMoveToNewDocument(oldDocument);
 }
 
-void HTMLFormControlElement::insertedIntoTree(bool deep)
+Node::InsertionNotificationRequest HTMLFormControlElement::insertedInto(Node* insertionPoint)
 {
-    FormAssociatedElement::insertedIntoTree();
-    if (!form())
-        document()->checkedRadioButtons().addButton(this);
-
-    HTMLElement::insertedIntoTree(deep);
+    HTMLElement::insertedInto(insertionPoint);
+    FormAssociatedElement::insertedInto(insertionPoint);
+    m_ancestorsValid = false;
+    setNeedsWillValidateCheck();
+    return InsertionDone;
 }
 
-void HTMLFormControlElement::removedFromTree(bool deep)
+void HTMLFormControlElement::removedFrom(Node* insertionPoint)
 {
-    FormAssociatedElement::removedFromTree();
-    HTMLElement::removedFromTree(deep);
-}
-
-void HTMLFormControlElement::insertedIntoDocument()
-{
-    HTMLElement::insertedIntoDocument();
-    FormAssociatedElement::insertedIntoDocument();
-}
-
-void HTMLFormControlElement::removedFromDocument()
-{
-    HTMLElement::removedFromDocument();
-    FormAssociatedElement::removedFromDocument();
+    HTMLElement::removedFrom(insertionPoint);
+    FormAssociatedElement::removedFrom(insertionPoint);
+    m_ancestorsValid = false;
 }
 
 const AtomicString& HTMLFormControlElement::formControlName() const
 {
-    const AtomicString& name = fastGetAttribute(nameAttr);
+    const AtomicString& name = getNameAttribute();
     return name.isNull() ? emptyAtom : name;
 }
 
@@ -241,6 +274,20 @@ void HTMLFormControlElement::dispatchFormControlInputEvent()
     HTMLElement::dispatchInputEvent();
 }
 
+bool HTMLFormControlElement::disabled() const
+{
+    if (m_disabled)
+        return true;
+
+    if (!m_ancestorsValid)
+        updateAncestors();
+
+    // Form controls in the first legend element inside a fieldset are not affected by fieldset.disabled.
+    if (m_fieldSetAncestor && m_fieldSetAncestor->disabled())
+        return !(m_legendAncestor && m_legendAncestor == m_fieldSetAncestor->legend());
+    return false;
+}
+
 void HTMLFormControlElement::setDisabled(bool b)
 {
     setAttribute(disabledAttr, b ? "" : 0);
@@ -256,7 +303,7 @@ bool HTMLFormControlElement::required() const
     return m_required;
 }
 
-static void updateFromElementCallback(Node* node)
+static void updateFromElementCallback(Node* node, unsigned)
 {
     ASSERT_ARG(node, node->isElementNode());
     ASSERT_ARG(node, static_cast<Element*>(node)->isFormControlElement());
@@ -265,10 +312,8 @@ static void updateFromElementCallback(Node* node)
         renderer->updateFromElement();
 }
 
-void HTMLFormControlElement::recalcStyle(StyleChange change)
+void HTMLFormControlElement::didRecalcStyle(StyleChange)
 {
-    HTMLElement::recalcStyle(change);
-
     // updateFromElement() can cause the selection to change, and in turn
     // trigger synchronous layout, so it must not be called during style recalc.
     if (renderer())
@@ -282,8 +327,7 @@ bool HTMLFormControlElement::supportsFocus() const
 
 bool HTMLFormControlElement::isFocusable() const
 {
-    if (!renderer() || 
-        !renderer()->isBox() || toRenderBox(renderer())->size().isEmpty())
+    if (!renderer() || !renderer()->isBox() || toRenderBox(renderer())->size().isEmpty())
         return false;
     // HTMLElement::isFocusable handles visibility and calls suportsFocus which
     // will cover the disabled case.
@@ -315,14 +359,15 @@ short HTMLFormControlElement::tabIndex() const
 
 bool HTMLFormControlElement::recalcWillValidate() const
 {
-    // FIXME: Should return false if this element has a datalist element as an
-    // ancestor. See HTML5 4.10.10 'The datalist element.'
-    return !m_disabled && !m_readOnly;
+    return !m_hasDataListAncestor && !m_disabled && !m_readOnly;
 }
 
 bool HTMLFormControlElement::willValidate() const
 {
-    if (!m_willValidateInitialized) {
+    if (!m_willValidateInitialized || !m_ancestorsValid) {
+        if (!m_ancestorsValid)
+            updateAncestors();
+
         m_willValidateInitialized = true;
         m_willValidate = recalcWillValidate();
     } else {
@@ -336,8 +381,10 @@ bool HTMLFormControlElement::willValidate() const
 
 void HTMLFormControlElement::setNeedsWillValidateCheck()
 {
-    // We need to recalculate willValidte immediately because willValidate
-    // change can causes style change.
+    if (!m_ancestorsValid)
+        updateAncestors();
+
+    // We need to recalculate willValidate immediately because willValidate change can causes style change.
     bool newWillValidate = recalcWillValidate();
     if (m_willValidateInitialized && m_willValidate == newWillValidate)
         return;
@@ -438,20 +485,9 @@ void HTMLFormControlElement::setCustomValidity(const String& error)
     validity()->setCustomErrorMessage(error);
 }
 
-void HTMLFormControlElement::dispatchFocusEvent()
+void HTMLFormControlElement::dispatchBlurEvent(PassRefPtr<Node> newFocusedNode)
 {
-    if (document()->page())
-        document()->page()->chrome()->client()->formDidFocus(this);
-
-    HTMLElement::dispatchFocusEvent();
-}
-
-void HTMLFormControlElement::dispatchBlurEvent()
-{
-    if (document()->page())
-        document()->page()->chrome()->client()->formDidBlur(this);
-
-    HTMLElement::dispatchBlurEvent();
+    HTMLElement::dispatchBlurEvent(newFocusedNode);
     hideVisibleValidationMessage();
 }
 
@@ -465,265 +501,13 @@ bool HTMLFormControlElement::isDefaultButtonForForm() const
     return isSuccessfulSubmitButton() && form() && form()->defaultButton() == this;
 }
 
-void HTMLFormControlElement::attributeChanged(Attribute* attr, bool preserveDecls)
+HTMLFormControlElement* HTMLFormControlElement::enclosingFormControlElement(Node* node)
 {
-    if (attr->name() == formAttr) {
-        formAttributeChanged();
-        if (!form())
-            document()->checkedRadioButtons().addButton(this);
-    } else
-        HTMLElement::attributeChanged(attr, preserveDecls);
-}
-
-bool HTMLFormControlElement::isLabelable() const
-{
-    // FIXME: Add meterTag and outputTag to the list once we support them.
-    return hasTagName(buttonTag) || hasTagName(inputTag) || hasTagName(keygenTag)
-#if ENABLE(METER_TAG)
-        || hasTagName(meterTag)
-#endif
-#if ENABLE(PROGRESS_TAG)
-        || hasTagName(progressTag)
-#endif
-        || hasTagName(selectTag) || hasTagName(textareaTag);
-}
-
-PassRefPtr<NodeList> HTMLFormControlElement::labels()
-{
-    if (!isLabelable())
-        return 0;
-    if (!document())
-        return 0;
-
-    NodeRareData* data = Node::ensureRareData();
-    if (!data->nodeLists()) {
-        data->setNodeLists(NodeListsNodeData::create());
-        document()->addNodeListCache();
+    for (; node; node = node->parentNode()) {
+        if (node->isElementNode() && toElement(node)->isFormControlElement())
+            return static_cast<HTMLFormControlElement*>(node);
     }
-
-    if (data->nodeLists()->m_labelsNodeListCache)
-        return data->nodeLists()->m_labelsNodeListCache;
-
-    RefPtr<LabelsNodeList> list = LabelsNodeList::create(this);
-    data->nodeLists()->m_labelsNodeListCache = list.get();
-    return list.release();
-}
-
-HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
-    : HTMLFormControlElement(tagName, doc, f)
-{
-    document()->registerFormElementWithState(this);
-}
-
-HTMLFormControlElementWithState::~HTMLFormControlElementWithState()
-{
-    document()->unregisterFormElementWithState(this);
-}
-
-void HTMLFormControlElementWithState::willMoveToNewOwnerDocument()
-{
-    document()->unregisterFormElementWithState(this);
-    HTMLFormControlElement::willMoveToNewOwnerDocument();
-}
-
-void HTMLFormControlElementWithState::didMoveToNewOwnerDocument()
-{
-    document()->registerFormElementWithState(this);
-    HTMLFormControlElement::didMoveToNewOwnerDocument();
-}
-
-bool HTMLFormControlElementWithState::autoComplete() const
-{
-    if (!form())
-        return true;
-    return form()->autoComplete();
-}
-
-bool HTMLFormControlElementWithState::shouldSaveAndRestoreFormControlState() const
-{
-    // We don't save/restore control state in a form with autocomplete=off.
-    return attached() && autoComplete();
-}
-
-void HTMLFormControlElementWithState::finishParsingChildren()
-{
-    HTMLFormControlElement::finishParsingChildren();
-
-    // We don't save state of a control with shouldSaveAndRestoreFormControlState()=false.
-    // But we need to skip restoring process too because a control in another
-    // form might have the same pair of name and type and saved its state.
-    if (!shouldSaveAndRestoreFormControlState())
-        return;
-
-    Document* doc = document();
-    if (doc->hasStateForNewFormElements()) {
-        String state;
-        if (doc->takeStateForFormElement(name().impl(), type().impl(), state))
-            restoreFormControlState(state);
-    }
-}
-
-void HTMLFormControlElementWithState::defaultEventHandler(Event* event)
-{
-    if (event->type() == eventNames().webkitEditableContentChangedEvent && renderer() && renderer()->isTextControl()) {
-        toRenderTextControl(renderer())->subtreeHasChanged();
-        return;
-    }
-
-    HTMLFormControlElement::defaultEventHandler(event);
-}
-
-HTMLTextFormControlElement::HTMLTextFormControlElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* form)
-    : HTMLFormControlElementWithState(tagName, doc, form)
-{
-}
-
-HTMLTextFormControlElement::~HTMLTextFormControlElement()
-{
-}
-
-void HTMLTextFormControlElement::insertedIntoDocument()
-{
-    HTMLFormControlElement::insertedIntoDocument();
-    String initialValue = value();
-    setTextAsOfLastFormControlChangeEvent(initialValue.isNull() ? String("") : initialValue);
-}
-
-void HTMLTextFormControlElement::dispatchFocusEvent()
-{
-    if (supportsPlaceholder())
-        updatePlaceholderVisibility(false);
-    handleFocusEvent();
-    HTMLFormControlElementWithState::dispatchFocusEvent();
-}
-
-void HTMLTextFormControlElement::dispatchBlurEvent()
-{
-    if (supportsPlaceholder())
-        updatePlaceholderVisibility(false);
-    handleBlurEvent();
-    HTMLFormControlElementWithState::dispatchBlurEvent();
-}
-
-String HTMLTextFormControlElement::strippedPlaceholder() const
-{
-    // According to the HTML5 specification, we need to remove CR and LF from
-    // the attribute value.
-    const AtomicString& attributeValue = getAttribute(placeholderAttr);
-    if (!attributeValue.contains(newlineCharacter) && !attributeValue.contains(carriageReturn))
-        return attributeValue;
-
-    Vector<UChar> stripped;
-    unsigned length = attributeValue.length();
-    stripped.reserveCapacity(length);
-    for (unsigned i = 0; i < length; ++i) {
-        UChar character = attributeValue[i];
-        if (character == newlineCharacter || character == carriageReturn)
-            continue;
-        stripped.append(character);
-    }
-    return String::adopt(stripped);
-}
-
-static bool isNotLineBreak(UChar ch) { return ch != newlineCharacter && ch != carriageReturn; }
-
-bool HTMLTextFormControlElement::isPlaceholderEmpty() const
-{
-    const AtomicString& attributeValue = getAttribute(placeholderAttr);
-    return attributeValue.string().find(isNotLineBreak) == notFound;
-}
-
-bool HTMLTextFormControlElement::placeholderShouldBeVisible() const
-{
-    return supportsPlaceholder()
-        && isEmptyValue()
-        && isEmptySuggestedValue()
-        && !isPlaceholderEmpty()
-        && (document()->focusedNode() != this || (renderer() && renderer()->theme()->shouldShowPlaceholderWhenFocused()));
-}
-
-void HTMLTextFormControlElement::updatePlaceholderVisibility(bool placeholderValueChanged)
-{
-    if (supportsPlaceholder() && renderer())
-        toRenderTextControl(renderer())->updatePlaceholderVisibility(placeholderShouldBeVisible(), placeholderValueChanged);
-}
-
-RenderTextControl* HTMLTextFormControlElement::textRendererAfterUpdateLayout()
-{
-    if (!isTextFormControl())
-        return 0;
-    document()->updateLayoutIgnorePendingStylesheets();
-    return toRenderTextControl(renderer());
-}
-
-void HTMLTextFormControlElement::setSelectionStart(int start)
-{
-    setSelectionRange(start, max(start, selectionEnd()));
-}
-
-void HTMLTextFormControlElement::setSelectionEnd(int end)
-{
-    setSelectionRange(min(end, selectionStart()), end);
-}
-
-void HTMLTextFormControlElement::select()
-{
-    setSelectionRange(0, numeric_limits<int>::max());
-}
-
-void HTMLTextFormControlElement::dispatchFormControlChangeEvent()
-{
-    if (m_textAsOfLastFormControlChangeEvent != value()) {
-        HTMLElement::dispatchChangeEvent();
-        setTextAsOfLastFormControlChangeEvent(value());
-    }
-    setChangedSinceLastFormControlChangeEvent(false);
-}
-
-void HTMLTextFormControlElement::setSelectionRange(int start, int end)
-{
-    WebCore::setSelectionRange(this, start, end);
-}
-
-int HTMLTextFormControlElement::selectionStart() const
-{
-    if (!isTextFormControl())
-        return 0;
-    if (document()->focusedNode() != this && cachedSelectionStart() >= 0)
-        return cachedSelectionStart();
-    if (!renderer())
-        return 0;
-    return toRenderTextControl(renderer())->selectionStart();
-}
-
-int HTMLTextFormControlElement::selectionEnd() const
-{
-    if (!isTextFormControl())
-        return 0;
-    if (document()->focusedNode() != this && cachedSelectionEnd() >= 0)
-        return cachedSelectionEnd();
-    if (!renderer())
-        return 0;
-    return toRenderTextControl(renderer())->selectionEnd();
-}
-
-PassRefPtr<Range> HTMLTextFormControlElement::selection() const
-{
-    if (!renderer() || !isTextFormControl() || cachedSelectionStart() < 0 || cachedSelectionEnd() < 0)
-        return 0;
-    return toRenderTextControl(renderer())->selection(cachedSelectionStart(), cachedSelectionEnd());
-}
-
-void HTMLTextFormControlElement::parseMappedAttribute(Attribute* attr)
-{
-    if (attr->name() == placeholderAttr)
-        updatePlaceholderVisibility(true);
-    else if (attr->name() == onselectAttr)
-        setAttributeEventListener(eventNames().selectEvent, createAttributeEventListener(this, attr));
-    else if (attr->name() == onchangeAttr)
-        setAttributeEventListener(eventNames().changeEvent, createAttributeEventListener(this, attr));
-    else
-        HTMLFormControlElementWithState::parseMappedAttribute(attr);
+    return 0;
 }
 
 } // namespace Webcore

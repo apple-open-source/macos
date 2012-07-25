@@ -25,6 +25,7 @@
 
 #include "Attr.h"
 #include "Document.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 
 namespace WebCore {
@@ -35,12 +36,21 @@ DEFINE_ANIMATED_LENGTH(SVGCursorElement, SVGNames::yAttr, Y, y)
 DEFINE_ANIMATED_STRING(SVGCursorElement, XLinkNames::hrefAttr, Href, href)
 DEFINE_ANIMATED_BOOLEAN(SVGCursorElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGCursorElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(href)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGCursorElement::SVGCursorElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
 {
     ASSERT(hasTagName(SVGNames::cursorTag));
+    registerAnimatedPropertiesForSVGCursorElement();
 }
 
 PassRefPtr<SVGCursorElement> SVGCursorElement::create(const QualifiedName& tagName, Document* document)
@@ -55,36 +65,36 @@ SVGCursorElement::~SVGCursorElement()
         (*it)->cursorElementRemoved();
 }
 
-void SVGCursorElement::parseMappedAttribute(Attribute* attr)
+bool SVGCursorElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(LengthModeWidth, attr->value()));
-    else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(LengthModeHeight, attr->value()));
-    else {
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        if (SVGURIReference::parseMappedAttribute(attr))
-            return;
-
-        SVGElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        SVGURIReference::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::xAttr);
+        supportedAttributes.add(SVGNames::yAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-AttributeToPropertyTypeMap& SVGCursorElement::attributeToPropertyTypeMap()
+void SVGCursorElement::parseAttribute(Attribute* attr)
 {
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
+    SVGParsingError parseError = NoError;
 
-void SVGCursorElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+    if (!isSupportedAttribute(attr->name()))
+        SVGElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::xAttr)
+        setXBaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
+    else if (attr->name() == SVGNames::yAttr)
+        setYBaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
+    else if (SVGTests::parseAttribute(attr)
+             || SVGExternalResourcesRequired::parseAttribute(attr)
+             || SVGURIReference::parseAttribute(attr)) {
+    } else
+        ASSERT_NOT_REACHED();
+    
+    reportAttributeParsingError(parseError, attr);
 }
 
 void SVGCursorElement::addClient(SVGElement* element)
@@ -109,44 +119,19 @@ void SVGCursorElement::removeReferencedElement(SVGElement* element)
 
 void SVGCursorElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGElement::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::xAttr
-        || attrName == SVGNames::yAttr
-        || SVGTests::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
-        || SVGURIReference::isKnownAttribute(attrName)) {
-        HashSet<SVGElement*>::const_iterator it = m_clients.begin();
-        HashSet<SVGElement*>::const_iterator end = m_clients.end();
-
-        for (; it != end; ++it)
-            (*it)->setNeedsStyleRecalc();
-    }
-}
-
-void SVGCursorElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeX();
-        synchronizeY();
-        synchronizeExternalResourcesRequired();
-        synchronizeHref();
-        SVGTests::synchronizeProperties(this, attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::xAttr)
-        synchronizeX();
-    else if (attrName == SVGNames::yAttr)
-        synchronizeY();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGURIReference::isKnownAttribute(attrName))
-        synchronizeHref();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+
+    // Any change of a cursor specific attribute triggers this recalc.
+    HashSet<SVGElement*>::const_iterator it = m_clients.begin();
+    HashSet<SVGElement*>::const_iterator end = m_clients.end();
+
+    for (; it != end; ++it)
+        (*it)->setNeedsStyleRecalc();
 }
 
 void SVGCursorElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

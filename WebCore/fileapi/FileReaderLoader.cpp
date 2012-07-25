@@ -68,7 +68,8 @@ FileReaderLoader::FileReaderLoader(ReadType readType, FileReaderLoaderClient* cl
 FileReaderLoader::~FileReaderLoader()
 {
     terminate();
-    ThreadableBlobRegistry::unregisterBlobURL(m_urlForReading);
+    if (!m_urlForReading.isEmpty())
+        ThreadableBlobRegistry::unregisterBlobURL(m_urlForReading);
 }
 
 void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blob* blob)
@@ -86,10 +87,10 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
     request.setHTTPMethod("GET");
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = true;
-    options.sniffContent = false;
-    options.forcePreflight = false;
-    options.allowCredentials = true;
+    options.sendLoadCallbacks = SendCallbacks;
+    options.sniffContent = DoNotSniffContent;
+    options.preflightPolicy = ConsiderPreflight;
+    options.allowCredentials = AllowStoredCredentials;
     options.crossOriginRequestPolicy = DenyCrossOriginRequests;
 
     if (m_client)
@@ -123,7 +124,7 @@ void FileReaderLoader::cleanup()
     }
 }
 
-void FileReaderLoader::didReceiveResponse(const ResourceResponse& response)
+void FileReaderLoader::didReceiveResponse(unsigned long, const ResourceResponse& response)
 {
     if (response.httpStatusCode() != 200) {
         failed(httpStatusCodeToErrorCode(response.httpStatusCode()));

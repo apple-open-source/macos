@@ -91,6 +91,9 @@ void SegmentedString::clear()
     m_pushedChar2 = 0;
     m_currentChar = 0;
     m_currentString.clear();
+    m_numberOfCharactersConsumedPriorToCurrentString = 0;
+    m_numberOfCharactersConsumedPriorToCurrentLine = 0;
+    m_currentLine = 0;
     m_substrings.clear();
     m_closed = false;
 }
@@ -237,18 +240,18 @@ void SegmentedString::advanceSlowCase(int& lineNumber)
     m_currentChar = m_pushedChar1 ? &m_pushedChar1 : m_currentString.m_current;
 }
 
-WTF::ZeroBasedNumber SegmentedString::currentLine() const
+OrdinalNumber SegmentedString::currentLine() const
 {
-    return WTF::ZeroBasedNumber::fromZeroBasedInt(m_currentLine);
+    return OrdinalNumber::fromZeroBasedInt(m_currentLine);
 }
 
-WTF::ZeroBasedNumber SegmentedString::currentColumn() const
+OrdinalNumber SegmentedString::currentColumn() const
 {
     int zeroBasedColumn = numberOfCharactersConsumed() - m_numberOfCharactersConsumedPriorToCurrentLine;
-    return WTF::ZeroBasedNumber::fromZeroBasedInt(zeroBasedColumn);
+    return OrdinalNumber::fromZeroBasedInt(zeroBasedColumn);
 }
 
-void SegmentedString::setCurrentPosition(WTF::ZeroBasedNumber line, WTF::ZeroBasedNumber columnAftreProlog, int prologLength)
+void SegmentedString::setCurrentPosition(OrdinalNumber line, OrdinalNumber columnAftreProlog, int prologLength)
 {
     m_currentLine = line.zeroBasedInt();
     m_numberOfCharactersConsumedPriorToCurrentLine = numberOfCharactersConsumed() + prologLength - columnAftreProlog.zeroBasedInt();

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*****************************************************************************
@@ -26,54 +26,7 @@
 #include "cmemory.h"  /* for UAlignedMemory */
 #include "cintltst.h"
 #include "ccapitst.h"
-
-/* for not including "cstring.h" -begin*/    
-#ifdef U_WINDOWS
-#   define ctest_stricmp(str1, str2) U_STANDARD_CPP_NAMESPACE _stricmp(str1, str2)
-#elif defined(POSIX) 
-#   define ctest_stricmp(str1, str2) U_STANDARD_CPP_NAMESPACE strcasecmp(str1, str2) 
-#else
-#   define ctest_stricmp(str1, str2) T_CString_stricmp(str1, str2)
-#endif
-
-static int U_EXPORT2
-T_CString_stricmp(const char *str1, const char *str2) {
-    if(str1==NULL) {
-        if(str2==NULL) {
-            return 0;
-        } else {
-            return -1;
-        }
-    } else if(str2==NULL) {
-        return 1;
-    } else {
-        /* compare non-NULL strings lexically with lowercase */
-        int rc;
-        unsigned char c1, c2;
-        for(;;) {
-            c1=(unsigned char)*str1;
-            c2=(unsigned char)*str2;
-            if(c1==0) {
-                if(c2==0) {
-                    return 0;
-                } else {
-                    return -1;
-                }
-            } else if(c2==0) {
-                return 1;
-            } else {
-                /* compare non-zero characters with lowercase */
-                rc=(int)(unsigned char)tolower(c1)-(int)(unsigned char)tolower(c2);
-                if(rc!=0) {
-                    return rc;
-                }
-            }
-            ++str1;
-            ++str2;
-        }
-    }
-}
-/* for not including "cstring.h"  -end*/    
+#include "cstring.h"
 
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
@@ -594,8 +547,8 @@ static void TestConvert()
         if (!myConverter || U_FAILURE(err))   
         {
             log_data_err("Error creating the ibm-949 converter - %s \n", u_errorName(err));
-
-            return;
+            fclose(ucs_file_in);
+            break;
         }
 
         /*testing for ucnv_getName()  */
@@ -607,7 +560,7 @@ static void TestConvert()
         {
             log_verbose("getName o.k. %s\n", ucnv_getName(myConverter, &err));
         }
-        if (ctest_stricmp(ucnv_getName(myConverter, &err), CodePagesToTest[codepage_index]))
+        if (uprv_stricmp(ucnv_getName(myConverter, &err), CodePagesToTest[codepage_index]))
             log_err("getName failed\n");
         else 
             log_verbose("getName ok\n");
@@ -885,7 +838,8 @@ static void TestConvert()
         if (BOM!=0xFEFF && BOM!=0xFFFE) 
         {
             log_err("File Missing BOM...Bailing!\n");
-            return;
+            fclose(ucs_file_in);
+            break;
         }
 
 
@@ -2478,11 +2432,13 @@ static const char *const badUTF8[]={
     "\xff"
 };
 
+#define ARG_CHAR_ARR_SIZE 8
+
 /* get some character that can be converted and convert it */
 static UBool getTestChar(UConverter *cnv, const char *converterName,
                          char charUTF8[4], int32_t *pCharUTF8Length,
-                         char char0[8], int32_t *pChar0Length,
-                         char char1[8], int32_t *pChar1Length) {
+                         char char0[ARG_CHAR_ARR_SIZE], int32_t *pChar0Length,
+                         char char1[ARG_CHAR_ARR_SIZE], int32_t *pChar1Length) {
     UChar utf16[U16_MAX_LENGTH];
     int32_t utf16Length;
 
@@ -2507,7 +2463,7 @@ static UBool getTestChar(UConverter *cnv, const char *converterName,
     utf16Source=utf16;
     target=char0;
     ucnv_fromUnicode(cnv,
-                     &target, char0+sizeof(char0),
+                     &target, char0+ARG_CHAR_ARR_SIZE,
                      &utf16Source, utf16+utf16Length,
                      NULL, FALSE, &errorCode);
     *pChar0Length=(int32_t)(target-char0);
@@ -2515,7 +2471,7 @@ static UBool getTestChar(UConverter *cnv, const char *converterName,
     utf16Source=utf16;
     target=char1;
     ucnv_fromUnicode(cnv,
-                     &target, char1+sizeof(char1),
+                     &target, char1+ARG_CHAR_ARR_SIZE,
                      &utf16Source, utf16+utf16Length,
                      NULL, FALSE, &errorCode);
     *pChar1Length=(int32_t)(target-char1);
@@ -3343,14 +3299,14 @@ TestToUCountPending(){
     }
     ucnv_setToUCallBack(cnv, UCNV_TO_U_CALLBACK_STOP, NULL, oldToUAction, NULL, &status);
     for(i=0; i<LENGTHOF(toUnicodeTests); ++i) {
-        UChar tgt[10];
+        UChar tgt[20];
         UChar* target = tgt;
         UChar* targetLimit = target + 20;
         const char* source = toUnicodeTests[i].input;
         const char* sourceLimit = source + toUnicodeTests[i].len; 
         int32_t len = 0;
         ucnv_reset(cnv);
-        ucnv_toUnicode(cnv,&target, targetLimit, &source, sourceLimit, NULL, FALSE, &status);
+        ucnv_toUnicode(cnv, &target, targetLimit, &source, sourceLimit, NULL, FALSE, &status);
         len = ucnv_toUCountPending(cnv,&status);
         if(U_FAILURE(status)){
             log_err("ucnv_toUnicode call did not succeed. Error: %s\n", u_errorName(status));
@@ -3479,7 +3435,7 @@ static void TestDefaultName(void) {
 
 /* Test that ucnv_compareNames() matches names according to spec. ----------- */
 
-static U_INLINE int
+static int
 sign(int n) {
     if(n==0) {
         return 0;

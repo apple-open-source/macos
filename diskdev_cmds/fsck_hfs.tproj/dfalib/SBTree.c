@@ -500,7 +500,7 @@ static Boolean ValidHFSRecord(const void *record, const BTreeControlBlock *btcb,
 			{
 				if ( recordSize != sizeof(HFSPlusCatalogFolder) )
 					return false;
-				if ( (catalogRecord->hfsPlusFolder.flags && (kHFSFileLockedMask | kHFSThreadExistsMask)) != 0 )
+				if ( (catalogRecord->hfsPlusFolder.flags & (kHFSFileLockedMask | kHFSThreadExistsMask)) != 0 )
 					return false;
 					
 				cNodeID = catalogRecord->hfsPlusFolder.folderID;

@@ -26,9 +26,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef KERBEROSHELPERCONTEXT_H
-#define KERBEROSHELPERCONTEXT_H 1
-
 #include <Heimdal/krb5.h>
 #include <Heimdal/hx509.h>
 
@@ -59,5 +56,3 @@ OSStatus
 KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change, int excl);
 
 #define kGSSAPIMechSupportsAppleLKDC	    CFSTR("1.2.752.43.14.3")
-
-#endif

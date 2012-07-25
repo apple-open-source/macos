@@ -29,5 +29,5 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-OSStatus __KRBCreateASCIIStringFromCFString (CFStringRef inString, char **outString);
-OSStatus __KRBDisposeString (char *inString);
+OSStatus __KRBCreateUTF8StringFromCFString (CFStringRef inString, char **outString);
+OSStatus __KRBReleaseUTF8String (char *inString);

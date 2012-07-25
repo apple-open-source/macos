@@ -33,23 +33,21 @@
 
 #if ENABLE(WEB_TIMING)
 
+#include "DOMWindowProperty.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-struct DocumentLoadTiming;
+class DocumentLoadTiming;
 class DocumentLoader;
 struct DocumentTiming;
 class Frame;
 class ResourceLoadTiming;
 
-class PerformanceTiming : public RefCounted<PerformanceTiming> {
+class PerformanceTiming : public RefCounted<PerformanceTiming>, public DOMWindowProperty {
 public:
     static PassRefPtr<PerformanceTiming> create(Frame* frame) { return adoptRef(new PerformanceTiming(frame)); }
-
-    Frame* frame() const;
-    void disconnectFrame();
 
     unsigned long long navigationStart() const;
     unsigned long long unloadEventStart() const;
@@ -74,15 +72,14 @@ public:
     unsigned long long loadEventEnd() const;
 
 private:
-    PerformanceTiming(Frame*);
+    explicit PerformanceTiming(Frame*);
 
     const DocumentTiming* documentTiming() const;
     DocumentLoader* documentLoader() const;
     DocumentLoadTiming* documentLoadTiming() const;
     ResourceLoadTiming* resourceLoadTiming() const;
     unsigned long long resourceLoadTimeRelativeToAbsolute(int) const;
-
-    Frame* m_frame;
+    unsigned long long monotonicTimeToIntegerMilliseconds(double) const;
 };
 
 }

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -25,16 +25,20 @@
  * Shell interface private definitions
  *
  */
+#ifndef defs_h_defined
+#define defs_h_defined
 
 #include	<ast.h>
 #include	<sfio.h>
 #include	<error.h>
+#include	"FEATURE/externs"
 #include	"FEATURE/options"
 #include	<cdt.h>
 #include	<history.h>
 #include	"fault.h"
 #include	"argnod.h"
 #include	"name.h"
+#include	<ctype.h>
 #define _SH_PRIVATE
 #include	<shcmd.h>
 #undef _SH_PRIVATE
@@ -42,6 +46,8 @@
 #ifndef pointerof
 #define pointerof(x)		((void*)((char*)0+(x)))
 #endif
+
+#define Empty			((char*)(e_sptbnl+3))
 
 #define	env_change()		(++ast.env_serial)
 #if SHOPT_ENV
@@ -51,6 +57,9 @@
 #   define sh_envput(e,p)	env_change()
 #   define env_delete(e,p)	env_change()
 #endif
+
+extern char*	sh_getenv(const char*);
+extern char*	sh_setenviron(const char*);
 
 /*
  * note that the first few fields have to be the same as for
@@ -65,6 +74,7 @@ struct sh_scoped
 	char		**dolv;
 	char		*cmdname;
 	char		*filename;
+	char		*funname;
 	int		lineno;
 	Dt_t		*save_tree;	/* var_tree for calling function */
 	struct sh_scoped *self;		/* pointer to copy of this scope*/
@@ -86,6 +96,7 @@ struct sh_scoped
 	char		**trapcom;
 	char		**otrapcom;
 	void		*timetrap;
+	struct Ufunction *real_fun;	/* current 'function name' function */
 };
 
 struct limits
@@ -100,9 +111,44 @@ struct limits
 	unsigned char	fs3d;		/* non-zero for 3-d file system */
 };
 
+#ifndef SH_wait_f_defined
+    typedef int (*Shwait_f)(int, long, int);
+    #define     SH_wait_f_defined
+#endif
+
+
+struct shared
+{
+	struct limits	lim;
+	uid_t		userid;
+	uid_t		euserid;
+	gid_t		groupid;
+	gid_t		egroupid;
+	pid_t		pid;
+	int32_t		ppid;
+	unsigned char	sigruntime[2];
+	Namval_t	*bltin_nodes;
+	Namval_t	*bltin_cmds;
+	History_t	*hist_ptr;
+	char		*shpath;
+	char		*user;
+	char		**sigmsg;
+	char		*rcfile;
+	char		**login_files;
+	void		*ed_context;
+	void		*init_context;
+	void		*job_context;
+	int		*stats;
+	int		bltin_nnodes;	/* number of bltins nodes */ 
+	int		sigmax;
+	int		nforks;
+	Shwait_f	waitevent;
+};
+
 #define _SH_PRIVATE \
+	struct shared	*gd;		/* global data */ \
 	struct sh_scoped st;		/* scoped information */ \
-	struct limits	lim;		/* run time limits */ \
+	Stk_t		*stk;		/* stack poiter */ \
 	Sfio_t		*heredocs;	/* current here-doc temp file */ \
 	Sfio_t		*funlog;	/* for logging function definitions */ \
 	int		**fdptrs;	/* pointer to file numbers */ \
@@ -111,37 +157,32 @@ struct limits
 	char		*lastpath;	/* last alsolute path found */ \
 	int		path_err;	/* last error on path search */ \
 	Dt_t		*track_tree;	/* for tracked aliases*/ \
-	Namval_t	*bltin_nodes;	/* pointer to built-in variables */ \
 	Dt_t		*var_base;	/* global level variables */ \
 	Namval_t	*namespace;	/* current active namespace*/ \
 	Namval_t	*last_table;	/* last table used in last nv_open  */ \
+	Namval_t	*prev_table;	/* previous table used in nv_open  */ \
 	Sfio_t		*outpool;	/* ouput stream pool */ \
 	long		timeout;	/* read timeout */ \
 	short		curenv;		/* current subshell number */ \
 	short		jobenv;		/* subshell number for jobs */ \
-	int		nextprompt;	/* next prompt is PS<nextprompt> */ \
-	Namval_t	*bltin_cmds;	/* pointer to built-in commands */ \
-	Namval_t	*posix_fun;	/* points to last name() function */ \
 	int		infd;		/* input file descriptor */ \
+	short		nextprompt;	/* next prompt is PS<nextprompt> */ \
+	short		poolfiles; \
+	Namval_t	*posix_fun;	/* points to last name() function */ \
 	char		*outbuff;	/* pointer to output buffer */ \
 	char		*errbuff;	/* pointer to stderr buffer */ \
 	char		*prompt;	/* pointer to prompt string */ \
 	char		*shname;	/* shell name */ \
-	char		*shpath;	/* path name of shell */ \
-	char		*user;		/* name of real user for pfsh */ \
 	char		*comdiv;	/* points to sh -c argument */ \
 	char		*prefix;	/* prefix for compound assignment */ \
 	sigjmp_buf	*jmplist;	/* longjmp return stack */ \
-	char		**sigmsg;	/* points to signal messages */ \
 	int		oldexit; \
-	uid_t 		userid,euserid;	/* real and effective user id */ \
-	gid_t 		groupid,egroupid;/* real and effective group id */ \
-	pid_t		pid;		/* process id of shell */ \
 	pid_t		bckpid;		/* background process id */ \
 	pid_t		cpid; \
-	int32_t		ppid;		/* parent process id of shell */ \
+	pid_t		spid; 		/* subshell process id */ \
+	pid_t		pipepid; \
+	pid_t		outpipepid; \
 	int		topfd; \
-	int		sigmax;		/* maximum number of signals */ \
 	int		savesig; \
 	unsigned char	*sigflag;	/* pointer to signal states */ \
 	char		intrap; \
@@ -150,61 +191,80 @@ struct limits
 	char		forked;	\
 	char		binscript; \
 	char		deftype; \
+	char		funload; \
 	char		used_pos;	/* used postional parameter */\
+	char		universe; \
+	char		winch; \
+	char		indebug; 	/* set when in debug trap */ \
+	unsigned char	ignsig;		/* ignored signal in subshell */ \
 	unsigned char	lastsig;	/* last signal received */ \
+	char		comsub;		/* set when in $() comsub */ \
+	char		subshare;	/* set when in ${..} comsub */ \
+	char		toomany;	/* set when out of fd's */ \
+	char		instance;	/* in set_instance */ \
+	char		decomma;	/* decimal_point=',' */ \
 	char		*readscript;	/* set before reading a script */ \
+	int		subdup;		/* bitmask for dups of 1 */ \
 	int		*inpipe;	/* input pipe pointer */ \
 	int		*outpipe;	/* output pipe pointer */ \
-	int		cpipe[2]; \
+	int		cpipe[3]; \
 	int		coutpipe; \
 	int		inuse_bits; \
 	struct argnod	*envlist; \
 	struct dolnod	*arglist; \
 	int		fn_depth; \
+	int		fn_reset; \
 	int		dot_depth; \
 	int		hist_depth; \
 	int		xargmin; \
 	int		xargmax; \
 	int		xargexit; \
+	int		nenv; \
 	mode_t		mask; \
-	long		nforks; \
 	Env_t		*env; \
 	void		*init_context; \
 	void		*mac_context; \
 	void		*lex_context; \
 	void		*arg_context; \
-	void		*ed_context; \
 	void		*job_context; \
 	void		*pathlist; \
 	void		*defpathlist; \
 	void		*cdpathlist; \
 	char		**argaddr; \
 	void		*optlist; \
-	int		optcount ; \
 	struct sh_scoped global; \
 	struct checkpt	checkbase; \
 	Shinit_f	userinit; \
 	Shbltin_f	bltinfun; \
 	Shbltin_t	bltindata; \
-	Shwait_f	waitevent; \
 	char		*cur_line; \
-	char		*rcfile; \
-	char		**login_files; \
-	short		offsets[10]; \
+	int		offsets[10]; \
 	Sfio_t		**sftable; \
 	unsigned char	*fdstatus; \
 	const char	*pwd; \
-	History_t	*hist_ptr; \
-	char		universe; \
 	void		*jmpbuffer; \
 	void		*mktype; \
 	Sfio_t		*strbuf; \
+	Sfio_t		*strbuf2; \
 	Dt_t		*last_root; \
+	Dt_t		*prev_root; \
+	Dt_t		*fpathdict; \
+	Dt_t		*typedict; \
+	Dt_t		*inpool; \
+	Dt_t		*transdict; \
 	char		ifstable[256]; \
-	Shopt_t		offoptions;
+	unsigned long	test; \
+	Shopt_t		offoptions; \
+	Shopt_t		glob_options; \
+	Namval_t	*typeinit; \
+	Namfun_t	nvfun; \
+	char		*mathnodes; \
+	void		*coshell; \
+	struct Regress_s*regress;
 
 #include	<shell.h>
 
+#include	"regress.h"
 
 /* error exits from various parts of shell */
 #define	NIL(type)	((type)0)
@@ -223,8 +283,7 @@ struct limits
 
 /* states */
 /* low numbered states are same as options */
-#define SH_NOFORK	0	/* set when fork not necessary, not a state */
-#define SH_COMPLETE	0	/* set for command completion */
+#define SH_NOFORK	0	/* set when fork not necessary */
 #define	SH_FORKED	7	/* set when process has been forked */
 #define	SH_PROFILE	8	/* set when processing profiles */
 #define SH_NOALIAS	9	/* do not expand non-exported aliases */
@@ -237,6 +296,7 @@ struct limits
 #define SH_TTYWAIT	16	/* waiting for keyboard input */ 
 #define	SH_FCOMPLETE	17	/* set for filename completion */
 #define	SH_PREINIT	18	/* set with SH_INIT before parsing options */
+#define SH_COMPLETE	19	/* set for command completion */
 
 #define SH_BASH			41
 #define SH_BRACEEXPAND		42
@@ -307,45 +367,79 @@ struct limits
 #   define PIPE_BUF		512
 #endif
 
+#if SHOPT_PFSH && ( !_lib_getexecuser || !_lib_free_execattr )
+#   undef SHOPT_PFSH
+#endif
+
 #define MATCH_MAX		64
 
-extern int		sh_addlib(void*);
+#define SH_READEVAL		0x4000	/* for sh_eval */
+#define SH_FUNEVAL		0x10000	/* for sh_eval for function load */
+
+extern struct shared	*shgd;
+extern Shell_t		*nv_shell(Namval_t*);
+extern int		sh_addlib(Shell_t*,void*);
+extern void		sh_applyopts(Shell_t*,Shopt_t);
+extern char 		**sh_argbuild(Shell_t*,int*,const struct comnod*,int);
+extern struct dolnod	*sh_argfree(Shell_t *, struct dolnod*,int);
+extern struct dolnod	*sh_argnew(Shell_t*,char*[],struct dolnod**);
 extern void 		*sh_argopen(Shell_t*);
+extern struct argnod	*sh_argprocsub(Shell_t*,struct argnod*);
+extern void 		sh_argreset(Shell_t*,struct dolnod*,struct dolnod*);
 extern Namval_t		*sh_assignok(Namval_t*,int);
+extern struct dolnod	*sh_arguse(Shell_t*);
 extern char		*sh_checkid(char*,char*);
-extern int		sh_debug(const char*,const char*,const char*,char *const[],int);
-extern int 		sh_echolist(Sfio_t*, int, char**);
-extern struct argnod	*sh_endword(int);
+extern void		sh_chktrap(Shell_t*);
+extern void		sh_deparse(Sfio_t*,const Shnode_t*,int);
+extern int		sh_debug(Shell_t *shp,const char*,const char*,const char*,char *const[],int);
+extern int 		sh_echolist(Shell_t*,Sfio_t*, int, char**);
+extern struct argnod	*sh_endword(Shell_t*,int);
 extern char 		**sh_envgen(void);
 #if SHOPT_ENV
 extern void 		sh_envput(Env_t*, Namval_t*);
 #endif
 extern void 		sh_envnolocal(Namval_t*,void*);
-extern Sfdouble_t	sh_arith(const char*);
-extern void		*sh_arithcomp(char*);
-extern pid_t 		sh_fork(int,int*);
-extern pid_t		_sh_fork(pid_t, int ,int*);
-extern char 		*sh_mactrim(char*,int);
-extern int 		sh_macexpand(struct argnod*,struct argnod**,int);
-extern void 		sh_machere(Sfio_t*, Sfio_t*, char*);
+extern Sfdouble_t	sh_arith(Shell_t*,const char*);
+extern void		*sh_arithcomp(Shell_t *,char*);
+extern pid_t 		sh_fork(Shell_t*,int,int*);
+extern pid_t		_sh_fork(Shell_t*,pid_t, int ,int*);
+extern char 		*sh_mactrim(Shell_t*,char*,int);
+extern int 		sh_macexpand(Shell_t*,struct argnod*,struct argnod**,int);
+extern int		sh_macfun(Shell_t*,const char*,int);
+extern void 		sh_machere(Shell_t*,Sfio_t*, Sfio_t*, char*);
 extern void 		*sh_macopen(Shell_t*);
-extern char 		*sh_macpat(struct argnod*,int);
-extern char 		*sh_mactry(char*);
+extern char 		*sh_macpat(Shell_t*,struct argnod*,int);
+extern Sfdouble_t	sh_mathfun(Shell_t*, void*, int, Sfdouble_t*);
+extern int		sh_outtype(Shell_t*, Sfio_t*);
+extern char 		*sh_mactry(Shell_t*,char*);
 extern void		sh_printopts(Shopt_t,int,Shopt_t*);
 extern int 		sh_readline(Shell_t*,char**,int,int,long);
 extern Sfio_t		*sh_sfeval(char*[]);
 extern void		sh_setmatch(const char*,int,int,int[]);
 extern Dt_t		*sh_subaliastree(int);
+extern void             sh_scope(Shell_t*, struct argnod*, int);
+extern Namval_t		*sh_scoped(Shell_t*, Namval_t*);
 extern Dt_t		*sh_subfuntree(int);
+extern void		sh_subjobcheck(pid_t);
 extern int		sh_subsavefd(int);
-extern void		sh_subtmpfile(void);
+extern void		sh_subtmpfile(Shell_t*);
 extern char 		*sh_substitute(const char*,const char*,char*);
+extern void		sh_timetraps(Shell_t*);
 extern const char	*_sh_translate(const char*);
-extern int		sh_trace(char*[],int);
+extern int		sh_trace(Shell_t*,char*[],int);
 extern void		sh_trim(char*);
 extern int		sh_type(const char*);
+extern void             sh_unscope(Shell_t*);
 extern void		sh_utol(const char*, char*);
 extern int 		sh_whence(char**,int);
+#if SHOPT_COSHELL
+   extern int		sh_coaddfile(Shell_t*,char*);
+   extern int		sh_copipe(Shell_t*, int[], int);
+   extern int		sh_coaccept(Shell_t*,int[],int);
+#endif /* SHOPT_COSHELL */
+#if SHOPT_NAMESPACE
+    extern Namval_t	*sh_fsearch(Shell_t*,const char *,int);
+#endif /* SHOPT_NAMESPACE */
 
 #ifndef ERROR_dictionary
 #   define ERROR_dictionary(s)	(s)
@@ -370,7 +464,7 @@ extern int 		sh_whence(char**,int);
 #define	sh_getstate()	(sh.st.states)
 #define	sh_setstate(x)	(sh.st.states = (x))
 
-#define sh_sigcheck() do{if(sh.trapnote&SH_SIGSET)sh_exit(SH_EXITSIG);} while(0)
+#define sh_sigcheck(shp) do{if(shp->trapnote&SH_SIGSET)sh_exit(SH_EXITSIG);} while(0)
 
 extern int32_t		sh_mailchk;
 extern const char	e_dict[];
@@ -378,7 +472,32 @@ extern const char	e_dict[];
 /* sh_printopts() mode flags -- set --[no]option by default */
 
 #define PRINT_VERBOSE	0x01	/* option on|off list		*/
-#define PRINT_ALL	0x02	/* list unset iptions too	*/
+#define PRINT_ALL	0x02	/* list unset options too	*/
 #define PRINT_NO_HEADER	0x04	/* omit listing header		*/
 #define PRINT_SHOPT	0x08	/* shopt -s|-u			*/
 #define PRINT_TABLE	0x10	/* table of all options		*/
+
+#ifdef SHOPT_STATS
+    /* performance statistics */
+#   define	STAT_ARGHITS	0
+#   define	STAT_ARGEXPAND	1
+#   define	STAT_COMSUB	2
+#   define	STAT_FORKS	3
+#   define	STAT_FUNCT	4
+#   define	STAT_GLOBS	5
+#   define	STAT_READS	6
+#   define	STAT_NVHITS	7
+#   define	STAT_NVOPEN	8
+#   define	STAT_PATHS	9
+#   define	STAT_SVFUNCT	10
+#   define	STAT_SCMDS	11
+#   define	STAT_SPAWN	12
+#   define	STAT_SUBSHELL	13
+    extern const Shtable_t shtab_stats[];
+#   define sh_stats(x)	(shgd->stats[(x)]++)
+#else
+#   define sh_stats(x)
+#endif /* SHOPT_STATS */
+
+
+#endif

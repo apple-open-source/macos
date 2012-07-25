@@ -127,7 +127,7 @@ mergebegin:
 MERGEBIN = /usr/bin
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(DSTROOT)$(VERSIONHEADER) $(OBJROOT)/wrappers
-	ditto $(SRCROOT)/versioner/versioner.c $(DSTROOT)$(VERSIONERDIR)
+	install $(SRCROOT)/versioner/versioner.c $(DSTROOT)$(VERSIONERDIR)
 	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(SRCROOT)/versioner/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
 	@set -x && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
@@ -196,8 +196,8 @@ domergeman:
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEMAN) && \
 	    for d in man*; do \
 		cd $$d && \
-		for f in *.gz; do \
-		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$vers&/"` && \
+		for f in `find . -type f -name '*.*' | sed 's,^\./,,'`; do \
+		    ff=`echo $$f | sed -E "s/\.[^.]*(.gz)?$$/$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
 			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \

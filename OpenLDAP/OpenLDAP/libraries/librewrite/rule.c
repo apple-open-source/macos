@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/rule.c,v 1.23.2.6 2010/04/13 20:23:09 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -125,7 +125,7 @@ rewrite_rule_compile(
 {
 	int flags = REWRITE_REGEX_EXTENDED | REWRITE_REGEX_ICASE;
 	int mode = REWRITE_RECURSE;
-	int max_passes = info->li_max_passes_per_rule;
+	int max_passes;
 
 	struct rewrite_rule *rule = NULL;
 	struct rewrite_subst *subst = NULL;
@@ -137,10 +137,11 @@ rewrite_rule_compile(
 	assert( context != NULL );
 	assert( pattern != NULL );
 	assert( result != NULL );
-
 	/*
 	 * A null flagstring should be allowed
 	 */
+
+	max_passes = info->li_max_passes_per_rule;
 
 	/*
 	 * Take care of substitution string

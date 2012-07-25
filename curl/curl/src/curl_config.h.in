@@ -192,6 +192,9 @@
 /* Define to 1 if you have the ftruncate function. */
 #undef HAVE_FTRUNCATE
 
+/* Define to 1 if you have the gai_strerror function. */
+#undef HAVE_GAI_STRERROR
+
 /* Define to 1 if you have a working getaddrinfo function. */
 #undef HAVE_GETADDRINFO
 
@@ -378,9 +381,6 @@
 
 /* Define to 1 if you have the `ldap_url_parse' function. */
 #undef HAVE_LDAP_URL_PARSE
-
-/* Define to 1 if you have the `gcrypt' library (-lgcrypt). */
-#undef HAVE_LIBGCRYPT
 
 /* Define to 1 if you have the <libgen.h> header file. */
 #undef HAVE_LIBGEN_H
@@ -596,11 +596,20 @@
 /* Define to 1 if you have the socket function. */
 #undef HAVE_SOCKET
 
+/* Define to 1 if you have the socketpair function. */
+#undef HAVE_SOCKETPAIR
+
 /* Define to 1 if you have the <socket.h> header file. */
 #undef HAVE_SOCKET_H
 
 /* Define this if you have the SPNEGO library fbopenssl */
 #undef HAVE_SPNEGO
+
+/* if you have the function SRP_Calc_client_key */
+#undef HAVE_SSLEAY_SRP
+
+/* Define to 1 if you have the `SSLv2_client_method' function. */
+#undef HAVE_SSLV2_CLIENT_METHOD
 
 /* Define to 1 if you have the `SSL_get_shutdown' function. */
 #undef HAVE_SSL_GET_SHUTDOWN
@@ -719,6 +728,9 @@
 /* Define to 1 if you have the <sys/utime.h> header file. */
 #undef HAVE_SYS_UTIME_H
 
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
+
 /* Define to 1 if you have the <sys/xattr.h> header file. */
 #undef HAVE_SYS_XATTR_H
 
@@ -807,6 +819,12 @@
 /* Define to 1 if _THREAD_SAFE preprocessor symbol must be defined. */
 #undef NEED_THREAD_SAFE
 
+/* Define to enable NTLM delegation to winbind's ntlm_auth helper. */
+#undef NTLM_WB_ENABLED
+
+/* Define absolute filename for winbind's ntlm_auth helper. */
+#undef NTLM_WB_FILE
+
 /* cpu-machine-OS */
 #undef OS
 
@@ -833,6 +851,9 @@
 
 /* a suitable file to read random data from */
 #undef RANDOM_FILE
+
+/* Define to the type qualifier pointed by arg 5 for recvfrom. */
+#undef RECVFROM_QUAL_ARG5
 
 /* Define to the type of arg 1 for recvfrom. */
 #undef RECVFROM_TYPE_ARG1
@@ -954,8 +975,14 @@
 /* Define to disable non-blocking sockets. */
 #undef USE_BLOCKING_SOCKETS
 
+/* if CyaSSL is enabled */
+#undef USE_CYASSL
+
 /* if GnuTLS is enabled */
 #undef USE_GNUTLS
+
+/* if GnuTLS uses nettle as crypto backend */
+#undef USE_GNUTLS_NETTLE
 
 /* if librtmp is in use */
 #undef USE_LIBRTMP

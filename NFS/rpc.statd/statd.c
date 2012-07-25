@@ -79,6 +79,7 @@ static const char rcsid[] = "$FreeBSD$";
 #include <sys/sysctl.h>
 #include <sys/param.h>
 #include <libutil.h>
+#include <util.h>
 #include <spawn.h>
 #include <launch.h>
 #include "statd.h"

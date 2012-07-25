@@ -53,35 +53,60 @@ tempnam(dir, pfx)
 	int sverrno;
 	char *f, *name;
 
-	if (!(name = malloc(MAXPATHLEN)))
+	if (!(name = malloc(MAXPATHLEN))) {
 		return(NULL);
+	}
 
 	if (!pfx)
 		pfx = "tmp.";
 
+#if !__DARWIN_UNIX03
 	if (issetugid() == 0 && (f = getenv("TMPDIR"))) {
 		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
 		    *(f + strlen(f) - 1) == '/'? "": "/", pfx);
-		if ((f = _mktemp(name)))
+		if ((f = _mktemp(name))) {
 			return(f);
+		}
 	}
-
+#endif /* !__DARWIN_UNIX03 */
 	if ((f = (char *)dir)) {
+#if __DARWIN_UNIX03
+	    if (access(dir, W_OK) == 0) {
+#endif /* __DARWIN_UNIX03 */
 		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
 		    *(f + strlen(f) - 1) == '/'? "": "/", pfx);
-		if ((f = _mktemp(name)))
+		if ((f = _mktemp(name))) {
 			return(f);
+		}
+#if __DARWIN_UNIX03
+	    }
+#endif /* __DARWIN_UNIX03 */
 	}
 
 	f = P_tmpdir;
+#if __DARWIN_UNIX03
+	if (access(f, W_OK) == 0) {	/* directory accessible? */
+#endif /* __DARWIN_UNIX03 */
 	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
-	if ((f = _mktemp(name)))
+	if ((f = _mktemp(name))) {
 		return(f);
+	}
 
+#if __DARWIN_UNIX03
+	}
+	if (issetugid() == 0 && (f = getenv("TMPDIR")) && access(f, W_OK) == 0) {
+		(void)snprintf(name, MAXPATHLEN, "%s%s%sXXXXXX", f,
+		    *(f + strlen(f) - 1) == '/'? "": "/", pfx);
+		if ((f = _mktemp(name))) {
+			return(f);
+		}
+	}
+#endif /* __DARWIN_UNIX03 */
 	f = _PATH_TMP;
 	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
-	if ((f = _mktemp(name)))
+	if ((f = _mktemp(name))) {
 		return(f);
+	}
 
 	sverrno = errno;
 	free(name);

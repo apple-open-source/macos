@@ -28,7 +28,7 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 #include "WebExceptionCode.h"
 #include "WebIDBCursor.h"
 #include <wtf/PassRefPtr.h>
@@ -49,8 +49,11 @@ public:
     virtual WebIDBKey primaryKey() const;
     virtual WebSerializedScriptValue value() const;
     virtual void update(const WebSerializedScriptValue&, WebIDBCallbacks*, WebExceptionCode&);
+    virtual void advance(unsigned long, WebIDBCallbacks*, WebExceptionCode&);
     virtual void continueFunction(const WebIDBKey&, WebIDBCallbacks*, WebExceptionCode&);
     virtual void deleteFunction(WebIDBCallbacks*, WebExceptionCode&);
+    virtual void prefetchContinue(int numberToFetch, WebIDBCallbacks*, WebExceptionCode&);
+    virtual void prefetchReset(int usedPrefetches, int unusedPrefetches);
 
  private:
     WTF::RefPtr<WebCore::IDBCursorBackendInterface> m_idbCursorBackend;

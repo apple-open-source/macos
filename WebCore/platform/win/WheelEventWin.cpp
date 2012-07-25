@@ -66,11 +66,8 @@ static int verticalScrollLines()
 }
 
 PlatformWheelEvent::PlatformWheelEvent(HWND hWnd, const FloatSize& delta, const FloatPoint& location)
-    : m_isAccepted(false)
-    , m_shiftKey(false)
-    , m_ctrlKey(false)
-    , m_altKey(false)
-    , m_metaKey(false)
+    : PlatformEvent(PlatformEvent::Wheel, false, false, false, false, ::GetTickCount() * 0.001)
+    , m_directionInvertedFromDevice(false)
 {
     m_deltaX = delta.width();
     m_deltaY = delta.height();
@@ -88,13 +85,10 @@ PlatformWheelEvent::PlatformWheelEvent(HWND hWnd, const FloatSize& delta, const 
 }
 
 PlatformWheelEvent::PlatformWheelEvent(HWND hWnd, WPARAM wParam, LPARAM lParam, bool isMouseHWheel)
-    : m_position(positionForEvent(hWnd, lParam))
+    : PlatformEvent(PlatformEvent::Wheel, wParam & MK_SHIFT, wParam & MK_CONTROL, GetKeyState(VK_MENU) & HIGH_BIT_MASK_SHORT, GetKeyState(VK_MENU) & HIGH_BIT_MASK_SHORT, ::GetTickCount() * 0.001)
+    , m_position(positionForEvent(hWnd, lParam))
     , m_globalPosition(globalPositionForEvent(hWnd, lParam))
-    , m_isAccepted(false)
-    , m_shiftKey(wParam & MK_SHIFT)
-    , m_ctrlKey(wParam & MK_CONTROL)
-    , m_altKey(GetKeyState(VK_MENU) & HIGH_BIT_MASK_SHORT)
-    , m_metaKey(m_altKey) // FIXME: We'll have to test other browsers
+    , m_directionInvertedFromDevice(false)
 {
     // How many pixels should we scroll per line?  Gecko uses the height of the
     // current line, which means scroll distance changes as you go through the
@@ -119,7 +113,7 @@ PlatformWheelEvent::PlatformWheelEvent(HWND hWnd, WPARAM wParam, LPARAM lParam, 
         m_wheelTicksX = 0;
         m_wheelTicksY = delta;
     }
-    if (isMouseHWheel || m_shiftKey) {
+    if (isMouseHWheel || shiftKey()) {
         m_deltaX = delta * static_cast<float>(horizontalScrollChars()) * cScrollbarPixelsPerLine;
         m_deltaY = 0;
         m_granularity = ScrollByPixelWheelEvent;

@@ -240,8 +240,12 @@ get_client(host_addr, vers, client_request, use_tcp)
 	struct badhost *badhost, *nextbadhost;
 	char addrbuf[2*INET6_ADDRSTRLEN];
 
+	if (config.send_using_mnt_transport == 0)
+		use_tcp = 0;
+	
 	if (!use_tcp && config.send_using_tcp)
 		use_tcp = config.send_using_tcp;
+
 	gettimeofday(&time_now, NULL);
 
 	/* use an extremely short TTL when reclaims are being sent */

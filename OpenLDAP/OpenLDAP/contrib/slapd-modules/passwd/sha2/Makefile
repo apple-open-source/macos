@@ -1,4 +1,4 @@
-# $OpenLDAP: pkg/ldap/contrib/slapd-modules/passwd/sha2/Makefile,v 1.1.2.1 2009/01/26 21:07:06 quanah Exp $
+# $OpenLDAP$
 
 OPENLDAP := ../../../..
 

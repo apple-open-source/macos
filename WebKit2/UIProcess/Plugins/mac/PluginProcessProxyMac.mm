@@ -35,6 +35,10 @@
 #import <spawn.h>
 #import <wtf/text/CString.h>
 
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#import <QuartzCore/CARemoteLayerServer.h>
+#endif
+
 @interface WKPlaceholderModalWindow : NSWindow 
 @end
 
@@ -53,7 +57,7 @@ using namespace WebCore;
 
 namespace WebKit {
     
-bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginInfoStore::Plugin& pluginInfo)
+bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginModuleInfo& pluginInfo)
 {
     static bool forceNonexecutableHeapForPlugins = [[NSUserDefaults standardUserDefaults] boolForKey:@"ForceNonexecutableHeapForPlugins"];
     if (forceNonexecutableHeapForPlugins)
@@ -65,7 +69,7 @@ bool PluginProcessProxy::pluginNeedsExecutableHeap(const PluginInfoStore::Plugin
     return true;
 }
 
-bool PluginProcessProxy::createPropertyListFile(const PluginInfoStore::Plugin& plugin)
+bool PluginProcessProxy::createPropertyListFile(const PluginModuleInfo& plugin)
 {
     NSBundle *webKit2Bundle = [NSBundle bundleWithIdentifier:@"com.apple.WebKit2"];
     NSString *frameworksPath = [[webKit2Bundle bundlePath] stringByDeletingLastPathComponent];
@@ -97,7 +101,7 @@ bool PluginProcessProxy::createPropertyListFile(const PluginInfoStore::Plugin& p
     int result = posix_spawn(&pid, args[0], 0, &attr, const_cast<char* const*>(args), environmentVariables.environmentPointer());
     posix_spawnattr_destroy(&attr);
 
-    if (result < 0)
+    if (result)
         return false;
     int status;
     if (waitpid(pid, &status, 0) < 0)
@@ -116,7 +120,12 @@ void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationPa
 {
 #if USE(ACCELERATED_COMPOSITING) && HAVE(HOSTED_CORE_ANIMATION)
     parameters.parentProcessName = [[NSProcessInfo processInfo] processName];
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    mach_port_t renderServerPort = [[CARemoteLayerServer sharedServer] serverPort];
+#else
     mach_port_t renderServerPort = WKInitializeRenderServer();
+#endif
+
     if (renderServerPort != MACH_PORT_NULL)
         parameters.acceleratedCompositingPort = CoreIPC::MachPort(renderServerPort, MACH_MSG_TYPE_COPY_SEND);
 #endif
@@ -193,7 +202,7 @@ void PluginProcessProxy::exitFullscreen()
 
 void PluginProcessProxy::setModalWindowIsShowing(bool modalWindowIsShowing)
 {
-    if (modalWindowIsShowing == m_modalWindowIsShowing) 
+    if (modalWindowIsShowing == m_modalWindowIsShowing)
         return;
     
     m_modalWindowIsShowing = modalWindowIsShowing;
@@ -210,10 +219,15 @@ void PluginProcessProxy::beginModal()
     ASSERT(!m_activationObserver);
     
     m_placeholderWindow.adoptNS([[WKPlaceholderModalWindow alloc] initWithContentRect:NSMakeRect(0, 0, 1, 1) styleMask:NSBorderlessWindowMask backing:NSBackingStoreBuffered defer:YES]);
+    [m_placeholderWindow.get() setReleasedWhenClosed:NO];
     
     m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationWillBecomeActiveNotification object:NSApp queue:nil
                                                                          usingBlock:^(NSNotification *){ applicationDidBecomeActive(); }];
-    
+
+    // The call to -[NSApp runModalForWindow:] below will run a nested run loop, and if the plug-in process
+    // crashes the PluginProcessProxy object can be destroyed. Protect against this here.
+    RefPtr<PluginProcessProxy> protect(this);
+
     [NSApp runModalForWindow:m_placeholderWindow.get()];
     
     [m_placeholderWindow.get() orderOut:nil];

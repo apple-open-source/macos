@@ -18,12 +18,10 @@
 /***
  ***	DNS Query Performance Testing Tool  (queryperf.c)
  ***
- ***	Version $Id: queryperf.c,v 1.12 2007/09/05 07:36:04 marka Exp $
+ ***	Version $Id: queryperf.c,v 1.12 2007-09-05 07:36:04 marka Exp $
  ***
  ***	Stephen Jacob <sj@nominum.com>
  ***/
-
-#define BIND_8_COMPAT	/* Pull in <arpa/nameser_compat.h> */
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -120,11 +118,6 @@ struct query_status {
 };
 
 /*
- * Forward declarations.
- */
-int is_uint(char *test_int, unsigned int *result);
-
-/*
  * Configuration options (global)
  */
 
@@ -155,7 +148,6 @@ int countrcodes = FALSE;
 int rcodecounts[16] = {0};
 
 int verbose = FALSE;
-int recurse = 1;
 
 /*
  * Other global stuff
@@ -228,7 +220,7 @@ void
 show_startup_info(void) {
 	printf("\n"
 "DNS Query Performance Testing Tool\n"
-"Version: $Id: queryperf.c,v 1.12 2007/09/05 07:36:04 marka Exp $\n"
+"Version: $Id: queryperf.c,v 1.12 2007-09-05 07:36:04 marka Exp $\n"
 "\n");
 }
 
@@ -243,7 +235,7 @@ show_usage(void) {
 "Usage: queryperf [-d datafile] [-s server_addr] [-p port] [-q num_queries]\n"
 "                 [-b bufsize] [-t timeout] [-n] [-l limit] [-f family] [-1]\n"
 "                 [-i interval] [-r arraysize] [-u unit] [-H histfile]\n"
-"                 [-T qps] [-e] [-D] [-R] [-c] [-v] [-h]\n"
+"                 [-T qps] [-e] [-D] [-c] [-v] [-h]\n"
 "  -d specifies the input data file (default: stdin)\n"
 "  -s sets the server to query (default: %s)\n"
 "  -p sets the port on which to query the server (default: %s)\n"
@@ -261,7 +253,6 @@ show_usage(void) {
 "  -T specify the target qps (default: 0=unspecified)\n"
 "  -e enable EDNS 0\n"
 "  -D set the DNSSEC OK bit (implies EDNS)\n"
-"  -R disable recursion\n"
 "  -c print the number of packets with each rcode\n"
 "  -v verbose: report the RCODE of each response on stdout\n"
 "  -h print this usage\n"
@@ -471,6 +462,12 @@ set_max_queries(unsigned int new_max) {
 	struct query_status *temp_stat;
 	unsigned int count;
 
+	if (new_max < 0) {
+		fprintf(stderr, "Unable to change max outstanding queries: "
+		        "must be positive and non-zero: %u\n", new_max);
+		return (-1);
+	}
+
 	if (new_max > query_status_allocated) {
 		temp_stat = realloc(status, new_max * size_qs);
 
@@ -517,7 +514,7 @@ parse_args(int argc, char **argv) {
 	unsigned int uint_arg_val;
 
 	while ((c = getopt(argc, argv,
-			   "f:q:t:i:nd:s:p:1l:b:eDcvr:RT::u:H:h")) != -1) {
+			   "f:q:t:i:nd:s:p:1l:b:eDcvr:T::u:H:h")) != -1) {
 		switch (c) {
 		case 'f':
 			if (strcmp(optarg, "inet") == 0)
@@ -640,9 +637,6 @@ parse_args(int argc, char **argv) {
 					optarg);
 				return (-1);
 			}
-			break;
-		case 'R':
-			recurse = 0;
 			break;
 		case 'r':
 			if (is_uint(optarg, &uint_arg_val) == TRUE)
@@ -1373,11 +1367,11 @@ parse_query(char *input, char *qname, int qnlen, int *qtype) {
 int
 dispatch_query(unsigned short int id, char *dom, int qt) {
 	static u_char packet_buffer[PACKETSZ + 1];
+	static socklen_t sockaddrlen = sizeof(struct sockaddr);
 	int buffer_len = PACKETSZ;
 	int bytes_sent;
 	unsigned short int net_id = htons(id);
 	char *id_ptr = (char *)&net_id;
-	HEADER *hp = (HEADER *)packet_buffer;
 
 	buffer_len = res_mkquery(QUERY, dom, C_IN, qt, NULL, 0,
 				 NULL, packet_buffer, PACKETSZ);
@@ -1386,7 +1380,6 @@ dispatch_query(unsigned short int id, char *dom, int qt) {
 		        dom, qt);
 		return (-1);
 	}
-	hp->rd = recurse;
 	if (edns) {
 		unsigned char *p;
 		if (buffer_len + EDNSLEN >= PACKETSZ) {
@@ -1606,8 +1599,7 @@ process_single_response(int sockfd) {
 	struct sockaddr_storage from_addr_ss;
 	struct sockaddr *from_addr;
 	static unsigned char in_buf[MAX_BUFFER_LEN];
-	int numbytes, resp_id;
-	socklen_t addr_len;
+	int numbytes, addr_len, resp_id;
 	int flags;
 
 	memset(&from_addr_ss, 0, sizeof(from_addr_ss));

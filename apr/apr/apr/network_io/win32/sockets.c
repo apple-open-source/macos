@@ -51,6 +51,12 @@ static void set_socket_vars(apr_socket_t *sock, int family, int type, int protoc
     sock->protocol = protocol;
     apr_sockaddr_vars_set(sock->local_addr, family, 0);
     apr_sockaddr_vars_set(sock->remote_addr, family, 0);
+#if APR_HAVE_IPV6
+    /* hard-coded behavior for older Windows IPv6 */
+    if (apr_os_level < APR_WIN_VISTA && family == AF_INET6) {
+        apr_set_option(sock, APR_IPV6_V6ONLY, 1);
+    }
+#endif
 }                                                                                                  
 static void alloc_socket(apr_socket_t **new, apr_pool_t *p)
 {
@@ -81,7 +87,9 @@ APR_DECLARE(apr_status_t) apr_socket_create(apr_socket_t **new, int family,
                                             int type, int protocol, 
                                             apr_pool_t *cont)
 {
+#if APR_HAVE_IPV6
     int downgrade = (family == AF_UNSPEC);
+#endif
 
     if (family == AF_UNSPEC) {
 #if APR_HAVE_IPV6
@@ -251,6 +259,7 @@ APR_DECLARE(apr_status_t) apr_socket_accept(apr_socket_t **new,
     (*new)->remote_addr->salen = sizeof((*new)->remote_addr->sa);
     memcpy (&(*new)->remote_addr->sa, &sa, salen);
     *(*new)->local_addr = *sock->local_addr;
+    (*new)->remote_addr_unknown = 0;
 
     /* The above assignment just overwrote the pool entry. Setting the local_addr 
        pool for the accepted socket back to what it should be.  Otherwise all 

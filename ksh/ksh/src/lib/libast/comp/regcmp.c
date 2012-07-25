@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -203,7 +203,7 @@ regex(const char* handle, const char* subject, ...)
 		{
 			i--;
 			k = match[i].rm_eo - match[i].rm_so;
-			strncpy(sub[n], subject + match[i].rm_so, k);
+			strlcpy(sub[n], subject + match[i].rm_so, k);
 			*(sub[n] + k) = 0;
 		}
 	__loc1 = (char*)subject + match[0].rm_so;

@@ -448,31 +448,6 @@ void JIT::emitSlow_op_bitxor(Instruction* currentInstruction, Vector<SlowCaseEnt
     stubCall.call(dst);
 }
 
-// BitNot (~)
-
-void JIT::emit_op_bitnot(Instruction* currentInstruction)
-{
-    unsigned dst = currentInstruction[1].u.operand;
-    unsigned src = currentInstruction[2].u.operand;
-
-    emitLoad(src, regT1, regT0);
-    addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::Int32Tag)));
-
-    not32(regT0);
-    emitStoreAndMapInt32(dst, regT1, regT0, dst == src, OPCODE_LENGTH(op_bitnot));
-}
-
-void JIT::emitSlow_op_bitnot(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    unsigned dst = currentInstruction[1].u.operand;
-
-    linkSlowCase(iter); // int32 check
-
-    JITStubCall stubCall(this, cti_op_bitnot);
-    stubCall.addArgument(regT1, regT0);
-    stubCall.call(dst);
-}
-
 // PostInc (i++)
 
 void JIT::emit_op_post_inc(Instruction* currentInstruction)
@@ -504,7 +479,7 @@ void JIT::emitSlow_op_post_inc(Instruction* currentInstruction, Vector<SlowCaseE
 
     JITStubCall stubCall(this, cti_op_post_inc);
     stubCall.addArgument(srcDst);
-    stubCall.addArgument(Imm32(srcDst));
+    stubCall.addArgument(TrustedImm32(srcDst));
     stubCall.call(dst);
 }
 
@@ -644,9 +619,9 @@ void JIT::emit_op_add(Instruction* currentInstruction)
 void JIT::emitAdd32Constant(unsigned dst, unsigned op, int32_t constant, ResultType opType)
 {
     // Int32 case.
-    emitLoad(op, regT1, regT0);
+    emitLoad(op, regT1, regT2);
     Jump notInt32 = branch32(NotEqual, regT1, TrustedImm32(JSValue::Int32Tag));
-    addSlowCase(branchAdd32(Overflow, Imm32(constant), regT0));
+    addSlowCase(branchAdd32(Overflow, regT2, Imm32(constant), regT0));
     emitStoreInt32(dst, regT0, (op == dst));
 
     // Double case.
@@ -757,8 +732,13 @@ void JIT::emitSub32Constant(unsigned dst, unsigned op, int32_t constant, ResultT
     // Int32 case.
     emitLoad(op, regT1, regT0);
     Jump notInt32 = branch32(NotEqual, regT1, TrustedImm32(JSValue::Int32Tag));
-    addSlowCase(branchSub32(Overflow, Imm32(constant), regT0));
-    emitStoreInt32(dst, regT0, (op == dst));
+#if ENABLE(JIT_CONSTANT_BLINDING)
+    addSlowCase(branchSub32(Overflow, regT0, Imm32(constant), regT2, regT3));
+#else
+    addSlowCase(branchSub32(Overflow, regT0, Imm32(constant), regT2));
+#endif
+    
+    emitStoreInt32(dst, regT2, (op == dst));
 
     // Double case.
     if (!supportsFloatingPoint()) {
@@ -886,7 +866,7 @@ void JIT::emitBinaryDoubleOp(OpcodeID opcodeID, unsigned dst, unsigned op1, unsi
                 emitStoreInt32(dst, regT2);
                 Jump isInteger = jump();
                 notInteger.link(this);
-                add32(Imm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
+                add32(TrustedImm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
                 emitStoreDouble(dst, fpRegT1);
                 isInteger.link(this);
 #else
@@ -990,7 +970,7 @@ void JIT::emitBinaryDoubleOp(OpcodeID opcodeID, unsigned dst, unsigned op1, unsi
                 emitStoreInt32(dst, regT2);
                 Jump isInteger = jump();
                 notInteger.link(this);
-                add32(Imm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
+                add32(TrustedImm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
                 emitStoreDouble(dst, fpRegT0);
                 isInteger.link(this);
 #else
@@ -1096,7 +1076,7 @@ void JIT::emitSlow_op_mul(Instruction* currentInstruction, Vector<SlowCaseEntry>
     // We only get here if we have a genuine negative zero. Record this,
     // so that the speculative JIT knows that we failed speculation
     // because of a negative zero.
-    add32(Imm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
+    add32(TrustedImm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
 #endif
     overflow.link(this);
 
@@ -1154,7 +1134,32 @@ void JIT::emit_op_div(Instruction* currentInstruction)
     convertInt32ToDouble(regT0, fpRegT0);
     convertInt32ToDouble(regT2, fpRegT1);
     divDouble(fpRegT1, fpRegT0);
+#if ENABLE(VALUE_PROFILER)
+    // Is the result actually an integer? The DFG JIT would really like to know. If it's
+    // not an integer, we increment a count. If this together with the slow case counter
+    // are below threshold then the DFG JIT will compile this division with a specualtion
+    // that the remainder is zero.
+    
+    // As well, there are cases where a double result here would cause an important field
+    // in the heap to sometimes have doubles in it, resulting in double predictions getting
+    // propagated to a use site where it might cause damage (such as the index to an array
+    // access). So if we are DFG compiling anything in the program, we want this code to
+    // ensure that it produces integers whenever possible.
+    
+    // FIXME: This will fail to convert to integer if the result is zero. We should
+    // distinguish between positive zero and negative zero here.
+    
+    JumpList notInteger;
+    branchConvertDoubleToInt32(fpRegT0, regT2, notInteger, fpRegT1);
+    // If we've got an integer, we might as well make that the result of the division.
+    emitStoreInt32(dst, regT2);
+    end.append(jump());
+    notInteger.link(this);
+    add32(TrustedImm32(1), AbsoluteAddress(&m_codeBlock->specialFastCaseProfileForBytecodeOffset(m_bytecodeOffset)->m_counter));
     emitStoreDouble(dst, fpRegT0);
+#else
+    emitStoreDouble(dst, fpRegT0);
+#endif
     end.append(jump());
 
     // Double divide.
@@ -1197,25 +1202,28 @@ void JIT::emit_op_mod(Instruction* currentInstruction)
     unsigned op1 = currentInstruction[2].u.operand;
     unsigned op2 = currentInstruction[3].u.operand;
 
-#if ENABLE(JIT_USE_SOFT_MODULO)
-
 #if CPU(X86) || CPU(X86_64)
     // Make sure registers are correct for x86 IDIV instructions.
     ASSERT(regT0 == X86Registers::eax);
     ASSERT(regT1 == X86Registers::edx);
     ASSERT(regT2 == X86Registers::ecx);
     ASSERT(regT3 == X86Registers::ebx);
-#endif
 
-    emitLoad2(op1, regT1, regT0, op2, regT3, regT2);
+    emitLoad2(op1, regT0, regT3, op2, regT1, regT2);
     addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::Int32Tag)));
-    addSlowCase(branch32(NotEqual, regT3, TrustedImm32(JSValue::Int32Tag)));
+    addSlowCase(branch32(NotEqual, regT0, TrustedImm32(JSValue::Int32Tag)));
 
-    addSlowCase(branch32(Equal, regT2, TrustedImm32(0)));
-
-    emitNakedCall(m_globalData->jitStubs->ctiSoftModulo());
-
-    emitStoreInt32(dst, regT0, (op1 == dst || op2 == dst));
+    move(regT3, regT0);
+    addSlowCase(branchTest32(Zero, regT2));
+    Jump denominatorNotNeg1 = branch32(NotEqual, regT2, TrustedImm32(-1));
+    addSlowCase(branch32(Equal, regT0, TrustedImm32(-2147483647-1)));
+    denominatorNotNeg1.link(this);
+    m_assembler.cdq();
+    m_assembler.idivl_r(regT2);
+    Jump numeratorPositive = branch32(GreaterThanOrEqual, regT3, TrustedImm32(0));
+    addSlowCase(branchTest32(Zero, regT1));
+    numeratorPositive.link(this);
+    emitStoreInt32(dst, regT1, (op1 == dst || op2 == dst));
 #else
     JITStubCall stubCall(this, cti_op_mod);
     stubCall.addArgument(op1);
@@ -1226,10 +1234,12 @@ void JIT::emit_op_mod(Instruction* currentInstruction)
 
 void JIT::emitSlow_op_mod(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-#if ENABLE(JIT_USE_SOFT_MODULO)
+#if CPU(X86) || CPU(X86_64)
     unsigned result = currentInstruction[1].u.operand;
     unsigned op1 = currentInstruction[2].u.operand;
     unsigned op2 = currentInstruction[3].u.operand;
+    linkSlowCase(iter);
+    linkSlowCase(iter);
     linkSlowCase(iter);
     linkSlowCase(iter);
     linkSlowCase(iter);
@@ -1240,7 +1250,9 @@ void JIT::emitSlow_op_mod(Instruction* currentInstruction, Vector<SlowCaseEntry>
 #else
     UNUSED_PARAM(currentInstruction);
     UNUSED_PARAM(iter);
-    ASSERT_NOT_REACHED();
+    // We would have really useful assertions here if it wasn't for the compiler's
+    // insistence on attribute noreturn.
+    // ASSERT_NOT_REACHED();
 #endif
 }
 

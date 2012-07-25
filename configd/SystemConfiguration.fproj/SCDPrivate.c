@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,6 @@
 #include <pthread.h>
 
 #include <execinfo.h>
-#include <libproc.h>
 #include <unistd.h>
 #include <dlfcn.h>
 
@@ -129,38 +128,47 @@ _SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEn
 void
 _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 {
+	union {
+		const struct sockaddr		*sa;
+		const struct sockaddr_in	*sin;
+		const struct sockaddr_in6	*sin6;
+		const struct sockaddr_dl	*sdl;
+	} addr;
+
+	addr.sa = address;
+
 	bzero(buf, bufLen);
 	switch (address->sa_family) {
 		case AF_INET :
-			(void)inet_ntop(((struct sockaddr_in *)address)->sin_family,
-					&((struct sockaddr_in *)address)->sin_addr,
+			(void)inet_ntop(addr.sin->sin_family,
+					&addr.sin->sin_addr,
 					buf,
 					bufLen);
 			break;
 		case AF_INET6 : {
-			(void)inet_ntop(((struct sockaddr_in6 *)address)->sin6_family,
-					&((struct sockaddr_in6 *)address)->sin6_addr,
+			(void)inet_ntop(addr.sin6->sin6_family,
+					&addr.sin6->sin6_addr,
 					buf,
 					bufLen);
-			if (((struct sockaddr_in6 *)address)->sin6_scope_id != 0) {
+			if (addr.sin6->sin6_scope_id != 0) {
 				int	n;
 
 				n = strlen(buf);
 				if ((n+IF_NAMESIZE+1) <= (int)bufLen) {
 					buf[n++] = '%';
-					if_indextoname(((struct sockaddr_in6 *)address)->sin6_scope_id, &buf[n]);
+					if_indextoname(addr.sin6->sin6_scope_id, &buf[n]);
 				}
 			}
 			break;
 		}
 		case AF_LINK :
-			if (((struct sockaddr_dl *)address)->sdl_len < bufLen) {
-				bufLen = ((struct sockaddr_dl *)address)->sdl_len;
+			if (addr.sdl->sdl_len < bufLen) {
+				bufLen = addr.sdl->sdl_len;
 			} else {
 				bufLen = bufLen - 1;
 			}
 
-			bcopy(((struct sockaddr_dl *)address)->sdl_data, buf, bufLen);
+			bcopy(addr.sdl->sdl_data, buf, bufLen);
 			break;
 		default :
 			snprintf(buf, bufLen, "unexpected address family %d", address->sa_family);
@@ -168,6 +176,66 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 	}
 
 	return;
+}
+
+
+struct sockaddr *
+_SC_string_to_sockaddr(const char *str, sa_family_t af, void *buf, size_t bufLen)
+{
+	union {
+		void			*buf;
+		struct sockaddr		*sa;
+		struct sockaddr_in	*sin;
+		struct sockaddr_in6	*sin6;
+	} addr;
+
+	if (buf == NULL) {
+		bufLen = sizeof(struct sockaddr_storage);
+		addr.buf = CFAllocatorAllocate(NULL, bufLen, 0);
+	} else {
+		addr.buf = buf;
+	}
+
+	bzero(addr.buf, bufLen);
+	if (((af == AF_UNSPEC) || (af == AF_INET)) &&
+	    (bufLen >= sizeof(struct sockaddr_in)) &&
+	    inet_aton(str, &addr.sin->sin_addr) == 1) {
+		// if IPv4 address
+		addr.sin->sin_len    = sizeof(struct sockaddr_in);
+		addr.sin->sin_family = AF_INET;
+	} else if (((af == AF_UNSPEC) || (af == AF_INET6)) &&
+		   (bufLen >= sizeof(struct sockaddr_in6)) &&
+		   inet_pton(AF_INET6, str, &addr.sin6->sin6_addr) == 1) {
+		// if IPv6 address
+		char	*p;
+
+		addr.sin6->sin6_len    = sizeof(struct sockaddr_in6);
+		addr.sin6->sin6_family = AF_INET6;
+
+		p = strchr(buf, '%');
+		if (p != NULL) {
+			addr.sin6->sin6_scope_id = if_nametoindex(p + 1);
+		}
+
+		if (IN6_IS_ADDR_LINKLOCAL(&addr.sin6->sin6_addr) ||
+		    IN6_IS_ADDR_MC_LINKLOCAL(&addr.sin6->sin6_addr)) {
+			uint16_t	if_index;
+
+			if_index = ntohs(addr.sin6->sin6_addr.__u6_addr.__u6_addr16[1]);
+			addr.sin6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+			if (addr.sin6->sin6_scope_id == 0) {
+				// use the scope id that was embedded in the [link local] IPv6 address
+				addr.sin6->sin6_scope_id = if_index;
+			}
+		}
+	} else {
+		if (addr.buf != buf) {
+			CFAllocatorDeallocate(NULL, addr.buf);
+		}
+		addr.buf = NULL;
+	}
+
+	return addr.sa;
 }
 
 
@@ -305,7 +373,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 Boolean
 _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dataLen)
 {
-	CFErrorRef	error;
+	CFErrorRef	error	= NULL;
 
 	if (xml == NULL) {
 		kern_return_t	status;
@@ -471,7 +539,7 @@ _SCUnserializeData(CFDataRef *data, void *dataRef, CFIndex dataLen)
 }
 
 
-CFDictionaryRef
+CF_RETURNS_RETAINED CFDictionaryRef
 _SCSerializeMultiple(CFDictionaryRef dict)
 {
 	const void *		keys_q[N_QUICK];
@@ -529,6 +597,7 @@ _SCSerializeMultiple(CFDictionaryRef dict)
 }
 
 
+CF_RETURNS_RETAINED
 CFDictionaryRef
 _SCUnserializeMultiple(CFDictionaryRef dict)
 {
@@ -821,48 +890,92 @@ _SC_CFBundleGet(void)
 CFStringRef
 _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFStringRef value, CFStringRef tableName)
 {
+	CFDataRef	data	= NULL;
+	SInt32		errCode	= 0;
+	CFURLRef	resourcesURL;
 	CFStringRef	str	= NULL;
 	CFURLRef	url;
 
 	if ((tableName == NULL) || CFEqual(tableName, CFSTR(""))) tableName = CFSTR("Localizable");
 
-	url = CFBundleCopyResourceURLForLocalization(bundle,
-						     tableName,
-						     CFSTR("strings"),
+	/*
+	 * First, try getting the requested string using a manually constructed
+	 * URL to <bundle>/Resources/English.lproj/<tableName>.strings. Do this
+	 * because CFBundleCopyResourceURLForLocalization() uses CFPreferences
+	 * to get the preferred localizations, CFPreferences talks to
+	 * OpenDirectory, and OpenDirectory tries to obtain the platform UUID.
+	 * On machines where the platform UUID is set by InterfaceNamer, a
+	 * deadlock can occur if InterfaceNamer calls
+	 * CFBundleCopyResourceURLForLocalization() before setting the
+	 * platform UUID in the kernel.
+	 */
+	resourcesURL = CFBundleCopyResourcesDirectoryURL(bundle);
+	if (resourcesURL != NULL) {
+		CFStringRef fileName = CFStringCreateWithFormat(
+					    NULL, NULL, CFSTR("%@.strings"), tableName);
+		CFURLRef enlproj = CFURLCreateCopyAppendingPathComponent(
+				      NULL, resourcesURL, CFSTR("English.lproj"), true);
+		url = CFURLCreateCopyAppendingPathComponent(
+				   NULL, enlproj, fileName, false);
+		CFRelease(enlproj);
+		CFRelease(fileName);
+		CFRelease(resourcesURL);
+
+		if (!CFURLCreateDataAndPropertiesFromResource(NULL,
+							      url,
+							      &data,
+							      NULL,
+							      NULL,
+							      &errCode)) {
+			/*
+			 * Failed to get the data using a manually-constructed URL
+			 * for the given strings table. Fall back to using
+			 * CFBundleCopyResourceURLForLocalization() below.
+			 */
+			data = NULL;
+		}
+		CFRelease(url);
+	}
+
+	if (data == NULL) {
+		url = CFBundleCopyResourceURLForLocalization(bundle,
+							     tableName,
+							     CFSTR("strings"),
+							     NULL,
+							     CFSTR("English"));
+		if (url != NULL) {
+			if (!CFURLCreateDataAndPropertiesFromResource(NULL,
+								      url,
+								      &data,
+								      NULL,
+								      NULL,
+								      &errCode)) {
+				data = NULL;
+			}
+			CFRelease(url);
+		}
+	}
+
+	if (data != NULL) {
+		CFDictionaryRef	table;
+
+		table = CFPropertyListCreateWithData(NULL,
+						     data,
+						     kCFPropertyListImmutable,
 						     NULL,
-						     CFSTR("English"));
-	if (url != NULL) {
-		CFDataRef	data	= NULL;
-		SInt32		errCode	= 0;
-
-		if (CFURLCreateDataAndPropertiesFromResource(NULL,
-							     url,
-							     &data,
-							     NULL,
-							     NULL,
-							     &errCode)) {
-			CFDictionaryRef	table;
-
-			table = CFPropertyListCreateWithData(NULL,
-							     data,
-							     kCFPropertyListImmutable,
-							     NULL,
-							     NULL);
-			if (table != NULL) {
-				if (isA_CFDictionary(table)) {
-					str = CFDictionaryGetValue(table, key);
-					if (str != NULL) {
-						CFRetain(str);
-					}
+						     NULL);
+		if (table != NULL) {
+			if (isA_CFDictionary(table)) {
+				str = CFDictionaryGetValue(table, key);
+				if (str != NULL) {
+					CFRetain(str);
 				}
-
-				CFRelease(table);
 			}
 
-			CFRelease(data);
+			CFRelease(table);
 		}
 
-		CFRelease(url);
+		CFRelease(data);
 	}
 
 	if (str == NULL) {
@@ -879,9 +992,9 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 
 CFMachPortRef
 _SC_CFMachPortCreateWithPort(const char		*portDescription,
-				 mach_port_t		portNum,
-				 CFMachPortCallBack	callout,
-				 CFMachPortContext	*context)
+			     mach_port_t	portNum,
+			     CFMachPortCallBack	callout,
+			     CFMachPortContext	*context)
 {
 	CFMachPortRef	port;
 	Boolean	shouldFree	= FALSE;
@@ -890,7 +1003,6 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 	if ((port == NULL) || shouldFree) {
 		CFStringRef	err;
 		char		*crash_info	= NULL;
-		char		name[64]	= "";
 
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("%s: CFMachPortCreateWithPort() failed , port = %p"),
@@ -908,11 +1020,10 @@ _SC_CFMachPortCreateWithPort(const char		*portDescription,
 		crash_info = _SC_cfstring_to_cstring(err, NULL, 0, kCFStringEncodingASCII);
 		CFRelease(err);
 
-		(void) proc_name(getpid(), name, sizeof(name));
 		err = CFStringCreateWithFormat(NULL,
 					       NULL,
 					       CFSTR("A recycled mach_port has been detected by \"%s\"."),
-					       name);
+					       getprogname());
 		_SC_crash(crash_info, CFSTR("CFMachPort error"), err);
 		CFAllocatorDeallocate(NULL, crash_info);
 		CFRelease(err);
@@ -1086,10 +1197,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		static int	is_configd	= -1;
 
 		if (is_configd == -1) {
-			char	name[64]	= "";
-
-			(void) proc_name(getpid(), name, sizeof(name));
-			is_configd = (strncmp(name, "configd", sizeof(name)) == 0);
+			is_configd = (strcmp(getprogname(), "configd") == 0);
 		}
 		if (is_configd == 1) {
 			// if "configd", add indication if this is the M[ain] or [P]lugin thread
@@ -1111,20 +1219,22 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	status = mach_port_type(mach_task_self(), port, &pt);
 	if (status != KERN_SUCCESS) {
 		SCLog(TRUE, LOG_NOTICE,
-		      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
+		      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s"),
 		      buf,
 		      port,
 		      mach_error_string(status));
+		return;
 	}
 
 	if ((pt & MACH_PORT_TYPE_SEND) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
+			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 	}
 
@@ -1134,10 +1244,11 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_RECEIVE): %s"),
+			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_RECEIVE): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 
 		count = MACH_PORT_RECEIVE_STATUS_COUNT;
@@ -1148,10 +1259,11 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 					       &count);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%mach_port_get_attributes(..., %d, MACH_PORT_RECEIVE_STATUS): %s"),
+			      CFSTR("%smach_port_get_attributes(..., 0x%x, MACH_PORT_RECEIVE_STATUS): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 	}
 
@@ -1159,10 +1271,11 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND_ONCE): %s"),
+			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_SEND_ONCE): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 	}
 
@@ -1170,10 +1283,11 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_PORT_SET): %s"),
+			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_PORT_SET): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 	}
 
@@ -1181,10 +1295,11 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_NOTICE,
-			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_DEAD_NAME): %s"),
+			      CFSTR("%smach_port_get_refs(..., 0x%x, MACH_PORT_RIGHT_DEAD_NAME): %s"),
 			      buf,
 			      port,
 			      mach_error_string(status));
+			return;
 		}
 	}
 
@@ -1244,16 +1359,14 @@ asm(".desc ___crashreporter_info__, 0x10");
 static Boolean
 _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
-	static bool	(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
-	static void	*image											= NULL;
 	Boolean	ok											= FALSE;
 
+#if ! TARGET_IPHONE_SIMULATOR
+	static bool	(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
+	static void	*image											= NULL;
+
 	if ((dyfunc_SimulateCrash == NULL) && (image == NULL)) {
-		const char	*framework	= "/System/Library/PrivateFrameworks/CrashReporterSupport.framework/"
-#if	!TARGET_OS_EMBEDDED
-							"Versions/A/"
-#endif	// !TARGET_OS_EMBEDDED
-							"CrashReporterSupport";
+		const char	*framework	= "/System/Library/PrivateFrameworks/CrashReporterSupport.framework/CrashReporterSupport";
 		struct stat	statbuf;
 		const char	*suffix	= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -1303,6 +1416,7 @@ _SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef 
 		}
 	}
 #endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#endif /* ! TARGET_IPHONE_SIMULATOR */
 
 	return ok;
 }

@@ -20,15 +20,15 @@
 #include "config.h"
 #include "ResourceRequest.h"
 
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
 #include "GOwnPtrSoup.h"
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "PlatformString.h"
 #include "SoupURIUtils.h"
-#include <wtf/text/CString.h>
 
 #include <libsoup/soup.h>
+#include <wtf/text/CString.h>
 
 using namespace std;
 
@@ -85,7 +85,13 @@ SoupMessage* ResourceRequest::toSoupMessage() const
 
 void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
 {
+    bool shouldPortBeResetToZero = m_url.hasPort() && !m_url.port();
     m_url = soupURIToKURL(soup_message_get_uri(soupMessage));
+
+    // SoupURI cannot differeniate between an explicitly specified port 0 and
+    // no port specified.
+    if (shouldPortBeResetToZero)
+        m_url.setPort(0);
 
     m_httpMethod = String::fromUTF8(soupMessage->method);
 
@@ -94,9 +100,8 @@ void ResourceRequest::updateFromSoupMessage(SoupMessage* soupMessage)
     const char* headerName;
     const char* headerValue;
     soup_message_headers_iter_init(&headersIter, soupMessage->request_headers);
-    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue)) {
+    while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
         m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
-    }
 
     if (soupMessage->request_body->data)
         m_httpBody = FormData::create(soupMessage->request_body->data, soupMessage->request_body->length);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2000, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2000, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 
 
 int
-bootp_transmit(int sockfd, char * sendbuf,
+bootp_transmit(int sockfd, void * sendbuf,
 	       const char * if_name, 
 	       int hwtype, const void * hwaddr, int hwlen,
 	       struct in_addr dest_ip,

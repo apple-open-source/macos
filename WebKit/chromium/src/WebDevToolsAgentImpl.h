@@ -34,6 +34,8 @@
 #include "InspectorClient.h"
 
 #include "WebDevToolsAgentPrivate.h"
+#include "WebPageOverlay.h"
+#include "platform/WebSize.h"
 
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
@@ -41,6 +43,8 @@
 namespace WebCore {
 class Document;
 class Frame;
+class FrameView;
+class GraphicsContext;
 class InspectorClient;
 class InspectorController;
 class Node;
@@ -48,7 +52,7 @@ class Node;
 
 namespace WebKit {
 
-class DebuggerAgentImpl;
+class DeviceMetricsSupport;
 class WebDevToolsAgentClient;
 class WebFrame;
 class WebFrameImpl;
@@ -60,34 +64,50 @@ struct WebURLError;
 struct WebDevToolsMessageData;
 
 class WebDevToolsAgentImpl : public WebDevToolsAgentPrivate,
-                             public WebCore::InspectorClient {
+                             public WebCore::InspectorClient,
+                             public WebPageOverlay {
 public:
     WebDevToolsAgentImpl(WebViewImpl* webViewImpl, WebDevToolsAgentClient* client);
     virtual ~WebDevToolsAgentImpl();
 
     // WebDevToolsAgentPrivate implementation.
-    virtual void didClearWindowObject(WebFrameImpl* frame);
+    virtual void didCreateScriptContext(WebFrameImpl*, int worldId);
+    virtual void mainFrameViewCreated(WebFrameImpl*);
+    virtual bool metricsOverridden();
+    virtual void webViewResized();
 
     // WebDevToolsAgent implementation.
     virtual void attach();
+    virtual void reattach(const WebString& savedState);
     virtual void detach();
-    virtual void frontendLoaded();
     virtual void didNavigate();
     virtual void dispatchOnInspectorBackend(const WebString& message);
     virtual void inspectElementAt(const WebPoint& point);
     virtual void evaluateInWebInspector(long callId, const WebString& script);
-    virtual void setRuntimeProperty(const WebString& name, const WebString& value);
-    virtual void setTimelineProfilingEnabled(bool enable);
+    virtual void setJavaScriptProfilingEnabled(bool);
+    virtual void setProcessId(long);
 
     // InspectorClient implementation.
     virtual void inspectorDestroyed();
     virtual void openInspectorFrontend(WebCore::InspectorController*);
-    virtual void highlight(WebCore::Node*);
+    virtual void closeInspectorFrontend();
+
+    virtual void bringFrontendToFront();
+    virtual void highlight();
     virtual void hideHighlight();
     virtual void updateInspectorStateCookie(const WTF::String&);
     virtual bool sendMessageToFrontend(const WTF::String&);
 
+    virtual void clearBrowserCache();
+    virtual void clearBrowserCookies();
+
+    virtual void overrideDeviceMetrics(int width, int height, float fontScaleFactor, bool fitWindow);
+    virtual void autoZoomPageToFitWidth();
+
     int hostId() { return m_hostId; }
+
+    // WebPageOverlay
+    virtual void paintPageOverlay(WebCanvas*);
 
 private:
     WebCore::InspectorController* inspectorController();
@@ -96,8 +116,8 @@ private:
     int m_hostId;
     WebDevToolsAgentClient* m_client;
     WebViewImpl* m_webViewImpl;
-    OwnPtr<DebuggerAgentImpl> m_debuggerAgentImpl;
     bool m_attached;
+    OwnPtr<DeviceMetricsSupport> m_metricsSupport;
 };
 
 } // namespace WebKit

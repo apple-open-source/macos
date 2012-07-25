@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)getcap.c	8.3 (Berkeley) 3/25/94";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/getcap.c,v 1.23 2009/11/25 04:45:45 wollman Exp $");
 
+#include "xlocale_private.h"
+
 #include "namespace.h"
 #include <sys/types.h>
 
@@ -66,7 +68,7 @@ static char	*toprec;	/* Additional record specified by cgetset() */
 static int	 gottoprec;	/* Flag indicating retrieval of toprecord */
 
 static int	cdbget(DB *, char **, const char *);
-static int 	getent(char **, u_int *, char **, int, const char *, int, char *);
+static int 	getent(char **, u_int *, char **, int, const char *, int, char *, locale_t);
 static int	nfcmp(char *, char *);
 
 /*
@@ -162,7 +164,7 @@ cgetent(char **buf, char **db_array, const char *name)
 {
 	u_int dummy;
 
-	return (getent(buf, &dummy, db_array, -1, name, 0, NULL));
+	return (getent(buf, &dummy, db_array, -1, name, 0, NULL, __current_locale()));
 }
 
 /*
@@ -185,7 +187,7 @@ cgetent(char **buf, char **db_array, const char *name)
  */
 static int
 getent(char **cap, u_int *len, char **db_array, int fd, const char *name,
-    int depth, char *nfield)
+    int depth, char *nfield, locale_t loc)
 {
 	DB *capdbp;
 	char *r_end, *rp, **db_p;
@@ -426,7 +428,7 @@ tc_exp:	{
 			tcend = s;
 
 			iret = getent(&icap, &ilen, db_p, fd, tc, depth+1,
-				      NULL);
+				      NULL, loc);
 			newicap = icap;		/* Put into a register. */
 			newilen = ilen;
 			if (iret != 0) {
@@ -650,6 +652,7 @@ cgetnext(char **bp, char **db_array)
 	int done, hadreaderr, savederrno, status;
 	char *cp, *line, *rp, *np, buf[BSIZE], nbuf[BSIZE];
 	u_int dummy;
+	locale_t loc = __current_locale();
 
 	if (dbp == NULL)
 		dbp = db_array;
@@ -691,7 +694,7 @@ cgetnext(char **bp, char **db_array)
 				slash = 0;
 				continue;
 			}
-			if (isspace((unsigned char)*line) ||
+			if (isspace_l((unsigned char)*line, loc) ||
 			    *line == ':' || *line == '#' || slash) {
 				if (line[len - 2] == '\\')
 					slash = 1;
@@ -762,7 +765,7 @@ cgetnext(char **bp, char **db_array)
 		 * rather than the duplicate entry record.  This is a
 		 * matter of semantics that should be resolved.
 		 */
-		status = getent(bp, &dummy, db_array, -1, buf, 0, NULL);
+		status = getent(bp, &dummy, db_array, -1, buf, 0, NULL, loc);
 		if (status == -2 || status == -3)
 			(void)cgetclose();
 

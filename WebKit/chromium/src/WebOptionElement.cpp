@@ -34,10 +34,11 @@
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLSelectElement.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 #include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
+using namespace HTMLNames;
 
 namespace WebKit {
 
@@ -63,12 +64,12 @@ WebString WebOptionElement::text() const
 
 bool WebOptionElement::defaultSelected() const
 {
-    return constUnwrap<HTMLOptionElement>()->defaultSelected();
+    return constUnwrap<HTMLOptionElement>()->hasAttribute(selectedAttr);
 }
 
 void WebOptionElement::setDefaultSelected(bool newSelected)
 {
-    return unwrap<HTMLOptionElement>()->setDefaultSelected(newSelected);
+    return unwrap<HTMLOptionElement>()->setAttribute(selectedAttr, newSelected ? "" : 0);
 }
 
 WebString WebOptionElement::label() const
@@ -82,7 +83,7 @@ bool WebOptionElement::isEnabled() const
 }
 
 WebOptionElement::WebOptionElement(const PassRefPtr<HTMLOptionElement>& elem)
-    : WebFormControlElement(elem)
+    : WebElement(elem)
 {
 }
 

@@ -1,14 +1,15 @@
-//
-//  decfmtst.h
-//
-//  Copyright (C) 2009, International Business Machines Corporation and others.
-//  All Rights Reserved.
-//
-//  This file contains declarations for the class DecimalFormatStaticSets
-//
-//  DecimalFormatStaticSets holds the UnicodeSets that are needed for lenient
-//  parsing of decimal and group separators.
-//
+/*
+*******************************************************************************
+* Copyright (C) 2009-2011, International Business Machines Corporation and    *
+* others. All Rights Reserved.                                                *
+*******************************************************************************
+*
+* This file contains declarations for the class DecimalFormatStaticSets
+*
+* DecimalFormatStaticSets holds the UnicodeSets that are needed for lenient
+* parsing of decimal and group separators.
+********************************************************************************
+*/
 
 #ifndef DECFMTST_H
 #define DECFMTST_H
@@ -34,7 +35,7 @@ public:
     static void    initSets(UErrorCode *status);
     static UBool   cleanup();
 
-    static UnicodeSet *getSimilarDecimals(UChar32 decimal, UBool strictParse, UnicodeSet *fallback);
+    static const UnicodeSet *getSimilarDecimals(UChar32 decimal, UBool strictParse);
 
     UnicodeSet *fDotEquivalents;
     UnicodeSet *fCommaEquivalents;

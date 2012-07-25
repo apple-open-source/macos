@@ -48,7 +48,7 @@ RenderScrollbarPart::~RenderScrollbarPart()
 
 void RenderScrollbarPart::layout()
 {
-    setLocation(IntPoint()); // We don't worry about positioning ourselves.  We're just determining our minimum width/height.
+    setLocation(LayoutPoint()); // We don't worry about positioning ourselves. We're just determining our minimum width/height.
     if (m_scrollbar->orientation() == HorizontalScrollbar)
         layoutHorizontalPart();
     else
@@ -79,41 +79,43 @@ void RenderScrollbarPart::layoutVerticalPart()
     } 
 }
 
-static int calcScrollbarThicknessUsing(const Length& l, int containingLength)
+static int calcScrollbarThicknessUsing(const Length& length, int containingLength, RenderView* renderView)
 {
-    if (l.isIntrinsicOrAuto())
-        return ScrollbarTheme::nativeTheme()->scrollbarThickness();
-    return l.calcMinValue(containingLength);
+    if (length.isIntrinsicOrAuto())
+        return ScrollbarTheme::theme()->scrollbarThickness();
+    return minimumValueForLength(length, containingLength, renderView);
 }
 
 void RenderScrollbarPart::computeScrollbarWidth()
 {
     if (!m_scrollbar->owningRenderer())
         return;
+    RenderView* renderView = view();
     int visibleSize = m_scrollbar->owningRenderer()->width() - m_scrollbar->owningRenderer()->borderLeft() - m_scrollbar->owningRenderer()->borderRight();
-    int w = calcScrollbarThicknessUsing(style()->width(), visibleSize);
-    int minWidth = calcScrollbarThicknessUsing(style()->minWidth(), visibleSize);
-    int maxWidth = style()->maxWidth().isUndefined() ? w : calcScrollbarThicknessUsing(style()->maxWidth(), visibleSize);
+    int w = calcScrollbarThicknessUsing(style()->width(), visibleSize, renderView);
+    int minWidth = calcScrollbarThicknessUsing(style()->minWidth(), visibleSize, renderView);
+    int maxWidth = style()->maxWidth().isUndefined() ? w : calcScrollbarThicknessUsing(style()->maxWidth(), visibleSize, renderView);
     setWidth(max(minWidth, min(maxWidth, w)));
     
     // Buttons and track pieces can all have margins along the axis of the scrollbar. 
-    m_marginLeft = style()->marginLeft().calcMinValue(visibleSize);
-    m_marginRight = style()->marginRight().calcMinValue(visibleSize);
+    m_marginLeft = minimumValueForLength(style()->marginLeft(), visibleSize, renderView);
+    m_marginRight = minimumValueForLength(style()->marginRight(), visibleSize, renderView);
 }
 
 void RenderScrollbarPart::computeScrollbarHeight()
 {
     if (!m_scrollbar->owningRenderer())
         return;
+    RenderView* renderView = view();
     int visibleSize = m_scrollbar->owningRenderer()->height() -  m_scrollbar->owningRenderer()->borderTop() - m_scrollbar->owningRenderer()->borderBottom();
-    int h = calcScrollbarThicknessUsing(style()->height(), visibleSize);
-    int minHeight = calcScrollbarThicknessUsing(style()->minHeight(), visibleSize);
-    int maxHeight = style()->maxHeight().isUndefined() ? h : calcScrollbarThicknessUsing(style()->maxHeight(), visibleSize);
+    int h = calcScrollbarThicknessUsing(style()->height(), visibleSize, renderView);
+    int minHeight = calcScrollbarThicknessUsing(style()->minHeight(), visibleSize, renderView);
+    int maxHeight = style()->maxHeight().isUndefined() ? h : calcScrollbarThicknessUsing(style()->maxHeight(), visibleSize, renderView);
     setHeight(max(minHeight, min(maxHeight, h)));
 
     // Buttons and track pieces can all have margins along the axis of the scrollbar. 
-    m_marginTop = style()->marginTop().calcMinValue(visibleSize);
-    m_marginBottom = style()->marginBottom().calcMinValue(visibleSize);
+    m_marginTop = minimumValueForLength(style()->marginTop(), visibleSize, renderView);
+    m_marginBottom = minimumValueForLength(style()->marginBottom(), visibleSize, renderView);
 }
 
 void RenderScrollbarPart::computePreferredLogicalWidths()
@@ -150,7 +152,7 @@ void RenderScrollbarPart::imageChanged(WrappedImagePtr image, const IntRect* rec
     else {
         if (FrameView* frameView = view()->frameView()) {
             if (frameView->isFrameViewScrollCorner(this)) {
-                frameView->invalidateScrollCorner();
+                frameView->invalidateScrollCorner(frameView->scrollCornerRect());
                 return;
             }
         }
@@ -159,10 +161,10 @@ void RenderScrollbarPart::imageChanged(WrappedImagePtr image, const IntRect* rec
     }
 }
 
-void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, int tx, int ty, const IntRect& rect)
+void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, const LayoutPoint& paintOffset, const LayoutRect& rect)
 {
     // Make sure our dimensions match the rect.
-    setLocation(rect.location() - IntSize(tx, ty));
+    setLocation(rect.location() - toSize(paintOffset));
     setWidth(rect.width());
     setHeight(rect.height());
 
@@ -170,16 +172,16 @@ void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, int tx
         return;
 
     // Now do the paint.
-    PaintInfo paintInfo(graphicsContext, rect, PaintPhaseBlockBackground, false, 0, 0);
-    paint(paintInfo, tx, ty);
+    PaintInfo paintInfo(graphicsContext, pixelSnappedIntRect(rect), PaintPhaseBlockBackground, false, 0, 0, 0);
+    paint(paintInfo, paintOffset);
     paintInfo.phase = PaintPhaseChildBlockBackgrounds;
-    paint(paintInfo, tx, ty);
+    paint(paintInfo, paintOffset);
     paintInfo.phase = PaintPhaseFloat;
-    paint(paintInfo, tx, ty);
+    paint(paintInfo, paintOffset);
     paintInfo.phase = PaintPhaseForeground;
-    paint(paintInfo, tx, ty);
+    paint(paintInfo, paintOffset);
     paintInfo.phase = PaintPhaseOutline;
-    paint(paintInfo, tx, ty);
+    paint(paintInfo, paintOffset);
 }
 
 }

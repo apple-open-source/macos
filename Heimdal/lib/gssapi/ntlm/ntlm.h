@@ -52,6 +52,7 @@
 #include <gssapi_ntlm.h>
 #include <gssapi_spi.h>
 #include <gssapi_mech.h>
+#include <gssapi_oid.h>
 
 #include <krb5.h>
 #include <heim_threads.h>
@@ -89,7 +90,7 @@ typedef int
 
 typedef OM_uint32
 (*ntlm_interface_type3)(OM_uint32 *, struct ntlm_ctx *, void *, const struct ntlm_type3 *,
-			uint32_t *, struct ntlm_buf *,
+			ntlm_cred, uint32_t *, uint32_t *, struct ntlm_buf *,
 			ntlm_name *, struct ntlm_buf *, struct ntlm_buf *);
 
 typedef OM_uint32
@@ -161,6 +162,7 @@ typedef struct ntlm_ctx {
 
     gss_name_t srcname;
     gss_name_t targetname;
+    char *clientsuppliedtargetname;
 
     char uuid[16];
     gss_buffer_desc pac;

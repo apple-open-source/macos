@@ -63,6 +63,13 @@ OM_uint32 _gss_ntlm_delete_sec_context
 
 	if (ctx->srcname)
 	    _gss_ntlm_release_name(NULL, &ctx->srcname);
+	if (ctx->targetname)
+	    _gss_ntlm_release_name(NULL, &ctx->targetname);
+	if (ctx->clientsuppliedtargetname)
+	    free(ctx->clientsuppliedtargetname);
+
+	
+	_gss_ntlm_destroy_crypto(ctx);
 
 	krb5_data_free(&ctx->sessionkey);
 	krb5_data_free(&ctx->type1);

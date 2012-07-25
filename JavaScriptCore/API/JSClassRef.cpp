@@ -78,11 +78,8 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
         m_staticValues = adoptPtr(new OpaqueJSClassStaticValuesTable);
         while (staticValue->name) {
             UString valueName = tryCreateStringFromUTF8(staticValue->name);
-            if (!valueName.isNull()) {
-                // Use a local variable here to sidestep an RVCT compiler bug.
-                OwnPtr<StaticValueEntry> entry = adoptPtr(new StaticValueEntry(staticValue->getProperty, staticValue->setProperty, staticValue->attributes));
-                m_staticValues->set(valueName.impl(), entry.release());
-            }
+            if (!valueName.isNull())
+                m_staticValues->set(valueName.impl(), adoptPtr(new StaticValueEntry(staticValue->getProperty, staticValue->setProperty, staticValue->attributes)));
             ++staticValue;
         }
     }
@@ -91,11 +88,8 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
         m_staticFunctions = adoptPtr(new OpaqueJSClassStaticFunctionsTable);
         while (staticFunction->name) {
             UString functionName = tryCreateStringFromUTF8(staticFunction->name);
-            if (!functionName.isNull()) {
-                // Use a local variable here to sidestep an RVCT compiler bug.
-                OwnPtr<StaticFunctionEntry> entry = adoptPtr(new StaticFunctionEntry(staticFunction->callAsFunction, staticFunction->attributes));
-                m_staticFunctions->set(functionName.impl(), entry.release());
-            }
+            if (!functionName.isNull())
+                m_staticFunctions->set(functionName.impl(), adoptPtr(new StaticFunctionEntry(staticFunction->callAsFunction, staticFunction->attributes)));
             ++staticFunction;
         }
     }
@@ -154,9 +148,7 @@ OpaqueJSClassContextData::OpaqueJSClassContextData(JSC::JSGlobalData&, OpaqueJSC
         OpaqueJSClassStaticValuesTable::const_iterator end = jsClass->m_staticValues->end();
         for (OpaqueJSClassStaticValuesTable::const_iterator it = jsClass->m_staticValues->begin(); it != end; ++it) {
             ASSERT(!it->first->isIdentifier());
-            // Use a local variable here to sidestep an RVCT compiler bug.
-            OwnPtr<StaticValueEntry> entry = adoptPtr(new StaticValueEntry(it->second->getProperty, it->second->setProperty, it->second->attributes));
-            staticValues->add(StringImpl::create(it->first->characters(), it->first->length()), entry.release());
+            staticValues->add(StringImpl::create(it->first->characters(), it->first->length()), adoptPtr(new StaticValueEntry(it->second->getProperty, it->second->setProperty, it->second->attributes)));
         }
     }
 
@@ -165,16 +157,14 @@ OpaqueJSClassContextData::OpaqueJSClassContextData(JSC::JSGlobalData&, OpaqueJSC
         OpaqueJSClassStaticFunctionsTable::const_iterator end = jsClass->m_staticFunctions->end();
         for (OpaqueJSClassStaticFunctionsTable::const_iterator it = jsClass->m_staticFunctions->begin(); it != end; ++it) {
             ASSERT(!it->first->isIdentifier());
-            // Use a local variable here to sidestep an RVCT compiler bug.
-            OwnPtr<StaticFunctionEntry> entry = adoptPtr(new StaticFunctionEntry(it->second->callAsFunction, it->second->attributes));
-            staticFunctions->add(StringImpl::create(it->first->characters(), it->first->length()), entry.release());
+            staticFunctions->add(StringImpl::create(it->first->characters(), it->first->length()), adoptPtr(new StaticFunctionEntry(it->second->callAsFunction, it->second->attributes)));
         }
     }
 }
 
 OpaqueJSClassContextData& OpaqueJSClass::contextData(ExecState* exec)
 {
-    OwnPtr<OpaqueJSClassContextData>& contextData = exec->globalData().opaqueJSClassData.add(this, nullptr).first->second;
+    OwnPtr<OpaqueJSClassContextData>& contextData = exec->globalData().opaqueJSClassData.add(this, nullptr).iterator->second;
     if (!contextData)
         contextData = adoptPtr(new OpaqueJSClassContextData(exec->globalData(), this));
     return *contextData;
@@ -221,7 +211,7 @@ JSObject* OpaqueJSClass::prototype(ExecState* exec)
 
     if (!jsClassData.cachedPrototype) {
         // Recursive, but should be good enough for our purposes
-        jsClassData.cachedPrototype.set(exec->globalData(), JSCallbackObject<JSNonFinalObject>::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->callbackObjectStructure(), prototypeClass, &jsClassData), 0); // set jsClassData as the object's private data, so it can clear our reference on destruction
+        jsClassData.cachedPrototype = PassWeak<JSObject>(JSCallbackObject<JSNonFinalObject>::create(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->callbackObjectStructure(), prototypeClass, &jsClassData), 0); // set jsClassData as the object's private data, so it can clear our reference on destruction
         if (parentClass) {
             if (JSObject* prototype = parentClass->prototype(exec))
                 jsClassData.cachedPrototype->setPrototype(exec->globalData(), prototype);

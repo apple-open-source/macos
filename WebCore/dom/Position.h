@@ -42,6 +42,7 @@ class InlineBox;
 class Node;
 class Range;
 class RenderObject;
+class Text;
 
 enum PositionMoveType {
     CodePoint,       // Move by a single code point.
@@ -53,8 +54,10 @@ class Position {
 public:
     enum AnchorType {
         PositionIsOffsetInAnchor,
+        PositionIsBeforeAnchor,
         PositionIsAfterAnchor,
-        PositionIsBeforeAnchor
+        PositionIsBeforeChildren,
+        PositionIsAfterChildren,
     };
 
     Position()
@@ -65,11 +68,25 @@ public:
     }
 
     // For creating legacy editing positions: (Anchor type will be determined from editingIgnoresContent(node))
-    Position(PassRefPtr<Node> anchorNode, int offset);
+    class LegacyEditingOffset {
+    public:
+        int value() const { return m_offset; }
+
+    private:
+        explicit LegacyEditingOffset(int offset) : m_offset(offset) { }
+
+        friend Position createLegacyEditingPosition(PassRefPtr<Node>, int offset);
+
+        int m_offset;
+    };
+    Position(PassRefPtr<Node> anchorNode, LegacyEditingOffset);
 
     // For creating before/after positions:
     Position(PassRefPtr<Node> anchorNode, AnchorType);
+    Position(PassRefPtr<Text> textNode, unsigned offset);
+
     // For creating offset positions:
+    // FIXME: This constructor should eventually go away. See bug 63040.
     Position(PassRefPtr<Node> anchorNode, int offset, AnchorType);
 
     AnchorType anchorType() const { return static_cast<AnchorType>(m_anchorType); }
@@ -79,6 +96,8 @@ public:
     // These are always DOM compliant values.  Editing positions like [img, 0] (aka [img, before])
     // will return img->parentNode() and img->nodeIndex() from these functions.
     Node* containerNode() const; // NULL for a before/after position anchored to a node with no parent
+    Text* containerText() const;
+
     int computeOffsetInContainerNode() const;  // O(n) for before/after-anchored positions, O(1) for parent-anchored positions
     Position parentAnchoredEquivalent() const; // Convenience method for DOM positions that also fixes up some positions for editing
 
@@ -92,7 +111,7 @@ public:
     // New code should not use this function.
     int deprecatedEditingOffset() const
     {
-        if (m_isLegacyEditingPosition || m_anchorType != PositionIsAfterAnchor)
+        if (m_isLegacyEditingPosition || (m_anchorType != PositionIsAfterAnchor && m_anchorType != PositionIsAfterChildren))
             return m_offset;
         return offsetForPositionAfterAnchor();
     }
@@ -109,6 +128,11 @@ public:
     Node* deprecatedNode() const { return m_anchorNode.get(); }
 
     Document* document() const { return m_anchorNode ? m_anchorNode->document() : 0; }
+    Element* rootEditableElement() const
+    {
+        Node* container = containerNode();
+        return container ? container->rootEditableElement() : 0;
+    }
 
     // These should only be used for PositionIsOffsetInAnchor positions, unless
     // the position is a legacy editing position.
@@ -189,9 +213,14 @@ private:
     // returns true, then other places in editing will treat m_offset == 0 as "before the anchor"
     // and m_offset > 0 as "after the anchor node".  See parentAnchoredEquivalent for more info.
     int m_offset;
-    unsigned m_anchorType : 2;
+    unsigned m_anchorType : 3;
     bool m_isLegacyEditingPosition : 1;
 };
+
+inline Position createLegacyEditingPosition(PassRefPtr<Node> node, int offset)
+{
+    return Position(node, Position::LegacyEditingOffset(offset));
+}
 
 inline bool operator==(const Position& a, const Position& b)
 {
@@ -215,13 +244,13 @@ inline Position positionInParentBeforeNode(const Node* node)
     // At least one caller currently hits this ASSERT though, which indicates
     // that the caller is trying to make a position relative to a disconnected node (which is likely an error)
     // Specifically, editing/deleting/delete-ligature-001.html crashes with ASSERT(node->parentNode())
-    return Position(node->parentNode(), node->nodeIndex(), Position::PositionIsOffsetInAnchor);
+    return Position(node->nonShadowBoundaryParentNode(), node->nodeIndex(), Position::PositionIsOffsetInAnchor);
 }
 
 inline Position positionInParentAfterNode(const Node* node)
 {
-    ASSERT(node->parentNode());
-    return Position(node->parentNode(), node->nodeIndex() + 1, Position::PositionIsOffsetInAnchor);
+    ASSERT(node->nonShadowBoundaryParentNode());
+    return Position(node->nonShadowBoundaryParentNode(), node->nodeIndex() + 1, Position::PositionIsOffsetInAnchor);
 }
 
 // positionBeforeNode and positionAfterNode return neighbor-anchored positions, construction is O(1)
@@ -245,12 +274,41 @@ inline int lastOffsetInNode(Node* node)
 // firstPositionInNode and lastPositionInNode return parent-anchored positions, lastPositionInNode construction is O(n) due to childNodeCount()
 inline Position firstPositionInNode(Node* anchorNode)
 {
-    return Position(anchorNode, 0, Position::PositionIsOffsetInAnchor);
+    if (anchorNode->isTextNode())
+        return Position(anchorNode, 0, Position::PositionIsOffsetInAnchor);
+    return Position(anchorNode, Position::PositionIsBeforeChildren);
 }
 
 inline Position lastPositionInNode(Node* anchorNode)
 {
-    return Position(anchorNode, lastOffsetInNode(anchorNode), Position::PositionIsOffsetInAnchor);
+    if (anchorNode->isTextNode())
+        return Position(anchorNode, lastOffsetInNode(anchorNode), Position::PositionIsOffsetInAnchor);
+    return Position(anchorNode, Position::PositionIsAfterChildren);
+}
+
+inline int minOffsetForNode(Node* anchorNode, int offset)
+{
+    if (anchorNode->offsetInCharacters())
+        return std::min(offset, anchorNode->maxCharacterOffset());
+
+    int newOffset = 0;
+    for (Node* node = anchorNode->firstChild(); node && newOffset < offset; node = node->nextSibling())
+        newOffset++;
+    
+    return newOffset;
+}
+
+inline bool offsetIsBeforeLastNodeOffset(int offset, Node* anchorNode)
+{
+    if (anchorNode->offsetInCharacters())
+        return offset < anchorNode->maxCharacterOffset();
+
+    int currentOffset = 0;
+    for (Node* node = anchorNode->firstChild(); node && currentOffset < offset; node = node->nextSibling())
+        currentOffset++;
+    
+    
+    return offset < currentOffset;
 }
 
 } // namespace WebCore

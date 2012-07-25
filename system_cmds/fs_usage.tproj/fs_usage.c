@@ -23,7 +23,7 @@
  */
 
 /*
-cc -I/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -arch x86_64 -arch i386 -O -o fs_usage fs_usage.c
+cc -I/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders -DPRIVATE -D__APPLE_PRIVATE -arch x86_64 -arch i386 -O -lutil -o fs_usage fs_usage.c
 */
 
 #include <stdlib.h>
@@ -317,42 +317,46 @@ int		quit();
 
 #define Throttled	0x3010184
 #define SPEC_ioctl	0x3060000
+#define SPEC_unmap_info	0x3060004
 #define proc_exit	0x4010004
 
-#define P_DISKIO	0x03020000
-#define P_DISKIO_DONE	0x03020004
-#define P_DISKIO_TYPE	0x03020068
+#ifndef DKIO_NOCACHE
+#define DKIO_NOCACHE	0x80
+#endif
+
+#define P_DISKIO_READ	  (DKIO_READ << 2)
+#define P_DISKIO_ASYNC	  (DKIO_ASYNC << 2)
+#define P_DISKIO_META	  (DKIO_META << 2)
+#define P_DISKIO_PAGING   (DKIO_PAGING << 2)
+#define P_DISKIO_THROTTLE (DKIO_THROTTLE << 2)
+#define P_DISKIO_PASSIVE  (DKIO_PASSIVE << 2)
+#define P_DISKIO_NOCACHE  (DKIO_NOCACHE << 2)
+
+#define P_DISKIO	(FSDBG_CODE(DBG_DKRW, 0))
+#define P_DISKIO_DONE	(P_DISKIO | (DKIO_DONE << 2))
+#define P_DISKIO_TYPE	(P_DISKIO | P_DISKIO_READ | P_DISKIO_META | P_DISKIO_PAGING)
 #define P_DISKIO_MASK	(CSC_MASK | 0x4)
 
-#define P_DISKIO_READ	  0x00000008
-#define P_DISKIO_ASYNC	  0x00000010
-#define P_DISKIO_META	  0x00000020
-#define P_DISKIO_PAGING   0x00000040
-#define P_DISKIO_THROTTLE 0x00000080
-#define P_DISKIO_PASSIVE  0x00000100
+#define P_WrData	(P_DISKIO)
+#define P_RdData	(P_DISKIO | P_DISKIO_READ)
+#define P_WrMeta	(P_DISKIO | P_DISKIO_META)
+#define P_RdMeta	(P_DISKIO | P_DISKIO_META | P_DISKIO_READ)
+#define P_PgOut		(P_DISKIO | P_DISKIO_PAGING)
+#define P_PgIn		(P_DISKIO | P_DISKIO_PAGING | P_DISKIO_READ)
 
-#define P_WrData	0x03020000
-#define P_RdData	0x03020008
-#define P_WrMeta	0x03020020
-#define P_RdMeta	0x03020028
-#define P_PgOut		0x03020040
-#define P_PgIn		0x03020048
+#define P_CS_Class		0x0a000000	// DBG_CORESTORAGE
+#define P_CS_Type_Mask		0xfffffff0
+#define P_CS_IO_Done		0x00000004
 
-#define P_CS_ReadChunk		0x0a000200
-#define P_CS_ReadChunkDone	0x0a000280
+#define P_CS_ReadChunk		0x0a000200	// chopped up request
 #define P_CS_WriteChunk		0x0a000210
-#define P_CS_WriteChunkDone	0x0a000290
-
-#define P_CS_Originated_Read	0x0a000500
-#define P_CS_Originated_ReadDone   0x0a000580
-#define P_CS_Originated_Write	0x0a000510
-#define P_CS_Originated_WriteDone  0x0a000590
-#define P_CS_MetaRead		0x0a000900
-#define P_CS_MetaReadDone	0x0a000980
-#define P_CS_MetaWrite		0x0a000910
-#define P_CS_MetaWriteDone	0x0a000990
-#define P_CS_SYNC_DISK		0x0a008000
-
+#define P_CS_MetaRead		0x0a000300	// meta data
+#define P_CS_MetaWrite		0x0a000310
+#define P_CS_TransformRead	0x0a000500	// background transform
+#define P_CS_TransformWrite	0x0a000510
+#define P_CS_MigrationRead	0x0a000600	// composite disk block migration
+#define P_CS_MigrationWrite	0x0a000610
+#define P_CS_SYNC_DISK		0x0a010000
 
 #define MSC_map_fd   0x010c00ac
 
@@ -616,11 +620,13 @@ int		quit();
 #define FMT_MMAP	31
 #define FMT_UMASK	32
 #define FMT_SENDFILE	33
-#define FMT_SPEC_IOCTL	34
+#define FMT_IOCTL_SYNC	34
 #define FMT_MOUNT	35
 #define FMT_UNMOUNT	36
 #define FMT_DISKIO_CS	37
 #define FMT_SYNC_DISK_CS	38
+#define FMT_IOCTL_UNMAP	39
+#define FMT_UNMAP_INFO	40
 
 #define MAX_BSD_SYSCALL	512
 
@@ -2409,42 +2415,71 @@ sample_sc()
 			bias_now = now;
 		
 		if ((type & P_DISKIO_MASK) == P_DISKIO) {
-		        insert_diskio(type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4, thread, (double)now);
+			insert_diskio(type, kd[i].arg1, kd[i].arg2, kd[i].arg3, kd[i].arg4, thread, (double)now);
 			continue;
 		}
 		if ((type & P_DISKIO_MASK) == P_DISKIO_DONE) {
-		        if ((dio = complete_diskio(kd[i].arg1, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
-			        print_diskio(dio);
+			if ((dio = complete_diskio(kd[i].arg1, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
+				print_diskio(dio);
 				free_diskio(dio);
 			}
 			continue;
 		}
-		switch (type) {
 
-		case P_CS_ReadChunk:
-		case P_CS_WriteChunk:
-		case P_CS_MetaRead:
-		case P_CS_MetaWrite:
-		    insert_diskio(type, kd[i].arg2, kd[i].arg1, kd[i].arg3, kd[i].arg4, thread, (double)now);
-		    continue;
+		if ((type & CLASS_MASK) == P_CS_Class) {
 
-		case P_CS_Originated_Read:
-		case P_CS_Originated_Write:
-		    insert_diskio(type, kd[i].arg2, CS_DEV, kd[i].arg3, kd[i].arg4, thread, (double)now);
-		    continue;
+		    // the usual DBG_FUNC_START/END does not work for i/o since it will
+		    // return on a different thread, this code uses the P_CS_IO_Done (0x4) bit
+		    // instead. the trace command doesn't know how handle either method
+		    // (unmatched start/end or 0x4) but works a little better this way.
 
-		case P_CS_ReadChunkDone:
-		case P_CS_WriteChunkDone:
-		case P_CS_Originated_ReadDone:
-		case P_CS_Originated_WriteDone:
-		case P_CS_MetaReadDone:
-		case P_CS_MetaWriteDone:
-		    if ((dio = complete_diskio(kd[i].arg2, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
-			    print_diskio(dio);
-			    free_diskio(dio);
+		    int cs_type = type & P_CS_Type_Mask;   // strip out the done bit
+		    bool start = (type & P_CS_IO_Done) != P_CS_IO_Done;
+
+		    switch (cs_type) {
+		    
+		    case P_CS_ReadChunk:
+		    case P_CS_WriteChunk:
+		    case P_CS_MetaRead:
+		    case P_CS_MetaWrite:
+			if (start) {
+			    insert_diskio(cs_type, kd[i].arg2, kd[i].arg1, kd[i].arg3, kd[i].arg4, thread, (double)now);
+			} else {
+			    if ((dio = complete_diskio(kd[i].arg2, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
+				print_diskio(dio);
+				free_diskio(dio);
+			    }
+			}
+			continue;
+
+		    case P_CS_TransformRead:
+		    case P_CS_TransformWrite:
+		    case P_CS_MigrationRead:
+		    case P_CS_MigrationWrite:
+			if (start) {
+			    insert_diskio(cs_type, kd[i].arg2, CS_DEV, kd[i].arg3, kd[i].arg4, thread, (double)now);
+			} else {
+			    if ((dio = complete_diskio(kd[i].arg2, kd[i].arg4, kd[i].arg3, thread, (double)now))) {
+				print_diskio(dio);
+				free_diskio(dio);
+			    }
+			}
+			continue;
+			
+		    case P_CS_SYNC_DISK:
+			if (start) {
+			    enter_event(thread, cs_type, &kd[i], NULL, (double)now);
+			} else {
+			    exit_event("  SyncCacheCS", thread, cs_type, kd[i].arg1, 0, 0, 0, FMT_SYNC_DISK_CS, (double)now);
+			}
+			continue;
 		    }
-		    continue;
-
+		    
+		    continue;	// ignore other cs timestamps
+		}
+		
+		switch (type) {
+		    
 		case TRACE_DATA_NEWTHREAD:
 		    if (kd[i].arg1) {
 			    if ((ti = add_event(thread, TRACE_DATA_NEWTHREAD)) == NULL)
@@ -2593,13 +2628,16 @@ sample_sc()
 		     exit_event("  THROTTLED", thread, type, 0, 0, 0, 0, FMT_DEFAULT, (double)now);
 		     continue;
 
-		case P_CS_SYNC_DISK:
-		     exit_event("  SyncCacheCS", thread, type, kd[i].arg1, 0, 0, 0, FMT_SYNC_DISK_CS, (double)now);
+		case SPEC_unmap_info:
+			if (check_filter_mode(NULL, SPEC_unmap_info, 0, 0, "SPEC_unmap_info"))
+			     format_print(NULL, "  TrimExtent", thread, type, kd[i].arg1, kd[i].arg2, kd[i].arg3, 0, FMT_UNMAP_INFO, now, now, 0, "", NULL);
 		     continue;
 
 		case SPEC_ioctl:
 		     if (kd[i].arg2 == DKIOCSYNCHRONIZECACHE)
-			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_SPEC_IOCTL, (double)now);
+			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_IOCTL_SYNC, (double)now);
+		     else if (kd[i].arg2 == DKIOCUNMAP)
+			     exit_event("IOCTL", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, FMT_IOCTL_UNMAP, (double)now);
 		     else {
 			     if ((ti = find_event(thread, type)))
 				     delete_event(ti);
@@ -3092,7 +3130,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 		        if (dio->io_errno)
 			        clen += printf(" D=0x%8.8x  [%3d]", dio->blkno, dio->io_errno);
 			else
-			        clen += printf(" D=0x%8.8x  B=0x%-6x   /dev/%s", dio->blkno, dio->iosize, find_disk_name(dio->dev));
+			        clen += printf(" D=0x%8.8x  B=0x%-10x /dev/%s", dio->blkno, dio->iosize, find_disk_name(dio->dev));
 			break;
 
 		      case FMT_DISKIO_CS:
@@ -3102,14 +3140,14 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 		        if (dio->io_errno)
 			        clen += printf(" D=0x%8.8x  [%3d]", dio->blkno, dio->io_errno);
 			else
-			        clen += printf(" D=0x%8.8x  B=0x%-6x   /dev/%s", dio->blkno, dio->iosize, generate_cs_disk_name(dio->dev, &cs_diskname[0]));
+			        clen += printf(" D=0x%8.8x  B=0x%-10x /dev/%s", dio->blkno, dio->iosize, generate_cs_disk_name(dio->dev, &cs_diskname[0]));
 			break;
 
 		      case FMT_SYNC_DISK_CS:
 		        /*
 			 * physical disk sync cache
 			 */
-			clen += printf("                            /dev/%s", generate_cs_disk_name(arg1, &cs_diskname[0]));
+			clen += printf("                              /dev/%s", generate_cs_disk_name(arg1, &cs_diskname[0]));
 
 			break;
 
@@ -3276,7 +3314,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 		      case FMT_IOCTL:
 		      {
 			/*
-			 * fcntl
+			 * ioctl
 			 */
 			if (arg1)
 			        clen += printf(" F=%-3d[%3d]", ti->arg1, arg1);
@@ -3288,12 +3326,29 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 			break;
 		      }
 
-		      case FMT_SPEC_IOCTL:
+		      case FMT_IOCTL_SYNC:
 		      {
 			/*
-			 * fcntl
+			 * ioctl
 			 */
-			clen += printf(" <DKIOCSYNCHRONIZECACHE>    /dev/%s", find_disk_name(arg1));
+			clen += printf(" <DKIOCSYNCHRONIZECACHE>      /dev/%s", find_disk_name(arg1));
+
+			break;
+		      }
+
+		      case FMT_IOCTL_UNMAP:
+		      {
+			/*
+			 * ioctl
+			 */
+			clen += printf(" <DKIOCUNMAP>                 /dev/%s", find_disk_name(arg1));
+
+			break;
+		      }
+
+		      case FMT_UNMAP_INFO:
+		      {
+			clen += printf(" D=0x%8.8x  B=0x%-10x /dev/%s", arg2, arg3, find_disk_name(arg1));
 
 			break;
 		      }
@@ -3509,7 +3564,7 @@ format_print(struct th_info *ti, char *sc_name, uintptr_t thread, int type, int 
 			/*
 			 * access
 			 */
-			char mode[4];
+			char mode[5];
 			
 			memset(mode, '_', 4);
 			mode[4] = '\0';
@@ -4545,10 +4600,8 @@ void print_diskio(struct diskio *dio)
 	char  buf[64];
 
 	type = dio->type;
-	
 
-	if (type == P_CS_ReadChunk || type == P_CS_WriteChunk || type == P_CS_Originated_Read ||
-	    type == P_CS_Originated_Write || type == P_CS_MetaRead || type == P_CS_MetaWrite) {
+	if ((type & P_CS_Class) == P_CS_Class) {
 
 		switch (type) {
 
@@ -4572,13 +4625,21 @@ void print_diskio(struct diskio *dio)
 			len = 10;
 			format = FMT_DISKIO_CS;
 			break;
-		case P_CS_Originated_Read:
-			p = "  RdDataCS";
+		case P_CS_TransformRead:
+			p = "  RdBgTfCS";
 			len = 10;
 			break;
-		case P_CS_Originated_Write:
-			p = "  WrDataCS";
+		case P_CS_TransformWrite:
+			p = "  WrBgTfCS";
 			len = 10;
+			break;
+		case P_CS_MigrationRead:
+			p = "  RdBgMigrCS";
+			len = 12;
+			break;
+		case P_CS_MigrationWrite:
+			p = "  WrBgMigrCS";
+			len = 12;
 			break;
 		}
 		strncpy(buf, p, len);
@@ -4617,20 +4678,22 @@ void print_diskio(struct diskio *dio)
 		}
 		strncpy(buf, p, len);
 
-		if (type & (P_DISKIO_ASYNC | P_DISKIO_THROTTLE | P_DISKIO_PASSIVE)) {
-			buf[len++] = '[';
+		buf[len++] = '[';
 		
-			if (type & P_DISKIO_ASYNC) {
-				memcpy(&buf[len], "async", 5);
-				len += 5;
-			}
-			if (type & P_DISKIO_THROTTLE)
-				buf[len++] = 'T';
-			else if (type & P_DISKIO_PASSIVE)
-				buf[len++] = 'P';
+		if (type & P_DISKIO_ASYNC)
+			buf[len++] = 'A';
+		else
+			buf[len++] = 'S';
 
-			buf[len++] = ']';
-		}
+		if (type & P_DISKIO_NOCACHE)
+			buf[len++] = 'N';
+
+		if (type & P_DISKIO_THROTTLE)
+			buf[len++] = 'T';
+		else if (type & P_DISKIO_PASSIVE)
+			buf[len++] = 'P';
+
+		buf[len++] = ']';
 	}
 	buf[len] = 0;
 

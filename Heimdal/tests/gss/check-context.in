@@ -84,6 +84,8 @@ ${kadmin} \
 # add both lucid and lucid.test.h5l.se to simulate aliases
 ${kadmin} add -p p1 --use-defaults host/lucid.test.h5l.se@${R} || exit 1
 ${kadmin} ext -k ${keytab} host/lucid.test.h5l.se@${R} || exit 1
+${kadmin} add -p notp1 --use-defaults CIFS/lucid.test.h5l.se@${R} || exit 1
+${kadmin} ext -k ${keytab} CIFS/lucid.test.h5l.se@${R} || exit 1
 ${kadmin} add -p p1 --use-defaults host/lucid@${R} || exit 1
 ${kadmin} ext -k ${keytab} host/lucid@${R} || exit 1
 
@@ -129,6 +131,28 @@ echo "Getting client initial tickets" ; > ${testdir}/messages.log
 ${kinit} --password-file=${testdir}/foopassword --forwardable user1@${R} || \
 	{ eval "$testfailed"; }
 
+echo "======test acceptor name is service only" ; > ${testdir}/messages.log
+for mech in krb5 spnego; do
+
+	echo "  testing mech $mech"
+
+	${test_context} \
+	    --mech-type=$mech \
+	    --mutual-auth \
+	    --acceptor-name=host \
+	    --name-type=hostbased-service host@lucid.test.h5l.se || \
+		{ eval "$testfailed"; }
+
+	echo "  testing mech $mech (check that it failes for wrong service used)"
+
+	${test_context} \
+	    --mech-type=$mech \
+	    --mutual-auth \
+	    --acceptor-name=CIFS \
+	    --name-type=hostbased-service host@lucid.test.h5l.se && \
+		{ eval "$testfailed"; }
+done
+
 echo "======test unreadable/non existant keytab and its error message" ; > ${testdir}/messages.log
 ${test_context} --mech-type=krb5 host@lucid.test.h5l.se || \
 	{ eval "$testfailed"; }
@@ -144,7 +168,7 @@ echo "checking non existant keytabfile (spengo)" ; > ${testdir}/messages.log
 ${test_context} --mech-type=spnego host@lucid.test.h5l.se > ${testdir}/test_context.log 2>&1 && \
 	{ eval "$testfailed"; }
 grep ${keytabfile} ${testdir}/test_context.log > /dev/null || \
-	{ echo "string missing failed"; cat test_context.log ; eval "$testfailed"; }
+	{ echo "string missing failed"; cat ${testdir}/test_context.log ; eval "$testfailed"; }
 
 mv ${keytabfile}.no ${keytabfile}
 
@@ -249,7 +273,12 @@ for mech in krb5 spnego; do
 		--mech-type=$mech host@lucid.test.h5l.se || \
 		{ eval "$testfailed"; }
 
-	echo "${mech}: acceptor_identity negative" ; > ${testdir}/messages.log
+	echo "${mech}: acceptor_identity positive (prefix)" ; > messages.log
+	${test_context} --gsskrb5-acceptor-identity=FILE:${keytabfile}.new \
+		--mech-type=$mech host@lucid.test.h5l.se || \
+		{ eval "$testfailed"; }
+
+	echo "${mech}: acceptor_identity negative" ; > messages.log
 	${test_context} --gsskrb5-acceptor-identity=${keytabfile}.foo \
 		--mech-type=$mech host@lucid.test.h5l.se 2>/dev/null && \
 		{ eval "$testfailed"; }
@@ -284,7 +313,7 @@ ${test_context} \
     --name-type=hostbased-service host@no-aes.test.h5l.se || \
 	{ eval "$testfailed"; }
 
-echo "Building context on cred, check if its limited still" ; > ${testdir}/messages.log
+echo "Building context on cred, check if its limited still to ${limit_enctype}" ; > ${testdir}/messages.log
 ${test_context} \
     --mech-type=krb5 \
     --client-name=user1@${R} \

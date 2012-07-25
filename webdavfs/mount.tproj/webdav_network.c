@@ -3853,10 +3853,12 @@ CFHTTPMessageCreateRequest:
 						}
 						if ( field_value != NULL )
 						{
-							file_entity_tag = malloc(strlen(field_value) + 1);
+							size_t	len = strlen(field_value) + 1;
+
+							file_entity_tag = malloc(len);
 							if ( file_entity_tag != NULL )
 							{
-								strcpy(file_entity_tag, field_value);
+								strlcpy(file_entity_tag, field_value, len);
 								if ( node->file_entity_tag != NULL )
 								{
 									free(node->file_entity_tag);
@@ -4104,10 +4106,12 @@ static void add_last_mod_etag(CFHTTPMessageRef responseRef, time_t *file_last_mo
 		}
 		if ( field_value != NULL )
 		{
-			*file_entity_tag = malloc(strlen(field_value) + 1);
+			size_t	len = strlen(field_value) + 1;
+
+			*file_entity_tag = malloc(len);
 			if ( *file_entity_tag != NULL )
 			{
-				strcpy(*file_entity_tag, field_value);
+				strlcpy(*file_entity_tag, field_value, len);
 			}
 		}
 		CFRelease(headerRef);
@@ -4352,7 +4356,7 @@ void network_seqwrite_manager(struct stream_put_ctx *ctx)
 	
 	// generate a unique msg port name
 	char msgPortName[WRITE_MGR_MSG_PORT_NAME_BUFSIZE];
-	sprintf(msgPortName, WRITE_MGR_MSG_PORT_NAME_TEMPLATE, WRITE_MGR_MSG_PORT_NAME_BASE_STRING, getpid(), (void*)ctx);
+	snprintf(msgPortName, WRITE_MGR_MSG_PORT_NAME_BUFSIZE, WRITE_MGR_MSG_PORT_NAME_TEMPLATE, WRITE_MGR_MSG_PORT_NAME_BASE_STRING, getpid(), (void*)ctx);
 	msgPortNameString = CFStringCreateWithBytes(kCFAllocatorDefault,
 												(uint8_t*)msgPortName,
 												strlen(msgPortName),

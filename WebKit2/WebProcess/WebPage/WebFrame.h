@@ -28,6 +28,7 @@
 
 #include "APIObject.h"
 #include "ImmutableArray.h"
+#include "WKBase.h"
 #include "WebFrameLoaderClient.h"
 #include <JavaScriptCore/JSBase.h>
 #include <WebCore/FrameLoaderClient.h>
@@ -36,6 +37,7 @@
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/RetainPtr.h>
 
 namespace WebCore {
     class Frame;
@@ -71,7 +73,7 @@ public:
     void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t downloadID);
 
     void startDownload(const WebCore::ResourceRequest&);
-    void convertHandleToDownload(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest& initialRequest, const WebCore::ResourceResponse&);
+    void convertHandleToDownload(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     String source() const;
     String contentsAsString() const;
@@ -85,6 +87,7 @@ public:
     String url() const;
     String innerText() const;
     bool isFrameSet() const;
+    WebFrame* parentFrame() const;
     PassRefPtr<ImmutableArray> childFrames();
     JSValueRef computedStyleIncludingVisitedInfo(JSObjectRef element);
     JSGlobalContextRef jsContext();
@@ -108,6 +111,7 @@ public:
 
     unsigned numberOfActiveAnimations() const;
     bool pauseAnimationOnElementWithId(const String& animationName, const String& elementID, double time);
+    bool pauseTransitionOnElementWithId(const String& propertyName, const String& elementID, double time);
     void suspendAnimations();
     void resumeAnimations();
     String layerTreeAsText() const;
@@ -120,6 +124,8 @@ public:
     String suggestedFilenameForResourceWithURL(const WebCore::KURL&) const;
     String mimeTypeForResourceWithURL(const WebCore::KURL&) const;
 
+    void setTextDirection(const String&);
+
     // Simple listener class used by plug-ins to know when frames finish or fail loading.
     class LoadListener {
     public:
@@ -130,6 +136,11 @@ public:
     };
     void setLoadListener(LoadListener* loadListener) { m_loadListener = loadListener; }
     LoadListener* loadListener() const { return m_loadListener; }
+    
+#if PLATFORM(MAC) || PLATFORM(WIN)
+    typedef bool (*FrameFilterFunction)(WKBundleFrameRef, WKBundleFrameRef subframe, void* context);
+    RetainPtr<CFDataRef> webArchiveData(FrameFilterFunction, void* context);
+#endif
 
 private:
     static PassRefPtr<WebFrame> create();

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -33,10 +33,22 @@
  * if path==0 then the space is malloc'd
  */
 
+#define _AST_API_H	1
+
 #include <ast.h>
 
 char*
-pathpath(register char* path, const char* p, const char* a, int mode)
+pathpath(char* path, const char* p, const char* a, int mode)
+{
+	return pathpath_20100601(p, a, mode, path, PATH_MAX);
+}
+
+#undef	_AST_API_H
+
+#include <ast_api.h>
+
+char*
+pathpath_20100601(const char* p, const char* a, int mode, register char* path, size_t size)
 {
 	register char*	s;
 	char*		x;
@@ -53,7 +65,7 @@ pathpath(register char* path, const char* p, const char* a, int mode)
 		cmd = a ? strdup(a) : (char*)0;
 		return 0;
 	}
-	if (strlen(p) < PATH_MAX)
+	if (strlen(p) < size)
 	{
 		strcpy(path, p);
 		if (pathexists(path, mode))
@@ -95,7 +107,7 @@ pathpath(register char* path, const char* p, const char* a, int mode)
 					strcpy(s + 1, "bin");
 					if (pathexists(path, PATH_EXECUTE))
 					{
-						if (s = pathaccess(path, path, p, a, mode))
+						if (s = pathaccess(path, p, a, mode, path, size))
 							return path == buf ? strdup(s) : s;
 						goto normal;
 					}
@@ -105,7 +117,7 @@ pathpath(register char* path, const char* p, const char* a, int mode)
 		}
 	}
 	x = !a && strchr(p, '/') ? "" : pathbin();
-	if (!(s = pathaccess(path, x, p, a, mode)) && !*x && (x = getenv("FPATH")))
-		s = pathaccess(path, x, p, a, mode);
+	if (!(s = pathaccess(x, p, a, mode, path, size)) && !*x && (x = getenv("FPATH")))
+		s = pathaccess(x, p, a, mode, path, size);
 	return (s && path == buf) ? strdup(s) : s;
 }

@@ -158,7 +158,9 @@ rtsp-ipv6
 imap
 pop3
 smtp
-http+tls-srp
+httptls+srp
+httptls+srp-ipv6
+http-proxy
 
 Give only one per line.  This subsection is mandatory.
 </server>
@@ -176,13 +178,14 @@ idn
 ipv6
 large_file
 libz
-netrc_debug
 NSS
 NTLM
 OpenSSL
 SSL
 socks
 unittest
+debug
+TLS-SRP
 
 as well as each protocol that curl supports.  A protocol only needs to be
 specified if it is different from the server (useful when the server
@@ -228,7 +231,8 @@ command is run. They are cleared again after the command has been run.
 Variables are first substituted as in the <command> section.
 </setenv>
 
-<command [option="no-output"] [timeout="secs"] [delay="secs"] [type="perl"]>
+<command [option="no-output/no-include"] [timeout="secs"] [delay="secs"]
+         [type="perl"]>
 command line to run, there's a bunch of %variables that get replaced
 accordingly.
 
@@ -248,6 +252,9 @@ Set option="no-output" to prevent the test script to slap on the --output
 argument that directs the output to a file. The --output is also not added if
 the verify/stdout section is used.
 
+Set option="no-include" to prevent the test script to slap on the --include
+argument.
+
 Set timeout="secs" to override default server logs advisor read lock timeout.
 This timeout is used by the test harness, once that the command has completed
 execution, to wait for the test server to write out server side log files and
@@ -265,10 +272,11 @@ Available substitute variables include:
 %CLIENTIP   - IPv4 address of the client running curl
 %CLIENT6IP  - IPv6 address of the client running curl
 %HOSTIP    - IPv4 address of the host running this test
-%HOSTPORT  - Port number of the HTTP server
+%HTTPPORT  - Port number of the HTTP server
 %HOST6IP   - IPv6 address of the host running this test
-%HOST6PORT - IPv6 port number of the HTTP server
+%HTTP6PORT - IPv6 port number of the HTTP server
 %HTTPSPORT - Port number of the HTTPS server
+%PROXYPORT - Port number of the HTTP proxy
 %FTPPORT   - Port number of the FTP server
 %FTP6PORT  - IPv6 port number of the FTP server
 %FTPSPORT  - Port number of the FTPS server
@@ -315,12 +323,26 @@ changing protocol data such as port numbers or user-agent strings.
 One perl op per line that operates on the protocol dump. This is pretty
 advanced. Example: "s/^EPRT .*/EPRT stripped/"
 </strippart>
+
 <protocol [nonewline="yes"]>
-the protocol dump curl should transmit, if 'nonewline' is set, we will cut
-off the trailing newline of this given data before comparing with the one
-actually sent by the client
-Variables are substituted as in the <command> section.
+
+the protocol dump curl should transmit, if 'nonewline' is set, we will cut off
+the trailing newline of this given data before comparing with the one actually
+sent by the client Variables are substituted as in the <command> section.  The
+<strip> and <strippart> rules are applied before comparisons are made.
+
 </protocol>
+
+<proxy [nonewline="yes"]>
+
+The protocol dump curl should transmit to a HTTP proxy (when the http-proxy
+server is used), if 'nonewline' is set, we will cut off the trailing newline
+of this given data before comparing with the one actually sent by the client
+Variables are substituted as in the <command> section. The <strip> and
+<strippart> rules are applied before comparisons are made.
+
+</proxy>
+
 <stdout [mode="text"] [nonewline="yes"]>
 This verifies that this data was passed to stdout.  Variables are
 substituted as in the <command> section.

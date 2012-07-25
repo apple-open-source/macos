@@ -85,6 +85,23 @@
 #define USE_DISKARBITRATION		0
 #endif
 
+/*
+ * Internal support for EFI routines shared between tool & library.
+ */
+int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
+                 int bootLegacy, const char *legacyHint, 
+				 const char *optionalData, bool shortForm);
+int setefifilepath(BLContextPtr context, const char * path, int bootNext,
+                                   const char *optionalData, bool shortForm);
+int setefinetworkpath(BLContextPtr context, CFStringRef booterXML,
+                      CFStringRef kernelXML, CFStringRef mkextXML,
+					  CFStringRef kernelcacheXML, int bootNext);
+int efinvramcleanup(BLContextPtr context);
+int setit(BLContextPtr context, mach_port_t masterPort, const char *bootvar,
+		  CFStringRef xmlstring);
+int _forwardNVRAM(BLContextPtr context, CFStringRef from, CFStringRef to);
+
+
 /* Calculate a shift-1-left & add checksum of all
  * 32-bit words
  */
@@ -94,7 +111,7 @@ uint32_t BLBlockChecksum(const void *buf , uint32_t length);
  * write the CFData to a file
  */
 int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
-	     const char * dest, int shouldPreallocate);
+	     				 const char * dest, int shouldPreallocate);
 
 /*
  * convert to a char * description

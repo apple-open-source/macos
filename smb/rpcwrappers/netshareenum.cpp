@@ -121,6 +121,8 @@ static void addShareToDictionary(SMBHANDLE inConnection,
 								 u_int16_t shareType, struct statfs *fs, int fs_cnt)
 {
 	CFMutableDictionaryRef currDict = NULL;
+	CFRange				foundSlash;
+	CFRange				foundPercentSign;
 	
 	if (shareName == NULL) {
 		return;
@@ -175,6 +177,21 @@ static void addShareToDictionary(SMBHANDLE inConnection,
 			break;
 	}
 	CFDictionarySetValue (currDict, kNetFSHasPasswordKey, kCFBooleanFalse);
+    
+    /* Check for a '/' or '%' in the share name */
+    foundSlash = CFStringFind (shareName, CFSTR("/"), 0);
+    foundPercentSign = CFStringFind (shareName, CFSTR("%"), 0);
+    if ( (foundSlash.location != kCFNotFound) || (foundPercentSign.location != kCFNotFound) ) {
+        /* found a '/' or '%' in the name, so set a disply name to be used */
+        CFDictionarySetValue (currDict, kNetFSDisplayNameKey, shareName);
+        
+        /* escape the vol name to get '/' converted to %2f and '%' to %25 */
+        shareName = CFURLCreateStringByAddingPercentEscapes(NULL, shareName, NULL, CFSTR("/%"), kCFStringEncodingUTF8);
+        
+        /* re-escape it leaving the '/' as %2f and '%' as %25 */
+        shareName = CFURLCreateStringByReplacingPercentEscapesUsingEncoding(NULL, shareName, CFSTR("/%"), kCFStringEncodingUTF8);
+    }
+    
 	CFDictionarySetValue (shareDict, shareName, currDict);
 	CFRelease (currDict);
 }
@@ -209,8 +226,7 @@ int smb_netshareenum(SMBHANDLE inConnection, CFDictionaryRef *outDict,
 		goto done;
 	}
 	/* Only use RPC if the server supports DCE/RPC and UNICODE */
-	if ((properties.capabilities & SMB_CAP_RPC_REMOTE_APIS) && 
-		(properties.capabilities & SMB_CAP_UNICODE)) {
+	if (properties.capabilities & SMB_CAP_RPC_REMOTE_APIS) {
 		PSHARE_ENUM_STRUCT InfoStruct = NULL;
 		NET_API_STATUS api_status;
 		

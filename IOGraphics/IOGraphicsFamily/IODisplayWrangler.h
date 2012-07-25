@@ -38,50 +38,21 @@ private:
     OSSet *     fFramebuffers;
     OSSet *     fDisplays;
 
-    // from control panel: number of idle minutes before dimming
+    // from control panel: number of idle minutes before going off
     UInt32      fMinutesToDim;
     // false: use minutesToDim unless in emergency situation
     bool        fDimCaptured;
+    bool        fAnnoyed;
 
     unsigned long fPendingPowerState;
 
     // ignore activity until time
-    AbsoluteTime fIdleUntil;
+    AbsoluteTime  fIdleUntil;
+    // annoyed wake until time
+    AbsoluteTime  fAnnoyanceUntil;
 
-    struct annoyance_event_t
-    {
-            UInt64 dim_time_secs;
-            UInt64 wake_time_secs;
-            UInt32 penalty;
-    };
-    
-    struct annoyance_cap_t
-    {
-            UInt32 cutoff_time_secs;
-            int cutoff_points;
-    };
-    
-    struct annoyance_penalty_t
-    {
-            UInt32 time_secs;
-            int penalty_points;
-    };
-    
-    UInt64                fLastWakeTime_secs;
-    UInt64                fLastDimTime_secs;    
-
-    int                   fAnnoyanceEventArrayLength;
-    annoyance_event_t   * fAnnoyanceEventArray;
-    int                   fAnnoyanceEventArrayQHead;
-
-    int                   fAnnoyanceCapsArrayLength;
-    annoyance_cap_t     * fAnnoyanceCapsArray;
-
-    int                   fAnnoyancePenaltiesArrayLength;
-    annoyance_penalty_t * fAnnoyancePenaltiesArray;
-
-    UInt32                fIdleTimeoutMin;
-    UInt32                fIdleTimeoutMax;
+    AbsoluteTime  fDimInterval;
+    AbsoluteTime  fOffInterval[2];
 
 private:
 
@@ -124,24 +95,8 @@ public:
                 IODisplayModeID mode, UInt32 * flags );
    
     // Adaptive Dimming methods
-    virtual UInt32 calculate_idle_timer_period(int powerState);
-    virtual void record_if_annoyance();
-    virtual UInt32 calculate_penalty( UInt32 time_between_dim_and_wake_secs );
-    virtual UInt64 calculate_latest_veto_till_time( UInt64 current_time_ns );
-    virtual UInt64 calculate_earliest_time_idle_timeout_allowed( 
-            UInt64 current_time_ns, UInt64 last_activity_secs, int powerState );
     virtual SInt32 nextIdleTimeout(AbsoluteTime currentTime, 
         AbsoluteTime lastActivity, unsigned int powerState);
-
-private:
-    void enqueueAnnoyance( UInt64 dim_time_secs, UInt64 wake_time_secs, UInt32 penalty );
-    annoyance_event_t * getNthAnnoyance( int i );
-    static UInt32 staticAnnoyanceEventArrayLength;
-    static annoyance_event_t staticAnnoyanceEventArray[];
-    static UInt32 staticAnnoyanceCapsArrayLength;
-    static annoyance_cap_t staticAnnoyanceCapsArray[];
-    static UInt32 staticAnnoyancePenaltiesArrayLength;
-    static annoyance_penalty_t staticAnnoyancePenaltiesArray[];
 
 public:
     virtual IOReturn setProperties( OSObject * properties );

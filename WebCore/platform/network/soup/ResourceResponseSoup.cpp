@@ -21,7 +21,7 @@
 #include "config.h"
 #include "ResourceResponse.h"
 
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "PlatformString.h"
@@ -67,18 +67,20 @@ void ResourceResponse::updateFromSoupMessage(SoupMessage* soupMessage)
 
     soup_message_headers_iter_init(&headersIter, soupMessage->response_headers);
     while (soup_message_headers_iter_next(&headersIter, &headerName, &headerValue))
-        m_httpHeaderFields.set(String::fromUTF8(headerName), String::fromUTF8(headerValue));
+        m_httpHeaderFields.set(String::fromUTF8(headerName),
+                               String::fromUTF8WithLatin1Fallback(headerValue, strlen(headerValue)));
 
     m_soupFlags = soup_message_get_flags(soupMessage);
 
     String contentType;
-    if (sniffedContentType().isEmpty())
-        contentType = soup_message_headers_get_one(soupMessage->response_headers, "Content-Type");
+    const char* officialType = soup_message_headers_get_one(soupMessage->response_headers, "Content-Type");
+    if (!m_sniffedContentType.isEmpty() && m_sniffedContentType != officialType)
+        contentType = m_sniffedContentType;
     else
-        contentType = this->sniffedContentType();
+        contentType = officialType;
     setMimeType(extractMIMETypeFromMediaType(contentType));
-
     setTextEncodingName(extractCharsetFromMediaType(contentType));
+
     setExpectedContentLength(soup_message_headers_get_content_length(soupMessage->response_headers));
     setHTTPStatusText(soupMessage->reason_phrase);
     setSuggestedFilename(filenameFromHTTPContentDisposition(httpHeaderField("Content-Disposition")));

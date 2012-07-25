@@ -28,6 +28,7 @@
     || defined(FREEBSD8) \
     || defined(BSDI2) || defined(BSDI3) || defined(BSDI4) \
     || defined(OPENBSD2) || defined(OPENBSD3) || defined(OPENBSD4) \
+    || defined(OPENBSD5) \
     || defined(NETBSD1) || defined(NETBSD2) || defined(NETBSD3) \
     || defined(NETBSD4) \
     || defined(EKKOBSD1)
@@ -111,7 +112,8 @@
 #define HAS_DUPLEX_PIPE			/* 4.1 breaks with kqueue(2) */
 #endif
 
-#if __FreeBSD_version >= 800107		/* safe; don't believe the experts */
+#if (__FreeBSD_version >= 702104 && __FreeBSD_version <= 800000) \
+    || __FreeBSD_version >= 800100
 #define HAS_CLOSEFROM
 #endif
 
@@ -186,6 +188,14 @@
 # endif
 #endif
 
+#ifndef NO_POSIX_GETPW_R
+# if (defined(__FreeBSD_version) && __FreeBSD_version >= 510000) \
+    || (defined(__NetBSD_Version__) && __NetBSD_Version__ >= 300000000) \
+    || (defined(OpenBSD) && OpenBSD >= 200811)	/* OpenBSD 4.4 */
+#  define HAVE_POSIX_GETPW_R
+# endif
+#endif
+
 #endif
 
  /*
@@ -212,7 +222,7 @@
 #define USE_STATFS
 #define STATFS_IN_SYS_MOUNT_H
 #define HAS_POSIX_REGEXP
-/*
+/* APPLE
 #define NORETURN	void
 #define PRINTFLIKE(x,y)
 #define SCANFLIKE(x,y)
@@ -235,6 +245,9 @@
 #ifndef NO_KQUEUE
 # define EVENTS_STYLE	EVENTS_STYLE_KQUEUE
 # define USE_SYSV_POLL
+#endif
+#ifndef NO_POSIX_GETPW_R
+# define HAVE_POSIX_GETPW_R
 #endif
 
 #endif
@@ -276,7 +289,9 @@ extern int opterr;
 extern int h_errno;
 
 #define MISSING_STRFTIME_E
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/etc:/usr/etc:/usr/ucb"
 #define USE_STATFS
@@ -316,7 +331,9 @@ extern int optind;			/* XXX use <getopt.h> */
 extern char *optarg;			/* XXX use <getopt.h> */
 extern int opterr;			/* XXX use <getopt.h> */
 
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
 #define USE_STATFS
@@ -361,7 +378,9 @@ extern int optind;
 extern char *optarg;
 extern int opterr;
 
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/etc:/usr/etc:/usr/ucb"
 #define USE_STATFS
@@ -401,8 +420,10 @@ extern int opterr;
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/mail/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
 #define HAS_NISPLUS
+#endif
 #define USE_SYS_SOCKIO_H		/* Solaris 2.5, changed sys/ioctl.h */
 #define GETTIMEOFDAY(t)	gettimeofday(t)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
@@ -444,6 +465,10 @@ extern int opterr;
 #ifndef NO_DEVPOLL
 # define EVENTS_STYLE	EVENTS_STYLE_DEVPOLL
 #endif
+#ifndef NO_POSIX_GETPW_R
+# define HAVE_POSIX_GETPW_R
+# define GETPW_R_NEEDS_POSIX_PTHREAD_SEMANTICS
+#endif
 
 /*
  * Allow build environment to override paths.
@@ -475,7 +500,9 @@ extern int opterr;
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/mail/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define USE_SYS_SOCKIO_H
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
@@ -504,8 +531,9 @@ extern int opterr;
 #define HAS_DBM
 #define DEF_DB_TYPE     "dbm"
 #define ALIAS_DB_MAP    "dbm:/etc/mail/aliases"
-/* Uncomment the following line if you have NIS package installed
+#ifndef NO_NIS
 #define HAS_NIS */
+#endif
 #define USE_SYS_SOCKIO_H
 #define GETTIMEOFDAY(t) gettimeofday(t,NULL)
 #define ROOT_PATH       "/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
@@ -519,7 +547,7 @@ extern int opterr;
   * AIX: a SYSV-flavored hybrid. NB: fcntl() and flock() access the same
   * underlying locking primitives.
   */
-#ifdef AIX5
+#if defined(AIX5) || defined(AIX6)
 #define SUPPORTED
 #include <sys/types.h>
 #define UINT32_TYPE	unsigned int
@@ -546,7 +574,9 @@ extern int opterr;
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define HAS_SA_LEN
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
@@ -598,7 +628,9 @@ extern int opterr;
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define HAS_SA_LEN
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define RESOLVE_H_NEEDS_STDIO_H
@@ -642,7 +674,9 @@ extern int initgroups(const char *, int);
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define HAS_SA_LEN
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define RESOLVE_H_NEEDS_STDIO_H
@@ -682,7 +716,9 @@ extern int initgroups(const char *, int);
 #define HAS_DBM
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define USE_SYS_SOCKIO_H		/* XXX check */
 #define GETTIMEOFDAY(t)	gettimeofday(t)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/bsd"
@@ -709,7 +745,7 @@ extern int initgroups(const char *, int);
  /*
   * LINUX.
   */
-#ifdef LINUX2
+#if defined(LINUX2) || defined(LINUX3)
 #define SUPPORTED
 #include <sys/types.h>
 #define UINT32_TYPE	unsigned int
@@ -724,7 +760,9 @@ extern int initgroups(const char *, int);
 #define HAS_DB
 #define DEF_DB_TYPE	"hash"
 #define ALIAS_DB_MAP	"hash:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin"
 #define FIONREAD_IN_TERMIOS_H
@@ -773,6 +811,16 @@ extern int initgroups(const char *, int);
 # define EVENTS_STYLE	EVENTS_STYLE_EPOLL	/* introduced in 2.5 */
 #endif
 #define USE_SYSV_POLL
+#ifndef NO_POSIX_GETPW_R
+# if (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 1) \
+	|| (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 1) \
+	|| (defined(_BSD_SOURCE) && _BSD_SOURCE >= 1) \
+	|| (defined(_SVID_SOURCE) && _SVID_SOURCE >= 1) \
+	|| (defined(_POSIX_SOURCE) && _POSIX_SOURCE >= 1)
+#  define HAVE_POSIX_GETPW_R
+# endif
+#endif
+
 #endif
 
 #ifdef LINUX1
@@ -789,7 +837,9 @@ extern int initgroups(const char *, int);
 #define HAS_DB
 #define DEF_DB_TYPE	"hash"
 #define ALIAS_DB_MAP	"hash:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin"
 #define FIONREAD_IN_TERMIOS_H		/* maybe unnecessary */
@@ -821,7 +871,9 @@ extern int initgroups(const char *, int);
 #define HAS_DB
 #define DEF_DB_TYPE	"hash"
 #define ALIAS_DB_MAP	"hash:/etc/aliases"
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin"
 #define FIONREAD_IN_TERMIOS_H
@@ -887,7 +939,9 @@ extern int initgroups(const char *, int);
 #define ALIAS_DB_MAP	"dbm:/etc/mail/aliases"
 #define ROOT_PATH	"/usr/bin:/sbin:/usr/sbin"
 #define MISSING_SETENV
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define _PATH_BSHELL	"/bin/sh"
 #define _PATH_MAILDIR	"/var/mail"
@@ -924,7 +978,9 @@ extern int h_errno;			/* <netdb.h> imports too much stuff */
 #define ALIAS_DB_MAP	"dbm:/etc/mail/aliases"
 #define ROOT_PATH	"/usr/bin:/sbin:/usr/sbin"
 #define MISSING_SETENV
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define _PATH_BSHELL	"/bin/sh"
 #define _PATH_MAILDIR	"/var/mail"
@@ -957,7 +1013,9 @@ extern int h_errno;			/* <netdb.h> imports too much stuff */
 #define INTERNAL_LOCK	MYFLOCK_STYLE_FCNTL
 #define DEF_MAILBOX_LOCK "fcntl, dotlock"
 #define HAS_FSYNC
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define MISSING_SETENV
 #define MISSING_RLIMIT_FSIZE
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
@@ -1000,7 +1058,9 @@ extern int h_errno;
 #define HAVE_SYS_DIR_H
 #define STATFS_IN_SYS_VFS_H
 #define HAS_FSYNC
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define HAS_NETINFO
 #define MISSING_SETENV_PUTENV
 #define MISSING_MKFIFO
@@ -1053,7 +1113,9 @@ typedef unsigned short mode_t;
 #define HAVE_SYS_DIR_H
 #define STATFS_IN_SYS_VFS_H
 #define HAS_FSYNC
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define HAS_NETINFO
 #define MISSING_SETENV_PUTENV
 #define MISSING_MKFIFO
@@ -1115,7 +1177,9 @@ extern int optind;			/* XXX use <getopt.h> */
 extern char *optarg;			/* XXX use <getopt.h> */
 extern int opterr;			/* XXX use <getopt.h> */
 
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t) gettimeofday(t)
 #define ROOT_PATH	"/bin:/usr/bin:/sbin:/usr/sbin:/usr/ucb"
 #define USE_STATVFS
@@ -1173,7 +1237,9 @@ extern int h_errno;
 #define DEF_DB_TYPE	"dbm"
 #define ALIAS_DB_MAP	"dbm:/etc/mail/aliases"
 #define DBM_NO_TRAILING_NULL
+#ifndef NO_NIS
 #define HAS_NIS
+#endif
 #define GETTIMEOFDAY(t)	gettimeofday(t,(struct timezone *) 0)
 #define ROOT_PATH	"/bin:/etc:/usr/bin:/tcb/bin"
 #define USE_STATVFS
@@ -1312,10 +1378,15 @@ extern int inet_pton(int, const char *, void *);
 #endif
 
  /*
-  * Defaults for all systems.
+  * The Postfix 2.9 post-install workaround assumes that the inet_protocols
+  * default value is "ipv4" when Postfix is compiled without IPv6 support.
   */
 #ifndef DEF_INET_PROTOCOLS
-#define DEF_INET_PROTOCOLS	"ipv4"
+#ifdef HAS_IPV6
+#define DEF_INET_PROTOCOLS	INET_PROTO_NAME_ALL
+#else
+#define DEF_INET_PROTOCOLS	INET_PROTO_NAME_IPV4
+#endif
 #endif
 
  /*
@@ -1357,6 +1428,14 @@ extern int inet_pton(int, const char *, void *);
 typedef int WAIT_STATUS_T;
 
 #define NORMAL_EXIT_STATUS(status)	((status) == 0)
+#endif
+
+#ifdef NO_POSIX_GETPW_R
+#undef HAVE_POSIX_GETPW_R
+#endif
+
+#ifdef NO_DB
+#undef HAS_DB
 #endif
 
 #ifndef OCTAL_TO_UNSIGNED
@@ -1548,6 +1627,9 @@ typedef int pid_t;
   * Bit banging!! There is no official constant that defines the INT_MAX
   * equivalent of the off_t type. Wietse came up with the following macro
   * that works as long as off_t is some two's complement number.
+  * 
+  * Note, however, that C99 permits signed integer representations other than
+  * two's complement.
   */
 #include <limits.h>
 #define __MAXINT__(T) ((T) (((((T) 1) << ((sizeof(T) * CHAR_BIT) - 1)) ^ ((T) -1))))

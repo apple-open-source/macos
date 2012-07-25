@@ -260,7 +260,6 @@ xdr_send_request(krb5_context context,
 	sret = krb5_storage_write(msg, out->data, out->length);
 	INSIST(sret == out->length);
     } else if (client->inprogress) {
-	ssize_t sret;
 	client->inprogress = 0;
 	sret = krb5_storage_write(msg, out->data, out->length);
 	INSIST(sret == out->length);
@@ -414,8 +413,10 @@ xdr_process_request(krb5_context context,
 static kadm5_ret_t
 kadm5_mit_chpass_principal(void *server_handle,
 			   krb5_principal principal,
+			   int keepold,
 			   const char *password,
-			   krb5_enctype *enctypes)
+			   int n_ks_tuple,
+			   krb5_key_salt_tuple *ks_tuple)
 {
     kadm5_mit_context *context = server_handle;
     krb5_set_error_message(context->context, KADM5_RPC_ERROR,
@@ -426,6 +427,7 @@ kadm5_mit_chpass_principal(void *server_handle,
 static kadm5_ret_t
 kadm5_mit_chpass_principal_with_key(void *server_handle,
 				    krb5_principal princ,
+				    int keepold,
 				    int n_key_data,
 				    krb5_key_data *key_data)
 {
@@ -440,7 +442,8 @@ kadm5_mit_create_principal(void *server_handle,
 			   kadm5_principal_ent_t entry,
 			   uint32_t mask,
 			   const char *password,
-			   krb5_enctype *enctypes)
+			   int n_ks_tuple,
+			   krb5_key_salt_tuple *ks_tuple)
 {
     kadm5_mit_context *context = server_handle;
     krb5_storage *sp = NULL;
@@ -653,7 +656,9 @@ kadm5_mit_rename_principal(void *server_handle,
 static kadm5_ret_t
 kadm5_mit_randkey_principal(void *server_handle,
 			    krb5_principal principal,
-			    krb5_enctype *enctypes,
+			    krb5_boolean keepold,
+			    int n_ks_tuple,
+			    krb5_key_salt_tuple *ks_tuple,
 			    krb5_keyblock **keys,
 			    int *n_keys)
 {

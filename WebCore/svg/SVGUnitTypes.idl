@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGUnitTypes {
+    interface [
+        Conditional=SVG
+    ] SVGUnitTypes {
         // Unit Types
         const unsigned short SVG_UNIT_TYPE_UNKNOWN           = 0;
         const unsigned short SVG_UNIT_TYPE_USERSPACEONUSE    = 1;

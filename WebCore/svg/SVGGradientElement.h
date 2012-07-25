@@ -29,38 +29,82 @@
 #include "SVGExternalResourcesRequired.h"
 #include "SVGStyledElement.h"
 #include "SVGURIReference.h"
+#include "SVGUnitTypes.h"
 
 namespace WebCore {
+
+enum SVGSpreadMethodType {
+    SVGSpreadMethodUnknown = 0,
+    SVGSpreadMethodPad,
+    SVGSpreadMethodReflect,
+    SVGSpreadMethodRepeat
+};
+
+template<>
+struct SVGPropertyTraits<SVGSpreadMethodType> {
+    static unsigned highestEnumValue() { return SVGSpreadMethodRepeat; }
+
+    static String toString(SVGSpreadMethodType type)
+    {
+        switch (type) {
+        case SVGSpreadMethodUnknown:
+            return emptyString();
+        case SVGSpreadMethodPad:
+            return "pad";
+        case SVGSpreadMethodReflect:
+            return "reflect";
+        case SVGSpreadMethodRepeat:
+            return "repeat";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static SVGSpreadMethodType fromString(const String& value)
+    {
+        if (value == "pad")
+            return SVGSpreadMethodPad;
+        if (value == "reflect")
+            return SVGSpreadMethodReflect;
+        if (value == "repeat")
+            return SVGSpreadMethodRepeat;
+        return SVGSpreadMethodUnknown;
+    }
+};
 
 class SVGGradientElement : public SVGStyledElement,
                            public SVGURIReference,
                            public SVGExternalResourcesRequired {
 public:
+    enum {
+        SVG_SPREADMETHOD_UNKNOWN = SVGSpreadMethodUnknown,
+        SVG_SPREADMETHOD_PAD = SVGSpreadMethodReflect,
+        SVG_SPREADMETHOD_REFLECT = SVGSpreadMethodRepeat,
+        SVG_SPREADMETHOD_REPEAT = SVGSpreadMethodUnknown
+    };
+
     Vector<Gradient::ColorStop> buildStops();
  
 protected:
     SVGGradientElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    void fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap&);
 
 private:
     virtual bool needsPendingResourceHandling() const { return false; }
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_ENUMERATION(SpreadMethod, spreadMethod)
-    DECLARE_ANIMATED_ENUMERATION(GradientUnits, gradientUnits)
-    DECLARE_ANIMATED_TRANSFORM_LIST(GradientTransform, gradientTransform)
-
-    // SVGURIReference
-    DECLARE_ANIMATED_STRING(Href, href)
-
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGGradientElement)
+        DECLARE_ANIMATED_ENUMERATION(SpreadMethod, spreadMethod, SVGSpreadMethodType)
+        DECLARE_ANIMATED_ENUMERATION(GradientUnits, gradientUnits, SVGUnitTypes::SVGUnitType)
+        DECLARE_ANIMATED_TRANSFORM_LIST(GradientTransform, gradientTransform)
+        DECLARE_ANIMATED_STRING(Href, href)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

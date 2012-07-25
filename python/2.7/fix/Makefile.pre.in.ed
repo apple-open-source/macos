@@ -4,7 +4,7 @@ LIBTOOL=	@LIBTOOL@
 /^OPT=/a
 EXTRA_CFLAGS=	@EXTRA_CFLAGS@
 .
-/\/usr\/bin\/libtool/s//$(LIBTOOL)/
+/-current_version $(VERSION)/s/$(VERSION)/$(PYTHON_CURRENT_VERSION)/
 /Terminal/d
 .-1s/ \\$//
 g/cd Mac /s/$/ BUILDEXE=$(BUILDEXE)/

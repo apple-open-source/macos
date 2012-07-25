@@ -30,7 +30,7 @@
 
 OM_uint32
 _gss_copy_oid(OM_uint32 *minor_status,
-    const gss_OID from_oid, gss_OID to_oid)
+    gss_const_OID from_oid, gss_OID to_oid)
 {
 	size_t len = from_oid->length;
 

@@ -143,7 +143,7 @@ dynarray_concat(dynarray_t * list, dynarray_t * extra)
     list->count += extra->count;
     return (TRUE);
 }
-#endif 0
+#endif /* 0 */
 
 int
 dynarray_count(dynarray_t * list)

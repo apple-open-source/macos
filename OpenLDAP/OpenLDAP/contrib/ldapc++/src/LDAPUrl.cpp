@@ -1,6 +1,6 @@
-// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPUrl.cpp,v 1.3.10.5 2008/04/14 23:09:26 quanah Exp $
+// $OpenLDAP$
 /*
- * Copyright 2000-2006, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2011 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -195,8 +195,7 @@ void LDAPUrl::parseUrl()
         // no hostname and port
         startpos++;
     } else {
-        std::string::size_type hostend;
-        std::string::size_type portstart;
+        std::string::size_type hostend, portstart=0;
         pos = m_urlString.find('/', startpos);
 
         // IPv6 Address?

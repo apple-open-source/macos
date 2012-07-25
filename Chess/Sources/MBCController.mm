@@ -1,8 +1,46 @@
 /*
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
-	Version:	1.0
-	Copyright:	Â© 2002-2011 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCController.h"
@@ -15,6 +53,8 @@
 #import "MBCGameInfo.h"
 #import "MBCBoardAnimation.h"
 #import "MBCMoveAnimation.h"
+#import "MBCUserDefaults.h"
+#import "MBCDebug.h"
 
 #ifdef CHESS_TUNER
 #import "MBCTuner.h"
@@ -28,23 +68,9 @@
 
 #import <CoreFoundation/CFLogUtilities.h>
 
-NSString * kMBCBoardAngle		= @"MBCBoardAngle";
-NSString * kMBCBoardSpin		= @"MBCBoardSpin";
-NSString * kMBCBoardStyle		= @"MBCBoardStyle";
-NSString * kMBCListenForMoves	= @"MBCListenForMoves";
-NSString * kMBCPieceStyle		= @"MBCPieceStyle";
-NSString * kMBCSearchTime		= @"MBCSearchTime";
-NSString * kMBCSpeakMoves		= @"MBCSpeakMoves";
-NSString * kMBCSpeakHumanMoves	= @"MBCSpeakHumanMoves";
-NSString * kMBCDefaultVoice		= @"MBCDefaultVoice";
-NSString * kMBCAlternateVoice 	= @"MBCAlternateVoice";
-
-//
-// Base of logarithmic search time slider
-//
-const double kMBCSearchTimeBase	= 2.0;
-
 @implementation MBCController
+
+@synthesize localPlayer, logMouse, dumpLanguageModels;
 
 - (void)copyOpeningBook:(NSString *)book
 {
@@ -59,37 +85,17 @@ const double kMBCSearchTimeBase	= 2.0;
 	[mgr copyItemAtPath:from toPath:book error:nil];
 }
 
-static NSString * sVariants[] = {
-	@"normal", @"crazyhouse", @"suicide", @"losers", nil
-};
-static const char * sVariantChars	= "nzsl";
-
 - (void)copyOpeningBooks:(MBCVariant)variant
 {
-	NSString * vstring = sVariants[variant];
-	char	   vchar   = sVariantChars[variant];
+	NSString * vstring = gVariantName[variant];
+	char	   vchar   = gVariantChar[variant];
 
 	[self copyOpeningBook:[NSString stringWithFormat:@"%@.opn", vstring]];
 	[self copyOpeningBook:[NSString stringWithFormat:@"%cbook.db", vchar]];
 }
 
-static id	sInstance;
-
-+ (MBCController *)controller
-{
-	return sInstance;
-}
-
 - (id) init
 {
-	sInstance 		= self;
-	fEngineLogFile	= nil;
-	fLastLoad		= nil;
-	fVariant		= kVarNormal;
-	fWhiteType		= kMBCHumanPlayer;
-	fBlackType		= kMBCEnginePlayer;
-	fStyleLocMap	= [[NSMutableDictionary alloc] initWithCapacity:10];
-
 	//
 	// Increase stack size limit to 8M so sjeng doesn't crash in search
 	//
@@ -119,182 +125,9 @@ static id	sInstance;
 	[self copyOpeningBooks:kVarLosers];
 	[self copyOpeningBook:@"sjeng.rc"];
 
-
-	//
-	// We're responsible for executing all confirmed moves
-	//
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(executeMove:)
-		name:MBCWhiteMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(executeMove:)
-		name:MBCBlackMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(commitMove:)
-		name:MBCEndMoveNotification
-		object:nil];
-	[[NSNotificationCenter defaultCenter] 
-		addObserver:self
-		selector:@selector(didTakeback:)
-		name:MBCTakebackNotification
-		object:nil];
-	
-	fIsLogging		= false;
-	fEngineBuffer	= [[NSMutableString alloc] init];
-
-	//
-	// Turn on logging if desired
-	//
-	int debug = 0;
-
-	if (getenv("MBC_DEBUG"))
-		debug = atoi(getenv("MBC_DEBUG"));
-	if (debug & 2)
-		[self toggleLogging:self];
-	
-	//
-	// Initialize agents (the board view will report to us itself)
-	//
-	fView		= nil;
-	fBoard		= [[MBCBoard alloc] init];
-	fEngine		= [[MBCEngine alloc] init];
-	fInteractive= [[MBCInteractivePlayer alloc] initWithController:self];
-
+    fMatchesToLoad      = [[NSMutableArray alloc] init];
+    
 	return self;
-}
-
-//
-// We can't be sure whether the board or the controller is first awake
-//
-- (void) syncViewWithController
-{
-	[self updateStyles:self];
-	[self updateGraphicsOptions:self];
-	NSWindow * window = [fView window];
-	[window makeFirstResponder:fView];
-	[window setAcceptsMouseMovedEvents:YES];
-	[window makeKeyAndOrderFront:self];
-}
-
-- (void) setBoardView:(BOOL)startGame
-{
-#if HAS_FLOATING_BOARD
-	fView	= fFloatingMenuItem && [fFloatingMenuItem state] 
-		? fFloatingView : fOpaqueView;
-#else
-	fView 	= fOpaqueView;
-#endif
-
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-
-	fView->fElevation 	= [defaults floatForKey:kMBCBoardAngle];
-	fView->fAzimuth 	= [defaults floatForKey:kMBCBoardSpin];
-
-	if (startGame)
-		[self startNewGame];
-
-	[self syncViewWithController];
-}
-
-- (NSString *) localizedStyleName:(NSString *)name
-{
-	NSString * loc = NSLocalizedString(name, @"");
-
-	return loc;
-}
-
-- (NSString *) unlocalizedStyleName:(NSString *)name
-{
-	NSString * unloc = [fStyleLocMap objectForKey:name];
-
-	return unloc ? unloc : name;
-}
-
-- (IBAction) updateStyles:(id)sender;
-{
-	NSString *			boardStyle	= 
-		[self unlocalizedStyleName:[fBoardStyle titleOfSelectedItem]];
-	NSString *			pieceStyle  = 
-		[self unlocalizedStyleName:[fPieceStyle titleOfSelectedItem]];
-
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-
-	[defaults setObject:boardStyle forKey:kMBCBoardStyle];
-	[defaults setObject:pieceStyle forKey:kMBCPieceStyle];
-	[defaults synchronize];
-
-	[fView setStyleForBoard:boardStyle pieces:pieceStyle];
-#ifdef CHESS_TUNER
-	[MBCTuner loadStyles];
-#endif
-}
-
-- (MBCBoard *) board
-{
-	return fBoard;
-}
-
-- (MBCBoardView *) view
-{
-	if (!fView)
-		[self setBoardView:NO];
-	return fView;
-}
-
-- (MBCInteractivePlayer *) interactive
-{	
-	return fInteractive;
-}
-
-- (MBCEngine *) engine
-{
-	return fEngine;
-}
-
-- (NSWindow *) gameInfoWindow
-{
-	return fGameInfoWindow;
-}
-
-- (BOOL) speakMoves
-{
-	return [fSpeakMoves intValue];
-}
-
-- (BOOL) speakHumanMoves
-{
-	return [fSpeakHumanMoves intValue];
-}
-
-- (BOOL) listenForMoves
-{
-	return [fListenForMoves intValue];
-}
-
-- (NSDictionary *)localizationForVoice:(NSString *)voice
-{
-	NSString * localeID 	= [[NSSpeechSynthesizer attributesForVoice:voice]
-								  valueForKey:NSVoiceLocaleIdentifier];
-	if (!localeID)
-		return nil;
-
-	NSBundle * mainBundle	= [NSBundle mainBundle];
-	NSArray  * preferred    = [NSBundle preferredLocalizationsFromArray:[mainBundle localizations]
-														 forPreferences:[NSArray arrayWithObject:localeID]];
-	if (!preferred)
-		return nil;
-
-	for (NSString * tryLocale in preferred)
-		if (NSURL * url = [mainBundle URLForResource:@"Spoken" withExtension:@"strings"
-										 subdirectory:nil localization:tryLocale]
-			)
-			return [NSDictionary dictionaryWithContentsOfURL:url];
-	return nil;
 }
 
 - (void)awakeFromNib
@@ -302,205 +135,43 @@ static id	sInstance;
 #ifdef CHESS_TUNER
 	[MBCTuner makeTuner];
 #endif
-	[fMainWindow setAspectRatio:NSMakeSize(740.0, 680.0)];
-
-	[fBoardStyle removeAllItems];
-	[fPieceStyle removeAllItems];
-	[fStyleLocMap removeAllObjects];
-
-	NSFileManager *	fileManager = [NSFileManager defaultManager];
-	NSString	  * stylePath	= 
-		[[[NSBundle mainBundle] resourcePath] 
-			stringByAppendingPathComponent:@"Styles"];
-	NSEnumerator  * styles 		= 
-		[[fileManager contentsOfDirectoryAtPath:stylePath error:nil] objectEnumerator];
-	while (NSString * style = [styles nextObject]) {
-		NSString * locStyle = [self localizedStyleName:style];
-		[fStyleLocMap setObject:style forKey:locStyle];
-		NSString * s = [stylePath stringByAppendingPathComponent:style];
-		if ([fileManager fileExistsAtPath:
-			[s stringByAppendingPathComponent:@"Board.plist"]]
-		)
-			[fBoardStyle addItemWithTitle:locStyle];
-		if ([fileManager fileExistsAtPath:
-			[s stringByAppendingPathComponent:@"Piece.plist"]]
-		)
-			[fPieceStyle addItemWithTitle:locStyle];
-	}
-	NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
-	[fBoardStyle selectItemWithTitle:
-					 [self localizedStyleName:
-							   [defaults objectForKey:kMBCBoardStyle]]];
-	[fPieceStyle selectItemWithTitle:
-					 [self localizedStyleName:
-							   [defaults objectForKey:kMBCPieceStyle]]];
-	[fListenForMoves setIntValue:[defaults boolForKey:kMBCListenForMoves]];
-	[fSpeakMoves setIntValue:[defaults boolForKey:kMBCSpeakMoves]];
-	[fSpeakHumanMoves setIntValue:[defaults boolForKey:kMBCSpeakHumanMoves]];
-	int searchTime = [defaults integerForKey:kMBCSearchTime];
-	[fEngine setSearchTime:searchTime];
-	if (searchTime < 0)
-		[fSearchTime setFloatValue:searchTime];
-	else
-		[fSearchTime setFloatValue:log(searchTime) / log(kMBCSearchTimeBase)];
-#if HAS_FLOATING_BOARD
-	[fFloatingMenuItem setState:[defaults integerForKey:kMBCFloatingBoard]];
-#endif
-	NSString * defaultVoice	= [defaults objectForKey:kMBCDefaultVoice];
-	if (![NSSpeechSynthesizer attributesForVoice:defaultVoice]) {
-		defaultVoice		= [[defaults volatileDomainForName:NSRegistrationDomain]
-								  objectForKey:kMBCDefaultVoice];
-		if (![NSSpeechSynthesizer attributesForVoice:defaultVoice]) 
-			defaultVoice	= nil;
-	}	
-	fDefaultSynth			= [[NSSpeechSynthesizer alloc] initWithVoice:defaultVoice];
-	fDefaultLocalization 	= [[self localizationForVoice:defaultVoice] retain];
-
-	NSString * altVoice		= [defaults objectForKey:kMBCAlternateVoice];
-	if (![NSSpeechSynthesizer attributesForVoice:altVoice]) {
-		altVoice			= [[defaults volatileDomainForName:NSRegistrationDomain]
-								  objectForKey:kMBCAlternateVoice];
-		if (![NSSpeechSynthesizer attributesForVoice:altVoice]) 
-			altVoice	= nil;
-	}	
-	fAlternateSynth			= [[NSSpeechSynthesizer alloc] initWithVoice:altVoice];
-	fAlternateLocalization 	= [[self localizationForVoice:altVoice] retain];
-
-	[self loadVoiceMenu:fComputerVoice 	withSelectedVoice:defaultVoice];
-	[self loadVoiceMenu:fAlternateVoice withSelectedVoice:altVoice];
-}
-
-- (IBAction)updateGraphicsOptions:(id)sender
-{
-    [fView needsUpdate];
-}
-
-- (IBAction) updateOptions:(id)sender
-{
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-
-	[defaults setBool:[fListenForMoves intValue]
-			  forKey:kMBCListenForMoves];
-	[defaults setBool:[fSpeakMoves intValue]
-			  forKey:kMBCSpeakMoves];
-	[defaults setBool:[fSpeakHumanMoves intValue]
-			  forKey:kMBCSpeakHumanMoves];
-	
-	[fInteractive updateNeedMouse:sender];
-}
-
-- (IBAction) updateSearchTime:(id)sender
-{
-	float				rawTime		= [sender floatValue];
-	int					searchTime	= rawTime < 0 ? (int)floor(rawTime) :
-		(int)pow(kMBCSearchTimeBase, [sender floatValue]);
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-
-	[defaults setInteger:searchTime forKey:kMBCSearchTime];
-	[fEngine setSearchTime:searchTime];
 }
 
 - (IBAction) newGame:(id)sender
 {
-	NSWindow * window = [fView window];
-	if (![window isVisible]) {
-		if (![window isMiniaturized])
-			[self startNewGame];
-		[window makeKeyAndOrderFront:self];
-	}
-
-	[NSApp beginSheet:fNewGamePane
-		   modalForWindow:window
-		   modalDelegate:nil
-		   didEndSelector:nil
-		   contextInfo:nil];
-    [NSApp runModalForWindow:fNewGamePane];
-	[NSApp endSheet:fNewGamePane];
-	[fNewGamePane orderOut:self];
+    MBCDocument * doc = [[MBCDocument alloc] initForNewGameSheet:nil];
+    [doc makeWindowControllers];
+    [doc showWindows];
 }
 
-- (IBAction)startNewGame:(id)sender
+- (BOOL) hideDebugMenu
 {
-	MBCVariant	variant;
-	int			players;
-	
-	variant = static_cast<MBCVariant>([fGameVariant indexOfSelectedItem]);
-	players = [fPlayers indexOfSelectedItem];
-
-	fVariant	=	variant;
-	switch (players) {
-	case 0:	// Human vs. Human
-		fWhiteType	= kMBCHumanPlayer;
-		fBlackType	= kMBCHumanPlayer;
-		break;
-	case 1:	// Human vs. Computer
-		fWhiteType	= kMBCHumanPlayer;
-		fBlackType	= kMBCEnginePlayer;
-		break;
-	case 2:	// Computer vs. Human
-		fWhiteType	= kMBCEnginePlayer;
-		fBlackType	= kMBCHumanPlayer;
-		break;
-	case 3:	// Computer vs. Computer
-		fWhiteType	= kMBCEnginePlayer;
-		fBlackType	= kMBCEnginePlayer;
-		break;
-	}
-	[self startNewGame];
-	[NSApp stopModal];
+    return !MBCDebug::ShowDebugMenu();
 }
 
-- (IBAction)cancelNewGame:(id)sender
+- (BOOL) logMouse
 {
-	[NSApp stopModal];
+    return MBCDebug::LogMouse();
 }
 
-- (void) startGame
+- (void) setLogMouse:(BOOL)logIt
 {
-	MBCSide	human;
-	MBCSide engine;
-
-	if ([fWhiteType isEqual:kMBCHumanPlayer])
-		if ([fBlackType isEqual:kMBCHumanPlayer]) {
-			human	= kBothSides;
-			engine  = kNeitherSide;
-		} else {
-			human	= kWhiteSide;
-			engine	= kBlackSide;
-		}
-	else 
-		if ([fBlackType isEqual:kMBCHumanPlayer]) {
-			human	= kBlackSide;
-			engine  = kWhiteSide;
-		} else {
-			human	= kNeitherSide;
-			engine  = kBothSides;
-		}
-		
-	[fView startGame:fVariant playing:human];
-	[fEngine startGame:fVariant playing:engine];
-	[fInteractive startGame:fVariant playing:human];	
-	[fGameInfo startGame:fVariant playing:human];
-
-	[fView needsUpdate];
+    MBCDebug::SetLogMouse(logIt);
 }
 
-- (void)startNewGame
+- (BOOL) dumpLanguageModels
 {
-	[[NSDocumentController sharedDocumentController] newDocument:self];
-	[fBoard startGame:fVariant];
-	[self startGame];
+    return MBCDebug::DumpLanguageModels();
 }
 
-- (IBAction)profileDraw:(id)sender
+- (void) setDumpLanguageModels:(BOOL)dumpEm
 {
-	NSLog(@"Draw Begin\n");
-	[fView profileDraw];
-	NSLog(@"Draw End\n");
+    MBCDebug::SetDumpLanguageModels(dumpEm);
 }
 
+#ifdef TODO
 //
-// Built in self test (RADAR 3590419 / Feature 8905)
+// Built in self test
 //
 - (void)application:(NSApplication *)sender runTest:(unsigned int)testToRun duration:(NSTimeInterval)duration
 {
@@ -520,428 +191,156 @@ static id	sInstance;
 		[pool release];
 	} while (-[startTest timeIntervalSinceNow] < duration);
 }
-
-- (IBAction)toggleLogging:(id)sender
-{
-	if ((fIsLogging = !fIsLogging) && !fEngineLogFile) {
-		NSFileManager * mgr		= [NSFileManager defaultManager];
-		NSURL *			libLog	= 
-			[[mgr URLForDirectory:NSLibraryDirectory inDomain:NSUserDomainMask 
-				  appropriateForURL:nil create:YES error:nil] URLByAppendingPathComponent:@"Logs"];
-		NSString*		logDir	= [libLog path];
-		[mgr createDirectoryAtPath:logDir withIntermediateDirectories:YES attributes:nil error:nil];
-		NSString * log	= [logDir stringByAppendingPathComponent:@"Chess.log"];
-		creat([log fileSystemRepresentation], 0666);
-		fEngineLogFile = [[NSFileHandle fileHandleForWritingAtPath:log] retain];
-	}
-}
-
-- (void) writeLog:(NSString *)text
-{
-	[fEngineLogFile writeData:[text dataUsingEncoding:NSASCIIStringEncoding]];
-}
-
-- (void) logToEngine:(NSString *)text
-{
-	if (fIsLogging) {
-		NSString * decorated =
-			[NSString stringWithFormat:@">>> %@\n", 
-					  [[text componentsSeparatedByString:@"\n"] 
-						  componentsJoinedByString:@"\n>>> "]];
-		[self writeLog:decorated];
-	} 
-}
-
-- (void) logFromEngine:(NSString *)text
-{
-	if (fIsLogging) {
-		[self writeLog:text];
-	}
-}
-
-- (IBAction)takeback:(id)sender
-{
-	[fEngine takeback];
-}
-
-- (void) didTakeback:(NSNotification *)n
-{
-	[fView unselectPiece];
-	[fView hideMoves];
-	[fBoard undoMoves:2];
-}
-
-- (void) executeMove:(NSNotification *)notification
-{
-	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification object]);
-
-	[fBoard makeMove:move];
-	[fView unselectPiece];
-	[fView hideMoves];
-	[fDocument updateChangeCount:NSChangeDone];
-
-	if (move->fAnimate)
-		[MBCMoveAnimation moveAnimation:move board:fBoard view:fView];
-	else
-		[[NSNotificationQueue defaultQueue] 
-			enqueueNotification:
-				[NSNotification 
-					notificationWithName:MBCEndMoveNotification
-					object:move]
-			postingStyle: NSPostWhenIdle];	
-}
-
-- (void) commitMove:(NSNotification *)notification
-{
-	[fBoard commitMove];
-	[fView hideMoves];
-	[fDocument updateChangeCount:NSChangeDone];
-
-	if ([fWhiteType isEqual:kMBCHumanPlayer] 
-	 && [fBlackType isEqual:kMBCHumanPlayer]
-	 && [fView facing] != kNeitherSide
-	) {
-		//
-		// Rotate board
-		//
-		[MBCBoardAnimation boardAnimation:fView];
-	}
-}
-
-- (IBAction) showHint:(id)sender
-{
-	[fView showHint:[fEngine lastPonder]];
-	[fInteractive announceHint:[fEngine lastPonder]];
-}
-
-- (IBAction) showLastMove:(id)sender
-{
-	[fView showLastMove:[fBoard lastMove]];
-	[fInteractive announceLastMove:[fBoard lastMove]];
-}
-
-- (IBAction) openGame:(id)sender
-{
-	[[NSDocumentController sharedDocumentController]
-		openDocument:sender];
-}
-
-- (IBAction) saveGame:(id)sender
-{
-	[fDocument saveDocument:sender];
-	[fMainWindow setDocumentEdited:NO];
-}
-
-- (IBAction) saveGameAs:(id)sender
-{
-	[fDocument saveDocumentAs:sender];
-	[fMainWindow setDocumentEdited:NO];
-}
-
-#if HAS_FLOATING_BOARD
-- (IBAction) toggleFloating:(id)sender
-{
-	[[fView window] orderOut:self];
-	int newState =	![fFloatingMenuItem state];
-	[fFloatingMenuItem setState:newState];
-	NSUserDefaults * 	defaults 	= [NSUserDefaults standardUserDefaults];
-	[defaults setBool:newState forKey:kMBCFloatingBoard];
-	[self setBoardView:NO];
-}
 #endif
-
-- (BOOL) loadGame:(NSDictionary *)dict
-{
-	if (!fView)
-		[self setBoardView:NO];
-
-	[fLastLoad release];
-	fLastLoad = [dict retain]; // So we can store key values
-	NSString * v = [dict objectForKey:@"Variant"];
-	
-	for (fVariant = kVarNormal; sVariants[fVariant] && ![v isEqual:sVariants[fVariant]]; )
-		fVariant = static_cast<MBCVariant>(fVariant+1);
-	if (!sVariants[fVariant])
-		fVariant = kVarNormal;
-	
-    fWhiteType = [dict objectForKey:@"WhiteType"];
-    fBlackType = [dict objectForKey:@"BlackType"];
-
-	[fBoard reset];
-	NSString *	fen		= [dict objectForKey:@"Position"];
-	NSString *	holding	= [dict objectForKey:@"Holding"];
-	NSString * 	moves	= [dict objectForKey:@"Moves"];
-
-	[fBoard setFen:fen holding:holding moves:moves];
-	[fEngine setGame:fVariant fen:fen holding:holding moves:moves];
-	[fGameInfo setInfo:dict];
-	[fGameInfo performSelector:@selector(updateMoves:) withObject:nil afterDelay:0.010];
-	[fGameInfo performSelector:@selector(updateTitle:) withObject:self afterDelay:0.050];
-
-	[self startGame];
-
-	return YES;
-}
-
-- (NSDictionary *) saveGameToDict
-{
-	NSMutableDictionary * dict = 
-		[NSMutableDictionary dictionaryWithObjectsAndKeys:
-								 sVariants[fVariant], @"Variant",
-							 fWhiteType, @"WhiteType",
-							 fBlackType, @"BlackType",
-							 [fBoard fen], @"Position",
-							 [fBoard holding], @"Holding",
-							 [fBoard moves], @"Moves",
-							 nil];
-	[dict addEntriesFromDictionary:[fGameInfo getInfo]];
-
-	return dict;
-}
-
-- (BOOL) saveMovesTo:(NSString *)fileName
-{
-	FILE * f = fopen([fileName fileSystemRepresentation], "w");
-		
-	NSString * header = [fGameInfo pgnHeader];
-	NSData *	encoded = [header dataUsingEncoding:NSISOLatin1StringEncoding
-								  allowLossyConversion:YES];
-	fwrite([encoded bytes], 1, [encoded length], f);
-
-	//
-	// Add variant tag (nonstandard, but used by xboard & Co.)
-	//
-	if (fVariant != kVarNormal)
-		fprintf(f, "[Variant \"%s\"]\n", [sVariants[fVariant] UTF8String]);
-	//
-	// Mark nonhuman players
-	//
-	if (![fWhiteType isEqual: kMBCHumanPlayer]) 
-		fprintf(f, "[WhiteType: \"%s\"]\n", [fWhiteType UTF8String]);
-	if (![fBlackType isEqual: kMBCHumanPlayer]) 
-		fprintf(f, "[BlackType: \"%s\"]\n", [fBlackType UTF8String]);
-
-	[fBoard saveMovesTo:f];
-	
-	fputc('\n', f);
-	fputs([[fGameInfo pgnResult] UTF8String], f);
-	fputc('\n', f);
-
-	fclose(f);
-
-	return YES;
-}
 
 - (BOOL)applicationShouldOpenUntitledFile:(NSApplication *)sender
 {
 	return YES;
 }
 
-- (BOOL)applicationOpenUntitledFile:(NSApplication *)sender
+- (MBCDocument *)documentForMatch:(GKTurnBasedMatch *)match
 {
-	NSError * error;
-	[self setBoardView:NO];
-	if (![[NSDocumentController sharedDocumentController] 
-		 openDocumentWithContentsOfURL:[MBCDocument casualGameSaveLocation] 
-							display:YES error:&error])
-			[self setBoardView:YES];
-	
-	return YES;
+    for (MBCDocument * doc in [[NSDocumentController sharedDocumentController] documents])
+        if ([[doc.match matchID] isEqual:[match matchID]]) {
+            //
+            // The match object passed in by event handlers is more up to date than the one we 
+            // had on file, so replace that one
+            //
+            doc.match = match;
+            
+            return doc;
+        }
+    return nil;
 }
 
-- (BOOL)application:(NSApplication *)app openFile:(NSString *)filename
+- (void)startNewOnlineGame:(GKTurnBasedMatch *)match withDocument:(MBCDocument *)doc
 {
-	NSError * error;
-	[self setBoardView:NO];
-	return [[NSDocumentController sharedDocumentController]
-			openDocumentWithContentsOfURL:[NSURL fileURLWithPath:filename] display:YES error:&error]
-		!= nil;
+    NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
+    MBCVariant       variant  = (MBCVariant)[defaults integerForKey:kMBCNewGameVariant];
+    MBCSideCode      side     = (MBCSideCode)[defaults integerForKey:kMBCNewGameSides];
+    [match loadMatchDataWithCompletionHandler:^(NSData *matchData, NSError *error) {
+        MBCDocument * existingDoc = nil;
+        if (!error && !(existingDoc = [self documentForMatch:match])) {
+            [MBCDocument processNewMatch:match variant:variant side:side document:doc];
+        } else { 
+            [doc close];
+            [existingDoc showWindows];
+        }
+    }];
+}
+
+- (void)loadMatch:(NSString *)matchID
+{
+    if (fMatchesToLoad)
+        [fMatchesToLoad addObject:matchID];
+    else if (fExistingMatches)
+        for (GKTurnBasedMatch * match in fExistingMatches) 
+            if ([match.matchID isEqual:matchID]) {
+                if (![self documentForMatch:match])
+                    [self startNewOnlineGame:match withDocument:nil];
+                break;
+            }
+}
+
+- (void)loadMatches
+{
+    [GKTurnBasedMatch loadMatchesWithCompletionHandler:^(NSArray *matches, NSError *error) {
+        if (!error) {
+            [fExistingMatches autorelease];
+            fExistingMatches = [matches retain];
+        }
+        if (fMatchesToLoad) {
+            NSArray * matchesToLoad = [fMatchesToLoad autorelease];
+            fMatchesToLoad          = nil;
+            for (NSString * matchID in matchesToLoad)
+                [self loadMatch:matchID];
+        }
+        for (GKTurnBasedMatch * match in fExistingMatches)
+            if ([match.currentParticipant.playerID isEqual:localPlayer.playerID])
+                [self loadMatch:match.matchID];
+    }];    
+}
+
+- (void)setValue:(float)value forAchievement:(NSString *)ident
+{
+    GKAchievement * achievement = [fAchievements objectForKey:ident];
+    if (!achievement) {
+        achievement = [[[GKAchievement alloc] initWithIdentifier:ident] autorelease];
+        [fAchievements setObject:achievement forKey:ident];
+    }
+    achievement.showsCompletionBanner = achievement.percentComplete < 100.0;
+    achievement.percentComplete = value;
+    [achievement reportAchievementWithCompletionHandler:^(NSError *error) {
+        if (error) {
+            // Should report again later
+        }
+    }];
+}
+
+- (void)loadAchievements
+{
+    [GKAchievement loadAchievementsWithCompletionHandler:^(NSArray *achievements, NSError *error) {
+        fAchievements = [[NSMutableDictionary alloc] initWithCapacity:[achievements count]];
+        for (GKAchievement * achievement in achievements) 
+            [fAchievements setObject:achievement forKey:achievement.identifier];
+    }];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
-	int debug = 0;
-
-	if (getenv("MBC_DEBUG"))
-		debug = atoi(getenv("MBC_DEBUG"));
-	if (debug & 4) 
-		NSLog(@"Chess finished starting\n");			
-	if (debug & 1)
-		[self profileDraw:self];
-	if (debug & 8)
-		sleep(30);
-#if HAS_FLOATING_BOARD
-	if (!(debug & 16)) {
-		[[fFloatingMenuItem menu] removeItem:fFloatingMenuItem];
-		[[fFloatingView window] release];
-		fFloatingMenuItem	= nil;
-		fFloatingView		= nil;
-	}
-#endif
+    [[NSDocumentController sharedDocumentController] setAutosavingDelay:3.0];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 5*NSEC_PER_SEC), dispatch_get_main_queue(), ^{
+    GKLocalPlayer * localDude = [GKLocalPlayer localPlayer];
+    [localDude authenticateWithCompletionHandler:^(NSError * error) {
+        if (!error) {
+            [self setLocalPlayer:localDude];
+            [self loadMatches];
+            [self loadAchievements];
+            [[GKTurnBasedEventHandler sharedTurnBasedEventHandler] setDelegate:self];
+        }
+    }];
+    });
 }
 
-- (void)applicationWillTerminate:(NSNotification *)n
+- (void)updateApplicationBadge
 {
-	NSUserDefaults * defaults 	= [NSUserDefaults standardUserDefaults];
-	[fView endGame];
-	[fEngine shutdown];
-	[defaults synchronize];
+    static NSUInteger sPrevOurTurn = 0;
+    unsigned ourTurn = 0;
+    for (MBCDocument * doc in [[NSDocumentController sharedDocumentController] documents])
+        if ([doc humanTurn])
+            ++ourTurn;
+    NSDockTile * tile = [NSApp dockTile];
+    if (ourTurn)
+        [tile setBadgeLabel:[NSString localizedStringWithFormat:@"%u", ourTurn]];
+    else 
+        [tile setBadgeLabel:@""];
+    if (ourTurn > sPrevOurTurn)
+        [NSApp requestUserAttention:NSInformationalRequest];
+    sPrevOurTurn = ourTurn;
 }
 
-- (BOOL)validateMenuItem:(NSMenuItem *)menuItem
+#pragma mark -
+#pragma mark GKTurnBasedEventHandlerDelegate
+
+- (void)handleInviteFromGameCenter:(NSArray *)playersToInvite
 {
-	if (menuItem != fTakebackMenuItem)
-		return YES;
-	else 
-		return [fBoard canUndo] &&
-		 ([fWhiteType isEqual:kMBCHumanPlayer] 
-		  || [fBlackType isEqual:kMBCHumanPlayer]
-		  );
+    MBCDocument * doc = [[MBCDocument alloc] initForNewGameSheet:playersToInvite];
+    [doc makeWindowControllers];
+    [doc showWindows];
 }
 
-const int kNumFixedMenuItems = 2;
-
-- (NSSpeechSynthesizer *)defaultSynth
+- (void)handleTurnEventForMatch:(GKTurnBasedMatch *)match
 {
-	return fDefaultSynth;
+    if (MBCDocument * doc = [self documentForMatch:match]) {
+        [doc showWindows];
+        [doc updateMatchForRemoteMove];
+    } else 
+        [MBCDocument processNewMatch:match variant:kVarNormal side:kPlayEither document:nil];
 }
 
-- (NSSpeechSynthesizer *)alternateSynth
+- (void)handleMatchEnded:(GKTurnBasedMatch *)match
 {
-	return fAlternateSynth;
-}
-
-- (NSDictionary *) defaultLocalization
-{
-	return fDefaultLocalization;
-}
-
-- (NSDictionary *) alternateLocalization
-{
-	return fAlternateLocalization;
-}
-
-- (void)loadVoiceMenu:(id)menu withSelectedVoice:(NSString *)voiceIdentifierToSelect 
-{
-    NSString *		voiceIdentifier 		= NULL;
-    NSEnumerator *	voiceEnumerator 		= 
-		[[NSSpeechSynthesizer availableVoices] objectEnumerator];
-    UInt32			curMenuItemIndex 		= kNumFixedMenuItems;
-    UInt32			menuItemIndexToSelect	= 0;
-    while (voiceIdentifier = [voiceEnumerator nextObject]) {
-        [menu addItemWithTitle:[[NSSpeechSynthesizer attributesForVoice:voiceIdentifier] objectForKey:NSVoiceName]];
-        
-        if (voiceIdentifierToSelect && [voiceIdentifier isEqualToString:voiceIdentifierToSelect])
-            menuItemIndexToSelect = curMenuItemIndex;
-        
-        curMenuItemIndex++;
-    }
-    
-    // Select the desired menu item.
-    [menu selectItemAtIndex:menuItemIndexToSelect];
-}
-
-- (IBAction) updateVoices:(id)sender;
-{
-	NSUserDefaults *defaults 	= [NSUserDefaults standardUserDefaults];
-	NSString *		defaultID	= nil;
-	NSString * 		alternateID	= nil;
-	NSArray *		voices		= [NSSpeechSynthesizer availableVoices];
-	int				defaultIdx	= [fComputerVoice indexOfSelectedItem];
-	int				alternateIdx= [fAlternateVoice indexOfSelectedItem];
-
-	if (defaultIdx > 0)
-		defaultID	= [voices objectAtIndex:defaultIdx-kNumFixedMenuItems];
-	if (alternateIdx > 0)
-		alternateID	= [voices objectAtIndex:alternateIdx-kNumFixedMenuItems];
-
-	[fDefaultSynth setVoice:defaultID];
-	[fAlternateSynth setVoice:alternateID];
-
-	[fDefaultLocalization autorelease];
-	fDefaultLocalization = [[self localizationForVoice:defaultID] retain];
-	[fAlternateLocalization autorelease];
-	fAlternateLocalization = [[self localizationForVoice:alternateID] retain];
-
-	[defaults setObject:defaultID forKey:kMBCDefaultVoice];
-	[defaults setObject:alternateID forKey:kMBCAlternateVoice];
-	
-	NSSpeechSynthesizer *	selectedSynth = nil;
-	if (sender == fComputerVoice) {
-		selectedSynth	= fDefaultSynth;
-	} else if (sender == fAlternateVoice) {
-		selectedSynth	= fAlternateSynth;
-	}
-	if (selectedSynth) {
-		NSString *  demoText	= 
-			[[NSSpeechSynthesizer attributesForVoice:[selectedSynth voice]] 
-			 objectForKey:NSVoiceDemoText];
-		if (demoText)
-			[selectedSynth startSpeakingString:demoText];
-	}
-}
-
-- (void)setDocument:(NSDocument *)doc
-{
-	fDocument = doc;
-	if ([[fMainWindow windowController] document] != fDocument) {
-		[fDocument addWindowController:[fMainWindow windowController]];
-		if (fDocument) {
-			if (fLastLoad) {
-				if (![fDocument fileURL])
-					[fDocument updateChangeCount:NSChangeDone];
-			} else if (!fView) {
-				[self setBoardView:NO];
-				[fBoard startGame:fVariant];
-				[self startGame];
-			}
-		}
-	}
-}
-
-- (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)size
-{
-	return size;
-}
-@end
-
-@implementation MBCDocumentController 
-
-- (id)init
-{
-	[super init];
-
-	return self;
-}
-
-- (void) addDocument:(NSDocument *)doc
-{
-	//
-	// There can only be one!
-	//
-	[[self documents] makeObjectsPerformSelector:@selector(close)];
-
-	[super addDocument:doc];
-	[[MBCController controller] setDocument:doc];
-	[self setAutosavingDelay:5.0];
-}
-
-- (void) removeDocument:(NSDocument *)doc
-{
-	[[MBCController controller] setDocument:nil];
-	[[NSNotificationQueue defaultQueue] 
-		dequeueNotificationsMatching:[NSNotification notificationWithName:MBCEndMoveNotification object:nil] 
-	  coalesceMask:NSNotificationCoalescingOnName];
-	[super removeDocument:doc];
-}
-
-- (void) noteNewRecentDocumentURL:(NSURL *)absoluteURL
-{
-	//
-	// Should never mention casual game location in recent documents
-	//
-	if (![absoluteURL isEqual:[MBCDocument casualGameSaveLocation]])
-		[super noteNewRecentDocumentURL:absoluteURL];
+	[self handleTurnEventForMatch:match];
 }
 
 @end

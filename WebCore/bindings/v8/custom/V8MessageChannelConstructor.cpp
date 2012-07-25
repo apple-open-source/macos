@@ -51,7 +51,10 @@ v8::Handle<v8::Value> V8MessageChannel::constructorCallback(const v8::Arguments&
     // FIXME: The logic here is almost exact duplicate of V8::constructDOMObject.
     // Consider refactoring to reduce duplication.
     if (!args.IsConstructCall())
-        return throwError("DOM object constructor cannot be called as a function.");
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
 
     // Get the ScriptExecutionContext (WorkerContext or Document)
     ScriptExecutionContext* context = getScriptExecutionContext();
@@ -67,12 +70,13 @@ v8::Handle<v8::Value> V8MessageChannel::constructorCallback(const v8::Arguments&
     // Create references from the MessageChannel wrapper to the two
     // MessagePort wrappers to make sure that the MessagePort wrappers
     // stay alive as long as the MessageChannel wrapper is around.
-    V8DOMWrapper::setHiddenReference(messageChannel, toV8(obj->port1()));
-    V8DOMWrapper::setHiddenReference(messageChannel, toV8(obj->port2()));
+    V8DOMWrapper::setNamedHiddenReference(messageChannel, "port1", toV8(obj->port1(), args.GetIsolate()));
+    V8DOMWrapper::setNamedHiddenReference(messageChannel, "port2", toV8(obj->port2(), args.GetIsolate()));
 
     // Setup the standard wrapper object internal fields.
     V8DOMWrapper::setDOMWrapper(messageChannel, &info, obj.get());
-    return toV8(obj.release(), messageChannel);
+    V8DOMWrapper::setJSWrapperForDOMObject(obj.release(), v8::Persistent<v8::Object>::New(messageChannel));
+    return messageChannel;
 }
 
 

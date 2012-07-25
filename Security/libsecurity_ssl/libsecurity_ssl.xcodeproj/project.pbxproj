@@ -1,0 +1,476 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4CAFF4370534D89900303760 /* appleCdsa.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF3FD0534D89900303760 /* appleCdsa.c */; };
+		4CAFF4380534D89900303760 /* appleCdsa.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF3FE0534D89900303760 /* appleCdsa.h */; };
+		4CAFF4390534D89900303760 /* appleSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF3FF0534D89900303760 /* appleSession.c */; };
+		4CAFF43A0534D89900303760 /* appleSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4000534D89900303760 /* appleSession.h */; };
+		4CAFF43B0534D89900303760 /* cipherSpecs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4010534D89900303760 /* cipherSpecs.c */; };
+		4CAFF43C0534D89900303760 /* cipherSpecs.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4020534D89900303760 /* cipherSpecs.h */; };
+		4CAFF43E0534D89900303760 /* cryptType.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4040534D89900303760 /* cryptType.h */; };
+		4CAFF43F0534D89900303760 /* ModuleAttacher.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4050534D89900303760 /* ModuleAttacher.c */; };
+		4CAFF4400534D89900303760 /* ModuleAttacher.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4060534D89900303760 /* ModuleAttacher.h */; };
+		4CAFF4410534D89900303760 /* securetransport++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4070534D89900303760 /* securetransport++.cpp */; };
+		4CAFF4420534D89900303760 /* securetransport++.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4080534D89900303760 /* securetransport++.h */; };
+		4CAFF4450534D89900303760 /* ssl.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF40B0534D89900303760 /* ssl.h */; };
+		4CAFF44B0534D89900303760 /* ssl3Callouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4110534D89900303760 /* ssl3Callouts.c */; };
+		4CAFF44C0534D89900303760 /* sslAlertMessage.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4120534D89900303760 /* sslAlertMessage.c */; };
+		4CAFF44D0534D89900303760 /* sslAlertMessage.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4130534D89900303760 /* sslAlertMessage.h */; };
+		4CAFF44E0534D89900303760 /* sslBER.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4140534D89900303760 /* sslBER.c */; };
+		4CAFF44F0534D89900303760 /* sslBER.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4150534D89900303760 /* sslBER.h */; };
+		4CAFF4510534D89900303760 /* sslBuildFlags.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4170534D89900303760 /* sslBuildFlags.h */; };
+		4CAFF4520534D89900303760 /* sslCert.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4180534D89900303760 /* sslCert.c */; };
+		4CAFF4530534D89900303760 /* sslChangeCipher.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4190534D89900303760 /* sslChangeCipher.c */; };
+		4CAFF4540534D89900303760 /* sslContext.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF41A0534D89900303760 /* sslContext.c */; };
+		4CAFF4550534D89900303760 /* sslContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF41B0534D89900303760 /* sslContext.h */; };
+		4CAFF4560534D89900303760 /* sslDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF41C0534D89900303760 /* sslDebug.h */; };
+		4CAFF4570534D89900303760 /* sslDigests.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF41D0534D89900303760 /* sslDigests.c */; };
+		4CAFF4580534D89900303760 /* sslDigests.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF41E0534D89900303760 /* sslDigests.h */; };
+		4CAFF4590534D89900303760 /* sslHandshake.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF41F0534D89900303760 /* sslHandshake.c */; };
+		4CAFF45A0534D89900303760 /* sslHandshake.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4200534D89900303760 /* sslHandshake.h */; };
+		4CAFF45B0534D89900303760 /* sslHandshakeFinish.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4210534D89900303760 /* sslHandshakeFinish.c */; };
+		4CAFF45C0534D89900303760 /* sslHandshakeHello.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4220534D89900303760 /* sslHandshakeHello.c */; };
+		4CAFF45D0534D89900303760 /* sslKeychain.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4230534D89900303760 /* sslKeychain.c */; };
+		4CAFF45E0534D89900303760 /* sslKeychain.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4240534D89900303760 /* sslKeychain.h */; };
+		4CAFF45F0534D89900303760 /* sslKeyExchange.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4250534D89900303760 /* sslKeyExchange.c */; };
+		4CAFF4600534D89900303760 /* sslMemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4260534D89900303760 /* sslMemory.c */; };
+		4CAFF4610534D89900303760 /* sslMemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4270534D89900303760 /* sslMemory.h */; };
+		4CAFF4620534D89900303760 /* sslNullCipher.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4280534D89900303760 /* sslNullCipher.c */; };
+		4CAFF4630534D89900303760 /* sslPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4290534D89900303760 /* sslPriv.h */; };
+		4CAFF4640534D89900303760 /* sslRecord.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42A0534D89900303760 /* sslRecord.c */; };
+		4CAFF4650534D89900303760 /* sslRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF42B0534D89900303760 /* sslRecord.h */; };
+		4CAFF4660534D89900303760 /* sslSession.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42C0534D89900303760 /* sslSession.c */; };
+		4CAFF4670534D89900303760 /* sslSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF42D0534D89900303760 /* sslSession.h */; };
+		4CAFF4680534D89900303760 /* sslTransport.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42E0534D89900303760 /* sslTransport.c */; };
+		4CAFF4690534D89900303760 /* sslUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF42F0534D89900303760 /* sslUtils.c */; };
+		4CAFF46A0534D89900303760 /* sslUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4300534D89900303760 /* sslUtils.h */; };
+		4CAFF46B0534D89900303760 /* symCipher.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4310534D89900303760 /* symCipher.c */; };
+		4CAFF46C0534D89900303760 /* symCipher.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4320534D89900303760 /* symCipher.h */; };
+		4CAFF46D0534D89900303760 /* tls1Callouts.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4330534D89900303760 /* tls1Callouts.c */; };
+		4CAFF46E0534D89900303760 /* tls_hmac.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CAFF4340534D89900303760 /* tls_hmac.c */; };
+		4CAFF46F0534D89900303760 /* tls_hmac.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4350534D89900303760 /* tls_hmac.h */; };
+		4CAFF4700534D89900303760 /* tls_ssl.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4360534D89900303760 /* tls_ssl.h */; };
+		4CF36F910581386100834D11 /* CipherSuite.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4030534D89900303760 /* CipherSuite.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4CF36F930581386B00834D11 /* SecureTransport.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF4090534D89900303760 /* SecureTransport.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4CF36F940581388000834D11 /* SecureTransportPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAFF40A0534D89900303760 /* SecureTransportPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		BEB382AC14EC84A0003C055B /* sslCrypto.c in Sources */ = {isa = PBXBuildFile; fileRef = BEB382AB14EC84A0003C055B /* sslCrypto.c */; };
+		BEB382AF14EC84AC003C055B /* sslCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = BEB382AE14EC84AC003C055B /* sslCrypto.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_ssl.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAFF3FD0534D89900303760 /* appleCdsa.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleCdsa.c; sourceTree = "<group>"; };
+		4CAFF3FE0534D89900303760 /* appleCdsa.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = appleCdsa.h; sourceTree = "<group>"; };
+		4CAFF3FF0534D89900303760 /* appleSession.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = appleSession.c; sourceTree = "<group>"; };
+		4CAFF4000534D89900303760 /* appleSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = appleSession.h; sourceTree = "<group>"; };
+		4CAFF4010534D89900303760 /* cipherSpecs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cipherSpecs.c; sourceTree = "<group>"; };
+		4CAFF4020534D89900303760 /* cipherSpecs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cipherSpecs.h; sourceTree = "<group>"; };
+		4CAFF4030534D89900303760 /* CipherSuite.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CipherSuite.h; sourceTree = "<group>"; };
+		4CAFF4040534D89900303760 /* cryptType.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cryptType.h; sourceTree = "<group>"; };
+		4CAFF4050534D89900303760 /* ModuleAttacher.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ModuleAttacher.c; sourceTree = "<group>"; };
+		4CAFF4060534D89900303760 /* ModuleAttacher.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ModuleAttacher.h; sourceTree = "<group>"; };
+		4CAFF4070534D89900303760 /* securetransport++.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = "securetransport++.cpp"; sourceTree = "<group>"; };
+		4CAFF4080534D89900303760 /* securetransport++.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "securetransport++.h"; sourceTree = "<group>"; };
+		4CAFF4090534D89900303760 /* SecureTransport.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecureTransport.h; sourceTree = "<group>"; };
+		4CAFF40A0534D89900303760 /* SecureTransportPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecureTransportPriv.h; sourceTree = "<group>"; };
+		4CAFF40B0534D89900303760 /* ssl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ssl.h; sourceTree = "<group>"; };
+		4CAFF4110534D89900303760 /* ssl3Callouts.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ssl3Callouts.c; sourceTree = "<group>"; };
+		4CAFF4120534D89900303760 /* sslAlertMessage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslAlertMessage.c; sourceTree = "<group>"; };
+		4CAFF4130534D89900303760 /* sslAlertMessage.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslAlertMessage.h; sourceTree = "<group>"; };
+		4CAFF4140534D89900303760 /* sslBER.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslBER.c; sourceTree = "<group>"; };
+		4CAFF4150534D89900303760 /* sslBER.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslBER.h; sourceTree = "<group>"; };
+		4CAFF4170534D89900303760 /* sslBuildFlags.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslBuildFlags.h; sourceTree = "<group>"; };
+		4CAFF4180534D89900303760 /* sslCert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslCert.c; sourceTree = "<group>"; };
+		4CAFF4190534D89900303760 /* sslChangeCipher.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslChangeCipher.c; sourceTree = "<group>"; };
+		4CAFF41A0534D89900303760 /* sslContext.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslContext.c; sourceTree = "<group>"; };
+		4CAFF41B0534D89900303760 /* sslContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslContext.h; sourceTree = "<group>"; };
+		4CAFF41C0534D89900303760 /* sslDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslDebug.h; sourceTree = "<group>"; };
+		4CAFF41D0534D89900303760 /* sslDigests.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslDigests.c; sourceTree = "<group>"; };
+		4CAFF41E0534D89900303760 /* sslDigests.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslDigests.h; sourceTree = "<group>"; };
+		4CAFF41F0534D89900303760 /* sslHandshake.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslHandshake.c; sourceTree = "<group>"; };
+		4CAFF4200534D89900303760 /* sslHandshake.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslHandshake.h; sourceTree = "<group>"; };
+		4CAFF4210534D89900303760 /* sslHandshakeFinish.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslHandshakeFinish.c; sourceTree = "<group>"; };
+		4CAFF4220534D89900303760 /* sslHandshakeHello.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslHandshakeHello.c; sourceTree = "<group>"; };
+		4CAFF4230534D89900303760 /* sslKeychain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslKeychain.c; sourceTree = "<group>"; };
+		4CAFF4240534D89900303760 /* sslKeychain.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslKeychain.h; sourceTree = "<group>"; };
+		4CAFF4250534D89900303760 /* sslKeyExchange.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslKeyExchange.c; sourceTree = "<group>"; };
+		4CAFF4260534D89900303760 /* sslMemory.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslMemory.c; sourceTree = "<group>"; };
+		4CAFF4270534D89900303760 /* sslMemory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslMemory.h; sourceTree = "<group>"; };
+		4CAFF4280534D89900303760 /* sslNullCipher.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslNullCipher.c; sourceTree = "<group>"; };
+		4CAFF4290534D89900303760 /* sslPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslPriv.h; sourceTree = "<group>"; };
+		4CAFF42A0534D89900303760 /* sslRecord.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslRecord.c; sourceTree = "<group>"; };
+		4CAFF42B0534D89900303760 /* sslRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslRecord.h; sourceTree = "<group>"; };
+		4CAFF42C0534D89900303760 /* sslSession.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslSession.c; sourceTree = "<group>"; };
+		4CAFF42D0534D89900303760 /* sslSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslSession.h; sourceTree = "<group>"; };
+		4CAFF42E0534D89900303760 /* sslTransport.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslTransport.c; sourceTree = "<group>"; };
+		4CAFF42F0534D89900303760 /* sslUtils.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sslUtils.c; sourceTree = "<group>"; };
+		4CAFF4300534D89900303760 /* sslUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sslUtils.h; sourceTree = "<group>"; };
+		4CAFF4310534D89900303760 /* symCipher.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = symCipher.c; sourceTree = "<group>"; };
+		4CAFF4320534D89900303760 /* symCipher.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = symCipher.h; sourceTree = "<group>"; };
+		4CAFF4330534D89900303760 /* tls1Callouts.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = tls1Callouts.c; sourceTree = "<group>"; };
+		4CAFF4340534D89900303760 /* tls_hmac.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = tls_hmac.c; sourceTree = "<group>"; };
+		4CAFF4350534D89900303760 /* tls_hmac.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tls_hmac.h; sourceTree = "<group>"; };
+		4CAFF4360534D89900303760 /* tls_ssl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tls_ssl.h; sourceTree = "<group>"; };
+		4CCBFE3C057FF16800981D43 /* security_ssl.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = security_ssl.exp; sourceTree = "<group>"; };
+		BE6A959C14E3700A00C158E0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		BE6A959D14E3700A00C158E0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		BE6A959E14E3700A00C158E0 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		BE6A959F14E3700A00C158E0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		BEB382AB14EC84A0003C055B /* sslCrypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sslCrypto.c; sourceTree = "<group>"; };
+		BEB382AE14EC84AC003C055B /* sslCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sslCrypto.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		050651C7056A83F3008AD683 /* Apple Custom */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4050534D89900303760 /* ModuleAttacher.c */,
+				4CAFF3FD0534D89900303760 /* appleCdsa.c */,
+				4CAFF3FF0534D89900303760 /* appleSession.c */,
+				4CAFF4230534D89900303760 /* sslKeychain.c */,
+			);
+			name = "Apple Custom";
+			sourceTree = "<group>";
+		};
+		050651C8056A8404008AD683 /* SSL Core */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4120534D89900303760 /* sslAlertMessage.c */,
+				4CAFF41A0534D89900303760 /* sslContext.c */,
+				4CAFF42A0534D89900303760 /* sslRecord.c */,
+				4CAFF42C0534D89900303760 /* sslSession.c */,
+				4CAFF42E0534D89900303760 /* sslTransport.c */,
+				4CAFF4110534D89900303760 /* ssl3Callouts.c */,
+				4CAFF4330534D89900303760 /* tls1Callouts.c */,
+				050651E4056A86CF008AD683 /* Handshake */,
+			);
+			name = "SSL Core";
+			sourceTree = "<group>";
+		};
+		050651C9056A840E008AD683 /* Private Headers */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF40A0534D89900303760 /* SecureTransportPriv.h */,
+			);
+			name = "Private Headers";
+			path = ../Security;
+			sourceTree = "<group>";
+		};
+		050651CA056A8415008AD683 /* Public Headers */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4030534D89900303760 /* CipherSuite.h */,
+				4CAFF4090534D89900303760 /* SecureTransport.h */,
+			);
+			name = "Public Headers";
+			path = ../Security;
+			sourceTree = "<group>";
+		};
+		050651CB056A841C008AD683 /* Crypto */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4010534D89900303760 /* cipherSpecs.c */,
+				BEB382AB14EC84A0003C055B /* sslCrypto.c */,
+				4CAFF41D0534D89900303760 /* sslDigests.c */,
+				4CAFF4280534D89900303760 /* sslNullCipher.c */,
+				4CAFF4310534D89900303760 /* symCipher.c */,
+				4CAFF4340534D89900303760 /* tls_hmac.c */,
+			);
+			name = Crypto;
+			sourceTree = "<group>";
+		};
+		050651CC056A8421008AD683 /* Misc. */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4140534D89900303760 /* sslBER.c */,
+				4CAFF4260534D89900303760 /* sslMemory.c */,
+				4CAFF42F0534D89900303760 /* sslUtils.c */,
+			);
+			name = Misc.;
+			sourceTree = "<group>";
+		};
+		050651CD056A8427008AD683 /* C++ Interface */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4070534D89900303760 /* securetransport++.cpp */,
+				4CAFF4080534D89900303760 /* securetransport++.h */,
+			);
+			name = "C++ Interface";
+			sourceTree = "<group>";
+		};
+		050651E4056A86CF008AD683 /* Handshake */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF4180534D89900303760 /* sslCert.c */,
+				4CAFF4190534D89900303760 /* sslChangeCipher.c */,
+				4CAFF41F0534D89900303760 /* sslHandshake.c */,
+				4CAFF4210534D89900303760 /* sslHandshakeFinish.c */,
+				4CAFF4220534D89900303760 /* sslHandshakeHello.c */,
+				4CAFF4250534D89900303760 /* sslKeyExchange.c */,
+			);
+			name = Handshake;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				BE6A959B14E3700A00C158E0 /* config */,
+				4CAFF3FC0534D89900303760 /* lib */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CAFF3FC0534D89900303760 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				050651C7056A83F3008AD683 /* Apple Custom */,
+				050651C8056A8404008AD683 /* SSL Core */,
+				050651CA056A8415008AD683 /* Public Headers */,
+				050651C9056A840E008AD683 /* Private Headers */,
+				BE967B0314E9F622002A348A /* Project Headers */,
+				050651CB056A841C008AD683 /* Crypto */,
+				050651CC056A8421008AD683 /* Misc. */,
+				050651CD056A8427008AD683 /* C++ Interface */,
+				4CCBFE3C057FF16800981D43 /* security_ssl.exp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		BE6A959B14E3700A00C158E0 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				BE6A959C14E3700A00C158E0 /* base.xcconfig */,
+				BE6A959D14E3700A00C158E0 /* debug.xcconfig */,
+				BE6A959E14E3700A00C158E0 /* lib.xcconfig */,
+				BE6A959F14E3700A00C158E0 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		BE967B0314E9F622002A348A /* Project Headers */ = {
+			isa = PBXGroup;
+			children = (
+				4CAFF3FE0534D89900303760 /* appleCdsa.h */,
+				4CAFF4000534D89900303760 /* appleSession.h */,
+				4CAFF4020534D89900303760 /* cipherSpecs.h */,
+				4CAFF4040534D89900303760 /* cryptType.h */,
+				4CAFF4060534D89900303760 /* ModuleAttacher.h */,
+				4CAFF40B0534D89900303760 /* ssl.h */,
+				4CAFF4130534D89900303760 /* sslAlertMessage.h */,
+				4CAFF4150534D89900303760 /* sslBER.h */,
+				4CAFF4170534D89900303760 /* sslBuildFlags.h */,
+				4CAFF41B0534D89900303760 /* sslContext.h */,
+				BEB382AE14EC84AC003C055B /* sslCrypto.h */,
+				4CAFF41C0534D89900303760 /* sslDebug.h */,
+				4CAFF41E0534D89900303760 /* sslDigests.h */,
+				4CAFF4200534D89900303760 /* sslHandshake.h */,
+				4CAFF4240534D89900303760 /* sslKeychain.h */,
+				4CAFF4270534D89900303760 /* sslMemory.h */,
+				4CAFF4290534D89900303760 /* sslPriv.h */,
+				4CAFF42B0534D89900303760 /* sslRecord.h */,
+				4CAFF42D0534D89900303760 /* sslSession.h */,
+				4CAFF4300534D89900303760 /* sslUtils.h */,
+				4CAFF4320534D89900303760 /* symCipher.h */,
+				4CAFF4350534D89900303760 /* tls_hmac.h */,
+				4CAFF4360534D89900303760 /* tls_ssl.h */,
+			);
+			name = "Project Headers";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CAFF4380534D89900303760 /* appleCdsa.h in Headers */,
+				4CAFF43A0534D89900303760 /* appleSession.h in Headers */,
+				4CAFF43C0534D89900303760 /* cipherSpecs.h in Headers */,
+				4CAFF43E0534D89900303760 /* cryptType.h in Headers */,
+				4CAFF4400534D89900303760 /* ModuleAttacher.h in Headers */,
+				4CAFF4420534D89900303760 /* securetransport++.h in Headers */,
+				4CAFF4450534D89900303760 /* ssl.h in Headers */,
+				4CAFF44D0534D89900303760 /* sslAlertMessage.h in Headers */,
+				4CAFF44F0534D89900303760 /* sslBER.h in Headers */,
+				4CAFF4510534D89900303760 /* sslBuildFlags.h in Headers */,
+				4CAFF4550534D89900303760 /* sslContext.h in Headers */,
+				4CAFF4560534D89900303760 /* sslDebug.h in Headers */,
+				4CAFF4580534D89900303760 /* sslDigests.h in Headers */,
+				4CAFF45A0534D89900303760 /* sslHandshake.h in Headers */,
+				4CAFF45E0534D89900303760 /* sslKeychain.h in Headers */,
+				4CAFF4610534D89900303760 /* sslMemory.h in Headers */,
+				4CAFF4630534D89900303760 /* sslPriv.h in Headers */,
+				4CAFF4650534D89900303760 /* sslRecord.h in Headers */,
+				4CAFF4670534D89900303760 /* sslSession.h in Headers */,
+				4CAFF46A0534D89900303760 /* sslUtils.h in Headers */,
+				4CAFF46C0534D89900303760 /* symCipher.h in Headers */,
+				4CAFF46F0534D89900303760 /* tls_hmac.h in Headers */,
+				4CAFF4700534D89900303760 /* tls_ssl.h in Headers */,
+				4CF36F910581386100834D11 /* CipherSuite.h in Headers */,
+				4CF36F930581386B00834D11 /* SecureTransport.h in Headers */,
+				4CF36F940581388000834D11 /* SecureTransportPriv.h in Headers */,
+				BEB382AF14EC84AC003C055B /* sslCrypto.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_ssl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_ssl;
+			productName = libsecurity_ssl;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_ssl.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ssl" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_ssl */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CAFF4370534D89900303760 /* appleCdsa.c in Sources */,
+				4CAFF4390534D89900303760 /* appleSession.c in Sources */,
+				4CAFF43B0534D89900303760 /* cipherSpecs.c in Sources */,
+				4CAFF43F0534D89900303760 /* ModuleAttacher.c in Sources */,
+				4CAFF4410534D89900303760 /* securetransport++.cpp in Sources */,
+				4CAFF44B0534D89900303760 /* ssl3Callouts.c in Sources */,
+				4CAFF44C0534D89900303760 /* sslAlertMessage.c in Sources */,
+				4CAFF44E0534D89900303760 /* sslBER.c in Sources */,
+				4CAFF4520534D89900303760 /* sslCert.c in Sources */,
+				4CAFF4530534D89900303760 /* sslChangeCipher.c in Sources */,
+				4CAFF4540534D89900303760 /* sslContext.c in Sources */,
+				4CAFF4570534D89900303760 /* sslDigests.c in Sources */,
+				4CAFF4590534D89900303760 /* sslHandshake.c in Sources */,
+				4CAFF45B0534D89900303760 /* sslHandshakeFinish.c in Sources */,
+				4CAFF45C0534D89900303760 /* sslHandshakeHello.c in Sources */,
+				4CAFF45D0534D89900303760 /* sslKeychain.c in Sources */,
+				4CAFF45F0534D89900303760 /* sslKeyExchange.c in Sources */,
+				4CAFF4600534D89900303760 /* sslMemory.c in Sources */,
+				4CAFF4620534D89900303760 /* sslNullCipher.c in Sources */,
+				4CAFF4640534D89900303760 /* sslRecord.c in Sources */,
+				4CAFF4660534D89900303760 /* sslSession.c in Sources */,
+				4CAFF4680534D89900303760 /* sslTransport.c in Sources */,
+				4CAFF4690534D89900303760 /* sslUtils.c in Sources */,
+				4CAFF46B0534D89900303760 /* symCipher.c in Sources */,
+				4CAFF46D0534D89900303760 /* tls1Callouts.c in Sources */,
+				4CAFF46E0534D89900303760 /* tls_hmac.c in Sources */,
+				BEB382AC14EC84A0003C055B /* sslCrypto.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD4010987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959D14E3700A00C158E0 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4030987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959F14E3700A00C158E0 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD4050987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4070987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE6A959E14E3700A00C158E0 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD4000987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_ssl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4010987FCDF001272E0 /* Debug */,
+				C27AD4030987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4040987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_ssl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4050987FCDF001272E0 /* Debug */,
+				C27AD4070987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

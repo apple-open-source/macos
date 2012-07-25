@@ -41,11 +41,13 @@
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 class ScriptDebugListener;
+class ScriptObject;
 class ScriptValue;
 
 class ScriptDebugServer {
@@ -73,7 +75,11 @@ public:
     void stepOverStatement();
     void stepOutOfFunction();
 
-    bool editScriptSource(const String& sourceID, const String& newContent, String* error, ScriptValue* newCallFrames);
+    bool canSetScriptSource();
+    bool setScriptSource(const String& sourceID, const String& newContent, bool preview, String* error, ScriptValue* newCallFrames, ScriptObject* result);
+
+    bool causesRecompilation() { return false; }
+    bool supportsNativeBreakpoints() { return true; }
 
     void recompileAllJSFunctionsSoon() { }
     void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0) { }
@@ -83,8 +89,10 @@ public:
         virtual ~Task() { }
         virtual void run() = 0;
     };
-    static void interruptAndRun(PassOwnPtr<Task>);
+    static void interruptAndRun(PassOwnPtr<Task>, v8::Isolate* = 0);
     void runPendingTasks();
+
+    bool isPaused();
 
 protected:
     ScriptDebugServer();
@@ -105,8 +113,8 @@ protected:
     void dispatchDidParseSource(ScriptDebugListener* listener, v8::Handle<v8::Object> sourceObject);
 
     void ensureDebuggerScriptCompiled();
-    
-    bool isPaused();
+
+    v8::Local<v8::Value> callDebuggerMethod(const char* functionName, int argc, v8::Handle<v8::Value> argv[]);
 
     PauseOnExceptionsState m_pauseOnExceptionsState;
     OwnHandle<v8::Object> m_debuggerScript;

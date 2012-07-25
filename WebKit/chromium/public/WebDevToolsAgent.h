@@ -31,7 +31,7 @@
 #ifndef WebDevToolsAgent_h
 #define WebDevToolsAgent_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 class WebDevToolsAgentClient;
@@ -49,28 +49,26 @@ class WebDevToolsAgent {
 public:
     virtual ~WebDevToolsAgent() {}
 
+    // Returns WebKit WebInspector protocol version.
+    WEBKIT_EXPORT static WebString inspectorProtocolVersion();
+
+    // Returns true if and only if the given protocol version is supported by the WebKit Web Inspector.
+    WEBKIT_EXPORT static bool supportsInspectorProtocolVersion(const WebString& version);
+
     virtual void attach() = 0;
+    virtual void reattach(const WebString& savedState) = 0;
     virtual void detach() = 0;
-    virtual void frontendLoaded() = 0;
 
     virtual void didNavigate() = 0;
 
     virtual void dispatchOnInspectorBackend(const WebString& message) = 0;
 
     virtual void inspectElementAt(const WebPoint&) = 0;
-    virtual void setRuntimeProperty(const WebString& name, const WebString& value) = 0;
+    virtual void setProcessId(long) = 0;
 
     // Exposed for LayoutTestController.
     virtual void evaluateInWebInspector(long callId, const WebString& script) = 0;
-    virtual void setTimelineProfilingEnabled(bool enabled) = 0;
-
-    // Asynchronously executes debugger command in the render thread.
-    // |callerIdentifier| will be used for sending response.
-    WEBKIT_API static void executeDebuggerCommand(
-        const WebString& command, int callerIdentifier);
-
-    // Asynchronously request debugger to pause immediately.
-    WEBKIT_API static void debuggerPauseScript();
+    virtual void setJavaScriptProfilingEnabled(bool) = 0;
 
     class MessageDescriptor {
     public:
@@ -79,15 +77,13 @@ public:
         virtual WebString message() = 0;
     };
     // Asynchronously request debugger to pause immediately and run the command.
-    WEBKIT_API static void interruptAndDispatch(MessageDescriptor*);
-    WEBKIT_API static bool shouldInterruptForMessage(const WebString&);
-    WEBKIT_API static void processPendingMessages();
+    WEBKIT_EXPORT static void interruptAndDispatch(MessageDescriptor*);
+    WEBKIT_EXPORT static bool shouldInterruptForMessage(const WebString&);
+    WEBKIT_EXPORT static void processPendingMessages();
 
-    typedef void (*MessageLoopDispatchHandler)();
-
-    // Installs dispatch handle that is going to be called periodically
-    // while on a breakpoint.
-    WEBKIT_API static void setMessageLoopDispatchHandler(MessageLoopDispatchHandler);
+    // Returns a disconnect event that can be dispatched on the front-end
+    // in order to let it know that it has disconnected from the agent.
+    WEBKIT_EXPORT static WebString disconnectEventAsText();
 };
 
 } // namespace WebKit

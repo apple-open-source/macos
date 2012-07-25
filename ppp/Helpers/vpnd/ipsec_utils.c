@@ -61,6 +61,7 @@
 #include "RASSchemaDefinitions.h"
 #include "vpnoptions.h"
 #include "scnc_main.h"
+#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 
 
 /* -----------------------------------------------------------------------------
@@ -72,6 +73,9 @@
 #define TWRITE(t)  fprintf(file, "%s", t)
 #define FAIL(e) { *errstr = e; goto fail; } 	
 #define RACOON_CONFIG_PATH	"/var/run/racoon"
+
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
 
 /* -----------------------------------------------------------------------------
     globals
@@ -856,7 +860,7 @@ configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, char **errst
 		other keys 
 	*/
     WRITE("initial_contact on;\n");
-    WRITE("support_mip6 on;\n");
+    WRITE("support_proxy on;\n");
 	
 	/* 
 		proposal behavior key is OPTIONAL
@@ -1562,8 +1566,9 @@ Return code:
 int 
 IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr) 
 {
+    int			nread, nread_size=sizeof(nread), num_policies = 0, num_drained = 0;
     int			s = -1, err, seq = 0, i, nb;
-    char		policystr_in[64], policystr_out[64], src_address[32], dst_address[32], str[32];
+    char		policystr_in[64], policystr_out[64], src_address[32], dst_address[32], str[32], *msg;
     caddr_t		policy_in = 0, policy_out = 0;
     u_int32_t	policylen_in, policylen_out, local_prefix, remote_prefix;
 	u_int32_t	protocol = 0xFF;
@@ -1673,8 +1678,8 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 		if (policy_out == 0)
 			FAIL("cannot set policy out");
 
-		policylen_in = ((struct sadb_x_policy *)policy_in)->sadb_x_policy_len << 3;
-		policylen_out = ((struct sadb_x_policy *)policy_out)->sadb_x_policy_len << 3;
+		policylen_in = (ALIGNED_CAST(struct sadb_x_policy *)policy_in)->sadb_x_policy_len << 3;
+		policylen_out = (ALIGNED_CAST(struct sadb_x_policy *)policy_out)->sadb_x_policy_len << 3;
 
 
 		if (tunnel) {
@@ -1727,31 +1732,45 @@ IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 			GetIntFromDict(policy, kRASPropIPSecPolicyProtocol, &protocol, 0);
 
 		}
-		
+
 		/* configure kernel policies */
 		
 		if (out) {
+			num_policies++;
 			err = pfkey_send_spdadd(s, (struct sockaddr *)&local_net, local_prefix, (struct sockaddr *)&remote_net, remote_prefix, protocol, policy_out, policylen_out, seq++);
 			if (err < 0)
 				FAIL("cannot add policy out");
 		}
 		
 		if (in) {
+			num_policies++;
 			err = pfkey_send_spdadd(s, (struct sockaddr *)&remote_net, remote_prefix, (struct sockaddr *)&local_net, local_prefix, protocol, policy_in, policylen_in, seq++);
 			if (err < 0)
 				FAIL("cannot add policy in");
 		}
-			
+
+	        /* Drain the receiving buffer otherwise it's never read. */
+	        while (((err = getsockopt(s, SOL_SOCKET, SO_NREAD, &nread, &nread_size)) >= 0) && (nread > 0)) {
+		
+		    if (msg = (char *)pfkey_recv(s)) {
+			num_drained++;
+			free(msg);
+		    }
+		}
+ 
 		free(policy_in);
 		free(policy_out);
 		policy_in = 0;
 		policy_out = 0;
 	}
 
+
+	SCLog(TRUE, LOG_DEBUG, CFSTR("Number of policies processed successfully: %d (with %d drained).\n"), num_policies, num_drained);
 	pfkey_close(s);
 	return 0;
 
 fail:
+	SCLog(TRUE, LOG_ERR, CFSTR("Failed to add policy. Number of policies processed %d (with %d drained).\n"), num_policies, num_drained);
 	if (policy_in)
 		free(policy_in);
 	if (policy_out)
@@ -2075,8 +2094,8 @@ IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char ** errstr)
 		if (policy_out == 0)
 			FAIL("cannot set policy out");
 
-		policylen_in = ((struct sadb_x_policy *)policy_in)->sadb_x_policy_len << 3;
-		policylen_out = ((struct sadb_x_policy *)policy_out)->sadb_x_policy_len << 3;
+		policylen_in = (ALIGNED_CAST(struct sadb_x_policy *)policy_in)->sadb_x_policy_len << 3;
+		policylen_out = (ALIGNED_CAST(struct sadb_x_policy *)policy_out)->sadb_x_policy_len << 3;
 		
 
 		if (tunnel) {
@@ -2230,10 +2249,10 @@ get_rtaddrs(int addrs, struct sockaddr *sa, struct sockaddr **rti_info)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void
-sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
+sockaddr_to_string(const struct sockaddr_storage *address, char *buf, size_t bufLen)
 {
     bzero(buf, bufLen);
-    switch (address->sa_family) {
+    switch (address->ss_family) {
         case AF_INET :
             (void)inet_ntop(((struct sockaddr_in *)address)->sin_family,
                             &((struct sockaddr_in *)address)->sin_addr,
@@ -2266,7 +2285,7 @@ sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
             bcopy(((struct sockaddr_dl *)address)->sdl_data, buf, bufLen);
             break;
         default :
-            snprintf(buf, bufLen, "unexpected address family %d", address->sa_family);
+            snprintf(buf, bufLen, "unexpected address family %d", address->ss_family);
             break;
     }
 }
@@ -2286,39 +2305,42 @@ Return code:
 int
 get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
 {
-    char		buf[BUFLEN];
-    struct rt_msghdr	*rtm;
+    union {                         // Wcast-align fix - force alignment
+        struct rt_msghdr 	rtm;
+        char				buf[BUFLEN];
+    } aligned_buf;
+    
     pid_t		pid = getpid();
     int			rsock = -1, seq = 0, n;
-    struct sockaddr	*rti_info[RTAX_MAX], *sa;
+    struct sockaddr	*rti_info[RTAX_MAX] __attribute__ ((aligned (4)));      // Wcast-align fix - force alignment
+    struct sockaddr	*sa;
     struct sockaddr_dl	*sdl;
 
     rsock = socket(PF_ROUTE, SOCK_RAW, PF_ROUTE);
     if (rsock == -1)
         return -1;
 
-    bzero(&buf, sizeof(buf));
+    bzero(&aligned_buf, sizeof(aligned_buf));
 
-    rtm = (struct rt_msghdr *)&buf;
-    rtm->rtm_msglen  = sizeof(struct rt_msghdr);
-    rtm->rtm_version = RTM_VERSION;
-    rtm->rtm_type    = RTM_GET_SILENT;
-    rtm->rtm_flags   = RTF_STATIC|RTF_UP|RTF_HOST|RTF_GATEWAY;
-    rtm->rtm_addrs   = RTA_DST|RTA_IFP; /* Both destination and device */
-    rtm->rtm_pid     = pid;
-    rtm->rtm_seq     = ++seq;
+    aligned_buf.rtm.rtm_msglen  = sizeof(struct rt_msghdr);
+    aligned_buf.rtm.rtm_version = RTM_VERSION;
+    aligned_buf.rtm.rtm_type    = RTM_GET_SILENT;
+    aligned_buf.rtm.rtm_flags   = RTF_STATIC|RTF_UP|RTF_HOST|RTF_GATEWAY;
+    aligned_buf.rtm.rtm_addrs   = RTA_DST|RTA_IFP; /* Both destination and device */
+    aligned_buf.rtm.rtm_pid     = pid;
+    aligned_buf.rtm.rtm_seq     = ++seq;
 
-    sa = (struct sockaddr *) (rtm + 1);
+    sa = (struct sockaddr *) (aligned_buf.buf + sizeof(struct rt_msghdr));
     bcopy(dst, sa, dst->sa_len);
-    rtm->rtm_msglen += sa->sa_len;
+    aligned_buf.rtm.rtm_msglen += sa->sa_len;
 
     sdl = (struct sockaddr_dl *) ((void *)sa + sa->sa_len);
     sdl->sdl_family = AF_LINK;
     sdl->sdl_len = sizeof (struct sockaddr_dl);
-    rtm->rtm_msglen += sdl->sdl_len;
+    aligned_buf.rtm.rtm_msglen += sdl->sdl_len;
 
     do {
-        n = write(rsock, &buf, rtm->rtm_msglen);
+        n = write(rsock, &aligned_buf, aligned_buf.rtm.rtm_msglen);
         if (n == -1 && errno != EINTR) {
             close(rsock);
             return -1;
@@ -2326,14 +2348,14 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     } while (n == -1); 
 
     do {
-        n = read(rsock, (void *)&buf, sizeof(buf));
+        n = read(rsock, (void *)&aligned_buf, sizeof(aligned_buf));
         if (n == -1 && errno != EINTR) {
             close(rsock);
             return -1;
         }
     } while (n == -1); 
 
-    get_rtaddrs(rtm->rtm_addrs, sa, rti_info);
+    get_rtaddrs(aligned_buf.rtm.rtm_addrs, sa, rti_info);
 
 #if 0
 { /* DEBUG */
@@ -2358,7 +2380,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
     }
     
 	if (rti_info[RTAX_IFA]->sa_family == AF_INET6) {
-		struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)rti_info[RTAX_IFA];
+		struct sockaddr_in6 *addr6 = ALIGNED_CAST(struct sockaddr_in6 *)rti_info[RTAX_IFA];
 
 		/* XXX: check for link local and scopeid */
 		if (IN6_IS_ADDR_LINKLOCAL(&addr6->sin6_addr)) {
@@ -2375,7 +2397,7 @@ get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name)
 	
     bcopy(rti_info[RTAX_IFA], src, rti_info[RTAX_IFA]->sa_len);
     if (if_name)
-        strncpy(if_name, ((struct sockaddr_dl *)rti_info[RTAX_IFP])->sdl_data, IF_NAMESIZE);
+        strncpy(if_name, ((struct sockaddr_dl *)(void*)rti_info[RTAX_IFP])->sdl_data, IF_NAMESIZE);     // Wcast-align fix (void*) - remove warning
 
     close(rsock);
     return 0;
@@ -2481,7 +2503,7 @@ get_if_baudrate(char *if_name)
 
     /* get the baudrate for the interface */
 
-    ifm = (struct if_msghdr *)buf;
+    ifm = ALIGNED_CAST(struct if_msghdr *)buf;
     switch (ifm->ifm_type) {
         case RTM_IFINFO : {
             baudrate = ifm->ifm_data.ifi_baudrate;
@@ -2545,7 +2567,7 @@ Return code:
 the configuration dictionary
 ----------------------------------------------------------------------------- */
 CFMutableDictionaryRef 
-IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, CFStringRef authenticationMethod, 
+IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, char *dst_hostName, CFStringRef authenticationMethod, 
 		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
 {
 	CFStringRef				src_string, dst_string, hostname_string = NULL;
@@ -2730,7 +2752,7 @@ Return code:
 the configuration dictionary
 ----------------------------------------------------------------------------- */
 CFMutableDictionaryRef 
-IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, CFStringRef dst_hostName, CFStringRef authenticationMethod, 
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, CFStringRef dst_hostName, CFStringRef authenticationMethod, 
 		int isClient, int natt_multiple_users, CFStringRef identifierVerification) 
 {
 	CFStringRef				src_string, dst_string;
@@ -3071,6 +3093,30 @@ IPSecSelfRepair()
 	racoon_stop();
 		
 	return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ IPSecFlushAll. 
+ Flush all policies and associations
+ 
+ Parameters:
+ 
+ Return code:
+ 0 if successful, -1 otherwise.
+ ----------------------------------------------------------------------------- */
+int 
+IPSecFlushAll() 
+{	
+    int		s = -1;
+    
+    s = pfkey_open();
+    if (s >= 0) {
+        pfkey_send_spdflush(s);
+        pfkey_send_flush(s, SADB_SATYPE_UNSPEC);
+        pfkey_close(s);
+    }
+    
+    return 0;
 }
 
 static char unknown_if_family_str[16];

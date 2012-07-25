@@ -77,6 +77,7 @@
 #include <strip_addr.h>
 #include <stringops.h>
 #include <bounce.h>
+#include <defer.h>
 #include <split_addr.h>
 #include <canon_addr.h>
 
@@ -105,7 +106,7 @@ int     bounce_workaround(LOCAL_STATE state)
     }
 
 	FIND_OWNER(owner_alias, owner_expansion, state.msg_attr.rcpt.address);
-	if (owner_expansion == 0
+	if (alias_maps->error == 0 && owner_expansion == 0
 	    && (stripped_recipient = strip_addr(state.msg_attr.rcpt.address,
 						(char **) 0,
 						*var_rcpt_delim)) != 0) {
@@ -113,13 +114,17 @@ int     bounce_workaround(LOCAL_STATE state)
 	    FIND_OWNER(owner_alias, owner_expansion, stripped_recipient);
 	    myfree(stripped_recipient);
 	}
-	if (owner_expansion != 0) {
+	if (alias_maps->error == 0 && owner_expansion != 0) {
 	    canon_owner = canon_addr_internal(vstring_alloc(10),
 					      var_exp_own_alias ?
 					      owner_expansion : owner_alias);
 	    SET_OWNER_ATTR(state.msg_attr, STR(canon_owner), state.level);
 	}
 	myfree(owner_alias);
+	if (alias_maps->error != 0)
+	    /* At this point, canon_owner == 0. */
+	    return (defer_append(BOUNCE_FLAGS(state.request),
+				 BOUNCE_ATTR(state.msg_attr)));
     }
 
     /*

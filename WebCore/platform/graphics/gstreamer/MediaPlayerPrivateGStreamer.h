@@ -22,14 +22,15 @@
 
 #ifndef MediaPlayerPrivateGStreamer_h
 #define MediaPlayerPrivateGStreamer_h
-#if USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
-#include <wtf/Forward.h>
+#include "GRefPtrGStreamer.h"
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
 
 #include <glib.h>
 #include <gst/gst.h>
+#include <wtf/Forward.h>
 
 typedef struct _WebKitVideoSink WebKitVideoSink;
 typedef struct _GstBuffer GstBuffer;
@@ -154,7 +155,7 @@ class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface {
             GstElement* m_webkitVideoSink;
             GstElement* m_videoSinkBin;
             GstElement* m_fpsSink;
-            GstElement* m_source;
+            GRefPtr<GstElement> m_source;
             float m_seekTime;
             bool m_changingRate;
             float m_endTime;
@@ -180,14 +181,16 @@ class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface {
             MediaPlayer::Preload m_preload;
             bool m_delayingLoad;
             bool m_mediaDurationKnown;
+#ifndef GST_API_VERSION_1
             RefPtr<GStreamerGWorld> m_gstGWorld;
+#endif
             guint m_volumeTimerHandler;
             guint m_muteTimerHandler;
             bool m_hasVideo;
             bool m_hasAudio;
             guint m_audioTimerHandler;
             guint m_videoTimerHandler;
-            GstElement* m_webkitAudioSink;
+            GRefPtr<GstElement> m_webkitAudioSink;
     };
 }
 

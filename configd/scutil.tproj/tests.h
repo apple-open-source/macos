@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@ void	do_showDNSConfiguration		(int argc, char **argv);
 void	do_showProxyConfiguration	(int argc, char **argv);
 void	do_snapshot			(int argc, char **argv);
 void	do_wait				(char *waitKey, int timeout);
+void	do_nwi				(int argc, char **argv);
 
 __END_DECLS
 

@@ -19,9 +19,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>13</string>
+	<string>3.0.1</string>
 	<key>CFBundleShortVersionString</key>
-	<string>10.7</string>
+	<string>3.0.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleFileSystemDriver</key>
@@ -92,8 +92,6 @@
 			</dict>
 		</dict>
 	</dict>
-	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0</string>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>
 	<key>OSBundleLibraries</key>

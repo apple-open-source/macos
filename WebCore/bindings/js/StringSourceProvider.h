@@ -37,32 +37,37 @@ namespace WebCore {
 
     class StringSourceProvider : public ScriptSourceProvider {
     public:
-        static PassRefPtr<StringSourceProvider> create(const String& source, const String& url, const TextPosition1& startPosition = TextPosition1::minimumPosition())
+        static PassRefPtr<StringSourceProvider> create(const String& source, const String& url, const TextPosition& startPosition)
         {
             return adoptRef(new StringSourceProvider(source, url, startPosition));
         }
 
-        virtual TextPosition1 startPosition() const { return m_startPosition; }
-        JSC::UString getRange(int start, int end) const { return JSC::UString(m_source.characters() + start, end - start); }
+        virtual JSC::UString getRange(int start, int end) const OVERRIDE
+        {
+            int length = end - start;
+            ASSERT(length >= 0);
+            ASSERT(start + length <= this->length());
+
+            return JSC::UString(StringImpl::create(m_source.impl(), start, length));
+        }
+
         const StringImpl* data() const { return m_source.impl(); }
         int length() const { return m_source.length(); }
         const String& source() const { return m_source; }
 
     private:
-        StringSourceProvider(const String& source, const String& url, const TextPosition1& startPosition)
-            : ScriptSourceProvider(stringToUString(url))
-            , m_startPosition(startPosition)
+        StringSourceProvider(const String& source, const String& url, const TextPosition& startPosition)
+            : ScriptSourceProvider(stringToUString(url), startPosition)
             , m_source(source)
         {
         }
         
-        TextPosition1 m_startPosition;
         String m_source;
     };
 
-    inline JSC::SourceCode makeSource(const String& source, const String& url = String(), int firstLine = 1)
+    inline JSC::SourceCode makeSource(const String& source, const String& url = String(), const TextPosition& startPosition = TextPosition::minimumPosition())
     {
-        return JSC::SourceCode(StringSourceProvider::create(source, url), firstLine);
+        return JSC::SourceCode(StringSourceProvider::create(source, url, startPosition), startPosition.m_line.oneBasedInt());
     }
 
 } // namespace WebCore

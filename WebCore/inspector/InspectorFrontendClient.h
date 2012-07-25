@@ -53,20 +53,19 @@ public:
 
     virtual void bringToFront() = 0;
     virtual void closeWindow() = 0;
-    virtual void disconnectFromBackend() = 0;
 
     virtual void requestAttachWindow() = 0;
     virtual void requestDetachWindow() = 0;
+    virtual void requestSetDockSide(const String&) = 0;
     virtual void changeAttachedWindowHeight(unsigned) = 0;
-    virtual bool canAttachWindow() = 0;
-    virtual void saveAs(const WTF::String& fileName, const WTF::String& content) = 0;
+    virtual void openInNewTab(const String& url) = 0;
+    virtual bool canSave() = 0;
+    virtual void save(const WTF::String& url, const WTF::String& content, bool forceSaveAs) = 0;
+    virtual void append(const WTF::String& url, const WTF::String& content) = 0;
 
     virtual void inspectedURLChanged(const String&) = 0;
 
     virtual void sendMessageToBackend(const String&) = 0;
-
-    virtual void saveSessionSetting(const String&, const String&) { }
-    virtual void loadSessionSetting(const String&, String*) { }
 };
 
 } // namespace WebCore

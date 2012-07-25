@@ -97,6 +97,11 @@ mini_inetd_addrinfo (struct addrinfo *ai, rk_socket_t *ret_socket)
 
     for (nalloc = 0, a = ai; a != NULL; a = a->ai_next)
 	++nalloc;
+    
+    if (nalloc == 0) {
+	errx(1, "mini_inetd: no sockets to listen on");
+	UNREACHABLE(return);
+    }
 
     fds = malloc (nalloc * sizeof(*fds));
     if (fds == NULL) {
@@ -124,7 +129,7 @@ mini_inetd_addrinfo (struct addrinfo *ai, rk_socket_t *ret_socket)
 	    fds[i] = rk_INVALID_SOCKET;
 	    continue;
 	}
-#ifdef FD_SETSIZE
+#ifndef NO_LIMIT_FD_SETSIZE
 	if (fds[i] >= FD_SETSIZE)
 	    errx (1, "fd too large");
 #endif

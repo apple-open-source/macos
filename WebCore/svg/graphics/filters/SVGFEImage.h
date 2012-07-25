@@ -29,15 +29,16 @@
 
 namespace WebCore {
 
+class Document;
 class Image;
+class RenderObject;
 
 class FEImage : public FilterEffect {
 public:
-    static PassRefPtr<FEImage> create(Filter*, RefPtr<Image>, const SVGPreserveAspectRatio&);
+    static PassRefPtr<FEImage> createWithImage(Filter*, PassRefPtr<Image>, const SVGPreserveAspectRatio&);
+    static PassRefPtr<FEImage> createWithIRIReference(Filter*, Document*, const String&, const SVGPreserveAspectRatio&);
 
-    void setAbsoluteSubregion(const FloatRect& absoluteSubregion) { m_absoluteSubregion = absoluteSubregion; }
-
-    virtual void apply();
+    virtual void platformApplySoftware();
     virtual void dump();
 
     virtual void determineAbsolutePaintRect();
@@ -47,11 +48,15 @@ public:
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
     
 private:
-    FEImage(Filter*, RefPtr<Image>, const SVGPreserveAspectRatio&);
+    virtual ~FEImage() { }
+    FEImage(Filter*, PassRefPtr<Image>, const SVGPreserveAspectRatio&);
+    FEImage(Filter*, Document*, const String&, const SVGPreserveAspectRatio&);
+    RenderObject* referencedRenderer() const;
 
     RefPtr<Image> m_image;
+    Document* m_document;
+    String m_href;
     SVGPreserveAspectRatio m_preserveAspectRatio;
-    FloatRect m_absoluteSubregion;
 };
 
 } // namespace WebCore

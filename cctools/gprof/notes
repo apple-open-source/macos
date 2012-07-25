@@ -3,6 +3,10 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+  - Added a reference to apple_version[] in gprof.c .
+
 Changes for the 5.28 release (the cctools-777 release):
 - Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
 

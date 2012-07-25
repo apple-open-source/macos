@@ -104,7 +104,7 @@ OSStatus HIDSetButton  (HIDReportType 			reportType,
 /*
  *	The Collection must be in range
 */
-	if ((collection < 0) || (collection >= ptPreparsedData->collectionCount))
+	if (collection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 /*
  *	Search only the scope of the Collection specified

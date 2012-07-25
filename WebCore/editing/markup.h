@@ -33,31 +33,40 @@
 
 namespace WebCore {
 
+    class ContainerNode;
     class Document;
     class DocumentFragment;
     class Element;
     class KURL;
     class Node;
+    class QualifiedName;
     class Range;
 
+    typedef int ExceptionCode;
+
     enum EChildrenOnly { IncludeNode, ChildrenOnly };
-    enum EAbsoluteURLs { DoNotResolveURLs, AbsoluteURLs };
+    enum EAbsoluteURLs { DoNotResolveURLs, ResolveAllURLs, ResolveNonLocalURLs };
 
     PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String& text);
     PassRefPtr<DocumentFragment> createFragmentFromMarkup(Document*, const String& markup, const String& baseURL, FragmentScriptingPermission = FragmentScriptingAllowed);
+    PassRefPtr<DocumentFragment> createFragmentFromMarkupWithContext(Document*, const String& markup, unsigned fragmentStart, unsigned fragmentEnd, const String& baseURL, FragmentScriptingPermission);
     PassRefPtr<DocumentFragment> createFragmentFromNodes(Document*, const Vector<Node*>&);
+    PassRefPtr<DocumentFragment> createFragmentFromSource(const String&, Element*, ExceptionCode&);
 
     bool isPlainTextMarkup(Node *node);
 
+    // These methods are used by HTMLElement & ShadowRoot to replace the children with respected fragment/text.
+    void replaceChildrenWithFragment(ContainerNode*, PassRefPtr<DocumentFragment>, ExceptionCode&);
+    void replaceChildrenWithText(ContainerNode*, const String&, ExceptionCode&);
+
     String createMarkup(const Range*,
         Vector<Node*>* = 0, EAnnotateForInterchange = DoNotAnnotateForInterchange, bool convertBlocksToInlines = false, EAbsoluteURLs = DoNotResolveURLs);
-    String createMarkup(const Node*, EChildrenOnly = IncludeNode, Vector<Node*>* = 0, EAbsoluteURLs = DoNotResolveURLs);
+    String createMarkup(const Node*, EChildrenOnly = IncludeNode, Vector<Node*>* = 0, EAbsoluteURLs = DoNotResolveURLs, Vector<QualifiedName>* tagNamesToSkip = 0);
     
     String createFullMarkup(const Node*);
     String createFullMarkup(const Range*);
 
     String urlToMarkup(const KURL&, const String& title);
-    String imageToMarkup(const KURL&, Element*);
 }
 
 #endif // markup_h

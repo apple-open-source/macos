@@ -26,40 +26,26 @@
 #ifndef LevelDBIterator_h
 #define LevelDBIterator_h
 
-#if ENABLE(LEVELDB)
+#if USE(LEVELDB)
 
 #include "LevelDBSlice.h"
-#include "PlatformString.h"
-#include <OwnPtr.h>
-#include <Vector.h>
-
-namespace leveldb {
-class Iterator;
-}
 
 namespace WebCore {
 
 class LevelDBIterator {
 public:
-    ~LevelDBIterator();
-
-    bool isValid() const;
-    void seekToLast();
-    void seek(const Vector<char>& target);
-    void next();
-    void prev();
-    LevelDBSlice key() const;
-    LevelDBSlice value() const;
-
-private:
-    LevelDBIterator(PassOwnPtr<leveldb::Iterator>);
-    friend class LevelDBDatabase;
-
-    OwnPtr<leveldb::Iterator> m_iterator;
+    virtual ~LevelDBIterator() { };
+    virtual bool isValid() const = 0;
+    virtual void seekToLast() = 0;
+    virtual void seek(const LevelDBSlice& target) = 0;
+    virtual void next() = 0;
+    virtual void prev() = 0;
+    virtual LevelDBSlice key() const = 0;
+    virtual LevelDBSlice value() const = 0;
 };
-
 
 } // namespace WebCore
 
-#endif // ENABLE(LEVELDB)
+#endif // USE(LEVELDB)
+
 #endif // LevelDBIterator_h

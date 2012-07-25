@@ -31,8 +31,6 @@
  * SUCH DAMAGE.
  */
 
-#define KRB5_DEPRECATED
-
 #include "krb5_locl.h"
 
 #undef __attribute__
@@ -51,9 +49,9 @@
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_data_contents(krb5_context context, krb5_data *data)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_data_free(data);
 }
@@ -64,12 +62,12 @@ krb5_free_data_contents(krb5_context context, krb5_data *data)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_keytype_to_enctypes_default (krb5_context context,
 				  krb5_keytype keytype,
 				  unsigned *len,
 				  krb5_enctype **val)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     unsigned int i, n;
     krb5_enctype *ret;
@@ -96,13 +94,13 @@ static struct {
     const char *name;
     krb5_keytype type;
 } keys[] = {
-    { "null", ENCTYPE_NULL },
-    { "des", ETYPE_DES_CBC_CRC },
-    { "des3", ETYPE_OLD_DES3_CBC_SHA1 },
-    { "aes-128", ETYPE_AES128_CTS_HMAC_SHA1_96 },
-    { "aes-256", ETYPE_AES256_CTS_HMAC_SHA1_96 },
-    { "arcfour", ETYPE_ARCFOUR_HMAC_MD5 },
-    { "arcfour-56", ETYPE_ARCFOUR_HMAC_MD5_56 }
+    { "null", KRB5_ENCTYPE_NULL },
+    { "des", KRB5_ENCTYPE_DES_CBC_CRC },
+    { "des3", KRB5_ENCTYPE_OLD_DES3_CBC_SHA1 },
+    { "aes-128", KRB5_ENCTYPE_AES128_CTS_HMAC_SHA1_96 },
+    { "aes-256", KRB5_ENCTYPE_AES256_CTS_HMAC_SHA1_96 },
+    { "arcfour", KRB5_ENCTYPE_ARCFOUR_HMAC_MD5 },
+    { "arcfour-56", KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56 }
 };
 
 static int num_keys = sizeof(keys) / sizeof(keys[0]);
@@ -114,13 +112,13 @@ static int num_keys = sizeof(keys) / sizeof(keys[0]);
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_keytype_to_string(krb5_context context,
 		       krb5_keytype keytype,
 		       char **string)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
-    const char *name;
+    const char *name = NULL;
     int i;
 
     for(i = 0; i < num_keys; i++) {
@@ -151,11 +149,11 @@ krb5_keytype_to_string(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_string_to_keytype(krb5_context context,
 		       const char *string,
 		       krb5_keytype *keytype)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     char *end;
     int i;
@@ -184,13 +182,13 @@ krb5_string_to_keytype(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
-KRB5_LIB_FUNCTION krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_CALLCONV
 krb5_password_key_proc (krb5_context context,
 			krb5_enctype type,
 			krb5_salt salt,
 			krb5_const_pointer keyseed,
 			krb5_keyblock **key)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_error_code ret;
     const char *password = (const char *)keyseed;
@@ -220,7 +218,6 @@ krb5_password_key_proc (krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_password (krb5_context context,
 			       krb5_flags options,
@@ -231,6 +228,7 @@ krb5_get_in_tkt_with_password (krb5_context context,
 			       krb5_ccache ccache,
 			       krb5_creds *creds,
 			       krb5_kdc_rep *ret_as_reply)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
      return krb5_get_in_tkt (context,
 			     options,
@@ -246,7 +244,7 @@ krb5_get_in_tkt_with_password (krb5_context context,
 			     ret_as_reply);
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 krb5_skey_key_proc (krb5_context context,
 		    krb5_enctype type,
 		    krb5_salt salt,
@@ -262,7 +260,6 @@ krb5_skey_key_proc (krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_skey (krb5_context context,
 			   krb5_flags options,
@@ -273,6 +270,7 @@ krb5_get_in_tkt_with_skey (krb5_context context,
 			   krb5_ccache ccache,
 			   krb5_creds *creds,
 			   krb5_kdc_rep *ret_as_reply)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     if(key == NULL)
 	return krb5_get_in_tkt_with_keytab (context,
@@ -305,13 +303,13 @@ krb5_get_in_tkt_with_skey (krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
-KRB5_LIB_FUNCTION krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_CALLCONV
 krb5_keytab_key_proc (krb5_context context,
 		      krb5_enctype enctype,
 		      krb5_salt salt,
 		      krb5_const_pointer keyseed,
 		      krb5_keyblock **key)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_keytab_key_proc_args *args  = rk_UNCONST(keyseed);
     krb5_keytab keytab = args->keytab;
@@ -345,7 +343,6 @@ krb5_keytab_key_proc (krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_keytab (krb5_context context,
 			     krb5_flags options,
@@ -356,6 +353,7 @@ krb5_get_in_tkt_with_keytab (krb5_context context,
 			     krb5_ccache ccache,
 			     krb5_creds *creds,
 			     krb5_kdc_rep *ret_as_reply)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_keytab_key_proc_args a;
 
@@ -376,67 +374,6 @@ krb5_get_in_tkt_with_keytab (krb5_context context,
 			    ret_as_reply);
 }
 
-#ifdef KRB4
-
-static krb5_boolean
-convert_func(krb5_context conxtext, void *funcctx, krb5_principal principal)
-{
-    krb5_boolean (*func)(krb5_context, krb5_principal) = funcctx;
-    return (*func)(conxtext, principal);
-}
-
-/**
- * Deprecated: kerberos 4 is dead, let it die.
- *
- * @ingroup krb5_deprecated
- */
-
-KRB5_DEPRECATED
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal_ext(krb5_context context,
-			    const char *name,
-			    const char *instance,
-			    const char *realm,
-			    krb5_boolean (*func)(krb5_context, krb5_principal),
-			    krb5_boolean resolve,
-			    krb5_principal *principal)
-{
-    return krb5_425_conv_principal_ext2(context,
-					name,
-					instance,
-					realm,
-					func ? convert_func : NULL,
-					func,
-					resolve,
-					principal);
-}
-
-/**
- * Deprecated: kerberos 4 is dead, let it die.
- *
- * @ingroup krb5_deprecated
- */
-
-KRB5_DEPRECATED
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal(krb5_context context,
-			const char *name,
-			const char *instance,
-			const char *realm,
-			krb5_principal *princ)
-{
-    krb5_boolean resolve = krb5_config_get_bool(context,
-						NULL,
-						"libdefaults",
-						"v4_instance_resolve",
-						NULL);
-
-    return krb5_425_conv_principal_ext(context, name, instance, realm,
-				       NULL, resolve, princ);
-}
-
-#endif
-
 /**
  * Generate a new ccache of type `ops' in `id'.
  *
@@ -448,11 +385,11 @@ krb5_425_conv_principal(krb5_context context,
  */
 
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_gen_new(krb5_context context,
 		const krb5_cc_ops *ops,
 		krb5_ccache *id)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     return krb5_cc_new_unique(context, ops->prefix, NULL, id);
 }
@@ -463,10 +400,10 @@ krb5_cc_gen_new(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_realm * KRB5_LIB_CALL
 krb5_princ_realm(krb5_context context,
 		 krb5_principal principal)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     return &principal->realm;
 }
@@ -478,11 +415,11 @@ krb5_princ_realm(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_princ_set_realm(krb5_context context,
 		     krb5_principal principal,
 		     krb5_realm *realm)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     principal->realm = *realm;
 }
@@ -494,9 +431,9 @@ krb5_princ_set_realm(krb5_context context,
  */
 
 /* keep this for compatibility with older code */
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_free_creds_contents (krb5_context context, krb5_creds *c)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     return krb5_free_cred_contents (context, c);
 }
@@ -512,9 +449,9 @@ krb5_free_creds_contents (krb5_context context, krb5_creds *c)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_error_string(krb5_context context, char *str)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_free_error_message(context, str);
 }
@@ -532,10 +469,10 @@ krb5_free_error_string(krb5_context context, char *str)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_set_error_string(krb5_context context, const char *fmt, ...)
     __attribute__((format (printf, 2, 3)))
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     va_list ap;
 
@@ -559,10 +496,10 @@ krb5_set_error_string(krb5_context context, const char *fmt, ...)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vset_error_string(krb5_context context, const char *fmt, va_list args)
     __attribute__ ((format (printf, 2, 0)))
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_vset_error_message(context, 0, fmt, args);
     return 0;
@@ -578,9 +515,9 @@ krb5_vset_error_string(krb5_context context, const char *fmt, va_list args)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_clear_error_string(krb5_context context)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_clear_error_message(context);
 }
@@ -591,7 +528,6 @@ krb5_clear_error_string(krb5_context context)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_cred_from_kdc_opt(krb5_context context,
 			   krb5_ccache ccache,
@@ -599,6 +535,7 @@ krb5_get_cred_from_kdc_opt(krb5_context context,
 			   krb5_creds **out_creds,
 			   krb5_creds ***ret_tgts,
 			   krb5_flags flags)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_kdc_flags f;
     f.i = flags;
@@ -613,13 +550,13 @@ krb5_get_cred_from_kdc_opt(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_cred_from_kdc(krb5_context context,
 		       krb5_ccache ccache,
 		       krb5_creds *in_creds,
 		       krb5_creds **out_creds,
 		       krb5_creds ***ret_tgts)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     return krb5_get_cred_from_kdc_opt(context, ccache,
 				      in_creds, out_creds, ret_tgts, 0);
@@ -631,9 +568,9 @@ krb5_get_cred_from_kdc(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
-void KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_unparsed_name(krb5_context context, char *str)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     krb5_xfree(str);
 }
@@ -644,20 +581,11 @@ krb5_free_unparsed_name(krb5_context context, char *str)
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_auth_getremoteseqnumber(krb5_context context,
-			     krb5_auth_context auth_context,
-			     int32_t *seqnumber) KRB5_DEPRECATED
-{
-  *seqnumber = auth_context->remote_seqnumber;
-  return 0;
-}
-
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_generate_subkey(krb5_context context,
 		     const krb5_keyblock *key,
 		     krb5_keyblock **subkey)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     return krb5_generate_subkey_extended(context, key, ETYPE_NULL, subkey);
 }
@@ -668,14 +596,54 @@ krb5_generate_subkey(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_getremoteseqnumber(krb5_context context,
 			     krb5_auth_context auth_context,
 			     int32_t *seqnumber)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
   *seqnumber = auth_context->remote_seqnumber;
   return 0;
+}
+
+#endif /* HEIMDAL_SMALLER */
+
+/**
+ * Return the error message in context. On error or no error string,
+ * the function returns NULL.
+ *
+ * @param context Kerberos 5 context
+ *
+ * @return an error string, needs to be freed with
+ * krb5_free_error_message(). The functions return NULL on error.
+ *
+ * @ingroup krb5_error
+ */
+
+KRB5_LIB_FUNCTION char * KRB5_LIB_CALL
+krb5_get_error_string(krb5_context context)
+    KRB5_DEPRECATED_FUNCTION("Use krb5_get_error_message instead")
+{
+    char *ret = NULL;
+
+    HEIMDAL_MUTEX_lock(context->mutex);
+    if (context->error_string)
+	ret = strdup(context->error_string);
+    HEIMDAL_MUTEX_unlock(context->mutex);
+    return ret;
+}
+
+#ifndef HEIMDAL_SMALLER
+
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_have_error_string(krb5_context context)
+    KRB5_DEPRECATED_FUNCTION("Use krb5_get_error_message instead")
+{
+    char *str;
+    HEIMDAL_MUTEX_lock(context->mutex);
+    str = context->error_string;
+    HEIMDAL_MUTEX_unlock(context->mutex);
+    return str != NULL;
 }
 
 #endif /* HEIMDAL_SMALLER */

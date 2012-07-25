@@ -57,6 +57,11 @@ VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
     return this;
 }
 
+PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
+{
+    return 0;
+}
+
 void WebPlatformStrategies::notifyCookiesChanged()
 {
 }
@@ -99,7 +104,7 @@ void WebPlatformStrategies::getPluginInfo(const WebCore::Page*, Vector<WebCore::
     }
 }
 
-bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash)
+bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash, const KURL&, const AtomicString&)
 {
     return page->group().isLinkVisited(hash);
 }

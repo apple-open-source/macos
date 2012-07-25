@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -41,8 +41,9 @@ reg int	n;	/* see above */
 {
 	reg ssize_t	r;
 	reg int		first, local, rcrv, rc, justseek;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,-1);
+	SFMTXENTER(f,-1);
 
 	GETLOCAL(f,local);
 
@@ -78,7 +79,7 @@ reg int	n;	/* see above */
 						s = r;
 				}
 
-				memcpy(f->data, f->endb-s, s);
+				memmove(f->data, f->endb-s, s);
 				f->next = f->data + (s-r);
 				f->endb = f->data + s;
 			}

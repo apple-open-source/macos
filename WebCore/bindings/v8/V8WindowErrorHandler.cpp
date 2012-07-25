@@ -32,8 +32,10 @@
 
 #include "V8WindowErrorHandler.h"
 
+#include "EventNames.h"
 #include "ErrorEvent.h"
 #include "V8Binding.h"
+#include "V8Proxy.h"
 
 namespace WebCore {
 
@@ -44,9 +46,9 @@ V8WindowErrorHandler::V8WindowErrorHandler(v8::Local<v8::Object> listener, bool 
 
 v8::Local<v8::Value> V8WindowErrorHandler::callListenerFunction(ScriptExecutionContext* context, v8::Handle<v8::Value> jsEvent, Event* event)
 {
-    if (!event->isErrorEvent())
+    if (!event->hasInterface(eventNames().interfaceForErrorEvent))
         return V8EventListener::callListenerFunction(context, jsEvent, event);
-    
+
     ErrorEvent* errorEvent = static_cast<ErrorEvent*>(event);
     v8::Local<v8::Object> listener = getListenerObject(context);
     v8::Local<v8::Value> returnValue;
@@ -56,11 +58,14 @@ v8::Local<v8::Value> V8WindowErrorHandler::callListenerFunction(ScriptExecutionC
         v8::Handle<v8::Value> parameters[3] = { v8String(errorEvent->message()), v8String(errorEvent->filename()), v8::Integer::New(errorEvent->lineno()) };
         v8::TryCatch tryCatch;
         tryCatch.SetVerbose(true);
-        returnValue = callFunction->Call(thisValue, 3, parameters);
-        if (!tryCatch.HasCaught() && !returnValue.IsEmpty() && returnValue->IsBoolean() && !returnValue->BooleanValue())
-            event->preventDefault();
+        returnValue = V8Proxy::instrumentedCallFunction(0 /* frame */, callFunction, thisValue, 3, parameters);
     }
     return returnValue;
+}
+
+bool V8WindowErrorHandler::shouldPreventDefault(v8::Local<v8::Value> returnValue)
+{
+    return returnValue->IsBoolean() && returnValue->BooleanValue();
 }
 
 } // namespace WebCore

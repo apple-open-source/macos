@@ -133,6 +133,7 @@ ExitStatus setLogFilterForOpt(
 void beQuiet(void);
 
 FILE *  g_log_stream;
+// tool_openlog(), tool_log() copied to bootroot.h for libBootRoot clients
 void tool_openlog(const char * name);
 void tool_log(
     OSKextRef aKext,

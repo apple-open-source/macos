@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,5 +61,6 @@ routine helperinit	(	server		: mach_port_t;
 routine helperexec	(	server		: mach_port_t;
 				msgID		: uint32_t;
 				data		: xmlData;
+				trace		: xmlData;
 			 out	status		: uint32_t;
 			 out	reply		: xmlDataOut, dealloc);

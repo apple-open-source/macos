@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010-2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -48,7 +48,9 @@ class SVGRenderStyle;
 class SVGTextLayoutEngine {
     WTF_MAKE_NONCOPYABLE(SVGTextLayoutEngine);
 public:
-    SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes>&);
+    SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes*>&);
+
+    Vector<SVGTextLayoutAttributes*>& layoutAttributes() { return m_layoutAttributes; }
     SVGTextChunkBuilder& chunkLayoutBuilder() { return m_chunkLayoutBuilder; }
 
     void beginTextPathLayout(RenderObject*, SVGTextLayoutEngine& lineLayout);
@@ -60,28 +62,30 @@ public:
 private:
     void updateCharacerPositionIfNeeded(float& x, float& y);
     void updateCurrentTextPosition(float x, float y, float glyphAdvance);
-    void updateRelativePositionAdjustmentsIfNeeded(Vector<float>& dxValues, Vector<float>& dyValues);
+    void updateRelativePositionAdjustmentsIfNeeded(float dx, float dy);
 
-    void recordTextFragment(SVGInlineTextBox*, Vector<SVGTextMetrics>& textMetricValues);
+    void recordTextFragment(SVGInlineTextBox*, Vector<SVGTextMetrics>&);
     bool parentDefinesTextLength(RenderObject*) const;
 
     void layoutTextOnLineOrPath(SVGInlineTextBox*, RenderSVGInlineText*, const RenderStyle*);
     void finalizeTransformMatrices(Vector<SVGInlineTextBox*>&);
 
-    bool currentLogicalCharacterAttributes(SVGTextLayoutAttributes&);
-    bool currentLogicalCharacterMetrics(SVGTextLayoutAttributes&, SVGTextMetrics&);
-    bool currentVisualCharacterMetrics(SVGInlineTextBox*, RenderSVGInlineText*, SVGTextMetrics&);
+    bool currentLogicalCharacterAttributes(SVGTextLayoutAttributes*&);
+    bool currentLogicalCharacterMetrics(SVGTextLayoutAttributes*&, SVGTextMetrics&);
+    bool currentVisualCharacterMetrics(SVGInlineTextBox*, Vector<SVGTextMetrics>&, SVGTextMetrics&);
 
     void advanceToNextLogicalCharacter(const SVGTextMetrics&);
     void advanceToNextVisualCharacter(const SVGTextMetrics&);
 
 private:
-    Vector<SVGTextLayoutAttributes> m_layoutAttributes;
+    Vector<SVGTextLayoutAttributes*>& m_layoutAttributes;
+
     Vector<SVGInlineTextBox*> m_lineLayoutBoxes;
     Vector<SVGInlineTextBox*> m_pathLayoutBoxes;
     SVGTextChunkBuilder m_chunkLayoutBuilder;
 
     SVGTextFragment m_currentTextFragment;
+    unsigned m_layoutAttributesPosition;
     unsigned m_logicalCharacterOffset;
     unsigned m_logicalMetricsListOffset;
     unsigned m_visualCharacterOffset;

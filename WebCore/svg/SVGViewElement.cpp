@@ -36,11 +36,19 @@ DEFINE_ANIMATED_BOOLEAN(SVGViewElement, SVGNames::externalResourcesRequiredAttr,
 DEFINE_ANIMATED_RECT(SVGViewElement, SVGNames::viewBoxAttr, ViewBox, viewBox)
 DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGViewElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGViewElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(viewBox)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(preserveAspectRatio)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGViewElement::SVGViewElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
     , m_viewTarget(SVGNames::viewTargetAttr)
 {
     ASSERT(hasTagName(SVGNames::viewTag));
+    registerAnimatedPropertiesForSVGViewElement();
 }
 
 PassRefPtr<SVGViewElement> SVGViewElement::create(const QualifiedName& tagName, Document* document)
@@ -48,52 +56,38 @@ PassRefPtr<SVGViewElement> SVGViewElement::create(const QualifiedName& tagName, 
     return adoptRef(new SVGViewElement(tagName, document));
 }
 
-void SVGViewElement::parseMappedAttribute(Attribute* attr)
+bool SVGViewElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::viewTargetAttr)
-        viewTarget().reset(attr->value());
-    else {
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr)
-           || SVGFitToViewBox::parseMappedAttribute(document(), attr)
-           || SVGZoomAndPan::parseMappedAttribute(attr))
-            return;
-
-        SVGStyledElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        SVGFitToViewBox::addSupportedAttributes(supportedAttributes);
+        SVGZoomAndPan::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::viewTargetAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGViewElement::synchronizeProperty(const QualifiedName& attrName)
+void SVGViewElement::parseAttribute(Attribute* attr)
 {
-    SVGStyledElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeExternalResourcesRequired();
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledElement::parseAttribute(attr);
         return;
     }
 
-    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
+    if (attr->name() == SVGNames::viewTargetAttr) {
+        viewTarget().reset(attr->value());
+        return;
     }
-}
 
-AttributeToPropertyTypeMap& SVGViewElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
+    if (SVGFitToViewBox::parseAttribute(document(), attr))
+        return;
+    if (SVGZoomAndPan::parseAttribute(attr))
+        return;
 
-void SVGViewElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::viewBoxAttr, AnimatedRect);
-    attributeToPropertyTypeMap.set(SVGNames::preserveAspectRatioAttr, AnimatedPreserveAspectRatio);
+    ASSERT_NOT_REACHED();
 }
 
 }

@@ -1724,7 +1724,9 @@ int bytes_p)
 	    if(power_of_2_alignment >= 1){
 		extern int thumb_mode; /* from arm.c */
 		if(thumb_mode){
-	    	    if(archflag_cpusubtype == CPU_SUBTYPE_ARM_V7){
+	    	    if(archflag_cpusubtype == CPU_SUBTYPE_ARM_V7 ||
+	    	       archflag_cpusubtype == CPU_SUBTYPE_ARM_V7F ||
+	    	       archflag_cpusubtype == CPU_SUBTYPE_ARM_V7K){
 			temp_fill = 0xbf00; /* thumb2 nop */
 			fill_size = 2; /* 2 byte fill size */
 		    }
@@ -2770,7 +2772,7 @@ uintptr_t value)
 	    return;
 	}
 	input_line_pointer ++;
-	if((size = get_absolute_expression()) < 0){
+	if((int)(size = get_absolute_expression()) < 0){
 	    as_bad("%s size (%lld.) <0! Ignored.", directive, size);
 	    ignore_rest_of_line();
 	    return;
@@ -3438,6 +3440,7 @@ uintptr_t nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .qua
 		    /* Leading bits contain both 0s & 1s. */
 		    as_bad("Value 0x%llx truncated to 0x%llx.", get, use);
 		}
+  		dwarf2_emit_insn(nbytes);
 		/* put bytes in right order. */
 		md_number_to_chars(p, use, nbytes);
 		break;
@@ -4905,7 +4908,7 @@ uintptr_t value)
 	    demand_empty_rest_of_line();
 	    whole_file_name = find_an_include_file(filename);
 	    if(whole_file_name != NULL &&
-	       (fp = fopen(whole_file_name, "r+"))){
+	       (fp = fopen(whole_file_name, "r"))){
 		do{
 		    the_char = getc_unlocked(fp);
 		    if (the_char != -1){

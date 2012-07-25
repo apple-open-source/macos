@@ -35,26 +35,60 @@
 
 namespace WebCore {
 
+class FormDataList; 
+class SpinButtonElement;
+
 // The class represents types of which UI contain text fields.
 // It supports not only the types for BaseTextInputType but also type=number.
 class TextFieldInputType : public InputType {
 protected:
-    TextFieldInputType(HTMLInputElement* element) : InputType(element) { }
-    virtual bool canSetSuggestedValue();
-    virtual void handleKeydownEvent(KeyboardEvent*);
+    TextFieldInputType(HTMLInputElement*);
+    virtual ~TextFieldInputType();
+    virtual bool canSetSuggestedValue() OVERRIDE;
+    virtual void handleKeydownEvent(KeyboardEvent*) OVERRIDE;
     void handleKeydownEventForSpinButton(KeyboardEvent*);
     void handleWheelEventForSpinButton(WheelEvent*);
 
+    virtual HTMLElement* containerElement() const OVERRIDE;
+    virtual HTMLElement* innerBlockElement() const OVERRIDE;
+    virtual HTMLElement* innerTextElement() const OVERRIDE;
+    virtual HTMLElement* innerSpinButtonElement() const OVERRIDE;
+#if ENABLE(INPUT_SPEECH)
+    virtual HTMLElement* speechButtonElement() const OVERRIDE;
+#endif
+
+protected:
+    virtual bool needsContainer() const;
+    virtual bool shouldHaveSpinButton() const;
+    virtual void createShadowSubtree() OVERRIDE;
+    virtual void destroyShadowSubtree() OVERRIDE;
+    virtual void disabledAttributeChanged() OVERRIDE;
+    virtual void readonlyAttributeChanged() OVERRIDE;
+    virtual void handleBlurEvent() OVERRIDE;
+
 private:
-    virtual bool isTextField() const;
-    virtual bool valueMissing(const String&) const;
-    virtual void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*);
-    virtual void forwardEvent(Event*);
-    virtual bool shouldSubmitImplicitly(Event*);
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const;
-    virtual bool shouldUseInputMethod() const;
-    virtual String sanitizeValue(const String&);
-    virtual bool shouldRespectListAttribute();
+    virtual bool isTextField() const OVERRIDE;
+    virtual bool valueMissing(const String&) const OVERRIDE;
+    virtual void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*) OVERRIDE;
+    virtual void forwardEvent(Event*) OVERRIDE;
+    virtual bool shouldSubmitImplicitly(Event*) OVERRIDE;
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) const OVERRIDE;
+    virtual bool shouldUseInputMethod() const OVERRIDE;
+    virtual void setValue(const String&, bool valueChanged, TextFieldEventBehavior) OVERRIDE;
+    virtual String sanitizeValue(const String&) const OVERRIDE;
+    virtual bool shouldRespectListAttribute() OVERRIDE;
+    virtual HTMLElement* placeholderElement() const OVERRIDE;
+    virtual void updatePlaceholderText() OVERRIDE;
+    virtual bool appendFormData(FormDataList&, bool multipart) const OVERRIDE;
+
+    RefPtr<HTMLElement> m_container;
+    RefPtr<HTMLElement> m_innerBlock;
+    RefPtr<HTMLElement> m_innerText;
+    RefPtr<HTMLElement> m_placeholder;
+    RefPtr<SpinButtonElement> m_innerSpinButton;
+#if ENABLE(INPUT_SPEECH)
+    RefPtr<HTMLElement> m_speechButton;
+#endif
 };
 
 } // namespace WebCore

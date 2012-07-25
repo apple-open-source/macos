@@ -49,7 +49,6 @@
 #undef  super
 #define super OSObject
 OSDefineMetaClassAndAbstractStructors( IOOutputQueue, OSObject )
-OSMetaClassDefineReservedUnused( IOOutputQueue,  0);
 OSMetaClassDefineReservedUnused( IOOutputQueue,  1);
 OSMetaClassDefineReservedUnused( IOOutputQueue,  2);
 OSMetaClassDefineReservedUnused( IOOutputQueue,  3);
@@ -103,7 +102,7 @@ void IOOutputQueue::free()
 // Schedule a service thread callout, which will run the
 // serviceThread() method.
 
-bool IOOutputQueue::scheduleServiceThread(void * param = 0)
+bool IOOutputQueue::scheduleServiceThread(void * param)
 {
     return thread_call_enter1(_callEntry, (thread_call_param_t) param);
 }
@@ -156,6 +155,14 @@ IONetworkData * IOOutputQueue::getStatisticsData() const
     return 0;
 }
 
+OSMetaClassDefineReservedUsed( IOOutputQueue,  0);
+//---------------------------------------------------------------------------
+// Retrieve a packet's priority, to be overridden by subclasses
+
+UInt32 IOOutputQueue::getMbufPriority(mbuf_t m)
+{
+    return 0;
+}
 
 //===========================================================================
 // IOBasicOutputQueue
@@ -165,8 +172,8 @@ IONetworkData * IOOutputQueue::getStatisticsData() const
 #define super IOOutputQueue
 OSDefineMetaClassAndStructors( IOBasicOutputQueue, IOOutputQueue )
 
-#define QUEUE_LOCK      IOSimpleLockLock(_spinlock)
-#define QUEUE_UNLOCK    IOSimpleLockUnlock(_spinlock)
+#define QUEUE_LOCK      IOLockLock(_queueLock)
+#define QUEUE_UNLOCK    IOLockUnlock(_queueLock)
 
 #define kIOOutputQueueSignature      ((void *) 0xfacefeed)
 
@@ -188,12 +195,13 @@ IOBasicOutputQueue::dispatchNetworkDataNotification(void *          target,
 
 bool IOBasicOutputQueue::init(OSObject *     target,
                               IOOutputAction action,
-                              UInt32         capacity)
+                              UInt32         capacity,
+                              UInt32         priorities)
 {
     if (super::init() == false)
         return false;
 
-    if ((target == 0) || (action == 0))
+    if ((target == 0) || (action == 0) || (priorities == 0) || (priorities > 256))
         return false;
 
     _target = target;
@@ -218,23 +226,27 @@ bool IOBasicOutputQueue::init(OSObject *     target,
 
     _stats->capacity = capacity;
 
-    // Create two queue objects.
-
-    _queues[0] = IONew(IOMbufQueue, 1);
-    _queues[1] = IONew(IOMbufQueue, 1);
-
-    IOMbufQueueInit(_queues[0], capacity);
-    IOMbufQueueInit(_queues[1], capacity);
-
-    if ( (_queues[0] == 0) || (_queues[1] == 0) )
+    // Create queue objects
+    _priorities = priorities;
+    _primaryQueues = IONew(IOMbufQueue, priorities);
+    _shadowQueues = IONew(IOMbufQueue, priorities);
+    
+    if ( (_primaryQueues == 0) || (_shadowQueues == 0) )
         return false;
+    
+    // Initialize queues
+    for(UInt32 i = 0; i < priorities; i++)
+    {
+        IOMbufQueueInit(&(_primaryQueues[i]), capacity);
+        IOMbufQueueInit(&(_shadowQueues[i]), capacity);
+    }
+    
+    _inQueues = _primaryQueues;
 
-    _inQueue = _queues[0];
+    // Create a lock to protect the queue.
 
-    // Create a spinlock to protect the queue.
-
-    _spinlock = IOSimpleLockAlloc();
-    if (_spinlock == 0)
+    _queueLock = IOLockAlloc();
+    if (_queueLock == 0)
         return false;
 
     return true;
@@ -248,9 +260,17 @@ IOBasicOutputQueue *
 IOBasicOutputQueue::withTarget(IONetworkController * target,
                                UInt32                capacity)
 {
+    return IOBasicOutputQueue::withTarget(target, capacity, 1 /* priorities */);
+}
+
+IOBasicOutputQueue *
+IOBasicOutputQueue::withTarget(IONetworkController * target,
+                               UInt32                capacity,
+                               UInt32                priorities)
+{
     IOBasicOutputQueue * queue = new IOBasicOutputQueue;
 
-    if (queue && !queue->init(target, target->getOutputHandler(), capacity))
+    if (queue && !queue->init(target, target->getOutputHandler(), capacity, priorities))
     {
         queue->release();
         queue = 0;
@@ -263,9 +283,18 @@ IOBasicOutputQueue::withTarget(OSObject *     target,
                                IOOutputAction action,
                                UInt32         capacity)
 {
+    return IOBasicOutputQueue::withTarget(target, action, capacity, 1 /* priorities */);
+}
+    
+IOBasicOutputQueue *
+IOBasicOutputQueue::withTarget(OSObject *     target,
+                               IOOutputAction action,
+                               UInt32         capacity,
+                               UInt32         priorities)
+{
     IOBasicOutputQueue * queue = new IOBasicOutputQueue;
     
-    if (queue && !queue->init(target, action, capacity))
+    if (queue && !queue->init(target, action, capacity, priorities))
     {
         queue->release();
         queue = 0;
@@ -280,16 +309,16 @@ void IOBasicOutputQueue::free()
 {
     cancelServiceThread();
 
-    if (_spinlock)
+    if (_queueLock)
     {
         flush();
-        IOSimpleLockFree(_spinlock);
-        _spinlock = 0;
+        IOLockFree(_queueLock);
+        _queueLock = 0;
     }
 
-    if (_queues[0]) IODelete(_queues[0], IOMbufQueue, 1);
-    if (_queues[1]) IODelete(_queues[1], IOMbufQueue, 1);
-    _queues[0] = _queues[1] = 0;
+    if(_primaryQueues) IODelete(_primaryQueues, IOMbufQueue, _priorities);
+    if(_shadowQueues) IODelete(_shadowQueues, IOMbufQueue, _priorities);
+    _primaryQueues = _shadowQueues = 0;
 
     if (_statsData)
     {
@@ -321,10 +350,18 @@ void IOBasicOutputQueue::serviceThread(void * param)
 UInt32 IOBasicOutputQueue::enqueue(mbuf_t m, void * param)
 {
     bool success;
+    
+    UInt32 priority = getMbufPriority(m);
+    
+    // Set out-of-bounds priority to lowest
+    if ( priority >= _priorities )
+    {
+        priority = _priorities - 1;
+    }
 
     QUEUE_LOCK;
 
-	success = IOMbufQueueEnqueue(_inQueue, m);
+	success = IOMbufQueueEnqueue(&(_inQueues[priority]), m);
 
     if ( STATE_IS( kStateRunning ) )
     {
@@ -352,50 +389,76 @@ UInt32 IOBasicOutputQueue::enqueue(mbuf_t m, void * param)
 // Responsible for removing all packets from the queue and pass each packet
 // removed to our target. This method returns when the queue becomes empty
 // or if the queue is stalled by the target. This method is called with the 
-// spinlock held.
+// queue lock held.
 
 void IOBasicOutputQueue::dequeue()
 {
-    IOMbufQueue * outQueue = _queues[0];
+    IOMbufQueue * outQueues = _primaryQueues;
     UInt32        newState = 0;
     UInt32        myServiceCount;
 
     // Switch the input queue. Work on the real queue, while allowing
     // clients to continue to queue packets to the "shadow" queue.
 
-    _inQueue = _queues[1];
+    _inQueues = _shadowQueues;
 
     // While dequeue is allowed, and incoming queue has packets.
 
+    UInt32 priority = 0;
     while ( STATE_IS( kStateRunning | kStateOutputActive ) &&
-            IOMbufQueueGetSize(outQueue) )
+            priority < _priorities )
     {
-        myServiceCount = _serviceCount;
-
-        QUEUE_UNLOCK;
-
-        output( outQueue, &newState );
-
-        QUEUE_LOCK;
-
-        // If service() was called during the interval when the
-        // spinlock was released, then refuse to honor any
-        // stall requests.
-
-        if ( newState )
+        if (IOMbufQueueGetSize(&(outQueues[priority])) > 0)
         {
-            if ( myServiceCount != _serviceCount )
-                newState &= ~kStateOutputStalled;
+            myServiceCount = _serviceCount;
 
-            STATE_SET( newState );
+            QUEUE_UNLOCK;
+
+            output( &(outQueues[priority]), &newState );
+
+            QUEUE_LOCK;
+
+            // If driver called service() while the queue lock was released,
+            // refuse to honor any stall requests and re-attempt transmission.
+
+            if ( newState )
+            {
+                if ( myServiceCount != _serviceCount )
+                    newState &= ~kStateOutputStalled;
+
+                STATE_SET( newState );
+            }
+
+            // Absorb new packets added to the shadow queues.
+            // Must empty all shadow queues since the loop might exit
+            // before servicing all priority levels due to driver stall.
+
+            int newPriority = -1;
+            for (UInt32 i = 0; i < _priorities; i++)
+            {
+                IOMbufQueueEnqueue( &(outQueues[i]), &(_inQueues[i]));
+
+                if ((newPriority < 0) && (i <= priority) &&
+                    (IOMbufQueueGetSize(&(outQueues[i])) > 0))
+                {
+                    newPriority = i;
+                }
+            }
+
+            // Service higher or equal priority mbufs if they arrived while
+            // the queue lock was dropped.
+
+            if (newPriority >= 0)
+            {
+                priority = newPriority;
+                continue;
+            }
         }
-
-        // Absorb new packets added to the shadow queue.
-
-        IOMbufQueueEnqueue( outQueue, _inQueue );
+        
+        priority++;
     }
 
-    _inQueue = _queues[0];
+    _inQueues = _primaryQueues;
 
     STATE_CLR( kStateOutputActive );
 
@@ -543,10 +606,20 @@ bool IOBasicOutputQueue::service(IOOptionBits options)
 
     STATE_CLR( kStateOutputStalled );
     _serviceCount++;
+    
+    bool workToDo = false;
+    for(UInt32 i = 0; i < _priorities; i++)
+    {
+        if(IOMbufQueueGetSize(&(_primaryQueues[i])) > 0)
+        {
+            workToDo = true;
+            break;
+        }
+    }
 
     if ( ( oldState & kStateOutputStalled ) &&
          STATE_IS( kStateRunning )          &&
-         IOMbufQueueGetSize(_queues[0]) )
+         workToDo )
     {
         doDequeue = true;
         STATE_SET( kStateOutputActive );
@@ -570,11 +643,14 @@ UInt32 IOBasicOutputQueue::flush()
 {
     UInt32 flushCount;
 	mbuf_t m;
-    QUEUE_LOCK;
-    m = IOMbufQueueDequeueAll( _inQueue );
-    QUEUE_UNLOCK;
-    flushCount = IOMbufFree(m); 
-	OSAddAtomic(flushCount, (SInt32 *) &_stats->dropCount);
+    for(UInt32 i = 0; i < _priorities; i++)
+    {
+        QUEUE_LOCK;
+        m = IOMbufQueueDequeueAll( &(_inQueues[i]) );
+        QUEUE_UNLOCK;
+        flushCount = IOMbufFree(m); 
+        OSAddAtomic(flushCount, (SInt32 *) &_stats->dropCount);
+    }
     return flushCount;
 }
 
@@ -584,9 +660,12 @@ UInt32 IOBasicOutputQueue::flush()
 bool IOBasicOutputQueue::setCapacity(UInt32 capacity)
 {
     QUEUE_LOCK;
-    IOMbufQueueSetCapacity(_queues[1], capacity);
-    IOMbufQueueSetCapacity(_queues[0], capacity);
-    _stats->capacity = capacity;
+    for(UInt32 i = 0; i < _priorities; i++)
+    {
+        IOMbufQueueSetCapacity(&(_primaryQueues[i]), capacity);
+        IOMbufQueueSetCapacity(&(_shadowQueues[i]), capacity);
+    }
+    _stats->capacity = capacity * _priorities;
     QUEUE_UNLOCK;
     return true;
 }
@@ -604,7 +683,12 @@ UInt32 IOBasicOutputQueue::getCapacity() const
 
 UInt32 IOBasicOutputQueue::getSize() const
 {
-    return IOMbufQueueGetSize(_queues[0]);
+    UInt32 total = 0;
+    for(UInt32 i = 0; i < _priorities; i++)
+    {
+        total += IOMbufQueueGetSize(&(_primaryQueues[i]));
+    }
+    return total;
 }
 
 //---------------------------------------------------------------------------
@@ -672,7 +756,11 @@ IOBasicOutputQueue::handleNetworkDataAccess(IONetworkData * data,
         {
             UInt32 size;
             QUEUE_LOCK;
-            size = IOMbufQueueGetSize(_queues[0]) + IOMbufQueueGetSize(_queues[1]);
+            size = getSize();   // _primaryQueues
+            for(UInt32 i = 0; i < _priorities; i++)
+            {
+                size += IOMbufQueueGetSize(&(_shadowQueues[i]));
+            }
             QUEUE_UNLOCK;
             _stats->size = size;
             break;
@@ -708,9 +796,10 @@ OSDefineMetaClassAndStructors( IOGatedOutputQueue, IOBasicOutputQueue )
 bool IOGatedOutputQueue::init(OSObject *      target,
                               IOOutputAction  action,
                               IOWorkLoop *    workloop,
-                              UInt32          capacity)
+                              UInt32          capacity,
+                              UInt32          priorities)
 {
-    if (super::init(target, action, capacity) == false)
+    if (super::init(target, action, capacity, priorities) == false)
         return false;
 
     // Verify that the IOWorkLoop provided is valid.
@@ -748,10 +837,19 @@ IOGatedOutputQueue::withTarget(IONetworkController * target,
                                IOWorkLoop *          workloop,
                                UInt32                capacity)
 {
+    return IOGatedOutputQueue::withTarget(target, workloop, capacity, 1 /* priorities */);
+}
+
+IOGatedOutputQueue *
+IOGatedOutputQueue::withTarget(IONetworkController * target,
+                               IOWorkLoop *          workloop,
+                               UInt32                capacity,
+                               UInt32                priorities)
+{
     IOGatedOutputQueue * queue = new IOGatedOutputQueue;
     
     if (queue && !queue->init(target, target->getOutputHandler(), workloop,
-                              capacity))
+                              capacity, priorities))
     {
         queue->release();
         queue = 0;
@@ -765,9 +863,19 @@ IOGatedOutputQueue::withTarget(OSObject *     target,
                                IOWorkLoop *   workloop,
                                UInt32         capacity)
 {
+    return IOGatedOutputQueue::withTarget(target, action, workloop, capacity, 1 /* priorities */);
+}
+
+IOGatedOutputQueue *
+IOGatedOutputQueue::withTarget(OSObject *     target,
+                               IOOutputAction action,
+                               IOWorkLoop *   workloop,
+                               UInt32         capacity,
+                               UInt32         priorities)
+{
     IOGatedOutputQueue * queue = new IOGatedOutputQueue;
     
-    if (queue && !queue->init(target, action, workloop, capacity))
+    if (queue && !queue->init(target, action, workloop, capacity, priorities))
     {
         queue->release();
         queue = 0;

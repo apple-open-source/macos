@@ -112,7 +112,6 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLInputElement.h \
     $(PRIVATE_HEADERS_DIR)/DOMHTMLInputElementPrivate.h \
     $(INTERNAL_HEADERS_DIR)/DOMHTMLInputElementInternal.h \
-    $(PUBLIC_HEADERS_DIR)/DOMHTMLIsIndexElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLIElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLabelElement.h \
     $(PUBLIC_HEADERS_DIR)/DOMHTMLLegendElement.h \
@@ -153,6 +152,7 @@ all : \
     $(PUBLIC_HEADERS_DIR)/DOMNamedNodeMap.h \
     $(PUBLIC_HEADERS_DIR)/DOMNode.h \
     $(INTERNAL_HEADERS_DIR)/DOMNodeInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMNodePrivate.h \
     $(PUBLIC_HEADERS_DIR)/DOMNodeFilter.h \
     $(PUBLIC_HEADERS_DIR)/DOMNodeIterator.h \
     $(PUBLIC_HEADERS_DIR)/DOMNodeList.h \
@@ -197,8 +197,12 @@ all : \
     $(PRIVATE_HEADERS_DIR)/DOMSVG.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGAltGlyphDefElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGAltGlyphDefElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAltGlyphElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAltGlyphElementInternal.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGAltGlyphItemElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGAltGlyphItemElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAngle.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGAngleInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGAnimateColorElement.h \
@@ -324,6 +328,8 @@ all : \
     $(PRIVATE_HEADERS_DIR)/DOMSVGGElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGGElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGGlyphElement.h \
+    $(PRIVATE_HEADERS_DIR)/DOMSVGGlyphRefElement.h \
+    $(INTERNAL_HEADERS_DIR)/DOMSVGGlyphRefElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGGradientElement.h \
     $(INTERNAL_HEADERS_DIR)/DOMSVGGradientElementInternal.h \
     $(PRIVATE_HEADERS_DIR)/DOMSVGImageElement.h \

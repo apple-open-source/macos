@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -63,6 +63,7 @@ Vmstat_t*	st;
 	st->s_busy = st->s_free = st->m_busy = st->m_free = 0;
 	st->n_seg = 0;
 	st->extent = 0;
+	st->mode = vd->mode;
 
 	if(vd->mode&VM_MTLAST)
 		st->n_busy = 0;
@@ -90,7 +91,10 @@ Vmstat_t*	st;
 				}
 				else	/* get the real size */
 				{	if(vd->mode&VM_MTDEBUG)
-						s = DBSIZE(DB2DEBUG(DATA(b)));
+					{	/* strict-aliasing dance */
+						void*	d = DB2DEBUG(DATA(b));
+						s = DBSIZE(d);
+					}
 					else if(vd->mode&VM_MTPROFILE)
 						s = PFSIZE(DATA(b));
 					if(s > st->m_busy)
@@ -114,8 +118,8 @@ Vmstat_t*	st;
 		}
 		else if((vd->mode&VM_MTPOOL) && s > 0)
 		{	if(seg->free)
-				st->n_free += (SIZE(seg->free)+sizeof(Head_t))/s;
-			st->n_busy += ((seg->baddr - (Vmuchar_t*)b) - sizeof(Head_t))/s;
+				st->n_free += ((int)SIZE(seg->free)+sizeof(Head_t))/(int)s;
+			st->n_busy += ((int)(seg->baddr - (Vmuchar_t*)b) - sizeof(Head_t))/(int)s;
 		}
 	}
 

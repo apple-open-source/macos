@@ -59,9 +59,9 @@ void WebFullScreenManagerProxy::didReceiveMessage(CoreIPC::Connection* connectio
     didReceiveWebFullScreenManagerProxyMessage(connection, messageID, arguments);
 }
 
-CoreIPC::SyncReplyMode WebFullScreenManagerProxy::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)
+void WebFullScreenManagerProxy::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
 {
-    return didReceiveSyncWebFullScreenManagerProxyMessage(connection, messageID, arguments, reply);
+    didReceiveSyncWebFullScreenManagerProxyMessage(connection, messageID, arguments, reply);
 }
 
 void WebFullScreenManagerProxy::willEnterFullScreen()
@@ -84,27 +84,19 @@ void WebFullScreenManagerProxy::didExitFullScreen()
     m_page->process()->send(Messages::WebFullScreenManager::DidExitFullScreen(), m_page->pageID());
 }
 
-void WebFullScreenManagerProxy::beginEnterFullScreenAnimation(float duration)
+void WebFullScreenManagerProxy::setAnimatingFullScreen(bool animating)
 {
-    m_page->process()->send(Messages::WebFullScreenManager::BeginEnterFullScreenAnimation(duration), m_page->pageID());
+    m_page->process()->send(Messages::WebFullScreenManager::SetAnimatingFullScreen(animating), m_page->pageID());
 }
 
-void WebFullScreenManagerProxy::beginExitFullScreenAnimation(float duration)
+void WebFullScreenManagerProxy::requestExitFullScreen()
 {
-    m_page->process()->send(Messages::WebFullScreenManager::BeginExitFullScreenAnimation(duration), m_page->pageID());
-}
-
-void WebFullScreenManagerProxy::disposeOfLayerClient()
-{
-    m_page->process()->send(Messages::WebFullScreenManager::DisposeOfLayerClient(), m_page->pageID());
+    m_page->process()->send(Messages::WebFullScreenManager::RequestExitFullScreen(), m_page->pageID());
 }
 
 void WebFullScreenManagerProxy::supportsFullScreen(bool withKeyboard, bool& supports)
 {
-    if (withKeyboard)
-        supports = false;
-    else
-        supports = true;
+    supports = true;
 }
 
 } // namespace WebKit

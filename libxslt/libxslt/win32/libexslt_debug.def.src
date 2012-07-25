@@ -5,11 +5,16 @@ exsltLibraryVersion DATA
 exsltLibxmlVersion DATA
 exsltLibxsltVersion DATA
 exsltCommonRegister
+exsltCryptoRegister
 exsltDateRegister
+exsltDateXpathCtxtRegister
 exsltDynRegister
 exsltFuncRegister
 exsltMathRegister
+exsltMathXpathCtxtRegister
 exsltRegisterAll
 exsltSaxonRegister
 exsltSetsRegister
+exsltSetsXpathCtxtRegister
 exsltStrRegister
+exsltStrXpathCtxtRegister

@@ -45,9 +45,9 @@ RCSID("$Id$");
 int ftp_do_gss_bindings = 0;
 int ftp_do_gss_delegate = 1;
 
-struct gss_data {
+struct gssapi_data {
     gss_ctx_id_t context_hdl;
-    char *client_name;
+    gss_name_t client_name;
     gss_cred_id_t delegated_cred_handle;
     void *mech_data;
 };
@@ -55,7 +55,7 @@ struct gss_data {
 static int
 gss_init(void *app_data)
 {
-    struct gss_data *d = app_data;
+    struct gssapi_data *d = app_data;
     d->context_hdl = GSS_C_NO_CONTEXT;
     d->delegated_cred_handle = GSS_C_NO_CREDENTIAL;
 #if defined(FTP_SERVER)
@@ -85,7 +85,7 @@ gss_decode(void *app_data, void *buf, int len, int level)
     gss_buffer_desc input, output;
     gss_qop_t qop_state;
     int conf_state;
-    struct gss_data *d = app_data;
+    struct gssapi_data *d = app_data;
     size_t ret_len;
 
     input.length = len;
@@ -117,7 +117,7 @@ gss_encode(void *app_data, void *from, int length, int level, void **to)
     OM_uint32 maj_stat, min_stat;
     gss_buffer_desc input, output;
     int conf_state;
-    struct gss_data *d = app_data;
+    struct gssapi_data *d = app_data;
 
     input.length = length;
     input.value = from;
@@ -158,7 +158,7 @@ sockaddr_to_gss_address (struct sockaddr *sa,
     }
     default :
 	errx (1, "unknown address family %d", sa->sa_family);
-	
+
     }
 }
 
@@ -173,7 +173,7 @@ gss_adat(void *app_data, void *buf, size_t len)
     gss_buffer_desc input_token, output_token;
     OM_uint32 maj_stat, min_stat;
     gss_name_t client_name;
-    struct gss_data *d = app_data;
+    struct gssapi_data *d = app_data;
     gss_channel_bindings_t bindings;
 
     if (ftp_do_gss_bindings) {
@@ -187,7 +187,7 @@ gss_adat(void *app_data, void *buf, size_t len)
 	sockaddr_to_gss_address (ctrl_addr,
 				 &bindings->acceptor_addrtype,
 				 &bindings->acceptor_address);
-	
+
 	bindings->application_data.length = 0;
 	bindings->application_data.value = NULL;
     } else
@@ -219,32 +219,8 @@ gss_adat(void *app_data, void *buf, size_t len)
 	gss_release_buffer(&min_stat, &output_token);
     }
     if(maj_stat == GSS_S_COMPLETE){
-	char *name;
-	gss_buffer_desc export_name;
-	gss_OID oid;
-
-	maj_stat = gss_display_name(&min_stat, client_name,
-				    &export_name, &oid);
-	if(maj_stat != 0) {
-	    reply(500, "Error displaying name");
-	    goto out;
-	}
-	/* XXX kerberos */
-	if(oid != GSS_KRB5_NT_PRINCIPAL_NAME) {
-	    reply(500, "OID not kerberos principal name");
-	    gss_release_buffer(&min_stat, &export_name);
-	    goto out;
-	}
-	name = malloc(export_name.length + 1);
-	if(name == NULL) {
-	    reply(500, "Out of memory");
-	    gss_release_buffer(&min_stat, &export_name);
-	    goto out;
-	}
-	memcpy(name, export_name.value, export_name.length);
-	name[export_name.length] = '\0';
-	gss_release_buffer(&min_stat, &export_name);
-	d->client_name = name;
+	d->client_name = client_name;
+	client_name = GSS_C_NO_NAME;
 	if(p)
 	    reply(235, "ADAT=%s", p);
 	else
@@ -272,19 +248,19 @@ gss_adat(void *app_data, void *buf, size_t len)
 	gss_release_buffer(&new_stat, &status_string);
 	reply(431, "Security resource unavailable");
     }
-  out:
+
     if (client_name)
 	gss_release_name(&min_stat, &client_name);
     free(p);
     return 0;
 }
 
-int gss_userok(void*, char*);
-int gss_session(void*, char*);
+int gssapi_userok(void*, char*);
+int gssapi_session(void*, char*);
 
 struct sec_server_mech gss_server_mech = {
     "GSSAPI",
-    sizeof(struct gss_data),
+    sizeof(struct gssapi_data),
     gss_init, /* init */
     NULL, /* end */
     gss_check_prot,
@@ -296,8 +272,8 @@ struct sec_server_mech gss_server_mech = {
     gss_adat,
     NULL, /* pbsz */
     NULL, /* ccc */
-    gss_userok,
-    gss_session
+    gssapi_userok,
+    gssapi_session
 };
 
 #else /* FTP_SERVER */
@@ -326,7 +302,7 @@ import_name(const char *kname, const char *host, gss_name_t *target_name)
 	OM_uint32 new_stat;
 	OM_uint32 msg_ctx = 0;
 	gss_buffer_desc status_string;
-	
+
 	gss_display_status(&new_stat,
 			   min_stat,
 			   GSS_C_MECH_CODE,
@@ -357,11 +333,11 @@ gss_auth(void *app_data, char *host)
     char *p;
     int n;
     gss_channel_bindings_t bindings;
-    struct gss_data *d = app_data;
+    struct gssapi_data *d = app_data;
     OM_uint32 mech_flags = GSS_C_MUTUAL_FLAG | GSS_C_SEQUENCE_FLAG;
 
     const char *knames[] = { "ftp", "host", NULL }, **kname = knames;
-	
+
 
     if(import_name(*kname++, host, &target_name))
 	return AUTH_ERROR;
@@ -373,14 +349,14 @@ gss_auth(void *app_data, char *host)
 	bindings = malloc(sizeof(*bindings));
 	if (bindings == NULL)
 	    errx(1, "out of memory");
-	
+
 	sockaddr_to_gss_address (myctladdr,
 				 &bindings->initiator_addrtype,
 				 &bindings->initiator_address);
 	sockaddr_to_gss_address (hisctladdr,
 				 &bindings->acceptor_addrtype,
 				 &bindings->acceptor_address);
-	
+
 	bindings->application_data.length = 0;
 	bindings->application_data.value = NULL;
     } else
@@ -421,7 +397,7 @@ gss_auth(void *app_data, char *host)
 		}
 		continue;
 	    }
-	
+
 	    if (bindings != GSS_C_NO_CHANNEL_BINDINGS)
 		free(bindings);
 
@@ -514,7 +490,7 @@ gss_auth(void *app_data, char *host)
 	    gss_release_name(&min_stat, &targ_name);
 	} else
 	    printf("Failed to get gss name of peer.\n");
-    }	
+    }
 
 
     return AUTH_OK;
@@ -522,7 +498,7 @@ gss_auth(void *app_data, char *host)
 
 struct sec_client_mech gss_client_mech = {
     "GSSAPI",
-    sizeof(struct gss_data),
+    sizeof(struct gssapi_data),
     gss_init,
     gss_auth,
     NULL, /* end */

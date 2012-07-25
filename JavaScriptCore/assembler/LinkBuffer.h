@@ -31,7 +31,12 @@
 #define DUMP_LINK_STATISTICS 0
 #define DUMP_CODE 0
 
-#include <MacroAssembler.h>
+#define GLOBAL_THUNK_ID reinterpret_cast<void*>(static_cast<intptr_t>(-1))
+#define REGEXP_CODE_ID reinterpret_cast<void*>(static_cast<intptr_t>(-2))
+
+#include "JITCompilationEffort.h"
+#include "MacroAssembler.h"
+#include <wtf/DataLog.h>
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
@@ -58,6 +63,7 @@ class LinkBuffer {
     typedef MacroAssemblerCodePtr CodePtr;
     typedef MacroAssembler::Label Label;
     typedef MacroAssembler::Jump Jump;
+    typedef MacroAssembler::PatchableJump PatchableJump;
     typedef MacroAssembler::JumpList JumpList;
     typedef MacroAssembler::Call Call;
     typedef MacroAssembler::DataLabelCompact DataLabelCompact;
@@ -69,23 +75,37 @@ class LinkBuffer {
 #endif
 
 public:
-    LinkBuffer(JSGlobalData& globalData, MacroAssembler* masm)
+    LinkBuffer(JSGlobalData& globalData, MacroAssembler* masm, void* ownerUID, JITCompilationEffort effort = JITCompilationMustSucceed)
         : m_size(0)
+#if ENABLE(BRANCH_COMPACTION)
+        , m_initialSize(0)
+#endif
         , m_code(0)
         , m_assembler(masm)
         , m_globalData(&globalData)
 #ifndef NDEBUG
         , m_completed(false)
+        , m_effort(effort)
 #endif
     {
-        linkCode();
+        linkCode(ownerUID, effort);
     }
 
     ~LinkBuffer()
     {
-        ASSERT(m_completed);
+        ASSERT(m_completed || (!m_executableMemory && m_effort == JITCompilationCanFail));
+    }
+    
+    bool didFailToAllocate() const
+    {
+        return !m_executableMemory;
     }
 
+    bool isValid() const
+    {
+        return !didFailToAllocate();
+    }
+    
     // These methods are used to link or set values at code generation time.
 
     void link(Call call, FunctionPtr function)
@@ -135,9 +155,9 @@ public:
         return CodeLocationNearCall(MacroAssembler::getLinkerAddress(code(), applyOffset(call.m_label)));
     }
 
-    CodeLocationLabel locationOf(Jump jump)
+    CodeLocationLabel locationOf(PatchableJump jump)
     {
-        return CodeLocationLabel(MacroAssembler::getLinkerAddress(code(), applyOffset(jump.m_label)));
+        return CodeLocationLabel(MacroAssembler::getLinkerAddress(code(), applyOffset(jump.m_jump.m_label)));
     }
 
     CodeLocationLabel locationOf(Label label)
@@ -173,10 +193,7 @@ public:
         return applyOffset(label.m_label).m_offset;
     }
 
-    // Upon completion of all patching either 'finalizeCode()' or 'finalizeCodeAddendum()' should be called
-    // once to complete generation of the code.  'finalizeCode()' is suited to situations
-    // where the executable pool must also be retained, the lighter-weight 'finalizeCodeAddendum()' is
-    // suited to adding to an existing allocation.
+    // Upon completion of all patching 'finalizeCode()' should be called once to complete generation of the code.
     CodeRef finalizeCode()
     {
         performFinalization();
@@ -189,7 +206,6 @@ public:
         return CodePtr(MacroAssembler::AssemblerType_T::getRelocatedAddress(code(), applyOffset(label.m_label)));
     }
 
-#ifndef NDEBUG
     void* debugAddress()
     {
         return m_code;
@@ -199,7 +215,6 @@ public:
     {
         return m_size;
     }
-#endif
 
 private:
     template <typename T> T applyOffset(T src)
@@ -210,31 +225,30 @@ private:
         return src;
     }
     
-    // Keep this private! - the underlying code should only be obtained externally via 
-    // finalizeCode() or finalizeCodeAddendum().
+    // Keep this private! - the underlying code should only be obtained externally via finalizeCode().
     void* code()
     {
         return m_code;
     }
 
-    void linkCode()
+    void linkCode(void* ownerUID, JITCompilationEffort effort)
     {
         ASSERT(!m_code);
 #if !ENABLE(BRANCH_COMPACTION)
-        m_executableMemory = m_assembler->m_assembler.executableCopy(*m_globalData);
+        m_executableMemory = m_assembler->m_assembler.executableCopy(*m_globalData, ownerUID, effort);
         if (!m_executableMemory)
             return;
         m_code = m_executableMemory->start();
         m_size = m_assembler->m_assembler.codeSize();
         ASSERT(m_code);
 #else
-        size_t initialSize = m_assembler->m_assembler.codeSize();
-        m_executableMemory = m_globalData->executableAllocator.allocate(*m_globalData, initialSize);
+        m_initialSize = m_assembler->m_assembler.codeSize();
+        m_executableMemory = m_globalData->executableAllocator.allocate(*m_globalData, m_initialSize, ownerUID, effort);
         if (!m_executableMemory)
             return;
         m_code = (uint8_t*)m_executableMemory->start();
         ASSERT(m_code);
-        ExecutableAllocator::makeWritable(m_code, initialSize);
+        ExecutableAllocator::makeWritable(m_code, m_initialSize);
         uint8_t* inData = (uint8_t*)m_assembler->unlinkedCode();
         uint8_t* outData = reinterpret_cast<uint8_t*>(m_code);
         int readPtr = 0;
@@ -247,9 +261,9 @@ private:
             
             // Copy the instructions from the last jump to the current one.
             size_t regionSize = jumpsToLink[i].from() - readPtr;
-            uint16_t* copySource = reinterpret_cast<uint16_t*>(inData + readPtr);
-            uint16_t* copyEnd = reinterpret_cast<uint16_t*>(inData + readPtr + regionSize);
-            uint16_t* copyDst = reinterpret_cast<uint16_t*>(outData + writePtr);
+            uint16_t* copySource = reinterpret_cast_ptr<uint16_t*>(inData + readPtr);
+            uint16_t* copyEnd = reinterpret_cast_ptr<uint16_t*>(inData + readPtr + regionSize);
+            uint16_t* copyDst = reinterpret_cast_ptr<uint16_t*>(outData + writePtr);
             ASSERT(!(regionSize % 2));
             ASSERT(!(readPtr % 2));
             ASSERT(!(writePtr % 2));
@@ -280,8 +294,8 @@ private:
             jumpsToLink[i].setFrom(writePtr);
         }
         // Copy everything after the last jump
-        memcpy(outData + writePtr, inData + readPtr, initialSize - readPtr);
-        m_assembler->recordLinkOffsets(readPtr, initialSize, readPtr - writePtr);
+        memcpy(outData + writePtr, inData + readPtr, m_initialSize - readPtr);
+        m_assembler->recordLinkOffsets(readPtr, m_initialSize, readPtr - writePtr);
         
         for (unsigned i = 0; i < jumpCount; ++i) {
             uint8_t* location = outData + jumpsToLink[i].from();
@@ -290,11 +304,11 @@ private:
         }
 
         jumpsToLink.clear();
-        m_size = writePtr + initialSize - readPtr;
+        m_size = writePtr + m_initialSize - readPtr;
         m_executableMemory->shrink(m_size);
 
 #if DUMP_LINK_STATISTICS
-        dumpLinkStatistics(m_code, initialSize, m_size);
+        dumpLinkStatistics(m_code, m_initialSize, m_size);
 #endif
 #if DUMP_CODE
         dumpCode(m_code, m_size);
@@ -306,10 +320,15 @@ private:
     {
 #ifndef NDEBUG
         ASSERT(!m_completed);
+        ASSERT(isValid());
         m_completed = true;
 #endif
 
+#if ENABLE(BRANCH_COMPACTION)
+        ExecutableAllocator::makeExecutable(code(), m_initialSize);
+#else
         ExecutableAllocator::makeExecutable(code(), m_size);
+#endif
         ExecutableAllocator::cacheFlush(code(), m_size);
     }
 
@@ -322,13 +341,13 @@ private:
         linkCount++;
         totalInitialSize += initialSize;
         totalFinalSize += finalSize;
-        printf("link %p: orig %u, compact %u (delta %u, %.2f%%)\n", 
-               code, static_cast<unsigned>(initialSize), static_cast<unsigned>(finalSize),
-               static_cast<unsigned>(initialSize - finalSize),
-               100.0 * (initialSize - finalSize) / initialSize);
-        printf("\ttotal %u: orig %u, compact %u (delta %u, %.2f%%)\n", 
-               linkCount, totalInitialSize, totalFinalSize, totalInitialSize - totalFinalSize,
-               100.0 * (totalInitialSize - totalFinalSize) / totalInitialSize);
+        dataLog("link %p: orig %u, compact %u (delta %u, %.2f%%)\n", 
+                    code, static_cast<unsigned>(initialSize), static_cast<unsigned>(finalSize),
+                    static_cast<unsigned>(initialSize - finalSize),
+                    100.0 * (initialSize - finalSize) / initialSize);
+        dataLog("\ttotal %u: orig %u, compact %u (delta %u, %.2f%%)\n", 
+                    linkCount, totalInitialSize, totalFinalSize, totalInitialSize - totalFinalSize,
+                    100.0 * (totalInitialSize - totalFinalSize) / totalInitialSize);
     }
 #endif
     
@@ -345,28 +364,49 @@ private:
         size_t tsize = size / sizeof(short);
         char nameBuf[128];
         snprintf(nameBuf, sizeof(nameBuf), "_jsc_jit%u", codeCount++);
-        printf("\t.syntax unified\n"
-               "\t.section\t__TEXT,__text,regular,pure_instructions\n"
-               "\t.globl\t%s\n"
-               "\t.align 2\n"
-               "\t.code 16\n"
-               "\t.thumb_func\t%s\n"
-               "# %p\n"
-               "%s:\n", nameBuf, nameBuf, code, nameBuf);
+        dataLog("\t.syntax unified\n"
+                    "\t.section\t__TEXT,__text,regular,pure_instructions\n"
+                    "\t.globl\t%s\n"
+                    "\t.align 2\n"
+                    "\t.code 16\n"
+                    "\t.thumb_func\t%s\n"
+                    "# %p\n"
+                    "%s:\n", nameBuf, nameBuf, code, nameBuf);
         
         for (unsigned i = 0; i < tsize; i++)
-            printf("\t.short\t0x%x\n", tcode[i]);
+            dataLog("\t.short\t0x%x\n", tcode[i]);
+#elif CPU(ARM_TRADITIONAL)
+        //   gcc -c jit.s
+        //   objdump -D jit.o
+        static unsigned codeCount = 0;
+        unsigned int* tcode = static_cast<unsigned int*>(code);
+        size_t tsize = size / sizeof(unsigned int);
+        char nameBuf[128];
+        snprintf(nameBuf, sizeof(nameBuf), "_jsc_jit%u", codeCount++);
+        dataLog("\t.globl\t%s\n"
+                    "\t.align 4\n"
+                    "\t.code 32\n"
+                    "\t.text\n"
+                    "# %p\n"
+                    "%s:\n", nameBuf, code, nameBuf);
+
+        for (unsigned i = 0; i < tsize; i++)
+            dataLog("\t.long\t0x%x\n", tcode[i]);
 #endif
     }
 #endif
     
     RefPtr<ExecutableMemoryHandle> m_executableMemory;
     size_t m_size;
+#if ENABLE(BRANCH_COMPACTION)
+    size_t m_initialSize;
+#endif
     void* m_code;
     MacroAssembler* m_assembler;
     JSGlobalData* m_globalData;
 #ifndef NDEBUG
     bool m_completed;
+    JITCompilationEffort m_effort;
 #endif
 };
 

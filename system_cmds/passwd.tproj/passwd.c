@@ -22,13 +22,6 @@
  */
 #include <TargetConditionals.h>
 
-#define INFO_FILE 1
-#if !TARGET_OS_EMBEDDED
-#define INFO_NIS 2
-#define INFO_OPEN_DIRECTORY 3
-#define INFO_PAM 4
-#endif
-
 #define _PASSWD_FILE "/etc/master.passwd"
 
 #include <stdio.h>
@@ -37,6 +30,7 @@
 #include <libc.h>
 #include <ctype.h>
 #include <string.h>
+#include "passwd.h"
 
 #ifdef __SLICK__
 #define _PASSWORD_LEN 8
@@ -46,20 +40,12 @@ char* progname = "passwd";
 
 static char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
 
-extern int file_passwd(char *, char *);
-extern int nis_passwd(char *, char *);
-#ifdef INFO_OPEN_DIRECTORY
-extern int od_passwd(char *, char *, char*);
-#endif
-#ifdef INFO_PAM
-extern int pam_passwd(char *);
-#endif
-
 void
 getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 	char *old_pw, char **new_pw, char **old_clear, char **new_clear)
 {
-	int i, tries, len, pw_ok, upper, lower, alpha, notalpha;
+	int i, tries, pw_ok, upper, lower, alpha, notalpha;
+    size_t len;
 	int isNull;
 	char *p;
 	static char obuf[_PASSWORD_LEN+1];
@@ -159,8 +145,8 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 	return;
 }
 
-void
-usage()
+static void
+usage(void)
 {
 	fprintf(stderr, "usage: %s [-i infosystem] -l location]] [-u authname] [name]\n", progname);
 	fprintf(stderr, "  infosystem:\n");

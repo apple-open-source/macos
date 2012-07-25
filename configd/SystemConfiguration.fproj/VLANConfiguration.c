@@ -378,11 +378,13 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces()
 
 	prefs = SCPreferencesCreate(NULL, CFSTR("SCVLANInterfaceCopyAvailablePhysicalInterfaces"), NULL);
 	if (prefs != NULL) {
+#if	!TARGET_OS_IPHONE
 		bond_interfaces = SCBondInterfaceCopyAll(prefs);
 		if (bond_interfaces != NULL) {
 			excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 			__SCBondInterfaceListCollectMembers(bond_interfaces, excluded);
 		}
+#endif	// !TARGET_OS_IPHONE
 
 		bridge_interfaces = SCBridgeInterfaceCopyAll(prefs);
 		if (bridge_interfaces != NULL) {

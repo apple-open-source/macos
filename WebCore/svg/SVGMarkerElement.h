@@ -35,21 +35,82 @@
 
 namespace WebCore {
 
+enum SVGMarkerUnitsType {
+    SVGMarkerUnitsUnknown = 0,
+    SVGMarkerUnitsUserSpaceOnUse,
+    SVGMarkerUnitsStrokeWidth
+};
+
+enum SVGMarkerOrientType {
+    SVGMarkerOrientUnknown = 0,
+    SVGMarkerOrientAuto,
+    SVGMarkerOrientAngle
+};
+
+template<>
+struct SVGPropertyTraits<SVGMarkerUnitsType> {
+    static unsigned highestEnumValue() { return SVGMarkerUnitsStrokeWidth; }
+
+    static String toString(SVGMarkerUnitsType type)
+    {
+        switch (type) {
+        case SVGMarkerUnitsUnknown:
+            return emptyString();
+        case SVGMarkerUnitsUserSpaceOnUse:
+            return "userSpaceOnUse";
+        case SVGMarkerUnitsStrokeWidth:
+            return "strokeWidth";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static SVGMarkerUnitsType fromString(const String& value)
+    {
+        if (value == "userSpaceOnUse")
+            return SVGMarkerUnitsUserSpaceOnUse;
+        if (value == "strokeWidth")
+            return SVGMarkerUnitsStrokeWidth;
+        return SVGMarkerUnitsUnknown;
+    }
+};
+
+template<>
+struct SVGPropertyTraits<SVGMarkerOrientType> {
+    static unsigned highestEnumValue() { return SVGMarkerOrientAngle; }
+
+    // toString is not needed, synchronizeOrientType() handles this on its own.
+
+    static SVGMarkerOrientType fromString(const String& value, SVGAngle& angle)
+    {
+        if (value == "auto")
+            return SVGMarkerOrientAuto;
+
+        ExceptionCode ec = 0;
+        angle.setValueAsString(value, ec);
+        if (!ec)
+            return SVGMarkerOrientAngle;
+        return SVGMarkerOrientUnknown;
+    }
+};
+
 class SVGMarkerElement : public SVGStyledElement,
                          public SVGLangSpace,
                          public SVGExternalResourcesRequired,
                          public SVGFitToViewBox {
 public:
-    enum SVGMarkerUnitsType {
-        SVG_MARKERUNITS_UNKNOWN           = 0,
-        SVG_MARKERUNITS_USERSPACEONUSE    = 1,
-        SVG_MARKERUNITS_STROKEWIDTH       = 2
+    // Forward declare enumerations in the W3C naming scheme, for IDL generation.
+    enum {
+        SVG_MARKERUNITS_UNKNOWN = SVGMarkerUnitsUnknown,
+        SVG_MARKERUNITS_USERSPACEONUSE = SVGMarkerUnitsUserSpaceOnUse,
+        SVG_MARKERUNITS_STROKEWIDTH = SVGMarkerUnitsStrokeWidth
     };
 
-    enum SVGMarkerOrientType {
-        SVG_MARKER_ORIENT_UNKNOWN    = 0,
-        SVG_MARKER_ORIENT_AUTO       = 1,
-        SVG_MARKER_ORIENT_ANGLE      = 2
+    enum {
+        SVG_MARKER_ORIENT_UNKNOWN = SVGMarkerOrientUnknown,
+        SVG_MARKER_ORIENT_AUTO = SVGMarkerOrientAuto,
+        SVG_MARKER_ORIENT_ANGLE = SVGMarkerOrientAngle
     };
 
     static PassRefPtr<SVGMarkerElement> create(const QualifiedName&, Document*);
@@ -59,40 +120,51 @@ public:
     void setOrientToAuto();
     void setOrientToAngle(const SVGAngle&);
 
+    static const SVGPropertyInfo* orientTypePropertyInfo();
+
 private:
     SVGMarkerElement(const QualifiedName&, Document*);
 
     virtual bool needsPendingResourceHandling() const { return false; }
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) { return true; }
 
     virtual bool selfHasRelativeLengths() const;
 
+    void synchronizeOrientType();
+
     static const AtomicString& orientTypeIdentifier();
     static const AtomicString& orientAngleIdentifier();
+ 
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGMarkerElement)
+        DECLARE_ANIMATED_LENGTH(RefX, refX)
+        DECLARE_ANIMATED_LENGTH(RefY, refY)
+        DECLARE_ANIMATED_LENGTH(MarkerWidth, markerWidth)
+        DECLARE_ANIMATED_LENGTH(MarkerHeight, markerHeight)
+        DECLARE_ANIMATED_ENUMERATION(MarkerUnits, markerUnits, SVGMarkerUnitsType)
+        DECLARE_ANIMATED_ANGLE(OrientAngle, orientAngle)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_RECT(ViewBox, viewBox)
+        DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)
+    END_DECLARE_ANIMATED_PROPERTIES
+  
+public:
+    // Custom 'orientType' property.
+    static void synchronizeOrientType(void* contextElement);
+    static PassRefPtr<SVGAnimatedProperty> lookupOrCreateOrientTypeWrapper(void* contextElement);
+    SVGMarkerOrientType& orientType() const { return m_orientType.value; }
+    SVGMarkerOrientType& orientTypeBaseValue() const { return m_orientType.value; }
+    void setOrientTypeBaseValue(const SVGMarkerOrientType& type) { m_orientType.value = type; }
+    PassRefPtr<SVGAnimatedEnumerationPropertyTearOff<SVGMarkerOrientType> > orientTypeAnimated();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(RefX, refX)
-    DECLARE_ANIMATED_LENGTH(RefY, refY)
-    DECLARE_ANIMATED_LENGTH(MarkerWidth, markerWidth)
-    DECLARE_ANIMATED_LENGTH(MarkerHeight, markerHeight)
-    DECLARE_ANIMATED_ENUMERATION(MarkerUnits, markerUnits)
-    DECLARE_ANIMATED_ENUMERATION(OrientType, orientType)
-    DECLARE_ANIMATED_ANGLE(OrientAngle, orientAngle)
-
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
-
-    // SVGFitToViewBox
-    DECLARE_ANIMATED_RECT(ViewBox, viewBox)
-    DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)
+private:
+    mutable SVGSynchronizableAnimatedProperty<SVGMarkerOrientType> m_orientType;
 };
 
 }

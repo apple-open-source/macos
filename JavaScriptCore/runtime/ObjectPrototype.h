@@ -31,7 +31,7 @@ namespace JSC {
 
         static ObjectPrototype* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure)
         {
-            ObjectPrototype* prototype = new (allocateCell<ObjectPrototype>(*exec->heap())) ObjectPrototype(exec, structure);
+            ObjectPrototype* prototype = new (NotNull, allocateCell<ObjectPrototype>(*exec->heap())) ObjectPrototype(exec, structure);
             prototype->finishCreation(exec->globalData(), globalObject);
             return prototype;
         }
@@ -51,6 +51,7 @@ namespace JSC {
     private:
         ObjectPrototype(ExecState*, Structure*);
         static void put(JSCell*, ExecState*, const Identifier&, JSValue, PutPropertySlot&);
+        static bool defineOwnProperty(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&, bool shouldThrow);
 
         static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
         static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
@@ -59,7 +60,7 @@ namespace JSC {
         bool m_hasNoPropertiesWithUInt32Names;
     };
 
-    EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
+    JS_EXPORT_PRIVATE EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
 
 } // namespace JSC
 

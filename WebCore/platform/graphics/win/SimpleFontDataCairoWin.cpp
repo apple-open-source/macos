@@ -34,6 +34,7 @@
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
+#include "HWndDC.h"
 #include <cairo.h>
 #include <cairo-win32.h>
 #include <mlang.h>
@@ -43,29 +44,46 @@ namespace WebCore {
 
 void SimpleFontData::platformInit()
 {
+    m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
     m_scriptCache = 0;
     m_scriptFontProperties = 0;
     m_isSystemFont = false;
 
-    m_syntheticBoldOffset = m_platformData.syntheticBold() ? 1.0f : 0.f;
-
     if (m_platformData.useGDI())
        return initGDIFont();
 
-    HDC hdc = GetDC(0);
-    SaveDC(hdc);
+    if (!m_platformData.size()) {
+        m_fontMetrics.reset();
+        m_avgCharWidth = 0;
+        m_maxCharWidth = 0;
+        m_isSystemFont = false;
+        m_scriptCache = 0;
+        m_scriptFontProperties = 0;
+        return;
+    }
+
+    HWndDC dc(0);
+    SaveDC(dc);
 
     cairo_scaled_font_t* scaledFont = m_platformData.scaledFont();
     const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_platformData.size();
 
-    cairo_win32_scaled_font_select_font(scaledFont, hdc);
+    cairo_win32_scaled_font_select_font(scaledFont, dc);
 
     TEXTMETRIC textMetrics;
-    GetTextMetrics(hdc, &textMetrics);
+    GetTextMetrics(dc, &textMetrics);
     float ascent = textMetrics.tmAscent * metricsMultiplier;
     float descent = textMetrics.tmDescent * metricsMultiplier;
     float xHeight = ascent * 0.56f; // Best guess for xHeight for non-Truetype fonts.
     float lineGap = textMetrics.tmExternalLeading * metricsMultiplier;
+
+    int faceLength = ::GetTextFace(dc, 0, 0);
+    Vector<WCHAR> faceName(faceLength);
+    ::GetTextFace(dc, faceLength, faceName.data());
+    m_isSystemFont = !wcscmp(faceName.data(), L"Lucida Grande");
+ 
+    ascent = ascentConsideringMacAscentHack(faceName.data(), ascent, descent);
+
     m_fontMetrics.setAscent(ascent);
     m_fontMetrics.setDescent(descent);
     m_fontMetrics.setLineGap(lineGap);
@@ -73,30 +91,17 @@ void SimpleFontData::platformInit()
     m_avgCharWidth = textMetrics.tmAveCharWidth * metricsMultiplier;
     m_maxCharWidth = textMetrics.tmMaxCharWidth * metricsMultiplier;
 
-    OUTLINETEXTMETRIC metrics;
-    if (GetOutlineTextMetrics(hdc, sizeof(metrics), &metrics) > 0) {
-        // This is a TrueType font.  We might be able to get an accurate xHeight
-        GLYPHMETRICS gm;
-        MAT2 mat = { 1, 0, 0, 1 };
-        DWORD len = GetGlyphOutline(hdc, 'x', GGO_METRICS, &gm, 0, 0, &mat);
-        if (len != GDI_ERROR && gm.gmptGlyphOrigin.y > 0)
-            xHeight = gm.gmptGlyphOrigin.y * metricsMultiplier;
-    }
+    cairo_text_extents_t extents;
+    cairo_scaled_font_text_extents(scaledFont, "x", &extents);
+    xHeight = -extents.y_bearing;
 
     m_fontMetrics.setXHeight(xHeight);
     cairo_win32_scaled_font_done_font(scaledFont);
 
-    m_isSystemFont = false;
     m_scriptCache = 0;
     m_scriptFontProperties = 0;
 
-    RestoreDC(hdc, -1);
-    ReleaseDC(0, hdc);
-}
-
-void SimpleFontData::platformCharWidthInit()
-{
-    // charwidths are set in platformInit.
+    RestoreDC(dc, -1);
 }
 
 FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
@@ -112,19 +117,21 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     if (m_platformData.useGDI())
        return widthForGDIGlyph(glyph);
 
-    HDC hdc = GetDC(0);
-    SaveDC(hdc);
+    if (!m_platformData.size())
+        return 0;
+
+    HWndDC dc(0);
+    SaveDC(dc);
 
     cairo_scaled_font_t* scaledFont = m_platformData.scaledFont();
-    cairo_win32_scaled_font_select_font(scaledFont, hdc);
+    cairo_win32_scaled_font_select_font(scaledFont, dc);
 
     int width;
-    GetCharWidthI(hdc, glyph, 1, 0, &width);
+    GetCharWidthI(dc, glyph, 1, 0, &width);
 
     cairo_win32_scaled_font_done_font(scaledFont);
 
-    RestoreDC(hdc, -1);
-    ReleaseDC(0, hdc);
+    RestoreDC(dc, -1);
 
     const double metricsMultiplier = cairo_win32_scaled_font_get_metrics_factor(scaledFont) * m_platformData.size();
     return width * metricsMultiplier;

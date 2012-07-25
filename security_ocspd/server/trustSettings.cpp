@@ -334,8 +334,8 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		return 0;
 	}
 
-	/* 
- 	 * Looks like we're good to go.
+	/*
+	 * Looks like we're good to go.
 	 * First, handle easy case of deleting a Trust Settings file (indicated
 	 * by an empty trustSettings).
 	 */
@@ -358,8 +358,9 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	struct stat sb;
 	if(stat(TRUST_SETTINGS_PATH, &sb)) {
 		ocspdTrustDebug("trustSettingsWrite: creating %s", TRUST_SETTINGS_PATH);
-		if(mkdir(TRUST_SETTINGS_PATH, TRUST_SETTINGS_PATH_MODE)) {
-			ocspdErrorLog("trustSettingsWrite: mkdir() returned %d\n", errno);
+		int errcode = mkpath_np(TRUST_SETTINGS_PATH, TRUST_SETTINGS_PATH_MODE);
+		if(errcode) {
+			ocspdErrorLog("trustSettingsWrite: mkpath_np() returned %d\n", errcode);
 			*rcode = internalComponentErr;
 			return 0;
 		}

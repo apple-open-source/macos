@@ -62,24 +62,12 @@ void AccessibilityTableColumn::setParent(AccessibilityObject* parent)
     clearChildren();
 }
     
-IntRect AccessibilityTableColumn::elementRect() const
+LayoutRect AccessibilityTableColumn::elementRect() const
 {
     // this will be filled in when addChildren is called
     return m_columnRect;
 }
 
-IntSize AccessibilityTableColumn::size() const
-{
-    return elementRect().size();
-}
-  
-const AccessibilityObject::AccessibilityChildrenVector& AccessibilityTableColumn::children()
-{
-    if (!m_haveChildren)
-        addChildren();
-    return m_children;
-}
-    
 AccessibilityObject* AccessibilityTableColumn::headerObject()
 {
     if (!m_parent)
@@ -129,7 +117,7 @@ AccessibilityObject* AccessibilityTableColumn::headerObjectForSection(RenderTabl
     if (!section)
         return 0;
     
-    int numCols = section->numColumns();
+    unsigned numCols = section->numColumns();
     if (m_columnIndex >= numCols)
         return 0;
     

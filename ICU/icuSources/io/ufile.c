@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2010, International Business Machines
+*   Copyright (C) 1998-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -18,15 +18,11 @@
 ******************************************************************************
 */
 
-/* define for fileno.  */
-#ifndef _XOPEN_SOURCE
-#if __STDC_VERSION__ >= 199901L
-/* It is invalid to compile an XPG3, XPG4, XPG4v2 or XPG5 application using c99 */
-#define _XOPEN_SOURCE 600
-#else
-#define _XOPEN_SOURCE 4
-#endif
-#endif
+/*
+ * Defines _XOPEN_SOURCE for access to POSIX functions.
+ * Must be before any other #includes.
+ */
+#include "uposixdefs.h"
 
 #include "locmap.h"
 #include "unicode/ustdio.h"
@@ -37,7 +33,7 @@
 #include "cstring.h"
 #include "cmemory.h"
 
-#if defined(U_WINDOWS) && !defined(fileno)
+#if U_PLATFORM_USES_ONLY_WIN32_API && !defined(fileno)
 /* Windows likes to rename Unix-like functions */
 #define fileno _fileno
 #endif
@@ -62,7 +58,7 @@ finit_owner(FILE         *f,
     uprv_memset(result, 0, sizeof(UFILE));
     result->fFileno = fileno(f);
 
-#ifdef U_WINDOWS
+#if U_PLATFORM_USES_ONLY_WIN32_API
     if (0 <= result->fFileno && result->fFileno <= 2) {
         /* stdin, stdout and stderr need to be special cased for Windows 98 */
 #if _MSC_VER >= 1400
@@ -147,7 +143,7 @@ u_fopen(const char    *filename,
         fclose(systemFile);
     }
 
-    return result;
+    return result; /* not a file leak */
 }
 
 U_CAPI UFILE* U_EXPORT2

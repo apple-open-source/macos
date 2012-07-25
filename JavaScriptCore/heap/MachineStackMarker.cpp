@@ -30,10 +30,6 @@
 #include <stdlib.h>
 #include <wtf/StdLibExtras.h>
 
-#if USE(PTHREAD_BASED_QT) && !defined(WTF_USE_PTHREADS)
-#define WTF_USE_PTHREADS 1
-#endif
-
 #if OS(DARWIN)
 
 #include <mach/mach_init.h>
@@ -100,6 +96,7 @@ typedef HANDLE PlatformThread;
 typedef pthread_t PlatformThread;
 static const int SigThreadSuspendResume = SIGUSR2;
 
+#if defined(SA_RESTART)
 static void pthreadSignalHandlerSuspendResume(int signo)
 {
     sigset_t signalSet;
@@ -107,6 +104,7 @@ static void pthreadSignalHandlerSuspendResume(int signo)
     sigaddset(&signalSet, SigThreadSuspendResume);
     sigsuspend(&signalSet);
 }
+#endif
 #endif
 
 class MachineThreads::Thread {

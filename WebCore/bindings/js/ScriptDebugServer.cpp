@@ -28,10 +28,12 @@
  */
 
 #include "config.h"
-#include "ScriptDebugServer.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
+#include "ScriptDebugServer.h"
+
+#include "ContentSearchUtils.h"
 #include "EventLoop.h"
 #include "Frame.h"
 #include "JSJavaScriptCallFrame.h"
@@ -73,7 +75,7 @@ String ScriptDebugServer::setBreakpoint(const String& sourceID, const ScriptBrea
         return "";
     SourceIdToBreakpointsMap::iterator it = m_sourceIdToBreakpoints.find(sourceIDValue);
     if (it == m_sourceIdToBreakpoints.end())
-        it = m_sourceIdToBreakpoints.set(sourceIDValue, LineToBreakpointMap()).first;
+        it = m_sourceIdToBreakpoints.set(sourceIDValue, LineToBreakpointMap()).iterator;
     if (it->second.contains(scriptBreakpoint.lineNumber + 1))
         return "";
     it->second.set(scriptBreakpoint.lineNumber + 1, scriptBreakpoint);
@@ -101,7 +103,7 @@ void ScriptDebugServer::removeBreakpoint(const String& breakpointId)
         it->second.remove(lineNumber + 1);
 }
 
-bool ScriptDebugServer::hasBreakpoint(intptr_t sourceID, const TextPosition0& position) const
+bool ScriptDebugServer::hasBreakpoint(intptr_t sourceID, const TextPosition& position) const
 {
     if (!m_breakpointsActivated)
         return false;
@@ -109,7 +111,7 @@ bool ScriptDebugServer::hasBreakpoint(intptr_t sourceID, const TextPosition0& po
     SourceIdToBreakpointsMap::const_iterator it = m_sourceIdToBreakpoints.find(sourceID);
     if (it == m_sourceIdToBreakpoints.end())
         return false;
-    int lineNumber = position.m_line.convertAsOneBasedInt();
+    int lineNumber = position.m_line.oneBasedInt();
     if (lineNumber <= 0)
         return false;
     LineToBreakpointMap::const_iterator breakIt = it->second.find(lineNumber);
@@ -190,7 +192,12 @@ void ScriptDebugServer::stepOutOfFunction()
     m_doneProcessingDebuggerEvents = true;
 }
 
-bool ScriptDebugServer::editScriptSource(const String&, const String&, String*, ScriptValue*)
+bool ScriptDebugServer::canSetScriptSource()
+{
+    return false;
+}
+
+bool ScriptDebugServer::setScriptSource(const String&, const String&, bool, String*, ScriptValue*, ScriptObject*)
 {
     // FIXME(40300): implement this.
     return false;
@@ -204,7 +211,7 @@ void ScriptDebugServer::dispatchDidPause(ScriptDebugListener* listener)
     JSValue jsCallFrame;
     {
         if (m_currentCallFrame->isValid() && globalObject->inherits(&JSDOMGlobalObject::s_info)) {
-            JSDOMGlobalObject* domGlobalObject = static_cast<JSDOMGlobalObject*>(globalObject);
+            JSDOMGlobalObject* domGlobalObject = jsCast<JSDOMGlobalObject*>(globalObject);
             JSLock lock(SilenceAssertionsOnly);
             jsCallFrame = toJS(state, domGlobalObject, m_currentCallFrame.get());
         } else
@@ -221,31 +228,39 @@ void ScriptDebugServer::dispatchDidContinue(ScriptDebugListener* listener)
 void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, SourceProvider* sourceProvider, bool isContentScript)
 {
     String sourceID = ustringToString(JSC::UString::number(sourceProvider->asID()));
-    String url = ustringToString(sourceProvider->url());
-    String data = ustringToString(JSC::UString(const_cast<StringImpl*>(sourceProvider->data())));
-    int lineOffset = sourceProvider->startPosition().m_line.convertAsZeroBasedInt();
-    int columnOffset = sourceProvider->startPosition().m_column.convertAsZeroBasedInt();
 
+    ScriptDebugListener::Script script;
+    script.url = ustringToString(sourceProvider->url());
+    script.source = ustringToString(JSC::UString(const_cast<StringImpl*>(sourceProvider->data())));
+    script.startLine = sourceProvider->startPosition().m_line.zeroBasedInt();
+    script.startColumn = sourceProvider->startPosition().m_column.zeroBasedInt();
+    script.isContentScript = isContentScript;
+
+#if ENABLE(INSPECTOR)
+    if (script.url.isEmpty())
+        script.url = ContentSearchUtils::findSourceURL(script.source);
+#endif
+
+    int sourceLength = script.source.length();
     int lineCount = 1;
     int lastLineStart = 0;
-    for (size_t i = 0; i < data.length() - 1; ++i) {
-        if (data[i] == '\n') {
+    for (int i = 0; i < sourceLength; ++i) {
+        if (script.source[i] == '\n') {
             lineCount += 1;
             lastLineStart = i + 1;
         }
     }
 
-    int endLine = lineOffset + lineCount - 1;
-    int endColumn;
+    script.endLine = script.startLine + lineCount - 1;
     if (lineCount == 1)
-        endColumn = data.length() + columnOffset;
+        script.endColumn = script.startColumn + sourceLength;
     else
-        endColumn = data.length() - lastLineStart;
+        script.endColumn = sourceLength - lastLineStart;
 
     Vector<ScriptDebugListener*> copy;
     copyToVector(listeners, copy);
     for (size_t i = 0; i < copy.size(); ++i)
-        copy[i]->didParseSource(sourceID, url, data, lineOffset, columnOffset, endLine, endColumn, isContentScript);
+        copy[i]->didParseSource(sourceID, script);
 }
 
 void ScriptDebugServer::dispatchFailedToParseSource(const ListenerSet& listeners, SourceProvider* sourceProvider, int errorLine, const String& errorMessage)
@@ -324,7 +339,7 @@ void ScriptDebugServer::dispatchFunctionToListeners(JavaScriptExecutionCallback 
 
 void ScriptDebugServer::createCallFrameAndPauseIfNeeded(const DebuggerCallFrame& debuggerCallFrame, intptr_t sourceID, int lineNumber)
 {
-    TextPosition0 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber).convertToZeroBased(), WTF::ZeroBasedNumber::base());
+    TextPosition textPosition(OrdinalNumber::fromOneBasedInt(lineNumber), OrdinalNumber::first());
     m_currentCallFrame = JavaScriptCallFrame::create(debuggerCallFrame, m_currentCallFrame, sourceID, textPosition);
     pauseIfNeeded(debuggerCallFrame.dynamicGlobalObject());
 }
@@ -335,7 +350,7 @@ void ScriptDebugServer::updateCallFrameAndPauseIfNeeded(const DebuggerCallFrame&
     if (!m_currentCallFrame)
         return;
 
-    TextPosition0 textPosition(WTF::OneBasedNumber::fromOneBasedInt(lineNumber).convertToZeroBased(), WTF::ZeroBasedNumber::base());
+    TextPosition textPosition(OrdinalNumber::fromOneBasedInt(lineNumber), OrdinalNumber::first());
     m_currentCallFrame->update(debuggerCallFrame, sourceID, textPosition);
     pauseIfNeeded(debuggerCallFrame.dynamicGlobalObject());
 }

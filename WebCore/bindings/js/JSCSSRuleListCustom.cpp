@@ -28,8 +28,8 @@
 
 #include "CSSRule.h"
 #include "CSSRuleList.h"
+#include "CSSStyleSheet.h"
 #include "JSNode.h"
-#include "StyleList.h"
 
 using namespace JSC;
 
@@ -37,11 +37,11 @@ namespace WebCore {
 
 bool JSCSSRuleListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
-    JSCSSRuleList* jsCSSRuleList = static_cast<JSCSSRuleList*>(handle.get().asCell());
+    JSCSSRuleList* jsCSSRuleList = jsCast<JSCSSRuleList*>(handle.get().asCell());
     if (!jsCSSRuleList->hasCustomProperties())
         return false;
-    if (StyleList* styleList = jsCSSRuleList->impl()->styleList())
-        return visitor.containsOpaqueRoot(root(styleList));
+    if (CSSStyleSheet* styleSheet = jsCSSRuleList->impl()->styleSheet())
+        return visitor.containsOpaqueRoot(root(styleSheet));
     if (CSSRule* cssRule = jsCSSRuleList->impl()->item(0))
         return visitor.containsOpaqueRoot(root(cssRule));
     return false;

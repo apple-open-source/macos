@@ -22,7 +22,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 PLATFUNC_DESCRIPTOR_PROTOTYPE(bzero, sse42)
 PLATFUNC_DESCRIPTOR_PROTOTYPE(bzero, sse2)

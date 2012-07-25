@@ -429,7 +429,7 @@ setdnsaddr(argv)
 			 *argv);
 	    return 0;
 	}
-	dns = *(u_int32_t *)hp->h_addr;
+        memcpy(&dns, hp->h_addr, sizeof(u_int32_t));    // Wcast-align fix - using memcpy for unknown alignment
     }
 
     /* We take the last 2 values given, the 2nd-last as the primary
@@ -465,7 +465,7 @@ setwinsaddr(argv)
 			 *argv);
 	    return 0;
 	}
-	wins = *(u_int32_t *)hp->h_addr;
+    memcpy(&wins, hp->h_addr, sizeof(u_int32_t));           // Wcast-align fix - using memcpy for unknown alignment
     }
 
     /* We take the last 2 values given, the 2nd-last as the primary
@@ -518,7 +518,7 @@ setipaddr(arg, argv, doit)
 		option_error("unknown host: %s", arg);
 		return 0;
 	    }
-	    local = *(u_int32_t *)hp->h_addr;
+        memcpy(&local, hp->h_addr, sizeof(u_int32_t));           // Wcast-align fix - using memcpy for unknown alignment
 	}
 	if (bad_ip_adrs(local)) {
 	    option_error("bad local IP address %s", ip_ntoa(local));
@@ -539,7 +539,7 @@ setipaddr(arg, argv, doit)
 		option_error("unknown host: %s", colon);
 		return 0;
 	    }
-	    remote = *(u_int32_t *)hp->h_addr;
+        memcpy(&remote, hp->h_addr, sizeof(u_int32_t));           // Wcast-align fix - using memcpy for unknown alignment
 	    if (remote_name[0] == 0)
 		strlcpy(remote_name, colon, sizeof(remote_name));
 	}
@@ -1719,7 +1719,7 @@ ip_check_options()
 	 */
 	wo->accept_local = 1;	/* don't insist on this default value */
 	if ((hp = gethostbyname(hostname)) != NULL) {
-	    local = *(u_int32_t *)hp->h_addr;
+        memcpy(&local, hp->h_addr, sizeof(u_int32_t));    // Wcast-align fix - using memcpy for unknown alignment
 	    if (local != 0 && !bad_ip_adrs(local))
 		wo->ouraddr = local;
 	}

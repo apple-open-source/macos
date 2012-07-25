@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,7 @@
 
 __BEGIN_DECLS
 
+__private_extern__
 void	interface_update_ipv6	(struct ifaddrs *ifap, const char *if_name);
 
 __END_DECLS

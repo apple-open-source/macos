@@ -4,84 +4,87 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2012-07-27</string>
+		<string>2012-05-10</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>5cfcfd0fa4c4da7576f397073e7993cc</string>
+		<string>370be99c5cdc2e756c82c44d774933c8</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
 			<string>Suhosin patch applied (see below)</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
+			<string>Removed GPLv3 bison-generated parsers</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceSHA1</key>
-		<string>05cf819352062ea3fbcccd3f15aa02c8c3f87440</string>
+		<string>8a52dae3fc9e27814c15fc0ebd744bee38305248</string>
 		<key>OpenSourceURL</key>
-		<string>http://us2.php.net/distributions/php-5.3.15.tar.bz2</string>
+		<string>http://us2.php.net/distributions/php-5.3.13.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>5.3.15</string>
+		<string>5.3.13</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-10-21</string>
+		<string>2012-05-21</string>
 		<key>OpenSourceLicense</key>
 		<string>FreeType</string>
 		<key>OpenSourceMD5</key>
-		<string>dbadce8f0c5e70a0b7c51eadf2dd9394</string>
+		<string>c15f6dc8ed190d67b89ae09aaf7896b4</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>FreeType 2</string>
 		<key>OpenSourceSHA1</key>
-		<string>e1b2356ebbc6d39d813797572b1e5d8a2635e969</string>
+		<string>a96fcfc8e041d54c961322360d19fc7adf703286</string>
 		<key>OpenSourceURL</key>
-		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.4.6/freetype-2.4.7.tar.bz2</string>
+		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.4.9/freetype-2.4.9.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.4.7</string>
+		<string>2.4.9</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freetype.org/freetype2/index.html</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-01-25</string>
+		<string>2012-02-03</string>
 		<key>OpenSourceLicense</key>
 		<string>libjpeg</string>
 		<key>OpenSourceMD5</key>
-		<string>a2c10c04f396a9ce72894beb18b4e1f9</string>
+		<string>52654eb3b2e60c35731ea8fc87f1bd29</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>libjpeg</string>
 		<key>OpenSourceSHA1</key>
-		<string>f0a3b88ac4db19667798bee971537eeed552bce9</string>
+		<string>f080b2fffc7581f7d19b968092ba9ebc234556ff</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.ijg.org/files/jpegsrc.v8c.tar.gz</string>
+		<string>http://www.ijg.org/files/jpegsrc.v8d.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>8c</string>
+		<string>8d</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.ijg.org/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2012-06-11</string>
+		<string>2012-04-03</string>
 		<key>OpenSourceLicense</key>
 		<string>libpng</string>
 		<key>OpenSourceMD5</key>
-		<string>24d279809854dfd90b4f84606d020104</string>
+		<string>9e5d864bce8f06751bbd99962ecf4aad</string>
 		<key>OpenSourceModifications</key>
-		<array/>
+		<array>
+			<string>Removed GPLv2 contributed code</string>
+		</array>
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>7332c6c28808e36cbbe296babca65665d31c65d0</string>
+		<string>af53f6990f937327e8bc3367c48b3968aede593f</string>
 		<key>OpenSourceURL</key>
 		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.5.10.tar.gz?download</string>
 		<key>OpenSourceVersion</key>
@@ -91,7 +94,7 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2012-02-03</string>
+		<string>2012-01-12</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceMD5</key>
@@ -111,21 +114,21 @@
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-07-29</string>
+		<string>2012-02-03</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceMD5</key>
-		<string>3a9c3402063c8163de6e419ddc8d96e7</string>
+		<string>779f4a66acdccd673553769e403674c4</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>xdebug</string>
 		<key>OpenSourceSHA1</key>
-		<string>d2b9b5db43ffc26bed2a731bf50b78e8f5d05dd1</string>
+		<string>34cca933ee2dab8dd87514950ea7a551a6984a54</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.xdebug.org/files/xdebug-2.1.2.tgz</string>
+		<string>http://www.xdebug.org/files/xdebug-2.1.3.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.1.2</string>
+		<string>2.1.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.xdebug.org/</string>
 	</dict>

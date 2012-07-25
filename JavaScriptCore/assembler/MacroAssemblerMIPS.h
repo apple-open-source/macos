@@ -132,6 +132,11 @@ public:
         }
     }
 
+    void add32(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        add32(imm, src, dest);
+    }
+
     void add32(TrustedImm32 imm, Address address)
     {
         if (address.offset >= -32768 && address.offset <= 32767
@@ -291,11 +296,6 @@ public:
         m_assembler.subu(srcDest, MIPSRegisters::zero, srcDest);
     }
 
-    void not32(RegisterID srcDest)
-    {
-        m_assembler.nor(srcDest, srcDest, MIPSRegisters::zero);
-    }
-
     void or32(RegisterID src, RegisterID dest)
     {
         m_assembler.orInsn(dest, dest, src);
@@ -370,6 +370,24 @@ public:
             */
             move(imm, immTempRegister);
             m_assembler.subu(dest, dest, immTempRegister);
+        }
+    }
+
+    void sub32(RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        if (!imm.m_isPointer && imm.m_value >= -32767 && imm.m_value <= 32768
+            && !m_fixedWidth) {
+            /*
+              addiu     dest, src, imm
+            */
+            m_assembler.addiu(dest, src, -imm.m_value);
+        } else {
+            /*
+              li        immTemp, imm
+              subu      dest, src, immTemp
+            */
+            move(imm, immTempRegister);
+            m_assembler.subu(dest, src, immTempRegister);
         }
     }
 
@@ -458,6 +476,11 @@ public:
 
     void xor32(TrustedImm32 imm, RegisterID dest)
     {
+        if (imm.m_value == -1) {
+            m_assembler.nor(dest, dest, MIPSRegisters::zero);
+            return;
+        }
+
         /*
             li  immTemp, imm
             xor dest, dest, immTemp
@@ -971,6 +994,15 @@ public:
         return branch32(cond, dataTempRegister, immTempRegister);
     }
 
+    void compare8(RelationalCondition cond, Address left, TrustedImm32 right, RegisterID dest)
+    {
+        // Make sure the immediate value is unsigned 8 bits.
+        ASSERT(!(right.m_value & 0xFFFFFF00));
+        load8(left, dataTempRegister);
+        move(right, immTempRegister);
+        compare32(cond, dataTempRegister, immTempRegister, dest);
+    }
+
     Jump branch8(RelationalCondition cond, BaseIndex left, TrustedImm32 right)
     {
         ASSERT(!(right.m_value & 0xFFFFFF00));
@@ -1203,6 +1235,13 @@ public:
         return branchAdd32(cond, immTempRegister, dest);
     }
 
+    Jump branchAdd32(ResultCondition cond, RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        move(imm, immTempRegister);
+        move(src, dest);
+        return branchAdd32(cond, immTempRegister, dest);
+    }
+
     Jump branchMul32(ResultCondition cond, RegisterID src, RegisterID dest)
     {
         ASSERT((cond == Overflow) || (cond == Signed) || (cond == Zero) || (cond == NonZero));
@@ -1305,6 +1344,13 @@ public:
     Jump branchSub32(ResultCondition cond, TrustedImm32 imm, RegisterID dest)
     {
         move(imm, immTempRegister);
+        return branchSub32(cond, immTempRegister, dest);
+    }
+
+    Jump branchSub32(ResultCondition cond, RegisterID src, TrustedImm32 imm, RegisterID dest)
+    {
+        move(imm, immTempRegister);
+        move(src, dest);
         return branchSub32(cond, immTempRegister, dest);
     }
 

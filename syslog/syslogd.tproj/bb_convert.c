@@ -514,7 +514,6 @@ bb_convert(const char *name)
 
 	closedir(dp);
 
-	e = list;
 	for (e = list; e != NULL; e = e->next)
 	{
 		status = do_ASLExpireTime_filter(e->name);

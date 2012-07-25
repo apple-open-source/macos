@@ -19,7 +19,7 @@ install-strip:
 
 move-files:
 	$(MKDIR) $(DSTROOT)/usr/local
-	$(MV) $(DSTROOT)/usr/bin $(DSTROOT)/usr/local/bin
+	$(RMDIR) $(DSTROOT)/usr/bin
 	$(MV) $(DSTROOT)/usr/include $(DSTROOT)/usr/local/include
 	$(RM) $(DSTROOT)/usr/lib/charset.alias
 	$(RM) $(DSTROOT)/usr/lib/libhunspell-1.2.a

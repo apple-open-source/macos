@@ -31,15 +31,12 @@
 module events {
 
     interface [
-        Conditional=WORKERS,
-        NoStaticTables
+        JSNoStaticTables,
+        ConstructorTemplate=Event
     ] ErrorEvent : Event {
-
-        readonly attribute DOMString message;
-        readonly attribute DOMString filename;
-        readonly attribute unsigned long lineno;
-
-        void initErrorEvent(in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in DOMString messageArg, in DOMString filenameArg, in unsigned long linenoArg);
+        readonly attribute [InitializedByEventConstructor] DOMString message;
+        readonly attribute [InitializedByEventConstructor] DOMString filename;
+        readonly attribute [InitializedByEventConstructor] unsigned long lineno;
     };
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009, 2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: tsigconf.c,v 1.33 2009/09/01 00:22:25 jinmei Exp $ */
+/* $Id: tsigconf.c,v 1.35 2011-01-11 23:47:12 tbox Exp $ */
 
 /*! \file */
 
@@ -178,6 +178,6 @@ ns_tsigkeyring_fromconfig(const cfg_obj_t *config, const cfg_obj_t *vconfig,
 	return (ISC_R_SUCCESS);
 
  failure:
-	dns_tsigkeyring_destroy(&ring);
+	dns_tsigkeyring_detach(&ring);
 	return (result);
 }

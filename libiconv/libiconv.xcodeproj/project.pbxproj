@@ -220,13 +220,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3F2E308B134150F900D933CA /* libcharset.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libcharset.xcconfig; sourceTree = "<group>"; };
+		3F2E308C134150F900D933CA /* libiconv.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libiconv.xcconfig; sourceTree = "<group>"; };
+		3F2E30A1134157D500D933CA /* iconv.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = iconv.xcconfig; sourceTree = "<group>"; };
+		3F6674A71331729B001DDCD9 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		3F6674A81331729B001DDCD9 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		3FCBEA6013317A3A0085B5AB /* dest_cleanup.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = dest_cleanup.sh; path = xcodescripts/dest_cleanup.sh; sourceTree = SOURCE_ROOT; };
 		59004B651007D97B00B358A9 /* libcharset.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcharset.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		594FCA54100BE609009FDDA8 /* iconv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iconv.h; sourceTree = "<group>"; };
 		594FCA55100BE609009FDDA8 /* libcharset.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = libcharset.txt; sourceTree = "<group>"; };
 		594FCA56100BE609009FDDA8 /* libiconv.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = libiconv.txt; sourceTree = "<group>"; };
 		594FCA57100BE609009FDDA8 /* localcharset.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = localcharset.h; sourceTree = "<group>"; };
 		594FCA6B100C0019009FDDA8 /* charset.alias */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = charset.alias; path = lib/charset.alias; sourceTree = "<group>"; };
-		5976A9A81007C0EF000AD30B /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = ../BSD.xcconfig; sourceTree = "<group>"; };
 		5976A9C21007C196000AD30B /* COPYING.LIB */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = COPYING.LIB; sourceTree = "<group>"; };
 		5976A9C81007C196000AD30B /* edtest.bat */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = edtest.bat; sourceTree = "<group>"; };
 		5976A9C91007C196000AD30B /* fnchange.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = fnchange.in; sourceTree = "<group>"; };
@@ -780,6 +785,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		3F6674A61331729B001DDCD9 /* Build Support */ = {
+			isa = PBXGroup;
+			children = (
+				3FCBEA6013317A3A0085B5AB /* dest_cleanup.sh */,
+				3F6674A71331729B001DDCD9 /* base.xcconfig */,
+				3F2E30A1134157D500D933CA /* iconv.xcconfig */,
+				3F6674A81331729B001DDCD9 /* lib.xcconfig */,
+				3F2E308B134150F900D933CA /* libcharset.xcconfig */,
+				3F2E308C134150F900D933CA /* libiconv.xcconfig */,
+			);
+			name = "Build Support";
+			path = xcodeconfig;
+			sourceTree = "<group>";
+		};
 		594FCA53100BE609009FDDA8 /* install */ = {
 			isa = PBXGroup;
 			children = (
@@ -794,6 +813,7 @@
 		5976A97E1007BEBD000AD30B = {
 			isa = PBXGroup;
 			children = (
+				3F6674A61331729B001DDCD9 /* Build Support */,
 				5976A9AD1007C195000AD30B /* Sources */,
 				5976A9961007C08E000AD30B /* Products */,
 			);
@@ -821,7 +841,6 @@
 				594FCA53100BE609009FDDA8 /* install */,
 				59BCE950100802D7002DEF81 /* localcharset.h */,
 				59BCE94810080196002DEF81 /* iconv.h */,
-				5976A9A81007C0EF000AD30B /* BSD.xcconfig */,
 				5976ACCE1007C1B8000AD30B /* libiconv.plist */,
 				5976A9B11007C195000AD30B /* build-aux */,
 				5976A9C21007C196000AD30B /* COPYING.LIB */,
@@ -1711,8 +1730,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "set -x\ngzip -f -n ${DSTROOT}/usr/share/man/man[13]/*.[13]\n\nln -s libiconv.2.4.0.dylib   ${DSTROOT}/usr/lib/libiconv.dylib\nln -s libiconv.2.dylib       ${DSTROOT}/usr/lib/libiconv.2.4.0.dylib\nln -s libcharset.1.0.0.dylib ${DSTROOT}/usr/lib/libcharset.dylib\nln -s libcharset.1.dylib     ${DSTROOT}/usr/lib/libcharset.1.0.0.dylib\n\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}/usr\nfi\nfind ${DSTROOT}/usr -type f -perm +u+w -print0 | xargs -t -0 chmod -h u-w";
+			shellPath = "/bin/sh -ex";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/dest_cleanup.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		59DEB7821016475B00E1EAF6 /* run tests */ = {
@@ -1870,38 +1889,20 @@
 /* Begin XCBuildConfiguration section */
 		59004B661007D97C00B358A9 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F2E308B134150F900D933CA /* libcharset.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 2;
 				DYLIB_CURRENT_VERSION = 2;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					BUILDING_LIBCHARSET,
-					BUILDING_DLL,
-					ENABLE_RELOCATABLE,
-					IN_LIBRARY,
-					NO_XMALLOC,
-					"relocate=libcharset_relocate",
-					"set_relocation_prefix=libcharset_set_relocation_prefix",
-					PIC,
-				);
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
 				HEADER_SEARCH_PATHS = libiconv/libcharset;
-				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = charset.1;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 			};
 			name = Release;
 		};
 		5976A9821007BEBD000AD30B /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 5976A9A81007C0EF000AD30B /* BSD.xcconfig */;
+			baseConfigurationReference = 3F6674A71331729B001DDCD9 /* base.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				COPY_PHASE_STRIP = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu89;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -1914,35 +1915,19 @@
 		};
 		5976ACFD1007D6A5000AD30B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F2E308C134150F900D933CA /* libiconv.xcconfig */;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 7;
 				DYLIB_CURRENT_VERSION = 7;
-				EXECUTABLE_PREFIX = lib;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					BUILDING_LIBICONV,
-					BUILDING_DLL,
-					ENABLE_RELOCATABLE,
-					IN_LIBRARY,
-					NO_XMALLOC,
-					"relocate=libiconv_relocate",
-					"set_relocation_prefix=libiconv_set_relocation_prefix",
-					PIC,
-				);
 				HEADER_SEARCH_PATHS = libiconv;
-				INSTALL_PATH = /usr/lib;
 				PRODUCT_NAME = iconv.2;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 			};
 			name = Release;
 		};
 		5976AD051007D6BA000AD30B /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F2E30A1134157D500D933CA /* iconv.xcconfig */;
 			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					HAVE_CONFIG_H,
-					DEPENDS_ON_LIBICONV,
-				);
 				HEADER_SEARCH_PATHS = libiconv;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = iconv;
@@ -1981,7 +1966,6 @@
 		59DEB78D10164A4C00E1EAF6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
 				HEADER_SEARCH_PATHS = libiconv;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = iconv_no_i18n;
@@ -1992,7 +1976,6 @@
 		59DEB7AB10167ABA00E1EAF6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
 				HEADER_SEARCH_PATHS = libiconv;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "table-to";
@@ -2003,7 +1986,6 @@
 		59DEB7C010167B5500E1EAF6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
 				HEADER_SEARCH_PATHS = libiconv;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "table-from";

@@ -100,13 +100,78 @@ _kadm5_client_recv(kadm5_client_context *context, krb5_data *reply)
 }
 
 krb5_error_code
-_kadm5_store_enctypes(krb5_storage *sp, krb5_enctype *enctypes)
+_kadm5_store_ks_tuple(krb5_storage *sp, uint32_t n_ks_tuple, krb5_key_salt_tuple *ks_tuple)
 {
-    while (enctypes && *enctypes) {
-	krb5_store_int32(sp, (int32_t)*enctypes);
-	enctypes++;
+    krb5_error_code ret;
+    size_t n;
+
+    ret = krb5_store_uint32(sp, n_ks_tuple);
+    if (ret)
+	return ret;
+
+    for (n = 0; n < n_ks_tuple; n++) {
+	ret = krb5_store_int32(sp, 8); /* element size */
+	if (ret) return ret;
+	ret = krb5_store_int32(sp, ks_tuple[n].ks_enctype);
+	if (ret) return ret;
+	ret = krb5_store_int32(sp, ks_tuple[n].ks_salttype);
+	if (ret) return ret;
     }
-    krb5_store_int32(sp, (int32_t)ENCTYPE_NULL);
+    return 0;
+}
+
+krb5_error_code
+_kadm5_ret_ks_tuple(krb5_storage *sp, uint32_t *n_ks_tuple, krb5_key_salt_tuple **ks_tuple)
+{
+    krb5_error_code ret;
+    uint32_t elsize, n;
+
+    *n_ks_tuple = 0;
+    *ks_tuple = NULL;
+
+    ret = krb5_ret_uint32(sp, n_ks_tuple);
+    if (ret == HEIM_ERR_EOF) {
+	return 0;
+    } else if (ret)
+	return ret;
+
+    if (n_ks_tuple < 0 || *n_ks_tuple > 1000) {
+	ret = EOVERFLOW;
+	goto fail;
+    }
+
+    ks_tuple = calloc(*n_ks_tuple, sizeof (*ks_tuple));
+    if (ks_tuple == NULL) {
+	ret = errno;
+	goto fail;
+    }
+    
+    for (n = 0; n < *n_ks_tuple; n++) {
+	ret = krb5_ret_uint32(sp, &elsize);
+	if (ret)
+	    goto fail;
+	if (elsize < 8) {
+	    ret = EOVERFLOW;
+	    goto fail;
+	}
+
+	ret = krb5_ret_int32(sp, &(*ks_tuple)[n].ks_enctype);
+	if (ret != 0)
+	    goto fail;
+
+	ret = krb5_ret_int32(sp, &(*ks_tuple)[n].ks_salttype);
+	if (ret != 0)
+	    goto fail;
+
+	krb5_storage_seek(sp, elsize - 8, SEEK_CUR);
+    }
 
     return 0;
+
+ fail:
+    free(*ks_tuple);
+    *ks_tuple = NULL;
+    *n_ks_tuple = 0;
+
+    return ret;
 }

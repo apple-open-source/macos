@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/pl.xml
@@ -33,7 +33,6 @@ pl{
         054{"Melanezja"}
         057{"Mikronezja"}
         061{"Polinezja"}
-        062{"Azja Południowo-Środkowa"}
         142{"Azja"}
         143{"Azja Środkowa"}
         145{"Azja Zachodnia"}
@@ -41,9 +40,7 @@ pl{
         151{"Europa Wschodnia"}
         154{"Europa Północna"}
         155{"Europa Zachodnia"}
-        172{"Wspólnota Niezależnych Państw"}
-        419{"Ameryka Łacińska i Karaiby"}
-        830{"Wyspy Normandzkie"}
+        419{"Ameryka Łacińska"}
         AC{"Wyspa Wniebowstąpienia"}
         AD{"Andora"}
         AE{"Zjednoczone Emiraty Arabskie"}
@@ -99,6 +96,7 @@ pl{
         CS{"Serbia i Czarnogóra"}
         CU{"Kuba"}
         CV{"Republika Zielonego Przylądka"}
+        CW{"Curaçao"}
         CX{"Wyspa Bożego Narodzenia"}
         CY{"Cypr"}
         CZ{"Czechy"}
@@ -190,7 +188,7 @@ pl{
         MC{"Monako"}
         MD{"Mołdawia"}
         ME{"Czarnogóra"}
-        MF{"Sint Maarten"}
+        MF{"Saint-Martin"}
         MG{"Madagaskar"}
         MH{"Wyspy Marshalla"}
         MK{"Macedonia"}
@@ -260,6 +258,7 @@ pl{
         SR{"Surinam"}
         ST{"Wyspy Świętego Tomasza i Książęca"}
         SV{"Salwador"}
+        SX{"Sint Maarten"}
         SY{"Syria"}
         SZ{"Suazi"}
         TA{"Tristan da Cunha"}
@@ -301,5 +300,5 @@ pl{
         ZW{"Zimbabwe"}
         ZZ{"Nieznany lub nieprawidłowy region"}
     }
-    Version{"2.0.51.52"}
+    Version{"2.0.65.46"}
 }

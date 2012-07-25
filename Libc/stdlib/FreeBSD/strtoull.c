@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)strtouq.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoull.c,v 1.21 2007/01/09 00:28:10 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <limits.h>
 #include <errno.h>
 #include <ctype.h>
@@ -45,7 +47,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoull.c,v 1.21 2007/01/09 00:28:10 im
  * alphabets and digits are each contiguous.
  */
 unsigned long long
-strtoull(const char * __restrict nptr, char ** __restrict endptr, int base)
+strtoull_l(const char * __restrict nptr, char ** __restrict endptr, int base,
+    locale_t loc)
 {
 	const char *s;
 	unsigned long long acc;
@@ -53,13 +56,14 @@ strtoull(const char * __restrict nptr, char ** __restrict endptr, int base)
 	unsigned long long cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * See strtoq for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
 		c = *s++;
-	} while (isspace((unsigned char)c));
+	} while (isspace_l((unsigned char)c, loc));
 	if (c == '-') {
 		neg = 1;
 		c = *s++;
@@ -115,4 +119,10 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (char *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+unsigned long long
+strtoull(const char * __restrict nptr, char ** __restrict endptr, int base)
+{
+	return strtoull_l(nptr, endptr, base, __current_locale());
 }

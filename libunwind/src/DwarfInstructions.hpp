@@ -1184,15 +1184,19 @@ compact_unwind_encoding_t DwarfInstructions<A,R>::createCompactEncodingFromProlo
 				strcpy(warningBuffer, "stack size is large but stack subq instruction not found");
 				return UNWIND_X86_64_MODE_DWARF;
 			}
-			pint_t functionContentAdjustStackIns = funcAddr + prolog.codeOffsetAtStackDecrement - 4;		
+			pint_t functionContentAdjustStackIns = funcAddr + prolog.codeOffsetAtStackDecrement - 4;
+        #if __EXCEPTIONS 
 			try {
+        #endif
 				uint32_t stackDecrementInCode = addressSpace.get32(functionContentAdjustStackIns);
 				stackAdjust = (prolog.cfaRegisterOffset - stackDecrementInCode)/8;
+        #if __EXCEPTIONS 
 			}
 			catch (...) {
 				strcpy(warningBuffer, "stack size is large but stack subq instruction not found");
 				return UNWIND_X86_64_MODE_DWARF;
 			}
+        #endif
 			stackValue = functionContentAdjustStackIns - funcAddr;
 			immedStackSize = false;
 			if ( stackAdjust > 7 ) {
@@ -1554,12 +1558,22 @@ compact_unwind_encoding_t DwarfInstructions<A,R>::createCompactEncodingFromProlo
 		if ( stackValue > stackMaxImmedValue ) {
 			// stack size is too big to fit as an immediate value, so encode offset of subq instruction in function
 			pint_t functionContentAdjustStackIns = funcAddr + prolog.codeOffsetAtStackDecrement - 4;		
-			uint32_t stackDecrementInCode = addressSpace.get32(functionContentAdjustStackIns);
-			stackAdjust = (prolog.cfaRegisterOffset - stackDecrementInCode)/4;
+        #if __EXCEPTIONS 
+			try {
+        #endif
+                uint32_t stackDecrementInCode = addressSpace.get32(functionContentAdjustStackIns);
+                stackAdjust = (prolog.cfaRegisterOffset - stackDecrementInCode)/4;
+        #if __EXCEPTIONS 
+			}
+			catch (...) {
+				strcpy(warningBuffer, "stack size is large but stack subl instruction not found");
+				return UNWIND_X86_MODE_DWARF;
+			}
+        #endif
 			stackValue = functionContentAdjustStackIns - funcAddr;
 			immedStackSize = false;
 			if ( stackAdjust > 7 ) {
-				strcpy(warningBuffer, "stack subq instruction is too different from dwarf stack size");
+				strcpy(warningBuffer, "stack subl instruction is too different from dwarf stack size");
 				return UNWIND_X86_MODE_DWARF;
 			}
 			encoding = UNWIND_X86_MODE_STACK_IND;

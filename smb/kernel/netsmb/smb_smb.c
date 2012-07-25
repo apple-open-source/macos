@@ -69,10 +69,6 @@ struct smb_dialect {
 	const char *	d_name;
 };
 
-/* use sysctl -w net.smb.fs.kern_deprecatePreXPServers=1 to set smbfs_deprecatePreXPServers */
-int smbfs_deprecatePreXPServers = 1;
-
-
 /*
  * We no long support older  dialects, but leaving this
  * information here for prosperity.
@@ -149,7 +145,7 @@ uint32_t smb_vc_maxread(struct smb_vc *vcp)
 	uint32_t maxmsgsize = vcp->vc_sopt.sv_maxtx;
 	uint32_t hdrsize = SMB_HDRLEN;
 	
-	hdrsize += (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES) ? SMB_READANDX_HDRLEN : SMB_READ_COM_HDRLEN;
+	hdrsize += SMB_READANDX_HDRLEN; /* we only use ReadAndX */
 
 	/* Make sure we never use a size bigger than the socket can support */
 	SMB_TRAN_GETPARAM(vcp, SMBTP_RCVSZ, &socksize);
@@ -201,7 +197,7 @@ smb_vc_maxwrite(struct smb_vc *vcp)
 	uint32_t maxmsgsize = vcp->vc_sopt.sv_maxtx;
 	uint32_t hdrsize = SMB_HDRLEN;
 	
-	hdrsize += (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES) ? SMB_WRITEANDX_HDRLEN : SMB_WRITE_COM_HDRLEN;
+	hdrsize += SMB_WRITEANDX_HDRLEN;    /* we only use WriteAndX */
 	
 	/* Make sure we never use a size bigger than the socket can support */
 	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &socksize);
@@ -263,8 +259,8 @@ smb_smb_nomux(struct smb_vc *vcp, vfs_context_t context, const char *name)
 }
 
 int 
-smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context, 
-				  vfs_context_t user_context, int inReconnect)
+smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context, 
+                  int inReconnect, vfs_context_t context)
 {
 	struct smb_dialect *dp;
 	struct smb_sopt *sp = NULL;
@@ -294,9 +290,7 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	/*
-	 * Currently we only support one dialect; leave this in just in case we 
-	 * decide to add the SMB2 dialect. The dialects are never in UNICODE, so
-	 * just put the strings in by hand. 
+	 * The dialects are never in UNICODE, so just put the strings in by hand. 
 	 */
 	for(dp = smb_dialects; dp->d_id != -1; dp++) {
 		mb_put_uint8(mbp, SMB_DT_DIALECT);
@@ -307,6 +301,8 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	error = smb_rq_simple(rqp);
 	if (error)
 		goto bad;
+
+    /* Now get the response */
 	smb_rq_getreply(rqp, &mdp);
 
 	error = md_get_uint8(mdp, &wc);
@@ -361,9 +357,8 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 		goto bad;
 	if (vcp->vc_flags & SMBV_SIGNING_REQUIRED)
 		vcp->vc_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
-
-	if (smbfs_deprecatePreXPServers &&  
-		(!(sp->sv_caps & SMB_CAP_NT_SMBS) || !(sp->sv_caps & SMB_CAP_UNICODE)))  {
+ 
+    if (!(sp->sv_caps & SMB_CAP_NT_SMBS) || !(sp->sv_caps & SMB_CAP_UNICODE))  {
 		SMBERROR("Support for the server %s has been deprecated (PreXP), disconnecting\n", vcp->vc_srvname);
 		error = SMB_ENETFSNOPROTOVERSSUPP;
 		goto bad;
@@ -375,7 +370,6 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	 * If they say they are UNIX then they can't be a NT4 server
 	 */
 	if (((sp->sv_caps & SMB_CAP_UNIX) != SMB_CAP_UNIX) &&
-		(sp->sv_caps & SMB_CAP_NT_SMBS) && 
 		((sp->sv_caps & SMB_CAP_LARGE_RDWRX) == SMB_CAP_LARGE_READX))
 		vcp->vc_flags |= SMBV_NT4;
 	
@@ -393,10 +387,6 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	/* If the server doesn't do extended security then turn off the SMB_FLAGS2_EXT_SEC flag. */
 	if ((sp->sv_caps & SMB_CAP_EXT_SECURITY) != SMB_CAP_EXT_SECURITY)
 		vcp->vc_hflags2 &= ~SMB_FLAGS2_EXT_SEC;
-
-	/* Windows 95/98/Me Server, could be some other server, but safer treating it like Windows 98 */
-	if ((sp->sv_maxtx < 4096) && ((sp->sv_caps & SMB_CAP_NT_SMBS) == 0))
-		vcp->vc_flags |= SMBV_WIN98;
 
 	/*
 	 * 3 cases here:
@@ -438,7 +428,12 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 		(void)md_get_mem(mdp, NULL, SMB_GUIDLEN, MB_MSYSTEM);
 		toklen = (toklen >= SMB_GUIDLEN) ? toklen - SMB_GUIDLEN : 0;
 		
-		vcp->negotiate_token = (toklen) ? malloc(toklen, M_SMBTEMP, M_WAITOK) : NULL;
+        if (toklen) {
+            SMB_MALLOC(vcp->negotiate_token, uint8_t *, toklen, M_SMBTEMP, M_WAITOK);
+        }
+        else {
+            vcp->negotiate_token = NULL;
+        }
 		if (vcp->negotiate_token) {
 			vcp->negotiate_tokenlen = toklen;
 			error = md_get_mem(mdp, (void *)vcp->negotiate_token, vcp->negotiate_tokenlen, MB_MSYSTEM);
@@ -487,16 +482,9 @@ smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	if (inReconnect) {
 		if (original_caps != sp->sv_caps)
 			SMBWARNING("Reconnecting with different sv_caps %x != %x\n", original_caps, sp->sv_caps);
-		if ((sp->sv_caps & SMB_CAP_UNICODE) != (original_caps & SMB_CAP_UNICODE)) {
-			SMBERROR("Server changed encoding on us during reconnect: abort reconnect\n");
-			error = ENOTSUP;
-			goto bad;
-		}
-	}		
-	if (sp->sv_caps & SMB_CAP_UNICODE)
-		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
-	else
-		vcp->vc_hflags2 &= ~SMB_FLAGS2_UNICODE;
+	}
+    vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
+
 bad:
 	smb_rq_done(rqp);
 	return error;
@@ -511,13 +499,7 @@ bad:
 uint32_t 
 smb_vc_caps(struct smb_vc *vcp)
 {
-	uint32_t caps =  SMB_CAP_LARGE_FILES;
-	
-	if (VC_CAPS(vcp) & SMB_CAP_UNICODE)
-		caps |= SMB_CAP_UNICODE;
-	
-	if (VC_CAPS(vcp) & SMB_CAP_NT_SMBS)
-		caps |= SMB_CAP_NT_SMBS;
+	uint32_t caps =  SMB_CAP_LARGE_FILES | SMB_CAP_NT_SMBS | SMB_CAP_UNICODE;
 	
 	if (vcp->vc_hflags2 & SMB_FLAGS2_ERR_STATUS)
 		caps |= SMB_CAP_STATUS32;
@@ -556,8 +538,8 @@ parse_server_os_lanman_strings(struct smb_vc *vcp, void *refptr, uint16_t bc)
 	 * this message twice we only need to get it once.
 	 */
 	if ((bc == 0) || (bc > vcp->vc_txmax) || vcp->NativeOS || vcp->NativeLANManager)
-		goto done; 
-	tmpbuf = malloc(bc, M_SMBTEMP, M_NOWAIT);
+		goto done;
+    SMB_MALLOC(tmpbuf, uint8_t *, bc, M_SMBTEMP, M_WAITOK);
 	if (!tmpbuf)
 		goto done;
 	
@@ -666,8 +648,6 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	uint8_t wc;
-	char *tmpbuf = NULL;	/* An allocated buffer that needs to be freed */
-	void *unipp = NULL;		/* An allocated buffer that holds the information used in the case sesitive password field */
 	const char *pp = NULL;		/* Holds the information used in the case insesitive password field */
 	size_t plen = 0, uniplen = 0;
 	int error = 0;
@@ -675,13 +655,15 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	uint16_t action;
 	uint16_t bc;  
 	uint16_t maxtx = vcp->vc_txmax;
+	uint8_t lm[24] = {0};
+	uint8_t ntlm[24] = {0};
 	
 	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0) {
 		error = EINVAL;
 		goto ssn_exit;
 	}
 
-	if (VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY) {		
+	if ((VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY)) {		
 		error = smb_gss_ssnsetup(vcp, context);
 		goto ssn_exit;		
 	}
@@ -712,8 +694,6 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		pp = "";
 		plen = 1;
 		uniplen = 0;
-		unipp = NULL;
-		tmpbuf = NULL;	/* Nothing to free here */
 	} else if ((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) {
 		/* 
 		 * Clear text passwords. The smb library already check the preferences to 
@@ -732,28 +712,26 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 		pp = smb_vc_getpass(vcp);
 		plen = strnlen(pp, SMB_MAXPASSWORDLEN + 1);
 		uniplen = 0;
-		unipp = NULL;
-		tmpbuf = NULL;	/* Nothing to free here */
+	} else if (vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) {
+        /* The server wants NTLM without going through Extended Security Negotiation */
+        /* We no longer support this if signing is on */
+        SMBERROR("SIGNING REQUIRED: Server %s needs to enable extended security negotiation for NTLM authentication, disconnecting\n", vcp->vc_srvname);
+		error = SMB_ENETFSNOPROTOVERSSUPP;
+        goto ssn_exit;
 	} else {
-		plen = 24;
-		tmpbuf = malloc(plen, M_SMBTEMP, M_WAITOK);
-		/* Don't put the LM response on the wire - it's too easy to crack. */
-		bzero(tmpbuf, plen);
-		pp = tmpbuf;	/* Need to free this when we are done */
-		/* Compute the NTLM response, derived from the challenge and the password. */
-		uniplen = 24;
-		unipp = malloc(uniplen, M_SMBTEMP, M_WAITOK);
-		if (unipp) {
-			smb_ntlmresponse((u_char *)smb_vc_getpass(vcp), vcp->vc_ch, (u_char*)unipp);
-			smb_calcmackey(vcp, unipp, uniplen);			
-		}
+		plen = sizeof(lm);
+		pp = (char *)lm;
+		uniplen = sizeof(ntlm);
+		smb_ntlmresponse((u_char *)smb_vc_getpass(vcp), vcp->vc_ch, (u_char*)ntlm);
+		SMBERROR("%s doesn't support extended security, this server will be deprecated in the future!\n", 
+				 vcp->vc_srvname);
 	}
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, 0, context, &rqp);
 	if (error)
 		goto ssn_exit;
 	
 	smb_rq_wstart(rqp);
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	/*
 	 * We now have a flag telling us to attempt an anonymous connection. All 
 	 * this means is  have no user name, password or domain.
@@ -776,8 +754,9 @@ smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	mb_put_mem(mbp, pp, plen, MB_MSYSTEM); /* password */
-	if (uniplen)
-		mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
+	if (uniplen) {
+		mb_put_mem(mbp, (caddr_t)ntlm, uniplen, MB_MSYSTEM);
+	}
 	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_username, SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
 	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_domain, SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
 
@@ -851,17 +830,8 @@ bad:
 	smb_rq_done(rqp);
 
 ssn_exit:
-	if (unipp) {
-		free(unipp, M_SMBTEMP);
-		unipp = NULL;		
-	}
-	if (tmpbuf) {
-		free(tmpbuf, M_SMBTEMP);
-		tmpbuf = NULL;
-	}
 	
-	if (((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) &&
-		(VC_CAPS(vcp) & SMB_CAP_UNICODE)) {
+	if ((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) {
 		/* We turned off UNICODE for Clear Text Password turn it back on */
 		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
 	}
@@ -889,7 +859,7 @@ smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_LOGOFF_ANDX, 0, context, &rqp);
 	if (error)
 		return error;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint8(mbp, 0xff);
 	mb_put_uint8(mbp, 0);
@@ -929,7 +899,7 @@ smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share,
 		return;
 	}
 	
-	MALLOC(tmpbuf, char *, bc+1, M_SMBFSDATA, M_NOWAIT | M_ZERO);
+	SMB_MALLOC(tmpbuf, char *, bc+1, M_SMBFSDATA, M_WAITOK | M_ZERO);
 	if (! tmpbuf) {
 		/* Couldn't allocate the buffer just get out */
 		return;
@@ -1038,8 +1008,8 @@ smb_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,
 		pbuf = NULL;
 		encpass = NULL;
 	} else {
-		pbuf = malloc(SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
-		encpass = malloc(24, M_SMBTEMP, M_WAITOK);
+        SMB_MALLOC(pbuf, char *, SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
+        SMB_MALLOC(encpass, char *, 24, M_SMBTEMP,  M_WAITOK);
 		strlcpy(pbuf, smb_share_getpass(share), SMB_MAXPASSWORDLEN+1);
 		pbuf[SMB_MAXPASSWORDLEN] = '\0';
 
@@ -1052,7 +1022,7 @@ smb_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,
 			pp = pbuf;
 		}
 	}
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint8(mbp, 0xff);
 	mb_put_uint8(mbp, 0);
@@ -1145,9 +1115,9 @@ smb_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,
 	lck_mtx_unlock(&share->ss_stlock);
 bad:
 	if (encpass)
-		free(encpass, M_SMBTEMP);
+		SMB_FREE(encpass, M_SMBTEMP);
 	if (pbuf)
-		free(pbuf, M_SMBTEMP);
+		SMB_FREE(pbuf, M_SMBTEMP);
 	smb_rq_done(rqp);
 treeconnect_exit:
 	return error;
@@ -1197,9 +1167,11 @@ smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	int error;
-
-	if (share->ss_tid == SMB_TID_UNKNOWN)
+    
+	if (share->ss_tid == SMB_TID_UNKNOWN) {
 		return 0;
+    }
+    
 	error = smb_rq_alloc(SSTOCP(share), SMB_COM_TREE_DISCONNECT, 0, context, &rqp);
 	if (error)
 		return error;
@@ -1577,7 +1549,8 @@ int smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag,
  * if we ever get the request queue to work async.
  */
 int
-smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo, uint32_t EchoCount)
+smb_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
+         vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -1586,7 +1559,7 @@ smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo, uint32_t EchoCount
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_ECHO, 0, context, &rqp);
 	if (error)
 		return error;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint16le(mbp, 1); /* echo count */
 	smb_rq_wend(rqp);

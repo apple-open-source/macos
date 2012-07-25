@@ -135,7 +135,7 @@ librpc_la_SOURCES=dce_error.c rpcclock.c rpcdbg.c rpclist.c \
  rpclog.c rpcmem.c rpcmutex.c rpcrand.c rpctimer.c
 
 dcerpc.cat: dcerpc.m
-	$(GENCAT) $@ $<
+	$(GENCAT) -o $@ $<
 
 ######################################################################
 ## COMPONENT: transport - comprises of libtrans convenience lib
@@ -199,7 +199,7 @@ endif
 noinst_LTLIBRARIES+=libnck.la libmgmt_stubs.la
 noinst_HEADERS+=mgmt.h
 
-libnck_la_SOURCES=comfork.c ndrglob.c mgmt.c
+libnck_la_SOURCES=comfork.c ndrglob.c mgmt.c rpcsvc.c
 libnck_la_LIBADD=libcom.la librpc.la libtrans.la libmgmt_stubs.la
 
 ### Build w/o NCK flags
@@ -212,7 +212,6 @@ mgmt_cstub.c mgmt_sstub.c mgmt.h: $(IDL_INCLUDE_DIR)/mgmt.idl
 
 # Unused: comfork_cma.c
 # Unused: dgauth.c ("obsolete")
-# Unused: rpcsvc.c
 
 ######################################################################
 ## Dist stuff

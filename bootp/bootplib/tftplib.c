@@ -67,7 +67,7 @@ tftp_get(char * host, char * remote_file, off_t * len_p, int t)
     if (mktemp(filename) == NULL) {
 #ifdef DEBUG
 	perror("mktemp");
-#endif DEBUG
+#endif /* DEBUG */
 	return (NULL);
     }
     f = popen(TFTP, "w");
@@ -83,7 +83,7 @@ tftp_get(char * host, char * remote_file, off_t * len_p, int t)
 #ifdef DEBUG
 	fprintf(stderr, TFTP " %s:%s -> %s: download unsuccessful", 
 		host, remote_file, filename);
-#endif DEBUG
+#endif /* DEBUG */
 	return (NULL);
     }
     *len_p = sb.st_size;
@@ -113,4 +113,4 @@ main(int argc, char * argv[])
     }
     return (0);
 }
-#endif TESTING
+#endif /* TESTING */

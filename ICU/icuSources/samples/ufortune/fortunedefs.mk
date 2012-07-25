@@ -1,4 +1,4 @@
-# Copyright (c) 2001-2002 IBM, Inc. and others
+# Copyright (c) 2001-2011 IBM, Inc. and others
 # common makefile between ufortune and ufortune/resources
 
 # mode of resource bundle -

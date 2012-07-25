@@ -32,18 +32,14 @@
 #include "GraphicsTypes.h"
 #include "ImageSource.h"
 #include "IntRect.h"
-#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSImage;
-#else
-class NSImage;
-#endif
+OBJC_CLASS NSImage;
 #endif
 
 #if USE(CG)
@@ -66,18 +62,21 @@ typedef struct _GdkPixbuf GdkPixbuf;
 
 namespace WebCore {
 
+class AffineTransform;
 class FloatPoint;
 class FloatRect;
 class FloatSize;
 class GraphicsContext;
 class SharedBuffer;
-class AffineTransform;
+struct Length;
 
 // This class gets notified when an image creates or destroys decoded frames and when it advances animation frames.
 class ImageObserver;
 
 class Image : public RefCounted<Image> {
     friend class GeneratedImage;
+    friend class CrossfadeGeneratedImage;
+    friend class GeneratorGeneratedImage;
     friend class GraphicsContext;
 
 public:
@@ -87,7 +86,9 @@ public:
     static PassRefPtr<Image> loadPlatformResource(const char* name);
     static bool supportsType(const String&); 
 
+    virtual bool isSVGImage() const { return false; }
     virtual bool isBitmapImage() const { return false; }
+    virtual bool currentFrameHasAlpha() { return false; }
 
     // Derived classes should override this if they can assure that 
     // the image contains only resources from its own security origin.
@@ -96,11 +97,11 @@ public:
     static Image* nullImage();
     bool isNull() const { return size().isEmpty(); }
 
-    // These are only used for SVGImage right now
     virtual void setContainerSize(const IntSize&) { }
     virtual bool usesContainerSize() const { return false; }
     virtual bool hasRelativeWidth() const { return false; }
     virtual bool hasRelativeHeight() const { return false; }
+    virtual void computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio);
 
     virtual IntSize size() const = 0;
     IntRect rect() const { return IntRect(IntPoint(), size()); }
@@ -126,6 +127,7 @@ public:
     
     // Typically the CachedImage that owns us.
     ImageObserver* imageObserver() const { return m_imageObserver; }
+    void setImageObserver(ImageObserver* observer) { m_imageObserver = observer; }
 
     enum TileRule { StretchTile, RoundTile, SpaceTile, RepeatTile };
 
@@ -141,6 +143,7 @@ public:
     virtual CGImageRef getCGImageRef() { return 0; }
     virtual CGImageRef getFirstCGImageRefOfSize(const IntSize&) { return 0; }
     virtual RetainPtr<CFArrayRef> getCGImageArray() { return 0; }
+    static RetainPtr<CGImageRef> imageWithColorSpace(CGImageRef originalImage, ColorSpace);
 #endif
 
 #if PLATFORM(WIN)
@@ -153,8 +156,16 @@ public:
     static PassRefPtr<Image> loadPlatformThemeIcon(const char* name, int size);
 #endif
 
+#if PLATFORM(QT)
+    static void setPlatformResource(const char* name, const QPixmap&);
+#endif
+
     virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
                              const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect);
+
+#if !ASSERT_DISABLED
+    virtual bool notSolidColor() { return true; }
+#endif
 
 protected:
     Image(ImageObserver* = 0);

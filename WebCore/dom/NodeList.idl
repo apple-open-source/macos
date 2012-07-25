@@ -21,13 +21,12 @@
 module core {
 
     interface [
-        CustomIsReachable,
-        HasIndexGetter,
-        HasNameGetter,
-        CustomCall
+        JSCustomIsReachable,
+        IndexedGetter,
+        NamedGetter
     ] NodeList {
 
-        Node item(in [IsIndex] unsigned long index);
+        Node item(in [IsIndex,Optional=DefaultIsUndefined] unsigned long index);
 
         readonly attribute unsigned long length;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Kungliga Tekniska Högskolan
+ * Copyright (c) 2010 - 2011 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
@@ -33,13 +33,25 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
+#include <string.h>
 #include <limits.h>
-#include <unistd.h>
 
-#include "config.h"
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #include "heimqueue.h"
 #include "heim_threads.h"
@@ -50,29 +62,65 @@
 #include <dispatch/dispatch.h>
 #endif
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && defined(HAVE___SYNC_ADD_AND_FETCH)
+
 #define heim_base_atomic_inc(x) __sync_add_and_fetch((x), 1)
 #define heim_base_atomic_dec(x) __sync_sub_and_fetch((x), 1)
 #define heim_base_atomic_type	unsigned int
 #define heim_base_atomic_max    UINT_MAX
 
-#define heim_base_exchange_pointer(t,v) __sync_lock_test_and_set((t), (v))
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
 
-#elif 0 /* windows */
+#if __has_builtin(__sync_swap)
+#define heim_base_exchange_pointer(t,v) __sync_swap((t), (v))
+#else
+#define heim_base_exchange_pointer(t,v) __sync_lock_test_and_set((t), (v))
+#endif
+
+#elif defined(_WIN32)
+
+#define heim_base_atomic_inc(x) InterlockedIncrement(x)
+#define heim_base_atomic_dec(x) InterlockedDecrement(x)
+#define heim_base_atomic_type	LONG
+#define heim_base_atomic_max    MAXLONG
 
 #define heim_base_exchange_pointer(t,v) InterlockedExchangePointer((t),(v))
 
 #else
-#error "provide atomic integer operations for your compiler"
+
+#define HEIM_BASE_NEED_ATOMIC_MUTEX 1
+extern HEIMDAL_MUTEX _heim_base_mutex;
+
+#define heim_base_atomic_type	unsigned int
+
+static inline heim_base_atomic_type
+heim_base_atomic_inc(heim_base_atomic_type *x)
+{
+    heim_base_atomic_type t;
+    HEIMDAL_MUTEX_lock(&_heim_base_mutex);
+    t = ++(*x);
+    HEIMDAL_MUTEX_unlock(&_heim_base_mutex);
+    return t;
+}
+
+static inline heim_base_atomic_type
+heim_base_atomic_dec(heim_base_atomic_type *x)
+{
+    heim_base_atomic_type t;
+    HEIMDAL_MUTEX_lock(&_heim_base_mutex);
+    t = --(*x);
+    HEIMDAL_MUTEX_unlock(&_heim_base_mutex);
+    return t;
+}
+
+#define heim_base_atomic_max    UINT_MAX
+
 #endif
 
 /* tagged strings/object/XXX */
 #define heim_base_is_tagged(x) (((uintptr_t)(x)) & 0x3)
-
-#define heim_base_is_tagged_string(x) ((((uintptr_t)(x)) & 0x3) == 2)
-#define heim_base_make_tagged_string_ptr(x) ((heim_object_t)(((uintptr_t)(x)) | 2))
-#define heim_base_tagged_string_ptr(x) ((char *)(((uintptr_t)(x)) & (~3)))
-
 
 #define heim_base_is_tagged_object(x) ((((uintptr_t)(x)) & 0x3) == 1)
 #define heim_base_make_tagged_object(x, tid) \

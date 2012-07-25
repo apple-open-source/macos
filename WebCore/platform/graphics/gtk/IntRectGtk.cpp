@@ -22,6 +22,7 @@
 
 #include <gdk/gdk.h>
 
+#ifdef GTK_API_VERSION_2
 namespace WebCore {
 
 IntRect::IntRect(const GdkRectangle& r)
@@ -37,5 +38,4 @@ IntRect::operator GdkRectangle() const
 }
 
 }
-
-// vim: ts=4 sw=4 et
+#endif

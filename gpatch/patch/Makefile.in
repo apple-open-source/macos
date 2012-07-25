@@ -132,9 +132,7 @@ Makefile: Makefile.in $(CONFIG_STATUS)
 config.status: configure
 	$(SHELL) $(CONFIG_STATUS) --recheck
 configure: configure.ac $(srcdir)/aclocal.m4
-	cd $(srcdir) && autoconf
 config.hin: configure.ac $(srcdir)/aclocal.m4
-	cd $(srcdir) && rm -f config.hin && autoheader
 
 M4DIR = $(srcdir)/m4
 ACINCLUDE_INPUTS = $(M4DIR)/c-bs-a.m4 $(M4DIR)/d-ino.m4 $(M4DIR)/error.m4 \

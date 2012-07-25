@@ -24,9 +24,10 @@
 #ifndef RenderMenuList_h
 #define RenderMenuList_h
 
+#include "LayoutTypes.h"
 #include "PopupMenu.h"
 #include "PopupMenuClient.h"
-#include "RenderFlexibleBox.h"
+#include "RenderDeprecatedFlexibleBox.h"
 
 #if PLATFORM(MAC)
 #define POPUP_MENU_PULLS_DOWN 0
@@ -38,11 +39,7 @@ namespace WebCore {
 
 class RenderText;
 
-#if ENABLE(NO_LISTBOX_RENDERING)
-class RenderMenuList : public RenderFlexibleBox, private ListPopupMenuClient {
-#else
-class RenderMenuList : public RenderFlexibleBox, private PopupMenuClient {
-#endif
+class RenderMenuList : public RenderDeprecatedFlexibleBox, private PopupMenuClient {
 
 public:
     RenderMenuList(Element*);
@@ -65,12 +62,12 @@ private:
     virtual void addChild(RenderObject* newChild, RenderObject* beforeChild = 0);
     virtual void removeChild(RenderObject*);
     virtual bool createsAnonymousWrapper() const { return true; }
-    virtual bool canHaveChildren() const { return false; }
 
     virtual void updateFromElement();
 
+    virtual LayoutRect controlClipRect(const LayoutPoint&) const;
     virtual bool hasControlClip() const { return true; }
-    virtual IntRect controlClipRect(int tx, int ty) const;
+    virtual bool canHaveGeneratedChildren() const OVERRIDE { return false; }
 
     virtual const char* renderName() const { return "RenderMenuList"; }
 
@@ -81,38 +78,35 @@ private:
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
 
     // PopupMenuClient methods
-    virtual String itemText(unsigned listIndex) const;
-    virtual String itemLabel(unsigned listIndex) const;
-    virtual String itemIcon(unsigned listIndex) const;
-    virtual String itemToolTip(unsigned listIndex) const;
-    virtual String itemAccessibilityText(unsigned listIndex) const;
-    virtual bool itemIsEnabled(unsigned listIndex) const;
-    virtual PopupMenuStyle itemStyle(unsigned listIndex) const;
-    virtual PopupMenuStyle menuStyle() const;
-    virtual int clientInsetLeft() const;
-    virtual int clientInsetRight() const;
-    virtual int clientPaddingLeft() const;
-    virtual int clientPaddingRight() const;
-    virtual int listSize() const;
-    virtual int selectedIndex() const;
-    virtual void popupDidHide();
-    virtual bool itemIsSeparator(unsigned listIndex) const;
-    virtual bool itemIsLabel(unsigned listIndex) const;
-    virtual bool itemIsSelected(unsigned listIndex) const;
-    virtual void setTextFromItem(unsigned listIndex);
-    virtual bool valueShouldChangeOnHotTrack() const { return true; }
-    virtual bool shouldPopOver() const { return !POPUP_MENU_PULLS_DOWN; }
-    virtual void valueChanged(unsigned listIndex, bool fireOnChange = true);
-    virtual void selectionChanged(unsigned, bool) {}
-    virtual void selectionCleared() {}
-    virtual FontSelector* fontSelector() const;
-    virtual HostWindow* hostWindow() const;
-    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize);
-
-#if ENABLE(NO_LISTBOX_RENDERING)
-    virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true);
-    virtual bool multiple();
-#endif
+    virtual void valueChanged(unsigned listIndex, bool fireOnChange = true) OVERRIDE;
+    virtual void selectionChanged(unsigned, bool) OVERRIDE { }
+    virtual void selectionCleared() OVERRIDE { }
+    virtual String itemText(unsigned listIndex) const OVERRIDE;
+    virtual String itemLabel(unsigned listIndex) const OVERRIDE;
+    virtual String itemIcon(unsigned listIndex) const OVERRIDE;
+    virtual String itemToolTip(unsigned listIndex) const OVERRIDE;
+    virtual String itemAccessibilityText(unsigned listIndex) const OVERRIDE;
+    virtual bool itemIsEnabled(unsigned listIndex) const OVERRIDE;
+    virtual PopupMenuStyle itemStyle(unsigned listIndex) const OVERRIDE;
+    virtual PopupMenuStyle menuStyle() const OVERRIDE;
+    virtual int clientInsetLeft() const OVERRIDE;
+    virtual int clientInsetRight() const OVERRIDE;
+    virtual LayoutUnit clientPaddingLeft() const OVERRIDE;
+    virtual LayoutUnit clientPaddingRight() const OVERRIDE;
+    virtual int listSize() const OVERRIDE;
+    virtual int selectedIndex() const OVERRIDE;
+    virtual void popupDidHide() OVERRIDE;
+    virtual bool itemIsSeparator(unsigned listIndex) const OVERRIDE;
+    virtual bool itemIsLabel(unsigned listIndex) const OVERRIDE;
+    virtual bool itemIsSelected(unsigned listIndex) const OVERRIDE;
+    virtual bool shouldPopOver() const OVERRIDE { return !POPUP_MENU_PULLS_DOWN; }
+    virtual bool valueShouldChangeOnHotTrack() const OVERRIDE { return true; }
+    virtual void setTextFromItem(unsigned listIndex) OVERRIDE;
+    virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true) OVERRIDE;
+    virtual bool multiple() const OVERRIDE;
+    virtual FontSelector* fontSelector() const OVERRIDE;
+    virtual HostWindow* hostWindow() const OVERRIDE;
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize) OVERRIDE;
 
     virtual bool hasLineIfEmpty() const { return true; }
 

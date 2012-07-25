@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_pblock.c,v 1.63.2.11 2010/04/13 20:23:51 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2010 The OpenLDAP Foundation.
+ * Copyright 2002-2011 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -1176,13 +1176,8 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 		break;
 	case SLAPI_SEARCH_RESULT_ENTRY:
 		PBLOCK_ASSERT_OP( pb, 0 );
-		if ( pb->pb_rs->sr_flags & REP_ENTRY_MUSTBEFREED ) {
-			entry_free( pb->pb_rs->sr_entry );
-		} else if ( pb->pb_rs->sr_flags & REP_ENTRY_MUSTRELEASE ) {
-			be_entry_release_r( pb->pb_op, pb->pb_rs->sr_entry );
-			pb->pb_rs->sr_flags ^= REP_ENTRY_MUSTRELEASE;
-		}
-		pb->pb_rs->sr_entry = (Slapi_Entry *)value;
+		rs_replace_entry( pb->pb_op, pb->pb_rs, NULL, (Slapi_Entry *)value );
+		/* TODO: Should REP_ENTRY_MODIFIABLE be set? */
 		pb->pb_rs->sr_flags |= REP_ENTRY_MUSTBEFREED;
 		break;
 	case SLAPI_BIND_RET_SASLCREDS:
@@ -1429,4 +1424,3 @@ slapi_int_pblock_get_next( Slapi_PBlock **pb )
 }
 
 #endif /* LDAP_SLAPI */
-

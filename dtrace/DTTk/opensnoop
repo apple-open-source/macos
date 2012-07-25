@@ -78,10 +78,10 @@
 ### Default variables
 opt_dump=0; opt_file=0; opt_time=0; opt_timestr=0; opt_args=0
 opt_zone=0; opt_cwd=0; opt_failonly=0; opt_err=0; filter=0; pathname=.
-opt_name=0; opt_pid=0; pname=.; pid=0
+opt_name=0; opt_pid=0; pname=.; pid=0; opt_trace=0
 
 ### Process options
-while getopts aAcef:ghn:p:svxZ name
+while getopts aAcef:ghn:p:stvxZ name
 do
 	case $name in
 	a)	opt_time=1; opt_timestr=1; opt_args=1; opt_err=1 ;;
@@ -93,6 +93,7 @@ do
 	n)	opt_name=1; pname=$OPTARG ;;
 	p)	opt_pid=1; pid=$OPTARG ;;
 	s)	opt_time=1 ;;
+        t)      opt_trace=1 ;;
 	v)	opt_timestr=1 ;;
 	x)	opt_failonly=1 ;;
 	Z)	opt_zone=1 ;;
@@ -148,6 +149,7 @@ fi
  inline int OPT_failonly = '$opt_failonly';
  inline int OPT_pid	 = '$opt_pid';
  inline int OPT_name	 = '$opt_name';
+ inline int OPT_trace    = '$opt_trace';
  inline int FILTER 	 = '$filter';
  inline int PID		 = '$pid';
  inline string PATHNAME	 = "'$pathname'";
@@ -228,8 +230,8 @@ fi
 	OPT_cwd ? printf("%-20s ", cwd) : 1;
 	OPT_dump == 0 ? printf("%-20s ", copyinstr(self->pathp)) : 1;
 	OPT_args == 1 ? printf("%S", curpsinfo->pr_psargs) : 1;
+	OPT_trace == 1 ? ustack() : 1;
 	printf("\n");
-
 	/* cleanup */
 	self->pathp = 0;
 	self->ok = 0;

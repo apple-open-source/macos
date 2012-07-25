@@ -42,13 +42,13 @@ public:
 
     VisibleSelection();
 
-    VisibleSelection(const Position&, EAffinity);
-    VisibleSelection(const Position&, const Position&, EAffinity = SEL_DEFAULT_AFFINITY);
+    VisibleSelection(const Position&, EAffinity, bool isDirectional = false);
+    VisibleSelection(const Position&, const Position&, EAffinity = SEL_DEFAULT_AFFINITY, bool isDirectional = false);
 
-    VisibleSelection(const Range*, EAffinity = SEL_DEFAULT_AFFINITY);
+    VisibleSelection(const Range*, EAffinity = SEL_DEFAULT_AFFINITY, bool isDirectional = false);
     
-    VisibleSelection(const VisiblePosition&);
-    VisibleSelection(const VisiblePosition&, const VisiblePosition&);
+    VisibleSelection(const VisiblePosition&, bool isDirectional = false);
+    VisibleSelection(const VisiblePosition&, const VisiblePosition&, bool isDirectional = false);
 
     static VisibleSelection selectionFromContentsOfNode(Node*);
 
@@ -69,6 +69,8 @@ public:
     
     VisiblePosition visibleStart() const { return VisiblePosition(m_start, isRange() ? DOWNSTREAM : affinity()); }
     VisiblePosition visibleEnd() const { return VisiblePosition(m_end, isRange() ? UPSTREAM : affinity()); }
+    VisiblePosition visibleBase() const { return VisiblePosition(m_base, isRange() ? (isBaseFirst() ? UPSTREAM : DOWNSTREAM) : affinity()); }
+    VisiblePosition visibleExtent() const { return VisiblePosition(m_extent, isRange() ? (isBaseFirst() ? DOWNSTREAM : UPSTREAM) : affinity()); }
 
     bool isNone() const { return selectionType() == NoSelection; }
     bool isCaret() const { return selectionType() == CaretSelection; }
@@ -78,6 +80,8 @@ public:
     bool isNonOrphanedCaretOrRange() const { return isCaretOrRange() && !start().isOrphan() && !end().isOrphan(); }
 
     bool isBaseFirst() const { return m_baseIsFirst; }
+    bool isDirectional() const { return m_isDirectional; }
+    void setIsDirectional(bool isDirectional) { m_isDirectional = isDirectional; }
 
     bool isAll(EditingBoundaryCrossingRule) const;
 
@@ -96,7 +100,9 @@ public:
     Element* rootEditableElement() const;
     bool isContentEditable() const;
     bool isContentRichlyEditable() const;
-    Node* shadowTreeRootNode() const;
+    // Returns a shadow tree node for legacy shadow trees, a child of the
+    // ShadowRoot node for new shadow trees, or 0 for non-shadow trees.
+    Node* nonBoundaryShadowTreeRootNode() const;
 
 #ifndef NDEBUG
     void debugPosition() const;
@@ -120,7 +126,7 @@ private:
     // used to store values in editing commands for use when
     // undoing the command. We need to be able to create a selection that, while currently
     // invalid, will be valid once the changes are undone.
-    
+
     Position m_base;   // Where the first click happened
     Position m_extent; // Where the end click happened
     Position m_start;  // Leftmost position when expanded to respect granularity
@@ -129,13 +135,15 @@ private:
     EAffinity m_affinity;           // the upstream/downstream affinity of the caret
 
     // these are cached, can be recalculated by validate()
-    SelectionType m_selectionType;    // None, Caret, Range
-    bool m_baseIsFirst;               // true if base is before the extent
+    SelectionType m_selectionType; // None, Caret, Range
+    bool m_baseIsFirst : 1; // True if base is before the extent
+    bool m_isDirectional : 1; // Non-directional ignores m_baseIsFirst and selection always extends on shift + arrow key.
 };
 
 inline bool operator==(const VisibleSelection& a, const VisibleSelection& b)
 {
-    return a.start() == b.start() && a.end() == b.end() && a.affinity() == b.affinity() && a.isBaseFirst() == b.isBaseFirst();
+    return a.start() == b.start() && a.end() == b.end() && a.affinity() == b.affinity() && a.isBaseFirst() == b.isBaseFirst()
+        && a.isDirectional() == b.isDirectional();
 }
 
 inline bool operator!=(const VisibleSelection& a, const VisibleSelection& b)

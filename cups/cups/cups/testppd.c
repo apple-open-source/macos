@@ -1,5 +1,5 @@
 /*
- * "$Id: testppd.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: testppd.c 9527 2011-02-14 23:46:45Z mike $"
  *
  *   PPD test program for CUPS.
  *
@@ -178,7 +178,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     fputs("ppdOpenFile(test.ppd): ", stdout);
 
-    if ((ppd = ppdOpenFile("test.ppd")) != NULL)
+    if ((ppd = _ppdOpenFile("test.ppd", _PPD_LOCALIZATION_ALL)) != NULL)
       puts("PASS");
     else
     {
@@ -465,6 +465,26 @@ main(int  argc,				/* I - Number of command-line arguments */
     if (!size || strcmp(size->name, "A4"))
     {
       printf("FAIL (%s)\n", size ? size->name : "unknown");
+      status ++;
+    }
+    else
+      puts("PASS");
+
+   /*
+    * Custom sizes...
+    */
+
+    fputs("cupsMarkOptions(media=Custom.8x10in): ", stdout);
+    num_options = cupsAddOption("media", "Custom.8x10in", 0, &options);
+    cupsMarkOptions(ppd, num_options, options);
+    cupsFreeOptions(num_options, options);
+
+    size = ppdPageSize(ppd, NULL);
+    if (!size || strcmp(size->name, "Custom") ||
+        size->width != 576 || size->length != 720)
+    {
+      printf("FAIL (%s - %gx%g)\n", size ? size->name : "unknown",
+             size ? size->width : 0.0, size ? size->length : 0.0);
       status ++;
     }
     else
@@ -1078,5 +1098,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testppd.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: testppd.c 9527 2011-02-14 23:46:45Z mike $".
  */

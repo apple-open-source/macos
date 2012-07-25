@@ -39,7 +39,9 @@ namespace WebCore {
 // without flag protection.
 enum PageVisibilityState {
     PageVisibilityStateVisible,
-    PageVisibilityStateHidden
+    PageVisibilityStateHidden,
+    PageVisibilityStatePrerender,
+    PageVisibilityStatePreview
 };
 
 #if ENABLE(PAGE_VISIBILITY_API)

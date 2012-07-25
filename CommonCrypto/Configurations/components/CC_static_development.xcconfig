@@ -1,0 +1,12 @@
+//
+//  CC_static_development.xcconfig
+//  CommonCrypto
+//
+//  Created by Jim Murphy on 1/11/10.
+//  Copyright 2010 Apple. All rights reserved.
+//
+
+// This XCCONFIG file is for the development version of the static CommonCrypto Library
+
+#include "CC_development.xcconfig"
+#include "CC_static.xcconfig"

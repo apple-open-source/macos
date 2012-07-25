@@ -32,7 +32,7 @@
 #  define __APPLE_CROSS_REALM__
 #  define __APPLE_XSAN__
 #  define __APPLE_KEYCHAIN__
-#  define __APPLE_SANDBOX_PRIVSEP_CHILDREN__
+#  define __APPLE_SANDBOX_NAMED_EXTERNAL__
 #  define HAVE_CONFIG_H
 #  define USE_CCAPI
 #endif

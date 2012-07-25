@@ -81,7 +81,9 @@ extern struct ifinfo *iflist;
 
 static void dump_interface_status __P((void));
 static char *sec2str __P((time_t));
-char *ifstatstr[] = {"IDLE", "DELAY", "PROBE", "DOWN", "TENTATIVE"};
+char *ifstatstr[] = {
+	"IDLE", "DELAY", "PROBE", "DOWN", "TENTATIVE", "OPTIMISTIC"
+};
 
 static void
 dump_interface_status()

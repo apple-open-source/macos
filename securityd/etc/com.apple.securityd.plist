@@ -21,7 +21,7 @@
 	<true/>
 	<key>LaunchOnlyOnce</key>
 	<false/>
-	<key>HopefullyExitsLast</key>
+	<key>BeginTransactionAtShutdown</key>
 	<true/>
 	<key>EnableTransactions</key>
 	<true/>

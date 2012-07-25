@@ -40,10 +40,20 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/wait.c,v 1.7 2007/01/09 00:27:56 imp Exp $"
 #include <sys/resource.h>
 #include "un-namespace.h"
 
+#ifdef VARIANT_CANCELABLE
+int __wait4(pid_t, int *, int , struct rusage *);
+#else /* !VARIANT_CANCELABLE */
+int __wait4_nocancel(pid_t, int *, int , struct rusage *);
+#endif /* VARIANT_CANCELABLE */
+
 pid_t
 __wait(int *istat)
 {
-	return (_wait4(WAIT_ANY, istat, 0, (struct rusage *)0));
+#ifdef VARIANT_CANCELABLE
+	return (__wait4(WAIT_ANY, istat, 0, (struct rusage *)0));
+#else /* !VARIANT_CANCELABLE */
+	return (__wait4_nocancel(WAIT_ANY, istat, 0, (struct rusage *)0));
+#endif /* VARIANT_CANCELABLE */
 }
 
 __weak_reference(__wait, wait);

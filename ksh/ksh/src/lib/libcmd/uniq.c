@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,17 +26,17 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: uniq (AT&T Research) 2006-08-28 $\n]"
+"[-n?\n@(#)$Id: uniq (AT&T Research) 2009-11-28 $\n]"
 USAGE_LICENSE
 "[+NAME?uniq - Report or filter out repeated lines in a file]"
-"[+DESCRIPTION?\buniq\b reads an input, comparing adjacent lines, and "
-	"writing one copy of each input line on the output.  The second "
+"[+DESCRIPTION?\buniq\b reads the input, compares adjacent lines, and "
+	"writes one copy of each input line on the output.  The second "
 	"and succeeding copies of the repeated adjacent lines are not "
 	"written.]"
 "[+?If the output file, \aoutfile\a, is not specified, \buniq\b writes "
 	"to standard output.  If no \ainfile\a is given, or if the \ainfile\a "
-	"is \b-\b, \buniq\b reads from standard input with  the start of "
-	"the file is defined as the current offset.]"
+	"is \b-\b, \buniq\b reads from standard input with the start of "
+	"the file defined as the current offset.]"
 "[c:count?Output the number of times each line occurred  along with "
 	"the line.]"
 "[d:repeated|duplicates?Output the first of each duplicate line.]"
@@ -49,13 +49,15 @@ USAGE_LICENSE
     "}"
 "[f:skip-fields]#[fields?\afields\a is the number of fields to skip over "
     "before checking for uniqueness. A field is the minimal string matching "
-    "the BRE \b[[:blank:]]]]*[^[:blank:]]]]*\b.]"
+    "the BRE \b[[:blank:]]]]*[^[:blank:]]]]*\b. -\anumber\a is equivalent to "
+    "\b--skip-fields\b=\anumber\a.]"
 "[i:ignore-case?Ignore case in comparisons.]"
 "[s:skip-chars]#[chars?\achars\a is the number of characters to skip over "
 	"before checking for uniqueness.  If specified along with \b-f\b, "
 	"the first \achars\a after the first \afields\a are ignored.  If "
 	"the \achars\a specifies more characters than are on the line, "
-	"an empty string will be used for comparison.]"
+	"an empty string will be used for comparison. +\anumber\a is "
+	"equivalent to \b--skip-chars\b=\anumber\a.]"
 "[u:unique?Output unique lines.]"
 "[w:check-chars]#[chars?\achars\a is the number of characters to compare " 
 	"after skipping any specified fields and characters.]"
@@ -82,8 +84,8 @@ typedef int (*Compare_f)(const char*, const char*, size_t);
 
 static int uniq(Sfio_t *fdin, Sfio_t *fdout, int fields, int chars, int width, int mode, int* all, Compare_f compare)
 {
-	register int n, f, outsize=0;
-	register char *cp, *ep, *bufp, *outp;
+	register int n, f, outsize=0, mb = mbwide();
+	register char *cp, *ep, *mp, *bufp, *outp;
 	char *orecp, *sbufp=0, *outbuff;
 	int reclen,oreclen= -1,count=0,cwidth=0,sep,next;
 	if(mode&C_FLAG)
@@ -100,30 +102,50 @@ static int uniq(Sfio_t *fdin, Sfio_t *fdout, int fields, int chars, int width, i
 		}
 		else
 			n = 0;
-		if(n)
+		if (n)
 		{
 			cp = bufp;
 			ep = cp + n;
-			if(f=fields)
-				while(f-->0 && cp<ep) /* skip over fields */
+			if (f = fields)
+				while (f-->0 && cp<ep) /* skip over fields */
 				{
-					while(cp<ep && *cp==' ' || *cp=='\t')
+					while (cp<ep && *cp==' ' || *cp=='\t')
 						cp++;
-					while(cp<ep && *cp!=' ' && *cp!='\t')
+					while (cp<ep && *cp!=' ' && *cp!='\t')
 						cp++;
 				}
-			if(chars)
-				cp += chars;
-			if((reclen = n - (cp-bufp)) <=0)
+			if (chars)
+			{
+				if (mb)
+					for (f = chars; f; f--)
+						mbchar(cp);
+				else
+					cp += chars;
+			}
+			if ((reclen = n - (cp - bufp)) <= 0)
 			{
 				reclen = 1;
-				cp = bufp + sfvalue(fdin)-1;
+				cp = bufp + n - 1;
 			}
-			else if(width >= 0 && width < reclen)
-				reclen = width;
+			else if (width >= 0 && width < reclen)
+			{
+				if (mb)
+				{
+					reclen = 0;
+					mp = cp;
+					while (reclen < width && mp < ep)
+					{
+						reclen++;
+						mbchar(mp);
+					}
+					reclen = mp - cp;
+				}
+				else
+					reclen = width;
+			}
 		}
 		else
-			reclen=-2;
+			reclen = -2;
 		if(reclen==oreclen && (!reclen || !(*compare)(cp,orecp,reclen)))
 		{
 			count++;
@@ -145,11 +167,25 @@ static int uniq(Sfio_t *fdin, Sfio_t *fdout, int fields, int chars, int width, i
 				{
 					if(cwidth)
 					{
-						outp[CWIDTH] = ' ';
-						if(count<MAXCNT)
+						if(count<9)
 						{
-							sfsprintf(outp,cwidth,"%*d",CWIDTH,count+1);
-							outp[CWIDTH] = ' ';
+							f = 0;
+							while(f < CWIDTH-1)
+								outp[f++] = ' ';
+							outp[f++] = '0' + count + 1;
+							outp[f] = ' ';
+						}
+						else if(count<MAXCNT)
+						{
+							count++;
+							f = CWIDTH;
+							outp[f--] = ' ';
+							do
+							{
+								outp[f--] = '0' + (count % 10);
+							} while (count /= 10);
+							while (f >= 0)
+								outp[f--] = ' ';
 						}
 						else
 						{
@@ -218,53 +254,57 @@ b_uniq(int argc, char** argv, void* context)
 	Compare_f compare = (Compare_f)memcmp;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
-	while (n = optget(argv, usage)) switch (n)
+	for (;;)
 	{
-	    case 'c':
-		mode |= C_FLAG;
-		break;
-	    case 'd':
-		mode |= D_FLAG;
-		break;
-	    case 'D':
-		mode |= D_FLAG;
-		switch ((int)opt_info.num)
+		switch (optget(argv, usage))
 		{
-		case 'p':
-			sep = 1;
-			break;
+		case 'c':
+			mode |= C_FLAG;
+			continue;
+		case 'd':
+			mode |= D_FLAG;
+			continue;
+		case 'D':
+			mode |= D_FLAG;
+			switch ((int)opt_info.num)
+			{
+			case 'p':
+				sep = 1;
+				break;
+			case 's':
+				sep = 0;
+				break;
+			default:
+				sep = -1;
+				break;
+			}
+			all = &sep;
+			continue;
+		case 'i':
+			compare = (Compare_f)strncasecmp;
+			continue;
+		case 'u':
+			mode |= U_FLAG;
+			continue;
+		case 'f':
+			if(*opt_info.option=='-')
+				fields = opt_info.num;
+			else
+				chars = opt_info.num;
+			continue;
 		case 's':
-			sep = 0;
+			chars = opt_info.num;
+			continue;
+		case 'w':
+			width = opt_info.num;
+			continue;
+		case ':':
+			error(2, "%s", opt_info.arg);
 			break;
-		default:
-			sep = -1;
+		case '?':
+			error(ERROR_usage(2), "%s", opt_info.arg);
 			break;
 		}
-		all = &sep;
-		break;
-	    case 'i':
-		compare = (Compare_f)strncasecmp;
-		break;
-	    case 'u':
-		mode |= U_FLAG;
-		break;
-	    case 'f':
-		if(*opt_info.option=='-')
-			fields = opt_info.num;
-		else
-			chars = opt_info.num;
-		break;
-	    case 's':
-		chars = opt_info.num;
-		break;
-	    case 'w':
-		width = opt_info.num;
-		break;
-	    case ':':
-		error(2, "%s", opt_info.arg);
-		break;
-	    case '?':
-		error(ERROR_usage(2), "%s", opt_info.arg);
 		break;
 	}
 	argv += opt_info.index;

@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/openldap-guide/preamble.sdf,v 1.70.2.9 2009/01/22 00:00:47 kurt Exp $
-# Copyright 1999-2009 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP$
+# Copyright 1999-2011 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
  
 #
@@ -55,7 +55,7 @@
 <P>
 <FONT COLOR="#808080" FACE="Arial,Verdana,Helvetica" SIZE="1"><B>
 ________________<BR>
-<SMALL>&copy; Copyright 2008, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
+<SMALL>&copy; Copyright 2011, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
 
 	!endblock
 !endmacro
@@ -91,7 +91,7 @@ ________________<BR>
 <P>
 <FONT COLOR="#808080" FACE="Arial,Verdana,Helvetica" SIZE="1"><B>
 ________________<BR>
-<SMALL>&copy; Copyright 2008, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
+<SMALL>&copy; Copyright 2011, <A HREF="http://www.OpenLDAP.org/foundation/">OpenLDAP Foundation</A>, <A HREF="mailto:info@OpenLDAP.org">info@OpenLDAP.org</A></SMALL></B></FONT>
 
 	!endblock
 !endmacro
@@ -136,6 +136,7 @@ GnuTLS|http://www.gnu.org/software/gnutls/
 Heimdal|http://www.pdc.kth.se/heimdal/
 JLDAP|http://www.openldap.org/jldap/
 MIT Kerberos|http://web.mit.edu/kerberos/www/
+MozNSS|http://developer.mozilla.org/en/NSS
 OpenLDAP|http://www.openldap.org/
 OpenLDAP FAQ|http://www.openldap.org/faq/
 OpenLDAP ITS|http://www.openldap.org/its/
@@ -296,7 +297,7 @@ RFC4013|PS|SASLprep: Stringprep Profile for User Names and Passwords|http://www.
 RFC4346|PS|The Transport Layer Security (TLS) Protocol, Version 1.1|http://www.rfc-editor.org/rfc/rfc4346.txt
 RFC4422|PS|Simple Authentication and Security Layer (SASL)|http://www.rfc-editor.org/rfc/rfc4422.txt
 RFC4510|PS|Lightweight Directory Access Protocol (LDAP): Technical Specification Roadmap|http://www.rfc-editor.org/rfc/rfc4510.txt
-RFC4511|PS|Lightweight Directory Access Protocol (LDAP): The Protocol|http://www.rfc-editor.org/rfc/rfc4512.txt
+RFC4511|PS|Lightweight Directory Access Protocol (LDAP): The Protocol|http://www.rfc-editor.org/rfc/rfc4511.txt
 RFC4512|PS|Lightweight Directory Access Protocol (LDAP): Directory Information Models|http://www.rfc-editor.org/rfc/rfc4512.txt
 RFC4513|PS|Lightweight Directory Access Protocol (LDAP): Authentication Methods and Security Mechanisms|http://www.rfc-editor.org/rfc/rfc4513.txt
 RFC4514|PS|Lightweight Directory Access Protocol (LDAP): String Representation of Distinguished Names|http://www.rfc-editor.org/rfc/rfc4514.txt
@@ -307,4 +308,5 @@ RFC4518|PS|Lightweight Directory Access Protocol (LDAP): Internationalized Strin
 RFC4519|PS|Lightweight Directory Access Protocol (LDAP): Schema for User Applications|http://www.rfc-editor.org/rfc/rfc4519.txt
 RFC4520|BCP|IANA Considerations for LDAP|http://www.rfc-editor.org/rfc/rfc4520.txt
 RFC4533|X|The Lightweight Directory Access Protocol (LDAP) Content Synchronization Operation|http://www.rfc-editor.org/rfc/rfc4533.txt
+Chu-LDAPI|ID|Using LDAP Over IPC Mechanisms|http://tools.ietf.org/html/draft-chu-ldap-ldapi-00
 !endblock

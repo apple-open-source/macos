@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,14 +29,19 @@
 
 #import "WebTypesInternal.h"
 #import "WebDelegateImplementationCaching.h"
+#import <WebCore/AlternativeTextClient.h>
+#import <WebCore/LayerFlushScheduler.h>
+#import <WebCore/LayerFlushSchedulerClient.h>
 #import <WebCore/PlatformString.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 #import <wtf/HashMap.h>
+#import <wtf/PassOwnPtr.h>
 #import <wtf/RetainPtr.h>
 
 namespace WebCore {
-    class HistoryItem;
-    class Page;
+class AlternativeTextUIController;
+class HistoryItem;
+class Page;
 }
 
 @class WebInspector;
@@ -47,6 +52,7 @@ namespace WebCore {
 @protocol WebFormDelegate;
 @protocol WebDeviceOrientationProvider;
 @protocol WebGeolocationProvider;
+@protocol WebNotificationProvider;
 #if ENABLE(VIDEO)
 @class WebVideoFullscreenController;
 #endif
@@ -56,6 +62,27 @@ namespace WebCore {
 
 extern BOOL applicationIsTerminating;
 extern int pluginDatabaseClientCount;
+
+#if USE(ACCELERATED_COMPOSITING)
+class LayerFlushController : public WebCore::LayerFlushSchedulerClient {
+public:
+    static PassOwnPtr<LayerFlushController> create(WebView* webView)
+    {
+        return adoptPtr(new LayerFlushController(webView));
+    }
+    
+    virtual bool flushLayers();
+    
+    void scheduleLayerFlush();
+    void invalidateObserver();
+    
+private:
+    LayerFlushController(WebView*);
+    
+    WebView* m_webView;
+    WebCore::LayerFlushScheduler m_layerFlushScheduler;
+};
+#endif
 
 // FIXME: This should be renamed to WebViewData.
 @interface WebViewPrivate : NSObject {
@@ -109,7 +136,6 @@ extern int pluginDatabaseClientCount;
     BOOL tabKeyCyclesThroughElementsChanged;
     BOOL becomingFirstResponder;
     BOOL becomingFirstResponderFromOutside;
-    BOOL hoverFeedbackSuspended;
     BOOL usesPageCache;
     BOOL catchesDelegateExceptions;
     BOOL cssAnimationsSuspended;
@@ -140,9 +166,6 @@ extern int pluginDatabaseClientCount;
     WebCore::KeyboardUIMode _keyboardUIMode;
 
     BOOL shouldUpdateWhileOffscreen;
-    
-    // When this flag is unset, we will not make any subviews underneath this WebView.  This means no WebFrameViews and no WebHTMLViews.
-    BOOL usesDocumentViews;
 
     BOOL includesFlattenedCompositingLayersWhenDrawingToBitmap;
     
@@ -151,26 +174,13 @@ extern int pluginDatabaseClientCount;
     // so that the NSView drawing is visually synchronized with CALayer updates.
     BOOL needsOneShotDrawingSynchronization;
     BOOL postsAcceleratedCompositingNotifications;
-    // Run loop observer used to implement the compositing equivalent of -viewWillDraw
-    CFRunLoopObserverRef layerSyncRunLoopObserver;
+    OwnPtr<LayerFlushController> layerFlushController;
 #endif
 
     NSPasteboard *insertionPasteboard;
             
     NSSize lastLayoutSize;
 
-    BOOL ignoringMouseDraggedEvents;
-
-    NSEvent *mouseDownEvent; // Kept after handling the event.
-    BOOL handlingMouseDownEvent;
-    NSEvent *keyDownEvent; // Kept after handling the event.
-
-    WebTextCompletionController *completionController;
-
-    NSTimer *autoscrollTimer;
-    NSEvent *autoscrollTriggerEvent;
-
-    CFRunLoopTimerRef updateMouseoverTimer;
 #if ENABLE(VIDEO)
     WebVideoFullscreenController *fullscreenController;
 #endif
@@ -184,6 +194,7 @@ extern int pluginDatabaseClientCount;
 #endif
     id<WebGeolocationProvider> _geolocationProvider;
     id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
+    id<WebNotificationProvider> _notificationProvider;
 
     RefPtr<WebCore::HistoryItem> _globalHistoryItem;
 
@@ -191,5 +202,9 @@ extern int pluginDatabaseClientCount;
     int validationMessageTimerMagnification;
 
     float customDeviceScaleFactor;
+
+#if USE(DICTATION_ALTERNATIVES)
+    OwnPtr<WebCore::AlternativeTextUIController> m_alternativeTextUIController;
+#endif
 }
 @end

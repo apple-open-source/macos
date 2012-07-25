@@ -1,8 +1,8 @@
 /* monitor.c - monitor bdb backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/monitor.c,v 1.19.2.15 2010/04/13 20:23:25 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,7 +41,7 @@ bdb_monitor_idx_entry_add(
 	struct bdb_info	*bdb,
 	Entry		*e );
 
-static AttributeDescription	*ad_olmBDBNotIndexed;
+static AttributeDescription	*ad_olmDbNotIndexed;
 #endif /* BDB_MONITOR_IDX */
 
 /*
@@ -95,7 +95,7 @@ static struct {
 		"USAGE dSAOperation )",
 		&ad_olmBDBIDLCache },
 
-	{ "( olmBDBAttributes:4 "
+	{ "( olmDatabaseAttributes:1 "
 		"NAME ( 'olmDbDirectory' ) "
 		"DESC 'Path name of the directory "
 			"where the database environment resides' "
@@ -105,13 +105,13 @@ static struct {
 		&ad_olmDbDirectory },
 
 #ifdef BDB_MONITOR_IDX
-	{ "( olmBDBAttributes:5 "
-		"NAME ( 'olmBDBNotIndexed' ) "
+	{ "( olmDatabaseAttributes:2 "
+		"NAME ( 'olmDbNotIndexed' ) "
 		"DESC 'Missing indexes resulting from candidate selection' "
 		"SUP monitoredInfo "
 		"NO-USER-MODIFICATION "
 		"USAGE dSAOperation )",
-		&ad_olmBDBNotIndexed },
+		&ad_olmDbNotIndexed },
 #endif /* BDB_MONITOR_IDX */
 
 	{ NULL }
@@ -132,7 +132,7 @@ static struct {
 			"$ olmBDBIDLCache "
 			"$ olmDbDirectory "
 #ifdef BDB_MONITOR_IDX
-			"$ olmBDBNotIndexed "
+			"$ olmDbNotIndexed "
 #endif /* BDB_MONITOR_IDX */
 			") )",
 		&oc_olmBDBDatabase },
@@ -245,12 +245,15 @@ bdb_monitor_initialize( void )
 
 	static int	bdb_monitor_initialized = 0;
 
-	if ( backend_info( "monitor" ) == NULL ) {
-		return -1;
-	}
+	/* set to 0 when successfully initialized; otherwise, remember failure */
+	static int	bdb_monitor_initialized_failure = 1;
 
 	if ( bdb_monitor_initialized++ ) {
-		return 0;
+		return bdb_monitor_initialized_failure;
+	}
+
+	if ( backend_info( "monitor" ) == NULL ) {
+		return -1;
 	}
 
 	/* register schema here */
@@ -270,7 +273,7 @@ bdb_monitor_initialize( void )
 				": unable to add "
 				"objectIdentifier \"%s=%s\"\n",
 				s_oid[ i ].name, s_oid[ i ].oid, 0 );
-			return 1;
+			return 2;
 		}
 	}
 
@@ -278,8 +281,10 @@ bdb_monitor_initialize( void )
 		code = register_at( s_at[ i ].desc, s_at[ i ].ad, 1 );
 		if ( code != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_ANY, LDAP_XSTRING(bdb_monitor_initialize)
-				": register_at failed\n",
-				0, 0, 0 );
+				": register_at failed for attributeType (%s)\n",
+				s_at[ i ].desc, 0, 0 );
+			return 3;
+
 		} else {
 			(*s_at[ i ].ad)->ad_type->sat_flags |= SLAP_AT_HIDE;
 		}
@@ -289,14 +294,16 @@ bdb_monitor_initialize( void )
 		code = register_oc( s_oc[ i ].desc, s_oc[ i ].oc, 1 );
 		if ( code != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_ANY, LDAP_XSTRING(bdb_monitor_initialize)
-				": register_oc failed\n",
-				0, 0, 0 );
+				": register_oc failed for objectClass (%s)\n",
+				s_oc[ i ].desc, 0, 0 );
+			return 4;
+
 		} else {
 			(*s_oc[ i ].oc)->soc_flags |= SLAP_OC_HIDE;
 		}
 	}
 
-	return 0;
+	return ( bdb_monitor_initialized_failure = LDAP_SUCCESS );
 }
 
 /*
@@ -685,7 +692,7 @@ bdb_monitor_idx_entry_add(
 	BerVarray	vals = NULL;
 	Attribute	*a;
 
-	a = attr_find( e->e_attrs, ad_olmBDBNotIndexed );
+	a = attr_find( e->e_attrs, ad_olmDbNotIndexed );
 
 	ldap_pvt_thread_mutex_lock( &bdb->bi_idx_mutex );
 
@@ -705,7 +712,7 @@ bdb_monitor_idx_entry_add(
 
 			for ( ap = &e->e_attrs; *ap != NULL; ap = &(*ap)->a_next )
 				;
-			*ap = attr_alloc( ad_olmBDBNotIndexed );
+			*ap = attr_alloc( ad_olmDbNotIndexed );
 			a = *ap;
 		}
 		a->a_vals = vals;

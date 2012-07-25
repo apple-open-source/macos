@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include "BitmapImage.h"
+#include "FileSystem.h"
 #include "GdkCairoUtilities.h"
 #include "GOwnPtrGtk.h"
 #include "SharedBuffer.h"
@@ -33,56 +34,15 @@
 #include <cairo.h>
 #include <gtk/gtk.h>
 
-#if PLATFORM(WIN)
-#include <mbstring.h>
-#include <shlobj.h>
-
-static HMODULE hmodule;
-
-extern "C" {
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
-{
-    if (fdwReason == DLL_PROCESS_ATTACH)
-        hmodule = hinstDLL;
-    return TRUE;
-}
-}
-
-static const char* getWebKitDataDirectory()
-{
-    static char* dataDirectory = 0;
-    if (dataDirectory)
-        return dataDirectory;
-
-    dataDirectory = new char[PATH_MAX];
-    if (!GetModuleFileName(hmodule, static_cast<CHAR*>(dataDirectory), sizeof(dataDirectory) - 10))
-        return DATA_DIR;
-
-    // FIXME: This is pretty ugly. Ideally we should be using Windows API
-    // functions or GLib methods to calculate paths.
-    unsigned char *p;
-    p = _mbsrchr(static_cast<const unsigned char *>(dataDirectory), '\\');
-    *p = '\0';
-    p = _mbsrchr(static_cast<const unsigned char *>(dataDirectory), '\\');
-    if (p) {
-        if (!stricmp((const char *) (p+1), "bin"))
-            *p = '\0';
-    }
-    strcat(dataDirectory, "\\share");
-
-    return dataDirectory;
-}
-
-#else
-
-static const char* getWebKitDataDirectory()
-{
-    return DATA_DIR;
-}
-
-#endif
-
 namespace WebCore {
+
+static char* getPathToImageResource(char* resource)
+{
+    if (g_getenv("WEBKIT_TOP_LEVEL"))
+        return g_build_filename(g_getenv("WEBKIT_TOP_LEVEL"), "Source", "WebCore", "Resources", resource, NULL);
+
+    return g_build_filename(sharedResourcesPath().data(), "images", resource, NULL);
+}
 
 static CString getThemeIconFileName(const char* name, int size)
 {
@@ -138,7 +98,7 @@ PassRefPtr<Image> Image::loadPlatformResource(const char* name)
         fileName = getThemeIconFileName(GTK_STOCK_MISSING_IMAGE, 16);
     if (fileName.isNull()) {
         GOwnPtr<gchar> imageName(g_strdup_printf("%s.png", name));
-        GOwnPtr<gchar> glibFileName(g_build_filename(getWebKitDataDirectory(), "webkitgtk-"WEBKITGTK_API_VERSION_STRING, "images", imageName.get(), NULL));
+        GOwnPtr<gchar> glibFileName(getPathToImageResource(imageName.get()));
         fileName = glibFileName.get();
     }
 
@@ -152,10 +112,8 @@ PassRefPtr<Image> Image::loadPlatformThemeIcon(const char* name, int size)
 
 GdkPixbuf* BitmapImage::getGdkPixbuf()
 {
-    cairo_surface_t* frame = frameAtIndex(currentFrame());
-    if (!frame)
-        return 0;
-    return cairoImageSurfaceToGdkPixbuf(frame);
+    NativeImageCairo* image = nativeImageForCurrentFrame();
+    return image ? cairoImageSurfaceToGdkPixbuf(image->surface()) : 0;
 }
 
 }

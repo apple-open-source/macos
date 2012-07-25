@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2000-2008 Apple Computer, Inc. All rights reserved.
+.\" Copyright (c) 2000-2011 Apple Computer, Inc. All rights reserved.
 .\"
 .\" This file contains Original Code and/or Modifications of Original Code
 .\" as defined in and that are subject to the Apple Public Source License
@@ -16,7 +16,7 @@
 .\" Please see the License for the specific language governing rights and
 .\" limitations under the License.
 .\"
-.Dd November 06, 2008
+.Dd September 26, 2011
 .Dt IOREG 8
 .Os Darwin
 .Sh NAME
@@ -24,7 +24,7 @@
 .Nd show I/O Kit registry
 .Sh SYNOPSIS
 .Nm
-.Op Fl bfilrsStx
+.Op Fl abfilrtx
 .Op Fl c Ar class
 .Op Fl d Ar depth
 .Op Fl k Ar key
@@ -65,6 +65,8 @@ than one object, multiple trees will be displayed.
 The options are as follows:
 .Pp
 .Bl -tag -width flag
+.It Fl a
+Archive the output in XML.
 .It Fl b
 Show the object name in bold.
 .It Fl c
@@ -116,10 +118,6 @@ or
 are supplied,
 .Fl r 
 has no effect.
-.It Fl s
-Show the object state (busy state, retain count).  This is the default.
-.It Fl S
-Don't show the object state (busy state, retain count).
 .It Fl t
 Show tree location of each subtree.  This option causes
 .Nm

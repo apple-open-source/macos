@@ -1,9 +1,9 @@
 /*
- * "$Id: rastertolabel.c 9774 2011-05-12 06:15:14Z mike $"
+ * "$Id: rastertolabel.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Label printer filter for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2001-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -1303,13 +1303,10 @@ main(int  argc,				/* I - Number of command-line arguments */
     return (1);
   }
   else
-  {
-    _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
     return (0);
-  }
 }
 
 
 /*
- * End of "$Id: rastertolabel.c 9774 2011-05-12 06:15:14Z mike $".
+ * End of "$Id: rastertolabel.c 9042 2010-03-24 00:45:34Z mike $".
  */

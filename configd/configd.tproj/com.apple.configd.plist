@@ -12,7 +12,11 @@
 	<dict>
 		<key>com.apple.SystemConfiguration.configd</key>
 		<true/>
+		<key>com.apple.SystemConfiguration.SCNetworkReachability</key>
+		<true/>
 	</dict>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/libexec/configd</string>

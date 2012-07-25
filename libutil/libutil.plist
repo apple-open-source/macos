@@ -3,7 +3,7 @@
 <plist version="1.0">
 <array>
 <dict>
-	<key>OpenSourceCVS</key>
+	<key>OpenSourceSCM</key>
 	<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co libutil</string>
 	<key>OpenSourceImportDate</key>
 	<string>2006-05-20</string>
@@ -15,8 +15,6 @@
 	<string>libutil</string>
 	<key>OpenSourceVersion</key>
 	<string>2005-02-13</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/lib/libutil/</string>
 </dict>
 <dict>
 	<key>OpenSourceImportDate</key>
@@ -29,7 +27,7 @@
 	<string>libutil</string>
 	<key>OpenSourceVersion</key>
 	<string>1.3</string>
-	<key>OpenSourceWebsiteURL</key>
+	<key>OpenSourceURL</key>
 	<string>http://cvsweb.netbsd.org/bsdweb.cgi/~checkout~/src/lib/libutil/getmntopts.c?rev=1.3</string>
 </dict>
 </array>

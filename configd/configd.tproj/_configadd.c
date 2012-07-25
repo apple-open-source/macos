@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,35 +36,23 @@
 
 __private_extern__
 int
-__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value, Boolean internal)
+__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value)
 {
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFDataRef			tempValue;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
 			CFSTR("%s%s : %5d : %@\n"),
-			internal ? "*add " : "add  ",
+			"add  ",
 			storePrivate->useSessionKeys ? "t " : "  ",
 			storePrivate->server,
 			key);
 	}
 
 	/*
-	 * 1. Ensure that we hold the lock.
-	 */
-	sc_status = __SCDynamicStoreLock(store, TRUE);
-	if (sc_status != kSCStatusOK) {
-		return sc_status;
-	}
-
-	/*
-	 * 2. Ensure that this is a new key.
+	 * Ensure that this is a new key.
 	 */
 	sc_status = __SCDynamicStoreCopyValue(store, key, &tempValue, TRUE);
 	switch (sc_status) {
@@ -86,17 +74,14 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	}
 
 	/*
-	 * 3. Save the new key.
+	 * Save the new key.
 	 */
 	sc_status = __SCDynamicStoreSetValue(store, key, value, TRUE);
 
-	/*
-	 * 4. Release our lock.
-	 */
+	/* push changes */
+	__SCDynamicStorePush();
 
     done:
-
-	__SCDynamicStoreUnlock(store, TRUE);
 
 	return sc_status;
 }
@@ -110,8 +95,8 @@ _configadd(mach_port_t 			server,
 	   xmlData_t			dataRef,	/* raw XML bytes */
 	   mach_msg_type_number_t	dataLen,
 	   int				*newInstance,
-	   int				*sc_status
-)
+	   int				*sc_status,
+	   audit_token_t		audit_token)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
 	CFDataRef		data		= NULL;		/* data (un-serialized) */
@@ -141,11 +126,20 @@ _configadd(mach_port_t 			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		mySession = tempSession(server, CFSTR("SCDynamicStoreAddValue"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
+	}
+
+	if (!hasWriteAccess(mySession)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 
-	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data, FALSE);
+	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data);
 	if (*sc_status == kSCStatusOK) {
 		*newInstance = 0;
 	}
@@ -167,8 +161,7 @@ _configadd_s(mach_port_t 		server,
 	     xmlData_t			dataRef,	/* raw XML bytes */
 	     mach_msg_type_number_t	dataLen,
 	     int			*newInstance,
-	     int			*sc_status
-)
+	     int			*sc_status)
 {
 	CFDataRef			data		= NULL;		/* data (un-serialized) */
 	CFStringRef			key		= NULL;		/* key  (un-serialized) */
@@ -199,7 +192,8 @@ _configadd_s(mach_port_t 		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
 		goto done;
 	}
 
@@ -208,7 +202,7 @@ _configadd_s(mach_port_t 		server,
 	useSessionKeys = storePrivate->useSessionKeys;
 	storePrivate->useSessionKeys = TRUE;
 
-	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data, FALSE);
+	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data);
 	if (*sc_status == kSCStatusOK) {
 		*newInstance = 0;
 	}

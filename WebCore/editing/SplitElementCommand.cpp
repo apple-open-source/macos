@@ -61,8 +61,7 @@ void SplitElementCommand::executeApply()
         return;
 
     // Delete id attribute from the second element because the same id cannot be used for more than one element
-    m_element2->removeAttribute(HTMLNames::idAttr, ec);
-    ASSERT(!ec);
+    m_element2->removeAttribute(HTMLNames::idAttr);
 
     size_t size = children.size();
     for (size_t i = 0; i < size; ++i)
@@ -107,5 +106,14 @@ void SplitElementCommand::doReapply()
     
     executeApply();
 }
+
+#ifndef NDEBUG
+void SplitElementCommand::getNodesInCommand(HashSet<Node*>& nodes)
+{
+    addNodeAndDescendants(m_element1.get(), nodes);
+    addNodeAndDescendants(m_element2.get(), nodes);
+    addNodeAndDescendants(m_atChild.get(), nodes);
+}
+#endif
     
 } // namespace WebCore

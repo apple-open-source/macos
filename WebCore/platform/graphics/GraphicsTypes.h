@@ -30,9 +30,6 @@
 
 namespace WebCore {
 
-    // Note: These constants exactly match the NSCompositeOperator constants of
-    // AppKit on Mac OS X Tiger. If these ever change, we'll need to change the
-    // Mac OS X Tiger platform code to map one to the other.
     enum CompositeOperator {
         CompositeClear,
         CompositeCopy,
@@ -46,16 +43,14 @@ namespace WebCore {
         CompositeDestinationAtop,
         CompositeXOR,
         CompositePlusDarker,
-        CompositeHighlight,
-        CompositePlusLighter
+        CompositePlusLighter,
+        CompositeDifference
     };
 
-    // FIXME: Currently these constants have to match the values used in the SVG
-    // DOM API. That's a mistake. We need to make cut that dependency.
     enum GradientSpreadMethod {
-        SpreadMethodPad = 1,
-        SpreadMethodReflect = 2,
-        SpreadMethodRepeat = 3
+        SpreadMethodPad,
+        SpreadMethodReflect,
+        SpreadMethodRepeat
     };
 
     enum LineCap { ButtCap, RoundCap, SquareCap };

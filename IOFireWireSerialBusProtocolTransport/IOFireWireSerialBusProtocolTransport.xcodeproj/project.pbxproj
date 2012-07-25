@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		521E63FC0D501EB80017A917 /* IOFireWireSerialBusProtocolTransportTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = AC5BB70C0D50118800E066ED /* IOFireWireSerialBusProtocolTransportTimestamps.h */; };
+		52890240143548860056B997 /* IOFireWireSerialBusProtocolTransportDebugging.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4C01D9400415AB6600CE163E /* IOFireWireSerialBusProtocolTransportDebugging.h */; };
+		52890241143548860056B997 /* IOFireWireSerialBusProtocolTransportTimestamps.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = AC5BB70C0D50118800E066ED /* IOFireWireSerialBusProtocolTransportTimestamps.h */; };
 		75ED2C51065EC69600F7F83F /* IOFireWireSerialBusProtocolTransport.h in Headers */ = {isa = PBXBuildFile; fileRef = 8D81654300FFF2FB05CE163F /* IOFireWireSerialBusProtocolTransport.h */; };
 		75ED2C52065EC69600F7F83F /* IOFireWireSerialBusProtocolTransportDebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C01D9400415AB6600CE163E /* IOFireWireSerialBusProtocolTransportDebugging.h */; };
 		75ED2C53065EC69600F7F83F /* IOFireWireStorageCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 75D3C716065543E4000955AE /* IOFireWireStorageCharacteristics.h */; };
@@ -48,6 +50,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		5289023F1435487B0056B997 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/sbp2";
+			dstSubfolderSpec = 0;
+			files = (
+				52890240143548860056B997 /* IOFireWireSerialBusProtocolTransportDebugging.h in CopyFiles */,
+				52890241143548860056B997 /* IOFireWireSerialBusProtocolTransportTimestamps.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		75ED2C54065EC69600F7F83F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -83,6 +96,7 @@
 /* Begin PBXFileReference section */
 		075F51D0FFE0D39C11CE15BF /* IOFireWireSerialBusProtocolTransport.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSerialBusProtocolTransport.cpp; sourceTree = SOURCE_ROOT; tabWidth = 4; usesTabs = 1; };
 		4C01D9400415AB6600CE163E /* IOFireWireSerialBusProtocolTransportDebugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFireWireSerialBusProtocolTransportDebugging.h; sourceTree = "<group>"; };
+		528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOFireWireSerialBusProtocolTransport.xcconfig; sourceTree = "<group>"; };
 		75D3C716065543E4000955AE /* IOFireWireStorageCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireStorageCharacteristics.h; sourceTree = SOURCE_ROOT; };
 		75ED2C61065EC69600F7F83F /* Info-IOFireWireSerialBusProtocolTransport.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSerialBusProtocolTransport.plist"; sourceTree = "<group>"; };
 		75ED2C62065EC69600F7F83F /* IOFireWireSerialBusProtocolTransport.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireSerialBusProtocolTransport.kext; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -105,6 +119,7 @@
 		075F51C7FFE0D39C11CE15BF /* IOFireWireSerialBusProtocolTransport */ = {
 			isa = PBXGroup;
 			children = (
+				528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */,
 				4C01D9420415AB7C00CE163E /* Source */,
 				ACE933DB0D81FCBC00B92815 /* SBP2Logger */,
 				075F51D9FFE0D39C11CE15BF /* Products */,
@@ -181,6 +196,7 @@
 				75ED2C5D065EC69600F7F83F /* Frameworks */,
 				75ED2C5E065EC69600F7F83F /* Rez */,
 				75ED2C5F065EC69600F7F83F /* ShellScript */,
+				5289023F1435487B0056B997 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -315,6 +331,7 @@
 		};
 		ACBBA9B20D4FDAA300E75387 /* Development */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
@@ -323,13 +340,14 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -349,18 +367,20 @@
 		};
 		ACBBA9B30D4FDAA300E75387 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -380,17 +400,19 @@
 		};
 		ACBBA9B40D4FDAA300E75387 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528902A3143556B90056B997 /* IOFireWireSerialBusProtocolTransport.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				BUILD_SETTING = "";
 				COPY_PHASE_STRIP = YES;
+				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-IOFireWireSerialBusProtocolTransport.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSerialBusProtocolTransport;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.1.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

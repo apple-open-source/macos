@@ -36,6 +36,11 @@
 #include <wtf/StdLibExtras.h>
 #import <objc/runtime.h>
 
+#if USE(SKIA)
+#include "PlatformContextSkia.h"
+#include "skia/ext/skia_utils_mac.h"
+#endif
+
 using namespace std;
 
 // This file (and its associated .h file) is a clone of ThemeMac.mm.
@@ -495,14 +500,6 @@ static const IntSize* buttonSizes()
     return sizes;
 }
 
-#if ENABLE(DATALIST)
-static const IntSize* listButtonSizes()
-{
-    static const IntSize sizes[3] = { IntSize(21, 21), IntSize(19, 18), IntSize(17, 16) };
-    return sizes;
-}
-#endif
-
 static const int* buttonMargins(NSControlSize controlSize)
 {
     static const int margins[3][4] =
@@ -526,12 +523,6 @@ static void setupButtonCell(NSButtonCell *&buttonCell, ControlPart part, Control
 
     // Set the control size based off the rectangle we're painting into.
     const IntSize* sizes = buttonSizes();
-#if ENABLE(DATALIST)
-    if (part == ListButtonPart) {
-        [buttonCell setBezelStyle:NSRoundedDisclosureBezelStyle];
-        sizes = listButtonSizes();
-    } else
-#endif
     if (part == SquareButtonPart || zoomedRect.height() > buttonSizes()[NSRegularControlSize].height() * zoomFactor) {
         // Use the square button
         if ([buttonCell bezelStyle] != NSShadowlessSquareBezelStyle)
@@ -562,11 +553,7 @@ static void paintButton(ControlPart part, ControlStates states, GraphicsContext*
     LocalCurrentGraphicsContext localContext(context);
 
     NSControlSize controlSize = [buttonCell controlSize];
-#if ENABLE(DATALIST)
-    IntSize zoomedSize = (part == ListButtonPart ? listButtonSizes() : buttonSizes())[controlSize];
-#else
     IntSize zoomedSize = buttonSizes()[controlSize];
-#endif
     zoomedSize.setWidth(zoomedRect.width()); // Buttons don't ever constrain width, so the zoomed width can just be honored.
     zoomedSize.setHeight(zoomedSize.height() * zoomFactor);
     IntRect inflatedRect = zoomedRect;
@@ -590,6 +577,7 @@ static void paintButton(ControlPart part, ControlStates states, GraphicsContext*
     }
 
     {
+        LocalCurrentGraphicsContext localContext(context);
         FocusIndicationFix::ScopedFixer fix;
         [buttonCell drawWithFrame:NSRect(inflatedRect) inView:FlippedView()];
     }
@@ -645,14 +633,21 @@ static void paintStepper(ControlStates states, GraphicsContext* context, const I
         context->translate(-rect.x(), -rect.y());
     }
     CGRect bounds(rect);
-    // Adjust 'bounds' so that HIThemeDrawButton(bounds,...) draws exactly on 'rect'.
     CGRect backgroundBounds;
     HIThemeGetButtonBackgroundBounds(&bounds, &drawInfo, &backgroundBounds);
-    if (bounds.origin.x != backgroundBounds.origin.x)
-        bounds.origin.x += bounds.origin.x - backgroundBounds.origin.x;
-    if (bounds.origin.y != backgroundBounds.origin.y)
-        bounds.origin.y += bounds.origin.y - backgroundBounds.origin.y;
-    HIThemeDrawButton(&bounds, &drawInfo, context->platformContext(), kHIThemeOrientationNormal, 0);
+    // Center the stepper rectangle in the specified area.
+    backgroundBounds.origin.x = bounds.origin.x + (bounds.size.width - backgroundBounds.size.width) / 2;
+    if (backgroundBounds.size.height < bounds.size.height) {
+        int heightDiff = clampToInteger(bounds.size.height - backgroundBounds.size.height);
+        backgroundBounds.origin.y = bounds.origin.y + (heightDiff / 2) + 1;
+    }
+#if USE(SKIA)
+    gfx::SkiaBitLocker bitLocker(context->platformContext()->canvas());
+    CGContextRef cgContext = bitLocker.cgContext();
+#else
+    CGContextRef cgContext = context->platformContext();
+#endif
+    HIThemeDrawButton(&backgroundBounds, &drawInfo, cgContext, kHIThemeOrientationNormal, 0);
     context->restore();
 }
 
@@ -694,14 +689,7 @@ LengthSize ThemeChromiumMac::controlSize(ControlPart part, const Font& font, con
         case PushButtonPart:
             // Height is reset to auto so that specified heights can be ignored.
             return sizeFromFont(font, LengthSize(zoomedSize.width(), Length()), zoomFactor, buttonSizes());
-#if ENABLE(DATALIST)
-        case ListButtonPart:
-            return sizeFromFont(font, LengthSize(zoomedSize.width(), Length()), zoomFactor, listButtonSizes());
-#endif
         case InnerSpinButtonPart:
-            // We don't use inner spin buttons on Mac.
-            return LengthSize(Length(Fixed), Length(Fixed));
-        case OuterSpinButtonPart:
             if (!zoomedSize.width().isIntrinsicOrAuto() && !zoomedSize.height().isIntrinsicOrAuto())
                 return zoomedSize;
             return sizeFromNSControlSize(stepperControlSizeForFont(font), zoomedSize, zoomFactor, stepperSizes());
@@ -716,12 +704,8 @@ LengthSize ThemeChromiumMac::minimumControlSize(ControlPart part, const Font& fo
         case SquareButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
-        case ListButtonPart:
             return LengthSize(Length(0, Fixed), Length(static_cast<int>(15 * zoomFactor), Fixed));
-        case InnerSpinButtonPart:
-            // We don't use inner spin buttons on Mac.
-            return LengthSize(Length(Fixed), Length(Fixed));
-        case OuterSpinButtonPart: {
+        case InnerSpinButtonPart: {
             IntSize base = stepperSizes()[NSMiniControlSize];
             return LengthSize(Length(static_cast<int>(base.width() * zoomFactor), Fixed),
                               Length(static_cast<int>(base.height() * zoomFactor), Fixed));
@@ -737,7 +721,6 @@ LengthBox ThemeChromiumMac::controlBorder(ControlPart part, const Font& font, co
         case SquareButtonPart:
         case DefaultButtonPart:
         case ButtonPart:
-        case ListButtonPart:
             return LengthBox(0, zoomedBox.right().value(), 0, zoomedBox.left().value());
         default:
             return Theme::controlBorder(part, font, zoomedBox, zoomFactor);
@@ -802,7 +785,7 @@ void ThemeChromiumMac::inflateControlPaintRect(ControlPart part, ControlStates s
             }
             break;
         }
-        case OuterSpinButtonPart: {
+        case InnerSpinButtonPart: {
             static const int stepperMargin[4] = { 0, 0, 0, 0 };
             ControlSize controlSize = controlSizeFromPixelSize(stepperSizes(), zoomedRect.size(), zoomFactor);
             IntSize zoomedSize = stepperSizes()[controlSize];
@@ -830,10 +813,9 @@ void ThemeChromiumMac::paint(ControlPart part, ControlStates states, GraphicsCon
         case DefaultButtonPart:
         case ButtonPart:
         case SquareButtonPart:
-        case ListButtonPart:
             paintButton(part, states, context, zoomedRect, zoomFactor, scrollView);
             break;
-        case OuterSpinButtonPart:
+        case InnerSpinButtonPart:
             paintStepper(states, context, zoomedRect, zoomFactor, scrollView);
             break;
         default:

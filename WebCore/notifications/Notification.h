@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -35,9 +35,8 @@
 #include "ActiveDOMObject.h"
 #include "EventNames.h"
 #include "EventTarget.h"
-#include "ExceptionCode.h"
 #include "KURL.h"
-#include "NotificationContents.h"
+#include "NotificationClient.h"
 #include "SharedBuffer.h"
 #include "TextDirection.h"
 #include "ThreadableLoaderClient.h"
@@ -48,106 +47,157 @@
 #include <wtf/text/AtomicStringHash.h>
 
 #if ENABLE(NOTIFICATIONS)
+#include "Timer.h"
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 namespace WebCore {
 
-    class NotificationCenter;
-    class ResourceError;
-    class ResourceResponse;
-    class ScriptExecutionContext;
-    class ThreadableLoader;
+class Dictionary;
+class NotificationCenter;
+class NotificationPermissionCallback;
+class ResourceError;
+class ResourceResponse;
+class ScriptExecutionContext;
+class ThreadableLoader;
 
-    class Notification : public RefCounted<Notification>, public ActiveDOMObject, public ThreadableLoaderClient, public EventTarget {
-        WTF_MAKE_FAST_ALLOCATED;
-    public:
-        static PassRefPtr<Notification> create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider);
-        static PassRefPtr<Notification> create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider);
-        
-        virtual ~Notification();
+typedef int ExceptionCode;
 
-        void show();
-        void cancel();
+class Notification : public RefCounted<Notification>, public ActiveDOMObject, public EventTarget {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    Notification();
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    static PassRefPtr<Notification> create(const KURL&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter> provider);
+    static PassRefPtr<Notification> create(const String& title, const String& body, const String& iconURI, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter> provider);
+#endif
+#if ENABLE(NOTIFICATIONS)
+    static PassRefPtr<Notification> create(ScriptExecutionContext*, const String& title, const Dictionary& options);
+#endif
     
-        bool isHTML() { return m_isHTML; }
-        KURL url() { return m_notificationURL; }
-        KURL iconURL() { return m_contents.icon(); }
-        NotificationContents& contents() { return m_contents; }
+    virtual ~Notification();
 
-        String dir() const { return m_direction; }
-        void setDir(const String& dir) { m_direction = dir; }
-        String replaceId() const { return m_replaceId; }
-        void setReplaceId(const String& replaceId) { m_replaceId = replaceId; }
+    void show();
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    void cancel() { close(); }
+#endif
+    void close();
 
-        TextDirection direction() const { return dir() == "rtl" ? RTL : LTR; }
-
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(display);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(close);
-        DEFINE_ATTRIBUTE_EVENT_LISTENER(click);
+    bool isHTML() const { return m_isHTML; }
+    void setHTML(bool isHTML) { m_isHTML = isHTML; }
     
-        using RefCounted<Notification>::ref;
-        using RefCounted<Notification>::deref;
+    KURL url() const { return m_notificationURL; }
+    void setURL(KURL url) { m_notificationURL = url; }
     
-        // EventTarget interface
-        virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
-        virtual Notification* toNotification() { return this; }
+    KURL iconURL() const { return m_icon; }
 
-        // ActiveDOMObject interface
-        virtual void contextDestroyed();
+    String title() const { return m_title; }
+    String body() const { return m_body; }
 
-        void stopLoading();
+    String dir() const { return m_direction; }
+    void setDir(const String& dir) { m_direction = dir; }
 
-        SharedBuffer* iconData() { return m_iconData.get(); }
-        void releaseIconData() { m_iconData = 0; }
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    String replaceId() const { return tag(); }
+    void setReplaceId(const String& replaceId) { setTag(replaceId); }
+#endif
 
-        // Deprecated. Use functions from NotificationCenter.
-        void detachPresenter() { }
+    String tag() const { return m_tag; }
+    void setTag(const String& tag) { m_tag = tag; }
 
-        virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char* data, int dataLength);
-        virtual void didFinishLoading(unsigned long identifier, double finishTime);
-        virtual void didFail(const ResourceError&);
-        virtual void didFailRedirectCheck();
-        virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
+    TextDirection direction() const { return dir() == "rtl" ? RTL : LTR; }
 
-    private:
-        Notification(const KURL&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
-        Notification(const NotificationContents&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(show);
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(display);
+#endif
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(close);
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(click);
+    
+    void dispatchClickEvent();
+    void dispatchCloseEvent();
+    void dispatchErrorEvent();
+    void dispatchShowEvent();
 
-        // EventTarget interface
-        virtual void refEventTarget() { ref(); }
-        virtual void derefEventTarget() { deref(); }
-        virtual EventTargetData* eventTargetData();
-        virtual EventTargetData* ensureEventTargetData();
+    using RefCounted<Notification>::ref;
+    using RefCounted<Notification>::deref;
 
-        void startLoading();
-        void finishLoading();
+    // EventTarget interface
+    virtual const AtomicString& interfaceName() const;
+    virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
 
-        bool m_isHTML;
-        KURL m_notificationURL;
-        NotificationContents m_contents;
+    // ActiveDOMObject interface
+    virtual void contextDestroyed();
 
-        String m_direction;
-        String m_replaceId;
+    void stopLoadingIcon();
 
-        enum NotificationState {
-            Idle = 0,
-            Loading = 1,
-            Showing = 2,
-            Cancelled = 3
-        };
+    // Deprecated. Use functions from NotificationCenter.
+    void detachPresenter() { }
 
-        NotificationState m_state;
+    void finalize();
 
-        RefPtr<NotificationCenter> m_notificationCenter;
-        
-        EventTargetData m_eventTargetData;
+#if ENABLE(NOTIFICATIONS)
+    static const String& permissionLevel(ScriptExecutionContext*);
+    static const String& permissionString(NotificationClient::Permission);
+    static void requestPermission(ScriptExecutionContext*, PassRefPtr<NotificationPermissionCallback>);
+#endif
 
-        RefPtr<ThreadableLoader> m_loader;
-        RefPtr<SharedBuffer> m_iconData;
+private:
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    Notification(const KURL&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
+    Notification(const String& title, const String& body, const String& iconURI, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
+#endif
+#if ENABLE(NOTIFICATIONS)
+    Notification(ScriptExecutionContext*, const String& title);
+#endif
+
+    void setBody(const String& body) { m_body = body; }
+
+    // EventTarget interface
+    virtual void refEventTarget() { ref(); }
+    virtual void derefEventTarget() { deref(); }
+    virtual EventTargetData* eventTargetData();
+    virtual EventTargetData* ensureEventTargetData();
+
+    void startLoadingIcon();
+    void finishLoadingIcon();
+
+#if ENABLE(NOTIFICATIONS)
+    void taskTimerFired(Timer<Notification>*);
+#endif
+    
+    bool m_isHTML;
+
+    // Text notifications.
+    KURL m_icon;
+    String m_title;
+    String m_body;
+    // FIXME: Deprecate HTML Notifications.
+    KURL m_notificationURL;
+
+    String m_direction;
+    String m_tag;
+
+    enum NotificationState {
+        Idle = 0,
+        Showing = 1,
+        Closed = 2,
     };
+
+    NotificationState m_state;
+
+    RefPtr<NotificationCenter> m_notificationCenter;
+    
+    EventTargetData m_eventTargetData;
+
+#if ENABLE(NOTIFICATIONS)
+    OwnPtr<Timer<Notification> > m_taskTimer;
+#endif
+};
 
 } // namespace WebCore
 
-#endif // ENABLE(NOTIFICATIONS)
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 #endif // Notifications_h

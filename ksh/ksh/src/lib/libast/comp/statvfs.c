@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -80,9 +80,9 @@ us2v(register struct statfs* ufs, register struct stat* st, register struct stat
 	vfs->f_ffree = ufs->f_ffree;
 	vfs->f_favail = (ufs->f_ffree > 10) ? (ufs->f_ffree - 10) : 0;
 	vfs->f_fsid = st->st_dev;
-	strncpy(vfs->f_basetype, FS_default, sizeof(vfs->f_basetype) - 1);
+	strlcpy(vfs->f_basetype, FS_default, sizeof(vfs->f_basetype) - 1);
 	vfs->f_namemax = 14;
-	strncpy(vfs->f_fstr, vfs->f_basetype, sizeof(vfs->f_fstr) - 1);
+	strlcpy(vfs->f_fstr, vfs->f_basetype, sizeof(vfs->f_fstr) - 1);
 }
 
 extern int
@@ -131,9 +131,9 @@ s2v(register struct stat* st, register struct statvfs* vfs)
 	vfs->f_ffree = HUH;
 	vfs->f_favail = HUH;
 	vfs->f_fsid = st->st_dev;
-	strncpy(vfs->f_basetype, FS_default, sizeof(vfs->f_basetype) - 1);
+	strlcpy(vfs->f_basetype, FS_default, sizeof(vfs->f_basetype));
 	vfs->f_namemax = 14;
-	strncpy(vfs->f_fstr, vfs->f_basetype, sizeof(vfs->f_fstr) - 1);
+	strlcpy(vfs->f_fstr, vfs->f_basetype, sizeof(vfs->f_fstr));
 }
 
 extern int

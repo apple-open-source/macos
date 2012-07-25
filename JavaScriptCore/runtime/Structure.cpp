@@ -102,12 +102,12 @@ inline void StructureTransitionTable::add(JSGlobalData& globalData, Structure* s
     // Newer versions of the STL have an std::make_pair function that takes rvalue references.
     // When either of the parameters are bitfields, the C++ compiler will try to bind them as lvalues, which is invalid. To work around this, use unary "+" to make the parameter an rvalue.
     // See https://bugs.webkit.org/show_bug.cgi?id=59261 for more details
-    std::pair<TransitionMap::iterator, bool> result = map()->add(globalData, make_pair(structure->m_nameInPrevious, +structure->m_attributesInPrevious), structure);
-    if (!result.second) {
+    TransitionMap::AddResult result = map()->add(globalData, make_pair(structure->m_nameInPrevious, +structure->m_attributesInPrevious), structure);
+    if (!result.isNewEntry) {
         // There already is an entry! - we should only hit this when despecifying.
-        ASSERT(result.first.get().second->m_specificValueInPrevious);
+        ASSERT(result.iterator.get().second->m_specificValueInPrevious);
         ASSERT(!structure->m_specificValueInPrevious);
-        map()->set(result.first, structure);
+        map()->set(globalData, result.iterator.get().first, structure);
     }
 }
 
@@ -142,17 +142,17 @@ void Structure::dumpStatistics()
         }
     }
 
-    printf("Number of live Structures: %d\n", liveStructureSet.size());
-    printf("Number of Structures using the single item optimization for transition map: %d\n", numberUsingSingleSlot);
-    printf("Number of Structures that are leaf nodes: %d\n", numberLeaf);
-    printf("Number of Structures that singletons: %d\n", numberSingletons);
-    printf("Number of Structures with PropertyMaps: %d\n", numberWithPropertyMaps);
+    dataLog("Number of live Structures: %d\n", liveStructureSet.size());
+    dataLog("Number of Structures using the single item optimization for transition map: %d\n", numberUsingSingleSlot);
+    dataLog("Number of Structures that are leaf nodes: %d\n", numberLeaf);
+    dataLog("Number of Structures that singletons: %d\n", numberSingletons);
+    dataLog("Number of Structures with PropertyMaps: %d\n", numberWithPropertyMaps);
 
-    printf("Size of a single Structures: %d\n", static_cast<unsigned>(sizeof(Structure)));
-    printf("Size of sum of all property maps: %d\n", totalPropertyMapsSize);
-    printf("Size of average of all property maps: %f\n", static_cast<double>(totalPropertyMapsSize) / static_cast<double>(liveStructureSet.size()));
+    dataLog("Size of a single Structures: %d\n", static_cast<unsigned>(sizeof(Structure)));
+    dataLog("Size of sum of all property maps: %d\n", totalPropertyMapsSize);
+    dataLog("Size of average of all property maps: %f\n", static_cast<double>(totalPropertyMapsSize) / static_cast<double>(liveStructureSet.size()));
 #else
-    printf("Dumping Structure statistics is not enabled.\n");
+    dataLog("Dumping Structure statistics is not enabled.\n");
 #endif
 }
 
@@ -167,6 +167,7 @@ Structure::Structure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSV
     , m_dictionaryKind(NoneDictionaryKind)
     , m_isPinnedPropertyTable(false)
     , m_hasGetterSetterProperties(false)
+    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(false)
     , m_hasNonEnumerableProperties(false)
     , m_attributesInPrevious(0)
     , m_specificFunctionThrashCount(0)
@@ -188,6 +189,7 @@ Structure::Structure(JSGlobalData& globalData)
     , m_dictionaryKind(NoneDictionaryKind)
     , m_isPinnedPropertyTable(false)
     , m_hasGetterSetterProperties(false)
+    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(false)
     , m_hasNonEnumerableProperties(false)
     , m_attributesInPrevious(0)
     , m_specificFunctionThrashCount(0)
@@ -207,6 +209,7 @@ Structure::Structure(JSGlobalData& globalData, const Structure* previous)
     , m_dictionaryKind(previous->m_dictionaryKind)
     , m_isPinnedPropertyTable(false)
     , m_hasGetterSetterProperties(previous->m_hasGetterSetterProperties)
+    , m_hasReadOnlyOrGetterSetterPropertiesExcludingProto(previous->m_hasReadOnlyOrGetterSetterPropertiesExcludingProto)
     , m_hasNonEnumerableProperties(previous->m_hasNonEnumerableProperties)
     , m_attributesInPrevious(0)
     , m_specificFunctionThrashCount(previous->m_specificFunctionThrashCount)
@@ -218,8 +221,9 @@ Structure::Structure(JSGlobalData& globalData, const Structure* previous)
         m_globalObject.set(globalData, this, previous->m_globalObject.get());
 }
 
-Structure::~Structure()
+void Structure::destroy(JSCell* cell)
 {
+    jsCast<Structure*>(cell)->Structure::~Structure();
 }
 
 void Structure::materializePropertyMap(JSGlobalData& globalData)
@@ -261,6 +265,13 @@ void Structure::growPropertyStorageCapacity()
         m_propertyStorageCapacity = JSObject::baseExternalStorageCapacity;
     else
         m_propertyStorageCapacity *= 2;
+}
+
+size_t Structure::suggestedNewPropertyStorageSize()
+{
+    if (isUsingInlineStorage())
+        return JSObject::baseExternalStorageCapacity;
+    return m_propertyStorageCapacity * 2;
 }
 
 void Structure::despecifyDictionaryFunction(JSGlobalData& globalData, const Identifier& propertyName)
@@ -321,7 +332,7 @@ Structure* Structure::addPropertyTransition(JSGlobalData& globalData, Structure*
             transition->growPropertyStorageCapacity();
         return transition;
     }
-
+    
     Structure* transition = create(globalData, structure);
 
     transition->m_cachedPrototypeChain.setMayBeNull(globalData, transition, structure->m_cachedPrototypeChain.get());
@@ -400,17 +411,26 @@ Structure* Structure::despecifyFunctionTransition(JSGlobalData& globalData, Stru
     return transition;
 }
 
-Structure* Structure::getterSetterTransition(JSGlobalData& globalData, Structure* structure)
+Structure* Structure::attributeChangeTransition(JSGlobalData& globalData, Structure* structure, const Identifier& propertyName, unsigned attributes)
 {
-    Structure* transition = create(globalData, structure);
+    if (!structure->isUncacheableDictionary()) {
+        Structure* transition = create(globalData, structure);
 
-    // Don't set m_offset, as one can not transition to this.
+        // Don't set m_offset, as one can not transition to this.
 
-    structure->materializePropertyMapIfNecessary(globalData);
-    transition->m_propertyTable = structure->copyPropertyTableForPinning(globalData, transition);
-    transition->pin();
+        structure->materializePropertyMapIfNecessary(globalData);
+        transition->m_propertyTable = structure->copyPropertyTableForPinning(globalData, transition);
+        transition->pin();
+        
+        structure = transition;
+    }
 
-    return transition;
+    ASSERT(structure->m_propertyTable);
+    PropertyMapEntry* entry = structure->m_propertyTable->find(propertyName.impl()).first;
+    ASSERT(entry);
+    entry->attributes = attributes;
+
+    return structure;
 }
 
 Structure* Structure::toDictionaryTransition(JSGlobalData& globalData, Structure* structure, DictionaryKind kind)
@@ -457,9 +477,12 @@ Structure* Structure::freezeTransition(JSGlobalData& globalData, Structure* stru
     Structure* transition = preventExtensionsTransition(globalData, structure);
 
     if (transition->m_propertyTable) {
+        PropertyTable::iterator iter = transition->m_propertyTable->begin();
         PropertyTable::iterator end = transition->m_propertyTable->end();
-        for (PropertyTable::iterator iter = transition->m_propertyTable->begin(); iter != end; ++iter)
-            iter->attributes |= (DontDelete | ReadOnly);
+        if (iter != end)
+            transition->m_hasReadOnlyOrGetterSetterPropertiesExcludingProto = true;
+        for (; iter != end; ++iter)
+            iter->attributes |= iter->attributes & Accessor ? DontDelete : (DontDelete | ReadOnly);
     }
 
     return transition;
@@ -510,7 +533,9 @@ bool Structure::isFrozen(JSGlobalData& globalData)
 
     PropertyTable::iterator end = m_propertyTable->end();
     for (PropertyTable::iterator iter = m_propertyTable->begin(); iter != end; ++iter) {
-        if ((iter->attributes & (DontDelete | ReadOnly)) != (DontDelete | ReadOnly))
+        if (!(iter->attributes & DontDelete))
+            return false;
+        if (!(iter->attributes & (ReadOnly | Accessor)))
             return false;
     }
     return true;
@@ -591,11 +616,11 @@ static PropertyMapStatisticsExitLogger logger;
 
 PropertyMapStatisticsExitLogger::~PropertyMapStatisticsExitLogger()
 {
-    printf("\nJSC::PropertyMap statistics\n\n");
-    printf("%d probes\n", numProbes);
-    printf("%d collisions (%.1f%%)\n", numCollisions, 100.0 * numCollisions / numProbes);
-    printf("%d rehashes\n", numRehashes);
-    printf("%d removes\n", numRemoves);
+    dataLog("\nJSC::PropertyMap statistics\n\n");
+    dataLog("%d probes\n", numProbes);
+    dataLog("%d collisions (%.1f%%)\n", numCollisions, 100.0 * numCollisions / numProbes);
+    dataLog("%d rehashes\n", numRehashes);
+    dataLog("%d removes\n", numRemoves);
 }
 
 #endif
@@ -769,6 +794,8 @@ void Structure::visitChildren(JSCell* cell, SlotVisitor& visitor)
                 visitor.append(&ptr->specificValue);
         }
     }
+    if (thisObject->m_objectToStringValue)
+        visitor.append(&thisObject->m_objectToStringValue);
 }
 
 #if DO_PROPERTYMAP_CONSTENCY_CHECK

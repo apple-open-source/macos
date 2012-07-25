@@ -25,24 +25,32 @@
 #include "SVGClipPathElement.h"
 
 #include "Attribute.h"
-#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "RenderSVGResourceClipper.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGTransformList.h"
-#include "SVGUnitTypes.h"
+#include "StyleResolver.h"
 
 namespace WebCore {
 
 // Animated property definitions
-DEFINE_ANIMATED_ENUMERATION(SVGClipPathElement, SVGNames::clipPathUnitsAttr, ClipPathUnits, clipPathUnits)
+DEFINE_ANIMATED_ENUMERATION(SVGClipPathElement, SVGNames::clipPathUnitsAttr, ClipPathUnits, clipPathUnits, SVGUnitTypes::SVGUnitType)
 DEFINE_ANIMATED_BOOLEAN(SVGClipPathElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGClipPathElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(clipPathUnits)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGClipPathElement::SVGClipPathElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_clipPathUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
 {
     ASSERT(hasTagName(SVGNames::clipPathTag));
+    registerAnimatedPropertiesForSVGClipPathElement();
 }
 
 PassRefPtr<SVGClipPathElement> SVGClipPathElement::create(const QualifiedName& tagName, Document* document)
@@ -50,71 +58,53 @@ PassRefPtr<SVGClipPathElement> SVGClipPathElement::create(const QualifiedName& t
     return adoptRef(new SVGClipPathElement(tagName, document));
 }
 
-void SVGClipPathElement::parseMappedAttribute(Attribute* attr)
+bool SVGClipPathElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::clipPathUnitsAttr) {
-        if (attr->value() == "userSpaceOnUse")
-            setClipPathUnitsBaseValue(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE);
-        else if (attr->value() == "objectBoundingBox")
-            setClipPathUnitsBaseValue(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
-    } else {
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        SVGStyledTransformableElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::clipPathUnitsAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGClipPathElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledTransformableElement::parseAttribute(attr);
+        return;
+    }
+
+    if (attr->name() == SVGNames::clipPathUnitsAttr) {
+        SVGUnitTypes::SVGUnitType propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(attr->value());
+        if (propertyValue > 0)
+            setClipPathUnitsBaseValue(propertyValue);
+        return;
+    }
+
+    if (SVGTests::parseAttribute(attr))
+        return;
+    if (SVGLangSpace::parseAttribute(attr))
+        return;
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGClipPathElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
-
-    RenderObject* object = renderer();
-    if (!object)
-        return;
-
-    if (attrName == SVGNames::clipPathUnitsAttr
-        || SVGTests::isKnownAttribute(attrName)
-        || SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
-        || SVGStyledTransformableElement::isKnownAttribute(attrName))
-        object->setNeedsLayout(true);
-}
-
-void SVGClipPathElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeClipPathUnits();
-        synchronizeExternalResourcesRequired();
-        SVGTests::synchronizeProperties(this, attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::clipPathUnitsAttr)
-        synchronizeClipPathUnits();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
-AttributeToPropertyTypeMap& SVGClipPathElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGClipPathElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::clipPathUnitsAttr, AnimatedEnumeration);
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 void SVGClipPathElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)

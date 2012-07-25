@@ -17,14 +17,17 @@ cat > $tmp <<EOF
 struct krb5_dh_moduli;
 struct _krb5_krb_auth_data;
 struct AlgorithmIdentifier;
-struct key_data;
-struct checksum_type;
-struct key_type;
+struct _krb5_key_data;
+struct _krb5_checksum_type;
+struct _krb5_key_type;
+struct _krb5_encryption_type;
 
 #define KRB5_DEPRECATED
+#define KRB5_DEPRECATED_FUNCTION(x)
 #define GSSAPI_DEPRECATED
 #define HC_DEPRECATED
 #define HC_DEPRECATED_CRYPTO
+#define GSSAPI_DEPRECATED_FUNCTION(x)
 
 #include <config.h>
 #include <krb5.h>
@@ -38,6 +41,7 @@ struct key_type;
 #include <gssapi_ntlm.h>
 #include <gssapi_netlogon.h>
 #include <gssapi_spi.h>
+#include <GSSItem.h>
 #include <heimbase.h>
 #include <heimbasepriv.h>
 #include <hx509.h>
@@ -74,7 +78,6 @@ struct hx509_keyset_ops;
 enum hx_expr_op;
 typedef struct hx509_path hx509_path;
 typedef void (*_hx509_cert_release_func)(struct hx509_cert_data *, void *);
-typedef struct hx509_private_key_ops hx509_private_key_ops;
 
 #include <hx509-private.h>
 

@@ -26,11 +26,13 @@ A:link, A:visited, A:active { text-decoration: underline }
 </dd><dt>failure</dt><dd><a href="html/libxslt-keys.html#xsltAddKey">xsltAddKey</a><br />
 <a href="html/libxslt-variables.html#xsltAddStackElemList">xsltAddStackElemList</a><br />
 <a href="html/libxslt-pattern.html#xsltCompilePattern">xsltCompilePattern</a><br />
+<a href="html/libxslt-xsltInternals.html#xsltInitAllDocKeys">xsltInitAllDocKeys</a><br />
 <a href="html/libxslt-imports.html#xsltParseStylesheetImport">xsltParseStylesheetImport</a><br />
 <a href="html/libxslt-imports.html#xsltParseStylesheetInclude">xsltParseStylesheetInclude</a><br />
 <a href="html/libxslt-extensions.html#xsltRegisterExtElement">xsltRegisterExtElement</a><br />
 <a href="html/libxslt-extensions.html#xsltRegisterExtFunction">xsltRegisterExtFunction</a><br />
 <a href="html/libxslt-extensions.html#xsltRegisterExtPrefix">xsltRegisterExtPrefix</a><br />
+<a href="html/libxslt-xsltInternals.html#xsltRestoreDocumentNamespaces">xsltRestoreDocumentNamespaces</a><br />
 <a href="html/libxslt-xsltutils.html#xsltSaveResultTo">xsltSaveResultTo</a><br />
 <a href="html/libxslt-xsltutils.html#xsltSaveResultToFd">xsltSaveResultToFd</a><br />
 <a href="html/libxslt-xsltutils.html#xsltSaveResultToFile">xsltSaveResultToFile</a><br />
@@ -104,6 +106,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-namespaces.html#xsltGetSpecialNamespace">xsltGetSpecialNamespace</a><br />
 <a href="html/libxslt-pattern.html#xsltGetTemplate">xsltGetTemplate</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltLoadStylesheetPI">xsltLoadStylesheetPI</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltNewLocale">xsltNewLocale</a><br />
 <a href="html/libxslt-variables.html#xsltVariableLookup">xsltVariableLookup</a><br />
 <a href="html/libxslt-functions.html#xsltXPathFunctionLookup">xsltXPathFunctionLookup</a><br />
 <a href="html/libxslt-variables.html#xsltXPathVariableLookup">xsltXPathVariableLookup</a><br />
@@ -126,6 +129,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltInternals.html#xsltElemPreCompDeallocator">xsltElemPreCompDeallocator</a><br />
 <a href="html/libxslt-templates.html#xsltEvalTemplateString">xsltEvalTemplateString</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltExtensionInstructionResultFinalize">xsltExtensionInstructionResultFinalize</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltFreeLocale">xsltFreeLocale</a><br />
 <a href="html/libxslt-security.html#xsltFreeSecurityPrefs">xsltFreeSecurityPrefs</a><br />
 <a href="html/libxslt-xsltutils.html#xsltGetNsProp">xsltGetNsProp</a><br />
 <a href="html/libxslt-xsltutils.html#xsltGetProfileInformation">xsltGetProfileInformation</a><br />
@@ -141,6 +145,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltInternals.html#xsltRegisterLocalRVT">xsltRegisterLocalRVT</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltRegisterPersistRVT">xsltRegisterPersistRVT</a><br />
 <a href="html/libxslt-xsltInternals.html#xsltRegisterTmpRVT">xsltRegisterTmpRVT</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltStrxfrm">xsltStrxfrm</a><br />
 </dd><dt>frees</dt><dd><a href="html/libxslt-xsltInternals.html#xsltReleaseRVT">xsltReleaseRVT</a><br />
 </dd><dt>from</dt><dd><a href="html/libxslt-xsltInternals.html#CHECK_STOPPED">CHECK_STOPPED</a><br />
 <a href="html/libxslt-xsltInternals.html#CHECK_STOPPED0">CHECK_STOPPED0</a><br />
@@ -242,6 +247,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-variables.html#xsltEvalUserParams">xsltEvalUserParams</a><br />
 <a href="html/libxslt-variables.html#xsltFreeGlobalVariables">xsltFreeGlobalVariables</a><br />
 <a href="html/libxslt-keys.html#xsltInitCtxtKeys">xsltInitCtxtKeys</a><br />
+<a href="html/libxslt-extensions.html#xsltInitGlobals">xsltInitGlobals</a><br />
 <a href="html/libxslt-variables.html#xsltParseGlobalVariable">xsltParseGlobalVariable</a><br />
 <a href="html/libxslt-variables.html#xsltQuoteOneUserParam">xsltQuoteOneUserParam</a><br />
 <a href="html/libxslt-xsltutils.html#xsltSetCtxtSortFunc">xsltSetCtxtSortFunc</a><br />

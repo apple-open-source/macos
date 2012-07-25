@@ -33,6 +33,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/asprintf.c,v 1.15 2009/03/02 04:11:42 das Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -43,7 +45,19 @@ asprintf(char ** __restrict s, char const * __restrict fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	ret = vasprintf(s, fmt, ap);
+	ret = vasprintf_l(s, __current_locale(), fmt, ap);
+	va_end(ap);
+	return (ret);
+}
+
+int
+asprintf_l(char ** __restrict s, locale_t loc, char const * __restrict fmt, ...)
+{
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vasprintf_l(s, loc, fmt, ap);
 	va_end(ap);
 	return (ret);
 }

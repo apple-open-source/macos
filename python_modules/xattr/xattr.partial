@@ -2,13 +2,13 @@
         <key>OpenSourceProject</key>
         <string>xattr</string>
         <key>OpenSourceVersion</key>
-        <string>0.6.1</string>
+        <string>0.6.2</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://undefined.org/python/#xattr</string>
-        <key>OpenSourceSCM</key>
-        <string>http://svn.red-bean.com/bob/xattr/releases/xattr-0.6.1/</string>
+        <string>http://pypi.python.org/pypi/xattr/0.6.2</string>
+        <key>OpenSourceURL</key>
+        <string>http://pypi.python.org/packages/source/x/xattr/xattr-0.6.2.tar.gz#md5=5fc899150d03c082558455483fc0f89f</string>
         <key>OpenSourceImportDate</key>
-        <string>2010-11-15</string>
+        <string>2011-11-14</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>
@@ -20,4 +20,6 @@
 		<string>hex output for binary with -l</string>
 		<string>hex input for -w with -x flag</string>
 	</array>	
+        <key>OpenSourceMD5</key>
+        <string>5fc899150d03c082558455483fc0f89f</string>
 </dict>

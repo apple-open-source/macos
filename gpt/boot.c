@@ -257,9 +257,9 @@ cmd_boot(int argc, char *argv[])
 
 	while (optind < argc) {
 		fd = gpt_open(argv[optind++]);
-		if (fd < 0) {
+		if (fd == -1) {
 			warn("unable to open device '%s'", device_name);
-			continue;
+			return (1);
 		}
 
 		boot(fd);

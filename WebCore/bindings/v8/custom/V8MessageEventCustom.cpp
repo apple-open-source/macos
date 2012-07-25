@@ -34,13 +34,59 @@
 #include "MessageEvent.h"
 #include "SerializedScriptValue.h"
 
+#include "V8ArrayBuffer.h"
 #include "V8Binding.h"
+#include "V8Blob.h"
 #include "V8DOMWindow.h"
 #include "V8MessagePort.h"
-#include "V8MessagePortCustom.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
+
+v8::Handle<v8::Value> V8MessageEvent::dataAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.MessageEvent.data");
+    MessageEvent* event = V8MessageEvent::toNative(info.Holder());
+
+    v8::Handle<v8::Value> result;
+    switch (event->dataType()) {
+    case MessageEvent::DataTypeScriptValue: {
+        ScriptValue scriptValue = event->dataAsScriptValue();
+        if (scriptValue.hasNoValue())
+            result = v8::Null();
+        else
+            result = v8::Local<v8::Value>::New(scriptValue.v8Value());
+        break;
+    }
+
+    case MessageEvent::DataTypeSerializedScriptValue:
+        if (SerializedScriptValue* serializedValue = event->dataAsSerializedScriptValue())
+            result = serializedValue->deserialize(event->ports(), info.GetIsolate());
+        else
+            result = v8::Null();
+        break;
+
+    case MessageEvent::DataTypeString: {
+        String stringValue = event->dataAsString();
+        result = v8::String::New(fromWebCoreString(stringValue), stringValue.length());
+        break;
+    }
+
+    case MessageEvent::DataTypeBlob:
+        result = toV8(event->dataAsBlob(), info.GetIsolate());
+        break;
+
+    case MessageEvent::DataTypeArrayBuffer:
+        result = toV8(event->dataAsArrayBuffer(), info.GetIsolate());
+        break;
+    }
+
+    // Overwrite the data attribute so it returns the cached result in future invocations.
+    // This custom handler (dataAccessGetter) will not be called again.
+    v8::PropertyAttribute dataAttr = static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly);
+    info.Holder()->ForceSet(name, result, dataAttr);
+    return result;
+}
 
 v8::Handle<v8::Value> V8MessageEvent::portsAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
@@ -48,12 +94,14 @@ v8::Handle<v8::Value> V8MessageEvent::portsAccessorGetter(v8::Local<v8::String> 
     MessageEvent* event = V8MessageEvent::toNative(info.Holder());
 
     MessagePortArray* ports = event->ports();
-    if (!ports || ports->isEmpty())
-        return v8::Null();
+    if (!ports)
+        return v8::Array::New(0);
 
-    v8::Local<v8::Array> portArray = v8::Array::New(ports->size());
-    for (size_t i = 0; i < ports->size(); ++i)
-        portArray->Set(v8::Integer::New(i), toV8((*ports)[i].get()));
+    MessagePortArray portsCopy(*ports);
+
+    v8::Local<v8::Array> portArray = v8::Array::New(portsCopy.size());
+    for (size_t i = 0; i < portsCopy.size(); ++i)
+        portArray->Set(v8::Integer::New(i), toV8(portsCopy[i].get(), info.GetIsolate()));
 
     return portArray;
 }
@@ -65,7 +113,7 @@ v8::Handle<v8::Value> V8MessageEvent::initMessageEventCallback(const v8::Argumen
     String typeArg = v8ValueToWebCoreString(args[0]);
     bool canBubbleArg = args[1]->BooleanValue();
     bool cancelableArg = args[2]->BooleanValue();
-    RefPtr<SerializedScriptValue> dataArg = SerializedScriptValue::create(args[3]);
+    ScriptValue dataArg = ScriptValue(args[3]);
     String originArg = v8ValueToWebCoreString(args[4]);
     String lastEventIdArg = v8ValueToWebCoreString(args[5]);
 
@@ -83,10 +131,15 @@ v8::Handle<v8::Value> V8MessageEvent::initMessageEventCallback(const v8::Argumen
         if (!getMessagePortArray(args[7], *portArray))
             return v8::Undefined();
     }
-    event->initMessageEvent(typeArg, canBubbleArg, cancelableArg, dataArg.release(), originArg, lastEventIdArg, sourceArg, portArray.release());
-    v8::PropertyAttribute dataAttr = static_cast<v8::PropertyAttribute>(v8::DontDelete | v8::ReadOnly);
-    SerializedScriptValue::deserializeAndSetProperty(args.Holder(), "data", dataAttr, event->data());
+    event->initMessageEvent(typeArg, canBubbleArg, cancelableArg, dataArg, originArg, lastEventIdArg, sourceArg, portArray.release());
     return v8::Undefined();
-  }
+}
+
+v8::Handle<v8::Value> V8MessageEvent::webkitInitMessageEventCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.MessageEvent.webkitInitMessageEvent");
+    return initMessageEventCallback(args);
+}
+
 
 } // namespace WebCore

@@ -33,6 +33,7 @@
 #include "WebProcessProxy.h"
 #include "WebView.h"
 #include <WebCore/InspectorFrontendClientLocal.h>
+#include <WebCore/NotImplemented.h>
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <wtf/PassRefPtr.h>
@@ -198,7 +199,7 @@ WebPageProxy* WebInspectorProxy::platformCreateInspectorPage()
     return m_inspectorView->page();
 }
 
-void WebInspectorProxy::platformOpen(bool willOpenAttached)
+void WebInspectorProxy::platformOpen()
 {
     registerInspectorViewWindowClass();
 
@@ -208,7 +209,9 @@ void WebInspectorProxy::platformOpen(bool willOpenAttached)
 
     m_inspectorView->setParentWindow(m_inspectorWindow);
 
-    if (!willOpenAttached)
+    if (m_isAttached)
+        platformAttach();
+    else
         ::ShowWindow(m_inspectorWindow, SW_SHOW);
 }
 
@@ -238,11 +241,27 @@ void WebInspectorProxy::platformBringToFront()
     ::SetWindowPos(parentWindow, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
 }
 
+bool WebInspectorProxy::platformIsFront()
+{
+    notImplemented();
+    return false;
+}
+
 void WebInspectorProxy::platformInspectedURLChanged(const String& urlString)
 {
     // FIXME: this should be made localizable once WebKit2 supports it. <rdar://problem/8728860>
     String title = makeString("Web Inspector ", static_cast<UChar>(0x2014), ' ', urlString);
     ::SetWindowTextW(m_inspectorWindow, title.charactersWithNullTermination());
+}
+
+unsigned WebInspectorProxy::platformInspectedWindowHeight()
+{
+    HWND inspectedWindow = m_page->nativeWindow();
+
+    RECT inspectedWindowRect;
+    ::GetWindowRect(inspectedWindow, &inspectedWindowRect);
+
+    return static_cast<unsigned>(inspectedWindowRect.bottom - inspectedWindowRect.top);
 }
 
 void WebInspectorProxy::platformAttach()
@@ -254,7 +273,7 @@ void WebInspectorProxy::platformAttach()
     m_inspectorView->setParentWindow(parentWindow);
     ::ShowWindow(m_inspectorWindow, SW_HIDE);
 
-    ::SendMessage(parentWindow, WM_SIZE, 0, 0);
+    ::PostMessage(parentWindow, WM_SIZE, 0, 0);
 }
 
 void WebInspectorProxy::platformDetach()
@@ -269,8 +288,8 @@ void WebInspectorProxy::platformDetach()
 
     // Send the detached inspector window and the WebView's parent window WM_SIZE messages
     // to have them re-layout correctly.
-    ::SendMessage(m_inspectorWindow, WM_SIZE, 0, 0);
-    ::SendMessage(::GetParent(webViewWindow), WM_SIZE, 0, 0);
+    ::PostMessage(m_inspectorWindow, WM_SIZE, 0, 0);
+    ::PostMessage(::GetParent(webViewWindow), WM_SIZE, 0, 0);
 }
 
 void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned height)
@@ -307,6 +326,16 @@ void WebInspectorProxy::platformSetAttachedWindowHeight(unsigned height)
 String WebInspectorProxy::inspectorPageURL() const
 {
     RetainPtr<CFURLRef> htmlURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle(), CFSTR("inspector"), CFSTR("html"), CFSTR("inspector")));
+    if (!htmlURLRef)
+        return String();
+
+    return String(CFURLGetString(htmlURLRef.get()));
+}
+
+String WebInspectorProxy::inspectorBaseURL() const
+{
+    // Web Inspector uses localized strings, so it's not contained within inspector directory.
+    RetainPtr<CFURLRef> htmlURLRef(AdoptCF, CFBundleCopyResourcesDirectoryURL(webKitBundle()));
     if (!htmlURLRef)
         return String();
 

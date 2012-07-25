@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en_GB.xml
@@ -15,7 +15,7 @@ en_GB{
             }
         }
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.65.46"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -37,9 +37,12 @@ en_GB{
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
-                yMEd{"EEE, d/M/y G"}
+                yMEd{"E, d/M/y G"}
+                yMMMEd{"E, d MMM y G"}
+                yMMMd{"d MMM y G"}
                 yyMMM{"MMM y G"}
                 yyyyMM{"MM/y G"}
                 yyyyMMMM{"MMMM y G"}
@@ -66,9 +69,13 @@ en_GB{
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
-                yMEd{"EEE, d/M/yyyy"}
+                yMEd{"E, d/M/yyyy"}
+                yMMMEd{"E, d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/yyyy"}
                 yyMMM{"MMM yy"}
                 yyyyMM{"MM/yyyy"}
                 yyyyMMMM{"MMMM y"}
@@ -169,74 +176,16 @@ en_GB{
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
                 yyMMM{"MMM y G"}
-                yyyyMEd{"EEE, d/M/y G"}
+                yyyyMEd{"E, d/M/y G"}
                 yyyyMM{"MM/y G"}
-                yyyyMMM{"MMM y G"}
+                yyyyMMMEd{"E, d MMM y G"}
                 yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"d MMM y G"}
                 yyyyMd{"d/M/y G"}
-            }
-            eras{
-                abbreviated{
-                    "AH",
-                }
-                narrow:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
-                wide:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
-            }
-            monthNames{
-                default{"format"}
-                format{
-                    abbreviated{
-                        "Muh.",
-                        "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
-                        "Ram.",
-                        "Shaw.",
-                        "Dhuʻl-Q.",
-                        "Dhuʻl-H.",
-                    }
-                    default{"wide"}
-                    narrow:alias{"/LOCALE/calendar/islamic/monthNames/stand-alone/narrow"}
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiʻ I",
-                        "Rabiʻ II",
-                        "Jumada I",
-                        "Jumada II",
-                        "Rajab",
-                        "Shaʻban",
-                        "Ramadan",
-                        "Shawwal",
-                        "Dhuʻl-Qiʻdah",
-                        "Dhuʻl-Hijjah",
-                    }
-                }
-                stand-alone{
-                    abbreviated:alias{"/LOCALE/calendar/islamic/monthNames/format/abbreviated"}
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
-                    wide:alias{"/LOCALE/calendar/islamic/monthNames/format/wide"}
-                }
             }
         }
         japanese{
@@ -248,7 +197,7 @@ en_GB{
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
                 "d MMM y G",
-                "dd/MM/y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -259,13 +208,16 @@ en_GB{
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
                 yyMMM{"MMM y G"}
-                yyyyMEd{"EEE, d/M/y G"}
-                yyyyMM{"MM/y G"}
-                yyyyMMM{"MMM y G"}
+                yyyyMEd{"E, d/M/y GGGGG"}
+                yyyyMM{"MM/y GGGGG"}
+                yyyyMMMEd{"E, d MMM y G"}
                 yyyyMMMM{"MMMM y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"d/M/y GGGGG"}
             }
         }
         roc{
@@ -277,7 +229,7 @@ en_GB{
                 "EEEE, d MMMM y G",
                 "d MMMM y G",
                 "d MMM y G",
-                "dd/MM/y G",
+                "dd/MM/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
@@ -288,14 +240,16 @@ en_GB{
                 MEd{"E, d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
+                MMMd{"d MMM"}
                 MMdd{"dd/MM"}
                 Md{"d/M"}
                 yyMMM{"MMM y G"}
-                yyyyMEd{"EEE, d/M/y G"}
-                yyyyMM{"MM/y G"}
-                yyyyMMM{"MMM y G"}
+                yyyyMEd{"E, d/M/y GGGGG"}
+                yyyyMM{"MM/y GGGGG"}
+                yyyyMMMEd{"E, d MMM y G"}
                 yyyyMMMM{"MMMM y G"}
-                yyyyMd{"d/M/y G"}
+                yyyyMMMd{"d MMM y G"}
+                yyyyMd{"d/M/y GGGGG"}
             }
         }
     }

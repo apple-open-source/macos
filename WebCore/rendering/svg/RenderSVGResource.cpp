@@ -25,12 +25,27 @@
 #if ENABLE(SVG)
 #include "RenderSVGResource.h"
 
+#include "Frame.h"
+#include "FrameView.h"
 #include "RenderSVGResourceContainer.h"
+#include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceSolidColor.h"
 #include "SVGResources.h"
+#include "SVGResourcesCache.h"
 #include "SVGURIReference.h"
 
 namespace WebCore {
+
+static inline bool inheritColorFromParentStyleIfNeeded(RenderObject* object, bool applyToFill, Color& color)
+{
+    if (color.isValid())
+        return true;
+    if (!object->parent() || !object->parent()->style())
+        return false;
+    const SVGRenderStyle* parentSVGStyle = object->parent()->style()->svgStyle();
+    color = applyToFill ? parentSVGStyle->fillPaintColor() : parentSVGStyle->strokePaintColor();
+    return true;
+}
 
 static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode mode, RenderObject* object, const RenderStyle* style, Color& fallbackColor)
 {
@@ -42,12 +57,23 @@ static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode m
     if (!svgStyle)
         return 0;
 
+    bool isRenderingMask = false;
+    if (object->frame() && object->frame()->view())
+        isRenderingMask = object->frame()->view()->paintBehavior() & PaintBehaviorRenderingSVGMask;
+
     // If we have no fill/stroke, return 0.
     if (mode == ApplyToFillMode) {
+        // When rendering the mask for a RenderSVGResourceClipper, always use the initial fill paint server, and ignore stroke.
+        if (isRenderingMask) {
+            RenderSVGResourceSolidColor* colorResource = RenderSVGResource::sharedSolidPaintingResource();
+            colorResource->setColor(SVGRenderStyle::initialFillPaintColor());
+            return colorResource;
+        }
+
         if (!svgStyle->hasFill())
             return 0;
     } else {
-        if (!svgStyle->hasStroke())
+        if (!svgStyle->hasStroke() || isRenderingMask)
             return 0;
     }
 
@@ -70,15 +96,12 @@ static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode m
     }
 
     if (style->insideLink() == InsideVisitedLink) {
-        RenderStyle* visitedStyle = style->getCachedPseudoStyle(VISITED_LINK);
-        ASSERT(visitedStyle);
-
-        const SVGRenderStyle* svgVisitedStyle = visitedStyle->svgStyle();
-        SVGPaint::SVGPaintType visitedPaintType = applyToFill ? svgVisitedStyle->fillPaintType() : svgVisitedStyle->strokePaintType();
+        // FIXME: This code doesn't support the uri component of the visited link paint, https://bugs.webkit.org/show_bug.cgi?id=70006
+        SVGPaint::SVGPaintType visitedPaintType = applyToFill ? svgStyle->visitedLinkFillPaintType() : svgStyle->visitedLinkStrokePaintType();
 
         // For SVG_PAINTTYPE_CURRENTCOLOR, 'color' already contains the 'visitedColor'.
         if (visitedPaintType < SVGPaint::SVG_PAINTTYPE_URI_NONE && visitedPaintType != SVGPaint::SVG_PAINTTYPE_CURRENTCOLOR) {
-            const Color& visitedColor = applyToFill ? svgVisitedStyle->fillPaintColor() : svgVisitedStyle->strokePaintColor();
+            const Color& visitedColor = applyToFill ? svgStyle->visitedLinkFillPaintColor() : svgStyle->visitedLinkStrokePaintColor();
             if (visitedColor.isValid())
                 color = Color(visitedColor.red(), visitedColor.green(), visitedColor.blue(), color.alpha());
         }
@@ -87,8 +110,7 @@ static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode m
     // If the primary resource is just a color, return immediately.
     RenderSVGResourceSolidColor* colorResource = RenderSVGResource::sharedSolidPaintingResource();
     if (paintType < SVGPaint::SVG_PAINTTYPE_URI_NONE) {
-        // If an invalid fill color is specified, fallback to fill/stroke="none".
-        if (!color.isValid())
+        if (!inheritColorFromParentStyleIfNeeded(object, applyToFill, color))
             return 0;
 
         colorResource->setColor(color);
@@ -98,9 +120,8 @@ static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode m
     // If no resources are associated with the given renderer, return the color resource.
     SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(object);
     if (!resources) {
-        // If a paint server is specified, and no or an invalid fallback color is given, default to fill/stroke="black".
-        if (!color.isValid())
-            color = Color::black;
+        if (paintType == SVGPaint::SVG_PAINTTYPE_URI_NONE || !inheritColorFromParentStyleIfNeeded(object, applyToFill, color))
+            return 0;
 
         colorResource->setColor(color);
         return colorResource;
@@ -109,9 +130,8 @@ static inline RenderSVGResource* requestPaintingResource(RenderSVGResourceMode m
     // If the requested resource is not available, return the color resource.
     RenderSVGResource* uriResource = mode == ApplyToFillMode ? resources->fill() : resources->stroke();
     if (!uriResource) {
-        // If a paint server is specified, and no or an invalid fallback color is given, default to fill/stroke="black".
-        if (!color.isValid())
-            color = Color::black;
+        if (!inheritColorFromParentStyleIfNeeded(object, applyToFill, color))
+            return 0;
 
         colorResource->setColor(color);
         return colorResource;
@@ -141,16 +161,45 @@ RenderSVGResourceSolidColor* RenderSVGResource::sharedSolidPaintingResource()
     return s_sharedSolidPaintingResource;
 }
 
+static inline void removeFromFilterCacheAndInvalidateDependencies(RenderObject* object, bool needsLayout)
+{
+    ASSERT(object);
+#if ENABLE(FILTERS)
+    if (SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(object)) {
+        if (RenderSVGResourceFilter* filter = resources->filter())
+            filter->removeClientFromCache(object);
+    }
+#endif
+    if (!object->node() || !object->node()->isSVGElement())
+        return;
+    HashSet<SVGElement*>* dependencies = object->document()->accessSVGExtensions()->setOfElementsReferencingTarget(static_cast<SVGElement*>(object->node()));
+    if (!dependencies)
+        return;
+    HashSet<SVGElement*>::iterator end = dependencies->end();
+    for (HashSet<SVGElement*>::iterator it = dependencies->begin(); it != end; ++it) {
+        if (RenderObject* renderer = (*it)->renderer())
+            RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer, needsLayout);
+    }
+}
+
 void RenderSVGResource::markForLayoutAndParentResourceInvalidation(RenderObject* object, bool needsLayout)
 {
     ASSERT(object);
+    ASSERT(object->document());
+    ASSERT(object->node());
+
     if (needsLayout)
         object->setNeedsLayout(true);
+
+    removeFromFilterCacheAndInvalidateDependencies(object, needsLayout);
 
     // Invalidate resources in ancestor chain, if needed.
     RenderObject* current = object->parent();
     while (current) {
+        removeFromFilterCacheAndInvalidateDependencies(current, needsLayout);
+
         if (current->isSVGResourceContainer()) {
+            // This will process the rest of the ancestors.
             current->toRenderSVGResourceContainer()->removeAllClientsFromCache();
             break;
         }
@@ -162,3 +211,4 @@ void RenderSVGResource::markForLayoutAndParentResourceInvalidation(RenderObject*
 }
 
 #endif
+

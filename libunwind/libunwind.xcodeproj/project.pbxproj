@@ -7,28 +7,15 @@
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		F93A98E10EC91209000D227E /* libunwind-ld */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = F93A98F60EC91298000D227E /* Build configuration list for PBXAggregateTarget "libunwind-ld" */;
-			buildPhases = (
-				F93A98E00EC91209000D227E /* install usr-local-include-libunwind */,
-				F93A990B0EC916CC000D227E /* install usr-include */,
-				F93A99140EC9172A000D227E /* install usr-include-mach-o */,
-			);
-			dependencies = (
-			);
-			name = "libunwind-ld";
-			productName = "libunwind-ld";
-		};
 		F93A98ED0EC91269000D227E /* all */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = F93A98F70EC91298000D227E /* Build configuration list for PBXAggregateTarget "all" */;
 			buildPhases = (
+				F97377A8133A82A600BDE64E /* Simulator clean up */,
 			);
 			dependencies = (
 				F992F1FB11A35E2F0008F9B0 /* PBXTargetDependency */,
 				F93A98F50EC9127A000D227E /* PBXTargetDependency */,
-				F93A98F30EC91276000D227E /* PBXTargetDependency */,
 			);
 			name = all;
 			productName = macosx;
@@ -41,33 +28,19 @@
 		F9276F000E6E0B6100B731C9 /* Registers.s in Sources */ = {isa = PBXBuildFile; fileRef = F98BEA710D10CC1700F298D0 /* Registers.s */; };
 		F9276F010E6E0B6100B731C9 /* unw_getcontext.s in Sources */ = {isa = PBXBuildFile; fileRef = F98BEA4B0D10C13500F298D0 /* unw_getcontext.s */; };
 		F9276F280E6E0D1400B731C9 /* UnwindLevel1-gcc-ext.c in Sources */ = {isa = PBXBuildFile; fileRef = F903E4D70DC16974007E8D28 /* UnwindLevel1-gcc-ext.c */; };
+		F92A25C413C69AEE008F010E /* libunwind.h in install usr-include */ = {isa = PBXBuildFile; fileRef = F98BE9080D0F3D7D00F298D0 /* libunwind.h */; };
+		F92A25C513C69AEE008F010E /* unwind.h in install usr-include */ = {isa = PBXBuildFile; fileRef = F9ABAAA91118B2BB00A06182 /* unwind.h */; };
+		F92A25C913C69B39008F010E /* compact_unwind_encoding.h in install usr-include-mach-o */ = {isa = PBXBuildFile; fileRef = F9BFF9C60DC935360077A618 /* compact_unwind_encoding.h */; };
 		F938B7C70F97F50D0096ACC8 /* Unwind-sjlj.c in Sources */ = {isa = PBXBuildFile; fileRef = F938B7C50F97F50D0096ACC8 /* Unwind-sjlj.c */; };
-		F93A98E40EC9122A000D227E /* AddressSpace.hpp in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F9413A530D25D7E100B5EA0C /* AddressSpace.hpp */; };
-		F93A98E50EC9122A000D227E /* dwarf2.h in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F94138D00D1C7AC600B5EA0C /* dwarf2.h */; };
-		F93A98E60EC9122A000D227E /* DwarfParser.hpp in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F95BE4DC0D343AB9007E3672 /* DwarfParser.hpp */; };
-		F93A98E70EC9122A000D227E /* DwarfInstructions.hpp in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F95BE2990D2EB9EA007E3672 /* DwarfInstructions.hpp */; };
-		F93A98E80EC9122A000D227E /* FileAbstraction.hpp in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F98BEAC40D121B7800F298D0 /* FileAbstraction.hpp */; };
-		F93A98E90EC9122A000D227E /* InternalMacros.h in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F95DF59A0DEDD12800B8DA7A /* InternalMacros.h */; };
-		F93A98EA0EC9122A000D227E /* Registers.hpp in install usr-local-include-libunwind */ = {isa = PBXBuildFile; fileRef = F9413A540D25D7E100B5EA0C /* Registers.hpp */; };
-		F93A990F0EC91711000D227E /* compact_unwind_encoding.h in install usr-include-mach-o */ = {isa = PBXBuildFile; fileRef = F9BFF9C60DC935360077A618 /* compact_unwind_encoding.h */; };
-		F93A99100EC9171F000D227E /* libunwind.h in install usr-include */ = {isa = PBXBuildFile; fileRef = F98BE9080D0F3D7D00F298D0 /* libunwind.h */; };
-		F95A3D8B0DE3A8AA004B72E5 /* libuwind.cxx in Sources */ = {isa = PBXBuildFile; fileRef = F98BEABC0D121A4000F298D0 /* libuwind.cxx */; };
+		F95A3D8B0DE3A8AA004B72E5 /* libuwind.cxx in Sources */ = {isa = PBXBuildFile; fileRef = F98BEABC0D121A4000F298D0 /* libuwind.cxx */; settings = {COMPILER_FLAGS = "-fno-exceptions"; }; };
 		F95A3D8C0DE3A8AA004B72E5 /* Registers.s in Sources */ = {isa = PBXBuildFile; fileRef = F98BEA710D10CC1700F298D0 /* Registers.s */; };
 		F95A3D8D0DE3A8AA004B72E5 /* unw_getcontext.s in Sources */ = {isa = PBXBuildFile; fileRef = F98BEA4B0D10C13500F298D0 /* unw_getcontext.s */; };
 		F95A3D8E0DE3A8AA004B72E5 /* UnwindLevel1.c in Sources */ = {isa = PBXBuildFile; fileRef = F92C4CC60DC0145500EE1253 /* UnwindLevel1.c */; };
 		F95A3D8F0DE3A8AA004B72E5 /* UnwindLevel1-gcc-ext.c in Sources */ = {isa = PBXBuildFile; fileRef = F903E4D70DC16974007E8D28 /* UnwindLevel1-gcc-ext.c */; };
 		F98F98F311A47E2C00D21E1F /* Unwind-sjlj.c in Sources */ = {isa = PBXBuildFile; fileRef = F938B7C50F97F50D0096ACC8 /* Unwind-sjlj.c */; };
-		F9ABAAAA1118B2DA00A06182 /* unwind.h in install usr-include */ = {isa = PBXBuildFile; fileRef = F9ABAAA91118B2BB00A06182 /* unwind.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		F93A98F20EC91276000D227E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F93A98E10EC91209000D227E;
-			remoteInfo = "libunwind-ld";
-		};
 		F93A98F40EC9127A000D227E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -85,42 +58,25 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		F93A98E00EC91209000D227E /* install usr-local-include-libunwind */ = {
+		F92A25CA13C69B62008F010E /* install usr-include */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/include/libunwind;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/include";
 			dstSubfolderSpec = 0;
 			files = (
-				F93A98E40EC9122A000D227E /* AddressSpace.hpp in install usr-local-include-libunwind */,
-				F93A98E50EC9122A000D227E /* dwarf2.h in install usr-local-include-libunwind */,
-				F93A98E60EC9122A000D227E /* DwarfParser.hpp in install usr-local-include-libunwind */,
-				F93A98E70EC9122A000D227E /* DwarfInstructions.hpp in install usr-local-include-libunwind */,
-				F93A98E80EC9122A000D227E /* FileAbstraction.hpp in install usr-local-include-libunwind */,
-				F93A98E90EC9122A000D227E /* InternalMacros.h in install usr-local-include-libunwind */,
-				F93A98EA0EC9122A000D227E /* Registers.hpp in install usr-local-include-libunwind */,
-			);
-			name = "install usr-local-include-libunwind";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		F93A990B0EC916CC000D227E /* install usr-include */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/include;
-			dstSubfolderSpec = 0;
-			files = (
-				F9ABAAAA1118B2DA00A06182 /* unwind.h in install usr-include */,
-				F93A99100EC9171F000D227E /* libunwind.h in install usr-include */,
+				F92A25C413C69AEE008F010E /* libunwind.h in install usr-include */,
+				F92A25C513C69AEE008F010E /* unwind.h in install usr-include */,
 			);
 			name = "install usr-include";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		F93A99140EC9172A000D227E /* install usr-include-mach-o */ = {
+		F92A25CB13C69B62008F010E /* install usr-include-mach-o */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = "/usr/include/mach-o";
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/include/mach-o";
 			dstSubfolderSpec = 0;
 			files = (
-				F93A990F0EC91711000D227E /* compact_unwind_encoding.h in install usr-include-mach-o */,
+				F92A25C913C69B39008F010E /* compact_unwind_encoding.h in install usr-include-mach-o */,
 			);
 			name = "install usr-include-mach-o";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -219,9 +175,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		F9276EFA0E6E0B6100B731C9 /* libunwind-dyld */ = {
+		F9276EFA0E6E0B6100B731C9 /* dyld-libunwind.a */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F9276F110E6E0B6100B731C9 /* Build configuration list for PBXNativeTarget "libunwind-dyld" */;
+			buildConfigurationList = F9276F110E6E0B6100B731C9 /* Build configuration list for PBXNativeTarget "dyld-libunwind.a" */;
 			buildPhases = (
 				F9276EFC0E6E0B6100B731C9 /* Sources */,
 			);
@@ -229,23 +185,25 @@
 			);
 			dependencies = (
 			);
-			name = "libunwind-dyld";
+			name = "dyld-libunwind.a";
 			productName = libunwind;
 			productReference = F9276F140E6E0B6100B731C9 /* libunwind.a */;
 			productType = "com.apple.product-type.library.static";
 		};
-		F95A3D890DE3A8AA004B72E5 /* libunwind-libSystem */ = {
+		F95A3D890DE3A8AA004B72E5 /* libunwind.dylib */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = F95A3D920DE3A8AA004B72E5 /* Build configuration list for PBXNativeTarget "libunwind-libSystem" */;
+			buildConfigurationList = F95A3D920DE3A8AA004B72E5 /* Build configuration list for PBXNativeTarget "libunwind.dylib" */;
 			buildPhases = (
 				F95A3D8A0DE3A8AA004B72E5 /* Sources */,
 				F95A3D900DE3A8AA004B72E5 /* Frameworks */,
+				F92A25CA13C69B62008F010E /* install usr-include */,
+				F92A25CB13C69B62008F010E /* install usr-include-mach-o */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = "libunwind-libSystem";
+			name = libunwind.dylib;
 			productName = libunwind;
 			productReference = F95A3D950DE3A8AA004B72E5 /* libunwind.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
@@ -257,18 +215,42 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libunwind" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* libunwind */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				F93A98ED0EC91269000D227E /* all */,
-				F9276EFA0E6E0B6100B731C9 /* libunwind-dyld */,
-				F95A3D890DE3A8AA004B72E5 /* libunwind-libSystem */,
-				F93A98E10EC91209000D227E /* libunwind-ld */,
+				F9276EFA0E6E0B6100B731C9 /* dyld-libunwind.a */,
+				F95A3D890DE3A8AA004B72E5 /* libunwind.dylib */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		F97377A8133A82A600BDE64E /* Simulator clean up */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Simulator clean up";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${PLATFORM_NAME}\" == \"iphonesimulator\" ]\nthen\n  # when simulator runs on 10.7 only, we can stop deleting usr/lib/system/libunwind.dylib\n  rm -rf \"${DSTROOT}/usr\"\n  rm -rf \"${DSTROOT}/$SDKROOT/usr/local\"\nfi\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		F9276EFC0E6E0B6100B731C9 /* Sources */ = {
@@ -300,19 +282,14 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		F93A98F30EC91276000D227E /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F93A98E10EC91209000D227E /* libunwind-ld */;
-			targetProxy = F93A98F20EC91276000D227E /* PBXContainerItemProxy */;
-		};
 		F93A98F50EC9127A000D227E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F9276EFA0E6E0B6100B731C9 /* libunwind-dyld */;
+			target = F9276EFA0E6E0B6100B731C9 /* dyld-libunwind.a */;
 			targetProxy = F93A98F40EC9127A000D227E /* PBXContainerItemProxy */;
 		};
 		F992F1FB11A35E2F0008F9B0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = F95A3D890DE3A8AA004B72E5 /* libunwind-libSystem */;
+			target = F95A3D890DE3A8AA004B72E5 /* libunwind.dylib */;
 			targetProxy = F992F1FA11A35E2F0008F9B0 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -321,6 +298,7 @@
 		1DEB914F08733D8E0010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
@@ -331,6 +309,7 @@
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
@@ -377,7 +356,7 @@
 			buildSettings = {
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_ALTIVEC_EXTENSIONS = YES;
-				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -390,32 +369,10 @@
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
-				INSTALL_PATH = "$(SDKROOT)/usr/local/lib/dyld";
+				INSTALL_PATH = /usr/local/lib/dyld;
 				OTHER_CFLAGS = "-fexceptions";
 				OTHER_CPLUSPLUSFLAGS = "-funwind-tables";
 				PRODUCT_NAME = unwind;
-			};
-			name = Release;
-		};
-		F93A98E20EC91209000D227E /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = "libunwind-ld";
-			};
-			name = Debug;
-		};
-		F93A98E30EC91209000D227E /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALLHDRS_COPY_PHASE = YES;
-				PRODUCT_NAME = "libunwind-ld";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -470,10 +427,16 @@
 				GCC_WARN_UNUSED_VALUE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
 				INSTALL_PATH = /usr/lib/system;
+				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
+				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
 				MACH_O_TYPE = mh_dylib;
 				OTHER_CFLAGS = "-fexceptions";
 				OTHER_CPLUSPLUSFLAGS = "-funwind-tables";
-				OTHER_LDFLAGS = "-Wl,-umbrella,System";
+				OTHER_LDFLAGS = (
+					"-nodefaultlibs",
+					"-Wl,-upward-lSystem",
+					"-Wl,-umbrella,System",
+				);
 				PRODUCT_NAME = libunwind;
 				WARNING_CFLAGS = "-Wall";
 			};
@@ -487,7 +450,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				GCC_ALTIVEC_EXTENSIONS = YES;
-				GCC_C_LANGUAGE_STANDARD = c99;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_BUILTIN_FUNCTIONS = YES;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -500,13 +463,15 @@
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
 				INSTALL_PATH = /usr/lib/system;
+				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
+				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
 				MACH_O_TYPE = mh_dylib;
 				ORDER_FILE = "$(SRCROOT)/libunwind.order";
 				OTHER_CFLAGS = "-fexceptions";
 				OTHER_CPLUSPLUSFLAGS = "-funwind-tables";
 				OTHER_LDFLAGS = (
 					"-nodefaultlibs",
-					"-lSystem",
+					"-Wl,-upward-lSystem",
 					"-Wl,-umbrella,System",
 				);
 				PRODUCT_NAME = libunwind;
@@ -526,20 +491,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F9276F110E6E0B6100B731C9 /* Build configuration list for PBXNativeTarget "libunwind-dyld" */ = {
+		F9276F110E6E0B6100B731C9 /* Build configuration list for PBXNativeTarget "dyld-libunwind.a" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F9276F120E6E0B6100B731C9 /* Debug */,
 				F9276F130E6E0B6100B731C9 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		F93A98F60EC91298000D227E /* Build configuration list for PBXAggregateTarget "libunwind-ld" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				F93A98E20EC91209000D227E /* Debug */,
-				F93A98E30EC91209000D227E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -553,7 +509,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		F95A3D920DE3A8AA004B72E5 /* Build configuration list for PBXNativeTarget "libunwind-libSystem" */ = {
+		F95A3D920DE3A8AA004B72E5 /* Build configuration list for PBXNativeTarget "libunwind.dylib" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F95A3D930DE3A8AA004B72E5 /* Debug */,

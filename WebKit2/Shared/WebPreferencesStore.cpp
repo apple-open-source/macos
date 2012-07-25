@@ -47,9 +47,13 @@ namespace WebPreferencesKey {
 
 } // namespace WebPreferencesKey
 
+typedef HashMap<String, bool> BoolOverridesMap;
 
-static bool hasXSSAuditorEnabledTestRunnerOverride;
-static bool xssAuditorEnabledTestRunnerOverride;
+static BoolOverridesMap& boolTestRunnerOverridesMap()
+{
+    DEFINE_STATIC_LOCAL(BoolOverridesMap, map, ());
+    return map;
+}
 
 WebPreferencesStore::WebPreferencesStore()
 {
@@ -57,29 +61,33 @@ WebPreferencesStore::WebPreferencesStore()
 
 void WebPreferencesStore::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
-    encoder->encode(CoreIPC::In(m_stringValues, m_boolValues, m_uint32Values, m_doubleValues));
+    encoder->encode(m_stringValues);
+    encoder->encode(m_boolValues);
+    encoder->encode(m_uint32Values);
+    encoder->encode(m_doubleValues);
 }
 
-bool WebPreferencesStore::decode(CoreIPC::ArgumentDecoder* decoder, WebPreferencesStore& s)
+bool WebPreferencesStore::decode(CoreIPC::ArgumentDecoder* decoder, WebPreferencesStore& result)
 {
-    if (!decoder->decode(CoreIPC::Out(s.m_stringValues, s.m_boolValues, s.m_uint32Values, s.m_doubleValues)))
+    if (!decoder->decode(result.m_stringValues))
         return false;
-
-    if (hasXSSAuditorEnabledTestRunnerOverride)
-        s.m_boolValues.set(WebPreferencesKey::xssAuditorEnabledKey(), xssAuditorEnabledTestRunnerOverride);
-
+    if (!decoder->decode(result.m_boolValues))
+        return false;
+    if (!decoder->decode(result.m_uint32Values))
+        return false;
+    if (!decoder->decode(result.m_doubleValues))
+        return false;
     return true;
 }
 
-void WebPreferencesStore::overrideXSSAuditorEnabledForTestRunner(bool enabled)
+void WebPreferencesStore::overrideBoolValueForKey(const String& key, bool value)
 {
-    hasXSSAuditorEnabledTestRunnerOverride = true;
-    xssAuditorEnabledTestRunnerOverride = enabled;
+    boolTestRunnerOverridesMap().set(key, value);
 }
 
 void WebPreferencesStore::removeTestRunnerOverrides()
 {
-    hasXSSAuditorEnabledTestRunnerOverride = false;
+    boolTestRunnerOverridesMap().clear();
 }
 
 
@@ -176,6 +184,10 @@ bool WebPreferencesStore::setBoolValueForKey(const String& key, bool value)
 
 bool WebPreferencesStore::getBoolValueForKey(const String& key) const
 {
+    // FIXME: Extend overriding to other key types used from LayoutTestController.
+    BoolOverridesMap::const_iterator it = boolTestRunnerOverridesMap().find(key);
+    if (it != boolTestRunnerOverridesMap().end())
+        return it->second;
     return valueForKey(m_boolValues, key);
 }
 

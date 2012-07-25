@@ -26,10 +26,10 @@
 #include "FloatRect.h"
 #include "IntRect.h"
 
-#include <wtf/ByteArray.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Uint8ClampedArray.h>
 #include <wtf/Vector.h>
 
 static const float kMaxFilterSize = 5000.0f;
@@ -54,17 +54,22 @@ class FilterEffect : public RefCounted<FilterEffect> {
 public:
     virtual ~FilterEffect();
 
-    bool hasResult() const { return m_imageBufferResult || m_unmultipliedImageResult || m_premultipliedImageResult; }
     void clearResult();
     ImageBuffer* asImageBuffer();
-    PassRefPtr<ByteArray> asUnmultipliedImage(const IntRect&);
-    PassRefPtr<ByteArray> asPremultipliedImage(const IntRect&);
-    void copyUnmultipliedImage(ByteArray* destination, const IntRect&);
-    void copyPremultipliedImage(ByteArray* destination, const IntRect&);
+    PassRefPtr<Uint8ClampedArray> asUnmultipliedImage(const IntRect&);
+    PassRefPtr<Uint8ClampedArray> asPremultipliedImage(const IntRect&);
+    void copyUnmultipliedImage(Uint8ClampedArray* destination, const IntRect&);
+    void copyPremultipliedImage(Uint8ClampedArray* destination, const IntRect&);
 
     FilterEffectVector& inputEffects() { return m_inputEffects; }
     FilterEffect* inputEffect(unsigned) const;
     unsigned numberOfEffectInputs() const { return m_inputEffects.size(); }
+    
+    inline bool hasResult() const
+    {
+        // This function needs platform specific checks, if the memory managment is not done by FilterEffect.
+        return m_imageBufferResult || m_unmultipliedImageResult || m_premultipliedImageResult;
+    }
 
     IntRect drawingRegionOfInputImage(const IntRect&) const;
     IntRect requestedRegionOfInputImageData(const IntRect&) const;
@@ -79,7 +84,17 @@ public:
     FloatRect maxEffectRect() const { return m_maxEffectRect; }
     void setMaxEffectRect(const FloatRect& maxEffectRect) { m_maxEffectRect = maxEffectRect; } 
 
-    virtual void apply() = 0;
+    void apply();
+    
+    // Correct any invalid pixels, if necessary, in the result of a filter operation.
+    // This method is used to ensure valid pixel values on filter inputs and the final result.
+    // Only the arithmetic composite filter ever needs to perform correction.
+    virtual void correctFilterResultIfNeeded() { }
+
+    virtual void platformApplySoftware() = 0;
+#if USE(SKIA)
+    virtual bool platformApplySkia() { return false; }
+#endif
     virtual void dump() = 0;
 
     virtual void determineAbsolutePaintRect();
@@ -111,17 +126,27 @@ public:
 
     Filter* filter() { return m_filter; }
 
+    bool clipsToBounds() const { return m_clipsToBounds; }
+    void setClipsToBounds(bool value) { m_clipsToBounds = value; }
+
 protected:
     FilterEffect(Filter*);
 
     ImageBuffer* createImageBufferResult();
-    ByteArray* createUnmultipliedImageResult();
-    ByteArray* createPremultipliedImageResult();
+    Uint8ClampedArray* createUnmultipliedImageResult();
+    Uint8ClampedArray* createPremultipliedImageResult();
+
+    // Return true if the filter will only operate correctly on valid RGBA values, with
+    // alpha in [0,255] and each color component in [0, alpha].
+    virtual bool requiresValidPreMultipliedPixels() { return true; }
+
+    // If a pre-multiplied image, check every pixel for validity and correct if necessary.
+    void forceValidPreMultipliedPixels();
 
 private:
     OwnPtr<ImageBuffer> m_imageBufferResult;
-    RefPtr<ByteArray> m_unmultipliedImageResult;
-    RefPtr<ByteArray> m_premultipliedImageResult;
+    RefPtr<Uint8ClampedArray> m_unmultipliedImageResult;
+    RefPtr<Uint8ClampedArray> m_premultipliedImageResult;
     FilterEffectVector m_inputEffects;
 
     bool m_alphaImage;
@@ -132,9 +157,9 @@ private:
     // The absolute paint rect should never be bigger than m_maxEffectRect.
     FloatRect m_maxEffectRect;
     Filter* m_filter;
-
+    
 private:
-    inline void copyImageBytes(ByteArray* source, ByteArray* destination, const IntRect&);
+    inline void copyImageBytes(Uint8ClampedArray* source, Uint8ClampedArray* destination, const IntRect&);
 
     // The following member variables are SVG specific and will move to RenderSVGResourceFilterPrimitive.
     // See bug https://bugs.webkit.org/show_bug.cgi?id=45614.
@@ -150,6 +175,9 @@ private:
     bool m_hasY;
     bool m_hasWidth;
     bool m_hasHeight;
+
+    // Should the effect clip to its primitive region, or expand to use the combined region of its inputs.
+    bool m_clipsToBounds;
 };
 
 } // namespace WebCore

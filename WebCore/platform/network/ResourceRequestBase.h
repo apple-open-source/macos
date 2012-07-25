@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2003, 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,23 +51,6 @@ namespace WebCore {
     class ResourceRequestBase {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        // The type of this ResourceRequest, based on how the resource will be used.
-        enum TargetType {
-            TargetIsMainFrame,
-            TargetIsSubframe,
-            TargetIsSubresource,  // Resource is a generic subresource.  (Generally a specific type should be specified)
-            TargetIsStyleSheet,
-            TargetIsScript,
-            TargetIsFontResource,
-            TargetIsImage,
-            TargetIsObject,
-            TargetIsMedia,
-            TargetIsWorker,
-            TargetIsSharedWorker,
-            TargetIsPrefetch,
-            TargetIsFavicon,
-        };
-
         static PassOwnPtr<ResourceRequest> adopt(PassOwnPtr<CrossThreadResourceRequestData>);
 
         // Gets a copy of the data suitable for passing to another thread.
@@ -105,7 +88,8 @@ namespace WebCore {
 
         String httpContentType() const { return httpHeaderField("Content-Type");  }
         void setHTTPContentType(const String& httpContentType) { setHTTPHeaderField("Content-Type", httpContentType); }
-        
+        void clearHTTPContentType();
+
         String httpReferrer() const { return httpHeaderField("Referer"); }
         void setHTTPReferrer(const String& httpReferrer) { setHTTPHeaderField("Referer", httpReferrer); }
         void clearHTTPReferrer();
@@ -116,9 +100,11 @@ namespace WebCore {
 
         String httpUserAgent() const { return httpHeaderField("User-Agent"); }
         void setHTTPUserAgent(const String& httpUserAgent) { setHTTPHeaderField("User-Agent", httpUserAgent); }
+        void clearHTTPUserAgent();
 
         String httpAccept() const { return httpHeaderField("Accept"); }
         void setHTTPAccept(const String& httpAccept) { setHTTPHeaderField("Accept", httpAccept); }
+        void clearHTTPAccept();
 
         void setResponseContentDispositionEncodingFallbackArray(const String& encoding1, const String& encoding2 = String(), const String& encoding3 = String());
 
@@ -146,11 +132,6 @@ namespace WebCore {
         bool reportRawHeaders() const { return m_reportRawHeaders; }
         void setReportRawHeaders(bool reportRawHeaders) { m_reportRawHeaders = reportRawHeaders; }
 
-        // What this request is for.
-        // FIXME: This should be moved out of ResourceRequestBase, <https://bugs.webkit.org/show_bug.cgi?id=48483>.
-        TargetType targetType() const { return m_targetType; }
-        void setTargetType(TargetType type) { m_targetType = type; }
-
         static double defaultTimeoutInterval(); // May return 0 when using platform default.
         static void setDefaultTimeoutInterval(double);
 
@@ -165,7 +146,6 @@ namespace WebCore {
             , m_reportLoadTiming(false)
             , m_reportRawHeaders(false)
             , m_priority(ResourceLoadPriorityLow)
-            , m_targetType(TargetIsSubresource)
         {
         }
 
@@ -181,7 +161,6 @@ namespace WebCore {
             , m_reportLoadTiming(false)
             , m_reportRawHeaders(false)
             , m_priority(ResourceLoadPriorityLow)
-            , m_targetType(TargetIsSubresource)
         {
         }
 
@@ -200,14 +179,13 @@ namespace WebCore {
         HTTPHeaderMap m_httpHeaderFields;
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
         RefPtr<FormData> m_httpBody;
-        bool m_allowCookies;
-        mutable bool m_resourceRequestUpdated;
-        mutable bool m_platformRequestUpdated;
-        bool m_reportUploadProgress;
-        bool m_reportLoadTiming;
-        bool m_reportRawHeaders;
+        bool m_allowCookies : 1;
+        mutable bool m_resourceRequestUpdated : 1;
+        mutable bool m_platformRequestUpdated : 1;
+        bool m_reportUploadProgress : 1;
+        bool m_reportLoadTiming : 1;
+        bool m_reportRawHeaders : 1;
         ResourceLoadPriority m_priority;
-        TargetType m_targetType;
 
     private:
         const ResourceRequest& asResourceRequest() const;
@@ -236,7 +214,6 @@ namespace WebCore {
         RefPtr<FormData> m_httpBody;
         bool m_allowCookies;
         ResourceLoadPriority m_priority;
-        ResourceRequestBase::TargetType m_targetType;
     };
     
     unsigned initializeMaximumHTTPConnectionCountPerHost();

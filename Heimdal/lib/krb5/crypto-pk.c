@@ -44,7 +44,7 @@ _krb5_pk_octetstring2key(krb5_context context,
 			 const heim_octet_string *k_n,
 			 krb5_keyblock *key)
 {
-    struct encryption_type *et = _krb5_find_enctype(type);
+    struct _krb5_encryption_type *et = _krb5_find_enctype(type);
     krb5_error_code ret;
     size_t keylen, offset;
     void *keydata;
@@ -110,7 +110,7 @@ encode_uvinfo(krb5_context context, krb5_const_principal p, krb5_data *data)
 {
     KRB5PrincipalName pn;
     krb5_error_code ret;
-    size_t size;
+    size_t size = 0;
 
     pn.principalName = p->name;
     pn.realm = p->realm;
@@ -143,7 +143,7 @@ encode_otherinfo(krb5_context context,
     PkinitSuppPubInfo pubinfo;
     krb5_error_code ret;
     krb5_data pub;
-    size_t size;
+    size_t size = 0;
 
     krb5_data_zero(other);
     memset(&otherinfo, 0, sizeof(otherinfo));
@@ -205,7 +205,7 @@ _krb5_pk_kdf(krb5_context context,
 	     const Ticket *ticket,
 	     krb5_keyblock *key)
 {
-    struct encryption_type *et;
+    struct _krb5_encryption_type *et;
     krb5_error_code ret;
     krb5_data other;
     size_t keylen, offset;

@@ -47,7 +47,7 @@
 #include <dirhelper_priv.h>
 
 #include "dirhelper.h"
-#include "dirhelper_server.h"
+#include "dirhelperServer.h"
 /*
  * Uncomment the next line to define BOOTDEBUG, which will write timing
  * info for clean_directories() to a file, /Debug.

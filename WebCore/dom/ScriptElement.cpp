@@ -27,11 +27,13 @@
 #include "CachedScript.h"
 #include "CachedResourceLoader.h"
 #include "ContentSecurityPolicy.h"
+#include "CrossOriginAccessControl.h"
 #include "Document.h"
 #include "DocumentParser.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "IgnoreDestructiveWriteCountIncrementer.h"
 #include "MIMETypeRegistry.h"
@@ -39,6 +41,7 @@
 #include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
 #include "Text.h"
 #include <wtf/StdLibExtras.h>
@@ -64,6 +67,7 @@ ScriptElement::ScriptElement(Element* element, bool parserInserted, bool already
     , m_willExecuteWhenDocumentFinishedParsing(false)
     , m_forceAsync(!parserInserted)
     , m_willExecuteInOrder(false)
+    , m_requestUsesAccessControl(false)
 {
     ASSERT(m_element);
 }
@@ -73,16 +77,10 @@ ScriptElement::~ScriptElement()
     stopLoadRequest();
 }
 
-void ScriptElement::insertedIntoDocument()
+void ScriptElement::insertedInto(Node* insertionPoint)
 {
-    if (!m_parserInserted)
+    if (insertionPoint->inDocument() && !m_parserInserted)
         prepareScript(); // FIXME: Provide a real starting line number here.
-}
-
-void ScriptElement::removedFromDocument()
-{
-    // Eventually stop loading any not-yet-finished content
-    stopLoadRequest();
 }
 
 void ScriptElement::childrenChanged()
@@ -160,7 +158,7 @@ bool ScriptElement::isScriptTypeSupported(LegacyTypeSupport supportLegacyTypes) 
 }
 
 // http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
-bool ScriptElement::prepareScript(const TextPosition1& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
+bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
 {
     if (m_alreadyStarted)
         return false;
@@ -193,23 +191,16 @@ bool ScriptElement::prepareScript(const TextPosition1& scriptStartPosition, Lega
     m_alreadyStarted = true;
 
     // FIXME: If script is parser inserted, verify it's still in the original document.
+    Document* document = m_element->document();
 
     // FIXME: Eventually we'd like to evaluate scripts which are inserted into a
     // viewless document but this'll do for now.
     // See http://bugs.webkit.org/show_bug.cgi?id=5727
-    if (!m_element->document()->frame())
+    if (!document->frame())
         return false;
 
-    if (!m_element->document()->frame()->script()->canExecuteScripts(AboutToExecuteScript))
+    if (!document->frame()->script()->canExecuteScripts(AboutToExecuteScript))
         return false;
-
-    // FIXME: This is non-standard. Remove this after https://bugs.webkit.org/show_bug.cgi?id=62412.
-    Node* ancestor = m_element->parentNode();
-    while (ancestor) {
-        if (ancestor->isSVGShadowRoot())
-            return false;
-        ancestor = ancestor->parentNode();
-    }
 
     if (!isScriptForEventSupported())
         return false;
@@ -217,7 +208,7 @@ bool ScriptElement::prepareScript(const TextPosition1& scriptStartPosition, Lega
     if (!charsetAttributeValue().isEmpty())
         m_characterEncoding = charsetAttributeValue();
     else
-        m_characterEncoding = m_element->document()->charset();
+        m_characterEncoding = document->charset();
 
     if (hasSourceAttribute())
         if (!requestScript(sourceAttributeValue()))
@@ -228,17 +219,21 @@ bool ScriptElement::prepareScript(const TextPosition1& scriptStartPosition, Lega
         m_willBeParserExecuted = true;
     } else if (hasSourceAttribute() && m_parserInserted && !asyncAttributeValue())
         m_willBeParserExecuted = true;
-    else if (!hasSourceAttribute() && m_parserInserted && !m_element->document()->haveStylesheetsLoaded()) {
+    else if (!hasSourceAttribute() && m_parserInserted && !document->haveStylesheetsLoaded()) {
         m_willBeParserExecuted = true;
         m_readyToBeParserExecuted = true;
     } else if (hasSourceAttribute() && !asyncAttributeValue() && !m_forceAsync) {
         m_willExecuteInOrder = true;
-        m_element->document()->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::IN_ORDER_EXECUTION);
+        document->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::IN_ORDER_EXECUTION);
         m_cachedScript->addClient(this);
-    } else if (hasSourceAttribute())
+    } else if (hasSourceAttribute()) {
+        m_element->document()->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::ASYNC_EXECUTION);
         m_cachedScript->addClient(this);
-    else
-        executeScript(ScriptSourceCode(scriptContent(), m_element->document()->url(), scriptStartPosition));
+    } else {
+        // Reset line numbering for nested writes.
+        TextPosition position = document->isInDocumentWrite() ? TextPosition() : scriptStartPosition;
+        executeScript(ScriptSourceCode(scriptContent(), document->url(), position));
+    }
 
     return true;
 }
@@ -252,12 +247,23 @@ bool ScriptElement::requestScript(const String& sourceUrl)
         return false;
 
     ASSERT(!m_cachedScript);
-    // FIXME: If sourceUrl is empty, we should dispatchErrorEvent().
-    m_cachedScript = m_element->document()->cachedResourceLoader()->requestScript(sourceUrl, scriptCharset());
-    m_isExternalScript = true;
+    if (!stripLeadingAndTrailingHTMLSpaces(sourceUrl).isEmpty()) {
+        ResourceRequest request = ResourceRequest(m_element->document()->completeURL(sourceUrl));
 
-    if (m_cachedScript)
+        String crossOriginMode = m_element->fastGetAttribute(HTMLNames::crossoriginAttr);
+        if (!crossOriginMode.isNull()) {
+            m_requestUsesAccessControl = true;
+            StoredCredentials allowCredentials = equalIgnoringCase(crossOriginMode, "use-credentials") ? AllowStoredCredentials : DoNotAllowStoredCredentials;
+            updateRequestForAccessControl(request, m_element->document()->securityOrigin(), allowCredentials);
+        }
+
+        m_cachedScript = m_element->document()->cachedResourceLoader()->requestScript(request, scriptCharset());
+        m_isExternalScript = true;
+    }
+
+    if (m_cachedScript) {
         return true;
+    }
 
     dispatchErrorEvent();
     return false;
@@ -283,8 +289,6 @@ void ScriptElement::executeScript(const ScriptSourceCode& sourceCode)
             // Note: This is where the script is compiled and actually executed.
             frame->script()->evaluate(sourceCode);
         }
-
-        Document::updateStyleForAllDocuments();
     }
 }
 
@@ -310,14 +314,26 @@ void ScriptElement::execute(CachedScript* cachedScript)
     cachedScript->removeClient(this);
 }
 
-void ScriptElement::notifyFinished(CachedResource* o)
+void ScriptElement::notifyFinished(CachedResource* resource)
 {
     ASSERT(!m_willBeParserExecuted);
-    ASSERT_UNUSED(o, o == m_cachedScript);
+    ASSERT_UNUSED(resource, resource == m_cachedScript);
+
+    if (m_requestUsesAccessControl
+        && !m_element->document()->securityOrigin()->canRequest(m_cachedScript->response().url())
+        && !m_cachedScript->passesAccessControlCheck(m_element->document()->securityOrigin())) {
+
+        dispatchErrorEvent();
+        DEFINE_STATIC_LOCAL(String, consoleMessage, ("Cross-origin script load denied by Cross-Origin Resource Sharing policy."));
+        m_element->document()->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage);
+        return;
+    }
+
     if (m_willExecuteInOrder)
-        m_element->document()->scriptRunner()->notifyInOrderScriptReady();
+        m_element->document()->scriptRunner()->notifyScriptReady(this, ScriptRunner::IN_ORDER_EXECUTION);
     else
-        m_element->document()->scriptRunner()->queueScriptForExecution(this, m_cachedScript, ScriptRunner::ASYNC_EXECUTION);
+        m_element->document()->scriptRunner()->notifyScriptReady(this, ScriptRunner::ASYNC_EXECUTION);
+
     m_cachedScript = 0;
 }
 
@@ -352,7 +368,7 @@ String ScriptElement::scriptContent() const
         if (!n->isTextNode())
             continue;
 
-        Text* t = static_cast<Text*>(n);
+        Text* t = toText(n);
         if (foundMultipleTextNodes)
             content.append(t->data());
         else if (firstTextNode) {

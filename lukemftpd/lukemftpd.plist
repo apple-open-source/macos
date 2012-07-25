@@ -31,6 +31,9 @@
 			<string>manpages.patch - fix man pages for 3186515 and 4570983</string>
 			<string>sacl.patch - add support for SACL membership</string>
 			<string>gss.patch - add support for RFC 2228 (GSSAPI / Kerberos)</string>
+			<string>PR-10452181.conf.c.patch - parse to end of line for last arg in conf file</string>
+			<string>PR-10519551.ftpd.c.patch- fix problem with getgrouplist logic</string>
+			<string>PR-10804931.patch - fixed missing check for NULL</string>		
 		</array>
 	</dict>
 </array>

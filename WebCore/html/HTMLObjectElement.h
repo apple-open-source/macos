@@ -58,8 +58,6 @@ public:
     bool checkValidity() { return true; }
     void setCustomValidity(const String&) { }
 
-    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
-
     using TreeShared<ContainerNode>::ref;
     using TreeShared<ContainerNode>::deref;
 
@@ -68,21 +66,22 @@ public:
 private:
     HTMLObjectElement(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void insertedIntoTree(bool deep);
-    virtual void removedFromTree(bool deep);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
-    virtual bool rendererIsNeeded(RenderStyle*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
-    virtual void willMoveToNewOwnerDocument();
-    
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
+
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
+    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
+
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
 
-    virtual RenderWidget* renderWidgetForJSBindings() const;
+    virtual RenderWidget* renderWidgetForJSBindings();
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -104,7 +103,14 @@ private:
 
     virtual const AtomicString& formControlName() const;
 
-    AtomicString m_id;
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const OVERRIDE;
+    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
+#endif
+
+    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return isDocNamedItem(); }
+    virtual bool shouldRegisterAsExtraNamedItem() const OVERRIDE { return isDocNamedItem(); }
+
     String m_classId;
     bool m_docNamedItem : 1;
     bool m_useFallbackContent : 1;

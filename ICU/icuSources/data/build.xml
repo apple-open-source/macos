@@ -5,7 +5,7 @@
 <!--
 /*
 *******************************************************************************
-* Copyright (C) 2005-2010, International Business Machines Corporation and    *
+* Copyright (C) 2005-2011, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -71,7 +71,7 @@
         </taskdef>
     </target>
     <!-- target for generating ICU data -->
-    <target name="all" depends="locales, resfiles, resfiles_curr, resfiles_lang, resfiles_region, resfiles_zone, collation, colfiles, rbnf, rbnffiles, supplementalData, metaZones, windowsZones, likelySubtags, plurals, numberingSystems, translit, brkitr, brkfiles, keyTypeData" />
+    <target name="all" depends="locales, resfiles, resfiles_curr, resfiles_lang, resfiles_region, resfiles_zone, collation, colfiles, rbnf, rbnffiles, supplementalData, metadata, metaZones, windowsZones, likelySubtags, plurals, numberingSystems, translit, brkitr, brkfiles, keyTypeData" />
     <!-- parallel target -->
     <target name="pall" depends="init">
         <parallel threadsPerProcessor ="1">
@@ -127,6 +127,7 @@
 		  <remap sourcePath="/Languages" targetDir="lang" />
 		  <remap sourcePath="/LanguagesShort" targetDir="lang" />
 		  <remap sourcePath="/Scripts" targetDir="lang" />
+		  <remap sourcePath="/Scripts%stand-alone" targetDir="lang" />
 		  <remap sourcePath="/Types" targetDir="lang" />
 		  <remap sourcePath="/Variants" targetDir="lang" />
 		  <remap sourcePath="/codePatterns" targetDir="lang" />
@@ -299,6 +300,7 @@
                     <arg name="-m" value="${env.CLDR_DIR}/common/supplemental" />
                     <arg name="-w" value="${env.CLDR_DIR}/common/rbnf" />
                 </args>
+                &icu-config;
             </run>
         </cldr-build>
     </target>
@@ -317,6 +319,20 @@
 		  <remap sourcePath="/CurrencyMap" targetDir="curr" />
 		  <remap sourcePath="/CurrencyMeta" targetDir="curr" />
 		</remapper>
+            </run>
+        </cldr-build>
+    </target>
+    <target name="metadata" depends="init,setup" description="builds metadata.txt from supplementalMetadata.xml">
+        <cldr-build toolName="org.unicode.cldr.icu.LDML2ICUConverter" destFile="metadata.txt" noArgs="true">
+            <!-- launch the tool and generate the data after reading the config file -->
+            <run>
+                <args>
+                    <arg name="-s" value="${env.CLDR_DIR}/common/supplemental" />
+                    <arg name="-d" value="${env.ICU4C_DIR}/source/data/misc"/>
+                    <arg name="-q"/>
+                    <arg name="-f"/>
+                    <arg name="-m" value="${env.CLDR_DIR}/common/supplemental" />
+                </args>
             </run>
         </cldr-build>
     </target>
@@ -497,9 +513,7 @@
                 <include name="en_US.txt" />
                 <include name="en_US_POSIX.txt" />
                 <include name="fi.txt" />
-                <include name="he.txt" />
                 <include name="ja.txt" />
-                <include name="th.txt" />
             </fileset>
             <fileset id="brkfiles" dir="${env.ICU4C_DIR}/source/data/brkitr">
                 <include name="brkfiles.mk" />
@@ -512,6 +526,9 @@
             </fileset>
             <fileset id="rbnffiles" dir="${env.ICU4C_DIR}/source/data/rbnf">
                 <include name="rbnffiles.mk" />
+            </fileset>
+            <fileset id="metadata" dir="${env.ICU4C_DIR}/source/data/misc">
+                <include name="metadata.txt" />
             </fileset>
             <fileset id="metaZones" dir="${env.ICU4C_DIR}/source/data/misc">
                 <include name="metaZones.txt" />

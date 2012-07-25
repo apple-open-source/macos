@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -28,6 +28,7 @@
 #define OCSP_USE_SYSLOG	1
 #endif
 #include <security_ocspd/ocspdDebug.h>
+#include "appleCrlIssuers.h"
 #include "ocspdNetwork.h"
 #include <security_ocspd/ocspdUtils.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -183,7 +184,7 @@ static void handle_server_response(
 					break;
 				} else if (bytesRead == 0) {
 					/* Read 0 bytes, we're done */
-					ocspdDebug("http stream: transfer complete, moved %ld bytes\n", 
+					ocspdDebug("http stream: transfer complete, moved %ld bytes\n",
 						http->responseLength);
 					asynchttp_complete(http);
 					break;
@@ -235,6 +236,8 @@ static void handle_server_response(
 /* POST method has Content-Type header line equal to "application/ocsp-request" */
 static CFStringRef kContentType		= CFSTR("Content-Type");
 static CFStringRef kAppOcspRequest	= CFSTR("application/ocsp-request");
+static CFStringRef kUserAgent		= CFSTR("User-Agent");
+static CFStringRef kAppUserAgent	= CFSTR("ocspd/1.0");
 
 #if OCSP_DEBUG
 #define DUMP_BLOBS	1
@@ -269,7 +272,7 @@ static void writeBlob(
 
 /* fetch via HTTP GET */
 CSSM_RETURN ocspdHttpGet(
-	SecAsn1CoderRef		coder, 
+	SecAsn1CoderRef		coder,
 	const CSSM_DATA 	&url,
 	const CSSM_DATA		&ocspReq,	// DER encoded
 	CSSM_DATA			&fetched)	// mallocd in coder space and RETURNED
@@ -292,7 +295,7 @@ CSSM_RETURN ocspdHttpGet(
 	if(url.Data[urlLen - 1] == '\0') {
 		urlLen--;
 	}
-	
+
 	#if OCSP_DEBUG
 	{
 		char *ustr = (char *)malloc(urlLen + 1);
@@ -312,9 +315,9 @@ CSSM_RETURN ocspdHttpGet(
 		result = CSSMERR_TP_INTERNAL_ERROR;
 		goto cleanup;
 	}
-	
+
 	writeBlob(OCSP_GET_FILE, "OCSP Request as URL", req64, req64Len);
-	
+
 	/* trim off trailing NULL and newline */
 	endp = req64 + req64Len - 1;
 	for(;;) {
@@ -333,7 +336,7 @@ CSSM_RETURN ocspdHttpGet(
 			break;
 		}
 	}
-	
+
 	/* concatenate: URL plus path (see RFC 2616 3.2.2, 5.1.2) */
 	if( (req64Len >= INT_MAX) || (urlLen > (INT_MAX - (1 + req64Len))) ) {
 		/* long URL is long; concatenating these components would overflow totalLen */
@@ -345,11 +348,11 @@ CSSM_RETURN ocspdHttpGet(
 	memmove(fullUrl, url.Data, urlLen);
 	fullUrl[urlLen] = '/';
 	memmove(fullUrl + urlLen + 1, req64, req64Len);
-	
+
 	cfUrl = CFURLCreateWithBytes(NULL,
 		fullUrl, totalLen,
 		kCFStringEncodingUTF8,		// right?
-		NULL);						// this is absolute path 
+		NULL);						// this is absolute path
 	if(!cfUrl) {
 		ocspdErrorLog("ocspdHttpGet: CFURLCreateWithBytes returned NULL\n");
 		result = CSSMERR_APPLETP_CRL_BAD_URI;
@@ -357,7 +360,7 @@ CSSM_RETURN ocspdHttpGet(
 	}
 	brtn = CFURLCreateDataAndPropertiesFromResource(NULL,
 		cfUrl,
-		&urlData, 
+		&urlData,
 		NULL,			// no properties
 		NULL,
 		&errorCode);
@@ -394,7 +397,7 @@ cleanup:
 /* fetch via HTTP POST */
 
 CSSM_RETURN ocspdHttpPost(
-	SecAsn1CoderRef		coder, 
+	SecAsn1CoderRef		coder,
 	const CSSM_DATA 	&url,
 	const CSSM_DATA		&ocspReq,	// DER encoded
 	CSSM_DATA			&fetched)	// mallocd in coder space and RETURNED
@@ -421,7 +424,7 @@ CSSM_RETURN ocspdHttpPost(
 	cfUrl = CFURLCreateWithBytes(NULL,
 		url.Data, urlLen,
 		kCFStringEncodingUTF8,		// right?
-		NULL);						// this is absolute path 
+		NULL);						// this is absolute path
 	if(cfUrl) {
 		CFStringRef pathStr = CFURLCopyLastPathComponent(cfUrl);
 		if(pathStr) {
@@ -439,7 +442,7 @@ CSSM_RETURN ocspdHttpPost(
 		result = CSSMERR_APPLETP_CRL_BAD_URI;
 		goto cleanup;
 	}
-	
+
 	#if OCSP_DEBUG
 	{
 		char *ustr = (char *)malloc(urlLen + 1);
@@ -465,21 +468,23 @@ CSSM_RETURN ocspdHttpPost(
 	httpContext->increment = POST_BUFFER_SIZE;
 
 	/* create the http POST request */
-	httpContext->request = CFHTTPMessageCreateRequest(kCFAllocatorDefault, 
+	httpContext->request = CFHTTPMessageCreateRequest(kCFAllocatorDefault,
 		CFSTR("POST"), cfUrl, kCFHTTPVersion1_1);
 	if(!httpContext->request) {
 		ocspdErrorLog("ocspdHttpPost: error creating CFHTTPMessage\n");
 		result = CSSMERR_TP_INTERNAL_ERROR;
 		goto cleanup;
 	}
-    
+
 	/* set the body and required header fields */
 	CFHTTPMessageSetBody(httpContext->request, postData);
 	CFHTTPMessageSetHeaderFieldValue(httpContext->request,
 		kContentType, kAppOcspRequest);
+	CFHTTPMessageSetHeaderFieldValue(httpContext->request,
+		kUserAgent, kAppUserAgent);
 
 	/* create the stream */
-	httpContext->stream = CFReadStreamCreateForHTTPRequest(kCFAllocatorDefault, 
+	httpContext->stream = CFReadStreamCreateForHTTPRequest(kCFAllocatorDefault,
 		httpContext->request);
 	if(!httpContext->stream) {
 		ocspdErrorLog("ocspdHttpPost: error creating CFReadStream\n");
@@ -501,7 +506,7 @@ CSSM_RETURN ocspdHttpPost(
 		CFReadStreamSetProperty(httpContext->stream, kCFStreamPropertyHTTPProxy, proxyDict);
         CFReleaseNull(proxyDict);
 	}
-	
+
 	/* set a reasonable timeout */
     timerContext.info = httpContext;
     httpContext->timer = CFRunLoopTimerCreate(kCFAllocatorDefault,
@@ -556,7 +561,7 @@ cleanup:
 	CFReleaseSafe(postData);
 	CFReleaseSafe(cfUrl);
 	asynchttp_free(httpContext);
-	
+
 	return result;
 }
 
@@ -590,7 +595,7 @@ static CSSM_RETURN ldapRtnToCssm(
 }
 
 static CSSM_RETURN ldapFetch(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	const CSSM_DATA 	&url,
 	LF_Type				lfType,
 	CSSM_DATA			&fetched)	// mallocd in alloc space and RETURNED
@@ -608,7 +613,7 @@ static CSSM_RETURN ldapFetch(
 	/* attr input to ldap_search_s() */
 	char			*attrArray[2];
 	char			**attrArrayP = NULL;
-	
+
 	/* don't assume URL string is NULL terminated */
 	if(url.Data[url.Length - 1] == '\0') {
 		urlStr = (char *)url.Data;
@@ -619,14 +624,14 @@ static CSSM_RETURN ldapFetch(
 		urlStr[url.Length] = '\0';
 		mallocdString = true;
 	}
-	
+
 	/* break up the URL into something usable */
 	rtn = ldap_url_parse(urlStr, &urlDesc);
 	if(rtn) {
 		ocspdErrorLog("ldap_url_parse returned %d", rtn);
 		return CSSMERR_APPLETP_CRL_BAD_URI;
 	}
-	
+
 	/*
 	 * Determine what attr we're looking for.
 	 */
@@ -635,7 +640,7 @@ static CSSM_RETURN ldapFetch(
 	   (urlDesc->lud_attrs[1] == NULL))	{
 		/*
 		 * Exactly one attr present in the caller-specified URL;
-		 * assume that this is exactly what we want. 
+		 * assume that this is exactly what we want.
 		 */
 		attrArrayP = &urlDesc->lud_attrs[0];
 	}
@@ -656,7 +661,7 @@ static CSSM_RETURN ldapFetch(
 		attrArray[1] = NULL;
 		attrArrayP = &attrArray[0];
 	}
-	
+
 	/* establish connection */
 	rtn = ldap_initialize(&ldap, urlStr);
 	if(rtn) {
@@ -670,20 +675,20 @@ static CSSM_RETURN ldapFetch(
 		ourRtn = ldapRtnToCssm(rtn);
 		goto cleanup;
 	}
-	
+
 	rtn = ldap_set_option(ldap, LDAP_OPT_REFERRALS, LDAP_REFERRAL_DEFAULT);
 	if(rtn) {
 		ocspdErrorLog("ldap_set_option(referrals) returned %d\n", rtn);
 		ourRtn = ldapRtnToCssm(rtn);
 		goto cleanup;
 	}
-	
+
 	rtn = ldap_search_s(
-		ldap, 
-		urlDesc->lud_dn, 
+		ldap,
+		urlDesc->lud_dn,
 		LDAP_SCOPE_SUBTREE,
-		urlDesc->lud_filter, 
-		urlDesc->lud_attrs, 
+		urlDesc->lud_filter,
+		urlDesc->lud_attrs,
 		0, 			// attrsonly
 		&msg);
 	if(rtn) {
@@ -692,7 +697,7 @@ static CSSM_RETURN ldapFetch(
 		goto cleanup;
 	}
 
-	/* 
+	/*
 	 * We require exactly one entry (for now).
 	 */
 	numEntries = ldap_count_entries(ldap, msg);
@@ -701,7 +706,7 @@ static CSSM_RETURN ldapFetch(
 		ourRtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 		goto cleanup;
 	}
-	
+
 	entry = ldap_first_entry(ldap, msg);
 	value = ldap_get_values_len(ldap, msg, attrArrayP[0]);
 	if(value == NULL) {
@@ -709,7 +714,7 @@ static CSSM_RETURN ldapFetch(
 		ourRtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 		goto cleanup;
 	}
-	
+
 	fetched.Length = value[0]->bv_len;
 	fetched.Data = (uint8 *)alloc.malloc(fetched.Length);
 	memmove(fetched.Data, value[0]->bv_val, fetched.Length);
@@ -736,7 +741,7 @@ cleanup:
 
 /* fetch via HTTP */
 static CSSM_RETURN httpFetch(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	const CSSM_DATA 	&url,
 	LF_Type				lfType,
 	CSSM_DATA			&fetched)	// mallocd in alloc space and RETURNED
@@ -762,7 +767,7 @@ static CSSM_RETURN httpFetch(
 	cfUrl = CFURLCreateWithBytes(NULL,
 		theUrl.Data, theUrl.Length,
 		kCFStringEncodingUTF8,		// right?
-		NULL);						// this is absolute path 
+		NULL);						// this is absolute path
 	if(cfUrl) {
 		CFStringRef pathStr = CFURLCopyLastPathComponent(cfUrl);
 		if(pathStr) {
@@ -803,16 +808,18 @@ static CSSM_RETURN httpFetch(
 	httpContext->increment = READ_BUFFER_SIZE;
 
 	/* create the http GET request */
-	httpContext->request = CFHTTPMessageCreateRequest(NULL, 
+	httpContext->request = CFHTTPMessageCreateRequest(NULL,
 		CFSTR("GET"), cfUrl, kCFHTTPVersion1_1);
 	if(!httpContext->request) {
 		ocspdErrorLog("httpFetch: error creating CFHTTPMessage\n");
 		result = CSSMERR_TP_INTERNAL_ERROR;
 		goto cleanup;
 	}
-	
+	CFHTTPMessageSetHeaderFieldValue(httpContext->request,
+		kUserAgent, kAppUserAgent);
+
 	/* create the stream */
-	httpContext->stream = CFReadStreamCreateForHTTPRequest(NULL, 
+	httpContext->stream = CFReadStreamCreateForHTTPRequest(NULL,
 		httpContext->request);
 	if(!httpContext->stream) {
 		ocspdErrorLog("httpFetch: error creating CFReadStream\n");
@@ -883,7 +890,7 @@ static CSSM_RETURN httpFetch(
 		(unsigned long)httpContext->responseLength, stopTime-startTime);
 	if(httpContext->data) {
 		CFIndex len = CFDataGetLength(httpContext->data);
-		fetched.Data = (uint8 *)alloc.malloc(len);	
+		fetched.Data = (uint8 *)alloc.malloc(len);
 		fetched.Length = len;
 		memmove(fetched.Data, CFDataGetBytePtr(httpContext->data), len);
 	} else {
@@ -898,7 +905,7 @@ cleanup:
 
 /* Fetch cert or CRL from net, we figure out the schema */
 CSSM_RETURN ocspdNetFetch(
-	Allocator			&alloc, 
+	Allocator			&alloc,
 	const CSSM_DATA 	&url,
 	LF_Type				lfType,
 	CSSM_DATA			&fetched)	// mallocd in alloc space and RETURNED
@@ -920,7 +927,7 @@ CSSM_RETURN ocspdNetFetch(
 		return ldapFetch(alloc, url, lfType, fetched);
 	}
 	if(!strncmp((char *)url.Data, "http:", 5) ||
-	   !strncmp((char *)url.Data, "https:", 6)) {	
+	   !strncmp((char *)url.Data, "https:", 6)) {
 		return httpFetch(alloc, url, lfType, fetched);
 	}
 	return CSSMERR_APPLETP_CRL_BAD_URI;
@@ -985,6 +992,7 @@ void ocspdNetFetchAsync(
 	CFAbsoluteTime fetchTime, verifyTime;
 	CFAbsoluteTime startTime = CFAbsoluteTimeGetCurrent();
 	Boolean downloadInProgress = false;
+	Boolean wroteFile = false;
 	Boolean isCRL = false;
 
 	if(params) {
@@ -1034,16 +1042,17 @@ void ocspdNetFetchAsync(
 			StLock<Mutex> _(gParamsLock);
 			params->result = crtn;
 		}
-		/* write data to file */
+		/* potentially write data to file */
 		crtn = ocspdFinishNetFetch(params);
 		{
 			StLock<Mutex> _(gParamsLock);
 			params->result = crtn;
+			wroteFile = (!params->fetched.Data && params->fetched.Length > CRL_MAX_DATA_LENGTH);
 		}
 		fetchTime = CFAbsoluteTimeGetCurrent() - startTime;
 		ocspdCrlDebug("%f seconds to download file", fetchTime);
 
-		if(isCRL) {
+		if(isCRL && wroteFile) {
 			/* write issuers to .pem file */
 			StLock<Mutex> _(gListLock); /* lock before examining list */
 			CFDataRef issuersData = NULL;
@@ -1053,6 +1062,17 @@ void ocspdNetFetchAsync(
 			} else {
 				ocspdCrlDebug("No issuers available for %s",
 					params->crlNames.pemFile);
+				gIssuersDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+					&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			}
+			if(!issuersData) {
+				/* add the Apple issuers if we have nothing else */
+				issuersData = CFDataCreate(kCFAllocatorDefault,
+					(const UInt8 *)Apple_CRL_Issuers, (CFIndex)Apple_CRL_Issuers_Length);
+				if(issuersData) {
+					CFDictionarySetValue(gIssuersDict, pemNameStr, issuersData);
+					CFRelease(issuersData);
+				}
 			}
 			if(issuersData) {
 				StLock<Mutex> _(gFileWriteLock); /* obtain lock before writing */
@@ -1071,8 +1091,8 @@ void ocspdNetFetchAsync(
 			}
 		}
 
-		if(isCRL) {
-			/* validate CRL signature (creates .update and .revoked files) */
+		if(isCRL && wroteFile) {
+			/* validate .crl signature (creates .update and .revoked files) */
 			crlSignatureValid(params->crlNames.crlFile,
 				params->crlNames.pemFile,
 				params->crlNames.updateFile,
@@ -1125,6 +1145,9 @@ void ocspdNetFetchAsync(
 
 	if(fileNameStr) {
 		CFRelease(fileNameStr);
+	}
+	if(pemNameStr) {
+		CFRelease(pemNameStr);
 	}
 }
 

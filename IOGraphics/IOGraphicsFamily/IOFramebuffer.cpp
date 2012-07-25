@@ -98,7 +98,10 @@ enum { kIOFBMapCacheMode = kIOMapInhibitCache };
 #endif
 
 enum {
-    kIOFBClamshellProbeDelayMS = 5*1000
+    kIOFBClamshellProbeDelayMS = 1*1000
+};
+enum {
+    kIOFBClamshellEnableDelayMS = 5*1000
 };
 
 enum
@@ -116,8 +119,9 @@ enum
     kIOFBEventDisplayDimsSetting = 0x00000002,
 	kIOFBEventReadClamshell	 	 = 0x00000004,
     kIOFBEventResetClamshell	 = 0x00000008,
-    kIOFBEventProbeAll			 = 0x00000010,
-    kIOFBEventDisplaysPowerState = 0x00000020
+    kIOFBEventEnableClamshell    = 0x00000010,
+    kIOFBEventProbeAll			 = 0x00000020,
+    kIOFBEventDisplaysPowerState = 0x00000040
 };
 
 enum
@@ -172,7 +176,7 @@ static SInt32               gIOFBBacklightDisplayCount;
 static IOOptionBits         gIOFBClamshellState;
 static IOFramebuffer *      gIOFBConsoleFramebuffer;
 static bool                 gIOFBDesktopModeAllowed = true;
-static IOOptionBits         gIOFBCurrentClamshellState;
+IOOptionBits                gIOFBCurrentClamshellState;
 static IOOptionBits         gIOFBLastClamshellState;
 int32_t                     gIOFBHaveBacklight = -1;
 static IOOptionBits         gIOFBLastReadClamshellState;
@@ -190,6 +194,7 @@ static OSDictionary *       gIOFBPrefsParameters;
 static OSDictionary *       gIOFBIgnoreParameters;
 static OSSerializer *       gIOFBPrefsSerializer;
 static IOService *          gIOGraphicsControl;
+static OSObject *           gIOResourcesAppleClamshellState;
 static AbsoluteTime         gIOFBNextProbeAllTime;
 static AbsoluteTime         gIOFBMaxVBLDelta;
 OSData *                    gIOFBZero32Data;
@@ -4131,11 +4136,8 @@ IOReturn IOFramebuffer::postWake(void)
 	__private->controller->postWakeChange = __private->controller->connectChange;
 //	gIOFBLastReadClamshellState = gIOFBCurrentClamshellState;
 
-	if (sleepConnectCheck)
-	{
-		resetClamshell();
-		sleepConnectCheck = false;
-	}
+	resetClamshell();
+	sleepConnectCheck = false;
 
     return (ret);
 }
@@ -4394,7 +4396,7 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		OSObject * clamshellProperty;
 
 		OSBitAndAtomic(~kIOFBEventReadClamshell, &gIOFBGlobalEvents);
-		clamshellProperty = getPMRootDomain()->getProperty(kAppleClamshellStateKey);
+		clamshellProperty = gIOResourcesAppleClamshellState;
 		if (clamshellProperty)
 		{
 			gIOFBCurrentClamshellState = (kOSBooleanTrue == clamshellProperty);
@@ -4409,19 +4411,22 @@ void IOFramebuffer::systemWork(OSObject * owner,
 				FBUNLOCK(fb);
 			}
 
+			bool desktopMode;
+			if (gIOFBLidOpenMode)
+				desktopMode = gIOFBDesktopModeAllowed && (gIOFBDisplayCount > 0);
+			else
+				desktopMode = gIOFBDesktopModeAllowed && (gIOFBBacklightDisplayCount <= 0);
+
+			if (desktopMode)
 			{
-				enum { bits = kIOPMSetDesktopMode | kIOPMSetValue };
-				if (bits == (bits & gIOFBClamshellState))
+				// lid change, desktop mode
+				if (gIOFBLidOpenMode)
 				{
-					// lid change, desktop mode
-					if (gIOFBLidOpenMode)
-					{
-						DEBG1("S", " desktop will reprobe\n");
-						resetClamshell();
-					}
-					else
-						gIOFBLastClamshellState = gIOFBCurrentClamshellState;
+					DEBG1("S", " desktop will reprobe\n");
+					resetClamshell();
 				}
+				else
+					gIOFBLastClamshellState = gIOFBCurrentClamshellState;
 			}
 		}
 	}
@@ -4430,9 +4435,6 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		&& !(kIOFBWsWait & allState)
 		&& !(kIOFBDisplaysChanging & allState)) 
 	{
-		UInt32      change;
-		bool        desktopMode;
-		
 		OSBitAndAtomic(~kIOFBEventResetClamshell, &gIOFBGlobalEvents);
 
 		if ((gIOFBLidOpenMode && (gIOFBCurrentClamshellState != gIOFBLastReadClamshellState))
@@ -4442,21 +4444,37 @@ void IOFramebuffer::systemWork(OSObject * owner,
 		{
 			DEBG1("S", " clamshell caused reprobe\n");
 			events |= kIOFBEventProbeAll;
+			OSBitOrAtomic(kIOFBEventProbeAll, &gIOFBGlobalEvents);
 		}
 		else
 		{
-			if (gIOFBLidOpenMode)
-				desktopMode = gIOFBDesktopModeAllowed && (gIOFBDisplayCount > 0);
-			else
-				desktopMode = gIOFBDesktopModeAllowed && (gIOFBBacklightDisplayCount <= 0);
+			AbsoluteTime deadline;
+			clock_interval_to_deadline(kIOFBClamshellEnableDelayMS, kMillisecondScale, &deadline );
+			thread_call_enter1_delayed(gIOFBClamshellCallout,
+										(thread_call_param_t) kIOFBEventEnableClamshell, deadline );
+		}
+	}
 
-			change = kIOPMEnableClamshell | kIOPMSetDesktopMode | (desktopMode ? kIOPMSetValue : 0);
-			if (change != gIOFBClamshellState)
-			{
-				gIOFBClamshellState = change;
-				DEBG1("S", " clamshell ena desktopMode %d\n", desktopMode);
-				getPMRootDomain()->receivePowerNotification(change);
-			}
+	if ((kIOFBEventEnableClamshell & events) && gIOFBSystemPower 
+		&& !(kIOFBWsWait & allState)
+		&& !(kIOFBDisplaysChanging & allState)) 
+	{
+		UInt32      change;
+		bool        desktopMode;
+
+		OSBitAndAtomic(~kIOFBEventEnableClamshell, &gIOFBGlobalEvents);
+
+		if (gIOFBLidOpenMode)
+			desktopMode = gIOFBDesktopModeAllowed && (gIOFBDisplayCount > 0);
+		else
+			desktopMode = gIOFBDesktopModeAllowed && (gIOFBBacklightDisplayCount <= 0);
+
+		change = kIOPMEnableClamshell | kIOPMSetDesktopMode | (desktopMode ? kIOPMSetValue : 0);
+		if (change != gIOFBClamshellState)
+		{
+			gIOFBClamshellState = change;
+			DEBG1("S", " clamshell ena desktopMode %d\n", desktopMode);
+			getPMRootDomain()->receivePowerNotification(change);
 		}
 	}
 
@@ -5428,7 +5446,6 @@ void IOFramebuffer::delayedEvent(thread_call_param_t p0, thread_call_param_t p1)
 void IOFramebuffer::resetClamshell(void)
 {
 	AbsoluteTime deadline;
-
 	clock_interval_to_deadline(kIOFBClamshellProbeDelayMS, kMillisecondScale, &deadline );
 	thread_call_enter1_delayed(gIOFBClamshellCallout,
 								(thread_call_param_t) kIOFBEventResetClamshell, deadline );
@@ -5452,7 +5469,8 @@ void IOFramebuffer::displayOnline(IODisplay * display, SInt32 delta, uint32_t op
 		__private->displayOptions = 0;
 		if (kIODisplayOptionBacklight & options)
 		{
-			OSBitAndAtomic(~kIOFBEventResetClamshell, &gIOFBGlobalEvents);
+			OSBitAndAtomic(~(kIOFBEventResetClamshell | kIOFBEventEnableClamshell),
+							&gIOFBGlobalEvents);
 			gIOFBClamshellState = kIOPMDisableClamshell;
 			getPMRootDomain()->receivePowerNotification(kIOPMDisableClamshell);
 			DEBG1("S", " clamshell disable\n");
@@ -5608,6 +5626,12 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 					params->maxWaitForReply = gIOGNotifyTO * 1000 * 1000;
 				}
 			}
+			else if ((params->changeFlags & kIOPMSystemCapabilityWillChange) &&
+				((params->fromCapabilities & kIOPMSystemCapabilityGraphics) == 0) &&
+				(params->toCapabilities & kIOPMSystemCapabilityGraphics))
+			{
+				muxPowerMessage(kIOMessageSystemWillPowerOn);
+			}
 			else if ((params->changeFlags & kIOPMSystemCapabilityDidChange) &&
 				((params->fromCapabilities & kIOPMSystemCapabilityGraphics) == 0) &&
 				(params->toCapabilities & kIOPMSystemCapabilityGraphics))
@@ -5672,7 +5696,8 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
 			SYSLOCK();
 		
 			readClamshellState();
-			OSBitAndAtomic(~kIOFBEventResetClamshell, &gIOFBGlobalEvents);
+			OSBitAndAtomic(~(kIOFBEventResetClamshell | kIOFBEventEnableClamshell),
+							&gIOFBGlobalEvents);
 			gIOFBSystemPower       = true;
 			gIOGraphicsSystemPower = true;
 		
@@ -7374,10 +7399,10 @@ IOReturn IOFramebuffer::extSetMirrorOne(uint32_t value, IOFramebuffer * other)
 		do
 		{
 			IOFramebuffer * prev;
-			next->suspend(false);
 			prev = next;
 			next = next->__private->nextMirror;
 			prev->__private->nextMirror = 0;
+			prev->suspend(false);
 		}
 		while (next && (next != this));
 
@@ -7901,6 +7926,7 @@ IOGetHardwareClamshellState( IOOptionBits * result )
 bool IOFramebuffer::clamshellHandler(void * target, void * ref,
                                        IOService * resourceService, IONotifier * notifier)
 {
+    gIOResourcesAppleClamshellState = resourceService->getProperty(kAppleClamshellStateKey);
     resourceService->removeProperty(kAppleClamshellStateKey);
 	OSBitOrAtomic(kIOFBEventReadClamshell, &gIOFBGlobalEvents);
 	startThread(false);

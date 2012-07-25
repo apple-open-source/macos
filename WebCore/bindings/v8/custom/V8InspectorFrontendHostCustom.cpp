@@ -29,8 +29,10 @@
  */
 
 #include "config.h"
+#if ENABLE(INSPECTOR)
 #include "V8InspectorFrontendHost.h"
 
+#include "HistogramSupport.h"
 #include "InspectorController.h"
 #include "InspectorFrontendClient.h"
 #include "InspectorFrontendHost.h"
@@ -83,7 +85,7 @@ v8::Handle<v8::Value> V8InspectorFrontendHost::showContextMenuCallback(const v8:
     Vector<ContextMenuItem*> items;
 
     for (size_t i = 0; i < array->Length(); ++i) {
-        v8::Local<v8::Object> item = v8::Local<v8::Object>::Cast(array->Get(v8::Integer::New(i)));
+        v8::Local<v8::Object> item = v8::Local<v8::Object>::Cast(array->Get(i));
         v8::Local<v8::Value> type = item->Get(v8::String::New("type"));
         v8::Local<v8::Value> id = item->Get(v8::String::New("id"));
         v8::Local<v8::Value> label = item->Get(v8::String::New("label"));
@@ -113,4 +115,47 @@ v8::Handle<v8::Value> V8InspectorFrontendHost::showContextMenuCallback(const v8:
     return v8::Undefined();
 }
 
+#if !PLATFORM(QT)
+static v8::Handle<v8::Value> histogramEnumeration(const char* name, const v8::Arguments& args, int boundaryValue)
+{
+    if (args.Length() < 1 || !args[0]->IsInt32())
+        return v8::Undefined();
+
+    int sample = args[0]->ToInt32()->Value();
+    if (sample < boundaryValue)
+        HistogramSupport::histogramEnumeration(name, sample, boundaryValue);
+
+    return v8::Undefined();
+}
+#endif
+
+v8::Handle<v8::Value> V8InspectorFrontendHost::recordActionTakenCallback(const v8::Arguments& args)
+{
+#if !PLATFORM(QT)
+    return histogramEnumeration("DevTools.ActionTaken", args, 100);
+#else
+    return v8::Undefined();
+#endif
+}
+
+v8::Handle<v8::Value> V8InspectorFrontendHost::recordPanelShownCallback(const v8::Arguments& args)
+{
+#if !PLATFORM(QT)
+    return histogramEnumeration("DevTools.PanelShown", args, 20);
+#else
+    return v8::Undefined();
+#endif
+}
+
+v8::Handle<v8::Value> V8InspectorFrontendHost::recordSettingChangedCallback(const v8::Arguments& args)
+{
+#if !PLATFORM(QT)
+    return histogramEnumeration("DevTools.SettingChanged", args, 100);
+#else
+    return v8::Undefined();
+#endif
+}
+
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

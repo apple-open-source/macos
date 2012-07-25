@@ -52,9 +52,16 @@ struct __xar_signature_t {
 	xar_signer_callback signer_callback;		/* callback for signing */
 	void	*callback_context;					/* context for callback */
 	xar_t x;
+#ifdef __APPLE__
+    int is_extended;
+#endif
 };
 
 #define XAR_SIGNATURE(x) ((struct __xar_signature_t *)(x))
+
+#ifdef __APPLE__
+xar_signature_t xar_signature_new_internal(xar_t x, int is_extended, const char *type, int32_t length, xar_signer_callback callback, void *callback_context);
+#endif
 
 int32_t xar_signature_serialize(xar_signature_t sig, xmlTextWriterPtr writer);
 xar_signature_t xar_signature_unserialize(xar_t x, xmlTextReaderPtr reader);

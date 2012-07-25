@@ -21,21 +21,38 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "CSSSelectorList.h"
 
 #include "CSSParserValues.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-CSSSelectorList::~CSSSelectorList() 
+CSSSelectorList::~CSSSelectorList()
 {
     deleteSelectors();
 }
-    
+
+CSSSelectorList::CSSSelectorList(const CSSSelectorList& o)
+{
+    CSSSelector* current = o.m_selectorArray;
+    while (!current->isLastInSelectorList())
+        ++current;
+    unsigned length = (current - o.m_selectorArray) + 1;
+    if (length == 1) {
+        // Destructor expects a single selector to be allocated by new, multiple with fastMalloc.
+        m_selectorArray = new CSSSelector(o.m_selectorArray[0]);
+        return;
+    }
+    m_selectorArray = reinterpret_cast<CSSSelector*>(fastMalloc(sizeof(CSSSelector) * length));
+    for (unsigned i = 0; i < length; ++i)
+        new (&m_selectorArray[i]) CSSSelector(o.m_selectorArray[i]);
+}
+
 void CSSSelectorList::adopt(CSSSelectorList& list)
 {
     deleteSelectors();
@@ -48,7 +65,7 @@ void CSSSelectorList::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& se
     deleteSelectors();
     const size_t vectorSize = selectorVector.size();
     size_t flattenedSize = 0;
-    for (size_t i = 0; i < vectorSize; ++i) {        
+    for (size_t i = 0; i < vectorSize; ++i) {
         for (CSSParserSelector* selector = selectorVector[i].get(); selector; selector = selector->tagHistory())
             ++flattenedSize;
     }
@@ -105,6 +122,18 @@ void CSSSelectorList::deleteSelectors()
     }
 }
 
+String CSSSelectorList::selectorsText() const
+{
+    StringBuilder result;
+
+    for (CSSSelector* s = first(); s; s = next(s)) {
+        if (s != first())
+            result.append(", ");
+        result.append(s->selectorText());
+    }
+
+    return result.toString();
+}
 
 template <typename Functor>
 static bool forEachTagSelector(Functor& functor, CSSSelector* selector)
@@ -142,7 +171,7 @@ public:
     {
         if (selector->hasTag() && selector->tag().prefix() != nullAtom && selector->tag().prefix() != starAtom)
             return true;
-        if (selector->hasAttribute() && selector->attribute().prefix() != nullAtom && selector->attribute().prefix() != starAtom)
+        if (selector->isAttributeSelector() && selector->attribute().prefix() != nullAtom && selector->attribute().prefix() != starAtom)
             return true;
         return false;
     }

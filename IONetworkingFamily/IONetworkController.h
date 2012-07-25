@@ -217,18 +217,16 @@ enum {
 */
 
 enum {
-    kIONetworkFeatureNoBSDWait    = 0x01,
-	kIONetworkFeatureHardwareVlan = 0x02,
-	kIONetworkFeatureSoftwareVlan = 0x04,
-	kIONetworkFeatureMultiPages   = 0x08,
-	kIONetworkFeatureTSOIPv4      = 0x10,
-	kIONetworkFeatureTSOIPv6      = 0x20
+    kIONetworkFeatureNoBSDWait              = 0x01,
+	kIONetworkFeatureHardwareVlan           = 0x02,
+	kIONetworkFeatureSoftwareVlan           = 0x04,
+	kIONetworkFeatureMultiPages             = 0x08,
+	kIONetworkFeatureTSOIPv4                = 0x10,
+	kIONetworkFeatureTSOIPv6                = 0x20
 };
 
-/*
- * Kernel
- */
-#if defined(KERNEL) && defined(__cplusplus)
+#ifdef KERNEL
+#ifdef __cplusplus
 
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
@@ -890,7 +888,7 @@ public:
 
     virtual UInt32 releaseFreePackets();
 
-/*! @enum TCP/IPChecksums
+/*! @enum TCP/IP Checksums
     @abstract TCP/IP checksums that may be supported by the
     hardware.
     @constant kChecksumFamilyTCPIP A value that describes the collection
@@ -1244,25 +1242,32 @@ protected:
     virtual IOReturn disable(IONetworkInterface * interface);
 
 /*! @function attachInterface
-    @abstract Attaches a new interface client object.
-    @discussion This method creates a new interface object and attaches it to the
-    controller. The createInterface() method is called to perform
-    the interface allocation and initialization, followed by a call to 
-    configureInterface() to configure it. Subclasses can override those
-    two methods to customize the interface client attached. Drivers will
-    usually call this method from start(), after they are ready to process
-    client requests. Since most drivers will have a single interface
-    client, this method will likely be called only once.
-    @param interface Upon success (return value is true), the
-    interface object will be written to the handle provided.
-    @param doRegister If true, then registerService() is called to register
-    the interface, which will trigger the matching process, and will ultimately
-    cause the interface to become registered with the data link layer.
-    Drivers that wish to delay the registration can set doRegister to false,
-    and call registerService() on the interface object when the controller
-    becomes ready. This allows the driver to attach an interface without
-    making its services available to the rest of the system.
-    @result Returns true on success, false otherwise. 
+    @abstract Attaches a new network interface client object.
+    @discussion This method creates a new network interface object and attaches
+    it as a client of the controller. The <code>createInterface()</code> method
+    is used to allocate and to initialize the interface, followed by a call to
+    <code>configureInterface()</code> to configure the interface. Subclasses
+    may override those two methods to customize the new interface object.
+    Before this method returns, <code>registerService()</code> is called on the
+    interface to start matching, which will ultimately attach the interface
+    to the networking stack.
+    Drivers will typically call this method from their <code>start()</code>
+    method after they are ready to process interface requests. This has the
+    desirable effect of preventing the <code>busyState</code> at the IOService
+    root from becoming zero before the interface object has completed matching,
+    which then holds off the user process that is waiting for I/O Kit to become
+    quiet before assigning BSD names to all interfaces. Drivers that are unable
+    to trigger interface matching synchronously from their <code>start()</code>
+    method should instead call <code>adjustBusy</code> to manually increment
+    the <code>busyState</code>, then followed by a <code>busyState</code> 
+    decrement after attaching and registering the interface, or after a
+    reasonable timeout.
+    @param interface Upon success (return value is <code>true</code>), the
+    pointer to the interface object will be written to the argument provided.
+    @param doRegister If true, start interface matching before returning.
+    Drivers can pass <code>false</code> to postpone interface matching, then
+    register the interface when ready.
+    @result Returns <code>true</code> on success, <code>false</code> otherwise. 
 */
 
     virtual bool attachInterface(IONetworkInterface ** interface,
@@ -1481,9 +1486,108 @@ protected:
     OSMetaClassDeclareReservedUsed( IONetworkController,  0); // getDebuggerLinkStatus
     OSMetaClassDeclareReservedUsed( IONetworkController,  1); // setDebuggerMode
 
+#ifdef __PRIVATE_SPI__
+public:
+
+/*! @function getMbufServiceClass
+    @discussion Get the service class of an mbuf packet.
+    @param mbuf The mbuf to get the service class of.
+    @result The service class
+*/
+    static IOMbufServiceClass getMbufServiceClass( mbuf_t mbuf );
+
+/*! @function outputStart
+	@abstract An indication to the driver to dequeue and transmit packets
+    waiting in the interface output queue.
+	@discussion A driver that supports the pull output model must override this
+    method, which will be called by a per-interface output thread when a packet
+    is added to the interface output queue. In response, driver must verify that
+    free transmit resources are available, then dequeue one or more packets by
+    calling <code>IONetworkInterface::dequeueOutputPackets()</code>. Packets
+    removed from the queue are owned by the driver, and should be immediately
+    prepared for transmission. Additional software queueing at the driver layer
+    to store the dequeued packets for delayed transmission is highly discouraged
+    unless absolutely necessary. If transmit resources are exhausted, the driver
+    should quickly return <code>kIOReturnNoResources</code> to force the output
+    thread to retry later, otherwise the output thread will continue to call
+    this method until the output queue is empty. When driver creates a single
+    network interface, this method will execute in a single threaded context.
+    However, it is the driver's responsibility to protect transmit resources
+    that are shared with other driver threads. To simplify drivers that wish to
+    process output packets on their work loop context, the family provides an
+    option to force the output thread to always call this method through a
+    <code>runAction()</code>. However this can have negative performance
+    implications due to extra locking and serializing the output thread against
+    other work loop events. Another option that drivers can deploy to
+    synchronize against the output thread is to issue a thread stop before
+    touching any shared resources. But this should be used sparingly on the
+    data path since stopping the output thread can block.
+    @param interface The network interface with packet(s) to transmit.
+    @param options Always zero.
+    @result <code>kIOReturnSuccess</code> on success, output thread will
+    continue calling the driver until the output queue is empty.
+    <code>kIOReturnNoResources</code> when there is a temporary driver resource
+    shortage.
+*/
+    virtual IOReturn outputStart(
+                        IONetworkInterface *    interface,
+                        IOOptionBits            options );
+
+    OSMetaClassDeclareReservedUsed( IONetworkController,  2);
+
+/*! @function setInputPacketPollingEnable
+    @abstract Informs the driver when input polling is enabled or disabled.
+    @discussion A driver that supports input polling should override this
+    method to handle the transition from the default push-model, where a
+    hardware interrupt causes the driver to push input packets to the network
+    stack, to the pull-model where a poller thread will periodically poll the
+    driver for input packets. When polling is enabled, receive interrupt should
+    be masked OFF. This method is always called on driver's work loop context.
+    @param interface The interface that has enabled or disabled input polling.
+    @param enabled <code>true</code> if input polling is enabled,
+    <code>false</code> if input polling is disabled.
+    @result Driver should return <code>kIOReturnSuccess</code> the transition
+    to/from polled-mode was successful, or an error code otherwise.
+*/
+    virtual IOReturn setInputPacketPollingEnable(
+                        IONetworkInterface *    interface,
+                        bool                    enabled );
+
+    OSMetaClassDeclareReservedUsed( IONetworkController,  3);
+
+/*! @function pollInputPackets
+    @abstract Called by the interface poller thread to retrieve input packets
+    from the driver.
+    @discussion A driver that supports input polling must override this method
+    and pass any input packets to the network interface. For each input packet,
+    driver must call <code>IONetworkInterface::enqueueInputPacket</code> and
+    pass the <code>pollQueue</code> argument to add the packet to the polling
+    queue. This should continue until the maximum packet count is reached, or
+    the driver runs out of input packets. The poller can be configured to call
+    this method on the driver's work loop context.     
+    @param interface The interface that is polling packets from the driver.
+    @param maxCount The maximum number of packets that the poller can accept.
+    @param pollQueue The polling queue that should be passed to
+    <code>IONetworkInterface::enqueueInputPacket</code>. Do not cache or use
+    this pointer after the method returns. 
+    @param context The family will always pass zero. This can be used by the
+    driver for calls originating from the driver. E.g. A driver may choose to
+    unify polled-mode and interrupt-mode input packet handling and call this
+    method from its receive interrupt handler and pass a non-zero context to
+    distinguish the calling context.
+*/
+    virtual void     pollInputPackets(
+                        IONetworkInterface *    interface,
+                        uint32_t                maxCount,
+                        IOMbufQueue *           pollQueue,
+                        void *                  context );
+
+    OSMetaClassDeclareReservedUsed( IONetworkController,  4);
+#else   /* !__PRIVATE_SPI__ */
     OSMetaClassDeclareReservedUnused( IONetworkController,  2);
     OSMetaClassDeclareReservedUnused( IONetworkController,  3);
     OSMetaClassDeclareReservedUnused( IONetworkController,  4);
+#endif  /* !__PRIVATE_SPI__ */
     OSMetaClassDeclareReservedUnused( IONetworkController,  5);
     OSMetaClassDeclareReservedUnused( IONetworkController,  6);
     OSMetaClassDeclareReservedUnused( IONetworkController,  7);
@@ -1513,7 +1617,6 @@ protected:
     OSMetaClassDeclareReservedUnused( IONetworkController, 31);
 };
 
-#endif /* defined(KERNEL) && defined(__cplusplus) */
-
+#endif /* __cplusplus */
+#endif /* KERNEL */
 #endif /* !_IONETWORKCONTROLLER_H */
-

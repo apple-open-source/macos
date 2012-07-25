@@ -42,7 +42,6 @@
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.Fd "#define _WITH_DPRINTF"
 .In stdio.h
 .Ft int
 .Fn printf "const char * restrict format" ...
@@ -98,13 +97,19 @@ write output to the given file descriptor;
 and
 .Fn vsnprintf
 write to the character string
-.Fa str ;
+.Fa s ;
 and
 .Fn asprintf
 and
 .Fn vasprintf
 dynamically allocate a new string with
 .Xr malloc 3 .
+.Pp
+Extended locale versions of these functions are documented in
+.Xr printf_l 3 .
+See
+.Xr xlocale 3
+for more information.
 .Pp
 These functions write the output under the control of a
 .Fa format
@@ -122,7 +127,7 @@ except for
 and
 .Fn vsnprintf ,
 which return the number of characters that would have been printed if the
-.Fa size
+.Fa n
 were unlimited
 (again, not including the final
 .Ql \e0 ) .
@@ -154,14 +159,14 @@ and
 .Fn vsnprintf
 functions
 will write at most
-.Fa size Ns \-1
+.Fa n Ns \-1
 of the characters printed into the output string
 (the
-.Fa size Ns 'th
+.Fa n Ns \'th
 character then gets the terminating
 .Ql \e0 ) ;
 if the return value is greater than or equal to the
-.Fa size
+.Fa n
 argument, the string was too short
 and some of the printed characters were discarded.
 The output is always null-terminated.
@@ -172,7 +177,11 @@ and
 .Fn vsprintf
 functions
 effectively assume an infinite
-.Fa size .
+.Fa n .
+.Pp
+For those routines that write to a user-provided character string,
+that string and the format strings should not overlap, as the
+behavior is undefined.
 .Pp
 The format string is composed of zero or more directives:
 ordinary
@@ -291,6 +300,20 @@ the non-monetary separator returned by
 .Xr localeconv 3 .
 .El
 .It
+An optional separator character (
+.Cm \ , | \;  | \ : | _
+) used for separating multiple values when printing an AltiVec or SSE vector,
+or other multi-value unit.
+.Pp
+NOTE: This is an extension to the
+.Fn printf
+specification.
+Behaviour of these values for
+.Fn printf 
+is only defined for operating systems conforming to the 
+AltiVec Technology Programming Interface Manual.
+(At time of writing this includes only Mac OS X 10.2 and later.)
+.It
 An optional decimal digit string specifying a minimum field width.
 If the converted value has fewer characters than the field width, it will
 be padded with spaces on the left (or right, if the left-adjustment
@@ -382,6 +405,34 @@ conversion:
 .Bl -column ".Sy Modifier" ".Vt wint_t" ".Vt wchar_t *"
 .It Sy Modifier Ta Cm c Ta Cm s
 .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
+.El
+.Pp
+The AltiVec Technology Programming Interface Manual also defines five additional length modifiers
+which can be used (in place of the conventional length modifiers) for the printing of AltiVec or SSE vectors:
+.Bl -tag -compact
+.It Cm v
+Treat the argument as a vector value, unit length will be determined by the conversion
+specifier (default = 16 8-bit units for all integer conversions, 
+4 32-bit units for floating point conversions).
+.It Cm vh, hv
+Treat the argument as a vector of 8 16-bit units.
+.It Cm vl, lv
+Treat the argument as a vector of 4 32-bit units.
+.El
+.Pp
+NOTE: The vector length specifiers are extensions to the
+.Fn printf
+specification.
+Behaviour of these values for
+.Fn printf 
+is only defined for operating systems conforming to the 
+AltiVec Technology Programming Interface Manual.
+(At time of writing this includes only Mac OS X 10.2 and later.)
+.Pp
+As a further extension, for SSE2 64-bit units:
+.Bl -tag -compact
+.It Cm vll, llv
+Treat the argument as a vector of 2 64-bit units.
 .El
 .It
 A character that specifies the type of conversion to be applied.
@@ -561,10 +612,9 @@ For example,
 and
 .Li 0xc.9p-2
 are all equivalent.
-.Fx 8.0
-and later always prints finite non-zero numbers using
-.Ql 1
-as the digit before the hexadecimal point.
+The format chosen depends on the internal representation of the
+number, but the implementation guarantees that the length of the
+mantissa will be minimized.
 Zeroes are always represented with a mantissa of 0 (preceded by a
 .Ql -
 if appropriate) and an exponent of
@@ -781,34 +831,6 @@ Always use the proper secure idiom:
 .Pp
 .Dl "snprintf(buffer, sizeof(buffer), \*q%s\*q, string);"
 .Sh COMPATIBILITY
-Many application writers used the name
-.Va dprintf
-before the
-.Fn dprintf
-function was introduced in
-.St -p1003.1 ,
-so a prototype is not provided by default in order to avoid
-compatibility problems.
-Applications that wish to use the
-.Fn dprintf
-function described herein should either request a strict
-.St -p1003.1-2008
-environment by defining the macro
-.Dv _POSIX_C_SOURCE
-to the value 200809 or greater, or by defining the macro
-.Dv _WITH_DPRINTF ,
-prior to the inclusion of
-.In stdio.h .
-For compatibility with GNU libc, defining either
-.Dv _BSD_SOURCE
-or
-.Dv _GNU_SOURCE
-prior to the inclusion of
-.In stdio.h
-will also make
-.Fn dprintf
-available.
-.Pp
 The conversion formats
 .Cm \&%D , \&%O ,
 and
@@ -845,9 +867,11 @@ Insufficient storage space is available.
 .El
 .Sh SEE ALSO
 .Xr printf 1 ,
+.Xr printf_l 3 ,
 .Xr fmtcheck 3 ,
 .Xr scanf 3 ,
 .Xr setlocale 3 ,
+.Xr stdarg 3 ,
 .Xr wprintf 3
 .Sh STANDARDS
 Subject to the caveats noted in the

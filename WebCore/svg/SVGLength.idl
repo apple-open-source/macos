@@ -22,7 +22,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGLength { 
+    interface [
+        Conditional=SVG
+    ] SVGLength { 
         // Length Unit Types
         const unsigned short SVG_LENGTHTYPE_UNKNOWN    = 0;
         const unsigned short SVG_LENGTHTYPE_NUMBER     = 1;
@@ -42,14 +44,14 @@ module svg {
             getter raises(DOMException);
 
         attribute [StrictTypeChecking] float valueInSpecifiedUnits;
-        attribute [ConvertNullToNullString, StrictTypeChecking] DOMString valueAsString
+        attribute [TreatNullAs=NullString, StrictTypeChecking] DOMString valueAsString
             setter raises(DOMException);
 
-        [StrictTypeChecking, RequiresAllArguments=Raise] void newValueSpecifiedUnits(in unsigned short unitType, 
+        [StrictTypeChecking] void newValueSpecifiedUnits(in unsigned short unitType, 
                                                          in float valueInSpecifiedUnits)
             raises(DOMException);
 
-        [Custom, StrictTypeChecking, RequiresAllArguments=Raise] void convertToSpecifiedUnits(in unsigned short unitType)
+        [Custom, StrictTypeChecking] void convertToSpecifiedUnits(in unsigned short unitType)
             raises(DOMException);
     };
 

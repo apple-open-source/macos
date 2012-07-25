@@ -27,7 +27,6 @@
 
 #include <sys/cdefs.h>
 #include <libproc.h>
-#include <sys/process_policy.h>
 
 __BEGIN_DECLS
 
@@ -69,6 +68,18 @@ int proc_pidbind(int pid, uint64_t threadid, int bind);
 int proc_clear_vmpressure(pid_t pid);
 /* set self as the one who is going to resume suspended processes due to low VM. Need to be root */
 int proc_set_owner_vmpressure(void);
+
+/* mark yourself to delay idle sleep on disk IO */
+int proc_set_delayidlesleep(void);
+/* Reset yourself to delay idle sleep on disk IO, if already set */
+int proc_clear_delayidlesleep(void);
+
+
+/* sub policies for PROC_POLICY_APPTYPE */
+#define PROC_POLICY_OSX_APPTYPE_NONE            0
+#define PROC_POLICY_OSX_APPTYPE_TAL             1       /* TAL based launched */
+#define PROC_POLICY_OSX_APPTYPE_WIDGET          2       /* for dashboard client */
+#define PROC_POLICY_OSX_APPTYPE_DASHCLIENT      2       /* rename to move away from widget */
 
 /* 
  * Resumes the backgrounded TAL or dashboard client. Only priv users can disable TAL apps.

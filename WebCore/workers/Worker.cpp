@@ -56,19 +56,24 @@ inline Worker::Worker(ScriptExecutionContext* context)
 {
 }
 
-PassRefPtr<Worker> Worker::create(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+PassRefPtr<Worker> Worker::create(ScriptExecutionContext* context, const String& url, ExceptionCode& ec)
 {
     RefPtr<Worker> worker = adoptRef(new Worker(context));
+
+    worker->suspendIfNeeded();
 
     KURL scriptURL = worker->resolveURL(url, ec);
     if (scriptURL.isEmpty())
         return 0;
 
-    worker->m_scriptLoader = adoptPtr(new WorkerScriptLoader(ResourceRequestBase::TargetIsWorker));
-    worker->m_scriptLoader->loadAsynchronously(context, scriptURL, DenyCrossOriginRequests, worker.get());
-
     // The worker context does not exist while loading, so we must ensure that the worker object is not collected, nor are its event listeners.
     worker->setPendingActivity(worker.get());
+
+    worker->m_scriptLoader = WorkerScriptLoader::create();
+#if PLATFORM(BLACKBERRY)
+    worker->m_scriptLoader->setTargetType(ResourceRequest::TargetIsWorker);
+#endif
+    worker->m_scriptLoader->loadAsynchronously(context, scriptURL, DenyCrossOriginRequests, worker.get());
 
     InspectorInstrumentation::didCreateWorker(context, worker->asID(), scriptURL.string(), false);
 
@@ -80,6 +85,11 @@ Worker::~Worker()
     ASSERT(isMainThread());
     ASSERT(scriptExecutionContext()); // The context is protected by worker context proxy, so it cannot be destroyed while a Worker exists.
     m_contextProxy->workerObjectDestroyed();
+}
+
+const AtomicString& Worker::interfaceName() const
+{
+    return eventNames().interfaceForWorker;
 }
 
 // FIXME: remove this when we update the ObjC bindings (bug #28774).
@@ -126,14 +136,20 @@ bool Worker::hasPendingActivity() const
     return m_contextProxy->hasPendingActivity() || ActiveDOMObject::hasPendingActivity();
 }
 
+void Worker::didReceiveResponse(unsigned long identifier, const ResourceResponse&)
+{
+    InspectorInstrumentation::didReceiveScriptResponse(scriptExecutionContext(), identifier);
+}
+
 void Worker::notifyFinished()
 {
     if (m_scriptLoader->failed())
         dispatchEvent(Event::create(eventNames().errorEvent, false, true));
     else {
-        bool shouldStartPaused = InspectorInstrumentation::willStartWorkerContext(scriptExecutionContext(), m_contextProxy);
-        m_contextProxy->startWorkerContext(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script());
-        InspectorInstrumentation::didStartWorkerContext(scriptExecutionContext(), m_contextProxy, shouldStartPaused);
+        WorkerThreadStartMode startMode = DontPauseWorkerContextOnStart;
+        if (InspectorInstrumentation::shouldPauseDedicatedWorkerOnStart(scriptExecutionContext()))
+            startMode = PauseWorkerContextOnStart;
+        m_contextProxy->startWorkerContext(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script(), startMode);
         InspectorInstrumentation::scriptImported(scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
     }
     m_scriptLoader = nullptr;

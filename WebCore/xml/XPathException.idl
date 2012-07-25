@@ -28,9 +28,8 @@
 
 module xpath {
 
-    interface [
-        Conditional=XPATH,
-        DontCheckEnums
+    exception [
+        DoNotCheckConstants
     ] XPathException {
 
         readonly attribute unsigned short   code;
@@ -39,7 +38,7 @@ module xpath {
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
         // Override in a Mozilla compatible format
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
         // XPathExceptionCode

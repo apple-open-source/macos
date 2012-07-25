@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "TimelineRecordFactory.h"
 
 #if ENABLE(INSPECTOR)
+
+#include "TimelineRecordFactory.h"
 
 #include "Event.h"
 #include "InspectorValues.h"
@@ -40,17 +41,20 @@
 #include "ResourceResponse.h"
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createGenericRecord(double startTime)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createGenericRecord(double startTime, int maxCallStackDepth)
 {
     RefPtr<InspectorObject> record = InspectorObject::create();
     record->setNumber("startTime", startTime);
 
-    RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(5, true);
-    if (stackTrace && stackTrace->size())
-        record->setArray("stackTrace", stackTrace->buildInspectorArray());
+    if (maxCallStackDepth) {
+        RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(maxCallStackDepth, true);
+        if (stackTrace && stackTrace->size())
+            record->setValue("stackTrace", stackTrace->buildInspectorArray());
+    }
     return record.release();
 }
 
@@ -115,7 +119,7 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createEvaluateScriptData(cons
     return data.release();
 }
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createMarkTimelineData(const String& message)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createTimeStampData(const String& message)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
     data->setString("message", message);
@@ -129,42 +133,42 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createScheduleResourceRequest
     return data.release();
 }
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceSendRequestData(unsigned long identifier, const ResourceRequest& request)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceSendRequestData(const String& requestId, const ResourceRequest& request)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
-    data->setNumber("identifier", identifier);
+    data->setString("requestId", requestId);
     data->setString("url", request.url().string());
     data->setString("requestMethod", request.httpMethod());
     return data.release();
 }
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceReceiveResponseData(unsigned long identifier, const ResourceResponse& response)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceReceiveResponseData(const String& requestId, const ResourceResponse& response)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
-    data->setNumber("identifier", identifier);
+    data->setString("requestId", requestId);
     data->setNumber("statusCode", response.httpStatusCode());
     data->setString("mimeType", response.mimeType());
     return data.release();
 }
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceFinishData(unsigned long identifier, bool didFail, double finishTime)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createResourceFinishData(const String& requestId, bool didFail, double finishTime)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
-    data->setNumber("identifier", identifier);
+    data->setString("requestId", requestId);
     data->setBoolean("didFail", didFail);
     if (finishTime)
         data->setNumber("networkTime", finishTime);
     return data.release();
 }
 
-PassRefPtr<InspectorObject> TimelineRecordFactory::createReceiveResourceData(unsigned long identifier)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createReceiveResourceData(const String& requestId)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
-    data->setNumber("identifier", identifier);
+    data->setString("requestId", requestId);
     return data.release();
 }
     
-PassRefPtr<InspectorObject> TimelineRecordFactory::createPaintData(const IntRect& rect)
+PassRefPtr<InspectorObject> TimelineRecordFactory::createPaintData(const LayoutRect& rect)
 {
     RefPtr<InspectorObject> data = InspectorObject::create();
     data->setNumber("x", rect.x());
@@ -179,6 +183,13 @@ PassRefPtr<InspectorObject> TimelineRecordFactory::createParseHTMLData(unsigned 
     RefPtr<InspectorObject> data = InspectorObject::create();
     data->setNumber("length", length);
     data->setNumber("startLine", startLine);
+    return data.release();
+}
+
+PassRefPtr<InspectorObject> TimelineRecordFactory::createAnimationFrameData(int callbackId)
+{
+    RefPtr<InspectorObject> data = InspectorObject::create();
+    data->setNumber("id", callbackId);
     return data.release();
 }
 

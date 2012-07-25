@@ -34,12 +34,8 @@
 #include "config.h"
 #include "ChromeClientEfl.h"
 
-#if ENABLE(DATABASE)
-#include "DatabaseDetails.h"
-#include "DatabaseTracker.h"
-#endif
-#include "EWebKit.h"
 #include "FileChooser.h"
+#include "FileIconLoader.h"
 #include "FloatRect.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientEfl.h"
@@ -59,6 +55,19 @@
 #include <Evas.h>
 #include <wtf/text/CString.h>
 
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#include "NotificationPresenterClientEfl.h"
+#endif
+
+#if ENABLE(SQL_DATABASE)
+#include "DatabaseDetails.h"
+#include "DatabaseTracker.h"
+#endif
+
+#if ENABLE(INPUT_TYPE_COLOR)
+#include "ColorChooserEfl.h"
+#endif
+
 using namespace WebCore;
 
 static inline Evas_Object* kit(Frame* frame)
@@ -75,6 +84,7 @@ namespace WebCore {
 ChromeClientEfl::ChromeClientEfl(Evas_Object* view)
     : m_view(view)
 {
+    ASSERT(m_view);
 }
 
 ChromeClientEfl::~ChromeClientEfl()
@@ -100,9 +110,6 @@ FloatRect ChromeClientEfl::windowRect()
     Ecore_Evas* ee = 0;
     int x, y, w, h;
 
-    if (!m_view)
-        return FloatRect();
-
     ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
     ecore_evas_geometry_get(ee, &x, &y, &w, &h);
     return FloatRect(x, y, w, h);
@@ -110,14 +117,11 @@ FloatRect ChromeClientEfl::windowRect()
 
 void ChromeClientEfl::setWindowRect(const FloatRect& rect)
 {
-    Ecore_Evas* ee = 0;
-    IntRect intrect = IntRect(rect);
-
-    if (!m_view)
-        return;
-
     if (!ewk_view_setting_enable_auto_resize_window_get(m_view))
         return;
+
+    Ecore_Evas* ee = 0;
+    IntRect intrect = IntRect(rect);
 
     ee = ecore_evas_ecore_evas_get(evas_object_evas_get(m_view));
     ecore_evas_move(ee, intrect.x(), intrect.y());
@@ -126,9 +130,6 @@ void ChromeClientEfl::setWindowRect(const FloatRect& rect)
 
 FloatRect ChromeClientEfl::pageRect()
 {
-    if (!m_view)
-        return FloatRect();
-
     return ewk_view_page_rect_get(m_view);
 }
 
@@ -174,7 +175,7 @@ void ChromeClientEfl::setToolbarsVisible(bool visible)
 
 bool ChromeClientEfl::toolbarsVisible()
 {
-    Eina_Bool visible;
+    bool visible;
 
     ewk_view_toolbars_visible_get(m_view, &visible);
     return visible;
@@ -187,7 +188,7 @@ void ChromeClientEfl::setStatusbarVisible(bool visible)
 
 bool ChromeClientEfl::statusbarVisible()
 {
-    Eina_Bool visible;
+    bool visible;
 
     ewk_view_statusbar_visible_get(m_view, &visible);
     return visible;
@@ -200,7 +201,7 @@ void ChromeClientEfl::setScrollbarsVisible(bool visible)
 
 bool ChromeClientEfl::scrollbarsVisible()
 {
-    Eina_Bool visible;
+    bool visible;
 
     ewk_view_scrollbars_visible_get(m_view, &visible);
     return visible;
@@ -213,7 +214,7 @@ void ChromeClientEfl::setMenubarVisible(bool visible)
 
 bool ChromeClientEfl::menubarVisible()
 {
-    Eina_Bool visible;
+    bool visible;
 
     ewk_view_menubar_visible_get(m_view, &visible);
     return visible;
@@ -239,11 +240,15 @@ void ChromeClientEfl::closeWindowSoon()
     ewk_view_window_close(m_view);
 }
 
-bool ChromeClientEfl::canTakeFocus(FocusDirection)
+bool ChromeClientEfl::canTakeFocus(FocusDirection coreDirection)
 {
     // This is called when cycling through links/focusable objects and we
     // reach the last focusable object.
-    return false;
+    ASSERT(coreDirection == FocusDirectionForward || coreDirection == FocusDirectionBackward);
+
+    Ewk_Focus_Direction direction = static_cast<Ewk_Focus_Direction>(coreDirection);
+
+    return !ewk_view_focus_can_cycle(m_view, direction);
 }
 
 void ChromeClientEfl::takeFocus(FocusDirection)
@@ -301,7 +306,7 @@ bool ChromeClientEfl::shouldInterruptJavaScript()
 
 KeyboardUIMode ChromeClientEfl::keyboardUIMode()
 {
-    return KeyboardAccessTabsToLinks;
+    return ewk_view_setting_include_links_in_focus_chain_get(m_view) ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
 IntRect ChromeClientEfl::windowResizerRect() const
@@ -324,13 +329,13 @@ void ChromeClientEfl::contentsSizeChanged(Frame* frame, const IntSize& size) con
         ewk_view_contents_size_changed(m_view, size.width(), size.height());
 }
 
-IntRect ChromeClientEfl::windowToScreen(const IntRect& rect) const
+IntRect ChromeClientEfl::rootViewToScreen(const IntRect& rect) const
 {
     notImplemented();
     return rect;
 }
 
-IntPoint ChromeClientEfl::screenToWindow(const IntPoint& point) const
+IntPoint ChromeClientEfl::screenToRootView(const IntPoint& point) const
 {
     notImplemented();
     return point;
@@ -338,7 +343,7 @@ IntPoint ChromeClientEfl::screenToWindow(const IntPoint& point) const
 
 PlatformPageClient ChromeClientEfl::platformPageClient() const
 {
-    return m_view;
+    return EWKPrivate::corePageClient(m_view);
 }
 
 void ChromeClientEfl::scrollbarsModeDidChange() const
@@ -354,7 +359,7 @@ void ChromeClientEfl::mouseDidMoveOverElement(const HitTestResult& hit, unsigned
         if (!url.isEmpty() && url != m_hoveredLinkURL) {
             const char* link[2];
             TextDirection dir;
-            CString urlStr = url.prettyURL().utf8();
+            CString urlStr = url.string().utf8();
             CString titleStr = hit.title(dir).utf8();
             link[0] = urlStr.data();
             link[1] = titleStr.data();
@@ -377,18 +382,16 @@ void ChromeClientEfl::print(Frame* frame)
     notImplemented();
 }
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientEfl::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     // FIXME: Free some space.
     notImplemented();
 }
 
-void ChromeClientEfl::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+void ChromeClientEfl::reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t)
 {
     notImplemented();
 }
-#endif
 
 #if ENABLE(TOUCH_EVENTS)
 void ChromeClientEfl::needTouchEvents(bool needed)
@@ -397,7 +400,7 @@ void ChromeClientEfl::needTouchEvents(bool needed)
 }
 #endif
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
     uint64_t quota;
@@ -405,8 +408,8 @@ void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& database
 
     DatabaseDetails details = DatabaseTracker::tracker().detailsForNameAndOrigin(databaseName, origin);
     quota = ewk_view_exceeded_database_quota(m_view,
-            kit(frame), databaseName.utf8().data(),
-            details.currentUsage(), details.expectedUsage());
+                                             kit(frame), databaseName.utf8().data(),
+                                             details.currentUsage(), details.expectedUsage());
 
     /* if client did not set quota, and database is being created now, the
      * default quota is applied
@@ -418,34 +421,52 @@ void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& database
 }
 #endif
 
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+NotificationClient* ChromeClientEfl::notificationPresenter() const
+{
+    notImplemented();
+    return 0;
+}
+#endif
+
+#if ENABLE(INPUT_TYPE_COLOR)
+PassOwnPtr<ColorChooser> ChromeClientEfl::createColorChooser(ColorChooserClient* colorChooserClient, const Color& initialColor)
+{
+    ewk_view_color_chooser_new(m_view, colorChooserClient, initialColor);
+
+    return adoptPtr(new ColorChooserEfl(this));
+}
+
+void ChromeClientEfl::removeColorChooser()
+{
+    ewk_view_color_chooser_destroy(m_view);
+}
+
+void ChromeClientEfl::updateColorChooser(const Color& color)
+{
+    ewk_view_color_chooser_changed(m_view, color);
+}
+#endif
+
 void ChromeClientEfl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileChooser)
 {
     RefPtr<FileChooser> chooser = prpFileChooser;
-    bool confirm;
     Eina_List* selectedFilenames = 0;
-    Eina_List* suggestedFilenames = 0;
     void* filename;
     Vector<String> filenames;
 
-    for (unsigned i = 0; i < chooser->filenames().size(); i++) {
-        CString str = chooser->filenames()[i].utf8();
-        filename = strdup(str.data());
-        suggestedFilenames = eina_list_append(suggestedFilenames, filename);
-    }
-
-    confirm = ewk_view_run_open_panel(m_view, kit(frame), chooser->allowsMultipleFiles(), suggestedFilenames, &selectedFilenames);
-    EINA_LIST_FREE(suggestedFilenames, filename)
-        free(filename);
+    const FileChooserSettings& settings = chooser->settings();
+    bool confirm = ewk_view_run_open_panel(m_view, kit(frame), settings.allowsMultipleFiles, settings.acceptMIMETypes, &selectedFilenames);
 
     if (!confirm)
         return;
 
     EINA_LIST_FREE(selectedFilenames, filename) {
-        filenames.append((char *)filename);
+        filenames.append((char*)filename);
         free(filename);
     }
 
-    if (chooser->allowsMultipleFiles())
+    if (chooser->settings().allowsMultipleFiles)
         chooser->chooseFiles(filenames);
     else
         chooser->chooseFile(filenames[0]);
@@ -466,17 +487,6 @@ void ChromeClientEfl::setCursorHiddenUntilMouseMoves(bool)
     notImplemented();
 }
 
-void ChromeClientEfl::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
-{
-    // See the comment in WebCore/page/ChromeClient.h
-    notImplemented();
-}
-
-void ChromeClientEfl::cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*)
-{
-    notImplemented();
-}
-
 void ChromeClientEfl::cancelGeolocationPermissionForFrame(Frame*, Geolocation*)
 {
     notImplemented();
@@ -487,13 +497,16 @@ void ChromeClientEfl::invalidateContents(const IntRect& updateRect, bool immedia
     notImplemented();
 }
 
-void ChromeClientEfl::invalidateWindow(const IntRect& updateRect, bool immediate)
+void ChromeClientEfl::invalidateRootView(const IntRect& updateRect, bool immediate)
 {
     notImplemented();
 }
 
-void ChromeClientEfl::invalidateContentsAndWindow(const IntRect& updateRect, bool immediate)
+void ChromeClientEfl::invalidateContentsAndRootView(const IntRect& updateRect, bool immediate)
 {
+    if (updateRect.isEmpty())
+        return;
+
     Evas_Coord x, y, w, h;
 
     x = updateRect.x();
@@ -505,12 +518,12 @@ void ChromeClientEfl::invalidateContentsAndWindow(const IntRect& updateRect, boo
 
 void ChromeClientEfl::invalidateContentsForSlowScroll(const IntRect& updateRect, bool immediate)
 {
-    invalidateContentsAndWindow(updateRect, immediate);
+    invalidateContentsAndRootView(updateRect, immediate);
 }
 
 void ChromeClientEfl::scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
 {
-    ewk_view_scroll(m_view, scrollDelta.width(), scrollDelta.height(), rectToScroll.x(), rectToScroll.y(), rectToScroll.width(), rectToScroll.height(), clipRect.x(), clipRect.y(), clipRect.width(), clipRect.height(), EINA_TRUE);
+    ewk_view_scroll(m_view, scrollDelta.width(), scrollDelta.height(), rectToScroll.x(), rectToScroll.y(), rectToScroll.width(), rectToScroll.height(), clipRect.x(), clipRect.y(), clipRect.width(), clipRect.height());
 }
 
 void ChromeClientEfl::cancelGeolocationPermissionRequestForFrame(Frame*)
@@ -523,12 +536,12 @@ void ChromeClientEfl::iconForFiles(const Vector<String, 0u>&, PassRefPtr<FileCho
     notImplemented();
 }
 
-void ChromeClientEfl::chooseIconForFiles(const Vector<String>&, FileChooser*)
+void ChromeClientEfl::loadIconForFiles(const Vector<String>&, FileIconLoader*)
 {
     notImplemented();
 }
 
-void ChromeClientEfl::dispatchViewportDataDidChange(const ViewportArguments& arguments) const
+void ChromeClientEfl::dispatchViewportPropertiesDidChange(const ViewportArguments& arguments) const
 {
     ewk_view_viewport_attributes_set(m_view, arguments);
 }
@@ -543,6 +556,12 @@ bool ChromeClientEfl::selectItemAlignmentFollowsMenuWritingDirection()
     return false;
 }
 
+bool ChromeClientEfl::hasOpenedPopup() const
+{
+    notImplemented();
+    return false;
+}
+
 PassRefPtr<PopupMenu> ChromeClientEfl::createPopupMenu(PopupMenuClient* client) const
 {
     return adoptRef(new PopupMenuEfl(client));
@@ -553,4 +572,47 @@ PassRefPtr<SearchPopupMenu> ChromeClientEfl::createSearchPopupMenu(PopupMenuClie
     return adoptRef(new SearchPopupMenuEfl(client));
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+void ChromeClientEfl::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* rootLayer)
+{
+    notImplemented();
+}
+
+void ChromeClientEfl::setNeedsOneShotDrawingSynchronization()
+{
+    notImplemented();
+}
+
+void ChromeClientEfl::scheduleCompositingLayerSync()
+{
+    notImplemented();
+}
+
+ChromeClient::CompositingTriggerFlags ChromeClientEfl::allowedCompositingTriggers() const
+{
+    return 0;
+}
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+bool ChromeClientEfl::supportsFullScreenForElement(const WebCore::Element* element, bool withKeyboard)
+{
+    if (withKeyboard)
+        return false;
+
+    return true;
+}
+
+void ChromeClientEfl::enterFullScreenForElement(WebCore::Element* element)
+{
+    element->document()->webkitWillEnterFullScreenForElement(element);
+    element->document()->webkitDidEnterFullScreenForElement(element);
+}
+
+void ChromeClientEfl::exitFullScreenForElement(WebCore::Element* element)
+{
+    element->document()->webkitWillExitFullScreenForElement(element);
+    element->document()->webkitDidExitFullScreenForElement(element);
+}
+#endif
 }

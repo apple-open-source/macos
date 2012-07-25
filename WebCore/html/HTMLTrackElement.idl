@@ -24,13 +24,23 @@
  */
 
 module html {
-interface [Conditional=VIDEO_TRACK] HTMLTrackElement : HTMLElement {
-    attribute [Reflect, URL] DOMString src;
-    attribute DOMString kind;
-    attribute DOMString srclang;
-    attribute DOMString label;
-    attribute [Reflect=default] boolean isDefault;
+    interface [
+        Conditional=VIDEO_TRACK,
+        V8EnabledAtRuntime=webkitVideoTrack
+    ] HTMLTrackElement : HTMLElement {
+        attribute [Reflect, URL] DOMString src;
+        attribute DOMString kind;
+        attribute DOMString srclang;
+        attribute DOMString label;
+        attribute [Reflect] boolean default;
 
-    // readonly attribute TextTrack track;
+        const unsigned short NONE = 0;
+        const unsigned short LOADING = 1;
+        const unsigned short LOADED = 2;
+        // Reflect is used for ERROR because it conflicts with a windows define.
+        [Reflect=TRACK_ERROR] const unsigned short ERROR = 3;
+        readonly attribute unsigned short readyState;
+
+        readonly attribute TextTrack track;
 };
 }

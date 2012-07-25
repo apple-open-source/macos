@@ -122,7 +122,7 @@ nsmb_dev_open_nolock(dev_t dev, int oflags, int devtype, struct proc *p)
 			SMBERROR("Too many minor devices, %d >= %d !", avail_minor, SMBMINORS);
 			return (ENOMEM);
 		}
-		sdp = malloc(sizeof(*sdp), M_NSMBDEV, M_WAITOK);
+        SMB_MALLOC(sdp, struct smb_dev *, sizeof(*sdp), M_NSMBDEV, M_WAITOK);
 		bzero(sdp, sizeof(*sdp));
 		dev = makedev(smb_major, avail_minor);
 		sdp->sd_devfs = devfs_make_node(dev, DEVFS_CHAR,
@@ -204,7 +204,7 @@ nsmb_dev_close(dev_t dev, int flag, int fmt, struct proc *p)
 
 	SMB_GETDEV(dev) = NULL;
 	lck_rw_destroy(&sdp->sd_rwlock, dev_lck_grp);
-	free(sdp, M_NSMBDEV);
+	SMB_FREE(sdp, M_NSMBDEV);
 	dev_open_cnt--;
 	lck_rw_unlock_exclusive(dev_rw_lck);
 	return (0);
@@ -593,7 +593,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 					(void)smb_iod_done();
 					(void)smb_sm_done();
 				}
-				sdp = malloc(sizeof(*sdp), M_NSMBDEV, M_WAITOK);
+                SMB_MALLOC(sdp, struct smb_dev *, sizeof(*sdp), M_NSMBDEV, M_WAITOK);
 				bzero(sdp, sizeof(*sdp));
 				dev = makedev(smb_major, 0);
 				sdp->sd_devfs = devfs_make_node(dev, DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, "nsmb0");
@@ -601,7 +601,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 					error = ENOMEM;
 					SMBERROR("smb: devfs_make_node 0666");
 					(void)cdevsw_remove(smb_major, &nsmb_cdevsw);
-					free(sdp, M_NSMBDEV);
+					SMB_FREE(sdp, M_NSMBDEV);
 					(void)smb_iod_done();
 					(void)smb_sm_done();	
 				}
@@ -624,7 +624,7 @@ static int nsmb_dev_load(module_t mod, int cmd, void *arg)
 						SMB_GETDEV(m) = 0;
 						if (sdp->sd_devfs)
 							devfs_remove(sdp->sd_devfs);
-						free(sdp, M_NSMBDEV);
+						SMB_FREE(sdp, M_NSMBDEV);
 					}
 				smb_minor_hiwat = -1;
 				smb_major = cdevsw_remove(smb_major, &nsmb_cdevsw);

@@ -27,28 +27,32 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/nextwctype.c,v 1.1 2004/07/08 06:43:37 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <runetype.h>
 #include <wchar.h>
 #include <wctype.h>
 
 wint_t
-nextwctype(wint_t wc, wctype_t wct)
+nextwctype_l(wint_t wc, wctype_t wct, locale_t loc)
 {
 	size_t lim;
-	_RuneRange *rr = &_CurrentRuneLocale->__runetype_ext;
+	_RuneRange *rr;
 	_RuneEntry *base, *re;
 	int noinc;
+	_RuneLocale *rl = &loc->__lc_ctype->_CurrentRuneLocale;
 
 	noinc = 0;
 	if (wc < _CACHED_RUNES) {
 		wc++;
 		while (wc < _CACHED_RUNES) {
-			if (_CurrentRuneLocale->__runetype[wc] & wct)
+			if (rl->__runetype[wc] & wct)
 				return (wc);
 			wc++;
 		}
 		wc--;
 	}
+	rr = &rl->__runetype_ext;
 	if (rr->__ranges != NULL && wc < rr->__ranges[0].__min) {
 		wc = rr->__ranges[0].__min;
 		noinc = 1;
@@ -87,4 +91,10 @@ found:
 			return (wc);
 	}
 	return (-1);
+}
+
+wint_t
+nextwctype(wint_t wc, wctype_t wct)
+{
+	return nextwctype_l(wc, wct, __current_locale());
 }

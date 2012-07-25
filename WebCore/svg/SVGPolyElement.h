@@ -41,28 +41,36 @@ public:
 
     SVGPointList& pointList() const { return m_points.value; }
 
+    static const SVGPropertyInfo* pointsPropertyInfo();
+
 protected:
     SVGPolyElement(const QualifiedName&, Document*);
 
 private:
     virtual bool isValid() const { return SVGTests::isValid(); }
+    virtual bool supportsFocus() const { return true; }
 
-    virtual void parseMappedAttribute(Attribute*); 
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE; 
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
     virtual bool supportsMarkers() const { return true; }
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    // Custom 'points' property
+    static void synchronizePoints(void* contextElement);
+    static PassRefPtr<SVGAnimatedProperty> lookupOrCreatePointsWrapper(void* contextElement);
 
-    void synchronizePoints();
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGPolyElement)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+    // SVGTests
+    virtual void synchronizeRequiredFeatures() { SVGTests::synchronizeRequiredFeatures(this); }
+    virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
+    virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
 
 protected:
     mutable SVGSynchronizableAnimatedProperty<SVGPointList> m_points;
-    RefPtr<SVGAnimatedListPropertyTearOff<SVGPointList> > m_animatablePointsList;
 };
 
 } // namespace WebCore

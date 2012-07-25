@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2007, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,7 @@
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 #include <bootstrap_priv.h>
+#include <pthread.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -208,6 +209,33 @@ _SCHelperClose(mach_port_t *helper_port)
 }
 
 
+static CFDataRef
+_SCHelperExecCopyBacktrace()
+{
+	static Boolean		loggingEnabled	= FALSE;
+	static dispatch_once_t	once;
+	CFDataRef		traceData	= NULL;
+
+	dispatch_once(&once, ^{
+		if(getenv("ENABLE_SCHELPER_BACKTRACES")) {
+			loggingEnabled = TRUE;
+		}
+	});
+
+	if (loggingEnabled) {
+		CFStringRef	backtrace;
+
+		backtrace = _SC_copyBacktrace();
+		if (backtrace != NULL) {
+			_SCSerializeString(backtrace, &traceData, NULL, NULL);
+			CFRelease(backtrace);
+		}
+	}
+
+	return traceData;
+}
+
+
 Boolean
 _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status, CFDataRef *reply)
 {
@@ -216,14 +244,24 @@ _SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status
 	xmlDataOut_t		replyRef	= NULL;		/* raw bytes */
 	mach_msg_type_number_t	replyLen	= 0;
 	uint32_t		replyStatus	= 0;
+	CFDataRef		traceData;
+
+	traceData = _SCHelperExecCopyBacktrace();
 
 	kr = helperexec(port,
 			msgID,
 			(data != NULL) ? (void *)CFDataGetBytePtr(data) : NULL,
-			(data != NULL) ? CFDataGetLength(data)  : 0,
+			(data != NULL) ? CFDataGetLength(data) : 0,
+			(traceData != NULL) ? (void *)CFDataGetBytePtr(traceData) : NULL,
+			(traceData != NULL) ? CFDataGetLength(traceData) : 0,
 			&replyStatus,
 			&replyRef,
 			&replyLen);
+
+	if (traceData != NULL) {
+		CFRelease(traceData);
+	}
+
 	if (kr != KERN_SUCCESS) {
 		if (replyRef != NULL) {
 			(void) vm_deallocate(mach_task_self(), (vm_address_t)replyRef, replyLen);

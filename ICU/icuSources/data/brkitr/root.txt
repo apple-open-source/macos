@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/xml/brkitr/root.xml
@@ -16,6 +16,7 @@ root{
         word:process(dependency){"word.brk"}
     }
     dictionaries{
+        Khmr:process(dependency){"khmerdict.ctd"}
         Thai:process(dependency){"thaidict.ctd"}
     }
 }

@@ -34,7 +34,7 @@ void SVGZoomAndPan::setZoomAndPan(unsigned short zoomAndPan)
     m_zoomAndPan = zoomAndPan;
 }
 
-bool SVGZoomAndPan::parseMappedAttribute(Attribute* attr)
+bool SVGZoomAndPan::parseAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::zoomAndPanAttr) {
         const UChar* start = attr->value().characters();
@@ -49,6 +49,11 @@ bool SVGZoomAndPan::parseMappedAttribute(Attribute* attr)
 bool SVGZoomAndPan::isKnownAttribute(const QualifiedName& attrName)
 {
     return attrName == SVGNames::zoomAndPanAttr;
+}
+
+void SVGZoomAndPan::addSupportedAttributes(HashSet<QualifiedName>& supportedAttributes)
+{
+    supportedAttributes.add(SVGNames::zoomAndPanAttr);
 }
 
 static const UChar disable[] =  {'d', 'i', 's', 'a', 'b', 'l', 'e'};

@@ -21,15 +21,24 @@
 #define SVGFontData_h
 
 #if ENABLE(SVG_FONTS)
+#include "SimpleFontData.h"
 #include "SVGFontFaceElement.h"
 
 namespace WebCore {
 
-class SVGFontData {
-    WTF_MAKE_NONCOPYABLE(SVGFontData); WTF_MAKE_FAST_ALLOCATED;
+class SVGFontData : public SimpleFontData::AdditionalFontData {
 public:
-    SVGFontData(SVGFontFaceElement*);
+    static PassOwnPtr<SVGFontData> create(SVGFontFaceElement* element)
+    {
+        return adoptPtr(new SVGFontData(element));
+    }
+
     virtual ~SVGFontData() { }
+
+    virtual void initializeFontData(SimpleFontData*, float fontSize);
+    virtual float widthForSVGGlyph(Glyph, float fontSize) const;
+    virtual bool fillSVGGlyphPage(GlyphPage*, unsigned offset, unsigned length, UChar* buffer, unsigned bufferLength, const SimpleFontData*) const;
+    virtual bool applySVGGlyphSelection(WidthIterator&, GlyphData&, bool mirror, int currentCharacter, unsigned& advanceLength) const;
 
     SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
 
@@ -42,6 +51,13 @@ public:
     float verticalAdvanceY() const { return m_verticalAdvanceY; }
 
 private:
+    SVGFontData(SVGFontFaceElement*);
+
+    bool fillBMPGlyphs(SVGFontElement*, GlyphPage* , unsigned offset, unsigned length, UChar* buffer, const SimpleFontData*) const;
+    bool fillNonBMPGlyphs(SVGFontElement*, GlyphPage* , unsigned offset, unsigned length, UChar* buffer, const SimpleFontData*) const;
+
+    String createStringWithMirroredCharacters(const UChar* characters, unsigned length) const;
+
     // Ths SVGFontFaceElement is kept alive --
     // 1) in the external font case: by the CSSFontFaceSource, which holds a reference to the external SVG document
     //    containing the element;

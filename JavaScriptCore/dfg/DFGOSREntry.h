@@ -27,7 +27,8 @@
 #define DFGOSREntry_h
 
 #include "DFGAbstractValue.h"
-#include "DFGOperands.h"
+#include "Operands.h"
+#include <wtf/BitVector.h>
 
 namespace JSC {
 
@@ -41,6 +42,7 @@ struct OSREntryData {
     unsigned m_bytecodeIndex;
     unsigned m_machineCodeOffset;
     Operands<AbstractValue> m_expectedValues;
+    BitVector m_localsForcedDouble;
 };
 
 inline unsigned getOSREntryDataBytecodeIndex(OSREntryData* osrEntryData)

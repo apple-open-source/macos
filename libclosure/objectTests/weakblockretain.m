@@ -34,7 +34,7 @@ int ReleaseCalled;
     RetainCalled = 1;
     return [super retain];
 }
-- (void)release {
+- (oneway void)release {
     ReleaseCalled = 1;
     [super release];
 }

@@ -1,5 +1,5 @@
 /*
- * Portions Copyright (C) 2004-2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Portions Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -29,7 +29,7 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: dst_parse.h,v 1.17 2010-12-23 23:47:08 tbox Exp $ */
 
 /*! \file */
 #ifndef DST_DST_PARSE_H
@@ -77,6 +77,9 @@
 #define TAG_DSA_BASE		((DST_ALG_DSA << TAG_SHIFT) + 2)
 #define TAG_DSA_PRIVATE		((DST_ALG_DSA << TAG_SHIFT) + 3)
 #define TAG_DSA_PUBLIC		((DST_ALG_DSA << TAG_SHIFT) + 4)
+
+#define GOST_NTAGS		1
+#define TAG_GOST_PRIVASN1	((DST_ALG_ECCGOST << TAG_SHIFT) + 0)
 
 #define OLD_HMACMD5_NTAGS	1
 #define HMACMD5_NTAGS		2

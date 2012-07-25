@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright (C) 2008-2010, International Business Machines Corporation and
+* Copyright (C) 2008-2011, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -21,6 +21,7 @@
 #include "unicode/msgfmt.h"
 #include "unicode/dtptngen.h"
 #include "unicode/dtitvinf.h"
+#include "unicode/udateintervalformat.h"
 #include "unicode/calendar.h"
 #include "dtitv_impl.h"
 
@@ -117,7 +118,8 @@ DateIntervalFormat::DateIntervalFormat()
     fDateFormat(NULL),
     fFromCalendar(NULL),
     fToCalendar(NULL),
-    fDtpng(NULL)
+    fDtpng(NULL),
+    fMinimizeType(UDTITVFMT_MINIMIZE_NONE)
 {}
 
 
@@ -127,7 +129,8 @@ DateIntervalFormat::DateIntervalFormat(const DateIntervalFormat& itvfmt)
     fDateFormat(NULL),
     fFromCalendar(NULL),
     fToCalendar(NULL),
-    fDtpng(NULL) {
+    fDtpng(NULL),
+    fMinimizeType(UDTITVFMT_MINIMIZE_NONE) {
     *this = itvfmt;
 }
 
@@ -302,6 +305,18 @@ DateIntervalFormat::format(Calendar& fromCalendar,
     } else if ( fromCalendar.get(UCAL_MONTH, status) !=
                 toCalendar.get(UCAL_MONTH, status) ) {
         field = UCAL_MONTH;
+        UChar patternDay = 0x0064; // d
+        if (fMinimizeType == UDTITVFMT_MINIMIZE_ADJACENT_MONTHS && fSkeleton.indexOf(patternDay) >= 0) {
+            UDate fromDate = fromCalendar.getTime(status);
+            UDate toDate = toCalendar.getTime(status);
+            int32_t fromDay = fromCalendar.get(UCAL_DATE, status);
+            int32_t toDay = toCalendar.get(UCAL_DATE, status);
+            fromCalendar.add(UCAL_MONTH, 1, status);
+            if ( fromDate < toDate && fromCalendar.getTime(status) > toDate && fromDay > toDay ) {
+                field = UCAL_DATE;
+            }
+            fromCalendar.setTime(fromDate, status);
+        }
     } else if ( fromCalendar.get(UCAL_DATE, status) !=
                 toCalendar.get(UCAL_DATE, status) ) {
         field = UCAL_DATE;
@@ -416,6 +431,65 @@ DateIntervalFormat::getDateFormat() const {
 }
 
 
+void
+DateIntervalFormat::adoptTimeZone(TimeZone* zone)
+{
+    if (fDateFormat != NULL) {
+        fDateFormat->adoptTimeZone(zone);
+    }
+    // The fDateFormat has the master calendar for the DateIntervalFormat and has
+    // ownership of any adopted TimeZone; fFromCalendar and fToCalendar are internal
+    // work clones of that calendar (and should not also be given ownership of the
+    // adopted TimeZone).
+    if (fFromCalendar) {
+    	fFromCalendar->setTimeZone(*zone);
+    }
+    if (fToCalendar) {
+    	fToCalendar->setTimeZone(*zone);
+    }
+}
+
+void
+DateIntervalFormat::setTimeZone(const TimeZone& zone)
+{
+    if (fDateFormat != NULL) {
+        fDateFormat->setTimeZone(zone);
+    }
+    // The fDateFormat has the master calendar for the DateIntervalFormat;
+    // fFromCalendar and fToCalendar are internal work clones of that calendar.
+    if (fFromCalendar) {
+    	fFromCalendar->setTimeZone(zone);
+    }
+    if (fToCalendar) {
+    	fToCalendar->setTimeZone(zone);
+    }
+}
+
+const TimeZone&
+DateIntervalFormat::getTimeZone() const
+{
+    if (fDateFormat != NULL) {
+        return fDateFormat->getTimeZone();
+    }
+    // If fDateFormat is NULL (unexpected), create default timezone.
+    return *(TimeZone::createDefault());
+}
+
+void
+DateIntervalFormat::setAttribute(UDateIntervalFormatAttribute attr,
+                                 UDateIntervalFormatAttributeValue value,
+                                 UErrorCode &status)
+{
+    if ( U_FAILURE(status) ) {
+        return;
+    }
+    if (attr == UDTITVFMT_MINIMIZE_TYPE) {
+        fMinimizeType = value;
+    } else {
+        status = U_ILLEGAL_ARGUMENT_ERROR; 
+    }
+}
+
 DateIntervalFormat::DateIntervalFormat(const Locale& locale,
                                        DateIntervalInfo* dtItvInfo,
                                        const UnicodeString* skeleton,
@@ -424,7 +498,8 @@ DateIntervalFormat::DateIntervalFormat(const Locale& locale,
     fDateFormat(NULL),
     fFromCalendar(NULL),
     fToCalendar(NULL),
-    fDtpng(NULL)
+    fDtpng(NULL),
+    fMinimizeType(UDTITVFMT_MINIMIZE_NONE)
 {
     if ( U_FAILURE(status) ) {
         delete dtItvInfo;
@@ -613,7 +688,7 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
         if ( timeSkeleton.length() != 0 ) {
             if ( dateSkeleton.length() == 0 ) {
                 // prefix with yMd
-                timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort]);
+                timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort], -1);
                 UnicodeString pattern = fDtpng->getBestPattern(timeSkeleton, status);
                 if ( U_FAILURE(status) ) {
                     return;    
@@ -638,7 +713,7 @@ DateIntervalFormat::initializePattern(UErrorCode& status) {
         // done
     } else if ( dateSkeleton.length() == 0 ) {
         // prefix with yMd
-        timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort]);
+        timeSkeleton.insert(0, gDateFormatSkeleton[DateFormat::kShort], -1);
         UnicodeString pattern = fDtpng->getBestPattern(timeSkeleton, status);
         if ( U_FAILURE(status) ) {
             return;    
@@ -1305,7 +1380,8 @@ DateIntervalFormat::adjustFieldWidth(const UnicodeString& inputSkeleton,
     DateIntervalInfo::parseSkeleton(inputSkeleton, inputSkeletonFieldWidth);
     DateIntervalInfo::parseSkeleton(bestMatchSkeleton, bestMatchSkeletonFieldWidth);
     if ( differenceInfo == 2 ) {
-        adjustedPtn.findAndReplace("v", "z");
+        adjustedPtn.findAndReplace(UnicodeString((UChar)0x76 /* v */),
+                                   UnicodeString((UChar)0x7a /* z */));
     }
 
     UBool inQuote = false;

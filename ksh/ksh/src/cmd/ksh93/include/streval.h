@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,6 +28,7 @@
 /* The following only is needed for const */
 #include	<ast.h>
 #include	<math.h>
+#include	"defs.h"
 #if _AST_VERSION >= 20030127L
 #   include	<ast_float.h>
 #endif
@@ -69,15 +70,19 @@
 
 struct lval
 {
+	Shell_t		*shp;
 	char		*value;
 	Sfdouble_t	(*fun)(Sfdouble_t,...);
 	const char	*expr;
+	const  void	*ptr;
+	int		nosub;
 	short		flag;
-	char		isfloat;
-	char		nargs;
+	short		nargs;
 	short		emode;
 	short		level;
 	short		elen;
+	char		eflag;
+	char		isfloat;
 };
 
 struct mathtab
@@ -88,6 +93,7 @@ struct mathtab
 
 typedef struct _arith_
 {
+	Shell_t		*shp;
 	unsigned char	*code;
 	const char	*expr;
 	Sfdouble_t	(*fun)(const char**,struct lval*,int,Sfdouble_t);
@@ -97,6 +103,7 @@ typedef struct _arith_
 	short		elen;
 } Arith_t;
 #define ARITH_COMP	04	/* set when compile separate from execute */
+#define ARITH_ASSIGNOP	010	/* set during assignment operators  */
 
 #define MAXPREC		15	/* maximum precision level */
 #define SEQPOINT	0200	/* sequence point */
@@ -151,13 +158,17 @@ typedef struct _arith_
 #define A_JMPZ  	44
 #define A_JMPNZ		45
 #define A_JMP		46
-#define A_CALL0		47
-#define A_CALL1		48
-#define A_CALL2		49
-#define A_CALL3		50
-#define A_DOT		51
-#define A_LIT		52
-#define A_NOTNOT        53
+#define A_CALL1F	47
+#define A_CALL2F	48
+#define A_CALL3F	49
+#define A_CALL1I	50
+#define A_CALL2I	51
+#define A_DOT		52
+#define A_LIT		53
+#define A_NOTNOT        54
+#define A_ASSIGNOP	55
+#define A_ENUM		56
+#define A_ASSIGNOP1	57
 
 
 /* define error messages */
@@ -189,7 +200,7 @@ extern const struct 		mathtab shtab_math[];
 #define VALUE	2
 #define MESSAGE	3
 
-extern Sfdouble_t strval(const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);
-extern Arith_t *arith_compile(const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);
+extern Sfdouble_t strval(Shell_t*,const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);
+extern Arith_t *arith_compile(Shell_t *,const char*,char**,Sfdouble_t(*)(const char**,struct lval*,int,Sfdouble_t),int);
 extern Sfdouble_t arith_exec(Arith_t*);
 #endif /* !SEQPOINT */

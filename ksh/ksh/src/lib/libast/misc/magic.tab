@@ -1,5 +1,5 @@
 #
-# @(#)magic (AT&T Research) 2007-10-09
+# @(#)magic (AT&T Research) 2010-10-10
 #
 # magic number database for file(1) and magic(3)
 #
@@ -249,54 +249,43 @@ o()
 0	long		0413		bsd 386 executable, paged	x-system/exe
 +16	long		>0		, not stripped
 
-0	long		0xcafebabe	java object			x-system/obj
-&4	byte		0
+0	belong		0xcafebabe	java object			x-java/obj
+&4	belong		>30
++6	beshort		*		version %d
++6	beshort		*		.%d
 
-n{
-+0	long		1		[vax]
-+0	long		2		[romp]
-+0	long		3		[architecture=%ld]
-+0	long		4		[ns32032]
-+0	long		5		[ns32332]
-+0	long		6		[m68k]
-+0	long		7		[i386]
-+0	long		8		[mips]
-+0	long		9		[ns32532]
-+0	long		10		[architecture=%ld]
-+0	long		11		[hp pa-risc]
-+0	long		12		[acorn]
-+0	long		13		[m88k]
-+0	long		14		[sparc]
-+0	long		15		[i860-big]
-+0	long		16		[i860]
-+0	long		17		[rs6000]
-+0	long		18		[powerPC]
-+0	long		>=19		[architecture=%ld]
-+8	void		magic()
+a{
++4	long		&0x00ffffff=1	vax
++4	long		&0x00ffffff=2	romp
++4	long		&0x00ffffff=3	architecture=%ld
++4	long		&0x00ffffff=4	ns32032
++4	long		&0x00ffffff=5	ns32332
++4	long		&0x00ffffff=6	m68k
++4	long		&0x00ffffff=7	i386
++4	long		&0x00ffffff=8	mips
++4	long		&0x00ffffff=9	ns32532
++4	long		&0x00ffffff=10	architecture=%ld
++4	long		&0x00ffffff=11	hp pa-risc
++4	long		&0x00ffffff=12	acorn
++4	long		&0x00ffffff=13	m88k
++4	long		&0x00ffffff=14	sparc
++4	long		&0x00ffffff=15	i860-big
++4	long		&0x00ffffff=16	i860
++4	long		&0x00ffffff=17	rs6000
++4	long		&0x00ffffff=18	powerpc
++4	long		&0x00ffffff>=19	architecture=%ld
++4	long		&0x01000000!=0	\b-64
 }
-0	long		0xcafebabe	fat
-+4	long		loop(n,8,20)
-0	long		0xfeedface	mach-o
-+4	long		<=0		architecture=%ld
-+4	long		1		vax
-+4	long		2		romp
-+4	long		3		architecture=%ld
-+4	long		4		ns32032
-+4	long		5		ns32332
-+4	long		6		m68k
-+4	long		7		i386
-+4	long		8		mips
-+4	long		9		ns32532
-+4	long		10		architecture=%ld
-+4	long		11		hp pa-risc
-+4	long		12		acorn
-+4	long		13		m88k
-+4	long		14		sparc
-+4	long		15		i860-big
-+4	long		16		i860
-+4	long		17		rs6000
-+4	long		18		powerPC
-+4	long		>=19		architecture=%ld
+
+0	belong		0xcafebabe	universal binary [
++4	belong		loop(a,4,20)
++4	belong		*		]
++010000	void		magic()
++0	void		*		...
+
+0	long		&0xfffffffe=0xfeedface	mach-o
++0	long		&0x00000001!=0	64-bit
+a()
 +12	long		<=0		filetype=%ld
 {
 12	long		1		relocatable			x-system/obj
@@ -460,6 +449,7 @@ o{
 +18	short		17		fujitsu500
 +18	short		18		sparc32+
 +18	short		20		powerpc
++18	short		21		powerpc-64
 +18	short		22		s390
 +18	short		23		cell-BE
 +18	short		36		nec-v800
@@ -488,26 +478,26 @@ o{
 +18	short		59		toyota-me16
 +18	short		60		stm-st100
 +18	short		61		alc-tinyj
-+18	short		62		amd-x86, 64-bit
++18	short		62		x86-64
 +18	short		63		sony-dsp
 +18	short		66		siemens-fx66
-+18	short		67		stm-st9, 16-bit
-+18	short		68		stm-st7, 8-bit
++18	short		67		stm-st9-16
++18	short		68		stm-st7-8
 +18	short		69		motorola-mc68hc16
 +18	short		70		motorola-mc68hc11
 +18	short		71		motorola-mc68hc08
 +18	short		72		motorola-mc68hc05
 +18	short		73		sgi-svx
-+18	short		74		stm-st19, 8-bit
++18	short		74		stm-st19-8
 +18	short		75		vax
 +18	short		76		axis, 32-bit
-+18	short		77		infineon-javelin, 32-bit
-+18	short		78		element-14-firepath, 64-bit
-+18	short		79		lsi-zsp, 16-bit
-+18	short		80		knuth-mmix, 64-bit
++18	short		77		infineon-javelin-32
++18	short		78		element-14-firepath-64
++18	short		79		lsi-zsp-16
++18	short		80		knuth-mmix-64
 +18	short		81		harvard-huany
 +18	short		82		sitera-prism
-+18	short		83		amtel-avr, 8-bit
++18	short		83		amtel-avr-8
 +18	short		84		fujitsu-fr30
 +18	short		85		mitsubishi-d10v
 +18	short		86		mitsubishi-d30v
@@ -516,6 +506,9 @@ o{
 +18	short		89		matsushita-mn10300
 +18	short		90		matsushita-mn10200
 +18	short		91		picojava
++18	short		92		openrisc-32
++18	short		93		arc-tangent-a5
++18	short		94		tensilica-xtensa
 +18	short		0x9026		alpha
 +18	short		0xa390		s390
 |18	short		*		machine=0x%04lX
@@ -591,7 +584,9 @@ o{
 +18	short		17		fujitsu500
 +18	short		18		sparc32+
 +18	short		20		powerpc
++18	short		21		powerpc-64
 +18	short		22		s390
++18	short		23		cell-BE
 +18	short		36		nec-v800
 +18	short		37		fujitsu-fr20
 +18	short		38		trw-rh32
@@ -618,26 +613,26 @@ o{
 +18	short		59		toyota-me16
 +18	short		60		stm-st100
 +18	short		61		alc-tinyj
-+18	short		62		amd-x86, 64-bit
++18	short		62		x86-64
 +18	short		63		sony-dsp
 +18	short		66		siemens-fx66
-+18	short		67		stm-st9, 16-bit
-+18	short		68		stm-st7, 8-bit
++18	short		67		stm-st9-16
++18	short		68		stm-st7-8
 +18	short		69		motorola-mc68hc16
 +18	short		70		motorola-mc68hc11
 +18	short		71		motorola-mc68hc08
 +18	short		72		motorola-mc68hc05
 +18	short		73		sgi-svx
-+18	short		74		stm-st19, 8-bit
++18	short		74		stm-st19-8
 +18	short		75		vax
-+18	short		76		axis, 32-bit
-+18	short		77		infineon-javelin, 32-bit
-+18	short		78		element-14-firepath, 64-bit
-+18	short		79		lsi-zsp, 16-bit
-+18	short		80		knuth-mmix, 64-bit
++18	short		76		axis-32
++18	short		77		infineon-javelin-32
++18	short		78		element-14-firepath-64
++18	short		79		lsi-zsp-16
++18	short		80		knuth-mmix-64
 +18	short		81		harvard-huany
 +18	short		82		sitera-prism
-+18	short		83		amtel-avr, 8-bit
++18	short		83		amtel-avr-8
 +18	short		84		fujitsu-fr30
 +18	short		85		mitsubishi-d10v
 +18	short		86		mitsubishi-d30v
@@ -646,6 +641,9 @@ o{
 +18	short		89		matsushita-mn10300
 +18	short		90		matsushita-mn10200
 +18	short		91		picojava
++18	short		92		openrisc-32
++18	short		93		arc-tangent-a5
++18	short		94		tensilica-xtensa
 +18	short		0x9026		alpha
 +18	short		0xa390		s390
 |18	short		*		machine=0x%04lX
@@ -852,7 +850,11 @@ o{
 16	short		>0
 &22	short		>0		, version %ld
 }
++0	short		!=0x8664	, 32 bit
++0	short		0x8664		, 64 bit
 }
+0	short		0x8664		pc 386
+o()
 0	short		0524		pc 386
 o()
 0	short		0604		pc alpha
@@ -1050,43 +1052,42 @@ o()
 &2	match		[0-9][0-9][0-9][0-9][0-9]	sccs		application/x-sccs
 
 0		short	0x5a4d
+o{
 &24		short	0x0040
 {
 +(@60H)		short	0x454c		os/2 linear
 +(@60H)		short	0x454e		os/2
 +(@60H)		short	0x4550		win32
 +(@60H+4)	short	0x014c		386
-+(@60H+4)	short	0x0150		power pc
++(@60H+4)	short	0x0150		powerpc
 +(@60H+4)	short	0x0162		mips
 +(@60H+4)	short	0x0166		mips, big endian?
 +(@60H+4)	short	0x0184		alpha
++(@60H+4)	short	0x8664		386
 |(@60H+4)	short	*		machine=0x%04lX
 }
 +(@60H+22)	short	&0x2002==0x0002	executable			x-system/exe
 +(@60H+22)	short	&0x2000		shared library			x-system/dll
-+(@60H+22)	short	&0x0100==0	, 16 bit
++(@60H+22)	short	&0x0120==0	, 16 bit
++(@60H+22)	short	&0x0120==0x0100	, 32 bit
++(@60H+22)	short	&0x0120==0x0020	, 64 bit
 +(@60H+92)	short	0		, unknown subsystem
 +(@60H+92)	short	1		, native
 +(@60H+92)	short	2		, windows gui
 +(@60H+92)	short	5		, os2
 +(@60H+92)	short	7		, posix
 +(@60H+92)	short	>7		, subsystem %d
-
-0	short		0x5a4d		dos executable, EXE		x-system/exe
-o{
-+24	short		0x40		, extended
-+54	byte		1		, os/2
-+54	byte		2		, windows
-+(@60H)	short		0x3357		, win386 linear
-+(@60H)	short		0x584c		, os/2 32 linear
-+(@60H)	short		0x454c		, windows VxD linear
-+(@60H)	short		0x4550		, win32 portable
-+50	string		PKWARE		, self extracting zip
-+36	string		LHA's		, self extracting lha
-+233	string		PKSFX2		, self extracting zip
++50		string	PKWARE		, self extracting zip
++36		string	LHA's		, self extracting lha
++233		string	PKSFX2		, self extracting zip
 }
-0	short		0x5a4c		dos executable, EXE		x-system/exe
+
+0		short	0x5a4c
 o()
+
+0	long		0x4c000000
+&4	long		0x01140200	windows shortcut		application/x-windows-lnk
+
 0	string		PMCC		windows GRP			application/dos-grp
 369	string		MICROSOFT	windows PIF			application/dos-pif
 0	long		0xffffffff	dos device driver		application/dos-drv
@@ -1275,6 +1276,19 @@ v()
 v()
 
 0	string		begin 0		uuencoded data			application/x-uuencode
+0	string		\x89PNG		PNG image data			image/png
+&4	belong		0x0d0a1a0a
++16	belong		x		, %ld x
++20	belong		x		%ld
++24	byte		x		, %d-bit
++25	byte		0		, grayscale
++25	byte		2		, color RGB
++25	byte		3		, colormap
++25	byte		4		, gray+alpha
++25	byte		6		, color RGBA
+#+26	byte		0		, deflate/32K
++28	byte		0		, non-interlaced
++28	byte		1		, interlaced
 0	string		\377\330\377	JPEG image			image/jpeg
 0	string		GIF		GIF image			image/gif
 +3	string		*		, version %-.3s
@@ -1298,6 +1312,18 @@ v()
 0	short		000732		sgi imagelib image		image/x-imagelib
 +6	short		*		, %d
 +8	short		*		x %d
+
+0	string		gimp xcf	gimp XCF image			image/x-gimp
++9	string		file		, version 0
+{
+9	string		v		, version
+&10	string		*		%s
+}
++14	belong		x		, %lu x
++18	belong		x		%lu
++22     belong          0               , rgb color
++22     belong          1               , greyscale
++22     belong          2               , indexed color
 
 0	string		MOVI		sgi movie			video/x-sgi
 
@@ -1355,6 +1381,12 @@ v()
 0	string		\357\273\277		utf-8 encoded text	application/x-iconv
 0	string		\376\377		utf-16 encoded text	application/x-iconv
 0	string		\377\376		utf-16 encoded text, little-endian	application/x-iconv
+
+32769	string		CD001	ISO 9660 CD-ROM filesystem image			data/x-filesystem
++32808	string		*	, '%s'
++34816	string		\000CD001\001EL\ TORITO\ SPECIFICATION	, bootable
+37633	string		CD001	ISO 9660 CD-ROM filesystem image, raw 2352 byte sectors	data/x-filesystem
+32776	string		CDROM	High Sierra CD-ROM filesystem image			data/x-filesystem
 
 #
 # front compression data

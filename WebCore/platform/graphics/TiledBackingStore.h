@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
+ Copyright (C) 2010-2012 Nokia Corporation and/or its subsidiary(-ies)
  
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Library General Public
@@ -20,12 +20,13 @@
 #ifndef TiledBackingStore_h
 #define TiledBackingStore_h
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 
-#include "FloatSize.h"
+#include "FloatPoint.h"
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "Tile.h"
+#include "TiledBackingStoreBackend.h"
 #include "Timer.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
@@ -34,90 +35,104 @@
 namespace WebCore {
 
 class GraphicsContext;
+class TiledBackingStore;
 class TiledBackingStoreClient;
 
 class TiledBackingStore {
     WTF_MAKE_NONCOPYABLE(TiledBackingStore); WTF_MAKE_FAST_ALLOCATED;
 public:
-    TiledBackingStore(TiledBackingStoreClient*);
+    TiledBackingStore(TiledBackingStoreClient*, PassOwnPtr<TiledBackingStoreBackend> = TiledBackingStoreBackend::create());
     ~TiledBackingStore();
 
-    void adjustVisibleRect();
-    
+    TiledBackingStoreClient* client() { return m_client; }
+
+    void coverWithTilesIfNeeded(const FloatPoint& panningTrajectoryVector = FloatPoint());
+
     float contentsScale() { return m_contentsScale; }
     void setContentsScale(float);
-    
+
     bool contentsFrozen() const { return m_contentsFrozen; }
     void setContentsFrozen(bool);
 
+    void updateTileBuffers();
+
     void invalidate(const IntRect& dirtyRect);
     void paint(GraphicsContext*, const IntRect&);
-    
+
     IntSize tileSize() { return m_tileSize; }
     void setTileSize(const IntSize&);
-    
+
     double tileCreationDelay() const { return m_tileCreationDelay; }
     void setTileCreationDelay(double delay);
-    
-    // Tiled are dropped outside the keep area, and created for cover area. The values a relative to the viewport size.
-    void getKeepAndCoverAreaMultipliers(FloatSize& keepMultiplier, FloatSize& coverMultiplier)
-    {
-        keepMultiplier = m_keepAreaMultiplier;
-        coverMultiplier = m_coverAreaMultiplier;
-    }
-    void setKeepAndCoverAreaMultipliers(const FloatSize& keepMultiplier, const FloatSize& coverMultiplier);    
+
+    IntRect mapToContents(const IntRect&) const;
+    IntRect mapFromContents(const IntRect&) const;
+
+    IntRect tileRectForCoordinate(const Tile::Coordinate&) const;
+    Tile::Coordinate tileCoordinateForPoint(const IntPoint&) const;
+    double tileDistance(const IntRect& viewport, const Tile::Coordinate&) const;
+
+    bool visibleAreaIsCovered() const;
+    void removeAllNonVisibleTiles();
+
+    void setSupportsAlpha(bool);
+    bool supportsAlpha() const { return m_supportsAlpha; }
 
 private:
     void startTileBufferUpdateTimer();
-    void startTileCreationTimer();
-    
-    typedef Timer<TiledBackingStore> TileTimer;
+    void startBackingStoreUpdateTimer();
 
-    void tileBufferUpdateTimerFired(TileTimer*);
-    void tileCreationTimerFired(TileTimer*);
-    
-    void updateTileBuffers();
+    void tileBufferUpdateTimerFired(Timer<TiledBackingStore>*);
+    void backingStoreUpdateTimerFired(Timer<TiledBackingStore>*);
+
     void createTiles();
-    
+    void computeCoverAndKeepRect(const IntRect& visibleRect, IntRect& coverRect, IntRect& keepRect) const;
+
+    bool isBackingStoreUpdatesSuspended() const;
+    bool isTileBufferUpdatesSuspended() const;
+
     void commitScaleChange();
 
-    void dropOverhangingTiles();
-    void dropTilesOutsideRect(const IntRect&);
-    
+    bool resizeEdgeTiles();
+    void setKeepRect(const IntRect&);
+
     PassRefPtr<Tile> tileAt(const Tile::Coordinate&) const;
     void setTile(const Tile::Coordinate& coordinate, PassRefPtr<Tile> tile);
     void removeTile(const Tile::Coordinate& coordinate);
 
-    IntRect mapToContents(const IntRect&) const;
-    IntRect mapFromContents(const IntRect&) const;
-    
-    IntRect contentsRect() const;
-    
-    IntRect tileRectForCoordinate(const Tile::Coordinate&) const;
-    Tile::Coordinate tileCoordinateForPoint(const IntPoint&) const;
-    double tileDistance(const IntRect& viewport, const Tile::Coordinate&);
-    
+    IntRect visibleContentsRect() const;
+    IntRect visibleRect() const;
+
+    float coverageRatio(const IntRect&) const;
+    void adjustForContentsRect(IntRect&) const;
+
     void paintCheckerPattern(GraphicsContext*, const IntRect&, const Tile::Coordinate&);
 
 private:
     TiledBackingStoreClient* m_client;
+    OwnPtr<TiledBackingStoreBackend> m_backend;
 
     typedef HashMap<Tile::Coordinate, RefPtr<Tile> > TileMap;
     TileMap m_tiles;
 
-    TileTimer* m_tileBufferUpdateTimer;
-    TileTimer* m_tileCreationTimer;
+    Timer<TiledBackingStore> m_tileBufferUpdateTimer;
+    Timer<TiledBackingStore> m_backingStoreUpdateTimer;
 
     IntSize m_tileSize;
     double m_tileCreationDelay;
-    FloatSize m_keepAreaMultiplier;
-    FloatSize m_coverAreaMultiplier;
-    
-    IntRect m_previousVisibleRect;
+    float m_coverAreaMultiplier;
+
+    FloatPoint m_trajectoryVector;
+    IntRect m_visibleRect;
+
+    IntRect m_keepRect;
+    IntRect m_rect;
+
     float m_contentsScale;
     float m_pendingScale;
 
     bool m_contentsFrozen;
+    bool m_supportsAlpha;
 
     friend class Tile;
 };

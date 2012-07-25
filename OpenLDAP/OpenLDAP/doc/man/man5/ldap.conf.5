@@ -1,6 +1,6 @@
 .TH LDAP.CONF 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/ldap.conf.5,v 1.33.2.12 2009/06/03 01:41:55 quanah Exp $
-.\" Copyright 1998-2009 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP$
+.\" Copyright 1998-2011 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap.conf, .ldaprc \- LDAP configuration file/environment variables
@@ -53,15 +53,16 @@ Thus the following files and variables are read, in order:
     user files   $HOME/ldaprc,  $HOME/.ldaprc,  ./ldaprc,
     system file  $LDAPCONF,
     user files   $HOME/$LDAPRC, $HOME/.$LDAPRC, ./$LDAPRC,
-    variables    $LDAP<option-name>.
+    variables    $LDAP<uppercase option name>.
 .fi
 Settings late in the list override earlier ones.
-.SH OPTIONS
+.SH SYNTAX
 The configuration options are case-insensitive;
 their value, on a case by case basis, may be case-sensitive.
 .LP
-Blank lines and lines beginning with a hash mark (`#')
-are ignored up to their end.
+Blank lines are ignored.
+.br
+Lines beginning with a hash mark (`#') are comments, and ignored.
 .LP
 Valid lines are made of an option's name (a sequence of non-blanks,
 conventionally written in uppercase, although not required), 
@@ -74,19 +75,27 @@ for that option, if any.  Quoting values that contain blanks
 may be incorrect, as the quotes would become part of the value.
 For example,
 
-	URI	"ldap:// ldaps://"
+.nf
+	# Wrong - erroneous quotes:
+	URI     "ldap:// ldaps://"
 
-is incorrect, while
+	# Right - space-separated list of URIs, without quotes:
+	URI     ldap:// ldaps://
 
-	URI	ldap:// ldaps://
+	# Right - DN syntax needs quoting for Example, Inc:
+	BASE    ou=IT staff,o="Example, Inc",c=US
+	# or:
+	BASE    ou=IT staff,o=Example2C Inc,c=US
 
-is correct (note the absence of the double quotes).
+	# Wrong - comment on same line as option:
+	DEREF   never           # Never follow aliases
+.fi
 .LP
 A line cannot be longer than LINE_MAX, which should be more than 2000 bytes
 on all platforms.
 There is no mechanism to split a long line on multiple lines, either for
 beautification or to overcome the above limit.
-.LP
+.SH OPTIONS
 The different configuration options are:
 .TP
 .B URI <ldap[si]://[name[:port]] ...>
@@ -308,11 +317,31 @@ certificates in separate individual files. The
 .B TLS_CACERT
 is always used before
 .B TLS_CACERTDIR.
-This parameter is ignored with GNUtls.
+This parameter is ignored with GnuTLS.
+
+When using Mozilla NSS, <path> may contain a Mozilla NSS cert/key
+database.  If <path> contains a Mozilla NSS cert/key database and
+CA cert files, OpenLDAP will use the cert/key database and will
+ignore the CA cert files.
 .TP
 .B TLS_CERT <filename>
 Specifies the file that contains the client certificate.
 .B This is a user-only option.
+
+When using Mozilla NSS, if using a cert/key database (specified with
+TLS_CACERTDIR), TLS_CERT specifies the name of the certificate to use:
+.nf
+	TLS_CERT Certificate for Sam Carter
+.fi
+If using a token other than the internal built in token, specify the
+token name first, followed by a colon:
+.nf
+	TLS_CERT my hardware device:Certificate for Sam Carter
+.fi
+Use certutil -L to list the certificates by name:
+.nf
+	certutil -d /path/to/certdbdir -L
+.fi
 .TP
 .B TLS_KEY <filename>
 Specifies the file that contains the private key that matches the certificate
@@ -321,29 +350,68 @@ stored in the
 file. Currently, the private key must not be protected with a password, so
 it is of critical importance that the key file is protected carefully.
 .B This is a user-only option.
+
+When using Mozilla NSS, TLS_KEY specifies the name of a file that contains
+the password for the key for the certificate specified with TLS_CERT.  The
+modutil command can be used to turn off password protection for the cert/key
+database.  For example, if TLS_CACERTDIR specifes /home/scarter/.moznss as
+the location of the cert/key database, use modutil to change the password
+to the empty string:
+.nf
+	modutil -dbdir ~/.moznss -changepw 'NSS Certificate DB'
+.fi
+You must have the old password, if any.  Ignore the WARNING about the running
+browser.  Press 'Enter' for the new password.
+
 .TP
 .B TLS_CIPHER_SUITE <cipher-suite-spec>
 Specifies acceptable cipher suite and preference order.
-<cipher-suite-spec> should be a cipher specification for OpenSSL,
-e.g., HIGH:MEDIUM:+SSLv2.
+<cipher-suite-spec> should be a cipher specification for 
+the TLS library in use (OpenSSL, GnuTLS, or Mozilla NSS).
+Example:
+.RS
+.RS
+.TP
+.I OpenSSL:
+TLS_CIPHER_SUITE HIGH:MEDIUM:+SSLv2
+.TP
+.I GnuTLS:
+TLS_CIPHER_SUITE SECURE256:!AES-128-CBC
+.RE
 
-To check what ciphers a given spec selects, use:
+To check what ciphers a given spec selects in OpenSSL, use:
 
 .nf
 	openssl ciphers \-v <cipher-suite-spec>
 .fi
 
-To obtain the list of ciphers in GNUtls use:
+With GnuTLS the available specs can be found in the manual page of 
+.BR gnutls\-cli (1)
+(see the description of the 
+option
+.BR \-\-priority ).
+
+In older versions of GnuTLS, where gnutls\-cli does not support the option
+\-\-priority, you can obtain the \(em more limited \(em list of ciphers by calling:
 
 .nf
-	gnutls-cli \-l
+	gnutls\-cli \-l
 .fi
+
+When using Mozilla NSS, the OpenSSL cipher suite specifications are used and
+translated into the format used internally by Mozilla NSS.  There isn't an easy
+way to list the cipher suites from the command line.  The authoritative list
+is in the source code for Mozilla NSS in the file sslinfo.c in the structure
+.nf
+        static const SSLCipherSuiteInfo suiteInfo[]
+.fi
+.RE
 .TP
 .B TLS_RANDFILE <filename>
 Specifies the file to obtain random bits from when /dev/[u]random is
 not available. Generally set to the name of the EGD/PRNGD socket.
 The environment variable RANDFILE can also be used to specify the filename.
-This parameter is ignored with GNUtls.
+This parameter is ignored with GnuTLS and Mozilla NSS.
 .TP
 .B TLS_REQCERT <level>
 Specifies what checks to perform on server certificates in a TLS session,
@@ -376,7 +444,7 @@ Specifies if the Certificate Revocation List (CRL) of the CA should be
 used to verify if the server certificates have not been revoked. This
 requires
 .B TLS_CACERTDIR
-parameter to be set. This parameter is ignored with GNUtls.
+parameter to be set. This parameter is ignored with GnuTLS and Mozilla NSS.
 .B <level>
 can be specified as one of the following keywords:
 .RS
@@ -394,7 +462,7 @@ Check the CRL for a whole certificate chain
 .B TLS_CRLFILE <filename>
 Specifies the file containing a Certificate Revocation List to be used
 to verify if the server certificates have not been revoked. This
-parameter is only supported with GNUtls.
+parameter is only supported with GnuTLS and Mozilla NSS.
 .SH "ENVIRONMENT VARIABLES"
 .TP
 LDAPNOINIT

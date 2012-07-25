@@ -29,13 +29,11 @@
 #include "JSNPObject.h"
 #include "NPRuntimeObjectMap.h"
 #include "NPRuntimeUtilities.h"
-#include "PluginView.h"
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/StrongInlines.h>
 #include <WebCore/Frame.h>  
 #include <WebCore/IdentifierRep.h>
-#include <WebCore/NotImplemented.h>
 #include <wtf/text/WTFString.h>
 
 using namespace JSC;
@@ -192,7 +190,7 @@ bool NPJSObject::setProperty(NPIdentifier propertyName, const NPVariant* value)
         PutPropertySlot slot;
         m_jsObject->methodTable()->put(m_jsObject.get(), exec, identifierFromIdentifierRep(exec, identifierRep), jsValue, slot);
     } else
-        m_jsObject->methodTable()->putByIndex(m_jsObject.get(), exec, identifierRep->number(), jsValue);
+        m_jsObject->methodTable()->putByIndex(m_jsObject.get(), exec, identifierRep->number(), jsValue, false);
     exec->clearException();
     
     return true;

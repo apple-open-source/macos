@@ -1,4 +1,5 @@
-#include <pthread.h>
+typedef struct _opaque_pthread_mutex_t pthread_mutex_t;
+typedef struct _opaque_pthread_rwlock_t pthread_rwlock_t;
 
 provider plockstat {
   probe mutex__acquire(pthread_mutex_t *mutex, int recursive, int spin_count);

@@ -32,6 +32,10 @@
 
 #include "BootCache.h"
 
+// --- For composite disk checking
+#include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
+#include <IOKit/storage/IOMedia.h>
+
 static int	usage(const char *reason);
 static int	do_boot_cache();
 static int	start_cache(const char *pfname);
@@ -60,34 +64,34 @@ main(int argc, char *argv[])
 	int ch, cflag, batch;
 	int* pbatch;
 	char *pfname;
-
+	
 	myname = argv[0];
 	pfname = NULL;
 	pbatch = NULL;
 	cflag = 0;
 	while ((ch = getopt(argc, argv, "b:cvf:t:")) != -1) {
 		switch(ch) {
-		case 'b':
-			usage("blocksize is no longer required, ignoring");
-		case 'c':
-			cflag++;
-			break;
-		case 'v':
-			verbose++;
-			break;
-		case 'f':
-			pfname = optarg;
-			break;
-		case 't':
-			if ((sscanf(optarg, "%d", &batch)) != 1)
-				usage("bad batch number");
-			else
-				pbatch = &batch;
-			break;
-		case '?':
-		default:
-			return(usage(NULL));
-			break;
+			case 'b':
+				usage("blocksize is no longer required, ignoring");
+			case 'c':
+				cflag++;
+				break;
+			case 'v':
+				verbose++;
+				break;
+			case 'f':
+				pfname = optarg;
+				break;
+			case 't':
+				if ((sscanf(optarg, "%d", &batch)) != 1)
+					usage("bad batch number");
+				else
+					pbatch = &batch;
+				break;
+			case '?':
+			default:
+				return(usage(NULL));
+				break;
 		}
 	}
 	argc -= optind;
@@ -127,7 +131,7 @@ main(int argc, char *argv[])
 			return(usage("missing truncate length"));
 		return(truncate_playlist(pfname, argv[1]));
 	}
-
+	
 	if (!strcmp(argv[0], "unload")) {
 		if (BC_unload()) {
 			warnx("could not unload cache");
@@ -193,7 +197,7 @@ static inline const char* uuid_string(uuid_t uuid)
 static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, int batch, int shared)
 {
     char filename[MAXPATHLEN];
-
+	
     FILE *lpl = fopen(playlist, "r");
     if (lpl == NULL){
         if (errno != ENOENT && errno != EINVAL) {
@@ -226,6 +230,130 @@ static int add_logical_playlist(const char *playlist, struct BC_playlist *pc, in
 }
 
 /*
+ * Return whether the root disk is a composite disk.
+ */
+static bool
+isRootCPDK()
+{
+	//*********************************************//
+	// Get the bsd device name for the root volume //
+	//*********************************************//	
+	
+	char* bsdDevPath = NULL;
+	
+	struct statfs buffer;
+	bzero (&buffer, sizeof (buffer));
+	if (0 == statfs("/", &buffer)) {
+		
+		if (strlen(buffer.f_mntfromname) >= 9) { /* /dev/disk */
+			
+			bsdDevPath = &(buffer.f_mntfromname[5]);	
+
+		}
+	}
+	
+	if (NULL == bsdDevPath) {
+		// No bsd device? Assume not composite
+		return false;
+	}
+	
+	//*************************************************************//
+	// Get the CoreStorage Logical Volume UUID from the bsd device //
+	//*************************************************************//
+	
+	CFStringRef lvUUID = NULL;
+	
+	mach_port_t masterPort;
+	if (KERN_SUCCESS == IOMasterPort(bootstrap_port, &masterPort)) {
+		
+		io_registry_entry_t diskObj = IOServiceGetMatchingService(masterPort, IOBSDNameMatching(masterPort, 0, bsdDevPath));
+		if (IO_OBJECT_NULL != diskObj) {
+			
+			if (IOObjectConformsTo(diskObj, kCoreStorageLogicalClassName)) {
+				
+				CFTypeRef cfRef = IORegistryEntryCreateCFProperty(diskObj, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+				if (NULL != cfRef) {
+					
+					if (CFGetTypeID(cfRef) == CFStringGetTypeID()) {
+						
+						lvUUID = CFStringCreateCopy(NULL, cfRef);
+						// fprintf(outfile, "%6f CoreStorage Logical Volume UUID is %p %s\n", CFAbsoluteTimeGetCurrent() - starttime, lvUUID, CFStringGetCStringPtr(lvUUID, 0)); fflush(outfile);
+
+					}
+					
+					CFRelease(cfRef);
+				}
+				
+			} else {
+				//Common case for non-CoreStorage filesystems
+			}
+			
+			IOObjectRelease(diskObj);
+		}
+		
+	}
+	
+	if (NULL == lvUUID) {
+		// Not composite if it's not CoreStorage
+		return false;
+	}
+	
+	//****************************************************************************************//
+	// Get the CoreStorage Logical Volume Group UUID from the CoreStorage Logical Volume UUID //
+	//****************************************************************************************//	
+	
+	CFStringRef lvgUUID = NULL;
+	
+	CFMutableDictionaryRef propLV = CoreStorageCopyVolumeProperties ((CoreStorageLogicalRef)lvUUID);
+	CFRelease(lvUUID);
+	if (NULL != propLV) {
+		
+		lvgUUID = CFDictionaryGetValue(propLV, CFSTR(kCoreStorageLogicalGroupUUIDKey));
+		if (NULL != lvgUUID) {
+
+			lvgUUID = CFStringCreateCopy(NULL, lvgUUID);
+			// fprintf(outfile, "%6f CoreStorage Logical Volume Group UUID is %p %s\n", CFAbsoluteTimeGetCurrent() - starttime, lvgUUID, CFStringGetCStringPtr(lvgUUID, 0)); fflush(outfile);
+
+		}
+		
+		CFRelease(propLV);
+	}
+	
+	if (NULL == lvgUUID) {
+		// Can't get the group? Assume not composite
+		return false;
+	}
+	
+	//**************************************************************************************************//
+	// Check if the Core Storage Group Type of the CoreStorage Logical Volume Group is a Composite Disk //
+	//**************************************************************************************************//	
+	
+	bool isCompositeDisk = false;
+	
+	CFMutableDictionaryRef lvgProperties = CoreStorageCopyLVGProperties ((CoreStorageGroupRef)lvgUUID);
+	CFRelease(lvgUUID);
+	if (NULL != lvgProperties) {
+		
+		CFStringRef groupType = CFDictionaryGetValue(lvgProperties, CFSTR(kCoreStorageGroupTypeKey));
+		if (NULL != groupType) {
+			
+			isCompositeDisk = (kCFCompareEqualTo == CFStringCompare(groupType, CFSTR(kCoreStorageGroupTypeCPDK), 0x0));
+			
+		}
+		
+		CFRelease(lvgProperties);
+	}
+	
+	if (isCompositeDisk) {
+		// fprintf(outfile, "%6f is cpdk\n", CFAbsoluteTimeGetCurrent() - starttime); fflush(outfile);
+	} else {
+		// fprintf(outfile, "%6f is not cpdk\n", CFAbsoluteTimeGetCurrent() - starttime); fflush(outfile);
+	}
+	
+	return isCompositeDisk;
+}
+
+/*
  * Kick off the boot cache.
  */
 static int
@@ -236,106 +364,109 @@ do_boot_cache()
 	const char* pfname = BC_ROOT_PLAYLIST;
 	
 	if ((error = BC_test()) != 0) {
-		// warnx("Boot cache is disabled: %d", error);
 		return error;
 	}
-
+	
+	bool isCompositeDisk = isRootCPDK();
+	
 	/* set up to start recording with no playback */
 	pc = NULL;
 	
-	
-	/*
-	 * If we have a playlist, open it and prepare to load it.
-	 */
-	error = BC_read_playlist(pfname, &pc);
-	
-	/*
-	 * If the playlist is missing or invalid, ignore it. We'll
-	 * overwrite it later.
-	 */
-	if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
-		warnx("could not read playlist %s: %s", pfname, strerror(error));
-		return error;
-	}
-	
-	int last_shutdown_was_clean = 0;
-	size_t wasCleanSz = sizeof(wasCleanSz);
-	error = sysctlbyname("vfs.generic.root_unmounted_cleanly", &last_shutdown_was_clean, &wasCleanSz, NULL, 0);
-	if (error != 0) {
-		warnx("Unable to check for hard shutdown");
-	}
-	
-	if (pc) {
-		
-		/*
-		 * Remove the consumed playlist: it'll be replaced once BootCache 
-		 * completes successfully.
-		 */
-		
-		//char prev_path[MAXPATHLEN];
-		//snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
-		//error = rename(pfname, prev_path); // for debugging
-		error = unlink(pfname);
-		if (error != 0 && errno != ENOENT)
-			errx(1, "could not unlink bootcache playlist %s: %d %s", pfname, errno, strerror(errno));
-		
-		if (! last_shutdown_was_clean) {
-			struct timeval start_time = {0,0}, end_time = {0,0};
-			(void)gettimeofday(&start_time, NULL); // can't fail
-			
-			// Make sure the unlink hits disk in case we panic rdar://8947415
-			int fd = open("/var/db/", O_RDONLY);
-			if (fd != -1) {
-				if (-1 != fcntl(fd, F_FULLFSYNC)) {
-					fprintf(stderr, "Synced /var/db/\n");
-				} else {
-					warnx("Unable to sync /var/db/: %d %s", errno, strerror(errno));
-				}
-				close(fd);
-			} else {
-				warnx("Unable to open /var/db/: %d %s", errno, strerror(errno));
-			}
-			
-			(void)gettimeofday(&end_time, NULL); // can't fail
-			timersub(&end_time, &start_time, &end_time);
-			// warnx("Took %dus to sync /var/db/\n", end_time.tv_usec);
-		}
-		
-        // rdar://9424845 Add any files we know are read in every boot, but change every boot
-        add_fseventsd_files(pc, 0, false);
-        add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0, false);
-        add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2, false);
-
-	} else {
-		if (last_shutdown_was_clean) {
-			pc = calloc(1, sizeof(*pc));
-            
-            // No Root playlist: we're during an install so use our premade logical playlists
-            
-            add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0, false);
-            add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2, false);
-        }
-	}
-	
-	// If we don't have a playlist here, we don't want to play back anything
-	if (pc) {
-		// Add the login playlist of user we expect to log in to the boot playlist
-		if (0 != add_playlist_for_preheated_user(pc)) {
-			// Unable to add user playlist, add 32-bit shared cache to low-priority playlist
-#if defined __x86_64__
-			add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
-			warnx("Added 32-bit shared cache to the low priority batch");
-#endif
-		}
+    if (! isCompositeDisk) {
+        /*
+         * If we have a playlist, open it and prepare to load it.
+         */
+        error = BC_read_playlist(pfname, &pc);
         
-		// rdar://9021675 Always warm the shared cache
-		add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
-	}
-	
+        /*
+         * If the playlist is missing or invalid, ignore it. We'll
+         * overwrite it later.
+         */
+        if ((error != 0) && (error != EINVAL) && (error != ENOENT)) {
+            warnx("could not read playlist %s: %s", pfname, strerror(error));
+            return error;
+        }
+        
+        int last_shutdown_was_clean = 0;
+        size_t wasCleanSz = sizeof(wasCleanSz);
+        error = sysctlbyname("vfs.generic.root_unmounted_cleanly", &last_shutdown_was_clean, &wasCleanSz, NULL, 0);
+        if (error != 0) {
+            warnx("Unable to check for hard shutdown");
+        }
+        
+        if (pc) {
+            
+            /*
+             * Remove the consumed playlist: it'll be replaced once BootCache 
+             * completes successfully.
+             */
+            
+            //char prev_path[MAXPATHLEN];
+            //snprintf(prev_path, sizeof(prev_path), "%s.previous", pfname);
+            //error = rename(pfname, prev_path); // for debugging
+            error = unlink(pfname);
+            if (error != 0 && errno != ENOENT)
+                errx(1, "could not unlink bootcache playlist %s: %d %s", pfname, errno, strerror(errno));
+            
+            if (! last_shutdown_was_clean) {
+                struct timeval start_time = {0,0}, end_time = {0,0};
+                (void)gettimeofday(&start_time, NULL); // can't fail
+                
+                // Make sure the unlink hits disk in case we panic rdar://8947415
+                int fd = open("/var/db/", O_RDONLY);
+                if (fd != -1) {
+                    if (-1 != fcntl(fd, F_FULLFSYNC)) {
+                        fprintf(stderr, "Synced /var/db/\n");
+                    } else {
+                        warnx("Unable to sync /var/db/: %d %s", errno, strerror(errno));
+                    }
+                    close(fd);
+                } else {
+                    warnx("Unable to open /var/db/: %d %s", errno, strerror(errno));
+                }
+                
+                (void)gettimeofday(&end_time, NULL); // can't fail
+                timersub(&end_time, &start_time, &end_time);
+                // warnx("Took %dus to sync /var/db/\n", end_time.tv_usec);
+            }
+            
+            // rdar://9424845 Add any files we know are read in every boot, but change every boot
+            add_fseventsd_files(pc, 0, false);
+            add_logical_playlist(BC_ROOT_EXTRA_LOGICAL_PLAYLIST, pc, 0, false);
+            add_logical_playlist(BC_LOGIN_EXTRA_LOGICAL_PLAYLIST, pc, 2, false);
+            
+        } else {
+            if (last_shutdown_was_clean) {
+                pc = calloc(1, sizeof(*pc));
+                
+                // No Root playlist: we're during an install so use our premade logical playlists
+                
+                add_logical_playlist(BC_ROOT_LOGICAL_PLAYLIST, pc, 0, false);
+                add_logical_playlist(BC_LOGIN_LOGICAL_PLAYLIST, pc, 2, false);
+            }
+        }
+        
+        // If we don't have a playlist here, we don't want to play back anything
+        if (pc) {
+            // Add the login playlist of user we expect to log in to the boot playlist
+            if (0 != add_playlist_for_preheated_user(pc)) {
+                // Unable to add user playlist, add 32-bit shared cache to low-priority playlist
+#if defined __x86_64__
+                add_file(pc, BC_DYLD_SHARED_CACHE_32, 0, true, true);
+                warnx("Added 32-bit shared cache to the low priority batch");
+#endif
+            }
+            
+            // rdar://9021675 Always warm the shared cache
+            add_file(pc, BC_DYLD_SHARED_CACHE, -1, true, false);
+        }
+        
+    }
+    
 	error = BC_start(pc);
 	if (error != 0)
 		warnx("could not start cache: %d %s", error, strerror(error));
-
+	
 	PC_FREE_ZERO(pc);
 	return(error);
 }
@@ -345,7 +476,7 @@ do_boot_cache()
  */
 static int
 add_playlist_for_preheated_user(struct BC_playlist *pc) {
-
+	
 	if (!pc) return 1;
 	
 	// These defines match those in warmd
@@ -363,7 +494,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 #define TAL_LOGIN_LOWPRI_DATA_BATCH_NUM      (TAL_LOGIN_BACKGROUND_APP_BATCH_NUM + 1)
 #define I386_SHARED_CACHE_NULL_BATCH_NUM         (-2)
 #define I386_SHARED_CACHE_LOW_PRIORITY_BATCH_NUM (-1)
-
+	
 	int error, i;
 	int playlist_path_end_idx = 0;
 	char playlist_path[MAX_PLAYLIST_PATH_LENGTH];
@@ -398,14 +529,14 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 	if (service != MACH_PORT_NULL) {
 		
 		CFDataRef fde_login_user = IORegistryEntryCreateCFProperty(service, CFSTR(kCSFDEEFILoginUnlockIdentID),
-													kCFAllocatorDefault, kNilOptions);
+																   kCFAllocatorDefault, kNilOptions);
 		IOObjectRelease(service);
 		if (fde_login_user != NULL) {
 			CFDataGetBytes(fde_login_user, CFRangeMake(0, sizeof(login_user)), (UInt8*)login_user);
 			CFRelease(fde_login_user);
 		}
 	}
-
+	
 	playlist_path_end_idx = snprintf(playlist_path, sizeof(playlist_path), PREHEATED_USER_PLAYLIST_PATH_FMT, login_user);
 	
 	// warnx("Reading user playlists from user dir %s", playlist_path);
@@ -425,8 +556,8 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 					add_file(user_playlist, BC_DYLD_SHARED_CACHE_32, i386_shared_cache_batch_num, true, false);
 				}
 				// warnx("Added 32-bit shared cache to batch %d", i386_shared_cache_batch_num);
-
-				already_added_i386_shared_cache = true;
+				
+				// already_added_i386_shared_cache = true; dead store...
 			}
 		}
 #endif
@@ -534,7 +665,7 @@ add_playlist_for_preheated_user(struct BC_playlist *pc) {
 	if (error != 0) {
 		goto out;
 	}
-		
+	
 	// Add any files we know are read in every login, but change every login
 	// --- none yet, use add_file ---
 	
@@ -602,7 +733,7 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
 		if (shared)	      flags |= BC_PE_SHARED;
 		if (low_priority) flags |= BC_PE_LOWPRIORITY;
         for (i = 0; i < playlist->p_nentries; i++) {
-				playlist->p_entries[i].pe_flags |= flags;
+			playlist->p_entries[i].pe_flags |= flags;
         }
     }
     
@@ -621,7 +752,7 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
     
     error = BC_merge_playlists(pc, playlist);
     PC_FREE_ZERO(playlist);
-
+	
 	if (error != 0) {
 		if (pc->p_entries) {
 			free(pc->p_entries);
@@ -631,7 +762,7 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
 		}
 		memset(pc, 0, sizeof(*pc));
 	}
-
+	
     return error;
 }
 
@@ -641,7 +772,7 @@ add_file(struct BC_playlist *pc, const char *fname, const int batch, const bool 
 static int
 add_directory(struct BC_playlist *pc, const char *dname, const int batch, const bool shared){
 #define MAX_FILES_PER_DIR 10
-
+	
     DIR *dirp = opendir(dname);
     if (!dirp)
         return errno;
@@ -726,7 +857,7 @@ add_fseventsd_files(struct BC_playlist *pc, const int batch, const bool shared){
         }
     }
     closedir(dirp);
-
+	
     for (i = 0; i < NUM_FILES_TO_WARM; i++) {
         if (newest_files[i][0] != '\0') {
             char fname[128];
@@ -750,10 +881,10 @@ start_cache(const char *pfname)
 {
 	struct BC_playlist *pc;
 	int error;
-
+	
 	/* set up to start recording with no playback */
 	pc = NULL;
-
+	
 	if (pfname == NULL)
 		errx(1, "No playlist provided");
 	
@@ -790,11 +921,11 @@ start_cache(const char *pfname)
 			warnx("could not unlink playlist %s: %s", pfname, strerror(errno));
 		}
 	}
-
+	
 	error = BC_start(pc);
 	if (error != 0)
 		warnx("could not start cache: %d %s", error, strerror(error));
-
+	
 	PC_FREE_ZERO(pc);
 	return(error);
 }
@@ -810,12 +941,12 @@ stop_cache(const char *pfname, int debugging)
 	struct BC_history  *hc;
 	struct BC_statistics *ss;
 	int error;
-
+	
 	/*
 	 * Notify whoever cares that BootCache has stopped recording.
 	 */
 	notify_post("com.apple.system.private.bootcache.done");
-
+	
 	/*
 	 * Stop the cache and fetch the history list.
 	 */
@@ -846,7 +977,7 @@ stop_cache(const char *pfname, int debugging)
 		HC_FREE_ZERO(hc);
 		return(0);
 	}
-
+	
 	/*
 	 * Convert the history list to playlist format.
 	 */
@@ -857,7 +988,7 @@ stop_cache(const char *pfname, int debugging)
 		HC_FREE_ZERO(hc);
 		errx(1, "history to playlist conversion failed: %d %s", error, strerror(error));
 	}
-
+	
 	/*
 	 * Sort the playlist into block order and coalesce into the smallest set
 	 * of read operations.
@@ -867,7 +998,7 @@ stop_cache(const char *pfname, int debugging)
 	BC_sort_playlist(pc);
 #endif
 	BC_coalesce_playlist(pc);
-
+	
 	
 #if 0 	
 	/* 
@@ -882,7 +1013,7 @@ stop_cache(const char *pfname, int debugging)
 	 */
 	int onentries;
 	struct BC_playlist_entry *opc;
-
+	
 	/*
 	 * In order to ensure best possible coverage, we try to merge the
 	 * existing playlist with our new history (provided that the hit
@@ -924,7 +1055,7 @@ stop_cache(const char *pfname, int debugging)
 		goto nomerge;	/* old playlist had < 85% hitrate */
 	}
 	BC_merge_playlists(&pc, &nentries, opc, onentries);
-
+	
 nomerge:
 	PC_FREE_ZERO(opc);
 #endif /* 0 */
@@ -935,7 +1066,7 @@ nomerge:
 	if ((error = BC_write_playlist(pfname, pc)) != 0) {
 		errx(1, "could not write playlist: %d %s", error, strerror(error));
 	}
-
+	
 	return(0);
 }
 
@@ -946,16 +1077,16 @@ static int
 jettison_cache(void)
 {
 	int error;
-
+	
 	/*
 	 * Stop the cache and fetch the history list.
 	 */
 	if ((error = BC_jettison()) != 0)
 		return error;
-
+	
 	if (verbose > 0)
 		print_statistics(NULL);
-
+	
 	return(0);
 }
 
@@ -968,18 +1099,18 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 {
 	struct BC_playlist *pc = NULL, *npc = NULL;
 	int i, j, error;
-
+	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to merge");
-
+	
 	pc = calloc(1, sizeof(*pc));
 	if(!pc) errx(1, "could not allocate initial playlist");
-
+	
 	/*
 	 * Read playlists into memory.
 	 */
 	for (i = 0; i < argc; i++) {
-
+		
 		/*
 		 * Read the next playlist and merge with the current set.
 		 */
@@ -1001,13 +1132,13 @@ merge_playlists(const char *pfname, int argc, char *argv[], int* pbatch)
 		}
 		PC_FREE_ZERO(npc);
 	}
-
+	
 	error = BC_write_playlist(pfname, pc);
 	
 out:
 	PC_FREE_ZERO(npc);
 	PC_FREE_ZERO(pc);
-
+	
 	return error;
 }
 
@@ -1058,23 +1189,23 @@ print_playlist(const char *pfname, int source)
 	struct BC_playlist_entry *pe;
 	int i;
 	u_int64_t size, size_lowpri;
-
+	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
-
+	
 	/*
 	 * Suck in the playlist.
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist");
-
+	
 	if (source) {
 		printf("static struct BC_playlist_mount BC_mounts[] = {\n");
 		for (i = 0; i < pc->p_nmounts; i++) {
 			pm = pc->p_mounts + i;
 			printf("    {\"%s\", 0x%x}%s\n",
-			    uuid_string(pm->pm_uuid), pm->pm_nentries,
-			    (i < (pc->p_nmounts - 1)) ? "," : "");
+				   uuid_string(pm->pm_uuid), pm->pm_nentries,
+				   (i < (pc->p_nmounts - 1)) ? "," : "");
 		}
 		printf("};\n");
 		printf("static struct BC_playlist_entry BC_entries[] = {\n");
@@ -1082,10 +1213,10 @@ print_playlist(const char *pfname, int source)
 		for (i = 0; i < pc->p_nmounts; i++) {
 			pm = pc->p_mounts + i;
 			printf("Mount %s %5d entries\n",
-			    uuid_string(pm->pm_uuid), pm->pm_nentries);
+				   uuid_string(pm->pm_uuid), pm->pm_nentries);
 		}
 	}
-
+	
 	/*
 	 * Print entries in source or "human-readable" format.
 	 */
@@ -1095,11 +1226,11 @@ print_playlist(const char *pfname, int source)
 		pe = pc->p_entries + i;
 		if (source) {
 			printf("    {0x%llx, 0x%llx, 0x%x, 0x%x, 0x%x}%s\n",
-			    pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags, pe->pe_mount_idx,
-			    (i < (pc->p_nentries - 1)) ? "," : "");
+				   pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags, pe->pe_mount_idx,
+				   (i < (pc->p_nentries - 1)) ? "," : "");
 		} else {
 			printf("%s %-12llu %-8llu %d 0x%x\n",
-			    uuid_string(pc->p_mounts[pe->pe_mount_idx].pm_uuid), pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags);
+				   uuid_string(pc->p_mounts[pe->pe_mount_idx].pm_uuid), pe->pe_offset, pe->pe_length, pe->pe_batch, pe->pe_flags);
 		}
 		if (pe->pe_flags & BC_PE_LOWPRIORITY) {
 			size_lowpri += pe->pe_length;
@@ -1113,7 +1244,7 @@ print_playlist(const char *pfname, int source)
 		printf("%llu bytes\n", size);
 		printf("%llu low-priority bytes\n", size_lowpri);
 	}
-
+	
 	PC_FREE_ZERO(pc);	
 	return(0);
 }
@@ -1151,42 +1282,42 @@ unprint_playlist(const char *pfname)
 	int m_nentries;
 	uint64_t unused;
 	char buf[128];
-
+	
 	pc = calloc(1, sizeof(*pc));
 	if(!pc) errx(1, "could not allocate initial playlist");
-
+	
 	alloced = 0;
 	nentries = 0;
 	seen_old_style = 0;
-
+	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to create");
-
+	
 	while (NULL != fgets(buf, sizeof(buf), stdin)) {
 		
 		/*
 		 * Parse mounts
 		 */
 		got = sscanf(buf, "Mount %s %u entries ",
-			uuid_string, &m_nentries);
-			
+					 uuid_string, &m_nentries);
+		
 		if (got == 2) {
 			/* make sure we have space for the next mount */
 			if ((pc->p_mounts = realloc(pc->p_mounts, (pc->p_nmounts + 1) * sizeof(*pc->p_mounts))) == NULL)
 				errx(1, "could not allocate memory for %d mounts", pc->p_nmounts + 1);
-				
+			
 			pc->p_mounts[pc->p_nmounts].pm_nentries  = m_nentries;
 			uuid_parse(uuid_string, pc->p_mounts[pc->p_nmounts].pm_uuid);
-				
+			
 			pc->p_nmounts++;
-				
+			
 			continue;
 		}
 		
 		/*
 		 * Parse entries
 		 */
-		 
+		
 		/* make sure we have space for the next entry */
 		if (nentries >= alloced) {
 			if (alloced == 0) {
@@ -1200,11 +1331,11 @@ unprint_playlist(const char *pfname)
 		
 		/* read input */
 		got = sscanf(buf, "%s %lli %lli %hi %hi",
-			uuid_string,
-		    &(pc->p_entries + nentries)->pe_offset,
-		    &(pc->p_entries + nentries)->pe_length,
-		    &(pc->p_entries + nentries)->pe_batch,
-			&(pc->p_entries + nentries)->pe_flags);
+					 uuid_string,
+					 &(pc->p_entries + nentries)->pe_offset,
+					 &(pc->p_entries + nentries)->pe_length,
+					 &(pc->p_entries + nentries)->pe_batch,
+					 &(pc->p_entries + nentries)->pe_flags);
 		if (got == 5) {
 			uuid_parse(uuid_string, uuid);
 			for (i = 0; i < pc->p_nmounts; i++) {
@@ -1219,14 +1350,14 @@ unprint_playlist(const char *pfname)
 			
 			nentries++;
 			continue;
-
+			
 		}
-	
+		
 		/* Support old-style format (no UUID, root volume implied) */
 		got = sscanf(buf, "%llu %llu %hu",
-			&(pc->p_entries + nentries)->pe_offset,
-			&(pc->p_entries + nentries)->pe_length,
-			&(pc->p_entries + nentries)->pe_batch);
+					 &(pc->p_entries + nentries)->pe_offset,
+					 &(pc->p_entries + nentries)->pe_length,
+					 &(pc->p_entries + nentries)->pe_batch);
 		if (got == 3) {
 			
 			if (! seen_old_style) {
@@ -1245,16 +1376,16 @@ unprint_playlist(const char *pfname)
 			(pc->p_entries + nentries)->pe_mount_idx = 0;
 			(pc->p_entries + nentries)->pe_flags = 0;
 			nentries++;
-
+			
 			continue;
 		}
-
+		
 		/* Ignore the line from print_playlist that has the total size of the cache */
 		got = sscanf(buf, "%llu bytes", &unused);
 		if (got == 1) {
 			continue;
 		}
-
+		
 		got = sscanf(buf, "%llu low-priority bytes", &unused);
 		if (got == 1) {
 			continue;
@@ -1265,20 +1396,20 @@ unprint_playlist(const char *pfname)
 		if (got == 1) {
 			continue;
 		}
-
+		
 		/* Ignore the line from theold-style print_playlist that has the total size of the cache */
 		got = sscanf(buf, "%llu blocks", &unused);
 		if (got == 1) {
 			continue;
 		}
-
+		
 		errx(1, "Bad input line: '%s'", buf);
 	}
 	
 	pc->p_nentries = nentries;
 	if (seen_old_style)
 		pc->p_mounts[0].pm_nentries = nentries;
-
+	
 	if (BC_verify_playlist(pc)) {
 		errx(1, "Playlist failed verification");
 	}	
@@ -1286,6 +1417,7 @@ unprint_playlist(const char *pfname)
 	if ((error = BC_write_playlist(pfname, pc)) != 0)
 		errx(1, "could not create playlist: %d %s", error, strerror(error));
 	
+	PC_FREE_ZERO(pc);
 	return(0);
 }
 
@@ -1296,19 +1428,19 @@ static int
 generalize_playlist(const char *pfname)
 {
 	struct BC_playlist *pc;
-
+	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to print");
-
+	
 	/*
 	 * Suck in the playlist.
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist");
-		
+	
 	if (pc->p_nmounts != 1)
 		errx(1, "Playlist generalization only works on playlists with a single mount");
-
+	
 	uuid_clear(pc->p_mounts[0].pm_uuid);
 	BC_write_playlist(pfname, pc);
 	
@@ -1328,15 +1460,15 @@ generate_playlist(const char *pfname, const char *root)
 	struct BC_playlist *pc;
 	int nentries, alloced;
     long block_size;
-
+	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to create");
-
+	
 	if (root == NULL)
 		root = "/";
 	if (strlen(root) >= 512)
 		errx(1, "root path must be less than 512 characters");
-
+	
 	pc = malloc(sizeof(*pc));
 	
 	/* Setup the root volume as the only mount */
@@ -1353,7 +1485,7 @@ generate_playlist(const char *pfname, const char *root)
 	} else {
         block_size = statfs_buf.f_bsize;
 	}
-
+	
 	get_volume_uuid(root, pc->p_mounts[0].pm_uuid);
 	
 	/* Fill in the entries */
@@ -1362,12 +1494,12 @@ generate_playlist(const char *pfname, const char *root)
 	pc->p_entries = malloc(alloced * sizeof(*pc->p_entries));
 	if(!pc->p_entries) errx(1, "could not allocate initial playlist");	
 	for (;;) { /* go over each line */
-
+		
 		/* read input */
 		int64_t offset, count;
 		int batch;
 		if(fscanf(stdin, "%lli %lli %i ", &offset, &count, &batch) < 3) break;
-
+		
 		/* build the path */
 		char path[2048];
 		unsigned int path_offset = (unsigned int) strlen(root);
@@ -1382,7 +1514,7 @@ generate_playlist(const char *pfname, const char *root)
 			}
 		}
 		if(path_offset == 2048) continue;
-
+		
 		/* open and stat the file */
 		struct stat sb;
 		int fd = open(path, O_RDONLY);
@@ -1394,19 +1526,19 @@ generate_playlist(const char *pfname, const char *root)
         
         // Round up to the block size
         sb.st_size = (((sb.st_size + (block_size - 1)) / block_size) * block_size);
-
+		
 		/* add metadata blocks for file */
 		/*	TODO:
-			as a further enhancement, since we know we're going to access this file
-			by name, it would make sense to add to the bootcache any blocks that
-			will be used in doing so, including the directory entries of the parent
-			directories on up the chain.
-		*/
-
+		 as a further enhancement, since we know we're going to access this file
+		 by name, it would make sense to add to the bootcache any blocks that
+		 will be used in doing so, including the directory entries of the parent
+		 directories on up the chain.
+		 */
+		
 		/* find blocks in the file */
 		off_t position;
 		for(position = offset; position < offset + count && position < sb.st_size; ) {
-
+			
 			off_t remaining = (count - (position - offset));
 			struct log2phys l2p = {
 				.l2p_flags       = 0,
@@ -1444,7 +1576,7 @@ generate_playlist(const char *pfname, const char *root)
 				warnx("Invalid block range return for %d from disk (%lld:%lld returned %lld:%lld)\n", fd, position, remaining, l2p.l2p_devoffset, l2p.l2p_contigbytes);
 				break;
 			}
-						
+			
 			/* create the new entry */
 			pc->p_entries[nentries].pe_offset = l2p.l2p_devoffset;
 			pc->p_entries[nentries].pe_length = l2p.l2p_contigbytes;
@@ -1465,20 +1597,20 @@ generate_playlist(const char *pfname, const char *root)
 	}
 	if(nentries == 0)
 		errx(1, "no blocks found for playlist");
-		
+	
 	pc->p_nentries = nentries;
 	pc->p_mounts[0].pm_nentries = nentries;
 	
 	if (BC_verify_playlist(pc)) {
 		errx(1, "Playlist failed verification");
 	}	
-
+	
 	/* sort the playlist */
 #ifdef BOOTCACHE_ENTRIES_SORTED_BY_DISK_OFFSET
 	BC_sort_playlist(pc);
 #endif
 	BC_coalesce_playlist(pc);
-
+	
 	/* write the playlist */
 	if (BC_write_playlist(pfname, pc) != 0)
 		errx(1, "could not create playlist");
@@ -1499,7 +1631,7 @@ truncate_playlist(const char *pfname, char *larg)
 	
 	if (pfname == NULL)
 		errx(1, "must specify a playlist file to truncate");
-
+	
 	length = (int) strtol(larg, &cp, 0);
 	if ((*cp != 0) || (length < 1))
 		err(1, "bad truncate length '%s'", larg);
@@ -1509,14 +1641,14 @@ truncate_playlist(const char *pfname, char *larg)
 	 */
 	if (BC_read_playlist(pfname, &pc))
 		errx(1, "could not read playlist to truncate");
-
+	
 	/*
 	 * Make sure the new length is shorter.
 	 */
 	if (length > pc->p_nentries) {
 		warnx("playlist is shorter than specified truncate length");
 	} else {
-	
+		
 		for (i = length; i < pc->p_nentries; i++) {
 			pc->p_mounts[pc->p_entries[i].pe_mount_idx].pm_nentries--;
 		}
@@ -1528,7 +1660,7 @@ truncate_playlist(const char *pfname, char *larg)
 			}
 		}
 		pc->p_nentries = length;
-	
+		
 		/*
 		 * Write a shortened version of the same playlist.
 		 */

@@ -35,8 +35,13 @@
 #include "ScriptExecutionContext.h"
 #include "ScriptSourceCode.h"
 
+#if PLATFORM(CHROMIUM)
+#include "TraceEvent.h"
+#endif
+
 #include "V8Binding.h"
 #include "V8Proxy.h"
+#include "V8RecursionScope.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
 #include "WorkerThread.h"
@@ -45,7 +50,7 @@ namespace WebCore {
 
 ScheduledAction::ScheduledAction(v8::Handle<v8::Context> context, v8::Handle<v8::Function> func, int argc, v8::Handle<v8::Value> argv[])
     : m_context(context)
-    , m_code(String(), KURL(), TextPosition1::belowRangePosition())
+    , m_code(String(), KURL(), TextPosition::belowRangePosition())
 {
     m_function = v8::Persistent<v8::Function>::New(func);
 
@@ -90,15 +95,22 @@ ScheduledAction::~ScheduledAction()
 
 void ScheduledAction::execute(ScriptExecutionContext* context)
 {
-    V8Proxy* proxy = V8Proxy::retrieve(context);
-    if (proxy)
+    if (context->isDocument()) {
+        Frame* frame = static_cast<Document*>(context)->frame();
+        if (!frame)
+            return;
+        ScriptController* scriptController = frame->script();
+        if (!scriptController->canExecuteScripts(AboutToExecuteScript))
+            return;
+        V8Proxy* proxy = V8Proxy::retrieve(frame);
         execute(proxy);
+    }
 #if ENABLE(WORKERS)
-    else if (context->isWorkerContext())
+    else {
+        ASSERT(context->isWorkerContext());
         execute(static_cast<WorkerContext*>(context));
+    }
 #endif
-    // It's possible that Javascript is disabled and that we have neither a V8Proxy
-    // nor a WorkerContext.  Do nothing in that case.
 }
 
 void ScheduledAction::execute(V8Proxy* proxy)
@@ -110,18 +122,19 @@ void ScheduledAction::execute(V8Proxy* proxy)
     if (v8Context.IsEmpty())
         return; // JS may not be enabled.
 
+#if PLATFORM(CHROMIUM)
+    TRACE_EVENT("ScheduledAction::execute", this, 0);
+#endif
+
     v8::Context::Scope scope(v8Context);
 
-    proxy->setTimerCallback(true);
-
     // FIXME: Need to implement timeouts for preempting a long-running script.
-    if (!m_function.IsEmpty() && m_function->IsFunction()) {
+    if (!m_function.IsEmpty() && m_function->IsFunction())
         proxy->callFunction(v8::Persistent<v8::Function>::Cast(m_function), v8Context->Global(), m_argc, m_argv);
-        Document::updateStyleForAllDocuments();
-    } else
+    else
         proxy->evaluate(m_code, 0);
 
-    proxy->setTimerCallback(false);
+    // The 'proxy' may be invalid at this point since JS could have released the owning Frame.
 }
 
 #if ENABLE(WORKERS)
@@ -129,7 +142,8 @@ void ScheduledAction::execute(WorkerContext* workerContext)
 {
     // In a Worker, the execution should always happen on a worker thread.
     ASSERT(workerContext->thread()->threadID() == currentThread());
-  
+
+    V8RecursionScope recursionScope(workerContext);
     WorkerScriptController* scriptController = workerContext->script();
 
     if (!m_function.IsEmpty() && m_function->IsFunction()) {

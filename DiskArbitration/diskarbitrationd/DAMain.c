@@ -48,7 +48,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
-#include <SystemConfiguration/SCPrivate.h>
 
 static const CFStringRef __kDABundlePath = CFSTR( "/System/Library/Frameworks/DiskArbitration.framework" );
 
@@ -240,8 +239,8 @@ static void __DAMain( void )
      * Initialize console user.
      */
 
-    gDAConsoleUser     = SCDynamicStoreCopyConsoleUser( NULL, &gDAConsoleUserUID, &gDAConsoleUserGID );
-    gDAConsoleUserList = SCDynamicStoreCopyConsoleInformation( NULL );
+    gDAConsoleUser     = ___SCDynamicStoreCopyConsoleUser( NULL, &gDAConsoleUserUID, &gDAConsoleUserGID );
+    gDAConsoleUserList = ___SCDynamicStoreCopyConsoleInformation( NULL );
 
     /*
      * Initialize log.
@@ -676,7 +675,7 @@ int main( int argc, char * argv[], char * envp[] )
         fprintf( stderr, "%s: permission denied.\n", gDAProcessName );
 
         exit( EX_NOPERM );
-	}
+    }
 
     /*
      * Process arguments.

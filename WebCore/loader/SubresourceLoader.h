@@ -36,40 +36,66 @@
  
 namespace WebCore {
 
-    class ResourceRequest;
-    class SubresourceLoaderClient;
-    
-    class SubresourceLoader : public ResourceLoader {
-    public:
-        static PassRefPtr<SubresourceLoader> create(Frame*, SubresourceLoaderClient*, const ResourceRequest&, SecurityCheckPolicy = DoSecurityCheck, bool sendResourceLoadCallbacks = true, bool shouldContentSniff = true, const String& optionalOutgoingReferrer = String(), bool shouldBufferData = true);
+class CachedResource;
+class CachedResourceLoader;
+class Document;
+class ResourceRequest;
 
-        void clearClient() { m_client = 0; }
+class SubresourceLoader : public ResourceLoader {
+public:
+    static PassRefPtr<SubresourceLoader> create(Frame*, CachedResource*, const ResourceRequest&, const ResourceLoaderOptions&);
 
-    private:
-        SubresourceLoader(Frame*, SubresourceLoaderClient*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
-        virtual ~SubresourceLoader();
-        
-        virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
-        virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
-        virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
-        virtual void didReceiveCachedMetadata(const char*, int);
-        virtual void didFinishLoading(double finishTime);
-        virtual void didFail(const ResourceError&);
-        virtual bool shouldUseCredentialStorage();
-        virtual void didReceiveAuthenticationChallenge(const AuthenticationChallenge&);
-        virtual void receivedCancellation(const AuthenticationChallenge&);        
-        virtual void willCancel(const ResourceError&);
-        virtual void didCancel(const ResourceError&);
+    void cancelIfNotFinishing();
 
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
-        virtual bool supportsDataArray() { return true; }
-        virtual void didReceiveDataArray(CFArrayRef);
+private:
+    SubresourceLoader(Frame*, CachedResource*, const ResourceLoaderOptions&);
+    virtual ~SubresourceLoader();
+
+    virtual bool init(const ResourceRequest&);
+
+    virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
+    virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
+    virtual void didReceiveResponse(const ResourceResponse&);
+    virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
+    virtual void didReceiveCachedMetadata(const char*, int);
+    virtual void didFinishLoading(double finishTime);
+    virtual void didFail(const ResourceError&);
+    virtual void willCancel(const ResourceError&);
+    virtual void didCancel(const ResourceError&) { }
+
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
+    virtual bool supportsDataArray() { return true; }
+    virtual void didReceiveDataArray(CFArrayRef);
 #endif
+#if PLATFORM(CHROMIUM)
+    virtual void didDownloadData(int);
+#endif
+    virtual void releaseResources();
 
-        SubresourceLoaderClient* m_client;
-        bool m_loadingMultipartContent;
+    bool errorLoadingResource();
+    void sendDataToResource(const char*, int);
+
+    enum SubresourceLoaderState {
+        Uninitialized,
+        Initialized,
+        Finishing
     };
+
+    class RequestCountTracker {
+    public:
+        RequestCountTracker(CachedResourceLoader*, CachedResource*);
+        ~RequestCountTracker();
+    private:
+        CachedResourceLoader* m_cachedResourceLoader;
+        CachedResource* m_resource;
+    };
+
+    CachedResource* m_resource;
+    RefPtr<Document> m_document;
+    bool m_loadingMultipartContent;
+    SubresourceLoaderState m_state;
+    OwnPtr<RequestCountTracker> m_requestCountTracker;
+};
 
 }
 

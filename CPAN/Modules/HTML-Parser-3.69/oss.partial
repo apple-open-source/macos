@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>HTML-Parser</string>
+        <key>OpenSourceVersion</key>
+        <string>3.69</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/G/GA/GAAS/HTML-Parser-3.69.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-10-31</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

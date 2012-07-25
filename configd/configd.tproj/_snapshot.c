@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,7 +49,7 @@
 
 #define N_QUICK	100
 
-static CFDictionaryRef
+static CF_RETURNS_RETAINED CFDictionaryRef
 _expandStore(CFDictionaryRef storeData)
 {
 	const void *		keys_q[N_QUICK];
@@ -125,16 +125,7 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	CFDictionaryRef			expandedStoreData;
 	FILE				*f;
 	int				fd;
-	serverSessionRef		mySession;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDataRef			xmlData;
-
-	/* check credentials */
-
-	mySession = getSession(storePrivate->server);
-	if (!hasRootAccess(mySession)) {
-		return kSCStatusAccessError;
-	}
 
 	/* Save a snapshot of configd's "state" */
 
@@ -218,13 +209,21 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 
 __private_extern__
 kern_return_t
-_snapshot(mach_port_t server, int *sc_status)
+_snapshot(mach_port_t server, int *sc_status, audit_token_t audit_token)
 {
-	serverSessionRef	mySession = getSession(server);
+	serverSessionRef	mySession;
 
+	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		return KERN_SUCCESS;
+		mySession = tempSession(server, CFSTR("SCDynamicStoreSnapshot"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			return kSCStatusNoStoreSession;
+		}
+	}
+
+	if (!hasRootAccess(mySession)) {
+		return kSCStatusAccessError;
 	}
 
 	*sc_status = __SCDynamicStoreSnapshot(mySession->store);

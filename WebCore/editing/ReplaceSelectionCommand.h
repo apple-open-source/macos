@@ -30,11 +30,11 @@
 
 namespace WebCore {
 
-class CSSMutableStyleDeclaration;
 class DocumentFragment;
 class EditingStyle;
 class Node;
 class ReplacementFragment;
+class StylePropertySet;
 
 class ReplaceSelectionCommand : public CompositeEditCommand {
 public:
@@ -43,7 +43,8 @@ public:
         SmartReplace = 1 << 1,
         MatchStyle = 1 << 2,
         PreventNesting = 1 << 3,
-        MovingParagraph = 1 << 4
+        MovingParagraph = 1 << 4,
+        SanitizeFragment = 1 << 5
     };
 
     typedef unsigned CommandOptions;
@@ -58,40 +59,50 @@ private:
 
     virtual void doApply();
     virtual EditAction editingAction() const;
+    
+    class InsertedNodes {
+    public:
+        void respondToNodeInsertion(Node*);
+        void willRemoveNodePreservingChildren(Node*);
+        void willRemoveNode(Node*);
 
-    void completeHTMLReplacement(const Position& lastPositionToSelect);
+        Node* firstNodeInserted() const { return m_firstNodeInserted.get(); }
+        Node* lastLeafInserted() const { return m_lastNodeInserted->lastDescendant(); }
+        Node* pastLastLeaf() const { return m_lastNodeInserted ? lastLeafInserted()->traverseNextNode() : 0; }
 
-    void insertNodeAfterAndUpdateNodesInserted(PassRefPtr<Node> insertChild, Node* refChild);
-    void insertNodeAtAndUpdateNodesInserted(PassRefPtr<Node>, const Position&);
-    void insertNodeBeforeAndUpdateNodesInserted(PassRefPtr<Node> insertChild, Node* refChild);
-    Node* insertAsListItems(PassRefPtr<Node>, Node* insertionNode, const Position&);
+    private:
+        RefPtr<Node> m_firstNodeInserted;
+        RefPtr<Node> m_lastNodeInserted;
+    };
+
+    Node* insertAsListItems(PassRefPtr<Node>, Node* insertionNode, const Position&, InsertedNodes&);
 
     void updateNodesInserted(Node*);
     bool shouldRemoveEndBR(Node*, const VisiblePosition&);
     
     bool shouldMergeStart(bool, bool, bool);
-    bool shouldMergeEnd(bool selectEndWasEndOfParagraph);
+    bool shouldMergeEnd(bool selectionEndWasEndOfParagraph);
     bool shouldMerge(const VisiblePosition&, const VisiblePosition&);
     
     void mergeEndIfNeeded();
     
-    void removeUnrenderedTextNodesAtEnds();
+    void removeUnrenderedTextNodesAtEnds(InsertedNodes&);
     
-    void negateStyleRulesThatAffectAppearance();
-    void handleStyleSpans();
-    void copyStyleToChildren(Node* parentNode, const CSSMutableStyleDeclaration* parentStyle);
+    void removeRedundantStylesAndKeepStyleSpanInline(InsertedNodes&);
+    void handleStyleSpans(InsertedNodes&);
     void handlePasteAsQuotationNode();
     
-    virtual void removeNodePreservingChildren(Node*);
-    virtual void removeNodeAndPruneAncestors(Node*);
-    
-    VisiblePosition positionAtStartOfInsertedContent();
-    VisiblePosition positionAtEndOfInsertedContent();
-    
+    VisiblePosition positionAtStartOfInsertedContent() const;
+    VisiblePosition positionAtEndOfInsertedContent() const;
+
+    bool shouldPerformSmartReplace() const;
+    void addSpacesForSmartReplace();
+    void completeHTMLReplacement(const Position& lastPositionToSelect);
+
     bool performTrivialReplace(const ReplacementFragment&);
 
-    RefPtr<Node> m_firstNodeInserted;
-    RefPtr<Node> m_lastLeafInserted;
+    Position m_startOfInsertedContent;
+    Position m_endOfInsertedContent;
     RefPtr<EditingStyle> m_insertionStyle;
     bool m_selectReplacement;
     bool m_smartReplace;
@@ -100,6 +111,7 @@ private:
     bool m_preventNesting;
     bool m_movingParagraph;
     EditAction m_editAction;
+    bool m_sanitizeFragment;
     bool m_shouldMergeEnd;
 };
 

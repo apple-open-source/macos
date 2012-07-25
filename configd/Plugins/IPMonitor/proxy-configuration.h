@@ -28,14 +28,22 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+
+CFBooleanRef	G_supplemental_proxies_follow_dns;
+
+
 __BEGIN_DECLS
 
-void		proxy_configuration_init	(CFBundleRef		bundle);
+__private_extern__
+void
+proxy_configuration_init	(CFBundleRef		bundle);
 
 
-CFDictionaryRef	proxy_configuration_update	(CFDictionaryRef	defaultProxy,
-						 CFDictionaryRef	services,
-						 CFArrayRef		serviceOrder);
+__private_extern__
+CF_RETURNS_RETAINED CFDictionaryRef
+proxy_configuration_update	(CFDictionaryRef	defaultProxy,
+				 CFDictionaryRef	services,
+				 CFArrayRef		serviceOrder);
 
 __END_DECLS
 

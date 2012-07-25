@@ -62,6 +62,6 @@ unsigned int vendorid_frag_cap(struct isakmp_gen *);
 int isakmp_frag_extract(struct ph1handle *, vchar_t *);
 vchar_t *isakmp_frag_reassembly(struct ph1handle *);
 vchar_t *isakmp_frag_addcap(vchar_t *, int);
-int sendfragsfromto(int s, vchar_t *, struct sockaddr *, struct sockaddr *, int, u_int32_t);
+int sendfragsfromto(int s, vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *, int, u_int32_t);
 
 #endif /* _ISAKMP_FRAG_H */

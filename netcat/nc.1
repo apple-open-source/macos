@@ -34,7 +34,7 @@
 .Sh SYNOPSIS
 .Nm nc
 .Bk -words
-.Op Fl 46DCdhklnrtUuvz
+.Op Fl 46AcDCdhklnrtUuvz
 .Op Fl b Ar boundif
 .Op Fl i Ar interval
 .Op Fl p Ar source_port
@@ -92,8 +92,12 @@ to use IPv4 addresses only.
 Forces
 .Nm
 to use IPv6 addresses only.
+.It Fl A
+Set SO_RECV_ANYIF on socket.
 .It Fl b Ar boundif
 Specifies the interface to bind the socket to.
+.It Fl c
+Send CRLF as line-ending
 .It Fl D
 Enable debugging on the socket.
 .It Fl C

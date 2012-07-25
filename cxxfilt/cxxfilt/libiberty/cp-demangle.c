@@ -4202,12 +4202,12 @@ __gcclibcxx_demangle_callback (const char *mangled_name,
    mangled name, return a buffer allocated with malloc holding the
    demangled name.  Otherwise, return NULL.  */
 
+extern char *__cxa_demangle (const char *, char *, size_t *, int *);
+
 char *
 cplus_demangle_v3 (const char *mangled, int options)
 {
-  size_t alc;
-
-  return d_demangle (mangled, options, &alc);
+  return __cxa_demangle(mangled, 0, 0, 0);
 }
 
 int

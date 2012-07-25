@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: check.c,v 1.125.14.6 2011-06-17 07:04:31 each Exp $ */
 
 /*! \file */
 
@@ -418,6 +418,106 @@ check_viewacls(cfg_aclconfctx_t *actx, const cfg_obj_t *voptions,
 	return (result);
 }
 
+static const unsigned char zeros[16];
+
+static isc_result_t
+check_dns64(cfg_aclconfctx_t *actx, const cfg_obj_t *voptions,
+	    const cfg_obj_t *config, isc_log_t *logctx, isc_mem_t *mctx)
+{
+	isc_result_t result = ISC_R_SUCCESS;
+	const cfg_obj_t *dns64 = NULL;
+	const cfg_obj_t *options;
+	const cfg_listelt_t *element;
+	const cfg_obj_t *map, *obj;
+	isc_netaddr_t na, sa;
+	unsigned int prefixlen;
+	int nbytes;
+	int i;
+
+	static const char *acls[] = { "client", "exclude", "mapped", NULL};
+
+	if (voptions != NULL)
+		cfg_map_get(voptions, "dns64", &dns64);
+	if (config != NULL && dns64 == NULL) {
+		options = NULL;
+		cfg_map_get(config, "options", &options);
+		if (options != NULL)
+			cfg_map_get(options, "dns64", &dns64);
+	}
+	if (dns64 == NULL)
+		return (ISC_R_SUCCESS);
+
+	for (element = cfg_list_first(dns64);
+	     element != NULL;
+	     element = cfg_list_next(element))
+	{
+		map = cfg_listelt_value(element);
+		obj = cfg_map_getname(map);
+
+		cfg_obj_asnetprefix(obj, &na, &prefixlen);
+		if (na.family != AF_INET6) {
+			cfg_obj_log(map, logctx, ISC_LOG_ERROR,
+				    "dns64 requires a IPv6 prefix");
+			result = ISC_R_FAILURE;
+			continue;
+		}
+
+		if (prefixlen != 32 && prefixlen != 40 && prefixlen != 48 &&
+		    prefixlen != 56 && prefixlen != 64 && prefixlen != 96) {
+			cfg_obj_log(map, logctx, ISC_LOG_ERROR,
+				    "bad prefix length %u [32/40/48/56/64/96]",
+				    prefixlen);
+			result = ISC_R_FAILURE;
+			continue;
+		}
+
+		for (i = 0; acls[i] != NULL; i++) {
+			obj = NULL;
+			(void)cfg_map_get(map, acls[i], &obj);
+			if (obj != NULL) {
+				dns_acl_t *acl = NULL;
+				isc_result_t tresult;
+
+				tresult = cfg_acl_fromconfig(obj, config,
+							     logctx, actx,
+							     mctx, 0, &acl);
+				if (acl != NULL)
+					dns_acl_detach(&acl);
+				if (tresult != ISC_R_SUCCESS)
+					result = tresult;
+			}
+		}
+
+		obj = NULL;
+		(void)cfg_map_get(map, "suffix", &obj);
+		if (obj != NULL) {
+			isc_netaddr_fromsockaddr(&sa, cfg_obj_assockaddr(obj));
+			if (sa.family != AF_INET6) {
+				cfg_obj_log(map, logctx, ISC_LOG_ERROR,
+					    "dns64 requires a IPv6 suffix");
+				result = ISC_R_FAILURE;
+				continue;
+			}
+			nbytes = prefixlen / 8 + 4;
+			if (prefixlen >= 32 && prefixlen <= 64)
+				nbytes++;
+			if (memcmp(sa.type.in6.s6_addr, zeros, nbytes) != 0) {
+				char netaddrbuf[ISC_NETADDR_FORMATSIZE];
+				isc_netaddr_format(&sa, netaddrbuf,
+						   sizeof(netaddrbuf));
+				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+					    "bad suffix '%s' leading "
+					    "%u octets not zeros",
+					    netaddrbuf, nbytes);
+				result = ISC_R_FAILURE;
+			}
+		}
+	}
+
+	return (result);
+}
+
+
 /*
  * Check allow-recursion and allow-recursion-on acls, and also log a
  * warning if they're inconsistent with the "recursion" option.
@@ -571,17 +671,8 @@ typedef struct {
 	unsigned int max;
 } intervaltable;
 
-typedef enum {
-	optlevel_config,
-	optlevel_options,
-	optlevel_view,
-	optlevel_zone
-} optlevel_t;
-
 static isc_result_t
-check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
-	      optlevel_t optlevel)
-{
+check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 	isc_result_t result = ISC_R_SUCCESS;
 	isc_result_t tresult;
 	unsigned int i;
@@ -603,6 +694,12 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
 	{ "max-transfer-time-in", 60, 28 * 24 * 60 },	/* 28 days */
 	{ "max-transfer-time-out", 60, 28 * 24 * 60 },	/* 28 days */
 	{ "statistics-interval", 60, 28 * 24 * 60 },	/* 28 days */
+	};
+
+	static const char *server_contact[] = {
+		"empty-server", "empty-contact",
+		"dns64-server", "dns64-contact",
+		NULL
 	};
 
 	/*
@@ -747,23 +844,19 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
 		     element = cfg_list_next(element))
 		{
 			const char *dlv;
-			const cfg_obj_t *dlvobj, *anchor;
+			const cfg_obj_t *anchor;
 
 			obj = cfg_listelt_value(element);
 
+			dlv = cfg_obj_asstring(cfg_tuple_get(obj, "domain"));
 			anchor = cfg_tuple_get(obj, "trust-anchor");
-			dlvobj = cfg_tuple_get(obj, "domain");
-			dlv = cfg_obj_asstring(dlvobj);
 
 			/*
-			 * If domain is "auto" or "no" and trust anchor
-			 * is missing, skip remaining tests
+			 * If domain is "auto" and trust anchor is missing,
+			 * skip remaining tests
 			 */
-			if (cfg_obj_isvoid(anchor)) {
-				if (!strcasecmp(dlv, "no") ||
-				    !strcasecmp(dlv, "auto"))
-					continue;
-			}
+			if (!strcmp(dlv, "auto") && cfg_obj_isvoid(anchor))
+				continue;
 
 			isc_buffer_init(&b, dlv, strlen(dlv));
 			isc_buffer_add(&b, strlen(dlv));
@@ -815,8 +908,8 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
 			} else {
 				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 					"dnssec-lookaside requires "
-					"either 'auto' or 'no', or a "
-					"domain and trust anchor");
+					"either 'auto' or a domain and "
+					"trust anchor");
 				if (result == ISC_R_SUCCESS)
 					result = ISC_R_FAILURE;
 			}
@@ -824,21 +917,6 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
 
 		if (symtab != NULL)
 			isc_symtab_destroy(&symtab);
-	}
-
-	/*
-	 * Check auto-dnssec at the view/options level
-	 */
-	obj = NULL;
-	(void)cfg_map_get(options, "auto-dnssec", &obj);
-	if (obj != NULL) {
-		const char *arg = cfg_obj_asstring(obj);
-		if (optlevel != optlevel_zone && strcasecmp(arg, "off") != 0) {
-			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
-				    "auto-dnssec may only be activated at the "
-				    "zone level");
-			result = ISC_R_FAILURE;
-		}
 	}
 
 	/*
@@ -866,38 +944,29 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx,
 	}
 
 	/*
+	 * Check server/contacts for syntactic validity.
+	 */
+	for (i= 0; server_contact[i] != NULL; i++) {
+		obj = NULL;
+		(void)cfg_map_get(options, server_contact[i], &obj);
+		if (obj != NULL) {
+			str = cfg_obj_asstring(obj);
+			isc_buffer_init(&b, str, strlen(str));
+			isc_buffer_add(&b, strlen(str));
+			tresult = dns_name_fromtext(dns_fixedname_name(&fixed),
+						    &b, dns_rootname, 0, NULL);
+			if (tresult != ISC_R_SUCCESS) {
+				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+					    "%s: invalid name '%s'",
+					    server_contact[i], str);
+				result = ISC_R_FAILURE;
+			}
+		}
+	}
+
+	/*
 	 * Check empty zone configuration.
 	 */
-	obj = NULL;
-	(void)cfg_map_get(options, "empty-server", &obj);
-	if (obj != NULL) {
-		str = cfg_obj_asstring(obj);
-		isc_buffer_init(&b, str, strlen(str));
-		isc_buffer_add(&b, strlen(str));
-		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, 0, NULL);
-		if (tresult != ISC_R_SUCCESS) {
-			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
-				    "empty-server: invalid name '%s'", str);
-			result = ISC_R_FAILURE;
-		}
-	}
-
-	obj = NULL;
-	(void)cfg_map_get(options, "empty-contact", &obj);
-	if (obj != NULL) {
-		str = cfg_obj_asstring(obj);
-		isc_buffer_init(&b, str, strlen(str));
-		isc_buffer_add(&b, strlen(str));
-		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, 0, NULL);
-		if (tresult != ISC_R_SUCCESS) {
-			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
-				    "empty-contact: invalid name '%s'", str);
-			result = ISC_R_FAILURE;
-		}
-	}
-
 	obj = NULL;
 	(void)cfg_map_get(options, "disable-empty-zone", &obj);
 	for (element = cfg_list_first(obj);
@@ -1153,7 +1222,8 @@ check_update_policy(const cfg_obj_t *policy, isc_log_t *logctx) {
 #define HINTZONE	8
 #define FORWARDZONE	16
 #define DELEGATIONZONE	32
-#define CHECKACL	64
+#define STATICSTUBZONE	64
+#define CHECKACL	128
 
 typedef struct {
 	const char *name;
@@ -1166,7 +1236,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	       dns_rdataclass_t defclass, cfg_aclconfctx_t *actx,
 	       isc_log_t *logctx, isc_mem_t *mctx)
 {
-	const char *zname;
+	const char *znamestr;
 	const char *typestr;
 	unsigned int ztype;
 	const cfg_obj_t *zoptions;
@@ -1176,11 +1246,14 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	unsigned int i;
 	dns_rdataclass_t zclass;
 	dns_fixedname_t fixedname;
+	dns_name_t *zname = NULL;
 	isc_buffer_t b;
 	isc_boolean_t root = ISC_FALSE;
+	const cfg_listelt_t *element;
 
 	static optionstable options[] = {
-	{ "allow-query", MASTERZONE | SLAVEZONE | STUBZONE | CHECKACL },
+	{ "allow-query", MASTERZONE | SLAVEZONE | STUBZONE | CHECKACL |
+	  STATICSTUBZONE },
 	{ "allow-notify", SLAVEZONE | CHECKACL },
 	{ "allow-transfer", MASTERZONE | SLAVEZONE | CHECKACL },
 	{ "notify", MASTERZONE | SLAVEZONE },
@@ -1209,7 +1282,8 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "sig-signing-nodes", MASTERZONE },
 	{ "sig-signing-type", MASTERZONE },
 	{ "sig-signing-signatures", MASTERZONE },
-	{ "zone-statistics", MASTERZONE | SLAVEZONE | STUBZONE },
+	{ "zone-statistics", MASTERZONE | SLAVEZONE | STUBZONE |
+	  STATICSTUBZONE},
 	{ "allow-update", MASTERZONE | CHECKACL },
 	{ "allow-update-forwarding", SLAVEZONE | CHECKACL },
 	{ "file", MASTERZONE | SLAVEZONE | STUBZONE | HINTZONE },
@@ -1232,6 +1306,8 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "dnssec-dnskey-kskonly", MASTERZONE },
 	{ "auto-dnssec", MASTERZONE },
 	{ "try-tcp-refresh", SLAVEZONE },
+	{ "server-addresses", STATICSTUBZONE },
+	{ "server-names", STATICSTUBZONE },
 	};
 
 	static optionstable dialups[] = {
@@ -1241,7 +1317,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "passive", SLAVEZONE | STUBZONE },
 	};
 
-	zname = cfg_obj_asstring(cfg_tuple_get(zconfig, "name"));
+	znamestr = cfg_obj_asstring(cfg_tuple_get(zconfig, "name"));
 
 	zoptions = cfg_tuple_get(zconfig, "options");
 
@@ -1249,7 +1325,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	(void)cfg_map_get(zoptions, "type", &obj);
 	if (obj == NULL) {
 		cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
-			    "zone '%s': type not present", zname);
+			    "zone '%s': type not present", znamestr);
 		return (ISC_R_FAILURE);
 	}
 
@@ -1260,6 +1336,8 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		ztype = SLAVEZONE;
 	else if (strcasecmp(typestr, "stub") == 0)
 		ztype = STUBZONE;
+	else if (strcasecmp(typestr, "static-stub") == 0)
+		ztype = STATICSTUBZONE;
 	else if (strcasecmp(typestr, "forward") == 0)
 		ztype = FORWARDZONE;
 	else if (strcasecmp(typestr, "hint") == 0)
@@ -1269,7 +1347,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	else {
 		cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 			    "zone '%s': invalid type %s",
-			    zname, typestr);
+			    znamestr, typestr);
 		return (ISC_R_FAILURE);
 	}
 
@@ -1283,14 +1361,14 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		if (result != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "zone '%s': invalid class %s",
-				    zname, r.base);
+				    znamestr, r.base);
 			return (ISC_R_FAILURE);
 		}
 		if (zclass != defclass) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "zone '%s': class '%s' does not "
 				    "match view/default class",
-				    zname, r.base);
+				    znamestr, r.base);
 			return (ISC_R_FAILURE);
 		}
 	}
@@ -1301,26 +1379,25 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	 * deals with strings.
 	 */
 	dns_fixedname_init(&fixedname);
-	isc_buffer_init(&b, zname, strlen(zname));
-	isc_buffer_add(&b, strlen(zname));
+	isc_buffer_init(&b, znamestr, strlen(znamestr));
+	isc_buffer_add(&b, strlen(znamestr));
 	tresult = dns_name_fromtext(dns_fixedname_name(&fixedname), &b,
 				    dns_rootname, DNS_NAME_DOWNCASE, NULL);
 	if (tresult != ISC_R_SUCCESS) {
 		cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
-			    "zone '%s': is not a valid name", zname);
+			    "zone '%s': is not a valid name", znamestr);
 		result = ISC_R_FAILURE;
 	} else {
 		char namebuf[DNS_NAME_FORMATSIZE];
 
-		dns_name_format(dns_fixedname_name(&fixedname),
-				namebuf, sizeof(namebuf));
+		zname = dns_fixedname_name(&fixedname);
+		dns_name_format(zname, namebuf, sizeof(namebuf));
 		tresult = nameexist(zconfig, namebuf, ztype == HINTZONE ? 1 : 2,
 				    symtab, "zone '%s': already exists "
 				    "previous definition: %s:%u", logctx, mctx);
 		if (tresult != ISC_R_SUCCESS)
 			result = tresult;
-		if (dns_name_equal(dns_fixedname_name(&fixedname),
-				   dns_rootname))
+		if (dns_name_equal(zname, dns_rootname))
 			root = ISC_TRUE;
 	}
 
@@ -1339,13 +1416,15 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 					    "option '%s' is not allowed "
 					    "in '%s' zone '%s'",
-					    options[i].name, typestr, zname);
+					    options[i].name, typestr,
+					    znamestr);
 					result = ISC_R_FAILURE;
 			} else
 				cfg_obj_log(obj, logctx, ISC_LOG_WARNING,
 					    "option '%s' is not allowed "
 					    "in '%s' zone '%s'",
-					    options[i].name, typestr, zname);
+					    options[i].name, typestr,
+					    znamestr);
 		}
 		obj = NULL;
 		if ((options[i].allowed & ztype) != 0 &&
@@ -1367,7 +1446,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		if (cfg_map_get(zoptions, "masters", &obj) != ISC_R_SUCCESS) {
 			cfg_obj_log(zoptions, logctx, ISC_LOG_ERROR,
 				    "zone '%s': missing 'masters' entry",
-				    zname);
+				    znamestr);
 			result = ISC_R_FAILURE;
 		} else {
 			isc_uint32_t count;
@@ -1378,7 +1457,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 			if (tresult == ISC_R_SUCCESS && count == 0) {
 				cfg_obj_log(zoptions, logctx, ISC_LOG_ERROR,
 					    "zone '%s': empty 'masters' entry",
-					    zname);
+					    znamestr);
 				result = ISC_R_FAILURE;
 			}
 		}
@@ -1400,7 +1479,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "zone '%s': 'allow-update' is ignored "
 				    "when 'update-policy' is present",
-				    zname);
+				    znamestr);
 			result = ISC_R_FAILURE;
 		} else if (res2 == ISC_R_SUCCESS &&
 			   check_update_policy(obj, logctx) != ISC_R_SUCCESS)
@@ -1459,7 +1538,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 						    "dialup type '%s' is not "
 						    "allowed in '%s' "
 						    "zone '%s'",
-						    str, typestr, zname);
+						    str, typestr, znamestr);
 					result = ISC_R_FAILURE;
 				}
 				break;
@@ -1467,7 +1546,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 			if (i == sizeof(dialups) / sizeof(dialups[0])) {
 				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 					    "invalid dialup type '%s' in zone "
-					    "'%s'", str, zname);
+					    "'%s'", str, znamestr);
 				result = ISC_R_FAILURE;
 			}
 		}
@@ -1491,9 +1570,81 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		result = ISC_R_FAILURE;
 
 	/*
+	 * Check validity of static stub server addresses.
+	 */
+	obj = NULL;
+	(void)cfg_map_get(zoptions, "server-addresses", &obj);
+	if (ztype == STATICSTUBZONE && obj != NULL) {
+		for (element = cfg_list_first(obj);
+		     element != NULL;
+		     element = cfg_list_next(element))
+		{
+			isc_sockaddr_t sa;
+			isc_netaddr_t na;
+			obj = cfg_listelt_value(element);
+			sa = *cfg_obj_assockaddr(obj);
+
+			if (isc_sockaddr_getport(&sa) != 0) {
+				result = ISC_R_FAILURE;
+				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+					    "port is not configurable for "
+					    "static stub server-addresses");
+			}
+
+			isc_netaddr_fromsockaddr(&na, &sa);
+			if (isc_netaddr_getzone(&na) != 0) {
+				result = ISC_R_FAILURE;
+				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+					    "scoped address is not allowed "
+					    "for static stub "
+					    "server-addresses");
+			}
+		}
+	}
+
+	/*
+	 * Check validity of static stub server names.
+	 */
+	obj = NULL;
+	(void)cfg_map_get(zoptions, "server-names", &obj);
+	if (zname != NULL && ztype == STATICSTUBZONE && obj != NULL) {
+		for (element = cfg_list_first(obj);
+		     element != NULL;
+		     element = cfg_list_next(element))
+		{
+			const char *snamestr;
+			dns_fixedname_t fixed_sname;
+			isc_buffer_t b2;
+			dns_name_t *sname;
+
+			obj = cfg_listelt_value(element);
+			snamestr = cfg_obj_asstring(obj);
+
+			dns_fixedname_init(&fixed_sname);
+			isc_buffer_init(&b2, snamestr, strlen(snamestr));
+			isc_buffer_add(&b2, strlen(snamestr));
+			sname = dns_fixedname_name(&fixed_sname);
+			tresult = dns_name_fromtext(sname, &b2, dns_rootname,
+						    0, NULL);
+			if (tresult != ISC_R_SUCCESS) {
+				cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
+					    "server-name '%s' is not a valid "
+					    "name", snamestr);
+				result = ISC_R_FAILURE;
+			} else if (dns_name_issubdomain(sname, zname)) {
+				cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
+					    "server-name '%s' must not be a "
+					    "subdomain of zone name '%s'",
+					    snamestr, znamestr);
+				result = ISC_R_FAILURE;
+			}
+		}
+	}
+
+	/*
 	 * Check various options.
 	 */
-	tresult = check_options(zoptions, logctx, mctx, optlevel_zone);
+	tresult = check_options(zoptions, logctx, mctx);
 	if (tresult != ISC_R_SUCCESS)
 		result = tresult;
 
@@ -1513,7 +1664,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		    (ztype == MASTERZONE || ztype == HINTZONE)) {
 			cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
 				    "zone '%s': missing 'file' entry",
-				    zname);
+				    znamestr);
 			result = tresult;
 		}
 	}
@@ -1936,9 +2087,10 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 	isc_result_t result = ISC_R_SUCCESS;
 	isc_result_t tresult = ISC_R_SUCCESS;
 	cfg_aclconfctx_t *actx = NULL;
-	const cfg_obj_t *options = NULL;
 	const cfg_obj_t *obj;
+	const cfg_obj_t *options = NULL;
 	isc_boolean_t enablednssec, enablevalidation;
+	const char *valstr = "no";
 
 	/*
 	 * Get global options block
@@ -1949,7 +2101,7 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 	 * Check that all zone statements are syntactically correct and
 	 * there are no duplicate zones.
 	 */
-	tresult = isc_symtab_create(mctx, 1000, freekey, mctx,
+	tresult = isc_symtab_create(mctx, 100, freekey, mctx,
 				    ISC_FALSE, &symtab);
 	if (tresult != ISC_R_SUCCESS)
 		return (ISC_R_NOMEMORY);
@@ -2013,7 +2165,7 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 	 * Check that all key statements are syntactically correct and
 	 * there are no duplicate keys.
 	 */
-	tresult = isc_symtab_create(mctx, 1000, freekey, mctx,
+	tresult = isc_symtab_create(mctx, 100, freekey, mctx,
 				    ISC_FALSE, &symtab);
 	if (tresult != ISC_R_SUCCESS)
 		return (ISC_R_NOMEMORY);
@@ -2065,14 +2217,21 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 		(void)cfg_map_get(voptions, "dnssec-validation", &obj);
 	if (obj == NULL && options != NULL)
 		(void)cfg_map_get(options, "dnssec-validation", &obj);
-	if (obj == NULL)
+	if (obj == NULL) {
 		enablevalidation = enablednssec;
-	else
+		valstr = "yes";
+	} else if (cfg_obj_isboolean(obj)) {
 		enablevalidation = cfg_obj_asboolean(obj);
+		valstr = enablevalidation ? "yes" : "no";
+	} else {
+		enablevalidation = ISC_TRUE;
+		valstr = "auto";
+	}
 
 	if (enablevalidation && !enablednssec)
 		cfg_obj_log(obj, logctx, ISC_LOG_WARNING,
-			    "'dnssec-validation yes;' and 'dnssec-enable no;'");
+			    "'dnssec-validation %s;' and 'dnssec-enable no;'",
+			    valstr);
 
 	/*
 	 * Check trusted-keys and managed-keys.
@@ -2118,16 +2277,13 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 				result = tresult;
 		}
 	}
-
 	/*
 	 * Check options.
 	 */
 	if (voptions != NULL)
-		tresult = check_options(voptions, logctx, mctx,
-					optlevel_view);
+		tresult = check_options(voptions, logctx, mctx);
 	else
-		tresult = check_options(config, logctx, mctx,
-					optlevel_config);
+		tresult = check_options(config, logctx, mctx);
 	if (tresult != ISC_R_SUCCESS)
 		result = tresult;
 
@@ -2142,6 +2298,10 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 
 	tresult = check_filteraaaa(actx, voptions, viewname, config,
 				   logctx, mctx);
+	if (tresult != ISC_R_SUCCESS)
+		result = tresult;
+
+	tresult = check_dns64(actx, voptions, config, logctx, mctx);
 	if (tresult != ISC_R_SUCCESS)
 		result = tresult;
 
@@ -2414,8 +2574,7 @@ bind9_check_namedconf(const cfg_obj_t *config, isc_log_t *logctx,
 	(void)cfg_map_get(config, "options", &options);
 
 	if (options != NULL &&
-	    check_options(options, logctx, mctx,
-			  optlevel_options) != ISC_R_SUCCESS)
+	    check_options(options, logctx, mctx) != ISC_R_SUCCESS)
 		result = ISC_R_FAILURE;
 
 	if (bind9_check_logging(config, logctx, mctx) != ISC_R_SUCCESS)

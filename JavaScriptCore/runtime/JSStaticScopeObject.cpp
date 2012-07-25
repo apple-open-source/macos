@@ -34,6 +34,11 @@ ASSERT_CLASS_FITS_IN_CELL(JSStaticScopeObject);
 
 const ClassInfo JSStaticScopeObject::s_info = { "Object", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSStaticScopeObject) };
 
+void JSStaticScopeObject::destroy(JSCell* cell)
+{
+    jsCast<JSStaticScopeObject*>(cell)->JSStaticScopeObject::~JSStaticScopeObject();
+}
+
 void JSStaticScopeObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     JSStaticScopeObject* thisObject = jsCast<JSStaticScopeObject*>(cell);
@@ -67,13 +72,13 @@ void JSStaticScopeObject::put(JSCell* cell, ExecState* exec, const Identifier& p
             return;
         }
     }
-    if (thisObject->symbolTablePut(exec->globalData(), propertyName, value))
+    if (thisObject->symbolTablePut(exec, propertyName, value, slot.isStrictMode()))
         return;
     
     ASSERT_NOT_REACHED();
 }
 
-void JSStaticScopeObject::putWithAttributes(JSObject* object, ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
+void JSStaticScopeObject::putDirectVirtual(JSObject* object, ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     JSStaticScopeObject* thisObject = jsCast<JSStaticScopeObject*>(object);
     if (thisObject->symbolTablePutWithAttributes(exec->globalData(), propertyName, value, attributes))

@@ -30,9 +30,11 @@
 #ifndef InspectorAgent_h
 #define InspectorAgent_h
 
+#include "InspectorBaseAgent.h"
 #include "PlatformString.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -50,58 +52,53 @@ class Page;
 
 typedef String ErrorString;
 
-class InspectorAgent {
+class InspectorAgent : public InspectorBaseAgent<InspectorAgent>, public InspectorBackendDispatcher::InspectorCommandHandler {
     WTF_MAKE_NONCOPYABLE(InspectorAgent);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
-    InspectorAgent(Page*, InjectedScriptManager*, InstrumentingAgents*);
+    static PassOwnPtr<InspectorAgent> create(Page* page, InjectedScriptManager* injectedScriptManager, InstrumentingAgents* instrumentingAgents, InspectorState* state)
+    {
+        return adoptPtr(new InspectorAgent(page, injectedScriptManager, instrumentingAgents, state));
+    }
+
     virtual ~InspectorAgent();
 
-    void inspectedPageDestroyed();
+    bool developerExtrasEnabled() const;
 
-    bool enabled() const;
+    // Inspector front-end API.
+    void enable(ErrorString*);
+    void disable(ErrorString*);
 
     KURL inspectedURL() const;
     KURL inspectedURLWithoutFragment() const;
-    void reloadPage(ErrorString*, bool ignoreCache);
-    void showConsole();
 
-    void setFrontend(InspectorFrontend*);
     InspectorFrontend* frontend() const { return m_frontend; }
-    void clearFrontend();
-    void restore();
+
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void clearFrontend();
 
     void didClearWindowObjectInWorld(Frame*, DOMWrapperWorld*);
 
     void didCommitLoad();
     void domContentLoadedEventFired();
+    void emitCommitLoadIfNeeded();
 
 #if ENABLE(WORKERS)
-    enum WorkerAction { WorkerCreated, WorkerDestroyed };
-
-    void postWorkerNotificationToFrontend(const InspectorWorkerResource&, WorkerAction);
     void didCreateWorker(intptr_t, const String& url, bool isSharedWorker);
     void didDestroyWorker(intptr_t);
 #endif
 
     bool hasFrontend() const { return m_frontend; }
 
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    void showProfilesPanel();
-#endif
-
     // Generic code called from custom implementations.
     void evaluateForTestInFrontend(long testCallId, const String& script);
 
-    void setInspectorExtensionAPI(const String& source);
+    void setInjectedScriptForOrigin(const String& origin, const String& source);
 
-    // InspectorAgent API
-    void getInspectorState(RefPtr<InspectorObject>* state);
-    void setMonitoringXHREnabled(bool enabled, bool* newState);
+    void inspect(PassRefPtr<TypeBuilder::Runtime::RemoteObject> objectToInspect, PassRefPtr<InspectorObject> hints);
 
 private:
-    void showPanel(const String& panel);
+    InspectorAgent(Page*, InjectedScriptManager*, InstrumentingAgents*, InspectorState*);
+
     void unbindAllResources();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -109,21 +106,20 @@ private:
 #endif
 
     bool isMainResourceLoader(DocumentLoader*, const KURL& requestUrl);
-    void issueEvaluateForTestCommands();
 
     Page* m_inspectedPage;
     InspectorFrontend* m_frontend;
-    InstrumentingAgents* m_instrumentingAgents;
     InjectedScriptManager* m_injectedScriptManager;
 
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
-    String m_showPanelAfterVisible;
-    String m_inspectorExtensionAPI;
+    pair<RefPtr<TypeBuilder::Runtime::RemoteObject>, RefPtr<InspectorObject> > m_pendingInspectData;
+    typedef HashMap<String, String> InjectedScriptForOriginMap;
+    InjectedScriptForOriginMap m_injectedScriptForOrigin;
 #if ENABLE(WORKERS)
     typedef HashMap<intptr_t, RefPtr<InspectorWorkerResource> > WorkersMap;
     WorkersMap m_workers;
 #endif
-    bool m_canIssueEvaluateForTestInFrontend;
+    bool m_didCommitLoadFired;
 };
 
 } // namespace WebCore

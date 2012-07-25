@@ -22,9 +22,9 @@ module events {
 
     // Introduced in DOM Level 2:
     interface [
-        NoStaticTables,
+        JSNoStaticTables,
         ObjCProtocol,
-        PureInterface,
+        CPPPureInterface,
         OmitConstructor
     ] EventListener {
         void               handleEvent(in Event evt);

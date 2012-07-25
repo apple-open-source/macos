@@ -33,12 +33,13 @@
 #include <JavaScriptCore/JSObject.h>
 #include <WebCore/JSHTMLElement.h>
 #include <WebCore/JSPluginElementFunctions.h>
-#include <WebCore/NotImplemented.h>
 
 using namespace JSC;
 using namespace WebCore;
 
 namespace WebKit {
+
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSNPMethod);
 
 const ClassInfo JSNPMethod::s_info = { "NPMethod", &InternalFunction::s_info, 0, 0, CREATE_METHOD_TABLE(JSNPMethod) };
 

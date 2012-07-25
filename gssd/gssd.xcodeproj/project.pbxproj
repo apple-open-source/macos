@@ -28,7 +28,6 @@
 		D68D83D310A4EA6900042EDD /* gsstest.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83CA10A4EA2700042EDD /* gsstest.c */; };
 		D68D850D10A50BFA00042EDD /* gssd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83B610A4E93700042EDD /* gssd.8 */; };
 		D68D851110A50C5A00042EDD /* com.apple.gssd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */; };
-		D68D851210A50C6100042EDD /* com.apple.gssd-agent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */; };
 		D69CCC69116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
 		D69CCC6A116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; };
 		D6E1FB9D10A8BF5F0009D272 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */; };
@@ -75,16 +74,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		D68D851310A50C7F00042EDD /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchAgents;
-			dstSubfolderSpec = 0;
-			files = (
-				D68D851210A50C6100042EDD /* com.apple.gssd-agent.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -93,13 +82,15 @@
 		D68D83BA10A4E98600042EDD /* gssd_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd_util.c; sourceTree = "<group>"; };
 		D68D83BB10A4E98600042EDD /* gssd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd.c; sourceTree = "<group>"; };
 		D68D83BC10A4E98600042EDD /* gssd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gssd.h; sourceTree = "<group>"; };
-		D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "com.apple.gssd-agent.plist"; sourceTree = "<group>"; };
 		D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.gssd.plist; sourceTree = "<group>"; };
 		D68D83CA10A4EA2700042EDD /* gsstest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gsstest.c; sourceTree = "<group>"; };
 		D68D83CF10A4EA5400042EDD /* gsstest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gsstest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D69509CD1471C5F0002063A2 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		D69509CF1471C5F0002063A2 /* getport.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = getport.1; sourceTree = "<group>"; };
 		D69CCC68116AB901002EA446 /* gssd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = gssd_mach.defs; path = /System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/gssd/gssd_mach.defs; sourceTree = "<absolute>"; };
 		D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
 		D6E1FBA410A8BF990009D272 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
+		EB805B8A1492DB4300F1E44F /* gssd-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "gssd-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +118,7 @@
 		08FB7794FE84155DC02AAC07 /* gssd */ = {
 			isa = PBXGroup;
 			children = (
+				D69509CC1471C5F0002063A2 /* getport */,
 				D68D84CE10A507B300042EDD /* Frameworks */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
@@ -140,11 +132,11 @@
 			children = (
 				D69CCC68116AB901002EA446 /* gssd_mach.defs */,
 				D68D83CA10A4EA2700042EDD /* gsstest.c */,
-				D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */,
 				D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */,
 				D68D83BA10A4E98600042EDD /* gssd_util.c */,
 				D68D83BB10A4E98600042EDD /* gssd.c */,
 				D68D83BC10A4E98600042EDD /* gssd.h */,
+				EB805B8A1492DB4300F1E44F /* gssd-Info.plist */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -175,6 +167,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		D69509CC1471C5F0002063A2 /* getport */ = {
+			isa = PBXGroup;
+			children = (
+				D69509CD1471C5F0002063A2 /* main.c */,
+				D69509CF1471C5F0002063A2 /* getport.1 */,
+			);
+			path = getport;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -185,7 +186,6 @@
 				8DD76FAB0486AB0100D96B5E /* Sources */,
 				8DD76FAD0486AB0100D96B5E /* Frameworks */,
 				D68D850C10A50BC000042EDD /* CopyFiles */,
-				D68D851310A50C7F00042EDD /* CopyFiles */,
 				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
 			);
 			buildRules = (
@@ -290,9 +290,17 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = "gssd-Info.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
 				PRODUCT_NAME = gssd;
 			};
 			name = Debug;
@@ -307,9 +315,17 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_MODEL_TUNING = G5;
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				INFOPLIST_FILE = "gssd-Info.plist";
 				INSTALL_MODE_FLAG = "a-w,a+rX";
 				INSTALL_PATH = /usr/sbin;
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
 				PRODUCT_NAME = gssd;
 			};
 			name = Release;

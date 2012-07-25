@@ -58,7 +58,9 @@ ArgumentDecoder::~ArgumentDecoder()
 
 static inline uint8_t* roundUpToAlignment(uint8_t* ptr, unsigned alignment)
 {
-    ASSERT(alignment);
+    // Assert that the alignment is a power of 2.
+    ASSERT(alignment && !(alignment & (alignment - 1)));
+
     uintptr_t alignmentMask = alignment - 1;
     return reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(ptr) + alignmentMask) & ~alignmentMask);
 }
@@ -79,41 +81,41 @@ void ArgumentDecoder::initialize(const uint8_t* buffer, size_t bufferSize)
     decodeUInt64(m_destinationID);
 }
 
+static inline bool alignedBufferIsLargeEnoughToContain(const uint8_t* alignedPosition, const uint8_t* bufferEnd, size_t size)
+{
+    return bufferEnd >= alignedPosition && static_cast<size_t>(bufferEnd - alignedPosition) >= size;
+}
+
 bool ArgumentDecoder::alignBufferPosition(unsigned alignment, size_t size)
 {
-    uint8_t* buffer = roundUpToAlignment(m_bufferPos, alignment);
-    if (static_cast<size_t>(m_bufferEnd - buffer) < size) {
+    uint8_t* alignedPosition = roundUpToAlignment(m_bufferPos, alignment);
+    if (!alignedBufferIsLargeEnoughToContain(alignedPosition, m_bufferEnd, size)) {
         // We've walked off the end of this buffer.
         markInvalid();
         return false;
     }
     
-    m_bufferPos = buffer;
+    m_bufferPos = alignedPosition;
     return true;
 }
 
 bool ArgumentDecoder::bufferIsLargeEnoughToContain(unsigned alignment, size_t size) const
 {
-    return static_cast<size_t>(m_bufferEnd - roundUpToAlignment(m_bufferPos, alignment)) >= size;
+    return alignedBufferIsLargeEnoughToContain(roundUpToAlignment(m_bufferPos, alignment), m_bufferEnd, size);
 }
 
-bool ArgumentDecoder::decodeBytes(Vector<uint8_t>& buffer)
+bool ArgumentDecoder::decodeFixedLengthData(uint8_t* data, size_t size, unsigned alignment)
 {
-    uint64_t size;
-    if (!decodeUInt64(size))
+    if (!alignBufferPosition(alignment, size))
         return false;
 
-    if (!alignBufferPosition(1, size))
-        return false;
-
-    buffer.resize(size);
-    if (size > 0)
-        memcpy(&buffer[0], m_bufferPos, size);
+    memcpy(data, m_bufferPos, size);
     m_bufferPos += size;
+
     return true;
 }
 
-bool ArgumentDecoder::decodeBytes(DataReference& dataReference)
+bool ArgumentDecoder::decodeVariableLengthByteArray(DataReference& dataReference)
 {
     uint64_t size;
     if (!decodeUInt64(size))
@@ -129,31 +131,22 @@ bool ArgumentDecoder::decodeBytes(DataReference& dataReference)
     return true;
 }
 
-bool ArgumentDecoder::decodeBytes(uint8_t* buffer, size_t bufferSize)
-{
-    // FIXME: Decoding the size is not strictly necessary here since we know the size upfront.
-    uint64_t size;
-    if (!decodeUInt64(size))
-        return false;
-
-    ASSERT(size == bufferSize);
-    if (size != bufferSize)
-        return false;
-
-    if (!alignBufferPosition(1, size))
-        return false;
-
-    memcpy(buffer, m_bufferPos, size);
-    m_bufferPos += size;
-    return true;
-}
-
 bool ArgumentDecoder::decodeBool(bool& result)
 {
     if (!alignBufferPosition(sizeof(result), sizeof(result)))
         return false;
     
     result = *reinterpret_cast<bool*>(m_bufferPos);
+    m_bufferPos += sizeof(result);
+    return true;
+}
+
+bool ArgumentDecoder::decodeUInt16(uint16_t& result)
+{
+    if (!alignBufferPosition(sizeof(result), sizeof(result)))
+        return false;
+
+    result = *reinterpret_cast<uint16_t*>(m_bufferPos);
     m_bufferPos += sizeof(result);
     return true;
 }

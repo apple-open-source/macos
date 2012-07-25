@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,8 +134,6 @@ struct RTADVSocket {
     RTADVSocketReceiveFuncPtr	receive_func;
     void *			receive_arg1;
     void *			receive_arg2;
-    char			txbuf[RTSOL_PACKET_MAX];
-    int				txbuf_used;	/* amount actually used */
 };
 
 STATIC RTADVSocketGlobalsRef	S_globals;
@@ -173,6 +171,14 @@ open_rtadv_socket(void)
 	       strerror(errno));
 	goto failed;
     }
+
+#ifdef SO_TC_CTL
+    opt = SO_TC_CTL;
+    /* set traffic class, we don't care if it failed. */
+    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		     sizeof(opt));
+#endif /* SO_TC_CTL */
+
     /* accept only router advertisement messages */
     ICMP6_FILTER_SETBLOCKALL(&filt);
     ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filt);
@@ -530,13 +536,15 @@ RTADVSocketRead(void * arg1, void * arg2)
 	    if (cm->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
 		continue;
 	    }
-	    pktinfo = (struct in6_pktinfo *)(CMSG_DATA(cm));
+	    /* ALIGN: CMSG_DATA returns aligned data, cast ok. */
+	    pktinfo = (struct in6_pktinfo *)(void *)(CMSG_DATA(cm));
 	    break;
 	case IPV6_HOPLIMIT:
 	    if (cm->cmsg_len < CMSG_LEN(sizeof(int))) {
 		continue;
 	    }
-	    hop_limit_p = (int *)CMSG_DATA(cm);
+	    /* ALIGN: CMSG_DATA returns aligned data, cast ok. */
+	    hop_limit_p = (int *)(void *)CMSG_DATA(cm);
 	    break;
 	default:
 	    /* this should never occur */
@@ -587,21 +595,22 @@ RTADVSocketGetInterface(RTADVSocketRef sock)
     return (sock->if_p);
 }
 
-STATIC void
-RTADVSocketInitTXBuf(RTADVSocketRef sock)
+STATIC int
+RTADVSocketInitTXBuf(RTADVSocketRef sock, uint32_t * txbuf, bool lladdr_ok)
 {
     interface_t *		if_p = RTADVSocketGetInterface(sock);
     struct nd_router_solicit *	ndrs;
+    int				txbuf_used;
 
-    ndrs = (struct nd_router_solicit *)sock->txbuf;
+    ndrs = (struct nd_router_solicit *)txbuf;
     ndrs->nd_rs_type = ND_ROUTER_SOLICIT;
     ndrs->nd_rs_code = 0;
     ndrs->nd_rs_cksum = 0;
     ndrs->nd_rs_reserved = 0;
-    sock->txbuf_used = sizeof(struct nd_router_solicit);
+    txbuf_used = sizeof(struct nd_router_solicit);
 
-    /* fill in source link-layer address option for Ethernet-like interfaces */
-    if (if_link_type(if_p) == IFT_ETHER) {
+    /* if it's OK to include [RFC 4429], add source link-layer address option */
+    if (lladdr_ok && if_link_type(if_p) == IFT_ETHER) {
 	int			opt_len;
 	struct nd_opt_hdr *	ndopt;
 
@@ -610,9 +619,9 @@ RTADVSocketInitTXBuf(RTADVSocketRef sock)
 	ndopt->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
 	ndopt->nd_opt_len = (opt_len / ND_OPT_ALIGN);
 	bcopy(if_link_address(if_p), (ndopt + 1), if_link_length(if_p));
-	sock->txbuf_used += opt_len;
+	txbuf_used += opt_len;
     }
-    return;
+    return (txbuf_used);
 }
 
 PRIVATE_EXTERN RTADVSocketRef
@@ -642,7 +651,6 @@ RTADVSocketCreate(interface_t * if_p)
 	return (NULL);
     }
     sock->if_p = if_p;
-    RTADVSocketInitTXBuf(sock);
     return (sock);
 }
 
@@ -810,7 +818,7 @@ S_send_packet(int sockfd, int ifindex, char * pkt, int pkt_size)
     cm->cmsg_level = IPPROTO_IPV6;
     cm->cmsg_type = IPV6_PKTINFO;
     cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-    pi = (struct in6_pktinfo *)CMSG_DATA(cm);
+    pi = (struct in6_pktinfo *)(void *)CMSG_DATA(cm);
     pi->ipi6_ifindex = ifindex;
 
     /* specify the hop limit of the packet */
@@ -822,7 +830,7 @@ S_send_packet(int sockfd, int ifindex, char * pkt, int pkt_size)
     cm->cmsg_level = IPPROTO_IPV6;
     cm->cmsg_type = IPV6_HOPLIMIT;
     cm->cmsg_len = CMSG_LEN(sizeof(int));
-    *((int *)CMSG_DATA(cm)) = 255;
+    *((int *)(void *)CMSG_DATA(cm)) = 255;
 
     n = sendmsg(sockfd, &mhdr, 0);
     if (n != pkt_size) {
@@ -835,11 +843,14 @@ S_send_packet(int sockfd, int ifindex, char * pkt, int pkt_size)
 }
 
 PRIVATE_EXTERN int
-RTADVSocketSendSolicitation(RTADVSocketRef sock)
+RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok)
 {
     interface_t *	if_p = RTADVSocketGetInterface(sock);
     boolean_t		needs_close = FALSE;
     int			ret;
+    uint32_t		txbuf[RTSOL_PACKET_MAX/sizeof(uint32_t)];
+    int			txbuf_used;	/* amount actually used */
+
 
     if (sock->fd_open == FALSE) {
 	/* open the RTADV socket in case it's needed */
@@ -849,9 +860,10 @@ RTADVSocketSendSolicitation(RTADVSocketRef sock)
 	}
 	needs_close = TRUE;
     }
+    txbuf_used = RTADVSocketInitTXBuf(sock, txbuf, lladdr_ok);
     ret = S_send_packet(FDCalloutGetFD(S_globals->read_fd),
-			if_link_index(if_p), sock->txbuf,
-			sock->txbuf_used);
+			if_link_index(if_p), (void *)txbuf,
+			txbuf_used);
     if (needs_close) {
 	RTADVSocketCloseSocket(sock);
     }

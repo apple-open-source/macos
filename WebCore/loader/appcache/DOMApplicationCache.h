@@ -26,9 +26,8 @@
 #ifndef DOMApplicationCache_h
 #define DOMApplicationCache_h
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "ApplicationCacheHost.h"
+#include "DOMWindowProperty.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include <wtf/Forward.h>
@@ -43,17 +42,19 @@ namespace WebCore {
 class Frame;
 class KURL;
 
-class DOMApplicationCache : public RefCounted<DOMApplicationCache>, public EventTarget {
+class DOMApplicationCache : public RefCounted<DOMApplicationCache>, public EventTarget, public DOMWindowProperty {
 public:
     static PassRefPtr<DOMApplicationCache> create(Frame* frame) { return adoptRef(new DOMApplicationCache(frame)); }
     ~DOMApplicationCache() { ASSERT(!m_frame); }
 
-    Frame* frame() const { return m_frame; }
-    void disconnectFrame();
+    virtual void disconnectFrameForPageCache() OVERRIDE;
+    virtual void reconnectFrameFromPageCache(Frame*) OVERRIDE;
+    virtual void willDestroyGlobalObjectInFrame() OVERRIDE;
 
     unsigned short status() const;
     void update(ExceptionCode&);
     void swapCache(ExceptionCode&);
+    void abort();
 
     // EventTarget impl
 
@@ -71,13 +72,13 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(cached);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(obsolete);
 
+    virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const;
-    DOMApplicationCache* toDOMApplicationCache() { return this; }
 
     static const AtomicString& toEventType(ApplicationCacheHost::EventID id);
 
 private:
-    DOMApplicationCache(Frame*);
+    explicit DOMApplicationCache(Frame*);
 
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }
@@ -86,12 +87,9 @@ private:
 
     ApplicationCacheHost* applicationCacheHost() const;
 
-    Frame* m_frame;
     EventTargetData m_eventTargetData;
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #endif // DOMApplicationCache_h

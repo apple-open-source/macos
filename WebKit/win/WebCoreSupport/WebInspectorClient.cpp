@@ -29,6 +29,8 @@
 #include "config.h"
 #include "WebInspectorClient.h"
 
+#if ENABLE(INSPECTOR)
+
 #include "WebInspectorDelegate.h"
 #include "WebKit.h"
 #include "WebMutableURLRequest.h"
@@ -69,6 +71,7 @@ static CFBundleRef getWebKitBundle()
 WebInspectorClient::WebInspectorClient(WebView* webView)
     : m_inspectedWebView(webView)
     , m_frontendPage(0)
+    , m_frontendClient(0)
 {
     ASSERT(m_inspectedWebView);
     m_inspectedWebView->viewWindow((OLE_HANDLE*)&m_inspectedWebViewHwnd);
@@ -76,11 +79,11 @@ WebInspectorClient::WebInspectorClient(WebView* webView)
 
 WebInspectorClient::~WebInspectorClient()
 {
-    m_frontendPage = 0;
 }
 
 void WebInspectorClient::inspectorDestroyed()
 {
+    closeInspectorFrontend();
     delete this;
 }
 
@@ -171,11 +174,24 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
         return;
 
     m_frontendPage = core(frontendWebView.get());
-    m_frontendPage->inspectorController()->setInspectorFrontendClient(adoptPtr(new WebInspectorFrontendClient(m_inspectedWebView, m_inspectedWebViewHwnd, frontendHwnd, frontendWebView, frontendWebViewHwnd, this, createFrontendSettings())));
+    OwnPtr<WebInspectorFrontendClient> frontendClient = adoptPtr(new WebInspectorFrontendClient(m_inspectedWebView, m_inspectedWebViewHwnd, frontendHwnd, frontendWebView, frontendWebViewHwnd, this, createFrontendSettings()));
+    m_frontendClient = frontendClient.get();
+    m_frontendPage->inspectorController()->setInspectorFrontendClient(frontendClient.release());
     m_frontendHwnd = frontendHwnd;
 }
 
-void WebInspectorClient::highlight(Node*)
+void WebInspectorClient::closeInspectorFrontend()
+{
+    if (m_frontendClient)
+        m_frontendClient->destroyInspectorView(false);
+}
+
+void WebInspectorClient::bringFrontendToFront()
+{
+    m_frontendClient->bringToFront();
+}
+
+void WebInspectorClient::highlight()
 {
     bool creatingHighlight = !m_highlight;
 
@@ -201,6 +217,13 @@ void WebInspectorClient::updateHighlight()
 {
     if (m_highlight && m_highlight->isShowing())
         m_highlight->update();
+}
+
+void WebInspectorClient::releaseFrontend()
+{
+    m_frontendClient = 0;
+    m_frontendPage = 0;
+    m_frontendHwnd = 0;
 }
 
 WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frontendWebView, HWND frontendWebViewHwnd, WebInspectorClient* inspectorClient, PassOwnPtr<Settings> settings)
@@ -258,11 +281,6 @@ void WebInspectorFrontendClient::closeWindow()
     destroyInspectorView(true);
 }
 
-void WebInspectorFrontendClient::disconnectFromBackend()
-{
-    destroyInspectorView(false);
-}
-
 void WebInspectorFrontendClient::attachWindow()
 {
     if (m_attached)
@@ -317,16 +335,6 @@ void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
 {
     m_inspectedURL = newURL;
     updateWindowTitle();
-}
-
-void WebInspectorFrontendClient::saveSessionSetting(const String& key, const String& value)
-{
-    m_inspectorClient->saveSessionSetting(key, value);
-}
-
-void WebInspectorFrontendClient::loadSessionSetting(const String& key, String* value)
-{
-    m_inspectorClient->loadSessionSetting(key, value);
 }
 
 void WebInspectorFrontendClient::closeWindowWithoutNotifications()
@@ -407,17 +415,17 @@ void WebInspectorFrontendClient::showWindowWithoutNotifications()
 
 void WebInspectorFrontendClient::destroyInspectorView(bool notifyInspectorController)
 {
+    m_inspectorClient->releaseFrontend();
+
     if (m_destroyingInspectorView)
         return;
     m_destroyingInspectorView = true;
-
 
     closeWindowWithoutNotifications();
 
     if (notifyInspectorController) {
         m_inspectedWebView->page()->inspectorController()->disconnectFrontend();
         m_inspectorClient->updateHighlight();
-        m_inspectorClient->frontendClosing();
     }
     ::DestroyWindow(m_frontendHwnd);
 }
@@ -540,3 +548,5 @@ static ATOM registerWindowClass()
 
     return ::RegisterClassEx(&wcex);
 }
+
+#endif // ENABLE(INSPECTOR)

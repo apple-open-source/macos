@@ -37,25 +37,27 @@ public:
 
     virtual bool isSVGInlineTextBox() const { return true; }
 
-    virtual int virtualLogicalHeight() const { return m_logicalHeight; }
-    void setLogicalHeight(int height) { m_logicalHeight = height; }
+    virtual float virtualLogicalHeight() const { return m_logicalHeight; }
+    void setLogicalHeight(float height) { m_logicalHeight = height; }
 
-    virtual int selectionTop() { return m_y; }
-    virtual int selectionHeight() { return m_logicalHeight; }
+    virtual int selectionTop() { return top(); }
+    virtual int selectionHeight() { return static_cast<int>(ceilf(m_logicalHeight)); }
     virtual int offsetForPosition(float x, bool includePartialGlyphs = true) const;
     virtual float positionForOffset(int offset) const;
 
     void paintSelectionBackground(PaintInfo&);
-    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
-    virtual IntRect selectionRect(int absx, int absy, int startPosition, int endPosition);
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom);
+    virtual LayoutRect localSelectionRect(int startPosition, int endPosition);
 
     bool mapStartEndPositionsIntoFragmentCoordinates(const SVGTextFragment&, int& startPosition, int& endPosition) const;
 
-    virtual IntRect calculateBoundaries() const;
+    virtual FloatRect calculateBoundaries() const;
 
     void clearTextFragments() { m_textFragments.clear(); }
     Vector<SVGTextFragment>& textFragments() { return m_textFragments; }
     const Vector<SVGTextFragment>& textFragments() const { return m_textFragments; }
+
+    void dirtyLineBoxes() OVERRIDE;
 
     bool startsNewTextChunk() const { return m_startsNewTextChunk; }
     void setStartsNewTextChunk(bool newTextChunk) { m_startsNewTextChunk = newTextChunk; }
@@ -77,8 +79,10 @@ private:
     void paintTextWithShadows(GraphicsContext*, RenderStyle*, TextRun&, const SVGTextFragment&, int startPosition, int endPosition);
     void paintText(GraphicsContext*, RenderStyle*, RenderStyle* selectionStyle, const SVGTextFragment&, bool hasSelection, bool paintSelectedTextOnly);
 
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom);
+
 private:
-    int m_logicalHeight;
+    float m_logicalHeight;
     int m_paintingResourceMode;
     bool m_startsNewTextChunk : 1;
     RenderSVGResource* m_paintingResource;

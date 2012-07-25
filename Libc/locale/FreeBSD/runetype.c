@@ -33,20 +33,24 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/runetype.c,v 1.14 2007/01/09 00:28:00 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <ctype.h>
 #include <stdio.h>
 #include <runetype.h>
 
 unsigned long
-___runetype(__ct_rune_t c)
+___runetype_l(__ct_rune_t c, locale_t loc)
 {
 	size_t lim;
-	_RuneRange *rr = &_CurrentRuneLocale->__runetype_ext;
+	_RuneRange *rr;
 	_RuneEntry *base, *re;
 
 	if (c < 0 || c == EOF)
 		return(0L);
 
+	NORMALIZE_LOCALE(loc);
+	rr = &loc->__lc_ctype->_CurrentRuneLocale.__runetype_ext;
 	/* Binary search -- see bsearch.c for explanation. */
 	base = rr->__ranges;
 	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
@@ -63,4 +67,10 @@ ___runetype(__ct_rune_t c)
 	}
 
 	return(0L);
+}
+
+unsigned long
+___runetype(__ct_rune_t c)
+{
+	return ___runetype_l(c, __current_locale());
 }

@@ -52,6 +52,7 @@ public:
     static PassRefPtr<SVGSVGElement> create(const QualifiedName&, Document*);
 
     virtual bool isValid() const { return SVGTests::isValid(); }
+    virtual bool supportsFocus() const { return true; }
 
     // 'SVGSVGElement' functions
     const AtomicString& contentScriptType() const;
@@ -62,12 +63,6 @@ public:
 
     FloatRect viewport() const;
 
-    void setContainerSize(const IntSize& containerSize) { m_containerSize = containerSize; m_hasSetContainerSize = true; }
-    IntSize containerSize() const { return m_containerSize; }
-    bool hasSetContainerSize() const { return m_hasSetContainerSize; }
-    int relativeWidthValue() const;
-    int relativeHeightValue() const;
-
     float pixelUnitToMillimeterX() const;
     float pixelUnitToMillimeterY() const;
     float screenPixelToMillimeterX() const;
@@ -77,6 +72,17 @@ public:
     void setUseCurrentView(bool currentView);
 
     SVGViewSpec* currentView() const;
+
+    enum ConsiderCSSMode {
+        RespectCSSProperties,
+        IgnoreCSSProperties
+    };
+
+    // RenderSVGRoot wants to query the intrinsic size, by only examining the width/height attributes.
+    Length intrinsicWidth(ConsiderCSSMode = RespectCSSProperties) const;
+    Length intrinsicHeight(ConsiderCSSMode = RespectCSSProperties) const;
+    FloatSize currentViewportSize() const;
+    FloatRect currentViewBoxRect() const;
 
     float currentScale() const;
     void setCurrentScale(float scale);
@@ -101,10 +107,10 @@ public:
     void unsuspendRedrawAll();
     void forceRedraw();
 
-    NodeList* getIntersectionList(const FloatRect&, SVGElement* referenceElement);
-    NodeList* getEnclosureList(const FloatRect&, SVGElement* referenceElement);
-    bool checkIntersection(SVGElement*, const FloatRect&);
-    bool checkEnclosure(SVGElement*, const FloatRect&);
+    PassRefPtr<NodeList> getIntersectionList(const FloatRect&, SVGElement* referenceElement) const;
+    PassRefPtr<NodeList> getEnclosureList(const FloatRect&, SVGElement* referenceElement) const;
+    bool checkIntersection(SVGElement*, const FloatRect&) const;
+    bool checkEnclosure(SVGElement*, const FloatRect&) const;
     void deselectAll();
 
     static float createSVGNumber();
@@ -118,15 +124,15 @@ public:
 
     AffineTransform viewBoxToViewTransform(float viewWidth, float viewHeight) const;
 
-    void inheritViewAttributes(SVGViewElement*);
-
-    bool isOutermostSVG() const;
+    void setupInitialView(const String& fragmentIdentifier, Element* anchorNode);
 
     Element* getElementById(const AtomicString&) const;
 
+    bool widthAttributeEstablishesViewport() const;
+    bool heightAttributeEstablishesViewport() const;
+
 protected:
-    virtual void willMoveToNewOwnerDocument();
-    virtual void didMoveToNewOwnerDocument();
+    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
 
 private:
     SVGSVGElement(const QualifiedName&, Document*);
@@ -134,46 +140,51 @@ private:
 
     virtual bool isSVG() const { return true; }
     
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
-    virtual bool rendererIsNeeded(RenderStyle* style) { return StyledElement::rendererIsNeeded(style); }
+    virtual bool rendererIsNeeded(const NodeRenderingContext& context) { return StyledElement::rendererIsNeeded(context); }
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
     virtual bool selfHasRelativeLengths() const;
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(X, x)
-    DECLARE_ANIMATED_LENGTH(Y, y)
-    DECLARE_ANIMATED_LENGTH(Width, width)
-    DECLARE_ANIMATED_LENGTH(Height, height)
+    void inheritViewAttributes(SVGViewElement*);
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    enum CollectIntersectionOrEnclosure {
+        CollectIntersectionList,
+        CollectEnclosureList
+    };
 
-    // SVGFitToViewBox
-    DECLARE_ANIMATED_RECT(ViewBox, viewBox)
-    DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)
- 
-    virtual void documentWillBecomeInactive();
-    virtual void documentDidBecomeActive();
+    PassRefPtr<NodeList> collectIntersectionOrEnclosureList(const FloatRect&, SVGElement*, CollectIntersectionOrEnclosure) const;
+
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGSVGElement)
+        DECLARE_ANIMATED_LENGTH(X, x)
+        DECLARE_ANIMATED_LENGTH(Y, y)
+        DECLARE_ANIMATED_LENGTH(Width, width)
+        DECLARE_ANIMATED_LENGTH(Height, height)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_RECT(ViewBox, viewBox)
+        DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+    // SVGTests
+    virtual void synchronizeRequiredFeatures() { SVGTests::synchronizeRequiredFeatures(this); }
+    virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
+    virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
+
+    virtual void documentWillSuspendForPageCache();
+    virtual void documentDidResumeFromPageCache();
 
     virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const;
 
     bool m_useCurrentView;
     RefPtr<SMILTimeContainer> m_timeContainer;
     FloatPoint m_translation;
-    float m_scale;
     mutable OwnPtr<SVGViewSpec> m_viewSpec;
-    IntSize m_containerSize;
-    bool m_hasSetContainerSize;
 };
 
 } // namespace WebCore

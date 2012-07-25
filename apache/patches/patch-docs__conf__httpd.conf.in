@@ -1,5 +1,15 @@
 --- docs/conf/httpd.conf.in.orig	2007-12-21 03:43:00.000000000 -0800
 +++ docs/conf/httpd.conf.in	2009-09-22 17:16:52.000000000 -0700
+@@ -52,6 +52,9 @@
+ # LoadModule foo_module modules/mod_foo.so
+ #
+ @@LoadModule@@
++#LoadModule perl_module libexec/apache2/mod_perl.so
++#LoadModule php5_module libexec/apache2/libphp5.so
++#LoadModule hfs_apple_module libexec/apache2/mod_hfs_apple.so
+ 
+ <IfModule !mpm_netware_module>
+ <IfModule !mpm_winnt_module>
 @@ -63,8 +63,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.

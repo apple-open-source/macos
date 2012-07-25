@@ -55,6 +55,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+#include <fcntl.h>
 
 #include "var.h"
 #include "misc.h"
@@ -83,8 +84,8 @@ const int niflags = 0;
  */
 int
 cmpsaddrwop(addr1, addr2)
-	const struct sockaddr *addr1;
-	const struct sockaddr *addr2;
+	const struct sockaddr_storage *addr1;
+	const struct sockaddr_storage *addr2;
 {
 	caddr_t sa1, sa2;
 
@@ -93,10 +94,10 @@ cmpsaddrwop(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-	if (addr1->sa_len != addr2->sa_len
-	 || addr1->sa_family != addr2->sa_family)
+	if (addr1->ss_len != addr2->ss_len
+	 || addr1->ss_family != addr2->ss_family)
 		return 1;
-	switch (addr1->sa_family) {
+	switch (addr1->ss_family) {
 	case AF_INET:
 		sa1 = (caddr_t)&((struct sockaddr_in *)addr1)->sin_addr;
 		sa2 = (caddr_t)&((struct sockaddr_in *)addr2)->sin_addr;
@@ -122,6 +123,63 @@ cmpsaddrwop(addr1, addr2)
 }
 
 /*
+ * compare two sockaddr without port number using prefix.
+ * OUT:	0: equal.
+ *	1: not equal.
+ */
+int
+cmpsaddrwop_withprefix(const struct sockaddr_storage *addr1, const struct sockaddr_storage *addr2, int prefix)
+{
+    u_int32_t mask;
+    int i;
+    
+	if (addr1 == 0 && addr2 == 0)
+		return 0;
+	if (addr1 == 0 || addr2 == 0)
+		return 1;
+    
+	if (addr1->ss_len != addr2->ss_len
+        || addr1->ss_family != addr2->ss_family)
+		return 1;
+	switch (addr1->ss_family) {
+        case AF_INET:
+            mask = ~0;
+            mask <<= 32-prefix;
+            if ((((struct sockaddr_in *)addr1)->sin_addr.s_addr & htonl(mask)) != 
+                (((struct sockaddr_in *)addr2)->sin_addr.s_addr & htonl(mask)))
+                return 1;
+            break;
+#ifdef INET6
+        case AF_INET6:
+            for (i = 0; i < 4; i++) {
+                if (prefix >= 32) {
+                    mask = ~0;
+                    prefix -= 32;
+                } else if (prefix == 0)
+                    mask = 0;
+                else {
+                    mask = ~0;
+                    mask <<= 32-prefix;
+                    prefix = 0;
+                }
+                if ((((struct sockaddr_in6 *)addr1)->sin6_addr.__u6_addr.__u6_addr32[i] & htonl(mask)) != 
+                    (((struct sockaddr_in6 *)addr2)->sin6_addr.__u6_addr.__u6_addr32[i] & htonl(mask)))
+                    return 1;
+            }
+            if (((struct sockaddr_in6 *)addr1)->sin6_scope_id !=
+                ((struct sockaddr_in6 *)addr2)->sin6_scope_id)
+                return 1;
+            break;
+#endif
+        default:
+            return 1;
+	}
+    
+	return 0;
+}
+
+
+/*
  * compare two sockaddr with port, taking care wildcard.
  * addr1 is a subject address, addr2 is in a database entry.
  * OUT:	0: equal.
@@ -129,8 +187,8 @@ cmpsaddrwop(addr1, addr2)
  */
 int
 cmpsaddrwild(addr1, addr2)
-	const struct sockaddr *addr1;
-	const struct sockaddr *addr2;
+	const struct sockaddr_storage *addr1;
+	const struct sockaddr_storage *addr2;
 {
 	caddr_t sa1, sa2;
 	u_short port1, port2;
@@ -140,11 +198,11 @@ cmpsaddrwild(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-	if (addr1->sa_len != addr2->sa_len
-	 || addr1->sa_family != addr2->sa_family)
+	if (addr1->ss_len != addr2->ss_len
+	 || addr1->ss_family != addr2->ss_family)
 		return 1;
 
-	switch (addr1->sa_family) {
+	switch (addr1->ss_family) {
 	case AF_INET:
 		sa1 = (caddr_t)&((struct sockaddr_in *)addr1)->sin_addr;
 		sa2 = (caddr_t)&((struct sockaddr_in *)addr2)->sin_addr;
@@ -188,8 +246,8 @@ cmpsaddrwild(addr1, addr2)
  */
 int
 cmpsaddrstrict(addr1, addr2)
-	const struct sockaddr *addr1;
-	const struct sockaddr *addr2;
+	const struct sockaddr_storage *addr1;
+	const struct sockaddr_storage *addr2;
 {
 	caddr_t sa1, sa2;
 	u_short port1, port2;
@@ -199,11 +257,11 @@ cmpsaddrstrict(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-	if (addr1->sa_len != addr2->sa_len
-	 || addr1->sa_family != addr2->sa_family)
+	if (addr1->ss_len != addr2->ss_len
+	 || addr1->ss_family != addr2->ss_family)
 		return 1;
 
-	switch (addr1->sa_family) {
+	switch (addr1->ss_family) {
 	case AF_INET:
 		sa1 = (caddr_t)&((struct sockaddr_in *)addr1)->sin_addr;
 		sa2 = (caddr_t)&((struct sockaddr_in *)addr2)->sin_addr;
@@ -236,13 +294,80 @@ cmpsaddrstrict(addr1, addr2)
 	return 0;
 }
 
+/*
+ * compare two sockaddr with strict match on port using prefix.
+ * OUT:	0: equal.
+ *	1: not equal.
+ */
+int
+cmpsaddrstrict_withprefix(const struct sockaddr_storage *addr1, const struct sockaddr_storage *addr2, int prefix)
+{
+	u_short port1, port2;
+    u_int32_t mask;
+    int i;
+    
+	if (addr1 == 0 && addr2 == 0)
+		return 0;
+	if (addr1 == 0 || addr2 == 0)
+		return 1;
+    
+	if (addr1->ss_len != addr2->ss_len
+        || addr1->ss_family != addr2->ss_family)
+		return 1;
+    
+	switch (addr1->ss_family) {
+        case AF_INET:  
+            port1 = ((struct sockaddr_in *)addr1)->sin_port;
+            port2 = ((struct sockaddr_in *)addr2)->sin_port;
+            if (port1 != port2)
+                return 1;
+            mask = ~0;
+            mask <<= 32-prefix;
+            if ((((struct sockaddr_in *)addr1)->sin_addr.s_addr & htonl(mask)) != 
+                (((struct sockaddr_in *)addr2)->sin_addr.s_addr & htonl(mask)))
+                return 1;
+            break;
+#ifdef INET6
+        case AF_INET6:    
+            port1 = ((struct sockaddr_in6 *)addr1)->sin6_port;
+            port2 = ((struct sockaddr_in6 *)addr2)->sin6_port;
+            if (port1 != port2)
+                return 1;
+            for (i = 0; i < 4; i++) {
+                if (prefix >= 32) {
+                    mask = ~0;
+                    prefix -= 32;
+                } else if (prefix == 0)
+                    mask = 0;
+                else {
+                    mask = ~0;
+                    mask <<= 32-prefix;
+                    prefix = 0;
+                }
+                if ((((struct sockaddr_in6 *)addr1)->sin6_addr.__u6_addr.__u6_addr32[i] & htonl(mask)) != 
+                    (((struct sockaddr_in6 *)addr2)->sin6_addr.__u6_addr.__u6_addr32[i] & htonl(mask)))
+                    return 1;
+            }            
+            if (((struct sockaddr_in6 *)addr1)->sin6_scope_id !=
+                ((struct sockaddr_in6 *)addr2)->sin6_scope_id)
+                return 1;
+            break;
+#endif
+        default:
+            return 1;
+	}
+    
+	return 0;
+}
+
+
 /* get local address against the destination. */
-struct sockaddr *
+struct sockaddr_storage *
 getlocaladdr(remote)
 	struct sockaddr *remote;
 {
-	struct sockaddr *local;
-	u_int local_len = sizeof(struct sockaddr_storage);
+	struct sockaddr_storage *local;
+	u_int local_len = sizeof(struct sockaddr);
 	int s;	/* for dummy connection */
 
 	/* allocate buffer */
@@ -259,6 +384,11 @@ getlocaladdr(remote)
 		goto err;
 	}
 
+	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to put localaddr socket in non-blocking mode\n");
+	}
+
 	setsockopt_bypass(s, remote->sa_family);
 	
 	if (connect(s, remote, sysdep_sa_len(remote)) < 0) {
@@ -268,7 +398,7 @@ getlocaladdr(remote)
 		goto err;
 	}
 
-	if (getsockname(s, local, &local_len) < 0) {
+	if (getsockname(s, (struct sockaddr *)local, &local_len) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"getsockname (%s)\n", strerror(errno));
 		close(s);
@@ -294,18 +424,18 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 	void *buf;
 	size_t buflen;
 	int flags;
-	struct sockaddr *from;
+	struct sockaddr_storage *from;
 	socklen_t *fromlen;
-	struct sockaddr *to;
+	struct sockaddr_storage *to;
 	u_int *tolen;
 {
 	int otolen;
-	u_int len;
+	ssize_t len;
 	struct sockaddr_storage ss;
 	struct msghdr m;
 	struct cmsghdr *cm, *cm_prev;
 	struct iovec iov[2];
-	u_char cmsgbuf[256];
+    u_int32_t cmsgbuf[256/sizeof(u_int32_t)];       // Wcast-align fix - force 32 bit alignment
 #if defined(INET6) && defined(INET6_ADVAPI)
 	struct in6_pktinfo *pi;
 #endif /*INET6_ADVAPI*/
@@ -331,12 +461,15 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 	cm = (struct cmsghdr *)cmsgbuf;
 	m.msg_control = (caddr_t)cm;
 	m.msg_controllen = sizeof(cmsgbuf);
-	if ((len = recvmsg(s, &m, flags)) < 0) {
+	while ((len = recvmsg(s, &m, flags)) < 0) {
+		if (errno == EINTR)
+			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
 			"recvmsg (%s)\n", strerror(errno));
 		return -1;
-	} else if (len == 0) {
-	        return 0;
+	}
+	if (len == 0) {
+		return 0;
 	}
 	*fromlen = m.msg_namelen;
 
@@ -354,7 +487,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 		 && cm->cmsg_level == IPPROTO_IPV6
 		 && cm->cmsg_type == IPV6_PKTINFO
 		 && otolen >= sizeof(*sin6)) {
-			pi = (struct in6_pktinfo *)(CMSG_DATA(cm));
+			pi = ALIGNED_CAST(struct in6_pktinfo *)(CMSG_DATA(cm));
 			*tolen = sizeof(*sin6);
 			sin6 = (struct sockaddr_in6 *)to;
 			memset(sin6, 0, sizeof(*sin6));
@@ -417,14 +550,14 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 	int s, cnt;
 	const void *buf;
 	size_t buflen;
-	struct sockaddr *src;
-	struct sockaddr *dst;
+	struct sockaddr_storage *src;
+	struct sockaddr_storage *dst;
 {
 	struct sockaddr_storage ss;
 	int len;
 	int i;
 
-	if (src->sa_family != dst->sa_family) {
+	if (src->ss_family != dst->ss_family) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"address family mismatch\n");
 		return -1;
@@ -440,25 +573,24 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"sockname %s\n", saddr2str((struct sockaddr *)&ss));
 	plog(LLV_DEBUG, LOCATION, NULL,
-		"send packet from %s\n", saddr2str(src));
+		"send packet from %s\n", saddr2str((struct sockaddr *)src));
 	plog(LLV_DEBUG, LOCATION, NULL,
-		"send packet to %s\n", saddr2str(dst));
+		"send packet to %s\n", saddr2str((struct sockaddr *)dst));
 
-	if (src->sa_family != ss.ss_family) {
+	if (src->ss_family != ss.ss_family) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"address family mismatch\n");
 		return -1;
 	}
 
-	switch (src->sa_family) {
+	switch (src->ss_family) {
 #if defined(INET6) && defined(INET6_ADVAPI)
-// XXX: This block wasn't compiled on Linux - does it work?
 	case AF_INET6:
 	    {
 		struct msghdr m;
 		struct cmsghdr *cm;
 		struct iovec iov[2];
-		u_char cmsgbuf[256];
+        u_int32_t cmsgbuf[256/sizeof(u_int32_t)];   // Wcast-align fix - force 32 bit alignment
 		struct in6_pktinfo *pi;
 		int ifindex;
 		struct sockaddr_in6 src6, dst6;
@@ -494,7 +626,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 		cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
 		cm->cmsg_level = IPPROTO_IPV6;
 		cm->cmsg_type = IPV6_PKTINFO;
-		pi = (struct in6_pktinfo *)CMSG_DATA(cm);
+		pi = ALIGNED_CAST(struct in6_pktinfo *)CMSG_DATA(cm);
 		memcpy(&pi->ipi6_addr, &src6.sin6_addr, sizeof(src6.sin6_addr));
 		pi->ipi6_ifindex = ifindex;
 
@@ -522,7 +654,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"%d times of %d bytes message will be sent "
 				"to %s\n",
-				i + 1, len, saddr2str(dst));
+				i + 1, len, saddr2str((struct sockaddr *)dst));
 		}
 		plogdump(LLV_DEBUG, (char *)buf, buflen);
 
@@ -534,7 +666,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 		int needclose = 0;
 		int sendsock;
 
-		if (ss.ss_family == src->sa_family && memcmp(&ss, src, sysdep_sa_len(src)) == 0) {
+		if (ss.ss_family == src->ss_family && memcmp(&ss, src, sysdep_sa_len((struct sockaddr *)src)) == 0) {
 			sendsock = s;
 			needclose = 0;
 		} else {
@@ -546,11 +678,15 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			 * Better approach is to prepare bind'ed udp sockets for
 			 * each of the interface addresses.
 			 */
-			sendsock = socket(src->sa_family, SOCK_DGRAM, 0);
+			sendsock = socket(src->ss_family, SOCK_DGRAM, 0);
 			if (sendsock < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"socket (%s)\n", strerror(errno));
 				return -1;
+			}
+			if (fcntl(sendsock, F_SETFL, O_NONBLOCK) == -1) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "failed to put sendsock socket in non-blocking mode\n");
 			}
 			if (setsockopt(sendsock, SOL_SOCKET,
 				       SO_REUSEPORT,
@@ -562,7 +698,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 				return -1;
 			}
 #ifdef IPV6_USE_MIN_MTU
-			if (src->sa_family == AF_INET6 &&
+			if (src->ss_family == AF_INET6 &&
 			    setsockopt(sendsock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
 			    (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -572,12 +708,12 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 				return -1;
 			}
 #endif
-			if (setsockopt_bypass(sendsock, src->sa_family) < 0) {
+			if (setsockopt_bypass(sendsock, src->ss_family) < 0) {
 				close(sendsock);
 				return -1;
 			}
 
-			if (bind(sendsock, (struct sockaddr *)src, sysdep_sa_len(src)) < 0) {
+			if (bind(sendsock, (struct sockaddr *)src, sysdep_sa_len((struct sockaddr *)src)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"bind 1 (%s)\n", strerror(errno));
 				close(sendsock);
@@ -587,7 +723,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 		}
 
 		for (i = 0; i < cnt; i++) {
-			len = sendto(sendsock, buf, buflen, 0, dst, sysdep_sa_len(dst));
+			len = sendto(sendsock, buf, buflen, 0, (struct sockaddr *)dst, sysdep_sa_len((struct sockaddr *)dst));
 			if (len < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"sendto (%s)\n", strerror(errno));
@@ -604,7 +740,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"%d times of %d bytes message will be sent "
 				"to %s\n",
-				i + 1, len, saddr2str(dst));
+				i + 1, len, saddr2str((struct sockaddr *)dst));
 		}
 		plogdump(LLV_DEBUG, (char *)buf, buflen);
 
@@ -680,11 +816,11 @@ setsockopt_bypass(so, family)
 	return 0;
 }
 
-struct sockaddr *
+struct sockaddr_storage *
 newsaddr(len)
 	int len;
 {
-	struct sockaddr *new;
+	struct sockaddr_storage *new;
 
 	if ((new = racoon_calloc(1, len)) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -692,16 +828,16 @@ newsaddr(len)
 		goto out;
 	}
 	/* initial */
-	new->sa_len = len;
+	new->ss_len = len;
 out:
 	return new;
 }
 
-struct sockaddr *
+struct sockaddr_storage *
 dupsaddr(src)
 	struct sockaddr *src;
 {
-	struct sockaddr *dst;
+	struct sockaddr_storage *dst;
 
 	dst = racoon_calloc(1, sysdep_sa_len(src));
 	if (dst == NULL) {
@@ -738,6 +874,30 @@ saddr2str(saddr)
 }
 
 char *
+saddr2str_with_prefix(saddr, prefix)
+const struct sockaddr *saddr;
+int prefix;
+{
+	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
+	char addr[NI_MAXHOST], port[NI_MAXSERV];
+    
+	if (saddr == NULL) {
+		buf[0] = '\0';
+		return buf;
+	}
+    
+	if (saddr->sa_family == AF_UNSPEC)
+		snprintf (buf, sizeof(buf), "%s", "anonymous");
+	else {
+		GETNAMEINFO(saddr, addr, port);
+		snprintf(buf, sizeof(buf), "%s/%d[%s]", addr, prefix, port);
+	}
+    
+	return buf;
+}
+
+
+char *
 saddrwop2str(saddr)
 	const struct sockaddr *saddr;
 {
@@ -769,7 +929,7 @@ naddrwop2str(const struct netaddr *naddr)
 	if (memcmp(&naddr->sa, &sa_any, sizeof(sa_any)) == 0)
 		snprintf(buf, sizeof(buf), "%s", "any");
 	else {
-		snprintf(buf, sizeof(buf), "%s", saddrwop2str(&naddr->sa.sa));
+		snprintf(buf, sizeof(buf), "%s", saddrwop2str((struct sockaddr *)&naddr->sa.sa));
 		snprintf(&buf[strlen(buf)], sizeof(buf) - strlen(buf), "/%ld", naddr->prefix);
 	}
 	return buf;
@@ -829,13 +989,13 @@ saddr2str_fromto(format, saddr, daddr)
 	return buf;
 }
 
-struct sockaddr *
+struct sockaddr_storage *
 str2saddr(host, port)
 	char *host;
 	char *port;
 {
 	struct addrinfo hints, *res;
-	struct sockaddr *saddr;
+	struct sockaddr_storage *saddr;
 	int error;
 
 	memset(&hints, 0, sizeof(hints));
@@ -857,7 +1017,7 @@ str2saddr(host, port)
 			"taking the first one\n",
 			host, port ? "," : "", port ? port : "");
 	}
-	saddr = racoon_malloc(res->ai_addrlen);
+	saddr = newsaddr(sizeof(*saddr));
 	if (saddr == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to allocate buffer.\n");
@@ -872,14 +1032,14 @@ str2saddr(host, port)
 
 void
 mask_sockaddr(a, b, l)
-	struct sockaddr *a;
-	const struct sockaddr *b;
+	struct sockaddr_storage *a;
+	const struct sockaddr_storage *b;
 	size_t l;
 {
 	size_t i;
 	u_int8_t *p, alen;
 
-	switch (b->sa_family) {
+	switch (b->ss_family) {
 	case AF_INET:
 		alen = sizeof(struct in_addr);
 		p = (u_int8_t *)&((struct sockaddr_in *)a)->sin_addr;
@@ -892,17 +1052,17 @@ mask_sockaddr(a, b, l)
 #endif
 	default:
 		plog(LLV_ERROR2, LOCATION, NULL,
-			"invalid address family: %d\n", b->sa_family);
+			"invalid address family: %d\n", b->ss_family);
 		exit(1);
 	}
 
 	if ((alen << 3) < l) {
 		plog(LLV_ERROR2, LOCATION, NULL,
-			"unexpected inconsistency: %d %zu\n", b->sa_family, l);
+			"unexpected inconsistency: %d %zu\n", b->ss_family, l);
 		exit(1);
 	}
 
-	memcpy(a, b, sysdep_sa_len(b));
+	memcpy(a, b, sysdep_sa_len((struct sockaddr *)b));
 	p[l / 8] &= (0xff00 >> (l % 8)) & 0xff;
 	for (i = l / 8 + 1; i < alen; i++)
 		p[i] = 0x00;
@@ -920,10 +1080,10 @@ mask_sockaddr(a, b, l)
  * 		10.20.30.40:501	=> -1	... port doesn't match and isn't 0 (=any)
  */
 int
-naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
+naddr_score(const struct netaddr *naddr, const struct sockaddr_storage *saddr)
 {
 	static const struct netaddr naddr_any;	/* initialized to all-zeros */
-	struct sockaddr sa;
+	struct sockaddr_storage sa;
 	u_int16_t naddr_port, saddr_port;
 	int port_score;
 
@@ -939,7 +1099,7 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
 		return 0;
 
 	/* If families don't match we really can't do much... */
-	if (naddr->sa.sa.sa_family != saddr->sa_family)
+	if (naddr->sa.sa.ss_family != saddr->ss_family)
 		return -1;
 	
 	/* If port check fail don't bother to check addresses. */
@@ -957,8 +1117,8 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
 	if (loglevel >= LLV_DEBUG) {	/* debug only */
 		char *a1, *a2, *a3;
 		a1 = racoon_strdup(naddrwop2str(naddr));
-		a2 = racoon_strdup(saddrwop2str(saddr));
-		a3 = racoon_strdup(saddrwop2str(&sa));
+		a2 = racoon_strdup(saddrwop2str((struct sockaddr *)saddr));
+		a3 = racoon_strdup(saddrwop2str((struct sockaddr *)&sa));
 		STRDUP_FATAL(a1);
 		STRDUP_FATAL(a2);
 		STRDUP_FATAL(a3);
@@ -975,16 +1135,16 @@ naddr_score(const struct netaddr *naddr, const struct sockaddr *saddr)
 	return -1;
 }
 
-/* Some usefull functions for sockaddr port manipulations. */
+/* Some usefull functions for sockaddr_storage port manipulations. */
 u_int16_t
-extract_port (const struct sockaddr *addr)
+extract_port (const struct sockaddr_storage *addr)
 {
   u_int16_t port = -1;
   
   if (!addr)
     return port;
 
-  switch (addr->sa_family) {
+  switch (addr->ss_family) {
     case AF_INET:
       port = ((struct sockaddr_in *)addr)->sin_port;
       break;
@@ -992,7 +1152,7 @@ extract_port (const struct sockaddr *addr)
       port = ((struct sockaddr_in6 *)addr)->sin6_port;
       break;
     default:
-      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->sa_family);
+      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->ss_family);
       break;
   }
 
@@ -1000,14 +1160,14 @@ extract_port (const struct sockaddr *addr)
 }
 
 u_int16_t *
-get_port_ptr (struct sockaddr *addr)
+get_port_ptr (struct sockaddr_storage *addr)
 {
   u_int16_t *port_ptr;
 
   if (!addr)
     return NULL;
 
-  switch (addr->sa_family) {
+  switch (addr->ss_family) {
     case AF_INET:
       port_ptr = &(((struct sockaddr_in *)addr)->sin_port);
       break;
@@ -1015,7 +1175,7 @@ get_port_ptr (struct sockaddr *addr)
       port_ptr = &(((struct sockaddr_in6 *)addr)->sin6_port);
       break;
     default:
-      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->sa_family);
+      plog(LLV_ERROR, LOCATION, NULL, "unknown AF: %u\n", addr->ss_family);
       return NULL;
       break;
   }
@@ -1024,7 +1184,7 @@ get_port_ptr (struct sockaddr *addr)
 }
 
 u_int16_t *
-set_port (struct sockaddr *addr, u_int16_t new_port)
+set_port (struct sockaddr_storage *addr, u_int16_t new_port)
 {
   u_int16_t *port_ptr;
 

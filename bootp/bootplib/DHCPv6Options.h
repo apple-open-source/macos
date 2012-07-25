@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -258,17 +258,17 @@ typedef struct {
 
 #define DHCPv6OptionIAADDR_MIN_LENGTH	((int)offsetof(DHCPv6OptionIAADDR, options))
 
-INLINE const struct in6_addr *
+INLINE const uint8_t *
 DHCPv6OptionIAADDRGetAddress(DHCPv6OptionIAADDRRef ia_addr)
 {
-    return ((const struct in6_addr *)ia_addr->address);
+   return ((const uint8_t *)ia_addr->address);
 }
 
 INLINE void
 DHCPv6OptionIAADDRSetAddress(DHCPv6OptionIAADDRRef ia_addr,
-			     const struct in6_addr * addr_p)
+			     const void * addr_p)
 {
-    bcopy(addr_p, ia_addr->address, sizeof(*addr_p));
+    bcopy(addr_p, ia_addr->address, sizeof(struct in6_addr));
     return;
 }
 

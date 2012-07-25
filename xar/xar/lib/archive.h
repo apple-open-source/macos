@@ -40,7 +40,12 @@
 #define _XAR_ARCHIVE_H_
 #include <zlib.h>
 #include <libxml/hash.h>
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
+#else
 #include <openssl/evp.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "xar.h"
@@ -84,7 +89,12 @@ struct __xar_t {
 	xmlHashTablePtr ino_hash;   /* Hash for looking up hardlinked files (add)*/
 	xmlHashTablePtr link_hash;  /* Hash for looking up hardlinked files (extract)*/
 	xmlHashTablePtr csum_hash;  /* Hash for looking up checksums of files */
+#ifdef __APPLE__
+    CCDigestRef toc_ctx;
+    unsigned int toc_ctx_length;
+#else
 	EVP_MD_CTX toc_ctx;
+#endif // !__APPLE__
 	int docksum;
 	int skipwarn;
 	struct stat sbcache;

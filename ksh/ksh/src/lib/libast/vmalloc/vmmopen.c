@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -121,7 +121,7 @@ Mmvm_t*	mm;	/* to return some mapped info	*/
 			goto done;
 
 	new_f:	/* create an initial set of data */
-		size = round;
+		size = (off_t)round;
 		if(lseek(fd, size-1, 0) != (size-1) || write(fd, "", 1) != 1 )
 			goto done;
 

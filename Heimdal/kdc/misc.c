@@ -40,12 +40,19 @@ _kdc_db_fetch(krb5_context context,
 	      krb5_kdc_configuration *config,
 	      krb5_const_principal principal,
 	      unsigned flags,
+	      krb5int32 *kvno_ptr,
 	      HDB **db,
 	      hdb_entry_ex **h)
 {
     hdb_entry_ex *ent;
-    krb5_error_code ret;
+    krb5_error_code ret = HDB_ERR_NOENTRY;
     int i;
+    unsigned kvno = 0;
+
+    if (kvno_ptr) {
+	    kvno = *kvno_ptr;
+	    flags |= HDB_F_KVNO_SPECIFIED;
+    }
 
     ent = calloc (1, sizeof (*ent));
     if (ent == NULL) {
@@ -55,7 +62,7 @@ _kdc_db_fetch(krb5_context context,
 
     for(i = 0; i < config->num_db; i++) {
 	krb5_principal enterprise_principal = NULL;
-	if (!(config->db[i]->hdb_capability_flags & HDB_CAP_F_HANDLE_ENTERPRISE_PRINCIPAL) 
+	if (!(config->db[i]->hdb_capability_flags & HDB_CAP_F_HANDLE_ENTERPRISE_PRINCIPAL)
 	    && principal->name.name_type == KRB5_NT_ENTERPRISE_PRINCIPAL) {
 	    if (principal->name.name_string.len != 1) {
 		ret = KRB5_PARSE_MALFORMED;
@@ -84,11 +91,13 @@ _kdc_db_fetch(krb5_context context,
 	    continue;
 	}
 
-	ret = config->db[i]->hdb_fetch(context,
-				       config->db[i],
-				       principal,
-				       flags | HDB_F_DECRYPT,
-				       ent);
+	ret = config->db[i]->hdb_fetch_kvno(context,
+					    config->db[i],
+					    principal,
+					    flags | HDB_F_DECRYPT,
+					    kvno,
+					    ent);
+
 	krb5_free_principal(context, enterprise_principal);
 
 	config->db[i]->hdb_close(context, config->db[i]);
@@ -100,9 +109,9 @@ _kdc_db_fetch(krb5_context context,
 	}
     }
     free(ent);
-    krb5_set_error_message(context, HDB_ERR_NOENTRY,
+    krb5_set_error_message(context, ret,
 			   "no such entry found in hdb");
-    return HDB_ERR_NOENTRY;
+    return ret;
 }
 
 void
@@ -125,23 +134,40 @@ _kdc_get_preferred_key(krb5_context context,
 		       krb5_enctype *enctype,
 		       Key **key)
 {
-    const krb5_enctype *p;
     krb5_error_code ret;
     int i;
 
-    p = krb5_kerberos_enctypes(context);
+    if (config->use_strongest_server_key) {
+	const krb5_enctype *p = krb5_kerberos_enctypes(context);
 
-    for (i = 0; p[i] != ETYPE_NULL; i++) {
-	if (krb5_enctype_valid(context, p[i]) != 0)
-	    continue;
-	ret = hdb_enctype2key(context, &h->entry, p[i], key);
-	if (ret == 0) {
-	    *enctype = p[i];
+	for (i = 0; p[i] != ETYPE_NULL; i++) {
+	    if (krb5_enctype_valid(context, p[i]) != 0)
+		continue;
+	    ret = hdb_enctype2key(context, &h->entry, p[i], key);
+	    if (ret != 0)
+		continue;
+	    if (enctype != NULL)
+		*enctype = p[i];
+	    return 0;
+	}
+    } else {
+	*key = NULL;
+
+	for (i = 0; i < h->entry.keys.len; i++) {
+	    if (krb5_enctype_valid(context, h->entry.keys.val[i].key.keytype)
+		!= 0)
+		continue;
+	    ret = hdb_enctype2key(context, &h->entry,
+		h->entry.keys.val[i].key.keytype, key);
+	    if (ret != 0)
+		continue;
+	    if (enctype != NULL)
+		*enctype = (*key)->key.keytype;
 	    return 0;
 	}
     }
 
     krb5_set_error_message(context, EINVAL,
 			   "No valid kerberos key found for %s", name);
-    return EINVAL;
+    return EINVAL; /* XXX */
 }

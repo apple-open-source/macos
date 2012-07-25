@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#                     Copyright (c) 1994-2007 AT&T                     #
+#                     Copyright (c) 1994-2011 AT&T                     #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                               by AT&T                                #
@@ -24,7 +24,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	ARGV0="-a $COMMAND"
 	USAGE=$'
 [-?
-@(#)$Id: ditto (AT&T Labs Research) 2003-01-16 $
+@(#)$Id: ditto (AT&T Labs Research) 2010-11-22 $
 ]
 '$USAGE_LICENSE$'
 [+NAME?ditto - replicate directory hierarchies]
@@ -36,8 +36,8 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 	if \auser@\a is omitted, the local host is used if \ahost\a: is
 	omitted, and the user home directory is used if \adirectory\a is
 	omitted.]
-[+?Remote hosts and files are accessed via \brsh\b(1). \bksh\b(1), \bpax\b(1),
-	and \btw\b(1) must be installed on the local and remote hosts.]
+[+?Remote hosts and files are accessed via \bssh\b(1) or \brsh\b(1). \bksh\b(1),
+	\bpax\b(1), and \btw\b(1) must be installed on the local and remote hosts.]
 [+?For each source file \bditto\b does one of these actions:]{
 	[+chmod|chown?change the mode and/or ownership of the destination
 		file to match the source]
@@ -57,8 +57,8 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 [o:owner?Preserve file user and group ownership.]
 [p:physical?Generate source and destination hierarchies by \btw\b(1) with
 	the \b--physical\b option.]
-[r:remote?The remote access protocol; either \brsh\b or
-	\bssh\b.]:[protocol:=rsh]
+[r:remote?The remote access protocol; either \bssh\b or
+	\brsh\b.]:[protocol:=ssh]
 [u:update?Copy only if the \asource\a file is newer than the
 	\adestination\a file.]
 [v:verbose?Trace the operations as they are executed.]
@@ -66,7 +66,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 
 source destination
 
-[+SEE ALSO?\brdist\b(1), \brsync\b(1), \brsh\b(1), \btw\b(1)]
+[+SEE ALSO?\brdist\b(1), \brsync\b(1), \brsh\b(1), \bssh\b(1), \btw\b(1)]
 '
 	;;
 *)	ARGV0=""
@@ -127,7 +127,7 @@ integer dst_size dst_mtime dst_eof
 
 integer debug=0 delete=0 exec=1 mode=1 owner=0 update=0 verbose=0 logical
 
-typeset remote=rsh trace
+typeset remote=ssh trace
 typeset checksum='"-"' pax="pax"
 typeset paxreadflags="" paxwriteflags="--write --format=tgz --nosummary"
 
@@ -175,16 +175,24 @@ fi
 parse src "$1"
 parse dst "$2"
 
+# the |& command may exit before the exec &p
+# the print sync + read delays the |& until the exec &p finishes
+
 if [[ $src_host ]]
-then	($remote $src_user $src_host "{ test ! -f .profile || . ./.profile ;} && cd $src_dir && ${tw[*]}") 2>&1 |&
-else	(cd $src_dir && eval "${tw[@]}") 2>&1 |&
+then	($remote $src_user $src_host "{ test ! -f .profile || . ./.profile ;} && cd $src_dir && read && ${tw[*]}") 2>&1 |&
+else	(cd $src_dir && read && eval "${tw[@]}") 2>&1 |&
 fi
-exec 5<&p 7>&p 7>&-
+exec 5<&p 7>&p
+print -u7 sync
+exec 7>&-
+
 if [[ $dst_host ]]
-then	($remote $dst_user $dst_host "{ test ! -f .profile || . ./.profile ;} && cd $dst_dir && ${tw[*]}") 2>&1 |&
-else	(cd $dst_dir && eval "${tw[@]}") 2>&1 |&
+then	($remote $dst_user $dst_host "{ test ! -f .profile || . ./.profile ;} && cd $dst_dir && read && ${tw[*]}") 2>&1 |&
+else	(cd $dst_dir && read && eval "${tw[@]}") 2>&1 |&
 fi
-exec 6<&p 7>&p 7>&-
+exec 6<&p 7>&p
+print -u7 sync
+exec 7>&-
 
 # scan through the sorted path lists
 
@@ -210,7 +218,7 @@ do
 		then
 			if [[ $text != +([[:digit:]]) ]]
 			then	
-				print -u2 $COMMAND: source: $text
+				print -u2 $COMMAND: source: "'$text'"
 				src_path=
 				continue
 			fi

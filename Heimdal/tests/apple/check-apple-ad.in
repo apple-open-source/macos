@@ -47,35 +47,45 @@ kdestroy="${kdestroy} -c $cache"
 
 test -d ${testdir} || mkdir -p ${testdir}
 
-echo "checking for ADS"
-odutil show nodenames | grep '/Active Directory/ADS' > /dev/null || \
-      { echo "no ADS, skipping tests" ; exit 0; }
+if ! ping -c 1 dc03.ads.apple.com > /dev/null 2>&1 ; then
+      { echo "no dc03 available, skipping tests" ; exit 0; }
+fi
+
+echo "running http tests"
+echo "	destroy all cred"
+${gsstool} destroy --all
+
+cat > ${testdir}/acquire.tmp <<EOF
+expect Password:
+send foobar\n
+EOF
+
+echo "	acquire ntlm creds"
+${rkpty} ${testdir}/acquire.tmp \
+	${gsstool} acquire-cred --mech=ntlm ktestuser@ADS >/dev/null || exit 1
+
+echo "	acquire krb5 creds"
+${rkpty} ${testdir}/acquire.tmp \
+	${gsstool} acquire-cred --mech=krb5 ktestuser@ADS.APPLE.COM  > /dev/null || exit 1
+
+echo "	spnego/krb5"
+${http_client} --mech=spnego --cred-mech=krb5 --client=ktestuser@ADS.APPLE.COM \
+    dc03.ads.apple.com /negotiate/ | grep 'http negotiate' > /dev/null || \
+    { echo "spnego/krb5 failed" ; exit 1; }
+
+echo "	spnego/ntlm"
+${http_client} --mech=spnego --cred-mech=ntlm --client=ktestuser@ADS \
+    dc03.ads.apple.com /negotiate/ | grep 'http negotiate' > /dev/null || \
+    { echo "spnego/ntlm failed" ; exit 1; }
+
+echo "	ntlm"
+${http_client} --mech=ntlm --cred-mech=ntlm --client=ktestuser@ADS \
+    dc03.ads.apple.com /negotiate/ | grep 'http negotiate' > /dev/null || \
+    { echo "spnego/ntlm failed" ; exit 1; }
 
 
-echo "checking ktestuser in ADS"
-${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
-    { echo "test failed";  exit 1; }
-
-sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
-    { echo "test failed";  exit 1; }
-
-sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
-    { echo "test failed";  exit 1; }
-
-echo foobar > ${testdir}/foopassword
-
-cat ${testdir}/foopassword
-
-${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
-
-env KRB5CCNAME=${cache} \
-ldapsearch -h dc02.ads.apple.com -b "DC=ads,DC=apple,DC=com" -s base \+ || \
-    { echo "ldap test failed"; exit 1; }
-
-${kdestroy}
+echo "	destroy all cred"
+${gsstool} destroy --all
 
 echo "test change password"
 echo admin > ${testdir}/foopassword
@@ -115,9 +125,15 @@ EOF
 ${rkpty} cpw.tmp env ${kpasswd} ktestuser2@${R} || \
 	exit 1
 
-pw=foobar
+echo "test with test_gsscf"
+${test_gsscf} ktestuser2@ADS.APPLE.COM ${pw} ${oldpw} > /dev/null 2>/dev/null || \
+    { echo "failed to change password"; exit 1; }
+
 
 echo "Changing password back using admin"
+
+pw=foobar
+
 cat > cpw.tmp <<EOF
 expect New password
 send ${pw}\n
@@ -141,6 +157,38 @@ if expr "$host" : '.*\.apple\.com' > /dev/null ; then
     ${winmount} ${testbase}/apple/coswin7-ads-specific.plist ${host} || exit 1
 else
     echo "not running windows mount test since you are no on apple network"
+fi
+
+echo "checking for ADS"
+if odutil show nodenames | grep '/Active Directory/ADS' > /dev/null ; then
+    
+    echo "checking ktestuser in ADS"
+    ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
+        { echo "test failed";  exit 1; }
+    
+    ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
+        { echo "test failed";  exit 1; }
+    
+    sudo ${test_gssntlm} --user=ktestuser --password=foobar --domain=ADS | grep 'done:' > /dev/null || \
+        { echo "test failed";  exit 1; }
+    
+    sudo ${test_gssntlm} --user=ktestuser --password=foobar2 --domain=ADS 2>/dev/null | grep 'done:' > /dev/null && \
+        { echo "test failed";  exit 1; }
+
+
+    echo "checking ldap"
+    echo foobar > ${testdir}/foopassword
+    
+    ${kinit} --password-file=${testdir}/foopassword ktestuser@ADS.APPLE.COM || exit 1
+    
+    env KRB5CCNAME=${cache} \
+    ldapsearch -h dc02.ads.apple.com -b "DC=ads,DC=apple,DC=com" -s base \+ || \
+        { echo "ldap test failed"; exit 1; }
+    
+    ${kdestroy}
+
+else
+      echo "no ADS, skipping NETR/NETLOGON tests"
 fi
 
 

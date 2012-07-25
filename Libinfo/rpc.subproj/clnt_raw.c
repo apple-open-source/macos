@@ -119,8 +119,6 @@ clntraw_create(prog, vers)
 {
 	register struct clntraw_private *clp = clntraw_private;
 	struct rpc_msg call_msg;
-	XDR *xdrs = &clp->xdr_stream;
-	CLIENT *client = &clp->client_object;
 
 	if (clp == 0) {
 		clp = (struct clntraw_private *)calloc(1, sizeof (*clp));
@@ -128,6 +126,8 @@ clntraw_create(prog, vers)
 			return (0);
 		clntraw_private = clp;
 	}
+	XDR *xdrs = &clp->xdr_stream;
+	CLIENT *client = &clp->client_object;
 	/*
 	 * pre-serialize the staic part of the call msg and stash it away
 	 */

@@ -1,17 +1,20 @@
 #!/bin/sh
+set -e -x
 
-# We want to build these for the builder's arch and SDK, not for the target system's as we use them during the build process (and not ever on the target system)
+if [ "$PLATFORM_NAME" != "macosx" ]; then
+	SDK="-sdk macosx"
+fi
 
-set -e
-
-export -n ARCHS SDKROOT CURRENT_ARCH RC_ARCHS RC_CFLAGS   EFFECTIVE_PLATFORM_NAME EMBEDDED_PROFILE_NAME RC_TARGET_CONFIG RC_TARGET_UPDATE SDK_DIR SDK_NAME `env | grep -E "^PLATFORM_" | cut -d= -f1` 
-
-# export MACOSX_DEPLOYMENT_TARGET=`sw_vers -productVersion`
-# NBSDK=`xcodebuild -showsdks | awk '/macosx10\./ { if (match($0, "-sdk +macosx10\.[0-9][^ ]*")) print substr($0, RSTART, RLENGTH); }' | sort | tail -1`
-
-# Select the builder's default sdk
-export SDKROOT=''
-
-# native_make_keys depends on native_make_hash...  so we get them both for the price of one
-xcodebuild -target native_make_keys MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" MACOSX_DEPLOYMENT_TARGET="$MACOSX_DEPLOYMENT_TARGET" SYMROOT="$SYMROOT" DSTROOT="$DSTROOT"
-
+export -n SDKROOT
+export -n ARCHS CURRENT_ARCH RC_ARCHS RC_CFLAGS
+export -n RC_TARGET_CONFIG RC_TARGET_UPDATE EMBEDDED_PROFILE_NAME
+# Remove all platform variables from the environment
+export -n `env | grep -E "^PLATFORM_" | cut -d= -f1` \
+	
+# Build the native_tic target using the current SDK for the build host
+xcodebuild \
+	"$@" \
+	$SDK \
+	SYMROOT="$SYMROOT" \
+	DSTROOT="$BUILT_PRODUCTS_DIR" \
+	install

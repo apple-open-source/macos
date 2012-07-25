@@ -27,9 +27,12 @@
 #ifndef DrawingAreaProxy_h
 #define DrawingAreaProxy_h
 
+#include "BackingStore.h"
 #include "DrawingAreaInfo.h"
-#include <stdint.h>
+#include <WebCore/FloatPoint.h>
+#include <WebCore/IntRect.h>
 #include <WebCore/IntSize.h>
+#include <stdint.h>
 #include <wtf/Noncopyable.h>
 
 #if PLATFORM(QT)
@@ -45,24 +48,17 @@ namespace CoreIPC {
 }
 
 namespace WebCore {
-    class IntRect;
+    class TransformationMatrix;
 }
 
 namespace WebKit {
 
 class LayerTreeContext;
+class LayerTreeHostProxy;
 class UpdateInfo;
+class WebLayerTreeInfo;
+class WebLayerUpdateInfo;
 class WebPageProxy;
-
-#if PLATFORM(MAC)
-typedef CGContextRef PlatformDrawingContext;
-#elif PLATFORM(WIN)
-typedef HDC PlatformDrawingContext;
-#elif PLATFORM(QT)
-typedef QPainter* PlatformDrawingContext;
-#elif PLATFORM(GTK)
-typedef cairo_t* PlatformDrawingContext;
-#endif
 
 class DrawingAreaProxy {
     WTF_MAKE_NONCOPYABLE(DrawingAreaProxy);
@@ -74,25 +70,36 @@ public:
 
     void didReceiveDrawingAreaProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*) = 0;
-
-    // Returns true if painting was successful, false otherwise.
-    virtual bool paint(const WebCore::IntRect&, PlatformDrawingContext) = 0;
-
-    virtual void sizeDidChange() = 0;
     virtual void deviceScaleFactorDidChange() = 0;
 
     // FIXME: These should be pure virtual.
     virtual void visibilityDidChange() { }
+    virtual void layerHostingModeDidChange() { }
+
     virtual void setBackingStoreIsDiscardable(bool) { }
 
     virtual void waitForBackingStoreUpdateOnNextPaint() { }
 
-    virtual void setPageIsVisible(bool isVisible) = 0;
-
     const WebCore::IntSize& size() const { return m_size; }
     void setSize(const WebCore::IntSize&, const WebCore::IntSize& scrollOffset);
 
+    virtual void pageCustomRepresentationChanged() { }
+    virtual void waitForPossibleGeometryUpdate() { }
+
+#if USE(UI_SIDE_COMPOSITING)
+    virtual void updateViewport();
+    virtual WebCore::IntRect viewportVisibleRect() const { return contentsRect(); }
+    virtual WebCore::IntRect contentsRect() const;
+    virtual bool isBackingStoreReady() const { return true; }
+    LayerTreeHostProxy* layerTreeHostProxy() const { return m_layerTreeHostProxy.get(); }
+    virtual void setVisibleContentsRect(const WebCore::IntRect& visibleContentsRect, float scale, const WebCore::FloatPoint& trajectoryVector, const WebCore::FloatPoint& accurateVisibleContentsPosition = WebCore::FloatPoint()) { }
+    virtual void createTileForLayer(int layerID, int tileID, const WebKit::UpdateInfo&) { }
+    virtual void updateTileForLayer(int layerID, int tileID, const WebKit::UpdateInfo&) { }
+    virtual void removeTileForLayer(int layerID, int tileID) { }
+    virtual void didReceiveLayerTreeHostProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+
+    WebPageProxy* page() { return m_webPageProxy; }
+#endif
 protected:
     explicit DrawingAreaProxy(DrawingAreaType, WebPageProxy*);
 
@@ -102,7 +109,13 @@ protected:
     WebCore::IntSize m_size;
     WebCore::IntSize m_scrollOffset;
 
+#if USE(UI_SIDE_COMPOSITING)
+    OwnPtr<LayerTreeHostProxy> m_layerTreeHostProxy;
+#endif
+
 private:
+    virtual void sizeDidChange() = 0;
+
     // CoreIPC message handlers.
     // FIXME: These should be pure virtual.
     virtual void update(uint64_t backingStoreStateID, const UpdateInfo&) { }
@@ -110,6 +123,10 @@ private:
 #if USE(ACCELERATED_COMPOSITING)
     virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) { }
     virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&) { }
+    virtual void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&) { }
+#endif
+#if PLATFORM(MAC)
+    virtual void didUpdateGeometry() { }
 #endif
 };
 

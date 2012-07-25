@@ -37,9 +37,9 @@
 #include "FileMetadata.h"
 #include "ScriptExecutionContext.h"
 #include "WebFileInfo.h"
-#include "WebFileSystem.h"
+#include "platform/WebFileSystem.h"
 #include "WebFileSystemEntry.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 #include "WorkerAsyncFileSystemChromium.h"
 #include <wtf/Vector.h>
 
@@ -85,13 +85,18 @@ void WebFileSystemCallbacksImpl::didReadDirectory(const WebVector<WebFileSystemE
     delete this;
 }
 
-void WebFileSystemCallbacksImpl::didOpenFileSystem(const WebString& name, const WebString& path)
+void WebFileSystemCallbacksImpl::didOpenFileSystem(const WebString& name, const WebURL& rootURL)
 {
-    if (m_context && m_context->isWorkerContext())
-        m_callbacks->didOpenFileSystem(name, WorkerAsyncFileSystemChromium::create(m_context, m_type, path, m_synchronous));
-    else
-        m_callbacks->didOpenFileSystem(name, AsyncFileSystemChromium::create(m_type, path));
-    delete this;
+    // This object is intended to delete itself on exit.
+    OwnPtr<WebFileSystemCallbacksImpl> callbacks = adoptPtr(this);
+
+#if ENABLE(WORKERS)
+    if (m_context && m_context->isWorkerContext()) {
+        m_callbacks->didOpenFileSystem(name, WorkerAsyncFileSystemChromium::create(m_context, m_type, rootURL, m_synchronous));
+        return;
+    }
+#endif
+    m_callbacks->didOpenFileSystem(name, AsyncFileSystemChromium::create(m_type, rootURL));
 }
 
 void WebFileSystemCallbacksImpl::didFail(WebFileError error)

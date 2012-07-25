@@ -114,6 +114,22 @@ configure_is_required()
     return 1
 }
 
+# If we don't have autoreconf but we already have a "config.h"
+# file, we're done. This assumes that the existance of config.h
+# means the other ".in" files have already been configured.
+skip_autoconf()
+{
+   xcrun -find autoreconf >& /dev/null || {
+      if  [[ ! -f ${SRCROOT}/dcerpc/include/config.h ]]; then
+	  error "You will need to install the automake, autoconf, and glibtool packages"
+      else
+	  return 0
+      fi
+   }
+
+    return 1
+}
+
 PROG=$(basename $0)
 SRCROOT=${SRCROOT:=$(cd $(dirname $0)/.. && pwd)}
 SDKROOT=${SDKROOT:-/}
@@ -125,12 +141,26 @@ message SRCROOT is $SRCROOT
 message SDKROOT is $SDKROOT
 message SDK architecture is $SDKARCH
 
+if skip_autoconf ; then
+    message 'Skipping autoconf/configure. Using supplied "config.h" file.'
+    exit 0
+fi
+
 if autoreconf_is_required ; then
     message "running buildconf"
     ./buildconf || error buildconf failed
 else
     message "configure exists, skipping buildconf phase"
 fi
+
+case $(sw_vers -productVersion) in
+    10.6.*)
+	PLATFORM_CONFIGURE_OPTIONS=--disable-gss_negotiate
+	;;
+    *)
+	PLATFORM_CONFIGURE_OPTIONS=
+	;;
+esac
 
 if configure_is_required ; then
     message "running configure"
@@ -141,6 +171,7 @@ if configure_is_required ; then
 	CXX=$(xcrun -find c++) \
 	CFLAGS="-arch $SDKARCH -isysroot $SDKROOT" \
 	CXXFLAGS="-arch $SDKARCH -isysroot $SDKROOT" \
+	${PLATFORM_CONFIGURE_OPTIONS} \
 	--disable-dependency-tracking \
 	--enable-idldumpers \
 	--disable-ncadg \

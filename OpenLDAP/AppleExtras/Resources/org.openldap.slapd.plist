@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/Library/Preferences/com.apple.openldap.plist</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>HardResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>8192</integer>
+	</dict>
+	<key>Label</key>
+	<string>org.openldap.slapd</string>
+	<key>Program</key>
+	<string>/usr/libexec/slapd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/slapd</string>
+		<string>-d</string>
+		<string>0</string>
+		<string>-h</string>
+		<string>ldap:/// ldapi://%2Fvar%2Frun%2Fldapi</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+	<key>SoftResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>8192</integer>
+	</dict>
+	<key>Umask</key>
+	<integer>63</integer>
+</dict>
+</plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 - 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,18 @@ NetShareGetInfo(
         return ERROR_INVALID_PARAMETER;
     }
 	
-    rpc_binding binding(make_rpc_binding(ServerName, "srvsvc"));
+    rpc_binding binding = make_rpc_binding(ServerName, "srvsvc");
+    if (binding.get() == NULL) {
+        SMBLogInfo("make_rpc_binding failed", ASL_LEVEL_DEBUG);
+		if (serverName) {
+			free(serverName);
+        }
+		if (netName) {
+			free(netName);
+        }
+        return ERROR_INVALID_PARAMETER;
+    }
+
     rpc_ss_allocator_t allocator;
 
     NET_API_STATUS api_status = NERR_Success;
@@ -129,15 +140,23 @@ NetShareEnum(
         const char * ServerName,
         uint32_t Level,
         PSHARE_ENUM_STRUCT * InfoStruct)
-{	
+{	    
 	WCHAR * serverName = SMBConvertFromUTF8ToUTF16(ServerName, 1024, 0);
     if (!serverName || !InfoStruct) {
-		if ( serverName)
+		if (serverName)
 			free(serverName);
         return ERROR_INVALID_PARAMETER;
     }
-	
-    rpc_binding binding(make_rpc_binding(ServerName, "srvsvc"));
+
+    rpc_binding binding = make_rpc_binding(ServerName, "srvsvc");
+    if (binding.get() == NULL) {
+        SMBLogInfo("make_rpc_binding failed", ASL_LEVEL_DEBUG);
+		if (serverName) {
+			free(serverName);
+        }
+        return ERROR_INVALID_PARAMETER;
+    }
+
     rpc_ss_allocator_t allocator;
 
     NET_API_STATUS api_status = NERR_Success;

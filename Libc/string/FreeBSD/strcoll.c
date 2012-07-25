@@ -28,58 +28,41 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.14 2009/02/03 17:58:20 danger Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
+#include <errno.h>
 #include "collate.h"
+
+int
+strcoll_l(const char *s, const char *s2, locale_t loc)
+{
+	int ret;
+	const wchar_t *t = NULL, *t2 = NULL;
+	int sverrno;
+
+	NORMALIZE_LOCALE(loc);
+	if (loc->__collate_load_error || (t = __collate_mbstowcs(s, loc)) == NULL || (t2 = __collate_mbstowcs(s2, loc)) == NULL) {
+		sverrno = errno;
+		free((void *)t);
+		free((void *)t2);
+		errno = sverrno;
+		return strcmp(s, s2);
+	}
+
+	ret = wcscoll_l(t, t2, loc);
+	sverrno = errno;
+	free((void *)t);
+	free((void *)t2);
+	errno = sverrno;
+
+	return ret;
+}
 
 int
 strcoll(const char *s, const char *s2)
 {
-	int len, len2, prim, prim2, sec, sec2, ret, ret2;
-	const char *t, *t2;
-	char *tt, *tt2;
-
-	if (__collate_load_error)
-		return strcmp(s, s2);
-
-	len = len2 = 1;
-	ret = ret2 = 0;
-	if (__collate_substitute_nontrivial) {
-		t = tt = __collate_substitute(s);
-		t2 = tt2 = __collate_substitute(s2);
-	} else {
-		tt = tt2 = NULL;
-		t = s;
-		t2 = s2;
-	}
-	while(*t && *t2) {
-		prim = prim2 = 0;
-		while(*t && !prim) {
-			__collate_lookup(t, &len, &prim, &sec);
-			t += len;
-		}
-		while(*t2 && !prim2) {
-			__collate_lookup(t2, &len2, &prim2, &sec2);
-			t2 += len2;
-		}
-		if(!prim || !prim2)
-			break;
-		if(prim != prim2) {
-			ret = prim - prim2;
-			goto end;
-		}
-		if(!ret2)
-			ret2 = sec - sec2;
-	}
-	if(!*t && *t2)
-		ret = -(int)((u_char)*t2);
-	else if(*t && !*t2)
-		ret = (u_char)*t;
-	else if(!*t && !*t2)
-		ret = ret2;
-  end:
-	free(tt);
-	free(tt2);
-
-	return ret;
+	return strcoll_l(s, s2, __current_locale());
 }

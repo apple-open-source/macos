@@ -54,4 +54,4 @@ enum {
 };
 __private_extern__ void switchActiveBatterySet(int which);
 
-#endif _BatteryTimeRemaining_h_
+#endif //_BatteryTimeRemaining_h_

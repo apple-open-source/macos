@@ -33,15 +33,15 @@
 
 namespace JSC {
 
-JSObject* createInterruptedExecutionException(JSGlobalData*);
+JS_EXPORT_PRIVATE JSObject* createInterruptedExecutionException(JSGlobalData*);
 bool isInterruptedExecutionException(JSObject*);
 bool isInterruptedExecutionException(JSValue);
 
 JSObject* createTerminatedExecutionException(JSGlobalData*);
 bool isTerminatedExecutionException(JSObject*);
-bool isTerminatedExecutionException(JSValue);
+JS_EXPORT_PRIVATE bool isTerminatedExecutionException(JSValue);
 
-JSObject* createStackOverflowError(ExecState*);
+JS_EXPORT_PRIVATE JSObject* createStackOverflowError(ExecState*);
 JSObject* createStackOverflowError(JSGlobalObject*);
 JSObject* createOutOfMemoryError(JSGlobalObject*);
 JSObject* createUndefinedVariableError(ExecState*, const Identifier&);
@@ -69,7 +69,7 @@ public:
 
     static InterruptedExecutionError* create(JSGlobalData& globalData)
     {
-        InterruptedExecutionError* error = new (allocateCell<InterruptedExecutionError>(globalData.heap)) InterruptedExecutionError(globalData);
+        InterruptedExecutionError* error = new (NotNull, allocateCell<InterruptedExecutionError>(globalData.heap)) InterruptedExecutionError(globalData);
         error->finishCreation(globalData);
         return error;
     }
@@ -79,7 +79,7 @@ public:
         return Structure::create(globalData, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), &s_info);
     }
 
-    static JS_EXPORTDATA const ClassInfo s_info;
+    static const ClassInfo s_info;
 };
 
 class TerminatedExecutionError : public JSNonFinalObject {
@@ -96,7 +96,7 @@ public:
 
     static TerminatedExecutionError* create(JSGlobalData& globalData)
     {
-        TerminatedExecutionError* error = new (allocateCell<TerminatedExecutionError>(globalData.heap)) TerminatedExecutionError(globalData);
+        TerminatedExecutionError* error = new (NotNull, allocateCell<TerminatedExecutionError>(globalData.heap)) TerminatedExecutionError(globalData);
         error->finishCreation(globalData);
         return error;
     }

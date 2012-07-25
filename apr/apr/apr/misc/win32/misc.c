@@ -35,7 +35,7 @@ apr_status_t apr_get_oslevel(apr_oslevel_e *level)
         {
             static unsigned int servpack = 0;
             TCHAR *pservpack;
-            if (pservpack = oslev.szCSDVersion) {
+            if ((pservpack = oslev.szCSDVersion)) {
                 while (*pservpack && !apr_isdigit(*pservpack)) {
                     pservpack++;
                 }
@@ -213,8 +213,8 @@ APR_DECLARE_NONSTD(HANDLE) apr_dbg_log(char* fn, HANDLE ha, char* fl, int ln,
         sbuf[1023] = '\0';
         if (!fh) {
             (GetModuleFileNameA)(NULL, sbuf, 250);
-            sprintf(strchr(sbuf, '\0'), ".%d",
-                    (GetCurrentProcessId)());
+            sprintf(strchr(sbuf, '\0'), ".%u",
+                    (unsigned int)(GetCurrentProcessId)());
             fh = (CreateFileA)(sbuf, GENERIC_WRITE, 0, NULL, 
                             CREATE_ALWAYS, 0, NULL);
             (InitializeCriticalSection)(&cs);
@@ -223,7 +223,8 @@ APR_DECLARE_NONSTD(HANDLE) apr_dbg_log(char* fn, HANDLE ha, char* fl, int ln,
 
     if (!nh) {
         (sprintf)(sbuf, "%p %08x %08x %s() %s:%d\n",
-                  ha, seq, GetCurrentThreadId(), fn, fl, ln);
+                  ha, (unsigned int)seq, (unsigned int)GetCurrentThreadId(),
+                  fn, fl, ln);
         (EnterCriticalSection)(&cs);
         (WriteFile)(fh, sbuf, (DWORD)strlen(sbuf), &wrote, NULL);
         (LeaveCriticalSection)(&cs);
@@ -250,7 +251,8 @@ APR_DECLARE_NONSTD(HANDLE) apr_dbg_log(char* fn, HANDLE ha, char* fl, int ln,
                 }
             }
             (sprintf)(sbuf, "%p %08x %08x %s(%s) %s:%d\n",
-                      *hv, seq, GetCurrentThreadId(), 
+                      *hv, (unsigned int)seq,
+                      (unsigned int)GetCurrentThreadId(), 
                       fn, dsc, fl, ln);
             (WriteFile)(fh, sbuf, (DWORD)strlen(sbuf), &wrote, NULL);
         } while (--nh);

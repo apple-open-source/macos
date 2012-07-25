@@ -34,6 +34,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include "passwd.h"
 
 #define _PASSWD_FILE "/etc/master.passwd"
 #define _COMPAT_FILE "/etc/passwd"

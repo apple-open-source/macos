@@ -27,9 +27,10 @@
  */
 
 #include "config.h"
-#include "JSSQLTransaction.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
+
+#include "JSSQLTransaction.h"
 
 #include "DOMWindow.h"
 #include "ExceptionCode.h"
@@ -49,7 +50,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec)
         return jsUndefined();
     }
 
-    String sqlStatement = ustringToString(exec->argument(0).toString(exec));
+    String sqlStatement = ustringToString(exec->argument(0).toString(exec)->value(exec));
     if (exec->hadException())
         return jsUndefined();
 
@@ -80,7 +81,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec)
                 sqlValues.append(value.asNumber());
             else {
                 // Convert the argument to a string and append it
-                sqlValues.append(ustringToString(value.toString(exec)));
+                sqlValues.append(ustringToString(value.toString(exec)->value(exec)));
                 if (exec->hadException())
                     return jsUndefined();
             }
@@ -95,7 +96,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec)
             return jsUndefined();
         }
 
-        callback = JSSQLStatementCallback::create(object, static_cast<JSDOMGlobalObject*>(globalObject()));
+        callback = JSSQLStatementCallback::create(object, jsCast<JSDOMGlobalObject*>(globalObject()));
     }
 
     RefPtr<SQLStatementErrorCallback> errorCallback;
@@ -106,7 +107,7 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec)
             return jsUndefined();
         }
 
-        errorCallback = JSSQLStatementErrorCallback::create(object, static_cast<JSDOMGlobalObject*>(globalObject()));
+        errorCallback = JSSQLStatementErrorCallback::create(object, jsCast<JSDOMGlobalObject*>(globalObject()));
     }
 
     ExceptionCode ec = 0;
@@ -116,6 +117,6 @@ JSValue JSSQLTransaction::executeSql(ExecState* exec)
     return jsUndefined();
 }
 
-}
+} // namespace WebCore
 
-#endif // ENABLE(DATABASE)
+#endif // ENABLE(SQL_DATABASE)

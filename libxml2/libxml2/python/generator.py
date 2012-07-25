@@ -24,76 +24,26 @@ else:
 #
 #######################################################################
 import os
-import xmllib
-try:
-    import sgmlop
-except ImportError:
-    sgmlop = None # accelerator not available
+import xml.sax
 
 debug = 0
 
-if sgmlop:
-    class FastParser:
-        """sgmlop based XML parser.  this is typically 15x faster
-           than SlowParser..."""
+def getparser():
+    # Attach parser to an unmarshalling object. return both objects.
+    target = docParser()
+    parser = xml.sax.make_parser()
+    parser.setContentHandler(target)
+    return parser, target
 
-        def __init__(self, target):
-
-            # setup callbacks
-            self.finish_starttag = target.start
-            self.finish_endtag = target.end
-            self.handle_data = target.data
-
-            # activate parser
-            self.parser = sgmlop.XMLParser()
-            self.parser.register(self)
-            self.feed = self.parser.feed
-            self.entity = {
-                "amp": "&", "gt": ">", "lt": "<",
-                "apos": "'", "quot": '"'
-                }
-
-        def close(self):
-            try:
-                self.parser.close()
-            finally:
-                self.parser = self.feed = None # nuke circular reference
-
-        def handle_entityref(self, entity):
-            # <string> entity
-            try:
-                self.handle_data(self.entity[entity])
-            except KeyError:
-                self.handle_data("&%s;" % entity)
-
-else:
-    FastParser = None
-
-
-class SlowParser(xmllib.XMLParser):
-    """slow but safe standard parser, based on the XML parser in
-       Python's standard library."""
-
-    def __init__(self, target):
-        self.unknown_starttag = target.start
-        self.handle_data = target.data
-        self.unknown_endtag = target.end
-        xmllib.XMLParser.__init__(self)
-
-def getparser(target = None):
-    # get the fastest available parser, and attach it to an
-    # unmarshalling object.  return both objects.
-    if target is None:
-        target = docParser()
-    if FastParser:
-        return FastParser(target), target
-    return SlowParser(target), target
-
-class docParser:
+class docParser(xml.sax.handler.ContentHandler):
     def __init__(self):
         self._methodname = None
         self._data = []
         self.in_function = 0
+
+        self.startElement = self.start
+        self.endElement = self.end
+        self.characters = self.data
 
     def close(self):
         if debug:
@@ -603,7 +553,7 @@ def buildStubs():
     wrapper.write("#include <libxml/xmlschemastypes.h>\n")
     wrapper.write("#include \"libxml_wrap.h\"\n")
     wrapper.write("#include \"libxml2-py.h\"\n\n")
-    for function in functions.keys():
+    for function in sorted(functions.keys()):
         ret = print_function_wrapper(function, wrapper, export, include)
         if ret < 0:
             failed = failed + 1
@@ -906,7 +856,7 @@ def buildWrappers():
             if tinfo[2] == classe:
                 ctypes.append(type)
                 ctypes_processed[type] = ()
-    for type in classes_type.keys():
+    for type in sorted(classes_type.keys()):
         if ctypes_processed.has_key(type):
             continue
         tinfo = classes_type[type]

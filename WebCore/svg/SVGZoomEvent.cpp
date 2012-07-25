@@ -20,8 +20,11 @@
  */
 
 #include "config.h"
+
 #if ENABLE(SVG)
+
 #include "SVGZoomEvent.h"
+#include "EventNames.h"
 
 namespace WebCore {
 
@@ -66,13 +69,11 @@ FloatPoint SVGZoomEvent::newTranslate() const
     return m_newTranslate;
 }
 
-bool SVGZoomEvent::isSVGZoomEvent() const
+const AtomicString& SVGZoomEvent::interfaceName() const
 {
-    return true;
+    return eventNames().interfaceForSVGZoomEvent;
 }
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

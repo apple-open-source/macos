@@ -1,5 +1,5 @@
 /*
- * "$Id: testraster.c 9870 2011-08-06 06:32:26Z mike $"
+ * "$Id: testraster.c 7376 2008-03-19 21:07:45Z mike $"
  *
  *   Raster test program routines for CUPS.
  *
@@ -28,13 +28,7 @@
  * Include necessary headers...
  */
 
-#include "image-private.h"
-#ifdef WIN32
-#  include <io.h>
-#else
-#  include <unistd.h>
-#  include <fcntl.h>
-#endif /* WIN32 */
+#include <cups/raster-private.h>
 
 
 /*
@@ -1080,5 +1074,5 @@ print_changes(
 
 
 /*
- * End of "$Id: testraster.c 9870 2011-08-06 06:32:26Z mike $".
+ * End of "$Id: testraster.c 7376 2008-03-19 21:07:45Z mike $".
  */

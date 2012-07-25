@@ -31,6 +31,13 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/lockf.c,v 1.10 2009/03/04 01:01:26 delphij Exp $");
 
+#ifdef VARIANT_CANCELABLE
+int __fcntl(int, int, void *);
+#else /* !VARIANT_CANCELABLE */
+int __fcntl_nocancel(int, int, void *);
+#endif /* VARIANT_CANCELABLE */
+
+
 #include "namespace.h"
 #include <errno.h>
 #include <fcntl.h>
@@ -62,9 +69,14 @@ lockf(int filedes, int function, off_t size)
 		break;
 	case F_TEST:
 		fl.l_type = F_WRLCK;
-		if (_fcntl(filedes, F_GETLK, &fl) == -1)
+#ifdef VARIANT_CANCELABLE
+		if (__fcntl(filedes, F_GETLK, &fl) == -1)
 			return (-1);
-		if (fl.l_type == F_UNLCK || (fl.l_sysid == 0 && fl.l_pid == getpid()))
+#else /* !VARIANT_CANCELABLE */
+		if (__fcntl_nocancel(filedes, F_GETLK, &fl) == -1)
+			return (-1);
+#endif /* VARIANT_CANCELABLE */
+		if (fl.l_type == F_UNLCK || fl.l_pid == getpid())
 			return (0);
 		errno = EAGAIN;
 		return (-1);
@@ -75,5 +87,10 @@ lockf(int filedes, int function, off_t size)
 		/* NOTREACHED */
 	}
 
-	return (_fcntl(filedes, cmd, &fl));
+#ifdef VARIANT_CANCELABLE
+	return (__fcntl(filedes, cmd, &fl));
+#else /* !VARIANT_CANCELABLE */
+	return (__fcntl_nocancel(filedes, cmd, &fl));
+#endif /* VARIANT_CANCELABLE */
 }
+

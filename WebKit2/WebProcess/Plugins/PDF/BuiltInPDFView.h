@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,13 +57,7 @@ private:
     PluginView* pluginView();
     const PluginView* pluginView() const;
 
-    virtual PluginController* controller();
-
     void updateScrollbars();
-    void didAddHorizontalScrollbar(WebCore::Scrollbar*);
-    void willRemoveHorizontalScrollbar(WebCore::Scrollbar*);
-    void didAddVerticalScrollbar(WebCore::Scrollbar*);
-    void willRemoveVerticalScrollbar(WebCore::Scrollbar*);
     PassRefPtr<WebCore::Scrollbar> createScrollbar(WebCore::ScrollbarOrientation);
     void destroyScrollbar(WebCore::ScrollbarOrientation);
     void addArchiveResource();
@@ -74,7 +68,7 @@ private:
     void paintControls(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
 
     // Plug-in methods
-    virtual bool initialize(PluginController*, const Parameters&);
+    virtual bool initialize(const Parameters&);
     virtual void destroy();
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRectInWindowCoordinates);
     virtual void updateControlTints(WebCore::GraphicsContext*);
@@ -83,7 +77,7 @@ private:
     virtual PlatformLayer* pluginLayer();
 #endif
     virtual bool isTransparent();
-    virtual void deprecatedGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect);
+    virtual bool wantsWheelEvents() OVERRIDE;
     virtual void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::IntRect& clipRect, const WebCore::AffineTransform& pluginToRootViewTransform);
     virtual void visibilityDidChange();
     virtual void frameDidFinishLoading(uint64_t requestID);
@@ -97,7 +91,6 @@ private:
     virtual void manualStreamDidReceiveData(const char* bytes, int length);
     virtual void manualStreamDidFinishLoading();
     virtual void manualStreamDidFail(bool wasCancelled);
-    
     virtual bool handleMouseEvent(const WebMouseEvent&);
     virtual bool handleWheelEvent(const WebWheelEvent&);
     virtual bool handleMouseEnterEvent(const WebMouseEvent&);
@@ -113,20 +106,21 @@ private:
     virtual void contentsScaleFactorChanged(float);
     virtual uint64_t pluginComplexTextInputIdentifier() const;
     virtual void sendComplexTextInput(const String& textInput);
+    virtual void setLayerHostingMode(LayerHostingMode) OVERRIDE;
 #endif
 
     virtual void privateBrowsingStateChanged(bool);
     virtual bool getFormValue(String& formValue);
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
-    virtual bool wantsWindowRelativeCoordinates();
     virtual WebCore::Scrollbar* horizontalScrollbar();
     virtual WebCore::Scrollbar* verticalScrollbar();
 
-    virtual RetainPtr<CGPDFDocumentRef> pdfDocumentForPrinting() const { return m_pdfDocument; }
+    virtual RetainPtr<PDFDocument> pdfDocumentForPrinting() const OVERRIDE { return m_pdfDocument; }
 
     // ScrollableArea methods.
     virtual WebCore::IntRect scrollCornerRect() const;
     virtual WebCore::ScrollableArea* enclosingScrollableArea() const;
+    virtual WebCore::IntRect scrollableAreaBoundingBox() const OVERRIDE;
     virtual void setScrollOffset(const WebCore::IntPoint&);
     virtual int scrollSize(WebCore::ScrollbarOrientation) const;
     virtual bool isActive() const;
@@ -146,13 +140,11 @@ private:
     virtual bool shouldSuspendScrollAnimations() const { return false; } // If we return true, ScrollAnimatorMac will keep cycling a timer forever, waiting for a good time to animate.
     virtual void scrollbarStyleChanged(int newStyle, bool forceUpdate);
 
-    // FIXME: Implement the other conversion functions; this one is enough to get scrollbar hit testing working. 
+    // FIXME: Implement the other conversion functions; this one is enough to get scrollbar hit testing working.
     virtual WebCore::IntPoint convertFromContainingViewToScrollbar(const WebCore::Scrollbar*, const WebCore::IntPoint& parentPoint) const;
 
     JSObjectRef makeJSPDFDoc(JSContextRef);
     static JSValueRef jsPDFDocPrint(JSContextRef, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
-
-    PluginController* m_pluginController;
 
     WebCore::IntSize m_pluginSize;
 
@@ -161,7 +153,7 @@ private:
     String m_suggestedFilename;
     RetainPtr<CFMutableDataRef> m_dataBuffer;
 
-    RetainPtr<CGPDFDocumentRef> m_pdfDocument;
+    RetainPtr<PDFDocument> m_pdfDocument;
     Vector<WebCore::IntRect> m_pageBoxes;
     WebCore::IntSize m_pdfDocumentSize; // All pages, including gaps.
 

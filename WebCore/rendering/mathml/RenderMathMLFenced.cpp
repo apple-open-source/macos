@@ -34,6 +34,7 @@
 #include "RenderInline.h"
 #include "RenderMathMLOperator.h"
 #include "RenderText.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
     
@@ -43,8 +44,8 @@ enum Braces { OpeningBraceChar = 0x28, ClosingBraceChar = 0x29 };
     
 static const float gOperatorPadding = 0.1f;
 
-RenderMathMLFenced::RenderMathMLFenced(Node* fenced) 
-    : RenderMathMLRow(fenced)
+RenderMathMLFenced::RenderMathMLFenced(Element* element)
+    : RenderMathMLRow(element)
     , m_open(OpeningBraceChar)
     , m_close(ClosingBraceChar)
 {
@@ -62,14 +63,14 @@ void RenderMathMLFenced::updateFromElement()
     if (closeValue.length() > 0)
         m_close = closeValue[0];
     
-    AtomicString separators = static_cast<Element*>(fenced)->getAttribute(MathMLNames::separatorsAttr);
+    AtomicString separators = fenced->getAttribute(MathMLNames::separatorsAttr);
     if (!separators.isNull()) {
-        Vector<UChar> characters;
+        StringBuilder characters;
         for (unsigned int i = 0; i < separators.length(); i++) {
             if (!isSpaceOrNewline(separators[i]))
                 characters.append(separators[i]);
         }
-        m_separators = !characters.size() ? 0 : StringImpl::create(characters.data() , characters.size());
+        m_separators = !characters.length() ? 0 : characters.toString().impl();
     } else {
         // The separator defaults to a single comma.
         m_separators = StringImpl::create(",");
@@ -79,22 +80,22 @@ void RenderMathMLFenced::updateFromElement()
         makeFences();
 }
 
-RefPtr<RenderStyle> RenderMathMLFenced::makeOperatorStyle() 
+PassRefPtr<RenderStyle> RenderMathMLFenced::createOperatorStyle()
 {
     RefPtr<RenderStyle> newStyle = RenderStyle::create();
     newStyle->inheritFrom(style());
     newStyle->setDisplay(INLINE_BLOCK);
     newStyle->setPaddingRight(Length(static_cast<int>(gOperatorPadding * style()->fontSize()), Fixed));
-    return newStyle;
+    return newStyle.release();
 }
 
 void RenderMathMLFenced::makeFences()
 {
     RenderObject* openFence = new (renderArena()) RenderMathMLOperator(node(), m_open);
-    openFence->setStyle(makeOperatorStyle().release());
+    openFence->setStyle(createOperatorStyle());
     RenderBlock::addChild(openFence, firstChild());
     RenderObject* closeFence = new (renderArena()) RenderMathMLOperator(node(), m_close);
-    closeFence->setStyle(makeOperatorStyle().release());
+    closeFence->setStyle(createOperatorStyle());
     RenderBlock::addChild(closeFence);
 }
 
@@ -118,10 +119,10 @@ void RenderMathMLFenced::addChild(RenderObject* child, RenderObject*)
             if ((count - 1) >= m_separators.get()->length())
                 separator = (*m_separators.get())[m_separators.get()->length() - 1];
             else
-                separator = (*m_separators.get())[count - 1];
+                separator = (*m_separators.get())[count - 2];
                 
             RenderObject* separatorObj = new (renderArena()) RenderMathMLOperator(node(), separator);
-            separatorObj->setStyle(makeOperatorStyle().release());
+            separatorObj->setStyle(createOperatorStyle());
             RenderBlock::addChild(separatorObj, lastChild());
         }
     }
@@ -130,11 +131,7 @@ void RenderMathMLFenced::addChild(RenderObject* child, RenderObject*)
     if (child->isBlockFlow() && child->style()->display() != INLINE_BLOCK) {
         // Block objects wrapper.
 
-        RenderBlock* block = new (renderArena()) RenderBlock(node());
-        RefPtr<RenderStyle> newStyle = RenderStyle::create();
-        newStyle->inheritFrom(style());
-        newStyle->setDisplay(INLINE_BLOCK);
-        block->setStyle(newStyle.release());
+        RenderBlock* block = createAlmostAnonymousBlock(INLINE_BLOCK);
         
         RenderBlock::addChild(block, lastChild());
         block->addChild(child);    

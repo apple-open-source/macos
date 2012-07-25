@@ -47,4 +47,4 @@ void *		ptrlist_element(ptrlist_t * list, int i);
 boolean_t	ptrlist_remove(ptrlist_t * list, int i, void * * ret);
 int		ptrlist_index(ptrlist_t * list, void * element);
 
-#endif _S_PTRLIST_H
+#endif /* _S_PTRLIST_H */

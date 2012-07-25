@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     34
+#define IOGRAPHICSTYPES_REV     35
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -175,7 +175,8 @@ enum {
     kDisplayModeTelevisionFlag          = 0x00100000,
     kDisplayModeValidForMirroringFlag   = 0x00200000,
     kDisplayModeAcceleratorBackedFlag   = 0x00400000,
-    kDisplayModeValidForHiResFlag       = 0x00800000
+    kDisplayModeValidForHiResFlag       = 0x00800000,
+    kDisplayModeValidForAirPlayFlag     = 0x01000000
 };
 enum {
     kDisplayModeValidFlag               = 0x00000001,

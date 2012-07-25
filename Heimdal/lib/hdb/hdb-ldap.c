@@ -407,7 +407,7 @@ LDAP_entry2mods(krb5_context context, HDB * db, hdb_entry_ex * ent,
 	    goto out;
 
 	is_new_entry = FALSE;
-	
+
 	vals = ldap_get_values_len(HDB2LDAP(db), msg, "objectClass");
 	if (vals) {
 	    int num_objectclasses = ldap_count_values_len(vals);
@@ -449,7 +449,7 @@ LDAP_entry2mods(krb5_context context, HDB * db, hdb_entry_ex * ent,
 	ret = LDAP_addmod(&mods, LDAP_MOD_ADD, "objectClass", "top");
 	if (ret)
 	    goto out;
-	
+
 	/* account is the structural object class */
 	if (is_account == FALSE) {
 	    ret = LDAP_addmod(&mods, LDAP_MOD_ADD, "objectClass",
@@ -628,13 +628,13 @@ LDAP_entry2mods(krb5_context context, HDB * db, hdb_entry_ex * ent,
 	    char *ntHexPassword;
 	    char *nt;
 	    time_t now = time(NULL);
-		
+
 	    /* the key might have been 'sealed', but samba passwords
 	       are clear in the directory */
 	    ret = hdb_unseal_key(context, db, &ent->entry.keys.val[i]);
 	    if (ret)
 		goto out;
-		
+
 	    nt = ent->entry.keys.val[i].key.keyvalue.data;
 	    /* store in ntPassword, not krb5key */
 	    ret = hex_encode(nt, 16, &ntHexPassword);
@@ -663,7 +663,7 @@ LDAP_entry2mods(krb5_context context, HDB * db, hdb_entry_ex * ent,
 		if (ret)
 		    goto out;
 	    }
-		
+
 	} else if (is_heimdal_entry) {
 	    unsigned char *buf;
 	    size_t len, buf_size;
@@ -790,9 +790,9 @@ need_quote(unsigned char c)
 {
     return (c & 0x80) ||
 	(c < 32) ||
-	(c == '(') || 
-	(c == ')') || 
-	(c == '*') || 
+	(c == '(') ||
+	(c == ')') ||
+	(c == '*') ||
 	(c == '\\') ||
 	(c == 0x7f);
 }
@@ -843,7 +843,7 @@ LDAP__lookup_princ(krb5_context context,
     if (ret)
 	return ret;
 
-    /* 
+    /*
      * Quote searches that contain filter language, this quote
      * searches for *@REALM, which takes very long time.
      */
@@ -885,8 +885,8 @@ LDAP__lookup_princ(krb5_context context,
 	filter = NULL;
 	ldap_msgfree(*msg);
 	*msg = NULL;
-	
-	ret = escape_value(context, princname, &quote);
+
+	ret = escape_value(context, userid, &quote);
 	if (ret)
 	    goto out;
 
@@ -899,7 +899,7 @@ LDAP__lookup_princ(krb5_context context,
 	    krb5_set_error_message(context, ret, "asprintf: out of memory");
 	    goto out;
 	}
-	
+
 	ret = LDAP_no_size_limit(context, HDB2LDAP(db));
 	if (ret)
 	    goto out;
@@ -1136,7 +1136,7 @@ LDAP_message2entry(krb5_context context, HDB * db, LDAPMessage * msg,
 	    if (etypes == NULL) {
 		ret = ENOMEM;
 		krb5_set_error_message(context, ret, "malloc: out of memory");
-		goto out;			
+		goto out;
 	    }
 	    ent->entry.etypes->val = etypes;
 	    ent->entry.etypes->val[ent->entry.etypes->len] =
@@ -1248,7 +1248,7 @@ LDAP_message2entry(krb5_context context, HDB * db, LDAPMessage * msg,
             }
         }
 
-	delta = krb5_config_get_time_default(context, NULL, 
+	delta = krb5_config_get_time_default(context, NULL,
 					     365 * 24 * 60 * 60,
 					     "kadmin",
 					     "password_lifetime",
@@ -1318,21 +1318,21 @@ LDAP_message2entry(krb5_context context, HDB * db, LDAPMessage * msg,
     ret = LDAP_get_string_value(db, msg, "sambaAcctFlags", &samba_acct_flags);
     if (ret == 0) {
 	/* parse the [UXW...] string:
-	
-	   'N'    No password	
-	   'D'    Disabled	
-	   'H'    Homedir required	
-	   'T'    Temp account.	
-	   'U'    User account (normal) 	
-	   'M'    MNS logon user account - what is this ? 	
-	   'W'    Workstation account	
-	   'S'    Server account 	
-	   'L'    Locked account	
-	   'X'    No Xpiry on password 	
-	   'I'    Interdomain trust account	
-	
-	*/	
-	
+
+	   'N'    No password
+	   'D'    Disabled
+	   'H'    Homedir required
+	   'T'    Temp account.
+	   'U'    User account (normal)
+	   'M'    MNS logon user account - what is this ?
+	   'W'    Workstation account
+	   'S'    Server account
+	   'L'    Locked account
+	   'X'    No Xpiry on password
+	   'I'    Interdomain trust account
+
+	*/
+
 	int i;
 	int flags_len = strlen(samba_acct_flags);
 
@@ -1604,8 +1604,8 @@ LDAP_open(krb5_context context, HDB * db, int flags, mode_t mode)
 }
 
 static krb5_error_code
-LDAP_fetch(krb5_context context, HDB * db, krb5_const_principal principal,
-	   unsigned flags, hdb_entry_ex * entry)
+LDAP_fetch_kvno(krb5_context context, HDB * db, krb5_const_principal principal,
+		unsigned flags, krb5_kvno kvno, hdb_entry_ex * entry)
 {
     LDAPMessage *msg, *e;
     krb5_error_code ret;
@@ -1633,6 +1633,14 @@ LDAP_fetch(krb5_context context, HDB * db, krb5_const_principal principal,
     ldap_msgfree(msg);
 
     return ret;
+}
+
+static krb5_error_code
+LDAP_fetch(krb5_context context, HDB * db, krb5_const_principal principal,
+	   unsigned flags, hdb_entry_ex * entry)
+{
+    return LDAP_fetch_kvno(context, db, principal,
+			   flags & (~HDB_F_KVNO_SPECIFIED), 0, entry);
 }
 
 static krb5_error_code
@@ -1870,7 +1878,7 @@ hdb_ldap_common(krb5_context context,
     (*db)->hdb_capability_flags = 0;
     (*db)->hdb_open = LDAP_open;
     (*db)->hdb_close = LDAP_close;
-    (*db)->hdb_fetch = LDAP_fetch;
+    (*db)->hdb_fetch_kvno = LDAP_fetch_kvno;
     (*db)->hdb_store = LDAP_store;
     (*db)->hdb_remove = LDAP_remove;
     (*db)->hdb_firstkey = LDAP_firstkey;

@@ -62,7 +62,7 @@ _gss_string_to_oid(const char* s, gss_OID oid)
 		if (q) q = q + 1;
 		number_count++;
 	}
-	
+
 	/*
 	 * The first two numbers are in the first byte and each
 	 * subsequent number is encoded in a variable byte sequence.
@@ -126,7 +126,7 @@ _gss_string_to_oid(const char* s, gss_OID oid)
 				while (bytes) {
 					if (res) {
 						int bit = 7*(bytes-1);
-						
+
 						*res = (number >> bit) & 0x7f;
 						if (bytes != 1)
 							*res |= 0x80;
@@ -137,6 +137,8 @@ _gss_string_to_oid(const char* s, gss_OID oid)
 				}
 			}
 		}
+		if (byte_count == 0)
+			return EINVAL;
 		if (!res) {
 			res = malloc(byte_count);
 			if (!res)
@@ -152,7 +154,8 @@ _gss_string_to_oid(const char* s, gss_OID oid)
 #define SYM(name)							\
 do {									\
 	m->gm_mech.gm_ ## name = dlsym(so, "gss_" #name);		\
-	if (!m->gm_mech.gm_ ## name) {					\
+	if (!m->gm_mech.gm_ ## name ||					\
+	    m->gm_mech.gm_ ##name == gss_ ## name) {			\
 		fprintf(stderr, "can't find symbol gss_" #name "\n");	\
 		goto bad;						\
 	}								\
@@ -160,7 +163,28 @@ do {									\
 
 #define OPTSYM(name)							\
 do {									\
-	m->gm_mech.gm_ ## name = dlsym(so, "gss_" #name);			\
+	m->gm_mech.gm_ ## name = dlsym(so, "gss_" #name);		\
+	if (m->gm_mech.gm_ ## name == gss_ ## name)			\
+		m->gm_mech.gm_ ## name = NULL;				\
+} while (0)
+
+#define OPTSPISYM(name)							\
+do {									\
+	m->gm_mech.gm_ ## name = dlsym(so, "gssspi_" #name);		\
+} while (0)
+
+#define COMPATSYM(name)							\
+do {									\
+	m->gm_mech.gm_compat->gmc_ ## name = dlsym(so, "gss_" #name);	\
+	if (m->gm_mech.gm_compat->gmc_ ## name == gss_ ## name)		\
+		m->gm_mech.gm_compat->gmc_ ## name = NULL;		\
+} while (0)
+
+#define COMPATSPISYM(name)						\
+do {									\
+	m->gm_mech.gm_compat->gmc_ ## name = dlsym(so, "gssspi_" #name);\
+	if (m->gm_mech.gm_compat->gmc_ ## name == gss_ ## name)		\
+		m->gm_mech.gm_compat->gmc_ ## name = NULL;		\
 } while (0)
 
 /*
@@ -198,7 +222,7 @@ add_builtin(gssapi_mech_interface mech)
 	gss_add_oid_set_member(&minor_status, GSS_C_NT_HOSTBASED_SERVICE, &m->gm_name_types);
     }
 
-    SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
+    HEIM_SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
     return 0;
 }
 
@@ -221,7 +245,7 @@ _gss_load_mech(void)
 
 	HEIMDAL_MUTEX_lock(&_gss_mech_mutex);
 
-	if (SLIST_FIRST(&_gss_mechs)) {
+	if (HEIM_SLIST_FIRST(&_gss_mechs)) {
 		HEIMDAL_MUTEX_unlock(&_gss_mech_mutex);
 		return;
 	}
@@ -255,6 +279,8 @@ _gss_load_mech(void)
 	rk_cloexec_file(fp);
 
 	while (fgets(buf, sizeof(buf), fp)) {
+		_gss_mo_init *mi;
+
 		if (*buf == '#')
 			continue;
 		p = buf;
@@ -275,7 +301,7 @@ _gss_load_mech(void)
 		 * Check for duplicates, already loaded mechs.
 		 */
 		found = 0;
-		SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+		HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
 			if (gss_oid_equal(&m->gm_mech.gm_mech_oid, &mech_oid)) {
 				found = 1;
 				free(mech_oid.elements);
@@ -289,29 +315,31 @@ _gss_load_mech(void)
 #define RTLD_LOCAL 0
 #endif
 
-		so = dlopen(lib, RTLD_LAZY | RTLD_LOCAL);
-		if (!so) {
+#ifndef RTLD_GROUP
+#define RTLD_GROUP 0
+#endif
+
+		so = dlopen(lib, RTLD_LAZY | RTLD_LOCAL | RTLD_GROUP);
+		if (so == NULL) {
 /*			fprintf(stderr, "dlopen: %s\n", dlerror()); */
-			free(mech_oid.elements);
-			continue;
+			goto bad;
 		}
 
-		m = malloc(sizeof(*m));
-		if (!m) {
-			free(mech_oid.elements);
-			break;
-		}
+		m = calloc(1, sizeof(*m));
+		if (m == NULL)
+			goto bad;
+
 		m->gm_so = so;
 		m->gm_mech.gm_mech_oid = mech_oid;
 		m->gm_mech.gm_flags = 0;
-		
+		m->gm_mech.gm_compat = calloc(1, sizeof(struct gss_mech_compat_desc_struct));
+		if (m->gm_mech.gm_compat == NULL)
+			goto bad;
+
 		major_status = gss_add_oid_set_member(&minor_status,
 		    &m->gm_mech.gm_mech_oid, &_gss_mech_oids);
-		if (major_status) {
-			free(m->gm_mech.gm_mech_oid.elements);
-			free(m);
-			continue;
-		}
+		if (GSS_ERROR(major_status))
+			goto bad;
 
 		SYM(acquire_cred);
 		SYM(release_cred);
@@ -345,18 +373,64 @@ _gss_load_mech(void)
 		OPTSYM(inquire_cred_by_oid);
 		OPTSYM(inquire_sec_context_by_oid);
 		OPTSYM(set_sec_context_option);
-		OPTSYM(set_cred_option);
+		OPTSPISYM(set_cred_option);
 		OPTSYM(pseudo_random);
 		OPTSYM(wrap_iov);
 		OPTSYM(unwrap_iov);
 		OPTSYM(wrap_iov_length);
+		OPTSYM(store_cred);
+		OPTSYM(export_cred);
+		OPTSYM(import_cred);
+#if 0
+		OPTSYM(acquire_cred_ext);
+		OPTSYM(iter_creds);
+		OPTSYM(destroy_cred);
+		OPTSYM(cred_hold);
+		OPTSYM(cred_unhold);
+		OPTSYM(cred_label_get);
+		OPTSYM(cred_label_set);
+#endif
+		OPTSYM(display_name_ext);
+		OPTSYM(inquire_name);
+		OPTSYM(get_name_attribute);
+		OPTSYM(set_name_attribute);
+		OPTSYM(delete_name_attribute);
+		OPTSYM(export_name_composite);
+		OPTSYM(pname_to_uid);
+		OPTSPISYM(authorize_localname);
 
-		SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
+		mi = dlsym(so, "gss_mo_init");
+		if (mi != NULL) {
+			major_status = mi(&minor_status, &mech_oid,
+					  &m->gm_mech.gm_mo, &m->gm_mech.gm_mo_num);
+			if (GSS_ERROR(major_status))
+				goto bad;
+		} else {
+			/* API-as-SPI compatibility */
+			COMPATSYM(inquire_saslname_for_mech);
+			COMPATSYM(inquire_mech_for_saslname);
+			COMPATSYM(inquire_attrs_for_mech);
+			COMPATSPISYM(acquire_cred_with_password);
+		}
+
+		/* pick up the oid sets of names */
+
+		if (m->gm_mech.gm_inquire_names_for_mech)
+			(*m->gm_mech.gm_inquire_names_for_mech)(&minor_status,
+			&m->gm_mech.gm_mech_oid, &m->gm_name_types);
+
+		if (m->gm_name_types == NULL)
+			gss_create_empty_oid_set(&minor_status, &m->gm_name_types);
+
+		HEIM_SLIST_INSERT_HEAD(&_gss_mechs, m, gm_link);
 		continue;
 
 	bad:
-		free(m->gm_mech.gm_mech_oid.elements);
-		free(m);
+		if (m != NULL) {
+			free(m->gm_mech.gm_compat);
+			free(m->gm_mech.gm_mech_oid.elements);
+			free(m);
+		}
 		dlclose(so);
 		continue;
 	}
@@ -365,13 +439,13 @@ _gss_load_mech(void)
 	HEIMDAL_MUTEX_unlock(&_gss_mech_mutex);
 }
 
-gssapi_mech_interface
-__gss_get_mechanism(gss_OID mech)
+struct gssapi_mech_interface_desc *
+__gss_get_mechanism(gss_const_OID mech)
 {
         struct _gss_mech_switch	*m;
 
 	_gss_load_mech();
-	SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+	HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
 		if (gss_oid_equal(&m->gm_mech.gm_mech_oid, mech))
 			return &m->gm_mech;
 	}

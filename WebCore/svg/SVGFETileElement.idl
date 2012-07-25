@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG&FILTERS] SVGFETileElement : SVGElement,
+    interface [
+        Conditional=SVG&FILTERS
+    ] SVGFETileElement : SVGElement,
                                                    SVGFilterPrimitiveStandardAttributes {
         readonly attribute SVGAnimatedString in1;
     };

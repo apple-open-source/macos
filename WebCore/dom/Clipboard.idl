@@ -29,21 +29,19 @@
 module core {
 
     interface Clipboard {
-                 attribute [ConvertNullStringTo=Undefined] DOMString dropEffect;
-                 attribute [ConvertNullStringTo=Undefined] DOMString effectAllowed;
+                 attribute [TreatReturnedNullStringAs=Undefined] DOMString dropEffect;
+                 attribute [TreatReturnedNullStringAs=Undefined] DOMString effectAllowed;
         readonly attribute [CustomGetter] Array types;
         readonly attribute FileList files;
 
         [Custom] void clearData(in [Optional] DOMString type)
             raises(DOMException);
-        [Custom] void getData(in DOMString type)
-            raises(DOMException);
-        // FIXME: RequiresAllArguments is probably bogus here.
-        [RequiresAllArguments] boolean setData(in DOMString type, in DOMString data);
+        DOMString getData(in DOMString type);
+        boolean setData(in DOMString type, in DOMString data);
         [Custom] void setDragImage(in HTMLImageElement image, in long x, in long y)
             raises(DOMException);
 
-        readonly attribute [Conditional=DATA_TRANSFER_ITEMS, EnabledAtRuntime=DataTransferItems] DataTransferItems items;
+        readonly attribute [Conditional=DATA_TRANSFER_ITEMS, V8EnabledAtRuntime=DataTransferItems] DataTransferItemList items;
     };
 
 }

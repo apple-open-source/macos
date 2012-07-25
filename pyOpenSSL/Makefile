@@ -38,7 +38,7 @@ install::
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-0.12
+AEP_ProjVers   = $(Project)-0.13
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 
@@ -68,4 +68,4 @@ install-ossfiles::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSV)
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(DSTROOT)/$(OSV)/$(ProjectName).plist
 #	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSL)
-#	$(_v) $(INSTALL_FILE) $(OBJROOT)/$(Project)/COPYING $(DSTROOT)/$(OSL)/$(ProjectName).txt
+#	$(_v) $(INSTALL_FILE) $(OBJROOT)/$(Project)/LICENSE $(DSTROOT)/$(OSL)/$(ProjectName).txt

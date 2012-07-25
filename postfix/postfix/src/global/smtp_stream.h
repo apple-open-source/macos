@@ -31,20 +31,27 @@
 #define SMTP_ERR_TIME	2		/* time out */
 #define SMTP_ERR_QUIET	3		/* silent cleanup (application) */
 #define SMTP_ERR_NONE	4		/* non-error case */
+#define SMTP_ERR_DATA	5		/* application data error */
 
-extern void smtp_timeout_setup(VSTREAM *, int);
+extern void smtp_stream_setup(VSTREAM *, int, int);
 extern void PRINTFLIKE(2, 3) smtp_printf(VSTREAM *, const char *,...);
 extern void smtp_flush(VSTREAM *);
 extern int smtp_fgetc(VSTREAM *);
-extern int smtp_get(VSTRING *, VSTREAM *, ssize_t);
-extern int smtp_get_to_eof(VSTRING *, VSTREAM *, ssize_t);	/* APPLE - RFC 3030 */
-extern int smtp_get_binary_to_eof(VSTRING *, VSTREAM *, ssize_t);	/* APPLE - RFC 3030 */
+extern int smtp_get(VSTRING *, VSTREAM *, ssize_t, int);
+extern int smtp_get_to_eof(VSTRING *, VSTREAM *, ssize_t, int);	/* APPLE - RFC 3030 */
+extern int smtp_get_binary_to_eof(VSTRING *, VSTREAM *, ssize_t, int);	/* APPLE - RFC 3030 */
 extern void smtp_discard(VSTREAM *, off_t);		/* APPLE - RFC 3030 */
 extern void smtp_fputs(const char *, ssize_t len, VSTREAM *);
 extern void smtp_fwrite(const char *, ssize_t len, VSTREAM *);
 extern void smtp_fputc(int, VSTREAM *);
 
 extern void smtp_vprintf(VSTREAM *, const char *, va_list);
+
+#define smtp_timeout_setup(stream, timeout) \
+	smtp_stream_setup((stream), (timeout), 0)
+
+#define SMTP_GET_FLAG_NONE	0
+#define SMTP_GET_FLAG_SKIP	(1<<0)	/* skip over excess input */
 
 /* LICENSE
 /* .ad

@@ -27,18 +27,18 @@ module stylesheets {
 
     // Introduced in DOM Level 2:
     interface [
-        GenerateIsReachable,
-        HasIndexGetter
+        JSGenerateIsReachable,
+        IndexedGetter
     ] MediaList {
 
-                 attribute [ConvertNullToNullString, ConvertNullStringTo=Null] DOMString mediaText
+                 attribute [TreatNullAs=NullString, TreatReturnedNullStringAs=Null] DOMString mediaText
                      setter raises(DOMException);
         readonly attribute unsigned long length;
 
-        [ConvertNullStringTo=Null] DOMString item(in unsigned long index);
-        void deleteMedium(in DOMString oldMedium)
+        [TreatReturnedNullStringAs=Null] DOMString item(in [Optional=DefaultIsUndefined] unsigned long index);
+        void deleteMedium(in [Optional=DefaultIsUndefined] DOMString oldMedium)
             raises(DOMException);
-        void appendMedium(in DOMString newMedium)
+        void appendMedium(in [Optional=DefaultIsUndefined] DOMString newMedium)
             raises(DOMException);
 
     };

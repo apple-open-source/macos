@@ -163,8 +163,8 @@ ${ktutil} -k ${keytab} list > ${testdir}/tempfile || exit 1
 ${EGREP} -v '^FILE:' ${testdir}/tempfile | ${EGREP} -v '^Vno' | ${EGREP} -v '^$' | \
     awk '$1 !~ /1/  { exit 1 }' || exit 1
 
-${kadmin} get foo@${R} > ${testdir}/tempfile || exit 1
-enctypes=`grep Keytypes: ${testdir}/tempfile | sed 's/(pw-salt)//g' | sed 's/,//g' | sed 's/Keytypes://'`
+${kadmin} get foo@${R} > tempfile || exit 1
+enctypes=`grep Keytypes: tempfile | sed 's/(pw-salt)//g' | sed 's/,//g' | sed 's/Keytypes://' | sed 's/\[[0-9]*\]//g'`
 
 enctype_sans_aes=`echo $enctypes | sed 's/aes256[^ ]*//g'`
 enctype_sans_des3=`echo $enctypes | sed 's/des3-cbc-sha1//g'`
@@ -195,7 +195,9 @@ ec=0
 echo "Getting client initial tickets"; > ${logfile}
 ${kinit} --password-file=${testdir}/foopassword foo@$R || \
 	{ ec=1 ; eval "${testfailed}"; }
-echo "Getting tickets"; > ${logfile}
+echo "Doing krbtgt key rollover"; > messages.log
+${kadmin} cpw -r --keepold krbtgt/${R}@${R} || exit 1
+echo "Getting tickets"; > messages.log
 ${kgetcred} ${server}@${R} || { ec=1 ; eval "${testfailed}"; }
 echo "Listing tickets"; > ${logfile}
 ${klist} > /dev/null || { ec=1 ; eval "${testfailed}"; }
@@ -223,6 +225,15 @@ for a in $enctypes; do
 	${kdestroy}
 done
 
+
+echo "Interactive kinit"
+    kinitpty=${testdir}/foopassword.rkpty
+cat > ${kinitpty} <<EOF
+expect Password
+password foo\n
+EOF
+   ${rkpty} ${kinitpty} ${kinit} foo@${R} >/dev/null|| 	{ ec=1 ; eval "${testfailed}"; }
+${kdestroy}
 
 echo "Getting client initial tickets"; > ${logfile}
 ${kinit} --password-file=${testdir}/foopassword foo@$R || \
@@ -298,7 +309,7 @@ ${klist} | grep "Principal: ${server}" > /dev/null || \
 ${kdestroy}
 
 echo "Getting key for key that are a subset in keytab compared to kdb"
-${kinit} --keytab=${keytab} kt-des3@${R}
+${kinit} --keytab=${keytab} kt-des3@${R} || { ec=1; eval "${testfailed}"; }
 ${klist} | grep "Principal: kt-des3" > /dev/null || \
 	{ ec=1 ; eval "${testfailed}"; }
 ${kdestroy}

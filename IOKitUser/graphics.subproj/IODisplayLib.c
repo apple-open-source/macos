@@ -2740,8 +2740,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef )
 
         if (2 & edid->featureSupport)
         {}
-        else if ((kDisplayAppleVendorID == connectRef->displayVendor) 
-        	  && ((edid->version > 1) || (edid->revision >= 3)))
+        else if ((edid->version > 1) || (edid->revision >= 3))
         {
             checkDI = true;
         }
@@ -3175,13 +3174,16 @@ _IODisplayCreateInfoDictionary(
         else
             edid = 0;
 
-        obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayConnectFlagsKey) );
-        if( obj)
-            CFDictionarySetValue( dict, CFSTR(kIODisplayConnectFlagsKey), obj );
-
-        obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayPrefKeyKey) );
-        if( obj)
-            CFDictionarySetValue( dict, CFSTR(kIODisplayPrefKeyKey), obj );
+		if (regDict)
+		{
+			obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayConnectFlagsKey) );
+			if( obj)
+				CFDictionarySetValue( dict, CFSTR(kIODisplayConnectFlagsKey), obj );
+	
+			obj = CFDictionaryGetValue( regDict, CFSTR(kIODisplayPrefKeyKey) );
+			if( obj)
+				CFDictionarySetValue( dict, CFSTR(kIODisplayPrefKeyKey), obj );
+		}
 
         if( IOObjectConformsTo( service, "IOBacklightDisplay"))
             CFDictionarySetValue( dict, CFSTR(kIODisplayHasBacklightKey), kCFBooleanTrue );

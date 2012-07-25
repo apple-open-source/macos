@@ -123,8 +123,31 @@
 */
 
 /*
- * Some defaults related to select() fd_sets.
+ * Some defaults related to select() fd_sets. The right thing to do is to use
+ * FD_COPY, but a surprising number of systems don't have that. We fall back to
+ * this ancient monstrosity if it's absent.
  */
+#ifndef RPC_C_SELECT_NFDBITS
+#  define RPC_C_SELECT_NFDBITS      NFDBITS
+#endif
+
+#ifndef RPC_SELECT_FD_MASK_T
+#  define RPC_SELECT_FD_MASK_T      fd_mask
+#endif
+
+#ifndef RPC_SELECT_FD_SET_T
+#  define RPC_SELECT_FD_SET_T       fd_set
+#endif
+
+#ifndef RPC_SELECT_FDSET_COPY
+#  define RPC_SELECT_FDSET_COPY(src_fd_set,dst_fd_set,nfd) { \
+    int i; \
+    RPC_SELECT_FD_MASK_T *s = (RPC_SELECT_FD_MASK_T *) &src_fd_set; \
+    RPC_SELECT_FD_MASK_T *d = (RPC_SELECT_FD_MASK_T *) &dst_fd_set; \
+    for (i = 0; i < (nfd); i += RPC_C_SELECT_NFDBITS) \
+        *d++ = *s++; \
+   }
+#endif
 
 /*
  * Miscellaneous Data Declarations
@@ -404,7 +427,11 @@ INTERNAL void lthread_loop (void)
 
         do
         {
+#if defined(FD_COPY)
             FD_COPY(&listener_readfds, &readfds_copy);
+#else
+	    RPC_SELECT_FDSET_COPY(listener_readfds, readfds_copy, listener_nfds);
+#endif
 
             /*
              * Block waiting for packets.  We ocassionally need to see

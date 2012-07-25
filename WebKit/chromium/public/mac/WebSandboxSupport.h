@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,36 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebSandboxSupport_h
-#define WebSandboxSupport_h
-
-typedef uintptr_t ATSFontContainerRef;
-
-#ifdef __OBJC__
-@class NSFont;
-#else
-class NSFont;
-#endif
-
-namespace WebKit {
-
-// Put methods here that are required due to sandbox restrictions.
-class WebSandboxSupport {
-public:
-    // Given an input font - |srcFont| [which can't be loaded due to sandbox
-    // restrictions].  Return a font container belonging to an equivalent
-    // font file that can be used to access the font.
-    //
-    // Note that a font container may contain multiple fonts, the caller is
-    // responsible for retreiving the appropriate font from the container.
-    //
-    // If this function succeeds, the caller assumes ownership of the |out|
-    // parameter and must call ATSFontDeactivate() to unload it when done.
-    //
-    // Returns: true on success, false on error.
-    virtual bool loadFont(NSFont* srcFont, ATSFontContainerRef* out) = 0;
-};
-
-} // namespace WebKit
-
+#ifndef WEBKIT_MIGRATE_HEADERS_TO_PLATFORM
+#include "../platform/mac/WebSandboxSupport.h"
 #endif

@@ -28,7 +28,11 @@
 #include "PrivateLib.h"
 #include "SystemLoad.h"
 #include "PMStore.h"
+#include "PMAssertions.h"
+#include "PMSettings.h"
+#include "PMConnection.h"
 
+#define kDefaultUserIdleTimer    (10*60) // 10 mins
 // Forwards
 const bool  kNoNotify  = false;
 const bool  kYesNotify = true;
@@ -51,7 +55,7 @@ static bool   thermalWarningLevel       = FALSE;
 
 static bool   loggedInUser              = FALSE;
 
-static bool   displayIsAsleep           = FALSE;
+static bool   userIsIdle                = FALSE;
 static bool   displaySleepEnabled       = FALSE;
 
 static int    gNotifyToken              = 0;
@@ -103,9 +107,16 @@ static void shareTheSystemLoad(bool shouldNotify)
     // userLevel. Basing this data on display dimming is a crutch,
     // and may be invalid on systems with display dimming disabled.
     if (loggedInUser) {
-        if (displaySleepEnabled && displayIsAsleep)
+        if (userIsIdle)
         {
-            userLevel = kIOSystemLoadAdvisoryLevelGreat;
+            if (_DWBT_allowed()) {
+               if (isA_BTMtnceWake( ) )
+                  userLevel = kIOSystemLoadAdvisoryLevelGreat;
+               else
+                  userLevel = kIOSystemLoadAdvisoryLevelOK;
+            }
+            else
+               userLevel = kIOSystemLoadAdvisoryLevelGreat;
         } else {
             userLevel = kIOSystemLoadAdvisoryLevelOK;
         }
@@ -236,15 +247,15 @@ __private_extern__ void SystemLoad_prime(void)
 /* @function SystemLoadDisplayPowerStateHasChanged
  * @param displayIsOn is true if the backlight is powered
  * Populates:
- *      displayIsAsleep
+ *      userIsIdle
  */
 __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool displayIsOff)
 {
-    if (displayIsOff == displayIsAsleep) {
+    if (displayIsOff == userIsIdle) {
         return;
     }
 
-    displayIsAsleep = displayIsOff;
+    userIsIdle = displayIsOff;
     
     shareTheSystemLoad(kYesNotify);
 }
@@ -261,8 +272,11 @@ __private_extern__ void SystemLoadPrefsHaveChanged(void)
     SCDynamicStoreRef   _store       = _getSharedPMDynamicStore();
     CFDictionaryRef     liveSettings = NULL;
     CFNumberRef         displaySleep = NULL;
-    int                 idle;
+    CFNumberRef         dwbt = NULL;
+    int                 idle, value;
     static bool         lastDisplaySleep = false;
+    static int          lastDWBT = -1;
+    bool                notify = false;
 
     liveSettings = SCDynamicStoreCopyValue(_store, 
                         CFSTR(kIOPMDynamicStoreSettingsKey));
@@ -279,12 +293,25 @@ __private_extern__ void SystemLoadPrefsHaveChanged(void)
             if (displaySleepEnabled != lastDisplaySleep)
             {
                 lastDisplaySleep = displaySleepEnabled;
-                shareTheSystemLoad(kYesNotify);
+                notify = true;
+            }
+        }
+        dwbt = CFDictionaryGetValue(liveSettings, 
+                                    CFSTR(kIOPMDarkWakeBackgroundTaskKey));
+        if (dwbt)
+        {
+            CFNumberGetValue(dwbt, kCFNumberIntType, &value);
+            if (lastDWBT != value) 
+            {
+                lastDWBT = value;
+                notify = true;
             }
         }
         CFRelease(liveSettings);
     }
 
+    if (notify)
+        shareTheSystemLoad(kYesNotify);
     return;
 }
 
@@ -359,7 +386,7 @@ __private_extern__ void SystemLoadCPUPowerHasChanged(CFDictionaryRef newCPU)
 
     if (0 == maxCPUCount) {
         int  result;
-        size_t len;
+        size_t len = sizeof(maxCPUCount);
         result = sysctlbyname("hw.ncpu", &maxCPUCount, &len, 0, 0);
         if (-1 == result) { // error
             maxCPUCount = 0;
@@ -459,6 +486,11 @@ __private_extern__ void SystemLoadUserStateHasChanged(void)
         CFRelease(loggedInUserName);
     }
 
+    shareTheSystemLoad(kYesNotify);
+}
+
+__private_extern__ void SystemLoadSystemPowerStateHasChanged(void)
+{
     shareTheSystemLoad(kYesNotify);
 }
 #endif /* !TARGET_OS_EMBEDDED */

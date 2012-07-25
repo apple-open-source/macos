@@ -1,5 +1,5 @@
 /*
- * "$Id: testadmin.c 9042 2010-03-24 00:45:34Z mike $"
+ * "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Admin function test program for CUPS.
  *
@@ -116,5 +116,5 @@ show_settings(
 
 
 /*
- * End of "$Id: testadmin.c 9042 2010-03-24 00:45:34Z mike $".
+ * End of "$Id: testadmin.c 7720 2008-07-11 22:46:21Z mike $".
  */

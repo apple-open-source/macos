@@ -16,7 +16,7 @@ typedef ssize_t krb5_ssize_t;
 #ifndef HEIMDAL_DEPRECATED
 #if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
 #define HEIMDAL_DEPRECATED __attribute__((deprecated))
-#elif defined(_MSC_VER) && (_MSC_VER>1200) 
+#elif defined(_MSC_VER) && (_MSC_VER>1200)
 #define HEIMDAL_DEPRECATED __declspec(deprecated)
 #else
 #define HEIMDAL_DEPRECATED
@@ -38,6 +38,15 @@ typedef ssize_t krb5_ssize_t;
 #define HEIMDAL_NORETURN_ATTRIBUTE
 #endif
 #endif
+
+#ifndef HEIMDAL_UNUSED_ATTRIBUTE
+#if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define HEIMDAL_UNUSED_ATTRIBUTE __attribute__((unused))
+#else
+#define HEIMDAL_UNUSED_ATTRIBUTE
+#endif
+#endif
+
 
 typedef int krb5_socket_t;
 

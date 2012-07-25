@@ -81,8 +81,11 @@ main(int argc, char *argv[])
 	mode_t newmode, omode;
 #ifdef __APPLE__
 	unsigned int acloptflags = 0;
-	int aclpos = -1, inheritance_level = 0;
-	int index = 0, acloptlen = 0, ace_arg_not_required = 0;
+	long aclpos = -1;
+	int inheritance_level = 0;
+	int index = 0;
+	size_t acloptlen = 0;
+	int ace_arg_not_required = 0;
 	acl_t acl_input = NULL;
 #endif /* __APPLE__*/
 	int (*change_mode)(const char *, mode_t);
@@ -134,8 +137,8 @@ main(int argc, char *argv[])
 				--optind;
 			goto done;
 		case 'A':
-			acloptflags |= ACL_FLAG | ACL_TO_STDOUT;
-			ace_arg_not_required = 1;
+//			acloptflags |= ACL_FLAG | ACL_TO_STDOUT;
+//			ace_arg_not_required = 1;
 			errx(1, "-A not implemented");
 			goto done;
 		case 'E':
@@ -161,8 +164,8 @@ main(int argc, char *argv[])
 			ace_arg_not_required = 1;
 			goto done;
 		case 'V':
-			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
-			ace_arg_not_required = 1;
+//			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
+//			ace_arg_not_required = 1;
 			errx(1, "-V not implemented");
 			goto done;
 #endif /* __APPLE__ */
@@ -238,7 +241,7 @@ done:	argv += optind;
 					    || aclpos < 0)
 						errno = ERANGE;
 					if (errno || *ep)
-						errx(1, "Invalid ACL entry number: %d", aclpos);
+						errx(1, "Invalid ACL entry number: %ld", aclpos);
 					if (acloptflags & ACL_DELETE_FLAG)
 						ace_arg_not_required = 1;
 
@@ -288,7 +291,8 @@ apnoacl:
 		change_mode = chmod;
 #ifdef __APPLE__
 	if (acloptflags & ACL_FROM_STDIN) {
-		int readval = 0, readtotal = 0;
+		ssize_t readval = 0;
+		size_t readtotal = 0;
 		
 		mode = (char *) malloc(MAX_ACL_TEXT_SIZE);
 		
@@ -389,7 +393,7 @@ apnoacl:
 #ifdef __APPLE__
 /* If an ACL manipulation option was specified, manipulate */
 		if (acloptflags & ACL_FLAG)	{
-			if (0 != modify_file_acl(acloptflags, p->fts_accpath, acl_input, aclpos, inheritance_level))
+			if (0 != modify_file_acl(acloptflags, p->fts_accpath, acl_input, (int)aclpos, inheritance_level, !hflag))
 				rval = 1;
 		}
 		else {

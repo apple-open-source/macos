@@ -1515,9 +1515,9 @@ _mdns_search(const char *name, int class, int type, const char *interface, DNSSe
 			extra.tv_sec = SHORT_AAAA_EXTRA;
 			extra.tv_nsec = 0;
 
-			// if delta is really small, we probably got a result from mDNSResponder's cache
-			if ((delta.tv_sec == 0) && (delta.tv_nsec <= 200000000)) {
-				extra.tv_sec = LONG_AAAA_EXTRA;
+			// if delta is small (<= 20 milliseconds), we probably got a result from mDNSResponder's cache
+			if ((delta.tv_sec == 0) && (delta.tv_nsec <= 20000000)) {
+				extra.tv_sec = MEDIUM_AAAA_EXTRA;
 			}
 			else if (n_iface_4 == 0) {
 				extra.tv_sec = LONG_AAAA_EXTRA;

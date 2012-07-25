@@ -27,6 +27,7 @@
 #include "Attribute.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInstance.h"
 #include "SVGFEDiffuseLightingElement.h"
 #include "SVGFESpecularLightingElement.h"
 #include "SVGFilterElement.h"
@@ -47,10 +48,24 @@ DEFINE_ANIMATED_NUMBER(SVGFELightElement, SVGNames::pointsAtZAttr, PointsAtZ, po
 DEFINE_ANIMATED_NUMBER(SVGFELightElement, SVGNames::specularExponentAttr, SpecularExponent, specularExponent)
 DEFINE_ANIMATED_NUMBER(SVGFELightElement, SVGNames::limitingConeAngleAttr, LimitingConeAngle, limitingConeAngle)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFELightElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(azimuth)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(elevation)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(z)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(pointsAtX)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(pointsAtY)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(pointsAtZ)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(specularExponent)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(limitingConeAngle)
+END_REGISTER_ANIMATED_PROPERTIES
+
 SVGFELightElement::SVGFELightElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
     , m_specularExponent(1)
 {
+    registerAnimatedPropertiesForSVGFELightElement();
 }
 
 SVGFELightElement* SVGFELightElement::findLightElement(const SVGElement* svgElement)
@@ -73,37 +88,94 @@ PassRefPtr<LightSource> SVGFELightElement::findLightSource(const SVGElement* svg
     return lightNode->lightSource();
 }
 
-void SVGFELightElement::parseMappedAttribute(Attribute* attr)
+bool SVGFELightElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    const String& value = attr->value();
-    if (attr->name() == SVGNames::azimuthAttr)
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        supportedAttributes.add(SVGNames::azimuthAttr);
+        supportedAttributes.add(SVGNames::elevationAttr);
+        supportedAttributes.add(SVGNames::xAttr);
+        supportedAttributes.add(SVGNames::yAttr);
+        supportedAttributes.add(SVGNames::zAttr);
+        supportedAttributes.add(SVGNames::pointsAtXAttr);
+        supportedAttributes.add(SVGNames::pointsAtYAttr);
+        supportedAttributes.add(SVGNames::pointsAtZAttr);
+        supportedAttributes.add(SVGNames::specularExponentAttr);
+        supportedAttributes.add(SVGNames::limitingConeAngleAttr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGFELightElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGElement::parseAttribute(attr);
+        return;
+    }
+
+    const AtomicString& value = attr->value();
+    if (attr->name() == SVGNames::azimuthAttr) {
         setAzimuthBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::elevationAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::elevationAttr) {
         setElevationBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::xAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::xAttr) {
         setXBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::yAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::yAttr) {
         setYBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::zAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::zAttr) {
         setZBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::pointsAtXAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::pointsAtXAttr) {
         setPointsAtXBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::pointsAtYAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::pointsAtYAttr) {
         setPointsAtYBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::pointsAtZAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::pointsAtZAttr) {
         setPointsAtZBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::specularExponentAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::specularExponentAttr) {
         setSpecularExponentBaseValue(value.toFloat());
-    else if (attr->name() == SVGNames::limitingConeAngleAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::limitingConeAngleAttr) {
         setLimitingConeAngleBaseValue(value.toFloat());
-    else
-        SVGElement::parseMappedAttribute(attr);
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGFELightElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGElement::svgAttributeChanged(attrName);
+        return;
+    }
 
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
     if (attrName == SVGNames::azimuthAttr
         || attrName == SVGNames::elevationAttr
         || attrName == SVGNames::xAttr
@@ -132,67 +204,8 @@ void SVGFELightElement::svgAttributeChanged(const QualifiedName& attrName)
             return;
         }
     }
-}
 
-void SVGFELightElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeAzimuth();
-        synchronizeElevation();
-        synchronizeX();
-        synchronizeY();
-        synchronizeZ();
-        synchronizePointsAtX();
-        synchronizePointsAtY();
-        synchronizePointsAtZ();
-        synchronizeSpecularExponent();
-        synchronizeLimitingConeAngle();
-        return;
-    }
-
-    if (attrName == SVGNames::azimuthAttr)
-        synchronizeAzimuth();
-    else if (attrName == SVGNames::elevationAttr)
-        synchronizeElevation();
-    else if (attrName == SVGNames::xAttr)
-        synchronizeX();
-    else if (attrName == SVGNames::yAttr)
-        synchronizeY();
-    else if (attrName == SVGNames::zAttr)
-        synchronizeZ();
-    else if (attrName == SVGNames::pointsAtXAttr)
-        synchronizePointsAtX();
-    else if (attrName == SVGNames::pointsAtYAttr)
-        synchronizePointsAtY();
-    else if (attrName == SVGNames::pointsAtZAttr)
-        synchronizePointsAtZ();
-    else if (attrName == SVGNames::specularExponentAttr)
-        synchronizeSpecularExponent();
-    else if (attrName == SVGNames::limitingConeAngleAttr)
-        synchronizeLimitingConeAngle();
-}
-
-AttributeToPropertyTypeMap& SVGFELightElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGFELightElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-    attributeToPropertyTypeMap.set(SVGNames::azimuthAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::elevationAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::zAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::pointsAtXAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::pointsAtYAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::pointsAtZAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::specularExponentAttr, AnimatedNumber);
-    attributeToPropertyTypeMap.set(SVGNames::limitingConeAngleAttr, AnimatedNumber);
+    ASSERT_NOT_REACHED();
 }
 
 void SVGFELightElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)

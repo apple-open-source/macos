@@ -130,7 +130,7 @@ encode_uuid_uid(const uuid_t uuid, uid_t uid, char *str)
 char *
 __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t pathlen)
 {
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     char *tmpdir;
 #else
     uuid_t uuid;
@@ -143,7 +143,7 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
 	return NULL;
     }
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
     /* We only support DIRHELPER_USER_LOCAL_TEMP on embedded.
      * This interface really doesn't map from OSX to embedded,
      * and clients of this interface will need to adapt when
@@ -304,20 +304,22 @@ _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
     strcat(path, subdirs[which]);
 
     /*
-     * now for subdirectories, create it with the appropriate permissions
-     * if it doesn't already exist. On OS X, if we're under App Sandbox, we
-     * rely on xpchelper having created the subdir for us.
+     * create the subdir with the appropriate permissions if it doesn't already
+     * exist. On OS X, if we're under App Sandbox, we rely on the subdir having
+     * been already created for us.
      */
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
     if (!_xpc_runtime_is_app_sandboxed())
 #endif
     if(mkdir(path, modes[which]) != 0 && errno != EEXIST)
         return NULL;
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
+    char *userdir_suffix = NULL;
+
     if (_xpc_runtime_is_app_sandboxed()) {
         /*
-         * if xpchelper didn't make the subdir for us, bail since we don't have
+         * if the subdir wasn't made for us, bail since we probably don't have
          * permission to create it ourselves.
          */
         if(stat(path, &sb) < 0) {
@@ -329,29 +331,41 @@ _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
          * sandboxed applications get per-application directories named
          * after the container
          */
-        char *container_id = getenv(XPC_ENV_SANDBOX_CONTAINER_ID);
-        if(!container_id) {
+        userdir_suffix = getenv(XPC_ENV_SANDBOX_CONTAINER_ID);
+        if (!userdir_suffix) {
             errno = EINVAL;
             return NULL;
         }
+    } else
+        userdir_suffix = getenv(DIRHELPER_ENV_USER_DIR_SUFFIX);
 
+    if (userdir_suffix) {
         /*
-         * container ID doesn't end in a slash, so +2 is for slash and \0
+         * suffix (usually container ID) doesn't end in a slash, so +2 is for slash and \0
          */
-        if (pathlen < strlen(path) + strlen(container_id) + 2) {
+        if (pathlen < strlen(path) + strlen(userdir_suffix) + 2) {
             errno = EINVAL;
             return NULL; /* buffer too small */
         }
 
-        strcat(path, container_id);
+        strcat(path, userdir_suffix);
         strcat(path, "/");
 
         /*
-         * create per-app subdirectory with the appropriate permissions
+         * create suffix subdirectory with the appropriate permissions
          * if it doesn't already exist.
          */
-        if(mkdir(path, modes[which]) != 0 && errno != EEXIST)
+        if (mkdir(path, modes[which]) != 0 && errno != EEXIST)
             return NULL;
+
+        /*
+         * update TMPDIR if necessary
+         */
+        if (which == DIRHELPER_USER_LOCAL_TEMP) {
+            char *tmpdir = getenv("TMPDIR");
+            if (!tmpdir || strncmp(tmpdir, path, strlen(path)))
+                setenv("TMPDIR", path, 1);
+        }
     }
 #endif
 

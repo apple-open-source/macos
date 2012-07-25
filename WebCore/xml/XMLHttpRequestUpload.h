@@ -54,15 +54,17 @@ namespace WebCore {
         void deref() { m_xmlHttpRequest->deref(); }
         XMLHttpRequest* xmlHttpRequest() const { return m_xmlHttpRequest; }
 
-        virtual XMLHttpRequestUpload* toXMLHttpRequestUpload() { return this; }
-
+        virtual const AtomicString& interfaceName() const;
         ScriptExecutionContext* scriptExecutionContext() const;
 
         DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(load);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(loadend);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(loadstart);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(progress);
+
+        void dispatchEventAndLoadEnd(PassRefPtr<Event>);
 
     private:
         XMLHttpRequestUpload(XMLHttpRequest*);

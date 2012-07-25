@@ -1218,8 +1218,8 @@ static int getDfsReferralDict(struct smb_ctx * inConn, CFStringRef referralStr,
 	mb_init(&mbp);
 	md_init(&mdp);
 	mb_put_uint16le(&mbp, maxReferralVersion);
-	error = smb_rq_put_dstring(inConn, &mbp, referral, strlen(referral), 
-							   SMB_UTF_SFM_CONVERSIONS, &len);
+	error = smb_usr_rq_put_dstring(inConn, &mbp, referral, strlen(referral), 
+									SMB_UTF_SFM_CONVERSIONS, &len);
 	/* We default buffer overflow to true so we enter the loop once. */ 
 	while (bufferOverflow && (error == 0)) 
 	{
@@ -1227,9 +1227,9 @@ static int getDfsReferralDict(struct smb_ctx * inConn, CFStringRef referralStr,
 		rdatacnt = (uint16_t)mbuf_maxlen(mdp.md_top);
 		tparam = mbuf_data(mbp.mb_top);
 		rdata =  mbuf_data(mdp.md_top);
-		error =  smb_t2_request(inConn, 1, &setup, NULL, (int32_t)mbuf_len(mbp.mb_top), 
-								tparam, 0, NULL, &rparamcnt, NULL, &rdatacnt, 
-								rdata, &bufferOverflow);
+		error =  smb_usr_t2_request(inConn, 1, &setup, NULL, (int32_t)mbuf_len(mbp.mb_top), 
+									tparam, 0, NULL, &rparamcnt, NULL, &rdatacnt, 
+									rdata, &bufferOverflow);
 		/*
 		 * [MS-DFSC]
 		 * The buffer size used by Windows DFS clients for all DFS referral 
@@ -1239,7 +1239,7 @@ static int getDfsReferralDict(struct smb_ctx * inConn, CFStringRef referralStr,
 		 */
 		if ((error == 0) && bufferOverflow) {
 			size_t newSize;
-			/* smb_t2_request sets rdatacnt to zero, get the old length again */
+			/* smb_usr_t2_request sets rdatacnt to zero, get the old length again */
 			newSize = mbuf_maxlen(mdp.md_top);
 			if (newSize >= MAX_DFS_REFFERAL_SIZE) {
 				error = EMSGSIZE;

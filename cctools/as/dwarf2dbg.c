@@ -663,6 +663,17 @@ dwarf2_directive_file (uintptr_t dummy ATTRIBUTE_UNUSED)
     return NULL;
   demand_empty_rest_of_line ();
 
+  /*
+   * If the --gdwarf2 flag is present to generate dwarf2 for assembly code
+   * then it is an error to see a .file directive in the source.
+   */
+  if (debug_type == DEBUG_DWARF2)
+    {
+      as_bad (_("input can't have .file dwarf directives when -g is used to "
+		"generate dwarf debug info for assembly code"));
+      return NULL;
+    }
+
   if (num < 1)
     {
       as_bad (_("file number less than one"));
@@ -1842,12 +1853,19 @@ struct frchain * abbrev_section)
   /* DW_TAG_subprogram DIE abbrev (2) */
   out_uleb128 (2);
   out_uleb128 (DW_TAG_subprogram);
-  out_byte (DW_CHILDREN_no);
+  out_byte (DW_CHILDREN_yes);
   out_abbrev (DW_AT_name, DW_FORM_string);
   out_abbrev (DW_AT_decl_file, DW_FORM_data4);
   out_abbrev (DW_AT_decl_line, DW_FORM_data4);
   out_abbrev (DW_AT_low_pc, DW_FORM_addr);
   out_abbrev (DW_AT_high_pc, DW_FORM_addr);
+  out_abbrev (DW_AT_prototyped, DW_FORM_flag);
+  out_abbrev (0, 0);
+
+  /* DW_TAG_unspecified_parameters DIE abbrev (3) */
+  out_uleb128 (3);
+  out_uleb128 (DW_TAG_unspecified_parameters);
+  out_byte (DW_CHILDREN_no);
   out_abbrev (0, 0);
 
   /* Terminate the abbreviations for this compilation unit.  */
@@ -1875,6 +1893,7 @@ struct frchain *ranges_section)
   enum dwarf2_format d2f;
   int sizeof_offset;
   struct dwarf2_subprogram_info *subs;
+  symbolS *prev_subs_symbol;
 
   section_set(info_section);
 
@@ -2005,10 +2024,24 @@ struct frchain *ranges_section)
      dwarf2 draft has no standard code for assembler.  */
   out_two (DW_LANG_Mips_Assembler);
 
+  prev_subs_symbol = NULL;
   for(subs = dwarf2_subprograms_info; subs != NULL; subs = subs->next){
     uint32_t n_sect;
     fragS *frag;
     symbolS *end;
+    struct dwarf2_subprogram_info *subs_next;
+
+    /* Don't emit zero length TAG_subprogram dwarf debug info. */
+    if(prev_subs_symbol != NULL &&
+       prev_subs_symbol->sy_frag == subs->symbol->sy_frag &&
+       prev_subs_symbol->sy_value == subs->symbol->sy_value)
+      {
+        continue;
+      }
+    else
+      {
+        prev_subs_symbol = subs->symbol;
+      }
 
     /* DW_TAG_subprogram DIE abbrev */
     out_uleb128 (2);
@@ -2032,11 +2065,27 @@ struct frchain *ranges_section)
     emit_expr (&expr, sizeof_address);
 
     /* DW_AT_high_pc */
+    end = NULL;
     if(subs->next != NULL)
       {
 	end = subs->next->symbol;
+	subs_next = subs->next;
+        while(subs->symbol->sy_frag == end->sy_frag &&
+              subs->symbol->sy_value == end->sy_value)
+	  {
+	  if(subs_next->next == NULL)
+	    {
+	      end = NULL;
+	      break;
+	    }
+	  else
+	    {
+	      subs_next = subs_next->next;
+	      end = subs_next->symbol;
+	    }
+	 }
       }
-    else
+    if(end == NULL)
       {
         n_sect = subs->symbol->sy_nlist.n_sect;
         frag = last_frag_for_seg (n_sect);
@@ -2047,6 +2096,14 @@ struct frchain *ranges_section)
     expr.X_add_symbol = end;
     expr.X_add_number = 0;
     emit_expr (&expr, sizeof_address);
+
+    /* DW_AT_prototyped */
+    out_byte (0);
+
+    /* DW_TAG_unspecified_parameters DIE abbrev */
+    out_uleb128 (3);
+    /* Add the NULL DIE terminating the DW_TAG_unspecified_parameters DIE's. */
+    out_byte (0);
   }
 
   /* Add the NULL DIE terminating the Compile Unit DIE's.  */

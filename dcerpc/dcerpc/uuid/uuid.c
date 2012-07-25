@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -91,6 +91,8 @@
 **
 */
 
+#include <config.h>
+
 #ifndef UUID_BUILD_STANDALONE
 #include <dce/dce.h>
 #include <dce/uuid.h>           /* uuid idl definitions (public)        */
@@ -104,8 +106,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "uuid_i.h"              /* uuid idl definitions (private)       */
+#include <uuid/uuid.h>
 
-
 /*
  * structure of universal unique IDs (UUIDs).
  *
@@ -317,9 +319,7 @@ static unsigned32     saved_st;
 /*
  * declarations used in UTC time calculations
  */
-static uuid_time_t      time_now;     /* utc time as of last query        */
 static uuid_time_t      time_last;    /* 'saved' value of time_now        */
-static unsigned16       time_adjust;  /* 'adjustment' to ensure uniqness  */
 static unsigned16       clock_seq;    /* 'adjustment' for backwards clocks*/
 
 /*
@@ -367,32 +367,11 @@ static void true_random_init (void);
 static unsigned16 true_random (void);
 
 /*
- * N E W _ C L O C K _ S E Q
- *
- * Ensure clock_seq is up-to-date
- *
- * Note: clock_seq is architected to be 14-bits (unsigned) but
- *       I've put it in here as 16-bits since there isn't a
- *       14-bit unsigned integer type (yet)
- */
-static void new_clock_seq ( unsigned16 * /*clock_seq*/);
-
-/*
  * S T R U C T U R E _ I S _ K N O W N
  *
  * Does the UUID have the known standard structure layout?
  */
 boolean structure_is_known ( uuid_p_t /*uuid*/);
-
-/*
- * T I M E _ C M P
- *
- * Compares two UUID times (64-bit DEC UID UTC values)
- */
-static uuid_compval_t time_cmp (
-        uuid_time_p_t        /*time1*/,
-        uuid_time_p_t        /*time2*/
-    );
 
 /*
  * U U I D _ G E T _ A D D R E S S
@@ -589,97 +568,14 @@ static void init
 
 void uuid_create
 (
-    idl_uuid_t                  *uuid,
-    unsigned32              *status
+    idl_uuid_t *uuid,
+    unsigned32 *status
 )
 {
-    uuid_address_t          eaddr;      /* our IEEE 802 hardware address */
-    boolean32               got_no_time = FALSE;
-
     CODING_ERROR (status);
     UUID_VERIFY_INIT (EmptyArg);
 
-    /*
-     * get our hardware network address
-     */
-    uuid_get_address (&eaddr, status);
-    if (*status != uuid_s_ok)
-    {
-        DEBUG_PRINT("uuid_create:uuid_get_address", *status);
-        return;
-    }
-
-    do
-    {
-        /*
-         * get the current time
-         */
-        uuid__get_os_time (&time_now);
-
-        /*
-         * do stuff like:
-         *
-         *  o check that our clock hasn't gone backwards and handle it
-         *    accordingly with clock_seq
-         *  o check that we're not generating uuid's faster than we
-         *    can accommodate with our time_adjust fudge factor
-         */
-        switch (time_cmp (&time_now, &time_last))
-        {
-            case uuid_e_less_than:
-                new_clock_seq (&clock_seq);
-                time_adjust = 0;
-                break;
-            case uuid_e_greater_than:
-                time_adjust = 0;
-                break;
-            case uuid_e_equal_to:
-                if (time_adjust == MAX_TIME_ADJUST)
-                {
-                    /*
-                     * spin your wheels while we wait for the clock to tick
-                     */
-                    got_no_time = TRUE;
-                }
-                else
-                {
-                    time_adjust++;
-                }
-                break;
-            default:
-                *status = uuid_s_internal_error;
-                DEBUG_PRINT ("uuid_create", *status);
-                return;
-        }
-    } while (got_no_time);
-
-    time_last.lo = time_now.lo;
-    time_last.hi = time_now.hi;
-
-    if (time_adjust != 0)
-    {
-        UADD_UW_2_UVLW (&time_adjust, &time_now, &time_now);
-    }
-
-    /*
-     * now construct a uuid with the information we've gathered
-     * plus a few constants
-     */
-    uuid->time_low = time_now.lo;
-    uuid->time_mid = time_now.hi & TIME_MID_MASK;
-
-    uuid->time_hi_and_version =
-        (time_now.hi & TIME_HIGH_MASK) >> TIME_HIGH_SHIFT_COUNT;
-    uuid->time_hi_and_version |= UUID_VERSION_BITS;
-
-    uuid->clock_seq_low = clock_seq & CLOCK_SEQ_LOW_MASK;
-    uuid->clock_seq_hi_and_reserved =
-        (clock_seq & CLOCK_SEQ_HIGH_MASK) >> CLOCK_SEQ_HIGH_SHIFT_COUNT;
-
-    uuid->clock_seq_hi_and_reserved |= UUID_RESERVED_BITS;
-
-    memcpy (uuid->node, &eaddr, sizeof (uuid_address_t));
-
+    uuid_generate ((unsigned char *) uuid);
     *status = uuid_s_ok;
 }
 
@@ -726,8 +622,9 @@ void uuid_create_nil
 {
     CODING_ERROR (status);
     UUID_VERIFY_INIT (EmptyArg);
-    memset (uuid, 0, sizeof (idl_uuid_t));
 
+    uuid_clear((unsigned char *) uuid);
+    
     *status = uuid_s_ok;
 }
 
@@ -776,7 +673,6 @@ void uuid_to_string
     unsigned32              *status
 )
 {
-
     CODING_ERROR (status);
     UUID_VERIFY_INIT (EmptyArg);
 
@@ -811,14 +707,7 @@ void uuid_to_string
         return;
     }
 
-    UUID_SPRINTF(
-        (char *) *uuid_string,
-        "%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
-        uuid->time_low, uuid->time_mid, uuid->time_hi_and_version,
-        uuid->clock_seq_hi_and_reserved, uuid->clock_seq_low,
-        (unsigned8) uuid->node[0], (unsigned8) uuid->node[1],
-        (unsigned8) uuid->node[2], (unsigned8) uuid->node[3],
-        (unsigned8) uuid->node[4], (unsigned8) uuid->node[5]);
+    uuid_unparse ((unsigned char *) uuid, (char *) *uuid_string);
 
     *status = uuid_s_ok;
 }
@@ -869,9 +758,6 @@ void uuid_from_string
     unsigned32              *status
 )
 {
-    idl_uuid_t          uuid_new;   /* used for sscanf for new uuid's */
-    uuid_old_t          uuid_old;   /* used for sscanf for old uuid's */
-    uuid_p_t            uuid_ptr;   /* pointer to correct uuid (old/new) */
     int                 i;
 
     CODING_ERROR (status);
@@ -896,116 +782,13 @@ void uuid_from_string
         return;
     }
 
-    /*
-     * check for a new uuid
-     */
-    if (uuid_string[8] == '-')
-    {
-        unsigned32      time_low;
-        unsigned16      time_mid;
-        unsigned16      time_hi_and_version;
-        unsigned8       clock_seq_hi_and_reserved;
-        unsigned8       clock_seq_low;
-        unsigned char   node[6];
-
-        i = UUID_SSCANF(
-            (char *) uuid_string, "%8x-%4x-%4x-%2x%2x-%2x%2x%2x%2x%2x%2x",
-            &time_low,
-            &time_mid,
-            &time_hi_and_version,
-            &clock_seq_hi_and_reserved,
-            &clock_seq_low,
-            &node[0], &node[1], &node[2], &node[3], &node[4], &node[5]);
-
-        /*
-         * check that sscanf worked
-         */
-        if (i != UUID_ELEMENTS_NUM)
-        {
-            *status = uuid_s_invalid_string_uuid;
-            return;
-        }
-
-        /*
-         * note that we're going through this agony because scanf is defined to
-         * know only to scan into "int"s or "long"s.
-         */
-        uuid_new.time_low                   = time_low;
-        uuid_new.time_mid                   = time_mid;
-        uuid_new.time_hi_and_version        = time_hi_and_version;
-        uuid_new.clock_seq_hi_and_reserved  = clock_seq_hi_and_reserved;
-        uuid_new.clock_seq_low              = clock_seq_low;
-        uuid_new.node[0]                    = node[0];
-        uuid_new.node[1]                    = node[1];
-        uuid_new.node[2]                    = node[2];
-        uuid_new.node[3]                    = node[3];
-        uuid_new.node[4]                    = node[4];
-        uuid_new.node[5]                    = node[5];
-
-        /*
-         * point to the correct uuid
-         */
-        uuid_ptr = &uuid_new;
-
-        /*
-         * sanity check, is version ok?
-         */
-        vCHECK_STRUCTURE (uuid_ptr, status);
-
+    i = uuid_parse ((char *) uuid_string, (unsigned char *) uuid);
+    if (i == 0) {
+        *status = uuid_s_ok;
     }
-    else
-    {
-        int     time_high;
-        int     time_low;
-        int     family;
-        int     host[7];
-
-        /*
-         * format = tttttttttttt.ff.h1.h2.h3.h4.h5.h6.h7
-         */
-        i = UUID_OLD_SSCANF(
-            (char *) uuid_string, "%8lx%4x.%2x.%2x.%2x.%2x.%2x.%2x.%2x.%2x",
-            &time_high, &time_low, &family,
-            &host[0], &host[1], &host[2], &host[3],
-            &host[4], &host[5], &host[6]);
-
-        /*
-         * check that sscanf worked
-         */
-        if (i != UUID_ELEMENTS_NUM_OLD)
-        {
-            *status = uuid_s_invalid_string_uuid;
-            return;
-        }
-
-        /*
-         * note that we're going through this agony because scanf is defined to
-         * know only to scan into "int"s or "long"s.
-         */
-        uuid_old.time_high      = time_high;
-        uuid_old.time_low       = time_low;
-        uuid_old.family         = family;
-        uuid_old.host[0]        = host[0];
-        uuid_old.host[1]        = host[1];
-        uuid_old.host[2]        = host[2];
-        uuid_old.host[3]        = host[3];
-        uuid_old.host[4]        = host[4];
-        uuid_old.host[5]        = host[5];
-        uuid_old.host[6]        = host[6];
-
-        /*
-         * fix up non-string field, and point to the correct uuid
-         */
-        uuid_old.reserved = 0;
-        uuid_ptr = (uuid_p_t) (&uuid_old);
+    else {
+        *status = uuid_s_invalid_string_uuid;
     }
-
-    /*
-     * copy the uuid to user
-     */
-    memcpy (uuid, uuid_ptr, sizeof (idl_uuid_t));
-
-    *status = uuid_s_ok;
 }
 
 /*
@@ -1064,22 +847,11 @@ boolean32 uuid_equal
 
     *status = uuid_s_ok;
 
-    /*
-     * Note: This used to be a memcmp(), but changed to a field-by-field compare
-     * because of portability problems with alignment and garbage in a UUID.
-     */
-    if ((uuid1->time_low == uuid2->time_low) &&
-	(uuid1->time_mid == uuid2->time_mid) &&
-	(uuid1->time_hi_and_version == uuid2->time_hi_and_version) &&
-	(uuid1->clock_seq_hi_and_reserved == uuid2->clock_seq_hi_and_reserved) &&
-	(uuid1->clock_seq_low == uuid2->clock_seq_low) &&
-	(memcmp(uuid1->node, uuid2->node, 6) == 0))
-    {
-	return ( TRUE );
+    if (uuid_compare((unsigned char *) uuid1, (unsigned char *) uuid2) == 0) {
+        return TRUE;
     }
-    else
-    {
-        return (FALSE);
+    else {
+        return FALSE;
     }
 }
 
@@ -1135,17 +907,11 @@ boolean32 uuid_is_nil
 
     *status = uuid_s_ok;
 
-    /*
-     * Note: This should later be changed to a field-by-field compare
-     * because of portability problems with alignment and garbage in a UUID.
-     */
-    if (memcmp (uuid, &uuid_g_nil_uuid, sizeof (idl_uuid_t)) == 0)
-    {
-        return (TRUE);
+    if (uuid_is_null((unsigned char *) uuid) == 1) {
+        return TRUE;
     }
-    else
-    {
-        return (FALSE);
+    else {
+        return FALSE;
     }
 }
 
@@ -1242,66 +1008,8 @@ signed32 uuid_lexcompare
 
     *status = uuid_s_ok;
 
-    if (uuid1->time_low == uuid2->time_low)
-    {
-        if (uuid1->time_mid == uuid2->time_mid)
-        {
-            if (uuid1->time_hi_and_version == uuid2->time_hi_and_version)
-            {
-                if (uuid1->clock_seq_hi_and_reserved
-                    == uuid2->clock_seq_hi_and_reserved)
-                {
-                    if (uuid1->clock_seq_low == uuid2->clock_seq_low)
-                    {
-                        for (i = 0; i < 6; i++)
-                        {
-                            if (uuid1->node[i] < uuid2->node[i])
-                                return (-1);
-                            if (uuid1->node[i] > uuid2->node[i])
-                                return (1);
-                        }
-                        return (0);
-                    }       /* end if - clock_seq_low */
-                    else
-                    {
-                        if (uuid1->clock_seq_low < uuid2->clock_seq_low)
-                            return (-1);
-                        else
-                            return (1);
-                    }       /* end else - clock_seq_low */
-                }           /* end if - clock_seq_hi_and_reserved */
-                else
-                {
-                    if (uuid1->clock_seq_hi_and_reserved
-                        < uuid2->clock_seq_hi_and_reserved)
-                        return (-1);
-                    else
-                        return (1);
-                }           /* end else - clock_seq_hi_and_reserved */
-            }               /* end if - time_hi_and_version */
-            else
-            {
-                if (uuid1->time_hi_and_version < uuid2->time_hi_and_version)
-                    return (-1);
-                else
-                    return (1);
-            }               /* end else - time_hi_and_version */
-        }                   /* end if - time_mid */
-        else
-        {
-            if (uuid1->time_mid < uuid2->time_mid)
-                return (-1);
-            else
-                return (1);
-        }                   /* end else - time_mid */
-    }                       /* end if - time_low */
-    else
-    {
-        if (uuid1->time_low < uuid2->time_low)
-            return (-1);
-        else
-            return (1);
-    }                       /* end else - time_low */
+    i = uuid_compare((unsigned char *) uuid1, (unsigned char *) uuid2);
+    return (i);
 }
 
 /*
@@ -1377,8 +1085,8 @@ unsigned16 uuid_hash
      *       c1 = c1 + c0;
      *   }
      */
-    c0 = c0 + *next_uuid++;
-    c1 = c1 + c0;
+    c0 += *next_uuid++;
+    c1 += c0;
     c0 = c0 + *next_uuid++;
     c1 = c1 + c0;
     c0 = c0 + *next_uuid++;
@@ -1445,33 +1153,6 @@ unsigned16 uuid_hash
  *
  ****************************************************************************/
 
-/*
-** T I M E _ C M P
-**
-** Compares two UUID times (64-bit UTC values)
-**/
-
-static uuid_compval_t time_cmp
-(
-    uuid_time_p_t           time1,
-    uuid_time_p_t           time2
-)
-{
-    /*
-     * first check the hi parts
-     */
-    if (time1->hi < time2->hi) return (uuid_e_less_than);
-    if (time1->hi > time2->hi) return (uuid_e_greater_than);
-
-    /*
-     * hi parts are equal, check the lo parts
-     */
-    if (time1->lo < time2->lo) return (uuid_e_less_than);
-    if (time1->lo > time2->lo) return (uuid_e_greater_than);
-
-    return (uuid_e_equal_to);
-}
-
 /*
 **  U U I D _ _ U E M U L
 **
@@ -1639,51 +1320,6 @@ static unsigned16 true_random (void)
  *
  ****************************************************************************/
 
-/*
-** N E W _ C L O C K _ S E Q
-**
-** Ensure *clkseq is up-to-date
-**
-** Note: clock_seq is architected to be 14-bits (unsigned) but
-**       I've put it in here as 16-bits since there isn't a
-**       14-bit unsigned integer type (yet)
-**/
-
-static void new_clock_seq
-(
-    unsigned16              *clkseq
-)
-{
-    /*
-     * A clkseq value of 0 indicates that it hasn't been initialized.
-     */
-    if (*clkseq == 0)
-    {
-#ifdef UUID_NONVOLATILE_CLOCK
-        *clkseq = uuid__read_clock();           /* read nonvolatile clock */
-        if (*clkseq == 0)                       /* still not init'd ???   */
-        {
-            *clkseq = true_random();      /* yes, set random        */
-        }
-#else
-        /*
-         * with a volatile clock, we always init to a random number
-         */
-        *clkseq = true_random();
-#endif
-    }
-
-    CLOCK_SEQ_BUMP (clkseq);
-    if (*clkseq == 0)
-    {
-        *clkseq = *clkseq + 1;
-    }
-
-#ifdef UUID_NONVOLATILE_CLOCK
-    uuid_write_clock (clkseq);
-#endif
-}
-
 /*
 **++
 **

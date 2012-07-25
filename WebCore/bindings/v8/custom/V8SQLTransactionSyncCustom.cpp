@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #include "V8SQLTransactionSync.h"
 
@@ -91,8 +91,8 @@ v8::Handle<v8::Value> V8SQLTransactionSync::executeSqlCallback(const v8::Argumen
     SQLTransactionSync* transaction = V8SQLTransactionSync::toNative(args.Holder());
 
     ExceptionCode ec = 0;
-    v8::Handle<v8::Value> result = toV8(transaction->executeSQL(statement, sqlValues, ec));
-    V8Proxy::setDOMException(ec);
+    v8::Handle<v8::Value> result = toV8(transaction->executeSQL(statement, sqlValues, ec), args.GetIsolate());
+    V8Proxy::setDOMException(ec, args.GetIsolate());
 
     return result;
 }

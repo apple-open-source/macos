@@ -26,8 +26,8 @@
 #include "config.h"
 #include "TextStream.h"
 
-#include "PlatformString.h"
 #include <wtf/StringExtras.h>
+#include <wtf/text/WTFString.h>
 
 using namespace std;
 
@@ -42,55 +42,43 @@ TextStream& TextStream::operator<<(bool b)
 
 TextStream& TextStream::operator<<(int i)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%d", i);
-    return *this << buffer;
+    m_text.append(String::number(i));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(unsigned i)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%u", i);
-    return *this << buffer;
+    m_text.append(String::number(i));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(long i)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%ld", i);
-    return *this << buffer;
+    m_text.append(String::number(i));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(unsigned long i)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%lu", i);
-    return *this << buffer;
+    m_text.append(String::number(i));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(float f)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%.2f", f);
-    return *this << buffer;
+    m_text.append(String::number(f, ShouldRoundDecimalPlaces, 2));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(double d)
 {
-    char buffer[printBufferSize];
-    snprintf(buffer, sizeof(buffer) - 1, "%.2f", d);
-    return *this << buffer;
+    m_text.append(String::number(d, ShouldRoundDecimalPlaces, 2));
+    return *this;
 }
 
 TextStream& TextStream::operator<<(const char* string)
 {
-    size_t stringLength = strlen(string);
-    size_t textLength = m_text.size();
-    if (stringLength > numeric_limits<size_t>::max() - textLength)
-        CRASH();
-    m_text.grow(textLength + stringLength);
-    for (size_t i = 0; i < stringLength; ++i)
-        m_text[textLength + i] = string[i];
+    m_text.append(string);
     return *this;
 }
 
@@ -103,13 +91,15 @@ TextStream& TextStream::operator<<(const void* p)
 
 TextStream& TextStream::operator<<(const String& string)
 {
-    append(m_text, string);
+    m_text.append(string);
     return *this;
 }
 
 String TextStream::release()
 {
-    return String::adopt(m_text);
+    String result = m_text.toString();
+    m_text.clear();
+    return result;
 }
 
 #if OS(WINDOWS) && CPU(X86_64)

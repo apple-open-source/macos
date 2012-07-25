@@ -1,0 +1,5 @@
+BUILD_VARIANTS = normal debug
+ZERO_LINK = NO
+OPT_CFLAGS = -DNDEBUG -Os $(OPT_INLINEFLAGS)
+
+#include "libsecurity_transform_core.xcconfig"

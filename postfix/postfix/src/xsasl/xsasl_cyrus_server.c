@@ -175,7 +175,7 @@ static const char *xsasl_cyrus_server_get_username(XSASL_SERVER *);
 #define NO_CALLBACK_CONTEXT	0
 
 static sasl_callback_t callbacks[] = {
-    {SASL_CB_LOG, &xsasl_cyrus_log, NO_CALLBACK_CONTEXT},
+    {SASL_CB_LOG, (XSASL_CYRUS_CB) &xsasl_cyrus_log, NO_CALLBACK_CONTEXT},
     {SASL_CB_LIST_END, 0, 0}
 };
 
@@ -439,6 +439,7 @@ static void xsasl_cyrus_server_free(XSASL_SERVER *xp)
 {
     XSASL_CYRUS_SERVER *server = (XSASL_CYRUS_SERVER *) xp;
 
+    /* temporary work around to <rdar://problem/8196059> */
 //    sasl_dispose(&server->sasl_conn);
     vstring_free(server->decoded);
     if (server->username)

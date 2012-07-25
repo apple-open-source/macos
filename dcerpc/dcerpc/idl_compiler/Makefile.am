@@ -24,7 +24,10 @@ dceidl_SOURCES = acf_y.c acf_l.c nidl_y.c nidl_l.c astp_com.c astp_cpx.c \
 	message.c nametbl.c namdump.c propagat.c sysdep.c mtsbacke.c \
 	ddbe.c ddspell.c cspeldcl.c cspell.c cstubmts.c hdgen.c clihamts.c \
 	mtspipes.c irepgen.c irepscp.c ifspemts.c sstubmts.c comstmts.c \
-	user_exc.c icharsup.c astp_exp.c
+	user_exc.c icharsup.c astp_exp.c \
+	$(top_srcdir)/dcelib/strlcat.c \
+	$(top_srcdir)/dcelib/strlcpy.c
+
 dceidl_LDFLAGS = @LTLDFLAGS@
 
 noinst_HEADERS= ast.h astp.h astp_dmp.h backend.h be_pvt.h bedeck.h \
@@ -56,7 +59,7 @@ nidl_l.c nidl_l.h: nidl_l.l
 idl.cat default_msg.h:	nidlmsg.m
 	$(RM) $(RMFLAGS) default_msg.h idl.cat
 	$(SED) -e '/^\$$/d;/^$$/d;s/^[^ ]* /"/;s/$$/",/;' $(srcdir)/nidlmsg.m > default_msg.h
-	$(GENCAT) idl.cat $(srcdir)/nidlmsg.m
+	$(GENCAT) -o idl.cat $(srcdir)/nidlmsg.m
 
 # Keep the generated parsers in the tarball
 EXTRA_DIST=nidlmsg.m acf_y.c acf_y.h acf_l.c nidl_y.c nidl_y.h nidl_l.c

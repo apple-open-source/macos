@@ -1,6 +1,6 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2010, International Business Machines
+# *  Copyright (C) 2004-2012, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -9,7 +9,7 @@
 #
 :: [АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЮЯЬабвгґдеєжзиіїйклмнопрстуфхцчшщюяь’] ;
 :: NFD (NFC) ;
-$prime  = ʹ ;
+$prime = ʹ ;
 $doublePrime = ʺ ;
 $upperConsonants = [БВГҐДЖЗЙКЛМНПРСТФХЦЧШЩЬ] ;
 $lowerConsonants = [бвгґджзйклмнпрстфхцчшщь’] ;
@@ -18,7 +18,7 @@ $upperVowels = [АЕЄИІЇОУЮЯ] ;
 $lowerVowels = [аеєиіїоуюя] ;
 $vowels = [$upperVowels $lowerVowels] ;
 $lower = [$lowerConsonants $lowerVowels] ;
-$wordBoundary =  [^[:L:][:M:][:N:]] ;
+$wordBoundary = [^[:L:][:M:][:N:]] ;
 А → A ; # CYRILLIC CAPITAL LETTER A
 а → a ; # CYRILLIC SMALL LETTER A
 Б → B ; # CYRILLIC CAPITAL LETTER BE

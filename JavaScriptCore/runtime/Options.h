@@ -30,6 +30,8 @@
 
 namespace JSC { namespace Options {
 
+extern bool useJIT;
+
 extern unsigned maximumOptimizationCandidateInstructionCount;
 
 extern unsigned maximumFunctionForCallInlineCandidateInstructionCount;
@@ -37,11 +39,13 @@ extern unsigned maximumFunctionForConstructInlineCandidateInstructionCount;
 
 extern unsigned maximumInliningDepth; // Depth of inline stack, so 1 = no inlining, 2 = one level, etc.
 
-extern int32_t executionCounterValueForOptimizeAfterWarmUp;
-extern int32_t executionCounterValueForOptimizeAfterLongWarmUp;
-extern int32_t executionCounterValueForDontOptimizeAnytimeSoon;
-extern int32_t executionCounterValueForOptimizeSoon;
-extern int32_t executionCounterValueForOptimizeNextInvocation;
+extern int32_t thresholdForJITAfterWarmUp;
+extern int32_t thresholdForJITSoon;
+
+extern int32_t thresholdForOptimizeAfterWarmUp;
+extern int32_t thresholdForOptimizeAfterLongWarmUp;
+extern int32_t thresholdForOptimizeSoon;
+extern int32_t thresholdForOptimizeNextInvocation;
 
 extern int32_t executionCounterIncrementForLoop;
 extern int32_t executionCounterIncrementForReturn;
@@ -57,6 +61,7 @@ extern double osrExitProminenceForFrequentExitSite;
 
 extern unsigned largeFailCountThresholdBase;
 extern unsigned largeFailCountThresholdBaseForLoop;
+extern unsigned forcedOSRExitCountForReoptimization;
 
 extern unsigned reoptimizationRetryCounterMax;
 extern unsigned reoptimizationRetryCounterStep;
@@ -73,8 +78,8 @@ extern unsigned gcMarkStackSegmentSize;
 extern unsigned minimumNumberOfCellsToKeep;
 extern unsigned maximumNumberOfSharedSegments;
 extern unsigned sharedStackWakeupThreshold;
-extern unsigned numberOfGCMarkers;
-extern unsigned opaqueRootMergeThreshold;
+JS_EXPORTDATA extern unsigned numberOfGCMarkers;
+JS_EXPORTDATA extern unsigned opaqueRootMergeThreshold;
 
 void initializeOptions();
 

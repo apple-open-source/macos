@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
  */
 
 #include "scutil.h"
+#include "cache.h"
 #include "session.h"
 #include "notifications.h"
 
@@ -81,6 +82,8 @@ do_open(int argc, char **argv)
 	watchedKeys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	watchedPatterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
+	cache_close();
+
 	return;
 }
 
@@ -112,27 +115,8 @@ do_close(int argc, char **argv)
 		CFRelease(watchedPatterns);
 		watchedPatterns = NULL;
 	}
-	return;
-}
 
+	cache_close();
 
-__private_extern__
-void
-do_lock(int argc, char **argv)
-{
-	if (!SCDynamicStoreLock(store)) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-	}
-	return;
-}
-
-
-__private_extern__
-void
-do_unlock(int argc, char **argv)
-{
-	if (!SCDynamicStoreUnlock(store)) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-	}
 	return;
 }

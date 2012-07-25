@@ -22,7 +22,8 @@
 #define SVGFitToViewBox_h
 
 #if ENABLE(SVG)
-#include <wtf/text/WTFString.h>
+#include "QualifiedName.h"
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 
@@ -30,7 +31,6 @@ class AffineTransform;
 class Attribute;
 class Document;
 class FloatRect;
-class QualifiedName;
 class SVGPreserveAspectRatio;
 
 class SVGFitToViewBox {
@@ -40,8 +40,9 @@ public:
     bool parseViewBox(Document*, const UChar*& start, const UChar* end, FloatRect& viewBox, bool validate = true);
     static AffineTransform viewBoxToViewTransform(const FloatRect& viewBoxRect, const SVGPreserveAspectRatio&, float viewWidth, float viewHeight);
 
-    bool parseMappedAttribute(Document*, Attribute*);
+    bool parseAttribute(Document*, Attribute*);
     bool isKnownAttribute(const QualifiedName&);
+    void addSupportedAttributes(HashSet<QualifiedName>&);
 
     virtual void setViewBoxBaseValue(const FloatRect&) = 0;
     virtual void setPreserveAspectRatioBaseValue(const SVGPreserveAspectRatio&) = 0;

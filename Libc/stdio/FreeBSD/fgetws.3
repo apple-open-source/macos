@@ -37,7 +37,8 @@
 .Dt FGETWS 3
 .Os
 .Sh NAME
-.Nm fgetws
+.Nm fgetws ,
+.Nm fgetws_l
 .Nd get a line of wide characters from a stream
 .Sh LIBRARY
 .Lb libc
@@ -45,7 +46,21 @@
 .In stdio.h
 .In wchar.h
 .Ft "wchar_t *"
-.Fn fgetws "wchar_t * restrict ws" "int n" "FILE * restrict fp"
+.Fo fgetws
+.Fa "wchar_t *restrict ws"
+.Fa "int n"
+.Fa "FILE *restrict stream"
+.Fc
+.In stdio.h
+.In wchar.h
+.In xlocale.h
+.Ft "wchar_t *"
+.Fo fgetws_l
+.Fa "wchar_t *restrict ws"
+.Fa "int n"
+.Fa "FILE *restrict stream"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fgetws
@@ -53,7 +68,7 @@ function
 reads at most one less than the number of characters specified by
 .Fa n
 from the given
-.Fa fp
+.Fa stream
 and stores them in the wide character string
 .Fa ws .
 Reading stops when a newline character is found,
@@ -62,6 +77,14 @@ The newline, if any, is retained.
 If any characters are read and there is no error, a
 .Ql \e0
 character is appended to end the string.
+.Pp
+While the
+.Fn fgetws
+function uses the current locale, the
+.Fn fgetws_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 Upon successful completion,
 .Fn fgetws
@@ -80,7 +103,8 @@ and the buffer contents are indeterminate.
 The
 .Fn fgetws
 function
-does not distinguish between end-of-file and error, and callers must use
+does not distinguish between end-of-file and error;
+callers must use
 .Xr feof 3
 and
 .Xr ferror 3
@@ -92,7 +116,7 @@ function will fail if:
 .Bl -tag -width Er
 .It Bq Er EBADF
 The given
-.Fa fp
+.Fa stream
 argument is not a readable stream.
 .It Bq Er EILSEQ
 The data obtained from the input stream does not form a valid
@@ -112,7 +136,8 @@ or
 .Sh SEE ALSO
 .Xr feof 3 ,
 .Xr ferror 3 ,
-.Xr fgets 3
+.Xr fgets 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn fgetws

@@ -61,7 +61,7 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
 
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    if (!platformData().size())
+    if (!glyph || !platformData().size())
         return 0;
 
     QVector<quint32> glyphIndexes;
@@ -113,6 +113,7 @@ void SimpleFontData::platformGlyphInit()
     if (!m_platformData.size())
         return;
     m_spaceGlyph = 0;
+    m_adjustedSpaceWidth = m_spaceWidth;
     determinePitch();
     m_missingGlyphData.fontData = this;
     m_missingGlyphData.glyph = 0;
@@ -133,7 +134,7 @@ void SimpleFontData::platformInit()
     float descent = rawFont.descent();
     float ascent = rawFont.ascent();
     float xHeight = rawFont.xHeight();
-    float lineSpacing = ascent + descent + rawFont.leading() + 1;
+    float lineSpacing = ascent + descent + rawFont.leading();
 
     QVector<quint32> indexes = rawFont.glyphIndexesForString(QLatin1String(" "));
     QVector<QPointF> advances = rawFont.advancesForGlyphIndexes(indexes);
@@ -147,9 +148,11 @@ void SimpleFontData::platformInit()
     float spaceWidth = fm.width(QLatin1Char(' '));
 #endif
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
     // Qt subtracts 1 from the descent to account for the baseline,
     // we add it back here to get correct metrics for WebKit.
     descent += 1;
+#endif
 
     // The line spacing should always be >= (ascent + descent), but this
     // may be false in some cases due to misbehaving platform libraries.
@@ -162,7 +165,8 @@ void SimpleFontData::platformInit()
     float lineGap = lineSpacing - ascent - descent;
 
     m_fontMetrics.setAscent(ascent);
-    m_fontMetrics.setDescent(descent);
+    // WebKit expects the descent to be positive.
+    m_fontMetrics.setDescent(qAbs(descent));
     m_fontMetrics.setLineSpacing(lineSpacing);
     m_fontMetrics.setXHeight(xHeight);
     m_fontMetrics.setLineGap(lineGap);

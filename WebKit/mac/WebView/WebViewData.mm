@@ -31,15 +31,35 @@
 
 #import "WebKitLogging.h"
 #import "WebPreferenceKeysPrivate.h"
+#import <WebCore/AlternativeTextUIController.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/HistoryItem.h>
+#import <WebCore/RunLoop.h>
 #import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/MainThread.h>
-#import <wtf/Threading.h>
 
 BOOL applicationIsTerminating = NO;
 int pluginDatabaseClientCount = 0;
+
+#if USE(ACCELERATED_COMPOSITING)
+void LayerFlushController::scheduleLayerFlush()
+{
+    m_layerFlushScheduler.schedule();
+}
+
+void LayerFlushController::invalidateObserver()
+{
+    m_layerFlushScheduler.invalidate();
+}
+
+LayerFlushController::LayerFlushController(WebView* webView)
+    : m_webView(webView)
+    , m_layerFlushScheduler(this)
+{
+    ASSERT_ARG(webView, webView);
+}
+#endif
 
 @implementation WebViewPrivate
 
@@ -47,6 +67,7 @@ int pluginDatabaseClientCount = 0;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -79,6 +100,10 @@ int pluginDatabaseClientCount = 0;
 
 
     pluginDatabaseClientCount++;
+
+#if USE(DICTATION_ALTERNATIVES)
+    m_alternativeTextUIController = adoptPtr(new WebCore::AlternativeTextUIController);
+#endif
 
     return self;
 }

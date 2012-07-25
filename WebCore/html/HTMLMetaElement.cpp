@@ -42,38 +42,46 @@ PassRefPtr<HTMLMetaElement> HTMLMetaElement::create(const QualifiedName& tagName
     return adoptRef(new HTMLMetaElement(tagName, document));
 }
 
-void HTMLMetaElement::parseMappedAttribute(Attribute* attr)
+void HTMLMetaElement::parseAttribute(Attribute* attr)
 {
-    if (attr->name() == http_equivAttr) {
-        m_equiv = attr->value();
+    if (attr->name() == http_equivAttr)
         process();
-    } else if (attr->name() == contentAttr) {
-        m_content = attr->value();
+    else if (attr->name() == contentAttr)
         process();
-    } else if (attr->name() == nameAttr) {
-        // Do nothing.
+    else if (attr->name() == nameAttr) {
+        // Do nothing
     } else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::parseAttribute(attr);
 }
 
-void HTMLMetaElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLMetaElement::insertedInto(Node* insertionPoint)
 {
-    HTMLElement::insertedIntoDocument();
-    process();
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint->inDocument())
+        process();
+    return InsertionDone;
 }
 
 void HTMLMetaElement::process()
 {
-    if (!inDocument() || m_content.isNull())
+    if (!inDocument())
+        return;
+
+    const AtomicString& contentValue = fastGetAttribute(contentAttr);
+    if (contentValue.isNull())
         return;
 
     if (equalIgnoringCase(name(), "viewport"))
-        document()->processViewport(m_content);
+        document()->processViewport(contentValue);
+
+    if (equalIgnoringCase(name(), "referrer"))
+        document()->processReferrerPolicy(contentValue);
 
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while
     // it's not in the tree shouldn't have any effect on the document)
-    if (!m_equiv.isNull())
-        document()->processHttpEquiv(m_equiv, m_content);
+    const AtomicString& httpEquivValue = fastGetAttribute(http_equivAttr);
+    if (!httpEquivValue.isNull())
+        document()->processHttpEquiv(httpEquivValue, contentValue);
 }
 
 String HTMLMetaElement::content() const
@@ -88,7 +96,19 @@ String HTMLMetaElement::httpEquiv() const
 
 String HTMLMetaElement::name() const
 {
-    return getAttribute(nameAttr);
+    return getNameAttribute();
 }
+
+#if ENABLE(MICRODATA)
+String HTMLMetaElement::itemValueText() const
+{
+    return getAttribute(contentAttr);
+}
+
+void HTMLMetaElement::setItemValueText(const String& value, ExceptionCode&)
+{
+    setAttribute(contentAttr, value);
+}
+#endif
 
 }

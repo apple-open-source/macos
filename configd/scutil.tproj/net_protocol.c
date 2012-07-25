@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,10 +66,7 @@ __copyIPv4Address(const char *arg)
 	char			buf[128];
 	struct sockaddr_in	sin;
 
-	bzero(&sin, sizeof(sin));
-	sin.sin_len    = sizeof(sin);
-	sin.sin_family = AF_INET;
-	if (inet_aton(arg, &sin.sin_addr) != 1) {
+	if (_SC_string_to_sockaddr(arg, AF_INET, (void *)&sin, sizeof(sin)) == NULL) {
 		return NULL;
 	}
 
@@ -82,19 +79,10 @@ static CFStringRef
 __copyIPv6Address(const char *arg)
 {
 	char			buf[128];
-	char			*p;
 	struct sockaddr_in6	sin6;
 
-	bzero(&sin6, sizeof(sin6));
-	sin6.sin6_len    = sizeof(sin6);
-	sin6.sin6_family = AF_INET6;
-	if (inet_pton(AF_INET6, arg, &sin6.sin6_addr) != 1) {
+	if (_SC_string_to_sockaddr(arg, AF_INET6, (void *)&sin6, sizeof(sin6)) == NULL) {
 		return NULL;
-	}
-
-	p = strchr(arg, '%');
-	if (p != NULL) {
-		sin6.sin6_scope_id = if_nametoindex(p + 1);
 	}
 
 	_SC_sockaddr_to_string((struct sockaddr *)&sin6, buf, sizeof(buf));
@@ -421,7 +409,7 @@ select_protocol(int argc, char **argv)
 #pragma mark DNS
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 __cleanupDomainName(CFStringRef domain)
 {
 	CFMutableStringRef	newDomain;
@@ -1173,6 +1161,7 @@ __doProxyPort(CFStringRef key, const char *description, void *info, int argc, ch
 		    !CFNumberGetValue(num, kCFNumberIntType, &port) ||
 		    (port < 0) || (port > 65535)) {
 			SCPrint(TRUE, stdout, CFSTR("invalid %s proxy port number\n"), currentProxy->proxy);
+			if (num != NULL) CFRelease(num);
 			return -1;
 		}
 
@@ -1257,7 +1246,7 @@ set_protocol_proxies(int argc, char **argv, CFMutableDictionaryRef newConfigurat
 #if	!TARGET_OS_IPHONE
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 __cleanupName(CFStringRef name)
 {
 	CFMutableStringRef	newName;
@@ -1628,7 +1617,7 @@ show_protocols(int argc, char **argv)
 
 
 __private_extern__
-CFStringRef
+CF_RETURNS_RETAINED CFStringRef
 _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 {
 	CFDictionaryRef		configuration;

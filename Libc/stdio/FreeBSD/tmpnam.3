@@ -32,7 +32,7 @@
 .\"     @(#)tmpnam.3	8.2 (Berkeley) 11/17/93
 .\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.20 2007/03/16 21:46:24 maxim Exp $
 .\"
-.Dd March 18, 2007
+.Dd November 12, 2008
 .Dt TMPFILE 3
 .Os
 .Sh NAME
@@ -45,11 +45,18 @@
 .Sh SYNOPSIS
 .In stdio.h
 .Ft FILE *
-.Fn tmpfile void
+.Fo tmpfile
+.Fa "void"
+.Fc
 .Ft char *
-.Fn tmpnam "char *str"
+.Fo tmpnam
+.Fa "char *s"
+.Fc
 .Ft char *
-.Fn tempnam "const char *tmpdir" "const char *prefix"
+.Fo tempnam
+.Fa "const char *dir"
+.Fa "const char *pfx"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn tmpfile
@@ -63,12 +70,13 @@ returns, causing the file to be automatically deleted when the last
 reference to it is closed.
 The file is opened with the access value
 .Ql w+ .
-The file is created in the directory determined by the environment variable
+If the environment variable
 .Ev TMPDIR
-if set.
-The default location if
+is defined,
+the file is created in the specified directory.
+The default location, if
 .Ev TMPDIR
-is not set is
+is not set, is
 .Pa /tmp .
 .Pp
 The
@@ -83,7 +91,7 @@ past.
 is defined in the include file
 .In stdio.h .
 If the argument
-.Fa str
+.Fa s
 is
 .Pf non- Dv NULL ,
 the file name is copied to the buffer it references.
@@ -93,7 +101,7 @@ In either case,
 returns a pointer to the file name.
 .Pp
 The buffer referenced by
-.Fa str
+.Fa s
 is expected to be at least
 .Dv L_tmpnam
 bytes in length.
@@ -109,21 +117,23 @@ is similar to
 but provides the ability to specify the directory which will
 contain the temporary file and the file name prefix.
 .Pp
-The environment variable
-.Ev TMPDIR
-(if set), the argument
-.Fa tmpdir
+The argument
+.Fa dir
 (if
 .Pf non- Dv NULL ) ,
 the directory
 .Dv P_tmpdir ,
-and the directory
+the environment variable
+.Ev TMPDIR
+(if set),
+the directory
 .Pa /tmp
+and finally, the current directory,
 are tried, in the listed order, as directories in which to store the
 temporary file.
 .Pp
 The argument
-.Fa prefix ,
+.Fa pfx ,
 if
 .Pf non- Dv NULL ,
 is used to specify a file name prefix, which will be the
@@ -235,6 +245,12 @@ It is strongly suggested that
 be used in place of these functions.
 (See
 the FSA.)
+.Sh LEGACY DESCRIPTION
+In legacy mode, the order directories are tried by the
+.Fn tempnam
+function is different; the environment variable
+.Ev TMPDIR
+(if defined) is used first.
 .Sh SEE ALSO
 .Xr mkstemp 3 ,
 .Xr mktemp 3

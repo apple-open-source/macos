@@ -24,8 +24,6 @@
 #include "SVGPolylineElement.h"
 #include "SVGNames.h"
 
-#include "Path.h"
-
 namespace WebCore {
 
 inline SVGPolylineElement::SVGPolylineElement(const QualifiedName& tagName, Document* document)
@@ -37,21 +35,6 @@ inline SVGPolylineElement::SVGPolylineElement(const QualifiedName& tagName, Docu
 PassRefPtr<SVGPolylineElement> SVGPolylineElement::create(const QualifiedName& tagName, Document* document)
 {
     return adoptRef(new SVGPolylineElement(tagName, document));
-}
-
-void SVGPolylineElement::toPathData(Path& path) const
-{
-    ASSERT(path.isEmpty());
-
-    SVGPointList& points = pointList();
-    if (points.isEmpty())
-        return;
-
-    path.moveTo(points.first());
-
-    unsigned size = points.size();
-    for (unsigned i = 1; i < size; ++i)
-        path.addLineTo(points.at(i));
 }
 
 }

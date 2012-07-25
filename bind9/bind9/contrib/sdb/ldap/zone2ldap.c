@@ -328,8 +328,6 @@ main (int *argc, char **argv)
   isc_hash_destroy();
   isc_entropy_detach(&ectx);
   isc_mem_destroy(&mctx);
-  if (zonefile)
-	free(zonefile);
 
   return 0;
 }

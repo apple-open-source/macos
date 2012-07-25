@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2011, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,14 +33,15 @@
 
 #include "WebDragOperation.h"
 #include "WebPageVisibilityState.h"
-#include "WebString.h"
-#include "WebVector.h"
 #include "WebWidget.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
 class WebAccessibilityObject;
-class WebAutoFillClient;
+class WebAutofillClient;
+class WebBatteryStatus;
 class WebDevToolsAgent;
 class WebDevToolsAgentClient;
 class WebDragData;
@@ -48,19 +49,27 @@ class WebFrame;
 class WebFrameClient;
 class WebGraphicsContext3D;
 class WebNode;
+class WebPageOverlay;
 class WebPermissionClient;
+class WebPrerendererClient;
+class WebRange;
 class WebSettings;
 class WebSpellCheckClient;
 class WebString;
+class WebTextFieldDecoratorClient;
 class WebViewClient;
+struct WebActiveWheelFlingParameters;
 struct WebMediaPlayerAction;
+struct WebPluginAction;
 struct WebPoint;
 
 class WebView : public WebWidget {
 public:
-    WEBKIT_API static const double textSizeMultiplierRatio;
-    WEBKIT_API static const double minTextSizeMultiplier;
-    WEBKIT_API static const double maxTextSizeMultiplier;
+    WEBKIT_EXPORT static const double textSizeMultiplierRatio;
+    WEBKIT_EXPORT static const double minTextSizeMultiplier;
+    WEBKIT_EXPORT static const double maxTextSizeMultiplier;
+    WEBKIT_EXPORT static const float minPageScaleFactor;
+    WEBKIT_EXPORT static const float maxPageScaleFactor;
 
     // Controls the time that user scripts injected into the document run.
     enum UserScriptInjectAt {
@@ -86,7 +95,7 @@ public:
     // Creates a WebView that is NOT yet initialized.  You will need to
     // call initializeMainFrame to finish the initialization.  It is valid
     // to pass null client pointers.
-    WEBKIT_API static WebView* create(WebViewClient*);
+    WEBKIT_EXPORT static WebView* create(WebViewClient*);
 
     // After creating a WebView, you should immediately call this method.
     // You can optionally modify the settings before calling this method.
@@ -95,10 +104,14 @@ public:
     virtual void initializeMainFrame(WebFrameClient*) = 0;
 
     // Initializes the various client interfaces.
-    virtual void setAutoFillClient(WebAutoFillClient*) = 0;
+    virtual void setAutofillClient(WebAutofillClient*) = 0;
     virtual void setDevToolsAgentClient(WebDevToolsAgentClient*) = 0;
     virtual void setPermissionClient(WebPermissionClient*) = 0;
+    // FIXME: After the Prerendering API lands in chrome, remove this staging thunk
+    // for setPrerendererClient().
+    virtual void setPrerendererClient(WebPrerendererClient*) { }
     virtual void setSpellCheckClient(WebSpellCheckClient*) = 0;
+    virtual void addTextFieldDecoratorClient(WebTextFieldDecoratorClient*) = 0;
 
 
     // Options -------------------------------------------------------------
@@ -174,6 +187,10 @@ public:
     // Scrolls the node currently in focus into view.
     virtual void scrollFocusedNodeIntoView() = 0;
 
+    // Scrolls the node currently in focus into |rect|, where |rect| is in
+    // window space.
+    virtual void scrollFocusedNodeIntoRect(const WebRect&) { }
+
 
     // Zoom ----------------------------------------------------------------
 
@@ -200,15 +217,73 @@ public:
 
     // Helper functions to convert between zoom level and zoom factor.  zoom
     // factor is zoom percent / 100, so 300% = 3.0.
-    WEBKIT_API static double zoomLevelToZoomFactor(double zoomLevel);
-    WEBKIT_API static double zoomFactorToZoomLevel(double factor);
+    WEBKIT_EXPORT static double zoomLevelToZoomFactor(double zoomLevel);
+    WEBKIT_EXPORT static double zoomFactorToZoomLevel(double factor);
 
+    // Gets the scale factor of the page, where 1.0 is the normal size, > 1.0
+    // is scaled up, < 1.0 is scaled down.
+    virtual float pageScaleFactor() const = 0;
+
+    // Indicates whether the page scale factor has been set since navigating
+    // to a new page.
+    virtual bool isPageScaleFactorSet() const = 0;
+
+    // Scales the page and the scroll offset by a given factor, while ensuring
+    // that the new scroll position does not go beyond the edge of the page.
+    virtual void setPageScaleFactorPreservingScrollOffset(float) = 0;
+
+    // Scales a page by a factor of scaleFactor and then sets a scroll position to (x, y).
+    // setPageScaleFactor() magnifies and shrinks a page without affecting layout.
+    // On the other hand, zooming affects layout of the page.
+    virtual void setPageScaleFactor(float scaleFactor, const WebPoint& origin) = 0;
+
+    // PageScaleFactor will be force-clamped between minPageScale and maxPageScale
+    // (and these values will persist until setPageScaleFactorLimits is called
+    // again).
+    virtual void setPageScaleFactorLimits(float minPageScale, float maxPageScale) = 0;
+
+    virtual float minimumPageScaleFactor() const = 0;
+    virtual float maximumPageScaleFactor() const = 0;
+
+    // The ratio of the current device's screen DPI to the target device's screen DPI.
+    virtual float deviceScaleFactor() const = 0;
+
+    // Sets the ratio as computed by computeViewportAttributes.
+    virtual void setDeviceScaleFactor(float) = 0;
+
+
+    // Fixed Layout --------------------------------------------------------
+
+    // In fixed layout mode, the layout of the page is independent of the
+    // view port size, given by WebWidget::size().
+
+    virtual bool isFixedLayoutModeEnabled() const = 0;
+    virtual void enableFixedLayoutMode(bool enable) = 0;
+
+    virtual WebSize fixedLayoutSize() const = 0;
+    virtual void setFixedLayoutSize(const WebSize&) = 0;
+
+
+    // Auto-Resize -----------------------------------------------------------
+
+    // In auto-resize mode, the view is automatically adjusted to fit the html
+    // content within the given bounds.
+    virtual void enableAutoResizeMode(
+        const WebSize& minSize,
+        const WebSize& maxSize) = 0;
+
+    // Turn off auto-resize.
+    virtual void disableAutoResizeMode() = 0;
 
     // Media ---------------------------------------------------------------
 
-    // Performs the specified action on the node at the given location.
+    // Performs the specified media player action on the node at the given location.
     virtual void performMediaPlayerAction(
         const WebMediaPlayerAction&, const WebPoint& location) = 0;
+
+    // Performs the specified plugin action on the node at the given location.
+    virtual void performPluginAction(
+        const WebPluginAction&, const WebPoint& location) = 0;
 
 
     // Data exchange -------------------------------------------------------
@@ -277,22 +352,19 @@ public:
     virtual WebAccessibilityObject accessibilityObject() = 0;
 
 
-    // AutoFill  -----------------------------------------------------------
+    // Autofill  -----------------------------------------------------------
 
-    // Notifies the WebView that AutoFill suggestions are available for a node.
-    // |uniqueIDs| is a vector of IDs that represent the unique ID of each
-    // AutoFill profile in the suggestions popup.  If a unique ID is 0, then the
-    // corresponding suggestion comes from Autocomplete rather than AutoFill.
-    // If a unique ID is negative, then the corresponding "suggestion" is
-    // actually a user-facing warning, e.g. explaining why AutoFill is
-    // unavailable for the current form.
-    virtual void applyAutoFillSuggestions(
+    // Notifies the WebView that Autofill suggestions are available for a node.
+    // |itemIDs| is a vector of IDs for the menu items. A positive itemID is a
+    // unique ID for the Autofill entries. Other MenuItemIDs are defined in
+    // WebAutofillClient.h
+    virtual void applyAutofillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
         const WebVector<WebString>& icons,
-        const WebVector<int>& uniqueIDs,
-        int separatorIndex) = 0;
+        const WebVector<int>& itemIDs,
+        int separatorIndex = -1) = 0;
 
     // Hides any popup (suggestions, selects...) that might be showing.
     virtual void hidePopups() = 0;
@@ -306,18 +378,18 @@ public:
     // Popup menu ----------------------------------------------------------
 
     // Sets whether select popup menus should be rendered by the browser.
-    WEBKIT_API static void setUseExternalPopupMenus(bool);
+    WEBKIT_EXPORT static void setUseExternalPopupMenus(bool);
 
 
     // Visited link state --------------------------------------------------
 
     // Tells all WebView instances to update the visited link state for the
     // specified hash.
-    WEBKIT_API static void updateVisitedLinkState(unsigned long long hash);
+    WEBKIT_EXPORT static void updateVisitedLinkState(unsigned long long hash);
 
     // Tells all WebView instances to update the visited state for all
     // their links.
-    WEBKIT_API static void resetVisitedLinkState();
+    WEBKIT_EXPORT static void resetVisitedLinkState();
 
 
     // Custom colors -------------------------------------------------------
@@ -332,22 +404,22 @@ public:
                                     unsigned inactiveForegroundColor) = 0;
 
     // User scripts --------------------------------------------------------
-    WEBKIT_API static void addUserScript(const WebString& sourceCode,
-                                         const WebVector<WebString>& patterns,
-                                         UserScriptInjectAt injectAt,
-                                         UserContentInjectIn injectIn);
-    WEBKIT_API static void addUserStyleSheet(const WebString& sourceCode,
-                                             const WebVector<WebString>& patterns,
-                                             UserContentInjectIn injectIn,
-                                             UserStyleInjectionTime injectionTime = UserStyleInjectInSubsequentDocuments);
-    WEBKIT_API static void removeAllUserContent();
+    WEBKIT_EXPORT static void addUserScript(const WebString& sourceCode,
+                                            const WebVector<WebString>& patterns,
+                                            UserScriptInjectAt injectAt,
+                                            UserContentInjectIn injectIn);
+    WEBKIT_EXPORT static void addUserStyleSheet(const WebString& sourceCode,
+                                                const WebVector<WebString>& patterns,
+                                                UserContentInjectIn injectIn,
+                                                UserStyleInjectionTime injectionTime = UserStyleInjectInSubsequentDocuments);
+    WEBKIT_EXPORT static void removeAllUserContent();
 
     // Modal dialog support ------------------------------------------------
 
     // Call these methods before and after running a nested, modal event loop
     // to suspend script callbacks and resource loads.
-    WEBKIT_API static void willEnterModalLoop();
-    WEBKIT_API static void didExitModalLoop();
+    WEBKIT_EXPORT static void willEnterModalLoop();
+    WEBKIT_EXPORT static void didExitModalLoop();
 
     // GPU acceleration support --------------------------------------------
 
@@ -358,11 +430,44 @@ public:
     // APIs.
     virtual WebGraphicsContext3D* graphicsContext3D() = 0;
 
+    // Context that's in the compositor's share group, but is not the compositor context itself.
+    // Can be used for allocating resources that the compositor will later access.
+    virtual WebGraphicsContext3D* sharedGraphicsContext3D() = 0;
+
+    // Called to inform the WebView that a wheel fling animation was started externally (for instance
+    // by the compositor) but must be completed by the WebView.
+    virtual void transferActiveWheelFlingAnimation(const WebActiveWheelFlingParameters&) = 0;
+
     // Visibility -----------------------------------------------------------
 
     // Sets the visibility of the WebView.
     virtual void setVisibilityState(WebPageVisibilityState visibilityState,
                                     bool isInitialState) { }
+
+    // PageOverlay ----------------------------------------------------------
+
+    // Adds/removes page overlay to this WebView. These functions change the
+    // graphical appearance of the WebView. WebPageOverlay paints the
+    // contents of the page overlay. It also provides an z-order number for
+    // the page overlay. The z-order number defines the paint order the page
+    // overlays. Page overlays with larger z-order number will be painted after
+    // page overlays with smaller z-order number. That is, they appear above
+    // the page overlays with smaller z-order number. If two page overlays have
+    // the same z-order number, the later added one will be on top.
+    virtual void addPageOverlay(WebPageOverlay*, int /*z-order*/) = 0;
+    virtual void removePageOverlay(WebPageOverlay*) = 0;
+
+    // Battery status API support -------------------------------------------
+
+    // Updates the battery status in the BatteryClient. This also triggers the
+    // appropriate JS events (e.g. sends a 'levelchange' event to JS if the
+    // level is changed in this update from the previous update).
+    virtual void updateBatteryStatus(const WebBatteryStatus&) { }
+
+    // Testing functionality for LayoutTestController -----------------------
+
+    // Simulates a compositor lost context.
+    virtual void loseCompositorContext(int numTimes) = 0;
 
 protected:
     ~WebView() {}

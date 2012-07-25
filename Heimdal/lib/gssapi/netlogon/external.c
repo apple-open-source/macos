@@ -91,36 +91,3 @@ __gss_netlogon_initialize(void)
 {
     return &netlogon_mech;
 }
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_netlogon_mechanism_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x02") };
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_netlogon_set_session_key_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\03")};
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_netlogon_set_sign_algorithm_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\04")};
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_netlogon_nt_netbios_dns_name_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x05")};
-
-/*
- * compat
- */
-
-#undef GSS_NETLOGON_MECHANISM
-GSSAPI_LIB_VARIABLE gss_OID GSS_NETLOGON_MECHANISM =
-    &__gss_netlogon_mechanism_oid_desc;
-
-#undef GSS_NETLOGON_NT_NETBIOS_DNS_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_NETLOGON_NT_NETBIOS_DNS_NAME =
-    &__gss_netlogon_nt_netbios_dns_name_oid_desc;
-
-#undef GSS_NETLOGON_SET_SESSION_KEY_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_NETLOGON_SET_SESSION_KEY_X =
-    &__gss_netlogon_set_session_key_x_oid_desc;
-
-#undef GSS_NETLOGON_SET_SIGN_ALGORITHM_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_NETLOGON_SET_SIGN_ALGORITHM_X =
-    &__gss_netlogon_set_sign_algorithm_x_oid_desc;
-

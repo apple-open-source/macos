@@ -1,4 +1,5 @@
 # Copyright (C) 2011 Apple Inc. All rights reserved.
+# Copyright (C) 2012 Sony Network Entertainment. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -26,6 +27,15 @@ import string
 import operator
 
 keywordsText = open(sys.argv[1]).read()
+
+# A second argument signifies that the output
+# should be redirected to a file
+redirect_to_file = len(sys.argv) > 2
+
+# Change stdout to point to the file if requested
+if redirect_to_file:
+    file_output = open(sys.argv[-1], "w")
+    sys.stdout = file_output
 
 # Observed weights of the most common keywords, rounded to 2.s.d
 keyWordWeights = {
@@ -169,7 +179,8 @@ class Trie:
     def printAsC(self):
         print("namespace JSC {")
         print("")
-        print("static ALWAYS_INLINE bool isIdentPart(int c);")
+        print("static ALWAYS_INLINE bool isIdentPart(LChar c);")
+        print("static ALWAYS_INLINE bool isIdentPart(UChar c);")
         # max length + 1 so we don't need to do any bounds checking at all
         print("static const int maxTokenLength = %d;" % (self.maxLength() + 1))
         print("")
@@ -287,3 +298,8 @@ print("""
 """)
 
 trie.printAsC()
+
+# Close the redirected file if requested
+if (redirect_to_file):
+    file_output.close()
+    sys.stdout = sys.__stdout__

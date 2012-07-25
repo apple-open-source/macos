@@ -29,7 +29,6 @@
 #include "ChromeClientQt.h"
 #include "FrameView.h"
 #include "PopupMenuClient.h"
-#include "QtFallbackWebPopup.h"
 
 #include "qwebkitplatformplugin.h"
 
@@ -58,12 +57,7 @@ bool SelectData::multiple() const
     if (!d)
         return false;
 
-#if ENABLE(NO_LISTBOX_RENDERING)
-    WebCore::ListPopupMenuClient* client = static_cast<WebCore::ListPopupMenuClient*>(d);
-    return client && client->multiple();
-#else
-    return false;
-#endif
+    return d->multiple();
 }
 
 SelectData::ItemType SelectData::itemType(int idx) const
@@ -97,7 +91,6 @@ void PopupMenuQt::disconnectClient()
 
 void PopupMenuQt::show(const IntRect& rect, FrameView* view, int index)
 {
-#ifndef QT_NO_COMBOBOX
     if (!m_popupClient)
         return;
 
@@ -107,16 +100,13 @@ void PopupMenuQt::show(const IntRect& rect, FrameView* view, int index)
         connect(m_popup.get(), SIGNAL(selectItem(int, bool, bool)), this, SLOT(selectItem(int, bool, bool)));
     }
 
-    if (QtFallbackWebPopup* fallback = qobject_cast<QtFallbackWebPopup*>(m_popup.get())) {
-        QRect geometry(rect);
-        geometry.moveTopLeft(view->contentsToWindow(rect.location()));
-        fallback->setGeometry(geometry);
-        fallback->setFont(m_popupClient->menuStyle().font().font());
-    }
+    QRect geometry(rect);
+    geometry.moveTopLeft(view->contentsToWindow(rect.location()));
+    m_popup->setGeometry(geometry);
+    m_popup->setFont(m_popupClient->menuStyle().font().syntheticFont());
 
     m_selectData = adoptPtr(new SelectData(m_popupClient));
     m_popup->show(*m_selectData.get());
-#endif
 }
 
 void PopupMenuQt::didHide()
@@ -142,13 +132,8 @@ void PopupMenuQt::selectItem(int index, bool ctrl, bool shift)
     if (!m_popupClient)
         return;
 
-#if ENABLE(NO_LISTBOX_RENDERING)
-    ListPopupMenuClient* client = static_cast<ListPopupMenuClient*>(m_popupClient);
-    if (client) {
-        client->listBoxSelectItem(index, ctrl, shift);
-        return;
-    }
-#endif
+    m_popupClient->listBoxSelectItem(index, ctrl, shift);
+    return;
 
     m_popupClient->valueChanged(index);
 }

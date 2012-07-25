@@ -44,12 +44,9 @@
 #include <pthread.h>
 #include <notify.h>
 #include <sys/time.h>
-#include <asl.h>
+#include "daemon.h"
 #include "asl_ipc.h"
 #include "asl_ipcServer.h"
-#include <asl_core.h>
-#include <asl_store.h>
-#include "daemon.h"
 
 #define forever for(;;)
 
@@ -61,7 +58,9 @@
 #define SEARCH_FORWARD 1
 #define SEARCH_BACKWARD -1
 
-static pthread_mutex_t db_lock = PTHREAD_MUTEX_INITIALIZER;
+#define MAX_AGAIN 100
+
+static dispatch_queue_t asl_server_queue;
 
 extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
 extern asl_search_result_t *asl_list_from_string(const char *buf);
@@ -88,25 +87,13 @@ typedef union
 	union __ReplyUnion__asl_ipc_subsystem reply;
 } asl_reply_msg;
 
-void
-db_ping_store(void)
-{
-	if ((global.dbtype & DB_TYPE_FILE) && (global.file_db != NULL))
-	{
-		global.store_flags |= STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED;
-
-		/* wake up the output worker thread */
-		pthread_cond_signal(&global.work_queue_cond);
-	}
-}
-
-void
-db_asl_open()
+static void
+db_asl_open(uint32_t dbtype)
 {
 	uint32_t status;
 	struct stat sb;
 
-	if ((global.dbtype & DB_TYPE_FILE) && (global.file_db == NULL))
+	if ((dbtype & DB_TYPE_FILE) && (global.file_db == NULL))
 	{
 		memset(&sb, 0, sizeof(struct stat));
 		if (stat(PATH_ASL_STORE, &sb) == 0)
@@ -159,7 +146,7 @@ db_asl_open()
 		}
 	}
 
-	if ((global.dbtype & DB_TYPE_MEMORY) && (global.memory_db == NULL))
+	if ((dbtype & DB_TYPE_MEMORY) && (global.memory_db == NULL))
 	{
 		status = asl_memory_open(global.db_memory_max, &(global.memory_db));
 		if (status != ASL_STATUS_OK)
@@ -168,7 +155,7 @@ db_asl_open()
 		}
 	}
 
-	if ((global.dbtype & DB_TYPE_MINI) && (global.mini_db == NULL))
+	if ((dbtype & DB_TYPE_MINI) && (global.mini_db == NULL))
 	{
 		status = asl_mini_memory_open(global.db_mini_max, &(global.mini_db));
 		if (status != ASL_STATUS_OK)
@@ -178,89 +165,77 @@ db_asl_open()
 	}
 }
 
-/*
- * Takes messages off the work queue and saves them.
- * Runs in it's own thread.
- */
-void
-output_worker()
-{
-	aslmsg *work;
-	uint32_t i, count;
-	mach_msg_empty_send_t *empty;
-	kern_return_t kstatus;
-
-	empty = (mach_msg_empty_send_t *)calloc(1, sizeof(mach_msg_empty_send_t));
-	if (empty == NULL) return;
-
-	forever
-	{
-		count = 0;
-
-		/* blocks until work is available */
-		work = work_dequeue(&count);
-
-		if (work == NULL)
-		{
-			if ((global.dbtype & DB_TYPE_FILE) && (global.store_flags & STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED))
-			{
-				asl_store_sweep_file_cache(global.file_db);
-				global.store_flags &= ~STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED;
-			}
-
-			continue;
-		}
-
-		for (i = 0; i < count; i++)
-		{
-			asl_message_match_and_log(work[i]);
-			asl_free(work[i]);
-		}
-
-		free(work);
-
-		if (global.store_flags & STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED)
-		{
-			asl_store_sweep_file_cache(global.file_db);
-			global.store_flags &= ~STORE_FLAGS_FILE_CACHE_SWEEP_REQUESTED;
-		}
-
-		empty->header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
-		empty->header.msgh_remote_port = global.self_port;
-		empty->header.msgh_local_port = MACH_PORT_NULL;
-		empty->header.msgh_size = sizeof(mach_msg_empty_send_t);
-		empty->header.msgh_id = SEND_NOTIFICATION;
-
-		kstatus = mach_msg(&(empty->header), MACH_SEND_MSG | MACH_SEND_TIMEOUT, empty->header.msgh_size, 0, MACH_PORT_NULL, 100, MACH_PORT_NULL);
-	}
-}
-
 void
 send_to_direct_watchers(asl_msg_t *msg)
 {
-	uint32_t i, j, nlen, outlen, cleanup, total_sent;
+	uint32_t i, j, nlen, outlen, cleanup, total_sent, again;
 	ssize_t sent;
 	char *out;
 
 #ifdef LOCKDOWN
+	static struct timeval last_time;
+
 	if (global.lockdown_session_fd >= 0)
 	{
-		/* PurpleConsole eats newlines */
-		out = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &outlen);
-		if ((write(global.lockdown_session_fd, "\n", 1) < 0) || 
-			(write(global.lockdown_session_fd, out, outlen) < 0) ||
-			(write(global.lockdown_session_fd, "\n", 1) < 0))
+		if (global.remote_delay_time > 0)
 		{
+			struct timeval now;
+			uint64_t delta;
+			
+			if (gettimeofday(&now, NULL) == 0)
+			{
+				if (last_time.tv_sec != 0)
+				{
+					if (now.tv_sec > last_time.tv_sec)
+					{
+						now.tv_sec -= 1;
+						now.tv_usec += 1000000;
+					}
+					
+					delta = now.tv_sec - last_time.tv_sec;
+					delta *= 1000000;
+					delta += (now.tv_usec - last_time.tv_usec);
+					if (delta < global.remote_delay_time)
+					{
+						usleep(delta);
+					}
+				}
+
+				if (now.tv_usec >= 1000000)
+				{
+					now.tv_sec += 1;
+					now.tv_usec -= 1000000;
+				}
+
+				last_time = now;
+			}
+		}
+
+		out = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &outlen);
+		if ((write(global.lockdown_session_fd, out, outlen) < 0) || (write(global.lockdown_session_fd, "\n", 1) < 0))
+		{
+			asldebug("send_to_direct_watchers: lockdown write error: %d %s\n", errno, strerror(errno));
 			close(global.lockdown_session_fd);
 			global.lockdown_session_fd = -1;
 			global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
 		}
 
 		free(out);
+
 	}
 #endif
 
-	if (direct_watch_count == 0) return;
+	if (direct_watch_count == 0)
+	{
+		direct_watch = NULL;
+		return;
+	}
+
+	if (direct_watch == NULL)
+	{
+		direct_watch_count = 0;
+		return;
+	}
 
 	cleanup = 0;
 	out = asl_msg_to_string(msg, &outlen);
@@ -281,11 +256,30 @@ send_to_direct_watchers(asl_msg_t *msg)
 		else
 		{
 			total_sent = 0;
+			again = 0;
+
 			while (total_sent < outlen)
 			{
+				errno = 0;
 				sent = send(direct_watch[i], out + total_sent, outlen - total_sent, 0);
-				if (sent < 0)
+				if (sent <= 0)
 				{
+					asldebug("send_to_direct_watchers: send returned %d (errno %d)\n", sent, errno);
+					if (errno == EAGAIN)
+					{
+						if (again > MAX_AGAIN)
+						{
+							asldebug("send_to_direct_watchers: exceeded EAGAIN limit - closing connection\n");
+							break;
+						}
+						else
+						{
+							again++;
+							errno = 0;
+							continue;
+						}
+					}
+
 					close(direct_watch[i]);
 					direct_watch[i] = -1;
 					cleanup = 1;
@@ -348,15 +342,32 @@ void
 db_save_message(aslmsg msg)
 {
 	uint64_t msgid;
-	uint32_t status;
+	uint32_t status, dbtype;
+	static int armed;
+	static dispatch_source_t timer_src;
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		timer_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+		dispatch_source_set_event_handler(timer_src, ^{
+			notify_post(kNotifyASLDBUpdate);
+			dispatch_suspend(timer_src);
+			armed = 0;
+		});
+		armed = 0;
+	});
 
 	send_to_direct_watchers((asl_msg_t *)msg);
 
-	pthread_mutex_lock(&db_lock);
+	dbtype = global.dbtype;
 
-	db_asl_open();
+	if (asl_check_option(msg, ASL_OPT_DB_FILE))   dbtype |= DB_TYPE_FILE;
+	if (asl_check_option(msg, ASL_OPT_DB_MINI))   dbtype |= DB_TYPE_MINI;
+	if (asl_check_option(msg, ASL_OPT_DB_MEMORY)) dbtype |= DB_TYPE_MEMORY;
 
-	if (global.dbtype & DB_TYPE_FILE)
+	db_asl_open(dbtype);
+
+	if (dbtype & DB_TYPE_FILE)
 	{
 		status = asl_store_save(global.file_db, msg);
 		if (status != ASL_STATUS_OK)
@@ -366,7 +377,7 @@ db_save_message(aslmsg msg)
 			asl_store_close(global.file_db);
 			global.file_db = NULL;
 
-			db_asl_open();
+			db_asl_open(dbtype);
 			status = asl_store_save(global.file_db, msg);
 			if (status != ASL_STATUS_OK)
 			{
@@ -375,6 +386,7 @@ db_save_message(aslmsg msg)
 				global.file_db = NULL;
 
 				global.dbtype |= DB_TYPE_MEMORY;
+				dbtype |= DB_TYPE_MEMORY;
 				if (global.memory_db == NULL)
 				{
 					status = asl_memory_open(global.db_memory_max, &(global.memory_db));
@@ -387,7 +399,7 @@ db_save_message(aslmsg msg)
 		}
 	}
 
-	if (global.dbtype & DB_TYPE_MEMORY)
+	if (dbtype & DB_TYPE_MEMORY)
 	{
 		msgid = 0;
 		status = asl_memory_save(global.memory_db, msg, &msgid);
@@ -398,7 +410,7 @@ db_save_message(aslmsg msg)
 			asl_memory_close(global.memory_db);
 			global.memory_db = NULL;
 
-			db_asl_open();
+			db_asl_open(dbtype);
 			msgid = 0;
 			status = asl_memory_save(global.memory_db, msg, &msgid);
 			if (status != ASL_STATUS_OK)
@@ -410,7 +422,7 @@ db_save_message(aslmsg msg)
 		}
 	}
 
-	if (global.dbtype & DB_TYPE_MINI)
+	if (dbtype & DB_TYPE_MINI)
 	{
 		status = asl_mini_memory_save(global.mini_db, msg, &msgid);
 		if (status != ASL_STATUS_OK)
@@ -420,7 +432,7 @@ db_save_message(aslmsg msg)
 			asl_mini_memory_close(global.mini_db);
 			global.mini_db = NULL;
 
-			db_asl_open();
+			db_asl_open(dbtype);
 			status = asl_mini_memory_save(global.mini_db, msg, &msgid);
 			if (status != ASL_STATUS_OK)
 			{
@@ -431,7 +443,12 @@ db_save_message(aslmsg msg)
 		}
 	}
 
-	pthread_mutex_unlock(&db_lock);
+	if (armed == 0)
+	{
+		armed = 1;
+		dispatch_source_set_timer(timer_src, dispatch_walltime(NULL, NSEC_PER_SEC / 2), DISPATCH_TIME_FOREVER, 0);
+		dispatch_resume(timer_src);
+	}
 }
 
 void
@@ -476,8 +493,6 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 	dir = SEARCH_FORWARD;
 	if (flags & QUERY_FLAG_SEARCH_REVERSE) dir = SEARCH_BACKWARD;
 
-	pthread_mutex_lock(&db_lock);
-
 	status = ASL_STATUS_FAILED;
 
 	if (global.dbtype & DB_TYPE_MEMORY)
@@ -493,8 +508,6 @@ db_query(aslresponse query, aslresponse *res, uint64_t startid, int count, int f
 		/* KernelEventAgent calls us to get the kernel disaster messages. */
 		status = asl_mini_memory_match(global.mini_db, query, res, lastid, startid, ucount, dir);
 	}
-
-	pthread_mutex_unlock(&db_lock);
 
 	return status;
 }
@@ -572,6 +585,7 @@ cancel_session(task_name_t task_name)
 static uint32_t
 register_direct_watch(uint16_t port)
 {
+#ifdef CONFIG_IPHONE
 	uint32_t i;
 	int sock, flags;
 	struct sockaddr_in address;
@@ -633,11 +647,15 @@ register_direct_watch(uint16_t port)
 	global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
 
 	return ASL_STATUS_OK;
+#else
+	return ASL_STATUS_FAILED;
+#endif
 }
 
 static void
 cancel_direct_watch(uint16_t port)
 {
+#ifdef CONFIG_IPHONE
 	uint32_t i;
 
 	for (i = 0; (i < direct_watch_count) && (port != direct_watch_port[i]); i++);
@@ -683,6 +701,7 @@ cancel_direct_watch(uint16_t port)
 			if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
 		}
 	}
+#endif
 }
 
 /*
@@ -693,12 +712,10 @@ cancel_direct_watch(uint16_t port)
 void
 database_server()
 {
-	kern_return_t kstatus;
 	asl_request_msg *request;
-	asl_reply_msg *reply;
-	uint32_t rqs, rps;
+	uint32_t rqs;
 	uint32_t rbits, sbits;
-	uint32_t flags, snooze;
+	uint32_t flags;
 	struct timeval now, send_time;
 	mach_dead_name_notification_t *deadname;
 
@@ -706,36 +723,16 @@ database_server()
 	send_time.tv_usec = 0;
 
 	rqs = sizeof(asl_request_msg) + MAX_TRAILER_SIZE;
-	rps = sizeof(asl_reply_msg) + MAX_TRAILER_SIZE;
-	reply = (asl_reply_msg *)calloc(1, rps);
-	if (reply == NULL) return;
 
 	rbits = MACH_RCV_MSG | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0);
 	sbits = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
 
+	asl_server_queue = dispatch_queue_create("ASL Server Queue", NULL);
+
 	forever
 	{
-		snooze = 0;
 		now.tv_sec = 0;
 		now.tv_usec = 0;
-
-		/* Check if it's time to post a database change notification */
-		if (send_time.tv_sec != 0)
-		{
-			gettimeofday(&now, NULL);
-			if ((now.tv_sec > send_time.tv_sec) || ((now.tv_sec == send_time.tv_sec) && (now.tv_usec > send_time.tv_usec)))
-			{
-				notify_post(ASL_DB_NOTIFICATION);
-				send_time.tv_sec = 0;
-				send_time.tv_usec = 0;
-				snooze = 0;
-			}
-			else
-			{
-				/* mach_msg timeout is in milliseconds */
-				snooze = ((send_time.tv_sec - now.tv_sec) * 1000) + ((send_time.tv_usec - now.tv_usec) / 1000);
-			}
-		}
 
 		request = (asl_request_msg *)calloc(1, rqs);
 		if (request == NULL) continue;
@@ -743,44 +740,38 @@ database_server()
 		request->head.msgh_local_port = global.server_port;
 		request->head.msgh_size = rqs;
 
-		memset(reply, 0, rps);
-
 		flags = rbits;
-		if (snooze != 0) flags |= MACH_RCV_TIMEOUT;
 
-		kstatus = mach_msg(&(request->head), flags, 0, rqs, global.listen_set, snooze, MACH_PORT_NULL);
-		if (request->head.msgh_id == SEND_NOTIFICATION)
-		{
-			if (send_time.tv_sec == 0)
-			{
-				gettimeofday(&send_time, NULL);
-				send_time.tv_sec += 1;
-			}
-
-			free(request);
-			continue;
-		}
+		(void)mach_msg(&(request->head), flags, 0, rqs, global.listen_set, 0, MACH_PORT_NULL);
 
 		if (request->head.msgh_id == MACH_NOTIFY_DEAD_NAME)
 		{
 			deadname = (mach_dead_name_notification_t *)request;
-			cancel_session(deadname->not_port);
+			dispatch_async(asl_server_queue, ^{
+				cancel_session(deadname->not_port);
+				/* dead name notification includes a dead name right */
+				mach_port_deallocate(mach_task_self(), deadname->not_port);
+				free(request);
+			});
 
-			/* dead name notification includes a dead name right - release it here */
-			mach_port_deallocate(mach_task_self(), deadname->not_port);
-			free(request);
 			continue;
 		}
 
-		kstatus = asl_ipc_server(&(request->head), &(reply->head));
-		kstatus = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
-		if (kstatus == MACH_SEND_INVALID_DEST)
-		{
-			/* release send right for the port */
-			mach_port_deallocate(mach_task_self(), request->head.msgh_remote_port);
-		}
+		dispatch_async(asl_server_queue, ^{
+			kern_return_t ks;
+			asl_reply_msg *reply = calloc(1, sizeof(asl_reply_msg) + MAX_TRAILER_SIZE);
+			
+			asl_ipc_server(&(request->head), &(reply->head));
+			ks = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
+			free(reply);
+			if ((ks == MACH_SEND_INVALID_DEST) || (ks == MACH_SEND_TIMED_OUT))
+			{
+				/* clean up */
+				mach_msg_destroy(&(reply->head));
+			}
 
-		free(request);
+			free(request);
+		});
 	}
 }
 
@@ -925,7 +916,7 @@ __asl_server_message
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
-	pid = (gid_t)-1;
+	pid = (pid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
 	client = MACH_PORT_NULL;
@@ -941,8 +932,7 @@ __asl_server_message
 	snprintf(tmp, sizeof(tmp), "%d", pid);
 	asl_set(msg, ASL_KEY_PID, tmp);
 
-	/* verify and enqueue for processing */
-	asl_enqueue_message(SOURCE_ASL_MESSAGE, NULL, msg);
+	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_ASL_MESSAGE); });
 
 	return KERN_SUCCESS;
 }
@@ -1002,7 +992,7 @@ __asl_server_create_aux_link
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
-	pid = (gid_t)-1;
+	pid = (pid_t)-1;
 	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
 
 	client = MACH_PORT_NULL;
@@ -1065,8 +1055,11 @@ __asl_server_register_direct_watch
 )
 {
 	uint16_t p16 = port;
+	pid_t pid = (pid_t)-1;
 
-	asldebug("__asl_server_register_direct_watch: %hu\n", ntohs(p16));
+	audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+
+	asldebug("__asl_server_register_direct_watch: pid %u port %hu\n", pid, ntohs(p16));
 
 	register_direct_watch(p16);
 

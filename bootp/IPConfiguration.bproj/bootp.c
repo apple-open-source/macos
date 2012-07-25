@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -126,7 +126,7 @@ make_bootp_request(struct bootp * pkt,
 static void
 bootp_set_dhcp_info(Service_bootp_t * bootp, dhcp_info_t * dhcp_info_p)
 {
-    dhcp_info_p->pkt = bootp->saved.pkt;
+    dhcp_info_p->pkt = (uint8_t *)bootp->saved.pkt;
     dhcp_info_p->pkt_size = bootp->saved.pkt_size;
     dhcp_info_p->options = &bootp->saved.options;
     dhcp_info_p->lease_start = 0;
@@ -219,7 +219,8 @@ bootp_success(ServiceRef service_p)
     Service_bootp_t *	bootp = (Service_bootp_t *)ServiceGetPrivate(service_p);
     struct in_addr	mask = {0};
     void *		option;
-    struct bootp *	reply = (struct bootp *)bootp->saved.pkt;
+    /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
+    struct bootp *	reply = (struct bootp *)(void *)bootp->saved.pkt;
 
     S_cancel_pending_events(service_p);
     option = dhcpol_find_with_length(&bootp->saved.options,
@@ -287,7 +288,8 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 
     switch (evid) {
       case IFEventID_start_e: {
-	  struct bootp *	reply = (struct bootp *)bootp->saved.pkt;
+	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
+	  struct bootp *	reply = (struct bootp *)(void *)bootp->saved.pkt;
 
 	  my_log(LOG_DEBUG, "BOOTP %s: ended at %d", if_name(if_p), 
 		 timer_current_secs() - bootp->start_secs);
@@ -313,7 +315,9 @@ bootp_arp_probe(ServiceRef service_p,  IFEventID_t evid, void * event_data)
 	      return;
 	  }
 	  else {
-	      struct bootp *	reply = (struct bootp *)bootp->saved.pkt;
+	      /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
+	      struct bootp *	reply = 
+			(struct bootp *)(void *)bootp->saved.pkt;
 	      if (result->in_use) {
 		  char	msg[128];
 		  
@@ -581,7 +585,8 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      || bootp->enable_arp_collision_detection == FALSE) {
 	      break;
 	  }
-	  reply = (struct bootp *)bootp->saved.pkt;
+	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
+	  reply = (struct bootp *)(void *)bootp->saved.pkt;
 	  snprintf(msg, sizeof(msg),
 		   IP_FORMAT " in use by " 
 		   EA_FORMAT ", BOOTP Server " IP_FORMAT,

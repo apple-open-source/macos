@@ -28,21 +28,29 @@
 #include "Document.h"
 #include "Node.h"
 #include "NotImplemented.h"
+#include "XSLImportRule.h"
 #include "XSLTProcessor.h"
 
 namespace WebCore {
 
 XSLStyleSheet::XSLStyleSheet(Node* parentNode, const String& originalURL, const KURL& finalURL,  bool embedded)
-    : StyleSheet(parentNode, originalURL, finalURL)
+    : m_ownerNode(parentNode)
+    , m_originalURL(originalURL)
+    , m_finalURL(finalURL)
+    , m_isDisabled(false)
     , m_embedded(embedded)
 {
 }
 
 XSLStyleSheet::~XSLStyleSheet()
 {
+    for (unsigned i = 0; i < m_children.size(); ++i) {
+        ASSERT(m_children.at(i)->parentStyleSheet() == this);
+        m_children.at(i)->setParentStyleSheet(0);
+    }
 }
 
-bool XSLStyleSheet::isLoading()
+bool XSLStyleSheet::isLoading() const
 {
     notImplemented();
     return false;
@@ -67,7 +75,7 @@ CachedResourceLoader* XSLStyleSheet::cachedResourceLoader()
     return document->cachedResourceLoader();
 }
 
-bool XSLStyleSheet::parseString(const String& string, bool)
+bool XSLStyleSheet::parseString(const String& string)
 {
     // FIXME: Fix QXmlQuery so that it allows compiling the stylesheet before setting the document
     // to be transformed. This way we could not only check if the stylesheet is correct before using it

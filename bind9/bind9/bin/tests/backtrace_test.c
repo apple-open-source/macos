@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: backtrace_test.c,v 1.4 2009/09/02 23:48:01 tbox Exp $ */
+/* $Id: backtrace_test.c,v 1.4 2009-09-02 23:48:01 tbox Exp $ */
 
 #include <config.h>
 

@@ -23,7 +23,6 @@ include(Utilities)
 
 project( CURL C )
 
-
 file (READ ${CURL_SOURCE_DIR}/include/curl/curlver.h CURL_VERSION_H_CONTENTS)
 string (REGEX MATCH "LIBCURL_VERSION_MAJOR[ \t]+([0-9]+)"
   LIBCURL_VERSION_MJ ${CURL_VERSION_H_CONTENTS})
@@ -149,7 +148,9 @@ option(ENABLE_IPV6 "Define if you want to enable IPv6 support" OFF)
 mark_as_advanced(ENABLE_IPV6)
 
 if(WIN32)
-  list_spaces_append_once(CMAKE_C_STANDARD_LIBRARIES wsock32.lib ws2_32.lib)  # bufferoverflowu.lib
+  find_library(WSOCK32_LIBRARY wsock32)
+  find_library(WS2_32_LIBRARY ws2_32)
+  list_spaces_append_once(CMAKE_C_STANDARD_LIBRARIES ${WSOCK32_LIBRARY} ${WS2_32_LIBRARY})  # bufferoverflowu.lib
   if(CURL_DISABLE_LDAP)
     # Remove wldap32.lib from space-separated list
     string(REPLACE " " ";" _LIST ${CMAKE_C_STANDARD_LIBRARIES})
@@ -191,12 +192,12 @@ if(WIN32)
 endif(WIN32)
 
 # This macro checks if the symbol exists in the library and if it
-# does, it appends library to the list.
+# does, it prepends library to the list.
 macro(CHECK_LIBRARY_EXISTS_CONCAT LIBRARY SYMBOL VARIABLE)
-  check_library_exists("${LIBRARY};${CURL_LIBS}" ${SYMBOL} ""
+  check_library_exists("${LIBRARY};${CURL_LIBS}" ${SYMBOL} "${CMAKE_LIBRARY_PATH}"
     ${VARIABLE})
   if(${VARIABLE})
-    set(CURL_LIBS ${CURL_LIBS} ${LIBRARY})
+    set(CURL_LIBS ${LIBRARY} ${CURL_LIBS})
   endif(${VARIABLE})
 endmacro(CHECK_LIBRARY_EXISTS_CONCAT)
 
@@ -223,25 +224,6 @@ check_library_exists("wldap32" cldap_open "" HAVE_WLDAP32)
 # IF(NOT CURL_SPECIAL_LIBZ)
 #  CHECK_LIBRARY_EXISTS_CONCAT("z"      inflateEnd   HAVE_LIBZ)
 # ENDIF(NOT CURL_SPECIAL_LIBZ)
-
-option(CMAKE_USE_OPENSSL "Use OpenSSL code. Experimental" ON)
-mark_as_advanced(CMAKE_USE_OPENSSL)
-if(CMAKE_USE_OPENSSL)
-  if(WIN32)
-    find_package(OpenSSL)
-    if(OPENSSL_FOUND)
-      set(USE_SSLEAY TRUE)
-      set(USE_OPENSSL TRUE)
-      list(APPEND CURL_LIBS ${OPENSSL_LIBRARIES} )
-    else()
-      set(CMAKE_USE_OPENSSL FALSE)
-      message(STATUS "OpenSSL NOT Found, disabling CMAKE_USE_OPENSSL")
-    endif()
-  else(WIN32)
-    check_library_exists_concat("crypto" CRYPTO_lock  HAVE_LIBCRYPTO)
-    check_library_exists_concat("ssl"    SSL_connect  HAVE_LIBSSL)
-  endif(WIN32)
-endif(CMAKE_USE_OPENSSL)
 
 # Check for idn
 check_library_exists_concat("idn" idna_to_ascii_lz HAVE_LIBIDN)
@@ -270,6 +252,25 @@ if(CURL_ZLIB)  # AND CURL_CONFIG_HAS_BEEN_RUN_BEFORE
     set(HAVE_LIBZ ON)
   endif()
 endif()
+
+option(CMAKE_USE_OPENSSL "Use OpenSSL code. Experimental" ON)
+mark_as_advanced(CMAKE_USE_OPENSSL)
+if(CMAKE_USE_OPENSSL)
+  if(WIN32)
+    find_package(OpenSSL)
+    if(OPENSSL_FOUND)
+      set(USE_SSLEAY TRUE)
+      set(USE_OPENSSL TRUE)
+      list(APPEND CURL_LIBS ${OPENSSL_LIBRARIES} )
+    else()
+      set(CMAKE_USE_OPENSSL FALSE)
+      message(STATUS "OpenSSL NOT Found, disabling CMAKE_USE_OPENSSL")
+    endif()
+  else(WIN32)
+    check_library_exists_concat("crypto" CRYPTO_lock  HAVE_LIBCRYPTO)
+    check_library_exists_concat("ssl"    SSL_connect  HAVE_LIBSSL)
+  endif(WIN32)
+endif(CMAKE_USE_OPENSSL)
 
 # If we have features.h, then do the _BSD_SOURCE magic
 check_include_file("features.h"       HAVE_FEATURES_H)
@@ -381,7 +382,7 @@ if(CMAKE_USE_OPENSSL)
   check_include_file_concat("openssl/rand.h"   HAVE_OPENSSL_RAND_H)
 endif(CMAKE_USE_OPENSSL)
 
-if(NOT HAVE_LDAP_H) 
+if(NOT HAVE_LDAP_H)
   message(STATUS "LDAP_H not found CURL_DISABLE_LDAP set ON")
   set(CURL_DISABLE_LDAP ON CACHE BOOL "" FORCE)
 endif()
@@ -783,7 +784,7 @@ if(HAVE_SOCKLEN_T)
   check_type_size("socklen_t" CURL_SIZEOF_CURL_SOCKLEN_T)
   set(CMAKE_EXTRA_INCLUDE_FILES)
   if(NOT HAVE_CURL_SIZEOF_CURL_SOCKLEN_T)
-    message(FATAL_ERROR 
+    message(FATAL_ERROR
      "Check for sizeof socklen_t failed, see CMakeFiles/CMakerror.log")
   endif()
 else()
@@ -852,3 +853,13 @@ endif()
 if(NOT CURL_CONFIG_HAS_BEEN_RUN_BEFORE)
   set(CURL_CONFIG_HAS_BEEN_RUN_BEFORE 1 CACHE INTERNAL "Flag to track whether this is the first time running CMake or if CMake has been configured before")
 endif()
+
+# Installation.
+# First, install generated curlbuild.h
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/include/curl/curlbuild.h"
+    DESTINATION include/curl )
+# Next, install other headers excluding curlbuild.h
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/curl"
+    DESTINATION include
+    FILES_MATCHING PATTERN "*.h"
+    PATTERN "curlbuild.h" EXCLUDE)

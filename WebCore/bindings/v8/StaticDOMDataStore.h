@@ -46,18 +46,16 @@ namespace WebCore {
 //
 class StaticDOMDataStore : public DOMDataStore {
 public:
-    StaticDOMDataStore(DOMData*);
+    StaticDOMDataStore();
+    virtual ~StaticDOMDataStore();
 
 private:
     IntrusiveDOMWrapperMap m_staticDomNodeMap;
+    IntrusiveDOMWrapperMap m_staticActiveDomNodeMap;
     DOMWrapperMap<void> m_staticDomObjectMap;
     DOMWrapperMap<void> m_staticActiveDomObjectMap;
-#if ENABLE(SVG)
-    DOMWrapperMap<SVGElementInstance> m_staticDomSvgElementInstanceMap;
-#endif
 };
 
 } // namespace WebCore
 
 #endif // StaticDOMDataStore_h
-

@@ -31,6 +31,7 @@ extern char	yflag;			/* assume a yes response */
 extern char	preen;			/* just fix normal inconsistencies */
 extern char	force;			/* force fsck even if clean */
 extern char	debug;			/* output debugging info */
+extern char	embedded;		/* built for embedded */
 extern char	hotroot;		/* checking root device */
 
 extern int	upgrading;		/* upgrading format */

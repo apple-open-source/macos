@@ -237,7 +237,7 @@ rd_ln_nm(ARCHD *arcn)
 		paxwarn(1, "Cpio link name read error");
 		return(-1);
 	}
-	arcn->ln_nlen = arcn->sb.st_size;
+	arcn->ln_nlen = (int)arcn->sb.st_size;
 	arcn->ln_name[arcn->ln_nlen] = '\0';
 
 	/*

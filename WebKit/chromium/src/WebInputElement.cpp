@@ -31,9 +31,12 @@
 #include "config.h"
 #include "WebInputElement.h"
 
+#include "HTMLDataListElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "WebString.h"
+#include "TextControlInnerElements.h"
+#include "WebNodeCollection.h"
+#include "platform/WebString.h"
 #include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
@@ -62,7 +65,7 @@ bool WebInputElement::isImageButton() const
 
 bool WebInputElement::autoComplete() const
 {
-    return constUnwrap<HTMLInputElement>()->autoComplete();
+    return constUnwrap<HTMLInputElement>()->shouldAutocomplete();
 }
 
 int WebInputElement::maxLength() const
@@ -87,7 +90,7 @@ int WebInputElement::size() const
 
 void WebInputElement::setValue(const WebString& value, bool sendChangeEvent)
 {
-    unwrap<HTMLInputElement>()->setValue(value, sendChangeEvent);
+    unwrap<HTMLInputElement>()->setValue(value, sendChangeEvent ? DispatchChangeEvent : DispatchNoEvent);
 }
 
 WebString WebInputElement::value() const
@@ -120,9 +123,9 @@ bool WebInputElement::isAutofilled() const
     return constUnwrap<HTMLInputElement>()->isAutofilled();
 }
 
-void WebInputElement::setAutofilled(bool autoFilled)
+void WebInputElement::setAutofilled(bool autofilled)
 {
-    unwrap<HTMLInputElement>()->setAutofilled(autoFilled);
+    unwrap<HTMLInputElement>()->setAutofilled(autofilled);
 }
 
 void WebInputElement::setSelectionRange(int start, int end)
@@ -148,6 +151,54 @@ bool WebInputElement::isValidValue(const WebString& value) const
 bool WebInputElement::isChecked() const
 {
     return constUnwrap<HTMLInputElement>()->checked();
+}
+
+WebNodeCollection WebInputElement::dataListOptions() const
+{
+#if ENABLE(DATALIST)
+    HTMLDataListElement* dataList = static_cast<HTMLDataListElement*>(constUnwrap<HTMLInputElement>()->list());
+    if (dataList)
+        return WebNodeCollection(dataList->options());
+#endif
+    return WebNodeCollection();
+}
+
+bool WebInputElement::isSpeechInputEnabled() const
+{
+#if ENABLE(INPUT_SPEECH)
+    return constUnwrap<HTMLInputElement>()->isSpeechEnabled();
+#else
+    return false;
+#endif
+}
+
+WebInputElement::SpeechInputState WebInputElement::getSpeechInputState() const
+{
+#if ENABLE(INPUT_SPEECH)
+    InputFieldSpeechButtonElement* speechButton = toInputFieldSpeechButtonElement(constUnwrap<HTMLInputElement>()->speechButtonElement());
+    if (speechButton)
+        return static_cast<WebInputElement::SpeechInputState>(speechButton->state());
+#endif
+
+    return Idle;
+}
+
+void WebInputElement::startSpeechInput()
+{
+#if ENABLE(INPUT_SPEECH)
+    InputFieldSpeechButtonElement* speechButton = toInputFieldSpeechButtonElement(constUnwrap<HTMLInputElement>()->speechButtonElement());
+    if (speechButton)
+        speechButton->startSpeechInput();
+#endif
+}
+
+void WebInputElement::stopSpeechInput()
+{
+#if ENABLE(INPUT_SPEECH)
+    InputFieldSpeechButtonElement* speechButton = toInputFieldSpeechButtonElement(constUnwrap<HTMLInputElement>()->speechButtonElement());
+    if (speechButton)
+        speechButton->stopSpeechInput();
+#endif
 }
 
 int WebInputElement::defaultMaxLength()
@@ -179,5 +230,4 @@ WebInputElement* toWebInputElement(WebElement* webElement)
 
     return static_cast<WebInputElement*>(webElement);
 }
-
 } // namespace WebKit

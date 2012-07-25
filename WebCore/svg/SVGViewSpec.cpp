@@ -34,14 +34,21 @@ namespace WebCore {
 DEFINE_ANIMATED_RECT(SVGViewSpec, SVGNames::viewBoxAttr, ViewBox, viewBox)
 DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGViewSpec, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGViewSpec)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(viewBox)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(preserveAspectRatio)
+END_REGISTER_ANIMATED_PROPERTIES
+
 SVGViewSpec::SVGViewSpec(SVGElement* contextElement)
     : m_contextElement(contextElement)
 {
+    ASSERT(m_contextElement);
+    registerAnimatedPropertiesForSVGViewSpec();
 }
 
 void SVGViewSpec::setTransform(const String& transform)
 {
-    SVGTransformable::parseTransformAttribute(m_transform, transform);
+    m_transform.parse(transform);
 }
 
 void SVGViewSpec::setViewBoxString(const String& viewBoxStr)
@@ -56,7 +63,9 @@ void SVGViewSpec::setViewBoxString(const String& viewBoxStr)
 
 void SVGViewSpec::setPreserveAspectRatioString(const String& preserve)
 {
-    SVGPreserveAspectRatio::parsePreserveAspectRatio(this, preserve);
+    SVGPreserveAspectRatio preserveAspectRatio;
+    preserveAspectRatio.parse(preserve);
+    setPreserveAspectRatioBaseValue(preserveAspectRatio);
 }
 
 void SVGViewSpec::setViewTargetString(const String& viewTargetString)
@@ -133,10 +142,10 @@ bool SVGViewSpec::parseViewSpec(const String& viewSpec)
             if (currViewSpec >= end || *currViewSpec != '(')
                 return false;
             currViewSpec++;
-            bool result = false; 
-            setPreserveAspectRatioBaseValue(SVGPreserveAspectRatio::parsePreserveAspectRatio(currViewSpec, end, false, result));
-            if (!result)
+            SVGPreserveAspectRatio preserveAspectRatio;
+            if (!preserveAspectRatio.parse(currViewSpec, end, false))
                 return false;
+            setPreserveAspectRatioBaseValue(preserveAspectRatio);
             if (currViewSpec >= end || *currViewSpec != ')')
                 return false;
             currViewSpec++;

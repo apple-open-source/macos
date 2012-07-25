@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -14,7 +14,7 @@ ca{
         calendar{"calendari"}
         collation{"ordre alfabètic"}
         currency{"moneda"}
-        numbers{"números"}
+        numbers{"Números"}
         x{"Ús privat"}
     }
     Languages{
@@ -661,6 +661,10 @@ ca{
         Zyyy{"comú"}
         Zzzz{"escriptura desconeguda o no vàlida"}
     }
+    Scripts%stand-alone{
+        Hans{"xinès simplificat"}
+        Hant{"xinès tradicional"}
+    }
     Types{
         calendar{
             buddhist{"calendari budista"}
@@ -675,15 +679,15 @@ ca{
         }
         collation{
             big5han{"ordre del xinès tradicional - Big5"}
-            direct{"ordre directe"}
             gb2312han{"ordre del xinès simplificat - GB2312"}
             phonebook{"ordre de la guia telefònica"}
+            phonetic{"ordre fonètic"}
             pinyin{"ordre pinyin"}
             stroke{"ordre dels traços"}
             traditional{"ordre tradicional"}
         }
         numbers{
-            latn{"nombres aràbics"}
+            latn{"Nombres aràbics"}
         }
     }
     Variants{
@@ -717,7 +721,7 @@ ca{
         VALENCIA{"valencià"}
         WADEGILE{"romanització Wade-Giles"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"Idioma: {0}"}
         script{"Escriptura: {0}"}

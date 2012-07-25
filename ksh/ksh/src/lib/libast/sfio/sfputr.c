@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,18 +26,19 @@
 **	Written by Kiem-Phong Vo.
 */
 #if __STD_C
-ssize_t sfputr(reg Sfio_t* f, const char* s, reg int rc)
+ssize_t sfputr(Sfio_t* f, const char* s, int rc)
 #else
 ssize_t sfputr(f,s,rc)
-reg Sfio_t*	f;	/* write to this stream	*/
+Sfio_t*		f;	/* write to this stream	*/
 char*		s;	/* string to write	*/
-reg int		rc;	/* record separator.	*/
+int		rc;	/* record separator.	*/
 #endif
 {
 	reg ssize_t	p, n, w;
 	reg uchar*	ps;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,-1);
+	SFMTXENTER(f,-1);
 
 	if(f->mode != SF_WRITE && _sfmode(f,SF_WRITE,0) < 0)
 		SFMTXRETURN(f, -1);
@@ -45,7 +46,8 @@ reg int		rc;	/* record separator.	*/
 	SFLOCK(f,0);
 
 	for(w = 0; (*s || rc >= 0); )
-	{	SFWPEEK(f,ps,p);
+	{	if(SFWPEEK(f,ps,p) < 0)
+			break;
 
 		if(p == 0 || (f->flags&SF_WHOLE) )
 		{	n = strlen(s);

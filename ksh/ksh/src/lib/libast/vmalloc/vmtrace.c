@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -43,7 +43,7 @@ char*		to;
 const char*	from;
 int		endc;
 #endif
-{	reg int	n;
+{	reg size_t	n;
 
 	n = strlen(from);
 	memcpy(to,from,n);
@@ -161,8 +161,8 @@ size_t		align;		/* alignment			*/
 		}
 
 		bufp = trstrcpy(bufp, "file", '=');
-		n = endbuf - bufp - SLOP - 3;
-		m = strlen(file);
+		n = (int)(endbuf - bufp) - SLOP - 3;
+		m = (int)strlen(file);
 		if(m > n)
 		{	file += (m - n);
 			bufp = trstrcpy(bufp, "..", '.');
@@ -219,6 +219,7 @@ long		n2;
 		if (n2)
 			bufp = trstrcpy(bufp, tritoa(n2, 0), ':');
 	}
+	bufp = trstrcpy(bufp, tritoa((long)getpid(), 1), ':');
 	*bufp++ = '\n';
 	write(2,buf,(bufp-buf));
 }

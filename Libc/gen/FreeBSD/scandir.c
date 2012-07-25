@@ -47,27 +47,24 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/scandir.c,v 1.9 2008/03/16 19:08:53 das Exp
 #include "un-namespace.h"
 
 /*
- * The DIRSIZ macro is the minimum record length which will hold the directory
+ * The _GENERIC_DIRSIZ macro is the minimum record length which will hold the directory
  * entry.  This requires the amount of space in struct dirent without the
  * d_name field, plus enough space for the name and a terminating nul byte
  * (dp->d_namlen + 1), rounded up to a 4 byte boundary.
  */
-#undef DIRSIZ
-#define DIRSIZ(dp)							\
-	((sizeof(struct dirent) - sizeof(dp)->d_name) +			\
-	    (((dp)->d_namlen + 1 + 3) &~ 3))
 
 int
-scandir(dirname, namelist, select, dcomp)
+scandir(dirname, namelist, select, _dcomp)
 	const char *dirname;
 	struct dirent ***namelist;
-	int (*select)(struct dirent *);
-	int (*dcomp)(const void *, const void *);
+	int (*select)(const struct dirent *);
+	int (*_dcomp)(const struct dirent **, const struct dirent **);
 {
 	struct dirent *d, *p, **names = NULL;
 	size_t nitems = 0;
 	long arraysz;
 	DIR *dirp;
+	int (*dcomp)(const void *, const void *) = (void *)_dcomp; /* see <rdar://problem/10293482> */
 
 	if ((dirp = opendir(dirname)) == NULL)
 		return(-1);
@@ -83,7 +80,7 @@ scandir(dirname, namelist, select, dcomp)
 		/*
 		 * Make a minimum size copy of the data
 		 */
-		p = (struct dirent *)malloc(DIRSIZ(d));
+		p = (struct dirent *)malloc(_GENERIC_DIRSIZ(d));
 		if (p == NULL)
 			goto fail;
 		p->d_fileno = d->d_fileno;
@@ -128,8 +125,8 @@ fail:
  */
 int
 alphasort(d1, d2)
-	const void *d1;
-	const void *d2;
+	const struct dirent **d1;
+	const struct dirent **d2;
 {
 	return(strcmp((*(struct dirent **)d1)->d_name,
 	    (*(struct dirent **)d2)->d_name));

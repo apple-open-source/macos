@@ -69,16 +69,16 @@ typedef struct CC_MD2state_st
 } CC_MD2_CTX;
 
 extern int CC_MD2_Init(CC_MD2_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD2_Update(CC_MD2_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD2_Final(unsigned char *md, CC_MD2_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_MD2(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 /*** MD4 ***/
 
@@ -91,20 +91,20 @@ typedef struct CC_MD4state_st
     CC_LONG A,B,C,D;
     CC_LONG Nl,Nh;
     CC_LONG data[CC_MD4_BLOCK_LONG];
-    int num;
+    uint32_t num;
 } CC_MD4_CTX;
 
 extern int CC_MD4_Init(CC_MD4_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD4_Update(CC_MD4_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD4_Final(unsigned char *md, CC_MD4_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_MD4(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** MD5 ***/
@@ -122,16 +122,16 @@ typedef struct CC_MD5state_st
 } CC_MD5_CTX;
 
 extern int CC_MD5_Init(CC_MD5_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD5_Update(CC_MD5_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_MD5_Final(unsigned char *md, CC_MD5_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_MD5(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** SHA1 ***/
@@ -149,16 +149,16 @@ typedef struct CC_SHA1state_st
 } CC_SHA1_CTX;
 
 extern int CC_SHA1_Init(CC_SHA1_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA1_Update(CC_SHA1_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA1_Final(unsigned char *md, CC_SHA1_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_SHA1(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** SHA224 ***/
@@ -173,16 +173,16 @@ typedef struct CC_SHA256state_st
 } CC_SHA256_CTX;
 
 extern int CC_SHA224_Init(CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA224_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA224_Final(unsigned char *md, CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_SHA224(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** SHA256 ***/
@@ -191,16 +191,16 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 #define CC_SHA256_BLOCK_BYTES       64          /* block size in bytes */
 
 extern int CC_SHA256_Init(CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA256_Update(CC_SHA256_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA256_Final(unsigned char *md, CC_SHA256_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_SHA256(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** SHA384 ***/
@@ -216,16 +216,16 @@ typedef struct CC_SHA512state_st
 } CC_SHA512_CTX;
 
 extern int CC_SHA384_Init(CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA384_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA384_Final(unsigned char *md, CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_SHA384(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 
 /*** SHA512 ***/
@@ -234,16 +234,16 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 #define CC_SHA512_BLOCK_BYTES      128          /* block size in bytes */
 
 extern int CC_SHA512_Init(CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA512_Update(CC_SHA512_CTX *c, const void *data, CC_LONG len)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern int CC_SHA512_Final(unsigned char *md, CC_SHA512_CTX *c)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 extern unsigned char *CC_SHA512(const void *data, CC_LONG len, unsigned char *md)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 /*
  * To use the above digest functions with existing code which uses
@@ -322,7 +322,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 #define MD5Init                     CC_MD5_Init
 #define MD5Update                   CC_MD5_Update
 void MD5Final (unsigned char [16], MD5_CTX *)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 #endif  /* COMMON_DIGEST_FOR_RFC_1321 */
 

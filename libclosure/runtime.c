@@ -14,10 +14,15 @@
 #include <string.h>
 #include <stdint.h>
 #include <dlfcn.h>
-
-#if !TARGET_OS_WIN32
-#include <libkern/OSAtomic.h>
+#if TARGET_IPHONE_SIMULATOR
+// workaround: 10682842
+#define osx_assumes(_x) (_x)
+#define osx_assert(_x) if (!(_x)) abort()
 #else
+#include <assumes.h>
+#endif
+
+#if TARGET_OS_WIN32
 #define _CRT_SECURE_NO_WARNINGS 1
 #include <windows.h>
 static __inline bool OSAtomicCompareAndSwapLong(long oldl, long newl, long volatile *dst) 
@@ -33,6 +38,9 @@ static __inline bool OSAtomicCompareAndSwapInt(int oldi, int newi, int volatile 
     int original = InterlockedCompareExchange(dst, newi, oldi);
     return (original == oldi);
 }
+#else
+#define OSAtomicCompareAndSwapLong(_Old, _New, _Ptr) __sync_bool_compare_and_swap(_Ptr, _Old, _New)
+#define OSAtomicCompareAndSwapInt(_Old, _New, _Ptr) __sync_bool_compare_and_swap(_Ptr, _Old, _New)
 #endif
 
 
@@ -45,8 +53,6 @@ static void *_Block_copy_finalizing_class = _NSConcreteMallocBlock;
 static int _Block_copy_flag = BLOCK_NEEDS_FREE;
 static int _Byref_flag_initial_value = BLOCK_NEEDS_FREE | 4;  // logical 2
 
-static const int WANTS_ONE = (1 << 16);
-
 static bool isGC = false;
 
 /*******************************************************************************
@@ -54,21 +60,21 @@ Internal Utilities
 ********************************************************************************/
 
 
-static int latching_incr_int(int *where) {
+static int latching_incr_int(volatile int *where) {
     while (1) {
-        int old_value = *(volatile int *)where;
+        int old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return BLOCK_REFCOUNT_MASK;
         }
-        if (OSAtomicCompareAndSwapInt(old_value, old_value+2, (volatile int *)where)) {
+        if (OSAtomicCompareAndSwapInt(old_value, old_value+2, where)) {
             return old_value+2;
         }
     }
 }
 
-static bool latching_incr_int_not_deallocating(int *where) {
+static bool latching_incr_int_not_deallocating(volatile int *where) {
     while (1) {
-        int old_value = *(volatile int *)where;
+        int old_value = *where;
         if (old_value & 1) {
             // if deallocating we can't do this
             return false;
@@ -77,7 +83,7 @@ static bool latching_incr_int_not_deallocating(int *where) {
             // if latched, we're leaking this block, and we succeed
             return true;
         }
-        if (OSAtomicCompareAndSwapInt(old_value, old_value+2, (volatile int *)where)) {
+        if (OSAtomicCompareAndSwapInt(old_value, old_value+2, where)) {
             // otherwise, we must store a new retained value without the deallocating bit set
             return true;
         }
@@ -86,9 +92,9 @@ static bool latching_incr_int_not_deallocating(int *where) {
 
 
 // return should_deallocate?
-static bool latching_decr_int_should_deallocate(int *where) {
+static bool latching_decr_int_should_deallocate(volatile int *where) {
     while (1) {
-        int old_value = *(volatile int *)where;
+        int old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return false; // latched high
         }
@@ -101,16 +107,16 @@ static bool latching_decr_int_should_deallocate(int *where) {
             new_value = old_value - 1;
             result = true;
         }
-        if (OSAtomicCompareAndSwapInt(old_value, new_value, (volatile int *)where)) {
+        if (OSAtomicCompareAndSwapInt(old_value, new_value, where)) {
             return result;
         }
     }
 }
 
 // hit zero?
-static bool latching_decr_int_now_zero(int *where) {
+static bool latching_decr_int_now_zero(volatile int *where) {
     while (1) {
-        int old_value = *(volatile int *)where;
+        int old_value = *where;
         if ((old_value & BLOCK_REFCOUNT_MASK) == BLOCK_REFCOUNT_MASK) {
             return false; // latched high
         }
@@ -118,7 +124,7 @@ static bool latching_decr_int_now_zero(int *where) {
             return false;   // underflow, latch low
         }
         int new_value = old_value - 2;
-        if (OSAtomicCompareAndSwapInt(old_value, new_value, (volatile int *)where)) {
+        if (OSAtomicCompareAndSwapInt(old_value, new_value, where)) {
             return (new_value & BLOCK_REFCOUNT_MASK) == 0;
         }
     }
@@ -254,10 +260,12 @@ void _Block_use_RR2(const Block_callbacks_RR *callbacks) {
 /****************************************************************************
 Accessors for block descriptor fields
 *****************************************************************************/
+#if 0
 static struct Block_descriptor_1 * _Block_descriptor_1(struct Block_layout *aBlock)
 {
     return aBlock->descriptor;
 }
+#endif
 
 static struct Block_descriptor_2 * _Block_descriptor_2(struct Block_layout *aBlock)
 {
@@ -293,7 +301,6 @@ static void _Block_call_copy_helper(void *result, struct Block_layout *aBlock)
     struct Block_descriptor_2 *desc = _Block_descriptor_2(aBlock);
     if (!desc) return;
 
-    //printf("calling block copy helper %p(%p, %p)...\n", desc->copy, result, aBlock);
     (*desc->copy)(result, aBlock); // do fixup
 }
 
@@ -302,7 +309,6 @@ static void _Block_call_dispose_helper(struct Block_layout *aBlock)
     struct Block_descriptor_2 *desc = _Block_descriptor_2(aBlock);
     if (!desc) return;
 
-    //printf("calling block dispose helper %p(%p)...\n", desc->dispose, aBlock);
     (*desc->dispose)(aBlock);
 }
 
@@ -318,7 +324,6 @@ Internal Support routines for copying
 static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
     struct Block_layout *aBlock;
 
-    //printf("_Block_copy_internal(%p, %x)\n", arg, flags);	
     if (!arg) return NULL;
     
     
@@ -356,7 +361,7 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
     else {
         // Under GC want allocation with refcount 1 so we ask for "true" if wantsOne
         // This allows the copy helper routines to make non-refcounted block copies under GC
-        unsigned long int flags = aBlock->flags;
+        int flags = aBlock->flags;
         bool hasCTOR = (flags & BLOCK_HAS_CTOR) != 0;
         struct Block_layout *result = _Block_allocator(aBlock->descriptor->size, wantsOne, hasCTOR || _Block_has_layout(aBlock));
         if (!result) return (void *)0;
@@ -390,18 +395,14 @@ static void *_Block_copy_internal(const void *arg, const bool wantsOne) {
 // Closures that aren't copied must still work, so everyone always accesses variables after dereferencing the forwarding ptr.
 // We ask if the byref pointer that we know about has already been copied to the heap, and if so, increment it.
 // Otherwise we need to copy it and update the stack forwarding pointer
-// XXX We need to account for weak/nonretained read-write barriers.
 static void _Block_byref_assign_copy(void *dest, const void *arg, const int flags) {
     struct Block_byref **destp = (struct Block_byref **)dest;
     struct Block_byref *src = (struct Block_byref *)arg;
         
-    //printf("_Block_byref_assign_copy called, byref destp %p, src %p, flags %x\n", destp, src, flags);
-    //printf("src dump: %s\n", _Block_byref_dump(src));
     if (src->forwarding->flags & BLOCK_IS_GC) {
         ;   // don't need to do any more work
     }
     else if ((src->forwarding->flags & BLOCK_REFCOUNT_MASK) == 0) {
-        //printf("making copy\n");
         // src points to stack
         bool isWeak = ((flags & (BLOCK_FIELD_IS_BYREF|BLOCK_FIELD_IS_WEAK)) == (BLOCK_FIELD_IS_BYREF|BLOCK_FIELD_IS_WEAK));
         // if its weak ask for an object (only matters under GC)
@@ -439,25 +440,20 @@ static void _Block_byref_assign_copy(void *dest, const void *arg, const int flag
 // Old compiler SPI
 static void _Block_byref_release(const void *arg) {
     struct Block_byref *shared_struct = (struct Block_byref *)arg;
-    int refcount;
+    unsigned int refcount;
 
     // dereference the forwarding pointer since the compiler isn't doing this anymore (ever?)
     shared_struct = shared_struct->forwarding;
     
-    //printf("_Block_byref_release %p called, flags are %x\n", shared_struct, shared_struct->flags);
     // To support C++ destructors under GC we arrange for there to be a finalizer for this
     // by using an isa that directs the code to a finalizer that calls the byref_destroy method.
     if ((shared_struct->flags & BLOCK_NEEDS_FREE) == 0) {
         return; // stack or GC or global
     }
     refcount = shared_struct->flags & BLOCK_REFCOUNT_MASK;
-    if (refcount <= 0) {
-        printf("_Block_byref_release: Block byref data structure at %p underflowed\n", arg);
-    }
-    else if (latching_decr_int_should_deallocate(&shared_struct->flags)) {
-        //printf("disposing of heap based byref block\n");
+	osx_assert(refcount);
+    if (latching_decr_int_should_deallocate(&shared_struct->flags)) {
         if (shared_struct->flags & BLOCK_HAS_COPY_DISPOSE) {
-            //printf("calling out to helper\n");
             (*shared_struct->byref_destroy)(shared_struct);
         }
         _Block_deallocator((struct Block_layout *)shared_struct);
@@ -542,7 +538,7 @@ void *_Block_copy_collectable(const void *aBlock) {
 
 
 // SPI
-unsigned long int Block_size(void *aBlock) {
+size_t Block_size(void *aBlock) {
     return ((struct Block_layout *)aBlock)->descriptor->size;
 }
 
@@ -596,19 +592,18 @@ The flags parameter of _Block_object_assign and _Block_object_dispose is set to
 	* BLOCK_FIELD_IS_OBJECT (3), for the case of an Objective-C Object,
 	* BLOCK_FIELD_IS_BLOCK (7), for the case of another Block, and
 	* BLOCK_FIELD_IS_BYREF (8), for the case of a __block variable.
-If the __block variable is marked weak the compiler also or's in BLOCK_FIELD_IS_WEAK (16).
+If the __block variable is marked weak the compiler also or's in BLOCK_FIELD_IS_WEAK (16)
 
 So the Block copy/dispose helpers should only ever generate the four flag values of 3, 7, 8, and 24.
 
 When  a __block variable is either a C++ object, an Objective-C object, or another Block then the compiler also generates copy/dispose helper functions.  Similarly to the Block copy helper, the "__block" copy helper (formerly and still a.k.a. "byref" copy helper) will do a C++ copy constructor (not a const one though!) and the dispose helper will do the destructor.  And similarly the helpers will call into the same two support functions with the same values for objects and Blocks with the additional BLOCK_BYREF_CALLER (128) bit of information supplied.
 
 So the __block copy/dispose helpers will generate flag values of 3 or 7 for objects and Blocks respectively, with BLOCK_FIELD_IS_WEAK (16) or'ed as appropriate and always 128 or'd in, for the following set of possibilities:
-	__block id                   128+3
-    __weak block id              128+3+16
-	__block (^Block)             128+7
-	__weak __block (^Block)      128+7+16
+	__block id                   128+3       (0x83)
+	__block (^Block)             128+7       (0x87)
+    __weak __block id            128+3+16    (0x93)
+	__weak __block (^Block)      128+7+16    (0x97)
         
-The implementation of the two routines would be improved by switch statements enumerating the eight cases.
 
 ********************************************************/
 
@@ -617,180 +612,90 @@ The implementation of the two routines would be improved by switch statements en
 // to do the assignment.
 //
 void _Block_object_assign(void *destAddr, const void *object, const int flags) {
-    //printf("_Block_object_assign(*%p, %p, %x)\n", destAddr, object, flags);
-    if ((flags & BLOCK_BYREF_CALLER) == BLOCK_BYREF_CALLER) {
-        if ((flags & BLOCK_FIELD_IS_WEAK) == BLOCK_FIELD_IS_WEAK) {
-            _Block_assign_weak(object, destAddr);
-        }
-        else {
-            // do *not* retain or *copy* __block variables whatever they are
-            _Block_assign((void *)object, destAddr);
-        }
-    }
-    else if ((flags & BLOCK_FIELD_IS_BYREF) == BLOCK_FIELD_IS_BYREF)  {
-        // copying a __block reference from the stack Block to the heap
-        // flags will indicate if it holds a __weak reference and needs a special isa
-        _Block_byref_assign_copy(destAddr, object, flags);
-    }
-    // (this test must be before next one)
-    else if ((flags & BLOCK_FIELD_IS_BLOCK) == BLOCK_FIELD_IS_BLOCK) {
-        // copying a Block declared variable from the stack Block to the heap
-        _Block_assign(_Block_copy_internal(object, false), destAddr);
-    }
-    // (this test must be after previous one)
-    else if ((flags & BLOCK_FIELD_IS_OBJECT) == BLOCK_FIELD_IS_OBJECT) {
-        //printf("retaining object at %p\n", object);
-        _Block_retain_object(object);
-        //printf("done retaining object at %p\n", object);
-        _Block_assign((void *)object, destAddr);
-    }
-
-    /**** try this out someday ****
-    switch (flags) {
-      case BLOCK_FIELD_IS_BYREF | BLOCK_FIELD_IS_WEAK:
-      case BLOCK_FIELD_IS_BYREF:
-        _Block_byref_assign_copy(destAddr, object, flags);
-        break;
-
+    switch (osx_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
       case BLOCK_FIELD_IS_OBJECT:
+        /*******
+        id object = ...;
+        [^{ object; } copy];
+        ********/
+            
         _Block_retain_object(object);
         _Block_assign((void *)object, destAddr);
         break;
 
       case BLOCK_FIELD_IS_BLOCK:
-        _Block_assign(_Block_copy_internal(object, flags), destAddr);
-        break;
+        /*******
+        void (^object)(void) = ...;
+        [^{ object; } copy];
+        ********/
 
+        _Block_assign(_Block_copy_internal(object, false), destAddr);
+        break;
+    
+      case BLOCK_FIELD_IS_BYREF | BLOCK_FIELD_IS_WEAK:
+      case BLOCK_FIELD_IS_BYREF:
+        /*******
+         // copy the onstack __block container to the heap
+         __block ... x;
+         __weak __block ... x;
+         [^{ x; } copy];
+         ********/
+        
+        _Block_byref_assign_copy(destAddr, object, flags);
+        break;
+        
       case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_OBJECT:
       case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK:
+        /*******
+         // copy the actual field held in the __block container
+         __block id object;
+         __block void (^object)(void);
+         [^{ object; } copy];
+         ********/
+
+        // under manual retain release __block object/block variables are dangling
         _Block_assign((void *)object, destAddr);
         break;
 
       case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_OBJECT | BLOCK_FIELD_IS_WEAK:
-      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK | BLOCK_FIELD_IS_WEAK:
+      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK  | BLOCK_FIELD_IS_WEAK:
+        /*******
+         // copy the actual field held in the __block container
+         __weak __block id object;
+         __weak __block void (^object)(void);
+         [^{ object; } copy];
+         ********/
+
         _Block_assign_weak(object, destAddr);
         break;
 
       default:
+        break;
     }
-    ********/
-     
 }
 
 // When Blocks or Block_byrefs hold objects their destroy helper routines call this entry point
 // to help dispose of the contents
 // Used initially only for __attribute__((NSObject)) marked pointers.
 void _Block_object_dispose(const void *object, const int flags) {
-    //printf("_Block_object_dispose(%p, %x)\n", object, flags);
-    if (flags & BLOCK_FIELD_IS_BYREF)  {
+    switch (osx_assumes(flags & BLOCK_ALL_COPY_DISPOSE_FLAGS)) {
+      case BLOCK_FIELD_IS_BYREF | BLOCK_FIELD_IS_WEAK:
+      case BLOCK_FIELD_IS_BYREF:
         // get rid of the __block data structure held in a Block
         _Block_byref_release(object);
-    }
-    else if ((flags & (BLOCK_FIELD_IS_BLOCK|BLOCK_BYREF_CALLER)) == BLOCK_FIELD_IS_BLOCK) {
-        // get rid of a referenced Block held by this Block
-        // (ignore __block Block variables, compiler doesn't need to call us)
+        break;
+      case BLOCK_FIELD_IS_BLOCK:
         _Block_destroy(object);
-    }
-    else if ((flags & (BLOCK_FIELD_IS_WEAK|BLOCK_FIELD_IS_BLOCK|BLOCK_BYREF_CALLER)) == BLOCK_FIELD_IS_OBJECT) {
-        // get rid of a referenced object held by this Block
-        // (ignore __block object variables, compiler doesn't need to call us)
+        break;
+      case BLOCK_FIELD_IS_OBJECT:
         _Block_release_object(object);
+        break;
+      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_OBJECT:
+      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK:
+      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_OBJECT | BLOCK_FIELD_IS_WEAK:
+      case BLOCK_BYREF_CALLER | BLOCK_FIELD_IS_BLOCK  | BLOCK_FIELD_IS_WEAK:
+        break;
+      default:
+        break;
     }
 }
-
-
-/*******************
-Debugging support
-********************/
-#if !TARGET_OS_WIN32
-#pragma mark Debugging
-#endif
-
-
-const char *_Block_dump(const void *block) {
-    struct Block_layout *closure = (struct Block_layout *)block;
-    static char buffer[512];
-    char *cp = buffer;
-    if (closure == NULL) {
-        sprintf(cp, "NULL passed to _Block_dump\n");
-        return buffer;
-    }
-    cp += sprintf(cp, "^%p (new layout) =\n", closure);
-    if (closure->isa == NULL) {
-        cp += sprintf(cp, "isa: NULL\n");
-    }
-    else if (closure->isa == _NSConcreteStackBlock) {
-        cp += sprintf(cp, "isa: stack Block\n");
-    }
-    else if (closure->isa == _NSConcreteMallocBlock) {
-        cp += sprintf(cp, "isa: malloc heap Block\n");
-    }
-    else if (closure->isa == _NSConcreteAutoBlock) {
-        cp += sprintf(cp, "isa: GC heap Block\n");
-    }
-    else if (closure->isa == _NSConcreteGlobalBlock) {
-        cp += sprintf(cp, "isa: global Block\n");
-    }
-    else if (closure->isa == _NSConcreteFinalizingBlock) {
-        cp += sprintf(cp, "isa: finalizing Block\n");
-    }
-    else {
-        cp += sprintf(cp, "isa?: %p\n", closure->isa);
-    }
-    cp += sprintf(cp, "flags:");
-    if (closure->flags & BLOCK_HAS_SIGNATURE) {
-        cp += sprintf(cp, " HASSIGNATURE");
-    }
-    if (closure->flags & BLOCK_USE_STRET) {
-        cp += sprintf(cp, " STRET");
-    }
-    if (closure->flags & BLOCK_NEEDS_FREE) {
-        cp += sprintf(cp, " FREEME");
-    }
-    if (closure->flags & BLOCK_IS_GC) {
-        cp += sprintf(cp, " ISGC");
-    }
-    if (closure->flags & BLOCK_HAS_COPY_DISPOSE) {
-        cp += sprintf(cp, " HASHELP");
-    }
-    if (closure->flags & BLOCK_HAS_CTOR) {
-        cp += sprintf(cp, " HASCTOR");
-    }
-    cp += sprintf(cp, "\nrefcount+deallocating: %u\n", closure->flags & (BLOCK_REFCOUNT_MASK|BLOCK_DEALLOCATING));
-    cp += sprintf(cp, "invoke: %p\n", closure->invoke);
-    {
-        struct Block_descriptor_1 *desc1 = _Block_descriptor_1(closure);
-        struct Block_descriptor_2 *desc2 = _Block_descriptor_2(closure);
-        struct Block_descriptor_3 *desc3 = _Block_descriptor_3(closure);
-        if (desc1) {
-            cp += sprintf(cp, "descriptor: %p\n", desc1);
-            cp += sprintf(cp, "descriptor->reserved: %lu\n", desc1->reserved);
-            cp += sprintf(cp, "descriptor->size: %lu\n", desc1->size);
-        }
-        if (desc2) {
-            cp += sprintf(cp, "descriptor->copy helper: %p\n", desc2->copy);
-            cp += sprintf(cp, "descriptor->dispose helper: %p\n", desc2->dispose);
-        }
-        if (desc3) {
-            cp += sprintf(cp, "descriptor->signature: %p '%s'\n", desc3->signature, desc3->signature);
-            cp += sprintf(cp, "descriptor->layout: %p '%s'\n", desc3->layout, desc3->layout);
-        }
-    }
-    return buffer;
-}
-
-
-const char *_Block_byref_dump(struct Block_byref *src) {
-    static char buffer[256];
-    char *cp = buffer;
-    cp += sprintf(cp, "byref data block %p contents:\n", src);
-    cp += sprintf(cp, "  forwarding: %p\n", src->forwarding);
-    cp += sprintf(cp, "  flags: 0x%x\n", src->flags);
-    cp += sprintf(cp, "  size: %d\n", src->size);
-    if (src->flags & BLOCK_HAS_COPY_DISPOSE) {
-        cp += sprintf(cp, "  copy helper: %p\n", src->byref_keep);
-        cp += sprintf(cp, "  dispose helper: %p\n", src->byref_destroy);
-    }
-    return buffer;
-}
-

@@ -149,7 +149,7 @@ char *str)
 	int i;
 	char *p;
 	char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
-	unsigned long bufsize;
+	uint32_t bufsize;
 
 	/*
 	 * Construct the prefix to the program running.

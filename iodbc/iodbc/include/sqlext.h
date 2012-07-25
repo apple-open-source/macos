@@ -2362,7 +2362,7 @@ SQLRETURN SQL_API SQLDriverConnect (
     SQLCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
     SQLSMALLINT		* pcbConnStrOut,
-    SQLUSMALLINT 	  fDriverCompletion);
+    SQLUSMALLINT 	  fDriverCompletion) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 /*
  *  Level 2 function prototypes
@@ -2374,12 +2374,12 @@ SQLRETURN SQL_API SQLBrowseConnect (
     SQLSMALLINT		  cbConnStrIn,
     SQLCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
-    SQLSMALLINT		* pcbConnStrOut);
+    SQLSMALLINT		* pcbConnStrOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLBulkOperations (
     SQLHSTMT		  StatementHandle,
-    SQLSMALLINT		  Operation);
+    SQLSMALLINT		  Operation) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif /* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLColAttributes (
@@ -2389,7 +2389,7 @@ SQLRETURN SQL_API SQLColAttributes (
     SQLPOINTER		  rgbDesc,
     SQLSMALLINT		  cbDescMax,
     SQLSMALLINT		* pcbDesc,
-    SQLLEN		* pfDesc);
+    SQLLEN		* pfDesc) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColumnPrivileges (
     SQLHSTMT		  hstmt,
@@ -2400,7 +2400,7 @@ SQLRETURN SQL_API SQLColumnPrivileges (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDescribeParam (
     SQLHSTMT		  hstmt,
@@ -2408,14 +2408,14 @@ SQLRETURN SQL_API SQLDescribeParam (
     SQLSMALLINT		* pfSqlType,
     SQLULEN		* pcbParamDef,
     SQLSMALLINT		* pibScale,
-    SQLSMALLINT		* pfNullable);
+    SQLSMALLINT		* pfNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLExtendedFetch (
     SQLHSTMT		  hstmt,
     SQLUSMALLINT	  fFetchType,
     SQLLEN		  irow,
     SQLULEN		* pcrow,
-    SQLUSMALLINT	* rgfRowStatus);
+    SQLUSMALLINT	* rgfRowStatus) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLForeignKeys (
     SQLHSTMT		  hstmt,
@@ -2430,10 +2430,10 @@ SQLRETURN SQL_API SQLForeignKeys (
     SQLCHAR		* szFkSchemaName,
     SQLSMALLINT		  cbFkSchemaName,
     SQLCHAR		* szFkTableName,
-    SQLSMALLINT		  cbFkTableName);
+    SQLSMALLINT		  cbFkTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLMoreResults (
-    SQLHSTMT		  hstmt);
+    SQLHSTMT		  hstmt) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLNativeSql (
     SQLHDBC		  hdbc,
@@ -2441,16 +2441,16 @@ SQLRETURN SQL_API SQLNativeSql (
     SQLINTEGER		  cbSqlStrIn,
     SQLCHAR		* szSqlStr,
     SQLINTEGER		  cbSqlStrMax,
-    SQLINTEGER		* pcbSqlStr);
+    SQLINTEGER		* pcbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLNumParams (
     SQLHSTMT		hstmt,
-    SQLSMALLINT		* pcpar);
+    SQLSMALLINT		* pcpar) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLParamOptions (
     SQLHSTMT		  hstmt,
     SQLULEN		  crow,
-    SQLULEN		* pirow);
+    SQLULEN		* pirow) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLPrimaryKeys (
     SQLHSTMT		  hstmt,
@@ -2459,7 +2459,7 @@ SQLRETURN SQL_API SQLPrimaryKeys (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProcedureColumns (
     SQLHSTMT		  hstmt,
@@ -2470,7 +2470,7 @@ SQLRETURN SQL_API SQLProcedureColumns (
     SQLCHAR		* szProcName,
     SQLSMALLINT		  cbProcName,
     SQLCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProcedures (
     SQLHSTMT		  hstmt,
@@ -2479,13 +2479,13 @@ SQLRETURN SQL_API SQLProcedures (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szProcName,
-    SQLSMALLINT		  cbProcName);
+    SQLSMALLINT		  cbProcName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetPos (
     SQLHSTMT		  hstmt,
     SQLSETPOSIROW	  irow,
     SQLUSMALLINT	  fOption,
-    SQLUSMALLINT	  fLock);
+    SQLUSMALLINT	  fLock) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTablePrivileges (
     SQLHSTMT		  hstmt,
@@ -2494,7 +2494,7 @@ SQLRETURN SQL_API SQLTablePrivileges (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDrivers (
     SQLHENV		  henv,
@@ -2504,7 +2504,7 @@ SQLRETURN SQL_API SQLDrivers (
     SQLSMALLINT		* pcbDriverDesc,
     SQLCHAR		* szDriverAttributes,
     SQLSMALLINT		  cbDrvrAttrMax,
-    SQLSMALLINT		* pcbDrvrAttr);
+    SQLSMALLINT		* pcbDrvrAttr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLBindParameter (
     SQLHSTMT		  hstmt,
@@ -2516,7 +2516,7 @@ SQLRETURN SQL_API SQLBindParameter (
     SQLSMALLINT		  ibScale,
     SQLPOINTER		  rgbValue,
     SQLLEN		  cbValueMax,
-    SQLLEN		* pcbValue);
+    SQLLEN		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 /*
  *  Depreciated - use SQLSetStmtOptions
@@ -2525,7 +2525,7 @@ SQLRETURN SQL_API SQLSetScrollOptions (		/* Use SQLSetStmtOptions */
     SQLHSTMT		  hstmt,
     SQLUSMALLINT	  fConcurrency,
     SQLLEN		  crowKeyset,
-    SQLUSMALLINT	  crowRowset);
+    SQLUSMALLINT	  crowRowset) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 
 /*
@@ -2542,7 +2542,7 @@ SQLRETURN SQL_API SQLSetScrollOptions (		/* Use SQLSetStmtOptions */
 SQLRETURN SQL_API SQLAllocHandleStd (
     SQLSMALLINT		  fHandleType,
     SQLHANDLE		  hInput,
-    SQLHANDLE		* phOutput);
+    SQLHANDLE		* phOutput) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,19 +28,20 @@
 **	Written by Kiem-Phong Vo
 */
 #if __STD_C
-int sfclrlock(reg Sfio_t* f)
+int sfclrlock(Sfio_t* f)
 #else
 int sfclrlock(f)
-reg Sfio_t	*f;
+Sfio_t	*f;
 #endif
 {
 	int	rv;
+	SFMTXDECL(f);
 
 	/* already closed */
 	if(f && (f->mode&SF_AVAIL))
 		return 0;
 
-	SFMTXSTART(f,0);
+	SFMTXENTER(f,0);
 
 	/* clear error bits */
 	f->flags &= ~(SF_ERROR|SF_EOF);

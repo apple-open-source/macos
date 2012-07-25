@@ -32,15 +32,19 @@
 #include "ValidationMessage.h"
 
 #include "CSSPropertyNames.h"
-#include "CSSStyleSelector.h"
 #include "CSSValueKeywords.h"
+#include "ExceptionCodePlaceholder.h"
 #include "FormAssociatedElement.h"
 #include "HTMLBRElement.h"
+#include "HTMLDivElement.h"
 #include "HTMLNames.h"
 #include "Page.h"
+#include "RenderBlock.h"
 #include "RenderObject.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
+#include "ShadowTree.h"
+#include "StyleResolver.h"
 #include "Text.h"
 #include <wtf/PassOwnPtr.h>
 
@@ -78,21 +82,20 @@ void ValidationMessage::setMessage(const String& message)
 
 void ValidationMessage::setMessageDOMAndStartTimer(Timer<ValidationMessage>*)
 {
-    ASSERT(m_bubbleMessage);
-    m_bubbleMessage->removeAllChildren();
+    ASSERT(m_messageHeading);
+    ASSERT(m_messageBody);
+    m_messageHeading->removeAllChildren();
+    m_messageBody->removeAllChildren();
     Vector<String> lines;
     m_message.split('\n', lines);
-    Document* doc = m_bubbleMessage->document();
-    ExceptionCode ec = 0;
+    Document* doc = m_messageHeading->document();
     for (unsigned i = 0; i < lines.size(); ++i) {
         if (i) {
-            m_bubbleMessage->appendChild(HTMLBRElement::create(doc), ec);
-            m_bubbleMessage->appendChild(Text::create(doc, lines[i]), ec);
-        } else {
-            RefPtr<HTMLElement> bold = HTMLElement::create(bTag, doc);
-            bold->setInnerText(lines[i], ec);
-            m_bubbleMessage->appendChild(bold.release(), ec);
-        }
+            m_messageBody->appendChild(Text::create(doc, lines[i]), ASSERT_NO_EXCEPTION);
+            if (i < lines.size() - 1)
+                m_messageBody->appendChild(HTMLBRElement::create(doc), ASSERT_NO_EXCEPTION);
+        } else
+            m_messageHeading->setInnerText(lines[i], ASSERT_NO_EXCEPTION);
     }
 
     int magnification = doc->page() ? doc->page()->settings()->validationMessageTimerMaginification() : -1;
@@ -104,54 +107,66 @@ void ValidationMessage::setMessageDOMAndStartTimer(Timer<ValidationMessage>*)
     }
 }
 
-class ElementWithPseudoId : public HTMLElement {
-public:
-    static PassRefPtr<HTMLElement> create(Document* doc, const AtomicString& pseudoName)
-    {
-        return adoptRef(new ElementWithPseudoId(doc, pseudoName));
-    }
-
-protected:
-    ElementWithPseudoId(Document* doc, const AtomicString& pseudoName)
-        : HTMLElement(divTag, doc)
-        , m_pseudoName(pseudoName) { };
-    virtual const AtomicString& shadowPseudoId() const { return m_pseudoName; }
-
-private:
-    AtomicString m_pseudoName;
-};
-
-static void adjustBubblePosition(const IntRect& hostRect, HTMLElement* bubble)
+static void adjustBubblePosition(const LayoutRect& hostRect, HTMLElement* bubble)
 {
     ASSERT(bubble);
     if (hostRect.isEmpty())
         return;
-    bubble->getInlineStyleDecl()->setProperty(CSSPropertyTop, static_cast<double>(hostRect.y() + hostRect.height()), CSSPrimitiveValue::CSS_PX);
+    double hostX = hostRect.x();
+    double hostY = hostRect.y();
+    if (RenderBox* container = bubble->renderer()->containingBlock()) {
+        FloatPoint containerLocation = container->localToAbsolute();
+        hostX -= containerLocation.x() + container->borderLeft();
+        hostY -= containerLocation.y() + container->borderTop();
+    }
+
+    bubble->setInlineStyleProperty(CSSPropertyTop, hostY + hostRect.height(), CSSPrimitiveValue::CSS_PX);
     // The 'left' value of ::-webkit-validation-bubble-arrow.
     const int bubbleArrowTopOffset = 32;
-    double bubbleX = hostRect.x();
+    double bubbleX = hostX;
     if (hostRect.width() / 2 < bubbleArrowTopOffset)
-        bubbleX = max(hostRect.x() + hostRect.width() / 2 - bubbleArrowTopOffset, 0);
-    bubble->getInlineStyleDecl()->setProperty(CSSPropertyLeft, bubbleX, CSSPrimitiveValue::CSS_PX);
+        bubbleX = max(hostX + hostRect.width() / 2 - bubbleArrowTopOffset, 0.0);
+    bubble->setInlineStyleProperty(CSSPropertyLeft, bubbleX, CSSPrimitiveValue::CSS_PX);
 }
 
 void ValidationMessage::buildBubbleTree(Timer<ValidationMessage>*)
 {
     HTMLElement* host = toHTMLElement(m_element);
     Document* doc = host->document();
-    m_bubble = ElementWithPseudoId::create(doc, "-webkit-validation-bubble");
+    m_bubble = HTMLDivElement::create(doc);
+    m_bubble->setShadowPseudoId("-webkit-validation-bubble");
     // Need to force position:absolute because RenderMenuList doesn't assume it
     // contains non-absolute or non-fixed renderers as children.
-    m_bubble->getInlineStyleDecl()->setProperty(CSSPropertyPosition, CSSValueAbsolute);
-    adjustBubblePosition(host->getRect(), m_bubble.get());
+    m_bubble->setInlineStyleProperty(CSSPropertyPosition, CSSValueAbsolute);
     ExceptionCode ec = 0;
     host->ensureShadowRoot()->appendChild(m_bubble.get(), ec);
+    ASSERT(!ec);
+    adjustBubblePosition(host->getRect(), m_bubble.get());
 
-    RefPtr<HTMLElement> clipper = ElementWithPseudoId::create(doc, "-webkit-validation-bubble-arrow-clipper");
-    clipper->appendChild(ElementWithPseudoId::create(doc, "-webkit-validation-bubble-arrow"), ec);
+    RefPtr<HTMLDivElement> clipper = HTMLDivElement::create(doc);
+    clipper->setShadowPseudoId("-webkit-validation-bubble-arrow-clipper");
+    RefPtr<HTMLDivElement> bubbleArrow = HTMLDivElement::create(doc);
+    bubbleArrow->setShadowPseudoId("-webkit-validation-bubble-arrow");
+    clipper->appendChild(bubbleArrow.release(), ec);
+    ASSERT(!ec);
     m_bubble->appendChild(clipper.release(), ec);
-    m_bubbleMessage = ElementWithPseudoId::create(doc, "-webkit-validation-bubble-message");
-    m_bubble->appendChild(m_bubbleMessage, ec);
+    ASSERT(!ec);
+
+    RefPtr<HTMLElement> message = HTMLDivElement::create(doc);
+    message->setShadowPseudoId("-webkit-validation-bubble-message");
+    RefPtr<HTMLElement> icon = HTMLDivElement::create(doc);
+    icon->setShadowPseudoId("-webkit-validation-bubble-icon");
+    message->appendChild(icon.release(), ASSERT_NO_EXCEPTION);
+    RefPtr<HTMLElement> textBlock = HTMLDivElement::create(doc);
+    textBlock->setShadowPseudoId("-webkit-validation-bubble-text-block");
+    m_messageHeading = HTMLDivElement::create(doc);
+    m_messageHeading->setShadowPseudoId("-webkit-validation-bubble-heading");
+    textBlock->appendChild(m_messageHeading, ASSERT_NO_EXCEPTION);
+    m_messageBody = HTMLDivElement::create(doc);
+    m_messageBody->setShadowPseudoId("-webkit-validation-bubble-body");
+    textBlock->appendChild(m_messageBody, ASSERT_NO_EXCEPTION);
+    message->appendChild(textBlock.release(), ASSERT_NO_EXCEPTION);
+    m_bubble->appendChild(message.release(), ASSERT_NO_EXCEPTION);
 
     setMessageDOMAndStartTimer();
 
@@ -168,10 +183,11 @@ void ValidationMessage::requestToHideMessage()
 void ValidationMessage::deleteBubbleTree(Timer<ValidationMessage>*)
 {
     if (m_bubble) {
-        m_bubbleMessage = 0;
+        m_messageHeading = 0;
+        m_messageBody = 0;
         HTMLElement* host = toHTMLElement(m_element);
         ExceptionCode ec;
-        host->shadowRoot()->removeChild(m_bubble.get(), ec);
+        host->shadowTree()->oldestShadowRoot()->removeChild(m_bubble.get(), ec);
         m_bubble = 0;
     }
     m_message = String();

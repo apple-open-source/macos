@@ -38,7 +38,6 @@
 #include <JavaScriptCore/Strong.h>
 #include <JavaScriptCore/StrongInlines.h>
 #include <WebCore/Frame.h>
-#include <WebCore/NotImplemented.h>
 
 using namespace JSC;
 using namespace WebCore;
@@ -99,11 +98,11 @@ JSObject* NPRuntimeObjectMap::getOrCreateJSObject(JSGlobalObject* globalObject, 
     if (NPJSObject::isNPJSObject(npObject))
         return NPJSObject::toNPJSObject(npObject)->jsObject();
     
-    if (JSC::Weak<JSNPObject> jsNPObject = m_jsNPObjects.get(npObject))
-        return jsNPObject.get();
+    if (JSNPObject* jsNPObject = m_jsNPObjects.get(npObject))
+        return jsNPObject;
 
     JSNPObject* jsNPObject = JSNPObject::create(globalObject, this, npObject);
-    m_jsNPObjects.set(npObject, JSC::Weak<JSNPObject>(globalObject->globalData(), jsNPObject, this, npObject));
+    m_jsNPObjects.set(npObject, JSC::PassWeak<JSNPObject>(jsNPObject, this, npObject));
 
     return jsNPObject;
 }
@@ -164,7 +163,7 @@ void NPRuntimeObjectMap::convertJSValueToNPVariant(ExecState* exec, JSValue valu
     }
 
     if (value.isString()) {
-        NPString npString = createNPString(value.toString(exec).utf8());
+        NPString npString = createNPString(value.toString(exec)->value(exec).utf8());
         STRINGN_TO_NPVARIANT(npString.UTF8Characters, npString.UTF8Length, variant);
         return;
     }
@@ -291,11 +290,13 @@ void NPRuntimeObjectMap::addToInvalidationQueue(NPObject* npObject)
 
 void NPRuntimeObjectMap::finalize(JSC::Handle<JSC::Unknown> handle, void* context)
 {
+    JSNPObject* object = jsCast<JSNPObject*>(asObject(handle.get()));
+
     HashMap<NPObject*, JSC::Weak<JSNPObject> >::iterator found = m_jsNPObjects.find(static_cast<NPObject*>(context));
     ASSERT(found != m_jsNPObjects.end());
-    ASSERT_UNUSED(handle, asObject(handle.get()) == found->second);
-    JSNPObject* object = found->second.get();
+    ASSERT(found->second.was(object));
     m_jsNPObjects.remove(found);
+
     addToInvalidationQueue(object->leakNPObject());
 }
 

@@ -43,14 +43,13 @@ class HTMLDataListElement : public HTMLElement {
 public:
     static PassRefPtr<HTMLDataListElement> create(const QualifiedName&, Document*);
 
-    PassRefPtr<HTMLCollection> options();
+    HTMLCollection* options();
 
 private:
     HTMLDataListElement(const QualifiedName&, Document*);
 };
 
 }  // namespace WebCore
-
 #endif  // ENABLE(DATALIST)
 
 #endif  // HTMLDataListElement_h

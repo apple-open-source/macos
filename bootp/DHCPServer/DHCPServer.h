@@ -30,6 +30,8 @@
  * November 10, 2000 	Dieter Siegmund (dieter@apple.com)
  * - initial revision
  */
+#ifndef _S_DHCPSERVER_H
+#define _S_DHCPSERVER_H
 #include <CoreFoundation/CoreFoundation.h>
 
 /**
@@ -104,3 +106,4 @@ extern CFArrayRef		DHCPSDHCPLeaseListCreate();
  */
 extern CFArrayRef		DHCPSNetBootClientListCreate();
 
+#endif /* _S_DHCPSERVER_H */

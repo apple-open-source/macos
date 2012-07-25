@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2010, International Business Machines Corporation and    *
+ * Copyright (C) 1996-2012, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -66,6 +66,7 @@ void IntlTestRBNF::runIndexedTest(int32_t index, UBool exec, const char* &name, 
         TESTCASE(16, TestHebrewFraction);
         TESTCASE(17, TestPortugueseSpellout);
         TESTCASE(18, TestMultiplierSubstitution);
+        TESTCASE(19, TestSetDecimalFormatSymbols);
 #else
         TESTCASE(0, TestRBNFDisabled);
 #endif
@@ -1780,7 +1781,7 @@ IntlTestRBNF::TestLocalizations(void)
                 "<<%main,>,<en, Main,>>", // comma before close angle ok
                 "<<%main>,<en, ',<>\" '>>", // quotes everything until next quote
                 "<<%main>,<'en', \"it's ok\">>", // double quotes work too
-                "  \n <\n  <\n  %main\n  >\n  , \t <\t   en\t  ,  \tfoo \t\t > \n\n >  \n ", // rule whitespace ok
+                "  \n <\n  <\n  %main\n  >\n  , \t <\t   en\t  ,  \tfoo \t\t > \n\n >  \n ", // Pattern_White_Space ok
            }; 
             int32_t goodLocsLen = sizeof(goodLocs)/sizeof(goodLocs[0]);
 
@@ -1946,6 +1947,49 @@ IntlTestRBNF::TestMultiplierSubstitution(void) {
     }
   }
 }
+
+void
+IntlTestRBNF::TestSetDecimalFormatSymbols() {
+    UErrorCode status = U_ZERO_ERROR;
+
+    RuleBasedNumberFormat rbnf(URBNF_ORDINAL, Locale::getEnglish(), status);
+    if (U_FAILURE(status)) {
+        dataerrln("Unable to create RuleBasedNumberFormat - " + UnicodeString(u_errorName(status)));
+        return;
+    }
+
+    DecimalFormatSymbols dfs(Locale::getEnglish(), status);
+    if (U_FAILURE(status)) {
+        errln("Unable to create DecimalFormatSymbols - " + UnicodeString(u_errorName(status)));
+        return;
+    }
+
+    UnicodeString expected[] = {
+            UnicodeString("1,001st"),
+            UnicodeString("1&001st")
+    };
+
+    double number = 1001;
+
+    UnicodeString result;
+
+    rbnf.format(number, result);
+    if (result != expected[0]) {
+        errln("Format Error - Got: " + result + " Expected: " + expected[0]);
+    }
+
+    result.remove();
+
+    /* Set new symbol for testing */
+    dfs.setSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol, UnicodeString("&"), TRUE);
+    rbnf.setDecimalFormatSymbols(dfs);
+
+    rbnf.format(number, result);
+    if (result != expected[1]) {
+        errln("Format Error - Got: " + result + " Expected: " + expected[1]);
+    }
+}
+
 
 void 
 IntlTestRBNF::doTest(RuleBasedNumberFormat* formatter, const char* const testData[][2], UBool testParsing) 

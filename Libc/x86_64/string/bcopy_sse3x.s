@@ -27,7 +27,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 /*
  * The bcopy/memcpy loops, tuned for 64-bit Pentium-M class processors with 

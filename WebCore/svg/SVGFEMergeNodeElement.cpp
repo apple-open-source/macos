@@ -26,7 +26,9 @@
 #include "Attribute.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInstance.h"
 #include "SVGFilterElement.h"
+#include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGNames.h"
 
 namespace WebCore {
@@ -34,10 +36,15 @@ namespace WebCore {
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEMergeNodeElement, SVGNames::inAttr, In1, in1)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEMergeNodeElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in1)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGFEMergeNodeElement::SVGFEMergeNodeElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
 {
     ASSERT(hasTagName(SVGNames::feMergeNodeTag));
+    registerAnimatedPropertiesForSVGFEMergeNodeElement();
 }
 
 PassRefPtr<SVGFEMergeNodeElement> SVGFEMergeNodeElement::create(const QualifiedName& tagName, Document* document)
@@ -45,50 +52,44 @@ PassRefPtr<SVGFEMergeNodeElement> SVGFEMergeNodeElement::create(const QualifiedN
     return adoptRef(new SVGFEMergeNodeElement(tagName, document));
 }
 
-void SVGFEMergeNodeElement::parseMappedAttribute(Attribute* attr)
+bool SVGFEMergeNodeElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    const String& value = attr->value();
-    if (attr->name() == SVGNames::inAttr)
-        setIn1BaseValue(value);
-    else
-        SVGElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty())
+        supportedAttributes.add(SVGNames::inAttr);
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGFEMergeNodeElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGElement::parseAttribute(attr);
+        return;
+    }
+
+    if (attr->name() == SVGNames::inAttr) {
+        setIn1BaseValue(attr->value());
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGFEMergeNodeElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGElement::svgAttributeChanged(attrName);
-
-    if (attrName != SVGNames::inAttr)
+    if (!isSupportedAttribute(attrName)) {
+        SVGElement::svgAttributeChanged(attrName);
         return;
+    }
 
-    ContainerNode* parent = parentNode();
-    if (!parent)
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+
+    if (attrName == SVGNames::inAttr) {
+        invalidateFilterPrimitiveParent(this);
         return;
+    }
 
-    RenderObject* renderer = parent->renderer();
-    if (!renderer || !renderer->isSVGResourceFilterPrimitive())
-        return;
-    
-    RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-}
-
-AttributeToPropertyTypeMap& SVGFEMergeNodeElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGFEMergeNodeElement::fillAttributeToPropertyTypeMap()
-{
-    attributeToPropertyTypeMap().set(SVGNames::inAttr, AnimatedString);
-}
-
-void SVGFEMergeNodeElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName() || attrName == SVGNames::inAttr)
-        synchronizeIn1();
+    ASSERT_NOT_REACHED();
 }
 
 }

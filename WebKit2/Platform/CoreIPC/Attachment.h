@@ -26,6 +26,11 @@
 #ifndef Attachment_h
 #define Attachment_h
 
+#if OS(DARWIN)
+#include <mach/mach_init.h>
+#include <mach/mach_traps.h>
+#endif
+
 namespace CoreIPC {
 
 class ArgumentDecoder;
@@ -37,24 +42,26 @@ public:
 
     enum Type {
         Uninitialized,
-#if PLATFORM(MAC)
+#if OS(DARWIN)
         MachPortType,
         MachOOLMemoryType,
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
-        MappedMemory
+#elif USE(UNIX_DOMAIN_SOCKETS)
+        SocketType,
+        MappedMemoryType
 #endif
     };
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     Attachment(mach_port_name_t port, mach_msg_type_name_t disposition);
     Attachment(void* address, mach_msg_size_t size, mach_msg_copy_options_t copyOptions, bool deallocate);
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     Attachment(int fileDescriptor, size_t);
+    Attachment(int fileDescriptor);
 #endif
 
     Type type() const { return m_type; }
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     void release();
 
     // MachPortType
@@ -66,7 +73,7 @@ public:
     mach_msg_size_t size() const { ASSERT(m_type == MachOOLMemoryType); return m_oolMemory.size; }
     mach_msg_copy_options_t copyOptions() const { ASSERT(m_type == MachOOLMemoryType); return m_oolMemory.copyOptions; }
     bool deallocate() const { ASSERT(m_type == MachOOLMemoryType); return m_oolMemory.deallocate; }
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     size_t size() const { return m_size; }
 
     int releaseFileDescriptor() { int temp = m_fileDescriptor; m_fileDescriptor = -1; return temp; }
@@ -81,7 +88,7 @@ public:
 private:
     Type m_type;
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     union {
         struct {
             mach_port_name_t port;
@@ -94,7 +101,7 @@ private:
             bool deallocate;
         } m_oolMemory;
     };
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     int m_fileDescriptor;
     size_t m_size;
 #endif

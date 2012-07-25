@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2009, International Business Machines Corporation and    *
+* Copyright (C) 1997-2012, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -26,6 +26,7 @@
 #include "unicode/dtfmtsym.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/msgfmt.h"
+#include "unicode/tznames.h"
 #include "cpputils.h"
 #include "ucln_in.h"
 #include "umutex.h"
@@ -35,7 +36,6 @@
 #include "gregoimp.h"
 #include "hash.h"
 #include "uresimp.h"
-#include "zstrfmt.h"
 #include "ureslocs.h"
 
 // *****************************************************************************
@@ -47,17 +47,17 @@
  * resource data.
  */
 
-#define PATTERN_CHARS_LEN 30
+#define PATTERN_CHARS_LEN 31
 
 /**
  * Unlocalized date-time pattern characters. For example: 'y', 'd', etc. All
  * locales use the same these unlocalized pattern characters.
  */
 static const UChar gPatternChars[] = {
-    // GyMdkHmsSEDFwWahKzYeugAZvcLQqV
+    // GyMdkHmsSEDFwWahKzYeugAZvcLQqVU
     0x47, 0x79, 0x4D, 0x64, 0x6B, 0x48, 0x6D, 0x73, 0x53, 0x45,
     0x44, 0x46, 0x77, 0x57, 0x61, 0x68, 0x4B, 0x7A, 0x59, 0x65,
-    0x75, 0x67, 0x41, 0x5A, 0x76, 0x63, 0x4c, 0x51, 0x71, 0x56, 0
+    0x75, 0x67, 0x41, 0x5A, 0x76, 0x63, 0x4c, 0x51, 0x71, 0x56, 0x55, 0
 };
 
 /* length of an array */
@@ -120,30 +120,6 @@ static const UChar gLastResortEras[2][3] =
     {0x0041, 0x0044, 0x0000}  /* "AD" */
 };
 
-
-// These are the zone strings of last resort.
-static const UChar gLastResortZoneStrings[7][4] =
-{
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}, /* "GMT" */
-    {0x0047, 0x004D, 0x0054, 0x0000}  /* "GMT" */
-};
-
-static const UChar gLastResortGmtFormat[] =
-    {0x0047, 0x004D, 0x0054, 0x007B, 0x0030, 0x007D, 0x0000}; /* GMT{0} */
-
-static const UChar gLastResortGmtHourFormats[4][10] =
-{
-    {0x002D, 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0x003A, 0x0073, 0x0073, 0x0000}, /* -HH:mm:ss */
-    {0x002D, 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0x0000, 0x0000, 0x0000, 0x0000}, /* -HH:mm */
-    {0x002B, 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0x003A, 0x0073, 0x0073, 0x0000}, /* +HH:mm:ss */
-    {0x002B, 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0x0000, 0x0000, 0x0000, 0x0000}  /* +HH:mm */
-};
-
 /* Sizes for the last resort string arrays */
 typedef enum LastResortSize {
     kMonthNum = 13,
@@ -179,20 +155,27 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(DateFormatSymbols)
  * with a locale and calendar
  */
 static const char gErasTag[]="eras";
+static const char gCyclicNameSetsTag[]="cyclicNameSets";
+static const char gNameSetYearsTag[]="years";
 static const char gMonthNamesTag[]="monthNames";
+static const char gMonthPatternsTag[]="monthPatterns";
 static const char gDayNamesTag[]="dayNames";
 static const char gNamesWideTag[]="wide";
 static const char gNamesAbbrTag[]="abbreviated";
 static const char gNamesNarrowTag[]="narrow";
+static const char gNamesAllTag[]="all";
+static const char gNamesLeapTag[]="leap";
+static const char gNamesFormatTag[]="format";
 static const char gNamesStandaloneTag[]="stand-alone";
+static const char gNamesNumericTag[]="numeric";
 static const char gAmPmMarkersTag[]="AmPmMarkers";
 static const char gQuartersTag[]="quarters";
 
 static const char gZoneStringsTag[]="zoneStrings";
-static const char gGmtFormatTag[]="gmtFormat";
-static const char gHourFormatTag[]="hourFormat";
 
 static const char gLocalPatternCharsTag[]="localPatternChars";
+
+static const char gContextTransformsTag[]="contextTransforms";
 
 static UMTX LOCK;
 
@@ -329,8 +312,18 @@ DateFormatSymbols::copyData(const DateFormatSymbols& other) {
     assignArray(fShortQuarters, fShortQuartersCount, other.fShortQuarters, other.fShortQuartersCount);
     assignArray(fStandaloneQuarters, fStandaloneQuartersCount, other.fStandaloneQuarters, other.fStandaloneQuartersCount);
     assignArray(fStandaloneShortQuarters, fStandaloneShortQuartersCount, other.fStandaloneShortQuarters, other.fStandaloneShortQuartersCount);
-    fGmtFormat = other.fGmtFormat;
-    assignArray(fGmtHourFormats, fGmtHourFormatsCount, other.fGmtHourFormats, other.fGmtHourFormatsCount);
+    if (other.fLeapMonthPatterns != NULL) {
+        assignArray(fLeapMonthPatterns, fLeapMonthPatternsCount, other.fLeapMonthPatterns, other.fLeapMonthPatternsCount);
+    } else {
+        fLeapMonthPatterns = NULL;
+        fLeapMonthPatternsCount = 0;
+    }
+    if (other.fShortYearNames != NULL) {
+        assignArray(fShortYearNames, fShortYearNamesCount, other.fShortYearNames, other.fShortYearNamesCount);
+    } else {
+        fShortYearNames = NULL;
+        fShortYearNamesCount = 0;
+    }
  
     if (other.fZoneStrings != NULL) {
         fZoneStringsColCount = other.fZoneStringsColCount;
@@ -344,13 +337,12 @@ DateFormatSymbols::copyData(const DateFormatSymbols& other) {
     }
     fZSFLocale = other.fZSFLocale;
     // Other zone strings data is created on demand
-    fZoneStringFormat = NULL;
     fLocaleZoneStrings = NULL;
-    fZSFCachePtr = NULL;
-    fZSFLocal = NULL;
 
     // fastCopyFrom() - see assignArray comments
     fLocalPatternChars.fastCopyFrom(other.fLocalPatternChars);
+    
+    uprv_memcpy(fCapitalization, other.fCapitalization, sizeof(fCapitalization));
 }
 
 /**
@@ -391,7 +383,8 @@ void DateFormatSymbols::dispose()
     if (fShortQuarters)            delete[] fShortQuarters;
     if (fStandaloneQuarters)       delete[] fStandaloneQuarters;
     if (fStandaloneShortQuarters)  delete[] fStandaloneShortQuarters;
-    if (fGmtHourFormats)           delete[] fGmtHourFormats;
+    if (fLeapMonthPatterns)        delete[] fLeapMonthPatterns;
+    if (fShortYearNames)           delete[] fShortYearNames;
 
     disposeZoneStrings();
 }
@@ -410,21 +403,11 @@ void DateFormatSymbols::disposeZoneStrings()
         }
         uprv_free(fLocaleZoneStrings);
     }
-    if (fZSFLocal) {
-        delete fZSFLocal;
-    }
-    if (fZSFCachePtr) {
-        delete fZSFCachePtr;
-    }
 
     fZoneStrings = NULL;
     fLocaleZoneStrings = NULL;
     fZoneStringsRowCount = 0;
     fZoneStringsColCount = 0;
-
-    fZoneStringFormat = NULL;
-    fZSFLocal = NULL;
-    fZSFCachePtr = NULL;
 }
 
 UBool
@@ -468,8 +451,9 @@ DateFormatSymbols::operator==(const DateFormatSymbols& other) const
         fShortQuartersCount == other.fShortQuartersCount &&
         fStandaloneQuartersCount == other.fStandaloneQuartersCount &&
         fStandaloneShortQuartersCount == other.fStandaloneShortQuartersCount &&
-        fGmtHourFormatsCount == other.fGmtHourFormatsCount &&
-        fGmtFormat == other.fGmtFormat)
+        fLeapMonthPatternsCount == other.fLeapMonthPatternsCount &&
+        fShortYearNamesCount == other.fShortYearNamesCount &&
+        (uprv_memcmp(fCapitalization, other.fCapitalization, sizeof(fCapitalization))==0))
     {
         // Now compare the arrays themselves
         if (arrayCompare(fEras, other.fEras, fErasCount) &&
@@ -492,7 +476,8 @@ DateFormatSymbols::operator==(const DateFormatSymbols& other) const
             arrayCompare(fShortQuarters, other.fShortQuarters, fShortQuartersCount) &&
             arrayCompare(fStandaloneQuarters, other.fStandaloneQuarters, fStandaloneQuartersCount) &&
             arrayCompare(fStandaloneShortQuarters, other.fStandaloneShortQuarters, fStandaloneShortQuartersCount) &&
-            arrayCompare(fGmtHourFormats, other.fGmtHourFormats, fGmtHourFormatsCount))
+            arrayCompare(fLeapMonthPatterns, other.fLeapMonthPatterns, fLeapMonthPatternsCount) &&
+            arrayCompare(fShortYearNames, other.fShortYearNames, fShortYearNamesCount))
         {
             // Compare the contents of fZoneStrings
             if (fZoneStrings == NULL && other.fZoneStrings == NULL) {
@@ -714,6 +699,13 @@ DateFormatSymbols::getAmPmStrings(int32_t &count) const
 {
     count = fAmPmsCount;
     return fAmPms;
+}
+
+const UnicodeString*
+DateFormatSymbols::getLeapMonthPatterns(int32_t &count) const
+{
+    count = fLeapMonthPatternsCount;
+    return fLeapMonthPatterns;
 }
 
 //------------------------------------------------------
@@ -1033,41 +1025,6 @@ DateFormatSymbols::setAmPmStrings(const UnicodeString* amPmsArray, int32_t count
     fAmPmsCount = count;
 }
 
-//------------------------------------------------------
-const ZoneStringFormat*
-DateFormatSymbols::getZoneStringFormat(void) const {
-    umtx_lock(&LOCK);
-    if (fZoneStringFormat == NULL) {
-        ((DateFormatSymbols*)this)->initZoneStringFormat();
-    }
-    umtx_unlock(&LOCK);
-    return fZoneStringFormat;
-}
-
-void
-DateFormatSymbols::initZoneStringFormat(void) {
-    if (fZoneStringFormat == NULL) {
-        UErrorCode status = U_ZERO_ERROR;
-        if (fZoneStrings) {
-            // Create an istance of ZoneStringFormat by the custom zone strings array
-            fZSFLocal = new ZoneStringFormat(fZoneStrings, fZoneStringsRowCount,
-                fZoneStringsColCount, status);
-            if (U_FAILURE(status)) {
-                delete fZSFLocal;
-            } else {
-                fZoneStringFormat = (const ZoneStringFormat*)fZSFLocal;
-            }
-        } else {
-            fZSFCachePtr = ZoneStringFormat::getZoneStringFormat(fZSFLocale, status);
-            if (U_FAILURE(status)) {
-                delete fZSFCachePtr;
-            } else {
-                fZoneStringFormat = fZSFCachePtr->get();
-            }
-        }
-    }
-}
-
 const UnicodeString**
 DateFormatSymbols::getZoneStrings(int32_t& rowCount, int32_t& columnCount) const
 {
@@ -1089,18 +1046,89 @@ DateFormatSymbols::getZoneStrings(int32_t& rowCount, int32_t& columnCount) const
     return result;
 }
 
+// For now, we include all zones
+#define ZONE_SET UCAL_ZONE_TYPE_ANY
+
+// This code must be called within a synchronized block
 void
 DateFormatSymbols::initZoneStringsArray(void) {
-    if (fZoneStrings == NULL && fLocaleZoneStrings == NULL) {
-        if (fZoneStringFormat == NULL) {
-            initZoneStringFormat();
+    if (fZoneStrings != NULL || fLocaleZoneStrings != NULL) {
+        return;
+    }
+
+    UErrorCode status = U_ZERO_ERROR;
+
+    StringEnumeration *tzids = NULL;
+    UnicodeString ** zarray = NULL;
+    TimeZoneNames *tzNames = NULL;
+    int32_t rows = 0;
+
+    do { // dummy do-while
+
+        tzids = TimeZone::createTimeZoneIDEnumeration(ZONE_SET, NULL, NULL, status);
+        rows = tzids->count(status);
+        if (U_FAILURE(status)) {
+            break;
         }
-        if (fZoneStringFormat) {
-            UErrorCode status = U_ZERO_ERROR;
-            fLocaleZoneStrings = fZoneStringFormat->createZoneStringsArray(uprv_getUTCtime() /* use current time */,
-                fZoneStringsRowCount, fZoneStringsColCount, status);
+
+        // Allocate array
+        int32_t size = rows * sizeof(UnicodeString*);
+        zarray = (UnicodeString**)uprv_malloc(size);
+        if (zarray == NULL) {
+            status = U_MEMORY_ALLOCATION_ERROR;
+            break;
+        }
+        uprv_memset(zarray, 0, size);
+
+        tzNames = TimeZoneNames::createInstance(fZSFLocale, status);
+
+        const UnicodeString *tzid;
+        int32_t i = 0;
+        UDate now = Calendar::getNow();
+        UnicodeString tzDispName;
+
+        while ((tzid = tzids->snext(status))) {
+            if (U_FAILURE(status)) {
+                break;
+            }
+
+            zarray[i] = new UnicodeString[5];
+            if (zarray[i] == NULL) {
+                status = U_MEMORY_ALLOCATION_ERROR;
+                break;
+            }
+
+            zarray[i][0].setTo(*tzid);
+            zarray[i][1].setTo(tzNames->getDisplayName(*tzid, UTZNM_LONG_STANDARD, now, tzDispName));
+            zarray[i][2].setTo(tzNames->getDisplayName(*tzid, UTZNM_SHORT_STANDARD, now, tzDispName));
+            zarray[i][3].setTo(tzNames->getDisplayName(*tzid, UTZNM_LONG_DAYLIGHT, now, tzDispName));
+            zarray[i][4].setTo(tzNames->getDisplayName(*tzid, UTZNM_SHORT_DAYLIGHT, now, tzDispName));
+            i++;
+        }
+
+    } while (FALSE);
+
+    if (U_FAILURE(status)) {
+        if (zarray) {
+            for (int32_t i = 0; i < rows; i++) {
+                if (zarray[i]) {
+                    delete[] zarray[i];
+                }
+            }
+            uprv_free(zarray);
         }
     }
+
+    if (tzNames) {
+        delete tzNames;
+    }
+    if (tzids) {
+        delete tzids;
+    }
+
+    fLocaleZoneStrings = zarray;
+    fZoneStringsRowCount = rows;
+    fZoneStringsColCount = 5;
 }
 
 void
@@ -1182,6 +1210,42 @@ initField(UnicodeString **field, int32_t& length, const UChar *data, LastResortS
     }
 }
 
+static void
+initLeapMonthPattern(UnicodeString *field, int32_t index, const UResourceBundle *data, UErrorCode &status) {
+    field[index].remove();
+    if (U_SUCCESS(status)) {
+        int32_t strLen = 0;
+        const UChar *resStr = ures_getStringByKey(data, gNamesLeapTag, &strLen, &status);
+        if (U_SUCCESS(status)) {
+            field[index].setTo(TRUE, resStr, strLen);
+        }
+    }
+    status = U_ZERO_ERROR;
+}
+
+typedef struct {
+    const char * usageTypeName;
+    DateFormatSymbols::ECapitalizationContextUsageType usageTypeEnumValue;
+} ContextUsageTypeNameToEnumValue;
+
+static const ContextUsageTypeNameToEnumValue contextUsageTypeMap[] = {
+   // Entries must be sorted by usageTypeName; entry with NULL name terminates list.
+    { "day-format-except-narrow", DateFormatSymbols::kCapContextUsageDayFormat },
+    { "day-narrow",     DateFormatSymbols::kCapContextUsageDayNarrow },
+    { "day-standalone-except-narrow", DateFormatSymbols::kCapContextUsageDayStandalone },
+    { "era-abbr",       DateFormatSymbols::kCapContextUsageEraAbbrev },
+    { "era-name",       DateFormatSymbols::kCapContextUsageEraWide },
+    { "era-narrow",     DateFormatSymbols::kCapContextUsageEraNarrow },
+    { "metazone-long",  DateFormatSymbols::kCapContextUsageMetazoneLong },
+    { "metazone-short", DateFormatSymbols::kCapContextUsageMetazoneShort },
+    { "month-format-except-narrow", DateFormatSymbols::kCapContextUsageMonthFormat },
+    { "month-narrow",   DateFormatSymbols::kCapContextUsageMonthNarrow },
+    { "month-standalone-except-narrow", DateFormatSymbols::kCapContextUsageMonthStandalone },
+    { "zone-long",      DateFormatSymbols::kCapContextUsageZoneLong },
+    { "zone-short",     DateFormatSymbols::kCapContextUsageZoneShort },
+    { NULL, (DateFormatSymbols::ECapitalizationContextUsageType)0 },
+};
+
 void
 DateFormatSymbols::initializeData(const Locale& locale, const char *type, UErrorCode& status, UBool useLastResortData)
 {
@@ -1229,16 +1293,15 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
     fStandaloneQuartersCount = 0;
     fStandaloneShortQuarters = NULL;
     fStandaloneShortQuartersCount = 0;
-    fGmtHourFormats = NULL;
-    fGmtHourFormatsCount = 0;
+    fLeapMonthPatterns = NULL;
+    fLeapMonthPatternsCount = 0;
+    fShortYearNames = NULL;
+    fShortYearNamesCount = 0;
     fZoneStringsRowCount = 0;
     fZoneStringsColCount = 0;
     fZoneStrings = NULL;
     fLocaleZoneStrings = NULL;
-
-    fZoneStringFormat = NULL;
-    fZSFLocal = NULL;
-    fZSFCachePtr = NULL;
+    uprv_memset(fCapitalization, 0, sizeof(fCapitalization));
 
     // We need to preserve the requested locale for
     // lazy ZoneStringFormat instantiation.  ZoneStringFormat
@@ -1255,12 +1318,6 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
      */
     CalendarData calData(locale, type, status);
 
-    /**
-     * Use the localeBundle for getting zone GMT formatting patterns
-     */
-    UResourceBundle *zoneBundle = ures_open(U_ICUDATA_ZONE, locale.getName(), &status);
-    UResourceBundle *zoneStringsArray = ures_getByKeyWithFallback(zoneBundle, gZoneStringsTag, NULL, &status);
-
     // load the first data item
     UResourceBundle *erasMain = calData.getByKey(gErasTag, status);
     UResourceBundle *eras = ures_getByKeyWithFallback(erasMain, gNamesAbbrTag, NULL, &status);
@@ -1270,12 +1327,82 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
        status = oldStatus;
        eraNames = ures_getByKeyWithFallback(erasMain, gNamesAbbrTag, NULL, &status);
     }
-	// current ICU4J falls back to abbreviated if narrow eras are missing, so we will too
+    // current ICU4J falls back to abbreviated if narrow eras are missing, so we will too
     oldStatus = status;
     UResourceBundle *narrowEras = ures_getByKeyWithFallback(erasMain, gNamesNarrowTag, NULL, &status);
     if ( status == U_MISSING_RESOURCE_ERROR ) {
        status = oldStatus;
        narrowEras = ures_getByKeyWithFallback(erasMain, gNamesAbbrTag, NULL, &status);
+    }
+
+    UErrorCode tempStatus = U_ZERO_ERROR;
+    UResourceBundle *monthPatterns = calData.getByKey(gMonthPatternsTag, tempStatus);
+    if (U_SUCCESS(tempStatus) && monthPatterns != NULL) {
+        fLeapMonthPatterns = newUnicodeStringArray(kMonthPatternsCount);
+        if (fLeapMonthPatterns) {
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternFormatWide, calData.getByKey2(gMonthPatternsTag, gNamesWideTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternFormatAbbrev, calData.getByKey2(gMonthPatternsTag, gNamesAbbrTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternFormatNarrow, calData.getByKey2(gMonthPatternsTag, gNamesNarrowTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternStandaloneWide, calData.getByKey3(gMonthPatternsTag, gNamesStandaloneTag, gNamesWideTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternStandaloneAbbrev, calData.getByKey3(gMonthPatternsTag, gNamesStandaloneTag, gNamesAbbrTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternStandaloneNarrow, calData.getByKey3(gMonthPatternsTag, gNamesStandaloneTag, gNamesNarrowTag, tempStatus), tempStatus);
+            initLeapMonthPattern(fLeapMonthPatterns, kLeapMonthPatternNumeric, calData.getByKey3(gMonthPatternsTag, gNamesNumericTag, gNamesAllTag, tempStatus), tempStatus);
+            if (U_SUCCESS(tempStatus)) {
+                fLeapMonthPatternsCount = kMonthPatternsCount;
+            } else {
+                delete[] fLeapMonthPatterns;
+                fLeapMonthPatterns = NULL;
+            }
+        }
+    }
+
+    tempStatus = U_ZERO_ERROR;
+    UResourceBundle *cyclicNameSets= calData.getByKey(gCyclicNameSetsTag, tempStatus);
+    if (U_SUCCESS(tempStatus) && cyclicNameSets != NULL) {
+        UResourceBundle *nameSetYears = ures_getByKeyWithFallback(cyclicNameSets, gNameSetYearsTag, NULL, &tempStatus);
+        if (U_SUCCESS(tempStatus)) {
+            UResourceBundle *nameSetYearsFmt = ures_getByKeyWithFallback(nameSetYears, gNamesFormatTag, NULL, &tempStatus);
+            if (U_SUCCESS(tempStatus)) {
+                UResourceBundle *nameSetYearsFmtAbbrev = ures_getByKeyWithFallback(nameSetYearsFmt, gNamesAbbrTag, NULL, &tempStatus);
+                if (U_SUCCESS(tempStatus)) {
+                    initField(&fShortYearNames, fShortYearNamesCount, nameSetYearsFmtAbbrev, tempStatus);
+                    ures_close(nameSetYearsFmtAbbrev);
+                }
+                ures_close(nameSetYearsFmt);
+            }
+            ures_close(nameSetYears);
+        }
+    }
+
+    tempStatus = U_ZERO_ERROR;
+    UResourceBundle *localeBundle = ures_open(NULL, locale.getName(), &tempStatus);
+    if (U_SUCCESS(tempStatus)) {
+        UResourceBundle *contextTransforms = ures_getByKeyWithFallback(localeBundle, gContextTransformsTag, NULL, &tempStatus);
+        if (U_SUCCESS(tempStatus)) {
+            UResourceBundle *contextTransformUsage;
+            while ( (contextTransformUsage = ures_getNextResource(contextTransforms, NULL, &tempStatus)) != NULL ) {
+                const int32_t * intVector = ures_getIntVector(contextTransformUsage, &len, &status);
+                if (U_SUCCESS(tempStatus) && intVector != NULL && len >= 2) {
+                	const char* usageType = ures_getKey(contextTransformUsage);
+                	if (usageType != NULL) {
+                	    const ContextUsageTypeNameToEnumValue * typeMapPtr = contextUsageTypeMap;
+                	    int32_t compResult = 0;
+                	    // linear search; list is short and we cannot be sure that bsearch is available
+                	    while ( typeMapPtr->usageTypeName != NULL && (compResult = uprv_strcmp(usageType, typeMapPtr->usageTypeName)) > 0 ) {
+                	        ++typeMapPtr;
+                	    }
+                	    if (typeMapPtr->usageTypeName != NULL && compResult == 0) {
+                	        fCapitalization[typeMapPtr->usageTypeEnumValue][0] = intVector[0];
+                	        fCapitalization[typeMapPtr->usageTypeEnumValue][1] = intVector[1];
+                	    }
+                	}
+                }
+                tempStatus = U_ZERO_ERROR;
+                ures_close(contextTransformUsage);
+            }
+            ures_close(contextTransforms);
+        }
+        ures_close(localeBundle);
     }
 
     UResourceBundle *lsweekdaysData = NULL; // Data closed by calData
@@ -1317,8 +1444,6 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
             initField(&fShortQuarters, fShortQuartersCount, (const UChar *)gLastResortQuarters, kQuarterNum, kQuarterLen, status);
             initField(&fStandaloneQuarters, fStandaloneQuartersCount, (const UChar *)gLastResortQuarters, kQuarterNum, kQuarterLen, status);
             initField(&fStandaloneShortQuarters, fStandaloneShortQuartersCount, (const UChar *)gLastResortQuarters, kQuarterNum, kQuarterLen, status);
-            initField(&fGmtHourFormats, fGmtHourFormatsCount, (const UChar *)gLastResortGmtHourFormats, kGmtHourNum, kGmtHourLen, status);
-            fGmtFormat.setTo(TRUE, gLastResortGmtFormat, -1);
             fLocalPatternChars.setTo(TRUE, gPatternChars, PATTERN_CHARS_LEN);
         }
         goto cleanup;
@@ -1381,44 +1506,6 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
     if(status == U_MISSING_RESOURCE_ERROR) {
         status = U_ZERO_ERROR;
         initField(&fStandaloneShortQuarters, fStandaloneShortQuartersCount, calData.getByKey2(gQuartersTag, gNamesAbbrTag, status), status);
-    }
-
-    // GMT format patterns
-    resStr = ures_getStringByKeyWithFallback(zoneStringsArray, gGmtFormatTag, &len, &status);
-    if (len > 0) {
-        fGmtFormat.setTo(TRUE, resStr, len);
-    }
-
-    resStr = ures_getStringByKeyWithFallback(zoneStringsArray, gHourFormatTag, &len, &status);
-    if (len > 0) {
-        UChar *sep = u_strchr(resStr, (UChar)0x003B /* ';' */);
-        if (sep != NULL) {
-            fGmtHourFormats = newUnicodeStringArray(GMT_HOUR_COUNT);
-            if (fGmtHourFormats == NULL) {
-                status = U_MEMORY_ALLOCATION_ERROR;
-            } else {
-                fGmtHourFormatsCount = GMT_HOUR_COUNT;
-                fGmtHourFormats[GMT_NEGATIVE_HM].setTo(TRUE, sep + 1, -1);
-                fGmtHourFormats[GMT_POSITIVE_HM].setTo(FALSE, resStr, (int32_t)(sep - resStr));
-
-                // CLDR 1.5 does not have GMT offset pattern including second field.
-                // For now, append "ss" to the end.
-                if (fGmtHourFormats[GMT_NEGATIVE_HM].indexOf((UChar)0x003A /* ':' */) != -1) {
-                    fGmtHourFormats[GMT_NEGATIVE_HMS] = fGmtHourFormats[GMT_NEGATIVE_HM] + UNICODE_STRING_SIMPLE(":ss");
-                } else if (fGmtHourFormats[GMT_NEGATIVE_HM].indexOf((UChar)0x002E /* '.' */) != -1) {
-                    fGmtHourFormats[GMT_NEGATIVE_HMS] = fGmtHourFormats[GMT_NEGATIVE_HM] + UNICODE_STRING_SIMPLE(".ss");
-                } else {
-                    fGmtHourFormats[GMT_NEGATIVE_HMS] = fGmtHourFormats[GMT_NEGATIVE_HM] + UNICODE_STRING_SIMPLE("ss");
-                }
-                if (fGmtHourFormats[GMT_POSITIVE_HM].indexOf((UChar)0x003A /* ':' */) != -1) {
-                    fGmtHourFormats[GMT_POSITIVE_HMS] = fGmtHourFormats[GMT_POSITIVE_HM] + UNICODE_STRING_SIMPLE(":ss");
-                } else if (fGmtHourFormats[GMT_POSITIVE_HM].indexOf((UChar)0x002E /* '.' */) != -1) {
-                    fGmtHourFormats[GMT_POSITIVE_HMS] = fGmtHourFormats[GMT_POSITIVE_HM] + UNICODE_STRING_SIMPLE(".ss");
-                } else {
-                    fGmtHourFormats[GMT_POSITIVE_HMS] = fGmtHourFormats[GMT_POSITIVE_HM] + UNICODE_STRING_SIMPLE("ss");
-                }
-            }
-        }
     }
 
     // ICU 3.8 or later version no longer uses localized date-time pattern characters by default (ticket#5597)
@@ -1559,8 +1646,6 @@ cleanup:
     ures_close(eras);
     ures_close(eraNames);
     ures_close(narrowEras);
-    ures_close(zoneStringsArray);
-    ures_close(zoneBundle);
 }
 
 Locale 

@@ -28,7 +28,10 @@
 #include <IOKit/hid/IOHIDUsageTables.h>
 #include <IOKit/hid/IOHIDServiceKeys.h>
 #include <IOKit/hid/IOHIDKeys.h>
+
+#if TARGET_OS_EMBEDDED // {
 #include <IOKit/hid/AppleEmbeddedHIDKeys.h>
+#endif // } TARGET_OS_EMBEDDED
 
 __BEGIN_DECLS
 #include <asl.h>
@@ -100,7 +103,7 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _asyncPort                  = MACH_PORT_NULL;
     _asyncCFMachPort            = NULL;
     _asyncEventSource           = NULL;
-        
+    
     _serviceProperties          = NULL;
     _dynamicServiceProperties   = NULL;
     _servicePreferences         = NULL;
@@ -175,6 +178,7 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
     if ( _asyncCFMachPort ) {
         CFMachPortInvalidate(_asyncCFMachPort);
         CFRelease(_asyncCFMachPort);
+        _asyncCFMachPort = NULL;
     }
     
     if ( _asyncPort ) {
@@ -254,8 +258,8 @@ void IOHIDEventServiceClass::_unscheduleFromRunLoop(void *self, CFRunLoopRef run
 //------------------------------------------------------------------------------
 void IOHIDEventServiceClass::_queueEventSourceCallback(
                                             CFMachPortRef               cfPort, 
-                                            mach_msg_header_t *         msg, 
-                                            CFIndex                     size, 
+                                            mach_msg_header_t *         msg __unused, 
+                                            CFIndex                     size __unused, 
                                             void *                      info)
 {
     IOHIDEventServiceClass *eventService = (IOHIDEventServiceClass *)info;
@@ -368,7 +372,7 @@ HRESULT IOHIDEventServiceClass::queryInterface(REFIID iid, void **ppv)
 //---------------------------------------------------------------------------
 // IOHIDEventServiceClass::probe
 //---------------------------------------------------------------------------
-IOReturn IOHIDEventServiceClass::probe(CFDictionaryRef propertyTable, io_service_t service, SInt32 * order)
+IOReturn IOHIDEventServiceClass::probe(CFDictionaryRef propertyTable __unused, io_service_t service, SInt32 * order __unused)
 {
     if (!service || !IOObjectConformsTo(service, "IOHIDEventService"))
         return kIOReturnBadArgument;
@@ -397,7 +401,7 @@ IOReturn IOHIDEventServiceClass::probe(CFDictionaryRef propertyTable, io_service
 //---------------------------------------------------------------------------
 // IOHIDEventServiceClass::start
 //---------------------------------------------------------------------------
-IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable, io_service_t service)
+IOReturn IOHIDEventServiceClass::start(CFDictionaryRef propertyTable __unused, io_service_t service)
 {
     IOReturn                ret             = kIOReturnError;
     HRESULT                 plugInResult 	= S_OK;
@@ -648,10 +652,12 @@ boolean_t IOHIDEventServiceClass::setProperty(CFStringRef key, CFTypeRef propert
     CFDictionaryRef floatProperties = NULL;
     boolean_t       retVal;
     
+#if TARGET_OS_EMBEDDED // {
     // RY: Convert these floating point properties to IOFixed. Limiting to accel shake but can get apply to others as well
     if ( CFEqual(CFSTR(kIOHIDAccelerometerShakeKey), key) && (CFDictionaryGetTypeID() == CFGetTypeID(property)) ) {
         property = floatProperties = createFixedProperties((CFDictionaryRef)property);
     }
+#endif // } TARGET_OS_EMBEDDED
         
     retVal = (IORegistryEntrySetCFProperty(_service, key, property) == kIOReturnSuccess);
     

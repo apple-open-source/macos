@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -33,16 +33,12 @@
 namespace WebCore {
 
 WebKitCSSTransformValue::WebKitCSSTransformValue(TransformOperationType op)
-    : CSSValueList(false)
+    : CSSValueList(WebKitCSSTransformClass, CommaSeparator)
     , m_type(op)
 {
 }
 
-WebKitCSSTransformValue::~WebKitCSSTransformValue()
-{
-}
-
-String WebKitCSSTransformValue::cssText() const
+String WebKitCSSTransformValue::customCssText() const
 {
     String result;
     switch (m_type) {
@@ -112,11 +108,22 @@ String WebKitCSSTransformValue::cssText() const
         default:
             break;
     }
-    
-    result += CSSValueList::cssText();
-    
+
+    result += CSSValueList::customCssText();
+
     result += ")";
     return result;
+}
+
+WebKitCSSTransformValue::WebKitCSSTransformValue(const WebKitCSSTransformValue& cloneFrom)
+    : CSSValueList(cloneFrom)
+    , m_type(cloneFrom.m_type)
+{
+}
+
+PassRefPtr<WebKitCSSTransformValue> WebKitCSSTransformValue::cloneForCSSOM() const
+{
+    return adoptRef(new WebKitCSSTransformValue(*this));
 }
 
 }

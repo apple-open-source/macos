@@ -29,13 +29,18 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGByteCodeParser.h"
+#include "DFGCFAPhase.h"
+#include "DFGCSEPhase.h"
+#include "DFGFixupPhase.h"
 #include "DFGJITCompiler.h"
-#include "DFGPropagator.h"
+#include "DFGPredictionPropagationPhase.h"
+#include "DFGRedundantPhiEliminationPhase.h"
+#include "DFGVirtualRegisterAllocationPhase.h"
 
 namespace JSC { namespace DFG {
 
 enum CompileMode { CompileFunction, CompileOther };
-inline bool compile(CompileMode compileMode, ExecState* exec, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr* jitCodeWithArityCheck)
+inline bool compile(CompileMode compileMode, JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr* jitCodeWithArityCheck)
 {
     SamplingRegion samplingRegion("DFG Compilation (Driver)");
     
@@ -44,42 +49,52 @@ inline bool compile(CompileMode compileMode, ExecState* exec, CodeBlock* codeBlo
     ASSERT(codeBlock->alternative()->getJITType() == JITCode::BaselineJIT);
 
 #if DFG_ENABLE(DEBUG_VERBOSE)
-    fprintf(stderr, "DFG compiling code block %p(%p), number of instructions = %u.\n", codeBlock, codeBlock->alternative(), codeBlock->instructionCount());
+    dataLog("DFG compiling code block %p(%p), number of instructions = %u.\n", codeBlock, codeBlock->alternative(), codeBlock->instructionCount());
 #endif
     
-    JSGlobalData* globalData = &exec->globalData();
-    Graph dfg;
-    if (!parse(dfg, globalData, codeBlock))
+    Graph dfg(globalData, codeBlock);
+    if (!parse(dfg))
         return false;
     
     if (compileMode == CompileFunction)
-        dfg.predictArgumentTypes(codeBlock);
+        dfg.predictArgumentTypes();
+
+    performRedundantPhiElimination(dfg);
+    performPredictionPropagation(dfg);
+    performFixup(dfg);
+    performCSE(dfg);
+    performVirtualRegisterAllocation(dfg);
+    performCFA(dfg);
+
+#if DFG_ENABLE(DEBUG_VERBOSE)
+    dataLog("Graph after optimization:\n");
+    dfg.dump();
+#endif
     
-    propagate(dfg, globalData, codeBlock);
-    
-    JITCompiler dataFlowJIT(globalData, dfg, codeBlock);
+    JITCompiler dataFlowJIT(dfg);
+    bool result;
     if (compileMode == CompileFunction) {
         ASSERT(jitCodeWithArityCheck);
         
-        dataFlowJIT.compileFunction(jitCode, *jitCodeWithArityCheck);
+        result = dataFlowJIT.compileFunction(jitCode, *jitCodeWithArityCheck);
     } else {
         ASSERT(compileMode == CompileOther);
         ASSERT(!jitCodeWithArityCheck);
         
-        dataFlowJIT.compile(jitCode);
+        result = dataFlowJIT.compile(jitCode);
     }
     
-    return true;
+    return result;
 }
 
-bool tryCompile(ExecState* exec, CodeBlock* codeBlock, JITCode& jitCode)
+bool tryCompile(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode)
 {
-    return compile(CompileOther, exec, codeBlock, jitCode, 0);
+    return compile(CompileOther, globalData, codeBlock, jitCode, 0);
 }
 
-bool tryCompileFunction(ExecState* exec, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr& jitCodeWithArityCheck)
+bool tryCompileFunction(JSGlobalData& globalData, CodeBlock* codeBlock, JITCode& jitCode, MacroAssemblerCodePtr& jitCodeWithArityCheck)
 {
-    return compile(CompileFunction, exec, codeBlock, jitCode, &jitCodeWithArityCheck);
+    return compile(CompileFunction, globalData, codeBlock, jitCode, &jitCodeWithArityCheck);
 }
 
 } } // namespace JSC::DFG

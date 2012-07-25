@@ -93,7 +93,7 @@ public:
         y.fromFixed24x8(y_in);
         return *this;
     }
-    
+
     bool inRect(volatile IOGBounds &rect) {
         return (x >= (SInt64)rect.minx) && (x < (SInt64)rect.maxx) && (y >= (SInt64)rect.miny) && (y < (SInt64)rect.maxy);
     }

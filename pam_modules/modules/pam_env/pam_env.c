@@ -195,7 +195,7 @@ static int _parse_config_file(pam_handle_t *pamh, int ctrl, char **conffile)
     /* tidy up */
     _clean_var(pamh, var);        /* We could have got here prematurely, this is safe though */
     if (NULL != conffile) {
-        memset(conffile, 0, sizeof(conffile));
+        memset(conffile, 0, sizeof(*conffile));
         *conffile = NULL;
     }
     file = NULL;
@@ -279,7 +279,7 @@ static int _parse_env_file(pam_handle_t *pamh, int ctrl, char **env_file)
 
     /* tidy up */
 	if (NULL != env_file) {
-        memset(env_file, 0, sizeof(env_file));
+        memset(env_file, 0, sizeof(*env_file));
         *env_file = NULL;
     }
     file = NULL;

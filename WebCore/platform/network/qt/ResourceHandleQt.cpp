@@ -30,11 +30,9 @@
 #include "config.h"
 #include "ResourceHandle.h"
 
-#include "ChromeClientQt.h"
 #include "CachedResourceLoader.h"
 #include "Frame.h"
 #include "FrameNetworkingContext.h"
-#include "FrameLoaderClientQt.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "QNetworkReplyHandler.h"
@@ -59,6 +57,7 @@ public:
         , m_data(data)
     {}
 
+    virtual void willSendRequest(ResourceHandle*, ResourceRequest&, const ResourceResponse&);
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse& response) { m_response = response; }
     virtual void didReceiveData(ResourceHandle*, const char* data, int length, int) { m_data.append(data, length); }
     virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/) {}
@@ -68,6 +67,17 @@ private:
     ResourceResponse& m_response;
     Vector<char>& m_data;
 };
+
+void WebCoreSynchronousLoader::willSendRequest(ResourceHandle* handle, ResourceRequest& request, const ResourceResponse& /*redirectResponse*/)
+{
+    // FIXME: This needs to be fixed to follow the redirect correctly even for cross-domain requests.
+    if (!protocolHostAndPortAreEqual(handle->firstRequest().url(), request.url())) {
+        ASSERT(m_error.isNull());
+        m_error.setIsCancellation(true);
+        request = ResourceRequest();
+        return;
+    }
+}
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
@@ -136,17 +146,6 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame* frame)
     }
 
     return false;
-}
-
-bool ResourceHandle::supportsBufferedData()
-{
-    return false;
-}
-
-PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
-{
-    ASSERT_NOT_REACHED();
-    return 0;
 }
 
 void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data)

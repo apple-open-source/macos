@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001, 2003-2005, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,7 +90,7 @@ my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
     return;
 }
 
-static __inline__ CFStringRef
+static __inline__ CF_RETURNS_RETAINED CFStringRef
 S_application_path(CFStringRef applicationID)
 {
     return (CFStringCreateWithFormat(NULL, NULL,
@@ -240,18 +240,7 @@ SCDynamicStoreCopyDHCPInfo(SCDynamicStoreRef store, CFStringRef serviceID)
 {
     CFDictionaryRef	dhcp_dict = NULL;
     CFStringRef		key = NULL;
-    boolean_t		needs_close = FALSE;
     CFDictionaryRef	primary_dict = NULL;
-
-    if (store == NULL) {
-	needs_close = TRUE;
-	store = SCDynamicStoreCreate(NULL,
-				     CFSTR("SCDynamicStoreCopyDHCPInfo"),
-				     NULL, NULL);
-	if (store == NULL) {
-	    goto done;
-	}
-    }
 
     if (serviceID == NULL) {
 	/* get the primary service name */
@@ -287,9 +276,6 @@ SCDynamicStoreCopyDHCPInfo(SCDynamicStoreRef store, CFStringRef serviceID)
     if (primary_dict) {
 	CFRelease(primary_dict);
     }
-    if (needs_close == TRUE && store != NULL) {
-	CFRelease(store);
-    }
     return (dhcp_dict);
 }
 
@@ -317,6 +303,12 @@ CFDateRef
 DHCPInfoGetLeaseStartTime(CFDictionaryRef dhcp_dict)
 {
     return (CFDictionaryGetValue(dhcp_dict, CFSTR("LeaseStartTime")));
+}
+
+CFDateRef
+DHCPInfoGetLeaseExpirationTime(CFDictionaryRef dhcp_dict)
+{
+    return (CFDictionaryGetValue(dhcp_dict, CFSTR("LeaseExpirationTime")));
 }
 
 #ifdef TEST_DHCPCLIENT_PREFERENCES
@@ -626,5 +618,5 @@ main(int argc, char * argv[])
     exit(0);
     return(0);
 }
-#endif TEST_DHCPCLIENT_PREFERENCES
+#endif	// TEST_DHCPCLIENT_PREFERENCES
 

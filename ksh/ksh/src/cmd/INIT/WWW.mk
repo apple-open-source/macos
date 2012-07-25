@@ -48,8 +48,10 @@ WWWTYPES =
 		if	{ test '' = '$(*)' || { strings $(*) | egrep -q '\[\+NAME\?|libcmd\.|cmd[0-9][0-9]\.' ;} ;} && [[ "$( $(<:B) '--???html' -- 2>&1 )" == version=[1-9]* ]]
 		then	( $(<:B) '--??html' -- 2>$(<) ) || true
 		fi
-	$(M)/%.html : .DONTCARE $(INSTALLROOT)/bin/%
-		$(@.DO.WWW.MAN)
+	if 0
+		$(M)/%.html : .DONTCARE $(INSTALLROOT)/bin/%
+			$(@.DO.WWW.MAN)
+	end
 	if "$(<)"
 		D := $(<)
 	elif ! "$(R)"

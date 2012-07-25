@@ -29,57 +29,18 @@
 
 #include <wtf/Platform.h>
 
-#if OS(WINDOWS) && !OS(WINCE) && !PLATFORM(QT) && !PLATFORM(CHROMIUM)
+#if OS(WINDOWS) && !OS(WINCE) && !PLATFORM(QT) && !PLATFORM(CHROMIUM) && !PLATFORM(GTK) && !PLATFORM(WX)
 #include <WebCore/WebCoreHeaderDetection.h>
 #endif
 
-/* See note in wtf/Platform.h for more info on EXPORT_MACROS. */
-#if USE(EXPORT_MACROS)
-
 #include <wtf/ExportMacros.h>
+#include "PlatformExportMacros.h"
 
-#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
-#define WTF_EXPORT_PRIVATE WTF_EXPORT
-#define JS_EXPORT_PRIVATE WTF_EXPORT
+#if PLATFORM(QT) && USE(V8)
+#include <JavaScriptCore/runtime/JSExportMacros.h>
 #else
-#define WTF_EXPORT_PRIVATE WTF_IMPORT
-#define JS_EXPORT_PRIVATE WTF_IMPORT
+#include <runtime/JSExportMacros.h>
 #endif
-
-#define JS_EXPORTDATA JS_EXPORT_PRIVATE
-#define JS_EXPORTCLASS JS_EXPORT_PRIVATE
-
-#if defined(BUILDING_WebCore) || defined(BUILDING_WebKit)
-#define WEBKIT_EXPORTDATA WTF_EXPORT
-#else
-#define WEBKIT_EXPORTDATA WTF_IMPORT
-#endif
-
-#else /* !USE(EXPORT_MACROS) */
-
-#if !PLATFORM(CHROMIUM) && OS(WINDOWS) && !defined(BUILDING_WX__) && !COMPILER(GCC)
-#if defined(BUILDING_JavaScriptCore) || defined(BUILDING_WTF)
-#define JS_EXPORTDATA __declspec(dllexport)
-#else
-#define JS_EXPORTDATA __declspec(dllimport)
-#endif
-#if defined(BUILDING_WebCore) || defined(BUILDING_WebKit)
-#define WEBKIT_EXPORTDATA __declspec(dllexport)
-#else
-#define WEBKIT_EXPORTDATA __declspec(dllimport)
-#endif
-#define WTF_EXPORT_PRIVATE
-#define JS_EXPORT_PRIVATE
-#define JS_EXPORTCLASS JS_EXPORTDATA
-#else
-#define JS_EXPORTDATA
-#define JS_EXPORTCLASS
-#define WEBKIT_EXPORTDATA
-#define WTF_EXPORT_PRIVATE
-#define JS_EXPORT_PRIVATE
-#endif
-
-#endif /* USE(EXPORT_MACROS) */
 
 #ifdef __APPLE__
 #define HAVE_FUNC_USLEEP 1
@@ -113,41 +74,6 @@
 
 #endif /* OS(WINDOWS) */
 
-#if PLATFORM(ANDROID)
-// Android uses a single set of include directories when building WebKit and
-// JavaScriptCore. Since WebCore/ is included before JavaScriptCore/, Android
-// includes JavaScriptCore/config.h explicitly here to make sure it gets picked
-// up.
-#include <JavaScriptCore/config.h>
-
-#define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
-// This must be defined before we include FastMalloc.h, below.
-#define USE_SYSTEM_MALLOC 1
-#define LOG_DISABLED 1
-#include <wtf/Assertions.h>
-// Central place to set which optional features Android uses.
-#define ENABLE_CHANNEL_MESSAGING 1
-#define ENABLE_DOM_STORAGE 1
-#undef ENABLE_FTPDIR  // Enabled by default in Platform.h
-#define ENABLE_FTPDIR 0
-#ifndef ENABLE_SVG
-#define ENABLE_SVG 0
-#endif
-#define ENABLE_VIDEO 1
-#define ENABLE_WORKERS 1
-#define ENABLE_XBL 0
-#define ENABLE_XHTMLMP 0
-#define ENABLE_XPATH 0
-#define ENABLE_XSLT 0
-#define ENABLE_ARCHIVE 0
-#define ENABLE_OFFLINE_WEB_APPLICATIONS 1
-#undef ENABLE_GEOLOCATION  // Disabled by default in Platform.h
-#define ENABLE_GEOLOCATION 1
-#undef ENABLE_INSPECTOR  // Enabled by default in Platform.h
-#define ENABLE_INSPECTOR 0
-#define ENABLE_EVENT_SOURCE 0
-#endif /* PLATFORM(ANDROID) */
-
 #ifdef __cplusplus
 
 // These undefs match up with defines in WebCorePrefix.h for Mac OS X.
@@ -155,6 +81,8 @@
 #undef new
 #undef delete
 #include <wtf/FastMalloc.h>
+
+#include <ciso646>
 
 #endif
 
@@ -169,7 +97,7 @@
 // are used from wx headers. On GTK+ for Mac many GTK+ files include <libintl.h>
 // or <glib/gi18n-lib.h>, which in turn include <xlocale/_ctype.h> which uses
 // isacii(). 
-#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !(OS(DARWIN) && PLATFORM(GTK))
+#if !PLATFORM(QT) && !PLATFORM(WX) && !PLATFORM(CHROMIUM) && !(OS(DARWIN) && PLATFORM(GTK)) && !OS(QNX) && !defined(_LIBCPP_VERSION)
 #include <wtf/DisallowCType.h>
 #endif
 
@@ -180,7 +108,7 @@
 #endif
 
 #if PLATFORM(WIN)
-#if defined(WIN_CAIRO)
+#if PLATFORM(WIN_CAIRO)
 #undef WTF_USE_CG
 #define WTF_USE_CAIRO 1
 #define WTF_USE_CURL 1
@@ -199,14 +127,6 @@
 #define WTF_USE_NEW_THEME 1
 #endif // PLATFORM(MAC)
 
-#if OS(SYMBIAN)
-#define USE_SYSTEM_MALLOC 1
-#endif
-
-#if OS(UNIX) || OS(WINDOWS)
-#define WTF_USE_OS_RANDOMNESS 1
-#endif
-
 #if PLATFORM(CHROMIUM)
 
 // Chromium uses this file instead of JavaScriptCore/config.h to compile
@@ -216,20 +136,7 @@
 
 #define WTF_USE_GOOGLEURL 1
 
-#if !defined(WTF_USE_V8)
-#define WTF_USE_V8 1
-#endif
-
 #endif /* PLATFORM(CHROMIUM) */
-
-#if !defined(WTF_USE_V8)
-#define WTF_USE_V8 0
-#endif /* !defined(WTF_USE_V8) */
-
-/* Using V8 implies not using JSC and vice versa */
-#if !defined(WTF_USE_JSC)
-#define WTF_USE_JSC !WTF_USE_V8
-#endif
 
 #if USE(CG)
 #ifndef CGFLOAT_DEFINED
@@ -261,3 +168,4 @@ typedef float CGFloat;
 #if PLATFORM(WIN) && HAVE(AVCF)
 #define WTF_USE_AVFOUNDATION 1
 #endif
+

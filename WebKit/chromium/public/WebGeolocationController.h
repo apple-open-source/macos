@@ -26,8 +26,8 @@
 #ifndef WebGeolocationController_h
 #define WebGeolocationController_h
 
-#include "WebCommon.h"
-#include "WebNonCopyable.h"
+#include "platform/WebCommon.h"
+#include "platform/WebNonCopyable.h"
 
 namespace WebCore { class GeolocationController; }
 
@@ -40,8 +40,8 @@ class WebGeolocationError;
 // WebGeolocationClient::geolocationDestroyed() has been received.
 class WebGeolocationController : public WebNonCopyable {
 public:
-    WEBKIT_API void positionChanged(const WebGeolocationPosition&);
-    WEBKIT_API void errorOccurred(const WebGeolocationError&);
+    WEBKIT_EXPORT void positionChanged(const WebGeolocationPosition&);
+    WEBKIT_EXPORT void errorOccurred(const WebGeolocationError&);
 
 #if WEBKIT_IMPLEMENTATION
     WebGeolocationController(WebCore::GeolocationController* c)

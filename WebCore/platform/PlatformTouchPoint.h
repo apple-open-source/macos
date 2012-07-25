@@ -29,6 +29,14 @@
 #include <QTouchEvent>
 #endif
 
+#if PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace Platform {
+class TouchPoint;
+};
+};
+#endif
+
 namespace WebCore {
 
 class PlatformTouchEvent;
@@ -44,15 +52,20 @@ public:
         TouchStateEnd // Placeholder: must remain the last item.
     };
 
-#if PLATFORM(QT)
-    PlatformTouchPoint(const QTouchEvent::TouchPoint&);
-    PlatformTouchPoint() {};
-#elif PLATFORM(ANDROID)
+    // This is necessary for us to be able to build synthetic events.
+    PlatformTouchPoint()
+        : m_id(0)
+        , m_radiusY(0)
+        , m_radiusX(0)
+        , m_rotationAngle(0)
+        , m_force(0)
+    {
+    }
+
+#if PLATFORM(EFL)
     PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
-#elif PLATFORM(BREWMP)
-    PlatformTouchPoint(int id, const IntPoint& windowPos, State);
-#elif PLATFORM(EFL)
-    PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
+#elif PLATFORM(BLACKBERRY)
+    PlatformTouchPoint(const BlackBerry::Platform::TouchPoint&);
 #endif
 
     unsigned id() const { return m_id; }
@@ -62,6 +75,7 @@ public:
     int radiusX() const { return m_radiusX; }
     int radiusY() const { return m_radiusY; }
     float rotationAngle() const { return m_rotationAngle; }
+    float force() const { return m_force; }
 
 protected:
     unsigned m_id;
@@ -71,6 +85,7 @@ protected:
     int m_radiusY;
     int m_radiusX;
     float m_rotationAngle;
+    float m_force;
 };
 
 }

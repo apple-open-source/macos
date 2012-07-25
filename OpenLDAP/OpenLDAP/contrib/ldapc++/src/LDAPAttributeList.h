@@ -1,6 +1,6 @@
-// $OpenLDAP: pkg/ldap/contrib/ldapc++/src/LDAPAttributeList.h,v 1.9.6.3 2008/07/08 19:31:00 quanah Exp $
+// $OpenLDAP$
 /*
- * Copyright 2000-2002, OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2011 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 

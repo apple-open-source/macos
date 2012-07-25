@@ -27,6 +27,7 @@
 #include "unicode/uniset.h"
 #include "unicode/uscript.h"
 #include "unicode/ustring.h"
+#include "unicode/utf16.h"
 #include "normalizer2impl.h"
 #include "ucol_bld.h"
 #include "ucol_elm.h"
@@ -844,8 +845,7 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
     UColToken *tok = lh->first;
     UColToken *expt = NULL;
     uint32_t i = 0, j = 0;
-    UChar32 fcdHighStart;
-    const uint16_t *fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
+    const Normalizer2Impl *nfcImpl = Normalizer2Factory::getNFCImpl(*status);
 
     while(tok != NULL && U_SUCCESS(*status)) {
         /* first, check if there are any expansions */
@@ -941,7 +941,7 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
             if (!src->buildCCTabFlag && el.cSize > 0) {
                 // Check the trailing canonical combining class (tccc) of the last character.
                 const UChar *s = el.cPoints + el.cSize;
-                uint16_t fcd = unorm_prevFCD16(fcdTrieIndex, fcdHighStart, el.cPoints, s);
+                uint16_t fcd = nfcImpl->previousFCD16(el.cPoints, s);
                 if ((fcd & 0xff) != 0) {
                     src->buildCCTabFlag = TRUE;
                 }
@@ -982,7 +982,7 @@ _processUCACompleteIgnorables(const void *context, UChar32 start, UChar32 limit,
                 el.cPoints = el.uchars;
 
                 el.cSize = 0;
-                UTF_APPEND_CHAR(el.uchars, el.cSize, 1024, start);
+                U16_APPEND_UNSAFE(el.uchars, el.cSize, start);
 
                 el.noOfCEs = 1;
                 el.CEs[0] = 0;
@@ -1199,21 +1199,29 @@ ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
         /* copy contractions from the UCA - this is felt mostly for cyrillic*/
 
         uint32_t tailoredCE = UCOL_NOT_FOUND;
-        //UChar *conts = (UChar *)((uint8_t *)src->UCA->image + src->UCA->image->UCAConsts+sizeof(UCAConstants));
         UChar *conts = (UChar *)((uint8_t *)src->UCA->image + src->UCA->image->contractionUCACombos);
+        int32_t maxUCAContractionLength = src->UCA->image->contractionUCACombosWidth;
         UCollationElements *ucaEl = ucol_openElements(src->UCA, NULL, 0, status);
         // Check for null pointer
         if (ucaEl == NULL) {
-        	*status = U_MEMORY_ALLOCATION_ERROR;
-        	return NULL;
+            *status = U_MEMORY_ALLOCATION_ERROR;
+            return NULL;
         }
         while(*conts != 0) {
-            /*tailoredCE = ucmpe32_get(t->mapping, *conts);*/
-            tailoredCE = utrie_get32(t->mapping, *conts, NULL);
+            // A continuation is NUL-terminated and NUL-padded
+            // except if it has the maximum length.
+            int32_t contractionLength = maxUCAContractionLength;
+            while(contractionLength > 0 && conts[contractionLength - 1] == 0) {
+                --contractionLength;
+            }
+            UChar32 first;
+            int32_t firstLength = 0;
+            U16_NEXT(conts, firstLength, contractionLength, first);
+            tailoredCE = utrie_get32(t->mapping, first, NULL);
             if(tailoredCE != UCOL_NOT_FOUND) {
                 UBool needToAdd = TRUE;
                 if(isCntTableElement(tailoredCE)) {
-                    if(uprv_cnttab_isTailored(t->contractions, tailoredCE, conts+1, status) == TRUE) {
+                    if(uprv_cnttab_isTailored(t->contractions, tailoredCE, conts+firstLength, status) == TRUE) {
                         needToAdd = FALSE;
                     }
                 }
@@ -1233,7 +1241,7 @@ ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
                         needToAdd = TRUE;
                     }
                 }
-                if(src->removeSet != NULL && uset_contains(src->removeSet, *conts)) {
+                if(src->removeSet != NULL && uset_contains(src->removeSet, first)) {
                     needToAdd = FALSE;
                 }
 
@@ -1243,14 +1251,8 @@ ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
                         el.prefixSize = 0;
                         el.cPoints = el.uchars;
                         el.noOfCEs = 0;
-                        el.uchars[0] = *conts;
-                        el.uchars[1] = *(conts+1);
-                        if(*(conts+2)!=0) {
-                            el.uchars[2] = *(conts+2);
-                            el.cSize = 3;
-                        } else {
-                            el.cSize = 2;
-                        }
+                        u_memcpy(el.uchars, conts, contractionLength);
+                        el.cSize = contractionLength;
                         ucol_setText(ucaEl, el.uchars, el.cSize, status);
                     }
                     else { // pre-context character
@@ -1294,10 +1296,10 @@ ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
                     uprv_uca_addAnElement(t, &el, status);
                 }
 
-            } else if(src->removeSet != NULL && uset_contains(src->removeSet, *conts)) {
-                ucol_uprv_bld_copyRangeFromUCA(src, t, *conts, *conts, status);
+            } else if(src->removeSet != NULL && uset_contains(src->removeSet, first)) {
+                ucol_uprv_bld_copyRangeFromUCA(src, t, first, first, status);
             }
-            conts+=3;
+            conts+=maxUCAContractionLength;
         }
         ucol_closeElements(ucaEl);
     }
@@ -1397,7 +1399,7 @@ static const char* ReorderingTokenNames[] = {
 
 static void toUpper(const char* src, char* dst, uint32_t length) {
    for (uint32_t i = 0; *src != '\0' && i < length - 1; ++src, ++dst, ++i) {
-       *dst = toupper(*src);
+       *dst = uprv_toupper(*src);
    }
    *dst = '\0';
 }

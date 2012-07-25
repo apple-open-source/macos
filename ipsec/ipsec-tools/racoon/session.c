@@ -111,7 +111,7 @@
 
 extern pid_t racoon_pid;
 extern char	logFileStr[];
-extern int launchedbylaunchd(void);
+extern int launchdlaunched;
 static void close_session __P((void));
 static void check_rtsock __P((void *));
 static void initfds __P((void));
@@ -168,7 +168,7 @@ static int64_t racoon_keepalive = -1;
 int64_t
 launchd_update_racoon_keepalive (Boolean enabled)
 {
-	if (launchedbylaunchd()) {
+	if (launchdlaunched) {
 		vproc_t vp = vprocmgr_lookup_vproc("com.apple.racoon");
 		if (vp) {
 			int64_t     val = (__typeof__(val))enabled;
@@ -700,15 +700,15 @@ check_flushsa()
 		return;
 	}
 
-	msg = (struct sadb_msg *)buf->v;
-	end = (struct sadb_msg *)(buf->v + buf->l);
+	msg = ALIGNED_CAST(struct sadb_msg *)buf->v; 
+	end = ALIGNED_CAST(struct sadb_msg *)(buf->v + buf->l);
 
 	/* counting SA except of dead one. */
 	n = 0;
 	while (msg < end) {
 		if (PFKEY_UNUNIT64(msg->sadb_msg_len) < sizeof(*msg))
 			break;
-		next = (struct sadb_msg *)((caddr_t)msg + PFKEY_UNUNIT64(msg->sadb_msg_len));
+		next = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg + PFKEY_UNUNIT64(msg->sadb_msg_len));    // Wcast-align fix (void*) - aligned buffer + multiple of 64
 		if (msg->sadb_msg_type != SADB_DUMP) {
 			msg = next;
 			continue;
@@ -721,7 +721,7 @@ check_flushsa()
 			continue;
 		}
 
-		sa = (struct sadb_sa *)(mhp[SADB_EXT_SA]);
+		sa = ALIGNED_CAST(struct sadb_sa *)(mhp[SADB_EXT_SA]);       // Wcast-align fix (void*) - mhp contains pointers to aligned structs
 		if (!sa) {
 			msg = next;
 			continue;

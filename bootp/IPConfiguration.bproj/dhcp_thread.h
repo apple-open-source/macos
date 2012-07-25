@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,7 +43,8 @@
 
 struct saved_pkt {
     dhcpol_t			options;
-    uint8_t			pkt[1500];
+    /* ALIGN: align to uint32_t */
+    uint32_t			pkt[1500/sizeof(uint32_t)];
     int				pkt_size;
     unsigned 			rating;
     boolean_t			is_dhcp;

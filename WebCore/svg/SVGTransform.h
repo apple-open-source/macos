@@ -40,9 +40,14 @@ public:
         SVG_TRANSFORM_SKEWX = 5,
         SVG_TRANSFORM_SKEWY = 6
     };
- 
+
+    enum ConstructionMode {
+        ConstructIdentityTransform,
+        ConstructZeroTransform
+    };
+
     SVGTransform();
-    SVGTransform(SVGTransformType);
+    SVGTransform(SVGTransformType, ConstructionMode = ConstructIdentityTransform);
     explicit SVGTransform(const AffineTransform&);
 
     SVGTransformType type() const { return m_type; }
@@ -67,6 +72,8 @@ public:
 
     bool isValid() const { return m_type != SVG_TRANSFORM_UNKNOWN; }
     String valueAsString() const;
+
+    static const String& transformTypePrefixForParsing(SVGTransformType);
 
 private:
     friend bool operator==(const SVGTransform& a, const SVGTransform& b);

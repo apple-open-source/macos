@@ -28,8 +28,7 @@
 
 extern void __chk_fail (void) __attribute__((__noreturn__));
 extern int __vsprintf_chk (char * __restrict, int, size_t,
-                           const char * __restrict, va_list arg)
-  __DARWIN_LDBL_COMPAT (__vsprintf_chk);
+                           const char * __restrict, va_list arg);
 
 int
 __vsprintf_chk (char *s, int flags, size_t len, const char *format,

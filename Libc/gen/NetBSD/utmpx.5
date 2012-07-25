@@ -31,9 +31,7 @@
 .Dt UTMPX 5
 .Os
 .Sh NAME
-.Nm utmpx ,
-.Nm wtmpx ,
-.Nm lastlogx
+.Nm utmpx
 .Nd user accounting database
 .Sh SYNOPSIS
 .In utmpx.h
@@ -53,88 +51,51 @@ The
 .Aq Pa utmpx.h
 header defines the structures and functions for logging user.
 Currently logged in users are tracked in
-.Pa /var/run/utmpx ,
-a list of all logins and logouts, as well as all shutdowns, reboots
-and date changes, is kept in
-.Pa /var/log/wtmpx ,
-and the last login of each user is noted in
-.Pa /var/log/lastlogx .
-.Pp
+.Pa /var/run/utmpx .
 The interface to the
 .Nm utmpx
 file is described in
-.Xr getutxent 3 .
+.Xr endutxent 3 .
+The file is not automatically created if they do not exist; it
+must be created manually.
 .Pp
-The
-.Nm wtmpx
-file can grow rapidly on busy systems, and is normally rotated with
-.Xr newsyslog 8 .
+Traditionally, separate files would be used to store the running log of
+the logins and logouts
+.Pf ( Pa wtmpx ) ,
+and the last login of each user
+.Pf ( Pa lastlogx ) .
+With the availability of the Apple system log facility
+.Xr asl 3 ,
+these separate files can be replace with log entries, which are automatically
+generated when
+.Nm utmpx
+entries are written.
+The API to access the logins and logouts is described in
+.Xr endutxent_wtmp 3
+while the last login info is accessible with
+.Xr getlastlogx 3 .
 .Pp
-In the event of a date change, a shutdown, or a reboot, the following
-items are logged in the
-.Nm wtmpx
-file:
-.Bl -tag -width shutdownxx -compact -offset indent
-.It Li date
-The system time has been manually or automatically updated by
-.Xr date 1 .
-The command name
-.Em date
-is recorded in the field
-.Fa ut_name .
-In the field
-.Fa ut_line ,
-the character
-.Ql \\*(Ba
-indicates the time prior to the change, and the character
-.Ql \&{
-indicates the new time.
-.It Li reboot
-.It Li shutdown
-A system reboot or shutdown has been initiated.
-The character
-.Ql \&~
-is placed in the field
-.Fa ut_line ,
+For compatibility, changes to
+.Nm utmpx
+are reflected in
+.Xr utmp 3
+(in the
+.Pa utmp ,
+.Pa wtmp
 and
-.Li reboot
-or
-.Li shutdown
-in the field
-.Fa ut_name
-(see
-.Xr shutdown 8
-and
-.Xr reboot 8 ) ,
-using
-.Xr logwtmpx 3 .
-.Pp
-.El
+.Pa lastlog
+files),
+but not the other way around.
 .Sh FILES
-.Bl -tag -width /var/log/lastlogx -compact
+.Bl -tag -width /var/log/utmpx -compact
 .It Pa /var/run/utmpx
 The
 .Nm utmpx
 file.
-.It Pa /var/log/wtmpx
-The
-.Nm wtmpx
-file.
-.It Pa /var/log/lastlogx
-The
-.Nm lastlogx
-file.
 .El
 .Sh SEE ALSO
-.Xr last 1 ,
-.Xr login 1 ,
-.Xr rwho 1 ,
-.Xr w 1 ,
-.Xr who 1 ,
+.Xr asl 3 ,
 .Xr endutxent 3 ,
-.Xr logwtmpx 3 ,
-.Xr utmp 5 ,
-.Xr ac 8 ,
-.Xr init 8 ,
-.Xr newsyslog 8 ,
-.Xr reboot 8
+.Xr endutxent_wtmp 3 ,
+.Xr getlastlogx 3 ,
+.Xr utmp 5

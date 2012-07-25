@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -370,9 +370,10 @@ dump(addr)
 	}
 	lim = buf + needed;
 	for (next = buf; next < lim; next += rtm->rtm_msglen) {
-		rtm = (struct rt_msghdr *)next;
-		sin = (struct sockaddr_inarp *)(rtm + 1);
-		sdl = (struct sockaddr_dl *)(sin + 1);
+		/* ALIGN: trust that the kernel has taken care of alignment */
+		rtm = (struct rt_msghdr *)(void *)next;
+		sin = (struct sockaddr_inarp *)(void *)(rtm + 1);
+		sdl = (struct sockaddr_dl *)(void *)(sin + 1);
 
 		if (addr) {
 			if (addr != sin->sin_addr.s_addr)
@@ -519,7 +520,10 @@ arp_get(int s, route_msg * msg_p, struct in_addr iaddr, int if_index)
     if (sin->sin_addr.s_addr != iaddr.s_addr) {
 	goto done;
     }
-    sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);
+
+    /* ALIGN: msg_p->m_space is aligned sufficiently to dereference 
+     * sdl safely */
+    sdl = (struct sockaddr_dl *)(void *)(sin->sin_len + (char *)sin);
     if (sdl->sdl_family == AF_LINK && is_arp_sdl_type(sdl->sdl_type)) {
 	ret = ARP_RETURN_SUCCESS;
     }
@@ -589,8 +593,9 @@ arp_flush(int s, int all, int if_index)
     }
     lim = buf + needed;
     for (next = buf; next < lim; next += rtm->rtm_msglen) {
-	rtm = (struct rt_msghdr *)next;
-	sin = (struct sockaddr_inarp *)(rtm + 1);
+	/* ALIGN: trust that the kernel has taken care of alignment */
+	rtm = (struct rt_msghdr *)(void *)next;
+	sin = (struct sockaddr_inarp *)(void *)(rtm + 1);
 	
 	if (all == 0 && rtm->rtm_rmx.rmx_expire == 0) {
 	    /* skip permanent entries */
@@ -601,7 +606,9 @@ arp_flush(int s, int all, int if_index)
 	    /* IPv4 LL ARP entry doesn't match specified interface */
 	    continue;
 	}
-	sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);
+
+	 /* ALIGN: sin aligned sufficiently to dereference sdl safely */
+	sdl = (struct sockaddr_dl *)(void *)(sin->sin_len + (char *)sin);
 	if (sdl->sdl_family != AF_LINK) {
 	    continue;
 	}

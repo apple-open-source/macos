@@ -374,7 +374,7 @@ process_cmd(char *cmd, int s, int s6 __unused, FILE *fp __unused)
 	void			*optval;
 	uint32_t		 fmode, ifindex;
 	socklen_t		 optlen;
-	int			 af, error, i, level, n, optname;
+	int			 af, error, i, level, n = 0, optname;
 #ifndef __APPLE__
 	int			 f, flags;
 #endif /* __APPLE__ */

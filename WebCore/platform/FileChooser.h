@@ -37,58 +37,61 @@
 namespace WebCore {
 
 class FileChooser;
-class Font;
-class Icon;
+
+struct FileChooserFileInfo {
+    FileChooserFileInfo(const String& path, const String& displayName = String())
+        : path(path)
+        , displayName(displayName)
+    {
+    }
+
+    const String path;
+    const String displayName;
+};
+
+struct FileChooserSettings {
+    bool allowsMultipleFiles;
+#if ENABLE(DIRECTORY_UPLOAD)
+    bool allowsDirectoryUpload;
+#endif
+    Vector<String> acceptMIMETypes;
+    Vector<String> selectedFiles;
+};
 
 class FileChooserClient {
 public:
-    virtual void valueChanged() = 0;
-    virtual void repaint() = 0;
-    virtual bool allowsMultipleFiles() = 0;
-#if ENABLE(DIRECTORY_UPLOAD)
-    virtual bool allowsDirectoryUpload() = 0;
-#endif
-    virtual String acceptTypes() = 0;
-    virtual void chooseIconForFiles(FileChooser*, const Vector<String>&) = 0;
+    virtual void filesChosen(const Vector<FileChooserFileInfo>&) = 0;
     virtual ~FileChooserClient();
+
+protected:
+    FileChooser* newFileChooser(const FileChooserSettings&);
+
+private:
+    void discardChooser();
+
+    RefPtr<FileChooser> m_chooser;
 };
 
 class FileChooser : public RefCounted<FileChooser> {
 public:
-    static PassRefPtr<FileChooser> create(FileChooserClient*, const Vector<String>& initialFilenames);
+    static PassRefPtr<FileChooser> create(FileChooserClient*, const FileChooserSettings&);
     ~FileChooser();
 
     void disconnectClient() { m_client = 0; }
-    bool disconnected() { return !m_client; }
-
-    const Vector<String>& filenames() const { return m_filenames; }
-    String basenameForWidth(const Font&, int width) const;
-
-    Icon* icon() const { return m_icon.get(); }
-
-    void clear(); // for use by client; does not call valueChanged
 
     void chooseFile(const String& path);
     void chooseFiles(const Vector<String>& paths);
-    // Called when FileChooserClient finishes to load an icon requested by iconForFiles().
-    void iconLoaded(PassRefPtr<Icon>);
 
-    bool allowsMultipleFiles() const { return m_client ? m_client->allowsMultipleFiles() : false; }
-#if ENABLE(DIRECTORY_UPLOAD)
-    bool allowsDirectoryUpload() const { return m_client ? m_client->allowsDirectoryUpload() : false; }
-#endif
-    // Acceptable MIME types.  It's an 'accept' attribute value of the corresponding INPUT element.
-    String acceptTypes() const { return m_client ? m_client->acceptTypes() : String(); }
+    // FIXME: We should probably just pass file paths that could be virtual paths with proper display names rather than passing structs.
+    void chooseFiles(const Vector<FileChooserFileInfo>& files);
+
+    const FileChooserSettings& settings() const { return m_settings; }
 
 private:
-    FileChooser(FileChooserClient*, const Vector<String>& initialFilenames);
-    void initialize();
-    void loadIcon();
+    FileChooser(FileChooserClient*, const FileChooserSettings&);
 
     FileChooserClient* m_client;
-    Vector<String> m_filenames;
-    RefPtr<Icon> m_icon;
-    bool m_isInitializing;
+    FileChooserSettings m_settings;
 };
 
 } // namespace WebCore

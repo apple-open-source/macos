@@ -1,1 +1,0 @@
-#define _OS_VERSION_MACOS_X_

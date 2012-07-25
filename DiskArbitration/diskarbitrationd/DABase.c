@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFBundlePriv.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
 
 static vproc_transaction_t __vproc_transaction       = NULL;
 static size_t              __vproc_transaction_count = 0;
@@ -191,6 +192,13 @@ __private_extern__ const void * ___CFArrayGetValue( CFArrayRef array, const void
     CFIndex index;
 
     index = CFArrayGetFirstIndexOfValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
+///t:start
+    CFIndex index2;
+
+    index2 = CFArrayGetLastIndexOfValue( array, CFRangeMake( 0, CFArrayGetCount( array ) ), value );
+
+    assert( index == index2 );
+///t:stop
 
     return ( index == kCFNotFound ) ? NULL : CFArrayGetValueAtIndex( array, index );
 }
@@ -694,4 +702,122 @@ __private_extern__ kern_return_t ___IORegistryEntryGetPath( io_registry_entry_t 
     }
 
     return status;
+}
+
+__private_extern__ CFArrayRef ___SCDynamicStoreCopyConsoleInformation( SCDynamicStoreRef store )
+{
+    CFMutableArrayRef userList;
+
+    userList = ( void * ) SCDynamicStoreCopyConsoleInformation( store );
+
+    if ( userList )
+    {
+        CFMutableArrayRef array;
+
+        array = CFArrayCreateMutableCopy( kCFAllocatorDefault, 0, userList );
+
+        CFRelease( userList );
+
+        userList = array;
+
+        if ( userList )
+        {
+            CFIndex count;
+            CFIndex index;
+
+            count = CFArrayGetCount( userList );
+
+            for ( index = count - 1; index > -1; index-- )
+            {
+                CFDictionaryRef dictionary;
+
+                dictionary = CFArrayGetValueAtIndex( userList, index );
+
+                if ( CFDictionaryGetValue( dictionary, kSCConsoleSessionLoginDone ) == kCFBooleanFalse )
+                {
+                    CFArrayRemoveValueAtIndex( userList, index );
+                }
+            }
+
+            if ( CFArrayGetCount( userList ) == 0 )
+            {
+                CFRelease( userList );
+
+                userList = NULL;
+            }
+        }
+    }
+///w:start
+    else
+    {
+        CFStringRef user;
+
+        user = ___SCDynamicStoreCopyConsoleUser( store, NULL, NULL );
+
+        if ( user )
+        {
+            CFMutableDictionaryRef dictionary;
+
+            dictionary = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+
+            if ( dictionary )
+            {
+                CFDictionarySetValue( dictionary, kSCConsoleSessionUserName, user );
+
+                userList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+
+                if ( userList )
+                {
+                    CFArrayAppendValue( userList, dictionary );
+                }
+
+                CFRelease( dictionary );
+            }
+
+            CFRelease( user );
+        }
+    }
+///w:stop
+
+    return userList;
+}
+
+__private_extern__ CFStringRef ___SCDynamicStoreCopyConsoleUser( SCDynamicStoreRef store, uid_t * uid, gid_t * gid )
+{
+    CFStringRef user;
+
+    if ( gid )
+    {
+        *gid = ___GID_WHEEL;
+    }
+
+    if ( uid )
+    {
+        *uid = ___UID_ROOT;
+    }
+
+    user = SCDynamicStoreCopyConsoleUser( store, uid, gid );
+///w:start
+    if ( user )
+    {
+        if ( CFEqual( user, CFSTR( "loginwindow" ) ) )
+        {
+            if ( gid )
+            {
+                *gid = ___GID_WHEEL;
+            }
+
+            if ( uid )
+            {
+                *uid = ___UID_ROOT;
+            }
+
+            CFRelease( user );
+
+            user = NULL;
+        }
+    }
+///w:stop
+
+    return user;
 }

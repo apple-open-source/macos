@@ -47,7 +47,7 @@ static Image* platformResource(const char* name)
         gMediaControlImageMap = new MediaControlImageMap();
     if (Image* image = gMediaControlImageMap->get(name))
         return image;
-    if (Image* image = Image::loadPlatformResource(name).releaseRef()) {
+    if (Image* image = Image::loadPlatformResource(name).leakRef()) {
         gMediaControlImageMap->set(name, image);
         return image;
     }
@@ -63,7 +63,6 @@ static bool hasSource(const HTMLMediaElement* mediaElement)
 
 static bool paintMediaButton(GraphicsContext* context, const IntRect& rect, Image* image)
 {
-    IntRect imageRect = image->rect();
     context->drawImage(image, ColorSpaceDeviceRGB, rect);
     return true;
 }
@@ -167,10 +166,10 @@ static bool paintMediaSlider(RenderObject* object, const PaintInfo& paintInfo, c
 
 static bool paintMediaSliderThumb(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    if (!object->parent()->isSlider())
-        return false;
-
-    HTMLMediaElement* mediaElement = toParentMediaElement(object->parent());
+    ASSERT(object->node());
+    Node* hostNode = object->node()->shadowAncestorNode();
+    ASSERT(hostNode);
+    HTMLMediaElement* mediaElement = toParentMediaElement(hostNode);
     if (!mediaElement)
         return false;
 
@@ -202,9 +201,6 @@ static bool paintMediaVolumeSlider(RenderObject* object, const PaintInfo& paintI
 
 static bool paintMediaVolumeSliderThumb(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
-    if (!object->parent()->isSlider())
-        return false;
-
     static Image* mediaVolumeSliderThumb = platformResource("mediaVolumeSliderThumb");
     return paintMediaButton(paintInfo.context, rect, mediaVolumeSliderThumb);
 }
@@ -242,6 +238,16 @@ static bool paintMediaTimelineContainer(RenderObject* object, const PaintInfo& p
     return true;
 }
 
+static bool paintMediaFullscreenButton(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    HTMLMediaElement* mediaElement = toParentMediaElement(object);
+    if (!mediaElement)
+        return false;
+
+    DEFINE_STATIC_LOCAL(Image*, mediaFullscreen, (platformResource("mediaFullscreen")));
+    return paintMediaButton(paintInfo.context, rect, mediaFullscreen);
+}
+
 bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType part, RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
 {
     switch (part) {
@@ -261,8 +267,10 @@ bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType
         return paintMediaVolumeSliderThumb(object, paintInfo, rect);
     case MediaTimelineContainer:
         return paintMediaTimelineContainer(object, paintInfo, rect);
+    case MediaEnterFullscreenButton:
+    case MediaExitFullscreenButton:
+        return paintMediaFullscreenButton(object, paintInfo, rect);
     case MediaVolumeSliderMuteButton:
-    case MediaFullscreenButton:
     case MediaSeekBackButton:
     case MediaSeekForwardButton:
     case MediaVolumeSliderContainer:
@@ -274,27 +282,31 @@ bool RenderMediaControlsChromium::paintMediaControlsPart(MediaControlElementType
     case MediaStatusDisplay:
     case MediaShowClosedCaptionsButton:
     case MediaHideClosedCaptionsButton:
+    case MediaTextTrackDisplayContainer:
+    case MediaTextTrackDisplay:
+    case MediaFullScreenVolumeSlider:
+    case MediaFullScreenVolumeSliderThumb:
         ASSERT_NOT_REACHED();
         break;
     }
     return false;
 }
 
-void RenderMediaControlsChromium::adjustMediaSliderThumbSize(RenderObject* object)
+void RenderMediaControlsChromium::adjustMediaSliderThumbSize(RenderStyle* style)
 {
     static Image* mediaSliderThumb = platformResource("mediaSliderThumb");
     static Image* mediaVolumeSliderThumb = platformResource("mediaVolumeSliderThumb");
 
     Image* thumbImage = 0;
-    if (object->style()->appearance() == MediaSliderThumbPart)
+    if (style->appearance() == MediaSliderThumbPart)
         thumbImage = mediaSliderThumb;
-    else if (object->style()->appearance() == MediaVolumeSliderThumbPart)
+    else if (style->appearance() == MediaVolumeSliderThumbPart)
         thumbImage = mediaVolumeSliderThumb;
 
-    float zoomLevel = object->style()->effectiveZoom();
+    float zoomLevel = style->effectiveZoom();
     if (thumbImage) {
-        object->style()->setWidth(Length(static_cast<int>(thumbImage->width() * zoomLevel), Fixed));
-        object->style()->setHeight(Length(static_cast<int>(thumbImage->height() * zoomLevel), Fixed));
+        style->setWidth(Length(static_cast<int>(thumbImage->width() * zoomLevel), Fixed));
+        style->setHeight(Length(static_cast<int>(thumbImage->height() * zoomLevel), Fixed));
     }
 }
 

@@ -3,8 +3,8 @@
 #  CVS Info :
 #
 #     $Author: mrowe $ 
-#     $Date: 2010/07/20 23:59:48 $ 
-#     $Revision: 1.13 $ 
+#     $Date: 2011/08/29 23:32:47 $ 
+#     $Revision: 1.14 $ 
 #
 #  Copyright (c) 1998-2005 World Wide Web Consortium
 #  (Massachusetts Institute of Technology, European Research 
@@ -94,14 +94,14 @@ DOCDIR = ${TOPDIR}/htmldoc
 ifdef TIDY_APPLE_CHANGES
 ifneq ($(SDKROOT),)
 CFLAGS+= -isysroot $(SDKROOT)
-CC= $(shell xcrun -find -sdk $(SDKROOT) gcc)
+CC= $(shell xcrun -find -sdk $(SDKROOT) cc)
 else
-CC= gcc
+CC= cc
 endif
 CFLAGS+= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR) \
     -fvisibility=hidden -DTIDY_EXPORT='__attribute__((visibility("default")))'
 else
-CC= gcc
+CC= cc
 CFLAGS= -g -Wall -Wno-switch -Wno-parentheses -I $(INCDIR)
 endif
 # flags only supported with gcc 3.x

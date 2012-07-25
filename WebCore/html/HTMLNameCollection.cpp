@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2011, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,8 +32,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLNameCollection::HTMLNameCollection(PassRefPtr<Document> document, CollectionType type, const String& name)
-    : HTMLCollection(document.get(), type, document->nameCollectionInfo(type, name))
+HTMLNameCollection::HTMLNameCollection(Document* document, CollectionType type, const AtomicString& name)
+    : HTMLCollection(document, type)
     , m_name(name)
 {
 }
@@ -61,7 +61,7 @@ Element* HTMLNameCollection::itemAfter(Element* previous) const
                     e->hasTagName(appletTag) ||
                     e->hasTagName(embedTag) ||
                     e->hasTagName(objectTag))
-                    if (e->getAttribute(nameAttr) == m_name)
+                    if (e->getNameAttribute() == m_name)
                         return e;
                 if (e->getIdAttribute() == m_name)
                     return e;
@@ -71,17 +71,17 @@ Element* HTMLNameCollection::itemAfter(Element* previous) const
                 // applets and object by id, and images by id but only if they have
                 // a name attribute (this very strange rule matches IE)
                 if (e->hasTagName(formTag) || e->hasTagName(embedTag) || e->hasTagName(iframeTag)) {
-                    if (e->getAttribute(nameAttr) == m_name)
+                    if (e->getNameAttribute() == m_name)
                         return e;
                 } else if (e->hasTagName(appletTag)) {
-                    if (e->getAttribute(nameAttr) == m_name || e->getIdAttribute() == m_name)
+                    if (e->getNameAttribute() == m_name || e->getIdAttribute() == m_name)
                         return e;
                 } else if (e->hasTagName(objectTag)) {
-                    if ((e->getAttribute(nameAttr) == m_name || e->getIdAttribute() == m_name)
+                    if ((e->getNameAttribute() == m_name || e->getIdAttribute() == m_name)
                             && static_cast<HTMLObjectElement*>(e)->isDocNamedItem())
                         return e;
                 } else if (e->hasTagName(imgTag)) {
-                    if (e->getAttribute(nameAttr) == m_name || (e->getIdAttribute() == m_name && e->hasAttribute(nameAttr)))
+                    if (e->getNameAttribute() == m_name || (e->getIdAttribute() == m_name && e->hasName()))
                         return e;
                 }
                 break;

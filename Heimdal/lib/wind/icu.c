@@ -17,6 +17,9 @@ wind_stringprep(const uint32_t *in, size_t in_len,
     int32_t len;
     size_t n;
 
+    if (in_len > UINT_MAX / sizeof(in[0]) || (*out_len) > UINT_MAX / sizeof(out[0]))
+	return EINVAL;
+
     if (flags & WIND_PROFILE_SASL)
 	type = USPREP_RFC4013_SASLPREP;
     else
@@ -31,7 +34,7 @@ wind_stringprep(const uint32_t *in, size_t in_len,
 	return ENOENT;
 
     uin = malloc(in_len * sizeof(uin[0]));
-    dest = malloc(in_len * sizeof(dest[0]));
+    dest = malloc(*out_len * sizeof(dest[0]));
     if (uin == NULL || dest == NULL) {
 	free(uin);
 	free(dest);

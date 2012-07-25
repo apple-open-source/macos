@@ -210,7 +210,7 @@ backupsa_from_file()
 	time_t created, current;
 	char *p, *q;
         u_int satype, mode;
-        struct sockaddr *src, *dst;
+        struct sockaddr_storage *src, *dst;
         u_int32_t spi, reqid;
         caddr_t keymat;
 	size_t keymatlen;

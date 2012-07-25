@@ -46,7 +46,6 @@ struct smb_prefs {
 	enum smb_min_auth	minAuthAllowed;
 	int32_t				altflags;
 	CFStringRef			NetBIOSDNSName;
-	uint32_t			workAroundEMCPanic; 
 };
 
 void getDefaultPreferences(struct smb_prefs *prefs);

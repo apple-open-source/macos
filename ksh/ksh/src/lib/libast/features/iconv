@@ -1,6 +1,6 @@
 set	prototyped
 hdr	iconv
-lib	iconv_open,iconv_close,iconv -liconv
+lib	iconv_open,iconv_close,iconv iconv.h -liconv
 nxt	iconv
 
 tst	output{
@@ -34,11 +34,16 @@ tst	output{
 		printf("#include <%s>	/* the native iconv.h */\n", _nxt_iconv_str);
 	#endif
 		printf("\n");
-		printf("#define CC_ICONV	(-1)\n");
-		printf("#define CC_UCS		(-2)\n");
-		printf("#define CC_SCU		(-3)\n");
-		printf("#define CC_UTF		(-4)\n");
-		printf("#define CC_UME		(-5)\n");
+		printf("#define ICONV_VERSION		20110111L\n");
+		printf("\n");
+		printf("#define ICONV_FATAL		0x02\n");
+		printf("#define ICONV_OMIT		0x04\n");
+		printf("\n");
+		printf("#define CC_ICONV		(-1)\n");
+		printf("#define CC_UCS			(-2)\n");
+		printf("#define CC_SCU			(-3)\n");
+		printf("#define CC_UTF			(-4)\n");
+		printf("#define CC_UME			(-5)\n");
 		printf("\n");
 	#if _lib_iconv_open
 		lib = "_ast_";
@@ -68,9 +73,22 @@ tst	output{
 		lib = "";
 	#endif
 		printf("\n");
+		printf("typedef int (*Iconv_error_f)(void*, void*, int, ...);\n");
+		printf("\n");
+		printf("typedef struct Iconv_disc_s\n");
+		printf("{\n");
+		printf("	uint32_t		version;\n");
+		printf("	Iconv_error_f		errorf;\n");
+		printf("	size_t			errors;\n");
+		printf("	uint32_t		flags;\n");
+		printf("	int			fill;\n");
+		printf("} Iconv_disc_t;\n");
+		printf("\n");
 		printf("typedef Ccmap_t %siconv_list_t;\n", lib);
 		printf("typedef void* %siconv_t;\n", lib);
 		printf("typedef size_t (*%siconv_f)(%siconv_t, char**, size_t*, char**, size_t*);\n", lib, lib);
+		printf("\n");
+		printf("#define iconv_init(d,e)		(memset(d,0,sizeof(*(d))),(d)->version=ICONV_VERSION,(d)->errorf=(Iconv_error_f)(e),(d)->fill=(-1))\n");
 		printf("\n");
 		printf("#if _BLD_ast && defined(__EXPORT__)\n");
 		printf("#define extern		__EXPORT__\n");
@@ -82,12 +100,12 @@ tst	output{
 		printf("extern %siconv_list_t*	%siconv_list(%siconv_list_t*);\n", lib, lib, lib);
 		printf("extern int		%siconv_name(const char*, char*, size_t);\n", lib);
 		printf("#if _SFIO_H\n");
-		printf("extern ssize_t		%siconv_move(%siconv_t, Sfio_t*, Sfio_t*, size_t, size_t*);\n", lib, lib);
-		printf("extern ssize_t		%siconv_write(%siconv_t, Sfio_t*, char**, size_t*, size_t*);\n", lib, lib);
+		printf("extern ssize_t		%siconv_move(%siconv_t, Sfio_t*, Sfio_t*, size_t, Iconv_disc_t*);\n", lib, lib);
+		printf("extern ssize_t		%siconv_write(%siconv_t, Sfio_t*, char**, size_t*, Iconv_disc_t*);\n", lib, lib);
 		printf("#else\n");
 		printf("#if _SFSTDIO_H\n");
-		printf("extern ssize_t		%siconv_move(%siconv_t, FILE*, FILE*, size_t, size_t*);\n", lib, lib);
-		printf("extern ssize_t		%siconv_write(%siconv_t, FILE*, char**, size_t*, size_t*);\n", lib, lib);
+		printf("extern ssize_t		%siconv_move(%siconv_t, FILE*, FILE*, size_t, Iconv_disc_t*);\n", lib, lib);
+		printf("extern ssize_t		%siconv_write(%siconv_t, FILE*, char**, size_t*, Iconv_disc_t*);\n", lib, lib);
 		printf("#endif\n");
 		printf("#endif\n");
 		printf("\n");

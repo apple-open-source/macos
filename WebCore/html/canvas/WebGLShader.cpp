@@ -29,6 +29,7 @@
 
 #include "WebGLShader.h"
 
+#include "WebGLContextGroup.h"
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -39,16 +40,21 @@ PassRefPtr<WebGLShader> WebGLShader::create(WebGLRenderingContext* ctx, GC3Denum
 }
 
 WebGLShader::WebGLShader(WebGLRenderingContext* ctx, GC3Denum type)
-    : WebGLObject(ctx)
+    : WebGLSharedObject(ctx)
     , m_type(type)
     , m_source("")
 {
-    setObject(context()->graphicsContext3D()->createShader(type));
+    setObject(ctx->graphicsContext3D()->createShader(type));
 }
 
-void WebGLShader::deleteObjectImpl(Platform3DObject object)
+WebGLShader::~WebGLShader()
 {
-    context()->graphicsContext3D()->deleteShader(object);
+    deleteObject(0);
+}
+
+void WebGLShader::deleteObjectImpl(GraphicsContext3D* context3d, Platform3DObject object)
+{
+    context3d->deleteShader(object);
 }
 
 }

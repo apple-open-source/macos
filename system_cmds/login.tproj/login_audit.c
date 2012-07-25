@@ -31,6 +31,8 @@
  * @APPLE_BSD_LICENSE_HEADER_END@
  */
 
+#ifdef USE_BSM_AUDIT
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/usr.bin/login/login_audit.c,v 1.2 2007/05/07 11:01:36 dwmalone Exp $");
 
@@ -225,3 +227,5 @@ audit_logout(void)
 	if (au_close(aufd, 1, AUE_logout) == -1)
 		errx(1, "login: Audit Record was not committed.");
 }
+
+#endif /* USE_BSM_AUDIT */

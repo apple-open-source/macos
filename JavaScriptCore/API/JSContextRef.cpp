@@ -38,7 +38,6 @@
 #include "UStringBuilder.h"
 #include <wtf/text/StringHash.h>
 
-
 #if OS(DARWIN)
 #include <mach-o/dyld.h>
 
@@ -46,6 +45,11 @@ static const int32_t webkitFirstVersionWithConcurrentGlobalContexts = 0x2100500;
 #endif
 
 using namespace JSC;
+
+// From the API's perspective, a context group remains alive iff
+//     (a) it has been JSContextGroupRetained
+//     OR
+//     (b) one of its contexts has been JSContextRetained
 
 JSContextGroupRef JSContextGroupCreate()
 {
@@ -64,17 +68,16 @@ void JSContextGroupRelease(JSContextGroupRef group)
     toJS(group)->deref();
 }
 
+// From the API's perspective, a global context remains alive iff it has been JSGlobalContextRetained.
+
 JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass)
 {
     initializeThreading();
+
 #if OS(DARWIN)
-    // When running on Tiger or Leopard, or if the application was linked before JSGlobalContextCreate was changed
-    // to use a unique JSGlobalData, we use a shared one for compatibility.
-#ifndef BUILDING_ON_LEOPARD
+    // If the application was linked before JSGlobalContextCreate was changed to use a unique JSGlobalData,
+    // we use a shared one for backwards compatibility.
     if (NSVersionOfLinkTimeLibrary("JavaScriptCore") <= webkitFirstVersionWithConcurrentGlobalContexts) {
-#else
-    {
-#endif
         JSLock lock(LockForReal);
         return JSGlobalContextCreateInGroup(toRef(&JSGlobalData::sharedInstance()), globalObjectClass);
     }
@@ -125,33 +128,13 @@ void JSGlobalContextRelease(JSGlobalContextRef ctx)
     JSLock lock(exec);
 
     JSGlobalData& globalData = exec->globalData();
-    JSGlobalObject* dgo = exec->dynamicGlobalObject();
     IdentifierTable* savedIdentifierTable = wtfThreadData().setCurrentIdentifierTable(globalData.identifierTable);
 
-    // One reference is held by JSGlobalObject, another added by JSGlobalContextRetain().
-    bool releasingContextGroup = globalData.refCount() == 2;
-    bool releasingGlobalObject = Heap::heap(dgo)->unprotect(dgo);
-    // If this is the last reference to a global data, it should also
-    // be the only remaining reference to the global object too!
-    ASSERT(!releasingContextGroup || releasingGlobalObject);
-
-    // An API 'JSGlobalContextRef' retains two things - a global object and a
-    // global data (or context group, in API terminology).
-    // * If this is the last reference to any contexts in the given context group,
-    //   call destroy on the heap (the global data is being  freed).
-    // * If this was the last reference to the global object, then unprotecting
-    //   it may release a lot of GC memory - tickle the activity callback to
-    //   garbage collect soon.
-    // * If there are more references remaining the the global object, then do nothing
-    //   (specifically that is more protects, which we assume come from other JSGlobalContextRefs).
-    if (releasingContextGroup) {
-        globalData.clearBuiltinStructures();
-        globalData.heap.destroy();
-    } else if (releasingGlobalObject) {
+    bool protectCountIsZero = Heap::heap(exec->dynamicGlobalObject())->unprotect(exec->dynamicGlobalObject());
+    if (protectCountIsZero) {
         globalData.heap.activityCallback()->synchronize();
-        (*globalData.heap.activityCallback())();
+        globalData.heap.reportAbandonedObjectGraph();
     }
-
     globalData.deref();
 
     wtfThreadData().setCurrentIdentifierTable(savedIdentifierTable);
@@ -210,7 +193,7 @@ JSStringRef JSContextCreateBacktrace(JSContextRef ctx, unsigned maxStackSize)
         exec->interpreter()->retrieveLastCaller(callFrame, signedLineNumber, sourceID, urlString, function);
 
         if (function)
-            functionName = asFunction(function)->name(exec);
+            functionName = jsCast<JSFunction*>(function)->name(exec);
         else {
             // Caller is unknown, but if frame is empty we should still add the frame, because
             // something called us, and gave us arguments.

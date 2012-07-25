@@ -1,0 +1,341 @@
+--- pyobjc-framework-Quartz/Modules/_callbacks.m.orig	2009-06-23 15:35:35.000000000 -0700
++++ pyobjc-framework-Quartz/Modules/_callbacks.m	2011-10-20 11:26:12.000000000 -0700
+@@ -209,23 +209,6 @@ m_CGDataProviderGetBytesCallback(
+ }
+ 
+ static void 
+-m_CGDataProviderSkipBytesCallback(void* _info, size_t count)
+-{
+-	PyObject* info = (PyObject*)_info;
+-
+-	PyGILState_STATE   state = PyGILState_Ensure();
+-
+-	PyObject* result = PyObject_CallFunction(PyTuple_GET_ITEM(info, 2),
+-			"Ol", PyTuple_GET_ITEM(info, 0), count);
+-	if (result == NULL) {
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	} 
+-	Py_DECREF(result);
+-
+-	PyGILState_Release(state);
+-}
+-
+-static void 
+ m_CGDataProviderRewindCallback(void* _info)
+ {
+ 	PyObject* info = (PyObject*)_info;
+@@ -264,131 +247,6 @@ m_CGDataProviderReleaseInfoCallback(void
+ 	PyGILState_Release(state);
+ }
+ 
+-static CGDataProviderCallbacks m_CGDataProviderCallbacks = {
+-	m_CGDataProviderGetBytesCallback, 	/*  getBytes */
+-	m_CGDataProviderSkipBytesCallback,	/*  skipBytes */
+-	m_CGDataProviderRewindCallback,		/*  rewind */
+-	m_CGDataProviderReleaseInfoCallback	/*  releaseProvider */
+-};
+-
+-static const void*
+-m_CGDataProviderGetBytePointerCallback(void* _info)
+-{
+-	PyObject* info = (PyObject*)_info;
+-
+-	PyGILState_STATE   state = PyGILState_Ensure();
+-
+-	PyObject* result = PyObject_CallFunction(
+-			PyTuple_GET_ITEM(info, 1), 
+-			"O", PyTuple_GET_ITEM(info, 0));
+-	if (result == NULL) {
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	} 
+-	if (result == PyObjC_NULL || result == Py_None) {
+-		Py_DECREF(result);
+-		PyGILState_Release(state);
+-		return NULL;
+-	}
+-
+-	const void* b;
+-	Py_ssize_t c;
+-
+-	if (PyObject_AsReadBuffer(PyTuple_GET_ITEM(result, 1),
+-				&b, &c) < 0) {
+-		Py_DECREF(result);
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	}
+-
+-	PyGILState_Release(state);
+-	return b;
+-}
+-
+-static void
+-m_CGDataProviderReleaseBytePointerCallback(void* _info, const void* pointer)
+-{
+-	/* FIXME: have to store enough info to recover the right PyObject* */
+-}	
+-
+-static size_t
+-m_CGDataProviderGetBytesAtOffsetCallback(void* _info, void* buffer, 
+-		size_t offset, size_t count)
+-{
+-	PyObject* info = (PyObject*)_info;
+-
+-	PyGILState_STATE   state = PyGILState_Ensure();
+-
+-	PyObject* buf = PyBuffer_FromReadWriteMemory(buffer, count);
+-	if (buf == NULL) {
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	}
+-
+-	PyObject* result = PyObject_CallFunction(
+-			PyTuple_GET_ITEM(info, 3),
+-			"OOll",
+-			PyTuple_GET_ITEM(info, 0),
+-			buf,
+-			offset,
+-			count);
+-	if (result == NULL) {
+-		Py_DECREF(buf);
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	}
+-
+-	if (!PyTuple_Check(result) || PyTuple_GET_SIZE(result) != 2) {
+-		PyErr_Format(PyExc_TypeError,
+-			"Expecting result of type tuple of 2, got %s",
+-			result->ob_type->tp_name);
+-		Py_DECREF(result);
+-		Py_DECREF(buf);
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	}
+-
+-	size_t c_result;
+-	if (PyObjC_PythonToObjC(@encode(size_t), PyTuple_GET_ITEM(result, 0), &c_result) < 0) {
+-		Py_DECREF(result);
+-		Py_DECREF(buf);
+-		PyObjCErr_ToObjCWithGILState(&state);
+-	}
+-
+-	if (PyTuple_GET_ITEM(result, 1) != buf) {
+-		const void* b; 
+-		Py_ssize_t c;
+-
+-		if (PyObject_AsReadBuffer(PyTuple_GET_ITEM(result, 1),
+-					&b, &c) < 0) {
+-			Py_DECREF(result);
+-			Py_DECREF(buf);
+-			PyObjCErr_ToObjCWithGILState(&state);
+-		}
+-
+-		if (c < c_result || c > count) {
+-			PyErr_SetString(PyExc_ValueError,
+-				"Inconsistent size");
+-			Py_DECREF(result);
+-			Py_DECREF(buf);
+-			PyObjCErr_ToObjCWithGILState(&state);
+-		}
+-		memcpy(buffer, b, c_result);
+-	} else {
+-		/* Assume that the user knows what he's doing and has
+-		 * filled the right bit of the buffer.
+-		 */
+-	}
+-
+-	Py_DECREF(buf);
+-	Py_DECREF(result);
+-
+-	PyGILState_Release(state);
+-	return c_result;
+-}
+-
+-static CGDataProviderDirectAccessCallbacks m_CGDataProviderDirectAccessCallbacks = {
+-	m_CGDataProviderGetBytePointerCallback,		/* getBytePointer */
+-	m_CGDataProviderReleaseBytePointerCallback,	/* releaseBytePointer */
+-	m_CGDataProviderGetBytesAtOffsetCallback,	/* getBytes */
+-	m_CGDataProviderReleaseInfoCallback		/* releaseProvider */
+-};
+-
+ 
+ 
+ 
+@@ -500,161 +358,6 @@ m_CGDataProviderCreateSequential(PyObjec
+ 
+ #endif
+ 
+-
+-PyDoc_STRVAR(doc_CGDataProviderCreate,
+-	"CGDataConsumerCreate(info, (getBytes, skipBytes, rewind, releaseProvider)) -> object\n"
+-	"\n"
+-	"getBytes, skipBytes, rewind and release are callback functions. Release may be None");
+-static PyObject*
+-m_CGDataProviderCreate(PyObject* self __attribute__((__unused__)), 
+-		PyObject* args)
+-{
+-	PyObject* info;
+-	PyObject* getBytes;
+-	PyObject* skipBytes;
+-	PyObject* rewind;
+-	PyObject* release;
+-
+-	if (!PyArg_ParseTuple(args, "O(OOOO)", &info, &getBytes, &skipBytes, &rewind, &release)) {
+-		return NULL;
+-	}
+-
+-	if (!PyCallable_Check(getBytes)) {
+-		PyErr_SetString(PyExc_TypeError, "getBytes is not callable");
+-		return NULL;
+-	}
+-	if (!PyCallable_Check(skipBytes)) {
+-		PyErr_SetString(PyExc_TypeError, "skipBytes is not callable");
+-		return NULL;
+-	}
+-	if (!PyCallable_Check(rewind)) {
+-		PyErr_SetString(PyExc_TypeError, "rewind is not callable");
+-		return NULL;
+-	}
+-	if (release != Py_None && !PyCallable_Check(release)) {
+-		PyErr_SetString(PyExc_TypeError, "release is not callable");
+-		return NULL;
+-	}
+-
+-	PyObject* real_info = Py_BuildValue("OOOOO", info, getBytes, skipBytes, rewind, release);
+-	if (real_info == NULL) {
+-		return NULL;
+-	}
+-
+-	CGDataProviderRef result;
+-	PyObjC_DURING
+-		result = CGDataProviderCreate(real_info, 
+-				&m_CGDataProviderCallbacks);
+-
+-	PyObjC_HANDLER
+-		result = NULL;
+-		PyObjCErr_FromObjC(localException);
+-	PyObjC_ENDHANDLER
+-
+-	if (result == NULL && PyErr_Occurred()) {
+-		Py_DECREF(real_info);
+-		return NULL;
+-	}
+-
+-	if (result == NULL)  {
+-		Py_DECREF(real_info);
+-		Py_INCREF(Py_None);
+-		return Py_None;
+-	}
+-
+-	PyObject* retval = PyObjC_ObjCToPython(
+-			@encode(CGDataProviderRef), &result);
+-	/* CGDataProviderCreate donated a reference, we therefore now have
+-	 * one too many, release a reference.
+-	 */
+-	CGDataProviderRelease(result);
+-	return retval;
+-}
+-
+-PyDoc_STRVAR(doc_CGDataProviderCreateDirectAccess,
+-	"CGDataConsumerCreateDirectAccess(info, (getBytePointer, releaseBytePointer, getBytes, release)) -> object\n"
+-	"\n"
+-	"getBytePointer, releaseBytePointer, getBytes and release are callback functions. Release may be None");
+-static PyObject*
+-m_CGDataProviderCreateDirectAccess(PyObject* self __attribute__((__unused__)), 
+-		PyObject* args)
+-{
+-	PyObject* info;
+-	PyObject* getBytePointer;
+-	PyObject* releaseBytePointer;
+-	PyObject* getBytes;
+-	PyObject* release;
+-	long size;
+-
+-	CGDataProviderDirectAccessCallbacks callbacks = m_CGDataProviderDirectAccessCallbacks;
+-
+-	if (!PyArg_ParseTuple(args, "Ol(OOOO)", &info, &size, &getBytePointer, &releaseBytePointer, &getBytes, &release)) {
+-		return NULL;
+-	}
+-
+-	if (getBytePointer == Py_None) {
+-		callbacks.getBytePointer = NULL;
+-	} else if (!PyCallable_Check(getBytePointer)) {
+-		PyErr_SetString(PyExc_TypeError, "getBytePointer is not callable");
+-		return NULL;
+-	}
+-
+-	if (releaseBytePointer == Py_None) {
+-		callbacks.releaseBytePointer = NULL;
+-	} else if (!PyCallable_Check(releaseBytePointer)) {
+-		PyErr_SetString(PyExc_TypeError, "releaseBytePointer is not callable");
+-		return NULL;
+-	}
+-
+-	if (getBytes == Py_None) {
+-		callbacks.getBytes = NULL;
+-
+-	} else if (!PyCallable_Check(getBytes)) {
+-		PyErr_SetString(PyExc_TypeError, "getBytes is not callable");
+-		return NULL;
+-	}
+-
+-	if (release != Py_None && !PyCallable_Check(release)) {
+-		PyErr_SetString(PyExc_TypeError, "release is not callable");
+-		return NULL;
+-	}
+-
+-	PyObject* real_info = Py_BuildValue("OOOOO", info, getBytePointer, releaseBytePointer, getBytes, release);
+-	if (real_info == NULL) {
+-		return NULL;
+-	}
+-
+-	CGDataProviderRef result;
+-	PyObjC_DURING
+-		result = CGDataProviderCreateDirectAccess(real_info, 
+-				size,
+-				&callbacks);
+-
+-	PyObjC_HANDLER
+-		result = NULL;
+-		PyObjCErr_FromObjC(localException);
+-	PyObjC_ENDHANDLER
+-
+-	if (result == NULL && PyErr_Occurred()) {
+-		Py_DECREF(real_info);
+-		return NULL;
+-	}
+-
+-	if (result == NULL)  {
+-		Py_DECREF(real_info);
+-		Py_INCREF(Py_None);
+-		return Py_None;
+-	}
+-
+-	PyObject* retval = PyObjC_ObjCToPython(
+-			@encode(CGDataProviderRef), &result);
+-	/* CGDataProviderCreate donated a reference, we therefore now have
+-	 * one too many, release a reference.
+-	 */
+-	CGDataProviderRelease(result);
+-	return retval;
+-}
+-
+ /*
+  * CGDataProviderCreateWithData
+  */
+@@ -2002,20 +1705,6 @@ static PyMethodDef m_methods[] = {
+ 		doc_CGDataConsumerCreate
+ 	},
+ 
+-	{
+-		"CGDataProviderCreate",
+-		(PyCFunction)m_CGDataProviderCreate,
+-		METH_VARARGS,
+-		doc_CGDataProviderCreate
+-	},
+-
+-	{
+-		"CGDataProviderCreateDirectAccess",
+-		(PyCFunction)m_CGDataProviderCreateDirectAccess,
+-		METH_VARARGS,
+-		doc_CGDataProviderCreateDirectAccess
+-	},
+-
+ #ifndef OS_TIGER
+ 
+ 	{

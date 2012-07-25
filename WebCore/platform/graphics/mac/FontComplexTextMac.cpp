@@ -71,7 +71,7 @@ float Font::getGlyphsAndAdvancesForComplexText(const TextRun& run, int from, int
     float afterWidth = controller.runWidthSoFar();
 
     if (run.rtl()) {
-        initialAdvance = controller.totalWidth() - afterWidth;
+        initialAdvance = controller.totalWidth() + controller.finalRoundingWidth() - afterWidth;
         for (int i = 0, end = glyphBuffer.size() - 1; i < glyphBuffer.size() / 2; ++i, --end)
             glyphBuffer.swap(i, end);
     } else
@@ -93,7 +93,7 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 
     // Draw the glyph buffer now at the starting point returned in startX.
     FloatPoint startPoint(startX, point.y());
-    drawGlyphBuffer(context, glyphBuffer, startPoint);
+    drawGlyphBuffer(context, run, glyphBuffer, startPoint);
 }
 
 void Font::drawEmphasisMarksForComplexText(GraphicsContext* context, const TextRun& run, const AtomicString& mark, const FloatPoint& point, int from, int to) const
@@ -104,7 +104,7 @@ void Font::drawEmphasisMarksForComplexText(GraphicsContext* context, const TextR
     if (glyphBuffer.isEmpty())
         return;
 
-    drawEmphasisMarks(context, glyphBuffer, mark, FloatPoint(point.x() + initialAdvance, point.y()));
+    drawEmphasisMarks(context, run, glyphBuffer, mark, FloatPoint(point.x() + initialAdvance, point.y()));
 }
 
 float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
@@ -123,6 +123,40 @@ int Font::offsetForPositionForComplexText(const TextRun& run, float x, bool incl
 {
     ComplexTextController controller(this, run);
     return controller.offsetForPosition(x, includePartialGlyphs);
+}
+
+const SimpleFontData* Font::fontDataForCombiningCharacterSequence(const UChar* characters, size_t length, FontDataVariant variant) const
+{
+    UChar32 baseCharacter;
+    size_t baseCharacterLength = 0;
+    U16_NEXT(characters, baseCharacterLength, length, baseCharacter);
+
+    GlyphData baseCharacterGlyphData = glyphDataForCharacter(baseCharacter, false, variant);
+
+    if (length == baseCharacterLength)
+        return baseCharacterGlyphData.glyph ? baseCharacterGlyphData.fontData : 0;
+
+    bool triedBaseCharacterFontData = false;
+
+    unsigned i = 0;
+    for (const FontData* fontData = fontDataAt(0); fontData; fontData = fontDataAt(++i)) {
+        const SimpleFontData* simpleFontData = fontData->fontDataForCharacter(baseCharacter);
+        if (variant != NormalVariant) {
+            if (const SimpleFontData* variantFontData = simpleFontData->variantFontData(m_fontDescription, variant))
+                simpleFontData = variantFontData;
+        }
+
+        if (simpleFontData == baseCharacterGlyphData.fontData)
+            triedBaseCharacterFontData = true;
+
+        if (simpleFontData->canRenderCombiningCharacterSequence(characters, length))
+            return simpleFontData;
+    }
+
+    if (!triedBaseCharacterFontData && baseCharacterGlyphData.fontData && baseCharacterGlyphData.fontData->canRenderCombiningCharacterSequence(characters, length))
+        return baseCharacterGlyphData.fontData;
+
+    return 0;
 }
 
 } // namespace WebCore

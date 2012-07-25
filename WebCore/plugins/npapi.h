@@ -57,7 +57,7 @@
 #define JRIEnv  void
 #endif
 
-#if defined(_WIN32) && !defined(__SYMBIAN32__)
+#ifdef _WIN32
 #include <windows.h>
 #ifndef XP_WIN
 #define XP_WIN 1
@@ -90,14 +90,11 @@
 #endif
 
 #if defined(XP_UNIX)
+#include <stdio.h>
+#if defined(MOZ_X11)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#include <stdio.h>
 #endif
-
-#if defined(XP_SYMBIAN)
-#include <QEvent>
-#include <QRegion>
 #endif
 
 /*----------------------------------------------------------------------*/
@@ -271,10 +268,12 @@ typedef struct
 typedef struct
 {
   int32_t      type;
+#if defined(MOZ_X11)
   Display*     display;
   Visual*      visual;
   Colormap     colormap;
   unsigned int depth;
+#endif
 } NPSetWindowCallbackStruct;
 
 typedef struct
@@ -526,8 +525,6 @@ typedef EventRecord NPEvent;
 #else
 typedef void*  NPEvent;
 #endif
-#elif defined(XP_SYMBIAN)
-typedef QEvent NPEvent;
 #elif defined(XP_WIN)
 typedef struct _NPEvent
 {
@@ -542,7 +539,7 @@ typedef struct _NPEvent
   uint32_t wParam;
   uint32_t lParam;
 } NPEvent;
-#elif defined(XP_UNIX)
+#elif defined(XP_UNIX) && defined(MOZ_X11)
 typedef XEvent NPEvent;
 #else
 typedef void*  NPEvent;
@@ -556,10 +553,8 @@ typedef RgnHandle NPQDRegion;
 typedef CGPathRef NPCGRegion;
 #elif defined(XP_WIN)
 typedef HRGN NPRegion;
-#elif defined(XP_UNIX)
+#elif defined(XP_UNIX) && defined(MOZ_X11)
 typedef Region NPRegion;
-#elif defined(XP_SYMBIAN)
-typedef QRegion* NPRegion;
 #else
 typedef void *NPRegion;
 #endif
@@ -800,7 +795,7 @@ extern "C" {
 /* NPP_* functions are provided by the plugin and called by the navigator. */
 
 #if defined(XP_UNIX)
-char* NPP_GetMIMEDescription(void);
+const char* NPP_GetMIMEDescription(void);
 #endif
 
 NPError NP_LOADDS NPP_Initialize(void);

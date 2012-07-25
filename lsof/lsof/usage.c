@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.29 2010/07/29 15:59:28 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.30 2011/09/07 19:13:49 abe Exp $";
 #endif
 
 
@@ -397,7 +397,7 @@ usage(xv, fh, version)
 		);
 
 	    (void) fprintf(stderr,
-		" [+|-f%s%s%s%s%s%s]\n [-F [f]] [-g [s]] [-i [i]]",
+		" [+|-f%s%s%s%s%s%s]%s\n [-F [f]] [-g [s]] [-i [i]]",
 
 #if	defined(HASFSTRUCT)
 		"[",
@@ -426,10 +426,16 @@ usage(xv, fh, version)
 		"n",
 # endif	/* defined(HASNOFSNADDR) */
 
-		"]"
+		"]",
 #else	/* !defined(HASFSTRUCT) */
-		"", "", "", "", "", ""
+		"", "", "", "", "", "",
 #endif	/* defined(HASFSTRUCT) */
+
+#if	defined(HASEOPT)
+		" [+|-e s]"
+#else	/* !defined(HASEOPT) */
+		""
+#endif	/* defined(HASEOPT) */
 
 		);
 
@@ -453,8 +459,12 @@ usage(xv, fh, version)
 		);
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
+#if	!defined(HASNORPC_H)
+	    (void) fprintf(stderr, " [+|-M]");
+#endif	/* !defined(HASNORPC_H) */
+
 	    (void) fprintf(stderr,
-		" [+|-M] [-o [o]] [-p s]\n[+|-r [t]]%s [-S [t]] [-T [t]]",
+		" [-o [o]] [-p s]\n[+|-r [t]]%s [-S [t]] [-T [t]]",
 
 #if	defined(HASTCPUDPSTATE)
 		" [-s [p:s]]"
@@ -494,7 +504,7 @@ usage(xv, fh, version)
 	    col = print_in_col(col, buf);
 
 #if	defined(HASNCACHE)
-	col = print_in_col(col, "-C no kernel name cache");
+	   col = print_in_col(col, "-C no kernel name cache");
 #endif	/* defined(HASNCACHE) */
 
 	    col = print_in_col(col, "+d s  dir s files");
@@ -518,6 +528,11 @@ usage(xv, fh, version)
 #endif	/* defined(HASDCACHE) */
 
 	    col = print_in_col(col, buf);
+
+#if	defined(HASEOPT)
+	    col = print_in_col(col, "+|-e s  exempt s *RISKY*");
+#endif	/* defined(HASEOPT) */
+
 	    (void) snpf(buf, sizeof(buf), "-i select IPv%s files",
 
 #if	defined(HASIPv6)
@@ -537,7 +552,7 @@ usage(xv, fh, version)
 	    col = print_in_col(col, "-n no host names");
 	    col = print_in_col(col, "-N select NFS files");
 	    col = print_in_col(col, "-o list file offset");
-	    col = print_in_col(col, "-O avoid overhead *RISKY*");
+	    col = print_in_col(col, "-O no overhead *RISKY*");
 	    col = print_in_col(col, "-P no port names");
 
 #if	defined(HASPPID)
@@ -690,15 +705,20 @@ usage(xv, fh, version)
 # endif	/* defined(HASMNTSUP) */
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
+#if	!defined(HASNORPC_H)
 	    (void) snpf(buf, sizeof(buf), "+|-M   portMap registration (%s)",
 
-#if	defined(HASPMAPENABLED)
+# if	defined(HASPMAPENABLED)
 		"+"
-#else	/* !defined(HASPMAPENABLED) */
+# else	/* !defined(HASPMAPENABLED) */
 		"-"
-#endif	/* defined(HASPMAPENABLED) */
+# endif	/* defined(HASPMAPENABLED) */
 
 	    );
+#else	/* defined(HASNORPC_H) */
+	    buf[0] = '\0';
+#endif	/* !defined(HASNORPC_H) */
+
 	    (void) fprintf(stderr, "  %-36.36s", buf);
 	    (void) snpf(buf, sizeof(buf), "-o o   o 0t offset digits (%d)",
 		OFFDECDIG);

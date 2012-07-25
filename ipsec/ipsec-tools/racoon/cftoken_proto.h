@@ -37,8 +37,10 @@
 extern int yyerrorcount;
 
 extern int yylex __P((void));
-extern void yyerror __P((char *, ...));
-extern void yywarn __P((char *, ...));
+extern void yyerror __P((const char *));
+extern void yywarn __P((const char *));
+extern void racoon_yyerror __P((const char *, ...));
+extern void racoon_yywarn __P((const char *, ...));
 
 extern int yycf_switch_buffer __P((char *));
 extern int yycf_set_buffer __P((char *));

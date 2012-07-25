@@ -29,8 +29,8 @@
  */
 
 #include "config.h"
-#include "ArrayBuffer.h"
-#include "Uint32Array.h"
+#include <wtf/ArrayBuffer.h>
+#include <wtf/Uint32Array.h>
 
 #include "V8Binding.h"
 #include "V8ArrayBuffer.h"
@@ -53,11 +53,11 @@ v8::Handle<v8::Value> V8Uint32Array::setCallback(const v8::Arguments& args)
     return setWebGLArrayHelper<Uint32Array, V8Uint32Array>(args);
 }
 
-v8::Handle<v8::Value> toV8(Uint32Array* impl)
+v8::Handle<v8::Value> toV8(Uint32Array* impl, v8::Isolate* isolate)
 {
     if (!impl)
         return v8::Null();
-    v8::Handle<v8::Object> wrapper = V8Uint32Array::wrap(impl);
+    v8::Handle<v8::Object> wrapper = V8Uint32Array::wrap(impl, isolate);
     if (!wrapper.IsEmpty())
         wrapper->SetIndexedPropertiesToExternalArrayData(impl->baseAddress(), v8::kExternalUnsignedIntArray, impl->length());
     return wrapper;

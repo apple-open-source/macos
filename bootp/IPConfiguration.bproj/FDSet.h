@@ -58,4 +58,4 @@ FDCalloutRelease(FDCalloutRef * callout_p);
 int
 FDCalloutGetFD(FDCalloutRef callout);
 
-#endif _S_FDSET_H
+#endif /* _S_FDSET_H */

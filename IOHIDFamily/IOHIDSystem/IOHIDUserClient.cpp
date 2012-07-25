@@ -84,7 +84,7 @@ IOService * IOHIDUserClient::getService( void )
 IOReturn IOHIDUserClient::registerNotificationPort(
 		mach_port_t 	port,
 		UInt32		type,
-		UInt32		refCon )
+		UInt32		refCon __unused )
 {
     if( type != kIOHIDEventNotification)
 	return( kIOReturnUnsupported);
@@ -140,13 +140,19 @@ IOExternalMethod * IOHIDUserClient::getTargetAndMethodForIndex(
 /* 2 */  { NULL, (IOMethod) &IOHIDSystem::setCursorEnable,
             kIOUCScalarIScalarO, 1, 0 },
 /* 3 */  { NULL, (IOMethod) &IOHIDSystem::extPostEvent,
-            kIOUCStructIStructO, 0xffffffff, 0 },
+            kIOUCStructIStructO, kIOUCVariableStructureSize, 0 },
 /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation,
-            kIOUCStructIStructO, 0xffffffff, 0 },
+            kIOUCStructIStructO, kIOUCVariableStructureSize, 0 },
 /* 5 */  { NULL, (IOMethod) &IOHIDSystem::extGetButtonEventNum,
             kIOUCScalarIScalarO, 1, 1 },
 /* 6 */  { NULL, (IOMethod) &IOHIDSystem::extSetBounds,
-            kIOUCStructIStructO, sizeof( IOGBounds), 0 }
+            kIOUCStructIStructO, sizeof( IOGBounds), 0 },
+/* 7 */  { NULL, (IOMethod) &IOHIDSystem::extRegisterVirtualDisplay,
+            kIOUCScalarIScalarO, 0, 1 },
+/* 8 */  { NULL, (IOMethod) &IOHIDSystem::extUnregisterVirtualDisplay,
+            kIOUCScalarIScalarO, 1, 0 },
+/* 9 */  { NULL, (IOMethod) &IOHIDSystem::extSetVirtualDisplayBounds,
+            kIOUCScalarIScalarO, 5, 0 },
 };
 
     if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -198,7 +204,7 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
 /* 0 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
 /* 1 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
 /* 2 */  { NULL, NULL, kIOUCScalarIScalarO, 1, 0 },
-/* 3 */  { NULL, (IOMethod) &IOHIDSystem::extPostEvent,
+/* 3 */  { NULL, (IOMethod) &IOHIDParamUserClient::extPostEvent,
             kIOUCStructIStructO, 0xffffffff, 0 },
 /* 4 */  { NULL, (IOMethod) &IOHIDSystem::extSetMouseLocation,
             kIOUCStructIStructO, 0xffffffff, 0 },
@@ -207,13 +213,32 @@ IOExternalMethod * IOHIDParamUserClient::getTargetAndMethodForIndex(
 /* 6 */  { NULL, (IOMethod) &IOHIDSystem::extSetModifierLockState,
             kIOUCScalarIScalarO, 2, 0 },
     };
+    IOExternalMethod *result = NULL;
 
-    if( (index >= 3)
-     && (index < (sizeof( methodTemplate) / sizeof( methodTemplate[0])))) {
+    if ((index < 3) || (index >= (sizeof(methodTemplate) / sizeof(methodTemplate[0])))) {
+        *targetP = NULL;
+        result = NULL;
+    }
+    else {
+        if (index == 3) {
+            *targetP = this;
+        }
+        else {
         *targetP = owner;
-	return( (IOExternalMethod *) methodTemplate + index);
-    } else
-	return( NULL);
+}
+        result = (IOExternalMethod *) (methodTemplate + index);
+    }
+
+    return result;
+}
+
+IOReturn IOHIDParamUserClient::extPostEvent(void*p1,void*p2,void*,void*,void*,void*) 
+{
+    IOReturn result = clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser);
+    if ( result == kIOReturnSuccess ) {
+        result = owner->extPostEvent(p1, p2, NULL, NULL, NULL, NULL);
+    }
+    return result;
 }
 
 IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
@@ -277,7 +302,7 @@ IOService * IOHIDStackShotUserClient::getService( void )
 IOReturn IOHIDStackShotUserClient::registerNotificationPort(
 		mach_port_t 	port,
 		UInt32		type,
-		UInt32		refCon )
+		UInt32		refCon __unused )
 {
     if( type != kIOHIDStackShotNotification)
 	return( kIOReturnUnsupported);
@@ -499,7 +524,7 @@ IOReturn IOHIDEventSystemUserClient::createEventQueue(void*p1,void*p2,void*p3,vo
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,void*,void*,void*)
+IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*,void*,void*,void*)
 {
     UInt32          type       = (uintptr_t) p1;
     UInt32          queueID    = (uintptr_t) p2;
@@ -534,7 +559,7 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,v
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDEventSystemUserClient::tickle(void*p1,void*p2,void*p3,void*p4,void*p5,void*p6)
+IOReturn IOHIDEventSystemUserClient::tickle(void*p1,void*,void*,void*,void*,void*)
 {
     IOHIDEventType eventType = (uintptr_t) p1;
     IOPMPowerFlags displayState = owner->displayState;
@@ -579,7 +604,7 @@ void IOHIDEventSystemUserClient::free()
 IOReturn IOHIDEventSystemUserClient::registerNotificationPort(
 		mach_port_t 	port,
 		UInt32		type,
-		UInt32		refCon )
+		UInt32		refCon __unused )
 {
     IODataQueue * eventQueue = NULL;
 

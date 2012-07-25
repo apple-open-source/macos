@@ -28,12 +28,12 @@
  */
 
 struct _gss_mechanism_name {
-	SLIST_ENTRY(_gss_mechanism_name) gmn_link;
+	HEIM_SLIST_ENTRY(_gss_mechanism_name) gmn_link;
 	gssapi_mech_interface	gmn_mech;	/* mechanism ops for MN */
 	gss_OID			gmn_mech_oid;	/* mechanism oid for MN */
 	gss_name_t		gmn_name;	/* underlying MN */
 };
-SLIST_HEAD(_gss_mechanism_name_list, _gss_mechanism_name);
+HEIM_SLIST_HEAD(_gss_mechanism_name_list, _gss_mechanism_name);
 
 struct _gss_name {
 	gss_OID_desc		gn_type;	/* type of name */
@@ -42,7 +42,8 @@ struct _gss_name {
 };
 
 OM_uint32
-	_gss_find_mn(OM_uint32 *, struct _gss_name *, gss_OID,
+	_gss_find_mn(OM_uint32 *, struct _gss_name *, gss_const_OID,
 	      struct _gss_mechanism_name **);
 struct _gss_name *
-	_gss_make_name(gssapi_mech_interface m, gss_name_t new_mn);
+	_gss_create_name(gss_name_t new_mn, gssapi_mech_interface m);
+void	_gss_mg_release_name(struct _gss_name *);

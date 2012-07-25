@@ -1,5 +1,5 @@
 /*
- * "$Id: testhi.c 9771 2011-05-12 05:21:56Z mike $"
+ * "$Id: testhi.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   Help index test program for CUPS.
  *
@@ -109,5 +109,5 @@ list_nodes(const char   *title,		/* I - Title string */
 
 
 /*
- * End of "$Id: testhi.c 9771 2011-05-12 05:21:56Z mike $".
+ * End of "$Id: testhi.c 6649 2007-07-11 21:46:42Z mike $".
  */

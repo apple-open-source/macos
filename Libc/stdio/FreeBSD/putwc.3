@@ -48,11 +48,19 @@
 .In stdio.h
 .In wchar.h
 .Ft wint_t
-.Fn fputwc "wchar_t wc" "FILE *stream"
+.Fo fputwc
+.Fa "wchar_t wc"
+.Fa "FILE *stream"
+.Fc
 .Ft wint_t
-.Fn putwc "wchar_t wc" "FILE *stream"
+.Fo putwc
+.Fa "wchar_t wc"
+.Fa "FILE *stream"
+.Fc
 .Ft wint_t
-.Fn putwchar "wchar_t wc"
+.Fo putwchar
+.Fa "wchar_t wc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fputwc
@@ -75,6 +83,12 @@ is identical to
 .Fn putwc
 with an output stream of
 .Dv stdout .
+.Pp
+Extended locale versions of these functions are documented in
+.Xr putwc_l 3 .
+See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn fputwc ,
@@ -91,6 +105,7 @@ is returned.
 .Xr fopen 3 ,
 .Xr getwc 3 ,
 .Xr putc 3 ,
+.Xr putwc_l 3 ,
 .Xr stdio 3
 .Sh STANDARDS
 The

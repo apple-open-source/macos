@@ -41,6 +41,8 @@
 
 namespace JSC {
 
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(InterruptedExecutionError);
+
 const ClassInfo InterruptedExecutionError::s_info = { "InterruptedExecutionError", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(InterruptedExecutionError) };
 
 JSValue InterruptedExecutionError::defaultValue(const JSObject*, ExecState* exec, PreferredPrimitiveType hint)
@@ -65,6 +67,8 @@ bool isInterruptedExecutionException(JSValue value)
     return value.inherits(&InterruptedExecutionError::s_info);
 }
 
+
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(TerminatedExecutionError);
 
 const ClassInfo TerminatedExecutionError::s_info = { "TerminatedExecutionError", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(TerminatedExecutionError) };
 
@@ -109,7 +113,7 @@ JSObject* createUndefinedVariableError(ExecState* exec, const Identifier& ident)
     
 JSObject* createInvalidParamError(ExecState* exec, const char* op, JSValue value)
 {
-    UString errorMessage = makeUString("'", value.toString(exec), "' is not a valid argument for '", op, "'");
+    UString errorMessage = makeUString("'", value.toString(exec)->value(exec), "' is not a valid argument for '", op, "'");
     JSObject* exception = createTypeError(exec, errorMessage);
     ASSERT(exception->isErrorInstance());
     static_cast<ErrorInstance*>(exception)->setAppendSourceToMessage();
@@ -118,7 +122,7 @@ JSObject* createInvalidParamError(ExecState* exec, const char* op, JSValue value
 
 JSObject* createNotAConstructorError(ExecState* exec, JSValue value)
 {
-    UString errorMessage = makeUString("'", value.toString(exec), "' is not a constructor");
+    UString errorMessage = makeUString("'", value.toString(exec)->value(exec), "' is not a constructor");
     JSObject* exception = createTypeError(exec, errorMessage);
     ASSERT(exception->isErrorInstance());
     static_cast<ErrorInstance*>(exception)->setAppendSourceToMessage();
@@ -127,7 +131,7 @@ JSObject* createNotAConstructorError(ExecState* exec, JSValue value)
 
 JSObject* createNotAFunctionError(ExecState* exec, JSValue value)
 {
-    UString errorMessage = makeUString("'", value.toString(exec), "' is not a function");
+    UString errorMessage = makeUString("'", value.toString(exec)->value(exec), "' is not a function");
     JSObject* exception = createTypeError(exec, errorMessage);
     ASSERT(exception->isErrorInstance());
     static_cast<ErrorInstance*>(exception)->setAppendSourceToMessage();
@@ -136,7 +140,7 @@ JSObject* createNotAFunctionError(ExecState* exec, JSValue value)
 
 JSObject* createNotAnObjectError(ExecState* exec, JSValue value)
 {
-    UString errorMessage = makeUString("'", value.toString(exec), "' is not an object");
+    UString errorMessage = makeUString("'", value.toString(exec)->value(exec), "' is not an object");
     JSObject* exception = createTypeError(exec, errorMessage);
     ASSERT(exception->isErrorInstance());
     static_cast<ErrorInstance*>(exception)->setAppendSourceToMessage();

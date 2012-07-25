@@ -26,7 +26,7 @@
 #include "SVGParserUtilities.h"
 
 #include "Document.h"
-#include "FloatPoint.h"
+#include "FloatRect.h"
 #include "SVGPointList.h"
 
 #include <limits>
@@ -137,7 +137,7 @@ template <typename FloatType> static bool genericParseNumber(const UChar*& ptr, 
         return false;
 
     if (skip)
-        skipOptionalSpacesOrDelimiter(ptr, end);
+        skipOptionalSVGSpacesOrDelimiter(ptr, end);
 
     return true;
 }
@@ -145,6 +145,13 @@ template <typename FloatType> static bool genericParseNumber(const UChar*& ptr, 
 bool parseNumber(const UChar*& ptr, const UChar* end, float& number, bool skip) 
 {
     return genericParseNumber(ptr, end, number, skip);
+}
+
+bool parseNumberFromString(const String& string, float& number, bool skip)
+{
+    const UChar* ptr = string.characters();
+    const UChar* end = ptr + string.length();
+    return genericParseNumber(ptr, end, number, skip) && ptr == end;
 }
 
 // only used to parse largeArcFlag and sweepFlag which must be a "0" or "1"
@@ -161,7 +168,7 @@ bool parseArcFlag(const UChar*& ptr, const UChar* end, bool& flag)
     else
         return false;
     
-    skipOptionalSpacesOrDelimiter(ptr, end);
+    skipOptionalSVGSpacesOrDelimiter(ptr, end);
     
     return true;
 }
@@ -184,6 +191,21 @@ bool parseNumberOptionalNumber(const String& s, float& x, float& y)
     return cur == end;
 }
 
+bool parseRect(const String& string, FloatRect& rect)
+{
+    const UChar* ptr = string.characters();
+    const UChar* end = ptr + string.length();
+    skipOptionalSVGSpaces(ptr, end);
+    
+    float x = 0;
+    float y = 0;
+    float width = 0;
+    float height = 0;
+    bool valid = parseNumber(ptr, end, x) && parseNumber(ptr, end, y) && parseNumber(ptr, end, width) && parseNumber(ptr, end, height, false);
+    rect = FloatRect(x, y, width, height);
+    return valid;
+}
+
 bool pointsListFromSVGData(SVGPointList& pointsList, const String& points)
 {
     if (points.isEmpty())
@@ -191,7 +213,7 @@ bool pointsListFromSVGData(SVGPointList& pointsList, const String& points)
     const UChar* cur = points.characters();
     const UChar* end = cur + points.length();
 
-    skipOptionalSpaces(cur, end);
+    skipOptionalSVGSpaces(cur, end);
 
     bool delimParsed = false;
     while (cur < end) {
@@ -204,13 +226,13 @@ bool pointsListFromSVGData(SVGPointList& pointsList, const String& points)
         if (!parseNumber(cur, end, yPos, false))
             return false;
 
-        skipOptionalSpaces(cur, end);
+        skipOptionalSVGSpaces(cur, end);
 
         if (cur < end && *cur == ',') {
             delimParsed = true;
             cur++;
         }
-        skipOptionalSpaces(cur, end);
+        skipOptionalSVGSpaces(cur, end);
 
         pointsList.append(FloatPoint(xPos, yPos));
     }
@@ -224,7 +246,7 @@ bool parseGlyphName(const String& input, HashSet<String>& values)
 
     const UChar* ptr = input.characters();
     const UChar* end = ptr + input.length();
-    skipOptionalSpaces(ptr, end);
+    skipOptionalSVGSpaces(ptr, end);
 
     while (ptr < end) {
         // Leading and trailing white space, and white space before and after separators, will be ignored.
@@ -237,11 +259,11 @@ bool parseGlyphName(const String& input, HashSet<String>& values)
 
         // walk backwards from the ; to ignore any whitespace
         const UChar* inputEnd = ptr - 1;
-        while (inputStart < inputEnd && isWhitespace(*inputEnd))
+        while (inputStart < inputEnd && isSVGSpace(*inputEnd))
             --inputEnd;
 
         values.add(String(inputStart, inputEnd - inputStart + 1));
-        skipOptionalSpacesOrDelimiter(ptr, end, ',');
+        skipOptionalSVGSpacesOrDelimiter(ptr, end, ',');
     }
 
     return true;
@@ -348,7 +370,7 @@ Vector<String> parseDelimitedString(const String& input, const char seperator)
 
     const UChar* ptr = input.characters();
     const UChar* end = ptr + input.length();
-    skipOptionalSpaces(ptr, end);
+    skipOptionalSVGSpaces(ptr, end);
 
     while (ptr < end) {
         // Leading and trailing white space, and white space before and after semicolon separators, will be ignored.
@@ -361,11 +383,11 @@ Vector<String> parseDelimitedString(const String& input, const char seperator)
 
         // walk backwards from the ; to ignore any whitespace
         const UChar* inputEnd = ptr - 1;
-        while (inputStart < inputEnd && isWhitespace(*inputEnd))
+        while (inputStart < inputEnd && isSVGSpace(*inputEnd))
             inputEnd--;
 
         values.append(String(inputStart, inputEnd - inputStart + 1));
-        skipOptionalSpacesOrDelimiter(ptr, end, seperator);
+        skipOptionalSVGSpacesOrDelimiter(ptr, end, seperator);
     }
 
     return values;

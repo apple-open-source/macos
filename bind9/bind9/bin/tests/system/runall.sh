@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2004, 2007, 2010-2012  Internet Systems Consortium, Inc. ("ISC")
+# Copyright (C) 2004, 2007, 2010  Internet Systems Consortium, Inc. ("ISC")
 # Copyright (C) 2000, 2001  Internet Software Consortium.
 #
 # Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id$
+# $Id: runall.sh,v 1.10 2010-03-04 23:50:34 tbox Exp $
 
 #
 # Run all the system tests.
@@ -26,14 +26,13 @@ SYSTEMTESTTOP=.
 
 status=0
 
-{
-    for d in $SUBDIRS
-    do
-            sh run.sh $d || status=1
-    done
+for d in $SUBDIRS
+do
+	sh run.sh $d || status=1
+done
 
-    $PERL testsock.pl || {
-        cat <<EOF >&2
+$PERL testsock.pl || {
+    cat <<EOF >&2
 I:
 I:NOTE: Many of the tests were skipped because they require that
 I:      the IP addresses 10.53.0.1 through 10.53.0.7 are configured 
@@ -41,12 +40,7 @@ I:	as alias addresses on the loopback interface.  Please run
 I:	"bin/tests/system/ifconfig.sh up" as root to configure them
 I:	and rerun the tests.
 EOF
-        exit 0;
-    }
-} | tee "systests.output"
-
-echo "I:System test result summary:"
-grep '^R:' systests.output | sort | uniq -c | sed -e 's/^/I:   /' -e 's/R://'
-grep '^R:FAIL' systests.output > /dev/null && status=1
+    exit 0;
+}
 
 exit $status

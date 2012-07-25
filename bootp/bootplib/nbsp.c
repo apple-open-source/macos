@@ -299,4 +299,4 @@ main(int argc, char * argv[])
     exit(0);
 }
 
-#endif TEST_NBSP
+#endif /* TEST_NBSP */

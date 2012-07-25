@@ -62,10 +62,13 @@ public:
 
     static Class pdfPreviewViewClass();
 
+    bool forwardScrollWheelEvent(NSEvent *);
+
     NSPrintOperation *makePrintOperation(NSPrintInfo *);
     void openPDFInFinder();
     void savePDFToDownloadsFolder();
     void linkClicked(const String& url);
+    void print();
 
     void findString(const String&, FindOptions, unsigned maxMatchCount);
     void countStringMatches(const String&, FindOptions, unsigned maxMatchCount);

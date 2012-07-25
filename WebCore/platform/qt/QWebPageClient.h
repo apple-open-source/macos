@@ -34,12 +34,20 @@
 #include <GraphicsLayer.h>
 #endif
 
+#if ENABLE(WEBGL)
+#include <GraphicsContext3D.h>
+#endif
+
 #include <QPalette>
 #include <QRect>
 
 QT_BEGIN_NAMESPACE
 class QStyle;
 QT_END_NAMESPACE
+
+namespace WebCore {
+class Widget;
+}
 
 class QWebPageClient {
 public:
@@ -94,6 +102,13 @@ public:
     virtual bool viewResizesToContentsEnabled() const = 0;
 
     virtual QRectF windowRect() const = 0;
+
+    virtual void setWidgetVisible(WebCore::Widget*, bool visible) = 0;
+
+#if ENABLE(WEBGL)
+    virtual void createPlatformGraphicsContext3D(PlatformGraphicsContext3D*,
+                                                 PlatformGraphicsSurface3D*) = 0;
+#endif
 
 protected:
 #ifndef QT_NO_CURSOR

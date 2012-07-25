@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -20,6 +20,11 @@
 *                                                                      *
 ***********************************************************************/
 #pragma prototyped
+
+#include "intercepts.h"
+
+#include <fs3d.h>
+
 /*
  * put name=value in the environment
  * pointer to value returned
@@ -32,14 +37,12 @@
  * _ always placed at the top
  */
 
-#include <ast.h>
-#include <fs3d.h>
-
 #define INCREMENT	16		/* environ increment		*/
 
 char*
 setenviron(const char* akey)
 {
+#undef	setenviron
 	static char**	envv;		/* recorded environ		*/
 	static char**	next;		/* next free slot		*/
 	static char**	last;		/* last free slot (0)		*/
@@ -53,6 +56,8 @@ setenviron(const char* akey)
 	int		n;
 
 	ast.env_serial++;
+	if (intercepts.intercept_setenviron)
+		return (*intercepts.intercept_setenviron)(akey);
 	if (p && !v)
 	{
 		environ = next = p;

@@ -178,6 +178,7 @@ bool AppleBacklightDisplay::start( IOService * provider )
     if (!super::start(provider))
         return (false);
 
+	fClamshellSlept = gIOFBCurrentClamshellState;
     fDeferredEvents = IOInterruptEventSource::interruptEventSource(this, _deferredEvent);
     if (fDeferredEvents)
         getConnection()->getFramebuffer()->getControllerWorkLoop()->addEventSource(fDeferredEvents);
@@ -480,6 +481,7 @@ bool AppleBacklightDisplay::updatePowerParam(void)
 				value = kIODisplayPowerStateOn;
 				break;
 		}
+//		kprintf("dysp %d, %d, %d\n", value, fClamshellSlept, fCurrentPowerState);
 		ret = super::doIntegerSet(displayParams, gIODisplayPowerStateKey, value);
 	}
 

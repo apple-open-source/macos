@@ -28,6 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include "config.h"
 #include "Widget.h"
 
@@ -138,7 +139,7 @@ public:
 #ifdef HAVE_ECORE_X
         , m_isUsingEcoreX(false)
 #endif
-    {}
+    { }
 
     /* cursor */
     String m_cursorGroup;
@@ -222,8 +223,6 @@ void Widget::applyFallbackCursor()
         return;
     }
 #endif
-    LOG_ERROR("Ooops, no fallback to set cursor %s!\n",
-              m_data->m_cursorGroup.utf8().data());
 }
 
 void Widget::applyCursor()

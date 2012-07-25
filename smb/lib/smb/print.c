@@ -59,51 +59,51 @@ int
 smb_smb_open_print_file(struct smb_ctx *ctx, int setuplen, int mode,
 	const char *ident, smbfh *fhp)
 {
-	struct smb_rq *rqp;
+	struct smb_usr_rq *rqp;
 	mbchain_t mbp;
 	int error;
 
-	error = smb_rq_init(ctx, SMB_COM_OPEN_PRINT_FILE, 0, &rqp);
+	error = smb_usr_rq_init(ctx, SMB_COM_OPEN_PRINT_FILE, 0, &rqp);
 	if (error)
 		return error;
-	mbp = smb_rq_getrequest(rqp);
-	smb_rq_wstart(rqp);
+	mbp = smb_usr_rq_getrequest(rqp);
+	smb_usr_rq_wstart(rqp);
 	mb_put_uint16le(mbp, setuplen);
 	mb_put_uint16le(mbp, mode);
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
+	smb_usr_rq_wend(rqp);
+	smb_usr_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_ASCII);
-	smb_rq_put_dstring(ctx, mbp, ident, strlen(ident), SMB_UTF_SFM_CONVERSIONS, NULL);
-	smb_rq_bend(rqp);
-	error = smb_rq_simple(rqp);
+	smb_usr_rq_put_dstring(ctx, mbp, ident, strlen(ident), SMB_UTF_SFM_CONVERSIONS, NULL);
+	smb_usr_rq_bend(rqp);
+	error = smb_usr_rq_simple(rqp);
 	if (!error) {
 		mdchain_t mdp;
 
-		mdp = smb_rq_getreply(rqp);
+		mdp = smb_usr_rq_getreply(rqp);
 		md_get_uint8(mdp, NULL);	/* Word Count */
 		md_get_uint16(mdp, fhp);
 	}
-	smb_rq_done(rqp);
+	smb_usr_rq_done(rqp);
 	return error;
 }
 
 int
 smb_smb_close_print_file(struct smb_ctx *ctx, smbfh fh)
 {
-	struct smb_rq *rqp;
+	struct smb_usr_rq *rqp;
 	mbchain_t mbp;
 	int error;
 
-	error = smb_rq_init(ctx, SMB_COM_CLOSE_PRINT_FILE, 0, &rqp);
+	error = smb_usr_rq_init(ctx, SMB_COM_CLOSE_PRINT_FILE, 0, &rqp);
 	if (error)
 		return error;
-	mbp = smb_rq_getrequest(rqp);
-	smb_rq_wstart(rqp);
+	mbp = smb_usr_rq_getrequest(rqp);
+	smb_usr_rq_wstart(rqp);
 	mb_put_mem(mbp, (char*)&fh, 2, MB_MSYSTEM);
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
-	smb_rq_bend(rqp);
-	error = smb_rq_simple(rqp);
-	smb_rq_done(rqp);
+	smb_usr_rq_wend(rqp);
+	smb_usr_rq_bstart(rqp);
+	smb_usr_rq_bend(rqp);
+	error = smb_usr_rq_simple(rqp);
+	smb_usr_rq_done(rqp);
 	return error;
 }

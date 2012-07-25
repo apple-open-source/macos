@@ -44,7 +44,8 @@ static struct units acl_units[] = {
     { "modify",		KADM5_PRIV_MODIFY },
     { "add",		KADM5_PRIV_ADD },
     { "get", 		KADM5_PRIV_GET },
-    { NULL }
+    { "get-keys",	KADM5_PRIV_GET_KEYS },
+    { NULL,		0 }
 };
 
 kadm5_ret_t
@@ -146,10 +147,11 @@ fetch_acl (kadm5_server_context *context,
 
 	    memset(&ent, 0, sizeof(ent));
 
-	    ret = context->db->hdb_fetch(context->context, context->db, 
-					 context->caller,
-					 HDB_F_DECRYPT|HDB_F_GET_ANY|HDB_F_ADMIN_DATA,
-					 &ent);
+	    ret = context->db->hdb_fetch_kvno(context->context, context->db, 
+					      context->caller,
+					      HDB_F_DECRYPT|HDB_F_GET_ANY|HDB_F_ADMIN_DATA,
+					      0,
+					      &ent);
 	    if (ret == 0 && ent.entry.acl_rights)
 		*ret_flags = *ent.entry.acl_rights;
 	    hdb_free_entry(context->context, &ent);
@@ -198,6 +200,8 @@ check_flags (unsigned op,
 
     if(res & KADM5_PRIV_GET)
 	return KADM5_AUTH_GET;
+    if(res & KADM5_PRIV_GET_KEYS)
+	return KADM5_AUTH_GET_KEYS;
     if(res & KADM5_PRIV_ADD)
 	return KADM5_AUTH_ADD;
     if(res & KADM5_PRIV_MODIFY)

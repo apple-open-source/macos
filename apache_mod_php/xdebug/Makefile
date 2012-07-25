@@ -25,7 +25,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 2.1.2
+AEP_Version		= 2.1.3
 AEP_Binaries		= $(shell $(DSTROOT)$(USRBINDIR)/php-config --extension-dir)/$(Project).so
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
@@ -53,8 +53,8 @@ Install_Target	= install
 $(GNUConfigStamp): post-extract-source
 
 post-extract-source: extract-source
-	@echo "Creating configure script..."
-	cd $(Sources) && $(DSTROOT)$(USRBINDIR)/phpize
+	@echo "Overlaying phpized build files..."
+	cd $(Sources)/.. && tar xzf $(SRCROOT)/xdebug-phpized.tar.gz
 
 install-macosx:
 	@echo "Archiving binaries..."

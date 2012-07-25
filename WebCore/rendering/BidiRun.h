@@ -45,12 +45,13 @@ struct BidiRun : BidiCharacterRun {
     void destroy();
 
     // Overloaded new operator.
-    void* operator new(size_t, RenderArena*) throw();
+    void* operator new(size_t, RenderArena*);
 
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
 
     BidiRun* next() { return static_cast<BidiRun*>(m_next); }
+    RenderObject* object() { return m_object; }
 
 private:
     // The normal operator new is disallowed.

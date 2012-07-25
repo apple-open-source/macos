@@ -42,6 +42,7 @@ class Database;
 class InjectedScript;
 class InspectorAgent;
 class InspectorConsoleAgent;
+class InspectorDOMAgent;
 class InspectorDOMStorageAgent;
 class InspectorDatabaseAgent;
 class InspectorFrontend;
@@ -52,6 +53,8 @@ class ScriptObject;
 class ScriptValue;
 class Storage;
 
+struct EventListenerInfo;
+
 class InjectedScriptHost : public RefCounted<InjectedScriptHost> {
 public:
     static PassRefPtr<InjectedScriptHost> create();
@@ -59,44 +62,45 @@ public:
 
     void init(InspectorAgent* inspectorAgent
             , InspectorConsoleAgent* consoleAgent
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
             , InspectorDatabaseAgent* databaseAgent
 #endif
-#if ENABLE(DOM_STORAGE)
             , InspectorDOMStorageAgent* domStorageAgent
-#endif
+            , InspectorDOMAgent* domAgent
         )
     {
         m_inspectorAgent = inspectorAgent;
         m_consoleAgent = consoleAgent;
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
         m_databaseAgent = databaseAgent;
 #endif
-#if ENABLE(DOM_STORAGE)
         m_domStorageAgent = domStorageAgent;
-#endif
+        m_domAgent = domAgent;
     }
-    void setFrontend(InspectorFrontend* frontend) { m_frontend = frontend; }
-    void clearFrontend() { m_frontend = 0; }
 
     static Node* scriptValueAsNode(ScriptValue);
     static ScriptValue nodeAsScriptValue(ScriptState*, Node*);
 
     void disconnect();
 
-    void addInspectedNode(Node*);
-    void clearInspectedNodes();
+    class InspectableObject {
+    public:
+        virtual ScriptValue get(ScriptState*);
+        virtual ~InspectableObject() { }
+    };
+    void addInspectedObject(PassOwnPtr<InspectableObject>);
+    void clearInspectedObjects();
+    InspectableObject* inspectedObject(unsigned int num);
 
     void inspectImpl(PassRefPtr<InspectorValue> objectToInspect, PassRefPtr<InspectorValue> hints);
+    void getEventListenersImpl(Node*, Vector<EventListenerInfo>& listenersArray);
+
     void clearConsoleMessages();
     void copyText(const String& text);
-    Node* inspectedNode(unsigned int num);
-#if ENABLE(DATABASE)
-    int databaseIdImpl(Database*);
+#if ENABLE(SQL_DATABASE)
+    String databaseIdImpl(Database*);
 #endif
-#if ENABLE(DOM_STORAGE)
-    int storageIdImpl(Storage*);
-#endif
+    String storageIdImpl(Storage*);
 #if ENABLE(WORKERS)
     long nextWorkerId();
     void didCreateWorker(long id, const String& url, bool isSharedWorker);
@@ -108,15 +112,14 @@ private:
 
     InspectorAgent* m_inspectorAgent;
     InspectorConsoleAgent* m_consoleAgent;
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     InspectorDatabaseAgent* m_databaseAgent;
 #endif
-#if ENABLE(DOM_STORAGE)
     InspectorDOMStorageAgent* m_domStorageAgent;
-#endif
-    InspectorFrontend* m_frontend;
+    InspectorDOMAgent* m_domAgent;
     long m_lastWorkerId;
-    Vector<RefPtr<Node> > m_inspectedNodes;
+    Vector<OwnPtr<InspectableObject> > m_inspectedObjects;
+    OwnPtr<InspectableObject> m_defaultInspectableObject;
 };
 
 } // namespace WebCore

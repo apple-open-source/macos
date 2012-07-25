@@ -65,9 +65,9 @@ void SVGPathTraversalStateBuilder::setDesiredLength(float desiredLength)
 
 bool SVGPathTraversalStateBuilder::continueConsuming()
 {
-    ASSERT(m_traversalState);
-    ASSERT(m_traversalState->m_action == PathTraversalState::TraversalSegmentAtLength);
-    return m_traversalState->m_totalLength < m_traversalState->m_desiredLength;
+    ASSERT(m_traversalState);    
+    m_traversalState->processSegment();
+    return !m_traversalState->m_success;
 }
 
 void SVGPathTraversalStateBuilder::incrementPathSegmentCount()
@@ -76,10 +76,22 @@ void SVGPathTraversalStateBuilder::incrementPathSegmentCount()
     ++m_traversalState->m_segmentIndex;
 }
 
-unsigned long SVGPathTraversalStateBuilder::pathSegmentIndex()
+unsigned SVGPathTraversalStateBuilder::pathSegmentIndex()
 {
     ASSERT(m_traversalState);
     return m_traversalState->m_segmentIndex;
+}
+
+float SVGPathTraversalStateBuilder::totalLength()
+{
+    ASSERT(m_traversalState);
+    return m_traversalState->m_totalLength;
+}
+
+FloatPoint SVGPathTraversalStateBuilder::currentPoint()
+{
+    ASSERT(m_traversalState);
+    return m_traversalState->m_current;
 }
 
 }

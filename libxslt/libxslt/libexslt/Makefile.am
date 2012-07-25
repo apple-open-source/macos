@@ -11,8 +11,6 @@ exsltincdir = $(includedir)/libexslt
 exsltinc_HEADERS =                      \
 	exslt.h				\
 	exsltconfig.h			\
-	exslt.h				\
-	exsltconfig.h			\
 	exsltexports.h
 
 libexslt_la_SOURCES =                   \
@@ -29,7 +27,7 @@ libexslt_la_SOURCES =                   \
 	dynamic.c
 
 libexslt_la_LIBADD = $(top_builddir)/libxslt/libxslt.la $(EXTRA_LIBS)
-libexslt_la_LDFLAGS = -version-info @LIBEXSLT_VERSION_INFO@ $(LIBGCRYPT_LIBS)
+libexslt_la_LDFLAGS = $(WIN32_EXTRA_LDFLAGS) -version-info @LIBEXSLT_VERSION_INFO@ $(LIBGCRYPT_LIBS)
 
 man_MANS = libexslt.3
 

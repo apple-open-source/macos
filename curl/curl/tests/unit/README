@@ -42,12 +42,9 @@ and the tests/FILEFORMAT documentation.
 For the actual C file, here's a very simple example:
 
 ----------------------- start -------------------------------
-#include <stdlib.h>
-#include "curl_config.h"
-#include "setup.h"
+#include "curlcheck.h"
 
 #include "a libcurl header.h" /* from the lib dir */
-#include "curlcheck.h"
 
 static void unit_setup( void )
 {
@@ -65,9 +62,9 @@ UNITTEST_START
 
   fail_unless( size == 0 , "initial size should be zero" );
   fail_if( head == NULL , "head should not be initiated to NULL" );
- 
+
   /* you end the test code like this: */
- 
+
 UNITTEST_STOP
 
 ----------------------- end -------------------------------

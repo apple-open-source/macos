@@ -92,7 +92,7 @@ enum {
     kCreateMatchingHIDElementsWithDictionaries = 0x1000
 };
 
-static void ElementCacheApplierFunction(const void *key, const void *value, void *context)
+static void ElementCacheApplierFunction(const void *key __unused, const void *value, void *context)
 {
     _IOHIDElementSetDeviceInterface((IOHIDElementRef)value, (IOHIDDeviceDeviceInterface**)context);
 }
@@ -293,7 +293,7 @@ IOHIDQueueClass * IOHIDDeviceClass::createQueue(bool reportHandler)
 	return newQueue;
 }
 
-HRESULT IOHIDDeviceClass::queryInterfaceQueue (CFUUIDRef uuid, void **ppv)
+HRESULT IOHIDDeviceClass::queryInterfaceQueue (CFUUIDRef uuid __unused, void **ppv)
 {
     HRESULT res = S_OK;
     
@@ -309,7 +309,7 @@ HRESULT IOHIDDeviceClass::queryInterfaceQueue (CFUUIDRef uuid, void **ppv)
     return res;
 }
 
-HRESULT IOHIDDeviceClass::queryInterfaceTransaction (CFUUIDRef uuid, void **ppv)
+HRESULT IOHIDDeviceClass::queryInterfaceTransaction (CFUUIDRef uuid __unused, void **ppv)
 {
     HRESULT res = S_OK;
     
@@ -357,7 +357,7 @@ HRESULT IOHIDDeviceClass::queryInterface(REFIID iid, void **ppv)
 }
 
 IOReturn IOHIDDeviceClass::
-probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
+probe(CFDictionaryRef propertyTable __unused, io_service_t inService, SInt32 *order __unused)
 {
     if (!inService || !IOObjectConformsTo(inService, "IOHIDDevice"))
         return kIOReturnBadArgument;
@@ -365,7 +365,7 @@ probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
+IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable __unused, io_service_t inService)
 {
     IOReturn 			res;
     kern_return_t 		kr;
@@ -575,7 +575,7 @@ IOReturn IOHIDDeviceClass::setProperty(CFStringRef key, CFTypeRef property)
 // to the IOHIDDeviceClass.  The other is used by the client to get removal 
 // notification via fAsyncPort.  This method is used by both and disguished 
 // by the port in the refcon.
-void IOHIDDeviceClass::_deviceNotification(void *refCon, io_service_t service, natural_t messageType, void * messageArgument )
+void IOHIDDeviceClass::_deviceNotification(void *refCon, io_service_t service __unused, natural_t messageType, void * messageArgument )
 {
     IOHIDDeviceClass *  self;
     MyPrivateData *     privateDataRef  = (MyPrivateData *) refCon;
@@ -722,7 +722,7 @@ IOReturn IOHIDDeviceClass::open(IOOptionBits options)
     return ret;
 }
 
-IOReturn IOHIDDeviceClass::close(IOOptionBits options)
+IOReturn IOHIDDeviceClass::close(IOOptionBits options __unused)
 {
     IOReturn ret;
     
@@ -741,7 +741,7 @@ IOReturn IOHIDDeviceClass::close(IOOptionBits options)
     return ret;
 }
 
-IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementRef element, IOHIDValueRef * pEvent, uint32_t timeout, IOHIDValueCallback callback, void * refcon, IOOptionBits options)
+IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementRef element, IOHIDValueRef * pEvent, uint32_t timeout __unused, IOHIDValueCallback callback __unused, void * refcon __unused, IOOptionBits options)
 {
     uint32_t generation = 0;
     IOReturn kr = getCurrentElementValueAndGeneration(element, pEvent, &generation);
@@ -765,7 +765,7 @@ IOReturn IOHIDDeviceClass::getElementValue(IOHIDElementRef element, IOHIDValueRe
     return kr;
 }
 
-IOReturn IOHIDDeviceClass::setElementValue(IOHIDElementRef element, IOHIDValueRef event, uint32_t timeout, IOHIDValueCallback callback, void * refcon, IOOptionBits options)
+IOReturn IOHIDDeviceClass::setElementValue(IOHIDElementRef element, IOHIDValueRef event, uint32_t timeout __unused, IOHIDValueCallback callback __unused, void * refcon __unused, IOOptionBits options)
 {
     kern_return_t           kr = kIOReturnBadArgument;
     IOHIDElementStruct		elementStruct;
@@ -855,8 +855,14 @@ struct IOHIDReportRefCon {
     void *			sender;
 };
 
-IOReturn IOHIDDeviceClass::setReport(IOHIDReportType reportType, uint32_t reportID, const uint8_t * report, CFIndex reportLength, 
-                                    uint32_t timeout, IOHIDReportCallback callback, void * refcon, IOOptionBits options)
+IOReturn IOHIDDeviceClass::setReport(IOHIDReportType        reportType, 
+                                     uint32_t               reportID, 
+                                     const uint8_t          *report, 
+                                     CFIndex                reportLength, 
+                                     uint32_t               timeout, 
+                                     IOHIDReportCallback    callback, 
+                                     void                   *refcon, 
+                                     IOOptionBits           options __unused)
 {
     uint64_t    in[3];
     IOReturn    ret;
@@ -915,8 +921,14 @@ IOReturn IOHIDDeviceClass::setReport(IOHIDReportType reportType, uint32_t report
 
 
 IOReturn 
-IOHIDDeviceClass::getReport(IOHIDReportType reportType, uint32_t reportID, uint8_t * report, CFIndex * pReportLength, 
-                            uint32_t timeout, IOHIDReportCallback callback, void * refcon, IOOptionBits options)
+IOHIDDeviceClass::getReport(IOHIDReportType     reportType, 
+                            uint32_t            reportID, 
+                            uint8_t             *report, 
+                            CFIndex             *pReportLength, 
+                            uint32_t            timeout, 
+                            IOHIDReportCallback callback, 
+                            void                *refcon, 
+                            IOOptionBits        options __unused)
 {
     uint64_t    in[3];
     IOReturn    ret;
@@ -1488,7 +1500,8 @@ IOReturn IOHIDDeviceClass::finishReportHandlerQueueSetup()
 	return ret;
 }
 
-void IOHIDDeviceClass::_cfmachPortCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info) {
+void IOHIDDeviceClass::_cfmachPortCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info) 
+{
     mach_msg_header_t *			msgh = (mach_msg_header_t *)msg;
 	IOHIDDeviceClass *			self = (IOHIDDeviceClass *) info;
 	
@@ -1501,7 +1514,7 @@ void IOHIDDeviceClass::_cfmachPortCallback(CFMachPortRef cfPort, mach_msg_header
 		IOHIDQueueClass::queueEventSourceCallback(cfPort, msg, size, self->fReportHandlerQueue);
 }
 
-void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result, void * sender)
+void IOHIDDeviceClass::_hidReportHandlerCallback(void * refcon, IOReturn result, void * sender __unused)
 {
     IOHIDValueRef           event;
     IOHIDDeviceClass *		self = (IOHIDDeviceClass *)refcon;
@@ -2027,7 +2040,7 @@ IOHIDQueueClass * IOHIDObsoleteDeviceClass::createQueue(bool reportHandler)
 	return newQueue;
 }
 
-HRESULT IOHIDObsoleteDeviceClass::queryInterfaceTransaction (CFUUIDRef uuid, void **ppv)
+HRESULT IOHIDObsoleteDeviceClass::queryInterfaceTransaction (CFUUIDRef uuid __unused, void **ppv)
 {
     HRESULT res = S_OK;
     
@@ -2112,6 +2125,17 @@ IOReturn IOHIDObsoleteDeviceClass::setRemovalCallback(IOHIDCallbackFunction remo
     fRemovalRefcon      = removalRefcon;
 
     return ret;
+}
+
+IOReturn 
+IOHIDObsoleteDeviceClass::setElementValue(IOHIDElementRef element, 
+                                          IOHIDValueRef event, 
+                                          uint32_t timeout, 
+                                          IOHIDValueCallback callback, 
+                                          void * refcon, 
+                                          IOOptionBits options)
+{
+    return IOHIDDeviceClass::setElementValue(element, event, timeout, callback, refcon, options);
 }
 
 IOReturn IOHIDObsoleteDeviceClass::setElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, uint32_t timeout, IOHIDElementCallbackFunction callback, void * target, void * refcon, IOOptionBits options)
@@ -2202,6 +2226,17 @@ IOReturn IOHIDObsoleteDeviceClass::queryElementValue(IOHIDElementCookie cookie, 
     return kr;
 }
 
+IOReturn 
+IOHIDObsoleteDeviceClass::getElementValue(IOHIDElementRef element, 
+                                          IOHIDValueRef * pEvent, 
+                                          uint32_t timeout, 
+                                          IOHIDValueCallback callback, 
+                                          void * refcon, 
+                                          IOOptionBits options)
+{
+    return IOHIDDeviceClass::getElementValue(element, pEvent, timeout, callback, refcon, options);
+}
+
 IOReturn IOHIDObsoleteDeviceClass::getElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent)
 
 {
@@ -2238,6 +2273,19 @@ IOReturn IOHIDObsoleteDeviceClass::getElementValue(IOHIDElementCookie cookie, IO
     return kr;
 }
 
+IOReturn 
+IOHIDObsoleteDeviceClass::setReport(IOHIDReportType reportType, 
+                           uint32_t reportID, 
+                           const uint8_t * report, 
+                           CFIndex reportLength, 
+                           uint32_t timeout, 
+                           IOHIDReportCallback callback, 
+                           void * refcon, 
+                           IOOptionBits options)
+{
+    return IOHIDDeviceClass::setReport(reportType, reportID, report, reportLength, timeout, callback, refcon, options);
+}
+
 IOReturn IOHIDObsoleteDeviceClass::setReport(IOHIDReportType type, uint32_t id, void * report, uint32_t length, uint32_t timeout, IOHIDReportCallbackFunction callback, void * target, void * refcon)
 {
     IOHIDReportCallback         reportCallback  = NULL;
@@ -2261,6 +2309,18 @@ IOReturn IOHIDObsoleteDeviceClass::setReport(IOHIDReportType type, uint32_t id, 
     return IOHIDDeviceClass::setReport(type, id, (const uint8_t *)report, length, timeout, reportCallback, reportContext);
 }
 
+IOReturn
+IOHIDObsoleteDeviceClass::getReport(IOHIDReportType reportType, 
+                           uint32_t reportID, 
+                           uint8_t * report, 
+                           CFIndex * pReportLength, 
+                           uint32_t timeout, 
+                           IOHIDReportCallback callback, 
+                           void * refcon, 
+                           IOOptionBits options)
+{
+    return IOHIDDeviceClass::getReport(reportType, reportID, report, pReportLength, timeout, callback, refcon, options);
+}
 
 IOReturn IOHIDObsoleteDeviceClass::getReport(IOHIDReportType type, uint32_t id, void * report, uint32_t * pLength, uint32_t timeout, IOHIDReportCallbackFunction callback, void * target, void * refcon)
 {
@@ -2334,9 +2394,9 @@ void IOHIDObsoleteDeviceClass::_reportCallback(
                                         void *                  context, 
                                         IOReturn                result, 
                                         void *                  sender, 
-                                        IOHIDReportType         type, 
-                                        uint32_t                reportID,
-                                        uint8_t *               report, 
+                                        IOHIDReportType         type __unused, 
+                                        uint32_t                reportID __unused,
+                                        uint8_t *               report __unused, 
                                         CFIndex                 reportLength)
 {
     IOHIDObsoleteCallbackArgs * args = (IOHIDObsoleteCallbackArgs*)context;

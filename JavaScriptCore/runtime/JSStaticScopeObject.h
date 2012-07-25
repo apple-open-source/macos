@@ -36,7 +36,7 @@ namespace JSC{
 
         static JSStaticScopeObject* create(ExecState* exec, const Identifier& identifier, JSValue value, unsigned attributes)
         {
-            JSStaticScopeObject* scopeObject = new (allocateCell<JSStaticScopeObject>(*exec->heap())) JSStaticScopeObject(exec);
+            JSStaticScopeObject* scopeObject = new (NotNull, allocateCell<JSStaticScopeObject>(*exec->heap())) JSStaticScopeObject(exec);
             scopeObject->finishCreation(exec, identifier, value, attributes);
             return scopeObject;
         }
@@ -47,7 +47,7 @@ namespace JSC{
         static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
         static void put(JSCell*, ExecState*, const Identifier&, JSValue, PutPropertySlot&);
 
-        static void putWithAttributes(JSObject*, ExecState*, const Identifier&, JSValue, unsigned attributes);
+        static void putDirectVirtual(JSObject*, ExecState*, const Identifier&, JSValue, unsigned attributes);
 
         static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue proto) { return Structure::create(globalData, globalObject, proto, TypeInfo(StaticScopeObjectType, StructureFlags), &s_info); }
 
@@ -67,7 +67,9 @@ namespace JSC{
             : JSVariableObject(exec->globalData(), exec->globalData().staticScopeStructure.get(), &m_symbolTable, reinterpret_cast<Register*>(&m_registerStore + 1))
         {
         }
-        
+
+        static void destroy(JSCell*);
+
         SymbolTable m_symbolTable;
         WriteBarrier<Unknown> m_registerStore;
     };

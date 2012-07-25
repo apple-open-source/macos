@@ -30,8 +30,21 @@
 
 namespace WebCore {
 
+WebKitAnimationEventInit::WebKitAnimationEventInit()
+    : animationName()
+    , elapsedTime(0.0)
+{
+}
+
 WebKitAnimationEvent::WebKitAnimationEvent()
     : m_elapsedTime(0.0)
+{
+}
+
+WebKitAnimationEvent::WebKitAnimationEvent(const AtomicString& type, const WebKitAnimationEventInit& initializer)
+    : Event(type, initializer)
+    , m_animationName(initializer.animationName)
+    , m_elapsedTime(initializer.elapsedTime)
 {
 }
 
@@ -46,21 +59,6 @@ WebKitAnimationEvent::~WebKitAnimationEvent()
 {
 }
 
-void WebKitAnimationEvent::initWebKitAnimationEvent(const AtomicString& type, 
-                                        bool canBubbleArg,
-                                        bool cancelableArg,
-                                        const String& animationName,
-                                        double elapsedTime)
-{
-    if (dispatched())
-        return;
-    
-    initEvent(type, canBubbleArg, cancelableArg);
-    
-    m_animationName = animationName;
-    m_elapsedTime = elapsedTime;
-}
-
 const String& WebKitAnimationEvent::animationName() const
 {
     return m_animationName;
@@ -69,6 +67,11 @@ const String& WebKitAnimationEvent::animationName() const
 double WebKitAnimationEvent::elapsedTime() const
 {
     return m_elapsedTime;
+}
+
+const AtomicString& WebKitAnimationEvent::interfaceName() const
+{
+    return eventNames().interfaceForWebKitAnimationEvent;
 }
 
 } // namespace WebCore

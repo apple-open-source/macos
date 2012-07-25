@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -23,7 +23,7 @@
 
 /*
  * AT&T Research and SCO
- * ast i18n message translation
+ * ast l10n message translation
  */
 
 #include "lclib.h"
@@ -47,6 +47,7 @@ typedef	struct
 	nl_catd		cat;		/* message catalog handle	*/
 	int		debug;		/* special debug locale		*/
 	const char*	locale;		/* message catalog locale	*/	
+	const char*	nlspath;	/* message catalog NLSPATH	*/	
 	char		name[1];	/* catalog name			*/
 } Catalog_t;
 
@@ -71,7 +72,6 @@ typedef struct
 	Dtdisc_t	catalog_disc;	/* catalog dict discipline	*/
 	Dt_t*		catalogs;	/* catalog dictionary handle	*/
 	Sfio_t*		tmp;		/* temporary string stream	*/
-	const char*	debug;		/* debug locale name		*/
 	int		error;		/* no dictionaries!		*/
 	char		null[1];	/* null string			*/
 } State_t;
@@ -129,17 +129,27 @@ sfprintf(sfstderr, "AHA#%d:%s set %d seq %d msg `%s'\n", __LINE__, __FILE__, set
 static nl_catd
 find(const char* locale, const char* catalog)
 {
+	char*		o;
+	nl_catd		d;
 	char		path[PATH_MAX];
-#if DEBUG_trace
-	const char*	ocatalog = catalog;
-#endif
 
-	if (mcfind(path, locale, catalog, LC_MESSAGES, 0))
-		catalog = (const char*)path;
-#if DEBUG_trace
-sfprintf(sfstderr, "AHA#%d:%s %s %s %s\n", __LINE__, __FILE__, locale, ocatalog, catalog);
-#endif
-	return catopen(catalog, NL_CAT_LOCALE);
+	if (!mcfind(locale, catalog, LC_MESSAGES, 0, path, sizeof(path)) || (d = catopen(path, NL_CAT_LOCALE)) == NOCAT)
+	{
+		if (locale == (const char*)lc_categories[AST_LC_MESSAGES].prev)
+			o = 0;
+		else if (o = setlocale(LC_MESSAGES, NiL))
+		{
+			ast.locale.set |= AST_LC_internal;
+			setlocale(LC_MESSAGES, locale);
+		}
+		d = catopen(catalog, NL_CAT_LOCALE);
+		if (o)
+		{
+			setlocale(LC_MESSAGES, o);
+			ast.locale.set &= ~AST_LC_internal;
+		}
+	}
+	return d;
 }
 
 /*
@@ -153,7 +163,10 @@ init(register char* s)
 	register char*		u;
 	register int		n;
 	register int		m;
+	register int		set;
 	nl_catd			d;
+
+	static const int	sets[] = { AST_MESSAGE_SET, 1 };
 
 	/*
 	 * insert into the catalog dictionary
@@ -173,19 +186,17 @@ init(register char* s)
 	 * locate the default locale catalog
 	 */
 
-	u = setlocale(LC_MESSAGES, NiL);
-	setlocale(LC_MESSAGES, "C");
 	if ((d = find("C", s)) != NOCAT)
 	{
 		/*
 		 * load the default locale messages
-		 * this assumes one mesage set for ast (AST_MESSAGE_SET)
+		 * this assumes one mesage set for ast (AST_MESSAGE_SET or fallback to 1)
 		 * different packages can share the same message catalog
 		 * name by using different message set numbers
 		 * see <mc.h> mcindex()
 		 *
 		 * this method requires a scan of each catalog, and the
-		 * catalogs do not advertize the max message number, so
+		 * catalogs do not advertise the max message number, so
 		 * we assume there are no messages after a gap of GAP
 		 * missing messages
 		 */
@@ -196,7 +207,7 @@ init(register char* s)
 			for (;;)
 			{
 				n++;
-				if ((s = catgets(d, AST_MESSAGE_SET, n, state.null)) != state.null && entry(cp->messages, AST_MESSAGE_SET, n, s))
+				if (((s = catgets(d, set = AST_MESSAGE_SET, n, state.null)) && *s || (s = catgets(d, set = 1, n, state.null)) && *s) && entry(cp->messages, set, n, s))
 					m = n;
 				else if ((n - m) > GAP)
 					break;
@@ -209,7 +220,6 @@ init(register char* s)
 		}
 		catclose(d);
 	}
-	setlocale(LC_MESSAGES, u);
 	return cp;
 }
 
@@ -294,6 +304,9 @@ translate(const char* loc, const char* cmd, const char* cat, const char* msg)
 	Catalog_t*	cp;
 	Message_t*	mp;
 
+	static uint32_t	serial;
+	static char*	nlspath;
+
 	oerrno = errno;
 	r = (char*)msg;
 
@@ -325,8 +338,6 @@ translate(const char* loc, const char* cmd, const char* cat, const char* msg)
 			state.error = 1;
 			goto done;
 		}
-		if (streq(loc, "debug"))
-			state.debug = loc;
 	}
 
 	/*
@@ -343,6 +354,7 @@ translate(const char* loc, const char* cmd, const char* cat, const char* msg)
 #if DEBUG_trace > 1
 sfprintf(sfstderr, "AHA#%d:%s cmd %s cat %s:%s id %s msg `%s'\n", __LINE__, __FILE__, cmd, cat, error_info.catalog, ast.id, msg);
 #endif
+		cp = 0;
 		goto done;
 	}
 
@@ -353,9 +365,15 @@ sfprintf(sfstderr, "AHA#%d:%s cmd %s cat %s:%s id %s msg `%s'\n", __LINE__, __FI
 #if DEBUG_trace
 sfprintf(sfstderr, "AHA#%d:%s cp->locale `%s' %p loc `%s' %p\n", __LINE__, __FILE__, cp->locale, cp->locale, loc, loc);
 #endif
-	if (cp->locale != loc)
+	if (serial != ast.env_serial)
+	{
+		serial = ast.env_serial;
+		nlspath = getenv("NLSPATH");
+	}
+	if (cp->locale != loc || cp->nlspath != nlspath)
 	{
 		cp->locale = loc;
+		cp->nlspath = nlspath;
 		if (cp->cat != NOCAT)
 			catclose(cp->cat);
 		if ((cp->cat = find(cp->locale, cp->name)) == NOCAT)
@@ -380,37 +398,38 @@ sfprintf(sfstderr, "AHA#%d:%s cp->cat %p cp->debug %d NOCAT %p\n", __LINE__, __F
 			sfprintf(state.tmp, "(%s,%d,%d)%s", cp->name, mp->set, mp->seq, r);
 			r = tempuse(state.tmp, p);
 		}
-		goto done;
 	}
-
-	/*
-	 * get the translated message
-	 */
-
-	r = catgets(cp->cat, mp->set, mp->seq, msg);
-	if (ast.locale.set & AST_LC_translate)
-		sfprintf(sfstderr, "translate locale=%s catalog=%s set=%d seq=%d \"%s\" => \"%s\"\n", cp->locale, cp->name, mp->set, mp->seq, msg, r == (char*)msg ? "NOPE" : r);
-	if (r != (char*)msg)
+	else
 	{
-		if (streq(r, (char*)msg))
-			r = (char*)msg;
-		else if (strcmp(fmtfmt(r), fmtfmt(msg)))
+		/*
+		 * get the translated message
+		 */
+
+		r = catgets(cp->cat, mp->set, mp->seq, msg);
+		if (r != (char*)msg)
 		{
-			sfprintf(sfstderr, "locale %s catalog %s message %d.%d \"%s\" does not match \"%s\"\n", cp->locale, cp->name, mp->set, mp->seq, r, msg);
-			r = (char*)msg;
+			if (streq(r, (char*)msg))
+				r = (char*)msg;
+			else if (strcmp(fmtfmt(r), fmtfmt(msg)))
+			{
+				sfprintf(sfstderr, "locale %s catalog %s message %d.%d \"%s\" does not match \"%s\"\n", cp->locale, cp->name, mp->set, mp->seq, r, msg);
+				r = (char*)msg;
+			}
+		}
+		if (ast.locale.set & AST_LC_debug)
+		{
+			p = tempget(state.tmp);
+			sfprintf(state.tmp, "(%s,%d,%d)%s", cp->name, mp->set, mp->seq, r);
+			r = tempuse(state.tmp, p);
 		}
 	}
-	if (ast.locale.set & AST_LC_debug)
-	{
-		p = tempget(state.tmp);
-		sfprintf(state.tmp, "(%s,%d,%d)%s", cp->name, mp->set, mp->seq, r);
-		r = tempuse(state.tmp, p);
-	}
+	if (ast.locale.set & AST_LC_translate)
+		sfprintf(sfstderr, "translate locale=%s catalog=%s set=%d seq=%d \"%s\" => \"%s\"\n", cp->locale, cp->name, mp->set, mp->seq, msg, r == (char*)msg ? "NOPE" : r);
  done:
-	if (r == (char*)msg && loc == state.debug)
+	if (r == (char*)msg && (!cp && streq(loc, "debug") || cp && cp->debug))
 	{
 		p = tempget(state.tmp);
-		sfprintf(state.tmp, "(%s,%s,%s,\"%s\")", loc, cmd, cat, r);
+		sfprintf(state.tmp, "(%s,%s,%s,%s)", loc, cmd, cat, r);
 		r = tempuse(state.tmp, p);
 	}
 	errno = oerrno;

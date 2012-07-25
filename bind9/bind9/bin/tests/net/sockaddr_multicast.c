@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sockaddr_multicast.c,v 1.8 2007/06/19 23:47:00 tbox Exp $ */
+/* $Id: sockaddr_multicast.c,v 1.8 2007-06-19 23:47:00 tbox Exp $ */
 
 #include <config.h>
 

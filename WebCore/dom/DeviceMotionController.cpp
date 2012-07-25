@@ -45,13 +45,18 @@ DeviceMotionController::~DeviceMotionController()
     m_client->deviceMotionControllerDestroyed();
 }
 
+PassOwnPtr<DeviceMotionController> DeviceMotionController::create(DeviceMotionClient* client)
+{
+    return adoptPtr(new DeviceMotionController(client));
+}
+
 void DeviceMotionController::timerFired(Timer<DeviceMotionController>* timer)
 {
     ASSERT_UNUSED(timer, timer == &m_timer);
-    ASSERT(!m_client || m_client->currentDeviceMotion());
+    ASSERT(m_client->currentDeviceMotion());
     m_timer.stop();
     
-    RefPtr<DeviceMotionData> deviceMotionData = m_client ? m_client->currentDeviceMotion() : DeviceMotionData::create();
+    RefPtr<DeviceMotionData> deviceMotionData = m_client->currentDeviceMotion();
     RefPtr<DeviceMotionEvent> event = DeviceMotionEvent::create(eventNames().devicemotionEvent, deviceMotionData.get());
  
     Vector<RefPtr<DOMWindow> > listenersVector;
@@ -63,9 +68,9 @@ void DeviceMotionController::timerFired(Timer<DeviceMotionController>* timer)
     
 void DeviceMotionController::addListener(DOMWindow* window)
 {
-    // If no client is present or the client already has motion data,
+    // If the client already has motion data,
     // immediately trigger an asynchronous response.
-    if (!m_client || m_client->currentDeviceMotion()) {
+    if (m_client->currentDeviceMotion()) {
         m_newListeners.add(window);
         if (!m_timer.isActive())
             m_timer.startOneShot(0);
@@ -73,15 +78,16 @@ void DeviceMotionController::addListener(DOMWindow* window)
     
     bool wasEmpty = m_listeners.isEmpty();
     m_listeners.add(window);
-    if (wasEmpty && m_client)
+    if (wasEmpty)
         m_client->startUpdating();
 }
 
 void DeviceMotionController::removeListener(DOMWindow* window)
 {
     m_listeners.remove(window);
+    m_suspendedListeners.remove(window);
     m_newListeners.remove(window);
-    if (m_listeners.isEmpty() && m_client)
+    if (m_listeners.isEmpty())
         m_client->stopUpdating();
 }
 
@@ -92,9 +98,32 @@ void DeviceMotionController::removeAllListeners(DOMWindow* window)
         return;
 
     m_listeners.removeAll(window);
+    m_suspendedListeners.removeAll(window);
     m_newListeners.remove(window);
-    if (m_listeners.isEmpty() && m_client)
+    if (m_listeners.isEmpty())
         m_client->stopUpdating();
+}
+
+void DeviceMotionController::suspendEventsForAllListeners(DOMWindow* window)
+{
+    if (!m_listeners.contains(window))
+        return;
+
+    int count = m_listeners.count(window);
+    removeAllListeners(window);
+    while (count--)
+        m_suspendedListeners.add(window);
+}
+
+void DeviceMotionController::resumeEventsForAllListeners(DOMWindow* window)
+{
+    if (!m_suspendedListeners.contains(window))
+        return;
+
+    int count = m_suspendedListeners.count(window);
+    m_suspendedListeners.removeAll(window);
+    while (count--)
+        addListener(window);
 }
 
 void DeviceMotionController::didChangeDeviceMotion(DeviceMotionData* deviceMotionData)
@@ -104,6 +133,24 @@ void DeviceMotionController::didChangeDeviceMotion(DeviceMotionData* deviceMotio
     copyToVector(m_listeners, listenersVector);
     for (size_t i = 0; i < listenersVector.size(); ++i)
         listenersVector[i]->dispatchEvent(event);
+}
+
+const AtomicString& DeviceMotionController::supplementName()
+{
+    DEFINE_STATIC_LOCAL(AtomicString, name, ("DeviceMotionController"));
+    return name;
+}
+
+bool DeviceMotionController::isActiveAt(Page* page)
+{
+    if (DeviceMotionController* self = DeviceMotionController::from(page))
+        return self->isActive();
+    return false;
+}
+
+void provideDeviceMotionTo(Page* page, DeviceMotionClient* client)
+{
+    DeviceMotionController::provideTo(page, DeviceMotionController::supplementName(), DeviceMotionController::create(client));
 }
 
 } // namespace WebCore

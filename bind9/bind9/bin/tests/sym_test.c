@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sym_test.c,v 1.28 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: sym_test.c,v 1.28 2007-06-19 23:46:59 tbox Exp $ */
 
 #include <config.h>
 

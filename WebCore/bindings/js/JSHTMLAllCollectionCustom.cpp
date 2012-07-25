@@ -57,15 +57,14 @@ static JSValue getNamedItems(ExecState* exec, JSHTMLAllCollection* collection, c
     return toJS(exec, collection->globalObject(), StaticNodeList::adopt(namedItems).get());
 }
 
-// HTMLCollections are strange objects, they support both get and call,
-// so that document.forms.item(0) and document.forms(0) both work.
+// HTMLAllCollections are strange objects, they support both get and call.
 static EncodedJSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
         return JSValue::encode(jsUndefined());
 
     // Do not use thisObj here. It can be the JSHTMLDocument, in the document.forms(i) case.
-    JSHTMLAllCollection* jsCollection = static_cast<JSHTMLAllCollection*>(exec->callee());
+    JSHTMLAllCollection* jsCollection = jsCast<JSHTMLAllCollection*>(exec->callee());
     HTMLAllCollection* collection = static_cast<HTMLAllCollection*>(jsCollection->impl());
 
     // Also, do we need the TypeError test here ?
@@ -73,7 +72,7 @@ static EncodedJSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec)
     if (exec->argumentCount() == 1) {
         // Support for document.all(<index>) etc.
         bool ok;
-        UString string = exec->argument(0).toString(exec);
+        UString string = exec->argument(0).toString(exec)->value(exec);
         unsigned index = Identifier::toUInt32(string, ok);
         if (ok)
             return JSValue::encode(toJS(exec, jsCollection->globalObject(), collection->item(index)));
@@ -84,17 +83,11 @@ static EncodedJSValue JSC_HOST_CALL callHTMLAllCollection(ExecState* exec)
 
     // The second arg, if set, is the index of the item we want
     bool ok;
-    UString string = exec->argument(0).toString(exec);
-    unsigned index = Identifier::toUInt32(exec->argument(1).toString(exec), ok);
+    UString string = exec->argument(0).toString(exec)->value(exec);
+    unsigned index = Identifier::toUInt32(exec->argument(1).toString(exec)->value(exec), ok);
     if (ok) {
-        String pstr = ustringToString(string);
-        Node* node = collection->namedItem(pstr);
-        while (node) {
-            if (!index)
-                return JSValue::encode(toJS(exec, jsCollection->globalObject(), node));
-            node = collection->nextNamedItem(pstr);
-            --index;
-        }
+        if (Node* node = collection->namedItemWithIndex(ustringToAtomicString(string), index))
+            return JSValue::encode(toJS(exec, jsCollection->globalObject(), node));
     }
 
     return JSValue::encode(jsUndefined());
@@ -108,29 +101,27 @@ CallType JSHTMLAllCollection::getCallData(JSCell*, CallData& callData)
 
 bool JSHTMLAllCollection::canGetItemsForName(ExecState*, HTMLAllCollection* collection, const Identifier& propertyName)
 {
-    Vector<RefPtr<Node> > namedItems;
-    collection->namedItems(identifierToAtomicString(propertyName), namedItems);
-    return !namedItems.isEmpty();
+    return collection->hasNamedItem(identifierToAtomicString(propertyName));
 }
 
 JSValue JSHTMLAllCollection::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSHTMLAllCollection* thisObj = static_cast<JSHTMLAllCollection*>(asObject(slotBase));
+    JSHTMLAllCollection* thisObj = jsCast<JSHTMLAllCollection*>(asObject(slotBase));
     return getNamedItems(exec, thisObj, propertyName);
 }
 
 JSValue JSHTMLAllCollection::item(ExecState* exec)
 {
     bool ok;
-    uint32_t index = Identifier::toUInt32(exec->argument(0).toString(exec), ok);
+    uint32_t index = Identifier::toUInt32(exec->argument(0).toString(exec)->value(exec), ok);
     if (ok)
         return toJS(exec, globalObject(), impl()->item(index));
-    return getNamedItems(exec, this, Identifier(exec, exec->argument(0).toString(exec)));
+    return getNamedItems(exec, this, Identifier(exec, exec->argument(0).toString(exec)->value(exec)));
 }
 
 JSValue JSHTMLAllCollection::namedItem(ExecState* exec)
 {
-    return getNamedItems(exec, this, Identifier(exec, exec->argument(0).toString(exec)));
+    return getNamedItems(exec, this, Identifier(exec, exec->argument(0).toString(exec)->value(exec)));
 }
 
 } // namespace WebCore

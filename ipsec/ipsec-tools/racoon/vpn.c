@@ -123,13 +123,13 @@ int
 vpn_connect(struct bound_addr *srv, int oper)
 {
 	int error = -1;
-	struct sockaddr *dst;
+	struct sockaddr_storage *dst;
 	struct remoteconf *rmconf;
-	struct sockaddr *remote = NULL;
-	struct sockaddr *local = NULL;
+	struct sockaddr_storage *remote = NULL;
+	struct sockaddr_storage *local = NULL;
 	u_int16_t port;
 
-	dst = racoon_calloc(1, sizeof(struct sockaddr));	// this should come from the bound_addr parameter
+	dst = racoon_calloc(1, sizeof(struct sockaddr_storage));	// this should come from the bound_addr parameter
 	if (dst == NULL)
 		goto out;
 	((struct sockaddr_in *)(dst))->sin_len = sizeof(struct sockaddr_in);
@@ -140,7 +140,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 	/*
 	 * Find the source address
 	 */	 
-	if ((local = getlocaladdr(dst)) == NULL) {
+	if ((local = getlocaladdr((struct sockaddr *)dst)) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"cannot get local address\n");
 		goto out1;
@@ -151,18 +151,18 @@ vpn_connect(struct bound_addr *srv, int oper)
 	if (rmconf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"no configuration found "
-			"for %s\n", saddrwop2str(dst));
+			"for %s\n", saddrwop2str((struct sockaddr *)dst));
 		goto out1;
 	}
 
 	/* get remote IP address and port number. */
-	if ((remote = dupsaddr(dst)) == NULL) {
+	if ((remote = dupsaddr((struct sockaddr *)dst)) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to duplicate address\n");
 		goto out1;
 	}
 
-	switch (remote->sa_family) {
+	switch (remote->ss_family) {
 	case AF_INET:
 		((struct sockaddr_in *)remote)->sin_port =
 			((struct sockaddr_in *)rmconf->remote)->sin_port;
@@ -176,7 +176,7 @@ vpn_connect(struct bound_addr *srv, int oper)
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"invalid family: %d\n",
-			remote->sa_family);
+			remote->ss_family);
 		goto out1;
 		break;
 	}
@@ -187,10 +187,10 @@ vpn_connect(struct bound_addr *srv, int oper)
 
 	plog(LLV_INFO, LOCATION, NULL,
 		"accept a request to establish IKE-SA: "
-		"%s\n", saddrwop2str(remote));
+		"%s\n", saddrwop2str((struct sockaddr *)remote));
 
 	IPSECLOGASLMSG("IPSec connecting to server %s\n",
-				   saddrwop2str(remote));
+				   saddrwop2str((struct sockaddr *)remote));
 
 	/* begin ident mode */
 	if (isakmp_ph1begin_i(rmconf, remote, local, oper) < 0)
@@ -211,23 +211,26 @@ out:
 }
 
 int
-vpn_disconnect(struct bound_addr *srv)
+vpn_disconnect(struct bound_addr *srv, const char *reason)
 {
-	struct sockaddr_in	saddr;
+	union {									// Wcast-align fix - force alignment
+        struct sockaddr_storage	ss;
+        struct sockaddr_in  saddr;
+    } u;
 
-	bzero(&saddr, sizeof(saddr));
-	saddr.sin_len = sizeof(saddr);
-	saddr.sin_addr.s_addr = srv->address;
-	saddr.sin_port = 0;
-	saddr.sin_family = AF_INET;
+	bzero(&u.saddr, sizeof(u.saddr));
+	u.saddr.sin_len = sizeof(u.saddr);
+	u.saddr.sin_addr.s_addr = srv->address;
+	u.saddr.sin_port = 0;
+	u.saddr.sin_family = AF_INET;
 
 	IPSECLOGASLMSG("IPSec disconnecting from server %s\n",
-				   saddrwop2str(&saddr));	
+				   saddrwop2str((struct sockaddr *)&u.ss));	
 
-	ike_sessions_stopped_by_controller(&saddr,
+	ike_sessions_stopped_by_controller(&u.ss,
                                        0,
-                                       ike_session_stopped_by_vpn_disconnect);
-	if (purgephXbydstaddrwop((struct sockaddr *)(&saddr)) > 0) {
+                                       reason);
+	if (purgephXbydstaddrwop(&u.ss) > 0) {
 		return 0;
 	} else {
 		return -1;
@@ -260,7 +263,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 	saddr.sin_addr.s_addr = addr->address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	ph1 = getph1bydstaddrwop((struct sockaddr *)(&saddr));
+	ph1 = getph1bydstaddrwop((struct sockaddr_storage *)(&saddr));
 	if (ph1 == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"cannot start phase2 - no phase1 found.\n");
@@ -302,7 +305,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 			goto fail;
 		}			
 		
-		id_ptr = (struct id *)new_sainfo->idsrc->v;
+		id_ptr = ALIGNED_CAST(struct id *)new_sainfo->idsrc->v;
 		if (ntohl(selector_ptr->src_tunnel_mask) == 0xFFFFFFFF)
 			id_ptr->type = IPSECDOI_ID_IPV4_ADDR;
 		else {
@@ -313,7 +316,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 		id_ptr->port = selector_ptr->src_tunnel_port;
 		id_ptr->proto_id = selector_ptr->ul_protocol;
 				
-		id_ptr = (struct id *)new_sainfo->iddst->v;
+		id_ptr = ALIGNED_CAST(struct id *)new_sainfo->iddst->v;
 		if (selector_ptr->dst_tunnel_mask == 0xFFFFFFFF)
 			id_ptr->type = IPSECDOI_ID_IPV4_ADDR;
 		else {
@@ -411,7 +414,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 			plog(LLV_ERROR, LOCATION, NULL,"duplicated sainfo: %s\n", sainfo2str(new_sainfo));
 			goto fail;
 		}
-		plog(LLV_DEBUG2, LOCATION, NULL, "create sainfo: %s\n", sainfo2str(new_sainfo));
+		//plog(LLV_DEBUG2, LOCATION, NULL, "create sainfo: %s\n", sainfo2str(new_sainfo));
 		inssainfo(new_sainfo);
 		new_sainfo = NULL;
 	}
@@ -421,7 +424,7 @@ vpn_start_ph2(struct bound_addr *addr, struct vpnctl_cmd_start_ph2 *pkt)
 fail:
 	if (new_sainfo)
 		delsainfo(new_sainfo);
-	flushsainfo_dynamic(addr);
+	flushsainfo_dynamic((u_int32_t)addr->address);
 	return -1;
 }
 
@@ -452,7 +455,7 @@ vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, 
 	if (iph1->mode_cfg->attr_list == NULL)
 		return 1;	/* haven't received configuration yet */
 		
-	myaddr = find_myaddr(iph1->local, 0);
+	myaddr = find_myaddr((struct sockaddr *)iph1->local, 0);
 	if (myaddr == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"unable to find address structure.\n");
@@ -508,7 +511,7 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	saddr.sin_addr.s_addr = address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-	iph1 = getph1bydstaddrwop((struct sockaddr *)(&saddr));
+	iph1 = getph1bydstaddrwop((struct sockaddr_storage *)(&saddr));
 	if (iph1 == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"cannot reply to xauth request - no ph1 found.\n");
@@ -571,7 +574,7 @@ end:
 }
 
 int
-vpn_assert(struct sockaddr *src_addr, struct sockaddr *dst_addr)
+vpn_assert(struct sockaddr_storage *src_addr, struct sockaddr_storage *dst_addr)
 {
 	if (ike_session_assert(src_addr, dst_addr)) {
 		plog(LLV_ERROR, LOCATION, NULL,

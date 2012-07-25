@@ -170,6 +170,7 @@
 #include <scan_dir.h>
 #include <stringops.h>
 #include <safe_open.h>
+#include <warn_stat.h>
 
 /* Global library. */
 
@@ -276,13 +277,6 @@ static VSTRING *flush_site_to_path(VSTRING *path, const char *site)
     return (path);
 }
 
-/* flush_policy_ok - check logging policy */
-
-static int flush_policy_ok(const char *site)
-{
-    return (domain_list_match(flush_domains, site));
-}
-
 /* flush_add_service - append queue ID to per-site fast flush logfile */
 
 static int flush_add_service(const char *site, const char *queue_id)
@@ -297,8 +291,8 @@ static int flush_add_service(const char *site, const char *queue_id)
     /*
      * If this site is not eligible for logging, deny the request.
      */
-    if (flush_policy_ok(site) == 0)
-	return (FLUSH_STAT_DENY);
+    if (domain_list_match(flush_domains, site) == 0)
+	return (flush_domains->error ? FLUSH_STAT_FAIL : FLUSH_STAT_DENY);
 
     /*
      * Map site to path and update log.
@@ -373,8 +367,8 @@ static int flush_send_service(const char *site, int how)
     /*
      * If this site is not eligible for logging, deny the request.
      */
-    if (flush_policy_ok(site) == 0)
-	return (FLUSH_STAT_DENY);
+    if (domain_list_match(flush_domains, site) == 0)
+	return (flush_domains->error ? FLUSH_STAT_FAIL : FLUSH_STAT_DENY);
 
     /*
      * Map site name to path name and flush the log.
@@ -810,7 +804,8 @@ static void flush_service(VSTREAM *client_stream, char *unused_service,
 
 static void pre_jail_init(char *unused_name, char **unused_argv)
 {
-    flush_domains = domain_list_init(match_parent_style(VAR_FFLUSH_DOMAINS),
+    flush_domains = domain_list_init(MATCH_FLAG_RETURN
+				   | match_parent_style(VAR_FFLUSH_DOMAINS),
 				     var_fflush_domains);
 }
 

@@ -121,12 +121,13 @@ typedef enum ike_session_rekey_type {
 } ike_session_rekey_type_t;
 
 extern const char *	ike_session_stopped_by_vpn_disconnect;
+extern const char *	ike_session_stopped_by_controller_comm_lost;
 extern const char *	ike_session_stopped_by_flush;
 extern const char *	ike_session_stopped_by_sleepwake;
 extern const char *	ike_session_stopped_by_assert;
 
 extern void               ike_session_init __P((void));
-extern ike_session_t *	  ike_session_get_session __P((struct sockaddr *, struct sockaddr *, int));
+extern ike_session_t *	  ike_session_get_session __P((struct sockaddr_storage *, struct sockaddr_storage *, int));
 extern u_int              ike_session_get_rekey_lifetime __P((int, u_int));
 extern void               ike_session_update_mode __P((struct ph2handle *iph2));
 extern int                ike_session_link_ph1_to_session __P((struct ph1handle *));
@@ -145,7 +146,7 @@ extern void               ike_session_ph2_established __P((struct ph2handle *));
 extern void               ike_session_cleanup_other_established_ph1s __P((ike_session_t *, struct ph1handle *));
 extern void               ike_session_cleanup_other_established_ph2s __P((ike_session_t *, struct ph2handle *));
 extern void				  ike_session_stopped_by_controller __P((ike_session_t *, const char *));
-extern void				  ike_sessions_stopped_by_controller __P((struct sockaddr *, int, const char *));
+extern void				  ike_sessions_stopped_by_controller __P((struct sockaddr_storage *, int, const char *));
 extern void               ike_session_purge_ph2s_by_ph1 __P((struct ph1handle *));
 extern struct ph1handle * ike_session_get_established_ph1 __P((ike_session_t *));
 extern void               ike_session_update_ph2_ports __P((struct ph2handle *));
@@ -167,7 +168,7 @@ extern void               ike_session_update_natt_version __P((struct ph1handle 
 extern int                ike_session_get_natt_version __P((struct ph1handle *));
 extern int                ike_session_drop_rekey __P((ike_session_t *, ike_session_rekey_type_t));
 extern void               ike_session_sweep_sleepwake __P((void));
-extern int                ike_session_assert __P((struct sockaddr *, struct sockaddr *));
+extern int                ike_session_assert __P((struct sockaddr_storage *, struct sockaddr_storage *));
 extern int                ike_session_assert_session __P((ike_session_t *));
 extern void               ike_session_ph2_retransmits __P((struct ph2handle *));
 extern void               ike_session_ph1_retransmits __P((struct ph1handle *));

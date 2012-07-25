@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -232,7 +232,7 @@ typedef struct __OSKext {
 
 #define __kStringUnknown                 "(unknown)"
 
-#define __kOSKextMaxKextDisplacementLP64 (2 * 1024 * 1024 * 1024ULL)
+#define __kOSKextMaxKextDisplacement_x86_64	(2 * 1024 * 1024 * 1024ULL)
 
 /*********************************************************************
  * Kext Cache Stuff
@@ -685,10 +685,6 @@ static void __OSKextCheckLoaded(OSKextRef aKext);
 Boolean __OSKextSetLoadAddress(OSKextRef aKext, uint64_t address);
 static Boolean __OSKextCreateLoadInfo(OSKextRef aKext);
 static Boolean __OSKextCreateMkextInfo(OSKextRef aKext);
-#ifndef IOKIT_EMBEDDED
-static CFDataRef __OSKextCopyRunningKernelImage();
-#endif /* !IOKIT_EMBEDDED */
-
 static Boolean __OSKextIsValid(OSKextRef aKext);
 static Boolean __OSKextValidate(OSKextRef aKext, CFMutableArrayRef propPath);
 static Boolean __OSKextValidateExecutable(OSKextRef aKext);
@@ -889,9 +885,13 @@ static const CFRuntimeClass __OSKextClass = {
     NULL,                         // equal: pointer equality, baby.
     NULL,                         // hash
     NULL,                         // copyFormattingDesc
-    __OSKextCopyDebugDescription,  // copyDebugDesc
+    __OSKextCopyDebugDescription, // copyDebugDesc
+#if CF_RECLAIM_AVAILABLE
     NULL,                         // xxx - need to set reclaim field for garbage collection
+#endif
+#if CF_REFCOUNT_AVAILABLE
     NULL
+#endif
 };
 
 /*********************************************************************
@@ -2854,6 +2854,7 @@ void __OSKextRealizeKextsWithIdentifier(
     if (!foundEntry) {
          goto finish;
     }
+    CFRetain(foundEntry);
 
     if (OSKextGetTypeID() == CFGetTypeID(foundEntry)) {
         theKext = (OSKextRef)foundEntry;
@@ -2870,6 +2871,7 @@ void __OSKextRealizeKextsWithIdentifier(
     }
 
 finish:
+    SAFE_RELEASE(foundEntry);
     return;
 }
 
@@ -8695,13 +8697,14 @@ CFDataRef __OSKextCopyStrippedExecutable(OSKextRef aKext)
     CFDataRef result = NULL;
     CFMutableDataRef strippedExecutable = NULL;
     u_char *file;
+    u_long fileSize;
     u_long linkeditSize;
 
     if (!aKext->loadInfo->linkedExecutable) goto finish;
 
+    fileSize = CFDataGetLength(aKext->loadInfo->linkedExecutable);
     strippedExecutable = CFDataCreateMutableCopy(kCFAllocatorDefault,
-        CFDataGetLength(aKext->loadInfo->linkedExecutable),
-        aKext->loadInfo->linkedExecutable);
+        fileSize, aKext->loadInfo->linkedExecutable);
     if (!strippedExecutable) goto finish;
 
     file = (u_char *) CFDataGetMutableBytePtr(strippedExecutable);
@@ -8733,11 +8736,11 @@ CFDataRef __OSKextCopyStrippedExecutable(OSKextRef aKext)
     }
 
     /* Remove the headers and truncate the data object */
-
-    if (!macho_remove_linkedit(file, &linkeditSize)) {
+    if (!macho_trim_linkedit(file, &linkeditSize)) {
         goto finish;
     }
-    CFDataSetLength(strippedExecutable, CFDataGetLength(strippedExecutable) - linkeditSize);
+    fileSize -= linkeditSize;
+    CFDataSetLength(strippedExecutable, fileSize);
 
     result = CFRetain(strippedExecutable);
 finish:
@@ -8923,8 +8926,40 @@ static Boolean __OSKextPerformLink(
         aKext->loadInfo->kmodInfoAddress = kmodInfoKern;
 
         if (stripSymbolsFlag) {
+#define KMOD_INFO_DEBUG 0
+#if KMOD_INFO_DEBUG
+            u_int64_t   originalLoadSize = aKext->loadInfo->loadSize;
+#endif  // KMOD_INFO_DEBUG
+
             aKext->loadInfo->prelinkedExecutable = __OSKextCopyStrippedExecutable(aKext);
             aKext->loadInfo->loadSize = CFDataGetLength(aKext->loadInfo->prelinkedExecutable);
+
+            // 03/16/12 - <rdar://problem/10980607>
+            // must update the kmod_info.size field embedded within the kext image
+            {
+                u_char      *file = (u_char *) CFDataGetMutableBytePtr((CFMutableDataRef) aKext->loadInfo->prelinkedExecutable);
+                Boolean     is_32bit_kext = ((struct mach_header *) file)->magic == MH_MAGIC;
+                u_int64_t   kmodInfo_offset = kmodInfoKern - aKext->loadInfo->loadAddress;
+                vm_size_t   *size_field = (vm_size_t *) (is_32bit_kext ? 
+                                (file + kmodInfo_offset + offsetof(kmod_info_32_v1_t, size)) : 
+                                (file + kmodInfo_offset + offsetof(kmod_info_64_v1_t, size)));
+
+#if KMOD_INFO_DEBUG
+                vm_size_t   original_kmodInfo_size = *size_field;
+                OSKextLog(aKext, kOSKextLogDebugLevel | kOSKextLogLinkFlag | kOSKextLogLoadFlag,
+                          "--original load size: 0x%.8llx, original kmod_info.size: 0x%.8x",
+                          originalLoadSize, (unsigned int) original_kmodInfo_size);
+#endif  // KMOD_INFO_DEBUG
+
+                *size_field = aKext->loadInfo->loadSize;
+
+#if KMOD_INFO_DEBUG
+                OSKextLog(aKext, kOSKextLogDebugLevel | kOSKextLogLinkFlag | kOSKextLogLoadFlag,
+                          "--     new load size: 0x%.8zx,      new kmod_info.size: 0x%.8x",
+                          aKext->loadInfo->loadSize, (unsigned int) *size_field);
+#endif  // KMOD_INFO_DEBUG
+
+            }
         }
 
         if (!aKext->loadInfo->prelinkedExecutable) {
@@ -9141,29 +9176,19 @@ CFDictionaryRef OSKextGenerateDebugSymbols(
     KXLDFlags                kxldFlags          = 0;
     kern_return_t            kxldResult         = 0;
     uint64_t                 kernelLoadAddress  = 0;
+    macho_seek_result        machoResult;
+    const UInt8 *            kernelStart;
+    const UInt8 *            kernelEnd;
+    fat_iterator             fatIterator        = NULL; // must fat_iterator_close()
+    struct mach_header_64 *  machHeader         = NULL; // do not free
 
    /* If the kernelImage is not given, then the current architecture must match
     * that of the running kernel.
     */
     if (!kernelImage) {
-        if (OSKextGetArchitecture() == OSKextGetRunningKernelArchitecture()) {
-            kernelImageCopy = __OSKextCopyRunningKernelImage();
-            if (!kernelImageCopy || !CFDataGetLength(kernelImageCopy)) {
-                OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
-                    "Can't get running kernel image.");
-                SAFE_RELEASE_NULL(result);
-                goto finish;
-            }
-
-            kernelImage = kernelImageCopy;
-        } else {
-            OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
-                "Can't generate debug symbols; no kernel file provided "
-                "and current arch %s does not match running kernel %s.",
-                OSKextGetArchitecture()->name,
-                OSKextGetRunningKernelArchitecture()->name);
-            goto finish;
-        }
+        OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
+                  "Can't generate debug symbols; no kernel file provided ");
+        goto finish;
     }
 
     if (!OSKextResolveDependencies(aKext)) {
@@ -9175,6 +9200,38 @@ CFDictionaryRef OSKextGenerateDebugSymbols(
     if (!result) {
         OSKextLogMemError();
         goto finish;
+    }
+    
+    kernelStart = CFDataGetBytePtr(kernelImage);
+    kernelEnd = kernelStart + CFDataGetLength(kernelImage) - 1;
+    fatIterator = fat_iterator_for_data(kernelStart, kernelEnd,
+                                        1 /* mach-o only */);
+    if (!fatIterator) {
+        OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "Can't read kernel file.");
+        goto finish;
+    }
+    machHeader = (struct mach_header_64 *)
+        fat_iterator_find_arch(fatIterator,
+                               OSKextGetArchitecture()->cputype, 
+                               OSKextGetArchitecture()->cpusubtype,
+                               NULL);
+    if (!machHeader) {
+        OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "Can't find architecture %s in kernel file.",
+                  OSKextGetArchitecture()->name);
+        goto finish;
+    }
+    
+    /* this kernel supports KASLR if there is a LC_DYSYMTAB load command */
+    machoResult = macho_find_dysymtab(machHeader, kernelEnd, NULL);
+    if (machoResult == macho_seek_result_found) {
+        kxldFlags |= kKXLDFlagIncludeRelocs;
+    }
+    else {
+        OSKextLog(NULL, 
+                  kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "kernel does NOT support KASLR");
     }
 
     kxldResult = kxld_create_context(&kxldContext, __OSKextLinkAddressCallback,
@@ -9202,6 +9259,7 @@ finish:
     SAFE_RELEASE(kernelImageCopy);
 
     if (kxldContext) kxld_destroy_context(kxldContext);
+    if (fatIterator) fat_iterator_close(fatIterator);
 
     return result;
 }
@@ -10432,46 +10490,6 @@ Boolean __OSKextCreateMkextInfo(OSKextRef aKext)
 finish:
     return result;
 }
-
-#ifndef IOKIT_EMBEDDED
-/*********************************************************************
-*********************************************************************/
-CFDataRef __OSKextCopyRunningKernelImage(void)
-{
-    CFDataRef              result          = NULL;
-    CFMutableDictionaryRef kextRequest     = NULL;    // must release
-    OSReturn               osresult        = kOSReturnError;
-
-    char                 * linkStateBytes  = NULL;  // must vm_deallocate
-    uint32_t               linkStateLength = 0;
-
-    kextRequest = __OSKextCreateKextRequest(
-        CFSTR(kKextRequestPredicateGetKernelImage),
-        /* identifier */ NULL, /* argsOut* */ NULL);
-    if (!kextRequest) {
-        OSKextLogMemError();
-        goto finish;
-    }
-    osresult = __OSKextSendKextRequest(/* kext */ NULL, kextRequest,
-        /* cfResponseOut */ NULL,
-        &linkStateBytes, &linkStateLength);
-    if (osresult != kOSReturnSuccess) {
-        goto finish;
-    }
-
-    result = CFDataCreate(kCFAllocatorDefault,
-        (u_char *)linkStateBytes, linkStateLength);
-
-finish:
-    SAFE_RELEASE(kextRequest);
-
-    if (linkStateBytes && linkStateLength) {
-        vm_deallocate(mach_task_self(), (vm_address_t)linkStateBytes,
-            linkStateLength);
-    }
-    return result;
-}
-#endif /* !IOKIT_EMBEDDED */
 
 #pragma mark Sanity Checking and Diagnostics
 /*********************************************************************
@@ -14196,6 +14214,14 @@ static CFArrayRef __OSKextPrelinkKexts(
         success = __OSKextPerformLink(aKext, kernelImage,
             /* kernelLoadAddress */ 0, stripSymbolsFlag, kxldContext);
         if (!success) {
+            if ( needAllFlag == false ) {
+                if (__OSKextRequiredAtEarlyBoot(aKext)) {
+                    // This is a critical kext, abort the prelink so we don't
+                    // end up with an unusable kernel cache. radar 10056871
+                    needAllFlag = true;
+                    linkLogLevel = kOSKextLogErrorLevel;
+                }
+            }
             OSKextLog(/* kext */ aKext, linkLogLevel | kOSKextLogLinkFlag,
                 "Prelink failed for %s; %s.",
                 kextIdentifierCString,
@@ -14725,6 +14751,7 @@ CFDataRef OSKextCreatePrelinkedKernel(
     boolean_t                success            = false;
     boolean_t                swapped            = false;
     KXLDContext            * kxldContext        = NULL;
+    KXLDFlags                kxldFlags          = kKxldFlagDefault;
     CFArrayRef               loadList           = NULL;
     CFDataRef                prelinkInfoData    = NULL;
     CFMutableDataRef         prelinkImage       = NULL;
@@ -14741,8 +14768,18 @@ CFDataRef OSKextCreatePrelinkedKernel(
     
     /* Set up kxld's link context */
 
+    /* <rdar://problem/10670709> and <rdar://problem/10778807>
+     * If kOSKextKernelcacheKASLRFlag is passed in we ask kxld to include the 
+     * relocation data that's needed by the KASLR booter. Otherwise, that data 
+     * should be omitted, so that older kernels see the same kernelcache layout 
+     * that they've always seen.
+     */
+    if (flags & kOSKextKernelcacheKASLRFlag) {
+        kxldFlags |= kKXLDFlagIncludeRelocs;
+    }
+    
     kxldResult = kxld_create_context(&kxldContext,
-        __OSKextLinkAddressCallback, __OSKextLoggingCallback, /* flags */ 0,
+        __OSKextLinkAddressCallback, __OSKextLoggingCallback, kxldFlags,
         OSKextGetArchitecture()->cputype, OSKextGetArchitecture()->cpusubtype);
     if (kxldResult != KERN_SUCCESS) {
         OSKextLog(/* kext */ NULL, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
@@ -14766,10 +14803,10 @@ CFDataRef OSKextCreatePrelinkedKernel(
     baseFileOffset = round_page(CFDataGetLength(kernelImage));
     baseSourceAddr = mach_vm_round_page(baseSourceAddr);
 
-    /* For LP64 systems, we prelink the kexts into a VM region that starts 2GB
+    /* For x86_64 systems, we prelink the kexts into a VM region that starts 2GB
      * from the top of the kernel __TEXT segment.
      */
-    if (__OSKextIsArchitectureLP64()) {
+	if (OSKextGetArchitecture()->cputype == CPU_TYPE_X86_64) {
         success = __OSKextGetSegmentAddressAndOffset(kernelImage,
             SEG_TEXT, NULL, &textLoadAddr);
         if (!success) {
@@ -14789,14 +14826,14 @@ CFDataRef OSKextCreatePrelinkedKernel(
         }
 
         baseLoadAddr = mach_vm_round_page(textLoadAddr + textVMSize);
-        if (baseLoadAddr < __kOSKextMaxKextDisplacementLP64) {
+        if (baseLoadAddr < __kOSKextMaxKextDisplacement_x86_64) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogArchiveFlag,
                 "Kext base load address underflow.");
             goto finish;
         }
 
-        baseLoadAddr -= __kOSKextMaxKextDisplacementLP64;
+        baseLoadAddr -= __kOSKextMaxKextDisplacement_x86_64;
     } else {
         baseLoadAddr = baseSourceAddr;
     }

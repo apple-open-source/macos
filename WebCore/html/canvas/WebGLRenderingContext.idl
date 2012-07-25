@@ -27,10 +27,8 @@ module html {
 
     interface [
         Conditional=WEBGL,
-        InterfaceUUID=98fb48ae-7216-489c-862b-8e1217fc4443,
-        ImplementationUUID=ab4f0781-152f-450e-9546-5b3987491a54,
-        CustomMarkFunction,
-        DontCheckEnums
+        JSCustomMarkFunction,
+        DoNotCheckConstants
     ] WebGLRenderingContext : CanvasRenderingContext {
 
         /* ClearBufferMask */
@@ -208,7 +206,6 @@ module html {
         /*      TEXTURE_WRAP_S */
         /*      TEXTURE_WRAP_T */
 
-        const unsigned int NUM_COMPRESSED_TEXTURE_FORMATS = 0x86A2;
         const unsigned int COMPRESSED_TEXTURE_FORMATS     = 0x86A3;
 
         /* HintMode */
@@ -387,7 +384,6 @@ module html {
 
         /* Shader Source */
         const unsigned int COMPILE_STATUS                 = 0x8B81;
-        const unsigned int SHADER_COMPILER                = 0x8DFA;
 
         /* Shader Precision-Specified Types */
         const unsigned int LOW_FLOAT                      = 0x8DF0;
@@ -450,6 +446,9 @@ module html {
         const unsigned int UNPACK_COLORSPACE_CONVERSION_WEBGL = 0x9243;
         const unsigned int BROWSER_DEFAULT_WEBGL              = 0x9244;
 
+        readonly attribute long drawingBufferWidth;
+        readonly attribute long drawingBufferHeight;
+
         [StrictTypeChecking] void         activeTexture(in unsigned long texture) raises(DOMException);
         [StrictTypeChecking] void         attachShader(in WebGLProgram program, in WebGLShader shader) raises(DOMException);
         [StrictTypeChecking] void         bindAttribLocation(in WebGLProgram program, in unsigned long index, in DOMString name) raises(DOMException);
@@ -475,9 +474,11 @@ module html {
         [StrictTypeChecking] void         clearStencil(in long s);
         [StrictTypeChecking] void         colorMask(in boolean red, in boolean green, in boolean blue, in boolean alpha);
         [StrictTypeChecking] void         compileShader(in WebGLShader shader) raises(DOMException);
-        
-        //void         compressedTexImage2D(in unsigned long target, in long level, in unsigned long internalformat, in unsigned long width, in unsigned long height, in long border, in unsigned long imageSize, const void* data);
-        //void         compressedTexSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset, in unsigned long width, in unsigned long height, in unsigned long format, in unsigned long imageSize, const void* data);
+
+        [StrictTypeChecking] void         compressedTexImage2D(in unsigned long target, in long level, in unsigned long internalformat,
+                                                               in long width, in long height, in long border, in ArrayBufferView data);
+        [StrictTypeChecking] void         compressedTexSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset,
+                                                                  in long width, in long height, in unsigned long format, in ArrayBufferView data);
         
         [StrictTypeChecking] void         copyTexImage2D(in unsigned long target, in long level, in unsigned long internalformat, in long x, in long y, in long width, in long height, in long border);
         [StrictTypeChecking] void         copyTexSubImage2D(in unsigned long target, in long level, in long xoffset, in long yoffset, in long x, in long y, in long width, in long height);
@@ -540,18 +541,17 @@ module html {
         [StrictTypeChecking, Custom] void getParameter();
         // any getProgramParameter(in WebGLProgram program, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getProgramParameter();
-        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString getProgramInfoLog(in WebGLProgram program) raises(DOMException);
+        [StrictTypeChecking, TreatReturnedNullStringAs=Null] DOMString getProgramInfoLog(in WebGLProgram program) raises(DOMException);
         // any getRenderbufferParameter(in unsigned long target, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getRenderbufferParameter();
         // any getShaderParameter(in WebGLShader shader, in unsigned long pname) raises(DOMException);
         [StrictTypeChecking, Custom] void getShaderParameter() raises(DOMException);
 
-        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString    getShaderInfoLog(in WebGLShader shader) raises(DOMException);
+        [StrictTypeChecking, TreatReturnedNullStringAs=Null] DOMString    getShaderInfoLog(in WebGLShader shader) raises(DOMException);
 
-        // TBD
-        // void glGetShaderPrecisionFormat (GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision);
+        [StrictTypeChecking] WebGLShaderPrecisionFormat getShaderPrecisionFormat(in unsigned long shadertype, in unsigned long precisiontype) raises(DOMException);
 
-        [StrictTypeChecking, ConvertNullStringTo=Null] DOMString    getShaderSource(in WebGLShader shader) raises(DOMException);
+        [StrictTypeChecking, TreatReturnedNullStringAs=Null] DOMString    getShaderSource(in WebGLShader shader) raises(DOMException);
 
         // DOMString[] getSupportedExtensions()
         [StrictTypeChecking, Custom] void getSupportedExtensions();

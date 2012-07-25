@@ -60,6 +60,14 @@ namespace WebCore {
 
         void markPagesForVistedLinkStyleRecalc();
 
+        // Will mark all cached pages associated with the given page as needing style recalc.
+        void markPagesForFullStyleRecalc(Page*);
+
+#if USE(ACCELERATED_COMPOSITING)
+        bool shouldClearBackingStores() const { return m_shouldClearBackingStores; }
+        void setShouldClearBackingStores(bool flag) { m_shouldClearBackingStores = flag; }
+#endif
+
     private:
         typedef HashSet<RefPtr<CachedPage> > CachedPageSet;
 
@@ -74,7 +82,7 @@ namespace WebCore {
         void prune();
 
         void autorelease(PassRefPtr<CachedPage>);
-        void releaseAutoreleasedPagesNowOrReschedule(Timer<PageCache>*);
+        void releaseAutoreleasedPagesNowDueToTimer(Timer<PageCache>*);
 
         int m_capacity;
         int m_size;
@@ -85,6 +93,10 @@ namespace WebCore {
         
         Timer<PageCache> m_autoreleaseTimer;
         CachedPageSet m_autoreleaseSet;
+
+#if USE(ACCELERATED_COMPOSITING)
+        bool m_shouldClearBackingStores;
+#endif
      };
 
     // Function to obtain the global page cache.

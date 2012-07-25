@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,7 @@ enum {
     kEAPClientStatusUserInputNotPossible = 15,
     kEAPClientStatusResourceUnavailable = 16,
     kEAPClientStatusProtocolError = 17,
+    kEAPClientStatusAuthenticationStalled = 18,
 
     /* domain specific errors */
     kEAPClientStatusDomainSpecificErrorStart = 1000,

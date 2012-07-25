@@ -1,8 +1,8 @@
-info mam static 00000 1994-07-17 make (AT&T Research) 5.2 2007-10-18
+info mam static 00000 1994-07-17 make (AT&T Research) 5.6 2011-02-02
 setv INSTALLROOT ../../..
 setv PACKAGEROOT ../../../../..
-setv AR ar
-setv ARFLAGS cr
+setv AR ${mam_cc_AR} ${mam_cc_AR_ARFLAGS}
+setv ARFLAGS -cr
 setv AS as
 setv ASFLAGS
 setv CC cc
@@ -44,8 +44,8 @@ setv LICENSE -DLICENSE="since=2003,author=gsf"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n hurl.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n hurl.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -59,7 +59,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - hurl.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2003-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2003-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > hurl
 exec - 		;;
@@ -67,7 +67,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - hurl.sh > hurl <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2003-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2003-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -82,8 +82,8 @@ setv LICENSE -DLICENSE="since=1994,author=gsf+kpv"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n iffe.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n iffe.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -97,7 +97,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - iffe.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?Phong Vo <kpv@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?Phong Vo <kpv@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > iffe
 exec - 		;;
@@ -105,7 +105,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - iffe.sh > iffe <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?Phong Vo <kpv@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?Phong Vo <kpv@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -120,8 +120,8 @@ setv LICENSE -DLICENSE="since=2005,author=gsf"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n mktest.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n mktest.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -135,7 +135,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - mktest.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > mktest
 exec - 		;;
@@ -143,7 +143,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - mktest.sh > mktest <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -157,8 +157,8 @@ prev package.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n package.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n package.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -172,7 +172,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - package.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > package
 exec - 		;;
@@ -180,7 +180,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - package.sh > package <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -195,8 +195,8 @@ setv LICENSE -DLICENSE="since=1995,author=gsf"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n regress.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n regress.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -210,7 +210,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - regress.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1995-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1995-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > regress
 exec - 		;;
@@ -218,7 +218,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - regress.sh > regress <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1995-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1995-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -233,8 +233,8 @@ setv LICENSE -DLICENSE="since=2005,author=gsf"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n rt.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n rt.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -248,7 +248,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - rt.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > rt
 exec - 		;;
@@ -256,7 +256,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - rt.sh > rt <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2005-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -270,8 +270,8 @@ prev crossexec.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n crossexec.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n crossexec.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -285,7 +285,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - crossexec.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > crossexec
 exec - 		;;
@@ -293,7 +293,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - crossexec.sh > crossexec <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -308,8 +308,8 @@ setv LICENSE -DLICENSE="since=2001,author=gsf+ek"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n ditto.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n ditto.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -323,7 +323,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - ditto.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?ek][-copyright?Copyright (c) 2001-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?ek][-copyright?Copyright (c) 2001-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > ditto
 exec - 		;;
@@ -331,7 +331,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - ditto.sh > ditto <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?ek][-copyright?Copyright (c) 2001-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-author?ek][-copyright?Copyright (c) 2001-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -346,8 +346,8 @@ setv LICENSE -DLICENSE="since=2002,author=gsf"
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n execrate.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n execrate.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -361,7 +361,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - execrate.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2002-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2002-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > execrate
 exec - 		;;
@@ -369,7 +369,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - execrate.sh > execrate <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2002-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 2002-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -383,8 +383,8 @@ prev filter.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n filter.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n filter.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -398,7 +398,7 @@ exec - 		case $i in
 exec - 		'#!'*|*'||'*|':'*|'":"'*|"':'"*)	echo "$i" ;;
 exec - 		esac
 exec - 		cat - filter.sh <<'!'
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 		} > filter
 exec - 		;;
@@ -406,7 +406,7 @@ exec - 	esac
 exec - 	;;
 exec - *)	cat - filter.sh > filter <<'!'
 exec - ${mam_cc_SHELLMAGIC}
-exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+exec - USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 exec - !
 exec - 	;;
 exec - esac
@@ -420,8 +420,8 @@ prev ignore.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n ignore.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n ignore.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -457,8 +457,8 @@ prev silent.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n silent.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n silent.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -491,16 +491,14 @@ make mamake.o
 make mamake.c
 make shlib-compat.h implicit
 done shlib-compat.h dontcare virtual
-make bp-sym.h implicit
-done bp-sym.h dontcare virtual
 make ast.h implicit
 done ast.h dontcare virtual
 done mamake.c
 meta mamake.o %.c>%.o mamake.c mamake
 prev mamake.c
-exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}  -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"\" -c mamake.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}  -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"\" -c mamake.c
 done mamake.o generated
-exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}   -o mamake mamake.o
+exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}  -o mamake mamake.o
 done mamake generated
 make proto
 make proto.o
@@ -510,7 +508,7 @@ meta proto.o %.c>%.o proto.c proto
 prev proto.c
 exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}   -c proto.c
 done proto.o generated
-exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}   -o proto proto.o
+exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}  -o proto proto.o
 done proto generated
 make ratz
 make ratz.o
@@ -535,7 +533,7 @@ meta ratz.o %.c>%.o ratz.c ratz
 prev ratz.c
 exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}   -c ratz.c
 done ratz.o generated
-exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}   -o ratz ratz.o
+exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}  -o ratz ratz.o
 done ratz generated
 make release
 make release.o
@@ -544,9 +542,9 @@ prev ast.h implicit
 done release.c
 meta release.o %.c>%.o release.c release
 prev release.c
-exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}  -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"\" -c release.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS}  -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"\" -c release.c
 done release.o generated
-exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}   -o release release.o
+exec - ${CC} ${CCLDFLAGS} ${mam_cc_FLAGS} ${CCFLAGS} ${LDFLAGS}  -o release release.o
 done release generated
 make mprobe
 make mprobe.sh
@@ -556,8 +554,8 @@ prev mprobe.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n mprobe.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n mprobe.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -598,8 +596,8 @@ prev probe.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n probe.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n probe.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -679,8 +677,8 @@ done mamprobe.sh
 exec - case static,port:$OPTIND:$RANDOM in
 exec - ?*:*:*|*::*|*:*:$RANDOM)
 exec - 	;;
-exec - *)	if	ENV= x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
-exec - 	then	ENV= $SHELL -n mamprobe.sh
+exec - *)	if	ENV= LC_ALL=C x= $SHELL -nc ': ${list[level]}  !(pattern)' 2>/dev/null
+exec - 	then	ENV= LC_ALL=C $SHELL -n mamprobe.sh
 exec - 	fi
 exec - 	;;
 exec - esac
@@ -815,10 +813,10 @@ exec - 	fi
 exec - fi
 done ${INSTALLROOT}/bin/mkdir generated
 make ${INSTALLROOT}/bin/.paths
-exec - if	test ! -e ${INSTALLROOT}/bin/.paths -o -w ${INSTALLROOT}/bin/.paths
+exec - if	test ! -f ${INSTALLROOT}/bin/.paths -o -w ${INSTALLROOT}/bin/.paths
 exec - then	nl="
 exec - "
-exec - 	o=`cat ${INSTALLROOT}/bin/.paths 2>/dev/null`
+exec - 	o=`cat ${INSTALLROOT}/bin/.paths 2>/dev/null` || :
 exec - 	v=
 exec - 	n=
 exec - 	case $nl$o in
@@ -928,18 +926,12 @@ exec - then	mkdir -p ${INSTALLROOT}/lib/probe/C/make
 exec - fi
 done ${INSTALLROOT}/lib/probe/C/make generated
 prev ${INSTALLROOT}/lib/probe/C/make
-make C+make+probe.lcl
-done C+make+probe.lcl dontcare virtual
-exec - test '' = '' || ${STDCMP} 2>/dev/null -s  ${INSTALLROOT}/lib/probe/C/make/probe.lcl || { ${STDMV} ${INSTALLROOT}/lib/probe/C/make/probe.lcl ${INSTALLROOT}/lib/probe/C/make/probe.lcl.old 2>/dev/null || true; ${STDCP}  ${INSTALLROOT}/lib/probe/C/make/probe.lcl  		    		    ;}
 make ${INSTALLROOT}/lib/probe/C/pp
 exec - if	silent test ! -d ${INSTALLROOT}/lib/probe/C/pp
 exec - then	mkdir -p ${INSTALLROOT}/lib/probe/C/pp
 exec - fi
 done ${INSTALLROOT}/lib/probe/C/pp generated
 prev ${INSTALLROOT}/lib/probe/C/pp
-make C+pp+probe.lcl
-done C+pp+probe.lcl dontcare virtual
-exec - test '' = '' || ${STDCMP} 2>/dev/null -s  ${INSTALLROOT}/lib/probe/C/pp/probe.lcl || { ${STDMV} ${INSTALLROOT}/lib/probe/C/pp/probe.lcl ${INSTALLROOT}/lib/probe/C/pp/probe.lcl.old 2>/dev/null || true; ${STDCP}  ${INSTALLROOT}/lib/probe/C/pp/probe.lcl  		    		    ;}
 make ${INSTALLROOT}/lib/probe/C/mam
 exec - if	silent test ! -d ${INSTALLROOT}/lib/probe/C/mam
 exec - then	mkdir -p ${INSTALLROOT}/lib/probe/C/mam
@@ -1067,6 +1059,37 @@ exec - rm -f iconv.exe iconv
 done iconv.req generated
 exec - test '' = 'iconv.req' || ${STDCMP} 2>/dev/null -s iconv.req ${INSTALLROOT}/lib/lib/iconv || { ${STDMV} ${INSTALLROOT}/lib/lib/iconv ${INSTALLROOT}/lib/lib/iconv.old 2>/dev/null || true; ${STDCP} iconv.req ${INSTALLROOT}/lib/lib/iconv  		    		    ;}
 done ${INSTALLROOT}/lib/lib/iconv generated
+make ${INSTALLROOT}/lib/lib/w
+make w.req
+make w.c
+done w.c
+make w2.c
+done w2.c
+exec - r='-'
+exec - for i in w.c w2.c
+exec - do	if	${CC} -c $i > /dev/null
+exec - 	then	g=
+exec - 		for p in w -
+exec - 		do	case $p in
+exec - 			-)	if	${CC} -o w.exe $i $g > /dev/null
+exec - 				then	${CC} -o w.exe $i > /dev/null || {
+exec - 						r="$g"
+exec - 						break 2
+exec - 					}
+exec - 				fi
+exec - 				g=
+exec - 				;;
+exec - 			*)	g="$g -l$p"
+exec - 				;;
+exec - 			esac
+exec - 		done
+exec - 	fi
+exec - done 2>/dev/null
+exec - echo " $r" > w.req
+exec - rm -f w.exe w w2
+done w.req generated
+exec - test '' = 'w.req' || ${STDCMP} 2>/dev/null -s w.req ${INSTALLROOT}/lib/lib/w || { ${STDMV} ${INSTALLROOT}/lib/lib/w ${INSTALLROOT}/lib/lib/w.old 2>/dev/null || true; ${STDCP} w.req ${INSTALLROOT}/lib/lib/w  		    		    ;}
+done ${INSTALLROOT}/lib/lib/w generated
 make ${INSTALLROOT}/lib/lib/intl
 make intl.req
 make intl.c
@@ -1196,17 +1219,23 @@ exec - test '' = 'socket.req' || ${STDCMP} 2>/dev/null -s socket.req ${INSTALLRO
 done ${INSTALLROOT}/lib/lib/socket generated
 make ${INSTALLROOT}/lib/lib/dbm
 make dbm.req
+make db.c
+done db.c
 make gdbm.c
 done gdbm.c
+make gdbm1.c
+make gdbm-ndbm.h implicit
+done gdbm-ndbm.h dontcare virtual
+done gdbm1.c
 make gdbm2.c
 make ndbm.h implicit
 done ndbm.h dontcare virtual
 done gdbm2.c
 exec - r='-'
-exec - for i in gdbm.c gdbm2.c
+exec - for i in db.c gdbm.c gdbm1.c gdbm2.c
 exec - do	if	${CC} -c $i > /dev/null
 exec - 	then	g=
-exec - 		for p in gdbm - ndbm - dbm -
+exec - 		for p in db - gdbm_compat - gdbm - ndbm - dbm -
 exec - 		do	case $p in
 exec - 			-)	if	${CC} -o dbm.exe $i $g > /dev/null
 exec - 				then	${CC} -o dbm.exe $i > /dev/null || {
@@ -1223,16 +1252,28 @@ exec - 		done
 exec - 	fi
 exec - done 2>/dev/null
 exec - echo " $r" > dbm.req
-exec - rm -f dbm.exe gdbm gdbm2
+exec - rm -f dbm.exe db gdbm gdbm1 gdbm2
 done dbm.req generated
 exec - test '' = 'dbm.req' || ${STDCMP} 2>/dev/null -s dbm.req ${INSTALLROOT}/lib/lib/dbm || { ${STDMV} ${INSTALLROOT}/lib/lib/dbm ${INSTALLROOT}/lib/lib/dbm.old 2>/dev/null || true; ${STDCP} dbm.req ${INSTALLROOT}/lib/lib/dbm  		    		    ;}
 done ${INSTALLROOT}/lib/lib/dbm generated
 done install virtual
 make test
 make test.iffe
+prev iffe
 make iffe.tst
 done iffe.tst
-prev iffe
 exec - regress  iffe.tst iffe
 done test.iffe virtual
+make test.mamake
+prev mamake
+make mamake.tst
+meta mamake.tst %.rt>%.tst mamake.rt mamake
+make mamake.rt
+done mamake.rt
+exec - if	[[ "1" || "mamake.rt" -nt "mamake.tst" ]]
+exec - then	mktest --style=regress mamake.rt > mamake.tst
+exec - fi
+done mamake.tst generated
+exec - regress  mamake.tst mamake
+done test.mamake virtual
 done test dontcare virtual

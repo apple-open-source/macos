@@ -2,6 +2,7 @@ iff	AST_COMMON
 hdr	pthread,stdarg,stddef,stdint,inttypes,types,unistd
 sys	types
 typ	long.double,size_t,ssize_t
+typ	__va_list stdio.h
 
 mac	SF_APPEND,SF_CLOSE	sys/stat.h sys/socket.h
 
@@ -68,7 +69,7 @@ cat{
 	#	define _NIL_(x)	((x)0)
 	#endif
 
-	/* __INLINE__ is the inline keyword */
+	/* __INLINE__, if defined, is the inline keyword */
 	#if !defined(__INLINE__) && defined(__cplusplus)
 	#	define __INLINE__	inline
 	#endif
@@ -255,7 +256,11 @@ tst	- -DN=1 - -DN=2 - -DN=3 - -DN=4 - -DN=5 - -DN=6 - -DN=7 - -DN=8 - -DN=0 outp
 				}
 				else
 	#endif
+				{
+				printf("#ifndef _ast_int%d_t\n", m);
 				printf("#define _ast_int%d_t		%s\n", m, int_type[t].name);
+				printf("#endif\n");
+				}
 				if (m > 1)
 				{
 					if (*int_type[t].swap)
@@ -265,16 +270,56 @@ tst	- -DN=1 - -DN=2 - -DN=3 - -DN=4 - -DN=5 - -DN=6 - -DN=7 - -DN=8 - -DN=0 outp
 			}
 		}
 		printf("#define _ast_intmax_t		_ast_int%d_t\n", m);
-		printf("#if sizeof(intmax_t) == sizeof(long)\n"
-		printf("#define _ast_intmax_long		1\n");
-		printf("#endif\n");
 		printf("#if __LITTLE_ENDIAN__\n");
-		printf("#define _ast_intswap		7\n");
+		printf("#define _ast_intswap        7\n");
 		printf("#elif __BIG_ENDIAN__\n");
-		printf("#define _ast_intswap		0\n");
+		printf("#define _ast_intswap        0\n");
 		printf("#else\n");
 		printf("#error Unknown byte sex\n");
 		printf("#endif\n");
+		printf("\n");
+		return 0;
+	}
+}end
+
+tst	- output{
+	#include <string.h>
+	#include <sys/types.h>
+
+	#define elementsof(x)	(sizeof(x)/sizeof(x[0]))
+	
+	static struct
+	{
+		char*	name;
+		int	size;
+	} types[] = 
+	{
+		"short",	sizeof(short),
+		"int",		sizeof(int),
+		"long",		sizeof(long),
+		"pointer",	sizeof(void*),
+		"float",	sizeof(float),
+		"double",	sizeof(double),
+	#ifdef _typ_long_double
+		"long_double",	sizeof(long double),
+	#endif
+	};
+	
+	int
+	main()
+	{
+		register int	t;
+#if 1
+    printf("#define _ast_sizeof_short sizeof(short)\n");
+    printf("#define _ast_sizeof_int sizeof(int)\n");
+    printf("#define _ast_sizeof_long sizeof(long)\n");
+    printf("#define _ast_sizeof_pointer sizeof(void*)\n");
+    printf("#define _ast_sizeof_float sizeof(float)\n");
+    printf("#define _ast_sizeof_double sizeof(double)\n");
+#else
+		for (t = 0; t < elementsof(types); t++)
+			printf("#define _ast_sizeof_%s%s	%d	/* sizeof(%s) */\n", types[t].name, strlen(types[t].name) < 4 ? "\t" : "", types[t].size, types[t].name);
+#endif
 		printf("\n");
 		return 0;
 	}
@@ -387,7 +432,7 @@ typ uintmax_t stdint.h inttypes.h no{
 	typedef unsigned _ast_intmax_t uintmax_t;
 }end
 
-tst	- -DTRY=4 - -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 output{
+tst	- -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 - -DTRY=4 output{
 	#if _STD_ && _hdr_stdarg
 	#include <stdarg.h>
 	static void
@@ -432,7 +477,15 @@ tst	- -DTRY=4 - -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 output{
 	main()
 	{
 		int	r;
+
 		printf("\n#ifndef va_listref\n");
+		printf("#ifndef	va_start\n");
+		printf("#if __STD_C\n");
+		printf("#include <stdarg.h>\n");
+		printf("#else\n");
+		printf("#include <varargs.h>\n");
+		printf("#endif\n");
+		printf("#endif\n");
 	#if TRY == 4
 		printf("#define va_listref(p) (&(p))\t");
 			printf("/* pass va_list to varargs function */\n");
@@ -485,14 +538,6 @@ tst	- -DTRY=4 - -DTRY=1 - -DTRY=1 -Dvoid=char - -DTRY=2 - -DTRY=3 output{
 	#endif
 	#endif
 	
-		printf("#ifndef	va_start\n");
-		printf("#if __STD_C\n");
-		printf("#include <stdarg.h>\n");
-		printf("#else\n");
-		printf("#include <varargs.h>\n");
-		printf("#endif\n");
-		printf("#endif\n");
-
 		printf("#endif\n");
 		return 0;
 	}

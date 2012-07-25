@@ -33,6 +33,7 @@ rlm_preprocess
 rlm_python
 rlm_radutmp
 rlm_realm
+rlm_soh
 rlm_sql
 rlm_sqlcounter
 rlm_sqlippool
@@ -40,3 +41,4 @@ rlm_sql_log
 rlm_unix
 rlm_policy
 rlm_dynamic_clients
+rlm_replicate

@@ -86,7 +86,7 @@ void HistoryController::saveScrollPositionAndViewStateToItem(HistoryItem* item)
     else
         item->setScrollPoint(m_frame->view()->scrollPosition());
 
-    item->setPageScaleFactor(m_frame->pageScaleFactor());
+    item->setPageScaleFactor(m_frame->frameScaleFactor());
     
     // FIXME: It would be great to work out a way to put this code in WebCore instead of calling through to the client.
     m_frame->loader()->client()->saveViewStateToItem(item);
@@ -125,7 +125,9 @@ void HistoryController::restoreScrollPositionAndViewState()
     if (FrameView* view = m_frame->view()) {
         if (!view->wasScrolledByUser()) {
             view->setScrollPosition(m_currentItem->scrollPoint());
-            m_frame->scalePage(m_currentItem->pageScaleFactor(), m_currentItem->scrollPoint());
+            Page* page = m_frame->page();
+            if (page && page->mainFrame() == m_frame)
+                page->setPageScaleFactor(m_currentItem->pageScaleFactor(), m_currentItem->scrollPoint());
         }
     }
 }
@@ -513,6 +515,11 @@ void HistoryController::updateForSameDocumentNavigation()
 
     addVisitedLink(page, m_frame->document()->url());
     page->mainFrame()->loader()->history()->recursiveUpdateForSameDocumentNavigation();
+
+    if (m_currentItem) {
+        m_currentItem->setURL(m_frame->document()->url());
+        m_frame->loader()->client()->updateGlobalHistory();
+    }
 }
 
 void HistoryController::recursiveUpdateForSameDocumentNavigation()
@@ -520,6 +527,11 @@ void HistoryController::recursiveUpdateForSameDocumentNavigation()
     // The frame that navigated will now have a null provisional item.
     // Ignore it and its children.
     if (!m_provisionalItem)
+        return;
+
+    // The provisional item may represent a different pending navigation.
+    // Don't commit it if it isn't a same document navigation.
+    if (m_currentItem && !m_currentItem->shouldDoSameDocumentNavigationTo(m_provisionalItem.get()))
         return;
 
     // Commit the provisional item.
@@ -673,7 +685,6 @@ PassRefPtr<HistoryItem> HistoryController::createItemTree(Frame* targetFrame, bo
 void HistoryController::recursiveSetProvisionalItem(HistoryItem* item, HistoryItem* fromItem, FrameLoadType type)
 {
     ASSERT(item);
-    ASSERT(fromItem);
 
     if (itemsAreClones(item, fromItem)) {
         // Set provisional item, which will be committed in recursiveUpdateForCommit.
@@ -699,7 +710,6 @@ void HistoryController::recursiveSetProvisionalItem(HistoryItem* item, HistoryIt
 void HistoryController::recursiveGoToItem(HistoryItem* item, HistoryItem* fromItem, FrameLoadType type)
 {
     ASSERT(item);
-    ASSERT(fromItem);
 
     if (itemsAreClones(item, fromItem)) {
         // Just iterate over the rest, looking for frames to navigate.
@@ -728,7 +738,9 @@ bool HistoryController::itemsAreClones(HistoryItem* item1, HistoryItem* item2) c
     // a reload.  Thus, if item1 and item2 are the same, we need to create a
     // new document and should not consider them clones.
     // (See http://webkit.org/b/35532 for details.)
-    return item1 != item2
+    return item1
+        && item2
+        && item1 != item2
         && item1->itemSequenceNumber() == item2->itemSequenceNumber()
         && currentFramesMatchItem(item1)
         && item2->hasSameFrames(item1);
@@ -840,6 +852,8 @@ void HistoryController::replaceState(PassRefPtr<SerializedScriptValue> stateObje
         m_currentItem->setURLString(urlString);
     m_currentItem->setTitle(title);
     m_currentItem->setStateObject(stateObject);
+    m_currentItem->setFormData(0);
+    m_currentItem->setFormContentType(String());
 
     Settings* settings = m_frame->settings();
     if (!settings || settings->privateBrowsingEnabled())

@@ -1,9 +1,9 @@
 /*
- * "$Id: error.c 9771 2011-05-12 05:21:56Z mike $"
+ * "$Id: error.c 7460 2008-04-16 02:19:54Z mike $"
  *
  *   Raster error handling for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,8 +28,7 @@
  * Include necessary headers...
  */
 
-#include "image-private.h"
-#include <stdarg.h>
+#include <cups/raster-private.h>
 
 
 /*
@@ -139,7 +138,7 @@ _cupsRasterClearError(void)
  *
  * If there are no recent errors, NULL is returned.
  *
- * @since CUPS 1.3/Mac OS X 10.5@
+ * @since CUPS 1.3/OS X 10.5@
  */
 
 const char *				/* O - Last error */
@@ -283,5 +282,5 @@ get_error_buffer(void)
 
 
 /*
- * End of "$Id: error.c 9771 2011-05-12 05:21:56Z mike $".
+ * End of "$Id: error.c 7460 2008-04-16 02:19:54Z mike $".
  */

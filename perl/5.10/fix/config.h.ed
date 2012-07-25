@@ -177,5 +177,11 @@ $i
  */
 #define APPLLIB_EXP		"@UPDATESLIB@"
 
+/* NO_NETWORK_LIBRARY_PERL_FILE:
+ *	If this file path exists, the vendor libs (which are the
+ *	/Network/Library/Perl paths) are not added to @INC.
+ */
+#define NO_NETWORK_LIBRARY_PERL_FILE	"/Library/Perl/@VERSION@/@NONLP@"
+
 .
 w

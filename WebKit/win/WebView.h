@@ -704,7 +704,7 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE loadBackForwardListFromOtherView( 
         /* [in] */ IWebView *otherView);
-
+        
     virtual HRESULT STDMETHODCALLTYPE inspector(
         /* [retval][out] */ IWebInspector**);
 
@@ -802,8 +802,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE removeUserStyleSheetsFromGroup(BSTR groupName, IWebScriptWorld*);
     virtual HRESULT STDMETHODCALLTYPE removeAllUserContentFromGroup(BSTR groupName);
 
-    virtual HRESULT STDMETHODCALLTYPE setPluginHalterDelegate(IWebPluginHalterDelegate*);
-    virtual HRESULT STDMETHODCALLTYPE pluginHalterDelegate(IWebPluginHalterDelegate**);
+    virtual HRESULT STDMETHODCALLTYPE unused1();
+    virtual HRESULT STDMETHODCALLTYPE unused2();
 
     virtual HRESULT STDMETHODCALLTYPE invalidateBackingStore(const RECT*);
 
@@ -815,9 +815,9 @@ public:
     virtual HRESULT STDMETHODCALLTYPE historyDelegate(IWebHistoryDelegate** historyDelegate);
     virtual HRESULT STDMETHODCALLTYPE addVisitedLinks(BSTR* visitedURLs, unsigned visitedURLCount);
 
-    virtual HRESULT STDMETHODCALLTYPE isNodeHaltedPlugin(IDOMNode*, BOOL*);
-    virtual HRESULT STDMETHODCALLTYPE restartHaltedPluginForNode(IDOMNode*);
-    virtual HRESULT STDMETHODCALLTYPE hasPluginForNodeBeenHalted(IDOMNode*, BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE unused3();
+    virtual HRESULT STDMETHODCALLTYPE unused4();
+    virtual HRESULT STDMETHODCALLTYPE unused5();
 
     virtual HRESULT STDMETHODCALLTYPE setGeolocationProvider(IWebGeolocationProvider* locationProvider);
     virtual HRESULT STDMETHODCALLTYPE geolocationProvider(IWebGeolocationProvider** locationProvider);
@@ -994,12 +994,15 @@ private:
     virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time);
     virtual void notifySyncRequired(const WebCore::GraphicsLayer*);
     virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& inClip);
-    virtual bool showDebugBorders() const;
-    virtual bool showRepaintCounter() const;
+    virtual bool showDebugBorders(const WebCore::GraphicsLayer*) const;
+    virtual bool showRepaintCounter(const WebCore::GraphicsLayer*) const;
 
     // CACFLayerTreeHostClient
     virtual void flushPendingGraphicsLayerChanges();
 #endif
+
+    bool m_shouldInvertColors;
+    void setShouldInvertColors(bool);
 
 protected:
     static bool registerWebViewWindowClass();
@@ -1044,6 +1047,9 @@ protected:
     HWND m_viewWindow;
     WebFrame* m_mainFrame;
     WebCore::Page* m_page;
+#if ENABLE(INSPECTOR)
+    WebInspectorClient* m_inspectorClient;
+#endif // ENABLE(INSPECTOR)
     
     RefPtr<RefCountedHBITMAP> m_backingStoreBitmap;
     SIZE m_backingStoreSize;
@@ -1060,8 +1066,9 @@ protected:
     COMPtr<IWebDownloadDelegate> m_downloadDelegate;
     COMPtr<IWebHistoryDelegate> m_historyDelegate;
     COMPtr<WebPreferences> m_preferences;
+#if ENABLE(INSPECTOR)
     COMPtr<WebInspector> m_webInspector;
-    COMPtr<IWebPluginHalterDelegate> m_pluginHalterDelegate;
+#endif // ENABLE(INSPECTOR)
     COMPtr<IWebGeolocationProvider> m_geolocationProvider;
 
     bool m_userAgentOverridden;

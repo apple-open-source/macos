@@ -27,9 +27,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.KeyboardShortcut = function()
 {
-};
+}
 
 /**
  * Constants for encoding modifier key set as a bit mask.
@@ -58,10 +61,10 @@ WebInspector.KeyboardShortcut.Keys = {
     PageDown: { code: 34, name: { mac: "\u21df", other: "<PageDown>" } },   // also NUM_SOUTH_EAST
     End: { code: 35, name: { mac: "\u2197", other: "<End>" } },             // also NUM_SOUTH_WEST
     Home: { code: 36, name: { mac: "\u2196", other: "<Home>" } },           // also NUM_NORTH_WEST
-    Left: { code: 37, name: "\u2190" },           // also NUM_WEST
-    Up: { code: 38, name: "\u2191" },             // also NUM_NORTH
-    Right: { code: 39, name: "\u2192" },          // also NUM_EAST
-    Down: { code: 40, name: "\u2193" },           // also NUM_SOUTH
+    Left: { code: 37, name: "<Left>" },           // also NUM_WEST
+    Up: { code: 38, name: "<Up>" },             // also NUM_NORTH
+    Right: { code: 39, name: "<Right>" },          // also NUM_EAST
+    Down: { code: 40, name: "<Down>" },           // also NUM_SOUTH
     Delete: { code: 46, name: "<Del>" },
     Zero: { code: 48, name: "0" },
     F1: { code: 112, name: "F1" },
@@ -90,17 +93,15 @@ WebInspector.KeyboardShortcut.Keys = {
  * Creates a number encoding keyCode in the lower 8 bits and modifiers mask in the higher 8 bits.
  * It is useful for matching pressed keys.
  * keyCode is the Code of the key, or a character "a-z" which is converted to a keyCode value.
- * optModifiers is an Optional list of modifiers passed as additional paramerters.
+ * @param {number=} modifiers Optional list of modifiers passed as additional paramerters.
  */
-WebInspector.KeyboardShortcut.makeKey = function(keyCode, optModifiers)
+WebInspector.KeyboardShortcut.makeKey = function(keyCode, modifiers)
 {
     if (typeof keyCode === "string")
         keyCode = keyCode.charCodeAt(0) - 32;
-    var modifiers = WebInspector.KeyboardShortcut.Modifiers.None;
-    for (var i = 1; i < arguments.length; i++)
-        modifiers |= arguments[i];
+    modifiers = modifiers || WebInspector.KeyboardShortcut.Modifiers.None;
     return WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers(keyCode, modifiers);
-};
+}
 
 WebInspector.KeyboardShortcut.makeKeyFromEvent = function(keyboardEvent)
 {
@@ -114,20 +115,27 @@ WebInspector.KeyboardShortcut.makeKeyFromEvent = function(keyboardEvent)
     if (keyboardEvent.metaKey)
         modifiers |= WebInspector.KeyboardShortcut.Modifiers.Meta;
     return WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers(keyboardEvent.keyCode, modifiers);
-};
+}
 
-WebInspector.KeyboardShortcut.makeDescriptor = function(key, optModifiers)
+WebInspector.KeyboardShortcut.eventHasCtrlOrMeta = function(event)
 {
-    var modifiers = 0;
-    for (var i = 1; i < arguments.length; i++)
-        modifiers |= arguments[i];
+    return WebInspector.isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+}
 
+/**
+ * @param {number=} modifiers
+ */
+WebInspector.KeyboardShortcut.makeDescriptor = function(key, modifiers)
+{
     return {
         key: WebInspector.KeyboardShortcut.makeKey(typeof key === "string" ? key : key.code, modifiers),
         name: WebInspector.KeyboardShortcut.shortcutToString(key, modifiers)
     };
 }
 
+/**
+ * @param {number=} modifiers
+ */
 WebInspector.KeyboardShortcut.shortcutToString = function(key, modifiers)
 {
     return WebInspector.KeyboardShortcut._modifiersToString(modifiers) + WebInspector.KeyboardShortcut._keyName(key);
@@ -139,7 +147,7 @@ WebInspector.KeyboardShortcut._keyName = function(key)
         return key.toUpperCase();
     if (typeof key.name === "string")
         return key.name;
-    return key.name[WebInspector.platform] || key.name.other;
+    return key.name[WebInspector.platform()] || key.name.other;
 }
 
 WebInspector.KeyboardShortcut._makeKeyFromCodeAndModifiers = function(keyCode, modifiers)

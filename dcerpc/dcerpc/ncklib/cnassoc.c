@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -107,7 +107,6 @@
 #include <cnassoc.h>
 
 #include <dce/rpcexc.h>
-#include <syslog.h>
 
 #if HAVE_LWIO_LWIO_H
 #include <lwio/lwio.h>
@@ -515,10 +514,19 @@ PRIVATE rpc_cn_assoc_t *rpc__cn_assoc_request
                                              assoc,
                                              assoc->cn_ctlblk.cn_sock,
                                              *st));
-                           rpc__cn_assoc_dealloc (assoc,
-						  call_r,
-                                                  &temp_st);
-                           return (NULL);
+
+                            /*
+                             * The call is about to be orphaned, so remove it from the assoc
+                             */
+                            if (assoc->call_rep == call_r)
+                            {
+                                assoc->call_rep = NULL;
+                            }
+
+                            rpc__cn_assoc_dealloc (assoc,
+                                                   call_r,
+                                                   &temp_st);
+                            return (NULL);
                         }
                         else
                         {
@@ -808,6 +816,14 @@ PRIVATE rpc_cn_assoc_t *rpc__cn_assoc_request
                                  assoc,
                                  assoc->cn_ctlblk.cn_sock,
                                  *st));
+
+                /*
+                 * The call is about to be orphaned, so remove it from the assoc
+                 */
+                if (assoc->call_rep == call_r)
+                {
+                    assoc->call_rep = NULL;
+                }
 
                 if ((old_server == false) &&
 		    (*st == rpc_s_connection_closed) &&
@@ -3470,6 +3486,7 @@ unsigned32              *st
     boolean                     pres_context_setup;
     boolean                     sec_context_setup = false;
     boolean32                   sec_cred_changed = false;
+    rpc_cn_assoc_grp_t          * volatile assoc_grp = NULL;
 
     RPC_CN_DBG_RTN_PRINTF(rpc__cn_assoc_alter_context);
     CODING_ERROR (st);
@@ -3599,6 +3616,15 @@ unsigned32              *st
             RPC_LIST_ADD_TAIL (assoc->syntax_list, pres_context, rpc_cn_syntax_p_t);
             assoc_sm_work.pres_context = pres_context;
         }
+        else
+        {
+            /* MSRPC seems to expect a context negotiation even if we aren't
+               changing the presentation context, so just send what we already
+               have */
+            assoc_sm_work.pres_context = pres_context;
+            assoc_sm_work.reuse_context = TRUE;
+        }
+
 
         /*
          * If authentication is required on this call, we may have
@@ -3655,6 +3681,9 @@ unsigned32              *st
                 assoc_sm_work.sec_context = sec_context;
             }
         }
+
+        assoc_grp = RPC_CN_ASSOC_GRP(assoc->assoc_grp_id);
+        assoc_sm_work.grp_id = assoc_grp->grp_remid.all;
 
         /*
          * Evaluate an alter_context event through the client
@@ -4574,6 +4603,7 @@ PRIVATE void rpc__cn_assoc_acb_create
     RPC_CN_DBG_RTN_PRINTF(rpc__cn_assoc_acb_create);
 
     memset (assoc, 0, sizeof (rpc_cn_assoc_t));
+    assoc->alter_call_id = -1;
     RPC_COND_INIT (assoc->cn_ctlblk.cn_rcvr_cond, rpc_g_global_mutex);
     RPC_COND_INIT (assoc->assoc_msg_cond, rpc_g_global_mutex);
 
@@ -5658,7 +5688,8 @@ PRIVATE rpc_cn_local_id_t rpc__cn_assoc_grp_lkup_by_id
     /*
      * First determine if we were given a valid group ID.
      */
-    if (RPC_CN_LOCAL_ID_VALID (grp_id))
+    if (RPC_CN_LOCAL_ID_VALID (grp_id) &&
+        grp_id.parts.id_index < rpc_g_cn_assoc_grp_tbl.grp_count)
     {
         /*
          * An association group will be located by using the lower 16

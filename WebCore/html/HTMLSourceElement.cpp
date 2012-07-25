@@ -54,12 +54,13 @@ PassRefPtr<HTMLSourceElement> HTMLSourceElement::create(const QualifiedName& tag
     return adoptRef(new HTMLSourceElement(tagName, document));
 }
 
-void HTMLSourceElement::insertedIntoTree(bool deep)
+Node::InsertionNotificationRequest HTMLSourceElement::insertedInto(Node* insertionPoint)
 {
-    HTMLElement::insertedIntoTree(deep);
+    HTMLElement::insertedInto(insertionPoint);
     Element* parent = parentElement();
     if (parent && parent->isMediaElement())
         static_cast<HTMLMediaElement*>(parentNode())->sourceWasAdded(this);
+    return InsertionDone;
 }
 
 void HTMLSourceElement::willRemove()
@@ -118,8 +119,20 @@ void HTMLSourceElement::errorEventTimerFired(Timer<HTMLSourceElement>*)
 
 bool HTMLSourceElement::isURLAttribute(Attribute* attribute) const
 {
-    return attribute->name() == srcAttr;
+    return attribute->name() == srcAttr || HTMLElement::isURLAttribute(attribute);
 }
+
+#if ENABLE(MICRODATA)
+String HTMLSourceElement::itemValueText() const
+{
+    return getURLAttribute(srcAttr);
+}
+
+void HTMLSourceElement::setItemValueText(const String& value, ExceptionCode&)
+{
+    setAttribute(srcAttr, value);
+}
+#endif
 
 }
 

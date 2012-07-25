@@ -1,27 +1,53 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en_SG.xml
 // *
 // ***************************************************************************
 en_SG{
-    Version{"2.0.45.82"}
-    calendar{
-        gregorian{
-            DateTimeElements:intvector{
-                1,
-                4,
+    %%Parent{"en_GB"}
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"¤#,##0.00;(¤#,##0.00)"}
             }
+        }
+    }
+    Version{"2.0.65.46"}
+    calendar{
+        buddhist{
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, MMMM d, y",
-                "MMMM d, y",
-                "MMM d, y",
+                "EEEE, d MMMM, y G",
+                "d MMMM, y G",
+                "d MMM, y G",
+                "d/M/yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MMMEd{"E, d MMM"}
+                yMEd{"E, d/M/y GGGGG"}
+                yMMMEd{"E, d MMM, y G"}
+            }
+        }
+        gregorian{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM, y",
+                "d MMMM, y",
+                "d MMM, y",
                 "d/M/yy",
                 "{1} {0}",
                 "{1} {0}",
@@ -30,19 +56,35 @@ en_SG{
                 "{1} {0}",
             }
             availableFormats{
-                MEd{"E, d/M"}
-                Md{"d/M"}
-                yMEd{"EEE, d/M/yyyy"}
+                MMMEd{"E, d MMM"}
             }
             intervalFormats{
                 MEd{
                     M{"E, d/M – E, d/M"}
                     d{"E, d/M – E, d/M"}
                 }
+                MMMEd{
+                    M{"E, d MMM – E, d MMM"}
+                    d{"E, d MMM – E, d MMM"}
+                }
+                MMMd{
+                    M{"d MMM – d MMM"}
+                    d{"d-d MMM"}
+                }
                 yMEd{
                     M{"E, d/M/yy – E, d/M/yy"}
                     d{"E, d/M/yy – E, d/M/yy"}
                     y{"E, d/M/yy – E, d/M/yy"}
+                }
+                yMMMEd{
+                    M{"E, d MMM – E, d MMM, y"}
+                    d{"E, d MMM – E, d MMM, y"}
+                    y{"E, d MMM, y – E, d MMM, y"}
+                }
+                yMMMd{
+                    M{"d MMM – d MMM, y"}
+                    d{"d-d MMM, y"}
+                    y{"d MMM, y – d MMM, y"}
                 }
                 yMd{
                     M{"d/M/yy – d/M/yy"}
@@ -57,15 +99,35 @@ en_SG{
                 "h:mm:ss a z",
                 "h:mm:ss a",
                 "h:mm a",
-                "EEEE, MMMM d, y G",
-                "MMMM d, y G",
-                "MMM d, y G",
-                "M/d/yy G",
+                "EEEE, d MMMM, y G",
+                "d MMMM, y G",
+                "d MMM, y G",
+                "d/M/yy GGGGG",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+        }
+        roc{
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM, y G",
+                "d MMMM, y G",
+                "d MMM, y G",
+                "d/M/yy GGGGG",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                MMMEd{"E, d MMM"}
             }
         }
     }

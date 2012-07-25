@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -22,12 +22,14 @@ module events {
 
     // Introduced in DOM Level 2:
     interface [
-        CustomToJS,
-        NoStaticTables,
-        Polymorphic
+        CustomToJSObject,
+        ConstructorTemplate=Event,
+        JSNoStaticTables,
+        ObjCPolymorphic
     ] Event {
 
         // DOM PhaseType
+        const unsigned short NONE                = 0;
         const unsigned short CAPTURING_PHASE     = 1;
         const unsigned short AT_TARGET           = 2;
         const unsigned short BUBBLING_PHASE      = 3;
@@ -56,15 +58,15 @@ module events {
         readonly attribute EventTarget      target;
         readonly attribute EventTarget      currentTarget;
         readonly attribute unsigned short   eventPhase;
-        readonly attribute boolean          bubbles;
-        readonly attribute boolean          cancelable;
+        readonly attribute [InitializedByEventConstructor] boolean bubbles;
+        readonly attribute [InitializedByEventConstructor] boolean cancelable;
         readonly attribute DOMTimeStamp     timeStamp;
 
         void               stopPropagation();
         void               preventDefault();
-        [OldStyleObjC] void initEvent(in DOMString eventTypeArg, 
-                                      in boolean canBubbleArg, 
-                                      in boolean cancelableArg);
+        [ObjCLegacyUnnamedParameters] void initEvent(in [Optional=DefaultIsUndefined] DOMString eventTypeArg, 
+                                      in [Optional=DefaultIsUndefined] boolean canBubbleArg, 
+                                      in [Optional=DefaultIsUndefined] boolean cancelableArg);
 
         // DOM Level 3 Additions.
         readonly attribute boolean defaultPrevented;
@@ -81,7 +83,6 @@ module events {
 
 #if defined(LANGUAGE_CPP) && LANGUAGE_CPP
         // Extra WebCore methods exposed to allow compile-time casting in C++
-        boolean isMutationEvent();
         boolean isMouseEvent();
         boolean isUIEvent();
 #endif

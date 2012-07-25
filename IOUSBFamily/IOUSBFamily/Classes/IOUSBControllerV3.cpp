@@ -2419,7 +2419,7 @@ IOUSBControllerV3::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisi
 				USBLog(5,"IOUSBControllerV3[%p]::GetErrataBits  found PCI-Thunderbolt property, adding the errata", this);
 				errataBits |= kErrataDontUseCompanionController;
 			}
-			
+					
 			// mark the root hub port as having port 1 captive
 			if (_device->getProperty(kAppleInternalUSBDevice) == NULL)
 				_device->setProperty(kAppleInternalUSBDevice, (unsigned long long)2, 8);

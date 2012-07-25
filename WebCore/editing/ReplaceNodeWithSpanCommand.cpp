@@ -63,7 +63,8 @@ static void swapInNodePreservingAttributesAndChildren(HTMLElement* newNode, HTML
         ASSERT(!ec);
     }
 
-    newNode->attributes()->setAttributes(*nodeToReplace->attributes());
+    // FIXME: Fix this to send the proper MutationRecords when MutationObservers are present.
+    newNode->setAttributesFromElement(*nodeToReplace);
 
     parentNode->removeChild(nodeToReplace, ec);
     ASSERT(!ec);
@@ -84,5 +85,13 @@ void ReplaceNodeWithSpanCommand::doUnapply()
         return;
     swapInNodePreservingAttributesAndChildren(m_elementToReplace.get(), m_spanElement.get());
 }
+
+#ifndef NDEBUG
+void ReplaceNodeWithSpanCommand::getNodesInCommand(HashSet<Node*>& nodes)
+{
+    addNodeAndDescendants(m_elementToReplace.get(), nodes);
+    addNodeAndDescendants(m_spanElement.get(), nodes);
+}
+#endif
 
 } // namespace WebCore

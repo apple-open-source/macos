@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -3135,6 +3135,8 @@ OSKextCreateKextsFromMkextData(CFAllocatorRef allocator,
  *           placed in the prelinked kernel.  If symbolsOut is
  *           non-<code>NULL</code>, symbolicated binaries will still be returned
  *           to the caller.
+ * @constant kOSKextKernelcacheKASLRFlag
+ *           If set, generate DYSYMTAB load commands for KASLR support.
  */
 enum {
     kOSKextKernelcacheNeedAllFlag = (1 << 0),
@@ -3142,6 +3144,7 @@ enum {
     kOSKextKernelcachePrintDiagnosticsFlag = (1 << 2),
     kOSKextKernelcacheIncludeAllPersonalitiesFlag = (1 << 3),
     kOSKextKernelcacheStripSymbolsFlag = (1 << 4),
+    kOSKextKernelcacheKASLRFlag = (1 << 5),
 };
 
 /*!
@@ -3179,6 +3182,7 @@ OSKextCreatePrelinkedKernel(
     uint32_t            flags,
     CFDictionaryRef   * symbolsOut)
                 __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+
 
 __END_DECLS
 

@@ -4,15 +4,16 @@
 *****************************************************************************************
 */
 
-#include "unicode/utypes.h"
-
-#include <unicode/brkiter.h>
-#include <unicode/locid.h>
+#include <unicode/utypes.h>
 #include <unicode/ubrk.h>
 #include <unicode/uchar.h>
 #include <unicode/uidna.h>
 #include <unicode/uscript.h>
 #include <unicode/ustring.h>
+#include <unicode/utf8.h>
+#include <unicode/brkiter.h>
+#include <unicode/unistr.h>
+#include <unicode/locid.h>
 
 extern "C" {
 

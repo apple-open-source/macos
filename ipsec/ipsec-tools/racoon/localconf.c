@@ -330,14 +330,14 @@ end:
  */
 vchar_t *
 getpskbyaddr(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	vchar_t *key = NULL;
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
 
 	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key by addr.\n");
 
-	GETNAMEINFO(remote, addr, port);
+	GETNAMEINFO((struct sockaddr *)remote, addr, port);
 
 #ifdef HAVE_OPENSSL
 	key = privsep_getpsk(addr, strlen(addr));

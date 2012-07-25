@@ -27,19 +27,15 @@
 #define PlatformMenuDescription_h
 
 #if PLATFORM(MAC)
-#ifdef __OBJC__
-@class NSMutableArray;
-#else
-class NSMutableArray;
-#endif
+OBJC_CLASS NSMutableArray;
 #elif PLATFORM(QT)
 #include <qlist.h>
 #elif PLATFORM(GTK)
 typedef struct _GtkMenu GtkMenu;
 #elif PLATFORM(WX)
 class wxMenu;
-#elif PLATFORM(HAIKU)
-class BMenu;
+#elif PLATFORM(EFL)
+#include <wtf/Vector.h>
 #endif
 
 namespace WebCore {
@@ -54,8 +50,9 @@ namespace WebCore {
     typedef GtkMenu* PlatformMenuDescription;
 #elif PLATFORM(WX)
     typedef wxMenu* PlatformMenuDescription;
-#elif PLATFORM(HAIKU)
-    typedef BMenu* PlatformMenuDescription;
+#elif PLATFORM(EFL)
+    class ContextMenuItem;
+    typedef const Vector<ContextMenuItem>* PlatformMenuDescription;
 #else
     typedef void* PlatformMenuDescription;
 #endif

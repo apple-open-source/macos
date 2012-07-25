@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -122,7 +122,7 @@ int	flag;
 
 /* structure to match characters in a character class */
 typedef struct _accept_s
-{	char	ok[SF_MAXCHAR];
+{	char	ok[SF_MAXCHAR+1];
 	int	yes;
 	char	*form, *endf;
 #if _has_multibyte
@@ -348,9 +348,11 @@ va_list		args;
 				(int)(*d++) : -1 )
 #define SFungetc(f,c)	(d -= 1)
 
+	SFMTXDECL(f);
+
 	SFCVINIT();	/* initialize conversion tables */
 
-	SFMTXSTART(f,-1);
+	SFMTXENTER(f,-1);
 
 	if(!form || f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0)
 		SFMTXRETURN(f, -1);
@@ -414,6 +416,8 @@ loop_fmt:
 
 		if(*form == '%')
 		{	form += 1;
+			do SFgetc(f,inp); while(isspace(inp)); /* skip starting blanks */
+			SFungetc(f,inp);
 			goto match_1;
 		}
 
@@ -458,8 +462,7 @@ loop_fmt:
 					{	t_str = (*_Sffmtintf)(t_str+1,&n);
 						if(*t_str == '$')
 						{	if(!fp &&
-							   !(fp = (*_Sffmtposf)
-								  (f,oform,oargs,ft,1)) )
+							   !(fp = (*_Sffmtposf)(f,oform,oargs,ft,1)) )
 								goto pop_fmt;
 							n = FP_SET(n,argn);
 						}

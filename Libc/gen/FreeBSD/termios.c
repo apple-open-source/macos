@@ -33,6 +33,14 @@ static char sccsid[] = "@(#)termios.c	8.2 (Berkeley) 2/21/94";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.16 2009/05/07 13:49:48 ed Exp $");
 
+#if __DARWIN_UNIX03
+#ifdef VARIANT_CANCELABLE
+#include <pthread.h>
+
+extern void _pthread_testcancel(pthread_t thread, int isconforming);
+#endif /* VARIANT_CANCELABLE */
+#endif /* __DARWIN_UNIX03 */
+
 #include "namespace.h"
 #include <sys/types.h>
 #include <sys/fcntl.h>
@@ -44,6 +52,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.16 2009/05/07 13:49:48 ed Exp
 #include <unistd.h>
 #include "un-namespace.h"
 
+#ifndef BUILDING_VARIANT
 int
 tcgetattr(fd, t)
 	int fd;
@@ -83,6 +92,9 @@ tcsetpgrp(int fd, pid_t pgrp)
 {
 	int s;
 
+	if (isatty(fd) == 0)
+		return (-1);
+
 	s = pgrp;
 	return (_ioctl(fd, TIOCSPGRP, &s));
 }
@@ -93,12 +105,16 @@ tcgetpgrp(fd)
 {
 	int s;
 
+	if (isatty(fd) == 0)
+		return ((pid_t)-1);
+
 	if (_ioctl(fd, TIOCGPGRP, &s) < 0)
 		return ((pid_t)-1);
 
 	return ((pid_t)s);
 }
 
+#if 0 // Needs API review first
 pid_t
 tcgetsid(int fd)
 {
@@ -121,6 +137,7 @@ tcsetsid(int fd, pid_t pid)
 
 	return (_ioctl(fd, TIOCSCTTY, NULL));
 }
+#endif
 
 speed_t
 cfgetospeed(t)
@@ -202,17 +219,24 @@ tcsendbreak(fd, len)
 		return (-1);
 	return (0);
 }
+#endif /* BUILDING_VARIANT */
 
 int
 __tcdrain(fd)
 	int fd;
 {
+#if __DARWIN_UNIX03
+#ifdef VARIANT_CANCELABLE
+	_pthread_testcancel(pthread_self(), 1);
+#endif /* VARIANT_CANCELABLE */
+#endif /* __DARWIN_UNIX03 */
 	return (_ioctl(fd, TIOCDRAIN, 0));
 }
 
 __weak_reference(__tcdrain, tcdrain);
 __weak_reference(__tcdrain, _tcdrain);
 
+#ifndef BUILDING_VARIANT
 int
 tcflush(fd, which)
 	int fd, which;
@@ -249,16 +273,13 @@ tcflow(fd, action)
 	case TCOON:
 		return (_ioctl(fd, TIOCSTART, 0));
 	case TCION:
+		return (_ioctl(fd, TIOCIXON, 0));
 	case TCIOFF:
-		if (tcgetattr(fd, &term) == -1)
-			return (-1);
-		c = term.c_cc[action == TCIOFF ? VSTOP : VSTART];
-		if (c != _POSIX_VDISABLE && _write(fd, &c, sizeof(c)) == -1)
-			return (-1);
-		return (0);
+		return (_ioctl(fd, TIOCIXOFF, 0));
 	default:
 		errno = EINVAL;
 		return (-1);
 	}
 	/* NOTREACHED */
 }
+#endif /* BUILDING_VARIANT */

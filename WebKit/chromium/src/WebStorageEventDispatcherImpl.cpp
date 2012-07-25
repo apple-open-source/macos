@@ -31,18 +31,43 @@
 #include "config.h"
 #include "WebStorageEventDispatcherImpl.h"
 
-#if ENABLE(DOM_STORAGE)
-
 #include "KURL.h"
 #include "SecurityOrigin.h"
+#include "StorageAreaProxy.h"
 
-#include "WebStorageAreaImpl.h"
-#include "WebURL.h"
+#include "platform/WebURL.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebKit {
 
 extern const char* pageGroupName;
+
+void WebStorageEventDispatcher::dispatchLocalStorageEvent(
+        const WebString& key, const WebString& oldValue,
+        const WebString& newValue, const WebURL& origin,
+        const WebURL& pageURL, WebStorageArea* sourceAreaInstance,
+        bool originatedInProcess)
+{
+    RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::create(origin);
+    WebCore::StorageAreaProxy::dispatchLocalStorageEvent(
+            pageGroupName, key, oldValue, newValue, securityOrigin.get(), pageURL,
+            sourceAreaInstance, originatedInProcess);
+}
+
+void WebStorageEventDispatcher::dispatchSessionStorageEvent(
+        const WebString& key, const WebString& oldValue,
+        const WebString& newValue, const WebURL& origin,
+        const WebURL& pageURL, const WebStorageNamespace& sessionNamespace,
+        WebStorageArea* sourceAreaInstance, bool originatedInProcess)
+{
+    RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::create(origin);
+    WebCore::StorageAreaProxy::dispatchSessionStorageEvent(
+            pageGroupName, key, oldValue, newValue, securityOrigin.get(), pageURL,
+            sessionNamespace, sourceAreaInstance, originatedInProcess);
+}
+
+
+// FIXME: remove the WebStorageEventDispatcherImpl class soon.
 
 WebStorageEventDispatcher* WebStorageEventDispatcher::create()
 {
@@ -57,17 +82,11 @@ WebStorageEventDispatcherImpl::WebStorageEventDispatcherImpl()
 
 void WebStorageEventDispatcherImpl::dispatchStorageEvent(const WebString& key, const WebString& oldValue,
                                                          const WebString& newValue, const WebString& origin,
-                                                         const WebURL& passedInURL, bool isLocalStorage)
+                                                         const WebURL& pageURL, bool isLocalStorage)
 {
-    // Hack for single-process mode and test shell.
-    const WebURL* storageAreaImplURL = WebStorageAreaImpl::currentStorageEventURL();
-    const WebURL& url = storageAreaImplURL ? *storageAreaImplURL : passedInURL;
-
     WebCore::StorageType storageType = isLocalStorage ? WebCore::LocalStorage : WebCore::SessionStorage;
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(origin);
-    m_eventDispatcher->dispatchStorageEvent(key, oldValue, newValue, securityOrigin.get(), url, storageType);
+    m_eventDispatcher->dispatchStorageEvent(key, oldValue, newValue, securityOrigin.get(), pageURL, storageType);
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(DOM_STORAGE)

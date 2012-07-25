@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2010, International Business Machines
+*   Copyright (C) 1999-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -14,9 +14,9 @@
 *   created by: Markus W. Scherer
 */
 
-#include "unicode/utypes.h"  /* U_LINUX */
+#include "unicode/utypes.h"  /* U_PLATFORM etc. */
 
-#ifdef U_LINUX
+#ifdef __GNUC__
 /* if gcc
 #define ATTRIBUTE_WEAK __attribute__ ((weak))
 might have to #include some other header
@@ -75,7 +75,7 @@ might have to #include some other header
 U_NAMESPACE_USE
 
 /*
- *  Forwards
+ *  Forward declarations
  */
 static UDataMemory *udata_findCachedData(const char *path);
 
@@ -828,7 +828,7 @@ static UBool extendICUData(UErrorCode *pErr)
                                           /*   fields in the UDataMemory that we're assigning     */
                                           /*   to CommonICUData.                                  */
 
-          didUpdate =
+          didUpdate = /* no longer using this result */
               setCommonICUData(&copyPData,/*  The new common data.                                */
                        FALSE,             /*  No warnings if write didn't happen                  */
                        pErr);             /*  setCommonICUData honors errors; NOP if error set    */

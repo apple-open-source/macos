@@ -36,9 +36,9 @@ private:
 
     virtual String target() const;
     virtual bool isURLAttribute(Attribute*) const;
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 };
 
 } // namespace

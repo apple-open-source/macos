@@ -22,12 +22,11 @@
 
 #if ENABLE(FULLSCREEN_API)
 messages -> WebFullScreenManager {
+    RequestExitFullScreen()
     WillEnterFullScreen()
     DidEnterFullScreen()
     WillExitFullScreen()
     DidExitFullScreen()
-    BeginEnterFullScreenAnimation(float duration)
-    BeginExitFullScreenAnimation(float duration)
-    DisposeOfLayerClient()
+    SetAnimatingFullScreen(bool animating)
 }
 #endif

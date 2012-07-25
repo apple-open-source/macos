@@ -29,13 +29,15 @@
 #include "AffineTransform.h"
 #include "CanvasRenderingContext.h"
 #include "Color.h"
+#include "ColorSpace.h"
+#include "DashArray.h"
 #include "FloatSize.h"
 #include "Font.h"
 #include "GraphicsTypes.h"
+#include "ImageBuffer.h"
 #include "Path.h"
 #include "PlatformString.h"
 #include <wtf/Vector.h>
-
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayer.h"
@@ -54,11 +56,6 @@ class HTMLVideoElement;
 class ImageData;
 class TextMetrics;
 
-#if ENABLE(ACCELERATED_2D_CANVAS)
-class DrawingBuffer;
-class SharedGraphicsContext3D;
-#endif
-
 typedef int ExceptionCode;
 
 class CanvasRenderingContext2D : public CanvasRenderingContext {
@@ -71,7 +68,6 @@ public:
 
     virtual bool is2d() const { return true; }
     virtual bool isAccelerated() const;
-    virtual bool paintsIntoCanvasBuffer() const;
 
     CanvasStyle* strokeStyle() const;
     void setStrokeStyle(PassRefPtr<CanvasStyle>);
@@ -90,6 +86,12 @@ public:
 
     float miterLimit() const;
     void setMiterLimit(float);
+
+    const DashArray* webkitLineDash() const;
+    void setWebkitLineDash(const DashArray&);
+
+    float webkitLineDashOffset() const;
+    void setWebkitLineDashOffset(float);
 
     float shadowOffsetX() const;
     void setShadowOffsetX(float);
@@ -181,8 +183,8 @@ public:
     void drawImage(HTMLVideoElement*, const FloatRect& srcRect, const FloatRect& dstRect, ExceptionCode&);
 #endif
 
-    void drawImageFromRect(HTMLImageElement*, float sx, float sy, float sw, float sh,
-        float dx, float dy, float dw, float dh, const String& compositeOperation);
+    void drawImageFromRect(HTMLImageElement*, float sx = 0, float sy = 0, float sw = 0, float sh = 0,
+                           float dx = 0, float dy = 0, float dw = 0, float dh = 0, const String& compositeOperation = emptyString());
 
     void setAlpha(float);
 
@@ -196,8 +198,13 @@ public:
     PassRefPtr<ImageData> createImageData(PassRefPtr<ImageData>, ExceptionCode&) const;
     PassRefPtr<ImageData> createImageData(float width, float height, ExceptionCode&) const;
     PassRefPtr<ImageData> getImageData(float sx, float sy, float sw, float sh, ExceptionCode&) const;
+    PassRefPtr<ImageData> webkitGetImageDataHD(float sx, float sy, float sw, float sh, ExceptionCode&) const;
     void putImageData(ImageData*, float dx, float dy, ExceptionCode&);
     void putImageData(ImageData*, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionCode&);
+    void webkitPutImageDataHD(ImageData*, float dx, float dy, ExceptionCode&);
+    void webkitPutImageDataHD(ImageData*, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionCode&);
+
+    float webkitBackingStorePixelRatio() const { return canvas()->deviceScaleFactor(); }
 
     void reset();
 
@@ -218,8 +225,6 @@ public:
 
     LineCap getLineCap() const { return state().m_lineCap; }
     LineJoin getLineJoin() const { return state().m_lineJoin; }
-
-    virtual void paintRenderingResultsToCanvas();
 
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
     virtual PlatformLayer* platformLayer() const;
@@ -250,6 +255,8 @@ private:
         CompositeOperator m_globalComposite;
         AffineTransform m_transform;
         bool m_invertibleCTM;
+        DashArray m_lineDash;
+        float m_lineDashOffset;
 
         // Text state.
         TextAlign m_textAlign;
@@ -276,10 +283,14 @@ private:
     const State& state() const { return m_stateStack.last(); }
 
     void applyShadow();
+    bool shouldDrawShadows() const;
 
     void didDraw(const FloatRect&, unsigned options = CanvasDidDrawApplyAll);
+    void didDrawEntireCanvas();
 
     GraphicsContext* drawingContext() const;
+
+    void unwindStateStack();
 
     void applyStrokePattern();
     void applyFillPattern();
@@ -292,17 +303,29 @@ private:
     void clearPathForDashboardBackwardCompatibilityMode();
 #endif
 
+    void clearCanvas();
+    Path transformAreaToDevice(const Path&) const;
+    Path transformAreaToDevice(const FloatRect&) const;
+    bool rectContainsCanvas(const FloatRect&) const;
+
+    template<class T> IntRect calculateCompositingBufferRect(const T&, IntSize*);
+    PassOwnPtr<ImageBuffer> createCompositingBuffer(const IntRect&);
+    void compositeBuffer(ImageBuffer*, const IntRect&, CompositeOperator);
+
+    void inflateStrokeRect(FloatRect&) const;
+
+    template<class T> void fullCanvasCompositedFill(const T&);
+    template<class T> void fullCanvasCompositedDrawImage(T*, ColorSpace, const FloatRect&, const FloatRect&, CompositeOperator);
+
     void prepareGradientForDashboard(CanvasGradient* gradient) const;
+
+    PassRefPtr<ImageData> getImageData(ImageBuffer::CoordinateSystem, float sx, float sy, float sw, float sh, ExceptionCode&) const;
+    void putImageData(ImageData*, ImageBuffer::CoordinateSystem, float dx, float dy, float dirtyX, float dirtyY, float dirtyWidth, float dirtyHeight, ExceptionCode&);
 
     Vector<State, 1> m_stateStack;
     bool m_usesCSSCompatibilityParseMode;
 #if ENABLE(DASHBOARD_SUPPORT)
     bool m_usesDashboardCompatibilityMode;
-#endif
-
-#if ENABLE(ACCELERATED_2D_CANVAS)
-    RefPtr<DrawingBuffer> m_drawingBuffer;
-    RefPtr<SharedGraphicsContext3D> m_context3D;
 #endif
 };
 

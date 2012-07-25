@@ -22,6 +22,7 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include "IOSystemConfiguration.h"
@@ -372,6 +373,74 @@ IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion,
     return return_code;
 }
 
+/******************************************************************************
+ * IOPMAssertionDeclareUserActivity
+ *
+ ******************************************************************************/
+IOReturn IOPMAssertionDeclareUserActivity(
+                        CFStringRef          AssertionName,
+                        IOPMUserActiveType   userType,
+                        IOPMAssertionID      *AssertionID)
+{
+
+    IOReturn        return_code = kIOReturnError;
+    mach_port_t     pm_server = MACH_PORT_NULL;
+    kern_return_t   kern_result = KERN_SUCCESS;
+    IOReturn        err;
+
+    CFMutableDictionaryRef  properties = NULL;
+    CFDataRef               flattenedProps  = NULL;
+
+    if (!AssertionName || !AssertionID) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+    
+    err = _pm_connect(&pm_server);
+    if(kIOReturnSuccess != err) {
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
+
+    properties = CFDictionaryCreateMutable(0, 1, &kCFTypeDictionaryKeyCallBacks, 
+                                           &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(properties, kIOPMAssertionNameKey, AssertionName);
+
+    flattenedProps = CFPropertyListCreateData(0, properties, 
+                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
+    if (!flattenedProps) {
+        return_code = kIOReturnBadArgument;
+        goto exit;
+    }
+ 
+
+    kern_result = io_pm_declare_user_active( 
+                        pm_server, 
+                        userType,
+                        (vm_offset_t)CFDataGetBytePtr(flattenedProps),
+                        CFDataGetLength(flattenedProps),
+                        (int *)AssertionID,
+                        &return_code);
+
+
+    if(KERN_SUCCESS != kern_result) {
+        return_code = kIOReturnInternalError;
+        goto exit;
+    }
+    
+exit:
+    if (flattenedProps)
+        CFRelease(flattenedProps);
+
+    if (properties)
+        CFRelease(properties);
+
+    if (MACH_PORT_NULL != pm_server) {
+        _pm_disconnect(pm_server);
+    }
+
+    return return_code;
+}
 
 /******************************************************************************
  * IOPMCopyAssertionsByProcess
@@ -473,76 +542,6 @@ IOReturn IOPMCopyTimedOutAssertions(CFArrayRef *timedOutAssertions)
     
     return _copyPMServerObject(kIOPMAssertionMIGCopyTimedOutAssertions, 0, (CFTypeRef *)timedOutAssertions);
 }
-
-/******************************************************************************
- * IOPMAssertionDeclareUserActivity
- *
- ******************************************************************************/
-IOReturn IOPMAssertionDeclareUserActivity(
-                        CFStringRef          AssertionName,
-                        IOPMUserActiveType   userType,
-                        IOPMAssertionID      *AssertionID)
-{
-
-    IOReturn        return_code = kIOReturnError;
-    mach_port_t     pm_server = MACH_PORT_NULL;
-    kern_return_t   kern_result = KERN_SUCCESS;
-    IOReturn        err;
-
-    CFMutableDictionaryRef  properties = NULL;
-    CFDataRef               flattenedProps  = NULL;
-
-    if (!AssertionName || !AssertionID) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
-    
-    err = _pm_connect(&pm_server);
-    if(kIOReturnSuccess != err) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-
-    properties = CFDictionaryCreateMutable(0, 1, &kCFTypeDictionaryKeyCallBacks, 
-                                           &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(properties, kIOPMAssertionNameKey, AssertionName);
-
-    flattenedProps = CFPropertyListCreateData(0, properties, 
-                          kCFPropertyListBinaryFormat_v1_0, 0, NULL /* error */);
-    if (!flattenedProps) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
- 
-
-    kern_result = io_pm_declare_user_active( 
-                        pm_server, 
-                        userType,
-                        (vm_offset_t)CFDataGetBytePtr(flattenedProps),
-                        CFDataGetLength(flattenedProps),
-                        (int *)AssertionID,
-                        &return_code);
-
-
-    if(KERN_SUCCESS != kern_result) {
-        return_code = kIOReturnInternalError;
-        goto exit;
-    }
-    
-exit:
-    if (flattenedProps)
-        CFRelease(flattenedProps);
-
-    if (properties)
-        CFRelease(properties);
-
-    if (MACH_PORT_NULL != pm_server) {
-        _pm_disconnect(pm_server);
-    }
-
-    return return_code;
-}
-
 
 /******************************************************************************
  * IOPMCopyAssertionsStatus

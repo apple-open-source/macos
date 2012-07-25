@@ -1,6 +1,7 @@
 namespace="HTML"
 namespacePrefix="xhtml"
 namespaceURI="http://www.w3.org/1999/xhtml"
+fallbackInterfaceName="HTMLUnknownElement"
 
 a interfaceName=HTMLAnchorElement
 abbr interfaceName=HTMLElement
@@ -10,14 +11,15 @@ applet
 area
 article interfaceName=HTMLElement
 aside interfaceName=HTMLElement
-audio wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
+audio wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, constructorNeedsCreatedByParser
 b interfaceName=HTMLElement
 base
 basefont interfaceName=HTMLBaseFontElement
+bdi interfaceName=HTMLBDIElement, JSInterfaceName=HTMLElement
 bdo interfaceName=HTMLElement
 bgsound interfaceName=HTMLElement
 big interfaceName=HTMLElement
-blockquote
+blockquote interfaceName=HTMLQuoteElement
 body
 br interfaceName=HTMLBRElement
 button constructorNeedsFormElement
@@ -29,6 +31,8 @@ code interfaceName=HTMLElement
 col interfaceName=HTMLTableColElement
 colgroup interfaceName=HTMLTableColElement
 command interfaceName=HTMLElement
+content interfaceName=HTMLContentElement, conditional=SHADOW_DOM, runtimeConditional=shadowDOM
+webkitShadowContent interfaceName=HTMLElement, noConstructor
 datalist interfaceName=HTMLDataListElement, conditional=DATALIST
 dd interfaceName=HTMLElement
 del interfaceName=HTMLModElement
@@ -65,12 +69,12 @@ image mapToTagName=img
 img interfaceName=HTMLImageElement, constructorNeedsFormElement
 input constructorNeedsFormElement, constructorNeedsCreatedByParser
 ins interfaceName=HTMLModElement
-isindex interfaceName=HTMLIsIndexElement, constructorNeedsFormElement
+isindex interfaceName=HTMLUnknownElement
 kbd interfaceName=HTMLElement
 keygen constructorNeedsFormElement
 label
 layer interfaceName=HTMLElement
-legend constructorNeedsFormElement
+legend
 li interfaceName=HTMLLIElement
 link constructorNeedsCreatedByParser
 listing interfaceName=HTMLPreElement
@@ -79,7 +83,7 @@ mark interfaceName=HTMLElement
 marquee
 menu
 meta
-meter interfaceName=HTMLMeterElement, constructorNeedsFormElement, conditional=METER_TAG
+meter interfaceName=HTMLMeterElement, conditional=METER_TAG
 nav interfaceName=HTMLElement
 nobr interfaceName=HTMLElement
 noembed interfaceName=HTMLElement
@@ -87,14 +91,15 @@ noframes interfaceName=HTMLElement
 nolayer interfaceName=HTMLElement
 object constructorNeedsFormElement, constructorNeedsCreatedByParser
 ol interfaceName=HTMLOListElement
-optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement
-option constructorNeedsFormElement
+optgroup interfaceName=HTMLOptGroupElement
+option
 output constructorNeedsFormElement
+shadow interfaceName=HTMLShadowElement, conditional=SHADOW_DOM, runtimeConditional=shadowDOM
 p interfaceName=HTMLParagraphElement
 param
 plaintext interfaceName=HTMLElement
 pre
-progress interfaceName=HTMLProgressElement, constructorNeedsFormElement, conditional=PROGRESS_TAG
+progress interfaceName=HTMLProgressElement, conditional=PROGRESS_TAG
 q interfaceName=HTMLQuoteElement
 rp interfaceName=HTMLElement
 rt interfaceName=HTMLElement
@@ -106,7 +111,7 @@ section interfaceName=HTMLElement
 select constructorNeedsFormElement
 small interfaceName=HTMLElement
 source wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
-span interfaceName=HTMLElement
+span
 strike interfaceName=HTMLElement
 strong interfaceName=HTMLElement
 style constructorNeedsCreatedByParser
@@ -127,13 +132,7 @@ tt interfaceName=HTMLElement
 u interfaceName=HTMLElement
 ul interfaceName=HTMLUListElement
 var interfaceName=HTMLElement
-video wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
+video wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, constructorNeedsCreatedByParser
 wbr interfaceName=HTMLElement
 xmp interfaceName=HTMLPreElement
-
-#if ENABLE_XHTMLMP
-noscript interfaceName=HTMLNoScriptElement
-#else
 noscript interfaceName=HTMLElement
-#endif
-

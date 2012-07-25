@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/conn.c,v 1.86.2.20 2010/04/13 20:23:30 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -281,6 +281,7 @@ meta_back_init_one_conn(
 	int			do_return = 0;
 #ifdef HAVE_TLS
 	int			is_ldaps = 0;
+	int			do_start_tls = 0;
 #endif /* HAVE_TLS */
 
 	/* if the server is quarantined, and
@@ -421,12 +422,33 @@ retry_lock:;
 		META_BACK_TGT_CHASE_REFERRALS( mt ) ? LDAP_OPT_ON : LDAP_OPT_OFF );
 
 #ifdef HAVE_TLS
+	if ( !is_ldaps ) {
+		slap_bindconf *sb = NULL;
+
+		if ( ispriv ) {
+			sb = &mt->mt_idassert.si_bc;
+		} else {
+			sb = &mt->mt_tls;
+		}
+
+		if ( sb->sb_tls_do_init ) {
+			bindconf_tls_set( sb, msc->msc_ld );
+		} else if ( sb->sb_tls_ctx ) {
+			ldap_set_option( msc->msc_ld, LDAP_OPT_X_TLS_CTX, sb->sb_tls_ctx );
+		}
+
+		if ( sb == &mt->mt_idassert.si_bc && sb->sb_tls_ctx ) {
+			do_start_tls = 1;
+
+		} else if ( META_BACK_TGT_USE_TLS( mt )
+			|| ( op->o_conn->c_is_tls && META_BACK_TGT_PROPAGATE_TLS( mt ) ) )
+		{
+			do_start_tls = 1;
+		}
+	}
+
 	/* start TLS ("tls [try-]{start|propagate}" statement) */
-	if ( ( META_BACK_TGT_USE_TLS( mt )
-		|| ( op->o_conn->c_is_tls
-			&& META_BACK_TGT_PROPAGATE_TLS( mt ) ) )
-		&& !is_ldaps )
-	{
+	if ( do_start_tls ) {
 #ifdef SLAP_STARTTLS_ASYNCHRONOUS
 		/*
 		 * use asynchronous StartTLS; in case, chase referral
@@ -485,6 +507,7 @@ retry:;
 					if ( rs->sr_err == LDAP_SUCCESS ) {
 						rs->sr_err = err;
 					}
+					rs->sr_err = slap_map_api2result( rs );
 					
 					/* FIXME: in case a referral 
 					 * is returned, should we try
@@ -571,6 +594,7 @@ retry:;
 				}
 				ber_bvreplace( &msc->msc_cred, &mt->mt_idassert_passwd );
 			}
+			LDAP_BACK_CONN_ISIDASSERT_SET( msc );
 
 		} else {
 			ber_bvreplace( &msc->msc_bound_ndn, &slap_empty_bv );
@@ -684,6 +708,8 @@ meta_back_retry(
 
 	assert( mc->mc_refcnt > 0 );
 	if ( mc->mc_refcnt == 1 ) {
+		struct berval save_cred;
+
 		if ( LogTest( LDAP_DEBUG_ANY ) ) {
 			char	buf[ SLAP_TEXT_BUFLEN ];
 
@@ -702,6 +728,11 @@ meta_back_retry(
 				op->o_log_prefix, candidate, buf );
 		}
 
+		/* save credentials, if any, for later use;
+		 * meta_clear_one_candidate() would free them */
+		save_cred = msc->msc_cred;
+		BER_BVZERO( &msc->msc_cred );
+
 		meta_clear_one_candidate( op, mc, candidate );
 		LDAP_BACK_CONN_ISBOUND_CLEAR( msc );
 
@@ -710,6 +741,19 @@ meta_back_retry(
 		/* mc here must be the regular mc, reset and ready for init */
 		rc = meta_back_init_one_conn( op, rs, mc, candidate,
 			LDAP_BACK_CONN_ISPRIV( mc ), sendok, 0 );
+
+		/* restore credentials, if any and if needed;
+		 * meta_back_init_one_conn() restores msc_bound_ndn, if any;
+		 * if no msc_bound_ndn is restored, destroy credentials */
+		if ( !BER_BVISNULL( &msc->msc_bound_ndn )
+			&& BER_BVISNULL( &msc->msc_cred ) )
+		{
+			msc->msc_cred = save_cred;
+
+		} else if ( !BER_BVISNULL( &save_cred ) ) {
+			memset( save_cred.bv_val, 0, save_cred.bv_len );
+			ber_memfree_x( save_cred.bv_val, NULL );
+		}
 
 		/* restore the "binding" flag, in case */
 		if ( binding ) {
@@ -864,7 +908,7 @@ meta_back_get_candidate(
 
 	} else if ( candidate == META_TARGET_MULTIPLE ) {
 		Operation	op2 = *op;
-		SlapReply	rs2 = { 0 };
+		SlapReply	rs2 = { REP_RESULT };
 		slap_callback	cb2 = { 0 };
 		int		rc;
 
@@ -1094,6 +1138,7 @@ retry_lock:;
 			}
 
 			if ( mc != NULL ) {
+				/* move to tail of queue */
 				if ( mc != LDAP_TAILQ_LAST( &mi->mi_conn_priv[ LDAP_BACK_CONN2PRIV( mc ) ].mic_priv,
 					metaconn_t, mc_q ) )
 				{
@@ -1492,7 +1537,7 @@ retry_lock2:;
 
 			if ( i == cached 
 				|| meta_back_is_candidate( mt, &op->o_req_ndn,
-					LDAP_SCOPE_SUBTREE ) )
+					op->o_tag == LDAP_REQ_SEARCH ? op->ors_scope : LDAP_SCOPE_SUBTREE ) )
 			{
 
 				/*
@@ -1846,4 +1891,3 @@ meta_back_quarantine(
 done:;
 	ldap_pvt_thread_mutex_unlock( &mt->mt_quarantine_mutex );
 }
-

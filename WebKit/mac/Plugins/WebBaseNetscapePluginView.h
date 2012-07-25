@@ -46,8 +46,6 @@ namespace WebCore {
     class HTMLPlugInElement;
 }
 
-class WebHaltablePlugin;
-
 // Also declared in WebCore/WidgetMac.mm
 @interface NSView (Widget)
 - (void)visibleRectDidChange;
@@ -68,8 +66,6 @@ class WebHaltablePlugin;
     BOOL _hasFocus;
     BOOL _isCompletelyObscured;
     BOOL _isPrivateBrowsingEnabled;
-    BOOL _isHalted;
-    BOOL _hasBeenHalted;
     BOOL _snapshotting;
     
     RefPtr<WebCore::HTMLPlugInElement> _element;
@@ -77,8 +73,6 @@ class WebHaltablePlugin;
     RetainPtr<NSURL> _baseURL;
     RetainPtr<NSURL> _sourceURL;
     RetainPtr<NSImage> _cachedSnapshot;
-    
-    OwnPtr<WebHaltablePlugin> _haltable;
     
     NSTrackingRectTag _trackingTag;
 }
@@ -122,11 +116,6 @@ class WebHaltablePlugin;
 - (void)start;
 - (void)stop;
 
-- (void)halt;
-- (void)resumeFromHalt;
-- (BOOL)isHalted;
-- (BOOL)hasBeenHalted;
-
 - (void)addWindowObservers;
 - (void)removeWindowObservers;
 - (BOOL)shouldClipOutPlugin;
@@ -145,6 +134,8 @@ class WebHaltablePlugin;
 - (NSRect)actualVisibleRectInWindow; // takes transforms into account.
 
 - (CALayer *)pluginLayer;
+
+- (BOOL)getFormValue:(NSString **)value;
 
 @end
 

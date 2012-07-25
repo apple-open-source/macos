@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -182,7 +182,6 @@ void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp);
 int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t context);
 int msdosfs_pcbmap (struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
 int msdosfs_pcbmap_internal(struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
-int msdosfs_clusterfree(struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcnp);
 int msdosfs_clusteralloc(struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith, uint32_t *retcluster, uint32_t *got);
 int msdosfs_fatentry(int function, struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcontents, uint32_t newcontents);
 int msdosfs_freeclusterchain(struct msdosfsmount *pmp, uint32_t startchain);
@@ -203,7 +202,7 @@ void msdosfs_meta_sync_callback(void *pmp, void *unused);
 
 enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context);
 
-__private_extern__ u_char l2u[256];
+extern u_char l2u[256];
 
 /*
  * Tunables to control delayed metadata sync.

@@ -35,17 +35,21 @@
 
 namespace WebCore {
 class Element;
+class IntRect;
 }
 
 namespace WebKit {
 
 class WebPage;
 
-class InjectedBundlePageFullScreenClient : public APIClient<WKBundlePageFullScreenClient> {
+class InjectedBundlePageFullScreenClient : public APIClient<WKBundlePageFullScreenClient, kWKBundlePageFullScreenClientCurrentVersion> {
 public:
     bool supportsFullScreen(WebPage*, bool withKeyboard);
     void enterFullScreenForElement(WebPage*, WebCore::Element*);
     void exitFullScreenForElement(WebPage*, WebCore::Element*);
+    void beganEnterFullScreen(WebPage*, WebCore::IntRect& initialFrame, WebCore::IntRect& finalFrame);
+    void beganExitFullScreen(WebPage*, WebCore::IntRect& initialFrame, WebCore::IntRect& finalFrame);
+    void closeFullScreen(WebPage*);
 };
 
 } // namespace WebKit

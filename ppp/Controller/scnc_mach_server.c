@@ -41,6 +41,8 @@ includes
 #include <SystemConfiguration/SCValidation.h>
 #include <Security/SecItem.h>
 #include <Security/SecCertificatePriv.h>
+#include <Security/Security.h>
+#include <Security/SecTask.h>
 #include "bsm/libbsm.h"
 
 #include "scnc_client.h"
@@ -48,6 +50,7 @@ includes
 #include "scnc_utils.h"
 #include "pppcontroller.h"
 #include "pppcontroller_types.h"
+#include "pppcontrollerServer.h"
 #include "scnc_mach_server.h"
 
 /* -----------------------------------------------------------------------------
@@ -72,10 +75,7 @@ globals
 ----------------------------------------------------------------------------- */
 
 static CFMachPortRef		gServer_cfport;
-
-extern struct mig_subsystem	_pppcontroller_subsystem;
-extern boolean_t		pppcontroller_server(mach_msg_header_t *, 
-						       mach_msg_header_t *);
+static Boolean hasEntitlement(audit_token_t audit_token, CFStringRef entitlement, CFStringRef vpntype);
 
 
 extern CFRunLoopRef			gControllerRunloop;
@@ -83,28 +83,33 @@ extern CFRunLoopSourceRef	gPluginRunloop;
 extern CFRunLoopSourceRef	gTerminalrls;
 
 
-static uid_t S_uid = -1;
-static gid_t S_gid = -1;
-static pid_t S_pid = -1;
+#define kSCVPNConnectionEntitlementName CFSTR("com.apple.private.SCNetworkConnection-proxy-user")
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 __private_extern__
 kern_return_t
-_pppcontroller_attach(mach_port_t server,
-	    xmlData_t nameRef,		/* raw XML bytes */
-	    mach_msg_type_number_t nameLen,
-		mach_port_t bootstrap,
-		mach_port_t notify,
-		mach_port_t au_session,
-		mach_port_t *session,
-		int * result)
+_pppcontroller_attach_proxy(mach_port_t server,
+							xmlData_t nameRef,		/* raw XML bytes */
+							mach_msg_type_number_t nameLen,
+							mach_port_t bootstrap,
+							mach_port_t notify,
+							mach_port_t au_session,
+							int uid,
+							int gid,
+							int pid,
+							mach_port_t *session,
+							int * result,
+							audit_token_t audit_token)
 {
 	CFStringRef			serviceID = NULL;
 	CFMachPortRef		port = NULL;
 	CFRunLoopSourceRef  rls = NULL;
 	struct client		*client = NULL;
 	mach_port_t			oldport;
+	uid_t				audit_euid = -1;
+	gid_t				audit_egid = -1;
+	pid_t				audit_pid = -1;
 	
 	*session = MACH_PORT_NULL;
 	/* un-serialize the serviceID */
@@ -118,6 +123,32 @@ _pppcontroller_attach(mach_port_t server,
 		goto failed;
 	}
 
+	/* only allow "root" callers to change the client uid/gid/pid */
+	audit_token_to_au32(audit_token,
+						NULL,			// auidp
+						&audit_euid,	// euid
+						&audit_egid,	// egid
+						NULL,			// ruid
+						NULL,			// rgid
+						&audit_pid,		// pid
+						NULL,			// asid
+						NULL);			// tid
+
+    if ((audit_euid != 0) &&
+        ((uid != audit_euid) || (gid != audit_egid) || (pid != audit_pid))) {
+        /*
+         * the caller is NOT "root" and is trying to masquerade
+         * as some other user/process.
+         */
+        
+        /* does caller has the right entitlement */
+        if (!(hasEntitlement(audit_token, kSCVPNConnectionEntitlementName, NULL))){
+           *result = kSCStatusAccessError;
+            goto failed;
+        }
+    }
+    
+	
 	//if ((findbyserviceID(serviceID)) == 0) {
 	//	*result = kSCStatusInvalidArgument;
 	//	goto failed;
@@ -162,7 +193,7 @@ _pppcontroller_attach(mach_port_t server,
 		SCLog(TRUE, LOG_ERR, CFSTR("_pppcontroller_attach au_session == NULL"));
 	}
 
-	client = client_new_mach(port, rls, serviceID, S_uid, S_gid, S_pid, bootstrap, notify, au_session);
+	client = client_new_mach(port, rls, serviceID, uid, gid, pid, bootstrap, notify, au_session);
 	if (client == 0) {
 		*result = kSCStatusFailed;
 		goto failed;
@@ -199,6 +230,48 @@ _pppcontroller_attach(mach_port_t server,
 			mach_port_deallocate(mach_task_self(), notify);
 	}
     return KERN_SUCCESS;
+}
+
+__private_extern__
+kern_return_t
+_pppcontroller_attach(mach_port_t server,
+					  xmlData_t nameRef,		/* raw XML bytes */
+					  mach_msg_type_number_t nameLen,
+					  mach_port_t bootstrap,
+					  mach_port_t notify,
+					  mach_port_t au_session,
+					  mach_port_t *session,
+					  int * result,
+					  audit_token_t audit_token)
+{
+	kern_return_t	kr;
+	uid_t			euid	= -1;
+	gid_t			egid	= -1;
+	pid_t			pid		= -1;
+	
+	audit_token_to_au32(audit_token,
+						NULL,			// auidp
+						&euid,			// euid
+						&egid,			// egid
+						NULL,			// ruid
+						NULL,			// rgid
+						&pid,			// pid
+						NULL,			// asid
+						NULL);			// tid
+	
+	kr = _pppcontroller_attach_proxy(server,
+									 nameRef,
+									 nameLen,
+									 bootstrap,
+									 notify,
+									 au_session,
+									 euid,
+									 egid,
+									 pid,
+									 session,
+									 result,
+									 audit_token);
+	return kr;
 }
 
 /* -----------------------------------------------------------------------------
@@ -421,8 +494,9 @@ _pppcontroller_stop(mach_port_t session,
 				int		force,
 				int		*result)
 {
-	struct client		*client;
+	struct client		*client, *arb_client;
 	struct service		*serv = 0;
+	int                  scnc_reason;
 	
     client = client_findbymachport(session);
     if (!client ) {
@@ -434,8 +508,9 @@ _pppcontroller_stop(mach_port_t session,
 		*result = kSCStatusConnectionNoService;
 		goto failed;
 	}
-        
-    scnc_stop(serv, force ? 0 : client, SIGHUP);
+	arb_client = force ? 0 : client;
+	scnc_reason = arb_client? SCNC_STOP_USER_REQ : SCNC_STOP_USER_REQ_NO_CLIENT; 
+    scnc_stop(serv, client, SIGHUP, scnc_reason);
 	
 	*result = kSCStatusOK;
     return (KERN_SUCCESS);
@@ -664,10 +739,6 @@ _pppcontroller_iscontrolled(mach_port_t server,
 }
 
 
-#if TARGET_OS_EMBEDDED
-#include <Security/Security.h>
-#include <Security/SecTask.h>
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static Boolean
@@ -727,8 +798,6 @@ hasEntitlement(audit_token_t audit_token, CFStringRef entitlement, CFStringRef v
 	return hasEntitlement;
 }
 
-#endif	// TARGET_OS_EMBEDDED
-
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -753,35 +822,6 @@ void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, 
 
 	if (status == MACH_SEND_TIMEOUT)
 		mach_msg_destroy(&msg.header);
-}
-
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static __inline__ void
-read_trailer(mach_msg_header_t * request)
-{
-    mach_msg_audit_trailer_t	*trailer;
-    trailer = (__typeof__(trailer))((vm_offset_t)request +
-					      round_msg(request->msgh_size));
-
-    if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
-	(trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-	audit_token_to_au32(trailer->msgh_audit,
-							NULL,			// auidp
-							&S_uid,			// euid
-							&S_gid,			// egid
-							NULL,			// ruid
-							NULL,			// rgid
-							&S_pid,		// pid
-							NULL,			// asid
-							NULL);			// tid
-    }
-    else {
-	S_uid = -1;
-	S_gid = -1;
-	S_pid = -1;
-    }
 }
 
 
@@ -832,18 +872,17 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
     mach_msg_return_t 	r;
     mach_msg_header_t *	request = (mach_msg_header_t *)msg;
     mach_msg_header_t *	reply;
-    char		reply_s[128];
+    char		reply_s[128] __attribute__ ((aligned (4)));		// Wcast-align fix - force alignment
 
     if (process_notification(request) == FALSE) {
-		read_trailer(request);
 		if (_pppcontroller_subsystem.maxsize > sizeof(reply_s)) {
-			syslog(LOG_ERR, "PPPController: %d > %d",
+			syslog(LOG_ERR, "PPPController: %d > %ld",
 				_pppcontroller_subsystem.maxsize, sizeof(reply_s));
 			reply = (mach_msg_header_t *)
 			malloc(_pppcontroller_subsystem.maxsize);
 		}
 		else {
-			reply = (mach_msg_header_t *)reply_s;
+			reply = ALIGNED_CAST(mach_msg_header_t *)reply_s;
 		}
 		if (pppcontroller_server(request, reply) == FALSE) {
 			syslog(LOG_INFO, "unknown message ID (%d) received",
@@ -870,7 +909,7 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 				mach_msg_destroy(reply);
 			}
 		}
-		if (reply != (mach_msg_header_t *)reply_s) {
+		if (reply != ALIGNED_CAST(mach_msg_header_t *)reply_s) {
 			free(reply);
 		}
     }

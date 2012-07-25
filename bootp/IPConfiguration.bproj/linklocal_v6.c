@@ -59,7 +59,10 @@ linklocal_v6_address_changed(ServiceRef service_p,
 	/* find our linklocal address */
 	for (i = 0, scan = addr_list_p->list; 
 	     i < addr_list_p->count; i++, scan++) {
-	    if (IN6_IS_ADDR_LINKLOCAL(&(addr_list_p->list[0].addr))) {
+	    if ((scan->addr_flags & IN6_IFF_NOTREADY) != 0) {
+		continue;
+	    }
+	    if (IN6_IS_ADDR_LINKLOCAL(&scan->addr)) {
 		linklocal_p = scan;
 		break;
 	    }

@@ -23,7 +23,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -59,10 +59,10 @@ inline MediaQueryExp::MediaQueryExp(const AtomicString& mediaFeature, CSSParserV
             // currently accepts only <integer>/<integer>
 
             RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            CSSParserValue* value = 0;
+            CSSParserValue* value = valueList->current();
             bool isValid = true;
 
-            while ((value = valueList->current()) && isValid) {
+            while (value && isValid) {
                 if (value->unit == CSSParserValue::Operator && value->iValue == '/')
                     list->append(CSSPrimitiveValue::create("/", CSSPrimitiveValue::CSS_STRING));
                 else if (value->unit == CSSPrimitiveValue::CSS_NUMBER)

@@ -27,7 +27,7 @@ module svg {
 
     interface [
         Conditional=SVG&FILTERS,
-        DontCheckEnums
+        DoNotCheckConstants
     ] SVGFEMorphologyElement : SVGElement,
                                SVGFilterPrimitiveStandardAttributes {
         // Morphology Operators
@@ -40,7 +40,8 @@ module svg {
         readonly attribute SVGAnimatedNumber      radiusX;
         readonly attribute SVGAnimatedNumber      radiusY;
 
-        void setRadius(in float radiusX, in float radiusY);
+        void setRadius(in [Optional=DefaultIsUndefined] float radiusX, 
+                       in [Optional=DefaultIsUndefined] float radiusY);
     };
 
 }

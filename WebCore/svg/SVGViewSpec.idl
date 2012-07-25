@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGViewSpec : SVGZoomAndPan, SVGFitToViewBox
+    interface [
+        Conditional=SVG
+    ] SVGViewSpec : SVGZoomAndPan, SVGFitToViewBox
     {
           readonly attribute SVGTransformList transform;
           readonly attribute SVGElement       viewTarget;

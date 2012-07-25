@@ -34,8 +34,21 @@ typedef struct _malloc_zone_t malloc_zone_t;
 #define auto_zone_t malloc_zone_t
 
 // Include the collection_phase_t flags
-#include <stdint.h>
-#include "auto_trace.h"
+//#include <stdint.h>
+//#include "auto_trace.h"
+
+typedef enum {
+    AUTO_TRACE_SCANNING_PHASE = 0,
+    AUTO_TRACE_WEAK_REFERENCE_PHASE,
+    AUTO_TRACE_FINALIZING_PHASE,
+    AUTO_TRACE_SCAVENGING_PHASE
+} auto_collection_phase_t;
+
+typedef enum {
+	AUTO_TRACE_FULL = 0,
+	AUTO_TRACE_GENERATIONAL = 1,
+	AUTO_TRACE_LOCAL = 2
+} auto_collection_type_t;
 
 provider garbage_collection {
 	probe collection_begin(auto_zone_t *zone, auto_collection_type_t collection_type);

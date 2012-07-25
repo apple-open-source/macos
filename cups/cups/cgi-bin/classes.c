@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $"
  *
  *   Class status CGI for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -257,7 +257,7 @@ do_class_op(http_t      *http,		/* I - HTTP connection */
   else if (cupsLastError() > IPP_OK_CONFLICT)
   {
     cgiStartHTML(title);
-    cgiShowIPPError(_("Unable to do maintenance command:"));
+    cgiShowIPPError(_("Unable to do maintenance command"));
   }
   else
   {
@@ -447,7 +447,7 @@ show_all_classes(http_t     *http,	/* I - Connection to server */
     * Show the error...
     */
 
-    cgiShowIPPError(_("Unable to get class list:"));
+    cgiShowIPPError(_("Unable to get class list"));
   }
 
    cgiEndHTML();
@@ -546,7 +546,7 @@ show_class(http_t     *http,		/* I - Connection to server */
     */
 
     cgiStartHTML(pclass);
-    cgiShowIPPError(_("Unable to get class status:"));
+    cgiShowIPPError(_("Unable to get class status"));
   }
 
    cgiEndHTML();
@@ -554,5 +554,5 @@ show_class(http_t     *http,		/* I - Connection to server */
 
 
 /*
- * End of "$Id: classes.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: classes.c 7940 2008-09-16 00:45:16Z mike $".
  */

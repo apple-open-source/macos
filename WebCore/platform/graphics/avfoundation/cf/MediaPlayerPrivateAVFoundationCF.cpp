@@ -25,7 +25,9 @@
 
 #include "config.h"
 
-#if PLATFORM(WIN) && ENABLE(VIDEO) && USE(AVFOUNDATION)
+#if PLATFORM(WIN)&& ENABLE(VIDEO) 
+
+#if USE(AVFOUNDATION)
 
 #include "MediaPlayerPrivateAVFoundationCF.h"
 
@@ -158,6 +160,8 @@ private:
     virtual bool platformCALayerContentsOpaque() const { return false; }
     virtual bool platformCALayerDrawsContent() const { return false; }
     virtual void platformCALayerLayerDidDisplay(PlatformLayer*) { }
+    virtual void platformCALayerDidCreateTiles(const Vector<FloatRect>&) { }
+    virtual float platformCALayerDeviceScaleFactor() { return 1; }
 
     AVFWrapper* m_parent;
 };
@@ -1252,4 +1256,10 @@ void LayerClient::platformCALayerLayoutSublayersOfLayer(PlatformCALayer* wrapper
 
 } // namespace WebCore
 
-#endif // PLATFORM(WIN) && ENABLE(VIDEO) && USE(AVFOUNDATION)
+#else
+// AVFoundation should always be enabled for Apple production builds.
+#if __PRODUCTION__ && !USE(AVFOUNDATION)
+#error AVFoundation is not enabled!
+#endif // __PRODUCTION__ && !USE(AVFOUNDATION)
+#endif // USE(AVFOUNDATION)
+#endif // PLATFORM(WIN) && ENABLE(VIDEO)

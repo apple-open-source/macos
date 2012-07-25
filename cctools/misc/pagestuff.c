@@ -78,6 +78,13 @@ enum mach_o_part_type {
     MP_LOC_STRING_TABLE,
     MP_CODE_SIG,
     MP_FUNCTION_STARTS,
+    MP_DATA_IN_CODE,
+    MP_CODE_SIGN_DRS,
+    MP_DYLD_INFO_REBASE,
+    MP_DYLD_INFO_BIND,
+    MP_DYLD_INFO_WEAK_BIND,
+    MP_DYLD_INFO_LAZY_BIND,
+    MP_DYLD_INFO_EXPORT,
     MP_EMPTY_SPACE
 };
 static char *mach_o_part_type_names[] = {
@@ -103,6 +110,13 @@ static char *mach_o_part_type_names[] = {
     "MP_LOC_STRING_TABLE",
     "MP_CODE_SIG",
     "MP_FUNCTION_STARTS",
+    "MP_DATA_IN_CODE",
+    "MP_CODE_SIGN_DRS",
+    "MP_DYLD_INFO_REBASE",
+    "MP_DYLD_INFO_BIND",
+    "MP_DYLD_INFO_WEAK_BIND",
+    "MP_DYLD_INFO_LAZY_BIND",
+    "MP_DYLD_INFO_EXPORT",
     "MP_EMPTY_SPACE"
 };
 
@@ -130,6 +144,8 @@ enum bool arch_found = FALSE;
 
 static struct nlist *sorted_symbols = NULL;
 static struct nlist_64 *sorted_symbols64 = NULL;
+
+static void usage(void);
 
 static void create_file_parts(
     char *file_name);
@@ -173,6 +189,10 @@ static int compare64(
     struct nlist_64 *p1,
     struct nlist_64 *p2);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * pagestuff is invoked as follows:
  *
@@ -191,12 +211,8 @@ char *argv[])
     struct arch_flag a;
 
 	progname = argv[0];
-	if(argc < 3){
-	    fprintf(stderr, "Usage: %s mach-o [-arch name] [-p] [-a] "
-	            "pagenumber [pagenumber ...]\n",
-		    progname);
-	    exit(EXIT_FAILURE);
-	}
+	if(argc < 3)
+	    usage();
 	start = 2;
 
 	if(strcmp(argv[start], "-arch") == 0){
@@ -211,6 +227,8 @@ char *argv[])
 	    }
 	    arch_flag = &a;
 	    start += 2;
+	    if(argc < 5)
+		usage();
         }
 
 	create_file_parts(argv[1]);
@@ -252,6 +270,16 @@ char *argv[])
 	}
 
 	return(EXIT_SUCCESS);
+}
+
+static
+void
+usage(void)
+{
+	fprintf(stderr, "Usage: %s mach-o [-arch name] [-p] [-a] "
+		"pagenumber [pagenumber ...]\n",
+		progname);
+	exit(EXIT_FAILURE);
 }
 
 static
@@ -460,6 +488,7 @@ struct file_part *fp)
     struct load_command *lc;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
+    struct dyld_info_command *dyld_info;
     struct twolevel_hints_command *hints;
     struct segment_command *sg;
     struct segment_command_64 *sg64;
@@ -471,7 +500,9 @@ struct file_part *fp)
     char *strings;
     struct dylib_module *modtab;
     struct dylib_module_64 *modtab64;
-    struct linkedit_data_command *split_info, *code_sig, *func_starts;
+    struct linkedit_data_command *split_info, *code_sig, *func_starts,
+			         *data_in_code, *code_sign_drs;
+    enum bool dylib_stub;
 
 	mp = new_mach_o_part();
 	mp->offset = fp->offset;
@@ -486,12 +517,14 @@ struct file_part *fp)
 	    fp->mh64 = NULL;
 	    mp->size = sizeof(struct mach_header) + ofile.mh->sizeofcmds;
 	    ncmds = ofile.mh->ncmds;
+	    dylib_stub = ofile.mh->filetype == MH_DYLIB_STUB;
 	}
 	else{
 	    fp->mh64 = ofile.mh64;
 	    fp->mh = NULL;
 	    mp->size = sizeof(struct mach_header_64) + ofile.mh64->sizeofcmds;
 	    ncmds = ofile.mh64->ncmds;
+	    dylib_stub = ofile.mh64->filetype == MH_DYLIB_STUB;
 	}
 	mp->type = MP_MACH_HEADERS;
 	insert_mach_o_part(fp, mp);
@@ -499,6 +532,7 @@ struct file_part *fp)
 
 	st = NULL;
 	dyst = NULL;
+	dyld_info = NULL;
 	hints = NULL;
 	symbols = NULL;
 	symbols64 = NULL;
@@ -506,6 +540,9 @@ struct file_part *fp)
 	split_info = NULL;
 	code_sig = NULL;
 	func_starts = NULL;
+	data_in_code = NULL;
+	code_sign_drs = NULL;
+
 	lc = ofile.load_commands;
 	for(i = 0; i < ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
@@ -513,6 +550,9 @@ struct file_part *fp)
 	    }
 	    else if(dyst == NULL && lc->cmd == LC_DYSYMTAB){
 		dyst = (struct dysymtab_command *)lc;
+	    }
+	    else if(dyld_info == NULL && lc->cmd == LC_DYLD_INFO_ONLY){
+		dyld_info = (struct dyld_info_command *)lc;
 	    }
 	    else if(hints == NULL && lc->cmd == LC_TWOLEVEL_HINTS){
 		hints = (struct twolevel_hints_command *)lc;
@@ -526,7 +566,13 @@ struct file_part *fp)
 	    else if(func_starts == NULL && lc->cmd == LC_FUNCTION_STARTS){
 		func_starts = (struct linkedit_data_command *)lc;
 	    }
-	    else if(lc->cmd == LC_SEGMENT){
+	    else if(data_in_code == NULL && lc->cmd == LC_DATA_IN_CODE){
+		data_in_code = (struct linkedit_data_command *)lc;
+	    }
+	    else if(code_sign_drs == NULL && lc->cmd == LC_DYLIB_CODE_SIGN_DRS){
+		code_sign_drs = (struct linkedit_data_command *)lc;
+	    }
+	    else if(lc->cmd == LC_SEGMENT && dylib_stub == FALSE){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)
 		      ((char *)sg + sizeof(struct segment_command));
@@ -571,7 +617,7 @@ struct file_part *fp)
 		    s++;
 		}
 	    }
-	    else if(lc->cmd == LC_SEGMENT_64){
+	    else if(lc->cmd == LC_SEGMENT_64 && dylib_stub == FALSE){
 		sg64 = (struct segment_command_64 *)lc;
 		s64 = (struct section_64 *)
 		      ((char *)sg64 + sizeof(struct segment_command_64));
@@ -787,6 +833,18 @@ struct file_part *fp)
 		    }
 		    if(n_strx == 0)
 			continue;
+		    /*
+		     * If this object has any bad string indexes don't try to
+		     * break the string table into the local and external
+		     * parts.
+		     */
+		    if(n_strx > st->strsize){
+			ext_low = st->strsize;
+			local_low = st->strsize;
+			ext_high = 0;
+			local_high = 0;
+			break;
+		    }
 		    if(n_type & N_EXT ||
 		       (filetype == MH_EXECUTE && n_type & N_PEXT)){
 			if(n_strx > ext_high)
@@ -890,6 +948,43 @@ struct file_part *fp)
 		insert_mach_o_part(fp, mp);
 	    }
 	}
+	if(dyld_info != NULL){
+	    if(dyld_info->rebase_size != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + dyld_info->rebase_off;
+		mp->size = dyld_info->rebase_size;
+		mp->type = MP_DYLD_INFO_REBASE;
+		insert_mach_o_part(fp, mp);
+	    }
+	    if(dyld_info->bind_size != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + dyld_info->bind_off;
+		mp->size = dyld_info->bind_size;
+		mp->type = MP_DYLD_INFO_BIND;
+		insert_mach_o_part(fp, mp);
+	    }
+	    if(dyld_info->weak_bind_size != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + dyld_info->weak_bind_off;
+		mp->size = dyld_info->weak_bind_size;
+		mp->type = MP_DYLD_INFO_WEAK_BIND;
+		insert_mach_o_part(fp, mp);
+	    }
+	    if(dyld_info->lazy_bind_size != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + dyld_info->lazy_bind_off;
+		mp->size = dyld_info->lazy_bind_size;
+		mp->type = MP_DYLD_INFO_LAZY_BIND;
+		insert_mach_o_part(fp, mp);
+	    }
+	    if(dyld_info->export_size != 0){
+		mp = new_mach_o_part();
+		mp->offset = fp->offset + dyld_info->export_off;
+		mp->size = dyld_info->export_size;
+		mp->type = MP_DYLD_INFO_EXPORT;
+		insert_mach_o_part(fp, mp);
+	    }
+	}
 	if(code_sig != NULL && code_sig->datasize != 0){
 	    mp = new_mach_o_part();
 	    mp->offset = fp->offset + code_sig->dataoff;
@@ -902,6 +997,20 @@ struct file_part *fp)
 	    mp->offset = fp->offset + func_starts->dataoff;
 	    mp->size = func_starts->datasize;
 	    mp->type = MP_FUNCTION_STARTS;
+	    insert_mach_o_part(fp, mp);
+	}
+	if(data_in_code != NULL && data_in_code->datasize != 0){
+	    mp = new_mach_o_part();
+	    mp->offset = fp->offset + data_in_code->dataoff;
+	    mp->size = data_in_code->datasize;
+	    mp->type = MP_DATA_IN_CODE;
+	    insert_mach_o_part(fp, mp);
+	}
+	if(code_sign_drs != NULL && code_sign_drs->datasize != 0){
+	    mp = new_mach_o_part();
+	    mp->offset = fp->offset + code_sign_drs->dataoff;
+	    mp->size = code_sign_drs->datasize;
+	    mp->type = MP_CODE_SIGN_DRS;
 	    insert_mach_o_part(fp, mp);
 	}
 }
@@ -1268,6 +1377,48 @@ uint32_t page_number)
 			print_arch(fp);
 			printed = TRUE;
 			break;
+		    case MP_DATA_IN_CODE:
+			printf("File Page %u contains info for data in code",
+			       page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_CODE_SIGN_DRS:
+			printf("File Page %u contains info for code signing "
+			       "DRs copied from linked dylib", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_DYLD_INFO_REBASE:
+			printf("File Page %u contains dyld info for sliding "
+			       "an image", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_DYLD_INFO_BIND:
+			printf("File Page %u contains dyld info for binding "
+			       "symbols", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_DYLD_INFO_WEAK_BIND:
+			printf("File Page %u contains dyld info for weak bound "
+			       "symbols", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_DYLD_INFO_LAZY_BIND:
+			printf("File Page %u contains dyld info for lazy bound "
+			       "symbols", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_DYLD_INFO_EXPORT:
+			printf("File Page %u contains dyld info for symbols "
+			       "exported by a dylib", page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
 		    case MP_EMPTY_SPACE:
 			break;
 		    }
@@ -1470,6 +1621,27 @@ struct mach_o_part *mp)
 	    break;
 	case MP_FUNCTION_STARTS:
 	    printf("data of function starts");
+	    break;
+	case MP_DATA_IN_CODE:
+	    printf("info for data in code");
+	    break;
+	case MP_CODE_SIGN_DRS:
+	    printf("info for code signing DRs copied from linked dylibs");
+	    break;
+	case MP_DYLD_INFO_REBASE:
+	    printf("dyld info for sliding an image");
+	    break;
+	case MP_DYLD_INFO_BIND:
+	    printf("dyld info for binding symbols");
+	    break;
+	case MP_DYLD_INFO_WEAK_BIND:
+	    printf("dyld info for binding weak symbols");
+	    break;
+	case MP_DYLD_INFO_LAZY_BIND:
+	    printf("dyld info for binding lazy symbols");
+	    break;
+	case MP_DYLD_INFO_EXPORT:
+	    printf("dyld info for exported symbols");
 	    break;
 	case MP_EMPTY_SPACE:
 	    printf("empty space");

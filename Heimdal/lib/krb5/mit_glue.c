@@ -31,8 +31,6 @@
  * SUCH DAMAGE.
  */
 
-#define KRB5_DEPRECATED
-
 #include "krb5_locl.h"
 
 #ifndef HEIMDAL_SMALLER
@@ -79,8 +77,7 @@ krb5_c_verify_checksum(krb5_context context, const krb5_keyblock *key,
 	return ret;
 
     if (data_cksum.cksumtype == cksum->cksumtype
-	&& data_cksum.checksum.length == cksum->checksum.length
-	&& ct_memcmp(data_cksum.checksum.data, cksum->checksum.data, cksum->checksum.length) == 0)
+	&& krb5_data_ct_cmp(&data_cksum.checksum, &cksum->checksum) == 0)
 	*valid = 1;
 
     krb5_free_checksum_contents(context, &data_cksum);
@@ -142,7 +139,7 @@ krb5_checksum_free(krb5_context context, krb5_checksum *cksum)
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_c_valid_enctype (krb5_enctype etype)
 {
-    return krb5_enctype_valid(NULL, etype);
+    return !krb5_enctype_valid(NULL, etype);
 }
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
@@ -227,7 +224,7 @@ krb5_c_decrypt(krb5_context context,
 	krb5_crypto_destroy(context, crypto);
 	return ret;
 	}
-	
+
 	if (blocksize > ivec->length) {
 	    krb5_crypto_destroy(context, crypto);
 	    return KRB5_BAD_MSIZE;
@@ -317,12 +314,12 @@ krb5_c_encrypt_length(krb5_context context,
  * @ingroup krb5_deprecated
  */
 
-KRB5_DEPRECATED
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_c_enctype_compare(krb5_context context,
 		       krb5_enctype e1,
 		       krb5_enctype e2,
 		       krb5_boolean *similar)
+    KRB5_DEPRECATED_FUNCTION("Use X instead")
 {
     *similar = (e1 == e2);
     return 0;
@@ -378,6 +375,12 @@ krb5_c_prf(krb5_context context,
     return ret;
 }
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_c_random_make_octets(krb5_context context, krb5_data * data)
+{
+    return krb5_generate_random_keyblock(context, data->length, data->data);
+}
+
 /**
  * MIT compat glue
  *
@@ -390,6 +393,40 @@ krb5_cc_copy_creds(krb5_context context,
 		   krb5_ccache to)
 {
     return krb5_cc_copy_cache(context, from, to);
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_getsendsubkey(krb5_context context, krb5_auth_context auth_context,
+                            krb5_keyblock **keyblock)
+{
+    return krb5_auth_con_getlocalsubkey(context, auth_context, keyblock);
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_getrecvsubkey(krb5_context context, krb5_auth_context auth_context,
+                            krb5_keyblock **keyblock)
+{
+    return krb5_auth_con_getremotesubkey(context, auth_context, keyblock);
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_setsendsubkey(krb5_context context, krb5_auth_context auth_context,
+                            krb5_keyblock *keyblock)
+{
+    return krb5_auth_con_setlocalsubkey(context, auth_context, keyblock);
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_setrecvsubkey(krb5_context context, krb5_auth_context auth_context,
+                            krb5_keyblock *keyblock)
+{
+    return krb5_auth_con_setremotesubkey(context, auth_context, keyblock);
+}
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_free_default_realm(krb5_context context, krb5_realm realm)
+{
+    return krb5_xfree(realm);
 }
 
 #endif /* HEIMDAL_SMALLER */

@@ -54,15 +54,10 @@ int main()
 
     for (i=0; i<DO_ITERATIONS; i++)
     {
-//        bool doFork = (0 == i%3);
-        bool doFork = true;
-        if (doFork) {
-            didFork++;
-            if (0 != fork()) {
-                doFork = false;
-                continue;
-            }
+        if (0 != fork()) {
+            continue;
         }
+
         ret = IOPMAssertionCreate(  kIOPMAssertionTypeNoDisplaySleep, 
                                     kIOPMAssertionLevelOn, 
                                     &assertion_id);
@@ -81,27 +76,16 @@ int main()
             break;
         }
         
-        if (doFork) {
-            printf("I am the forked. (%d)\n", didFork);
-            // The forked child exits suddenly, forcing configd to clean up the dangling timer & assertion.
-            exit(0);
-        }
-    
-        printf("I am the proud parent - RELEASE.\n");
-        ret = IOPMAssertionRelease(assertion_id);
-        if(kIOReturnSuccess != ret) {
-            PMTestFail("Error 0x%08x from IOPMAssertionRelease()\n", ret);
-            failureLine = __LINE__;
-            break;
-        }
-    }
+        printf("Forked child exiting without releasing assertion. (%d)\n", didFork);
 
-    printf("I am the proud parent - WRAP-UP.\n");
+        // The forked child exits suddenly, forcing configd to clean up the dangling timer & assertion.
+        exit(0);
+    }
 
     didIterations = i;
 
     PMTestLog("IOPMAssertionSetTimeout stress test: Did %d iterations, %d of which were forked children.", didIterations, didFork);
-
+    
     if (kIOReturnSuccess != ret) {
         PMTestFail("Failure - IOReturn value 0x%08x returned at %s:%d", ret, __FILE__, failureLine);
     } else {

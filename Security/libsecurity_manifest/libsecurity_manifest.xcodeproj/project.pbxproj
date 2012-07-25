@@ -1,0 +1,327 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D60C834A09F5AD980069DF6D /* Download.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D60C834409F5AD980069DF6D /* Download.cpp */; };
+		D60C834B09F5AD980069DF6D /* Download.h in Headers */ = {isa = PBXBuildFile; fileRef = D60C834509F5AD980069DF6D /* Download.h */; };
+		D60C834C09F5AD980069DF6D /* SecureDownload.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D60C834609F5AD980069DF6D /* SecureDownload.cpp */; };
+		D60C834D09F5AD980069DF6D /* SecureDownload.h in Headers */ = {isa = PBXBuildFile; fileRef = D60C834709F5AD980069DF6D /* SecureDownload.h */; settings = {ATTRIBUTES = (); }; };
+		D60C834E09F5AD980069DF6D /* SecureDownloadInternal.c in Sources */ = {isa = PBXBuildFile; fileRef = D60C834809F5AD980069DF6D /* SecureDownloadInternal.c */; };
+		D60C834F09F5AD980069DF6D /* SecureDownloadInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = D60C834909F5AD980069DF6D /* SecureDownloadInternal.h */; settings = {ATTRIBUTES = (); }; };
+		D6C8AFBC05DD26C6003DB724 /* SecManifest.h in Headers */ = {isa = PBXBuildFile; fileRef = D658622705DA860900E7380F /* SecManifest.h */; settings = {ATTRIBUTES = (); }; };
+		D6C8AFBD05DD26D3003DB724 /* Manifest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D637ECC205DA85AD0096F1E6 /* Manifest.cpp */; };
+		D6C8AFBE05DD26D6003DB724 /* SecManifest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D637ECC305DA85AD0096F1E6 /* SecManifest.cpp */; };
+		D6CDE5BE05E3DBD9006C8558 /* AppleManifest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6CDE5B805E3DBD9006C8558 /* AppleManifest.cpp */; };
+		D6CDE5BF05E3DBD9006C8558 /* AppleManifest.h in Headers */ = {isa = PBXBuildFile; fileRef = D6CDE5B905E3DBD9006C8558 /* AppleManifest.h */; };
+		D6D22A7505DD9B8100C52E2D /* Manifest.h in Headers */ = {isa = PBXBuildFile; fileRef = D658622605DA860900E7380F /* Manifest.h */; };
+		D6E7672605F3F8B6007C5669 /* ManifestInternal.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6E7672205F3F8B6007C5669 /* ManifestInternal.cpp */; };
+		D6E7672705F3F8B6007C5669 /* ManifestInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = D6E7672305F3F8B6007C5669 /* ManifestInternal.h */; };
+		D6E7672805F3F8B6007C5669 /* ManifestSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6E7672405F3F8B6007C5669 /* ManifestSigner.cpp */; };
+		D6E7672905F3F8B6007C5669 /* ManifestSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = D6E7672505F3F8B6007C5669 /* ManifestSigner.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB326146F0F6D000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB321146F0F6D000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
+			remoteInfo = libsecurity_utilities;
+		};
+		182BB32A146F0F8B000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB321146F0F6D000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
+			remoteInfo = libsecurity_utilitiesDTrace;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		182BB31D146F0F07000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB31E146F0F07000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB31F146F0F07000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB320146F0F07000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB321146F0F6D000BF1F3 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		D60C834409F5AD980069DF6D /* Download.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Download.cpp; path = lib/Download.cpp; sourceTree = "<group>"; };
+		D60C834509F5AD980069DF6D /* Download.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Download.h; path = lib/Download.h; sourceTree = "<group>"; };
+		D60C834609F5AD980069DF6D /* SecureDownload.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SecureDownload.cpp; path = lib/SecureDownload.cpp; sourceTree = "<group>"; };
+		D60C834709F5AD980069DF6D /* SecureDownload.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecureDownload.h; path = lib/SecureDownload.h; sourceTree = "<group>"; };
+		D60C834809F5AD980069DF6D /* SecureDownloadInternal.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = SecureDownloadInternal.c; path = lib/SecureDownloadInternal.c; sourceTree = "<group>"; };
+		D60C834909F5AD980069DF6D /* SecureDownloadInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecureDownloadInternal.h; path = lib/SecureDownloadInternal.h; sourceTree = "<group>"; };
+		D637ECC205DA85AD0096F1E6 /* Manifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = Manifest.cpp; path = lib/Manifest.cpp; sourceTree = "<group>"; };
+		D637ECC305DA85AD0096F1E6 /* SecManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SecManifest.cpp; path = lib/SecManifest.cpp; sourceTree = "<group>"; };
+		D658622605DA860900E7380F /* Manifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = Manifest.h; path = lib/Manifest.h; sourceTree = "<group>"; };
+		D658622705DA860900E7380F /* SecManifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SecManifest.h; path = lib/SecManifest.h; sourceTree = "<group>"; };
+		D658622E05DA866200E7380F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		D658627305DA867300E7380F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		D6C8AFAE05DD2430003DB724 /* libsecurity_manifest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_manifest.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6C8AFE005DD2FF8003DB724 /* security_manifest.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = security_manifest.exp; path = lib/security_manifest.exp; sourceTree = "<group>"; };
+		D6CDE5B805E3DBD9006C8558 /* AppleManifest.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleManifest.cpp; path = lib/AppleManifest.cpp; sourceTree = "<group>"; };
+		D6CDE5B905E3DBD9006C8558 /* AppleManifest.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = AppleManifest.h; path = lib/AppleManifest.h; sourceTree = "<group>"; };
+		D6E7672205F3F8B6007C5669 /* ManifestInternal.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ManifestInternal.cpp; path = lib/ManifestInternal.cpp; sourceTree = "<group>"; };
+		D6E7672305F3F8B6007C5669 /* ManifestInternal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ManifestInternal.h; path = lib/ManifestInternal.h; sourceTree = "<group>"; };
+		D6E7672405F3F8B6007C5669 /* ManifestSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ManifestSigner.cpp; path = lib/ManifestSigner.cpp; sourceTree = "<group>"; };
+		D6E7672505F3F8B6007C5669 /* ManifestSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ManifestSigner.h; path = lib/ManifestSigner.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D6C8AFAB05DD2430003DB724 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		034768DDFF38A45A11DB9C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D6C8AFAE05DD2430003DB724 /* libsecurity_manifest.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0867D691FE84028FC02AAC07 /* libsecurity_manifest */ = {
+			isa = PBXGroup;
+			children = (
+				182BB321146F0F6D000BF1F3 /* libsecurity_utilities.xcodeproj */,
+				08FB77ACFE841707C02AAC07 /* Source */,
+				182BB31C146F0F07000BF1F3 /* config */,
+				089C1665FE841158C02AAC07 /* Resources */,
+				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
+				034768DDFF38A45A11DB9C8B /* Products */,
+				D6C8AFE005DD2FF8003DB724 /* security_manifest.exp */,
+			);
+			name = libsecurity_manifest;
+			sourceTree = "<group>";
+		};
+		0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				D658627305DA867300E7380F /* Security.framework */,
+				D658622E05DA866200E7380F /* CoreFoundation.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		089C1665FE841158C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		08FB77ACFE841707C02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				D60C834409F5AD980069DF6D /* Download.cpp */,
+				D60C834509F5AD980069DF6D /* Download.h */,
+				D60C834609F5AD980069DF6D /* SecureDownload.cpp */,
+				D60C834709F5AD980069DF6D /* SecureDownload.h */,
+				D60C834809F5AD980069DF6D /* SecureDownloadInternal.c */,
+				D60C834909F5AD980069DF6D /* SecureDownloadInternal.h */,
+				D6CDE5B805E3DBD9006C8558 /* AppleManifest.cpp */,
+				D6CDE5B905E3DBD9006C8558 /* AppleManifest.h */,
+				D6E7672205F3F8B6007C5669 /* ManifestInternal.cpp */,
+				D6E7672305F3F8B6007C5669 /* ManifestInternal.h */,
+				D6E7672405F3F8B6007C5669 /* ManifestSigner.cpp */,
+				D6E7672505F3F8B6007C5669 /* ManifestSigner.h */,
+				D637ECC205DA85AD0096F1E6 /* Manifest.cpp */,
+				D658622605DA860900E7380F /* Manifest.h */,
+				D658622705DA860900E7380F /* SecManifest.h */,
+				D637ECC305DA85AD0096F1E6 /* SecManifest.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		182BB31C146F0F07000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB31D146F0F07000BF1F3 /* base.xcconfig */,
+				182BB31E146F0F07000BF1F3 /* debug.xcconfig */,
+				182BB31F146F0F07000BF1F3 /* lib.xcconfig */,
+				182BB320146F0F07000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB322146F0F6D000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB327146F0F6D000BF1F3 /* libsecurity_utilities.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D6C8AFA905DD2430003DB724 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6CDE5BF05E3DBD9006C8558 /* AppleManifest.h in Headers */,
+				D60C834D09F5AD980069DF6D /* SecureDownload.h in Headers */,
+				D6D22A7505DD9B8100C52E2D /* Manifest.h in Headers */,
+				D6E7672705F3F8B6007C5669 /* ManifestInternal.h in Headers */,
+				D6C8AFBC05DD26C6003DB724 /* SecManifest.h in Headers */,
+				D60C834F09F5AD980069DF6D /* SecureDownloadInternal.h in Headers */,
+				D6E7672905F3F8B6007C5669 /* ManifestSigner.h in Headers */,
+				D60C834B09F5AD980069DF6D /* Download.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D6C8AFAD05DD2430003DB724 /* libsecurity_manifest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3960987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_manifest" */;
+			buildPhases = (
+				D6C8AFA905DD2430003DB724 /* Headers */,
+				D6C8AFAA05DD2430003DB724 /* Sources */,
+				D6C8AFAB05DD2430003DB724 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB32B146F0F8B000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_manifest;
+			productName = libsecurity_manifest;
+			productReference = D6C8AFAE05DD2430003DB724 /* libsecurity_manifest.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0867D690FE84028FC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD39A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_manifest" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 0867D691FE84028FC02AAC07 /* libsecurity_manifest */;
+			productRefGroup = 034768DDFF38A45A11DB9C8B /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB322146F0F6D000BF1F3 /* Products */;
+					ProjectRef = 182BB321146F0F6D000BF1F3 /* libsecurity_utilities.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				D6C8AFAD05DD2430003DB724 /* libsecurity_manifest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB327146F0F6D000BF1F3 /* libsecurity_utilities.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_utilities.a;
+			remoteRef = 182BB326146F0F6D000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D6C8AFAA05DD2430003DB724 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6C8AFBD05DD26D3003DB724 /* Manifest.cpp in Sources */,
+				D6C8AFBE05DD26D6003DB724 /* SecManifest.cpp in Sources */,
+				D6CDE5BE05E3DBD9006C8558 /* AppleManifest.cpp in Sources */,
+				D6E7672605F3F8B6007C5669 /* ManifestInternal.cpp in Sources */,
+				D6E7672805F3F8B6007C5669 /* ManifestSigner.cpp in Sources */,
+				D60C834A09F5AD980069DF6D /* Download.cpp in Sources */,
+				D60C834C09F5AD980069DF6D /* SecureDownload.cpp in Sources */,
+				D60C834E09F5AD980069DF6D /* SecureDownloadInternal.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB32B146F0F8B000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_utilitiesDTrace;
+			targetProxy = 182BB32A146F0F8B000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3970987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB31E146F0F07000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3990987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB320146F0F07000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD39B0987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD39D0987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB31F146F0F07000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3960987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_manifest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3970987FCDE001272E0 /* Debug */,
+				C27AD3990987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD39A0987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_manifest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD39B0987FCDE001272E0 /* Debug */,
+				C27AD39D0987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0867D690FE84028FC02AAC07 /* Project object */;
+}

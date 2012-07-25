@@ -26,13 +26,13 @@
 #ifndef WebProcessProxy_h
 #define WebProcessProxy_h
 
-#include "Connection.h"
 #include "PlatformProcessIdentifier.h"
 #include "PluginInfoStore.h"
 #include "ProcessLauncher.h"
 #include "ProcessModel.h"
 #include "ResponsivenessTimer.h"
 #include "ThreadLauncher.h"
+#include "WebConnectionToWebProcess.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/LinkHash.h>
@@ -57,7 +57,7 @@ class WebContext;
 class WebPageGroup;
 struct WebNavigationDataStore;
 
-class WebProcessProxy : public RefCounted<WebProcessProxy>, CoreIPC::Connection::Client, ResponsivenessTimer::Client, ProcessLauncher::Client, ThreadLauncher::Client {
+class WebProcessProxy : public RefCounted<WebProcessProxy>, CoreIPC::Connection::Client, ResponsivenessTimer::Client, ProcessLauncher::Client, ThreadLauncher::Client, CoreIPC::Connection::QueueClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebFrameProxy> > WebFrameProxyMap;
     typedef HashMap<uint64_t, RefPtr<WebBackForwardListItem> > WebBackForwardListItemMap;
@@ -74,8 +74,9 @@ public:
     { 
         ASSERT(m_connection);
         
-        return m_connection.get(); 
+        return m_connection->connection(); 
     }
+    WebConnection* webConnection() const { return m_connection.get(); }
 
     WebContext* context() const { return m_context.get(); }
 
@@ -104,6 +105,14 @@ public:
 
     void registerNewWebBackForwardListItem(WebBackForwardListItem*);
 
+    void willAcquireUniversalFileReadSandboxExtension() { m_mayHaveUniversalFileReadSandboxExtension = true; }
+    void assumeReadAccessToBaseURL(const String&);
+
+    bool checkURLReceivedFromWebProcess(const String&);
+    bool checkURLReceivedFromWebProcess(const WebCore::KURL&);
+
+    static bool fullKeyboardAccessEnabled();
+
     // FIXME: This variant of send is deprecated. All clients should move to an overload that take a message type.
     template<typename E, typename T> bool deprecatedSend(E messageID, uint64_t destinationID, const T& arguments);
 
@@ -130,29 +139,28 @@ private:
     void pluginSyncMessageSendTimedOut(const String& pluginPath);
 #endif
 #if PLATFORM(MAC)
-    void secItemCopyMatching(const SecItemRequestData&, SecItemResponseData&);
-    void secItemAdd(const SecItemRequestData&, SecItemResponseData&);
-    void secItemUpdate(const SecItemRequestData&, SecItemResponseData&);
-    void secItemDelete(const SecItemRequestData&, SecItemResponseData&);
-    void secKeychainItemCopyContent(const SecKeychainItemRequestData&, SecKeychainItemResponseData&);
-    void secKeychainItemCreateFromContent(const SecKeychainItemRequestData&, SecKeychainItemResponseData&);
-    void secKeychainItemModifyContent(const SecKeychainItemRequestData&, SecKeychainItemResponseData&);
+    void secItemRequest(CoreIPC::Connection*, uint64_t requestID, const SecItemRequestData&);
+    void secKeychainItemRequest(CoreIPC::Connection*, uint64_t requestID, const SecKeychainItemRequestData&);
 #endif
 
     // CoreIPC::Connection::Client
+    friend class WebConnectionToWebProcess;
     virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    virtual CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
     virtual void didClose(CoreIPC::Connection*);
     virtual void didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID);
     virtual void syncMessageSendTimedOut(CoreIPC::Connection*);
-
 #if PLATFORM(WIN)
-    Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply();
+    virtual Vector<HWND> windowsToReceiveSentMessagesWhileWaitingForSyncReply();
 #endif
 
+    // CoreIPC::Connection::QueueClient
+    virtual void didReceiveMessageOnConnectionWorkQueue(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, bool& didHandleMessage);
+
     // ResponsivenessTimer::Client
-    void didBecomeUnresponsive(ResponsivenessTimer*);
-    void didBecomeResponsive(ResponsivenessTimer*);
+    void didBecomeUnresponsive(ResponsivenessTimer*) OVERRIDE;
+    void interactionOccurredWhileUnresponsive(ResponsivenessTimer*) OVERRIDE;
+    void didBecomeResponsive(ResponsivenessTimer*) OVERRIDE;
 
     // ProcessLauncher::Client
     virtual void didFinishLaunching(ProcessLauncher*, CoreIPC::Connection::Identifier);
@@ -164,16 +172,23 @@ private:
 
     // Implemented in generated WebProcessProxyMessageReceiver.cpp
     void didReceiveWebProcessProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncWebProcessProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply);
+    void didReceiveSyncWebProcessProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply);
+    void didReceiveWebProcessProxyMessageOnConnectionWorkQueue(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage);
 
     ResponsivenessTimer m_responsivenessTimer;
-    RefPtr<CoreIPC::Connection> m_connection;
+    
+    // This is not a CoreIPC::Connection so that we can wrap the CoreIPC::Connection in
+    // an API object.
+    RefPtr<WebConnectionToWebProcess> m_connection;
 
     Vector<std::pair<CoreIPC::Connection::OutgoingMessage, unsigned> > m_pendingMessages;
     RefPtr<ProcessLauncher> m_processLauncher;
     RefPtr<ThreadLauncher> m_threadLauncher;
 
     RefPtr<WebContext> m_context;
+
+    bool m_mayHaveUniversalFileReadSandboxExtension; // True if a read extension for "/" was ever granted - we don't track whether WebProcess still has it.
+    HashSet<String> m_localPathsWithAssumedReadAccess;
 
     HashMap<uint64_t, WebPageProxy*> m_pageMap;
     WebFrameProxyMap m_frameMap;
@@ -204,7 +219,7 @@ bool WebProcessProxy::sendSync(const U& message, const typename U::Reply& reply,
     if (!m_connection)
         return false;
 
-    return m_connection->sendSync(message, reply, destinationID, timeout);
+    return connection()->sendSync(message, reply, destinationID, timeout);
 }
     
 } // namespace WebKit

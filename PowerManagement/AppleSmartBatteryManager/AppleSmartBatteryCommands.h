@@ -2,14 +2,14 @@
  * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- *
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -26,8 +26,8 @@
 
 
 /*
- * This file contains constants defined in Smart Battery and Smart Battery
- * System Manager specs.
+ * This file contains constants defined in Smart Battery and Smart Battery 
+ * System Manager specs. 
  *
  * kM - All system manager constants begin with kM
  * kB - All smart battery constants begin with kB
@@ -61,7 +61,7 @@ enum {
 enum {
     kMStateCmd                              = 0x01,
     kMStateContCmd                          = 0x02,
-    kMInfoCmd                               = 0x04
+    kMInfoCmd                               = 0x04    
 };
 
 /*  SBSM BatterySystemState bitfields                   */
@@ -143,7 +143,7 @@ enum {
     kBReadCellVoltage2Cmd             = 0x3e,     // READ WORD
     kBReadCellVoltage1Cmd             = 0x3f,     // READ WORD
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
-    kBReserveCapacityCmd              = 0x8B,     // READ WORD
+	kBReserveCapacityCmd			  = 0x8B,     // READ WORD
     kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
     kBSafetyStatusCmd                 = 0x80,     // READ WORD
     kBPackReserveCmd                  = 0x8B      // READ WORD
@@ -153,13 +153,13 @@ enum {
 /*  bq20z90-V110 + bq29330 Chipset Technical Reference Manual    */
 /*  TI Literature SLUU264                               */
 enum {
-    kBExtendedPFStatusCmd             = 0x53,
+    kBExtendedPFStatusCmd             = 0x53,     // READ WORD
     kBExtendedOperationStatusCmd      = 0x54      // READ WORD
 };
 
 /* Apple Hardware Serial Number */
 enum {
-    kBAppleHardwareSerialCmd          = 0x76
+    kBAppleHardwareSerialCmd          = 0x76      // READ BLOCK
 };
 
 /*  Battery Mode Bits                                   */
@@ -176,6 +176,8 @@ enum {
     kBCapacityModeBit                 = 0x0f
 };
 
+
+
 /*  Smart Battery Status Message Bits                   */
 /*  Smart Battery Data Specification - rev 1.1          */
 /*  Section 5.4 page 42                                 */
@@ -186,7 +188,7 @@ enum {
     kBTerminateDischargeAlarmBit      = 0x0800,
     kBRemainingCapacityAlarmBit       = 0x0200,
     kBRemainingTimeAlarmBit           = 0x0100,
-
+    
     kBInitializedStatusBit            = 0x0080,
     kBDischargingStatusBit            = 0x0040,
     kBFullyChargedStatusBit           = 0x0020,

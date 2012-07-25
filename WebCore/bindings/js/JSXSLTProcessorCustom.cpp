@@ -50,7 +50,7 @@ JSValue JSXSLTProcessor::importStylesheet(ExecState* exec)
 {
     JSValue nodeVal = exec->argument(0);
     if (nodeVal.inherits(&JSNode::s_info)) {
-        JSNode* node = static_cast<JSNode*>(asObject(nodeVal));
+        JSNode* node = jsCast<JSNode*>(asObject(nodeVal));
         impl()->importStylesheet(node->impl());
         return jsUndefined();
     }
@@ -63,8 +63,8 @@ JSValue JSXSLTProcessor::transformToFragment(ExecState* exec)
     JSValue nodeVal = exec->argument(0);
     JSValue docVal = exec->argument(1);
     if (nodeVal.inherits(&JSNode::s_info) && docVal.inherits(&JSDocument::s_info)) {
-        WebCore::Node* node = static_cast<JSNode*>(asObject(nodeVal))->impl();
-        Document* doc = static_cast<Document*>(static_cast<JSDocument*>(asObject(docVal))->impl());
+        WebCore::Node* node = jsCast<JSNode*>(asObject(nodeVal))->impl();
+        Document* doc = static_cast<Document*>(jsCast<JSDocument*>(asObject(docVal))->impl());
         return toJS(exec, globalObject(), impl()->transformToFragment(node, doc).get());
     }
     // Throw exception?
@@ -75,7 +75,7 @@ JSValue JSXSLTProcessor::transformToDocument(ExecState* exec)
 {
     JSValue nodeVal = exec->argument(0);
     if (nodeVal.inherits(&JSNode::s_info)) {
-        JSNode* node = static_cast<JSNode*>(asObject(nodeVal));
+        JSNode* node = jsCast<JSNode*>(asObject(nodeVal));
         RefPtr<Document> resultDocument = impl()->transformToDocument(node->impl());
         if (resultDocument)
             return toJS(exec, globalObject(), resultDocument.get());
@@ -89,9 +89,9 @@ JSValue JSXSLTProcessor::setParameter(ExecState* exec)
 {
     if (exec->argument(1).isUndefinedOrNull() || exec->argument(2).isUndefinedOrNull())
         return jsUndefined(); // Throw exception?
-    String namespaceURI = ustringToString(exec->argument(0).toString(exec));
-    String localName = ustringToString(exec->argument(1).toString(exec));
-    String value = ustringToString(exec->argument(2).toString(exec));
+    String namespaceURI = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    String localName = ustringToString(exec->argument(1).toString(exec)->value(exec));
+    String value = ustringToString(exec->argument(2).toString(exec)->value(exec));
     impl()->setParameter(namespaceURI, localName, value);
     return jsUndefined();
 }
@@ -100,8 +100,8 @@ JSValue JSXSLTProcessor::getParameter(ExecState* exec)
 {
     if (exec->argument(1).isUndefinedOrNull())
         return jsUndefined();
-    String namespaceURI = ustringToString(exec->argument(0).toString(exec));
-    String localName = ustringToString(exec->argument(1).toString(exec));
+    String namespaceURI = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    String localName = ustringToString(exec->argument(1).toString(exec)->value(exec));
     String value = impl()->getParameter(namespaceURI, localName);
     return jsStringOrUndefined(exec, value);
 }
@@ -110,16 +110,10 @@ JSValue JSXSLTProcessor::removeParameter(ExecState* exec)
 {
     if (exec->argument(1).isUndefinedOrNull())
         return jsUndefined();
-    String namespaceURI = ustringToString(exec->argument(0).toString(exec));
-    String localName = ustringToString(exec->argument(1).toString(exec));
+    String namespaceURI = ustringToString(exec->argument(0).toString(exec)->value(exec));
+    String localName = ustringToString(exec->argument(1).toString(exec)->value(exec));
     impl()->removeParameter(namespaceURI, localName);
     return jsUndefined();
-}
-
-EncodedJSValue JSC_HOST_CALL JSXSLTProcessorConstructor::constructJSXSLTProcessor(ExecState* exec)
-{
-    JSXSLTProcessorConstructor* jsConstructor = static_cast<JSXSLTProcessorConstructor*>(exec->callee());
-    return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), XSLTProcessor, XSLTProcessor::create().get()));
 }
 
 } // namespace WebCore

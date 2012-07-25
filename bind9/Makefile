@@ -1,9 +1,11 @@
 Project		= bind9
 UserType	= Developer
 ToolType	= Commands
-Extra_CC_Flags  = -gdwarf-2
+Extra_CC_Flags  = -gdwarf-2 
 Extra_Configure_Flags = --prefix="/usr" --sysconfdir="/private/etc" --localstatedir="/private/var" --enable-atomic="no" \
                         --with-openssl=yes --with-gssapi=yes --enable-symtable=none
+
+Extra_LD_Flags    = -framework IOKit -framework CoreFoundation
 
 Extra_Environment = sysconfdir="/private/etc"                               \
                     includedir="/usr/local/include"			\

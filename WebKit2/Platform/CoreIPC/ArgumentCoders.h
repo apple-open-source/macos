@@ -29,12 +29,10 @@
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
 #include <utility>
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/TypeTraits.h>
 #include <wtf/Vector.h>
-#include <wtf/text/AtomicString.h>
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
 
 namespace CoreIPC {
 
@@ -42,11 +40,12 @@ namespace CoreIPC {
 template<typename T> struct SimpleArgumentCoder {
     static void encode(ArgumentEncoder* encoder, const T& t)
     {
-        encoder->encodeBytes(reinterpret_cast<const uint8_t*>(&t), sizeof(T));
+        encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(&t), sizeof(T), __alignof(T));
     }
+
     static bool decode(ArgumentDecoder* decoder, T& t)
     {
-        return decoder->decodeBytes(reinterpret_cast<uint8_t*>(&t), sizeof(T));
+        return decoder->decodeFixedLengthData(reinterpret_cast<uint8_t*>(&t), sizeof(T), __alignof(T));
     }
 };
 
@@ -108,9 +107,7 @@ template<typename T> struct VectorArgumentCoder<true, T> {
     static void encode(ArgumentEncoder* encoder, const Vector<T>& vector)
     {
         encoder->encodeUInt64(vector.size());
-        // FIXME: If we could tell the encoder to align the buffer, we could just do an encodeBytes here.
-        for (size_t i = 0; i < vector.size(); ++i)
-            encoder->encode(vector[i]);
+        encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(vector.data()), vector.size() * sizeof(T), __alignof(T));
     }
     
     static bool decode(ArgumentDecoder* decoder, Vector<T>& vector)
@@ -127,36 +124,17 @@ template<typename T> struct VectorArgumentCoder<true, T> {
             return false;
         }
 
-        Vector<T> tmp;
-        tmp.reserveCapacity(size);
+        Vector<T> temp;
+        temp.resize(size);
 
-        for (size_t i = 0; i < size; ++i) {
-            T element;
-            if (!decoder->decode(element))
-                return false;
-            
-            tmp.uncheckedAppend(element);
-        }
+        decoder->decodeFixedLengthData(reinterpret_cast<uint8_t*>(temp.data()), size * sizeof(T), __alignof(T));
 
-        vector.swap(tmp);
+        vector.swap(temp);
         return true;
     }
 };
 
 template<typename T> struct ArgumentCoder<Vector<T> > : VectorArgumentCoder<WTF::IsArithmetic<T>::value, T> { };
-
-// Specialization for Vector<uint8_t>
-template<> struct ArgumentCoder<Vector<uint8_t> > {
-    static void encode(ArgumentEncoder* encoder, const Vector<uint8_t>& vector)
-    {
-        encoder->encodeBytes(vector.data(), vector.size());
-    }
-
-    static bool decode(ArgumentDecoder* decoder, Vector<uint8_t>& vector)
-    {
-        return decoder->decodeBytes(vector);
-    }
-};
 
 template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTraitsArg, typename MappedTraitsArg> struct ArgumentCoder<HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg> > {
     typedef HashMap<KeyArg, MappedArg, HashArg, KeyTraitsArg, MappedTraitsArg> HashMapType;
@@ -183,7 +161,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
             if (!decoder->decode(value))
                 return false;
 
-            if (!tempHashMap.add(key, value).second) {
+            if (!tempHashMap.add(key, value).isNewEntry) {
                 // The hash map already has the specified key, bail.
                 decoder->markInvalid();
                 return false;
@@ -195,105 +173,19 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
     }
 };
 
+template<> struct ArgumentCoder<AtomicString> {
+    static void encode(ArgumentEncoder*, const AtomicString&);
+    static bool decode(ArgumentDecoder*, AtomicString&);
+};
+
 template<> struct ArgumentCoder<CString> {
-    static void encode(ArgumentEncoder* encoder, const CString& string)
-    {
-        // Special case the null string.
-        if (string.isNull()) {
-            encoder->encodeUInt32(std::numeric_limits<uint32_t>::max());
-            return;
-        }
-
-        uint32_t length = string.length();
-        encoder->encode(length);
-        encoder->encodeBytes(reinterpret_cast<const uint8_t*>(string.data()), length);
-    }
-
-    static bool decode(ArgumentDecoder* decoder, CString& result)
-    {
-        uint32_t length;
-        if (!decoder->decode(length))
-            return false;
-
-        if (length == std::numeric_limits<uint32_t>::max()) {
-            // This is the null string.
-            result = CString();
-            return true;
-        }
-
-        // Before allocating the string, make sure that the decoder buffer is big enough.
-        if (!decoder->bufferIsLargeEnoughToContain<char>(length)) {
-            decoder->markInvalid();
-            return false;
-        }
-
-        char* buffer;
-        CString string = CString::newUninitialized(length, buffer);
-        if (!decoder->decodeBytes(reinterpret_cast<uint8_t*>(buffer), length))
-            return false;
-
-        result = string;
-        return true;
-    }
+    static void encode(ArgumentEncoder*, const CString&);
+    static bool decode(ArgumentDecoder*, CString&);
 };
 
 template<> struct ArgumentCoder<String> {
-    static void encode(ArgumentEncoder* encoder, const String& string)
-    {
-        // Special case the null string.
-        if (string.isNull()) {
-            encoder->encodeUInt32(std::numeric_limits<uint32_t>::max());
-            return;
-        }
-
-        uint32_t length = string.length();
-        encoder->encode(length);
-        encoder->encodeBytes(reinterpret_cast<const uint8_t*>(string.characters()), length * sizeof(UChar));
-    }
-    
-    static bool decode(ArgumentDecoder* decoder, String& result)
-    {
-        uint32_t length;
-        if (!decoder->decode(length))
-            return false;
-
-        if (length == std::numeric_limits<uint32_t>::max()) {
-            // This is the null string.
-            result = String();
-            return true;
-        }
-
-        // Before allocating the string, make sure that the decoder buffer is big enough.
-        if (!decoder->bufferIsLargeEnoughToContain<UChar>(length)) {
-            decoder->markInvalid();
-            return false;
-        }
-        
-        UChar* buffer;
-        String string = String::createUninitialized(length, buffer);
-        if (!decoder->decodeBytes(reinterpret_cast<uint8_t*>(buffer), length * sizeof(UChar)))
-            return false;
-        
-        result = string;
-        return true;
-    }
-};
-
-template<> struct ArgumentCoder<AtomicString> {
-    static void encode(ArgumentEncoder* encoder, const AtomicString& atomicString)
-    {
-        encoder->encode(atomicString.string());
-    }
-
-    static bool decode(ArgumentDecoder* decoder, AtomicString& atomicString)
-    {
-        String string;
-        if (!decoder->decode(string))
-            return false;
-
-        atomicString = string;
-        return true;
-    }
+    static void encode(ArgumentEncoder*, const String&);
+    static bool decode(ArgumentDecoder*, String&);
 };
 
 } // namespace CoreIPC

@@ -61,11 +61,6 @@
 #define ROOT_DISK_ONLY
 
 /*
- * Don't cache SSDs
- */
-#define DONT_CACHE_SSDS
-
-/*
  * Keep a log of read history to aid in debugging.
  */
 /*#define READ_HISTORY_BUFFER	1000*/
@@ -704,6 +699,65 @@ BC_find_cache_mount(dev_t dev)
 	return(-1);
 }
 
+/* The new throttling implementation needs to be able to check
+ * whether an IO is in the boot cache before issuing the IO
+ */
+static int BC_cache_contains_block(dev_t device, u_int64_t blkno) {
+	struct BC_cache_mount * cm = NULL;
+	struct BC_cache_extent **pce, *ce;
+	
+	if (!(BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
+		return 0;
+	}
+
+	LOCK_CACHE_R();
+
+	int cm_idx = BC_find_cache_mount(device);
+	if (cm_idx == -1) {
+		UNLOCK_CACHE_R();
+		return 0;
+	}
+	
+	cm = BC_cache->c_mounts + cm_idx;
+	
+	LOCK_MOUNT_R(cm);
+	
+	if (cm->cm_state != CM_READY) {
+		UNLOCK_MOUNT_R(cm);
+		UNLOCK_CACHE_R();
+		return 0;
+	}
+
+	u_int64_t disk_offset = CB_BLOCK_TO_BYTE(cm, blkno);
+	u_int64_t length = CB_BLOCK_TO_BYTE(cm, 1) /* one block */;
+	
+	pce = BC_find_extent(cm, disk_offset, length, 0, NULL);
+	
+	if (pce == NULL || *pce == NULL) {
+		UNLOCK_MOUNT_R(cm);
+		UNLOCK_CACHE_R();
+		return 0;
+	}
+	
+	ce = *pce;
+
+	UNLOCK_MOUNT_R(cm);
+
+	if (ce->ce_flags & CE_ABORTED) {
+		UNLOCK_CACHE_R();
+		return 0;
+	}
+	
+	if (ce->ce_flags & CE_LOWPRI && 
+		!(ce->ce_flags & CE_IODONE)) {
+		UNLOCK_CACHE_R();
+		return 0;
+	}
+	
+	UNLOCK_CACHE_R();
+	return 1;
+}
+
 /*
  * Find a cache extent containing or intersecting the offset/length.
  *
@@ -1220,7 +1274,7 @@ BC_reader_thread(void *param0, wait_result_t param1)
 						throttle_info_update_by_mask(throttle_info_handle, 0x0);
 						throttle_info_rel_by_mask(throttle_info_handle);
 					} else {
-						debug("Unable to update throttle info for mount %s: %d", cm->cm_uuid, error);
+						debug("Unable to update throttle info for mount %s: %d", uuid_string(cm->cm_uuid), error);
 					}					
 					
 					BC_ADD_STAT(initiated_reads, 1);
@@ -1605,6 +1659,7 @@ BC_strategy(struct buf *bp)
 	int is_shared = 0, is_swap = 0;
 	int should_throttle = 0;
 	int is_ssd = 0;
+	int is_stolen = 0;
 	int unfilled = 0;
 	vnode_t vp = NULL;
 	int pid = 0;
@@ -2040,6 +2095,7 @@ BC_strategy(struct buf *bp)
 				BC_ADD_STAT(hit_stolen, 1);
 			vnode_put(BC_cache->c_vp);
 			buf_unmap(bp);
+			is_stolen = 1;
 			goto bypass;
 		}
 		
@@ -2232,31 +2288,40 @@ bypass:
 	 */
 	
 	/* if this is a read, and we do have an active cache, and the read isn't throttled */
-	if ((bufflags & B_READ) &&
-		(during_cache) &&
-		!(bufflags & B_THROTTLED_IO)) {
-		
-		struct timeval current_time;
-		if (BC_cache->c_stats.ss_history_num_recordings < 2) {
-			microtime(&current_time);
-			timersub(&current_time,
-					 &BC_cache->c_loadtime,
-					 &current_time);
-		}
-		/* Don't start counting misses until we've started login or hit our prelogin timeout */
-		if (BC_cache->c_stats.ss_history_num_recordings >= 2 || current_time.tv_sec > BC_chit_prelogin_timeout_seconds) {
+	if (during_cache) {
+		if (is_swap /*|| is_stolen*/) {  //rdar://10651288&10658086 seeing stolen pages early during boot
+			if (is_swap) {
+				debug("detected %s swap file, jettisoning cache", (bufflags & B_READ) ? "read from" : "write to");
+			} else {
+				debug("detected stolen page, jettisoning cache");
+			}
+			//rdar://9858070 Do this asynchronously to avoid deadlocks
+			BC_terminate_cache_async();
+		} else if ((bufflags & B_READ) &&
+				   !(bufflags & B_THROTTLED_IO)) {
 			
-			/* increase number of IOs since last hit */
-			OSAddAtomic(1, &BC_cache->c_num_ios_since_last_hit);
-			
-			if (BC_cache->c_num_ios_since_last_hit >= BC_chit_max_num_IOs_since_last_hit) {
-				/*
-				 * The hit rate is poor, shut the cache down.
-				 */
-				debug("hit rate below threshold (0 hits in the last %u lookups)",
-					  BC_cache->c_num_ios_since_last_hit);
-				//rdar://9858070 Do this asynchronously to avoid deadlocks
-				BC_terminate_cache_async();
+			struct timeval current_time;
+			if (BC_cache->c_stats.ss_history_num_recordings < 2) {
+				microtime(&current_time);
+				timersub(&current_time,
+						 &BC_cache->c_loadtime,
+						 &current_time);
+			}
+			/* Don't start counting misses until we've started login or hit our prelogin timeout */
+			if (BC_cache->c_stats.ss_history_num_recordings >= 2 || current_time.tv_sec > BC_chit_prelogin_timeout_seconds) {
+				
+				/* increase number of IOs since last hit */
+				OSAddAtomic(1, &BC_cache->c_num_ios_since_last_hit);
+				
+				if (BC_cache->c_num_ios_since_last_hit >= BC_chit_max_num_IOs_since_last_hit) {
+					/*
+					 * The hit rate is poor, shut the cache down.
+					 */
+					debug("hit rate below threshold (0 hits in the last %u lookups), jettisoning cache",
+						  BC_cache->c_num_ios_since_last_hit);
+					//rdar://9858070 Do this asynchronously to avoid deadlocks
+					BC_terminate_cache_async();
+				}
 			}
 		}
 	}
@@ -2406,9 +2471,7 @@ BC_terminate_readahead(void)
 static void
 BC_terminate_cache_thread(void *param0, wait_result_t param1)
 {
-	if (BC_terminate_cache()) {
-		message("could not terminate cache on bad hitrate");
-	}
+	BC_terminate_cache();
 }
 
 /*
@@ -2417,6 +2480,10 @@ BC_terminate_cache_thread(void *param0, wait_result_t param1)
 static void
 BC_terminate_cache_async(void)
 {
+	if (! (BC_cache->c_flags & BC_FLAG_CACHEACTIVE)) {
+		return;
+	}
+
 	int error;
 	thread_t rthread;
 
@@ -2459,6 +2526,8 @@ BC_terminate_cache(void)
 		UNLOCK_CACHE_R();
 		return(ENXIO);
 	}
+	
+	bootcache_contains_block = NULL;
 	
 	debug("terminating cache...");
 	
@@ -2991,10 +3060,16 @@ BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context
 #ifdef ROOT_DISK_ONLY
 	if (devvp == rootvp) {
 		BC_cache->c_root_disk_id = disk_id;
-		assert(BC_cache->c_root_disk_id != 0);
+		if (BC_cache->c_root_disk_id == 0) {
+			message("Root disk is 0");
+		} else {
+			debug("Root disk (via cache) is 0x%llx", BC_cache->c_root_disk_id);
+		}
 	} else if (0 == BC_cache->c_root_disk_id) {
 		error = EAGAIN; /* we haven't seen the root mount yet, try again later */
 		goto out;
+		
+	//rdar://11653286 disk image volumes (FileVault 1) are messing with this check, so we're going back to != rather than !( & )
 	} else if (BC_cache->c_root_disk_id != disk_id) {
 		debug("mount %s (disk 0x%llx) is not on the root disk (disk 0x%llx)", uuid_string(cm->cm_uuid), disk_id, BC_cache->c_root_disk_id);
 		error = ENODEV;
@@ -3007,7 +3082,22 @@ BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context
 		if (BC_cache->c_mounts + mount_idx == cm) continue;
 		
 		cd = BC_cache->c_mounts[mount_idx].cm_disk;
-		if (cd && cd->cd_disk_id == disk_id) {
+		
+		/*
+		 * We're not handling mounts backed by multiple disks as gracefull as we should.
+		 * Previously, this was cd->cd_disk_id == disk_id, so we had a thread per disk combination
+		 * meaning reader threads may span multiple disks and disks may have multiple reader threads.
+		 * We've only ever supported the root disk, however, so this wasn't a problem, it just missed
+		 * cases where you'd have other volumes on one of the disks you're booting from.
+		 *
+		 * Now, since we are checking for cd->cd_disk_id & disk_id, we at least include all mounts that
+		 * are on disks that the root mount uses. We still only have one reader thread, but we don't support
+		 * playback on composite disks, so that's not a problem yet. See rdar://10081513
+		 *
+		 * This assumes that the root mount (or, at least the mount we care most about) will always appear first
+		 *
+		 */
+		if (cd && (cd->cd_disk_id & disk_id)) {
 			cm->cm_disk = cd;
 			break;
 		}
@@ -3040,13 +3130,6 @@ BC_fill_in_mount(struct BC_cache_mount *cm, mount_t mount, vfs_context_t context
 		cm->cm_disk = cd;
 	}
 	
-#ifdef DONT_CACHE_SSDS
-	if (cm->cm_disk->cd_flags & CD_IS_SSD) {
-		debug("mount %s is on an SSD (disk 0x%llx)", uuid_string(cm->cm_uuid), cm->cm_disk->cd_disk_id);
-		error = ENODEV;
-		goto out;
-	}
-#endif
 	
 	if (VNOP_IOCTL(devvp,
 				   DKIOCGETBLOCKCOUNT,
@@ -4041,7 +4124,7 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 			BC_cache->c_history_size = 0;
 			BC_cache->c_history_num_clusters = 0;
 			BC_ADD_STAT(history_num_recordings, 1);
-			
+			BC_clear_flag(BC_FLAG_HTRUNCATED);
 			
 			/*
 			 * Take over the strategy routine for our device; we are now
@@ -4139,7 +4222,9 @@ BC_init_cache(size_t mounts_size, user_addr_t mounts, size_t entries_size, user_
 			 * stale data.
 			 */
 			BC_check_handlers();
-			UNLOCK_HANDLERS();			
+			UNLOCK_HANDLERS();
+			
+			bootcache_contains_block = BC_cache_contains_block;
 		}
 		
 		LOCK_CACHE_W_TO_R();
@@ -4269,6 +4354,22 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		debug("can't determine if physical disk for history mount %s is an ssd", uuid_string(hmd->hmd_mount.hm_uuid));
 		hmd->hmd_is_ssd = 0;
 	}
+	
+#ifdef ROOT_DISK_ONLY
+	if (devvp == rootvp) {
+		if (BC_cache->c_root_disk_id == 0) {
+			BC_cache->c_root_disk_id = hmd->hmd_disk_id;
+			if (BC_cache->c_root_disk_id == 0) {
+				message("Root disk is 0");
+			} else {
+				debug("Root disk (via history) is 0x%llx", BC_cache->c_root_disk_id);
+			}
+		} else if (BC_cache->c_root_disk_id != hmd->hmd_disk_id) {
+			debug("Root disk 0x%llx doesn't match that found by history 0x%llx", BC_cache->c_root_disk_id, hmd->hmd_disk_id);
+		}
+	}
+#endif
+
 	
 	/* Found info for our mount */
 	debug("Found new historic mount after %d IOs: %s, dev 0x%x, disk 0x%llx, blk %d%s",
@@ -4508,12 +4609,6 @@ BC_add_history(daddr64_t blkno, u_int64_t length, int pid, int hit, int write, i
 		} else {
 			is_root_disk = 1;
 		}
-		
-#ifdef DONT_CACHE_SSDS
-		if (hmd->hmd_is_ssd) {
-			goto out;
-		}
-#endif
 		
 	}
 	
@@ -4782,29 +4877,7 @@ BC_setup(void)
 		BC_cache->c_close    == NULL) {	/* not configured */
 		return(ENXIO);
 	}
-	
-#ifdef ROOT_DISK_ONLY
-#ifdef DONT_CACHE_SSDS
-	vfs_context_t context;
-	context = vfs_context_create(NULL);
-	int is_ssd;
-	if (!rootvp ||
-		VNOP_IOCTL(rootvp,       /* vnode */
-				   DKIOCISSOLIDSTATE,    /* cmd */
-				   (caddr_t)&is_ssd, /* data */
-				   0,
-				   context))           /* context */
-	{
-		message("can't determine if disk is a solid state disk for root mount");
-		is_ssd = 0;
-	}
-	vfs_context_rele(context);
-	if (is_ssd) {
-		return(ENODEV);
-	}
-#endif
-#endif
-	
+		
 	BC_set_flag(BC_FLAG_SETUP);
 	
 	return(0);

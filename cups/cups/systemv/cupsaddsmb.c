@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsaddsmb.c 9636 2011-03-21 22:02:00Z mike $"
+ * "$Id: cupsaddsmb.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "cupsaddsmb" command for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2001-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -45,7 +45,7 @@ const char	*SAMBAUser,
  */
 
 int	export_dest(http_t *http, const char *dest);
-void	usage(void);
+void	usage(void) __attribute__((noreturn));
 
 
 /*
@@ -282,22 +282,18 @@ usage(void)
   _cupsLangPuts(stdout, _("       cupsaddsmb [options] -a"));
   _cupsLangPuts(stdout, "");
   _cupsLangPuts(stdout, _("Options:"));
-  _cupsLangPuts(stdout, _("  -E                      Encrypt the connection to "
-                          "the server."));
+  _cupsLangPuts(stdout, _("  -E                      Encrypt the connection."));
   _cupsLangPuts(stdout, _("  -H samba-server         Use the named SAMBA "
                           "server."));
-  _cupsLangPuts(stdout, _("  -U samba-user           Authenticate using the "
-                          "named SAMBA user."));
+  _cupsLangPuts(stdout, _("  -U username             Specify username."));
   _cupsLangPuts(stdout, _("  -a                      Export all printers."));
-  _cupsLangPuts(stdout, _("  -h cups-server          Use the named CUPS "
-                          "server."));
-  _cupsLangPuts(stdout, _("  -v                      Be verbose (show "
-                          "commands)."));
+  _cupsLangPuts(stdout, _("  -h server[:port]        Specify server address."));
+  _cupsLangPuts(stdout, _("  -v                      Be verbose."));
 
   exit(1);
 }
 
 
 /*
- * End of "$Id: cupsaddsmb.c 9636 2011-03-21 22:02:00Z mike $".
+ * End of "$Id: cupsaddsmb.c 9042 2010-03-24 00:45:34Z mike $".
  */

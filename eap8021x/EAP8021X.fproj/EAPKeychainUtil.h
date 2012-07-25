@@ -40,7 +40,9 @@
 
 #include <CoreFoundation/CFData.h>
 #include <Security/SecBase.h>
+#if ! TARGET_OS_EMBEDDED
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#endif /* ! TARGET_OS_EMBEDDED */
 #include <TargetConditionals.h>
 #if TARGET_OS_EMBEDDED
 typedef struct OpaqueSecKeychainRef *SecKeychainRef;

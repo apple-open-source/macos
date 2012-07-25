@@ -1,12 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * This is an example application source code sending SMTP mail using the
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* This is an example application source code sending SMTP mail using the
  * multi interface.
  */
 
@@ -110,13 +123,13 @@ int main(void)
    curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
    curl_easy_setopt(curl, CURLOPT_MAIL_FROM, MAILFROM);
    curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, rcpt_list);
-   curl_easy_setopt(curl, CURLOPT_USE_SSL, CURLUSESSL_ALL);
-   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER,0);
-   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
+   curl_easy_setopt(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL);
+   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
    curl_easy_setopt(curl, CURLOPT_READDATA, &pooh);
-   curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
-   curl_easy_setopt(curl, CURLOPT_SSLVERSION, 0);
-   curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0);
+   curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+   curl_easy_setopt(curl, CURLOPT_SSLVERSION, 0L);
+   curl_easy_setopt(curl, CURLOPT_SSL_SESSIONID_CACHE, 0L);
    curl_multi_add_handle(mcurl, curl);
 
    mp_timedout = 0;

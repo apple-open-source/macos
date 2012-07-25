@@ -39,6 +39,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.11 2002/08/21 16:19:57 mike 
 #endif
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vswscanf.c,v 1.6 2009/01/15 18:53:52 rdivacky Exp $");
 
+#include "xlocale_private.h"
+
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -57,7 +59,7 @@ eofread(void *cookie, char *buf, int len)
 }
 
 int
-vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
+vswscanf_l(const wchar_t * __restrict str, locale_t loc, const wchar_t * __restrict fmt,
     va_list ap)
 {
 	static const mbstate_t initial;
@@ -67,16 +69,20 @@ vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
 	size_t mlen;
 	int r;
 	const wchar_t *strp;
+	struct __sFILEX ext;
+	f._extra = &ext;
+	INITEXTRA(&f);
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * XXX Convert the wide character string to multibyte, which
 	 * __vfwscanf() will convert back to wide characters.
 	 */
-	if ((mbstr = malloc(wcslen(str) * MB_CUR_MAX + 1)) == NULL)
+	if ((mbstr = malloc(wcslen(str) * MB_CUR_MAX_L(loc) + 1)) == NULL)
 		return (EOF);
 	mbs = initial;
 	strp = str;
-	if ((mlen = wcsrtombs(mbstr, &strp, SIZE_T_MAX, &mbs)) == (size_t)-1) {
+	if ((mlen = wcsrtombs_l(mbstr, &strp, SIZE_T_MAX, &mbs, loc)) == (size_t)-1) {
 		free(mbstr);
 		return (EOF);
 	}
@@ -89,8 +95,16 @@ vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
 	f._lb._base = NULL;
 	f._orientation = 0;
 	memset(&f._mbstate, 0, sizeof(mbstate_t));
-	r = __vfwscanf(&f, fmt, ap);
+	r = __vfwscanf(&f, loc, fmt, ap);
 	free(mbstr);
 
 	return (r);
 }
+
+int
+vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
+    va_list ap)
+{
+	return vswscanf_l(str, __current_locale(), fmt, ap);
+}
+

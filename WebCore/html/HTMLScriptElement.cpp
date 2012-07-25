@@ -29,7 +29,6 @@
 #include "EventNames.h"
 #include "HTMLNames.h"
 #include "ScriptEventListener.h"
-#include "Settings.h"
 #include "Text.h"
 
 namespace WebCore {
@@ -50,82 +49,47 @@ PassRefPtr<HTMLScriptElement> HTMLScriptElement::create(const QualifiedName& tag
 
 bool HTMLScriptElement::isURLAttribute(Attribute* attr) const
 {
-    return attr->name() == srcAttr;
+    return attr->name() == srcAttr || HTMLElement::isURLAttribute(attr);
 }
 
 void HTMLScriptElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    ScriptElement::childrenChanged();
     HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    ScriptElement::childrenChanged();
 }
 
-void HTMLScriptElement::attributeChanged(Attribute* attr, bool preserveDecls)
-{
-    if (attr->name() == asyncAttr)
-        handleAsyncAttribute();
-    HTMLElement::attributeChanged(attr, preserveDecls);
-}
-
-void HTMLScriptElement::parseMappedAttribute(Attribute* attr)
+void HTMLScriptElement::parseAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
 
     if (attrName == srcAttr)
         handleSourceAttribute(attr->value());
+    else if (attr->name() == asyncAttr)
+        handleAsyncAttribute();
     else if (attrName == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attrName == onbeforeloadAttr)
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
-    else if (attrName == onbeforeprocessAttr)
-        setAttributeEventListener(eventNames().beforeprocessEvent, createAttributeEventListener(this, attr));
     else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::parseAttribute(attr);
 }
 
-static bool needsOldRequirejsQuirk(HTMLScriptElement* element)
+Node::InsertionNotificationRequest HTMLScriptElement::insertedInto(Node* insertionPoint)
 {
-    if (element->fastGetAttribute(typeAttr) != "script/cache")
-        return false;
-
-    Document* document = element->document();
-
-    const KURL& url = document->url();
-    if (!equalIgnoringCase(url.host(), "www.zipcar.com"))
-        return false;
-
-    Settings* settings = document->settings();
-    if (!settings)
-        return false;
-    if (!settings->needsSiteSpecificQuirks())
-        return false;
-
-    return true;
-}
-
-void HTMLScriptElement::insertedIntoDocument()
-{
-    if (needsOldRequirejsQuirk(this)) {
-        if (!asyncAttributeValue())
-            handleAsyncAttribute(); // Clear forceAsync, so this script loads in parallel, but executes in order.
-        setAttribute(typeAttr, "text/javascript");
-    }
-    HTMLElement::insertedIntoDocument();
-    ScriptElement::insertedIntoDocument();
-}
-
-void HTMLScriptElement::removedFromDocument()
-{
-    HTMLElement::removedFromDocument();
-    ScriptElement::removedFromDocument();
+    HTMLElement::insertedInto(insertionPoint);
+    ScriptElement::insertedInto(insertionPoint);
+    return InsertionDone;
 }
 
 void HTMLScriptElement::setText(const String &value)
 {
+    RefPtr<Node> protectFromMutationEvents(this);
+
     ExceptionCode ec = 0;
     int numChildren = childNodeCount();
 
     if (numChildren == 1 && firstChild()->isTextNode()) {
-        static_cast<Text*>(firstChild())->setData(value, ec);
+        toText(firstChild())->setData(value, ec);
         return;
     }
 
@@ -211,7 +175,7 @@ void HTMLScriptElement::dispatchLoadEvent()
     dispatchEvent(Event::create(eventNames().loadEvent, false, false));
 }
 
-PassRefPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren() const
+PassRefPtr<Element> HTMLScriptElement::cloneElementWithoutAttributesAndChildren()
 {
     return adoptRef(new HTMLScriptElement(tagQName(), document(), false, alreadyStarted()));
 }

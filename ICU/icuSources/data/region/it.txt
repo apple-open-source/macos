@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/it.xml
@@ -33,7 +33,6 @@ it{
         054{"Melanesia"}
         057{"Regione Micronesiana"}
         061{"Polinesia"}
-        062{"Asia centro-meridionale"}
         142{"Asia"}
         143{"Asia centrale"}
         145{"Asia occidentale"}
@@ -41,8 +40,7 @@ it{
         151{"Europa orientale"}
         154{"Europa del Nord"}
         155{"Europa occidentale"}
-        172{"Comunità di Stati Indipendenti"}
-        419{"America Latina e Caraibi"}
+        419{"America Latina"}
         AC{"Isola di Ascensione"}
         AD{"Andorra"}
         AE{"Emirati Arabi Uniti"}
@@ -98,6 +96,7 @@ it{
         CS{"Serbia e Montenegro"}
         CU{"Cuba"}
         CV{"Capo Verde"}
+        CW{"Curaçao"}
         CX{"Isola di Christmas"}
         CY{"Cipro"}
         CZ{"Repubblica Ceca"}
@@ -192,6 +191,7 @@ it{
         MC{"Monaco"}
         MD{"Moldavia"}
         ME{"Montenegro"}
+        MF{"Saint Martin"}
         MG{"Madagascar"}
         MH{"Isole Marshall"}
         MK{"Repubblica di Macedonia"}
@@ -264,6 +264,7 @@ it{
         SR{"Suriname"}
         ST{"Sao Tomé e Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Siria"}
         SZ{"Swaziland"}
         TA{"Tristan da Cunha"}
@@ -303,7 +304,7 @@ it{
         ZA{"Sudafrica"}
         ZM{"Zambia"}
         ZW{"Zimbabwe"}
-        ZZ{"regione non valida o sconosciuta"}
+        ZZ{"Regione non valida o sconosciuta"}
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.67.6"}
 }

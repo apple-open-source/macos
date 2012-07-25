@@ -42,38 +42,28 @@ PassRefPtr<HTMLParamElement> HTMLParamElement::create(const QualifiedName& tagNa
     return adoptRef(new HTMLParamElement(tagName, document));
 }
 
+String HTMLParamElement::name() const
+{
+    if (hasName())
+        return getNameAttribute();
+    return document()->isHTMLDocument() ? emptyAtom : getIdAttribute();
+}
+
+String HTMLParamElement::value() const
+{
+    return fastGetAttribute(valueAttr);
+}
+
 bool HTMLParamElement::isURLParameter(const String& name)
 {
     return equalIgnoringCase(name, "data") || equalIgnoringCase(name, "movie") || equalIgnoringCase(name, "src");
 }
 
-void HTMLParamElement::parseMappedAttribute(Attribute* attr)
-{
-    if (isIdAttributeName(attr->name())) {
-        // Must call base class so that hasID bit gets set.
-        HTMLElement::parseMappedAttribute(attr);
-        if (document()->isHTMLDocument())
-            return;
-        m_name = attr->value();
-    } else if (attr->name() == nameAttr) {
-        m_name = attr->value();
-    } else if (attr->name() == valueAttr) {
-        m_value = attr->value();
-    } else
-        HTMLElement::parseMappedAttribute(attr);
-}
-
 bool HTMLParamElement::isURLAttribute(Attribute* attr) const
 {
-    if (attr->name() == valueAttr) {
-        Attribute* attr = attributes()->getAttributeItem(nameAttr);
-        if (attr) {
-            const AtomicString& value = attr->value();
-            if (isURLParameter(value))
-                return true;
-        }
-    }
-    return false;
+    if (attr->name() == valueAttr && isURLParameter(name()))
+        return true;
+    return HTMLElement::isURLAttribute(attr);
 }
 
 void HTMLParamElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

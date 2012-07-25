@@ -571,19 +571,6 @@ void regTest( void )
     IOObjectRelease( iter );
 }
 
-int ofPathTest(char * arg)
-{
-    io_name_t     bsdName;
-    kern_return_t status;
-
-    // Convert an open firmware name into a BSD name.
-
-    if (IOServiceOFPathToBSDName(masterPort,arg,bsdName) == KERN_SUCCESS)
-        printf("found = %s\n", bsdName);
-    else
-        printf("found = <no match>\n");
-}
-
 int
 main(int argc, char **argv)
 {
@@ -601,7 +588,6 @@ main(int argc, char **argv)
 
 //      getClockFrequency();
 //      regTest();
-//      ofPathTest( argv[1] );
 
         if( argc > 1) {
             reset = (0 == strcmp("reset", argv[1]));

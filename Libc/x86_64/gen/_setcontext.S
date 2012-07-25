@@ -43,8 +43,8 @@ LABEL(__setcontext)
 #if DEBUG
 	movq  MCONTEXT_SS_RSI(%rdi),   %rsi
 	movq  MCONTEXT_SS_RCX(%rdi),   %rcx
-	movq  MCONTEXT_SS_R8+00(%rdi), %r8
-	movq  MCONTEXT_SS_R8+08(%rdi), %r9
+	movq  MCONTEXT_SS_R8+0(%rdi),  %r8
+	movq  MCONTEXT_SS_R8+8(%rdi),  %r9
 	movq  MCONTEXT_SS_R8+16(%rdi), %r10
 	movq  MCONTEXT_SS_R8+24(%rdi), %r11
 #endif

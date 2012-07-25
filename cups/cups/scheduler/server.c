@@ -1,9 +1,9 @@
 /*
- * "$Id: server.c 9632 2011-03-21 02:12:14Z mike $"
+ * "$Id: server.c 7927 2008-09-10 22:05:29Z mike $"
  *
  *   Server start/stop routines for the CUPS scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -45,6 +45,12 @@ void
 cupsdStartServer(void)
 {
  /*
+  * Start color management (as needed)...
+  */
+
+  cupsdStartColor();
+
+ /*
   * Create the default security profile...
   */
 
@@ -56,7 +62,6 @@ cupsdStartServer(void)
 
   cupsdStartListening();
   cupsdStartBrowsing();
-  cupsdStartPolling();
 
  /*
   * Create a pipe for CGI processes...
@@ -95,12 +100,17 @@ cupsdStopServer(void)
     return;
 
  /*
-  * Close all network clients and stop all jobs...
+  * Stop color management (as needed)...
+  */
+
+  cupsdStopColor();
+
+ /*
+  * Close all network clients...
   */
 
   cupsdCloseAllClients();
   cupsdStopListening();
-  cupsdStopPolling();
   cupsdStopBrowsing();
   cupsdStopAllNotifiers();
   cupsdDeleteAllCerts();
@@ -125,16 +135,6 @@ cupsdStopServer(void)
     CGIPipes[0] = -1;
     CGIPipes[1] = -1;
   }
-
-#ifdef HAVE_NOTIFY_POST
- /*
-  * Send one last notification as the server shuts down.
-  */
-
-  cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                  "notify_post(\"com.apple.printerListChange\") last");
-  notify_post("com.apple.printerListChange");
-#endif /* HAVE_NOTIFY_POST */
 
  /*
   * Close all log files...
@@ -180,5 +180,5 @@ cupsdStopServer(void)
 
 
 /*
- * End of "$Id: server.c 9632 2011-03-21 02:12:14Z mike $".
+ * End of "$Id: server.c 7927 2008-09-10 22:05:29Z mike $".
  */

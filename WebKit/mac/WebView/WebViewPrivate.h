@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,21 +34,15 @@
 #define ENABLE_DASHBOARD_SUPPORT 1
 #endif
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
-#define WebNSInteger int
-#define WebNSUInteger unsigned int
-#else
-#define WebNSInteger NSInteger
-#define WebNSUInteger NSUInteger
-#endif
-
 @class NSError;
 @class WebFrame;
 @class WebDeviceOrientation;
 @class WebGeolocationPosition;
 @class WebInspector;
+@class WebNotification;
 @class WebPreferences;
 @class WebScriptWorld;
+@class WebSecurityOrigin;
 @class WebTextIterator;
 
 @protocol WebDeviceOrientationProvider;
@@ -106,6 +100,19 @@ enum {
 };
 typedef NSUInteger WebFindOptions;
 
+typedef enum {
+    WebPaginationModeUnpaginated,
+    WebPaginationModeHorizontal,
+    WebPaginationModeVertical,
+} WebPaginationMode;
+
+// This needs to be in sync with WebCore::NotificationClient::Permission
+typedef enum {
+    WebNotificationPermissionAllowed,
+    WebNotificationPermissionNotAllowed,
+    WebNotificationPermissionDenied
+} WebNotificationPermission;
+
 @interface WebController : NSTreeController {
     IBOutlet WebView *webView;
 }
@@ -125,6 +132,7 @@ typedef NSUInteger WebFindOptions;
 - (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode;
 
 - (BOOL)findString:(NSString *)string options:(WebFindOptions)options;
+- (DOMRange *)DOMRangeOfString:(NSString *)string relativeTo:(DOMRange *)previousRange options:(WebFindOptions)options;
 
 - (void)setMainFrameDocumentReady:(BOOL)mainFrameDocumentReady;
 
@@ -132,12 +140,6 @@ typedef NSUInteger WebFindOptions;
 - (BOOL)tabKeyCyclesThroughElements;
 
 - (void)scrollDOMRangeToVisible:(DOMRange *)range;
-
-// setHoverFeedbackSuspended: can be called by clients that want to temporarily prevent the webView
-// from displaying feedback about mouse position. Each WebDocumentView class that displays feedback
-// about mouse position should honor this setting.
-- (void)setHoverFeedbackSuspended:(BOOL)newValue;
-- (BOOL)isHoverFeedbackSuspended;
 
 /*!
 @method setScriptDebugDelegate:
@@ -181,8 +183,8 @@ typedef NSUInteger WebFindOptions;
 // whether or not they implement the protocol. For now we'll just deal with HTML.
 // These methods are still in flux; don't rely on them yet.
 - (BOOL)canMarkAllTextMatches;
-- (WebNSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
-- (WebNSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
+- (NSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches;
+- (NSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches;
 - (void)unmarkAllTextMatches;
 - (NSArray *)rectsForTextMatches;
 
@@ -341,6 +343,9 @@ Could be worth adding to the API.
 // This is the old name of the above method. Needed for Safari versions that call it.
 + (void)_setAlwaysUseATSU:(BOOL)f;
 
++ (void)_setAllowsRoundingHacks:(BOOL)allowsRoundingHacks;
++ (BOOL)_allowsRoundingHacks;
+
 - (NSCachedURLResponse *)_cachedResponseForURL:(NSURL *)URL;
 
 #if ENABLE_DASHBOARD_SUPPORT
@@ -469,9 +474,6 @@ Could be worth adding to the API.
 - (void)_setCustomHTMLTokenizerTimeDelay:(double)timeDelay;
 - (void)_setCustomHTMLTokenizerChunkSize:(int)chunkSize;
 
-- (id)_initWithFrame:(NSRect)f frameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews;
-- (BOOL)_usesDocumentViews;
-
 - (void)setSelectTrailingWhitespaceEnabled:(BOOL)flag;
 - (BOOL)isSelectTrailingWhitespaceEnabled;
 
@@ -501,10 +503,10 @@ Could be worth adding to the API.
 - (void)_setIncludesFlattenedCompositingLayersWhenDrawingToBitmap:(BOOL)flag;
 - (BOOL)_includesFlattenedCompositingLayersWhenDrawingToBitmap;
 
-// SPI for PluginHalter
-+ (BOOL)_isNodeHaltedPlugin:(DOMNode *)node;
-+ (BOOL)_hasPluginForNodeBeenHalted:(DOMNode *)node;
-+ (void)_restartHaltedPluginForNode:(DOMNode *)node;
+- (void)setTracksRepaints:(BOOL)flag;
+- (BOOL)isTrackingRepaints;
+- (void)resetTrackedRepaints;
+- (NSArray*)trackedRepaintRects; // Returned array contains rectValue NSValues.
 
 // Which pasteboard text is coming from in editing delegate methods such as shouldInsertNode.
 - (NSPasteboard *)_insertionPasteboard;
@@ -562,12 +564,27 @@ Could be worth adding to the API.
 - (BOOL)_useFixedLayout;
 - (NSSize)_fixedLayoutSize;
 
+- (void)_setPaginationMode:(WebPaginationMode)paginationMode;
+- (WebPaginationMode)_paginationMode;
+
+// Whether the column-break-{before,after} properties are respected instead of the
+// page-break-{before,after} properties.
+- (void)_setPaginationBehavesLikeColumns:(BOOL)behavesLikeColumns;
+- (BOOL)_paginationBehavesLikeColumns;
+
+// Set to 0 to have the page length equal the view length.
+- (void)_setPageLength:(CGFloat)pageLength;
+- (CGFloat)_pageLength;
+- (void)_setGapBetweenPages:(CGFloat)pageGap;
+- (CGFloat)_gapBetweenPages;
+- (NSUInteger)_pageCount;
+
 - (void)_setCustomBackingScaleFactor:(CGFloat)overrideScaleFactor;
 - (CGFloat)_backingScaleFactor;
 
 // Deprecated. Use the methods in pending public above instead.
-- (WebNSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(WebNSUInteger)limit;
-- (WebNSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(WebNSUInteger)limit markMatches:(BOOL)markMatches;
+- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit;
+- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches;
 
 /*!
  @method searchFor:direction:caseSensitive:wrap:startInSelection:
@@ -670,9 +687,6 @@ Could be worth adding to the API.
 - (void)setAutomaticSpellingCorrectionEnabled:(BOOL)flag;
 - (void)toggleAutomaticSpellingCorrection:(id)sender;
 #endif
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-- (void)handleCorrectionPanelResult:(NSString*)result;
-#endif
 @end
 
 @interface WebView (WebViewEditingInMail)
@@ -680,6 +694,8 @@ Could be worth adding to the API.
 - (void)_replaceSelectionWithNode:(DOMNode *)node matchStyle:(BOOL)matchStyle;
 - (BOOL)_selectionIsCaret;
 - (BOOL)_selectionIsAll;
+- (void)_simplifyMarkup:(DOMNode *)startNode endNode:(DOMNode *)endNode;
+
 @end
 
 @interface WebView (WebViewDeviceOrientation)
@@ -693,6 +709,21 @@ Could be worth adding to the API.
 - (WebGeolocationPosition *)lastPosition;
 @end
 
+@protocol WebNotificationProvider
+- (void)registerWebView:(WebView *)webView;
+- (void)unregisterWebView:(WebView *)webView;
+
+- (void)showNotification:(WebNotification *)notification fromWebView:(WebView *)webView;
+- (void)cancelNotification:(WebNotification *)notification;
+- (void)notificationDestroyed:(WebNotification *)notification;
+- (void)clearNotifications:(NSArray *)notificationIDs;
+- (WebNotificationPermission)policyForOrigin:(WebSecurityOrigin *)origin;
+
+- (void)webView:(WebView *)webView didShowNotification:(uint64_t)notificationID;
+- (void)webView:(WebView *)webView didClickNotification:(uint64_t)notificationID;
+- (void)webView:(WebView *)webView didCloseNotifications:(NSArray *)notificationIDs;
+@end
+
 @interface WebView (WebViewGeolocation)
 - (void)_setGeolocationProvider:(id<WebGeolocationProvider>)locationProvider;
 - (id<WebGeolocationProvider>)_geolocationProvider;
@@ -701,15 +732,21 @@ Could be worth adding to the API.
 - (void)_geolocationDidFailWithError:(NSError *)error;
 @end
 
+@interface WebView (WebViewNotification)
+- (void)_setNotificationProvider:(id<WebNotificationProvider>)notificationProvider;
+- (id<WebNotificationProvider>)_notificationProvider;
+- (void)_notificationControllerDestroyed;
+
+- (void)_notificationDidShow:(uint64_t)notificationID;
+- (void)_notificationDidClick:(uint64_t)notificationID;
+- (void)_notificationsDidClose:(NSArray *)notificationIDs;
+@end
+
 @interface WebView (WebViewPrivateStyleInfo)
 - (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
 @end
 
-@interface WebView (WebViewPrivateNodesFromRect)
-- (JSValueRef)_nodesFromRect:(JSContextRef)context forDocument:(JSValueRef)value x:(int)x  y:(int)y top:(unsigned)top right:(unsigned)right bottom:(unsigned)bottom left:(unsigned)left ignoreClipping:(BOOL)ignoreClipping;
-@end
-
-@interface NSObject (WebFrameLoadDelegatePrivate)
+@interface NSObject (WebViewFrameLoadDelegatePrivate)
 - (void)webView:(WebView *)sender didFirstLayoutInFrame:(WebFrame *)frame;
 
 // didFinishDocumentLoadForFrame is sent when the document has finished loading, though not necessarily all
@@ -727,7 +764,7 @@ Could be worth adding to the API.
 
 @end
 
-@interface NSObject (WebResourceLoadDelegatePrivate)
+@interface NSObject (WebViewResourceLoadDelegatePrivate)
 // Addresses <rdar://problem/5008925> - SPI for now
 - (NSCachedURLResponse *)webView:(WebView *)sender resource:(id)identifier willCacheResponse:(NSCachedURLResponse *)response fromDataSource:(WebDataSource *)dataSource;
 @end
@@ -742,6 +779,3 @@ void WebInstallMemoryPressureHandler(void);
 #ifdef __cplusplus
 }
 #endif
-
-#undef WebNSInteger
-#undef WebNSUInteger

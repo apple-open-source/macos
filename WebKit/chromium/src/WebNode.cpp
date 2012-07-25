@@ -42,10 +42,11 @@
 #include "WebDOMEvent.h"
 #include "WebDOMEventListener.h"
 #include "WebDocument.h"
+#include "WebElement.h"
 #include "WebFrameImpl.h"
 #include "WebNodeList.h"
-#include "WebString.h"
-#include "WebVector.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 #include "markup.h"
 
@@ -140,6 +141,11 @@ WebString WebNode::createMarkup() const
     return WebCore::createMarkup(m_private.get());
 }
 
+bool WebNode::isLink() const
+{
+    return m_private->isLink();
+}
+
 bool WebNode::isTextNode() const
 {
     return m_private->isTextNode();
@@ -147,6 +153,7 @@ bool WebNode::isTextNode() const
 
 bool WebNode::isFocusable() const
 {
+    m_private->document()->updateLayout();
     return m_private->isFocusable();
 }
 
@@ -158,6 +165,11 @@ bool WebNode::isContentEditable() const
 bool WebNode::isElementNode() const
 {
     return m_private->isElementNode();
+}
+
+bool WebNode::hasEventListeners(const WebString& eventType) const
+{
+    return m_private->hasEventListeners(eventType);
 }
 
 void WebNode::addEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
@@ -178,6 +190,13 @@ void WebNode::removeEventListener(const WebString& eventType, WebDOMEventListene
     // listenerWrapper is now deleted.
 }
 
+bool WebNode::dispatchEvent(const WebDOMEvent& event)
+{
+    if (!event.isNull())
+        return m_private->dispatchEvent(event);
+    return false;
+}
+
 void WebNode::simulateClick()
 {
     RefPtr<Event> noEvent;
@@ -187,6 +206,11 @@ void WebNode::simulateClick()
 WebNodeList WebNode::getElementsByTagName(const WebString& tag) const
 {
     return WebNodeList(m_private->getElementsByTagName(tag));
+}
+
+WebElement WebNode::rootEditableElement() const
+{
+    return WebElement(m_private->rootEditableElement());
 }
 
 bool WebNode::hasNonEmptyBoundingBox() const

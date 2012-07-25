@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005  Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dmnt.c,v 1.4 2009/03/25 19:21:37 abe Exp $";
+static char *rcsid = "$Id: dmnt.c,v 1.5 2011/08/07 22:52:30 abe Exp $";
 #endif
 
 
@@ -167,12 +167,12 @@ no_space_for_mount:
 		goto no_space_for_mount;
 	    mtp->dir = dn;
 	    dn = (char *)NULL;
-
 	    mtp->next = Lmi;
 	    mtp->dev = sb.st_dev;
 	    mtp->rdev = sb.st_rdev;
 	    mtp->inode = (INODETYPE)sb.st_ino;
 	    mtp->mode = sb.st_mode;
+	    mtp->is_nfs = strcasecmp(mb->f_fstypename, "nfs") ? 0 : 1;
 	/*
 	 * Interpolate a possible file system (mounted-on) device name link.
 	 */

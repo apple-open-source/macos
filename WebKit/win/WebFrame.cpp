@@ -93,8 +93,6 @@
 #include <WebCore/RenderView.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/Settings.h>
-#include <WebCore/SVGDocumentExtensions.h>
-#include <WebCore/SVGSMILElement.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/JSDOMBinding.h>
 #include <WebCore/ScriptController.h>
@@ -478,6 +476,24 @@ HRESULT STDMETHODCALLTYPE WebFrame::DOMDocument(
             *result = DOMDocument::createInstance(document);
 
     return *result ? S_OK : E_FAIL;
+}
+
+
+HRESULT WebFrame::DOMWindow(/* [retval][out] */ IDOMWindow** window)
+{
+    if (!window) {
+        ASSERT_NOT_REACHED();
+        return E_POINTER;
+    }
+
+    *window = 0;
+
+    if (Frame* coreFrame = core(this)) {
+        if (WebCore::DOMWindow* coreWindow = coreFrame->domWindow())
+            *window = ::DOMWindow::createInstance(coreWindow);
+    }
+
+    return *window ? S_OK : E_FAIL;
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::frameElement( 
@@ -1043,6 +1059,22 @@ HRESULT STDMETHODCALLTYPE WebFrame::clearOpener()
     return hr;
 }
 
+HRESULT WebFrame::setTextDirection(BSTR direction)
+{
+    Frame* coreFrame = core(this);
+    if (!coreFrame || !coreFrame->editor())
+        return E_FAIL;
+
+    String directionString(direction, SysStringLen(direction));
+    if (directionString == "auto")
+        coreFrame->editor()->setBaseWritingDirection(NaturalWritingDirection);
+    else if (directionString == "ltr")
+        coreFrame->editor()->setBaseWritingDirection(LeftToRightWritingDirection);
+    else if (directionString == "rtl")
+        coreFrame->editor()->setBaseWritingDirection(RightToLeftWritingDirection);
+    return S_OK;
+}
+
 // IWebDocumentText -----------------------------------------------------------
 
 HRESULT STDMETHODCALLTYPE WebFrame::supportsTextEncoding( 
@@ -1191,7 +1223,7 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     if (!inputElement)
         *result = false;
     else
-        *result = inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->autoComplete();
+        *result = inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->shouldAutocomplete();
 
     return S_OK;
 }
@@ -1242,34 +1274,6 @@ HRESULT WebFrame::pauseTransition(BSTR propertyName, IDOMNode* node, double seco
     return S_OK;
 }
 
-HRESULT WebFrame::pauseSVGAnimation(BSTR elementId, IDOMNode* node, double secondsFromNow, BOOL* animationWasRunning)
-{
-    if (!node || !animationWasRunning)
-        return E_POINTER;
-
-    *animationWasRunning = FALSE;
-
-    Frame* frame = core(this);
-    if (!frame)
-        return E_FAIL;
-
-    Document* document = frame->document();
-    if (!document || !document->svgExtensions())
-        return E_FAIL;
-
-    COMPtr<DOMNode> domNode(Query, node);
-    if (!domNode || !SVGSMILElement::isSMILElement(domNode->node()))
-        return E_FAIL;
-
-#if ENABLE(SVG)
-    *animationWasRunning = document->accessSVGExtensions()->sampleAnimationAtTime(String(elementId, SysStringLen(elementId)), static_cast<SVGSMILElement*>(domNode->node()), secondsFromNow);
-#else
-    *animationWasRunning = FALSE;
-#endif
-
-    return S_OK;
-}
-
 HRESULT WebFrame::visibleContentRect(RECT* rect)
 {
     if (!rect)
@@ -1303,7 +1307,7 @@ HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
     if (!controller)
         return E_FAIL;
 
-    *number = controller->numberOfActiveAnimations();
+    *number = controller->numberOfActiveAnimations(frame->document());
     return S_OK;
 }
 
@@ -1552,6 +1556,10 @@ void WebFrame::cancelPolicyCheck()
     d->m_policyFunction = 0;
 }
 
+void WebFrame::dispatchWillSendSubmitEvent(PassRefPtr<WebCore::FormState>)
+{
+}
+
 void WebFrame::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<FormState> formState)
 {
     Frame* coreFrame = core(this);
@@ -1574,7 +1582,7 @@ void WebFrame::dispatchWillSubmitForm(FramePolicyFunction function, PassRefPtr<F
 
     COMPtr<IPropertyBag> formValuesPropertyBag(AdoptCOM, COMPropertyBag<String>::createInstance(formValuesMap));
 
-    COMPtr<WebFrame> sourceFrame(kit(formState->sourceFrame()));
+    COMPtr<WebFrame> sourceFrame(kit(formState->sourceDocument()->frame()));
     if (SUCCEEDED(formDelegate->willSubmitForm(this, sourceFrame.get(), formElement.get(), formValuesPropertyBag.get(), setUpPolicyListener(function).get())))
         return;
 
@@ -1699,7 +1707,7 @@ ResourceError WebFrame::cannotShowURLError(const ResourceRequest& request)
     return ResourceError(String(WebKitErrorDomain), WebKitErrorCannotShowURL, request.url().string(), String());
 }
 
-ResourceError WebFrame::interruptForPolicyChangeError(const ResourceRequest& request)
+ResourceError WebFrame::interruptedForPolicyChangeError(const ResourceRequest& request)
 {
     // FIXME: Need to implement the String descriptions for errors in the WebKitErrorDomain and have them localized
     return ResourceError(String(WebKitErrorDomain), WebKitErrorFrameLoadInterruptedByPolicyChange, request.url().string(), String());
@@ -1828,7 +1836,7 @@ void WebFrame::dispatchUnableToImplementPolicy(const ResourceError& error)
     policyDelegate->unableToImplementPolicyWithError(d->webView, webError.get(), this);
 }
 
-void WebFrame::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest&, const ResourceResponse& response)
+void WebFrame::download(ResourceHandle* handle, const ResourceRequest& request, const ResourceResponse& response)
 {
     COMPtr<IWebDownloadDelegate> downloadDelegate;
     COMPtr<IWebView> webView;
@@ -1873,7 +1881,7 @@ void WebFrame::dispatchDidFailLoad(const ResourceError& error)
     }
 }
 
-void WebFrame::startDownload(const ResourceRequest& request)
+void WebFrame::startDownload(const ResourceRequest& request, const String& /* suggestedName */)
 {
     d->webView->downloadURL(request.url());
 }
@@ -1917,7 +1925,7 @@ void WebFrame::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* world)
     ASSERT(coreFrame);
 
     Settings* settings = coreFrame->settings();
-    if (!settings || !settings->isJavaScriptEnabled())
+    if (!settings || !settings->isScriptEnabled())
         return;
 
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
@@ -1976,11 +1984,11 @@ static IntRect printerRect(HDC printDC)
                    GetDeviceCaps(printDC, PHYSICALHEIGHT) - 2 * GetDeviceCaps(printDC, PHYSICALOFFSETY));
 }
 
-void WebFrame::setPrinting(bool printing, float minPageWidth, float maxPageWidth, float minPageHeight, bool adjustViewSize)
+void WebFrame::setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSizeOrNot adjustViewSize)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
-    coreFrame->setPrinting(printing, FloatSize(minPageWidth, minPageHeight), maxPageWidth / minPageWidth, adjustViewSize ? AdjustViewSize : DoNotAdjustViewSize);
+    coreFrame->setPrinting(printing, pageSize, originalPageSize, maximumShrinkRatio, adjustViewSize ? AdjustViewSize : DoNotAdjustViewSize);
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode( 
@@ -1998,9 +2006,8 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
 
     // If we are a frameset just print with the layout we have onscreen, otherwise relayout
     // according to the paper size
-    float minLayoutWidth = 0.0f;
-    float maxLayoutWidth = 0.0f;
-    float minLayoutHeight = 0.0f;
+    FloatSize minLayoutSize(0.0, 0.0);
+    FloatSize originalPageSize(0.0, 0.0);
     if (m_inPrintingMode && !coreFrame->document()->isFrameSet()) {
         if (!printDC) {
             ASSERT_NOT_REACHED();
@@ -2010,15 +2017,15 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
         const int desiredPixelsPerInch = 72;
         IntRect printRect = printerRect(printDC);
         int paperHorizontalPixelsPerInch = ::GetDeviceCaps(printDC, LOGPIXELSX);
-        int paperWidth = printRect.width() * desiredPixelsPerInch / paperHorizontalPixelsPerInch;
         int paperVerticalPixelsPerInch = ::GetDeviceCaps(printDC, LOGPIXELSY);
+        int paperWidth = printRect.width() * desiredPixelsPerInch / paperHorizontalPixelsPerInch;
         int paperHeight = printRect.height() * desiredPixelsPerInch / paperVerticalPixelsPerInch;
-        minLayoutWidth = paperWidth * PrintingMinimumShrinkFactor;
-        maxLayoutWidth = paperWidth * PrintingMaximumShrinkFactor;
-        minLayoutHeight = paperHeight * PrintingMinimumShrinkFactor;
+        originalPageSize = FloatSize(paperWidth, paperHeight);
+        Frame* coreFrame = core(this);
+        minLayoutSize = coreFrame->resizePageRectsKeepingRatio(originalPageSize, FloatSize(paperWidth * PrintingMinimumShrinkFactor, paperHeight * PrintingMinimumShrinkFactor));
     }
 
-    setPrinting(m_inPrintingMode, minLayoutWidth, maxLayoutWidth, minLayoutHeight, true);
+    setPrinting(m_inPrintingMode, minLayoutSize, originalPageSize, PrintingMaximumShrinkFactor / PrintingMinimumShrinkFactor, AdjustViewSize);
 
     if (!m_inPrintingMode)
         m_pageRects.clear();
@@ -2571,7 +2578,8 @@ HRESULT WebFrame::stringByEvaluatingJavaScriptInScriptWorld(IWebScriptWorld* iWo
         return S_OK;
 
     JSLock lock(SilenceAssertionsOnly);
-    String resultString = ustringToString(result.toString(anyWorldGlobalObject->globalExec()));
+    JSC::ExecState* exec = anyWorldGlobalObject->globalExec();
+    String resultString = ustringToString(result.toString(exec)->value(exec));
     *evaluationResult = BString(resultString).release();
 
     return S_OK;

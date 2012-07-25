@@ -49,7 +49,7 @@ char *_mktemp(char *);
 
 static int _gettemp(char *, int *, int, int);
 
-static const unsigned char padchar[] =
+static const char padchar[] =
 "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 int

@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>libxslt</string>
 	<key>OpenSourceVersion</key>
-	<string>1.1.24</string>
+	<string>1.1.26</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://xmlsoft.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxslt-1.1.24.tar.gz</string>
+	<string>http://xmlsoft.org/sources/libxslt-1.1.26.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>e83ec5d27fc4c10c6f612879bea9a153</string>
+	<string>e61d0364a30146aaa3001296f853b2b9</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-05-15</string>
+	<string>2012-01-20</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>

@@ -82,7 +82,7 @@ void CCHmacInit(
     CCHmacAlgorithm algorithm,  
     const void *key,
     size_t keyLength)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
             
     
 /*!
@@ -99,7 +99,7 @@ void CCHmacUpdate(
     CCHmacContext *ctx, 
     const void *data,
     size_t dataLength)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
     
 /*!
@@ -119,7 +119,7 @@ void CCHmacUpdate(
 void CCHmacFinal(
     CCHmacContext *ctx, 
     void *macOut)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
     
 /*
@@ -133,7 +133,7 @@ void CCHmac(
     const void *data,
     size_t dataLength,          /* length of data in bytes */
     void *macOut)               /* MAC written here */
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
 
 #ifdef __cplusplus
 }

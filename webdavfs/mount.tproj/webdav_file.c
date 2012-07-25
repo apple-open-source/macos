@@ -96,14 +96,14 @@ static int get_cachefile(int *fd)
 			if ( *gWebdavCachePath == '\0' )
 			{
 				/* create a template with our pid */
-				sprintf(gWebdavCachePath, "%s.%lu.XXXXXX", TMP_CACHE_DIR, (unsigned long)getpid());
+				snprintf(gWebdavCachePath, MAXPATHLEN + 1, "%s.%lu.XXXXXX", TMP_CACHE_DIR, (unsigned long)getpid());
 				
 				/* create the cache directory */
 				require_action(mkdtemp(gWebdavCachePath) != NULL, mkdtemp, error = errno);
 			}
 			
 			/* create a template for the cache file */
-			sprintf(pathbuf, "%s/%s", gWebdavCachePath, CACHEFILE_TEMPLATE);
+			snprintf(pathbuf, MAXPATHLEN, "%s/%s", gWebdavCachePath, CACHEFILE_TEMPLATE);
 			
 			/* create and open the cache file */
 			*fd = mkstemp(pathbuf);

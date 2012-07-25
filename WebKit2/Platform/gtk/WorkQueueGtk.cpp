@@ -29,7 +29,6 @@
 #include "WorkQueue.h"
 
 #include "WKBase.h"
-#include <WebCore/NotImplemented.h>
 #include <gio/gio.h>
 #include <glib.h>
 #include <wtf/gobject/GRefPtr.h>
@@ -37,8 +36,8 @@
 // WorkQueue::EventSource
 class WorkQueue::EventSource {
 public:
-    EventSource(PassOwnPtr<WorkItem> workItem, WorkQueue* workQueue, GCancellable* cancellable)
-        : m_workItem(workItem)
+    EventSource(const Function<void()>& function, WorkQueue* workQueue, GCancellable* cancellable)
+        : m_function(function)
         , m_workQueue(workQueue)
         , m_cancellable(cancellable)
     {
@@ -61,7 +60,7 @@ public:
                 return;
         }
 
-        eventSource->m_workItem->execute();
+        eventSource->m_function();
     }
 
     static gboolean performWorkOnce(EventSource* eventSource)
@@ -94,19 +93,35 @@ public:
     }
    
 public:
-    PassOwnPtr<WorkItem> m_workItem;
+    Function<void()> m_function;
     WorkQueue* m_workQueue;
     GCancellable* m_cancellable;
 };
 
 // WorkQueue
+static const size_t kVisualStudioThreadNameLimit = 31;
+
 void WorkQueue::platformInitialize(const char* name)
 {
-    m_eventContext = g_main_context_new();
+    m_eventContext = adoptGRef(g_main_context_new());
     ASSERT(m_eventContext);
-    m_eventLoop = g_main_loop_new(m_eventContext, FALSE);
+    m_eventLoop = adoptGRef(g_main_loop_new(m_eventContext.get(), FALSE));
     ASSERT(m_eventLoop);
-    m_workQueueThread = createThread(reinterpret_cast<WTF::ThreadFunction>(&WorkQueue::startWorkQueueThread), this, name);
+
+    // This name can be com.apple.WebKit.ProcessLauncher or com.apple.CoreIPC.ReceiveQueue.
+    // We are using those names for the thread name, but both are longer than 31 characters,
+    // which is the limit of Visual Studio for thread names.
+    // When log is enabled createThread() will assert instead of truncate the name, so we need
+    // to make sure we don't use a name longer than 31 characters.
+    const char* threadName = g_strrstr(name, ".");
+    if (threadName)
+        threadName++;
+    else
+        threadName = name;
+    if (strlen(threadName) > kVisualStudioThreadNameLimit)
+        threadName += strlen(threadName) - kVisualStudioThreadNameLimit;
+
+    m_workQueueThread = createThread(reinterpret_cast<WTF::ThreadFunction>(&WorkQueue::startWorkQueueThread), this, threadName);
 }
 
 void WorkQueue::platformInvalidate()
@@ -114,38 +129,32 @@ void WorkQueue::platformInvalidate()
     MutexLocker locker(m_eventLoopLock);
 
     if (m_eventLoop) {
-        if (g_main_loop_is_running(m_eventLoop))
-            g_main_loop_quit(m_eventLoop);
-
-        g_main_loop_unref(m_eventLoop);
-        m_eventLoop = 0;
+        if (g_main_loop_is_running(m_eventLoop.get()))
+            g_main_loop_quit(m_eventLoop.get());
+        m_eventLoop.clear();
     }
 
-    if (m_eventContext) {
-        g_main_context_unref(m_eventContext);
-        m_eventContext = 0;
-    }
+    m_eventContext.clear();
 }
 
-void* WorkQueue::startWorkQueueThread(WorkQueue* workQueue)
+void WorkQueue::startWorkQueueThread(WorkQueue* workQueue)
 {
     workQueue->workQueueThreadBody();
-    return 0;
 }
 
 void WorkQueue::workQueueThreadBody()
 {
-    g_main_loop_run(m_eventLoop);
+    g_main_loop_run(m_eventLoop.get());
 }
 
-void WorkQueue::registerEventSourceHandler(int fileDescriptor, int condition, PassOwnPtr<WorkItem> item)
+void WorkQueue::registerEventSourceHandler(int fileDescriptor, int condition, const Function<void()>& function)
 {
     GRefPtr<GSocket> socket = adoptGRef(g_socket_new_from_fd(fileDescriptor, 0));
     ASSERT(socket);
     GRefPtr<GCancellable> cancellable = adoptGRef(g_cancellable_new());
     GRefPtr<GSource> dispatchSource = adoptGRef(g_socket_create_source(socket.get(), static_cast<GIOCondition>(condition), cancellable.get()));
     ASSERT(dispatchSource);
-    EventSource* eventSource = new EventSource(item, this, cancellable.get());
+    EventSource* eventSource = new EventSource(function, this, cancellable.get());
     ASSERT(eventSource);
 
     g_source_set_callback(dispatchSource.get(), reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWork),
@@ -163,7 +172,7 @@ void WorkQueue::registerEventSourceHandler(int fileDescriptor, int condition, Pa
         m_eventSources.set(fileDescriptor, sources);
     }
 
-    g_source_attach(dispatchSource.get(), m_eventContext);
+    g_source_attach(dispatchSource.get(), m_eventContext.get());
 }
 
 void WorkQueue::unregisterEventSourceHandler(int fileDescriptor)
@@ -185,37 +194,37 @@ void WorkQueue::unregisterEventSourceHandler(int fileDescriptor)
     }
 }
 
-void WorkQueue::scheduleWorkOnSource(GSource* dispatchSource, PassOwnPtr<WorkItem> item, GSourceFunc sourceCallback)
+void WorkQueue::dispatchOnSource(GSource* dispatchSource, const Function<void()>& function, GSourceFunc sourceCallback)
 {
-    EventSource* eventSource = new EventSource(item, this, 0);
+    EventSource* eventSource = new EventSource(function, this, 0);
 
     g_source_set_callback(dispatchSource, sourceCallback, eventSource,
                           reinterpret_cast<GDestroyNotify>(&WorkQueue::EventSource::deleteEventSource));
 
-    g_source_attach(dispatchSource, m_eventContext);
+    g_source_attach(dispatchSource, m_eventContext.get());
 }
 
-void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
+void WorkQueue::dispatch(const Function<void()>& function)
 {
     GRefPtr<GSource> dispatchSource = adoptGRef(g_idle_source_new());
     ASSERT(dispatchSource);
     g_source_set_priority(dispatchSource.get(), G_PRIORITY_DEFAULT);
 
-    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
+    dispatchOnSource(dispatchSource.get(), function, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
 }
 
-void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem> item, double delay)
+void WorkQueue::dispatchAfterDelay(const Function<void()>& function, double delay)
 {
     GRefPtr<GSource> dispatchSource = adoptGRef(g_timeout_source_new(static_cast<guint>(delay * 1000)));
     ASSERT(dispatchSource);
 
-    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
+    dispatchOnSource(dispatchSource.get(), function, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnce));
 }
 
-void WorkQueue::scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier process, PassOwnPtr<WorkItem> item)
+void WorkQueue::dispatchOnTermination(WebKit::PlatformProcessIdentifier process, const Function<void()>& function)
 {
     GRefPtr<GSource> dispatchSource = adoptGRef(g_child_watch_source_new(process));
     ASSERT(dispatchSource);
 
-    scheduleWorkOnSource(dispatchSource.get(), item, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnTermination));
+    dispatchOnSource(dispatchSource.get(), function, reinterpret_cast<GSourceFunc>(&WorkQueue::EventSource::performWorkOnTermination));
 }

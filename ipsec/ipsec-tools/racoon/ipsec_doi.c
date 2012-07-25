@@ -79,6 +79,7 @@
 #include "sainfo.h"
 #include "proposal.h"
 #include "crypto_openssl.h"
+#include "crypto_cssm.h"
 #include "strnames.h"
 #include "gcmalloc.h"
 
@@ -874,9 +875,6 @@ out:
 	/* key length must not be specified on some algorithms */
 	if (keylen) {
 		if (sa->enctype == OAKLEY_ATTR_ENC_ALG_DES
-#ifdef HAVE_OPENSSL_IDEA_H
-		 || sa->enctype == OAKLEY_ATTR_ENC_ALG_IDEA
-#endif
 		 || sa->enctype == OAKLEY_ATTR_ENC_ALG_3DES) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"keylen must not be specified "
@@ -1307,7 +1305,7 @@ get_proppair(sa, mode)
 	int tlen;
 	caddr_t bp;
 	int i;
-	struct ipsecdoi_sa_b *sab = (struct ipsecdoi_sa_b *)sa->v;
+	struct ipsecdoi_sa_b *sab = ALIGNED_CAST(struct ipsecdoi_sa_b *)sa->v;
 
 	plog(LLV_DEBUG, LOCATION, NULL, "total SA len=%zu\n", sa->l);
 	plogdump(LLV_DEBUG, sa->v, sa->l);
@@ -1348,7 +1346,7 @@ get_proppair(sa, mode)
 	if (pbuf == NULL)
 		goto bad;
 
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 		/* check the value of next payload */
@@ -1491,7 +1489,7 @@ get_transform(prop, pair, num_p)
 
 	/* check and get transform for use */
 	num_t = 0;
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 
@@ -1603,8 +1601,8 @@ get_sabyproppair(pair, iph1)
 	((struct isakmp_gen *)bp)->len = htons(newtlen);
 
 	/* update some of values in SA header */
-	((struct ipsecdoi_sa_b *)bp)->doi = htonl(iph1->rmconf->doitype);
-	((struct ipsecdoi_sa_b *)bp)->sit = htonl(iph1->rmconf->sittype);
+	(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->doi = htonl(iph1->rmconf->doitype);
+	(ALIGNED_CAST(struct ipsecdoi_sa_b *)bp)->sit = htonl(iph1->rmconf->sittype);
 	bp += sizeof(struct ipsecdoi_sa_b);
 
 	/* create proposal payloads */
@@ -1824,10 +1822,10 @@ ipsecdoi_set_ld(buf)
 
 	switch (buf->l) {
 	case 2:
-		ld = ntohs(*(u_int16_t *)buf->v);
+		ld = ntohs(*ALIGNED_CAST(u_int16_t *)buf->v);
 		break;
 	case 4:
-		ld = ntohl(*(u_int32_t *)buf->v);
+		ld = ntohl(*ALIGNED_CAST(u_int32_t *)buf->v);
 		break;
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -2662,8 +2660,8 @@ ipsecdoi_setph1proposal(props)
 
 	/* create SA payload */
 	/* not including isakmp general header */
-	((struct ipsecdoi_sa_b *)mysa->v)->doi = htonl(props->rmconf->doitype);
-	((struct ipsecdoi_sa_b *)mysa->v)->sit = htonl(props->rmconf->sittype);
+	(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->doi = htonl(props->rmconf->doitype);
+	(ALIGNED_CAST(struct ipsecdoi_sa_b *)mysa->v)->sit = htonl(props->rmconf->sittype);
 
 	(void)setph1prop(props, mysa->v + sizeof(struct ipsecdoi_sa_b));
 
@@ -3156,7 +3154,7 @@ ipsecdoi_setph2proposal(iph2)
 	}
 
 	/* create SA payload */
-	sab = (struct ipsecdoi_sa_b *)iph2->sa->v;
+	sab = ALIGNED_CAST(struct ipsecdoi_sa_b *)iph2->sa->v;
 	sab->doi = htonl(IPSEC_DOI);
 	sab->sit = htonl(IPSECDOI_SIT_IDENTITY_ONLY);	/* XXX configurable ? */
 
@@ -3375,7 +3373,7 @@ ipsecdoi_subnetisaddr_v4( subnet, address )
 	if (subnet->l != (sizeof(struct in_addr)*2))
 		return 1;
 
-	mask = (struct in_addr*)(subnet->v + sizeof(struct in_addr));
+	mask = ALIGNED_CAST(struct in_addr*)(subnet->v + sizeof(struct in_addr));
 
 	if (mask->s_addr!=0xffffffff)
 		return 1;
@@ -3399,7 +3397,7 @@ ipsecdoi_subnetisaddr_v6( subnet, address )
 	if (subnet->l != (sizeof(struct in6_addr)*2))
 		return 1;
 
-	mask = (struct in6_addr*)(subnet->v + sizeof(struct in6_addr));
+	mask = ALIGNED_CAST(struct in6_addr*)(subnet->v + sizeof(struct in6_addr));
 
 	for (i=0; i<16; i++)
 		if(mask->s6_addr[i]!=0xff)
@@ -3623,7 +3621,7 @@ ipsecdoi_checkid1(iph1)
 	struct ph1handle *iph1;
 {
 	struct ipsecdoi_id_b *id_b;
-	struct sockaddr *sa;
+	struct sockaddr_storage *sa;
 	caddr_t sa1, sa2;
 
 	if (iph1->id_p == NULL) {
@@ -3638,7 +3636,7 @@ ipsecdoi_checkid1(iph1)
 		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 	}
 
-	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
+	id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)iph1->id_p->v;
 
 	/* 	In main mode with pre-shared key, only address type can be used. 
 	 *	If NAT Traversal being used and peer is behind nat and 
@@ -3691,7 +3689,7 @@ ipsecdoi_checkid1(iph1)
 
 				u_int16_t port;
 
-				switch (iph1->remote->sa_family) {
+				switch (iph1->remote->ss_family) {
 				case AF_INET:
 					port = ((struct sockaddr_in *)iph1->remote)->sin_port;
 					break;
@@ -3703,7 +3701,7 @@ ipsecdoi_checkid1(iph1)
 				default:
 					plog(LLV_ERROR, LOCATION, NULL,
 						"invalid family: %d\n",
-						iph1->remote->sa_family);
+						iph1->remote->ss_family);
 					return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 				}
 				if (ntohs(id_b->port) != port) {
@@ -3719,7 +3717,9 @@ ipsecdoi_checkid1(iph1)
 	/* compare with the ID if specified. */
 	if (genlist_next(iph1->rmconf->idvl_p, 0)) {
 		vchar_t *ident0 = NULL;
+#ifdef HAVE_OPENSSL
 		vchar_t ident;
+#endif
 		struct idspec *id;
 		struct genlist_entry *gpb;
 
@@ -3748,9 +3748,9 @@ ipsecdoi_checkid1(iph1)
 #endif
 				break;
 			case IDTYPE_ADDRESS:
-				sa = (struct sockaddr *)ident0->v;
+				sa = ALIGNED_CAST(struct sockaddr_storage *)ident0->v;
 				sa2 = (caddr_t)(id_b + 1);
-				switch (sa->sa_family) {
+				switch (sa->ss_family) {
 				case AF_INET:
 					if (iph1->id_p->l - sizeof(*id_b) != sizeof(struct in_addr))
 						continue;  /* ID value mismatch */
@@ -3804,7 +3804,7 @@ ipsecdoi_setid1(iph1)
 	vchar_t *ret = NULL;
 	struct ipsecdoi_id_b id_b;
 	vchar_t *ident = NULL;
-	struct sockaddr *ipid = NULL;
+	struct sockaddr_storage *ipid = NULL;
 
 	/* init */
 	id_b.proto_id = 0;
@@ -3883,7 +3883,7 @@ ipsecdoi_setid1(iph1)
 		 * ip address by using ike negotiation.
 		 */
 		if (iph1->rmconf->idv)
-			ipid = (struct sockaddr *)iph1->rmconf->idv->v;
+			ipid = ALIGNED_CAST(struct sockaddr_storage *)iph1->rmconf->idv->v;
 		/*FALLTHROUGH*/
 	default:
 	    {
@@ -3894,7 +3894,7 @@ ipsecdoi_setid1(iph1)
 			ipid = iph1->local;
 
 		/* use IP address */
-		switch (ipid->sa_family) {
+		switch (ipid->ss_family) {
 		case AF_INET:
 			id_b.type = IPSECDOI_ID_IPV4_ADDR;
 			l = sizeof(struct in_addr);
@@ -4065,7 +4065,7 @@ set_identifier_qual(vpp, type, value, qual)
 		break;
 	
 	case IDTYPE_ADDRESS: {
-		struct sockaddr *sa;
+		struct sockaddr_storage *sa;
 
 		/* length is adjusted since QUOTEDSTRING teminates NULL. */
 		if (value->l == 0)
@@ -4078,7 +4078,7 @@ set_identifier_qual(vpp, type, value, qual)
 			return -1;
 		}
 
-		new = vmalloc(sysdep_sa_len(sa));
+		new = vmalloc(sysdep_sa_len((struct sockaddr *)sa));
 		if (new == NULL) {
 			racoon_free(sa);
 			return -1;
@@ -4152,7 +4152,7 @@ ipsecdoi_setid2(iph2)
 		return -1;
 	}
 
-	iph2->id = ipsecdoi_sockaddr2id((struct sockaddr *)&sp->spidx.src,
+	iph2->id = ipsecdoi_sockaddr2id(&sp->spidx.src,
 					sp->spidx.prefs, sp->spidx.ul_proto);
 	if (iph2->id == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -4160,8 +4160,8 @@ ipsecdoi_setid2(iph2)
 			spidx2str(&sp->spidx));
 		return -1;
 	}
-	if ((((struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR ||
-		((struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR_SUBNET) &&
+	if (((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR || 
+		(ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR_SUBNET) &&
 		iph2->side == RESPONDER &&
 		iph2->ph1 && (iph2->ph1->natt_flags & NAT_DETECTED_ME) &&
 		lcconf->ext_nat_id) {
@@ -4171,11 +4171,11 @@ ipsecdoi_setid2(iph2)
 		}
 	}
 	plog(LLV_DEBUG, LOCATION, NULL, "use local ID type %s\n",
-		s_ipsecdoi_ident(((struct ipsecdoi_id_b *)iph2->id->v)->type));
+		s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v)->type));
 	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
 
 	/* remote side */
-	iph2->id_p = ipsecdoi_sockaddr2id((struct sockaddr *)&sp->spidx.dst,
+	iph2->id_p = ipsecdoi_sockaddr2id(&sp->spidx.dst,
 				sp->spidx.prefd, sp->spidx.ul_proto);
 	if (iph2->id_p == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -4186,7 +4186,7 @@ ipsecdoi_setid2(iph2)
 	}
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"use remote ID type %s\n",
-		s_ipsecdoi_ident(((struct ipsecdoi_id_b *)iph2->id_p->v)->type));
+		s_ipsecdoi_ident((ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id_p->v)->type));
 	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
 
 	return 0;
@@ -4198,7 +4198,7 @@ ipsecdoi_setid2(iph2)
  */
 vchar_t *
 ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
-	struct sockaddr *saddr;
+	struct sockaddr_storage *saddr;
 	u_int prefixlen;
 	u_int ul_proto;
 {
@@ -4211,7 +4211,7 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 	 * Q. When type is SUBNET, is it allowed to be ::1/128.
 	 * A. Yes. (consensus at bake-off)
 	 */
-	switch (saddr->sa_family) {
+	switch (saddr->ss_family) {
 	case AF_INET:
 		len1 = sizeof(struct in_addr);
 		if (prefixlen == (sizeof(struct in_addr) << 3)) {
@@ -4240,7 +4240,7 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d.\n", saddr->sa_family);
+			"invalid family: %d.\n", saddr->ss_family);
 		return NULL;
 	}
 
@@ -4255,16 +4255,16 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 	memset(new->v, 0, new->l);
 
 	/* set the part of header. */
-	((struct ipsecdoi_id_b *)new->v)->type = type;
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->type = type;
 
 	/* set ul_proto and port */
 	/*
 	 * NOTE: we use both IPSEC_ULPROTO_ANY and IPSEC_PORT_ANY as wild card
 	 * because 0 means port number of 0.  Instead of 0, we use IPSEC_*_ANY.
 	 */
-	((struct ipsecdoi_id_b *)new->v)->proto_id =
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->proto_id =
 		ul_proto == IPSEC_ULPROTO_ANY ? 0 : ul_proto;
-	((struct ipsecdoi_id_b *)new->v)->port =
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->port =
 		port == IPSEC_PORT_ANY ? 0 : port;
 	memcpy(new->v + sizeof(struct ipsecdoi_id_b), sa, len1);
 
@@ -4290,19 +4290,19 @@ ipsecdoi_sockaddr2id(saddr, prefixlen, ul_proto)
 
 vchar_t *
 ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
-	struct sockaddr *laddr, *haddr;
+	struct sockaddr_storage *laddr, *haddr;
 	u_int ul_proto;
 {
 	vchar_t *new;
 	int type, len1, len2;
 	u_short port;
 
-	if (laddr->sa_family != haddr->sa_family) {
+	if (laddr->ss_family != haddr->ss_family) {
 	    plog(LLV_ERROR, LOCATION, NULL, "Address family mismatch\n");
 	    return NULL;
 	}
 
-	switch (laddr->sa_family) {
+	switch (laddr->ss_family) {
 	case AF_INET:
 	    type = IPSECDOI_ID_IPV4_ADDR_RANGE;
 	    len1 = sizeof(struct in_addr);
@@ -4317,7 +4317,7 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d.\n", laddr->sa_family);
+			"invalid family: %d.\n", laddr->ss_family);
 		return NULL;
 	}
 
@@ -4331,17 +4331,17 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 
 	memset(new->v, 0, new->l);
 	/* set the part of header. */
-	((struct ipsecdoi_id_b *)new->v)->type = type;
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->type = type;
 
 	/* set ul_proto and port */
 	/*
 	 * NOTE: we use both IPSEC_ULPROTO_ANY and IPSEC_PORT_ANY as wild card
 	 * because 0 means port number of 0.  Instead of 0, we use IPSEC_*_ANY.
 	 */
-	((struct ipsecdoi_id_b *)new->v)->proto_id =
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->proto_id = 
 		ul_proto == IPSEC_ULPROTO_ANY ? 0 : ul_proto;
 	port = ((struct sockaddr_in *)(laddr))->sin_port;
-	((struct ipsecdoi_id_b *)new->v)->port =
+	(ALIGNED_CAST(struct ipsecdoi_id_b *)new->v)->port =
 		port == IPSEC_PORT_ANY ? 0 : port;
 	memcpy(new->v + sizeof(struct ipsecdoi_id_b), 
 	       (caddr_t)&((struct sockaddr_in *)(laddr))->sin_addr, 
@@ -4354,18 +4354,18 @@ ipsecdoi_sockrange2id(laddr, haddr, ul_proto)
 
 
 /*
- * create sockaddr structure from ID payload (buf).
+ * create sockaddr_storage structure from ID payload (buf).
  * buffers (saddr, prefixlen, ul_proto) must be allocated.
  * see, RFC2407 4.6.2.1
  */
 int
 ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 	vchar_t *buf;
-	struct sockaddr *saddr;
+	struct sockaddr_storage *saddr;
 	u_int8_t *prefixlen;
 	u_int16_t *ul_proto;
 {
-	struct ipsecdoi_id_b *id_b = (struct ipsecdoi_id_b *)buf->v;
+	struct ipsecdoi_id_b *id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)buf->v;
 	u_int plen = 0;
 
 	/*
@@ -4378,8 +4378,8 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 	switch (id_b->type) {
 	case IPSECDOI_ID_IPV4_ADDR:
 	case IPSECDOI_ID_IPV4_ADDR_SUBNET:
-		saddr->sa_len = sizeof(struct sockaddr_in);
-		saddr->sa_family = AF_INET;
+		saddr->ss_len = sizeof(struct sockaddr_in);
+		saddr->ss_family = AF_INET;
 		((struct sockaddr_in *)saddr)->sin_port =
 			(id_b->port == 0
 				? IPSEC_PORT_ANY
@@ -4390,8 +4390,8 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 #ifdef INET6
 	case IPSECDOI_ID_IPV6_ADDR:
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
-		saddr->sa_len = sizeof(struct sockaddr_in6);
-		saddr->sa_family = AF_INET6;
+		saddr->ss_len = sizeof(struct sockaddr_in6);
+		saddr->ss_family = AF_INET6;
 		((struct sockaddr_in6 *)saddr)->sin6_port =
 			(id_b->port == 0
 				? IPSEC_PORT_ANY
@@ -4490,7 +4490,7 @@ ipsecdoi_id2str(id)
 	int len = 0;
 	char *dat;
 	static char buf[BUFLEN];
-	struct ipsecdoi_id_b *id_b = (struct ipsecdoi_id_b *)id->v;
+	struct ipsecdoi_id_b *id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)id->v;
 	struct sockaddr_storage saddr;
 	u_int plen = 0;
 
@@ -4501,8 +4501,8 @@ ipsecdoi_id2str(id)
 	case IPSECDOI_ID_IPV4_ADDR_SUBNET:
 	case IPSECDOI_ID_IPV4_ADDR_RANGE:
 
-		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in);
-		((struct sockaddr *)&saddr)->sa_family = AF_INET;
+		saddr.ss_len = sizeof(struct sockaddr_in);
+		saddr.ss_family = AF_INET;
 		((struct sockaddr_in *)&saddr)->sin_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in *)&saddr)->sin_addr,
 			id->v + sizeof(*id_b), sizeof(struct in_addr));
@@ -4511,14 +4511,14 @@ ipsecdoi_id2str(id)
 	case IPSECDOI_ID_IPV6_ADDR:
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
 	case IPSECDOI_ID_IPV6_ADDR_RANGE:
-		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in6);
-		((struct sockaddr *)&saddr)->sa_family = AF_INET6;
+		saddr.ss_len = sizeof(struct sockaddr_in6);
+		saddr.ss_family = AF_INET6;
 		((struct sockaddr_in6 *)&saddr)->sin6_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
 			id->v + sizeof(*id_b), sizeof(struct in6_addr));
 		((struct sockaddr_in6 *)&saddr)->sin6_scope_id =
 			(IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)&saddr)->sin6_addr) 
-			 ? ((struct sockaddr_in6 *)id_b)->sin6_scope_id 
+			 ? (ALIGNED_CAST(struct sockaddr_in6 *)id_b)->sin6_scope_id
 			 : 0);
 		break;
 #endif
@@ -4593,8 +4593,8 @@ ipsecdoi_id2str(id)
 
 		len = snprintf( buf, sizeof(buf), "%s-", saddrwop2str((struct sockaddr *)&saddr));
 
-		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in);
-		((struct sockaddr *)&saddr)->sa_family = AF_INET;
+		saddr.ss_len = sizeof(struct sockaddr_in);
+		saddr.ss_family = AF_INET;
 		((struct sockaddr_in *)&saddr)->sin_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in *)&saddr)->sin_addr,
 			id->v + sizeof(*id_b) + sizeof(struct in_addr),
@@ -4611,15 +4611,15 @@ ipsecdoi_id2str(id)
 
 		len = snprintf( buf, sizeof(buf), "%s-", saddrwop2str((struct sockaddr *)&saddr));
 
-		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in6);
-		((struct sockaddr *)&saddr)->sa_family = AF_INET6;
+		saddr.ss_len = sizeof(struct sockaddr_in6);
+		saddr.ss_family = AF_INET6;
 		((struct sockaddr_in6 *)&saddr)->sin6_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
 			id->v + sizeof(*id_b) + sizeof(struct in6_addr),
 			sizeof(struct in6_addr));
 		((struct sockaddr_in6 *)&saddr)->sin6_scope_id = 
 			(IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)&saddr)->sin6_addr) 
-			 ? ((struct sockaddr_in6 *)id_b)->sin6_scope_id 
+			 ? (ALIGNED_CAST(struct sockaddr_in6 *)id_b)->sin6_scope_id
 			 : 0);
 
 		if (len >= 0) {

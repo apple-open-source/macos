@@ -93,6 +93,10 @@ static int nlist_bsearch64(
     const char *symbol_name,
     const struct nlist_64 *sym64);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The program cmpdylib.  This compares an old and an new dynamic shared library
  * for compatiblity.  Usage:

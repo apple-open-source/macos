@@ -32,19 +32,21 @@
 #import "EnvironmentUtilities.h"
 #import "NetscapePluginModule.h"
 #import "PluginProcess.h"
-#import "RunLoop.h"
 #import <Foundation/NSUserDefaults.h>
+#import <WebCore/RunLoop.h>
 #import <WebKitSystemInterface.h>
+#import <mach/mach_error.h>
 #import <runtime/InitializeThreading.h>
 #import <servers/bootstrap.h>
+#import <stdio.h>
+#import <wtf/MainThread.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
-// FIXME: We should be doing this another way.
-extern "C" kern_return_t bootstrap_look_up2(mach_port_t, const name_t, mach_port_t*, pid_t, uint64_t);
-
 #define SHOW_CRASH_REPORTER 1
+
+using namespace WebCore;
 
 namespace WebKit {
 
@@ -75,9 +77,9 @@ int PluginProcessMain(const CommandLine& commandLine)
     
     // Get the server port.
     mach_port_t serverPort;
-    kern_return_t kr = bootstrap_look_up2(bootstrap_port, serviceName.utf8().data(), &serverPort, 0, 0);
+    kern_return_t kr = bootstrap_look_up(bootstrap_port, serviceName.utf8().data(), &serverPort);
     if (kr) {
-        printf("bootstrap_look_up2 result: %x", kr);
+        WTFLogAlways("bootstrap_look_up result: %s (%x)\n", mach_error_string(kr), kr);
         return EXIT_FAILURE;
     }
 
@@ -87,8 +89,15 @@ int PluginProcessMain(const CommandLine& commandLine)
         WKSetDefaultLocalization(cfLocalization.get());
 
 #if defined(__i386__)
-    NSDictionary *defaults = [NSDictionary dictionaryWithObject:[NSNumber numberWithBool:YES] forKey:@"AppleMagnifiedMode"];
-    [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
+    {
+        NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+        NSDictionary *defaults = [[NSDictionary alloc] initWithObjectsAndKeys:[NSNumber numberWithBool:YES], @"AppleMagnifiedMode", nil];
+        [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
+        [defaults release];
+
+        [pool drain];
+    }
 #endif
 
 #if !SHOW_CRASH_REPORTER

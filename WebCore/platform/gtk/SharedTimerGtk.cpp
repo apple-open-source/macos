@@ -50,18 +50,11 @@ static gboolean timeout_cb(gpointer)
     return FALSE;
 }
 
-void setSharedTimerFireTime(double fireTime)
+void setSharedTimerFireInterval(double interval)
 {
     ASSERT(sharedTimerFiredFunction);
 
-    double interval = fireTime - currentTime();
-    guint intervalInMS;
-    if (interval < 0)
-        intervalInMS = 0;
-    else {
-        interval *= 1000;
-        intervalInMS = (guint)interval;
-    }
+    guint intervalInMS = static_cast<guint>(interval * 1000);
 
     stopSharedTimer();
     sharedTimer = g_timeout_add_full(GDK_PRIORITY_REDRAW, intervalInMS, timeout_cb, 0, 0);
@@ -69,12 +62,11 @@ void setSharedTimerFireTime(double fireTime)
 
 void stopSharedTimer()
 {
-    gboolean s = FALSE;
     if (sharedTimer == 0)
         return;
 
-    s = g_source_remove(sharedTimer);
-    ASSERT(s);
+    gboolean removedSource = g_source_remove(sharedTimer);
+    ASSERT_UNUSED(removedSource, removedSource);
     sharedTimer = 0;
 }
 

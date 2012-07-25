@@ -47,12 +47,11 @@ namespace WebCore {
 class Blob;
 class ScriptExecutionContext;
 
+typedef int ExceptionCode;
+
 class FileReader : public RefCounted<FileReader>, public ActiveDOMObject, public EventTarget, public FileReaderLoaderClient {
 public:
-    static PassRefPtr<FileReader> create(ScriptExecutionContext* context)
-    {
-        return adoptRef(new FileReader(context));
-    }
+    static PassRefPtr<FileReader> create(ScriptExecutionContext*);
 
     virtual ~FileReader();
 
@@ -62,16 +61,16 @@ public:
         DONE = 2
     };
 
-    void readAsArrayBuffer(Blob*);
-    void readAsBinaryString(Blob*);
-    void readAsText(Blob*, const String& encoding = "");
-    void readAsDataURL(Blob*);
+    void readAsArrayBuffer(Blob*, ExceptionCode&);
+    void readAsBinaryString(Blob*, ExceptionCode&);
+    void readAsText(Blob*, const String& encoding, ExceptionCode&);
+    void readAsText(Blob*, ExceptionCode&);
+    void readAsDataURL(Blob*, ExceptionCode&);
     void abort();
 
-    void start();
     void doAbort();
 
-    ReadyState readyState() const;
+    ReadyState readyState() const { return m_state; }
     PassRefPtr<FileError> error() { return m_error; }
     FileReaderLoader::ReadType readType() const { return m_readType; }
     PassRefPtr<ArrayBuffer> arrayBufferResult() const;
@@ -83,7 +82,7 @@ public:
     virtual bool hasPendingActivity() const;
 
     // EventTarget
-    virtual FileReader* toFileReader() { return this; }
+    virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
 
     // FileReaderLoaderClient
@@ -103,15 +102,6 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(loadend);
 
 private:
-    enum InternalState {
-        None,
-        Starting,
-        Opening,
-        Reading,
-        Aborting,
-        Completed
-    };
-
     FileReader(ScriptExecutionContext*);
 
     // EventTarget
@@ -121,11 +111,12 @@ private:
     virtual EventTargetData* ensureEventTargetData() { return &m_eventTargetData; }
 
     void terminate();
-    void readInternal(Blob*, FileReaderLoader::ReadType);
+    void readInternal(Blob*, FileReaderLoader::ReadType, ExceptionCode&);
     void fireErrorEvent(int httpStatusCode);
     void fireEvent(const AtomicString& type);
 
-    InternalState m_state;
+    ReadyState m_state;
+    bool m_aborting;
     EventTargetData m_eventTargetData;
 
     RefPtr<Blob> m_blob;

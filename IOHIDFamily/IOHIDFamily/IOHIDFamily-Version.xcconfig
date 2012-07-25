@@ -19,6 +19,6 @@
 // 
 // @APPLE_LICENSE_HEADER_END@
 
-IOHIDFAMILY_COPYRIGHT = "Copyright © 2000-2011 Apple Inc. All rights reserved."
-IOHIDFAMILY_VERSION = 1.7.1
+IOHIDFAMILY_COPYRIGHT = "Copyright © 2000-2011 Apple Inc. All rights reserved. [$(RC_ProjectNameAndSourceVersion)]"
+IOHIDFAMILY_VERSION = 1.8.0
 MODULE_VERSION = $(IOHIDFAMILY_VERSION)

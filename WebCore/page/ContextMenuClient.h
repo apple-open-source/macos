@@ -26,6 +26,8 @@
 #ifndef ContextMenuClient_h
 #define ContextMenuClient_h
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "ContextMenu.h"
 #include "PlatformMenuDescription.h"
 #include <wtf/Forward.h>
@@ -60,7 +62,12 @@ namespace WebCore {
 #if PLATFORM(MAC)
         virtual void searchWithSpotlight() = 0;
 #endif
+
+#if USE(ACCESSIBILITY_CONTEXT_MENUS)
+        virtual void showContextMenu() = 0;
+#endif
     };
 }
 
+#endif // ENABLE(CONTEXT_MENUS)
 #endif

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -59,8 +59,9 @@ int	type;	/* 0: from org, 1: from here, 2: from end */
 {
 	Sfoff_t	r, s;
 	int	mode, local, hardseek, mustsync;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f, (Sfoff_t)(-1));
+	SFMTXENTER(f, (Sfoff_t)(-1));
 
 	GETLOCAL(f,local);
 

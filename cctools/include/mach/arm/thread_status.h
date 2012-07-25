@@ -1,29 +1,61 @@
-#ifndef	_ARM_THREAD_STATUS_H_
+/*
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
+ */
+/*
+ * FILE_ID: thread_status.h
+ */
+
+
+#ifndef _ARM_THREAD_STATUS_H_
 #define _ARM_THREAD_STATUS_H_
 
-#define ARM_THREAD_STATE        1
+#include <mach/arm/_structs.h>
+#include <mach/message.h>
+#include <mach/arm/thread_state.h>
 
-typedef struct arm_thread_state {
-	unsigned int r0;
-	unsigned int r1;
-	unsigned int r2;
-	unsigned int r3;
-	unsigned int r4;
-	unsigned int r5;
-	unsigned int r6;
-	unsigned int r7;
-	unsigned int r8;
-	unsigned int r9;
-	unsigned int r10;
-	unsigned int r11;
-	unsigned int r12;
-	unsigned int r13;
-	unsigned int r14;
-	unsigned int r15;
-	unsigned int r16;
-} arm_thread_state_t;
+/*
+ *    Support for determining the state of a thread
+ */
 
-#define ARM_THREAD_STATE_COUNT \
-   (sizeof(struct arm_thread_state) / sizeof(int))
 
-#endif /* _ARM_THREAD_STATUS_H_ */
+/*
+ * Flavors
+ */
+
+#define ARM_THREAD_STATE		1
+#define ARM_VFP_STATE			2
+#define ARM_EXCEPTION_STATE		3
+#define ARM_DEBUG_STATE			4
+#define THREAD_STATE_NONE		5
+
+#define VALID_THREAD_STATE_FLAVOR(x)\
+((x == ARM_THREAD_STATE) 		||	\
+ (x == ARM_VFP_STATE) 			||	\
+ (x == ARM_EXCEPTION_STATE) 	||	\
+ (x == ARM_DEBUG_STATE) 		||	\
+ (x == THREAD_STATE_NONE))
+
+typedef _STRUCT_ARM_THREAD_STATE		arm_thread_state_t;
+typedef _STRUCT_ARM_VFP_STATE			arm_vfp_state_t;
+typedef _STRUCT_ARM_EXCEPTION_STATE		arm_exception_state_t;
+typedef _STRUCT_ARM_DEBUG_STATE			arm_debug_state_t;
+
+#define ARM_THREAD_STATE_COUNT ((mach_msg_type_number_t) \
+   (sizeof (arm_thread_state_t)/sizeof(uint32_t)))
+
+#define ARM_VFP_STATE_COUNT ((mach_msg_type_number_t) \
+   (sizeof (arm_vfp_state_t)/sizeof(uint32_t)))
+
+#define ARM_EXCEPTION_STATE_COUNT ((mach_msg_type_number_t) \
+   (sizeof (arm_exception_state_t)/sizeof(uint32_t)))
+
+#define ARM_DEBUG_STATE_COUNT ((mach_msg_type_number_t) \
+   (sizeof (arm_debug_state_t)/sizeof(uint32_t)))
+
+/*
+ * Largest state on this machine:
+ */
+#define THREAD_MACHINE_STATE_MAX	THREAD_STATE_MAX
+
+
+#endif    /* _ARM_THREAD_STATUS_H_ */

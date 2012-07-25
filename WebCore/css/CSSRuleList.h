@@ -1,7 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2006 Apple Computer, Inc.
+ * Copyright (C) 2002, 2006, 2012 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,44 +26,67 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CSSRule;
-class StyleList;
+class CSSStyleSheet;
 
-class CSSRuleList : public RefCounted<CSSRuleList> {
+class CSSRuleList {
+    WTF_MAKE_NONCOPYABLE(CSSRuleList); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<CSSRuleList> create(StyleList* list, bool omitCharsetRules = false)
-    {
-        return adoptRef(new CSSRuleList(list, omitCharsetRules));
-    }
-    static PassRefPtr<CSSRuleList> create()
-    {
-        return adoptRef(new CSSRuleList);
-    }
-    ~CSSRuleList();
+    virtual ~CSSRuleList();
 
-    unsigned length() const;
-    CSSRule* item(unsigned index);
+    virtual void ref() = 0;
+    virtual void deref() = 0;
 
-    // FIXME: Not part of the DOM.  Only used by media rules.  We should be able to remove them if we changed media rules to work
-    // as StyleLists instead.
-    unsigned insertRule(CSSRule*, unsigned index);
-    void deleteRule(unsigned index);
-    void append(CSSRule*);
-
-    StyleList* styleList()
-    {
-        return m_list.get();
-    }
-
-private:
+    virtual unsigned length() const = 0;
+    virtual CSSRule* item(unsigned index) const = 0;
+    
+    virtual CSSStyleSheet* styleSheet() const = 0;
+    
+protected:
     CSSRuleList();
-    CSSRuleList(StyleList*, bool omitCharsetRules);
+};
 
-    RefPtr<StyleList> m_list;
-    Vector<RefPtr<CSSRule> > m_lstCSSRules; // FIXME: Want to eliminate, but used by IE rules() extension and still used by media rules.
+class StaticCSSRuleList : public CSSRuleList {
+public:
+    static PassRefPtr<StaticCSSRuleList> create() { return adoptRef(new StaticCSSRuleList()); }
+
+    virtual void ref() { ++m_refCount; }
+    virtual void deref();
+
+    Vector<RefPtr<CSSRule> >& rules() { return m_rules; }
+    
+    virtual CSSStyleSheet* styleSheet() const { return 0; }
+
+private:    
+    StaticCSSRuleList();
+    ~StaticCSSRuleList();
+
+    virtual unsigned length() const { return m_rules.size(); }
+    virtual CSSRule* item(unsigned index) const { return index < m_rules.size() ? m_rules[index].get() : 0; }
+
+    Vector<RefPtr<CSSRule> > m_rules;
+    unsigned m_refCount;
+};
+
+// The rule owns the live list.
+template <class Rule>
+class LiveCSSRuleList : public CSSRuleList {
+public:
+    LiveCSSRuleList(Rule* rule) : m_rule(rule) { }
+    
+    virtual void ref() { m_rule->ref(); }
+    virtual void deref() { m_rule->deref(); }
+    
+private:
+    virtual unsigned length() const { return m_rule->length(); }
+    virtual CSSRule* item(unsigned index) const  { return m_rule->item(index); }
+    virtual CSSStyleSheet* styleSheet() const { return m_rule->parentStyleSheet(); }
+    
+    Rule* m_rule;
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -84,7 +84,9 @@ static const char rcsid[] =
 #include <net/if_var.h>
 #include <net/if_dl.h>
 #include <net/if_types.h>
+#include <net/if_mib.h>
 #include <net/route.h>
+#include <net/pktsched/pktsched.h>
 
 /* IP */
 #include <netinet/in.h>
@@ -117,21 +119,29 @@ int	setmask;
 int	doalias;
 int	clearaddr;
 int	newaddr = 1;
-int	verbose;
 int	noload;
 int all;
 
 int bond_details = 0;
 int	supmedia = 0;
+#if TARGET_OS_EMBEDDED
+int	verbose = 1;
+int	showrtref = 1;
+#else /* !TARGET_OS_EMBEDDED */
+int	verbose = 0;
 int	showrtref = 0;
+#endif /* !TARGET_OS_EMBEDDED */
 int	printkeys = 0;		/* Print keying material for interfaces. */
 
 static	int ifconfig(int argc, char *const *argv, int iscreate,
 		const struct afswtch *afp);
 static	void status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		struct ifaddrs *ifa);
+static char *bps_to_str(unsigned long long rate);
 static	void tunnel_status(int s);
 static	void usage(void);
+static char *sched2str(unsigned int s);
+static char *tl2str(unsigned int s);
 
 static struct afswtch *af_getbyname(const char *name);
 static struct afswtch *af_getbyfamily(int af);
@@ -184,7 +194,7 @@ main(int argc, char *argv[])
 	struct option *p;
 	size_t iflen;
 
-	all = downonly = uponly = namesonly = noload = verbose = 0;
+	all = downonly = uponly = namesonly = noload = 0;
 
 	/* Parse leading line options */
 #ifndef __APPLE__
@@ -244,8 +254,13 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/* -l cannot be used with -a or -r or -m or -b */
-	if (namesonly && (all || supmedia || showrtref || bond_details))
+	/* -l cannot be used with -a or -q or -r or -m or -b */
+	if (namesonly &&
+#ifdef TARGET_OS_EMBEDDED
+        (all || supmedia || bond_details))
+#else /* TARGET_OS_EMBEDDED */
+	    (all || supmedia || showrtref || bond_details))
+#endif /* !TARGET_OS_EMBEDDED */
 		usage();
 
 	/* nonsense.. */
@@ -820,10 +835,127 @@ setifname(const char *val, int dummy __unused, int s,
 }
 #endif
 
+static void
+setrouter(const char *vname, int value, int s, const struct afswtch *afp)
+{
+	if (afp->af_setrouter == NULL) {
+		warn("address family %s does not support router mode",
+		    afp->af_name);
+		return;
+	}
+
+	afp->af_setrouter(s, value);
+}
+
+static void
+setifdesc(const char *val, int dummy __unused, int s, const struct afswtch *afp)
+{
+	struct if_descreq ifdr;
+
+	bzero(&ifdr, sizeof (ifdr));
+	strncpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
+	ifdr.ifdr_len = strlen(val);
+	strncpy((char *)ifdr.ifdr_desc, val, sizeof (ifdr.ifdr_desc));
+
+	if (ioctl(s, SIOCSIFDESC, (caddr_t)&ifdr) < 0) {
+		warn("ioctl (set desc)");
+	}
+}
+
+static void
+settbr(const char *val, int dummy __unused, int s, const struct afswtch *afp)
+{
+	struct if_linkparamsreq iflpr;
+	long double bps;
+	u_int64_t rate;
+	u_int32_t percent = 0;
+	char *cp;
+
+	errno = 0;
+	bzero(&iflpr, sizeof (iflpr));
+	strncpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
+
+	bps = strtold(val, &cp);
+	if (val == cp || errno != 0) {
+		warn("Invalid value '%s'", val);
+		return;
+	}
+	rate = (u_int64_t)bps;
+	if (cp != NULL) {
+		if (!strcmp(cp, "b") || !strcmp(cp, "bps")) {
+			; /* nothing */
+		} else if (!strcmp(cp, "Kb") || !strcmp(cp, "Kbps")) {
+			rate *= 1000;
+		} else if (!strcmp(cp, "Mb") || !strcmp(cp, "Mbps")) {
+			rate *= 1000 * 1000;
+		} else if (!strcmp(cp, "Gb") || !strcmp(cp, "Gbps")) {
+			rate *= 1000 * 1000 * 1000;
+		} else if (!strcmp(cp, "%")) {
+			percent = rate;
+			if (percent == 0 || percent > 100) {
+				printf("Value out of range '%s'", val);
+				return;
+			}
+		} else if (*cp != '\0') {
+			printf("Unknown unit '%s'", cp);
+			return;
+		}
+	}
+	iflpr.iflpr_output_tbr_rate = rate;
+	iflpr.iflpr_output_tbr_percent = percent;
+	if (ioctl(s, SIOCSIFLINKPARAMS, &iflpr) < 0 &&
+	    errno != ENOENT && errno != ENXIO && errno != ENODEV) {
+		warn("ioctl (set link params)");
+	} else if (errno == ENXIO) {
+		printf("TBR cannot be set on %s\n", name);
+	} else if (errno == ENOENT || rate == 0) {
+		printf("%s: TBR is now disabled\n", name);
+	} else if (errno == ENODEV) {
+		printf("%s: requires absolute TBR rate\n", name);
+	} else if (percent != 0) {
+		printf("%s: TBR rate set to %u%% of effective link rate\n",
+		    name, percent);
+	} else {
+		printf("%s: TBR rate set to %s\n", name, bps_to_str(rate));
+	}
+}
+
+static void
+setthrottle(const char *val, int dummy __unused, int s,
+    const struct afswtch *afp)
+{
+	struct if_throttlereq iftr;
+	char *cp;
+
+	errno = 0;
+	bzero(&iftr, sizeof (iftr));
+	strncpy(iftr.ifthr_name, name, sizeof (iftr.ifthr_name));
+
+	iftr.ifthr_level = strtold(val, &cp);
+	if (val == cp || errno != 0) {
+		warn("Invalid value '%s'", val);
+		return;
+	}
+
+	if (ioctl(s, SIOCSIFTHROTTLE, &iftr) < 0 && errno != ENXIO) {
+		warn("ioctl (set throttling level)");
+	} else if (errno == ENXIO) {
+		printf("throttling level cannot be set on %s\n", name);
+	} else {
+		printf("%s: throttling level set to %d\n", name,
+		    iftr.ifthr_level);
+	}
+}
+
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
 "\20MULTICAST"
+
+#define	IFEFBITS \
+"\020\1AUTOCONFIGURING\7ACCEPT_RTADV\10TXSTART\11RXPOLL\12VLAN\13BOND\14ARPLL" \
+"\15NOWINDOWSCALE\16NOAUTOIPV6LL\20ROUTER4\21ROUTER6" \
+"\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI\35SENDLIST"
 
 #define	IFCAPBITS \
 "\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
@@ -840,6 +972,12 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	struct ifaddrs *ift;
 	int allfamilies, s;
 	struct ifstat ifs;
+	struct if_descreq ifdr;
+	struct if_linkparamsreq iflpr;
+	int mib[6];
+	struct ifmibdata_supplemental ifmsupp;
+	size_t miblen = sizeof(struct ifmibdata_supplemental);
+	u_int64_t eflags = 0;
 
 	if (afp == NULL) {
 		allfamilies = 1;
@@ -861,11 +999,20 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 			printf(" metric %d", ifr.ifr_metric);
 	if (ioctl(s, SIOCGIFMTU, &ifr) != -1)
 		printf(" mtu %d", ifr.ifr_mtu);
-#ifdef SIOCGIFGETRTREFCNT
 	if (showrtref && ioctl(s, SIOCGIFGETRTREFCNT, &ifr) != -1)
 		printf(" rtref %d", ifr.ifr_route_refcnt);
-#endif
+    if (verbose) {
+        unsigned int ifindex = if_nametoindex(ifa->ifa_name);
+        if (ifindex != 0)
+            printf(" index %u", ifindex);
+    }
 	putchar('\n');
+
+	if (verbose && ioctl(s, SIOCGIFEFLAGS, (caddr_t)&ifr) != -1 &&
+	    (eflags = ifr.ifr_eflags) != 0) {
+		printb("\teflags", eflags, IFEFBITS);
+		putchar('\n');
+	}
 
 #ifdef SIOCGIFCAP	
 	if (ioctl(s, SIOCGIFCAP, (caddr_t)&ifr) == 0) {
@@ -921,8 +1068,164 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	if (ioctl(s, SIOCGIFSTATUS, &ifs) == 0) 
 		printf("%s", ifs.ascii);
 
+	/* The rest is for when verbose is set; if not set, we're done */
+	if (!verbose)
+		goto done;
+
+	if (ioctl(s, SIOCGIFLINKQUALITYMETRIC, &ifr) != -1) {
+		int lqm = ifr.ifr_link_quality_metric;
+		if (verbose > 1) {
+			printf("\tlink quality: %d ", lqm);
+			if (lqm == IFNET_LQM_THRESH_OFF) {
+				printf("(off)");
+			} else if (lqm == IFNET_LQM_THRESH_UNKNOWN) {
+				printf("(unknown)");
+			} else if (lqm > IFNET_LQM_THRESH_UNKNOWN &&
+			    lqm <= IFNET_LQM_THRESH_POOR)
+				printf("(poor)");
+			else if (lqm > IFNET_LQM_THRESH_POOR &&
+			    lqm <= IFNET_LQM_THRESH_GOOD)
+				printf("(good)");
+			else
+				printf("(?)");
+			printf("\n");
+		} else if (lqm > IFNET_LQM_THRESH_UNKNOWN) {
+			printf("\tlink quality: %d ", lqm);
+			if (lqm <= IFNET_LQM_THRESH_POOR)
+				printf("(poor)");
+			else if (lqm > IFNET_LQM_THRESH_POOR &&
+			    lqm <= IFNET_LQM_THRESH_GOOD)
+				printf("(good)");
+			else
+				printf("(?)");
+			printf("\n");
+		}
+	}
+
+	bzero(&iflpr, sizeof (iflpr));
+	strncpy(iflpr.iflpr_name, name, sizeof (iflpr.iflpr_name));
+	if (ioctl(s, SIOCGIFLINKPARAMS, &iflpr) != -1) {
+		u_int64_t ibw_max = iflpr.iflpr_input_bw.max_bw;
+		u_int64_t ibw_eff = iflpr.iflpr_input_bw.eff_bw;
+		u_int64_t obw_max = iflpr.iflpr_output_bw.max_bw;
+		u_int64_t obw_eff = iflpr.iflpr_output_bw.eff_bw;
+		u_int64_t obw_tbr = iflpr.iflpr_output_tbr_rate;
+		u_int32_t obw_pct = iflpr.iflpr_output_tbr_percent;
+
+		if (eflags & IFEF_TXSTART) {
+			u_int32_t flags = iflpr.iflpr_flags;
+			u_int32_t sched = iflpr.iflpr_output_sched;
+			struct if_throttlereq iftr;
+
+			printf("\tscheduler: %s%s ",
+			    (flags & IFLPRF_ALTQ) ? "ALTQ_" : "",
+			    sched2str(sched));
+			if (flags & IFLPRF_DRVMANAGED)
+				printf("(driver managed)");
+			printf("\n");
+
+			bzero(&iftr, sizeof (iftr));
+			strncpy(iftr.ifthr_name, name,
+			    sizeof (iftr.ifthr_name));
+			if (ioctl(s, SIOCGIFTHROTTLE, &iftr) != -1 &&
+			    iftr.ifthr_level != IFNET_THROTTLE_OFF)
+				printf("\tthrottling: level %d (%s)\n",
+				    iftr.ifthr_level, tl2str(iftr.ifthr_level));
+		}
+
+		if (obw_tbr != 0 && obw_eff > obw_tbr)
+			obw_eff = obw_tbr;
+
+		if (ibw_max != 0 || obw_max != 0) {
+			if (ibw_max == obw_max && ibw_eff == obw_eff &&
+			    ibw_max == ibw_eff && obw_tbr == 0) {
+				printf("\tlink rate: %s\n",
+				    bps_to_str(ibw_max));
+			} else {
+				printf("\tuplink rate: %s [eff] / ",
+				    bps_to_str(obw_eff));
+				if (obw_tbr != 0) {
+					if (obw_pct == 0)
+						printf("%s [tbr] / ",
+						    bps_to_str(obw_tbr));
+					else
+						printf("%s [tbr %u%%] / ",
+						    bps_to_str(obw_tbr),
+						    obw_pct);
+				}
+				printf("%s", bps_to_str(obw_max));
+				if (obw_tbr != 0)
+					printf(" [max]");
+				printf("\n");
+				if (ibw_eff == ibw_max) {
+					printf("\tdownlink rate: %s\n",
+					    bps_to_str(ibw_max));
+				} else {
+					printf("\tdownlink rate: "
+					    "%s [eff] / ", bps_to_str(ibw_eff));
+					printf("%s [max]\n",
+					    bps_to_str(ibw_max));
+				}
+			}
+		} else if (obw_tbr != 0) {
+			printf("\tuplink rate: %s [tbr]\n",
+			    bps_to_str(obw_tbr));
+		}
+	}
+
+	/* Common OID prefix */
+	mib[0] = CTL_NET;
+	mib[1] = PF_LINK;
+	mib[2] = NETLINK_GENERIC;
+	mib[3] = IFMIB_IFDATA;
+	mib[4] = if_nametoindex(name);
+	mib[5] = IFDATA_SUPPLEMENTAL;
+	if (sysctl(mib, 6, &ifmsupp, &miblen, (void *)0, 0) == -1)
+		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+
+	if (ifmsupp.ifmd_data_extended.ifi_alignerrs != 0) {
+		printf("\tunaligned pkts: %lld\n",
+		    ifmsupp.ifmd_data_extended.ifi_alignerrs);
+	}
+
+	bzero(&ifdr, sizeof (ifdr));
+	strncpy(ifdr.ifdr_name, name, sizeof (ifdr.ifdr_name));
+	if (ioctl(s, SIOCGIFDESC, &ifdr) != -1 && ifdr.ifdr_len) {
+		printf("\tdesc: %s\n", ifdr.ifdr_desc);
+	}
+
+done:
 	close(s);
 	return;
+}
+
+#define	GIGABIT_PER_SEC	1000000000	/* gigabit per second */
+#define MEGABIT_PER_SEC	1000000		/* megabit per second */
+#define	KILOBIT_PER_SEC	1000		/* kilobit per second */
+
+static char *
+bps_to_str(unsigned long long rate)
+{
+        static char buf[32];
+        const char *u;
+        long double n = rate, t;
+
+        if (rate >= GIGABIT_PER_SEC) {
+                t = n / GIGABIT_PER_SEC;
+                u = "Gbps";
+        } else if (n >= MEGABIT_PER_SEC) {
+                t = n / MEGABIT_PER_SEC;
+                u = "Mbps";
+        } else if (n >= KILOBIT_PER_SEC) {
+                t = n / KILOBIT_PER_SEC;
+                u = "Kbps";
+        } else {
+                t = n;
+                u = "bps ";
+        }
+
+        snprintf(buf, sizeof (buf), "%-4.2Lf %4s", t, u);
+        return (buf);
 }
 
 static void
@@ -1126,6 +1429,11 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("av", IFCAP_AV, setifcap),
 	DEF_CMD("-av", -IFCAP_AV, setifcap),
 #endif /* IFCAP_AV */
+	DEF_CMD("router",	1,		setrouter),
+	DEF_CMD("-router",	0,		setrouter),
+	DEF_CMD_ARG("desc",			setifdesc),
+	DEF_CMD_ARG("tbr",			settbr),
+	DEF_CMD_ARG("throttle",			setthrottle),
 };
 
 static __constructor void
@@ -1137,4 +1445,59 @@ ifconfig_ctor(void)
 	for (i = 0; i < N(basic_cmds);  i++)
 		cmd_register(&basic_cmds[i]);
 #undef N
+}
+
+static char *
+sched2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case PKTSCHEDT_NONE:
+		c = "NONE";
+		break;
+	case PKTSCHEDT_CBQ:
+		c = "CBQ";
+		break;
+	case PKTSCHEDT_HFSC:
+		c = "HFSC";
+		break;
+	case PKTSCHEDT_PRIQ:
+		c = "PRIQ";
+		break;
+	case PKTSCHEDT_FAIRQ:
+		c = "FAIRQ";
+		break;
+	case PKTSCHEDT_TCQ:
+		c = "TCQ";
+		break;
+	case PKTSCHEDT_QFQ:
+		c = "QFQ";
+		break;
+	default:
+		c = "UNKNOWN";
+		break;
+	}
+
+	return (c);
+}
+
+static char *
+tl2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case IFNET_THROTTLE_OFF:
+		c = "off";
+		break;
+	case IFNET_THROTTLE_OPPORTUNISTIC:
+		c = "opportunistic";
+		break;
+	default:
+		c = "unknown";
+		break;
+	}
+
+	return (c);
 }

@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGViewElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGViewElement : SVGElement,
                                                  SVGExternalResourcesRequired,
                                                  SVGFitToViewBox,
                                                  SVGZoomAndPan {

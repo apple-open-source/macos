@@ -25,8 +25,8 @@
 #include "HTMLBodyElement.h"
 
 #include "Attribute.h"
-#include "CSSStyleSelector.h"
-#include "CSSStyleSheet.h"
+#include "CSSImageValue.h"
+#include "CSSParser.h"
 #include "CSSValueKeywords.h"
 #include "EventNames.h"
 #include "Frame.h"
@@ -59,63 +59,41 @@ PassRefPtr<HTMLBodyElement> HTMLBodyElement::create(const QualifiedName& tagName
 
 HTMLBodyElement::~HTMLBodyElement()
 {
-    if (m_linkDecl) {
-        m_linkDecl->setNode(0);
-        m_linkDecl->setParent(0);
-    }
 }
 
-void HTMLBodyElement::createLinkDecl()
+bool HTMLBodyElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    m_linkDecl = CSSMutableStyleDeclaration::create();
-    m_linkDecl->setParent(document()->elementSheet());
-    m_linkDecl->setNode(this);
-    m_linkDecl->setStrictParsing(!document()->inQuirksMode());
+    if (name == backgroundAttr || name == marginwidthAttr || name == leftmarginAttr || name == marginheightAttr || name == topmarginAttr || name == bgcolorAttr || name == textAttr || name == bgpropertiesAttr)
+        return true;
+    return HTMLElement::isPresentationAttribute(name);
 }
 
-bool HTMLBodyElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
-{
-    if (attrName == backgroundAttr) {
-        result = (MappedAttributeEntry)(eLastEntry + document()->docID());
-        return false;
-    } 
-    
-    if (attrName == bgcolorAttr ||
-        attrName == textAttr ||
-        attrName == marginwidthAttr ||
-        attrName == leftmarginAttr ||
-        attrName == marginheightAttr ||
-        attrName == topmarginAttr ||
-        attrName == bgpropertiesAttr) {
-        result = eUniversal;
-        return false;
-    }
-
-    return HTMLElement::mapToEntry(attrName, result);
-}
-
-void HTMLBodyElement::parseMappedAttribute(Attribute* attr)
+void HTMLBodyElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == backgroundAttr) {
         String url = stripLeadingAndTrailingHTMLSpaces(attr->value());
         if (!url.isEmpty())
-            addCSSImageProperty(attr, CSSPropertyBackgroundImage, document()->completeURL(url).string());
+            style->setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(document()->completeURL(url).string())));
     } else if (attr->name() == marginwidthAttr || attr->name() == leftmarginAttr) {
-        addCSSLength(attr, CSSPropertyMarginRight, attr->value());
-        addCSSLength(attr, CSSPropertyMarginLeft, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginRight, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginLeft, attr->value());
     } else if (attr->name() == marginheightAttr || attr->name() == topmarginAttr) {
-        addCSSLength(attr, CSSPropertyMarginBottom, attr->value());
-        addCSSLength(attr, CSSPropertyMarginTop, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginBottom, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginTop, attr->value());
     } else if (attr->name() == bgcolorAttr) {
-        addCSSColor(attr, CSSPropertyBackgroundColor, attr->value());
+        addHTMLColorToStyle(style, CSSPropertyBackgroundColor, attr->value());
     } else if (attr->name() == textAttr) {
-        addCSSColor(attr, CSSPropertyColor, attr->value());
+        addHTMLColorToStyle(style, CSSPropertyColor, attr->value());
     } else if (attr->name() == bgpropertiesAttr) {
         if (equalIgnoringCase(attr->value(), "fixed"))
-            addCSSProperty(attr, CSSPropertyBackgroundAttachment, CSSValueFixed);
-    } else if (attr->name() == vlinkAttr ||
-               attr->name() == alinkAttr ||
-               attr->name() == linkAttr) {
+           addPropertyToAttributeStyle(style, CSSPropertyBackgroundAttachment, CSSValueFixed);
+    } else
+        HTMLElement::collectStyleForAttribute(attr, style);
+}
+
+void HTMLBodyElement::parseAttribute(Attribute* attr)
+{
+    if (attr->name() == vlinkAttr || attr->name() == alinkAttr || attr->name() == linkAttr) {
         if (attr->isNull()) {
             if (attr->name() == linkAttr)
                 document()->resetLinkColor();
@@ -124,23 +102,18 @@ void HTMLBodyElement::parseMappedAttribute(Attribute* attr)
             else
                 document()->resetActiveLinkColor();
         } else {
-            if (!m_linkDecl)
-                createLinkDecl();
-            m_linkDecl->setProperty(CSSPropertyColor, attr->value(), false, false);
-            RefPtr<CSSValue> val = m_linkDecl->getPropertyCSSValue(CSSPropertyColor);
-            if (val && val->isPrimitiveValue()) {
-                Color col = document()->styleSelector()->getColorFromPrimitiveValue(static_cast<CSSPrimitiveValue*>(val.get()));
+            RGBA32 color;
+            if (CSSParser::parseColor(color, attr->value(), !document()->inQuirksMode())) {
                 if (attr->name() == linkAttr)
-                    document()->setLinkColor(col);
+                    document()->setLinkColor(color);
                 else if (attr->name() == vlinkAttr)
-                    document()->setVisitedLinkColor(col);
+                    document()->setVisitedLinkColor(color);
                 else
-                    document()->setActiveLinkColor(col);
+                    document()->setActiveLinkColor(color);
             }
         }
-        
-        if (attached())
-            document()->recalcStyle(Force);
+
+        setNeedsStyleRecalc();
     } else if (attr->name() == onloadAttr)
         document()->setWindowAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(document()->frame(), attr));
     else if (attr->name() == onbeforeunloadAttr)
@@ -176,12 +149,21 @@ void HTMLBodyElement::parseMappedAttribute(Attribute* attr)
     else if (attr->name() == onofflineAttr)
         document()->setWindowAttributeEventListener(eventNames().offlineEvent, createAttributeEventListener(document()->frame(), attr));
     else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::parseAttribute(attr);
 }
 
-void HTMLBodyElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLBodyElement::insertedInto(Node* insertionPoint)
 {
-    HTMLElement::insertedIntoDocument();
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint->inDocument())
+        return InsertionShouldCallDidNotifyDescendantInseretions;
+    return InsertionDone;
+}
+
+void HTMLBodyElement::didNotifyDescendantInseretions(Node* insertionPoint)
+{
+    ASSERT_UNUSED(insertionPoint, insertionPoint->inDocument());
+    ASSERT(document());
 
     // FIXME: Perhaps this code should be in attach() instead of here.
     Element* ownerElement = document()->ownerElement();
@@ -199,14 +181,11 @@ void HTMLBodyElement::insertedIntoDocument()
     // But without it we hang during WebKit tests; need to fix that and remove this.
     if (FrameView* view = document()->view())
         view->scheduleRelayout();
-
-    if (document() && document()->page())
-        document()->page()->updateViewportArguments();
 }
 
 bool HTMLBodyElement::isURLAttribute(Attribute *attr) const
 {
-    return attr->name() == backgroundAttr;
+    return attr->name() == backgroundAttr || HTMLElement::isURLAttribute(attr);
 }
 
 bool HTMLBodyElement::supportsFocus() const
@@ -267,7 +246,7 @@ void HTMLBodyElement::setVLink(const String& value)
 static int adjustForZoom(int value, Document* document)
 {
     Frame* frame = document->frame();
-    float zoomFactor = frame->pageZoomFactor() * frame->pageScaleFactor();
+    float zoomFactor = frame->pageZoomFactor() * frame->frameScaleFactor();
     if (zoomFactor == 1)
         return value;
     // Needed because of truncation (rather than rounding) when scaling up.
@@ -276,7 +255,7 @@ static int adjustForZoom(int value, Document* document)
     return static_cast<int>(value / zoomFactor);
 }
 
-int HTMLBodyElement::scrollLeft() const
+int HTMLBodyElement::scrollLeft()
 {
     // Update the document's layout.
     Document* document = this->document();
@@ -295,10 +274,10 @@ void HTMLBodyElement::setScrollLeft(int scrollLeft)
     FrameView* view = frame->view();
     if (!view)
         return;
-    view->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * frame->pageZoomFactor() * frame->pageScaleFactor()), view->scrollY()));
+    view->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), view->scrollY()));
 }
 
-int HTMLBodyElement::scrollTop() const
+int HTMLBodyElement::scrollTop()
 {
     // Update the document's layout.
     Document* document = this->document();
@@ -317,10 +296,10 @@ void HTMLBodyElement::setScrollTop(int scrollTop)
     FrameView* view = frame->view();
     if (!view)
         return;
-    view->setScrollPosition(IntPoint(view->scrollX(), static_cast<int>(scrollTop * frame->pageZoomFactor() * frame->pageScaleFactor())));
+    view->setScrollPosition(IntPoint(view->scrollX(), static_cast<int>(scrollTop * frame->pageZoomFactor() * frame->frameScaleFactor())));
 }
 
-int HTMLBodyElement::scrollHeight() const
+int HTMLBodyElement::scrollHeight()
 {
     // Update the document's layout.
     Document* document = this->document();
@@ -329,7 +308,7 @@ int HTMLBodyElement::scrollHeight() const
     return view ? adjustForZoom(view->contentsHeight(), document) : 0;    
 }
 
-int HTMLBodyElement::scrollWidth() const
+int HTMLBodyElement::scrollWidth()
 {
     // Update the document's layout.
     Document* document = this->document();
@@ -343,18 +322,6 @@ void HTMLBodyElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     addSubresourceURL(urls, document()->completeURL(getAttribute(backgroundAttr)));
-}
-
-void HTMLBodyElement::didMoveToNewOwnerDocument()
-{
-    // When moving body elements between documents, we should have to reset the parent sheet for any
-    // link style declarations.  If we don't we might crash later.
-    // In practice I can't reproduce this theoretical problem.
-    // webarchive/adopt-attribute-styled-body-webarchive.html tries to make sure this crash won't surface.
-    if (m_linkDecl)
-        m_linkDecl->setParent(document()->elementSheet());
-    
-    HTMLElement::didMoveToNewOwnerDocument();
 }
 
 } // namespace WebCore

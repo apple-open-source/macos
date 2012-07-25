@@ -1,6 +1,6 @@
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
@@ -49,6 +49,13 @@ backsql_api_config( backsql_info *bi, const char *name, int argc, char *argv[] )
 				if ( ( *ba2->ba_config )( ba2, argc, argv ) ) {
 					ch_free( ba2 );
 					return 1;
+				}
+				ba2->ba_argc = argc;
+				if ( argc ) {
+					int i;
+					ba2->ba_argv = ch_malloc( argc * sizeof(char *));
+					for ( i=0; i<argc; i++ )
+						ba2->ba_argv[i] = ch_strdup( argv[i] );
 				}
 			}
 			

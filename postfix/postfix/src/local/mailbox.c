@@ -61,6 +61,7 @@
 #include <mymalloc.h>
 #include <stringops.h>
 #include <set_eugid.h>
+#include <warn_stat.h>
 
 /* Global library. */
 
@@ -278,12 +279,18 @@ int     deliver_mailbox(LOCAL_STATE state, USER_ATTR usr_attr, int *statusp)
 	transp_maps = maps_create(VAR_MBOX_TRANSP_MAPS, var_mbox_transp_maps,
 				  DICT_FLAG_LOCK | DICT_FLAG_NO_REGSUB);
     /* The -1 is a hint for the down-stream deliver_completed() function. */
-    if (*var_mbox_transp_maps
+    if (transp_maps
 	&& (map_transport = maps_find(transp_maps, state.msg_attr.user,
 				      DICT_FLAG_NONE)) != 0) {
 	state.msg_attr.rcpt.offset = -1L;
 	*statusp = deliver_pass(MAIL_CLASS_PRIVATE, map_transport,
 				state.request, &state.msg_attr.rcpt);
+	return (YES);
+    } else if (transp_maps && transp_maps->error != 0) {
+	/* Details in the logfile. */
+	dsb_simple(state.msg_attr.why, "4.3.0", "table lookup failure");
+	*statusp = defer_append(BOUNCE_FLAGS(state.request),
+				BOUNCE_ATTR(state.msg_attr));
 	return (YES);
     }
     if (*var_mailbox_transport) {
@@ -296,7 +303,15 @@ int     deliver_mailbox(LOCAL_STATE state, USER_ATTR usr_attr, int *statusp)
     /*
      * Skip delivery when this recipient does not exist.
      */
-    if ((mbox_pwd = mypwnam(state.msg_attr.user)) == 0)
+    if ((errno = mypwnam_err(state.msg_attr.user, &mbox_pwd)) != 0) {
+	msg_warn("error looking up passwd info for %s: %m",
+		 state.msg_attr.user);
+	dsb_simple(state.msg_attr.why, "4.0.0", "user lookup error");
+	*statusp = defer_append(BOUNCE_FLAGS(state.request),
+				BOUNCE_ATTR(state.msg_attr));
+	return (YES);
+    }
+    if (mbox_pwd == 0)
 	return (NO);
 
     /*
@@ -319,10 +334,14 @@ int     deliver_mailbox(LOCAL_STATE state, USER_ATTR usr_attr, int *statusp)
 	cmd_maps = maps_create(VAR_MAILBOX_CMD_MAPS, var_mailbox_cmd_maps,
 			       DICT_FLAG_LOCK | DICT_FLAG_PARANOID);
 
-    if (*var_mailbox_cmd_maps
-	&& (map_command = maps_find(cmd_maps, state.msg_attr.user,
+    if (cmd_maps && (map_command = maps_find(cmd_maps, state.msg_attr.user,
 				    DICT_FLAG_NONE)) != 0) {
 	status = deliver_command(state, usr_attr, map_command);
+    } else if (cmd_maps && cmd_maps->error != 0) {
+	/* Details in the logfile. */
+	dsb_simple(state.msg_attr.why, "4.3.0", "table lookup failure");
+	status = defer_append(BOUNCE_FLAGS(state.request),
+			      BOUNCE_ATTR(state.msg_attr));
     } else if (*var_mailbox_command) {
 	status = deliver_command(state, usr_attr, var_mailbox_command);
 #ifdef __APPLE_OS_X_SERVER__

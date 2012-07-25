@@ -26,7 +26,7 @@
 #ifndef WebIDBTransactionCallbacks_h
 #define WebIDBTransactionCallbacks_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 class WebIDBTransactionCallbacks {
@@ -35,9 +35,6 @@ public:
 
     virtual void onAbort() { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onComplete() { WEBKIT_ASSERT_NOT_REACHED(); }
-
-    // FIXME: Remove.
-    virtual void onTimeout() { WEBKIT_ASSERT_NOT_REACHED(); }
 };
 
 } // namespace WebKit

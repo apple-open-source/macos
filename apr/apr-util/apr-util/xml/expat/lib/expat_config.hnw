@@ -12,7 +12,6 @@
 #ifndef EXPAT_CONFIG_HNW
 #define EXPAT_CONFIG_HNW
 
-#include <memory.h>
 #include <string.h>
 
 #define HAVE_MEMMOVE

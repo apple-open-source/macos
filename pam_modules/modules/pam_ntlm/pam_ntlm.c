@@ -116,7 +116,7 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 		goto cleanup;
 	}
 
-	retval = od_record_create_cstring(&record, user);
+	retval = od_record_create_cstring(pamh, &record, user);
 	if (retval || record == NULL) {
 		retval = PAM_IGNORE;
 		goto cleanup;

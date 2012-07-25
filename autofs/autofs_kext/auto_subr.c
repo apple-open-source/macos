@@ -97,14 +97,15 @@ static void auto_plant_subtriggers(mount_t, subtrigger_t *, vfs_context_t);
  */
 struct autofs_callargs {
 	struct trigger_callargs fnc_t;	/* common args */
-	uid_t		fnc_uid;	/* UID for which to do the mount */
 };
 
 #define fnc_vp			fnc_t.tc_vp
 #define fnc_this_fsid		fnc_t.tc_this_fsid
 #define fnc_ti			fnc_t.tc_ti
 #define fnc_origin		fnc_t.tc_origin
-#define fnc_gssd_port		fnc_t.tc_gssd_port
+
+#define fnc_uid			fnc_t.tc_uid
+#define fnc_asid		fnc_t.tc_asid
 #define fnc_mounted_fsid	fnc_t.tc_mounted_fsid
 #define fnc_retflags		fnc_t.tc_retflags
 
@@ -251,8 +252,12 @@ auto_lookup_request(fninfo_t *fnip, char *name, int namelen, char *subdir,
 	    lu_verbose);
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
-		IOLog("autofs: autofs_lookup failed, status 0x%08x\n", ret);
-		error = EIO;		/* XXX - process Mach errors */
+		if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+			error = EINTR;	// interrupted by a signal
+		} else {
+			IOLog("autofs: autofs_lookup failed, status 0x%08x\n", ret);
+			error = EIO;		/* XXX - process Mach errors */
+		}
 	}
 	AUTOFS_DPRINT((5, "auto_lookup_request: path=%s name=%.*s error=%d\n",
 	    fnip->fi_path, namelen, name, error));
@@ -428,7 +433,7 @@ auto_readdir_aux(struct fninfo *fnip, fnnode_t *dirp, off_t offset,
 		ret = autofs_readdir(automount_port, fnip->fi_map,
 		    offset, alloc_count, &error,
 		    return_offset, return_eof, return_buffer,
-		    return_bufcount);
+		return_bufcount);
 	} else {
 		/*
 		 * This is a directory under a top-level directory of
@@ -455,13 +460,17 @@ auto_readdir_aux(struct fninfo *fnip, fnnode_t *dirp, off_t offset,
 		    key, keylen, subdir, fnip->fi_opts,
 		    (uint32_t) dirp->fn_nodeid, offset, alloc_count, &error,
 		    return_offset, return_eof, return_buffer,
-		    return_bufcount);
+		return_bufcount);
 	}
-                                         
+
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
-		IOLog("autofs: autofs_readdir failed, status 0x%08x\n", ret);
-		error = EIO;		/* XXX - process Mach errors */
+		if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+			error = EINTR;	// interrupted by a signal
+		} else {
+			IOLog("autofs: autofs_readdir failed, status 0x%08x\n", ret);
+			error = EIO;
+		}
 	}
 
 done:
@@ -666,9 +675,13 @@ auto_mount_subtrigger_request(
 	    &top_level, &error);
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
-		IOLog("autofs: autofs_mount_subtrigger failed, status 0x%08x\n",
-		    ret);
-		error = EIO;		/* XXX - process Mach errors */
+		if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+			error = EINTR;	// interrupted by a signal
+		} else {
+			IOLog("autofs: autofs_mount_subtrigger failed, status 0x%08x\n",
+			  ret);
+			error = EIO;		/* XXX - process Mach errors */
+		}
 	}
 	return (error);
 }
@@ -871,17 +884,11 @@ auto_mount_request(
 	alphead = NULL;
 	error = auto_get_automountd_port(&automount_port);
 	if (error) {
-		/*
-		 * Release the GSSD port send right, if it's valid,
-		 * as we won't be using it.
-		 */
-		if (IPC_PORT_VALID(argsp->fnc_gssd_port))
-			auto_release_port(argsp->fnc_gssd_port);
 		goto done;
 	}
 	ret = autofs_mount(automount_port, map, path, key, keylen, subdir,
 	    opts, isdirect, issubtrigger, argsp->fnc_this_fsid,
-	    argsp->fnc_uid, argsp->fnc_gssd_port, &mr_type,
+	    argsp->fnc_uid, argsp->fnc_asid, &mr_type,
 	    &argsp->fnc_mounted_fsid, &argsp->fnc_retflags,
 	    &actions_buffer, &actions_bufcount, &error, mr_verbosep);
 	auto_release_port(automount_port);
@@ -896,10 +903,13 @@ auto_mount_request(
 			ret = vm_map_copyout(kernel_map, &map_data,
 			    (vm_map_copy_t)actions_buffer);
 			if (ret != KERN_SUCCESS) {
-				/* XXX - deal with Mach errors */
-				IOLog("autofs: vm_map_copyout failed, status 0x%08x\n",
-				    ret);
-				error = EIO;
+				if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+					error = EINTR;	// interrupted by a signal
+				} else {
+					/* XXX - deal with Mach errors */
+					IOLog("autofs: vm_map_copyout failed, status 0x%08x\n", ret);
+					error = EIO;
+				}
 				goto done;
 			}
 			data = CAST_DOWN(vm_offset_t, map_data);
@@ -1025,8 +1035,12 @@ auto_mount_request(
 			break;
 		}
 	} else {
-		IOLog("autofs: autofs_mount failed, status 0x%08x\n", ret);
-		error = EIO;		/* XXX - process Mach errors */
+		if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+			error = EINTR;	// interrupted by a signal
+		} else {
+			IOLog("autofs: autofs_mount failed, status 0x%08x\n", ret);
+			error = EIO;		/* XXX - process Mach errors */
+		}
 	}
 
 done:
@@ -1073,8 +1087,12 @@ auto_send_unmount_request(
 	if (ret == KERN_SUCCESS)
 		error = status;
 	else {
-		IOLog("autofs: autofs_unmount failed, status 0x%08x\n", ret);
-		error = EIO;		/* XXX - process Mach errors */
+		if (ret == MACH_RCV_INTERRUPTED || ret == MACH_SEND_INTERRUPTED) {
+			error = EINTR;	// interrupted by a signal
+		} else {
+			IOLog("autofs: autofs_unmount failed, status 0x%08x\n", ret);
+			error = EIO;		/* XXX - process Mach errors */
+		}
 	}
 
 done:
@@ -1155,7 +1173,7 @@ auto_trigger_callback(mount_t mp, vfs_trigger_callback_op_t op, void *data,
 		break;
 	}
 }
-	
+
 static void
 auto_plant_subtriggers(mount_t mp, subtrigger_t *subtriggers, vfs_context_t ctx)
 {
@@ -1540,7 +1558,7 @@ auto_disconnect(
 			    (void *)fnp, (void *)dfnp);
 		}
 		if (tmp == fnp) {
-			*fnpp = tmp->fn_next; 	/* remove it from the list */
+			*fnpp = tmp->fn_next;	/* remove it from the list */
 			assert(!vnode_isinuse(vp, 1));
 			if (isdir) {
 				/*
@@ -1775,7 +1793,7 @@ auto_dprint(int level, const char *fmt, ...)
 	if (autofs_debug == level ||
 	    (autofs_debug > 10 && (autofs_debug - 10) >= level)) {
 		va_start(args, fmt);
-		IOLogv(fmt, args); 
+		IOLogv(fmt, args);
 		va_end(args);
 	}
 }

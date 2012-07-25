@@ -29,7 +29,6 @@
 #define PluginView_h
 
 #include "FrameLoadRequest.h"
-#include "HaltablePlugin.h"
 #include "IntRect.h"
 #include "MediaCanStartListener.h"
 #include "PluginViewBase.h"
@@ -62,11 +61,15 @@ typedef PlatformWidget PlatformPluginWidget;
 #include "TextureMapperPlatformLayer.h"
 #endif
 
-#include <QGraphicsItem>
 #include <QImage>
 QT_BEGIN_NAMESPACE
 class QPainter;
 QT_END_NAMESPACE
+#endif
+#if PLATFORM(QT) && USE(ACCELERATED_COMPOSITING) && ENABLE(NETSCAPE_PLUGIN_API) && defined(XP_UNIX)
+#ifndef WTF_USE_ACCELERATED_COMPOSITING_PLUGIN_LAYER
+#define WTF_USE_ACCELERATED_COMPOSITING_PLUGIN_LAYER 1
+#endif
 #endif
 #if PLATFORM(GTK)
 typedef struct _GtkSocket GtkSocket;
@@ -136,7 +139,6 @@ namespace WebCore {
                      , private PluginStreamClient
 #endif
                      , public PluginManualLoader
-                     , private HaltablePlugin
                      , private MediaCanStartListener {
     public:
         static PassRefPtr<PluginView> create(Frame* parentFrame, const IntSize&, Element*, const KURL&, const Vector<String>& paramNames, const Vector<String>& paramValues, const String& mimeType, bool loadManually);
@@ -239,16 +241,6 @@ namespace WebCore {
         void didFinishLoading();
         void didFail(const ResourceError&);
 
-        // HaltablePlugin
-        virtual void halt();
-        virtual void restart();
-        virtual Node* node() const;
-        virtual bool isWindowed() const { return m_isWindowed; }
-        virtual String pluginName() const;
-
-        bool isHalted() const { return m_isHalted; }
-        bool hasBeenHalted() const { return m_hasBeenHalted; }
-
         static bool isCallingPlugin();
 
         bool start();
@@ -259,11 +251,17 @@ namespace WebCore {
         void keepAlive();
 
 #if USE(ACCELERATED_COMPOSITING)
-#if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API) && PLATFORM(QT)
+#if USE(ACCELERATED_COMPOSITING_PLUGIN_LAYER)
         virtual PlatformLayer* platformLayer() const;
+        bool shouldUseAcceleratedCompositing() const;
 #else
         virtual PlatformLayer* platformLayer() const { return 0; }
 #endif
+#endif
+
+#if PLATFORM(QT) && ENABLE(NETSCAPE_PLUGIN_API) && defined(XP_UNIX)
+        // PluginViewQt (X11) needs a few workarounds when running under DRT
+        static void setIsRunningUnderDRT(bool flag) { s_isRunningUnderDRT = flag; }
 #endif
 
     private:
@@ -304,7 +302,6 @@ namespace WebCore {
         Element* m_element;
         bool m_isStarted;
         KURL m_url;
-        KURL m_baseURL;
         PluginStatus m_status;
         Vector<IntRect> m_invalidRects;
 
@@ -379,7 +376,7 @@ namespace WebCore {
         bool m_haveUpdatedPluginWidget;
 #endif
 
-#if ((PLATFORM(QT) || PLATFORM(WX)) && OS(WINDOWS)) || defined(XP_MACOSX)
+#if ((PLATFORM(QT) || PLATFORM(WX)) && OS(WINDOWS)) || defined(XP_MACOSX) || PLATFORM(EFL)
         // On Mac OSX and Qt/Windows the plugin does not have its own native widget,
         // but is using the containing window as its reference for positioning/painting.
         PlatformPluginWidget m_window;
@@ -394,7 +391,7 @@ public:
 
 private:
 
-#if defined(XP_UNIX) || OS(SYMBIAN) || PLATFORM(GTK)
+#if defined(XP_UNIX) || PLATFORM(GTK)
         void setNPWindowIfNeeded();
 #elif defined(XP_MACOSX)
         NP_CGContext m_npCgContext;
@@ -424,19 +421,16 @@ private:
         void initXEvent(XEvent* event);
 #endif
 
-#if PLATFORM(QT) 
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-        QImage m_image;
-        bool m_renderToImage;
-        void paintUsingImageSurfaceExtension(QPainter* painter, const IntRect& exposedRect);
-#endif
+#if PLATFORM(QT)
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
+        static bool s_isRunningUnderDRT;
+        static void setXKeyEventSpecificFields(XEvent*, KeyboardEvent*);
         void paintUsingXPixmap(QPainter* painter, const QRect &exposedRect);
-#if USE(ACCELERATED_COMPOSITING)
+#endif
+#if USE(ACCELERATED_COMPOSITING_PLUGIN_LAYER)
         OwnPtr<PlatformLayer> m_platformLayer;
         friend class PluginGraphicsLayerQt;
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif
+#endif // USE(ACCELERATED_COMPOSITING_PLUGIN_LAYER)
 #endif // PLATFORM(QT)
 
 #if PLATFORM(GTK)
@@ -454,9 +448,6 @@ private:
         RefPtr<PluginStream> m_manualStream;
 
         bool m_isJavaScriptPaused;
-
-        bool m_isHalted;
-        bool m_hasBeenHalted;
 
         bool m_haveCalledSetWindow;
 

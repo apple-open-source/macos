@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 9933 2011-08-29 21:19:27Z mike $"
+# "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $"
 #
 #   Top-level Makefile for CUPS.
 #
-#   Copyright 2007-2010 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -20,7 +20,7 @@ include Makedefs
 # Directories to make...
 #
 
-DIRS	=	cups test $(BUILDDIRS) $(PHPDIR) $(FONTS)
+DIRS	=	cups test $(BUILDDIRS)
 
 
 #
@@ -234,7 +234,11 @@ test:	all unittests
 
 check:	all unittests
 	echo Running CUPS test suite with defaults...
-	cd test; ./run-stp-tests.sh 1 0 n
+	cd test; ./run-stp-tests.sh 1 0 n n
+
+debugcheck:	all unittests
+	echo Running CUPS test suite with debug printfs...
+	cd test; ./run-stp-tests.sh 1 0 n y
 
 
 #
@@ -242,13 +246,13 @@ check:	all unittests
 #
 
 apihelp:
-	for dir in cgi-bin cups filter driver ppdc scheduler; do\
+	for dir in cgi-bin cups filter ppdc scheduler; do\
 		echo Generating API help in $$dir... ;\
 		(cd $$dir; $(MAKE) $(MFLAGS) apihelp) || exit 1;\
 	done
 
 framedhelp:
-	for dir in cgi-bin cups filter driver ppdc scheduler; do\
+	for dir in cgi-bin cups filter ppdc scheduler; do\
 		echo Generating framed API help in $$dir... ;\
 		(cd $$dir; $(MAKE) $(MFLAGS) framedhelp) || exit 1;\
 	done
@@ -271,10 +275,10 @@ docset:	apihelp
 		doc/help/api-*.tokens
 	$(RM) doc/help/api-*.tokens
 	echo Indexing docset...
-	/Developer/usr/bin/docsetutil index org.cups.docset
+	/Applications/Xcode.app/Contents/Developer/usr/bin/docsetutil index org.cups.docset
 	echo Generating docset archive and feed...
 	$(RM) org.cups.docset.atom
-	/Developer/usr/bin/docsetutil package --output org.cups.docset.xar \
+	/Applications/Xcode.app/Contents/Developer/usr/bin/docsetutil package --output org.cups.docset.xar \
 		--atom org.cups.docset.atom \
 		--download-url http://www.cups.org/org.cups.docset.xar \
 		org.cups.docset
@@ -326,5 +330,5 @@ dist:	all
 
 
 #
-# End of "$Id: Makefile 9933 2011-08-29 21:19:27Z mike $".
+# End of "$Id: Makefile 9391 2010-11-30 21:53:04Z mike $".
 #

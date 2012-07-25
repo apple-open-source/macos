@@ -34,8 +34,11 @@ class BorderValue {
 friend class RenderStyle;
 public:
     BorderValue()
-        : m_width(3)
+        : m_color(0)
+        , m_colorIsValid(false)
+        , m_width(3)
         , m_style(BNONE)
+        , m_isAuto(AUTO_OFF)
     {
     }
 
@@ -46,7 +49,7 @@ public:
 
     bool isTransparent() const
     {
-        return m_color.isValid() && !m_color.alpha();
+        return m_colorIsValid && !alphaChannel(m_color);
     }
 
     bool isVisible(bool checkStyle = true) const
@@ -56,22 +59,34 @@ public:
 
     bool operator==(const BorderValue& o) const
     {
-        return m_width == o.m_width && m_style == o.m_style && m_color == o.m_color;
+        return m_width == o.m_width && m_style == o.m_style && m_color == o.m_color && m_colorIsValid == o.m_colorIsValid;
     }
 
     bool operator!=(const BorderValue& o) const
     {
         return !(*this == o);
     }
-    
-    const Color& color() const { return m_color; }
-    unsigned short width() const { return m_width; }
+
+    void setColor(const Color& color)
+    {
+        m_color = color.rgb();
+        m_colorIsValid = color.isValid();
+    }
+
+    Color color() const { return Color(m_color, m_colorIsValid); }
+
+    unsigned width() const { return m_width; }
     EBorderStyle style() const { return static_cast<EBorderStyle>(m_style); }
 
 protected:
-    Color m_color;
-    unsigned m_width : 12;
-    unsigned m_style : 4; // EBorderStyle 
+    RGBA32 m_color;
+    unsigned m_colorIsValid : 1;
+
+    unsigned m_width : 26;
+    unsigned m_style : 4; // EBorderStyle
+
+    // This is only used by OutlineValue but moved here to keep the bits packed.
+    unsigned m_isAuto : 1; // OutlineIsAuto
 };
 
 } // namespace WebCore

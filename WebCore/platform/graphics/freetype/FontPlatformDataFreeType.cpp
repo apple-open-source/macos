@@ -122,7 +122,7 @@ FontPlatformData::FontPlatformData(FcPattern* pattern, const FontDescription& fo
     , m_scaledFont(0)
 {
     RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(m_pattern.get()));
-    initializeWithFontFace(fontFace.get());
+    initializeWithFontFace(fontFace.get(), fontDescription);
 
     int spacing;
     if (FcPatternGetInteger(pattern, FC_SPACING, 0, &spacing) == FcResultMatch && spacing == FC_MONO)
@@ -152,6 +152,7 @@ FontPlatformData::FontPlatformData(cairo_font_face_t* fontFace, float size, bool
     , m_size(size)
     , m_syntheticBold(bold)
     , m_syntheticOblique(italic)
+    , m_fixedWidth(false)
     , m_scaledFont(0)
 {
     initializeWithFontFace(fontFace);
@@ -223,13 +224,11 @@ bool FontPlatformData::isFixedPitch()
 
 bool FontPlatformData::operator==(const FontPlatformData& other) const
 {
-    if (m_pattern == other.m_pattern)
-        return true;
-    if (!m_pattern || !other.m_pattern)
-        return false;
-    return FcPatternEqual(m_pattern.get(), other.m_pattern.get())
-        && m_scaledFont == other.m_scaledFont && m_size == other.m_size
-        && m_syntheticOblique == other.m_syntheticOblique && m_syntheticBold == other.m_syntheticBold; 
+    return m_pattern == other.m_pattern
+        && m_scaledFont == other.m_scaledFont
+        && m_size == other.m_size
+        && m_syntheticOblique == other.m_syntheticOblique
+        && m_syntheticBold == other.m_syntheticBold; 
 }
 
 #ifndef NDEBUG
@@ -239,16 +238,20 @@ String FontPlatformData::description() const
 }
 #endif
 
-void FontPlatformData::initializeWithFontFace(cairo_font_face_t* fontFace)
+void FontPlatformData::initializeWithFontFace(cairo_font_face_t* fontFace, const FontDescription& fontDescription)
 {
     cairo_font_options_t* options = getDefaultFontOptions();
 
     cairo_matrix_t ctm;
     cairo_matrix_init_identity(&ctm);
 
+    // Scaling a font with width zero size leads to a failed cairo_scaled_font_t instantiations.
+    // Instead we scale we scale the font to a very tiny size and just abort rendering later on.
+    float realSize = m_size ? m_size : 1;
+
     cairo_matrix_t fontMatrix;
     if (!m_pattern)
-        cairo_matrix_init_scale(&fontMatrix, m_size, m_size);
+        cairo_matrix_init_scale(&fontMatrix, realSize, realSize);
     else {
         setCairoFontOptionsFromFontConfigPattern(options, m_pattern.get());
 
@@ -263,8 +266,19 @@ void FontPlatformData::initializeWithFontFace(cairo_font_face_t* fontFace)
         cairo_matrix_init(&fontMatrix, fontConfigMatrix.xx, -fontConfigMatrix.yx,
                           -fontConfigMatrix.xy, fontConfigMatrix.yy, 0, 0);
 
-        // The matrix from FontConfig does not include the scale.
-        cairo_matrix_scale(&fontMatrix, m_size, m_size);
+        // We requested an italic font, but Fontconfig gave us one that was neither oblique nor italic.
+        int actualFontSlant;
+        if (fontDescription.italic() && FcPatternGetInteger(m_pattern.get(), FC_SLANT, 0, &actualFontSlant) == FcResultMatch)
+            m_syntheticOblique = actualFontSlant == FC_SLANT_ROMAN;
+
+        // The matrix from FontConfig does not include the scale. 
+        cairo_matrix_scale(&fontMatrix, realSize, realSize);
+    }
+
+    if (syntheticOblique()) {
+        static const float syntheticObliqueSkew = -tanf(14 * acosf(0) / 90);
+        cairo_matrix_t skew = {1, 0, syntheticObliqueSkew, 1, 0, 0};
+        cairo_matrix_multiply(&fontMatrix, &skew, &fontMatrix);
     }
 
     m_scaledFont = cairo_scaled_font_create(fontFace, &fontMatrix, &ctm, options);
@@ -273,9 +287,7 @@ void FontPlatformData::initializeWithFontFace(cairo_font_face_t* fontFace)
 
 bool FontPlatformData::hasCompatibleCharmap()
 {
-    if (!m_scaledFont)
-        return false;
-
+    ASSERT(m_scaledFont);
     FT_Face freeTypeFace = cairo_ft_scaled_font_lock_face(m_scaledFont);
     bool hasCompatibleCharmap = !(FT_Select_Charmap(freeTypeFace, ft_encoding_unicode)
                                 && FT_Select_Charmap(freeTypeFace, ft_encoding_symbol)

@@ -25,11 +25,17 @@ munge-build-files:
 
 # Automatic Extract & Patch
 AEP_Project    = apr
-AEP_Version    = 1.4.2
+AEP_Version    = 1.4.5
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = configure.diff gcc42.diff PR4905364.diff legacy-32-bit-inode.diff apr_proc_spawn.diff
+AEP_Patches    = configure.diff \
+                 gcc42.diff \
+                 PR4905364.diff \
+                 legacy-32-bit-inode.diff \
+                 apr_proc_spawn.diff \
+                 remove-darwin10-hacks.diff \
+                 PR10582643.diff
 
 # Extract the source.
 install_source::

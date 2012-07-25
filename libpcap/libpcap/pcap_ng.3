@@ -1,0 +1,71 @@
+.\"
+.\" Copyright (c) 2012 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this
+.\" file.
+.\" 
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_LICENSE_HEADER_END@
+.Dd 11 January 2012
+.Dt PCAP_NG 3
+.Os
+.Sh NAME
+.Nm pcap_ng
+.Nd Apple Internal pcap-ng SPIs for the new pcap file format
+.Sh SYNOPSIS
+.Bd -literal
+#define __APPLE_PCAP_NG_API
+.Ed
+.In pcap/pcap.h
+.Ft pcap_dumper_t *
+.Fo pcap_ng_dump_open
+.Fa "pcap_t *p"
+.Fa "const char *file"
+.Fc
+.Ft pcap_dumper_t *
+.Fo pcap_ng_dump_fopen
+.Fa "pcap_t *p"
+.Fa "FILE *fp"
+.Fc
+.Ft void
+.Fo pcap_ng_dump
+.Fa "u_char *user"
+.Fa "struct pcap_pkthdr *h"
+.Fa "u_char *sp"
+.Fc
+.Ft void
+.Fo pcap_ng_dump_close
+.Fa "pcap_dumper_t *p"
+.Fc
+.Sh DESCRIPTION
+libpcap already supports reading pcap-ng files to some extent.
+These Apple private SPIs allow you to write pcap-ng files.
+They work exactly like the regular pcap APIs, but they will write a packet
+capture a more extensible file format (pcap-ng).
+For more information on how to use them, please consult the corresponding
+libpcap man pages.
+.Pp
+tcpdump and Wireshark are able to read pcap-ng files, but tcpdump will print
+more information, namely the comment field of each packet header block.
+.Sh SEE ALSO
+.Xr pcap_dump_open 3PCAP ,
+.Xr pcap_dump_fopen 3PCAP ,
+.Xr pcap_dump 3PCAP ,
+.Xr pcap_dump_close 3PCAP ,
+.Xr tcpdump 1
+.Pp
+.Pa http://www.winpcap.org/ntar/draft/PCAP-DumpFileFormat.html
+.Pa http://wiki.wireshark.org/Development/PcapNg

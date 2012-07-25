@@ -26,12 +26,10 @@
 #include "config.h"
 #include "StorageTracker.h"
 
-#if ENABLE(DOM_STORAGE)
-
 #include "DatabaseThread.h"
 #include "FileSystem.h"
-#include "LocalStorageTask.h"
-#include "LocalStorageThread.h"
+#include "StorageTask.h"
+#include "StorageThread.h"
 #include "Logging.h"
 #include "PageGroup.h"
 #include "SQLiteFileSystem.h"
@@ -48,14 +46,24 @@ namespace WebCore {
 
 static StorageTracker* storageTracker = 0;
 
-void StorageTracker::initializeTracker(const String& storagePath)
+void StorageTracker::initializeTracker(const String& storagePath, StorageTrackerClient* client)
 {
     ASSERT(isMainThread());
-    ASSERT(!storageTracker);
+    ASSERT(!storageTracker || !storageTracker->m_client);
     
     if (!storageTracker)
         storageTracker = new StorageTracker(storagePath);
     
+    storageTracker->m_client = client;
+    storageTracker->m_needsInitialization = true;
+}
+
+void StorageTracker::internalInitialize()
+{
+    m_needsInitialization = false;
+
+    ASSERT(isMainThread());
+
     // Make sure text encoding maps have been built on the main thread, as the StorageTracker thread might try to do it there instead.
     // FIXME (<rdar://problem/9127819>): Is there a more explicit way of doing this besides accessing the UTF8Encoding?
     UTF8Encoding();
@@ -70,24 +78,45 @@ StorageTracker& StorageTracker::tracker()
 {
     if (!storageTracker)
         storageTracker = new StorageTracker("");
+    if (storageTracker->m_needsInitialization)
+        storageTracker->internalInitialize();
     
     return *storageTracker;
 }
 
 StorageTracker::StorageTracker(const String& storagePath)
-    : m_client(0)
-    , m_thread(LocalStorageThread::create())
+    : m_storageDirectoryPath(storagePath.isolatedCopy())
+    , m_client(0)
+    , m_thread(StorageThread::create())
     , m_isActive(false)
+    , m_needsInitialization(false)
+    , m_finishedImportingOriginIdentifiers(false)
 {
-    setStorageDirectoryPath(storagePath);
 }
 
-void StorageTracker::setStorageDirectoryPath(const String& path)
+void StorageTracker::setDatabaseDirectoryPath(const String& path)
 {
-    MutexLocker lockDatabase(m_databaseGuard);
-    ASSERT(!m_database.isOpen());
-    
+    MutexLocker lockStorage(m_databaseGuard);
+
+    if (m_database.isOpen())
+        m_database.close();
+
     m_storageDirectoryPath = path.isolatedCopy();
+
+    {
+        MutexLocker lockOrigins(m_originSetGuard);
+        m_originSet.clear();
+    }
+
+    if (!m_isActive)
+        return;
+
+    importOriginIdentifiers();
+}
+
+String StorageTracker::databaseDirectoryPath() const
+{
+    return m_storageDirectoryPath.isolatedCopy();
 }
 
 String StorageTracker::trackerDatabasePath()
@@ -134,7 +163,20 @@ void StorageTracker::importOriginIdentifiers()
     ASSERT(isMainThread());
     ASSERT(m_thread);
 
-    m_thread->scheduleTask(LocalStorageTask::createOriginIdentifiersImport());
+    m_thread->scheduleTask(StorageTask::createOriginIdentifiersImport());
+}
+
+void StorageTracker::notifyFinishedImportingOriginIdentifiersOnMainThread(void*)
+{
+    tracker().finishedImportingOriginIdentifiers();
+}
+
+void StorageTracker::finishedImportingOriginIdentifiers()
+{
+    m_finishedImportingOriginIdentifiers = true;
+    MutexLocker lockClient(m_clientGuard);
+    if (m_client)
+        m_client->didFinishLoadingOrigins();
 }
 
 void StorageTracker::syncImportOriginIdentifiers()
@@ -185,6 +227,8 @@ void StorageTracker::syncImportOriginIdentifiers()
                 m_client->dispatchDidModifyOrigin(*it);
         }
     }
+
+    callOnMainThread(notifyFinishedImportingOriginIdentifiersOnMainThread, 0);
 }
     
 void StorageTracker::syncFileSystemAndTrackerDatabase()
@@ -195,7 +239,7 @@ void StorageTracker::syncFileSystemAndTrackerDatabase()
     m_databaseGuard.lock();
     DEFINE_STATIC_LOCAL(const String, fileMatchPattern, ("*.localstorage"));
     DEFINE_STATIC_LOCAL(const String, fileExt, (".localstorage"));
-    DEFINE_STATIC_LOCAL(const unsigned, fileExtLength, (fileExt.length()));
+    static const unsigned fileExtLength = fileExt.length();
     m_databaseGuard.unlock();
 
     Vector<String> paths;
@@ -253,7 +297,7 @@ void StorageTracker::setOriginDetails(const String& originIdentifier, const Stri
         m_originSet.add(originIdentifier);
     }
 
-    OwnPtr<LocalStorageTask> task = LocalStorageTask::createSetOriginDetails(originIdentifier.isolatedCopy(), databaseFile);
+    OwnPtr<StorageTask> task = StorageTask::createSetOriginDetails(originIdentifier.isolatedCopy(), databaseFile);
 
     if (isMainThread()) {
         ASSERT(m_thread);
@@ -267,7 +311,7 @@ void StorageTracker::scheduleTask(void* taskIn)
     ASSERT(isMainThread());
     ASSERT(StorageTracker::tracker().m_thread);
     
-    OwnPtr<LocalStorageTask> task = adoptPtr(reinterpret_cast<LocalStorageTask*>(taskIn));
+    OwnPtr<StorageTask> task = adoptPtr(reinterpret_cast<StorageTask*>(taskIn));
 
     StorageTracker::tracker().m_thread->scheduleTask(task.release());
 }
@@ -339,7 +383,7 @@ void StorageTracker::deleteAllOrigins()
 
     PageGroup::clearLocalStorageForAllOrigins();
     
-    m_thread->scheduleTask(LocalStorageTask::createDeleteAllOrigins());
+    m_thread->scheduleTask(StorageTask::createDeleteAllOrigins());
 }
     
 void StorageTracker::syncDeleteAllOrigins()
@@ -435,7 +479,7 @@ void StorageTracker::deleteOrigin(SecurityOrigin* origin)
         m_originSet.remove(originId);
     }
     
-    m_thread->scheduleTask(LocalStorageTask::createDeleteOrigin(originId));
+    m_thread->scheduleTask(StorageTask::createDeleteOrigin(originId));
 }
 
 void StorageTracker::syncDeleteOrigin(const String& originIdentifier)
@@ -585,5 +629,3 @@ long long StorageTracker::diskUsageForOrigin(SecurityOrigin* origin)
 }
     
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)

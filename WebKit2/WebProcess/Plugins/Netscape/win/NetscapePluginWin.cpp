@@ -82,9 +82,9 @@ static void registerPluginView()
     ::RegisterClassW(&windowClass);
 }
 
-HWND NetscapePlugin::containingWindow() const
+HWND NetscapePlugin::containingWindow()
 {
-    return m_pluginController->nativeParentWindow();
+    return controller()->nativeParentWindow();
 }
 
 bool NetscapePlugin::platformPostInitialize()
@@ -158,20 +158,17 @@ void NetscapePlugin::platformVisibilityDidChange()
 
 void NetscapePlugin::scheduleWindowedGeometryUpdate()
 {
-    IntRect clipRectInPluginWindowCoordinates = m_clipRectInWindowCoordinates;
-    clipRectInPluginWindowCoordinates.move(-m_frameRectInWindowCoordinates.x(), -m_frameRectInWindowCoordinates.y());
-
     // We only update the size here and let the UI process update our position and clip rect so
     // that we can keep our position in sync when scrolling, etc. See <http://webkit.org/b/60210>.
-    ::SetWindowPos(m_window, 0, 0, 0, m_frameRectInWindowCoordinates.width(), m_frameRectInWindowCoordinates.height(), SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
+    ::SetWindowPos(m_window, 0, 0, 0, m_pluginSize.width(), m_pluginSize.height(), SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOZORDER);
 
     WindowGeometry geometry;
     geometry.window = m_window;
-    geometry.visible = m_pluginController->isPluginVisible();
-    geometry.frame = m_frameRectInWindowCoordinates;
-    geometry.clipRect = clipRectInPluginWindowCoordinates;
+    geometry.visible = controller()->isPluginVisible();
+    geometry.frame = IntRect(convertToRootView(IntPoint()), m_pluginSize);
+    geometry.clipRect = m_clipRect;
 
-    m_pluginController->scheduleWindowedPluginGeometryUpdate(geometry);
+    controller()->scheduleWindowedPluginGeometryUpdate(geometry);
 }
 
 void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirtyRect, bool)
@@ -185,7 +182,7 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
         return;
     }
 
-    m_pluginController->willSendEventToPlugin();
+    controller()->willSendEventToPlugin();
     
     LocalWindowsContext windowsContext(context, dirtyRect, m_isTransparent);
 
@@ -194,10 +191,12 @@ void NetscapePlugin::platformPaint(GraphicsContext* context, const IntRect& dirt
 
     WINDOWPOS windowpos = { 0, 0, 0, 0, 0, 0, 0 };
 
-    windowpos.x = m_frameRectInWindowCoordinates.x();
-    windowpos.y = m_frameRectInWindowCoordinates.y();
-    windowpos.cx = m_frameRectInWindowCoordinates.width();
-    windowpos.cy = m_frameRectInWindowCoordinates.height();
+    IntPoint pluginLocationInRootViewCoordinates = convertToRootView(IntPoint());
+
+    windowpos.x = pluginLocationInRootViewCoordinates.x();
+    windowpos.y = pluginLocationInRootViewCoordinates.y();
+    windowpos.cx = m_pluginSize.width();
+    windowpos.cy = m_pluginSize.height();
 
     NPEvent npEvent;
     npEvent.event = WM_WINDOWPOSCHANGED;
@@ -293,7 +292,7 @@ bool NetscapePlugin::platformHandleMouseEvent(const WebMouseEvent& event)
     if (m_isWindowed)
         return false;
 
-    m_pluginController->willSendEventToPlugin();
+    controller()->willSendEventToPlugin();
 
     NPEvent npEvent = toNP(event);
     NPP_HandleEvent(&npEvent);
@@ -308,11 +307,26 @@ bool NetscapePlugin::platformHandleWheelEvent(const WebWheelEvent&)
     return false;
 }
 
-void NetscapePlugin::platformSetFocus(bool)
+void NetscapePlugin::platformSetFocus(bool hasFocus)
 {
     CurrentPluginSetter setCurrentPlugin(this);
 
-    notImplemented();
+    if (m_isWindowed)
+        return;
+
+    controller()->willSendEventToPlugin();
+
+    NPEvent npEvent;
+    npEvent.event = hasFocus ? WM_SETFOCUS : WM_KILLFOCUS;
+    npEvent.wParam = 0;
+    npEvent.lParam = 0;
+
+    NPP_HandleEvent(&npEvent);
+}
+
+bool NetscapePlugin::wantsPluginRelativeNPWindowCoordinates()
+{
+    return false;
 }
 
 bool NetscapePlugin::platformHandleMouseEnterEvent(const WebMouseEvent& event)
@@ -322,7 +336,7 @@ bool NetscapePlugin::platformHandleMouseEnterEvent(const WebMouseEvent& event)
     if (m_isWindowed)
         return false;
 
-    m_pluginController->willSendEventToPlugin();
+    controller()->willSendEventToPlugin();
 
     NPEvent npEvent = toNP(event);
     NPP_HandleEvent(&npEvent);
@@ -336,7 +350,7 @@ bool NetscapePlugin::platformHandleMouseLeaveEvent(const WebMouseEvent& event)
     if (m_isWindowed)
         return false;
 
-    m_pluginController->willSendEventToPlugin();
+    controller()->willSendEventToPlugin();
 
     NPEvent npEvent = toNP(event);
     NPP_HandleEvent(&npEvent);

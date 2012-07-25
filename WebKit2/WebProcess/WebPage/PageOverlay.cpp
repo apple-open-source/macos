@@ -54,6 +54,7 @@ PageOverlay::PageOverlay(Client* client)
     , m_fadeAnimationDuration(fadeAnimationDuration)
     , m_fadeAnimationType(NoAnimation)
     , m_fractionFadedIn(1.0)
+    , m_pageOverlayShouldApplyFadeWhenPainting(true)
 {
 }
 
@@ -68,7 +69,7 @@ IntRect PageOverlay::bounds() const
     int width = frameView->width();
     int height = frameView->height();
 
-    if (!ScrollbarTheme::nativeTheme()->usesOverlayScrollbars()) {
+    if (!ScrollbarTheme::theme()->usesOverlayScrollbars()) {
         if (frameView->verticalScrollbar())
             width -= frameView->verticalScrollbar()->width();
         if (frameView->horizontalScrollbar())
@@ -83,13 +84,19 @@ void PageOverlay::setPage(WebPage* webPage)
     m_webPage = webPage;
     m_client->didMoveToWebPage(this, webPage);
 
+    if (m_webPage)
+        m_pageOverlayShouldApplyFadeWhenPainting = m_webPage->drawingArea()->pageOverlayShouldApplyFadeWhenPainting();
+
     m_fadeAnimationTimer.stop();
 }
 
 void PageOverlay::setNeedsDisplay(const IntRect& dirtyRect)
 {
-    if (m_webPage)
+    if (m_webPage) {
+        if (!m_pageOverlayShouldApplyFadeWhenPainting)
+            m_webPage->drawingArea()->setPageOverlayOpacity(m_fractionFadedIn);
         m_webPage->drawingArea()->setPageOverlayNeedsDisplay(dirtyRect);
+    }
 }
 
 void PageOverlay::setNeedsDisplay()
@@ -157,7 +164,11 @@ void PageOverlay::fadeAnimationTimerFired()
     float fadeAnimationValue = sine * sine;
 
     m_fractionFadedIn = (m_fadeAnimationType == FadeInAnimation) ? fadeAnimationValue : 1 - fadeAnimationValue;
-    setNeedsDisplay();
+
+    if (m_pageOverlayShouldApplyFadeWhenPainting)
+        setNeedsDisplay();
+    else
+        m_webPage->drawingArea()->setPageOverlayOpacity(m_fractionFadedIn);
 
     if (animationProgress == 1.0) {
         m_fadeAnimationTimer.stop();

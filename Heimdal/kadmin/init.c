@@ -123,9 +123,9 @@ init(struct init_options *opt, int argc, char **argv)
     kadm5_ret_t ret;
     int i;
     HDB *db;
-    krb5_deltat max_life, max_rlife;
+    krb5_deltat max_life = 0, max_rlife = 0;
 
-    if(!local_flag) {
+    if (!local_flag) {
 	krb5_warnx(context, "init is only available in local (-l) mode");
 	return 0;
     }
@@ -231,6 +231,15 @@ init(struct init_options *opt, int argc, char **argv)
 			    KRB5_KDB_REQUIRES_PRE_AUTH);
 	krb5_free_principal(context, princ);
 
+
+	/* Create `WELLKNONW/org.h5l.fast-cookie@WELLKNOWN:ORG.H5L' for FAST cookie */
+	krb5_make_principal(context, &princ, KRB5_WELLKNOWN_ORG_H5L_REALM,
+			    KRB5_WELLKNOWN_NAME, "org.h5l.fast-cookie", NULL);
+	create_random_entry(princ, 60*60, 60*60,
+			    KRB5_KDB_REQUIRES_PRE_AUTH|
+			    KRB5_KDB_DISALLOW_TGT_BASED|
+			    KRB5_KDB_DISALLOW_ALL_TIX);
+	krb5_free_principal(context, princ);
 
 	/* Create `default' */
 	{

@@ -27,6 +27,13 @@ namespace WebCore {
 
 using namespace WTF::Unicode;
 
+struct SameSizeAsBidiContext : public RefCounted<SameSizeAsBidiContext> {
+    uint32_t bitfields : 16;
+    void* parent;
+};
+
+COMPILE_ASSERT(sizeof(BidiContext) == sizeof(SameSizeAsBidiContext), BidiContext_should_stay_small);
+
 inline PassRefPtr<BidiContext> BidiContext::createUncached(unsigned char level, Direction direction, bool override, BidiEmbeddingSource source, BidiContext* parent)
 {
     return adoptRef(new BidiContext(level, direction, override, source, parent));
@@ -42,20 +49,20 @@ PassRefPtr<BidiContext> BidiContext::create(unsigned char level, Direction direc
     ASSERT(level <= 1);
     if (!level) {
         if (!override) {
-            static BidiContext* ltrContext = createUncached(0, LeftToRight, false, FromStyleOrDOM, 0).releaseRef();
+            static BidiContext* ltrContext = createUncached(0, LeftToRight, false, FromStyleOrDOM, 0).leakRef();
             return ltrContext;
         }
 
-        static BidiContext* ltrOverrideContext = createUncached(0, LeftToRight, true, FromStyleOrDOM, 0).releaseRef();
+        static BidiContext* ltrOverrideContext = createUncached(0, LeftToRight, true, FromStyleOrDOM, 0).leakRef();
         return ltrOverrideContext;
     }
 
     if (!override) {
-        static BidiContext* rtlContext = createUncached(1, RightToLeft, false, FromStyleOrDOM, 0).releaseRef();
+        static BidiContext* rtlContext = createUncached(1, RightToLeft, false, FromStyleOrDOM, 0).leakRef();
         return rtlContext;
     }
 
-    static BidiContext* rtlOverrideContext = createUncached(1, RightToLeft, true, FromStyleOrDOM, 0).releaseRef();
+    static BidiContext* rtlOverrideContext = createUncached(1, RightToLeft, true, FromStyleOrDOM, 0).leakRef();
     return rtlOverrideContext;
 }
 

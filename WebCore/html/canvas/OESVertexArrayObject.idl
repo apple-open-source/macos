@@ -26,15 +26,15 @@
 module html {
     interface [
         Conditional=WEBGL, 
-        GenerateIsReachable=ImplContext,
+        JSGenerateIsReachable=ImplContext,
         OmitConstructor, 
-        DontCheckEnums
+        DoNotCheckConstants
     ] OESVertexArrayObject {
         const unsigned int VERTEX_ARRAY_BINDING_OES = 0x85B5;
         
         [StrictTypeChecking] WebGLVertexArrayObjectOES createVertexArrayOES();
-        [StrictTypeChecking] void         deleteVertexArrayOES(in WebGLVertexArrayObjectOES arrayObject);
-        [StrictTypeChecking] boolean      isVertexArrayOES(in WebGLVertexArrayObjectOES arrayObject);
-        [StrictTypeChecking] void         bindVertexArrayOES(in WebGLVertexArrayObjectOES arrayObject) raises(DOMException);
+        [StrictTypeChecking] void         deleteVertexArrayOES(in [Optional=DefaultIsUndefined] WebGLVertexArrayObjectOES arrayObject);
+        [StrictTypeChecking] boolean      isVertexArrayOES(in [Optional=DefaultIsUndefined] WebGLVertexArrayObjectOES arrayObject);
+        [StrictTypeChecking] void         bindVertexArrayOES(in [Optional=DefaultIsUndefined] WebGLVertexArrayObjectOES arrayObject) raises(DOMException);
     };
 }

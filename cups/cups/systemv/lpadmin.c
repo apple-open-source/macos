@@ -1,5 +1,5 @@
 /*
- * "$Id: lpadmin.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: lpadmin.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "lpadmin" command for CUPS.
  *
@@ -1090,8 +1090,7 @@ delete_printer_option(http_t *http,	/* I - Server connection */
   *    option with deleteAttr tag
   */
 
-  if (get_printer_type(http, printer, uri, sizeof(uri)) &
-          (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+  if (get_printer_type(http, printer, uri, sizeof(uri)) & CUPS_PRINTER_CLASS)
     request = ippNewRequest(CUPS_ADD_MODIFY_CLASS);
   else
     request = ippNewRequest(CUPS_ADD_MODIFY_PRINTER);
@@ -1145,8 +1144,7 @@ enable_printer(http_t *http,		/* I - Server connection */
   *    printer-is-accepting-jobs
   */
 
-  if (get_printer_type(http, printer, uri, sizeof(uri)) &
-          (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+  if (get_printer_type(http, printer, uri, sizeof(uri)) & CUPS_PRINTER_CLASS)
     request = ippNewRequest(CUPS_ADD_MODIFY_CLASS);
   else
     request = ippNewRequest(CUPS_ADD_MODIFY_PRINTER);
@@ -1224,7 +1222,7 @@ get_printer_type(http_t *http,		/* I - Server connection */
   {
     type = (cups_ptype_t)attr->values[0].integer;
 
-    if (type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+    if (type & CUPS_PRINTER_CLASS)
       httpAssembleURIf(HTTP_URI_CODING_ALL, uri, urisize, "ipp", NULL,
 		       "localhost", ippPort(), "/classes/%s", printer);
   }
@@ -1283,8 +1281,7 @@ set_printer_options(
   *    other options
   */
 
-  if (get_printer_type(http, printer, uri, sizeof(uri)) &
-          (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+  if (get_printer_type(http, printer, uri, sizeof(uri)) & CUPS_PRINTER_CLASS)
     request = ippNewRequest(CUPS_ADD_MODIFY_CLASS);
   else
     request = ippNewRequest(CUPS_ADD_MODIFY_PRINTER);
@@ -1517,5 +1514,5 @@ validate_name(const char *name)		/* I - Name to check */
 
 
 /*
- * End of "$Id: lpadmin.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: lpadmin.c 9042 2010-03-24 00:45:34Z mike $".
  */

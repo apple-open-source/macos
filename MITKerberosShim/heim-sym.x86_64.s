@@ -1802,6 +1802,31 @@ _heim_krb5_get_default_principal:
 	movq    (%r11), %r11
 	jmp	*%r11
 
+	.globl _heim_krb5_get_error_message
+_heim_krb5_get_error_message:
+	pushq	%rbp
+	movq	%rsp, %rbp
+	subq	$208, %rsp
+	pushq %rdi
+	pushq %rsi
+	pushq %rdx
+	pushq %rcx
+	pushq %r8
+	pushq %r9
+	call	_heim_load_functions
+	popq %r9
+	popq %r8
+	popq %rcx
+	popq %rdx
+	popq %rsi
+	popq %rdi
+	addq	$208, %rsp
+	movq	%rbp, %rsp
+	popq   %rbp
+	movq    _fun_krb5_get_error_message@GOTPCREL(%rip), %r11
+	movq    (%r11), %r11
+	jmp	*%r11
+
 	.globl _heim_krb5_get_init_creds_opt_alloc
 _heim_krb5_get_init_creds_opt_alloc:
 	pushq	%rbp
@@ -2949,6 +2974,7 @@ _heim_krb5_appdefault_string:
 .comm _fun_krb5_get_credentials,8,3
 .comm _fun_krb5_get_error_string,8,3
 .comm _fun_krb5_get_default_principal,8,3
+.comm _fun_krb5_get_error_message,8,3
 .comm _fun_krb5_get_init_creds_opt_alloc,8,3
 .comm _fun_krb5_get_init_creds_opt_free,8,3
 .comm _fun_krb5_get_init_creds_opt_set_canonicalize,8,3

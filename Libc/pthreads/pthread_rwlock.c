@@ -402,7 +402,7 @@ loop:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 	
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 			goto loop;
 		/* Check for consistency */
 		lval = lcntval & PTHRW_BIT_MASK;
@@ -505,7 +505,7 @@ loop:
 	newval64 = (((uint64_t)(newsval)) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 kblock:
 	updateval = __psynch_rw_longrdlock(orwlock, newval, ucntval, newsval, rwlock->rw_flags);
@@ -564,7 +564,7 @@ gotlock:
 	newval64 = (((uint64_t)newsval) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 
 successout:
@@ -638,7 +638,7 @@ loop:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 	
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
 			goto gotit;
 		} else
 			goto loop;
@@ -658,7 +658,7 @@ loop:
 	newval64 = (((uint64_t)(newsval)) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 
 	PLOCKSTAT_RW_BLOCK(orwlock, WRITE_LOCK_PLOCKSTAT);
@@ -774,7 +774,7 @@ loop:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 	
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
 #if __DARWIN_UNIX03
 			rwlock->rw_owner = (pthread_t)0;
 #endif /* __DARWIN_UNIX03 */
@@ -804,7 +804,7 @@ loop:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 	
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 			goto loop;
 
 #if __DARWIN_UNIX03
@@ -911,7 +911,7 @@ loop:
 	newval64 = (((uint64_t)(newsval)) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 	flags = rwlock->rw_flags;
 	if (trylock != 0) {
@@ -1238,7 +1238,7 @@ loop:
 	newval64 = (((uint64_t)newsval) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 
 	/* give writers priority over readers */
@@ -1303,7 +1303,7 @@ gotlock:
 	newval64 = (((uint64_t)newsval) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 
 #if _KSYN_TRACE_
@@ -1402,7 +1402,7 @@ gotlock:
 	newval64 = (((uint64_t)newsval) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 
 #if _KSYN_TRACE_
@@ -1484,7 +1484,7 @@ loop:
 	} else 
 		newval64 = oldval64;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE) {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE) {
 		goto loop;
 	}
 	if (gotlock == 1) {
@@ -1601,7 +1601,7 @@ loop:
 	if (__pthread_lock_debug != 0)
 	(void)__kdebug_trace(_KSYN_TRACE_RW_WRLOCK | DBG_FUNC_NONE, (uint32_t)rwlock, 0x55555555, lcntval, newval, 0);
 #endif
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto loop;
 		
 	/* lock acquired in userland itself? */
@@ -1722,7 +1722,7 @@ loop:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 	
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) == TRUE) {
 			/* spurious unlock, return */
 			error = EINVAL;
 #if _KSYN_TRACE_
@@ -1745,7 +1745,7 @@ loop:
 	
 	ulval = (ucntval + PTHRW_INC);
 
-	if (OSAtomicCompareAndSwap32(ucntval, ulval, (volatile int32_t *)ucntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap32Barrier(ucntval, ulval, (volatile int32_t *)ucntaddr) != TRUE)
 		goto loop;
 	
 lp11:
@@ -1755,7 +1755,7 @@ lp11:
 
 	newval64 = oldval64;
 
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)  {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)  {
 		lcntval = *lcntaddr;
 		rw_seq = *seqaddr;
 		goto lp11;
@@ -1784,7 +1784,7 @@ lp11:
 		newval64 = (((uint64_t)newsval) << 32);
 		newval64 |= newval;
 
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)  {
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)  {
 #if _KSYN_TRACE_
 	if (__pthread_lock_debug != 0)
 	(void)__kdebug_trace(_KSYN_TRACE_RW_UNLOCK | DBG_FUNC_NONE, (uint32_t)rwlock, 0xcccccccc, 0, 0, 0);
@@ -1837,7 +1837,7 @@ lp11:
 	newval64 = (((uint64_t)newsval) << 32);
 	newval64 |= newval;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lcntaddr) != TRUE)
 		goto lp11;
 
 #if _KSYN_TRACE_

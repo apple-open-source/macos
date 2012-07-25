@@ -14,7 +14,7 @@ CFILES = hfs_endian.c BlockCache.c\
          SUtils.c SKeyCompare.c SDevice.c SExtents.c SAllocate.c\
          SCatalog.c SStubs.c VolumeBitmapCheck.c uuid.c
          
-Extra_CC_Flags = -Wall -Werror -DBSD=1 -DDEBUG_BUILD=0 -DCONFIG_HFS_TRIM=$(CONFIG_HFS_TRIM) \
-	-Wno-four-char-constants -fpascal-strings
+Extra_CC_Flags = -Wall -Werror -Wno-unused-function -DBSD=1 -DDEBUG_BUILD=0 \
+	-DCONFIG_HFS_TRIM=$(CONFIG_HFS_TRIM) -Wno-four-char-constants -fpascal-strings
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

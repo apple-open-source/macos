@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,13 +46,17 @@
 #define MAXSOCK 16
 static int nsock = 0;
 static int ufd[MAXSOCK];
+static dispatch_source_t ufd_src[MAXSOCK];
 
 static char uline[MAXLINE + 1];
+
+static dispatch_source_t in_src[MAXSOCK];
+static dispatch_queue_t in_queue;
 
 #define FMT_LEGACY 0
 #define FMT_ASL 1
 
-aslmsg 
+void 
 udp_in_acceptmsg(int fd)
 {
 	socklen_t fromlen;
@@ -61,12 +65,13 @@ udp_in_acceptmsg(int fd)
 	char fromstr[64], *r, *p;
 	struct sockaddr_in *s4;
 	struct sockaddr_in6 *s6;
+	aslmsg m;
 
 	fromlen = sizeof(struct sockaddr_storage);
 	memset(&from, 0, fromlen);
 
 	len = recvfrom(fd, uline, MAXLINE, 0, (struct sockaddr *)&from, &fromlen);
-	if (len <= 0) return NULL;
+	if (len <= 0) return;
 
 	fromstr[0] = '\0';
 	r = NULL;
@@ -76,14 +81,14 @@ udp_in_acceptmsg(int fd)
 		s4 = (struct sockaddr_in *)&from;
 		inet_ntop(from.ss_family, &(s4->sin_addr), fromstr, 64);
 		r = fromstr;
-		asldebug("%s: recvfrom %s len %d\n", MY_ID, fromstr, len);
+		asldebug("%s: fd %d recvfrom %s len %d\n", MY_ID, fd, fromstr, len);
 	}
 	else if (from.ss_family == AF_INET6)
 	{
 		s6 = (struct sockaddr_in6 *)&from;
 		inet_ntop(from.ss_family, &(s6->sin6_addr), fromstr, 64);
 		r = fromstr;
-		asldebug("%s: recvfrom %s len %d\n", MY_ID, fromstr, len);
+		asldebug("%s: fd %d recvfrom %s len %d\n", MY_ID, fd, fromstr, len);
 	}
 
 	uline[len] = '\0';
@@ -91,17 +96,24 @@ udp_in_acceptmsg(int fd)
 	p = strrchr(uline, '\n');
 	if (p != NULL) *p = '\0';
 
-	return asl_input_parse(uline, len, r, SOURCE_UDP_SOCKET);
+	m = asl_input_parse(uline, len, r, SOURCE_UDP_SOCKET);
+	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_UDP_SOCKET); });
 }
 
 int
-udp_in_init(void)
+udp_in_init()
 {
-	int i, rbufsize, len;
+	int i, rbufsize, len, fd;
 	launch_data_t sockets_dict, fd_array, fd_dict;
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		in_queue = dispatch_queue_create(MY_ID, NULL);
+	});
 
 	asldebug("%s: init\n", MY_ID);
 	if (nsock > 0) return 0;
+
 	if (global.launch_dict == NULL)
 	{
 		asldebug("%s: launchd dict is NULL\n", MY_ID);
@@ -131,6 +143,8 @@ udp_in_init(void)
 
 	for (i = 0; i < nsock; i++)
 	{
+		ufd[i] = -1;
+
 		fd_dict = launch_data_array_get_index(fd_array, i);
 		if (fd_dict == NULL)
 		{
@@ -138,49 +152,53 @@ udp_in_init(void)
 			return -1;
 		}
 
-		ufd[i] = launch_data_get_fd(fd_dict);
+		fd = launch_data_get_fd(fd_dict);
 
 		rbufsize = 128 * 1024;
 		len = sizeof(rbufsize);
 
-		if (setsockopt(ufd[i], SOL_SOCKET, SO_RCVBUF, &rbufsize, len) < 0)
+		if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rbufsize, len) < 0)
 		{
-			asldebug("%s: couldn't set receive buffer size for socket %d: %s\n", MY_ID, ufd[i], strerror(errno));
-			close(ufd[i]);
-			ufd[i] = -1;
-			continue;
+			asldebug("%s: couldn't set receive buffer size for file descriptor %d: %s\n", MY_ID, fd, strerror(errno));
 		}
 
-		if (fcntl(ufd[i], F_SETFL, O_NONBLOCK) < 0)
+		if (fcntl(fd, F_SETFL, O_NONBLOCK) < 0)
 		{
-			asldebug("%s: couldn't set O_NONBLOCK for socket %d: %s\n", MY_ID, ufd[i], strerror(errno));
-			close(ufd[i]);
-			ufd[i] = -1;
-			continue;
+			asldebug("%s: couldn't set O_NONBLOCK for file descriptor %d: %s\n", MY_ID, fd, strerror(errno));
 		}
+
+		ufd[i] = fd;
+
+		in_src[i] = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0, in_queue);
+		dispatch_source_set_event_handler(in_src[i], ^{ udp_in_acceptmsg(fd); });
+
+		dispatch_resume(in_src[i]);
 	}
-
-	for (i = 0; i < nsock; i++) if (ufd[i] != -1) aslevent_addfd(SOURCE_UDP_SOCKET, ufd[i], 0, udp_in_acceptmsg, NULL, NULL);
 
 	return 0;
 }
 
+/* N.B. Does NOT close fds.  They "belong" to launchd. */
 int
 udp_in_close(void)
 {
 	int i;
 
-	if (nsock == 0) return 1;
+	if (nsock == 0) return -1;
 
 	for (i = 0; i < nsock; i++)
 	{
-		if (ufd[i] != -1)
+		if (ufd_src[i] != NULL)
 		{
-			aslevent_removefd(ufd[i]);
-			close(ufd[i]);
+			dispatch_source_cancel(in_src[i]);
+			dispatch_release(in_src[i]);
+			in_src[i] = NULL;
 		}
 
-		ufd[i] = -1;
+		if (ufd[i] != -1)
+		{
+			ufd[i] = -1;
+		}
 	}
 
 	nsock = 0;
@@ -191,5 +209,6 @@ udp_in_close(void)
 int
 udp_in_reset(void)
 {
-	return 0;
+	if (udp_in_close() != 0) return -1;
+	return udp_in_init();
 }

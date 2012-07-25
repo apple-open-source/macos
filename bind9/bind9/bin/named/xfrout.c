@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: xfrout.c,v 1.136.132.5 2011/12/01 01:03:07 marka Exp $ */
+/* $Id: xfrout.c,v 1.139.16.3 2011-07-28 04:30:54 marka Exp $ */
 
 #include <config.h>
 
@@ -28,9 +28,7 @@
 
 #include <dns/db.h>
 #include <dns/dbiterator.h>
-#ifdef DLZ
 #include <dns/dlz.h>
-#endif
 #include <dns/fixedname.h>
 #include <dns/journal.h>
 #include <dns/message.h>
@@ -752,9 +750,7 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	char msg[NS_CLIENT_ACLMSGSIZE("zone transfer")];
 	char keyname[DNS_NAME_FORMATSIZE];
 	isc_boolean_t is_poll = ISC_FALSE;
-#ifdef DLZ
 	isc_boolean_t is_dlz = ISC_FALSE;
-#endif
 
 	switch (reqtype) {
 	case dns_rdatatype_axfr:
@@ -806,9 +802,7 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	result = dns_zt_find(client->view->zonetable, question_name, 0, NULL,
 			     &zone);
 
-	if (result != ISC_R_SUCCESS)
-#ifdef DLZ
-	{
+	if (result != ISC_R_SUCCESS) {
 		/*
 		 * Normal zone table does not have a match.
 		 * Try the DLZ database
@@ -836,10 +830,8 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 				goto failure;
 			}
 			if (result != ISC_R_SUCCESS)
-#endif
-			FAILQ(DNS_R_NOTAUTH, "non-authoritative zone",
-				  question_name, question_class);
-#ifdef DLZ
+				FAILQ(DNS_R_NOTAUTH, "non-authoritative zone",
+				      question_name, question_class);
 			is_dlz = ISC_TRUE;
 			/*
 			 * DLZ only support full zone transfer, not incremental
@@ -859,19 +851,17 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 		}
 	} else {
 		/* zone table has a match */
-#endif
 		switch(dns_zone_gettype(zone)) {
 			case dns_zone_master:
 			case dns_zone_slave:
+			case dns_zone_dlz:
 				break;	/* Master and slave zones are OK for transfer. */
 			default:
 				FAILQ(DNS_R_NOTAUTH, "non-authoritative zone", question_name, question_class);
 			}
 		CHECK(dns_zone_getdb(zone, &db));
 		dns_db_currentversion(db, &ver);
-#ifdef DLZ
 	}
-#endif
 
 	xfrout_log1(client, question_name, question_class, ISC_LOG_DEBUG(6),
 		    "%s question section OK", mnemonic);
@@ -925,22 +915,15 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 		    "%s authority section OK", mnemonic);
 
 	/*
-	 * Decide whether to allow this transfer.
-	 */
-#ifdef DLZ
-	/*
-	 * if not a DLZ zone decide whether to allow this transfer.
+	 * If not a DLZ zone, decide whether to allow this transfer.
 	 */
 	if (!is_dlz) {
-#endif
 		ns_client_aclmsg("zone transfer", question_name, reqtype,
 				 client->view->rdclass, msg, sizeof(msg));
 		CHECK(ns_client_checkacl(client, NULL, msg,
 					 dns_zone_getxfracl(zone),
 					 ISC_TRUE, ISC_LOG_ERROR));
-#ifdef DLZ
 	}
-#endif
 
 	/*
 	 * AXFR over UDP is not possible.
@@ -964,10 +947,9 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 	/*
 	 * Get a dynamically allocated copy of the current SOA.
 	 */
-#ifdef DLZ
 	if (is_dlz)
 		dns_db_currentversion(db, &ver);
-#endif
+
 	CHECK(dns_db_createsoatuple(db, ver, mctx, DNS_DIFFOP_EXISTS,
 				    &current_soa_tuple));
 
@@ -1053,7 +1035,6 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 
 
 
-#ifdef DLZ
 	if (is_dlz)
 		CHECK(xfrout_ctx_create(mctx, client, request->id,
 					question_name, reqtype, question_class,
@@ -1066,7 +1047,6 @@ ns_xfr_start(ns_client_t *client, dns_rdatatype_t reqtype) {
 					ISC_TRUE : ISC_FALSE,
 					&xfr));
 	else
-#endif
 		CHECK(xfrout_ctx_create(mctx, client, request->id,
 					question_name, reqtype, question_class,
 					zone, db, ver, quota, stream,
@@ -1307,13 +1287,6 @@ sendstream(xfrout_ctx_t *xfr) {
 			isc_buffer_free(&xfr->lasttsig);
 
 		/*
-		 * Account for reserved space.
-		 */
-		if (xfr->tsigkey != NULL)
-			INSIST(msg->reserved != 0U);
-		isc_buffer_add(&xfr->buf, msg->reserved);
-
-		/*
 		 * Include a question section in the first message only.
 		 * BIND 8.2.1 will not recognize an IXFR if it does not
 		 * have a question section.
@@ -1351,13 +1324,9 @@ sendstream(xfrout_ctx_t *xfr) {
 			ISC_LIST_APPEND(qname->list, qrdataset, link);
 
 			dns_message_addname(msg, qname, DNS_SECTION_QUESTION);
-		} else {
-			/*
-			 * Reserve space for the 12-byte message header
-			 */
-			isc_buffer_add(&xfr->buf, 12);
-			msg->tcp_continuation = 1;
 		}
+		else
+			msg->tcp_continuation = 1;
 	}
 
 	/*

@@ -25,8 +25,8 @@ typedef struct heim_base_data heim_octet_string;
 
 typedef char *heim_general_string;
 typedef char *heim_utf8_string;
-typedef char *heim_printable_string;
-typedef char *heim_ia5_string;
+typedef struct heim_base_data heim_printable_string;
+typedef struct heim_base_data heim_ia5_string;
 
 typedef struct heim_bmp_string {
     size_t length;
@@ -68,5 +68,17 @@ typedef struct heim_base_data heim_any_set;
       }                                                        \
     }                                                          \
   } while (0)
+
+#ifdef _WIN32
+#ifndef ASN1_LIB
+#define ASN1EXP  __declspec(dllimport)
+#else
+#define ASN1EXP
+#endif
+#define ASN1CALL __stdcall
+#else
+#define ASN1EXP
+#define ASN1CALL
+#endif
 
 #endif

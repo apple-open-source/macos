@@ -30,15 +30,15 @@
 #ifndef _PMConnection_h_
 #define _PMConnection_h_
 
+
+#define LOG_SLEEPSERVICES 1
 /*
  * Struct for gSleepService 
  */
 typedef struct {
-    dispatch_source_t           capTimerEnforcer;
     int                         notifyToken;
     CFStringRef                 uuid;
     long                        capTime;
-    int                         pushAssertionsWereTimedOutCount;
 } SleepServiceStruct;
 
 
@@ -46,7 +46,11 @@ __private_extern__ void PMConnection_prime(void);
 
 __private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort);
 
-__private_extern__ void cancelSleepService(void);
+// PMAssertions.c calls into this when a PreventSystemSleep assertion is taken
+__private_extern__ IOReturn _unclamp_silent_running(void);
 
+__private_extern__ bool isA_BTMtnceWake();
+__private_extern__ bool isA_SleepSrvcWake();
+__private_extern__ void set_SleepSrvcWake();
 #endif
 

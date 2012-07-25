@@ -32,6 +32,7 @@ namespace WebCore {
 
 class HTMLCollection;
 class HTMLTableCaptionElement;
+class HTMLTableRowsCollection;
 class HTMLTableSectionElement;
 
 class HTMLTableElement : public HTMLElement {
@@ -52,43 +53,40 @@ public:
     void deleteTHead();
     PassRefPtr<HTMLElement> createTFoot();
     void deleteTFoot();
+    PassRefPtr<HTMLElement> createTBody();
     PassRefPtr<HTMLElement> createCaption();
     void deleteCaption();
     PassRefPtr<HTMLElement> insertRow(int index, ExceptionCode&);
     void deleteRow(int index, ExceptionCode&);
 
-    PassRefPtr<HTMLCollection> rows();
-    PassRefPtr<HTMLCollection> tBodies();
+    HTMLCollection* rows();
+    HTMLCollection* tBodies();
 
     String rules() const;
     String summary() const;
 
-    virtual void attach();
-
-    void addSharedCellDecls(Vector<CSSMutableStyleDeclaration*>&);
-    void addSharedGroupDecls(bool rows, Vector<CSSMutableStyleDeclaration*>&);
+    StylePropertySet* additionalCellStyle();
+    StylePropertySet* additionalGroupStyle(bool rows);
 
 private:
     HTMLTableElement(const QualifiedName&, Document*);
 
-    virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
     virtual bool isURLAttribute(Attribute*) const;
 
-    // Used to obtain either a solid or outset border decl and to deal with the frame
-    // and rules attributes.
-    virtual bool canHaveAdditionalAttributeStyleDecls() const { return true; }
-    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&);
+    // Used to obtain either a solid or outset border decl and to deal with the frame and rules attributes.
+    virtual StylePropertySet* additionalAttributeStyle() OVERRIDE;
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
-    void addSharedCellBordersDecl(Vector<CSSMutableStyleDeclaration*>&);
-    void addSharedCellPaddingDecl(Vector<CSSMutableStyleDeclaration*>&);
-    
     enum TableRules { UnsetRules, NoneRules, GroupsRules, RowsRules, ColsRules, AllRules };
     enum CellBorders { NoBorders, SolidBorders, InsetBorders, SolidBordersColsOnly, SolidBordersRowsOnly };
 
     CellBorders cellBorders() const;
+
+    PassRefPtr<StylePropertySet> createSharedCellStyle();
 
     HTMLTableSectionElement* lastBody() const;
 
@@ -99,7 +97,8 @@ private:
                                 // are present, to none otherwise).
 
     unsigned short m_padding;
-    RefPtr<CSSMappedAttributeDeclaration> m_paddingDecl;
+    OwnPtr<HTMLTableRowsCollection> m_rowsCollection;
+    RefPtr<StylePropertySet> m_sharedCellStyle;
 };
 
 } //namespace

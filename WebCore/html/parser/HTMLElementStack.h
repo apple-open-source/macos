@@ -75,6 +75,8 @@ public:
         OwnPtr<ElementRecord> m_next;
     };
 
+    unsigned stackDepth() const { return m_stackDepth; }
+
     // Inlining this function is a (small) performance win on the parsing
     // benchmark.
     Element* top() const
@@ -82,7 +84,7 @@ public:
         ASSERT(m_top->element());
         return m_top->element();
     }
-    
+
     ContainerNode* topNode() const
     {
         ASSERT(m_top->node());
@@ -116,6 +118,9 @@ public:
     void popHTMLHeadElement();
     void popHTMLBodyElement();
     void popAll();
+
+    static bool isMathMLTextIntegrationPoint(ContainerNode*);
+    static bool isHTMLIntegrationPoint(ContainerNode*);
 
     void remove(Element*);
     void removeHTMLHeadElement(Element*);
@@ -167,6 +172,7 @@ private:
     ContainerNode* m_rootNode;
     Element* m_headElement;
     Element* m_bodyElement;
+    unsigned m_stackDepth;
 };
     
 inline bool isInHTMLNamespace(Node* node)
@@ -174,8 +180,7 @@ inline bool isInHTMLNamespace(Node* node)
     // A DocumentFragment takes the place of the document element when parsing
     // fragments and should be considered in the HTML namespace.
     return node->namespaceURI() == HTMLNames::xhtmlNamespaceURI
-        || node->nodeType() == Node::DOCUMENT_FRAGMENT_NODE
-        || node->nodeType() == Node::SHADOW_ROOT_NODE; // FIXME: Does this also apply to ShadowRoot?
+        || node->nodeType() == Node::DOCUMENT_FRAGMENT_NODE; // FIXME: Does this also apply to ShadowRoot?
 }
 
 

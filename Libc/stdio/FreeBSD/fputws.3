@@ -37,7 +37,8 @@
 .Dt FPUTWS 3
 .Os
 .Sh NAME
-.Nm fputws
+.Nm fputws ,
+.Nm fputws_l
 .Nd output a line of wide characters to a stream
 .Sh LIBRARY
 .Lb libc
@@ -45,14 +46,34 @@
 .In stdio.h
 .In wchar.h
 .Ft int
-.Fn fputws "const wchar_t * restrict ws" "FILE * restrict fp"
+.Fo fputws
+.Fa "const wchar_t *restrict ws"
+.Fa "FILE *restrict stream"
+.Fc
+.In stdio.h
+.In wchar.h
+.In xlocale.h
+.Ft int
+.Fo fputws_l
+.Fa "const wchar_t *restrict ws"
+.Fa "FILE *restrict stream"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fputws
 function writes the wide character string pointed to by
 .Fa ws
 to the stream pointed to by
-.Fa fp .
+.Fa stream .
+.Pp
+Although the
+.Fn fputws
+function uses the current locale, the
+.Fn fputws_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn fputws
@@ -65,7 +86,7 @@ function will fail if:
 .Bl -tag -width Er
 .It Bq Er EBADF
 The
-.Fa fp
+.Fa stream
 argument supplied
 is not a writable stream.
 .El
@@ -80,7 +101,8 @@ for any of the errors specified for the routine
 .Xr ferror 3 ,
 .Xr fputs 3 ,
 .Xr putwc 3 ,
-.Xr stdio 3
+.Xr stdio 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn fputws

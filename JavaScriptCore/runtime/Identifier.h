@@ -22,7 +22,7 @@
 #define Identifier_h
 
 #include "JSGlobalData.h"
-#include "ThreadSpecific.h"
+#include <wtf/ThreadSpecific.h>
 #include "UString.h"
 #include <wtf/WTFThreadData.h>
 #include <wtf/text/CString.h>
@@ -56,14 +56,14 @@ namespace JSC {
 
         static Identifier createLCharFromUChar(JSGlobalData* globalData, const UChar* s, int length) { return Identifier(globalData, add8(globalData, s, length)); }
 
-        static Identifier from(ExecState* exec, unsigned y);
-        static Identifier from(ExecState* exec, int y);
+        JS_EXPORT_PRIVATE static Identifier from(ExecState* exec, unsigned y);
+        JS_EXPORT_PRIVATE static Identifier from(ExecState* exec, int y);
         static Identifier from(ExecState* exec, double y);
         static Identifier from(JSGlobalData*, unsigned y);
         static Identifier from(JSGlobalData*, int y);
         static Identifier from(JSGlobalData*, double y);
 
-        static uint32_t toUInt32(const UString&, bool& ok);
+        JS_EXPORT_PRIVATE static uint32_t toUInt32(const UString&, bool& ok);
         uint32_t toUInt32(bool& ok) const { return toUInt32(m_string, ok); }
         unsigned toArrayIndex(bool& ok) const;
 
@@ -84,7 +84,7 @@ namespace JSC {
         static bool equal(const StringImpl*, const UChar*, unsigned length);
         static bool equal(const StringImpl* a, const StringImpl* b) { return ::equal(a, b); }
 
-        static PassRefPtr<StringImpl> add(ExecState*, const char*); // Only to be used with string literals.
+        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> add(ExecState*, const char*); // Only to be used with string literals.
         static PassRefPtr<StringImpl> add(JSGlobalData*, const char*); // Only to be used with string literals.
 
     private:
@@ -119,11 +119,11 @@ namespace JSC {
             return addSlowCase(globalData, r);
         }
 
-        static PassRefPtr<StringImpl> addSlowCase(ExecState*, StringImpl* r);
-        static PassRefPtr<StringImpl> addSlowCase(JSGlobalData*, StringImpl* r);
+        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(ExecState*, StringImpl* r);
+        JS_EXPORT_PRIVATE static PassRefPtr<StringImpl> addSlowCase(JSGlobalData*, StringImpl* r);
 
-        static void checkCurrentIdentifierTable(ExecState*);
-        static void checkCurrentIdentifierTable(JSGlobalData*);
+        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(ExecState*);
+        JS_EXPORT_PRIVATE static void checkCurrentIdentifierTable(JSGlobalData*);
     };
 
     template <> ALWAYS_INLINE bool Identifier::canUseSingleCharacterString(LChar)
@@ -178,11 +178,11 @@ namespace JSC {
         if (!length)
             return StringImpl::empty();
         CharBuffer<T> buf = {s, length}; 
-        pair<HashSet<StringImpl*>::iterator, bool> addResult = globalData->identifierTable->add<CharBuffer<T>, IdentifierCharBufferTranslator<T> >(buf);
+        HashSet<StringImpl*>::AddResult addResult = globalData->identifierTable->add<CharBuffer<T>, IdentifierCharBufferTranslator<T> >(buf);
         
         // If the string is newly-translated, then we need to adopt it.
         // The boolean in the pair tells us if that is so.
-        return addResult.second ? adoptRef(*addResult.first) : *addResult.first;
+        return addResult.isNewEntry ? adoptRef(*addResult.iterator) : *addResult.iterator;
     }
 
     inline bool operator==(const Identifier& a, const Identifier& b)
@@ -246,10 +246,10 @@ namespace JSC {
     typedef HashMap<RefPtr<StringImpl>, int, IdentifierRepHash, HashTraits<RefPtr<StringImpl> >, IdentifierMapIndexHashTraits> IdentifierMap;
 
     template<typename U, typename V>
-    std::pair<HashSet<StringImpl*>::iterator, bool> IdentifierTable::add(U value)
+    HashSet<StringImpl*>::AddResult IdentifierTable::add(U value)
     {
-        std::pair<HashSet<StringImpl*>::iterator, bool> result = m_table.add<U, V>(value);
-        (*result.first)->setIsIdentifier(true);
+        HashSet<StringImpl*>::AddResult result = m_table.add<U, V>(value);
+        (*result.iterator)->setIsIdentifier(true);
         return result;
     }
 

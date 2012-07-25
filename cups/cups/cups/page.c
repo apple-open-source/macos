@@ -1,9 +1,9 @@
 /*
- * "$Id: page.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: page.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Page size functions for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -34,7 +34,7 @@
 
 
 /*
- * 'ppdPageSize()' - Get the page size record for the given size.
+ * 'ppdPageSize()' - Get the page size record for the named size.
  */
 
 ppd_size_t *				/* O - Size record for page or NULL */
@@ -198,7 +198,7 @@ ppdPageSize(ppd_file_t *ppd,		/* I - PPD file record */
  * If the specified PPD file does not support custom page sizes, both
  * "minimum" and "maximum" are filled with zeroes.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 int					/* O - 1 if custom sizes are supported, 0 otherwise */
@@ -392,5 +392,5 @@ ppdPageLength(ppd_file_t *ppd,	/* I - PPD file */
 
 
 /*
- * End of "$Id: page.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: page.c 9042 2010-03-24 00:45:34Z mike $".
  */

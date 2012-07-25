@@ -30,128 +30,83 @@
 # 
 
 RELDIR=lib\hx509
+intcflags=-I$(SRCDIR)\ref -I$(OBJ)
+localcflags=-DASN1_LIB
 
 !include ../../windows/NTMakefile.w32
 
-gen_files_ocsp = 			\
-	$(OBJ)\asn1_OCSPBasicOCSPResponse.x	\
-	$(OBJ)\asn1_OCSPCertID.x		\
-	$(OBJ)\asn1_OCSPCertStatus.x		\
-	$(OBJ)\asn1_OCSPInnerRequest.x		\
-	$(OBJ)\asn1_OCSPKeyHash.x		\
-	$(OBJ)\asn1_OCSPRequest.x		\
-	$(OBJ)\asn1_OCSPResponderID.x		\
-	$(OBJ)\asn1_OCSPResponse.x		\
-	$(OBJ)\asn1_OCSPResponseBytes.x	\
-	$(OBJ)\asn1_OCSPResponseData.x		\
-	$(OBJ)\asn1_OCSPResponseStatus.x	\
-	$(OBJ)\asn1_OCSPSignature.x		\
-	$(OBJ)\asn1_OCSPSingleResponse.x	\
-	$(OBJ)\asn1_OCSPTBSRequest.x		\
-	$(OBJ)\asn1_OCSPVersion.x		\
-	$(OBJ)\asn1_id_pkix_ocsp.x		\
-	$(OBJ)\asn1_id_pkix_ocsp_basic.x	\
-	$(OBJ)\asn1_id_pkix_ocsp_nonce.x
+gen_files_ocsp = $(OBJ)\asn1_ocsp_asn1.x
 
-gen_files_pkcs10 = 			\
-	$(OBJ)\asn1_CertificationRequestInfo.x	\
-	$(OBJ)\asn1_CertificationRequest.x
+gen_files_pkcs10 = $(OBJ)\asn1_pkcs10_asn1.x
 
-gen_files_crmf = 			\
-	$(OBJ)\asn1_CRMFRDNSequence.x		\
-	$(OBJ)\asn1_CertReqMessages.x		\
-	$(OBJ)\asn1_CertReqMsg.x		\
-	$(OBJ)\asn1_CertRequest.x		\
-	$(OBJ)\asn1_CertTemplate.x		\
-	$(OBJ)\asn1_Controls.x			\
-	$(OBJ)\asn1_PBMParameter.x		\
-	$(OBJ)\asn1_PKMACValue.x		\
-	$(OBJ)\asn1_POPOPrivKey.x		\
-	$(OBJ)\asn1_POPOSigningKey.x		\
-	$(OBJ)\asn1_POPOSigningKeyInput.x	\
-	$(OBJ)\asn1_ProofOfPossession.x	\
-	$(OBJ)\asn1_SubsequentMessage.x	
+gen_files_crmf = $(OBJ)\asn1_crmf_asn1.x
 
-libhx509_la_OBJS = \
-	$(OBJ)\ca.obj \
-	$(OBJ)\cert.obj \
-	$(OBJ)\cms.obj \
-	$(OBJ)\collector.obj \
-	$(OBJ)\crypto.obj \
-	$(OBJ)\error.obj \
-	$(OBJ)\env.obj \
-	$(OBJ)\file.obj \
-	$(OBJ)\hx509_err.obj	\
-	$(OBJ)\sel.obj \
-	$(OBJ)\sel-gram.obj	\
-	$(OBJ)\sel-lex.obj	\
-	$(OBJ)\keyset.obj \
-	$(OBJ)\ks_dir.obj \
-	$(OBJ)\ks_file.obj \
-	$(OBJ)\ks_mem.obj \
-	$(OBJ)\ks_null.obj \
-	$(OBJ)\ks_p11.obj \
-	$(OBJ)\ks_p12.obj \
-	$(OBJ)\ks_keychain.obj \
-	$(OBJ)\lock.obj \
-	$(OBJ)\name.obj \
-	$(OBJ)\peer.obj \
-	$(OBJ)\print.obj \
-	$(OBJ)\softp11.obj \
-	$(OBJ)\req.obj \
-	$(OBJ)\revoke.obj	\
+libhx509_la_OBJS =			\
+	$(OBJ)\ca.obj			\
+	$(OBJ)\cert.obj			\
+	$(OBJ)\cms.obj			\
+	$(OBJ)\collector.obj		\
+	$(OBJ)\crypto.obj		\
+	$(OBJ)\error.obj		\
+	$(OBJ)\env.obj			\
+	$(OBJ)\file.obj			\
+	$(OBJ)\hx509_err.obj		\
+	$(OBJ)\sel.obj			\
+	$(OBJ)\sel-gram.obj		\
+	$(OBJ)\sel-lex.obj		\
+	$(OBJ)\keyset.obj		\
+	$(OBJ)\ks_dir.obj		\
+	$(OBJ)\ks_file.obj		\
+	$(OBJ)\ks_mem.obj		\
+	$(OBJ)\ks_null.obj		\
+	$(OBJ)\ks_p11.obj		\
+	$(OBJ)\ks_p12.obj		\
+	$(OBJ)\ks_keychain.obj		\
+	$(OBJ)\lock.obj			\
+	$(OBJ)\name.obj			\
+	$(OBJ)\peer.obj			\
+	$(OBJ)\print.obj		\
+	$(OBJ)\softp11.obj		\
+	$(OBJ)\req.obj			\
+	$(OBJ)\revoke.obj		\
 	$(gen_files_ocsp:.x=.obj)	\
 	$(gen_files_pkcs10:.x=.obj)
-
-!ifndef STATICLIBS
-
-$(LIBHX509): $(BINDIR)\libhx509.dll
-
-$(BINDIR)\libhx509.dll: $(libhx509_la_OBJS) $(LIBHCRYPTO) $(LIBASN1) $(LIBWIND) $(LIBROKEN) $(LIBCOMERR)
-	$(DLLGUILINK) -def:libhx509-exports.def -implib:$(LIBHX509) shell32.lib
-	$(DLLPREP)
-
-!else
 
 $(LIBHX509): $(libhx509_la_OBJS)
 	$(LIBCON)
 
-!endif
-
-dist_libhx509_la_SOURCES = \
-	$(SRCDIR)\ca.c \
-	$(SRCDIR)\cert.c \
-	$(SRCDIR)\cms.c \
-	$(SRCDIR)\collector.c \
-	$(SRCDIR)\crypto.c \
-	$(SRCDIR)\doxygen.c \
-	$(SRCDIR)\error.c \
-	$(SRCDIR)\env.c \
-	$(SRCDIR)\file.c \
-	$(SRCDIR)\hx509.h \
-	$(SRCDIR)\hx_locl.h \
-	$(SRCDIR)\sel.c \
-	$(SRCDIR)\sel.h \
-	$(SRCDIR)\sel-gram.y \
-	$(SRCDIR)\sel-lex.l \
-	$(SRCDIR)\keyset.c \
-	$(SRCDIR)\ks_dir.c \
-	$(SRCDIR)\ks_file.c \
-	$(SRCDIR)\ks_mem.c \
-	$(SRCDIR)\ks_null.c \
-	$(SRCDIR)\ks_p11.c \
-	$(SRCDIR)\ks_p12.c \
+dist_libhx509_la_SOURCES =	\
+	$(SRCDIR)\ca.c		\
+	$(SRCDIR)\cert.c	\
+	$(SRCDIR)\cms.c		\
+	$(SRCDIR)\collector.c	\
+	$(SRCDIR)\crypto.c	\
+	$(SRCDIR)\doxygen.c	\
+	$(SRCDIR)\error.c	\
+	$(SRCDIR)\env.c		\
+	$(SRCDIR)\file.c	\
+	$(SRCDIR)\hx509.h	\
+	$(SRCDIR)\hx_locl.h	\
+	$(SRCDIR)\sel.c		\
+	$(SRCDIR)\sel.h		\
+	$(SRCDIR)\sel-gram.y	\
+	$(SRCDIR)\sel-lex.l	\
+	$(SRCDIR)\keyset.c	\
+	$(SRCDIR)\ks_dir.c	\
+	$(SRCDIR)\ks_file.c	\
+	$(SRCDIR)\ks_mem.c	\
+	$(SRCDIR)\ks_null.c	\
+	$(SRCDIR)\ks_p11.c	\
+	$(SRCDIR)\ks_p12.c	\
 	$(SRCDIR)\ks_keychain.c \
-	$(SRCDIR)\lock.c \
-	$(SRCDIR)\name.c \
-	$(SRCDIR)\peer.c \
-	$(SRCDIR)\print.c \
-	$(SRCDIR)\softp11.c \
-	$(SRCDIR)\ref\pkcs11.h \
-	$(SRCDIR)\req.c \
+	$(SRCDIR)\lock.c	\
+	$(SRCDIR)\name.c	\
+	$(SRCDIR)\peer.c	\
+	$(SRCDIR)\print.c	\
+	$(SRCDIR)\softp11.c	\
+	$(SRCDIR)\ref\pkcs11.h	\
+	$(SRCDIR)\req.c		\
 	$(SRCDIR)\revoke.c
-
-AUXCFLAGS=$(AUXCFLAGS) -I$(SRCDIR)\ref -I$(OBJ)
 
 asn1_compile=$(BINDIR)\asn1_compile.exe
 
@@ -163,7 +118,7 @@ $(gen_files_crmf:.x=.c): $$(@R).x
 
 $(gen_files_ocsp) $(OBJ)\ocsp_asn1.hx: $(asn1_compile) ocsp.asn1
 	cd $(OBJ)
-	$(asn1_compile) \
+	$(asn1_compile) --one-code-file \
 		--preserve-binary=OCSPTBSRequest \
 		--preserve-binary=OCSPResponseData \
 		$(SRCDIR)\ocsp.asn1 ocsp_asn1 \
@@ -172,7 +127,7 @@ $(gen_files_ocsp) $(OBJ)\ocsp_asn1.hx: $(asn1_compile) ocsp.asn1
 
 $(gen_files_pkcs10) $(OBJ)\pkcs10_asn1.hx: $(asn1_compile) pkcs10.asn1
 	cd $(OBJ)
-	$(asn1_compile) \
+	$(asn1_compile) --one-code-file \
 		--preserve-binary=CertificationRequestInfo \
 		$(SRCDIR)\pkcs10.asn1 pkcs10_asn1 \
 	|| ( $(RM) -f $(gen_files_pkcs10) $(OBJ)\pkcs10_asn1.h ; exit /b 1 )
@@ -180,7 +135,7 @@ $(gen_files_pkcs10) $(OBJ)\pkcs10_asn1.hx: $(asn1_compile) pkcs10.asn1
 
 $(gen_files_crmf) $(OBJ)\crmf_asn1.hx: $(asn1_compile) crmf.asn1
 	cd $(OBJ)
-	$(asn1_compile) $(SRCDIR)\crmf.asn1 crmf_asn1 \
+	$(asn1_compile) --one-code-file $(SRCDIR)\crmf.asn1 crmf_asn1 \
 	|| ( $(RM) -f $(gen_files_crmf) $(OBJ)\crmf_asn1.h ; exit /b 1 )
 	cd $(SRCDIR)
 
@@ -206,11 +161,9 @@ $(OBJ)\hxtool-commands.c $(OBJ)\hxtool-commands.h: hxtool-commands.in $(SLC)
 	$(SLC) hxtool-commands.in
 	cd $(SRCDIR)
 
-$(BINDIR)\hxtool.exe: $(OBJ)\hxtool.obj $(OBJ)\hxtool-commands.obj $(LIBHX509)
-	$(EXECONLINK) $(LIBASN1) $(LIBHCRYPTO) $(LIBROKEN) $(LIBSL) $(LIBVERS) $(LIBWIND) $(LIBCOMERR)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+$(BINDIR)\hxtool.exe: $(OBJ)\tool\hxtool.obj $(OBJ)\tool\hxtool-commands.obj $(LIBHEIMDAL) $(OBJ)\hxtool-version.res
+	$(EXECONLINK) $(LIBHEIMDAL) $(LIBROKEN) $(LIBSL) $(LIBVERS) $(LIBCOMERR)
+	$(EXEPREP)
 
 $(OBJ)\hx509-protos.h:
 	cd $(OBJ)
@@ -231,7 +184,7 @@ $(OBJ)\sel-gram.obj: $(OBJ)\sel-gram.c
 	$(C2OBJ) -I$(SRCDIR)
 
 $(OBJ)\sel-lex.obj: $(OBJ)\sel-lex.c
-	$(C2OBJ) -I$(SRCDIR) -I$(OBJ)
+	$(C2OBJ) -I$(SRCDIR) -I$(OBJ) -DYY_NO_UNISTD_H
 
 $(OBJ)\sel-gram.c: sel-gram.y
 	$(YACC) -o $@ --defines=$(OBJ)\sel-gram.h sel-gram.y
@@ -239,7 +192,24 @@ $(OBJ)\sel-gram.c: sel-gram.y
 $(OBJ)\sel-lex.c: sel-lex.l
 	$(LEX) -o$@ sel-lex.l
 
-all:: $(INCFILES) $(LIBHX509) $(BINDIR)\hxtool.exe
+all:: $(INCFILES) $(LIBHX509)
+
+prep:: mktooldir
+
+mktooldir:
+!  if !exist($(OBJ)\tool)
+	$(MKDIR) $(OBJ)\tool
+!  endif
+
+all-tools:: $(BINDIR)\hxtool.exe
 
 clean::
-	-$(RM) $(BINDIR)\hxtool.exe
+	-$(RM) $(BINDIR)\hxtool.*
+	-$(RM) $(OBJ)\tool\*.*
+
+{}.c{$(OBJ)\tool}.obj::
+	$(C2OBJ_C) /Fd$(OBJ)\tool\ /Fo$(OBJ)\tool\ $(MPOPT) /UASN1_LIB $<
+
+{$(OBJ)}.c{$(OBJ)\tool}.obj::
+	$(C2OBJ_C) /Fd$(OBJ)\tool\ /Fo$(OBJ)\tool\ $(MPOPT) /UASN1_LIB $<
+

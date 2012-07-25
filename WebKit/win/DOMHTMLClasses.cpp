@@ -305,7 +305,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLDocument::forms(
         return E_FAIL;
 
     HTMLDocument* htmlDoc = static_cast<HTMLDocument*>(m_document);
-    *collection = DOMHTMLCollection::createInstance(htmlDoc->forms().get());
+    *collection = DOMHTMLCollection::createInstance(htmlDoc->forms());
     return S_OK;
 }
     
@@ -709,7 +709,7 @@ HRESULT STDMETHODCALLTYPE DOMHTMLSelectElement::options(
     if (!selectElement->options())
         return E_FAIL;
 
-    *result = DOMHTMLOptionsCollection::createInstance(selectElement->options().get());
+    *result = DOMHTMLOptionsCollection::createInstance(selectElement->options());
     return S_OK;
 }
     
@@ -1381,12 +1381,11 @@ HRESULT STDMETHODCALLTYPE DOMHTMLInputElement::isUserEdited(
         return E_POINTER;
 
     *result = FALSE;
-    ASSERT(m_element);
+    ASSERT(m_element && m_element->hasTagName(inputTag));
     BOOL textField = FALSE;
     if (FAILED(isTextField(&textField)) || !textField)
         return S_OK;
-    RenderObject* renderer = m_element->renderer();
-    if (renderer && toRenderTextControl(renderer)->lastChangeWasUserEdit())
+    if (static_cast<HTMLInputElement*>(m_element)->lastChangeWasUserEdit())
         *result = TRUE;
     return S_OK;
 }
@@ -1581,9 +1580,8 @@ HRESULT STDMETHODCALLTYPE DOMHTMLTextAreaElement::isUserEdited(
         return E_POINTER;
 
     *result = FALSE;
-    ASSERT(m_element);
-    RenderObject* renderer = m_element->renderer();
-    if (renderer && toRenderTextControl(renderer)->lastChangeWasUserEdit())
+    ASSERT(m_element && m_element->hasTagName(textareaTag));
+    if (static_cast<HTMLTextAreaElement*>(m_element)->lastChangeWasUserEdit())
         *result = TRUE;
     return S_OK;
 }

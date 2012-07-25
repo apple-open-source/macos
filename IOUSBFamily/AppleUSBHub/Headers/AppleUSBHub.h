@@ -31,6 +31,7 @@
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/IOTimerEventSource.h>
 
+
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBHub.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -147,7 +148,6 @@ class AppleUSBHub : public IOUSBHubPolicyMaker
     bool								_hsHub;									// our provider is a HS bus
 #ifdef SUPPORTS_SS_USB
     bool								_ssHub;									// our provider is a SuperSpeed bus
-	bool								_isVIASSHub;
 #endif
 	bool								_needToAckSetPowerState;
 	bool								_checkPortsThreadActive;

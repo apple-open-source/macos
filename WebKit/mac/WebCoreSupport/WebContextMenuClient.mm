@@ -39,13 +39,15 @@
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebView.h"
-#import "WebViewFactory.h"
 #import "WebViewInternal.h"
 #import <WebCore/ContextMenu.h>
 #import <WebCore/ContextMenuController.h>
+#import <WebCore/Document.h>
 #import <WebCore/KURL.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/Page.h>
+#import <WebCore/Frame.h>
+#import <WebCore/FrameView.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebKit/DOMPrivate.h>
 
@@ -102,21 +104,11 @@ static NSMutableArray *fixMenusToSendToOldClients(NSMutableArray *defaultMenuIte
     if (!preVersion3Client)
         return savedItems;
         
-    BOOL isMail = applicationIsAppleMail();
     for (unsigned i = 0; i < defaultItemsCount; ++i) {
         NSMenuItem *item = [defaultMenuItems objectAtIndex:i];
         int tag = [item tag];
         int oldStyleTag = tag;
-        
-        if (preVersion3Client && isMail && tag == WebMenuItemTagOpenLink) {
-            // Tiger Mail changes our "Open Link in New Window" item to "Open Link"
-            // and doesn't expect us to include an "Open Link" item at all. (5011905)
-            [defaultMenuItems removeObjectAtIndex:i];
-            i--;
-            defaultItemsCount--;
-            continue;
-        }
-        
+
         if (tag >= WEBMENUITEMTAG_WEBKIT_3_0_SPI_START) {
             // Change all editing-related SPI tags listed in WebUIDelegatePrivate.h to WebMenuItemTagOther
             // to match our old WebKit context menu behavior.
@@ -356,4 +348,30 @@ void WebContextMenuClient::speak(const String& string)
 void WebContextMenuClient::stopSpeaking()
 {
     [NSApp stopSpeaking:nil];
+}
+
+void WebContextMenuClient::showContextMenu()
+{
+    Page* page = [m_webView page];
+    if (!page)
+        return;
+    ContextMenuController* controller = page->contextMenuController();
+    Node* node = controller->hitTestResult().innerNonSharedNode();
+    if (!node)
+        return;
+    Frame* frame = node->document()->frame();
+    if (!frame)
+        return;
+    FrameView* frameView = frame->view();
+    if (!frameView)
+        return;
+
+    IntPoint point = frameView->contentsToWindow(controller->hitTestResult().roundedPoint());
+    NSView* view = frameView->documentView();
+    NSPoint nsScreenPoint = [view convertPoint:point toView:nil];
+    // Show the contextual menu for this event.
+    NSEvent* event = [NSEvent mouseEventWithType:NSRightMouseDown location:nsScreenPoint modifierFlags:0 timestamp:0 windowNumber:[[view window] windowNumber] context:0 eventNumber:0 clickCount:1 pressure:1];
+    NSMenu* nsMenu = [view menuForEvent:event];
+    if (nsMenu)
+        [NSMenu popUpContextMenu:nsMenu withEvent:event forView:view];
 }

@@ -21,6 +21,7 @@
 #ifndef AutoTableLayout_h
 #define AutoTableLayout_h
 
+#include "LayoutTypes.h"
 #include "Length.h"
 #include "TableLayout.h"
 #include <wtf/Vector.h>
@@ -35,12 +36,12 @@ public:
     AutoTableLayout(RenderTable*);
     ~AutoTableLayout();
 
-    virtual void computePreferredLogicalWidths(int& minWidth, int& maxWidth);
+    virtual void computePreferredLogicalWidths(LayoutUnit& minWidth, LayoutUnit& maxWidth);
     virtual void layout();
 
 private:
     void fullRecalc();
-    void recalcColumn(int effCol);
+    void recalcColumn(unsigned effCol);
 
     int calcEffectiveLogicalWidth();
 

@@ -41,4 +41,4 @@
 void
 remove_unused_ip(const char * ifname, struct in_addr ip);
 
-#endif _S_IPCONFIGD_GLOBALS_H
+#endif /* _S_IPCONFIGD_GLOBALS_H */

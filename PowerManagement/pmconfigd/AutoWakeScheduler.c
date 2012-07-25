@@ -34,6 +34,7 @@
 #include "PrivateLib.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
+#include "PMAssertions.h"
 
 enum {
     kIOWakeTimer = 0,
@@ -113,7 +114,6 @@ static void             schedulePowerEvent(PowerEventBehavior *);
 static bool             purgePastEvents(PowerEventBehavior *);
 static void             copyScheduledPowerChangeArrays(void);
 static CFDictionaryRef  copyEarliestUpcoming(PowerEventBehavior *);
-static bool             isRepeating(CFDictionaryRef);
 static CFDateRef        _getScheduledEventDate(CFDictionaryRef);
 static CFArrayRef       copyMergedEventArray(PowerEventBehavior *, 
                                              PowerEventBehavior *);
@@ -466,7 +466,7 @@ __private_extern__ CFTimeInterval getEarliestRequestAutoWake(void)
 
 void poweronScheduleCallout(CFDictionaryRef event)
 {    
-    IOPMSchedulePowerEvent(event ?  _getScheduledEventDate(event) : NULL,
+    IOPMSchedulePowerEvent( event ? _getScheduledEventDate(event) : NULL,
                 NULL, CFSTR(kIOPMAutoPowerScheduleImmediate) );
     return;
 }
@@ -486,7 +486,22 @@ void poweronTimerExpiredCallout(CFDictionaryRef event __unused)
 
 void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
 {
-    wakeDozingMachine();
+
+#if !TARGET_OS_EMBEDDED
+    CFMutableDictionaryRef assertionDescription = NULL;
+
+    assertionDescription = _IOPMAssertionDescriptionCreate(
+                    kIOPMAssertionUserIsActive,
+                    CFSTR("com.apple.powermanagement.wakeschedule"),
+                    NULL, CFSTR("Waking screen for scheduled system wake"), NULL,
+                    2, kIOPMAssertionTimeoutActionRelease);
+
+    InternalCreateAssertion(assertionDescription, NULL);
+
+    CFRelease(assertionDescription);
+#endif
+
+
 }
 
 /*
@@ -584,7 +599,6 @@ purgePastEvents(PowerEventBehavior  *behave)
     CFDateRef           date_now;
     CFDictionaryRef     event;
     bool                ret;
-    int                 i;
 
     
     if( !behave 
@@ -810,20 +824,6 @@ copyMergedEventArray(
 
 
 
-static bool 
-isRepeating(CFDictionaryRef event)
-{
-    CFStringRef     whose = NULL;
-
-    if (!isA_CFDictionary(event))
-        return false;
-    whose = CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventAppNameKey));
- 
-    if( whose && CFEqual(whose, CFSTR(kIOPMRepeatingAppName)) )
-        return true;   
-    else
-        return false;
-}
 
 static CFDateRef
 _getScheduledEventDate(CFDictionaryRef event)

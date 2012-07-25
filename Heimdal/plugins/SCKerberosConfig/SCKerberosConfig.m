@@ -43,8 +43,8 @@
 #import <Foundation/Foundation.h>
 #import <SystemConfiguration/SystemConfiguration.h>
 #import <Heimdal/HeimdalSystemConfiguration.h>
-#import <krb5.h>
-#import "config_plugin.h"
+#import <Heimdal/krb5.h>
+#import <Heimdal/config_plugin.h>
 
 /**
  * Configuration plugin uses configuration in SC for Kerberos

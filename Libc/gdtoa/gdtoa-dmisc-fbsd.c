@@ -1,1 +1,0 @@
-FreeBSD/gdtoa-dmisc.c

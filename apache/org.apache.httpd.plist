@@ -6,6 +6,11 @@
 	<true/>
 	<key>Label</key>
 	<string>org.apache.httpd</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>XPC_SERVICES_UNAVAILABLE</key>
+		<string>1</string>
+	</dict>
 	<key>ProgramArguments</key>
 	<array>
 		<string>/usr/sbin/httpd</string>

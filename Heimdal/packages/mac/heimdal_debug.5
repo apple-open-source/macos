@@ -33,17 +33,17 @@
 .\"
 .\" $Id$
 .\"
-.Dd Jan  4, 2010
+.Dd Sep  30, 2011
 .Dt heimdal_debug 5
 .Os HEIMDAL
 .Sh NAME
-.Nm kerberos_debug
+.Nm heimdal_debug
 .Nd how to turn on/off debugging for Kerberos tools
 .Sh DESCRIPTION
 The
 .Nm
-kerberos frameworks have several nobs for controlling logging.
-The different framework nobs are:
+kerberos frameworks have several knobs for controlling logging.
+The different framework knobs are:
 .Bl -tag -width "XXX"
 .It libkrb
 The Kerberos library, some gss-api Kerberos output ends up here too
@@ -85,3 +85,6 @@ defaults write com.apple.GSS DebugLevel -int 10
 .It Make the admin API pretend to the server even on client
 sudo defaults write /Library/Preferences/com.apple.Kerberos ForceHeimODServerMode -bool true
 .El
+.Sh SEE ALSO
+.Xr gss 5 ,
+.Xr kerberos 8

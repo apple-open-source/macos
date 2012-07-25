@@ -27,8 +27,7 @@
 #include "config.h"
 #include "CachedFont.h"
 
-// FIXME: This should really be a blacklist instead of a whitelist
-#if USE(CG) || PLATFORM(QT) || PLATFORM(GTK) || (PLATFORM(CHROMIUM) && (!OS(DARWIN) || USE(SKIA_MAC_ON_CHROME))) || PLATFORM(HAIKU) || OS(WINCE) || PLATFORM(ANDROID) || PLATFORM(BREWMP)
+#if !PLATFORM(WIN_CAIRO) && !PLATFORM(WX)
 #define STORE_FONT_CUSTOM_PLATFORM_DATA
 #endif
 
@@ -56,8 +55,8 @@
 
 namespace WebCore {
 
-CachedFont::CachedFont(const String &url)
-    : CachedResource(url, FontResource)
+CachedFont::CachedFont(const ResourceRequest& resourceRequest)
+    : CachedResource(resourceRequest, FontResource)
     , m_fontData(0)
     , m_loadInitiated(false)
 {
@@ -70,16 +69,18 @@ CachedFont::~CachedFont()
 #endif
 }
 
-void CachedFont::load(CachedResourceLoader*)
+void CachedFont::load(CachedResourceLoader*, const ResourceLoaderOptions& options)
 {
     // Don't load the file yet.  Wait for an access before triggering the load.
     setLoading(true);
+    m_options = options;
 }
 
 void CachedFont::didAddClient(CachedResourceClient* c)
 {
+    ASSERT(c->resourceClientType() == CachedFontClient::expectedType());
     if (!isLoading())
-        c->fontLoaded(this);
+        static_cast<CachedFontClient*>(c)->fontLoaded(this);
 }
 
 void CachedFont::data(PassRefPtr<SharedBuffer> data, bool allDataReceived)
@@ -97,7 +98,7 @@ void CachedFont::beginLoadIfNeeded(CachedResourceLoader* dl)
 {
     if (!m_loadInitiated) {
         m_loadInitiated = true;
-        dl->load(this, false);
+        CachedResource::load(dl, m_options);
     }
 }
 
@@ -191,8 +192,8 @@ void CachedFont::checkNotify()
     if (isLoading())
         return;
     
-    CachedResourceClientWalker w(m_clients);
-    while (CachedResourceClient *c = w.next())
+    CachedResourceClientWalker<CachedFontClient> w(m_clients);
+    while (CachedFontClient* c = w.next())
          c->fontLoaded(this);
 }
 

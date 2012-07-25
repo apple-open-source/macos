@@ -30,7 +30,7 @@
 #import "CrossProcessFontLoading.h"
 
 #import "../graphics/FontPlatformData.h"
-#import "PlatformBridge.h"
+#import "PlatformSupport.h"
 #import <AppKit/NSFont.h>
 #import <wtf/HashMap.h>
 
@@ -38,7 +38,8 @@ namespace WebCore {
 
 namespace {
 
-typedef HashMap<ATSFontContainerRef, MemoryActivatedFont*> FontContainerRefMemoryFontHash;
+typedef HashMap<uint32, MemoryActivatedFont*> FontContainerRefMemoryFontHash;
+typedef HashMap<WTF::String, MemoryActivatedFont*> FontNameMemoryFontHash;
 
 // On 10.5, font loading is not blocked by the sandbox and thus there is no
 // need for the cross-process font loading mechanim.
@@ -54,10 +55,50 @@ bool OutOfProcessFontLoadingEnabled()
     return systemVersion >= 0x1060;
 }
 
-FontContainerRefMemoryFontHash& fontCacheBySrcFontContainerRef()
+// Caching:
+//
+// Requesting a font from the browser process is expensive and so is
+// "activating" said font.  Caching of loaded fonts is complicated by the fact
+// that it's impossible to get a unique identifier for the on-disk font file
+// from inside the sandboxed renderer process.
+// This means that when loading a font we need to round-trip through the browser
+// process in order to get the unique font file identifer which we might already
+// have activated and cached.
+//
+// In order to save as much work as we can, we maintain 2 levels of caching
+// for the font data:
+// 1. A dumb cache keyed by the font name/style (information we can determine
+// from inside the sandbox).
+// 2. A smarter cache keyed by the real "unique font id".
+//
+// In order to perform a lookup in #2 we need to consult with the browser to get
+// us the lookup key.  While this doesn't save us the font load, it does save
+// us font activation.
+//
+// It's important to remember that existing FontPlatformData objects are already
+// cached, so a cache miss in the code in this file isn't necessarily so bad.
+
+FontContainerRefMemoryFontHash& fontCacheByFontID()
 {
-    DEFINE_STATIC_LOCAL(FontContainerRefMemoryFontHash, srcFontRefCache, ());
-    return srcFontRefCache;
+    DEFINE_STATIC_LOCAL(FontContainerRefMemoryFontHash, srcFontIDCache, ());
+    return srcFontIDCache;
+}
+
+
+FontNameMemoryFontHash& fontCacheByFontName()
+{
+    DEFINE_STATIC_LOCAL(FontNameMemoryFontHash, srcFontNameCache, ());
+    return srcFontNameCache;
+}
+
+// Given a font specified by |srcFont|, use the information we can query in
+// the sandbox to construct a key which we hope will be as unique as possible
+// to the containing font file.
+WTF::String hashKeyFromNSFont(NSFont* srcFont)
+{
+    NSFontDescriptor* desc = [srcFont fontDescriptor];
+    NSFontSymbolicTraits traits = [desc symbolicTraits];
+    return WTF::String::format("%s %x", [[srcFont fontName] UTF8String], traits);
 }
 
 ATSFontContainerRef fontContainerRefFromNSFont(NSFont* srcFont)
@@ -85,83 +126,57 @@ bool isLastResortFont(CGFontRef cgFont)
 // On failure this function returns a PassRefPtr pointing to 0.
 PassRefPtr<MemoryActivatedFont> loadFontFromBrowserProcess(NSFont* nsFont)
 {
-    ATSFontContainerRef container;
-    // Send cross-process request to load font.
-    if (!PlatformBridge::loadFont(nsFont, &container))
-        return 0;
-    
-    ATSFontContainerRef srcFontContainerRef = fontContainerRefFromNSFont(nsFont);
-    if (!srcFontContainerRef) {
-        ATSFontDeactivate(container, 0, kATSOptionFlagsDefault);
-        return 0;
-    }
-    
-    PassRefPtr<MemoryActivatedFont> font = adoptRef(fontCacheBySrcFontContainerRef().get(srcFontContainerRef));
-    if (font.get())
+    // First try to lookup in our cache with the limited information we have.
+    WTF::String hashKey = hashKeyFromNSFont(nsFont);
+    RefPtr<MemoryActivatedFont> font(fontCacheByFontName().get(hashKey));
+    if (font)
         return font;
 
-    return MemoryActivatedFont::create(srcFontContainerRef, container);
+    CGFontRef tmpCGFont;
+    uint32_t fontID;
+    // Send cross-process request to load font.
+    if (!PlatformSupport::loadFont(nsFont, &tmpCGFont, &fontID))
+        return 0;
+
+    RetainPtr<CGFontRef> cgFont(tmpCGFont);
+    // Now that we have the fontID from the browser process, we can consult
+    // the ID cache.
+    font = fontCacheByFontID().get(fontID);
+    if (font)
+        // FIXME: PlatformSupport::loadFont() should consult the id cache
+        // before activating the font.
+        return font;
+
+    return MemoryActivatedFont::create(fontID, nsFont, cgFont.get());
 }
 
 } // namespace
 
-PassRefPtr<MemoryActivatedFont> MemoryActivatedFont::create(ATSFontContainerRef srcFontContainerRef, ATSFontContainerRef container)
+PassRefPtr<MemoryActivatedFont> MemoryActivatedFont::create(uint32_t fontID, NSFont* nsFont, CGFontRef cgFont)
 {
-  MemoryActivatedFont* font = new MemoryActivatedFont(srcFontContainerRef, container);
-  if (!font->cgFont())  // Object construction failed.
-  {
-      delete font;
-      return 0;
-  }
-  return adoptRef(font);
+  return adoptRef(new MemoryActivatedFont(fontID, nsFont, cgFont));
 }
 
-MemoryActivatedFont::MemoryActivatedFont(ATSFontContainerRef srcFontContainerRef, ATSFontContainerRef container)
-    : m_fontContainer(container)
-    , m_atsFontRef(kATSFontRefUnspecified)
-    , m_srcFontContainerRef(srcFontContainerRef)
+MemoryActivatedFont::MemoryActivatedFont(uint32_t fontID, NSFont* nsFont, CGFontRef cgFont)
+    : m_cgFont(cgFont)
+    , m_fontID(fontID)
+    , m_inSandboxHashKey(hashKeyFromNSFont(nsFont))
 {
-    if (!container)
-        return;
-    
-    // Count the number of fonts in the container.
-    ItemCount fontCount = 0;
-    OSStatus err = ATSFontFindFromContainer(container, kATSOptionFlagsDefault, 0, 0, &fontCount);
-    if (err != noErr || fontCount < 1)
-        return;
-
-    // For now always assume that we want the first font in the container.
-    ATSFontFindFromContainer(container, kATSOptionFlagsDefault, 1, &m_atsFontRef, 0);
-
-    if (!m_atsFontRef)
-        return;
-
-    // Cache CGFont representation of the font.
-    m_cgFont.adoptCF(CGFontCreateWithPlatformFont(&m_atsFontRef));
-    
-    if (!m_cgFont.get())
-        return;
-    
-    // Add ourselves to cache.
-    fontCacheBySrcFontContainerRef().add(m_srcFontContainerRef, this);
+    // Add ourselves to caches.
+    fontCacheByFontID().add(fontID, this);
+    fontCacheByFontName().add(m_inSandboxHashKey, this);
 }
 
 // Destructor - Unload font container from memory and remove ourselves
 // from cache.
 MemoryActivatedFont::~MemoryActivatedFont()
 {
-    if (m_cgFont.get()) {
-        // First remove ourselves from the caches.
-        ASSERT(fontCacheBySrcFontContainerRef().contains(m_srcFontContainerRef));
-        
-        fontCacheBySrcFontContainerRef().remove(m_srcFontContainerRef);
-        
-        // Make sure the CGFont is destroyed before its font container.
-        m_cgFont.releaseRef();
-    }
-    
-    if (m_fontContainer != kATSFontContainerRefUnspecified)
-        ATSFontDeactivate(m_fontContainer, 0, kATSOptionFlagsDefault);
+    // First remove ourselves from the caches.
+    ASSERT(fontCacheByFontID().contains(m_fontID));
+    ASSERT(fontCacheByFontName().contains(m_inSandboxHashKey));
+
+    fontCacheByFontID().remove(m_fontID);
+    fontCacheByFontName().remove(m_inSandboxHashKey);
 }
 
 // Given an NSFont, try to load a representation of that font into the cgFont
@@ -175,8 +190,7 @@ MemoryActivatedFont::~MemoryActivatedFont()
 // Parameters:
 // * nsFont - The font we wish to load.
 // * fontSize - point size of the font we wish to load.
-// * outNSFont - The font that was actually loaded, may be different from nsFont
-//   if a fallback font was used.
+// * outNSFont - The font that was actually loaded or null if loading failed.
 // * cgFont - on output this contains the CGFontRef corresponding to the NSFont
 //   that was picked in the end.  The caller is responsible for calling
 //   CFRelease() on this parameter when done with it.
@@ -189,20 +203,18 @@ void FontPlatformData::loadFont(NSFont* nsFont, float fontSize, NSFont*& outNSFo
         // Release old CGFontRef since it points at the LastResort font which we don't want.
         CFRelease(cgFont);
         cgFont = 0;
-        
+
         // Font loading was blocked by the Sandbox.
         m_inMemoryFont = loadFontFromBrowserProcess(outNSFont);
-        if (m_inMemoryFont.get()) {
+        if (m_inMemoryFont) {
             cgFont = m_inMemoryFont->cgFont();
             
             // Need to add an extra retain so output semantics of this function
             // are consistent.
             CFRetain(cgFont);
         } else {
-            // If we still can't load the font, then return Times,
-            // rather than the LastResort font.
-            outNSFont = [NSFont fontWithName:@"Times" size:fontSize];
-            cgFont = CTFontCopyGraphicsFont(toCTFontRef(outNSFont), 0);
+            // If we still can't load the font, set |outNSFont| to null so that FontPlatformData won't be used.
+            outNSFont = 0;
         }
     }
 }

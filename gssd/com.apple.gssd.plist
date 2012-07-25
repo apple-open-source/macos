@@ -8,8 +8,8 @@
         <dict>
                 <key>com.apple.gssd</key>
                 <dict>
-                        <key>TaskSpecialPort</key>
-                        <integer>8</integer>
+                        <key>HostSpecialPort</key>
+                        <integer>19</integer>
                 </dict>
         </dict>
         <key>ProgramArguments</key>
@@ -21,9 +21,11 @@
                 <key>CFFIXED_USER_HOME</key>
                 <string>/tmp</string>
         </dict>
-        <key>HopefullyExitsLast</key>
+        <key>BeginTransactionAtShutdown</key>
         <true/>
         <key>EnableTransactions</key>
         <true/>        
+	<key>MultipleInstances</key>
+	<true/>
 </dict>
 </plist>

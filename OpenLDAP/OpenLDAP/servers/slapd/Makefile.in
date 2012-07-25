@@ -1,8 +1,8 @@
 ## Makefile.in for slapd
-# $OpenLDAP: pkg/ldap/servers/slapd/Makefile.in,v 1.186.2.9 2010/04/13 20:23:09 kurt Exp $
+# $OpenLDAP$
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2010 The OpenLDAP Foundation.
+## Copyright 1998-2011 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,7 @@ SRCS	= main.c globals.c bconfig.c config.c daemon.c \
 		slapadd.c slapcat.c slapcommon.c slapdn.c slapindex.c \
 		slappasswd.c slaptest.c slapauth.c slapacl.c component.c \
 		aci.c alock.c psauth.c idattracl.c txn.c slapschema.c \
+		applehelpers.c \
 		$(@PLAT@_SRCS)
 
 OBJS	= main.o globals.o bconfig.o config.o daemon.o \
@@ -59,6 +60,7 @@ OBJS	= main.o globals.o bconfig.o config.o daemon.o \
 		slapadd.o slapcat.o slapcommon.o slapdn.o slapindex.o \
 		slappasswd.o slaptest.o slapauth.o slapacl.o component.o \
 		aci.o alock.o psauth.o idattracl.o txn.o slapschema.o \
+		applehelpers.o \
 		$(@PLAT@_OBJS)
 
 LDAP_INCDIR= ../../include -I$(srcdir) -I$(srcdir)/slapi -I.
@@ -404,6 +406,10 @@ all-cffiles: slapd $(SLAPD_DYNAMIC_BACKENDS) dynamic_overlays
 		-e "s;%LOCALSTATEDIR%;$$localstatedir;" \
 		-e "s;%MODULEDIR%;$$moduledir;" \
 		$(srcdir)/slapd.conf > slapd.conf.tmp ; \
+	$(SED) -e "s;%SYSCONFDIR%;$$sysconfdir;" \
+		-e "s;%LOCALSTATEDIR%;$$localstatedir;" \
+		-e "s;%MODULEDIR%;$$moduledir;" \
+		$(srcdir)/slapd.ldif > slapd.ldif.tmp ; \
 	touch all-cffiles
 
 install-schema: FORCE
@@ -429,6 +435,14 @@ install-conf: FORCE
 #	else \
 #		echo "PRESERVING EXISTING CONFIGURATION FILE $(DESTDIR)$(sysconfdir)/slapd.conf" ; \
 #	fi
+	$(INSTALL) $(INSTALLFLAGS) -m 600 slapd.ldif.tmp $(DESTDIR)$(sysconfdir)/slapd.ldif.default
+	if test ! -f $(DESTDIR)$(sysconfdir)/slapd.ldif; then \
+		echo "installing slapd.ldif in $(sysconfdir)"; \
+		echo "$(INSTALL) $(INSTALLFLAGS) -m 600 slapd.ldif.tmp $(DESTDIR)$(sysconfdir)/slapd.ldif"; \
+		$(INSTALL) $(INSTALLFLAGS) -m 600 slapd.ldif.tmp $(DESTDIR)$(sysconfdir)/slapd.ldif; \
+	else \
+		echo "PRESERVING EXISTING CONFIGURATION FILE $(DESTDIR)$(sysconfdir)/slapd.ldif" ; \
+	fi
 
 install-db-config: FORCE
 	@-$(MKDIR) $(DESTDIR)$(localstatedir) $(DESTDIR)$(sysconfdir)

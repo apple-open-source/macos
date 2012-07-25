@@ -62,7 +62,7 @@ _gsskrb5_lifetime_left(OM_uint32 *minor_status,
 }
 
 
-OM_uint32 _gsskrb5_context_time
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_context_time
            (OM_uint32 * minor_status,
             const gss_ctx_id_t context_handle,
             OM_uint32 * time_rec
@@ -88,6 +88,6 @@ OM_uint32 _gsskrb5_context_time
 
     if (*time_rec == 0)
 	return GSS_S_CONTEXT_EXPIRED;
-	
+
     return GSS_S_COMPLETE;
 }

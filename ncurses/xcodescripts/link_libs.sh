@@ -1,4 +1,8 @@
 #!/bin/sh
+set -e -x
+
+# Do nothing for installhdrs
+[ "$ACTION" == "installhdrs" ] && exit 0
 
 ver=5.4
 
@@ -26,9 +30,5 @@ for link in libcurses.dylib libtermcap.dylib ; do
 	ln -s libncurses.${ver}.dylib $DSTROOT/usr/lib/$link
 done
 
-if [ "${RC_TARGET_CONFIG}" == "MacOSX" ] ; then
-	# libncurses.5.dylib -- install the tiger version if i386 or ppc is a target arch
-	if echo $ARCHS | grep -qE "ppc|i386"; then
-		bzcat libncurses.5.dylib.tar.bz2 | (cd $DSTROOT; tar xf -)
-	fi
-fi
+# rdar://problem/11542731
+ln -s libncurses.${ver}.dylib "$DSTROOT"/usr/lib/libncurses.5.dylib

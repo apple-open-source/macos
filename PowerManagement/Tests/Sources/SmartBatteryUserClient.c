@@ -40,8 +40,8 @@
 // outstanding SMBus I/O
 #define     kMaxSecondsUCOperation              3.15
 
-#define     kUCExclusiveIterationsCount           10
-#define     kUCIterationsCount                    25
+#define     kUCExclusiveIterationsCount           5
+#define     kUCIterationsCount                    10
 
 #define kMaxSimultaneousConnections             3
 

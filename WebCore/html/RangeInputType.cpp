@@ -32,6 +32,8 @@
 #include "config.h"
 #include "RangeInputType.h"
 
+#include "AXObjectCache.h"
+#include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
@@ -40,6 +42,7 @@
 #include "PlatformMouseEvent.h"
 #include "RenderSlider.h"
 #include "ShadowRoot.h"
+#include "ShadowTree.h"
 #include "SliderThumbElement.h"
 #include "StepRange.h"
 #include <limits>
@@ -76,9 +79,9 @@ double RangeInputType::valueAsNumber() const
     return parseToDouble(element()->value(), numeric_limits<double>::quiet_NaN());
 }
 
-void RangeInputType::setValueAsNumber(double newValue, ExceptionCode&) const
+void RangeInputType::setValueAsNumber(double newValue, TextFieldEventBehavior eventBehavior, ExceptionCode&) const
 {
-    element()->setValue(serialize(newValue));
+    element()->setValue(serialize(newValue), eventBehavior);
 }
 
 bool RangeInputType::supportsRequired() const
@@ -151,59 +154,100 @@ double RangeInputType::stepScaleFactor() const
 
 void RangeInputType::handleMouseDownEvent(MouseEvent* event)
 {
-    if (event->button() != LeftButton || event->target() != element())
+    if (element()->disabled() || element()->readOnly())
         return;
 
-    if (SliderThumbElement* thumb = shadowSliderThumb())
-        thumb->dragFrom(event->absoluteLocation());
+    Node* targetNode = event->target()->toNode();
+    if (event->button() != LeftButton || !targetNode)
+        return;
+    ASSERT(element()->hasShadowRoot());
+    if (targetNode != element() && !targetNode->isDescendantOf(element()->shadowTree()->oldestShadowRoot()))
+        return;
+    SliderThumbElement* thumb = sliderThumbElementOf(element());
+    if (targetNode == thumb)
+        return;
+    thumb->dragFrom(event->absoluteLocation());
 }
 
 void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
 {
     if (element()->disabled() || element()->readOnly())
         return;
-    const String& key = event->keyIdentifier();
-    if (key != "Up" && key != "Right" && key != "Down" && key != "Left")
-        return;
 
-    ExceptionCode ec;
+    const String& key = event->keyIdentifier();
+
+    double current = parseToDouble(element()->value(), numeric_limits<double>::quiet_NaN());
+    ASSERT(isfinite(current));
+
+    double step, bigStep;
     if (equalIgnoringCase(element()->fastGetAttribute(stepAttr), "any")) {
-        double min = minimum();
-        double max = maximum();
         // FIXME: We can't use stepUp() for the step value "any". So, we increase
         // or decrease the value by 1/100 of the value range. Is it reasonable?
-        double step = (max - min) / 100;
-        double current = parseToDouble(element()->value(), numeric_limits<double>::quiet_NaN());
-        ASSERT(isfinite(current));
-        // Stepping-up and -down for step="any" are special cases for type="range" from renderer for convenient.
-        // No stepping normally for step="any". They cannot be handled by stepUp()/stepDown()/stepUpFromRenderer().
-        // So calculating values stepped-up or -down here.
-        double newValue;
-        if (key == "Up" || key == "Right") {
-            newValue = current + step;
-            if (newValue > max)
-                newValue = max;
-        } else {
-            newValue = current - step;
-            if (newValue < min)
-                newValue = min;
-        }
-        if (newValue != current) {
-            setValueAsNumber(newValue, ec);
-            element()->dispatchFormControlChangeEvent();
-        }
+        step = (maximum() - minimum()) / 100;
+        bigStep = step * 10;
     } else {
-        int stepMagnification = (key == "Up" || key == "Right") ? 1 : -1;
-        // Reasonable stepping-up/-down by stepUpFromRenderer() unless step="any"
-        element()->stepUpFromRenderer(stepMagnification);
+        if (!element()->getAllowedValueStep(&step))
+            ASSERT_NOT_REACHED();
+
+        bigStep = (maximum() - minimum()) / 10;
+        if (bigStep < step)
+            bigStep = step;
     }
+
+    bool isVertical = false;
+    if (element()->renderer()) {
+        ControlPart part = element()->renderer()->style()->appearance();
+        isVertical = part == SliderVerticalPart || part == MediaVolumeSliderPart;
+    }
+
+    double newValue;
+    if (key == "Up")
+        newValue = current + step;
+    else if (key == "Down")
+        newValue = current - step;
+    else if (key == "Left")
+        newValue = isVertical ? current + step : current - step;
+    else if (key == "Right")
+        newValue = isVertical ? current - step : current + step;
+    else if (key == "PageUp")
+        newValue = current + bigStep;
+    else if (key == "PageDown")
+        newValue = current - bigStep;
+    else if (key == "Home")
+        newValue = isVertical ? maximum() : minimum();
+    else if (key == "End")
+        newValue = isVertical ? minimum() : maximum();
+    else
+        return; // Did not match any key binding.
+
+    newValue = StepRange(element()).clampValue(newValue);
+
+    if (newValue != current) {
+        ExceptionCode ec;
+        TextFieldEventBehavior eventBehavior = DispatchChangeEvent;
+        setValueAsNumber(newValue, eventBehavior, ec);
+
+        if (AXObjectCache::accessibilityEnabled())
+            element()->document()->axObjectCache()->postNotification(element()->renderer(), AXObjectCache::AXValueChanged, true);
+        element()->dispatchFormControlChangeEvent();
+    }
+
     event->setDefaultHandled();
 }
 
 void RangeInputType::createShadowSubtree()
 {
+    ASSERT(element()->hasShadowRoot());
+
+    Document* document = element()->document();
+    RefPtr<HTMLDivElement> track = HTMLDivElement::create(document);
+    track->setShadowPseudoId("-webkit-slider-runnable-track");
     ExceptionCode ec = 0;
-    element()->ensureShadowRoot()->appendChild(SliderThumbElement::create(element()->document()), ec);
+    track->appendChild(SliderThumbElement::create(document), ec);
+    RefPtr<HTMLElement> container = SliderContainerElement::create(document);
+    container->appendChild(track.release(), ec);
+    container->appendChild(TrackLimiterElement::create(document), ec);
+    element()->shadowTree()->oldestShadowRoot()->appendChild(container.release(), ec);
 }
 
 RenderObject* RangeInputType::createRenderer(RenderArena* arena, RenderStyle*) const
@@ -227,14 +271,14 @@ String RangeInputType::serialize(double value) const
     return serializeForNumberType(value);
 }
 
-// FIXME: Could share this with BaseButtonInputType and BaseCheckableInputType if we had a common base class.
-void RangeInputType::accessKeyAction(bool sendToAnyElement)
+// FIXME: Could share this with BaseClickableWithKeyInputType and BaseCheckableInputType if we had a common base class.
+void RangeInputType::accessKeyAction(bool sendMouseEvents)
 {
-    InputType::accessKeyAction(sendToAnyElement);
+    InputType::accessKeyAction(sendMouseEvents);
 
-    // Send mouse button events if the caller specified sendToAnyElement.
+    // Send mouse button events if the caller specified sendMouseEvents.
     // FIXME: The comment above is no good. It says what we do, but not why.
-    element()->dispatchSimulatedClick(0, sendToAnyElement);
+    element()->dispatchSimulatedClick(0, sendMouseEvents);
 }
 
 void RangeInputType::minOrMaxAttributeChanged()
@@ -242,40 +286,34 @@ void RangeInputType::minOrMaxAttributeChanged()
     InputType::minOrMaxAttributeChanged();
 
     // Sanitize the value.
-    element()->setValue(element()->value());
+    if (element()->hasDirtyValue())
+        element()->setValue(element()->value());
     element()->setNeedsStyleRecalc();
 }
 
-void RangeInputType::valueChanged()
+void RangeInputType::setValue(const String& value, bool valueChanged, TextFieldEventBehavior eventBehavior)
 {
-    shadowSliderThumb()->setPositionFromValue();
+    InputType::setValue(value, valueChanged, eventBehavior);
+
+    if (!valueChanged)
+        return;
+
+    sliderThumbElementOf(element())->setPositionFromValue();
 }
 
-String RangeInputType::fallbackValue()
+String RangeInputType::fallbackValue() const
 {
     return serializeForNumberType(StepRange(element()).defaultValue());
 }
 
-String RangeInputType::sanitizeValue(const String& proposedValue)
+String RangeInputType::sanitizeValue(const String& proposedValue) const
 {
-    // If the proposedValue is null than this is a reset scenario and we
-    // want the range input's value attribute to take priority over the
-    // calculated default (middle) value.
-    if (proposedValue.isNull())
-        return proposedValue;
-
     return serializeForNumberType(StepRange(element()).clampValue(proposedValue));
 }
 
 bool RangeInputType::shouldRespectListAttribute()
 {
-    return true;
-}
-
-SliderThumbElement* RangeInputType::shadowSliderThumb() const
-{
-    Node* shadow = element()->shadowRoot();
-    return shadow ? toSliderThumbElement(shadow->firstChild()) : 0;
+    return InputType::themeSupportsDataListUI(this);
 }
 
 } // namespace WebCore

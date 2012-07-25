@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/readdir.c,v 1.15 2008/05/05 14:05:23 kib Ex
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
+#include <unistd.h>
 #include "un-namespace.h"
 
 #include "libc_private.h"
@@ -61,8 +62,13 @@ _readdir_unlocked(dirp, skip)
 			dirp->dd_loc = 0;
 		}
 		if (dirp->dd_loc == 0 && !(dirp->dd_flags & __DTF_READALL)) {
+#if __DARWIN_64_BIT_INO_T
+			dirp->dd_size = __getdirentries64(dirp->dd_fd,
+			    dirp->dd_buf, dirp->dd_len, &dirp->dd_td->seekoff);
+#else /* !__DARWIN_64_BIT_INO_T */
 			dirp->dd_size = _getdirentries(dirp->dd_fd,
 			    dirp->dd_buf, dirp->dd_len, &dirp->dd_seek);
+#endif /* __DARWIN_64_BIT_INO_T */
 			if (dirp->dd_size <= 0)
 				return (NULL);
 		}

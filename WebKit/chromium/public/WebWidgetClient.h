@@ -31,15 +31,17 @@
 #ifndef WebWidgetClient_h
 #define WebWidgetClient_h
 
-#include "WebCommon.h"
 #include "WebNavigationPolicy.h"
-#include "WebRect.h"
 #include "WebScreenInfo.h"
+#include "platform/WebCommon.h"
+#include "platform/WebRect.h"
 
 namespace WebKit {
 
+class WebString;
 class WebWidget;
 struct WebCursorInfo;
+struct WebSize;
 
 class WebWidgetClient {
 public:
@@ -50,8 +52,34 @@ public:
     // scrolled by the specified dx and dy amounts.
     virtual void didScrollRect(int dx, int dy, const WebRect& clipRect) { }
 
-    // Called when the compositor enables or disables.
-    virtual void didActivateAcceleratedCompositing(bool active) { }
+    // Called when the Widget has changed size as a result of an auto-resize.
+    virtual void didAutoResize(const WebSize& newSize) { }
+
+    // Called when the compositor is enabled or disabled.
+    // The inputHandlerIdentifier can be used on the compositor thread to get access
+    // to the WebCompositorInputHandler instance associated with this WebWidget.
+    // If there is no WebCompositorInputHandler associated with this WebWidget (for example if
+    // threaded compositing is not enabled) then calling WebCompositorInputHandler::fromIdentifier()
+    // for the specified identifier will return 0.
+    virtual void didActivateCompositor(int inputHandlerIdentifier) { }
+    virtual void didDeactivateCompositor() { }
+
+    // Indicates to the embedder that the compositor is about to begin a
+    // frame. This is primarily to signal to flow control mechanisms that a
+    // frame is beginning, not to perform actual painting work.
+    virtual void willBeginCompositorFrame() { }
+
+    // Indicates to the embedder that the WebWidget is ready for additional
+    // input.
+    virtual void didBecomeReadyForAdditionalInput() { }
+
+    // Called for compositing mode when the draw commands for a WebKit-side
+    // frame have been issued.
+    virtual void didCommitAndDrawCompositorFrame() { }
+
+    // Called for compositing mode when swapbuffers has been posted in the GPU
+    // process.
+    virtual void didCompleteSwapBuffers() { }
 
     // Called when a call to WebWidget::composite is required
     virtual void scheduleComposite() { }
@@ -77,9 +105,20 @@ public:
     // closed.
     virtual void runModal() { }
 
+    // Called to enter/exit fullscreen mode. If enterFullScreen returns true,
+    // then WebWidget::{will,Did}EnterFullScreen should bound resizing the
+    // WebWidget into fullscreen mode. Similarly, when exitFullScreen is
+    // called, WebWidget::{will,Did}ExitFullScreen should bound resizing the
+    // WebWidget out of fullscreen mode.
+    virtual bool enterFullScreen() { return false; }
+    virtual void exitFullScreen() { }
+
     // Called to get/set the position of the widget in screen coordinates.
     virtual WebRect windowRect() { return WebRect(); }
     virtual void setWindowRect(const WebRect&) { }
+
+    // Called when a tooltip should be shown at the current cursor position.
+    virtual void setToolTipText(const WebString&, WebTextDirection hint) { }
 
     // Called to get the position of the resizer rect in window coordinates.
     virtual WebRect windowResizerRect() { return WebRect(); }
@@ -95,6 +134,21 @@ public:
     // When this method gets called, WebWidgetClient implementation should
     // reset the input method by cancelling any ongoing composition.
     virtual void resetInputMethod() { }
+
+    // Requests to lock the mouse cursor. If true is returned, the success
+    // result will be asynchronously returned via a single call to
+    // WebWidget::didAcquirePointerLock() or
+    // WebWidget::didNotAcquirePointerLock().
+    // If false, the request has been denied synchronously.
+    virtual bool requestPointerLock() { return false; }
+
+    // Cause the pointer lock to be released. This may be called at any time,
+    // including when a lock is pending but not yet acquired.
+    // WebWidget::didLosePointerLock() is called when unlock is complete.
+    virtual void requestPointerUnlock() { }
+
+    // Returns true iff the pointer is locked to this widget.
+    virtual bool isPointerLocked() { return false; }
 
 protected:
     ~WebWidgetClient() { }

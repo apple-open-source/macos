@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2007, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,9 @@
 #define kSCKeychainOptionsLabel			CFSTR("Label")			// CFString
 #define kSCKeychainOptionsPassword		CFSTR("Password")		// CFData
 #define kSCKeychainOptionsUniqueID		CFSTR("UniqueID")		// CFString
+
+#define kSCHelperAuthAuthorization		CFSTR("Authorization")		// CFData[AuthorizationExternalForm]
+#define kSCHelperAuthCallerInfo			CFSTR("CallerInfo")		// CFString
 
 enum {
 	// authorization

@@ -192,8 +192,12 @@ static sigjmp_buf sigjmp;
 char **script_env;		/* Env. variable values for scripts */
 int s_env_nalloc;		/* # words avail at script_env */
 
-u_char outpacket_buf[PPP_MRU+PPP_HDRLEN]; /* buffer for outgoing packet */
-u_char inpacket_buf[PPP_MRU+PPP_HDRLEN]; /* buffer for incoming packet */
+/*  
+ *  WCast-align fix - these buffers need to be aligned so that (after the 4 byte ppp header is removed)
+ *  the protocol handling routines such as acsp can expect that the data is aligned on a 4 byte boundary 
+ */
+u_char outpacket_buf[PPP_MRU+PPP_HDRLEN] __attribute__ ((aligned (4))); /* buffer for outgoing packet */
+u_char inpacket_buf[PPP_MRU+PPP_HDRLEN] __attribute__ ((aligned (4))); /* buffer for incoming packet */
 
 static int n_children;		/* # child processes still running */
 static int got_sigchld;		/* set if we have received a SIGCHLD */
@@ -226,6 +230,10 @@ struct subprocess {
 };
 
 static struct subprocess *children;
+
+#ifdef __APPLE__
+static pthread_t mainthread_id = NULL;
+#endif
 
 /* Prototypes for procedures local to this file. */
 
@@ -344,7 +352,10 @@ main(argc, argv)
     struct protent *protp;
     char numbuf[16];
 
-	
+
+#ifdef __APPLE__
+    mainthread_id = pthread_self();
+#endif
     link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
 
@@ -966,19 +977,19 @@ ppp_control()
             return;
         }
 
-/* 
-        if (!strcmp(cmd, "[TERMINATE]")) {
-            error("[TERMINATE]");
+        if (!strcmp(cmd, "[DISCONNECT]")) {
+            error("[DISCONNECT]");
             hup(SIGHUP);
             continue;
         }
 
-        if (!strcmp(cmd, "[DISCONNECT]")) {
-            error("[DISCONNECT]");
+        if (!strcmp(cmd, "[TERMINATE]")) {
+            error("[TERMINATE]");
             term(SIGTERM);
             continue;
         }
 
+/* 
         if (!strcmp(cmd, "[SUSPEND]")) {
             error("[SUSPEND]");
             stop(SIGTSTP);
@@ -1819,6 +1830,13 @@ static void
 hup(sig)
     int sig;
 {
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sighup = sig;
 
 #ifdef __APPLE__
@@ -1850,6 +1868,13 @@ static void
 term(sig)
     int sig;
 {
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sigterm = sig;
 
 #ifdef __APPLE__
@@ -1877,6 +1902,13 @@ static void
 chld(sig)
     int sig;
 {
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sigchld = 1;
     if (waiting)
 	siglongjmp(sigjmp, 1);
@@ -1894,6 +1926,13 @@ stop(sig)
     int sig;
 {
 
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sigtstp = sig;
     switch (phase) {
         case PHASE_ONHOLD:	// already on hold
@@ -1921,7 +1960,13 @@ static void
 cont(sig)
     int sig;
 {
-    
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sigcont = sig;
     notify(sigreceived, sig);
     if (waiting)
@@ -1938,6 +1983,13 @@ static void
 toggle_debug(sig)
     int sig;
 {
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     debug = !debug;
     if (debug) {
 	setlogmask(LOG_UPTO(LOG_DEBUG));
@@ -1957,6 +2009,13 @@ static void
 open_ccp(sig)
     int sig;
 {
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     got_sigusr2 = 1;
     if (waiting)
 	siglongjmp(sigjmp, 1);
@@ -1972,6 +2031,13 @@ bad_signal(sig)
 {
     static int crashed = 0;
 
+#ifdef __APPLE__
+    if (mainthread_id && !(pthread_equal(mainthread_id, pthread_self()))){
+        /* ignore signals if it's not the main thread, we will be dropping sigals but that's insignificant */
+        /* <rdar://10258474> */
+        return;
+    }
+#endif
     if (crashed)
 	_exit(127);
     crashed = 1;

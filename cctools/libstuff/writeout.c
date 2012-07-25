@@ -761,6 +761,18 @@ struct object *object)
 			   object->output_func_start_info_data_size);
 		*size += object->output_func_start_info_data_size;
 	    }
+	    if(object->output_data_in_code_info_data_size != 0){
+		if(object->output_data_in_code_info_data != NULL)
+		    memcpy(p + *size, object->output_data_in_code_info_data,
+			   object->output_data_in_code_info_data_size);
+		*size += object->output_data_in_code_info_data_size;
+	    }
+	    if(object->output_code_sign_drs_info_data_size != 0){
+		if(object->output_code_sign_drs_info_data != NULL)
+		    memcpy(p + *size, object->output_code_sign_drs_info_data,
+			   object->output_code_sign_drs_info_data_size);
+		*size += object->output_code_sign_drs_info_data_size;
+	    }
 	    if(object->mh != NULL){
 		memcpy(p + *size, object->output_symbols,
 		       object->output_nsymbols * sizeof(struct nlist));
@@ -819,6 +831,18 @@ struct object *object)
 	    }
 	}
 	else{
+	    if(object->output_func_start_info_data_size != 0){
+		if(object->output_func_start_info_data != NULL)
+		    memcpy(p + *size, object->output_func_start_info_data,
+			   object->output_func_start_info_data_size);
+		*size += object->output_func_start_info_data_size;
+	    }
+	    if(object->output_data_in_code_info_data_size != 0){
+		if(object->output_data_in_code_info_data != NULL)
+		    memcpy(p + *size, object->output_data_in_code_info_data,
+			   object->output_data_in_code_info_data_size);
+		*size += object->output_data_in_code_info_data_size;
+	    }
 	    if(object->mh != NULL){
 		memcpy(p + *size, object->output_symbols,
 		       object->output_nsymbols * sizeof(struct nlist));

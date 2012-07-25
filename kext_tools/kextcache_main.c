@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,10 +52,12 @@
 #include <IOKit/IOKitServer.h>
 #include <IOKit/IOCFUnserialize.h>
 #include <IOKit/IOCFSerialize.h>
+#include <IOKit/pwr_mgt/IOPMLib.h>
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/kext/OSKext.h>
 #include <IOKit/kext/OSKextPrivate.h>
+#include <IOKit/kext/macho_util.h>
 #include <bootfiles.h>
 
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -190,17 +192,12 @@ int main(int argc, char * const * argv)
     * jump right to exit; B!=R doesn't combine with any other cache building.
     */
     if (toolArgs.updateVolumeURL) {
-        // xxx - updateBoots should return only sysexit-type values, not errno
-        result = checkUpdateCachesAndBoots(toolArgs.updateVolumeURL,
-                                           toolArgs.forceUpdateFlag, 
-                                           toolArgs.expectUpToDate, 
-                            toolArgs.installerCalled || toolArgs.cachesOnly);
+        result = doUpdateVolume(&toolArgs);
         goto finish;
     }
 #endif /* !NO_BOOT_ROOT */
 
-   /* If we're uncompressing the prelinked kernel, take care of that here
-    * and exit.
+   /* If we're just un/compressing the prelinked kernel, do it and exit.
     */
     if (toolArgs.prelinkedKernelPath && !CFArrayGetCount(toolArgs.argURLs) &&
         (toolArgs.compress || toolArgs.uncompress)) 
@@ -284,6 +281,7 @@ int main(int argc, char * const * argv)
         if (result != EX_OK) {
             goto finish;
         }
+
     }
 
 finish:
@@ -830,7 +828,60 @@ finish:
     return result;
 }
 
+
 #if !NO_BOOT_ROOT
+#ifndef kIOPMAssertNoIdleSystemSleep
+#define kIOPMAssertNoIdleSystemSleep \
+            kIOPMAssertionTypePreventUserIdleSystemSleep
+#endif
+ExitStatus doUpdateVolume(KextcacheArgs *toolArgs)
+{
+    ExitStatus rval;                    // no goto's in this function
+    int result;                         // errno-type value
+    IOReturn pmres = kIOReturnError;    // init against future re-flow
+    IOPMAssertionID awakeForUpdate;     // valid if pmres == 0
+    updateOpts_t opts = 0;
+
+    if (toolArgs->forceUpdateFlag)  { opts |= kForceUpdateHelpers;  }
+    if (toolArgs->expectUpToDate)   { opts |= kExpectUpToDate;      }
+    if (toolArgs->cachesOnly)       { opts |= kCachesOnly;          }
+    if (toolArgs->installerCalled) {
+        opts |= kHelpersOptional;
+        opts |= kForceUpdateHelpers;
+    }
+
+    // unless -F is passed, keep machine awake for for duration
+    // (including waiting for any volume locks with kextd)
+    if (toolArgs->lowPriorityFlag == false) {
+        pmres = IOPMAssertionCreateWithName(kIOPMAssertNoIdleSystemSleep,
+                            kIOPMAssertionLevelOn,
+                            CFSTR("com.apple.kextmanager.update"),
+                            &awakeForUpdate);
+        if (pmres) {
+            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                      "Warning: couldn't block sleep during cache update");
+        }
+
+    }
+
+    result = checkUpdateCachesAndBoots(toolArgs->updateVolumeURL, opts);
+    // translate known errno -> sysexits(3) value
+    switch (result) {
+        case ENOENT:
+        case EFTYPE: rval = EX_OSFILE; break;
+        default: rval = result;
+    }
+
+    if (toolArgs->lowPriorityFlag == false && pmres == 0) {
+        // drop assertion
+        if (IOPMAssertionRelease(awakeForUpdate))
+            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                      "Warning: error re-enabling sleep after cache update");
+    }
+
+    return rval;
+}
+
 /*******************************************************************************
 *******************************************************************************/
 Boolean setDefaultKernel(KextcacheArgs * toolArgs)
@@ -881,6 +932,7 @@ Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs)
         prelinkedKernelFile =
             _kOSKextCachesRootFolder "/" _kOSKextStartupCachesSubfolder "/" 
             _kOSKextPrelinkedKernelBasename;
+
     length = strlcpy(toolArgs->prelinkedKernelPath, 
         prelinkedKernelFile, PATH_MAX);
     if (length >= PATH_MAX) {
@@ -957,6 +1009,7 @@ waitForGreatSystemLoad(void)
     int systemLoadAdvisoryFileDescriptor        = 0;    // closed by notify_cancel()
     int systemLoadAdvisoryToken                 = 0;    // must notify_cancel()
     int currentToken                            = 0;    // do not notify_cancel()
+    int myResult;
 
     bzero(&currenttime, sizeof(currenttime));
     bzero(&endtime, sizeof(endtime));
@@ -992,8 +1045,8 @@ waitForGreatSystemLoad(void)
 
     /* Set up the select timers */
 
-    notifyStatus = gettimeofday(&currenttime, NULL);
-    if (notifyStatus < 0) {
+    myResult = gettimeofday(&currenttime, NULL);
+    if (myResult < 0) {
         goto finish;
     }
 
@@ -1014,16 +1067,16 @@ waitForGreatSystemLoad(void)
         /* Wait for notifications or the timeout */
 
         FD_COPY(&readfds, &tmpfds);
-        notifyStatus = select(systemLoadAdvisoryFileDescriptor + 1, 
+        myResult = select(systemLoadAdvisoryFileDescriptor + 1, 
             &tmpfds, NULL, NULL, &timeout);
-        if (notifyStatus < 0) {
+        if (myResult < 0) {
             goto finish;
         }
 
         /* Set up the next timeout */
 
-        notifyStatus = gettimeofday(&currenttime, NULL);
-        if (notifyStatus < 0) {
+        myResult = gettimeofday(&currenttime, NULL);
+        if (myResult < 0) {
             goto finish;
         }
 
@@ -1036,9 +1089,9 @@ waitForGreatSystemLoad(void)
             continue;
         }
 
-        notifyStatus = read(systemLoadAdvisoryFileDescriptor, 
+        myResult = read(systemLoadAdvisoryFileDescriptor, 
             &currentToken, sizeof(currentToken));
-        if (notifyStatus < 0) {
+        if (myResult < 0) {
             goto finish;
         }
 
@@ -1149,6 +1202,7 @@ void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs)
 
     CFArrayRemoveAllValues(toolArgs->targetArchs);
     addArchForName(toolArgs, "x86_64");
+
 
         addArchForName(toolArgs, "i386");
 
@@ -1284,6 +1338,12 @@ ExitStatus checkArgs(KextcacheArgs * toolArgs)
     }
     
 #if !NO_BOOT_ROOT
+    if (toolArgs->forceUpdateFlag && toolArgs->cachesOnly) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                  "-%s (%-c) and %-s are mutually exclusive",
+                  kOptNameForce, kOptForce, kOptNameCachesOnly);
+        goto finish;
+    }
     if (toolArgs->forceUpdateFlag) {
         if (toolArgs->expectUpToDate || !toolArgs->updateVolumeURL) {
             OSKextLog(/* kext */ NULL,
@@ -2424,6 +2484,10 @@ ExitStatus createPrelinkedKernelForArch(
     CFDataRef prelinkedKernel = NULL;
     uint32_t flags = 0;
     Boolean fatalOut = false;
+    Boolean kernelSupportsKASLR = false;
+    macho_seek_result machoResult;
+    const UInt8 * kernelStart;
+    const UInt8 * kernelEnd;
 
     /* Retrieve the kernel image for the requested architecture.
      */
@@ -2481,6 +2545,15 @@ ExitStatus createPrelinkedKernelForArch(
     flags |= (toolArgs->printTestResults) ? kOSKextKernelcachePrintDiagnosticsFlag : 0;
     flags |= (toolArgs->includeAllPersonalities) ? kOSKextKernelcacheIncludeAllPersonalitiesFlag : 0;
     flags |= (toolArgs->stripSymbols) ? kOSKextKernelcacheStripSymbolsFlag : 0;
+        
+    kernelStart = CFDataGetBytePtr(kernelImage);
+    kernelEnd = kernelStart + CFDataGetLength(kernelImage) - 1;
+    machoResult = macho_find_dysymtab(kernelStart, kernelEnd, NULL);
+    /* this kernel supports KASLR if there is a LC_DYSYMTAB load command */
+    kernelSupportsKASLR = (machoResult == macho_seek_result_found);
+    if (kernelSupportsKASLR) {
+        flags |= kOSKextKernelcacheKASLRFlag;
+    }
     
     prelinkedKernel = OSKextCreatePrelinkedKernel(kernelImage, prelinkKexts,
         toolArgs->volumeRootURL, flags, prelinkedSymbolsOut);
@@ -2495,7 +2568,7 @@ ExitStatus createPrelinkedKernelForArch(
    /* Compress the prelinked kernel if needed */
 
     if (toolArgs->compress) {
-        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel);
+        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel, kernelSupportsKASLR);
     } else {
         *prelinkedKernelOut = CFRetain(prelinkedKernel);
     }
@@ -2609,7 +2682,11 @@ compressPrelinkedKernel(
         prelinkedSlice = CFArrayGetValueAtIndex(prelinkedSlices, i);
 
         if (compress) {
-            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice);
+            const PrelinkedKernelHeader *header = (const PrelinkedKernelHeader *) 
+                CFDataGetBytePtr(prelinkedSlice);
+
+            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice, 
+                        (OSSwapHostToBigInt32(header->prelinkVersion) == 1));
             if (!prelinkedSlice) {
                 result = EX_DATAERR;
                 goto finish;

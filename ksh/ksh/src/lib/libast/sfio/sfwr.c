@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,12 +28,12 @@
 
 /* hole preserving writes */
 #if __STD_C
-static ssize_t sfoutput(Sfio_t* f, reg char* buf, reg size_t n)
+static ssize_t sfoutput(Sfio_t* f, char* buf, size_t n)
 #else
 static ssize_t sfoutput(f,buf,n)
 Sfio_t*		f;
-reg char*	buf;
-reg size_t	n;
+char*		buf;
+size_t		n;
 #endif
 {	reg char	*sp, *wbuf, *endbuf;
 	reg ssize_t	s, w, wr;
@@ -122,20 +122,21 @@ reg size_t	n;
 }
 
 #if __STD_C
-ssize_t sfwr(reg Sfio_t* f, reg const Void_t* buf, reg size_t n, reg Sfdisc_t* disc)
+ssize_t sfwr(Sfio_t* f, const Void_t* buf, size_t n, Sfdisc_t* disc)
 #else
 ssize_t sfwr(f,buf,n,disc)
-reg Sfio_t*	f;
-reg Void_t*	buf;
-reg size_t	n;
-reg Sfdisc_t*	disc;
+Sfio_t*		f;
+Void_t*		buf;
+size_t		n;
+Sfdisc_t*	disc;
 #endif
 {
 	reg ssize_t	w;
 	reg Sfdisc_t*	dc;
 	reg int		local, oerrno;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,(ssize_t)(-1));
+	SFMTXENTER(f,(ssize_t)(-1));
 
 	GETLOCAL(f,local);
 	if(!local && !(f->bits&SF_DCDOWN)) /* an external user's call */

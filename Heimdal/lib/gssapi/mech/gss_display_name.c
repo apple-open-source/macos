@@ -28,7 +28,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_display_name(OM_uint32 *minor_status,
     const gss_name_t input_name,
     gss_buffer_t output_name_buffer,
@@ -67,7 +67,7 @@ gss_display_name(OM_uint32 *minor_status,
 		*minor_status = 0;
 		return (GSS_S_COMPLETE);
 	} else {
-		SLIST_FOREACH(mn, &name->gn_mn, gmn_link) {
+		HEIM_SLIST_FOREACH(mn, &name->gn_mn, gmn_link) {
 			major_status = mn->gmn_mech->gm_display_name(
 				minor_status, mn->gmn_name,
 				output_name_buffer,

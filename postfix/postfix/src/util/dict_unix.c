@@ -69,7 +69,7 @@ static const char *dict_unix_getpwnam(DICT *dict, const char *key)
     static VSTRING *buf;
     static int sanity_checked;
 
-    dict_errno = 0;
+    dict->error = 0;
 
     /*
      * Optionally fold the key.
@@ -86,7 +86,7 @@ static const char *dict_unix_getpwnam(DICT *dict, const char *key)
 	    errno = 0;
 	    if (getpwuid(0) == 0) {
 		msg_warn("cannot access UNIX password database: %m");
-		dict_errno = DICT_ERR_RETRY;
+		dict->error = DICT_ERR_RETRY;
 	    }
 	}
 	return (0);
@@ -111,7 +111,7 @@ static const char *dict_unix_getgrnam(DICT *dict, const char *key)
     char  **cpp;
     static int sanity_checked;
 
-    dict_errno = 0;
+    dict->error = 0;
 
     /*
      * Optionally fold the key.
@@ -128,7 +128,7 @@ static const char *dict_unix_getgrnam(DICT *dict, const char *key)
 	    errno = 0;
 	    if (getgrgid(0) == 0) {
 		msg_warn("cannot access UNIX group database: %m");
-		dict_errno = DICT_ERR_RETRY;
+		dict->error = DICT_ERR_RETRY;
 	    }
 	}
 	return (0);
@@ -159,7 +159,7 @@ static void dict_unix_close(DICT *dict)
 
 /* dict_unix_open - open UNIX map */
 
-DICT   *dict_unix_open(const char *map, int unused_flags, int dict_flags)
+DICT   *dict_unix_open(const char *map, int open_flags, int dict_flags)
 {
     DICT_UNIX *dict_unix;
     struct dict_unix_lookup {
@@ -173,21 +173,32 @@ DICT   *dict_unix_open(const char *map, int unused_flags, int dict_flags)
     };
     struct dict_unix_lookup *lp;
 
-    dict_errno = 0;
+    /*
+     * Sanity checks.
+     */
+    if (open_flags != O_RDONLY)
+	return (dict_surrogate(DICT_TYPE_UNIX, map, open_flags, dict_flags,
+			       "%s:%s map requires O_RDONLY access mode",
+			       DICT_TYPE_UNIX, map));
 
-    dict_unix = (DICT_UNIX *) dict_alloc(DICT_TYPE_UNIX, map,
-					 sizeof(*dict_unix));
+    /*
+     * "Open" the database.
+     */
     for (lp = dict_unix_lookup; /* void */ ; lp++) {
 	if (lp->name == 0)
-	    msg_fatal("dict_unix_open: unknown map name: %s", map);
+	    return (dict_surrogate(DICT_TYPE_UNIX, map, open_flags, dict_flags,
+			      "unknown table: %s:%s", DICT_TYPE_UNIX, map));
 	if (strcmp(map, lp->name) == 0)
 	    break;
     }
+    dict_unix = (DICT_UNIX *) dict_alloc(DICT_TYPE_UNIX, map,
+					 sizeof(*dict_unix));
     dict_unix->dict.lookup = lp->lookup;
     dict_unix->dict.close = dict_unix_close;
     dict_unix->dict.flags = dict_flags | DICT_FLAG_FIXED;
     if (dict_flags & DICT_FLAG_FOLD_FIX)
 	dict_unix->dict.fold_buf = vstring_alloc(10);
+    dict_unix->dict.owner.status = DICT_OWNER_TRUSTED;
 
     return (DICT_DEBUG (&dict_unix->dict));
 }

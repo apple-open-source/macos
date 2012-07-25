@@ -88,6 +88,13 @@ public:
     // from transformed rects.
     bool containsQuad(const FloatQuad&) const;
 
+    // The center of the quad. If the quad is the result of a affine-transformed rectangle this is the same as the original center transformed.
+    FloatPoint center() const
+    {
+        return FloatPoint((m_p1.x() + m_p2.x() + m_p3.x() + m_p4.x()) / 4.0,
+                          (m_p1.y() + m_p2.y() + m_p3.y() + m_p4.y()) / 4.0);
+    }
+
     FloatRect boundingBox() const;
     IntRect enclosingBoundingBox() const
     {
@@ -109,6 +116,18 @@ public:
         m_p3.move(dx, dy);
         m_p4.move(dx, dy);
     }
+
+    void scale(float dx, float dy)
+    {
+        m_p1.scale(dx, dy);
+        m_p2.scale(dx, dy);
+        m_p3.scale(dx, dy);
+        m_p4.scale(dx, dy);
+    }
+
+    // Tests whether points are in clock-wise, or counter clock-wise order.
+    // Note that output is undefined when all points are colinear.
+    bool isCounterclockwise() const;
 
 private:
     FloatPoint m_p1;

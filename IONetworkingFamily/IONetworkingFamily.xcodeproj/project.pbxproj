@@ -91,6 +91,32 @@
 		C17D35410D3FD2D600F185DB /* IONetworkUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91BF3EA00CFE9D308CA29FD /* IONetworkUserClient.cpp */; };
 		C17D35420D3FD2D600F185DB /* IOOutputQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91BF3EB00CFE9D308CA29FD /* IOOutputQueue.cpp */; };
 		C17D35430D3FD2D600F185DB /* IOPacketQueue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = B91BF3EC00CFE9D308CA29FD /* IOPacketQueue.cpp */; };
+		D82B9D191416D326008A7864 /* IONetworkController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FE00CFEA6808CA29FD /* IONetworkController.h */; };
+		D82B9D1A1416D387008A7864 /* IONetworkInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40000CFEA6808CA29FD /* IONetworkInterface.h */; };
+		D87CC6C81451BAA800DC37BF /* IOEthernetController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FA00CFEA6808CA29FD /* IOEthernetController.h */; };
+		D87CC6C91451BAA800DC37BF /* IOEthernetInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FB00CFEA6808CA29FD /* IOEthernetInterface.h */; };
+		D87CC6CA1451BAA800DC37BF /* IOKernelDebugger.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FC00CFEA6808CA29FD /* IOKernelDebugger.h */; };
+		D87CC6CB1451BAA800DC37BF /* IOMbufMemoryCursor.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FD00CFEA6808CA29FD /* IOMbufMemoryCursor.h */; };
+		D87CC6CC1451BAA800DC37BF /* IONetworkController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FE00CFEA6808CA29FD /* IONetworkController.h */; };
+		D87CC6CD1451BAA800DC37BF /* IONetworkData.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FF00CFEA6808CA29FD /* IONetworkData.h */; };
+		D87CC6CE1451BAA800DC37BF /* IONetworkInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40000CFEA6808CA29FD /* IONetworkInterface.h */; };
+		D87CC6CF1451BAA800DC37BF /* IONetworkMedium.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40100CFEA6808CA29FD /* IONetworkMedium.h */; };
+		D87CC6D01451BAA800DC37BF /* IOPacketQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40500CFEA6808CA29FD /* IOPacketQueue.h */; };
+		D87CC6D11451BAA800DC37BF /* IOOutputQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40400CFEA6808CA29FD /* IOOutputQueue.h */; };
+		D87CC6D21451BAA800DC37BF /* IOBasicOutputQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40600CFEA6808CA29FD /* IOBasicOutputQueue.h */; };
+		D87CC6D31451BAA800DC37BF /* IOGatedOutputQueue.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40800CFEA6808CA29FD /* IOGatedOutputQueue.h */; };
+		D87CC6D41451BAA800DC37BF /* IONetworkStats.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40A00CFEA6808CA29FD /* IONetworkStats.h */; };
+		D87CC6D51451BAA800DC37BF /* IOEthernetStats.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40700CFEA6808CA29FD /* IOEthernetStats.h */; };
+		D87CC6DA1451BAA800DC37BF /* IONetworkStack.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40200CFEA6808CA29FD /* IONetworkStack.h */; };
+		D87CC6DB1451BAA800DC37BF /* IOEthernetController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FA00CFEA6808CA29FD /* IOEthernetController.h */; };
+		D87CC6DC1451BAA800DC37BF /* IOEthernetInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FB00CFEA6808CA29FD /* IOEthernetInterface.h */; };
+		D87CC6DD1451BAA800DC37BF /* IONetworkController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FE00CFEA6808CA29FD /* IONetworkController.h */; };
+		D87CC6DE1451BAA800DC37BF /* IONetworkData.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF3FF00CFEA6808CA29FD /* IONetworkData.h */; };
+		D87CC6DF1451BAA800DC37BF /* IONetworkInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40000CFEA6808CA29FD /* IONetworkInterface.h */; };
+		D87CC6E01451BAA800DC37BF /* IONetworkMedium.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40100CFEA6808CA29FD /* IONetworkMedium.h */; };
+		D87CC6E11451BAA800DC37BF /* IONetworkUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40300CFEA6808CA29FD /* IONetworkUserClient.h */; };
+		D87CC6E21451BAA800DC37BF /* IONetworkStats.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40A00CFEA6808CA29FD /* IONetworkStats.h */; };
+		D87CC6E31451BAA800DC37BF /* IOEthernetStats.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B91BF40700CFEA6808CA29FD /* IOEthernetStats.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -101,12 +127,12 @@
 			remoteGlobalIDString = C132AA690D3FCF980054798D;
 			remoteInfo = "InstallHeaders (Upgraded)";
 		};
-		C17D35210D3FD2D600F185DB /* PBXContainerItemProxy */ = {
+		D87CC6EC1451BAC200DC37BF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = C132AA690D3FCF980054798D;
-			remoteInfo = "InstallHeaders (Upgraded)";
+			remoteGlobalIDString = D87CC6C61451BAA800DC37BF;
+			remoteInfo = InstallHeaders_embedded;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -153,9 +179,63 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		D82B9D181416D2EE008A7864 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/network";
+			dstSubfolderSpec = 0;
+			files = (
+				D82B9D1A1416D387008A7864 /* IONetworkInterface.h in CopyFiles */,
+				D82B9D191416D326008A7864 /* IONetworkController.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D87CC6C71451BAA800DC37BF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network";
+			dstSubfolderSpec = 0;
+			files = (
+				D87CC6C81451BAA800DC37BF /* IOEthernetController.h in CopyFiles */,
+				D87CC6C91451BAA800DC37BF /* IOEthernetInterface.h in CopyFiles */,
+				D87CC6CA1451BAA800DC37BF /* IOKernelDebugger.h in CopyFiles */,
+				D87CC6CB1451BAA800DC37BF /* IOMbufMemoryCursor.h in CopyFiles */,
+				D87CC6CC1451BAA800DC37BF /* IONetworkController.h in CopyFiles */,
+				D87CC6CD1451BAA800DC37BF /* IONetworkData.h in CopyFiles */,
+				D87CC6CE1451BAA800DC37BF /* IONetworkInterface.h in CopyFiles */,
+				D87CC6CF1451BAA800DC37BF /* IONetworkMedium.h in CopyFiles */,
+				D87CC6D01451BAA800DC37BF /* IOPacketQueue.h in CopyFiles */,
+				D87CC6D11451BAA800DC37BF /* IOOutputQueue.h in CopyFiles */,
+				D87CC6D21451BAA800DC37BF /* IOBasicOutputQueue.h in CopyFiles */,
+				D87CC6D31451BAA800DC37BF /* IOGatedOutputQueue.h in CopyFiles */,
+				D87CC6D41451BAA800DC37BF /* IONetworkStats.h in CopyFiles */,
+				D87CC6D51451BAA800DC37BF /* IOEthernetStats.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D87CC6D91451BAA800DC37BF /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/network";
+			dstSubfolderSpec = 0;
+			files = (
+				D87CC6DA1451BAA800DC37BF /* IONetworkStack.h in CopyFiles */,
+				D87CC6DB1451BAA800DC37BF /* IOEthernetController.h in CopyFiles */,
+				D87CC6DC1451BAA800DC37BF /* IOEthernetInterface.h in CopyFiles */,
+				D87CC6DD1451BAA800DC37BF /* IONetworkController.h in CopyFiles */,
+				D87CC6DE1451BAA800DC37BF /* IONetworkData.h in CopyFiles */,
+				D87CC6DF1451BAA800DC37BF /* IONetworkInterface.h in CopyFiles */,
+				D87CC6E01451BAA800DC37BF /* IONetworkMedium.h in CopyFiles */,
+				D87CC6E11451BAA800DC37BF /* IONetworkUserClient.h in CopyFiles */,
+				D87CC6E21451BAA800DC37BF /* IONetworkStats.h in CopyFiles */,
+				D87CC6E31451BAA800DC37BF /* IOEthernetStats.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		42BF587613CDE92300C7E485 /* IONetworkDebug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IONetworkDebug.h; sourceTree = "<group>"; };
 		B91BF3E000CFE9D308CA29FD /* IOEthernetController.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOEthernetController.cpp; sourceTree = "<group>"; };
 		B91BF3E100CFE9D308CA29FD /* IOEthernetInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOEthernetInterface.cpp; sourceTree = "<group>"; };
 		B91BF3E200CFE9D308CA29FD /* IOKernelDebugger.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOKernelDebugger.cpp; sourceTree = "<group>"; };
@@ -191,6 +271,7 @@
 		C132AA680D3FCF980054798D /* IONetworkingFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IONetworkingFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		C132AA8C0D3FCF980054798D /* IONetworkingFamily Headers */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "IONetworkingFamily Headers"; sourceTree = BUILT_PRODUCTS_DIR; };
 		C17D354B0D3FD2D600F185DB /* IONetworkingFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IONetworkingFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		D87CC6E91451BAA800DC37BF /* InstallHeaders copy */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "InstallHeaders copy"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -236,6 +317,7 @@
 				C132AA680D3FCF980054798D /* IONetworkingFamily.kext */,
 				C132AA8C0D3FCF980054798D /* IONetworkingFamily Headers */,
 				C17D354B0D3FD2D600F185DB /* IONetworkingFamily.kext */,
+				D87CC6E91451BAA800DC37BF /* InstallHeaders copy */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -243,6 +325,7 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				42BF587613CDE92300C7E485 /* IONetworkDebug.h */,
 				B91BF3E000CFE9D308CA29FD /* IOEthernetController.cpp */,
 				B91BF3FA00CFEA6808CA29FD /* IOEthernetController.h */,
 				B91BF3E100CFE9D308CA29FD /* IOEthernetInterface.cpp */,
@@ -361,7 +444,9 @@
 			buildConfigurationList = C132AA880D3FCF980054798D /* Build configuration list for PBXNativeTarget "InstallHeaders" */;
 			buildPhases = (
 				C132AA6E0D3FCF980054798D /* CopyFiles */,
+				D82B9D181416D2EE008A7864 /* CopyFiles */,
 				C132AA7D0D3FCF980054798D /* CopyFiles */,
+				D82B9D1014167E90008A7864 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -388,13 +473,31 @@
 			buildRules = (
 			);
 			dependencies = (
-				C17D35200D3FD2D600F185DB /* PBXTargetDependency */,
+				D87CC6ED1451BAC200DC37BF /* PBXTargetDependency */,
 			);
 			name = IONetworkingFamily_embedded;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IONetworkingFamily;
 			productReference = C17D354B0D3FD2D600F185DB /* IONetworkingFamily.kext */;
 			productType = "com.apple.product-type.kernel-extension.shallow";
+		};
+		D87CC6C61451BAA800DC37BF /* InstallHeaders_embedded */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D87CC6E51451BAA800DC37BF /* Build configuration list for PBXNativeTarget "InstallHeaders_embedded" */;
+			buildPhases = (
+				D87CC6C71451BAA800DC37BF /* CopyFiles */,
+				D87CC6D91451BAA800DC37BF /* CopyFiles */,
+				D87CC6E41451BAA800DC37BF /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = InstallHeaders_embedded;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+			productName = Untitled;
+			productReference = D87CC6E91451BAA800DC37BF /* InstallHeaders copy */;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -418,6 +521,7 @@
 				C132AA3B0D3FCF980054798D /* IONetworkingFamily */,
 				C132AA690D3FCF980054798D /* InstallHeaders */,
 				C17D351F0D3FD2D600F185DB /* IONetworkingFamily_embedded */,
+				D87CC6C61451BAA800DC37BF /* InstallHeaders_embedded */,
 			);
 		};
 /* End PBXProject section */
@@ -493,6 +597,32 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
+		D82B9D1014167E90008A7864 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# IOKit framework headers\nheaders=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/network/*.h\"\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n\n# Public kernel headers\nheaders=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network/*.h\"\nfor header in ${headers}; do\n    unifdef -U__PRIVATE_SPI__ \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n\n# Private kernel headers\nheaders=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/IOKit/network/*.h\"\nfor header in ${headers}; do\n    unifdef -D__PRIVATE_SPI__ \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone";
+		};
+		D87CC6E41451BAA800DC37BF /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# IOKit framework headers\nheaders=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/IOKit.framework/Versions/A/Headers/network/*.h\"\nfor header in ${headers}; do\n    unifdef -UKERNEL \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n\n# Public kernel headers\nheaders=\"${DSTROOT}${SYSTEM_LIBRARY_DIR}/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/network/*.h\"\nfor header in ${headers}; do\n    unifdef -D__PRIVATE_SPI__ \"${header}\" > \"${header}.unifdef\"\n    mv \"${header}.unifdef\" \"${header}\"\ndone\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -542,10 +672,10 @@
 			target = C132AA690D3FCF980054798D /* InstallHeaders */;
 			targetProxy = C132AA8E0D3FCF980054798D /* PBXContainerItemProxy */;
 		};
-		C17D35200D3FD2D600F185DB /* PBXTargetDependency */ = {
+		D87CC6ED1451BAC200DC37BF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = C132AA690D3FCF980054798D /* InstallHeaders */;
-			targetProxy = C17D35210D3FD2D600F185DB /* PBXContainerItemProxy */;
+			target = D87CC6C61451BAA800DC37BF /* InstallHeaders_embedded */;
+			targetProxy = D87CC6EC1451BAC200DC37BF /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -559,7 +689,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__PRIVATE_SPI__,
+					"IOASSERT=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -568,7 +701,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -590,7 +723,7 @@
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __PRIVATE_SPI__;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -599,7 +732,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -621,7 +754,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __PRIVATE_SPI__;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = Info.plist;
@@ -630,7 +763,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 2.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -655,6 +788,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -677,6 +811,7 @@
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -697,6 +832,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -722,7 +858,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__PRIVATE_SPI__,
+					"IOASSERT=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
 				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
@@ -733,7 +872,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 3.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -756,7 +895,7 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __PRIVATE_SPI__;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
 				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
@@ -767,7 +906,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 3.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -789,7 +928,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_PREPROCESSOR_DEFINITIONS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = __PRIVATE_SPI__;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_THUMB_SUPPORT = YES;
 				"GCC_THUMB_SUPPORT[arch=armv5]" = NO;
@@ -800,7 +939,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONetworkingFamily;
-				MODULE_VERSION = 2.1;
+				MODULE_VERSION = 3.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -812,6 +951,75 @@
 					"-Wno-unknown-pragmas",
 				);
 				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		D87CC6E61451BAA800DC37BF /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "InstallHeaders copy";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		D87CC6E71451BAA800DC37BF /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "InstallHeaders copy";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		D87CC6E81451BAA800DC37BF /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "InstallHeaders copy";
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Default;
 		};
@@ -868,6 +1076,16 @@
 				C17D35480D3FD2D600F185DB /* Development */,
 				C17D35490D3FD2D600F185DB /* Deployment */,
 				C17D354A0D3FD2D600F185DB /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		D87CC6E51451BAA800DC37BF /* Build configuration list for PBXNativeTarget "InstallHeaders_embedded" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D87CC6E61451BAA800DC37BF /* Development */,
+				D87CC6E71451BAA800DC37BF /* Deployment */,
+				D87CC6E81451BAA800DC37BF /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

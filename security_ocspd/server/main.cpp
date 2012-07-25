@@ -151,9 +151,13 @@ int main(int argc, char **argv)
 			exit(1);	// can't daemonize
 	}
 
+    // Declare the server here.  That way if something throws underneath its state wont
+    // fall out of scope, taking the server global state with it.  That will let us shut
+    // down more peacefully.
+	OcspdServer server(bootStrapName);
+
 	try {
 		/* create the main server object and register it */
-		OcspdServer server(bootStrapName);
 
 		/* FIXME - any signal handlers? */
 

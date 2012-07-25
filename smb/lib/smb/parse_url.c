@@ -22,6 +22,7 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreServices/CoreServicesPriv.h>
 #include <asl.h>
 #include <netsmb/smb_lib.h>
 #include <charsets.h>
@@ -401,6 +402,7 @@ static void SetPortNumberFromURL(struct smb_ctx *ctx, CFURLRef url)
  * The Share name and Path name will not begin with a slash.
  *		smb://server/ntfs  share = ntfs path = NULL
  *		smb://ntfs/dir1/dir2  share = ntfs path = dir1/dir2
+ *		smb://server/OPEN%2fSPACE/dir1   share = OPEN%2fSPACE path = dir1
  */
 static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFStringRef *out_path)
 {
@@ -434,7 +436,7 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 		newshare = CFStringCreateMutableCopy(NULL, 0, (CFStringRef)CFArrayGetValueAtIndex(userArrayM, 0));
 		if (newshare) {
 			CFStringTrim(newshare, CFSTR("/"));	/* Remove any trailing slashes */
-			CreateStringByReplacingPercentEscapesUTF8((CFStringRef *) &newshare, CFSTR(""));
+			CreateStringByReplacingPercentEscapesUTF8((CFStringRef *) &newshare, CFSTR("/"));
 		}
 		CFArrayRemoveValueAtIndex(userArrayM, 0);			
 			/* Now remove any trailing slashes */
@@ -452,7 +454,7 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 			}
 		}
 		if (path) {
-			CreateStringByReplacingPercentEscapesUTF8(&path, CFSTR(""));
+			CreateStringByReplacingPercentEscapesUTF8(&path, CFSTR("/"));
 			LogCFString(path, "Path", __FUNCTION__, __LINE__);			
 		}
 
@@ -463,7 +465,7 @@ static int GetShareAndPathFromURL(CFURLRef url, CFStringRef *out_share, CFString
 			share = newshare;
 		}
 	} else
-		CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR(""));
+		CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR("/"));
 
 	/* 
 	 * The above routines will not un-precent escape out slashes. We only allow for the cases
@@ -515,6 +517,8 @@ static int SetShareAndPathFromURL(struct smb_ctx *ctx, CFURLRef url)
 	if (!share)
 		return 0;
 	DebugLogCFString(share, "Share", __FUNCTION__, __LINE__);
+    
+	CreateStringByReplacingPercentEscapesUTF8(&share, CFSTR(""));
 	
 	if (ctx->ct_origshare)
 		free(ctx->ct_origshare);
@@ -612,41 +616,59 @@ CFURLRef CreateURLFromReferral(CFStringRef inStr)
 /*
  * Given a c-style string create a CFURL. We assume the c-style string is in  
  * URL or UNC format. Anything else will give unexpected behavior.
- * NOTE: The library code doesn't care if the scheme exist or not in the URL, but
- * we attempt to create a URL with a scheme, just for correctness sake.
+ * NOTE: The library code doesn't care if the scheme exist or not in the URL, 
+ * but we attempt to create a URL with a scheme, just for correctness sake.
+ *
+ * Note: If its a URL, then do not escape it out again since it should already
+ * be escaped out properly.
  */
 CFURLRef CreateSMBURL(const char *url)
 {
 	CFURLRef ct_url = NULL;
-	CFStringRef urlString = CFStringCreateWithCString(NULL, url, kCFStringEncodingUTF8);;
+	CFStringRef urlString = CFStringCreateWithCString(NULL, 
+                                                      url, 
+                                                      kCFStringEncodingUTF8);
+    CFStringRef escapedUrlString;
+    int UNCformat = 0;
+    
+    escapedUrlString = NULL;
 	
 	/* 
 	 * We have a UNC path that we need to convert into a SMB URL. Currently we 
 	 * just replace the backslashes with slashes
 	 */
    if (urlString && (*url == '\\') && (*(url + 1) == '\\')) {
-		CFArrayRef urlArray = CFStringCreateArrayBySeparatingStrings(NULL, urlString, CFSTR("\\"));
+       CFArrayRef urlArray = CFStringCreateArrayBySeparatingStrings(NULL, 
+                                                                    urlString, 
+                                                                    CFSTR("\\"));
 
 	   CFRelease(urlString);
 	   urlString = NULL;
 	   if (urlArray) {
-		   urlString = CFStringCreateByCombiningStrings(NULL, urlArray, CFSTR("/"));
+		   urlString = CFStringCreateByCombiningStrings(NULL, 
+                                                        urlArray, 
+                                                        CFSTR("/"));
 		   CFRelease(urlArray);
 	   }
+       UNCformat = 1;
     }
+    
 	/* Something failed just get out */
-	if (!urlString)
+	if (!urlString) {
 		return NULL;
-
+    }
+    
 	DebugLogCFString(urlString, "urlString ", __FUNCTION__, __LINE__);
 
 	/* 
 	 * No scheme, add one if we can, but not required by the library code. 
-	 * NOTE: If no scheme, then we expect the string to start with  double slashes.
+	 * NOTE: If no scheme, then expect the string to start with double slashes.
 	 */
 	if ((!CFStringHasPrefix(urlString, CFSTR("smb://"))) && 
 		(!CFStringHasPrefix(urlString, CFSTR("cifs://")))) {
-		CFMutableStringRef urlStringM = CFStringCreateMutableCopy(NULL, 1024, CFSTR("smb:"));
+		CFMutableStringRef urlStringM = CFStringCreateMutableCopy(NULL, 
+                                                                  1024, 
+                                                                  CFSTR("smb:"));
 
 		if (urlStringM) {
 			CFStringAppend(urlStringM, urlString);
@@ -654,9 +676,44 @@ CFURLRef CreateSMBURL(const char *url)
 			urlString = urlStringM;
 		}
 	}
+    
+    /* Something failed just get out */
+    if (urlString == NULL) {
+        return (NULL);
+    }
+   
+    if (UNCformat == 1) {
+        /* For UNC format strings, escape out any non-URL characters */
+        escapedUrlString = CFURLCreateStringByAddingPercentEscapes(NULL, 
+                                                                   urlString, 
+                                                                   NULL, 
+                                                                   NULL, 
+                                                                   kCFStringEncodingUTF8);
+        CFRelease(urlString);	/* Can release it now */
+        
+        /* Something failed just get out */
+        if (escapedUrlString == NULL) {
+            return (NULL);
+        }
 
-	ct_url = CFURLCreateWithString(kCFAllocatorDefault, urlString, NULL);
-	CFRelease(urlString);	/* We create it now release it */
+        /* now create the URL */
+        ct_url = CFURLCreateWithString(kCFAllocatorDefault, 
+                                       escapedUrlString, 
+                                       NULL);
+        
+        CFRelease(escapedUrlString);	/* We create it now release it */
+    }
+    else {
+        /* 
+         * For URL format strings, it should already be escaped. 
+         * Just create the URL.
+         */
+        ct_url = CFURLCreateWithString(kCFAllocatorDefault, 
+                                       urlString, 
+                                       NULL);
+        
+        CFRelease(urlString);	/* Can release it now */
+    }
 	
 	return ct_url;
 }
@@ -935,7 +992,7 @@ static int smb_dictionary_to_urlstring(CFDictionaryRef dict, CFMutableStringRef 
 	CreateStringByAddingPercentEscapesUTF8(&DomainWrkgrp, NULL, CFSTR("@:;/?"), TRUE);
 	CreateStringByAddingPercentEscapesUTF8(&Username, NULL, CFSTR("@:;/?"), releaseUsername);
 	CreateStringByAddingPercentEscapesUTF8(&Password, NULL, CFSTR("@:;/?"), FALSE);
-	CreateStringByAddingPercentEscapesUTF8(&Path, NULL, CFSTR("?#"), FALSE);
+	CreateStringByAddingPercentEscapesUTF8(&Path, CFSTR("%%"), CFSTR("?#"), FALSE);
 	CreateStringByAddingPercentEscapesUTF8(&PortNumber, NULL, NULL, FALSE);
 
 	LogCFString(Username, "Username String", __FUNCTION__, __LINE__);
@@ -1271,29 +1328,102 @@ WeAreDone:
  */
 int isBTMMAddress(CFStringRef serverNameRef)
 {
-	CFRange	foundBTMM;
+    boolean_t	foundBTMM;
+    CFStringRef btmmRef;
+    CFStringRef serverNameQual;
+    CFIndex serverNameLen, btmmCount, serverCount, btmmIndex, srvIndex;
+    CFArrayRef btmmArrRef, serverArrRef;
+    CFStringRef btmmTmpRef, serverTmpRef;
+    CFComparisonResult res;
+    
+    foundBTMM = TRUE;
+    btmmRef = NULL;
+    serverNameQual = NULL;
+    btmmArrRef = NULL;
+    serverArrRef = NULL;
 	
 	if (serverNameRef == NULL) {
 		smb_log_info("%s: serverNameRef is NULL!", ASL_LEVEL_DEBUG, __FUNCTION__);
-		return FALSE;
+		foundBTMM = FALSE;
+        goto out;
 	}
 	
-	if (CFStringGetLength(serverNameRef) == 0) {
+    serverNameLen = CFStringGetLength(serverNameRef);
+	if (serverNameLen == 0) {
 		smb_log_info("%s: serverNameRef len is 0!", ASL_LEVEL_DEBUG, __FUNCTION__);
-		return FALSE;
+		foundBTMM = FALSE;
+        goto out;
 	}
-	
-	foundBTMM = CFStringFind (serverNameRef, CFSTR("members.me.com"), kCFCompareCaseInsensitive);
-	if (foundBTMM.location != kCFNotFound) {
-		smb_log_info("%s: found a btmm address", ASL_LEVEL_DEBUG, __FUNCTION__);
-		return TRUE;
+    
+    /*  Create a copy of the server name, add a trailing '.' */
+    /*  if it doesn't already have one. */
+    if (CFStringGetCharacterAtIndex(serverNameRef, serverNameLen - 1) == (UniChar)'.') {
+        serverNameQual = CFStringCreateCopy(kCFAllocatorDefault, serverNameRef);
+    } else {
+        serverNameQual = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@."), serverNameRef);
+    }
+    
+    if (serverNameQual == NULL) {
+		foundBTMM = FALSE;
+        goto out;
+    }
+    
+    /* Fetch BTMM domain from DynamicStore */
+    btmmRef = _CSBackToMyMacCopyDomain();
+    if (btmmRef == NULL) {
+		foundBTMM = FALSE;
+        goto out;
+    }
+    
+    /* Split them into component string arrays */
+    btmmArrRef = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, btmmRef, CFSTR("."));
+    btmmCount = CFArrayGetCount(btmmArrRef);
+    
+    serverArrRef = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, serverNameQual, CFSTR("."));
+    serverCount = CFArrayGetCount(serverArrRef);
+    
+    if (btmmCount == 0 || serverCount == 0) {
+		foundBTMM = FALSE;
+        goto out;
+    }
+    
+    if (btmmCount > serverCount) {
+        /* Not a BTMM domain */
+		foundBTMM = FALSE;
+        goto out;
+    }
+    
+    for (btmmIndex = btmmCount - 1, srvIndex = serverCount - 1; btmmIndex >= 0; btmmIndex--, srvIndex--) {
+        btmmTmpRef = CFArrayGetValueAtIndex(btmmArrRef, btmmIndex);
+        serverTmpRef = CFArrayGetValueAtIndex(serverArrRef, srvIndex);
+        
+        res = CFStringCompare(btmmTmpRef, serverTmpRef, kCFCompareCaseInsensitive);
+        if (res != kCFCompareEqualTo) {
+            /* Not a BTMM domain */
+            foundBTMM = FALSE;
+            break;
+        }
+    }
+        
+	if (foundBTMM == TRUE) {
+        smb_log_info("%s: found a btmm address", ASL_LEVEL_DEBUG, __FUNCTION__);
 	}
-	
-	foundBTMM = CFStringFind (serverNameRef, CFSTR("members.mac.com"), kCFCompareCaseInsensitive);
-	if (foundBTMM.location != kCFNotFound) {
-		smb_log_info("%s: found a btmm address", ASL_LEVEL_DEBUG, __FUNCTION__);
-		return TRUE;
-	}
-	
-	return FALSE;
+
+out:
+    
+    // Clean up mem
+    if (btmmArrRef != NULL) {
+        CFRelease(btmmArrRef);
+    }
+    if (serverArrRef != NULL) {
+        CFRelease(serverArrRef);
+    }
+    if (btmmRef != NULL) {
+        CFRelease(btmmRef);
+    }
+    if (serverNameQual !=NULL) {
+        CFRelease(serverNameQual);
+    }
+    
+	return (foundBTMM);
 }

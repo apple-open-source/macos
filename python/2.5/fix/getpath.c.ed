@@ -3,11 +3,31 @@
 .
 /NSModule pythonModule/c
     Dl_info addrinfo;
+    int first_pass = 1;
 .
 .,$g/__APPLE__/s//notdef/
 /NSModuleForSymbol/a
 .
 .,/NSLibraryNameForModule/c
-    buf = dladdr("_Py_Initialize", &addrinfo) ? (char *)addrinfo.dli_fname : NULL;
+	/* dladdr() now returns the real path of the dylib, instead of the
+	** path of the symlink.  This breaks virtualenv.  To fix this, we
+	** skip using dladdr() during a first pass, and if that fails, then
+	** we go back and do the dladdr().  It turns out that since we moved
+	** Python.app to inside the Python.framework bundle, the call to
+	** search_for_prefix() will now succeed without needing dladdr().
+	** However, virtualenv copies the wrong binary when the prefix is
+	** /usr, so if progpath begins with /usr/bin/, we skip the first pass.
+	*/
+    if (strncmp(progpath, "/usr/bin/", 9) == 0) first_pass = 0;
+return_here_for_second_pass:
+    buf = first_pass ? NULL : (dladdr("_Py_Initialize", &addrinfo) ? (char *)addrinfo.dli_fname : NULL);
+.
+/search_for_prefix(/a
+#ifdef WITH_NEXT_FRAMEWORK
+	if (first_pass) {
+	    first_pass = 0;
+	    goto return_here_for_second_pass;
+	}
+#endif
 .
 w

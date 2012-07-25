@@ -39,6 +39,7 @@
 #include <signal.h>
 #include <time.h>
 #include <notify.h>
+#include <sandbox.h>
 
 #include <CoreServices/CoreServices.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -161,38 +162,41 @@ char *GetMountURI(char *arguri, int *isHTTPS)
 	int hasScheme;
 	int hasTrailingSlash;
 	size_t argURILength;
+	char httpStr[] = "http://";
+	size_t httpLength;
 	char *uri;
+	size_t URILength;
 	
 	argURILength = strlen(arguri);
+	httpLength = strlen(httpStr);
 	
 	*isHTTPS = (strncasecmp(arguri, "https://", strlen("https://")) == 0);
 	
 	/* if there's no scheme, we'll have to add "http://" */
-	hasScheme = ((strncasecmp(arguri, "http://", strlen("http://")) == 0) || *isHTTPS);
+	hasScheme = ((strncasecmp(arguri, httpStr, httpLength) == 0) || *isHTTPS);
 	
 	/* if there's no trailing slash, we'll have to add one */
 	hasTrailingSlash = arguri[argURILength - 1] == '/';
 	
 	/* allocate space for url */
-	uri = malloc(argURILength + 
-		(hasScheme ? 0 : strlen("http://")) +
-		(hasTrailingSlash ? 0 : 1) +
-		1);
+	URILength = argURILength + (hasScheme ? 0 : httpLength) + (hasTrailingSlash ? 0 : 1);
+	uri = malloc(URILength + 1);
 	require(uri != NULL, malloc_uri);
 	
 	/* copy arguri adding scheme and trailing slash if needed */ 
 	if ( !hasScheme )
 	{
-		strcpy(uri, "http://");
+		strlcpy(uri, "http://", URILength + 1);
 	}
 	else
 	{
 		*uri = '\0';
 	}
-	strcat(uri, arguri);
+	strlcat(uri, arguri, URILength + 1);
+
 	if ( !hasTrailingSlash )
 	{
-		strcat(uri, "/");
+		strlcat(uri, "/", URILength + 1);
 	}
 		
 malloc_uri:
@@ -769,6 +773,9 @@ int main(int argc, char *argv[])
 	int tempError;
 	struct statfs buf;
 	boolean_t result;
+	char	  *errorbuf = NULL;
+
+	
 	
 	error = 0;
 	g_fsid.val[0] = -1;
@@ -864,7 +871,7 @@ int main(int argc, char *argv[])
 						 */
 				if ( strlen(optarg) <= NAME_MAX )
 				{
-					strcpy(volumeName, optarg);
+					strlcpy(volumeName, optarg, NAME_MAX + 1);
 				}
 				else
 				{
@@ -904,7 +911,7 @@ int main(int argc, char *argv[])
 		/* the volume name wasn't passed on the command line so use the
 		 * last path segment of mountPoint
 		 */
-		strcpy(volumeName, strrchr(g_mountPoint, '/') + 1);
+		strlcpy(volumeName, strrchr(g_mountPoint, '/') + 1, NAME_MAX + 1);
 	}
 	
 	/* Get uri (fix it up if needed) */
@@ -919,8 +926,7 @@ int main(int argc, char *argv[])
 		gSecureServerAuth = TRUE;	
 
 	/* Create a mntfromname from the uri. Make sure the string is no longer than MNAMELEN */
-	strncpy(mntfromname, uri , MNAMELEN);
-	mntfromname[MNAMELEN - 1] = '\0';
+	strlcpy(mntfromname, uri , MNAMELEN);
 	
 	/* Check to see if this mntfromname is already used by a mount point by the
 	 * current user. Sure, someone could mount using the DNS name one time and
@@ -1100,7 +1106,7 @@ int main(int argc, char *argv[])
 	un.sun_family = AF_LOCAL;
 	require_action(sizeof(TMP_WEBDAV_UDS) < sizeof(un.sun_path), error_exit, error = EINVAL);
 	
-	strcpy(un.sun_path, TMP_WEBDAV_UDS);
+	strlcpy(un.sun_path, TMP_WEBDAV_UDS, sizeof(un.sun_path));
 	require_action(mktemp(un.sun_path) != NULL, error_exit, error = EINVAL);
 
 	/* bind socket with owner write-only access (S_IWUSR) which is all that's needed for the kext to connect */
@@ -1233,6 +1239,13 @@ int main(int argc, char *argv[])
 	{
 		syslog(LOG_ERR, "failed to register for low disk space notifications: err = %u\n", tempError);
 		lowdisk_notify_fd = -1;
+	}
+
+	/* Put on seatbelt */
+	
+	if (sandbox_init("webdav_agent", SANDBOX_NAMED, &errorbuf) == -1) {
+		syslog(LOG_DEBUG, "sandbox_init: %s\n", errorbuf);
+		sandbox_free_error(errorbuf);
 	}
 	
 	/*

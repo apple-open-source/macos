@@ -40,7 +40,8 @@ kadm5_c_create_principal(void *server_handle,
 			 kadm5_principal_ent_t princ,
 			 uint32_t mask,
 			 const char *password,
-			 krb5_enctype *enctypes)
+			 int n_ks_tuple,
+			 krb5_key_salt_tuple *ks_tuple)
 {
     kadm5_client_context *context = server_handle;
     kadm5_ret_t ret;
@@ -62,7 +63,7 @@ kadm5_c_create_principal(void *server_handle,
     kadm5_store_principal_ent(sp, princ);
     krb5_store_int32(sp, mask);
     krb5_store_string(sp, password);
-    _kadm5_store_enctypes(sp, enctypes);
+    _kadm5_store_ks_tuple(sp, n_ks_tuple, ks_tuple);
     ret = _kadm5_client_send(context, sp);
     krb5_storage_free(sp);
     if (ret)

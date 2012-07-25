@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/collation/nb.xml
@@ -10,16 +10,18 @@
  *  ICU <specials> source: <path>/xml/collation/nb.xml
  */
 nb{
-    Version{"2.0.51.25"}
+    Version{"2.0.63.65"}
     collations{
         search{
             Sequence{
                 " [normalization on ][suppressContractions [เ-ไ ເ-ໄ] ]"
-                "&ا<<آ<<أ<<إ"
-                "&و<<ؤ"
-                "&ي<<ئ<<ى"
-                "&ه<<ة"
-                "&[last primary ignorable ]<<׳<<״<<ـ<<ٌ<<ٍ<<َ<<ُ<<ِ<<ّ<<ْ<<ฺ"
+                "&'='<'\u2260'&ا<<<ﺎ<<<ﺍ<<آ<<<ﺂ<<<ﺁ<<أ<<<ﺄ<<<ﺃ<<إ<<<ﺈ<<<ﺇ"
+                "&و<<<ۥ<<<ﻮ<<<ﻭ<<ؤ<<<ﺆ<<<ﺅ"
+                "&ي<<<ۦ<<<ﻳ<<<ﻴ<<<ﻲ<<<ﻱ<<ئ<<<ﺋ<<<ﺌ<<<ﺊ<<<ﺉ<<ى<<<ﯨ<<<ﯩ<<<ﻰ<<<ﻯ"
+                "&ه<<<ﻫ<<<ﻬ<<<ﻪ<<<ﻩ<<ة<<<ﺔ<<<ﺓ"
+                "&[last primary ignorable ]<<׳<<״<<ـ"
+                "<<ะ<<ั<<า<<ำ<<ิ<<ี<<ึ<<ื<<ุ<<ู<<ฺ<<ๅ"
+                "<<ະ<<ັ<<າ<<ຳ<<ິ<<ີ<<ຶ<<ື<<ຸ<<ູ<<ົ<<ຼ<<ຽ"
                 "&ᄀ=ᆨ"
                 "&ᄀᄀ=ᄁ=ᆩ"
                 "&ᄀᄉ=ᆪ"
@@ -65,9 +67,9 @@ nb{
                 "&T<<<Þ/H"
                 "&Y<<ü<<<Ü<<ű<<<Ű"
                 "&[before 1]ǀ<æ<<<Æ<<ä<<<Ä<<ę<<<Ę<ø<<<Ø<<ö<<<Ö<<ő<<<Ő<<œ<<<Œ<å<<<Å<"
-                "<<aa<<<Aa<<<AA"
+                "<aa<<<Aa<<<AA"
             }
-            Version{"1.9"}
+            Version{"21.0"}
         }
         standard{
             Sequence{
@@ -75,9 +77,10 @@ nb{
                 "&t<<<þ/h"
                 "&T<<<Þ/H"
                 "&Y<<ü<<<Ü<<ű<<<Ű"
-                "&[before 1]ǀ<æ<<<Æ<<ä<<<Ä<<ę<<<Ę<ø<<<Ø<<ö<<<Ö<<ő<<<Ő<<œ<<<Œ<å<<<Å"
+                "&[before 1]ǀ<æ<<<Æ<<ä<<<Ä<<ę<<<Ę<ø<<<Ø<<ö<<<Ö<<ő<<<Ő<<œ<<<Œ<å<<<Å<"
+                "<aa<<<Aa<<<AA"
             }
-            Version{"1.9"}
+            Version{"21.0"}
         }
     }
 }

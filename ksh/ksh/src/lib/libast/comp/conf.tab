@@ -1,7 +1,7 @@
 #
 # posix { getconf limits } macro table
 #
-# @(#)conf.tab (AT&T Research) 2007-10-10
+# @(#)conf.tab (AT&T Research) 2010-06-28
 #
 # name standard section call flags [ header ... ] [ value ... ]
 #
@@ -305,6 +305,7 @@ NL_SPECMAX			C	QQ 1 L
 NL_TEXTMAX			XOPEN	XX 1 L		LINE_MAX
 NO_TRUNC			POSIX	PC 1 FUW
 NPROCESSORS_CONF		SVID	SC 1 0
+NPROCESSORS_MAX			SVID	SC 1 0
 NPROCESSORS_ONLN		SVID	SC 1 0
 NPROC_CONF			C	QQ 1 L
 NPROC_ONLN			C	QQ 1 L
@@ -379,16 +380,27 @@ PHYS_PAGES			SUN	SC 1 0
 PID_MAX				SVID	SC 1 LMU	30000	cc{
 	int main()
 	{
+		long	v;
 		int	fd;
 		int	n;
 		char	buf[1024];
-		if ((fd = open("/proc/sys/kernel/pid_max", 0)) < 0)
-			return 1;
-		if ((n = read(fd, buf, sizeof(buf)-1)) < 2)
-			return 1;
-		buf[n] = 0;
-		n = (int)strtol(buf, (char**)0, 0);
-		printf("%ld", n);
+#ifdef PID_MAX
+		v = PID_MAX;
+#else
+		v = 99999;
+#endif
+		if ((fd = open("/proc/sys/kernel/pid_max", 0)) >= 0 && (n = read(fd, buf, sizeof(buf)-1)) > 1)
+		{
+			buf[n] = 0;
+			v = strtol(buf, (char**)0, 0);
+		}
+		else
+		{
+#ifdef __sgi
+			v = 0x7fffffff;
+#endif
+		}
+		printf("%ld", v);
 		return 0;
 	}
 }
@@ -426,7 +438,7 @@ REC_XFER_ALIGN			POSIX	PC 1 LVW
 REENTRANT_FUNCTIONS		POSIX	SC 1 FU
 REGEXP				POSIX	SC 1 FUW
 REGEX_VERSION			POSIX	SC 1 F		20030916
-RELEASE				C	QQ 1 L
+RELEASE				AST	XX 1 L
 RESOURCE_LIMITS			POSIX	SC 1 FU
 RE_DUP_MAX			POSIX	SC 2 LMN	255
 RTSIG_MAX			POSIX	SC 1 LMU	8
@@ -446,6 +458,9 @@ SELECT				POSIX	SC 1 FU
 SEMAPHORES			POSIX	SC 1 CDFUW
 SEM_NSEMS_MAX			POSIX	SC 1 LMU	256
 SEM_VALUE_MAX			POSIX	SC 1 LMU	32767
+SF_BUFSIZE			AST	XX 1 MUX	sh{
+	sed -e '/[ 	]*#[ 	]*define[ 	][ 	]*SF_BUFSIZE[ 	]/!d' -e 's/^[^0-9]*//' -e 's/[^0-9]*$//' $PACKAGEROOT/src/lib/libast/include/sfio.h
+}
 SH				AST	CS 1 MU		sh{
 	ifs=$IFS
 	IFS=:
@@ -463,7 +478,7 @@ SH				AST	CS 1 MU		sh{
 					esac
 					;;
 				esac
-				echo "\"$d/$s\""
+				echo '"'$d/$s'"'
 				exit
 			fi
 		done

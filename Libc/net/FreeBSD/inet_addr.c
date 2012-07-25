@@ -68,6 +68,10 @@
 static const char sccsid[] = "@(#)inet_addr.c	8.1 (Berkeley) 6/17/93";
 static const char rcsid[] = "$Id: inet_addr.c,v 1.4.18.1 2005/04/27 05:00:52 sra Exp $";
 #endif /* LIBC_SCCS and not lint */
+
+/* the algorithms only can deal with ASCII, so we optimize for it */
+#define USE_ASCII
+
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/inet/inet_addr.c,v 1.4 2007/06/03 17:20:26 ume Exp $");
 
@@ -102,9 +106,11 @@ inet_addr(const char *cp) {
  * Returns 1 if the address is valid, 0 if not.
  * This replaces inet_addr, the return value from which
  * cannot distinguish between failure and a local broadcast address.
+ * strict == 1 disallows trailing characters.
  */
 int
-inet_aton(const char *cp, struct in_addr *addr) {
+_inet_aton_check(const char *cp, struct in_addr *addr, int strict)
+{
 	u_long val;
 	int base, n;
 	char c;
@@ -164,8 +170,10 @@ inet_aton(const char *cp, struct in_addr *addr) {
 	/*
 	 * Check for trailing characters.
 	 */
-	if (c != '\0' && (!isascii(c) || !isspace((unsigned char)c)))
-		return (0);
+	if (c != '\0') {
+		if (strict) return (0);
+		if (!isascii(c) || !isspace(c)) return (0);
+	}
 	/*
 	 * Did we get a valid digit?
 	 */
@@ -201,6 +209,12 @@ inet_aton(const char *cp, struct in_addr *addr) {
 	if (addr != NULL)
 		addr->s_addr = htonl(val);
 	return (1);
+}
+
+int
+inet_aton(const char *cp, struct in_addr *addr)
+{
+	return _inet_aton_check(cp, addr, 0);
 }
 
 /*

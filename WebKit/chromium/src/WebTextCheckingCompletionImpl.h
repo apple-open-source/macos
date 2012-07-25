@@ -47,8 +47,11 @@ public:
     }
 
     virtual void didFinishCheckingText(const WebVector<WebTextCheckingResult>&);
+    virtual void didCancelCheckingText();
 
 private:
+    virtual ~WebTextCheckingCompletionImpl() { }
+
     int m_identifier;
     WebCore::SpellChecker* m_spellChecker;
 };

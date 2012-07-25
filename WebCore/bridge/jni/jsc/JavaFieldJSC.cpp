@@ -44,27 +44,31 @@ JavaField::JavaField(JNIEnv* env, jobject aField)
 {
     // Get field type name
     jstring fieldTypeName = 0;
-    if (jobject fieldType = callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;"))
+    jclass fieldType = static_cast<jclass>(callJNIMethod<jobject>(aField, "getType", "()Ljava/lang/Class;"));
+    if (fieldType)
         fieldTypeName = static_cast<jstring>(callJNIMethod<jobject>(fieldType, "getName", "()Ljava/lang/String;"));
     if (!fieldTypeName)
         fieldTypeName = env->NewStringUTF("<Unknown>");
     m_typeClassName = JavaString(env, fieldTypeName);
 
     m_type = javaTypeFromClassName(m_typeClassName.utf8());
+    env->DeleteLocalRef(fieldType);
+    env->DeleteLocalRef(fieldTypeName);
 
     // Get field name
     jstring fieldName = static_cast<jstring>(callJNIMethod<jobject>(aField, "getName", "()Ljava/lang/String;"));
     if (!fieldName)
         fieldName = env->NewStringUTF("<Unknown>");
     m_name = JavaString(env, fieldName);
+    env->DeleteLocalRef(fieldName);
 
-    m_field = new JobjectWrapper(aField);
+    m_field = JobjectWrapper::create(aField);
 }
 
 jvalue JavaField::dispatchValueFromInstance(ExecState* exec, const JavaInstance* instance, const char* name, const char* sig, JavaType returnType) const
 {
     jobject jinstance = instance->javaInstance();
-    jobject fieldJInstance = m_field->m_instance;
+    jobject fieldJInstance = m_field->instance();
     JNIEnv* env = getJNIEnv();
     jvalue result;
 
@@ -81,7 +85,7 @@ jvalue JavaField::dispatchValueFromInstance(ExecState* exec, const JavaInstance*
                 args[0].l = jinstance;
                 dispatchJNICall(exec, rootObject->nativeHandle(), fieldJInstance, false, returnType, mid, args, result, 0, exceptionDescription);
                 if (exceptionDescription)
-                    throwError(exec, createError(exec, exceptionDescription.toString(exec)));
+                    throwError(exec, createError(exec, exceptionDescription.toString(exec)->value(exec)));
             }
         }
     }
@@ -143,7 +147,7 @@ JSValue JavaField::valueFromInstance(ExecState* exec, const Instance* i) const
         break;
     }
 
-    LOG(LiveConnect, "JavaField::valueFromInstance getting %s = %s", UString(name().impl()).utf8().data(), jsresult.toString(exec).ascii().data());
+    LOG(LiveConnect, "JavaField::valueFromInstance getting %s = %s", UString(name().impl()).utf8().data(), jsresult.toString(exec)->value(exec).ascii().data());
 
     return jsresult;
 }
@@ -151,7 +155,7 @@ JSValue JavaField::valueFromInstance(ExecState* exec, const Instance* i) const
 void JavaField::dispatchSetValueToInstance(ExecState* exec, const JavaInstance* instance, jvalue javaValue, const char* name, const char* sig) const
 {
     jobject jinstance = instance->javaInstance();
-    jobject fieldJInstance = m_field->m_instance;
+    jobject fieldJInstance = m_field->instance();
     JNIEnv* env = getJNIEnv();
 
     jclass cls = env->GetObjectClass(fieldJInstance);
@@ -168,7 +172,7 @@ void JavaField::dispatchSetValueToInstance(ExecState* exec, const JavaInstance* 
                 args[1] = javaValue;
                 dispatchJNICall(exec, rootObject->nativeHandle(), fieldJInstance, false, JavaTypeVoid, mid, args, result, 0, exceptionDescription);
                 if (exceptionDescription)
-                    throwError(exec, createError(exec, exceptionDescription.toString(exec)));
+                    throwError(exec, createError(exec, exceptionDescription.toString(exec)->value(exec)));
             }
         }
     }
@@ -179,7 +183,7 @@ void JavaField::setValueToInstance(ExecState* exec, const Instance* i, JSValue a
     const JavaInstance* instance = static_cast<const JavaInstance*>(i);
     jvalue javaValue = convertValueToJValue(exec, i->rootObject(), aValue, m_type, typeClassName());
 
-    LOG(LiveConnect, "JavaField::setValueToInstance setting value %s to %s", UString(name().impl()).utf8().data(), aValue.toString(exec).ascii().data());
+    LOG(LiveConnect, "JavaField::setValueToInstance setting value %s to %s", UString(name().impl()).utf8().data(), aValue.toString(exec)->value(exec).ascii().data());
 
     switch (m_type) {
     case JavaTypeArray:

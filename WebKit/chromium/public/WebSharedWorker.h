@@ -31,7 +31,8 @@
 #ifndef WebSharedWorker_h
 #define WebSharedWorker_h
 
-#include "WebCommon.h"
+#include "WebContentSecurityPolicy.h"
+#include "platform/WebCommon.h"
 
 namespace WebCore {
 class ScriptExecutionContext;
@@ -41,7 +42,7 @@ namespace WebKit {
 
 class WebString;
 class WebMessagePortChannel;
-class WebCommonWorkerClient;
+class WebSharedWorkerClient;
 class WebURL;
 
 // This is the interface to a SharedWorker thread.
@@ -49,7 +50,7 @@ class WebURL;
 class WebSharedWorker {
 public:
     // Invoked from the worker thread to instantiate a WebSharedWorker that interacts with the WebKit worker components.
-    WEBKIT_API static WebSharedWorker* create(WebCommonWorkerClient*);
+    WEBKIT_EXPORT static WebSharedWorker* create(WebSharedWorkerClient*);
 
     virtual ~WebSharedWorker() {};
 
@@ -61,6 +62,8 @@ public:
                                     const WebString& name,
                                     const WebString& userAgent,
                                     const WebString& sourceCode,
+                                    const WebString& contentSecurityPolicy,
+                                    WebContentSecurityPolicyType,
                                     long long scriptResourceAppCacheID) = 0;
 
     class ConnectListener {
@@ -77,6 +80,13 @@ public:
 
     // Notification when the WebCommonWorkerClient is destroyed.
     virtual void clientDestroyed() = 0;
+
+    virtual void pauseWorkerContextOnStart() { }
+    virtual void resumeWorkerContext() { }
+    virtual void attachDevTools() { }
+    virtual void reattachDevTools(const WebString& savedState) { }
+    virtual void detachDevTools() { }
+    virtual void dispatchDevToolsMessage(const WebString&) { }
 };
 
 } // namespace WebKit

@@ -56,7 +56,7 @@
 #include "PluginDebug.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginPackage.h"
-#include "RenderLayer.h"
+#include "RenderObject.h"
 #include "Settings.h"
 #include "SpatialNavigation.h"
 #include "JSDOMBinding.h"
@@ -71,6 +71,7 @@
 #include <gtk/gtk.h>
 
 #if defined(XP_UNIX)
+#define String XtStringType
 #include "RefPtrCairo.h"
 #include "gtk2xtbin.h"
 #define Bool int // this got undefined somewhere
@@ -81,6 +82,7 @@
 #elif defined(GDK_WINDOWING_WIN32)
 #include "PluginMessageThrottlerWin.h"
 #include <gdk/gdkwin32.h>
+#undef String
 #endif
 
 using JSC::ExecState;
@@ -107,7 +109,7 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
     setCallingPlugin(true);
 
-    bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
+    bool accepted = !m_plugin->pluginFuncs()->event(m_instance, &event);
 
     setCallingPlugin(false);
     PluginView::setCurrentPluginView(0);
@@ -141,8 +143,11 @@ void PluginView::updatePluginWidget()
     if (m_windowRect == oldWindowRect && m_clipRect == oldClipRect)
         return;
 
+    if (m_status != PluginStatusLoadedSuccessfully)
+        return;
+
 #if defined(XP_UNIX)
-    if (!m_isWindowed) {
+    if (!m_isWindowed && !m_windowRect.isEmpty()) {
         Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         if (m_drawable)
             XFreePixmap(display, m_drawable);
@@ -160,6 +165,8 @@ void PluginView::updatePluginWidget()
 void PluginView::setFocus(bool focused)
 {
     ASSERT(platformPluginWidget() == platformWidget());
+    if (focused && platformWidget())
+        gtk_widget_grab_focus(platformWidget());
     Widget::setFocus(focused);
 }
 
@@ -177,7 +184,7 @@ void PluginView::hide()
 
 void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 {
-    if (!m_isStarted) {
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully) {
         paintMissingPluginIcon(context, rect);
         return;
     }
@@ -271,7 +278,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
 {
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 
-    if (m_isWindowed)
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully)
         return;
 
     if (event->type() != eventNames().keydownEvent && event->type() != eventNames().keyupEvent)
@@ -300,7 +307,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     xEvent.xkey.y_root = 0;
 #endif
 
-    if (!dispatchNPEvent(xEvent))
+    if (dispatchNPEvent(xEvent))
         event->setDefaultHandled();
 }
 
@@ -401,7 +408,10 @@ void PluginView::handleMouseEvent(MouseEvent* event)
 {
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 
-    if (m_isWindowed)
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully)
+        return;
+
+    if (event->button() == RightButton && m_plugin->quirks().contains(PluginQuirkIgnoreRightClickInWindowlessMode))
         return;
 
     if (event->type() == eventNames().mousedownEvent) {
@@ -432,13 +442,16 @@ void PluginView::handleMouseEvent(MouseEvent* event)
         return;
 #endif
 
-    if (!dispatchNPEvent(xEvent))
+    if (dispatchNPEvent(xEvent))
         event->setDefaultHandled();
 }
 
 #if defined(XP_UNIX)
 void PluginView::handleFocusInEvent()
 {
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     XEvent npEvent;
     initXEvent(&npEvent);
 
@@ -452,6 +465,9 @@ void PluginView::handleFocusInEvent()
 
 void PluginView::handleFocusOutEvent()
 {
+    if (!m_isStarted || m_status != PluginStatusLoadedSuccessfully)
+        return;
+
     XEvent npEvent;
     initXEvent(&npEvent);
 
@@ -495,9 +511,9 @@ void PluginView::setNPWindowIfNeeded()
     if (m_isWindowed && !platformPluginWidget())
         return;
 
-    // If width or height are null, set the clipRect to null, indicating that
-    // the plugin is not visible/scrolled out.
-    if (!m_clipRect.isEmpty()) {
+    if (m_clipRect.isEmpty()) {
+        // If width or height are null, set the clipRect to null,
+        // indicating that the plugin is not visible/scrolled out.
         m_npWindow.clipRect.left = 0;
         m_npWindow.clipRect.right = 0;
         m_npWindow.clipRect.top = 0;
@@ -562,9 +578,23 @@ void PluginView::updateWidgetAllocationAndClip()
 #endif
     }
 
-    GtkAllocation allocation(m_delayedAllocation);
-    gtk_widget_size_allocate(widget, &allocation);
-    m_delayedAllocation = IntRect();
+    // The goal is to try to avoid calling gtk_widget_size_allocate in the WebView's
+    // size-allocate method. It blocks the main loop and if the widget is offscreen
+    // or hasn't moved it isn't required.
+
+    // Don't do anything if the allocation has not changed.
+    GtkAllocation currentAllocation;
+    gtk_widget_get_allocation(widget, &currentAllocation);
+    if (currentAllocation == m_delayedAllocation)
+        return;
+
+    // Don't do anything if both the old and the new allocations are outside the frame.
+    IntRect currentAllocationRect(currentAllocation);
+    currentAllocationRect.intersect(frameRect());
+    if (currentAllocationRect.isEmpty() && m_clipRect.isEmpty())
+        return;
+
+    g_object_set_data(G_OBJECT(widget), "delayed-allocation", &m_delayedAllocation);
 }
 
 void PluginView::setParentVisible(bool visible)
@@ -682,7 +712,12 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
         case NPNVnetscapeWindow: {
             GdkWindow* gdkWindow = gtk_widget_get_window(m_parentFrame->view()->hostWindow()->platformPageClient());
 #if defined(XP_UNIX)
-            *static_cast<Window*>(value) = GDK_WINDOW_XWINDOW(gdk_window_get_toplevel(gdkWindow));
+            GdkWindow* toplevelWindow = gdk_window_get_toplevel(gdkWindow);
+            if (!toplevelWindow) {
+                *result = NPERR_GENERIC_ERROR;
+                return true;
+            }
+            *static_cast<Window*>(value) = GDK_WINDOW_XWINDOW(toplevelWindow);
 #elif defined(GDK_WINDOWING_WIN32)
             *static_cast<HGDIOBJ*>(value) = GDK_WINDOW_HWND(gdkWindow);
 #endif
@@ -799,10 +834,25 @@ void PluginView::plugAddedCallback(GtkSocket* socket, PluginView* view)
     view->updateWidgetAllocationAndClip();
 }
 
+static bool moduleMixesGtkSymbols(GModule* module)
+{
+    gpointer symbol;
+#ifdef GTK_API_VERSION_2
+    return g_module_symbol(module, "gtk_application_get_type", &symbol);
+#else
+    return g_module_symbol(module, "gtk_object_get_type", &symbol);
+#endif
+}
+
 bool PluginView::platformStart()
 {
     ASSERT(m_isStarted);
     ASSERT(m_status == PluginStatusLoadedSuccessfully);
+
+    if (moduleMixesGtkSymbols(m_plugin->module())) {
+        LOG(Plugins, "Module '%s' mixes GTK+ 2 and GTK+ 3 symbols, ignoring plugin.\n", m_plugin->path().utf8().data());
+        return false;
+    }
 
 #if defined(XP_UNIX)
     if (m_plugin->pluginFuncs()->getvalue) {
@@ -834,7 +884,11 @@ bool PluginView::platformStart()
         } else
             setPlatformWidget(gtk_xtbin_new(pageClient, 0));
 #else
+#if OS(WINDOWS) && !defined(GTK_API_VERSION_2)
+        setPlatformWidget(0);
+#else
         setPlatformWidget(gtk_socket_new());
+#endif
         gtk_container_add(GTK_CONTAINER(pageClient), platformPluginWidget());
 #endif
     } else {
@@ -857,14 +911,14 @@ bool PluginView::platformStart()
         if (m_needsXEmbed) {
             GtkWidget* widget = platformPluginWidget();
             gtk_widget_realize(widget);
-            m_npWindow.window = (void*)gtk_socket_get_id(GTK_SOCKET(platformPluginWidget()));
+            m_npWindow.window = reinterpret_cast<void*>(gtk_socket_get_id(GTK_SOCKET(platformPluginWidget())));
             GdkWindow* window = gtk_widget_get_window(widget);
             ws->display = GDK_WINDOW_XDISPLAY(window);
             ws->visual = GDK_VISUAL_XVISUAL(gdk_window_get_visual(window));
             ws->depth = gdk_visual_get_depth(gdk_window_get_visual(window));
             ws->colormap = XCreateColormap(ws->display, GDK_ROOT_WINDOW(), ws->visual, AllocNone);
         } else {
-            m_npWindow.window = (void*)GTK_XTBIN(platformPluginWidget())->xtwindow;
+            m_npWindow.window = reinterpret_cast<void*>((GTK_XTBIN(platformPluginWidget())->xtwindow));
             ws->display = GTK_XTBIN(platformPluginWidget())->xtdisplay;
             ws->visual = GTK_XTBIN(platformPluginWidget())->xtclient.xtvisual;
             ws->depth = GTK_XTBIN(platformPluginWidget())->xtclient.xtdepth;
@@ -926,14 +980,6 @@ void PluginView::platformDestroy()
         m_drawable = 0;
     }
 #endif
-}
-
-void PluginView::halt()
-{
-}
-
-void PluginView::restart()
-{
 }
 
 } // namespace WebCore

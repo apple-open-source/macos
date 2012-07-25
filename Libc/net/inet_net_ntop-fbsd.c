@@ -1,1 +1,0 @@
-FreeBSD/inet_net_ntop.c

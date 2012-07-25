@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 			  CFArrayRef		keysToRemove,
 			  CFArrayRef		keysToNotify)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	CFDataRef			xmlSet		= NULL;	/* key/value pairs to set (XML serialized) */
 	xmlData_t			mySetRef	= NULL;	/* key/value pairs to set (serialized) */
@@ -60,11 +60,15 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	int				sc_status;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return FALSE;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return FALSE;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;	/* you must have an open session to play */
@@ -120,21 +124,11 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 			     myNotifyLen,
 			     (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreSetMultiple configset_m(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreSetMultiple configset_m()")) {
+		goto retry;
 	}
 
 	/* clean up */
@@ -153,7 +147,7 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 Boolean
 SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	CFDataRef			utfKey;		/* serialized key */
 	xmlData_t			myKeyRef;
@@ -165,11 +159,15 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	int				newInstance;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return FALSE;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return FALSE;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		/* sorry, you must have an open session to play */
 		_SCErrorSet(kSCStatusNoStoreServer);
@@ -201,21 +199,11 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 			   &newInstance,
 			   (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreSetValue configset(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreSetValue configset()")) {
+		goto retry;
 	}
 
 	/* clean up */

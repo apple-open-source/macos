@@ -46,7 +46,7 @@ syscall::mmap:return
 
 	this->argv_ptr = curpsinfo->pr_argv;
 
-	printf("%d %s ", pid, this->is64Bit ? "64b" : "32b");
+        printf("%d <%d> %s ", pid, ppid, this->is64Bit ? "64b" : "32b");
 	this->need_newline = 1;
 }
 

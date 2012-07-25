@@ -6,7 +6,7 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
-// TEST_CONFIG GC=1 rdar://6289367
+// TEST_CONFIG MEM=gc rdar://6289367
 // TEST_CFLAGS -framework Foundation
 
 #import <objc/objc-auto.h>

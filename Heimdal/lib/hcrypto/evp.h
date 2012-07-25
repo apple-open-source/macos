@@ -96,6 +96,8 @@
 #define EVP_sha hc_EVP_sha
 #define EVP_sha1 hc_EVP_sha1
 #define EVP_sha256 hc_EVP_sha256
+#define EVP_sha384 hc_EVP_sha384
+#define EVP_sha512 hc_EVP_sha512
 #define PKCS5_PBKDF2_HMAC_SHA1 hc_PKCS5_PBKDF2_HMAC_SHA1
 #define EVP_BytesToKey hc_EVP_BytesToKey
 #define EVP_get_cipherbyname hc_EVP_get_cipherbyname
@@ -104,6 +106,7 @@
 #define	OpenSSL_add_all_algorithms_noconf hc_OpenSSL_add_all_algorithms_noconf
 #define EVP_CIPHER_CTX_ctrl hc_EVP_CIPHER_CTX_ctrl
 #define EVP_CIPHER_CTX_rand_key hc_EVP_CIPHER_CTX_rand_key
+#define hcrypto_validate hc_hcrypto_validate
 
 /*
  *
@@ -192,7 +195,7 @@ struct hc_evp_md {
 #ifndef HC_DEPRECATED
 #if defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
 #define HC_DEPRECATED __attribute__((deprecated))
-#elif defined(_MSC_VER) && (_MSC_VER>1200) 
+#elif defined(_MSC_VER) && (_MSC_VER>1200)
 #define HC_DEPRECATED __declspec(deprecated)
 #else
 #define HC_DEPRECATED
@@ -224,6 +227,8 @@ HC_DEPRECATED_CRYPTO const EVP_MD *EVP_md5(void);
 const EVP_MD *EVP_sha(void);
 const EVP_MD *EVP_sha1(void);
 const EVP_MD *EVP_sha256(void);
+const EVP_MD *EVP_sha384(void);
+const EVP_MD *EVP_sha512(void);
 
 const EVP_CIPHER * EVP_aes_128_cbc(void);
 const EVP_CIPHER * EVP_aes_192_cbc(void);
@@ -315,6 +320,9 @@ int	EVP_BytesToKey(const EVP_CIPHER *, const EVP_MD *,
 void	OpenSSL_add_all_algorithms(void);
 void	OpenSSL_add_all_algorithms_conf(void);
 void	OpenSSL_add_all_algorithms_noconf(void);
+
+void
+hcrypto_validate(void);
 
 HC_CPP_END
 

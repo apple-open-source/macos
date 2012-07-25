@@ -18,7 +18,9 @@
 */
 
 #include "config.h"
+#include "NetworkingContext.h"
 #include "ResourceRequest.h"
+#include "ThirdPartyCookiesQt.h"
 
 #include <qglobal.h>
 
@@ -27,8 +29,7 @@
 
 namespace WebCore {
 
-// Currently Qt allows three connections per host on symbian and six
-// for everyone else. The limit can be found in qhttpnetworkconnection.cpp.
+// The limit can be found in qhttpnetworkconnection.cpp.
 // To achieve the best result we want WebKit to schedule the jobs so we
 // are using the limit as found in Qt. To allow Qt to fill its queue
 // and prepare jobs we will schedule two more downloads.
@@ -36,18 +37,14 @@ namespace WebCore {
 // and 2 ready to re-fill the pipeline.
 unsigned initializeMaximumHTTPConnectionCountPerHost()
 {
-#ifdef Q_OS_SYMBIAN
-    return 3 * (1 + 3 + 2);
-#else
     return 6 * (1 + 3 + 2);
-#endif
 }
 
-QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) const
+QNetworkRequest ResourceRequest::toNetworkRequest(NetworkingContext *context) const
 {
     QNetworkRequest request;
     request.setUrl(url());
-    request.setOriginatingObject(originatingFrame);
+    request.setOriginatingObject(context ? context->originatingObject() : 0);
 
     const HTTPHeaderMap &headers = httpHeaderFields();
     for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end();
@@ -83,11 +80,13 @@ QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) con
         break;
     }
 
-    if (!allowCookies()) {
-        request.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+    if (!allowCookies() || !thirdPartyCookiePolicyPermits(context, url(), firstPartyForCookies())) {
         request.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
-        request.setAttribute(QNetworkRequest::AuthenticationReuseAttribute, QNetworkRequest::Manual);
+        request.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
     }
+
+    if (!allowCookies())
+        request.setAttribute(QNetworkRequest::AuthenticationReuseAttribute, QNetworkRequest::Manual);
 
     return request;
 }

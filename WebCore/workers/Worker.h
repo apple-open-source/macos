@@ -37,9 +37,7 @@
 #include "MessagePort.h"
 #include "WorkerScriptLoaderClient.h"
 #include <wtf/Forward.h>
-#include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
-#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicStringHash.h>
 
@@ -53,10 +51,10 @@ namespace WebCore {
 
     class Worker : public AbstractWorker, private WorkerScriptLoaderClient {
     public:
-        static PassRefPtr<Worker> create(const String& url, ScriptExecutionContext*, ExceptionCode&);
+        static PassRefPtr<Worker> create(ScriptExecutionContext*, const String& url, ExceptionCode&);
         virtual ~Worker();
 
-        virtual Worker* toWorker() { return this; }
+        virtual const AtomicString& interfaceName() const;
 
         void postMessage(PassRefPtr<SerializedScriptValue> message, ExceptionCode&);
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, ExceptionCode&);
@@ -74,12 +72,14 @@ namespace WebCore {
     private:
         Worker(ScriptExecutionContext*);
 
+        // WorkerScriptLoaderClient callbacks
+        virtual void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
         virtual void notifyFinished();
 
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
 
-        OwnPtr<WorkerScriptLoader> m_scriptLoader;
+        RefPtr<WorkerScriptLoader> m_scriptLoader;
         WorkerContextProxy* m_contextProxy; // The proxy outlives the worker to perform thread shutdown.
     };
 

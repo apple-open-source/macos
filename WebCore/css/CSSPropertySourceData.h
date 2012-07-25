@@ -40,11 +40,12 @@
 
 namespace WebCore {
 
-class CSSStyleRule;
+class StyleRule;
 
 struct SourceRange {
     SourceRange();
     SourceRange(unsigned start, unsigned end);
+    unsigned length() const;
 
     unsigned start;
     unsigned end;
@@ -92,7 +93,7 @@ struct CSSRuleSourceData : public RefCounted<CSSRuleSourceData> {
     SourceRange selectorListRange;
     RefPtr<CSSStyleSourceData> styleSourceData;
 };
-typedef HashMap<CSSStyleRule*, RefPtr<CSSRuleSourceData> > StyleRuleRangeMap;
+typedef HashMap<StyleRule*, RefPtr<CSSRuleSourceData> > StyleRuleRangeMap;
 
 } // namespace WebCore
 

@@ -28,12 +28,34 @@
 #include "PopStateEvent.h"
 
 #include "EventNames.h"
+#include "History.h"
+#include "SerializedScriptValue.h"
 
 namespace WebCore {
 
-PopStateEvent::PopStateEvent(PassRefPtr<SerializedScriptValue> stateObject)
+PopStateEventInit::PopStateEventInit()
+{
+}
+
+PopStateEvent::PopStateEvent()
     : Event(eventNames().popstateEvent, false, true)
-    , m_stateObject(stateObject)
+    , m_serializedState(0)
+    , m_history(0)
+{
+}
+
+PopStateEvent::PopStateEvent(const AtomicString& type, const PopStateEventInit& initializer)
+    : Event(type, initializer)
+    , m_state(initializer.state)
+    , m_serializedState(0)
+    , m_history(0)
+{
+}
+
+PopStateEvent::PopStateEvent(PassRefPtr<SerializedScriptValue> serializedState, PassRefPtr<History> history)
+    : Event(eventNames().popstateEvent, false, true)
+    , m_serializedState(serializedState)
+    , m_history(history)
 {
 }
 
@@ -41,14 +63,24 @@ PopStateEvent::~PopStateEvent()
 {
 }
 
-void PopStateEvent::initPopStateEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<SerializedScriptValue> stateObject)
+PassRefPtr<PopStateEvent> PopStateEvent::create()
 {
-    if (dispatched())
-        return;
-    
-    initEvent(type, canBubble, cancelable);
+    return adoptRef(new PopStateEvent);
+}
 
-    m_stateObject = stateObject;
+PassRefPtr<PopStateEvent> PopStateEvent::create(PassRefPtr<SerializedScriptValue> serializedState, PassRefPtr<History> history)
+{
+    return adoptRef(new PopStateEvent(serializedState, history));
+}
+
+PassRefPtr<PopStateEvent> PopStateEvent::create(const AtomicString& type, const PopStateEventInit& initializer)
+{
+    return adoptRef(new PopStateEvent(type, initializer));
+}
+
+const AtomicString& PopStateEvent::interfaceName() const
+{
+    return eventNames().interfaceForPopStateEvent;
 }
 
 } // namespace WebCore

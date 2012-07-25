@@ -68,12 +68,20 @@ kadm5_create_principal (
 	const char */*password*/);
 
 kadm5_ret_t
-kadm5_create_principal2 (
+kadm5_create_principal_2 (
 	void */*server_handle*/,
 	kadm5_principal_ent_t /*princ*/,
 	uint32_t /*mask*/,
-	const char */*password*/,
-	krb5_enctype *enctypes);
+	int n_ks_tuple,
+	krb5_key_salt_tuple *ks_tuple,
+	const char */*password*/);
+
+kadm5_ret_t
+kadm5_modify_policy(void *server_handle, kadm5_policy_ent_t policy,
+		    uint32_t mask);
+
+kadm5_ret_t
+kadm5_delete_policy(void *server_handle, char *name);
 
 kadm5_ret_t
 kadm5_delete_principal (
@@ -205,9 +213,95 @@ kadm5_ret_t
 kadm5_randkey_principal2 (
 	void */*server_handle*/,
 	krb5_principal /*princ*/,
-	krb5_enctype *enctypes,
 	krb5_keyblock **/*new_keys*/,
 	int */*n_keys*/);
+
+kadm5_ret_t
+kadm5_randkey_principal_3(void *server_handle,
+			  krb5_principal princ,
+			  krb5_boolean keepold,
+			  int n_ks_tuple,
+			  krb5_key_salt_tuple *ks_tuple,
+			  krb5_keyblock **new_keys,
+			  int *n_keys);
+
+kadm5_ret_t
+kadm5_chpass_principal_3(void *server_handle,
+		         krb5_principal princ,
+		         krb5_boolean keepold,
+		         int n_ks_tuple,
+		         krb5_key_salt_tuple *ks_tuple,
+		         const char *password);
+
+kadm5_ret_t
+kadm5_setkey_principal(void *server_handle,
+                       krb5_principal princ,
+                       krb5_keyblock *new_keys,
+                       int n_keys);
+
+kadm5_ret_t
+kadm5_setkey_principal_3(void *server_handle,
+                         krb5_principal princ,
+                         krb5_boolean keepold,
+                         int n_ks_tuple, krb5_key_salt_tuple *ks_tuple,
+                         krb5_keyblock *keyblocks,
+                         int n_keys);
+
+kadm5_ret_t
+kadm5_lock(void *server_handle);
+
+kadm5_ret_t
+kadm5_unlock(void *server_handle);
+
+kadm5_ret_t
+kadm5_create_policy(void *server_handle,
+		    kadm5_policy_ent_t policy, long mask);
+
+kadm5_ret_t
+kadm5_get_policy(void *server_handle, char *policy, kadm5_policy_ent_t ent);
+
+kadm5_ret_t
+kadm5_get_policies(void *server_handle, char *exp, char ***pols, int *count);
+
+kadm5_ret_t
+kadm5_free_policy_ent(kadm5_policy_ent_t ent);
+
+kadm5_ret_t
+kadm5_chpass_principal_with_key_3(void *server_handle,
+				  krb5_principal princ,
+				  int keepold,
+				  int n_key_data,
+				  krb5_key_data *key_data);
+
+
+
+kadm5_ret_t
+kadm5_randkey_principal(void *server_handle,
+			krb5_principal princ,
+			krb5_keyblock **new_keys,
+			int *n_keys);
+
+kadm5_ret_t
+kadm5_randkey_principal2(void *server_handle,
+			 krb5_principal princ,
+			 krb5_keyblock **new_keys,
+			 int *n_keys);
+
+kadm5_ret_t
+kadm5_randkey_principal_3(void *server_handle,
+			  krb5_principal princ,
+			  krb5_boolean keepold,
+			  int n_ks_tuple,
+			  krb5_key_salt_tuple *ks_tuple,
+			  krb5_keyblock **new_keys,
+			  int *n_keys);
+
+kadm5_ret_t
+kadm5_decrypt_key(void *server_handle,
+                  kadm5_principal_ent_t entry,
+		  int32_t ktype, int32_t stype,
+		  int32_t kvno, krb5_keyblock *keyblock,
+                  krb5_keysalt *keysalt, int *kvnop);
 
 kadm5_ret_t
 kadm5_randkey_principal (

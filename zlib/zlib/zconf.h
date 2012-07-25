@@ -356,9 +356,11 @@ typedef uLong FAR uLongf;
    typedef Byte       *voidp;
 #endif
 
+#if defined(__APPLE__) /* avoid unistd.h on Win32 */
 #if 1    /* was set to #if 1 by ./configure */
 #  define Z_HAVE_UNISTD_H
 #endif
+#endif /* defined(__APPLE__) */
 
 #ifdef STDC
 #  include <sys/types.h>    /* for off_t */

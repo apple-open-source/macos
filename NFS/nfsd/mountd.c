@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -392,6 +392,7 @@ int mounttcp6sock, mountudp6sock;
 #define	OP_SECFLAV	0x00000004	/* security flavor(s) specified */
 #define	OP_MASK		0x00000008	/* network mask specified */
 #define	OP_NET		0x00000010	/* network address specified */
+#define	OP_MANGLEDNAMES	0x00000020	/* tell the vfs to mangle names that are > 255 bytes */
 #define	OP_ALLDIRS	0x00000040	/* allow mounting subdirs */
 #define	OP_READONLY	0x00000080	/* export read-only */
 #define	OP_32BITCLIENTS	0x00000100	/* use 32-bit directory cookies */
@@ -404,7 +405,7 @@ int mounttcp6sock, mountudp6sock;
 #define	OP_DEFEXP	0x20000000	/* default export for everyone (else) */
 #define	OP_ADD		0x40000000	/* tag export for potential addition */
 #define	OP_DEL		0x80000000	/* tag export for potential deletion */
-#define	OP_EXOPTMASK	0x100009C3	/* export options mask */
+#define	OP_EXOPTMASK	0x100009E3	/* export options mask */
 #define	OP_EXOPTS(X)	((X) & OP_EXOPTMASK)
 
 #define RECHECKEXPORTS_TIMEOUT			600
@@ -4129,6 +4130,9 @@ do_opt( char **cpp,
 		} else if (!strcmp(cpopt, "32bitclients")) {
 			*exflagsp |= NX_32BITCLIENTS;
 			*opt_flagsp |= OP_32BITCLIENTS;
+		} else if (!strcmp(cpopt, "manglednames")) {
+			*exflagsp |= NX_MANGLEDNAMES;
+			*opt_flagsp |= OP_MANGLEDNAMES;
 		} else if (!strcmp(cpopt, "fspath")) {
 			if (!cpoptarg) {
 				log(LOG_WARNING, "export option '%s' missing a value.", cpopt);

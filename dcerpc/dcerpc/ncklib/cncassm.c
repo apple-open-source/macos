@@ -165,6 +165,7 @@ INTERNAL void send_pdu (
     rpc_cn_assoc_p_t            /*assoc*/,
     unsigned32                  /*pdu_type*/,
     rpc_cn_syntax_p_t           /*pres_context*/,
+    boolean                     /*reuse_context*/,
     unsigned32                  /*grp_id*/,
     rpc_cn_sec_context_p_t      /*sec_context*/,
     boolean                     /*old_server*/,
@@ -1633,6 +1634,7 @@ INTERNAL unsigned32     init_assoc_action_rtn
     send_pdu (assoc,
               RPC_C_CN_PKT_BIND,
               assoc_sm_work->pres_context,
+              assoc_sm_work->reuse_context,
               assoc_sm_work->grp_id,
               assoc_sm_work->sec_context,
               old_server,
@@ -2337,6 +2339,7 @@ INTERNAL unsigned32     authent3_action_rtn
     send_pdu (assoc,
               RPC_C_CN_PKT_AUTH3,
               NULL,
+              FALSE,
               assoc_sm_work->grp_id,
               assoc_sm_work->sec_context,
               old_server,
@@ -2421,12 +2424,18 @@ INTERNAL unsigned32     send_alt_context_req_action_rtn
     }
 
     /*
+     * Remember the call id in case we get a fault on the alter context
+     */
+    assoc->alter_call_id = rpc_g_cn_call_id;
+
+    /*
      * Format an rpc_alter_context PDU and send it to the server.
      */
     send_pdu (assoc,
               RPC_C_CN_PKT_ALTER_CONTEXT,
               assoc_sm_work->pres_context,
-              0,
+              assoc_sm_work->reuse_context,
+              assoc_sm_work->grp_id,
               assoc_sm_work->sec_context,
               old_server,
               &(assoc->assoc_status));
@@ -3019,6 +3028,8 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
      */
     assoc = (rpc_cn_assoc_t *) spc_struct;
     sm_p = (rpc_cn_sm_ctlblk_t *)sm;
+
+    assoc->alter_call_id = -1;
 
     status = lastfrag_pred_rtn(spc_struct, event_param);
     if (status == 0)
@@ -3731,7 +3742,7 @@ INTERNAL unsigned32     add_mark_set_action_rtn
      */
     assoc->assoc_grp_id = rpc__cn_assoc_grp_lkup_by_remid (RPC_CN_PKT_ASSOC_GROUP_ID (header),
                                                            RPC_C_CN_ASSOC_GRP_CLIENT,
-                                                           assoc->cn_ctlblk.rpc_addr,
+                                                           assoc->call_rep->binding_rep->rpc_addr,
                                                            &local_st);
     assoc_grp = RPC_CN_ASSOC_GRP (assoc->assoc_grp_id);
     if (assoc_grp == NULL)
@@ -4441,6 +4452,7 @@ INTERNAL unsigned32     retry_assoc_action_rtn
     send_pdu (assoc,
               RPC_C_CN_PKT_BIND,
               assoc->assoc_sm_work->pres_context,
+              assoc->assoc_sm_work->reuse_context,
               assoc->assoc_sm_work->grp_id,
               assoc->assoc_sm_work->sec_context,
               true,
@@ -4635,6 +4647,7 @@ INTERNAL void send_pdu
   rpc_cn_assoc_p_t        assoc,
   unsigned32              pdu_type,
   rpc_cn_syntax_p_t       pres_context,
+  boolean                 reuse_context,
   unsigned32              grp_id,
   rpc_cn_sec_context_p_t  sec_context,
   boolean                 old_server,
@@ -4705,9 +4718,13 @@ INTERNAL void send_pdu
                        (sizeof (rpc_cn_pres_syntax_id_t) *
                        (pres_context->syntax_vector->count - 1));
         pres_cont_list->n_context_elem = 1;
-        RPC_CN_ASSOC_CONTEXT_ID (assoc)++;
-        pres_cont_list->pres_cont_elem[0].pres_context_id = RPC_CN_ASSOC_CONTEXT_ID (assoc);
-        pres_context->syntax_pres_id = RPC_CN_ASSOC_CONTEXT_ID (assoc);
+
+        if (!reuse_context)
+        {
+            pres_context->syntax_pres_id = RPC_CN_ASSOC_CONTEXT_ID (assoc)++;
+        }
+
+        pres_cont_list->pres_cont_elem[0].pres_context_id = pres_context->syntax_pres_id;
         pres_cont_list->pres_cont_elem[0].n_transfer_syn = pres_context->syntax_vector->count;
         pres_cont_list->pres_cont_elem[0].abstract_syntax.id =  pres_context->syntax_abstract_id.id;
         pres_cont_list->pres_cont_elem[0].abstract_syntax.version = pres_context->syntax_abstract_id.version;
@@ -4763,8 +4780,11 @@ INTERNAL void send_pdu
 #endif
 
         }
-        pres_context->syntax_call_id = rpc_g_cn_call_id;
 
+        if (!reuse_context)
+        {
+            pres_context->syntax_call_id = rpc_g_cn_call_id;
+        }
     }
     else if (pdu_type != RPC_C_CN_PKT_AUTH3)
     {

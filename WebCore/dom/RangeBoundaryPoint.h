@@ -59,7 +59,7 @@ private:
     
     RefPtr<Node> m_containerNode;
     mutable int m_offsetInContainer;
-    Node* m_childBeforeBoundary;
+    RefPtr<Node> m_childBeforeBoundary;
 };
 
 inline RangeBoundaryPoint::RangeBoundaryPoint(PassRefPtr<Node> container)
@@ -77,7 +77,7 @@ inline Node* RangeBoundaryPoint::container() const
 
 inline Node* RangeBoundaryPoint::childBefore() const
 {
-    return m_childBeforeBoundary;
+    return m_childBeforeBoundary.get();
 }
 
 inline void RangeBoundaryPoint::ensureOffsetIsValid() const
@@ -92,7 +92,7 @@ inline void RangeBoundaryPoint::ensureOffsetIsValid() const
 inline const Position RangeBoundaryPoint::toPosition() const
 {
     ensureOffsetIsValid();
-    return Position(m_containerNode.get(), m_offsetInContainer);
+    return createLegacyEditingPosition(m_containerNode.get(), m_offsetInContainer);
 }
 
 inline int RangeBoundaryPoint::offset() const

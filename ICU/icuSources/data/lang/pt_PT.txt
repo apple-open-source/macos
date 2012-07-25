@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/pt_PT.xml
@@ -11,13 +11,14 @@ pt_PT{
         calendar{"calendário"}
         collation{"ordenação"}
         currency{"moeda"}
+        x{"Utilização Privada"}
     }
     Languages{
         af{"afrikaans"}
         art{"idioma artifical"}
-        awa{"Awadhi"}
+        awa{"awadhi"}
         bai{"bamileke Languages"}
-        bug{"Buginese"}
+        bug{"buginese"}
         ce{"chechene"}
         cel{"idioma céltico"}
         chn{"jargão chinook"}
@@ -26,10 +27,12 @@ pt_PT{
         cpp{"crioulo ou pidgin do português"}
         cs{"checo"}
         cus{"idioma cuchita"}
+        de_CH{"alto alemão suíço"}
         dra{"idioma dravítico"}
         dyu{"diula"}
         egy{"egípcio clássico"}
-        en{"Inglês"}
+        en_GB{"inglês britânico"}
+        en_US{"inglês (EUA)"}
         enm{"inglês medieval"}
         et{"estónio"}
         fiu{"idioma ugro-finês"}
@@ -38,19 +41,21 @@ pt_PT{
         gmh{"alemão medieval alto"}
         grc{"grego clássico"}
         gsw{"alemão da Suíça"}
+        hi{"hindi"}
         hsb{"sorbiano superior"}
         hy{"arménio"}
-        iba{"Iban"}
+        iba{"iban"}
         ig{"igbo"}
-        ik{"Inupiaq"}
+        ik{"inupiaq"}
         jv{"jv"}
         khi{"khoisan"}
         lez{"lezghiano"}
         mga{"irlandês, medieval (900-1200)"}
         mk{"macedónio"}
-        nah{"Nauatle"}
+        nah{"nauatle"}
         nds{"baixo alemão"}
         nic{"nigeriano - cordofano"}
+        nl_BE{"flamengo"}
         non{"norse, old"}
         oc{"provençal"}
         os{"ossético"}
@@ -59,18 +64,26 @@ pt_PT{
         pra{"idioma prácito"}
         pro{"provençal, arcaico (até 1500)"}
         pt_PT{"português europeu"}
+        rm{"romanche"}
         rom{"romanês"}
         sai{"idioma indígeno sul-americano"}
         sal{"salishan languages"}
         sgn{"linguages de sinais"}
         ssa{"idioma nilo-sariano"}
         swb{"língua comoriana"}
+        ta{"tâmil"}
         tai{"idioma tailândes"}
+        tet{"tétum"}
         tg{"tajique"}
         to{"tonga"}
         tog{"toganês"}
         tyv{"tuviniano"}
         wen{"idioma sórbio"}
+        zh_Hans{"chinês simplificado"}
+        zh_Hant{"chinês tradicional"}
+    }
+    LanguagesShort{
+        az{"Azerbaijano"}
     }
     Scripts{
         Armn{"arménio"}
@@ -78,6 +91,7 @@ pt_PT{
         Egyd{"egípcio demótico"}
         Egyh{"egípcio hierático"}
         Inds{"indus"}
+        Laoo{"Lao"}
         Lina{"linear A"}
         Linb{"linear B"}
         Sylo{"siloti nagri"}
@@ -88,13 +102,67 @@ pt_PT{
         Zxxx{"não escrito"}
         Zzzz{"inválido ou desconhecido"}
     }
+    Scripts%stand-alone{
+        Hans{"Han Simplificado"}
+        Hant{"Han Tradicional"}
+    }
     Types{
+        calendar{
+            coptic{"Calendário Copta"}
+            ethiopic{"Calendário Etíope"}
+            ethiopic-amete-alem{"Calendário Etíope Amete Alem"}
+            islamic-civil{"Calendário Islâmico/Civil"}
+            persian{"Calendário Persa"}
+        }
         collation{
-            dictionary{"Ordem do dicionário"}
-            direct{"Ordem Directa"}
-            phonebook{"Ordem da Lista Telefónica"}
-            reformed{"Ordem reformada"}
-            unihan{"Ordem por radical e traços"}
+            big5han{"ordem do chinês tradicional - Big5"}
+            dictionary{"ordem do dicionário"}
+            ducet{"ordenação Unicode predefinida"}
+            gb2312han{"ordem do chinês simplificado - GB2312"}
+            phonebook{"ordem da lista telefónica"}
+            phonetic{"ordem fonética"}
+            pinyin{"ordem do chinês simplificado pinyin"}
+            reformed{"ordem reformada"}
+            search{"pesquisa por objectivo/geral"}
+            stroke{"ordem por traços"}
+            traditional{"ordem tradicional"}
+            unihan{"ordem por radical e traços"}
+        }
+        numbers{
+            arab{"Algarismos Árabe/Índico"}
+            arabext{"Algarismos Árabe/Índico Expandidos"}
+            armn{"Algarismos Arménios"}
+            armnlow{"Numeração Arménia Minúscula"}
+            beng{"Algarismos Bengalis"}
+            deva{"Algarismos Devanágaris"}
+            ethi{"Numeração Etíope"}
+            fullwide{"Algarismos de Largura Completa"}
+            geor{"Numeração Georgiana"}
+            grek{"Numeração Grega"}
+            greklow{"Numeração Grega Minúscula"}
+            gujr{"Algarismos de Guzerate"}
+            hanidec{"Numeração Decimal Chinesa"}
+            hans{"Numeração Chinês Simplificado"}
+            hansfin{"Numeração Financeira Chinês Simplificado"}
+            hant{"Numeração Chinês Tradicional"}
+            hantfin{"Numeração Financeira Chinês Tradicional"}
+            hebr{"Numeração Hebraica"}
+            jpan{"Numeração Japonesa"}
+            jpanfin{"Numeração Financeira Japonesa"}
+            khmr{"Algarismo Khmer"}
+            knda{"Algarismos de Canarim"}
+            laoo{"Algarismos de Laos"}
+            latn{"Algarismos Ocidentais"}
+            mlym{"Algarismos Malaiala"}
+            mong{"Algarismos Mongóis"}
+            mymr{"Algarismos de Mianmar"}
+            orya{"Algarismos Oriá"}
+            roman{"Numeração Romana"}
+            romanlow{"Numeração Romana Minúscula"}
+            taml{"Numeração Tâmil"}
+            telu{"Algarismos de Telugu"}
+            thai{"Algarismos Tailandeses"}
+            tibt{"Algarismos Tibetanos"}
         }
     }
     Variants{
@@ -109,8 +177,9 @@ pt_PT{
         OSOJS{"dialecto oseacco/osojane"}
         PINYIN{"Romanização pinyin"}
         POLYTON{"politónico"}
+        SCOTLAND{"inglês padrão (Escócia)"}
         SOLBA{"dialecto stolvizza/solbica"}
         WADEGILE{"Romanização Wade-Giles"}
     }
-    Version{"2.0.50.84"}
+    Version{"2.0.65.46"}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,7 +163,12 @@ void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp,
 	     u_int16_t *dtp, u_int8_t *dhp);
 void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp);
 size_t msdosfs_dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower);
-int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case);
+int msdosfs_unicode_to_dos_name(const uint16_t *unicode,
+								size_t unicode_length,
+								uint8_t short_name[SHORT_NAME_LEN],
+								u_int8_t *lower_case);
+int msdosfs_apply_generation_to_short_name(uint8_t short_name[SHORT_NAME_LEN],
+										   unsigned generation);
 int msdosfs_unicode2winfn(const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum);
 int msdosfs_winChkName(const u_int16_t *un, int unlen, struct winentry *wep, int chksum);
 int msdosfs_getunicodefn(struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum);

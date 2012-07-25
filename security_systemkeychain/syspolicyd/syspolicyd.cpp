@@ -22,7 +22,6 @@
  */
 #include <Security/Security.h>
 #include <Security/SecAssessment.h>
-#include <Security/SecRequirement.h>
 #include <getopt.h>
 #include <syslog.h>
 #include <libgen.h>

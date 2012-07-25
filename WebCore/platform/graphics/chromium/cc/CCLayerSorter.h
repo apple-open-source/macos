@@ -26,6 +26,7 @@
 #define CCLayerSorter_h
 
 #include "FloatPoint3D.h"
+#include "FloatQuad.h"
 #include "FloatRect.h"
 #include "cc/CCLayerImpl.h"
 #include <wtf/HashMap.h>
@@ -37,47 +38,52 @@ namespace WebCore {
 class CCLayerSorter {
     WTF_MAKE_NONCOPYABLE(CCLayerSorter);
 public:
-    CCLayerSorter();
+    CCLayerSorter() : m_zRange(0) { }
 
-    typedef Vector<RefPtr<CCLayerImpl> > LayerList;
+    typedef Vector<CCLayerImpl*> LayerList;
 
     void sort(LayerList::iterator first, LayerList::iterator last);
+
+    // Holds various useful properties derived from a layer's 3D outline.
+    struct LayerShape {
+        LayerShape() { }
+        LayerShape(float width, float height, const TransformationMatrix& drawTransform);
+
+        float layerZFromProjectedPoint(const FloatPoint&) const;
+
+        FloatPoint3D layerNormal;
+        FloatPoint3D transformOrigin;
+        FloatQuad projectedQuad;
+        FloatRect projectedBounds;
+    };
+
+    enum ABCompareResult {
+        ABeforeB,
+        BBeforeA,
+        None
+    };
+
+    static ABCompareResult checkOverlap(LayerShape*, LayerShape*, float zThreshold, float& weight);
+
 private:
     struct GraphEdge;
 
     struct GraphNode {
-        GraphNode(CCLayerImpl* cclayer) : layer(cclayer) { };
+        explicit GraphNode(CCLayerImpl* cclayer) : layer(cclayer), incomingEdgeWeight(0) { }
+
         CCLayerImpl* layer;
-        FloatPoint c1, c2, c3, c4;
-        FloatPoint3D normal;
-        FloatPoint3D origin;
-        FloatRect boundingBox;
+        LayerShape shape;
         Vector<GraphEdge*> incoming;
         Vector<GraphEdge*> outgoing;
+        float incomingEdgeWeight;
     };
 
     struct GraphEdge {
-        GraphEdge(GraphNode* fromNode, GraphNode* toNode) : from(fromNode), to(toNode) { };
+        GraphEdge(GraphNode* fromNode, GraphNode* toNode, float weight) : from(fromNode), to(toNode), weight(weight) { };
 
         GraphNode* from;
         GraphNode* to;
-    };
-
-    struct LayerIntersector {
-        LayerIntersector(GraphNode*, GraphNode*, float);
-
-        void go();
-
-        float layerZFromProjectedPoint(GraphNode*, const FloatPoint&);
-        bool triangleTriangleTest(const FloatPoint&, const FloatPoint&, const FloatPoint&, const FloatPoint&, const FloatPoint&, const FloatPoint&);
-        bool edgeTriangleTest(const FloatPoint&, const FloatPoint&, const FloatPoint&, const FloatPoint&, const FloatPoint&);
-        bool checkZDiff(const FloatPoint&);
-
-        FloatPoint intersectionPoint;
-        GraphNode* nodeA;
-        GraphNode* nodeB;
-        float zDiff;
-        float earlyExitThreshold;
+        float weight;
     };
 
     typedef Vector<GraphNode> NodeList;
@@ -89,18 +95,9 @@ private:
     typedef HashMap<GraphEdge*, GraphEdge*> EdgeMap;
     EdgeMap m_activeEdges;
 
-    float m_zDiffEpsilon;
-
     void createGraphNodes(LayerList::iterator first, LayerList::iterator last);
     void createGraphEdges();
     void removeEdgeFromList(GraphEdge*, Vector<GraphEdge*>&);
-
-    enum ABCompareResult {
-        ABeforeB,
-        BBeforeA,
-        None
-    };
-    ABCompareResult checkOverlap(GraphNode*, GraphNode*);
 };
 
 }

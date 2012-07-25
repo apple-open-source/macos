@@ -33,36 +33,42 @@
 
 #if ENABLE(WEB_TIMING)
 
+#include "DOMWindowProperty.h"
 #include "MemoryInfo.h"
+#include "PerformanceEntryList.h"
 #include "PerformanceNavigation.h"
 #include "PerformanceTiming.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class Performance : public RefCounted<Performance> {
+class Performance : public RefCounted<Performance>, public DOMWindowProperty {
 public:
     static PassRefPtr<Performance> create(Frame* frame) { return adoptRef(new Performance(frame)); }
 
-    Frame* frame() const;
-    void disconnectFrame();
-
-    MemoryInfo* memory() const;
+    PassRefPtr<MemoryInfo> memory() const;
     PerformanceNavigation* navigation() const;
     PerformanceTiming* timing() const;
+    double webkitNow() const;
+
+#if ENABLE(PERFORMANCE_TIMELINE)
+    PassRefPtr<PerformanceEntryList> webkitGetEntries() const;
+    PassRefPtr<PerformanceEntryList> webkitGetEntriesByType(const String& entryType);
+    PassRefPtr<PerformanceEntryList> webkitGetEntriesByName(const String& name, const String& entryType);
+#endif
 
 private:
-    Performance(Frame*);
+    explicit Performance(Frame*);
 
-    mutable RefPtr<MemoryInfo> m_memory;
     mutable RefPtr<PerformanceNavigation> m_navigation;
     mutable RefPtr<PerformanceTiming> m_timing;
-    Frame* m_frame;
 };
 
 }
 
-#endif // !ENABLE(WEB_TIMING)
-#endif // !defined(Performance_h)
+#endif // ENABLE(WEB_TIMING)
+
+#endif // Performance_h

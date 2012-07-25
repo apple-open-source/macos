@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Apple Computer, Inc.
  * Copyright (C) 2007 Nikolas Zimmermann <zimmermann@kde.org>
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010-2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,14 +23,15 @@
 #define RenderSVGText_h
 
 #if ENABLE(SVG)
-
 #include "AffineTransform.h"
 #include "RenderSVGBlock.h"
-#include "SVGTextLayoutAttributes.h"
+#include "SVGTextLayoutAttributesBuilder.h"
 
 namespace WebCore {
 
+class RenderSVGInlineText;
 class SVGTextElement;
+class RenderSVGInlineText;
 
 class RenderSVGText : public RenderSVGBlock {
 public:
@@ -40,32 +41,45 @@ public:
 
     void setNeedsPositioningValuesUpdate() { m_needsPositioningValuesUpdate = true; }
     virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
+    void setNeedsTextMetricsUpdate() { m_needsTextMetricsUpdate = true; }
     virtual FloatRect repaintRectInLocalCoordinates() const;
 
     static RenderSVGText* locateRenderSVGTextAncestor(RenderObject*);
     static const RenderSVGText* locateRenderSVGTextAncestor(const RenderObject*);
 
-    Vector<SVGTextLayoutAttributes>& layoutAttributes() { return m_layoutAttributes; }
     bool needsReordering() const { return m_needsReordering; }
+
+    // Call this method when either the children of a DOM text element have changed, or the length of
+    // the text in any child element has changed.
+    void invalidateTextPositioningElements();
+
+    void layoutAttributesChanged(RenderObject*);
+    void layoutAttributesWillBeDestroyed(RenderSVGInlineText*, Vector<SVGTextLayoutAttributes*>& affectedAttributes);
+    void rebuildLayoutAttributes(bool performFullRebuild = false);
+    void rebuildLayoutAttributes(Vector<SVGTextLayoutAttributes*>& affectedAttributes);
+
+    Vector<SVGTextLayoutAttributes*>& layoutAttributes() { return m_layoutAttributes; }
 
 private:
     virtual const char* renderName() const { return "RenderSVGText"; }
     virtual bool isSVGText() const { return true; }
 
-    virtual void paint(PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
     virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
-    virtual VisiblePosition positionForPoint(const IntPoint&);
+    virtual VisiblePosition positionForPoint(const LayoutPoint&);
 
     virtual bool requiresLayer() const { return false; }
     virtual void layout();
 
-    virtual void absoluteQuads(Vector<FloatQuad>&);
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const;
 
-    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
-    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect&, bool fixed = false);
+    virtual LayoutRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const;
+    virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, LayoutRect&, bool fixed = false) const;
+    virtual void computeFloatRectForRepaint(RenderBoxModelObject* repaintContainer, FloatRect&, bool fixed = false) const;
 
-    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&, ApplyContainerFlipOrNot = ApplyContainerFlip, bool* wasFixed = 0) const;
+    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
 
     virtual FloatRect objectBoundingBox() const { return frameRect(); }
     virtual FloatRect strokeBoundingBox() const;
@@ -80,8 +94,10 @@ private:
     bool m_needsReordering : 1;
     bool m_needsPositioningValuesUpdate : 1;
     bool m_needsTransformUpdate : 1;
+    bool m_needsTextMetricsUpdate : 1;
     AffineTransform m_localTransform;
-    Vector<SVGTextLayoutAttributes> m_layoutAttributes;
+    SVGTextLayoutAttributesBuilder m_layoutAttributesBuilder;
+    Vector<SVGTextLayoutAttributes*> m_layoutAttributes;
 };
 
 inline RenderSVGText* toRenderSVGText(RenderObject* object)

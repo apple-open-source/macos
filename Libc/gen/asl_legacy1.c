@@ -1,26 +1,24 @@
 /*
- * Copyright (c) 2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 2007 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
- */
+ * @APPLE_LICENSE_HEADER_END@ */
 
 #include <asl_core.h>
 #include <asl_legacy1.h>
@@ -244,6 +242,7 @@ slotlist_init(asl_legacy1_t *s, uint32_t count)
 	uint32_t i, si, status, hash, addslot;
 	uint64_t xid;
 	uint8_t t;
+	size_t rcount;
 	char tmp[DB_RECORD_LEN];
 
 	/* Start at first slot after the header */
@@ -257,8 +256,8 @@ slotlist_init(asl_legacy1_t *s, uint32_t count)
 
 	for (i = 1; i < count; i++)
 	{
-		status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-		if (status != 1) return ASL_STATUS_READ_FAILED;
+		rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
+		if (rcount != 1) return ASL_STATUS_READ_FAILED;
 
 		t = tmp[0];
 		addslot = 0;
@@ -306,6 +305,7 @@ asl_legacy1_open(const char *path, asl_legacy1_t **out)
 	asl_legacy1_t *s;
 	struct stat sb;
 	int status;
+	size_t rcount;
 	char cbuf[DB_RECORD_LEN];
 	off_t fsize;
 	uint32_t count;
@@ -327,8 +327,8 @@ asl_legacy1_open(const char *path, asl_legacy1_t **out)
 	}
 
 	memset(cbuf, 0, DB_RECORD_LEN);
-	status = fread(cbuf, DB_RECORD_LEN, 1, s->db);
-	if (status != 1)
+	rcount = fread(cbuf, DB_RECORD_LEN, 1, s->db);
+	if (rcount != 1)
 	{
 		fclose(s->db);
 		free(s);
@@ -368,7 +368,9 @@ string_fetch_slot(asl_legacy1_t *s, uint32_t slot, char **out)
 {
 	off_t offset;
 	uint8_t type;
-	uint32_t status, next, len, x, remaining;
+	uint32_t next, x, remaining;
+	size_t rcount, len;
+	int status;
 	char *outstr, *p, tmp[DB_RECORD_LEN];
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
@@ -380,8 +382,8 @@ string_fetch_slot(asl_legacy1_t *s, uint32_t slot, char **out)
 
 	if (status < 0) return ASL_STATUS_READ_FAILED;
 
-	status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-	if (status != 1) return ASL_STATUS_READ_FAILED;
+	rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
+	if (rcount != 1) return ASL_STATUS_READ_FAILED;
 
 	type = tmp[0];
 	if (type != DB_TYPE_STRING) return ASL_STATUS_INVALID_STRING;
@@ -415,8 +417,8 @@ string_fetch_slot(asl_legacy1_t *s, uint32_t slot, char **out)
 			return ASL_STATUS_READ_FAILED;
 		}
 
-		status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-		if (status != 1)
+		rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
+		if (rcount != 1)
 		{
 			free(outstr);
 			return ASL_STATUS_READ_FAILED;
@@ -550,7 +552,9 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 	uint32_t status, i, n, kvcount, next;
 	uint16_t flags;
 	uint64_t sid;
+	size_t rcount;
 	aslmsg msg;
+	int fstatus;
 	char *p, tmp[DB_RECORD_LEN], *key, *val;
 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
@@ -559,12 +563,12 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 	*out = NULL;
 
 	offset = slot * DB_RECORD_LEN;
-	status = fseek(s->db, offset, SEEK_SET);
+	fstatus = fseek(s->db, offset, SEEK_SET);
 
-	if (status < 0) return ASL_STATUS_READ_FAILED;
+	if (fstatus < 0) return ASL_STATUS_READ_FAILED;
 
-	status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-	if (status != 1) return ASL_STATUS_READ_FAILED;
+	rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
+	if (rcount != 1) return ASL_STATUS_READ_FAILED;
 
 	flags = _asl_get_16(tmp + MSG_OFF_KEY_FLAGS);
 
@@ -594,15 +598,15 @@ msg_fetch(asl_legacy1_t *s, uint32_t slot, aslmsg *out)
 	while (next != 0)
 	{
 		offset = next * DB_RECORD_LEN;
-		status = fseek(s->db, offset, SEEK_SET);
-		if (status < 0)
+		fstatus = fseek(s->db, offset, SEEK_SET);
+		if (fstatus < 0)
 		{
 			free(out);
 			return ASL_STATUS_READ_FAILED;
 		}
 
-		status = fread(tmp, DB_RECORD_LEN, 1, s->db);
-		if (status != 1)
+		rcount = fread(tmp, DB_RECORD_LEN, 1, s->db);
+		if (rcount != 1)
 		{
 			free(out);
 			return ASL_STATUS_READ_FAILED;

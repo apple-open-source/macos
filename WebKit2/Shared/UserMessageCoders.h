@@ -28,17 +28,22 @@
 
 #include "ArgumentDecoder.h"
 #include "ArgumentEncoder.h"
+#include "DataReference.h"
 #include "ImmutableArray.h"
 #include "ImmutableDictionary.h"
 #include "ShareableBitmap.h"
 #include "WebCertificateInfo.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebData.h"
+#include "WebGeometry.h"
 #include "WebImage.h"
 #include "WebNumber.h"
+#include "WebRenderLayer.h"
+#include "WebRenderObject.h"
 #include "WebSerializedScriptValue.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include "WebURLRequest.h"
 #include "WebUserContentURLPattern.h"
 
 namespace WebKit {
@@ -53,8 +58,11 @@ namespace WebKit {
 //   - WebData -> WebData
 //   - WebDouble -> WebDouble
 //   - WebImage -> WebImage
+//   - WebRenderLayer -> WebRenderLayer
+//   - WebRenderObject -> WebRenderObject
 //   - WebUInt64 -> WebUInt64
 //   - WebURL -> WebURL
+//   - WebURLRequest -> WebURLRequest
 
 template<typename Owner>
 class UserMessageEncoder {
@@ -97,7 +105,12 @@ public:
         }
         case APIObject::TypeSerializedScriptValue: {
             WebSerializedScriptValue* scriptValue = static_cast<WebSerializedScriptValue*>(m_root);
-            encoder->encodeBytes(scriptValue->data().data(), scriptValue->data().size());
+            encoder->encodeVariableLengthByteArray(scriptValue->dataReference());
+            return true;
+        }
+        case APIObject::TypeBoolean: {
+            WebBoolean* booleanObject = static_cast<WebBoolean*>(m_root);
+            encoder->encode(booleanObject->value());
             return true;
         }
         case APIObject::TypeDouble: {
@@ -110,14 +123,58 @@ public:
             encoder->encode(uint64Object->value());
             return true;
         }
-        case APIObject::TypeBoolean: {
-            WebBoolean* booleanObject = static_cast<WebBoolean*>(m_root);
-            encoder->encode(booleanObject->value());
+        case APIObject::TypePoint: {
+            WebPoint* pointObject = static_cast<WebPoint*>(m_root);
+            encoder->encode(pointObject->point().x);
+            encoder->encode(pointObject->point().y);
+            return true;
+        }
+        case APIObject::TypeSize: {
+            WebSize* sizeObject = static_cast<WebSize*>(m_root);
+            encoder->encode(sizeObject->size().width);
+            encoder->encode(sizeObject->size().height);
+            return true;
+        }
+        case APIObject::TypeRect: {
+            WebRect* rectObject = static_cast<WebRect*>(m_root);
+            encoder->encode(rectObject->rect().origin.x);
+            encoder->encode(rectObject->rect().origin.y);
+            encoder->encode(rectObject->rect().size.width);
+            encoder->encode(rectObject->rect().size.height);
+            return true;
+        }
+        case APIObject::TypeRenderLayer: {
+            WebRenderLayer* renderLayer = static_cast<WebRenderLayer*>(m_root);
+            encoder->encode(renderLayer->renderObjectName());
+            encoder->encode(renderLayer->elementTagName());
+            encoder->encode(renderLayer->elementID());
+            encoder->encode(Owner(renderLayer->elementClassNames()));
+            encoder->encode(renderLayer->isReflection());
+            encoder->encode(renderLayer->isClipping());
+            encoder->encode(renderLayer->isClipped());
+            encoder->encode(static_cast<uint32_t>(renderLayer->compositingLayerType()));
+            encoder->encode(renderLayer->absoluteBoundingBox());
+            encoder->encode(Owner(renderLayer->negativeZOrderList()));
+            encoder->encode(Owner(renderLayer->normalFlowList()));
+            encoder->encode(Owner(renderLayer->positiveZOrderList()));
+            return true;
+        }
+        case APIObject::TypeRenderObject: {
+            WebRenderObject* renderObject = static_cast<WebRenderObject*>(m_root);
+            encoder->encode(renderObject->name());
+            encoder->encode(renderObject->absolutePosition());
+            encoder->encode(renderObject->frameRect());
+            encoder->encode(Owner(renderObject->children().get()));
             return true;
         }
         case APIObject::TypeURL: {
             WebURL* urlObject = static_cast<WebURL*>(m_root);
             encoder->encode(urlObject->string());
+            return true;
+        }
+        case APIObject::TypeURLRequest: {
+            WebURLRequest* urlRequestObject = static_cast<WebURLRequest*>(m_root);
+            encoder->encode(urlRequestObject->resourceRequest());
             return true;
         }
         case APIObject::TypeUserContentURLPattern: {
@@ -127,23 +184,23 @@ public:
         }
         case APIObject::TypeImage: {
             WebImage* image = static_cast<WebImage*>(m_root);
-            if (!image->bitmap() || !image->bitmap()->isBackedBySharedMemory()) {
+
+            ShareableBitmap::Handle handle;
+            if (!image->bitmap() || !image->bitmap()->isBackedBySharedMemory() || !image->bitmap()->createHandle(handle)) {
+                // Initial false indicates no allocated bitmap or is not shareable.
                 encoder->encode(false);
                 return true;
             }
 
-            ShareableBitmap::Handle handle;
-            if (!image->bitmap() || !image->bitmap()->createHandle(handle))
-                return false;
-
+            // Initial true indicates a bitmap was allocated and is shareable.
             encoder->encode(true);
-            
+
             encoder->encode(handle);
             return true;
         }
         case APIObject::TypeData: {
             WebData* data = static_cast<WebData*>(m_root);
-            encoder->encodeBytes(data->bytes(), data->size());
+            encoder->encodeVariableLengthByteArray(data->dataReference());
             return true;
         }
         case APIObject::TypeCertificateInfo: {
@@ -181,6 +238,7 @@ protected:
 //   - WebImage -> WebImage
 //   - WebUInt64 -> WebUInt64
 //   - WebURL -> WebURL
+//   - WebURLRequest -> WebURLRequest
 
 template<typename Owner>
 class UserMessageDecoder {
@@ -227,8 +285,8 @@ public:
                 if (!decoder->decode(messageCoder))
                     return false;
 
-                std::pair<ImmutableDictionary::MapType::iterator, bool> result = map.set(key, element.release());
-                if (!result.second)
+                ImmutableDictionary::MapType::AddResult result = map.set(key, element.release());
+                if (!result.isNewEntry)
                     return false;
             }
 
@@ -243,10 +301,12 @@ public:
             break;
         }
         case APIObject::TypeSerializedScriptValue: {
-            Vector<uint8_t> buffer;
-            if (!decoder->decodeBytes(buffer))
+            CoreIPC::DataReference dataReference;
+            if (!decoder->decodeVariableLengthByteArray(dataReference))
                 return false;
-            coder.m_root = WebSerializedScriptValue::adopt(buffer);
+            
+            Vector<uint8_t> vector = dataReference.vector();
+            coder.m_root = WebSerializedScriptValue::adopt(vector);
             break;
         }
         case APIObject::TypeDouble: {
@@ -270,11 +330,122 @@ public:
             coder.m_root = WebBoolean::create(value);
             break;
         }
+        case APIObject::TypeSize: {
+            double width;
+            double height;
+            if (!decoder->decode(width))
+                return false;
+            if (!decoder->decode(height))
+                return false;
+            coder.m_root = WebSize::create(WKSizeMake(width, height));
+            break;
+        }
+        case APIObject::TypePoint: {
+            double x;
+            double y;
+            if (!decoder->decode(x))
+                return false;
+            if (!decoder->decode(y))
+                return false;
+            coder.m_root = WebPoint::create(WKPointMake(x, y));
+            break;
+        }
+        case APIObject::TypeRect: {
+            double x;
+            double y;
+            double width;
+            double height;
+            if (!decoder->decode(x))
+                return false;
+            if (!decoder->decode(y))
+                return false;
+            if (!decoder->decode(width))
+                return false;
+            if (!decoder->decode(height))
+                return false;
+            coder.m_root = WebRect::create(WKRectMake(x, y, width, height));
+            break;
+        }
+        case APIObject::TypeRenderLayer: {
+            String renderObjectName;
+            String elementTagName;
+            String elementID;
+            RefPtr<APIObject> elementClassNames;
+            bool isReflection;
+            bool isClipping;
+            bool isClipped;
+            uint32_t compositingLayerTypeAsUInt32;
+            WebCore::IntRect absoluteBoundingBox;
+            RefPtr<APIObject> negativeZOrderList;
+            RefPtr<APIObject> normalFlowList;
+            RefPtr<APIObject> positiveZOrderList;
+
+            if (!decoder->decode(renderObjectName))
+                return false;
+            if (!decoder->decode(elementTagName))
+                return false;
+            if (!decoder->decode(elementID))
+                return false;
+            Owner classNamesCoder(coder, elementClassNames);
+            if (!decoder->decode(classNamesCoder))
+                return false;
+            if (!decoder->decodeBool(isReflection))
+                return false;
+            if (!decoder->decodeBool(isClipping))
+                return false;
+            if (!decoder->decodeBool(isClipped))
+                return false;
+            if (!decoder->decodeUInt32(compositingLayerTypeAsUInt32))
+                return false;
+            if (!decoder->decode(absoluteBoundingBox))
+                return false;
+            Owner negativeZOrderListCoder(coder, negativeZOrderList);
+            if (!decoder->decode(negativeZOrderListCoder))
+                return false;
+            Owner normalFlowListCoder(coder, normalFlowList);
+            if (!decoder->decode(normalFlowListCoder))
+                return false;
+            Owner positiveZOrderListCoder(coder, positiveZOrderList);
+            if (!decoder->decode(positiveZOrderListCoder))
+                return false;
+            coder.m_root = WebRenderLayer::create(renderObjectName, elementTagName, elementID, static_pointer_cast<MutableArray>(elementClassNames),
+                isReflection, isClipping, isClipped, static_cast<WebRenderLayer::CompositingLayerType>(compositingLayerTypeAsUInt32),
+                absoluteBoundingBox, static_pointer_cast<MutableArray>(negativeZOrderList), static_pointer_cast<MutableArray>(normalFlowList),
+                static_pointer_cast<MutableArray>(positiveZOrderList));
+            break;
+        }
+        case APIObject::TypeRenderObject: {
+            String name;
+            WebCore::IntPoint absolutePosition;
+            WebCore::IntRect frameRect;
+            RefPtr<APIObject> children;
+            
+            if (!decoder->decode(name))
+                return false;
+            if (!decoder->decode(absolutePosition))
+                return false;
+            if (!decoder->decode(frameRect))
+                return false;
+            Owner messageCoder(coder, children);
+            if (!decoder->decode(messageCoder))
+                return false;
+            if (children->type() != APIObject::TypeArray)
+                return false;
+            coder.m_root = WebRenderObject::create(name, absolutePosition, frameRect, WTF::static_pointer_cast<MutableArray>(children));
+            break;
+        }
         case APIObject::TypeURL: {
             String string;
             if (!decoder->decode(string))
                 return false;
             coder.m_root = WebURL::create(string);
+            break;
+        }
+        case APIObject::TypeURLRequest: {
+            WebCore::ResourceRequest request;
+            if (!decoder->decode(request))
+                return false;
+            coder.m_root = WebURLRequest::create(request);
             break;
         }
         case APIObject::TypeUserContentURLPattern: {
@@ -300,10 +471,10 @@ public:
             return true;
         }
         case APIObject::TypeData: {
-            Vector<uint8_t> buffer;
-            if (!decoder->decodeBytes(buffer))
+            CoreIPC::DataReference dataReference;
+            if (!decoder->decodeVariableLengthByteArray(dataReference))
                 return false;
-            coder.m_root = WebData::create(buffer);
+            coder.m_root = WebData::create(dataReference.data(), dataReference.size());
             break;
         }
         case APIObject::TypeCertificateInfo: {

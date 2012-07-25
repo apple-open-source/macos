@@ -23,7 +23,7 @@
 
 #include <asl_core.h>
 #include "asl_mini_memory.h"
-#include <unistd.h>x
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/errno.h>
@@ -204,11 +204,10 @@ asl_mini_memory_string_cache_search_hash(asl_mini_memory_t *s, uint32_t hash)
 		return 1;
 	}
 
-	top = s->string_count - 1;
+	range = top = s->string_count - 1;
 	bot = 0;
 	mid = top / 2;
 
-	range = top - bot;
 	while (range > 1)
 	{
 		ms = (mini_mem_string_t *)s->string_cache[mid];
@@ -400,6 +399,7 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 	r->level = ASL_LEVEL_DEBUG;
 	r->pid = -1;
 	r->time = (uint64_t)-1;
+	r->nano = (uint32_t)-1;
 
 	key = NULL;
 	val = NULL;
@@ -411,6 +411,10 @@ asl_mini_memory_message_encode(asl_mini_memory_t *s, aslmsg msg)
 		else if (!strcmp(key, ASL_KEY_TIME))
 		{
 			if (val != NULL) r->time = asl_parse_time(val);
+		}
+		else if (!strcmp(key, ASL_KEY_TIME_NSEC))
+		{
+			if (val != NULL) r->nano = atoi(val);
 		}
 		else if (!strcmp(key, ASL_KEY_SENDER))
 		{
@@ -591,6 +595,13 @@ asl_mini_memory_message_decode(asl_mini_memory_t *s, mini_mem_record_t *r, aslms
 		asl_set(msg, ASL_KEY_TIME, tmp);
 	}
 
+	/* Nanoseconds */
+	if (r->nano != (uint32_t)-1)
+	{
+		snprintf(tmp, sizeof(tmp), "%u", r->nano);
+		asl_set(msg, ASL_KEY_TIME_NSEC, tmp);
+	}
+
 	/* Sender */
 	if (r->sender != NULL)
 	{
@@ -718,6 +729,20 @@ asl_mini_memory_query_to_record(asl_mini_memory_t *s, asl_msg_t *q, uint32_t *ty
 
 			*type |= ASL_QUERY_MATCH_TIME;
 			out->time = asl_parse_time(val);
+		}
+		else if (!strcmp(key, ASL_KEY_TIME_NSEC))
+		{
+			if (val == NULL) continue;
+
+			if (*type & ASL_QUERY_MATCH_NANO)
+			{
+				asl_mini_memory_record_free(s, out);
+				*type = ASL_QUERY_MATCH_SLOW;
+				return NULL;
+			}
+
+			*type |= ASL_QUERY_MATCH_NANO;
+			out->nano = atoll(val);
 		}
 		else if (!strcmp(key, ASL_KEY_LEVEL))
 		{
@@ -864,6 +889,7 @@ asl_mini_memory_fast_match(asl_mini_memory_t *s, mini_mem_record_t *r, uint32_t 
 
 	if ((qtype & ASL_QUERY_MATCH_MSG_ID) && (q->mid != r->mid)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_TIME) && (q->time != r->time)) return 0;
+	if ((qtype & ASL_QUERY_MATCH_NANO) && (q->nano != r->nano)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_LEVEL) && (q->level != r->level)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_PID) && (q->pid != r->pid)) return 0;
 	if ((qtype & ASL_QUERY_MATCH_SENDER) && (q->sender != r->sender)) return 0;
@@ -913,7 +939,6 @@ asl_mini_memory_match(asl_mini_memory_t *s, aslresponse query, aslresponse *res,
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (res == NULL) return ASL_STATUS_INVALID_ARG;
 
-	do_match = 1;
 	qp = NULL;
 	qtype = NULL;
 	rescount = 0;

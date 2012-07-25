@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2005, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2005, 2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,7 @@ extern Boolean			_verbose;
 
 __BEGIN_DECLS
 
+__private_extern__
 int	dgram_socket		(int	domain);
 
 __END_DECLS

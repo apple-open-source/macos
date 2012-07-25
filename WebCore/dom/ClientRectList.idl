@@ -27,10 +27,10 @@
 module view {
 
     interface [
-        HasIndexGetter
+        IndexedGetter
     ] ClientRectList {
         readonly attribute unsigned long length;
-        ClientRect item(in [IsIndex] unsigned long index);
+        ClientRect item(in [IsIndex,Optional=DefaultIsUndefined] unsigned long index);
         // FIXME: Fix list behavior to allow custom exceptions to be thrown.
     };
 

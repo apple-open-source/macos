@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2011 Apple Inc. All rights reserved.
  *           (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -29,10 +29,8 @@
 
 #include "CachedFont.h"
 #include "CSSFontFace.h"
-#include "CSSFontFaceRule.h"
 #include "CSSFontFaceSource.h"
 #include "CSSFontFaceSrcValue.h"
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPropertyNames.h"
 #include "CSSSegmentedFontFace.h"
@@ -42,11 +40,14 @@
 #include "CachedResourceLoader.h"
 #include "Document.h"
 #include "FontCache.h"
-#include "FontFamilyValue.h"
 #include "Frame.h"
 #include "RenderObject.h"
 #include "Settings.h"
 #include "SimpleFontData.h"
+#include "StylePropertySet.h"
+#include "StyleResolver.h"
+#include "StyleRule.h"
+#include "WebKitFontFamilyNames.h"
 #include <wtf/text/AtomicString.h>
 
 #if ENABLE(SVG)
@@ -54,10 +55,14 @@
 #include "SVGNames.h"
 #endif
 
+using namespace std;
+
 namespace WebCore {
 
 CSSFontSelector::CSSFontSelector(Document* document)
     : m_document(document)
+    , m_beginLoadingTimer(this, &CSSFontSelector::beginLoadTimerFired)
+    , m_version(0)
 {
     // FIXME: An old comment used to say there was no need to hold a reference to m_document
     // because "we are guaranteed to be destroyed before the document". But there does not
@@ -69,10 +74,8 @@ CSSFontSelector::CSSFontSelector(Document* document)
 
 CSSFontSelector::~CSSFontSelector()
 {
+    clearDocument();
     fontCache()->removeClient(this);
-    deleteAllValues(m_fontFaces);
-    deleteAllValues(m_locallyInstalledFontFaces);
-    deleteAllValues(m_fonts);
 }
 
 bool CSSFontSelector::isEmpty() const
@@ -80,15 +83,10 @@ bool CSSFontSelector::isEmpty() const
     return m_fonts.isEmpty();
 }
 
-CachedResourceLoader* CSSFontSelector::cachedResourceLoader() const
-{
-    return m_document ? m_document->cachedResourceLoader() : 0;
-}
-
-void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
+void CSSFontSelector::addFontFaceRule(const StyleRuleFontFace* fontFaceRule)
 {
     // Obtain the font-family property and the src property.  Both must be defined.
-    const CSSMutableStyleDeclaration* style = fontFaceRule->style();
+    const StylePropertySet* style = fontFaceRule->properties();
     RefPtr<CSSValue> fontFamily = style->getPropertyCSSValue(CSSPropertyFontFamily);
     RefPtr<CSSValue> src = style->getPropertyCSSValue(CSSPropertySrc);
     RefPtr<CSSValue> unicodeRange = style->getPropertyCSSValue(CSSPropertyUnicodeRange);
@@ -108,94 +106,65 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
     unsigned traitsMask = 0;
 
     if (RefPtr<CSSValue> fontStyle = style->getPropertyCSSValue(CSSPropertyFontStyle)) {
-        if (fontStyle->isPrimitiveValue()) {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            list->append(fontStyle);
-            fontStyle = list;
-        } else if (!fontStyle->isValueList())
+        if (!fontStyle->isPrimitiveValue())
             return;
 
-        CSSValueList* styleList = static_cast<CSSValueList*>(fontStyle.get());
-        unsigned numStyles = styleList->length();
-        if (!numStyles)
-            return;
-
-        for (unsigned i = 0; i < numStyles; ++i) {
-            switch (static_cast<CSSPrimitiveValue*>(styleList->itemWithoutBoundsCheck(i))->getIdent()) {
-                case CSSValueAll:
-                    traitsMask |= FontStyleMask;
-                    break;
-                case CSSValueNormal:
-                    traitsMask |= FontStyleNormalMask;
-                    break;
-                case CSSValueItalic:
-                case CSSValueOblique:
-                    traitsMask |= FontStyleItalicMask;
-                    break;
-                default:
-                    break;
-            }
+        switch (static_cast<CSSPrimitiveValue*>(fontStyle.get())->getIdent()) {
+        case CSSValueNormal:
+            traitsMask |= FontStyleNormalMask;
+            break;
+        case CSSValueItalic:
+        case CSSValueOblique:
+            traitsMask |= FontStyleItalicMask;
+            break;
+        default:
+            break;
         }
     } else
-        traitsMask |= FontStyleMask;
+        traitsMask |= FontStyleNormalMask;
 
     if (RefPtr<CSSValue> fontWeight = style->getPropertyCSSValue(CSSPropertyFontWeight)) {
-        if (fontWeight->isPrimitiveValue()) {
-            RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
-            list->append(fontWeight);
-            fontWeight = list;
-        } else if (!fontWeight->isValueList())
+        if (!fontWeight->isPrimitiveValue())
             return;
 
-        CSSValueList* weightList = static_cast<CSSValueList*>(fontWeight.get());
-        unsigned numWeights = weightList->length();
-        if (!numWeights)
-            return;
-
-        for (unsigned i = 0; i < numWeights; ++i) {
-            switch (static_cast<CSSPrimitiveValue*>(weightList->itemWithoutBoundsCheck(i))->getIdent()) {
-                case CSSValueAll:
-                    traitsMask |= FontWeightMask;
-                    break;
-                case CSSValueBolder:
-                case CSSValueBold:
-                case CSSValue700:
-                    traitsMask |= FontWeight700Mask;
-                    break;
-                case CSSValueNormal:
-                case CSSValue400:
-                    traitsMask |= FontWeight400Mask;
-                    break;
-                case CSSValue900:
-                    traitsMask |= FontWeight900Mask;
-                    break;
-                case CSSValue800:
-                    traitsMask |= FontWeight800Mask;
-                    break;
-                case CSSValue600:
-                    traitsMask |= FontWeight600Mask;
-                    break;
-                case CSSValue500:
-                    traitsMask |= FontWeight500Mask;
-                    break;
-                case CSSValue300:
-                    traitsMask |= FontWeight300Mask;
-                    break;
-                case CSSValueLighter:
-                case CSSValue200:
-                    traitsMask |= FontWeight200Mask;
-                    break;
-                case CSSValue100:
-                    traitsMask |= FontWeight100Mask;
-                    break;
-                default:
-                    break;
-            }
+        switch (static_cast<CSSPrimitiveValue*>(fontWeight.get())->getIdent()) {
+        case CSSValueBold:
+        case CSSValue700:
+            traitsMask |= FontWeight700Mask;
+            break;
+        case CSSValueNormal:
+        case CSSValue400:
+            traitsMask |= FontWeight400Mask;
+            break;
+        case CSSValue900:
+            traitsMask |= FontWeight900Mask;
+            break;
+        case CSSValue800:
+            traitsMask |= FontWeight800Mask;
+            break;
+        case CSSValue600:
+            traitsMask |= FontWeight600Mask;
+            break;
+        case CSSValue500:
+            traitsMask |= FontWeight500Mask;
+            break;
+        case CSSValue300:
+            traitsMask |= FontWeight300Mask;
+            break;
+        case CSSValue200:
+            traitsMask |= FontWeight200Mask;
+            break;
+        case CSSValue100:
+            traitsMask |= FontWeight100Mask;
+            break;
+        default:
+            break;
         }
     } else
-        traitsMask |= FontWeightMask;
+        traitsMask |= FontWeight400Mask;
 
     if (RefPtr<CSSValue> fontVariant = style->getPropertyCSSValue(CSSPropertyFontVariant)) {
+        // font-variant descriptor can be a value list.
         if (fontVariant->isPrimitiveValue()) {
             RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
             list->append(fontVariant);
@@ -210,9 +179,6 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
 
         for (unsigned i = 0; i < numVariants; ++i) {
             switch (static_cast<CSSPrimitiveValue*>(variantList->itemWithoutBoundsCheck(i))->getIdent()) {
-                case CSSValueAll:
-                    traitsMask |= FontVariantMask;
-                    break;
                 case CSSValueNormal:
                     traitsMask |= FontVariantNormalMask;
                     break;
@@ -236,7 +202,7 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
     for (int i = 0; i < srcLength; i++) {
         // An item in the list either specifies a string (local font name) or a URL (remote font to download).
         CSSFontFaceSrcValue* item = static_cast<CSSFontFaceSrcValue*>(srcList->itemWithoutBoundsCheck(i));
-        CSSFontFaceSource* source = 0;
+        OwnPtr<CSSFontFaceSource> source;
 
 #if ENABLE(SVG_FONTS)
         foundSVGFont = item->isSVGFontFaceSrc() || item->svgFontFaceElement();
@@ -245,9 +211,9 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
             Settings* settings = m_document ? m_document->frame() ? m_document->frame()->settings() : 0 : 0;
             bool allowDownloading = foundSVGFont || (settings && settings->downloadableBinaryFontsEnabled());
             if (allowDownloading && item->isSupportedFormat() && m_document) {
-                CachedFont* cachedFont = m_document->cachedResourceLoader()->requestFont(item->resource());
+                CachedFont* cachedFont = item->cachedFont(m_document);
                 if (cachedFont) {
-                    source = new CSSFontFaceSource(item->resource(), cachedFont);
+                    source = adoptPtr(new CSSFontFaceSource(item->resource(), cachedFont));
 #if ENABLE(SVG_FONTS)
                     if (foundSVGFont)
                         source->setHasExternalSVGFont(true);
@@ -255,7 +221,7 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
                 }
             }
         } else {
-            source = new CSSFontFaceSource(item->resource());
+            source = adoptPtr(new CSSFontFaceSource(item->resource()));
         }
 
         if (!fontFace)
@@ -265,7 +231,7 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
 #if ENABLE(SVG_FONTS)
             source->setSVGFontFaceElement(item->svgFontFaceElement());
 #endif
-            fontFace->addSource(source);
+            fontFace->addSource(source.release());
         }
     }
 
@@ -287,30 +253,29 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
     for (int i = 0; i < familyLength; i++) {
         CSSPrimitiveValue* item = static_cast<CSSPrimitiveValue*>(familyList->itemWithoutBoundsCheck(i));
         String familyName;
-        if (item->primitiveType() == CSSPrimitiveValue::CSS_STRING)
-            familyName = static_cast<FontFamilyValue*>(item)->familyName();
-        else if (item->primitiveType() == CSSPrimitiveValue::CSS_IDENT) {
+        if (item->isString())
+            familyName = item->getStringValue();
+        else if (item->isIdent()) {
             // We need to use the raw text for all the generic family types, since @font-face is a way of actually
             // defining what font to use for those types.
-            String familyName;
             switch (item->getIdent()) {
                 case CSSValueSerif:
-                    familyName = "-webkit-serif";
+                    familyName = serifFamily;
                     break;
                 case CSSValueSansSerif:
-                    familyName = "-webkit-sans-serif";
+                    familyName = sansSerifFamily;
                     break;
                 case CSSValueCursive:
-                    familyName = "-webkit-cursive";
+                    familyName = cursiveFamily;
                     break;
                 case CSSValueFantasy:
-                    familyName = "-webkit-fantasy";
+                    familyName = fantasyFamily;
                     break;
                 case CSSValueMonospace:
-                    familyName = "-webkit-monospace";
+                    familyName = monospaceFamily;
                     break;
                 case CSSValueWebkitPictograph:
-                    familyName = "-webkit-pictograph";
+                    familyName = pictographFamily;
                     break;
                 default:
                     break;
@@ -320,31 +285,31 @@ void CSSFontSelector::addFontFaceRule(const CSSFontFaceRule* fontFaceRule)
         if (familyName.isEmpty())
             continue;
 
-        Vector<RefPtr<CSSFontFace> >* familyFontFaces = m_fontFaces.get(familyName);
+        OwnPtr<Vector<RefPtr<CSSFontFace> > >& familyFontFaces = m_fontFaces.add(familyName, nullptr).iterator->second;
         if (!familyFontFaces) {
-            familyFontFaces = new Vector<RefPtr<CSSFontFace> >;
-            m_fontFaces.set(familyName, familyFontFaces);
+            familyFontFaces = adoptPtr(new Vector<RefPtr<CSSFontFace> >);
 
             ASSERT(!m_locallyInstalledFontFaces.contains(familyName));
-            Vector<RefPtr<CSSFontFace> >* familyLocallyInstalledFaces;
 
             Vector<unsigned> locallyInstalledFontsTraitsMasks;
             fontCache()->getTraitsInFamily(familyName, locallyInstalledFontsTraitsMasks);
-            unsigned numLocallyInstalledFaces = locallyInstalledFontsTraitsMasks.size();
-            if (numLocallyInstalledFaces) {
-                familyLocallyInstalledFaces = new Vector<RefPtr<CSSFontFace> >;
-                m_locallyInstalledFontFaces.set(familyName, familyLocallyInstalledFaces);
+            if (unsigned numLocallyInstalledFaces = locallyInstalledFontsTraitsMasks.size()) {
+                OwnPtr<Vector<RefPtr<CSSFontFace> > > familyLocallyInstalledFaces = adoptPtr(new Vector<RefPtr<CSSFontFace> >);
 
                 for (unsigned i = 0; i < numLocallyInstalledFaces; ++i) {
                     RefPtr<CSSFontFace> locallyInstalledFontFace = CSSFontFace::create(static_cast<FontTraitsMask>(locallyInstalledFontsTraitsMasks[i]), true);
-                    locallyInstalledFontFace->addSource(new CSSFontFaceSource(familyName));
+                    locallyInstalledFontFace->addSource(adoptPtr(new CSSFontFaceSource(familyName)));
                     ASSERT(locallyInstalledFontFace->isValid());
                     familyLocallyInstalledFaces->append(locallyInstalledFontFace);
                 }
+
+                m_locallyInstalledFontFaces.set(familyName, familyLocallyInstalledFaces.release());
             }
         }
 
         familyFontFaces->append(fontFace);
+        
+        ++m_version;
     }
 }
 
@@ -366,7 +331,11 @@ void CSSFontSelector::dispatchInvalidationCallbacks()
         clients[i]->fontsNeedUpdate(this);
 
     // FIXME: Make Document a FontSelectorClient so that it can simply register for invalidation callbacks.
-    if (!m_document || m_document->inPageCache() || !m_document->renderer())
+    if (!m_document)
+        return;
+    if (StyleResolver* styleResolver = m_document->styleResolverIfExists())
+        styleResolver->invalidateMatchedPropertiesCache();
+    if (m_document->inPageCache() || !m_document->renderer())
         return;
     m_document->scheduleForcedStyleRecalc();
 }
@@ -389,22 +358,24 @@ static FontData* fontDataForGenericFamily(Document* document, const FontDescript
     const Settings* settings = document->frame()->settings();
     if (!settings)
         return 0;
-    
+
     AtomicString genericFamily;
-    if (familyName == "-webkit-serif")
-        genericFamily = settings->serifFontFamily();
-    else if (familyName == "-webkit-sans-serif")
-        genericFamily = settings->sansSerifFontFamily();
-    else if (familyName == "-webkit-cursive")
-        genericFamily = settings->cursiveFontFamily();
-    else if (familyName == "-webkit-fantasy")
-        genericFamily = settings->fantasyFontFamily();
-    else if (familyName == "-webkit-monospace")
-        genericFamily = settings->fixedFontFamily();
-    else if (familyName == "-webkit-pictograph")
-        genericFamily = settings->pictographFontFamily();
-    else if (familyName == "-webkit-standard")
-        genericFamily = settings->standardFontFamily();
+    UScriptCode script = fontDescription.script();
+
+    if (familyName == serifFamily)
+         genericFamily = settings->serifFontFamily(script);
+    else if (familyName == sansSerifFamily)
+         genericFamily = settings->sansSerifFontFamily(script);
+    else if (familyName == cursiveFamily)
+         genericFamily = settings->cursiveFontFamily(script);
+    else if (familyName == fantasyFamily)
+         genericFamily = settings->fantasyFontFamily(script);
+    else if (familyName == monospaceFamily)
+         genericFamily = settings->fixedFontFamily(script);
+    else if (familyName == pictographFamily)
+         genericFamily = settings->pictographFontFamily(script);
+    else if (familyName == standardFamily)
+         genericFamily = settings->standardFontFamily(script);
 
     if (!genericFamily.isEmpty())
         return fontCache()->getCachedFontData(fontDescription, genericFamily);
@@ -425,6 +396,7 @@ static inline bool compareFontFaces(CSSFontFace* first, CSSFontFace* second)
     if (firstHasDesiredVariant != secondHasDesiredVariant)
         return firstHasDesiredVariant;
 
+    // We need to check font-variant css property for CSS2.1 compatibility.
     if ((desiredTraitsMaskForComparison & FontVariantSmallCapsMask) && !first->isLocalFallback() && !second->isLocalFallback()) {
         // Prefer a font that has indicated that it can only support small-caps to a font that claims to support
         // all variants.  The specialized font is more likely to be true small-caps and not require synthesis.
@@ -454,12 +426,11 @@ static inline bool compareFontFaces(CSSFontFace* first, CSSFontFace* second)
     if (firstTraitsMask & desiredTraitsMaskForComparison & FontWeightMask)
         return true;
 
-    // http://www.w3.org/TR/2002/WD-css3-webfonts-20020802/#q46 says: "If there are fewer then 9 weights in the family, the default algorithm
-    // for filling the "holes" is as follows. If '500' is unassigned, it will be assigned the same font as '400'. If any of the values '600',
-    // '700', '800', or '900' remains unassigned, they are assigned to the same face as the next darker assigned keyword, if any, or the next
-    // lighter one otherwise. If any of '300', '200', or '100' remains unassigned, it is assigned to the next lighter assigned keyword, if any,
-    // or the next darker otherwise."
-    // For '400', we made up our own rule (which then '500' follows).
+    // http://www.w3.org/TR/2011/WD-css3-fonts-20111004/#font-matching-algorithm says :
+    //   - If the desired weight is less than 400, weights below the desired weight are checked in descending order followed by weights above the desired weight in ascending order until a match is found.
+    //   - If the desired weight is greater than 500, weights above the desired weight are checked in ascending order followed by weights below the desired weight in descending order until a match is found.
+    //   - If the desired weight is 400, 500 is checked first and then the rule for desired weights less than 400 is used.
+    //   - If the desired weight is 500, 400 is checked first and then the rule for desired weights less than 400 is used.
 
     static const unsigned fallbackRuleSets = 9;
     static const unsigned rulesPerSet = 8;
@@ -467,8 +438,8 @@ static inline bool compareFontFaces(CSSFontFace* first, CSSFontFace* second)
         { FontWeight200Mask, FontWeight300Mask, FontWeight400Mask, FontWeight500Mask, FontWeight600Mask, FontWeight700Mask, FontWeight800Mask, FontWeight900Mask },
         { FontWeight100Mask, FontWeight300Mask, FontWeight400Mask, FontWeight500Mask, FontWeight600Mask, FontWeight700Mask, FontWeight800Mask, FontWeight900Mask },
         { FontWeight200Mask, FontWeight100Mask, FontWeight400Mask, FontWeight500Mask, FontWeight600Mask, FontWeight700Mask, FontWeight800Mask, FontWeight900Mask },
-        { FontWeight500Mask, FontWeight300Mask, FontWeight600Mask, FontWeight200Mask, FontWeight700Mask, FontWeight100Mask, FontWeight800Mask, FontWeight900Mask },
-        { FontWeight400Mask, FontWeight300Mask, FontWeight600Mask, FontWeight200Mask, FontWeight700Mask, FontWeight100Mask, FontWeight800Mask, FontWeight900Mask },
+        { FontWeight500Mask, FontWeight300Mask, FontWeight200Mask, FontWeight100Mask, FontWeight600Mask, FontWeight700Mask, FontWeight800Mask, FontWeight900Mask },
+        { FontWeight400Mask, FontWeight300Mask, FontWeight200Mask, FontWeight100Mask, FontWeight600Mask, FontWeight700Mask, FontWeight800Mask, FontWeight900Mask },
         { FontWeight700Mask, FontWeight800Mask, FontWeight900Mask, FontWeight500Mask, FontWeight400Mask, FontWeight300Mask, FontWeight200Mask, FontWeight100Mask },
         { FontWeight800Mask, FontWeight900Mask, FontWeight600Mask, FontWeight500Mask, FontWeight400Mask, FontWeight300Mask, FontWeight200Mask, FontWeight100Mask },
         { FontWeight900Mask, FontWeight700Mask, FontWeight600Mask, FontWeight500Mask, FontWeight400Mask, FontWeight300Mask, FontWeight200Mask, FontWeight100Mask },
@@ -499,6 +470,8 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
     if (m_fontFaces.isEmpty()) {
         if (familyName.startsWith("-webkit-"))
             return fontDataForGenericFamily(m_document, fontDescription, familyName);
+        if (fontDescription.genericFamily() == FontDescription::StandardFamily && !fontDescription.isSpecifiedFont())
+            return fontDataForGenericFamily(m_document, fontDescription, "-webkit-standard");
         return 0;
     }
 
@@ -509,22 +482,21 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
     if (!familyFontFaces || familyFontFaces->isEmpty()) {
         // If we were handed a generic family, but there was no match, go ahead and return the correct font based off our
         // settings.
+        if (fontDescription.genericFamily() == FontDescription::StandardFamily && !fontDescription.isSpecifiedFont())
+            return fontDataForGenericFamily(m_document, fontDescription, "-webkit-standard");
         return fontDataForGenericFamily(m_document, fontDescription, familyName);
     }
 
-    HashMap<unsigned, RefPtr<CSSSegmentedFontFace> >* segmentedFontFaceCache = m_fonts.get(family);
-    if (!segmentedFontFaceCache) {
-        segmentedFontFaceCache = new HashMap<unsigned, RefPtr<CSSSegmentedFontFace> >;
-        m_fonts.set(family, segmentedFontFaceCache);
-    }
+    OwnPtr<HashMap<unsigned, RefPtr<CSSSegmentedFontFace> > >& segmentedFontFaceCache = m_fonts.add(family, nullptr).iterator->second;
+    if (!segmentedFontFaceCache)
+        segmentedFontFaceCache = adoptPtr(new HashMap<unsigned, RefPtr<CSSSegmentedFontFace> >);
 
     FontTraitsMask traitsMask = fontDescription.traitsMask();
 
-    RefPtr<CSSSegmentedFontFace> face = segmentedFontFaceCache->get(traitsMask);
-
+    RefPtr<CSSSegmentedFontFace>& face = segmentedFontFaceCache->add(traitsMask, 0).iterator->second;
     if (!face) {
         face = CSSSegmentedFontFace::create(this);
-        segmentedFontFaceCache->set(traitsMask, face);
+
         // Collect all matching faces and sort them in order of preference.
         Vector<CSSFontFace*, 32> candidateFontFaces;
         for (int i = familyFontFaces->size() - 1; i >= 0; --i) {
@@ -557,7 +529,7 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
         }
 
         desiredTraitsMaskForComparison = traitsMask;
-        std::stable_sort(candidateFontFaces.begin(), candidateFontFaces.end(), compareFontFaces);
+        stable_sort(candidateFontFaces.begin(), candidateFontFaces.end(), compareFontFaces);
         unsigned numCandidates = candidateFontFaces.size();
         for (unsigned i = 0; i < numCandidates; ++i)
             face->appendFontFace(candidateFontFaces[i]);
@@ -565,6 +537,55 @@ FontData* CSSFontSelector::getFontData(const FontDescription& fontDescription, c
 
     // We have a face.  Ask it for a font data.  If it cannot produce one, it will fail, and the OS will take over.
     return face->getFontData(fontDescription);
+}
+
+void CSSFontSelector::clearDocument()
+{
+    if (!m_document) {
+        ASSERT(!m_beginLoadingTimer.isActive());
+        ASSERT(m_fontsToBeginLoading.isEmpty());
+        return;
+    }
+
+    m_beginLoadingTimer.stop();
+
+    CachedResourceLoader* cachedResourceLoader = m_document->cachedResourceLoader();
+    for (size_t i = 0; i < m_fontsToBeginLoading.size(); ++i) {
+        // Balances incrementRequestCount() in beginLoadingFontSoon().
+        cachedResourceLoader->decrementRequestCount(m_fontsToBeginLoading[i].get());
+    }
+
+    m_fontsToBeginLoading.clear();
+
+    m_document = 0;
+}
+
+void CSSFontSelector::beginLoadingFontSoon(CachedFont* font)
+{
+    if (!m_document)
+        return;
+
+    m_fontsToBeginLoading.append(font);
+    // Increment the request count now, in order to prevent didFinishLoad from being dispatched
+    // after this font has been requested but before it began loading. Balanced by
+    // decrementRequestCount() in beginLoadTimerFired() and in clearDocument().
+    m_document->cachedResourceLoader()->incrementRequestCount(font);
+    m_beginLoadingTimer.startOneShot(0);
+}
+
+void CSSFontSelector::beginLoadTimerFired(Timer<WebCore::CSSFontSelector>*)
+{
+    Vector<CachedResourceHandle<CachedFont> > fontsToBeginLoading;
+    fontsToBeginLoading.swap(m_fontsToBeginLoading);
+
+    CachedResourceLoader* cachedResourceLoader = m_document->cachedResourceLoader();
+    for (size_t i = 0; i < fontsToBeginLoading.size(); ++i) {
+        fontsToBeginLoading[i]->beginLoadIfNeeded(cachedResourceLoader);
+        // Balances incrementRequestCount() in beginLoadingFontSoon().
+        cachedResourceLoader->decrementRequestCount(fontsToBeginLoading[i].get());
+    }
+    // Ensure that if the request count reaches zero, the frame loader will know about it.
+    cachedResourceLoader->loadDone();
 }
 
 }

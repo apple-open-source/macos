@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2007 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2007, 2011 Apple Computer, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,6 +78,9 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (BOOL)showsURLsInToolTips;
 - (void)setShowsURLsInToolTips:(BOOL)flag;
 
+- (BOOL)showsToolTipOverTruncatedText;
+- (void)setShowsToolTipOverTruncatedText:(BOOL)flag;
+
 - (BOOL)textAreasAreResizable;
 - (void)setTextAreasAreResizable:(BOOL)flag;
 
@@ -125,9 +128,6 @@ extern NSString *WebPreferencesChangedInternalNotification;
 
 - (BOOL)experimentalNotificationsEnabled;
 - (void)setExperimentalNotificationsEnabled:(BOOL)notificationsEnabled;
-
-- (unsigned)pluginAllowedRunTime;
-- (void)setPluginAllowedRunTime:(unsigned)allowedRunTime;
 
 - (BOOL)isFrameFlatteningEnabled;
 - (void)setFrameFlatteningEnabled:(BOOL)flag;
@@ -186,6 +186,12 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
 
+- (BOOL)cssCustomFilterEnabled;
+- (void)setCSSCustomFilterEnabled:(BOOL)enabled;
+
+- (BOOL)cssRegionsEnabled;
+- (void)setCSSRegionsEnabled:(BOOL)enabled;
+
 - (BOOL)showDebugBorders;
 - (void)setShowDebugBorders:(BOOL)show;
 
@@ -210,8 +216,21 @@ extern NSString *WebPreferencesChangedInternalNotification;
 - (BOOL)hyperlinkAuditingEnabled;
 - (void)setHyperlinkAuditingEnabled:(BOOL)enabled;
 
+- (void)setMediaPlaybackRequiresUserGesture:(BOOL)flag;
+- (BOOL)mediaPlaybackRequiresUserGesture;
+
+- (void)setMediaPlaybackAllowsInline:(BOOL)flag;
+- (BOOL)mediaPlaybackAllowsInline;
+
 - (NSString *)pictographFontFamily;
 - (void)setPictographFontFamily:(NSString *)family;
+
+- (BOOL)pageCacheSupportsPlugins;
+- (void)setPageCacheSupportsPlugins:(BOOL)flag;
+
+// This is a global setting.
+- (BOOL)mockScrollbarsEnabled;
+- (void)setMockScrollbarsEnabled:(BOOL)flag;
 
 // Other private methods
 - (void)_postPreferencesChangedNotification;
@@ -223,6 +242,8 @@ extern NSString *WebPreferencesChangedInternalNotification;
 + (CFStringEncoding)_systemCFStringEncoding;
 + (void)_setInitialDefaultTextEncodingToSystemEncoding;
 + (void)_setIBCreatorID:(NSString *)string;
++ (void)_switchNetworkLoaderToNewTestingSession;
++ (void)_setCurrentNetworkLoaderSessionCookieAcceptPolicy:(NSHTTPCookieAcceptPolicy)cookieAcceptPolicy;
 
 + (void)setWebKitLinkTimeVersion:(int)version;
 
@@ -248,5 +269,36 @@ extern NSString *WebPreferencesChangedInternalNotification;
 // compiled with USE_AVFOUNDATION.
 - (void)setAVFoundationEnabled:(BOOL)flag;
 - (BOOL)isAVFoundationEnabled;
+
+// WebSocket support depends on ENABLE(WEB_SOCKETS).
+- (void)setHixie76WebSocketProtocolEnabled:(BOOL)flag;
+- (BOOL)isHixie76WebSocketProtocolEnabled;
+
+- (void)setRegionBasedColumnsEnabled:(BOOL)flag;
+- (BOOL)regionBasedColumnsEnabled;
+
+- (void)setBackspaceKeyNavigationEnabled:(BOOL)flag;
+- (BOOL)backspaceKeyNavigationEnabled;
+
+- (void)setWantsBalancedSetDefersLoadingBehavior:(BOOL)flag;
+- (BOOL)wantsBalancedSetDefersLoadingBehavior;
+
+- (void)setShouldDisplaySubtitles:(BOOL)flag;
+- (BOOL)shouldDisplaySubtitles;
+
+- (void)setShouldDisplayCaptions:(BOOL)flag;
+- (BOOL)shouldDisplayCaptions;
+
+- (void)setShouldDisplayTextDescriptions:(BOOL)flag;
+- (BOOL)shouldDisplayTextDescriptions;
+
+- (void)setNotificationsEnabled:(BOOL)flag;
+- (BOOL)notificationsEnabled;
+
+- (void)setShouldRespectImageOrientation:(BOOL)flag;
+- (BOOL)shouldRespectImageOrientation;
+
+- (void)setIncrementalRenderingSuppressionTimeoutInSeconds:(NSTimeInterval)timeout;
+- (NSTimeInterval)incrementalRenderingSuppressionTimeoutInSeconds;
 
 @end

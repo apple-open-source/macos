@@ -23,6 +23,7 @@
 #if ENABLE(SVG)
 #include "SVGTSpanElement.h"
 
+#include "NodeRenderingContext.h"
 #include "RenderInline.h"
 #include "RenderSVGTSpan.h"
 #include "SVGNames.h"
@@ -45,21 +46,21 @@ RenderObject* SVGTSpanElement::createRenderer(RenderArena* arena, RenderStyle*)
     return new (arena) RenderSVGTSpan(this);
 }
 
-bool SVGTSpanElement::childShouldCreateRenderer(Node* child) const
+bool SVGTSpanElement::childShouldCreateRenderer(const NodeRenderingContext& childContext) const
 {
-    if (child->isTextNode()
-        || child->hasTagName(SVGNames::aTag)
+    if (childContext.node()->isTextNode()
+        || childContext.node()->hasTagName(SVGNames::aTag)
 #if ENABLE(SVG_FONTS)
-        || child->hasTagName(SVGNames::altGlyphTag)
+        || childContext.node()->hasTagName(SVGNames::altGlyphTag)
 #endif
-        || child->hasTagName(SVGNames::trefTag)
-        || child->hasTagName(SVGNames::tspanTag))
+        || childContext.node()->hasTagName(SVGNames::trefTag)
+        || childContext.node()->hasTagName(SVGNames::tspanTag))
         return true;
 
     return false;
 }
 
-bool SVGTSpanElement::rendererIsNeeded(RenderStyle* style)
+bool SVGTSpanElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     if (parentNode()
         && (parentNode()->hasTagName(SVGNames::aTag)
@@ -69,24 +70,11 @@ bool SVGTSpanElement::rendererIsNeeded(RenderStyle* style)
             || parentNode()->hasTagName(SVGNames::textTag)
             || parentNode()->hasTagName(SVGNames::textPathTag)
             || parentNode()->hasTagName(SVGNames::tspanTag)))
-        return StyledElement::rendererIsNeeded(style);
+        return StyledElement::rendererIsNeeded(context);
 
     return false;
-}
-
-AttributeToPropertyTypeMap& SVGTSpanElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGTSpanElement::fillAttributeToPropertyTypeMap()
-{        
-    SVGTextPositioningElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap());
 }
 
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

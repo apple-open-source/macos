@@ -29,18 +29,14 @@
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
 #include "SVGNames.h"
-#include "SVGPathParserFactory.h"
-#include "SimpleFontData.h"
-#include "XMLNames.h"
+#include "SVGPathUtilities.h"
 
 namespace WebCore {
-
-using namespace SVGNames;
 
 inline SVGGlyphElement::SVGGlyphElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
 {
-    ASSERT(hasTagName(glyphTag));
+    ASSERT(hasTagName(SVGNames::glyphTag));
 }
 
 PassRefPtr<SVGGlyphElement> SVGGlyphElement::create(const QualifiedName& tagName, Document* document)
@@ -57,24 +53,25 @@ void SVGGlyphElement::invalidateGlyphCache()
     }
 }
 
-void SVGGlyphElement::parseMappedAttribute(Attribute* attr)
+void SVGGlyphElement::parseAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::dAttr)
         invalidateGlyphCache();
     else
-        SVGStyledElement::parseMappedAttribute(attr);
+        SVGStyledElement::parseAttribute(attr);
 }
 
-void SVGGlyphElement::insertedIntoDocument()
+Node::InsertionNotificationRequest SVGGlyphElement::insertedInto(Node* rootParent)
 {
     invalidateGlyphCache();
-    SVGStyledElement::insertedIntoDocument();
+    return SVGStyledElement::insertedInto(rootParent);
 }
 
-void SVGGlyphElement::removedFromDocument()
+void SVGGlyphElement::removedFrom(Node* rootParent)
 {
-    invalidateGlyphCache();
-    SVGStyledElement::removedFromDocument();
+    if (rootParent->inDocument())
+        invalidateGlyphCache();
+    SVGStyledElement::removedFrom(rootParent);
 }
 
 static inline SVGGlyph::ArabicForm parseArabicForm(const AtomicString& value)
@@ -101,14 +98,6 @@ static inline SVGGlyph::Orientation parseOrientation(const AtomicString& value)
     return SVGGlyph::Both;
 }
 
-static inline Path parsePathData(const AtomicString& value)
-{
-    Path result;
-    SVGPathParserFactory* factory = SVGPathParserFactory::self();
-    factory->buildPathFromString(value, result);
-    return result;
-}
-
 void SVGGlyphElement::inheritUnspecifiedAttributes(SVGGlyph& identifier, const SVGFontData* svgFontData)
 {
     if (identifier.horizontalAdvanceX == SVGGlyph::inheritedValue())
@@ -126,52 +115,38 @@ void SVGGlyphElement::inheritUnspecifiedAttributes(SVGGlyph& identifier, const S
 
 static inline float parseSVGGlyphAttribute(const SVGElement* element, const WebCore::QualifiedName& name)
 {
-    AtomicString value(element->getAttribute(name));
+    AtomicString value(element->fastGetAttribute(name));
     if (value.isEmpty())
         return SVGGlyph::inheritedValue();
 
     return value.toFloat();
 }
 
-AttributeToPropertyTypeMap& SVGGlyphElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGGlyphElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::dAttr, AnimatedPath);
-}
-
 SVGGlyph SVGGlyphElement::buildGenericGlyphIdentifier(const SVGElement* element)
 {
     SVGGlyph identifier;
-    identifier.pathData = parsePathData(element->getAttribute(dAttr));
+    buildPathFromString(element->fastGetAttribute(SVGNames::dAttr), identifier.pathData);
  
     // Spec: The horizontal advance after rendering the glyph in horizontal orientation.
     // If the attribute is not specified, the effect is as if the attribute were set to the
     // value of the font's horiz-adv-x attribute. Glyph widths are required to be non-negative,
     // even if the glyph is typically rendered right-to-left, as in Hebrew and Arabic scripts.
-    identifier.horizontalAdvanceX = parseSVGGlyphAttribute(element, horiz_adv_xAttr);
+    identifier.horizontalAdvanceX = parseSVGGlyphAttribute(element, SVGNames::horiz_adv_xAttr);
 
     // Spec: The X-coordinate in the font coordinate system of the origin of the glyph to be
     // used when drawing vertically oriented text. If the attribute is not specified, the effect
     // is as if the attribute were set to the value of the font's vert-origin-x attribute.
-    identifier.verticalOriginX = parseSVGGlyphAttribute(element, vert_origin_xAttr);
+    identifier.verticalOriginX = parseSVGGlyphAttribute(element, SVGNames::vert_origin_xAttr);
 
     // Spec: The Y-coordinate in the font coordinate system of the origin of a glyph to be
     // used when drawing vertically oriented text. If the attribute is not specified, the effect
     // is as if the attribute were set to the value of the font's vert-origin-y attribute.
-    identifier.verticalOriginY = parseSVGGlyphAttribute(element, vert_origin_yAttr);
+    identifier.verticalOriginY = parseSVGGlyphAttribute(element, SVGNames::vert_origin_yAttr);
 
     // Spec: The vertical advance after rendering a glyph in vertical orientation.
     // If the attribute is not specified, the effect is as if the attribute were set to the
     // value of the font's vert-adv-y attribute.
-    identifier.verticalAdvanceY = parseSVGGlyphAttribute(element, vert_adv_yAttr);
+    identifier.verticalAdvanceY = parseSVGGlyphAttribute(element, SVGNames::vert_adv_yAttr);
 
     return identifier;
 }
@@ -179,11 +154,11 @@ SVGGlyph SVGGlyphElement::buildGenericGlyphIdentifier(const SVGElement* element)
 SVGGlyph SVGGlyphElement::buildGlyphIdentifier() const
 {
     SVGGlyph identifier(buildGenericGlyphIdentifier(this));
-    identifier.glyphName = getAttribute(glyph_nameAttr);
-    identifier.orientation = parseOrientation(getAttribute(orientationAttr));
-    identifier.arabicForm = parseArabicForm(getAttribute(arabic_formAttr));
+    identifier.glyphName = fastGetAttribute(SVGNames::glyph_nameAttr);
+    identifier.orientation = parseOrientation(fastGetAttribute(SVGNames::orientationAttr));
+    identifier.arabicForm = parseArabicForm(fastGetAttribute(SVGNames::arabic_formAttr));
 
-    String language = getAttribute(SVGNames::langAttr);
+    String language = fastGetAttribute(SVGNames::langAttr);
     if (!language.isEmpty())
         identifier.languages = parseDelimitedString(language, ',');
 

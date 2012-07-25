@@ -26,13 +26,14 @@
 #define DOMSettableTokenList_h
 
 #include "DOMTokenList.h"
-#include "ExceptionCode.h"
 #include "SpaceSplitString.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
+
+typedef int ExceptionCode;
 
 class DOMSettableTokenList : public DOMTokenList, public RefCounted<DOMSettableTokenList> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -55,6 +56,7 @@ public:
     virtual String toString() const { return value(); }
 
     String value() const { return m_value; }
+    const SpaceSplitString& tokens() const { return m_tokens; }
     void setValue(const String&);
 
 private:

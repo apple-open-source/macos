@@ -85,4 +85,4 @@ typedef struct subnet_match_args {
 extern void
 my_log(int priority, const char *message, ...);
 
-#endif _S_BOOTPD_H
+#endif /* _S_BOOTPD_H */

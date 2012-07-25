@@ -69,6 +69,10 @@ static void add_ctf_section(
     uint64_t addr,
     uint32_t size);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The ctf_insert(1) tool has the following usage:
  *
@@ -268,8 +272,7 @@ struct object *object)
 	    object->dyst->nmodtab != 0 ||
 	    object->dyst->nmodtab != 0 ||
 	    object->dyst->nextrefsyms != 0 ||
-	    object->dyst->nextrel != 0 ||
-	    object->dyst->nlocrel != 0))
+	    object->dyst->nextrel != 0))
 	     fatal_arch(arch, member, "file is input for the dynamic linker so "
 			"not a valid input for this program to process: ");
 	if(object->mh_filetype != MH_EXECUTE)
@@ -355,6 +358,8 @@ struct object *object)
 	    object->output_nundefsym = object->dyst->nundefsym;
 	    object->output_indirect_symtab = (uint32_t *)
 		(object->object_addr + object->dyst->indirectsymoff);
+	    object->output_loc_relocs = (struct relocation_info *)
+		(object->object_addr + object->dyst->locreloff);
 	    if(object->mh != NULL){
 		object->input_sym_info_size +=
 		    object->dyst->nindirectsyms *
@@ -366,6 +371,33 @@ struct object *object)
 			sizeof(uint32_t) +
 		    object->input_indirectsym_pad;
 	    }
+	    object->input_sym_info_size +=
+		object->dyst->nlocrel *
+		    sizeof(struct relocation_info);
+	}
+	if(object->func_starts_info_cmd != NULL){
+	    object->output_func_start_info_data = object->object_addr +
+		object->func_starts_info_cmd->dataoff;
+	    object->output_func_start_info_data_size = 
+		object->func_starts_info_cmd->datasize;
+	    object->input_sym_info_size +=
+		object->func_starts_info_cmd->datasize;
+	}
+	if(object->data_in_code_cmd != NULL){
+	    object->output_data_in_code_info_data = object->object_addr +
+		object->data_in_code_cmd->dataoff;
+	    object->output_data_in_code_info_data_size = 
+		object->data_in_code_cmd->datasize;
+	    object->input_sym_info_size +=
+		object->data_in_code_cmd->datasize;
+	}
+	if(object->code_sign_drs_cmd != NULL){
+	    object->output_code_sign_drs_info_data = object->object_addr +
+		object->code_sign_drs_cmd->dataoff;
+	    object->output_code_sign_drs_info_data_size = 
+		object->code_sign_drs_cmd->datasize;
+	    object->input_sym_info_size +=
+		object->code_sign_drs_cmd->datasize;
 	}
 	object->output_sym_info_size = object->input_sym_info_size;
 
@@ -385,8 +417,18 @@ struct object *object)
 	    object->st->symoff += move_size;
 	    object->st->stroff += move_size;
 	}
-	if(object->dyst != NULL)
-	    object->dyst->indirectsymoff += move_size;
+	if(object->dyst != NULL){
+	    if(object->dyst->nindirectsyms != 0)
+	        object->dyst->indirectsymoff += move_size;
+	    if(object->dyst->nlocrel != 0)
+		object->dyst->locreloff += move_size;
+	}
+	if(object->func_starts_info_cmd != NULL)
+	    object->func_starts_info_cmd->dataoff += move_size;
+	if(object->data_in_code_cmd != NULL)
+	    object->data_in_code_cmd->dataoff += move_size;
+	if(object->code_sign_drs_cmd != NULL)
+	    object->code_sign_drs_cmd->dataoff += move_size;
 
 	/*
 	 * Record the new content for writeout() to put in to the output file.

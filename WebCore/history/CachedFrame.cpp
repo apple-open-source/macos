@@ -27,6 +27,7 @@
 #include "CachedPage.h"
 
 #include "CachedFramePlatformData.h"
+#include "DOMWindow.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "ExceptionCode.h"
@@ -52,6 +53,10 @@
 #include "ChromeClient.h"
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+#include "PageCache.h"
+#endif
+
 namespace WebCore {
 
 #ifndef NDEBUG
@@ -69,6 +74,9 @@ CachedFrameBase::CachedFrameBase(Frame* frame)
     , m_mousePressNode(frame->eventHandler()->mousePressNode())
     , m_url(frame->document()->url())
     , m_isMainFrame(!frame->tree()->parent())
+#if USE(ACCELERATED_COMPOSITING)
+    , m_isComposited(frame->view()->hasCompositedContent())
+#endif
 {
 }
 
@@ -105,6 +113,11 @@ void CachedFrameBase::restore()
     // cached page.
     frame->script()->updatePlatformScriptObjects();
 
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_isComposited)
+        frame->view()->restoreBackingStores();
+#endif
+
     frame->loader()->client()->didRestoreFromPageCache();
 
     // Reconstruct the FrameTree
@@ -125,7 +138,7 @@ void CachedFrameBase::restore()
         m_document->page()->chrome()->client()->needTouchEvents(true);
 #endif
 
-    m_document->documentDidBecomeActive();
+    m_document->documentDidResumeFromPageCache();
 }
 
 CachedFrame::CachedFrame(Frame* frame)
@@ -144,7 +157,6 @@ CachedFrame::CachedFrame(Frame* frame)
     // Custom scrollbar renderers will get reattached when the document comes out of the page cache
     m_view->detachCustomScrollbars();
 
-    m_document->documentWillBecomeInactive();
     frame->clearTimers();
     m_document->setInPageCache(true);
     frame->loader()->stopLoading(UnloadEventPolicyUnloadAndPageHide);
@@ -157,12 +169,21 @@ CachedFrame::CachedFrame(Frame* frame)
     // but after we've fired the pagehide event, in case that creates more objects.
     // Suspending must also happen after we've recursed over child frames, in case
     // those create more objects.
-    // FIXME: It's still possible to have objects created after suspending in some cases, see http://webkit.org/b/53733 for more details.
+    m_document->documentWillSuspendForPageCache();
     m_document->suspendScriptedAnimationControllerCallbacks();
     m_document->suspendActiveDOMObjects(ActiveDOMObject::DocumentWillBecomeInactive);
     m_cachedFrameScriptData = adoptPtr(new ScriptCachedFrameData(frame));
 
+    m_domWindow = frame->domWindow();
+    ASSERT(m_domWindow);
+    m_domWindow->suspendForPageCache();
+
     frame->loader()->client()->savePlatformDataToCachedFrame(this);
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_isComposited && pageCache()->shouldClearBackingStores())
+        frame->view()->clearBackingStores();
+#endif
 
     // Deconstruct the FrameTree, to restore it later.
     // We do this for two reasons:
@@ -183,10 +204,6 @@ CachedFrame::CachedFrame(Frame* frame)
         LOG(PageCache, "Finished creating CachedFrame for child frame with url '%s' and DocumentLoader %p\n", m_url.string().utf8().data(), m_documentLoader.get());
 #endif
 
-#if ENABLE(TOUCH_EVENTS)
-    if (m_document->hasListenerType(Document::TOUCH_LISTENER))
-        m_document->page()->chrome()->client()->needTouchEvents(false);
-#endif
 }
 
 void CachedFrame::open()
@@ -232,6 +249,8 @@ void CachedFrame::destroy()
     ASSERT(m_document->inPageCache());
     ASSERT(m_view);
     ASSERT(m_document->frame() == m_view->frame());
+
+    m_domWindow->willDestroyCachedFrame();
 
     if (!m_isMainFrame) {
         m_view->frame()->detachFromPage();

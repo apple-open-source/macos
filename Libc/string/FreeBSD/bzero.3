@@ -42,17 +42,17 @@
 .Sh SYNOPSIS
 .In strings.h
 .Ft void
-.Fn bzero "void *b" "size_t len"
+.Fn bzero "void *s" "size_t n"
 .Sh DESCRIPTION
 The
 .Fn bzero
 function
 writes
-.Fa len
-zero bytes to the string
-.Fa b .
+.Fa n
+zeroed bytes to the string
+.Fa s .
 If
-.Fa len
+.Fa n
 is zero,
 .Fn bzero
 does nothing.

@@ -24,7 +24,11 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qurl.h>
 #include <QtCore/qvariant.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QtWidgets/qicon.h>
+#else
 #include <QtGui/qicon.h>
+#endif
 #include <QtScript/qscriptengine.h>
 #include <QtNetwork/qnetworkaccessmanager.h>
 #include "qwebkitglobal.h"
@@ -56,7 +60,7 @@ namespace WebCore {
     class WidgetPrivate;
     class FrameLoaderClientQt;
     class ChromeClientQt;
-    class TextureMapperNodeClientQt;
+    class TextureMapperLayerClientQt;
 }
 class QWebFrameData;
 class QWebHitTestResultPrivate;
@@ -124,9 +128,7 @@ public:
     QWebPage *page() const;
 
     void load(const QUrl &url);
-    void load(const QNetworkRequest &request,
-              QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation,
-              const QByteArray &body = QByteArray());
+    void load(const QNetworkRequest &request, QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation, const QByteArray &body = QByteArray());
     void setHtml(const QString &html, const QUrl &baseUrl = QUrl());
     void setContent(const QByteArray &data, const QString &mimeType = QString(), const QUrl &baseUrl = QUrl());
 
@@ -232,7 +234,7 @@ private:
     friend class WebCore::WidgetPrivate;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::ChromeClientQt;
-    friend class WebCore::TextureMapperNodeClientQt;
+    friend class WebCore::TextureMapperLayerClientQt;
     QWebFramePrivate *d;
     Q_PRIVATE_SLOT(d, void _q_orientationChanged())
 };

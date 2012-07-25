@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2005, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,4 +61,16 @@ routine shared_dns_infoSet	(	server		: mach_port_t;
 		    ServerAuditToken	audit_token	: audit_token_t);
 #else	// LIBDNSINFO_A
 	skip;		/* shared_dns_infoSet */
-#endif	LIBDNSINFO_A
+#endif	// LIBDNSINFO_A
+
+routine shared_nwi_stateGet     (	server		: mach_port_t;
+				out	data		: dnsDataOut, dealloc);
+
+#ifndef LIBDNSINFO_A
+routine shared_nwi_stateSet	(       server          : mach_port_t;
+				data			: dnsData;
+		    ServerAuditToken	audit_token	: audit_token_t);
+#else   // LIBDNSINFO_A
+	skip;		/* shared_nwi_stateSet */
+#endif  // LIBDNSINFO_A
+

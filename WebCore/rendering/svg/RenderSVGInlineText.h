@@ -35,39 +35,36 @@ public:
     RenderSVGInlineText(Node*, PassRefPtr<StringImpl>);
 
     bool characterStartsNewTextChunk(int position) const;
-
-    SVGTextLayoutAttributes& layoutAttributes() { return m_attributes; }
-    const SVGTextLayoutAttributes& layoutAttributes() const { return m_attributes; }
-    void storeLayoutAttributes(const SVGTextLayoutAttributes& attributes) { m_attributes = attributes; }
+    SVGTextLayoutAttributes* layoutAttributes() { return &m_layoutAttributes; }
 
     float scalingFactor() const { return m_scalingFactor; }
     const Font& scaledFont() const { return m_scaledFont; }
     void updateScaledFont();
     static void computeNewScaledFontForStyle(RenderObject*, const RenderStyle*, float& scalingFactor, Font& scaledFont);
 
+    // Preserves floating point precision for the use in DRT. It knows how to round and does a better job than enclosingIntRect.
+    FloatRect floatLinesBoundingBox() const;
+
 private:
     virtual const char* renderName() const { return "RenderSVGInlineText"; }
 
-    virtual void destroy();
-    
-    virtual void setStyle(PassRefPtr<RenderStyle>);
+    virtual void willBeDestroyed();
+    virtual void setTextInternal(PassRefPtr<StringImpl>);
     virtual void styleDidChange(StyleDifference, const RenderStyle*);
 
-    // FIXME: We need objectBoundingBox for DRT results and filters at the moment.
-    // This should be fixed to give back the objectBoundingBox of the text root.
-    virtual FloatRect objectBoundingBox() const { return FloatRect(); }
+    virtual FloatRect objectBoundingBox() const { return floatLinesBoundingBox(); }
 
     virtual bool requiresLayer() const { return false; }
     virtual bool isSVGInlineText() const { return true; }
 
-    virtual VisiblePosition positionForPoint(const IntPoint&);
-    virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
+    virtual VisiblePosition positionForPoint(const LayoutPoint&);
+    virtual LayoutRect localCaretRect(InlineBox*, int caretOffset, LayoutUnit* extraWidthToEndOfLine = 0);
     virtual IntRect linesBoundingBox() const;
     virtual InlineTextBox* createTextBox();
 
     float m_scalingFactor;
     Font m_scaledFont;
-    SVGTextLayoutAttributes m_attributes;
+    SVGTextLayoutAttributes m_layoutAttributes;
 };
 
 inline RenderSVGInlineText* toRenderSVGInlineText(RenderObject* object)

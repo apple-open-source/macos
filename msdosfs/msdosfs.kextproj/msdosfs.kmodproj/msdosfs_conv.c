@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008,2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008,2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -230,7 +230,6 @@ void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp)
 	 */
 	if (lastdosdate != dd) {
 		lastdosdate = dd;
-		days = 0;
 		year = (dd & DD_YEAR_MASK) >> DD_YEAR_SHIFT;
 		days = year * 365;
 		days += year / 4 + 1;	/* add in leap days */
@@ -558,15 +557,11 @@ size_t msdosfs_dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower
 
 
 /*
- * Convert a Unicode filename to a DOS filename according to Win95 rules.
- * If applicable and gen is not 0, it is inserted into the converted
- * filename as a generation number.
- * Returns
- *	0 if name couldn't be converted
- *	1 if the converted name is the same as the original
- *	  (no long filename entry necessary for Win95)
- *	2 if conversion was successful
- *	3 if conversion was successful and generation number was inserted
+ * Convert a Unicode filename to an 8.3-style short name.
+ *
+ * This function implements the Basis-Name Generation Algorithm
+ * from the FAT32 specification.  It does NOT implement the numeric
+ * tail generation; that part is implemented elsewhere.
  *
  * In order to support setting the LCASE_BASE and LCASE_EXT flags, this
  * routine returns the corresponding value for those flags when the name can
@@ -582,73 +577,114 @@ size_t msdosfs_dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower
  * with characters that are representable in code page 437 (which is in
  * fact what you see in the short name).  I'm guessing it uses pure short
  * names only if all characters are pure ASCII.
+ *
+ * Inputs:
+ *	unicode			Points to a buffer of UTF-16 (native endian)
+ *					containing the original name.
+ *	unicode_length	The length of the Unicode name in UTF-16 code
+ *					points.
+ *
+ * Outputs:
+ *	short_name		The corresponding 8.3-style short name is returned
+ *					in this buffer.  The short name is upper case.
+ *	lower_case		A pointer to returned lower case flags.  The pointer
+ *					must not be NULL.
+ *
+ * Returns:
+ *	0	if name couldn't be converted (has disallowed characters).
+ *	1	if the converted name is the same as the original
+ *		(no long filename entry necessary for Win95).
+ *	2	if conversion was successful, and long name entries should be created,
+ *		but a generation number is not necessary (for example, the name had a
+ *		mix of upper and lower case, contained non-ASCII characters, contained
+ *		an embedded space, or contained a dot in the base name).
+ *	3	if conversion was successful, long name entries should be created, and
+ *		one or more characters of the original name were removed (thus, a
+ *		generation number should also be added).
  */
-int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case)
+int msdosfs_unicode_to_dos_name(const uint16_t *unicode,
+								size_t unicode_length,
+								uint8_t short_name[SHORT_NAME_LEN],
+								u_int8_t *lower_case)
 {
-	int i, j, l;
-	int conv = 1;
-	const u_int16_t *cp, *dp, *dp1;
-	u_char gentext[6], *wcp;
-	u_int16_t c;
-	int case_flags;		/* accumulates upper/low/neither case information */
-
+	int i;					/* An index into the Unicode name. */
+	int j;					/* An index into the short name. */
+	int conv = 1;			/* The function's result. */
+	const uint16_t *cp;		/* A pointer for looping over the Unicode name. */
+	const uint16_t *dp;		/* A pointer to the first char of extension (or NULL). */
+	const uint16_t *dp1;	/* A pointer after last seen dot character. */
+	uint16_t c;				/* The current character being examined. */
+	int case_flags;			/* Accumulates upper/low/neither case information */
+	
 	*lower_case = 0;	/* default to all upper case, and clear undefined bits */
 	
 	/*
 	 * Fill the dos filename string with blanks. These are DOS's pad
 	 * characters.
 	 */
-	memset(dn, ' ', SHORT_NAME_LEN);
-
+	memset(short_name, ' ', SHORT_NAME_LEN);
+	
 	/*
 	 * The filenames "." and ".." are handled specially, since they
 	 * don't follow dos filename rules.
 	 */
-	if (unlen == 1 && un[0] == '.') {
-		dn[0] = '.';
-		return gen <= 1;
+	if (unicode_length == 1 && unicode[0] == '.') {
+		short_name[0] = '.';
+		return 1;
 	}
-	if (unlen == 2 && un[0] == '.' && un[1] == '.') {
-		dn[0] = '.';
-		dn[1] = '.';
-		return gen <= 1;
+	if (unicode_length == 2 && unicode[0] == '.' && unicode[1] == '.') {
+		short_name[0] = '.';
+		short_name[1] = '.';
+		return 1;
 	}
-
+	
 	/*
 	 * Filenames with some characters are not allowed!
+	 *
+	 * NOTE: For a name passed into the POSIX APIs, most of the disallowed
+	 * characters will have already been replaced with alternate characters
+	 * according to the Services For Macintosh conversions.
 	 */
-	for (cp = un, i = unlen; --i >= 0; cp++)
+	for (cp = unicode, i = unicode_length; --i >= 0; cp++)
 		if (msdosfs_unicode2dos(*cp) == 0)
 			return 0;
-
+	
 	/*
-	 * Now find the extension
-	 * Note: dot as first char doesn't start extension
-	 *	 and trailing dots and blanks are ignored
+	 * Find the extension (if any).
+	 *
+	 * Note: A dot as the first or last character do not count as
+	 * an extension.  Trailing blanks are supposed to be ignored,
+	 * but we don't (and didn't previously) do that.
 	 */
-	dp = dp1 = 0;
-	for (cp = un + 1, i = unlen - 1; --i >= 0;) {
+	dp = dp1 = NULL;
+	for (cp = unicode + 1, i = unicode_length - 1; --i >= 0;) {
 		switch (*cp++) {
-		case '.':
-			if (!dp1)
-				dp1 = cp;
-			break;
-		default:
-			if (dp1)
-				dp = dp1;
-			dp1 = 0;
-			break;
+			case '.':
+				if (!dp1)
+					dp1 = cp;
+				break;
+			default:
+				if (dp1)
+					dp = dp1;
+				dp1 = NULL;
+				break;
 		}
 	}
-
+	
 	/*
-	 * Now convert it
+	 * Convert the extension (if any).
 	 */
 	if (dp) {
+		int l;		/* The length of the extension (in UTF-16 code points). */
+
 		if (dp1)
-			l = dp1 - dp;
+			l = dp1 - dp;					/* Ignore trailing dots. */
 		else
-			l = unlen - (dp - un);
+			l = unicode_length - (dp - unicode);
+		
+		/*
+		 * Convert up to 3 characters of the extension.
+		 */
 		for (case_flags = i = 0, j = 8; i < l && j < SHORT_NAME_LEN; i++, j++) {
 			c = dp[i];
 			if (c < 0x80)
@@ -658,36 +694,43 @@ int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int un
 			if (c < 0x100)
    				c = l2u[c];
 			c = msdosfs_unicode2dos(c);
-			dn[j] = c;
+			short_name[j] = c;
 			if (c == 1) {
-				conv = 3;		/* Character is not allowed in short names */
-				dn[j] = '_';	/* and must be replaced with underscore */
+				conv = 3;					/* Character is not allowed in short names */
+				short_name[j] = '_';		/* and must be replaced with underscore */
 			}
 			if (c == 2) {
-				conv = 3;		/* Character is not allowed in short names */
-				dn[j--] = ' ';	/* and is not substituted */
+				conv = 3;					/* Character is not allowed in short names */
+				short_name[j--] = ' ';		/* and is not substituted */
 			}
 		}
+		
+		/*
+		 * Check for other conditions which might require a long name.
+		 */
 		if ((case_flags & CASE_LONG) != 0 && conv != 3)
-			conv = 2;	/* Force a long name for things like embedded spaces */
+			conv = 2;			/* Force a long name for things like embedded spaces or non-ASCII */
 		if (conv == 1) {
 			if ((case_flags & (CASE_LOWER | CASE_UPPER)) == (CASE_LOWER | CASE_UPPER))
-				conv = 2;	/* Force a long name for names with mixed case */
+				conv = 2;		/* Force a long name for names with mixed case */
 			else if (case_flags & CASE_LOWER)
 				*lower_case |= LCASE_EXT;	/* Extension has lower case */
 		}
 		if (i < l)
-			conv = 3;	/* Extension was longer than 3 characters */
-		dp--;
+			conv = 3;			/* Extension was longer than 3 characters */
+		
+		dp--;					/* dp points at the dot at the start of the extension. */
 	} else {
-		dp = cp;
+		dp = cp;				/* dp points past the end of the Unicode name. */
 	}
-
+	
 	/*
-	 * Now convert the rest of the name
+	 * Now convert the base name
+	 *
+	 * When we get here, dp points just past the last character of the base name.
 	 */
-	for (case_flags = i = j = 0; un < dp && j < 8; i++, j++, un++) {
-        c = *un;
+	for (case_flags = i = j = 0; unicode < dp && j < 8; i++, j++, unicode++) {
+        c = *unicode;
 		if (c < 0x80)
 			case_flags |= ascii_case[c];
 		else
@@ -695,14 +738,14 @@ int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int un
         if (c < 0x100)
             c = l2u[c];
         c = msdosfs_unicode2dos(c);
-        dn[j] = c;
+        short_name[j] = c;
 		if (c == 1) {
 			conv = 3;		/* Character is not allowed in short names */
-			dn[j] = '_';	/* and must be replaced with underscore */
+			short_name[j] = '_';	/* and must be replaced with underscore */
 		}
 		if (c == 2) {
 			conv = 3;		/* Character is not allowed in short names */
-			dn[j--] = ' ';	/* and is not substituted */
+			short_name[j--] = ' ';	/* and is not substituted */
 		}
 	}
 	if ((case_flags & CASE_LONG) != 0 && conv != 3)
@@ -713,61 +756,98 @@ int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int un
 		else if (case_flags & CASE_LOWER)
 			*lower_case |= LCASE_BASE;	/* Base name has lower case */
 	}
-
-	if (un < dp)
+	
+	if (unicode < dp)
 		conv = 3;	/* Base name was longer than 8 characters */
-
+	
 	/*
-	 * If we didn't have any chars in filename,
-	 * generate a default
+	 * If the resulting base name was empty, generate a default
 	 */
 	if (!j)
-		dn[0] = '_';
-
+		short_name[0] = '_';
+	
 	/*
-	 * The first character cannot be E5,
-	 * because that means a deleted entry
+	 * The first character cannot be E5, because that means a deleted entry
 	 */
-	if (dn[0] == 0xe5)
-		dn[0] = SLOT_E5;
-
+	if (short_name[0] == 0xe5)
+		short_name[0] = SLOT_E5;
+	
 	/*
-	 * If the name couldn't be represented as a short name,
-	 * make sure the lower case flags are clear (in case
-	 * the base or extension was all lower case, but the other
-	 * was not, in which case we left one of the bits set above).
+	 * If the name couldn't be represented as a short name, make sure the
+	 * lower case flags are clear (in case the base or extension was all
+	 * lower case, but the other was not, in which case we left one of the
+	 * bits set above).
+	 *
+	 * That is, the lower case flags are only set if the name is a valid
+	 * 8.3-style short name, where any letters in the base and extension
+	 * are all upper or all lower case.  (The case of the base may differ
+	 * from the case of the extension.)  Non-letter ASCII characters do
+	 * not affect the lower case flags.
 	 */
 	if (conv != 1)
 		*lower_case = 0;
-
-	/*
-	 * If there wasn't any char dropped,
-	 * there is no place for generation numbers
-	 */
-	if (conv != 3) {
-		if (gen > 1)
-			return 0;
-		return conv;
-	}
-
-	/*
-	 * Now insert the generation number into the filename part
-	 */
-	if (gen == 0)
-		return conv;
-	for (wcp = gentext + sizeof(gentext); wcp > gentext && gen; gen /= 10)
-		*--wcp = gen % 10 + '0';
-	if (gen)
-		return 0;
-	for (i = 8; dn[--i] == ' ';);
-	i++;
-	if (gentext + sizeof(gentext) - wcp + 1 > 8 - i)
-		i = 8 - (gentext + sizeof(gentext) - wcp + 1);
-	dn[i++] = '~';
-	while (wcp < gentext + sizeof(gentext))
-		dn[i++] = *wcp++;
-	return 3;
+	
+	return conv;
 }
+
+
+/*
+ * Add or update a generation number, and preceding tilde (~), to a short name.
+ *
+ * The base name is up to 8 characters.  We want to keep at least the first
+ * character.  We need to insert a tilde before the generation number.  That
+ * leaves us with room for up to 6 characters for the generation number.
+ *
+ * Parameters:
+ *	short_name		Modified in place.  On input, a short name with no
+ *					generation number, or a generation number less than
+ *					or equal to the "generation" parameter.  On output,
+ *					the short name with generation number.
+ *	generation		The generation number to add or update.
+ *
+ * Result:
+ *	0				The generation number was successfully added.
+ *	ENAMETOOLONG	The generation number was too large to fit in the short name.
+ */
+int msdosfs_apply_generation_to_short_name(uint8_t short_name[SHORT_NAME_LEN],
+										   unsigned generation)
+{
+	uint8_t	generation_text[6];			/* Note: this is stored in reverse order. */
+	unsigned generation_text_length = 0;
+	unsigned base_name_index;			/* Index into base name where generation string
+										   should be stored. */
+	/* Convert the generation number to ASCII. */
+	do {
+		generation_text[generation_text_length++] = '0' + (generation % 10);
+		generation /= 10;
+	} while (generation > 0 && generation_text_length < 6);
+	
+	/* Check for a too-large generation number. */
+	if (generation != 0)
+		return ENAMETOOLONG;
+	
+	/*
+	 * Add or replace the generation string.
+	 *
+	 * We start by assuming the base name is the maximum 8 characters, then scan left
+	 * to find a non-space character.  (FAT uses trailing space padding in short names.
+	 * This also handles the case where the short name had an embedded space, and we'd
+	 * like to avoid putting the generation string after an embedded space.)
+	 */
+	base_name_index = 8 - (generation_text_length + 1);		/* +1 is for the tilde. */
+	while (short_name[base_name_index] == ' ' && base_name_index > 0)
+	{
+		--base_name_index;		/* Skip over trailing or embedded spaces. */
+	}
+	short_name[base_name_index++] = '~';
+	while (generation_text_length > 0)
+	{
+		short_name[base_name_index++] = generation_text[--generation_text_length];
+	}
+	
+	return 0;
+}
+
 
 /*
  * Create a Win95 long name directory entry
@@ -823,7 +903,7 @@ int msdosfs_unicode2winfn(const u_int16_t *un, int unlen, struct winentry *wep, 
 
 done:
 	*wcp++ = 0;
-	*wcp++ = 0;
+	*wcp   = 0;
 	wep->weCnt |= WIN_LAST;
 	return 0;
 }

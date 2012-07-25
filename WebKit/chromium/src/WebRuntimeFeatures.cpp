@@ -34,7 +34,9 @@
 #include "AbstractDatabase.h"
 #include "RuntimeEnabledFeatures.h"
 #include "WebMediaPlayerClientImpl.h"
-#include "WebSocket.h"
+#include "Modules/websockets/WebSocket.h"
+
+#include <wtf/UnusedParam.h>
 
 using namespace WebCore;
 
@@ -42,50 +44,42 @@ namespace WebKit {
 
 void WebRuntimeFeatures::enableDatabase(bool enable)
 {
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     AbstractDatabase::setIsAvailable(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isDatabaseEnabled()
 {
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     return AbstractDatabase::isAvailable();
 #else
     return false;
 #endif
 }
 
+// FIXME: Remove the ability to enable this feature at runtime.
 void WebRuntimeFeatures::enableLocalStorage(bool enable)
 {
-#if ENABLE(DOM_STORAGE)
     RuntimeEnabledFeatures::setLocalStorageEnabled(enable);
-#endif
 }
 
+// FIXME: Remove the ability to enable this feature at runtime.
 bool WebRuntimeFeatures::isLocalStorageEnabled()
 {
-#if ENABLE(DOM_STORAGE)
     return RuntimeEnabledFeatures::localStorageEnabled();
-#else
-    return false;
-#endif
 }
 
+// FIXME: Remove the ability to enable this feature at runtime.
 void WebRuntimeFeatures::enableSessionStorage(bool enable)
 {
-#if ENABLE(DOM_STORAGE)
     RuntimeEnabledFeatures::setSessionStorageEnabled(enable);
-#endif
 }
 
+// FIXME: Remove the ability to enable this feature at runtime.
 bool WebRuntimeFeatures::isSessionStorageEnabled()
 {
-#if ENABLE(DOM_STORAGE)
     return RuntimeEnabledFeatures::sessionStorageEnabled();
-#else
-    return false;
-#endif
 }
 
 void WebRuntimeFeatures::enableMediaPlayer(bool enable)
@@ -107,7 +101,7 @@ bool WebRuntimeFeatures::isMediaPlayerEnabled()
 void WebRuntimeFeatures::enableSockets(bool enable)
 {
 #if ENABLE(WEB_SOCKETS)
-    WebSocket::setIsAvailable(enable);
+    WebCore::WebSocket::setIsAvailable(enable);
 #endif
 }
 
@@ -122,14 +116,14 @@ bool WebRuntimeFeatures::isSocketsEnabled()
 
 void WebRuntimeFeatures::enableNotifications(bool enable)
 {
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     RuntimeEnabledFeatures::setWebkitNotificationsEnabled(enable);
 #endif
 }
 
 bool WebRuntimeFeatures::isNotificationsEnabled()
 {
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     return RuntimeEnabledFeatures::webkitNotificationsEnabled();
 #else
     return false;
@@ -138,18 +132,12 @@ bool WebRuntimeFeatures::isNotificationsEnabled()
 
 void WebRuntimeFeatures::enableApplicationCache(bool enable)
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     RuntimeEnabledFeatures::setApplicationCacheEnabled(enable);
-#endif
 }
 
 bool WebRuntimeFeatures::isApplicationCacheEnabled()
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     return RuntimeEnabledFeatures::applicationCacheEnabled();
-#else
-    return false;
-#endif
 }
 
 void WebRuntimeFeatures::enableDataTransferItems(bool enable)
@@ -272,6 +260,22 @@ bool WebRuntimeFeatures::isSpeechInputEnabled()
     return RuntimeEnabledFeatures::speechInputEnabled();
 }
 
+void WebRuntimeFeatures::enableScriptedSpeech(bool enable)
+{
+#if ENABLE(SCRIPTED_SPEECH)
+    RuntimeEnabledFeatures::setScriptedSpeechEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isScriptedSpeechEnabled()
+{
+#if ENABLE(SCRIPTED_SPEECH)
+    return RuntimeEnabledFeatures::scriptedSpeechEnabled();
+#else
+    return false;
+#endif
+}
+
 void WebRuntimeFeatures::enableXHRResponseBlob(bool enable)
 {
 #if ENABLE(XHR_RESPONSE_BLOB)
@@ -331,6 +335,204 @@ bool WebRuntimeFeatures::isQuotaEnabled()
 {
 #if ENABLE(QUOTA)
     return RuntimeEnabledFeatures::quotaEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableMediaStream(bool enable)
+{
+#if ENABLE(MEDIA_STREAM)
+    RuntimeEnabledFeatures::setMediaStreamEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isMediaStreamEnabled()
+{
+#if ENABLE(MEDIA_STREAM)
+    return RuntimeEnabledFeatures::mediaStreamEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enablePeerConnection(bool enable)
+{
+#if ENABLE(MEDIA_STREAM)
+    RuntimeEnabledFeatures::setPeerConnectionEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isPeerConnectionEnabled()
+{
+#if ENABLE(MEDIA_STREAM)
+    return RuntimeEnabledFeatures::peerConnectionEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableFullScreenAPI(bool enable)
+{
+#if ENABLE(FULLSCREEN_API)
+    RuntimeEnabledFeatures::setWebkitFullScreenAPIEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isFullScreenAPIEnabled()
+{
+#if ENABLE(FULLSCREEN_API)
+    return RuntimeEnabledFeatures::webkitFullScreenAPIEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enablePointerLock(bool enable)
+{
+#if ENABLE(POINTER_LOCK)
+    RuntimeEnabledFeatures::setWebkitPointerLockEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isPointerLockEnabled()
+{
+#if ENABLE(POINTER_LOCK)
+    return RuntimeEnabledFeatures::webkitPointerLockEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableMediaSource(bool enable)
+{
+#if ENABLE(MEDIA_SOURCE)
+    RuntimeEnabledFeatures::setMediaSourceEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isMediaSourceEnabled()
+{
+#if ENABLE(MEDIA_SOURCE)
+    return RuntimeEnabledFeatures::mediaSourceEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableEncryptedMedia(bool enable)
+{
+#if ENABLE(ENCRYPTED_MEDIA)
+    RuntimeEnabledFeatures::setEncryptedMediaEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isEncryptedMediaEnabled()
+{
+#if ENABLE(ENCRYPTED_MEDIA)
+    return RuntimeEnabledFeatures::encryptedMediaEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableVideoTrack(bool enable)
+{
+#if ENABLE(VIDEO_TRACK)
+    RuntimeEnabledFeatures::setWebkitVideoTrackEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isVideoTrackEnabled()
+{
+#if ENABLE(VIDEO_TRACK)
+    return RuntimeEnabledFeatures::webkitVideoTrackEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableGamepad(bool enable)
+{
+#if ENABLE(GAMEPAD)
+    RuntimeEnabledFeatures::setWebkitGamepadsEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isGamepadEnabled()
+{
+#if ENABLE(GAMEPAD)
+    return RuntimeEnabledFeatures::webkitGamepadsEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableShadowDOM(bool enable)
+{
+#if ENABLE(SHADOW_DOM)
+    RuntimeEnabledFeatures::setShadowDOMEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isShadowDOMEnabled()
+{
+#if ENABLE(SHADOW_DOM)
+    return RuntimeEnabledFeatures::shadowDOMEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableStyleScoped(bool enable)
+{
+#if ENABLE(STYLE_SCOPED)
+    RuntimeEnabledFeatures::setStyleScopedEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isStyleScopedEnabled()
+{
+#if ENABLE(STYLE_SCOPED)
+    return RuntimeEnabledFeatures::styleScopedEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableInputTypeDate(bool enable)
+{
+#if ENABLE(INPUT_TYPE_DATE)
+    RuntimeEnabledFeatures::setInputTypeDateEnabled(enable);
+#else
+    UNUSED_PARAM(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isInputTypeDateEnabled()
+{
+#if ENABLE(INPUT_TYPE_DATE)
+    return RuntimeEnabledFeatures::inputTypeDateEnabled();
 #else
     return false;
 #endif

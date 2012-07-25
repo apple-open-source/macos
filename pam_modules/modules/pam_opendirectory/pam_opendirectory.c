@@ -95,7 +95,7 @@ pam_sm_acct_mgmt(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	openpam_log(PAM_LOG_DEBUG, "%s - Membership cache TTL set to %d.", PM_DISPLAY_NAME, ttl);
 
 	/* Get user record from OD */
-	retval = od_record_create_cstring(&cfRecord, (const char*)user);
+	retval = od_record_create_cstring(pamh, &cfRecord, (const char*)user);
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record: %d.", PM_DISPLAY_NAME, retval);
 		goto cleanup;
@@ -175,7 +175,7 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Get user record from OD */
-	retval = od_record_create_cstring(&cfRecord, (const char*)user);
+	retval = od_record_create_cstring(pamh, &cfRecord, (const char*)user);
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record.", PM_DISPLAY_NAME);
 		goto cleanup;
@@ -278,7 +278,7 @@ pam_sm_chauthtok(pam_handle_t * pamh, int flags, int argc, const char **argv)
 	}
 
 	/* Get user record from OD */
-	retval = od_record_create_cstring(&cfRecord, (const char*)user);
+	retval = od_record_create_cstring(pamh, &cfRecord, (const char*)user);
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "%s - Unable to get user record.", PM_DISPLAY_NAME);
 		goto cleanup;

@@ -26,9 +26,16 @@
 
 G_BEGIN_DECLS
 
-/*
- * The order of this enum must be the same as NavigationType in
- * FrameLoaderTypes.h
+/**
+ * WebKitWebNavigationReason:
+ * @WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED: The navigation was triggered by clicking a link.
+ * @WEBKIT_WEB_NAVIGATION_REASON_FORM_SUBMITTED: The navigation was triggered by submitting a form.
+ * @WEBKIT_WEB_NAVIGATION_REASON_BACK_FORWARD: The navigation was triggered by navigating forward or backward.
+ * @WEBKIT_WEB_NAVIGATION_REASON_RELOAD: The navigation was triggered by reloading.
+ * @WEBKIT_WEB_NAVIGATION_REASON_FORM_RESUBMITTED: The navigation was triggered by resubmitting a form.
+ * @WEBKIT_WEB_NAVIGATION_REASON_OTHER: The navigation was triggered by some other action.
+ *
+ * Enum values used to denote the various navigation reasons.
  */
 typedef enum {
     WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED,
@@ -88,7 +95,7 @@ webkit_web_navigation_action_get_button(WebKitWebNavigationAction* navigationAct
 WEBKIT_API gint
 webkit_web_navigation_action_get_modifier_state(WebKitWebNavigationAction* navigationAction);
 
-WEBKIT_API G_CONST_RETURN gchar *
+WEBKIT_API const gchar *
 webkit_web_navigation_action_get_target_frame(WebKitWebNavigationAction* navigationAction);
 
 G_END_DECLS

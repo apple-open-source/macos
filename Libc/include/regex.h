@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -19,6 +19,33 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
+ */
+/*
+ * Copyright (c) 2001-2009 Ville Laurikari <vl@iki.fi>
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 
+ *   1. Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ * 
+ *   2. Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer in the
+ *      documentation and/or other materials provided with the distribution.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS
+ * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*-
  * Copyright (c) 1992 Henry Spencer.
@@ -63,8 +90,20 @@
 #define	_REGEX_H_
 
 #include <_types.h>
+#include <Availability.h>
 
+/*********/
 /* types */
+/*********/
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#ifndef	__cplusplus
+#ifndef	_WCHAR_T
+#define	_WCHAR_T
+typedef	__darwin_wchar_t	wchar_t;
+#endif	/* _WCHAR_T */
+#endif	/* __cplusplus */
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
 typedef __darwin_off_t regoff_t;
 
 #ifndef _SIZE_T
@@ -84,53 +123,87 @@ typedef struct {
 	regoff_t rm_eo;		/* end of match */
 } regmatch_t;
 
+/*******************/
 /* regcomp() flags */
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	REG_BASIC	0000
-#endif	/* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
-#define	REG_EXTENDED	0001
-#define	REG_ICASE	0002
-#define	REG_NOSUB	0004
-#define	REG_NEWLINE	0010
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	REG_NOSPEC	0020
-#define	REG_PEND	0040
-#define	REG_DUMP	0200
-#endif	/* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+/*******************/
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define	REG_BASIC	0000	/* Basic regular expressions (synonym for 0) */
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 
+#define	REG_EXTENDED	0001	/* Extended regular expressions */
+#define	REG_ICASE	0002	/* Compile ignoring upper/lower case */
+#define	REG_NOSUB	0004	/* Compile only reporting success/failure */
+#define	REG_NEWLINE	0010	/* Compile for newline-sensitive matching */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define	REG_NOSPEC	0020	/* Compile turning off all special characters */
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+#define	REG_LITERAL	REG_NOSPEC
+#endif
+
+#define	REG_PEND	0040	/* Use re_endp as end pointer */
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+#define	REG_MINIMAL	0100	/* Compile using minimal repetition */
+#define	REG_UNGREEDY	REG_MINIMAL
+#endif
+
+#define	REG_DUMP	0200	/* Unused */
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+#define	REG_ENHANCED	0400	/* Additional (non-POSIX) features */
+#endif
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+/********************/
 /* regerror() flags */
+/********************/
 #define	REG_ENOSYS	 (-1)	/* Reserved */
-#define	REG_NOMATCH	 1
-#define	REG_BADPAT	 2
-#define	REG_ECOLLATE	 3
-#define	REG_ECTYPE	 4
-#define	REG_EESCAPE	 5
-#define	REG_ESUBREG	 6
-#define	REG_EBRACK	 7
-#define	REG_EPAREN	 8
-#define	REG_EBRACE	 9
-#define	REG_BADBR	10
-#define	REG_ERANGE	11
-#define	REG_ESPACE	12
-#define	REG_BADRPT	13
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	REG_EMPTY	14
-#define	REG_ASSERT	15
-#define	REG_INVARG	16
-#define	REG_ILLSEQ	17
+#define	REG_NOMATCH	 1	/* regexec() function failed to match */
+#define	REG_BADPAT	 2	/* invalid regular expression */
+#define	REG_ECOLLATE	 3	/* invalid collating element */
+#define	REG_ECTYPE	 4	/* invalid character class */
+#define	REG_EESCAPE	 5	/* trailing backslash (\) */
+#define	REG_ESUBREG	 6	/* invalid backreference number */
+#define	REG_EBRACK	 7	/* brackets ([ ]) not balanced */
+#define	REG_EPAREN	 8	/* parentheses not balanced */
+#define	REG_EBRACE	 9	/* braces not balanced */
+#define	REG_BADBR	10	/* invalid repetition count(s) */
+#define	REG_ERANGE	11	/* invalid character range */
+#define	REG_ESPACE	12	/* out of memory */
+#define	REG_BADRPT	13	/* repetition-operator operand invalid */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define	REG_EMPTY	14	/* Unused */
+#define	REG_ASSERT	15	/* Unused */
+#define	REG_INVARG	16	/* invalid argument to regex routine */
+#define	REG_ILLSEQ	17	/* illegal byte sequence */
+
 #define	REG_ATOI	255	/* convert name to number (!) */
 #define	REG_ITOA	0400	/* convert number to name (!) */
-#endif	/* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 
+/*******************/
 /* regexec() flags */
-#define	REG_NOTBOL	00001
-#define	REG_NOTEOL	00002
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#define	REG_STARTEND	00004
-#define	REG_TRACE	00400	/* tracing of execution */
-#define	REG_LARGE	01000	/* force large representation */
+/*******************/
+#define	REG_NOTBOL	00001	/* First character not at beginning of line */
+#define	REG_NOTEOL	00002	/* Last character not at end of line */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define	REG_STARTEND	00004	/* String start/end in pmatch[0] */
+#define	REG_TRACE	00400	/* Unused */
+#define	REG_LARGE	01000	/* Unused */
 #define	REG_BACKR	02000	/* force use of backref code */
-#endif	/* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED  >= __MAC_10_8 \
+ || __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_6_0
+#define	REG_BACKTRACKING_MATCHER	REG_BACKR
+#endif
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 
 __BEGIN_DECLS
 //Begin-Libc
@@ -150,6 +223,31 @@ size_t	regerror(int, const regex_t * __restrict, char * __restrict, size_t);
 int	regexec(const regex_t * __restrict, const char * __restrict, size_t,
 	    regmatch_t __pmatch[ __restrict], int);
 void	regfree(regex_t *);
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+
+/* Darwin extensions */
+int	regncomp(regex_t * __restrict, const char * __restrict, size_t, int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	regnexec(const regex_t * __restrict, const char * __restrict, size_t,
+	    size_t, regmatch_t __pmatch[ __restrict], int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	regwcomp(regex_t * __restrict, const wchar_t * __restrict, int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	regwexec(const regex_t * __restrict, const wchar_t * __restrict, size_t,
+	    regmatch_t __pmatch[ __restrict], int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	regwncomp(regex_t * __restrict, const wchar_t * __restrict, size_t, int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	regwnexec(const regex_t * __restrict, const wchar_t * __restrict,
+	    size_t, size_t, regmatch_t __pmatch[ __restrict], int)
+	    __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 __END_DECLS
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_regex.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* !_REGEX_H_ */

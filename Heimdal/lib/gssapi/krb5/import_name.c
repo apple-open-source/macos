@@ -37,9 +37,9 @@
 
 static OM_uint32
 import_krb5_name(OM_uint32 *minor_status,
-		 const gss_OID mech,
+		 gss_const_OID mech,
 		 const gss_buffer_t input_name_buffer,
-		 const gss_OID input_name_type,
+		 gss_const_OID input_name_type,
 		 gss_name_t *output_name)
 {
     krb5_context context;
@@ -85,9 +85,9 @@ import_krb5_name(OM_uint32 *minor_status,
 
 static OM_uint32
 import_krb5_principal(OM_uint32 *minor_status,
-		      const gss_OID mech,
+		      gss_const_OID mech,
 		      const gss_buffer_t input_name_buffer,
-		      const gss_OID input_name_type,
+		      gss_const_OID input_name_type,
 		      gss_name_t *output_name)
 {
     krb5_context context;
@@ -134,9 +134,9 @@ _gsskrb5_canon_name(OM_uint32 *minor_status, krb5_context context,
 	    return GSS_S_BAD_NAME;
 	else if (p->name.name_string.len > 1)
 	    hostname = p->name.name_string.val[1];
-	
+
 	service = p->name.name_string.val[0];
-	
+
 	ret = krb5_sname_to_principal(context,
 				      hostname,
 				      service,
@@ -156,9 +156,9 @@ _gsskrb5_canon_name(OM_uint32 *minor_status, krb5_context context,
 
 static OM_uint32
 import_hostbased_name (OM_uint32 *minor_status,
-		       const gss_OID mech,
+		       gss_const_OID mech,
 		       const gss_buffer_t input_name_buffer,
-		       const gss_OID input_name_type,
+		       gss_const_OID input_name_type,
 		       gss_name_t *output_name)
 {
     krb5_context context;
@@ -169,7 +169,7 @@ import_hostbased_name (OM_uint32 *minor_status,
     if (gss_oid_equal(mech, GSS_PKU2U_MECHANISM))
 	realm = KRB5_PKU2U_REALM_NAME;
     else
-	realm = "WELLKNOWN:ORG.H5L.REFERALS-REALM"; /* should never hit the network */
+	realm = KRB5_GSS_REFERALS_REALM_NAME; /* should never hit the network */
 
     GSSAPI_KRB5_INIT (&context);
 
@@ -200,6 +200,8 @@ import_hostbased_name (OM_uint32 *minor_status,
 	len = strlen(host);
 	if (len > 0 && host[len - 1] == '.')
 	    host[len - 1] = '\0';
+    } else {
+	host = KRB5_GSS_HOSTBASED_SERVICE_NAME;
     }
 
     kerr = krb5_make_principal(context, &princ, realm, tmp, host, NULL);
@@ -218,9 +220,9 @@ import_hostbased_name (OM_uint32 *minor_status,
 
 static OM_uint32
 import_dn_name(OM_uint32 *minor_status,
-	       const gss_OID mech,
+	       gss_const_OID mech,
 	       const gss_buffer_t input_name_buffer,
-	       const gss_OID input_name_type,
+	       gss_const_OID input_name_type,
 	       gss_name_t *output_name)
 {
     /* XXX implement me */
@@ -231,9 +233,9 @@ import_dn_name(OM_uint32 *minor_status,
 
 static OM_uint32
 import_pku2u_export_name(OM_uint32 *minor_status,
-			 const gss_OID mech,
+			 gss_const_OID mech,
 			 const gss_buffer_t input_name_buffer,
-			 const gss_OID input_name_type,
+			 gss_const_OID input_name_type,
 			 gss_name_t *output_name)
 {
     /* XXX implement me */
@@ -244,9 +246,9 @@ import_pku2u_export_name(OM_uint32 *minor_status,
 
 static OM_uint32
 import_uuid_name(OM_uint32 *minor_status,
-		 const gss_OID mech,
+		 gss_const_OID mech,
 		 const gss_buffer_t input_name_buffer,
-		 const gss_OID input_name_type,
+		 gss_const_OID input_name_type,
 		 gss_name_t *output_name)
 {
     krb5_context context;
@@ -312,15 +314,16 @@ static struct _gss_name_type iakerb_names[] = {
     { GSS_C_NO_OID, import_krb5_name },
     { GSS_C_NT_USER_NAME, import_krb5_name },
     { GSS_KRB5_NT_PRINCIPAL_NAME, import_krb5_name },
+    { GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL, import_krb5_name },
     { GSS_C_NT_EXPORT_NAME, import_krb5_name },
     { GSS_C_NT_UUID, import_uuid_name },
     { NULL }
 };
 
-OM_uint32 _gsskrb5_import_name
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_import_name
            (OM_uint32 * minor_status,
             const gss_buffer_t input_name_buffer,
-            const gss_OID input_name_type,
+            gss_const_OID input_name_type,
             gss_name_t * output_name
            )
 {
@@ -332,7 +335,7 @@ OM_uint32 _gsskrb5_import_name
 OM_uint32 _gsspku2u_import_name
            (OM_uint32 * minor_status,
             const gss_buffer_t input_name_buffer,
-            const gss_OID input_name_type,
+            gss_const_OID input_name_type,
             gss_name_t * output_name
            )
 {
@@ -344,7 +347,7 @@ OM_uint32 _gsspku2u_import_name
 OM_uint32
 _gssiakerb_import_name(OM_uint32 * minor_status,
 		       const gss_buffer_t input_name_buffer,
-		       const gss_OID input_name_type,
+		       gss_const_OID input_name_type,
 		       gss_name_t * output_name)
 {
     return _gss_mech_import_name(minor_status, GSS_IAKERB_MECHANISM,
@@ -352,10 +355,9 @@ _gssiakerb_import_name(OM_uint32 * minor_status,
 				 input_name_type, output_name);
 }
 
-
 OM_uint32
 _gsskrb5_inquire_names_for_mech (OM_uint32 * minor_status,
-				 const gss_OID mechanism,
+				 gss_const_OID mechanism,
 				 gss_OID_set * name_types)
 {
     return _gss_mech_inquire_names_for_mech(minor_status, krb5_names,
@@ -364,7 +366,7 @@ _gsskrb5_inquire_names_for_mech (OM_uint32 * minor_status,
 
 OM_uint32
 _gsspku2u_inquire_names_for_mech (OM_uint32 * minor_status,
-				  const gss_OID mechanism,
+				  gss_const_OID mechanism,
 				  gss_OID_set * name_types)
 {
     return _gss_mech_inquire_names_for_mech(minor_status, pku2u_names,
@@ -373,7 +375,7 @@ _gsspku2u_inquire_names_for_mech (OM_uint32 * minor_status,
 
 OM_uint32
 _gssiakerb_inquire_names_for_mech (OM_uint32 * minor_status,
-				   const gss_OID mechanism,
+				   gss_const_OID mechanism,
 				   gss_OID_set * name_types)
 {
     return _gss_mech_inquire_names_for_mech(minor_status, iakerb_names,

@@ -9,15 +9,13 @@
 
 #include "aaplbfct.h"
 #include "cstring.h"
-#if defined(U_DARWIN)
-#include <TargetConditionals.h>
-#endif
+// platform.h now includes <TargetConditionals.h> if U_PLATFORM_IS_DARWIN_BASED
 
 // Return an appropriate Apple-specific object, based on the service in question
 U_CAPI void* uprv_svc_hook(const char *what, UErrorCode *status)
 {
 	if (uprv_strcmp(what, "languageBreakFactory") == 0) {
-#if defined(U_DARWIN) && TARGET_OS_MAC
+#if U_PLATFORM_IS_DARWIN_BASED && TARGET_OS_MAC
 		return new AppleLanguageBreakFactory(*status);
 	}
 #else

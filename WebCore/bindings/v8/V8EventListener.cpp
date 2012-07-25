@@ -31,6 +31,12 @@
 #include "config.h"
 #include "V8EventListener.h"
 
+#if PLATFORM(CHROMIUM)
+#include "TraceEvent.h"
+#endif
+
+#include "Document.h"
+#include "Frame.h"
 #include "V8Proxy.h"
 
 namespace WebCore {
@@ -73,8 +79,11 @@ v8::Local<v8::Value> V8EventListener::callListenerFunction(ScriptExecutionContex
 
     v8::Handle<v8::Value> parameters[1] = { jsEvent };
 
-    if (V8Proxy* proxy = V8Proxy::retrieve(context))
-        return proxy->callFunction(handlerFunction, receiver, 1, parameters);
+    if (V8Proxy* proxy = V8Proxy::retrieve(context)) {
+        Frame* frame = static_cast<Document*>(context)->frame();
+        if (frame->script()->canExecuteScripts(AboutToExecuteScript))
+            return proxy->callFunction(handlerFunction, receiver, 1, parameters);
+    }
 
     return v8::Local<v8::Value>();
 }

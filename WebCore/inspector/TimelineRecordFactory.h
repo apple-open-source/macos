@@ -31,6 +31,7 @@
 #ifndef TimelineRecordFactory_h
 #define TimelineRecordFactory_h
 
+#include "LayoutTypes.h"
 #include "PlatformString.h"
 
 namespace WebCore {
@@ -44,7 +45,7 @@ namespace WebCore {
 
     class TimelineRecordFactory {
     public:
-        static PassRefPtr<InspectorObject> createGenericRecord(double startTime);
+        static PassRefPtr<InspectorObject> createGenericRecord(double startTime, int maxCallStackDepth);
 
         static PassRefPtr<InspectorObject> createGCEventData(const size_t usedHeapSizeDelta);
 
@@ -62,21 +63,23 @@ namespace WebCore {
 
         static PassRefPtr<InspectorObject> createEvaluateScriptData(const String&, double lineNumber);
 
-        static PassRefPtr<InspectorObject> createMarkTimelineData(const String&);
+        static PassRefPtr<InspectorObject> createTimeStampData(const String&);
 
-        static PassRefPtr<InspectorObject> createResourceSendRequestData(unsigned long identifier, const ResourceRequest&);
+        static PassRefPtr<InspectorObject> createResourceSendRequestData(const String& requestId, const ResourceRequest&);
 
         static PassRefPtr<InspectorObject> createScheduleResourceRequestData(const String&);
 
-        static PassRefPtr<InspectorObject> createResourceReceiveResponseData(unsigned long identifier, const ResourceResponse&);
+        static PassRefPtr<InspectorObject> createResourceReceiveResponseData(const String& requestId, const ResourceResponse&);
 
-        static PassRefPtr<InspectorObject> createReceiveResourceData(unsigned long identifier);
+        static PassRefPtr<InspectorObject> createReceiveResourceData(const String& requestId);
 
-        static PassRefPtr<InspectorObject> createResourceFinishData(unsigned long identifier, bool didFail, double finishTime);
+        static PassRefPtr<InspectorObject> createResourceFinishData(const String& requestId, bool didFail, double finishTime);
 
-        static PassRefPtr<InspectorObject> createPaintData(const IntRect&);
+        static PassRefPtr<InspectorObject> createPaintData(const LayoutRect&);
 
         static PassRefPtr<InspectorObject> createParseHTMLData(unsigned int length, unsigned int startLine);
+
+        static PassRefPtr<InspectorObject> createAnimationFrameData(int callbackId);
 
     private:
         TimelineRecordFactory() { }

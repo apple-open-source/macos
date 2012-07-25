@@ -114,10 +114,6 @@ public:
                                         IOFixed                 z,
                                         IOHIDGyroType           type = 0,
                                         IOHIDGyroSubType        subType = 0,
-                                        IOFixed                 qx=0,
-                                        IOFixed                 qy=0,												
-                                        IOFixed                 qz=0,												
-                                        IOFixed                 qw=0,												
                                         IOOptionBits            options = 0);
 
     static IOHIDEvent *     compassEvent (
@@ -157,20 +153,27 @@ public:
     static IOHIDEvent *     temperatureEvent (
                                         AbsoluteTime            timeStamp,
                                         IOFixed                 temperature,
-                                        IOOptionBits            options     = 0);
+                                        IOOptionBits            options = 0);
 
     static IOHIDEvent *     absolutePointerEvent(
-                                        AbsoluteTime                timeStamp,
-                                        SInt32                      x,
-                                        SInt32                      y,
-                                        IOGBounds *                 bounds,
-                                        UInt32                      buttonState,
-                                        bool                        inRange,
-                                        SInt32                      tipPressure,
-                                        SInt32                      tipPressureMin,
-                                        SInt32                      tipPressureMax,
-                                        IOOptionBits                options);
-    
+                                        AbsoluteTime            timeStamp,
+                                        SInt32                  x,
+                                        SInt32                  y,
+                                        IOGBounds *             bounds,
+                                        UInt32                  buttonState,
+                                        bool                    inRange,
+                                        SInt32                  tipPressure,
+                                        SInt32                  tipPressureMin,
+                                        SInt32                  tipPressureMax,
+                                        IOOptionBits            options = 0);
+                            
+    static IOHIDEvent *     powerEvent(
+                                        AbsoluteTime            timeStamp,
+                                        IOFixed                 measurement,
+                                        IOHIDPowerType          powerType,
+                                        IOHIDPowerSubType       powerSubType = 0,
+                                        IOOptionBits            options = 0);
+
     virtual void            appendChild(IOHIDEvent *childEvent);
 
     virtual AbsoluteTime    getTimeStamp();
@@ -200,10 +203,14 @@ public:
                                         IOFixed                 value,
                                         IOOptionBits            options = 0);
 
-    virtual void free();
+    virtual void            free();
     
-    virtual size_t getLength(); 
-    virtual IOByteCount readBytes(void * bytes, IOByteCount withLength);
+    virtual size_t          getLength(); 
+    virtual IOByteCount     readBytes(
+                                        void                    *bytes,
+                                        IOByteCount             withLength);
+    
+    virtual void            setDeviceID(uint64_t                deviceID);
 
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,12 @@
  * - initial revision
  * February 8, 2011			Kevin Wells <kcw@apple.com>
  * - added "select" command
+ * January 2012				Kevin Wells <kcw@apple.com>
+ * - added arguments to "start" command to pass authentication credentials
+ * - "show" now takes a service name as an alternative to a service ID
+ * - fixes a bug whereby "IPv4" was being displayed as a subtype to IPsec services
+ * - improved format of "list" output
+ * - general cleanup of error messages and some variable names
  */
 
 
@@ -37,8 +43,11 @@
 
 #include <sys/time.h>
 
+CFStringRef			username = NULL;
+CFStringRef			password = NULL;
+CFStringRef			sharedsecret = NULL;
 
-static	SCNetworkConnectionRef	connectionRef	= NULL;
+static	SCNetworkConnectionRef	connection	= NULL;
 static	int			n_callback	= 0;
 
 
@@ -56,19 +65,18 @@ my_CFRelease(void *t)
 }
 
 /* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static CFStringRef
-nc_copy_serviceID(int argc, char **argv)
-{
-	CFStringRef		serviceIDRef	= NULL;
+ ----------------------------------------------------------------------------- */
+static void
+nc_get_service_type_and_subtype(SCNetworkServiceRef service, CFStringRef *iftype, CFStringRef *ifsubtype) {
+	SCNetworkInterfaceRef interface = SCNetworkServiceGetInterface(service);
+	SCNetworkInterfaceRef child = SCNetworkInterfaceGetInterface(interface);
 
-	if (argc == 0) {
-		serviceIDRef = _copyStringFromSTDIN();
-	} else {
-		serviceIDRef = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	*iftype = SCNetworkInterfaceGetInterfaceType(interface);
+	*ifsubtype = NULL;
+	if (CFEqual(*iftype, kSCNetworkInterfaceTypePPP) ||
+	    CFEqual(*iftype, kSCNetworkInterfaceTypeVPN)) {
+	    *ifsubtype = (child != NULL) ? SCNetworkInterfaceGetInterfaceType(child) : NULL;
 	}
-
-	return serviceIDRef;
 }
 
 /* -----------------------------------------------------------------------------
@@ -114,17 +122,38 @@ nc_copy_service(SCNetworkSetRef set, CFStringRef identifier)
 			} else {
 				// if multiple services match
 				selected = NULL;
-				SCPrint(TRUE, stdout, CFSTR("multiple services match\n"));
+				SCPrint(TRUE, stderr, CFSTR("Multiple services match\n"));
 				goto done;
 			}
 		}
 	}
 
-    done :
+done :
 
 	if (selected != NULL) CFRetain(selected);
 	if (services != NULL) CFRelease(services);
 	return selected;
+}
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+static SCNetworkServiceRef
+nc_copy_service_from_arguments(int argc, char **argv, SCNetworkSetRef set) {
+	CFStringRef		serviceID	= NULL;
+	SCNetworkServiceRef	service		= NULL;
+
+	if (argc == 0) {
+		serviceID = _copyStringFromSTDIN();
+	} else {
+		serviceID = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+	}
+	if (serviceID == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("No service ID specified\n"));
+		return NULL;
+	}
+	service = nc_copy_service(set, serviceID);
+	my_CFRelease(&serviceID);
+	return service;
 }
 
 
@@ -194,18 +223,8 @@ nc_create_connection(int argc, char **argv, Boolean exit_on_failure)
 {
 	SCNetworkConnectionContext	context	= { 0, &n_callback, NULL, NULL, NULL };
 	SCNetworkServiceRef		service;
-	CFStringRef			serviceIDRef;
 
-	serviceIDRef = nc_copy_serviceID(argc, argv);
-	if (serviceIDRef == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("No service identifier\n"));
-		if (exit_on_failure)
-			exit(1);
-		return;
-	}
-
-	service = nc_copy_service(NULL, serviceIDRef);
-	CFRelease(serviceIDRef);
+	service = nc_copy_service_from_arguments(argc, argv, NULL);
 	if (service == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("No service\n"));
 		if (exit_on_failure)
@@ -213,9 +232,10 @@ nc_create_connection(int argc, char **argv, Boolean exit_on_failure)
 		return;
 	}
 
-	connectionRef = SCNetworkConnectionCreateWithService(NULL, service, nc_callback, &context);
-	if (connectionRef == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("nc_create_connection SCNetworkConnectionCreateWithServiceID() failed to create connectionRef: %s\n"), SCErrorString(SCError()));
+	connection = SCNetworkConnectionCreateWithService(NULL, service, nc_callback, &context);
+	CFRelease(service);
+	if (connection == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("Could not create connection: %s\n"), SCErrorString(SCError()));
 		if (exit_on_failure)
 			exit(1);
 		return;
@@ -227,7 +247,7 @@ nc_create_connection(int argc, char **argv, Boolean exit_on_failure)
 static void
 nc_release_connection()
 {
-	my_CFRelease(&connectionRef);
+	my_CFRelease(&connection);
 }
 
 /* -----------------------------------------------------------------------------
@@ -235,10 +255,76 @@ nc_release_connection()
 static void
 nc_start(int argc, char **argv)
 {
+	CFMutableDictionaryRef		userOptions = NULL;
+	CFStringRef			iftype = NULL;
+	CFStringRef			ifsubtype = NULL;
+	SCNetworkServiceRef		service = NULL;
+
 	nc_create_connection(argc, argv, TRUE);
 
-	SCNetworkConnectionStart(connectionRef, 0, TRUE);
+	service = SCNetworkConnectionGetService(connection);
+	nc_get_service_type_and_subtype(service, &iftype, &ifsubtype);
 
+	userOptions = CFDictionaryCreateMutable(NULL, 0,
+						&kCFTypeDictionaryKeyCallBacks,
+						&kCFTypeDictionaryValueCallBacks);
+
+	Boolean isL2TP = (CFEqual(iftype, kSCEntNetPPP) &&
+			  (ifsubtype != NULL) && CFEqual(ifsubtype, kSCValNetInterfaceSubTypeL2TP));
+
+	if (CFEqual(iftype, kSCEntNetPPP)) {
+		CFMutableDictionaryRef pppEntity  = CFDictionaryCreateMutable(NULL, 0,
+									   &kCFTypeDictionaryKeyCallBacks,
+									   &kCFTypeDictionaryValueCallBacks);
+
+		if (username != NULL) {
+			CFDictionarySetValue(pppEntity, kSCPropNetPPPAuthName, username);
+		}
+		if (password != NULL) {
+			CFDictionarySetValue(pppEntity, kSCPropNetPPPAuthPassword, password);
+		}
+		CFDictionarySetValue(userOptions, kSCEntNetPPP, pppEntity);
+		my_CFRelease(&pppEntity);
+	}
+	if (CFEqual(iftype, kSCEntNetIPSec) || isL2TP) {
+		CFMutableDictionaryRef ipsecEntity  = CFDictionaryCreateMutable(NULL, 0,
+									   &kCFTypeDictionaryKeyCallBacks,
+									   &kCFTypeDictionaryValueCallBacks);
+		if (!isL2TP) {
+			if (username != NULL) {
+				CFDictionarySetValue(ipsecEntity, kSCPropNetIPSecXAuthName, username);
+			}
+			if (password != NULL) {
+				CFDictionarySetValue(ipsecEntity, kSCPropNetIPSecXAuthPassword, password);
+			}
+		}
+		if (sharedsecret != NULL) {
+			CFDictionarySetValue(ipsecEntity, kSCPropNetIPSecSharedSecret, sharedsecret);
+		}
+		CFDictionarySetValue(userOptions, kSCEntNetIPSec, ipsecEntity);
+		my_CFRelease(&ipsecEntity);
+	}
+	if (CFEqual(iftype, kSCEntNetVPN)) {
+		CFMutableDictionaryRef vpnEntity  = CFDictionaryCreateMutable(NULL, 0,
+									   &kCFTypeDictionaryKeyCallBacks,
+									   &kCFTypeDictionaryValueCallBacks);
+		if (username != NULL) {
+			CFDictionarySetValue(vpnEntity, kSCPropNetVPNAuthName, username);
+		}
+		if (password != NULL) {
+			CFDictionarySetValue(vpnEntity, kSCPropNetVPNAuthPassword, password);
+		}
+		CFDictionarySetValue(userOptions, kSCEntNetVPN, vpnEntity);
+		my_CFRelease(&vpnEntity);
+	}
+	// If it doesn't match any VPN type, fail silently
+
+	if (!SCNetworkConnectionStart(connection, userOptions, TRUE)) {
+		SCPrint(TRUE, stderr, CFSTR("Could not start connection: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	};
+
+	CFRelease(userOptions);
 	nc_release_connection();
 	exit(0);
 }
@@ -250,7 +336,10 @@ nc_stop(int argc, char **argv)
 {
 	nc_create_connection(argc, argv, TRUE);
 
-	SCNetworkConnectionStop(connectionRef, TRUE);
+	if (!SCNetworkConnectionStop(connection, TRUE)) {
+		SCPrint(TRUE, stderr, CFSTR("Could not stop connection: %s\n"), SCErrorString(SCError()));
+		exit(1);
+	};
 
 	nc_release_connection();
 	exit(0);
@@ -263,7 +352,7 @@ nc_suspend(int argc, char **argv)
 {
 	nc_create_connection(argc, argv, TRUE);
 
-	SCNetworkConnectionSuspend(connectionRef);
+	SCNetworkConnectionSuspend(connection);
 
 	nc_release_connection();
 	exit(0);
@@ -276,7 +365,7 @@ nc_resume(int argc, char **argv)
 {
 	nc_create_connection(argc, argv, TRUE);
 
-	SCNetworkConnectionResume(connectionRef);
+	SCNetworkConnectionResume(connection);
 
 	nc_release_connection();
 	exit(0);
@@ -291,8 +380,8 @@ nc_status(int argc, char **argv)
 
 	nc_create_connection(argc, argv, TRUE);
 
-	status = SCNetworkConnectionGetStatus(connectionRef);
-	nc_callback(connectionRef, status, NULL);
+	status = SCNetworkConnectionGetStatus(connection);
+	nc_callback(connection, status, NULL);
 
 	nc_release_connection();
 	exit(0);
@@ -305,21 +394,21 @@ nc_watch(int argc, char **argv)
 
 	nc_create_connection(argc, argv, TRUE);
 
-	status = SCNetworkConnectionGetStatus(connectionRef);
+	status = SCNetworkConnectionGetStatus(connection);
 
 	// report initial status
 	n_callback = 0;
-	nc_callback(connectionRef, status, &n_callback);
+	nc_callback(connection, status, &n_callback);
 
 	// setup watcher
 	if (doDispatch) {
-		if (!SCNetworkConnectionSetDispatchQueue(connectionRef, dispatch_get_current_queue())) {
-			printf("SCNetworkConnectionSetDispatchQueue() failed: %s\n", SCErrorString(SCError()));
+		if (!SCNetworkConnectionSetDispatchQueue(connection, dispatch_get_current_queue())) {
+			SCPrint(TRUE, stderr, CFSTR("Unable to schedule watch process: %s\n"), SCErrorString(SCError()));
 			exit(1);
 		}
 	} else {
-		if (!SCNetworkConnectionScheduleWithRunLoop(connectionRef, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
-			printf("SCNetworkConnectinScheduleWithRunLoop() failed: %s\n", SCErrorString(SCError()));
+		if (!SCNetworkConnectionScheduleWithRunLoop(connection, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)) {
+			SCPrint(TRUE, stderr, CFSTR("Unable to schedule watch process: %s\n"), SCErrorString(SCError()));
 			exit(1);
 		}
 	}
@@ -340,7 +429,7 @@ nc_statistics(int argc, char **argv)
 
 	nc_create_connection(argc, argv, TRUE);
 
-	stats_dict = SCNetworkConnectionCopyStatistics(connectionRef);
+	stats_dict = SCNetworkConnectionCopyStatistics(connection);
 
 	if (stats_dict) {
 		SCPrint(TRUE, stdout, CFSTR("%@\n"), stats_dict);
@@ -357,6 +446,47 @@ nc_statistics(int argc, char **argv)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static void
+checkOnDemandHost(SCDynamicStoreRef store, CFStringRef nodeName, Boolean retry)
+{
+	Boolean				ok;
+	CFStringRef			connectionServiceID	= NULL;
+	SCNetworkConnectionStatus	connectionStatus	= 0;
+	CFStringRef			vpnRemoteAddress	= NULL;
+
+	SCPrint(TRUE, stdout, CFSTR("OnDemand host/domain check (%sretry)\n"), retry ? "" : "no ");
+
+	ok = __SCNetworkConnectionCopyOnDemandInfoWithName(&store,
+							   nodeName,
+							   retry,
+							   &connectionServiceID,
+							   &connectionStatus,
+							   &vpnRemoteAddress);
+
+	if (ok) {
+		SCPrint(TRUE, stdout, CFSTR("  serviceID      = %@\n"), connectionServiceID);
+		SCPrint(TRUE, stdout, CFSTR("  remote address = %@\n"), vpnRemoteAddress);
+	} else if (SCError() != kSCStatusOK) {
+		SCPrint(TRUE, stdout, CFSTR("%sretry\n"), retry ? "" : "no ");
+		SCPrint(TRUE, stdout,
+			CFSTR("  Unable to copy OnDemand information for connection: %s\n"),
+			SCErrorString(SCError()));
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("  no match\n"));
+	}
+
+	if (connectionServiceID != NULL) {
+		CFRelease(connectionServiceID);
+		connectionServiceID = NULL;
+	}
+	if (vpnRemoteAddress != NULL) {
+		CFRelease(vpnRemoteAddress);
+		vpnRemoteAddress = NULL;
+	}
+
+	return;
+}
+
+static void
 nc_ondemand(int argc, char **argv)
 {
 	int			exit_code	= 1;
@@ -366,15 +496,20 @@ nc_ondemand(int argc, char **argv)
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("scutil --nc"), NULL, NULL);
 	if (store == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("do_nc_ondemand SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stderr, CFSTR("Unable to create dynamic store: %s\n"), SCErrorString(SCError()));
+		goto done;
+	}
+
+	if (argc > 0) {
+		CFStringRef	nodeName;
+
+		nodeName = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+		checkOnDemandHost(store, nodeName, FALSE);
+		checkOnDemandHost(store, nodeName, TRUE);
 		goto done;
 	}
 
 	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetOnDemand);
-	if (key == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("do_nc_ondemand SCDynamicStoreKeyCreateNetworkGlobalEntity() failed: %s\n"), SCErrorString(SCError()));
-		goto done;
-	}
 
 	ondemand_dict = SCDynamicStoreCopyValue(store, key);
 	if (ondemand_dict) {
@@ -391,33 +526,60 @@ done:
 	exit(exit_code);
 }
 
+
 /* -----------------------------------------------------------------------------
- Given a string 'key' and a string prefix 'prefix',
- return the next component in the slash '/' separated
- key.  If no slash follows the prefix, return NULL.
+ ----------------------------------------------------------------------------- */
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
- Examples:
- 1. key = "a/b/c" prefix = "a/"    returns "b"
- 2. key = "a/b/c" prefix = "a/b/"  returns NULL
------------------------------------------------------------------------------ */
-CFStringRef parse_component(CFStringRef key, CFStringRef prefix)
+CFStringRef
+copy_padded_string(CFStringRef original, int width)
 {
-	CFMutableStringRef	comp;
-	CFRange			range;
+	CFMutableStringRef	padded;
 
-	if (!CFStringHasPrefix(key, prefix))
-		return NULL;
+	padded = CFStringCreateMutableCopy(NULL, 0, original);
+	CFStringPad(padded, CFSTR(" "), MAX(CFStringGetLength(original), width), 0);
+	return padded;
+}
 
-	comp = CFStringCreateMutableCopy(NULL, 0, key);
-	CFStringDelete(comp, CFRangeMake(0, CFStringGetLength(prefix)));
-	range = CFStringFind(comp, CFSTR("/"), 0);
-	if (range.location == kCFNotFound) {
-		CFRelease(comp);
-		return NULL;
+
+static void
+nc_print_VPN_service(SCNetworkServiceRef service)
+{
+	CFStringRef type = NULL;
+	CFStringRef sub_type = NULL;
+
+	nc_get_service_type_and_subtype(service, &type, &sub_type);
+
+	CFStringRef service_name = SCNetworkServiceGetName(service);
+	if (service_name == NULL)
+		service_name = CFSTR("");
+	CFStringRef service_name_quoted = CFStringCreateWithFormat(NULL, NULL, CFSTR("\"%@\""), service_name);
+	if (service_name_quoted == NULL) {
+		service_name_quoted = CFRetain(CFSTR(""));
 	}
-	range.length = CFStringGetLength(comp) - range.location;
-	CFStringDelete(comp, range);
-	return comp;
+	CFStringRef service_name_padded = copy_padded_string(service_name, 30);
+
+	CFStringRef service_id   = SCNetworkServiceGetServiceID(service);
+	SCNetworkInterfaceRef interface = SCNetworkServiceGetInterface(service);
+	CFStringRef display_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+	if (display_name == NULL)
+		display_name = CFSTR("");
+	CFStringRef display_name_padded = copy_padded_string(display_name, 18);
+
+
+	SCPrint(TRUE,
+		stdout,
+		CFSTR("%@  %@ %@ %@ [%@%@%@]\n"),
+		SCNetworkServiceGetEnabled(service) ? CFSTR("*") : CFSTR(" "),
+		service_id,
+		display_name_padded,
+		service_name_padded,
+		type,
+		(sub_type == NULL) ? CFSTR("") : CFSTR(":"),
+		(sub_type == NULL) ? CFSTR("") : sub_type);
+	CFRelease(service_name_quoted);
+	CFRelease(display_name_padded);
+	CFRelease(service_name_padded);
 }
 
 
@@ -427,208 +589,79 @@ static void
 nc_list(int argc, char **argv)
 {
 	int			count;
-	int			exit_code	= 1;
 	int			i;
-	CFStringRef		key		= NULL;
-	CFMutableDictionaryRef	names		= NULL;
 	CFArrayRef		services	= NULL;
-	CFStringRef		setup		= NULL;
-	SCDynamicStoreRef	store;
 
-	store = SCDynamicStoreCreate(NULL, CFSTR("scutil --nc"), NULL, NULL);
-	if (store == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));
-		goto done;
-	}
-	key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainSetup, kSCCompAnyRegex, kSCEntNetInterface);
-	if (key == NULL ) {
-		SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreKeyCreateNetworkServiceEntity() failed to create key string\n"));
-		goto done;
-	}
-	setup = SCDynamicStoreKeyCreate(0, CFSTR("%@/%@/%@/"), kSCDynamicStoreDomainSetup, kSCCompNetwork, kSCCompService);
-	if (setup == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreKeyCreate() failed to create setup string\n"));
-		goto done;
-	}
-	names = CFDictionaryCreateMutable(NULL,
-					  0,
-					  &kCFTypeDictionaryKeyCallBacks,
-					  &kCFTypeDictionaryValueCallBacks);
-	if (names == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("nc_list CFDictionaryCreateMutable() failed to create names dictionary\n"));
-		goto done;
-	}
+	SCPrint(TRUE, stdout, CFSTR("Available network connection services in the current set (*=enabled):\n"));
 	services = SCNetworkConnectionCopyAvailableServices(NULL);
 	if (services != NULL) {
 		count = CFArrayGetCount(services);
 
 		for (i = 0; i < count; i++) {
 			SCNetworkServiceRef	service;
-			CFStringRef		serviceID;
-			CFStringRef		serviceName;
 
 			service = CFArrayGetValueAtIndex(services, i);
-			serviceID = SCNetworkServiceGetServiceID(service);
-			serviceName = SCNetworkServiceGetName(service);
-			if (serviceName != NULL) {
-				CFDictionarySetValue(names, serviceID, serviceName);
-			}
+			nc_print_VPN_service(service);
 		}
 
-		CFRelease(services);
 	}
-
-	services = SCDynamicStoreCopyKeyList(store, key);
-	if (services == NULL ) {
-		SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreCopyKeyList() failed: %s\n"), SCErrorString(SCError()));
-		goto done;
-	}
-
-	count = CFArrayGetCount(services);
-	for (i = 0; i < count; i++) {
-		CFStringRef serviceID;
-
-		serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup);
-		if (serviceID) {
-			CFStringRef	iftype;
-			CFStringRef	ifsubtype;
-			CFStringRef	interface_key	= NULL;
-			CFDictionaryRef	interface_dict	= NULL;
-			CFStringRef	service_name;
-
-			interface_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceID, kSCEntNetInterface);
-			if (!interface_key)  {
-				SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreKeyCreateNetworkServiceEntity() failed to interface key string\n"));
-				goto endloop;
-			}
-
-			interface_dict = SCDynamicStoreCopyValue(store, interface_key);
-			if (!interface_dict) {
-				SCPrint(TRUE, stderr, CFSTR("nc_list SCDynamicStoreCopyValue() to copy interface dictionary: %s\n"), SCErrorString(SCError()));
-				goto endloop;
-			}
-
-			iftype = CFDictionaryGetValue(interface_dict, kSCPropNetInterfaceType);
-			if (!iftype) {
-				// is that an error condition ???
-				goto endloop;
-			}
-
-			if (!CFEqual(iftype, kSCEntNetPPP) &&
-				!CFEqual(iftype, kSCEntNetIPSec) &&
-				!CFEqual(iftype, kSCEntNetVPN))
-				goto endloop;
-
-			ifsubtype = CFDictionaryGetValue(interface_dict, kSCPropNetInterfaceSubType);
-
-			service_name = CFDictionaryGetValue(names, serviceID);
-
-			SCPrint(TRUE, stdout, CFSTR("[%@%@%@] %@%s%@\n"),
-				iftype ? iftype : CFSTR("?"),
-				ifsubtype ? CFSTR("/") : CFSTR(""),
-				ifsubtype ? ifsubtype : CFSTR(""),
-				serviceID,
-				service_name ? " : " : "",
-				service_name ? service_name : CFSTR(""));
-
-		    endloop:
-			my_CFRelease(&interface_key);
-			my_CFRelease(&interface_dict);
-			my_CFRelease(&serviceID);
-		}
-	}
-
-	exit_code = 0;
-done:
 	my_CFRelease(&services);
-	my_CFRelease(&names);
-	my_CFRelease(&setup);
-	my_CFRelease(&key);
-	my_CFRelease(&store);
-	exit(exit_code);
+	exit(0);
 }
+
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static void
 nc_show(int argc, char **argv)
 {
+	SCNetworkServiceRef	service = NULL;
 	SCDynamicStoreRef	store = NULL;
 	int			exit_code = 1;
-	CFStringRef		setup = NULL;
-	CFStringRef		serviceIDRef = NULL;
-	CFArrayRef		services = NULL;
+	CFStringRef		serviceID = NULL;
 	CFStringRef		iftype = NULL;
 	CFStringRef		ifsubtype = NULL;
-	CFStringRef		interface_key = NULL;
-	CFDictionaryRef		interface_dict = NULL;
 	CFStringRef		type_entity_key = NULL;
 	CFStringRef		subtype_entity_key = NULL;
 	CFDictionaryRef		type_entity_dict = NULL;
 	CFDictionaryRef		subtype_entity_dict = NULL;
 
-	serviceIDRef = nc_copy_serviceID(argc, argv);
-	if (serviceIDRef == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("No service ID\n"));
+	service = nc_copy_service_from_arguments(argc, argv, NULL);
+	if (service == NULL) {
+		SCPrint(TRUE, stderr, CFSTR("No service\n"));
+		exit(exit_code);
+	}
+
+	serviceID = SCNetworkServiceGetServiceID(service);
+
+	nc_get_service_type_and_subtype(service, &iftype, &ifsubtype);
+
+	if (!CFEqual(iftype, kSCEntNetPPP) &&
+	    !CFEqual(iftype, kSCEntNetIPSec) &&
+	    !CFEqual(iftype, kSCEntNetVPN)) {
+		SCPrint(TRUE, stderr, CFSTR("Not a connection oriented service: %@\n"), serviceID);
 		goto done;
 	}
+
+	type_entity_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceID, iftype);
+
+	nc_print_VPN_service(service);
 
 	store = SCDynamicStoreCreate(NULL, CFSTR("scutil --nc"), NULL, NULL);
 	if (store == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("nc_show SCDynamicStoreCreate() failed: %s\n"), SCErrorString(SCError()));
-		goto done;
-	}
-
-	interface_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceIDRef, kSCEntNetInterface);
-	if (!interface_key) {
-		SCPrint(TRUE, stderr, CFSTR("nc_show SCDynamicStoreKeyCreateNetworkServiceEntity() failed to create interface key\n"));
-		goto done;
-	}
-
-	interface_dict = SCDynamicStoreCopyValue(store, interface_key);
-	if (!interface_dict) {
-		SCPrint(TRUE, stdout, CFSTR("Interface dictionary missing for service ID : %@\n"), serviceIDRef);
-		goto done;
-	}
-
-	iftype = CFDictionaryGetValue(interface_dict, kSCPropNetInterfaceType);
-	if (!iftype) {
-		SCPrint(TRUE, stdout, CFSTR("Interface Type missing for service ID : %@\n"), serviceIDRef);
-		goto done;
-	}
-
-	if (!CFEqual(iftype, kSCEntNetPPP) &&
-		!CFEqual(iftype, kSCEntNetIPSec) &&
-		!CFEqual(iftype, kSCEntNetVPN)) {
-		SCPrint(TRUE, stdout, CFSTR("Interface Type [%@] invalid for service ID : %@\n"), iftype, serviceIDRef);
-		goto done;
-	}
-
-	ifsubtype = CFDictionaryGetValue(interface_dict, kSCPropNetInterfaceSubType);
-	SCPrint(TRUE, stdout, CFSTR("[%@%@%@] %@\n"),
-		iftype ? iftype : CFSTR("?"),
-		ifsubtype ? CFSTR("/") : CFSTR(""),
-		ifsubtype ? ifsubtype : CFSTR(""),
-		serviceIDRef);
-
-	type_entity_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceIDRef, iftype);
-	if (!type_entity_key) {
-		SCPrint(TRUE, stderr, CFSTR("nc_show SCDynamicStoreKeyCreateNetworkServiceEntity() failed to create type entity key\n"));
+		SCPrint(TRUE, stderr, CFSTR("Unable to create dynamic store: %s\n"), SCErrorString(SCError()));
 		goto done;
 	}
 	type_entity_dict = SCDynamicStoreCopyValue(store, type_entity_key);
+
 	if (!type_entity_dict) {
-		SCPrint(TRUE, stdout, CFSTR("%@ dictionary missing for service ID : %@\n"), iftype, serviceIDRef);
+		SCPrint(TRUE, stderr, CFSTR("No \"%@\" configuration available\n"), iftype);
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("%@ %@\n"), iftype, type_entity_dict);
 	}
 
 	if (ifsubtype) {
-		subtype_entity_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceIDRef, ifsubtype);
-		if (!subtype_entity_key) {
-			SCPrint(TRUE, stderr, CFSTR("nc_show SCDynamicStoreKeyCreateNetworkServiceEntity() failed to create subtype entity key\n"));
-			goto done;
-		}
+		subtype_entity_key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, serviceID, ifsubtype);
 		subtype_entity_dict = SCDynamicStoreCopyValue(store, subtype_entity_key);
 		if (!subtype_entity_dict) {
 			//
@@ -641,17 +674,12 @@ nc_show(int argc, char **argv)
 	exit_code = 0;
 
 done:
-	my_CFRelease(&serviceIDRef);
-	my_CFRelease(&interface_key);
-	my_CFRelease(&interface_dict);
 	my_CFRelease(&type_entity_key);
 	my_CFRelease(&type_entity_dict);
 	my_CFRelease(&subtype_entity_key);
 	my_CFRelease(&subtype_entity_dict);
-	my_CFRelease(&services);
-	my_CFRelease(&setup);
 	my_CFRelease(&store);
-
+	my_CFRelease(&service);
 	exit(exit_code);
 }
 
@@ -663,40 +691,33 @@ nc_select(int argc, char **argv)
 	SCNetworkSetRef		current_set;
 	int			exit_code	= 1;
 	SCNetworkServiceRef	service		= NULL;
-	CFStringRef		service_id;
 	Boolean			status;
-
-	service_id = nc_copy_serviceID(argc, argv);
-	if (service_id == NULL) {
-		SCPrint(TRUE, stderr, CFSTR("No service identifier\n"));
-		exit(exit_code);
-	}
 
 	do_prefs_init();	/* initialization */
 	do_prefs_open(0, NULL);	/* open default prefs */
 
 	current_set = SCNetworkSetCopyCurrent(prefs);
 	if (current_set == NULL) {
-		SCPrint(TRUE, stdout, CFSTR("nc_select SCNetworkSetCopyCurrent() failed: %s\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stderr, CFSTR("No current location\n"), SCErrorString(SCError()));
 		goto done;
 	}
 
-	service = nc_copy_service(current_set, service_id);
+	service = nc_copy_service_from_arguments(argc, argv, current_set);
 	if (service == NULL) {
-		SCPrint(TRUE, stdout, CFSTR("No service\n"));
+		SCPrint(TRUE, stderr, CFSTR("No service\n"));
 		goto done;
 	}
 
 #if !TARGET_OS_IPHONE
 	status = SCNetworkServiceSetEnabled(service, TRUE);
 	if (!status) {
-		SCPrint(TRUE, stdout, CFSTR("nc_select SCNetworkServiceSetEnabled() failed: %s\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stderr, CFSTR("Unable to enable service: %s\n"), SCErrorString(SCError()));
 		goto done;
 	}
 #else
 	status = SCNetworkSetSetSelectedVPNService(current_set, service);
 	if (!status) {
-		SCPrint(TRUE, stdout, CFSTR("nc_select SCNetworkSetSetSelectedVPNService() failed: %s\n"), SCErrorString(SCError()));
+		SCPrint(TRUE, stderr, CFSTR("Unable to select service: %s\n"), SCErrorString(SCError()));
 		goto done;
 	}
 #endif
@@ -704,8 +725,7 @@ nc_select(int argc, char **argv)
 	_prefs_save();
 	exit_code = 0;
 done:
-
-	my_CFRelease(&service_id);
+	my_CFRelease(&service);
 	my_CFRelease(&current_set);
 	_prefs_close();
 	exit(exit_code);

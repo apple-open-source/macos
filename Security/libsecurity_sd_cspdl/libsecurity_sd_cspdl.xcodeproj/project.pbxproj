@@ -1,0 +1,318 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4CC3A0BB05D45BC200484B20 /* SDContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0A805D45BC200484B20 /* SDContext.cpp */; };
+		4CC3A0BC05D45BC200484B20 /* SDContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0A905D45BC200484B20 /* SDContext.h */; };
+		4CC3A0BD05D45BC200484B20 /* SDCSPDLBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0AA05D45BC200484B20 /* SDCSPDLBuiltin.cpp */; };
+		4CC3A0BE05D45BC200484B20 /* SDCSPDLDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0AB05D45BC200484B20 /* SDCSPDLDatabase.cpp */; };
+		4CC3A0BF05D45BC200484B20 /* SDCSPDLDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0AC05D45BC200484B20 /* SDCSPDLDatabase.h */; };
+		4CC3A0C005D45BC200484B20 /* SDCSPDLPlugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0AD05D45BC200484B20 /* SDCSPDLPlugin.cpp */; };
+		4CC3A0C105D45BC200484B20 /* SDCSPDLPlugin.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0AE05D45BC200484B20 /* SDCSPDLPlugin.h */; };
+		4CC3A0C205D45BC200484B20 /* SDCSPDLSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0AF05D45BC200484B20 /* SDCSPDLSession.cpp */; };
+		4CC3A0C305D45BC200484B20 /* SDCSPDLSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0B005D45BC200484B20 /* SDCSPDLSession.h */; };
+		4CC3A0C405D45BC200484B20 /* SDCSPSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0B105D45BC200484B20 /* SDCSPSession.cpp */; };
+		4CC3A0C505D45BC200484B20 /* SDCSPSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0B205D45BC200484B20 /* SDCSPSession.h */; };
+		4CC3A0C805D45BC200484B20 /* SDDLSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0B505D45BC200484B20 /* SDDLSession.cpp */; };
+		4CC3A0C905D45BC200484B20 /* SDDLSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0B605D45BC200484B20 /* SDDLSession.h */; };
+		4CC3A0CA05D45BC200484B20 /* SDFactory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0B705D45BC200484B20 /* SDFactory.cpp */; };
+		4CC3A0CB05D45BC200484B20 /* SDFactory.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0B805D45BC200484B20 /* SDFactory.h */; };
+		4CC3A0CC05D45BC200484B20 /* SDKey.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3A0B905D45BC200484B20 /* SDKey.cpp */; };
+		4CC3A0CD05D45BC200484B20 /* SDKey.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC3A0BA05D45BC200484B20 /* SDKey.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB3D1146F1E61000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB3CC146F1E61000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurity_cdsa_plugin;
+		};
+		182BB3D3146F1E6D000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB3CC146F1E61000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = libsecurity_cdsa_plugin_generate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		182BB3C7146F1DE0000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB3C8146F1DE0000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB3C9146F1DE0000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB3CA146F1DE0000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB3CC146F1E61000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_cdsa_plugin.xcodeproj; path = ../libsecurity_cdsa_plugin/libsecurity_cdsa_plugin.xcodeproj; sourceTree = "<group>"; };
+		4094B0AB057EA69D00B44BCC /* sd_cspdl_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = sd_cspdl_common.mdsinfo; sourceTree = "<group>"; };
+		4C2741E905D463310072C0F2 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_sd_cspdl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_sd_cspdl.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CC3A0A805D45BC200484B20 /* SDContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDContext.cpp; sourceTree = "<group>"; };
+		4CC3A0A905D45BC200484B20 /* SDContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDContext.h; sourceTree = "<group>"; };
+		4CC3A0AA05D45BC200484B20 /* SDCSPDLBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDCSPDLBuiltin.cpp; sourceTree = "<group>"; };
+		4CC3A0AB05D45BC200484B20 /* SDCSPDLDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDCSPDLDatabase.cpp; sourceTree = "<group>"; };
+		4CC3A0AC05D45BC200484B20 /* SDCSPDLDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDCSPDLDatabase.h; sourceTree = "<group>"; };
+		4CC3A0AD05D45BC200484B20 /* SDCSPDLPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDCSPDLPlugin.cpp; sourceTree = "<group>"; };
+		4CC3A0AE05D45BC200484B20 /* SDCSPDLPlugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDCSPDLPlugin.h; sourceTree = "<group>"; };
+		4CC3A0AF05D45BC200484B20 /* SDCSPDLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDCSPDLSession.cpp; sourceTree = "<group>"; };
+		4CC3A0B005D45BC200484B20 /* SDCSPDLSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDCSPDLSession.h; sourceTree = "<group>"; };
+		4CC3A0B105D45BC200484B20 /* SDCSPSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDCSPSession.cpp; sourceTree = "<group>"; };
+		4CC3A0B205D45BC200484B20 /* SDCSPSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDCSPSession.h; sourceTree = "<group>"; };
+		4CC3A0B505D45BC200484B20 /* SDDLSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDDLSession.cpp; sourceTree = "<group>"; };
+		4CC3A0B605D45BC200484B20 /* SDDLSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDDLSession.h; sourceTree = "<group>"; };
+		4CC3A0B705D45BC200484B20 /* SDFactory.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDFactory.cpp; sourceTree = "<group>"; };
+		4CC3A0B805D45BC200484B20 /* SDFactory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDFactory.h; sourceTree = "<group>"; };
+		4CC3A0B905D45BC200484B20 /* SDKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SDKey.cpp; sourceTree = "<group>"; };
+		4CC3A0BA05D45BC200484B20 /* SDKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SDKey.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		182BB3C6146F1DE0000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB3C7146F1DE0000BF1F3 /* base.xcconfig */,
+				182BB3C8146F1DE0000BF1F3 /* debug.xcconfig */,
+				182BB3C9146F1DE0000BF1F3 /* lib.xcconfig */,
+				182BB3CA146F1DE0000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB3CD146F1E61000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB3D2146F1E61000BF1F3 /* libsecurity_cdsa_plugin.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4094B0AA057EA69D00B44BCC /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4094B0AB057EA69D00B44BCC /* sd_cspdl_common.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = SOURCE_ROOT;
+		};
+		4C6AA9CE0535FDA6006E3284 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				4CC3A0A805D45BC200484B20 /* SDContext.cpp */,
+				4CC3A0A905D45BC200484B20 /* SDContext.h */,
+				4CC3A0AA05D45BC200484B20 /* SDCSPDLBuiltin.cpp */,
+				4CC3A0AB05D45BC200484B20 /* SDCSPDLDatabase.cpp */,
+				4CC3A0AC05D45BC200484B20 /* SDCSPDLDatabase.h */,
+				4CC3A0AD05D45BC200484B20 /* SDCSPDLPlugin.cpp */,
+				4CC3A0AE05D45BC200484B20 /* SDCSPDLPlugin.h */,
+				4CC3A0AF05D45BC200484B20 /* SDCSPDLSession.cpp */,
+				4CC3A0B005D45BC200484B20 /* SDCSPDLSession.h */,
+				4CC3A0B105D45BC200484B20 /* SDCSPSession.cpp */,
+				4CC3A0B205D45BC200484B20 /* SDCSPSession.h */,
+				4CC3A0B505D45BC200484B20 /* SDDLSession.cpp */,
+				4CC3A0B605D45BC200484B20 /* SDDLSession.h */,
+				4CC3A0B705D45BC200484B20 /* SDFactory.cpp */,
+				4CC3A0B805D45BC200484B20 /* SDFactory.h */,
+				4CC3A0B905D45BC200484B20 /* SDKey.cpp */,
+				4CC3A0BA05D45BC200484B20 /* SDKey.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				182BB3CC146F1E61000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */,
+				4C2741E905D463310072C0F2 /* APPLE_LICENSE */,
+				4C6AA9CE0535FDA6006E3284 /* lib */,
+				182BB3C6146F1DE0000BF1F3 /* config */,
+				4094B0AA057EA69D00B44BCC /* mds */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_sd_cspdl.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CC3A0BC05D45BC200484B20 /* SDContext.h in Headers */,
+				4CC3A0BF05D45BC200484B20 /* SDCSPDLDatabase.h in Headers */,
+				4CC3A0C105D45BC200484B20 /* SDCSPDLPlugin.h in Headers */,
+				4CC3A0C305D45BC200484B20 /* SDCSPDLSession.h in Headers */,
+				4CC3A0C505D45BC200484B20 /* SDCSPSession.h in Headers */,
+				4CC3A0C905D45BC200484B20 /* SDDLSession.h in Headers */,
+				4CC3A0CB05D45BC200484B20 /* SDFactory.h in Headers */,
+				4CC3A0CD05D45BC200484B20 /* SDKey.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_sd_cspdl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3D60987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_sd_cspdl" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB3D4146F1E6D000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_sd_cspdl;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurity_sd_cspdl;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_sd_cspdl.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD3DE0987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_sd_cspdl" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB3CD146F1E61000BF1F3 /* Products */;
+					ProjectRef = 182BB3CC146F1E61000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_sd_cspdl */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB3D2146F1E61000BF1F3 /* libsecurity_cdsa_plugin.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_cdsa_plugin.a;
+			remoteRef = 182BB3D1146F1E61000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CC3A0BB05D45BC200484B20 /* SDContext.cpp in Sources */,
+				4CC3A0BD05D45BC200484B20 /* SDCSPDLBuiltin.cpp in Sources */,
+				4CC3A0BE05D45BC200484B20 /* SDCSPDLDatabase.cpp in Sources */,
+				4CC3A0C005D45BC200484B20 /* SDCSPDLPlugin.cpp in Sources */,
+				4CC3A0C205D45BC200484B20 /* SDCSPDLSession.cpp in Sources */,
+				4CC3A0C405D45BC200484B20 /* SDCSPSession.cpp in Sources */,
+				4CC3A0C805D45BC200484B20 /* SDDLSession.cpp in Sources */,
+				4CC3A0CA05D45BC200484B20 /* SDFactory.cpp in Sources */,
+				4CC3A0CC05D45BC200484B20 /* SDKey.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB3D4146F1E6D000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_cdsa_plugin_generate;
+			targetProxy = 182BB3D3146F1E6D000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3D70987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3C8146F1DE0000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3DD0987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3CA146F1DE0000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD3DF0987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3C9146F1DE0000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3E50987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3C9146F1DE0000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3D60987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_sd_cspdl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3D70987FCDF001272E0 /* Debug */,
+				C27AD3DD0987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3DE0987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_sd_cspdl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3DF0987FCDF001272E0 /* Debug */,
+				C27AD3E50987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

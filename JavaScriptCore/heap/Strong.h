@@ -26,9 +26,9 @@
 #ifndef Strong_h
 #define Strong_h
 
-#include "Assertions.h"
+#include <wtf/Assertions.h>
 #include "Handle.h"
-#include "HandleHeap.h"
+#include "HandleSet.h"
 
 namespace JSC {
 
@@ -56,7 +56,7 @@ public:
     {
         if (!other.slot())
             return;
-        setSlot(HandleHeap::heapFor(other.slot())->allocate());
+        setSlot(HandleSet::heapFor(other.slot())->allocate());
         set(other.get());
     }
 
@@ -65,7 +65,7 @@ public:
     {
         if (!other.slot())
             return;
-        setSlot(HandleHeap::heapFor(other.slot())->allocate());
+        setSlot(HandleSet::heapFor(other.slot())->allocate());
         set(other.get());
     }
     
@@ -81,10 +81,18 @@ public:
         clear();
     }
 
+    bool operator!() const { return !slot() || !*slot(); }
+
+    // This conversion operator allows implicit conversion to bool but not to other integer types.
+    typedef JSValue (HandleBase::*UnspecifiedBoolType);
+    operator UnspecifiedBoolType*() const { return !!*this ? reinterpret_cast<UnspecifiedBoolType*>(1) : 0; }
+
     void swap(Strong& other)
     {
         Handle<T>::swap(other);
     }
+
+    ExternalType get() const { return HandleTypes<T>::getFromSlot(this->slot()); }
 
     void set(JSGlobalData&, ExternalType);
 
@@ -95,7 +103,7 @@ public:
             return *this;
         }
 
-        set(*HandleHeap::heapFor(other.slot())->globalData(), other.get());
+        set(*HandleSet::heapFor(other.slot())->globalData(), other.get());
         return *this;
     }
     
@@ -106,7 +114,7 @@ public:
             return *this;
         }
 
-        set(*HandleHeap::heapFor(other.slot())->globalData(), other.get());
+        set(*HandleSet::heapFor(other.slot())->globalData(), other.get());
         return *this;
     }
 
@@ -114,7 +122,7 @@ public:
     {
         if (!slot())
             return;
-        HandleHeap::heapFor(slot())->deallocate(slot());
+        HandleSet::heapFor(slot())->deallocate(slot());
         setSlot(0);
     }
 
@@ -125,7 +133,7 @@ private:
     {
         ASSERT(slot());
         JSValue value = HandleTypes<T>::toJSValue(externalType);
-        HandleHeap::heapFor(slot())->writeBarrier(slot(), value);
+        HandleSet::heapFor(slot())->writeBarrier(slot(), value);
         *slot() = value;
     }
 };

@@ -105,9 +105,11 @@ smb_rq_getenv(struct smb_connobj *obj, struct smb_vc **vcp, struct smb_share **s
 static int
 smb_rq_new(struct smb_rq *rqp, u_char cmd, uint16_t extraFlags2)
 {
-	struct mbchain *mbp = &rqp->sr_rq;
+	struct mbchain *mbp;
 	int error;
 	
+    smb_rq_getrequest(rqp, &mbp);
+
 	rqp->sr_cmd = cmd;
 	mb_done(mbp);
 	md_done(&rqp->sr_rp);
@@ -224,7 +226,7 @@ smb_rq_alloc(struct smb_connobj *obj, u_char cmd, uint16_t flags2,
 	struct smb_rq *rqp;
 	int error;
 
-	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
+	SMB_MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
 	if (rqp == NULL)
 		return ENOMEM;
 	error = smb_rq_init_internal(rqp, obj, cmd, SMBR_ALLOCED, flags2, context);
@@ -255,6 +257,7 @@ smb_rq_done(struct smb_rq *rqp)
 
 /*
  * Wait for reply on the request
+ * Parse out the SMB Header into the smb_rq response fields
  */
 static int
 smb_rq_reply(struct smb_rq *rqp)
@@ -311,6 +314,7 @@ smb_rq_reply(struct smb_rq *rqp)
 		lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 	}
 	
+    /* Need bigger buffer? */
 	if (rperror && (rqp->sr_ntstatus == STATUS_BUFFER_TOO_SMALL)) {
 		rqp->sr_flags |= SMBR_MOREDATA;
 	} else {
@@ -483,7 +487,7 @@ smb_nt_alloc(struct smb_connobj *obj, u_short fn,
 	struct smb_ntrq *ntp;
 	int error;
 	
-	MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
+	SMB_MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
 	if (ntp == NULL)
 		return ENOMEM;
 	error = smb_nt_init(ntp, obj, SMBT2_ALLOCED, fn, context);
@@ -573,7 +577,7 @@ smb_t2_alloc(struct smb_connobj *obj, u_short setup, int setupcnt,
 	struct smb_t2rq *t2p;
 	int error;
 
-	MALLOC(t2p, struct smb_t2rq *, sizeof(*t2p), M_SMBRQ, M_WAITOK);
+	SMB_MALLOC(t2p, struct smb_t2rq *, sizeof(*t2p), M_SMBRQ, M_WAITOK);
 	if (t2p == NULL)
 		return ENOMEM;
 	error = smb_t2_init_internal(t2p, obj, SMBT2_ALLOCED, &setup, setupcnt, context);
@@ -600,7 +604,7 @@ smb_t2_done(struct smb_t2rq *t2p)
 	md_done(&t2p->t2_rparam);
 	md_done(&t2p->t2_rdata);
 	if (t2p->t2_flags & SMBT2_ALLOCED)
-		free(t2p, M_SMBRQ);
+		SMB_FREE(t2p, M_SMBRQ);
 }
 
 static int 
@@ -940,7 +944,7 @@ int smb_t2_request(struct smb_t2rq *t2p)
 	rqp->sr_flags |= SMBR_MULTIPACKET;
 	t2p->t2_rq = rqp;
 	rqp->sr_t2 = t2p;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint16le(mbp, totpcount);
 	mb_put_uint16le(mbp, totdcount);
@@ -1045,7 +1049,7 @@ int smb_t2_request(struct smb_t2rq *t2p)
 		    SMB_COM_TRANSACTION_SECONDARY : SMB_COM_TRANSACTION2_SECONDARY, 0);
 		if (error)
 			goto bad;
-		mbp = &rqp->sr_rq;
+        smb_rq_getrequest(rqp, &mbp);
 		smb_rq_wstart(rqp);
 		mb_put_uint16le(mbp, totpcount);
 		mb_put_uint16le(mbp, totdcount);
@@ -1185,7 +1189,7 @@ smb_nt_request(struct smb_ntrq *ntp)
 	rqp->sr_timo = vcp->vc_timo;
 	rqp->sr_flags |= SMBR_MULTIPACKET;
 	ntp->nt_rq = rqp;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint8(mbp, ntp->nt_maxscount);
 	mb_put_uint16le(mbp, 0);	/* reserved (flags?) */
@@ -1273,7 +1277,7 @@ smb_nt_request(struct smb_ntrq *ntp)
 		error = smb_rq_new(rqp, SMB_COM_NT_TRANSACT_SECONDARY, 0);
 		if (error)
 			goto bad;
-		mbp = &rqp->sr_rq;
+        smb_rq_getrequest(rqp, &mbp);
 		smb_rq_wstart(rqp);
 		mb_put_mem(mbp, NULL, 3, MB_MZERO);
 		mb_put_uint32le(mbp, totpcount);
@@ -1412,7 +1416,7 @@ smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback,
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
-	mbp = &rqp->sr_rq;
+    smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
 	mb_put_uint8(mbp, ntp->nt_maxscount);
 	mb_put_uint16le(mbp, 0);	/* reserved */

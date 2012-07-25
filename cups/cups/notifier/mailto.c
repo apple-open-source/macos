@@ -1,5 +1,5 @@
 /*
- * "$Id: mailto.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: mailto.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "mailto" notifier for CUPS.
  *
@@ -632,7 +632,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
       fprintf(stderr, "DEBUG: %*s%s:\n\n", indent - 4, "", ippTagString(group));
     }
 
-    _ippAttrString(attr, buffer, sizeof(buffer));
+    ippAttributeString(attr, buffer, sizeof(buffer));
 
     fprintf(stderr, "DEBUG: %*s%s (%s%s) %s", indent, "", attr->name,
             attr->num_values > 1 ? "1setOf " : "",
@@ -642,5 +642,5 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
 
 /*
- * End of "$Id: mailto.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: mailto.c 9042 2010-03-24 00:45:34Z mike $".
  */

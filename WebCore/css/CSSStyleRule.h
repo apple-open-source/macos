@@ -23,55 +23,39 @@
 #define CSSStyleRule_h
 
 #include "CSSRule.h"
-#include "CSSSelectorList.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class CSSMutableStyleDeclaration;
-class CSSSelector;
+class CSSStyleDeclaration;
+class StyleRuleCSSStyleDeclaration;
+class StyleRule;
 
 class CSSStyleRule : public CSSRule {
 public:
-    static PassRefPtr<CSSStyleRule> create(CSSStyleSheet* parent, int sourceLine)
-    {
-        return adoptRef(new CSSStyleRule(parent, sourceLine));
-    }
-    virtual ~CSSStyleRule();
+    static PassRefPtr<CSSStyleRule> create(StyleRule* rule, CSSStyleSheet* sheet) { return adoptRef(new CSSStyleRule(rule, sheet)); }
 
-    virtual String selectorText() const;
+    ~CSSStyleRule();
+
+    String selectorText() const;
     void setSelectorText(const String&);
 
-    CSSMutableStyleDeclaration* style() const { return m_style.get(); }
+    CSSStyleDeclaration* style() const;
 
-    virtual String cssText() const;
-
-    // Not part of the CSSOM
-    virtual bool parseString(const String&, bool = false);
-
-    void adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectors) { m_selectorList.adoptSelectorVector(selectors); }
-    void setDeclaration(PassRefPtr<CSSMutableStyleDeclaration>);
-
-    const CSSSelectorList& selectorList() const { return m_selectorList; }
-    CSSMutableStyleDeclaration* declaration() { return m_style.get(); }
-
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>& urls);
-
-    int sourceLine() { return m_sourceLine; }
-
-protected:
-    CSSStyleRule(CSSStyleSheet* parent, int sourceLine);
+    String cssText() const;
+    
+    // FIXME: Not CSSOM. Remove.
+    StyleRule* styleRule() const { return m_styleRule.get(); }
 
 private:
-    virtual bool isStyleRule() { return true; }
+    CSSStyleRule(StyleRule*, CSSStyleSheet*);
 
-    // Inherited from CSSRule
-    virtual unsigned short type() const { return STYLE_RULE; }
+    String generateSelectorText() const;
 
-    RefPtr<CSSMutableStyleDeclaration> m_style;
-    CSSSelectorList m_selectorList;
-    int m_sourceLine;
+    RefPtr<StyleRule> m_styleRule;    
+
+    mutable RefPtr<StyleRuleCSSStyleDeclaration> m_propertiesCSSOMWrapper;
 };
 
 } // namespace WebCore

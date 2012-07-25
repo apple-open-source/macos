@@ -38,6 +38,8 @@ namespace WebCore {
 
 static bool shouldUseCoreText(UChar* buffer, unsigned bufferLength, const SimpleFontData* fontData)
 {
+    if (fontData->platformData().isCompositeFontReference())
+        return true;
     if (fontData->platformData().widthVariant() != RegularWidth || fontData->hasVerticalGlyphs()) {
         // Ideographs don't have a vertical variant or width variants.
         for (unsigned i = 0; i < bufferLength; ++i) {
@@ -53,9 +55,19 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
 {
     bool haveGlyphs = false;
 
+    Vector<CGGlyph, 512> glyphs(bufferLength);
     if (!shouldUseCoreText(buffer, bufferLength, fontData)) {
-        Vector<CGGlyph, 512> glyphs(bufferLength);
         wkGetGlyphsForCharacters(fontData->platformData().cgFont(), buffer, glyphs.data(), bufferLength);
+        for (unsigned i = 0; i < length; ++i) {
+            if (!glyphs[i])
+                setGlyphDataForIndex(offset + i, 0, 0);
+            else {
+                setGlyphDataForIndex(offset + i, glyphs[i], fontData);
+                haveGlyphs = true;
+            }
+        }
+    } else if (!fontData->platformData().isCompositeFontReference() && ((fontData->platformData().widthVariant() == RegularWidth) ? wkGetVerticalGlyphsForCharacters(fontData->platformData().ctFont(), buffer, glyphs.data(), bufferLength)
+               : CTFontGetGlyphsForCharacters(fontData->platformData().ctFont(), buffer, glyphs.data(), bufferLength))) {
         for (unsigned i = 0; i < length; ++i) {
             if (!glyphs[i])
                 setGlyphDataForIndex(offset + i, 0, 0);
@@ -95,7 +107,8 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
             CTFontRef runFont = static_cast<CTFontRef>(CFDictionaryGetValue(attributes, kCTFontAttributeName));
             RetainPtr<CGFontRef> runCGFont(AdoptCF, CTFontCopyGraphicsFont(runFont, 0));
             // Use CGFont here as CFEqual for CTFont counts all attributes for font.
-            if (CFEqual(cgFont.get(), runCGFont.get())) {
+            bool gotBaseFont = CFEqual(cgFont.get(), runCGFont.get());
+            if (gotBaseFont || fontData->platformData().isCompositeFontReference()) {
                 // This run uses the font we want. Extract glyphs.
                 CFIndex glyphCount = CTRunGetGlyphCount(ctRun);
                 const CGGlyph* glyphs = CTRunGetGlyphsPtr(ctRun);
@@ -111,14 +124,30 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
                     stringIndices = indexVector.data();
                 }
 
-                for (CFIndex i = 0; i < glyphCount; ++i) {
-                    if (stringIndices[i] >= static_cast<CFIndex>(length)) {
-                        done = true;
-                        break;
+                if (gotBaseFont) {
+                    for (CFIndex i = 0; i < glyphCount; ++i) {
+                        if (stringIndices[i] >= static_cast<CFIndex>(length)) {
+                            done = true;
+                            break;
+                        }
+                        if (glyphs[i]) {
+                            setGlyphDataForIndex(offset + stringIndices[i], glyphs[i], fontData);
+                            haveGlyphs = true;
+                        }
                     }
-                    if (glyphs[i]) {
-                        setGlyphDataForIndex(offset + stringIndices[i], glyphs[i], fontData);
-                        haveGlyphs = true;
+                } else {
+                    const SimpleFontData* runSimple = fontData->getCompositeFontReferenceFontData((NSFont *)runFont);
+                    if (runSimple) {
+                        for (CFIndex i = 0; i < glyphCount; ++i) {
+                            if (stringIndices[i] >= static_cast<CFIndex>(length)) {
+                                done = true;
+                                break;
+                            }
+                            if (glyphs[i]) {
+                                setGlyphDataForIndex(offset + stringIndices[i], glyphs[i], runSimple);
+                                haveGlyphs = true;
+                            }
+                        }
                     }
                 }
             }

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -120,7 +120,7 @@ int	flags;	/* type of file stream */
 	f->endb = f->endr = f->endw = f->next = f->data;
 
 	if(_Sfnotify)
-		(*_Sfnotify)(f,SF_NEW,f->file);
+		(*_Sfnotify)(f, SF_NEW, (void*)((long)f->file));
 
 	if(f->flags&SF_STRING)
 		(void)_sfmode(f,f->mode&SF_RDWR,0);

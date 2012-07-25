@@ -27,7 +27,7 @@
 #include "limits.h"
 
 uint32_t FH, FHF;
-uint32_t razor_drop, razor_material, drop_cuts, ext_recap, ext_onerep;
+uint32_t razor_drop, razor_material, drop_cuts, ext_recap, ext_onerep, ext_check;
 
 char true_i_depth;
 
@@ -380,7 +380,7 @@ int32_t qsearch (int alpha, int beta, int depth) {
     
     seev = see_values[i];
  
-    if (((seev < delta) || (seev < 0)) && !moves[i].promoted)
+    if (!moves[i].promoted && ((seev < delta) || (seev < 0)))
 	continue;
   
     make (&moves[0], i);
@@ -538,13 +538,7 @@ int32_t search (int alpha, int beta, int depth, int is_null) {
   
   if ((path[ply-1].captured != npiece || ply == 2))
   {
-    if (piece_count <= EGTBPieces && (Variant == Normal))
-    {
-      egscore = probe_egtb();
-      if (egscore != KINGCAP)
-	return egscore;
-    }
-    else if (piece_count <= 3 && (Variant == Suicide) && SEGTB)
+    if (piece_count <= 3 && (Variant == Suicide) && SEGTB)
     {
       EGTBProbes++;
       
@@ -828,8 +822,8 @@ int32_t search (int alpha, int beta, int depth, int is_null) {
 	  if (!afterincheck && ((Variant == Normal) 
 		             || (Variant == Suicide) 
 			     || (Variant == Losers)) && (depth < 3) &&
-	      (((board[moves[i].target] == wpawn) && (rank(moves[i].target) >= 6)
-		|| ((board[moves[i].target] == bpawn) && (rank(moves[i].target) <= 3)))))
+	      (((board[moves[i].target] == wpawn) && (rank(moves[i].target) >= 6))
+		|| ((board[moves[i].target] == bpawn) && (rank(moves[i].target) <= 3))))
 	    {
 	      extend++;
 	    };
@@ -1861,6 +1855,8 @@ restart:
 	    break;
 	  }
 	}
+
+    k = 0;
 	for (j = 0; j < num_moves; j++)
 	{
 	    if (rootlosers[j]) k++;  

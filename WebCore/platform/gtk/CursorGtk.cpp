@@ -46,17 +46,16 @@ static GRefPtr<GdkCursor> createNamedCursor(CustomCursorType cursorType)
     if (c)
         return c;
 
-    IntSize cursorSize = IntSize(32, 32);
     RefPtr<cairo_surface_t> source = adoptRef(cairo_image_surface_create_for_data(const_cast<unsigned char*>(cursor.bits), CAIRO_FORMAT_A1, 32, 32, 4));
     RefPtr<cairo_surface_t> mask = adoptRef(cairo_image_surface_create_for_data(const_cast<unsigned char*>(cursor.mask_bits), CAIRO_FORMAT_A1, 32, 32, 4));
     RefPtr<cairo_surface_t> surface = adoptRef(cairo_image_surface_create(CAIRO_FORMAT_A1, 32, 32));
     RefPtr<cairo_t> cr = adoptRef(cairo_create(surface.get()));
 
-    cairo_set_source_surface(cr.get(), source.get(), cursor.hot_x, cursor.hot_y);
-    cairo_mask_surface(cr.get(), mask.get(), cursor.hot_x, cursor.hot_y);
+    cairo_set_source_surface(cr.get(), source.get(), 0, 0);
+    cairo_mask_surface(cr.get(), mask.get(), 0, 0);
 
     GRefPtr<GdkPixbuf> pixbuf = adoptGRef(gdk_pixbuf_get_from_surface(surface.get(), 0, 0, 32, 32));
-    return adoptGRef(gdk_cursor_new_from_pixbuf(gdk_display_get_default(), pixbuf.get(), 0, 0));
+    return adoptGRef(gdk_cursor_new_from_pixbuf(gdk_display_get_default(), pixbuf.get(), cursor.hot_x, cursor.hot_y));
 }
 
 static GRefPtr<GdkCursor> createCustomCursor(Image* image, const IntPoint& hotSpot)

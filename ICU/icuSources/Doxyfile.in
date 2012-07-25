@@ -1,7 +1,7 @@
 # Doxyfile 1.3.7
 #  ********************************************************************
 #  * COPYRIGHT:
-#  * Copyright (c) 2004-2010, International Business Machines Corporation
+#  * Copyright (c) 2004-2011, International Business Machines Corporation
 #  * and others. All Rights Reserved.
 #  ********************************************************************
 
@@ -92,7 +92,7 @@ RECURSIVE              = NO
 EXCLUDE                = @srcdir@/common/unicode/urename.h @srcdir@/common/unicode/udraft.h @srcdir@/common/unicode/udeprctd.h @srcdir@/common/unicode/uobslete.h @srcdir@/common/unicode/ppalmos.h  
 EXCLUDE_SYMLINKS       = NO
 EXCLUDE_PATTERNS       = config*.h
-EXAMPLE_PATH           = 
+EXAMPLE_PATH           = @srcdir@/
 EXAMPLE_PATTERNS       = 
 EXAMPLE_RECURSIVE      = NO
 IMAGE_PATH             = 
@@ -230,4 +230,4 @@ DOT_CLEANUP            = YES
 #---------------------------------------------------------------------------
 # Configuration::additions related to the search engine   
 #---------------------------------------------------------------------------
-SEARCHENGINE           = YES
+SEARCHENGINE           = NO

@@ -1,7 +1,7 @@
 /*
  * source and binary package support
  *
- * @(#)package.mk (AT&T Research) 2007-11-05
+ * @(#)package.mk (AT&T Research) 2011-02-02
  *
  * usage:
  *
@@ -155,16 +155,34 @@ package.readme = $(@.package.readme.)
 	license file(s)$(notice:?, this README file, and the empty file$$("\n")$$(package.notice)?.?)
 
 .package.licenses. : .FUNCTION
-	local I L R
+	local I F L R all text
 	L := $(%)
-	if "$(%)" == "*-*"
-		L += $(%:/[^-]*-//) $(%:/-.*//)
+	while L == "--*"
+		I := $(L:O=1)
+		if I == "--all"
+			all = 1
+		elif I == "--text"
+			text = 1
+		end
+		L := $(L:O>1)
+	end
+	if "$(L)" == "*-*"
+		L += $(L:/[^-]*-//) $(L:/-.*//)
 	end
 	L += $(licenses)
 	for I $(L:U)
-		if R = "$(I:D=$(PACKAGESRC):B:S=.lic:T=F)"
-			R += $(I:D=$(PACKAGESRC)/LICENSES:B)
-			break
+		if I == "gpl"
+			I = gnu
+			all =
+		end
+		if F = "$(I:D=$(PACKAGESRC):B:S=.lic:T=F)"
+			R += $(F)
+			if text
+				R += $(I:D=$(PACKAGESRC)/LICENSES:B)
+			end
+			if ! all
+				break
+			end
 		end
 	end
 	return $(R)
@@ -255,7 +273,7 @@ $(init) : .VIRTUAL $(init)
 package.requires = 0
 
 ":package:" : .MAKE .OPERATOR
-	local P I J R V
+	local P I R V
 	P := $(<:O=1)
 	$(P) : $(>:V)
 	if ! package.requires
@@ -277,20 +295,7 @@ package.requires = 0
 					version := $(I)
 				end
 			end
-			if name == "*-*"
-				J := $(name:/[^-]*-//) $(name) $(name:/-[^-]*$//)
-			else
-				J := $(name)
-			end
-			for I $(J)
-				while 1
-					LICENSEFILE := $(LICENSEFILE):$(I:D=$(PACKAGEROOT)/$(PACKAGELIB):B:S=.lic)
-					if I != "*-*"
-						break
-					end
-					I := $(I:/-[^-]*$//)
-				end
-			end
+			LICENSEFILE := $(.package.licenses. $(name):@/ /:/G)
 			export LICENSEFILE
 		end
 		if "$(>)"
@@ -913,10 +918,7 @@ vendor.cyg = gnu
 					if	[[ '$(~requires)' ]]
 					then	echo 'It requires the following package$(~requires:O=2:?s??): $(~requires).'
 					fi
-					case $(name) in
-					$(init))set -- $(licenses:B:S=.lic:U:T=F) ;;
-					*)	set -- $(package.src:U:N=*.lic:U:T=F) ;;
-					esac
+					set -- $(.package.licenses. --all $(name))
 					case $# in
 					0)	;;
 					*)	case $# in
@@ -1176,7 +1178,7 @@ binary : .binary.init .binary.gen .binary.$$(style)
 	sdesc: "$(index)"
 	ldesc: "$($(name.original).README)"
 	!
-			set -- $(.package.licenses. $(name.original):N!=*.lic)
+			set -- $(.package.licenses. --text $(name.original):N!=*.lic)
 			for i
 			do	echo ";;;${i};usr/share/doc/$(opt)LICENSE-${i##*/}"
 			done
@@ -1350,11 +1352,11 @@ binary : .binary.init .binary.gen .binary.$$(style)
 			*.gz)	gzip < $exe > $(binary) ;;
 			*)	cp $exe $(binary) ;;
 			esac
-			echo $(binary) >> $(binary:D:B=PACKAGE:S=.$(CC.HOSTTYPE).lst)
 			$(SUM) -x $(checksum) < $(binary) > $(binary:D:B:S=.$(checksum))
-			echo $(binary:D:B:S=.$(checksum)) >> $(binary:D:B=PACKAGE:S=.$(CC.HOSTTYPE).lst)
 			echo local > $(binary:D:B=$(name):S=.$(CC.HOSTTYPE).tim)
 		fi
+		echo $(binary) >> $(binary:D:B=PACKAGE:S=.$(CC.HOSTTYPE).lst)
+		echo $(binary:D:B:S=.$(checksum)) >> $(binary:D:B=PACKAGE:S=.$(CC.HOSTTYPE).lst)
 	fi
 
 runtime : .runtime.init .runtime.gen .runtime.$$(style)

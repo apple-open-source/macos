@@ -1,7 +1,7 @@
-# $OpenLDAP: pkg/ldap/contrib/slapd-modules/proxyOld/Makefile,v 1.1.2.1 2009/08/17 21:48:59 quanah Exp $
+# $OpenLDAP$
 # This work is part of OpenLDAP Software <http://www.openldap.org/>.
 #
-# Copyright 2005-2009 The OpenLDAP Foundation.
+# Copyright 2005-2011 The OpenLDAP Foundation.
 # Portions Copyright 2005 Howard Chu, Symas Corp. All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without

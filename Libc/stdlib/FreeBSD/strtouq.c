@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)strtouq.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtouq.c,v 1.12 2007/01/09 00:28:10 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <sys/types.h>
 
 #include <stdlib.h>
@@ -44,5 +46,13 @@ u_quad_t
 strtouq(const char *nptr, char **endptr, int base)
 {
 
-	return strtoull(nptr, endptr, base);
+	return strtoull_l(nptr, endptr, base, __current_locale());
+}
+
+u_quad_t
+strtouq_l(const char *nptr, char **endptr, int base, locale_t loc)
+{
+
+	/* no need to call NORMALIZE_LOCALE(loc) because strtoull_l will */
+	return strtoull_l(nptr, endptr, base, loc);
 }

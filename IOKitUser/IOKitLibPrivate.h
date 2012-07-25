@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,14 +33,6 @@ struct IONotificationPort
     dispatch_source_t	dispatchSource;
 };
 typedef struct IONotificationPort IONotificationPort;
-
-CFMutableDictionaryRef
-IOMakeMatching(
-	mach_port_t	masterPort,
-	unsigned int	type,
-	unsigned int	options,
-	void *		args,
-	unsigned int	argsSize );
 
 void
 IODispatchCalloutFromCFMessage(

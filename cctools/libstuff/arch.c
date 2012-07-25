@@ -95,6 +95,8 @@ static const struct arch_flag arch_flags[] = {
     { "xscale", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_XSCALE},
     { "armv6",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V6 },
     { "armv7",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V7 },
+    { "armv7f", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V7F },
+    { "armv7k", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V7K },
     { NULL,	0,		  0 }
 };
 

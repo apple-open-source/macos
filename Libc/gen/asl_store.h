@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -81,4 +81,4 @@ uint32_t asl_store_sweep_file_cache(asl_store_t *s) __OSX_AVAILABLE_STARTING(__M
 
 uint32_t asl_store_open_aux(asl_store_t *s, aslmsg msg, int *fd, char **url) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
-#endif __ASL_STORE_H__
+#endif /* __ASL_STORE_H__ */

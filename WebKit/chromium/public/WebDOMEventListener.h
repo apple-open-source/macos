@@ -31,10 +31,10 @@
 #ifndef WebDOMEventListener_h
 #define WebDOMEventListener_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 #if WEBKIT_IMPLEMENTATION
-namespace WebCore { class Node; }
+namespace WebCore { class EventTarget; }
 #endif
 
 namespace WebKit {
@@ -47,16 +47,16 @@ class WebString;
 
 class WebDOMEventListener {
 public:
-    WEBKIT_API WebDOMEventListener();
-    WEBKIT_API virtual ~WebDOMEventListener();
+    WEBKIT_EXPORT WebDOMEventListener();
+    WEBKIT_EXPORT virtual ~WebDOMEventListener();
 
     // Called when an event is received.
     virtual void handleEvent(const WebDOMEvent&) = 0;
 
 #if WEBKIT_IMPLEMENTATION
     void notifyEventListenerDeleted(EventListenerWrapper*);
-    EventListenerWrapper* createEventListenerWrapper(const WebString& eventType, bool useCapture, WebCore::Node* node);
-    EventListenerWrapper* getEventListenerWrapper(const WebString& eventType, bool useCapture, WebCore::Node* node);
+    EventListenerWrapper* createEventListenerWrapper(const WebString& eventType, bool useCapture, WebCore::EventTarget*);
+    EventListenerWrapper* getEventListenerWrapper(const WebString& eventType, bool useCapture, WebCore::EventTarget*);
 #endif
 
 private:

@@ -46,6 +46,7 @@ class Page;
 
 }
 
+class WebInspectorFrontendClient;
 class WebNodeHighlight;
 class WebView;
 
@@ -57,8 +58,10 @@ public:
     virtual void inspectorDestroyed();
 
     virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void closeInspectorFrontend();
+    virtual void bringFrontendToFront();
 
-    virtual void highlight(WebCore::Node*);
+    virtual void highlight();
     virtual void hideHighlight();
 
     virtual bool sendMessageToFrontend(const WTF::String&);
@@ -66,17 +69,11 @@ public:
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
 
-    void releaseFrontendPage();
+    void releaseFrontend();
+
+    WebInspectorFrontendClient* frontendClient() { return m_frontendClient; }
 
     void updateHighlight();
-    void frontendClosing()
-    {
-        m_frontendHwnd = 0;
-        releaseFrontendPage();
-    }
-
-    void saveSessionSetting(const WTF::String& key, const WTF::String& value);
-    void loadSessionSetting(const WTF::String& key, WTF::String* value);
 
 private:
     virtual ~WebInspectorClient();
@@ -84,12 +81,11 @@ private:
 
     WebView* m_inspectedWebView;
     WebCore::Page* m_frontendPage;
+    WebInspectorFrontendClient* m_frontendClient;
     HWND m_inspectedWebViewHwnd;
     HWND m_frontendHwnd;
 
     OwnPtr<WebNodeHighlight> m_highlight;
-
-    WTF::HashMap<WTF::String, WTF::String> m_sessionSettings;
 };
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal, WebCore::WindowMessageListener {
@@ -104,7 +100,6 @@ public:
     
     virtual void bringToFront();
     virtual void closeWindow();
-    virtual void disconnectFromBackend();
     
     virtual void attachWindow();
     virtual void detachWindow();
@@ -112,14 +107,11 @@ public:
     virtual void setAttachedWindowHeight(unsigned height);
     virtual void inspectedURLChanged(const WTF::String& newURL);
 
-    virtual void saveSessionSetting(const WTF::String& key, const WTF::String& value);
-    virtual void loadSessionSetting(const WTF::String& key, WTF::String* value);
+    void destroyInspectorView(bool notifyInspectorController);
 
 private:
     void closeWindowWithoutNotifications();
     void showWindowWithoutNotifications();
-
-    void destroyInspectorView(bool notifyInspectorController);
 
     void updateWindowTitle();
 

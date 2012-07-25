@@ -1,7 +1,7 @@
 
 
-// TEST-OPTIONS: -x c  -arch i386 
-// TEST-OPTIONS: -x c  -arch i386 -Wl,-no_compact_unwind
+// TEST-OPTIONS: -arch i386 
+// TEST-OPTIONS: -arch i386 -Wl,-no_compact_unwind
 // TEST-OPTIONS: -arch x86_64  
 // TEST-OPTIONS: -arch x86_64  -Wl,-no_compact_unwind
 

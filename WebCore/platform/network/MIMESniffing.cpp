@@ -22,6 +22,9 @@
 
 #include <cstring>
 #include <stdint.h>
+#include <wtf/StdLibExtras.h>
+
+using namespace std;
 
 // MIME type sniffing implementation based on http://tools.ietf.org/html/draft-abarth-mime-sniff-06
 
@@ -223,7 +226,7 @@ const size_t imageTypesSize = sizeof(imageTypes) / sizeof(imageTypes[0]);
 static inline size_t dataSizeNeededForImageSniffing()
 {
     size_t result = 0;
-    for (int i = 0; i < imageTypesSize; ++i) {
+    for (size_t i = 0; i < imageTypesSize; ++i) {
         if (imageTypes[i].size > result)
             result = imageTypes[i].size;
     }
@@ -235,9 +238,9 @@ static inline bool maskedCompare(const MagicNumbers& info, const char* data, siz
     if (dataSize < info.size)
         return false;
 
-    const uint32_t* pattern32 = reinterpret_cast<const uint32_t*>(info.pattern);
-    const uint32_t* mask32 = reinterpret_cast<const uint32_t*>(info.mask);
-    const uint32_t* data32 = reinterpret_cast<const uint32_t*>(data);
+    const uint32_t* pattern32 = reinterpret_cast_ptr<const uint32_t*>(info.pattern);
+    const uint32_t* mask32 = reinterpret_cast_ptr<const uint32_t*>(info.mask);
+    const uint32_t* data32 = reinterpret_cast_ptr<const uint32_t*>(data);
 
     size_t count = info.size >> 2;
 

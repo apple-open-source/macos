@@ -29,6 +29,7 @@ namespace WebCore {
 
 class CachedScript;
 class Element;
+class Node;
 class ScriptElement;
 class ScriptSourceCode;
 
@@ -41,7 +42,7 @@ public:
     Element* element() const { return m_element; }
 
     enum LegacyTypeSupport { DisallowLegacyTypeInTypeAttribute, AllowLegacyTypeInTypeAttribute };
-    bool prepareScript(const TextPosition1& scriptStartPosition = TextPosition1::minimumPosition(), LegacyTypeSupport = DisallowLegacyTypeInTypeAttribute);
+    bool prepareScript(const TextPosition& scriptStartPosition = TextPosition::minimumPosition(), LegacyTypeSupport = DisallowLegacyTypeInTypeAttribute);
 
     String scriptCharset() const { return m_characterEncoding; }
     String scriptContent() const;
@@ -66,8 +67,7 @@ protected:
     bool forceAsync() const { return m_forceAsync; }
 
     // Helper functions used by our parent classes.
-    void insertedIntoDocument();
-    void removedFromDocument();
+    void insertedInto(Node*);
     void childrenChanged();
     void handleSourceAttribute(const String& sourceUrl);
     void handleAsyncAttribute();
@@ -102,6 +102,7 @@ private:
     bool m_willExecuteWhenDocumentFinishedParsing : 1;
     bool m_forceAsync : 1;
     bool m_willExecuteInOrder : 1;
+    bool m_requestUsesAccessControl : 1;
     String m_characterEncoding;
     String m_fallbackCharacterEncoding;
 };

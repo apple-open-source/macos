@@ -178,18 +178,18 @@ static int (*ph2exchange[][2][PHASE2ST_MAX])
 
 static u_char r_ck0[] = { 0,0,0,0,0,0,0,0 }; /* used to verify the r_ck. */
  
-static int isakmp_main __P((vchar_t *, struct sockaddr *, struct sockaddr *));
+static int isakmp_main __P((vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *));
 static int ph1_main __P((struct ph1handle *, vchar_t *));
 static int quick_main __P((struct ph2handle *, vchar_t *));
 static int isakmp_ph1begin_r __P((vchar_t *,
-	struct sockaddr *, struct sockaddr *, u_int8_t));
+	struct sockaddr_storage *, struct sockaddr_storage *, u_int8_t));
 static int isakmp_ph2begin_i __P((struct ph1handle *, struct ph2handle *));
 static int isakmp_ph2begin_r __P((struct ph1handle *, vchar_t *));
 static int etypesw1 __P((int));
 static int etypesw2 __P((int));
 #ifdef ENABLE_FRAG
 static int frag_handler(struct ph1handle *, 
-    vchar_t *, struct sockaddr *, struct sockaddr *);
+    vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *);
 #endif
 
 /*
@@ -201,6 +201,7 @@ isakmp_handler(so_isakmp)
 {
 	struct isakmp isakmp;
 	union {
+		u_int64_t	force_align;				// Wcast-align fix - force alignment
 		char		buf[sizeof (isakmp) + 4];
 		u_int32_t	non_esp[2];
 		char		lbuf[sizeof(struct udphdr) + 
@@ -211,7 +212,8 @@ isakmp_handler(so_isakmp)
 	struct sockaddr_storage local;
 	unsigned int remote_len = sizeof(remote);
 	unsigned int local_len = sizeof(local);
-	int len = 0, extralen = 0;
+	ssize_t len = 0;
+	int extralen = 0;
 	u_short port;
 	vchar_t *buf = NULL, *tmpbuf = NULL;
 	int error = -1;
@@ -224,8 +226,7 @@ isakmp_handler(so_isakmp)
 
 	/* read message by MSG_PEEK */
 	while ((len = recvfromto(so_isakmp, x.buf, sizeof(x),
-		    MSG_PEEK, (struct sockaddr *)&remote, &remote_len,
-		    (struct sockaddr *)&local, &local_len)) < 0) {
+		    MSG_PEEK, &remote, &remote_len, &local, &local_len)) < 0) {
 		if (errno == EINTR)
 			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -251,9 +252,9 @@ isakmp_handler(so_isakmp)
 		struct udphdr *udp;
 		struct ip *ip;
 
-		udp = (struct udphdr *)&x.lbuf[0];
+		udp = ALIGNED_CAST(struct udphdr *)&x.lbuf[0];
 		if (ntohs(udp->uh_dport) == 501) {
-			ip = (struct ip *)(x.lbuf + sizeof(*udp));
+			ip = ALIGNED_CAST(struct ip *)(x.lbuf + sizeof(*udp));
 			extralen += sizeof(*udp) + ip->ip_hl;
 		}
 	}	
@@ -271,7 +272,7 @@ isakmp_handler(so_isakmp)
 
 	/* check isakmp header length, as well as sanity of header length */
 	if (len < sizeof(isakmp) || ntohl(isakmp.len) < sizeof(isakmp)) {
-		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+		plog(LLV_ERROR, LOCATION, &remote,
 			"packet shorter than isakmp header size (%u, %u, %zu)\n",
 			len, ntohl(isakmp.len), sizeof(isakmp));
 		/* dummy receive */
@@ -314,8 +315,7 @@ isakmp_handler(so_isakmp)
 	}
 
 	while ((len = recvfromto(so_isakmp, (char *)tmpbuf->v, tmpbuf->l,
-	                    0, (struct sockaddr *)&remote, &remote_len,
-	                    (struct sockaddr *)&local, &local_len)) < 0) {
+	                    0, &remote, &remote_len, &local, &local_len)) < 0) {
 		if (errno == EINTR)
 			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -343,8 +343,7 @@ isakmp_handler(so_isakmp)
 	len -= extralen;
 	
 	if (len != buf->l) {
-		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
-			"received invalid length (%d != %zu), why ?\n",
+		plog(LLV_ERROR, LOCATION, &remote, "received invalid length (%d != %zu), why ?\n",
 			len, buf->l);
 		goto end;
 	}
@@ -373,7 +372,7 @@ isakmp_handler(so_isakmp)
 		goto end;
 	}
 	if (port == 0) {
-		plog(LLV_ERROR, LOCATION, (struct sockaddr *)&remote,
+		plog(LLV_ERROR, LOCATION, &remote,
 			"src port == 0 (valid as UDP but not with IKE)\n");
 		goto end;
 	}
@@ -383,8 +382,7 @@ isakmp_handler(so_isakmp)
 	/* XXX: I don't know how to check isakmp half connection attack. */
 
 	/* simply reply if the packet was processed. */
-	if (check_recvdpkt((struct sockaddr *)&remote,
-			(struct sockaddr *)&local, buf)) {
+	if (check_recvdpkt(&remote, &local, buf)) {
 		IPSECLOGASLMSG("Received retransmitted packet from %s.\n",
 					   saddr2str((struct sockaddr *)&remote));
 
@@ -396,8 +394,7 @@ isakmp_handler(so_isakmp)
 	}
 
 	/* isakmp main routine */
-	if (isakmp_main(buf, (struct sockaddr *)&remote,
-			(struct sockaddr *)&local) != 0) goto end;
+	if (isakmp_main(buf, &remote, &local) != 0) goto end;
 
 	error = 0;
 
@@ -416,7 +413,7 @@ end:
 static int
 isakmp_main(msg, remote, local)
 	vchar_t *msg;
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 {
 	struct isakmp *isakmp = (struct isakmp *)msg->v;
 	isakmp_index *index = (isakmp_index *)isakmp;
@@ -505,7 +502,7 @@ isakmp_main(msg, remote, local)
 			iph1->local = NULL;
 
 			/* copy-in new addresses */
-			iph1->remote = dupsaddr(remote);
+			iph1->remote = dupsaddr((struct sockaddr *)remote);
 			if (iph1->remote == NULL) {
 				IPSECSESSIONTRACEREVENT(iph1->parent_session,
 										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
@@ -517,7 +514,7 @@ isakmp_main(msg, remote, local)
 				delph1(iph1);
 				return -1;
 			}
-			iph1->local = dupsaddr(local);
+			iph1->local = dupsaddr((struct sockaddr *)local);
 			if (iph1->local == NULL) {
 				IPSECSESSIONTRACEREVENT(iph1->parent_session,
 										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
@@ -538,15 +535,15 @@ isakmp_main(msg, remote, local)
 			/* print some neat info */
 			plog (LLV_INFO, LOCATION, NULL, 
 			      "NAT-T: ports changed to: %s\n",
-			      saddr2str_fromto ("%s<->%s", iph1->remote, iph1->local));
+			      saddr2str_fromto("%s<->%s", (struct sockaddr *)iph1->remote, (struct sockaddr *)iph1->local));
 		}
 #endif
 		/* must be same addresses in one stream of a phase at least. */
 		if (cmpsaddrstrict(iph1->remote, remote) != 0) {
 			char *saddr_db, *saddr_act;
 
-			saddr_db = racoon_strdup(saddr2str(iph1->remote));
-			saddr_act = racoon_strdup(saddr2str(remote));
+			saddr_db = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
+			saddr_act = racoon_strdup(saddr2str((struct sockaddr *)remote));
 			STRDUP_FATAL(saddr_db);
 			STRDUP_FATAL(saddr_act);
 
@@ -686,7 +683,7 @@ isakmp_main(msg, remote, local)
 				plog(LLV_WARNING, LOCATION, remote,
 					"remote address mismatched. "
 					"db=%s\n",
-					saddr2str(iph1->remote));
+					saddr2str((struct sockaddr *)iph1->remote));
 			}
 		}
 
@@ -804,14 +801,14 @@ isakmp_main(msg, remote, local)
 			plog(LLV_ERROR, LOCATION, NULL,
 			     "mode config %d from %s, "
 			     "but we have no ISAKMP-SA.\n",
-			     isakmp->etype, saddr2str(remote));
+			     isakmp->etype, saddr2str((struct sockaddr *)remote));
 			return -1;
 		}
 		if (iph1->status != PHASE1ST_ESTABLISHED) {
 			plog(LLV_ERROR, LOCATION, NULL,
 			     "mode config %d from %s, "
 			     "but ISAKMP-SA %s isn't established.\n",
-			     isakmp->etype, saddr2str(remote),
+			     isakmp->etype, saddr2str((struct sockaddr *)remote),
 				 isakmp_pindex(&iph1->index, iph1->msgid));
 			return -1;
 		}
@@ -828,7 +825,7 @@ isakmp_main(msg, remote, local)
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Invalid exchange type %d from %s.\n",
-			isakmp->etype, saddr2str(remote));
+			isakmp->etype, saddr2str((struct sockaddr *)remote));
 		return -1;
 	}
 
@@ -936,7 +933,7 @@ ph1_main(iph1, msg)
 #ifdef ENABLE_VPNCONTROL_PORT	
 
 		if (iph1->side == RESPONDER &&
-			iph1->local->sa_family == AF_INET) {
+			iph1->local->ss_family == AF_INET) {
 			
 			struct redirect *addr;
 			
@@ -1163,7 +1160,7 @@ quick_main(iph2, msg)
 int
 isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 	struct remoteconf *rmconf;
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 	int started_by_api;
 {
 	struct ph1handle *iph1;
@@ -1243,12 +1240,12 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
     {
 	char *a;
 
-	a = racoon_strdup(saddr2str(iph1->local));
+	a = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
 	STRDUP_FATAL(a);
 
 	plog(LLV_INFO, LOCATION, NULL,
 		"initiate new phase 1 negotiation: %s<=>%s\n",
-		a, saddr2str(iph1->remote));
+		a, saddr2str((struct sockaddr *)iph1->remote));
 	racoon_free(a);
     }
 	plog(LLV_INFO, LOCATION, NULL,
@@ -1292,7 +1289,7 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 static int
 isakmp_ph1begin_r(msg, remote, local, etype)
 	vchar_t *msg;
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 	u_int8_t etype;
 {
 	struct isakmp *isakmp = (struct isakmp *)msg->v;
@@ -1386,12 +1383,12 @@ isakmp_ph1begin_r(msg, remote, local, etype)
     {
 	char *a;
 
-	a = racoon_strdup(saddr2str(iph1->local));
+	a = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
 	STRDUP_FATAL(a);
 
 	plog(LLV_INFO, LOCATION, NULL,
 		"respond new phase 1 negotiation: %s<=>%s\n",
-		a, saddr2str(iph1->remote));
+		a, saddr2str((struct sockaddr *)iph1->remote));
 	racoon_free(a);
     }
 	plog(LLV_INFO, LOCATION, NULL,
@@ -1464,12 +1461,12 @@ isakmp_ph2begin_i(iph1, iph2)
 	plog(LLV_DEBUG, LOCATION, NULL, "begin QUICK mode.\n");
     {
 	char *a;
-	a = racoon_strdup(saddr2str(iph2->src));
+	a = racoon_strdup(saddr2str((struct sockaddr *)iph2->src));
 	STRDUP_FATAL(a);
 
 	plog(LLV_INFO, LOCATION, NULL,
 		"initiate new phase 2 negotiation: %s<=>%s\n",
-		a, saddr2str(iph2->dst));
+		a, saddr2str((struct sockaddr *)iph2->dst));
 	racoon_free(a);
     }
 
@@ -1542,12 +1539,12 @@ isakmp_ph2begin_r(iph1, msg)
 		delph2(iph2);
 		return -1;
 	}
-	iph2->dst = dupsaddr(iph1->remote);	/* XXX should be considered */
+	iph2->dst = dupsaddr((struct sockaddr *)iph1->remote);	/* XXX should be considered */
 	if (iph2->dst == NULL) {
 		delph2(iph2);
 		return -1;
 	}
-	switch (iph2->dst->sa_family) {
+	switch (iph2->dst->ss_family) {
 	case AF_INET:
 #ifndef ENABLE_NATT
 		((struct sockaddr_in *)iph2->dst)->sin_port = 0;
@@ -1562,17 +1559,17 @@ isakmp_ph2begin_r(iph1, msg)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph2->dst->sa_family);
+			"invalid family: %d\n", iph2->dst->ss_family);
 		delph2(iph2);
 		return -1;
 	}
 
-	iph2->src = dupsaddr(iph1->local);	/* XXX should be considered */
+	iph2->src = dupsaddr((struct sockaddr *)iph1->local);	/* XXX should be considered */
 	if (iph2->src == NULL) {
 		delph2(iph2);
 		return -1;
 	}
-	switch (iph2->src->sa_family) {
+	switch (iph2->src->ss_family) {
 	case AF_INET:
 #ifndef ENABLE_NATT
 		((struct sockaddr_in *)iph2->src)->sin_port = 0;
@@ -1587,7 +1584,7 @@ isakmp_ph2begin_r(iph1, msg)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph2->src->sa_family);
+			"invalid family: %d\n", iph2->src->ss_family);
 		delph2(iph2);
 		return -1;
 	}
@@ -1607,12 +1604,12 @@ isakmp_ph2begin_r(iph1, msg)
     {
 	char *a;
 
-	a = racoon_strdup(saddr2str(iph2->src));
+	a = racoon_strdup(saddr2str((struct sockaddr *)iph2->src));
 	STRDUP_FATAL(a);
 
 	plog(LLV_INFO, LOCATION, NULL,
 		"respond new phase 2 negotiation: %s<=>%s\n",
-		a, saddr2str(iph2->dst));
+		a, saddr2str((struct sockaddr *)iph2->dst));
 	racoon_free(a);
     }
 
@@ -1691,9 +1688,10 @@ isakmp_parsewoh(np0, gen, len)
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to get buffer.\n");
 		return NULL;
-	}
-	p = (struct isakmp_parse_t *)result->v;
-	ep = (struct isakmp_parse_t *)(result->v + result->l - sizeof(*ep));
+	}                   
+                                // Wcast-align fix (void*) - result = aligned buffer of struct isakmp_parse_t
+	p = ALIGNED_CAST(struct isakmp_parse_t *)result->v;              
+	ep = ALIGNED_CAST(struct isakmp_parse_t *)(result->v + result->l - sizeof(*ep));
 
 	tlen = len;
 
@@ -1723,7 +1721,7 @@ isakmp_parsewoh(np0, gen, len)
 		if (ep <= p) {
 			int off;
 
-			off = p - (struct isakmp_parse_t *)result->v;
+			off = p - ALIGNED_CAST(struct isakmp_parse_t *)result->v;
 			result = vrealloc(result, result->l * 2);
 			if (result == NULL) {
 				plog(LLV_DEBUG, LOCATION, NULL,
@@ -1731,9 +1729,9 @@ isakmp_parsewoh(np0, gen, len)
 				vfree(result);
 				return NULL;
 			}
-			ep = (struct isakmp_parse_t *)
+			ep = ALIGNED_CAST(struct isakmp_parse_t *)                  
 				(result->v + result->l - sizeof(*ep));
-			p = (struct isakmp_parse_t *)result->v;
+			p = ALIGNED_CAST(struct isakmp_parse_t *)result->v;
 			p += off;
 		}
 
@@ -1860,7 +1858,7 @@ isakmp_open(int *tentative_failures)
 		}
 
 		/* warn if wildcard address - should we forbid this? */
-		switch (p->addr->sa_family) {
+		switch (p->addr->ss_family) {
 		case AF_INET:
 			if (((struct sockaddr_in *)p->addr)->sin_addr.s_addr == 0)
 				plog(LLV_WARNING, LOCATION, NULL,
@@ -1883,31 +1881,31 @@ isakmp_open(int *tentative_failures)
 		}
 
 #ifdef INET6
-		if (p->addr->sa_family == AF_INET6 &&
+		if (p->addr->ss_family == AF_INET6 &&
 		    IN6_IS_ADDR_MULTICAST(&((struct sockaddr_in6 *)
 					    p->addr)->sin6_addr))
 		{
 			plog(LLV_DEBUG, LOCATION, NULL, 
 				"Ignoring multicast address %s\n",
-				saddr2str(p->addr));
+				saddr2str((struct sockaddr *)p->addr));
 				racoon_free(p->addr);
 				p->addr = NULL;
 			continue;
 		}
 #endif
 
-		if ((p->sock = socket(p->addr->sa_family, SOCK_DGRAM, 0)) < 0) {
+		if ((p->sock = socket(p->addr->ss_family, SOCK_DGRAM, 0)) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"socket (%s)\n", strerror(errno));
 			goto err_and_next;
 		}
 
 		if (fcntl(p->sock, F_SETFL, O_NONBLOCK) == -1)
-			plog(LLV_WARNING, LOCATION, NULL,
+			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to put socket in non-blocking mode\n");
 
 		/* receive my interface address on inbound packets. */
-		switch (p->addr->sa_family) {
+		switch (p->addr->ss_family) {
 		case AF_INET:
 			if (setsockopt(p->sock, IPPROTO_IP,
 				       IP_RECVDSTADDR,
@@ -1938,7 +1936,7 @@ isakmp_open(int *tentative_failures)
 		}
 
 #ifdef IPV6_USE_MIN_MTU
-		if (p->addr->sa_family == AF_INET6 &&
+		if (p->addr->ss_family == AF_INET6 &&
 		    setsockopt(p->sock, IPPROTO_IPV6, IPV6_USE_MIN_MTU,
 		    (void *)&yes, sizeof(yes)) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -1948,7 +1946,7 @@ isakmp_open(int *tentative_failures)
 		}
 #endif
 
-		if (setsockopt_bypass(p->sock, p->addr->sa_family) < 0)
+		if (setsockopt_bypass(p->sock, p->addr->ss_family) < 0)
 			goto err_and_next;
 
 		if (extract_port(p->addr) == PORT_ISAKMP) {
@@ -1960,14 +1958,14 @@ isakmp_open(int *tentative_failures)
 			}
 		}
 
-		if (bind(p->sock, p->addr, sysdep_sa_len(p->addr)) < 0) {
+		if (bind(p->sock, (struct sockaddr *)p->addr, sysdep_sa_len((struct sockaddr *)p->addr)) < 0) {
 			int tmp_errno = errno;
 			plog(LLV_ERROR, LOCATION, p->addr,
 				"failed to bind to address %s (%s).\n",
-				saddr2str(p->addr), strerror(tmp_errno));
+				saddr2str((struct sockaddr *)p->addr), strerror(tmp_errno));
 #ifdef INET6
 			// if bind failed b/c of a tentative v6 address, try again later
-			if (tmp_errno == EADDRNOTAVAIL && p->addr->sa_family == AF_INET6) {
+			if (tmp_errno == EADDRNOTAVAIL && p->addr->ss_family == AF_INET6) {
 				struct in6_ifreq ifr6;
 
 				bzero(&ifr6, sizeof(ifr6));
@@ -1982,7 +1980,7 @@ isakmp_open(int *tentative_failures)
 						// address may have been tentantive... invalidate sock but leave address around for another try later
 						plog(LLV_ERROR, LOCATION, p->addr,
 							 "failed to bind to address %s: because interface address is/was not ready (flags %x).\n",
-							 saddr2str(p->addr), ifr6.ifr_ifru.ifru_flags6);
+							 saddr2str((struct sockaddr *)p->addr), ifr6.ifr_ifru.ifru_flags6);
 						close(p->sock);
 						p->sock = -1;
 						if (tentative_failures) {
@@ -1992,12 +1990,12 @@ isakmp_open(int *tentative_failures)
 					} else {
 						plog(LLV_ERROR, LOCATION, p->addr,
 							 "failed to bind to address %s: because of interface address error, flags %x.\n",
-							 saddr2str(p->addr), ifr6.ifr_ifru.ifru_flags6);
+							 saddr2str((struct sockaddr *)p->addr), ifr6.ifr_ifru.ifru_flags6);
 					}
 				} else {
 					plog(LLV_ERROR, LOCATION, p->addr,
 						 "failed to bind to address %s: can't read interface address flags.\n",
-						 saddr2str(p->addr));
+						 saddr2str((struct sockaddr *)p->addr));
 				}
 			}
 #endif
@@ -2012,7 +2010,7 @@ isakmp_open(int *tentative_failures)
 
 		plog(LLV_INFO, LOCATION, NULL,
 			"%s used as isakmp port (fd=%d)\n",
-			saddr2str(p->addr), p->sock);
+			saddr2str((struct sockaddr *)p->addr), p->sock);
 		continue;
 
 	err_and_next:
@@ -2120,14 +2118,14 @@ isakmp_send(iph1, sbuf)
 			    "vbuf allocation failed\n");
 			return -1;
 		}
-		*(u_int32_t *)vbuf->v = 0;
+		*ALIGNED_CAST(u_int32_t *)vbuf->v = 0;
 		memcpy (vbuf->v + extralen, sbuf->v, sbuf->l);
 		sbuf = vbuf;
 	}
 #endif
 
 	/* select the socket to be sent */
-	s = getsockmyaddr(iph1->local);
+	s = getsockmyaddr((struct sockaddr *)iph1->local);
 	if (s == -1){
 		if ( vbuf != NULL )
 			vfree(vbuf);
@@ -2135,7 +2133,7 @@ isakmp_send(iph1, sbuf)
 	}
 
 	plog (LLV_DEBUG, LOCATION, NULL, "%zu bytes %s\n", sbuf->l, 
-	      saddr2str_fromto("from %s to %s", iph1->local, iph1->remote));
+	      saddr2str_fromto("from %s to %s", (struct sockaddr *)iph1->local, (struct sockaddr *)iph1->remote));
 
 #ifdef ENABLE_FRAG
 	if (iph1->frag && sbuf->l > ISAKMP_FRAG_MAXLEN) {
@@ -2373,8 +2371,8 @@ isakmp_ph1expire(iph1)
 #endif
 
 	if(iph1->status != PHASE1ST_EXPIRED){
-		src = racoon_strdup(saddr2str(iph1->local));
-		dst = racoon_strdup(saddr2str(iph1->remote));
+		src = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
+		dst = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
 		STRDUP_FATAL(src);
 		STRDUP_FATAL(dst);
 
@@ -2425,8 +2423,8 @@ int               ignore_sess_drop_policy;
 		return;
 	}
 
-	src = racoon_strdup(saddr2str(iph1->local));
-	dst = racoon_strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
+	dst = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -2474,7 +2472,7 @@ int               ignore_sess_drop_policy;
 	} else {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "Phase1 rekey failed: no configuration found for %s.\n",
-			 saddrwop2str(iph1->remote));
+			 saddrwop2str((struct sockaddr *)iph1->remote));
 	}
 }
 
@@ -2488,14 +2486,14 @@ struct ph1handle *iph1;
 	// this code path is meant for floated ph1 rekeys that are failing on the first message
 	if (iph1->sce != NULL ||
 		iph1->sce_rekey != NULL ||
-		(iph1->status != PHASE1ST_MSG1SENT || (iph1->natt_flags & NAT_PORTS_CHANGED == 0)) ||
+		(iph1->status != PHASE1ST_MSG1SENT || ((iph1->natt_flags & NAT_PORTS_CHANGED) == 0)) ||
 		(extract_port(iph1->local) != PORT_ISAKMP_NATT && extract_port(iph1->remote) != PORT_ISAKMP_NATT) ||
 		iph1->is_dying) {
 		return -1;
 	}
 
-	src = racoon_strdup(saddr2str(iph1->local));
-	dst = racoon_strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
+	dst = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -2542,7 +2540,7 @@ struct ph1handle *iph1;
 	} else {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "Phase1 rekey retry failed: no configuration found for %s.\n",
-			 saddrwop2str(iph1->remote));
+			 saddrwop2str((struct sockaddr *)iph1->remote));
 		return -1;
 	}
 	return 0;
@@ -2578,8 +2576,8 @@ isakmp_ph1delete(iph1)
 
 	/* don't re-negosiation when the phase 1 SA expires. */
 
-	src = racoon_strdup(saddr2str(iph1->local));
-	dst = racoon_strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
+	dst = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -2622,8 +2620,8 @@ isakmp_ph2expire(iph2)
 
 	SCHED_KILL(iph2->sce);
 
-	src = racoon_strdup(saddrwop2str(iph2->src));
-	dst = racoon_strdup(saddrwop2str(iph2->dst));
+	src = racoon_strdup(saddrwop2str((struct sockaddr *)iph2->src));
+	dst = racoon_strdup(saddrwop2str((struct sockaddr *)iph2->dst));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -2670,8 +2668,8 @@ isakmp_ph2delete(iph2)
 
 	SCHED_KILL(iph2->sce);
 
-	src = racoon_strdup(saddrwop2str(iph2->src));
-	dst = racoon_strdup(saddrwop2str(iph2->dst));
+	src = racoon_strdup(saddrwop2str((struct sockaddr *)iph2->src));
+	dst = racoon_strdup(saddrwop2str((struct sockaddr *)iph2->dst));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -2708,7 +2706,7 @@ isakmp_post_acquire(iph2)
 	if (rmconf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"no configuration found for %s.\n",
-			saddrwop2str(iph2->dst));
+			saddrwop2str((struct sockaddr *)iph2->dst));
 		return -1;
 	}
 
@@ -2717,7 +2715,7 @@ isakmp_post_acquire(iph2)
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"because of passive mode, "
 			"ignore the acquire message for %s.\n",
-			saddrwop2str(iph2->dst));
+			saddrwop2str((struct sockaddr *)iph2->dst));
 		return 0;
 	}
 
@@ -2754,7 +2752,7 @@ isakmp_post_acquire(iph2)
 		plog(LLV_INFO, LOCATION, NULL,
 			"IPsec-SA request for %s queued "
 			"due to no phase1 found.\n",
-			saddrwop2str(iph2->dst));
+			saddrwop2str((struct sockaddr *)iph2->dst));
 
 		// exit if there is another ph1 that is established (with a pending rekey timer)
 		if (ike_session_has_negoing_ph1(iph2->parent_session)) {
@@ -2893,16 +2891,16 @@ isakmp_chkph1there(iph2)
 		/* found isakmp-sa */
 
 		plog(LLV_DEBUG2, LOCATION, NULL, "CHKPH1THERE: got a ph1 handler, setting ports.\n");
-		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->local: %s\n", saddr2str(iph1->local));
-		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->remote: %s\n", saddr2str(iph1->remote));
+		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->local: %s\n", saddr2str((struct sockaddr *)iph1->local));
+		plog(LLV_DEBUG2, LOCATION, NULL, "iph1->remote: %s\n", saddr2str((struct sockaddr *)iph1->remote));
 		plog(LLV_DEBUG2, LOCATION, NULL, "before:\n");
-		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(iph2->src));
-		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(iph2->dst));
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str((struct sockaddr *)iph2->src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str((struct sockaddr *)iph2->dst));
 		set_port(iph2->src, extract_port(iph1->local));
 		set_port(iph2->dst, extract_port(iph1->remote));
 		plog(LLV_DEBUG2, LOCATION, NULL, "After:\n");
-		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(iph2->src));
-		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(iph2->dst));
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str((struct sockaddr *)iph2->src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str((struct sockaddr *)iph2->dst));
 
 		/* begin quick mode */
 		if (isakmp_ph2begin_i(iph1, iph2)) {
@@ -3035,8 +3033,8 @@ isakmp_add_attr_l(buf0, type, val)
 int
 isakmp_newcookie(place, remote, local)
 	caddr_t place;
-	struct sockaddr *remote;
-	struct sockaddr *local;
+	struct sockaddr_storage *remote;
+	struct sockaddr_storage *local;
 {
 	vchar_t *buf = NULL, *buf2 = NULL;
 	char *p;
@@ -3048,13 +3046,13 @@ isakmp_newcookie(place, remote, local)
 	u_short port;
 
 
-	if (remote->sa_family != local->sa_family) {
+	if (remote->ss_family != local->ss_family) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"address family mismatch, remote:%d local:%d\n",
-			remote->sa_family, local->sa_family);
+			remote->ss_family, local->ss_family);
 		goto end;
 	}
-	switch (remote->sa_family) {
+	switch (remote->ss_family) {
 	case AF_INET:
 		alen = sizeof(struct in_addr);
 		sa1 = (caddr_t)&((struct sockaddr_in *)remote)->sin_addr;
@@ -3069,7 +3067,7 @@ isakmp_newcookie(place, remote, local)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", remote->sa_family);
+			"invalid family: %d\n", remote->ss_family);
 		goto end;
 	}
 	blen = (alen + sizeof(u_short)) * 2
@@ -3307,7 +3305,7 @@ getname(ap)
 	addr.sin_len = sizeof(struct sockaddr_in);
 	addr.sin_family = AF_INET;
 	memcpy(&addr.sin_addr, ap, sizeof(addr.sin_addr));
-	if (getnameinfo((struct sockaddr *)&addr, sizeof(addr),
+	if (getnameinfo(&addr, sizeof(addr),
 			ntop_buf, sizeof(ntop_buf), NULL, 0,
 			NI_NUMERICHOST | niflags))
 		strlcpy(ntop_buf, "?", sizeof(ntop_buf));
@@ -3331,7 +3329,7 @@ getname6(ap)
 	addr.sin6_len = sizeof(struct sockaddr_in6);
 	addr.sin6_family = AF_INET6;
 	memcpy(&addr.sin6_addr, ap, sizeof(addr.sin6_addr));
-	if (getnameinfo((struct sockaddr *)&addr, addr.sin6_len,
+	if (getnameinfo(&addr, addr.sin6_len,
 			ntop_buf, sizeof(ntop_buf), NULL, 0,
 			NI_NUMERICHOST | niflags))
 		strlcpy(ntop_buf, "?", sizeof(ntop_buf));
@@ -3356,8 +3354,8 @@ safeputchar(c)
 void
 isakmp_printpacket(msg, from, my, decoded)
 	vchar_t *msg;
-	struct sockaddr *from;
-	struct sockaddr *my;
+	struct sockaddr_storage *from;
+	struct sockaddr_storage *my;
 	int decoded;
 {
 #ifdef YIPS_DEBUG
@@ -3380,7 +3378,7 @@ isakmp_printpacket(msg, from, my, decoded)
 	printf("%02d:%02d.%06u ", s / 60, s % 60, (u_int32_t)tv.tv_usec);
 
 	if (from) {
-		if (getnameinfo(from, sysdep_sa_len(from), hostbuf, sizeof(hostbuf),
+		if (getnameinfo(from, sysdep_sa_len((struct sockaddr *)from), hostbuf, sizeof(hostbuf),
 				portbuf, sizeof(portbuf),
 				NI_NUMERICHOST | NI_NUMERICSERV | niflags)) {
 			strlcpy(hostbuf, "?", sizeof(hostbuf));
@@ -3391,7 +3389,7 @@ isakmp_printpacket(msg, from, my, decoded)
 		printf("?");
 	printf(" -> ");
 	if (my) {
-		if (getnameinfo(my, sysdep_sa_len(my), hostbuf, sizeof(hostbuf),
+		if (getnameinfo(my, sysdep_sa_len((struct sockaddr *)my), hostbuf, sizeof(hostbuf),
 				portbuf, sizeof(portbuf),
 				NI_NUMERICHOST | NI_NUMERICSERV | niflags)) {
 			strlcpy(hostbuf, "?", sizeof(hostbuf));
@@ -3435,12 +3433,12 @@ int
 copy_ph1addresses(iph1, rmconf, remote, local)
 	struct ph1handle *iph1;
 	struct remoteconf *rmconf;
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 {
 	u_short *port = NULL;
 
 	/* address portion must be grabbed from real remote address "remote" */
-	iph1->remote = dupsaddr(remote);
+	iph1->remote = dupsaddr((struct sockaddr *)remote);
 	if (iph1->remote == NULL) {
 		delph1(iph1);
 		return -1;
@@ -3453,7 +3451,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 	 * if remote has port # (in case of responder - from recvfrom(2))
 	 * respect content of "remote".
 	 */
-	switch (iph1->remote->sa_family) {
+	switch (iph1->remote->ss_family) {
 	case AF_INET:
 		port = &((struct sockaddr_in *)iph1->remote)->sin_port;
 		if (*port)
@@ -3476,21 +3474,21 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph1->remote->sa_family);
+			"invalid family: %d\n", iph1->remote->ss_family);
 		delph1(iph1);
 		return -1;
 	}
 
 	if (local == NULL)
-		iph1->local = getlocaladdr(iph1->remote);
+		iph1->local = getlocaladdr((struct sockaddr *)iph1->remote);
 	else
-		iph1->local = dupsaddr(local);
+		iph1->local = dupsaddr((struct sockaddr *)local);
 	if (iph1->local == NULL) {
 		delph1(iph1);
 		return -1;
 	}
 	port = NULL;
-	switch (iph1->local->sa_family) {
+	switch (iph1->local->ss_family) {
 	case AF_INET:
 		port = &((struct sockaddr_in *)iph1->local)->sin_port;
 		if (*port)
@@ -3513,7 +3511,7 @@ copy_ph1addresses(iph1, rmconf, remote, local)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph1->local->sa_family);
+			"invalid family: %d\n", iph1->local->ss_family);
 		delph1(iph1);
 		return -1;
 	}
@@ -3553,8 +3551,8 @@ log_ph1established(iph1)
 {
 	char *src, *dst;
 
-	src = racoon_strdup(saddr2str(iph1->local));
-	dst = racoon_strdup(saddr2str(iph1->remote));
+	src = racoon_strdup(saddr2str((struct sockaddr *)iph1->local));
+	dst = racoon_strdup(saddr2str((struct sockaddr *)iph1->remote));
 	STRDUP_FATAL(src);
 	STRDUP_FATAL(dst);
 
@@ -3650,10 +3648,11 @@ int
 frag_handler(iph1, msg, remote, local)
 	struct ph1handle *iph1;
 	vchar_t *msg;
-	struct sockaddr *remote;
-	struct sockaddr *local;
+	struct sockaddr_storage *remote;
+	struct sockaddr_storage *local;
 {
 	vchar_t *newmsg;
+    int result;
 
 	if (isakmp_frag_extract(iph1, msg) == 1) {
 		if ((newmsg = isakmp_frag_reassembly(iph1)) == NULL) {
@@ -3663,18 +3662,20 @@ frag_handler(iph1, msg, remote, local)
 		}
 
 		/* simply reply if the packet was processed. */
-		if (check_recvdpkt((struct sockaddr *)remote,
-						   (struct sockaddr *)local, newmsg) > 0) {
+		if (check_recvdpkt(remote, local, newmsg) > 0) {
 			IPSECLOGASLMSG("Received (reassembled) retransmitted packet from %s.\n",
 						   saddr2str((struct sockaddr *)remote));
 
 			plog(LLV_NOTIFY, LOCATION, NULL,
 				 "the reassembled packet is retransmitted by %s.\n",
 				 saddr2str((struct sockaddr *)remote));
+            vfree(newmsg);  
 			return 0;
 		}
 
-		return isakmp_main(newmsg, remote, local);
+		result = isakmp_main(newmsg, remote, local);
+        vfree(newmsg);
+        return result;
 	}
 
 	return 0;
@@ -3838,7 +3839,7 @@ purge_remote(iph1)
 	vchar_t *buf = NULL;
 	struct sadb_msg *msg, *next, *end;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	caddr_t mhp[SADB_EXT_MAX + 1];
 	u_int proto_id;
 	struct ph2handle *iph2;
@@ -3864,13 +3865,13 @@ purge_remote(iph1)
 		return;
 	}
 
-	msg = (struct sadb_msg *)buf->v;
-	end = (struct sadb_msg *)(buf->v + buf->l);
+	msg = ALIGNED_CAST(struct sadb_msg *)buf->v;
+	end = ALIGNED_CAST(struct sadb_msg *)(buf->v + buf->l);
 
 	while (msg < end) {
 		if ((msg->sadb_msg_len << 3) < sizeof(*msg))
 			break;
-		next = (struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
+		next = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
 		if (msg->sadb_msg_type != SADB_DUMP) {
 			msg = next;
 			continue;
@@ -3883,15 +3884,15 @@ purge_remote(iph1)
 			continue;
 		}
 
-		sa = (struct sadb_sa *)(mhp[SADB_EXT_SA]);
+		sa = ALIGNED_CAST(struct sadb_sa *)(mhp[SADB_EXT_SA]);
 		if (!sa ||
 		    !mhp[SADB_EXT_ADDRESS_SRC] ||
 		    !mhp[SADB_EXT_ADDRESS_DST]) {
 			msg = next;
 			continue;
 		}
-		src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-		dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+		src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+		dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
 		if (sa->sadb_sa_state != SADB_SASTATE_LARVAL &&
 		    sa->sadb_sa_state != SADB_SASTATE_MATURE &&
@@ -3991,31 +3992,34 @@ delete_spd(iph2)
 	/* Delete the SPD entry if we generated it
 	 */
 	if (iph2->generated_spidx) {
-		struct policyindex spidx;
+		union {
+			u_int64_t	force_align;		// Wcast-align fix - force alignment
+			struct policyindex spidx;
+		} u;
 		struct sockaddr_storage addr;
 		u_int8_t pref;
-		struct sockaddr *src = iph2->src;
-		struct sockaddr *dst = iph2->dst;
+		struct sockaddr_storage *src = iph2->src;
+		struct sockaddr_storage *dst = iph2->dst;
 		int error;
 		int idi2type = 0;/* switch whether copy IDs into id[src,dst]. */
 
 		plog(LLV_INFO, LOCATION, NULL,
 			 "generated policy, deleting it.\n");
 		
-		memset(&spidx, 0, sizeof(spidx));
-		iph2->spidx_gen = (caddr_t )&spidx;
+		memset(&u.spidx, 0, sizeof(u.spidx));
+		iph2->spidx_gen = &u.spidx;
 		
 		/* make inbound policy */
 		iph2->src = dst;
 		iph2->dst = src;
-		spidx.dir = IPSEC_DIR_INBOUND;
-		spidx.ul_proto = 0;
+		u.spidx.dir = IPSEC_DIR_INBOUND;
+		u.spidx.ul_proto = 0;
 		
 		/* 
 		 * Note: code from get_proposal_r
 		 */
 		
-#define _XIDT(d) ((struct ipsecdoi_id_b *)(d)->v)->type
+#define _XIDT(d) (ALIGNED_CAST(struct ipsecdoi_id_b *)((d)->v))->type
 		
 		/*
 		 * make destination address in spidx from either ID payload
@@ -4027,9 +4031,8 @@ delete_spd(iph2)
 			|| _XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR_SUBNET
 			|| _XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR_SUBNET)) {
 			/* get a destination address of a policy */
-			error = ipsecdoi_id2sockaddr(iph2->id,
-			    (struct sockaddr *)&spidx.dst,
-			    &spidx.prefd, &spidx.ul_proto);
+			error = ipsecdoi_id2sockaddr(iph2->id, &u.spidx.dst,
+			    &u.spidx.prefd, &u.spidx.ul_proto);
 			if (error)
 				goto purge;
 			
@@ -4042,8 +4045,7 @@ delete_spd(iph2)
 			 */
 			if (_XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR) {
 				if ((error = 
-				    setscopeid((struct sockaddr *)&spidx.dst,
-				   iph2->src)) != 0)
+				    setscopeid(&u.spidx.dst, iph2->src)) != 0)
 					goto purge;
 			}
 #endif
@@ -4065,20 +4067,20 @@ delete_spd(iph2)
 			 * DESTINATION address of the key to search the 
 			 * SPD because the direction of policy is inbound.
 			 */
-			memcpy(&spidx.dst, iph2->src, sysdep_sa_len(iph2->src));
-			switch (spidx.dst.ss_family) {
+			memcpy(&u.spidx.dst, iph2->src, sysdep_sa_len((struct sockaddr *)iph2->src));
+			switch (u.spidx.dst.ss_family) {
 				case AF_INET:
-					spidx.prefd = 
+					u.spidx.prefd = 
 					    sizeof(struct in_addr) << 3;
 					break;
 #ifdef INET6
 				case AF_INET6:
-					spidx.prefd = 
+					u.spidx.prefd = 
 					    sizeof(struct in6_addr) << 3;
 					break;
 #endif
 				default:
-					spidx.prefd = 0;
+					u.spidx.prefd = 0;
 					break;
 			}
 		}
@@ -4090,9 +4092,8 @@ delete_spd(iph2)
 			|| _XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR_SUBNET
 			|| _XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR_SUBNET)) {
 			/* get a source address of inbound SA */
-			error = ipsecdoi_id2sockaddr(iph2->id_p,
-			    (struct sockaddr *)&spidx.src,
-			    &spidx.prefs, &spidx.ul_proto);
+			error = ipsecdoi_id2sockaddr(iph2->id_p, &u.spidx.src,
+			    &u.spidx.prefs, &u.spidx.ul_proto);
 			if (error)
 				goto purge;
 
@@ -4103,8 +4104,7 @@ delete_spd(iph2)
 			 */
 			if (_XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR) {
 				error = 
-				    setscopeid((struct sockaddr *)&spidx.src,
-				    iph2->dst);
+				    setscopeid(&u.spidx.src, iph2->dst);
 				if (error)
 					goto purge;
 			}
@@ -4112,11 +4112,11 @@ delete_spd(iph2)
 
 			/* make id[src,dst] if both ID types are IP address and same */
 			if (_XIDT(iph2->id_p) == idi2type
-				&& spidx.dst.ss_family == spidx.src.ss_family) {
+				&& u.spidx.dst.ss_family == u.spidx.src.ss_family) {
 				iph2->src_id = 
-				    dupsaddr((struct sockaddr *)&spidx.dst);
+				    dupsaddr((struct sockaddr *)&u.spidx.dst);
 				iph2->dst_id = 
-				    dupsaddr((struct sockaddr *)&spidx.src);
+				    dupsaddr((struct sockaddr *)&u.spidx.src);
 			}
 
 		} else {
@@ -4127,20 +4127,20 @@ delete_spd(iph2)
 				 "OR because ID type is not address.\n");
 
 			/* see above comment. */
-			memcpy(&spidx.src, iph2->dst, sysdep_sa_len(iph2->dst));
-			switch (spidx.src.ss_family) {
+			memcpy(&u.spidx.src, iph2->dst, sysdep_sa_len((struct sockaddr *)iph2->dst));
+			switch (u.spidx.src.ss_family) {
 				case AF_INET:
-					spidx.prefs = 
+					u.spidx.prefs = 
 					    sizeof(struct in_addr) << 3;
 					break;
 #ifdef INET6
 				case AF_INET6:
-					spidx.prefs = 
+					u.spidx.prefs = 
 					    sizeof(struct in6_addr) << 3;
 					break;
 #endif
 				default:
-					spidx.prefs = 0;
+					u.spidx.prefs = 0;
 					break;
 			}
 		}
@@ -4150,20 +4150,20 @@ delete_spd(iph2)
 		plog(LLV_DEBUG, LOCATION, NULL,
 			 "get a src address from ID payload "
 			 "%s prefixlen=%u ul_proto=%u\n",
-			 saddr2str((struct sockaddr *)&spidx.src),
-			 spidx.prefs, spidx.ul_proto);
+			 saddr2str((struct sockaddr *)&u.spidx.src),
+			 u.spidx.prefs, u.spidx.ul_proto);
 		plog(LLV_DEBUG, LOCATION, NULL,
 			 "get dst address from ID payload "
 			 "%s prefixlen=%u ul_proto=%u\n",
-			 saddr2str((struct sockaddr *)&spidx.dst),
-			 spidx.prefd, spidx.ul_proto);
+			 saddr2str((struct sockaddr *)&u.spidx.dst),
+			 u.spidx.prefd, u.spidx.ul_proto);
 
 		/*
 		 * convert the ul_proto if it is 0
 		 * because 0 in ID payload means a wild card.
 		 */
-		if (spidx.ul_proto == 0)
-			spidx.ul_proto = IPSEC_ULPROTO_ANY;
+		if (u.spidx.ul_proto == 0)
+			u.spidx.ul_proto = IPSEC_ULPROTO_ANY;
 
 #undef _XIDT
 
@@ -4181,7 +4181,7 @@ delete_spd(iph2)
 #ifdef HAVE_POLICY_FWD
 		/* make forward policy if required */
 		if (tunnel_mode_prop(iph2->approval)) {
-			spidx.dir = IPSEC_DIR_FWD;
+			u.spidx.dir = IPSEC_DIR_FWD;
 			if (pk_sendspddelete(iph2) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					 "pfkey spddelete(forward) failed.\n");
@@ -4195,13 +4195,13 @@ delete_spd(iph2)
 		/* make outbound policy */
 		iph2->src = src;
 		iph2->dst = dst;
-		spidx.dir = IPSEC_DIR_OUTBOUND;
-		addr = spidx.src;
-		spidx.src = spidx.dst;
-		spidx.dst = addr;
-		pref = spidx.prefs;
-		spidx.prefs = spidx.prefd;
-		spidx.prefd = pref;
+		u.spidx.dir = IPSEC_DIR_OUTBOUND;
+		addr = u.spidx.src;
+		u.spidx.src = u.spidx.dst;
+		u.spidx.dst = addr;
+		pref = u.spidx.prefs;
+		u.spidx.prefs = u.spidx.prefd;
+		u.spidx.prefd = pref;
 
 		if (pk_sendspddelete(iph2) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -4218,7 +4218,7 @@ purge:
 #ifdef INET6
 u_int32_t
 setscopeid(sp_addr0, sa_addr0)
-	struct sockaddr *sp_addr0, *sa_addr0;
+	struct sockaddr_storage *sp_addr0, *sa_addr0;
 {
 	struct sockaddr_in6 *sp_addr, *sa_addr;
     

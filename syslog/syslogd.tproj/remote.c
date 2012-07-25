@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,8 +38,6 @@
 #include <netdb.h>
 #include <pthread.h>
 #include <notify.h>
-#include <asl_core.h>
-#include "asl_memory.h"
 #include "daemon.h"
 
 #define forever for(;;)
@@ -64,6 +62,10 @@
 static int rfd4 = -1;
 static int rfd6 = -1;
 static int rfdl = -1;
+
+static dispatch_source_t in_src_local;
+static dispatch_source_t in_src_tcp;
+static dispatch_queue_t in_queue;
 
 #ifdef NSS32 
 typedef uint32_t notify_state_t;
@@ -117,7 +119,7 @@ remote_db_stats(uint32_t sel)
 void
 session(void *x)
 {
-	int i, s, wfd, status, pfmt, watch, wtoken, nfd, do_prompt, filter;
+	int i, s, wfd, status, pfmt, watch, wtoken, nfd, do_prompt;
 	aslresponse res;
 	asl_search_result_t ql;
 	uint32_t outlen;
@@ -126,9 +128,8 @@ session(void *x)
 	asl_msg_t *qlq[1];
 	char str[1024], *p, *qs, *out;
 	ssize_t len;
-	fd_set readfds;
+	fd_set readfds, errfds;
 	uint64_t low_id, high_id;
-	notify_state_t nstate;
 	uint32_t dbselect, flags;
 	session_args_t *sp;
 
@@ -139,6 +140,9 @@ session(void *x)
 	flags = sp->flags;
 	free(x);
 
+	asldebug("%s %d: starting interactive session for %ssocket %d\n", MY_ID, s, (flags & SESSION_FLAGS_LOCKDOWN) ? "lockdown " : "", s);
+
+	do_prompt = 1;
 	watch = WATCH_OFF;
 	wfd = -1;
 	wtoken = -1;
@@ -155,7 +159,7 @@ session(void *x)
 	query = NULL;
 	memset(&ql, 0, sizeof(asl_search_result_t));
 
-	snprintf(str, sizeof(str) - 1, "\n========================\nASL is here to serve you\n");
+	snprintf(str, sizeof(str), "\n========================\nASL is here to serve you\n");
 	if (write(s, str, strlen(str)) < 0)
 	{
 		close(s);
@@ -163,21 +167,22 @@ session(void *x)
 		return;
 	}
 
-	do_prompt = 1;
-
 	forever
 	{
-		if (do_prompt > 0)
+		if (((flags & SESSION_FLAGS_LOCKDOWN) == 0) && (do_prompt > 0))
 		{
-			snprintf(str, sizeof(str) - 1, "> ");
+			snprintf(str, sizeof(str), "> ");
 			SESSION_WRITE(s, str);
 		}
 
 		do_prompt = 1;
+
 		memset(str, 0, sizeof(str));
 
 		FD_ZERO(&readfds);
 		FD_SET(s, &readfds);
+		FD_ZERO(&errfds);
+		FD_SET(s, &errfds);
 		nfd = s;
 
 		if (wfd != -1)
@@ -186,17 +191,33 @@ session(void *x)
 			if (wfd > nfd) nfd = wfd;
 		}
 
-		status = select(nfd + 1, &readfds, NULL, NULL, NULL);
+		status = select(nfd + 1, &readfds, NULL, &errfds, NULL);
+		if (status == 0) continue;
+		if (status < 0)
+		{
+			asldebug("%s %d: select %d %s\n", MY_ID, s, errno, strerror(errno));
+			goto exit_session;
+		}
+
+		if (FD_ISSET(s, &errfds))
+		{
+			asldebug("%s %d: error on socket %d\n", MY_ID, s, s);
+			goto exit_session;
+		}
 
 		if ((wfd != -1) && (FD_ISSET(wfd, &readfds)))
 		{
-			len = read(wfd, &i, sizeof(int));
+			(void)read(wfd, &i, sizeof(int));
 		}
 
 		if (FD_ISSET(s, &readfds))
 		{
 			len = read(s, str, sizeof(str) - 1);
-			if (len <= 0) goto exit_session;
+			if (len <= 0)
+			{
+				asldebug("%s %d: read error on socket %d: %d %s\n", MY_ID, s, s, errno, strerror(errno));
+				goto exit_session;
+			}
 
 			while ((len > 1) && ((str[len - 1] == '\n') || (str[len - 1] == '\r')))
 			{
@@ -206,7 +227,7 @@ session(void *x)
 
 			if ((!strcmp(str, "q")) || (!strcmp(str, "quit")) || (!strcmp(str, "exit")))
 			{
-				snprintf(str, sizeof(str) - 1, "Goodbye\n");
+				snprintf(str, sizeof(str), "Goodbye\n");
 				write(s, str, strlen(str));
 				close(s);
 				s = -1;
@@ -215,55 +236,49 @@ session(void *x)
 
 			if ((!strcmp(str, "?")) || (!strcmp(str, "help")))
 			{
-				snprintf(str, sizeof(str) - 1, "Commands\n");
+				snprintf(str, sizeof(str), "Commands\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    quit                 exit session\n");
+				snprintf(str, sizeof(str), "    quit                 exit session\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    select [val]         get [set] current database\n");
+				snprintf(str, sizeof(str), "    select [val]         get [set] current database\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                         val must be \"file\", \"mem\", or \"mini\"\n");
+				snprintf(str, sizeof(str), "                         val must be \"file\", \"mem\", or \"mini\"\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    file [on/off]        enable / disable file store\n");
+				snprintf(str, sizeof(str), "    file [on/off]        enable / disable file store\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    memory [on/off]      enable / disable memory store\n");
+				snprintf(str, sizeof(str), "    memory [on/off]      enable / disable memory store\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    mini [on/off]        enable / disable mini memory store\n");
+				snprintf(str, sizeof(str), "    mini [on/off]        enable / disable mini memory store\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    stats                database statistics\n");
+				snprintf(str, sizeof(str), "    stats                database statistics\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    flush                flush database\n");
+				snprintf(str, sizeof(str), "    flush                flush database\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    dbsize [val]         get [set] database size (# of records)\n");
+				snprintf(str, sizeof(str), "    dbsize [val]         get [set] database size (# of records)\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    filter [val]         get [set] current database filter\n");
+				snprintf(str, sizeof(str), "    watch                print new messages as they arrive\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                         [p]anic (emergency)  [a]lert  [c]ritical  [e]rror\n");
+				snprintf(str, sizeof(str), "    stop                 stop watching for new messages\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                         [w]arning  [n]otice  [i]nfo  [d]ebug\n");
+				snprintf(str, sizeof(str), "    raw                  use raw format for printing messages\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    watch                print new messages as they arrive\n");
+				snprintf(str, sizeof(str), "    std                  use standard format for printing messages\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    stop                 stop watching for new messages\n");
+				snprintf(str, sizeof(str), "    *                    show all log messages\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    raw                  use raw format for printing messages\n");
+				snprintf(str, sizeof(str), "    * key val            equality search for messages (single key/value pair)\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    std                  use standard format for printing messages\n");
+				snprintf(str, sizeof(str), "    * op key val         search for matching messages (single key/value pair)\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    *                    show all log messages\n");
+				snprintf(str, sizeof(str), "    * [op key val] ...   search for matching messages (multiple key/value pairs)\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    * key val            equality search for messages (single key/value pair)\n");
+				snprintf(str, sizeof(str), "                         operators:  =  <  >  ! (not equal)  T (key exists)  R (regex)\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    * op key val         search for matching messages (single key/value pair)\n");
+				snprintf(str, sizeof(str), "                         modifiers (must follow operator):\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "    * [op key val] ...   search for matching messages (multiple key/value pairs)\n");
+				snprintf(str, sizeof(str), "                                 C=casefold  N=numeric  S=substring  A=prefix  Z=suffix\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                         operators:  =  <  >  ! (not equal)  T (key exists)  R (regex)\n");
-				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                         modifiers (must follow operator):\n");
-				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "                                 C=casefold  N=numeric  S=substring  A=prefix  Z=suffix\n");
-				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "\n");
+				snprintf(str, sizeof(str), "\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -284,10 +299,10 @@ session(void *x)
 				while ((*p == ' ') || (*p == '\t')) p++;
 				if (*p == '\0')
 				{
-					if (dbselect == 0) snprintf(str, sizeof(str) - 1, "no store\n");
-					else if (dbselect == DB_TYPE_FILE) snprintf(str, sizeof(str) - 1, "file store\n");
-					else if (dbselect == DB_TYPE_MEMORY) snprintf(str, sizeof(str) - 1, "memory store\n");
-					else if (dbselect == DB_TYPE_MINI) snprintf(str, sizeof(str) - 1, "mini memory store\n");
+					if (dbselect == 0) snprintf(str, sizeof(str), "no store\n");
+					else if (dbselect == DB_TYPE_FILE) snprintf(str, sizeof(str), "file store\n");
+					else if (dbselect == DB_TYPE_MEMORY) snprintf(str, sizeof(str), "memory store\n");
+					else if (dbselect == DB_TYPE_MINI) snprintf(str, sizeof(str), "mini memory store\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
@@ -296,7 +311,7 @@ session(void *x)
 				{
 					if ((global.dbtype & DB_TYPE_FILE) == 0)
 					{
-						snprintf(str, sizeof(str) - 1, "file database is not enabled\n");
+						snprintf(str, sizeof(str), "file database is not enabled\n");
 						SESSION_WRITE(s, str);
 						continue;
 					}
@@ -307,7 +322,7 @@ session(void *x)
 				{
 					if ((global.dbtype & DB_TYPE_MEMORY) == 0)
 					{
-						snprintf(str, sizeof(str) - 1, "memory database is not enabled\n");
+						snprintf(str, sizeof(str), "memory database is not enabled\n");
 						SESSION_WRITE(s, str);
 						continue;
 					}
@@ -320,12 +335,12 @@ session(void *x)
 					{
 						if (global.mini_db != NULL)
 						{
-							snprintf(str, sizeof(str) - 1, "mini memory database is enabled for disaster messages\n");
+							snprintf(str, sizeof(str), "mini memory database is enabled for disaster messages\n");
 							SESSION_WRITE(s, str);
 						}
 						else
 						{
-							snprintf(str, sizeof(str) - 1, "mini memory database is not enabled\n");
+							snprintf(str, sizeof(str), "mini memory database is not enabled\n");
 							SESSION_WRITE(s, str);
 							continue;
 						}
@@ -335,12 +350,12 @@ session(void *x)
 				}
 				else
 				{
-					snprintf(str, sizeof(str) - 1, "unknown database type\n");
+					snprintf(str, sizeof(str), "unknown database type\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -350,7 +365,7 @@ session(void *x)
 				while ((*p == ' ') || (*p == '\t')) p++;
 				if (*p == '\0')
 				{
-					snprintf(str, sizeof(str) - 1, "file database is %senabled\n", (global.dbtype & DB_TYPE_FILE) ? "" : "not ");
+					snprintf(str, sizeof(str), "file database is %senabled\n", (global.dbtype & DB_TYPE_FILE) ? "" : "not ");
 					SESSION_WRITE(s, str);
 					if ((global.dbtype & DB_TYPE_FILE) != 0) dbselect = DB_TYPE_FILE;
 					continue;
@@ -359,7 +374,7 @@ session(void *x)
 				if (!strcmp(p, "on")) global.dbtype |= DB_TYPE_FILE;
 				else if (!strcmp(p, "off")) global.dbtype &= ~ DB_TYPE_FILE;
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -369,7 +384,7 @@ session(void *x)
 				while ((*p == ' ') || (*p == '\t')) p++;
 				if (*p == '\0')
 				{
-					snprintf(str, sizeof(str) - 1, "memory database is %senabled\n", (global.dbtype & DB_TYPE_MEMORY) ? "" : "not ");
+					snprintf(str, sizeof(str), "memory database is %senabled\n", (global.dbtype & DB_TYPE_MEMORY) ? "" : "not ");
 					SESSION_WRITE(s, str);
 					if ((global.dbtype & DB_TYPE_MEMORY) != 0) dbselect = DB_TYPE_MEMORY;
 					continue;
@@ -378,7 +393,7 @@ session(void *x)
 				if (!strcmp(p, "on")) global.dbtype |= DB_TYPE_MEMORY;
 				else if (!strcmp(p, "off")) global.dbtype &= ~ DB_TYPE_MEMORY;
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -388,7 +403,7 @@ session(void *x)
 				while ((*p == ' ') || (*p == '\t')) p++;
 				if (*p == '\0')
 				{
-					snprintf(str, sizeof(str) - 1, "mini database is %senabled\n", (global.dbtype & DB_TYPE_MINI) ? "" : "not ");
+					snprintf(str, sizeof(str), "mini database is %senabled\n", (global.dbtype & DB_TYPE_MINI) ? "" : "not ");
 					SESSION_WRITE(s, str);
 					if ((global.dbtype & DB_TYPE_MINI) != 0) dbselect = DB_TYPE_MINI;
 					continue;
@@ -397,7 +412,7 @@ session(void *x)
 				if (!strcmp(p, "on")) global.dbtype |= DB_TYPE_MINI;
 				else if (!strcmp(p, "off")) global.dbtype &= ~ DB_TYPE_MINI;
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -405,7 +420,7 @@ session(void *x)
 			{
 				if (dbselect == 0)
 				{
-					snprintf(str, sizeof(str) - 1, "no store\n");
+					snprintf(str, sizeof(str), "no store\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
@@ -414,7 +429,7 @@ session(void *x)
 				while ((*p == ' ') || (*p == '\t')) p++;
 				if (*p == '\0')
 				{
-					snprintf(str, sizeof(str) - 1, "DB size %u\n", remote_db_size(dbselect));
+					snprintf(str, sizeof(str), "DB size %u\n", remote_db_size(dbselect));
 					SESSION_WRITE(s, str);
 					continue;
 				}
@@ -422,77 +437,8 @@ session(void *x)
 				i = atoi(p);
 				remote_db_set_size(dbselect, i);
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
-				continue;
-			}
-			else if (!strncmp(str, "filter", 6))
-			{
-				p = str + 6;
-				while ((*p == ' ') || (*p == '\t')) p++;
-				if (*p == '\0')
-				{
-					snprintf(str, sizeof(str) - 1, "%s%s%s%s%s%s%s%s\n", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_EMERG) ? "p" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_ALERT) ? "a" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_CRIT) ? "c" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_ERR) ? "e" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_WARNING) ? "w" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_NOTICE) ? "n" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_INFO) ? "i" : "", 
-							 (global.asl_log_filter & ASL_FILTER_MASK_DEBUG) ? "d" : "");
-					SESSION_WRITE(s, str);
-					continue;
-				}
-
-				filter = 0;
-				if ((*p >= '0') && (*p <= '7'))
-				{
-					i = atoi(p);
-					filter = ASL_FILTER_MASK_UPTO(i);
-				}
-				else
-				{
-					while (*p != '\0')
-					{
-						if ((*p == 'p') || (*p == 'P')) filter |= ASL_FILTER_MASK_EMERG;
-						else if ((*p == 'a') || (*p == 'A')) filter |= ASL_FILTER_MASK_ALERT;
-						else if ((*p == 'c') || (*p == 'C')) filter |= ASL_FILTER_MASK_CRIT;
-						else if ((*p == 'e') || (*p == 'E')) filter |= ASL_FILTER_MASK_ERR;
-						else if ((*p == 'w') || (*p == 'W')) filter |= ASL_FILTER_MASK_WARNING;
-						else if ((*p == 'n') || (*p == 'N')) filter |= ASL_FILTER_MASK_NOTICE;
-						else if ((*p == 'i') || (*p == 'I')) filter |= ASL_FILTER_MASK_INFO;
-						else if ((*p == 'd') || (*p == 'D')) filter |= ASL_FILTER_MASK_DEBUG;
-						p++;
-					}
-				}
-
-				status = notify_register_check(NOTIFY_SYSTEM_ASL_FILTER, &i);
-				if (status != NOTIFY_STATUS_OK)
-				{
-					snprintf(str, sizeof(str) - 1, "FAILED %d\n", status);
-					SESSION_WRITE(s, str);
-				}
-				else
-				{
-					nstate = filter;
-					status = notify_set_state(i, nstate);
-					if (status != NOTIFY_STATUS_OK)
-					{
-						snprintf(str, sizeof(str) - 1, "FAILED %d\n", status);
-						SESSION_WRITE(s, str);
-						continue;
-					}
-
-					status = notify_post(NOTIFY_SYSTEM_ASL_FILTER);
-					notify_cancel(i);
-
-					global.asl_log_filter = filter;
-
-					snprintf(str, sizeof(str) - 1, "OK\n");
-					SESSION_WRITE(s, str);
-				}
-
 				continue;
 			}
 			else if (!strcmp(str, "stop"))
@@ -510,12 +456,12 @@ session(void *x)
 					if (query != NULL) free(query);
 					query = NULL;
 
-					snprintf(str, sizeof(str) - 1, "OK\n");
+					snprintf(str, sizeof(str), "OK\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
 
-				snprintf(str, sizeof(str) - 1, "not watching!\n");
+				snprintf(str, sizeof(str), "not watching!\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -531,9 +477,9 @@ session(void *x)
 			}
 			else if (!strcmp(str, "watch"))
 			{
-				if (watch != WATCH_OFF)
+				if (((flags & SESSION_FLAGS_LOCKDOWN) == 0) && (watch != WATCH_OFF))
 				{
-					snprintf(str, sizeof(str) - 1, "already watching!\n");
+					snprintf(str, sizeof(str), "already watching!\n");
 					SESSION_WRITE(s, str);
 					continue;
 				}
@@ -544,10 +490,10 @@ session(void *x)
 				}
 				else
 				{
-					status = notify_register_file_descriptor(ASL_DB_NOTIFICATION, &wfd, 0, &wtoken);
+					status = notify_register_file_descriptor(kNotifyASLDBUpdate, &wfd, 0, &wtoken);
 					if (status != 0)
 					{
-						snprintf(str, sizeof(str) - 1, "notify_register_file_descriptor failed: %d\n", status);
+						snprintf(str, sizeof(str), "notify_register_file_descriptor failed: %d\n", status);
 						SESSION_WRITE(s, str);
 						continue;
 					}
@@ -555,7 +501,7 @@ session(void *x)
 					watch = WATCH_RUN;
 				}
 
-				snprintf(str, sizeof(str) - 1, "OK\n");
+				snprintf(str, sizeof(str), "OK\n");
 				SESSION_WRITE(s, str);
 				do_prompt = 2;
 			}
@@ -597,9 +543,9 @@ session(void *x)
 			}
 			else
 			{
-				snprintf(str, sizeof(str) - 1, "unrecognized command\n");
+				snprintf(str, sizeof(str), "unrecognized command\n");
 				SESSION_WRITE(s, str);
-				snprintf(str, sizeof(str) - 1, "enter \"help\" for help\n");
+				snprintf(str, sizeof(str), "enter \"help\" for help\n");
 				SESSION_WRITE(s, str);
 				continue;
 			}
@@ -613,16 +559,12 @@ session(void *x)
 		 * the initial messages are sent to PurpleConsole before setting 
 		 * global.lockdown_session_fd to allow this query to complete before
 		 * dbserver starts sending.  To prevent a race between this query and
-		 * when the first message is sent by send_to_direct_watchers, we hold
-		 * the work queue lock between the time of the query and the time that
-		 * lockdown_session_fd is set.
+		 * when messages are sent by send_to_direct_watchers, we  suspend the
+		 * work queue here and resume it when lockdown_session_fd is set.
 		 */
 		if ((flags & SESSION_FLAGS_LOCKDOWN) && (watch == WATCH_RUN)) continue;
 
-		if (watch == WATCH_LOCKDOWN_START)
-		{
-			pthread_mutex_lock(global.work_queue_lock);
-		}
+		if (watch == WATCH_LOCKDOWN_START) dispatch_suspend(global.work_queue);
 
 		if (query != NULL)
 		{
@@ -635,7 +577,7 @@ session(void *x)
 
 		memset(&res, 0, sizeof(aslresponse));
 		high_id = 0;
-		status = db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0);
+		(void)db_query(&ql, (aslresponse *)&res, low_id, 0, 0, &high_id, 0, 0);
 
 		if ((watch == WATCH_RUN) && (high_id >= low_id)) low_id = high_id + 1;
 
@@ -643,7 +585,7 @@ session(void *x)
 		{
 			if (watch == WATCH_OFF)
 			{
-				snprintf(str, sizeof(str) - 1, "-nil-\n");
+				snprintf(str, sizeof(str), "-nil-\n");
 				SESSION_WRITE(s, str);
 			}
 			else
@@ -655,7 +597,7 @@ session(void *x)
 		{
 			if (watch == WATCH_RUN)
 			{
-				snprintf(str, sizeof(str) - 1, "\n");
+				snprintf(str, sizeof(str), "\n");
 				SESSION_WRITE(s, str);
 			}
 
@@ -664,22 +606,48 @@ session(void *x)
 			write(s, out, outlen);
 			free(out);
 
-			snprintf(str, sizeof(str) - 1, "\n");
+			snprintf(str, sizeof(str), "\n");
 			SESSION_WRITE(s, str);
 		}
 		else
 		{
 			if (watch == WATCH_RUN)
 			{
-				snprintf(str, sizeof(str) - 1, "\n");
+				snprintf(str, sizeof(str), "\n");
 				SESSION_WRITE(s, str);
 			}
 
+			snprintf(str, sizeof(str), "\n");
 			for (i = 0; i < res->count; i++)
 			{
+				int wstatus;
+
 				out = asl_format_message(res->msg[i], ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &outlen);
-				write(s, out, outlen);
+
+				do
+				{
+					int n = 0;
+
+					errno = 0;
+					wstatus = write(s, out, outlen);
+					if (wstatus < 0)
+					{
+						asldebug("%s %d: %d/%d write data failed: %d %s\n", MY_ID, s, i, res->count, errno, strerror(errno));
+						if (errno == EAGAIN)
+						{
+							n++;
+							if (n > 10) break;
+							usleep(10000);
+						}
+						else
+						{
+							goto exit_session;
+						}
+					}
+				} while (errno == EAGAIN);
+
 				free(out);
+				if (global.remote_delay_time > 0) usleep(global.remote_delay_time);
 			}
 		}
 
@@ -691,21 +659,23 @@ session(void *x)
 			global.watchers_active++;
 			watch = WATCH_RUN;
 
-			pthread_mutex_unlock(global.work_queue_lock);
+			dispatch_resume(global.work_queue);
 		}
 	}
 
 exit_session:
+
+	asldebug("%s %d: terminating session for %ssocket %d\n", MY_ID, s, (flags & SESSION_FLAGS_LOCKDOWN) ? "lockdown " : "", s);
 
 	if (s >= 0)
 	{
 		if (s == global.lockdown_session_fd) global.lockdown_session_fd = -1;
 		if (global.watchers_active > 0) global.watchers_active--;
 		close(s);
-		s = -1;
 	}
 
-	if (watch != WATCH_OFF) notify_cancel(wtoken);
+	if (watch == WATCH_LOCKDOWN_START) dispatch_resume(global.work_queue);
+	if (wtoken >= 0) notify_cancel(wtoken);
 	if (query != NULL) asl_msg_release(query);
 	pthread_exit(NULL);
 }
@@ -714,7 +684,7 @@ aslmsg
 remote_acceptmsg(int fd, int tcp)
 {
 	socklen_t fromlen;
-	int s, status, flags, v;
+	int s, flags, status, v;
 	pthread_attr_t attr;
 	pthread_t t;
 	struct sockaddr_storage from;
@@ -842,7 +812,10 @@ remote_init_lockdown(void)
 
 	chmod(SYSLOG_SOCK_PATH, 0666);
 
-	aslevent_addfd(SOURCE_SESSION, fd, 0, remote_acceptmsg_local, NULL, NULL);
+	in_src_local = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0, in_queue);
+	dispatch_source_set_event_handler(in_src_local, ^{ remote_acceptmsg_local(fd); });
+	dispatch_resume(in_src_local);
+
 	return fd;
 }
 
@@ -912,13 +885,22 @@ remote_init_tcp(int family)
 		return -1;
 	}
 
-	aslevent_addfd(SOURCE_SESSION, fd, 0, remote_acceptmsg_tcp, NULL, NULL);
+	in_src_tcp = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)fd, 0, in_queue);
+	dispatch_source_set_event_handler(in_src_tcp, ^{ remote_acceptmsg_tcp(fd); });
+	dispatch_resume(in_src_tcp);
+
 	return fd;
 }
 
 int
 remote_init(void)
 {
+	static dispatch_once_t once;
+
+	dispatch_once(&once, ^{
+		in_queue = dispatch_queue_create(MY_ID, NULL);
+	});
+
 	asldebug("%s: init\n", MY_ID);
 
 #ifdef LOCKDOWN
@@ -941,7 +923,6 @@ remote_close(void)
 {
 	if (rfdl >= 0)
 	{
-		aslevent_removefd(rfdl);
 		close(rfdl);
 	}
 
@@ -949,7 +930,6 @@ remote_close(void)
 
 	if (rfd4 >= 0) 
 	{
-		aslevent_removefd(rfd4);
 		close(rfd4);
 	}
 
@@ -957,7 +937,6 @@ remote_close(void)
 
 	if (rfd6 >= 0)
 	{
-		aslevent_removefd(rfd6);
 		close(rfd6);
 	}
 
@@ -969,6 +948,8 @@ remote_close(void)
 int
 remote_reset(void)
 {
+	return 0;
+
 	remote_close();
 	return remote_init();
 }

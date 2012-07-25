@@ -37,5 +37,5 @@ boolean_t 	bootp_getbyhw_file(uint8_t hwtype, void * hwaddr, int hwlen,
 				   char * * bootfile);
 boolean_t       bootp_getbyip_file(struct in_addr ciaddr, char * * hostname, 
 				   char * * bootfile);
-#endif _S_BOOTPDFILE_H
+#endif /* _S_BOOTPDFILE_H */
 

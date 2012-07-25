@@ -1096,14 +1096,14 @@ static void TrimFlush(void)
 	
 	if (gTrimData.extentsCount == 0)
 	{
-		dprintf(d_info|d_trim, "TrimFlush: nothing to flush\n");
+		DPRINTF(d_info|d_trim, "TrimFlush: nothing to flush\n");
 		return;	
 	}
 	
 	err = ioctl(fsreadfd, DKIOCUNMAP, &gTrimData);
 	if (err == -1)
 	{
-		dprintf(d_error|d_trim, "TrimFlush: error %d\n", errno);
+		DPRINTF(d_error|d_trim, "TrimFlush: error %d\n", errno);
 	}
 	gTrimData.extentsCount = 0;
 }
@@ -1113,7 +1113,7 @@ static void TrimExtent(SGlobPtr g, UInt32 startBlock, UInt32 blockCount)
 	UInt64 offset;
 	UInt64 length;
 	
-	dprintf(d_info|d_trim, "Trimming: startBlock=%10u, blockCount=%10u\n", startBlock, blockCount);
+	DPRINTF(d_info|d_trim, "Trimming: startBlock=%10u, blockCount=%10u\n", startBlock, blockCount);
 
 	offset = (UInt64) startBlock * g->calculatedVCB->vcbBlockSize;
 	if (VolumeObjectIsHFSPlus())
@@ -1236,7 +1236,7 @@ void TrimFreeBlocks(SGlobPtr g)
 	}
 	
 	TrimFlush();
-	dprintf(d_info|d_trim, "Trimmed %u allocation blocks.\n", totalTrimmed);
+	DPRINTF(d_info|d_trim, "Trimmed %u allocation blocks.\n", totalTrimmed);
 }
 
 /* Function: IsTrimSupported

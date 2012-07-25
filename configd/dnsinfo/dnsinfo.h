@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,7 +35,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define	DNSINFO_VERSION		20091104
+#define	DNSINFO_VERSION		20111104
 
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
@@ -72,12 +72,13 @@ typedef struct {
 	DNS_VAR(uint32_t,		search_order);	/* search_order */
 	DNS_VAR(uint32_t,		if_index);
 	DNS_VAR(uint32_t,		flags);
-	DNS_VAR(uint32_t,		reserved[6]);
+	DNS_VAR(uint32_t,		reach_flags);	/* SCNetworkReachabilityFlags */
+	DNS_VAR(uint32_t,		reserved[5]);
 } dns_resolver_t;
 #pragma pack()
 
 
-#define DNS_RESOLVER_FLAGS_SCOPED	1
+#define DNS_RESOLVER_FLAGS_SCOPED	1		/* configuration is for scoped questions */
 
 
 #pragma pack(4)
@@ -104,6 +105,10 @@ dns_configuration_copy		()				__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
 
 void
 dns_configuration_free		(dns_config_t	*config)	__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0);
+
+void
+_dns_configuration_ack		(dns_config_t	*config,
+				 const char	*bundle_id)	__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 
 __END_DECLS
 

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2000-2010, International Business Machines
+*   Copyright (C) 2000-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -26,6 +26,7 @@
 #include "unicode/locid.h"
 #include "unicode/ulocdata.h"
 #include "unicode/utf8.h"
+#include "unicode/utf16.h"
 #include "putilimp.h"
 #include "cmemory.h"
 #include "transrt.h"
@@ -439,7 +440,7 @@ UBool RTTest::isCamel(const UnicodeString& a) {
     // see if string is of the form aB; e.g. lower, then upper or title
     UChar32 cp;
     UBool haveLower = FALSE;
-    for (int32_t i = 0; i < a.length(); i += UTF_CHAR_LENGTH(cp)) {
+    for (int32_t i = 0; i < a.length(); i += U16_LENGTH(cp)) {
         cp = a.char32At(i);
         int8_t t = u_charType(cp);
         switch (t) {
@@ -566,7 +567,7 @@ void RTTest::test2(UBool quickRt, int32_t density) {
         Transliterator::createInstance(transliteratorID, UTRANS_FORWARD, parseError,
                                        status));
     if ((Transliterator *)sourceToTarget == NULL) {
-        parent->errln("FAIL: createInstance(" + transliteratorID +
+        parent->dataerrln("FAIL: createInstance(" + transliteratorID +
                    ") returned NULL. Error: " + u_errorName(status)
                    + "\n\tpreContext : " + prettify(parseError.preContext) 
                    + "\n\tpostContext : " + prettify(parseError.postContext));
@@ -1401,7 +1402,7 @@ void TransliteratorRoundTripTest::TestDevanagariLatin() {
 //        logln("Warning: TestDevanagariLatin needs to be updated to remove delete the section marked [:Age=4.1:] filter");
 //    }
     test.test(UnicodeString(latinForIndic, ""), 
-        UnicodeString("[[[:Devanagari:][\\u094d][\\u0964\\u0965]]&[:Age=4.1:]]", ""), "[\\u0965\\u0904]", this, quick, 
+        UnicodeString("[[[:Devanagari:][\\u094d][\\u0964\\u0965]]&[:Age=4.1:]-[\\u0970]]", ""), "[\\u0965\\u0904]", this, quick, 
             legal, 50);
 
     delete legal;
@@ -1411,52 +1412,52 @@ void TransliteratorRoundTripTest::TestDevanagariLatin() {
 static const int32_t INTER_INDIC_ARRAY_WIDTH = 4;
 static const char * const interIndicArray[] = {
 
-    "BENGALI-DEVANAGARI", "[:BENGALI:]", "[:Devanagari:]", 
+    "BENGALI-DEVANAGARI", "[:BENGALI:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0904\\u0951-\\u0954\\u0943-\\u0949\\u094a\\u0962\\u0963\\u090D\\u090e\\u0911\\u0912\\u0929\\u0933\\u0934\\u0935\\u093d\\u0950\\u0958\\u0959\\u095a\\u095b\\u095e\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-BENGALI", "[:Devanagari:]", "[:BENGALI:]",
+    "DEVANAGARI-BENGALI", "[[:Devanagari:]-[\\u0970]]", "[:BENGALI:]",
     "[\\u0951-\\u0954\\u0951-\\u0954\\u09D7\\u090D\\u090e\\u0911\\u0912\\u0929\\u0933\\u0934\\u0935\\u093d\\u0950\\u0958\\u0959\\u095a\\u095b\\u095e\\u09f0\\u09f1\\u09f2-\\u09fa\\u09ce]", /*roundtrip exclusions*/
 
-    "GURMUKHI-DEVANAGARI", "[:GURMUKHI:]", "[:Devanagari:]", 
+    "GURMUKHI-DEVANAGARI", "[:GURMUKHI:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0904\\u0901\\u0902\\u0936\\u0933\\u0951-\\u0954\\u0902\\u0903\\u0943-\\u0949\\u094a\\u0962\\u0963\\u090B\\u090C\\u090D\\u090e\\u0911\\u0912\\u0934\\u0937\\u093D\\u0950\\u0960\\u0961\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-GURMUKHI", "[:Devanagari:]", "[:GURMUKHI:]",
+    "DEVANAGARI-GURMUKHI", "[[:Devanagari:]-[\\u0970]]", "[:GURMUKHI:]",
     "[\\u0904\\u0A02\\u0946\\u0A5C\\u0951-\\u0954\\u0A70\\u0A71\\u090B\\u090C\\u090D\\u090e\\u0911\\u0912\\u0934\\u0937\\u093D\\u0950\\u0960\\u0961\\u0a72\\u0a73\\u0a74]", /*roundtrip exclusions*/
 
-    "GUJARATI-DEVANAGARI", "[:GUJARATI:]", "[:Devanagari:]", 
+    "GUJARATI-DEVANAGARI", "[:GUJARATI:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0946\\u094A\\u0962\\u0963\\u0951-\\u0954\\u0961\\u090c\\u090e\\u0912\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-GUJARATI", "[:Devanagari:]", "[:GUJARATI:]",
+    "DEVANAGARI-GUJARATI", "[[:Devanagari:]-[\\u0970]]", "[:GUJARATI:]",
     "[\\u0951-\\u0954\\u0961\\u090c\\u090e\\u0912]", /*roundtrip exclusions*/
 
-    "ORIYA-DEVANAGARI", "[:ORIYA:]", "[:Devanagari:]", 
+    "ORIYA-DEVANAGARI", "[:ORIYA:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0904\\u0943-\\u094a\\u0962\\u0963\\u0951-\\u0954\\u0950\\u090D\\u090e\\u0912\\u0911\\u0931\\u0935\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-ORIYA", "[:Devanagari:]", "[:ORIYA:]",
+    "DEVANAGARI-ORIYA", "[[:Devanagari:]-[\\u0970]]", "[:ORIYA:]",
     "[\\u0b5f\\u0b56\\u0b57\\u0b70\\u0b71\\u0950\\u090D\\u090e\\u0912\\u0911\\u0931]", /*roundtrip exclusions*/
 
-    "Tamil-DEVANAGARI", "[:tamil:]", "[:Devanagari:]", 
+    "Tamil-DEVANAGARI", "[:tamil:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0901\\u0904\\u093c\\u0943-\\u094a\\u0951-\\u0954\\u0962\\u0963\\u090B\\u090C\\u090D\\u0911\\u0916\\u0917\\u0918\\u091B\\u091D\\u0920\\u0921\\u0922\\u0925\\u0926\\u0927\\u092B\\u092C\\u092D\\u0936\\u093d\\u0950[\\u0958-\\u0961]\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-Tamil", "[:Devanagari:]", "[:tamil:]", 
+    "DEVANAGARI-Tamil", "[[:Devanagari:]-[\\u0970]]", "[:tamil:]", 
     "[\\u0bd7\\u0BF0\\u0BF1\\u0BF2]", /*roundtrip exclusions*/
 
-    "Telugu-DEVANAGARI", "[:telugu:]", "[:Devanagari:]", 
+    "Telugu-DEVANAGARI", "[:telugu:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0904\\u093c\\u0950\\u0945\\u0949\\u0951-\\u0954\\u0962\\u0963\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-TELUGU", "[:Devanagari:]", "[:TELUGU:]",
+    "DEVANAGARI-TELUGU", "[[:Devanagari:]-[\\u0970]]", "[:TELUGU:]",
     "[\\u0c55\\u0c56\\u0950\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]]", /*roundtrip exclusions*/
 
-    "KANNADA-DEVANAGARI", "[:KANNADA:]", "[:Devanagari:]", 
+    "KANNADA-DEVANAGARI", "[:KANNADA:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0901\\u0904\\u0946\\u093c\\u0950\\u0945\\u0949\\u0951-\\u0954\\u0962\\u0963\\u0950\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-KANNADA", "[:Devanagari:]", "[:KANNADA:]",
+    "DEVANAGARI-KANNADA", "[[:Devanagari:]-[\\u0970]]", "[:KANNADA:]",
     "[{\\u0cb0\\u0cbc}{\\u0cb3\\u0cbc}\\u0cde\\u0cd5\\u0cd6\\u0950\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]]", /*roundtrip exclusions*/ 
 
-    "MALAYALAM-DEVANAGARI", "[:MALAYALAM:]", "[:Devanagari:]", 
+    "MALAYALAM-DEVANAGARI", "[:MALAYALAM:]", "[[:Devanagari:]-[\\u0970]]", 
     "[\\u0901\\u0904\\u094a\\u094b\\u094c\\u093c\\u0950\\u0944\\u0945\\u0949\\u0951-\\u0954\\u0962\\u0963\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]\\u097d]", /*roundtrip exclusions*/
 
-    "DEVANAGARI-MALAYALAM", "[:Devanagari:]", "[:MALAYALAM:]",
+    "DEVANAGARI-MALAYALAM", "[[:Devanagari:]-[\\u0970]]", "[:MALAYALAM:]",
     "[\\u0d4c\\u0d57\\u0950\\u090D\\u0911\\u093d\\u0929\\u0934[\\u0958-\\u095f]]", /*roundtrip exclusions*/
 
     "GURMUKHI-BENGALI", "[:GURMUKHI:]", "[:BENGALI:]",  

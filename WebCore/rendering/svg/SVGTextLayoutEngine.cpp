@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010-2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 #include "RenderSVGTextPath.h"
 #include "SVGElement.h"
 #include "SVGInlineTextBox.h"
+#include "SVGLengthContext.h"
 #include "SVGTextLayoutEngineBaseline.h"
 #include "SVGTextLayoutEngineSpacing.h"
 
@@ -34,8 +35,9 @@
 
 namespace WebCore {
 
-SVGTextLayoutEngine::SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes>& layoutAttributes)
+SVGTextLayoutEngine::SVGTextLayoutEngine(Vector<SVGTextLayoutAttributes*>& layoutAttributes)
     : m_layoutAttributes(layoutAttributes)
+    , m_layoutAttributesPosition(0)
     , m_logicalCharacterOffset(0)
     , m_logicalMetricsListOffset(0)
     , m_visualCharacterOffset(0)
@@ -83,25 +85,16 @@ void SVGTextLayoutEngine::updateCurrentTextPosition(float x, float y, float glyp
     }
 }
 
-void SVGTextLayoutEngine::updateRelativePositionAdjustmentsIfNeeded(Vector<float>& dxValues, Vector<float>& dyValues)
+void SVGTextLayoutEngine::updateRelativePositionAdjustmentsIfNeeded(float dx, float dy)
 {
     // Update relative positioning information.
-    if (dxValues.isEmpty() && dyValues.isEmpty())
+    if (dx == SVGTextLayoutAttributes::emptyValue() && dy == SVGTextLayoutAttributes::emptyValue())
         return;
 
-    float dx = 0;
-    if (!dxValues.isEmpty()) {
-        float& dxCurrent = dxValues.at(m_logicalCharacterOffset);
-        if (dxCurrent != SVGTextLayoutAttributes::emptyValue())
-            dx = dxCurrent;
-    }
-
-    float dy = 0;
-    if (!dyValues.isEmpty()) {
-        float& dyCurrent = dyValues.at(m_logicalCharacterOffset);
-        if (dyCurrent != SVGTextLayoutAttributes::emptyValue())
-            dy = dyCurrent;
-    }
+    if (dx == SVGTextLayoutAttributes::emptyValue())
+        dx = 0;
+    if (dy == SVGTextLayoutAttributes::emptyValue())
+        dy = 0;
 
     if (m_inPathLayout) {
         if (m_isVerticalText) {
@@ -154,10 +147,9 @@ bool SVGTextLayoutEngine::parentDefinesTextLength(RenderObject* parent) const
 {
     RenderObject* currentParent = parent;
     while (currentParent) {
-        SVGTextContentElement* textContentElement = SVGTextContentElement::elementFromRenderer(currentParent);
-        if (textContentElement) {
-            SVGTextContentElement::SVGLengthAdjustType lengthAdjust = static_cast<SVGTextContentElement::SVGLengthAdjustType>(textContentElement->lengthAdjust());
-            if (lengthAdjust == SVGTextContentElement::LENGTHADJUST_SPACING && textContentElement->specifiedTextLength().value(textContentElement) > 0)
+        if (SVGTextContentElement* textContentElement = SVGTextContentElement::elementFromRenderer(currentParent)) {
+            SVGLengthContext lengthContext(textContentElement);
+            if (textContentElement->lengthAdjust() == SVGLengthAdjustSpacing && textContentElement->specifiedTextLength().value(lengthContext) > 0)
                 return true;
         }
 
@@ -208,18 +200,19 @@ void SVGTextLayoutEngine::beginTextPathLayout(RenderObject* object, SVGTextLayou
     m_textPathCurrentOffset = m_textPathStartOffset;
 
     // Eventually handle textLength adjustments.
-    SVGTextContentElement::SVGLengthAdjustType lengthAdjust = SVGTextContentElement::LENGTHADJUST_UNKNOWN;
+    SVGLengthAdjustType lengthAdjust = SVGLengthAdjustUnknown;
     float desiredTextLength = 0;
 
     if (SVGTextContentElement* textContentElement = SVGTextContentElement::elementFromRenderer(textPath)) {
-        lengthAdjust = static_cast<SVGTextContentElement::SVGLengthAdjustType>(textContentElement->lengthAdjust());
-        desiredTextLength = textContentElement->specifiedTextLength().value(textContentElement);
+        SVGLengthContext lengthContext(textContentElement);
+        lengthAdjust = textContentElement->lengthAdjust();
+        desiredTextLength = textContentElement->specifiedTextLength().value(lengthContext);
     }
 
     if (!desiredTextLength)
         return;
 
-    if (lengthAdjust == SVGTextContentElement::LENGTHADJUST_SPACING)
+    if (lengthAdjust == SVGLengthAdjustSpacing)
         m_textPathSpacing = (desiredTextLength - totalLength) / totalCharacters;
     else
         m_textPathScaling = desiredTextLength / totalLength;
@@ -337,45 +330,45 @@ void SVGTextLayoutEngine::finishLayout()
     }
 }
 
-bool SVGTextLayoutEngine::currentLogicalCharacterAttributes(SVGTextLayoutAttributes& logicalAttributes)
+bool SVGTextLayoutEngine::currentLogicalCharacterAttributes(SVGTextLayoutAttributes*& logicalAttributes)
 {
-    if (m_layoutAttributes.isEmpty())
+    if (m_layoutAttributesPosition == m_layoutAttributes.size())
         return false;
 
-    logicalAttributes = m_layoutAttributes.first();
-    if (m_logicalCharacterOffset != logicalAttributes.xValues().size())
+    logicalAttributes = m_layoutAttributes[m_layoutAttributesPosition];
+    ASSERT(logicalAttributes);
+
+    if (m_logicalCharacterOffset != logicalAttributes->context()->textLength())
         return true;
 
-    m_layoutAttributes.remove(0);
-    if (m_layoutAttributes.isEmpty())
+    ++m_layoutAttributesPosition;
+    if (m_layoutAttributesPosition == m_layoutAttributes.size())
         return false;
 
-    logicalAttributes = m_layoutAttributes.first();
+    logicalAttributes = m_layoutAttributes[m_layoutAttributesPosition];
     m_logicalMetricsListOffset = 0;
     m_logicalCharacterOffset = 0;
     return true;
 }
 
-bool SVGTextLayoutEngine::currentLogicalCharacterMetrics(SVGTextLayoutAttributes& logicalAttributes, SVGTextMetrics& logicalMetrics)
+bool SVGTextLayoutEngine::currentLogicalCharacterMetrics(SVGTextLayoutAttributes*& logicalAttributes, SVGTextMetrics& logicalMetrics)
 {
-    logicalMetrics = SVGTextMetrics::emptyMetrics();
-
-    Vector<SVGTextMetrics>& textMetricsValues = logicalAttributes.textMetricsValues();
-    unsigned textMetricsSize = textMetricsValues.size();
+    Vector<SVGTextMetrics>* textMetricsValues = &logicalAttributes->textMetricsValues();
+    unsigned textMetricsSize = textMetricsValues->size();
     while (true) {
         if (m_logicalMetricsListOffset == textMetricsSize) {
             if (!currentLogicalCharacterAttributes(logicalAttributes))
                 return false;
 
-            textMetricsValues = logicalAttributes.textMetricsValues();
-            textMetricsSize = textMetricsValues.size();
+            textMetricsValues = &logicalAttributes->textMetricsValues();
+            textMetricsSize = textMetricsValues->size();
             continue;
         }
 
         ASSERT(textMetricsSize);
         ASSERT(m_logicalMetricsListOffset < textMetricsSize);
-        logicalMetrics = textMetricsValues.at(m_logicalMetricsListOffset);
-        if (logicalMetrics == SVGTextMetrics::emptyMetrics() || (!logicalMetrics.width() && !logicalMetrics.height())) {
+        logicalMetrics = textMetricsValues->at(m_logicalMetricsListOffset);
+        if (logicalMetrics.isEmpty() || (!logicalMetrics.width() && !logicalMetrics.height())) {
             advanceToNextLogicalCharacter(logicalMetrics);
             continue;
         }
@@ -388,13 +381,10 @@ bool SVGTextLayoutEngine::currentLogicalCharacterMetrics(SVGTextLayoutAttributes
     return true;
 }
 
-bool SVGTextLayoutEngine::currentVisualCharacterMetrics(SVGInlineTextBox* textBox, RenderSVGInlineText* text, SVGTextMetrics& metrics)
+bool SVGTextLayoutEngine::currentVisualCharacterMetrics(SVGInlineTextBox* textBox, Vector<SVGTextMetrics>& visualMetricsValues, SVGTextMetrics& visualMetrics)
 {
-    SVGTextLayoutAttributes& attributes = text->layoutAttributes();
-    Vector<SVGTextMetrics>& textMetricsValues = attributes.textMetricsValues();
-    ASSERT(!textMetricsValues.isEmpty());
-
-    unsigned textMetricsSize = textMetricsValues.size();
+    ASSERT(!visualMetricsValues.isEmpty());
+    unsigned textMetricsSize = visualMetricsValues.size();
     unsigned boxStart = textBox->start();
     unsigned boxLength = textBox->len();
 
@@ -402,11 +392,9 @@ bool SVGTextLayoutEngine::currentVisualCharacterMetrics(SVGInlineTextBox* textBo
         return false;
 
     while (m_visualMetricsListOffset < textMetricsSize) {
-        SVGTextMetrics& visualMetrics = textMetricsValues.at(m_visualMetricsListOffset);
-
         // Advance to text box start location.
         if (m_visualCharacterOffset < boxStart) {
-            advanceToNextVisualCharacter(visualMetrics);
+            advanceToNextVisualCharacter(visualMetricsValues[m_visualMetricsListOffset]);
             continue;
         }
 
@@ -414,7 +402,7 @@ bool SVGTextLayoutEngine::currentVisualCharacterMetrics(SVGInlineTextBox* textBo
         if (m_visualCharacterOffset >= boxStart + boxLength)
             return false;
 
-        metrics = visualMetrics;
+        visualMetrics = visualMetricsValues[m_visualMetricsListOffset];
         return true;
     }
 
@@ -446,10 +434,12 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(SVGInlineTextBox* textBox, Rend
     m_visualMetricsListOffset = 0;
     m_visualCharacterOffset = 0;
 
-    Vector<SVGTextMetrics>& textMetricsValues = text->layoutAttributes().textMetricsValues();
-    const UChar* characters = text->characters();
+    Vector<SVGTextMetrics>& visualMetricsValues = text->layoutAttributes()->textMetricsValues();
+    ASSERT(!visualMetricsValues.isEmpty());
 
+    const UChar* characters = text->characters();
     const Font& font = style->font();
+
     SVGTextLayoutEngineSpacing spacingLayout(font);
     SVGTextLayoutEngineBaseline baselineLayout(font);
 
@@ -463,43 +453,39 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(SVGInlineTextBox* textBox, Rend
     // Main layout algorithm.
     while (true) {
         // Find the start of the current text box in this list, respecting ligatures.
-        SVGTextMetrics visualMetrics = SVGTextMetrics::emptyMetrics();
-        if (!currentVisualCharacterMetrics(textBox, text, visualMetrics))
+        SVGTextMetrics visualMetrics(SVGTextMetrics::SkippedSpaceMetrics);
+        if (!currentVisualCharacterMetrics(textBox, visualMetricsValues, visualMetrics))
             break;
 
-        if (visualMetrics == SVGTextMetrics::emptyMetrics()) {
+        if (visualMetrics.isEmpty()) {
             advanceToNextVisualCharacter(visualMetrics);
             continue;
         }
 
-        SVGTextLayoutAttributes logicalAttributes;
+        SVGTextLayoutAttributes* logicalAttributes = 0;
         if (!currentLogicalCharacterAttributes(logicalAttributes))
             break;
 
-        SVGTextMetrics logicalMetrics = SVGTextMetrics::emptyMetrics();
+        ASSERT(logicalAttributes);
+        SVGTextMetrics logicalMetrics(SVGTextMetrics::SkippedSpaceMetrics);
         if (!currentLogicalCharacterMetrics(logicalAttributes, logicalMetrics))
             break;
 
-        Vector<float>& xValues = logicalAttributes.xValues();
-        Vector<float>& yValues = logicalAttributes.yValues();
-        Vector<float>& dxValues = logicalAttributes.dxValues();
-        Vector<float>& dyValues = logicalAttributes.dyValues();
-        Vector<float>& rotateValues = logicalAttributes.rotateValues();
+        SVGCharacterDataMap& characterDataMap = logicalAttributes->characterDataMap();
+        SVGCharacterData data;
+        SVGCharacterDataMap::iterator it = characterDataMap.find(m_logicalCharacterOffset + 1);
+        if (it != characterDataMap.end())
+            data = it->second;
 
-        float x = xValues.at(m_logicalCharacterOffset);
-        float y = yValues.at(m_logicalCharacterOffset);
+        float x = data.x;
+        float y = data.y;
 
         // When we've advanced to the box start offset, determine using the original x/y values,
         // whether this character starts a new text chunk, before doing any further processing.
         if (m_visualCharacterOffset == textBox->start())
-            textBox->setStartsNewTextChunk(logicalAttributes.context()->characterStartsNewTextChunk(m_logicalCharacterOffset));
+            textBox->setStartsNewTextChunk(logicalAttributes->context()->characterStartsNewTextChunk(m_logicalCharacterOffset));
 
-        float angle = 0;
-        if (!rotateValues.isEmpty()) {
-            float newAngle = rotateValues.at(m_logicalCharacterOffset);
-            if (newAngle != SVGTextLayoutAttributes::emptyValue())
-                angle = newAngle;
-        }
+        float angle = data.rotate == SVGTextLayoutAttributes::emptyValue() ? 0 : data.rotate;
 
         // Calculate glyph orientation angle.
         const UChar* currentCharacter = characters + m_visualCharacterOffset;
@@ -514,7 +500,7 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(SVGInlineTextBox* textBox, Rend
         updateCharacerPositionIfNeeded(x, y);
 
         // Apply dx/dy value adjustments to current text position, if needed.
-        updateRelativePositionAdjustmentsIfNeeded(dxValues, dyValues);
+        updateRelativePositionAdjustmentsIfNeeded(data.dx, data.dy);
 
         // Calculate SVG Fonts kerning, if needed.
         float kerning = spacingLayout.calculateSVGKerning(m_isVerticalText, visualMetrics.glyph());
@@ -610,7 +596,7 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(SVGInlineTextBox* textBox, Rend
         // If we already started a fragment, close it now.
         if (didStartTextFragment && shouldStartNewFragment) {
             applySpacingToNextCharacter = false;
-            recordTextFragment(textBox, textMetricsValues);
+            recordTextFragment(textBox, visualMetricsValues);
         }
 
         // Eventually start a new fragment, if not yet done.
@@ -671,7 +657,7 @@ void SVGTextLayoutEngine::layoutTextOnLineOrPath(SVGInlineTextBox* textBox, Rend
         return;
 
     // Close last open fragment, if needed.
-    recordTextFragment(textBox, textMetricsValues);
+    recordTextFragment(textBox, visualMetricsValues);
 }
 
 }

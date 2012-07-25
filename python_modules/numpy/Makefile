@@ -1,7 +1,10 @@
 NAME = numpy
-VERSION = 1.5.1
+VERSION = 1.6.1
 
 include ../Makefile.inc
+
+custompatching:
+	ed - $(DIR)/numpy/distutils/system_info.py < system_info.py.ed
 
 postinstall:
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt

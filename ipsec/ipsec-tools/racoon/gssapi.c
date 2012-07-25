@@ -152,14 +152,14 @@ static int
 gssapi_get_default_name(struct ph1handle *iph1, int remote, gss_name_t *service)
 {
 	char name[NI_MAXHOST];
-	struct sockaddr *sa;
+	struct sockaddr_storage *sa;
 	char* buf = NULL;
 	gss_buffer_desc name_token;
 	OM_uint32 min_stat, maj_stat;
 
 	sa = remote ? iph1->remote : iph1->local;
 
-	if (getnameinfo(sa, sysdep_sa_len(sa), name, NI_MAXHOST, NULL, 0, 0) != 0)
+	if (getnameinfo(sa, sysdep_sa_len((struct sockaddr *)sa), name, NI_MAXHOST, NULL, 0, 0) != 0)
 		return -1;
 
 	name_token.length = asprintf(&buf, "%s@%s", GSSAPI_DEF_NAME, name);

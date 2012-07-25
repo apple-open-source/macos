@@ -1,8 +1,8 @@
 /* modify.c - sock backend modify function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sock/modify.c,v 1.3.2.3 2010/04/13 20:23:41 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2007-2010 The OpenLDAP Foundation.
+ * Copyright 2007-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,7 @@
 
 #include "slap.h"
 #include "back-sock.h"
+#include "ldif.h"
 
 int
 sock_back_modify(
@@ -72,8 +73,6 @@ sock_back_modify(
 	for ( ; ml != NULL; ml = ml->sml_next ) {
 		mod = &ml->sml_mod;
 
-		/* FIXME: should use LDIF routines to deal with binary data */
-
 		switch ( mod->sm_op ) {
 		case LDAP_MOD_ADD:
 			fprintf( fp, "add: %s\n", mod->sm_desc->ad_cname.bv_val );
@@ -90,8 +89,16 @@ sock_back_modify(
 
 		if( mod->sm_values != NULL ) {
 			for ( i = 0; mod->sm_values[i].bv_val != NULL; i++ ) {
-				fprintf( fp, "%s: %s\n", mod->sm_desc->ad_cname.bv_val,
-					mod->sm_values[i].bv_val /* binary! */ );
+				char *text = ldif_put_wrap( LDIF_PUT_VALUE,
+					mod->sm_desc->ad_cname.bv_val,
+					mod->sm_values[i].bv_val,
+					mod->sm_values[i].bv_len, LDIF_LINE_WIDTH_MAX );
+				if ( text ) {
+					fprintf( fp, "%s", text );
+					ber_memfree( text );
+				} else {
+					break;
+				}
 			}
 		}
 

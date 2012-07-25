@@ -42,6 +42,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/TextPosition.h>
 
 namespace JSC {
@@ -52,6 +53,7 @@ namespace WebCore {
 
 class JavaScriptCallFrame;
 class ScriptDebugListener;
+class ScriptObject;
 class ScriptValue;
 
 class ScriptDebugServer : protected JSC::Debugger {
@@ -79,10 +81,22 @@ public:
     void stepOverStatement();
     void stepOutOfFunction();
 
-    bool editScriptSource(const String& sourceID, const String& newContent, String* error, ScriptValue* newCallFrames);
+    bool canSetScriptSource();
+    bool setScriptSource(const String& sourceID, const String& newContent, bool preview, String* error, ScriptValue* newCallFrames, ScriptObject* result);
+
+    bool causesRecompilation() { return true; }
+    bool supportsNativeBreakpoints() { return false; }
 
     void recompileAllJSFunctionsSoon();
     virtual void recompileAllJSFunctions(Timer<ScriptDebugServer>* = 0) = 0;
+
+    bool isPaused() { return m_paused; }
+
+    class Task {
+    public:
+        virtual ~Task() { }
+        virtual void run() = 0;
+    };
 
 protected:
     typedef HashSet<ScriptDebugListener*> ListenerSet;
@@ -95,7 +109,7 @@ protected:
     virtual void didPause(JSC::JSGlobalObject*) = 0;
     virtual void didContinue(JSC::JSGlobalObject*) = 0;
 
-    bool hasBreakpoint(intptr_t sourceID, const TextPosition0&) const;
+    bool hasBreakpoint(intptr_t sourceID, const TextPosition&) const;
 
     void dispatchFunctionToListeners(JavaScriptExecutionCallback, JSC::JSGlobalObject*);
     void dispatchFunctionToListeners(const ListenerSet& listeners, JavaScriptExecutionCallback callback);

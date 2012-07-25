@@ -40,6 +40,21 @@ class WebURL;
 
 class WebMediaPlayerClient {
 public:
+    enum MediaKeyErrorCode {
+        MediaKeyErrorCodeUnknown = 1,
+        MediaKeyErrorCodeClient,
+        MediaKeyErrorCodeService,
+        MediaKeyErrorCodeOutput,
+        MediaKeyErrorCodeHardwareChange,
+        MediaKeyErrorCodeDomain,
+        UnknownError = MediaKeyErrorCodeUnknown,
+        ClientError = MediaKeyErrorCodeClient,
+        ServiceError = MediaKeyErrorCodeService,
+        OutputError = MediaKeyErrorCodeOutput,
+        HardwareChangeError = MediaKeyErrorCodeHardwareChange,
+        DomainError = MediaKeyErrorCodeDomain,
+    };
+
     virtual void networkStateChanged() = 0;
     virtual void readyStateChanged() = 0;
     virtual void volumeChanged(float) = 0;
@@ -49,11 +64,18 @@ public:
     virtual void durationChanged() = 0;
     virtual void rateChanged() = 0;
     virtual void sizeChanged() = 0;
+    virtual void setOpaque(bool) = 0;
     virtual void sawUnsupportedTracks() = 0;
     virtual float volume() const = 0;
     virtual void playbackStateChanged() = 0;
     virtual WebMediaPlayer::Preload preload() const = 0;
-
+    virtual void sourceOpened() = 0;
+    virtual WebKit::WebURL sourceURL() const = 0;
+    virtual void keyAdded(const WebString&, const WebString&) = 0;
+    virtual void keyError(const WebString&, const WebString&, MediaKeyErrorCode, unsigned short systemCode) = 0;
+    virtual void keyMessage(const WebString&, const WebString&, const unsigned char*, unsigned) = 0;
+    virtual void keyNeeded(const WebString&, const WebString&, const unsigned char* initData, unsigned initDataLength) = 0;
+    virtual void disableAcceleratedCompositing() = 0;
 protected:
     ~WebMediaPlayerClient() { }
 };

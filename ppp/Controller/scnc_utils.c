@@ -61,11 +61,19 @@ includes
 #include "../Family/if_ppplink.h"
 #include "scnc_client.h"
 #include "scnc_utils.h"
+#include "ppp_option.h"
+#include "PPPControllerPriv.h"
+#include "../Family/ppp_domain.h"
+#include "../Helpers/pppd/pppd.h"
+#include "../Drivers/PPTP/PPTP-plugin/pptp.h"
+#include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
+#include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
 
 /* -----------------------------------------------------------------------------
 definitions
 ----------------------------------------------------------------------------- */
-
+#undef CONSTSTR
+#define CONSTSTR(str) (const char *)str
 
 /* -----------------------------------------------------------------------------
 Forward Declarations
@@ -75,6 +83,107 @@ Forward Declarations
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
+const char *scnc_ctrl_stopped = "Controller Stopped";
+const char *scnc_sys_sleep = "System will sleep";
+const char *scnc_usr_logout = "User Logged out";
+const char *scnc_usr_switch = "User Switched";
+const char *scnc_sock_disco = "Socket disconnect";
+const char *scnc_plugin_chg = "Plugin Change";
+const char *scnc_app_rem = "App removed";
+const char *scnc_usr_req = "User Requested";
+const char *scnc_term_all = "Terminated All";
+const char *scnc_serv_disp = "Service Disposed";
+const char *ppp_fatal = "Fatal Error";
+const char *ppp_option = "Option Error";
+const char *ppp_not_root = "Not Root";
+const char *ppp_no_kern = "No Kernel Support";
+const char *ppp_user_req = "User requested";
+const char *ppp_lock_fail = "Lock Failed";
+const char *ppp_open_fail = "Open Failed";
+const char *ppp_conn_fail = "Connect Failed";
+const char *ppp_pty_fail = "Pty command Failed";
+const char *ppp_nego_fail = "Negotiation Failed";
+const char *ppp_peer_auth_fail = "Peer Authentication Failed";
+const char *ppp_idle_tmo = "Idle Timeout";
+const char *ppp_sess_tmo = "Session Timeout";
+const char *ppp_callback = "Callback";
+const char *ppp_peer_dead = "Peer Dead";
+const char *ppp_disco_by_dev = "Disconnect by Device";
+const char *ppp_loopback = "Loopback Error";
+const char *ppp_init_fail = "Init Failed";
+const char *ppp_auth_fail = "Authentication to Peer Failed";
+const char *ppp_term_fail = "Terminal Failed";
+const char *ppp_dev_err = "Device Error";
+const char *ppp_peer_unauth = "Peer Not Authorized";
+const char *ppp_cnid_auth_fail = "CNID Authentication Failed";
+const char *ppp_peer_unreach = "Peer Unreachable";
+const char *ppp_dev_no_srvr = "No Server";
+const char *ppp_dev_no_ans = "No Answer";
+const char *ppp_dev_prot_err = "Protocol Error";
+const char *ppp_dev_net_chg = "Network Changed";
+const char *ppp_dev_psk = "Shared Secret";
+const char *ppp_dev_cert = "No Certificate";
+const char *ppp_dev_no_car = "No Carrier";
+const char *ppp_dev_no_num = "No Number";
+const char *ppp_dev_bad_script = "Bad Script";
+const char *ppp_dev_busy = "Busy";
+const char *ppp_dev_no_dial = "No Dial Tone";
+const char *ppp_dev_modem_err = "Modem Error";
+const char *ppp_dev_hang = "Hang-up";
+const char *ppp_dev_no_srvc = "No Service";
+const char *ppp_dev_no_ac = "No AC";
+const char *ppp_dev_no_ac_srvc = "No AC Service";
+const char *ppp_dev_conn_refuse = "Connection Refused";
+const char *ipsec_gen_err = "Generic Error";
+const char *ipsec_no_srvr_addr = "No Server Address";
+const char *ipsec_no_psk = "No Shared Secret";
+const char *ipsec_no_cert = "No Certificate";
+const char *ipsec_dns_err = "Resolve Address Error";
+const char *ipsec_no_local = "No Local Network";
+const char *ipsec_cfg_err = "Configuration Error";
+const char *ipsec_ctrl_err = "Racoon Control Error";
+const char *ipsec_conn_err = "Connection Error";
+const char *ipsec_nego_err = "Negotiation Error";
+const char *ipsec_psk_err = "Shared Secret Error";
+const char *ipsec_srvr_cert_err = "Server Certificate Error";
+const char *ipsec_cli_cert_err = "Client Certificate Error";
+const char *ipsec_xauth_err = "Xauth Error";
+const char *ipsec_net_chg = "Network Change";
+const char *ipsec_peer_disco = "Peer Disconnect";
+const char *ipsec_peer_dead = "Peer Dead";
+const char *ipsec_edge_err = "Edge Activation Error";
+const char *ipsec_idle_tmo = "Idle Timeout";
+const char *ipsec_cli_cert_pre = "Client Certificate premature";
+const char *ipsec_cli_cert_exp = "Client Certificate expired";
+const char *ipsec_srvr_cert_pre = "Server Certificate premature";
+const char *ipsec_srvr_cert_exp = "Server Certificate expired";
+const char *ipsec_srvr_cert_id = "Server Certificate identity incorrect";
+const char *vpn_gen_err = "Generic Error";
+const char *vpn_no_srvr_addr = "No Server Address";
+const char *vpn_no_cert = "No Certificate";
+const char *vpn_dns_err = "Resolve Address Error";
+const char *vpn_no_local = "No Local Network";
+const char *vpn_cfg_err = "Configuration Error";
+const char *vpn_ctrl_err = "Control Error";
+const char *vpn_conn_err = "Connection Error";
+const char *vpn_net_chg = "Network Change";
+const char *vpn_peer_disco = "Peer Disconnect";
+const char *vpn_peer_dead = "Peer Dead";
+const char *vpn_peer_unresp = "Peer not responding";
+const char *vpn_nego_err = "Negotiation Error";
+const char *vpn_xauth_err = "Xauth Error";
+const char *vpn_edge_err = "Edge Activation Error";
+const char *vpn_idle_tmo = "Idle Timeout";
+const char *vpn_addr_invalid = "Address invalid";
+const char *vpn_ap_req = "AP required";
+const char *vpn_cli_cert_pre = "Client Certificate premature";
+const char *vpn_cli_cert_exp = "Client Certificate expired";
+const char *vpn_srvr_cert_pre = "Server Certificate premature";
+const char *vpn_srvr_cert_exp = "Server Certificate expired";
+const char *vpn_srvr_cert_id = "Server Certificate identity incorrect";
+const char *vpn_plugin_upd = "Plugin update required";
+const char *vpn_plugin_dis = "Plugin disabled";
+
 
 
 /* -----------------------------------------------------------------------------
@@ -212,6 +321,8 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
 {
     CFStringRef		string;
     CFDataRef		ref;
+    UInt8          *dataptr;
+    int            len;
 
     str[0] = 0;
     ref  = CFDictionaryGetValue(service, property);
@@ -222,17 +333,19 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
         }
         else if (CFGetTypeID(ref) == CFDataGetTypeID()) {
             CFStringEncoding    encoding;
-
+            
+            if ((len = CFDataGetLength(ref)) && (dataptr = CFDataGetBytePtr(ref))){
 #if     __BIG_ENDIAN__
-            encoding = (*(CFDataGetBytePtr(ref) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
+                encoding = (*(dataptr + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
 #else   // __LITTLE_ENDIAN__
-            encoding = (*(CFDataGetBytePtr(ref)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
+                encoding = (*dataptr == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
 #endif
-            string = CFStringCreateWithBytes(NULL, (const UInt8 *)CFDataGetBytePtr(ref), CFDataGetLength(ref), encoding, FALSE);
-            if (string) {
-                CFStringGetCString((CFStringRef)string, (char*)str, maxlen, kCFStringEncodingUTF8);
-                CFRelease(string);
-                return 1;
+                string = CFStringCreateWithBytes(NULL, (const UInt8 *)dataptr, len, encoding, FALSE);
+                if (string) {
+                    CFStringGetCString((CFStringRef)string, (char*)str, maxlen, kCFStringEncodingUTF8);
+                    CFRelease(string);
+                    return 1;
+                }
             }
         }
     }
@@ -629,7 +742,7 @@ int publish_keyentry(SCDynamicStoreRef store, CFStringRef key, CFStringRef entry
     
     CFDictionarySetValue(dict,  entry, value);
     if (SCDynamicStoreSetValue(store, key, dict) == 0)
-		;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: publish_entry SCDSet() failed: %s\n"), SCErrorString(SCError()));
+		;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: publish_entry SCDSet() failed: %s."), SCErrorString(SCError()));
     CFRelease(dict);
     
     return 1;
@@ -646,7 +759,7 @@ int unpublish_keyentry(SCDynamicStoreRef store, CFStringRef key, CFStringRef ent
         if (dict = CFDictionaryCreateMutableCopy(0, 0, ref)) {
             CFDictionaryRemoveValue(dict, entry);
             if (SCDynamicStoreSetValue(store, key, dict) == 0)
-				;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: unpublish_keyentry SCDSet() failed: %s\n"), SCErrorString(SCError()));
+				;//SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: unpublish_keyentry SCDSet() failed: %s."), SCErrorString(SCError()));
             CFRelease(dict);
         }
         CFRelease(ref);
@@ -946,7 +1059,7 @@ Config the interface IP addresses and netmask
 ----------------------------------------------------------------------------- */
 int set_ifaddr(char *ifname, u_int32_t o, u_int32_t h, u_int32_t m)
 {
-    struct ifaliasreq ifra;
+    struct ifaliasreq ifra __attribute__ ((aligned (4)));   // Wcast-align fix - force alignment
 	int ip_sockfd;
 	
     ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -959,14 +1072,14 @@ int set_ifaddr(char *ifname, u_int32_t o, u_int32_t h, u_int32_t m)
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
 	
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
     
 	SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     
 	if (m != 0) {
 		SET_SA_FAMILY(ifra.ifra_mask, AF_INET);
-		((struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
+		(ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
     } 
 	else
 		bzero(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
@@ -991,7 +1104,7 @@ Clear the interface IP addresses, and delete routes
 int clear_ifaddr(char *ifname, u_int32_t o, u_int32_t h)
 {
     //struct ifreq ifr;
-    struct ifaliasreq ifra;
+    struct ifaliasreq ifra __attribute__ ((aligned (4)));       // Wcast-align fix - force alignment
 	int ip_sockfd;
 	
     ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -1003,9 +1116,9 @@ int clear_ifaddr(char *ifname, u_int32_t o, u_int32_t h)
 
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
     SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     bzero(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
     if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifra) < 0) {
 		if (errno != EADDRNOTAVAIL)
@@ -1145,13 +1258,14 @@ int clear_ifaddr6 (char *ifname, struct in6_addr *addr)
 const char *inet_sockaddr_to_p(struct sockaddr *addr, char *buf, int buflen)
 {
 	void *p; 
-		   
+    
+    // Wcast-align fixes (void*) OK - inet_ntop has no alignment requirement
 	switch (addr->sa_family) {
 		case AF_INET:
-			p = &((struct sockaddr_in *)addr)->sin_addr;
-			break;
+            p = &((struct sockaddr_in *)(void*)addr)->sin_addr;			
+            break;
 		case AF_INET6:
-			p = &((struct sockaddr_in6 *)addr)->sin6_addr;
+            p = &((struct sockaddr_in6 *)(void*)addr)->sin6_addr;
 			break;
 		default: 
 			return NULL;
@@ -1166,18 +1280,19 @@ int inet_p_to_sockaddr(char *buf, struct sockaddr *addr, int addrlen)
 {
     bzero(addr, addrlen);
 	
+    // Wcast-align fixes (void*) OK - inet_pton has no alignment requirement
 	if (addrlen >= sizeof(struct sockaddr_in)
-		&& inet_pton(AF_INET, buf, &((struct sockaddr_in *)addr)->sin_addr)) {
-			addr->sa_len = sizeof(struct sockaddr_in);
-			addr->sa_family = AF_INET;
-			return 1;
+		&& inet_pton(AF_INET, buf, &((struct sockaddr_in *)(void*)addr)->sin_addr)) {
+        addr->sa_len = sizeof(struct sockaddr_in);
+        addr->sa_family = AF_INET;
+        return 1;
 	}
 	
 	if (addrlen >= sizeof(struct sockaddr_in6) 
-		&& inet_pton(AF_INET6, buf, &((struct sockaddr_in6 *)addr)->sin6_addr)) {
-			addr->sa_len = sizeof(struct sockaddr_in6);
-			addr->sa_family = AF_INET6;
-			return 1;
+		&& inet_pton(AF_INET6, buf, &((struct sockaddr_in6 *)(void*)addr)->sin6_addr)) {
+        addr->sa_len = sizeof(struct sockaddr_in6);
+        addr->sa_family = AF_INET6;
+        return 1;
 	}
 
 	return 0;
@@ -1390,16 +1505,17 @@ Boolean equal_address(struct sockaddr *addr1, struct sockaddr *addr2)
 	if (addr1->sa_family != addr2->sa_family)
 		return FALSE;
 	
+    /* Wcast-align fixes - don't use assignement or standard compare for ptrs of unknown alignment */
 	if (addr1->sa_family == AF_INET) {
-		struct sockaddr_in *addr1_in = (struct sockaddr_in *)addr1;
-		struct sockaddr_in *addr2_in = (struct sockaddr_in *)addr2;
-		return (addr1_in->sin_addr.s_addr == addr2_in->sin_addr.s_addr);
+        return (!bcmp(&((struct sockaddr_in *)(void*)addr1)->sin_addr.s_addr, 
+                      &((struct sockaddr_in *)(void*)addr2)->sin_addr.s_addr, 
+                      sizeof(struct in_addr)));     
 	}
 	
 	if (addr1->sa_family == AF_INET6) {
-		struct sockaddr_in6 *addr1_in6 = (struct sockaddr_in6 *)addr1;
-		struct sockaddr_in6 *addr2_in6 = (struct sockaddr_in6 *)addr2;
-		return (!bcmp(&addr1_in6->sin6_addr, &addr2_in6->sin6_addr, sizeof(struct in6_addr)));
+		return (!bcmp(&((struct sockaddr_in6 *)(void*)addr1)->sin6_addr, 
+                      &((struct sockaddr_in6 *)(void*)addr2)->sin6_addr, 
+                      sizeof(struct in6_addr)));
 	}
 	
 	return FALSE;
@@ -1479,7 +1595,7 @@ route_gateway(int cmd, struct sockaddr *dest, struct sockaddr *mask, struct sock
 
 	rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		syslog(LOG_ERR, "route_gateway: write routing socket failed, %s", strerror(errno));
+		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "route_gateway: write routing socket failed, %s", strerror(errno));
 
 #if 0
 		/* print routing message for debugging */
@@ -1529,7 +1645,9 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
     int 			sockfd = -1;
     struct rtmsg_in6 rtmsg; // use rtmsg_in6 since it is the bigger one;
 	struct sockaddr_dl *link;
-	
+	struct in6_addr     ip6_zeros;
+    struct in_addr      ip4_zeros;
+
 	if (host == NULL || (host->sa_family != AF_INET
 		&& host->sa_family != AF_INET6))
 		return FALSE;
@@ -1547,8 +1665,13 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
         rtmsg.hdr.rtm_flags |= RTF_CLONING;
     else 
         rtmsg.hdr.rtm_flags |= RTF_HOST;
-    if (gateway)
+	bzero(&ip6_zeros, sizeof(ip6_zeros));
+    bzero(&ip4_zeros, sizeof(ip4_zeros));
+    // Wcast-align fix - use memcmp for unaligned comparison
+    if (gateway && ((gateway->sa_family == AF_INET && memcmp(&((struct sockaddr_in *)(void*)gateway)->sin_addr.s_addr, &ip4_zeros, sizeof(struct in_addr)))) ||
+		(gateway->sa_family == AF_INET6 && memcmp(&((struct sockaddr_in6 *)(void*)gateway)->sin6_addr, &ip6_zeros, sizeof(struct in6_addr)))) {
         rtmsg.hdr.rtm_flags |= RTF_GATEWAY;
+	}
     
 	rtmsg.hdr.rtm_version = RTM_VERSION;
     rtmsg.hdr.rtm_seq = ++rtm_seq;
@@ -1602,7 +1725,7 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
 	
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		syslog(LOG_ERR, "host_gateway: write routing socket failed, command %d, %s", cmd, strerror(errno));
+		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "host_gateway: write routing socket failed, command %d, %s", cmd, strerror(errno));
 
 #if 0
 		/* print routing message for debugging */
@@ -1629,7 +1752,8 @@ set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char 
 /* ----------------------------------------------------------------------------
  publish proxies using configd cache mechanism
  ----------------------------------------------------------------------------- */
-int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, CFStringRef exceptionlist)
+int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, 
+		CFStringRef exceptionlist, CFArrayRef supp_domains)
 {
 	int				val, ret = -1;
     CFStringRef		cfstr = NULL;
@@ -1648,10 +1772,7 @@ int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodete
 	if (autodetect) {
 		CFDictionarySetValue(proxies_dict, kSCPropNetProxiesProxyAutoDiscoveryEnable, cfone);
 	}
-	else {
-		// MUST have server
-		if (server == NULL)
-			goto fail;
+	else if (server) {
 		
 		CFDictionarySetValue(proxies_dict, kSCPropNetProxiesFTPEnable, cfone);
 		CFDictionarySetValue(proxies_dict, kSCPropNetProxiesHTTPEnable, cfone);
@@ -1684,17 +1805,27 @@ int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodete
 			}
 		}
 	}
-		
-    /* update the store now */
-    cfstr = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, kSCEntNetProxies);
-    if (cfstr == NULL)
-		goto fail;
 
-	if (SCDynamicStoreSetValue(store, cfstr, proxies_dict) == 0) {
-		//warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
-		goto fail;
-	}
+#ifndef kSCPropNetProxiesSupplementalMatchDomains			
+#define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
+#endif
+
+    if (supp_domains)
+		CFDictionarySetValue(proxies_dict, kSCPropNetProxiesSupplementalMatchDomains, supp_domains);
 		
+	if (CFDictionaryGetCount(proxies_dict)) {
+	
+		/* update the store now */
+		cfstr = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceID, kSCEntNetProxies);
+		if (cfstr == NULL)
+			goto fail;
+
+		if (SCDynamicStoreSetValue(store, cfstr, proxies_dict) == 0) {
+			//warning("SCDynamicStoreSetValue IP %s failed: %s\n", ifname, SCErrorString(SCError()));
+			goto fail;
+		}
+	}
+	
 	ret = 0;	
 		
 fail:
@@ -1901,7 +2032,7 @@ static
 void exec_callback(pid_t pid, int status, struct rusage *rusage, void *context)
 {
 	if (isA_CFData(context)) {
-		exec_callback_args_t *args = (__typeof__(args))CFDataGetMutableBytePtr((CFMutableDataRef)context);
+		exec_callback_args_t *args = ALIGNED_CAST(__typeof__(args))CFDataGetMutableBytePtr((CFMutableDataRef)context);
 		args->pid = pid;
 		args->status = status;
 		bcopy(rusage, &args->rusage, sizeof(args->rusage));
@@ -1915,7 +2046,7 @@ static void
 SCNCPluginExecCallbackRunLoopSource (void *info)
 {
 	if (isA_CFData(info)) {
-		exec_callback_args_t *args = (__typeof__(args))CFDataGetMutableBytePtr((CFMutableDataRef)info);
+		exec_callback_args_t *args = ALIGNED_CAST(__typeof__(args))CFDataGetMutableBytePtr((CFMutableDataRef)info);
 		if (args->callback) {
 			args->callback(args->pid, args->status, &args->rusage, args->callbackContext);
 		}
@@ -2101,4 +2232,322 @@ applyEnvironmentVariables (CFDictionaryRef envVarDict)
 	} else {
 		SCLog(TRUE, LOG_ERR, CFSTR("empty or invalid EnvironmentVariables dictionary"));
 	}
+}
+
+const char *
+scnc_get_reason_str(int scnc_reason)
+{
+	switch (scnc_reason) {
+		case SCNC_STOP_CTRL_STOP:
+			return scnc_ctrl_stopped;
+		case SCNC_STOP_SYS_SLEEP:
+			return scnc_sys_sleep;
+		case SCNC_STOP_USER_LOGOUT:
+			return scnc_usr_logout;
+		case SCNC_STOP_USER_SWITCH:
+			return scnc_usr_switch;
+		case SCNC_STOP_SOCK_DISCONNECT:
+		case SCNC_STOP_SOCK_DISCONNECT_NO_CLIENT:
+			return scnc_sock_disco;
+		case SCNC_STOP_PLUGIN_CHANGE:
+			return scnc_plugin_chg;
+		case SCNC_STOP_APP_REMOVED:
+			return scnc_app_rem;
+		case SCNC_STOP_USER_REQ:
+		case SCNC_STOP_USER_REQ_NO_CLIENT:
+			return scnc_usr_req;
+		case SCNC_STOP_SERV_DISPOSE:
+			return scnc_serv_disp;
+		case SCNC_STOP_TERM_ALL:
+			return scnc_term_all;
+	}
+	return CONSTSTR(NULL);
+}
+
+const char *
+ppp_error_to_string (u_int32_t native_ppp_error)
+{
+    switch (native_ppp_error) {
+        case EXIT_FATAL_ERROR:
+            return ppp_fatal;
+        case EXIT_OPTION_ERROR:
+            return ppp_option;
+        case EXIT_NOT_ROOT:
+            return ppp_not_root;
+        case EXIT_NO_KERNEL_SUPPORT:
+            return ppp_no_kern;
+        case EXIT_USER_REQUEST:
+            return ppp_user_req;
+        case EXIT_LOCK_FAILED:
+            return ppp_lock_fail;
+        case EXIT_OPEN_FAILED:
+            return ppp_open_fail;
+        case EXIT_CONNECT_FAILED:
+            return ppp_conn_fail;
+        case EXIT_PTYCMD_FAILED:
+            return ppp_pty_fail;
+        case EXIT_NEGOTIATION_FAILED:
+            return ppp_nego_fail;
+        case EXIT_PEER_AUTH_FAILED:
+            return ppp_peer_auth_fail;
+        case EXIT_IDLE_TIMEOUT:
+            return ppp_idle_tmo;
+        case EXIT_CONNECT_TIME:
+            return ppp_sess_tmo;
+        case EXIT_CALLBACK:
+            return ppp_callback;
+        case EXIT_PEER_DEAD:
+            return ppp_peer_dead;
+        case EXIT_HANGUP:
+            return ppp_disco_by_dev;
+        case EXIT_LOOPBACK:
+            return ppp_loopback;
+        case EXIT_INIT_FAILED:
+            return ppp_init_fail;
+        case EXIT_AUTH_TOPEER_FAILED:
+            return ppp_auth_fail;
+        case EXIT_TERMINAL_FAILED:
+            return ppp_term_fail;
+        case EXIT_DEVICE_ERROR:
+            return ppp_dev_err;
+        case EXIT_PEER_NOT_AUTHORIZED:
+            return ppp_peer_unauth;
+        case EXIT_CNID_AUTH_FAILED:
+            return ppp_cnid_auth_fail;
+        case EXIT_PEER_UNREACHABLE:
+            return ppp_peer_unreach;
+    }
+	
+    return CONSTSTR(NULL);
+}
+
+const char *
+ppp_dev_error_to_string (u_int16_t subtype, u_int32_t native_dev_error)
+{
+    // override with a more specific error
+    if (native_dev_error) {
+        switch (subtype) {
+            case PPP_TYPE_L2TP:
+                switch (native_dev_error) {
+                    case EXIT_L2TP_NOSERVER:
+                        return ppp_dev_no_srvr;
+                    case EXIT_L2TP_NOANSWER:
+                        return ppp_dev_no_ans;
+                    case EXIT_L2TP_PROTOCOLERROR:
+                        return ppp_dev_prot_err;
+                    case EXIT_L2TP_NETWORKCHANGED:
+                        return ppp_dev_net_chg;
+                    case EXIT_L2TP_NOSHAREDSECRET:
+                        return ppp_dev_psk;
+                    case EXIT_L2TP_NOCERTIFICATE:
+                        return ppp_dev_cert;
+                }
+                break;
+				
+            case PPP_TYPE_PPTP:
+                switch (native_dev_error) {
+                    case EXIT_PPTP_NOSERVER:
+                        return ppp_dev_no_srvr;
+                    case EXIT_PPTP_NOANSWER:
+                        return ppp_dev_no_ans;
+                    case EXIT_PPTP_PROTOCOLERROR:
+                        return ppp_dev_prot_err;
+                    case EXIT_PPTP_NETWORKCHANGED:
+                        return ppp_dev_net_chg;
+                }
+                break;
+				
+            case PPP_TYPE_SERIAL:
+                switch (native_dev_error) {
+                    case EXIT_PPPSERIAL_NOCARRIER:
+                        return ppp_dev_no_car;
+                    case EXIT_PPPSERIAL_NONUMBER:
+                        return ppp_dev_no_num;
+                    case EXIT_PPPSERIAL_BADSCRIPT:
+                        return ppp_dev_bad_script;
+                    case EXIT_PPPSERIAL_BUSY:
+                        return ppp_dev_busy;
+                    case EXIT_PPPSERIAL_NODIALTONE:
+                        return ppp_dev_no_dial;
+                    case EXIT_PPPSERIAL_ERROR:
+                        return ppp_dev_modem_err;
+                    case EXIT_PPPSERIAL_NOANSWER:
+                        return ppp_dev_no_ans;
+                    case EXIT_PPPSERIAL_HANGUP:
+                        return ppp_dev_hang;
+                }
+                break;
+                
+            case PPP_TYPE_PPPoE:
+                switch (native_dev_error) {
+                    case EXIT_PPPoE_NOSERVER:
+                        return ppp_dev_no_srvr;
+                    case EXIT_PPPoE_NOSERVICE:
+                        return ppp_dev_no_srvc;
+                    case EXIT_PPPoE_NOAC:
+                        return ppp_dev_no_ac;
+                    case EXIT_PPPoE_NOACSERVICE:
+                        return ppp_dev_no_ac_srvc;
+                    case EXIT_PPPoE_CONNREFUSED:
+                        return ppp_dev_conn_refuse;
+                }
+                break;
+        }
+    }
+    
+    return CONSTSTR(NULL);
+}
+
+const char *
+ipsec_error_to_string (int status)
+{
+    switch (status) {
+        case IPSEC_GENERIC_ERROR:
+            return ipsec_gen_err;
+        case IPSEC_NOSERVERADDRESS_ERROR:
+            return ipsec_no_srvr_addr;
+        case IPSEC_NOSHAREDSECRET_ERROR:
+            return ipsec_no_psk;
+        case IPSEC_NOCERTIFICATE_ERROR:
+            return ipsec_no_cert;
+        case IPSEC_RESOLVEADDRESS_ERROR:
+            return ipsec_dns_err;
+        case IPSEC_NOLOCALNETWORK_ERROR:
+            return ipsec_no_local;
+        case IPSEC_CONFIGURATION_ERROR:
+            return ipsec_cfg_err;
+        case IPSEC_RACOONCONTROL_ERROR:
+            return ipsec_ctrl_err;
+        case IPSEC_CONNECTION_ERROR:
+            return ipsec_conn_err;
+        case IPSEC_NEGOTIATION_ERROR:
+            return ipsec_nego_err;
+        case IPSEC_SHAREDSECRET_ERROR:
+            return ipsec_psk_err;
+        case IPSEC_SERVER_CERTIFICATE_ERROR:
+            return ipsec_srvr_cert_err;
+        case IPSEC_CLIENT_CERTIFICATE_ERROR:
+            return ipsec_cli_cert_err;
+        case IPSEC_XAUTH_ERROR:
+            return ipsec_xauth_err;
+        case IPSEC_NETWORKCHANGE_ERROR:
+            return ipsec_net_chg;
+        case IPSEC_PEERDISCONNECT_ERROR:
+            return ipsec_peer_disco;
+        case IPSEC_PEERDEADETECTION_ERROR:
+            return ipsec_peer_dead;
+        case IPSEC_EDGE_ACTIVATION_ERROR:
+            return ipsec_edge_err;
+        case IPSEC_IDLETIMEOUT_ERROR:
+            return ipsec_idle_tmo;
+        case IPSEC_CLIENT_CERTIFICATE_PREMATURE:
+            return ipsec_cli_cert_pre;
+        case IPSEC_CLIENT_CERTIFICATE_EXPIRED:
+            return ipsec_cli_cert_exp;
+        case IPSEC_SERVER_CERTIFICATE_PREMATURE:
+            return ipsec_srvr_cert_pre;
+        case IPSEC_SERVER_CERTIFICATE_EXPIRED:
+            return ipsec_srvr_cert_exp;
+        case IPSEC_SERVER_CERTIFICATE_INVALID_ID:
+            return ipsec_srvr_cert_id;
+    }
+
+    return CONSTSTR(NULL);
+}
+
+const char *
+vpn_error_to_string (u_int32_t status)
+{
+    switch (status) {
+		case VPN_GENERIC_ERROR:
+			return vpn_gen_err;
+		case VPN_NOSERVERADDRESS_ERROR:
+			return vpn_no_srvr_addr;
+		case VPN_NOCERTIFICATE_ERROR:
+			return vpn_no_cert;
+		case VPN_RESOLVEADDRESS_ERROR:
+			return vpn_dns_err;
+		case VPN_NOLOCALNETWORK_ERROR:
+			return vpn_no_local;
+		case VPN_CONFIGURATION_ERROR:
+			return vpn_cfg_err;
+		case VPN_CONTROL_ERROR:
+			return vpn_ctrl_err;
+		case VPN_CONNECTION_ERROR:
+			return vpn_conn_err;
+		case VPN_NETWORKCHANGE_ERROR:
+			return vpn_net_chg;
+		case VPN_PEERDISCONNECT_ERROR:
+			return vpn_peer_disco;
+		case VPN_PEERDEADETECTION_ERROR:
+			return vpn_peer_dead;
+		case VPN_PEERNOTRESPONDING_ERROR:
+			return vpn_peer_unresp;
+		case VPN_NEGOTIATION_ERROR:
+			return vpn_nego_err;
+		case VPN_XAUTH_ERROR:
+			return vpn_xauth_err;
+		case VPN_EDGE_ACTIVATION_ERROR:
+			return vpn_edge_err;
+		case VPN_IDLETIMEOUT_ERROR:
+			return vpn_idle_tmo;
+		case VPN_ADDRESSINVALID_ERROR:
+			return vpn_addr_invalid;
+		case VPN_APPREQUIRED_ERROR:
+			return vpn_ap_req;
+		case VPN_CLIENT_CERTIFICATE_PREMATURE:
+			return vpn_cli_cert_pre;
+		case VPN_CLIENT_CERTIFICATE_EXPIRED:
+			return vpn_cli_cert_exp;
+		case VPN_SERVER_CERTIFICATE_PREMATURE:
+			return vpn_srvr_cert_pre;
+		case VPN_SERVER_CERTIFICATE_EXPIRED:
+			return vpn_srvr_cert_exp;
+		case VPN_SERVER_CERTIFICATE_INVALID_ID:
+			return vpn_srvr_cert_id;
+		case VPN_PLUGIN_UPDATE_REQUIRED:
+			return vpn_plugin_upd;
+		case VPN_PLUGIN_DISABLED:
+			return vpn_plugin_dis;
+	}
+	
+    return CONSTSTR(NULL);
+}
+
+/* -----------------------------------------------------------------------------
+ cleanup dynamic store for serv->serviceID.
+ ----------------------------------------------------------------------------- */
+static void
+removekeys( void *key, const void *value, void *context)
+{
+    Boolean ret;
+    
+    ret = SCDynamicStoreRemoveValue((SCDynamicStoreRef)context, (CFStringRef)key);
+    if (!ret)
+        SCLog(TRUE, LOG_ERR, CFSTR("PPP Controller: removekeys SCDynamicStoreRemoveValue fails to remove key %@."), key);
+}
+
+void
+cleanup_dynamicstore(void *serv)
+{
+    CFDictionaryRef     entities = NULL;
+    CFMutableArrayRef   patterns = NULL;
+    CFStringRef         pattern = NULL;
+    
+    /* clean up dynamic store */
+    pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, ((struct service*)serv)->serviceID, kSCCompAnyRegex);
+    if (pattern == NULL)
+        return;
+    patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (patterns == NULL)
+        goto fail;
+    CFArrayAppendValue(patterns, pattern);
+    entities = SCDynamicStoreCopyMultiple(gDynamicStore, NULL, patterns);
+    if (entities)
+        CFDictionaryApplyFunction(entities, (CFDictionaryApplierFunction)removekeys, (void*)gDynamicStore);
+
+fail:
+    my_CFRelease((void *)&pattern);
+    my_CFRelease((void *)&patterns);
+    my_CFRelease((void *)&entities);
 }

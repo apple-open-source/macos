@@ -1,5 +1,5 @@
 :
-# @(#)probe.win32 (AT&T Research) 2007-08-11
+# @(#)probe.win32 (AT&T Research) 2010-01-01
 #
 # win32 specific make C probe initialization
 # wrapped cc's are easy on uwin
@@ -111,7 +111,9 @@ fi
 
 stdinclude=
 for inc in $include
-do	if	[[ ${inc%/*} -ef /platformsdk ]]
+do	if	[[ ${inc%/*} -ef /msdev/platformsdk ]]
+	then	inc=/msdev/platformsdk/${inc##*/}
+	elif	[[ ${inc%/*} -ef /platformsdk ]]
 	then	inc=/platformsdk/${inc##*/}
 	fi
 	for dup in $stdinclude
@@ -242,6 +244,7 @@ CC.PREFIX.SHARED =
 CC.PREFIX.SYMBOL = _
 CC.SUFFIX.ARCHIVE = .a
 CC.SUFFIX.COMMAND =
+CC.SUFFIX.DEBUG = .pdb
 CC.SUFFIX.DYNAMIC = .dll
 CC.SUFFIX.LD = .def .exp .ign .res
 CC.SUFFIX.OBJECT = .o
@@ -250,7 +253,11 @@ CC.SUFFIX.SOURCE = .c
 CC.SUFFIX.STATIC =
 !
 		if	[[ $v ]]
-		then	cat <<!
+		then	case $v in
+			*\"*)	v=$(print -r -- | sed -e 's,",\\",g' -e 's,^ ,,' -e 's,.*,"&",') ;;
+			*\'*)	v=\"$v\" ;;
+			esac
+			cat <<!
 CC.VERSION = -v
 CC.VERSION.STRING = $v
 !
@@ -259,8 +266,15 @@ CC.VERSION =
 CC.VERSION.STRING =
 !
 		fi
-		cat <<!
+		if	[[ ${version[MINGW]} || ${version[MS]} ]]
+		then	cat <<!
+CC.WARN = -Wall
+!
+		else	cat <<!
 CC.WARN =
+!
+		fi
+		cat <<!
 CC.PREROOT =
 CC.UNIVERSE = att
 !

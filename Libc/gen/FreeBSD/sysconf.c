@@ -45,6 +45,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sysconf.c,v 1.20 2002/11/17 08:54:29 dougb 
 #include <sys/sysctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/aio.h>
+#include <sys/semaphore.h>
 
 #include <errno.h>
 #include <limits.h>
@@ -53,8 +55,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sysconf.c,v 1.20 2002/11/17 08:54:29 dougb 
 #include <time.h>
 #include <unistd.h>
 
-#include "../stdlib/atexit.h"
-#include "../stdtime/tzfile.h"
+#include "../../stdlib/FreeBSD/atexit.h"
+#include "../../stdtime/FreeBSD/tzfile.h"
 
 #define	_PATH_ZONEINFO	TZDIR	/* from tzfile.h */
 
@@ -75,8 +77,9 @@ sysconf(name)
 	int name;
 {
 	struct rlimit rl;
+	quad_t qdvalue;	/* for kern.sysv.shmmin */
 	size_t len;
-	int mib[2], sverrno, value;
+	int mib[3], sverrno, value;
 	long defaultresult;
 	const char *path;
 
@@ -254,76 +257,91 @@ do_NAME_MAX:
 		return (_POSIX_TIMERS);
 #endif
 	case _SC_AIO_LISTIO_MAX:
-		mib[0] = CTL_P1003_1B;
-		mib[1] = CTL_P1003_1B_AIO_LISTIO_MAX;
-		break;
 	case _SC_AIO_MAX:
-		mib[0] = CTL_P1003_1B;
-		mib[1] = CTL_P1003_1B_AIO_MAX;
+		mib[0] = CTL_KERN;;
+		mib[1] = KERN_AIOMAX;
 		break;
+
 	case _SC_AIO_PRIO_DELTA_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_AIO_PRIO_DELTA_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_AIO_PRIO_DELTA_MAX;
 		break;
+#else
+		return (-1);
+#endif
 	case _SC_DELAYTIMER_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_DELAYTIMER_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_DELAYTIMER_MAX;
 		goto yesno;
+#else
+		return (-1);
+#endif
 	case _SC_MQ_OPEN_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_MQ_OPEN_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_MQ_OPEN_MAX;
 		goto yesno;
+#else
+		return (-1);
+#endif
 	case _SC_PAGESIZE:
 		defaultresult = getpagesize();
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_PAGESIZE)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_PAGESIZE;
 		goto yesno;
+#else
+		return defaultresult;
+#endif
 	case _SC_RTSIG_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_RTSIG_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_RTSIG_MAX;
 		goto yesno;
+#else
+		return (-1);
+#endif
 	case _SC_SEM_NSEMS_MAX:
-		mib[0] = CTL_P1003_1B;
-		mib[1] = CTL_P1003_1B_SEM_NSEMS_MAX;
-		goto yesno;
+		return (sysctlbyname("kern.sysv.semmns", &value, &len, NULL, 0) == -1 ? -1 : value);
+
 	case _SC_SEM_VALUE_MAX:
+#if SEM_VALUE_MAX == 0
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_SEM_VALUE_MAX;
 		goto yesno;
+#else
+		return (SEM_VALUE_MAX);
+#endif
 	case _SC_SIGQUEUE_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_SIGQUEUE_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_SIGQUEUE_MAX;
 		goto yesno;
+#else
+		return (-1);
+#endif
 	case _SC_TIMER_MAX:
+#if defined(CTL_P1003_1B) && defined(CTL_P1003_1B_TIMER_MAX)
 		mib[0] = CTL_P1003_1B;
 		mib[1] = CTL_P1003_1B_TIMER_MAX;
+#else
+		return (-1);
+#endif
 
 yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 			return (-1);
 		if (value == 0)
 			return (defaultresult);
 		return (value);
-
 	case _SC_2_PBS:
 	case _SC_2_PBS_ACCOUNTING:
 	case _SC_2_PBS_CHECKPOINT:
 	case _SC_2_PBS_LOCATE:
 	case _SC_2_PBS_MESSAGE:
 	case _SC_2_PBS_TRACK:
-#if _POSIX2_PBS == 0
-#error "don't know how to determine _SC_2_PBS"
-		/*
-		 * This probably requires digging through the filesystem
-		 * to see if the appropriate package has been installed.
-		 * Since we don't currently support this option at all,
-		 * it's not worth the effort to write the code now.
-		 * Figuring out which of the sub-options are supported
-		 * would be even more difficult, so it's probably easier
-		 * to always say ``no''.
-		 */
-#else
-		return (_POSIX2_PBS);
-#endif
+		return -1;
 	case _SC_ADVISORY_INFO:
 #if _POSIX_ADVISORY_INFO == 0
 #error "_POSIX_ADVISORY_INFO"
@@ -348,18 +366,12 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 #else
 		return (_POSIX_CPUTIME);
 #endif
-#ifdef notdef
 	case _SC_FILE_LOCKING:
-		/*
-		 * XXX - The standard doesn't tell us how to define
-		 * _POSIX_FILE_LOCKING, so we can't answer this one.
-		 */
-#endif
-#if _POSIX_THREAD_SAFE_FUNCTIONS > -1
 	case _SC_GETGR_R_SIZE_MAX:
+/*		return sizeof(group) + group_name_max + group_passwd_max + max_group_member*(MAXLOGNAME+1); */
+		return 4096;	/* INT_MAX is too big for Perl */
 	case _SC_GETPW_R_SIZE_MAX:
-#error "somebody needs to implement this"
-#endif
+		return 4096;
 	case _SC_HOST_NAME_MAX:
 		return (MAXHOSTNAMELEN - 1); /* does not include \0 */
 	case _SC_LOGIN_NAME_MAX:
@@ -370,10 +382,8 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 #else
 		return (_POSIX_MONOTONIC_CLOCK);
 #endif
-#if _POSIX_MESSAGE_PASSING > -1
 	case _SC_MQ_PRIO_MAX:
-		return (MQ_PRIO_MAX);
-#endif
+		return (-1);
 	case _SC_READER_WRITER_LOCKS:
 		return (_POSIX_READER_WRITER_LOCKS);
 	case _SC_REGEXP:
@@ -410,10 +420,16 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 		return (_POSIX_THREAD_PROCESS_SHARED);
 	case _SC_THREAD_SAFE_FUNCTIONS:
 		return (_POSIX_THREAD_SAFE_FUNCTIONS);
+	case _SC_THREAD_SPORADIC_SERVER:
+		return (_POSIX_THREAD_SPORADIC_SERVER);
 	case _SC_THREAD_STACK_MIN:
 		return (PTHREAD_STACK_MIN);
 	case _SC_THREAD_THREADS_MAX:
+#ifdef PTHREAD_THREADS_MAX
 		return (PTHREAD_THREADS_MAX); /* XXX wrong type! */
+#else
+		return (-1);
+#endif
 	case _SC_TIMEOUTS:
 		return (_POSIX_TIMEOUTS);
 	case _SC_THREADS:
@@ -425,16 +441,14 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 #else
 		return (_POSIX_TRACE);
 #endif
-#if _POSIX_TRACE > -1
 	case _SC_TRACE_EVENT_FILTER:
 		return (_POSIX_TRACE_EVENT_FILTER);
 	case _SC_TRACE_INHERIT:
 		return (_POSIX_TRACE_INHERIT);
 	case _SC_TRACE_LOG:
 		return (_POSIX_TRACE_LOG);
-#endif
 	case _SC_TTY_NAME_MAX:
-		path = _PATH_DEV;
+		path = "/"; // should be _PATH_DEV (PR-3624562)
 		goto do_NAME_MAX;
 	case _SC_TYPED_MEMORY_OBJECTS:
 #if _POSIX_TYPED_MEMORY_OBJECTS == 0
@@ -491,11 +505,15 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 		return (_V6_LPBIG_OFFBIG);
 #endif
 	case _SC_ATEXIT_MAX:
-		return (ATEXIT_SIZE);
+		return (INT_MAX);	/* unlimited */
 	case _SC_IOV_MAX:
+#ifdef KERN_IOV_MAX
 		mib[0] = CTL_KERN;
 		mib[1] = KERN_IOV_MAX;
 		break;
+#else
+		return (IOV_MAX);
+#endif
 	case _SC_XOPEN_CRYPT:
 		return (_XOPEN_CRYPT);
 	case _SC_XOPEN_ENH_I18N:
@@ -531,7 +549,8 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 #endif
 	case _SC_XOPEN_SHM:
 		sverrno = errno;
-		if (sysctlbyname("kern.ipc.shmmin", &value, &len, NULL, 
+		len = sizeof(qdvalue);
+		if (sysctlbyname("kern.sysv.shmmin", &qdvalue, &len, NULL, 
 		    0) == -1) {
 			errno = sverrno;
 			return (-1);
@@ -568,11 +587,37 @@ yesno:		if (sysctl(mib, 2, &value, &len, NULL, 0) == -1)
 		return (_POSIX_IPV6);
 #endif
 
+#ifdef _SC_NPROCESSORS_CONF
 	case _SC_NPROCESSORS_CONF:
+#endif
+#ifdef _SC_NPROCESSORS_ONLN
 	case _SC_NPROCESSORS_ONLN:
+#endif
+#if defined(_SC_NPROCESSORS_CONF) || defined(_SC_NPROCESSORS_ONLN)
 		mib[0] = CTL_HW;
 		mib[1] = HW_NCPU;
 		break;
+#endif
+	case _SC_XBS5_ILP32_OFF32:
+		return (_XBS5_ILP32_OFF32);
+	case _SC_XBS5_ILP32_OFFBIG:
+		return (_XBS5_ILP32_OFFBIG);
+	case _SC_XBS5_LP64_OFF64:
+		return (_XBS5_LP64_OFF64);
+	case _SC_XBS5_LPBIG_OFFBIG:
+		return (_XBS5_LPBIG_OFFBIG);
+	case _SC_SS_REPL_MAX:
+		return (_POSIX_SS_REPL_MAX);
+	case _SC_TRACE_EVENT_NAME_MAX:
+		return (_POSIX_TRACE_EVENT_NAME_MAX);
+	case _SC_TRACE_NAME_MAX:
+		return (_POSIX_TRACE_NAME_MAX);
+	case _SC_TRACE_SYS_MAX:
+		return (_POSIX_TRACE_SYS_MAX);
+	case _SC_TRACE_USER_EVENT_MAX:
+		return (_POSIX_TRACE_USER_EVENT_MAX);
+	case _SC_PASS_MAX:
+		return (PASS_MAX);
 
 	default:
 		errno = EINVAL;

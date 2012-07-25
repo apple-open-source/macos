@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  */
 
 #include <mach/std_types.defs>
+#include <mach/mach_types.defs>
 
 subsystem ipconfig 20000;
 serverprefix _;
@@ -69,29 +70,37 @@ routine ipconfig_get_packet(	server : mach_port_t;
 routine ipconfig_set(		server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
-			 out	status : ipconfig_status );
+			 out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
+
 
 routine ipconfig_set_verbose(	server : mach_port_t;
 				verbose : int;
-			 out	status : ipconfig_status );
+			 out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
+
+
 #ifdef IPCONFIG_TEST_NO_ENTRY
 routine ipconfig_set_something(	server : mach_port_t;
 				verbose : int;
 			 out	status : ipconfig_status );
-#else IPCONFIG_TEST_NO_ENTRY
+#else /* IPCONFIG_TEST_NO_ENTRY */
 	skip;
-#endif IPCONFIG_TEST_NO_ENTRY
+#endif /* IPCONFIG_TEST_NO_ENTRY */
 
 routine ipconfig_add_service(	server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
 			out	service_id : inline_data;
-			out	status : ipconfig_status );
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
 
 routine ipconfig_remove_service_with_id(
 				server : mach_port_t;
 				service_id : inline_data;
-			out	status : ipconfig_status );
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
+
 
 routine ipconfig_find_service(	server : mach_port_t;
 				name : if_name;
@@ -103,13 +112,16 @@ routine ipconfig_find_service(	server : mach_port_t;
 routine ipconfig_remove_service(server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
-			out	status : ipconfig_status );
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
 
 routine ipconfig_set_service(	server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
 			out	service_id : inline_data;
-			out	status : ipconfig_status );
+			out	status : ipconfig_status;
+	    ServerAuditToken	audit_token : audit_token_t);
+
 
 routine ipconfig_get_v6_packet(	server : mach_port_t;
 				name : if_name;

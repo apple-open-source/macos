@@ -45,6 +45,7 @@ EXPORTED_SYMBOLS_FILE=$(SRCROOT)/DCERPC.exports
 DEAD_CODE_STRIPPING=YES
 
 DCERPC_OTHER_LDFLAGS=-all_load
+MACOSX_LD_LIBRARIES[sdk=macosx10.6]=
 MACOSX_LD_LIBRARIES=-framework GSS -framework SMBClient -lCrashReporterClient
 IPHONE_LD_LIBRARIES=-framework GSS -framework SMBClient
 

@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -221,8 +221,6 @@
 		FC52855D11478C200058CCB0 /* rcmd.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BE11478C200058CCB0 /* rcmd.c */; };
 		FC52855E11478C200058CCB0 /* rcmdsh.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5284BF11478C200058CCB0 /* rcmdsh.c */; };
 		FC5285D4114791B50058CCB0 /* DSlibinfoMIG.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */; };
-		FC5285D5114791B50058CCB0 /* DSlibinfoMIGAsyncReply.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC5285D2114791B50058CCB0 /* DSlibinfoMIGAsyncReply.defs */; settings = {ATTRIBUTES = (Server, ); }; };
-		FC5285D6114791B50058CCB0 /* DSmemberdMIG.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC5285D3114791B50058CCB0 /* DSmemberdMIG.defs */; };
 		FC5285F7114793400058CCB0 /* ether_addr.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5285F6114793400058CCB0 /* ether_addr.c */; };
 /* End PBXBuildFile section */
 
@@ -424,9 +422,9 @@
 		FC5284BE11478C200058CCB0 /* rcmd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rcmd.c; sourceTree = "<group>"; };
 		FC5284BF11478C200058CCB0 /* rcmdsh.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rcmdsh.c; sourceTree = "<group>"; };
 		FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = DSlibinfoMIG.defs; path = usr/local/include/opendirectory/DSlibinfoMIG.defs; sourceTree = SDKROOT; };
-		FC5285D2114791B50058CCB0 /* DSlibinfoMIGAsyncReply.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = DSlibinfoMIGAsyncReply.defs; path = usr/local/include/opendirectory/DSlibinfoMIGAsyncReply.defs; sourceTree = SDKROOT; };
-		FC5285D3114791B50058CCB0 /* DSmemberdMIG.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = DSmemberdMIG.defs; path = usr/local/include/opendirectory/DSmemberdMIG.defs; sourceTree = SDKROOT; };
 		FC5285F6114793400058CCB0 /* ether_addr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ether_addr.c; sourceTree = "<group>"; };
+		FCFDBF0A145CC5C100A39A66 /* grp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = grp.h; sourceTree = "<group>"; };
+		FCFDBF0B145CC5C100A39A66 /* pwd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pwd.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -529,7 +527,6 @@
 			children = (
 				2D4070B0129354A700FE81ED /* getnameinfo_link.c */,
 				FC5285D1114791B50058CCB0 /* DSlibinfoMIG.defs */,
-				FC5285D2114791B50058CCB0 /* DSlibinfoMIGAsyncReply.defs */,
 				FC52841811478C200058CCB0 /* aliasdb.h */,
 				FC52841911478C200058CCB0 /* bootparams.5 */,
 				FC52841A11478C200058CCB0 /* bootparams.h */,
@@ -544,6 +541,7 @@
 				FC52842311478C200058CCB0 /* getnameinfo.3 */,
 				FC52842411478C200058CCB0 /* getnetgrent.3 */,
 				FC52842511478C200058CCB0 /* getpwent.3 */,
+				FCFDBF0A145CC5C100A39A66 /* grp.h */,
 				FC52842611478C200058CCB0 /* ils.c */,
 				FC52842711478C200058CCB0 /* ils.h */,
 				FC52842811478C200058CCB0 /* initgroups.3 */,
@@ -555,6 +553,7 @@
 				FC52842F11478C200058CCB0 /* netdb.h */,
 				FC52843011478C200058CCB0 /* netdb_async.h */,
 				FC52843111478C200058CCB0 /* printerdb.h */,
+				FCFDBF0B145CC5C100A39A66 /* pwd.h */,
 				FC52843211478C200058CCB0 /* search_module.c */,
 				FC52843311478C200058CCB0 /* si_data.c */,
 				FC52843411478C200058CCB0 /* si_data.h */,
@@ -570,7 +569,6 @@
 		FC52843A11478C200058CCB0 /* membership.subproj */ = {
 			isa = PBXGroup;
 			children = (
-				FC5285D3114791B50058CCB0 /* DSmemberdMIG.defs */,
 				FC52843C11478C200058CCB0 /* mbr_check_membership.3 */,
 				FC52843D11478C200058CCB0 /* mbr_uid_to_uuid.3 */,
 				FC52843E11478C200058CCB0 /* membership.c */,
@@ -768,8 +766,11 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "Libinfo" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -1043,8 +1044,6 @@
 				FC52855D11478C200058CCB0 /* rcmd.c in Sources */,
 				FC52855E11478C200058CCB0 /* rcmdsh.c in Sources */,
 				FC5285D4114791B50058CCB0 /* DSlibinfoMIG.defs in Sources */,
-				FC5285D5114791B50058CCB0 /* DSlibinfoMIGAsyncReply.defs in Sources */,
-				FC5285D6114791B50058CCB0 /* DSmemberdMIG.defs in Sources */,
 				FC5285F7114793400058CCB0 /* ether_addr.c in Sources */,
 				2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */,
 				2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */,
@@ -1076,6 +1075,7 @@
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
 				INSTALL_PATH = /usr/lib/system;
+				ORDER_FILE = "$(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libsystem_info.order";
 				PRODUCT_NAME = info;
 				VERSION_INFO_EXPORT_DECL = static;
 				VERSION_INFO_PREFIX = __;
@@ -1099,7 +1099,6 @@
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				PREBINDING = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_LDFLAGS = "-Wall";
 			};

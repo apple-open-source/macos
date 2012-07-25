@@ -35,8 +35,9 @@
 #include "DFGCorrectableJumpPoint.h"
 #include "DFGExitProfile.h"
 #include "DFGGPRInfo.h"
-#include "DFGOperands.h"
 #include "MacroAssembler.h"
+#include "MethodOfGettingAValueProfile.h"
+#include "Operands.h"
 #include "ValueProfile.h"
 #include "ValueRecovery.h"
 #include <wtf/Vector.h>
@@ -82,16 +83,17 @@ private:
 // This structure describes how to exit the speculative path by
 // going into baseline code.
 struct OSRExit {
-    OSRExit(ExitKind, JSValueSource, ValueProfile*, MacroAssembler::Jump, SpeculativeJIT*, unsigned recoveryIndex = 0);
+    OSRExit(ExitKind, JSValueSource, MethodOfGettingAValueProfile, MacroAssembler::Jump, SpeculativeJIT*, unsigned recoveryIndex = 0);
     
     MacroAssemblerCodeRef m_code;
     
     JSValueSource m_jsValueSource;
-    ValueProfile* m_valueProfile;
+    MethodOfGettingAValueProfile m_valueProfile;
     
     CorrectableJumpPoint m_check;
     NodeIndex m_nodeIndex;
     CodeOrigin m_codeOrigin;
+    CodeOrigin m_codeOriginForExitProfile;
     
     unsigned m_recoveryIndex;
     
@@ -137,9 +139,7 @@ struct OSRExit {
         return considerAddingAsFrequentExitSiteSlow(dfgCodeBlock, profiledCodeBlock);
     }
     
-#ifndef NDEBUG
     void dump(FILE* out) const;
-#endif
     
     Vector<ValueRecovery, 0> m_arguments;
     Vector<ValueRecovery, 0> m_variables;

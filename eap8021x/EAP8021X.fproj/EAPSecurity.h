@@ -34,7 +34,9 @@
 
 #include <CoreFoundation/CFBase.h>
 #include <Security/SecBase.h>
+#if ! TARGET_OS_EMBEDDED
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#endif /* ! TARGET_OS_EMBEDDED */
 
 const char *
 EAPSecurityErrorString(OSStatus err);

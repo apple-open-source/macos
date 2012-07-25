@@ -42,20 +42,21 @@ namespace WebCore {
     // Helper function which pulls the values out of a JS sequence and into a MessagePortArray.
     // Also validates the elements per sections 4.1.13 and 4.1.15 of the WebIDL spec and section 8.3.3 of the HTML5 spec.
     // May generate an exception via the passed ExecState.
-    void fillMessagePortArray(JSC::ExecState*, JSC::JSValue, MessagePortArray&);
+    void fillMessagePortArray(JSC::ExecState*, JSC::JSValue, MessagePortArray&, ArrayBufferArray&);
 
     // Helper function to convert from JS postMessage arguments to WebCore postMessage arguments.
     template <typename T>
     inline JSC::JSValue handlePostMessage(JSC::ExecState* exec, T* impl)
     {
-        PassRefPtr<SerializedScriptValue> message = SerializedScriptValue::create(exec, exec->argument(0));
         MessagePortArray portArray;
-        fillMessagePortArray(exec, exec->argument(1), portArray);
+        ArrayBufferArray arrayBufferArray;
+        fillMessagePortArray(exec, exec->argument(1), portArray, arrayBufferArray);
+        RefPtr<SerializedScriptValue> message = SerializedScriptValue::create(exec, exec->argument(0), &portArray, &arrayBufferArray);
         if (exec->hadException())
             return JSC::jsUndefined();
 
         ExceptionCode ec = 0;
-        impl->postMessage(message, &portArray, ec);
+        impl->postMessage(message.release(), &portArray, ec);
         setDOMException(exec, ec);
         return JSC::jsUndefined();
     }

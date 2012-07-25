@@ -35,6 +35,7 @@
 #include <IOKit/network/IONetworkMedium.h>
 #include <IOKit/IOMessage.h>
 #include "IONetworkControllerPrivate.h"
+#include "IONetworkDebug.h"
 
 // IONetworkController (and its subclasses) needs to know about mbufs,
 // but it shall have no further dependencies on BSD networking.
@@ -56,11 +57,11 @@ extern "C" {
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors( IONetworkController, IOService )
-OSMetaClassDefineReservedUsed( IONetworkController,  0);   // getDebuggerLinkStatus
-OSMetaClassDefineReservedUsed( IONetworkController,  1);   // setDebuggerMode
-OSMetaClassDefineReservedUnused( IONetworkController,  2);
-OSMetaClassDefineReservedUnused( IONetworkController,  3);
-OSMetaClassDefineReservedUnused( IONetworkController,  4);
+OSMetaClassDefineReservedUsed( IONetworkController,  0); // getDebuggerLinkStatus
+OSMetaClassDefineReservedUsed( IONetworkController,  1); // setDebuggerMode
+OSMetaClassDefineReservedUsed( IONetworkController,  2); // outputStart
+OSMetaClassDefineReservedUsed( IONetworkController,  3); // setInputPacketPollingEnable
+OSMetaClassDefineReservedUsed( IONetworkController,  4); // pollInputPackets
 OSMetaClassDefineReservedUnused( IONetworkController,  5);
 OSMetaClassDefineReservedUnused( IONetworkController,  6);
 OSMetaClassDefineReservedUnused( IONetworkController,  7);
@@ -97,12 +98,6 @@ static bool isPowerOfTwo(UInt32 num)
 #define MEDIUM_LOCK     IOTakeLock(_mediumLock);
 #define MEDIUM_UNLOCK   IOUnlock(_mediumLock);
 
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
-
 #define RELEASE(x) do { if (x) { (x)->release(); (x) = 0; } } while (0)
 
 // OSSymbols for frequently used keys.
@@ -120,6 +115,7 @@ static const OSData   * gIONullLinkData;
 const OSSymbol * gIONetworkFilterGroup;
 const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
 const OSSymbol * gIOEthernetDisabledWakeOnLANFilterGroup;
+uint32_t         gIONetworkDebugFlags = 0;
 
 // Constants for handleCommand().
 //
@@ -161,6 +157,10 @@ IONetworkControllerGlobals::IONetworkControllerGlobals()
 
     gIOControllerEnabledKey = 
         OSSymbol::withCStringNoCopy("IOControllerEnabled");
+
+    uint32_t flags;
+    if (PE_parse_boot_argn("ionetwork_debug", &flags, sizeof(flags)))
+        gIONetworkDebugFlags |= flags;
 }
 
 IONetworkControllerGlobals::~IONetworkControllerGlobals()
@@ -542,10 +542,23 @@ void
 IONetworkController::detachInterface(IONetworkInterface * interface,
                                      bool                 sync)
 {
-    IOOptionBits options = kIOServiceRequired;
+    IOOutputQueue * outQueue = getOutputQueue();
+    IOOptionBits    options  = kIOServiceRequired;
 
     if (OSDynamicCast(IONetworkInterface, interface) == 0)
         return;
+
+    if (outQueue)
+    {
+        // Remove output queue stats to allow the queue to safely
+        // go away while interface is detaching.
+        IONetworkData * statsData = outQueue->getStatisticsData();
+        if (statsData)
+        {
+            statsData->setNotificationTarget(0, 0);
+            interface->removeNetworkData(statsData->getKey());
+        }
+    }
 
     if (sync)
         options |= kIOServiceSynchronous;
@@ -1692,8 +1705,8 @@ bool IONetworkController::setLinkStatus(
                                     OSData *                data)
 {
     bool             success   = true;
-    bool             changed   = false;
     UInt32           linkEvent = 0;
+    uint64_t         linkSpeed = 0;
     const OSSymbol * name      = activeMedium ? activeMedium->getName() :
                                                 gIONullMediumName;
 
@@ -1706,50 +1719,41 @@ bool IONetworkController::setLinkStatus(
     MEDIUM_LOCK;
 
     // Update kIOActiveMedium property.
-
 	if (name != _lastActiveMediumName)
 	{
-		if ( setProperty(gIOActiveMediumKey, (OSSymbol *) name) )
-	    {
-			changed               = true;
+		if (setProperty(gIOActiveMediumKey, (OSSymbol *) name))
 			_lastActiveMediumName = name;
-		}
 		else
 			success = false;
 	}
 
 	// Update kIOLinkData property.
-
     if (data != _lastLinkData)
     {
-    	if ( setProperty(gIOLinkDataKey, data) )
-	    {
-			changed       = true;
+    	if (setProperty(gIOLinkDataKey, data))
 			_lastLinkData = data;
-		}
 		else
 			success = false;
 	}
 
-	// Update kIOLinkStatus property.
-
-	if (status != _linkStatus->unsigned32BitValue()) //status has changed
-	{
-		//send an UP event when the link is up, or its state is unknown
-		if( (status & kIONetworkLinkActive) || !(status & kIONetworkLinkValid) )
-			linkEvent = kIONetworkEventTypeLinkUp;
-		else
-			linkEvent = kIONetworkEventTypeLinkDown;
-		_linkStatus->setValue(status);
-		changed = true;
-	}
-
     // Update kIOLinkSpeed property.
-
 	if (speed != _linkSpeed->unsigned64BitValue())
 	{
 		_linkSpeed->setValue(speed);
-		changed = true;
+        linkEvent = kIONetworkEventTypeLinkSpeedChange;
+        linkSpeed = speed;
+    }
+
+	// Update kIOLinkStatus property.
+	if (status != _linkStatus->unsigned32BitValue()) //status has changed
+	{
+		//send an UP event when the link is up, or its state is unknown
+		if ((status & kIONetworkLinkActive) || !(status & kIONetworkLinkValid))
+			linkEvent = kIONetworkEventTypeLinkUp;
+        else
+			linkEvent = kIONetworkEventTypeLinkDown;
+        _linkStatus->setValue(status);
+        linkSpeed = _linkSpeed->unsigned64BitValue();
 	}
 
     MEDIUM_UNLOCK;
@@ -1757,7 +1761,7 @@ bool IONetworkController::setLinkStatus(
     // Broadcast a link event to interface objects.
 
     if (linkEvent)
-        _broadcastEvent(linkEvent);
+        _broadcastEvent(linkEvent, &linkSpeed);
 
     return success;
 }
@@ -2293,4 +2297,53 @@ IOReturn IONetworkController::message(
     }
 
     return super::message(type, provider, argument);
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn IONetworkController::outputStart(
+    IONetworkInterface *    interface,
+    IOOptionBits            options )
+{
+    return kIOReturnUnsupported;
+}
+
+IOReturn IONetworkController::setInputPacketPollingEnable(
+    IONetworkInterface *    interface,
+    bool                    enabled )
+{
+    return kIOReturnUnsupported;
+}
+
+void IONetworkController::pollInputPackets(
+    IONetworkInterface *    interface,
+    uint32_t                maxCount,
+    IOMbufQueue *           pollQueue,
+    void *                  context )
+{
+}
+
+//------------------------------------------------------------------------------
+
+IOMbufServiceClass IONetworkController::getMbufServiceClass( mbuf_t mbuf )
+{
+    mbuf_svc_class_t    mbufSC = mbuf_get_service_class(mbuf);
+    IOMbufServiceClass  ioSC;
+    
+    switch (mbufSC)
+    {
+        default:
+        case MBUF_SC_BE:     ioSC = kIOMbufServiceClassBE;  break;
+        case MBUF_SC_BK_SYS: ioSC = kIOMbufServiceClassBKSYS; break;
+        case MBUF_SC_BK:     ioSC = kIOMbufServiceClassBK;  break;
+        case MBUF_SC_RD:     ioSC = kIOMbufServiceClassRD;  break;
+        case MBUF_SC_OAM:    ioSC = kIOMbufServiceClassOAM; break;
+        case MBUF_SC_AV:     ioSC = kIOMbufServiceClassAV;  break;
+        case MBUF_SC_RV:     ioSC = kIOMbufServiceClassRV;  break;
+        case MBUF_SC_VI:     ioSC = kIOMbufServiceClassVI;  break;
+        case MBUF_SC_VO:     ioSC = kIOMbufServiceClassVO;  break;
+        case MBUF_SC_CTL:    ioSC = kIOMbufServiceClassCTL; break;
+    }
+
+    return ioSC;
 }

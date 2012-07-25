@@ -79,14 +79,14 @@ io_init(struct io_state *iop, FILE *fp)
  * remain valid until io_flush() is called.
  */
 static inline int
-io_print(struct io_state *iop, const CHAR * __restrict ptr, int len)
+io_print(struct io_state *iop, const CHAR * __restrict ptr, int len, locale_t loc)
 {
 
 	iop->iov[iop->uio.uio_iovcnt].iov_base = (char *)ptr;
 	iop->iov[iop->uio.uio_iovcnt].iov_len = len;
 	iop->uio.uio_resid += len;
 	if (++iop->uio.uio_iovcnt >= NIOV)
-		return (__sprint(iop->fp, &iop->uio));
+		return (__sprint(iop->fp, loc, &iop->uio));
 	else
 		return (0);
 }
@@ -107,13 +107,13 @@ static const CHAR zeroes[PADSIZE] =
  * or the zeroes array.
  */
 static inline int
-io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with)
+io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with, locale_t loc)
 {
 	int n;
 
 	while (howmany > 0) {
 		n = (howmany >= PADSIZE) ? PADSIZE : howmany;
-		if (io_print(iop, with, n))
+		if (io_print(iop, with, n, loc))
 			return (-1);
 		howmany -= n;
 	}
@@ -126,7 +126,7 @@ io_pad(struct io_state *iop, int howmany, const CHAR * __restrict with)
  */
 static inline int
 io_printandpad(struct io_state *iop, const CHAR *p, const CHAR *ep,
-	       int len, const CHAR * __restrict with)
+	       int len, const CHAR * __restrict with, locale_t loc)
 {
 	int p_len;
 
@@ -134,19 +134,19 @@ io_printandpad(struct io_state *iop, const CHAR *p, const CHAR *ep,
 	if (p_len > len)
 		p_len = len;
 	if (p_len > 0) {
-		if (io_print(iop, p, p_len))
+		if (io_print(iop, p, p_len, loc))
 			return (-1);
 	} else {
 		p_len = 0;
 	}
-	return (io_pad(iop, len - p_len, with));
+	return (io_pad(iop, len - p_len, with, loc));
 }
 
 static inline int
-io_flush(struct io_state *iop)
+io_flush(struct io_state *iop, locale_t loc)
 {
 
-	return (__sprint(iop->fp, &iop->uio));
+	return (__sprint(iop->fp, loc, &iop->uio));
 }
 
 /*
@@ -205,7 +205,7 @@ __ultoa(u_long val, CHAR *endp, int base, int octzero, const char *xdigs)
 		break;
 
 	default:			/* oops */
-		abort();
+		LIBC_ABORT("__ultoa: invalid base=%d", base);
 	}
 	return (cp);
 }
@@ -255,7 +255,7 @@ __ujtoa(uintmax_t val, CHAR *endp, int base, int octzero, const char *xdigs)
 		break;
 
 	default:
-		abort();
+		LIBC_ABORT("__ujtoa: invalid base=%d", base);
 	}
 	return (cp);
 }

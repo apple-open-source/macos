@@ -5,6 +5,10 @@ Add flags for:
 Add support for:
 - Remove empty __IMPORT segment
 
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+  - Added a reference to apple_version[] in makerelocs.c and mtoc.c .
+
 Changes for the 5.29 release (the cctools-800 release):
 - Added support for rewriting UUID of generated file with command line flag -u.
   Radar bug #8946107.

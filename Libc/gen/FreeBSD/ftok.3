@@ -33,7 +33,6 @@
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.In sys/types.h
 .In sys/ipc.h
 .Ft key_t
 .Fn ftok "const char *path" "int id"
@@ -41,11 +40,10 @@
 The
 .Fn ftok
 function attempts to create a unique key suitable for use with the
-.Xr msgget 2 ,
-.Xr semget 2
+.Xr semget 2 ,
 and
 .Xr shmget 2
-functions given the
+functions, given the
 .Fa path
 of an existing file and a user-selectable
 .Fa id .
@@ -63,10 +61,17 @@ The
 function will return -1 if
 .Fa path
 does not exist or if it cannot be accessed by the calling process.
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <sys/ipc.h>
+.Pp
+The include file
+.In sys/types.h
+is necessary.
 .Sh SEE ALSO
 .Xr semget 2 ,
 .Xr shmget 2 ,
-.Xr msgget 2
+.Xr compat 5
 .Sh HISTORY
 The
 .Fn ftok
@@ -75,9 +80,9 @@ that use the System V IPC routines.
 .Sh AUTHORS
 .An Thorsten Lockert Aq tholo@sigmasoft.com
 .Sh BUGS
-The returned key is computed based on the device minor number and inode of the
-specified
-.Fa path
+The returned key is computed based on the device minor number and inode
+of the specified
+.Fa path ,
 in combination with the lower 8 bits of the given
 .Fa id .
-Thus it is quite possible for the routine to return duplicate keys.
+Thus, it is quite possible for the routine to return duplicate keys.

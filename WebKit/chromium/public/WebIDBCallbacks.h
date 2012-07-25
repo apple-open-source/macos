@@ -26,10 +26,12 @@
 #ifndef WebIDBCallbacks_h
 #define WebIDBCallbacks_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
+class WebDOMStringList;
 class WebIDBCursor;
 class WebIDBDatabase;
 class WebIDBDatabaseError;
@@ -46,14 +48,15 @@ public:
     // For classes that follow the PImpl pattern, pass a const reference.
     // For the rest, pass ownership to the callee via a pointer.
     virtual void onError(const WebIDBDatabaseError&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(const WebDOMStringList&) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(WebIDBCursor*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(WebIDBDatabase*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(const WebIDBKey&) { WEBKIT_ASSERT_NOT_REACHED(); }
-    // FIXME: remove after Webkit roll.
-    virtual void onSuccess(WebIDBIndex*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(WebIDBTransaction*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(const WebSerializedScriptValue&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccessWithContinuation() { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onBlocked() { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccessWithPrefetch(const WebVector<WebIDBKey>& keys, const WebVector<WebIDBKey>& primaryKeys, const WebVector<WebSerializedScriptValue>& values) { WEBKIT_ASSERT_NOT_REACHED(); }
 };
 
 } // namespace WebKit

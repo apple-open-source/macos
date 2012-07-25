@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/th.xml
@@ -661,6 +661,10 @@ th{
         Zyyy{"สามัญ"}
         Zzzz{"ไม่ทราบภาษา"}
     }
+    Scripts%stand-alone{
+        Hans{"อักษรฮั่นแบบย่อ"}
+        Hant{"อักษรฮั่นตัวเต็ม"}
+    }
     Types{
         calendar{
             buddhist{"ปฏิทินพุทธ"}
@@ -680,10 +684,10 @@ th{
         collation{
             big5han{"เรียงตามอักษรจีนดั้งเดิม"}
             dictionary{"เรียงตามพจนานุกรม"}
-            direct{"เรียงตามลำดับโดยตรง"}
             ducet{"เรียงลำดับตาม Unicode"}
             gb2312han{"เรียงตามอักษรจีนประยุกต์"}
             phonebook{"เรียงตามสมุดโทรศัพท์"}
+            phonetic{"จัดเรียงตามลำดับสัทอักษร"}
             pinyin{"เรียงตามการถอดเสียงภาษาจีน"}
             reformed{"เรียงตามลำดับล่าสุด"}
             search{"การค้นหาทั่วไป"}
@@ -748,7 +752,7 @@ th{
         SCOTLAND{"ภาษาอังกฤษมาตราฐานสก๊อต"}
         VALENCIA{"วาเลนเซีย"}
     }
-    Version{"2.0.58.6"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"{0}"}
         script{"{0}"}

@@ -51,6 +51,12 @@ Structure* JSCallbackObject<JSGlobalObject>::createStructure(JSGlobalData& globa
     return Structure::create(globalData, globalObject, proto, TypeInfo(GlobalObjectType, StructureFlags), &s_info); 
 }
 
+template <class Parent>
+void JSCallbackObject<Parent>::destroy(JSCell* cell)
+{
+    jsCast<JSCallbackObject*>(cell)->JSCallbackObject::~JSCallbackObject();
+}
+
 void JSCallbackObjectData::finalize(Handle<Unknown> handle, void* context)
 {
     JSClassRef jsClass = static_cast<JSClassRef>(context);
@@ -59,8 +65,7 @@ void JSCallbackObjectData::finalize(Handle<Unknown> handle, void* context)
     for (; jsClass; jsClass = jsClass->parentClass)
         if (JSObjectFinalizeCallback finalize = jsClass->finalize)
             finalize(thisRef);
-    HandleSlot slot = handle.slot();
-    HandleHeap::heapFor(slot)->deallocate(slot);
+    WeakSet::deallocate(WeakImpl::asWeakImpl(handle.slot()));
 }
     
 } // namespace JSC

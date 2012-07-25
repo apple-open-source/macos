@@ -1,4 +1,4 @@
-USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2007 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
+USAGE_LICENSE="[-author?Glenn Fowler <gsf@research.att.com>][-copyright?Copyright (c) 1994-2011 AT&T][-license?http://www.opensource.org/licenses/cpl1.0.txt][--catalog?INIT]"
 # package - source and binary package control
 # this script is written to make it through all sh variants
 # Glenn Fowler <gsf@research.att.com>
@@ -9,6 +9,8 @@ esac
 
 command=package
 
+LC_ALL=C
+
 src="cmd contrib etc lib"
 use="/usr/common /exp /usr/local /usr/add-on /usr/addon /usr/tools /usr /opt"
 usr="/home"
@@ -16,22 +18,28 @@ lib="/usr/local/lib /usr/local/shlib"
 ccs="/usr/kvm /usr/ccs/bin"
 org="gnu GNU"
 makefiles="Mamfile Nmakefile nmakefile Makefile makefile"
-checksum_commands="md5sum md5"
+env="HOSTTYPE NPROC PACKAGEROOT INSTALLROOT PATH"
+checksum=md5sum
+checksum_commands="$checksum md5"
 checksum_empty="d41d8cd98f00b204e9800998ecf8427e"
 
 package_use='=$HOSTTYPE=$PACKAGEROOT=$INSTALLROOT=$EXECROOT=$CC='
 
 PACKAGE_admin_tail_timeout=${PACKAGE_admin_tail_timeout:-"1m"}
 
+CROSS=0
+
 admin_db=admin.db
 admin_env=admin.env
-admin_ditto="ditto --checksum --delete --update --verbose"
+admin_ditto="ditto --checksum --delete --verbose"
+admin_ditto_update=--update
 admin_ditto_skip="OFFICIAL|core|old|*.core|*.tmp|.nfs*"
 admin_list='PACKAGE.$type.lst'
 admin_ping="ping -c 1 -w 5"
 
 default_url=default.url
 MAKESKIP=${MAKESKIP:-"*[-.]*"}
+RATZ=ratz
 TAR=tar
 TARFLAGS=xv
 TARPROBE=B
@@ -41,7 +49,7 @@ all_types='*.*|sun4'		# all but sun4 match *.*
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	USAGE=$'
 [-?
-@(#)$Id: package (AT&T Research) 2007-11-05 $
+@(#)$Id: package (AT&T Research) 2011-02-02 $
 ]'$USAGE_LICENSE$'
 [+NAME?package - source and binary package control]
 [+DESCRIPTION?The \bpackage\b command controls source and binary
@@ -151,9 +159,10 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
             notice(s) for \apackage\a on the standard output. Note that
             individual components in \apackage\a may contain additional or
             replacement notices.]
-        [+export\b \avariable\a ...?List \aname\a=\avalue\a for
+        [+export\b [ \avariable\a ...]]?List \aname\a=\avalue\a for
             \avariable\a, one per line. If the \bonly\b attribute is
-            specified then only the variable values are listed.]
+            specified then only the variable values are listed. If no
+	    variables are specified then \b'$env$'\b are assumed.]
         [+help\b [ \aaction\a ]]?Display help text on the standard
             error (standard output for \aaction\a).]
         [+host\b [ \aattribute\a ... ]]?List
@@ -253,7 +262,9 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
             output is also captured in
             \b$INSTALLROOT/lib/package/gen/test.out\b. In general a package
             must be made before it can be tested. Components tested with
-            the \bregress\b(1) command require \bksh93\b.]
+            the \bregress\b(1) command require \bksh93\b. If \bonly\b is
+	    also specified then only the listed package components are
+	    tested, otherwise the closure of the components is tested.]
         [+update\b [ beta ]] [ binary ]] [ source ]] [\aarchitecture\a ... ]] [ \aurl\a ]] [ \apackage\a ... ]]?Download
             the latest release of the selected and required packages from \aurl\a
             (e.g., \bhttp://www.research.att.com/sw/download\b) into the directory
@@ -424,7 +435,10 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
     makefile compiler workarounds, e.g., if \b$HOSTTYPE\b matches \bhp.*\b
     then turn off the optimizer for these objects. All other architecture
     dependent logic is handled either by the \bast\b \biffe\b(1) command or
-    by component specific configure scripts.]
+    by component specific configure scripts. Explicit \b$HOSTYPE\b
+    values matching *,*cc*[,-*,...]] optionally set the default \bCC\b and
+    \bCCFLAGS\b. This is handy for build farms that support different
+    compilers on the same architecture.]
 [+?Each component contains an \bast\b \bnmake\b(1) makefile (either
     \bNmakefile\b or \bMakefile\b) and a \bMAM\b (make abstract machine)
     file (\bMamfile\b.) A Mamfile contains a portable makefile description
@@ -515,7 +529,7 @@ HURL=
 PROTOROOT=-
 SHELLMAGIC=-
 
-unset FIGNORE 2>/dev/null || true
+unset FIGNORE BINDIR DLLDIR ETCDIR FUNDIR INCLUDEDIR LIBDIR LOCALEDIR MANDIR SHAREDIR 2>/dev/null || true
 
 while	:
 do	case $# in
@@ -662,11 +676,12 @@ ${bT}(4)${bD}If the ${bB}bin/package${eB} script does not exist then run:${bX}
 ${bT}(5)${bD}Determine the list of package names you want from the download site, then
       use the ${Mpackage} command to do the actual download:${bX}
 		bin/package authorize \"${bI}NAME${eI}\" password \"${bI}PASSWORD${eI}\" \\
-			setup binary \$URL ${bB}PACKAGE${eB} ...${eX}
-      This downloads the closure of the latest binary package(s); covered and
-      up-to-date packages are not downloaded again unless ${bB}package force ...${eB}
-      is specified. Package content is verified using ${bB}${checksum}${eB}. If the package
-      root will contain only one architecture then you can install in ${bB}bin${eB} and
+			setup binary \$URL ${bI}PACKAGE${eI} ...${eX}
+      (Refer to the ${bB}AUTHORIZATION${eB} paragraph on the main download page for
+      ${bI}NAME${eI}/${bI}PASSWORD${eI} details.)  This downloads the closure of the latest
+      binary package(s); covered and up-to-date packages are not downloaded again unless
+      ${bB}package force ...${eB} is specified. Package content is verified using ${bB}${checksum}${eB}.
+      If the package root will contain only one architecture then you can install in ${bB}bin${eB} and
       ${bB}lib${eB} instead of ${bB}arch/${eB}${bI}HOSTTYPE${eI}${bB}/bin${eB} and ${bB}arch/${eB}${bI}HOSTTYPE${eI}${bB}/lib${eB} by running this
       instead:${bX}
 		bin/package authorize \"${bI}NAME${eI}\" password \"${bI}PASSWORD${eI}\" \\
@@ -771,7 +786,9 @@ There are a few places that match against ${bB}\$HOSTTYPE${eB} when making binar
 are limited to makefile compiler workarounds, e.g., if ${bB}\$HOSTTYPE${eB} matches
 'hp.*' then turn off the optimizer for these objects. All other architecture
 dependent logic is handled either by ${bB}\$INSTALLROOT/bin/iffe${eB} or by component
-specific configure scripts.
+specific configure scripts. Explicit ${bB}\$HOSTYPE${eB} values matching *,*cc*[,-*,...]
+optionally set the default ${bB}CC${eB} and ${bB}CCFLAGS${eB}. This is handy for build
+farms that support different compilers on the same architecture.
 ${bP}
 Each component contains an ${bB}ast${eB} ${Mnmake} makefile (either ${bB}Nmakefile${eB} or ${bB}Makefile${eB})
 and a ${bI}MAM${eI} (make abstract machine) file (${bB}Mamfile${eB}.) A Mamfile contains a portable
@@ -819,10 +836,11 @@ ${bT}(5)${bD}Determine the list of package names you want from the download site
       use the ${Mpackage} command to do the actual download:${bX}
 		bin/package authorize \"${bI}NAME${eI}\" password \"${bI}PASSWORD${eI}\" \\
 			setup source \$URL ${bB}PACKAGE${eB} ...${eX}
-      This downloads the closure of latest source package(s); covered and
-      up-to-date packages are not downloaded again unless ${bB}package force ...${eB}
-      is specified. Package content is verified using ${bB}${checksum}${eB}. If the package
-      root will contain only one architecture then you can install in ${bB}bin${eB} and
+      (Refer to the ${bB}AUTHORIZATION${eB} paragraph on the main download page for
+      ${bI}NAME${eI}/${bI}PASSWORD${eI} details.)  This downloads the closure of the latest
+      source package(s); covered and up-to-date packages are not downloaded again unless
+      ${bB}package force ...${eB} is specified. Package content is verified using ${bB}${checksum}${eB}.
+      If the package root will contain only one architecture then you can install in ${bB}bin${eB} and
       ${bB}lib${eB} instead of ${bB}arch/${eB}${bI}HOSTTYPE${eI}${bB}/bin${eB} and ${bB}arch/${eB}${bI}HOSTTYPE${eI}${bB}/lib${eB} by running this
       instead:${bX}
 		bin/package authorize \"${bI}NAME${eI}\" password \"${bI}PASSWORD${eI}\" \\
@@ -952,10 +970,11 @@ ${bT}(5)${bD}Read all unread package archive(s):${bX}
 		List the general copyright notice(s) for PACKAGE on the
 		standard output. Note that individual components in PACKAGE
 		may contain additional or replacement notices.
-	export VARIABLE ...
+	export [ VARIABLE ... ]
 		List NAME=VALUE for each VARIABLE, one per line. If the
 		\"only\" attribute is specified then only the variable
-		values are listed.
+		values are listed. If no variables are specified then
+		$env are assumed.
 	help [ ACTION ]
 		Display help text on the standard error [ standard output
 		for ACTION ].
@@ -1051,7 +1070,10 @@ ${bT}(5)${bD}Read all unread package archive(s):${bX}
 		Run the regression tests for PACKAGE. If the standard output
 		is a terminal then the output is also captured in
 		\$INSTALLROOT/lib/package/gen/test.out. In general a package
-		must be made before it can be tested.
+		must be made before it can be tested. Components tested with
+		the \bregress\b(1) command require \bksh93\b. If only is
+		also specified then only the listed package components are
+		tested, otherwise the closure of the components is tested.
 	update [ beta ] [ binary ] [ source ] [ ARCHITECTURE ... ] [ URL ] [ PACKAGE ... ]
 		Download the latest release of the selected and required
 		packages from URL (e.g.,
@@ -1174,6 +1196,43 @@ ${bT}(5)${bD}Read all unread package archive(s):${bX}
 	shift
 done
 
+# gather HOSTTYPE *,* options
+# 	,*cc*,-*,...	set CC and CCFLAGS
+
+hostopts()
+{
+	_ifs_=$IFS
+	IFS=,
+	set '' $HOSTTYPE
+	IFS=$_ifs_
+	shift
+	while	:
+	do	case $# in
+		0|1)	break ;;
+		esac
+		shift
+		case $1 in
+		*cc*)	CC=$1
+			while	:
+			do	case $# in
+				0|1)	break ;;
+				esac
+				case $2 in
+				-*)	case $assign_CCFLAGS in
+					?*)	assign_CCFLAGS="$assign_CCFLAGS " ;;
+					esac
+					assign_CCFLAGS="$assign_CCFLAGS$2"
+					shift
+					;;
+				*)	break
+					;;
+				esac
+			done
+			;;
+		esac
+	done
+}
+
 # collect command line targets and definitions
 
 case $_PACKAGE_HOSTTYPE_ in
@@ -1188,6 +1247,7 @@ KEEP_SHELL=0
 USER_VPATH=
 args=
 assign=
+assign_CCFLAGS=
 for i
 do	case $i in
 	*:*=*)	args="$args $i"
@@ -1205,7 +1265,7 @@ do	case $i in
 		;;
 	CCFLAGS=*)
 		eval $n='$'v
-		assign="$assign CCFLAGS=\"\$CCFLAGS\""
+		assign_CCFLAGS="CCFLAGS=\"\$CCFLAGS\""
 		;;
 	HOSTTYPE=*)
 		eval $n='$'v
@@ -1245,6 +1305,12 @@ do	case $i in
 		;;
 	esac
 done
+case $HOSTTYPE in
+*,*)	hostopts $HOSTTYPE ;;
+esac
+case $assign_CCFLAGS in
+?*)	assign="$assign $assign_CCFLAGS"
+esac
 case $CC in
 ''|cc)	;;
 *)	export CC ;;
@@ -1364,11 +1430,11 @@ onpath() # command
 	return 1
 }
 
-# true if no nmake or nmake too old
+# true if no nmake or nmake not from AT&T or nmake too old
 
 nonmake() # nmake
 {
-	_nonmake_version=`( $1 -n -f - 'print $(MAKEVERSION:@/.* //:/-//G)' . ) </dev/null 2>/dev/null || echo 19840919`
+	_nonmake_version=`( $1 -n -f - 'print $(MAKEVERSION:@/.*AT&T.* //:/-//G:@/.* .*/19960101/)' . ) </dev/null 2>/dev/null || echo 19840919`
 	if	test $_nonmake_version -lt 20001031
 	then	return 0
 	fi
@@ -1394,8 +1460,28 @@ hostinfo() # attribute ...
 		done
 		PATH=$PATH:$i/bin
 	done
+	case $* in
+	type)	# LD_LIBRARY_PATH may be out of sync with PATH here
+		SED=sed
+		$SED 1d < /dev/null > /dev/null 2>&1 ||
+		for dir in /bin /usr/bin
+		do	if	test -x $dir/$SED
+			then	SED=$dir/$SED
+				break
+			fi
+		done
+		TR=tr
+		$TR < /dev/null > /dev/null 2>&1 ||
+		for dir in /bin /usr/bin
+		do	if	test -x $dir/$TR
+			then	TR=$dir/$TR
+				break
+			fi
+		done
+		;;
+	esac
 	case $PACKAGE_PATH in
-	?*)	for i in `echo $PACKAGE_PATH | sed 's,:, ,g'`
+	?*)	for i in `echo $PACKAGE_PATH | $SED 's,:, ,g'`
 		do	PATH=$PATH:$i/bin
 		done
 		;;
@@ -1512,7 +1598,7 @@ hostinfo() # attribute ...
 			do	case $# in
 				0)	break ;;
 				esac
-				i=`$1 2>/dev/null | tr ' 	' '
+				i=`$1 2>/dev/null | $TR ' 	' '
 
 ' | grep -c "^$2"`
 				case $i in
@@ -1541,7 +1627,7 @@ hostinfo() # attribute ...
 			do	case $# in
 				0)	break ;;
 				esac
-				i=`$1 2>/dev/null | sed -e "${2}!d" -e "s${3}"`
+				i=`$1 2>/dev/null | $SED -e "${2}!d" -e "s${3}"`
 				case $i in
 				[123456789]*)
 					cpu=$i
@@ -1567,7 +1653,7 @@ int main()
 }
 !
 			for o in -lpthread ''
-			do	if	$CC $o -O -o $tmp.exe $tmp.c $o >/dev/null 2>&1
+			do	if	$CC $o -O -o $tmp.exe $tmp.c $o >/dev/null 2>&1 ||
 					gcc $o -O -o $tmp.exe $tmp.c $o >/dev/null 2>&1
 				then	./$tmp.exe
 					break
@@ -1585,7 +1671,7 @@ int main()
 	name)	_name_=`hostname || uname -n || cat /etc/whoami || echo local`
 		_hostinfo_="$_hostinfo_ $_name_"
 		;;
-	rating)	for rating in `grep -i ^bogomips /proc/cpuinfo 2>/dev/null | sed -e 's,.*:[ 	]*,,' -e 's,\(...*\)\..*,\1,' -e 's,\(\..\).*,\1,'`
+	rating)	for rating in `grep -i ^bogomips /proc/cpuinfo 2>/dev/null | $SED -e 's,.*:[ 	]*,,' -e 's,\(...*\)\..*,\1,' -e 's,\(\..\).*,\1,'`
 		do	case $rating in
 			[0123456789]*)	break ;;
 			esac
@@ -1687,10 +1773,10 @@ int main()
 		_hostinfo_="$_hostinfo_ $rating"
 		;;
 	type|canon)
-		case $canon in
-		'')	case $cc in
+		case $CROSS:$canon in
+		0:)	case $cc in
 			cc)	case $KEEP_HOSTTYPE:$HOSTTYPE in
-				0:?*)	if	test -d $PACKAGEROOT/arch/$HOSTTYPE
+				0:?*)	if	test -d ${PACKAGEROOT:-.}/arch/$HOSTTYPE
 					then	KEEP_HOSTTYPE=1
 					fi
 					;;
@@ -1705,7 +1791,13 @@ int main()
 			;;
 		esac
 		case $cc in
-		/*)	a=`$cc -dumpmachine 2>/dev/null`
+		/*)	a=`$cc -dumpmachine $CCFLAGS 2>/dev/null`
+			case $a in
+			'')	case $CCFLAGS in
+				?*)	a=`$cc -dumpmachine 2>/dev/null` ;;
+				esac
+				;;
+			esac
 			case $a in
 			''|*' '*|*/*:*)
 				;;
@@ -1732,7 +1824,13 @@ int main()
 			'')	case $cc in
 				/*|cc)	;;
 				*)	if	executable $i/$cc
-					then	a=`$i/$cc -dumpmachine 2>/dev/null`
+					then	a=`$i/$cc -dumpmachine $CCFLAGS 2>/dev/null`
+						case $a in
+						'')	case $CCFLAGS in
+							?*)	a=`$cc -dumpmachine 2>/dev/null` ;;
+							esac
+							;;
+						esac
 						case $a in
 						''|*' '*|*/*:*)
 							;;
@@ -1762,14 +1860,14 @@ int main()
 			esac
 			a=`arch || uname -m || att uname -m || uname -s || att uname -s`
 			case $a in 
-			*[\ \	]*)	a=`echo $a | sed "s/[ 	]/-/g"` ;;
+			*[\ \	]*)	a=`echo $a | $SED "s/[ 	]/-/g"` ;;
 			esac
 			case $a in
 			'')	a=unknown ;;
 			esac
 			m=`mach || machine || uname -p || att uname -p`
 			case $m in 
-			*[\ \	]*)	m=`echo $m | sed "s/[ 	]/-/g"` ;;
+			*[\ \	]*)	m=`echo $m | $SED "s/[ 	]/-/g"` ;;
 			esac
 			case $m in
 			'')	m=unknown ;;
@@ -1792,7 +1890,7 @@ int main()
 				esac
 				case $os in
 				[abcdefghijklmnopqrstuvwxyz]*[0123456789])
-					eval `echo $os | sed -e 's/^\([^0123456789.]*\)\.*\(.*\)/os=\1 rel=\2/'`
+					eval `echo $os | $SED -e 's/^\([^0123456789.]*\)\.*\(.*\)/os=\1 rel=\2/'`
 					;;
 				esac
 				;;
@@ -1803,7 +1901,7 @@ int main()
 		esac
 		type=unknown
 		case $host in
-		*.*)	host=`echo $host | sed -e 's/\..*//'` ;;
+		*.*)	host=`echo $host | $SED -e 's/\..*//'` ;;
 		esac
 		case $mach in
 		unknown)
@@ -1863,14 +1961,14 @@ int main()
 			9000/[78]*)
 				type=hp.pa
 				;;
-			*/*)	type=hp.`echo $arch | sed 's,/,_,g'`
+			*/*)	type=hp.`echo $arch | $SED 's,/,_,g'`
 				;;
 			*)	type=hp.$arch
 				;;
 			esac
 			;;
 		[Ii][Rr][Ii][Xx]*)
-			set xx `hinv | sed -e '/^CPU:/!d' -e 's/CPU:[ 	]*\([^ 	]*\)[ 	]*\([^ 	]*\).*/\1 \2/' -e q | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
+			set xx `hinv | $SED -e '/^CPU:/!d' -e 's/CPU:[ 	]*\([^ 	]*\)[ 	]*\([^ 	]*\).*/\1 \2/' -e q | $TR ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
 			shift
 			type=$1
 			n=
@@ -1915,7 +2013,7 @@ int main()
 			fi
 			split='
 '
-			a=`strings $a < /dev/null | sed -e 's/[^abcdefghijklmnopqrstuvwxyz0123456789]/ /g' -e "s/[ 	][ 	]*/'\"$split\"'/g" | sed -e "/^${type}[0123456789]$/!d" -e "s/^${type}//" -e q`
+			a=`strings $a < /dev/null | $SED -e 's/[^abcdefghijklmnopqrstuvwxyz0123456789]/ /g' -e 's/[ 	][ 	]*/\'"$split"'/g' | $SED -e "/^${type}[0123456789]$/!d" -e "s/^${type}//" -e q`
 			case $a in
 			[0123456789])	n=$a ;;
 			esac
@@ -1951,7 +2049,7 @@ int main()
 			type=sco
 			;;
 		[Ss]ol*)
-			v=`echo $rel | sed -e 's/^[25]\.//' -e 's/\.[^.]*$//'`
+			v=`echo $rel | $SED -e 's/^[25]\.//' -e 's/\.[^.]*$//'`
 			case $v in
 			[6789]|[1-9][0-9])
 				;;
@@ -1970,7 +2068,7 @@ int main()
 			esac
 			type=sol$v.$arch
 			;;
-		[Ss]un*)type=`echo $arch | sed -e 's/\(sun.\).*/\1/'`
+		[Ss]un*)type=`echo $arch | $SED -e 's/\(sun.\).*/\1/'`
 			case $type in
 			sparc)	type=sun4 ;;
 			esac
@@ -1991,7 +2089,7 @@ int main()
 					esac
 					;;
 				esac
-				v=`echo $rel | sed -e 's/^[25]\.//' -e 's/\.[^.]*$//'`
+				v=`echo $rel | $SED -e 's/^[25]\.//' -e 's/\.[^.]*$//'`
 				case $v in
 				[6789]|[1-9][0-9])
 					;;
@@ -2048,7 +2146,7 @@ int main()
 			FTX*|ftx*)
 				case $mach in
 				*[0123456789][abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ]*)
-					mach=`echo $mach | sed -e 's/[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ]*$//'`
+					mach=`echo $mach | $SED -e 's/[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ]*$//'`
 					;;
 				esac
 				type=stratus.$mach
@@ -2058,7 +2156,7 @@ int main()
 					type=os2
 					arch=$rel
 					;;
-				*)	type=`echo $os | sed -e 's/[0123456789].*//' -e 's/[^ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789.].*//'`
+				*)	type=`echo $os | $SED -e 's/[0123456789].*//' -e 's/[^ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789.].*//'`
 					;;
 				esac
 				case $type in
@@ -2067,7 +2165,7 @@ int main()
 					;;
 				[Uu][Ww][Ii][Nn]*|[Ww]indows_[0123456789][0123456789]|[Ww]indows_[Nn][Tt])
 					type=win32
-					arch=`echo $arch | sed -e 's/_[^_]*$//'`
+					arch=`echo $arch | $SED -e 's/_[^_]*$//'`
 					;;
 				esac
 				case $arch in
@@ -2116,16 +2214,16 @@ int main()
 		esac
 		case $type in
 		*[-_]32|*[-_]64|*[-_]128)
-			bits=`echo $type | sed 's,.*[-_],,'`
-			type=`echo $type | sed 's,[-_][0-9]*$,,'`
+			bits=`echo $type | $SED 's,.*[-_],,'`
+			type=`echo $type | $SED 's,[-_][0-9]*$,,'`
 			;;
 		*)	bits=
 			;;
 		esac
-		type=`echo $type | sed -e 's%[-+/].*%%' | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
+		type=`echo $type | $SED -e 's%[-+/].*%%' | $TR ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz`
 		case $type in
-		*.*)	lhs=`echo $type | sed -e 's/\..*//'`
-			rhs=`echo $type | sed -e 's/.*\.//'`
+		*.*)	lhs=`echo $type | $SED -e 's/\..*//'`
+			rhs=`echo $type | $SED -e 's/.*\.//'`
 			case $rhs in
 			[x0123456789]*86)	rhs=i$rhs ;;
 			68*)			rhs=m$rhs ;;
@@ -2135,7 +2233,7 @@ int main()
 						rhs=i386 ;;
 			powerpc)		rhs=ppc ;;
 			s[0123456789]*[0123456789]x)
-						rhs=`echo $rhs | sed -e 's/x$/-64/'` ;;
+						rhs=`echo $rhs | $SED -e 's/x$/-64/'` ;;
 			esac
 			case $rhs in
 			arm[abcdefghijklmnopqrstuvwxyz_][0123456789]*)
@@ -2149,7 +2247,7 @@ int main()
 				?*dwarf)x=coff ;;
 				?*elf)	x=elf ;;
 				esac
-				lhs=`echo ${lhs}XXX | sed -e "s/${x}XXX//"`
+				lhs=`echo ${lhs}XXX | $SED -e "s/${x}XXX//"`
 				;;
 			esac
 			case $lhs in
@@ -2160,7 +2258,7 @@ int main()
 						;;
 			freebsd)		case $rel in
 						[01234].*)	lhs=${lhs}4 ;;
-						[123456789]*.*)	lhs=${lhs}`echo $rel | sed -e 's/\..*//'` ;;
+						[123456789]*.*)	lhs=${lhs}`echo $rel | $SED -e 's/\..*//'` ;;
 						esac
 						;;
 			hpux)			lhs=hp ;;
@@ -2213,7 +2311,7 @@ int b() { return 0; }
 								esac
 								if	$cc $abi -mips$i -c $tmp.b.c &&
 									$cc -o $tmp.exe $tmp.a.o $tmp.b.o
-								then	type=`echo $type | sed -e 's/.$//'`$i
+								then	type=`echo $type | $SED -e 's/.$//'`$i
 									break
 								fi
 							done
@@ -2288,6 +2386,33 @@ note() # message ...
 	echo $command: "$@" >&2
 }
 
+# cc checks
+#
+#	CC: compiler base name name
+#	cc: full path, empty if not found
+
+checkcc()
+{
+	cc=
+	if	onpath $CC
+	then	cc=$_onpath_
+	else	case $CC in
+		cc)	if	onpath gcc
+			then	CC=gcc
+				cc=$_onpath_
+			fi
+			;;
+		esac
+	fi
+	case $cc in
+	'')	case $action in
+		make|test)	note "$CC: not found"; exit 1 ;;
+		*)		note "warning: $CC: not found" ;;
+		esac
+		;;
+	esac
+}
+
 # some actions have their own PACKAGEROOT or kick out early
 
 case $action in
@@ -2346,6 +2471,7 @@ case $x in
 	SUM=$EXECROOT/bin/sum
 	TEE=$EXECROOT/bin/tee
 	INITROOT=$PACKAGEROOT/src/cmd/INIT
+	checkcc
 	;;
 *)	hosttype=
 	case $KEEP_PACKAGEROOT in
@@ -2477,7 +2603,7 @@ case $x in
 			exit 1
 		}
 		case $KEEP_HOSTTYPE:$hosttype in
-		0:?*)	if	test -d $PACKAGEROOT/arch/$hosttype
+		0:?*)	if	test -d ${PACKAGEROOT:-.}/arch/$hosttype
 			then	KEEP_HOSTTYPE=1
 				HOSTTYPE=$hosttype
 			else	echo "$command: $hosttype: package root not found" >&2
@@ -2538,55 +2664,40 @@ cat $INITROOT/$i.sh
 		fi
 		;;
 	esac
+	path=$PATH
+	PATH=$INSTALLROOT/bin:$PACKAGEROOT/bin:$PATH
+	checkcc
+	PATH=$path
+	case $cc in
+	?*)	if	test -f $INITROOT/hello.c
+		then	
+			# check if $CC (full path $cc) is a cross compiler
 
-	# check if $CC is a cross compiler
-
-	CROSS=0
-	if	test -f $INITROOT/hello.c
-	then	case $action in
-		make|test)	warn='' ;;
-		*)		warn='warning: ' ;;
-		esac
-		if	onpath $CC
-		then	(
-			cd /tmp || exit 3
-			cp $INITROOT/hello.c pkg$$.c || exit 3
-			$CC -o pkg$$.exe pkg$$.c > pkg$$.e 2>&1 || {
-				if $CC -Dnew=old -o pkg$$.exe pkg$$.c > /dev/null 2>&1
-				then	echo "$command: ${warn}$CC: must be a C compiler (not C++)" >&2
-				else	cat pkg$$.e
-					echo "$command: ${warn}$CC: failed to compile and link $INITROOT/hello.c -- is it a C compiler?" >&2
+			(
+				cd /tmp || exit 3
+				cp $INITROOT/hello.c pkg$$.c || exit 3
+				$cc -o pkg$$.exe pkg$$.c > pkg$$.e 2>&1 || {
+					if $cc -Dnew=old -o pkg$$.exe pkg$$.c > /dev/null 2>&1
+					then	echo "$command: ${warn}$CC: must be a C compiler (not C++)" >&2
+					else	cat pkg$$.e
+						echo "$command: ${warn}$CC: failed to compile and link $INITROOT/hello.c -- is it a C compiler?" >&2
+					fi
+					exit 2
+				}
+				if ./pkg$$.exe >/dev/null 2>&1
+				then	code=0
+				else	code=1
 				fi
-				exit 2
-			}
-			if ./pkg$$.exe >/dev/null
-			then	code=0
-			else	code=1
-			fi
-			rm -f pkg$$.*
-			exit $code
+				rm -f pkg$$.*
+				exit $code
 			)
 			code=$?
-		else	echo "$command: ${warn}$CC: not found" >&2
-			code=2
+			case $code in
+			1)	CROSS=1 ;;
+			esac
 		fi
-		case $code in
-		1)	CROSS=1
-			hostinfo type
-			case $HOSTTYPE in
-			$_hostinfo_)
-				echo "$command: $CC: seems to be a cross-compiler" >&2
-				echo "$command: set HOSTTYPE to something other than the native $HOSTTYPE" >&2
-				exit 1
-				;;
-			esac
-			;;
-		2)	case $warn in
-			'')	exit 1 ;;
-			esac
-			;;
-		esac
-	fi
+		;;
+	esac
 	EXECTYPE=$HOSTTYPE
 	EXECROOT=$INSTALLROOT
 	case $CROSS in
@@ -2641,6 +2752,7 @@ cat $INITROOT/$i.sh
 		case $abi in
 		'')	abi="'d=$INSTALLROOT v='" ;;
 		esac
+		p=0
 		eval "
 			for a in $abi
 			do	eval \$a
@@ -2654,9 +2766,8 @@ cat $INITROOT/$i.sh
 						*)	x=:\\\$x ;;
 						esac
 						LD_LIBRARY\${v}_PATH=\$d/lib\\\$x
-						$show LD_LIBRARY\${v}_PATH=\\\$LD_LIBRARY\${v}_PATH
-						$show export LD_LIBRARY\${v}_PATH
 						export LD_LIBRARY\${v}_PATH
+						p=1
 						;;
 					esac
 				\"
@@ -2664,23 +2775,28 @@ cat $INITROOT/$i.sh
 		"
 		case $LD_LIBRARY_PATH in
 		'')	;;
-		*)	a=0
-			for d in $lib
-			do	case :$LD_LIBRARY_PATH: in
+		*)	for d in $lib
+			do	case $HOSTTYPE in
+				*64)	if	test -d ${d}64
+					then	d=${d}64
+					fi
+					;;
+				esac
+				case :$LD_LIBRARY_PATH: in
 				*:$d:*)	;;
 				*)	if	test -d $d
 					then	LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$d
-						a=1
+						p=1
 					fi
 					;;
 				esac
 			done
-			case $a in
-			1)	$show LD_LIBRARY_PATH=$LD_LIBRARY_PATH
-				$show export LD_LIBRARY_PATH
-				export LD_LIBRARY_PATH
-				;;
-			esac
+			;;
+		esac
+		case $p in
+		1)	$show LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+			$show export LD_LIBRARY_PATH
+			export LD_LIBRARY_PATH
 			;;
 		esac
 		case $LIBPATH: in
@@ -2750,6 +2866,24 @@ cat $INITROOT/$i.sh
 				break
 			fi
 		done
+		case $HOSTTYPE in
+		$EXECTYPE)
+			OCC=$CC
+			CC=cc
+			hostinfo type
+			EXECTYPE=$_hostinfo_
+			case $HOSTTYPE in
+			$EXECTYPE)
+				echo "$command: $CC: seems to be a cross-compiler" >&2
+				echo "$command: set HOSTTYPE to something other than the native $EXECTYPE" >&2
+				exit 1
+				;;
+			esac
+			;;
+		esac
+		$show EXECTYPE=$EXECTYPE
+		$show export EXECTYPE
+		export EXECTYPE
 		;;
 	esac
 	$show EXECROOT=$EXECROOT
@@ -2771,6 +2905,8 @@ cat $INITROOT/$i.sh
 	0)	executable "$SHELL" || SHELL=
 		case $SHELL in
 		?*)	case `$SHELL -c 'echo $KSH_VERSION' 2>&1` in
+			Version*????-??-??)
+				;;
 			?*)	: any output here means $SHELL is not reliable for scripting
 				SHELL=
 				;;
@@ -2785,7 +2921,8 @@ cat $INITROOT/$i.sh
 			for i in ksh sh bash
 			do	if	onpath $i
 				then	case `$_onpath_ -c 'echo $KSH_VERSION' 2>&1` in
-					'')	SHELL=$_onpath_
+					Version*????-??-??|'')
+						SHELL=$_onpath_
 						break
 						;;
 					esac
@@ -2811,7 +2948,7 @@ cat $INITROOT/$i.sh
 		1)	SHELL=/bin/sh
 			;;
 		*)	# catch (our own) pipe/socket configuration mismatches
-			date | $SHELL -c 'read x'
+			$SHELL -c "date | $SHELL -c 'read x'"
 			case $? in
 			0)	;;
 			*)	SHELL=/bin/sh ;;
@@ -3146,30 +3283,54 @@ checkaout()	# cmd ...
 {
 	case $PROTOROOT in
 	-)	PROTOROOT=
+		case $* in
+		ratz)	if	test -f $INITROOT/ratz.c -a -w $PACKAGEROOT
+			then	test -f $INITROOT/hello.c || {
+					cat > $INITROOT/hello.c <<'!'
+#ifndef printf
+#include <stdio.h>
+#endif
+int main() { int new = 0; printf("hello world\n"); return new;}
+!
+				}
+				test -f $INITROOT/p.c || {
+					cat > $INITROOT/p.c <<'!'
+/*
+ * small test for prototyping cc
+ */
+
+int main(int argc, char** argv) { return argc || argv; }
+!
+				}
+			fi
+			;;
+		esac
 		test -f $INITROOT/hello.c -a -f $INITROOT/p.c -a -w $PACKAGEROOT || {
 			for i
 			do	onpath $i || {
 					echo "$command: $i: command not found" >&2
-					exit 1
+					return 1
 				}
 			done
 			return 0
 		}
-		if	onpath $CC
-		then	_PACKAGE_cc=1
+		case $cc in
+		'')	_PACKAGE_cc=0
+			;;
+		*)	_PACKAGE_cc=1
 			test -f $INITROOT/hello.c -a -f $INITROOT/p.c || {
 				echo "$command: $INITROOT: INIT package source not found" >&2
-				exit 1
+				return 1
 			}
 			executable $INSTALLROOT/bin/nmake || {
 				# check for prototyping cc
 				# NOTE: proto.c must be K&R compatible
 
-				checkaout proto
 				$CC -c $INITROOT/p.c >/dev/null 2>&1
 				c=$?
 				rm -f p.*
 				test 0 != "$c" && {
+					checkaout proto || return
 					PROTOROOT=$PACKAGEROOT/proto
 					$show PROTOROOT=$PACKAGEROOT/proto
 					export PROTOROOT
@@ -3203,17 +3364,17 @@ checkaout()	# cmd ...
 				}
 			}
 			for i in arch arch/$HOSTTYPE arch/$HOSTTYPE/bin
-			do	test -d $PACKAGEROOT/$i || $exec mkdir $PACKAGEROOT/$i || exit
+			do	test -d $PACKAGEROOT/$i || $exec mkdir $PACKAGEROOT/$i || return
 			done
-		else	_PACKAGE_cc=0
-		fi
+			;;
+		esac
 		;;
 	esac
 	case $_PACKAGE_cc in
-	'')	if	onpath $CC
-		then	_PACKAGE_cc=1
-		else	_PACKAGE_cc=0
-		fi
+	'')	case $cc in
+		'')	_PACKAGE_cc=0 ;;
+		*)	_PACKAGE_cc=1 ;;
+		esac
 		;;
 	esac
 	for i
@@ -3237,17 +3398,17 @@ checkaout()	# cmd ...
 		esac
 		case $k in
 		000)	echo "$command: $i: not found: download the INIT package $HOSTTYPE binary to continue" >&2
-			exit 1
+			return 1
 			;;
 		010)	echo "$command: $i: not found: set CC=C-compiler or download the INIT package $HOSTTYPE binary to continue" >&2
-			exit 1
+			return 1
 			;;
 		100)	echo "$command: $i: not found: download the INIT package source or $HOSTTYPE binary to continue" >&2
-			exit 1
+			return 1
 			;;
 		110)	case $CROSS in
 			1)	echo "$command: $i: not found: make the local $EXECTYPE binary package before $HOSTTYPE" >&2
-				exit 1
+				return 1
 				;;
 			esac
 			;;
@@ -3267,19 +3428,19 @@ checkaout()	# cmd ...
 			note update $INSTALLROOT/bin/$i
 			if	test proto != "$i" && executable $INSTALLROOT/bin/proto
 			then	case $exec in
-				'')	$INSTALLROOT/bin/proto -p $INITROOT/$i.c > $i.c || exit ;;
+				'')	$INSTALLROOT/bin/proto -p $INITROOT/$i.c > $i.c || return ;;
 				*)	$exec "$INSTALLROOT/bin/proto -p $INITROOT/$i.c > $i.c" ;;
 				esac
-				$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $i.c || exit
+				$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $i.c || return
 				$exec rm -f $i.c
 			else	if	test ! -d $INSTALLROOT/bin
 				then	for j in arch arch/$HOSTTYPE arch/$HOSTTYPE/bin
-					do	test -d $PACKAGEROOT/$j || $exec mkdir $PACKAGEROOT/$j || exit
+					do	test -d $PACKAGEROOT/$j || $exec mkdir $PACKAGEROOT/$j || return
 					done
 				fi
 				if	test '' != "$PROTOROOT" -a -f $INITPROTO/$i.c
-				then	$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $INITPROTO/$i.c || exit
-				else	$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $INITROOT/$i.c || exit
+				then	$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $INITPROTO/$i.c || return
+				else	$exec $CC $CCFLAGS -o $INSTALLROOT/bin/$i $INITROOT/$i.c || return
 				fi
 				case $i:$exec in
 				proto:)	test -d $INSTALLROOT/include || mkdir $INSTALLROOT/include
@@ -3290,9 +3451,13 @@ checkaout()	# cmd ...
 				esac
 			fi
 			test -f $i.o && $exec rm -f $i.o
+			i=$PATH
+			PATH=/bin
+			PATH=$i
 			;;
 		esac
 	done
+	return 0
 }
 
 # check package requirements against received packages
@@ -3517,8 +3682,7 @@ components() # [ package ]
 			*)		_components_="$_components_ $p" ;;
 			esac
 			;;
-		*)	
-			if	view - src lib/package/$p.pkg
+		*)	if	view - src lib/package/$p.pkg
 			then	p=$_view_
 				op=::
 				exec < $p
@@ -3557,6 +3721,18 @@ components() # [ package ]
 			;;
 		esac
 	done
+}
+
+# list main environment values
+
+showenv()
+{
+	case $1 in
+	''|make)for __i__ in CC SHELL $env
+		do	eval echo $__i__='$'$__i__
+		done
+		;;
+	esac
 }
 
 # capture command output
@@ -3628,6 +3804,7 @@ capture() # file command ...
 				case $s in
 				?*)	echo "$s"  ;;
 				esac
+				showenv $action
 				"$@"
 			} < /dev/null 2>&1 | $TEE -a $o
 			;;
@@ -3635,6 +3812,7 @@ capture() # file command ...
 				case $s in
 				?*)	echo "$s"  ;;
 				esac
+				showenv $action
 				"$@"
 			} < /dev/null > $o 2>&1
 			;;
@@ -3737,13 +3915,13 @@ get() # host path [ file size ]
 				cat <&8 > get.tmp
 				got=`sed -e 1q get.tmp`
 				case $got in
-				*" 200 "*)
+				*" "200" "*)
 					got=`sed -e '1,/^.$/d' -e '/^[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWYZ]/!d' get.tmp`
 					: > get.err
 					code=0
 					break
 					;;
-				*" 302 "*)
+				*" "30[123]" "*)
 					got=`sed -e '/^Location: /!d' -e 's,^Location: \(.*\)://\([^/]*\)\(/.*\),prot='\''\1'\'' host='\''\2'\'' path='\''\3'\'',' get.tmp`
 					case $got in
 					'')	rm get.tmp
@@ -3967,7 +4145,14 @@ remote() # host no-exec-background
 			esac
 			$exec $rsh $user$name "$cmd"
 			eval lst=$admin_list
-			$exec $rcp `$rsh $user$name "cat ${root}lib/package/tgz/$lst || echo ERROR" 2>/dev/null | sed "s,^,$user$name:,"` $PACKAGESRC/tgz
+			case $admin_pkgs in
+			'')	filter=cat ;;
+			*)	filter="egrep lib/package/tgz/($admin_pkgs)\\." ;;
+			esac
+			if	$exec $rcp $user$name:${root}lib/package/tgz/$lst $PACKAGESRC/tgz
+			then	$exec $rcp `$filter $PACKAGESRC/tgz/$lst | sed "s,^,$user$name:,"` $PACKAGESRC/tgz
+			else	echo "$command: $user$name:${root}lib/package/tgz/$lst: not found" >&2
+			fi
 			case $background in
 			?*)	$exec "} $background" ;;
 			esac
@@ -3995,6 +4180,21 @@ checksrc()
 	esac
 }
 
+# check for native ascii 0:yes 1:no
+
+__isascii__=
+
+isascii()
+{
+	case $__isascii__ in
+	'')	case `echo A | od -o | sed -e 's/[ 	]*$//' -e '/[ 	]/!d' -e 's/.*[ 	]//'` in
+		005101|040412)	__isascii__=0 ;;
+		*)		__isascii__=1 ;;
+		esac
+	esac
+	return $__isascii__
+}
+
 case $action in
 
 admin)	while	test ! -f $admin_db
@@ -4006,16 +4206,31 @@ admin)	while	test ! -f $admin_db
 		view file src lib/package/admin/$admin_db || exit 1
 		admin_db=$_view_
 	done
+	admin_components=
 	case $admin_action in
 	list)	cat $admin_db
 		exit
+		;;
+	test)	set $admin_args
+		while	:
+		do	case $# in
+			1)	break ;;
+			esac
+			shift
+			case $1 in
+			*=*)	;;
+			*)	admin_components=-$1
+				break
+				;;
+			esac
+		done
 		;;
 	esac
 	: all work done in $PACKAGESRC/admin
 	cd $PACKAGESRC/admin || exit
 	checksrc
 	packages=
-	admin_log=$admin_action.log
+	admin_log=${admin_action}${admin_components}.log
 	exec < $admin_db || exit
 	test -d $admin_log || $exec mkdir $admin_log || exit
 	case $admin_on in
@@ -4038,12 +4253,15 @@ admin)	while	test ! -f $admin_db
 	*)	admin_binary=
 		;;
 	esac
+	case $only in
+	1)	admin_args="only $admin_args" ;;
+	esac
 	trap 'kill $pids >/dev/null 2>&1' 1 2 3 15
 	index=0
-	while	read type host root date time make test write junk
+	while	read type host root date time make test write comment
 	do	case $type in
 		''|'#'*);;
-		*=*)	eval "$type $host $root $date $time $make $test $write $junk"
+		*=*)	eval "$type $host $root $date $time $make $test $write $comment"
 			;;
 		*)	case $admin_action in
 			make|test|write)
@@ -4065,6 +4283,28 @@ admin)	while	test ! -f $admin_db
 				;;
 			esac
 			name=$host
+			host=`echo $name | sed 's,[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789],__,g'`
+			eval x='$'${host}_index
+			eval ${host}_index=1
+			case $x in
+			1)	i=0
+				while	:
+				do	case $i in
+					$index)	h=''
+						break
+						;;
+					esac
+					i=`expr $i + 1`
+					eval h='$'${admin_host}${i}_name
+					case $h in
+					$host)	host=${admin_host}${i}
+						eval user='$'${host}_user root='$'${host}_rsh:$host:'$'${host}_root
+						break
+						;;
+					esac
+				done
+				;;
+			esac
 			case $root in
 			*:$name:*)root=`echo '' $root | sed 's,:.*,:,'` ;;
 			esac
@@ -4122,8 +4362,9 @@ admin)	while	test ! -f $admin_db
 					;;
 				*)	rsh=$1 sync=$2 root=$3
 					case $sync in
-					'')	;;
-					*)	case " $sync_hosts " in
+					${admin_host}*)
+						;;
+					?*)	case " $sync_hosts " in
 						*" $sync ${admin_host}"*)
 							set '' '' $sync_hosts
 							while	:
@@ -4150,9 +4391,6 @@ admin)	while	test ! -f $admin_db
 			*)	sync=
 				;;
 			esac
-			case $sync in
-			'')	local_types="$local_types $type" ;;
-			esac
 			case $name in
 			$admin_on)
 				keep=1
@@ -4172,6 +4410,9 @@ admin)	while	test ! -f $admin_db
 				;;
 			esac
 			case $sync in
+			'')	local_types="$local_types $type" ;;
+			esac
+			case $sync in
 			$host)	remote_hosts="$remote_hosts $host"
 				;;
 			?*)	eval ${sync}_share=\"\$${sync}_share $host\"
@@ -4183,8 +4424,22 @@ admin)	while	test ! -f $admin_db
 			;;
 		esac
 	done
+	p=
+	for i in $admin_args
+	do	p="$i $p"
+	done
+	admin_pkgs=
+	for i in $p
+	do	if	view - src "lib/package/$i.pkg"
+		then	case $admin_pkgs in
+			'')	admin_pkgs="$i" ;;
+			*)	admin_pkgs="$admin_pkgs|$i" ;;
+			esac
+		fi
+	done
 	: "admin_binary :" $admin_binary
 	: "admin_args   :" $admin_args
+	: "admin_pkgs   :" $admin_pkgs
 	: "admin_on     :" "$admin_on"
 	: "local_hosts  :" $local_hosts
 	: "local_types  :" $local_types
@@ -4293,11 +4548,15 @@ admin)	while	test ! -f $admin_db
 			esac
 			;;
 		esac
-		eval log='$'${host}_log
+		eval main_log='$'${host}_log
 		main=
 		share_keep=
 		for i in $host $share
-		do	eval n='$'${i}_name t='$'${i}_type q='$'${i}_sync s='$'${i}_snarf l='$'${i}_log
+		do	eval n='$'${i}_name t='$'${i}_type q='$'${i}_sync s='$'${i}_snarf l='$'${i}_log k='$'${i}_keep
+			case $main:$k in
+			:*)	;;
+			*:0)	continue ;;
+			esac
 			case $admin_binary in
 			1)	case $s:$q in
 				:?*)	continue ;;
@@ -4308,7 +4567,6 @@ admin)	while	test ! -f $admin_db
 				*)	continue
 					;;
 				esac
-				eval ${i}_snarf=${i}
 				;;
 			esac
 			case $main in
@@ -4323,18 +4581,22 @@ admin)	while	test ! -f $admin_db
 		done
 		host=$main
 		share=$share_keep
+		case $force in
+		0)	admin_ditto_update=--update ;;
+		*)	admin_ditto_update= ;;
+		esac
 		case $exec in
 		'')	{
 			case $admin_binary:$sync in
 			:?*)	eval syncname='$'${sync}_name
-				test -x $PACKAGEROOT/bin/package && $admin_ditto --remote=$rsh --expr="name=='package'" $PACKAGEROOT/bin $user$syncname:$root/bin
-				test -d $PACKAGESRC && $admin_ditto --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
+				test -x $PACKAGEROOT/bin/package && $admin_ditto $admin_ditto_update --remote=$rsh --expr="name=='package'" $PACKAGEROOT/bin $user$syncname:$root/bin
+				test -d $PACKAGESRC && $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
 				for dir in $package_src
 				do	case $MAKESKIP in
 					'')	expr="--expr=if(name=='$admin_ditto_skip')status=SKIP" ;;
 					*)	expr="--expr=if(name=='$admin_ditto_skip'||level==1&&name=='$MAKESKIP')status=SKIP" ;;
 					esac
-					test -d $PACKAGEROOT/src/$dir && $admin_ditto --remote=$rsh "$expr" $PACKAGEROOT/src/$dir $user$syncname:$root/src/$dir
+					test -d $PACKAGEROOT/src/$dir && $admin_ditto $admin_ditto_update --remote=$rsh "$expr" $PACKAGEROOT/src/$dir $user$syncname:$root/src/$dir
 				done
 				;;
 			esac
@@ -4359,19 +4621,19 @@ admin)	while	test ! -f $admin_db
 				esac
 				;;
 			esac
-			} < /dev/null > $admin_log/$log 2>&1 &
+			} < /dev/null > $admin_log/$main_log 2>&1 &
 			pids="$pids $!"
 			;;
 		*)	echo "{"
 			case $admin_binary:$sync in
 			:?*)	eval syncname='$'${sync}_name
-				test -d $PACKAGESRC && echo $admin_ditto --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
+				test -d $PACKAGESRC && echo $admin_ditto $admin_ditto_update --remote=$rsh --expr="if(level>1)status=SKIP;name=='*.(pkg|lic)'" $PACKAGESRC $user$syncname:$root/lib/package
 				for dir in $package_src
 				do	case $MAKESKIP in
 					'')	expr="--expr=if(name=='$admin_ditto_skip')status=SKIP" ;;
 					*)	expr="--expr=if(name=='$admin_ditto_skip'||level==1&&name=='$MAKESKIP')status=SKIP" ;;
 					esac
-					test -d $PACKAGEROOT/src/$dir && echo $admin_ditto --remote=$rsh "$expr" $PACKAGEROOT/src/$dir $user$syncname:$root/src/$dir
+					test -d $PACKAGEROOT/src/$dir && echo $admin_ditto $admin_ditto_update --remote=$rsh "$expr" $PACKAGEROOT/src/$dir $user$syncname:$root/src/$dir
 				done
 				;;
 			esac
@@ -4396,12 +4658,12 @@ admin)	while	test ! -f $admin_db
 				esac
 				;;
 			esac
-			echo "} < /dev/null > $admin_log/$log 2>&1 &"
+			echo "} < /dev/null > $admin_log/$main_log 2>&1 &"
 			;;
 		esac
 		eval name='$'${main}_name
 		hosts="$hosts $name"
-		logs="$logs $log"
+		logs="$logs $main_log"
 		for share in $share
 		do	eval keep=\$${share}_keep
 			case $keep in
@@ -4439,12 +4701,15 @@ admin)	while	test ! -f $admin_db
 					M=$6 T=$7 W=$8
 					case $admin_action in
 					make|view)
-						M=`grep -c ']: \*\*\*.* code ' $admin_log/$2` ;;
-					test)	T=`grep -ci 'fail' $admin_log/$2` ;;
+						M=`grep -c ']:.* \*\*\*.* code ' $admin_log/$2` ;;
+					test)	T=`grep -ci 'fail[es]' $admin_log/$2` ;;
 					*)	W=`grep '^[abcdefghijklmnopqrstuvwxyz][abcdefghijklmnopqrstuvwxyz]*:.' $admin_log/$2 | egrep -cv 'start at|done  at|output captured|warning:|: package not found|whence: command not found'` ;;
 					esac
 					case $1 in
 					?|??|???|????|?????|??????|???????)
+						t1='		'
+						;;
+					????????|?????????|??????????|???????????|????????????|?????????????|??????????????|???????????????)
 						t1='	'
 						;;
 					*)	t1=''
@@ -4489,8 +4754,18 @@ admin)	while	test ! -f $admin_db
 					?)	W="  $W" ;;
 					'')	W="  0" ;;
 					esac
-					echo "$1$t1	$2$t2	$3$t3	$D	$E	$M $T $W"
-					echo "$1$t1	$2$t2	$3$t3	$D	$E	$M $T $W" >&9
+					A=$1$t1
+					H=$2$t2
+					R=$3$t3
+					case $# in
+					[0-8])	C=
+						;;
+					*)	shift 8
+						C=" $*"
+						;;
+					esac
+					echo "$A	$H	$R	$D	$E	$M $T $W$C"
+					echo "$A	$H	$R	$D	$E	$M $T $W$C" >&9
 					continue
 					;;
 				esac
@@ -4700,7 +4975,7 @@ copyright)
 		esac
 		;;
 	esac
-	checkaout proto
+	checkaout proto || exit
 	for i
 	do	copyright $i
 	done
@@ -4715,8 +4990,17 @@ export)	case $INSTALLROOT in
 	0)	v='$i=' ;;
 	*)	v= ;;
 	esac
-	for i in $target $package
-	do	eval echo ${v}'$'${i}
+	set '' $target $package
+	case $# in
+	1)	set '' $env ;;
+	esac
+	while	:
+	do	case $# in
+		1)	break ;;
+		esac
+		shift
+		i=$1
+		eval echo ${v}'$'${i}
 	done
 	;;
 
@@ -4989,51 +5273,8 @@ make|view)
 		cmp -s $i $INSTALLROOT/$i 2>/dev/null ||
 		$exec cp $PACKAGEROOT/$i $INSTALLROOT/$i
 	done
-	case $exec in
-	'')	if	test ! -f $INSTALLROOT/bin/.paths -o -w $INSTALLROOT/bin/.paths
-		then	nl="
-"
-			o=`cat $INSTALLROOT/bin/.paths 2>/dev/null`
-			v=
-			n=
-			case $nl$o in
-			*${nl}FPATH=*|*#FPATH=*|*[Nn][Oo]FPATH=*)
-				;;
-			*)	case $n in
-				'')	;;
-				*)	n="$n$nl" v="$v|" ;;
-				esac
-				n="${n}FPATH=../fun"
-				v="${v}FPATH"
-				;;
-			esac
-			case $nl$o in
-			*${nl}BUILTIN_LIB=*|*#BUILTIN_LIB=*|*[Nn][Oo]BUILTIN_LIB=*)
-				;;
-			*)	case $n in
-				'')	;;
-				*)	n="$n$nl" v="$v|" ;;
-				esac
-				if	(probe -l C make cc | grep '^CC.DIALECT .* EXPORT=[AD]LL') >/dev/null 2>&1
-				then	x=
-				else	x='no'
-				fi
-				n="${n}${x}BUILTIN_LIB=cmd"
-				v="${v}BUILTIN_LIB"
-				;;
-			esac
-			case $n in
-			?*)	case $o in
-				?*)	o=`egrep -v "($v)=" $INSTALLROOT/bin/.paths`$nl ;;
-				esac
-				echo "# use { # no NO } prefix instead of XX to permanently disable #$nl$o$n" > $INSTALLROOT/bin/.paths
-				;;
-			esac
-		fi
-		;;
-	esac
 
-	# check $CC and { cc ld ldd } intercepts
+	# check $CC and { ar cc ld ldd } intercepts
 
 	h=$HOSTTYPE
 	case $HOSTTYPE in
@@ -5049,17 +5290,13 @@ make|view)
 		h="$h $t"
 		;;
 	esac
-	if	onpath $CC
-	then	cc=$_onpath_
-	else	cc=$CC
-	fi
 	case $CC in
 	cc)	c=cc
 		b=$INSTALLROOT/bin/$c
 		t=$INSTALLROOT/lib/package/gen/$c.tim
 		intercept=0
-		for t in $h
-		do	s=$INITROOT/$c.$t
+		for a in $h
+		do	s=$INITROOT/$c.$a
 			test -x "$s" || continue
 			if	cmp -s "$s" "$b" >/dev/null 2>&1
 			then	intercept=1
@@ -5092,13 +5329,6 @@ make|view)
 				;;
 			esac
 		done
-		case $cc in
-		cc)	if	onpath gcc
-			then	CC=gcc
-				cc=$_onpath_
-			fi
-			;;
-		esac
 		case $intercept in
 		1)	c=ld
 			b=$INSTALLROOT/bin/$c
@@ -5129,6 +5359,24 @@ make|view)
 			;;
 		esac
 	done
+# following code stubbed out just in case ar.ibm.risc is needed
+#	c=ar
+#	b=$INSTALLROOT/bin/$c
+#	for t in $h
+#	do	s=$INITROOT/$c.$t
+#		test -x "$s" || continue
+#		onpath $c ||
+#		case `ls -t "$b" "$s" 2>/dev/null` in
+#		$b*)	;;
+#		$s*)	x=`$s -tv /foo/bar.a 2>&1 | egrep -i 'option|usage'`
+#			case $x in
+#			'')	$exec cp "$s" "$b"
+#				note update $b
+#				;;
+#			esac
+#			;;
+#		esac
+#	done
 	case $cc in
 	/*)	;;
 	*)	echo "$command: $CC: not found -- set CC=C-compiler" >&2
@@ -5229,7 +5477,7 @@ cat $j $k
 
 	# initialize a few mamake related commands
 
-	checkaout mamake proto ratz release
+	checkaout mamake proto ratz release || exit
 
 	# execrate if necessary
 
@@ -5283,7 +5531,7 @@ cat $j $k
 		esac
 		;;
 	esac
-
+ 
 	# separate flags from target list
 
 	case $target in
@@ -5375,6 +5623,52 @@ cat $j $k
 			;;
 		esac
 	fi
+
+	# mamprobe data should have been generated by this point
+
+	case $exec in
+	'')	if	test ! -f $INSTALLROOT/bin/.paths -o -w $INSTALLROOT/bin/.paths
+		then	nl="
+"
+			o=`cat $INSTALLROOT/bin/.paths 2>/dev/null`
+			v=
+			n=
+			case $nl$o in
+			*${nl}FPATH=*|*#FPATH=*|*[Nn][Oo]FPATH=*)
+				;;
+			*)	case $n in
+				'')	;;
+				*)	n="$n$nl" v="$v|" ;;
+				esac
+				n="${n}FPATH=../fun"
+				v="${v}FPATH"
+				;;
+			esac
+			case $nl$o in
+			*${nl}BUILTIN_LIB=*|*#BUILTIN_LIB=*|*[Nn][Oo]BUILTIN_LIB=*)
+				;;
+			*)	case $n in
+				'')	;;
+				*)	n="$n$nl" v="$v|" ;;
+				esac
+				if	grep '^setv mam_cc_DIALECT .* EXPORT=[AD]LL' $INSTALLROOT/lib/probe/C/mam/* >/dev/null 2>&1
+				then	x=
+				else	x='no'
+				fi
+				n="${n}${x}BUILTIN_LIB=cmd"
+				v="${v}BUILTIN_LIB"
+				;;
+			esac
+			case $n in
+			?*)	case $o in
+				?*)	o=`egrep -v "($v)=" $INSTALLROOT/bin/.paths`$nl ;;
+				esac
+				echo "# use { # no NO } prefix instead of XX to permanently disable #$nl$o$n" > $INSTALLROOT/bin/.paths
+				;;
+			esac
+		fi
+		;;
+	esac
 
 	# run from separate copies since nmake and ksh may be rebuilt
 
@@ -5626,7 +5920,7 @@ read)	case ${PWD:-`pwd`} in
 					code=1
 					continue
 				}
-			else	if	onpath gunzip && onpath $TAR
+			else	if	onpath gunzip && onpath $TAR && isascii
 				then	case $TARPROBE in
 					?*)	for i in $TARPROBE
 						do	if	$TAR ${i}f - /dev/null > /dev/null 2>&1
@@ -5649,12 +5943,16 @@ read)	case ${PWD:-`pwd`} in
 							continue
 						}
 					fi
-				else	checkaout ratz
+				else	checkaout ratz && onpath ratz || {
+						code=1
+						continue
+					}
+					RATZ=$_onpath_
 					case $exec in
 					'')	echo $f:
-						$exec ratz -lm < "$f"
+						$exec $RATZ -lm < "$f"
 						;;
-					*)	$exec "ratz -lm < $f"
+					*)	$exec "$RATZ -lm < $f"
 						;;
 					esac || {
 						code=1
@@ -5781,6 +6079,8 @@ $r:" | sort` in
 		k=
 		for i in `ls $d$p[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.]????$m* $z 2>/dev/null`
 		do	case $i in
+			*.md5)	continue
+				;;
 			$d${p}[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789][_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789]$m*)
 				;;
 			$d${p}[_.][0123456789][0123456789][0123456789][0123456789]-[0123456789][0123456789]-[0123456789][0123456789]$m*)
@@ -5863,7 +6163,7 @@ regress)if	test ! -d $PACKAGEBIN/gen
 
 release)count= lo= hi=
 	checksrc
-	checkaout release
+	checkaout release || exit
 	requirements source $package
 	components $package
 	package=$_components_
@@ -6054,7 +6354,7 @@ results)set '' $target
 				case $filter in
 				cat)	$exec cat $j
 					;;
-				errors)	$exec egrep -i '\*\*\*|FAIL|^TEST.* [123456789][0123456789]* error|core.*dump' $j | sed -e '/^TEST.\//s,/[^ ]*/,,'
+				errors)	$exec egrep -i '\*\*\*|FAIL[ES]|^TEST.* [123456789][0123456789]* error|core.*dump' $j | sed -e '/^TEST.\//s,/[^ ]*/,,'
 					;;
 				rt)	$exec rt - $j
 					;;
@@ -6087,7 +6387,8 @@ results)set '' $target
 					case $filter in
 					errors)	$exeg egrep '^pax:|\*\*\*' $j
 						;;
-					*)	$exec egrep -iv '^($||[\+\[]|cc[^-:]|kill |make: .*file system time|so|[0123456789]+ error|uncrate |[0123456789]+ block|ar: creat|iffe: test: |conf: (check|generate|test)|[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_][abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789]*=|gsf@research|ar:.*warning|cpio:|[0123456789]*$|(checking|creating|touch) [/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789])| obsolete predefined symbol | is dangerous | is not implemented| trigraph| assigned to | passed as |::__builtin|pragma.*prototyped|^creating.*\.a$|warning.*not optimized|exceeds size thresh|ld:.*preempts|is unchanged|with value >=|(-l|lib)\*|/(ast|sys)/(dir|limits|param|stropts)\.h.*redefined|usage|base registers|`\.\.\.` obsolete'"$i" $j
+					*)	$exec egrep -iv '^($||[\+\[]|cc[^-:]|kill |make.*(file system time|has been replaced)|so|[0123456789]+ error|uncrate |[0123456789]+ block|ar: creat|iffe: test: |conf: (check|generate|test)|[abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_][abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789]*=|gsf@research|ar:.*warning|cpio:|ld:.*(duplicate symbol|to obtain more information)|[0123456789]*$|(checking|creating|touch) [/abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789])| obsolete predefined symbol | is (almost always misused|dangerous|deprecated|not implemented)| trigraph| assigned to | cast .* different size| integer overflow .*<<| optimization may be attained | passed as |::__builtin|pragma.*prototyped|^creating.*\.a$|warning.*not optimized|exceeds size thresh|ld:.*preempts|is unchanged|with value >=|(-l|lib)\*|/(ast|sys)/(dir|limits|param|stropts)\.h.*redefined|usage|base registers|`\.\.\.` obsolete'"$i" $j |
+						$exec grep :
 						;;
 					esac
 				done
@@ -6103,6 +6404,10 @@ results)set '' $target
 test)	requirements source $package
 	components $package
 	package=$_components_
+	case $only in
+	0)	only= ;;
+	1)	only=--recurse=only ;;
+	esac
 
 	# must have nmake
 
@@ -6115,9 +6420,13 @@ test)	requirements source $package
 
 	$make cd $INSTALLROOT/src
 
+	# disable core dumps (could be disasterous over nfs)
+
+	(ulimit -c 0) > /dev/null 2>&1 && ulimit -c 0
+
 	# do the tests
 
-	eval capture \$MAKE \$makeflags \$noexec recurse test cc- \$target \$nmakesep \$package $assign
+	eval capture \$MAKE \$makeflags \$noexec \$only recurse test \$target \$nmakesep \$package $assign
 	;;
 
 update)	# download the latest release.version for selected packages
@@ -6743,7 +7052,7 @@ write)	set '' $target
 
 	for package
 	do	if	view - all $package.pkg || view - all lib/package/$package.pkg
-		then	eval capture \$MAKE \$makeflags \$noexec -f \$package.pkg \$qualifier \$action $assign
+		then	eval capture \$MAKE \$makeflags -X ignore \$noexec -f \$package.pkg \$qualifier \$action $assign
 		else	echo "$command: $package: not a package" >&2
 		fi
 	done

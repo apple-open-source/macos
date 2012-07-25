@@ -112,7 +112,7 @@ main(int argc, char **argv)
 			default:
 				usage();
 			}
-		argc -= optind;
+//		argc -= optind;
 		argv += optind;
 	}
 

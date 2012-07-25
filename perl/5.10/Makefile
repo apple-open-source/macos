@@ -43,6 +43,7 @@ configure:: $(ConfigStamp2)
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) sed -e 's/@PREPENDFILE@/$(PREPENDFILE)/g' \
 	    -e 's/@APPENDFILE@/$(APPENDFILE)/g' \
+	    -e 's/@NONLP@/$(NONLP)/g' \
 	    -e 's,@UPDATESLIB@,$(UPDATESLIB),g' \
 	    -e 's/@VERSION@/$(ENV_PERL_BASE_VERSION)/g' \
 	    '$(SRCROOT)/fix/config.h.ed' \

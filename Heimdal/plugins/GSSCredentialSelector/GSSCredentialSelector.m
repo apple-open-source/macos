@@ -82,7 +82,7 @@ isc_replace_cred(gss_name_t target, gss_OID mech, gss_cred_id_t original_cred, O
     
     maj_stat = gss_display_name(&min_stat, target, &buffer, NULL);
     if (maj_stat == GSS_S_COMPLETE) {
-	syslog(LOG_ERR, "ISC-replace-cred target name: %.*s", (int)buffer.length, buffer.value);
+	syslog(LOG_ERR, "ISC-replace-cred target name: %.*s", (int)buffer.length, (char *)buffer.value);
 	for (n = 0; replacenames[n]; n++) {
 	    if (memmem(buffer.value, buffer.length, replacenames[n], strlen(replacenames[n])) != NULL)
 		exchange = true;

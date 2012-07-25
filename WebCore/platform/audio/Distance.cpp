@@ -60,22 +60,20 @@ double DistanceEffect::gain(double distance)
     switch (m_model) {
     case ModelLinear:
         return linearGain(distance);
-        break;
     case ModelInverse:
         return inverseGain(distance);
-        break;
     case ModelExponential:
         return exponentialGain(distance);
-        break;
-
-    default:
-        return 0.0;
     }
+    ASSERT_NOT_REACHED();
+    return 0.0;
 }
 
 double DistanceEffect::linearGain(double distance)
 {
-    return (1.0 - m_rolloffFactor * (distance - m_refDistance)) / (m_maxDistance - m_refDistance);
+    // We want a gain that decreases linearly from m_refDistance to
+    // m_maxDistance. The gain is 1 at m_refDistance.
+    return (1.0 - m_rolloffFactor * (distance - m_refDistance) / (m_maxDistance - m_refDistance));
 }
 
 double DistanceEffect::inverseGain(double distance)

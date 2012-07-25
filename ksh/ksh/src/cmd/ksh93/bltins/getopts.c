@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -35,16 +35,17 @@
 
 static int infof(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
 {
-	if(nv_search(s,sh.fun_tree,0))
+	Shell_t	*shp = *(Shell_t**)(dp+1);
+	Stk_t	*stkp = shp->stk;
+	if(nv_search(s,shp->fun_tree,0))
 	{
-		int savtop = staktell();
-		char *savptr = stakfreeze(0);
-		stakputc('$');
-		stakputc('(');
-		stakputs(s);
-		stakputc(')');
-		sfputr(sp,sh_mactry(stakfreeze(1)),-1);
-		stakset(savptr,savtop);
+		int savtop = stktell(stkp);
+		char *savptr = stkfreeze(stkp,0);
+		sfputc(stkp,'$');
+		sfputc(stkp,'(');
+		sfputr(stkp,s,')');
+		sfputr(sp,sh_mactry(shp,stkfreeze(stkp,1)),-1);
+		stkset(stkp,savptr,savtop);
 	}
         return(1);
 }
@@ -53,15 +54,20 @@ int	b_getopts(int argc,char *argv[],void *extra)
 {
 	register char *options=error_info.context->id;
 	register Namval_t *np;
-	register int flag, mode, r=0;
-	register Shell_t *shp = (Shell_t*)extra;
+	register int flag, mode;
+	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
 	char value[2], key[2];
-	int jmpval;
+	int jmpval,extended;
+	volatile int r= -1;
 	struct checkpt buff, *pp;
-        Optdisc_t disc;
+	struct {
+	        Optdisc_t	hdr;
+		Shell_t		*sh;
+	} disc;
         memset(&disc, 0, sizeof(disc));
-        disc.version = OPT_VERSION;
-        disc.infof = infof;
+        disc.hdr.version = OPT_VERSION;
+        disc.hdr.infof = infof;
+	disc.sh = shp;
 	value[1] = 0;
 	key[1] = 0;
 	while((flag = optget(argv,sh_optgetopts))) switch(flag)
@@ -98,16 +104,20 @@ int	b_getopts(int argc,char *argv[],void *extra)
 	opt_info.offset = shp->st.optchar;
 	if(mode= (*options==':'))
 		options++;
-	sh_pushcontext(&buff,1);
+	extended = *options=='\n' && *(options+1)=='[' || *options=='[' && *(options+1)=='-';
+	sh_pushcontext(shp,&buff,1);
 	jmpval = sigsetjmp(buff.buff,0);
 	if(jmpval)
 	{
-		sh_popcontext(&buff);
+		sh_popcontext(shp,&buff);
+		shp->st.opterror = 1;
+		if(r==0)
+			return(2);
 		pp = (struct checkpt*)shp->jmplist;
 		pp->mode = SH_JMPERREXIT;
 		sh_exit(2);
 	}
-        opt_info.disc = &disc;
+        opt_info.disc = &disc.hdr;
 	switch(opt_info.index>=0 && opt_info.index<=argc?(opt_info.num= LONG_MIN,flag=optget(argv,options)):0)
 	{
 	    case '?':
@@ -157,6 +167,8 @@ int	b_getopts(int argc,char *argv[],void *extra)
 	    default:
 		options = opt_info.option + (*opt_info.option!='+');
 	}
+	if(r<0)
+		r = 0;
 	error_info.context->flags &= ~ERROR_SILENT;
 	shp->st.optindex = opt_info.index;
 	shp->st.optchar = opt_info.offset;
@@ -165,20 +177,22 @@ int	b_getopts(int argc,char *argv[],void *extra)
 	np = nv_open(nv_name(OPTARGNOD),shp->var_tree,NV_NOSCOPE);
 	if(opt_info.num == LONG_MIN)
 		nv_putval(np, opt_info.arg, NV_RDONLY);
-	else if (opt_info.num > 0 && opt_info.arg && opt_info.arg[0] == (char)opt_info.num)
+	else if (opt_info.arg && opt_info.num > 0 && isalpha((char)opt_info.num) && !isdigit(opt_info.arg[0]) && opt_info.arg[0] != '-' && opt_info.arg[0] != '+')
 	{
 		key[0] = (char)opt_info.num;
 		key[1] = 0;
 		nv_putval(np, key, NV_RDONLY);
 	}
-	else
+	else if(extended)
 	{
 		Sfdouble_t d;
 		d = opt_info.number;
 		nv_putval(np, (char*)&d, NV_LDOUBLE|NV_RDONLY);
 	}
+	else
+		nv_putval(np, opt_info.arg, NV_RDONLY);
 	nv_close(np);
-	sh_popcontext(&buff);
+	sh_popcontext(shp,&buff);
         opt_info.disc = 0;
 	return(r);
 }

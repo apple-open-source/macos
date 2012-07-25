@@ -63,14 +63,12 @@
 #include "ike_session.h"
 
 struct natt_ka_addrs {
-  struct sockaddr	*src;
-  struct sockaddr	*dst;
+  struct sockaddr_storage	*src;
+  struct sockaddr_storage	*dst;
   unsigned		in_use;
 
   TAILQ_ENTRY(natt_ka_addrs) chain;
 };
-
-static TAILQ_HEAD(_natt_ka_addrs, natt_ka_addrs) ka_tree;
 
 /*
  * check if the given vid is NAT-T.
@@ -116,7 +114,7 @@ natt_vendorid (int vid)
 }
 
 vchar_t *
-natt_hash_addr (struct ph1handle *iph1, struct sockaddr *addr)
+natt_hash_addr (struct ph1handle *iph1, struct sockaddr_storage *addr)
 {
   vchar_t *natd;
   vchar_t *buf;
@@ -125,21 +123,21 @@ natt_hash_addr (struct ph1handle *iph1, struct sockaddr *addr)
   size_t buf_size, addr_size;
 
   plog (LLV_INFO, LOCATION, addr, "Hashing %s with algo #%d %s\n",
-	saddr2str(addr), iph1->approval->hashtype, 
+	saddr2str((struct sockaddr *)addr), iph1->approval->hashtype, 
 	(iph1->rmconf->nat_traversal == NATT_FORCE)?"(NAT-T forced)":"");
   
-  if (addr->sa_family == AF_INET) {
+  if (addr->ss_family == AF_INET) {
     addr_size = sizeof (struct in_addr);	/* IPv4 address */
     addr_ptr = &((struct sockaddr_in *)addr)->sin_addr;
     addr_port = &((struct sockaddr_in *)addr)->sin_port;
   }
-  else if (addr->sa_family == AF_INET6) {
+  else if (addr->ss_family == AF_INET6) {
     addr_size = sizeof (struct in6_addr);	/* IPv6 address */
     addr_ptr = &((struct sockaddr_in6 *)addr)->sin6_addr;
     addr_port = &((struct sockaddr_in6 *)addr)->sin6_port;
   }
   else {
-    plog (LLV_ERROR, LOCATION, addr, "Unsupported address family #0x%x\n", addr->sa_family);
+    plog (LLV_ERROR, LOCATION, addr, "Unsupported address family #0x%x\n", addr->ss_family);
     return NULL;
   }
 
@@ -290,8 +288,8 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 	vchar_t		*i;
 	vchar_t		*r;
 	u_int8_t	*p;
-	struct sockaddr *i_addr;
-	struct sockaddr *r_addr;
+	struct sockaddr_storage *i_addr;
+	struct sockaddr_storage *r_addr;
 	size_t		i_size;
 	size_t		r_size;
 	
@@ -315,7 +313,7 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 		r_addr = iph2->src;
 	}
 
-	switch (i_addr->sa_family) {
+	switch (i_addr->ss_family) {
 		case AF_INET:
 			i_size = sizeof(in_addr_t);
 			break;
@@ -326,11 +324,11 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 #endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
-				 "invalid address family: %d\n", i_addr->sa_family);
+				 "invalid address family: %d\n", i_addr->ss_family);
 			return -1;		
 	}
 
-	switch (r_addr->sa_family) {
+	switch (r_addr->ss_family) {
 		case AF_INET:
 			r_size = sizeof(in_addr_t);
 			break;
@@ -341,7 +339,7 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 #endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
-				 "invalid address family: %d\n", r_addr->sa_family);
+				 "invalid address family: %d\n", r_addr->ss_family);
 			return -1;		
 	}
 
@@ -362,7 +360,7 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 	/* copy src address */
 	p = (__typeof__(p))i->v;
 	
-	switch (i_addr->sa_family) {
+	switch (i_addr->ss_family) {
 		case AF_INET:
 			*p = IPSECDOI_ID_IPV4_ADDR;
 			bcopy(&(((struct sockaddr_in *)i_addr)->sin_addr.s_addr), p + sizeof(u_int32_t), i_size);
@@ -378,7 +376,7 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 	/* copy dst address */
 	p = (__typeof__(p))r->v;
 	
-	switch (r_addr->sa_family) {
+	switch (r_addr->ss_family) {
 		case AF_INET:
 			*p = IPSECDOI_ID_IPV4_ADDR;
 			bcopy(&(((struct sockaddr_in *)r_addr)->sin_addr.s_addr), p + sizeof(u_int32_t), r_size);
@@ -396,11 +394,11 @@ create_natoa_payloads(struct ph2handle *iph2, vchar_t **natoa_i, vchar_t **natoa
 	return natoa_type;
 }	
 
-struct sockaddr *
+struct sockaddr_storage *
 process_natoa_payload(vchar_t *buf)
 {
-	struct sockaddr      *saddr = NULL;
-	struct ipsecdoi_id_b *id_b = (struct ipsecdoi_id_b *)buf->v;
+	struct sockaddr_storage      *saddr = NULL;
+	struct ipsecdoi_id_b *id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)buf->v;
 
 	switch (id_b->type) {
 		case IPSECDOI_ID_IPV4_ADDR:
@@ -410,8 +408,8 @@ process_natoa_payload(vchar_t *buf)
 					 "error allocating addr for NAT-OA payload\n");
 				return NULL;
 			}
-			saddr->sa_len = sizeof(struct sockaddr_in);
-			saddr->sa_family = AF_INET;
+			saddr->ss_len = sizeof(struct sockaddr_in);
+			saddr->ss_family = AF_INET;
 			((struct sockaddr_in *)saddr)->sin_port = IPSEC_PORT_ANY;
 			memcpy(&((struct sockaddr_in *)saddr)->sin_addr,
 				   buf->v + sizeof(*id_b), sizeof(struct in_addr));
@@ -424,8 +422,8 @@ process_natoa_payload(vchar_t *buf)
 					 "error allocating addr for NAT-OA payload\n");
 				return NULL;
 			}
-			saddr->sa_len = sizeof(struct sockaddr_in6);
-			saddr->sa_family = AF_INET6;
+			saddr->ss_len = sizeof(struct sockaddr_in6);
+			saddr->ss_family = AF_INET6;
 			((struct sockaddr_in6 *)saddr)->sin6_port = IPSEC_PORT_ANY;
 			memcpy(&((struct sockaddr_in6 *)saddr)->sin6_addr,
 				   buf->v + sizeof(*id_b), sizeof(struct in6_addr));

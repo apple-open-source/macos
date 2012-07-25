@@ -144,6 +144,9 @@ createError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 	return errorcode;
     }
     
+    if (*error)
+	CFRelease(*error);
+    
     *error = CFErrorCreateWithUserInfoKeysAndValues(alloc, CFSTR("com.apple.Heimdal.ODAdmin"), errorcode,
 						    (const void * const *)keys,
 						    (const void * const *)values, 1);
@@ -305,7 +308,7 @@ flags2int(const struct s2k *t, CFTypeRef type)
 }
 
 static CFArrayRef
-int2flags(const struct s2k *t, unsigned long n)
+CopyInt2flags(const struct s2k *t, unsigned long n)
 {
     CFMutableArrayRef array;
 
@@ -580,7 +583,7 @@ HeimODCopyKerberosFlags(ODNodeRef node, ODRecordRef record, CFErrorRef *error)
 	goto out;
     }
 
-    flags = int2flags(FlagsKeys, uflags);
+    flags = CopyInt2flags(FlagsKeys, uflags);
 
  out:
     if (datarecord)
@@ -702,7 +705,7 @@ HeimODCopyACL(ODNodeRef node, ODRecordRef record, CFErrorRef *error)
 	goto out;
     }
 
-    flags = int2flags(ACLKeys, uflags);
+    flags = CopyInt2flags(ACLKeys, uflags);
 
  out:
     if (datarecord)
@@ -898,24 +901,24 @@ last_kvno_array(CFArrayRef array, krb5_context context, krb5_principal principal
     
     for (i = 0; i < CFArrayGetCount(array); i++) {
 	CFDataRef key = CFArrayGetValueAtIndex(array, i);
-	hdb_keyset keyset;
+	hdb_keyset_aapl keyset;
 	int ret;
 	
 	if (key == NULL || CFGetTypeID(key) != CFDataGetTypeID())
 	    continue;
 	
-	ret = decode_hdb_keyset(CFDataGetBytePtr(key), CFDataGetLength(key), &keyset, NULL);
+	ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(key), CFDataGetLength(key), &keyset, NULL);
 	if (ret)
 	    continue;
 	
 	if (principal) {
 	    if (keyset.principal == NULL || krb5_principal_compare(context, keyset.principal, principal) == 0) {
-		free_hdb_keyset(&keyset);
+		free_hdb_keyset_aapl(&keyset);
 		continue;
 	    }
 	} else {
 	    if (keyset.principal) {
-		free_hdb_keyset(&keyset);
+		free_hdb_keyset_aapl(&keyset);
 		continue;
 	    }
 	}
@@ -923,7 +926,7 @@ last_kvno_array(CFArrayRef array, krb5_context context, krb5_principal principal
 	if (kvno < keyset.kvno)
 	    kvno = keyset.kvno;
 	
-	free_hdb_keyset(&keyset);
+	free_hdb_keyset_aapl(&keyset);
     }
     return kvno;
 }
@@ -1024,7 +1027,7 @@ update_keys(krb5_context context,
 	    CFErrorRef *error)
 {
     heim_octet_string data;
-    __block hdb_keyset key;
+    __block hdb_keyset_aapl key;
     __block krb5_error_code ret;
     CFArrayRef defaultenctypes = NULL;
     CFDataRef element = NULL;
@@ -1128,7 +1131,7 @@ update_keys(krb5_context context,
     }
 #endif
 
-    ASN1_MALLOC_ENCODE(hdb_keyset, data.data, data.length, &key, &size, ret);
+    ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data.data, data.length, &key, &size, ret);
     if (ret) {
 	createError(NULL, error, ret, CFSTR("Failed to encode keyset"));
 	goto out;
@@ -1147,7 +1150,7 @@ out:
     if (defaultenctypes)
 	CFRelease(defaultenctypes);
 
-    free_hdb_keyset(&key);
+    free_hdb_keyset_aapl(&key);
 
     return element;
 }
@@ -1357,7 +1360,7 @@ delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef key
     
     for (n = 0; n < count; n++) {
 	krb5_error_code ret;
-	hdb_keyset key;
+	hdb_keyset_aapl key;
 	size_t sz;
 	int found = 0;
 
@@ -1365,7 +1368,7 @@ delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef key
 	if (CFGetTypeID(el) != CFDataGetTypeID())
 	    continue;
 	
-	ret = decode_hdb_keyset(CFDataGetBytePtr(el), CFDataGetLength(el), &key, &sz);
+	ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(el), CFDataGetLength(el), &key, &sz);
 	if (ret)
 	    continue;
 	
@@ -1393,7 +1396,7 @@ delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef key
 	    size_t length;
 	    void *data;
 
-	    ASN1_MALLOC_ENCODE(hdb_keyset, data, length, &key, &sz, ret);
+	    ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data, length, &key, &sz, ret);
 	    if (ret)
 		return;
 	    if (length != sz)
@@ -1406,7 +1409,7 @@ delete_enctypes(krb5_context context, CFArrayRef enctypes, CFMutableArrayRef key
 	    CFArraySetValueAtIndex(keyset, n, d);
 	    CFRelease(d);
 	}
-	free_hdb_keyset(&key);
+	free_hdb_keyset_aapl(&key);
     }
     
     free(etlist);
@@ -1512,7 +1515,7 @@ HeimODKeysetToString(CFDataRef element, CFErrorRef *error)
     krb5_context context;
     krb5_error_code ret;
     CFStringRef str, str2;
-    hdb_keyset key;
+    hdb_keyset_aapl key;
     size_t sz;
     
     ret = krb5_init_context(&context);
@@ -1521,7 +1524,7 @@ HeimODKeysetToString(CFDataRef element, CFErrorRef *error)
 	return NULL;
     }
     
-    ret = decode_hdb_keyset(CFDataGetBytePtr(element),
+    ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(element),
 			    CFDataGetLength(element),
 			    &key, &sz);
     if (ret)
@@ -1548,7 +1551,7 @@ out:
     if (context)
 	krb5_free_context(context);
     
-    free_hdb_keyset(&key);
+    free_hdb_keyset_aapl(&key);
     
     return str;
 }
@@ -2035,7 +2038,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
     /* need to make sure that keys are propperly mapped */
     if (flags & LOAD_SERVER_APPEND) {
 	CFIndex n, num;
-	hdb_keyset keyset;
+	hdb_keyset_aapl keyset;
 	
 	memset(&keyset, 0, sizeof(keyset));
 	
@@ -2079,7 +2082,7 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 	for (n = 0; n < num; n++) {
 	    CFDataRef d = CFArrayGetValueAtIndex(data, n);
 	    
-	    ret = decode_hdb_keyset(CFDataGetBytePtr(d), CFDataGetLength(d), &keyset, NULL);
+	    ret = decode_hdb_keyset_aapl(CFDataGetBytePtr(d), CFDataGetLength(d), &keyset, NULL);
 	    if (ret) {
 		createError(NULL, error, 1, CFSTR("failed to decode hdb_keyset"));
 		b = false;
@@ -2092,9 +2095,9 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 		
 		(void)krb5_copy_principal(context, p, &keyset.principal);
 		
-		ASN1_MALLOC_ENCODE(hdb_keyset, to, size, &keyset, &len, ret);
+		ASN1_MALLOC_ENCODE(hdb_keyset_aapl, to, size, &keyset, &len, ret);
 		if (ret) {
-		    free_hdb_keyset(&keyset);
+		    free_hdb_keyset_aapl(&keyset);
 		    createError(NULL, error, ret, CFSTR("failed to parse name"));
 		    b = false;
 		    goto out;
@@ -2102,18 +2105,18 @@ load_keys(krb5_context context, ODRecordRef record, CFDictionaryRef dict, CFStri
 		if (len != size)
 		    abort();
 		
-		CFDataRef key = CFDataCreate(NULL, to, len);
+		CFDataRef keydata = CFDataCreate(NULL, to, len);
 		free(to);
-		free_hdb_keyset(&keyset);
+		free_hdb_keyset_aapl(&keyset);
 		if (key == NULL) {
 		    createError(NULL, error, ENOMEM, CFSTR("out of memory"));
 		    b = false;
 		    goto out;
 		}
-		CFArrayAppendValue(newdata, key);
-		CFRelease(key);
+		CFArrayAppendValue(newdata, keydata);
+		CFRelease(keydata);
 	    } else {
-		free_hdb_keyset(&keyset);
+		free_hdb_keyset_aapl(&keyset);
 		CFArrayAppendValue(newdata, d);
 	    }
 	}
@@ -2137,7 +2140,7 @@ edump_keys(krb5_context context, hdb_entry *entry, CFErrorRef *error)
     krb5_error_code ret;
     krb5_data data;
     CFDataRef value;
-    hdb_keyset key;
+    hdb_keyset_aapl key;
     size_t size;
 
     key.kvno = entry->kvno;
@@ -2145,7 +2148,7 @@ edump_keys(krb5_context context, hdb_entry *entry, CFErrorRef *error)
     key.keys.val = entry->keys.val;
     key.principal = NULL;
 
-    ASN1_MALLOC_ENCODE(hdb_keyset, data.data, data.length, &key, &size, ret);
+    ASN1_MALLOC_ENCODE(hdb_keyset_aapl, data.data, data.length, &key, &size, ret);
     if (ret)
 	return NULL;
     if (data.length != size)

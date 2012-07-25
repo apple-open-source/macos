@@ -13,12 +13,7 @@
 			buildPhases = (
 			);
 			dependencies = (
-				72D0ED0F08F7402400CCEA2F /* PBXTargetDependency */,
-				729A75D90A01F7CD000AB587 /* PBXTargetDependency */,
-				729A75DB0A01F7D3000AB587 /* PBXTargetDependency */,
-				729A757A0A01EDA3000AB587 /* PBXTargetDependency */,
-				504E1BDE11372BD000AAAA84 /* PBXTargetDependency */,
-				72A735D81313182F0068FFB6 /* PBXTargetDependency */,
+				72D6394814BCD43000C8DF29 /* PBXTargetDependency */,
 			);
 			name = PowerManagement;
 			productName = All;
@@ -33,6 +28,31 @@
 			);
 			name = testbots;
 			productName = testbots;
+		};
+		72D6393114BCD39100C8DF29 /* PowerManagement_executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72D6393214BCD39100C8DF29 /* Build configuration list for PBXAggregateTarget "PowerManagement_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				72D6394014BCD3D200C8DF29 /* PBXTargetDependency */,
+				72D6393E14BCD3CB00C8DF29 /* PBXTargetDependency */,
+				72D6394414BCD3DA00C8DF29 /* PBXTargetDependency */,
+				72D6394214BCD3D600C8DF29 /* PBXTargetDependency */,
+			);
+			name = PowerManagement_executables;
+			productName = PM_executables;
+		};
+		72D6393714BCD39D00C8DF29 /* PowerManagement_kexts */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 72D6393814BCD39D00C8DF29 /* Build configuration list for PBXAggregateTarget "PowerManagement_kexts" */;
+			buildPhases = (
+			);
+			dependencies = (
+				72D6394A14BCD43600C8DF29 /* PBXTargetDependency */,
+			);
+			name = PowerManagement_kexts;
+			productName = PM_kexts;
 		};
 		72F39D4B0A02965000271433 /* BatteryFaker */ = {
 			isa = PBXAggregateTarget;
@@ -61,8 +81,6 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		48CA6ECF152A77EA0004817B /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 48CA6ECE152A77EA0004817B /* AppWorkaround.plist */; };
-		48CA6ED0152A77F40004817B /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 48CA6ECE152A77EA0004817B /* AppWorkaround.plist */; };
 		504E1BCE11372B3F00AAAA84 /* caffeinate.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 504E1BCC11372B0500AAAA84 /* caffeinate.8 */; };
 		504E1C121137329D00AAAA84 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		504E1D211137331300AAAA84 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA6019747120ACA2928 /* CoreFoundation.framework */; };
@@ -77,7 +95,6 @@
 		723522111117A10A0089FB9F /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
 		723522121117A10A0089FB9F /* HIDEventWatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = 7235220E1117A10A0089FB9F /* HIDEventWatcher.h */; };
 		723522131117A10A0089FB9F /* HIDEventWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = 7235220F1117A10A0089FB9F /* HIDEventWatcher.c */; };
-		723584541312FAA000065A11 /* PanicImageData.c in Sources */ = {isa = PBXBuildFile; fileRef = 723584441312F3AA00065A11 /* PanicImageData.c */; };
 		723A24F21082B93500E3CB92 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
 		723A24F31082B94600E3CB92 /* PMAssertions.c in Sources */ = {isa = PBXBuildFile; fileRef = 723A24E31082B88500E3CB92 /* PMAssertions.c */; };
 		724387C60A05CEC50080C1F1 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 724387C50A05CEC50080C1F1 /* ApplicationServices.framework */; };
@@ -173,6 +190,8 @@
 		72E815670CFE470B00CF547E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 40882BA7019747120ACA2928 /* IOKit.framework */; };
 		72E815690CFE470B00CF547E /* upsshutdown in CopyFiles */ = {isa = PBXBuildFile; fileRef = A9D743DA05AF3D4D0075549C /* upsshutdown */; };
 		72E8156B0CFE470B00CF547E /* upsshutdown.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FE7EA609AE4942003E0C4C /* upsshutdown.8 */; };
+		72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
+		72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72EB16B714C75E47002F68C3 /* AppWorkaround.plist */; };
 		72FE21760A017B4000885E24 /* BatteryFakerWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE216E0A017B4000885E24 /* BatteryFakerWindowController.m */; };
 		72FE21770A017B4000885E24 /* FakeBatteryObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21700A017B4000885E24 /* FakeBatteryObject.m */; };
 		72FE21780A017B4000885E24 /* FakeUPSObject.m in Sources */ = {isa = PBXBuildFile; fileRef = 72FE21710A017B4000885E24 /* FakeUPSObject.m */; };
@@ -212,34 +231,6 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		504E1BDD11372BD000AAAA84 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 504E1BC111372A6A00AAAA84;
-			remoteInfo = caffeinate;
-		};
-		729A75790A01EDA3000AB587 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 729A742B0A01EBB0000AB587;
-			remoteInfo = pmset;
-		};
-		729A75D80A01F7CD000AB587 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 729A759A0A01F1D7000AB587;
-			remoteInfo = "Power Management Bundle";
-		};
-		729A75DA0A01F7D3000AB587 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 729A757D0A01EDED000AB587;
-			remoteInfo = ioupsd;
-		};
 		72A1C141128E0B0700754139 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -247,14 +238,42 @@
 			remoteGlobalIDString = 72A1BF87128E037A00754139;
 			remoteInfo = "pmset-Embedded";
 		};
-		72A735D71313182F0068FFB6 /* PBXContainerItemProxy */ = {
+		72D6393D14BCD3CB00C8DF29 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 7235844D1312FA8B00065A11;
-			remoteInfo = PanicImageData;
+			remoteGlobalIDString = 729A742B0A01EBB0000AB587;
+			remoteInfo = pmset;
 		};
-		72D0ED0E08F7402400CCEA2F /* PBXContainerItemProxy */ = {
+		72D6393F14BCD3D200C8DF29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 729A759A0A01F1D7000AB587;
+			remoteInfo = powerd;
+		};
+		72D6394114BCD3D600C8DF29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 729A757D0A01EDED000AB587;
+			remoteInfo = ioupsd;
+		};
+		72D6394314BCD3DA00C8DF29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 504E1BC111372A6A00AAAA84;
+			remoteInfo = caffeinate;
+		};
+		72D6394714BCD43000C8DF29 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72D6393714BCD39D00C8DF29;
+			remoteInfo = PM_kexts;
+		};
+		72D6394914BCD43600C8DF29 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
@@ -292,16 +311,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		48CA6ECC152A779D0004817B /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /usr/local/AppSpecificWorkaround/PowerManagement/;
-			dstSubfolderSpec = 0;
-			files = (
-				48CA6ED0152A77F40004817B /* AppWorkaround.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		504E1BD611372B4F00AAAA84 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -411,6 +420,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		72EB16BA14C75E8C002F68C3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/local/AppSpecificWorkaround/PowerManagement;
+			dstSubfolderSpec = 0;
+			files = (
+				72EB16BB14C75EB0002F68C3 /* AppWorkaround.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -426,7 +445,6 @@
 		40D4F0DB01F4A1F40ACA2928 /* pmconfigd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pmconfigd.c; path = pmconfigd/pmconfigd.c; sourceTree = SOURCE_ROOT; };
 		40D4F0DC01F4A1F40ACA2928 /* pmset.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = pmset.c; sourceTree = "<group>"; };
 		40D4F0DD01F4A1F40ACA2928 /* pmset.1 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = pmset.1; sourceTree = "<group>"; };
-		48CA6ECE152A77EA0004817B /* AppWorkaround.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = AppWorkaround.plist; sourceTree = "<group>"; };
 		504E1BC211372A6A00AAAA84 /* caffeinate */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = caffeinate; sourceTree = BUILT_PRODUCTS_DIR; };
 		504E1BCC11372B0500AAAA84 /* caffeinate.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; name = caffeinate.8; path = caffeinate/caffeinate.8; sourceTree = "<group>"; };
 		504E1DC11137440B00AAAA84 /* caffeinate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = caffeinate.c; path = caffeinate/caffeinate.c; sourceTree = "<group>"; };
@@ -437,8 +455,6 @@
 		7226093409AAAFD0005EB532 /* AppleSmartBatteryManagerUserClient.cpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; name = AppleSmartBatteryManagerUserClient.cpp; path = AppleSmartBatteryManager/AppleSmartBatteryManagerUserClient.cpp; sourceTree = "<group>"; };
 		7235220E1117A10A0089FB9F /* HIDEventWatcher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HIDEventWatcher.h; sourceTree = "<group>"; };
 		7235220F1117A10A0089FB9F /* HIDEventWatcher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = HIDEventWatcher.c; sourceTree = "<group>"; };
-		723584441312F3AA00065A11 /* PanicImageData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = PanicImageData.c; path = ../PanicImageData.c; sourceTree = "<group>"; };
-		7235844E1312FA8B00065A11 /* libPanicImageData.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libPanicImageData.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		723A24E31082B88500E3CB92 /* PMAssertions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = PMAssertions.c; sourceTree = "<group>"; };
 		723A24E41082B88600E3CB92 /* PMAssertions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PMAssertions.h; sourceTree = "<group>"; };
 		724387C50A05CEC50080C1F1 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -475,6 +491,7 @@
 		72DC9D6A0E1D98210066B287 /* SystemLoad.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SystemLoad.h; sourceTree = "<group>"; };
 		72DC9D6B0E1D98210066B287 /* SystemLoad.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SystemLoad.c; sourceTree = "<group>"; };
 		72E815720CFE470B00CF547E /* powerd.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = powerd.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		72EB16B714C75E47002F68C3 /* AppWorkaround.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = AppWorkaround.plist; sourceTree = "<group>"; };
 		72FE21330A0179A300885E24 /* BatteryFaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BatteryFaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FE21400A0179F400885E24 /* BatteryFaker.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BatteryFaker.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FE21560A017A8F00885E24 /* IOUPSPlugIn.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUPSPlugIn.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -544,13 +561,6 @@
 			files = (
 				504E1D211137331300AAAA84 /* CoreFoundation.framework in Frameworks */,
 				504E1C121137329D00AAAA84 /* IOKit.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7235844B1312FA8B00065A11 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -663,7 +673,6 @@
 		08FB7795FE84155DC02AAC07 /* powerd */ = {
 			isa = PBXGroup;
 			children = (
-				48CA6ECE152A77EA0004817B /* AppWorkaround.plist */,
 				A9B6F98D054DDD9200F5EC01 /* Resources */,
 				720A66C406C2F7C600944335 /* powermanagement.defs */,
 				72D984480B20BE7800D66087 /* TTYKeepAwake.c */,
@@ -678,10 +687,10 @@
 				727593FD125555EA00C59A8E /* ExternalMedia.h */,
 				7235220E1117A10A0089FB9F /* HIDEventWatcher.h */,
 				7235220F1117A10A0089FB9F /* HIDEventWatcher.c */,
-				723A24E31082B88500E3CB92 /* PMAssertions.c */,
-				723A24E41082B88600E3CB92 /* PMAssertions.h */,
 				7266E16E0E5BEDAE00F9BC0B /* PMConnection.h */,
 				7266E16F0E5BEDAE00F9BC0B /* PMConnection.c */,
+				723A24E31082B88500E3CB92 /* PMAssertions.c */,
+				723A24E41082B88600E3CB92 /* PMAssertions.h */,
 				72A9DF010CDAA05B000FDB18 /* PMSystemEvents.c */,
 				72A9DF020CDAA05B000FDB18 /* PMSystemEvents.h */,
 				40BE9CF4031ECBBC0ACA28D7 /* PMSettings.c */,
@@ -698,6 +707,7 @@
 				A9D743DA05AF3D4D0075549C /* upsshutdown */,
 				72FE7EA609AE4942003E0C4C /* upsshutdown.8 */,
 				729F44BA12D7DB3600AD49A8 /* com.apple.powerd.plist */,
+				72EB16B714C75E47002F68C3 /* AppWorkaround.plist */,
 			);
 			name = powerd;
 			path = pmconfigd;
@@ -717,7 +727,6 @@
 				72E815720CFE470B00CF547E /* powerd.bundle */,
 				504E1BC211372A6A00AAAA84 /* caffeinate */,
 				72A1BF88128E037A00754139 /* pmset-Embedded */,
-				7235844E1312FA8B00065A11 /* libPanicImageData.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -879,7 +888,6 @@
 		A9B6F98D054DDD9200F5EC01 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				723584441312F3AA00065A11 /* PanicImageData.c */,
 				729A759C0A01F1D7000AB587 /* Power Management Bundle-Info.plist */,
 				A9E691B70564519800938E2D /* Localizable.strings */,
 				72C2C512062F57BB000F5FC7 /* com.apple.SystemPowerProfileDefaults.plist */,
@@ -904,13 +912,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		7235844C1312FA8B00065A11 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		729A75830A01EE43000AB587 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -973,23 +974,6 @@
 			productReference = 504E1BC211372A6A00AAAA84 /* caffeinate */;
 			productType = "com.apple.product-type.tool";
 		};
-		7235844D1312FA8B00065A11 /* PanicImageData */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 7235844F1312FA8B00065A11 /* Build configuration list for PBXNativeTarget "PanicImageData" */;
-			buildPhases = (
-				7235844A1312FA8B00065A11 /* Sources */,
-				7235844B1312FA8B00065A11 /* Frameworks */,
-				7235844C1312FA8B00065A11 /* Headers */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = PanicImageData;
-			productName = PanicImageData;
-			productReference = 7235844E1312FA8B00065A11 /* libPanicImageData.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
 		727D787C0A02D48D002EBD29 /* suidLauncherTool */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 727D78830A02D4C1002EBD29 /* Build configuration list for PBXNativeTarget "suidLauncherTool" */;
@@ -1051,9 +1035,9 @@
 				729A75980A01F1D7000AB587 /* Sources */,
 				729A75990A01F1D7000AB587 /* Frameworks */,
 				729F450612D7EC8E00AD49A8 /* CopyFiles */,
+				72EB16BA14C75E8C002F68C3 /* CopyFiles */,
 				729A75A40A01F239000AB587 /* CopyFiles */,
 				729A75A60A01F239000AB587 /* CopyFiles */,
-				48CA6ECC152A779D0004817B /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1172,6 +1156,9 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = 72D0ECD408F73D0000CCEA2F /* Build configuration list for PBXProject "PowerManagement" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
@@ -1200,8 +1187,9 @@
 				72FE21550A017A8F00885E24 /* BatteryFakerPlugIn */,
 				727D787C0A02D48D002EBD29 /* suidLauncherTool */,
 				504E1BC111372A6A00AAAA84 /* caffeinate */,
-				7235844D1312FA8B00065A11 /* PanicImageData */,
 				72B1CF9E109BBF8E0018AB1D /* testbots */,
+				72D6393114BCD39100C8DF29 /* PowerManagement_executables */,
+				72D6393714BCD39D00C8DF29 /* PowerManagement_kexts */,
 			);
 		};
 /* End PBXProject section */
@@ -1214,7 +1202,7 @@
 				729A75AF0A01F2D7000AB587 /* Localizable.strings in Resources */,
 				729A75B10A01F2D7000AB587 /* com.apple.SystemPowerProfileDefaults.plist in Resources */,
 				729F44BB12D7DB3600AD49A8 /* com.apple.powerd.plist in Resources */,
-				48CA6ECF152A77EA0004817B /* AppWorkaround.plist in Resources */,
+				72EB16B814C75E47002F68C3 /* AppWorkaround.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1284,14 +1272,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				504E1DC21137440B00AAAA84 /* caffeinate.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7235844A1312FA8B00065A11 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				723584541312FAA000065A11 /* PanicImageData.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1425,40 +1405,40 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		504E1BDE11372BD000AAAA84 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 504E1BC111372A6A00AAAA84 /* caffeinate */;
-			targetProxy = 504E1BDD11372BD000AAAA84 /* PBXContainerItemProxy */;
-		};
-		729A757A0A01EDA3000AB587 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 729A742B0A01EBB0000AB587 /* pmset */;
-			targetProxy = 729A75790A01EDA3000AB587 /* PBXContainerItemProxy */;
-		};
-		729A75D90A01F7CD000AB587 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 729A759A0A01F1D7000AB587 /* powerd */;
-			targetProxy = 729A75D80A01F7CD000AB587 /* PBXContainerItemProxy */;
-		};
-		729A75DB0A01F7D3000AB587 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 729A757D0A01EDED000AB587 /* ioupsd */;
-			targetProxy = 729A75DA0A01F7D3000AB587 /* PBXContainerItemProxy */;
-		};
 		72A1C142128E0B0700754139 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72A1BF87128E037A00754139 /* pmset-Embedded */;
 			targetProxy = 72A1C141128E0B0700754139 /* PBXContainerItemProxy */;
 		};
-		72A735D81313182F0068FFB6 /* PBXTargetDependency */ = {
+		72D6393E14BCD3CB00C8DF29 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 7235844D1312FA8B00065A11 /* PanicImageData */;
-			targetProxy = 72A735D71313182F0068FFB6 /* PBXContainerItemProxy */;
+			target = 729A742B0A01EBB0000AB587 /* pmset */;
+			targetProxy = 72D6393D14BCD3CB00C8DF29 /* PBXContainerItemProxy */;
 		};
-		72D0ED0F08F7402400CCEA2F /* PBXTargetDependency */ = {
+		72D6394014BCD3D200C8DF29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 729A759A0A01F1D7000AB587 /* powerd */;
+			targetProxy = 72D6393F14BCD3D200C8DF29 /* PBXContainerItemProxy */;
+		};
+		72D6394214BCD3D600C8DF29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 729A757D0A01EDED000AB587 /* ioupsd */;
+			targetProxy = 72D6394114BCD3D600C8DF29 /* PBXContainerItemProxy */;
+		};
+		72D6394414BCD3DA00C8DF29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 504E1BC111372A6A00AAAA84 /* caffeinate */;
+			targetProxy = 72D6394314BCD3DA00C8DF29 /* PBXContainerItemProxy */;
+		};
+		72D6394814BCD43000C8DF29 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72D6393714BCD39D00C8DF29 /* PowerManagement_kexts */;
+			targetProxy = 72D6394714BCD43000C8DF29 /* PBXContainerItemProxy */;
+		};
+		72D6394A14BCD43600C8DF29 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72D0ECDE08F73D3000CCEA2F /* AppleSmartBatteryManager */;
-			targetProxy = 72D0ED0E08F7402400CCEA2F /* PBXContainerItemProxy */;
+			targetProxy = 72D6394914BCD43600C8DF29 /* PBXContainerItemProxy */;
 		};
 		72E815750CFE473600CF547E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1514,13 +1494,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_PEDANTIC = NO;
-				INSTALL_PATH = /usr/local/bin;
-				PREBINDING = NO;
+				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wextra",
 					"-Wall",
@@ -1535,15 +1512,12 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_PEDANTIC = NO;
-				INSTALL_PATH = /usr/local/bin;
-				PREBINDING = NO;
+				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
 				RUN_CLANG_STATIC_ANALYZER = YES;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wextra",
 					"-Wall",
@@ -1555,13 +1529,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_PEDANTIC = NO;
-				INSTALL_PATH = /usr/local/bin;
-				PREBINDING = NO;
+				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wextra",
 					"-Wall",
@@ -1576,108 +1547,15 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_PEDANTIC = NO;
-				INSTALL_PATH = /usr/local/bin;
-				PREBINDING = NO;
+				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = caffeinate;
-				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wextra",
 					"-Wall",
 				);
 				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		723584501312FA8B00065A11 /* Development-Embedded */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				COPY_PHASE_STRIP = NO;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle;
-				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = "Development-Embedded";
-		};
-		723584511312FA8B00065A11 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				COPY_PHASE_STRIP = NO;
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle;
-				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Development;
-		};
-		723584521312FA8B00065A11 /* Deployment-Embedded */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle;
-				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = "Deployment-Embedded";
-		};
-		723584531312FA8B00065A11 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				EXECUTABLE_PREFIX = lib;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /System/Library/CoreServices/powerd.bundle;
-				LD_DYLIB_INSTALL_NAME = /System/Library/CoreServices/powerd.bundle;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Deployment;
 		};
@@ -1690,7 +1568,6 @@
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1699,7 +1576,6 @@
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = suidLauncherTool;
 				ZERO_LINK = NO;
 			};
@@ -1713,7 +1589,6 @@
 					"$(inherited)",
 					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /;
@@ -1721,7 +1596,6 @@
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = suidLauncherTool;
 				ZERO_LINK = NO;
 			};
@@ -1741,7 +1615,6 @@
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 				ZERO_LINK = NO;
 			};
@@ -1821,14 +1694,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = "pmset-Embedded";
 			};
 			name = "Development-Embedded";
@@ -1839,7 +1710,6 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
@@ -1847,7 +1717,6 @@
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = "pmset-Embedded";
 			};
 			name = Development;
@@ -1861,7 +1730,6 @@
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = pmset;
 			};
 			name = "Deployment-Embedded";
@@ -1872,14 +1740,12 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = (
 					"-D__I_AM_PMSET__",
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = "pmset-Embedded";
 				ZERO_LINK = NO;
 			};
@@ -1914,7 +1780,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = testbots;
 				ZERO_LINK = NO;
 			};
@@ -1925,7 +1790,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -1946,7 +1810,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2016,7 +1879,6 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2058,12 +1920,67 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = AppleSmartBatteryManager;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
 			name = "Deployment-Embedded";
+		};
+		72D6393314BCD39100C8DF29 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Development-Embedded";
+		};
+		72D6393414BCD39100C8DF29 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		72D6393514BCD39100C8DF29 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Deployment-Embedded";
+		};
+		72D6393614BCD39100C8DF29 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		72D6393914BCD39D00C8DF29 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Development-Embedded";
+		};
+		72D6393A14BCD39D00C8DF29 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		72D6393B14BCD39D00C8DF29 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = "Deployment-Embedded";
+		};
+		72D6393C14BCD39D00C8DF29 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
 		};
 		72E8156D0CFE470B00CF547E /* Development-Embedded */ = {
 			isa = XCBuildConfiguration;
@@ -2079,7 +1996,6 @@
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "";
 				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
-				PREBINDING = NO;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2098,7 +2014,6 @@
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2117,7 +2032,6 @@
 				OTHER_CFLAGS = "-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS";
 				OTHER_LDFLAGS = "";
 				OTHER_MIGFLAGS = "-F$(SDKROOT)/System/Library/Frameworks";
-				PREBINDING = NO;
 				PRODUCT_NAME = powerd;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WRAPPER_EXTENSION = bundle;
@@ -2135,7 +2049,6 @@
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = powerd;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -2157,7 +2070,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = BatteryFaker;
 				ZERO_LINK = NO;
@@ -2173,7 +2085,6 @@
 					"$(SRCROOT)",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2187,7 +2098,6 @@
 					"-framework",
 					AppKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
@@ -2202,7 +2112,6 @@
 					"$(FRAMEWORK_SEARCH_PATHS)",
 					"$(SRCROOT)",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2215,7 +2124,6 @@
 					"-framework",
 					AppKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
@@ -2227,7 +2135,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -2235,7 +2142,6 @@
 				INSTALL_PATH = /;
 				MODULE_NAME = com.apple.driver.BatteryFaker;
 				MODULE_VERSION = 6.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2246,7 +2152,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -2254,7 +2159,6 @@
 				INSTALL_PATH = /;
 				MODULE_NAME = com.apple.driver.BatteryFaker;
 				MODULE_VERSION = 6.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2266,7 +2170,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2280,7 +2183,6 @@
 					"-framework",
 					IOKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = IOUPSPlugIn;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2291,7 +2193,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2304,7 +2205,6 @@
 					"-framework",
 					IOKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = IOUPSPlugIn;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -2314,10 +2214,7 @@
 		A60E72020CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-				);
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				PM_VERSION = 161.0.0;
 				WARNING_CFLAGS = "-Wall";
@@ -2327,10 +2224,6 @@
 		A60E72030CFE3809003989A7 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
 				PRODUCT_NAME = All;
 				WARNING_CFLAGS = "";
 				ZERO_LINK = NO;
@@ -2361,7 +2254,6 @@
 				MODULE_VERSION = 8.0.0;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = AppleSmartBatteryManager;
-				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -2377,7 +2269,6 @@
 				INSTALL_PATH = /System/Library/CoreServices;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = powerd;
-				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
 			};
@@ -2397,7 +2288,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "-D__I_AM_PMSET__";
 				PRODUCT_NAME = pmset;
-				VALID_ARCHS = "i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -2410,7 +2300,6 @@
 				INSTALL_PATH = /usr/libexec;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = ioupsd;
-				VALID_ARCHS = "i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Development;
@@ -2437,7 +2326,6 @@
 				);
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_SYMBOL_SEPARATION = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
@@ -2454,7 +2342,6 @@
 					"-framework",
 					AppKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WARNING_CFLAGS = "";
 				WRAPPER_EXTENSION = app;
@@ -2467,7 +2354,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -2475,7 +2361,6 @@
 				INSTALL_PATH = /;
 				MODULE_NAME = com.apple.driver.BatteryFaker;
 				MODULE_VERSION = 6.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2487,7 +2372,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2501,7 +2385,6 @@
 					"-framework",
 					IOKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = IOUPSPlugIn;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
@@ -2513,12 +2396,10 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /;
-				PREBINDING = NO;
 				PRODUCT_NAME = suidLauncherTool;
 				ZERO_LINK = NO;
 			};
@@ -2527,7 +2408,7 @@
 		A60E720E0CFE3815003989A7 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2551,7 +2432,6 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "PowerManagement-Embedded";
 				ZERO_LINK = NO;
 			};
@@ -2567,7 +2447,6 @@
 				MODULE_NAME = com.apple.driver.AppleSmartBatteryManager;
 				MODULE_VERSION = 8.0.0;
 				PRODUCT_NAME = AppleSmartBatteryManager;
-				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
 			};
@@ -2582,7 +2461,6 @@
 				INSTALL_PATH = /System/Library/CoreServices;
 				MACH_O_TYPE = mh_execute;
 				PRODUCT_NAME = powerd;
-				VALID_ARCHS = "i386 x86_64";
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
 			};
@@ -2600,7 +2478,6 @@
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "-D__I_AM_PMSET__";
 				PRODUCT_NAME = pmset;
-				VALID_ARCHS = "i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -2611,7 +2488,6 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = ioupsd;
-				VALID_ARCHS = "i386 x86_64";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -2624,7 +2500,6 @@
 					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WARNING_CFLAGS = "";
@@ -2640,7 +2515,6 @@
 					"$(FRAMEWORK_SEARCH_PATHS)",
 					"$(SRCROOT)",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2653,7 +2527,6 @@
 					"-framework",
 					AppKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = app;
 				ZERO_LINK = NO;
@@ -2664,7 +2537,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = s;
@@ -2672,7 +2544,6 @@
 				INSTALL_PATH = /;
 				MODULE_NAME = com.apple.driver.BatteryFaker;
 				MODULE_VERSION = 6.0.0;
-				PREBINDING = NO;
 				PRODUCT_NAME = BatteryFaker;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2683,7 +2554,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -2696,7 +2566,6 @@
 					"-framework",
 					IOKit,
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = IOUPSPlugIn;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -2707,11 +2576,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /;
-				PREBINDING = NO;
 				PRODUCT_NAME = suidLauncherTool;
 				ZERO_LINK = NO;
 			};
@@ -2735,7 +2602,6 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "PowerManagement-Embedded";
 				ZERO_LINK = NO;
 			};
@@ -2751,17 +2617,6 @@
 				504E1BC511372A6C00AAAA84 /* Development */,
 				504E1BC611372A6C00AAAA84 /* Deployment-Embedded */,
 				504E1BC711372A6C00AAAA84 /* Deployment */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		7235844F1312FA8B00065A11 /* Build configuration list for PBXNativeTarget "PanicImageData" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				723584501312FA8B00065A11 /* Development-Embedded */,
-				723584511312FA8B00065A11 /* Development */,
-				723584521312FA8B00065A11 /* Deployment-Embedded */,
-				723584531312FA8B00065A11 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
@@ -2861,6 +2716,28 @@
 				A60E72050CFE3809003989A7 /* Development */,
 				72D0ECE308F73D3100CCEA2F /* Deployment-Embedded */,
 				A60E72110CFE3815003989A7 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		72D6393214BCD39100C8DF29 /* Build configuration list for PBXAggregateTarget "PowerManagement_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72D6393314BCD39100C8DF29 /* Development-Embedded */,
+				72D6393414BCD39100C8DF29 /* Development */,
+				72D6393514BCD39100C8DF29 /* Deployment-Embedded */,
+				72D6393614BCD39100C8DF29 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		72D6393814BCD39D00C8DF29 /* Build configuration list for PBXAggregateTarget "PowerManagement_kexts" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72D6393914BCD39D00C8DF29 /* Development-Embedded */,
+				72D6393A14BCD39D00C8DF29 /* Development */,
+				72D6393B14BCD39D00C8DF29 /* Deployment-Embedded */,
+				72D6393C14BCD39D00C8DF29 /* Deployment */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

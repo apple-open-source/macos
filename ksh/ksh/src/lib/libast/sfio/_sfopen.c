@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -35,15 +35,16 @@ extern
 #undef  extern
 
 #if __STD_C
-Sfio_t* _sfopen(reg Sfio_t* f, const char* file, const char* mode)
+Sfio_t* _sfopen(Sfio_t* f, const char* file, const char* mode)
 #else
 Sfio_t* _sfopen(f,file,mode)
-reg Sfio_t*	f;		/* old stream structure */
+Sfio_t*		f;		/* old stream structure */
 char*		file;		/* file/string to be opened */
-reg char*	mode;		/* mode of the stream */
+char*		mode;		/* mode of the stream */
 #endif
 {
 	int	fd, oldfd, oflags, sflags;
+	SFMTXDECL(f);
 
 	/* get the control flags */
 	if((sflags = _sftype(mode,&oflags,NIL(int*))) == 0)
@@ -51,7 +52,7 @@ reg char*	mode;		/* mode of the stream */
 
 	/* changing the control flags */
 	if(f && !file && !((f->flags|sflags)&SF_STRING) )
-	{	SFMTXSTART(f, NIL(Sfio_t*));
+	{	SFMTXENTER(f, NIL(Sfio_t*));
 
 		if(f->mode&SF_INIT ) /* stream uninitialized, ok to set flags */
 		{	f->flags |= (sflags & (SF_FLAGS & ~SF_RDWR));
@@ -153,15 +154,16 @@ int*		uflagp;
 	sflags = oflags = uflag = 0;
 	while(1) switch(*mode++)
 	{
-	case 'w' :
-		sflags |= SF_WRITE;
-		oflags |= O_WRONLY | O_CREAT;
-		if(!(sflags&SF_READ))
-			oflags |= O_TRUNC;
-		continue;
 	case 'a' :
 		sflags |= SF_WRITE | SF_APPENDWR;
 		oflags |= O_WRONLY | O_APPEND | O_CREAT;
+		continue;
+	case 'b' :
+		oflags |= O_BINARY;
+		continue;
+	case 'm' :
+		sflags |= SF_MTSAFE;
+		uflag = 0;
 		continue;
 	case 'r' :
 		sflags |= SF_READ;
@@ -170,30 +172,32 @@ int*		uflagp;
 	case 's' :
 		sflags |= SF_STRING;
 		continue;
-	case 'b' :
-		oflags |= O_BINARY;
-		continue;
 	case 't' :
 		oflags |= O_TEXT;
-		continue;
-	case 'x' :
-		oflags |= O_EXCL;
-		continue;
-	case '+' :
-		if(sflags)
-			sflags |= SF_READ|SF_WRITE;
-		continue;
-	case 'm' :
-		sflags |= SF_MTSAFE;
-		uflag = 0;
 		continue;
 	case 'u' :
 		sflags &= ~SF_MTSAFE;
 		uflag = 1;
 		continue;
+	case 'w' :
+		sflags |= SF_WRITE;
+		oflags |= O_WRONLY | O_CREAT;
+		if(!(sflags&SF_READ))
+			oflags |= O_TRUNC;
+		continue;
+	case 'x' :
+		oflags |= O_EXCL;
+		continue;
+	case 'F':
+		/* stdio compatibility -- fd >= FOPEN_MAX (or other magic number) ok */
+		continue;
 	case 'W' :
 		sflags |= SF_WCWIDTH;
 		uflag = 0;
+		continue;
+	case '+' :
+		if(sflags)
+			sflags |= SF_READ|SF_WRITE;
 		continue;
 	default :
 		if(!(oflags&O_CREAT) )

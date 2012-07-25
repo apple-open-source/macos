@@ -85,6 +85,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strhash.c,v 1.10 2002/03/22 21:53:10 obr
 
 static int _hash(int size, char *key);
 static hash_node *list_find(caddr_t key, hash_node *head);
+static int assign_key(char *key, hash_node *node);
 
 
 /*
@@ -241,8 +242,6 @@ hash_search(hash_table *table, caddr_t key, void *datum,
     }
     else{
 	if (datum){
-
-	    static int assign_key();
 
 	    hash_node *new = (hash_node *)malloc(sizeof(hash_node));
 

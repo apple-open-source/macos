@@ -25,14 +25,11 @@
 
 module events {
 
-    interface WebKitTransitionEvent : Event {
-     readonly attribute DOMString          propertyName;
-     readonly attribute double             elapsedTime;
-     void               initWebKitTransitionEvent(in DOMString typeArg,
-                                           in boolean canBubbleArg,
-                                           in boolean cancelableArg,
-                                           in DOMString propertyNameArg,
-                                           in double elapsedTimeArg);
-};
+    interface [
+        ConstructorTemplate=Event
+    ] WebKitTransitionEvent : Event {
+        readonly attribute [InitializedByEventConstructor] DOMString propertyName;
+        readonly attribute [InitializedByEventConstructor] double elapsedTime;
+    };
 
 }

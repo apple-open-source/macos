@@ -33,7 +33,7 @@
 #include "JNIUtilityPrivate.h"
 #include "JSDOMBinding.h"
 #include "JavaRuntimeObject.h"
-#include "JavaString.h"
+#include "JavaStringJSC.h"
 #include "Logging.h"
 #include "ScriptController.h"
 #include "StringSourceProvider.h"
@@ -393,7 +393,7 @@ void JavaJSObject::setSlot(jint index, jobject value) const
 
     ExecState* exec = rootObject->globalObject()->globalExec();
     JSLock lock(SilenceAssertionsOnly);
-    _imp->methodTable()->putByIndex(_imp, exec, (unsigned)index, convertJObjectToValue(exec, value));
+    _imp->methodTable()->putByIndex(_imp, exec, (unsigned)index, convertJObjectToValue(exec, value), false);
 }
 
 
@@ -488,7 +488,7 @@ jobject JavaJSObject::convertValueToJObject(JSValue value) const
             result = env->NewObject (JSObjectClass, constructorID, (jdouble)value.toNumber(exec));
         }
     } else if (value.isString()) {
-        UString stringValue = value.toString(exec);
+        UString stringValue = value.toString(exec)->value(exec);
         JNIEnv *env = getJNIEnv();
         result = env->NewString ((const jchar *)stringValue.characters(), stringValue.length());
     } else if (value.isBoolean()) {
@@ -576,7 +576,7 @@ JSValue JavaJSObject::convertJObjectToValue(ExecState* exec, jobject theObject) 
     jlong nativeHandle = env->GetLongField(theObject, fieldID);
     if (nativeHandle == UndefinedHandle)
         return jsUndefined();
-    JSObject *imp = static_cast<JSObject*>(jlong_to_impptr(nativeHandle));
+    JSObject *imp = jsCast<JSObject*>(jlong_to_impptr(nativeHandle));
     return imp;
 }
 

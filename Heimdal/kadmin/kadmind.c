@@ -34,7 +34,8 @@
 #include "kadmin_locl.h"
 #include <gssapi.h>
 #include <gssapi_krb5.h>
-#include <gssapi_rewrite.h>
+#include <gssapi_spi.h>
+
 
 
 #ifdef __APPLE__
@@ -49,7 +50,8 @@ static char *check_library  = NULL;
 static char *check_function = NULL;
 static getarg_strings policy_libraries = { 0, NULL };
 static char *config_file;
-static char *keytab_str = "HDB:";
+static char sHDB[] = "HDB:";
+static char *keytab_str = sHDB;
 static int help_flag;
 static int version_flag;
 static int debug_flag;
@@ -77,7 +79,7 @@ static struct getargs args[] = {
       "password check function to load", "function" },
 #endif
     {	"debug",	'd',	arg_flag,   &debug_flag,
-	"enable debugging"
+	"enable debugging", NULL
     },
     {	"ports",	'p',	arg_string, &port_str,
 	"ports to listen to", "port" },
@@ -204,7 +206,7 @@ main(int argc, char **argv)
 
     if(debug_flag) {
 	int debug_port;
-	
+
 	if(port_str == NULL)
 	    debug_port = krb5_getportbyname (context, "kerberos-adm",
 					     "tcp", 749);

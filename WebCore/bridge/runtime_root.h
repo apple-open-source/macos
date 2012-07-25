@@ -30,7 +30,6 @@
 #include "jni_jsobject.h"
 #endif
 #include <heap/Strong.h>
-
 #include <heap/Weak.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>

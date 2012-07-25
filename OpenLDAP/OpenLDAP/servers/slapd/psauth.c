@@ -1,46 +1,44 @@
+#include "portable.h"
 #include <stdio.h>
 #include <string.h>		//used for strcpy, etc.
 #include <stdlib.h>		//used for malloc
 #include <stdarg.h>
-#include <ctype.h>
-#include <sysexits.h>
 #include <errno.h>
 
 #include <unistd.h>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <openssl/md5.h>
-#include <openssl/bn.h>
-#include <openssl/blowfish.h>
-
-int OLConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr );
-
-#include <PasswordServer/SASLCode.h>
-
-// #include <PasswordServer/CPSUtilities.h> // Tiger
-#include <PasswordServer/PSUtilitiesDefs.h>
-#include <PasswordServer/key.h>
+#include <syslog.h>
 
 #include "psauth.h"
 #include "sasl.h"
 #include "saslutil.h"
+#include "saslplug.h"
+#include <lber.h>
+#include "slap.h"
 
-
-#define kBigBuffSize						4096
-
-#define kSASLListPrefix						"(SASL "
-#define kPasswordServerErrPrefixStr			"-ERR "
-#define kPasswordServerSASLErrPrefixStr		"SASL "
+/* In sasl.c */
+extern int slap_sasl_log( void *context, int priority, const char *message);
+extern int slap_sasl_getopt( void *context, const char *plugin_name, const char *option, const char **result, unsigned *len);
+extern int pws_auxprop_init( const sasl_utils_t *utils, int max_version, int *out_version, sasl_auxprop_plug_t **plug, const char *plugname);
+static const char *slap_propnames[] = {
+    "*slapConn", "*slapAuthcDNlen", "*slapAuthcDN",
+    "*slapAuthzDNlen", "*slapAuthzDN", NULL };
+#define SLAP_SASL_PROP_CONN 0
+#define SLAP_SASL_PROP_AUTHCLEN 1
+#define SLAP_SASL_PROP_AUTHC    2
+#define SLAP_SASL_PROP_AUTHZLEN 3
+#define SLAP_SASL_PROP_AUTHZ    4
+#define SLAP_SASL_PROP_COUNT    5   /* Number of properties we used */
 
 typedef struct sSASLContext {
 	sasl_secret_t *secret;
 	char username[35];
 } sSASLContext;
+
+typedef struct sSASLCanonCtx {
+	Connection *conn;
+	const char *dn;
+} sSASLCanonCtx;
 
 int getrealm(void *context /*__attribute__((unused))*/, 
 		    int id,
@@ -56,10 +54,22 @@ ol_getsecret(sasl_conn_t *conn,
 	  int id,
 	  sasl_secret_t **psecret);
 
-long BeginServerSession( sPSContextData *inContext );
-long EndServerSession( sPSContextData *inContext );
-
 //-------------
+int getrealm(void *context /*__attribute__((unused))*/,
+            int id,
+            const char **availrealms,
+            const char **result)
+{
+    /* paranoia check */
+    if (id != SASL_CB_GETREALM) return SASL_BADPARAM;
+    if (!result) return SASL_BADPARAM;
+
+    if ( availrealms ) {
+        *result = *availrealms;
+    }
+   
+    return SASL_OK;
+}
 
 int ol_simple(void *context /*__attribute__((unused))*/,
 		  int id,
@@ -111,489 +121,6 @@ ol_getsecret(sasl_conn_t *conn,
     return SASL_OK;
 }
 
-
-//-----------------------------------------------------------------------------
-//	OLConvertBinaryToHex
-//-----------------------------------------------------------------------------
-
-int OLConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr )
-{
-    bool result = true;
-	char *tptr = outHexStr;
-	int idx;
-	char base16table[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
-	
-    if ( inData == nil || outHexStr == nil )
-        return false;
-    
-	for ( idx = 0; idx < len; idx++ )
-	{
-		*tptr++ = base16table[(inData[idx] >> 4) & 0x0F];
-		*tptr++ = base16table[(inData[idx] & 0x0F)];
-	}
-	*tptr = '\0';
-		
-	return result;
-}
-
-
-// ---------------------------------------------------------------------------
-//	* BeginServerSession
-// ---------------------------------------------------------------------------
-
-long BeginServerSession( sPSContextData *inContext )
-{
-	long siResult = 0;
-	unsigned int count = 0;
-	char *tptr = NULL;
-	char *end = NULL;
-	char buf[4096] = {0,};
-	PWServerError serverResult = {0};
-	int result = 0;
-	
-	do
-	{
-            inContext->psName = strdup("127.0.0.1");
-            siResult = ConnectToServer( inContext );
-            if ( siResult != 0 ) {
-                break;
-            }		
-
-            // set ip addresses
-            strlcpy(inContext->localaddr, "127.0.0.1;3659", sizeof(inContext->localaddr));
-            strlcpy(inContext->remoteaddr, "127.0.0.1;3659", sizeof(inContext->remoteaddr));
-
-            // retrieve the password server's list of available auth methods
-            serverResult = SendFlushRead( inContext, "LIST", NULL, NULL, buf, sizeof(buf) );
-            if ( serverResult.err != 0 ) {
-                siResult = kAuthOtherError;
-                break;
-            }
-		
-            sasl_chop(buf);
-            tptr = buf;
-            for (count=0; tptr; count++ ) {
-                    tptr = strchr( tptr, ' ' );
-                    if (tptr) tptr++;
-            }
-
-            if (count > 0) {
-                    inContext->mech = (AuthMethName *)calloc(count, sizeof(AuthMethName));
-                    if ( inContext->mech == NULL ) {
-                            siResult = kAuthOtherError;
-                            break;
-                    }
-
-                    inContext->mechCount = count;
-            }
-		
-            tptr = strstr( buf, kSASLListPrefix );
-            if ( tptr )
-            {
-                    tptr += strlen( kSASLListPrefix );
-
-                    for ( ; tptr && count > 0; count-- )
-                    {
-                            if ( *tptr == '\"' )
-                                    tptr++;
-                            else
-                                    break;
-
-                            end = strchr( tptr, '\"' );
-                            if ( end != NULL )
-                                    *end = '\0';
-
-                            strcpy( inContext->mech[count-1].method, tptr );
-
-                            tptr = end;
-                            if ( tptr != NULL )
-                                    tptr += 2;
-                    }
-            }
-	}
-	while ( 0 );
-	
-	return siResult;
-}
-
-
-// ---------------------------------------------------------------------------
-//	* EndServerSession
-// ---------------------------------------------------------------------------
-
-long EndServerSession( sPSContextData *inContext )
-{
-        if ( Connected( inContext ) )
-        {
-                int result;
-                struct timeval recvTimeoutVal = { 0, 150000 };
-
-                result = setsockopt( inContext->fd, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) );
-
-                writeToServer( inContext->serverOut, "QUIT\r\n" );
-        }
-	
-	if ( inContext->serverOut != NULL ) {
-		fpurge( inContext->serverOut );
-		fclose( inContext->serverOut );
-		inContext->serverOut = NULL;
-		// serverOut was created by calling fdopen() on inContext->fd, so
-		// don't close fd as that would result in a double close.
-		inContext->fd = -1;
-	} else if ( inContext->fd > 0 ) {
-		close( inContext->fd );
-		inContext->fd = -1;
-	}
-	
-	return 0;
-}
-
-
-// ---------------------------------------------------------------------------
-//	* InitConnection
-// ---------------------------------------------------------------------------
-
-int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* psName, sasl_callback_t callbacks[5])
-{
-	long result = 0;
-	sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
-	char hexHash[34] = {0};
-	
-	// callbacks we support
-	callbacks[0].id = SASL_CB_GETREALM;
-	callbacks[0].proc = (sasl_cbproc *)&getrealm;
-	callbacks[0].context = saslContext;
-	
-	callbacks[1].id = SASL_CB_USER;
-	callbacks[1].proc = (sasl_cbproc *)&ol_simple;
-	callbacks[1].context = saslContext;
-	
-	callbacks[2].id = SASL_CB_AUTHNAME;
-	callbacks[2].proc = (sasl_cbproc *)&ol_simple;
-	callbacks[2].context = saslContext;
-	
-	callbacks[3].id = SASL_CB_PASS;
-	callbacks[3].proc = (sasl_cbproc *)&ol_getsecret;
-	callbacks[3].context = saslContext;
-	
-	callbacks[4].id = SASL_CB_LIST_END;
-	callbacks[4].proc = NULL;
-	callbacks[4].context = NULL;
-	
-        result = BeginServerSession( pContext );
-	if ( result != kAuthNoError )
-		return result;
-	
-	result = sasl_client_new("rcmd", psName, NULL, NULL, callbacks, 0, &pContext->conn);
-	if ( result != SASL_OK || pContext->conn == NULL ) {
-#ifdef DEBUG_PRINTFS
-		printf("sasl_client_new failed.\n");
-#endif
-		return kAuthOtherError;
-	}
-	
-	result = sasl_setprop(pContext->conn, SASL_SEC_PROPS, &secprops);
-	
-    return kAuthNoError;
-}
-
-int DoSASLAuth(
-    sPSContextData *inContext,
-    sSASLContext *inSASLContext,
-    const char *userName,
-    const char *password,
-    const char *inMechName )
-{
-	int			siResult			= kAuthOtherError;
-	int			nameLen				= 0;
-	int			pwdLen				= 0;
-	
-    // need username length, password length, and username must be at least 1 character
-
-    // Get the length of the user name
-    nameLen = strlen(userName);
-    
-    // Get the length of the user password
-    pwdLen = strlen(password);
-    
-    //TODO yes do it here
-    {
-        char buf[kBigBuffSize];
-        const char *data;
-        char dataBuf[kBigBuffSize];
-        const char *chosenmech = NULL;
-        unsigned int len = 0;
-        int r;
-        PWServerError serverResult;
-                    
-        // attach the username and password to the sasl connection's context
-        // set these before calling sasl_client_start
-        strncpy(inSASLContext->username, userName, 35);
-        inSASLContext->username[34] = '\0';
-        
-    
-        inSASLContext->secret = (sasl_secret_t *) malloc(sizeof(sasl_secret_t) + pwdLen + 1);
-        if ( inSASLContext->secret == NULL )
-            return SASL_NOMEM;
-        
-        inSASLContext->secret->len = pwdLen;
-        strcpy((char *)inSASLContext->secret->data, password);
-		        
-#ifdef DEBUG_PRINTFS
-        const char **gmechs = sasl_global_listmech();
-        for (r=0; gmechs[r] != NULL; r++)
-            fprintf(stderr, "gmech=%s\n", gmechs[r]);
-#endif
-        
-        r = sasl_client_start(inContext->conn, inMechName, NULL, &data, &len, &chosenmech); 
-#ifdef DEBUG_PRINTFS
-        printf("chosenmech=%s, datalen=%u\n", chosenmech, len);
-#endif        
-        if (r != SASL_OK && r != SASL_CONTINUE) {
-#ifdef DEBUG_PRINTFS
-            printf("starting SASL negotiation, err=%d\n", r);
-#endif
-            return kAuthSASLError;
-        }
-        
-        // set a user
-#ifdef DEBUG_PRINTFS
-        printf("USER %s\r\n", userName);
-#endif
-        snprintf(dataBuf, sizeof(dataBuf), "USER %s\r\n", userName);
-        writeToServer(inContext->serverOut, dataBuf);
-        
-        // flush the read buffer; don't care what the response is for now
-        readFromServer( inContext->fd, buf, sizeof(buf) );
-        
-        // send the auth method
-        dataBuf[0] = 0;
-        if ( len > 0 )
-            OLConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
-        
-#ifdef DEBUG_PRINTFS
-        printf("AUTH %s %s\r\n", chosenmech, dataBuf);
-#endif
-        if ( len > 0 )
-            snprintf(buf, sizeof(buf), "AUTH %s %s\r\n", chosenmech, dataBuf);
-        else
-            snprintf(buf, sizeof(buf), "AUTH %s\r\n", chosenmech);
-        writeToServer(inContext->serverOut, buf);
-        
-        // get server response
-        serverResult = readFromServer(inContext->fd, buf, sizeof(buf));
-        if (serverResult.err != 0) {
-#ifdef DEBUG_PRINTFS
-            printf("server returned an error, err=%d\n", serverResult);
-#endif
-            return kAuthenticationError;
-        }
-        
-        sasl_chop(buf);
-        len = strlen(buf);
-        
-        while ( 1 )
-        {
-            // skip the "+OK " at the begining of the response
-            if ( len >= 3 && strncmp( buf, "+OK", 3 ) == 0 )
-            {
-                if ( len > 4 )
-                {
-                    unsigned long binLen;
-                    
-                    ConvertHexToBinary( buf + 4, (unsigned char *) dataBuf, &binLen );
-                    r = sasl_client_step(inContext->conn, dataBuf, binLen, NULL, &data, &len);
-                }
-                else
-                {
-                    // we're done
-                    data = NULL;
-                    len = 0;
-                    r = SASL_OK;
-                }
-            }
-            else 
-                r = -1;
-            if (r != SASL_OK && r != SASL_CONTINUE) {
-#ifdef DEBUG_PRINTFS
-                printf("sasl_client_step=%d\n", r);
-#endif
-                return kAuthSASLError;
-            }
-            
-            if (data && len != 0)
-            {
-#ifdef DEBUG_PRINTFS
-                printf("sending response length %d...\n", len);
-#endif
-                OLConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
-                
-#ifdef DEBUG_PRINTFS
-                printf("AUTH2 %s\r\n", dataBuf);
-#endif
-                fprintf(inContext->serverOut, "AUTH2 %s\r\n", dataBuf );
-                fflush(inContext->serverOut);
-            }
-            else
-            if (r==SASL_CONTINUE)
-            {
-#ifdef DEBUG_PRINTFS
-                printf("sending null response...\n");
-#endif
-                //send_string(out, "", 0);
-                fprintf(inContext->serverOut, "AUTH2 \r\n" );
-                fflush(inContext->serverOut);
-            }
-            else
-                break;
-            
-            serverResult = readFromServer(inContext->fd, buf, sizeof(buf) );
-            if ( serverResult.err != 0 ) {
-#ifdef DEBUG_PRINTFS
-                printf("server returned an error, err=%d\n", serverResult);
-#endif
-                return kAuthenticationError;
-            }
-            
-            sasl_chop(buf);
-            len = strlen(buf);
-            
-            if ( r != SASL_CONTINUE )
-                break;
-        }
-        
-        return r;
-    }
-	
-	return( siResult );
-
-} // DoSASLAuth
-
-
-// ---------------------------------------------------------------------------
-//	* CleanContextData
-// ---------------------------------------------------------------------------
-
-int CleanContextData ( sPSContextData *inContext )
-{
-    int	siResult = kAuthNoError;
-	   
-    if ( inContext == NULL )
-    {
-        siResult = kAuthOtherError;
-	}
-    else
-    {
-       if (inContext->psName != NULL)
-       {
-           free( inContext->psName );
-           inContext->psName = NULL;
-       }
-		
-        inContext->offset = 0;
-        
-        if (inContext->conn != NULL)
-        {
-            sasl_dispose(&inContext->conn);
-            inContext->conn = NULL;
-        }
-                
-        if (inContext->serverOut != NULL)
-        {
-            fclose(inContext->serverOut);
-            inContext->serverOut = NULL;
-            // serverOut was created by calling fdopen on inContext->fd.
-            // Don't close fd as that would result in a double close.
-            inContext->fd = -1;
-        } else if (inContext->fd > 0)
-        {
-            close(inContext->fd);
-            inContext->fd = -1;
-        }
-        
-		if (inContext->rsaPublicKeyStr != NULL)
-		{
-			free(inContext->rsaPublicKeyStr);
-			inContext->rsaPublicKeyStr = NULL;
-		}
-		
-		if (inContext->rsaPublicKey != NULL)
-		{
-			key_free(inContext->rsaPublicKey);
-			inContext->rsaPublicKey = NULL;
-		}
-		
-        if (inContext->mech != NULL)
-        {
-            free(inContext->mech);
-            inContext->mech = NULL;
-        }
-        
-        inContext->mechCount = 0;
-        
-        memset(inContext->last.username, 0, sizeof(inContext->last.username));
-        
-        if (inContext->last.password != NULL)
-        {
-            memset(inContext->last.password, 0, inContext->last.passwordLen);
-            free(inContext->last.password);
-            inContext->last.password = NULL;
-        }
-        inContext->last.passwordLen = 0;
-        inContext->last.successfulAuth = false;
-        
-        memset(inContext->nao.username, 0, sizeof(inContext->nao.username));
-        
-        if (inContext->nao.password != NULL)
-        {
-            memset(inContext->nao.password, 0, inContext->nao.passwordLen);
-            free(inContext->nao.password);
-            inContext->nao.password = NULL;
-        }
-        inContext->nao.passwordLen = 0;
-        inContext->nao.successfulAuth = false;
-		
-        if ( inContext->serverList != NULL )
-        {
-            CFRelease( inContext->serverList );
-            inContext->serverList = NULL;
-        }
-        
-        if ( inContext->syncFilePath != NULL )
-        {
-            remove( inContext->syncFilePath );
-            free( inContext->syncFilePath );
-            inContext->syncFilePath = NULL;
-        }
-        
-        bzero( &inContext->rc5Key, sizeof(RC5_32_KEY) );
-        inContext->madeFirstContact = false;
-	}
-	
-    return( siResult );
-
-} // CleanContextData
-
-int ParseAuthorityData(char* inAuthAuthorityData, char** vers, char** type, char** id)
-{
-    char* temp;
-    
-    *vers = inAuthAuthorityData;
-    temp = strchr(*vers, ';');
-    if (temp == NULL) return 0;
-    *temp = '\0';
-    *type = temp+1;
-    temp = strchr(*type, ';');
-    if (temp == NULL) return 0;
-    *temp = '\0';
-    *id = temp+1;
-    temp = strchr(*id, ',');
-    if (temp == NULL) return 0;
-    *temp = '\0';
-	
-    return 1;
-}
-
 int CheckAuthType(char* inAuthAuthorityData, char* authType)
 {
     char* temp;
@@ -601,69 +128,172 @@ int CheckAuthType(char* inAuthAuthorityData, char* authType)
     return ((temp != NULL) && (strncmp(temp+1, authType, strlen(authType)) == 0));
 }
 
-int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
+int
+pws_canonicalize(
+    sasl_conn_t *sconn,
+    void *context,
+    const char *in,
+    unsigned inlen,
+    unsigned flags,
+    const char *user_realm,
+    char *out,
+    unsigned out_max,
+    unsigned *out_len)
 {
-    char* infoVersion = NULL;
-    char* authType = NULL;
-    char* userID = NULL;
-    char* authDataCopy = NULL;
-    int result;
-    int error_num;
-    sPSContextData context;
-    sSASLContext saslContext;
-    sPSServerEntry anEntry;
-    struct in_addr inetAddr;
-    struct hostent *hostEnt;
-    sasl_callback_t callbacks[5];
+	sSASLCanonCtx *ctx = (sSASLCanonCtx*)context;
+	struct propctx *props = sasl_auxprop_getctx( sconn );
+	struct propval auxvals[ SLAP_SASL_PROP_COUNT ] = { { 0 } };
+	const char *names[2];
+	ber_len_t blen;
+
+	prop_getnames(props, slap_propnames, auxvals);
+	if(!auxvals[0].name)
+		prop_request(props, slap_propnames);
+
+	names[0] = slap_propnames[SLAP_SASL_PROP_CONN];
+	names[1] = NULL;
+	prop_set(props, names[0], (char*)&ctx->conn, sizeof(ctx->conn));
 	
-    bzero( &context, sizeof(sPSContextData) );
-    bzero( &saslContext, sizeof(saslContext) );
-    CleanContextData ( &context );
-	
-    do { // not a loop
-        // copy to our own buffer
-        authDataCopy = (char *)malloc(strlen(inAuthAuthorityData) + 1);
-        if ( authDataCopy == NULL ) {
-            result = kAuthOtherError;
-            break;
-        }
+	names[0] = slap_propnames[SLAP_SASL_PROP_AUTHCLEN];
 
-        strcpy(authDataCopy, inAuthAuthorityData);
-        if (!ParseAuthorityData(authDataCopy, &infoVersion, &authType, &userID)) {
-                result = kAuthOtherError;
-                break;
-        }
+	blen = strlen(ctx->dn);
+	prop_set(props, names[0], (char*)&blen, sizeof(blen));
 
-        // check auth info type
-        if (strcmp(authType, PASSWORD_SERVER_AUTH_TYPE) != 0) {
-            result = kAuthOtherError;
-            break;
-        }
+	names[0] = slap_propnames[SLAP_SASL_PROP_AUTHC];
+	prop_set(props, names[0], ctx->dn, blen);
 
-        bzero( &anEntry, sizeof(anEntry) );
-        strlcpy( anEntry.ip, "127.0.0.1", sizeof(anEntry.ip));
-        context.serverProvidedFromNode = anEntry;
-
-        result = InitConnection(&context, &saslContext, anEntry.ip, callbacks);
-        if (result != kAuthNoError) {
-            break;
-        }
-
-        result = DoSASLAuth(&context, &saslContext, userID, password, "CRAM-MD5");
-    } while (0);
-	
-    if (saslContext.secret != NULL) {
-        bzero(saslContext.secret->data,saslContext.secret->len);
-        free(saslContext.secret);
-        saslContext.secret = NULL;
-    }
-    
-    EndServerSession(&context);
-    CleanContextData(&context);
-    if (authDataCopy != NULL) {
-        free(authDataCopy);
-    }
-	
-    return result;
+	if(out_max < (inlen+1)) return SASL_BADPARAM;
+	memcpy(out, in, inlen);
+	out[inlen] = '\0';
+	*out_len = inlen;
+	return SASL_OK;
 }
 
+int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData, Connection* conn, const char* dn)
+{
+	int result = -1;
+	sasl_conn_t *client_conn;
+	sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
+	sasl_callback_t callbacks[5];
+	const char *data = NULL;
+	unsigned int len = 0;
+	const char *chosenmech = NULL;
+	sSASLContext saslContext;
+	sasl_conn_t *server_conn = NULL;
+	const char *serverOut = NULL;
+	unsigned int serverOutLen = 0;
+	sasl_security_properties_t server_secprops = {0, 65536, 4096, SASL_SEC_NOPLAINTEXT, NULL, NULL};
+    static sasl_callback_t server_callbacks[] = {
+        { SASL_CB_LOG, &slap_sasl_log, NULL },
+        { SASL_CB_GETOPT, &slap_sasl_getopt, NULL },
+        { SASL_CB_LIST_END, NULL, NULL }
+    };
+	sasl_callback_t server_session_callbacks[5];
+	struct propctx *props = NULL;
+	struct propval auxvals[SLAP_SASL_PROP_COUNT] = {{0}};
+	const char *names[2];
+	ber_len_t blen;
+	sSASLCanonCtx canonctx;
+
+	canonctx.conn = conn;
+	canonctx.dn = dn;
+
+	/* server session callbacks */
+	server_session_callbacks[0].id = SASL_CB_LOG;
+	server_session_callbacks[0].proc = &slap_sasl_log;
+	server_session_callbacks[0].context = conn;
+	server_session_callbacks[1].id = SASL_CB_CANON_USER;
+	server_session_callbacks[1].proc = &pws_canonicalize;
+	server_session_callbacks[1].context = &canonctx;
+	server_session_callbacks[2].id = SASL_CB_LIST_END;
+	server_session_callbacks[2].proc = NULL;
+	server_session_callbacks[2].context = NULL;
+
+	memset(&saslContext, 0, sizeof(saslContext));
+	strncpy(saslContext.username, userName, 35);
+	saslContext.secret = (sasl_secret_t*)calloc(1, sizeof(sasl_secret_t) + strlen(password) + 1);
+	saslContext.secret->len = strlen(password);
+	strcpy((char*)saslContext.secret->data, password);
+
+	/* client side callbacks */
+    callbacks[0].id = SASL_CB_GETREALM;
+    callbacks[0].proc = &getrealm;
+    callbacks[0].context = &saslContext;
+   
+    callbacks[1].id = SASL_CB_USER;
+    callbacks[1].proc = &ol_simple;
+    callbacks[1].context = &saslContext;
+
+    callbacks[2].id = SASL_CB_AUTHNAME;
+    callbacks[2].proc = &ol_simple;
+    callbacks[2].context = &saslContext;
+
+    callbacks[3].id = SASL_CB_PASS;
+    callbacks[3].proc = &ol_getsecret;
+    callbacks[3].context = &saslContext;
+   
+    callbacks[4].id = SASL_CB_LIST_END;
+    callbacks[4].proc = NULL;
+    callbacks[4].context = NULL;
+	
+	result = sasl_client_init(NULL);
+	if(result != SASL_OK) {
+		syslog(LOG_ERR, "sasl_client_init returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_client_new("slapd", "localhost", NULL, NULL, callbacks, 0, &client_conn);
+	if ( result != SASL_OK ) {
+		syslog(LOG_ERR, "sasl_client_new returned: %d", result);
+		goto out;
+	}
+	
+	result = sasl_setprop(client_conn, SASL_SEC_PROPS, &secprops);
+
+	result = sasl_client_start(client_conn, "CRAM-MD5", NULL, &data, &len, &chosenmech);
+	if(result != SASL_CONTINUE) {
+		syslog(LOG_ERR, "sasl_client_start returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_auxprop_add_plugin( "appleldap", pws_auxprop_init );
+	if( result != SASL_OK ) {
+		syslog(LOG_ERR, "sasl_auxprop_add_plugin returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_server_init(server_callbacks, "slapd");
+	if(result != SASL_OK) {
+		syslog(LOG_ERR, "sasl_server_init_alt returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_server_new("slapd", "localhost", NULL, NULL, NULL, server_session_callbacks, SASL_SUCCESS_DATA, &server_conn);
+	if(result != SASL_OK) {
+		syslog(LOG_ERR, "sasl_server_new returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_setprop(server_conn, SASL_SEC_PROPS, &server_secprops);
+
+	result = sasl_server_start(server_conn, "CRAM-MD5", data, len, &serverOut, &serverOutLen);
+	if(result != SASL_CONTINUE) {
+		syslog(LOG_ERR, "sasl_server_start returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_client_step(client_conn, serverOut, serverOutLen, NULL, &data, &len);
+	if(result != SASL_OK) {
+		syslog(LOG_ERR, "sasl_client_step returned: %d", result);
+		goto out;
+	}
+
+	result = sasl_server_step(server_conn, data, len, &serverOut, &serverOutLen);
+
+out:
+	if(client_conn) sasl_dispose(&client_conn);
+	if(server_conn) sasl_dispose(&server_conn);
+	if(saslContext.secret) free(saslContext.secret);
+
+	return result;
+}

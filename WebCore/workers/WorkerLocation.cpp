@@ -36,7 +36,7 @@ namespace WebCore {
 
 String WorkerLocation::href() const
 {
-    return m_url.hasPath() ? m_url.prettyURL() : m_url.prettyURL() + "/";
+    return m_url.string();
 }
 
 String WorkerLocation::protocol() const
@@ -72,11 +72,6 @@ String WorkerLocation::search() const
 String WorkerLocation::hash() const
 {
     return m_url.fragmentIdentifier().isEmpty() ? emptyString() : "#" + m_url.fragmentIdentifier();
-}
-
-String WorkerLocation::toString() const
-{
-    return m_url.hasPath() ? m_url.prettyURL() : m_url.prettyURL() + "/";
 }
 
 

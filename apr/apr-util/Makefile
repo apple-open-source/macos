@@ -17,7 +17,7 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = apr-util
-AEP_Version    = 1.3.10
+AEP_Version    = 1.3.12
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

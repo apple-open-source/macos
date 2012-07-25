@@ -40,10 +40,31 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/waitpid.c,v 1.7 2007/01/09 00:27:56 imp Exp
 #include <sys/resource.h>
 #include "un-namespace.h"
 
+#if __DARWIN_UNIX03
+#include <errno.h>
+#endif /* __DARWIN_UNIX03 */
+#ifdef VARIANT_CANCELABLE
+int __wait4(pid_t, int *, int , struct rusage *);
+#else /* !VARIANT_CANCELABLE */
+int __wait4_nocancel(pid_t, int *, int , struct rusage *);
+#endif /* VARIANT_CANCELABLE */
+
 pid_t
 __waitpid(pid_t pid, int *istat, int options)
 {
-	return (_wait4(pid, istat, options, (struct rusage *)0));
+#if __DARWIN_UNIX03
+	/* POSIX: Validate waitpid() options before calling wait4() */
+	if ((options & (WCONTINUED | WNOHANG | WUNTRACED)) != options) {
+		errno = EINVAL;
+		return ((pid_t)-1);
+	}
+#endif	/* __DARWIN_UNIX03 */
+
+#ifdef VARIANT_CANCELABLE
+	return (__wait4(pid, istat, options, (struct rusage *)0));
+#else /* !VARIANT_CANCELABLE */
+	return (__wait4_nocancel(pid, istat, options, (struct rusage *)0));
+#endif /* VARIANT_CANCELABLE */
 }
 
 __weak_reference(__waitpid, waitpid);

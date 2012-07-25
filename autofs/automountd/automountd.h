@@ -21,17 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * Mutex used to ensure that only one thread does anything with the
- * GSSD task special port at a time.
- */
-extern pthread_mutex_t gssd_port_lock;
-
-/*
- * Routine, called while that mutex is held, to put back the old GSSD
- * task special port value and release the mutex.
- */
-extern void put_back_gssd_port(mach_port_t saved_gssd_port);
+extern int join_session(au_asid_t);
 
 extern int automountd_nobrowse;
 extern char *automountd_defopts;

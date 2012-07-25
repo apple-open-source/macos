@@ -25,13 +25,7 @@
  */
 
 #include "config.h"
-
-// FIXME: Remove this define!
-#define LOOSE_OWN_PTR
-
 #include "StorageAreaProxy.h"
-
-#if ENABLE(DOM_STORAGE)
 
 #include "DOMWindow.h"
 #include "Document.h"
@@ -41,20 +35,22 @@
 #include "Page.h"
 #include "PageGroup.h"
 #include "SecurityOrigin.h"
-#include "StorageAreaImpl.h"
+#include "Storage.h"
 #include "StorageEvent.h"
+#include "StorageNamespaceProxy.h"
 
 #include "WebFrameImpl.h"
 #include "WebPermissionClient.h"
 #include "WebStorageArea.h"
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 #include "WebViewImpl.h"
 
 namespace WebCore {
 
+// FIXME: storageArea argument should be a PassOwnPtr.
 StorageAreaProxy::StorageAreaProxy(WebKit::WebStorageArea* storageArea, StorageType storageType)
-    : m_storageArea(storageArea)
+    : m_storageArea(adoptPtr(storageArea))
     , m_storageType(storageType)
 {
 }
@@ -63,31 +59,35 @@ StorageAreaProxy::~StorageAreaProxy()
 {
 }
 
-unsigned StorageAreaProxy::length() const
+unsigned StorageAreaProxy::length(Frame* frame) const
 {
-    return m_storageArea->length();
+    if (canAccessStorage(frame))
+        return m_storageArea->length();
+    return 0;
 }
 
-String StorageAreaProxy::key(unsigned index) const
+String StorageAreaProxy::key(unsigned index, Frame* frame) const
 {
-    return m_storageArea->key(index);
+    if (canAccessStorage(frame))
+        return m_storageArea->key(index);
+    return String();
 }
 
-String StorageAreaProxy::getItem(const String& key) const
+String StorageAreaProxy::getItem(const String& key, Frame* frame) const
 {
-    return m_storageArea->getItem(key);
+    if (canAccessStorage(frame))
+        return m_storageArea->getItem(key);
+    return String();
 }
 
 String StorageAreaProxy::setItem(const String& key, const String& value, ExceptionCode& ec, Frame* frame)
 {
     WebKit::WebStorageArea::Result result = WebKit::WebStorageArea::ResultOK;
     WebKit::WebString oldValue;
-    WebKit::WebFrameImpl* webFrame = WebKit::WebFrameImpl::fromFrame(frame);
-    WebKit::WebViewImpl* webView = webFrame->viewImpl();
-    if (webView->permissionClient() && !webView->permissionClient()->allowStorage(webFrame, m_storageType == LocalStorage))
+    if (!canAccessStorage(frame))
         ec = QUOTA_EXCEEDED_ERR;
     else {
-        m_storageArea->setItem(key, value, frame->document()->url(), result, oldValue, webFrame);
+        m_storageArea->setItem(key, value, frame->document()->url(), result, oldValue);
         ec = (result == WebKit::WebStorageArea::ResultOK) ? 0 : QUOTA_EXCEEDED_ERR;
         String oldValueString = oldValue;
         if (oldValueString != value && result == WebKit::WebStorageArea::ResultOK)
@@ -98,6 +98,8 @@ String StorageAreaProxy::setItem(const String& key, const String& value, Excepti
 
 String StorageAreaProxy::removeItem(const String& key, Frame* frame)
 {
+    if (!canAccessStorage(frame))
+        return String();
     WebKit::WebString oldValue;
     m_storageArea->removeItem(key, frame->document()->url(), oldValue);
     if (!oldValue.isNull())
@@ -107,6 +109,8 @@ String StorageAreaProxy::removeItem(const String& key, Frame* frame)
 
 bool StorageAreaProxy::clear(Frame* frame)
 {
+    if (!canAccessStorage(frame))
+        return false;
     bool clearedSomething;
     m_storageArea->clear(frame->document()->url(), clearedSomething);
     if (clearedSomething)
@@ -114,11 +118,12 @@ bool StorageAreaProxy::clear(Frame* frame)
     return clearedSomething;
 }
 
-bool StorageAreaProxy::contains(const String& key) const
+bool StorageAreaProxy::contains(const String& key, Frame* frame) const
 {
-    return !getItem(key).isNull();
+    return !getItem(key, frame).isNull();
 }
 
+// FIXME: remove this method and the calls to it from our setters after multi-side patch landing is done.
 // Copied from WebCore/storage/StorageEventDispatcher.cpp out of necessity.  It's probably best to keep it current.
 void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, const String& newValue, StorageType storageType, SecurityOrigin* securityOrigin, Frame* sourceFrame)
 {
@@ -137,6 +142,8 @@ void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, c
         }
 
         for (unsigned i = 0; i < frames.size(); ++i) {
+            // FIXME: maybe only raise if the window has an onstorage listener
+            // attached to avoid creating the Storage instance.
             ExceptionCode ec = 0;
             Storage* storage = frames[i]->domWindow()->sessionStorage(ec);
             if (!ec)
@@ -154,6 +161,8 @@ void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, c
         }
 
         for (unsigned i = 0; i < frames.size(); ++i) {
+            // FIXME: maybe only raise if the window has an onstorage listener
+            // attached to avoid creating the Storage instance.
             ExceptionCode ec = 0;
             Storage* storage = frames[i]->domWindow()->localStorage(ec);
             if (!ec)
@@ -162,6 +171,85 @@ void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, c
     }
 }
 
-} // namespace WebCore
+bool StorageAreaProxy::canAccessStorage(Frame* frame) const
+{
+    if (!frame->page())
+        return false;
+    WebKit::WebFrameImpl* webFrame = WebKit::WebFrameImpl::fromFrame(frame);
+    WebKit::WebViewImpl* webView = webFrame->viewImpl();
+    return !webView->permissionClient() || webView->permissionClient()->allowStorage(webFrame, m_storageType == LocalStorage);
+}
 
-#endif // ENABLE(DOM_STORAGE)
+void StorageAreaProxy::dispatchLocalStorageEvent(const String& pageGroupName, const String& key, const String& oldValue, const String& newValue,
+                                                 SecurityOrigin* securityOrigin, const KURL& pageURL, WebKit::WebStorageArea* sourceAreaInstance, bool originatedInProcess)
+{
+    // FIXME: Multi-sided patch engineering alert !
+    // step 1: this method gets defined and implemented in webkit/webcore with the early return.
+    // step 2: this method starts getting called by chromium still with the early return.
+    // step 3: This class's setters are modified to no longer raise SessionStorage
+    //         events for inprocess changes and this early return is removed.
+    if (originatedInProcess)
+        return;
+
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroupName)->pages();
+    for (HashSet<Page*>::const_iterator it = pages.begin(); it != pages.end(); ++it) {
+        for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+            if (frame->document()->securityOrigin()->equal(securityOrigin) && !isEventSource(frame->domWindow()->optionalLocalStorage(), sourceAreaInstance)) {
+                // FIXME: maybe only raise if the window has an onstorage listener attached to avoid creating the Storage instance.
+                ExceptionCode ec = 0;
+                Storage* storage = frame->domWindow()->localStorage(ec);
+                if (!ec)
+                    frame->document()->enqueueWindowEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, pageURL, storage));
+            }
+        }
+    }
+}
+
+static Page* findPageWithSessionStorageNamespace(const String& pageGroupName, const WebKit::WebStorageNamespace& sessionNamespace)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroupName)->pages();
+    for (HashSet<Page*>::const_iterator it = pages.begin(); it != pages.end(); ++it) {
+        const bool createIfNeeded = true;
+        StorageNamespaceProxy* proxy = static_cast<StorageNamespaceProxy*>((*it)->sessionStorage(createIfNeeded));
+        if (proxy->isSameNamespace(sessionNamespace))
+            return *it;
+    }
+    return 0;
+}
+
+void StorageAreaProxy::dispatchSessionStorageEvent(const String& pageGroupName, const String& key, const String& oldValue, const String& newValue,
+                                                   SecurityOrigin* securityOrigin, const KURL& pageURL, const WebKit::WebStorageNamespace& sessionNamespace,
+                                                   WebKit::WebStorageArea* sourceAreaInstance, bool originatedInProcess)
+{
+    // FIXME: Multi-sided patch engineering alert !
+    // step 1: this method gets defined and implemented in webkit/webcore with the early return.
+    // step 2: this method starts getting called by chromium still with the early return.
+    // step 3: This class's setters are modified to no longer raise SessionStorage
+    //         events for inprocess changes and this early return is removed.
+    if (originatedInProcess)
+        return;
+
+    Page* page = findPageWithSessionStorageNamespace(pageGroupName, sessionNamespace);
+    if (!page)
+        return;
+
+    for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
+        if (frame->document()->securityOrigin()->equal(securityOrigin) && !isEventSource(frame->domWindow()->optionalSessionStorage(), sourceAreaInstance)) {
+            // FIXME: maybe only raise if the window has an onstorage listener attached to avoid creating the Storage instance.
+            ExceptionCode ec = 0;
+            Storage* storage = frame->domWindow()->sessionStorage(ec);
+            if (!ec)
+                frame->document()->enqueueWindowEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, pageURL, storage));
+        }
+    }
+}
+
+bool StorageAreaProxy::isEventSource(Storage* storage, WebKit::WebStorageArea* sourceAreaInstance)
+{
+    if (!storage)
+        return false;
+    StorageAreaProxy* areaProxy = static_cast<StorageAreaProxy*>(storage->area());
+    return areaProxy->m_storageArea == sourceAreaInstance;
+}
+
+} // namespace WebCore

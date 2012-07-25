@@ -197,7 +197,7 @@ echo "init using existing cc"
 ${acquire_cred} \
     --name-type=user-name \
     --acquire-type=initiate \
-    --acquire-name=user || exit 1
+    --acquire-name=user@${R} || exit 1
 
 KRB5CCNAME=${nocache}
 
@@ -205,14 +205,14 @@ echo "fail init using existing cc"
 ${acquire_cred} \
     --name-type=user-name \
     --acquire-type=initiate \
-    --acquire-name=user 2>/dev/null && exit 1
+    --acquire-name=user@${R} 2>/dev/null && exit 1
 
 echo "use gss_krb5_ccache_name for user"
 ${acquire_cred} \
     --name-type=user-name \
     --ccache=${cache} \
     --acquire-type=initiate \
-    --acquire-name=user >/dev/null || exit 1
+    --acquire-name=user@${R} >/dev/null || exit 1
 
 KRB5CCNAME=${cache}
 KRB5_KTNAME=${nokeytab}

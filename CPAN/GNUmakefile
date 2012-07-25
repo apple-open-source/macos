@@ -120,7 +120,7 @@ $(OBJROOT)/wrappers:
 		if file $$f | head -1 | fgrep -q script; then \
 		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$v&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
-		    sed "s/@VERSION@/$$v/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
+		    sed "s/@VERSION@/$$v/g" $(MYFIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
 		    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
 			ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
 		    fi; \
@@ -155,8 +155,8 @@ mergeman:
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEMAN) && \
 	    for d in man*; do \
 		cd $$d && \
-		for f in *.gz; do \
-		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$v&/"` && \
+		for f in *.*; do \
+		    ff=`echo $$f | sed -E "s/\.[^.]*(\.gz)?$$/$$v&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
 			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \

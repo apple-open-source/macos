@@ -36,18 +36,18 @@ public:
 private:
     SVGStopElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
     virtual bool isGradientStop() const { return true; }
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) OVERRIDE;
 
-    // Animated property declarations
-    DECLARE_ANIMATED_NUMBER(Offset, offset)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGStopElement)
+        DECLARE_ANIMATED_NUMBER(Offset, offset)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

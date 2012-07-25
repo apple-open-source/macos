@@ -1141,8 +1141,8 @@ L067:
 	movl (%edx), %edx
 	jmp *%edx
 
-.globl _krb5_get_error_message
-_krb5_get_error_message:
+.globl _krb5_set_default_realm
+_krb5_set_default_realm:
 	pushl	%ebp
 	movl	%esp, %ebp
 	subl	$72, %esp
@@ -1153,24 +1153,7 @@ popl	%ebp
 	call L068
 L068:
 	popl %edx
-	leal L_fun_krb5_get_error_message$non_lazy_ptr-"L068"(%edx), %eax
-	movl (%eax), %edx
-	movl (%edx), %edx
-	jmp *%edx
-
-.globl _krb5_set_default_realm
-_krb5_set_default_realm:
-	pushl	%ebp
-	movl	%esp, %ebp
-	subl	$72, %esp
-	call _heim_load_functions
-	addl	$72, %esp
-	movl	%ebp, %esp
-popl	%ebp
-	call L069
-L069:
-	popl %edx
-	leal L_fun_krb5_set_default_realm$non_lazy_ptr-"L069"(%edx), %eax
+	leal L_fun_krb5_set_default_realm$non_lazy_ptr-"L068"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1184,10 +1167,10 @@ _krb5_set_error_message:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L070
-L070:
+	call L069
+L069:
 	popl %edx
-	leal L_fun_krb5_set_error_message$non_lazy_ptr-"L070"(%edx), %eax
+	leal L_fun_krb5_set_error_message$non_lazy_ptr-"L069"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1201,10 +1184,10 @@ _krb5_vset_error_message:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L071
-L071:
+	call L070
+L070:
 	popl %edx
-	leal L_fun_krb5_vset_error_message$non_lazy_ptr-"L071"(%edx), %eax
+	leal L_fun_krb5_vset_error_message$non_lazy_ptr-"L070"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1218,10 +1201,10 @@ _com_err:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L072
-L072:
+	call L071
+L071:
 	popl %edx
-	leal L_fun_com_err$non_lazy_ptr-"L072"(%edx), %eax
+	leal L_fun_com_err$non_lazy_ptr-"L071"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1235,10 +1218,10 @@ _com_err_va:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L073
-L073:
+	call L072
+L072:
 	popl %edx
-	leal L_fun_com_err_va$non_lazy_ptr-"L073"(%edx), %eax
+	leal L_fun_com_err_va$non_lazy_ptr-"L072"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1252,10 +1235,10 @@ _reset_com_err_hook:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L074
-L074:
+	call L073
+L073:
 	popl %edx
-	leal L_fun_reset_com_err_hook$non_lazy_ptr-"L074"(%edx), %eax
+	leal L_fun_reset_com_err_hook$non_lazy_ptr-"L073"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1269,10 +1252,10 @@ _set_com_err_hook:
 	addl	$72, %esp
 	movl	%ebp, %esp
 popl	%ebp
-	call L075
-L075:
+	call L074
+L074:
 	popl %edx
-	leal L_fun_set_com_err_hook$non_lazy_ptr-"L075"(%edx), %eax
+	leal L_fun_set_com_err_hook$non_lazy_ptr-"L074"(%edx), %eax
 	movl (%eax), %edx
 	movl (%edx), %edx
 	jmp *%edx
@@ -1344,7 +1327,6 @@ L075:
 .comm _fun_krb5_auth_con_getflags,4,2
 .comm _fun_krb5_clear_error_message,4,2
 .comm _fun_krb5_free_error_message,4,2
-.comm _fun_krb5_get_error_message,4,2
 .comm _fun_krb5_set_default_realm,4,2
 .comm _fun_krb5_set_error_message,4,2
 .comm _fun_krb5_vset_error_message,4,2
@@ -1553,9 +1535,6 @@ L_fun_krb5_clear_error_message$non_lazy_ptr:
 	.long 0
 L_fun_krb5_free_error_message$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_free_error_message
-	.long 0
-L_fun_krb5_get_error_message$non_lazy_ptr:
-	.indirect_symbol _fun_krb5_get_error_message
 	.long 0
 L_fun_krb5_set_default_realm$non_lazy_ptr:
 	.indirect_symbol _fun_krb5_set_default_realm

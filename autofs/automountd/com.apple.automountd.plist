@@ -18,7 +18,7 @@
 	<array>
 		<string>automountd</string>
 	</array>
-	<key>HopefullyExitsLast</key>
+	<key>NSSupportsSuddenTermination</key>
 	<true/>
 	<key>EnableTransactions</key>
 	<true/>

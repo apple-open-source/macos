@@ -36,7 +36,8 @@
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
-#include "PlatformBridge.h"
+#include "HWndDC.h"
+#include "PlatformSupport.h"
 #include <wtf/MathExtras.h>
 
 #include <unicode/uchar.h>
@@ -45,11 +46,6 @@
 #include <mlang.h>
 
 namespace WebCore {
-
-static inline float scaleEmToUnits(float x, int unitsPerEm)
-{
-    return unitsPerEm ? x / static_cast<float>(unitsPerEm) : x;
-}
 
 void SimpleFontData::platformInit()
 {
@@ -60,12 +56,12 @@ void SimpleFontData::platformInit()
         return;
     }
 
-    HDC dc = GetDC(0);
+    HWndDC dc(0);
     HGDIOBJ oldFont = SelectObject(dc, m_platformData.hfont());
 
     TEXTMETRIC textMetric = {0};
     if (!GetTextMetrics(dc, &textMetric)) {
-        if (PlatformBridge::ensureFontLoaded(m_platformData.hfont())) {
+        if (PlatformSupport::ensureFontLoaded(m_platformData.hfont())) {
             // Retry GetTextMetrics.
             // FIXME: Handle gracefully the error if this call also fails.
             // See http://crbug.com/6401.
@@ -100,7 +96,6 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setLineSpacing(ascent + descent + lineGap);
 
     SelectObject(dc, oldFont);
-    ReleaseDC(0, dc);
 }
 
 void SimpleFontData::platformCharWidthInit()
@@ -152,14 +147,14 @@ bool SimpleFontData::containsCharacters(const UChar* characters, int length) con
 void SimpleFontData::determinePitch()
 {
     // TEXTMETRICS have this.  Set m_treatAsFixedPitch based off that.
-    HDC dc = GetDC(0);
+    HWndDC dc(0);
     HGDIOBJ oldFont = SelectObject(dc, m_platformData.hfont());
 
     // Yes, this looks backwards, but the fixed pitch bit is actually set if the font
     // is *not* fixed pitch.  Unbelievable but true.
     TEXTMETRIC textMetric = {0};
     if (!GetTextMetrics(dc, &textMetric)) {
-        if (PlatformBridge::ensureFontLoaded(m_platformData.hfont())) {
+        if (PlatformSupport::ensureFontLoaded(m_platformData.hfont())) {
             // Retry GetTextMetrics.
             // FIXME: Handle gracefully the error if this call also fails.
             // See http://crbug.com/6401.
@@ -171,7 +166,6 @@ void SimpleFontData::determinePitch()
     m_treatAsFixedPitch = ((textMetric.tmPitchAndFamily & TMPF_FIXED_PITCH) == 0);
 
     SelectObject(dc, oldFont);
-    ReleaseDC(0, dc);
 }
 
 FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
@@ -184,13 +178,13 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     if (!m_platformData.size())
         return 0;
 
-    HDC dc = GetDC(0);
+    HWndDC dc(0);
     HGDIOBJ oldFont = SelectObject(dc, m_platformData.hfont());
 
     int width = 0;
     if (!GetCharWidthI(dc, glyph, 1, 0, &width)) {
         // Ask the browser to preload the font and retry.
-        if (PlatformBridge::ensureFontLoaded(m_platformData.hfont())) {
+        if (PlatformSupport::ensureFontLoaded(m_platformData.hfont())) {
             // FIXME: Handle gracefully the error if this call also fails.
             // See http://crbug.com/6401.
             if (!GetCharWidthI(dc, glyph, 1, 0, &width))
@@ -199,7 +193,6 @@ float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
     }
 
     SelectObject(dc, oldFont);
-    ReleaseDC(0, dc);
 
     return static_cast<float>(width);
 }

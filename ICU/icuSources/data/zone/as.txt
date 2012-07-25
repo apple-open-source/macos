@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/as.xml
@@ -10,14 +10,13 @@
  *  ICU <specials> source: <path>/xml/main/as.xml
  */
 as{
-    Version{"2.0.47.67"}
+    Version{"2.0.65.46"}
     zoneStrings{
         "Asia:Calcutta"{
             ec{"এলাহাৱাদ"}
         }
         "meta:India"{
-            cu:int{1}
-            ls{"ভাৰতীয় সময়"}
+            ls{"ভাৰতীয় সময়"}
             ss{"ভা. স."}
         }
     }

@@ -31,6 +31,7 @@
 #include "MainResourceLoader.h"
 
 #include "ApplicationCacheHost.h"
+#include "BackForwardController.h"
 #include "Console.h"
 #include "DOMWindow.h"
 #include "Document.h"
@@ -41,6 +42,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLFormElement.h"
+#include "HistoryItem.h"
 #include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "ResourceError.h"
@@ -55,21 +57,36 @@
 #include "PluginDatabase.h"
 #endif
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+#include "WebCoreSystemInterface.h"
+#endif
+
 // FIXME: More that is in common with SubresourceLoader should move up into ResourceLoader.
 
 namespace WebCore {
 
+static bool shouldLoadAsEmptyDocument(const KURL& url)
+{
+    return url.isEmpty() || SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(url.protocol());
+}
+
 MainResourceLoader::MainResourceLoader(Frame* frame)
-    : ResourceLoader(frame, true, true)
+    : ResourceLoader(frame, ResourceLoaderOptions(SendCallbacks, SniffContent, BufferData, AllowStoredCredentials, AskClientForCrossOriginCredentials, SkipSecurityCheck))
     , m_dataLoadTimer(this, &MainResourceLoader::handleDataLoadNow)
     , m_loadingMultipartContent(false)
     , m_waitingForContentPolicy(false)
     , m_timeOfLastDataReceived(0.0)
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    , m_filter(0)
+#endif
 {
 }
 
 MainResourceLoader::~MainResourceLoader()
 {
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    ASSERT(!m_filter);
+#endif
 }
 
 PassRefPtr<MainResourceLoader> MainResourceLoader::create(Frame* frame)
@@ -83,11 +100,11 @@ void MainResourceLoader::receivedError(const ResourceError& error)
     RefPtr<MainResourceLoader> protect(this);
     RefPtr<Frame> protectFrame(m_frame);
 
-    // It is important that we call FrameLoader::receivedMainResourceError before calling 
-    // FrameLoader::didFailToLoad because receivedMainResourceError clears out the relevant
-    // document loaders. Also, receivedMainResourceError ends up calling a FrameLoadDelegate method
+    // It is important that we call DocumentLoader::mainReceivedError before calling 
+    // ResourceLoadNotifier::didFailToLoad because mainReceivedError clears out the relevant
+    // document loaders. Also, mainReceivedError ends up calling a FrameLoadDelegate method
     // and didFailToLoad calls a ResourceLoadDelegate method and they need to be in the correct order.
-    frameLoader()->receivedMainResourceError(error, true);
+    documentLoader()->mainReceivedError(error);
 
     if (!cancelled()) {
         ASSERT(!reachedTerminalState());
@@ -115,17 +132,24 @@ void MainResourceLoader::didCancel(const ResourceError& error)
 {
     // We should notify the frame loader after fully canceling the load, because it can do complicated work
     // like calling DOMWindow::print(), during which a half-canceled load could try to finish.
-    frameLoader()->receivedMainResourceError(error, true);
+    documentLoader()->mainReceivedError(error);
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (m_filter) {
+        wkFilterRelease(m_filter);
+        m_filter = 0;
+    }
+#endif
 }
 
-ResourceError MainResourceLoader::interruptionForPolicyChangeError() const
+ResourceError MainResourceLoader::interruptedForPolicyChangeError() const
 {
-    return frameLoader()->interruptionForPolicyChangeError(request());
+    return frameLoader()->client()->interruptedForPolicyChangeError(request());
 }
 
 void MainResourceLoader::stopLoadingForPolicyChange()
 {
-    ResourceError error = interruptionForPolicyChangeError();
+    ResourceError error = interruptedForPolicyChangeError();
     error.setIsCancellation(true);
     cancel(error);
 }
@@ -141,7 +165,7 @@ void MainResourceLoader::continueAfterNavigationPolicy(const ResourceRequest& re
         stopLoadingForPolicyChange();
     else if (m_substituteData.isValid()) {
         // A redirect resulted in loading substitute data.
-        ASSERT(documentLoader()->timing()->redirectCount);
+        ASSERT(documentLoader()->timing()->redirectCount());
         handle()->cancel();
         handleDataLoadSoon(request);
     }
@@ -180,20 +204,17 @@ void MainResourceLoader::willSendRequest(ResourceRequest& newRequest, const Reso
     // reference to this object; one example of this is 3266216.
     RefPtr<MainResourceLoader> protect(this);
 
-    ASSERT(documentLoader()->timing()->fetchStart);
+    ASSERT(documentLoader()->timing()->fetchStart());
     if (!redirectResponse.isNull()) {
-        DocumentLoadTiming* documentLoadTiming = documentLoader()->timing();
-
-        // Check if the redirected url is allowed to access the redirecting url's timing information.
-        RefPtr<SecurityOrigin> securityOrigin = SecurityOrigin::create(newRequest.url());
-        if (!securityOrigin->canRequest(redirectResponse.url()))
-            documentLoadTiming->hasCrossOriginRedirect = true;
-
-        documentLoadTiming->redirectCount++;
-        if (!documentLoadTiming->redirectStart)
-            documentLoadTiming->redirectStart = documentLoadTiming->fetchStart;
-        documentLoadTiming->redirectEnd = currentTime();
-        documentLoadTiming->fetchStart = documentLoadTiming->redirectEnd;
+        // If the redirecting url is not allowed to display content from the target origin,
+        // then block the redirect.
+        RefPtr<SecurityOrigin> redirectingOrigin = SecurityOrigin::create(redirectResponse.url());
+        if (!redirectingOrigin->canDisplay(newRequest.url())) {
+            FrameLoader::reportLocalLoadFailed(m_frame.get(), newRequest.url().string());
+            cancel();
+            return;
+        }
+        documentLoader()->timing()->addRedirect(redirectResponse.url(), newRequest.url());
     }
 
     // Update cookie policy base URL as URL changes, except for subframes, which use the
@@ -221,13 +242,11 @@ void MainResourceLoader::willSendRequest(ResourceRequest& newRequest, const Reso
     // Don't set this on the first request. It is set when the main load was started.
     m_documentLoader->setRequest(newRequest);
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (!redirectResponse.isNull()) {
         // We checked application cache for initial URL, now we need to check it for redirected one.
         ASSERT(!m_substituteData.isValid());
         documentLoader()->applicationCacheHost()->maybeLoadMainResourceForRedirect(newRequest, m_substituteData);
     }
-#endif
 
     // FIXME: Ideally we'd stop the I/O until we hear back from the navigation policy delegate
     // listener. But there's no way to do that in practice. So instead we cancel later if the
@@ -239,15 +258,6 @@ void MainResourceLoader::willSendRequest(ResourceRequest& newRequest, const Reso
     }
 }
 
-static bool shouldLoadAsEmptyDocument(const KURL& url)
-{
-#if PLATFORM(TORCHMOBILE)
-    return url.isEmpty() || (url.protocolIs("about") && equalIgnoringRef(url, blankURL()));
-#else 
-    return url.isEmpty() || SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(url.protocol());
-#endif
-}
-
 void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, const ResourceResponse& r)
 {
     KURL url = request().url();
@@ -256,8 +266,9 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
     switch (contentPolicy) {
     case PolicyUse: {
         // Prevent remote web archives from loading because they can claim to be from any domain and thus avoid cross-domain security checks (4120255).
-        bool isRemoteWebArchive = equalIgnoringCase("application/x-webarchive", mimeType) && !m_substituteData.isValid() && !url.isLocalFile();
-        if (!frameLoader()->canShowMIMEType(mimeType) || isRemoteWebArchive) {
+        bool isRemoteWebArchive = (equalIgnoringCase("application/x-webarchive", mimeType) || equalIgnoringCase("multipart/related", mimeType))
+            && !m_substituteData.isValid() && !url.isLocalFile();
+        if (!frameLoader()->client()->canShowMIMEType(mimeType) || isRemoteWebArchive) {
             frameLoader()->policyChecker()->cannotShowMIMEType(r);
             // Check reachedTerminalState since the load may have already been cancelled inside of _handleUnimplementablePolicyWithErrorCode::.
             if (!reachedTerminalState())
@@ -267,19 +278,26 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
         break;
     }
 
-    case PolicyDownload:
+    case PolicyDownload: {
         // m_handle can be null, e.g. when loading a substitute resource from application cache.
         if (!m_handle) {
             receivedError(cannotShowURLError());
             return;
         }
         InspectorInstrumentation::continueWithPolicyDownload(m_frame.get(), documentLoader(), identifier(), r);
-        frameLoader()->client()->download(m_handle.get(), request(), m_handle.get()->firstRequest(), r);
+
+        // When starting the request, we didn't know that it would result in download and not navigation. Now we know that main document URL didn't change.
+        // Download may use this knowledge for purposes unrelated to cookies, notably for setting file quarantine data.
+        ResourceRequest request = this->request();
+        frameLoader()->setOriginalURLForDownloadRequest(request);
+
+        frameLoader()->client()->download(m_handle.get(), request, r);
+
         // It might have gone missing
         if (frameLoader())
-            receivedError(interruptionForPolicyChangeError());
+            receivedError(interruptedForPolicyChangeError());
         return;
-
+    }
     case PolicyIgnore:
         InspectorInstrumentation::continueWithPolicyIgnore(m_frame.get(), documentLoader(), identifier(), r);
         stopLoadingForPolicyChange();
@@ -309,13 +327,13 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
     if (!reachedTerminalState())
         ResourceLoader::didReceiveResponse(r);
 
-    if (frameLoader() && !frameLoader()->isStopping()) {
+    if (frameLoader() && !frameLoader()->activeDocumentLoader()->isStopping()) {
         if (m_substituteData.isValid()) {
             if (m_substituteData.content()->size())
                 didReceiveData(m_substituteData.content()->data(), m_substituteData.content()->size(), m_substituteData.content()->size(), true);
-            if (frameLoader() && !frameLoader()->isStopping()) 
+            if (frameLoader() && !frameLoader()->activeDocumentLoader()->isStopping()) 
                 didFinishLoading(0);
-        } else if (shouldLoadAsEmptyDocument(url) || frameLoader()->representationExistsForURLScheme(url.protocol()))
+        } else if (shouldLoadAsEmptyDocument(url) || frameLoader()->client()->representationExistsForURLScheme(url.protocol()))
             didFinishLoading(0);
     }
 }
@@ -329,7 +347,7 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction policy)
 {
     ASSERT(m_waitingForContentPolicy);
     m_waitingForContentPolicy = false;
-    if (frameLoader() && !frameLoader()->isStopping())
+    if (frameLoader() && !frameLoader()->activeDocumentLoader()->isStopping())
         continueAfterContentPolicy(policy, m_response);
     deref(); // balances ref in didReceiveResponse
 }
@@ -341,7 +359,7 @@ void MainResourceLoader::substituteMIMETypeFromPluginDatabase(const ResourceResp
         return;
 
     String filename = r.url().lastPathComponent();
-    if (filename.endsWith("/"))
+    if (filename.endsWith('/'))
         return;
 
     size_t extensionPos = filename.reverseFind('.');
@@ -359,10 +377,8 @@ void MainResourceLoader::substituteMIMETypeFromPluginDatabase(const ResourceResp
 
 void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (documentLoader()->applicationCacheHost()->maybeLoadFallbackForMainResponse(request(), r))
         return;
-#endif
 
     HTTPHeaderMap::const_iterator it = r.httpHeaderFields().find(AtomicString("x-frame-options"));
     if (it != r.httpHeaderFields().end()) {
@@ -370,7 +386,7 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
         if (m_frame->loader()->shouldInterruptLoadForXFrameOptions(content, r.url())) {
             InspectorInstrumentation::continueAfterXFrameOptionsDenied(m_frame.get(), documentLoader(), identifier(), r);
             DEFINE_STATIC_LOCAL(String, consoleMessage, ("Refused to display document because display forbidden by X-Frame-Options.\n"));
-            m_frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage, 1, String());
+            m_frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage);
 
             cancel();
             return;
@@ -389,7 +405,7 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
 #endif
 
     if (m_loadingMultipartContent) {
-        frameLoader()->setupForReplaceByMIMEType(r.mimeType());
+        frameLoader()->activeDocumentLoader()->setupForReplaceByMIMEType(r.mimeType());
         clearResourceData();
     }
     
@@ -425,6 +441,11 @@ void MainResourceLoader::didReceiveResponse(const ResourceResponse& r)
     }
 #endif
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (r.url().protocolIs("https") && wkFilterIsManagedSession())
+        m_filter = wkFilterCreateInstance(r.nsURLResponse());
+#endif
+
     frameLoader()->policyChecker()->checkContentPolicy(m_response, callContinueAfterContentPolicy, this);
 }
 
@@ -449,18 +470,45 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
 #if !USE(CF)
     ASSERT(!defersLoading());
 #endif
- 
- #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    documentLoader()->applicationCacheHost()->mainResourceDataReceived(data, length, encodedDataLength, allAtOnce);
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (m_filter) {
+        ASSERT(!wkFilterWasBlocked(m_filter));
+        const char* blockedData = wkFilterAddData(m_filter, data, &length);
+        // If we don't have blockedData, that means we're still accumulating data
+        if (!blockedData) {
+            // Transition to committed state.
+            ResourceLoader::didReceiveData("", 0, 0, false);
+            return;
+        }
+
+        data = blockedData;
+        encodedDataLength = -1;
+    }
 #endif
+
+    documentLoader()->applicationCacheHost()->mainResourceDataReceived(data, length, encodedDataLength, allAtOnce);
 
     // The additional processing can do anything including possibly removing the last
     // reference to this object; one example of this is 3266216.
     RefPtr<MainResourceLoader> protect(this);
 
-    m_timeOfLastDataReceived = currentTime();
+    m_timeOfLastDataReceived = monotonicallyIncreasingTime();
 
     ResourceLoader::didReceiveData(data, length, encodedDataLength, allAtOnce);
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (WebFilterEvaluator *filter = m_filter) {
+        // If we got here, it means we know if we were blocked or not. If we were blocked, we're
+        // done loading the page altogether. Either way, we don't need the filter anymore.
+
+        // Remove this->m_filter early so didFinishLoading doesn't see it.
+        m_filter = 0;
+        if (wkFilterWasBlocked(filter))
+            cancel();
+        wkFilterRelease(filter);
+    }
+#endif
 }
 
 void MainResourceLoader::didFinishLoading(double finishTime)
@@ -468,33 +516,48 @@ void MainResourceLoader::didFinishLoading(double finishTime)
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
 #if !USE(CF)
-    ASSERT(shouldLoadAsEmptyDocument(frameLoader()->activeDocumentLoader()->url()) || !defersLoading());
+    ASSERT(shouldLoadAsEmptyDocument(frameLoader()->activeDocumentLoader()->url()) || !defersLoading() || InspectorInstrumentation::isDebuggerPaused(m_frame.get()));
 #endif
-    
+
     // The additional processing can do anything including possibly removing the last
     // reference to this object.
     RefPtr<MainResourceLoader> protect(this);
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     RefPtr<DocumentLoader> dl = documentLoader();
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (m_filter) {
+        int length;
+        const char* data = wkFilterDataComplete(m_filter, &length);
+        WebFilterEvaluator *filter = m_filter;
+        // Remove this->m_filter early so didReceiveData doesn't see it.
+        m_filter = 0;
+        if (data)
+            didReceiveData(data, length, -1, false);
+        wkFilterRelease(filter);
+    }
 #endif
 
-    ASSERT(!documentLoader()->timing()->responseEnd);
-    documentLoader()->timing()->responseEnd = finishTime ? finishTime : (m_timeOfLastDataReceived ? m_timeOfLastDataReceived : currentTime());
-    frameLoader()->finishedLoading();
+    if (m_loadingMultipartContent)
+        dl->maybeFinishLoadingMultipartContent();
+
+    documentLoader()->timing()->setResponseEnd(finishTime ? finishTime : (m_timeOfLastDataReceived ? m_timeOfLastDataReceived : monotonicallyIncreasingTime()));
+    documentLoader()->finishedLoading();
     ResourceLoader::didFinishLoading(finishTime);
-    
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+
     dl->applicationCacheHost()->finishedLoadingMainResource();
-#endif
 }
 
 void MainResourceLoader::didFail(const ResourceError& error)
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    if (m_filter) {
+        wkFilterRelease(m_filter);
+        m_filter = 0;
+    }
+#endif
+
     if (documentLoader()->applicationCacheHost()->maybeLoadFallbackForMainError(request(), error))
         return;
-#endif
 
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
     // See <rdar://problem/6304600> for more details.
@@ -509,7 +572,7 @@ void MainResourceLoader::handleEmptyLoad(const KURL& url, bool forURLScheme)
 {
     String mimeType;
     if (forURLScheme)
-        mimeType = frameLoader()->generatedMIMETypeForURLScheme(url.protocol());
+        mimeType = frameLoader()->client()->generatedMIMETypeForURLScheme(url.protocol());
     else
         mimeType = "text/html";
     
@@ -564,6 +627,7 @@ bool MainResourceLoader::loadNow(ResourceRequest& r)
     // we no longer send the callback from within NSURLConnection for
     // initial requests.
     willSendRequest(r, ResourceResponse());
+    ASSERT(!deletionHasBegun());
 
     // <rdar://problem/4801066>
     // willSendRequest() is liable to make the call to frameLoader() return NULL, so we need to check that here
@@ -579,7 +643,7 @@ bool MainResourceLoader::loadNow(ResourceRequest& r)
     resourceLoadScheduler()->addMainResourceLoad(this);
     if (m_substituteData.isValid()) 
         handleDataLoadSoon(r);
-    else if (shouldLoadEmpty || frameLoader()->representationExistsForURLScheme(url.protocol()))
+    else if (shouldLoadEmpty || frameLoader()->client()->representationExistsForURLScheme(url.protocol()))
         handleEmptyLoad(url, !shouldLoadEmpty);
     else
         m_handle = ResourceHandle::create(m_frame->loader()->networkingContext(), r, this, false, true);
@@ -593,14 +657,12 @@ bool MainResourceLoader::load(const ResourceRequest& r, const SubstituteData& su
 
     m_substituteData = substituteData;
 
-    ASSERT(documentLoader()->timing()->navigationStart);
-    ASSERT(!documentLoader()->timing()->fetchStart);
-    documentLoader()->timing()->fetchStart = currentTime();
+    ASSERT(documentLoader()->timing()->navigationStart());
+    ASSERT(!documentLoader()->timing()->fetchStart());
+    documentLoader()->timing()->markFetchStart();
     ResourceRequest request(r);
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     documentLoader()->applicationCacheHost()->maybeLoadMainResource(request, m_substituteData);
-#endif
 
     bool defer = defersLoading();
     if (defer) {

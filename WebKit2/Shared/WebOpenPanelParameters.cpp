@@ -26,17 +26,21 @@
 #include "config.h"
 #include "WebOpenPanelParameters.h"
 
-#include "WebCoreArgumentCoders.h"
+#include "ImmutableArray.h"
+#include "WebString.h"
+#include <wtf/Vector.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<WebOpenPanelParameters> WebOpenPanelParameters::create(const Data& data)
+PassRefPtr<WebOpenPanelParameters> WebOpenPanelParameters::create(const FileChooserSettings& settings)
 {
-    return adoptRef(new WebOpenPanelParameters(data));
+    return adoptRef(new WebOpenPanelParameters(settings));
 }
 
-WebOpenPanelParameters::WebOpenPanelParameters(const Data& data)
-    : m_data(data)
+WebOpenPanelParameters::WebOpenPanelParameters(const FileChooserSettings& settings)
+    : m_settings(settings)
 {
 }
 
@@ -44,14 +48,16 @@ WebOpenPanelParameters::~WebOpenPanelParameters()
 {
 }
 
-void WebOpenPanelParameters::Data::encode(CoreIPC::ArgumentEncoder* encoder) const
+PassRefPtr<ImmutableArray> WebOpenPanelParameters::acceptMIMETypes() const
 {
-    encoder->encode(CoreIPC::In(allowMultipleFiles, allowsDirectoryUpload, acceptTypes, filenames));
-}
+    size_t size = m_settings.acceptMIMETypes.size();
 
-bool WebOpenPanelParameters::Data::decode(CoreIPC::ArgumentDecoder* decoder, Data& result)
-{
-    return decoder->decode(CoreIPC::Out(result.allowMultipleFiles, result.allowsDirectoryUpload, result.acceptTypes, result.filenames));
+    Vector<RefPtr<APIObject> > vector;
+    vector.reserveInitialCapacity(size);
+    
+    for (size_t i = 0; i < size; ++i)
+        vector.uncheckedAppend(WebString::create(m_settings.acceptMIMETypes[i]));
+    return ImmutableArray::adopt(vector);
 }
 
 } // namespace WebCore

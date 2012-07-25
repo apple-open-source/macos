@@ -1115,6 +1115,16 @@ die_sou_resolve(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 	debug(3, "resolving sou %s\n", tdesc_name(tdp));
 
 	for (ml = tdp->t_members; ml != NULL; ml = ml->ml_next) {
+
+#if defined(__APPLE__)
+		// Check for NULL mt before the size check.
+		// Seeing lots of crashes due to mt being NULL in
+		// the code below.
+		if ((mt = tdesc_basetype(ml->ml_type)) == NULL) {
+			dw->dw_nunres++;
+			return (1);
+		}
+#endif
 		if (ml->ml_size == 0) {
 			mt = tdesc_basetype(ml->ml_type);
 
@@ -1134,10 +1144,13 @@ die_sou_resolve(tdesc_t *tdp, tdesc_t **tdpp, void *private)
 			return (1);
 		}
 
+#if defined(__APPLE__)
+#else
 		if ((mt = tdesc_basetype(ml->ml_type)) == NULL) {
 			dw->dw_nunres++;
 			return (1);
 		}
+#endif
 
 		if (ml->ml_size != 0 && mt->t_type == INTRINSIC &&
 		    mt->t_intr->intr_nbits != ml->ml_size) {

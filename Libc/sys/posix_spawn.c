@@ -39,6 +39,9 @@
 #include <mach/port.h>
 #include <mach/exception_types.h>
 
+#if TARGET_OS_EMBEDDED
+#include <sys/kern_memorystatus.h>
+#endif
 
 /*
  * posix_spawnattr_init
@@ -105,6 +108,23 @@ posix_spawnattr_init(posix_spawnattr_t *attr)
 		 * process control on resource starvation
 		 */
 		(*psattrp)->psa_pcontrol = 0;
+
+		/*
+		 * The default value of this attribute shall be an no
+		 * process control on resource starvation
+		 */
+		(*psattrp)->psa_apptype = 0;
+
+#if TARGET_OS_EMBEDDED
+		/* Jetsam related */
+		(*psattrp)->psa_jetsam_flags = 0;
+		(*psattrp)->psa_priority = DEFAULT_JETSAM_PRIORITY;
+		(*psattrp)->psa_high_water_mark = -1;
+#endif
+
+		/* Default is no CPU usage monitor active. */
+		(*psattrp)->psa_cpumonitor_percent = 0;
+		(*psattrp)->psa_cpumonitor_interval = 0;
 	}
 
 	return (err);
@@ -404,6 +424,41 @@ posix_spawnattr_getpcontrol_np(const posix_spawnattr_t * __restrict attr,
 }
 
 /*
+ * posix_spawnattr_getapptype_np
+ *
+ * Description:	Retrieve the  process specific behaviors and app launch typea
+ *		spawn attribute value referenced by 'attr' and place the
+ *		result into the memory containing the control  referenced by
+ *		'apptype'
+ *
+ * Parameters:	attr			The spawn attributes object whose
+ *					signal set for default signals is to
+ *					be retrieved
+ *		apptype			A pointer to an int  to receive
+ *					the process control info
+ *
+ * Returns:	0			Success
+ *
+ * Implicit Returns:
+ *		*pcontrol (modified)	The signal set of signals to default
+ *					from the spawn attributes object
+ */
+int
+posix_spawnattr_getapptype_np(const posix_spawnattr_t * __restrict attr,
+		int * __restrict apptype)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	*apptype = psattr->psa_apptype;
+
+	return (0);
+}
+
+/*
  * posix_spawnattr_setsigdefault
  *
  * Description:	Set the set of signals to be set to default for the spawn
@@ -564,6 +619,37 @@ posix_spawnattr_setpcontrol_np(posix_spawnattr_t * __restrict attr,
 
 	return (0);
 }
+
+
+/*
+ * posix_spawnattr_setapptype_np
+ *
+ * Description:	Set the process specific behaviors and app launch type
+ *		attribute value referenced by 'attr' from the memory
+ *		containing the int value 'apptype'
+ *
+ * Parameters:	attr			The spawn attributes object whose
+ *					signal set for default signals is to
+ *					be set
+ *		apptype			An int value of the apptype info
+ *
+ * Returns:	0			Success
+ */
+int
+posix_spawnattr_setapptype_np(posix_spawnattr_t * __restrict attr,
+		const int apptype)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	psattr->psa_apptype = apptype;
+
+	return (0);
+}
+
 /*
  * posix_spawn_createportactions_np
  * Description: create a new posix_spawn_port_actions struct and link
@@ -1170,6 +1256,73 @@ posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *file_actions,
 	return (0);
 }
 
+int
+posix_spawnattr_setcpumonitor(posix_spawnattr_t * __restrict attr,
+		uint64_t percent, uint64_t interval)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL || percent == 0 || percent > 100)
+		return (EINVAL);
+
+	psattr = *(_posix_spawnattr_t *)attr;
+
+	psattr->psa_cpumonitor_percent = percent;
+	psattr->psa_cpumonitor_interval = interval;
+
+	return (0);			
+}
+
+int
+posix_spawnattr_getcpumonitor(posix_spawnattr_t * __restrict attr,
+		uint64_t *percent, uint64_t *interval)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return (EINVAL);
+
+	psattr = *(_posix_spawnattr_t *)attr;
+
+	*percent = psattr->psa_cpumonitor_percent;
+	*interval = psattr->psa_cpumonitor_interval;
+
+	return (0);
+}
+
+#if TARGET_OS_EMBEDDED
+/*
+ * posix_spawnattr_setjetsam
+ *
+ * Description:	Set jetsam attributes for the spawn attribute object
+ *		referred to by 'attr'.
+ *
+ * Parameters:	flags			The flags value to set
+ *		priority		Relative jetsam priority
+ *		high_water_mark		Value in pages; resident page
+ *					counts above this level can
+ *					result in termination
+ *
+ * Returns:	0			Success
+ */
+int
+posix_spawnattr_setjetsam(posix_spawnattr_t * __restrict attr,
+		short flags, int priority, int high_water_mark)
+{
+	_posix_spawnattr_t psattr;
+
+	if (attr == NULL || *attr == NULL)
+		return EINVAL;
+
+	psattr = *(_posix_spawnattr_t *)attr;
+	
+	psattr->psa_jetsam_flags = flags;
+	psattr->psa_priority = priority;
+	psattr->psa_high_water_mark = high_water_mark;
+
+	return (0);
+}
+#endif
 
 /*
  * posix_spawnp

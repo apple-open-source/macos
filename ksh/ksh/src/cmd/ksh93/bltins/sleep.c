@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -23,7 +23,6 @@
  *
  *   David Korn
  *   AT&T Labs
- *   research!dgk
  *
  */
 
@@ -32,6 +31,7 @@
 #undef	sleep
 #include	<error.h>
 #include	<errno.h>
+#include	<tmx.h>
 #include	"builtins.h"
 #include	"FEATURE/time"
 #include	"FEATURE/poll"
@@ -45,12 +45,18 @@
 int	b_sleep(register int argc,char *argv[],void *extra)
 {
 	register char *cp;
-	register double d;
-	register Shell_t *shp = (Shell_t*)extra;
+	register double d=0;
+	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
+	int sflag=0;
 	time_t tloc = 0;
 	char *last;
+	if(!(shp->sigflag[SIGALRM]&(SH_SIGFAULT|SH_SIGOFF)))
+		sh_sigtrap(SIGALRM);
 	while((argc = optget(argv,sh_optsleep))) switch(argc)
 	{
+		case 's':
+			sflag=1;
+			break;
 		case ':':
 			errormsg(SH_DICT,2, "%s", opt_info.arg);
 			break;
@@ -59,28 +65,64 @@ int	b_sleep(register int argc,char *argv[],void *extra)
 			break;
 	}
 	argv += opt_info.index;
-	if(error_info.errors || !(cp= *argv) || ((d=strtod(cp, &last)),*last))
-		errormsg(SH_DICT,ERROR_usage(2),"%s",optusage((char*)0));
+	if(cp = *argv)
+	{
+		d = strtod(cp, &last);
+		if(*last)
+		{
+			Time_t now,ns;
+			char* pp;
+			now = TMX_NOW;
+			if(*cp == 'P' || *cp == 'p')
+				ns = tmxdate(cp, &last, now);
+			else if(*last=='.' && shp->decomma && d==(unsigned long)d)
+			{
+				*(pp=last) = ',';
+				if(!strchr(cp,'.'))
+					d = strtod(cp,&last);
+				*pp = '.';
+				if(*last==0)
+					goto skip;
+			}
+			else if(*last!='.' && *last!=',')
+			{
+				if(pp = sfprints("exact %s", cp))
+					ns = tmxdate(pp, &last, now);
+				if(*last && (pp = sfprints("p%s", cp)))
+					ns = tmxdate(pp, &last, now);
+			}
+			if(*last)
+				errormsg(SH_DICT,ERROR_exit(1),e_number,*argv);
+			d = ns - now;
+			d /= TMX_RESOLUTION;
+		}
+skip:
+		if(argv[1])
+			errormsg(SH_DICT,ERROR_exit(1),e_oneoperand);
+	}
+	else if(!sflag)
+		errormsg(SH_DICT,ERROR_exit(1),e_oneoperand);
 	if(d > .10)
 	{
-		sfsync(shp->outpool);
 		time(&tloc);
 		tloc += (time_t)(d+.5);
 	}
-	while(1)
+	if(sflag && d==0)
+		pause();
+	else while(1)
 	{
 		time_t now;
 		errno = 0;
 		shp->lastsig=0;
 		sh_delay(d);
-		if(tloc==0 || errno!=EINTR || shp->lastsig)
+		if(sflag || tloc==0 || errno!=EINTR || shp->lastsig)
 			break;
-		sh_sigcheck();
+		sh_sigcheck(shp);
 		if(tloc < (now=time(NIL(time_t*))))
 			break;
 		d = (double)(tloc-now);
 		if(shp->sigflag[SIGALRM]&SH_SIGTRAP)
-			sh_timetraps();
+			sh_timetraps(shp);
 	}
 	return(0);
 }
@@ -93,22 +135,23 @@ static void completed(void * handle)
 
 unsigned int sleep(unsigned int sec)
 {
+	Shell_t	*shp = sh_getinterp();
 	pid_t newpid, curpid=getpid();
 	void *tp;
 	char expired = 0;
-	sh.lastsig = 0;
+	shp->lastsig = 0;
 	tp = (void*)sh_timeradd(1000*sec, 0, completed, (void*)&expired);
 	do
 	{
-		if(!sh.waitevent || (*sh.waitevent)(-1,-1L,0)==0)
+		if(!shp->gd->waitevent || (*shp->gd->waitevent)(-1,-1L,0)==0)
 			pause();
-		if(sh.sigflag[SIGALRM]&SH_SIGTRAP)
-			sh_timetraps();
+		if(shp->sigflag[SIGALRM]&SH_SIGTRAP)
+			sh_timetraps(shp);
 		if((newpid=getpid()) != curpid)
 		{
 			curpid = newpid;
-			sh.lastsig = 0;
-			sh.trapnote &= ~SH_SIGSET;
+			shp->lastsig = 0;
+			shp->trapnote &= ~SH_SIGSET;
 			if(expired)
 				expired = 0;
 			else
@@ -116,10 +159,10 @@ unsigned int sleep(unsigned int sec)
 			tp = (void*)sh_timeradd(1000*sec, 0, completed, (void*)&expired);
 		}
 	}
-	while(!expired && sh.lastsig==0);
+	while(!expired && shp->lastsig==0);
 	if(!expired)
 		timerdel(tp);
-	sh_sigcheck();
+	sh_sigcheck(shp);
 	return(0);
 }
 
@@ -130,6 +173,7 @@ unsigned int sleep(unsigned int sec)
 void	sh_delay(double t)
 {
 	register int n = (int)t;
+	Shell_t	*shp = sh_getinterp();
 #ifdef _lib_poll
 	struct pollfd fd;
 	if(t<=0)
@@ -141,7 +185,7 @@ void	sh_delay(double t)
 	}
 	if(n=(int)(1000*t))
 	{
-		if(!sh.waitevent || (*sh.waitevent)(-1,(long)n,0)==0)
+		if(!shp->gd->waitevent || (*shp->gd->waitevent)(-1,(long)n,0)==0)
 			poll(&fd,0,n);
 	}
 #else
@@ -149,7 +193,7 @@ void	sh_delay(double t)
 	struct timeval timeloc;
 	if(t<=0)
 		return;
-	if(n=(int)(1000*t) && sh.waitevent && (*sh.waitevent)(-1,(long)n,0))
+	if(n=(int)(1000*t) && shp->gd->waitevent && (*shp->gd->waitevent)(-1,(long)n,0))
 		return;
 	n = (int)t;
 	timeloc.tv_sec = n;
@@ -167,7 +211,7 @@ void	sh_delay(double t)
 		}
 		if(n=(int)(1000*t))
 		{
-			if(!sh.waitevent || (*sh.waitevent)(-1,(long)n,0)==0)
+			if(!shp->gd->waitevent || (*shp->gd->waitevent)(-1,(long)n,0)==0)
 				select(0,(fd_set*)0,(fd_set*)0,n);
 		}
 #	else
@@ -181,7 +225,7 @@ void	sh_delay(double t)
 			clock_t begin = times(&tt);
 			if(begin==0)
 				return;
-			t *= sh.lim.clk_tck;
+			t *= shp->gd->lim.clk_tck;
 			n += (t+.5);
 			while((times(&tt)-begin) < n);
 		}

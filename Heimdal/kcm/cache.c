@@ -74,9 +74,9 @@ kcm_ccache_nextid(pid_t pid, uid_t uid)
 }
 
 krb5_error_code
-kcm_ccache_resolve(krb5_context context,
-		   const char *name,
-		   kcm_ccache *ccache)
+kcm_ccache_resolve_by_name(krb5_context context,
+			   const char *name,
+			   kcm_ccache *ccache)
 {
     kcm_ccache p;
     krb5_error_code ret;
@@ -178,7 +178,7 @@ kcm_debug_ccache(krb5_context context)
 	    krb5_unparse_name(context, p->client, &cpn);
 	if (p->server != NULL)
 	    krb5_unparse_name(context, p->server, &spn);
-	
+
 	kcm_log(7, "cache name %s refcnt %d flags %04x"
 		"uid %d client %s server %s ncreds %d",
 		p->name, p->refcnt, p->flags, p->uid,
@@ -244,6 +244,10 @@ kcm_ccache_destroy(krb5_context context, const char *name)
     if (p == NULL)
 	return KRB5_FCC_NOFILE;
 
+#ifdef HAVE_NOTIFY_H
+    notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
+#endif
+
     /* XXX blocking */
     heim_ipc_event_cancel(p->renew_event);
     heim_ipc_event_free(p->renew_event);
@@ -261,7 +265,7 @@ kcm_ccache_destroy(krb5_context context, const char *name)
 #define KCM_EVENT_QUEUE_INTERVAL 60
 
 void
-kcm_update_expire_time(kcm_ccache ccache)
+kcm_update_renew_time(kcm_ccache ccache)
 {
     time_t renewtime = time(NULL) + 3600 * 2;
     time_t expire = ccache->expire;
@@ -285,6 +289,19 @@ kcm_update_expire_time(kcm_ccache ccache)
 #endif
 }
 
+void
+kcm_update_expire_time(kcm_ccache cache, time_t t)
+{
+    if (t == 0) {
+	t = time(NULL);
+    } else if (t < time(NULL)) {
+	cache->next_refresh_time = 0;
+	return;
+    }
+    cache->next_refresh_time = t;
+    heim_ipc_event_set_time(cache->expire_event, t);
+}
+
 static void
 renew_func(heim_event_t event, void *ptr)
 {
@@ -298,9 +315,12 @@ renew_func(heim_event_t event, void *ptr)
 
     if (cache->flags & KCM_MASK_KEY_PRESENT) {
 	ret = kcm_ccache_acquire(kcm_context, cache, &expire);
+	krb5_warn(kcm_context, ret, "cache: %s acquire complete", cache->name);
     } else {
 	ret = kcm_ccache_refresh(kcm_context, cache, &expire);
+	krb5_warn(kcm_context, ret, "cache: %s renew complete", cache->name);
     }
+
     switch (ret) {
     case KRB5KRB_AP_ERR_BAD_INTEGRITY:
     case KRB5KRB_AP_ERR_MODIFIED:
@@ -308,18 +328,23 @@ renew_func(heim_event_t event, void *ptr)
 	/* bad password, drop it like dead */
 	kcm_log(0, "cache: %s got bad password, stop renewing",
 		cache->name);
+	kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_STOPPED, ret);
+	cache->flags &= ~KCM_MASK_KEY_PRESENT;
 	break;
     case 0:
+	kcm_data_changed = 1;
 	cache->expire = expire;
-	heim_ipc_event_set_time(cache->expire_event, cache->expire);
+	kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_SUCCESS, 0);
 	break;
     default: {
 	const char *msg = krb5_get_error_message(kcm_context, ret);
 	kcm_log(0, "failed to renew: %s: %d", msg, ret);
 	krb5_free_error_message(kcm_context, msg);
+	kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_FAILED, ret);
+	break;
     }
     }
-    kcm_update_expire_time(cache);
+    kcm_update_renew_time(cache);
     HEIMDAL_MUTEX_unlock(&cache->mutex);
 }
 
@@ -335,6 +360,8 @@ expire_func(heim_event_t event, void *ptr)
 
     heim_ipc_event_cancel(cache->renew_event);
 
+    cache->next_refresh_time = 0;
+
     if (cache->flags & KCM_MASK_KEY_PRESENT){
 	time_t expire;
 
@@ -347,19 +374,28 @@ expire_func(heim_event_t event, void *ptr)
 	    /* bad password, drop it like dead */
 	    kcm_log(0, "cache: %s got bad password, stop renewing",
 		    cache->name);
+	    kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_STOPPED, ret);
+	    cache->flags &= ~KCM_MASK_KEY_PRESENT;
 	    break;
 	case 0:
+	    kcm_data_changed = 1;
 	    kcm_log(0, "cache: %s got new tickets (expire in %d seconds)",
 		    cache->name, (int)(expire - time(NULL)));
 
 	    cache->expire = expire;
-	    heim_ipc_event_set_time(cache->expire_event, cache->expire);
-	    kcm_update_expire_time(cache);
+	    kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_SUCCESS, 0);
 	    break;
 	default:
-	    heim_ipc_event_set_time(cache->expire_event, time(NULL) + 300);
+	    kcm_data_changed = 1;
+	    kcm_update_expire_time(cache, time(NULL) + 300);
+	    kcm_ccache_update_acquire_status(kcm_context, cache, KCM_STATUS_ACQUIRE_FAILED, ret);
 	    break;
 	}
+    } else {
+	kcm_log(0, "cache: %s expired", cache->name);
+#ifdef HAVE_NOTIFY_H
+	notify_post(KRB5_KCM_NOTIFY_CACHE_CHANGED);
+#endif
     }
     HEIMDAL_MUTEX_unlock(&cache->mutex);
 }
@@ -441,21 +477,96 @@ out:
     return ret;
 }
 
+#define KRB5_CONF_NAME "krb5_ccache_conf_data"
+#define KRB5_REALM_NAME "X-CACHECONF:"
+
+krb5_error_code
+kcm_ccache_update_acquire_status(krb5_context context,
+				 kcm_ccache ccache,
+				 int status,
+				 krb5_error_code ret)
+{
+    krb5_creds cred;
+    uint8_t st[12];
+    uint32_t u32;
+
+    if ((ccache->flags & KCM_MASK_KEY_PRESENT) == 0)
+	return 0;
+    if (ccache->client == NULL)
+	return 0;
+
+    switch (status) {
+    case KCM_STATUS_ACQUIRE_START:
+	kcm_update_expire_time(ccache, 0);
+	break;
+
+    case KCM_STATUS_ACQUIRE_STOPPED:
+	ccache->next_refresh_time = 0;
+	break;
+
+    case KCM_STATUS_ACQUIRE_FAILED:
+	kcm_update_expire_time(ccache, time(NULL) + 300);
+	break;
+
+    case KCM_STATUS_ACQUIRE_SUCCESS: {
+	time_t next_refresh, now = time(NULL);
+
+	heim_assert(ccache->expire > now, "c->expire is in the past, someone forgot to set it");
+	next_refresh = ccache->expire;
+	/* try to acquire credential just before */
+	if (ccache->expire - now > 300)
+	    next_refresh -= 300;
+	kcm_update_expire_time(ccache, next_refresh + 300);
+
+	break;
+    }
+    default:
+	heim_assert(0, "invalid status");
+	break;
+    }
+
+    memcpy(st, "krb5", 4);
+    u32 = htonl(status); memcpy(&st[4], &u32, sizeof(u32));
+    u32 = htonl(ret);    memcpy(&st[8], &u32, sizeof(u32));
+
+    memset(&cred, 0, sizeof(cred));
+    
+    cred.client = ccache->client;
+    ret = krb5_make_principal(context, &cred.server,
+			      KRB5_REALM_NAME, KRB5_CONF_NAME,
+			      KCM_STATUS_KEY, NULL);
+    if (ret)
+	return ret;
+
+    cred.ticket.data = st;
+    cred.ticket.length = sizeof(st);
+    cred.times.authtime = time(NULL);
+    cred.times.endtime = cred.times.authtime + 3600 * 24 * 30;
+
+    ret = kcm_ccache_store_cred_internal(context, ccache, &cred, NULL, 1);
+
+    krb5_free_principal(context, cred.server);
+
+    return ret;
+}
+
 krb5_error_code
 kcm_ccache_enqueue_default(krb5_context context,
 			   kcm_ccache cache,
 			   krb5_creds *newcred)
 {
     if (newcred == NULL) {
-	heim_ipc_event_set_time(cache->expire_event, 0);
+
     } else if (cache->flags & KCM_MASK_KEY_PRESENT) {
 	cache->expire = newcred->times.endtime;
-	kcm_update_expire_time(cache);
-    } else if (newcred->flags.b.initial) {
+	kcm_update_renew_time(cache);
+    } else if (newcred->flags.b.renewable) {
 	cache->expire = newcred->times.endtime;
-	if (newcred->flags.b.renewable)
-	    kcm_update_expire_time(cache);
-	heim_ipc_event_set_time(cache->expire_event, newcred->times.endtime);
+	kcm_update_renew_time(cache);
+	kcm_update_expire_time(cache, newcred->times.endtime);
+    } else if (newcred->times.endtime > time(NULL)) {
+	cache->expire = newcred->times.endtime;
+	kcm_update_expire_time(cache, newcred->times.endtime);
     }
     return 0;
 }
@@ -850,8 +961,8 @@ static krb5_error_code
 parse_krb5_cache(krb5_context context, krb5_storage *sp)
 {
     krb5_error_code ret;
+    kcm_ccache c = NULL;
     char *name = NULL;
-    kcm_ccache c;
     uint32_t u32;
     int32_t s32;
     uint8_t u8;
@@ -864,6 +975,8 @@ parse_krb5_cache(krb5_context context, krb5_storage *sp)
     CHECK(ret = krb5_ret_uuid(sp, c->uuid));
     CHECK(ret = krb5_ret_uint32(sp, &u32));
     c->renew_time = renew_time = u32;
+    CHECK(ret = krb5_ret_uint32(sp, &u32));
+    c->next_refresh_time = u32;
     CHECK(ret = krb5_ret_uint32(sp, &u32));
     c->holdcount = u32;
     CHECK(ret = krb5_ret_uint32(sp, &u32));
@@ -901,25 +1014,39 @@ parse_krb5_cache(krb5_context context, krb5_storage *sp)
 	CHECK(ret = krb5_ret_uuid(sp, uuid));
 	CHECK(ret = krb5_ret_creds(sp, &cred));
 	ret = kcm_ccache_store_cred_internal(context, c, &cred, uuid, 1);
-	if (cred.flags.b.initial)
-	    kcm_ccache_enqueue_default(context, c, &cred);
 
 	krb5_free_cred_contents(context, &cred);
 	CHECK(ret);
     }
 
-    /* if we have a renew time and its not too far in the paste, kick off rewtime again */
+    /* if we have a renew time and its not too far in the past, kick off rewtime again */
     if (renew_time && renew_time > time(NULL) - 60) {
 	kcm_log(1, "re-setting renew time to: %ds (original renew time)", (int)(renew_time - time(NULL)));
 	heim_ipc_event_set_time(c->renew_event, renew_time);
     }
+    if (c->next_refresh_time)
+	kcm_update_expire_time(c, c->next_refresh_time);
+
  out:
     /* in case of failure, abandon memory (and broken cache) */
-    if (ret) {
+    if (ret && c) {
 	TAILQ_REMOVE(&ccache_head, c, members);
     }
 
     return ret;
+}
+
+static void
+update_wakeup(time_t *nextwakeup, time_t t)
+{
+    /* 
+     * don't bother wakeing up if its within 30s, to sort of time anyway,
+     * just let the credential expire
+     */
+    if (t < time(NULL) - 30)
+	return;
+    if (*nextwakeup == 0 || *nextwakeup > t)
+	*nextwakeup = t;
 }
 
 static krb5_error_code
@@ -929,12 +1056,16 @@ unparse_krb5_cache(krb5_context context, krb5_storage *sp, kcm_ccache c, time_t 
     krb5_error_code ret;
     uint32_t sflags;
 
-    if (c->renew_time && (*nextwakeup == 0 || *nextwakeup > c->renew_time))
-	*nextwakeup = c->renew_time;
+    if (c->renew_time)
+	update_wakeup(nextwakeup, c->renew_time);
+
+    if ((c->flags & KCM_MASK_KEY_PRESENT) && c->next_refresh_time)
+	update_wakeup(nextwakeup, c->next_refresh_time);
 
     CHECK(ret = krb5_store_stringz(sp, c->name));
     CHECK(ret = krb5_store_uuid(sp, c->uuid));
     CHECK(ret = krb5_store_uint32(sp, c->renew_time));
+    CHECK(ret = krb5_store_uint32(sp, c->next_refresh_time));
     CHECK(ret = krb5_store_uint32(sp, c->holdcount));
     CHECK(ret = krb5_store_uint32(sp, c->flags));
     CHECK(ret = krb5_store_int32(sp, c->uid));
@@ -998,6 +1129,17 @@ parse_default_one(krb5_context context, krb5_storage *sp)
 }
 
 static krb5_error_code
+unparse_default_one(krb5_storage *inner, struct kcm_default_cache *c)
+{
+    krb5_error_code ret;
+    CHECK(ret = krb5_store_int32(inner, c->uid));
+    CHECK(ret = krb5_store_int32(inner, c->session));
+    CHECK(ret = krb5_store_stringz(inner, c->name));
+ out:
+    return ret;
+}
+
+static krb5_error_code
 unparse_default_all(krb5_context context, krb5_storage *sp)
 {
     struct kcm_default_cache *c;
@@ -1005,12 +1147,7 @@ unparse_default_all(krb5_context context, krb5_storage *sp)
 
     for (c = default_caches; r == 0 && c != NULL; c = c->next) {
 	r = kcm_unparse_wrap(sp, "default-cache", c->session, ^(krb5_storage *inner) {
-		krb5_error_code ret;
-		CHECK(ret = krb5_store_int32(inner, c->uid));
-		CHECK(ret = krb5_store_int32(inner, c->session));
-		CHECK(ret = krb5_store_stringz(inner, c->name));
-	    out:
-		return ret;
+		return unparse_default_one(inner, c);
 	    });
 
     }
@@ -1018,9 +1155,9 @@ unparse_default_all(krb5_context context, krb5_storage *sp)
     return r;
 }
 
-#define KCM_DUMP_VERSION 1
+#define KCM_DUMP_VERSION 2
 
-void
+static int
 kcm_parse_cache_data(krb5_context context, krb5_data *data)
 {
     krb5_error_code ret; 
@@ -1030,7 +1167,7 @@ kcm_parse_cache_data(krb5_context context, krb5_data *data)
 
     sp = krb5_storage_from_readonly_mem(data->data, data->length);
     if (sp == NULL)
-	return;
+	return ENOMEM;
 
     CHECK(ret = krb5_ret_stringz(sp, &str));
     if (strcmp(str, "start-dump") != 0) {
@@ -1042,12 +1179,15 @@ kcm_parse_cache_data(krb5_context context, krb5_data *data)
 
     
     CHECK(ret = krb5_ret_uint8(sp, &u8));
-    CHECK((u8 == KCM_DUMP_VERSION) ? 0 : 1);
+    if (u8 != KCM_DUMP_VERSION) {
+	ret = EINVAL;
+	goto out;
+    }
     CHECK(ret = krb5_ret_uint32(sp, &ccache_nextid));
 
     while(ret == 0) {
 	int32_t session;
-	krb5_data data;
+	krb5_data idata;
 	krb5_storage *inner;
 
 	CHECK(ret = krb5_ret_stringz(sp, &str));
@@ -1060,12 +1200,14 @@ kcm_parse_cache_data(krb5_context context, krb5_data *data)
 	}
 
 	CHECK(ret = krb5_ret_int32(sp, &session));
-	CHECK(ret = krb5_ret_data(sp, &data));
+	CHECK(ret = krb5_ret_data(sp, &idata));
 	
-	inner = krb5_storage_from_data(&data);
+	inner = krb5_storage_from_data(&idata);
 	heim_assert(inner, "krb5_storage_from_data");
 
-	if (!session_exists(session)) {
+	if (strcmp(str, "ntlm-cache") == 0) {
+	    ret = kcm_parse_ntlm_challenge_one(context, inner);
+	} else if (!session_exists(session)) {
 	    /* do nothing */
 	} else if (strcmp(str, "krb5-cache") == 0) {
 	    ret = parse_krb5_cache(context, inner);
@@ -1081,13 +1223,13 @@ kcm_parse_cache_data(krb5_context context, krb5_data *data)
 	    kcm_log(10, "dump: failed to unparse a %s cache with: %d", str, ret);
 	free(str);
 	krb5_storage_free(inner);
-	krb5_data_free(&data);
+	krb5_data_free(&idata);
     }
  out:
     krb5_storage_free(sp);
     if (ret)
 	kcm_log(10, "dump: failed to read credential dump: %d", ret);
-    return;
+    return ret;
 }
 
 krb5_error_code
@@ -1143,6 +1285,9 @@ kcm_unparse_cache_data(krb5_context context, krb5_data *data)
 
     /* add NTLM/SCRAM */
     CHECK(ret = kcm_unparse_digest_all(context, sp));
+
+    /* ntlm challenges */
+    CHECK(ret = kcm_unparse_challenge_all(context, sp));
 
     CHECK(ret = krb5_store_stringz(sp, "end-dump"));
 
@@ -1212,6 +1357,8 @@ kcm_load_key(krb5_context context)
     return ret;
 }
 
+int kcm_data_changed = 0;
+
 void
 kcm_write_dump(krb5_context context)
 {
@@ -1233,6 +1380,9 @@ kcm_write_dump(krb5_context context)
     if (data.length == 0)
 	return;
     
+    if (!kcm_data_changed)
+	return;
+
     ret = kcm_store_io(context, uuid_master, data.data, data.length, &enc, true);
     krb5_data_free(&data);
     if (ret) {
@@ -1267,7 +1417,9 @@ kcm_read_dump(krb5_context context)
     
     ret = kcm_store_io(kcm_context, uuid_master, p, len, &data, false);
     if (ret == 0) {
-	kcm_parse_cache_data(kcm_context, &data);
+	ret = kcm_parse_cache_data(kcm_context, &data);
+	if (ret)
+	    unlink(dumpfile);
 	krb5_data_free(&data);
 	have_uuid_master = 1;
     } else {

@@ -46,7 +46,7 @@
 #define ORDER_KEY		CFSTR("__ORDER__")
 
 
-static CFBooleanRef	S_proxies_follow_dns	= NULL;
+CFBooleanRef	G_supplemental_proxies_follow_dns	= NULL;
 
 
 static void
@@ -67,7 +67,7 @@ add_proxy(CFMutableArrayRef proxies, CFMutableDictionaryRef proxy)
 		}
 	}
 
-	order = CFNumberCreate(NULL, kCFNumberIntType, &n_proxies);
+	order = CFNumberCreate(NULL, kCFNumberCFIndexType, &n_proxies);
 	CFDictionarySetValue(proxy, ORDER_KEY, order);
 	CFRelease(order);
 
@@ -191,7 +191,7 @@ add_supplemental_proxies(CFMutableArrayRef proxies, CFDictionaryRef services, CF
 			continue;
 		}
 
-		if ((S_proxies_follow_dns != NULL) && CFBooleanGetValue(S_proxies_follow_dns)) {
+		if ((G_supplemental_proxies_follow_dns != NULL) && CFBooleanGetValue(G_supplemental_proxies_follow_dns)) {
 			CFDictionaryRef	dns;
 			CFArrayRef	matchDomains;
 			CFArrayRef	matchOrders;
@@ -545,7 +545,7 @@ compareDomain(const void *val1, const void *val2, void *context)
 
 
 __private_extern__
-CFDictionaryRef
+CF_RETURNS_RETAINED CFDictionaryRef
 proxy_configuration_update(CFDictionaryRef	defaultProxy,
 			   CFDictionaryRef	services,
 			   CFArrayRef		serviceOrder)
@@ -557,10 +557,6 @@ proxy_configuration_update(CFDictionaryRef	defaultProxy,
 	CFIndex			n_proxies;
 	CFDictionaryRef		proxy;
 	CFMutableArrayRef	proxies;
-
-	SCLog(TRUE, LOG_DEBUG, CFSTR("defaultProxy : %@"), defaultProxy ? defaultProxy : (CFTypeRef)CFSTR("NULL"));
-	SCLog(TRUE, LOG_DEBUG, CFSTR("services : %@"), services ? services : (CFTypeRef)CFSTR("NULL"));
-	SCLog(TRUE, LOG_DEBUG, CFSTR("serviceOrder : %@"), serviceOrder ? serviceOrder : (CFTypeRef)CFSTR("NULL"));
 
 	// establish full list of proxies
 
@@ -672,12 +668,16 @@ proxy_configuration_init(CFBundleRef bundle)
 
 	dict = CFBundleGetInfoDictionary(bundle);
 	if (isA_CFDictionary(dict)) {
-		S_proxies_follow_dns = CFDictionaryGetValue(dict, CFSTR("SupplementalProxiesFollowSupplementalDNS"));
-		S_proxies_follow_dns = isA_CFBoolean(S_proxies_follow_dns);
+		G_supplemental_proxies_follow_dns = CFDictionaryGetValue(dict, CFSTR("SupplementalProxiesFollowSupplementalDNS"));
+		G_supplemental_proxies_follow_dns = isA_CFBoolean(G_supplemental_proxies_follow_dns);
 	}
 
 	return;
 }
+
+
+#pragma mark -
+#pragma mark Standalone test code
 
 
 #ifdef	MAIN

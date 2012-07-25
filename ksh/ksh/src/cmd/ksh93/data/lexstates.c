@@ -1,10 +1,10 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
-*                      by AT&T Knowledge Ventures                      *
+*                    by AT&T Intellectual Property                     *
 *                                                                      *
 *                A copy of the License is available at                 *
 *            http://www.opensource.org/licenses/cpl1.0.txt             *
@@ -56,7 +56,7 @@ static const char sh_lexstate0[256] =
 	S_NAME,	S_RES,	S_NAME,	S_NAME,	S_NAME,	S_NAME,	S_NAME,	S_NAME,
 #endif /* SHOPT_NAMESPACE */
 	S_NAME,	S_NAME,	S_NAME,	S_RES,	S_RES,	S_RES,	S_NAME,	S_RES,
-	S_NAME,	S_NAME,	S_NAME,	S_REG,	S_OP,	S_REG,	S_TILDE,S_REG,
+	S_NAME,	S_NAME,	S_NAME,	S_BRACE,S_OP,	S_BRACE,S_TILDE,S_REG,
 
 	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,
 	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,	S_REG,
@@ -214,7 +214,7 @@ static const char sh_lexstate5[256] =
 	S_GRAVE,0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
-	0,	0,	0,	S_BRACE,S_META,	S_POP,	0,	0
+	0,	0,	0,	S_BRACE,S_META,	S_POP,	S_TILDE,0
 };
 
 /*
@@ -360,8 +360,8 @@ static const char sh_lexstate9[256] =
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	S_QUOTE,0,	S_DOL,	0,	S_PAT,	S_LIT,
-	S_PAT,	S_PAT,	S_PAT,	0,	S_COM,	0,	0,	S_SLASH,
-	0,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,
+	S_PAT,	S_PAT,	S_PAT,	0,	S_COM,	0,	S_DOT,	S_SLASH,
+	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,	S_DIG,
 	S_DIG,	S_DIG,	S_COLON,0,	0,	S_EQ,	0,	S_PAT,
 	0,	0,	0,	0,	0,	0,	0,	0,
 	0,	0,	0,	0,	0,	0,	0,	0,
@@ -387,10 +387,12 @@ const char *sh_lexrstates[ST_NONE] =
 
 const char e_lexversion[]	= "%d: invalid binary script version";
 const char e_lexspace[]		= "line %d: use space or tab to separate operators %c and %c";
-const char e_lexslash[]		= "line %d: $ not preceeded by \\";
+const char e_lexslash[]		= "line %d: $ not preceded by \\";
 const char e_lexsyntax1[]	= "syntax error at line %d: `%s' %s";
 const char e_lexsyntax2[]	= "syntax error: `%s' %s";
 const char e_lexsyntax3[]	= "syntax error at line %d: duplicate label %s";
+const char e_lexsyntax4[]	= "syntax error at line %d: invalid reference list";
+const char e_lexwarnvar[]	= "line %d: variable expansion makes arithmetic evaluation less efficient";
 const char e_lexlabignore[]	= "line %d: label %s ignored";
 const char e_lexlabunknown[]	= "line %d: %s unknown label";
 const char e_lexobsolete1[]	= "line %d: `...` obsolete, use $(...)";
@@ -399,6 +401,7 @@ const char e_lexobsolete3[]	= "line %d: '=' obsolete, use '=='";
 const char e_lexobsolete4[]	= "line %d: %s within [[...]] obsolete, use ((...))";
 const char e_lexobsolete5[]	= "line %d: set %s obsolete";
 const char e_lexobsolete6[]	= "line %d: `{' instead of `in' is obsolete";
+const char e_lexnonstandard[]	= "line %d: `&>file' is nonstandard -- interpreted as `>file 2>&1' for profile input only";
 const char e_lexusebrace[]	= "line %d: use braces to avoid ambiguities with $id[...]";
 const char e_lexusequote[]	= "line %d: %c within ${} should be quoted";
 const char e_lexescape[]	= "line %d: escape %c to avoid ambiguities";
@@ -409,3 +412,5 @@ const char e_lexfuture[]	= "line %d: \\ in front of %c reserved for future use";
 const char e_lexlongquote[]	= "line %d: %c quote may be missing";
 const char e_lexzerobyte[]	= "zero byte";
 const char e_lexemptyfor[]	= "line %d: empty for list";
+const char e_lextypeset[]	= "line %d: %s invalid typeset option order";
+const char e_lexcharclass[]	= "line %d: '^' as first character in character class not portable";

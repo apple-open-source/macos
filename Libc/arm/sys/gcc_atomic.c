@@ -33,69 +33,69 @@
  * since the ARM GCC target does not currently support them
  */
 
-int32_t __sync_fetch_and_add_4 (int32_t *ptr, int32_t value)
+int32_t __sync_fetch_and_add_4 (int32_t *ptr, int32_t value, ...)
 {
     return OSAtomicAdd32Barrier(value, ptr) - value;
 }
 
-int32_t __sync_fetch_and_sub_4 (int32_t *ptr, int32_t value)
+int32_t __sync_fetch_and_sub_4 (int32_t *ptr, int32_t value, ...)
 {
     return OSAtomicAdd32Barrier(-value, ptr) + value;
 }
 
-uint32_t __sync_fetch_and_or_4(uint32_t *ptr, uint32_t value)
+uint32_t __sync_fetch_and_or_4(uint32_t *ptr, uint32_t value, ...)
 {
     return OSAtomicOr32OrigBarrier(value, ptr);
 }
 
-uint32_t __sync_fetch_and_and_4(uint32_t *ptr, uint32_t value)
+uint32_t __sync_fetch_and_and_4(uint32_t *ptr, uint32_t value, ...)
 {
     return OSAtomicAnd32OrigBarrier(value, ptr);
 }
 
-uint32_t __sync_fetch_and_xor_4(uint32_t *ptr, uint32_t value)
+uint32_t __sync_fetch_and_xor_4(uint32_t *ptr, uint32_t value, ...)
 {
     return OSAtomicXor32OrigBarrier(value, ptr);
 }
 
-int32_t __sync_add_and_fetch_4 (int32_t *ptr, int32_t value)
+int32_t __sync_add_and_fetch_4 (int32_t *ptr, int32_t value, ...)
 {
     return OSAtomicAdd32Barrier(value, ptr);
 }
 
-int32_t __sync_sub_and_fetch_4 (int32_t *ptr, int32_t value)
+int32_t __sync_sub_and_fetch_4 (int32_t *ptr, int32_t value, ...)
 {
     return OSAtomicAdd32Barrier(-value, ptr);
 }
 
-uint32_t __sync_or_and_fetch_4 (uint32_t *ptr, int32_t value)
+uint32_t __sync_or_and_fetch_4 (uint32_t *ptr, int32_t value, ...)
 {
     return OSAtomicOr32Barrier(value, ptr);
 }
 
-uint32_t __sync_and_and_fetch_4 (uint32_t *ptr, int32_t value)
+uint32_t __sync_and_and_fetch_4 (uint32_t *ptr, int32_t value, ...)
 {
     return OSAtomicAnd32Barrier(value, ptr);
 }
 
-uint32_t __sync_xor_and_fetch_4 (uint32_t *ptr, int32_t value)
+uint32_t __sync_xor_and_fetch_4 (uint32_t *ptr, int32_t value, ...)
 {
     return OSAtomicXor32Barrier(value, ptr);
 }
 
-bool __sync_bool_compare_and_swap_4(int32_t *ptr, int32_t oldval, int32_t newval)
+bool __sync_bool_compare_and_swap_4(int32_t *ptr, int32_t oldval, int32_t newval, ...)
 {
     return OSAtomicCompareAndSwap32Barrier(oldval, newval, ptr);
 }
 
-int32_t __sync_val_compare_and_swap_4(int32_t *ptr, int32_t oldval, int32_t newval)
+int32_t __sync_val_compare_and_swap_4(int32_t *ptr, int32_t oldval, int32_t newval, ...)
 {
     int32_t old = *ptr;
     OSAtomicCompareAndSwap32Barrier(oldval, newval, ptr);
     return old;
 }
 
-int32_t __sync_lock_test_and_set_4(int32_t *ptr, int32_t value)
+int32_t __sync_lock_test_and_set_4(int32_t *ptr, int32_t value, ...)
 {
     int32_t old;
 
@@ -106,9 +106,15 @@ int32_t __sync_lock_test_and_set_4(int32_t *ptr, int32_t value)
     return old;
 }
 
-void __sync_lock_release_4(int32_t *ptr)
+void __sync_lock_release_4(int32_t *ptr, ...)
 {
     *ptr = 0;
+}
+
+__private_extern__
+void __sync_synchronize(void)
+{
+	OSMemoryBarrier();
 }
 
 #endif

@@ -45,6 +45,7 @@ namespace WebCore {
 class CanvasContextAttributes;
 class CanvasRenderingContext;
 class GraphicsContext;
+class GraphicsContextStateSaver;
 class HTMLCanvasElement;
 class Image;
 class ImageData;
@@ -91,13 +92,14 @@ public:
 
     CanvasRenderingContext* getContext(const String&, CanvasContextAttributes* attributes = 0);
 
+    static String toEncodingMimeType(const String& mimeType);
     String toDataURL(const String& mimeType, const double* quality, ExceptionCode&);
     String toDataURL(const String& mimeType, ExceptionCode& ec) { return toDataURL(mimeType, 0, ec); }
 
     // Used for rendering
     void didDraw(const FloatRect&);
 
-    void paint(GraphicsContext*, const IntRect&);
+    void paint(GraphicsContext*, const LayoutRect&, bool useLowQualityScale = false);
 
     GraphicsContext* drawingContext() const;
     GraphicsContext* existingDrawingContext() const;
@@ -116,11 +118,11 @@ public:
 
     FloatSize convertDeviceToLogical(const FloatSize&) const;
 
-    const SecurityOrigin& securityOrigin() const;
+    SecurityOrigin* securityOrigin() const;
     void setOriginTainted() { m_originClean = false; }
     bool originClean() const { return m_originClean; }
 
-    CSSStyleSelector* styleSelector();
+    StyleResolver* styleResolver();
 
     AffineTransform baseTransform() const;
 
@@ -129,20 +131,28 @@ public:
 #endif
 
     void makeRenderingResultsAvailable();
+    bool hasCreatedImageBuffer() const { return m_hasCreatedImageBuffer; }
+
+    bool shouldAccelerate(const IntSize&) const;
+
+    float deviceScaleFactor() const { return m_deviceScaleFactor; }
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     void reset();
 
     void createImageBuffer() const;
+    void clearImageBuffer() const;
 
     void setSurfaceSize(const IntSize&);
-    bool hasCreatedImageBuffer() const { return m_hasCreatedImageBuffer; }
-    bool shouldAccelerate(const IntSize&) const;
+
+    bool shouldDefer() const;
+
+    bool paintsIntoCanvasBuffer() const;
 
     HashSet<CanvasObserver*> m_observers;
 
@@ -160,7 +170,9 @@ private:
 
     // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
     mutable bool m_hasCreatedImageBuffer;
+    mutable bool m_didClearImageBuffer;
     mutable OwnPtr<ImageBuffer> m_imageBuffer;
+    mutable OwnPtr<GraphicsContextStateSaver> m_contextStateSaver;
     
     mutable RefPtr<Image> m_presentedImage;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).

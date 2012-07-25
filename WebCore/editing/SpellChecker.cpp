@@ -39,14 +39,49 @@
 #include "RenderObject.h"
 #include "Settings.h"
 #include "TextCheckerClient.h"
+#include "TextCheckingHelper.h"
 #include "TextIterator.h"
 #include "htmlediting.h"
 
 namespace WebCore {
 
+static const int unrequestedSequence = -1;
+
+SpellCheckRequest::SpellCheckRequest(int sequence, PassRefPtr<Range> checkingRange, PassRefPtr<Range> paragraphRange, const String& text, TextCheckingTypeMask mask, TextCheckingProcessType processType)
+    : m_sequence(sequence)
+    , m_text(text)
+    , m_mask(mask)
+    , m_processType(processType)
+    , m_checkingRange(checkingRange)
+    , m_paragraphRange(paragraphRange)
+    , m_rootEditableElement(m_checkingRange->startContainer()->rootEditableElement())
+{
+}
+
+SpellCheckRequest::~SpellCheckRequest()
+{
+}
+
+// static
+PassRefPtr<SpellCheckRequest> SpellCheckRequest::create(TextCheckingTypeMask textCheckingOptions, TextCheckingProcessType processType, PassRefPtr<Range> checkingRange, PassRefPtr<Range> paragraphRange)
+{
+    ASSERT(checkingRange);
+    ASSERT(paragraphRange);
+
+    String text = checkingRange->text();
+    if (!text.length())
+        return PassRefPtr<SpellCheckRequest>();
+
+    return adoptRef(new SpellCheckRequest(unrequestedSequence, checkingRange, paragraphRange, text, textCheckingOptions, processType));
+}
+
+
+
 SpellChecker::SpellChecker(Frame* frame)
     : m_frame(frame)
-    , m_requestSequence(0)
+    , m_lastRequestSequence(0)
+    , m_lastProcessedSequence(0)
+    , m_timerToProcessQueuedRequest(this, &SpellChecker::timerFiredToProcessQueuedRequest)
 {
 }
 
@@ -62,25 +97,13 @@ TextCheckerClient* SpellChecker::client() const
     return page->editorClient()->textChecker();
 }
 
-bool SpellChecker::initRequest(Node* node)
+void SpellChecker::timerFiredToProcessQueuedRequest(Timer<SpellChecker>*)
 {
-    ASSERT(canCheckAsynchronously(node));
+    ASSERT(!m_requestQueue.isEmpty());
+    if (m_requestQueue.isEmpty())
+        return;
 
-    String text = node->textContent();
-    if (!text.length())
-        return false;
-
-    m_requestNode = node;
-    m_requestText = text;
-    m_requestSequence++;
-
-    return true;
-}
-
-void SpellChecker::clearRequest()
-{
-    m_requestNode.clear();
-    m_requestText = String();
+    invokeRequest(m_requestQueue.takeFirst());
 }
 
 bool SpellChecker::isAsynchronousEnabled() const
@@ -88,107 +111,101 @@ bool SpellChecker::isAsynchronousEnabled() const
     return m_frame->settings() && m_frame->settings()->asynchronousSpellCheckingEnabled();
 }
 
-bool SpellChecker::canCheckAsynchronously(Node* node) const
+bool SpellChecker::canCheckAsynchronously(Range* range) const
 {
-    return client() && isCheckable(node) && isAsynchronousEnabled() && !isBusy();
+    return client() && isCheckable(range) && isAsynchronousEnabled();
 }
 
-bool SpellChecker::isBusy() const
+bool SpellChecker::isCheckable(Range* range) const
 {
-    return m_requestNode.get();
+    if (!range || !range->firstNode() || !range->firstNode()->renderer())
+        return false;
+    const Node* node = range->startContainer();
+    if (node && node->isElementNode() && !toElement(node)->isSpellCheckingEnabled())
+        return false;
+    return true;
 }
 
-bool SpellChecker::isValid(int sequence) const
+void SpellChecker::requestCheckingFor(PassRefPtr<SpellCheckRequest> request)
 {
-    return m_requestNode.get() && m_requestText.length() && m_requestSequence == sequence;
-}
-
-bool SpellChecker::isCheckable(Node* node) const
-{
-    return node && node->renderer();
-}
-
-void SpellChecker::requestCheckingFor(TextCheckingTypeMask mask, Node* node)
-{
-    ASSERT(canCheckAsynchronously(node));
-
-    if (!initRequest(node))
-        return;
-    client()->requestCheckingOfString(this, m_requestSequence, mask, m_requestText);
-}
-
-static bool forwardIterator(PositionIterator& iterator, int distance)
-{
-    int remaining = distance;
-    while (!iterator.atEnd()) {
-        if (iterator.node()->isCharacterDataNode()) {
-            int length = lastOffsetForEditing(iterator.node());
-            int last = length - iterator.offsetInLeafNode();
-            if (remaining < last) {
-                iterator.setOffsetInLeafNode(iterator.offsetInLeafNode() + remaining);
-                return true;
-            }
-
-            remaining -= last;
-            iterator.setOffsetInLeafNode(iterator.offsetInLeafNode() + last);
-        }
-
-        iterator.increment();
-    }
-
-    return false;    
-}
-
-static DocumentMarker::MarkerType toMarkerType(TextCheckingType type)
-{
-    if (type == TextCheckingTypeSpelling)
-        return DocumentMarker::Spelling;
-    ASSERT(type == TextCheckingTypeGrammar);
-    return DocumentMarker::Grammar;
-}
-
-// Currenntly ignoring TextCheckingResult::details but should be handled. See Bug 56368.
-void SpellChecker::didCheck(int sequence, const Vector<TextCheckingResult>& results)
-{
-    if (!isValid(sequence))
+    if (!request || !canCheckAsynchronously(request->paragraphRange().get()))
         return;
 
-    if (!m_requestNode->renderer()) {
-        clearRequest();
+    ASSERT(request->sequence() == unrequestedSequence);
+    int sequence = ++m_lastRequestSequence;
+    if (sequence == unrequestedSequence)
+        sequence = ++m_lastRequestSequence;
+
+    request->setSequence(sequence);
+
+    if (m_timerToProcessQueuedRequest.isActive() || m_processingRequest) {
+        enqueueRequest(request);
         return;
     }
 
-    int startOffset = 0;
-    PositionIterator start = firstPositionInOrBeforeNode(m_requestNode.get());
-    for (size_t i = 0; i < results.size(); ++i) {
-        if (results[i].type != TextCheckingTypeSpelling && results[i].type != TextCheckingTypeGrammar)
+    invokeRequest(request);
+}
+
+void SpellChecker::invokeRequest(PassRefPtr<SpellCheckRequest> request)
+{
+    ASSERT(!m_processingRequest);
+
+    m_processingRequest = request;
+    client()->requestCheckingOfString(this, m_processingRequest->textCheckingRequest());
+}
+
+void SpellChecker::enqueueRequest(PassRefPtr<SpellCheckRequest> request)
+{
+    ASSERT(request);
+
+    for (RequestQueue::iterator it = m_requestQueue.begin(); it != m_requestQueue.end(); ++it) {
+        if (request->rootEditableElement() != (*it)->rootEditableElement())
             continue;
 
-        // To avoid moving the position backward, we assume the given results are sorted with
-        // startOffset as the ones returned by [NSSpellChecker requestCheckingOfString:].
-        ASSERT(startOffset <= results[i].location);
-        if (!forwardIterator(start, results[i].location - startOffset))
-            break;
-        PositionIterator end = start;
-        if (!forwardIterator(end, results[i].length))
-            break;
-
-        // Users or JavaScript applications may change text while a spell-checker checks its
-        // spellings in the background. To avoid adding markers to the words modified by users or
-        // JavaScript applications, retrieve the words in the specified region and compare them with
-        // the original ones.
-        RefPtr<Range> range = Range::create(m_requestNode->document(), start, end);
-        // FIXME: Use textContent() compatible string conversion.
-        String destination = range->text();
-        String source = m_requestText.substring(results[i].location, results[i].length);
-        if (destination == source)
-            m_requestNode->document()->markers()->addMarker(range.get(), toMarkerType(results[i].type));
-
-        startOffset = results[i].location;
+        *it = request;
+        return;
     }
 
-    clearRequest();
+    m_requestQueue.append(request);
 }
 
+void SpellChecker::didCheck(int sequence, const Vector<TextCheckingResult>& results)
+{
+    ASSERT(m_processingRequest);
+    ASSERT(m_processingRequest->sequence() == sequence);
+    if (m_processingRequest->sequence() != sequence) {
+        m_requestQueue.clear();
+        return;
+    }
+
+    m_frame->editor()->markAndReplaceFor(m_processingRequest, results);
+
+    if (m_lastProcessedSequence < sequence)
+        m_lastProcessedSequence = sequence;
+
+    m_processingRequest.clear();
+    if (!m_requestQueue.isEmpty())
+        m_timerToProcessQueuedRequest.startOneShot(0);
+}
+
+void SpellChecker::didCheckSucceeded(int sequence, const Vector<TextCheckingResult>& results)
+{
+    if (m_processingRequest->sequence() == sequence) {
+        unsigned markers = 0;
+        if (m_processingRequest->mask() & TextCheckingTypeSpelling)
+            markers |= DocumentMarker::Spelling;
+        if (m_processingRequest->mask() & TextCheckingTypeGrammar)
+            markers |= DocumentMarker::Grammar;
+        if (markers)
+            m_frame->document()->markers()->removeMarkers(m_processingRequest->checkingRange().get(), markers);
+    }
+    didCheck(sequence, results);
+}
+
+void SpellChecker::didCheckCanceled(int sequence)
+{
+    Vector<TextCheckingResult> results;
+    didCheck(sequence, results);
+}
 
 } // namespace WebCore

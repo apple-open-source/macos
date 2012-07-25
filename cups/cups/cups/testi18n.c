@@ -1,5 +1,5 @@
 /*
- * "$Id: testi18n.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: testi18n.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Internationalization test for CUPS.
  *
@@ -615,5 +615,5 @@ print_utf8(const char	     *msg,	/* I - Message String */
 
 
 /*
- * End of "$Id: testi18n.c 9793 2011-05-20 03:49:49Z mike $"
+ * End of "$Id: testi18n.c 9042 2010-03-24 00:45:34Z mike $"
  */

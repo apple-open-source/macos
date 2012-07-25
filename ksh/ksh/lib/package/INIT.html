@@ -1,15 +1,15 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/loose.dtd">
 <HTML>
 <HEAD>
-<META name="generator" content="mm2html (AT&T Research) 2007-02-09">
+<META name="generator" content="mm2html (AT&T Research) 2010-09-10">
 <META name="description" content="INIT package">
 <META name="keywords" content="software, package">
 <TITLE> INIT package </TITLE>
+<META name="author" content="gsf+dgk+kpv">
 </HEAD>
 <BODY bgcolor=white link=slateblue vlink=teal >
 <TABLE border=0 align=center width=96%>
 <TBODY><TR><TD valign=top align=left>
-<!--INDEX--><!--/INDEX-->
 <P>
 <P><HR><CENTER><FONT color=red><FONT face=courier><H3><A name="INIT package">INIT package</A></H3></FONT></FONT></CENTER>
 The INIT package is required by all but the standalone
@@ -20,7 +20,7 @@ source packages, and generates new package tarballs.
 Components in this package:
 <P>
 <P></P><TABLE border=0 frame=void rules=none width=100%><TBODY><TR><TD>
-<TABLE align=center border=0 bordercolor=white cellpadding=0 cellspacing=0 frame=void rules=none width=99% >
+<TABLE align=center bgcolor=papayawhip border=0 bordercolor=white cellpadding=2 cellspacing=2 width=99% >
 <TBODY>
 <TR><TD align=left>
 INIT</TD></TR>
@@ -48,6 +48,121 @@ All recorded changes follow.
 <P><HR><CENTER><FONT color=red><FONT face=courier><H3><A name="INIT changes">INIT changes</A></H3></FONT></FONT></CENTER>
 <PRE>
 
+11-02-02 Makefile: add :MAPLIB: check for ancient -lw
+11-02-02 make.probe: handle -print-multi-directory =&gt; 64 =&gt; /usr/lib64 /lib64
+11-02-02 package.sh: HOSTTYPE=*,*cc*&#0091;,-*,...&#0093; sets CC &#0091; and CCFLAGS &#0093;
+11-02-02 make.probe: handle gcc $ORIGIN link but exec failure -- gee thanks
+11-01-25 cc.hp.ia64: bundled cc is a pile of shaving cream
+11-01-07 iffe.sh: check debug==3 for is_hdr() failure
+10-11-22 ditto.sh: fix timing problem between |&amp; and exec &amp;p
+10-11-10 package.sh: fix cc cross compile check to use checkcc absolute path
+10-10-10 package.sh: list main env vars at start of make action
+10-10-10 ratz.c: tweak widnows delays
+10-09-10 ratz.c: add _SEAR_ARGS for _SEAR_EXEC
+10-09-01 package.sh: fix ratz from source logic
+10-08-25 package.mk: consolidate license file search in .package.licenses.
+10-08-22 ratz.c: run sear bootstrap command detached
+10-08-20 C+probe: version_stamp only if version_flags works
+10-08-17 package.sh: unset makerules *DIR variables in env
+10-08-15 package.sh: "make" action now lists some env values
+10-08-11 mktest.sh: add "DO command ..."
+10-07-27 rt.sh: handle "rt X=Y ..."
+10-06-29 ratz.c: non-option sear args passed to sear_exec()
+10-06-25 iffe.sh: "api" op chanegd to not do "map-libc" type mappings
+10-06-25 package.sh: "force admin ditto" =&gt; no ditto --update option
+10-06-22 C+probe: handle cc that require .&#0091;ci&#0093; input for version info
+10-06-21 ditto.sh: change default remote access to ssh (about time)
+10-06-12 regress.sh: DISGNOSTICS &#0091; 1 | 0 | pattern &#0093; and fix EXIT for all
+10-06-09 package.sh: add AT&amp;T to usable nmake check
+10-06-06 iffe.sh,iffe.tst: add { api ver } ops
+10-04-22 package.sh: update "html binary|source" NAME/PASSWORD info
+10-04-15 iffe.sh: don't forget candidate headers for hdr|sys!
+10-04-11 WWW.mk: disable man page metarule -- now done by admin-man(1)
+10-02-14 package.sh: $CC verification needs $INSTALLROOT/bin in PATH
+10-02-11 package.sh: fix package admin make report error count
+10-02-02 package.sh: fix write binary bug that did scp on local fs
+10-02-02 package.mk: up to date binary targets must still be in PACKAGE.*.lst
+10-01-01 package.sh: fix premature $INSTALLROOT/bin during cross compile check
+10-01-01 make.probe: handle &#0091;'"&#0093; in CC.VERSION.STRING
+09-12-04 iffe.sh: add "opt name" to check for name in $PACKAGE_OPTIONS
+09-11-30 mktest.sh: change RESET to STATE.RESET to make it global
+09-11-14 make.probe: use gcc { -print-multi-directory -print-search-dirs }
+09-11-11 package.sh: re-order and combine cc checks
+09-10-27 C+probe,make.probe,probe.win32: add CC.SUFFIX.DEBUG
+09-10-21 iffe.sh,Makefile: test -e is not in ksh88!
+09-10-06 iffe.sh: handle cc -E #error with 0 exit status (sgi)
+09-10-06 package.sh: stub in ar intercept checks -- not used yet
+09-10-06 ar.ibm.risc: add ar intercept because some aix require -Xfoo first!!
+09-09-24 regress.sh: fix UMASK logic to create test support files before umask
+09-08-28 release.c: change docs to mention stdin if no file operands
+09-08-24 package.sh: fix isascii() bug that failed on od(1) trailing space
+09-08-20 make.probe: add CC.SHARED.NAME
+09-08-20 regress.sh: add { JOB CONTINUE EXITED KILL FIFO }
+09-08-11 package.sh: filter lines containing : for package results
+09-07-31 make.probe: add CC.AR.ARFLAGS (for aix ar -xany)
+09-07-31 package.sh,cc.*: fix -dumpmachine to handle 32/64/* bit options
+09-06-24 package.sh: fix admin.db output formatting
+09-05-05 package.sh: export dll hackery environment vars
+09-05-05 package.sh: handle non-identifier hostnames
+09-05-05 mamake.c: pass undefined ${...} identifiers to the shell
+09-05-05 mamake.rt: add macro expansion regression tests
+09-05-01 iffe.sh: fix output initialization *again*
+09-04-28 package.sh: handle admin.db contact field $9
+09-04-15 iffe.sh: add implicit "ini" op to initialize io for subsequent ops
+09-03-31 regress.sh: EXPORT before test =&gt; global ENVIRON&#0091;&#0093;
+09-03-26 package.sh: test fail pattern is 'fail&#0091;es&#0093;'
+09-03-26 UNIT - ... appends (options) to command line
+09-03-19 TEST.mk: x.tst =&gt; x only if x is command target
+09-03-15 regress.sh: add ${MAIN} for base name of main unit
+09-03-10 TEST.mk: add .SOURCE:tests if tests is a dir
+09-03-03 regress.sh: allow command line unit to override UNIT
+09-03-03 mktest.sh: handle IO == $'
+09-02-02 package.sh: delay $INSTALLROOT/bin/.paths generation until mamprobe runs
+09-01-30 cc.mvs.390: c89 balks at &#0091; ()&#0093; in -Dname="..."!
+09-01-27 package.sh: add isascii() to use ratz instead of tar
+09-01-20 hurl.sh: add --size=bytes option
+09-01-08 TEST.mk: add test.* prereqs, multiple arg lists with :T=*: binding
+09-01-03 regress.sh: fix UNIT to allow command line override
+09-01-03 mktest.sh: handle TWD
+08-12-24 package.sh: fix cross-compile HOSTTYPE logic
+08-12-15 package.sh,hurl.sh: handle http codes { 301 302 303 }
+08-10-16 make.probe '-fno-stack-protector -fno-stack-protector-all' to cop out!!
+08-09-30 rt.sh: fix ksh93 regression test signal count
+08-09-26 regress.sh: ignore SIGPIPE for SET pipe-input
+08-09-24 package.sh: package only test foo =&gt; make --recurse=only recurse tests foo
+08-09-20 make.probe: handle another /usr/bin/file shared lib description
+08-09-20 regress.sh: add --pipefail for SET pipe-input ...
+08-09-17 Makefile: add gdbm1.c for &lt;gdbm-ndbm.h&gt;
+08-09-10 make.probe: add CC.NOPROTECT
+08-08-08 mktest.sh: add --width=width
+08-08-05 dbm.req: favor sleepycat ndbm compatibility
+08-08-04 C+probe: fix stdlib initialization logic
+08-06-24 package.sh: fix $INSTALLROOT/bin/cc intercept time stamp file typo
+08-06-20 TEST.mk: make the localyunit before *.rt =&gt; *.tst -- doh
+08-06-20 mktest.sh: prepend $PWD onto PATH for local units -- doh^2
+08-06-11 regress.sh: fix bug that skipped the last test
+08-05-20 regress.sh: add --local to put *.tmp dir in local fs
+08-05-05 regress.sh: add IF command ... ELIF command ... ELSE ... FI
+08-05-01 package.sh: package test =&gt; ulimit -c 0
+08-04-28 regress.sh: fix EXPORT quoting
+08-04-28 regress.sh: fix UNIT set check args too
+08-04-24 rt.sh: exit code &gt; 256 =&gt; signal termination
+08-04-10 C+probe: change probe_so order to check .so last (macos ld workaround)
+08-04-01 package.sh: handle multiple admin HOSTTYPEs per HOST
+08-03-28 C+probe: add C++ #include &lt;iostream&gt; (no extension) dir probes
+08-03-17 regress.sh: fix trap on EXIT, add terminated note to final tally
+08-02-28 make.probe: fix probe_warn to include ld!
+08-02-02 make.probe: add CC.RUNPATH to match default -L order
+08-01-31 package.sh: check lib64 for LD_LIBRARY_PATH
+08-01-31 iffe.sh: tweak ancient /bin/sh workarounds
+08-01-28 make.probe: darwin ld export dynamic is -force_flat_namespace
+08-01-28 C+probe: handle sgi cc error message but exit 0 botch(es)
+08-01-23 package.sh: fix checksum doc typo
+08-01-09 C+probe: add __FUNCTION__ to the undef (don't check) list
+07-12-14 iffe.sh: add set nooptimize
+07-12-03 package.sh: add LC_ALL=C
+07-11-27 package.sh: fix overaggressive *.md5 cleanup
+07-11-20 iffe.sh: treat exit status &gt;= 250 as normal error with no signal
 07-11-05 package.sh: fix write op error count pattern
 07-11-05 package.mk: fix $(~req) .ver binding
 07-08-11 probe.win32: add cl.exe setuid workaround, CC.VERSION&#0091;.STRING&#0093;
@@ -800,7 +915,7 @@ All recorded changes follow.
 96-02-29 use: package root must have bin and lib subdir
 	 mm2html: add
 	 C.probe: probe_members += -whole-archive for gcc
-	 iffe: add + fix the blasted `...'...\\...'...`
+	 iffe: add + fix the blasted `...'...\...'...`
 96-01-31 use: add pkg dir
 	 hostinfo: add tandem
 96-01-01 hostinfo: windows_nt|windows&#0091;0-9&#0093;&#0091;0-9&#0093; -&gt; win32
@@ -826,7 +941,7 @@ All recorded changes follow.
 <TR>
 <TD align=left></TD>
 <TD align=center></TD>
-<TD align=right>November 06, 2007</TD>
+<TD align=right>February 09, 2011</TD>
 </TR>
 </TABLE>
 <P>

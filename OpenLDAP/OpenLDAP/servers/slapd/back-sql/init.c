@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/init.c,v 1.73.2.8 2010/04/13 20:23:43 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -46,6 +46,7 @@ sql_back_initialize(
 #endif /* ! BACKSQL_ARBITRARY_KEY */
 		NULL
 	};
+	int rc;
 
 	bi->bi_controls = controls;
 
@@ -58,7 +59,7 @@ sql_back_initialize(
 	Debug( LDAP_DEBUG_TRACE,"==>sql_back_initialize()\n", 0, 0, 0 );
 	
 	bi->bi_db_init = backsql_db_init;
-	bi->bi_db_config = backsql_db_config;
+	bi->bi_db_config = config_generic_wrapper;
 	bi->bi_db_open = backsql_db_open;
 	bi->bi_db_close = backsql_db_close;
 	bi->bi_db_destroy = backsql_db_destroy;
@@ -80,8 +81,9 @@ sql_back_initialize(
  
 	bi->bi_connection_init = 0;
 
+	rc = backsql_init_cf( bi );
 	Debug( LDAP_DEBUG_TRACE,"<==sql_back_initialize()\n", 0, 0, 0 );
-	return 0;
+	return rc;
 }
 
 int

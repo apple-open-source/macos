@@ -35,9 +35,6 @@
 namespace JSC {
 
 class MacroAssemblerX86_64 : public MacroAssemblerX86Common {
-protected:
-    static const X86Registers::RegisterID scratchRegister = X86Registers::r11;
-
 public:
     static const Scale ScalePtr = TimesEight;
 
@@ -88,12 +85,6 @@ public:
         }
     }
 
-    void loadDouble(const void* address, FPRegisterID dest)
-    {
-        move(TrustedImmPtr(address), scratchRegister);
-        loadDouble(scratchRegister, dest);
-    }
-
     void addDouble(AbsoluteAddress address, FPRegisterID dest)
     {
         move(TrustedImmPtr(address.m_ptr), scratchRegister);
@@ -104,14 +95,6 @@ public:
     {
         move(imm, scratchRegister);
         m_assembler.cvtsi2sd_rr(scratchRegister, dest);
-    }
-
-    void absDouble(FPRegisterID src, FPRegisterID dst)
-    {
-        ASSERT(src != dst);
-        static const double negativeZeroConstant = -0.0;
-        loadDouble(&negativeZeroConstant, dst);
-        m_assembler.andnpd_rr(src, dst);
     }
 
     void store32(TrustedImm32 imm, void* address)
@@ -233,6 +216,11 @@ public:
         move(src, dest);
         orPtr(imm, dest);
     }
+    
+    void rotateRightPtr(TrustedImm32 imm, RegisterID srcDst)
+    {
+        m_assembler.rorq_i8r(imm.m_value, srcDst);
+    }
 
     void subPtr(RegisterID src, RegisterID dest)
     {
@@ -254,12 +242,16 @@ public:
     {
         m_assembler.xorq_rr(src, dest);
     }
+    
+    void xorPtr(RegisterID src, Address dest)
+    {
+        m_assembler.xorq_rm(src, dest.offset, dest.base);
+    }
 
     void xorPtr(TrustedImm32 imm, RegisterID srcDest)
     {
         m_assembler.xorq_ir(imm.m_value, srcDest);
     }
-
 
     void loadPtr(ImplicitAddress address, RegisterID dest)
     {
@@ -351,6 +343,13 @@ public:
         m_assembler.movzbl_rr(dest, dest);
     }
     
+    void comparePtr(RelationalCondition cond, RegisterID left, RegisterID right, RegisterID dest)
+    {
+        m_assembler.cmpq_rr(right, left);
+        m_assembler.setCC_r(x86Condition(cond), dest);
+        m_assembler.movzbl_rr(dest, dest);
+    }
+    
     Jump branchAdd32(ResultCondition cond, TrustedImm32 src, AbsoluteAddress dest)
     {
         move(TrustedImmPtr(dest.m_ptr), scratchRegister);
@@ -403,7 +402,7 @@ public:
         m_assembler.testq_rr(reg, mask);
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
-
+    
     Jump branchTestPtr(ResultCondition cond, RegisterID reg, TrustedImm32 mask = TrustedImm32(-1))
     {
         // if we are only interested in the low seven bits, this can be tested with a testb
@@ -414,6 +413,23 @@ public:
         else
             m_assembler.testq_i32r(mask.m_value, reg);
         return Jump(m_assembler.jCC(x86Condition(cond)));
+    }
+
+    void testPtr(ResultCondition cond, RegisterID reg, TrustedImm32 mask, RegisterID dest)
+    {
+        if (mask.m_value == -1)
+            m_assembler.testq_rr(reg, reg);
+        else if ((mask.m_value & ~0x7f) == 0)
+            m_assembler.testb_i8r(mask.m_value, reg);
+        else
+            m_assembler.testq_i32r(mask.m_value, reg);
+        set32(x86Condition(cond), dest);
+    }
+
+    void testPtr(ResultCondition cond, RegisterID reg, RegisterID mask, RegisterID dest)
+    {
+        m_assembler.testq_rr(reg, mask);
+        set32(x86Condition(cond), dest);
     }
 
     Jump branchTestPtr(ResultCondition cond, AbsoluteAddress address, TrustedImm32 mask = TrustedImm32(-1))
@@ -459,6 +475,12 @@ public:
         return Jump(m_assembler.jCC(x86Condition(cond)));
     }
 
+    Jump branchSubPtr(ResultCondition cond, RegisterID src1, TrustedImm32 src2, RegisterID dest)
+    {
+        move(src1, dest);
+        return branchSubPtr(cond, src2, dest);
+    }
+
     DataLabelPtr moveWithPatch(TrustedImmPtr initialValue, RegisterID dest)
     {
         m_assembler.movq_i64r(initialValue.asIntptr(), dest);
@@ -502,6 +524,8 @@ public:
     {
         return FunctionPtr(X86Assembler::readPointer(call.dataLabelPtrAtOffset(-REPTACH_OFFSET_CALL_R11).dataLocation()));
     }
+
+    static RegisterID scratchRegisterForBlinding() { return scratchRegister; }
 
 private:
     friend class LinkBuffer;

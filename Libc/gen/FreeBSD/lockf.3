@@ -40,7 +40,7 @@
 .Sh SYNOPSIS
 .In unistd.h
 .Ft int
-.Fn lockf "int filedes" "int function" "off_t size"
+.Fn lockf "int fildes" "int function" "off_t size"
 .Sh DESCRIPTION
 The
 .Fn lockf
@@ -49,10 +49,10 @@ Calls to
 .Fn lockf
 from other processes which attempt to lock the locked file section will
 either return an error value or block until the section becomes unlocked.
-All the locks for a process are removed when the process terminates.
+All of the locks for a process are removed when the process terminates.
 .Pp
 The argument
-.Fa filedes
+.Fa fildes
 is an open file descriptor.
 The file descriptor must have been opened either for write-only
 .Dv ( O_WRONLY )
@@ -207,7 +207,7 @@ or
 and the section is already locked by another process.
 .It Bq Er EBADF
 The argument
-.Fa filedes
+.Fa fildes
 is not a valid open file descriptor.
 .Pp
 The argument
@@ -217,7 +217,7 @@ is
 or
 .Dv F_TLOCK ,
 and
-.Fa filedes
+.Fa fildes
 is not a valid file descriptor open for writing.
 .It Bq Er EDEADLK
 The argument
@@ -236,25 +236,29 @@ was interrupted by the delivery of a signal.
 The argument
 .Fa function
 is not one of
-.Dv F_ULOCK ,
 .Dv F_LOCK ,
-.Dv F_TLOCK
+.Dv F_TEST ,
+.Dv F_TLOCK ,
 or
-.Dv F_TEST .
+.Dv F_ULOCK .
 .Pp
 The argument
-.Fa filedes
-refers to a file that does not support locking.
+.Fa fildes
+refers to a file that does not support advisory locking.
 .It Bq Er ENOLCK
 The argument
 .Fa function
 is
-.Dv F_ULOCK ,
-.Dv F_LOCK
-or
+.Dv F_LOCK ,
 .Dv F_TLOCK ,
+or
+.Dv F_ULOCK
 and satisfying the lock or unlock request would result in the number
 of locked regions in the system exceeding a system-imposed limit.
+.It Bq Er EOPNOTSUPP
+The argument
+.Fa fildes
+refers to a socket; these do not support advisory locking.
 .El
 .Sh SEE ALSO
 .Xr fcntl 2 ,

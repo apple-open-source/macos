@@ -44,9 +44,7 @@
 #include <CoreFoundation/CFData.h>
 #include <CoreTelephony/CTServerConnectionPriv.h>
 #include <syslog.h>
-
-#define INLINE 	static __inline__
-#define STATIC	static
+#include "symbol_scope.h"
 
 #define kSIMAccessRunLoopMode	CFSTR("com.apple.eap.eapsim.SIMAccess")
 
@@ -59,8 +57,6 @@ typedef int	RequestResult;
 
 typedef struct {
     CTServerConnectionRef	serv;
-    CFMachPortRef		port;
-    CFRunLoopSourceRef		rls;
     int				result;
 } ServerConnection, * ServerConnectionRef;
 
@@ -86,14 +82,6 @@ ServerConnectionCallback(CTServerConnectionRef connection,
 
 }
 
-STATIC void 
-ServerConnectionPortCallback(CFMachPortRef port, void *msg, CFIndex size, 
-			     void *info) 
-{
-    _CTServerConnectionHandleReply(msg);
-    return;
-}
-
 STATIC void
 ServerConnectionInit(ServerConnectionRef conn_p)
 {
@@ -111,22 +99,8 @@ ServerConnectionClose(ServerConnectionRef conn_p)
 						     kCTSIMSupportSIMAuthenticationFailedNotification);
         CFRelease(conn_p->serv);
     }
-    if (conn_p->port != NULL) {
-	CFRelease(conn_p->port);
-    }
-    if (conn_p->rls != NULL) {
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), conn_p->rls,
-			      kCFRunLoopCommonModes);
-	CFRelease(conn_p->rls);
-    }
     ServerConnectionInit(conn_p);
     return;
-}
-
-STATIC CFStringRef
-machPortCopyDescription(const void *info)
-{
-    return (CFRetain(CFSTR("SIMAccess port")));
 }
 
 STATIC CFStringRef
@@ -140,9 +114,6 @@ ServerConnectionOpen(ServerConnectionRef conn_p)
 {
     _CTServerConnectionContext	ctx = {	0, NULL, NULL, NULL, 
 					serverConnectionCopyDescription };
-    mach_port_t			port;
-    CFMachPortContext          	port_ctx = { 0, NULL, NULL, NULL,
-					     machPortCopyDescription };
     ctx.info = conn_p;
     conn_p->serv
 	= _CTServerConnectionCreateWithIdentifier(NULL,
@@ -157,21 +128,8 @@ ServerConnectionOpen(ServerConnectionRef conn_p)
 					       kCTSIMSupportSIMAuthenticationInfoNotification);
     _CTServerConnectionRegisterForNotification(conn_p->serv,
 					       kCTSIMSupportSIMAuthenticationFailedNotification);
-    port = _CTServerConnectionGetPort(conn_p->serv);
-    if (port == MACH_PORT_NULL) {
-	fprintf(stderr, "_CTServerConnectionGetPort failed\n");
-	goto failed;
-    }
-    conn_p->port = CFMachPortCreateWithPort(NULL, port,
-					    ServerConnectionPortCallback,
-					    &port_ctx, NULL);
-    if (conn_p->port == NULL) {
-	goto failed;
-    }
-    conn_p->rls 
-	= CFMachPortCreateRunLoopSource(kCFAllocatorDefault, conn_p->port, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), conn_p->rls,
-		       kSIMAccessRunLoopMode);
+    _CTServerConnectionAddToRunLoop(conn_p->serv, CFRunLoopGetCurrent(),
+				    kSIMAccessRunLoopMode);
     return (true);
 
  failed:
@@ -227,7 +185,8 @@ ServerConnectionGetKcSRES(ServerConnectionRef conn_p,
     }
 
     /* get the Kc bytes */
-    data = CFDictionaryGetValue(dict, kCTSimKc);
+    data = CFDictionaryGetValue(dict, 
+				kCTSimSupportSIMAuthenticationKc);
     if (CFDataGetLength(data) != SIM_KC_SIZE) {
 	fprintf(stderr, "bogus Kc value\n");
 	goto invalid;
@@ -236,7 +195,8 @@ ServerConnectionGetKcSRES(ServerConnectionRef conn_p,
     CFDataGetBytes(data, range, kc_p);
 
     /* get the SRES bytes */
-    data = CFDictionaryGetValue(dict, kCTSimSres);
+    data = CFDictionaryGetValue(dict, 
+				kCTSimSupportSIMAuthenticationSres);
     if (CFDataGetLength(data) != SIM_SRES_SIZE) {
 	fprintf(stderr, "bogus SRES value\n");
 	goto invalid;
@@ -322,7 +282,7 @@ SIMProcessRAND(const uint8_t * rand_p, int count,
 	    default:
 		syslog(LOG_NOTICE,
 		       "SIMProcessRAND: RunLoop returned unexpected value %d",
-		       runloop_result);
+		       (int)runloop_result);
 		break;
 	    }
 	    if (keep_going == FALSE) {

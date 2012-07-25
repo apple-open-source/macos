@@ -43,4 +43,4 @@ CFMutableStringRef createCFStringForPlist_new(CFTypeRef plist, PListStyle style)
 
 __END_DECLS
 
-#endif __PRINTPLIST_NEW_H__
+#endif /* __PRINTPLIST_NEW_H__ */

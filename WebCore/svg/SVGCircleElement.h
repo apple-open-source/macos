@@ -42,25 +42,27 @@ private:
     SVGCircleElement(const QualifiedName&, Document*);
 
     virtual bool isValid() const { return SVGTests::isValid(); }
+    virtual bool supportsFocus() const { return true; }
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
-
-    virtual void toPathData(Path&) const;
 
     virtual bool selfHasRelativeLengths() const;
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(Cx, cx)
-    DECLARE_ANIMATED_LENGTH(Cy, cy)
-    DECLARE_ANIMATED_LENGTH(R, r)
+    RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGCircleElement)
+        DECLARE_ANIMATED_LENGTH(Cx, cx)
+        DECLARE_ANIMATED_LENGTH(Cy, cy)
+        DECLARE_ANIMATED_LENGTH(R, r)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+    // SVGTests
+    virtual void synchronizeRequiredFeatures() { SVGTests::synchronizeRequiredFeatures(this); }
+    virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
+    virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
 };
 
 } // namespace WebCore

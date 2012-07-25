@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -25,6 +25,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4D027E2613B91F1400B48B76 /* libutil1.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D027E2513B91F1400B48B76 /* libutil1.0.dylib */; };
 		4D2B354711C1591F00C5B318 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
 		4D2B354811C1591F00C5B318 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
 		4D3DCB4C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
@@ -59,6 +60,7 @@
 		4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0D08E0BBF700C78A0B /* fsutil.h */; };
 		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
 		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
+		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
 		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -161,6 +163,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4D027E2513B91F1400B48B76 /* libutil1.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libutil1.0.dylib; path = ../../../../usr/lib/libutil1.0.dylib; sourceTree = "<group>"; };
+		4D0C4AC51406BD9C002BFD22 /* copy_kext.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = copy_kext.sh; sourceTree = "<group>"; };
 		4D10326E0CD7C42C00952DEB /* msdosfs.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = msdosfs.py; sourceTree = "<group>"; tabWidth = 4; };
 		4D10326F0CD7C42C00952DEB /* test_fsck.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_fsck.py; sourceTree = "<group>"; };
 		4D1032700CD7C42C00952DEB /* HexDump.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = HexDump.py; sourceTree = "<group>"; };
@@ -176,12 +180,12 @@
 		4D3DCC0C08E0B48600C78A0B /* direntry.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = direntry.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC0D08E0B48600C78A0B /* fat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fat.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_conv.c; sourceTree = "<group>"; tabWidth = 4; };
-		4D3DCC0F08E0B48600C78A0B /* msdosfs_denode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_denode.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0F08E0B48600C78A0B /* msdosfs_denode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_denode.c; sourceTree = "<group>"; tabWidth = 8; };
 		4D3DCC1008E0B48600C78A0B /* msdosfs_fat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_fat.c; sourceTree = "<group>"; tabWidth = 8; };
 		4D3DCC1308E0B48600C78A0B /* msdosfs_lookup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_lookup.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vfsops.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vnops.c; sourceTree = "<group>"; tabWidth = 4; };
-		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 8; };
 		4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mount_msdos.8; sourceTree = "<group>"; };
 		4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mount_msdos.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCC3108E0B53A00C78A0B /* dosutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dosutil.c; sourceTree = "<group>"; tabWidth = 4; usesTabs = 1; };
@@ -203,6 +207,7 @@
 		4D71368E112F748200BC4A72 /* msdosfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = msdosfs.xcconfig; sourceTree = "<group>"; };
 		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
 		4D91A5620920294E0067C87B /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = English; path = msdos_util.tproj/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = msdosfs_kdebug.h; sourceTree = "<group>"; };
 		4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		7D91DB9F010FC00502CA2964 /* msdos.util */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -244,6 +249,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D027E2613B91F1400B48B76 /* libutil1.0.dylib in Frameworks */,
 				4D2B354711C1591F00C5B318 /* CoreFoundation.framework in Frameworks */,
 				4D2B354811C1591F00C5B318 /* IOKit.framework in Frameworks */,
 			);
@@ -274,6 +280,7 @@
 				4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */,
 				4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */,
 				4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */,
+				4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */,
 			);
 			name = msdosfs.kext;
 			path = msdosfs.kextproj/msdosfs.kmodproj;
@@ -338,12 +345,14 @@
 				7D8BA376010E490C02CA2964 /* Products */,
 				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
 				4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */,
+				4D027E2513B91F1400B48B76 /* libutil1.0.dylib */,
 				4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */,
 				4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */,
 				4D91A5610920294E0067C87B /* InfoPlist.strings */,
 				4D10326E0CD7C42C00952DEB /* msdosfs.py */,
 				4D10326F0CD7C42C00952DEB /* test_fsck.py */,
 				4D1032700CD7C42C00952DEB /* HexDump.py */,
+				4D0C4AC51406BD9C002BFD22 /* copy_kext.sh */,
 			);
 			name = msdosfs;
 			sourceTree = "<group>";
@@ -375,6 +384,7 @@
 				4D3DCC1A08E0B48600C78A0B /* direntry.h in Headers */,
 				4D3DCC1B08E0B48600C78A0B /* fat.h in Headers */,
 				4D3DCC2408E0B48600C78A0B /* msdosfsmount.h in Headers */,
+				4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -545,8 +555,11 @@
 /* Begin PBXProject section */
 		7D8BA340010E490C02CA2964 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -765,7 +778,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -786,7 +798,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -873,6 +884,7 @@
 		4D3DCB5108E084D400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = /sbin;
 				OTHER_LDFLAGS = "-lutil";
@@ -883,6 +895,7 @@
 		4D3DCB5208E084D400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = /sbin;
 				OTHER_LDFLAGS = "-lutil";
@@ -913,6 +926,7 @@
 		4D3DCB7108E084D400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				PRODUCT_NAME = msdos.util;
 				SKIP_INSTALL = YES;
 			};
@@ -921,6 +935,7 @@
 		4D3DCB7208E084D400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				PRODUCT_NAME = msdos.util;
 				SKIP_INSTALL = YES;
 			};
@@ -929,6 +944,7 @@
 		4D3DCC4D08E0B73400C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = newfs_msdos;
 			};
@@ -937,6 +953,7 @@
 		4D3DCC4E08E0B73400C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = newfs_msdos;
 			};
@@ -945,6 +962,7 @@
 		4D3DCEFF08E0BB1B00C78A0B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = fsck_msdos;
 			};
@@ -953,6 +971,7 @@
 		4D3DCF0008E0BB1B00C78A0B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = fsck_msdos;
 			};
@@ -969,12 +988,11 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				PREBINDING = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
@@ -993,8 +1011,8 @@
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=0";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				PREBINDING = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
@@ -1010,12 +1028,11 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				PREBINDING = NO;
 				WARNING_CFLAGS = "-Wall";
 			};
 			name = CodeCoverage;
@@ -1025,7 +1042,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -1081,6 +1097,7 @@
 		4DD699560D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				PRODUCT_NAME = msdos.util;
 				SKIP_INSTALL = YES;
 			};
@@ -1099,6 +1116,7 @@
 		4DD699580D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = /sbin;
 				OTHER_LDFLAGS = "-lutil";
@@ -1109,6 +1127,7 @@
 		4DD699590D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = newfs_msdos;
 			};
@@ -1117,6 +1136,7 @@
 		4DD6995A0D6A5A24007E8D14 /* CodeCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_TEST_COVERAGE_FILES = YES;
 				GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = YES;
 				INSTALL_PATH = /sbin;

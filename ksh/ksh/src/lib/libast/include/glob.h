@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -68,8 +68,8 @@ struct _glob_
 	void*		(*gl_diropen)(glob_t*, const char*);
 	char*		(*gl_dirnext)(glob_t*, void*);
 	void		(*gl_dirclose)(glob_t*, void*);
-	int		(*gl_type)(glob_t*, const char*);
-	int		(*gl_attr)(glob_t*, const char*);
+	int		(*gl_type)(glob_t*, const char*, int);
+	int		(*gl_attr)(glob_t*, const char*, int);
 
 	/* gnu extensions -- but how do you synthesize dirent and stat? */
 
@@ -113,6 +113,8 @@ struct _glob_
 #define GLOB_LIST	0x2000		/* just create gl_list		*/
 #define GLOB_ALTDIRFUNC	0x4000		/* gnu discipline functions	*/
 #define GLOB_DISC	0x8000		/* discipline initialized	*/
+
+#define GLOB_GROUP	0x10000		/* REG_SHELL_GROUP		*/
 
 /* gl_status */
 #define GLOB_NOTDIR	0x0001		/* last gl_dirnext() not a dir	*/

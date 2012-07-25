@@ -222,4 +222,4 @@ int isakmp_cfg_accounting_pam(int, int);
 void cleanup_pam(int);
 #endif
 
-int isakmp_cfg_accounting_system(int, struct sockaddr *, char *, int);
+int isakmp_cfg_accounting_system(int, struct sockaddr_storage *, char *, int);

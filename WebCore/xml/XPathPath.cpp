@@ -28,8 +28,6 @@
 #include "config.h"
 #include "XPathPath.h"
 
-#if ENABLE(XPATH)
-
 #include "Document.h"
 #include "XPathPredicate.h"
 #include "XPathStep.h"
@@ -137,7 +135,7 @@ void LocationPath::evaluate(NodeSet& nodes) const
 
             for (size_t nodeIndex = 0; nodeIndex < matches.size(); ++nodeIndex) {
                 Node* node = matches[nodeIndex];
-                if (!needToCheckForDuplicateNodes || newNodesSet.add(node).second)
+                if (!needToCheckForDuplicateNodes || newNodesSet.add(node).isNewEntry)
                     newNodes.append(node);
             }
         }
@@ -205,5 +203,3 @@ Value Path::evaluate() const
 
 }
 }
-
-#endif // ENABLE(XPATH)

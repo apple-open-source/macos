@@ -58,25 +58,24 @@ bool IOHIDevice::start(IOService * provider)
     // this is a resource or if the provider is another
     // IOHIDevice.  Also propegate value is property
     // was already set in provider.
-    if (!getProperty(kIOHIDVirtualHIDevice))
-    {
+    if (!getProperty(kIOHIDVirtualHIDevice)) {
         OSObject * prop;
 
-        while (provider)
-        {
-            if ( ( prop = OSDynamicCast(OSBoolean, provider->getProperty(kIOHIDVirtualHIDevice)) ) )
-            {
+        while (provider) {
+            prop = provider->copyProperty(kIOHIDVirtualHIDevice);
+            if ( OSDynamicCast(OSBoolean, prop) ) {
                 setProperty(kIOHIDVirtualHIDevice, prop);
                 break;
             }
-            else if ( provider == getResourceService() || OSDynamicCast(IOHIDevice, provider) )
-            {
+            else if ( provider == getResourceService() || OSDynamicCast(IOHIDevice, provider) ) {
                 setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
                 break;
             }
 
             provider = provider->getProvider();
+            OSSafeReleaseNULL(prop);
         }
+        OSSafeReleaseNULL(prop);
         
         if ( !provider )
             setProperty(kIOHIDVirtualHIDevice, kOSBooleanFalse);

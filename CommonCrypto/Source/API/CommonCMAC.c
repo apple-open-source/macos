@@ -21,20 +21,22 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "CommonCMACSPI.h"
+// #define COMMON_CMAC_FUNCTIONS
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
-#include <CommonCrypto/CommonCryptor.h>
-#include <CommonCrypto/CommonHMAC.h>
+#include "CommonCMACSPI.h"
+#include "CommonCryptorPriv.h"
+#include <corecrypto/ccaes.h>
+#include "ccdebug.h"
+
 
 /* Internal functions to support one-shot */
 
-uint8_t const_Rb[16] = {
+const uint8_t const_Rb[16] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
 };
+
+
 
 void leftshift_onebit(uint8_t *input, uint8_t *output)
 {
@@ -56,7 +58,7 @@ void xor_128(const uint8_t *a, const uint8_t *b, uint8_t *out)
 }
 
 
-void ccGenAESSubKey(const void *key, void *key1, void *key2)
+void ccGenAESSubKey(struct ccmode_ecb *aesmode, ccecb_ctx *ctx, void *key1, void *key2)
 {
     uint8_t L[16];
     uint8_t Z[16];
@@ -65,7 +67,7 @@ void ccGenAESSubKey(const void *key, void *key1, void *key2)
     
 	memset(Z, 0, 16);
     
-	CCCrypt(kCCEncrypt, kCCAlgorithmAES128, kCCOptionECBMode, key, 16, NULL, Z, 16, L, 16, &moved);
+    aesmode->ecb(ctx, 1, Z, L);
     
     if ( (L[0] & 0x80) == 0 ) { /* If MSB(L) = 0, then K1 = L << 1 */
         leftshift_onebit(L, key1);
@@ -106,10 +108,16 @@ void CCAESCmac(const void *key,
     uint8_t       K1[16], K2[16];
     int         n, i, flag;
     size_t		moved = 0;
-    
+    struct ccmode_ecb *aesmode = getCipherMode(kCCAlgorithmAES128, kCCModeECB, kCCEncrypt).ecb;
+    ccecb_ctx_decl(aesmode->size, ctx);
+
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+
 	// CMacInit
     
-    ccGenAESSubKey(key,K1,K2);
+    aesmode->init(aesmode, &ctx, 16, key);
+    aesmode->ecb(&ctx, 1, Y, X);
+    ccGenAESSubKey(aesmode, &ctx, K1, K2);
     
     // CMacUpdates (all in this case)
     
@@ -133,13 +141,13 @@ void CCAESCmac(const void *key,
     memset(X, 0, 16);
     for ( i=0; i<n-1; i++ ) {
         xor_128(X,&data[16*i],Y); /* Y := Mi (+) X  */
-        CCCrypt(kCCEncrypt, kCCAlgorithmAES128, kCCOptionECBMode, key, 16, NULL, Y, 16, X, 16, &moved);
+        aesmode->ecb(&ctx, 1, Y, X);
     }
     
     // CMacFinal
     
     xor_128(X,M_last,Y);
-	CCCrypt(kCCEncrypt, kCCAlgorithmAES128, kCCOptionECBMode, key, 16, NULL, Y, 16, X, 16, &moved);
+    aesmode->ecb(&ctx, 1, Y, X);
     
     memcpy(macOut, X, 16);
 }

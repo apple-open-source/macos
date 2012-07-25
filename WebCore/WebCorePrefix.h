@@ -59,15 +59,13 @@
 #endif
 
 #else
-#if !defined(BUILDING_BREWMP__)
+
 #include <pthread.h>
-#endif
+
 #endif // defined(WIN32) || defined(_WIN32)
 
-#if !defined(BUILDING_BREWMP__)
 #include <sys/types.h>
 #include <fcntl.h>
-#endif
 #if defined(__APPLE__)
 #include <regex.h>
 #endif
@@ -91,21 +89,43 @@
 
 #ifdef __cplusplus
 
+
+#include <ciso646>
+
+#if defined(_LIBCPP_VERSION)
+
+// Add work around for a bug in libc++ that caused standard heap
+// APIs to not compile <rdar://problem/10858112>.
+
+#include <type_traits>
+
+namespace WebCore {
+    class TimerHeapReference;
+}
+
+_LIBCPP_BEGIN_NAMESPACE_STD
+
+inline _LIBCPP_INLINE_VISIBILITY
+const WebCore::TimerHeapReference& move(const WebCore::TimerHeapReference& t)
+{
+    return t;
+}
+
+_LIBCPP_END_NAMESPACE_STD
+
+#endif // defined(_LIBCPP_VERSION)
+
 #include <algorithm>
 #include <cstddef>
 #include <new>
 
 #endif
 
-#if !defined(BUILDING_BREWMP__)
 #include <sys/types.h>
-#endif
 #if defined(__APPLE__)
 #include <sys/param.h>
 #endif
-#if !defined(BUILDING_BREWMP__)
 #include <sys/stat.h>
-#endif
 #if defined(__APPLE__)
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -113,9 +133,9 @@
 
 #include <time.h>
 
-#if !defined(BUILDING_WX__) && !defined(ANDROID) && !defined(BUILDING_BREWMP__)
+#if !defined(BUILDING_WX__)
 #include <CoreFoundation/CoreFoundation.h>
-#ifdef WIN_CAIRO
+#ifdef WTF_PLATFORM_WIN_CAIRO
 #include <ConditionalMacros.h>
 #include <windows.h>
 #include <stdio.h>
@@ -138,7 +158,7 @@
 #endif
 
 #endif
-#endif  // !defined(BUILDING_WX__) && !defined(ANDROID)
+#endif // !defined(BUILDING_WX__)
 
 #ifdef __OBJC__
 #import <Cocoa/Cocoa.h>

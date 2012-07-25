@@ -25,6 +25,7 @@ A:link, A:visited, A:active { text-decoration: underline }
   <li><a href="internals.html#Extension">Extension support</a></li>
   <li><a href="internals.html#Futher">Further reading</a></li>
   <li><a href="internals.html#TODOs">TODOs</a></li>
+  <li><a href="internals.html#Thanks">Thanks</a></li>
 </ul><h3><a name="Introducti2" id="Introducti2">Introduction</a></h3><p>This document describes the processing of <a href="http://xmlsoft.org/XSLT/">libxslt</a>, the <a href="http://www.w3.org/TR/xslt">XSLT</a> C library developed for the <a href="http://www.gnome.org/">GNOME</a> project.</p><p>Note: this documentation is by definition incomplete and I am not good at
 spelling, grammar, so patches and suggestions are <a href="mailto:veillard@redhat.com">really welcome</a>.</p><h3><a name="Basics1" id="Basics1">Basics</a></h3><p>XSLT is a transformation language. It takes an input document and a
 stylesheet document and generates an output document:</p><p align="center"><img src="processing.gif" alt="the XSLT processing model" /></p><p>Libxslt is written in C. It relies on <a href="http://www.xmlsoft.org/">libxml</a>, the XML C library for GNOME, for
@@ -82,13 +83,18 @@ level:</p><ol><li>parse the stylesheet and generate a DOM tree</li>
   <li>process the stylesheet against the input tree and generate an output
     tree</li>
   <li>serialize the output tree</li>
-</ol><p>A few things should be noted here:</p><ul><li>the steps 1/ 3/ and 5/ are optional</li>
-  <li>the stylesheet obtained at 2/ can be reused by multiple processing 4/
+</ol><p>A few things should be noted here:</p><ul><li>the steps 1/ 3/ and 5/ are optional:  the DOM representing the
+    stylesheet and input can be created by other means, not just by parsing
+    serialized XML documents, and similarly the result tree DOM can be
+    made available to other processeswithout being serialized.
+  </li><li>the stylesheet obtained at 2/ can be reused by multiple processing 4/
     (and this should also work in threaded programs)</li>
   <li>the tree provided in 2/ should never be freed using xmlFreeDoc, but by
     freeing the stylesheet.</li>
-  <li>the input tree 4/ is not modified except the _private field which may
-    be used for labelling keys if used by the stylesheet</li>
+  <li>the input tree created in step 3/ is not modified except the
+    _private field which may be used for labelling keys if used by the
+    stylesheet. It's not modified at all in step 4/ to allow parallel
+    processing using a shared precompiled stylesheet.</li>
 </ul><h3><a name="XSLT1" id="XSLT1">The XSLT stylesheet compilation</a></h3><p>This is the second step described. It takes a stylesheet tree, and
 "compiles" it. This associates to each node a structure stored in the
 _private field and containing information computed in the stylesheet:</p><p align="center"><img src="stylesheet.gif" alt="a compiled XSLT stylesheet" /></p><p>One xsltStylesheet structure is generated per document parsed for the
@@ -121,15 +127,10 @@ structures for the templates:</p><p align="center"><img src="templates.gif" alt=
 structure holds a pointer to the template hash table. All the XSLT patterns
 compiled in this stylesheet are indexed by the value of the the target
 element (or attribute, pi ...) name, so when a element or an attribute "foo"
-needs to be processed the lookup is done using the name as a key.</p><p>Each of the patterns is compiled into an xsltCompMatch structure. It holds
+needs to be processed the lookup is done using the name as a key.</p><p>Each of the patterns is compiled into an xsltCompMatch
+(i.e. an ''XSLT compiled match') structure. It holds
 the set of rules based on the tokenization of the pattern stored in reverse
-order (matching is easier this way). It also holds some information about the
-previous matches used to speed up the process when one iterates over a set of
-siblings. (This optimization may be defeated by trashing when running
-threaded computation, it's unclear that this is a big deal in practice.)
-Predicate expressions are not compiled at this stage, they may be at run-time
-if needed, but in this case they are compiled as full XPath expressions (the
-use of some fixed predicate can probably be optimized, they are not yet).</p><p>The xsltCompMatch are then stored in the hash table, the clash list is
+order (matching is easier this way). </p><p>The xsltCompMatch are then stored in the hash table, the clash list is
 itself sorted by priority of the template to implement "naturally" the XSLT
 priority rules.</p><p>Associated to the compiled pattern is the xsltTemplate itself containing
 the information required for the processing of the pattern including, of
@@ -140,13 +141,14 @@ applying to the root, any element, any attributes, text nodes, pi nodes, keys
 etc. Those are stored independently in the stylesheet structure as separate
 linked lists of xsltCompMatch.</p><h3><a name="processing" id="processing">The processing itself</a></h3><p>The processing is defined by the XSLT specification (the basis of the
 algorithm is explained in <a href="http://www.w3.org/TR/xslt#section-Introduction">the Introduction</a>
-section). Basically it works by taking the root of the input document and
-applying the following algorithm:</p><ol><li>Finding the template applying to it. This is a lookup in the template
-    hash table, walking the hash list until the node satisfies all the steps
-    of the pattern, then checking the appropriate(s) global templates to see
-    if there isn't a higher priority rule to apply</li>
+section). Basically it works by taking the root of the input document
+as the cureent node and applying the following algorithm:</p><ol><li>Finding the template applying to current node.
+    This is a lookup in the template hash table, walking the hash list until
+    the node satisfies all the steps of the pattern, then checking the
+    appropriate global template(s) (i.e.  templates applying to a node type)
+    to see if there isn't a higher priority rule to apply</li>
   <li>If there is no template, apply the default rule (recurse on the
-    children)</li>
+    children as the current node)</li>
   <li>else walk the content list of the selected templates, for each of them:
     <ul><li>if the node is in the XSLT namespace then the node has a _private
         field pointing to the preprocessed values, jump to the specific
@@ -155,12 +157,14 @@ applying the following algorithm:</p><ol><li>Finding the template applying to it
         behavior</li>
       <li>otherwise copy the node.</li>
     </ul><p>The closure is usually done through the XSLT
-    <strong>apply-templates</strong> construct recursing by applying the
-    adequate template on the input node children or on the result of an
-    associated XPath selection lookup.</p>
+    <strong>apply-templates</strong>construct, which invokes this process
+      recursively starting at step 1, to find the appropriate template
+      for the nodes selected by the 'select' attribute of the apply-templates
+      instruction (default: the children of the node currently being
+      processed)</p>
   </li>
 </ol><p>Note that large parts of the input tree may not be processed by a given
-stylesheet and that on the opposite some may be processed multiple times.
+stylesheet and that conversely some may be processed multiple times.
 (This often is the case when a Table of Contents is built).</p><p>The module <code>transform.c</code> is the one implementing most of this
 logic. <strong>xsltApplyStylesheet()</strong> is the entry point, it
 allocates an xsltTransformContext containing the following:</p><ul><li>a pointer to the stylesheet being processed</li>
@@ -176,7 +180,7 @@ allocates an xsltTransformContext containing the following:</p><ul><li>a pointer
 </ul><p>Then a new document gets allocated (HTML or XML depending on the type of
 output), the user parameters and global variables and parameters are
 evaluated. Then <strong>xsltProcessOneNode()</strong> which implements the
-1-2-3 algorithm is called on the root element of the input. Step 1/ is
+1-2-3 algorithm is called on the docuemnt node of the input. Step 1/ is
 implemented by calling <strong>xsltGetTemplate()</strong>, step 2/ is
 implemented by <strong>xsltDefaultProcessOneNode()</strong> and step 3/ is
 implemented by <strong>xsltApplyOneTemplate()</strong>.</p><h3><a name="XPath" id="XPath">XPath expression compilation</a></h3><p>The XPath support is actually implemented in the libxml module (where it
@@ -207,13 +211,14 @@ sounds likely to be more efficient.</p><h3><a name="XPath1" id="XPath1">XPath in
 which is the front-end to <strong>xmlXPathCompOpEval()</strong> the function
 implementing the evaluation of the expression tree. This evaluation follows
 the KISS approach again. It's recursive and calls
-<strong>xmlXPathNodeCollectAndTest()</strong> to collect nodes set when
+<strong>xmlXPathNodeCollectAndTest()</strong> to collect a set of nodes when
 evaluating a <code>COLLECT</code> node.</p><p>An evaluation is done within the framework of an XPath context stored in
 an <strong>xmlXPathContext</strong> structure, in the framework of a
 transformation the context is maintained within the XSLT context. Its content
 follows the requirements from the XPath specification:</p><ul><li>the current document</li>
   <li>the current node</li>
-  <li>a hash table of defined variables (but not used by XSLT)</li>
+  <li>a hash table of defined variables (but not used by XSLT,
+      which uses its own stack frame for variables, described below)</li>
   <li>a hash table of defined functions</li>
   <li>the proximity position (the place of the node in the current node
   list)</li>
@@ -223,8 +228,8 @@ follows the requirements from the XPath specification:</p><ul><li>the current do
 </ul><p>For the purpose of XSLT an <strong>extra</strong> pointer has been added
 allowing to retrieve the XSLT transformation context. When an XPath
 evaluation is about to be performed, an XPath parser context is allocated
-containing and XPath object stack (this is actually an XPath evaluation
-context, this is a remain of the time where there was no separate parsing and
+containing an XPath object stack (this is actually an XPath evaluation
+context, this is a relic of the time where there was no separate parsing and
 evaluation phase in the XPath implementation). Here is an overview of the set
 of contexts associated to an XPath evaluation within an XSLT
 transformation:</p><p align="center"><img src="contexts.gif" alt="The set of contexts associated " /></p><p>Clearly this is a bit too complex and confusing and should be refactored
@@ -258,7 +263,7 @@ the stack).</p><p>Basically an XPath function does the following:</p><ul><li>che
 on the stack <code>ctxt-&gt;value</code>.</p><h3><a name="stack" id="stack">The XSLT variables stack frame</a></h3><p>Not to be confused with XPath object stack, this stack holds the XSLT
 variables and parameters as they are defined through the recursive calls of
 call-template, apply-templates and default templates. This is used to define
-the scope of variables being called.</p><p>This part seems to be the most urgent attention right now, first it is
+the scope of variables being called.</p><p>This part seems to be one needing most work , first it is
 done in a very inefficient way since the location of the variables and
 parameters within the stylesheet tree is still done at run time (it really
 should be done statically at compile time), and I am still unsure that my
@@ -267,7 +272,7 @@ right.</p><p>This part of the documentation is still to be written once this par
 the code will be stable. <span style="background-color: #FF0000">TODO</span></p><h3><a name="Extension" id="Extension">Extension support</a></h3><p>There is a separate document explaining <a href="extensions.html">how the
 extension support works</a>.</p><h3><a name="Futher" id="Futher">Further reading</a></h3><p>Michael Kay wrote <a href="http://www-106.ibm.com/developerworks/library/x-xslt2/?dwzone=x?open&amp;l=132%2ct=gr%2c+p=saxon">a
 really interesting article on Saxon internals</a> and the work he did on
-performance issues. I wishes I had read it before starting libxslt design (I
+performance issues. I wish I had read it before starting libxslt design (I
 would probably have avoided a few mistakes and progressed faster). A lot of
 the ideas in his papers should be implemented or at least tried in
 libxslt.</p><p>The <a href="http://xmlsoft.org/">libxml documentation</a>, especially <a href="http://xmlsoft.org/xmlio.html">the I/O interfaces</a> and the <a href="http://xmlsoft.org/xmlmem.html">memory management</a>.</p><h3><a name="TODOs" id="TODOs">TODOs</a></h3><p>redesign the XSLT stack frame handling. Far too much work is done at
@@ -289,4 +294,5 @@ appendix and making direct checks using the libxml validation API sounds a
 good idea too (though one should take care of not raising errors for
 elements/attributes in different namespaces).</p><p>Double check all the places where the stylesheet compiled form might be
 modified at run time (extra removal of blanks nodes, hint on the
-xsltCompMatch).</p><p></p><p><a href="bugs.html">Daniel Veillard</a></p></td></tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></body></html>
+xsltCompMatch).</p><h3><a name="Thanks" id="Thanks">Thanks:</a></h3><p>Thanks to <a href="http://cmsmcq.com/">Michael Sperberg-McQueen</a> for
+   various fixes and clarifications on this document!</p><p></p><p><a href="bugs.html">Daniel Veillard</a></p></td></tr></table></td></tr></table></td></tr></table></td></tr></table></td></tr></table></body></html>

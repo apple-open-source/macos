@@ -1,9 +1,9 @@
 /*
- * "$Id: conflicts.c 3321 2011-06-15 00:40:30Z msweet $"
+ * "$Id: conflicts.c 3796 2012-04-23 22:54:48Z msweet $"
  *
  *   Option marking routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -79,7 +79,7 @@ static cups_array_t	*ppd_test_constraints(ppd_file_t *ppd,
  * the conflicting options.  The returned option array must be freed using
  * @link cupsFreeOptions@.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 int					/* O - Number of conflicting options */
@@ -178,7 +178,7 @@ cupsGetConflicts(
  * choice for the conflicting option, then iterating over all possible choices
  * until a non-conflicting option choice is found.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 int					/* O  - 1 on success, 0 on failure */
@@ -650,7 +650,7 @@ ppdConflicts(ppd_file_t *ppd)		/* I - PPD to check */
  * This function tests whether a particular option choice is available based
  * on constraints against options in the "InstallableOptions" group.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 int					/* O - 1 if conflicting, 0 if not conflicting */
@@ -1210,5 +1210,5 @@ ppd_test_constraints(
 
 
 /*
- * End of "$Id: conflicts.c 3321 2011-06-15 00:40:30Z msweet $".
+ * End of "$Id: conflicts.c 3796 2012-04-23 22:54:48Z msweet $".
  */

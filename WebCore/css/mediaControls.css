@@ -24,6 +24,10 @@
 
 /* media controls */
 
+body:-webkit-full-page-media {
+    background-color: rgb(38, 38, 38);
+}
+
 audio {
     width: 200px;
     height: 16px;
@@ -33,7 +37,11 @@ audio {
     width: inherit;
     height: inherit;
     position: relative;
-    display: block;
+    display: -webkit-box;
+    direction: ltr;
+    -webkit-box-align: start;
+    -webkit-box-pack: end;
+    -webkit-box-orient: vertical;
 }
 
 audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
@@ -41,13 +49,22 @@ audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
     -webkit-box-orient: horizontal;
     -webkit-box-align: center;
     -webkit-user-select: none;
-    position: absolute;
+    position: relative;
     bottom: 0;
     width: 100%;
     z-index: 0;
     overflow: hidden;
     height: 16px;
     text-align: right;
+}
+
+video:-webkit-full-page-media {
+    margin: auto;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
 }
 
 video:-webkit-full-page-media::-webkit-media-controls-panel {
@@ -133,7 +150,7 @@ audio::-webkit-media-controls-seek-forward-button, video::-webkit-media-controls
 }
 
 audio::-webkit-media-controls-fullscreen-button, video::-webkit-media-controls-fullscreen-button {
-    -webkit-appearance: media-fullscreen-button;
+    -webkit-appearance: media-enter-fullscreen-button;
     display: -webkit-box;
     width: 16px;
     height: 16px;
@@ -184,4 +201,41 @@ audio::-webkit-media-controls-fullscreen-volume-min-button, video::-webkit-media
 
 audio::-webkit-media-controls-fullscreen-volume-max-button, video::-webkit-media-controls-fullscreen-volume-max-button {
     display: none;
+}
+
+video::-webkit-media-text-track-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    padding-bottom: 5px;
+
+    font-size: 22px;
+    font-family: sans-serif;
+    text-align: center;
+    color: rgba(255, 255, 255, 0);
+
+    letter-spacing: normal;
+    word-spacing: normal;
+    text-transform: none;
+    text-indent: 0;
+    text-decoration: none;
+    pointer-events: none;
+    -webkit-user-select: none;
+
+    -webkit-box-flex: 1;
+}
+
+video::-webkit-media-text-track-background {
+    display: inline;
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 2px 2px;
+    white-space: pre-wrap;
+}
+
+video::-webkit-media-text-track-display {
+    position: absolute;
+    color: rgba(255, 255, 255, 1);
+
+    top: 100%;
+    -webkit-transform: translate(0%, -100%);
 }

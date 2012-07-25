@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: makesrcdist 9852 2011-07-06 20:14:24Z mike $"
+# "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $"
 #
 # makesrcdist - make a source distribution of CUPS.
 #
@@ -26,9 +26,9 @@ if test $# = 0; then
 
 	# Compute version for snapshot
 	rev=`svnversion . | sed -e '1,$s/[a-zA-Z]//g'`
-	version="1.5svn"
+	version="1.6svn"
 	revision="-r$rev"
-	fileversion="1.5svn-r$rev"
+	fileversion="1.6svn-r$rev"
 	fileurl="http://ftp.easysw.com/pub/cups/test/cups-$fileversion-source.tar."
 	url="."
 else
@@ -42,7 +42,7 @@ else
 
 	echo Validating sources...
 	cupsversionpatch=`echo $version | awk -F. '{print $3}'`
-	cupsversion=`printf "1.05%02d" $cupsversionpatch`
+	cupsversion=`printf "1.06%02d" $cupsversionpatch`
 
 	temp=`grep CUPS_VERSION cups/cups.h | grep -v CUPS_VERSION_ | awk '{print $4}'`
 	if test "$temp" != $cupsversion; then
@@ -75,7 +75,7 @@ else
 	fi
 
 	echo Creating tag for release...
-	svn copy https://svn.easysw.com/public/cups/branches/branch-1.5 "$url" \
+	svn copy https://svn.easysw.com/public/cups/trunk "$url" \
 		-m "Tag $version" || exit 1
 fi
 
@@ -129,5 +129,5 @@ rm -rf cups-$version
 echo "Done!"
 
 #
-# End of "$Id: makesrcdist 9852 2011-07-06 20:14:24Z mike $".
+# End of "$Id: makesrcdist 7776 2008-07-22 20:46:55Z mike $".
 #

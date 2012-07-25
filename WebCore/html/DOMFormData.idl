@@ -31,14 +31,17 @@
 module html {
 
     interface [
-        CanBeConstructed,
-        CustomConstructFunction,
-        V8CustomConstructor,
-        GenerateNativeConverter,
-        GenerateToJS
+        CustomConstructor,
+        ConstructorParameters=1,
+        JSGenerateToNativeObject,
+        JSGenerateToJSObject,
+        InterfaceName=FormData
     ] DOMFormData {
-        // void append(DOMString name, Blob value);
-        [Custom] void append(in DOMString name, in DOMString value);
+        // void append(DOMString name, DOMString value);
+        // void append(DOMString name, Blob value, optional DOMString filename);
+        [Custom] void append(in [Optional=DefaultIsUndefined] DOMString name, 
+                             in [Optional=DefaultIsUndefined] DOMString value,
+                             in [Optional=DefaultIsUndefined] DOMString filename);
     };
 
 }

@@ -10,6 +10,9 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define if building universal (internal helper macro) */
+/* #undef AC_APPLE_UNIVERSAL_BUILD */
+
 /* Define if you have a getaddrinfo that fails for the all-zeros IPv6 address
    */
 /* #undef AIX_GETNAMEINFO_HACK */
@@ -90,6 +93,9 @@
 /* Define to 1 if you have the <copyfile.h> header file. */
 #define HAVE_COPYFILE_H 1
 
+/* tcgetattr with ICANON may hang */
+/* #undef BROKEN_TCGETATTR_ICANON */
+
 /* updwtmpx is broken (if present) */
 /* #undef BROKEN_UPDWTMPX */
 
@@ -98,9 +104,6 @@
 
 /* Define if you want to specify the path to your lastlog file */
 /* #undef CONF_LASTLOG_FILE */
-
-/* Define if you want to specify the path to your utmpx file */
-/* #undef CONF_UTMPX_FILE */
 
 /* Define if you want to specify the path to your utmp file */
 /* #undef CONF_UTMP_FILE */
@@ -141,11 +144,17 @@
 /* Define if you don't want to use wtmpx */
 #define DISABLE_WTMPX 1
 
-/* Builtin PRNG command timeout */
-#define ENTROPY_TIMEOUT_MSEC 200
+/* Enable for PKCS#11 support */
+/* #undef ENABLE_PKCS11 */
 
-/* f_fsid has members */
+/* File names may not contain backslash characters */
+/* #undef FILESYSTEM_NO_BACKSLASH */
+
+/* fsid_t has member val */
 /* #undef FSID_HAS_VAL */
+
+/* fsid_t has member __val */
+/* #undef FSID_HAS___VAL */
 
 /* Define to 1 if the `getpgrp' function requires zero arguments. */
 #define GETPGRP_VOID 1
@@ -158,6 +167,9 @@
 
 /* Define if your system glob() function has gl_matchc options in glob_t */
 #define GLOB_HAS_GL_MATCHC 1
+
+/* Define if your system glob() function has gl_statv options in glob_t */
+/* #undef GLOB_HAS_GL_STATV */
 
 /* Define this if you want GSSAPI support in the version 2 protocol */
 /* #undef GSSAPI */
@@ -218,6 +230,9 @@
 
 /* Define to 1 if you have the `bindresvport_sa' function. */
 #define HAVE_BINDRESVPORT_SA 1
+
+/* Define to 1 if you have the `BN_is_prime_ex' function. */
+#define HAVE_BN_IS_PRIME_EX 1
 
 /* Define to 1 if you have the <bsm/audit.h> header file. */
 #define HAVE_BSM_AUDIT_H 1
@@ -326,6 +341,9 @@
 
 /* Define to 1 if you have the `dirname' function. */
 #define HAVE_DIRNAME 1
+
+/* Define to 1 if you have the `DSA_generate_parameters_ex' function. */
+#define HAVE_DSA_GENERATE_PARAMETERS_EX 1
 
 /* Define to 1 if you have the <endian.h> header file. */
 /* #undef HAVE_ENDIAN_H */
@@ -468,6 +486,9 @@
 /* Define to 1 if you have the `getutxline' function. */
 #define HAVE_GETUTXLINE 1
 
+/* Define to 1 if you have the `getutxuser' function. */
+/* #undef HAVE_GETUTXUSER */
+
 /* Define to 1 if you have the `get_default_context_with_level' function. */
 /* #undef HAVE_GET_DEFAULT_CONTEXT_WITH_LEVEL */
 
@@ -476,6 +497,9 @@
 
 /* Define to 1 if you have the <glob.h> header file. */
 #define HAVE_GLOB_H 1
+
+/* Define to 1 if you have the `group_from_gid' function. */
+/* #undef HAVE_GROUP_FROM_GID */
 
 /* Define to 1 if you have the <gssapi_generic.h> header file. */
 /* #undef HAVE_GSSAPI_GENERIC_H */
@@ -540,8 +564,17 @@
 /* Define to 1 if the system has the type `in_addr_t'. */
 #define HAVE_IN_ADDR_T 1
 
+/* Define to 1 if the system has the type `in_port_t'. */
+/* #undef HAVE_IN_PORT_T */
+
+/* Define if you have isblank(3C). */
+#define HAVE_ISBLANK 1
+
 /* Define to 1 if you have the <lastlog.h> header file. */
 /* #undef HAVE_LASTLOG_H */
+
+/* Define to 1 if you have the <libaudit.h> header file. */
+/* #undef HAVE_LIBAUDIT_H */
 
 /* Define to 1 if you have the `bsm' library (-lbsm). */
 #define HAVE_LIBBSM 1
@@ -558,14 +591,14 @@
 /* Define if system has libiaf that supports set_id */
 /* #undef HAVE_LIBIAF */
 
+/* Define to 1 if you have the `network' library (-lnetwork). */
+/* #undef HAVE_LIBNETWORK */
+
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 /* #undef HAVE_LIBNSL */
 
 /* Define to 1 if you have the `pam' library (-lpam). */
 #define HAVE_LIBPAM 1
-
-/* Define to 1 if you have the `sectok' library (-lsectok). */
-/* #undef HAVE_LIBSECTOK */
 
 /* Define to 1 if you have the `socket' library (-lsocket). */
 /* #undef HAVE_LIBSOCKET */
@@ -739,17 +772,29 @@
 /* Define to 1 if you have the `recvmsg' function. */
 #define HAVE_RECVMSG 1
 
+/* sys/resource.h has RLIMIT_NPROC */
+/* #undef HAVE_RLIMIT_NPROC */
+
 /* Define to 1 if you have the <rpc/types.h> header file. */
 #define HAVE_RPC_TYPES_H 1
 
 /* Define to 1 if you have the `rresvport_af' function. */
 #define HAVE_RRESVPORT_AF 1
 
+/* Define to 1 if you have the `RSA_generate_key_ex' function. */
+#define HAVE_RSA_GENERATE_KEY_EX 1
+
+/* Define to 1 if you have the `RSA_get_default_method' function. */
+#define HAVE_RSA_GET_DEFAULT_METHOD 1
+
+/* Define to 1 if you have the <sandbox.h> header file. */
+#define HAVE_SANDBOX_H 1
+
+/* Define to 1 if you have the `sandbox_init' function. */
+#define HAVE_SANDBOX_INIT 1
+
 /* define if you have sa_family_t data type */
 #define HAVE_SA_FAMILY_T 1
-
-/* Define to 1 if you have the <sectok.h> header file. */
-/* #undef HAVE_SECTOK_H */
 
 /* Define if you have SecureWare-based protected password database */
 /* #undef HAVE_SECUREWARE */
@@ -810,6 +855,9 @@
 
 /* Define to 1 if you have the `setutent' function. */
 /* #undef HAVE_SETUTENT */
+
+/* Define to 1 if you have the `setutxdb' function. */
+/* #undef HAVE_SETUTXDB */
 
 /* Define to 1 if you have the `setutxent' function. */
 #define HAVE_SETUTXENT 1
@@ -901,6 +949,9 @@
 /* Define to 1 if you have the `strnvis' function. */
 /* #undef HAVE_STRNVIS */
 
+/* Define to 1 if you have the `strptime' function. */
+/* #undef HAVE_STRPTIME */
+
 /* Define to 1 if you have the `strsep' function. */
 #define HAVE_STRSEP 1
 
@@ -922,13 +973,13 @@
 /* define if you have struct sockaddr_in6 data type */
 #define HAVE_STRUCT_SOCKADDR_IN6 1
 
-/* Define to 1 if `sin6_scope_id' is member of `struct sockaddr_in6'. */
+/* Define to 1 if `sin6_scope_id' is a member of `struct sockaddr_in6'. */
 #define HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID 1
 
 /* define if you have struct sockaddr_storage data type */
 #define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
-/* Define to 1 if `st_blksize' is member of `struct stat'. */
+/* Define to 1 if `st_blksize' is a member of `struct stat'. */
 #define HAVE_STRUCT_STAT_ST_BLKSIZE 1
 
 /* Define to 1 if the system has the type `struct timespec'. */
@@ -1042,6 +1093,9 @@
 /* Define if you have ut_time in utmpx.h */
 /* #undef HAVE_TIME_IN_UTMPX */
 
+/* Define to 1 if you have the `timingsafe_bcmp' function. */
+/* #undef HAVE_TIMINGSAFE_BCMP */
+
 /* Define to 1 if you have the <tmpdir.h> header file. */
 /* #undef HAVE_TMPDIR_H */
 
@@ -1086,6 +1140,9 @@
 
 /* Define to 1 if you have the <usersec.h> header file. */
 /* #undef HAVE_USERSEC_H */
+
+/* Define to 1 if you have the `user_from_uid' function. */
+/* #undef HAVE_USER_FROM_UID */
 
 /* Define to 1 if you have the <util.h> header file. */
 #define HAVE_UTIL_H 1
@@ -1196,6 +1253,9 @@
    EOPNOTSUPP. */
 /* #undef LINK_OPNOTSUPP_ERRNO */
 
+/* Adjust Linux out-of-memory killer */
+/* #undef LINUX_OOM_ADJUST */
+
 /* max value of long long calculated by configure */
 /* #undef LLONG_MAX */
 
@@ -1224,7 +1284,7 @@
    from environment and PATH */
 #define LOGIN_PROGRAM_FALLBACK "/usr/bin/login"
 
-/* Set this to your mail directory if you don't have maillock.h */
+/* Set this to your mail directory if you do not have _PATH_MAILDIR */
 /* #undef MAIL_DIRECTORY */
 
 /* Define on *nto-qnx systems */
@@ -1248,6 +1308,12 @@
 /* Define if X11 doesn't support AF_UNIX sockets on that system */
 /* #undef NO_X11_UNIX_SOCKETS */
 
+/* Define if EVP_DigestUpdate returns void */
+/* #undef OPENSSL_EVP_DIGESTUPDATE_VOID */
+
+/* libcrypto includes complete ECC support */
+/* #undef OPENSSL_HAS_ECC */
+
 /* libcrypto is missing AES 192 and 256 bit functions */
 /* #undef OPENSSL_LOBOTOMISED_AES */
 
@@ -1265,6 +1331,9 @@
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "openssh"
+
+/* Define to the home page for this package. */
+/* #undef PACKAGE_URL */
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "Portable"
@@ -1287,6 +1356,18 @@
 
 /* read(1) can return 0 for a non-closed fd */
 /* #undef PTY_ZEROREAD */
+
+/* Sandbox using Darwin sandbox_init(3) */
+#define SANDBOX_DARWIN 1
+
+/* no privsep sandboxing */
+/* #undef SANDBOX_NULL */
+
+/* Sandbox using setrlimit(2) */
+/* #undef SANDBOX_RLIMIT */
+
+/* Sandbox using systrace(4) */
+/* #undef SANDBOX_SYSTRACE */
 
 /* Define if your platform breaks doing a seteuid before a setuid */
 #define SETEUID_BREAKS_SETUID 1
@@ -1312,9 +1393,6 @@
 /* Define if your skeychallenge() function takes 4 arguments (NetBSD) */
 /* #undef SKEYCHALLENGE_4ARG */
 
-/* Define if you want smartcard support */
-/* #undef SMARTCARD */
-
 /* Define as const if snprintf() can declare const char *fmt */
 #define SNPRINTF_CONST /* not const */
 
@@ -1330,6 +1408,9 @@
 
 /* Use audit debugging module */
 /* #undef SSH_AUDIT_EVENTS */
+
+/* Windows is sensitive to read buffer size */
+/* #undef SSH_IOBUFSZ */
 
 /* non-privileged user for privilege separation */
 #define SSH_PRIVSEP_USER "_sshd"
@@ -1379,8 +1460,8 @@
 /* Use libedit for sftp */
 /* #undef USE_LIBEDIT */
 
-/* Define if you want smartcard support using OpenSC */
-/* #undef USE_OPENSC */
+/* Use Linux audit module */
+/* #undef USE_LINUX_AUDIT */
 
 /* Enable OpenSSL engine support */
 /* #undef USE_OPENSSL_ENGINE */
@@ -1391,11 +1472,11 @@
 /* Use PIPES instead of a socketpair() */
 /* #undef USE_PIPES */
 
-/* Define if you want smartcard support using sectok */
-/* #undef USE_SECTOK */
-
 /* Define if you have Solaris process contracts */
 /* #undef USE_SOLARIS_PROCESS_CONTRACTS */
+
+/* Define if you have Solaris projects */
+/* #undef USE_SOLARIS_PROJECTS */
 
 /* Define if you shouldn't strip 'tty' from your ttyname in [uw]tmp */
 /* #undef WITH_ABBREV_NO_TTY */
@@ -1419,9 +1500,17 @@
 /* Define if you want SELinux support. */
 /* #undef WITH_SELINUX */
 
-/* Define to 1 if your processor stores words with the most significant byte
-   first (like Motorola and SPARC, unlike Intel and VAX). */
-/* #undef WORDS_BIGENDIAN */
+/* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
+   significant byte first (like Motorola and SPARC, unlike Intel). */
+#if defined AC_APPLE_UNIVERSAL_BUILD
+# if defined __BIG_ENDIAN__
+#  define WORDS_BIGENDIAN 1
+# endif
+#else
+# ifndef WORDS_BIGENDIAN
+#  undef WORDS_BIGENDIAN
+# endif
+#endif
 
 /* Define if xauth is found in your path */
 #define XAUTH_PATH "/usr/X11R6/bin/xauth"

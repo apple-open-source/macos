@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2007 Apple Inc
+.\" Copyright (c) 2005-2011 Apple Inc
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -26,28 +26,38 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd February 3, 2005
+.Dd November 5, 2011
 .Dt MBR_CHECK_MEMBERSHIP 3
 .Os "Mac OS X"
 .Sh NAME
-.Nm mbr_check_membership
-.Nd check whether a user is a member of a group
+.Nm mbr_check_membership,
+.Nm mbr_check_service_membership
+.Nd check whether a user is a member of a group or service ACL
 .Sh SYNOPSIS
 .In membership.h
 .Ft int
 .Fn mbr_check_membership "uuid_t user" "uuid_t group" "int *ismember"
+.Ft int
+.Fn mbr_check_service_membership "uuid_t user" "const char *service" "int *ismember"
 .Sh DESCRIPTION
 .Fn mbr_check_membership
-tests if a given user is a member of a group, individually or as a member of a nested group.
+tests if a given user is a member of a group (either direct or indirect via a
+nested group).
 .Fa ismember
-is set to 1 if the user is a member of the group, and 0 otherwise.  
+is set to 1 if the user is a member or 0 if not a member of the group.  
+.Fn mbr_check_service_membership
+similarly tests if a given user is a member of a service ACL group.  Service
+ACLs are special groups defined with the prefix "com.apple.access_".  The
+service is then prefixed (e.g., "afp" would check "com.apple.access_afp").
+There is a special group that grants accessto all services called
+"com.apple.access_all_services".
 .Pp
 Users may belong to any number of groups.
 .Fn mbr_check_membership
-should be always be used to check group membership, rather than
-calling
-.Xr getgroups 2 ,
-and checking the returned list of gids.
+should always be used to check group membership, rather than calling
+.Xr getgroups 2
+or
+.Xr getgrouplist 2 .
 The
 .Xr setgroups 2
 and
@@ -65,29 +75,35 @@ uuid is equal to the reserved "everyone" uuid (ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000
 .Fa ismember
 will be set to 1 for any valid user.
 .Pp
-Group membership information is managed by the
-.Xr DirectoryService 8
-daemon.
+Group membership information is managed by
+.Xr opendirectoryd 8 .
 .Sh RETURN VALUES
-.Fn mbr_check_membership
-returns 0 on success.
-It returns EIO if it is unable to communicate with the
-.Xr DirectoryService 8
-daemon.
-ENOENT is returned if
-.Fa user
-cannot be found.
-.Pp
-Note that 
 .Fn mbr_check_membership
 does not test whether
 .Fa group
 exists or not.
 Querying membership for a nonexistent group will result in
 .Fa ismember
-being to 0 and a return value of 0.
+being set to 0.  The function returns 0 on success or one of the following error
+codes on failure:
+.Bl -tag -width Er
+.It Bq Er EIO
+Communication with
+.Xr openditectoryd 8
+failed.
+.It Bq Er ENOENT
+.Fa user
+can not be found.
+.El
+.Pp
+.Fn mbr_check_service_membership
+is identical to
+.Fn mbr_check_membership
+except that ENOENT means no service ACL has been defined.
+.Pp
 .Sh SEE ALSO
+.Xr odutil 1 ,
 .Xr setgroups 2 ,
 .Xr getgroups 2 ,
 .Xr mbr_uid_to_uuid 3 ,
-.Xr DirectoryService 8
+.Xr opendirectoryd 8

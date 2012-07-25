@@ -26,19 +26,19 @@
 #ifndef HTMLTableCaptionElement_h
 #define HTMLTableCaptionElement_h
 
-#include "HTMLTablePartElement.h"
+#include "HTMLElement.h"
 
 namespace WebCore {
 
-class HTMLTableCaptionElement : public HTMLTablePartElement {
+class HTMLTableCaptionElement : public HTMLElement {
 public:
     static PassRefPtr<HTMLTableCaptionElement> create(const QualifiedName&, Document*);
 
 private:
     HTMLTableCaptionElement(const QualifiedName&, Document*);
-    
-    virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(Attribute*);
+
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 };
 
 } // namespace

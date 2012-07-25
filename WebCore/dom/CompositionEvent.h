@@ -42,12 +42,12 @@ namespace WebCore {
           return adoptRef(new CompositionEvent(type, view, data));
         }
         virtual ~CompositionEvent();
-    
+
         void initCompositionEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView>, const String& data);
-    
+
         String data() const { return m_data; }
 
-        virtual bool isCompositionEvent() const;
+        virtual const AtomicString& interfaceName() const;
 
     private:
         CompositionEvent();

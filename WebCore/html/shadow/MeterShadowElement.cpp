@@ -32,12 +32,12 @@
 #if ENABLE(METER_TAG)
 #include "MeterShadowElement.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
 #include "HTMLMeterElement.h"
 #include "HTMLNames.h"
 #include "RenderMeter.h"
 #include "RenderTheme.h"
+#include "StylePropertySet.h"
 
 namespace WebCore {
 
@@ -55,10 +55,10 @@ HTMLMeterElement* MeterShadowElement::meterElement() const
     return static_cast<HTMLMeterElement*>(node);
 }
 
-bool MeterShadowElement::rendererIsNeeded(RenderStyle* style)
+bool MeterShadowElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     RenderMeter* meterRenderer = toRenderMeter(meterElement()->renderer());
-    return meterRenderer && !meterRenderer->theme()->supportsMeter(meterRenderer->style()->appearance()) && HTMLDivElement::rendererIsNeeded(style);
+    return meterRenderer && !meterRenderer->theme()->supportsMeter(meterRenderer->style()->appearance()) && HTMLDivElement::rendererIsNeeded(context);
 }
 
 const AtomicString& MeterBarElement::shadowPseudoId() const
@@ -93,7 +93,7 @@ const AtomicString& MeterValueElement::shadowPseudoId() const
 
 void MeterValueElement::setWidthPercentage(double width)
 {
-    getInlineStyleDecl()->setProperty(CSSPropertyWidth, width, CSSPrimitiveValue::CSS_PERCENTAGE);
+    setInlineStyleProperty(CSSPropertyWidth, width, CSSPrimitiveValue::CSS_PERCENTAGE);
 }
 
 

@@ -24,7 +24,11 @@
 
 #include <QtCore/qstring.h>
 #include <QtGui/qpixmap.h>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QtWidgets/qicon.h>
+#else
 #include <QtGui/qicon.h>
+#endif
 #include <QtCore/qshareddata.h>
 
 namespace WebCore {
@@ -77,6 +81,7 @@ public:
         SiteSpecificQuirksEnabled,
         JavascriptCanCloseWindows,
         WebGLEnabled,
+        CSSRegionsEnabled,
         HyperlinkAuditingEnabled
     };
     enum WebGraphic {
@@ -95,6 +100,13 @@ public:
         DefaultFontSize,
         DefaultFixedFontSize
     };
+#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
+    enum ThirdPartyCookiePolicy {
+        AlwaysAllowThirdPartyCookies,
+        AlwaysBlockThirdPartyCookies,
+        AllowThirdPartyWithExistingCookies
+    };
+#endif
 
     static QWebSettings *globalSettings();
 
@@ -146,6 +158,11 @@ public:
     static void clearMemoryCaches();
 
     static void enablePersistentStorage(const QString& path = QString());
+
+#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
+    void setThirdPartyCookiePolicy(ThirdPartyCookiePolicy);
+    QWebSettings::ThirdPartyCookiePolicy thirdPartyCookiePolicy() const;
+#endif
 
     inline QWebSettingsPrivate* handle() const { return d; }
 

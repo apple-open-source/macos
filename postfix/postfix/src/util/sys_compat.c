@@ -106,15 +106,15 @@ const char *strerror(int err)
 
 int     setenv(const char *name, const char *value, int clobber)
 {
-    size_t size;
+    size_t size; /* APPLE */
     char   *cp;
 
     if (clobber == 0 && getenv(name) != 0)
 	return (0);
-    size = strlen(name) + strlen(value) + 2;
-    if ((cp = malloc(size)) == 0)
+    size = strlen(name) + strlen(value) + 2; /* APPLE */
+    if ((cp = malloc(size)) == 0) /* APPLE */
 	return (1);
-    snprintf(cp, size, "%s=%s", name, value);
+    snprintf(cp, size, "%s=%s", name, value); /* APPLE */
     return (putenv(cp));
 }
 
@@ -308,9 +308,9 @@ const char *inet_ntop(int af, const void *src, char *dst, size_t size)
     addr = (const unsigned char *) src;
 #if (CHAR_BIT > 8)
     snprintf(buffer, sizeof buffer, "%d.%d.%d.%d", addr[0] & 0xff,
-	    addr[1] & 0xff, addr[2] & 0xff, addr[3] & 0xff);
+	    addr[1] & 0xff, addr[2] & 0xff, addr[3] & 0xff);  /* APPLE */
 #else
-    snprintf(buffer, sizeof buffer, "%d.%d.%d.%d", addr[0], addr[1], addr[2], addr[3]);
+    snprintf(buffer, sizeof buffer, "%d.%d.%d.%d", addr[0], addr[1], addr[2], addr[3]);  /* APPLE */
 #endif
     if ((len = strlen(buffer)) >= size) {
 	errno = ENOSPC;

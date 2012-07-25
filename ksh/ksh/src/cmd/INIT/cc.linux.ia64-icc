@@ -2,8 +2,8 @@
 
 HOSTTYPE=linux.ia64-icc
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 root=/opt/intel_cc_80

@@ -36,42 +36,33 @@ static char sccsid[] = "@(#)sscanf.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/sscanf.c,v 1.13 2008/04/17 22:17:54 jhb Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include "local.h"
-
-static int eofread(void *, char *, int);
-
-/* ARGSUSED */
-static int
-eofread(cookie, buf, len)
-	void *cookie;
-	char *buf;
-	int len;
-{
-
-	return (0);
-}
 
 int
 sscanf(const char * __restrict str, char const * __restrict fmt, ...)
 {
 	int ret;
 	va_list ap;
-	FILE f;
 
-	f._file = -1;
-	f._flags = __SRD;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._r = strlen(str);
-	f._read = eofread;
-	f._ub._base = NULL;
-	f._lb._base = NULL;
-	f._orientation = 0;
-	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	va_start(ap, fmt);
-	ret = __svfscanf(&f, fmt, ap);
+	ret = vsscanf_l(str, __current_locale(), fmt, ap);
+	va_end(ap);
+	return (ret);
+}
+
+int
+sscanf_l(const char * __restrict str, locale_t loc, char const * __restrict fmt, ...)
+{
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vsscanf_l(str, loc, fmt, ap);
 	va_end(ap);
 	return (ret);
 }

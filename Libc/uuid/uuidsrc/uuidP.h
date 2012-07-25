@@ -41,7 +41,7 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "uuid.h"
+#include <uuid/uuid.h>
 
 /*
  * Offset between 15-Oct-1582 and 1-Jan-70

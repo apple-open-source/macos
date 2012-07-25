@@ -58,9 +58,14 @@ bool RetainedDOMInfo::IsEquivalent(v8::RetainedObjectInfo* other)
 
 intptr_t RetainedDOMInfo::GetHash()
 {
-    return reinterpret_cast<intptr_t>(m_root);
+    return PtrHash<void*>::hash(m_root);
 }
     
+const char* RetainedDOMInfo::GetGroupLabel()
+{
+    return m_root->inDocument() ? "(Document DOM trees)" : "(Detached DOM trees)";
+}
+
 const char* RetainedDOMInfo::GetLabel()
 {
     return m_root->inDocument() ? "Document DOM tree" : "Detached DOM tree";

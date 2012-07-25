@@ -1,0 +1,237 @@
+//
+//  CommonCrypto_base.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+//
+
+// This XCCONFIG file defines the shared settings for all targets of the
+// CommonCrypto XCode Project
+
+// **************************************************************************
+// * Begin Project Section
+// **************************************************************************
+
+
+ARCHS = $(NATIVE_ARCH) $(ARCHS_STANDARD_64_BIT) arm
+
+// Minimum OS version
+MACOSX_DEPLOYMENT_TARGET =
+
+BUILD_VARIANTS = normal profile debug
+
+//
+// Directory Names
+//
+
+CC_PATH_BASE = $(PROJECT_DIR)
+CC_PATH_XCCONFIGS = $(CC_PATH_BASE)/Configurations
+CC_PATH_PUBLIC_HEADERS = $(CC_PATH_BASE)/CommonCrypto
+CC_PATH_SOURCE = $(CC_PATH_BASE)/Source
+
+// This REALLY should come from an include from a truly global XCCONFIG file
+// This can easily be retrofitted when we have more projects using this 
+// system
+
+CONFIGURATION_BUILD_DIR = $(BUILD_DIR)/$(CONFIGURATION)
+
+PUBLIC_HEADERS_FOLDER_PATH = /usr/include/CommonCrypto
+PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include/CommonCrypto
+HEADER_SEARCH_PATHS =
+// USER_HEADER_SEARCH_PATHS = $(CC_PATH_SOURCE)
+
+// Include user path in header search
+ALWAYS_SEARCH_USER_PATHS = YES
+
+// Deal with "installation"  This may not be necessary but it will not hurt either
+INSTALL_PATH = /usr/lib/system
+INSTALL_OWNER = root
+INSTALL_GROUP = wheel
+
+// Deal with project versioning
+MYVERSION = 50000
+CURRENT_PROJECT_VERSION = $(MYVERSION)
+VERSIONING_SYSTEM = apple-generic
+VERSION_INFO_BUILDER = $(USER)
+
+DYLIB_COMPATIBILITY_VERSION = 1
+DYLIB_CURRENT_VERSION = $(MYVERSION)
+
+EXECUTABLE_PREFIX = lib
+
+// **************************************************************************
+// * End Project Section
+// **************************************************************************
+
+// **************************************************************************
+// * Begin Code Signing Section
+// **************************************************************************
+
+CODE_SIGN_IDENTITY = 
+CODE_SIGN_RESOURCE_RULES_PATH = 
+OTHER_CODE_SIGN_FLAGS =
+
+// **************************************************************************
+// * End Code Signing Section
+// **************************************************************************
+
+// **************************************************************************
+// * Begin Compiler Section
+// **************************************************************************
+
+// Compiler version: Unset - setting this can cause problems between build
+// trains.
+GCC_VERSION = com.apple.compilers.llvm.clang.1_0
+
+// Debugging information.  
+DEBUG_INFORMATION_FORMAT = dwarf-with-dsym
+
+// Tuning
+GCC_MODEL_TUNING = G4
+
+// GCC Flags
+GCC_AUTO_VECTORIZATION = NO
+
+// Ensure position independent code generation
+GCC_DYNAMIC_NO_PIC = NO
+GCC_ENABLE_FIX_AND_CONTINUE = NO
+GCC_ENABLE_KERNEL_DEVELOPMENT = NO
+GCC_ENABLE_SSE3_EXTENSIONS = NO
+GCC_ENABLE_SSE41_EXTENSIONS = NO
+GCC_ENABLE_SSE42_EXTENSIONS = NO
+GCC_ENABLE_SUPPLEMENTAL_SSE3_INSTRUCTIONS = NO
+GCC_ENABLE_SYMBOL_SEPARATION = NO
+GCC_FAST_MATH = NO
+
+// Test Coverage
+GCC_GENERATE_TEST_COVERAGE_FILES = NO
+GCC_INLINES_ARE_PRIVATE_EXTERN = NO
+GCC_INSTRUMENT_PROGRAM_FLOW_ARCS = NO
+GCC_MODEL_PPC64 = NO
+GCC_NO_COMMON_BLOCKS = NO
+
+// Objective-C++ destructors
+GCC_OBJC_CALL_CXX_CDTORS = NO
+GCC_STRICT_ALIASING = NO
+GCC_SYMBOLS_PRIVATE_EXTERN = YES
+GCC_UNROLL_LOOPS = NO
+GCC_FEEDBACK_DIRECTED_OPTIMIZATION = off
+
+GCC_FAST_OBJC_DISPATCH = YES
+GCC_GENERATE_DEBUGGING_SYMBOLS = YES
+GCC_REUSE_STRINGS = YES
+GCC_THREADSAFE_STATICS = YES
+GCC_DEBUGGING_SYMBOLS = default
+
+// Garbage collection
+GCC_ENABLE_OBJC_GC = unsupported
+
+// Language Flags
+
+// Prefix file Should we have one of these?
+GCC_PRECOMPILE_PREFIX_HEADER = NO
+GCC_PREFIX_HEADER = 
+
+GCC_ALTIVEC_EXTENSIONS = NO
+GCC_CHAR_IS_UNSIGNED_CHAR = NO
+GCC_CHECK_RETURN_VALUE_OF_OPERATOR_NEW = NO
+GCC_ENABLE_FLOATING_POINT_LIBRARY_CALLS = NO
+GCC_ENABLE_TRIGRAPHS = NO
+GCC_FORCE_CPU_SUBTYPE_ALL = NO
+GCC_INCREASE_PRECOMPILED_HEADER_SHARING = NO
+GCC_ONE_BYTE_BOOL = NO
+GCC_SHORT_ENUMS = NO
+GCC_USE_INDIRECT_FUNCTION_CALLS = NO
+GCC_USE_REGISTER_FUNCTION_CALLS = NO
+GCC_CW_ASM_SYNTAX = YES
+GCC_ENABLE_ASM_KEYWORD = YES
+GCC_ENABLE_BUILTIN_FUNCTIONS = YES
+GCC_ENABLE_CPP_EXCEPTIONS = YES
+GCC_ENABLE_CPP_RTTI = YES
+GCC_ENABLE_OBJC_EXCEPTIONS = YES
+GCC_ENABLE_PASCAL_STRINGS = YES
+GCC_LINK_WITH_DYNAMIC_LIBRARIES = YES
+GCC_USE_STANDARD_INCLUDE_SEARCHING = YES
+
+// WARNINGS
+//
+// I am including most warnings in this list, If problems occur they can
+// be commented out or changed to be NO
+
+WARNING_CFLAGS = -Wall
+
+GCC_TREAT_WARNINGS_AS_ERRORS = YES
+
+// Should any of these be YES?
+GCC_WARN_PEDANTIC = NO
+
+
+GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES 
+GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = YES
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES
+GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES
+GCC_WARN_ABOUT_MISSING_NEWLINE = YES
+GCC_WARN_EFFECTIVE_CPLUSPLUS_VIOLATIONS = YES
+GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES
+GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES
+GCC_WARN_INHIBIT_ALL_WARNINGS = YES
+GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES
+GCC_WARN_MISSING_PARENTHESES = YES
+GCC_WARN_MULTIPLE_DEFINITION_TYPES_FOR_SELECTOR = YES
+GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES
+GCC_WARN_PROTOTYPE_CONVERSION = YES
+GCC_WARN_SHADOW = YES
+GCC_WARN_SIGN_COMPARE = YES
+GCC_WARN_STRICT_SELECTOR_MATCH = YES
+GCC_WARN_UNDECLARED_SELECTOR = YES
+GCC_WARN_UNKNOWN_PRAGMAS = YES
+GCC_WARN_UNUSED_PARAMETER = YES
+GCC_WARN_UNUSED_VARIABLE = YES
+
+GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = YES
+GCC_WARN_ABOUT_INVALID_OFFSETOF_MACRO = YES
+GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
+GCC_WARN_ABOUT_POINTER_SIGNEDNESS = YES
+GCC_WARN_ABOUT_RETURN_TYPE = YES
+GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = YES
+GCC_WARN_CHECK_SWITCH_STATEMENTS = YES
+GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES
+GCC_WARN_UNINITIALIZED_AUTOS = YES
+GCC_WARN_UNUSED_FUNCTION = YES
+GCC_WARN_UNUSED_LABEL = YES
+
+
+GCC_PREPROCESSOR_DEFINITIONS = _FORTIFY_SOURCE=2
+
+// **************************************************************************
+// * End Compiler Section
+// **************************************************************************
+
+// **************************************************************************
+// * Begin Linker Section
+// **************************************************************************
+
+// OTHER_LDFLAGS
+// Set up a three tiered set of variables for linker flags
+// This will allow for adding linker flags and not run into
+// the XCCONFIG "bug" of not being able to set FOO = $(FOO) bar
+
+
+DEAD_CODE_STRIPPING = YES
+GENERATE_MASTER_OBJECT_FILE = NO
+KEEP_PRIVATE_EXTERNS = NO
+
+// Should this be yes?
+LD_GENERATE_MAP_FILE = NO
+
+LINKER_DISPLAYS_MANGLED_NAMES = NO
+PRESERVE_DEAD_CODE_INITS_AND_TERMS = NO
+SEPARATE_SYMBOL_EDIT = NO
+LINK_WITH_STANDARD_LIBRARIES = YES
+PREBINDING = NO
+
+// **************************************************************************
+// * End Linker Section
+// **************************************************************************
+

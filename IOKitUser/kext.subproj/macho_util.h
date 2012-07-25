@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -138,6 +138,26 @@ macho_seek_result macho_find_symtab(
     struct symtab_command ** symtab);
 
 /*!
+ * @function macho_find_dysymtab
+ * @abstract Finds a mapped Mach-O file's dynamic link-edit symbol table info.
+ * @discussion
+ *        The macho_find_dysymtab function locates the dynamic link-edit symbol 
+ *        table of a Mach-O file. Only the LC_DYSYMTAB load command is located, 
+ *        not the LC_SYMTAB.
+ * @param mach_header A pointer to the beginning of the mapped Mach-O file.
+ * @param file_end A pointer to the end of the mapped Mach-O file.
+ * @param dysymtab A pointer to the address of a dysymtab_command struct;
+ *        if provided, this is filled with the address of the file's symbol table.
+ * @result Returns macho_seek_result_found if the symbol table is found,
+ * macho_seek_result_not_found if a symbol table is not defined in the given file,
+ * or macho_seek_result_error if an error occurs.
+ */
+macho_seek_result macho_find_dysymtab(
+                                      const void               * file_start,
+                                      const void               * file_end,
+                                      struct dysymtab_command ** dysymtab);
+
+/*!
  * @function macho_find_uuid
  * @abstract Finds a mapped Mach-O file's UUID.
  * @discussion
@@ -153,7 +173,7 @@ macho_seek_result macho_find_symtab(
 macho_seek_result macho_find_uuid(
     const void * file_start,
     const void * file_end,
-    char       * uuid);
+    char       **uuid);
 
 /*!
  * @function macho_find_section_numbered
@@ -210,6 +230,26 @@ typedef macho_seek_result (*macho_lc_callback)(
 );
 
 /*!
+ * @function macho_find_source_version
+ * @abstract Finds a mapped Mach-O file's LC_SOURCE_VERSION.
+ * @discussion
+ *        The macho_find_source_version function locates the source version
+ *        load command of a Mach-O file.
+ * @param mach_header A pointer to the beginning of the mapped Mach-O file.
+ * @param file_end A pointer to the end of the mapped Mach-O file.
+ * @param version A pointer to a uint64_t variable into which to store the
+ *        contents of the 'version' field of the LC_SOURCE_VERSION load
+ *        command from the mach-o header.
+ * @result Returns macho_seek_result_found if the source version is found,
+ * macho_seek_result_not_found if a source version is not defined in the
+ * given file, or macho_seek_result_error if an error occurs.
+ */
+macho_seek_result macho_find_source_version(
+                                            const void * file_start,
+                                            const void * file_end,
+                                            uint64_t   * version);
+
+/*!
  * @function macho_scan_load_commands
  * @abstract Iterates over the load commands of a Mach-O file using a callback.
  * @discussion
@@ -259,5 +299,9 @@ struct section_64 * macho_get_section_by_name_64(
 boolean_t macho_remove_linkedit(
     u_char    * macho,
     u_long    * linkedit_size);
+
+boolean_t macho_trim_linkedit(
+    u_char    *macho,
+    u_long    *amount_trimmed);
 
 #endif /* __MACHO_UTIL_H__ */

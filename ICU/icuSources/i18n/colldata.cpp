@@ -1,6 +1,6 @@
 /*
  ******************************************************************************
- *   Copyright (C) 1996-2009, International Business Machines                 *
+ *   Copyright (C) 1996-2011, International Business Machines                 *
  *   Corporation and others.  All Rights Reserved.                            *
  ******************************************************************************
  */
@@ -29,6 +29,7 @@
 #include "ucln_in.h"
 #include "ucol_imp.h"
 #include "umutex.h"
+#include "uassert.h"
 
 #include "unicode/colldata.h"
 
@@ -234,10 +235,14 @@ void StringList::add(const UnicodeString *string, UErrorCode &status)
 
     if (listSize >= listMax) {
         int32_t newMax = listMax + STRING_LIST_BUFFER_SIZE;
-
         UnicodeString *newStrings = new UnicodeString[newMax];
-
-        uprv_memcpy(newStrings, strings, listSize * sizeof(UnicodeString));
+        if (newStrings == NULL) {
+            status = U_MEMORY_ALLOCATION_ERROR;
+            return;
+        }
+        for (int32_t i=0; i<listSize; ++i) {
+            newStrings[i] = strings[i];
+        }
 
 #ifdef INSTRUMENT_STRING_LIST
         int32_t _h = listSize / STRING_LIST_BUFFER_SIZE;
@@ -463,9 +468,9 @@ private:
     static char *getKey(UCollator *collator, char *keyBuffer, int32_t *charBufferLength);
     static void deleteKey(char *key);
 
-    UMTX lock;
     UHashtable *cache;
 };
+static UMTX lock;
 
 U_CFUNC void deleteChars(void * /*obj*/)
 {
@@ -484,7 +489,7 @@ U_CFUNC void deleteCollDataCacheEntry(void *obj)
 }
 
 CollDataCache::CollDataCache(UErrorCode &status)
-    : lock(0), cache(NULL)
+    : cache(NULL)
 {
     if (U_FAILURE(status)) {
         return;
@@ -506,8 +511,6 @@ CollDataCache::~CollDataCache()
     uhash_close(cache);
     cache = NULL;
     umtx_unlock(&lock);
-
-    umtx_destroy(&lock);
 }
 
 CollData *CollDataCache::get(UCollator *collator, UErrorCode &status)
@@ -891,6 +894,7 @@ int32_t CollData::minLengthInChars(const CEList *ceList, int32_t offset, int32_t
 #endif
 
             if (ceList->matchesAt(offset, ceList2)) {
+                U_ASSERT(ceList2 != NULL);
                 int32_t clength = ceList2->size();
                 int32_t slength = string->length();
                 int32_t roffset = offset + clength;

@@ -32,28 +32,30 @@
 #include "JSObject.h"
 #include "Register.h"
 #include "SymbolTable.h"
-#include "UnusedParam.h"
+#include <wtf/UnusedParam.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/UnusedParam.h>
 
 namespace JSC {
 
+    class LLIntOffsetsExtractor;
     class Register;
 
     class JSVariableObject : public JSNonFinalObject {
         friend class JIT;
+        friend class LLIntOffsetsExtractor;
 
     public:
         typedef JSNonFinalObject Base;
 
         SymbolTable& symbolTable() const { return *m_symbolTable; }
 
-        virtual ~JSVariableObject();
+        JS_EXPORT_PRIVATE static void destroy(JSCell*);
 
-        static NO_RETURN_DUE_TO_ASSERT void putWithAttributes(JSObject*, ExecState*, const Identifier&, JSValue, unsigned attributes);
+        static NO_RETURN_DUE_TO_ASSERT void putDirectVirtual(JSObject*, ExecState*, const Identifier&, JSValue, unsigned attributes);
 
-        static bool deleteProperty(JSCell*, ExecState*, const Identifier&);
-        static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
+        JS_EXPORT_PRIVATE static bool deleteProperty(JSCell*, ExecState*, const Identifier&);
+        JS_EXPORT_PRIVATE static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
         
         bool isDynamicScope(bool& requiresDynamicChecks) const;
 
@@ -88,9 +90,9 @@ namespace JSC {
         void setRegisters(WriteBarrier<Unknown>* registers, PassOwnArrayPtr<WriteBarrier<Unknown> > registerArray);
 
         bool symbolTableGet(const Identifier&, PropertySlot&);
-        bool symbolTableGet(const Identifier&, PropertyDescriptor&);
+        JS_EXPORT_PRIVATE bool symbolTableGet(const Identifier&, PropertyDescriptor&);
         bool symbolTableGet(const Identifier&, PropertySlot&, bool& slotIsWriteable);
-        bool symbolTablePut(JSGlobalData&, const Identifier&, JSValue);
+        bool symbolTablePut(ExecState*, const Identifier&, JSValue, bool shouldThrow);
         bool symbolTablePutWithAttributes(JSGlobalData&, const Identifier&, JSValue, unsigned attributes);
 
         SymbolTable* m_symbolTable; // Maps name -> offset from "r" in register file.
@@ -119,15 +121,19 @@ namespace JSC {
         return false;
     }
 
-    inline bool JSVariableObject::symbolTablePut(JSGlobalData& globalData, const Identifier& propertyName, JSValue value)
+    inline bool JSVariableObject::symbolTablePut(ExecState* exec, const Identifier& propertyName, JSValue value, bool shouldThrow)
     {
+        JSGlobalData& globalData = exec->globalData();
         ASSERT(!Heap::heap(value) || Heap::heap(value) == Heap::heap(this));
 
         SymbolTableEntry entry = symbolTable().inlineGet(propertyName.impl());
         if (entry.isNull())
             return false;
-        if (entry.isReadOnly())
+        if (entry.isReadOnly()) {
+            if (shouldThrow)
+                throwTypeError(exec, StrictModeReadonlyPropertyWriteError);
             return true;
+        }
         registerAt(entry.getIndex()).set(globalData, this, value);
         return true;
     }

@@ -140,7 +140,7 @@ Boolean parseArgument(
     CFMutableDictionaryRef element,
     char * const argv[],
     uint32_t * num_used,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean result        = false;
@@ -253,7 +253,7 @@ Boolean evalBundleName(
     CFDictionaryRef element,
     void * object,
     void * user_data,
-    QEQueryError * error)
+    QEQueryError * error __unused)
 {
     Boolean        result     = false;
     QueryContext * context    = (QueryContext *)user_data;
@@ -662,7 +662,7 @@ finish:
 *******************************************************************************/
 Boolean parseIntegrity(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
     void * user_data,
@@ -716,10 +716,10 @@ finish:
 *
 *******************************************************************************/
 Boolean evalIntegrity(
-    CFDictionaryRef element,
-    void * object,
-    void * user_data,
-    QEQueryError * error)
+    CFDictionaryRef element __unused,
+    void * object __unused,
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     Boolean result = false;
 
@@ -733,11 +733,11 @@ Boolean evalIntegrity(
 *******************************************************************************/
 Boolean parseFlag(
     CFMutableDictionaryRef element,
-    int argc,
-    char * const argv[],
+    int argc __unused,
+    char * const argv[] __unused,
     uint32_t * num_used,
     void * user_data,
-    QEQueryError * error)
+    QEQueryError * error __unused)
 {
     CFStringRef flag = QEQueryElementGetPredicate(element);
     QueryContext * context = (QueryContext *)user_data;
@@ -760,8 +760,8 @@ Boolean parseFlag(
 Boolean evalFlag(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
-    QEQueryError * error)
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     Boolean     result  = false;
     OSKextRef   theKext = (OSKextRef)object;
@@ -831,10 +831,10 @@ Boolean evalFlag(
 *******************************************************************************/
 Boolean parseVersion(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean result        = false;
@@ -895,7 +895,7 @@ finish:
 Boolean evalVersion(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean result = false;
@@ -975,10 +975,10 @@ finish:
 *******************************************************************************/
 Boolean parseCompatibleWithVersion(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean      result = false;
@@ -1022,8 +1022,8 @@ finish:
 Boolean evalCompatibleWithVersion(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
-    QEQueryError * error)
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     Boolean result = false;
     OSKextRef theKext = (OSKextRef)object;
@@ -1150,10 +1150,10 @@ finish:
 *******************************************************************************/
 Boolean parseArch(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean      result = false;
@@ -1260,8 +1260,8 @@ finish:
 Boolean evalArch(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
-    QEQueryError * error)
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     OSKextRef theKext = (OSKextRef)object;
     CFArrayRef   arches = NULL;  // do not release
@@ -1284,8 +1284,8 @@ typedef struct {
 Boolean evalArchExact(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
-    QEQueryError * error)
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     Boolean result = false;
     OSKextRef theKext = (OSKextRef)object;
@@ -1387,7 +1387,7 @@ finish:
 *******************************************************************************/
 Boolean parseDefinesOrReferencesSymbol(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
     void * user_data,
@@ -1411,8 +1411,8 @@ finish:
 Boolean evalDefinesOrReferencesSymbol(
     CFDictionaryRef   element,
     void            * object,
-    void            * user_data,
-    QEQueryError    * error)
+    void            * user_data __unused,
+    QEQueryError    * error __unused)
 {
     Boolean              result           = false;
     OSKextRef            theKext          = (OSKextRef)object;
@@ -1645,7 +1645,7 @@ finish:
 *******************************************************************************/
 Boolean parseExec(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
     void * user_data,
@@ -1692,7 +1692,7 @@ finish:
 Boolean evalExec(
     CFDictionaryRef element,
     void * object,
-    void * user_data,
+    void * user_data __unused,
     QEQueryError * error)
 {
     Boolean result = false;

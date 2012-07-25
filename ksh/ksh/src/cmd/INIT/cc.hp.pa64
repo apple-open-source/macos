@@ -2,8 +2,8 @@
 
 HOSTTYPE=hp.pa64
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 /opt/ansic/bin/cc +D2.0W -Ae +e -Wl,+s \

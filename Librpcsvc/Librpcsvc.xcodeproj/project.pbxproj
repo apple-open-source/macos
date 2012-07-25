@@ -1,0 +1,110 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FD55DAD914CE0B0000F84D24 /* rpcsvc */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD55DADA14CE0B0000F84D24 /* Build configuration list for PBXAggregateTarget "rpcsvc" */;
+			buildPhases = (
+				FD55DADC14CE0B0700F84D24 /* Run Script */,
+			);
+			dependencies = (
+			);
+			name = rpcsvc;
+			productName = rpcsvc;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXGroup section */
+		FD55DA7314CE048B00F84D24 = {
+			isa = PBXGroup;
+			children = (
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXProject section */
+		FD55DA7514CE048B00F84D24 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = FD55DA7814CE048B00F84D24 /* Build configuration list for PBXProject "Librpcsvc" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FD55DA7314CE048B00F84D24;
+			productRefGroup = FD55DA7314CE048B00F84D24;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FD55DAD914CE0B0000F84D24 /* rpcsvc */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FD55DADC14CE0B0700F84D24 /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/xcodescripts/install_rpcsvc.sh";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FD55DA7B14CE048B00F84D24 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		FD55DADB14CE0B0000F84D24 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FD55DA7814CE048B00F84D24 /* Build configuration list for PBXProject "Librpcsvc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD55DA7B14CE048B00F84D24 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD55DADA14CE0B0000F84D24 /* Build configuration list for PBXAggregateTarget "rpcsvc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD55DADB14CE0B0000F84D24 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FD55DA7514CE048B00F84D24 /* Project object */;
+}

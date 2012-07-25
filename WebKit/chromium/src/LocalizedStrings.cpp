@@ -35,9 +35,9 @@
 #include "NotImplemented.h"
 
 #include "WebKit.h"
-#include "WebKitClient.h"
-#include "WebLocalizedString.h"
-#include "WebString.h"
+#include "platform/WebKitPlatformSupport.h"
+#include "platform/WebLocalizedString.h"
+#include "platform/WebString.h"
 
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
@@ -49,17 +49,17 @@ namespace WebCore {
 
 static String query(WebLocalizedString::Name name)
 {
-    return WebKit::webKitClient()->queryLocalizedString(name);
+    return WebKit::webKitPlatformSupport()->queryLocalizedString(name);
 }
 
 static String query(WebLocalizedString::Name name, const WebString& parameter)
 {
-    return WebKit::webKitClient()->queryLocalizedString(name, parameter);
+    return WebKit::webKitPlatformSupport()->queryLocalizedString(name, parameter);
 }
 
 static String query(WebLocalizedString::Name name, const WebString& parameter1, const WebString& parameter2)
 {
-    return WebKit::webKitClient()->queryLocalizedString(name, parameter1, parameter2);
+    return WebKit::webKitPlatformSupport()->queryLocalizedString(name, parameter1, parameter2);
 }
 
 String searchableIndexIntroduction()
@@ -87,13 +87,22 @@ String fileButtonChooseFileLabel()
     return query(WebLocalizedString::FileButtonChooseFileLabel);
 }
 
+String fileButtonChooseMultipleFilesLabel()
+{
+    return query(WebLocalizedString::FileButtonChooseMultipleFilesLabel);
+}
+
 String defaultDetailsSummaryText()
 {
-    notImplemented();
-    return String("Details");
+    return query(WebLocalizedString::DetailsLabel);
 }
 
 String fileButtonNoFileSelectedLabel()
+{
+    return query(WebLocalizedString::FileButtonNoFileSelectedLabel);
+}
+
+String fileButtonNoFilesSelectedLabel()
 {
     return query(WebLocalizedString::FileButtonNoFileSelectedLabel);
 }
@@ -149,6 +158,12 @@ String AXDefinitionListDefinitionText()
     return String("definition");
 }
 
+String AXFooterRoleDescriptionText()
+{
+    notImplemented();
+    return String("footer");
+}
+
 String AXButtonActionVerb()
 {
     return query(WebLocalizedString::AXButtonActionVerb);
@@ -191,8 +206,7 @@ String AXMenuListActionVerb()
     
 String missingPluginText()
 {
-    notImplemented();
-    return String("Missing Plug-in");
+    return query(WebLocalizedString::MissingPluginText);
 }
 
 String crashedPluginText()
@@ -381,5 +395,32 @@ String validationMessageStepMismatchText(const String& base, const String& step)
 {
     return query(WebLocalizedString::ValidationStepMismatch, base, step);
 }
+
+#if ENABLE(CALENDAR_PICKER)
+String calendarTodayText()
+{
+    return query(WebLocalizedString::CalendarToday);
+}
+
+String calendarClearText()
+{
+    return query(WebLocalizedString::CalendarClear);
+}
+
+String dateFormatYearText()
+{
+    return query(WebLocalizedString::DateFormatYearLabel);
+}
+
+String dateFormatMonthText()
+{
+    return query(WebLocalizedString::DateFormatMonthLabel);
+}
+
+String dateFormatDayInMonthText()
+{
+    return query(WebLocalizedString::DateFormatDayInMonthLabel);
+}
+#endif
 
 } // namespace WebCore

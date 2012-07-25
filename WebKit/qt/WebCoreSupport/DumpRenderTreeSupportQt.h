@@ -24,7 +24,10 @@
 #define DumpRenderTreeSupportQt_h
 
 #include "qwebkitglobal.h"
+#include <QNetworkCookieJar>
 #include <QVariant>
+
+typedef const struct OpaqueJSContext* JSContextRef;
 
 namespace WebCore {
 class Text;
@@ -51,7 +54,10 @@ class QWebFrame;
 class QWebPage;
 class QWebHistoryItem;
 class QWebScriptWorld;
+
+QT_BEGIN_NAMESPACE
 class QUrl;
+QT_END_NAMESPACE
 
 extern QMap<int, QWebScriptWorld*> m_worldMap;
 
@@ -71,13 +77,20 @@ private:
 #if defined(WTF_USE_V8) && WTF_USE_V8
     friend class V8::Bindings::QtDRTNodeRuntime;
 #else
-    friend class JSC::Bindings::QtDRTNodeRuntime;
+    friend class QtDRTNodeRuntime;
 #endif
 
     WebCore::Node* m_node;
 };
 
 Q_DECLARE_METATYPE(QDRTNode)
+
+class QtDRTNodeRuntime {
+public:
+    static QDRTNode create(WebCore::Node*);
+    static WebCore::Node* get(const QDRTNode&);
+    static void initialize();
+};
 
 class QWEBKIT_EXPORT DumpRenderTreeSupportQt {
 
@@ -86,6 +99,7 @@ public:
     DumpRenderTreeSupportQt();
     ~DumpRenderTreeSupportQt();
 
+    static void initialize();
 
     static void executeCoreCommandByName(QWebPage* page, const QString& name, const QString& value);
     static bool isCommandEnabled(QWebPage* page, const QString& name);
@@ -98,13 +112,13 @@ public:
 
     static bool pauseAnimation(QWebFrame*, const QString& name, double time, const QString& elementId);
     static bool pauseTransitionOfProperty(QWebFrame*, const QString& name, double time, const QString& elementId);
-    static bool pauseSVGAnimation(QWebFrame*, const QString& animationId, double time, const QString& elementId);
     static void suspendActiveDOMObjects(QWebFrame* frame);
     static void resumeActiveDOMObjects(QWebFrame* frame);
 
     static void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const QString& scheme);
     static void setFrameFlatteningEnabled(QWebPage*, bool);
     static void setCaretBrowsingEnabled(QWebPage* page, bool value);
+    static void setAuthorAndUserStylesEnabled(QWebPage*, bool);
     static void setMediaType(QWebFrame* qframe, const QString& type);
     static void setDumpRenderTreeModeEnabled(bool b);
 
@@ -112,11 +126,11 @@ public:
     static void garbageCollectorCollectOnAlternateThread(bool waitUntilDone);
     static void setAutofilled(const QWebElement&, bool enabled);
     static void setJavaScriptProfilingEnabled(QWebFrame*, bool enabled);
+    static void setValueForUser(const QWebElement&, const QString& value);
     static int javaScriptObjectsCount();
     static void clearScriptWorlds();
     static void evaluateScriptInIsolatedWorld(QWebFrame* frame, int worldID, const QString& script);
 
-    static void setTimelineProfilingEnabled(QWebPage*, bool enabled);
     static void webInspectorExecuteScript(QWebPage* page, long callId, const QString& script);
     static void webInspectorShow(QWebPage* page);
     static void webInspectorClose(QWebPage* page);
@@ -141,9 +155,7 @@ public:
     static void removeWhiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
     static void resetOriginAccessWhiteLists();
 
-    static void activeMockDeviceOrientationClient(bool b);
-    static void removeMockDeviceOrientation();
-    static void setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
+    static void setMockDeviceOrientation(QWebPage*, bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
 
     static void resetGeolocationMock(QWebPage*);
     static void setMockGeolocationPermission(QWebPage*, bool allowed);
@@ -155,13 +167,14 @@ public:
 
     static QString markerTextForListItem(const QWebElement& listItem);
     static QVariantMap computedStyleIncludingVisitedInfo(const QWebElement& element);
-    static QString plainText(const QVariant& rng);
 
     static void dumpFrameLoader(bool b);
+    static void dumpProgressFinishedCallback(bool);
     static void dumpUserGestureInFrameLoader(bool b);
     static void dumpResourceLoadCallbacks(bool b);
     static void dumpResourceResponseMIMETypes(bool b);
     static void dumpResourceLoadCallbacksPath(const QString& path);
+    static void dumpWillCacheResponseCallbacks(bool);
     static void setWillSendRequestReturnsNullOnRedirect(bool b);
     static void setWillSendRequestReturnsNull(bool b);
     static void setWillSendRequestClearHeaders(const QStringList& headers);
@@ -191,7 +204,8 @@ public:
     static void simulateDesktopNotificationClick(const QString& title);
     static QString viewportAsText(QWebPage*, int deviceDPI, const QSize& deviceSize, const QSize& availableSize);
 
-    static QVariantList nodesFromRect(const QWebElement& document, int x, int y, unsigned top, unsigned right, unsigned bottom, unsigned left, bool ignoreClipping);
+    static void scalePageBy(QWebFrame*, float scale, const QPoint& origin);
+
     static QString responseMimeType(QWebFrame*);
     static void clearOpener(QWebFrame*);
     static void addURLToRedirect(const QString& origin, const QString& destination);
@@ -203,12 +217,25 @@ public:
     static QUrl mediaContentUrlByElementId(QWebFrame*, const QString& elementId);
     static void setAlternateHtml(QWebFrame*, const QString& html, const QUrl& baseUrl, const QUrl& failingUrl);
 
-    static QVariant shadowRoot(const QWebElement&);
-    static QVariant ensureShadowRoot(const QWebElement&);
-    static void removeShadowRoot(const QWebElement&);
-    static QString shadowPseudoId(const QWebElement&);
-
     static QString layerTreeAsText(QWebFrame*);
+
+    static void injectInternalsObject(QWebFrame*);
+    static void injectInternalsObject(JSContextRef);
+    static void resetInternalsObject(QWebFrame*);
+
+    static void setInteractiveFormValidationEnabled(QWebPage*, bool);
+
+    static void setDefersLoading(QWebPage*, bool flag);
+    static void goBack(QWebPage*);
+
+#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
+    static bool thirdPartyCookiePolicyAllows(QWebPage*, const QUrl&, const QUrl& firstPartyUrl);
+#endif
+
+    static bool defaultHixie76WebSocketProtocolEnabled();
+    static void setHixie76WebSocketProtocolEnabled(QWebPage*, bool);
+
+    static QImage paintPagesWithBoundaries(QWebFrame*);
 };
 
 #endif

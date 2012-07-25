@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2008, International Business Machines
+ *   Copyright (C) 2005-2008,2012 International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -42,6 +42,9 @@ public:
     int32_t nextByte(InputText* det);
 };
 
+#if U_PLATFORM_IS_DARWIN_BASED
+#define MAX_KEY_STRING_WITH_NULL 16
+#endif
 
 class CharsetRecog_mbcs : public CharsetRecognizer {
 
@@ -58,7 +61,11 @@ protected:
      *             <br/>
      *             bits 8-15: The match reason, an enum-like value.
      */
+#if U_PLATFORM_IS_DARWIN_BASED
+    int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] );
+#else
     int32_t match_mbcs(InputText* det, const uint16_t commonChars[], int32_t commonCharsLen);
+#endif
 
 public:
 

@@ -57,6 +57,7 @@ enum {
 	kOSThermalMitigationDisableMapsHalo,
 	kOSThermalMitigationAppTerminate,
 	kOSThermalMitigationDeviceRestart,
+	kOSThermalMitigationThermalTableReady,
 	kOSThermalMitigationCount
 };
 

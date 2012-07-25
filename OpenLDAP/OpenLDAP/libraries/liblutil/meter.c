@@ -1,5 +1,5 @@
 /* meter.c - lutil_meter meters */
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/meter.c,v 1.2.2.2 2009/02/17 21:02:52 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
  * Copyright (c) 2009 by Matthew Backes, Symas Corp.
@@ -89,7 +89,7 @@ lutil_get_now (double *now)
 
 	assert( now );
 	time( &tm );
-	now = (double) tm;
+	*now = (double) tm;
 	return 0;
 #endif
 }

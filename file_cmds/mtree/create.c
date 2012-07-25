@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/create.c,v 1.37 2005/03/29 11:44:17 tobez
 #include <fcntl.h>
 #include <fts.h>
 #include <grp.h>
+#ifndef __APPLE__
 #ifdef ENABLE_MD5
 #include <md5.h>
 #endif
@@ -55,6 +56,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/create.c,v 1.37 2005/03/29 11:44:17 tobez
 #ifdef ENABLE_SHA256
 #include <sha256.h>
 #endif
+#endif /* !__APPLE__ */
 #include <pwd.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -63,6 +65,10 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/create.c,v 1.37 2005/03/29 11:44:17 tobez
 #include <vis.h>
 #include "mtree.h"
 #include "extern.h"
+
+#ifdef __APPLE__
+#include "commoncrypto.h"
+#endif /* __APPLE__ */
 
 #define	INDENTNAMELEN	15
 #define	MAXLINELEN	80

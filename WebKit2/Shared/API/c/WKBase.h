@@ -37,6 +37,10 @@
 #include <WebKit2/WKBaseGtk.h>
 #endif
 
+#if defined(BUILDING_SOUP__)
+#include <WebKit2/WKBaseSoup.h>
+#endif
+
 /* WebKit2 shared types */
 
 typedef uint32_t WKTypeID;
@@ -50,14 +54,20 @@ typedef struct OpaqueWKDictionary* WKMutableDictionaryRef;
 
 typedef const struct OpaqueWKBoolean* WKBooleanRef;
 typedef const struct OpaqueWKCertificateInfo* WKCertificateInfoRef;
+typedef const struct OpaqueWKConnection* WKConnectionRef;
 typedef const struct OpaqueWKContextMenuItem* WKContextMenuItemRef;
 typedef const struct OpaqueWKData* WKDataRef;
 typedef const struct OpaqueWKDouble* WKDoubleRef;
 typedef const struct OpaqueWKError* WKErrorRef;
 typedef const struct OpaqueWKGraphicsContext* WKGraphicsContextRef;
 typedef const struct OpaqueWKImage* WKImageRef;
+typedef const struct OpaqueWKPointRef* WKPointRef;
+typedef const struct OpaqueWKRectRef* WKRectRef;
+typedef const struct OpaqueWKRenderLayer* WKRenderLayerRef;
+typedef const struct OpaqueWKRenderObject* WKRenderObjectRef;
 typedef const struct OpaqueWKSecurityOrigin* WKSecurityOriginRef;
 typedef const struct OpaqueWKSerializedScriptValue* WKSerializedScriptValueRef;
+typedef const struct OpaqueWKSizeRef* WKSizeRef;
 typedef const struct OpaqueWKString* WKStringRef;
 typedef const struct OpaqueWKUInt64* WKUInt64Ref;
 typedef const struct OpaqueWKURL* WKURLRef;
@@ -84,11 +94,17 @@ typedef const struct OpaqueWKFramePolicyListener* WKFramePolicyListenerRef;
 typedef const struct OpaqueWKGeolocationManager* WKGeolocationManagerRef;
 typedef const struct OpaqueWKGeolocationPermissionRequest* WKGeolocationPermissionRequestRef;
 typedef const struct OpaqueWKGeolocationPosition* WKGeolocationPositionRef;
+typedef const struct OpaqueWKGrammarDetail* WKGrammarDetailRef;
+typedef const struct OpaqueWKHitTestResult* WKHitTestResultRef;
 typedef const struct OpaqueWKIconDatabase* WKIconDatabaseRef;
 typedef const struct OpaqueWKInspector* WKInspectorRef;
 typedef const struct OpaqueWKKeyValueStorageManager* WKKeyValueStorageManagerRef;
 typedef const struct OpaqueWKMediaCacheManager* WKMediaCacheManagerRef;
 typedef const struct OpaqueWKNavigationData* WKNavigationDataRef;
+typedef const struct OpaqueWKNotification* WKNotificationRef;
+typedef const struct OpaqueWKNotificationManager* WKNotificationManagerRef;
+typedef const struct OpaqueWKNotificationPermissionRequest* WKNotificationPermissionRequestRef;
+typedef const struct OpaqueWKNotificationProvider* WKNotificationProviderRef;
 typedef const struct OpaqueWKOpenPanelParameters* WKOpenPanelParametersRef;
 typedef const struct OpaqueWKOpenPanelResultListener* WKOpenPanelResultListenerRef;
 typedef const struct OpaqueWKPage* WKPageRef;
@@ -96,6 +112,7 @@ typedef const struct OpaqueWKPageGroup* WKPageGroupRef;
 typedef const struct OpaqueWKPluginSiteDataManager* WKPluginSiteDataManagerRef;
 typedef const struct OpaqueWKPreferences* WKPreferencesRef;
 typedef const struct OpaqueWKProtectionSpace* WKProtectionSpaceRef;
+typedef const struct OpaqueWKTextChecker* WKTextCheckerRef;
 
 /* WebKit2 Bundle types */
 
@@ -103,6 +120,7 @@ typedef const struct OpaqueWKBundle* WKBundleRef;
 typedef const struct OpaqueWKBundleBackForwardList* WKBundleBackForwardListRef;
 typedef const struct OpaqueWKBundleBackForwardListItem* WKBundleBackForwardListItemRef;
 typedef const struct OpaqueWKBundleDOMCSSStyleDeclaration* WKBundleCSSStyleDeclarationRef;
+typedef const struct OpaqueWKBundleDOMWindowExtension* WKBundleDOMWindowExtensionRef;
 typedef const struct OpaqueWKBundleFrame* WKBundleFrameRef;
 typedef const struct OpaqueWKBundleHitTestResult* WKBundleHitTestResultRef;
 typedef const struct OpaqueWKBundleInspector* WKBundleInspectorRef;
@@ -128,5 +146,17 @@ typedef const struct OpaqueWKBundleScriptWorld* WKBundleScriptWorldRef;
 #else /* !defined(WK_NO_EXPORT) */
 #define WK_EXPORT
 #endif /* defined(WK_NO_EXPORT) */
+
+#if !defined(WK_INLINE)
+#if defined(__cplusplus)
+#define WK_INLINE static inline
+#elif defined(__GNUC__)
+#define WK_INLINE static __inline__
+#elif defined(__WIN32__)
+#define WK_INLINE static __inline
+#else
+#define WK_INLINE static    
+#endif
+#endif /* !defined(WK_INLINE) */
 
 #endif /* WKBase_h */

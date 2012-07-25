@@ -31,6 +31,8 @@
 
 RELDIR = lib\com_err
 
+intcflags=-DBUILD_KRB5_LIB
+
 !include ../../windows/NTMakefile.w32
 
 INCFILES=$(INCDIR)\com_err.h $(INCDIR)\com_right.h
@@ -52,23 +54,19 @@ $(COMERRDLL): $(libcomerr_OBJs) $(OBJ)\libcom_err-version.res
 	$(DLLGUILINK_C) -out:$(COMERRDLL) -implib:$(LIBCOMERR) $** \
 		$(LIBROKEN) \
 		-def:libcom_err-exports.def
-	$(_VC_MANIFEST_EMBED_DLL)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(DLLPREP_NODIST)
 
 !endif
 
-$(BINDIR)\compile_et.exe:  $(OBJ)\parse.obj $(OBJ)\lex.obj $(OBJ)\compile_et.obj
+$(BINDIR)\compile_et.exe:  $(OBJ)\parse.obj $(OBJ)\lex.obj $(OBJ)\compile_et.obj $(OBJ)\compile_et-version.res
 	$(EXECONLINK) $(LIBROKEN) $(LIBVERS)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP_NOHEIM)
 
 $(OBJ)\parse.obj: $(OBJ)\parse.c
 	$(C2OBJ) -I$(SRC)\$(RELDIR)
 
 $(OBJ)\lex.obj: $(OBJ)\lex.c
-	$(C2OBJ) -I$(SRC)\$(RELDIR)
+	$(C2OBJ) -I$(SRC)\$(RELDIR) -DYY_NO_UNISTD_H
 
 $(OBJ)\compile_et.obj: compile_et.c
 	$(C2OBJ) -I$(OBJ)
@@ -84,5 +82,10 @@ all:: $(INCFILES) $(LIBCOMERR) $(BINDIR)\compile_et.exe
 clean::
 	-$(RM) $(LIBCOMERR)
 	-$(RM) $(INCFILES)
-	-$(RM) $(COMERRDLL)
+	-$(RM) $(COMERRDLL:.dll=.*)
+	-$(RM) $(BINDIR)\compile_et.*
 
+test-exports:
+	$(PERL) ..\..\cf\w32-check-exported-symbols.pl --vs version-script.map --def libcom_err-exports.def
+
+test:: test-exports

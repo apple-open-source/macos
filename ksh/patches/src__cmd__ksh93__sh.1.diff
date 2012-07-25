@@ -9,10 +9,10 @@
  .\}
  .if \nZ=2 \{\
  .TH KSH93 1
-@@ -29,6 +29,12 @@ ksh, rksh, pfksh \- KornShell, a
- ksh93, rksh93, pfksh93 \- KornShell, a
+@@ -28,6 +28,12 @@ ksh, rksh, pfksh \- KornShell, a standar
+ .if \nZ=2 \{\
+ ksh93, rksh93, pfksh93 \- KornShell, a standard/restricted command and programming language
  .\}
- standard/restricted command and programming language
 +.SH NOTE
 +Currently,
 +.I rksh

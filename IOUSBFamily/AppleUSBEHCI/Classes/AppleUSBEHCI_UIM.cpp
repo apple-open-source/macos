@@ -427,7 +427,10 @@ AppleUSBEHCI::FindControlBulkEndpoint( short				functionNumber,
 	{
 		if (!_pEHCIRegisters->AsyncListAddr && !_wakingFromHibernation)
 		{
-			USBLog(1, "AppleUSBEHCI[%p]::FindControlBulkEndpoint.. AsyncListAddr is NULL but _AsyncHead is not!!", this);
+			USBLog(1, "AppleUSBEHCI[%p]::FindControlBulkEndpoint.. AsyncListAddr is NULL but _AsyncHead(L:%p, P:%08x) is not!!", this, _AsyncHead->GetSharedLogical(), (int)_AsyncHead->_sharedPhysical);
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+            panic("FindControlBulkEndpoint\n");
+#endif
 		}
 	}
 
@@ -2341,6 +2344,16 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
 				USBLog(1, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint - the schedule status didn't go OFF in the STS register!!", this);
 				USBTrace( kUSBTEHCI, kTPEHCIUnlinkAsyncEndpoint , (uintptr_t)this, STS, kEHCISTSAsyncScheduleStatus, 2 );
 			}
+			// rdar://10727076 - after the list is no longer running, we check to see if the pED that we are removing is the same as the one
+			// which is stored in the hardware AsyncLisrAddr register. if so, we reprogram that register, which we are allowed to do since
+			// the list is off
+            if (USBToHostLong(_pEHCIRegisters->AsyncListAddr) == pED->_sharedPhysical)
+            {
+                USBLog(2, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint - changing AsyncListAddr from %08x to %08x", this, _pEHCIRegisters->AsyncListAddr, (int)HostToUSBLong(_AsyncHead->_sharedPhysical));
+                _pEHCIRegisters->AsyncListAddr = HostToUSBLong(_AsyncHead->_sharedPhysical);
+                IOSync();
+            }
+            USBLog(7, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint - AsyncListAddr(%08x) pED.phys(%08x)", this, _pEHCIRegisters->AsyncListAddr, (int)pED->_sharedPhysical);
 		}
     }
 }	
@@ -3559,47 +3572,36 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			pNewITD->_framesInTD++;
 			
 			trLen = (lowLatency ? pLLFrames[baseTransferIndex + transfer].frReqCount : pFrames[baseTransferIndex + transfer].frReqCount);
-            
-            if (trLen)
-            {
 			
-                // 9845501 - This is the big change. In the previous loop we would set up our page addresses. In this loop, we recalculate
-                // the individual segment beginning addresses to see where they fit in that page array, rather than relying on a contiguous logical buffer
+			// 9845501 - This is the big change. In the previous loop we would set up our page addresses. In this loop, we recalculate 
+			// the individual segment beginning addresses to see where they fit in that page array, rather than relying on a contiguous logical buffer
 
-                GET_NEXT_BUFFPTR();                         // sets segLength, dmaStartAddr and dmaAddrHighBits based on transferOffset
+            GET_NEXT_BUFFPTR();                         // sets segLength, dmaStartAddr and dmaAddrHighBits based on transferOffset
 
-                // Adjust the segment length to take into account the page boundary
-                // Note segLength can end up < trLen, and the assumption is that the segment continues on the next physical page in the list
+            // Adjust the segment length to take into account the page boundary
+            // Note segLength can end up < trLen, and the assumption is that the segment continues on the next physical page in the list
 
-                pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
-                ADJUST_SEGMENT_LENGTH(pageOffset); 
-               
-                for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
-                {
-                    if ((buffP[buffPtrSlot] ==  HostToUSBLong( dmaStartAddr & kEHCIPageMask)) && (buffHighP[buffPtrSlot] == HostToUSBLong( dmaAddrHighBits )))
-                    {
-                        page = buffPtrSlot;
-                        USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using physical page in slot %d for transfer %d in ITD %p", this, (int)page, (int)transfer, pNewITD);
-                        break;
-                    }
-                }
-                if (buffPtrSlot >= kEHCI_ITDMaxPhysicalPages)
-                {
-                    USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - could not find the correct physical page slot for buffP 0x%x buffHighP 0x%x", this, HostToUSBLong( dmaStartAddr & kEHCIPageMask), HostToUSBLong( dmaAddrHighBits ));
-    #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-                    panic("EHCI: HS Isoch Disjoint (2)!\n");
-    #endif
-                    return kIOReturnInternalError;
-               }
-            }
-            else
+            pageOffset = dmaStartAddr & kEHCIPageOffsetMask;
+            ADJUST_SEGMENT_LENGTH(pageOffset); 
+           
+            for (buffPtrSlot=0; buffPtrSlot < kEHCI_ITDMaxPhysicalPages; buffPtrSlot++)
             {
-                // default to the beginning of the first DMA page (there should be at least one)
-                // since this is a zero length frame, nothing will be sent, but the DMA address should be valid (and unused by the HC)
-                page = 0;
-                pageOffset = 0;
+                if ((buffP[buffPtrSlot] ==  HostToUSBLong( dmaStartAddr & kEHCIPageMask)) && (buffHighP[buffPtrSlot] == HostToUSBLong( dmaAddrHighBits )))
+                {
+                    page = buffPtrSlot;
+                    USBLog(7, "AppleUSBEHCI[%p]::CreateHSIochTransfer - using physical page in slot %d for transfer %d in ITD %p", this, (int)page, (int)transfer, pNewITD);
+                    break;
+                }
             }
-                
+            if (buffPtrSlot >= kEHCI_ITDMaxPhysicalPages)
+            {
+                USBError(1, "AppleUSBEHCI[%p]::CreateHSIochTransfer - could not find the correct physical page slot for buffP 0x%x buffHighP 0x%x", this, HostToUSBLong( dmaStartAddr & kEHCIPageMask), HostToUSBLong( dmaAddrHighBits ));
+#if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
+				panic("EHCI: HS Isoch Disjoint (2)!\n");
+#endif
+                return kIOReturnInternalError;
+           }
+            
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - baseTransferIndex: %d, microFrame: %d, frameIndex: %d, interval %d", this, (uint32_t)baseTransferIndex, (uint32_t) transfer, (uint32_t)(baseTransferIndex + transfer), (uint32_t)epInterval);
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%d), pageOffset (0x%x), page (%d)", this, (uint32_t)trLen, (uint32_t)pageOffset, (uint32_t)page);
 			

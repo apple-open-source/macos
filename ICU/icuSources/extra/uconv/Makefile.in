@@ -1,6 +1,6 @@
 ## ******************************************************************************
 ## *
-## *   Copyright (C) 1999-2009, International Business Machines
+## *   Copyright (C) 1999-2012, International Business Machines
 ## *   Corporation and others.  All Rights Reserved.
 ## *
 ## *******************************************************************************
@@ -42,7 +42,7 @@ CLEANFILES = *~ $(DEPS) $(ALL_MAN_FILES)
 ## Target information
 TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
-CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
+CPPFLAGS += -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
 LIBS = $(LIBICUI18N) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
 
 ifeq ($(PKGDATA_OPTS),)
@@ -57,7 +57,7 @@ UCONVMSG_LIB=dummy
 ## Static mode
 ifeq ($(UCONVMSG_MODE),static)
 DEFS += -DUCONVMSG_LINK=$(MSGNAME)
-UCONVMSG_LIB = $(RESDIR)/$(LIBPREFIX)$(MSGNAME).$(A)
+UCONVMSG_LIB = $(RESDIR)/$(LIBPREFIX)$(STATIC_PREFIX_WHEN_USED)$(MSGNAME).$(A)
 LIBS += $(UCONVMSG_LIB)
 PKGMODE=static
 INSTALLTO=$(libdir)
@@ -147,7 +147,7 @@ $(UCONVMSG_LIB): resfiles
 endif
 
 
-package-resfiles: $(RESDIR)/$(RESDIR).lst pkgdata.inc
+package-resfiles: $(RESFILES) $(RESDIR)/$(RESDIR).lst pkgdata.inc
 	$(INVOKE) $(PKGDATA_INVOKE_OPTS) $(TOOLBINDIR)/pkgdata -p $(MSGNAME) $(PKGDATA_OPTS) -m $(PKGMODE) -s $(RESDIR) -d $(RESDIR) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 
 $(RESDIR)/$(RESDIR).lst: Makefile $(srcdir)/resfiles.mk
@@ -159,7 +159,7 @@ $(RESDIR)/$(RESDIR).lst: Makefile $(srcdir)/resfiles.mk
 
 # no install for static mode
 ifneq ($(UCONVMSG_MODE),static)
-install-resfiles: $(RESFILES)
+install-resfiles: $(RESFILES) $(RESDIR)/$(RESDIR).lst pkgdata.inc 
 	$(MKINSTALLDIRS) $(DESTDIR)$(ICUDATA_DIR)
 	$(INVOKE) $(TOOLBINDIR)/pkgdata -p $(RESDIR) -O pkgdata.inc -m $(PKGMODE) -d $(RESDIR) -I $(INSTALLTO) -T $(RESDIR) $(RESDIR)/$(RESDIR).lst
 else

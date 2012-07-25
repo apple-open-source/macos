@@ -36,7 +36,8 @@
 .Dt ATOF 3
 .Os
 .Sh NAME
-.Nm atof
+.Nm atof ,
+.Nm atof_l
 .Nd convert
 .Tn ASCII
 string to double
@@ -45,33 +46,50 @@ string to double
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft double
-.Fn atof "const char *nptr"
+.Fn atof "const char *str"
+.In xlocale.h
+.Ft double
+.Fn atof_l "const char *str" "locale_t loc"
 .Sh DESCRIPTION
 The
 .Fn atof
 function converts the initial portion of the string pointed to by
-.Fa nptr
+.Fa str
 to
 .Vt double
 representation.
 .Pp
 It is equivalent to:
 .Bd -literal -offset indent
-strtod(nptr, (char **)NULL);
+strtod(str, (char **)NULL);
 .Ed
 .Pp
 The decimal point
 character is defined in the program's locale (category
 .Dv LC_NUMERIC ) .
+.Pp
+While the
+.Fn atof
+function uses the current locale, the
+.Fn atof_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh IMPLEMENTATION NOTES
 The
 .Fn atof
-function is not thread-safe and also not async-cancel-safe.
+and
+.Fn atof_l
+functions are thread-safe and async-cancel-safe.
 .Pp
 The
 .Fn atof
-function has been deprecated by
+and
+.Fn atof_l
+functions have been deprecated by
 .Fn strtod
+and
+.Fn strtod_l
 and should not be used in new code.
 .Sh ERRORS
 The function
@@ -84,7 +102,8 @@ on an error.
 .Xr atol 3 ,
 .Xr strtod 3 ,
 .Xr strtol 3 ,
-.Xr strtoul 3
+.Xr strtoul 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn atof

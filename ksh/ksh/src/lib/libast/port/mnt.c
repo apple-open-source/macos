@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -129,24 +129,33 @@ set(register Header_t* hp, const char* fs, const char* dir, const char* type, co
 
 #undef	MNT_REMOTE
 
-#if _lib_getmntinfo && _sys_mount
+#if _sys_mount && ( _lib_getfsstat || _lib_getmntinfo )
 
 /*
- * 4.4 bsd
+ * 4.4 bsd getmntinfo
  *
  * what a crappy interface
  * data returned in static buffer -- ok
  * big chunk of allocated memory that cannot be freed -- come on
  * *and* netbsd changed the interface somewhere along the line
  * private interface? my bad -- public interface? par for the bsd course
+ *
+ * we assume getfsstat may suffer the same statfs/statvfs confusion
  */
 
 #include <sys/param.h>		/* expect some macro redefinitions here */
 #include <sys/mount.h>
 
+#if _lib_getfsstat
+#if _lib_getfsstat_statvfs
+#define statfs		statvfs
+#define f_flags		f_flag
+#endif
+#else
 #if _lib_getmntinfo_statvfs
 #define statfs		statvfs
 #define f_flags		f_flag
+#endif
 #endif
 
 typedef struct
@@ -155,6 +164,9 @@ typedef struct
 	struct statfs*	next;
 	struct statfs*	last;
 	char		opt[256];
+#if _lib_getfsstat
+	struct statfs	buf[1];
+#endif
 } Handle_t;
 
 #ifdef MFSNAMELEN
@@ -256,9 +268,21 @@ mntopen(const char* path, const char* mode)
 	register int		n;
 
 	FIXARGS(path, mode, 0);
-	if (!(mp = newof(0, Handle_t, 1, 0)))
+#if _lib_getfsstat
+	if ((n = getfsstat(NiL, 0, MNT_WAIT)) <= 0)
 		return 0;
-	if ((n = getmntinfo(&mp->next, 0)) <= 0)
+	n = (n - 1) * sizeof(struct statfs);
+#else
+	n = 0;
+#endif
+	if (!(mp = newof(0, Handle_t, 1, n)))
+		return 0;
+#if _lib_getfsstat
+	n = getfsstat(mp->next = mp->buf, n + sizeof(struct statfs), MNT_WAIT);
+#else
+	n = getmntinfo(&mp->next, 0);
+#endif
+	if (n <= 0)
 	{
 		free(mp);
 		return 0;
@@ -678,7 +702,7 @@ mntread(void* handle)
 
 			static char	typ[32];
 
-			set(&mp->hdr, mp->mnt->mnt_fsname, mp->mnt->mnt_dir, stat(mp->mnt->mnt_dir, &st) ? FS_default : strncpy(typ, fmtfs(&st), sizeof(typ) - 1), OPTIONS(mp->mnt));
+			set(&mp->hdr, mp->mnt->mnt_fsname, mp->mnt->mnt_dir, stat(mp->mnt->mnt_dir, &st) ? FS_default : strlcpy(typ, fmtfs(&st), sizeof(typ)), OPTIONS(mp->mnt));
 #else
 			set(&mp->hdr, mp->mnt->mnt_fsname, mp->mnt->mnt_dir, mp->mnt->mnt_type, OPTIONS(mp->mnt));
 #endif

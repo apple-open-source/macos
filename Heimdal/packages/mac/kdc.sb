@@ -12,11 +12,19 @@
 (deny default)
 
 (import "com.apple.corefoundation.sb")
+(import "system.sb")
+(import "opendirectory.sb")
  
 (corefoundation)
 
 (allow file-ioctl
        (literal "/dev/dtracehelper"))
+
+;; This is needed for realpath on system keychain
+(allow file-read-metadata
+       (literal "/private")
+       (literal "/private/var")
+       (literal "/private/var/db"))
 
 (allow file-read*
        (literal "/")
@@ -26,6 +34,7 @@
        (literal "/Library/Security/Trust Settings/Admin.plist")
        (literal "/Library/Preferences/edu.mit.Kerberos")
        (literal "/Library/Preferences/com.apple.Kerberos.plist")
+       (regex #"^/Library/Preferences/com\.apple\.GSS\.")
        (literal "/Library/Preferences/com.apple.security.plist")
        (literal "/Library/Preferences/SystemConfiguration/preferences.plist")
        (literal "/dev/dtracehelper")
@@ -39,9 +48,9 @@
        (literal "/private/etc/localtime")
        (subpath "/private/var/db/krb5kdc")
        (subpath "/private/var/db/mds")
-       (subpath "/System")
-       (subpath "/usr/lib")
-       (subpath "/usr/share"))
+       (subpath "/System/Library/KerberosPlugins")
+       (subpath "/Library/KerberosPlugins")
+       (subpath "/Library/Frameworks"))
 
 (allow file-write*
        (literal "/dev/random")
@@ -56,15 +65,14 @@
 (allow ipc-posix-shm)
 
 (allow mach-lookup
-       (global-name "com.apple.TrustEvaluationAgent")
-       (global-name "com.apple.system.opendirectoryd.api")
-       (global-name "com.apple.SecurityServer")
-       (global-name "com.apple.ocspd")
-       (global-name "com.apple.SystemConfiguration.configd")
-       (global-name "com.apple.system.DirectoryService.libinfo_v1")
-       (global-name "com.apple.system.DirectoryService.membership_v1")
-       (global-name "com.apple.system.logger")
-       (global-name "com.apple.system.notification_center"))
+	(global-name "com.apple.CoreServices.coreservicesd")
+	(global-name "com.apple.SecurityServer")
+	(global-name "com.apple.SystemConfiguration.SCNetworkReachability")
+	(global-name "com.apple.SystemConfiguration.configd")
+	(global-name "com.apple.TrustEvaluationAgent")
+	(global-name "com.apple.ocspd")
+	(global-name "com.apple.system.logger")
+	(global-name "com.apple.system.notification_center"))
 
 (allow network-inbound
        (local tcp "*:88")
@@ -72,6 +80,7 @@
 
 (allow network-outbound
        (literal "/private/var/run/mDNSResponder")
+       (literal "/private/var/rpc/ncalrpc/NETLOGON")
        (remote udp)
        (remote tcp))
 
@@ -80,7 +89,6 @@
 
 (allow sysctl-read)
 
-
 ;;
 ;; Make more kdc quiet in syslog
 ;;
@@ -88,4 +96,3 @@
 (deny file*
       (subpath "/private/var/root")
       (with no-log))
-

@@ -27,6 +27,7 @@
 #define CachedFont_h
 
 #include "CachedResource.h"
+#include "CachedResourceClient.h"
 #include "FontOrientation.h"
 #include "FontRenderingMode.h"
 #include "FontWidthVariant.h"
@@ -34,7 +35,6 @@
 
 namespace WebCore {
 
-class CachedResourceClient;
 class CachedResourceLoader;
 class FontPlatformData;
 class SVGDocument;
@@ -46,10 +46,10 @@ struct FontCustomPlatformData;
 
 class CachedFont : public CachedResource {
 public:
-    CachedFont(const String& url);
+    CachedFont(const ResourceRequest&);
     virtual ~CachedFont();
     
-    virtual void load(CachedResourceLoader* cachedResourceLoader);
+    virtual void load(CachedResourceLoader*, const ResourceLoaderOptions&);
 
     virtual void didAddClient(CachedResourceClient*);
     virtual void data(PassRefPtr<SharedBuffer> data, bool allDataReceived);
@@ -60,6 +60,7 @@ public:
     void checkNotify();
 
     void beginLoadIfNeeded(CachedResourceLoader* dl);
+    bool stillNeedsLoad() const { return !m_loadInitiated; }
 
     bool ensureCustomFontData();
     FontPlatformData platformDataFromCustomData(float size, bool bold, bool italic, FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth, FontRenderingMode = NormalRenderingMode);
@@ -78,6 +79,14 @@ private:
 #endif
 
     friend class MemoryCache;
+};
+
+class CachedFontClient : public CachedResourceClient {
+public:
+    virtual ~CachedFontClient() { }
+    static CachedResourceClientType expectedType() { return FontType; }
+    virtual CachedResourceClientType resourceClientType() { return expectedType(); }
+    virtual void fontLoaded(CachedFont*) { }
 };
 
 }

@@ -74,13 +74,13 @@ bool IOBSDConsole::publishNotificationHandler(
     if( ref) {
         audio = OSDynamicCast(IOService, newService->metaCast("IOAudioStream"));
         if (audio != 0) {
-            OSNumber *out;
-            out = OSDynamicCast(OSNumber, newService->getProperty("Out"));
-            if (out) {
+            OSNumber *out = newService->copyProperty("Out");
+            if (OSDynamicCast(OSNumber, out)) {
                 if (out->unsigned8BitValue() == 1) {
                     self->fAudioOut = newService;
                 }
             }
+            OSSafeReleaseNULL(out);
         }
     } else {
 	audio = 0;

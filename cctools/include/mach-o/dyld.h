@@ -239,7 +239,7 @@ extern long NSVersionOfLinkTimeLibrary(
     const char *libraryName);
 extern int _NSGetExecutablePath( /* SPI first appeared in Mac OS X 10.2 */
     char *buf,
-    unsigned long *bufsize);
+    uint32_t *bufsize);
 
 /*
  * The low level _dyld_... API.

@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	exit(1);
     }
 
-    ret = FSPathMakeRef(system, &ref, NULL);
+    ret = FSPathMakeRef((UInt8*)system, &ref, NULL);
     if(ret != noErr) {
 	err(1, "Something bad happened with FSPathMakeRef");
     }

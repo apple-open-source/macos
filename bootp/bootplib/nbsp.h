@@ -51,4 +51,4 @@ void		NBSPList_print(NBSPListRef list);
 void		NBSPList_free(NBSPListRef * list);
 NBSPListRef	NBSPList_init(const char * symlink_name, bool readonly_ok);
 
-#endif _S_NBSP_H
+#endif /* _S_NBSP_H */

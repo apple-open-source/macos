@@ -40,7 +40,9 @@ messages -> WebProcess {
     SetDomainRelaxationForbiddenForURLScheme(WTF::String scheme)
     SetDefaultRequestTimeoutInterval(double timeoutInterval)
     SetAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
-    LanguageChanged(WTF::String language)
+    SetShouldUseFontSmoothing(bool useFontSmoothing)
+    UserPreferredLanguagesChanged(Vector<WTF::String> languages)
+    FullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
 #if PLATFORM(WIN)
     SetShouldPaintNativeControls(bool shouldPaintNativeControls)
 #endif
@@ -51,6 +53,8 @@ messages -> WebProcess {
     GetSitesWithPluginData(Vector<WTF::String> pluginPaths, uint64_t callbackID)
     ClearPluginSiteData(Vector<WTF::String> pluginPaths, Vector<WTF::String> sites, uint64_t flags, uint64_t maxAgeInSeconds, uint64_t callbackID)
 #endif
+
+    DidGetPlugins(uint64_t requestID, Vector<WebCore::PluginInfo> plugins) DispatchOnConnectionQueue
 
 #if ENABLE(PLUGIN_PROCESS)
     PluginProcessCrashed(String pluginProcess) DispatchOnConnectionQueue
@@ -63,6 +67,9 @@ messages -> WebProcess {
     # two messages.
     DownloadRequest(uint64_t downloadID, uint64_t initiatingPageID, WebCore::ResourceRequest request)
     CancelDownload(uint64_t downloadID)
+#if PLATFORM(QT)
+    StartTransfer(uint64_t downloadID, WTF::String destination)
+#endif
 
     SetTextCheckerState(WebKit::TextCheckerState textCheckerState)
 
@@ -70,4 +77,9 @@ messages -> WebProcess {
 
     GetWebCoreStatistics(uint64_t callbackID)
     GarbageCollectJavaScriptObjects()
+
+#if PLATFORM(MAC)
+    SecItemResponse(uint64_t requestID, WebKit::SecItemResponseData response) DispatchOnConnectionQueue
+    SecKeychainItemResponse(uint64_t requestID, WebKit::SecKeychainItemResponseData response) DispatchOnConnectionQueue
+#endif
 }

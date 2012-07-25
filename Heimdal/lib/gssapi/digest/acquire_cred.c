@@ -121,24 +121,35 @@ _gss_scram_acquire_cred(OM_uint32 * min_stat,
 }
 
 OM_uint32
-_gss_scram_acquire_cred_ex(gss_status_id_t status,
-			   const gss_name_t desired_name,
-			   OM_uint32 flags,
-			   OM_uint32 time_req,
-			   gss_cred_usage_t cred_usage,
-			   gss_auth_identity_t identity,
-			   void *ctx,
-			   void (*complete)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, OM_uint32))
+_gss_scram_acquire_cred_ext(OM_uint32 * minor_status,
+			    const gss_name_t desired_name,
+			    gss_const_OID credential_type,
+			    const void *credential_data,
+			    OM_uint32 time_req,
+			    gss_const_OID desired_mech,
+			    gss_cred_usage_t cred_usage,
+			    gss_cred_id_t * output_cred_handle)
 {
+    char *name = (char *) desired_name;
     krb5_storage *request, *response;
+    gss_buffer_t credential_buffer;
     krb5_data response_data;
     krb5_context context;
     krb5_error_code ret;
+    char *password;
     char *cred;
+
+    *output_cred_handle = GSS_C_NO_CREDENTIAL;
 
     krb5_data_zero(&response_data);
 
-    if (identity == NULL)
+    if (!gss_oid_equal(credential_type, GSS_C_CRED_PASSWORD))
+	return GSS_S_FAILURE;
+
+    if (name == NULL)
+	return GSS_S_FAILURE;
+
+    if (credential_data == NULL)
 	return GSS_S_FAILURE;
 	
     ret = krb5_init_context(&context);
@@ -149,10 +160,22 @@ _gss_scram_acquire_cred_ex(gss_status_id_t status,
     if (ret)
 	goto fail;
 	
-    ret = krb5_store_stringz(request, identity->username);
+    ret = krb5_store_stringz(request, name);
     if (ret)
 	goto fail;
-    ret = krb5_store_stringz(request, identity->password);
+
+    credential_buffer = (gss_buffer_t)credential_data;
+    password = malloc(credential_buffer->length + 1);
+    if (password == NULL) {
+	ret = ENOMEM;
+	goto fail;
+    }
+    memcpy(password, credential_buffer->value, credential_buffer->length);
+    password[credential_buffer->length] = '\0';
+
+    ret = krb5_store_stringz(request, password);
+    memset(password, 0, strlen(password));
+    free(password);
     if (ret)
 	goto fail;
     
@@ -162,9 +185,9 @@ _gss_scram_acquire_cred_ex(gss_status_id_t status,
     
     request = NULL;
 
-    asprintf(&cred, "%s", identity->username);
+    cred = strdup(name);
 
-    complete(ctx, GSS_S_COMPLETE, status, (gss_cred_id_t)cred, GSS_C_INDEFINITE);
+    *output_cred_handle = (gss_cred_id_t)cred;
 
     if (response)
 	krb5_storage_free(response);

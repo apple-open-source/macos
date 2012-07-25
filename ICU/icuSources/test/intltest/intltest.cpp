@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -92,7 +92,7 @@ Int64ToUnicodeString(int64_t num)
     char buffer[64];    // nos changed from 10 to 64
     char danger = 'p';  // guard against overrunning the buffer (rtg)
 
-#ifdef U_WINDOWS
+#if defined(_MSC_VER)
     sprintf(buffer, "%I64d", num);
 #else
     sprintf(buffer, "%lld", (long long)num);
@@ -1752,10 +1752,11 @@ UBool IntlTest::assertEquals(const UnicodeString& message,
 //             release
 //--------------------------------------------------------------------
 
-UBool IntlTest::isICUVersionAtLeast(const UVersionInfo x) {
-    UVersionInfo v;
-    u_getVersion(v);
-    return (uprv_memcmp(v, x, U_MAX_VERSION_LENGTH) >= 0);
+UBool IntlTest::isICUVersionBefore(int major, int minor, int milli) {
+    UVersionInfo iv;
+    UVersionInfo ov = { (uint8_t)major, (uint8_t)minor, (uint8_t)milli, 0 };
+    u_getVersion(iv);
+    return uprv_memcmp(iv, ov, U_MAX_VERSION_LENGTH) < 0;
 }
 
 #if !UCONFIG_NO_FORMATTING

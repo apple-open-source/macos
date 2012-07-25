@@ -60,8 +60,14 @@ public:
     // All the update rects, in view coordinates.
     Vector<WebCore::IntRect> updateRects;
 
+    // The page scale factor used to render this update.
+    float updateScaleFactor;
+
     // The handle of the shareable bitmap containing the updates. Will be null if there are no updates.
     ShareableBitmap::Handle bitmapHandle;
+
+    // The offset in the bitmap where the rendered contents are.
+    WebCore::IntPoint bitmapOffset;
 };
 
 } // namespace WebKit

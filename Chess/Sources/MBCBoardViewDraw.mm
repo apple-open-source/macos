@@ -1,11 +1,54 @@
 /*
 	File:		MBCBoardViewDraw.mm
 	Contains:	Draw chess board
-	Version:	1.0
-	Copyright:	© 2002-2012 by Apple Computer, Inc., all rights reserved.
+	Copyright:	� 2002-2012 by Apple Inc., all rights reserved.
+	
+	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
+	Permission granted to Apple to relicense under the following terms:
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCBoardViewDraw.h"
+#import "MBCBoardViewModels.h"
+#import "MBCBoardViewTextures.h"
 
 #import <math.h>
 #import <OpenGL/glu.h>
@@ -63,31 +106,11 @@ using std::min;
 
 - (void) setupPerspective
 {
-	NSRect bounds = [self convertRectToBacking:[self bounds]];
-	fIsFloating			= ![[self window] styleMask];
-	if (!fIsFloating) {
-		//
-		// Regular window, draw background (grey in window, black in full screen)
-		//
-		const float		kAspect					= bounds.size.width / bounds.size.height;
-		const float		kScreenAspect			= 4.0 / 3.0;
-		const float		kDefaultAspect			= 740.0 / 680.0;
-		const float		kWindowBrightness		= 0.6f;
-		const float		kFullScreenBrightness	= 0.0f;
-		float			kBrightness				= std::max(kWindowBrightness +
-			((kAspect-kDefaultAspect) / (kScreenAspect-kDefaultAspect))
-		  * (kFullScreenBrightness-kWindowBrightness), kFullScreenBrightness);
-
-		glClearColor(kBrightness, kBrightness, kBrightness, 1.0);
-	} else {
-		//
-		// Floating window, transparent background
-		//
-		GLint opaque = NO;
-		[[self openGLContext] setValues:&opaque 
+    NSRect bounds             = [self convertRectToBacking:[self bounds]];
+    GLint opaque = NO;
+    [[self openGLContext] setValues:&opaque 
 							  forParameter:NSOpenGLCPSurfaceOpacity];
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	}
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 	/* Stuff you can't do without */
 	glEnable(GL_DEPTH_TEST);
@@ -106,11 +129,14 @@ using std::min;
 
 	glDisable(GL_FOG);
 
-	const float kDistance 		= 300.0f;
-	const float kBoardSize 		= fVariant==kVarCrazyhouse ? 55.0f : 50.0f;
-	const float kDeg2Rad  		= M_PI / 180.0f;
-	const float kRad2Deg		= 180.0f / M_PI;
-	const float kAngleOfView	= 2.0f * atan2(kBoardSize, kDistance) * kRad2Deg;
+    const float w               = bounds.size.width;
+    const float h               = bounds.size.height*1.1f*(fVariant==kVarCrazyhouse ? 1.15f : 1.0f);
+    const float kAspect         = std::max(1.0f, h / w);
+    const float kDistance       = 300.0f;
+    const float kBoardSize      = kAspect*50.0f;
+    const float kDeg2Rad        = M_PI / 180.0f;
+    const float kRad2Deg        = 180.0f / M_PI;
+    const float kAngleOfView    = 2.0f * atan2(kBoardSize, kDistance) * kRad2Deg;
 
 	glViewport(0, 0, (GLsizei)(bounds.size.width), (GLsizei)(bounds.size.height));
 
@@ -119,7 +145,7 @@ using std::min;
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 
-    gluPerspective(kAngleOfView, bounds.size.width / bounds.size.height, 
+    gluPerspective(kAngleOfView, bounds.size.width/bounds.size.height, 
 				   10.0, 1000.0); 
 
 	glMatrixMode(GL_TEXTURE);
@@ -356,7 +382,7 @@ using std::min;
 	glDisable(GL_LIGHTING);
 
 	const float kSize	= 3.5f;
-	const float kNHOff	= 1.00f;
+	const float kNHOff	= 1.25f;
 	const float kNVOff	= 3.25f;
 	const float kLHOff	= 3.25f;
 	const float kLVOff	= 1.00f;
@@ -609,11 +635,11 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 - (void) drawPiecesInHand
 {
 	const float kLabelX 	=  42.0f;
-	const float kLabelSize	=  4.0f;
+	const float kLabelSize	=  3.0f;
 	const float	kLabelLeft	=  kLabelX;
 	const float kLabelRight	=  kLabelX+kLabelSize;
 	const float kSpacing	=  kInHandPieceSize;
-	const float kLabelZ		=  4.0f;
+	const float kLabelZ		=  6.0f;
 	const float kPieceX		=  kInHandPieceX;
 	const float kPieceZ		=  kInHandPieceZOffset+kInHandPieceSize/2.0f;
 	const float kScale		=  0.95f;
@@ -972,14 +998,39 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	glPopAttrib();
 }
 
+- (void) update
+{
+	[super update];
+	if (![[self openGLContext] view]) {
+		//
+		//     Fall back to a less memory hungry format.
+		//
+		[self pickPixelFormat:YES];
+		fNeedPerspective = true;
+	}
+}
+
 /* Draw the scene for a game */
 - (void) drawPosition
 {
+	if (![[self openGLContext] view]) {
+		//
+		//     Fall back to a less memory hungry format.
+		//
+		[self pickPixelFormat:YES];
+		fNeedPerspective = true;
+	}
+
 	if (fIsFloating) {
 		[[NSColor clearColor] set];
 		NSRectFill([self bounds]);
 	}
 
+	if (fNeedStaticModels) {
+		fNeedStaticModels = false;
+		[self loadColors];
+		[self generateModelLists];
+	}
 	if (fNeedPerspective)
 		[self setupPerspective];
 
@@ -1066,13 +1117,12 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	glDisable(GL_BLEND);
 
 	/* Draw the pieces */
+    if (fVariant == kVarCrazyhouse)
+		[self drawPiecesInHand];
 	[self drawPieces:NO];
 
 	if (fSelectedPiece) 
 		[self drawSelectedPiece:NO];
-
-	if (fVariant == kVarCrazyhouse)
-		[self drawPiecesInHand];
 
 	[self drawPromotionPiece];
 

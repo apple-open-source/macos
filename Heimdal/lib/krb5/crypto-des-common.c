@@ -42,26 +42,27 @@
 void
 _krb5_xor (unsigned char *key, const unsigned char *b)
 {
-    key[0] ^= b[0];
-    key[1] ^= b[1];
-    key[2] ^= b[2];
-    key[3] ^= b[3];
-    key[4] ^= b[4];
-    key[5] ^= b[5];
-    key[6] ^= b[6];
-    key[7] ^= b[7];
+    unsigned char *a = (unsigned char*)key;
+    a[0] ^= b[0];
+    a[1] ^= b[1];
+    a[2] ^= b[2];
+    a[3] ^= b[3];
+    a[4] ^= b[4];
+    a[5] ^= b[5];
+    a[6] ^= b[6];
+    a[7] ^= b[7];
 }
 
-#if defined(DES3_OLD_ENCTYPE) || defined(HEIM_KRB5_DES) || defined(HEIM_KRB5_DES3)
+#if defined(DES3_OLD_ENCTYPE) || defined(HEIM_WEAK_CRYPTO)
 krb5_error_code
 _krb5_des_checksum(krb5_context context,
 		   CCDigestAlg alg,
-		   struct key_data *key,
+		   struct _krb5_key_data *key,
 		   const void *data,
 		   size_t len,
 		   Checksum *cksum)
 {
-    struct evp_schedule *ctx = key->schedule->data;
+    struct _krb5_evp_schedule *ctx = key->schedule->data;
     CCDigestRef m;
     unsigned char ivec[8];
     unsigned char *p = cksum->checksum.data;
@@ -88,12 +89,12 @@ _krb5_des_checksum(krb5_context context,
 krb5_error_code
 _krb5_des_verify(krb5_context context,
 		 CCDigestAlg alg,
-		 struct key_data *key,
+		 struct _krb5_key_data *key,
 		 const void *data,
 		 size_t len,
 		 Checksum *C)
 {
-    struct evp_schedule *ctx = key->schedule->data;
+    struct _krb5_evp_schedule *ctx = key->schedule->data;
     CCDigestRef m;
     unsigned char tmp[24];
     unsigned char res[16];
@@ -127,7 +128,7 @@ _krb5_des_verify(krb5_context context,
 
 static krb5_error_code
 RSA_MD5_checksum(krb5_context context,
-		 struct key_data *key,
+		 struct _krb5_key_data *key,
 		 const void *data,
 		 size_t len,
 		 unsigned usage,
@@ -138,7 +139,7 @@ RSA_MD5_checksum(krb5_context context,
     return 0;
 }
 
-struct checksum_type _krb5_checksum_rsa_md5 = {
+struct _krb5_checksum_type _krb5_checksum_rsa_md5 = {
     CKSUMTYPE_RSA_MD5,
     "rsa-md5",
     64,

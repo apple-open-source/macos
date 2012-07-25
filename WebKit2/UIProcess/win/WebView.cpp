@@ -26,17 +26,13 @@
 #include "config.h"
 #include "WebView.h"
 
-#include "ChunkedUpdateDrawingAreaProxy.h"
 #include "DrawingAreaProxyImpl.h"
 #include "FindIndicator.h"
 #include "Logging.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
-#include "Region.h"
-#include "RunLoop.h"
 #include "WKAPICast.h"
-#include "WKCACFViewWindow.h"
 #include "WebContext.h"
 #include "WebContextMenuProxyWin.h"
 #include "WebEditCommandProxy.h"
@@ -46,17 +42,25 @@
 #include <Commctrl.h>
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/Cursor.h>
+#include <WebCore/DragSession.h>
+#include <WebCore/Editor.h>
+#include <WebCore/FileSystem.h>
 #include <WebCore/FloatRect.h>
-#if USE(CG)
-#include <WebCore/GraphicsContextCG.h>
-#endif
+#include <WebCore/HWndDC.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/Region.h>
+#include <WebCore/RunLoop.h>
 #include <WebCore/SoftLinking.h>
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <WebCore/WindowMessageBroadcaster.h>
 #include <WebCore/WindowsTouch.h>
 #include <wtf/text/WTFString.h>
+
+#if USE(CG)
+#include "WKCACFViewWindow.h"
+#include <WebCore/GraphicsContextCG.h>
+#endif
 
 #if ENABLE(FULLSCREEN_API)
 #include "WebFullScreenManagerProxy.h"
@@ -103,13 +107,6 @@ static const int kMaxToolTipWidth = 250;
 enum {
     UpdateActiveStateTimer = 1,
 };
-
-static bool useNewDrawingArea()
-{
-    // FIXME: Remove this function and the old drawing area code once we aren't interested in
-    // testing the old drawing area anymore.
-    return true;
-}
 
 LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -288,7 +285,7 @@ WebView::WebView(RECT rect, WebContext* context, WebPageGroup* pageGroup, HWND p
     , m_gestureReachedScrollingLimit(false)
 #if USE(ACCELERATED_COMPOSITING)
     , m_layerHostWindow(0)
-#endif 
+#endif
 {
     registerWebViewWindowClass();
 
@@ -651,27 +648,20 @@ static void drawPageBackground(HDC dc, const WebPageProxy* page, const RECT& rec
 void WebView::paint(HDC hdc, const IntRect& dirtyRect)
 {
     m_page->endPrinting();
-    if (useNewDrawingArea()) {
-        if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(m_page->drawingArea())) {
-            // FIXME: We should port WebKit1's rect coalescing logic here.
-            Region unpaintedRegion;
-            drawingArea->paint(hdc, dirtyRect, unpaintedRegion);
+    if (DrawingAreaProxyImpl* drawingArea = static_cast<DrawingAreaProxyImpl*>(m_page->drawingArea())) {
+        // FIXME: We should port WebKit1's rect coalescing logic here.
+        Region unpaintedRegion;
+        drawingArea->paint(hdc, dirtyRect, unpaintedRegion);
 
-            Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
-            for (size_t i = 0; i < unpaintedRects.size(); ++i) {
-                RECT winRect = unpaintedRects[i];
-                drawPageBackground(hdc, m_page.get(), unpaintedRects[i]);
-            }
-        } else
-            drawPageBackground(hdc, m_page.get(), dirtyRect);
+        Vector<IntRect> unpaintedRects = unpaintedRegion.rects();
+        for (size_t i = 0; i < unpaintedRects.size(); ++i) {
+            RECT winRect = unpaintedRects[i];
+            drawPageBackground(hdc, m_page.get(), unpaintedRects[i]);
+        }
+    } else
+        drawPageBackground(hdc, m_page.get(), dirtyRect);
 
-        m_page->didDraw();
-    } else {
-        if (m_page->isValid() && m_page->drawingArea() && m_page->drawingArea()->paint(dirtyRect, hdc))
-            m_page->didDraw();
-        else
-            drawPageBackground(hdc, m_page.get(), dirtyRect);
-    }
+    m_page->didDraw();
 }
 
 static void flashRects(HDC dc, const IntRect rects[], size_t rectCount, HBRUSH brush)
@@ -752,7 +742,7 @@ LRESULT WebView::onSizeEvent(HWND, UINT, WPARAM, LPARAM lParam, bool& handled)
 #if USE(ACCELERATED_COMPOSITING)
     if (m_layerHostWindow)
         ::MoveWindow(m_layerHostWindow, 0, 0, width, height, FALSE);
-#endif 
+#endif
 
     handled = true;
     return 0;
@@ -947,10 +937,7 @@ void WebView::close()
 
 PassOwnPtr<DrawingAreaProxy> WebView::createDrawingAreaProxy()
 {
-    if (useNewDrawingArea())
-        return DrawingAreaProxyImpl::create(m_page.get());
-
-    return ChunkedUpdateDrawingAreaProxy::create(this, m_page.get());
+    return DrawingAreaProxyImpl::create(m_page.get());
 }
 
 void WebView::setViewNeedsDisplay(const WebCore::IntRect& rect)
@@ -973,9 +960,8 @@ void WebView::scrollView(const IntRect& scrollRect, const IntSize& scrollOffset)
 void WebView::flashBackingStoreUpdates(const Vector<IntRect>& updateRects)
 {
     static HBRUSH brush = createBrush(WebPageProxy::backingStoreUpdatesFlashColor().rgb()).leakPtr();
-    HDC dc = ::GetDC(m_window);
+    HWndDC dc(m_window);
     flashRects(dc, updateRects.data(), updateRects.size(), brush);
-    ::ReleaseDC(m_window, dc);
 }
 
 WebCore::IntSize WebView::viewSize()
@@ -1083,9 +1069,9 @@ void WebView::setOverrideCursor(HCURSOR overrideCursor)
     updateNativeCursor();
 }
 
-void WebView::setInitialFocus(bool forward)
+void WebView::setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent& event)
 {
-    m_page->setInitialFocus(forward);
+    m_page->setInitialFocus(forward, isKeyboardEventValid, event);
 }
 
 void WebView::setScrollOffsetOnNextResize(const IntSize& scrollOffset)
@@ -1094,7 +1080,7 @@ void WebView::setScrollOffsetOnNextResize(const IntSize& scrollOffset)
     m_nextResizeScrollOffset = scrollOffset;
 }
 
-void WebView::setViewportArguments(const WebCore::ViewportArguments&)
+void WebView::didChangeViewportProperties(const WebCore::ViewportAttributes&)
 {
 }
 
@@ -1578,6 +1564,9 @@ void WebView::exitAcceleratedCompositingMode()
 #endif
 }
 
+void WebView::updateAcceleratedCompositingMode(const LayerTreeContext&)
+{
+}
 #endif // USE(ACCELERATED_COMPOSITING)
 
 HWND WebView::nativeWindow()
@@ -1658,7 +1647,7 @@ WebCore::DragOperation WebView::keyStateToDragOperation(DWORD grfKeyState) const
     // IDropTarget::DragOver. Note, grfKeyState is the current 
     // state of the keyboard modifier keys on the keyboard. See:
     // <http://msdn.microsoft.com/en-us/library/ms680129(VS.85).aspx>.
-    DragOperation operation = m_page->dragOperation();
+    DragOperation operation = m_page->dragSession().operation;
 
     if ((grfKeyState & (MK_CONTROL | MK_SHIFT)) == (MK_CONTROL | MK_SHIFT))
         operation = DragOperationLink;
@@ -1682,7 +1671,7 @@ HRESULT STDMETHODCALLTYPE WebView::DragEnter(IDataObject* pDataObject, DWORD grf
     ::ScreenToClient(m_window, (LPPOINT)&localpt);
     DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
     m_page->dragEntered(&data);
-    *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
+    *pdwEffect = dragOperationToDragCursor(m_page->dragSession().operation);
 
     m_lastDropEffect = *pdwEffect;
     m_dragData = pDataObject;
@@ -1700,7 +1689,7 @@ HRESULT STDMETHODCALLTYPE WebView::DragOver(DWORD grfKeyState, POINTL pt, DWORD*
         ::ScreenToClient(m_window, (LPPOINT)&localpt);
         DragData data(m_dragData.get(), IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
         m_page->dragUpdated(&data);
-        *pdwEffect = dragOperationToDragCursor(m_page->dragOperation());
+        *pdwEffect = dragOperationToDragCursor(m_page->dragSession().operation);
     } else
         *pdwEffect = DROPEFFECT_NONE;
 
@@ -1722,6 +1711,18 @@ HRESULT STDMETHODCALLTYPE WebView::DragLeave()
     return S_OK;
 }
 
+static bool maybeCreateSandboxExtensionFromDragData(const DragData& dragData, SandboxExtension::Handle& sandboxExtensionHandle)
+{
+    if (!dragData.containsFiles())
+        return false;
+
+    // Unlike on Mac, we allow multiple files and directories, since on Windows
+    // we have actions for those (open the first file, open a Windows Explorer window).
+
+    SandboxExtension::createHandle("\\", SandboxExtension::ReadOnly, sandboxExtensionHandle);
+    return true;
+}
+
 HRESULT STDMETHODCALLTYPE WebView::Drop(IDataObject* pDataObject, DWORD grfKeyState, POINTL pt, DWORD* pdwEffect)
 {
     if (m_dropTargetHelper)
@@ -1734,7 +1735,11 @@ HRESULT STDMETHODCALLTYPE WebView::Drop(IDataObject* pDataObject, DWORD grfKeySt
     DragData data(pDataObject, IntPoint(localpt.x, localpt.y), IntPoint(pt.x, pt.y), keyStateToDragOperation(grfKeyState));
 
     SandboxExtension::Handle sandboxExtensionHandle;
-    m_page->performDrag(&data, String(), sandboxExtensionHandle);
+    bool createdExtension = maybeCreateSandboxExtensionFromDragData(data, sandboxExtensionHandle);
+    if (createdExtension)
+        m_page->process()->willAcquireUniversalFileReadSandboxExtension();
+    SandboxExtension::HandleArray sandboxExtensionForUpload;
+    m_page->performDrag(&data, String(), sandboxExtensionHandle, sandboxExtensionForUpload);
     return S_OK;
 }
 

@@ -1,8 +1,46 @@
 /*
 	File:		MBCBoardViewMouse.mm
 	Contains:	Handle mouse coordinate transformations
-	Version:	1.0
 	Copyright:	© 2002-2012 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCBoardViewMouse.h"
@@ -10,6 +48,8 @@
 #import "MBCInteractivePlayer.h"
 #import "MBCController.h"
 #import "MBCEngine.h"
+#import "MBCBoardWin.h"
+#import "MBCDebug.h"
 
 #import <OpenGL/glu.h>
 
@@ -17,9 +57,6 @@
 
 using std::min;
 using std::max;
-
-extern NSString * kMBCBoardAngle;
-extern NSString * kMBCBoardSpin;
 
 //
 // We're doing a lot of Projects and UnProjects. 
@@ -85,6 +122,10 @@ MBCPosition MBCUnProjector::UnProject()
 	pos[1] = wv[1];
 	pos[2] = wv[2];
 
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "Mouse (%.0f,%.0f) @ %5.3f -> (%4.1f,%4.1f,%4.1f)\n", 
+                fWinX, fWinY, z, pos[0], pos[1], pos[2]);
+
 	return pos;
 }
 
@@ -102,6 +143,9 @@ MBCPosition MBCUnProjector::UnProject(GLfloat knownY)
 	pos[0] = p1[0]+(p0[0]-p1[0])*yint;
 	pos[1] = knownY;
 	pos[2] = p1[2]+(p0[2]-p1[2])*yint;
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "Mouse (%.0f,%.0f) [%5.3f] -> (%4.1f,%4.1f,%4.1f)\n", 
+                fWinX, fWinY, knownY, pos[0], pos[1], pos[2]);
 
 	return pos;
 }
@@ -160,10 +204,20 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 - (MBCPosition) mouseToPosition:(NSPoint)mouse
 {
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "[%.0f,%.0f] ", mouse.x, mouse.y);
     mouse = [self convertPointToBacking:mouse];
 	MBCUnProjector	unproj(mouse.x, mouse.y);
 	
 	return unproj.UnProject();
+}
+
+- (MBCPosition) mouseToPositionIgnoringY:(NSPoint)mouse
+{
+    mouse = [self convertPointToBacking:mouse];
+	MBCUnProjector	unproj(mouse.x, mouse.y);
+	
+	return unproj.UnProject(0.0f);
 }
 
 - (MBCPosition) eventToPosition:(NSEvent *)event
@@ -176,8 +230,28 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	return [self mouseToPosition:l];
 }
 
+- (void) mouseEntered:(NSEvent *)theEvent
+{
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "mouseEntered\n");
+    
+	[[self window] setAcceptsMouseMovedEvents:YES];
+    [[self window] makeFirstResponder:self];    
+}
+
+- (void)mouseExited:(NSEvent *)theEvent 
+{
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "mouseExited\n");
+    
+    [[self window] setAcceptsMouseMovedEvents:NO];
+}
+
 - (void) mouseMoved:(NSEvent *)event
 {
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "mouseMoved\n");
+    
 	MBCPosition 	pos 	= [self eventToPosition:event];
 	float 			pxa		= fabs(pos[0]);
 	float			pza		= fabs(pos[2]);
@@ -192,6 +266,9 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 - (void) mouseDown:(NSEvent *)event
 {
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "mouseDown\n");
+    
 	MBCSquare previouslyPicked = fPickedSquare;
 
     NSPoint p = [event locationInWindow];
@@ -221,8 +298,20 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		[NSEvent startPeriodicEventsAfterDelay: 0.008f withPeriod: 0.008f];
 		break;
 	default:
-		if (!fWantMouse || fInAnimation || pos[1] < 0.1)
-			return;
+        if (!fWantMouse || fInAnimation || pos[1] < 0.1)
+            return;
+        if (fSelectedDest == fPickedSquare) {
+            //
+            // When trying to move a large piece by clicking the destination, the piece
+            // sometimes can hide the destination. We try again by ignoring y.
+            //
+            MBCPosition altPos  = [self mouseToPositionIgnoringY:l];
+            MBCSquare   altDest = [self positionToSquareOrRegion:&altPos];
+            if (altDest < kSyntheticSquare) {
+                pos             = altPos;
+                fSelectedDest   = altDest;
+            }
+        }
 		//
 		// Let interactive player decide whether we hit one of their pieces
 		//
@@ -234,10 +323,6 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	pos[1]		    	= 0.0f;
 	gettimeofday(&fLastRedraw, NULL);
 	fLastSelectedPos	= pos;
-	//
-	// For better interactivity, we stop the engine while a drag is in progress
-	//
-	[[fController engine] interruptEngine];
 	[self drawNow];
 	
 	NSDate * whenever = [NSDate distantFuture];
@@ -254,9 +339,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 			break;
 		case NSLeftMouseUp: {
 			[self dragAndRedraw:event forceRedraw:YES];
-			NSUserDefaults * defaults 	= [NSUserDefaults standardUserDefaults];
-			[defaults setFloat:fElevation forKey:kMBCBoardAngle];
-			[defaults setFloat:fAzimuth 	 forKey:kMBCBoardSpin];
+            [fController setAngle:fElevation spin:fAzimuth];
 			[fInteractive endSelection:fSelectedDest animate:NO];
 			if (fPickedSquare == previouslyPicked)
 				fPickedSquare = kInvalidSquare; // Toggle pick
@@ -277,6 +360,9 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 
 - (void) mouseUp:(NSEvent *)event
 {
+    if (MBCDebug::LogMouse())
+        fprintf(stderr, "mouseUp\n");
+    
 	if (!fWantMouse || fInAnimation)
 		return;
 
@@ -432,9 +518,6 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 		ch = tolower(ch);
 		// Fall through
 	case 'b':
-		if (fKeyBuffer == '=')
-			goto promotion_piece;
-		// Else fall through
 	case 'a':
 	case 'c':
 	case 'd':
@@ -443,7 +526,12 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	case 'g':
 	case 'h':
 	case '=':
-		fKeyBuffer	= ch;
+        if (ch == 'b' && fKeyBuffer == '=')
+            goto promotion_piece;
+        if (fWantMouse)
+            fKeyBuffer	= ch;
+        else 
+            NSBeep();
 		break;
 	case '1':
 	case '2':
@@ -453,7 +541,7 @@ MBCPosition operator-(const MBCPosition & a, const MBCPosition & b)
 	case '6':
 	case '7':
 	case '8':
-		if (isalpha(fKeyBuffer)) {
+		if (fWantMouse && isalpha(fKeyBuffer)) {
 			MBCSquare sq = Square(fKeyBuffer, ch-'0');
 			if (fPickedSquare != kInvalidSquare) {
 				[fInteractive startSelection:fPickedSquare];

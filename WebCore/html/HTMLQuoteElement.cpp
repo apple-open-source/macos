@@ -33,7 +33,7 @@ using namespace HTMLNames;
 inline HTMLQuoteElement::HTMLQuoteElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
 {
-    ASSERT(hasTagName(qTag));
+    ASSERT(hasTagName(qTag) || hasTagName(blockquoteTag));
 }
 
 PassRefPtr<HTMLQuoteElement> HTMLQuoteElement::create(const QualifiedName& tagName, Document* document)
@@ -41,16 +41,17 @@ PassRefPtr<HTMLQuoteElement> HTMLQuoteElement::create(const QualifiedName& tagNa
     return adoptRef(new HTMLQuoteElement(tagName, document));
 }
 
-void HTMLQuoteElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLQuoteElement::insertedInto(Node* insertionPoint)
 {
-    document()->setUsesBeforeAfterRules(true);
+    if (hasTagName(qTag))
+        document()->setUsesBeforeAfterRules(true);
 
-    HTMLElement::insertedIntoDocument();
+    return HTMLElement::insertedInto(insertionPoint);
 }
 
 bool HTMLQuoteElement::isURLAttribute(Attribute* attribute) const
 {
-    return attribute->name() == citeAttr;
+    return attribute->name() == citeAttr || HTMLElement::isURLAttribute(attribute);
 }
 
 }

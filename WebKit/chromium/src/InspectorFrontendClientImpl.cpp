@@ -40,7 +40,8 @@
 #include "V8Proxy.h"
 #include "WebDevToolsFrontendClient.h"
 #include "WebDevToolsFrontendImpl.h"
-#include "WebString.h"
+#include "platform/WebFloatPoint.h"
+#include "platform/WebString.h"
 
 using namespace WebCore;
 
@@ -76,11 +77,11 @@ void InspectorFrontendClientImpl::windowObjectCleared()
 
 void InspectorFrontendClientImpl::frontendLoaded()
 {
-    m_frontend->frontendLoaded();
 }
 
 void InspectorFrontendClientImpl::moveWindowBy(float x, float y)
 {
+    m_client->moveWindowBy(WebFloatPoint(x, y));
 }
 
 String InspectorFrontendClientImpl::localizedStringsURL()
@@ -90,8 +91,6 @@ String InspectorFrontendClientImpl::localizedStringsURL()
 
 String InspectorFrontendClientImpl::hiddenPanels()
 {
-    if (m_client->shouldHideScriptsPanel())
-        return "scripts";
     return "";
 }
 
@@ -101,11 +100,6 @@ void InspectorFrontendClientImpl::bringToFront()
 }
 
 void InspectorFrontendClientImpl::closeWindow()
-{
-    m_client->closeWindow();
-}
-
-void InspectorFrontendClientImpl::disconnectFromBackend()
 {
     m_client->closeWindow();
 }
@@ -120,20 +114,34 @@ void InspectorFrontendClientImpl::requestDetachWindow()
     m_client->requestUndockWindow();
 }
 
+void InspectorFrontendClientImpl::requestSetDockSide(const String& side)
+{
+    m_client->requestSetDockSide(side);
+}
+
 void InspectorFrontendClientImpl::changeAttachedWindowHeight(unsigned)
 {
     // Do nothing;
 }
 
-bool InspectorFrontendClientImpl::canAttachWindow()
+void InspectorFrontendClientImpl::openInNewTab(const String& url)
 {
-    // FIXME: Implement this if it is ever called by Chromium.
-    return false;
+    m_client->openInNewTab(url);
 }
-    
-void InspectorFrontendClientImpl::saveAs(const String& fileName, const String& content)
+
+bool InspectorFrontendClientImpl::canSave()
 {
-    m_client->saveAs(fileName, content);
+    return true;
+}
+
+void InspectorFrontendClientImpl::save(const String& url, const String& content, bool forceSaveAs)
+{
+    m_client->save(url, content, forceSaveAs);
+}
+
+void InspectorFrontendClientImpl::append(const String& url, const String& content)
+{
+    m_client->append(url, content);
 }
 
 void InspectorFrontendClientImpl::inspectedURLChanged(const String& url)

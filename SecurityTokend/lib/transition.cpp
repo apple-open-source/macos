@@ -39,7 +39,14 @@ kern_return_t tokend_server_probe(TOKEND_ARGS, TokenScore *score, TokenUidString
 	BEGIN_IPC
 	uid[0] = '\0';	// default to no uid obtained
 	CALL(probe, (kSecTokendCallbacksDefault, score, uid));
-	assert(strlen(uid) < TOKEND_MAX_UID);
+    // We do not support 32 bit tokends on 10.6 and later
+    // since securityd always runs 64 bit
+    if (sizeof(int*) == 4)
+    {
+		Syslog::error("32-bit tokends not supported");
+		CssmError::throwMe(CSSMERR_CSP_DEVICE_ERROR);
+    }
+	uid[TOKEND_MAX_UID-1] = '\0'; // enforce null termination
 	server->tokenUid(uid);
 	END_IPC(CSSM)
 }

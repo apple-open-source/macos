@@ -49,27 +49,27 @@ namespace {
 
 // This is a direct transcription of step 4 from:
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
-HTMLTokenizer::State tokenizerStateForContextElement(Element* contextElement, bool reportErrors)
+HTMLTokenizerState::State tokenizerStateForContextElement(Element* contextElement, bool reportErrors)
 {
     if (!contextElement)
-        return HTMLTokenizer::DataState;
+        return HTMLTokenizerState::DataState;
 
     const QualifiedName& contextTag = contextElement->tagQName();
 
     if (contextTag.matches(titleTag) || contextTag.matches(textareaTag))
-        return HTMLTokenizer::RCDATAState;
+        return HTMLTokenizerState::RCDATAState;
     if (contextTag.matches(styleTag)
         || contextTag.matches(xmpTag)
         || contextTag.matches(iframeTag)
         || (contextTag.matches(noembedTag) && HTMLTreeBuilder::pluginsEnabled(contextElement->document()->frame()))
         || (contextTag.matches(noscriptTag) && HTMLTreeBuilder::scriptEnabled(contextElement->document()->frame()))
         || contextTag.matches(noframesTag))
-        return reportErrors ? HTMLTokenizer::RAWTEXTState : HTMLTokenizer::PLAINTEXTState;
+        return reportErrors ? HTMLTokenizerState::RAWTEXTState : HTMLTokenizerState::PLAINTEXTState;
     if (contextTag.matches(scriptTag))
-        return reportErrors ? HTMLTokenizer::ScriptDataState : HTMLTokenizer::PLAINTEXTState;
+        return reportErrors ? HTMLTokenizerState::ScriptDataState : HTMLTokenizerState::PLAINTEXTState;
     if (contextTag.matches(plaintextTag))
-        return HTMLTokenizer::PLAINTEXTState;
-    return HTMLTokenizer::DataState;
+        return HTMLTokenizerState::PLAINTEXTState;
+    return HTMLTokenizerState::DataState;
 }
 
 } // namespace
@@ -78,9 +78,9 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
     : ScriptableDocumentParser(document)
     , m_tokenizer(HTMLTokenizer::create(usePreHTML5ParserQuirks(document)))
     , m_scriptRunner(HTMLScriptRunner::create(document, this))
-    , m_treeBuilder(HTMLTreeBuilder::create(this, document, reportErrors, usePreHTML5ParserQuirks(document)))
+    , m_treeBuilder(HTMLTreeBuilder::create(this, document, reportErrors, usePreHTML5ParserQuirks(document), maximumDOMTreeDepth(document)))
     , m_parserScheduler(HTMLParserScheduler::create(this))
-    , m_xssFilter(this)
+    , m_xssAuditor(this)
     , m_endWasDelayed(false)
     , m_pumpSessionNestingLevel(0)
 {
@@ -91,8 +91,8 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
 HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
     : ScriptableDocumentParser(fragment->document())
     , m_tokenizer(HTMLTokenizer::create(usePreHTML5ParserQuirks(fragment->document())))
-    , m_treeBuilder(HTMLTreeBuilder::create(this, fragment, contextElement, scriptingPermission, usePreHTML5ParserQuirks(fragment->document())))
-    , m_xssFilter(this)
+    , m_treeBuilder(HTMLTreeBuilder::create(this, fragment, contextElement, scriptingPermission, usePreHTML5ParserQuirks(fragment->document()), maximumDOMTreeDepth(fragment->document())))
+    , m_xssAuditor(this)
     , m_endWasDelayed(false)
     , m_pumpSessionNestingLevel(0)
 {
@@ -105,6 +105,7 @@ HTMLDocumentParser::~HTMLDocumentParser()
     ASSERT(!m_parserScheduler);
     ASSERT(!m_pumpSessionNestingLevel);
     ASSERT(!m_preloadScanner);
+    ASSERT(!m_insertionPreloadScanner);
 }
 
 void HTMLDocumentParser::detach()
@@ -116,6 +117,7 @@ void HTMLDocumentParser::detach()
     // FIXME: It seems wrong that we would have a preload scanner here.
     // Yet during fast/dom/HTMLScriptElement/script-load-events.html we do.
     m_preloadScanner.clear();
+    m_insertionPreloadScanner.clear();
     m_parserScheduler.clear(); // Deleting the scheduler will clear any timers.
 }
 
@@ -197,7 +199,7 @@ bool HTMLDocumentParser::runScriptsForPausedTreeBuilder()
 {
     ASSERT(m_treeBuilder->isPaused());
 
-    TextPosition1 scriptStartPosition = TextPosition1::belowRangePosition();
+    TextPosition scriptStartPosition = TextPosition::belowRangePosition();
     RefPtr<Element> scriptElement = m_treeBuilder->takeScriptToProcess(scriptStartPosition);
     // We will not have a scriptRunner when parsing a DocumentFragment.
     if (!m_scriptRunner)
@@ -256,25 +258,25 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
     // FIXME: m_input.current().length() is only accurate if we
     // end up parsing the whole buffer in this pump.  We should pass how
     // much we parsed as part of didWriteHTML instead of willWriteHTML.
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willWriteHTML(document(), m_input.current().length(), m_tokenizer->lineNumber());
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willWriteHTML(document(), m_input.current().length(), m_tokenizer->lineNumber().zeroBasedInt());
 
     while (canTakeNextToken(mode, session) && !session.needsYield) {
         if (!isParsingFragment())
-            m_sourceTracker.start(m_input, m_token);
+            m_sourceTracker.start(m_input, m_tokenizer.get(), m_token);
 
         if (!m_tokenizer->nextToken(m_input.current(), m_token))
             break;
 
         if (!isParsingFragment()) {
-            m_sourceTracker.end(m_input, m_token);
+            m_sourceTracker.end(m_input, m_tokenizer.get(), m_token);
 
             // We do not XSS filter innerHTML, which means we (intentionally) fail
             // http/tests/security/xssAuditor/dom-write-innerHTML.html
-            m_xssFilter.filterToken(m_token);
+            m_xssAuditor.filterToken(m_token);
         }
 
         m_treeBuilder->constructTreeFromToken(m_token);
-        m_token.clear();
+        ASSERT(m_token.isUninitialized());
     }
 
     // Ensure we haven't been totally deref'ed after pumping. Any caller of this
@@ -288,7 +290,7 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
         m_parserScheduler->scheduleForResume();
 
     if (isWaitingForScripts()) {
-        ASSERT(m_tokenizer->state() == HTMLTokenizer::DataState);
+        ASSERT(m_tokenizer->state() == HTMLTokenizerState::DataState);
         if (!m_preloadScanner) {
             m_preloadScanner = adoptPtr(new HTMLPreloadScanner(document()));
             m_preloadScanner->appendToEnd(m_input.current());
@@ -296,7 +298,7 @@ void HTMLDocumentParser::pumpTokenizer(SynchronousMode mode)
         m_preloadScanner->scan();
     }
 
-    InspectorInstrumentation::didWriteHTML(cookie, m_tokenizer->lineNumber());
+    InspectorInstrumentation::didWriteHTML(cookie, m_tokenizer->lineNumber().zeroBasedInt());
 }
 
 bool HTMLDocumentParser::hasInsertionPoint()
@@ -326,9 +328,10 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     if (isWaitingForScripts()) {
         // Check the document.write() output with a separate preload scanner as
         // the main scanner can't deal with insertions.
-        HTMLPreloadScanner preloadScanner(document());
-        preloadScanner.appendToEnd(source);
-        preloadScanner.scan();
+        if (!m_insertionPreloadScanner)
+            m_insertionPreloadScanner = adoptPtr(new HTMLPreloadScanner(document()));
+        m_insertionPreloadScanner->appendToEnd(source);
+        m_insertionPreloadScanner->scan();
     }
 
     endIfDelayed();
@@ -416,8 +419,7 @@ void HTMLDocumentParser::finish()
 {
     // FIXME: We should ASSERT(!m_parserStopped) here, since it does not
     // makes sense to call any methods on DocumentParser once it's been stopped.
-    // However, FrameLoader::stop calls Document::finishParsing unconditionally
-    // which in turn calls m_parser->finish().
+    // However, FrameLoader::stop calls DocumentParser::finish unconditionally.
 
     // We're not going to get any more data off the network, so we tell the
     // input stream we've reached the end of file.  finish() can be called more
@@ -432,14 +434,7 @@ bool HTMLDocumentParser::finishWasCalled()
     return m_input.haveSeenEndOfFile();
 }
 
-// This function is virtual and just for the DocumentParser interface.
 bool HTMLDocumentParser::isExecutingScript() const
-{
-    return inScriptExecution();
-}
-
-// This function is non-virtual and used throughout the implementation.
-bool HTMLDocumentParser::inScriptExecution() const
 {
     if (!m_scriptRunner)
         return false;
@@ -451,19 +446,19 @@ String HTMLDocumentParser::sourceForToken(const HTMLToken& token)
     return m_sourceTracker.sourceForToken(token);
 }
 
-int HTMLDocumentParser::lineNumber() const
+OrdinalNumber HTMLDocumentParser::lineNumber() const
 {
     return m_tokenizer->lineNumber();
 }
 
-TextPosition0 HTMLDocumentParser::textPosition() const
+TextPosition HTMLDocumentParser::textPosition() const
 {
     const SegmentedString& currentString = m_input.current();
-    WTF::ZeroBasedNumber line = currentString.currentLine();
-    WTF::ZeroBasedNumber column = currentString.currentColumn();
-    ASSERT(m_tokenizer->lineNumber() == line.zeroBasedInt());
+    OrdinalNumber line = currentString.currentLine();
+    OrdinalNumber column = currentString.currentColumn();
+    ASSERT(m_tokenizer->lineNumber() == line);
 
-    return TextPosition0(line, column);
+    return TextPosition(line, column);
 }
 
 bool HTMLDocumentParser::isWaitingForScripts() const
@@ -473,9 +468,10 @@ bool HTMLDocumentParser::isWaitingForScripts() const
 
 void HTMLDocumentParser::resumeParsingAfterScriptExecution()
 {
-    ASSERT(!inScriptExecution());
+    ASSERT(!isExecutingScript());
     ASSERT(!m_treeBuilder->isPaused());
 
+    m_insertionPreloadScanner.clear();
     pumpTokenizerIfPossible(AllowYield);
     endIfDelayed();
 }
@@ -508,7 +504,7 @@ void HTMLDocumentParser::notifyFinished(CachedResource* cachedResource)
     RefPtr<HTMLDocumentParser> protect(this);
 
     ASSERT(m_scriptRunner);
-    ASSERT(!inScriptExecution());
+    ASSERT(!isExecutingScript());
     if (isStopping()) {
         attemptToRunDeferredScriptsAndEnd();
         return;
@@ -568,6 +564,12 @@ bool HTMLDocumentParser::usePreHTML5ParserQuirks(Document* document)
 {
     ASSERT(document);
     return document->settings() && document->settings()->usePreHTML5ParserQuirks();
+}
+
+unsigned HTMLDocumentParser::maximumDOMTreeDepth(Document* document)
+{
+    ASSERT(document);
+    return document->settings() ? document->settings()->maximumHTMLParserDOMTreeDepth() : Settings::defaultMaximumHTMLParserDOMTreeDepth;
 }
 
 void HTMLDocumentParser::suspendScheduledTasks()

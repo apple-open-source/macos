@@ -61,8 +61,7 @@
 
 
 int
-ask_cmd(cmd)
-	cmd_t *cmd;
+ask_cmd(cmd_t *cmd)
 {
 	char lbuf[100], *cp, *buf;
 
@@ -84,13 +83,7 @@ ask_cmd(cmd)
 }
 
 int
-ask_num(str, flags, dflt, low, high, help)
-	const char *str;
-	int flags;
-	int dflt;
-	int low;
-	int high;
-	void (*help) __P((void));
+ask_num(const char *str, int flags, int dflt, int low, int high, void (*help) __P((void)))
 {
 	char lbuf[100], *cp;
 	int num;
@@ -133,9 +126,7 @@ again:
 }
 
 int
-ask_yn(str, default_answer)
-	const char *str;
-	int default_answer;
+ask_yn(const char *str, int default_answer)
 {
 	int ch, first;
 
@@ -156,8 +147,7 @@ ask_yn(str, default_answer)
 }
 
 u_int16_t
-getshort(p)
-	void *p;
+getshort(void *p)
 {
 	unsigned char *cp = p;
 
@@ -165,9 +155,7 @@ getshort(p)
 }
 
 void
-putshort(p, l)
-	void *p;
-	u_int16_t l;
+putshort(void *p, u_int16_t l)
 {
 	unsigned char *cp = p;
 
@@ -176,8 +164,7 @@ putshort(p, l)
 }
 
 u_int32_t
-getlong(p)
-	void *p;
+getlong(void *p)
 {
 	unsigned char *cp = p;
 
@@ -185,9 +172,7 @@ getlong(p)
 }
 
 void
-putlong(p, l)
-	void *p;
-	u_int32_t l;
+putlong(void *p, u_int32_t l)
 {
 	unsigned char *cp = p;
 

@@ -34,24 +34,29 @@ public:
 private:
     HTMLEmbedElement(const QualifiedName&, Document*, bool createdByParser);
 
-    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
-    virtual bool rendererIsNeeded(RenderStyle*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
-    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
 
-    virtual RenderWidget* renderWidgetForJSBindings() const;
+    virtual RenderWidget* renderWidgetForJSBindings();
 
     virtual void updateWidget(PluginCreationOption);
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
     void parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues);
+
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const OVERRIDE;
+    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
+#endif
+
+    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return true; }
 };
 
 }

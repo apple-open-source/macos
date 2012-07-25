@@ -58,14 +58,14 @@ EncodedJSValue JSC_HOST_CALL JSDataViewConstructor::constructJSDataView(ExecStat
         return JSValue::encode(jsUndefined());
     }
 
-    JSDataViewConstructor* jsConstructor = static_cast<JSDataViewConstructor*>(exec->callee());
+    JSDataViewConstructor* jsConstructor = jsCast<JSDataViewConstructor*>(exec->callee());
     return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), view.get())));
 }
 
 static JSValue getDataViewMember(ExecState* exec, DataView* imp, DataViewAccessType type)
 {
     if (exec->argumentCount() < 1)
-        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
+        return throwError(exec, createNotEnoughArgumentsError(exec));
     ExceptionCode ec = 0;
     unsigned byteOffset = exec->argument(0).toUInt32(exec);
     if (exec->hadException())
@@ -122,7 +122,7 @@ JSValue JSDataView::getFloat64(ExecState* exec)
 static JSValue setDataViewMember(ExecState* exec, DataView* imp, DataViewAccessType type)
 {
     if (exec->argumentCount() < 2)
-        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
+        return throwError(exec, createNotEnoughArgumentsError(exec));
     ExceptionCode ec = 0;
     unsigned byteOffset = exec->argument(0).toUInt32(exec);
     if (exec->hadException())

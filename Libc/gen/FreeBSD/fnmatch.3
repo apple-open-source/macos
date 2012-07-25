@@ -122,7 +122,18 @@ The
 function returns zero if
 .Fa string
 matches the pattern specified by
-.Fa pattern ,
+.Fa pattern .
+It returns the value
+.Dv FNM_NOMATCH
+if no match is found.
+Otherwise, another non-zero value is returned on error.
+.Sh LEGACY RETURN VALUES
+The
+.Fn fnmatch
+function returns zero if
+.Fa string
+matches the pattern specified by
+.Fa pattern ;
 otherwise, it returns the value
 .Dv FNM_NOMATCH .
 .Sh SEE ALSO

@@ -70,11 +70,12 @@ extern int vpncontrol_init __P((void));
 extern void vpncontrol_close __P((void));
 extern int vpn_control_connected __P((void));
 extern int vpn_connect __P((struct bound_addr *, int));
-extern int vpn_disconnect __P((struct bound_addr *));
+extern int vpn_disconnect __P((struct bound_addr *, const char *));
+extern void vpncontrol_disconnect_all __P((struct vpnctl_socket_elem *, const char *));
 extern int vpn_start_ph2 __P((struct bound_addr *, struct vpnctl_cmd_start_ph2 *));
 extern int vpncontrol_notify_need_authinfo __P((struct ph1handle *, void*, size_t));
 extern int vpncontrol_notify_peer_resp_ph1 __P((u_int16_t, struct ph1handle*));
 extern int vpncontrol_notify_peer_resp_ph2 __P((u_int16_t, struct ph2handle*));
-extern int vpn_assert __P((struct sockaddr *, struct sockaddr *));
+extern int vpn_assert __P((struct sockaddr_storage *, struct sockaddr_storage *));
 
 #endif /* _VPN_CONTROL_VAR_H */

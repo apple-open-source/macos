@@ -45,7 +45,7 @@ static void *
 __loadIOKit(void) {
 	static void *image = NULL;
 	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit";
+		const char	*framework		= "/System/Library/Frameworks/IOKit.framework/IOKit";
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -276,11 +276,7 @@ static void *
 __loadSecurity(void) {
 	static void *image = NULL;
 	if (NULL == image) {
-#if	TARGET_OS_IPHONE
 		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
-#else
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Versions/A/Security";
-#endif
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -296,8 +292,6 @@ __loadSecurity(void) {
 	return (void *)image;
 }
 
-#if	!TARGET_OS_IPHONE
-
 #define	SECURITY_FRAMEWORK_EXTERN(t, s)				\
 	__private_extern__ t					\
 	_ ## s()						\
@@ -310,6 +304,7 @@ __loadSecurity(void) {
 		return (dysym != NULL) ? *dysym : NULL;		\
 	}
 
+#if	!TARGET_OS_IPHONE
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecAttrService)
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecClass)
 SECURITY_FRAMEWORK_EXTERN(CFTypeRef, kSecClassGenericPassword)
@@ -513,7 +508,24 @@ _SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef 
 	return dyfunc ? dyfunc(path, app) : -1;
 }
 
-#endif	// !TARGET_OS_IPHONE
+#else	// TARGET_OS_IPHONE
+
+SECURITY_FRAMEWORK_EXTERN(CFStringRef, kSecPropertyKeyValue)
+SECURITY_FRAMEWORK_EXTERN(CFStringRef, kSecPropertyKeyLabel)
+
+__private_extern__ CFArrayRef
+_SecCertificateCopyProperties(SecCertificateRef certRef)
+{
+	#undef SecCertificateCopyProperties
+	static typeof (SecCertificateCopyProperties) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = dlsym(image, "SecCertificateCopyProperties");
+	}
+	return dyfunc ? dyfunc(certRef) : NULL;
+}
+
+#endif	// TARGET_OS_IPHONE
 
 __private_extern__ SecCertificateRef
 _SecCertificateCreateWithData(CFAllocatorRef allocator, CFDataRef data)

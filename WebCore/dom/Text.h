@@ -40,6 +40,8 @@ public:
 
     String wholeText() const;
     PassRefPtr<Text> replaceWholeText(const String&, ExceptionCode&);
+    
+    void recalcTextStyle(StyleChange);
 
     virtual void attach();
     
@@ -51,13 +53,14 @@ protected:
     {
     }
 
+    virtual void willRecalcTextStyle(StyleChange) { ASSERT_NOT_REACHED(); }
+
 private:
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
-    virtual bool rendererIsNeeded(RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void recalcStyle(StyleChange = NoChange);
     virtual bool childTypeAllowed(NodeType) const;
 
     virtual PassRefPtr<Text> virtualCreate(const String&);
@@ -66,6 +69,12 @@ private:
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
 };
+
+inline Text* toText(Node* node)
+{
+    ASSERT(!node || node->isTextNode());
+    return static_cast<Text*>(node);
+}
 
 } // namespace WebCore
 

@@ -135,7 +135,7 @@ protected:
     @result Returns true if a thread callout was scheduled, false otherwise. 
 */
 
-    virtual bool scheduleServiceThread(void * param);
+    virtual bool scheduleServiceThread(void * param = 0);
 
 /*! @function cancelServiceThread
     @abstract Cancels any pending service thread callout.
@@ -248,8 +248,18 @@ public:
 
     virtual IONetworkData * getStatisticsData() const;
 
+    /*! @function getMbufPriority
+     @abstract Determines an mbuf's traffic priority.  The highest priority is 0.
+     @discussion A queue can prioritize certain classes of traffic. This method
+     facilitates that by evaluating an mbuf and returning its priority.
+     @param m An mbuf to analyze.
+     @result Returns a UInt32 representing the priority of the packet.  0 is the highest priority.
+     */
+    
+    OSMetaClassDeclareReservedUsed( IOOutputQueue,  0);
+    virtual UInt32 getMbufPriority(mbuf_t m);
+
     // Virtual function padding
-    OSMetaClassDeclareReservedUnused( IOOutputQueue,  0);
     OSMetaClassDeclareReservedUnused( IOOutputQueue,  1);
     OSMetaClassDeclareReservedUnused( IOOutputQueue,  2);
     OSMetaClassDeclareReservedUnused( IOOutputQueue,  3);

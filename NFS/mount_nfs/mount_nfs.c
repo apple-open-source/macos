@@ -66,6 +66,7 @@
 #include <sys/sysctl.h>
 #include <netinet/in.h>
 #include <net/if.h>
+#include <xpc/xpc.h>
 
 #include <arpa/inet.h>
 
@@ -81,6 +82,7 @@
 #include <unistd.h>
 #include <libutil.h>
 #include <mntopts.h>
+#include <util.h>
 
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
@@ -99,6 +101,8 @@ struct nfs_conf_client {
 	int nextdowndelay;
 	int nfsiod_thread_max;
 	int statfs_rate_limit;
+	int is_mobile;
+	int squishy_flags;
 };
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
@@ -112,6 +116,8 @@ struct nfs_conf_client config =
 	-1,
 	-1,
 	-1,
+	-1,
+	-1
 };
 
 /* mount options */
@@ -273,8 +279,6 @@ struct {
 			NFS_BITMAP_CLR(options.mflags, F); \
 	} while (0)
 
-uid_t real_uid, eff_uid;
-
 /*
  * NFS file system location structures
  */
@@ -314,11 +318,6 @@ main(int argc, char *argv[])
 	char mntonname[MAXPATHLEN];
 	char *p, *xdrbuf = NULL;
 	struct nfs_fs_location *nfsl = NULL;
-
-	/* drop setuid root privs asap */
-	eff_uid = geteuid();
-	real_uid = getuid();
-	seteuid(real_uid); 
 
 	/* set up mopts_switches_no from mopts_switches */
 	mopts_switches_no = malloc(sizeof(mopts_switches));
@@ -500,7 +499,14 @@ main(int argc, char *argv[])
 	if (options.socket_type || options.socket_family)
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SOCKET_TYPE);
 
+	/*
+	 * Run sysctls to update /etc/nfs.conf changes in the kernel
+	 * Normally run by launchd job com.apple.nfsconf after any
+	 * change to the /etc/nfs.conf.
+	 */
 	if ((argc == 1) && !strcmp(argv[0], "configupdate")) {
+		if (geteuid() != 0)
+			errx(1, "Must be superuser to configupdate");
 		config_sysctl();
 		exit(0);
 	}
@@ -512,9 +518,14 @@ main(int argc, char *argv[])
 	if (argc != 1)
 		usage();
 
-	if (realpath(*argv, mntonname) == NULL)
-		err(errno ? errno : 1, "realpath %s", mntonname);
-
+	if (realpath(*argv, mntonname) == NULL) {
+		if (errno) {
+			err(errno, "realpath %s", mntonname);
+		} else {
+			errx(1, "realpath %s", mntonname);
+		}
+	}
+	
 	error = parse_fs_locations(mntfromarg, &nfsl);
 	if (error || !nfsl) {
 		if (!error)
@@ -528,15 +539,13 @@ main(int argc, char *argv[])
 	if (retrycnt <= 0) /* if no retries, also use short timeouts */
 		SETFLAG(NFS_MFLAG_MNTQUICK, 1);
 
-	config_sysctl();
-
 	for (try = 1; try <= retrycnt+1; try++) {
 		if (try > 1) {
 			if (opflags & BGRND) {
 				printf("Retrying NFS mount in background...\n");
 				opflags &= ~BGRND;
 				if (daemon(0, 0))
-					err(errno, "mount nfs background: fork failed");
+					errc(errno, errno, "mount nfs background: fork failed");
 				opflags |= ISBGRND;
 			}
 			delay = MIN(5*(try-1),30);
@@ -558,7 +567,7 @@ main(int argc, char *argv[])
 
 		/* assemble mount arguments */
 		if ((error = assemble_mount_args(nfsl, &xdrbuf)))
-			err(error, "error %d assembling mount args\n", error);
+			errc(error, error, "error %d assembling mount args\n", error);
 
 		/* mount the file system */
 		if (mount("nfs", mntonname, options.mntflags, xdrbuf)) {
@@ -583,7 +592,7 @@ main(int argc, char *argv[])
 				break;
 			default:
 				/* give up */
-				err(error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
+				errc(error, error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
 				/*NOTREACHED*/
 				break;
 			}
@@ -601,7 +610,7 @@ main(int argc, char *argv[])
 	}
 
 	if (error)
-		err(error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
+		errc(error, error, "can't mount %s from %s onto %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname);
 
 	exit(error);
 }
@@ -1421,6 +1430,12 @@ config_read(struct nfs_conf_client *conf)
 		} else if (!strcmp(key, "nfs.client.statfs_rate_limit")) {
 			if (value && val)
 				conf->statfs_rate_limit = val;
+		} else if (!strcmp(key, "nfs.client.is_mobile")) {
+			if (value && val)
+				conf->is_mobile = val;
+		} else if (!strcmp(key, "nfs.client.squishy_flags")) {
+			if (value && val)
+				conf->squishy_flags = val;
 		} else {
 			if (verbose)
 				printf("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
@@ -1439,10 +1454,26 @@ sysctl_set(const char *name, int val)
 	return (sysctlbyname(name, NULL, 0, &val, sizeof(val)));
 }
 
+/*
+ * Identify a laptop via the hardware model
+ * identifier, e.g. "MacBookAir1,1"
+ */
+static int
+mobile_client()
+{
+	char model[128];
+	size_t len = sizeof(model);
+
+	if (sysctlbyname("hw.model", &model, &len, NULL, 0) < 0 || len <= 0)
+		return 0;
+
+	return strnstr(model, "Book", len) != NULL;
+}
+
+
 void
 config_sysctl(void)
 {
-	seteuid(eff_uid); /* must be root to do sysctls */
 	if (config.access_cache_timeout != -1)
 		sysctl_set("vfs.generic.nfs.client.access_cache_timeout", config.access_cache_timeout);
 	if (config.access_for_getattr != -1)
@@ -1461,7 +1492,11 @@ config_sysctl(void)
 		sysctl_set("vfs.generic.nfs.client.nfsiod_thread_max", config.nfsiod_thread_max);
 	if (config.statfs_rate_limit != -1)
 		sysctl_set("vfs.generic.nfs.client.statfs_rate_limit", config.statfs_rate_limit);
-	seteuid(real_uid);
+	if (config.is_mobile == -1)
+		config.is_mobile = mobile_client();
+	sysctl_set("vfs.generic.nfs.client.is_mobile", config.is_mobile);
+	if (config.squishy_flags != -1)
+		sysctl_set("vfs.generic.nfs.client.squishy_flags", config.squishy_flags);
 }
 
 /*

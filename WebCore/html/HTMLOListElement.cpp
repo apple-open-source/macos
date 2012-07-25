@@ -35,7 +35,11 @@ using namespace HTMLNames;
 
 HTMLOListElement::HTMLOListElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
-    , m_start(1)
+    , m_start(0xBADBEEF)
+    , m_itemCount(0)
+    , m_hasExplicitStart(false)
+    , m_isReversed(false)
+    , m_shouldRecalculateItemCount(false)
 {
     ASSERT(hasTagName(olTag));
 }
@@ -50,48 +54,70 @@ PassRefPtr<HTMLOListElement> HTMLOListElement::create(const QualifiedName& tagNa
     return adoptRef(new HTMLOListElement(tagName, document));
 }
 
-bool HTMLOListElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
+bool HTMLOListElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attrName == typeAttr) {
-        result = eListItem; // Share with <li>
-        return false;
-    }
-    
-    return HTMLElement::mapToEntry(attrName, result);
+    if (name == typeAttr)
+        return true;
+    return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLOListElement::parseMappedAttribute(Attribute* attr)
+void HTMLOListElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == typeAttr) {
         if (attr->value() == "a")
-            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueLowerAlpha);
+            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerAlpha);
         else if (attr->value() == "A")
-            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueUpperAlpha);
+            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperAlpha);
         else if (attr->value() == "i")
-            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueLowerRoman);
+            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueLowerRoman);
         else if (attr->value() == "I")
-            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueUpperRoman);
+            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueUpperRoman);
         else if (attr->value() == "1")
-            addCSSProperty(attr, CSSPropertyListStyleType, CSSValueDecimal);
-    } else if (attr->name() == startAttr) {
-        bool canParse;
-        int start = attr->value().toInt(&canParse);
-        if (!canParse)
-            start = 1;
-        if (start == m_start)
-            return;
-        m_start = start;
-        for (RenderObject* child = renderer(); child; child = child->nextInPreOrder(renderer())) {
-            if (child->isListItem())
-                toRenderListItem(child)->updateValue();
-        }
+            addPropertyToAttributeStyle(style, CSSPropertyListStyleType, CSSValueDecimal);
     } else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::collectStyleForAttribute(attr, style);
+}
+
+void HTMLOListElement::parseAttribute(Attribute* attr)
+{
+    if (attr->name() == startAttr) {
+        int oldStart = start();
+        bool canParse;
+        int parsedStart = attr->value().toInt(&canParse);
+        m_hasExplicitStart = canParse;
+        m_start = canParse ? parsedStart : 0xBADBEEF;
+        if (oldStart == start())
+            return;
+        updateItemValues();
+    } else if (attr->name() == reversedAttr) {
+        bool reversed = !attr->isNull();
+        if (reversed == m_isReversed)
+            return;
+        m_isReversed = reversed;
+        updateItemValues();
+    } else
+        HTMLElement::parseAttribute(attr);
 }
 
 void HTMLOListElement::setStart(int start)
 {
     setAttribute(startAttr, String::number(start));
+}
+
+void HTMLOListElement::updateItemValues()
+{
+    for (RenderListItem* listItem = RenderListItem::nextListItem(renderer()); listItem; listItem = RenderListItem::nextListItem(renderer(), listItem))
+        listItem->updateValue();
+}
+
+void HTMLOListElement::recalculateItemCount()
+{
+    m_itemCount = 0;
+
+    for (RenderListItem* listItem = RenderListItem::nextListItem(renderer()); listItem; listItem = RenderListItem::nextListItem(renderer(), listItem))
+        m_itemCount++;
+
+    m_shouldRecalculateItemCount = false;
 }
 
 }

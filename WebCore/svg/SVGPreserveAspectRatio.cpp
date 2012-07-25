@@ -25,6 +25,7 @@
 #include "SVGPreserveAspectRatio.h"
 
 #include "AffineTransform.h"
+#include "ExceptionCode.h"
 #include "FloatRect.h"
 #include "SVGParserUtilities.h"
 #include <wtf/text/WTFString.h>
@@ -57,29 +58,35 @@ void SVGPreserveAspectRatio::setMeetOrSlice(unsigned short meetOrSlice, Exceptio
     m_meetOrSlice = static_cast<SVGMeetOrSliceType>(meetOrSlice);
 }
 
-SVGPreserveAspectRatio SVGPreserveAspectRatio::parsePreserveAspectRatio(const UChar*& currParam, const UChar* end, bool validate, bool& result)
+void SVGPreserveAspectRatio::parse(const String& value)
 {
-    SVGPreserveAspectRatio aspectRatio;
-    aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_NONE;
-    aspectRatio.m_meetOrSlice = SVG_MEETORSLICE_MEET;
-    result = false;
+    const UChar* begin = value.characters();
+    parse(begin, begin + value.length(), true);
+}
 
+bool SVGPreserveAspectRatio::parse(const UChar*& currParam, const UChar* end, bool validate)
+{
     // FIXME: Rewrite this parser, without gotos!
-    if (!skipOptionalSpaces(currParam, end))
+    if (!skipOptionalSVGSpaces(currParam, end))
         goto bailOut;
 
     if (*currParam == 'd') {
         if (!skipString(currParam, end, "defer"))
             goto bailOut;
+
         // FIXME: We just ignore the "defer" here.
-        if (!skipOptionalSpaces(currParam, end))
+        if (currParam == end)
+            return true;
+
+        if (!skipOptionalSVGSpaces(currParam, end))
             goto bailOut;
     }
 
     if (*currParam == 'n') {
         if (!skipString(currParam, end, "none"))
             goto bailOut;
-        skipOptionalSpaces(currParam, end);
+        m_align = SVG_PRESERVEASPECTRATIO_NONE;
+        skipOptionalSVGSpaces(currParam, end);
     } else if (*currParam == 'x') {
         if ((end - currParam) < 8)
             goto bailOut;
@@ -89,25 +96,25 @@ SVGPreserveAspectRatio SVGPreserveAspectRatio::parsePreserveAspectRatio(const UC
             if (currParam[3] == 'n') {
                 if (currParam[6] == 'i') {
                     if (currParam[7] == 'n')
-                        aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMINYMIN;
+                        m_align = SVG_PRESERVEASPECTRATIO_XMINYMIN;
                     else if (currParam[7] == 'd')
-                        aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMINYMID;
+                        m_align = SVG_PRESERVEASPECTRATIO_XMINYMID;
                     else
                         goto bailOut;
                 } else if (currParam[6] == 'a' && currParam[7] == 'x')
-                     aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMINYMAX;
+                     m_align = SVG_PRESERVEASPECTRATIO_XMINYMAX;
                 else
                      goto bailOut;
              } else if (currParam[3] == 'd') {
                 if (currParam[6] == 'i') {
                     if (currParam[7] == 'n')
-                        aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMIDYMIN;
+                        m_align = SVG_PRESERVEASPECTRATIO_XMIDYMIN;
                     else if (currParam[7] == 'd')
-                        aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMIDYMID;
+                        m_align = SVG_PRESERVEASPECTRATIO_XMIDYMID;
                     else
                         goto bailOut;
                 } else if (currParam[6] == 'a' && currParam[7] == 'x')
-                    aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMIDYMAX;
+                    m_align = SVG_PRESERVEASPECTRATIO_XMIDYMAX;
                 else
                     goto bailOut;
             } else
@@ -115,19 +122,19 @@ SVGPreserveAspectRatio SVGPreserveAspectRatio::parsePreserveAspectRatio(const UC
         } else if (currParam[2] == 'a' && currParam[3] == 'x') {
             if (currParam[6] == 'i') {
                 if (currParam[7] == 'n')
-                    aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMAXYMIN;
+                    m_align = SVG_PRESERVEASPECTRATIO_XMAXYMIN;
                 else if (currParam[7] == 'd')
-                    aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMAXYMID;
+                    m_align = SVG_PRESERVEASPECTRATIO_XMAXYMID;
                 else
                     goto bailOut;
             } else if (currParam[6] == 'a' && currParam[7] == 'x')
-                aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_XMAXYMAX;
+                m_align = SVG_PRESERVEASPECTRATIO_XMAXYMAX;
             else
                 goto bailOut;
         } else
             goto bailOut;
         currParam += 8;
-        skipOptionalSpaces(currParam, end);
+        skipOptionalSVGSpaces(currParam, end);
     } else
         goto bailOut;
 
@@ -135,29 +142,30 @@ SVGPreserveAspectRatio SVGPreserveAspectRatio::parsePreserveAspectRatio(const UC
         if (*currParam == 'm') {
             if (!skipString(currParam, end, "meet"))
                 goto bailOut;
-            skipOptionalSpaces(currParam, end);
+            skipOptionalSVGSpaces(currParam, end);
         } else if (*currParam == 's') {
             if (!skipString(currParam, end, "slice"))
                 goto bailOut;
-            skipOptionalSpaces(currParam, end);
-            if (aspectRatio.m_align != SVG_PRESERVEASPECTRATIO_NONE)
-                aspectRatio.m_meetOrSlice = SVG_MEETORSLICE_SLICE;    
+            skipOptionalSVGSpaces(currParam, end);
+            if (m_align != SVG_PRESERVEASPECTRATIO_NONE)
+                m_meetOrSlice = SVG_MEETORSLICE_SLICE;
         }
     }
 
     if (end != currParam && validate) {
 bailOut:
-        // FIXME: Should the two values be set to UNKNOWN instead?
-        aspectRatio.m_align = SVG_PRESERVEASPECTRATIO_NONE;
-        aspectRatio.m_meetOrSlice = SVG_MEETORSLICE_MEET;
-    } else
-        result = true;
-
-    return aspectRatio;
+        m_align = SVG_PRESERVEASPECTRATIO_XMIDYMID;
+        m_meetOrSlice = SVG_MEETORSLICE_MEET;
+        return false;
+    }
+    return true;
 }
 
 void SVGPreserveAspectRatio::transformRect(FloatRect& destRect, FloatRect& srcRect)
 {
+    if (m_align == SVG_PRESERVEASPECTRATIO_NONE)
+        return;
+
     FloatSize imageSize = srcRect.size();
     float origDestWidth = destRect.width();
     float origDestHeight = destRect.height();
@@ -247,42 +255,48 @@ void SVGPreserveAspectRatio::transformRect(FloatRect& destRect, FloatRect& srcRe
     }
 }
 
-AffineTransform SVGPreserveAspectRatio::getCTM(float logicX, float logicY, float logicWidth, float logicHeight, float physWidth, float physHeight) const
+AffineTransform SVGPreserveAspectRatio::getCTM(float logicalX, float logicalY, float logicalWidth, float logicalHeight, float physicalWidth, float physicalHeight) const
 {
     AffineTransform transform;
     if (m_align == SVG_PRESERVEASPECTRATIO_UNKNOWN)
         return transform;
 
-    float logicalRatio = logicWidth / logicHeight;
-    float physRatio = physWidth / physHeight;
+    double extendedLogicalX = logicalX;
+    double extendedLogicalY = logicalY;
+    double extendedLogicalWidth = logicalWidth;
+    double extendedLogicalHeight = logicalHeight;
+    double extendedPhysicalWidth = physicalWidth;
+    double extendedPhysicalHeight = physicalHeight;
+    double logicalRatio = extendedLogicalWidth / extendedLogicalHeight;
+    double physicalRatio = extendedPhysicalWidth / extendedPhysicalHeight;
 
     if (m_align == SVG_PRESERVEASPECTRATIO_NONE) {
-        transform.scaleNonUniform(physWidth / logicWidth, physHeight / logicHeight);
-        transform.translate(-logicX, -logicY);
+        transform.scaleNonUniform(extendedPhysicalWidth / extendedLogicalWidth, extendedPhysicalHeight / extendedLogicalHeight);
+        transform.translate(-extendedLogicalX, -extendedLogicalY);
         return transform;
     }
 
-    if ((logicalRatio < physRatio && (m_meetOrSlice == SVG_MEETORSLICE_MEET)) || (logicalRatio >= physRatio && (m_meetOrSlice == SVG_MEETORSLICE_SLICE))) {
-        transform.scaleNonUniform(physHeight / logicHeight, physHeight / logicHeight);
+    if ((logicalRatio < physicalRatio && (m_meetOrSlice == SVG_MEETORSLICE_MEET)) || (logicalRatio >= physicalRatio && (m_meetOrSlice == SVG_MEETORSLICE_SLICE))) {
+        transform.scaleNonUniform(extendedPhysicalHeight / extendedLogicalHeight, extendedPhysicalHeight / extendedLogicalHeight);
 
         if (m_align == SVG_PRESERVEASPECTRATIO_XMINYMIN || m_align == SVG_PRESERVEASPECTRATIO_XMINYMID || m_align == SVG_PRESERVEASPECTRATIO_XMINYMAX)
-            transform.translate(-logicX, -logicY);
+            transform.translate(-extendedLogicalX, -extendedLogicalY);
         else if (m_align == SVG_PRESERVEASPECTRATIO_XMIDYMIN || m_align == SVG_PRESERVEASPECTRATIO_XMIDYMID || m_align == SVG_PRESERVEASPECTRATIO_XMIDYMAX)
-            transform.translate(-logicX - (logicWidth - physWidth * logicHeight / physHeight) / 2, -logicY);
+            transform.translate(-extendedLogicalX - (extendedLogicalWidth - extendedPhysicalWidth * extendedLogicalHeight / extendedPhysicalHeight) / 2, -extendedLogicalY);
         else
-            transform.translate(-logicX - (logicWidth - physWidth * logicHeight / physHeight), -logicY);
+            transform.translate(-extendedLogicalX - (extendedLogicalWidth - extendedPhysicalWidth * extendedLogicalHeight / extendedPhysicalHeight), -extendedLogicalY);
         
         return transform;
     }
 
-    transform.scaleNonUniform(physWidth / logicWidth, physWidth / logicWidth);
+    transform.scaleNonUniform(extendedPhysicalWidth / extendedLogicalWidth, extendedPhysicalWidth / extendedLogicalWidth);
 
     if (m_align == SVG_PRESERVEASPECTRATIO_XMINYMIN || m_align == SVG_PRESERVEASPECTRATIO_XMIDYMIN || m_align == SVG_PRESERVEASPECTRATIO_XMAXYMIN)
-        transform.translate(-logicX, -logicY);
+        transform.translate(-extendedLogicalX, -extendedLogicalY);
     else if (m_align == SVG_PRESERVEASPECTRATIO_XMINYMID || m_align == SVG_PRESERVEASPECTRATIO_XMIDYMID || m_align == SVG_PRESERVEASPECTRATIO_XMAXYMID)
-        transform.translate(-logicX, -logicY - (logicHeight - physHeight * logicWidth / physWidth) / 2);
+        transform.translate(-extendedLogicalX, -extendedLogicalY - (extendedLogicalHeight - extendedPhysicalHeight * extendedLogicalWidth / extendedPhysicalWidth) / 2);
     else
-        transform.translate(-logicX, -logicY - (logicHeight - physHeight * logicWidth / physWidth));
+        transform.translate(-extendedLogicalX, -extendedLogicalY - (extendedLogicalHeight - extendedPhysicalHeight * extendedLogicalWidth / extendedPhysicalWidth));
 
     return transform;
 }

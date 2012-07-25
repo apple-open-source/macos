@@ -44,6 +44,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fputs.c,v 1.12 2007/01/09 00:28:06 imp Ex
 #include "libc_private.h"
 #include "local.h"
 
+// 3340719: __puts_null__ is used if string is NULL.  Defined in puts.c
+__private_extern__ char const __puts_null__[];
+
 /*
  * Write the given string to the given file.
  */
@@ -56,6 +59,9 @@ fputs(s, fp)
 	struct __suio uio;
 	struct __siov iov;
 
+	// 3340719: __puts_null__ is used if s is NULL
+	if(s == NULL)
+		s = __puts_null__;
 	iov.iov_base = (void *)s;
 	iov.iov_len = uio.uio_resid = strlen(s);
 	uio.uio_iov = &iov;
@@ -64,5 +70,9 @@ fputs(s, fp)
 	ORIENT(fp, -1);
 	retval = __sfvwrite(fp, &uio);
 	FUNLOCKFILE(fp);
+#if __DARWIN_UNIX03
+	if (retval == 0)
+		return iov.iov_len;
+#endif /* __DARWIN_UNIX03 */
 	return (retval);
 }

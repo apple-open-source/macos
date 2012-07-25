@@ -58,6 +58,9 @@
 #define kdirModeKey			CFSTR("SMBDirModes")
 #define kfileModeKey		CFSTR("SMBFileModes")
 
+/* This one should be defined in NetFS.h, but we want it to be private */
+#define kTimeMachineMountKey	CFSTR("TimeMachineMount")
+
 #define SMB_PASSWORD_KEY "Password"
 
 struct connectAddress {

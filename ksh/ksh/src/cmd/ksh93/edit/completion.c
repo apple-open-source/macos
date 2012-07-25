@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -24,13 +24,43 @@
  */
 
 #include	"defs.h"
-#include	<ctype.h>
 #include	<ast_wchar.h>
 #include	"lexstates.h"
 #include	"path.h"
 #include	"io.h"
 #include	"edit.h"
 #include	"history.h"
+
+#if !SHOPT_MULTIBYTE
+#define mbchar(p)       (*(unsigned char*)p++)
+#endif
+
+static char *fmtx(const char *string)
+{
+	register const char	*cp = string;
+	register int	 	n,c;
+	unsigned char 		*state = (unsigned char*)sh_lexstates[2]; 
+	int offset = staktell();
+	if(*cp=='#')
+		stakputc('\\');
+	while((c=mbchar(cp)),(c>UCHAR_MAX)||(n=state[c])==0);
+	if(n==S_EOF && *string!='#')
+		return((char*)string);
+	stakwrite(string,--cp-string);
+	for(string=cp;c=mbchar(cp);string=cp)
+	{
+		if((n=cp-string)==1)
+		{
+			if(state[c])
+				stakputc('\\');
+			stakputc(c);
+		}
+		else
+			stakwrite(string,n);
+	}
+	stakputc(0);
+	return(stakptr(offset));
+}
 
 static int charcmp(int a, int b, int nocase)
 {
@@ -115,8 +145,13 @@ static char *find_begin(char outbuff[], char *last, int endchar, int *type)
 				}
 				if(cp>=last)
 				{
-					*type='$';
-					return(++xp);
+					if(c==dot || isaname(c))
+					{
+						*type='$';
+						return(++xp);
+					}
+					if(c!='}')
+						bp = cp;
 				}
 			}
 			else if(c=='(')
@@ -184,7 +219,7 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 		{
 			if(count> ep->e_nlist)
 				return(-1);
-			mode = '*';
+			mode = '?';
 			av[0] = ep->e_clist[count-1];
 			av[1] = 0;
 		}
@@ -247,6 +282,8 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 				out++;
 			}
 		}
+		if(mode=='?')
+			mode = '*';
 		if(var!='$' && mode=='\\' && out[-1]!='*')
 			addstar = '*';
 		if(*begin=='~' && !strchr(begin,'/'))
@@ -263,7 +300,7 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 		register 	int size='x';
 		while(cp>outbuff && ((size=cp[-1])==' ' || size=='\t'))
 			cp--;
-		if(!var && !strchr(ap->argval,'/') && (((cp==outbuff&&sh.nextprompt==1) || (strchr(";&|(",size)) && (cp==outbuff+1||size=='('||cp[-2]!='>') && *begin!='~' )))
+		if(!var && !strchr(ap->argval,'/') && (((cp==outbuff&&ep->sh->nextprompt==1) || (strchr(";&|(",size)) && (cp==outbuff+1||size=='('||cp[-2]!='>') && *begin!='~' )))
 		{
 			cmd_completion=1;
 			sh_onstate(SH_COMPLETE);
@@ -277,14 +314,14 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 		}
 		else
 		{
-			com = sh_argbuild(&narg,comptr,0);
+			com = sh_argbuild(ep->sh,&narg,comptr,0);
 			/* special handling for leading quotes */
 			if(begin>outbuff && (begin[-1]=='"' || begin[-1]=='\''))
 			begin--;
 		}
 		sh_offstate(SH_COMPLETE);
                 /* allow a search to be aborted */
-		if(sh.trapnote&SH_SIGSET)
+		if(ep->sh->trapnote&SH_SIGSET)
 		{
 			rval = -1;
 			goto done;
@@ -335,7 +372,7 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 			{
 				char **savcom = com;
 				while (*com)
-					size += strlen(cp=sh_fmtq(*com++));
+					size += strlen(cp=fmtx(*com++));
 				com = savcom;
 			}
 		}
@@ -362,7 +399,7 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 				var = 0;
 			}
 			else
-				out = strcopy(begin,sh_fmtq(*com));
+				out = strcopy(begin,fmtx(*com));
 			com++;
 		}
 		else
@@ -387,12 +424,12 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 					Namval_t *np;
 					/* add as tracked alias */
 					Pathcomp_t *pp;
-					if(*cp=='/' && (pp=path_dirfind(sh.pathlist,cp,'/')) && (np=nv_search(begin,sh.track_tree,NV_ADD)))
+					if(*cp=='/' && (pp=path_dirfind(ep->sh->pathlist,cp,'/')) && (np=nv_search(begin,ep->sh->track_tree,NV_ADD)))
 						path_alias(np,pp);
 					out = strcopy(begin,cp);
 				}
 				/* add quotes if necessary */
-				if((cp=sh_fmtq(begin))!=begin)
+				if((cp=fmtx(begin))!=begin)
 					out = strcopy(begin,cp);
 				if(var=='$' && begin[-1]=='{')
 					*out = '}';
@@ -400,11 +437,11 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 					*out = ' ';
 				*++out = 0;
 			}
-			else if(out[-1]=='/' && (cp=sh_fmtq(begin))!=begin)
+			else if((cp=fmtx(begin))!=begin)
 			{
 				out = strcopy(begin,cp);
 				if(out[-1] =='"' || out[-1]=='\'')
-					  *--out = 0;;
+					  *--out = 0;
 			}
 			if(*begin==0)
 				ed_ringbell();
@@ -414,7 +451,7 @@ int ed_expand(Edit_t *ep, char outbuff[],int *cur,int *eol,int mode, int count)
 			while (*com)
 			{
 				*out++  = ' ';
-				out = strcopy(out,sh_fmtq(*com++));
+				out = strcopy(out,fmtx(*com++));
 			}
 		}
 		if(ep->e_nlist)
@@ -477,7 +514,7 @@ int ed_macro(Edit_t *ep, register int i)
 		ep->e_macro[2] = ed_getchar(ep,1);
 	else
 		ep->e_macro[2] = 0;
-	if (isalnum(i)&&(np=nv_search(ep->e_macro,sh.alias_tree,HASH_SCOPE))&&(out=nv_getval(np)))
+	if (isalnum(i)&&(np=nv_search(ep->e_macro,ep->sh->alias_tree,HASH_SCOPE))&&(out=nv_getval(np)))
 	{
 #if SHOPT_MULTIBYTE
 		/* copy to buff in internal representation */
@@ -508,7 +545,7 @@ int ed_macro(Edit_t *ep, register int i)
 int ed_fulledit(Edit_t *ep)
 {
 	register char *cp;
-	if(!sh.hist_ptr)
+	if(!shgd->hist_ptr)
 		return(-1);
 	/* use EDITOR on current command */
 	if(ep->e_hline == ep->e_hismax)
@@ -519,9 +556,9 @@ int ed_fulledit(Edit_t *ep)
 		ep->e_inbuf[ep->e_eol+1] = 0;
 		ed_external(ep->e_inbuf, (char *)ep->e_inbuf);
 #endif /* SHOPT_MULTIBYTE */
-		sfwrite(sh.hist_ptr->histfp,(char*)ep->e_inbuf,ep->e_eol+1);
+		sfwrite(shgd->hist_ptr->histfp,(char*)ep->e_inbuf,ep->e_eol+1);
 		sh_onstate(SH_HISTORY);
-		hist_flush(sh.hist_ptr);
+		hist_flush(shgd->hist_ptr);
 	}
 	cp = strcopy((char*)ep->e_inbuf,e_runvi);
 	cp = strcopy(cp, fmtbase((long)ep->e_hline,10,0));

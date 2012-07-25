@@ -1,3 +1,60 @@
+Changes for the 5.31 release (the cctools-827 release):
+- Change the second parameter of _NSGetExecutablePath() in "mach-o/dyld.h" to
+  uint32_t * .  Radar bug #11274640.
+
+Changes for the 5.31 release (the cctools-824 release):
+- Changed the file_size field in the ofile struct in "stuff/ofile.h" and the
+  size parameter in ofile_map_from_memory() from a uint32_t type to a uint64_t
+  type.  Radar bug #10645295.
+
+Changes for the 5.30 release (the cctools-822 release):
+- The "low risk fix to strip(1)" below in cctools-821 for Radar bug #10718585
+  breaks striping .o files with dwarf debug info.  Because the input file has
+  an "ld -r" run on it so it is not the original input file.  That change has
+  been backed out.
+
+Changes for the 5.30 release (the cctools-821 release):
+- As part of a low risk fix to strip(1) to fix bugs when stripping objects with
+  code signature data, new field checkout_sym_info_size was added in the object
+  struct in "stuff/breakout.h" .  Radar bug #10718585.
+
+Changes for the 5.30 release (the cctools-817 release):
+- Changed the type of the n_strx field in the nlist struct in <mach-o/nlist.h>
+  to be uint32_t and not int32_t.  Radar bug #10464743.
+
+Changes for the 5.30 release (the cctools-814 release):
+- Added support for new load commands LC_MAIN, LC_DATA_IN_CODE,
+  LC_SOURCE_VERSION and LC_DYLIB_CODE_SIGN_DRS
+  - Added constants and structs to <mach-o/loader.h> .
+  - Added declarations of swap_entry_point_command() and
+    swap_source_version_command() to "stuff/bytesex.h" .
+  - Added fields for data_in_code and code_sign_drs commands plus info and size
+    to struct object in "stuff/breakout.h".
+  Radar bug #10290817.
+
+Changes for the 5.30 release (the cctools-813 release):
+- Updated llvm-c/Disassembler.h for LLVMSymbolLookupCallback References.
+
+Changes for the 5.27 release (the cctools-809 release):
+- Moved the declaration of is_llvm_bitcode() from "stuff/lto.h" to
+  "stuff/ofile.h".  And added is_llvm_bitcode_from_memory() to "stuff/lto.h".
+  Radar bug #9087924.
+
+Changes for the 5.27 release (the cctools-805 release):
+- Added toc_bad field to the ofile struct in "stuff/ofile.h".
+  Radar bug #9475790.
+
+Changes for the 5.27 release (the cctools-803 release):
+- Added toc_* fields to the ofile struct in "stuff/ofile.h". Radar bug #9354605.
+
+Changes for the 5.27 release (the cctools-801 release):
+- Added the file_mtime field to the ofile struct in "stuff/ofile.h" and the
+  mtime parameter to ofile_map_from_memory().  Radar bug #9354501.
+
+Changes for the 5.27 release (the cctools-800.3 release):
+- Added constants for CPU_SUBTYPE_ARM_V7F[FK] to <mach/machine.h> .
+  Radar bug #8987684.
+
 Changes for the 5.27 release (the cctools-800 release):
 - Updated comment in <mach-o/loader.h> before GET_LIBRARY_ORDINAL to include
   other dynamic library load commands.  Radar bug #8723078.

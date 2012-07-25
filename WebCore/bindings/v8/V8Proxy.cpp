@@ -31,48 +31,34 @@
 #include "config.h"
 #include "V8Proxy.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "CachedMetadata.h"
-#include "Console.h"
 #include "DateExtension.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "ExceptionHeaders.h"
+#include "ExceptionInterfaces.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
-#include "IDBDatabaseException.h"
 #include "IDBFactoryBackendInterface.h"
-#include "IDBPendingTransactionMonitor.h"
 #include "InspectorInstrumentation.h"
-#include "Page.h"
-#include "PageGroup.h"
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
+#include "ScriptCallStack.h"
+#include "ScriptCallStackFactory.h"
 #include "ScriptSourceCode.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
-#include "StorageNamespace.h"
+#include "StylePropertySet.h"
 #include "V8Binding.h"
 #include "V8BindingState.h"
 #include "V8Collection.h"
 #include "V8DOMCoreException.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
-#include "V8EventException.h"
-#include "V8FileException.h"
 #include "V8HiddenPropertyName.h"
 #include "V8IsolatedContext.h"
-#include "V8RangeException.h"
-#include "V8SQLException.h"
-#include "V8XMLHttpRequestException.h"
-#include "V8XPathException.h"
+#include "V8RecursionScope.h"
 #include "WorkerContext.h"
 #include "WorkerContextExecutionProxy.h"
-
-#if ENABLE(INDEXED_DATABASE)
-#include "V8IDBDatabaseException.h"
-#endif
-
-#if ENABLE(SVG)
-#include "V8SVGException.h"
-#endif
 
 #include <algorithm>
 #include <stdio.h>
@@ -85,10 +71,17 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/text/WTFString.h>
 
+#if PLATFORM(CHROMIUM)
+#include "TraceEvent.h"
+#endif
+
 namespace WebCore {
 
-// Static list of registered extensions
-V8Extensions V8Proxy::m_extensions;
+static V8Extensions& staticExtensionsList()
+{
+    DEFINE_STATIC_LOCAL(V8Extensions, extensions, ());
+    return extensions;
+}
 
 void batchConfigureAttributes(v8::Handle<v8::ObjectTemplate> instance, 
                               v8::Handle<v8::ObjectTemplate> proto, 
@@ -130,23 +123,6 @@ typedef HashMap<Node*, v8::Object*> DOMNodeMap;
 typedef HashMap<void*, v8::Object*> DOMObjectMap;
 typedef HashMap<int, v8::FunctionTemplate*> FunctionTemplateMap;
 
-bool AllowAllocation::m_current = false;
-
-static void addMessageToConsole(Page* page, const String& message, const String& sourceID, unsigned lineNumber)
-{
-    ASSERT(page);
-    Console* console = page->mainFrame()->domWindow()->console();
-    console->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, lineNumber, sourceID);
-}
-
-void logInfo(Frame* frame, const String& message, const String& url)
-{
-    Page* page = frame->page();
-    if (!page)
-        return;
-    addMessageToConsole(page, message, url, 0);
-}
-
 void V8Proxy::reportUnsafeAccessTo(Frame* target)
 {
     ASSERT(target);
@@ -156,9 +132,6 @@ void V8Proxy::reportUnsafeAccessTo(Frame* target)
 
     Frame* source = V8Proxy::retrieveFrameForEnteredContext();
     if (!source)
-        return;
-    Page* page = source->page();
-    if (!page)
         return;
 
     Document* sourceDocument = source->document();
@@ -170,14 +143,12 @@ void V8Proxy::reportUnsafeAccessTo(Frame* target)
     String str = "Unsafe JavaScript attempt to access frame with URL " + targetDocument->url().string() +
                  " from frame with URL " + sourceDocument->url().string() + ". Domains, protocols and ports must match.\n";
 
-    // Build a console message with fake source ID and line number.
-    const String kSourceID = "";
-    const int kLineNumber = 1;
+    RefPtr<ScriptCallStack> stackTrace = createScriptCallStack(ScriptCallStack::maxCallStackSizeToCapture, true);
 
     // NOTE: Safari prints the message in the target page, but it seems like
     // it should be in the source page. Even for delayed messages, we put it in
     // the source page.
-    addMessageToConsole(page, str, kSourceID, kLineNumber);
+    sourceDocument->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, str, stackTrace.release());
 }
 
 static void handleFatalErrorInV8()
@@ -187,12 +158,15 @@ static void handleFatalErrorInV8()
     CRASH();
 }
 
+static v8::Local<v8::Value> handleMaxRecursionDepthExceeded()
+{
+    throwError("Maximum call stack size exceeded.", V8Proxy::RangeError);
+    return v8::Local<v8::Value>();
+}
+
 V8Proxy::V8Proxy(Frame* frame)
     : m_frame(frame)
     , m_windowShell(V8DOMWindowShell::create(frame))
-    , m_inlineCode(false)
-    , m_timerCallback(false)
-    , m_recursion(0)
 {
 }
 
@@ -202,7 +176,7 @@ V8Proxy::~V8Proxy()
     windowShell()->destroyGlobal();
 }
 
-v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* scriptData)
+v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition& scriptStartPosition, v8::ScriptData* scriptData)
 {
     const uint16_t* fileNameString = fromWebCoreString(fileName);
     v8::Handle<v8::String> name = v8::String::New(fileNameString, fileName.length());
@@ -232,21 +206,22 @@ bool V8Proxy::handleOutOfMemory()
     }
 
 #if PLATFORM(CHROMIUM)
-    PlatformBridge::notifyJSOutOfMemory(frame);
+    PlatformSupport::notifyJSOutOfMemory(frame);
 #endif
 
     // Disable JS.
     Settings* settings = frame->settings();
     ASSERT(settings);
-    settings->setJavaScriptEnabled(false);
+    settings->setScriptEnabled(false);
 
     return true;
 }
 
-void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup)
+void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup, WTF::Vector<v8::Local<v8::Value> >* results)
 {
     // FIXME: This will need to get reorganized once we have a windowShell for the isolated world.
-    windowShell()->initContextIfNeeded();
+    if (!windowShell()->initContextIfNeeded())
+        return;
 
     v8::HandleScope handleScope;
     V8IsolatedContext* isolatedContext = 0;
@@ -256,7 +231,7 @@ void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode
         if (iter != m_isolatedWorlds.end()) {
             isolatedContext = iter->second;
         } else {
-            isolatedContext = new V8IsolatedContext(this, extensionGroup);
+            isolatedContext = new V8IsolatedContext(this, extensionGroup, worldID);
             if (isolatedContext->context().IsEmpty()) {
                 delete isolatedContext;
                 return;
@@ -264,16 +239,13 @@ void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode
 
             // FIXME: We should change this to using window shells to match JSC.
             m_isolatedWorlds.set(worldID, isolatedContext);
-
-            // Setup context id for JS debugger.
-            if (!setInjectedScriptContextDebugId(isolatedContext->context())) {
-                m_isolatedWorlds.take(worldID);
-                delete isolatedContext;
-                return;
-            }
         }
+
+        IsolatedWorldSecurityOriginMap::iterator securityOriginIter = m_isolatedWorldSecurityOrigins.find(worldID);
+        if (securityOriginIter != m_isolatedWorldSecurityOrigins.end())
+            isolatedContext->setSecurityOrigin(securityOriginIter->second);
     } else {
-        isolatedContext = new V8IsolatedContext(this, extensionGroup);
+        isolatedContext = new V8IsolatedContext(this, extensionGroup, worldID);
         if (isolatedContext->context().IsEmpty()) {
             delete isolatedContext;
             return;
@@ -282,30 +254,27 @@ void V8Proxy::evaluateInIsolatedWorld(int worldID, const Vector<ScriptSourceCode
 
     v8::Local<v8::Context> context = v8::Local<v8::Context>::New(isolatedContext->context());
     v8::Context::Scope context_scope(context);
-    for (size_t i = 0; i < sources.size(); ++i)
-      evaluate(sources[i], 0);
+
+    if (results) {
+        for (size_t i = 0; i < sources.size(); ++i)
+            results->append(evaluate(sources[i], 0));
+    } else {
+        for (size_t i = 0; i < sources.size(); ++i)
+            evaluate(sources[i], 0);
+    }
 
     if (worldID == 0)
-      isolatedContext->destroy();
+        isolatedContext->destroy();
 }
 
-bool V8Proxy::setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext)
+void V8Proxy::setIsolatedWorldSecurityOrigin(int worldID, PassRefPtr<SecurityOrigin> prpSecurityOriginIn)
 {
-    // Setup context id for JS debugger.
-    v8::Context::Scope contextScope(targetContext);
-    v8::Handle<v8::Context> context = windowShell()->context();
-    if (context.IsEmpty())
-        return false;
-    int debugId = contextDebugId(context);
-
-    char buffer[32];
-    if (debugId == -1)
-        snprintf(buffer, sizeof(buffer), "injected");
-    else
-        snprintf(buffer, sizeof(buffer), "injected,%d", debugId);
-    targetContext->SetData(v8::String::New(buffer));
-
-    return true;
+    ASSERT(worldID);
+    RefPtr<SecurityOrigin> securityOrigin = prpSecurityOriginIn;
+    m_isolatedWorldSecurityOrigins.set(worldID, securityOrigin);
+    IsolatedWorldMap::iterator iter = m_isolatedWorlds.find(worldID);
+    if (iter != m_isolatedWorlds.end())
+        iter->second->setSecurityOrigin(securityOrigin);
 }
 
 PassOwnPtr<v8::ScriptData> V8Proxy::precompileScript(v8::Handle<v8::String> code, CachedScript* cachedScript)
@@ -330,11 +299,6 @@ PassOwnPtr<v8::ScriptData> V8Proxy::precompileScript(v8::Handle<v8::String> code
     return scriptData.release();
 }
 
-bool V8Proxy::executingScript() const
-{
-    return m_recursion;
-}
-
 v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* node)
 {
     ASSERT(v8::Context::InContext());
@@ -355,73 +319,48 @@ v8::Local<v8::Value> V8Proxy::evaluate(const ScriptSourceCode& source, Node* nod
         // Compile the script.
         v8::Local<v8::String> code = v8ExternalString(source.source());
 #if PLATFORM(CHROMIUM)
-        PlatformBridge::traceEventBegin("v8.compile", node, "");
+        TRACE_EVENT_BEGIN0("v8", "v8.compile");
 #endif
         OwnPtr<v8::ScriptData> scriptData = precompileScript(code, source.cachedScript());
 
         // NOTE: For compatibility with WebCore, ScriptSourceCode's line starts at
         // 1, whereas v8 starts at 0.
-        v8::Handle<v8::Script> script = compileScript(code, source.url(), WTF::toZeroBasedTextPosition(source.startPosition()), scriptData.get());
+        v8::Handle<v8::Script> script = compileScript(code, source.url(), source.startPosition(), scriptData.get());
 #if PLATFORM(CHROMIUM)
-        PlatformBridge::traceEventEnd("v8.compile", node, "");
-
-        PlatformBridge::traceEventBegin("v8.run", node, "");
+        TRACE_EVENT_END0("v8", "v8.compile");
+        TRACE_EVENT0("v8", "v8.run");
 #endif
-        // Set inlineCode to true for <a href="javascript:doSomething()">
-        // and false for <script>doSomething</script>. We make a rough guess at
-        // this based on whether the script source has a URL.
-        result = runScript(script, source.url().string().isNull());
+        result = runScript(script);
     }
-#if PLATFORM(CHROMIUM)
-    PlatformBridge::traceEventEnd("v8.run", node, "");
-#endif
 
     InspectorInstrumentation::didEvaluateScript(cookie);
 
     return result;
 }
 
-v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isInlineCode)
+v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script)
 {
     if (script.IsEmpty())
         return notHandledByInterceptor();
 
     V8GCController::checkMemoryUsage();
-    // Compute the source string and prevent against infinite recursion.
-    if (m_recursion >= kMaxRecursionDepth) {
-        v8::Local<v8::String> code = v8ExternalString("throw RangeError('Recursion too deep')");
-        // FIXME: Ideally, we should be able to re-use the origin of the
-        // script passed to us as the argument instead of using an empty string
-        // and 0 baseLine.
-        script = compileScript(code, "", TextPosition0::minimumPosition());
-    }
+    if (V8RecursionScope::recursionLevel() >= kMaxRecursionDepth)
+        return handleMaxRecursionDepthExceeded();
 
     if (handleOutOfMemory())
         ASSERT(script.IsEmpty());
 
-    if (script.IsEmpty())
-        return notHandledByInterceptor();
-
-    // Save the previous value of the inlineCode flag and update the flag for
-    // the duration of the script invocation.
-    bool previousInlineCode = inlineCode();
-    setInlineCode(isInlineCode);
+    // Keep Frame (and therefore ScriptController and V8Proxy) alive.
+    RefPtr<Frame> protect(frame());
 
     // Run the script and keep track of the current recursion depth.
     v8::Local<v8::Value> result;
     v8::TryCatch tryCatch;
     tryCatch.SetVerbose(true);
     {
-        // See comment in V8Proxy::callFunction.
-        m_frame->keepAlive();
-
-        m_recursion++;
+        V8RecursionScope recursionScope(frame()->document());
         result = script->Run();
-        m_recursion--;
     }
-
-    // Release the storage mutex if applicable.
-    didLeaveScriptContext();
 
     if (handleOutOfMemory())
         ASSERT(result.IsEmpty());
@@ -435,9 +374,6 @@ v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isIn
     if (result.IsEmpty())
         return notHandledByInterceptor();
 
-    // Restore inlineCode flag.
-    setInlineCode(previousInlineCode);
-
     if (v8::V8::IsDead())
         handleFatalErrorInV8();
 
@@ -446,59 +382,42 @@ v8::Local<v8::Value> V8Proxy::runScript(v8::Handle<v8::Script> script, bool isIn
 
 v8::Local<v8::Value> V8Proxy::callFunction(v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
 {
-    V8GCController::checkMemoryUsage();
-    v8::Local<v8::Value> result;
-    {
-        if (m_recursion >= kMaxRecursionDepth) {
-            v8::Local<v8::String> code = v8::String::New("throw new RangeError('Maximum call stack size exceeded.')");
-            if (code.IsEmpty())
-                return result;
-            v8::Local<v8::Script> script = v8::Script::Compile(code);
-            if (script.IsEmpty())
-                return result;
-            script->Run();
-            return result;
-        }
-
-        // Evaluating the JavaScript could cause the frame to be deallocated,
-        // so we start the keep alive timer here.
-        // Frame::keepAlive method adds the ref count of the frame and sets a
-        // timer to decrease the ref count. It assumes that the current JavaScript
-        // execution finishs before firing the timer.
-        m_frame->keepAlive();
-
-        InspectorInstrumentationCookie cookie;
-        if (InspectorInstrumentation::hasFrontends()) {
-            v8::ScriptOrigin origin = function->GetScriptOrigin();
-            String resourceName("undefined");
-            int lineNumber = 1;
-            if (!origin.ResourceName().IsEmpty()) {
-                resourceName = toWebCoreString(origin.ResourceName());
-                lineNumber = function->GetScriptLineNumber() + 1;
-            }
-            cookie = InspectorInstrumentation::willCallFunction(m_frame, resourceName, lineNumber);
-        }
-
-        m_recursion++;
-        result = function->Call(receiver, argc, args);
-        m_recursion--;
-
-        InspectorInstrumentation::didCallFunction(cookie);
-    }
-
-    // Release the storage mutex if applicable.
-    didLeaveScriptContext();
-
-    if (v8::V8::IsDead())
-        handleFatalErrorInV8();
-
-    return result;
+    // Keep Frame (and therefore ScriptController and V8Proxy) alive.
+    RefPtr<Frame> protect(frame());
+    return V8Proxy::instrumentedCallFunction(frame(), function, receiver, argc, args);
 }
 
-v8::Local<v8::Value> V8Proxy::callFunctionWithoutFrame(v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
+v8::Local<v8::Value> V8Proxy::instrumentedCallFunction(Frame* frame, v8::Handle<v8::Function> function, v8::Handle<v8::Object> receiver, int argc, v8::Handle<v8::Value> args[])
 {
     V8GCController::checkMemoryUsage();
-    v8::Local<v8::Value> result = function->Call(receiver, argc, args);
+
+    if (V8RecursionScope::recursionLevel() >= kMaxRecursionDepth)
+        return handleMaxRecursionDepthExceeded();
+
+    ScriptExecutionContext* context = frame ? frame->document() : 0;
+
+    InspectorInstrumentationCookie cookie;
+    if (InspectorInstrumentation::hasFrontends() && context) {
+        String resourceName("undefined");
+        int lineNumber = 1;
+        v8::ScriptOrigin origin = function->GetScriptOrigin();
+        if (!origin.ResourceName().IsEmpty()) {
+            resourceName = toWebCoreString(origin.ResourceName());
+            lineNumber = function->GetScriptLineNumber() + 1;
+        }
+        cookie = InspectorInstrumentation::willCallFunction(context, resourceName, lineNumber);
+    }
+
+    v8::Local<v8::Value> result;
+    {
+#if PLATFORM(CHROMIUM)
+        TRACE_EVENT0("v8", "v8.callFunction");
+#endif
+        V8RecursionScope recursionScope(context);
+        result = function->Call(receiver, argc, args);
+    }
+
+    InspectorInstrumentation::didCallFunction(cookie);
 
     if (v8::V8::IsDead())
         handleFatalErrorInV8();
@@ -508,13 +427,15 @@ v8::Local<v8::Value> V8Proxy::callFunctionWithoutFrame(v8::Handle<v8::Function> 
 
 v8::Local<v8::Value> V8Proxy::newInstance(v8::Handle<v8::Function> constructor, int argc, v8::Handle<v8::Value> args[])
 {
+#if PLATFORM(CHROMIUM)
+    TRACE_EVENT0("v8", "v8.newInstance");
+#endif
+
     // No artificial limitations on the depth of recursion, see comment in
     // V8Proxy::callFunction.
     v8::Local<v8::Value> result;
     {
-        // See comment in V8Proxy::callFunction.
-        m_frame->keepAlive();
-
+        V8RecursionScope recursionScope(frame() ? frame()->document() : 0);
         result = constructor->NewInstance(argc, args);
     }
 
@@ -561,6 +482,14 @@ Frame* V8Proxy::retrieveFrameForCurrentContext()
     return retrieveFrame(context);
 }
 
+DOMWindow* V8Proxy::retrieveWindowForCallingContext()
+{
+    v8::Handle<v8::Context> context = v8::Context::GetCalling();
+    if (context.IsEmpty())
+        return 0;
+    return retrieveWindow(context);
+}
+
 Frame* V8Proxy::retrieveFrameForCallingContext()
 {
     v8::Handle<v8::Context> context = v8::Context::GetCalling();
@@ -578,9 +507,7 @@ V8Proxy* V8Proxy::retrieve()
 
 V8Proxy* V8Proxy::retrieve(Frame* frame)
 {
-    if (!frame)
-        return 0;
-    return frame->script()->canExecuteScripts(NotAboutToExecuteScript) ? frame->script()->proxy() : 0;
+    return frame ? frame->script()->proxy() : 0;
 }
 
 V8Proxy* V8Proxy::retrieve(ScriptExecutionContext* context)
@@ -590,28 +517,12 @@ V8Proxy* V8Proxy::retrieve(ScriptExecutionContext* context)
     return retrieve(static_cast<Document*>(context)->frame());
 }
 
-void V8Proxy::disconnectFrame()
+V8BindingPerContextData* V8Proxy::retrievePerContextData(Frame* frame)
 {
-}
-
-void V8Proxy::didLeaveScriptContext()
-{
-    Page* page = m_frame->page();
-    if (!page)
-        return;
-#if ENABLE(INDEXED_DATABASE)
-    // If we've just left a script context and indexed database has been
-    // instantiated, we must let its transaction coordinator know so it can terminate
-    // any not-yet-started transactions.
-    IDBPendingTransactionMonitor::abortPendingTransactions();
-#endif // ENABLE(INDEXED_DATABASE)
-    // If we've just left a top level script context and local storage has been
-    // instantiated, we must ensure that any storage locks have been freed.
-    // Per http://dev.w3.org/html5/spec/Overview.html#storage-mutex
-    if (m_recursion != 0)
-        return;
-    if (page->group().hasLocalStorage())
-        page->group().localStorage()->unlock();
+    V8IsolatedContext* isolatedContext;
+    if (UNLIKELY(!!(isolatedContext = V8IsolatedContext::getEntered())))
+        return isolatedContext->perContextData();
+    return V8Proxy::retrieve(frame)->windowShell()->perContextData();
 }
 
 void V8Proxy::resetIsolatedWorlds()
@@ -621,6 +532,7 @@ void V8Proxy::resetIsolatedWorlds()
         iter->second->destroy();
     }
     m_isolatedWorlds.clear();
+    m_isolatedWorldSecurityOrigins.clear();
 }
 
 void V8Proxy::clearForClose()
@@ -635,74 +547,42 @@ void V8Proxy::clearForNavigation()
     windowShell()->clearForNavigation();
 }
 
-void V8Proxy::setDOMException(int exceptionCode)
+#define TRY_TO_CREATE_EXCEPTION(interfaceName) \
+    case interfaceName##Type: \
+        exception = toV8(interfaceName::create(description), isolate); \
+        break;
+
+void V8Proxy::setDOMException(int ec, v8::Isolate* isolate)
 {
-    if (exceptionCode <= 0)
+    if (ec <= 0)
         return;
 
-    ExceptionCodeDescription description;
-    getExceptionCodeDescription(exceptionCode, description);
+    ExceptionCodeDescription description(ec);
 
     v8::Handle<v8::Value> exception;
     switch (description.type) {
-    case DOMExceptionType:
-        exception = toV8(DOMCoreException::create(description));
-        break;
-    case RangeExceptionType:
-        exception = toV8(RangeException::create(description));
-        break;
-    case EventExceptionType:
-        exception = toV8(EventException::create(description));
-        break;
-    case XMLHttpRequestExceptionType:
-        exception = toV8(XMLHttpRequestException::create(description));
-        break;
-#if ENABLE(SVG)
-    case SVGExceptionType:
-        exception = toV8(SVGException::create(description));
-        break;
-#endif
-#if ENABLE(XPATH)
-    case XPathExceptionType:
-        exception = toV8(XPathException::create(description));
-        break;
-#endif
-#if ENABLE(DATABASE)
-    case SQLExceptionType:
-        exception = toV8(SQLException::create(description));
-        break;
-#endif
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-    case FileExceptionType:
-        exception = toV8(FileException::create(description));
-        break;
-#endif
-#if ENABLE(INDEXED_DATABASE)
-    case IDBDatabaseExceptionType:
-        exception = toV8(IDBDatabaseException::create(description));
-        break;
-#endif
-    default:
-        ASSERT_NOT_REACHED();
+        DOM_EXCEPTION_INTERFACES_FOR_EACH(TRY_TO_CREATE_EXCEPTION)
     }
 
     if (!exception.IsEmpty())
         v8::ThrowException(exception);
 }
 
-v8::Handle<v8::Value> V8Proxy::throwError(ErrorType type, const char* message)
+#undef TRY_TO_CREATE_EXCEPTION
+
+v8::Handle<v8::Value> V8Proxy::throwError(ErrorType type, const char* message, v8::Isolate* isolate)
 {
     switch (type) {
     case RangeError:
-        return v8::ThrowException(v8::Exception::RangeError(v8String(message)));
+        return v8::ThrowException(v8::Exception::RangeError(v8String(message, isolate)));
     case ReferenceError:
-        return v8::ThrowException(v8::Exception::ReferenceError(v8String(message)));
+        return v8::ThrowException(v8::Exception::ReferenceError(v8String(message, isolate)));
     case SyntaxError:
-        return v8::ThrowException(v8::Exception::SyntaxError(v8String(message)));
+        return v8::ThrowException(v8::Exception::SyntaxError(v8String(message, isolate)));
     case TypeError:
-        return v8::ThrowException(v8::Exception::TypeError(v8String(message)));
+        return v8::ThrowException(v8::Exception::TypeError(v8String(message, isolate)));
     case GeneralError:
-        return v8::ThrowException(v8::Exception::Error(v8String(message)));
+        return v8::ThrowException(v8::Exception::Error(v8String(message, isolate)));
     default:
         ASSERT_NOT_REACHED();
         return notHandledByInterceptor();
@@ -714,9 +594,9 @@ v8::Handle<v8::Value> V8Proxy::throwTypeError()
     return throwError(TypeError, "Type error");
 }
 
-v8::Handle<v8::Value> V8Proxy::throwSyntaxError()
+v8::Handle<v8::Value> V8Proxy::throwNotEnoughArgumentsError()
 {
-    return throwError(SyntaxError, "Syntax error");
+    return throwError(TypeError, "Not enough arguments");
 }
 
 v8::Local<v8::Context> V8Proxy::context(Frame* frame)
@@ -751,6 +631,20 @@ v8::Local<v8::Context> V8Proxy::mainWorldContext()
     return v8::Local<v8::Context>::New(windowShell()->context());
 }
 
+bool V8Proxy::matchesCurrentContext()
+{
+    v8::Handle<v8::Context> context;
+    if (V8IsolatedContext* isolatedContext = V8IsolatedContext::getEntered()) {
+        context = isolatedContext->sharedContext()->get();
+        if (m_frame != V8Proxy::retrieveFrame(context))
+            return false;
+    } else {
+        windowShell()->initContextIfNeeded();
+        context = windowShell()->context();
+    }
+    return context == context->GetCurrent();
+}
+
 v8::Local<v8::Context> V8Proxy::mainWorldContext(Frame* frame)
 {
     V8Proxy* proxy = retrieve(frame);
@@ -767,7 +661,7 @@ v8::Local<v8::Context> V8Proxy::currentContext()
 
 v8::Handle<v8::Value> V8Proxy::checkNewLegal(const v8::Arguments& args)
 {
-    if (!AllowAllocation::m_current)
+    if (ConstructorMode::current() == ConstructorMode::CreateNewObject)
         return throwError(TypeError, "Illegal constructor");
 
     return args.This();
@@ -782,8 +676,9 @@ void V8Proxy::registerExtensionWithV8(v8::Extension* extension)
 
 bool V8Proxy::registeredExtensionWithV8(v8::Extension* extension)
 {
-    for (size_t i = 0; i < m_extensions.size(); ++i) {
-        if (m_extensions[i] == extension)
+    const V8Extensions& registeredExtensions = extensions();
+    for (size_t i = 0; i < registeredExtensions.size(); ++i) {
+        if (registeredExtensions[i] == extension)
             return true;
     }
 
@@ -793,7 +688,12 @@ bool V8Proxy::registeredExtensionWithV8(v8::Extension* extension)
 void V8Proxy::registerExtension(v8::Extension* extension)
 {
     registerExtensionWithV8(extension);
-    m_extensions.append(extension);
+    staticExtensionsList().append(extension);
+}
+
+const V8Extensions& V8Proxy::extensions()
+{
+    return staticExtensionsList();
 }
 
 bool V8Proxy::setContextDebugId(int debugId)

@@ -51,6 +51,8 @@ struct WKContextInjectedBundleClient {
 };
 typedef struct WKContextInjectedBundleClient WKContextInjectedBundleClient;
 
+enum { kWKContextInjectedBundleClientCurrentVersion = 0 };
+
 // History Client
 typedef void (*WKContextDidNavigateWithNavigationDataCallback)(WKContextRef context, WKPageRef page, WKNavigationDataRef navigationData, WKFrameRef frame, const void *clientInfo);
 typedef void (*WKContextDidPerformClientRedirectCallback)(WKContextRef context, WKPageRef page, WKURLRef sourceURL, WKURLRef destinationURL, WKFrameRef frame, const void *clientInfo);
@@ -68,6 +70,8 @@ struct WKContextHistoryClient {
     WKContextPopulateVisitedLinksCallback                               populateVisitedLinks;
 };
 typedef struct WKContextHistoryClient WKContextHistoryClient;
+
+enum { kWKContextHistoryClientCurrentVersion = 0 };
 
 // Download Client
 typedef void (*WKContextDownloadDidStartCallback)(WKContextRef context, WKDownloadRef download, const void *clientInfo);
@@ -99,6 +103,20 @@ struct WKContextDownloadClient {
 };
 typedef struct WKContextDownloadClient WKContextDownloadClient;
 
+enum { kWKContextDownloadClientCurrentVersion = 0 };
+
+// Connection Client
+typedef void (*WKContextDidCreateConnection)(WKContextRef context, WKConnectionRef connection, const void* clientInfo);
+
+struct WKContextConnectionClient {
+    int                                                                 version;
+    const void *                                                        clientInfo;
+    WKContextDidCreateConnection                                        didCreateConnection;
+};
+typedef struct WKContextConnectionClient WKContextConnectionClient;
+
+enum { kWKContextConnectionClientCurrentVersion = 0 };
+
 WK_EXPORT WKTypeID WKContextGetTypeID();
 
 WK_EXPORT WKContextRef WKContextCreate();
@@ -108,6 +126,7 @@ WK_EXPORT WKContextRef WKContextGetSharedProcessContext();
 WK_EXPORT void WKContextSetInjectedBundleClient(WKContextRef context, const WKContextInjectedBundleClient* client);
 WK_EXPORT void WKContextSetHistoryClient(WKContextRef context, const WKContextHistoryClient* client);
 WK_EXPORT void WKContextSetDownloadClient(WKContextRef context, const WKContextDownloadClient* client);
+WK_EXPORT void WKContextSetConnectionClient(WKContextRef context, const WKContextConnectionClient* client);
 
 WK_EXPORT WKDownloadRef WKContextDownloadURLRequest(WKContextRef context, const WKURLRequestRef request);
 
@@ -129,6 +148,7 @@ WK_EXPORT WKGeolocationManagerRef WKContextGetGeolocationManager(WKContextRef co
 WK_EXPORT WKIconDatabaseRef WKContextGetIconDatabase(WKContextRef context);
 WK_EXPORT WKKeyValueStorageManagerRef WKContextGetKeyValueStorageManager(WKContextRef context);
 WK_EXPORT WKMediaCacheManagerRef WKContextGetMediaCacheManager(WKContextRef context);
+WK_EXPORT WKNotificationManagerRef WKContextGetNotificationManager(WKContextRef context);
 WK_EXPORT WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef context);
 WK_EXPORT WKResourceCacheManagerRef WKContextGetResourceCacheManager(WKContextRef context);
     

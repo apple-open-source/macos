@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -234,10 +234,9 @@ typedef struct
 	regmatch_t		save[1];
 } Match_frame_t;
 
-#define matchframe	stkdata(stkstd,Match_frame_t)
 #define matchpush(e,x)	((x)->re.group.number?_matchpush(e,x):0)
-#define matchcopy(e,x)	((x)->re.group.number?memcpy(matchframe->match,matchframe->save,matchframe->size):(void*)0)
-#define matchpop(e,x)	((x)->re.group.number?memcpy(matchframe->match,matchframe->save,matchframe->size),stkpop(stkstd):(void*)0)
+#define matchcopy(e,x)	do if ((x)->re.group.number) { Match_frame_t* fp = (void*)stkframe(stkstd)->data; memcpy(fp->match, fp->save, fp->size); } while (0)
+#define matchpop(e,x)	do if ((x)->re.group.number) { Match_frame_t* fp = (void*)stkframe(stkstd)->data; memcpy(fp->match, fp->save, fp->size); stkpop(stkstd); } while (0)
 
 #define pospop(e)	(--(e)->pos->cur)
 
@@ -302,38 +301,6 @@ pospush(Env_t* env, Rex_t* rex, unsigned char* p, int be)
  * returns 1 if new is better, -1 if old, else 0.
  */
 
-#if _AST_REGEX_DEBUG
-
-static void
-showmatch(regmatch_t* p)
-{
-	sfputc(sfstdout, '(');
-	if (p->rm_so < 0)
-		sfputc(sfstdout, '?');
-	else
-		sfprintf(sfstdout, "%d", p->rm_so);
-	sfputc(sfstdout, ',');
-	if (p->rm_eo < 0)
-		sfputc(sfstdout, '?');
-	else
-		sfprintf(sfstdout, "%d", p->rm_eo);
-	sfputc(sfstdout, ')');
-}
-
-static int
-better(Env_t* env, Pos_t* os, Pos_t* ns, Pos_t* oend, Pos_t* nend, int level)
-#define better	_better
-{
-	int	i;
-
-	DEBUG_CODE(0x0040,{sfprintf(sfstdout, "AHA better old ");for (i = 0; i <= env->nsub; i++)showmatch(&env->best[i]);sfprintf(sfstdout, "\n           new ");for (i = 0; i <= env->nsub; i++)showmatch(&env->match[i]);sfprintf(sfstdout, "\n");},{0;});
-	i = better(env, os, ns, oend, nend, 0);
-	DEBUG_TEST(0x0040,(sfprintf(sfstdout, "           %s\n", i <= 0 ? "OLD" : "NEW")),(0));
-	return i;
-}
-
-#endif
-
 static int
 better(Env_t* env, Pos_t* os, Pos_t* ns, Pos_t* oend, Pos_t* nend, int level)
 {
@@ -394,7 +361,38 @@ better(Env_t* env, Pos_t* os, Pos_t* ns, Pos_t* oend, Pos_t* nend, int level)
 	}
 }
 
-#undef	better
+#if _AST_REGEX_DEBUG
+
+static void
+showmatch(regmatch_t* p)
+{
+	sfputc(sfstdout, '(');
+	if (p->rm_so < 0)
+		sfputc(sfstdout, '?');
+	else
+		sfprintf(sfstdout, "%d", p->rm_so);
+	sfputc(sfstdout, ',');
+	if (p->rm_eo < 0)
+		sfputc(sfstdout, '?');
+	else
+		sfprintf(sfstdout, "%d", p->rm_eo);
+	sfputc(sfstdout, ')');
+}
+
+static int
+_better(Env_t* env, Pos_t* os, Pos_t* ns, Pos_t* oend, Pos_t* nend, int level)
+{
+	int	i;
+
+	DEBUG_CODE(0x0040,{sfprintf(sfstdout, "AHA better old ");for (i = 0; i <= env->nsub; i++)showmatch(&env->best[i]);sfprintf(sfstdout, "\n           new ");for (i = 0; i <= env->nsub; i++)showmatch(&env->match[i]);sfprintf(sfstdout, "\n");},{0;});
+	i = better(env, os, ns, oend, nend, 0);
+	DEBUG_TEST(0x0040,(sfprintf(sfstdout, "           %s\n", i <= 0 ? "OLD" : "NEW")),(0));
+	return i;
+}
+
+#define better	_better
+
+#endif
 
 #define follow(e,r,c,s)	((r)->next?parse(e,(r)->next,c,s):(c)?parse(e,c,0,s):BEST)
 
@@ -407,7 +405,7 @@ parserep(Env_t* env, Rex_t* rex, Rex_t* cont, unsigned char* s, int n)
 	int	r = NONE;
 	Rex_t	catcher;
 
-	DEBUG_TEST(0x0010,(sfprintf(sfstdout, "AHA#%04d 0x%04x parserep %s %d %d %d `%-.*s'\n", __LINE__, debug_flag, rexname(rex->re.group.expr.rex), rex->lo, n, rex->hi, env->end - s, s)),(0));
+	DEBUG_TEST(0x0010,(sfprintf(sfstdout, "AHA#%04d 0x%04x parserep %s %d %d %d %d `%-.*s'\n", __LINE__, debug_flag, rexname(rex->re.group.expr.rex), rex->re.group.number, rex->lo, n, rex->hi, env->end - s, s)),(0));
 	if ((rex->flags & REG_MINIMAL) && n >= rex->lo && n < rex->hi)
 	{
 		if (env->stack && pospush(env, rex, s, END_ANY))
@@ -439,21 +437,19 @@ parserep(Env_t* env, Rex_t* rex, Rex_t* cont, unsigned char* s, int n)
 			rex->re.rep_catch.beg = s;
 		if (env->stack)
 		{
-DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x PUSH (%d,%d)(%d,%d) (%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo)),(0));
 			if (matchpush(env, rex))
 				return BAD;
 			if (pospush(env, rex, s, BEG_ONE))	
 				return BAD;
-DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x PUSH (%d,%d)(%d,%d) (%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo)),(0));
+DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x PUSH %d   (%d,%d)(%d,%d)(%d,%d) (%d,%d)(%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->best[2].rm_so, env->best[2].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo, env->match[2].rm_so, env->match[2].rm_eo)),(0));
 		}
 		r = parse(env, rex->re.group.expr.rex, &catcher, s);
-		DEBUG_TEST(0x0010,(sfprintf(sfstdout, "AHA#%04d 0x%04x parserep parse %d `%-.*s'\n", __LINE__, debug_flag, r, env->end - s, s)),(0));
+		DEBUG_TEST(0x0010,(sfprintf(sfstdout, "AHA#%04d 0x%04x parserep parse %d %d `%-.*s'\n", __LINE__, debug_flag, rex->re.group.number, r, env->end - s, s)),(0));
 		if (env->stack)
 		{
-DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x POP (%d,%d)(%d,%d) (%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo)),(0));
 			pospop(env);
 			matchpop(env, rex);
-DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x POP (%d,%d)(%d,%d) (%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo)),(0));
+DEBUG_TEST(0x0004,(sfprintf(sfstdout,"AHA#%04d 0x%04x POP  %d %d (%d,%d)(%d,%d)(%d,%d) (%d,%d)(%d,%d)(%d,%d)\n", __LINE__, debug_flag, rex->re.group.number, r, env->best[0].rm_so, env->best[0].rm_eo, env->best[1].rm_so, env->best[1].rm_eo, env->best[2].rm_so, env->best[2].rm_eo, env->match[0].rm_so, env->match[0].rm_eo, env->match[1].rm_so, env->match[1].rm_eo, env->match[2].rm_so, env->match[2].rm_eo)),(0));
 		}
 		switch (r)
 		{
@@ -631,7 +627,7 @@ collic(register Celt_t* ce, char* key, register char* nxt, int c, int x)
 			c = towlower(c);
 		else
 			return 0;
-		x = wctomb(key, c);
+		x = mbconv(key, c);
 		key[x] = 0;
 		return collelt(ce, key, c, 0);
 	}
@@ -1461,6 +1457,8 @@ DEBUG_TEST(0x0200,(sfprintf(sfstdout,"AHA#%04d 0x%04x parse %s=>%s `%-.*s'\n", _
 			bitset(rex->re.neg_catch.index, s - rex->re.neg_catch.beg);
 			return NONE;
 		case REX_NEST:
+			if (s >= env->end)
+				return NONE;
 			do
 			{
 				if ((c = *s++) == rex->re.nest.primary)

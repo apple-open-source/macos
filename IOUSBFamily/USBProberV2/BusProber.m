@@ -241,7 +241,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     [thisDevice setDeviceName:
 	 [NSString stringWithFormat:@"%s Speed device @ %d (0x%08lX): .............................................",
 #ifdef SUPPORTS_SS_USB
-	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))), 
+	  (speed == kUSBDeviceSpeedSuper ? "Super" : (speed == kUSBDeviceSpeedHigh ? "High" :(speed == kUSBDeviceSpeedFull ? "Full" : "Low"))),
 #else
 	  (speed == kUSBDeviceSpeedHigh ? "High" : (speed == kUSBDeviceSpeedLow ? "Low" : "Full")), 
 #endif

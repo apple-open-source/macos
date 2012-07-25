@@ -62,6 +62,10 @@ struct string_list {
     struct string_list *next;
 };
 
+/* Declarations for Bison */
+#define YYMALLOC malloc
+#define YYFREE   free
+
 %}
 
 %union {
@@ -241,14 +245,14 @@ ModuleDefinition: IDENTIFIER objid_opt kw_DEFINITIONS TagDefault ExtensionDefaul
 
 TagDefault	: kw_EXPLICIT kw_TAGS
 		| kw_IMPLICIT kw_TAGS
-		      { error_message("implicit tagging is not supported"); }
+		      { lex_error_message("implicit tagging is not supported"); }
 		| kw_AUTOMATIC kw_TAGS
-		      { error_message("automatic tagging is not supported"); }
+		      { lex_error_message("automatic tagging is not supported"); }
 		| /* empty */
 		;
 
 ExtensionDefault: kw_EXTENSIBILITY kw_IMPLIED
-		      { error_message("no extensibility options supported"); }
+		      { lex_error_message("no extensibility options supported"); }
 		| /* empty */
 		;
 
@@ -353,25 +357,25 @@ BooleanType	: kw_BOOLEAN
 range		: '(' Value RANGE Value ')'
 		{
 		    if($2->type != integervalue)
-			error_message("Non-integer used in first part of range");
+			lex_error_message("Non-integer used in first part of range");
 		    if($2->type != integervalue)
-			error_message("Non-integer in second part of range");
+			lex_error_message("Non-integer in second part of range");
 		    $$ = ecalloc(1, sizeof(*$$));
 		    $$->min = $2->u.integervalue;
 		    $$->max = $4->u.integervalue;
 		}
 		| '(' Value RANGE kw_MAX ')'
-		{	
+		{
 		    if($2->type != integervalue)
-			error_message("Non-integer in first part of range");
+			lex_error_message("Non-integer in first part of range");
 		    $$ = ecalloc(1, sizeof(*$$));
 		    $$->min = $2->u.integervalue;
 		    $$->max = $2->u.integervalue - 1;
 		}
 		| '(' kw_MIN RANGE Value ')'
-		{	
+		{
 		    if($4->type != integervalue)
-			error_message("Non-integer in second part of range");
+			lex_error_message("Non-integer in second part of range");
 		    $$ = ecalloc(1, sizeof(*$$));
 		    $$->min = $4->u.integervalue + 2;
 		    $$->max = $4->u.integervalue;
@@ -379,7 +383,7 @@ range		: '(' Value RANGE Value ')'
 		| '(' Value ')'
 		{
 		    if($2->type != integervalue)
-			error_message("Non-integer used in limit");
+			lex_error_message("Non-integer used in limit");
 		    $$ = ecalloc(1, sizeof(*$$));
 		    $$->min = $2->u.integervalue;
 		    $$->max = $2->u.integervalue;
@@ -550,7 +554,7 @@ DefinedType	: IDENTIFIER
 		  Symbol *s = addsym($1);
 		  $$ = new_type(TType);
 		  if(s->stype != Stype && s->stype != SUndefined)
-		    error_message ("%s is not a type\n", $1);
+		    lex_error_message ("%s is not a type\n", $1);
 		  else
 		    $$->symbol = s;
 		}
@@ -606,7 +610,7 @@ ContentsConstraint: kw_CONTAINING Type
 		| kw_ENCODED kw_BY Value
 		{
 		    if ($3->type != objectidentifiervalue)
-			error_message("Non-OID used in ENCODED BY constraint");
+			lex_error_message("Non-OID used in ENCODED BY constraint");
 		    $$ = new_constraint_spec(CT_CONTENTS);
 		    $$->u.content.type = NULL;
 		    $$->u.content.encoding = $3;
@@ -614,7 +618,7 @@ ContentsConstraint: kw_CONTAINING Type
 		| kw_CONTAINING Type kw_ENCODED kw_BY Value
 		{
 		    if ($5->type != objectidentifiervalue)
-			error_message("Non-OID used in ENCODED BY constraint");
+			lex_error_message("Non-OID used in ENCODED BY constraint");
 		    $$ = new_constraint_spec(CT_CONTENTS);
 		    $$->u.content.type = $2;
 		    $$->u.content.encoding = $5;
@@ -851,7 +855,7 @@ objid_element	: IDENTIFIER '(' NUMBER ')'
 		    Symbol *s = addsym($1);
 		    if(s->stype != SValue ||
 		       s->value->type != objectidentifiervalue) {
-			error_message("%s is not an object identifier\n",
+			lex_error_message("%s is not an object identifier\n",
 				      s->name);
 			exit(1);
 		    }
@@ -884,7 +888,7 @@ Valuereference	: IDENTIFIER
 		{
 			Symbol *s = addsym($1);
 			if(s->stype != SValue)
-				error_message ("%s is not a value\n",
+				lex_error_message ("%s is not a value\n",
 						s->name);
 			else
 				$$ = s->value;
@@ -942,7 +946,7 @@ ObjectIdentifierValue: objid
 void
 yyerror (const char *s)
 {
-     error_message ("%s\n", s);
+     lex_error_message ("%s\n", s);
 }
 
 static Type *

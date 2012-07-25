@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -62,10 +62,11 @@ One line screen editor for any program
  */
 
 #include	<ast.h>
-#include	<ctype.h>
 #include	"FEATURE/cmds"
 #if KSHELL
 #   include	"defs.h"
+#else
+#   include	<ctype.h>
 #endif	/* KSHELL */
 #include	"io.h"
 
@@ -108,6 +109,7 @@ typedef struct _emacs_
 	char	CntrlO;
 	char	overflow;		/* Screen overflow flag set */
 	char	scvalid;		/* Screen is up to date */
+	char	lastdraw;	/* last update type */
 	int	offset;		/* Screen offset */
 	enum
 	{
@@ -195,6 +197,7 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	}
 	Prompt = prompt;
 	ep->screen = Screen;
+	ep->lastdraw = FINAL;
 	if(tty_raw(ERRIO,0) < 0)
 	{
 		 return(reedit?reedit:ed_read(context, fd,buff,scend,0));
@@ -205,8 +208,9 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	ed_setup(ep->ed,fd,reedit);
 	out = (genchar*)buff;
 #if SHOPT_MULTIBYTE
-	out = (genchar*)roundof((char*)out-(char*)0,sizeof(genchar));
-	ed_internal(buff,out);
+	out = (genchar*)roundof(buff-(char*)0,sizeof(genchar));
+	if(reedit)
+		ed_internal(buff,out);
 #endif /* SHOPT_MULTIBYTE */
 	if(!kstack)
 	{
@@ -231,6 +235,12 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 	i = sigsetjmp(env,0);
 	if (i !=0)
 	{
+		if(ep->ed->e_multiline)
+		{
+			cur = eol;
+			draw(ep,FINAL);
+			ed_flush(ep->ed);
+		}
 		tty_cooked(ERRIO);
 		if (i == UEOF)
 		{
@@ -251,7 +261,7 @@ int ed_emacsread(void *context, int fd,char *buff,int scend, int reedit)
 #ifdef ESH_NFIRST
 		ed_ungetchar(ep->ed,cntl('N'));
 #else
-		location = hist_locate(sh.hist_ptr,location.hist_command,location.hist_line,1);
+		location = hist_locate(shgd->hist_ptr,location.hist_command,location.hist_line,1);
 		if (location.hist_command < histlines)
 		{
 			hline = location.hist_command;
@@ -588,8 +598,10 @@ update:
 			}
 			continue;
 		case cntl('L'):
-			ed_crlf(ep->ed);
+			if(!ep->ed->e_nocrnl)
+				ed_crlf(ep->ed);
 			draw(ep,REFRESH);
+			ep->ed->e_nocrnl = 0;
 			continue;
 		case cntl('[') :
 		do_escape:
@@ -599,6 +611,18 @@ update:
 			search(ep,out,count);
 			goto drawline;
 		case cntl('P') :
+#if SHOPT_EDPREDICT
+			if(ep->ed->hlist)
+			{
+				if(ep->ed->hoff == 0)
+				{
+					beep();
+					continue;
+				}
+				ep->ed->hoff--;
+				goto hupdate;
+			}
+#endif /* SHOPT_EDPREDICT */
                         if (count <= hloff)
                                 hloff -= count;
                         else
@@ -627,11 +651,26 @@ update:
 			c = '\n';
 			goto process;
 		case cntl('N') :
+#if SHOPT_EDPREDICT
+			if(ep->ed->hlist)
+			{
+				if(ep->ed->hoff >= ep->ed->hmax)
+				{
+					beep();
+					continue;
+				}
+				ep->ed->hoff++;
+			 hupdate:
+				ed_histlist(ep->ed,*ep->ed->hlist!=0);
+				draw(ep,REFRESH);
+				continue;
+			}
+#endif /* SHOPT_EDPREDICT */
 #ifdef ESH_NFIRST
 			hline = location.hist_command;	/* start at saved position */
 			hloff = location.hist_line;
 #endif /* ESH_NFIRST */
-			location = hist_locate(sh.hist_ptr,hline,hloff,count);
+			location = hist_locate(shgd->hist_ptr,hline,hloff,count);
 			if (location.hist_command > histlines)
 			{
 				beep();
@@ -649,6 +688,8 @@ update:
 			location.hist_command = hline;	/* save current position */
 			location.hist_line = hloff;
 #endif
+			cur = 0;
+			draw(ep,UPDATE);
 			hist_copy((char*)out,MAXLINE, hline,hloff);
 #if SHOPT_MULTIBYTE
 			ed_internal((char*)(out),out);
@@ -896,13 +937,11 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 			char buf[MAXLINE];
 			char *ptr;
 			ptr = hist_word(buf,MAXLINE,(count?count:-1));
-#if !KSHELL
 			if(ptr==0)
 			{
 				beep();
 				break;
 			}
-#endif	/* KSHELL */
 			if ((eol - cur) >= sizeof(name))
 			{
 				beep();
@@ -921,8 +960,33 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 		}
 #if KSHELL
 
+#if SHOPT_EDPREDICT
+		case '\n':  case '\t':
+			if(!ep->ed->hlist)
+			{
+				beep();
+				break;
+			}
+			if(ch=='\n')
+				ed_ungetchar(ep->ed,'\n');
+#endif /* SHOPT_EDPREDICT */
 		/* file name expansion */
 		case cntl('[') :	/* filename completion */
+#if SHOPT_EDPREDICT
+			if(ep->ed->hlist)
+			{
+				value += ep->ed->hoff;
+				if(value > ep->ed->nhlist)
+					beep();
+				else
+				{
+					value = histlines - ep->ed->hlist[value-1]->index;
+					ed_histlist(ep->ed,0);
+					ed_ungetchar(ep->ed,cntl('P'));
+					return(value);
+				}
+			}
+#endif /* SHOPT_EDPREDICT */
 			i = '\\';
 		case '*':		/* filename expansion */
 		case '=':	/* escape = - list all matching file names */
@@ -1000,6 +1064,30 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 			switch(i=ed_getchar(ep->ed,1))
 			{
 			    case 'A':
+#if SHOPT_EDPREDICT
+				if(!ep->ed->hlist && cur>0 && eol==cur && (cur<(SEARCHSIZE-2) || ep->prevdirection == -2))
+#else
+				if(cur>0 && eol==cur && (cur<(SEARCHSIZE-2) || ep->prevdirection == -2))
+#endif /* SHOPT_EDPREDICT */
+				{
+					if(ep->lastdraw==APPEND && ep->prevdirection != -2)
+					{
+						out[cur] = 0;
+						gencpy(&((genchar*)lstring)[1],out);
+#if SHOPT_MULTIBYTE
+						ed_external(&((genchar*)lstring)[1],lstring+1);
+#endif /* SHOPT_MULTIBYTE */
+						*lstring = '^';
+						ep->prevdirection = -2;
+					}
+					if(*lstring)
+					{
+						ed_ungetchar(ep->ed,'\r');
+						ed_ungetchar(ep->ed,cntl('R'));
+						return(-1);
+					}
+				}
+				*lstring = 0;
 				ed_ungetchar(ep->ed,cntl('P'));
 				return(-1);
 			    case 'B':
@@ -1041,6 +1129,7 @@ static int escape(register Emacs_t* ep,register genchar *out,int count)
 		beep();
 		return(-1);
 	}
+	return(-1);
 }
 
 
@@ -1165,9 +1254,11 @@ static void search(Emacs_t* ep,genchar *out,int direction)
 				draw(ep,UPDATE);
 			}
 			else
-				beep();
+				goto restore;
 			continue;
 		}
+		if(i == ep->ed->e_intr)
+			goto restore;
 		if (i==usrkill)
 		{
 			beep();
@@ -1189,6 +1280,8 @@ static void search(Emacs_t* ep,genchar *out,int direction)
 	}
 	i = genlen(string);
 	
+	if(ep->prevdirection == -2 && i!=2 || direction!=1)
+		ep->prevdirection = -1;
 	if (direction < 1)
 	{
 		ep->prevdirection = -ep->prevdirection;
@@ -1206,7 +1299,7 @@ static void search(Emacs_t* ep,genchar *out,int direction)
 	}
 	else
 		direction = ep->prevdirection ;
-	location = hist_find(sh.hist_ptr,(char*)lstring,hline,1,direction);
+	location = hist_find(shgd->hist_ptr,(char*)lstring,hline,1,direction);
 	i = location.hist_command;
 	if(i>0)
 	{
@@ -1264,6 +1357,7 @@ static void draw(register Emacs_t *ep,Draw_t option)
 	sptr = drawbuff;
 	logcursor = sptr + cur;
 	longline = NORMAL;
+	ep->lastdraw = option;
 	
 	if (option == FIRST || option == REFRESH)
 	{
@@ -1301,6 +1395,34 @@ static void draw(register Emacs_t *ep,Draw_t option)
 	
 
 	i = *(logcursor-1);	/* last character inserted */
+#if SHOPT_EDPREDICT
+	if(option==FINAL)
+	{
+		if(ep->ed->hlist)
+			ed_histlist(ep->ed,0);
+	}
+	else if(option!=REFRESH && drawbuff[0]=='#' && cur>1 && drawbuff[cur-1]!='*')
+	{
+		int		n;
+		drawbuff[cur+1]=0;
+#   if SHOPT_MULTIBYTE
+		ed_external(drawbuff,(char*)drawbuff);
+#   endif /*SHOPT_MULTIBYTE */
+		n = ed_histgen(ep->ed,(char*)drawbuff);
+#   if SHOPT_MULTIBYTE
+		ed_internal((char*)drawbuff,drawbuff);
+#   endif /*SHOPT_MULTIBYTE */
+		if(ep->ed->hlist)
+		{
+			ed_histlist(ep->ed,n);
+			putstring(ep,Prompt);
+			ed_setcursor(ep->ed,ep->screen,0,ep->cursor-ep->screen, 0);
+		}
+		else
+			ed_ringbell();
+
+		}
+#endif /* SHOPT_EDPREDICT */
 	
 	if ((option == APPEND)&&(ep->scvalid)&&(*logcursor == '\0')&&
 	    print(i)&&((ep->cursor-ep->screen)<(w_size-1)))
@@ -1377,6 +1499,9 @@ static void draw(register Emacs_t *ep,Draw_t option)
 		}
 #endif /* SHOPT_MULTIBYTE */
 	}
+	if(ep->ed->e_multiline && option == REFRESH && ep->ed->e_nocrnl==0)
+		ed_setcursor(ep->ed, ep->screen, ep->cursor-ep->screen, ep->ed->e_peol, -1);
+
 	
 	/******************
 	
@@ -1407,7 +1532,7 @@ static void draw(register Emacs_t *ep,Draw_t option)
 	i = (ncursor-nscreen) - ep->offset;
 	setcursor(ep,i,0);
 	if(option==FINAL && ep->ed->e_multiline)
-		setcursor(ep,nscend-nscreen,0);
+		setcursor(ep,nscend+1-nscreen,0);
 	ep->scvalid = 1;
 	return;
 }

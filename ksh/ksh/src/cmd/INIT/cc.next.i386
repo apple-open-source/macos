@@ -2,8 +2,8 @@
 
 HOSTTYPE=next.i386
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 # 1995-05-09	-lposix termios.o waitpid.o setpgid.o *do* work

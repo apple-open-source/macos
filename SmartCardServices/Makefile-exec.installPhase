@@ -1,0 +1,30 @@
+# The other phases do nothing
+
+MAN_DIR=$(DSTROOT)/usr/share/man/man8
+
+build:
+	@echo null build.
+
+debug:
+	@echo null debug.
+
+profile:
+	@echo null profile.
+
+install:
+
+# Copy over man pages
+
+	mkdir -p $(MAN_DIR)
+	cp installPhase/man/pcscd.8 $(MAN_DIR)
+	cp installPhase/man/pcsctool.8 $(MAN_DIR)
+	cp installPhase/man/pcsctest.8 $(MAN_DIR)
+
+installhdrs:
+	@echo null installhdrs.
+
+installsrc:
+	@echo null installsrc.
+
+clean:
+	@echo null clean.  

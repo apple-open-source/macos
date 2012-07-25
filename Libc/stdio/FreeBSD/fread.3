@@ -44,14 +44,16 @@
 .Sh SYNOPSIS
 .In stdio.h
 .Ft size_t
-.Fn fread "void * restrict ptr" "size_t size" "size_t nmemb" "FILE * restrict stream"
+.Fn fread "void *restrict ptr" "size_t size" "size_t nitems" \
+    "FILE *restrict stream"
 .Ft size_t
-.Fn fwrite "const void * restrict ptr" "size_t size" "size_t nmemb" "FILE * restrict stream"
+.Fn fwrite "const void *restrict ptr" "size_t size" "size_t nitems" \
+    "FILE *restrict stream"
 .Sh DESCRIPTION
 The function
 .Fn fread
 reads
-.Fa nmemb
+.Fa nitems
 objects, each
 .Fa size
 bytes long, from the stream pointed to by
@@ -62,7 +64,7 @@ storing them at the location given by
 The function
 .Fn fwrite
 writes
-.Fa nmemb
+.Fa nitems
 objects, each
 .Fa size
 bytes long, to the stream pointed to by
@@ -82,7 +84,7 @@ the return value is a short object count (or zero).
 .Pp
 The function
 .Fn fread
-does not distinguish between end-of-file and error, and callers
+does not distinguish between end-of-file and error; callers
 must use
 .Xr feof 3
 and
@@ -91,7 +93,7 @@ to determine which occurred.
 The function
 .Fn fwrite
 returns a value less than
-.Fa nmemb
+.Fa nitems
 only if a write error has occurred.
 .Sh SEE ALSO
 .Xr read 2 ,

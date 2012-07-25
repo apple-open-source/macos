@@ -171,6 +171,9 @@
     <ClCompile Include="ccaltst.c">
       <Filter>formatting</Filter>
     </ClCompile>
+    <ClCompile Include="cdateintervalformattest.c">
+      <Filter>formatting</Filter>
+    </ClCompile>
     <ClCompile Include="cdattst.c">
       <Filter>formatting</Filter>
     </ClCompile>
@@ -190,6 +193,9 @@
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="cnumtst.c">
+      <Filter>formatting</Filter>
+    </ClCompile>
+    <ClCompile Include="cpluralrulestest.c">
       <Filter>formatting</Filter>
     </ClCompile>
     <ClCompile Include="currtest.c">

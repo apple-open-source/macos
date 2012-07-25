@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: client.c,v 1.266.36.7 2012/01/31 23:46:14 tbox Exp $ */
+/* $Id: client.c,v 1.271.10.2 2011-07-28 04:30:54 marka Exp $ */
 
 #include <config.h>
 
@@ -936,15 +936,6 @@ ns_client_send(ns_client_t *client) {
 		render_opts = 0;
 	else
 		render_opts = DNS_MESSAGERENDER_OMITDNSSEC;
-
-	preferred_glue = 0;
-	if (client->view != NULL) {
-		if (client->view->preferred_glue == dns_rdatatype_a)
-			preferred_glue = DNS_MESSAGERENDER_PREFER_A;
-		else if (client->view->preferred_glue == dns_rdatatype_aaaa)
-			preferred_glue = DNS_MESSAGERENDER_PREFER_AAAA;
-	}
-
 #ifdef ALLOW_FILTER_AAAA_ON_V4
 	/*
 	 * filter-aaaa-on-v4 yes or break-dnssec option to suppress
@@ -953,15 +944,17 @@ ns_client_send(ns_client_t *client) {
 	 * that we have both AAAA and A records,
 	 * and that we either have no signatures that the client wants
 	 * or we are supposed to break DNSSEC.
-	 *
-	 * Override preferred glue if necessary.
 	 */
-	if ((client->attributes & NS_CLIENTATTR_FILTER_AAAA) != 0) {
+	if ((client->attributes & NS_CLIENTATTR_FILTER_AAAA) != 0)
 		render_opts |= DNS_MESSAGERENDER_FILTER_AAAA;
-		if (preferred_glue == DNS_MESSAGERENDER_PREFER_AAAA)
-			preferred_glue = DNS_MESSAGERENDER_PREFER_A;
-	}
 #endif
+	preferred_glue = 0;
+	if (client->view != NULL) {
+		if (client->view->preferred_glue == dns_rdatatype_a)
+			preferred_glue = DNS_MESSAGERENDER_PREFER_A;
+		else if (client->view->preferred_glue == dns_rdatatype_aaaa)
+			preferred_glue = DNS_MESSAGERENDER_PREFER_AAAA;
+	}
 
 	/*
 	 * XXXRTH  The following doesn't deal with TCP buffer resizing.
@@ -1794,9 +1787,11 @@ client_request(isc_task_t *task, isc_event_t *event) {
 
 	}
 	if (result == ISC_R_SUCCESS) {
+		char namebuf[DNS_NAME_FORMATSIZE];
+		dns_name_format(&client->signername, namebuf, sizeof(namebuf));
 		ns_client_log(client, DNS_LOGCATEGORY_SECURITY,
 			      NS_LOGMODULE_CLIENT, ISC_LOG_DEBUG(3),
-			      "request has valid signature");
+			      "request has valid signature: %s", namebuf);
 		client->signer = &client->signername;
 	} else if (result == ISC_R_NOTFOUND) {
 		ns_client_log(client, DNS_LOGCATEGORY_SECURITY,
@@ -2119,9 +2114,6 @@ client_create(ns_clientmgr_t *manager, ns_client_t **clientp) {
 	client->recursionquota = NULL;
 	client->interface = NULL;
 	client->peeraddr_valid = ISC_FALSE;
-#ifdef ALLOW_FILTER_AAAA_ON_V4
-	client->filter_aaaa = dns_v4_aaaa_ok;
-#endif
 	ISC_EVENT_INIT(&client->ctlevent, sizeof(client->ctlevent), 0, NULL,
 		       NS_EVENT_CLIENTCONTROL, client_start, client, client,
 		       NULL, NULL);
@@ -2786,9 +2778,14 @@ void
 ns_client_dumprecursing(FILE *f, ns_clientmgr_t *manager) {
 	ns_client_t *client;
 	char namebuf[DNS_NAME_FORMATSIZE];
+	char original[DNS_NAME_FORMATSIZE];
 	char peerbuf[ISC_SOCKADDR_FORMATSIZE];
+	char typebuf[DNS_RDATATYPE_FORMATSIZE];
+	char classbuf[DNS_RDATACLASS_FORMATSIZE];
 	const char *name;
 	const char *sep;
+	const char *origfor;
+	dns_rdataset_t *rdataset;
 
 	REQUIRE(VALID_MANAGER(manager));
 
@@ -2806,8 +2803,31 @@ ns_client_dumprecursing(FILE *f, ns_clientmgr_t *manager) {
 			sep = "";
 		}
 		dns_name_format(client->query.qname, namebuf, sizeof(namebuf));
-		fprintf(f, "; client %s%s%s: '%s' requesttime %d\n",
-			peerbuf, sep, name, namebuf, client->requesttime);
+		if (client->query.qname != client->query.origqname &&
+		    client->query.origqname != NULL) {
+			origfor = " for ";
+			dns_name_format(client->query.origqname, original,
+					sizeof(original));
+		} else {
+			origfor = "";
+			original[0] = '\0';
+		}
+		rdataset = ISC_LIST_HEAD(client->query.qname->list);
+		if (rdataset == NULL && client->query.origqname != NULL)
+			rdataset = ISC_LIST_HEAD(client->query.origqname->list);
+		if (rdataset != NULL) {
+			dns_rdatatype_format(rdataset->type, typebuf,
+					     sizeof(typebuf));
+			dns_rdataclass_format(rdataset->rdclass, classbuf,
+					      sizeof(classbuf));
+		} else {
+			strcpy(typebuf, "-");
+			strcpy(classbuf, "-");
+		}
+		fprintf(f, "; client %s%s%s: id %u '%s/%s/%s'%s%s "
+			"requesttime %d\n", peerbuf, sep, name,
+			client->message->id, namebuf, typebuf, classbuf,
+			origfor, original, client->requesttime);
 		client = ISC_LIST_NEXT(client, link);
 	}
 	UNLOCK(&manager->lock);

@@ -17,15 +17,13 @@
 #include "unicode/uspoof.h"
 #include "unicode/unorm.h"
 #include "unicode/ustring.h"
+#include "unicode/utf16.h"
 #include "cmemory.h"
 #include "uspoof_impl.h"
 #include "uassert.h"
 
 
 #if !UCONFIG_NO_NORMALIZATION
-
-
-#include <stdio.h>      // debug
 
 U_NAMESPACE_USE
 
@@ -255,7 +253,7 @@ uspoof_check(const USpoofChecker *sc,
             UBool       haveMultipleMarks = FALSE;  
             UnicodeSet  marksSeenSoFar;   // Set of combining marks in a single combining sequence.
             
-            for (i=0; i<length ;) {
+            for (i=0; i<nfdLength ;) {
                 U16_NEXT(nfdText, i, nfdLength, c);
                 if (u_charType(c) != U_NON_SPACING_MARK) {
                     firstNonspacingMark = 0;
@@ -278,6 +276,11 @@ uspoof_check(const USpoofChecker *sc,
                     // No need to find more than the first failure.
                     result |= USPOOF_INVISIBLE;
                     failPos = i;
+                    // TODO: Bug 8655: failPos is the position in the NFD buffer, but what we want
+                    //       to give back to our caller is a position in the original input string.
+                    if (failPos > length) {
+                        failPos = length;
+                    }
                     break;
                 }
                 marksSeenSoFar.add(c);
@@ -563,8 +566,8 @@ uspoof_areConfusableUTF8(const USpoofChecker *sc,
 
 U_CAPI int32_t U_EXPORT2
 uspoof_areConfusableUnicodeString(const USpoofChecker *sc,
-                                  const U_NAMESPACE_QUALIFIER UnicodeString &s1,
-                                  const U_NAMESPACE_QUALIFIER UnicodeString &s2,
+                                  const icu::UnicodeString &s1,
+                                  const icu::UnicodeString &s2,
                                   UErrorCode *status) {
 
     const UChar *u1  = s1.getBuffer();
@@ -581,7 +584,7 @@ uspoof_areConfusableUnicodeString(const USpoofChecker *sc,
 
 U_CAPI int32_t U_EXPORT2
 uspoof_checkUnicodeString(const USpoofChecker *sc,
-                          const U_NAMESPACE_QUALIFIER UnicodeString &text, 
+                          const icu::UnicodeString &text, 
                           int32_t *position,
                           UErrorCode *status) {
     int32_t result = uspoof_check(sc, text.getBuffer(), text.length(), position, status);

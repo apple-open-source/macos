@@ -5,16 +5,17 @@
 #include <stdarg.h>
 
 krb5_error_code
-_hdb_fetch (
+_hdb_fetch_kvno (
 	krb5_context /*context*/,
 	HDB */*db*/,
 	krb5_const_principal /*principal*/,
 	unsigned /*flags*/,
+	krb5_kvno /*kvno*/,
 	hdb_entry_ex */*entry*/);
 
 hdb_master_key
 _hdb_find_master_key (
-	uint32_t */*mkvno*/,
+	int32_t */*mkvno*/,
 	hdb_master_key /*mkey*/);
 
 krb5_error_code

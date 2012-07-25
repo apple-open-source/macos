@@ -27,6 +27,7 @@
 #include <paths.h>
 #include <fsproperties.h>
 
+#include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 
 #include "FSFormatName.h"
@@ -616,7 +617,7 @@ IsEncrypted(const char *bsdname)
 {
 	bool retval = false;
 	const char *diskname = NULL;
-	CFDictionaryRef ioMatch; //IOServiceGetMatchingService() releases:!
+	CFMutableDictionaryRef ioMatch; //IOServiceGetMatchingService() releases:!
 	io_object_t ioObj = IO_OBJECT_NULL;
 	CFBooleanRef	lvfIsEncr = NULL;
 
@@ -634,6 +635,10 @@ IsEncrypted(const char *bsdname)
 	ioMatch = IOBSDNameMatching(kIOMasterPortDefault, 0, diskname);
 	if (!ioMatch)
 		goto finish;
+
+	// Setting this allows a fast-path lookup to happen
+	// see 10248763
+	CFDictionarySetValue(ioMatch, CFSTR(kIOProviderClassKey), CFSTR(kIOMediaClass));
 
 	ioObj = IOServiceGetMatchingService(kIOMasterPortDefault, ioMatch);
 	ioMatch = NULL;

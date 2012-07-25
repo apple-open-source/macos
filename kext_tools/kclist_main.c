@@ -233,6 +233,10 @@ ExitStatus readArgs(
                 result = kKclistExitHelp;
                 goto finish;
     
+            case kOptVerbose:
+                toolArgs->verbose = true;
+                break;
+                
             default:
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -333,7 +337,7 @@ void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist)
             continue;
         }
         
-        printKextInfo(kextPlist);
+        printKextInfo(kextPlist, toolArgs->verbose);
     }
 
 finish:
@@ -342,7 +346,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-void printKextInfo(CFDictionaryRef kextPlist)
+void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose)
 {
     CFStringRef kextIdentifier = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleIdentifierKey);
     CFStringRef kextVersion = (CFStringRef)CFDictionaryGetValue(kextPlist, kCFBundleVersionKey);
@@ -362,6 +366,28 @@ void printKextInfo(CFDictionaryRef kextPlist)
     CFStringGetCString(kextPath, pathBuffer, sizeof(pathBuffer), kCFStringEncodingUTF8);
     
     printf("%s\t%s\t%s\n", idBuffer, versionBuffer, pathBuffer);
+
+    if (beVerbose) {
+        CFNumberRef cfNum;
+        u_int64_t  kextLoadAddress = 0xDEADBEEF;
+        u_int64_t  kextSourceAddress = 0xDEADBEEF;
+        u_int64_t  kextExecutableSize = 0;
+        u_int64_t  kextKmodInfoAddress = 0xDEADBEEF;
+        
+        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableLoadKey))))
+            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextLoadAddress);
+        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSourceKey))))
+            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextSourceAddress);
+        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkExecutableSizeKey))))
+            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextExecutableSize);
+        if (NULL != (cfNum = CFDictionaryGetValue(kextPlist, CFSTR(kPrelinkKmodInfoKey))))
+            CFNumberGetValue(cfNum, kCFNumberSInt64Type, &kextKmodInfoAddress);
+        printf("\t-> load address:   0x%0.8llx, "
+               "size              = 0x%0.8llx,\n"
+               "\t-> source address: 0x%0.8llx, "
+               "kmod_info address = 0x%0.8llx\n",
+               kextLoadAddress, kextExecutableSize, kextSourceAddress, kextKmodInfoAddress);
+    }
 
 finish:
     return;
@@ -386,7 +412,7 @@ CFComparisonResult compareIdentifiers(const void * val1, const void * val2, void
 void usage(UsageLevel usageLevel)
 {
     fprintf(stderr,
-      "usage: %1$s [-arch archname] [--] kernelcache [bundle-id ...]\n"
+      "usage: %1$s [-arch archname] [-v] [--] kernelcache [bundle-id ...]\n"
       "usage: %1$s -help\n"
       "\n",
       progname);
@@ -403,6 +429,9 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s <archname>:\n"
         "        list info for architecture <archname>\n",
         kOptNameArch);
+    fprintf(stderr, "-%s (-%c):\n"
+        "        emit additional information about kext load addresses and sizes\n",
+            kOptNameVerbose, kOptVerbose);
     fprintf(stderr, "\n");
    
     fprintf(stderr, "-%s (-%c): print this message and exit\n",

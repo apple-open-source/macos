@@ -30,13 +30,23 @@ namespace WebCore {
 class DocumentFragment;
 class HTMLCollection;
 class HTMLFormElement;
-                       
+
+#if ENABLE(MICRODATA)
+class MicroDataItemValue;
+#endif
+
+enum TranslateAttributeMode {
+    TranslateAttributeYes,
+    TranslateAttributeNo,
+    TranslateAttributeInherit
+};
+
 class HTMLElement : public StyledElement {
 public:
     static PassRefPtr<HTMLElement> create(const QualifiedName& tagName, Document*);
 
-    PassRefPtr<HTMLCollection> children();
-    
+    HTMLCollection* children();
+
     virtual String title() const;
 
     virtual short tabIndex() const;
@@ -44,8 +54,6 @@ public:
 
     String innerHTML() const;
     String outerHTML() const;
-    // deprecatedCreateContextualFragment logic should be moved into Range::createContextualFragment
-    PassRefPtr<DocumentFragment> deprecatedCreateContextualFragment(const String&, FragmentScriptingPermission = FragmentScriptingAllowed);
     void setInnerHTML(const String&, ExceptionCode&);
     void setOuterHTML(const String&, ExceptionCode&);
     void setInnerText(const String&, ExceptionCode&);
@@ -66,37 +74,59 @@ public:
     bool spellcheck() const;
     void setSpellcheck(bool);
 
+    bool translate() const;
+    void setTranslate(bool);
+
     void click();
 
-    virtual void accessKeyAction(bool sendToAnyElement);
+    virtual void accessKeyAction(bool sendMouseEvents);
 
     bool ieForbidsInsertHTML() const;
 
-    virtual bool rendererIsNeeded(RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     HTMLFormElement* form() const { return virtualForm(); }
 
-    static void addHTMLAlignmentToStyledElement(StyledElement*, Attribute*);
-
     HTMLFormElement* findFormAncestor() const;
 
+    bool hasDirectionAuto() const;
     TextDirection directionalityIfhasDirAutoAttribute(bool& isAuto) const;
+
+#if ENABLE(MICRODATA)
+    void setItemValue(const String&, ExceptionCode&);
+    PassRefPtr<MicroDataItemValue> itemValue() const;
+#endif
+
+#ifndef NDEBUG
+    virtual bool isHTMLUnknownElement() const { return false; }
+#endif
+
+    virtual bool isInsertionPoint() const { return false; }
+    virtual bool isLabelable() const { return false; }
 
 protected:
     HTMLElement(const QualifiedName& tagName, Document*);
 
-    void addHTMLAlignment(Attribute*);
+    void addHTMLLengthToStyle(StylePropertySet*, CSSPropertyID, const String& value);
+    void addHTMLColorToStyle(StylePropertySet*, CSSPropertyID, const String& color);
 
-    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(Attribute*);
+    void applyAlignmentAttributeToStyle(Attribute*, StylePropertySet*);
+    void applyBorderAttributeToStyle(Attribute*, StylePropertySet*);
+
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    void calculateAndAdjustDirectionality();
+
+    virtual bool isURLAttribute(Attribute*) const;
 
 private:
     virtual String nodeName() const;
 
-    void setContentEditable(Attribute*);
+    void mapLanguageAttributeToLocale(Attribute*, StylePropertySet*);
 
     virtual HTMLFormElement* virtualForm() const;
 
@@ -105,9 +135,15 @@ private:
 
     void dirAttributeChanged(Attribute*);
     void adjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);
-    void calculateAndAdjustDirectionality();
     void adjustDirectionalityIfNeededAfterChildrenChanged(Node* beforeChange, int childCountDelta);
     TextDirection directionality(Node** strongDirectionalityTextNode= 0) const;
+
+    TranslateAttributeMode translateAttributeMode() const;
+
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const;
+    virtual void setItemValueText(const String&, ExceptionCode&);
+#endif
 };
 
 inline HTMLElement* toHTMLElement(Node* node)
@@ -121,6 +157,9 @@ inline const HTMLElement* toHTMLElement(const Node* node)
     ASSERT(!node || node->isHTMLElement());
     return static_cast<const HTMLElement*>(node);
 }
+
+// This will catch anyone doing an unnecessary cast.
+void toHTMLElement(const HTMLElement*);
 
 inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document* document)
     : StyledElement(tagName, document, CreateHTMLElement)

@@ -54,8 +54,6 @@
 #import <WebCore/ArchiveResource.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
-#import <WebCore/EditAction.h>
-#import <WebCore/EditCommand.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLTextAreaElement.h>
@@ -63,12 +61,14 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/PlatformString.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/SpellChecker.h>
+#import <WebCore/UndoStep.h>
 #import <WebCore/UserTypingGestureIndicator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
+#import <wtf/MainThread.h>
 #import <wtf/PassRefPtr.h>
-#import <wtf/Threading.h>
 
 using namespace WebCore;
 
@@ -93,38 +93,39 @@ static WebViewInsertAction kit(EditorInsertAction coreAction)
 static const int InvalidCorrectionPanelTag = 0;
 
 
-@interface WebEditCommand : NSObject
+@interface WebUndoStep : NSObject
 {
-    RefPtr<EditCommand> m_command;   
+    RefPtr<UndoStep> m_step;   
 }
 
-+ (WebEditCommand *)commandWithEditCommand:(PassRefPtr<EditCommand>)command;
-- (EditCommand *)command;
++ (WebUndoStep *)stepWithUndoStep:(PassRefPtr<UndoStep>)step;
+- (UndoStep *)step;
 
 @end
 
-@implementation WebEditCommand
+@implementation WebUndoStep
 
 + (void)initialize
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
-- (id)initWithEditCommand:(PassRefPtr<EditCommand>)command
+- (id)initWithUndoStep:(PassRefPtr<UndoStep>)step
 {
-    ASSERT(command);
+    ASSERT(step);
     self = [super init];
     if (!self)
         return nil;
-    m_command = command;
+    m_step = step;
     return self;
 }
 
 - (void)dealloc
 {
-    if (WebCoreObjCScheduleDeallocateOnMainThread([WebEditCommand class], self))
+    if (WebCoreObjCScheduleDeallocateOnMainThread([WebUndoStep class], self))
         return;
 
     [super dealloc];
@@ -137,14 +138,14 @@ static const int InvalidCorrectionPanelTag = 0;
     [super finalize];
 }
 
-+ (WebEditCommand *)commandWithEditCommand:(PassRefPtr<EditCommand>)command
++ (WebUndoStep *)stepWithUndoStep:(PassRefPtr<UndoStep>)step
 {
-    return [[[WebEditCommand alloc] initWithEditCommand:command] autorelease];
+    return [[[WebUndoStep alloc] initWithUndoStep:step] autorelease];
 }
 
-- (EditCommand *)command
+- (UndoStep *)step
 {
-    return m_command.get();
+    return m_step.get();
 }
 
 @end
@@ -162,14 +163,14 @@ static const int InvalidCorrectionPanelTag = 0;
 
 - (void)undoEditing:(id)arg
 {
-    ASSERT([arg isKindOfClass:[WebEditCommand class]]);
-    [arg command]->unapply();
+    ASSERT([arg isKindOfClass:[WebUndoStep class]]);
+    [arg step]->unapply();
 }
 
 - (void)redoEditing:(id)arg
 {
-    ASSERT([arg isKindOfClass:[WebEditCommand class]]);
-    [arg command]->reapply();
+    ASSERT([arg isKindOfClass:[WebUndoStep class]]);
+    [arg step]->reapply();
 }
 
 @end
@@ -188,9 +189,6 @@ WebEditorClient::WebEditorClient(WebView *webView)
 
 WebEditorClient::~WebEditorClient()
 {
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    dismissCorrectionPanel(ReasonForDismissingCorrectionPanelIgnored);
-#endif
 }
 
 bool WebEditorClient::isContinuousSpellCheckingEnabled()
@@ -240,10 +238,10 @@ bool WebEditorClient::isSelectTrailingWhitespaceEnabled()
     return [m_webView isSelectTrailingWhitespaceEnabled];
 }
 
-bool WebEditorClient::shouldApplyStyle(CSSStyleDeclaration* style, Range* range)
+bool WebEditorClient::shouldApplyStyle(StylePropertySet* style, Range* range)
 {
     return [[m_webView _editingDelegateForwarder] webView:m_webView
-        shouldApplyStyle:kit(style) toElementsInDOMRange:kit(range)];
+        shouldApplyStyle:kit(style->ensureCSSStyleDeclaration()) toElementsInDOMRange:kit(range)];
 }
 
 bool WebEditorClient::shouldMoveRangeAfterDelete(Range* range, Range* rangeToBeReplaced)
@@ -290,9 +288,11 @@ void WebEditorClient::respondToChangedContents()
     [[NSNotificationCenter defaultCenter] postNotificationName:WebViewDidChangeNotification object:m_webView];    
 }
 
-void WebEditorClient::respondToChangedSelection()
+void WebEditorClient::respondToChangedSelection(Frame* frame)
 {
-    [m_webView _selectionChanged];
+    NSView<WebDocumentView> *documentView = [[kit(frame) frameView] documentView];
+    if ([documentView isKindOfClass:[WebHTMLView class]])
+        [(WebHTMLView *)documentView _selectionChanged];
 
     // FIXME: This quirk is needed due to <rdar://problem/5009625> - We can phase it out once Aperture can adopt the new behavior on their end
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_APERTURE_QUIRK) && [[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.Aperture"])
@@ -370,8 +370,9 @@ DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttrib
     return core(fragment);
 }
 
-void WebEditorClient::setInsertionPasteboard(NSPasteboard *pasteboard)
+void WebEditorClient::setInsertionPasteboard(const String& pasteboardName)
 {
+    NSPasteboard *pasteboard = pasteboardName.isEmpty() ? nil : [NSPasteboard pasteboardWithName:pasteboardName];
     [m_webView _setInsertionPasteboard:pasteboard];
 }
 
@@ -511,27 +512,27 @@ static NSString* undoNameForEditAction(EditAction editAction)
     return nil;
 }
 
-void WebEditorClient::registerCommandForUndoOrRedo(PassRefPtr<EditCommand> cmd, bool isRedo)
+void WebEditorClient::registerUndoOrRedoStep(PassRefPtr<UndoStep> step, bool isRedo)
 {
-    ASSERT(cmd);
+    ASSERT(step);
     
     NSUndoManager *undoManager = [m_webView undoManager];
-    NSString *actionName = undoNameForEditAction(cmd->editingAction());
-    WebEditCommand *command = [WebEditCommand commandWithEditCommand:cmd];
-    [undoManager registerUndoWithTarget:m_undoTarget.get() selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:command];
+    NSString *actionName = undoNameForEditAction(step->editingAction());
+    WebUndoStep *webEntry = [WebUndoStep stepWithUndoStep:step];
+    [undoManager registerUndoWithTarget:m_undoTarget.get() selector:(isRedo ? @selector(redoEditing:) : @selector(undoEditing:)) object:webEntry];
     if (actionName)
         [undoManager setActionName:actionName];
     m_haveUndoRedoOperations = YES;
 }
 
-void WebEditorClient::registerCommandForUndo(PassRefPtr<EditCommand> cmd)
+void WebEditorClient::registerUndoStep(PassRefPtr<UndoStep> cmd)
 {
-    registerCommandForUndoOrRedo(cmd, false);
+    registerUndoOrRedoStep(cmd, false);
 }
 
-void WebEditorClient::registerCommandForRedo(PassRefPtr<EditCommand> cmd)
+void WebEditorClient::registerRedoStep(PassRefPtr<UndoStep> cmd)
 {
-    registerCommandForUndoOrRedo(cmd, true);
+    registerUndoOrRedoStep(cmd, true);
 }
 
 void WebEditorClient::clearUndoRedoOperations()
@@ -862,29 +863,6 @@ void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammar
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithGrammarString:badGrammarPhrase detail:grammarDetailDict];
 }
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-void WebEditorClient::showCorrectionPanel(CorrectionPanelInfo::PanelType panelType, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
-{
-    m_correctionPanel.show(m_webView, panelType, boundingBoxOfReplacedString, replacedString, replacementString, alternativeReplacementStrings);
-}
-
-void WebEditorClient::dismissCorrectionPanel(ReasonForDismissingCorrectionPanel reasonForDismissing)
-{
-    m_correctionPanel.dismiss(reasonForDismissing);
-}
-
-String WebEditorClient::dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel reasonForDismissing)
-{
-    return m_correctionPanel.dismiss(reasonForDismissing);
-}
-
-void WebEditorClient::recordAutocorrectionResponse(EditorClient::AutocorrectionResponseType responseType, const String& replacedString, const String& replacementString)
-{
-    NSCorrectionResponse response = responseType == EditorClient::AutocorrectionReverted ? NSCorrectionResponseReverted : NSCorrectionResponseEdited;
-    CorrectionPanel::recordAutocorrectionResponse(m_webView, response, replacedString, replacementString);
-}
-#endif
-
 void WebEditorClient::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
 {
     [[NSSpellChecker sharedSpellChecker] updateSpellingPanelWithMisspelledWord:misspelledWord];
@@ -963,21 +941,23 @@ void WebEditorClient::setInputMethodState(bool)
 
 - (void)perform
 {
-    _sender->didCheck(_sequence, core(_results.get(), _types));
+    _sender->didCheckSucceeded(_sequence, core(_results.get(), _types));
 }
 
 @end
 #endif
 
-void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker* sender, int sequence, WebCore::TextCheckingTypeMask checkingTypes, const String& text)
+void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker* sender, const WebCore::TextCheckingRequest& request)
 {
 #ifndef BUILDING_ON_LEOPARD
-    NSRange range = NSMakeRange(0, text.length());
+    NSRange range = NSMakeRange(0, request.text().length());
     NSRunLoop* currentLoop = [NSRunLoop currentRunLoop];
-    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:text range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0 
+    int sequence = request.sequence();
+    TextCheckingTypeMask types = request.mask();
+    [[NSSpellChecker sharedSpellChecker] requestCheckingOfString:request.text() range:range types:NSTextCheckingAllSystemTypes options:0 inSpellDocumentWithTag:0
                                          completionHandler:^(NSInteger, NSArray* results, NSOrthography*, NSInteger) {
             [currentLoop performSelector:@selector(perform) 
-                                  target:[[[WebEditorSpellCheckResponder alloc] initWithSender:sender sequence:sequence types:checkingTypes results:results] autorelease]
+                                  target:[[[WebEditorSpellCheckResponder alloc] initWithSender:sender sequence:sequence types:types results:results] autorelease]
                                 argument:nil order:0 modes:[NSArray arrayWithObject:NSDefaultRunLoopMode]];
         }];
 #endif

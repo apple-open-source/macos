@@ -33,7 +33,6 @@ public:
     virtual ~RenderSVGResourceContainer();
 
     virtual void layout();
-    virtual void destroy();
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     virtual bool isSVGResourceContainer() const { return true; }
@@ -61,10 +60,12 @@ private:
     void removeClient(RenderObject*);
 
 private:
+    virtual void willBeDestroyed();
     void registerResource();
 
     AtomicString m_id;
-    bool m_registered;
+    bool m_registered : 1;
+    bool m_isInvalidating : 1;
     HashSet<RenderObject*> m_clients;
 };
 

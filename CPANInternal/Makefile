@@ -10,6 +10,7 @@ endif
 # Determine our OS major version.
 OS_VERSION  = $(shell perl -e 'my $$osVersion = `sw_vers -buildVersion`; chomp($$osVersion); $$osVersion =~ s|^(\d+).*|$$1|; print "$$osVersion"')
 SUPPORTED_OS     = NO
+MTLION           = NO
 LION             = NO
 LION_PLUS        = NO
 SNOWLEOPARD      = NO
@@ -17,6 +18,12 @@ SNOWLEOPARD_PLUS = NO
 LEOPARD          = NO
 TIGER            = NO
 PANTHER          = NO
+ifeq ($(OS_VERSION),12)
+	MTLION           = YES
+	SUPPORTED_OS     = YES
+	LION_PLUS        = YES
+	SNOWLEOPARD_PLUS = YES
+endif
 ifeq ($(OS_VERSION),11)
 	LION             = YES
 	SUPPORTED_OS     = YES
@@ -1169,6 +1176,7 @@ echo-config-info::
 	@echo "Building on Leopard:     $(LEOPARD)"
 	@echo "Building on SnowLeopard: $(SNOWLEOPARD)"
 	@echo "Building on Lion:        $(LION)"
+	@echo "Building on MtLion:      $(MTLION)"
 	@echo ""
 	@echo "ARCHFLAGS:               $(ARCHFLAGS)"
 	@echo ""

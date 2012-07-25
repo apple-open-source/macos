@@ -29,12 +29,12 @@
 #ifndef WebIDBFactory_h
 #define WebIDBFactory_h
 
-#include "WebCommon.h"
 #include "WebDOMStringList.h"
 #include "WebIDBCallbacks.h"
 #include "WebSecurityOrigin.h"
-#include "WebString.h"
-#include "WebVector.h"
+#include "platform/WebCommon.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
@@ -47,17 +47,14 @@ class WebSecurityOrigin;
 // http://dev.w3.org/2006/webapi/WebSimpleDB/
 class WebIDBFactory {
 public:
-    WEBKIT_API static WebIDBFactory* create();
+    WEBKIT_EXPORT static WebIDBFactory* create();
 
     virtual ~WebIDBFactory() { }
 
-    enum BackingStoreType {
-        DefaultBackingStore,
-        LevelDBBackingStore
-    };
+    virtual void getDatabaseNames(WebIDBCallbacks* callbacks, const WebSecurityOrigin& origin, WebFrame* frame, const WebString& dataDir) { WEBKIT_ASSERT_NOT_REACHED(); }
 
     // The WebKit implementation of open ignores the WebFrame* parameter.
-    virtual void open(const WebString& name, WebIDBCallbacks*, const WebSecurityOrigin&, WebFrame*, const WebString& dataDir, unsigned long long maximumSize, BackingStoreType) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void open(const WebString& name, WebIDBCallbacks* callbacks, const WebSecurityOrigin& origin, WebFrame* frame, const WebString& dataDir) { WEBKIT_ASSERT_NOT_REACHED(); }
 
     virtual void deleteDatabase(const WebString& name, WebIDBCallbacks*, const WebSecurityOrigin&, WebFrame*, const WebString& dataDir) { WEBKIT_ASSERT_NOT_REACHED(); }
 };

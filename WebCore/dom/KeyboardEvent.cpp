@@ -34,17 +34,19 @@
 
 namespace WebCore {
 
-static inline const AtomicString& eventTypeForKeyboardEventType(PlatformKeyboardEvent::Type type)
+static inline const AtomicString& eventTypeForKeyboardEventType(PlatformEvent::Type type)
 {
     switch (type) {
-        case PlatformKeyboardEvent::KeyUp:
+        case PlatformEvent::KeyUp:
             return eventNames().keyupEvent;
-        case PlatformKeyboardEvent::RawKeyDown:
+        case PlatformEvent::RawKeyDown:
             return eventNames().keydownEvent;
-        case PlatformKeyboardEvent::Char:
+        case PlatformEvent::Char:
             return eventNames().keypressEvent;
-        case PlatformKeyboardEvent::KeyDown:
+        case PlatformEvent::KeyDown:
             // The caller should disambiguate the combined event into RawKeyDown or Char events.
+            break;
+        default:
             break;
     }
     ASSERT_NOT_REACHED();
@@ -139,6 +141,11 @@ int KeyboardEvent::charCode() const
     return static_cast<int>(text.characterStartingAt(0));
 }
 
+const AtomicString& KeyboardEvent::interfaceName() const
+{
+    return eventNames().interfaceForKeyboardEvent;
+}
+
 bool KeyboardEvent::isKeyboardEvent() const
 {
     return true;
@@ -157,6 +164,11 @@ KeyboardEvent* findKeyboardEvent(Event* event)
         if (e->isKeyboardEvent())
             return static_cast<KeyboardEvent*>(e);
     return 0;
+}
+
+PassRefPtr<KeyboardEventDispatchMediator> KeyboardEventDispatchMediator::create(PassRefPtr<KeyboardEvent> event)
+{
+    return adoptRef(new KeyboardEventDispatchMediator(event));
 }
 
 KeyboardEventDispatchMediator::KeyboardEventDispatchMediator(PassRefPtr<KeyboardEvent> event)

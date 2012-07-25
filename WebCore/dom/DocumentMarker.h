@@ -25,15 +25,20 @@
 
 #include "PlatformString.h"
 #include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
 
 
 namespace WebCore {
+
+class DocumentMarkerDetails;
 
 // A range of a node within a document that is "marked", such as the range of a misspelled word.
 // It optionally includes a description that could be displayed in the user interface.
 // It also optionally includes a flag specifying whether the match is active, which is ignored
 // for all types other than type TextMatch.
-struct DocumentMarker {
+class DocumentMarker {
+public:
     enum MarkerType {
         Spelling = 1 << 0,
         Grammar = 1 << 1,
@@ -58,7 +63,10 @@ struct DocumentMarker {
         // range that bears this marker. In some platforms, if the user later inserts the same original
         // word again at this position, it will not be autocorrected again. The description of this
         // marker is the original word before autocorrection was applied.
-        DeletedAutocorrection = 1 << 8
+        DeletedAutocorrection = 1 << 8,
+        // This marker indicates that the range of text spanned by the marker is entered by voice dictation,
+        // and it has alternative text.
+        DictationAlternatives = 1 << 9
     };
 
     class MarkerTypes {
@@ -80,26 +88,63 @@ struct DocumentMarker {
     class AllMarkers : public MarkerTypes {
     public:
         AllMarkers()
-            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection)
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection | DictationAlternatives)
         {
         }
     };
-    
-    MarkerType type;
-    unsigned startOffset;
-    unsigned endOffset;
-    String description;
-    bool activeMatch;
+
+    DocumentMarker();
+    DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset);
+    DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, const String& description);
+    DocumentMarker(unsigned startOffset, unsigned endOffset, bool activeMatch);
+    DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, PassRefPtr<DocumentMarkerDetails>);
+
+    MarkerType type() const { return m_type; }
+    unsigned startOffset() const { return m_startOffset; }
+    unsigned endOffset() const { return m_endOffset; }
+
+    const String& description() const;
+    bool activeMatch() const;
+    DocumentMarkerDetails* details() const;
+
+    void setActiveMatch(bool);
+    void clearDetails() { m_details.clear(); }
+
+    // Offset modifications are done by DocumentMarkerController.
+    // Other classes should not call following setters.
+    void setStartOffset(unsigned offset) { m_startOffset = offset; }
+    void setEndOffset(unsigned offset) { m_endOffset = offset; }
+    void shiftOffsets(int delta);
 
     bool operator==(const DocumentMarker& o) const
     {
-        return type == o.type && startOffset == o.startOffset && endOffset == o.endOffset;
+        return type() == o.type() && startOffset() == o.startOffset() && endOffset() == o.endOffset();
     }
 
     bool operator!=(const DocumentMarker& o) const
     {
         return !(*this == o);
     }
+
+private:
+    MarkerType m_type;
+    unsigned m_startOffset;
+    unsigned m_endOffset;
+    RefPtr<DocumentMarkerDetails> m_details;
+};
+
+inline DocumentMarkerDetails* DocumentMarker::details() const
+{
+    return m_details.get();
+}
+
+class DocumentMarkerDetails : public RefCounted<DocumentMarkerDetails>
+{
+public:
+    DocumentMarkerDetails() { }
+    virtual ~DocumentMarkerDetails();
+    virtual bool isDescription() const { return false; }
+    virtual bool isTextMatch() const { return false; }
 };
 
 } // namespace WebCore

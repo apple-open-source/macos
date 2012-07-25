@@ -1,6 +1,7 @@
-QT       += core gui
-TARGET = $$qtLibraryTarget(platformplugin)
 TEMPLATE = lib
+TARGET = platformplugin
+
+QT += core gui
 CONFIG += plugin
 
 ## load mobilityconfig if mobility is available
@@ -30,4 +31,5 @@ HEADERS += \
     qwebkitplatformplugin.h \
     WebNotificationPresenter.h
 
+!contains(DEFINES, ENABLE_LEGACY_NOTIFICATIONS=.): DEFINES += ENABLE_LEGACY_NOTIFICATIONS=1
 !contains(DEFINES, ENABLE_NOTIFICATIONS=.): DEFINES += ENABLE_NOTIFICATIONS=1

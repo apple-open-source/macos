@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>MooseX-TransactionalMethods</string>
+        <key>OpenSourceVersion</key>
+        <string>0.008</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DR/DRUOSO/MooseX-TransactionalMethods-0.008.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-11-02</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2010, International Business Machines
+*   Copyright (C) 1997-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -18,6 +18,208 @@
 
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
+
+/**
+ * \def U_SIGNED_RIGHT_SHIFT_IS_ARITHMETIC
+ * Nearly all CPUs and compilers implement a right-shift of a signed integer
+ * as an Arithmetic Shift Right which copies the sign bit (the Most Significant Bit (MSB))
+ * into the vacated bits (sign extension).
+ * For example, (int32_t)0xfff5fff3>>4 becomes 0xffff5fff and -1>>1=-1.
+ *
+ * This can be useful for storing a signed value in the upper bits
+ * and another bit field in the lower bits.
+ * The signed value can be retrieved by simple right-shifting.
+ *
+ * This is consistent with the Java language.
+ *
+ * However, the C standard allows compilers to implement a right-shift of a signed integer
+ * as a Logical Shift Right which copies a 0 into the vacated bits.
+ * For example, (int32_t)0xfff5fff3>>4 becomes 0x0fff5fff and -1>>1=0x7fffffff.
+ *
+ * Code that depends on the natural behavior should be guarded with this macro,
+ * with an alternate path for unusual platforms.
+ * @internal
+ */
+#ifdef U_SIGNED_RIGHT_SHIFT_IS_ARITHMETIC
+    /* Use the predefined value. */
+#else
+    /*
+     * Nearly all CPUs & compilers implement a right-shift of a signed integer
+     * as an Arithmetic Shift Right (with sign extension).
+     */
+#   define U_SIGNED_RIGHT_SHIFT_IS_ARITHMETIC 1
+#endif
+
+/** Define this to 1 if your platform supports IEEE 754 floating point,
+   to 0 if it does not. */
+#ifndef IEEE_754
+#   define IEEE_754 1
+#endif
+
+/**
+ * uintptr_t is an optional part of the standard definitions in stdint.h.
+ * The opengroup.org documentation for stdint.h says
+ * "On XSI-conformant systems, the intptr_t and uintptr_t types are required;
+ * otherwise, they are optional."
+ * We assume that when uintptr_t is defined, UINTPTR_MAX is defined as well.
+ *
+ * Do not use ptrdiff_t since it is signed. size_t is unsigned.
+ */
+#if !defined(__intptr_t_defined) && !defined(UINTPTR_MAX)
+typedef size_t uintptr_t;
+#endif
+
+/**
+ * \def U_HAVE_MSVC_2003_OR_EARLIER
+ * Flag for workaround of MSVC 2003 optimization bugs
+ * @internal
+ */
+#if !defined(U_HAVE_MSVC_2003_OR_EARLIER) && defined(_MSC_VER) && (_MSC_VER < 1400)
+#define U_HAVE_MSVC_2003_OR_EARLIER
+#endif
+
+/*===========================================================================*/
+/** @{ Information about POSIX support                                       */
+/*===========================================================================*/
+
+#ifdef U_HAVE_NL_LANGINFO_CODESET
+    /* Use the predefined value. */
+#elif U_PLATFORM_HAS_WIN32_API
+#   define U_HAVE_NL_LANGINFO_CODESET 0
+#else
+#   define U_HAVE_NL_LANGINFO_CODESET 1
+#endif
+
+#ifdef U_NL_LANGINFO_CODESET
+    /* Use the predefined value. */
+#elif !U_HAVE_NL_LANGINFO_CODESET
+#   define U_NL_LANGINFO_CODESET -1
+#elif U_PLATFORM == U_PF_OS400
+   /* not defined */
+#else
+#   define U_NL_LANGINFO_CODESET CODESET
+#endif
+
+#ifdef U_TZSET
+    /* Use the predefined value. */
+#elif U_PLATFORM_USES_ONLY_WIN32_API
+#   define U_TZSET _tzset
+#elif U_PLATFORM == U_PF_OS400
+   /* not defined */
+#else
+#   define U_TZSET tzset
+#endif
+
+#ifdef U_TIMEZONE
+    /* Use the predefined value. */
+#elif U_PLATFORM_IS_LINUX_BASED
+#   define U_TIMEZONE __timezone
+#elif U_PLATFORM_USES_ONLY_WIN32_API
+#   define U_TIMEZONE _timezone
+#elif U_PLATFORM == U_PF_OS400
+   /* not defined */
+#else
+#   define U_TIMEZONE timezone
+#endif
+
+#ifdef U_TZNAME
+    /* Use the predefined value. */
+#elif U_PLATFORM_USES_ONLY_WIN32_API
+#   define U_TZNAME _tzname
+#elif U_PLATFORM == U_PF_OS400
+   /* not defined */
+#else
+#   define U_TZNAME tzname
+#endif
+
+#ifdef U_HAVE_MMAP
+    /* Use the predefined value. */
+#elif U_PLATFORM_HAS_WIN32_API
+#   define U_HAVE_MMAP 0
+#else
+#   define U_HAVE_MMAP 1
+#endif
+
+#ifdef U_HAVE_POPEN
+    /* Use the predefined value. */
+#elif U_PLATFORM_USES_ONLY_WIN32_API
+#   define U_HAVE_POPEN 0
+#elif U_PLATFORM == U_PF_OS400
+#   define U_HAVE_POPEN 0
+#else
+#   define U_HAVE_POPEN 1
+#endif
+
+/**
+ * \def U_HAVE_DIRENT_H
+ * Defines whether dirent.h is available.
+ * @internal
+ */
+#ifdef U_HAVE_DIRENT_H
+    /* Use the predefined value. */
+#elif U_PLATFORM_HAS_WIN32_API
+#   define U_HAVE_DIRENT_H 0
+#else
+#   define U_HAVE_DIRENT_H 1
+#endif
+
+/** @} */
+
+/*===========================================================================*/
+/** @{ GCC built in functions for atomic memory operations                   */
+/*===========================================================================*/
+
+/**
+ * \def U_HAVE_GCC_ATOMICS
+ * @internal
+ */
+#ifdef U_HAVE_GCC_ATOMICS
+    /* Use the predefined value. */
+#elif defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 401)
+#   define U_HAVE_GCC_ATOMICS 1
+#else
+#   define U_HAVE_GCC_ATOMICS 0
+#endif
+
+/** @} */
+
+/*===========================================================================*/
+/** @{ Code alignment                                                        */
+/*===========================================================================*/
+
+/**
+ * \def U_ALIGN_CODE
+ * This is used to align code fragments to a specific byte boundary.
+ * This is useful for getting consistent performance test results.
+ * @internal
+ */
+#ifdef U_ALIGN_CODE
+    /* Use the predefined value. */
+#elif defined(_MSC_VER) && defined(_M_IX86) && !defined(_MANAGED)
+#   define U_ALIGN_CODE(boundarySize) __asm  align boundarySize
+#else
+#   define U_ALIGN_CODE(boundarySize) 
+#endif
+
+/** @} */
+
+/*===========================================================================*/
+/** @{ Programs used by ICU code                                             */
+/*===========================================================================*/
+
+/**
+ * \def U_MAKE_IS_NMAKE
+ * Defines whether the "make" program is Windows nmake.
+ */
+#ifdef U_MAKE_IS_NMAKE
+    /* Use the predefined value. */
+#elif U_PLATFORM == U_PF_WINDOWS
+#   define U_MAKE_IS_NMAKE 1
+#else
+#   define U_MAKE_IS_NMAKE 0
+#endif
+
+/** @} */
 
 /*==========================================================================*/
 /* Platform utilities                                                       */
@@ -159,6 +361,29 @@ U_INTERNAL double  U_EXPORT2 uprv_round(double x);
 /*U_INTERNAL int32_t  U_EXPORT2 uprv_digitsAfterDecimal(double x);*/
 #endif
 
+#if !U_CHARSET_IS_UTF8
+/**
+ * Please use ucnv_getDefaultName() instead.
+ * Return the default codepage for this platform and locale.
+ * This function can call setlocale() on Unix platforms. Please read the
+ * platform documentation on setlocale() before calling this function.
+ * @return the default codepage for this platform 
+ * @internal
+ */
+U_INTERNAL const char*  U_EXPORT2 uprv_getDefaultCodepage(void);
+#endif
+
+/**
+ * Please use uloc_getDefault() instead.
+ * Return the default locale ID string by querying ths system, or
+ *     zero if one cannot be found. 
+ * This function can call setlocale() on Unix platforms. Please read the
+ * platform documentation on setlocale() before calling this function.
+ * @return the default locale ID string
+ * @internal
+ */
+U_INTERNAL const char*  U_EXPORT2 uprv_getDefaultLocaleID(void);
+
 /**
  * Time zone utilities
  *
@@ -253,40 +478,46 @@ U_INTERNAL void * U_EXPORT2 uprv_maximumPtr(void *base);
  * - return the largest possible pointer greater than base
  * - return a valid pointer according to the machine architecture (AS/400, 64-bit, etc.)
  * - avoid wrapping around at high addresses
- * - make sure that the returned pointer is not farther from base than 0x7fffffff
+ * - make sure that the returned pointer is not farther from base than 0x7fffffff bytes
  *
  * @param base The beginning of a buffer to find the maximum offset from
  * @internal
  */
 #ifndef U_MAX_PTR
-#  if defined(OS390) && !defined(_LP64)
+#  if U_PLATFORM == U_PF_OS390 && !defined(_LP64)
     /* We have 31-bit pointers. */
 #    define U_MAX_PTR(base) ((void *)0x7fffffff)
-#  elif defined(OS400)
+#  elif U_PLATFORM == U_PF_OS400
 #    define U_MAX_PTR(base) uprv_maximumPtr((void *)base)
-#  elif defined(__GNUC__) && __GNUC__ >= 4
-/*
- * Due to a compiler optimization bug, gcc 4 causes test failures when doing
- * this math arithmetic on pointers on some platforms. It seems like the
- * pointers are considered signed instead of unsigned. The uintptr_t type
- * isn't available on all platforms (i.e MSVC 6) and pointers aren't always
- * a scalar value (i.e. i5/OS see uprv_maximumPtr function).
- */
+#  elif 0
+    /*
+     * For platforms where pointers are scalar values (which is normal, but unlike i5/OS)
+     * but that do not define uintptr_t.
+     *
+     * However, this does not work on modern compilers:
+     * The C++ standard does not define pointer overflow, and allows compilers to
+     * assume that p+u>p for any pointer p and any integer u>0.
+     * Thus, modern compilers optimize away the ">" comparison.
+     * (See ICU tickets #7187 and #8096.)
+     */
+#    define U_MAX_PTR(base) \
+    ((void *)(((char *)(base)+0x7fffffffu) > (char *)(base) \
+        ? ((char *)(base)+0x7fffffffu) \
+        : (char *)-1))
+#  else
+    /* Default version. C++ standard compliant for scalar pointers. */
 #    define U_MAX_PTR(base) \
     ((void *)(((uintptr_t)(base)+0x7fffffffu) > (uintptr_t)(base) \
         ? ((uintptr_t)(base)+0x7fffffffu) \
         : (uintptr_t)-1))
-#  else
-#    define U_MAX_PTR(base) \
-    ((char *)(((char *)(base)+0x7fffffffu) > (char *)(base) \
-        ? ((char *)(base)+0x7fffffffu) \
-        : (char *)-1))
 #  endif
 #endif
 
-#if U_ENABLE_DYLOAD
 /*  Dynamic Library Functions */
 
+typedef void (UVoidFunction)(void);
+
+#if U_ENABLE_DYLOAD
 /**
  * Load a library
  * @internal (ICU 4.4)
@@ -300,11 +531,35 @@ U_INTERNAL void * U_EXPORT2 uprv_dl_open(const char *libName, UErrorCode *status
 U_INTERNAL void U_EXPORT2 uprv_dl_close( void *lib, UErrorCode *status);
 
 /**
- * Extract a symbol from a library
- * @internal (ICU 4.4)
+ * Extract a symbol from a library (function)
+ * @internal (ICU 4.8)
  */
-U_INTERNAL void * U_EXPORT2 uprv_dl_sym( void *lib, const char *symbolName, UErrorCode *status);
+U_INTERNAL UVoidFunction* U_EXPORT2 uprv_dlsym_func( void *lib, const char *symbolName, UErrorCode *status);
+
+/**
+ * Extract a symbol from a library (function)
+ * Not implemented, no clients.
+ * @internal
+ */
+/* U_INTERNAL void * U_EXPORT2 uprv_dlsym_data( void *lib, const char *symbolName, UErrorCode *status); */
 
 #endif
+
+/**
+ * Define malloc and related functions
+ * @internal
+ */
+#if U_PLATFORM == U_PF_OS400
+# define uprv_default_malloc(x) _C_TS_malloc(x)
+# define uprv_default_realloc(x,y) _C_TS_realloc(x,y)
+# define uprv_default_free(x) _C_TS_free(x)
+/* also _C_TS_calloc(x) */
+#else
+/* C defaults */
+# define uprv_default_malloc(x) malloc(x)
+# define uprv_default_realloc(x,y) realloc(x,y)
+# define uprv_default_free(x) free(x)
+#endif
+
 
 #endif

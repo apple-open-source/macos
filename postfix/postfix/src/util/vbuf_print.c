@@ -102,7 +102,7 @@
 
 #define VSTRING_ADDNUM(vp, n) { \
 	VSTRING_SPACE(vp, INT_SPACE); \
-	snprintf(vstring_end(vp), INT_SPACE, "%d", n); \
+	snprintf(vstring_end(vp), INT_SPACE, "%d", n); /* APPLE */ \
 	VBUF_SKIP(&vp->vbuf); \
     }
 
@@ -125,7 +125,7 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
     unsigned long_flag;			/* long or plain integer */
     int     ch;
     char   *s;
-    size_t size;
+    size_t size; /* APPLE */
 
     /*
      * Assume that format strings are short.
@@ -211,10 +211,10 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
 	    case 's':				/* string-valued argument */
 		s = va_arg(ap, char *);
 		if (prec > 0 || (width > 0 && width > strlen(s))) {
-		    size = (width > prec ? width : prec) + INT_SPACE;
-		    if (VBUF_SPACE(bp, size))
+		    size = (width > prec ? width : prec) + INT_SPACE; /* APPLE */
+		    if (VBUF_SPACE(bp, size)) /* APPLE */
 			return (bp);
-		    snprintf((char *) bp->ptr, size, vstring_str(fmt), s);
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), s); /* APPLE */
 		    VBUF_SKIP(bp);
 		} else {
 		    VBUF_STRCAT(bp, s);
@@ -226,32 +226,32 @@ VBUF   *vbuf_print(VBUF *bp, const char *format, va_list ap)
 	    case 'o':
 	    case 'x':
 	    case 'X':
-		size = (width > prec ? width : prec) + INT_SPACE;
-		if (VBUF_SPACE(bp, size))
+		size = (width > prec ? width : prec) + INT_SPACE; /* APPLE */
+		if (VBUF_SPACE(bp, size)) /* APPLE */
 		    return (bp);
 		if (long_flag)
-		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, long));
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, long)); /* APPLE */
 		else
-		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, int));
+		    snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, int)); /* APPLE */
 		VBUF_SKIP(bp);
 		break;
 	    case 'e':				/* float-valued argument */
 	    case 'f':
 	    case 'g':
-		size = (width > prec ? width : prec) + DBL_SPACE;
-		if (VBUF_SPACE(bp, size))
+		size = (width > prec ? width : prec) + DBL_SPACE; /* APPLE */
+		if (VBUF_SPACE(bp, size)) /* APPLE */
 		    return (bp);
-		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, double));
+		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, double)); /* APPLE */
 		VBUF_SKIP(bp);
 		break;
 	    case 'm':
 		VBUF_STRCAT(bp, strerror(errno));
 		break;
 	    case 'p':
-		size = (width > prec ? width : prec) + PTR_SPACE;
-		if (VBUF_SPACE(bp, size))
+		size = (width > prec ? width : prec) + PTR_SPACE; /* APPLE */
+		if (VBUF_SPACE(bp, size)) /* APPLE */
 		    return (bp);
-		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, char *));
+		snprintf((char *) bp->ptr, size, vstring_str(fmt), va_arg(ap, char *)); /* APPLE */
 		VBUF_SKIP(bp);
 		break;
 	    default:				/* anything else is bad */

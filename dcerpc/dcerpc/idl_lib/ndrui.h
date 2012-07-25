@@ -627,6 +627,7 @@ void rpc_ss_ndr_unmar_check_bounds_correlation
     /* [in] */ idl_ulong_int *struct_offset_vec_ptr,
     /* [in] */ idl_ulong_int dimensionality,
     /* [in] */ idl_ulong_int *Z_values,
+    /* [in] */ idl_boolean pre_unmar,
     /* [out] */ IDL_bound_pair_t **p_correl_bounds_list,
     /* [in] */ IDL_msp_t IDL_msp
 );

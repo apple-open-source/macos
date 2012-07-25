@@ -48,7 +48,8 @@ extern ipconfig_status_t add_service(const char * name,
 				     ipconfig_method_t method, 
 				     ipconfig_method_data_t * method_data,
 				     void * service_id, 
-				     unsigned int * service_id_len);
+				     unsigned int * service_id_len,
+				     CFDictionaryRef plist, pid_t pid);
 extern ipconfig_status_t set_service(const char * name,
 				     ipconfig_method_t method, 
 				     ipconfig_method_data_t * method_data,
@@ -67,4 +68,4 @@ extern ipconfig_status_t remove_service(const char * name,
 					ipconfig_method_data_t * method_data);
 extern ipconfig_status_t set_verbose(int verbose);
 
-#endif _S_IPCONFIGD_H
+#endif /* _S_IPCONFIGD_H */

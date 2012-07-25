@@ -26,24 +26,64 @@
 #include "config.h"
 #include "WebProcess.h"
 
+#include "InjectedBundle.h"
+#include "QtBuiltinBundle.h"
+#include "QtNetworkAccessManager.h"
+#include "WKBundleAPICast.h"
 #include "WebProcessCreationParameters.h"
-#include <WebCore/RuntimeEnabledFeatures.h>
+
+#include <QCoreApplication>
 #include <QNetworkAccessManager>
+#include <QNetworkCookieJar>
+#include <WebCore/CookieJarQt.h>
+#include <WebCore/PageCache.h>
+#include <WebCore/RuntimeEnabledFeatures.h>
+
+#if defined(Q_OS_MACX)
+#include <dispatch/dispatch.h>
+#endif
+
+using namespace WebCore;
 
 namespace WebKit {
 
+static const int DefaultPageCacheCapacity = 20;
+
 void WebProcess::platformSetCacheModel(CacheModel)
 {
-    // FIXME: Implement.
+    // FIXME: see bug 73918
+    pageCache()->setCapacity(DefaultPageCacheCapacity);
 }
 
 void WebProcess::platformClearResourceCaches(ResourceCachesToClear)
 {
 }
 
+#if defined(Q_OS_MACX)
+static void parentProcessDiedCallback(void*)
+{
+    QCoreApplication::quit();
+}
+#endif
+
 void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters& parameters, CoreIPC::ArgumentDecoder* arguments)
 {
-    m_networkAccessManager = new QNetworkAccessManager;
+    m_networkAccessManager = new QtNetworkAccessManager(this);
+    ASSERT(!parameters.cookieStorageDirectory.isEmpty() && !parameters.cookieStorageDirectory.isNull());
+    WebCore::SharedCookieJarQt* jar = WebCore::SharedCookieJarQt::create(parameters.cookieStorageDirectory);
+    m_networkAccessManager->setCookieJar(jar);
+    // Do not let QNetworkAccessManager delete the jar.
+    jar->setParent(0);
+
+#if defined(Q_OS_MACX)
+    pid_t ppid = getppid();
+    dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, ppid, DISPATCH_PROC_EXIT, queue);
+    if (source) {
+        dispatch_source_set_event_handler_f(source, parentProcessDiedCallback);
+        dispatch_resume(source);
+    }
+#endif
 
     // Disable runtime enabled features that have no WebKit2 implementation yet.
 #if ENABLE(DEVICE_ORIENTATION)
@@ -53,12 +93,21 @@ void WebProcess::platformInitializeWebProcess(const WebProcessCreationParameters
 #if ENABLE(SPEECH_INPUT)
     WebCore::RuntimeEnabledFeatures::setSpeechInputEnabled(false);
 #endif
+
+    // We'll only install the Qt builtin bundle if we don't have one given by the UI process.
+    // Currently only WTR provides its own bundle.
+    if (parameters.injectedBundlePath.isEmpty()) {
+        m_injectedBundle = InjectedBundle::create(String());
+        m_injectedBundle->setSandboxExtension(SandboxExtension::create(parameters.injectedBundlePathExtensionHandle));
+        QtBuiltinBundle::shared().initialize(toAPI(m_injectedBundle.get()));
+    }
 }
 
 void WebProcess::platformTerminate()
 {
     delete m_networkAccessManager;
     m_networkAccessManager = 0;
+    WebCore::SharedCookieJarQt::shared()->destroy();
 }
 
 } // namespace WebKit

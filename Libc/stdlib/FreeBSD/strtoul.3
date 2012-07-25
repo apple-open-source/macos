@@ -36,7 +36,10 @@
 .Dt STRTOUL 3
 .Os
 .Sh NAME
-.Nm strtoul , strtoull , strtoumax , strtouq
+.Nm strtoul ,
+.Nm strtoull ,
+.Nm strtoumax ,
+.Nm strtouq
 .Nd "convert a string to an"
 .Vt "unsigned long" , "unsigned long long" , uintmax_t ,
 or
@@ -46,25 +49,40 @@ integer
 .Lb libc
 .Sh SYNOPSIS
 .In stdlib.h
-.In limits.h
 .Ft "unsigned long"
-.Fn strtoul "const char * restrict nptr" "char ** restrict endptr" "int base"
+.Fo strtoul
+.Fa "const char *restrict str"
+.Fa "char **restrict endptr"
+.Fa "int base"
+.Fc
 .Ft "unsigned long long"
-.Fn strtoull "const char * restrict nptr" "char ** restrict endptr" "int base"
+.Fo strtoull
+.Fa "const char *restrict str"
+.Fa "char **restrict endptr"
+.Fa "int base"
+.Fc
 .In inttypes.h
 .Ft uintmax_t
-.Fn strtoumax "const char * restrict nptr" "char ** restrict endptr" "int base"
+.Fo strtoumax
+.Fa "const char *restrict str"
+.Fa "char **restrict endptr"
+.Fa "int base"
+.Fc
 .In sys/types.h
 .In stdlib.h
 .In limits.h
 .Ft u_quad_t
-.Fn strtouq "const char *nptr" "char **endptr" "int base"
+.Fo strtouq
+.Fa "const char *str"
+.Fa "char **endptr"
+.Fa "int base"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn strtoul
 function
 converts the string in
-.Fa nptr
+.Fa str
 to an
 .Vt "unsigned long"
 value.
@@ -72,7 +90,7 @@ The
 .Fn strtoull
 function
 converts the string in
-.Fa nptr
+.Fa str
 to an
 .Vt "unsigned long long"
 value.
@@ -80,7 +98,7 @@ The
 .Fn strtoumax
 function
 converts the string in
-.Fa nptr
+.Fa str
 to an
 .Vt uintmax_t
 value.
@@ -88,7 +106,7 @@ The
 .Fn strtouq
 function
 converts the string in
-.Fa nptr
+.Fa str
 to a
 .Vt u_quad_t
 value.
@@ -142,11 +160,11 @@ stores the address of the first invalid character in
 If there were no digits at all, however,
 .Fn strtoul
 stores the original value of
-.Fa nptr
+.Fa str
 in
 .Fa *endptr .
 (Thus, if
-.Fa *nptr
+.Fa *str
 is not
 .Ql \e0
 but
@@ -201,10 +219,22 @@ no conversion could be performed
 .It Bq Er ERANGE
 The given string was out of range; the value converted has been clamped.
 .El
+.Sh LEGACY SYNOPSIS
+.Fd #include <stdlib.h>
+.Fd #include <limits.h>
+.Pp
+.In limits.h
+is necessary for the
+.Fn strtoul
+and
+.Fn strtoull
+functions.
 .Sh SEE ALSO
 .Xr strtol 3 ,
+.Xr strtol_l 3 ,
 .Xr strtonum 3 ,
-.Xr wcstoul 3
+.Xr wcstoul 3 ,
+.Xr compat 5
 .Sh STANDARDS
 The
 .Fn strtoul

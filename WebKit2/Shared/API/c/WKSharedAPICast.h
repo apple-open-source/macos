@@ -56,12 +56,16 @@ class ImmutableDictionary;
 class MutableArray;
 class MutableDictionary;
 class WebCertificateInfo;
+class WebConnection;
 class WebContextMenuItem;
 class WebData;
 class WebGraphicsContext;
 class WebImage;
+class WebPoint;
+class WebRect;
 class WebSecurityOrigin;
 class WebSerializedScriptValue;
+class WebSize;
 class WebURLRequest;
 class WebURLResponse;
 class WebUserContentURLPattern;
@@ -76,6 +80,7 @@ template<typename ImplType> struct ImplTypeInfo { };
 WK_ADD_API_MAPPING(WKArrayRef, ImmutableArray)
 WK_ADD_API_MAPPING(WKBooleanRef, WebBoolean)
 WK_ADD_API_MAPPING(WKCertificateInfoRef, WebCertificateInfo)
+WK_ADD_API_MAPPING(WKConnectionRef, WebConnection)
 WK_ADD_API_MAPPING(WKContextMenuItemRef, WebContextMenuItem)
 WK_ADD_API_MAPPING(WKDataRef, WebData)
 WK_ADD_API_MAPPING(WKDictionaryRef, ImmutableDictionary)
@@ -85,8 +90,11 @@ WK_ADD_API_MAPPING(WKGraphicsContextRef, WebGraphicsContext)
 WK_ADD_API_MAPPING(WKImageRef, WebImage)
 WK_ADD_API_MAPPING(WKMutableArrayRef, MutableArray)
 WK_ADD_API_MAPPING(WKMutableDictionaryRef, MutableDictionary)
+WK_ADD_API_MAPPING(WKPointRef, WebPoint)
+WK_ADD_API_MAPPING(WKRectRef, WebRect)
 WK_ADD_API_MAPPING(WKSecurityOriginRef, WebSecurityOrigin)
 WK_ADD_API_MAPPING(WKSerializedScriptValueRef, WebSerializedScriptValue)
+WK_ADD_API_MAPPING(WKSizeRef, WebSize)
 WK_ADD_API_MAPPING(WKStringRef, WebString)
 WK_ADD_API_MAPPING(WKTypeRef, APIObject)
 WK_ADD_API_MAPPING(WKUInt64Ref, WebUInt64)
@@ -139,13 +147,13 @@ inline ProxyingRefPtr<WebString> toAPI(StringImpl* string)
 inline WKStringRef toCopiedAPI(const String& string)
 {
     RefPtr<WebString> webString = WebString::create(string);
-    return toAPI(webString.release().releaseRef());
+    return toAPI(webString.release().leakRef());
 }
 
 inline ProxyingRefPtr<WebURL> toURLRef(StringImpl* string)
 {
     if (!string)
-        ProxyingRefPtr<WebURL>(0);
+        return ProxyingRefPtr<WebURL>(0);
     return ProxyingRefPtr<WebURL>(WebURL::create(String(string)));
 }
 
@@ -154,7 +162,7 @@ inline WKURLRef toCopiedURLAPI(const String& string)
     if (!string)
         return 0;
     RefPtr<WebURL> webURL = WebURL::create(string);
-    return toAPI(webURL.release().releaseRef());
+    return toAPI(webURL.release().leakRef());
 }
 
 inline String toWTFString(WKStringRef stringRef)
@@ -406,6 +414,8 @@ inline WKContextMenuItemTag toAPI(WebCore::ContextMenuAction action)
         return kWKContextMenuItemTagPDFSinglePageScrolling;
     case WebCore::ContextMenuItemTagPDFFacingPagesScrolling:
         return kWKContextMenuItemTagPDFFacingPagesScrolling;
+    case WebCore::ContextMenuItemTagDictationAlternative:
+        return kWKContextMenuItemTagDictationAlternative;
 #if ENABLE(INSPECTOR)
     case WebCore::ContextMenuItemTagInspectElement:
         return kWKContextMenuItemTagInspectElement;
@@ -584,6 +594,8 @@ inline WebCore::ContextMenuAction toImpl(WKContextMenuItemTag tag)
         return WebCore::ContextMenuItemTagPDFSinglePageScrolling;
     case kWKContextMenuItemTagPDFFacingPagesScrolling:
         return WebCore::ContextMenuItemTagPDFFacingPagesScrolling;
+    case kWKContextMenuItemTagDictationAlternative:
+        return WebCore::ContextMenuItemTagDictationAlternative;
 #if ENABLE(INSPECTOR)
     case kWKContextMenuItemTagInspectElement:
         return WebCore::ContextMenuItemTagInspectElement;
@@ -680,6 +692,8 @@ inline FindOptions toFindOptions(WKFindOptions wkFindOptions)
         findOptions |= FindOptionsShowOverlay;
     if (wkFindOptions & kWKFindOptionsShowFindIndicator)
         findOptions |= FindOptionsShowFindIndicator;
+    if (wkFindOptions & kWKFindOptionsShowHighlight)
+        findOptions |= FindOptionsShowHighlight;
 
     return static_cast<FindOptions>(findOptions);
 }

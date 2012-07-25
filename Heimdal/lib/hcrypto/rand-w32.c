@@ -56,17 +56,35 @@ _hc_CryptProvider(void)
 
     rv = CryptAcquireContext(&cryptprovider, NULL,
 			      MS_ENHANCED_PROV, PROV_RSA_FULL,
-			      0);
+			      CRYPT_VERIFYCONTEXT);
 
     if (GetLastError() == NTE_BAD_KEYSET) {
-        if(!rv)
+        rv = CryptAcquireContext(&cryptprovider, NULL,
+                                 MS_ENHANCED_PROV, PROV_RSA_FULL,
+                                 CRYPT_NEWKEYSET);
+    }
+
+    if (rv) {
+        /* try the default provider */
+        rv = CryptAcquireContext(&cryptprovider, NULL, 0, PROV_RSA_FULL,
+                                 CRYPT_VERIFYCONTEXT);
+
+        if (GetLastError() == NTE_BAD_KEYSET) {
             rv = CryptAcquireContext(&cryptprovider, NULL,
-                                      MS_ENHANCED_PROV, PROV_RSA_FULL,
-                                      CRYPT_NEWKEYSET);
+                                     MS_ENHANCED_PROV, PROV_RSA_FULL,
+                                     CRYPT_NEWKEYSET);
+        }
+    }
+
+    if (rv) {
+        /* try just a default random number generator */
+        rv = CryptAcquireContext(&cryptprovider, NULL, 0, PROV_RNG,
+                                 CRYPT_VERIFYCONTEXT);
     }
 
     if (rv &&
-        InterlockedCompareExchangePointer(&g_cryptprovider, cryptprovider, 0) != 0) {
+        InterlockedCompareExchangePointer((PVOID *) &g_cryptprovider,
+					  (PVOID) cryptprovider, 0) != 0) {
 
         CryptReleaseContext(cryptprovider, 0);
         cryptprovider = g_cryptprovider;
@@ -97,6 +115,12 @@ w32crypto_bytes(unsigned char *outdata, int size)
 static void
 w32crypto_cleanup(void)
 {
+    HCRYPTPROV cryptprovider;
+
+    if (InterlockedCompareExchangePointer((PVOID *) &cryptprovider,
+					  0, (PVOID) g_cryptprovider) == 0) {
+        CryptReleaseContext(cryptprovider, 0);
+    }
 }
 
 static void

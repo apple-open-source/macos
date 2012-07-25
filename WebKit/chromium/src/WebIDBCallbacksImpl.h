@@ -42,11 +42,13 @@ public:
     virtual ~WebIDBCallbacksImpl();
 
     virtual void onError(const WebIDBDatabaseError&);
+    virtual void onSuccess(const WebDOMStringList&);
     virtual void onSuccess(WebIDBCursor*);
     virtual void onSuccess(WebIDBDatabase*);
     virtual void onSuccess(const WebIDBKey&);
     virtual void onSuccess(WebIDBTransaction*);
     virtual void onSuccess(const WebSerializedScriptValue&);
+    virtual void onSuccessWithContinuation();
     virtual void onBlocked();
 
 private:

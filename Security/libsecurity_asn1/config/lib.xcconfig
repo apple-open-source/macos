@@ -1,0 +1,34 @@
+#include "base.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AspenFamily.xcconfig"
+
+PRODUCT_NAME = $(TARGET_NAME)
+EXECUTABLE_PREFIX = 
+
+CODE_SIGN_IDENTITY = 
+
+HEADER_SEARCH_PATHS[sdk=macosx*] = $(PROJECT_DIR) $(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers $(inherited)
+
+HEADER_SEARCH_PATHS[sdk=iphone*] = $(PROJECT_DIR) $(BUILT_PRODUCTS_DIR)$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include $(inherited)
+
+INSTALL_PATH = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib
+INSTALL_PATH_ACTUAL[sdk=iphonesimulator*] = /usr/local/lib
+PRIVATE_HEADERS_FOLDER_PATH[sdk=iphone*] = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/security_asn1
+PUBLIC_HEADERS_FOLDER_PATH[sdk=iphone*] = $(INDIGO_INSTALL_PATH_PREFIX)/usr/local/include/Security
+PRIVATE_HEADERS_FOLDER_PATH[sdk=macosx*] = /usr/local/include/security_asn1
+PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*] = /usr/local/include/security_asn1
+
+ALWAYS_SEARCH_USER_PATHS = NO
+
+GCC_C_LANGUAGE_STANDARD = gnu99
+
+WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas $(inherited)
+
+GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO
+
+GCC_SYMBOLS_PRIVATE_EXTERN = NO
+GCC_WARN_64_TO_32_BIT_CONVERSION = YES
+GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES
+GCC_WARN_ABOUT_RETURN_TYPE = YES
+GCC_WARN_UNUSED_VARIABLE = YES
+
+SUPPORTED_PLATFORMS = macosx iphoneos iphonesimulator

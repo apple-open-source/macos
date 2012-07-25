@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CSSBorderImageSliceValue_h
@@ -40,9 +40,8 @@ public:
     {
         return adoptRef(new CSSBorderImageSliceValue(slices, fill));
     }
-    virtual ~CSSBorderImageSliceValue();
 
-    virtual String cssText() const;
+    String customCssText() const;
 
     Quad* slices() { return m_slices ? m_slices->getQuadValue() : 0; }
 
@@ -53,7 +52,6 @@ public:
 
 private:
     CSSBorderImageSliceValue(PassRefPtr<CSSPrimitiveValue> slices, bool fill);
-    virtual bool isBorderImageSliceValue() const { return true; }
 };
 
 } // namespace WebCore

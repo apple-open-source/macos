@@ -1,29 +1,30 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/es_AR.xml
 // *
 // ***************************************************************************
 es_AR{
-    Version{"2.0.46.25"}
+    %%Parent{"es_419"}
+    NumberElements{
+        latn{
+            symbols{
+                decimal{","}
+                group{"."}
+            }
+        }
+    }
+    Version{"2.0.61.44"}
     calendar{
         gregorian{
-            AmPmMarkers{
-                "a.m.",
-                "p.m.",
-            }
-            DateTimeElements:intvector{
-                1,
-                4,
-            }
             DateTimePatterns{
                 "HH'h'''mm:ss zzzz",
                 "H:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE d 'de' MMMM 'de' y",
+                "EEEE, d 'de' MMMM 'de' y",
                 "d 'de' MMMM 'de' y",
                 "dd/MM/yyyy",
                 "dd/MM/yy",
@@ -38,9 +39,5 @@ es_AR{
                 yM{"M-yyyy"}
             }
         }
-    }
-    measurementSystemNames{
-        US{"estadounidense"}
-        metric{"métrico"}
     }
 }

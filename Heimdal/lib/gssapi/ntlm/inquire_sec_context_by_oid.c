@@ -34,6 +34,7 @@
  */
 
 #include "ntlm.h"
+#include <gssapi_krb5.h>
 
 OM_uint32
 _gss_ntlm_inquire_sec_context_by_oid(OM_uint32 *minor_status,
@@ -48,6 +49,9 @@ _gss_ntlm_inquire_sec_context_by_oid(OM_uint32 *minor_status,
 	return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_NO_CONTEXT,
 				       0, "no context");
     }
+
+    *minor_status = 0;
+    *data_set = GSS_C_NO_BUFFER_SET;
 
     if (gss_oid_equal(desired_object, GSS_NTLM_GET_SESSION_KEY_X) ||
         gss_oid_equal(desired_object, GSS_C_INQ_SSPI_SESSION_KEY)) {
@@ -83,6 +87,13 @@ _gss_ntlm_inquire_sec_context_by_oid(OM_uint32 *minor_status,
 	return gss_add_buffer_set_member(minor_status,
 					 &value,
 					 data_set);
+    } else if (gss_oid_equal(desired_object, GSS_C_PEER_HAS_UPDATED_SPNEGO)) {
+	if (ctx->flags & NTLM_NEG_NTLM2_SESSION)
+	    return GSS_S_COMPLETE;
+	return GSS_S_FAILURE;
+    } else if (gss_oid_equal(desired_object, GSS_C_NTLM_RESET_KEYS)) {
+	_gss_ntlm_set_keys(ctx);
+	return GSS_S_COMPLETE;
     } else {
 	*minor_status = 0;
 	return GSS_S_FAILURE;

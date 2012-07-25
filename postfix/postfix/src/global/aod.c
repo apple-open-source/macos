@@ -36,6 +36,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
+#include <mach/mig_errors.h>
+
 #include <dtrace-postfix.h>
 
 #include <membership.h>
@@ -68,11 +70,12 @@ static void set_attributes_local	( CFMutableDictionaryRef in_user_dict, const ch
 static CFStringRef get_attr_from_record ( ODRecordRef in_rec_ref, CFStringRef in_attr );
 static CFMutableDictionaryRef get_mail_attribute_values	( const char *in_mail_attribute, struct od_user_opts *in_out_opts );
 
-const char *user_settings_path = "/var/db/.mailusersettings.plist";
+char *user_settings_path = NULL;
 
 /* Begin DS SPI Glue */
 #include <kvbuf.h>
-#include <DSlibinfoMIG.h>
+#include <opendirectory/DSlibinfoMIG.h>
+#include <opendirectory/DSmemberdMIG_types.h>
 #include <DirectoryService/DirectoryService.h>
 
 extern mach_port_t _ds_port;
@@ -476,6 +479,13 @@ int ads_get_user_options(const char *inUserID, struct od_user_opts *in_out_opts)
 			if (value)
 				strlcpy(user_guid, value, sizeof user_guid);
 
+			struct stat st;
+			int i_stat = stat(kServerUserPath, &st);
+			if ( stat(kServerUserPath, &st) == 0 )
+				user_settings_path = kServerUserPath;
+			else
+				user_settings_path = kClientUserPath;
+
 			if ( !get_attributes_local(in_out_opts, user_guid) ) {
 				value = ds_get_value(inUserID, user_dict, kDS1AttrMailAttribute, FALSE);
 				if (value) {
@@ -620,7 +630,8 @@ static CFPropertyListRef read_user_settings ( const char *in_file, CFPropertyLis
 	SInt32 err;
 	CFDataRef cf_data = NULL;
 	if ( !CFURLCreateDataAndPropertiesFromResource(NULL, cf_url, &cf_data, NULL, NULL, &err) ) {
-		msg_info("aod: no local user settings (%s), using defaults", in_file);
+		if ( msg_verbose )
+			msg_info("aod: no local user settings (%s), using defaults", in_file);
 		CFRelease(cf_url);
 		return( NULL );
 	}
@@ -657,17 +668,10 @@ static void write_user_settings ( const char *in_file, CFPropertyListRef in_data
 	if ( cf_data ) {
 		SInt32 write_err = noErr;
 		if ( !CFURLWriteDataAndPropertiesToResource(cf_url, cf_data, NULL, &write_err) )
-			msg_error("aod: could not write to %s (error: %d)", in_file, (int) write_err);
+			if ( msg_verbose )
+				msg_warn("aod: could not write to %s (error: %d)", in_file, (int) write_err);
 		CFRelease(cf_data);
 	}
-
-	int fd = open(in_file, O_RDONLY);
-	if (fd != -1) {
-		fchown(fd, 27, 6);
-		fchmod(fd, 0660);
-		close(fd);
-	}
-
 	CFRelease(cf_url);
 } /* write_user_settings */
 

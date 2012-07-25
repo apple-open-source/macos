@@ -145,6 +145,7 @@ static const struct {
 	{STATUS_PIPE_DISCONNECTED,		EPIPE},
 	{STATUS_SMB_BAD_TID,			ENOENT},
 	{STATUS_INSUFFICIENT_RESOURCES, EAGAIN},
+	{STATUS_INSUFF_SERVER_RESOURCES, EAGAIN},
 	{STATUS_PIPE_NOT_AVAILABLE,		ENOSYS},
 	{STATUS_PORT_CONNECTION_REFUSED,ECONNREFUSED},
 	{STATUS_PORT_MESSAGE_TOO_LONG,	EMSGSIZE},
@@ -261,7 +262,7 @@ smb_strndup(const char * string, size_t maxlen)
     }
 	
     size = strnlen(string, maxlen);
-	MALLOC(result, char *, size + 1, M_SMBSTR, M_WAITOK | M_ZERO);
+	SMB_MALLOC(result, char *, size + 1, M_SMBSTR, M_WAITOK | M_ZERO);
     if (!result) {
         goto finish;
     }
@@ -294,7 +295,7 @@ void * smb_memdupin(user_addr_t umem, int len)
 	if (len > SMB_WAIT_SIZE_MAX) {
 		flags = M_NOWAIT;
 	}
-	p = malloc(len, M_SMBSTR, flags);
+    SMB_MALLOC(p, char *, len, M_SMBSTR, flags);
 	if (!p) {
 		SMBDEBUG("malloc failed : %d\n", ENOMEM);
 		return NULL;
@@ -318,7 +319,7 @@ smb_memdup(const void *umem, int len)
 
 	if (len > 32 * 1024)
 		return NULL;
-	p = malloc(len, M_SMBSTR, M_WAITOK);
+    SMB_MALLOC(p, char *, len, M_SMBSTR, M_WAITOK);
 	if (p == NULL)
 		return NULL;
 	bcopy(umem, p, len);
@@ -692,7 +693,7 @@ smb_put_dmem(struct mbchain *mbp, const char *src, size_t srcSize,
 	utf16InLen = (srcSize * 2) + 2;
 	/* We need a bigger buffer */
 	if (utf16InLen > sizeof(convbuf)) {
-		MALLOC(utf16Str, void *, utf16InLen, M_TEMP, M_NOWAIT);
+		SMB_MALLOC(utf16Str, void *, utf16InLen, M_TEMP, M_WAITOK);
 		if (!utf16Str)
 			return ENOMEM;
 		
@@ -719,7 +720,7 @@ smb_put_dmem(struct mbchain *mbp, const char *src, size_t srcSize,
 done:
 	/* We allocated it so free it */
 	if (utf16Str != convbuf) {
-		FREE(utf16Str, M_TEMP);
+		SMB_FREE(utf16Str, M_TEMP);
 	}
 	
 	return error;

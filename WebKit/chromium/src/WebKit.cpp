@@ -36,31 +36,100 @@
 #include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "TextEncoding.h"
+#include "V8Binding.h"
+#include "V8RecursionScope.h"
+#include "WebKitMutationObserver.h"
 #include "WebMediaPlayerClientImpl.h"
 #include "WebSocket.h"
 #include "WorkerContextExecutionProxy.h"
-
+#include "platform/WebKitPlatformSupport.h"
+#include "platform/WebThread.h"
+#include "v8.h"
+#include <public/Platform.h>
 #include <wtf/Assertions.h>
+#include <wtf/MainThread.h>
 #include <wtf/Threading.h>
 #include <wtf/text/AtomicString.h>
 
+#if OS(DARWIN)
+#include "WebSystemInterface.h"
+#endif
+
 namespace WebKit {
+
+#if ENABLE(MUTATION_OBSERVERS)
+namespace {
+
+class EndOfTaskRunner : public WebThread::TaskObserver {
+public:
+    virtual void didProcessTask()
+    {
+        WebCore::WebKitMutationObserver::deliverAllMutations();
+    }
+};
+
+} // namespace
+
+static WebThread::TaskObserver* s_endOfTaskRunner = 0;
+#endif // ENABLE(MUTATION_OBSERVERS)
 
 // Make sure we are not re-initialized in the same address space.
 // Doing so may cause hard to reproduce crashes.
 static bool s_webKitInitialized = false;
 
-static WebKitClient* s_webKitClient = 0;
+static WebKitPlatformSupport* s_webKitPlatformSupport = 0;
 static bool s_layoutTestMode = false;
 
-void initialize(WebKitClient* webKitClient)
+static bool generateEntropy(unsigned char* buffer, size_t length)
+{
+    if (s_webKitPlatformSupport) {
+        s_webKitPlatformSupport->cryptographicallyRandomValues(buffer, length);
+        return true;
+    }
+    return false;
+}
+
+#ifndef NDEBUG
+static void assertV8RecursionScope()
+{
+    ASSERT(!isMainThread() || WebCore::V8RecursionScope::properlyUsed());
+}
+#endif
+
+void initialize(WebKitPlatformSupport* webKitPlatformSupport)
+{
+    initializeWithoutV8(webKitPlatformSupport);
+
+    v8::V8::SetEntropySource(&generateEntropy);
+    v8::V8::Initialize();
+    WebCore::V8BindingPerIsolateData::ensureInitialized(v8::Isolate::GetCurrent());
+
+#if ENABLE(MUTATION_OBSERVERS)
+    // currentThread will always be non-null in production, but can be null in Chromium unit tests.
+    if (WebThread* currentThread = webKitPlatformSupport->currentThread()) {
+#ifndef NDEBUG
+        v8::V8::AddCallCompletedCallback(&assertV8RecursionScope);
+#endif
+        ASSERT(!s_endOfTaskRunner);
+        s_endOfTaskRunner = new EndOfTaskRunner;
+        currentThread->addTaskObserver(s_endOfTaskRunner);
+    }
+#endif
+}
+
+void initializeWithoutV8(WebKitPlatformSupport* webKitPlatformSupport)
 {
     ASSERT(!s_webKitInitialized);
     s_webKitInitialized = true;
 
-    ASSERT(webKitClient);
-    ASSERT(!s_webKitClient);
-    s_webKitClient = webKitClient;
+#if OS(DARWIN)
+    InitWebCoreSystemInterface();
+#endif
+
+    ASSERT(webKitPlatformSupport);
+    ASSERT(!s_webKitPlatformSupport);
+    s_webKitPlatformSupport = webKitPlatformSupport;
+    Platform::initialize(s_webKitPlatformSupport);
 
     WTF::initializeThreading();
     WTF::initializeMainThread();
@@ -76,14 +145,29 @@ void initialize(WebKitClient* webKitClient)
     WebCore::UTF8Encoding();
 }
 
+
 void shutdown()
 {
-    s_webKitClient = 0;
+    // WebKit might have been initialized without V8, so be careful not to invoke
+    // V8 specific functions, if V8 was not properly initialized.
+#if ENABLE(MUTATION_OBSERVERS)
+    if (s_endOfTaskRunner) {
+#ifndef NDEBUG
+        v8::V8::RemoveCallCompletedCallback(&assertV8RecursionScope);
+#endif
+        ASSERT(s_webKitPlatformSupport->currentThread());
+        s_webKitPlatformSupport->currentThread()->removeTaskObserver(s_endOfTaskRunner);
+        delete s_endOfTaskRunner;
+        s_endOfTaskRunner = 0;
+    }
+#endif
+    s_webKitPlatformSupport = 0;
+    Platform::shutdown();
 }
 
-WebKitClient* webKitClient()
+WebKitPlatformSupport* webKitPlatformSupport()
 {
-    return s_webKitClient;
+    return s_webKitPlatformSupport;
 }
 
 void setLayoutTestMode(bool value)

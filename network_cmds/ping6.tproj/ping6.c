@@ -265,7 +265,7 @@ volatile sig_atomic_t seeninfo;
 int rcvtclass = 0;
 
 int how_so_traffic_class = 0;
-int so_traffic_class = -1;
+int so_traffic_class = SO_TC_CTL;	/* use control class, by default */
 
 int	 main(int, char *[]);
 void	 fill(char *, char *);
@@ -493,7 +493,7 @@ main(argc, argv)
 			how_so_traffic_class++;
 			so_traffic_class = atoi(optarg);
 			break;
-			
+
 		case 'l':
 			if (getuid()) {
 				errno = EPERM;
@@ -918,18 +918,18 @@ main(argc, argv)
 	if (tclass != -2)
 		ip6optlen += CMSG_SPACE(sizeof(int));
 
-	if (how_so_traffic_class == 1 && so_traffic_class > 0) {
-		(void)setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS, (void *)&so_traffic_class,
-						 sizeof(so_traffic_class));
-	} 
+	if (how_so_traffic_class < 2 && so_traffic_class >= 0) {
+		(void) setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
+		    (void *)&so_traffic_class, sizeof (so_traffic_class));
+	}
 	if (how_so_traffic_class > 0) {
 		int on = 1;
-		(void)setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS, (void *)&on,
-						 sizeof(on));
+		(void) setsockopt(s, SOL_SOCKET, SO_RECV_TRAFFIC_CLASS,
+		    (void *)&on, sizeof (on));
 	}
 	if (how_so_traffic_class > 1)
 		ip6optlen += CMSG_SPACE(sizeof(int));
-	
+
 	/* set IP6 packet options */
 	if (ip6optlen) {
 		if ((scmsg = (char *)malloc(ip6optlen)) == 0)
@@ -1028,12 +1028,12 @@ main(argc, argv)
 
 		scmsgp = CMSG_NXTHDR(&smsghdr, scmsgp);
 	}
-	if (how_so_traffic_class > 1) {
+	if (how_so_traffic_class > 1 && so_traffic_class >= 0) {
 		scmsgp->cmsg_len = CMSG_LEN(sizeof(int));
 		scmsgp->cmsg_level = SOL_SOCKET;
 		scmsgp->cmsg_type = SO_TRAFFIC_CLASS;
 		*(int *)(CMSG_DATA(scmsgp)) = so_traffic_class;
-		
+
 		scmsgp = CMSG_NXTHDR(&smsghdr, scmsgp);
 	}
 	if (!(options & F_SRCADDR)) {
@@ -1650,10 +1650,10 @@ pr_pack(buf, cc, mhdr)
 		warnx("failed to get receiving traffic class");
 		return;
 	}
-	
+
 	if (how_so_traffic_class > 0)
 		sotc = get_so_traffic_class(mhdr);
-		
+
 	if (icp->icmp6_type == ICMP6_ECHO_REPLY && myechoreply(icp)) {
 		seq = ntohs(icp->icmp6_seq);
 		++nreceived;

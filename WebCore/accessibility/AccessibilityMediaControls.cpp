@@ -35,6 +35,7 @@
 
 #include "AXObjectCache.h"
 #include "HTMLInputElement.h"
+#include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "LocalizedStrings.h"
 #include "MediaControlElements.h"
@@ -55,27 +56,20 @@ PassRefPtr<AccessibilityObject> AccessibilityMediaControl::create(RenderObject* 
 {
     ASSERT(renderer->node());
 
-    PassRefPtr<AccessibilityObject> obj;
     switch (mediaControlElementType(renderer->node())) {
     case MediaSlider:
-        obj = AccessibilityMediaTimeline::create(renderer);
-        break;
+        return AccessibilityMediaTimeline::create(renderer);
 
     case MediaCurrentTimeDisplay:
     case MediaTimeRemainingDisplay:
-        obj = AccessibilityMediaTimeDisplay::create(renderer);
-        break;
+        return AccessibilityMediaTimeDisplay::create(renderer);
 
     case MediaControlsPanel:
-        obj = AccessibilityMediaControlsContainer::create(renderer);
-        break;
+        return AccessibilityMediaControlsContainer::create(renderer);
 
     default:
-        obj = adoptRef(new AccessibilityMediaControl(renderer));
-        break;
+        return adoptRef(new AccessibilityMediaControl(renderer));
     }
-
-    return obj;
 }
 
 MediaControlElementType AccessibilityMediaControl::controlType() const
@@ -88,7 +82,8 @@ MediaControlElementType AccessibilityMediaControl::controlType() const
 
 String AccessibilityMediaControl::controlTypeName() const
 {
-    DEFINE_STATIC_LOCAL(const String, mediaFullscreenButtonName, ("FullscreenButton"));
+    DEFINE_STATIC_LOCAL(const String, mediaEnterFullscreenButtonName, ("EnterFullscreenButton"));
+    DEFINE_STATIC_LOCAL(const String, mediaExitFullscreenButtonName, ("ExitFullscreenButton"));
     DEFINE_STATIC_LOCAL(const String, mediaMuteButtonName, ("MuteButton"));
     DEFINE_STATIC_LOCAL(const String, mediaPlayButtonName, ("PlayButton"));
     DEFINE_STATIC_LOCAL(const String, mediaSeekBackButtonName, ("SeekBackButton"));
@@ -104,8 +99,10 @@ String AccessibilityMediaControl::controlTypeName() const
     DEFINE_STATIC_LOCAL(const String, mediaHideClosedCaptionsButtonName, ("HideClosedCaptionsButton"));
 
     switch (controlType()) {
-    case MediaFullscreenButton:
-        return mediaFullscreenButtonName;
+    case MediaEnterFullscreenButton:
+        return mediaEnterFullscreenButtonName;
+    case MediaExitFullscreenButton:
+        return mediaExitFullscreenButtonName;
     case MediaMuteButton:
         return mediaMuteButtonName;
     case MediaPlayButton:
@@ -171,7 +168,8 @@ bool AccessibilityMediaControl::accessibilityIsIgnored() const
 AccessibilityRole AccessibilityMediaControl::roleValue() const
 {
     switch (controlType()) {
-    case MediaFullscreenButton:
+    case MediaEnterFullscreenButton:
+    case MediaExitFullscreenButton:
     case MediaMuteButton:
     case MediaPlayButton:
     case MediaSeekBackButton:
@@ -229,7 +227,7 @@ bool AccessibilityMediaControlsContainer::controllingVideoElement() const
 
     MediaControlTimeDisplayElement* element = static_cast<MediaControlTimeDisplayElement*>(m_renderer->node());
 
-    return element->mediaElement()->isVideo();
+    return toParentMediaElement(element)->isVideo();
 }
 
 const String AccessibilityMediaControlsContainer::elementTypeName() const

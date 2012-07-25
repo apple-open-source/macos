@@ -1,8 +1,8 @@
 /* result.c - wait for an ldap result */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/result.c,v 1.124.2.23 2010/06/10 17:41:05 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,8 +72,8 @@
 #include "ldap_pvt_thread.h"
 #endif
 
-static int ldap_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid, int *idx ));
-static int ldap_mark_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid, int idx ));
+static int ldap_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid ));
+static int ldap_mark_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid ));
 static int wait4msg LDAP_P(( LDAP *ld, ber_int_t msgid, int all, struct timeval *timeout,
 	LDAPMessage **result ));
 static ber_tag_t try_read1msg LDAP_P(( LDAP *ld, ber_int_t msgid,
@@ -255,15 +255,9 @@ ldap_result(
 	}
 #endif
 
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
-#endif
-
+	LDAP_MUTEX_LOCK( &ld->ld_res_mutex );
 	rc = wait4msg( ld, msgid, all, timeout, result );
-
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
-#endif
+	LDAP_MUTEX_UNLOCK( &ld->ld_res_mutex );
 
 	return rc;
 }
@@ -290,12 +284,11 @@ chkResponseList(
 	
     lm = ldap_resp_rbt_get_first_msg( ld );
 	while ( lm != NULL ) {
-		int idx;
-		if ( ldap_abandoned( ld, lm->lm_msgid, &idx ) ) {
+		if ( ldap_abandoned( ld, lm->lm_msgid) ) {
 			Debug( LDAP_DEBUG_TRACE,
 				  "ldap_chkResponseList msg abandoned, msgid %d\n",
 				  msgid, 0, 0 );
-			ldap_mark_abandoned( ld, lm->lm_msgid, idx );
+			ldap_mark_abandoned( ld, lm->lm_msgid);
 			
 			/* Remove this entry from tree */
             abandoned = lm;
@@ -366,9 +359,7 @@ chkResponseList(
 	 * wait until it arrives or timeout occurs.
 	 */
 
-#ifdef LDAP_R_COMPILE
-	LDAP_PVT_THREAD_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
-#endif
+	LDAP_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
 
 	Debug( LDAP_DEBUG_TRACE,
 		"ldap_chkResponseList ld %p msgid %d all %d\n",
@@ -376,12 +367,10 @@ chkResponseList(
 
 	lastlm = &ld->ld_responses;
 	for ( lm = ld->ld_responses; lm != NULL; lm = nextlm ) {
-		int	idx;
-
 		nextlm = lm->lm_next;
 		++cnt;
 
-		if ( ldap_abandoned( ld, lm->lm_msgid, &idx ) ) {
+		if ( ldap_abandoned( ld, lm->lm_msgid ) ) {
 			Debug( LDAP_DEBUG_ANY,
 				"response list msg abandoned, "
 				"msgid %d message type %s\n",
@@ -396,7 +385,7 @@ chkResponseList(
 			default:
 				/* there's no need to keep the id
 				 * in the abandoned list any longer */
-				ldap_mark_abandoned( ld, lm->lm_msgid, idx );
+				ldap_mark_abandoned( ld, lm->lm_msgid );
 				break;
 			}
 
@@ -464,6 +453,7 @@ chkResponseList(
 }
 #endif /* LDAP_RESPONSE_RB_TREE */
 
+/* protected by res_mutex */
 static int
 wait4msg(
 	LDAP *ld,
@@ -482,9 +472,7 @@ wait4msg(
 	assert( ld != NULL );
 	assert( result != NULL );
 
-#ifdef LDAP_R_COMPILE
-	LDAP_PVT_THREAD_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
-#endif
+	LDAP_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
 
 	if ( timeout == NULL && ld->ld_options.ldo_tm_api.tv_sec >= 0 ) {
 		tv = ld->ld_options.ldo_tm_api;
@@ -519,18 +507,10 @@ wait4msg(
 		if ( ldap_debug & LDAP_DEBUG_TRACE ) {
 			Debug( LDAP_DEBUG_TRACE, "wait4msg continue ld %p msgid %d all %d\n",
 				(void *)ld, msgid, all );
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_lock( &ld->ld_conn_mutex );
-#endif
 			ldap_dump_connection( ld, ld->ld_conns, 1 );
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
-			ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
-#endif
+			LDAP_MUTEX_LOCK( &ld->ld_req_mutex );
 			ldap_dump_requests_and_responses( ld );
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
-#endif
+			LDAP_MUTEX_UNLOCK( &ld->ld_req_mutex );
 		}
 #endif /* LDAP_DEBUG */
 
@@ -540,9 +520,7 @@ wait4msg(
 		} else {
 			int lc_ready = 0;
 
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_lock( &ld->ld_conn_mutex );
-#endif
+			LDAP_MUTEX_LOCK( &ld->ld_conn_mutex );
 			for ( lc = ld->ld_conns; lc != NULL; lc = lc->lconn_next ) {
 				if ( ber_sockbuf_ctrl( lc->lconn_sb,
 					LBER_SB_OPT_DATA_READY, NULL ) )
@@ -551,19 +529,12 @@ wait4msg(
 					break;
 				}
 			}
-#ifdef LDAP_R_COMPILE
-			ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
-#endif
-
+            LDAP_MUTEX_UNLOCK( &ld->ld_conn_mutex);
+            LDAP_MUTEX_UNLOCK( &ld->ld_res_mutex);
+            
 			if ( !lc_ready ) {
 				int err;
-#ifdef LDAP_R_COMPILE
-           		ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
-#endif
- 				rc = ldap_int_select( ld, tvp );
-#ifdef LDAP_R_COMPILE
-				ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
-#endif
+				rc = ldap_int_select( ld, tvp );
 				if ( rc == -1 ) {
 					err = sock_errno();
 #ifdef LDAP_DEBUG
@@ -597,23 +568,21 @@ wait4msg(
 					lc_ready = 1;
 				}
 			}
+            
+            LDAP_MUTEX_LOCK(&ld->ld_res_mutex); 
 			if ( lc_ready ) {
 				LDAPConn *lnext;
+				int serviced = 0;
 				rc = LDAP_MSG_X_KEEP_LOOKING;
-#ifdef LDAP_R_COMPILE
-				ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
-#endif
+				LDAP_MUTEX_LOCK( &ld->ld_req_mutex );
 				if ( ld->ld_requests &&
 					ld->ld_requests->lr_status == LDAP_REQST_WRITING &&
 					ldap_is_write_ready( ld,
 						ld->ld_requests->lr_conn->lconn_sb ) )
 				{
+					serviced = 1;
 					ldap_int_flush_request( ld, ld->ld_requests );
 				}
-#ifdef LDAP_R_COMPILE
-				ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
-				ldap_pvt_thread_mutex_lock( &ld->ld_conn_mutex );
-#endif
 				for ( lc = ld->ld_conns;
 					rc == LDAP_MSG_X_KEEP_LOOKING && lc != NULL;
 					lc = lnext )
@@ -621,36 +590,26 @@ wait4msg(
 					if ( lc->lconn_status == LDAP_CONNST_CONNECTED &&
 						ldap_is_read_ready( ld, lc->lconn_sb ) )
 					{
+						serviced = 1;
 						/* Don't let it get freed out from under us */
 						++lc->lconn_refcnt;
-#ifdef LDAP_R_COMPILE
-						ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
-#endif
 						rc = try_read1msg( ld, msgid, all, lc, result );
 						lnext = lc->lconn_next;
 
 						/* Only take locks if we're really freeing */
 						if ( lc->lconn_refcnt <= 1 ) {
-#ifdef LDAP_R_COMPILE
-							ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
-#endif
 							ldap_free_connection( ld, lc, 0, 1 );
-#ifdef LDAP_R_COMPILE
-							ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
-#endif
 						} else {
 							--lc->lconn_refcnt;
 						}
-#ifdef LDAP_R_COMPILE
-						ldap_pvt_thread_mutex_lock( &ld->ld_conn_mutex );
-#endif
 					} else {
 						lnext = lc->lconn_next;
 					}
 				}
-#ifdef LDAP_R_COMPILE
-				ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
-#endif
+				LDAP_MUTEX_UNLOCK( &ld->ld_req_mutex );
+				/* Quit looping if no one handled any events */
+				if (!serviced)
+					rc = -1;
 			}
 		}
 
@@ -705,6 +664,7 @@ wait4msg(
 }
 
 
+/* protected by res_mutex, conn_mutex and req_mutex */
 static ber_tag_t
 try_read1msg(
 	LDAP *ld,
@@ -716,7 +676,6 @@ try_read1msg(
 	BerElement	*ber;
 	LDAPMessage	*newmsg, *l, *prev;
 	ber_int_t	id;
-	int		idx;
 	ber_tag_t	tag;
 	ber_len_t	len;
 	int		foundit = 0;
@@ -733,9 +692,9 @@ try_read1msg(
 	assert( ld != NULL );
 	assert( lc != NULL );
 	
-#ifdef LDAP_R_COMPILE
-	LDAP_PVT_THREAD_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
-#endif
+	LDAP_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
+	LDAP_ASSERT_MUTEX_OWNER( &ld->ld_conn_mutex );
+	LDAP_ASSERT_MUTEX_OWNER( &ld->ld_req_mutex );
 
 	Debug( LDAP_DEBUG_TRACE, "read1msg: ld %p msgid %d all %d\n",
 		(void *)ld, msgid, all );
@@ -778,9 +737,8 @@ nextresp3:
 		Debug( LDAP_DEBUG_CONNS,
 			"ber_get_next failed.\n", 0, 0, 0 );
 #endif		   
-#ifdef EWOULDBLOCK			
 		if ( err == EWOULDBLOCK ) return LDAP_MSG_X_KEEP_LOOKING;
-#endif
+
 #ifdef EAGAIN
 		if ( err == EAGAIN ) return LDAP_MSG_X_KEEP_LOOKING;
 #endif
@@ -810,7 +768,7 @@ nextresp3:
 	
 	/* if it's been abandoned, toss it */
 	if ( id > 0 ) {
-		if ( ldap_abandoned( ld, id, &idx ) ) {
+		if ( ldap_abandoned( ld, id) ) {
 			/* the message type */
 			tag = ber_peek_tag( ber, &len );
 			switch ( tag ) {
@@ -823,7 +781,7 @@ nextresp3:
 			default:
 				/* there's no need to keep the id
 				 * in the abandoned list any longer */
-				ldap_mark_abandoned( ld, id, idx );
+				ldap_mark_abandoned( ld, id );
 				break;
 			}
 
@@ -865,11 +823,11 @@ retry_ber:
 		if ( LDAP_IS_UDP(ld) && isv2 ) {
 			ber_scanf(ber, "x{");
 		}
+nextresp2:
+		;
 #endif
 	}
-#ifdef LDAP_CONNECTIONLESS
-nextresp2:
-#endif
+
 	/* the message type */
 	tag = ber_peek_tag( ber, &len );
 	if ( tag == LBER_ERROR ) {
@@ -1105,6 +1063,7 @@ nextresp2:
 			Debug( LDAP_DEBUG_TRACE,
 				"read1msg:  mark request completed, ld %p msgid %d\n",
 				(void *)ld, lr->lr_msgid, 0);
+			tmplr = lr;
 			while ( lr->lr_parent != NULL ) {
 				merge_error_info( ld, lr->lr_parent, lr );
 
@@ -1112,6 +1071,12 @@ nextresp2:
 				if ( --lr->lr_outrefcnt > 0 ) {
 					break;	/* not completely done yet */
 				}
+			}
+			/* ITS#6744: Original lr was refcounted when we retrieved it,
+			 * must release it now that we're working with the parent
+			 */
+			if ( tmplr->lr_parent ) {
+				ldap_return_request( ld, tmplr, 0 );
 			}
 
 			/* Check if all requests are finished, lr is now parent */
@@ -1157,7 +1122,7 @@ nextresp2:
 			}
 
 			/*
-			 * RF 4511 unsolicited (id == 0) responses
+			 * RFC 4511 unsolicited (id == 0) responses
 			 * shouldn't necessarily end the connection
 			 */
 			if ( lc != NULL && id != 0 ) {
@@ -1582,9 +1547,8 @@ ldap_msgdelete( LDAP *ld, int msgid )
 	Debug( LDAP_DEBUG_TRACE, "ldap_msgdelete ld=%p msgid=%d\n",
 		(void *)ld, msgid, 0 );
 
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
-#endif
+	LDAP_MUTEX_LOCK( &ld->ld_res_mutex );
+    prev = NULL;
 #ifdef LDAP_RESPONSE_RB_TREE
     lm = ldap_resp_rbt_find_msg( ld, msgid );
     if ( lm == NULL ) {
@@ -1610,9 +1574,8 @@ ldap_msgdelete( LDAP *ld, int msgid )
 		}
 	}
 #endif /* LDAP_RESPONSE_RB_TREE */
-#ifdef LDAP_R_COMPILE
-	ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
-#endif
+
+	LDAP_MUTEX_UNLOCK( &ld->ld_res_mutex );
 	if ( lm ) {
 		switch ( ldap_msgfree( lm ) ) {
 		case LDAP_RES_SEARCH_ENTRY:
@@ -1635,39 +1598,37 @@ ldap_msgdelete( LDAP *ld, int msgid )
  *
  * return the location of the message id in the array of abandoned
  * message ids, or -1
- *
- * expects ld_res_mutex to be locked
  */
 static int
-ldap_abandoned( LDAP *ld, ber_int_t msgid, int *idxp )
+ldap_abandoned( LDAP *ld, ber_int_t msgid )
 {
-#ifdef LDAP_R_COMPILE
-	LDAP_PVT_THREAD_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
-#endif
-
-	assert( idxp != NULL );
+	int	ret, idx;
 	assert( msgid >= 0 );
 
-	return ldap_int_bisect_find( ld->ld_abandoned, ld->ld_nabandoned, msgid, idxp );
+	LDAP_MUTEX_LOCK( &ld->ld_abandon_mutex );
+	ret = ldap_int_bisect_find( ld->ld_abandoned, ld->ld_nabandoned, msgid, &idx );
+	LDAP_MUTEX_UNLOCK( &ld->ld_abandon_mutex );
+	return ret;
 }
 
 /*
  * ldap_mark_abandoned
- *
- * expects ld_res_mutex to be locked
  */
 static int
-ldap_mark_abandoned( LDAP *ld, ber_int_t msgid, int idx )
+ldap_mark_abandoned( LDAP *ld, ber_int_t msgid )
 {
-#ifdef LDAP_R_COMPILE
-	LDAP_PVT_THREAD_ASSERT_MUTEX_OWNER( &ld->ld_res_mutex );
-#endif
+	int	ret, idx;
 
-	/* NOTE: those assertions are repeated in ldap_int_bisect_delete() */
-	assert( idx >= 0 );
-	assert( (unsigned) idx < ld->ld_nabandoned );
-	assert( ld->ld_abandoned[ idx ] == msgid );
-
-	return ldap_int_bisect_delete( &ld->ld_abandoned, &ld->ld_nabandoned,
+	assert( msgid >= 0 );
+	LDAP_MUTEX_LOCK( &ld->ld_abandon_mutex );
+	ret = ldap_int_bisect_find( ld->ld_abandoned, ld->ld_nabandoned, msgid, &idx );
+	if (ret <= 0) {		/* error or already deleted by another thread */
+		LDAP_MUTEX_UNLOCK( &ld->ld_abandon_mutex );
+		return ret;
+	}
+	/* still in abandoned array, so delete */
+	ret = ldap_int_bisect_delete( &ld->ld_abandoned, &ld->ld_nabandoned,
 		msgid, idx );
+	LDAP_MUTEX_UNLOCK( &ld->ld_abandon_mutex );
+	return ret;
 }

@@ -87,7 +87,6 @@ installpython: $(OBJROOT)/$(PROJECT)
 	#ln -sf $(DYLIB) $(DSTROOT)$(USRLIB)/lib$(PROJECT).dylib
 	install -d $(DSTROOT)$(SITEPACKAGES)
 	echo $(EXTRAS)/lib/python > $(DSTROOT)$(SITEPACKAGES)/Extras.pth
-	ln -sf ../2.4/Extras $(DSTROOT)$(EXTRAS)
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@ GCC_42=$(GCC_42)

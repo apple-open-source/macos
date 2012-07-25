@@ -66,6 +66,9 @@ unsigned int value4=0;
 pid_t pid=0;
 int reenable=0;
 
+int force_32bit_exec = 0;
+int frequency = 0;
+
 int mib[6];
 size_t needed;
 
@@ -178,6 +181,7 @@ threadmap_t	threadmap_temp;
 char		sbuffer[SBUFFER_SIZE];
 
 int secs_to_run = 0;
+int use_current_buf = 0;
 
 
 kbufinfo_t bufinfo = {0, 0, 0, 0};
@@ -187,7 +191,7 @@ int   codeindx_cache = 0;
 char  codefile[] = "codes";
 char *cfile = (char *)0;
 
-// Forward declarations
+
 static void quit(char *);
 static int match_debugid(unsigned int, char *, int *);
 static void usage(int short_help);
@@ -198,6 +202,36 @@ static void find_thread_command(kd_buf *, char **);
 static void create_map_entry(uintptr_t, char *);
 static void getdivisor();
 static unsigned long argtoul();
+
+static void set_enable(int);
+static void set_remove();
+static void set_nowrap();
+static void set_pidcheck(int, int);
+static void set_pidexclude(int, int);
+static void set_numbufs(int);
+static void set_freerun();
+static void get_bufinfo(kbufinfo_t *);
+static void set_init();
+static void set_class();
+static void set_kval_list();
+static void set_subclass();
+static void readtrace(char *);
+static void log_trace();
+static void Log_trace();
+static void read_trace();
+static void signal_handler(int);
+static void signal_handler_RAW(int);
+static void delete_thread_entry(uintptr_t);
+static void find_and_insert_tmp_map_entry(uintptr_t, char *);
+static void create_tmp_map_entry(uintptr_t, uintptr_t);
+static void find_thread_name(uintptr_t, char **, boolean_t);
+
+static int  writetrace(int);
+static int  write_command_map(int);
+static int  debugid_compar(code_type_t *, code_type_t *);
+
+static threadmap_t find_thread_entry(uintptr_t);
+
 
 
 #ifndef	KERN_KDWRITETR
@@ -654,6 +688,7 @@ uint64_t consume_start_event(uintptr_t thread, int debugid, uint64_t now)
 }
 
 
+void
 log_trace()
 {
         char		*buffer;
@@ -718,11 +753,10 @@ log_trace()
 }
 
 
-
+void
 Log_trace()
 {
 	int	size;
-	int	n;
 	kd_buf  kd_tmp;
 	size_t	len;
 	int	num_cpus;
@@ -745,23 +779,33 @@ Log_trace()
 		perror("Can't open logfile");
 		exit(1);
 	}
-	/*
-	 * grab the number of cpus and scale the buffer size
-	 */
-	mib[0] = CTL_HW;
-	mib[1] = HW_NCPU;
-	mib[2] = 0;
-	len = sizeof(num_cpus);
+	if (use_current_buf == 0) {
+		/*
+		 * grab the number of cpus and scale the buffer size
+		 */
+		mib[0] = CTL_HW;
+		mib[1] = HW_NCPU;
+		mib[2] = 0;
+		len = sizeof(num_cpus);
 
-	sysctl(mib, 2, &num_cpus, &len, NULL, 0);
+		sysctl(mib, 2, &num_cpus, &len, NULL, 0);
 
-	if (!bufset_flag)
-		nbufs = BASE_EVENTS * num_cpus;
+		if (!bufset_flag)
+			nbufs = BASE_EVENTS * num_cpus;
 
-	set_remove();
-	set_numbufs(nbufs);
-	set_init();
+		set_remove();
+		set_numbufs(nbufs);
+		set_init();
 
+		if (class_flag)
+			set_class();
+
+		if (subclass_flag)
+			set_subclass();
+
+		if (kval_flag)
+			set_kval_list();
+	}
 	/* Get kernel buffer information */
 	get_bufinfo(&bufinfo);
 
@@ -770,7 +814,8 @@ Log_trace()
 		quit("can't allocate memory for tracing info\n");
 	memset(buffer, 0, bufinfo.nkdbufs * sizeof(kd_buf));
 
-	set_enable(1);
+	if (use_current_buf == 0)
+		set_enable(1);
 
 	if (write_command_map(fd)) {
 		int  pad_size;
@@ -912,8 +957,6 @@ void read_trace()
 		count_of_names = 0;
 
 	} else {
-		struct	stat statb;
-
 		fd = open(RAW_file, O_RDONLY);
 
 		if (fd < 0) {
@@ -959,7 +1002,6 @@ void read_trace()
 		uint32_t cpunum;
 		uintptr_t thread;
 		double	x = 0.0;
-		double	z = 0.0;
 		double	y = 0.0;
 		double  event_elapsed_time;
 		kd_buf *kdp;
@@ -1219,11 +1261,25 @@ char **env;
 	extern int optind;
 	int status;
 	int ch;
+	int i;
 	char *output_filename = NULL;
 
-	if (0 != reexec_to_match_kernel()) {
-		fprintf(stderr, "Could not re-execute: %d\n", errno);
-		exit(1);
+	for (i = 1; i < argc; i++) {
+		if (strcmp("-X", argv[i]) == 0) {
+			force_32bit_exec = 1;
+			break;
+		}
+	}
+	if (force_32bit_exec) {
+		if (0 != reexec_to_match_lp64ness(FALSE)) {
+			fprintf(stderr, "Could not re-execute: %d\n", errno);
+			exit(1);
+		}
+	} else {
+		if (0 != reexec_to_match_kernel()) {
+			fprintf(stderr, "Could not re-execute: %d\n", errno);
+			exit(1);
+		}
 	}
         if (setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_PASSIVE) < 0) {
                 printf("setiopolicy failed\n");
@@ -1232,9 +1288,7 @@ char **env;
 	output_file = stdout;
 	output_fd = 1;
 
-	getdivisor();
-
-	while ((ch = getopt(argc, argv, "hedEk:irb:gc:p:s:tR:L:l:S:a:x:nfvo:P")) != EOF)
+	while ((ch = getopt(argc, argv, "hedEk:irb:gc:p:s:tR:L:l:S:F:a:x:Xnfvo:P")) != EOF)
 	{
 		switch(ch)
 		{
@@ -1337,6 +1391,11 @@ char **env;
 		case 'o':
 			output_filename = optarg;
 			break;
+		case 'F':
+			frequency = argtoi('F', "decimal number", optarg, 10);
+			break;
+		case 'X':
+			break;
 		default:
 			usage(SHORT_HELP);
 		}
@@ -1362,6 +1421,7 @@ char **env;
 			exit(1);
 		}
 	}
+	getdivisor();
 
 	if (pid_flag && pid_exflag)
 	{
@@ -1384,6 +1444,13 @@ char **env;
 	{
 		fprintf(stderr, "When using 'o' option, must use the 't' or 'R' option too\n");
 		usage(SHORT_HELP);
+	}
+
+	if (LogRAW_flag) {
+		get_bufinfo(&bufinfo);
+
+		if (bufinfo.nolog == 0)
+			use_current_buf = 1;
 	}
 
 	if (disable_flag)
@@ -1592,6 +1659,7 @@ usage(int short_help)
 		(void)fprintf(stderr, "  usage: trace -d [-a pid | -x pid ]\n");
 		(void)fprintf(stderr, "  usage: trace -r\n");
 		(void)fprintf(stderr, "  usage: trace -n\n");
+
 		(void)fprintf(stderr,
 			      "  usage: trace -e [ -c class [-p class] [-s subclass] ] [-a pid | -x pid] |\n");
 		(void)fprintf(stderr,
@@ -1605,7 +1673,13 @@ usage(int short_help)
 			      "                  executable_path [optional args to executable] \n\n");
 
 		(void)fprintf(stderr,
-			      "  usage: trace -t [-R rawfile] [-o OutputFilename] [CodeFilename]\n");
+			      "  usage: trace -L RawFilename [-S SecsToRun]\n");
+		(void)fprintf(stderr,
+			      "  usage: trace -l RawFilename\n");
+		(void)fprintf(stderr,
+			      "  usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [CodeFilename]\n");
+		(void)fprintf(stderr,
+			      "  usage: trace -t [-o OutputFilename] [CodeFilename]\n");
 		exit(1);
 	}
 
@@ -1662,18 +1736,25 @@ usage(int short_help)
 	(void)fprintf(stderr, "\tSee -e(enable) flag for option descriptions.\n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -t [-R rawfile] [-o OutputFilename] [CodeFilename] \n");
-	(void)fprintf(stderr, "\t Collect the kernel buffer trace data and print it.\n\n");
-	(void)fprintf(stderr, "\t -R rawfile         Read raw trace file and print trace output to stdout.\n");
+		      "usage: trace -t [-o OutputFilename] [CodeFilename] \n");
+	(void)fprintf(stderr, "\tCollect the kernel buffer trace data and print it.\n\n");
 	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -L rawfile\n");
-	(void)fprintf(stderr, "\t Continuously collect the kernel buffer trace data in the raw format.\n\n");
+		      "usage: trace -R RawFilename [-X] [-F frequency] [-o OutputFilename] [CodeFilename] \n");
+	(void)fprintf(stderr, "\tRead raw trace file and print it.\n\n");
+	(void)fprintf(stderr, "\t -X                 Force trace to interpret trace data as 32 bit.  Default is to match the current systems bit width.\n");
+	(void)fprintf(stderr, "\t -F frequency       Specify the frequency of the clock used to timestamp entries in RawFilename\n");
+	(void)fprintf(stderr, "\t -o OutputFilename  Print trace output to OutputFilename. Default is stdout.\n\n");
 
 	(void)fprintf(stderr,
-		      "usage: trace -l rawfile\n");
-	(void)fprintf(stderr, "\t Collect the existing kernel buffer trace data in the raw format.\n\n");
+		      "usage: trace -L RawFilename [-S SecsToRun]\n");
+	(void)fprintf(stderr, "\tContinuously collect the kernel buffer trace data in the raw format and write it to RawFilename.\n\n");
+	(void)fprintf(stderr, "\t -S SecsToRun       Specify the number of seconds to collect trace data.\n\n");
+
+	(void)fprintf(stderr,
+		      "usage: trace -l RawFilename\n");
+	(void)fprintf(stderr, "\tCollect the existing kernel buffer trace data in the raw format.\n\n");
 
 	exit(1);
 }
@@ -1995,8 +2076,6 @@ read_command_map(int fd, int count)
 			free(mapptr);
 			mapptr = 0;
 
-			if (size < 0)
-				size = 0;
 			return(size);
 		}
 		if (raw_header.version_no != RAW_VERSION0) {
@@ -2096,7 +2175,7 @@ void delete_thread_entry(uintptr_t thread)
 }
 
 
-find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
+void find_and_insert_tmp_map_entry(uintptr_t pthread, char *command)
 {
 	threadmap_t	tme = 0;
 	threadmap_t	tme_prev;
@@ -2231,9 +2310,12 @@ void getdivisor()
 {
 	mach_timebase_info_data_t info;
 
-	(void) mach_timebase_info (&info);
+	if (frequency == 0) {
+		(void) mach_timebase_info (&info);
 
-	divisor = ( (double)info.denom / (double)info.numer) * 1000;
+		divisor = ( (double)info.denom / (double)info.numer) * 1000;
+	} else
+		divisor = (double)frequency / 1000000;
 
 	if (verbose_flag)
 		printf("divisor = %g\n", divisor);

@@ -31,19 +31,21 @@
 #ifndef WebFrame_h
 #define WebFrame_h
 
-#include "WebCanvas.h"
-#include "WebFileSystem.h"
 #include "WebIconURL.h"
 #include "WebNode.h"
-#include "WebURL.h"
-// FIXME : Remove this file when transient done.
-#include "WebVector.h"
+#include "WebURLLoaderOptions.h"
+#include "platform/WebCanvas.h"
+#include "platform/WebFileSystem.h"
+#include "platform/WebReferrerPolicy.h"
+#include "platform/WebURL.h"
 
 struct NPObject;
 
 #if WEBKIT_USING_V8
 namespace v8 {
 class Context;
+class Function;
+class Object;
 class Value;
 template <class T> class Handle;
 template <class T> class Local;
@@ -60,7 +62,6 @@ class WebElement;
 class WebFormElement;
 class WebHistoryItem;
 class WebInputElement;
-class WebPasswordAutocompleteListener;
 class WebPerformance;
 class WebRange;
 class WebSecurityOrigin;
@@ -81,8 +82,16 @@ template <typename T> class WebVector;
 
 class WebFrame {
 public:
+    // Control of renderTreeAsText output
+    enum RenderAsTextControl {
+        RenderAsTextNormal = 0,
+        RenderAsTextDebug = 1 << 0,
+        RenderAsTextPrinting = 1 << 1
+    };
+    typedef unsigned RenderAsTextControls;
+
     // Returns the number of live WebFrame objects, used for leak checking.
-    WEBKIT_API static int instanceCount();
+    WEBKIT_EXPORT static int instanceCount();
 
     // The two functions below retrieve the WebFrame instances relating the
     // currently executing JavaScript.  Since JavaScript can make function
@@ -100,19 +109,19 @@ public:
     // The 'current context' is the context the JS engine is currently
     // inside of; the context that is at the top of the JS function stack.
     // frameForCurrentContext() would return frame B in our example.
-    WEBKIT_API static WebFrame* frameForEnteredContext();
-    WEBKIT_API static WebFrame* frameForCurrentContext();
+    WEBKIT_EXPORT static WebFrame* frameForEnteredContext();
+    WEBKIT_EXPORT static WebFrame* frameForCurrentContext();
 
 #if WEBKIT_USING_V8
     // Returns the frame corresponding to the given context. This can return 0
     // if the context is detached from the frame, or if the context doesn't
     // correspond to a frame (e.g., workers).
-    WEBKIT_API static WebFrame* frameForContext(v8::Handle<v8::Context>);
+    WEBKIT_EXPORT static WebFrame* frameForContext(v8::Handle<v8::Context>);
 #endif
 
     // Returns the frame inside a given frame or iframe element. Returns 0 if
     // the given element is not a frame, iframe or if the frame is empty.
-    WEBKIT_API static WebFrame* fromFrameOwnerElement(const WebElement&);
+    WEBKIT_EXPORT static WebFrame* fromFrameOwnerElement(const WebElement&);
 
 
     // Basic properties ---------------------------------------------------
@@ -128,22 +137,14 @@ public:
     // A globally unique identifier for this frame.
     virtual long long identifier() const = 0;
 
-    // The url of the document loaded in this frame.  This is equivalent to
-    // dataSource()->request().url().
-    virtual WebURL url() const = 0;
-
     // The urls of the given combination types of favicon (if any) specified by
     // the document loaded in this frame. The iconTypes is a bit-mask of
     // WebIconURL::Type values, used to select from the available set of icon
     // URLs
     virtual WebVector<WebIconURL> iconURLs(int iconTypes) const = 0;
 
-    // The url of the OpenSearch Desription Document (if any) specified by
-    // the document loaded in this frame.
-    virtual WebURL openSearchDescriptionURL() const = 0;
-
-    // Return the frame's encoding.
-    virtual WebString encoding() const = 0;
+    // The referrer policy of the document associated with this frame.
+    virtual WebReferrerPolicy referrerPolicy() const = 0;
 
 
     // Geometry -----------------------------------------------------------
@@ -158,6 +159,10 @@ public:
     virtual WebSize scrollOffset() const = 0;
     virtual void setScrollOffset(const WebSize&) = 0;
 
+    // The minimum and maxium scroll positions in pixels.
+    virtual WebSize minimumScrollOffset() const = 0;
+    virtual WebSize maximumScrollOffset() const = 0;
+ 
     // The size of the contents area.
     virtual WebSize contentsSize() const = 0;
 
@@ -173,6 +178,9 @@ public:
     // Returns true if the contents (minus scrollbars) has non-zero area.
     virtual bool hasVisibleContent() const = 0;
 
+    virtual bool hasHorizontalScrollbar() const = 0;
+    virtual bool hasVerticalScrollbar() const = 0;
+
 
     // Hierarchy ----------------------------------------------------------
 
@@ -182,9 +190,12 @@ public:
     // Returns the frame that opened this frame or 0 if there is none.
     virtual WebFrame* opener() const = 0;
 
+    // Sets the frame that opened this one or 0 if there is none.
+    virtual void setOpener(const WebFrame*) = 0;
+
     // Reset the frame that opened this frame to 0.
     // This is executed between layout tests runs
-    virtual void clearOpener() = 0;
+    void clearOpener() { setOpener(0); }
 
     // Returns the parent frame or 0 if this is a top-most frame.
     virtual WebFrame* parent() const = 0;
@@ -216,22 +227,12 @@ public:
 
     virtual WebDocument document() const = 0;
 
-    virtual void forms(WebVector<WebFormElement>&) const = 0;
-
     virtual WebAnimationController* animationController() = 0;
 
     virtual WebPerformance performance() const = 0;
 
 
     // Scripting ----------------------------------------------------------
-
-    // Returns the security origin of the current document.
-    virtual WebSecurityOrigin securityOrigin() const = 0;
-
-    // This grants the currently loaded document access to all security
-    // origins (including file URLs).  Use with care.  The access is
-    // revoked when a new document is loaded into this frame.
-    virtual void grantUniversalAccess() = 0;
 
     // Returns a NPObject corresponding to this frame's DOMWindow.
     virtual NPObject* windowObject() const = 0;
@@ -250,8 +251,14 @@ public:
     // v8 extensions are loaded into the new context - see
     // WebKit::registerExtension for the corresponding specifier.
     virtual void executeScriptInIsolatedWorld(
-        int worldId, const WebScriptSource* sources, unsigned numSources,
+        int worldID, const WebScriptSource* sources, unsigned numSources,
         int extensionGroup) = 0;
+
+    // Associates an isolated world (see above for description) with a security
+    // origin. XMLHttpRequest instances used in that world will be considered
+    // to come from that origin, not the frame's.
+    virtual void setIsolatedWorldSecurityOrigin(
+        int worldID, const WebSecurityOrigin&) = 0;
 
     // Logs to the console associated with this frame.
     virtual void addMessageToConsole(const WebConsoleMessage&) = 0;
@@ -259,11 +266,27 @@ public:
     // Calls window.gc() if it is defined.
     virtual void collectGarbage() = 0;
 
+    // Check if the scripting URL represents a mixed content condition relative
+    // to this frame.
+    virtual bool checkIfRunInsecureContent(const WebURL&) const = 0;
+
 #if WEBKIT_USING_V8
     // Executes script in the context of the current page and returns the value
     // that the script evaluated to.
     virtual v8::Handle<v8::Value> executeScriptAndReturnValue(
         const WebScriptSource&) = 0;
+
+    virtual void executeScriptInIsolatedWorld(
+        int worldID, const WebScriptSource* sourcesIn, unsigned numSources,
+        int extensionGroup, WebVector<v8::Local<v8::Value> >* results) = 0;
+
+    // Call the function with the given receiver and arguments, bypassing
+    // canExecute().
+    virtual v8::Handle<v8::Value> callFunctionEvenIfScriptDisabled(
+        v8::Handle<v8::Function>,
+        v8::Handle<v8::Object>,
+        int argc,
+        v8::Handle<v8::Value> argv[]) = 0;
 
     // Returns the V8 context for this frame, or an empty handle if there
     // is none.
@@ -272,24 +295,14 @@ public:
     // Creates an instance of file system object.
     virtual v8::Handle<v8::Value> createFileSystem(WebFileSystem::Type,
                                                    const WebString& name,
-                                                   const WebString& path) = 0;
+                                                   const WebString& rootURL) = 0;
     // Creates an instance of file or directory entry object.
     virtual v8::Handle<v8::Value> createFileEntry(WebFileSystem::Type,
                                                   const WebString& fileSystemName,
-                                                  const WebString& fileSystemPath,
+                                                  const WebString& fileSystemRootURL,
                                                   const WebString& filePath,
                                                   bool isDirectory) = 0;
 #endif
-
-
-    // Styling -------------------------------------------------------------
-
-    // Insert the given text as a STYLE element at the beginning of the
-    // document. |elementId| can be empty, but if specified then it is used
-    // as the id for the newly inserted element (replacing an existing one
-    // with the same id, if any).
-    virtual bool insertStyleText(const WebString& styleText,
-                                 const WebString& elementId) = 0;
 
 
     // Navigation ----------------------------------------------------------
@@ -364,13 +377,10 @@ public:
     // DEPRECATED: Please use createAssociatedURLLoader instead.
     virtual void dispatchWillSendRequest(WebURLRequest&) = 0;
 
-    // FIXME: Remove this overload when clients have been changed to pass options.
-    virtual WebURLLoader* createAssociatedURLLoader() = 0;
-
     // Returns a WebURLLoader that is associated with this frame.  The loader
     // will, for example, be cancelled when WebFrame::stopLoading is called.
     // FIXME: stopLoading does not yet cancel an associated loader!!
-    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions&) = 0;
+    virtual WebURLLoader* createAssociatedURLLoader(const WebURLLoaderOptions& = WebURLLoaderOptions()) = 0;
 
     // Called from within WebFrameClient::didReceiveDocumentData to commit
     // data for the frame that will be used to construct the frame's
@@ -401,6 +411,8 @@ public:
 
     virtual WebRange markedRange() const = 0;
 
+    virtual void setSelectionToRange(const WebRange&) = 0;
+
     // Returns the frame rectangle in window coordinate space of the given text
     // range.
     virtual bool firstRectForCharacterRange(unsigned location, unsigned length, WebRect&) const = 0;
@@ -413,14 +425,14 @@ public:
     // Supports commands like Undo, Redo, Cut, Copy, Paste, SelectAll,
     // Unselect, etc. See EditorCommand.cpp for the full list of supported
     // commands.
-    virtual bool executeCommand(const WebString&) = 0;
+    virtual bool executeCommand(const WebString&, const WebNode& = WebNode()) = 0;
     virtual bool executeCommand(const WebString&, const WebString& value) = 0;
     virtual bool isCommandEnabled(const WebString&) const = 0;
 
     // Spell-checking support.
     virtual void enableContinuousSpellChecking(bool) = 0;
     virtual bool isContinuousSpellCheckingEnabled() const = 0;
-
+    virtual void requestTextChecking(const WebElement&) = 0;
 
     // Selection -----------------------------------------------------------
 
@@ -437,6 +449,8 @@ public:
     virtual bool selectWordAroundCaret() = 0;
 
     virtual void selectRange(const WebPoint& start, const WebPoint& end) = 0;
+
+    virtual void selectRange(const WebRange&) = 0;
 
 
     // Printing ------------------------------------------------------------
@@ -467,10 +481,18 @@ public:
     // Reformats the WebFrame for screen display.
     virtual void printEnd() = 0;
 
+    // If the frame contains a full-frame plugin or the given node refers to a
+    // plugin whose content indicates that printed output should not be scaled,
+    // return true, otherwise return false.
+    virtual bool isPrintScalingDisabledForPlugin(const WebNode& = WebNode()) = 0;
+
     // CSS3 Paged Media ----------------------------------------------------
 
     // Returns true if page box (margin boxes and page borders) is visible.
     virtual bool isPageBoxVisible(int pageIndex) = 0;
+
+    // Returns true if the page style has custom size information.
+    virtual bool hasCustomPageSizeStyle(int pageIndex) = 0;
 
     // Returns the preferred page size and margins in pixels, assuming 96
     // pixels per inch. pageSize, marginTop, marginRight, marginBottom,
@@ -482,6 +504,10 @@ public:
                                             int& marginRight,
                                             int& marginBottom,
                                             int& marginLeft) = 0;
+
+    // Returns the value for a page property that is only defined when printing.
+    // printBegin must have been called before this method.
+    virtual WebString pageProperty(const WebString& propertyName, int pageIndex) = 0;
 
     // Find-in-page --------------------------------------------------------
 
@@ -540,22 +566,31 @@ public:
     virtual void resetMatchCount() = 0;
 
 
-    // Password autocompletion ---------------------------------------------
+    // Events --------------------------------------------------------------
 
-    // Registers a listener for the specified user name input element. The
-    // listener will receive notifications for blur and when autocomplete
-    // should be triggered.
-    // An element can have only one listener. If a listener already exists,
-    // this method returns false and does not add the new one.
-    // Either way, the WebFrame becomes the owner of the passed listener.
-    virtual bool registerPasswordListener(
-        WebInputElement,
-        WebPasswordAutocompleteListener*) = 0;
+    // These functions all work on the WebFrame's DOMWindow. Keep in mind
+    // that these events might be generated by web content and not genuine
+    // DOM events.
 
-    // Dispatches an Autocompletion notification to registered listener if one
-    // exists that is registered against the WebInputElement specified.
-    virtual void notifiyPasswordListenerOfAutocomplete(
-        const WebInputElement&) = 0;
+    virtual void addEventListener(const WebString& eventType,
+                                  WebDOMEventListener*, bool useCapture) = 0;
+    virtual void removeEventListener(const WebString& eventType,
+                                     WebDOMEventListener*, bool useCapture) = 0;
+    virtual bool dispatchEvent(const WebDOMEvent&) = 0;
+
+
+    // Web Intents ---------------------------------------------------------
+
+    // Forwards a web intents reply from the invoked activity back to the
+    // appropriate registered Javascript callback. The |intentIdentifier| is
+    // the WebIntent parameter received from the dispatchIntent method.
+    virtual void handleIntentResult(int intentIdentifier, const WebString&) = 0;
+
+    // Forwards a web intents failure notification from the invoked activity
+    // or intervening browser logic back to the appropriate registered
+    // Javascript callback. The |intentIdentifier| is the WebIntent parameter
+    // received from the dispatchIntent method.
+    virtual void handleIntentFailure(int intentIdentifier, const WebString&) = 0;
 
 
     // Utility -------------------------------------------------------------
@@ -576,7 +611,7 @@ public:
 
     // Returns a text representation of the render tree.  This method is used
     // to support layout tests.
-    virtual WebString renderTreeAsText(bool showDebugInfo = false) const = 0;
+    virtual WebString renderTreeAsText(RenderAsTextControls toShow = RenderAsTextNormal) const = 0;
 
     // Returns the counter value for the specified element.  This method is
     // used to support layout tests.
@@ -591,6 +626,10 @@ public:
                                          float pageWidthInPixels,
                                          float pageHeightInPixels) const = 0;
 
+    // Prints all of the pages into the canvas, with page boundaries drawn as
+    // one pixel wide blue lines. This method exists to support layout tests.
+    virtual void printPagesWithBoundaries(WebCanvas*, const WebSize&) = 0;
+
     // Returns the bounds rect for current selection. If selection is performed
     // on transformed text, the rect will still bound the selection but will
     // not be transformed itself. If no selection is present, the rect will be
@@ -600,12 +639,6 @@ public:
     // Only for testing purpose: 
     // Returns true if selection.anchorNode has a marker on range from |from| with |length|.
     virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const = 0;
-
-    // Pauses and samples an SVG animation.  Returns false if there's no svg
-    // animation to pause.  This is only for testing.
-    virtual bool pauseSVGAnimation(const WebString& animationId,
-                                   double time,
-                                   const WebString& elementId) = 0;
 
     // Dumps the layer tree, used by the accelerated compositor, in
     // text form. This is used only by layout tests.

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2010, International Business Machines
+*   Copyright (C) 2001-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -29,11 +29,11 @@
 
 #include "cmemory.h"
 #include "cstring.h"
+#include "patternprops.h"
 #include "ucol_bld.h"
 #include "ucol_tok.h"
 #include "ulocimp.h"
 #include "uresimp.h"
-#include "util.h"
 
 // Define this only for debugging.
 // #define DEBUG_FOR_COLL_RULES 1
@@ -133,12 +133,6 @@ U_CDECL_END
 #ifdef DEBUG_FOR_CODE_POINTS
     FILE* dfcp_fp = NULL;
 #endif
-
-
-/*static inline void U_CALLCONV
-uhash_freeBlockWrapper(void *obj) {
-    uhash_freeBlock(obj);
-}*/
 
 
 typedef struct {
@@ -511,7 +505,7 @@ ucol_tok_getNextArgument(const UChar *start, const UChar *end,
 
     ucol_uprv_tok_initData();
 
-    while(start < end && (u_isWhitespace(*start) || uprv_isRuleWhiteSpace(*start))) { /* eat whitespace */
+    while(start < end && PatternProps::isWhiteSpace(*start)) { /* eat whitespace */
         start++;
     }
     if(start >= end) {
@@ -530,7 +524,7 @@ ucol_tok_getNextArgument(const UChar *start, const UChar *end,
             foundOption = TRUE;
             if(end - start > rulesOptions[i].optionLen) {
                 optionArg = start+rulesOptions[i].optionLen+1; /* start of the options, skip space */
-                while(u_isWhitespace(*optionArg) || uprv_isRuleWhiteSpace(*optionArg)) { /* eat whitespace */
+                while(PatternProps::isWhiteSpace(*optionArg)) { /* eat whitespace */
                     optionArg++;
                 }
             }
@@ -551,7 +545,7 @@ ucol_tok_getNextArgument(const UChar *start, const UChar *end,
                 *attrib = rulesOptions[i].attr;
                 *value = rulesOptions[i].subopts[j].attrVal;
                 optionArg += rulesOptions[i].subopts[j].subLen;
-                while(u_isWhitespace(*optionArg) || uprv_isRuleWhiteSpace(*optionArg)) { /* eat whitespace */
+                while(PatternProps::isWhiteSpace(*optionArg)) { /* eat whitespace */
                     optionArg++;
                 }
                 if(*optionArg == 0x005d) {
@@ -605,14 +599,14 @@ int32_t ucol_uprv_tok_readOption(const UChar *start, const UChar *end, const UCh
     int32_t i = 0;
     ucol_uprv_tok_initData();
 
-    while(u_isWhitespace(*start) || uprv_isRuleWhiteSpace(*start)) { /* eat whitespace */
+    while(PatternProps::isWhiteSpace(*start)) { /* eat whitespace */
         start++;
     }
     while(i < UTOK_OPTION_COUNT) {
         if(u_strncmpNoCase(start, rulesOptions[i].optionName, rulesOptions[i].optionLen) == 0) {
             if(end - start > rulesOptions[i].optionLen) {
                 *optionArg = start+rulesOptions[i].optionLen; /* End of option name; start of the options */
-                while(u_isWhitespace(**optionArg) || uprv_isRuleWhiteSpace(**optionArg)) { /* eat whitespace */
+                while(PatternProps::isWhiteSpace(**optionArg)) { /* eat whitespace */
                     (*optionArg)++;
                 }
             }
@@ -1041,7 +1035,7 @@ ucol_tok_parseNextTokenInternal(UColTokenParser *src,
                 }
             }
         }else {
-            if(!uprv_isRuleWhiteSpace(ch)) {
+            if(!PatternProps::isWhiteSpace(ch)) {
                 /* Sets the strength for this entry */
                 switch (ch) {
                 case 0x003D/*'='*/ :
@@ -1267,7 +1261,7 @@ ucol_tok_parseNextTokenInternal(UColTokenParser *src,
                     do {
                         ch = *(++(src->current));
                         // skip whitespace between '|' and the character
-                    } while (uprv_isRuleWhiteSpace(ch));
+                    } while (PatternProps::isWhiteSpace(ch));
                     break;
 
                     //charsOffset = 0;
@@ -1340,7 +1334,7 @@ ucol_tok_parseNextTokenInternal(UColTokenParser *src,
 
         if(wasInQuote) {
             if(ch != 0x27) {
-                if(inQuote || !uprv_isRuleWhiteSpace(ch)) {
+                if(inQuote || !PatternProps::isWhiteSpace(ch)) {
                     ucol_tok_addToExtraCurrent(src, &ch, 1, status);
                 }
             }
@@ -1555,7 +1549,7 @@ inline UColToken *getVirginBefore(UColTokenParser *src, UColToken *sourceToken, 
     collIterate s;
     uint32_t baseCE = UCOL_NOT_FOUND, baseContCE = UCOL_NOT_FOUND;
     uint32_t CE, SecondCE;
-    uint32_t invPos;
+    // uint32_t invPos;
     if(sourceToken != NULL) {
         uprv_init_collIterate(src->UCA, src->source+((sourceToken->source)&0xFFFFFF), 1, &s, status);
     } else {
@@ -1614,7 +1608,7 @@ inline UColToken *getVirginBefore(UColTokenParser *src, UColToken *sourceToken, 
         }
 
     } else {
-        invPos = ucol_inv_getPrevCE(src, baseCE, baseContCE, &CE, &SecondCE, strength);
+        /* invPos = */ ucol_inv_getPrevCE(src, baseCE, baseContCE, &CE, &SecondCE, strength);
 
         // we got the previous CE. Now we need to see if the difference between
         // the two CEs is really of the requested strength.
@@ -2223,7 +2217,7 @@ void ucol_tok_initTokenList(
                 UChar* import_end = u_strchr(setStart, 0x005D);
                 int32_t optionEndOffset = (int32_t)(import_end + 1 - rules);
                 // Ignore trailing whitespace.
-                while(uprv_isRuleWhiteSpace(*(import_end-1))) {
+                while(PatternProps::isWhiteSpace(*(import_end-1))) {
                     --import_end;
                 }
 
@@ -2367,7 +2361,7 @@ void ucol_tok_initTokenList(
     if(U_FAILURE(*status)) {
         return;
     }
-    uhash_setValueDeleter(src->tailored, uhash_freeBlock);
+    uhash_setValueDeleter(src->tailored, uprv_free);
 
     src->opts = (UColOptionSet *)uprv_malloc(sizeof(UColOptionSet));
     /* test for NULL */

@@ -1,4 +1,4 @@
-/* $OpenBSD: servconf.c,v 1.209 2010/06/22 04:22:59 djm Exp $ */
+/* $OpenBSD: servconf.c,v 1.222 2011/06/22 21:57:01 djm Exp $ */
 /*
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
  *                    All rights reserved
@@ -14,6 +14,10 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
 
 #include <netdb.h>
 #include <pwd.h>
@@ -112,6 +116,7 @@ initialize_server_options(ServerOptions *options)
 	options->num_deny_groups = 0;
 	options->ciphers = NULL;
 	options->macs = NULL;
+	options->kex_algorithms = NULL;
 	options->protocol = SSH_PROTO_UNKNOWN;
 	options->gateway_ports = -1;
 	options->num_subsystems = 0;
@@ -124,8 +129,7 @@ initialize_server_options(ServerOptions *options)
 	options->use_dns = -1;
 	options->client_alive_interval = -1;
 	options->client_alive_count_max = -1;
-	options->authorized_keys_file = NULL;
-	options->authorized_keys_file2 = NULL;
+	options->num_authkeys_files = 0;
 	options->num_accept_env = 0;
 	options->permit_tun = -1;
 	options->num_permitted_opens = -1;
@@ -135,6 +139,8 @@ initialize_server_options(ServerOptions *options)
 	options->revoked_keys_file = NULL;
 	options->trusted_user_ca_keys = NULL;
 	options->authorized_principals_file = NULL;
+	options->ip_qos_interactive = -1;
+	options->ip_qos_bulk = -1;
 }
 
 void
@@ -157,6 +163,10 @@ fill_default_server_options(ServerOptions *options)
 			    _PATH_HOST_RSA_KEY_FILE;
 			options->host_key_files[options->num_host_key_files++] =
 			    _PATH_HOST_DSA_KEY_FILE;
+#ifdef OPENSSL_HAS_ECC
+			options->host_key_files[options->num_host_key_files++] =
+			    _PATH_HOST_ECDSA_KEY_FILE;
+#endif
 		}
 	}
 	/* No certificates by default */
@@ -262,23 +272,28 @@ fill_default_server_options(ServerOptions *options)
 		options->client_alive_interval = 0;
 	if (options->client_alive_count_max == -1)
 		options->client_alive_count_max = 3;
-	if (options->authorized_keys_file2 == NULL) {
-		/* authorized_keys_file2 falls back to authorized_keys_file */
-		if (options->authorized_keys_file != NULL)
-			options->authorized_keys_file2 = options->authorized_keys_file;
-		else
-			options->authorized_keys_file2 = _PATH_SSH_USER_PERMITTED_KEYS2;
+	if (options->num_authkeys_files == 0) {
+		options->authorized_keys_files[options->num_authkeys_files++] =
+		    xstrdup(_PATH_SSH_USER_PERMITTED_KEYS);
+		options->authorized_keys_files[options->num_authkeys_files++] =
+		    xstrdup(_PATH_SSH_USER_PERMITTED_KEYS2);
 	}
-	if (options->authorized_keys_file == NULL)
-		options->authorized_keys_file = _PATH_SSH_USER_PERMITTED_KEYS;
 	if (options->permit_tun == -1)
 		options->permit_tun = SSH_TUNMODE_NO;
 	if (options->zero_knowledge_password_authentication == -1)
 		options->zero_knowledge_password_authentication = 0;
+	if (options->ip_qos_interactive == -1)
+		options->ip_qos_interactive = IPTOS_LOWDELAY;
+	if (options->ip_qos_bulk == -1)
+		options->ip_qos_bulk = IPTOS_THROUGHPUT;
 
 	/* Turn privilege separation on by default */
 	if (use_privsep == -1)
-		use_privsep = 1;
+#ifdef	__APPLE_SANDBOX_NAMED_EXTERNAL__
+		use_privsep = PRIVSEP_SANDBOX;
+#else
+		use_privsep = PRIVSEP_ON;
+#endif
 
 #ifndef HAVE_MMAP
 	if (use_privsep && options->compression == 1) {
@@ -315,7 +330,7 @@ typedef enum {
 	sMaxStartups, sMaxAuthTries, sMaxSessions,
 	sBanner, sUseDNS, sHostbasedAuthentication,
 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
-	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+	sClientAliveCountMax, sAuthorizedKeysFile,
 	sGssAuthentication, sGssCleanupCreds, sGssStrictAcceptor,
 	sGssKeyEx, sGssStoreRekey,
 	sAcceptEnv, sPermitTunnel,
@@ -326,6 +341,7 @@ typedef enum {
 	sSACLSupport,
 #endif
 	sRevokedKeys, sTrustedUserCAKeys, sAuthorizedPrincipalsFile,
+	sKexAlgorithms, sIPQoS,
 	sDeprecated, sUnsupported
 } ServerOpCodes;
 
@@ -449,7 +465,7 @@ static struct {
 	{ "saclsupport", sSACLSupport },
 #endif
 	{ "authorizedkeysfile", sAuthorizedKeysFile, SSHCFG_ALL },
-	{ "authorizedkeysfile2", sAuthorizedKeysFile2, SSHCFG_ALL },
+	{ "authorizedkeysfile2", sDeprecated, SSHCFG_ALL },
 	{ "useprivilegeseparation", sUsePrivilegeSeparation, SSHCFG_GLOBAL},
 	{ "acceptenv", sAcceptEnv, SSHCFG_GLOBAL },
 	{ "permittunnel", sPermitTunnel, SSHCFG_ALL },
@@ -461,6 +477,8 @@ static struct {
 	{ "revokedkeys", sRevokedKeys, SSHCFG_ALL },
 	{ "trustedusercakeys", sTrustedUserCAKeys, SSHCFG_ALL },
 	{ "authorizedprincipalsfile", sAuthorizedPrincipalsFile, SSHCFG_ALL },
+	{ "kexalgorithms", sKexAlgorithms, SSHCFG_GLOBAL },
+	{ "ipqos", sIPQoS, SSHCFG_ALL },
 	{ NULL, sBadOption, 0 }
 };
 
@@ -684,19 +702,57 @@ match_cfg_line(char **condition, int line, const char *user, const char *host,
 
 #define WHITESPACE " \t\r\n"
 
+/* Multistate option parsing */
+struct multistate {
+	char *key;
+	int value;
+};
+static const struct multistate multistate_addressfamily[] = {
+	{ "inet",			AF_INET },
+	{ "inet6",			AF_INET6 },
+	{ "any",			AF_UNSPEC },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_permitrootlogin[] = {
+	{ "without-password",		PERMIT_NO_PASSWD },
+	{ "forced-commands-only",	PERMIT_FORCED_ONLY },
+	{ "yes",			PERMIT_YES },
+	{ "no",				PERMIT_NO },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_compression[] = {
+	{ "delayed",			COMP_DELAYED },
+	{ "yes",			COMP_ZLIB },
+	{ "no",				COMP_NONE },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_gatewayports[] = {
+	{ "clientspecified",		2 },
+	{ "yes",			1 },
+	{ "no",				0 },
+	{ NULL, -1 }
+};
+static const struct multistate multistate_privsep[] = {
+	{ "sandbox",			PRIVSEP_SANDBOX },
+	{ "yes",			PRIVSEP_ON },
+	{ "no",				PRIVSEP_OFF },
+	{ NULL, -1 }
+};
+
 int
 process_server_config_line(ServerOptions *options, char *line,
     const char *filename, int linenum, int *activep, const char *user,
     const char *host, const char *address)
 {
 	char *cp, **charptr, *arg, *p;
-	int cmdline = 0, *intptr, value, n;
+	int cmdline = 0, *intptr, value, value2, n;
 	SyslogFacility *log_facility_ptr;
 	LogLevel *log_level_ptr;
 	ServerOpCodes opcode;
 	int port;
 	u_int i, flags = 0;
 	size_t len;
+	const struct multistate *multistate_ptr;
 
 	cp = line;
 	if ((arg = strdelim(&cp)) == NULL)
@@ -812,24 +868,27 @@ process_server_config_line(ServerOptions *options, char *line,
 		break;
 
 	case sAddressFamily:
+		intptr = &options->address_family;
+		multistate_ptr = multistate_addressfamily;
+		if (options->listen_addrs != NULL)
+			fatal("%s line %d: address family must be specified "
+			    "before ListenAddress.", filename, linenum);
+ parse_multistate:
 		arg = strdelim(&cp);
 		if (!arg || *arg == '\0')
-			fatal("%s line %d: missing address family.",
+			fatal("%s line %d: missing argument.",
 			    filename, linenum);
-		intptr = &options->address_family;
-		if (options->listen_addrs != NULL)
-			fatal("%s line %d: address family must be specified before "
-			    "ListenAddress.", filename, linenum);
-		if (strcasecmp(arg, "inet") == 0)
-			value = AF_INET;
-		else if (strcasecmp(arg, "inet6") == 0)
-			value = AF_INET6;
-		else if (strcasecmp(arg, "any") == 0)
-			value = AF_UNSPEC;
-		else
-			fatal("%s line %d: unsupported address family \"%s\".",
+		value = -1;
+		for (i = 0; multistate_ptr[i].key != NULL; i++) {
+			if (strcasecmp(arg, multistate_ptr[i].key) == 0) {
+				value = multistate_ptr[i].value;
+				break;
+			}
+		}
+		if (value == -1)
+			fatal("%s line %d: unsupported option \"%s\".",
 			    filename, linenum, arg);
-		if (*intptr == -1)
+		if (*activep && *intptr == -1)
 			*intptr = value;
 		break;
 
@@ -868,27 +927,8 @@ process_server_config_line(ServerOptions *options, char *line,
 
 	case sPermitRootLogin:
 		intptr = &options->permit_root_login;
-		arg = strdelim(&cp);
-		if (!arg || *arg == '\0')
-			fatal("%s line %d: missing yes/"
-			    "without-password/forced-commands-only/no "
-			    "argument.", filename, linenum);
-		value = 0;	/* silence compiler */
-		if (strcmp(arg, "without-password") == 0)
-			value = PERMIT_NO_PASSWD;
-		else if (strcmp(arg, "forced-commands-only") == 0)
-			value = PERMIT_FORCED_ONLY;
-		else if (strcmp(arg, "yes") == 0)
-			value = PERMIT_YES;
-		else if (strcmp(arg, "no") == 0)
-			value = PERMIT_NO;
-		else
-			fatal("%s line %d: Bad yes/"
-			    "without-password/forced-commands-only/no "
-			    "argument: %s", filename, linenum, arg);
-		if (*activep && *intptr == -1)
-			*intptr = value;
-		break;
+		multistate_ptr = multistate_permitrootlogin;
+		goto parse_multistate;
 
 	case sIgnoreRhosts:
 		intptr = &options->ignore_rhosts;
@@ -1036,43 +1076,13 @@ process_server_config_line(ServerOptions *options, char *line,
 
 	case sCompression:
 		intptr = &options->compression;
-		arg = strdelim(&cp);
-		if (!arg || *arg == '\0')
-			fatal("%s line %d: missing yes/no/delayed "
-			    "argument.", filename, linenum);
-		value = 0;	/* silence compiler */
-		if (strcmp(arg, "delayed") == 0)
-			value = COMP_DELAYED;
-		else if (strcmp(arg, "yes") == 0)
-			value = COMP_ZLIB;
-		else if (strcmp(arg, "no") == 0)
-			value = COMP_NONE;
-		else
-			fatal("%s line %d: Bad yes/no/delayed "
-			    "argument: %s", filename, linenum, arg);
-		if (*intptr == -1)
-			*intptr = value;
-		break;
+		multistate_ptr = multistate_compression;
+		goto parse_multistate;
 
 	case sGatewayPorts:
 		intptr = &options->gateway_ports;
-		arg = strdelim(&cp);
-		if (!arg || *arg == '\0')
-			fatal("%s line %d: missing yes/no/clientspecified "
-			    "argument.", filename, linenum);
-		value = 0;	/* silence compiler */
-		if (strcmp(arg, "clientspecified") == 0)
-			value = 2;
-		else if (strcmp(arg, "yes") == 0)
-			value = 1;
-		else if (strcmp(arg, "no") == 0)
-			value = 0;
-		else
-			fatal("%s line %d: Bad yes/no/clientspecified "
-			    "argument: %s", filename, linenum, arg);
-		if (*activep && *intptr == -1)
-			*intptr = value;
-		break;
+		multistate_ptr = multistate_gatewayports;
+		goto parse_multistate;
 
 	case sUseDNS:
 		intptr = &options->use_dns;
@@ -1110,7 +1120,8 @@ process_server_config_line(ServerOptions *options, char *line,
 
 	case sUsePrivilegeSeparation:
 		intptr = &use_privsep;
-		goto parse_flag;
+		multistate_ptr = multistate_privsep;
+		goto parse_multistate;
 
 	case sAllowUsers:
 		while ((arg = strdelim(&cp)) && *arg != '\0') {
@@ -1171,6 +1182,18 @@ process_server_config_line(ServerOptions *options, char *line,
 			    filename, linenum, arg ? arg : "<NONE>");
 		if (options->macs == NULL)
 			options->macs = xstrdup(arg);
+		break;
+
+	case sKexAlgorithms:
+		arg = strdelim(&cp);
+		if (!arg || *arg == '\0')
+			fatal("%s line %d: Missing argument.",
+			    filename, linenum);
+		if (!kex_names_valid(arg))
+			fatal("%s line %d: Bad SSH2 KexAlgorithms '%s'.",
+			    filename, linenum, arg ? arg : "<NONE>");
+		if (options->kex_algorithms == NULL)
+			options->kex_algorithms = xstrdup(arg);
 		break;
 
 	case sProtocol:
@@ -1264,14 +1287,22 @@ process_server_config_line(ServerOptions *options, char *line,
 	 * AuthorizedKeysFile	/etc/ssh_keys/%u
 	 */
 	case sAuthorizedKeysFile:
-		charptr = &options->authorized_keys_file;
-		goto parse_tilde_filename;
-	case sAuthorizedKeysFile2:
-		charptr = &options->authorized_keys_file2;
-		goto parse_tilde_filename;
+		if (*activep && options->num_authkeys_files == 0) {
+			while ((arg = strdelim(&cp)) && *arg != '\0') {
+				if (options->num_authkeys_files >=
+				    MAX_AUTHKEYS_FILES)
+					fatal("%s line %d: "
+					    "too many authorized keys files.",
+					    filename, linenum);
+				options->authorized_keys_files[
+				    options->num_authkeys_files++] =
+				    tilde_expand_filename(arg, getuid());
+			}
+		}
+		return 0;
+
 	case sAuthorizedPrincipalsFile:
 		charptr = &options->authorized_principals_file;
- parse_tilde_filename:
 		arg = strdelim(&cp);
 		if (!arg || *arg == '\0')
 			fatal("%s line %d: missing file name.",
@@ -1395,6 +1426,23 @@ process_server_config_line(ServerOptions *options, char *line,
 		charptr = &options->revoked_keys_file;
 		goto parse_filename;
 
+	case sIPQoS:
+		arg = strdelim(&cp);
+		if ((value = parse_ipqos(arg)) == -1)
+			fatal("%s line %d: Bad IPQoS value: %s",
+			    filename, linenum, arg);
+		arg = strdelim(&cp);
+		if (arg == NULL)
+			value2 = value;
+		else if ((value2 = parse_ipqos(arg)) == -1)
+			fatal("%s line %d: Bad IPQoS value: %s",
+			    filename, linenum, arg);
+		if (*activep) {
+			options->ip_qos_interactive = value;
+			options->ip_qos_bulk = value2;
+		}
+		break;
+
 	case sDeprecated:
 		logit("%s line %d: Deprecated option %s",
 		    filename, linenum, arg);
@@ -1473,6 +1521,12 @@ parse_server_match_config(ServerOptions *options, const char *user,
 		dst->n = src->n; \
 	} \
 } while(0)
+#define M_CP_STRARRAYOPT(n, num_n) do {\
+	if (src->num_n != 0) { \
+		for (dst->num_n = 0; dst->num_n < src->num_n; dst->num_n++) \
+			dst->n[dst->num_n] = xstrdup(src->n[dst->num_n]); \
+	} \
+} while(0)
 
 /*
  * Copy any supported values that are set.
@@ -1505,21 +1559,26 @@ copy_set_server_options(ServerOptions *dst, ServerOptions *src, int preauth)
 	M_CP_INTOPT(x11_use_localhost);
 	M_CP_INTOPT(max_sessions);
 	M_CP_INTOPT(max_authtries);
+	M_CP_INTOPT(ip_qos_interactive);
+	M_CP_INTOPT(ip_qos_bulk);
 
-	M_CP_STROPT(banner);
+	/* See comment in servconf.h */
+	COPY_MATCH_STRING_OPTS();
+
+	/*
+	 * The only things that should be below this point are string options
+	 * which are only used after authentication.
+	 */
 	if (preauth)
 		return;
+
 	M_CP_STROPT(adm_forced_command);
 	M_CP_STROPT(chroot_directory);
-	M_CP_STROPT(trusted_user_ca_keys);
-	M_CP_STROPT(revoked_keys_file);
-	M_CP_STROPT(authorized_keys_file);
-	M_CP_STROPT(authorized_keys_file2);
-	M_CP_STROPT(authorized_principals_file);
 }
 
 #undef M_CP_INTOPT
 #undef M_CP_STROPT
+#undef M_CP_STRARRAYOPT
 
 void
 parse_server_config(ServerOptions *options, const char *filename, Buffer *conf,
@@ -1545,31 +1604,34 @@ parse_server_config(ServerOptions *options, const char *filename, Buffer *conf,
 }
 
 static const char *
+fmt_multistate_int(int val, const struct multistate *m)
+{
+	u_int i;
+
+	for (i = 0; m[i].key != NULL; i++) {
+		if (m[i].value == val)
+			return m[i].key;
+	}
+	return "UNKNOWN";
+}
+
+static const char *
 fmt_intarg(ServerOpCodes code, int val)
 {
-	if (code == sAddressFamily) {
-		switch (val) {
-		case AF_INET:
-			return "inet";
-		case AF_INET6:
-			return "inet6";
-		case AF_UNSPEC:
-			return "any";
-		default:
-			return "UNKNOWN";
-		}
-	}
-	if (code == sPermitRootLogin) {
-		switch (val) {
-		case PERMIT_NO_PASSWD:
-			return "without-password";
-		case PERMIT_FORCED_ONLY:
-			return "forced-commands-only";
-		case PERMIT_YES:
-			return "yes";
-		}
-	}
-	if (code == sProtocol) {
+	if (val == -1)
+		return "unset";
+	switch (code) {
+	case sAddressFamily:
+		return fmt_multistate_int(val, multistate_addressfamily);
+	case sPermitRootLogin:
+		return fmt_multistate_int(val, multistate_permitrootlogin);
+	case sGatewayPorts:
+		return fmt_multistate_int(val, multistate_gatewayports);
+	case sCompression:
+		return fmt_multistate_int(val, multistate_compression);
+	case sUsePrivilegeSeparation:
+		return fmt_multistate_int(val, multistate_privsep);
+	case sProtocol:
 		switch (val) {
 		case SSH_PROTO_1:
 			return "1";
@@ -1580,20 +1642,16 @@ fmt_intarg(ServerOpCodes code, int val)
 		default:
 			return "UNKNOWN";
 		}
+	default:
+		switch (val) {
+		case 0:
+			return "no";
+		case 1:
+			return "yes";
+		default:
+			return "UNKNOWN";
+		}
 	}
-	if (code == sGatewayPorts && val == 2)
-		return "clientspecified";
-	if (code == sCompression && val == COMP_DELAYED)
-		return "delayed";
-	switch (val) {
-	case -1:
-		return "unset";
-	case 0:
-		return "no";
-	case 1:
-		return "yes";
-	}
-	return "UNKNOWN";
 }
 
 static const char *
@@ -1633,7 +1691,18 @@ dump_cfg_strarray(ServerOpCodes code, u_int count, char **vals)
 	u_int i;
 
 	for (i = 0; i < count; i++)
-		printf("%s %s\n", lookup_opcode_name(code),  vals[i]);
+		printf("%s %s\n", lookup_opcode_name(code), vals[i]);
+}
+
+static void
+dump_cfg_strarray_oneline(ServerOpCodes code, u_int count, char **vals)
+{
+	u_int i;
+
+	printf("%s", lookup_opcode_name(code));
+	for (i = 0; i < count; i++)
+		printf(" %s",  vals[i]);
+	printf("\n");
 }
 
 void
@@ -1734,8 +1803,6 @@ dump_config(ServerOptions *o)
 	dump_cfg_string(sCiphers, o->ciphers);
 	dump_cfg_string(sMacs, o->macs);
 	dump_cfg_string(sBanner, o->banner);
-	dump_cfg_string(sAuthorizedKeysFile, o->authorized_keys_file);
-	dump_cfg_string(sAuthorizedKeysFile2, o->authorized_keys_file2);
 	dump_cfg_string(sForceCommand, o->adm_forced_command);
 	dump_cfg_string(sChrootDirectory, o->chroot_directory);
 	dump_cfg_string(sTrustedUserCAKeys, o->trusted_user_ca_keys);
@@ -1748,6 +1815,8 @@ dump_config(ServerOptions *o)
 	dump_cfg_string(sLogFacility, log_facility_name(o->log_facility));
 
 	/* string array arguments */
+	dump_cfg_strarray_oneline(sAuthorizedKeysFile, o->num_authkeys_files,
+	    o->authorized_keys_files);
 	dump_cfg_strarray(sHostKeyFile, o->num_host_key_files,
 	     o->host_key_files);
 	dump_cfg_strarray(sHostKeyFile, o->num_host_cert_files,
@@ -1772,6 +1841,9 @@ dump_config(ServerOptions *o)
 			break;
 		}
 	dump_cfg_string(sPermitTunnel, s);
+
+	printf("ipqos %s ", iptos2str(o->ip_qos_interactive));
+	printf("%s\n", iptos2str(o->ip_qos_bulk));
 
 	channel_print_adm_permitted_opens();
 }

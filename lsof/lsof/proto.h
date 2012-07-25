@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: proto.h,v 1.35 2010/07/29 16:00:20 abe Exp $
+ * $Id: proto.h,v 1.36 2011/09/07 19:13:49 abe Exp $
  */
 
 
@@ -87,6 +87,11 @@ _PROTOTYPE(extern char *endnm,(size_t *sz));
 _PROTOTYPE(extern int enter_cmd_rx,(char *x));
 _PROTOTYPE(extern void enter_dev_ch,(char *m));
 _PROTOTYPE(extern int enter_dir,(char *d, int descend));
+
+# if	defined(HASEOPT)
+_PROTOTYPE(extern int enter_efsys,(char *e, int rdlnk));
+# endif	/* defined(HASEOPT) */
+
 _PROTOTYPE(extern int enter_fd,(char *f));
 _PROTOTYPE(extern int enter_network_address,(char *na));
 _PROTOTYPE(extern int enter_id,(enum IDType ty, char *p));

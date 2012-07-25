@@ -295,24 +295,12 @@ bool IOHIPointing::init(OSDictionary * properties)
 
 bool IOHIPointing::start(IOService * provider)
 {
-  static const char * defaultSettings = "(<00000000>, <00002000>, <00005000>,"
-                                         "<00008000>, <0000b000>, <0000e000>,"
-                                         "<00010000>)";
-
   if (!super::start(provider))  return false;
 
   // default acceleration settings
   if (!getProperty(kIOHIDPointerAccelerationTypeKey))
     setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDMouseAccelerationType);
-  if (!getProperty(kIOHIDPointerAccelerationSettingsKey))
-  {
-    OSObject * obj = OSUnserialize(defaultSettings, 0);
-    if (obj) {
-      setProperty(kIOHIDPointerAccelerationSettingsKey, obj);
-      obj->release();
-    }
-  }
-
+    
   if (!getProperty(kIOHIDScrollAccelerationTypeKey))
     setProperty(kIOHIDScrollAccelerationTypeKey, kIOHIDMouseScrollAccelerationKey);
 
@@ -330,9 +318,9 @@ bool IOHIPointing::start(IOService * provider)
      setProperty(kIOHIDPointerButtonCountKey, buttonCount(), 32);
   }
 
-  OSNumber * number;
+    OSNumber * number = (OSNumber*)copyProperty(kIOHIDScrollMouseButtonKey);
 
-    if ((number = OSDynamicCast(OSNumber, getProperty(kIOHIDScrollMouseButtonKey))))
+    if (OSDynamicCast(OSNumber, number))
 	{
 		UInt32 value = number->unsigned32BitValue();
 
@@ -341,6 +329,7 @@ bool IOHIPointing::start(IOService * provider)
         else
             _scrollButtonMask = (1 << (value-1));
     }
+    OSSafeReleaseNULL(number);
 
   // create a IOHIDPointingDevice to post events to the HID Manager
   _hidPointingNub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16);
@@ -735,16 +724,18 @@ static SInt32 Interpolate(  SInt32 x1, SInt32 y1,
 
 void IOHIPointing::setupForAcceleration( IOFixed desired )
 {
-    OSArray         *parametricAccelerationCurves = OSDynamicCast( OSArray, getProperty(kHIDTrackingAccelParametricCurvesKey, gIOServicePlane) );
+    OSArray         *parametricAccelerationCurves = (OSArray*)copyProperty(kHIDTrackingAccelParametricCurvesKey, gIOServicePlane);
     IOFixed         devScale    = IOFixedDivide( resolution(), FRAME_RATE );
     IOFixed         crsrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
     bool            useParametric = false;
 
 //  IOLog("%s %d: got %08x and %p\n", __PRETTY_FUNCTION__, __LINE__, desired, parametricAccelerationCurves);
-    if (!parametricAccelerationCurves)
-        parametricAccelerationCurves = OSDynamicCast( OSArray, getProperty(kHIDAccelParametricCurvesKey, gIOServicePlane) );
+    if (!OSDynamicCast( OSArray, parametricAccelerationCurves)) {
+        OSSafeReleaseNULL(parametricAccelerationCurves);
+        parametricAccelerationCurves = (OSArray*)copyProperty(kHIDAccelParametricCurvesKey, gIOServicePlane);
+    }
     // Try to set up the parametric acceleration data
-    if (parametricAccelerationCurves) {
+    if (OSDynamicCast( OSArray, parametricAccelerationCurves )) {
         if ( !_paraAccelParams )
         {
             _paraAccelParams = (IOHIPointing__PAParameters*)IOMalloc(sizeof(IOHIPointing__PAParameters));
@@ -778,6 +769,7 @@ void IOHIPointing::setupForAcceleration( IOFixed desired )
             }
         }
     }
+    OSSafeReleaseNULL(parametricAccelerationCurves);
 
 //  IOLog("%s %d: %s parametric\n", __PRETTY_FUNCTION__, __LINE__, useParametric ? "using" : "NOT using");
 
@@ -1273,7 +1265,6 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 {
     OSData			*data;
     OSNumber		*number;
-    OSBoolean		*booleanValue;
     OSString		*pointerAccelKey;
     OSString		*scrollAccelKey;
     IOReturn		err = kIOReturnSuccess;
@@ -1288,8 +1279,8 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
     if( dict->getObject(kIOHIDScrollResetKey))
         resetScroll();
 
-    pointerAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDPointerAccelerationTypeKey));
-    scrollAccelKey = OSDynamicCast( OSString, getProperty(kIOHIDScrollAccelerationTypeKey));
+    pointerAccelKey = (OSString*)copyProperty(kIOHIDPointerAccelerationTypeKey);
+    scrollAccelKey = (OSString*)copyProperty(kIOHIDScrollAccelerationTypeKey);
 
     DEVICE_LOCK;
 
@@ -1299,7 +1290,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
     }
 
     number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDDeviceScrollWithTrackpadKey));
-    if((number) && scrollAccelKey && scrollAccelKey->isEqualTo(kIOHIDTrackpadScrollAccelerationKey))
+    if((number) && OSDynamicCast( OSString, scrollAccelKey ) && scrollAccelKey->isEqualTo(kIOHIDTrackpadScrollAccelerationKey))
     {
         _scrollOff = number->unsigned32BitValue() == 0;
     }
@@ -1309,7 +1300,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         _scrollOff = number->unsigned32BitValue() != 0;
     }
 
-    if( pointerAccelKey &&
+    if ( OSDynamicCast( OSString, pointerAccelKey ) &&
         ((number = OSDynamicCast( OSNumber, dict->getObject(pointerAccelKey))) ||
          (data = OSDynamicCast( OSData, dict->getObject(pointerAccelKey)))))
     {
@@ -1318,7 +1309,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         setupForAcceleration( value );
         updated = true;
     }
-    else if( (number = OSDynamicCast( OSNumber,
+    else if ( (number = OSDynamicCast( OSNumber,
 		dict->getObject(kIOHIDPointerAccelerationKey))) ||
              (data = OSDynamicCast( OSData,
 		dict->getObject(kIOHIDPointerAccelerationKey)))) {
@@ -1326,8 +1317,8 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         value = (number) ? number->unsigned32BitValue() :
                             *((UInt32 *) (data->getBytesNoCopy()));
 
-	setupForAcceleration( value );
-	updated = true;
+        setupForAcceleration( value );
+        updated = true;
         if( pointerAccelKey) {
             // If this is an OSData object, create an OSNumber to store in the registry
             if (!number)
@@ -1341,10 +1332,11 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
         }
 
     }
+    OSSafeReleaseNULL(pointerAccelKey);
 
     // Scroll accel setup
     // use same mechanism as pointer accel setup
-    if( scrollAccelKey &&
+    if( OSDynamicCast( OSString, scrollAccelKey ) &&
         ((number = OSDynamicCast( OSNumber, dict->getObject(scrollAccelKey))) ||
          (data = OSDynamicCast( OSData, dict->getObject(scrollAccelKey))))) {
         value = (number) ? number->unsigned32BitValue() :
@@ -1360,7 +1352,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 
         setupScrollForAcceleration( value );
         updated = true;
-        if( scrollAccelKey) {
+        if( OSDynamicCast( OSString, scrollAccelKey) ) {
             // If this is an OSData object, create an OSNumber to store in the registry
             if (!number)
             {
@@ -1372,6 +1364,7 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
                 dict->setObject( scrollAccelKey, number );
         }
     }
+    OSSafeReleaseNULL(scrollAccelKey);
 
     DEVICE_UNLOCK;
 
@@ -1397,38 +1390,32 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 
     if ((number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDPointerButtonMode))) ||
         (data = OSDynamicCast(OSData, dict->getObject(kIOHIDPointerButtonMode))))
-	{
-		value = (number) ? number->unsigned32BitValue() :
+    {
+        value = (number) ? number->unsigned32BitValue() :
                                             *((UInt32 *) (data->getBytesNoCopy()));
 
-		if (getProperty(kIOHIDPointerButtonCountKey))
-		{
-			// vtn3: rdar://problem/5816671
-			booleanValue = OSDynamicCast(OSBoolean, getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey));
-			if (NULL == booleanValue) {
-				booleanValue = kOSBooleanFalse;
-			}
+        if (getProperty(kIOHIDPointerButtonCountKey))
+        {
+            switch (value) {
+                case kIOHIDButtonMode_BothLeftClicks:
+                    _buttonMode = NX_OneButton;
+                    break;
 
-			switch (value) {
-				case kIOHIDButtonMode_BothLeftClicks:
-					_buttonMode = NX_OneButton;
-					break;
+                case kIOHIDButtonMode_EnableRightClick:
+                    _buttonMode = NX_RightButton;
+                    break;
 
-				case kIOHIDButtonMode_EnableRightClick:
-					_buttonMode = NX_RightButton;
-					break;
+                case kIOHIDButtonMode_ReverseLeftRightClicks:
+                    // vtn3: rdar://problem/5816671
+                    _buttonMode = (getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey) == kOSBooleanTrue) ? _buttonMode : NX_LeftButton;
+                    break;
 
-				case kIOHIDButtonMode_ReverseLeftRightClicks:
-					// vtn3: rdar://problem/5816671
-					_buttonMode = booleanValue->isTrue() ? _buttonMode : NX_LeftButton;
-					break;
-
-				default:
-					// vtn3: rdar://problem/5816671
-					_buttonMode = booleanValue->isTrue() ? _buttonMode : value;
-			}
-			updated = true;
-		}
+                default:
+                    // vtn3: rdar://problem/5816671
+                    _buttonMode = (getProperty(kIOHIDDisallowRemappingOfPrimaryClickKey) == kOSBooleanTrue) ? _buttonMode : value;
+            }
+            updated = true;
+        }
     }
 
     if ((number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDScrollMouseButtonKey))) ||
@@ -1458,12 +1445,14 @@ IOItemCount IOHIPointing::buttonCount()
 
 IOFixed IOHIPointing::resolution()
 {
-    OSNumber * number = OSDynamicCast(OSNumber, getProperty(kIOHIDPointerResolutionKey));
+    OSNumber * number = (OSNumber*)copyProperty(kIOHIDPointerResolutionKey);
+    IOFixed result = 100 << 16;
 
-    if ( number )
-        return number->unsigned32BitValue();
+    if ( OSDynamicCast(OSNumber, number) )
+        result = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    return (100 << 16);
+    return result;
 }
 
 // RY: Added this method to obtain the resolution
@@ -1491,12 +1480,15 @@ IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 
     }
 
-    number = OSDynamicCast( OSNumber, getProperty(key) );
-    if( !number )
-		number = OSDynamicCast( OSNumber, getProperty(kIOHIDScrollResolutionKey) );
+    number = (OSNumber*)copyProperty(key);
+    if( !OSDynamicCast( OSNumber, number ) ) {
+        OSSafeRelease(number);
+		number = (OSNumber*)copyProperty(kIOHIDScrollResolutionKey);
+	}
 
-	if( number )
+	if( OSDynamicCast( OSNumber, number ) )
 		res = number->unsigned32BitValue();
+    OSSafeRelease(number);
 
     return( res );
 }
@@ -1505,10 +1497,15 @@ IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 // of the scroll wheel.  The default value is 67 << 16.
 IOFixed	IOHIPointing::scrollReportRate()
 {
-    OSNumber * 	number = OSDynamicCast( OSNumber,
-                getProperty( kIOHIDScrollReportRateKey ));
-
-    return number ? (number->unsigned32BitValue() ? number->unsigned32BitValue() : FRAME_RATE ) : FRAME_RATE;
+    IOFixed     result = FRAME_RATE;
+    OSNumber    *number = (OSNumber*)copyProperty( kIOHIDScrollReportRateKey );
+    
+    if (OSDynamicCast( OSNumber, number ))
+        if (number->unsigned32BitValue())
+            result = number->unsigned32BitValue();
+    OSSafeRelease(number);
+    
+    return result;
 }
 
 
@@ -1531,11 +1528,10 @@ OSData * IOHIPointing::copyAccelerationTable()
         0x00, 0x00
     };
 
-    OSData * data = OSDynamicCast( OSData,
-                getProperty( kIOHIDPointerAccelerationTableKey ));
-    if( data)
-        data->retain();
-    else
+    OSData * data = (OSData*)copyProperty( kIOHIDPointerAccelerationTableKey );
+    if (!OSDynamicCast( OSData, data ))
+        OSSafeReleaseNULL(data);
+    if (!data)
         data = OSData::withBytesNoCopy( (void *) accl, sizeof( accl ) );
 
     return( data );
@@ -1567,14 +1563,18 @@ OSData * IOHIPointing::copyScrollAccelerationTableForType(SInt32 type)
     }
 
     if ( key )
-        data = OSDynamicCast( OSData, getProperty( key ));
+        data = (OSData*)copyProperty( key );
 
-    if ( !data )
-		data = OSDynamicCast( OSData, getProperty( kIOHIDScrollAccelerationTableKey ));
+    if ( !OSDynamicCast( OSData, data ) ) {
+        OSSafeRelease(data);
+		data = (OSData*)copyProperty( kIOHIDScrollAccelerationTableKey );
+		if (data && !OSDynamicCast( OSData, data )) {
+            data->release();
+            data = NULL;
+        }
+	}
 
-	if ( data )
-		data->retain();
-	else
+	if ( !data )
 		data = copyAccelerationTable();
 
     return( data );

@@ -83,15 +83,6 @@ CFTypeRef       IOPSGetActiveBattery(CFTypeRef snapshot);
 CFTypeRef       IOPSGetActiveUPS(CFTypeRef snapshot);
 
 /*! 
- * @function    IOPSGetProvidingPowerSourceType
- * @abstract    Indicates the power source the computer is currently drawing from.
- * @discussion  Determines which power source is providing power.
- * @param       snapshot The CFTypeRef returned by IOPSCopyPowerSourcesInfo()
- * @result      One of: CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), CFSTR(kIOPMUPSPowerKey)
- */
-CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
-
-/*! 
  * @function    IOPSPowerSourceSupported
  * @abstract    Indicates whether a power source is present on a given system.
  * @discussion  For determining if you should show UPS-specific UI
@@ -100,7 +91,6 @@ CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
  * @result      kCFBooleanTrue if the power source is supported, kCFBooleanFalse otherwise.
  */
 CFBooleanRef    IOPSPowerSourceSupported(CFTypeRef snapshot, CFStringRef type);
-
 
 /*! 
  *  @typedef    IOPSPowerSourceID

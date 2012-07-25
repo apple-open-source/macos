@@ -40,11 +40,21 @@ __FBSDID("$FreeBSD: src/lib/libc/net/send.c,v 1.4 2007/01/09 00:28:02 imp Exp $"
 #include <stddef.h>
 #include "un-namespace.h"
 
+#ifdef VARIANT_CANCELABLE
+ssize_t __sendto(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
+#else /* !VARIANT_CANCELABLE */
+ssize_t __sendto_nocancel(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
+#endif /* VARIANT_CANCELABLE */
+
 ssize_t
 send(s, msg, len, flags)
 	int s, flags;
 	size_t len;
 	const void *msg;
 {
-	return (_sendto(s, msg, len, flags, NULL, 0));
+#ifdef VARIANT_CANCELABLE
+	return (__sendto(s, msg, len, flags, NULL, 0));
+#else /* !VARIANT_CANCELABLE */
+	return (__sendto_nocancel(s, msg, len, flags, NULL, 0));
+#endif /* VARIANT_CANCELABLE */
 }

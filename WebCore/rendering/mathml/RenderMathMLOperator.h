@@ -35,20 +35,29 @@ namespace WebCore {
     
 class RenderMathMLOperator : public RenderMathMLBlock {
 public:
-    RenderMathMLOperator(Node* container);
-    RenderMathMLOperator(Node* container, UChar operatorChar);
+    RenderMathMLOperator(Element*);
+    RenderMathMLOperator(Node*, UChar operatorChar);
     virtual bool isRenderMathMLOperator() const { return true; }
-    virtual void stretchToHeight(int pixelHeight);
-    virtual void updateFromElement(); 
+    
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual void updateFromElement() OVERRIDE;
+    
+    virtual RenderMathMLOperator* unembellishedOperator() OVERRIDE { return this; }
+    void stretchToHeight(int pixelHeight);
+    
+    virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
         
 protected:
-    virtual void layout();
-    virtual RefPtr<RenderStyle> createStackableStyle(int size, int topRelative);
-    virtual RenderBlock* createGlyph(UChar glyph, int size = 0, int charRelative = 0, int topRelative = 0);
+    virtual void computePreferredLogicalWidths() OVERRIDE;
+    PassRefPtr<RenderStyle> createStackableStyle(int lineHeight, int maxHeightForRenderer, int topRelative);
+    RenderBlock* createGlyph(UChar glyph, int lineHeight, int maxHeightForRenderer = 0, int charRelative = 0, int topRelative = 0);
     
 private:
+    virtual const char* renderName() const { return isAnonymous() ? "RenderMathMLOperator (anonymous)" : "RenderMathMLOperator"; }
+
+    int glyphHeightForCharacter(UChar);
+    int lineHeightForCharacter(UChar);
+
     int m_stretchHeight;
     bool m_isStacked;
     UChar m_operator;
@@ -65,6 +74,9 @@ inline const RenderMathMLOperator* toRenderMathMLOperator(const RenderMathMLBloc
     ASSERT(!block || block->isRenderMathMLOperator());
     return static_cast<const RenderMathMLOperator*>(block);
 }
+
+// This will catch anyone doing an unnecessary cast.
+void toRenderMathMLOperator(const RenderMathMLOperator*);
 
 inline UChar convertHyphenMinusToMinusSign(UChar glyph)
 {

@@ -1,5 +1,5 @@
 /*
- * "$Id: util.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: util.c 7621 2008-06-06 18:55:35Z mike $"
  *
  *   Mini-daemon utility functions for CUPS.
  *
@@ -170,7 +170,7 @@ cupsdCreateStringsArray(const char *s)	/* I - Comma-delimited strings */
 /*
  * 'cupsdExec()' - Run a program with the correct environment.
  *
- * On Mac OS X, we need to update the CFProcessPath environment variable that
+ * On OS X, we need to update the CFProcessPath environment variable that
  * is passed in the environment so the child can access its bundled resources.
  */
 
@@ -187,7 +187,7 @@ cupsdExec(const char *command,		/* I - Full path to program */
 
 
  /*
-  * Some Mac OS X programs are bundled and need the CFProcessPath environment
+  * Some OS X programs are bundled and need the CFProcessPath environment
   * variable defined.  If the command is a symlink, resolve the link and point
   * to the resolved location, otherwise, use the command path itself.
   */
@@ -467,5 +467,5 @@ cupsdSendIPPTrailer(void)
 
 
 /*
- * End of "$Id: util.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: util.c 7621 2008-06-06 18:55:35Z mike $".
  */

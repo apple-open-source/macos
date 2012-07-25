@@ -24,6 +24,7 @@
 #ifndef RenderThemeChromiumMac_h
 #define RenderThemeChromiumMac_h
 
+#import "RenderThemeChromiumCommon.h"
 #import "RenderThemeMac.h"
 
 namespace WebCore {
@@ -31,9 +32,13 @@ namespace WebCore {
 class RenderThemeChromiumMac : public RenderThemeMac {
 public:
     static PassRefPtr<RenderTheme> create();
+
+    virtual bool supportsDataListUI(const AtomicString& type) const OVERRIDE;
+
 protected:
+    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
 #if ENABLE(VIDEO)
-    virtual void adjustMediaSliderThumbSize(RenderObject*) const;
+    virtual void adjustMediaSliderThumbSize(RenderStyle*) const;
     virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
@@ -47,7 +52,7 @@ protected:
     virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
     virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&) const;
+    virtual IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&) const OVERRIDE;
     virtual bool usesMediaControlStatusDisplay() { return false; }
     virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
 #endif
@@ -57,8 +62,15 @@ protected:
 
     virtual int popupInternalPaddingLeft(RenderStyle*) const;
     virtual int popupInternalPaddingRight(RenderStyle*) const;
+
 private:
+    virtual Color disabledTextColor(const Color& textColor, const Color&) const OVERRIDE { return textColor; }
     virtual void updateActiveState(NSCell*, const RenderObject*);
+    virtual String extraDefaultStyleSheet();
+#if ENABLE(CALENDAR_PICKER)
+    virtual CString extraCalendarPickerStyleSheet() OVERRIDE;
+#endif
+    virtual bool shouldShowPlaceholderWhenFocused() const OVERRIDE;
 };
 
 } // namespace WebCore

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -75,7 +75,7 @@ int	b_umask(int argc,char *argv[],void *extra)
 		{
 			char *cp = mask;
 			flag = umask(0);
-			c = strperm(cp,&cp,~flag);
+			c = strperm(cp,&cp,~flag&0777);
 			if(*cp)
 			{
 				umask(flag);

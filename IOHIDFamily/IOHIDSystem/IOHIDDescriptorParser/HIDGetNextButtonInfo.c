@@ -96,8 +96,7 @@ OSStatus HIDGetNextButtonInfo
 	// The Collection must be in range
 
 	iCollection = *collection;
-	// Umm... an unsigned number can never be less than 0!
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 
 	// HIDGetNextButtonInfo is different from HIDGetButton in how it treats

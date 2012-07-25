@@ -356,7 +356,9 @@ static OM_uint32
 kdc_type3(OM_uint32 *minor_status,
 	  void *ctx,
 	  const struct ntlm_type3 *type3,
+	  ntlm_cred accept_cred,
 	  uint32_t *flags,
+	  uint32_t *avflags,
 	  struct ntlm_buf *sessionkey,
 	  ntlm_name *name, struct ntlm_buf *uuid,
 	  struct ntlm_buf *pac)
@@ -364,7 +366,7 @@ kdc_type3(OM_uint32 *minor_status,
     struct ntlmkrb5 *c = ctx;
     krb5_error_code ret;
 
-    *flags = 0;
+    *avflags = *flags = 0;
 
     sessionkey->data = NULL;
     sessionkey->length = 0;

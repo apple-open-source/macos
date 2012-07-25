@@ -31,18 +31,19 @@
 #ifndef WebInputEventConversion_h
 #define WebInputEventConversion_h
 
-#include "WebInputEvent.h"
-
+#include "PlatformGestureEvent.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformTouchEvent.h"
 #include "PlatformWheelEvent.h"
+#include "WebInputEvent.h"
 
 namespace WebCore {
 class KeyboardEvent;
 class MouseEvent;
 class ScrollView;
 class WheelEvent;
+class TouchEvent;
 class Widget;
 }
 
@@ -51,6 +52,8 @@ namespace WebKit {
 class WebMouseEvent;
 class WebMouseWheelEvent;
 class WebKeyboardEvent;
+class WebTouchEvent;
+class WebGestureEvent;
 
 // These classes are used to convert from WebInputEvent subclasses to
 // corresponding WebCore events.
@@ -65,6 +68,13 @@ public:
     PlatformWheelEventBuilder(WebCore::Widget*, const WebMouseWheelEvent&);
 };
 
+#if ENABLE(GESTURE_EVENTS)
+class PlatformGestureEventBuilder : public WebCore::PlatformGestureEvent {
+public:
+    PlatformGestureEventBuilder(WebCore::Widget*, const WebGestureEvent&);
+};
+#endif
+
 class PlatformKeyboardEventBuilder : public WebCore::PlatformKeyboardEvent {
 public:
     PlatformKeyboardEventBuilder(const WebKeyboardEvent&);
@@ -73,11 +83,13 @@ public:
 };
 
 #if ENABLE(TOUCH_EVENTS)
+// Converts a WebTouchPoint to a WebCore::PlatformTouchPoint.
 class PlatformTouchPointBuilder : public WebCore::PlatformTouchPoint {
 public:
     PlatformTouchPointBuilder(WebCore::Widget*, const WebTouchPoint&);
 };
 
+// Converts a WebTouchEvent to a WebCore::PlatformTouchEvent.
 class PlatformTouchEventBuilder : public WebCore::PlatformTouchEvent {
 public:
     PlatformTouchEventBuilder(WebCore::Widget*, const WebTouchEvent&);
@@ -108,6 +120,16 @@ class WebKeyboardEventBuilder : public WebKeyboardEvent {
 public:
     WebKeyboardEventBuilder(const WebCore::KeyboardEvent&);
 };
+
+#if ENABLE(TOUCH_EVENTS)
+// Converts a WebCore::TouchEvent to a corresponding WebTouchEvent.
+// NOTE: WebTouchEvents have a cap on the number of WebTouchPoints. Any points
+// exceeding that cap will be dropped.
+class WebTouchEventBuilder : public WebTouchEvent {
+public:
+    WebTouchEventBuilder(const WebCore::Widget*, const WebCore::TouchEvent&);
+};
+#endif // ENABLE(TOUCH_EVENTS)
 
 } // namespace WebKit
 

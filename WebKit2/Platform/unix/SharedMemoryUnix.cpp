@@ -41,12 +41,8 @@
 #include <unistd.h>
 #include <wtf/Assertions.h>
 #include <wtf/CurrentTime.h>
-
-#if PLATFORM(QT)
-#include <QDir>
-#elif PLATFORM(GTK)
-#include <wtf/gobject/GOwnPtr.h>
-#endif
+#include <wtf/RandomNumber.h>
+#include <wtf/text/CString.h>
 
 namespace WebKit {
 
@@ -69,8 +65,6 @@ bool SharedMemory::Handle::isNull() const
 
 void SharedMemory::Handle::encode(CoreIPC::ArgumentEncoder* encoder) const
 {
-    ASSERT(!isNull());
-
     encoder->encode(releaseToAttachment());
 }
 
@@ -89,8 +83,6 @@ bool SharedMemory::Handle::decode(CoreIPC::ArgumentDecoder* decoder, Handle& han
 
 CoreIPC::Attachment SharedMemory::Handle::releaseToAttachment() const
 {
-    ASSERT(!isNull());
-
     int temp = m_fileDescriptor;
     m_fileDescriptor = -1;
     return CoreIPC::Attachment(temp, m_size);
@@ -107,32 +99,24 @@ void SharedMemory::Handle::adoptFromAttachment(int fileDescriptor, size_t size)
 
 PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
 {
-#if PLATFORM(QT)
-    QString tempName = QDir::temp().filePath(QLatin1String("qwkshm.XXXXXX"));
-    QByteArray tempNameCSTR = tempName.toLocal8Bit();
-    char* tempNameC = tempNameCSTR.data();
-#elif PLATFORM(GTK)
-    GOwnPtr<gchar> tempName(g_build_filename(g_get_tmp_dir(), "WK2SharedMemoryXXXXXX", NULL));
-    gchar* tempNameC = tempName.get();
-#endif
+    CString tempName;
 
-    int fileDescriptor;
-    while ((fileDescriptor = mkstemp(tempNameC)) == -1) {
-        if (errno != EINTR)
-            return 0;
+    int fileDescriptor = -1;
+    for (int tries = 0; fileDescriptor == -1 && tries < 10; ++tries) {
+        String name = String("/WK2SharedMemory.") + String::number(static_cast<unsigned>(WTF::randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)));
+        tempName = name.utf8();
+
+        do {
+            fileDescriptor = shm_open(tempName.data(), O_CREAT | O_CLOEXEC | O_RDWR, S_IRUSR | S_IWUSR);
+        } while (fileDescriptor == -1 && errno == EINTR);
     }
-    while (fcntl(fileDescriptor, F_SETFD, FD_CLOEXEC) == -1) {
-        if (errno != EINTR) {
-            while (close(fileDescriptor) == -1 && errno == EINTR) { }
-            unlink(tempNameC);
-            return 0;
-        }
-    }
+    if (fileDescriptor == -1)
+        return 0;
 
     while (ftruncate(fileDescriptor, size) == -1) {
         if (errno != EINTR) {
             while (close(fileDescriptor) == -1 && errno == EINTR) { }
-            unlink(tempNameC);
+            shm_unlink(tempName.data());
             return 0;
         }
     }
@@ -140,11 +124,11 @@ PassRefPtr<SharedMemory> SharedMemory::create(size_t size)
     void* data = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fileDescriptor, 0);
     if (data == MAP_FAILED) {
         while (close(fileDescriptor) == -1 && errno == EINTR) { }
-        unlink(tempNameC);
+        shm_unlink(tempName.data());
         return 0;
     }
 
-    unlink(tempNameC);
+    shm_unlink(tempName.data());
 
     RefPtr<SharedMemory> instance = adoptRef(new SharedMemory());
     instance->m_data = data;

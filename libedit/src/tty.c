@@ -47,6 +47,7 @@ __RCSID("$NetBSD: tty.c,v 1.33 2010/04/18 21:17:22 christos Exp $");
 #include <assert.h>
 #include <errno.h>
 #include <strings.h>	/* for ffs */
+#include <sys/ioctl.h>
 #include "el.h"
 #include "tty.h"
 
@@ -492,9 +493,47 @@ private int
 tty_setup(EditLine *el)
 {
 	int rst = 1;
+	int pgrp;
 
 	if (el->el_flags & EDIT_DISABLED)
 		return (0);
+
+	/*
+	 * Return -1 (which will cause the NO_TTY flag to be set) if
+	 * the output file descriptor isn't a tty (eg, a pipe), or if it
+	 * is the controlling tty and it's process group doesn't match the
+	 * process's process group (meaning the process is in the background).
+	 * Note: we replicate the action of tcgetpgrp(), because we need
+	 * to distinguish between when the file descriptor isn't a tty,
+	 * and when that tty isn't the controlling tty.  So we call isatty()
+	 * to detect the first case, then call ioctl() to get the process
+	 * group.  If it returns ENOTTY, then the tty isn't the controlling
+	 * tty, but we go ahead and allow setting the tty, because no SIGTTOU
+	 * will be generated.
+	 */
+	if (!isatty(fileno(el->el_outfile))) {
+#ifdef DEBUG_TTY
+		(void) fprintf(el->el_errfile,
+		    "tty_setup: isatty: %s\n", strerror(errno));
+#endif /* DEBUG_TTY */
+		return (-1);
+	}
+	if (ioctl(fileno(el->el_outfile), TIOCGPGRP, &pgrp) < 0) {
+#ifdef DEBUG_TTY
+		(void) fprintf(el->el_errfile,
+		    "tty_setup: ioctl: %s\n", strerror(errno));
+#endif /* DEBUG_TTY */
+		if(errno != ENOTTY) return (-1);
+		else pgrp = -1;
+	}
+	if (pgrp >= 0 && getpgrp() != pgrp) {
+#ifdef DEBUG_TTY
+		(void) fprintf(el->el_errfile,
+		    "tty_setup: getpgrp(%d) != pgrp(%d)\n",
+		    (int)getpgrp(), (int)pgrp);
+#endif /* DEBUG_TTY */
+		return (-1);
+	}
 
 	if (tty_getty(el, &el->el_tty.t_ed) == -1) {
 #ifdef DEBUG_TTY
@@ -941,7 +980,7 @@ tty_rawmode(EditLine *el)
 	if (el->el_tty.t_mode == ED_IO || el->el_tty.t_mode == QU_IO)
 		return (0);
 
-	if (el->el_flags & EDIT_DISABLED)
+	if (el->el_flags & (EDIT_DISABLED|NO_TTY))
 		return (0);
 
 	if (tty_getty(el, &el->el_tty.t_ts) == -1) {
@@ -1096,7 +1135,7 @@ tty_cookedmode(EditLine *el)
 	if (el->el_tty.t_mode == EX_IO)
 		return (0);
 
-	if (el->el_flags & EDIT_DISABLED)
+	if (el->el_flags & (EDIT_DISABLED|NO_TTY))
 		return (0);
 
 	if (tty_setty(el, TCSADRAIN, &el->el_tty.t_ex) == -1) {
@@ -1119,6 +1158,9 @@ protected int
 tty_quotemode(EditLine *el)
 {
 	if (el->el_tty.t_mode == QU_IO)
+		return (0);
+
+	if (el->el_flags & (EDIT_DISABLED|NO_TTY))
 		return (0);
 
 	el->el_tty.t_qu = el->el_tty.t_ed;
@@ -1156,6 +1198,10 @@ tty_noquotemode(EditLine *el)
 
 	if (el->el_tty.t_mode != QU_IO)
 		return (0);
+
+	if (el->el_flags & (EDIT_DISABLED|NO_TTY))
+		return (0);
+
 	if (tty_setty(el, TCSADRAIN, &el->el_tty.t_ed) == -1) {
 #ifdef DEBUG_TTY
 		(void) fprintf(el->el_errfile, "QuoteModeOff: tty_setty: %s\n",
@@ -1182,6 +1228,9 @@ tty_stty(EditLine *el, int argc __attribute__((__unused__)), const Char **argv)
         char name[EL_BUFSIZ];
 	struct termios *tios = &el->el_tty.t_ex;
 	int z = EX_IO;
+
+	if (el->el_flags & (EDIT_DISABLED|NO_TTY))
+		return (0);
 
 	if (argv == NULL)
 		return (-1);

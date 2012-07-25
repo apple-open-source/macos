@@ -110,7 +110,7 @@ extern char* gdtoa ANSI((FPI *fpi, int be, ULong *bits, int *kindp,
 extern void freedtoa ANSI((char*));
 extern float  strtof ANSI((CONST char *, char **));
 extern double strtod ANSI((CONST char *, char **));
-extern int strtodg ANSI((CONST char*, char**, FPI*, Long*, ULong*));
+extern int strtodg ANSI((CONST char*, char**, FPI*, Long*, ULong*, locale_t)) __DARWIN_ALIAS(strtodg);
 
 extern char*	g_ddfmt  ANSI((char*, double*, int, size_t));
 extern char*	g_dfmt   ANSI((char*, double*, int, size_t));
@@ -134,10 +134,10 @@ extern int	strtorxL ANSI((CONST char*, char**, int, void*));
 #if 1
 extern int	strtodI  ANSI((CONST char*, char**, double*));
 extern int	strtopd  ANSI((CONST char*, char**, double*));
-extern int	strtopdd ANSI((CONST char*, char**, double*));
+extern int	strtopdd ANSI((CONST char*, char**, double*, locale_t));
 extern int	strtopf  ANSI((CONST char*, char**, float*));
 extern int	strtopQ  ANSI((CONST char*, char**, void*));
-extern int	strtopx  ANSI((CONST char*, char**, void*));
+extern int	strtopx  ANSI((CONST char*, char**, void*, locale_t));
 extern int	strtopxL ANSI((CONST char*, char**, void*));
 #else
 #define strtopd(s,se,x) strtord(s,se,1,x)

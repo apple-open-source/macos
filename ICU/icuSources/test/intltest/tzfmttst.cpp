@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2010, International Business Machines Corporation and    *
+* Copyright (C) 2007-2012, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -20,7 +20,7 @@
 #include "unicode/basictz.h"
 #include "cstring.h"
 
-static const char* PATTERNS[] = {"z", "zzzz", "Z", "ZZZZ", "v", "vvvv", "V", "VVVV"};
+static const char* PATTERNS[] = {"z", "zzzz", "Z", "ZZZZ", "ZZZZZ", "v", "vvvv", "V", "VVVV"};
 static const int NUM_PATTERNS = sizeof(PATTERNS)/sizeof(const char*);
 
 void
@@ -102,21 +102,25 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip(void) {
     }
 
     StringEnumeration *tzids = TimeZone::createEnumeration();
-    if (U_FAILURE(status)) {
-        errln("tzids->count failed");
-        return;
-    }
-
     int32_t inRaw, inDst;
     int32_t outRaw, outDst;
 
     // Run the roundtrip test
     for (int32_t locidx = 0; locidx < nLocales; locidx++) {
+        UnicodeString localGMTString;
+        SimpleDateFormat gmtFmt(UnicodeString("ZZZZ"), LOCALES[locidx], status);
+        if (U_FAILURE(status)) {
+            dataerrln("Error creating SimpleDateFormat - %s", u_errorName(status));
+            continue;
+        }
+        gmtFmt.setTimeZone(*TimeZone::getGMT());
+        gmtFmt.format(0.0, localGMTString);
+
         for (int32_t patidx = 0; patidx < NUM_PATTERNS; patidx++) {
 
             SimpleDateFormat *sdf = new SimpleDateFormat((UnicodeString)PATTERNS[patidx], LOCALES[locidx], status);
             if (U_FAILURE(status)) {
-                errcheckln(status, (UnicodeString)"new SimpleDateFormat failed for pattern " +
+                dataerrln((UnicodeString)"new SimpleDateFormat failed for pattern " +
                     PATTERNS[patidx] + " for locale " + LOCALES[locidx].getName() + " - " + u_errorName(status));
                 status = U_ZERO_ERROR;
                 continue;
@@ -202,13 +206,18 @@ TimeZoneFormatTest::TestTimeZoneRoundTrip(void) {
 
                     } else {
                         // Check if localized GMT format or RFC format is used.
-                        int32_t numDigits = 0;
-                        for (int n = 0; n < tzstr.length(); n++) {
-                            if (u_isdigit(tzstr.charAt(n))) {
-                                numDigits++;
+                        UBool isOffsetFormat = (*PATTERNS[patidx] == 'Z');
+                        if (!isOffsetFormat) {
+                            // Check if localized GMT format is used as a fallback of name styles
+                            int32_t numDigits = 0;
+                            for (int n = 0; n < tzstr.length(); n++) {
+                                if (u_isdigit(tzstr.charAt(n))) {
+                                    numDigits++;
+                                }
                             }
+                            isOffsetFormat = (numDigits >= 3);
                         }
-                        if (numDigits >= 3) {
+                        if (isOffsetFormat || tzstr == localGMTString) {
                             // Localized GMT or RFC: total offset (raw + dst) must be preserved.
                             int32_t inOffset = inRaw + inDst;
                             int32_t outOffset = outRaw + outDst;
@@ -260,9 +269,9 @@ public:
         UBool REALLY_VERBOSE = FALSE;
 
         // Whether each pattern is ambiguous at DST->STD local time overlap
-        UBool AMBIGUOUS_DST_DECESSION[] = { FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, TRUE };
+        UBool AMBIGUOUS_DST_DECESSION[] = { FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, TRUE };
         // Whether each pattern is ambiguous at STD->STD/DST->DST local time overlap
-        UBool AMBIGUOUS_NEGATIVE_SHIFT[] = { TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE };
+        UBool AMBIGUOUS_NEGATIVE_SHIFT[] = { TRUE, TRUE, FALSE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE };
 
         // Workaround for #6338
         //UnicodeString BASEPATTERN("yyyy-MM-dd'T'HH:mm:ss.SSS");
@@ -274,9 +283,17 @@ public:
         UBool expectedRoundTrip[4];
         int32_t testLen = 0;
 
-        StringEnumeration *tzids = TimeZone::createEnumeration();
+        StringEnumeration *tzids = TimeZone::createTimeZoneIDEnumeration(UCAL_ZONE_TYPE_CANONICAL, NULL, NULL, status);
         if (U_FAILURE(status)) {
-            log.errln("tzids->count failed");
+            if (status == U_MISSING_RESOURCE_ERROR) {
+                /* This error is generally caused by data not being present. However, an infinite loop will occur
+                 * because the thread thinks that the test data is never done so we should treat the data as done.
+                 */
+                log.dataerrln("TimeZone::createTimeZoneIDEnumeration failed - %s", u_errorName(status));
+                data.numDone = data.nLocales;
+            } else {
+                log.errln("TimeZone::createTimeZoneIDEnumeration failed: %s", u_errorName(status));
+            }
             return;
         }
 
@@ -330,17 +347,6 @@ public:
                 timer = Calendar::getNow();
 
                 while ((tzid = tzids->snext(status))) {
-                    UnicodeString canonical;
-                    TimeZone::getCanonicalID(*tzid, canonical, status);
-                    if (U_FAILURE(status)) {
-                        // Unknown ID - we should not get here
-                        status = U_ZERO_ERROR;
-                        continue;
-                    }
-                    if (*tzid != canonical) {
-                        // Skip aliases
-                        continue;
-                    }
                     BasicTimeZone *tz = (BasicTimeZone*) TimeZone::createTimeZone(*tzid);
                     sdf->setTimeZone(*tz);
 
@@ -401,6 +407,7 @@ public:
                             if (parsedDate != testTimes[testidx]) {
                                 UnicodeString msg = (UnicodeString) "Time round trip failed for " + "tzid=" + *tzid + ", locale=" + data.locales[locidx].getName() + ", pattern=" + PATTERNS[patidx]
                                         + ", text=" + text + ", time=" + testTimes[testidx] + ", restime=" + parsedDate + ", diff=" + (parsedDate - testTimes[testidx]);
+                                // Timebomb for TZData update
                                 if (expectedRoundTrip[testidx]) {
                                     log.errln((UnicodeString) "FAIL: " + msg);
                                 } else if (REALLY_VERBOSE) {

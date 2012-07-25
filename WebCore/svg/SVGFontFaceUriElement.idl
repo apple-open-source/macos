@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG&SVG_FONTS] SVGFontFaceUriElement : SVGElement {
+    interface [
+        Conditional=SVG&SVG_FONTS
+    ] SVGFontFaceUriElement : SVGElement {
     };
 
 }

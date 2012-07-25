@@ -1,3 +1,0 @@
-require "fileinto";
-
-fileinto "frop";

@@ -22,6 +22,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
+#include <architecture/i386/asm_help.h>
 
 #define	PTHRW_LVAL    0
 #define	PTHRW_UVAL    4
@@ -42,7 +43,8 @@ __commpage_pthread_mutex_lock:
 	decl	%eax		    // decrement max spin count
 	jnz	1b		    // keep spinning
 2:
-	movq	$(_COMM_PAGE_PFZ_MUTEX_LOCK), %rcx
+	movq    _commpage_pfz_base(%rip),%rcx
+	addq	$(_COMM_TEXT_PFZ_MUTEX_LOCK_OFFSET), %rcx
 	call	*%rcx
 	testl	%ebx,%ebx	    // pending preemption?
 	jz	1f		    // no

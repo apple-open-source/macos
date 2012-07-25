@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009, 2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: timer.c,v 1.95.302.3 2011-03-11 06:47:08 marka Exp $ */
 
 /*! \file */
 
@@ -977,12 +977,13 @@ isc__timermgr_destroy(isc_timermgr_t **managerp) {
 	LOCK(&manager->lock);
 
 #ifdef USE_SHARED_MANAGER
-	if (manager->refs > 1) {
-		manager->refs--;
+	manager->refs--;
+	if (manager->refs > 0) {
 		UNLOCK(&manager->lock);
 		*managerp = NULL;
 		return;
 	}
+	timermgr = NULL;
 #endif /* USE_SHARED_MANAGER */
 
 #ifndef USE_TIMER_THREAD

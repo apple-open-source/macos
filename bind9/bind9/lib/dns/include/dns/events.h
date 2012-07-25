@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007, 2009, 2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009, 2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: events.h,v 1.56 2010-12-21 03:11:42 marka Exp $ */
 
 #ifndef DNS_EVENTS_H
 #define DNS_EVENTS_H 1
@@ -72,6 +72,8 @@
 #define DNS_EVENT_MANAGEKEYS			(ISC_EVENTCLASS_DNS + 42)
 #define DNS_EVENT_CLIENTRESDONE			(ISC_EVENTCLASS_DNS + 43)
 #define DNS_EVENT_CLIENTREQDONE			(ISC_EVENTCLASS_DNS + 44)
+#define DNS_EVENT_ADBGROWENTRIES		(ISC_EVENTCLASS_DNS + 45)
+#define DNS_EVENT_ADBGROWNAMES			(ISC_EVENTCLASS_DNS + 46)
 
 #define DNS_EVENT_FIRSTEVENT			(ISC_EVENTCLASS_DNS + 0)
 #define DNS_EVENT_LASTEVENT			(ISC_EVENTCLASS_DNS + 65535)

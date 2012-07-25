@@ -1,0 +1,7 @@
+{
+	"gss_aapl_initial_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	}
+}

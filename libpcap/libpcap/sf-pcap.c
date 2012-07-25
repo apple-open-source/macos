@@ -321,6 +321,9 @@ pcap_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 			return (1);
 		}
 	}
+#ifdef __APPLE__
+	memset(hdr->comment, 0, sizeof(hdr->comment));
+#endif
 
 	if (p->sf.swapped) {
 		/* these were written in opposite byte order */

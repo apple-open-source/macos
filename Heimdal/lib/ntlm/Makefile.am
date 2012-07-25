@@ -6,7 +6,10 @@ AM_CPPFLAGS += $(INCLUDE_hcrypto)
 
 lib_LTLIBRARIES = libheimntlm.la
 
-include_HEADERS = heimntlm.h heimntlm-protos.h
+dist_include_HEADERS = heimntlm.h heimntlm-protos.h
+
+nodist_include_HEADERS = ntlm_err.h
+
 
 dist_libheimntlm_la_SOURCES = ntlm.c heimntlm.h
 
@@ -27,9 +30,6 @@ libheimntlm_la_LIBADD = \
 $(srcdir)/heimntlm-protos.h:
 	cd $(srcdir) && perl ../../cf/make-proto.pl -q -P comment -o heimntlm-protos.h $(libheimntlm_la_SOURCES) || rm -f heimntlm-protos.h
 
-$(srcdir)/heimntlm-protos.h:
-	cd $(srcdir) && perl ../../cf/make-proto.pl -q -P comment -o heimntlm-protos.h $(libheimntlm_la_SOURCES) || rm -f heimntlm-protos.h
-
 $(libheimntlm_la_OBJECTS): $(srcdir)/heimntlm-protos.h ntlm_err.h
 
 TESTS = test_ntlm
@@ -38,7 +38,12 @@ check_PROGRAMS = test_ntlm
 
 LDADD = libheimntlm.la $(LIB_roken)
 
-EXTRA_DIST = version-script.map ntlm_err.et
+EXTRA_DIST = \
+	NTMakefile \
+	libheimntlm-version.rc \
+	libheimntlm-exports.def \
+	version-script.map \
+	ntlm_err.et
 
 CLEANFILES = \
 	ntlm_err.c ntlm_err.h

@@ -945,7 +945,7 @@ mcopy(struct magic_set *ms, union VALUETYPE *p, int type, int indir,
 			buf = (const char *)s + offset;
 			end = last = (const char *)s + nbytes;
 			/* mget() guarantees buf <= last */
-			for (lines = linecnt, b = buf; lines &&
+			for (lines = linecnt, b = buf; lines && b < end &&
 			     ((b = CAST(const char *,
 				 memchr(c = b, '\n', CAST(size_t, (end - b)))))
 			     || (b = CAST(const char *,

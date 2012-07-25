@@ -42,13 +42,13 @@ WKTypeID WKBundleNodeHandleGetTypeID()
 WKBundleNodeHandleRef WKBundleNodeHandleCreate(JSContextRef contextRef, JSObjectRef objectRef)
 {
     RefPtr<InjectedBundleNodeHandle> nodeHandle = InjectedBundleNodeHandle::getOrCreate(contextRef, objectRef);
-    return toAPI(nodeHandle.release().releaseRef());
+    return toAPI(nodeHandle.release().leakRef());
 }
 
 WKBundleNodeHandleRef WKBundleNodeHandleCopyDocument(WKBundleNodeHandleRef nodeHandleRef)
 {
     RefPtr<InjectedBundleNodeHandle> nodeHandle = toImpl(nodeHandleRef)->document();
-    return toAPI(nodeHandle.release().releaseRef());
+    return toAPI(nodeHandle.release().leakRef());
 }
 
 WKRect WKBundleNodeHandleGetRenderRect(WKBundleNodeHandleRef nodeHandleRef, bool* isReplaced)
@@ -59,28 +59,6 @@ WKRect WKBundleNodeHandleGetRenderRect(WKBundleNodeHandleRef nodeHandleRef, bool
 WKRect WKBundleNodeHandleGetElementBounds(WKBundleNodeHandleRef elementHandleRef)
 {
     return toAPI(toImpl(elementHandleRef)->elementBounds());
-}
-
-WKBundleNodeHandleRef WKBundleNodeHandleCopyElementShadowRoot(WKBundleNodeHandleRef elementHandleRef)
-{
-    RefPtr<InjectedBundleNodeHandle> nodeHandle = toImpl(elementHandleRef)->elementShadowRoot();
-    return toAPI(nodeHandle.release().releaseRef());
-}
-
-WKBundleNodeHandleRef WKBundleNodeHandleCopyElementEnsureShadowRoot(WKBundleNodeHandleRef elementHandleRef)
-{
-    RefPtr<InjectedBundleNodeHandle> nodeHandle = toImpl(elementHandleRef)->elementEnsureShadowRoot();
-    return toAPI(nodeHandle.release().releaseRef());
-}
-
-void WKBundleNodeHandleRemoveShadowRoot(WKBundleNodeHandleRef elementHandleRef)
-{
-    toImpl(elementHandleRef)->elementRemoveShadowRoot();
-}
-
-WKStringRef WKBundleNodeHandleShadowPseudoId(WKBundleNodeHandleRef elementHandleRef)
-{
-    return toCopiedAPI(toImpl(elementHandleRef)->elementShadowPseudoId());
 }
 
 void WKBundleNodeHandleSetHTMLInputElementValueForUser(WKBundleNodeHandleRef htmlInputElementHandleRef, WKStringRef valueRef)
@@ -111,23 +89,23 @@ bool WKBundleNodeHandleGetHTMLTextAreaElementLastChangeWasUserEdit(WKBundleNodeH
 WKBundleNodeHandleRef WKBundleNodeHandleCopyHTMLTableCellElementCellAbove(WKBundleNodeHandleRef htmlTableCellElementHandleRef)
 {
     RefPtr<InjectedBundleNodeHandle> nodeHandle = toImpl(htmlTableCellElementHandleRef)->htmlTableCellElementCellAbove();
-    return toAPI(nodeHandle.release().releaseRef());
+    return toAPI(nodeHandle.release().leakRef());
 }
 
 WKBundleFrameRef WKBundleNodeHandleCopyDocumentFrame(WKBundleNodeHandleRef documentHandleRef)
 {
     RefPtr<WebFrame> frame = toImpl(documentHandleRef)->documentFrame();
-    return toAPI(frame.release().releaseRef());
+    return toAPI(frame.release().leakRef());
 }
 
 WKBundleFrameRef WKBundleNodeHandleCopyHTMLFrameElementContentFrame(WKBundleNodeHandleRef htmlFrameElementHandleRef)
 {
     RefPtr<WebFrame> frame = toImpl(htmlFrameElementHandleRef)->htmlFrameElementContentFrame();
-    return toAPI(frame.release().releaseRef());
+    return toAPI(frame.release().leakRef());
 }
 
 WKBundleFrameRef WKBundleNodeHandleCopyHTMLIFrameElementContentFrame(WKBundleNodeHandleRef htmlIFrameElementHandleRef)
 {
     RefPtr<WebFrame> frame = toImpl(htmlIFrameElementHandleRef)->htmlIFrameElementContentFrame();
-    return toAPI(frame.release().releaseRef());
+    return toAPI(frame.release().leakRef());
 }

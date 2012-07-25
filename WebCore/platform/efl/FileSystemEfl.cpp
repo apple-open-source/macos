@@ -42,9 +42,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fnmatch.h>
-#if ENABLE(GLIB_SUPPORT)
 #include <glib.h> // TODO: remove me after following TODO is solved.
-#endif
 #include <limits.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -65,28 +63,6 @@ CString fileSystemRepresentation(const String& path)
 #else
     return path.utf8();
 #endif
-}
-
-String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
-{
-    char buffer[PATH_MAX];
-    const char* tmpDir = getenv("TMPDIR");
-
-    if (!tmpDir)
-        tmpDir = "/tmp";
-
-    if (snprintf(buffer, PATH_MAX, "%s/%sXXXXXX", tmpDir, prefix.utf8().data()) >= PATH_MAX)
-        goto end;
-
-    handle = mkstemp(buffer);
-    if (handle < 0)
-        goto end;
-
-    return String::fromUTF8(buffer);
-
-end:
-    handle = invalidPlatformFileHandle;
-    return String();
 }
 
 bool unloadModule(PlatformModule module)

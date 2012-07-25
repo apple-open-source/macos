@@ -130,6 +130,9 @@ WebView *getWebView(WebFrame *webFrame);
 - (NSString *)_selectedString;
 - (NSString *)_stringForRange:(DOMRange *)range;
 
+- (DOMRange *)_convertNSRangeToDOMRange:(NSRange)range;
+- (NSRange)_convertDOMRangeToNSRange:(DOMRange *)range;
+
 - (NSString *)_markupStringFromRange:(DOMRange *)range nodes:(NSArray **)nodes;
 
 - (NSRect)_caretRectAtPosition:(const WebCore::Position&)pos affinity:(NSSelectionAffinity)affinity;
@@ -138,8 +141,6 @@ WebView *getWebView(WebFrame *webFrame);
 
 - (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::FrameSelection::EAlteration)alteration direction:(WebCore::SelectionDirection)direction granularity:(WebCore::TextGranularity)granularity;
 - (NSRange)_convertToNSRange:(WebCore::Range*)range;
-- (DOMRange *)_convertNSRangeToDOMRange:(NSRange)range;
-- (NSRange)_convertDOMRangeToNSRange:(DOMRange *)range;
 - (PassRefPtr<WebCore::Range>)_convertToDOMRange:(NSRange)nsrange;
 
 - (DOMDocumentFragment *)_documentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString;

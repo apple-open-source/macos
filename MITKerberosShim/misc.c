@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include <dispatch/dispatch.h>
 
@@ -116,7 +117,6 @@ init_log(void)
     });
 }
 
-
 void
 mshim_log_entry(const char *msg, ...)
 {
@@ -139,6 +139,36 @@ mshim_failure(const char *func, int error, const char *subsystem)
 	syslog(LOG_DEBUG, "%s failed with %d for '%s'", func, error, subsystem);
     return error;
 }
+
+static void
+destroy_ctx(void *ptr)
+{
+    heim_krb5_free_context(ptr);
+}
+
+krb5_context
+mshim_ctx(void)
+{
+    static dispatch_once_t once;
+    static pthread_key_t key;
+    krb5_context ctx;
+
+    dispatch_once(&once, ^{
+	if (pthread_key_create(&key, destroy_ctx) != 0)
+	    abort();
+	});
+
+    ctx = pthread_getspecific(key);
+    if (ctx == NULL) {
+	krb5_error_code ret;
+
+	ret = heim_krb5_init_context(&ctx);
+	if (ret == 0)
+	    pthread_setspecific(key, ctx);
+    }
+    return ctx;
+}
+
 
 void *
 mshim_malloc(size_t size)
@@ -767,9 +797,9 @@ kim_library_set_ui_environment(kim_ui_environment in_ui_environment)
 }
 
 mit_krb5_boolean KRB5_CALLCONV
-krb5_kuserok (mit_krb5_context context,
-	      mit_krb5_principal client,
-	      const char *luser)
+krb5_kuserok(mit_krb5_context context,
+	     mit_krb5_principal client,
+	     const char *luser)
 {
     struct comb_principal *p = (struct comb_principal *)client;
     LOG_ENTRY();
@@ -830,4 +860,49 @@ krb5_appdefault_boolean(mit_krb5_context context,
 				       default_value,
 				       ret_value);
     free(hrealm);
+}
+
+/*
+ * Debug macros
+ */
+
+#define ddebuglevel       __KerberosDebugLogLevel
+#define dprintf           __KerberosDebugPrint
+#define dvprintf          __KerberosDebugVAPrint
+#define dprintmem         __KerberosDebugPrintMemory
+#define dprintsession     __KerberosDebugPrintSession
+
+int ddebuglevel (void);
+void dprintf (const char *in_format, ...) __attribute__ ((format (printf, 1, 2)));
+void dvprintf (const char *in_format, va_list in_args);
+void dprintmem (const void *in_data, size_t in_length);
+void dprintsession (void);
+
+
+int ddebuglevel (void)
+{
+    return 0;
+}
+
+void dprintf (const char *in_format, ...)
+{
+}
+
+void dvprintf (const char *in_format, va_list in_args)
+{
+}
+
+void dprintmem (const void *in_data, size_t in_length)
+{
+}
+
+void dprintsession (void)
+{
+}
+
+const char * KRB5_CALLCONV
+krb5_get_error_message(mit_krb5_context context, mit_krb5_error_code code)
+{
+    LOG_ENTRY();
+    return heim_krb5_get_error_message(HC(context), code);
 }

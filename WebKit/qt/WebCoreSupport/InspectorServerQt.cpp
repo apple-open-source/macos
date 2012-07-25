@@ -22,14 +22,11 @@
 
 #include "InspectorClientQt.h"
 #include "InspectorController.h"
-#include "MD5.h"
 #include "Page.h"
+#include "qhttpheader_p.h"
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 #include <QFile>
-#include <QHttpHeader>
-#include <QHttpRequestHeader>
-#include <QHttpResponseHeader>
 #include <QString>
 #include <QStringList>
 #include <QTcpServer>
@@ -37,6 +34,7 @@
 #include <QUrl>
 #include <QWidget>
 #include <qendian.h>
+#include <wtf/MD5.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -78,7 +76,7 @@ static quint32 parseWebSocketChallengeNumber(QString field)
         else if ((c >= QLatin1Char('0')) && (c <= QLatin1Char('9')))
             nString.append(c);
     }
-    quint32 num = nString.toLong();
+    quint32 num = nString.toULong();
     quint32 result = (numSpaces ? (num / numSpaces) : num);
     return result;
 }
@@ -176,7 +174,7 @@ InspectorServerRequestHandlerQt::~InspectorServerRequestHandlerQt()
 
 void InspectorServerRequestHandlerQt::tcpReadyRead()
 {
-    QHttpRequestHeader header;
+    WebKit::QHttpRequestHeader header;
     bool isWebSocket = false;
     if (!m_tcpConnection)
         return;
@@ -189,7 +187,7 @@ void InspectorServerRequestHandlerQt::tcpReadyRead()
                 m_endOfHeaders = true;
         }
         if (m_endOfHeaders) {
-            header = QHttpRequestHeader(QString::fromLatin1(m_data));
+            header = WebKit::QHttpRequestHeader(QString::fromLatin1(m_data));
             if (header.isValid()) {
                 m_path = header.path();
                 m_contentType = header.contentType().toLatin1();
@@ -211,7 +209,7 @@ void InspectorServerRequestHandlerQt::tcpReadyRead()
             // switch to websocket-style WebSocketService messaging
             if (m_tcpConnection) {
                 m_tcpConnection->disconnect(SIGNAL(readyRead()));
-                connect(m_tcpConnection, SIGNAL(readyRead()), SLOT(webSocketReadyRead()));
+                connect(m_tcpConnection, SIGNAL(readyRead()), SLOT(webSocketReadyRead()), Qt::QueuedConnection);
 
                 QByteArray key3 = m_tcpConnection->read(8);
 
@@ -222,7 +220,7 @@ void InspectorServerRequestHandlerQt::tcpReadyRead()
                 generateWebSocketChallengeResponse(number1, number2, (unsigned char*)key3.data(), (unsigned char*)responseData);
                 QByteArray response(responseData, sizeof(responseData));
 
-                QHttpResponseHeader responseHeader(101, QLatin1String("WebSocket Protocol Handshake"), 1, 1);
+                WebKit::QHttpResponseHeader responseHeader(101, QLatin1String("WebSocket Protocol Handshake"), 1, 1);
                 responseHeader.setValue(QLatin1String("Upgrade"), header.value(QLatin1String("Upgrade")));
                 responseHeader.setValue(QLatin1String("Connection"), header.value(QLatin1String("Connection")));
                 responseHeader.setValue(QLatin1String("Sec-WebSocket-Origin"), header.value(QLatin1String("Origin")));
@@ -240,7 +238,7 @@ void InspectorServerRequestHandlerQt::tcpReadyRead()
                     m_inspectorClient = m_server->inspectorClientForPage(pageNum);
                     // Attach remoteFrontendChannel to inspector, also transferring ownership.
                     if (m_inspectorClient)
-                        m_inspectorClient->attachAndReplaceRemoteFrontend(new RemoteFrontendChannel(this));
+                        m_inspectorClient->attachAndReplaceRemoteFrontend(this);
                 }
 
             }
@@ -284,7 +282,7 @@ void InspectorServerRequestHandlerQt::tcpReadyRead()
             }
         }
 
-        QHttpResponseHeader responseHeader(code, text, 1, 0);
+        WebKit::QHttpResponseHeader responseHeader(code, text, 1, 0);
         responseHeader.setContentLength(response.size());
         if (!m_contentType.isEmpty())
             responseHeader.setContentType(QString::fromLatin1(m_contentType));
@@ -359,6 +357,10 @@ void InspectorServerRequestHandlerQt::webSocketReadyRead()
 
         QByteArray payload = m_data.mid(1, length);
 
+        // Remove this WebSocket message from m_data (payload, start-of-frame byte, end-of-frame byte).
+        // Truncate data before delivering message in case of re-entrancy.
+        m_data = m_data.mid(length + 2);
+        
 #if ENABLE(INSPECTOR)
         if (m_inspectorClient) {
           InspectorController* inspectorController = m_inspectorClient->m_inspectedWebPage->d->page->inspectorController();
@@ -366,23 +368,7 @@ void InspectorServerRequestHandlerQt::webSocketReadyRead()
         }
 #endif
 
-        // Remove this WebSocket message from m_data (payload, start-of-frame byte, end-of-frame byte).
-        m_data = m_data.mid(length + 2);
     }
-}
-
-RemoteFrontendChannel::RemoteFrontendChannel(InspectorServerRequestHandlerQt* requestHandler)
-    : QObject(requestHandler)
-    , m_requestHandler(requestHandler)
-{
-}
-
-bool RemoteFrontendChannel::sendMessageToFrontend(const String& message)
-{
-    if (!m_requestHandler)
-        return false;
-    CString cstr = message.utf8();
-    return m_requestHandler->webSocketSend(cstr.data(), cstr.length());
 }
 
 }

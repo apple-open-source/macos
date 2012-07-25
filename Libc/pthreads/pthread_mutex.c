@@ -143,7 +143,8 @@ extern int PR_5243343_flag;
 /* This function is never called and exists to provide never-fired dtrace
  * probes so that user d scripts don't get errors.
  */
-__private_extern__ void _plockstat_never_fired(void) 
+__private_extern__ __attribute__((used)) void
+_plockstat_never_fired(void) 
 {
 	PLOCKSTAT_MUTEX_SPIN(NULL);
 	PLOCKSTAT_MUTEX_SPUN(NULL, 0, 0);
@@ -513,6 +514,8 @@ retry:
 	lgenval = *lseqaddr;
 	ugenval = *useqaddr;
 
+	clearprepost = 0;
+
 	numwaiters = diff_genseq((lgenval & PTHRW_COUNT_MASK),(ugenval & PTHRW_COUNT_MASK));	/* pendig waiters */
 
 	if (numwaiters == 0) {
@@ -526,7 +529,7 @@ retry:
 			newval64 |= lgenval;
 		} else
 			newval64 = oldval64;
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) 
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) 
 			goto retry;
 		/* validated L & U to be same, this is spurious unlock */
 		flags &= ~_PTHREAD_MTX_OPT_NOTIFY;
@@ -577,7 +580,7 @@ retry:
 	else if (firstfit == 0)
 		mutex->m_tid = PTHREAD_MTX_TID_SWITCHING;
 	
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) {
 		mutex->m_tid = resettid;
 		goto retry;
 	}
@@ -673,7 +676,7 @@ retry:
 	newval64 |= nval;
 
 	/* set s and b bit */
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
 		(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
 #endif
@@ -748,7 +751,7 @@ __mtx_markprepost(npthread_mutex_t *mutex, uint32_t oupdateval, int firstfit)
 
 retry:
 
-
+	clearprepost = 0;
 
 	if ((firstfit != 0) && ((updateval & PTH_RWL_PBIT) != 0)) {
 		flags = mutex->mtxopts.value;
@@ -773,7 +776,7 @@ retry:
 		newval64 = (((uint64_t)ugenval) << 32);
 		newval64 |= lgenval;
 
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
 			(void)__kdebug_trace(_KSYN_TRACE_UM_MARKPP | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, ugenval, 0);
 #endif
@@ -936,7 +939,7 @@ retry:
 	newval64 = (((uint64_t)uval) << 32);
 	newval64 |= nval;
 
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
 		(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
 #endif
@@ -1010,9 +1013,9 @@ pthread_mutex_trylock(pthread_mutex_t *omutex)
 		return(EINVAL);
 	}
 	
-	if ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_CMP) {
+	if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 		LOCK(mutex->lock);
-		if (mutex->sig == _PTHREAD_MUTEX_SIG_init) {
+		if ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_CMP) {
 			/* static initializer, init the mutex */
 			if((error = _pthread_mutex_init(omutex, NULL, (mutex->sig & 0xf))) != 0){
                                 UNLOCK(mutex->lock);
@@ -1078,7 +1081,7 @@ retry:
 	newval64 |= nval;
 
 	/* set s and b bit */
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
 		(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
 #endif
@@ -1136,7 +1139,7 @@ pthread_mutex_unlock(pthread_mutex_t *omutex)
 				PLOCKSTAT_MUTEX_ERROR(omutex, retval);
                                 return(retval);
                         }		
-	} else if (mutex->sig != _PTHREAD_MUTEX_SIG) {
+		} else if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 			UNLOCK(mutex->lock);
 			PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 			return(EINVAL);

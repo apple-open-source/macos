@@ -22,6 +22,7 @@
 #define SVGTests_h
 
 #if ENABLE(SVG)
+#include "SVGAnimatedProperty.h"
 #include "SVGAnimatedPropertyMacros.h"
 #include "SVGStringList.h"
 
@@ -40,22 +41,32 @@ public:
     bool hasExtension(const String&) const;
     bool isValid() const;
 
-    bool parseMappedAttribute(Attribute*);
+    bool parseAttribute(Attribute*);
     bool isKnownAttribute(const QualifiedName&);
 
-    bool handleAttributeChange(const SVGElement*, const QualifiedName&);
-    void synchronizeProperties(SVGElement*, const QualifiedName&);
+    void addSupportedAttributes(HashSet<QualifiedName>&);
+    bool handleAttributeChange(SVGElement*, const QualifiedName&);
+
+    static SVGAttributeToPropertyMap& attributeToPropertyMap();
 
 protected:
     SVGTests();
 
-private:
-    void synchronizeRequiredFeatures(SVGElement*);
-    void synchronizeRequiredExtensions(SVGElement*);
-    void synchronizeSystemLanguage(SVGElement*);
+    void synchronizeRequiredFeatures(SVGElement* contextElement);
+    void synchronizeRequiredExtensions(SVGElement* contextElement);
+    void synchronizeSystemLanguage(SVGElement* contextElement);
 
+private:
+    // Custom 'requiredFeatures' property
+    static const SVGPropertyInfo* requiredFeaturesPropertyInfo();
     SVGSynchronizableAnimatedProperty<SVGStringList> m_requiredFeatures;
+
+    // Custom 'requiredExtensions' property
+    static const SVGPropertyInfo* requiredExtensionsPropertyInfo();
     SVGSynchronizableAnimatedProperty<SVGStringList> m_requiredExtensions;
+
+    // Custom 'systemLanguage' property
+    static const SVGPropertyInfo* systemLanguagePropertyInfo();
     SVGSynchronizableAnimatedProperty<SVGStringList> m_systemLanguage;
 };
 

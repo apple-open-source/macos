@@ -34,6 +34,7 @@
 #include "Scrollbar.h"
 
 #include <Evas.h>
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -43,14 +44,11 @@ enum {
 };
 
 PlatformWheelEvent::PlatformWheelEvent(const Evas_Event_Mouse_Wheel* ev)
-    : m_position(IntPoint(ev->canvas.x, ev->canvas.y))
+    : PlatformEvent(PlatformEvent::Wheel, evas_key_modifier_is_set(ev->modifiers, "Shift"), evas_key_modifier_is_set(ev->modifiers, "Control"), evas_key_modifier_is_set(ev->modifiers, "Alt"), evas_key_modifier_is_set(ev->modifiers, "Meta"), currentTime())
+    , m_position(IntPoint(ev->canvas.x, ev->canvas.y))
     , m_globalPosition(IntPoint(ev->canvas.x, ev->canvas.y))
     , m_granularity(ScrollByPixelWheelEvent)
-    , m_isAccepted(false)
-    , m_shiftKey(evas_key_modifier_is_set(ev->modifiers, "Shift"))
-    , m_ctrlKey(evas_key_modifier_is_set(ev->modifiers, "Control"))
-    , m_altKey(evas_key_modifier_is_set(ev->modifiers, "Alt"))
-    , m_metaKey(evas_key_modifier_is_set(ev->modifiers, "Meta"))
+    , m_directionInvertedFromDevice(false)
 {
     // A negative z value means (in EFL) that we are scrolling down, so we need
     // to invert the value.

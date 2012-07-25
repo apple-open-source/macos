@@ -26,8 +26,6 @@
 #ifndef StorageAreaImpl_h
 #define StorageAreaImpl_h
 
-#if ENABLE(DOM_STORAGE)
-
 #include "StorageArea.h"
 
 #include <wtf/PassRefPtr.h>
@@ -45,13 +43,13 @@ namespace WebCore {
         virtual ~StorageAreaImpl();
 
         // The HTML5 DOM Storage API (and contains)
-        virtual unsigned length() const;
-        virtual String key(unsigned index) const;
-        virtual String getItem(const String& key) const;
+        virtual unsigned length(Frame* sourceFrame) const;
+        virtual String key(unsigned index, Frame* sourceFrame) const;
+        virtual String getItem(const String& key, Frame* sourceFrame) const;
         virtual String setItem(const String& key, const String& value, ExceptionCode& ec, Frame* sourceFrame);
         virtual String removeItem(const String& key, Frame* sourceFrame);
         virtual bool clear(Frame* sourceFrame);
-        virtual bool contains(const String& key) const;
+        virtual bool contains(const String& key, Frame* sourceFrame) const;
 
         virtual bool disabledByPrivateBrowsingInFrame(const Frame* sourceFrame) const;
 
@@ -85,7 +83,5 @@ namespace WebCore {
     };
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageAreaImpl_h

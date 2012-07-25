@@ -18,6 +18,7 @@
     <reference name='exsltCommonRegister' href='html/libexslt-exslt.html#exsltCommonRegister'/>
     <reference name='exsltCryptoRegister' href='html/libexslt-exslt.html#exsltCryptoRegister'/>
     <reference name='exsltDateRegister' href='html/libexslt-exslt.html#exsltDateRegister'/>
+    <reference name='exsltDateXpathCtxtRegister' href='html/libexslt-exslt.html#exsltDateXpathCtxtRegister'/>
     <reference name='exsltDynRegister' href='html/libexslt-exslt.html#exsltDynRegister'/>
     <reference name='exsltFuncRegister' href='html/libexslt-exslt.html#exsltFuncRegister'/>
     <reference name='exsltLibexsltVersion' href='html/libexslt-exslt.html#exsltLibexsltVersion'/>
@@ -25,10 +26,13 @@
     <reference name='exsltLibxmlVersion' href='html/libexslt-exslt.html#exsltLibxmlVersion'/>
     <reference name='exsltLibxsltVersion' href='html/libexslt-exslt.html#exsltLibxsltVersion'/>
     <reference name='exsltMathRegister' href='html/libexslt-exslt.html#exsltMathRegister'/>
+    <reference name='exsltMathXpathCtxtRegister' href='html/libexslt-exslt.html#exsltMathXpathCtxtRegister'/>
     <reference name='exsltRegisterAll' href='html/libexslt-exslt.html#exsltRegisterAll'/>
     <reference name='exsltSaxonRegister' href='html/libexslt-exslt.html#exsltSaxonRegister'/>
     <reference name='exsltSetsRegister' href='html/libexslt-exslt.html#exsltSetsRegister'/>
+    <reference name='exsltSetsXpathCtxtRegister' href='html/libexslt-exslt.html#exsltSetsXpathCtxtRegister'/>
     <reference name='exsltStrRegister' href='html/libexslt-exslt.html#exsltStrRegister'/>
+    <reference name='exsltStrXpathCtxtRegister' href='html/libexslt-exslt.html#exsltStrXpathCtxtRegister'/>
   </references>
   <alpha>
     <letter name='E'>
@@ -57,6 +61,7 @@
       <ref name='exsltCommonRegister'/>
       <ref name='exsltCryptoRegister'/>
       <ref name='exsltDateRegister'/>
+      <ref name='exsltDateXpathCtxtRegister'/>
       <ref name='exsltDynRegister'/>
       <ref name='exsltFuncRegister'/>
       <ref name='exsltLibexsltVersion'/>
@@ -64,15 +69,30 @@
       <ref name='exsltLibxmlVersion'/>
       <ref name='exsltLibxsltVersion'/>
       <ref name='exsltMathRegister'/>
+      <ref name='exsltMathXpathCtxtRegister'/>
       <ref name='exsltRegisterAll'/>
       <ref name='exsltSaxonRegister'/>
       <ref name='exsltSetsRegister'/>
+      <ref name='exsltSetsXpathCtxtRegister'/>
       <ref name='exsltStrRegister'/>
+      <ref name='exsltStrXpathCtxtRegister'/>
     </letter>
   </alpha>
   <constructors>
   </constructors>
   <functions>
+    <type name='const xmlChar *'>
+      <ref name='exsltDateXpathCtxtRegister'/>
+      <ref name='exsltMathXpathCtxtRegister'/>
+      <ref name='exsltSetsXpathCtxtRegister'/>
+      <ref name='exsltStrXpathCtxtRegister'/>
+    </type>
+    <type name='xmlXPathContextPtr'>
+      <ref name='exsltDateXpathCtxtRegister'/>
+      <ref name='exsltMathXpathCtxtRegister'/>
+      <ref name='exsltSetsXpathCtxtRegister'/>
+      <ref name='exsltStrXpathCtxtRegister'/>
+    </type>
   </functions>
   <files>
     <file name='exslt'>
@@ -88,6 +108,7 @@
       <ref name='exsltCommonRegister'/>
       <ref name='exsltCryptoRegister'/>
       <ref name='exsltDateRegister'/>
+      <ref name='exsltDateXpathCtxtRegister'/>
       <ref name='exsltDynRegister'/>
       <ref name='exsltFuncRegister'/>
       <ref name='exsltLibexsltVersion'/>
@@ -95,10 +116,13 @@
       <ref name='exsltLibxmlVersion'/>
       <ref name='exsltLibxsltVersion'/>
       <ref name='exsltMathRegister'/>
+      <ref name='exsltMathXpathCtxtRegister'/>
       <ref name='exsltRegisterAll'/>
       <ref name='exsltSaxonRegister'/>
       <ref name='exsltSetsRegister'/>
+      <ref name='exsltSetsXpathCtxtRegister'/>
       <ref name='exsltStrRegister'/>
+      <ref name='exsltStrXpathCtxtRegister'/>
     </file>
     <file name='exsltexports'>
       <ref name='EXSLTCALL'/>
@@ -114,10 +138,14 @@
         <word name='Common'>
           <ref name='exsltCommonRegister'/>
         </word>
+        <word name='Crypto'>
+          <ref name='exsltCryptoRegister'/>
+        </word>
       </letter>
       <letter name='D'>
         <word name='Dates'>
           <ref name='exsltDateRegister'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
         </word>
         <word name='Dynamic'>
           <ref name='exsltDynRegister'/>
@@ -134,13 +162,18 @@
           <ref name='EXSLT_SETS_NAMESPACE'/>
           <ref name='EXSLT_STRINGS_NAMESPACE'/>
           <ref name='exsltCommonRegister'/>
+          <ref name='exsltCryptoRegister'/>
           <ref name='exsltDateRegister'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
           <ref name='exsltDynRegister'/>
           <ref name='exsltFuncRegister'/>
           <ref name='exsltMathRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
           <ref name='exsltRegisterAll'/>
           <ref name='exsltSetsRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
           <ref name='exsltStrRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='F'>
@@ -151,6 +184,7 @@
       <letter name='M'>
         <word name='Math'>
           <ref name='exsltMathRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='N'>
@@ -169,14 +203,19 @@
       <letter name='R'>
         <word name='Registers'>
           <ref name='exsltCommonRegister'/>
+          <ref name='exsltCryptoRegister'/>
           <ref name='exsltDateRegister'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
           <ref name='exsltDynRegister'/>
           <ref name='exsltFuncRegister'/>
           <ref name='exsltMathRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
           <ref name='exsltRegisterAll'/>
           <ref name='exsltSaxonRegister'/>
           <ref name='exsltSetsRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
           <ref name='exsltStrRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='S'>
@@ -186,14 +225,25 @@
         </word>
         <word name='Sets'>
           <ref name='exsltSetsRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
         </word>
         <word name='Strings'>
           <ref name='exsltStrRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='T'>
         <word name='Times'>
           <ref name='exsltDateRegister'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
+        </word>
+      </letter>
+      <letter name='X'>
+        <word name='XSLT'>
+          <ref name='exsltDateXpathCtxtRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='a'>
@@ -241,6 +291,10 @@
           <ref name='EXSLT_SETS_NAMESPACE'/>
           <ref name='EXSLT_STRINGS_NAMESPACE'/>
           <ref name='SAXON_NAMESPACE'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
         <word name='functions'>
           <ref name='EXSLT_COMMON_NAMESPACE'/>
@@ -260,13 +314,26 @@
         </word>
         <word name='module'>
           <ref name='exsltCommonRegister'/>
+          <ref name='exsltCryptoRegister'/>
           <ref name='exsltDateRegister'/>
+          <ref name='exsltDateXpathCtxtRegister'/>
           <ref name='exsltDynRegister'/>
           <ref name='exsltFuncRegister'/>
           <ref name='exsltMathRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
           <ref name='exsltSaxonRegister'/>
           <ref name='exsltSetsRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
           <ref name='exsltStrRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
+        </word>
+      </letter>
+      <letter name='o'>
+        <word name='outside'>
+          <ref name='exsltDateXpathCtxtRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
         </word>
       </letter>
       <letter name='s'>
@@ -277,9 +344,17 @@
           <ref name='EXSLT_STRINGS_NAMESPACE'/>
         </word>
       </letter>
+      <letter name='u'>
+        <word name='use'>
+          <ref name='exsltDateXpathCtxtRegister'/>
+          <ref name='exsltMathXpathCtxtRegister'/>
+          <ref name='exsltSetsXpathCtxtRegister'/>
+          <ref name='exsltStrXpathCtxtRegister'/>
+        </word>
+      </letter>
     </chunk>
     <chunks>
-      <chunk name='chunk0' start='C' end='s'/>
+      <chunk name='chunk0' start='C' end='u'/>
     </chunks>
   </index>
 </apirefs>

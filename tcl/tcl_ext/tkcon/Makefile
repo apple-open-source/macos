@@ -32,8 +32,7 @@ include ../TEA.make
 Version               = $(shell awk '/^package ifneeded/ {print $$4}' "$(Sources)"/pkgIndex.tcl)
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(TclExtHtmlDir)" "$(DSTROOT)$(MANDIR)/man"{1,5,n}
-	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/*.{html,css,png} "$(DSTROOT)$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(MANDIR)/man"{1,5,n}
 	$(_v) umask $(Install_Mask); for f in "$(Sources)"/docs/*.man; do \
 	    n=$$(basename "$$f" .man) && echo "Generating $$n" && \
 	    $(MPEXPAND) nroff "$$f" "$(DSTROOT)$(MANDIR)/man$${n##*.}/$$n"; \

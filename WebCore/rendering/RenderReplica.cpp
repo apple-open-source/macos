@@ -60,23 +60,22 @@ void RenderReplica::computePreferredLogicalWidths()
     setPreferredLogicalWidthsDirty(false);
 }
 
-void RenderReplica::paint(PaintInfo& paintInfo, int tx, int ty)
+void RenderReplica::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseMask)
         return;
  
-    tx += x();
-    ty += y();
+    LayoutPoint adjustedPaintOffset = paintOffset + location();
 
     if (paintInfo.phase == PaintPhaseForeground)
         // Turn around and paint the parent layer. Use temporary clipRects, so that the layer doesn't end up caching clip rects
         // computing using the wrong rootLayer
         layer()->parent()->paintLayer(layer()->transform() ? layer()->parent() : layer()->enclosingTransformedAncestor(),
                                       paintInfo.context, paintInfo.rect,
-                                      PaintBehaviorNormal, 0, 0,
+                                      PaintBehaviorNormal, 0, paintInfo.renderRegion, 0,
                                       RenderLayer::PaintLayerHaveTransparency | RenderLayer::PaintLayerAppliedTransform | RenderLayer::PaintLayerTemporaryClipRects | RenderLayer::PaintLayerPaintingReflection);
     else if (paintInfo.phase == PaintPhaseMask)
-        paintMask(paintInfo, IntSize(tx, ty));
+        paintMask(paintInfo, adjustedPaintOffset);
 }
 
 } // namespace WebCore

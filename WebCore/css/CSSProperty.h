@@ -21,6 +21,7 @@
 #ifndef CSSProperty_h
 #define CSSProperty_h
 
+#include "CSSPropertyNames.h"
 #include "CSSValue.h"
 #include "RenderStyleConstants.h"
 #include "TextDirection.h"
@@ -30,55 +31,44 @@
 namespace WebCore {
 
 class CSSProperty {
-    WTF_MAKE_FAST_ALLOCATED;
 public:
-    CSSProperty(int propID, PassRefPtr<CSSValue> value, bool important = false, int shorthandID = 0, bool implicit = false)
+    CSSProperty(CSSPropertyID propID, PassRefPtr<CSSValue> value, bool important = false, CSSPropertyID shorthandID = CSSPropertyInvalid, bool implicit = false)
         : m_id(propID)
         , m_shorthandID(shorthandID)
         , m_important(important)
         , m_implicit(implicit)
+        , m_inherited(isInheritedProperty(propID))
         , m_value(value)
     {
     }
 
-    CSSProperty& operator=(const CSSProperty& other)
-    {
-        m_id = other.m_id;
-        m_shorthandID = other.m_shorthandID;
-        m_important = other.m_important;
-        m_implicit = other.m_implicit;
-        m_value = other.m_value;
-        return *this;
-    }
-
-    int id() const { return m_id; }
-    int shorthandID() const { return m_shorthandID; }
+    CSSPropertyID id() const { return static_cast<CSSPropertyID>(m_id); }
+    CSSPropertyID shorthandID() const { return static_cast<CSSPropertyID>(m_shorthandID); }
 
     bool isImportant() const { return m_important; }
     bool isImplicit() const { return m_implicit; }
+    bool isInherited() const { return m_inherited; }
 
     CSSValue* value() const { return m_value.get(); }
-    
+
     String cssText() const;
 
-    static int resolveDirectionAwareProperty(int propertyID, TextDirection, WritingMode);
+    void wrapValueInCommaSeparatedList();
 
-    friend bool operator==(const CSSProperty&, const CSSProperty&);
+    static CSSPropertyID resolveDirectionAwareProperty(CSSPropertyID, TextDirection, WritingMode);
+    static bool isInheritedProperty(CSSPropertyID);
 
+private:
     // Make sure the following fits in 4 bytes. Really.
-    int m_id : 15;
-    int m_shorthandID : 15; // If this property was set as part of a shorthand, gives the shorthand.
-    bool m_important : 1;
-    bool m_implicit : 1; // Whether or not the property was set implicitly as the result of a shorthand.
+    unsigned m_id : 14;
+    unsigned m_shorthandID : 14; // If this property was set as part of a shorthand, gives the shorthand.
+    unsigned m_important : 1;
+    unsigned m_implicit : 1; // Whether or not the property was set implicitly as the result of a shorthand.
+    unsigned m_inherited : 1;
 
     RefPtr<CSSValue> m_value;
 };
 
 } // namespace WebCore
-
-namespace WTF {
-    // Properties in Vector can be initialized with memset and moved using memcpy.
-    template<> struct VectorTraits<WebCore::CSSProperty> : SimpleClassVectorTraits { };
-}
 
 #endif // CSSProperty_h

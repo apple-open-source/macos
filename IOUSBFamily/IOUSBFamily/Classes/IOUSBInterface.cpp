@@ -34,6 +34,7 @@
 #include <libkern/c++/OSData.h>
 #include <libkern/version.h>
 
+
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBInterface.h>
@@ -138,8 +139,8 @@ IOUSBInterface::start(IOService *provider)
     }
 	
 #ifdef SUPPORTS_SS_USB
-	// If the bAlternateSetting is non-zero for a Mass Storage SCSI interface, then issue the SetInterface request:
-	if ( (_bInterfaceClass == kUSBMassStorageClass) && (_bInterfaceSubClass == kUSBMassStorageSCSISubClass) && (_bAlternateSetting != 0) )
+	// If the bAlternateSetting is non-zero, then issue the SetInterface request:
+	if ( _bAlternateSetting != 0 )
 	{
 		IOUSBDevRequest			request;
 		IOReturn				kr = kIOReturnSuccess;

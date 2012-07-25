@@ -33,8 +33,10 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "InspectorBaseAgent.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
+#include "LayoutTypes.h"
 #include "ScriptGCEvent.h"
 #include "ScriptGCEventListener.h"
 #include <wtf/PassOwnPtr.h>
@@ -51,23 +53,24 @@ class ResourceResponse;
 
 typedef String ErrorString;
 
-class InspectorTimelineAgent : ScriptGCEventListener {
+class InspectorTimelineAgent : public InspectorBaseAgent<InspectorTimelineAgent>, ScriptGCEventListener, public InspectorBackendDispatcher::TimelineCommandHandler {
     WTF_MAKE_NONCOPYABLE(InspectorTimelineAgent);
 public:
-    static PassOwnPtr<InspectorTimelineAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state)
+    enum InspectorType { PageInspector, WorkerInspector };
+    static PassOwnPtr<InspectorTimelineAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state, InspectorType type)
     {
-        return adoptPtr(new InspectorTimelineAgent(instrumentingAgents, state));
+        return adoptPtr(new InspectorTimelineAgent(instrumentingAgents, state, type));
     }
 
     ~InspectorTimelineAgent();
 
-    void setFrontend(InspectorFrontend*);
-    void clearFrontend();
-    void restore();
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void clearFrontend();
+    virtual void restore();
 
-    void start(ErrorString* error);
-    void stop(ErrorString* error);
-    bool started() const;
+    virtual void start(ErrorString*, const int* maxCallStackDepth);
+    virtual void stop(ErrorString*);
+    virtual void setIncludeMemoryDetails(ErrorString*, bool);
 
     int id() const { return m_id; }
 
@@ -80,13 +83,16 @@ public:
     void willDispatchEvent(const Event&);
     void didDispatchEvent();
 
+    void didBeginFrame();
+    void didCancelFrame();
+
     void willLayout();
     void didLayout();
 
     void willRecalculateStyle();
     void didRecalculateStyle();
 
-    void willPaint(const IntRect&);
+    void willPaint(const LayoutRect&);
     void didPaint();
 
     // FIXME: |length| should be passed in didWrite instead willWrite
@@ -107,7 +113,7 @@ public:
     void willEvaluateScript(const String&, int);
     void didEvaluateScript();
 
-    void didMarkTimeline(const String&);
+    void didTimeStamp(const String&);
     void didMarkDOMContentEvent();
     void didMarkLoadEvent();
 
@@ -118,36 +124,48 @@ public:
     void didFinishLoadingResource(unsigned long, bool didFail, double finishTime);
     void willReceiveResourceData(unsigned long identifier);
     void didReceiveResourceData();
-        
+
+    void didRequestAnimationFrame(int callbackId);
+    void didCancelAnimationFrame(int callbackId);
+    void willFireAnimationFrame(int callbackId);
+    void didFireAnimationFrame();
+
     virtual void didGC(double, double, size_t);
 
 private:
     struct TimelineRecordEntry {
-        TimelineRecordEntry(PassRefPtr<InspectorObject> record, PassRefPtr<InspectorObject> data, PassRefPtr<InspectorArray> children, const String& type)
-            : record(record), data(data), children(children), type(type)
+        TimelineRecordEntry(PassRefPtr<InspectorObject> record, PassRefPtr<InspectorObject> data, PassRefPtr<InspectorArray> children, const String& type, bool cancelable = false)
+            : record(record), data(data), children(children), type(type), cancelable(cancelable)
         {
         }
         RefPtr<InspectorObject> record;
         RefPtr<InspectorObject> data;
         RefPtr<InspectorArray> children;
         String type;
+        bool cancelable;
     };
         
-    InspectorTimelineAgent(InstrumentingAgents*, InspectorState*);
+    InspectorTimelineAgent(InstrumentingAgents*, InspectorState*, InspectorType);
 
-    void pushCurrentRecord(PassRefPtr<InspectorObject>, const String& type);
+    void pushCurrentRecord(PassRefPtr<InspectorObject>, const String& type, bool captureCallStack);
     void setHeapSizeStatistic(InspectorObject* record);
         
     void didCompleteCurrentRecord(const String& type);
-
+    void appendRecord(PassRefPtr<InspectorObject> data, const String& type, bool captureCallStack);
+    void pushCancelableRecord(PassRefPtr<InspectorObject>, const String& type);
+    void commitCancelableRecords();
+    void cancelRecord(const String& type);
     void addRecordToTimeline(PassRefPtr<InspectorObject>, const String& type);
+    void innerAddRecordToTimeline(PassRefPtr<InspectorObject>, const String& type);
 
     void pushGCEventRecords();
     void clearRecordStack();
 
-    InstrumentingAgents* m_instrumentingAgents;
-    InspectorState* m_state;
+    double timestamp();
+    double timestampFromMicroseconds(double microseconds);
+
     InspectorFrontend::Timeline* m_frontend;
+    double m_timestampOffset;
 
     Vector<TimelineRecordEntry> m_recordStack;
 
@@ -163,6 +181,8 @@ private:
     };
     typedef Vector<GCEvent> GCEvents;
     GCEvents m_gcEvents;
+    int m_maxCallStackDepth;
+    InspectorType m_inspectorType;
 };
 
 } // namespace WebCore

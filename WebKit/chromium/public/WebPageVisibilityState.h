@@ -37,7 +37,9 @@ namespace WebKit {
 // defined in WebCore.
 enum WebPageVisibilityState {
     WebPageVisibilityStateVisible,
-    WebPageVisibilityStateHidden
+    WebPageVisibilityStateHidden,
+    WebPageVisibilityStatePrerender,
+    WebPageVisibilityStatePreview
 };
 
 } // namespace WebKit

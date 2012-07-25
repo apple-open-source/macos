@@ -97,9 +97,6 @@
 #include "sockmisc.h"
 #include "strnames.h"
 #include "gcmalloc.h"
-#ifdef HAVE_OPENSSL
-#include "rsalist.h"
-#endif
 #include <CoreFoundation/CoreFoundation.h>
 #include "remoteconf.h"
 #include "vpn_control.h"
@@ -158,9 +155,6 @@ struct dhgroup dh_modp8192;
 static int oakley_check_dh_pub __P((vchar_t *, vchar_t **));
 static int oakley_compute_keymat_x __P((struct ph2handle *, int, int));
 static int get_cert_fromlocal __P((struct ph1handle *, int));
-#ifdef HAVE_OPENSSL
-static int get_plainrsa_fromlocal __P((struct ph1handle *, int));
-#endif
 static int oakley_check_certid __P((struct ph1handle *iph1, int));
 static int oakley_check_certid_1 __P((vchar_t *, int, int, void*, cert_status_t *certStatus));
 static int check_typeofcertname __P((int, int));
@@ -445,11 +439,12 @@ oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySiz
 	*pub = NULL;
 	switch (dh->type) {
 		case OAKLEY_ATTR_GRP_TYPE_MODP:
+#define SECDH_MODP_GENERATOR OAKLEY_ATTR_GRP_DESC_MODP1024
 			if (dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1024 && dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1536) {
 				plog(LLV_ERROR, LOCATION, NULL, "Invalid dh group.\n");
 				goto fail;
 			}	
-			if (SecDHCreate(dh->desc, dh->prime->v, dh->prime->l, 0, NULL, 0, dhC)) {
+			if (SecDHCreate(SECDH_MODP_GENERATOR, dh->prime->v, dh->prime->l, 0, NULL, 0, dhC)) {
 				plog(LLV_ERROR, LOCATION, NULL, "failed to create dh context.\n");
 				goto fail;
 			}
@@ -870,59 +865,6 @@ end:
 	return error;
 }
 
-#if notyet
-/*
- * NOTE: Must terminate by NULL.
- */
-vchar_t *
-oakley_compute_hashx(struct ph1handle *iph1, ...)
-{
-	vchar_t *buf, *res;
-	vchar_t *s;
-	caddr_t p;
-	int len;
-
-	va_list ap;
-
-	/* get buffer length */
-	va_start(ap, iph1);
-	len = 0;
-        while ((s = va_arg(ap, vchar_t *)) != NULL) {
-		len += s->l
-        }
-	va_end(ap);
-
-	buf = vmalloc(len);
-	if (buf == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to get hash buffer\n");
-		return NULL;
-	}
-
-	/* set buffer */
-	va_start(ap, iph1);
-	p = buf->v;
-        while ((s = va_arg(ap, char *)) != NULL) {
-		memcpy(p, s->v, s->l);
-		p += s->l;
-	}
-	va_end(ap);
-
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH with: \n");
-	plogdump(LLV_DEBUG, buf->v, buf->l);
-
-	/* compute HASH */
-	res = oakley_prf(iph1->skeyid_a, buf, iph1);
-	vfree(buf);
-	if (res == NULL)
-		return NULL;
-
-	plog(LLV_DEBUG, LOCATION, NULL, "HASH computed:\n");
-	plogdump(LLV_DEBUG, res->v, res->l);
-
-	return res;
-}
-#endif
 
 /*
  * compute HASH(3) prf(SKEYID_a, 0 | M-ID | Ni_b | Nr_b)
@@ -1456,26 +1398,6 @@ oakley_verify_userid(iph1)
 
 #ifdef HAVE_OPENSSL
 static int
-oakley_verify_x509sign(certchain, my_hash, my_sig)
-	cert_t *certchain;
-	vchar_t *my_hash;
-	vchar_t *my_sig;
-{
-	cert_t *p;
-	int     result = -1;
-
-	for (p = certchain; p; p = p->chain) {
-		if ((result = eay_check_x509sign(my_hash,
-										 my_sig,
-										 &p->cert)) == 0) {
-			break;
-		}
-	}
-	return result;
-}
-#endif
-#ifdef HAVE_OPENSSL
-static int
 oakley_check_x509cert(certchain, capath, cafile, local)
 	cert_t *certchain;
 	char   *capath;
@@ -1517,9 +1439,7 @@ oakley_validate_auth(iph1)
 #ifdef ENABLE_STATS
 	struct timeval start, end;
 #endif
-#if TARGET_OS_EMBEDDED
 	SecKeyRef publicKeyRef;
-#endif
 
 #ifdef ENABLE_STATS
 	gettimeofday(&start, NULL);
@@ -1644,9 +1564,6 @@ oakley_validate_auth(iph1)
 					error = get_cert_fromlocal(iph1, 0);
 					break;
 
-				case ISAKMP_CERT_PLAINRSA:
-					error = get_plainrsa_fromlocal(iph1, 0);
-					break;
 			}
 			if (error)
 				return ISAKMP_INTERNAL_ERROR;
@@ -1719,8 +1636,6 @@ oakley_validate_auth(iph1)
 #endif
 			switch (certtype) {
 			case ISAKMP_CERT_X509SIGN:
-
-#if TARGET_OS_EMBEDDED
 			{
 				/* use ID from remote configuration */	
 				/* check each ID in list			*/
@@ -1732,9 +1647,9 @@ oakley_validate_auth(iph1)
 				if (iph1->rmconf->cert_verification_option == VERIFICATION_OPTION_PEERS_IDENTIFIER) {
 					id_spec = genlist_next(iph1->rmconf->idvl_p, &gpb);	/* expect only one id */						
 					if (id_spec->idtype == IDTYPE_ADDRESS) {
-						switch (((struct sockaddr *)(id_spec->id->v))->sa_family) {							
+						switch ((ALIGNED_CAST(struct sockaddr_storage *)(id_spec->id->v))->ss_family) {
 							case AF_INET:
-								peers_id = inet_ntoa(((struct sockaddr_in *)(id_spec->id->v))->sin_addr);
+								peers_id = inet_ntoa((ALIGNED_CAST(struct sockaddr_in *)(id_spec->id->v))->sin_addr);
 								hostname = CFStringCreateWithCString(NULL, peers_id, kCFStringEncodingUTF8);
 								break;
 #ifdef INET6
@@ -1755,32 +1670,7 @@ oakley_validate_auth(iph1)
 				if (hostname)
 					CFRelease(hostname);
 			}
-			
-#else /* TARGET_OS_EMBEDDED */
-				if (iph1->rmconf->cert_verification == VERIFICATION_MODULE_SEC_FRAMEWORK)
-					error = crypto_cssm_check_x509cert(oakley_get_peer_cert_from_certchain(iph1),
-													   iph1->cert_p,
-													   NULL);
-				else 
-				{
-					char path[MAXPATHLEN];
-					char *ca;
-
-					if (iph1->rmconf->cacertfile != NULL) {
-						getpathname(path, sizeof(path), 
-					    	LC_PATHTYPE_CERT, 
-					    	iph1->rmconf->cacertfile);
-						ca = path;
-					} else {
-						ca = NULL;
-					}
-
-					error = oakley_check_x509cert(iph1->cert_p,
-												  lcconf->pathinfo[LC_PATHTYPE_CERT], 
-												  ca, 0);
-				}
-#endif /* TARGET_OS_EMBEDDED */
-				break;
+            break;
 			
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -1832,24 +1722,15 @@ oakley_validate_auth(iph1)
 		switch (certtype) {
 		case ISAKMP_CERT_X509SIGN:
 		case ISAKMP_CERT_DNS:
-#if TARGET_OS_EMBEDDED
+            if (publicKeyRef == NULL)
+                plog(LLV_ERROR, LOCATION, NULL, "@@@@@@ publicKeyRef is NULL\n");
 			error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p);
 			if (error)	
 				plog(LLV_ERROR, LOCATION, NULL, "error verifying signature %s\n", GetSecurityErrorString(error));
 				
 			CFRelease(publicKeyRef);				
-#else
-			error = oakley_verify_x509sign(iph1->cert_p, my_hash, iph1->sig_p);
-#endif
 			break;
-#ifdef HAVE_OPENSSL
-		case ISAKMP_CERT_PLAINRSA:
-			iph1->rsa_p = rsa_try_check_rsasign(my_hash,
-					iph1->sig_p, iph1->rsa_candidates);
-			error = iph1->rsa_p ? 0 : -1;
 
-			break;
-#endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
 				"no supported certtype %d\n",
@@ -1985,7 +1866,7 @@ oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (struct ph1handle *iph1,
 		u_int32_t address;
 		u_int32_t fail_reason;
 
-		if (iph1->remote->sa_family == AF_INET)
+		if (iph1->remote->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
 		else
 			address = 0;
@@ -2009,7 +1890,6 @@ oakley_getmycert(iph1)
 	struct ph1handle *iph1;
 {
 	int	err;
-	u_int32_t address;
 	
 	switch (iph1->rmconf->certtype) {
 		case ISAKMP_CERT_X509SIGN:
@@ -2021,12 +1901,7 @@ oakley_getmycert(iph1)
 				}
 			}
 			return err;
-#ifdef HAVE_OPENSSL
-		case ISAKMP_CERT_PLAINRSA:
-			if (iph1->rsa)
-				return 0;
-			return get_plainrsa_fromlocal(iph1, 1);
-#endif
+
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
 			     "Unknown certtype #%d\n",
@@ -2047,7 +1922,9 @@ get_cert_fromlocal(iph1, my)
 	struct ph1handle *iph1;
 	int my;
 {
+#ifdef HAVE_OPENSSL
 	char path[MAXPATHLEN];
+#endif
 	vchar_t *cert = NULL;
 	cert_t **certpl;
 	char *certfile;
@@ -2136,66 +2013,15 @@ end:
 	return error;
 }
 
-#ifdef HAVE_OPENSSL
-static int
-get_plainrsa_fromlocal(iph1, my)
-	struct ph1handle *iph1;
-	int my;
-{
-	char path[MAXPATHLEN];
-	vchar_t *cert = NULL;
-	char *certfile;
-	int error = -1;
-
-	iph1->rsa_candidates = rsa_lookup_keys(iph1, my);
-	if (!iph1->rsa_candidates || 
-	    rsa_list_count(iph1->rsa_candidates) == 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"%s RSA key not found for %s\n",
-			my ? "Private" : "Public",
-			saddr2str_fromto("%s <-> %s", 
-			iph1->local, iph1->remote));
-		goto end;
-	}
-
-	if (my && rsa_list_count(iph1->rsa_candidates) > 1) {
-		plog(LLV_WARNING, LOCATION, NULL,
-			"More than one (=%lu) private "
-			"PlainRSA key found for %s\n",
-			rsa_list_count(iph1->rsa_candidates),
-			saddr2str_fromto("%s <-> %s", 
-			iph1->local, iph1->remote));
-		plog(LLV_WARNING, LOCATION, NULL,
-			"This may have unpredictable results, "
-			"i.e. wrong key could be used!\n");
-		plog(LLV_WARNING, LOCATION, NULL,
-			"Consider using only one single private "
-			"key for all peers...\n");
-	}
-	if (my) {
-		iph1->rsa = ((struct rsa_key *)
-		    genlist_next(iph1->rsa_candidates, NULL))->rsa;
-
-		genlist_free(iph1->rsa_candidates, NULL);
-		iph1->rsa_candidates = NULL;
-
-		if (iph1->rsa == NULL)
-			goto end;
-	}
-
-	error = 0;
-
-end:
-	return error;
-}
-#endif
 
 /* get signature */
 int
 oakley_getsign(iph1)
 	struct ph1handle *iph1;
 {
+#ifdef HAVE_OPENSSL
 	char path[MAXPATHLEN];
+#endif
 	vchar_t *privkey = NULL;
 	int error = -1;
 
@@ -2211,32 +2037,6 @@ oakley_getsign(iph1)
 			CFRelease(dataRef);
 			break;
 		} // else fall thru
-#ifdef HAVE_OPENSSL
-	case ISAKMP_CERT_DNS:
-		if (iph1->rmconf->myprivfile == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, "no cert defined.\n");
-			goto end;
-		}
-
-		/* make private file name */
-		getpathname(path, sizeof(path),
-			LC_PATHTYPE_CERT,
-			iph1->rmconf->myprivfile);
-		privkey = privsep_eay_get_pkcs1privkey(path);
-		if (privkey == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get private key.\n");
-			goto end;
-		}
-		plog(LLV_DEBUG2, LOCATION, NULL, "private key:\n");
-		plogdump(LLV_DEBUG2, privkey->v, privkey->l);
-
-		iph1->sig = eay_get_x509sign(iph1->hash, privkey);
-		break;
-	case ISAKMP_CERT_PLAINRSA:
-		iph1->sig = eay_get_rsasign(iph1->hash, iph1->rsa);
-		break;
-#endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 		     "Unknown certtype #%d\n",
@@ -2309,7 +2109,7 @@ oakley_get_peer_cert_from_certchain(iph1)
 		return iph1->cert_p;
 	}
 
-	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
+	id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)iph1->id_p->v;
 	peers_id = id_b + 1;
 	idlen = iph1->id_p->l - sizeof(*id_b);
 	for (p = iph1->cert_p; p; p = p->chain) {
@@ -2340,7 +2140,7 @@ oakley_check_certid(iph1, which_id)
 			plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
-		id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
+		id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)iph1->id_p->v;
 		doi_type = id_b->type;
 		peers_id = id_b + 1;
 		idlen = iph1->id_p->l - sizeof(*id_b);
@@ -2355,17 +2155,17 @@ oakley_check_certid(iph1, which_id)
 		for (id_spec = genlist_next (iph1->rmconf->idvl_p, &gpb); id_spec; id_spec = genlist_next (0, &gpb)) {
 			
 			if (id_spec->idtype == IDTYPE_ADDRESS) {
-				switch (((struct sockaddr *)(id_spec->id->v))->sa_family) {							
+				switch ((ALIGNED_CAST(struct sockaddr_storage *)(id_spec->id->v))->ss_family) {
 					case AF_INET:
 						doi_type = IPSECDOI_ID_IPV4_ADDR;
 						idlen = sizeof(struct in_addr);
-						peers_id = &(((struct sockaddr_in *)(id_spec->id->v))->sin_addr.s_addr);
+						peers_id = &((ALIGNED_CAST(struct sockaddr_in *)(id_spec->id->v))->sin_addr.s_addr);
 						break;
 	#ifdef INET6
 					case AF_INET6:
 						doi_type = IPSECDOI_ID_IPV6_ADDR;
 						idlen = sizeof(struct in6_addr);
-						peers_id = &(((struct sockaddr_in6 *)(id_spec->id->v))->sin6_addr.s6_addr);
+						peers_id = &((ALIGNED_CAST(struct sockaddr_in6 *)(id_spec->id->v))->sin6_addr.s6_addr);
 						break;
 	#endif
 					default:
@@ -2396,11 +2196,15 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 	cert_status_t *certStatus;
 {
 
-	vchar_t *name = NULL;
-	char *altname = NULL;
-	int type, len;
+	int len;
 	int error;
 
+#if !TARGET_OS_EMBEDDED
+    int type;
+    vchar_t *name = NULL;
+	char *altname = NULL;
+#endif
+    
 	switch (idtype) {
 	case IPSECDOI_ID_DER_ASN1_DN:
 #if TARGET_OS_EMBEDDED
@@ -2455,6 +2259,8 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			CFRelease(subject);
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
+        CFRelease(certificate);
+        CFRelease(subject);
 	}
 #else
 		name = eay_get_x509asn1subjectname(cert);
@@ -2503,6 +2309,7 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 		CFIndex pos, count;
 		SecCertificateRef certificate;
 		CFArrayRef addresses;
+#define ADDRESS_BUF_SIZE    64
 	
 		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
 		if (certificate == NULL) {
@@ -2534,17 +2341,19 @@ oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
 			addressLen = CFStringGetLength(address);
 			if (addressLen == 0)
 				continue;
-			addressBuf = racoon_malloc(addressLen + 1);
+			addressBuf = racoon_malloc(ADDRESS_BUF_SIZE);
 			if (addressBuf == NULL) {
 				plog(LLV_ERROR, LOCATION, NULL, "out of memory\n");
+                CFRelease(addresses);
+                CFRelease(certificate);
 				return -1;
 			}
-			if (CFStringGetCString(address, addressBuf, addressLen + 1, kCFStringEncodingUTF8) == TRUE) {
+			if (CFStringGetCString(address, addressBuf, ADDRESS_BUF_SIZE, kCFStringEncodingUTF8) == TRUE) {
 				result = inet_pton(idtype == IPSECDOI_ID_IPV4_ADDR ? AF_INET : AF_INET6, addressBuf, numAddress);
 				racoon_free(addressBuf);
 				if (result == 0)
 					continue;	// wrong type or invalid address
-				if (memcmp(id, numAddress, idtype == IPSECDOI_ID_IPV4_ADDR ? 32 : 128) == 0) {		// found a match ?
+				if (!memcmp(id, numAddress, idtype == IPSECDOI_ID_IPV4_ADDR ? 32 : 128) == 0) {		// found a match ?
 					CFRelease(addresses);
 					CFRelease(certificate);
 					return 0;
@@ -3261,6 +3070,61 @@ oakley_needcr(type)
 	/*NOTREACHED*/
 }
 
+vchar_t *
+oakley_getpskall(iph1)
+struct ph1handle *iph1;
+{
+	vchar_t *secret = NULL;
+
+	if (iph1->rmconf->shared_secret) {
+		
+		switch (iph1->rmconf->secrettype) {
+			case SECRETTYPE_KEY:
+				/* in psk file - use KEY from remote configuration to locate it */
+				secret = getpsk(iph1->rmconf->shared_secret->v, iph1->rmconf->shared_secret->l-1);
+				break;
+#if HAVE_KEYCHAIN
+			case SECRETTYPE_KEYCHAIN:
+				/* in the system keychain */
+				secret = getpskfromkeychain(iph1->rmconf->shared_secret->v, iph1->etype, iph1->rmconf->secrettype, NULL);
+				break;
+			case SECRETTYPE_KEYCHAIN_BY_ID:
+				/* in the system keychain - use peer id */
+				secret = getpskfromkeychain(iph1->rmconf->shared_secret->v, iph1->etype, iph1->rmconf->secrettype, iph1->id_p);
+				break;
+#endif // HAVE_KEYCHAIN
+			case SECRETTYPE_USE:
+				/* in the remote configuration */
+			default:
+				/* rmconf->shared_secret is a string and contains a NULL character that must be removed */
+				secret = vmalloc(iph1->rmconf->shared_secret->l - 1);
+				if (secret == NULL) {
+					plog(LLV_ERROR, LOCATION, iph1->remote, "memory error.\n");
+					goto end;
+				}
+				memcpy(secret->v, iph1->rmconf->shared_secret->v, secret->l);
+		}
+	} else {
+		secret = getpskbyname(iph1->id_p);
+		if (!secret) {
+			if (iph1->rmconf->verify_identifier) {
+				plog(LLV_ERROR, LOCATION, iph1->remote,
+					 "couldn't find the Hybrid pskey.\n");
+				goto end;
+			}
+		}
+	}
+	if (!secret) {
+		plog(LLV_NOTIFY, LOCATION, iph1->remote,
+			 "couldn't find the Hybrid pskey, "
+			 "try to get one by the peer's address.\n");
+		secret = getpskbyaddr(iph1->remote);
+	}
+
+end:
+	return secret;
+}
+
 /*
  * compute SKEYID
  * see seciton 5. Exchanges in RFC 2409
@@ -3300,7 +3164,7 @@ oakley_skeyid(iph1)
 					/* in the system keychain - use peer id */
 					iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v, iph1->etype, iph1->rmconf->secrettype, iph1->id_p);
 					break;
-#endif HAVE_KEYCHAIN
+#endif // HAVE_KEYCHAIN
 				case SECRETTYPE_USE:
 					/* in the remote configuration */
 				default:
@@ -3338,7 +3202,7 @@ oakley_skeyid(iph1)
 			if (iph1->authstr == NULL) {
 				plog(LLV_ERROR, LOCATION, iph1->remote,
 					"couldn't find the pskey for %s.\n",
-					saddrwop2str(iph1->remote));
+					saddrwop2str((struct sockaddr *)iph1->remote));
 				goto end;
 			}
 		}

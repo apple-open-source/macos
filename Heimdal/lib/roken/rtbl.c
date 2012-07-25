@@ -362,6 +362,18 @@ rtbl_add_column_entryv (rtbl_t table, const char *column, const char *fmt, ...)
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
 rtbl_format (rtbl_t table, FILE * f)
 {
+    char *str = rtbl_format_str(table);
+    if (str == NULL)
+	return ENOMEM;
+    fprintf(f, "%s", str);
+    free(str);
+    return 0;
+}
+
+ROKEN_LIB_FUNCTION char * ROKEN_LIB_CALL
+rtbl_format_str (rtbl_t table)
+{
+    struct rk_strpool *p = NULL;
     size_t i, j;
 
     for (i = 0; i < table->num_columns; i++)
@@ -371,16 +383,16 @@ rtbl_format (rtbl_t table, FILE * f)
 	    struct column_data *c = table->columns[i];
 
 	    if(table->column_separator != NULL && i > 0)
-		fprintf (f, "%s", table->column_separator);
-	    fprintf (f, "%s", get_column_prefix (table, c));
+		p = rk_strpoolprintf(p, "%s", table->column_separator);
+	    p = rk_strpoolprintf(p, "%s", get_column_prefix (table, c));
 	    if(i == table->num_columns - 1 && c->suffix == NULL)
 		/* last column, so no need to pad with spaces */
-		fprintf (f, "%-*s", 0, c->header);
+		p = rk_strpoolprintf(p, "%-*s", 0, c->header);
 	    else
-		fprintf (f, "%-*s", (int)c->width, c->header);
-	    fprintf (f, "%s", get_column_suffix (table, c));
+		p = rk_strpoolprintf(p, "%-*s", (int)c->width, c->header);
+	    p = rk_strpoolprintf(p, "%s", get_column_suffix (table, c));
 	}
-	fprintf (f, "\n");
+	p = rk_strpoolprintf(p, "\n");
     }
 
     for (j = 0;; j++) {
@@ -403,7 +415,7 @@ rtbl_format (rtbl_t table, FILE * f)
 	    struct column_data *c = table->columns[i];
 
 	    if(table->column_separator != NULL && i > 0)
-		fprintf (f, "%s", table->column_separator);
+		p = rk_strpoolprintf(p, "%s", table->column_separator);
 
 	    w = c->width;
 
@@ -414,16 +426,17 @@ rtbl_format (rtbl_t table, FILE * f)
 		else
 		    w = -w;
 	    }
-	    fprintf (f, "%s", get_column_prefix (table, c));
+	    rk_strpoolprintf(p, "%s", get_column_prefix (table, c));
 	    if (c->num_rows <= j)
-		fprintf (f, "%*s", w, "");
+		p = rk_strpoolprintf(p, "%*s", w, "");
 	    else
-		fprintf (f, "%*s", w, c->rows[j].data);
-	    fprintf (f, "%s", get_column_suffix (table, c));
+		p = rk_strpoolprintf(p, "%*s", w, c->rows[j].data);
+	    p = rk_strpoolprintf(p, "%s", get_column_suffix (table, c));
 	}
-	fprintf (f, "\n");
+	p = rk_strpoolprintf(p, "\n");
     }
-    return 0;
+
+    return rk_strpoolcollect(p);
 }
 
 #ifdef TEST

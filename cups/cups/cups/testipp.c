@@ -1,9 +1,9 @@
 /*
- * "$Id: testipp.c 9099 2010-04-11 07:16:05Z mike $"
+ * "$Id: testipp.c 6649 2007-07-11 21:46:42Z mike $"
  *
  *   IPP test program for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -758,7 +758,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
   int			i;		/* Looping var */
   ipp_tag_t		group;		/* Current group */
   ipp_attribute_t	*attr;		/* Current attribute */
-  ipp_value_t		*val;		/* Current value */
+  _ipp_value_t		*val;		/* Current value */
   static const char * const tags[] =	/* Value/group tag strings */
 			{
 			  "reserved-00",
@@ -901,7 +901,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
       case IPP_TAG_RESOLUTION :
           for (i = 0, val = attr->values; i < attr->num_values; i ++, val ++)
 	    printf(" %dx%d%s", val->resolution.xres, val->resolution.yres,
-	           val->resolution.units == IPP_RES_PER_INCH ? "dpi" : "dpc");
+	           val->resolution.units == IPP_RES_PER_INCH ? "dpi" : "dpcm");
           putchar('\n');
           break;
 
@@ -1001,5 +1001,5 @@ write_cb(_ippdata_t   *data,		/* I - Data */
 
 
 /*
- * End of "$Id: testipp.c 9099 2010-04-11 07:16:05Z mike $".
+ * End of "$Id: testipp.c 6649 2007-07-11 21:46:42Z mike $".
  */

@@ -25,8 +25,8 @@
  */
 #ifdef DEBUG
 #define	dprintf(x) printf x
-#else DEBUG
+#else /* DEBUG */
 #define dprintf(x)
-#endif DEBUG
+#endif /* DEBUG */
 
 #endif /* _S_DPRINTF_H */

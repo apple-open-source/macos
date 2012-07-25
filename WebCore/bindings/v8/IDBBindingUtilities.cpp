@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,25 +31,57 @@
 #include "IDBDatabaseException.h"
 #include "IDBKey.h"
 #include "IDBKeyPath.h"
+#include "IDBTracing.h"
 #include "SerializedScriptValue.h"
 #include "V8Binding.h"
 #include "V8IDBKey.h"
+#include <wtf/MathExtras.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-PassRefPtr<IDBKey> createIDBKeyFromValue(v8::Handle<v8::Value> value)
+static const size_t maximumDepth = 2000;
+
+static PassRefPtr<IDBKey> createIDBKeyFromValue(v8::Handle<v8::Value> value, Vector<v8::Handle<v8::Array> >& stack)
 {
-    if (value->IsNull())
-        return IDBKey::createNull();
-    if (value->IsNumber())
+    if (value->IsNumber() && !isnan(value->NumberValue()))
         return IDBKey::createNumber(value->NumberValue());
     if (value->IsString())
         return IDBKey::createString(v8ValueToWebCoreString(value));
-    if (value->IsDate())
+    if (value->IsDate() && !isnan(value->NumberValue()))
         return IDBKey::createDate(value->NumberValue());
+    if (value->IsArray()) {
+        v8::Handle<v8::Array> array = v8::Handle<v8::Array>::Cast(value);
 
-    return 0; // Signals type error.
+        if (stack.contains(array))
+            return 0;
+        if (stack.size() >= maximumDepth)
+            return 0;
+        stack.append(array);
+
+        IDBKey::KeyArray subkeys;
+        uint32_t length = array->Length();
+        for (uint32_t i = 0; i < length; ++i) {
+            v8::Local<v8::Value> item = array->Get(v8::Int32::New(i));
+            RefPtr<IDBKey> subkey = createIDBKeyFromValue(item, stack);
+            if (!subkey)
+                return 0;
+            subkeys.append(subkey);
+        }
+
+        stack.removeLast();
+        return IDBKey::createArray(subkeys);
+    }
+    return 0;
+}
+
+PassRefPtr<IDBKey> createIDBKeyFromValue(v8::Handle<v8::Value> value)
+{
+    Vector<v8::Handle<v8::Array> > stack;
+    RefPtr<IDBKey> key = createIDBKeyFromValue(value, stack);
+    if (key)
+        return key;
+    return IDBKey::createInvalid();
 }
 
 namespace {
@@ -72,52 +104,22 @@ bool setValue(v8::Handle<v8::Value>& v8Object, T indexOrName, const v8::Handle<v
     return object->Set(indexOrName, v8Value);
 }
 
-bool get(v8::Handle<v8::Value>& object, const IDBKeyPathElement& keyPathElement)
+bool get(v8::Handle<v8::Value>& object, const String& keyPathElement)
 {
-    switch (keyPathElement.type) {
-    case IDBKeyPathElement::IsIndexed:
-        return object->IsArray() && getValueFrom(keyPathElement.index, object);
-    case IDBKeyPathElement::IsNamed:
-        return object->IsObject() && getValueFrom(v8String(keyPathElement.identifier), object);
-    default:
-        ASSERT_NOT_REACHED();
+    if (object->IsString() && keyPathElement == "length") {
+        int32_t length = v8::Handle<v8::String>::Cast(object)->Length();
+        object = v8::Number::New(length);
+        return true;
     }
-    return false;
+    return object->IsObject() && getValueFrom(v8String(keyPathElement), object);
 }
 
-bool set(v8::Handle<v8::Value>& object, const IDBKeyPathElement& keyPathElement, const v8::Handle<v8::Value>& v8Value)
+bool set(v8::Handle<v8::Value>& object, const String& keyPathElement, const v8::Handle<v8::Value>& v8Value)
 {
-    switch (keyPathElement.type) {
-    case IDBKeyPathElement::IsIndexed:
-        return object->IsArray() && setValue(object, keyPathElement.index, v8Value);
-    case IDBKeyPathElement::IsNamed:
-        return object->IsObject() && setValue(object, v8String(keyPathElement.identifier), v8Value);
-    default:
-        ASSERT_NOT_REACHED();
-    }
-    return false;
+    return object->IsObject() && setValue(object, v8String(keyPathElement), v8Value);
 }
 
-class LocalContext {
-public:
-    LocalContext()
-        : m_context(v8::Context::New())
-    {
-        m_context->Enter();
-    }
-
-    ~LocalContext()
-    {
-        m_context->Exit();
-        m_context.Dispose();
-    }
-
-private:
-    v8::HandleScope m_scope;
-    v8::Persistent<v8::Context> m_context;
-};
-
-v8::Handle<v8::Value> getNthValueOnKeyPath(v8::Handle<v8::Value>& rootValue, const Vector<IDBKeyPathElement>& keyPathElements, size_t index)
+v8::Handle<v8::Value> getNthValueOnKeyPath(v8::Handle<v8::Value>& rootValue, const Vector<String>& keyPathElements, size_t index)
 {
     v8::Handle<v8::Value> currentValue(rootValue);
 
@@ -130,11 +132,31 @@ v8::Handle<v8::Value> getNthValueOnKeyPath(v8::Handle<v8::Value>& rootValue, con
     return currentValue;
 }
 
+v8::Handle<v8::Value> ensureNthValueOnKeyPath(v8::Handle<v8::Value>& rootValue, const Vector<String>& keyPathElements, size_t index)
+{
+    v8::Handle<v8::Value> currentValue(rootValue);
+
+    ASSERT(index <= keyPathElements.size());
+    for (size_t i = 0; i < index; ++i) {
+        v8::Handle<v8::Value> parentValue(currentValue);
+        const String& keyPathElement = keyPathElements[i];
+        if (!get(currentValue, keyPathElement)) {
+            v8::Handle<v8::Object> object = v8::Object::New();
+            if (!set(parentValue, keyPathElement, object))
+                return v8::Handle<v8::Value>();
+            currentValue = object;
+        }
+    }
+
+    return currentValue;
+}
+
 } // anonymous namespace
 
-PassRefPtr<IDBKey> createIDBKeyFromSerializedValueAndKeyPath(PassRefPtr<SerializedScriptValue> value, const Vector<IDBKeyPathElement>& keyPath)
+PassRefPtr<IDBKey> createIDBKeyFromSerializedValueAndKeyPath(PassRefPtr<SerializedScriptValue> value, const Vector<String>& keyPath)
 {
-    LocalContext localContext;
+    IDB_TRACE("createIDBKeyFromSerializedValueAndKeyPath");
+    V8AuxiliaryContext context;
     v8::Handle<v8::Value> v8Value(value->deserialize());
     v8::Handle<v8::Value> v8Key(getNthValueOnKeyPath(v8Value, keyPath, keyPath.size()));
     if (v8Key.IsEmpty())
@@ -142,14 +164,15 @@ PassRefPtr<IDBKey> createIDBKeyFromSerializedValueAndKeyPath(PassRefPtr<Serializ
     return createIDBKeyFromValue(v8Key);
 }
 
-PassRefPtr<SerializedScriptValue> injectIDBKeyIntoSerializedValue(PassRefPtr<IDBKey> key, PassRefPtr<SerializedScriptValue> value, const Vector<IDBKeyPathElement>& keyPath)
+PassRefPtr<SerializedScriptValue> injectIDBKeyIntoSerializedValue(PassRefPtr<IDBKey> key, PassRefPtr<SerializedScriptValue> value, const Vector<String>& keyPath)
 {
-    LocalContext localContext;
+    IDB_TRACE("injectIDBKeyIntoSerializedValue");
+    V8AuxiliaryContext context;
     if (!keyPath.size())
         return 0;
 
     v8::Handle<v8::Value> v8Value(value->deserialize());
-    v8::Handle<v8::Value> parent(getNthValueOnKeyPath(v8Value, keyPath, keyPath.size() - 1));
+    v8::Handle<v8::Value> parent(ensureNthValueOnKeyPath(v8Value, keyPath, keyPath.size() - 1));
     if (parent.IsEmpty())
         return 0;
 

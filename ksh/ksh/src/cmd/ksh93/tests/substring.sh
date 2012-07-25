@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -163,7 +163,7 @@ if	[[ ${xx//\//\\} != 'a\b\c\d\e' ]]
 then	err_exit '${xx//\//\\} not working'
 fi
 x=[123]def
-if	[[ "${x//\[(*)\]/\{\1\}}" != {123}def ]]
+if	[[ "${x//\[@(*)\]/\{\1\}}" != {123}def ]]
 then	err_exit 'closing brace escape not working'
 fi
 xx=%28text%29
@@ -173,9 +173,9 @@ fi
 xx='a:b'
 str='(){}[]*?|&^%$#@l'
 for ((i=0 ; i < ${#str}; i++))
-do      [[ $(eval print -r -- \${xx//:/\\${str:i:1}}) == "a${str:i:1}b" ]] || err_exit "substitution of \\${str:i:1}} failed"
-        [[ $(eval print -rn -- \${xx//:/\'${str:i:1}\'}) == "a${str:i:1}b" ]] || err_exit "substitution of '${str:i:1}' failed"
-        [[ $(eval print -r -- \${xx//:/\"${str:i:1}\"}) == "a${str:i:1}b" ]] || err_exit "substitution of \"${str:i:1}\" failed"
+do      [[ $(eval print -r -- \"\${xx//:/\\${str:i:1}}\") == "a${str:i:1}b" ]] || err_exit "substitution of \\${str:i:1}} failed"
+        [[ $(eval print -rn -- \"\${xx//:/\'${str:i:1}\'}\") == "a${str:i:1}b" ]] || err_exit "substitution of '${str:i:1}' failed"
+        [[ $(eval print -r -- \"\${xx//:/\"${str:i:1}\"}\") == "a${str:i:1}b" ]] || err_exit "substitution of \"${str:i:1}\" failed"
 done
 [[ ${xx//:/\\n} == 'a\nb' ]]  || err_exit "substituion of \\\\n failed"
 [[ ${xx//:/'\n'} == 'a\nb' ]] || err_exit "substituion of '\\n' failed"
@@ -192,7 +192,7 @@ fi
 if	[[ ${foo//\//_} != one_two_three ]]
 then	err_exit 'escaping / in replacements failed'
 fi
-function myexport 
+function myexport
 {
 	nameref var=$1
 	if	(( $# > 1 ))
@@ -205,7 +205,7 @@ function myexport
 	typeset val
 	val=$(export | grep "^$1=")
 	print ${val#"$1="}
-	
+
 }
 export dgk=base
 if	[[ $(myexport dgk fun) != fun ]]
@@ -260,13 +260,6 @@ fi
 if	[[ ${var//+(\S)/Q} != 'Q Q' ]]
 then	err_exit '${var//+(\S)/Q} not workding'
 fi
-if	[[ "$(LC_ALL=debug $SHELL <<- \+EOF+
-		x=a<2bc><3xyz>g
-		print ${#x}
-		+EOF+)" != 4
-	]]
-then	err_exit '${#x} not working with multibyte locales'
-fi
 foo='foo+bar+'
 [[ $(print -r -- ${foo//+/'|'}) != 'foo|bar|' ]] && err_exit "\${foobar//+/'|'}"
 [[ $(print -r -- ${foo//+/"|"}) != 'foo|bar|' ]] && err_exit '${foobar//+/"|"}'
@@ -287,7 +280,7 @@ b='[abc 123 def]'
 [[ ${b//$a/\1} == 123 ]] || err_exit "\${var/pattern} not working with \[ in pattern"
 unset foo
 foo='(win32.i386) '
-[[ ${foo/'('/'(x11-'} == '(x11-win32.i386) ' ]] || err_exit "\${var/pattern} not working with ' in pattern" 
+[[ ${foo/'('/'(x11-'} == '(x11-win32.i386) ' ]] || err_exit "\${var/pattern} not working with ' in pattern"
 $SHELL -c $'v=\'$(hello)\'; [[ ${v//\'$(\'/-I\'$(\'} == -I"$v" ]]' 2> /dev/null || err_exit "\${var/pattern} not working with \$( as pattern"
 unset X
 $SHELL -c '[[ ! ${X[@]:0:300} ]]' 2> /dev/null || err_exit '${X[@]:0:300} with X undefined fails'
@@ -310,7 +303,7 @@ done
 [[ $(string=$string $SHELL -c  ": \${string/$pattern/}; print \${.sh.match[26]}") == Z ]] || err_exit -u2 'sh.match[26] not Z'
 : ${string/$pattern/}
 (( ${#.sh.match[@]} == 53 )) || err_exit '.sh.match has wrong number of elements'
-[[ ${.sh.match[@]:2:4} == 'B C D E'  ]] || err_exit '${.sh.match[@]:2:4} incorrect' 
+[[ ${.sh.match[@]:2:4} == 'B C D E'  ]] || err_exit '${.sh.match[@]:2:4} incorrect'
 
 D=$';' E=$'\\\\' Q=$'"' S=$'\'' M='nested pattern substitution failed'
 
@@ -362,7 +355,7 @@ x='-((-))-'
 x='-((-))-'
 [[ ${x/~(+g:*(?))*%(())*(?)*/:\1:\2:\3:} == ':-(:(-):)-:' ]] || err_exit $M
 x='call(a+b,x/(c/d),(0));'
-[[ ${x/+([[:alnum:]])*([[:space:]])(*%(()))*/:\1:\2:\3:} == ':call::(a+b,x/(c/d),(0)):' ]] || err_exit $M
+[[ ${x/+([[:alnum:]])*([[:space:]])@(*%(()))*/:\1:\2:\3:} == ':call::(a+b,x/(c/d),(0)):' ]] || err_exit $M
 
 x='-(-;-)-'
 [[ ${x/*%(()D${D})*/\1} == '-(-;-)-' ]] || err_exit $M
@@ -508,17 +501,100 @@ pattern=00
 var=100
 [[ $( print $(( ${var%%00} )) ) == 1 ]] || err_exit "arithmetic with embeddded patterns fails"
 [[ $( print $(( ${var%%$pattern} )) ) == 1 ]] || err_exit "arithmetic with embeddded pattern variables fails"
-if	[[ ax == @(a)* ]] && [[ ${.sh.match[1]:0:${#.sh.match[1]}}  != a ]] 
+if	[[ ax == @(a)* ]] && [[ ${.sh.match[1]:0:${#.sh.match[1]}}  != a ]]
 then	err_exit '${.sh.match[1]:1:${#.sh.match[1]}} not expanding correctly'
 fi
 
 string='foo(d:\nt\box\something)bar'
 expected='d:\nt\box\something'
 [[ ${string/*\(+([!\)])\)*/\1} == "$expected" ]] || err_exit "substring expansion failed '${string/*\(+([!\)])\)*/\1}' returned -- '$expected' expected"
-if	[[ $($SHELL -c $'export LC_ALL=en_US.UTF-8; print -r "\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254" | wc -m' 2>/dev/null) == 10 ]]
-then	LC_ALL=en_US.UTF-8 $SHELL -c b1=$'"\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254"; [[ ${b1:4:1} == w ]]' || err_exit 'Multibyte ${var:offset:len} not working correctly'
+if	[[ $($SHELL -c $'export LC_ALL=C.UTF-8; print -r "\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254" | wc -m' 2>/dev/null) == 10 ]]
+then	LC_ALL=C.UTF-8 $SHELL -c b1=$'"\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254"; [[ ${b1:4:1} == w ]]' || err_exit 'multibyte ${var:offset:len} not working correctly'
 fi
-{ $SHELL -c 'unset x;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is not set' 
-{ $SHELL -c 'x=;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is null' 
-$SHELL -c 'a=$(/ 2>&1 | sed -e "s,.*: *,," -e "s, *\[.*,,"); (LC_ALL=debug / 2>/dev/null); b=$(/ 2>&1 | sed -e "s,.*: *,," -e "s, *\[.*,,"); [[ "$a" == "$b" ]]' || err_exit 'locale not restored after subshell'
-exit $((Errors))
+{ $SHELL -c 'unset x;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is not set'
+{ $SHELL -c 'x=;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is null'
+
+#	subject		mode	pattern			result	#
+set --							\
+	'a$z'		'E'	'[$]|#'		'a($)z'	\
+	'a#z'		'E'	'[$]|#'		'a(#)z'	\
+	'a$z'		'Elr'	'[$]|#'		'a$z'	\
+	'a#z'		'Elr'	'[$]|#'		'a#z'	\
+	'a$'		'E'	'[$]|#'		'a($)'	\
+	'a#'		'E'	'[$]|#'		'a(#)'	\
+	'a$'		'Elr'	'[$]|#'		'a$'	\
+	'a#'		'Elr'	'[$]|#'		'a#'	\
+	'$z'		'E'	'[$]|#'		'($)z'	\
+	'#z'		'E'	'[$]|#'		'(#)z'	\
+	'$z'		'Elr'	'[$]|#'		'$z'	\
+	'#z'		'Elr'	'[$]|#'		'#z'	\
+	'$'		'E'	'[$]|#'		'($)'	\
+	'#'		'E'	'[$]|#'		'(#)'	\
+	'$'		'Elr'	'[$]|#'		'($)'	\
+	'#'		'Elr'	'[$]|#'		'(#)'	\
+	'a$z'		'E'	'\$|#'		'a$z()'	\
+	'a$z'		'E'	'\\$|#'		'a$z'	\
+	'a$z'		'E'	'\\\$|#'	'a($)z'	\
+	'a#z'		'E'	'\\\$|#'	'a(#)z'	\
+	'a$z'		'Elr'	'\\\$|#'	'a$z'	\
+	'a#z'		'Elr'	'\\\$|#'	'a#z'	\
+	'a$'		'E'	'\\\$|#'	'a($)'	\
+	'a#'		'E'	'\\\$|#'	'a(#)'	\
+	'a$'		'Elr'	'\\\$|#'	'a$'	\
+	'a#'		'Elr'	'\\\$|#'	'a#'	\
+	'$z'		'E'	'\\\$|#'	'($)z'	\
+	'#z'		'E'	'\\\$|#'	'(#)z'	\
+	'$z'		'Elr'	'\\\$|#'	'$z'	\
+	'#z'		'Elr'	'\\\$|#'	'#z'	\
+	'$'		'E'	'\\\$|#'	'($)'	\
+	'#'		'E'	'\\\$|#'	'(#)'	\
+	'$'		'Elr'	'\\\$|#'	'($)'	\
+	'#'		'Elr'	'\\\$|#'	'(#)'	\
+#	do not delete this line			#
+unset i o
+while	(( $# >= 4 ))
+do	i=$1
+	eval o="\${i/~($2)$3/\\(\\0\\)}"
+	if	[[ "$o" != "$4" ]]
+	then	err_exit "i='$1'; \${i/~($2)$3/\\(\\0\\)} failed -- expected '$4', got '$o'"
+	fi
+	eval o="\${i/~($2)($3)/\\(\\1\\)}"
+	if	[[ "$o" != "$4" ]]
+	then	err_exit "i='$1'; \${i/~($2)($3)/\\(\\1\\)} failed -- expected '$4', got '$o'"
+	fi
+	shift 4
+done
+
+#multibyte locale tests
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:0:1}" == a || err_exit ${x:0:1} should be a'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:1:1}" == "<2b|>" || err_exit ${x:1:1} should be <2b|>'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:3:1}" == "<3d|\\>" || err_exit ${x:3:1} should be <3d|\>'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:4:1}" == e || err_exit ${x:4:1} should bee'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:1}" == "<2b|>c<3d|\\>e" || print -u2   ${x:1}" should be <2b|>c<3d|\>e'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x: -1:1}" == e || err_exit ${x: -1:1} should be e'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x: -2:1}" == "<3d|\\>" || err_exit ${x: -2:1} == <3d|\>'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:1:3}" == "<2b|>c<3d|\\>" || err_exit ${x:1:3} should be <2b|>c<3d|\>'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x:1:20}" == "<2b|>c<3d|\\>e" || err_exit ${x:1:20} should be <2b|>c<3d|\>e'
+x='a<2b|>c<3d|\>e' LC_ALL=debug $SHELL -c 'test "${x#??}" == "c<3d|\\>e" || err_exit "${x#??} should be c<3d|\>e'
+
+x='a one and a two'
+[[ "${x//~(E)\<.\>/}" == ' one and  two' ]]  || err_exit "\< and \> not working in with ere's"
+
+{
+$SHELL -c 'typeset x="123" ; integer i=100 ; print -n "${x:i:5}"'
+} 2> /dev/null || err_exit '${x:i:j} fails when i > strlen(x)'
+
+got=$($SHELL -c 'A=""; B="B"; for I in ${A[@]} ${B[@]}; do echo "\"$I\""; done')
+[[ $got == $'"B"' ]] || err_exit '"\"$I\"" fails when $I is empty string'
+
+A='|'
+[[ $A == $A ]] || err_exit 'With A="|",  [[ $A == $A ]] does not match'
+
+x="111 222 333 444 555 666"
+[[ $x == ~(E)(...).(...).(...) ]]
+[[ -v .sh.match[0] ]] ||   err_exit '[[ -v .sh.match[0] ]] should be true'
+[[ -v .sh.match[3] ]] ||   err_exit '[[ -v .sh.match[3] ]] should be true'
+[[ -v .sh.match[4] ]] &&   err_exit '[[ -v .sh.match[4] ]] should be false'
+[[ ${#.sh.match[@]} == 4 ]] || err_exit "\${#.sh.match[@]} should be 4, not ${#.sh.match[@]}"
+
+exit $((Errors<125?Errors:125))

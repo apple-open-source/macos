@@ -43,6 +43,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
+#include <_types.h>
 
 #ifdef _NLS_PRIVATE
 /*
@@ -82,7 +83,7 @@ struct _nls_msg_hdr {
 
 #endif	/* _NLS_PRIVATE */
 
-#define	NL_SETD		0
+#define	NL_SETD		1
 #define	NL_CAT_LOCALE	1
 
 typedef struct __nl_cat_d {
@@ -90,9 +91,9 @@ typedef struct __nl_cat_d {
 	int	__size;
 } *nl_catd;
 
-#ifndef _NL_ITEM_DECLARED
-typedef	__nl_item	nl_item;
-#define	_NL_ITEM_DECLARED
+#ifndef _NL_ITEM
+typedef __darwin_nl_item        nl_item;
+#define _NL_ITEM
 #endif
 
 __BEGIN_DECLS

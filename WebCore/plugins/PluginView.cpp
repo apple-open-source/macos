@@ -143,8 +143,8 @@ void PluginView::setFrameRect(const IntRect& rect)
 
     updatePluginWidget();
 
-#if OS(WINDOWS) || OS(SYMBIAN)
-    // On Windows and Symbian, always call plugin to change geometry.
+#if OS(WINDOWS)
+    // On Windows always call plugin to change geometry.
     setNPWindowRect(rect);
 #elif defined(XP_UNIX)
     // On Unix, multiple calls to setNPWindow() in windowed mode causes Flash to crash
@@ -273,9 +273,6 @@ bool PluginView::start()
     if (m_status != PluginStatusLoadedSuccessfully)
         return false;
 
-    if (parentFrame()->page())
-        parentFrame()->page()->didStartPlugin(this);
-
     return true;
 }
 
@@ -319,9 +316,6 @@ void PluginView::stop()
 {
     if (!m_isStarted)
         return;
-
-    if (parentFrame()->page())
-        parentFrame()->page()->didStopPlugin(this);
 
     LOG(Plugins, "PluginView::stop(): Stopping plug-in '%s'", m_plugin->name().utf8().data());
 
@@ -372,8 +366,7 @@ void PluginView::stop()
     }
 
 #ifdef XP_UNIX
-    if (m_isWindowed && m_npWindow.ws_info)
-           delete (NPSetWindowCallbackStruct *)m_npWindow.ws_info;
+    delete static_cast<NPSetWindowCallbackStruct*>(m_npWindow.ws_info);
     m_npWindow.ws_info = 0;
 #endif
 
@@ -568,7 +561,7 @@ NPError PluginView::getURLNotify(const char* url, const char* target, void* noti
 
     frameLoadRequest.setFrameName(target);
     frameLoadRequest.resourceRequest().setHTTPMethod("GET");
-    frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
+    frameLoadRequest.resourceRequest().setURL(makeURL(m_parentFrame->document()->baseURL(), url));
 
     return load(frameLoadRequest, true, notifyData);
 }
@@ -579,7 +572,7 @@ NPError PluginView::getURL(const char* url, const char* target)
 
     frameLoadRequest.setFrameName(target);
     frameLoadRequest.resourceRequest().setHTTPMethod("GET");
-    frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
+    frameLoadRequest.resourceRequest().setURL(makeURL(m_parentFrame->document()->baseURL(), url));
 
     return load(frameLoadRequest, false, 0);
 }
@@ -680,12 +673,6 @@ NPError PluginView::setValue(NPPVariable variable, void* value)
         }
     }
 #endif // defined(XP_MACOSX)
-
-#if PLATFORM(QT) && defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-    case NPPVpluginWindowlessLocalBool:
-        m_renderToImage = true;
-        return NPERR_NO_ERROR;
-#endif
 
     default:
         notImplemented();
@@ -831,7 +818,6 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_element(element)
     , m_isStarted(false)
     , m_url(url)
-    , m_baseURL(m_parentFrame->loader()->completeURL(m_parentFrame->document()->baseURL().string()))
     , m_status(PluginStatusLoadedSuccessfully)
     , m_requestTimer(this, &PluginView::requestTimerFired)
     , m_invalidateTimer(this, &PluginView::invalidateTimerFired)
@@ -882,8 +868,6 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_loadManually(loadManually)
     , m_manualStream(0)
     , m_isJavaScriptPaused(false)
-    , m_isHalted(false)
-    , m_hasBeenHalted(false)
     , m_haveCalledSetWindow(false)
 {
     if (!m_plugin) {
@@ -911,8 +895,9 @@ void PluginView::focusPluginElement()
 {
     // Focus the plugin
     if (Page* page = m_parentFrame->page())
-        page->focusController()->setFocusedFrame(m_parentFrame);
-    m_parentFrame->document()->setFocusedNode(m_element);
+        page->focusController()->setFocusedNode(m_element, m_parentFrame);
+    else
+        m_parentFrame->document()->setFocusedNode(m_element);
 }
 
 void PluginView::didReceiveResponse(const ResourceResponse& response)
@@ -1213,7 +1198,7 @@ NPError PluginView::handlePost(const char* url, const char* target, uint32_t len
     }
 
     frameLoadRequest.resourceRequest().setHTTPMethod("POST");
-    frameLoadRequest.resourceRequest().setURL(makeURL(m_baseURL, url));
+    frameLoadRequest.resourceRequest().setURL(makeURL(m_parentFrame->document()->baseURL(), url));
     frameLoadRequest.resourceRequest().addHTTPHeaderFields(headerFields);
     frameLoadRequest.resourceRequest().setHTTPBody(FormData::create(postData, postDataLength));
     frameLoadRequest.setFrameName(target);
@@ -1290,16 +1275,6 @@ const char* PluginView::userAgentStatic()
 }
 #endif
 
-
-Node* PluginView::node() const
-{
-    return m_element;
-}
-
-String PluginView::pluginName() const
-{
-    return m_plugin->name();
-}
 
 void PluginView::lifeSupportTimerFired(Timer<PluginView>*)
 {
@@ -1418,7 +1393,7 @@ NPError PluginView::getValueForURL(NPNURLVariable variable, const char* url, cha
 
     switch (variable) {
     case NPNURLVCookie: {
-        KURL u(m_baseURL, url);
+        KURL u(m_parentFrame->document()->baseURL(), url);
         if (u.isValid()) {
             Frame* frame = getFrame(parentFrame(), m_element);
             if (frame) {
@@ -1440,7 +1415,7 @@ NPError PluginView::getValueForURL(NPNURLVariable variable, const char* url, cha
         break;
     }
     case NPNURLVProxy: {
-        KURL u(m_baseURL, url);
+        KURL u(m_parentFrame->document()->baseURL(), url);
         if (u.isValid()) {
             Frame* frame = getFrame(parentFrame(), m_element);
             const FrameLoader* frameLoader = frame ? frame->loader() : 0;
@@ -1479,7 +1454,7 @@ NPError PluginView::setValueForURL(NPNURLVariable variable, const char* url, con
 
     switch (variable) {
     case NPNURLVCookie: {
-        KURL u(m_baseURL, url);
+        KURL u(m_parentFrame->document()->baseURL(), url);
         if (u.isValid()) {
             const String cookieStr = String::fromUTF8(value, len);
             Frame* frame = getFrame(parentFrame(), m_element);

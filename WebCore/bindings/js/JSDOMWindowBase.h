@@ -40,11 +40,13 @@ namespace WebCore {
         JSDOMWindowBase(JSC::JSGlobalData&, JSC::Structure*, PassRefPtr<DOMWindow>, JSDOMWindowShell*);
         void finishCreation(JSC::JSGlobalData&, JSDOMWindowShell*);
 
+        static void destroy(JSCell*);
+
     public:
         void updateDocument();
 
         DOMWindow* impl() const { return m_impl.get(); }
-        virtual ScriptExecutionContext* scriptExecutionContext() const;
+        ScriptExecutionContext* scriptExecutionContext() const;
 
         // Called just before removing this window from the JSDOMWindowShell.
         void willRemoveFromWindowShell();
@@ -56,13 +58,13 @@ namespace WebCore {
             return JSC::Structure::create(globalData, 0, prototype, JSC::TypeInfo(JSC::GlobalObjectType, StructureFlags), &s_info);
         }
 
-        virtual JSC::ExecState* globalExec();
         static const JSC::GlobalObjectMethodTable s_globalObjectMethodTable;
 
         static bool supportsProfiling(const JSC::JSGlobalObject*);
         static bool supportsRichSourceInfo(const JSC::JSGlobalObject*);
         static bool shouldInterruptScript(const JSC::JSGlobalObject*);
-
+        static bool allowsAccessFrom(const JSC::JSGlobalObject*, JSC::ExecState*);
+        
         bool allowsAccessFrom(JSC::ExecState*) const;
         bool allowsAccessFromNoErrorMessage(JSC::ExecState*) const;
         bool allowsAccessFrom(JSC::ExecState*, String& message) const;

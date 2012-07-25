@@ -1,9 +1,9 @@
 /*
- * "$Id: emit.c 9901 2011-08-17 21:01:53Z mike $"
+ * "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $"
  *
  *   PPD code emission routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -87,7 +87,7 @@ ppdCollect(ppd_file_t    *ppd,		/* I - PPD file data */
  * The choices array should be freed using @code free@ when you are
  * finished with it.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - Number of options marked */
@@ -260,7 +260,7 @@ ppdEmit(ppd_file_t    *ppd,		/* I - PPD file record */
  *
  * When "limit" is zero, this function is identical to ppdEmit().
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
@@ -519,15 +519,27 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
     */
 
     if (display && strcmp(display->value, "job"))
-    {
       fprintf(fp, "@PJL JOB NAME = \"%s\"\n", temp);
-
-      if (display && !strcmp(display->value, "rdymsg"))
-        fprintf(fp, "@PJL RDYMSG DISPLAY = \"%s\"\n", displaymsg);
-    }
+    else if (display && !strcmp(display->value, "rdymsg"))
+      fprintf(fp, "@PJL RDYMSG DISPLAY = \"%s\"\n", displaymsg);
     else
       fprintf(fp, "@PJL JOB NAME = \"%s\" DISPLAY = \"%s\"\n", temp,
 	      displaymsg);
+
+   /*
+    * Replace double quotes with single quotes and UTF-8 characters with
+    * question marks so that the user does not cause a PJL syntax error.
+    */
+
+    strlcpy(temp, user, sizeof(temp));
+
+    for (ptr = temp; *ptr; ptr ++)
+      if (*ptr == '\"')
+        *ptr = '\'';
+      else if (!charset && (*ptr & 128))
+        *ptr = '?';
+
+    fprintf(fp, "@PJL SET USERNAME = \"%s\"\n", temp);
   }
   else
     fputs(ppd->jcl_begin, fp);
@@ -542,7 +554,7 @@ ppdEmitJCL(ppd_file_t *ppd,		/* I - PPD file record */
 /*
  * 'ppdEmitJCLEnd()' - Emit JCLEnd code to a file.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - 0 on success, -1 on failure */
@@ -601,7 +613,7 @@ ppdEmitJCLEnd(ppd_file_t *ppd,		/* I - PPD file record */
  * The return string is allocated on the heap and should be freed using
  * @code free@ when you are done with it.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 char *					/* O - String containing option code or @code NULL@ if there is no option code */
@@ -1213,5 +1225,5 @@ ppd_handle_media(ppd_file_t *ppd)	/* I - PPD file */
 
 
 /*
- * End of "$Id: emit.c 9901 2011-08-17 21:01:53Z mike $".
+ * End of "$Id: emit.c 7863 2008-08-26 03:39:59Z mike $".
  */

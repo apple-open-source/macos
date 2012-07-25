@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,3 +38,8 @@
 _thread_start:
     stmfd sp!, {r4, r5}
 	bl __pthread_start
+
+// Stackshots will show the routine that happens to link immediately following
+// _thread_start.  So we add an extra instruction (nop) to make stackshots
+// more readable.
+	nop

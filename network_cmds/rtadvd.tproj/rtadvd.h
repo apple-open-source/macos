@@ -1,4 +1,4 @@
-/*	$KAME: rtadvd.h,v 1.16 2001/04/10 15:08:31 suz Exp $	*/
+/*	$KAME: rtadvd.h,v 1.26 2003/08/05 12:34:23 itojun Exp $	*/
 
 /*
  * Copyright (C) 1998 WIDE Project.
@@ -27,9 +27,9 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/usr.sbin/rtadvd/rtadvd.h,v 1.1.2.2 2001/07/03 11:02:14 ume Exp $
  */
+
+#define	ROUTEINFO	1
 
 #define ALLNODES "ff02::1"
 #define ALLROUTERS_LINK "ff02::2"
@@ -46,20 +46,11 @@
 #define DEF_ADVVALIDLIFETIME 2592000
 #define DEF_ADVPREFERREDLIFETIME 604800
 
-/*XXX int-to-double comparison for INTERVAL items */
-#ifndef MIP6
-#define mobileip6 0
-#endif
-
 #define MAXROUTERLIFETIME 9000
-#define MIN_MAXINTERVAL (mobileip6 ? 1.5 : 4.0)
+#define MIN_MAXINTERVAL 4
 #define MAX_MAXINTERVAL 1800
-#define MIN_MININTERVAL	(mobileip6 ? 0.5 : 3)
+#define MIN_MININTERVAL 3
 #define MAXREACHABLETIME 3600000
-
-#ifndef MIP6
-#undef miobileip6
-#endif
 
 #define MAX_INITIAL_RTR_ADVERT_INTERVAL  16
 #define MAX_INITIAL_RTR_ADVERTISEMENTS    3
@@ -75,29 +66,34 @@ struct prefix {
 	struct prefix *next;	/* forward link */
 	struct prefix *prev;	/* previous link */
 
+	struct rainfo *rainfo;	/* back pointer to the interface */
+
+	struct rtadvd_timer *timer; /* expiration timer.  used when a prefix
+				     * derived from the kernel is deleted.
+				     */
+
 	u_int32_t validlifetime; /* AdvValidLifetime */
 	long	vltimeexpire;	/* expiration of vltime; decrement case only */
 	u_int32_t preflifetime;	/* AdvPreferredLifetime */
 	long	pltimeexpire;	/* expiration of pltime; decrement case only */
 	u_int onlinkflg;	/* bool: AdvOnLinkFlag */
 	u_int autoconfflg;	/* bool: AdvAutonomousFlag */
-#ifdef MIP6
-	u_int routeraddr;	/* bool: RouterAddress */
-#endif
 	int prefixlen;
-	int origin;		/* from kernel or cofig */
+	int origin;		/* from kernel or config */
 	struct in6_addr prefix;
 };
 
+#ifdef ROUTEINFO
 struct rtinfo {
 	struct rtinfo *prev;	/* previous link */
 	struct rtinfo *next;	/* forward link */
 
 	u_int32_t ltime;	/* route lifetime */
-	u_int rtpref;		/* router preference */
+	u_int rtpref;		/* route preference */
 	int prefixlen;
 	struct in6_addr prefix;
 };
+#endif
 
 struct soliciter {
 	struct soliciter *next;
@@ -109,6 +105,13 @@ struct rdnss {
 	struct rdnss *prev;	/* previous link */
 	
 	struct in6_addr addr;
+};
+
+struct dnssl {
+	struct dnssl *next;
+	struct dnssl *prev;
+
+	char domain[1];
 };
 
 struct	rainfo {
@@ -134,9 +137,7 @@ struct	rainfo {
 	u_int	mininterval;	/* MinRtrAdvInterval */
 	int 	managedflg;	/* AdvManagedFlag */
 	int	otherflg;	/* AdvOtherConfigFlag */
-#ifdef MIP6
-	int	haflg;		/* HAFlag */
-#endif
+
 	int	rtpref;		/* router preference */
 	u_int32_t linkmtu;	/* AdvLinkMTU */
 	u_int32_t reachabletime; /* AdvReachableTime */
@@ -146,17 +147,21 @@ struct	rainfo {
 	int	pfxs;		/* number of prefixes */
 	long	clockskew;	/* used for consisitency check of lifetimes */
 
-#ifdef MIP6
-	u_short	hapref;		/* Home Agent Preference */
-	u_short	hatime;		/* Home Agent Lifetime */
-#endif
+#ifdef ROUTEINFO
 	struct rtinfo route;	/* route information option (link head) */
 	int	routes;		/* number of route information options */
+#endif
 
     	/* Recursive DNS Servers RFC5006 */
 	struct rdnss rdnss_list;
 	int rdnss_length;
 	u_int32_t rdnss_lifetime;
+
+	/* DNS Search List RFC6106 */
+	struct dnssl dnssl_list;
+	int dnssl_length;
+	u_int32_t dnssl_lifetime;
+	u_int32_t dnssl_option_length;
 
 	/* actual RA packet data and its length */
 	size_t ra_datalen;
@@ -172,13 +177,11 @@ struct	rainfo {
 	struct soliciter *soliciter;	/* recent solication source */
 };
 
-void ra_timeout __P((void *));
-void ra_timer_update __P((void *, struct timeval *));
+struct rtadvd_timer *ra_timeout(void *);
+void ra_timer_update(void *, struct timeval *);
 
-int prefix_match __P((struct in6_addr *, int, struct in6_addr *, int));
-struct rainfo *if_indextorainfo __P((int));
+int prefix_match(struct in6_addr *, int, struct in6_addr *, int);
+struct rainfo *if_indextorainfo(int);
+struct prefix *find_prefix(struct rainfo *, struct in6_addr *, int);
 
 extern struct in6_addr in6a_site_allrouters;
-#ifdef MIP6
-extern int mobileip6;
-#endif

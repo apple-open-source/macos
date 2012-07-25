@@ -36,11 +36,11 @@
 #include "KURL.h"
 #include "SerializedScriptValue.h"
 
-#include "WebHTTPBody.h"
-#include "WebPoint.h"
-#include "WebSerializedScriptValue.h"
-#include "WebString.h"
-#include "WebVector.h"
+#include "platform/WebHTTPBody.h"
+#include "platform/WebPoint.h"
+#include "platform/WebSerializedScriptValue.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 using namespace WebCore;
 
@@ -163,6 +163,17 @@ void WebHistoryItem::setScrollOffset(const WebPoint& scrollOffset)
 {
     ensureMutable();
     m_private->setScrollPoint(scrollOffset);
+}
+
+float WebHistoryItem::pageScaleFactor() const
+{
+    return m_private->pageScaleFactor();
+}
+
+void WebHistoryItem::setPageScaleFactor(float scale)
+{
+    ensureMutable();
+    return m_private->setPageScaleFactor(scale);
 }
 
 bool WebHistoryItem::isTargetItem() const

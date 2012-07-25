@@ -81,10 +81,17 @@ __sflags(mode, optr)
 	}
 
 	/* [rwa]\+ or [rwa]b\+ means read and write */
-	if (*mode == '+' || (*mode == 'b' && mode[1] == '+')) {
+	if (*mode == 'b')
+		mode++;
+	if (*mode == '+') {
 		ret = __SRW;
 		m = O_RDWR;
+		mode++;
+		if (*mode == 'b')
+			mode++;
 	}
+	if (*mode == 'x')
+		o |= O_EXCL;
 	*optr = m | o;
 	return (ret);
 }

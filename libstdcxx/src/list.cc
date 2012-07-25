@@ -142,10 +142,10 @@ _GLIBCXX_END_NESTED_NAMESPACE
 
 /* APPLE LOCAL begin libstdc++ abi compatibility fix 6710541 */
 #if defined(__APPLE__) && defined(_GLIBCXX_DEBUG)
-#if defined(__x86_64__) || defined(__i386__) || defined(__ppc__)
+#if ! defined(__arm__) 
 #if defined(__x86_64__) || defined(__i386__)
 #define JUMP "jmp "
-#elif defined(__ppc__)
+#else
 #define JUMP "b "
 #endif
 asm(".text\n"

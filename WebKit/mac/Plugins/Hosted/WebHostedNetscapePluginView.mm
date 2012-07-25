@@ -46,10 +46,11 @@
 #import <WebCore/RenderEmbeddedObject.h>
 #import <WebCore/ResourceError.h>
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/runtime_root.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
-#import <wtf/Threading.h>
+#import <wtf/MainThread.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -65,6 +66,7 @@ extern "C" {
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
@@ -126,7 +128,7 @@ extern "C" {
 #ifndef BUILDING_ON_LEOPARD
             // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
             // in order to get the coordinate system right.
-            RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.releaseRef());
+            RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.leakRef());
             
             _pluginLayer.adoptNS([[CALayer alloc] init]);
             _pluginLayer.get().bounds = realPluginLayer.get().bounds;
@@ -154,6 +156,14 @@ extern "C" {
 - (CALayer *)pluginLayer
 {
     return _pluginLayer.get();
+}
+
+- (BOOL)getFormValue:(NSString **)value
+{
+    // FIXME: We cannot implement this method for now because NPP_GetValue
+    // is not currently exposed by the plugin host. Once we have an IPC routine
+    // which allows us to invoke NPP_GetValue, we could implement this method.
+    return false;
 }
 
 - (void)setLayer:(CALayer *)newLayer
@@ -207,23 +217,6 @@ extern "C" {
     _previousSize = boundsInWindow.size;
     
     _proxy->resize(boundsInWindow, visibleRectInWindow);
-
-    CGRect bounds = NSRectToCGRect([self bounds]);
-    CGRect frame = NSRectToCGRect([self frame]);
-    
-    // We're not scaled, or in a subframe
-    CATransform3D scaleTransform = CATransform3DIdentity;
-    if (CGSizeEqualToSize(bounds.size, frame.size)) {
-        // We're in a subframe. Backing store is boundsInWindow.size.
-        if (boundsInWindow.size.width && boundsInWindow.size.height)
-            scaleTransform = CATransform3DMakeScale(frame.size.width / boundsInWindow.size.width, frame.size.height / boundsInWindow.size.height, 1);
-    } else {
-        // We're in the main frame with scaling. Need to mimic the frame/bounds scaling on Widgets.
-        if (frame.size.width && frame.size.height)
-            scaleTransform = CATransform3DMakeScale(bounds.size.width / frame.size.width, bounds.size.height / frame.size.height, 1);
-    }
-
-    _pluginLayer.get().sublayerTransform = scaleTransform;
 }
 
 - (void)windowFocusChanged:(BOOL)hasFocus
@@ -399,7 +392,7 @@ extern "C" {
     if (_element->renderer() && _element->renderer()->isEmbeddedObject()) {
         // FIXME: The renderer could also be a RenderApplet, we should handle that.
         RenderEmbeddedObject* renderer = toRenderEmbeddedObject(_element->renderer());
-        renderer->setShowsCrashedPluginIndicator();
+        renderer->setPluginUnavailabilityReason(RenderEmbeddedObject::PluginCrashed);
     }
 
     _pluginLayer = nil;

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2010, International Business Machines
+*   Copyright (C) 2002-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -164,10 +164,10 @@ uenum_reset(UEnumeration* en, UErrorCode* status);
  * @param adopted the C++ StringEnumeration to be wrapped in a UEnumeration.
  * @param ec the error code.
  * @return a UEnumeration wrapping the adopted StringEnumeration.
- * @draft ICU 4.2
+ * @stable ICU 4.2
  */
 U_CAPI UEnumeration* U_EXPORT2
-uenum_openFromStringEnumeration(U_NAMESPACE_QUALIFIER StringEnumeration* adopted, UErrorCode* ec);
+uenum_openFromStringEnumeration(icu::StringEnumeration* adopted, UErrorCode* ec);
 
 #endif
 

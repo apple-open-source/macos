@@ -28,14 +28,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "LocalizedNumber.h"
+#import "config.h"
+#import "LocalizedNumber.h"
 
-#include <limits>
 #import <Foundation/NSNumberFormatter.h>
-#include <wtf/MainThread.h>
-#include <wtf/RetainPtr.h>
-#include <wtf/text/CString.h>
+#import <limits>
+#import <wtf/dtoa.h>
+#import <wtf/MainThread.h>
+#import <wtf/MathExtras.h>
+#import <wtf/RetainPtr.h>
+#import <wtf/text/CString.h>
 
 using namespace std;
 
@@ -49,29 +51,69 @@ static RetainPtr<NSNumberFormatter> createFormatterForCurrentLocale()
     return formatter;
 }
 
-static NSNumberFormatter *numberFormatter()
+static RetainPtr<NSNumberFormatter> createFormatterForCurrentLocaleForDisplay()
 {
-    ASSERT(isMainThread());
-    static NSNumberFormatter *formatter = createFormatterForCurrentLocale().leakRef();
+    RetainPtr<NSNumberFormatter> formatter = createFormatterForCurrentLocale();
+    [formatter.get() setUsesGroupingSeparator:NO];
     return formatter;
 }
 
-double parseLocalizedNumber(const String& numberString)
+static NSNumberFormatter *numberFormatterForParsing()
+{
+    ASSERT(isMainThread());
+    static NSNumberFormatter *formatter = createFormatterForCurrentLocale().leakRef();
+    return formatter;    
+}
+
+static NSNumberFormatter *numberFormatterForDisplay()
+{
+    ASSERT(isMainThread());
+    static NSNumberFormatter *formatter = createFormatterForCurrentLocaleForDisplay().leakRef();
+    return formatter;
+}
+
+static double parseLocalizedNumber(const String& numberString)
 {
     if (numberString.isEmpty())
         return numeric_limits<double>::quiet_NaN();
-    NSNumber *number = [numberFormatter() numberFromString:numberString];
+    NSNumber *number = [numberFormatterForParsing() numberFromString:numberString];
     if (!number)
         return numeric_limits<double>::quiet_NaN();
     return [number doubleValue];
 }
 
-String formatLocalizedNumber(double inputNumber, unsigned fractionDigits)
+static String formatLocalizedNumber(double inputNumber, unsigned fractionDigits)
 {
     RetainPtr<NSNumber> number(AdoptNS, [[NSNumber alloc] initWithDouble:inputNumber]);
-    RetainPtr<NSNumberFormatter> formatter = numberFormatter();
+    RetainPtr<NSNumberFormatter> formatter = numberFormatterForDisplay();
     [formatter.get() setMaximumFractionDigits:fractionDigits];
     return String([formatter.get() stringFromNumber:number.get()]);
+}
+
+String convertToLocalizedNumber(const String& canonicalNumberString, unsigned fractionDigits)
+{
+    // FIXME: We should not do parse-then-format. It makes some
+    // problems such as removing leading zeros, changing trailing
+    // digits to zeros.
+    // FIXME: We should not use the fractionDigits argument.
+
+    double doubleValue = canonicalNumberString.toDouble();
+    // The input string must be valid.
+    return formatLocalizedNumber(doubleValue, fractionDigits);
+
+}
+
+String convertFromLocalizedNumber(const String& localizedNumberString)
+{
+    // FIXME: We should not do parse-then-format. It makes some
+    // problems such as removing leading zeros, changing trailing
+    // digits to zeros.
+
+    double doubleValue = parseLocalizedNumber(localizedNumberString);
+    if (!isfinite(doubleValue))
+        return localizedNumberString;
+    NumberToStringBuffer buffer;
+    return String(numberToString(doubleValue, buffer));
 }
 
 } // namespace WebCore

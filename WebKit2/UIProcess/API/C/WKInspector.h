@@ -43,10 +43,13 @@ WK_EXPORT WKTypeID WKInspectorGetTypeID();
 WK_EXPORT WKPageRef WKInspectorGetPage(WKInspectorRef inspector);
 
 WK_EXPORT bool WKInspectorIsVisible(WKInspectorRef inspector);
+WK_EXPORT bool WKInspectorIsFront(WKInspectorRef inspector);
 WK_EXPORT void WKInspectorShow(WKInspectorRef inspector);
 WK_EXPORT void WKInspectorClose(WKInspectorRef inspector);
 
 WK_EXPORT void WKInspectorShowConsole(WKInspectorRef inspector);
+WK_EXPORT void WKInspectorShowResources(WKInspectorRef inspector);
+WK_EXPORT void WKInspectorShowMainResourceForFrame(WKInspectorRef inspector, WKFrameRef frame);
 
 WK_EXPORT bool WKInspectorIsAttached(WKInspectorRef inspector);
 WK_EXPORT void WKInspectorAttach(WKInspectorRef inspector);

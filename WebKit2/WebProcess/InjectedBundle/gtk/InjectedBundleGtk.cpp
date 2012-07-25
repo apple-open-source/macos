@@ -29,20 +29,33 @@
 
 #include "WKBundleAPICast.h"
 #include "WKBundleInitialize.h"
-#include <WebCore/NotImplemented.h>
+#include <WebCore/FileSystem.h>
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-bool InjectedBundle::load(APIObject*)
+bool InjectedBundle::load(APIObject* initializationUserData)
 {
-    return false;
+    m_platformBundle = g_module_open(fileSystemRepresentation(m_path).data(), G_MODULE_BIND_LOCAL);
+    if (!m_platformBundle) {
+        g_warning("Error loading the injected bundle (%s): %s", m_path.utf8().data(), g_module_error());
+        return false;
+    }
+
+    WKBundleInitializeFunctionPtr initializeFunction = 0;
+    if (!g_module_symbol(m_platformBundle, "WKBundleInitialize", reinterpret_cast<void**>(&initializeFunction)) || !initializeFunction) {
+        g_warning("Error loading WKBundleInitialize symbol from injected bundle.");
+        return false;
+    }
+
+    initializeFunction(toAPI(this), toAPI(initializationUserData));
+    return true;
 }
 
 void InjectedBundle::activateMacFontAscentHack()
 {
-    notImplemented();
 }
 
 } // namespace WebKit

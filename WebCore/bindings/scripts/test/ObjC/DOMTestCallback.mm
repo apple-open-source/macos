@@ -26,7 +26,7 @@
 
 #import "config.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #import "DOMInternal.h"
 
@@ -37,6 +37,7 @@
 #import "Class3.h"
 #import "Class5.h"
 #import "Class6.h"
+#import "Class8.h"
 #import "DOMBlobInternal.h"
 #import "DOMCSSRuleInternal.h"
 #import "DOMCSSValueInternal.h"
@@ -45,16 +46,19 @@
 #import "DOMClass3Internal.h"
 #import "DOMClass5Internal.h"
 #import "DOMClass6Internal.h"
+#import "DOMClass8Internal.h"
 #import "DOMDOMStringListInternal.h"
 #import "DOMEventInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMStringList.h"
 #import "DOMStyleSheetInternal.h"
 #import "DOMTestCallbackInternal.h"
+#import "DOMThisClassInternal.h"
 #import "ExceptionHandlers.h"
 #import "JSMainThreadExecState.h"
 #import "KURL.h"
 #import "TestCallback.h"
+#import "ThisClass.h"
 #import "ThreadCheck.h"
 #import "WebCoreObjCExtras.h"
 #import "WebScriptObjectPrivate.h"
@@ -117,6 +121,18 @@
     return IMPL->callbackWithStringList(core(listParam));
 }
 
+- (BOOL)callbackWithBoolean:(BOOL)boolParam
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->callbackWithBoolean(boolParam);
+}
+
+- (BOOL)callbackRequiresThisToPass:(DOMClass8 *)class8Param thisClassParam:(DOMThisClass *)thisClassParam
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->callbackRequiresThisToPass(core(class8Param), core(thisClassParam));
+}
+
 @end
 
 WebCore::TestCallback* core(DOMTestCallback *wrapper)
@@ -138,4 +154,4 @@ DOMTestCallback *kit(WebCore::TestCallback* value)
     return [wrapper autorelease];
 }
 
-#endif // ENABLE(DATABASE)
+#endif // ENABLE(SQL_DATABASE)

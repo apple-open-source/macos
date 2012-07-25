@@ -1,6 +1,9 @@
 SOURCES     = AssertEach.c \
+ 	     AssertOne.c \
+             AssertOneWithTimeouts.c \
              AssertOneChildCrash.c \
              AssertOneWithProperties.c \
+             AssertTimeouts.c \
              EnergyPrefs.c \
              SmartBatteryUserClient.c \
              assert_settimeout.c	\
@@ -8,15 +11,15 @@ SOURCES     = AssertEach.c \
              assertions-crash-configd-6765534.c \
              override_default_pm_settings.c \
              IOPowerSourcesExercise-8521443.c \
-             AssertPushServicesTask9537023.c \
-             MaintenanceWakeExerciser9502875.c 
+             AssertionBenchmarkJune2011.c \
+             CopyPropertiesTester.c \
+             AssertTimeouts-TurnOff-9892470.c \
+             AssertTimeouts-Kill-10652741.c \
+             IOPMConnection-return-values-11614683.c
 
 OBJS        = ${SOURCES:.c=.o}
 BINARIES    = ${OBJS:.o=}
-#CC          = llvm-gcc-4.2
-#CFLAGS      = -Wall
-#LD          = llvm-gcc-4.2
-#LDFLAGS     = -framework IOKit -framework CoreFoundation -framework SystemConfiguration
+
 
 all: ${BINARIES}
 

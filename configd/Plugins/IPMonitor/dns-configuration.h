@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,17 +28,24 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+
+#define DNS_CONFIGURATION_SCOPED_QUERY_KEY	CFSTR("__SCOPED_QUERY__")
+
+
 __BEGIN_DECLS
 
+__private_extern__
 void	dns_configuration_init		(CFBundleRef		bundle);
 
 
 #if	!TARGET_OS_IPHONE
+__private_extern__
 void	dns_configuration_monitor	(SCDynamicStoreRef	store,
 					 SCDynamicStoreCallBack	callout);
 #endif	// !TARGET_OS_IPHONE
 
-void	dns_configuration_set		(CFDictionaryRef	defaultResolver,
+__private_extern__
+Boolean	dns_configuration_set		(CFDictionaryRef	defaultResolver,
 					 CFDictionaryRef	services,
 					 CFArrayRef		serviceOrder,
 					 CFArrayRef		multicastResolvers,

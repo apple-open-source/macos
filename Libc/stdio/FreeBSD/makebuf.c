@@ -47,6 +47,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/makebuf.c,v 1.6 2007/01/09 00:28:07 imp E
 #include "libc_private.h"
 #include "local.h"
 
+#define MAXBUFSIZE	(1 << 16)
+#define TTYBUFSIZE	4096
+
 /*
  * Allocate a file buffer, or switch to unbuffered I/O.
  * Per the ANSI C standard, ALL tty devices default to line buffered.
@@ -69,6 +72,12 @@ __smakebuf(fp)
 		return;
 	}
 	flags = __swhatbuf(fp, &size, &couldbetty);
+	if (couldbetty && isatty(fp->_file)) {
+		flags |= __SLBF;
+		/* st_blksize for ttys is 128K, so make it more reasonable */
+		if (size > TTYBUFSIZE)
+			fp->_blksize = size = TTYBUFSIZE;
+	}
 	if ((p = malloc(size)) == NULL) {
 		fp->_flags |= __SNBF;
 		fp->_bf._base = fp->_p = fp->_nbuf;
@@ -79,8 +88,6 @@ __smakebuf(fp)
 	flags |= __SMBF;
 	fp->_bf._base = fp->_p = p;
 	fp->_bf._size = size;
-	if (couldbetty && isatty(fp->_file))
-		flags |= __SLBF;
 	fp->_flags |= flags;
 }
 
@@ -113,8 +120,7 @@ __swhatbuf(fp, bufsize, couldbetty)
 	 * __sseek is mainly paranoia.)  It is safe to set _blksize
 	 * unconditionally; it will only be used if __SOPT is also set.
 	 */
-	*bufsize = st.st_blksize;
-	fp->_blksize = st.st_blksize;
+	fp->_blksize = *bufsize = st.st_blksize > MAXBUFSIZE ? MAXBUFSIZE : st.st_blksize;
 	return ((st.st_mode & S_IFMT) == S_IFREG && fp->_seek == __sseek ?
 	    __SOPT : __SNPT);
 }

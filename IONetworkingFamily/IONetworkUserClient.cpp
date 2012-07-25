@@ -22,19 +22,14 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/network/IONetworkInterface.h>
-#include "IONetworkUserClient.h"
 #include <IOKit/network/IONetworkData.h>
+#include "IONetworkUserClient.h"
+#include "IONetworkDebug.h"
 
 //------------------------------------------------------------------------
 
 #define super IOUserClient
 OSDefineMetaClassAndStructors( IONetworkUserClient, IOUserClient )
-
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
 
 //---------------------------------------------------------------------------
 // Factory method that performs allocation and initialization

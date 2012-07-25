@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.               
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,6 @@
 #define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps"
 #define kCacheDirMode       0755        // Sec reviewed
 #define kCacheFileMode      0644
-#define kRPSDirMask         0755
 
 // bootcaches.plist and keys
 
@@ -59,6 +58,7 @@
 #define kBCMKextKey                 CFSTR("MKext")           // dict
 #define kBCMKext2Key                CFSTR("MKext2")          // dict
 #define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
+#define kBCKernelcacheV2Key         CFSTR("Kernelcache v1.2")// dict
 #define kBCKernelPathKey            CFSTR("KernelPath")      // path string
 #define kBCArchsKey                 CFSTR("Archs")           //   ar: ppc, i386
 #define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E
@@ -67,11 +67,13 @@
 #define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
 #define kBCBootConfigKey            CFSTR("BootConfig")      // path to plist
 #define kBCEncryptedRootKey         CFSTR("EncryptedRoot")   // dict
-#define kBCCSFDEPropertyCache       CFSTR("EncryptedPropertyCache") // .wipekey
-#define kBCCSFDEDefaultResourcesDir CFSTR("DefaultResourcesDir") // EfiLoginUI
-#define kBCCSFDELocalizationSource  CFSTR("LocalizationSource")  // EFI.fr/Res
-#define kBCCSFDELanguagesPref       CFSTR("LanguagesPref")  // .Global...
-#define kBCCSFDELocalizedResourcesCache CFSTR("LocalizedResourcesCache")
+#define kBCCSFDEPropertyCacheKey    CFSTR("EncryptedPropertyCache") // .wipekey
+#define kBCCSFDERootVolPropCacheKey CFSTR("RootVolumePropertyCache")//A_B only?
+#define kBCCSFDEDefResourcesDirKey  CFSTR("DefaultResourcesDir") // EfiLoginUI
+#define kBCCSFDELocalizationSrcKey  CFSTR("LocalizationSource")  // EFI.fr/Res
+#define kBCCSFDELanguagesPrefKey    CFSTR("LanguagesPref")  // .Global...
+#define kBCCSFDELocRsrcsCacheKey    CFSTR("LocalizedResourcesCache") // EFILogLocs
+
 
 typedef enum {
     kMkextCRCError = -1,
@@ -104,7 +106,7 @@ struct bootCaches {
     struct timespec bcTime;     // cache the timestamp of bootcaches.plist
 
     char kernel[BCPATH_MAX];    // /Volumes/foo/mach_kernel (watch only)
-    char exts[BCPATH_MAX];      // /Volumes/foo/S/L/E (only a source)
+    char exts[BCPATH_MAX];      // /S/L/Extensions (only a source)
     char locSource[BCPATH_MAX]; // only EFILogin.framework/Resources for now
     char locPref[BCPATH_MAX];   // /L/P/.GlabalPreferences
     unsigned nrps;              // number of RPS paths in Apple_Boot
@@ -121,6 +123,7 @@ struct bootCaches {
     cachedPath *efiloccache;    // -> ...Caches/../EFILoginLocalizations
     cachedPath *label;          // -> .../S/L/CS/.disk_label (in miscPaths)
     cachedPath *erpropcache;    // crypto metadata gets special treatment
+    Boolean erpropTSOnly;       // whether props expected in root fsys
 };
 /* use sizeof() to get it the right bounds */
 #undef TSPATH_MAX
@@ -130,13 +133,20 @@ struct bootCaches {
 // inspectors
 Boolean hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
                          CFArrayRef *dataPartsCopy, Boolean *isAPM);
-// cslvf_uuid optional; set to NULL if not CoreStorage
-int copyVolumeUUIDs(const char *volPath, uuid_t vol_uuid,
-                    CFStringRef *cslvf_uuid);
+// Everything except vol_path is optional.
+// If specified, vol_bsd must point to at least DEVMAXPATHSIZE bytes.
+// If specified, vol_name must point to at least NAME_MAX bytes.
+// If no CoreStorage is detected and cslvf_uuid is non-NULL,
+// *cslvf_uuid will be set to NULL.
+int copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid,
+                   CFStringRef *cslvf_uuid, char **vol_bsd, char **vol_name);
+// no CSFDE data => encContext = NULL, timeStamp = 0LL;
+int copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *encContext,
+                   time_t *timeStamp);
 
 // ctors / dtors
-struct bootCaches* readBootCachesForDADisk(DADiskRef dadisk);
-struct bootCaches* readBootCachesForVolURL(CFURLRef volumeURL);
+struct bootCaches* readBootCaches(char *volRoot);               // kextcache
+struct bootCaches* readBootCachesForDADisk(DADiskRef dadisk);   // kextd
 
 void destroyCaches(struct bootCaches *caches);
 DADiskRef createDiskForMount(DASessionRef session, const char *mount);
@@ -153,7 +163,7 @@ Boolean needUpdates(struct bootCaches *caches, Boolean *rps,
 #define kBCStampsApplyTimes 1           // apply stored timestamps
 int updateStamps(struct bootCaches *caches, int command);
 
-// check to see if the plist cache/mkext needs rebuilding
+// check / rebuild kext caches needs rebuilding
 Boolean plistCachesNeedRebuild(const NXArchInfo * kernelArchInfo);
 Boolean check_kext_boot_cache_file(
     struct bootCaches * caches,
@@ -169,12 +179,15 @@ int rebuild_kext_boot_cache_file(
 // check/rebuild CSFDE caches
 Boolean check_csfde(struct bootCaches *caches);
 int rebuild_csfde_cache(struct bootCaches *caches);
+int writeCSFDEProps(int scopefd, CFDictionaryRef ectx, 
+                    char *cspvbsd, char *dstpath);
 Boolean check_loccache(struct bootCaches *caches);
 int rebuild_loccache(struct bootCaches *caches);
 
 // diskarb helpers
 void _daDone(DADiskRef disk, DADissenterRef dissenter, void *ctx);
 int updateMount(mountpoint_t mount, uint32_t mntgoal);
+
 
 pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait);
 

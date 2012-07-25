@@ -27,30 +27,145 @@
 #include "config.h"
 #include "Download.h"
 
+#include "DataReference.h"
+#include <WebCore/ErrorsGtk.h>
 #include <WebCore/NotImplemented.h>
+#include <gio/gio.h>
+#include <glib/gi18n-lib.h>
+#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
+#include <wtf/text/CString.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
+class DownloadClient : public ResourceHandleClient {
+    WTF_MAKE_NONCOPYABLE(DownloadClient);
+public:
+    DownloadClient(Download* download)
+        : m_download(download)
+    {
+    }
+
+    void downloadFailed(const ResourceError& error)
+    {
+        m_download->didFail(error, CoreIPC::DataReference());
+    }
+
+    void didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
+    {
+        m_response = adoptGRef(response.toSoupMessage());
+        m_download->didReceiveResponse(response);
+
+        if (response.httpStatusCode() >= 400) {
+            downloadFailed(downloadNetworkError(ResourceError(errorDomainDownload, response.httpStatusCode(),
+                                                              response.url().string(), response.httpStatusText())));
+            return;
+        }
+
+        String suggestedFilename = response.suggestedFilename();
+        if (suggestedFilename.isEmpty()) {
+            KURL url = response.url();
+            url.setQuery(String());
+            url.removeFragmentIdentifier();
+            suggestedFilename = decodeURLEscapeSequences(url.lastPathComponent());
+        }
+
+        bool overwrite;
+        String destinationURI = m_download->decideDestinationWithSuggestedFilename(suggestedFilename.utf8().data(), overwrite);
+        if (destinationURI.isEmpty()) {
+            GOwnPtr<char> errorMessage(g_strdup_printf(_("Cannot determine destination URI for download with suggested filename %s"),
+                                                       suggestedFilename.utf8().data()));
+            downloadFailed(downloadDestinationError(response, errorMessage.get()));
+            return;
+        }
+
+        GRefPtr<GFile> file = adoptGRef(g_file_new_for_uri(destinationURI.utf8().data()));
+        GOwnPtr<GError> error;
+        m_outputStream = adoptGRef(g_file_replace(file.get(), 0, TRUE, G_FILE_CREATE_NONE, 0, &error.outPtr()));
+        if (!m_outputStream) {
+            downloadFailed(downloadDestinationError(response, error->message));
+            return;
+        }
+
+        m_download->didCreateDestination(destinationURI);
+    }
+
+    void didReceiveData(ResourceHandle*, const char* data, int length, int /*encodedDataLength*/)
+    {
+        gsize bytesWritten;
+        GOwnPtr<GError> error;
+        g_output_stream_write_all(G_OUTPUT_STREAM(m_outputStream.get()), data, length, &bytesWritten, 0, &error.outPtr());
+        if (error) {
+            downloadFailed(downloadDestinationError(ResourceResponse(m_response.get()), error->message));
+            return;
+        }
+        m_download->didReceiveData(bytesWritten);
+    }
+
+    void didFinishLoading(ResourceHandle*, double)
+    {
+        m_outputStream = 0;
+        m_download->didFinish();
+    }
+
+    void didFail(ResourceHandle*, const ResourceError& error)
+    {
+        downloadFailed(downloadNetworkError(error));
+    }
+
+    void wasBlocked(ResourceHandle*)
+    {
+        notImplemented();
+    }
+
+    void cannotShowURL(ResourceHandle*)
+    {
+        notImplemented();
+    }
+
+    Download* m_download;
+    GRefPtr<GFileOutputStream> m_outputStream;
+    GRefPtr<SoupMessage> m_response;
+};
+
 void Download::start(WebPage* initiatingWebPage)
 {
-    notImplemented();
+    ASSERT(!m_downloadClient);
+    ASSERT(!m_resourceHandle);
+    m_downloadClient = adoptPtr(new DownloadClient(this));
+    m_resourceHandle = ResourceHandle::create(0, m_request, m_downloadClient.get(), false, false);
+    didStart();
 }
 
-void Download::startWithHandle(WebPage* initiatingPage, ResourceHandle*, const ResourceRequest& initialRequest, const ResourceResponse&)
+void Download::startWithHandle(WebPage* initiatingPage, ResourceHandle* resourceHandle, const ResourceResponse&)
 {
-    notImplemented();
+    ASSERT(!m_downloadClient);
+    ASSERT(!m_resourceHandle);
+    m_downloadClient = adoptPtr(new DownloadClient(this));
+    resourceHandle->setClient(m_downloadClient.get());
+    m_resourceHandle = resourceHandle;
+    didStart();
 }
 
 void Download::cancel()
 {
-    notImplemented();
+    if (!m_resourceHandle)
+        return;
+    m_resourceHandle->cancel();
+    didCancel(CoreIPC::DataReference());
+    m_resourceHandle = 0;
 }
 
 void Download::platformInvalidate()
 {
-    notImplemented();
+    if (m_resourceHandle) {
+        m_resourceHandle->setClient(0);
+        m_resourceHandle->cancel();
+        m_resourceHandle = 0;
+    }
+    m_downloadClient.release();
 }
 
 void Download::didDecideDestination(const String& destination, bool allowOverwrite)
@@ -60,7 +175,7 @@ void Download::didDecideDestination(const String& destination, bool allowOverwri
 
 void Download::platformDidFinish()
 {
-    notImplemented();
+    m_resourceHandle = 0;
 }
 
 void Download::receivedCredential(const AuthenticationChallenge& authenticationChallenge, const Credential& credential)

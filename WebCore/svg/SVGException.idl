@@ -20,9 +20,9 @@
 
 module svg {
 
-    interface [
+    exception [
         Conditional=SVG,
-        DontCheckEnums
+        DoNotCheckConstants
     ] SVGException {
 
         readonly attribute unsigned short   code;
@@ -31,7 +31,7 @@ module svg {
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
         // Override in a Mozilla compatible format
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
         // SVGExceptionCode

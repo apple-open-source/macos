@@ -1,0 +1,454 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		BEF16C401553365F0074AFAD /* world */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BEF16C431553365F0074AFAD /* Build configuration list for PBXAggregateTarget "world" */;
+			buildPhases = (
+			);
+			dependencies = (
+				BEF16C4B155343F10074AFAD /* PBXTargetDependency */,
+				BEF16C4E155343F30074AFAD /* PBXTargetDependency */,
+			);
+			name = world;
+			productName = world;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		BE022AF51552191100564DFE /* sslServer.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE022AF41552191100564DFE /* sslServer.1 */; };
+		BE022AF9155219D300564DFE /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516815520B380015140F /* CFNetwork.framework */; };
+		BE022AFA155219D500564DFE /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516615520B2F0015140F /* CoreFoundation.framework */; };
+		BE022AFB155219D700564DFE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516415520AE20015140F /* Security.framework */; };
+		BE022AFD15521A1900564DFE /* sslServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BE022AFC15521A1900564DFE /* sslServer.cpp */; };
+		BE022AFE15521A2100564DFE /* fileIo.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516A15520CF00015140F /* fileIo.c */; };
+		BE022AFF15521A2400564DFE /* ioSock.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E515E15520AC30015140F /* ioSock.c */; };
+		BE022B0015521A2800564DFE /* printCert.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516215520AD30015140F /* printCert.c */; };
+		BE022B0115521A2B00564DFE /* sslAppUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516015520AC80015140F /* sslAppUtils.cpp */; };
+		BE43DE031552106C004BE474 /* fileIo.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516A15520CF00015140F /* fileIo.c */; };
+		BE4E515115520A150015140F /* sslViewer.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BE4E515015520A150015140F /* sslViewer.1 */; };
+		BE4E516515520AE20015140F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516415520AE20015140F /* Security.framework */; };
+		BE4E516715520B2F0015140F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516615520B2F0015140F /* CoreFoundation.framework */; };
+		BE4E516915520B380015140F /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BE4E516815520B380015140F /* CFNetwork.framework */; };
+		BE4E516E15520D460015140F /* sslViewer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BE4E515C15520AB90015140F /* sslViewer.cpp */; };
+		BE4E516F15520D480015140F /* sslAppUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516015520AC80015140F /* sslAppUtils.cpp */; };
+		BE4E517115520D530015140F /* ioSock.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E515E15520AC30015140F /* ioSock.c */; };
+		BE4E517215520D570015140F /* printCert.c in Sources */ = {isa = PBXBuildFile; fileRef = BE4E516215520AD30015140F /* printCert.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BEF16C4A155343F10074AFAD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE4E514115520A150015140F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE4E514915520A150015140F;
+			remoteInfo = sslViewer;
+		};
+		BEF16C4D155343F30074AFAD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BE4E514115520A150015140F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BE022AEE1552191100564DFE;
+			remoteInfo = sslServer;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BE022AED1552191100564DFE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				BE022AF51552191100564DFE /* sslServer.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		BE4E514815520A150015140F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				BE4E515115520A150015140F /* sslViewer.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		BE022AEF1552191100564DFE /* sslServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sslServer; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE022AF41552191100564DFE /* sslServer.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = sslServer.1; sourceTree = SOURCE_ROOT; };
+		BE022AFC15521A1900564DFE /* sslServer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sslServer.cpp; sourceTree = SOURCE_ROOT; };
+		BE4E514A15520A150015140F /* sslViewer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sslViewer; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE4E515015520A150015140F /* sslViewer.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = sslViewer.1; sourceTree = SOURCE_ROOT; };
+		BE4E515C15520AB90015140F /* sslViewer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sslViewer.cpp; sourceTree = SOURCE_ROOT; };
+		BE4E515E15520AC30015140F /* ioSock.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ioSock.c; sourceTree = SOURCE_ROOT; };
+		BE4E516015520AC80015140F /* sslAppUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sslAppUtils.cpp; sourceTree = SOURCE_ROOT; };
+		BE4E516215520AD30015140F /* printCert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = printCert.c; sourceTree = SOURCE_ROOT; };
+		BE4E516415520AE20015140F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		BE4E516615520B2F0015140F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		BE4E516815520B380015140F /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = System/Library/Frameworks/CFNetwork.framework; sourceTree = SDKROOT; };
+		BE4E516A15520CF00015140F /* fileIo.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fileIo.c; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BE022AEC1552191100564DFE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE022AF9155219D300564DFE /* CFNetwork.framework in Frameworks */,
+				BE022AFA155219D500564DFE /* CoreFoundation.framework in Frameworks */,
+				BE022AFB155219D700564DFE /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BE4E514715520A150015140F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE4E516515520AE20015140F /* Security.framework in Frameworks */,
+				BE4E516715520B2F0015140F /* CoreFoundation.framework in Frameworks */,
+				BE4E516915520B380015140F /* CFNetwork.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BE022AF11552191100564DFE /* sslServer */ = {
+			isa = PBXGroup;
+			children = (
+				BE022AFC15521A1900564DFE /* sslServer.cpp */,
+				BE022AF41552191100564DFE /* sslServer.1 */,
+			);
+			path = sslServer;
+			sourceTree = SOURCE_ROOT;
+		};
+		BE4E513F15520A150015140F = {
+			isa = PBXGroup;
+			children = (
+				BE7168DA1552154E00483067 /* sslUtils */,
+				BE4E514D15520A150015140F /* sslViewer */,
+				BE022AF11552191100564DFE /* sslServer */,
+				BE7168D8155214F800483067 /* Frameworks */,
+				BE4E514B15520A150015140F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		BE4E514B15520A150015140F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BE4E514A15520A150015140F /* sslViewer */,
+				BE022AEF1552191100564DFE /* sslServer */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BE4E514D15520A150015140F /* sslViewer */ = {
+			isa = PBXGroup;
+			children = (
+				BE4E515C15520AB90015140F /* sslViewer.cpp */,
+				BE4E515015520A150015140F /* sslViewer.1 */,
+			);
+			path = sslViewer;
+			sourceTree = "<group>";
+		};
+		BE7168D8155214F800483067 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				BE4E516815520B380015140F /* CFNetwork.framework */,
+				BE4E516615520B2F0015140F /* CoreFoundation.framework */,
+				BE4E516415520AE20015140F /* Security.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BE7168DA1552154E00483067 /* sslUtils */ = {
+			isa = PBXGroup;
+			children = (
+				BE4E516A15520CF00015140F /* fileIo.c */,
+				BE4E515E15520AC30015140F /* ioSock.c */,
+				BE4E516215520AD30015140F /* printCert.c */,
+				BE4E516015520AC80015140F /* sslAppUtils.cpp */,
+			);
+			name = sslUtils;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BE022AEE1552191100564DFE /* sslServer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BE022AF61552191100564DFE /* Build configuration list for PBXNativeTarget "sslServer" */;
+			buildPhases = (
+				BE022AEB1552191100564DFE /* Sources */,
+				BE022AEC1552191100564DFE /* Frameworks */,
+				BE022AED1552191100564DFE /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sslServer;
+			productName = sslServer;
+			productReference = BE022AEF1552191100564DFE /* sslServer */;
+			productType = "com.apple.product-type.tool";
+		};
+		BE4E514915520A150015140F /* sslViewer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BE4E515415520A150015140F /* Build configuration list for PBXNativeTarget "sslViewer" */;
+			buildPhases = (
+				BE4E514615520A150015140F /* Sources */,
+				BE4E514715520A150015140F /* Frameworks */,
+				BE4E514815520A150015140F /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sslViewer;
+			productName = sslViewer;
+			productReference = BE4E514A15520A150015140F /* sslViewer */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BE4E514115520A150015140F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = BE4E514415520A150015140F /* Build configuration list for PBXProject "sslViewer" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = BE4E513F15520A150015140F;
+			productRefGroup = BE4E514B15520A150015140F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BEF16C401553365F0074AFAD /* world */,
+				BE4E514915520A150015140F /* sslViewer */,
+				BE022AEE1552191100564DFE /* sslServer */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BE022AEB1552191100564DFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE022AFD15521A1900564DFE /* sslServer.cpp in Sources */,
+				BE022B0115521A2B00564DFE /* sslAppUtils.cpp in Sources */,
+				BE022AFE15521A2100564DFE /* fileIo.c in Sources */,
+				BE022AFF15521A2400564DFE /* ioSock.c in Sources */,
+				BE022B0015521A2800564DFE /* printCert.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BE4E514615520A150015140F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE4E516E15520D460015140F /* sslViewer.cpp in Sources */,
+				BE4E516F15520D480015140F /* sslAppUtils.cpp in Sources */,
+				BE43DE031552106C004BE474 /* fileIo.c in Sources */,
+				BE4E517115520D530015140F /* ioSock.c in Sources */,
+				BE4E517215520D570015140F /* printCert.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BEF16C4B155343F10074AFAD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BE4E514915520A150015140F /* sslViewer */;
+			targetProxy = BEF16C4A155343F10074AFAD /* PBXContainerItemProxy */;
+		};
+		BEF16C4E155343F30074AFAD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BE022AEE1552191100564DFE /* sslServer */;
+			targetProxy = BEF16C4D155343F30074AFAD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BE022AF71552191100564DFE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		BE022AF81552191100564DFE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+			};
+			name = Release;
+		};
+		BE4E515215520A150015140F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+					"$(PROJECT_DIR)/../Security",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		BE4E515315520A150015140F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+					"$(PROJECT_DIR)/../Security",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = "";
+			};
+			name = Release;
+		};
+		BE4E515515520A150015140F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+					"$(PROJECT_DIR)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		BE4E515615520A150015140F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				"HEADER_SEARCH_PATHS[arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+					"$(PROJECT_DIR)",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = "";
+			};
+			name = Release;
+		};
+		BEF16C411553365F0074AFAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		BEF16C421553365F0074AFAD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BE022AF61552191100564DFE /* Build configuration list for PBXNativeTarget "sslServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BE022AF71552191100564DFE /* Debug */,
+				BE022AF81552191100564DFE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BE4E514415520A150015140F /* Build configuration list for PBXProject "sslViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BE4E515215520A150015140F /* Debug */,
+				BE4E515315520A150015140F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BE4E515415520A150015140F /* Build configuration list for PBXNativeTarget "sslViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BE4E515515520A150015140F /* Debug */,
+				BE4E515615520A150015140F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BEF16C431553365F0074AFAD /* Build configuration list for PBXAggregateTarget "world" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BEF16C411553365F0074AFAD /* Debug */,
+				BEF16C421553365F0074AFAD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BE4E514115520A150015140F /* Project object */;
+}

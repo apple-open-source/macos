@@ -65,17 +65,6 @@
 #include <openssl/blowfish.h>
 #include <openssl/cast.h>
 #include <openssl/err.h>
-#ifdef HAVE_OPENSSL_RC5_H
-#include <openssl/rc5.h>
-#endif
-#ifdef HAVE_OPENSSL_IDEA_H
-#include <openssl/idea.h>
-#endif
-#if defined(HAVE_OPENSSL_AES_H)
-#include <openssl/aes.h>
-#elif defined(HAVE_OPENSSL_RIJNDAEL_H)
-#include <openssl/rijndael.h>
-#endif
 #else /* HAVE_OPENSSL */
 #include <Security/SecDH.h>
 #include <Security/SecRandom.h>
@@ -1361,171 +1350,6 @@ eay_des_keylen(len)
     return kCCKeySizeDES << 3;      
 }
 
-#ifdef HAVE_OPENSSL_IDEA_H
-/*
- * IDEA-CBC
- */
-vchar_t *
-eay_idea_encrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	IDEA_KEY_SCHEDULE ks;
-
-	idea_set_encrypt_key(key->v, &ks);
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* decryption data */
-	idea_cbc_encrypt(data->v, res->v, data->l,
-			&ks, iv->v, IDEA_ENCRYPT);
-
-	return res;
-}
-
-vchar_t *
-eay_idea_decrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	IDEA_KEY_SCHEDULE ks, dks;
-
-	idea_set_encrypt_key(key->v, &ks);
-	idea_set_decrypt_key(&ks, &dks);
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* decryption data */
-	idea_cbc_encrypt(data->v, res->v, data->l,
-			&dks, iv->v, IDEA_DECRYPT);
-
-	return res;
-}
-
-int
-eay_idea_weakkey(key)
-	vchar_t *key;
-{
-	return 0;       /* XXX */
-}
-
-int
-eay_idea_keylen(len)
-	int len;
-{
-	if (len != 0 && len != 128)
-		return -1;
-	return 128;
-}
-#endif
-
-#ifdef HAVE_OPENSSL
-/*
- * BLOWFISH-CBC
- */
-vchar_t *
-eay_bf_encrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, EVP_bf_cbc(), 1);
-}
-
-vchar_t *
-eay_bf_decrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, EVP_bf_cbc(), 0);
-}
-
-int
-eay_bf_weakkey(key)
-	vchar_t *key;
-{
-	return 0;	/* XXX to be done. refer to RFC 2451 */
-}
-
-int
-eay_bf_keylen(len)
-	int len;
-{
-	if (len == 0)
-		return 448;
-	if (len < 40 || len > 448)
-		return -1;
-	return len;
-}
-#endif
-
-#ifdef HAVE_OPENSSL_RC5_H
-/*
- * RC5-CBC
- */
-vchar_t *
-eay_rc5_encrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	RC5_32_KEY ks;
-
-	/* in RFC 2451, there is information about the number of round. */
-	RC5_32_set_key(&ks, key->l, key->v, 16);
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* decryption data */
-	RC5_32_cbc_encrypt(data->v, res->v, data->l,
-		&ks, iv->v, RC5_ENCRYPT);
-
-	return res;
-}
-
-vchar_t *
-eay_rc5_decrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	RC5_32_KEY ks;
-
-	/* in RFC 2451, there is information about the number of round. */
-	RC5_32_set_key(&ks, key->l, key->v, 16);
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* decryption data */
-	RC5_32_cbc_encrypt(data->v, res->v, data->l,
-		&ks, iv->v, RC5_DECRYPT);
-
-	return res;
-}
-
-int
-eay_rc5_weakkey(key)
-	vchar_t *key;
-{
-	return 0;       /* No known weak keys when used with 16 rounds. */
-
-}
-
-int
-eay_rc5_keylen(len)
-	int len;
-{
-	if (len == 0)
-		return 128;
-	if (len < 40 || len > 2040)
-		return -1;
-	return len;
-}
-#endif
-
 /*
  * 3DES-CBC
  */
@@ -1547,23 +1371,7 @@ int
 eay_3des_weakkey(key)
 	vchar_t *key;
 {
-#ifdef HAVE_OPENSSL
-#ifdef USE_NEW_DES_API
-	return (DES_is_weak_key((void *)key->v) ||
-	    DES_is_weak_key((void *)(key->v + 8)) ||
-	    DES_is_weak_key((void *)(key->v + 16)));
-#else
-	if (key->l < 24)
-		return 0;
-
-	return (des_is_weak_key((void *)key->v) ||
-	    des_is_weak_key((void *)(key->v + 8)) ||
-	    des_is_weak_key((void *)(key->v + 16)));
-#endif
-#else /* HAVE_OPENSSL */
 	return 0;
-#endif
-
 }
 
 int
@@ -1578,43 +1386,6 @@ eay_3des_keylen(len)
 
     return kCCKeySize3DES << 3;
 }
-
-#ifdef HAVE_OPENSSL
-/*
- * CAST-CBC
- */
-vchar_t *
-eay_cast_encrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, EVP_cast5_cbc(), 1);
-}
-
-vchar_t *
-eay_cast_decrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, EVP_cast5_cbc(), 0);
-}
-
-int
-eay_cast_weakkey(key)
-	vchar_t *key;
-{
-	return 0;	/* No known weak keys. */
-}
-
-int
-eay_cast_keylen(len)
-	int len;
-{
-	if (len == 0)
-		return 128;
-	if (len < 40 || len > 128)
-		return -1;
-	return len;
-}
-#endif
 
 /*
  * AES(RIJNDAEL)-CBC
@@ -1665,23 +1436,6 @@ eay_null_hashlen()
 {
 	return 0;
 }
-
-#ifdef HAVE_OPENSSL
-int
-eay_kpdk_hashlen()
-{
-	return 0;
-}
-
-int
-eay_twofish_keylen(len)
-	int len;
-{
-	if (len < 0 || len > 256)
-		return -1;
-	return len;
-}
-#endif
 
 int
 eay_null_keylen(len)
@@ -1735,7 +1489,7 @@ eay_hmacsha2_512_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
+	CCHmacUpdate(ALIGNED_CAST(CCHmacContext *)c, data->v, data->l);
 }
 
 vchar_t *
@@ -1747,7 +1501,7 @@ eay_hmacsha2_512_final(c)
 	if ((res = vmalloc(CC_SHA512_DIGEST_LENGTH)) == 0)
 		return NULL;
 
-	CCHmacFinal((CCHmacContext *)c, res->v);
+	CCHmacFinal(ALIGNED_CAST(CCHmacContext *)c, res->v);
 	res->l = CC_SHA512_DIGEST_LENGTH;
 		
 	(void)racoon_free(c);
@@ -1783,7 +1537,7 @@ eay_hmacsha2_384_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
+	CCHmacUpdate(ALIGNED_CAST(CCHmacContext *)c, data->v, data->l);
 }
 
 vchar_t *
@@ -1795,7 +1549,7 @@ eay_hmacsha2_384_final(c)
 	if ((res = vmalloc(CC_SHA384_DIGEST_LENGTH)) == 0)
 		return NULL;
 
-	CCHmacFinal((CCHmacContext *)c, res->v);
+	CCHmacFinal(ALIGNED_CAST(CCHmacContext *)c, res->v);
 	res->l = CC_SHA384_DIGEST_LENGTH;
 
 	(void)racoon_free(c);
@@ -1831,7 +1585,7 @@ eay_hmacsha2_256_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
+	CCHmacUpdate(ALIGNED_CAST(CCHmacContext *)c, data->v, data->l);
 }
 
 vchar_t *
@@ -1843,7 +1597,7 @@ eay_hmacsha2_256_final(c)
 	if ((res = vmalloc(CC_SHA256_DIGEST_LENGTH)) == 0)
 		return NULL;
 
-	CCHmacFinal((CCHmacContext *)c, res->v);
+	CCHmacFinal(ALIGNED_CAST(CCHmacContext *)c, res->v);
 	res->l = CC_SHA256_DIGEST_LENGTH;
 
 	(void)racoon_free(c);
@@ -1880,7 +1634,7 @@ eay_hmacsha1_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
+	CCHmacUpdate(ALIGNED_CAST(CCHmacContext *)c, data->v, data->l);
 }
 
 vchar_t *
@@ -1892,7 +1646,7 @@ eay_hmacsha1_final(c)
 	if ((res = vmalloc(CC_SHA1_DIGEST_LENGTH)) == 0)
 		return NULL;
 
-	CCHmacFinal((CCHmacContext *)c, res->v);
+	CCHmacFinal(ALIGNED_CAST(CCHmacContext *)c, res->v);
 	res->l = CC_SHA1_DIGEST_LENGTH;
 
 	(void)racoon_free(c);
@@ -1928,7 +1682,7 @@ eay_hmacmd5_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
+	CCHmacUpdate(ALIGNED_CAST(CCHmacContext *)c, data->v, data->l);
 }
 
 vchar_t *
@@ -1940,7 +1694,7 @@ eay_hmacmd5_final(c)
 	if ((res = vmalloc(CC_MD5_DIGEST_LENGTH)) == 0)
 		return NULL;
 
-	CCHmacFinal((CCHmacContext *)c, res->v);
+	CCHmacFinal(ALIGNED_CAST(CCHmacContext *)c, res->v);
 	res->l = CC_MD5_DIGEST_LENGTH;
 	(void)racoon_free(c);
 
@@ -1967,7 +1721,7 @@ eay_sha2_512_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	SHA512_Update((SHA512_CTX *)c, (unsigned char *) data->v, data->l);
+	SHA512_Update(ALIGNED_CAST(SHA512_CTX *)c, (unsigned char *) data->v, data->l);
 
 	return;
 }
@@ -1981,7 +1735,7 @@ eay_sha2_512_final(c)
 	if ((res = vmalloc(SHA512_DIGEST_LENGTH)) == 0)
 		return(0);
 
-	SHA512_Final((unsigned char *) res->v, (SHA512_CTX *)c);
+	SHA512_Final((unsigned char *) res->v, ALIGNED_CAST(SHA512_CTX *)c);
 	(void)racoon_free(c);
 
 	return(res);
@@ -2030,7 +1784,7 @@ eay_sha2_384_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	SHA384_Update((SHA384_CTX *)c, (unsigned char *) data->v, data->l);
+	SHA384_Update(ALIGNED_CAST(SHA384_CTX *)c, (unsigned char *) data->v, data->l);
 
 	return;
 }
@@ -2044,7 +1798,7 @@ eay_sha2_384_final(c)
 	if ((res = vmalloc(SHA384_DIGEST_LENGTH)) == 0)
 		return(0);
 
-	SHA384_Final((unsigned char *) res->v, (SHA384_CTX *)c);
+	SHA384_Final((unsigned char *) res->v, ALIGNED_CAST(SHA384_CTX *)c);
 	(void)racoon_free(c);
 
 	return(res);
@@ -2090,7 +1844,7 @@ eay_sha2_256_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	SHA256_Update((SHA256_CTX *)c, (unsigned char *) data->v, data->l);
+	SHA256_Update(ALIGNED_CAST(SHA256_CTX *)c, (unsigned char *) data->v, data->l);
 
 	return;
 }
@@ -2104,7 +1858,7 @@ eay_sha2_256_final(c)
 	if ((res = vmalloc(SHA256_DIGEST_LENGTH)) == 0)
 		return(0);
 
-	SHA256_Final((unsigned char *) res->v, (SHA256_CTX *)c);
+	SHA256_Final((unsigned char *) res->v, ALIGNED_CAST(SHA256_CTX *)c);
 	(void)racoon_free(c);
 
 	return(res);
@@ -2149,7 +1903,7 @@ eay_sha1_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	SHA1_Update((SHA_CTX *)c, data->v, data->l);
+	SHA1_Update(ALIGNED_CAST(SHA_CTX *)c, data->v, data->l); 
 
 	return;
 }
@@ -2163,7 +1917,7 @@ eay_sha1_final(c)
 	if ((res = vmalloc(SHA_DIGEST_LENGTH)) == 0)
 		return(0);
 
-	SHA1_Final((unsigned char *) res->v, (SHA_CTX *)c);
+	SHA1_Final((unsigned char *) res->v, ALIGNED_CAST(SHA_CTX *)c);
 	(void)racoon_free(c);
 
 	return(res);
@@ -2207,7 +1961,7 @@ eay_md5_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-	MD5_Update((MD5_CTX *)c, data->v, data->l);
+	MD5_Update(ALIGNED_CAST(MD5_CTX *)c, data->v, data->l);
 
 	return;
 }
@@ -2221,7 +1975,7 @@ eay_md5_final(c)
 	if ((res = vmalloc(MD5_DIGEST_LENGTH)) == 0)
 		return(0);
 
-	MD5_Final((unsigned char *) res->v, (MD5_CTX *)c);
+	MD5_Final((unsigned char *) res->v, ALIGNED_CAST(MD5_CTX *)c);
 	(void)racoon_free(c);
 
 	return(res);

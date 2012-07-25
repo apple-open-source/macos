@@ -29,10 +29,12 @@
  */
 
 #include "config.h"
-#include "PageDebuggerAgent.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR)
 
+#include "PageDebuggerAgent.h"
+
+#include "Console.h"
 #include "PageScriptDebugServer.h"
 
 namespace WebCore {
@@ -65,6 +67,16 @@ void PageDebuggerAgent::stopListeningScriptDebugServer()
 PageScriptDebugServer& PageDebuggerAgent::scriptDebugServer()
 {
     return PageScriptDebugServer::shared();
+}
+
+void PageDebuggerAgent::muteConsole()
+{
+    Console::mute();
+}
+
+void PageDebuggerAgent::unmuteConsole()
+{
+    Console::unmute();
 }
 
 } // namespace WebCore

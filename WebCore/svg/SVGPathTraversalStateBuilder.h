@@ -32,7 +32,10 @@ class SVGPathTraversalStateBuilder : public SVGPathConsumer {
 public:
     SVGPathTraversalStateBuilder();
 
-    unsigned long pathSegmentIndex();
+    unsigned pathSegmentIndex();
+    float totalLength();
+    FloatPoint currentPoint();
+
     void setCurrentTraversalState(PathTraversalState* traversalState) { m_traversalState = traversalState; }
     void setDesiredLength(float);
     virtual void incrementPathSegmentCount();
@@ -40,7 +43,7 @@ public:
     virtual void cleanup() { m_traversalState = 0; }
 
 private:
-    // Used in UnalteredParisng/NormalizedParsing modes.
+    // Used in UnalteredParsing/NormalizedParsing modes.
     virtual void moveTo(const FloatPoint&, bool closed, PathCoordinateMode);
     virtual void lineTo(const FloatPoint&, PathCoordinateMode);
     virtual void curveToCubic(const FloatPoint&, const FloatPoint&, const FloatPoint&, PathCoordinateMode);

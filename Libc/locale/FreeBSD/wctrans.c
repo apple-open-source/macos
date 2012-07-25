@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/wctrans.c,v 1.3 2003/11/01 08:20:58 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <errno.h>
 #include <string.h>
 #include <wctype.h>
@@ -38,15 +40,16 @@ enum {
 };
 
 wint_t
-towctrans(wint_t wc, wctrans_t desc)
+towctrans_l(wint_t wc, wctrans_t desc, locale_t loc)
 {
 
+	NORMALIZE_LOCALE(loc);
 	switch (desc) {
 	case _WCT_TOLOWER:
-		wc = towlower(wc);
+		wc = towlower_l(wc, loc);
 		break;
 	case _WCT_TOUPPER:
-		wc = towupper(wc);
+		wc = towupper_l(wc, loc);
 		break;
 	case _WCT_ERROR:
 	default:
@@ -55,6 +58,12 @@ towctrans(wint_t wc, wctrans_t desc)
 	}
 
 	return (wc);
+}
+
+wint_t
+towctrans(wint_t wc, wctrans_t desc)
+{
+	return towctrans_l(wc, desc, __current_locale());
 }
 
 wctrans_t
@@ -77,4 +86,15 @@ wctrans(const char *charclass)
 	if (ccls[i].trans == _WCT_ERROR)
 		errno = EINVAL;
 	return (ccls[i].trans);
+}
+
+/*
+ * The extended locale version just calls the regular version.  If there
+ * is ever support for arbitrary per-locale translations, this need to
+ * be modified.
+ */
+wctrans_t
+wctrans_l(const char *charclass, locale_t loc)
+{
+	return wctrans(charclass);
 }

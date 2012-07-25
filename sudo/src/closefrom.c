@@ -109,8 +109,8 @@ closefrom(lowfd)
     char *endp;
     long fd;
 
-    /* Use /proc/self/fd directory if it exists. */
-    if ((dirp = opendir("/proc/self/fd")) != NULL) {
+    /* Use /dev/fd directory if it exists. */
+    if ((dirp = opendir("/dev/fd")) != NULL) {
 	while ((dent = readdir(dirp)) != NULL) {
 	    fd = strtol(dent->d_name, &endp, 10);
 	    if (dent->d_name != endp && *endp == '\0' &&

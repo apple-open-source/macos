@@ -1,11 +1,11 @@
 /*  
 *******************************************************************************
 *
-*   Copyright (C) 1999-2010, International Business Machines
+*   Copyright (C) 1999-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
-*   file name:  ucol_wgt.c
+*   file name:  ucol_wgt.cpp
 *   encoding:   US-ASCII
 *   tab size:   8 (not used)
 *   indentation:4
@@ -35,7 +35,7 @@
 
 /* helper functions for CE weights */
 
-static U_INLINE int32_t
+static inline int32_t
 lengthOfWeight(uint32_t weight) {
     if((weight&0xffffff)==0) {
         return 1;
@@ -48,49 +48,62 @@ lengthOfWeight(uint32_t weight) {
     }
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 getWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight>>(8*(4-length)))&0xff;
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 setWeightTrail(uint32_t weight, int32_t length, uint32_t trail) {
     length=8*(4-length);
     return (uint32_t)((weight&(0xffffff00<<length))|(trail<<length));
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 getWeightByte(uint32_t weight, int32_t idx) {
     return getWeightTrail(weight, idx); /* same calculation */
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 setWeightByte(uint32_t weight, int32_t idx, uint32_t byte) {
     uint32_t mask; /* 0xffffffff except a 00 "hole" for the index-th byte */
 
     idx*=8;
-    mask=((uint32_t)0xffffffff)>>idx;
+    if(idx<32) {
+        mask=((uint32_t)0xffffffff)>>idx;
+    } else {
+        // Do not use uint32_t>>32 because on some platforms that does not shift at all
+        // while we need it to become 0.
+        // PowerPC: 0xffffffff>>32 = 0           (wanted)
+        // x86:     0xffffffff>>32 = 0xffffffff  (not wanted)
+        //
+        // ANSI C99 6.5.7 Bitwise shift operators:
+        // "If the value of the right operand is negative
+        // or is greater than or equal to the width of the promoted left operand,
+        // the behavior is undefined."
+        mask=0;
+    }
     idx=32-idx;
     mask|=0xffffff00<<idx;
     return (uint32_t)((weight&mask)|(byte<<idx));
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 truncateWeight(uint32_t weight, int32_t length) {
     return (uint32_t)(weight&(0xffffffff<<(8*(4-length))));
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 incWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight+(1UL<<(8*(4-length))));
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 decWeightTrail(uint32_t weight, int32_t length) {
     return (uint32_t)(weight-(1UL<<(8*(4-length))));
 }
 
-static U_INLINE uint32_t
+static inline uint32_t
 incWeight(uint32_t weight, int32_t length, uint32_t maxByte) {
     uint32_t byte;
 
@@ -106,7 +119,7 @@ incWeight(uint32_t weight, int32_t length, uint32_t maxByte) {
     }
 }
 
-static U_INLINE int32_t
+static inline int32_t
 lengthenRange(WeightRange *range, uint32_t maxByte, uint32_t countBytes) {
     int32_t length;
 
@@ -139,7 +152,7 @@ compareRanges(const void * /*context*/, const void *left, const void *right) {
  * possible ranges of weights between the two limits, excluding them
  * for weights with up to 4 bytes there are up to 2*4-1=7 ranges
  */
-static U_INLINE int32_t
+static inline int32_t
 getWeightRanges(uint32_t lowerLimit, uint32_t upperLimit,
                 uint32_t maxByte, uint32_t countBytes,
                 WeightRange ranges[7]) {

@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2012 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 1993, 1994, 1995, 1996, 1997
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -315,9 +337,10 @@ get_from_block_data(struct block_cursor *cursor, size_t chunk_size,
 	 * the block data.
 	 */
 	if (cursor->data_remaining < chunk_size) {
-		snprintf(errbuf, PCAP_ERRBUF_SIZE,
-		    "block of type %u in pcap-ng dump file is too short",
-		    cursor->block_type);
+		if (errbuf)
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+			    "block of type %u in pcap-ng dump file is too short",
+				cursor->block_type);
 		return (NULL);
 	}
 
@@ -771,6 +794,7 @@ pcap_ng_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 	struct enhanced_packet_block *epbp;
 	struct simple_packet_block *spbp;
 	struct packet_block *pbp;
+	struct option_header *optp;
 	bpf_u_int32 interface_id = 0xFFFFFFFF;
 	size_t pblock_len;
 	struct interface_description_block *idbp;
@@ -779,6 +803,7 @@ pcap_ng_next_packet(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data)
 	u_int tsresol;
 	u_int64_t tsoffset;
 	u_int64_t t, sec, frac;
+	unsigned char packetpad;
 
 	/*
 	 * Look for an Enhanced Packet Block, a Simple Packet Block,
@@ -1090,6 +1115,24 @@ found:
 	*data = get_from_block_data(&cursor, hdr->caplen, p->errbuf);
 	if (*data == NULL)
 		return (-1);
+	
+	/*
+	 * Skip padding.
+	 */
+	packetpad = 4 - (hdr->caplen % 4);
+	if (hdr->caplen % 4 != 0 &&
+	    get_from_block_data(&cursor, packetpad, NULL) == NULL)
+		return (-1);
+	
+	memset(hdr->comment, 0, sizeof(hdr->comment));
+	optp = get_opthdr_from_block_data(p, &cursor, NULL);
+	if (optp && optp->option_code == OPT_COMMENT && optp->option_length > 0) {
+		char *optvalue;
+		optvalue = get_optvalue_from_block_data(&cursor, optp, NULL);
+		if (optvalue == NULL)
+			return (-1);
+		memcpy(hdr->comment, optvalue, sizeof(hdr->comment));
+	}
 
 	if (p->sf.swapped) {
 		/*
@@ -1110,4 +1153,210 @@ found:
 	}
 
 	return (0);
+}
+
+static int
+sf_ng_write_header(FILE *fp, int linktype, int thiszone, int snaplen)
+{
+	struct block_header bh;
+	struct section_header_block shb;
+	struct interface_description_block idb;
+	struct block_trailer bt;
+	size_t len;
+	
+	/*
+	 * Section Header Block
+	 */
+	len = sizeof(bh) + sizeof(shb) + sizeof(bt);
+	bh.block_type   = BT_SHB;
+	bh.total_length = len;
+	
+	shb.byte_order_magic = BYTE_ORDER_MAGIC;
+	shb.major_version    = PCAP_NG_VERSION_MAJOR;
+	shb.minor_version    = 0;
+	shb.section_length   = sizeof(shb);
+	
+	bt.total_length = len;
+
+	if (fwrite((char *)&bh, sizeof(bh), 1, fp) != 1)
+		return (-1);
+	
+	if (fwrite((char *)&shb, sizeof(shb), 1, fp) != 1)
+		return (-1);
+
+	if (fwrite((char *)&bt, sizeof(bt), 1, fp) != 1)
+		return (-1);
+	
+	/*
+	 * Interface Description Block
+	 */
+	len = sizeof(bh) + sizeof(idb) + sizeof(bt);
+	bh.block_type   = BT_IDB;
+	bh.total_length = len;
+	
+	idb.reserved = 0;
+	idb.linktype = linktype;
+	idb.snaplen  = snaplen;
+	
+	bt.total_length = len;
+
+	if (fwrite((char *)&bh, sizeof(bh), 1, fp) != 1)
+		return (-1);
+	
+	if (fwrite((char *)&idb, sizeof(idb), 1, fp) != 1)
+		return (-1);
+		
+	if (fwrite((char *)&bt, sizeof(bt), 1, fp) != 1)
+		return (-1);
+
+	return (0);
+}
+
+static pcap_dumper_t *
+pcap_ng_setup_dump(pcap_t *p, int linktype, FILE *f, const char *fname)
+{
+
+	if (sf_ng_write_header(f, linktype, p->tzoff, p->snapshot) == -1) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "Can't write to %s: %s",
+				 fname, pcap_strerror(errno));
+		if (f != stdout)
+			(void)fclose(f);
+		return (NULL);
+	}
+	return ((pcap_dumper_t *)f);
+}
+
+pcap_dumper_t *
+pcap_ng_dump_open(pcap_t *p, const char *fname)
+{
+	FILE *f;
+	int linktype;
+	
+	/*
+	 * If this pcap_t hasn't been activated, it doesn't have a
+	 * link-layer type, so we can't use it.
+	 */
+	if (!p->activated) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: not-yet-activated pcap_t passed to pcap_ng_dump_open",
+				 fname);
+		return (NULL);
+	}
+	linktype = dlt_to_linktype(p->linktype);
+	if (linktype == -1) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				 "%s: link-layer type %d isn't supported in savefiles",
+				 fname, p->linktype);
+		return (NULL);
+	}
+	linktype |= p->linktype_ext;
+	
+	if (fname[0] == '-' && fname[1] == '\0') {
+		f = stdout;
+		fname = "standard output";
+	} else {
+		f = fopen(fname, "wb");
+		if (f == NULL) {
+			snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "%s: %s",
+					 fname, pcap_strerror(errno));
+			return (NULL);
+		}
+	}
+	return (pcap_ng_setup_dump(p, linktype, f, fname));
+}
+
+pcap_dumper_t *
+pcap_ng_dump_fopen(pcap_t *p, FILE *f)
+{
+	int linktype;
+	
+	linktype = dlt_to_linktype(p->linktype);
+	if (linktype == -1) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+				 "stream: link-layer type %d isn't supported in savefiles",
+				 p->linktype);
+		return (NULL);
+	}
+	linktype |= p->linktype_ext;
+	
+	return (pcap_ng_setup_dump(p, linktype, f, "stream"));	
+}
+
+void
+pcap_ng_dump(u_char *user, struct pcap_pkthdr *h, u_char *sp)
+{
+	FILE *f;
+	uint64_t ts;
+	struct block_header bh;
+	struct enhanced_packet_block epb;
+	struct block_trailer bt;
+	unsigned char packetpad = 0;
+	size_t len = sizeof(bh) + sizeof(epb) + h->caplen + sizeof(bt);
+	struct option_header ohcomm;
+	struct option_header oht;
+	size_t commlen = 0;
+	unsigned char commpad = 0;
+	
+	if (h->comment[0]) {
+		/* Comment option */
+		commlen = strlen(h->comment);
+		ohcomm.option_code   = OPT_COMMENT;
+		ohcomm.option_length = commlen;
+		len += sizeof(ohcomm) + commlen;
+		if (commlen % 4 != 0) {
+			commpad = 4 - (commlen % 4);
+			len += commpad;
+		}
+		/* Option terminator */
+		oht.option_code      = OPT_ENDOFOPT;
+		oht.option_length    = 0;
+		len += sizeof(oht);
+	}
+
+	if (h->caplen % 4 != 0) {
+		packetpad = 4 - (h->caplen % 4);
+		len += packetpad;
+	}
+	
+	bh.block_type   = BT_EPB;
+	bh.total_length = len;
+	
+	epb.caplen		   = h->caplen;
+	epb.interface_id   = 0;
+	epb.len            = h->len;
+	/* Microsecond resolution */
+	ts = h->ts.tv_sec * 1000000 + h->ts.tv_usec;
+	epb.timestamp_high = ts >> 32;
+	epb.timestamp_low  = ts & 0xffffffff;
+	
+	bt.total_length = len;
+
+	f = (FILE *)user;
+	/* XXX we should check the return status */
+	/* Header */
+	(void)fwrite(&bh, sizeof(bh), 1, f);
+	(void)fwrite(&epb, sizeof(epb), 1, f);
+	/* Packet */
+	(void)fwrite(sp, h->caplen, 1, f);
+	if (packetpad)
+		(void)fseek(f, packetpad, SEEK_CUR);
+	/* Options */
+	if (h->comment[0]) {
+		(void)fwrite(&ohcomm, sizeof(ohcomm), 1, f);
+		(void)fwrite(h->comment, commlen, 1, f);
+		if (commpad)
+			(void)fseek(f, commpad, SEEK_CUR);
+		(void)fwrite(&oht, sizeof(oht), 1, f);
+	}
+	(void)fwrite(&bt, sizeof(bt), 1, f);
+}
+
+void
+pcap_ng_dump_close(pcap_dumper_t *p)
+{
+	/*
+	 * XXX we could add an interface statistics block at the end
+	 * of the file.
+	 */
+	return pcap_dump_close(p);
 }

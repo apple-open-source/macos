@@ -28,13 +28,13 @@
 
 #include "PageOverlay.h"
 #include "WebFindOptions.h"
+#include <WebCore/IntRect.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
     class Frame;
-    class IntRect;
 }
 
 namespace WebKit {
@@ -53,6 +53,7 @@ public:
     void countStringMatches(const String&, FindOptions, unsigned maxMatchCount);
     
     void hideFindIndicator();
+    void showFindIndicatorInSelection();
 
     bool isShowingOverlay() const { return m_isShowingFindIndicator && m_findPageOverlay; }
 
@@ -69,13 +70,15 @@ private:
     Vector<WebCore::IntRect> rectsForTextMatches();
     bool updateFindIndicator(WebCore::Frame* selectedFrame, bool isShowingOverlay, bool shouldAnimate = true);
 
-private:
+    void updateFindUIAfterPageScroll(bool found, const String&, FindOptions, unsigned maxMatchCount);
+
     WebPage* m_webPage;
     PageOverlay* m_findPageOverlay;
 
     // Whether the UI process is showing the find indicator. Note that this can be true even if
     // the find indicator isn't showing, but it will never be false when it is showing.
     bool m_isShowingFindIndicator;
+    WebCore::IntRect m_findIndicatorRect;
 };
 
 } // namespace WebKit

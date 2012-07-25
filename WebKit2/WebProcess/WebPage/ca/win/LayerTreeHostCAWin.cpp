@@ -40,7 +40,7 @@
 #include <WebKitQuartzCoreAdditions/WKCACFImage.h>
 #include <WebKitQuartzCoreAdditions/WKCACFView.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/Threading.h>
+#include <wtf/MainThread.h>
 
 #ifdef DEBUG_ALL
 #pragma comment(lib, "WebKitQuartzCoreAdditions_debug")
@@ -89,7 +89,7 @@ LayerTreeHostCAWin::~LayerTreeHostCAWin()
 {
 }
 
-void LayerTreeHostCAWin::platformInitialize(LayerTreeContext& context)
+void LayerTreeHostCAWin::platformInitialize()
 {
     m_view.adoptCF(WKCACFViewCreate(kWKCACFViewDrawingDestinationWindow));
     WKCACFViewSetContextUserData(m_view.get(), static_cast<AbstractCACFLayerTreeHost*>(this));
@@ -106,7 +106,7 @@ void LayerTreeHostCAWin::platformInitialize(LayerTreeContext& context)
     CGRect bounds = m_webPage->bounds();
     WKCACFViewUpdate(m_view.get(), m_window->window(), &bounds);
 
-    context.window = m_window->window();
+    m_layerTreeContext.window = m_window->window();
 }
 
 void LayerTreeHostCAWin::invalidate()
@@ -143,8 +143,10 @@ void LayerTreeHostCAWin::setLayerFlushSchedulingEnabled(bool layerFlushingEnable
 
     m_layerFlushSchedulingEnabled = layerFlushingEnabled;
 
-    if (m_layerFlushSchedulingEnabled)
+    if (m_layerFlushSchedulingEnabled) {
+        scheduleLayerFlush();
         return;
+    }
 
     LayerChangesFlusher::shared().cancelPendingFlush(this);
 }

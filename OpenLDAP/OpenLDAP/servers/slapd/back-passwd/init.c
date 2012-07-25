@@ -1,8 +1,8 @@
 /* init.c - initialize passwd backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/init.c,v 1.32.2.5 2010/04/13 20:23:36 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,8 @@ ldap_pvt_thread_mutex_t passwd_mutex;
 AttributeDescription *ad_sn;
 AttributeDescription *ad_desc;
 
+static BI_db_init passwd_back_db_init;
+
 int
 passwd_back_initialize(
     BackendInfo	*bi
@@ -40,8 +42,8 @@ passwd_back_initialize(
 	bi->bi_close = 0;
 	bi->bi_destroy = passwd_back_destroy;
 
-	bi->bi_db_init = 0;
-	bi->bi_db_config = passwd_back_db_config;
+	bi->bi_db_init = passwd_back_db_init;
+	bi->bi_db_config = 0;
 	bi->bi_db_open = 0;
 	bi->bi_db_close = 0;
 	bi->bi_db_destroy = 0;
@@ -63,7 +65,7 @@ passwd_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
-	return 0;
+	return passwd_back_init_cf( bi );
 }
 
 int
@@ -98,6 +100,16 @@ passwd_back_destroy(
 )
 {
 	ldap_pvt_thread_mutex_destroy( &passwd_mutex );
+	return 0;
+}
+
+static int
+passwd_back_db_init(
+	Backend *be,
+	struct config_reply_s *cr
+)
+{
+	be->be_cf_ocs = be->bd_info->bi_cf_ocs;
 	return 0;
 }
 

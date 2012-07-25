@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 2000-2011, International Business Machines
+*   Copyright (C) 2000-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *
@@ -42,19 +42,19 @@
  *  @stable ICU 2.4
  */
 #define U_COPYRIGHT_STRING \
-  " Copyright (C) 2011, International Business Machines Corporation and others. All Rights Reserved. "
+  " Copyright (C) 2012, International Business Machines Corporation and others. All Rights Reserved. "
 
 /** The current ICU major version as an integer. 
  *  This value will change in the subsequent releases of ICU
  *  @stable ICU 2.4
  */
-#define U_ICU_VERSION_MAJOR_NUM 4
+#define U_ICU_VERSION_MAJOR_NUM 49
 
 /** The current ICU minor version as an integer. 
  *  This value will change in the subsequent releases of ICU
  *  @stable ICU 2.6
  */
-#define U_ICU_VERSION_MINOR_NUM 6
+#define U_ICU_VERSION_MINOR_NUM 1
 
 /** The current ICU patchlevel version as an integer.  
  *  This value will change in the subsequent releases of ICU
@@ -74,16 +74,34 @@
  *  This value will change in the subsequent releases of ICU
  *  @stable ICU 2.6
  */
-#define U_ICU_VERSION_SUFFIX _46
+#define U_ICU_VERSION_SUFFIX _49
 
+/**
+ * \def U_DEF2_ICU_ENTRY_POINT_RENAME
+ * @internal
+ */
+/**
+ * \def U_DEF_ICU_ENTRY_POINT_RENAME
+ * @internal
+ */
 /** Glued version suffix function for renamers 
  *  This value will change in the subsequent releases of ICU.
  *  If a custom suffix (such as matching library suffixes) is desired, this can be modified.
  *  Note that if present, platform.h may contain an earlier definition of this macro.
+ *  \def U_ICU_ENTRY_POINT_RENAME
  *  @stable ICU 4.2
  */
+
 #ifndef U_ICU_ENTRY_POINT_RENAME
-#define U_ICU_ENTRY_POINT_RENAME(x)    x ## _46
+#ifdef U_HAVE_LIB_SUFFIX
+#define U_DEF_ICU_ENTRY_POINT_RENAME(x,y,z) x ## y ##  z
+#define U_DEF2_ICU_ENTRY_POINT_RENAME(x,y,z) U_DEF_ICU_ENTRY_POINT_RENAME(x,y,z)
+#define U_ICU_ENTRY_POINT_RENAME(x)    U_DEF2_ICU_ENTRY_POINT_RENAME(x,U_ICU_VERSION_SUFFIX,U_LIB_SUFFIX_C_NAME)
+#else
+#define U_DEF_ICU_ENTRY_POINT_RENAME(x,y) x ## y
+#define U_DEF2_ICU_ENTRY_POINT_RENAME(x,y) U_DEF_ICU_ENTRY_POINT_RENAME(x,y)
+#define U_ICU_ENTRY_POINT_RENAME(x)    U_DEF2_ICU_ENTRY_POINT_RENAME(x,U_ICU_VERSION_SUFFIX)
+#endif
 #endif
 
 /** The current ICU library version as a dotted-decimal string. The patchlevel
@@ -91,18 +109,20 @@
  *  This value will change in the subsequent releases of ICU
  *  @stable ICU 2.4
  */
-#define U_ICU_VERSION "4.6.1"
+#define U_ICU_VERSION "49.1.1"
 
 /** The current ICU library major/minor version as a string without dots, for library name suffixes. 
  *  This value will change in the subsequent releases of ICU
  *  @stable ICU 2.6
  */
-#define U_ICU_VERSION_SHORT "46"
+#define U_ICU_VERSION_SHORT "49"
 
+#ifndef U_HIDE_INTERNAL_API
 /** Data version in ICU4C.
  * @internal ICU 4.4 Internal Use Only
  **/
-#define U_ICU_DATA_VERSION "4.6"
+#define U_ICU_DATA_VERSION "49.1.1"
+#endif  /* U_HIDE_INTERNAL_API */
 
 /*===========================================================================
  * ICU collation framework version information

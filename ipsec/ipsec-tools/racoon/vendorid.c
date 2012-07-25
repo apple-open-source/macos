@@ -120,7 +120,6 @@ static struct vendor_id *
 lookup_vendor_id_by_hash (const char *hash)
 {
 	int i;
-	unsigned char *h = (unsigned char *)hash;
 
 	for (i = 0; i < NUMVENDORIDS; i++)
 		if (strncmp(all_vendor_ids[i].hash->v, hash,
@@ -173,7 +172,6 @@ vchar_t *
 set_vendorid(int vendorid)
 {
 	struct vendor_id *current;
-	vchar_t vid, *new;
 
 	if (vendorid == VENDORID_UNKNOWN) {
 		/*
@@ -205,8 +203,7 @@ set_vendorid(int vendorid)
 int
 check_vendorid(struct isakmp_gen *gen)
 {
-	vchar_t vid, *vidhash;
-	int i, vidlen;
+	int vidlen;
 	struct vendor_id *current;
 
 	if (gen == NULL)

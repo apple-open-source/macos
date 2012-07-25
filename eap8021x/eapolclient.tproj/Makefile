@@ -3,10 +3,10 @@ SYSROOT = /Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.Inte
 PF_INC = -F$(SYSROOT)/System/Library/PrivateFrameworks
 
 wireless: wireless.c
-	cc -arch i386 -I../EAP8021X.fproj -DTEST_WIRELESS -g -o wireless wireless.c -F/System/Library/PrivateFrameworks -framework Apple80211 -framework CoreFoundation -framework EAP8021X
+	cc -I../EAP8021X.fproj -DTEST_WIRELESS -g -o wireless wireless.c -F/System/Library/PrivateFrameworks -framework Apple80211 -framework CoreFoundation -framework EAP8021X -framework SystemConfiguration
 
 wireless_p: wireless.c
-	$(CC) -arch armv6 -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_WIRELESS -g -o wireless_p wireless.c $(PF_INC) -framework CoreFoundation -framework EAP8021X -lio80211
+	$(CC) -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_WIRELESS -g -o wireless_p wireless.c $(PF_INC) -framework CoreFoundation -framework EAP8021X -lio80211 -framework SystemConfiguration
 
 Dialogue: Dialogue.c
 	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration -framework EAP8021X -F/System/Library/PrivateFrameworks -framework Security

@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: utmpx.h,v 1.11 2003/08/26 16:48:32 wiz Exp $	 */
 
 /*-
@@ -38,27 +60,33 @@
 #ifndef	_UTMPX_H_
 #define	_UTMPX_H_
 
-#include <sys/cdefs.h>
-#include <sys/featuretest.h>
-#include <sys/socket.h>
+#include <_types.h>
 #include <sys/time.h>
+#include <sys/cdefs.h>
+#include <Availability.h>
+
+#ifndef _PID_T
+#define _PID_T
+typedef __darwin_pid_t     pid_t;
+#endif
+
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#ifndef _UID_T
+#define _UID_T
+typedef __darwin_uid_t     uid_t;
+#endif
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
 #define	_PATH_UTMPX		"/var/run/utmpx"
-#define	_PATH_WTMPX		"/var/log/wtmpx"
-#define	_PATH_LASTLOGX		"/var/log/lastlogx"
-#define	_PATH_UTMP_UPDATE	"/usr/libexec/utmp_update"
 
-#define _UTX_USERSIZE	32
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#define	UTMPX_FILE	_PATH_UTMPX
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
+
+#define _UTX_USERSIZE	256	/* matches MAXLOGNAME */
 #define _UTX_LINESIZE	32
 #define	_UTX_IDSIZE	4
 #define _UTX_HOSTSIZE	256
-
-#if defined(_NETBSD_SOURCE)
-#define UTX_USERSIZE	_UTX_USERSIZE
-#define UTX_LINESIZE	_UTX_LINESIZE
-#define	UTX_IDSIZE	_UTX_IDSIZE
-#define UTX_HOSTSIZE	_UTX_HOSTSIZE
-#endif
 
 #define EMPTY		0
 #define RUN_LVL		1
@@ -70,74 +98,87 @@
 #define USER_PROCESS	7
 #define DEAD_PROCESS	8
 
-#if defined(_NETBSD_SOURCE)
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define ACCOUNTING	9
 #define SIGNATURE	10
-#endif
+#define SHUTDOWN_TIME	11
+
+#define UTMPX_AUTOFILL_MASK			0x8000
+#define UTMPX_DEAD_IF_CORRESPONDING_MASK	0x4000
+
+/* notify(3) change notification name */
+#define UTMPX_CHANGE_NOTIFICATION		"com.apple.system.utmpx"
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
 /*
  * The following structure describes the fields of the utmpx entries
- * stored in _PATH_UTMPX or _PATH_WTMPX. This is not the format the
+ * stored in _PATH_UTMPX. This is not the format the
  * entries are stored in the files, and application should only access
  * entries using routines described in getutxent(3).
  */
 
+#ifdef _UTMPX_COMPAT
 #define ut_user ut_name
 #define ut_xtime ut_tv.tv_sec
+#endif /* _UTMPX_COMPAT */
 
 struct utmpx {
-	char ut_name[_UTX_USERSIZE];	/* login name */
-	char ut_id[_UTX_IDSIZE];	/* inittab id */
+	char ut_user[_UTX_USERSIZE];	/* login name */
+	char ut_id[_UTX_IDSIZE];	/* id */
 	char ut_line[_UTX_LINESIZE];	/* tty name */
-	char ut_host[_UTX_HOSTSIZE];	/* host name */
-	uint16_t ut_session;		/* session id used for windowing */
-	uint16_t ut_type;		/* type of this entry */
 	pid_t ut_pid;			/* process id creating the entry */
-	struct {
-		uint16_t e_termination;	/* process termination signal */
-		uint16_t e_exit;	/* process exit status */
-	} ut_exit;
-	struct sockaddr_storage ut_ss;	/* address where entry was made from */
+	short ut_type;			/* type of this entry */
 	struct timeval ut_tv;		/* time entry was created */
-	uint32_t ut_pad[10];		/* reserved for future use */
+	char ut_host[_UTX_HOSTSIZE];	/* host name */
+	__uint32_t ut_pad[16];		/* reserved for future use */
 };
 
-#if defined(_NETBSD_SOURCE)
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 struct lastlogx {
 	struct timeval ll_tv;		/* time entry was created */
 	char ll_line[_UTX_LINESIZE];	/* tty name */
 	char ll_host[_UTX_HOSTSIZE];	/* host name */
-	struct sockaddr_storage ll_ss;	/* address where entry was made from */
 };
-#endif	/* !_XOPEN_SOURCE */
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
 __BEGIN_DECLS
 
-void setutxent __P((void));
-void endutxent __P((void));
-struct utmpx *getutxent __P((void));
-struct utmpx *getutxid __P((const struct utmpx *));
-struct utmpx *getutxline __P((const struct utmpx *));
-struct utmpx *pututxline __P((const struct utmpx *));
+void	endutxent(void);
 
-#if defined(_NETBSD_SOURCE)
-int updwtmpx __P((const char *, const struct utmpx *));
-int lastlogxname __P((const char *));
-#ifdef __LIBC12_SOURCE__
-struct lastlogx *getlastlogx __P((uid_t, struct lastlogx *));
-struct lastlogx *__getlastlogx13 __P((const char *, uid_t, struct lastlogx *));
-#else
-struct lastlogx *getlastlogx __P((const char *, uid_t, struct lastlogx *))
-	__RENAME(__getlastlogx13);
-#endif
-int updlastlogx __P((const char *, uid_t, struct lastlogx *));
-struct utmp;
-void getutmp __P((const struct utmpx *, struct utmp *));
-void getutmpx __P((const struct utmp *, struct utmpx *));
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+void	endutxent_wtmp(void) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+struct lastlogx *
+	getlastlogx(uid_t, struct lastlogx *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+struct lastlogx *
+	getlastlogxbyname(const char*, struct lastlogx *)__OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+#ifdef UNIFDEF_LEGACY_UTMP_APIS
+struct utmp;	/* forward reference */
+void	getutmp(const struct utmpx *, struct utmp *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+void	getutmpx(const struct utmp *, struct utmpx *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+#endif /* UNIFDEF_LEGACY_UTMP_APIS */
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
-int utmpxname __P((const char *));
+struct utmpx *
+	getutxent(void);
 
-#endif /* _NETBSD_SOURCE */
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+struct utmpx *
+	getutxent_wtmp(void) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
+
+struct utmpx *
+	getutxid(const struct utmpx *);
+struct utmpx *
+	getutxline(const struct utmpx *);
+struct utmpx *
+	pututxline(const struct utmpx *);
+void	setutxent(void);
+
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+void	setutxent_wtmp(int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	utmpxname(const char *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	wtmpxname(const char *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
 
 __END_DECLS
 

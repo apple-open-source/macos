@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ps.xml
@@ -42,7 +42,7 @@ ps{
             }
         }
     }
-    Version{"2.0.50.30"}
+    Version{"2.0.67.8"}
     calendar{
         gregorian{
             AmPmMarkers{

@@ -28,9 +28,12 @@
 #include "GraphicsContext.h"
 #include "KURL.h"
 #include "PlatformString.h"
-#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+#if ENABLE(ORIENTATION_EVENTS)
 #include "qorientationsensor.h"
-#endif
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+using QTM_NAMESPACE::QOrientationSensor;
+#endif // QT_VERSION < QT_VERSION_CHECK(5, 0, 0).
+#endif // ENABLE(ORIENTATION_EVENTS).
 #include "qwebelement.h"
 #include "wtf/RefPtr.h"
 #include "Frame.h"
@@ -46,7 +49,7 @@ namespace WebCore {
     class FrameView;
     class HTMLFrameOwnerElement;
     class Scrollbar;
-    class TextureMapperNode;
+    class TextureMapperLayer;
 }
 class QWebPage;
 
@@ -82,7 +85,7 @@ public:
         , marginWidth(-1)
         , marginHeight(-1)
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-        , rootTextureMapperNode(0)
+        , rootTextureMapperLayer(0)
 #endif
         {}
     void init(QWebFrame* qframe, QWebFrameData* frameData);
@@ -97,7 +100,7 @@ public:
     static QWebFrame* kit(const WebCore::Frame*);
 
     void renderRelativeCoords(WebCore::GraphicsContext*, QFlags<QWebFrame::RenderLayer>, const QRegion& clip);
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
     void renderFromTiledBackingStore(WebCore::GraphicsContext*, const QRegion& clip);
 #endif
 
@@ -107,6 +110,8 @@ public:
     void renderFrameExtras(WebCore::GraphicsContext*, QFlags<QWebFrame::RenderLayer>, const QRegion& clip);
     void emitUrlChanged();
     void _q_orientationChanged();
+
+    void didClearWindowObject();
 
     QWebFrame *q;
     Qt::ScrollBarPolicy horizontalScrollBarPolicy;
@@ -120,12 +125,17 @@ public:
     int marginWidth;
     int marginHeight;
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
-    WebCore::TextureMapperNode* rootTextureMapperNode;
+    WebCore::TextureMapperLayer* rootTextureMapperLayer;
     OwnPtr<WebCore::TextureMapper> textureMapper;
 #endif
 
-#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
-    QtMobility::QOrientationSensor m_orientation;
+#if ENABLE(ORIENTATION_EVENTS)
+    QOrientationSensor m_orientation;
+#endif // ENABLE(ORIENTATION_EVENTS).
+
+private:
+#if USE(JSC)
+    void addQtSenderToGlobalObject();
 #endif
 };
 
@@ -141,7 +151,7 @@ public:
     QString linkText;
     QUrl linkUrl;
     QString linkTitle;
-    QPointer<QWebFrame> linkTargetFrame;
+    QWeakPointer<QWebFrame> linkTargetFrame;
     QWebElement linkElement;
     QString alternateText;
     QUrl imageUrl;
@@ -149,7 +159,7 @@ public:
     bool isContentEditable;
     bool isContentSelected;
     bool isScrollBar;
-    QPointer<QWebFrame> frame;
+    QWeakPointer<QWebFrame> frame;
     RefPtr<WebCore::Node> innerNode;
     RefPtr<WebCore::Node> innerNonSharedNode;
 };

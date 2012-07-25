@@ -202,7 +202,7 @@ main(int argc, char *argv[])
 				usage();
 		}
 
-	argc -= optind;
+//	argc -= optind;
 	argv += optind;
 
 	/*

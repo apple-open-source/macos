@@ -144,7 +144,7 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
 	CFStringRef	certid_type;
 	CFDataRef	certid_data;
 	
-	status = paramErr;
+	status = EINVAL;
 	certid_type = CFDictionaryGetValue(dict, kEAPSecIdentityHandleType);
 	if (isA_CFString(certid_type) == NULL) {
 	    goto done;
@@ -275,7 +275,7 @@ EAPSecIdentityHandleCreateSecIdentity(EAPSecIdentityHandleRef cert_id,
     if (isA_CFData(cert_id) != NULL) {
 	return (IdentityCreateFromData((CFDataRef)cert_id, ret_identity));
     }
-    return (paramErr);
+    return (EINVAL);
 }
 
 static OSStatus
@@ -558,12 +558,20 @@ dict_insert_cert_name_attr(CFMutableDictionaryRef dict, CFStringRef key,
 			   cert_names_func_t func, SecCertificateRef cert)
 {
     CFArrayRef	names;
-
+    
     names = (*func)(cert);
     if (names != NULL) {
-	CFDictionarySetValue(dict, 
-			     key,
-			     CFArrayGetValueAtIndex(names, 0));
+	if (CFEqual(key, kEAPSecCertificateAttributeCommonName)) {
+	    CFIndex     count;
+	    count = CFArrayGetCount(names);
+	    CFDictionarySetValue(dict,
+				 key,
+				 CFArrayGetValueAtIndex(names, count - 1));
+	} else {
+	    CFDictionarySetValue(dict, 
+			         key,
+			         CFArrayGetValueAtIndex(names, 0));
+	}
 	CFRelease(names);
     }
     return;

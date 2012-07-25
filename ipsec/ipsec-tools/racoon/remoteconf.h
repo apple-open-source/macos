@@ -66,7 +66,7 @@ struct secprotospec {
 	int encmode;		/* for ipsec */
 	int vendorid;		/* for isakmp */
 	char *gssid;
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 	int algclass[MAXALGCLASS];
 
 	struct secprotospec *next;	/* the tail is the most prefiered. */
@@ -94,7 +94,8 @@ enum {
 extern char *script_names[SCRIPT_MAX + 1];
 
 struct remoteconf {
-	struct sockaddr *remote;	/* remote IP address */
+	struct sockaddr_storage *remote;	/* remote IP address */
+    int remote_prefix;                  /* allows subnet for remote address */
 					/* if family is AF_UNSPEC, that is
 					 * for anonymous configuration. */
 
@@ -169,10 +170,6 @@ struct remoteconf {
 						   from which this one 
 						   was inherited */
 	struct proposalspec *prhead;
-#ifdef HAVE_OPENSSL
-	struct genlist	*rsa_private,	/* lists of PlainRSA keys to use */
-			*rsa_public;
-#endif
 
 #ifdef ENABLE_HYBRID
 	struct xauth_rmconf *xauth;
@@ -215,14 +212,14 @@ struct idspec {
 
 typedef struct remoteconf * (rmconf_func_t)(struct remoteconf *rmconf, void *data);
 
-extern struct remoteconf *getrmconf __P((struct sockaddr *));
+extern struct remoteconf *getrmconf __P((struct sockaddr_storage *));
 extern struct remoteconf *getrmconf_strict
-	__P((struct sockaddr *remote, int allow_anon));
+	__P((struct sockaddr_storage *remote, int allow_anon));
 
 extern int link_rmconf_to_ph1 __P((struct remoteconf *));
 extern int unlink_rmconf_from_ph1 __P((struct remoteconf *));
 extern int no_remote_configs __P((int));
-extern struct remoteconf *copyrmconf __P((struct sockaddr *));
+extern struct remoteconf *copyrmconf __P((struct sockaddr_storage *));
 extern struct remoteconf *newrmconf __P((void));
 extern struct remoteconf *duprmconf __P((struct remoteconf *));
 extern void delrmconf __P((struct remoteconf *));

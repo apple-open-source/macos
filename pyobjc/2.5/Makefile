@@ -21,7 +21,7 @@ AEP_Version    = trunk-20090623
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fixup.diff PR-6090358-remove-sync.diff parser-fixes.diff NSString.diff float.diff pyobjc-framework-Cocoa_setup.py.diff objc-class.m.diff CGFloat.diff
+AEP_Patches    = fixup.diff PR-6090358-remove-sync.diff parser-fixes.diff NSString.diff float.diff pyobjc-framework-Cocoa_setup.py.diff objc-class.m.diff CGFloat.diff pyobjc-core_Modules_objc_objc-runtime-compat.h.diff pyobjc-core_Modules_objc_objc-runtime-compat.m.diff pyobjc-framework-Quartz_Modules__callbacks.m.diff pyobjc-core_Modules_objc_OC_PythonNumber.m.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -43,9 +43,25 @@ ifeq ($(AEP),YES)
 	for patchfile in $(AEP_Patches); do \
 	    patch -p0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done && \
-	for patchfile in `find . -name pyobjc-api.h | xargs fgrep -l __LP64__`; do \
-	    mv -f $$patchfile $$patchfile.orig && \
-	    { unifdef -DCGFLOAT_DEFINED -DNSINTEGER_DEFINED $$patchfile.orig > $$patchfile || [ $$? -ne 2 ]; } || exit 1; \
+	find . \( -name \*.h -or -name \*.m \) -print0 | xargs -0 egrep -l 'CGFLOAT_DEFINED|NSINTEGER_DEFINED' | while read patchfile; do \
+	    mv -f "$$patchfile" "$$patchfile.orig" && \
+	    { unifdef -DCGFLOAT_DEFINED -DNSINTEGER_DEFINED "$$patchfile.orig" > "$$patchfile" || [ $$? -ne 2 ]; } && \
+	    rm -f "$$patchfile.orig" || exit 1; \
+	done && \
+	find . -name pyobjc_setup.py -print0 | xargs -0 egrep -l 'CGFLOAT_DEFINED|NSINTEGER_DEFINED' | while read patchfile; do \
+	    mv -f "$$patchfile" "$$patchfile.orig" && \
+	    { unifdef -t -DCGFLOAT_DEFINED -DNSINTEGER_DEFINED "$$patchfile.orig" > "$$patchfile" || [ $$? -ne 2 ]; } && \
+	    rm -f "$$patchfile.orig" || exit 1; \
+	done && \
+	find . -name \*.bridgesupport -print0 | xargs -0 fgrep -l "tollfree='NSCF" | while read patchfile; do \
+	    mv -f "$$patchfile" "$$patchfile.orig" && \
+	    sed "s/tollfree='NSCF/tollfree='__NSCF/" "$$patchfile.orig" > "$$patchfile" && \
+	    rm -f "$$patchfile.orig" || exit 1; \
+	done && \
+	find . -type f -print0 | xargs -0 grep -lw iChat | while read patchfile; do \
+	    mv -f "$$patchfile" "$$patchfile.orig" && \
+	    sed 's/[[:<:]]iChat[[:>:]]/Messages/g' "$$patchfile.orig" > "$$patchfile" && \
+	    rm -f "$$patchfile.orig" || exit 1; \
 	done
 	ed - $(SRCROOT)/$(Project)/pyobjc-core/setup.py < '$(SRCROOT)/patches/pyobjc-core_setup.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa/Lib/PyObjCTools/Conversion.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_PyObjCTools_Conversion.py.ed'

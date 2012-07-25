@@ -48,7 +48,7 @@
 #include <locale.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <rpcsvc/mount.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -870,8 +870,7 @@ set_mapent_opts(struct mapent *me, char *defaultopts, const char *mapopts)
 		return (ENOMEM);
 
 	if (fstype_opt == TRUE) {
-		/* mounter and fstype are the same size */
-		strcpy(mounter,	fstype);
+		strlcpy(mounter, fstype, sizeof(mounter));
 
 #ifdef MNTTYPE_CACHEFS
 		/*
@@ -1607,11 +1606,7 @@ automount_opts(char **map_mntopts, const char *mapopts)
 	}
 	memset(*map_mntopts, 0, len);
 
-	/*
-	 * strlen(mapopts) + strlen(addopt) + 2 <= AUTOFS_MAXOPTSLEN,
-	 * so strlen(mapopts) < AUTOFS_MAXOPTSLEN, and this copy is safe.
-	 */
-	strcpy(buf, mapopts);
+	strlcpy(buf, mapopts, sizeof(buf));
 	opts = buf;
 	while ((opt = strtok_r(opts, ",", &placeholder)) != NULL) {
 		opts = NULL;
@@ -2341,7 +2336,7 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 	struct mapfs *mfs;
 	struct exportnode *ex = NULL;
 	struct exportnode *exlist = NULL, *texlist, **texp, *exnext;
-	struct timeval timeout;
+	struct timeval timeout = {10, 0};	// sec,usec
 	enum clnt_stat clnt_stat;
 	char entryopts[MAXOPTSLEN];
 	char fstype[MAX_FSLEN], mounter[MAX_FSLEN];
@@ -2473,9 +2468,9 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 	delay = INITDELAY;
 retry:
 	/* get export list of host */
-	cl = clnt_create((char *)host, MOUNTPROG, MOUNTVERS, "tcp");
+	cl = clnt_create_timeout((char *)host, MOUNTPROG, MOUNTVERS, "tcp", &timeout);
 	if (cl == NULL) {
-		cl = clnt_create((char *)host, MOUNTPROG, MOUNTVERS, "udp");
+		cl = clnt_create_timeout((char *)host, MOUNTPROG, MOUNTVERS, "udp", &timeout);
 		if (cl == NULL) {
 			syslog(LOG_ERR,
 			"do_mapent_hosts: %s %s", host, clnt_spcreateerror(""));
@@ -2490,8 +2485,6 @@ retry:
 		__FILE__, __LINE__);
 #endif
 
-	timeout.tv_usec = 0;
-	timeout.tv_sec  = 25;
 	if ((clnt_stat = clnt_call(cl, MOUNTPROC_EXPORT, (xdrproc_t)xdr_void, 0,
 		(xdrproc_t)xdr_exports, (caddr_t)&ex, timeout)) != RPC_SUCCESS) {
 
@@ -2564,8 +2557,7 @@ retry:
 	CHECK_STRCPY(fstype, MNTTYPE_NFS, sizeof (fstype));
 	if (!get_opts(mapopts, entryopts, fstype, sizeof (fstype), NULL))
 		goto fstype_too_long;
-	/* mounter and fstype are the same size */
-	(void) strcpy(mounter, fstype);
+	(void) strlcpy(mounter, fstype, sizeof(mounter));
 #ifdef MNTTYPE_CACHEFS
 	if (strcmp(fstype, MNTTYPE_CACHEFS) == 0) {
 		struct mnttab m;

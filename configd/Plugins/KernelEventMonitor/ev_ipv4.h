@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2005, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,12 +37,17 @@
 
 __BEGIN_DECLS
 
+__private_extern__
 void	interface_update_ipv4	(struct ifaddrs *ifap, const char *if_name);
+
+__private_extern__
 void	interface_collision_ipv4(const char *if_name,
 				 struct in_addr ip_addr,
 				 int hw_len, const void * hw_addr);
+
 #if	!TARGET_OS_IPHONE
-void	port_in_use_ipv4(uint16_t port, pid_t req_pid);
+__private_extern__
+void	port_in_use_ipv4	(uint16_t port, pid_t req_pid);
 #endif	/* !TARGET_OS_IPHONE */
 
 __END_DECLS

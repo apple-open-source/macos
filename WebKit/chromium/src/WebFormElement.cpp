@@ -38,8 +38,8 @@
 #include "HTMLNames.h"
 #include "WebFormControlElement.h"
 #include "WebInputElement.h"
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 #include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
@@ -48,7 +48,7 @@ namespace WebKit {
 
 bool WebFormElement::autoComplete() const
 {
-    return constUnwrap<HTMLFormElement>()->autoComplete();
+    return constUnwrap<HTMLFormElement>()->shouldAutocomplete();
 }
 
 WebString WebFormElement::action() const

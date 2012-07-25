@@ -143,7 +143,7 @@ int ppp_socket_start_server ()
     return 0;
     
 fail:
-    SCLog(TRUE, LOG_INFO, CFSTR("PPPController: initialization failed...\n"));
+    SCLog(TRUE, LOG_INFO, CFSTR("PPPController: initialization failed..."));
     if (s != -1) 
         close(s);
     if (ref) {
@@ -164,7 +164,7 @@ int ppp_socket_create_client(int s, int priviledged, uid_t uid, gid_t gid)
         
     if ((flags = fcntl(s, F_GETFL)) == -1
 	|| fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1) {
-        SCLog(TRUE, LOG_INFO, CFSTR("Couldn't set client socket in non-blocking mode, errno = %d\n"), errno);
+        SCLog(TRUE, LOG_INFO, CFSTR("Couldn't set client socket in non-blocking mode, errno = %d."), errno);
     }
         
     if ((ref = CFSocketCreateWithNative(NULL, s, 
@@ -209,7 +209,7 @@ void listenCallBack(CFSocketRef inref, CFSocketCallBackType type,
 
 	len = sizeof(xucred);
 	if (getsockopt(s, 0, LOCAL_PEERCRED, &xucred, &len) == -1) {
-        SCLog(TRUE, LOG_ERR, CFSTR("PPPController: can't get LOCAL_PEERCRED, errno = %d\n"), errno);
+        SCLog(TRUE, LOG_ERR, CFSTR("PPPController: can't get LOCAL_PEERCRED, errno = %d."), errno);
 		return ;
 	}
 	
@@ -326,13 +326,13 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
 
 					/* verify msghdr fields that are used to calculate msgtotallen */
 					if (client->msghdr.m_len > PPP_MSG_MAX_DATA_LEN) {
-						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: length %d...\n"), client->msghdr.m_len);
+						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: length %d..."), client->msghdr.m_len);
 						action = do_error;
 						goto clientCallBackPerformAction;
 					}
 					if (client->msghdr.m_flags & USE_SERVICEID &&
 						client->msghdr.m_link > PPP_MSG_MAX_SERVICEID_LEN) {
-						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: service-id %d...\n"), client->msghdr.m_link);
+						SCLog(TRUE, LOG_ERR, CFSTR("Invalid client message header: service-id %d..."), client->msghdr.m_link);
 						action = do_error;
 						goto clientCallBackPerformAction;
 					}
@@ -342,7 +342,7 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
                         + (client->msghdr.m_flags & USE_SERVICEID ? client->msghdr.m_link : 0);
                     client->msg = my_Allocate(client->msgtotallen + 1);
 					if (client->msg == 0) {
-						SCLog(TRUE, LOG_ERR, CFSTR("Failed to allocate client message...\n"));
+						SCLog(TRUE, LOG_ERR, CFSTR("Failed to allocate client message..."));
                         action = do_error;
 						goto clientCallBackPerformAction;
                     } else {
@@ -359,7 +359,7 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
         n = readn(s, &client->msg[client->msglen], client->msgtotallen - client->msglen);
         switch (n) {
             case -1:
-				SCLog(TRUE, LOG_ERR, CFSTR("Failed to read client message...\n"));
+				SCLog(TRUE, LOG_ERR, CFSTR("Failed to read client message..."));
                 action = do_close;
                 break;
             default:
@@ -384,7 +384,7 @@ clientCallBackPerformAction:
 
         case do_process:
             // process client request
-            processRequest(client, (struct msg *)client->msg);
+            processRequest(client, ALIGNED_CAST(struct msg *)client->msg);
             my_Deallocate(client->msg, client->msgtotallen + 1);
             client->msg = 0;
             client->msglen = 0;
@@ -550,7 +550,7 @@ void socket_extendedstatus(struct client *client, struct msg *msg, void **reply)
 static
 void socket_connect(struct client *client, struct msg *msg, void **reply)
 {
-    void			*data = (struct ppp_status *)&msg->data[MSG_DATAOFF(msg)];
+    void			*data = &msg->data[MSG_DATAOFF(msg)];
     struct service	*serv = ppp_find(msg);
     CFDictionaryRef	opts = 0;
 
@@ -590,14 +590,17 @@ static
 void socket_disconnect(struct client *client, struct msg *msg, void **reply)
 {
     struct service		*serv = ppp_find(msg);
+	struct client       *arb_client;
+	int                  scnc_reason;
     
     if (!serv) {
         msg->hdr.m_result = ENODEV;
         msg->hdr.m_len = 0;
         return;
     }
-    
-    scnc_stop(serv, (msg->hdr.m_flags & DISCONNECT_ARBITRATED_FLAG) ? client : 0, SIGHUP);
+    arb_client = (msg->hdr.m_flags & DISCONNECT_ARBITRATED_FLAG) ? client : 0;
+	scnc_reason = arb_client? SCNC_STOP_SOCK_DISCONNECT : SCNC_STOP_SOCK_DISCONNECT_NO_CLIENT;
+    scnc_stop(serv, client, SIGHUP, scnc_reason);
 
     msg->hdr.m_result = 0;
     msg->hdr.m_len = 0;
@@ -675,7 +678,7 @@ void socket_enable_event(struct client *client, struct msg *msg, void **reply)
     u_int32_t	notification = 1; // type of notification, event or status
     
     if (msg->hdr.m_len == 4) {
-        notification = *(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
+        notification = *ALIGNED_CAST(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
 		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 			notification = htonl(notification);
         if (notification < 1 || notification > 3) {
@@ -718,7 +721,7 @@ void socket_disable_event(struct client *client, struct msg *msg, void **reply)
     u_int32_t	notification = 1; // type of notification, event or status
     
     if (msg->hdr.m_len == 4) {
-        notification = *(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
+        notification = *ALIGNED_CAST(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
 		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 			notification = htonl(notification);
         if (notification < 1 || notification > 3) {
@@ -805,7 +808,7 @@ void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
     struct service	*serv;
     u_short			subtype = msg->hdr.m_link >> 16;
 
-    index = *(u_int32_t *)&msg->data[0];
+    index = *ALIGNED_CAST(u_int32_t *)&msg->data[0];
 	if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
 		index = htonl(index);
 
@@ -1099,8 +1102,8 @@ id must be a valid client
 static
 void socket_setoption(struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp_opt			*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
-    u_int32_t				optint = *(u_int32_t *)(&opt->o_data[0]);
+    struct ppp_opt			*opt = ALIGNED_CAST(struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
+    u_int32_t				optint = *ALIGNED_CAST(u_int32_t *)(&opt->o_data[0]);
     u_char					*optstr = &opt->o_data[0];
     CFMutableDictionaryRef	opts;
     u_int32_t				err = 0, len = msg->hdr.m_len - sizeof(struct ppp_opt_hdr), speed;
@@ -1217,8 +1220,8 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
             err = set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM, optint, 0, 0xFFFFFFFF, 1);
             break;
         case PPP_OPT_LCP_ECHO:
-            err = set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPLCPEchoInterval, ((struct ppp_opt_echo *)opt->o_data)->interval, 0, 0xFFFFFFFF, 1)
-            	|| set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPLCPEchoFailure, ((struct ppp_opt_echo *)opt->o_data)->failure, 0, 0xFFFFFFFF, 1);
+            err = set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPLCPEchoInterval, (ALIGNED_CAST(struct ppp_opt_echo *)opt->o_data)->interval, 0, 0xFFFFFFFF, 1)
+            	|| set_long_opt(opts, kSCEntNetPPP, kSCPropNetPPPLCPEchoFailure, (ALIGNED_CAST(struct ppp_opt_echo *)opt->o_data)->failure, 0, 0xFFFFFFFF, 1);
             break;
 
             // SEC options
@@ -1296,10 +1299,10 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
 static
 void socket_getoption (struct client *client, struct msg *msg, void **reply)
 {
-    struct ppp_opt 		*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
+    struct ppp_opt 		*opt = ALIGNED_CAST(struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
     CFDictionaryRef		opts;
     struct service		*serv = ppp_find(msg);
-    u_int8_t			optdata[OPT_STR_LEN + 1];
+    u_int8_t			optdata[OPT_STR_LEN + 1] __attribute__ ((aligned(4)));		// Wcast-align fix - force alignment
     u_int32_t			optlen;
 	
     if (!serv) {
@@ -1355,7 +1358,7 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
 			case PPP_OPT_DEV_DIALMODE:
 			case PPP_OPT_DIALONDEMAND:
 			case PPP_OPT_LCP_ECHO:
-				*(u_int32_t*)optdata = htonl(*(u_int32_t*)optdata);
+				*ALIGNED_CAST(u_int32_t*)optdata = htonl(*ALIGNED_CAST(u_int32_t*)optdata);
 				break;
 		}
 	}

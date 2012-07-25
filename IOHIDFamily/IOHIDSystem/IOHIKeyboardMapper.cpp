@@ -232,9 +232,10 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 		UInt32 supportedModifiers = 0;
 		OSNumber * number = 0;
 		
-		number = (OSNumber *)_delegate->getProperty(kIOHIDKeyboardSupportedModifiersKey);
+		number = (OSNumber *)_delegate->copyProperty(kIOHIDKeyboardSupportedModifiersKey);
 		
 		if (number) supportedModifiers = number->unsigned32BitValue();
+		OSSafeReleaseNULL(number);
 		
 		for (int mod=0; mod<NX_NUMMODIFIERS; mod++)
 		{
@@ -269,31 +270,11 @@ bool IOHIKeyboardMapper::init(	IOHIKeyboard *delegate,
 		if ((_delegate->interfaceID() == NX_EVS_DEVICE_INTERFACE_ADB) &&
 			(((_delegate->deviceType() >= 0xc3) && (_delegate->deviceType() <= 0xc9)) ||
 			 ((_delegate->deviceType() >= 0x28) && (_delegate->deviceType() <= 0x2a)) ||
-			 ((_delegate->deviceType() >= 0x00) && (_delegate->deviceType() <= 0x1e))))
+			 (                                     (_delegate->deviceType() <= 0x1e))))
 		{
-		
-			IORegistryEntry *	devicetreeRegEntry = IORegistryEntry::fromPath("/", gIODTPlane);
-			OSData *			modelData;
-			
 			_supportsF12Eject = true;
-
-			// RY: perform extra check because the 1st TiBook, 101 and Pismo share the same
-			// device type.	 The TiBook has an eject key and thus should not support F12 eject.
-			if ( devicetreeRegEntry )
-			{
-				if ((modelData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("model")))
-					&& (strcmp((char *)modelData->getBytesNoCopy(), "PowerBook3,2") == 0) )
-				{
-					_supportsF12Eject = false;
-				}
-				devicetreeRegEntry->release();
-			}
-			
-			if ( _supportsF12Eject )
-			{
-				_delegate->setProperty( kIOHIDKeyboardSupportsF12EjectKey,
+			_delegate->setProperty( kIOHIDKeyboardSupportsF12EjectKey,
 									_supportsF12Eject);
-			}
 		}
 	}
 
@@ -1305,10 +1286,8 @@ IOReturn IOHIKeyboardMapper::setParamProperties( OSDictionary * dict )
 	
 	// Check for fkey mode property
 	if ((dict->getObject(kIOHIDTemporaryParametersKey) == NULL) &&
-		(number = OSDynamicCast(OSNumber,
-							  dict->getObject(kIOHIDFKeyModeKey))) ||
-		(data = OSDynamicCast(OSData,
-							  dict->getObject(kIOHIDFKeyModeKey))))
+		((NULL != (number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)))) ||
+		 (NULL != (data = OSDynamicCast(OSData, dict->getObject(kIOHIDFKeyModeKey))))))
 	{
 		value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
 
@@ -1699,12 +1678,11 @@ void	IOHIKeyboardMapper::postKeyboardSpecialEvent (unsigned subtype, unsigned ev
 				/* specialty */ subtype);
 }
 
-bool IOHIKeyboardMapper::stickyKeysModifierToggleCheck(
-							StickyKeys_ToggleInfo * toggleInfo,
-							UInt8		 key,
-							bool		 keyDown,
-							kbdBitVector keyBits,
-														bool		 mouseClick)
+bool IOHIKeyboardMapper::stickyKeysModifierToggleCheck(StickyKeys_ToggleInfo    *toggleInfo,
+                                                       UInt8                    key,
+                                                       bool                     keyDown,
+                                                       kbdBitVector             keyBits __unused,
+                                                       bool                     mouseClick)
 {
 	unsigned char	thisBits = _parsedMapping.keyBits[key];
 	int				index, innerindex;
@@ -2313,7 +2291,7 @@ bool IOHIKeyboardMapper::f12EjectFilterKey (UInt8 key, bool keyDown, kbdBitVecto
 // This is a static method called by the ejectTimerEventSource.
 // It will send an System eject event
 
-void IOHIKeyboardMapper::performF12Eject(IOHIKeyboardMapper *owner, IOTimerEventSource *sender) { 
+void IOHIKeyboardMapper::performF12Eject(IOHIKeyboardMapper *owner, IOTimerEventSource *sender __unused) { 
    
 	// Post the eject keydown event.
 	owner->postKeyboardSpecialEvent(NX_KEYTYPE_EJECT, NX_KEYDOWN);
@@ -2332,7 +2310,8 @@ void IOHIKeyboardMapper::performF12Eject(IOHIKeyboardMapper *owner, IOTimerEvent
 // pushed on up to the HID System.	Other scenarios to the state
 // machine are documented in further detail below.
 
-bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits) {
+bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits __unused)
+{
 	bool returnValue = true;
 
 	if (_slowKeys_Delay_MS == 0)
@@ -2480,8 +2459,8 @@ bool IOHIKeyboardMapper::slowKeysFilterKey (UInt8 key, bool keyDown, kbdBitVecto
 // It is responsible for sending a key down
 // to the HID System. 
 
-void IOHIKeyboardMapper::slowKeysPostProcess (IOHIKeyboardMapper *owner, IOTimerEventSource *sender) {
-	
+void IOHIKeyboardMapper::slowKeysPostProcess (IOHIKeyboardMapper *owner, IOTimerEventSource *sender __unused) 
+{
 	owner->_slowKeys_State &= ~kState_In_Progess_Flag;
 
 	// Post the key down
@@ -2491,7 +2470,7 @@ void IOHIKeyboardMapper::slowKeysPostProcess (IOHIKeyboardMapper *owner, IOTimer
 	owner->postKeyboardSpecialEvent(NX_SUBTYPE_SLOWKEYS_END);
 } 
 
-void IOHIKeyboardMapper::stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEventSource *sender)
+void IOHIKeyboardMapper::stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEventSource *sender __unused)
 {
 	OSDictionary *dict;
 
@@ -2508,13 +2487,13 @@ void IOHIKeyboardMapper::stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEvent
 	owner->_hidSystem->setParamProperties (dict);
 }
 
-void IOHIKeyboardMapper::stickyKeysMouseUp(IOHIKeyboardMapper *owner, IOEventSource *sender)
+void IOHIKeyboardMapper::stickyKeysMouseUp(IOHIKeyboardMapper *owner, IOEventSource *sender __unused)
 {
 	owner->stickyKeysFilterKey (0, 0, owner->_cached_KeyBits, true);
 }
 
 OSMetaClassDefineReservedUsed(IOHIKeyboardMapper,  0);
-IOReturn IOHIKeyboardMapper::message( UInt32 type, IOService * provider, void * argument)
+IOReturn IOHIKeyboardMapper::message( UInt32 type, IOService * provider __unused, void * argument __unused )
 {
 	
 	switch (type)

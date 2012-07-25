@@ -16,8 +16,6 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 gnu_after_install::
 	$(_v) $(LN) -f $(RC_Install_Prefix)/bin/zcat $(RC_Install_Prefix)/bin/gzcat
 	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zcat.1 $(RC_Install_Prefix)/share/man/man1/gzcat.1
-	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zgrep.1 $(RC_Install_Prefix)/share/man/man1/zegrep.1
-	$(_v) $(LN) -f $(RC_Install_Prefix)/share/man/man1/zgrep.1 $(RC_Install_Prefix)/share/man/man1/zfgrep.1
 	$(RM) $(DSTROOT)/usr/bin/uncompress
 	$(_v) $(LN) -f $(RC_Install_Prefix)/bin/gzip $(RC_Install_Prefix)/bin/zcat
 
@@ -40,7 +38,8 @@ AEP_Patches    = patch-doc__Makefile.in \
                  patch-gzip.1 patch-gzip.c \
                  patch-zless.1 \
                  PR-7408343.diff \
-                 PR-7634893.diff
+                 PR-7634893.diff \
+                 remove-zgrep.diff
 
 # Extract the source.
 install_source::

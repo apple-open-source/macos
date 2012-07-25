@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -19,8 +19,7 @@
 ***********************************************************************/
 #pragma prototyped
 
-#include	<defs.h>
-#include	"FEATURE/options"
+#include	"defs.h"
 #include	"name.h"
 #include	"shtable.h"
 
@@ -122,26 +121,28 @@ const Shtable_t shtab_options[] =
 
 const Shtable_t shtab_attributes[] =
 {
+	{"-Sshared",	NV_REF|NV_TAGGED},
 	{"-nnameref",	NV_REF},
 	{"-xexport",	NV_EXPORT},
 	{"-rreadonly",	NV_RDONLY},
 	{"-ttagged",	NV_TAGGED},
-	{"-llong",	(NV_INTEGER|NV_DOUBLE|NV_LONG)},
-	{"-Eexponential",(NV_INTEGER|NV_DOUBLE|NV_EXPNOTE)},
-	{"-Ffloat",	(NV_INTEGER|NV_DOUBLE)},
+	{"-Aassociative array",	NV_ARRAY},
+	{"-aindexed array",	NV_ARRAY},
+	{"-llong",	(NV_DOUBLE|NV_LONG)},
+	{"-Eexponential",(NV_DOUBLE|NV_EXPNOTE)},
+	{"-Xhexfloat",	(NV_DOUBLE|NV_HEXFLOAT)},
+	{"-Ffloat",	NV_DOUBLE},
 	{"-llong",	(NV_INTEGER|NV_LONG)},
 	{"-sshort",	(NV_INTEGER|NV_SHORT)},
 	{"-uunsigned",	(NV_INTEGER|NV_UNSIGN)},
 	{"-iinteger",	NV_INTEGER},
 	{"-Hfilename",	NV_HOST},
 	{"-bbinary",    NV_BINARY},
-	{"-llowercase",	NV_UTOL},
+	{"-ltolower",	NV_UTOL},
+	{"-utoupper",	NV_LTOU},
 	{"-Zzerofill",	NV_ZFILL},
 	{"-Lleftjust",	NV_LJUST},
 	{"-Rrightjust",	NV_RJUST},
-	{"-uuppercase",	NV_LTOU},
-	{"-Aassociative array",	NV_ARRAY},
-	{"-aindexed array",	NV_ARRAY},
 	{"++namespace",	NV_TABLE},
 	{"",		0}
 };

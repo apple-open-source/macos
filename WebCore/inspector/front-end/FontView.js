@@ -26,6 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @extends {WebInspector.ResourceView}
+ * @constructor
+ */
 WebInspector.FontView = function(resource)
 {
     WebInspector.ResourceView.call(this, resource);
@@ -33,7 +37,7 @@ WebInspector.FontView = function(resource)
     this.element.addStyleClass("font");
 }
 
-WebInspector.FontView._fontInnerHTML = "ABCDEFGHIJKLM<br>NOPQRSTUVWXYZ<br>abcdefghijklm<br>nopqrstuvwxyz<br>1234567890";
+WebInspector.FontView._fontPreviewLines = [ "ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890" ];
 
 WebInspector.FontView._fontId = 0;
 
@@ -56,32 +60,35 @@ WebInspector.FontView.prototype = {
         this.fontStyleElement.textContent = "@font-face { font-family: \"" + uniqueFontName + "\"; src: url(" + this.resource.url + "); }";
         document.head.appendChild(this.fontStyleElement);
 
-        this.fontPreviewElement = document.createElement("div");
-        this.fontPreviewElement.innerHTML = WebInspector.FontView._fontInnerHTML;
-        this.fontPreviewElement.style.setProperty("font-family", uniqueFontName, null);
-        this.fontPreviewElement.style.setProperty("visibility", "hidden", null);
+        var fontPreview = document.createElement("div");
+        for (var i = 0; i < WebInspector.FontView._fontPreviewLines.length; ++i) {
+            if (i > 0)
+                fontPreview.appendChild(document.createElement("br"));
+            fontPreview.appendChild(document.createTextNode(WebInspector.FontView._fontPreviewLines[i]));
+        }
+        this.fontPreviewElement = fontPreview.cloneNode(true);
+        this.fontPreviewElement.style.setProperty("font-family", uniqueFontName);
+        this.fontPreviewElement.style.setProperty("visibility", "hidden");
 
-        this._dummyElement = document.createElement("div");
+        this._dummyElement = fontPreview;
         this._dummyElement.style.visibility = "hidden";
         this._dummyElement.style.zIndex = "-1";
         this._dummyElement.style.display = "inline";
         this._dummyElement.style.position = "absolute";
-        this._dummyElement.style.setProperty("font-family", uniqueFontName, null);
-        this._dummyElement.style.setProperty("font-size", WebInspector.FontView._measureFontSize + "px", null);
-        this._dummyElement.innerHTML = WebInspector.FontView._fontInnerHTML;
+        this._dummyElement.style.setProperty("font-family", uniqueFontName);
+        this._dummyElement.style.setProperty("font-size", WebInspector.FontView._measureFontSize + "px");
 
         this.element.appendChild(this.fontPreviewElement);
     },
 
-    show: function(parentElement)
+    wasShown: function()
     {
-        WebInspector.ResourceView.prototype.show.call(this, parentElement);
         this._createContentIfNeeded();
 
         this.updateFontPreviewSize();
     },
 
-    resize: function()
+    onResize: function()
     {
         if (this._inResize)
             return;
@@ -105,7 +112,7 @@ WebInspector.FontView.prototype = {
 
     updateFontPreviewSize: function()
     {
-        if (!this.fontPreviewElement || !this.visible)
+        if (!this.fontPreviewElement || !this.isShowing())
             return;
 
         this.fontPreviewElement.style.removeProperty("visibility");

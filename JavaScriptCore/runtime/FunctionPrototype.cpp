@@ -33,6 +33,7 @@
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(FunctionPrototype);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(FunctionPrototype);
 
 const ClassInfo FunctionPrototype::s_info = { "Function", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(FunctionPrototype) };
 
@@ -101,7 +102,7 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)
 {
     JSValue thisValue = exec->hostThisValue();
     if (thisValue.inherits(&JSFunction::s_info)) {
-        JSFunction* function = asFunction(thisValue);
+        JSFunction* function = jsCast<JSFunction*>(thisValue);
         if (function->isHostFunction())
             return JSValue::encode(jsMakeNontrivialString(exec, "function ", function->name(exec), "() {\n    [native code]\n}"));
         FunctionExecutable* executable = function->jsExecutable();
@@ -136,7 +137,7 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncApply(ExecState* exec)
             if (asArguments(array)->length(exec) > Arguments::MaxArguments)
                 return JSValue::encode(throwStackOverflowError(exec));
             asArguments(array)->fillArgList(exec, applyArgs);
-        } else if (isJSArray(&exec->globalData(), array)) {
+        } else if (isJSArray(array)) {
             if (asArray(array)->length() > Arguments::MaxArguments)
                 return JSValue::encode(throwStackOverflowError(exec));
             asArray(array)->fillArgList(exec, applyArgs);
@@ -186,10 +187,13 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncBind(ExecState* exec)
 
     // Let A be a new (possibly empty) internal list of all of the argument values provided after thisArg (arg1, arg2 etc), in order.
     size_t numBoundArgs = exec->argumentCount() > 1 ? exec->argumentCount() - 1 : 0;
-    JSArray* boundArgs = JSArray::create(exec->globalData(), globalObject->arrayStructure(), numBoundArgs, CreateCompact);
+    JSArray* boundArgs = JSArray::tryCreateUninitialized(exec->globalData(), globalObject->arrayStructure(), numBoundArgs);
+    if (!boundArgs)
+        return JSValue::encode(throwOutOfMemoryError(exec));
+
     for (size_t i = 0; i < numBoundArgs; ++i)
-        boundArgs->uncheckedSetIndex(exec->globalData(), i, exec->argument(i + 1));
-    boundArgs->setLength(numBoundArgs);
+        boundArgs->initializeIndex(exec->globalData(), i, exec->argument(i + 1));
+    boundArgs->completeInitialization(numBoundArgs);
 
     // If the [[Class]] internal property of Target is "Function", then ...
     // Else set the length own property of F to 0.
@@ -203,7 +207,7 @@ EncodedJSValue JSC_HOST_CALL functionProtoFuncBind(ExecState* exec)
             length = targetLength - numBoundArgs;
     }
 
-    Identifier name(exec, target.get(exec, exec->propertyNames().name).toString(exec));
+    Identifier name(exec, target.get(exec, exec->propertyNames().name).toString(exec)->value(exec));
 
     return JSValue::encode(JSBoundFunction::create(exec, globalObject, targetObject, exec->argument(0), boundArgs, length, name));
 }

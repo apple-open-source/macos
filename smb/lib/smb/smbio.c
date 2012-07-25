@@ -37,7 +37,7 @@ smbio_ntcreatex(void *smbctx, const char *path, const char *streamName,
 				int *fid)
 {
 	uint16_t *namelenp;
-    struct smb_rq *rqp;
+    struct smb_usr_rq *rqp;
     mbchain_t	mbp;
     mdchain_t	mdp;
     uint8_t		wc;
@@ -45,25 +45,17 @@ smbio_ntcreatex(void *smbctx, const char *path, const char *streamName,
     int			error;
 	u_int16_t	fid16;
 	
-	/*
-	 * We have deprecated servers that don't support Unicode, so in the future
-	 * this check can be removed. See <rdar://problem/8209715>
-	 */
-	if (streamName && (!(((struct smb_ctx *)smbctx)->ct_vc_caps & SMB_CAP_UNICODE))) {
-		/* We only support streams if the server supports UNICODE */
-		return ENOTSUP;
-	}
     /*
 	 * Since the reply will fit in one mbuf, pass zero which will cause a normal
 	 * mbuf to get created.
      */
-    error = smb_rq_init(smbctx, SMB_COM_NT_CREATE_ANDX, 0, &rqp);
+    error = smb_usr_rq_init(smbctx, SMB_COM_NT_CREATE_ANDX, 0, &rqp);
     if (error != 0) {
 		return error;
     }
 	
-    mbp = smb_rq_getrequest(rqp);
-	smb_rq_wstart(rqp);
+    mbp = smb_usr_rq_getrequest(rqp);
+	smb_usr_rq_wstart(rqp);
     mb_put_uint8(mbp, 0xff);        /* secondary command */
     mb_put_uint8(mbp, 0);           /* MBZ */
     mb_put_uint16le(mbp, 0);        /* offset to next command (none) */
@@ -85,47 +77,47 @@ smbio_ntcreatex(void *smbctx, const char *path, const char *streamName,
     mb_put_uint32le(mbp, inparms->createOptions);
     mb_put_uint32le(mbp, NTCREATEX_IMPERSONATION_IMPERSONATION); /* (?) */
     mb_put_uint8(mbp, 0);   /* security flags (?) */
-    smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
+    smb_usr_rq_wend(rqp);
+	smb_usr_rq_bstart(rqp);
 	nmlen = 0;
 	if (streamName) {
 		size_t snmlen = 0;
 		
-		error = smb_put_dmem(smbctx, mbp, path, strlen(path), 
-							 SMB_UTF_SFM_CONVERSIONS | SMB_FULLPATH_CONVERSIONS, 
-							 &nmlen);
+		error = smb_usr_put_dmem(smbctx, mbp, path, strlen(path), 
+                        			SMB_UTF_SFM_CONVERSIONS | SMB_FULLPATH_CONVERSIONS, 
+                    				&nmlen);
 		if (!error) {
 			/* Make sure the stream name starts with a colon */
 			if (*streamName != ':') {
 				mb_put_uint16le(mbp, ':');
 				nmlen += 2;
 			}
-			error = smb_rq_put_dstring(smbctx, mbp, streamName, strlen(streamName), 
-									   NO_SFM_CONVERSIONS, &snmlen);
+			error = smb_usr_rq_put_dstring(smbctx, mbp, streamName, strlen(streamName), 
+                                           NO_SFM_CONVERSIONS, &snmlen);
 		}
 		nmlen += snmlen;
 	} else {
-		error = smb_rq_put_dstring(smbctx, mbp, path, strlen(path), 
-								   SMB_UTF_SFM_CONVERSIONS | 
-								   SMB_FULLPATH_CONVERSIONS, 
-								   &nmlen);
+		error = smb_usr_rq_put_dstring(smbctx, mbp, path, strlen(path), 
+                        				SMB_UTF_SFM_CONVERSIONS | 
+                        				SMB_FULLPATH_CONVERSIONS, 
+                    					&nmlen);
 	}
 	if (error) {
-		smb_log_info("%s: smb_rq_put_dstring failed syserr = %s", 
+		smb_log_info("%s: smb_usr_rq_put_dstring failed syserr = %s", 
 					 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
 		goto done;
 	}
 	/* Now the network name length into the reserved location */
 	*namelenp = htoles((uint16_t)nmlen);
-	smb_rq_bend(rqp);
-    error = smb_rq_simple(rqp);
+	smb_usr_rq_bend(rqp);
+    error = smb_usr_rq_simple(rqp);
 	if (error != 0) {
-		smb_log_info("%s: smb_rq_simple failed, syserr = %s", 
+		smb_log_info("%s: smb_usr_rq_simple failed, syserr = %s", 
 					 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
 		goto done;
 	}
 	
-	mdp = smb_rq_getreply(rqp);
+	mdp = smb_usr_rq_getreply(rqp);
 	/*
 	 * Spec say 26 for word count, but 34 words are defined and observed from 
 	 * all servers.  
@@ -176,7 +168,7 @@ smbio_ntcreatex(void *smbctx, const char *path, const char *streamName,
 	}
 
 done:
-    smb_rq_done(rqp);
+    smb_usr_rq_done(rqp);
     return error;
 }
 
@@ -247,12 +239,12 @@ int smbio_transact(void *smbctx, uint16_t *setup, int setupCnt, const char *name
 		}
 	}
 	
-    error = smb_t2_request(smbctx, setupCnt, setup, name,
-							(uint16_t)sndPDataLen, sndPData, /* uint16_t tparamcnt, void *tparam */
-							(uint16_t)sndDataLen, sndData,	/* uint16_t tdatacnt, void *tdata */
-							&rPDataLen, rcvPData,			/* uint16_t *rparamcnt, void *rparam */
-							&rDataLen, rcvdData,			/* uint16_t *rdatacnt, void *rdata */
-							&buffer_oflow);
+    error = smb_usr_t2_request(smbctx, setupCnt, setup, name,
+                                (uint16_t)sndPDataLen, sndPData, /* uint16_t tparamcnt, void *tparam */
+								(uint16_t)sndDataLen, sndData,	/* uint16_t tdatacnt, void *tdata */
+								&rPDataLen, rcvPData,			/* uint16_t *rparamcnt, void *rparam */
+								&rDataLen, rcvdData,			/* uint16_t *rdatacnt, void *rdata */
+								&buffer_oflow);
 
     if (error) {
 		return error;
@@ -309,16 +301,16 @@ int smbio_open_pipe(void *smbctx, const char *pipe_path, int *fid)
 
 int smbio_close_file(void *ctx, int fid)
 {
-	struct smb_rq *rqp;
+	struct smb_usr_rq *rqp;
 	mbchain_t mbp;
 	int error;
 	u_int16_t fid16 = fid;
 	
-	error = smb_rq_init(ctx, SMB_COM_CLOSE, 0, &rqp);
+	error = smb_usr_rq_init(ctx, SMB_COM_CLOSE, 0, &rqp);
 	if (error)
 		return error;
-	mbp = smb_rq_getrequest(rqp);
-	smb_rq_wstart(rqp);
+	mbp = smb_usr_rq_getrequest(rqp);
+	smb_usr_rq_wstart(rqp);
 	mb_put_uint16le(mbp, fid16);
 	/*
 	 * Never set the modify time on close. Just a really bad idea!
@@ -329,43 +321,43 @@ int smbio_close_file(void *ctx, int fid)
 	 * same as observed with smbclient.
 	 */
 	mb_put_uint32le(mbp, -1);
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
-	smb_rq_bend(rqp);
-	error = smb_rq_simple(rqp);
-	smb_rq_done(rqp);
+	smb_usr_rq_wend(rqp);
+	smb_usr_rq_bstart(rqp);
+	smb_usr_rq_bend(rqp);
+	error = smb_usr_rq_simple(rqp);
+	smb_usr_rq_done(rqp);
 	return error;
 }
 
 int smbio_check_directory(struct smb_ctx *ctx, const void *path, 
 						  uint32_t flags2, uint32_t *nt_error)
 {
-	struct smb_rq	*rqp;
+	struct smb_usr_rq	*rqp;
 	mbchain_t		mbp;
 	int				error;
 	
-	error = smb_rq_init(ctx, SMB_COM_CHECK_DIRECTORY, flags2, &rqp);
+	error = smb_usr_rq_init(ctx, SMB_COM_CHECK_DIRECTORY, flags2, &rqp);
 	if (error)
 		return error;
-	mbp = smb_rq_getrequest(rqp);
-	smb_rq_wstart(rqp);
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
+	mbp = smb_usr_rq_getrequest(rqp);
+	smb_usr_rq_wstart(rqp);
+	smb_usr_rq_wend(rqp);
+	smb_usr_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_ASCII);
-	error = smb_rq_put_dstring(ctx, mbp, path, strlen(path), 
-							   SMB_UTF_SFM_CONVERSIONS, NULL);
+	error = smb_usr_rq_put_dstring(ctx, mbp, path, strlen(path), 
+                    				SMB_UTF_SFM_CONVERSIONS, NULL);
 	if (error == 0) {
-		smb_rq_bend(rqp);
-		error = smb_rq_simple(rqp);
+		smb_usr_rq_bend(rqp);
+		error = smb_usr_rq_simple(rqp);
 	}
 	if (error && (error != ENOENT) && (error != ENOTDIR)) {
 		smb_log_info("%s failed, syserr = %s", ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
 	}
 	if (nt_error) {
-		*nt_error = smb_rq_nt_error(rqp);
+		*nt_error = smb_usr_rq_nt_error(rqp);
 	}
 	
-	smb_rq_done(rqp);
+	smb_usr_rq_done(rqp);
 	return error;
 }
 

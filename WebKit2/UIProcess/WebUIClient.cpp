@@ -29,6 +29,7 @@
 #include "ImmutableDictionary.h"
 #include "NativeWebKeyboardEvent.h"
 #include "NativeWebWheelEvent.h"
+#include "NotificationPermissionRequest.h"
 #include "WKAPICast.h"
 #include "WebNumber.h"
 #include "WebOpenPanelResultListenerProxy.h"
@@ -43,9 +44,12 @@ using namespace WebCore;
 
 namespace WebKit {
 
-PassRefPtr<WebPageProxy> WebUIClient::createNewPage(WebPageProxy* page, const WindowFeatures& windowFeatures, WebEvent::Modifiers modifiers, WebMouseEvent::Button button)
+PassRefPtr<WebPageProxy> WebUIClient::createNewPage(WebPageProxy* page, const ResourceRequest& resourceRequest, const WindowFeatures& windowFeatures, WebEvent::Modifiers modifiers, WebMouseEvent::Button button)
 {
-    if (!m_client.createNewPage)
+    if (!m_client.version && !m_client.createNewPage_deprecatedForUseWithV0)
+        return 0;
+    
+    if (m_client.version == kWKPageUIClientCurrentVersion && !m_client.createNewPage)
         return 0;
 
     ImmutableDictionary::MapType map;
@@ -60,13 +64,18 @@ PassRefPtr<WebPageProxy> WebUIClient::createNewPage(WebPageProxy* page, const Wi
     map.set("menuBarVisible", WebBoolean::create(windowFeatures.menuBarVisible));
     map.set("statusBarVisible", WebBoolean::create(windowFeatures.statusBarVisible));
     map.set("toolBarVisible", WebBoolean::create(windowFeatures.toolBarVisible));
+    map.set("locationBarVisible", WebBoolean::create(windowFeatures.locationBarVisible));
     map.set("scrollbarsVisible", WebBoolean::create(windowFeatures.scrollbarsVisible));
     map.set("resizable", WebBoolean::create(windowFeatures.resizable));
     map.set("fullscreen", WebBoolean::create(windowFeatures.fullscreen));
     map.set("dialog", WebBoolean::create(windowFeatures.dialog));
     RefPtr<ImmutableDictionary> featuresMap = ImmutableDictionary::adopt(map);
 
-    return adoptRef(toImpl(m_client.createNewPage(toAPI(page), toAPI(featuresMap.get()), toAPI(modifiers), toAPI(button), m_client.clientInfo)));
+    if (!m_client.version)
+        return adoptRef(toImpl(m_client.createNewPage_deprecatedForUseWithV0(toAPI(page), toAPI(featuresMap.get()), toAPI(modifiers), toAPI(button), m_client.clientInfo)));
+
+    RefPtr<WebURLRequest> request = WebURLRequest::create(resourceRequest);    
+    return adoptRef(toImpl(m_client.createNewPage(toAPI(page), toAPI(request.get()), toAPI(featuresMap.get()), toAPI(modifiers), toAPI(button), m_client.clientInfo)));
 } 
 
 void WebUIClient::showPage(WebPageProxy* page)
@@ -148,20 +157,35 @@ void WebUIClient::setStatusText(WebPageProxy* page, const String& text)
     m_client.setStatusText(toAPI(page), toAPI(text.impl()), m_client.clientInfo);
 }
 
-void WebUIClient::mouseDidMoveOverElement(WebPageProxy* page, WebEvent::Modifiers modifiers, APIObject* userData)
+void WebUIClient::mouseDidMoveOverElement(WebPageProxy* page, const WebHitTestResult::Data& data, WebEvent::Modifiers modifiers, APIObject* userData)
 {
-    if (!m_client.mouseDidMoveOverElement)
+    if (!m_client.mouseDidMoveOverElement && !m_client.mouseDidMoveOverElement_deprecatedForUseWithV0)
         return;
 
-    m_client.mouseDidMoveOverElement(toAPI(page), toAPI(modifiers), toAPI(userData), m_client.clientInfo);
+    if (m_client.version == kWKPageUIClientCurrentVersion && !m_client.mouseDidMoveOverElement)
+        return;
+
+    if (!m_client.version) {
+        m_client.mouseDidMoveOverElement_deprecatedForUseWithV0(toAPI(page), toAPI(modifiers), toAPI(userData), m_client.clientInfo);
+        return;
+    }
+
+    RefPtr<WebHitTestResult> webHitTestResult = WebHitTestResult::create(data);
+    m_client.mouseDidMoveOverElement(toAPI(page), toAPI(webHitTestResult.get()), toAPI(modifiers), toAPI(userData), m_client.clientInfo);
 }
 
-void WebUIClient::missingPluginButtonClicked(WebPageProxy* page, const String& mimeType, const String& url, const String& pluginsPageURL)
+void WebUIClient::unavailablePluginButtonClicked(WebPageProxy* page, WKPluginUnavailabilityReason pluginUnavailabilityReason, const String& mimeType, const String& url, const String& pluginsPageURL)
 {
-    if (!m_client.missingPluginButtonClicked)
+    if (pluginUnavailabilityReason == kWKPluginUnavailabilityReasonPluginMissing) {
+        if (m_client.missingPluginButtonClicked_deprecatedForUseWithV0)
+            m_client.missingPluginButtonClicked_deprecatedForUseWithV0(toAPI(page), toAPI(mimeType.impl()), toAPI(url.impl()), toAPI(pluginsPageURL.impl()), m_client.clientInfo);
+    }
+
+    if (!m_client.unavailablePluginButtonClicked)
         return;
 
-    m_client.missingPluginButtonClicked(toAPI(page), toAPI(mimeType.impl()), toAPI(url.impl()), toAPI(pluginsPageURL.impl()), m_client.clientInfo);
+    m_client.unavailablePluginButtonClicked(toAPI(page), pluginUnavailabilityReason, toAPI(mimeType.impl()), toAPI(url.impl()), toAPI(pluginsPageURL.impl()), m_client.clientInfo);
+
 }
 
 bool WebUIClient::implementsDidNotHandleKeyEvent() const
@@ -297,13 +321,12 @@ unsigned long long WebUIClient::exceededDatabaseQuota(WebPageProxy* page, WebFra
     return m_client.exceededDatabaseQuota(toAPI(page), toAPI(frame), toAPI(origin), toAPI(databaseName.impl()), toAPI(databaseDisplayName.impl()), currentQuota, currentOriginUsage, currentDatabaseUsage, expectedUsage, m_client.clientInfo);
 }
 
-bool WebUIClient::runOpenPanel(WebPageProxy* page, WebFrameProxy* frame, const WebOpenPanelParameters::Data& parameterData, WebOpenPanelResultListenerProxy* listener)
+bool WebUIClient::runOpenPanel(WebPageProxy* page, WebFrameProxy* frame, WebOpenPanelParameters* parameters, WebOpenPanelResultListenerProxy* listener)
 {
     if (!m_client.runOpenPanel)
         return false;
 
-    RefPtr<WebOpenPanelParameters> parameters = WebOpenPanelParameters::create(parameterData);
-    m_client.runOpenPanel(toAPI(page), toAPI(frame), toAPI(parameters.get()), toAPI(listener), m_client.clientInfo);
+    m_client.runOpenPanel(toAPI(page), toAPI(frame), toAPI(parameters), toAPI(listener), m_client.clientInfo);
     return true;
 }
 
@@ -313,6 +336,15 @@ bool WebUIClient::decidePolicyForGeolocationPermissionRequest(WebPageProxy* page
         return false;
 
     m_client.decidePolicyForGeolocationPermissionRequest(toAPI(page), toAPI(frame), toAPI(origin), toAPI(permissionRequest), m_client.clientInfo);
+    return true;
+}
+
+bool WebUIClient::decidePolicyForNotificationPermissionRequest(WebPageProxy* page, WebSecurityOrigin* origin, NotificationPermissionRequest* permissionRequest)
+{
+    if (!m_client.decidePolicyForNotificationPermissionRequest)
+        return false;
+    
+    m_client.decidePolicyForNotificationPermissionRequest(toAPI(page), toAPI(origin), toAPI(permissionRequest), m_client.clientInfo);
     return true;
 }
 
@@ -367,14 +399,6 @@ void WebUIClient::runModal(WebPageProxy* page)
         return;
 
     m_client.runModal(toAPI(page), m_client.clientInfo);
-}
-
-void WebUIClient::didCompleteRubberBandForMainFrame(WebPageProxy* page, const IntSize& initialOverhang)
-{
-    if (!m_client.didCompleteRubberBandForMainFrame)
-        return;
-
-    m_client.didCompleteRubberBandForMainFrame(toAPI(page), toAPI(initialOverhang), m_client.clientInfo);
 }
 
 void WebUIClient::saveDataToFileInDownloadsFolder(WebPageProxy* page, const String& suggestedFilename, const String& mimeType, const String& originatingURLString, WebData* data)

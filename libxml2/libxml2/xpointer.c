@@ -1152,10 +1152,12 @@ xmlXPtrEvalFullXPtr(xmlXPathParserContextPtr ctxt, xmlChar *name) {
     if (name == NULL)
 	XP_ERROR(XPATH_EXPR_ERROR);
     while (name != NULL) {
+	ctxt->error = XPATH_EXPRESSION_OK;
 	xmlXPtrEvalXPtrPart(ctxt, name);
 
 	/* in case of syntax error, break here */
-	if (ctxt->error != XPATH_EXPRESSION_OK)
+	if ((ctxt->error != XPATH_EXPRESSION_OK) &&
+            (ctxt->error != XML_XPTR_UNKNOWN_SCHEME))
 	    return;
 
 	/*
@@ -1300,12 +1302,19 @@ xmlXPtrEvalXPointer(xmlXPathParserContextPtr ctxt) {
  *									*
  ************************************************************************/
 
+static
 void xmlXPtrStringRangeFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrStartPointFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrEndPointFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrHereFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrOriginFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrRangeInsideFunction(xmlXPathParserContextPtr ctxt, int nargs);
+static
 void xmlXPtrRangeFunction(xmlXPathParserContextPtr ctxt, int nargs);
 
 /**
@@ -1733,7 +1742,7 @@ xmlXPtrNbLocChildren(xmlNodePtr node) {
  * Function implementing here() operation 
  * as described in 5.4.3
  */
-void
+static void
 xmlXPtrHereFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     CHECK_ARITY(0);
 
@@ -1751,7 +1760,7 @@ xmlXPtrHereFunction(xmlXPathParserContextPtr ctxt, int nargs) {
  * Function implementing origin() operation 
  * as described in 5.4.3
  */
-void
+static void
 xmlXPtrOriginFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     CHECK_ARITY(0);
 
@@ -1784,7 +1793,7 @@ xmlXPtrOriginFunction(xmlXPathParserContextPtr ctxt, int nargs) {
  * ----------------
  *
  */
-void
+static void
 xmlXPtrStartPointFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     xmlXPathObjectPtr tmp, obj, point;
     xmlLocationSetPtr newset = NULL;
@@ -1878,7 +1887,7 @@ xmlXPtrStartPointFunction(xmlXPathParserContextPtr ctxt, int nargs) {
  *   syntax error.
  * ----------------------------
  */
-void
+static void
 xmlXPtrEndPointFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     xmlXPathObjectPtr tmp, obj, point;
     xmlLocationSetPtr newset = NULL;
@@ -2023,7 +2032,7 @@ xmlXPtrCoveringRange(xmlXPathParserContextPtr ctxt, xmlXPathObjectPtr loc) {
  *  location-set, a range location representing the covering range of
  *  x is added to the result location-set.
  */
-void
+static void
 xmlXPtrRangeFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     int i;
     xmlXPathObjectPtr set;
@@ -2169,7 +2178,7 @@ xmlXPtrInsideRange(xmlXPathParserContextPtr ctxt, xmlXPathObjectPtr loc) {
  *  location children of x.
  *
  */
-void
+static void
 xmlXPtrRangeInsideFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     int i;
     xmlXPathObjectPtr set;
@@ -2623,13 +2632,12 @@ xmlXPtrGetLastChar(xmlNodePtr *node, int *indx) {
 
     if (cur == NULL)
 	return(-1);
-    
+
     if ((cur->type == XML_ELEMENT_NODE) ||
 	(cur->type == XML_DOCUMENT_NODE) ||
 	(cur->type == XML_HTML_DOCUMENT_NODE)) {
 	if (pos > 0) {
 	    cur = xmlXPtrGetNthChild(cur, pos);
-	    pos = 0;
 	}
     }
     while (cur != NULL) {
@@ -2758,7 +2766,7 @@ xmlXPtrGetEndPoint(xmlXPathObjectPtr obj, xmlNodePtr *node, int *indx) {
  * all be character points.
  * ------------------------------
  */
-void
+static void
 xmlXPtrStringRangeFunction(xmlXPathParserContextPtr ctxt, int nargs) {
     int i, startindex, endindex = 0, fendindex;
     xmlNodePtr start, end = 0, fend;

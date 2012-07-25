@@ -36,7 +36,12 @@ static const char rcsid[] =
 #include "cron.h"
 #include <errno.h>
 #include <fcntl.h>
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#include <sys/mman.h>
+#else
 #include <md5.h>
+#endif
 #include <paths.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -50,7 +55,9 @@ static const char rcsid[] =
 # include <locale.h>
 #endif
 
+#ifndef __APPLE__
 #define MD5_SIZE 33
+#endif
 #define NHEADER_LINES 3
 
 
@@ -341,6 +348,36 @@ check_error(msg)
 }
 
 
+#ifdef __APPLE__
+/* Different semantics from libmd's MD5File: does not convert output to hex. */
+static unsigned char *
+MD5File(const char *filename, unsigned char *output)
+{
+	int fd;
+	struct stat sb;
+	void *ptr;
+	unsigned char *result =  NULL;
+
+	fd = open(filename, O_RDONLY);
+	if (fd >= 0) {
+		if (fstat(fd, &sb) == 0) {
+			if (sb.st_size == 0) {
+				result = CC_MD5(NULL, 0, output);
+			} else {
+				ptr = mmap(NULL, sb.st_size, PROT_READ, MAP_FILE | MAP_PRIVATE, fd, 0);
+				if (ptr != MAP_FAILED) {
+					result = CC_MD5(ptr, sb.st_size, output);
+					(void)munmap(ptr, sb.st_size);
+				}
+			}
+		}
+		(void)close(fd);
+	}
+
+	return result;
+}
+#endif /* __APPLE__ */
+
 static void
 edit_cmd() {
 	char		n[MAX_FNAME], q[MAX_TEMPSTR], *editor;
@@ -351,8 +388,13 @@ edit_cmd() {
 	PID_T		pid, xpid;
 	mode_t		um;
 	int		syntax_error = 0;
+#ifdef __APPLE__
+	unsigned char	orig_md5[CC_MD5_DIGEST_LENGTH];
+	unsigned char	new_md5[CC_MD5_DIGEST_LENGTH];
+#else
 	char		orig_md5[MD5_SIZE];
 	char		new_md5[MD5_SIZE];
+#endif
 
 	log_it(RealUser, Pid, "BEGIN EDIT", User);
 	(void) sprintf(n, CRON_TAB(User));
@@ -474,7 +516,11 @@ edit_cmd() {
 		warn("MD5");
 		goto fatal;
 	}
+#ifdef __APPLE__
+	if (memcmp(orig_md5, new_md5, CC_MD5_DIGEST_LENGTH) == 0 && !syntax_error) {
+#else
 	if (strcmp(orig_md5, new_md5) == 0 && !syntax_error) {
+#endif
 		warnx("no changes made to crontab");
 		goto remove;
 	}

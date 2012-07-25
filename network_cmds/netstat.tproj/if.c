@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -69,6 +69,7 @@ static const char rcsid[] =
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
 
 #include <net/if.h>
@@ -79,6 +80,9 @@ static const char rcsid[] =
 #include <net/if_llreach.h>
 #include <net/ethernet.h>
 #include <net/route.h>
+
+#include <net/pktsched/pktsched.h>
+#include <net/classq/if_classq.h>
 
 #include <netinet/in.h>
 #include <netinet/in_var.h>
@@ -108,6 +112,42 @@ static void sidewaysintpr ();
 static void catchalarm (int);
 static char *sec2str(time_t);
 static void llreach_sysctl(uint32_t);
+static char *nsec_to_str(unsigned long long);
+static char *qtype2str(classq_type_t);
+static char *sched2str(unsigned int);
+static char *qid2str(unsigned int);
+static char *qstate2str(unsigned int);
+static char *tcqslot2str(unsigned int);
+static char *rate2str(long double);
+
+#define AVGN_MAX	8
+
+struct queue_stats {
+	int			 avgn;
+	double			 avg_bytes;
+	double			 avg_packets;
+	u_int64_t		 prev_bytes;
+	u_int64_t		 prev_packets;
+	unsigned int		 printed;
+	unsigned int		 handle;
+};
+
+static void print_cbqstats(int slot, struct cbq_classstats *,
+    struct queue_stats *);
+static void print_priqstats(int slot, struct priq_classstats *,
+    struct queue_stats *);
+static void print_hfscstats(int slot, struct hfsc_classstats *,
+    struct queue_stats *);
+static void print_fairqstats(int slot, struct fairq_classstats *,
+    struct queue_stats *);
+static void print_tcqstats(int slot, struct tcq_classstats *,
+    struct queue_stats *);
+static void print_qfqstats(int slot, struct qfq_classstats *,
+    struct queue_stats *);
+static void print_sfbstats(struct sfb_stats *);
+static void update_avg(struct if_ifclassq_stats *, struct queue_stats *);
+
+struct queue_stats qstats[IFCQ_SC_MAX];
 
 #ifdef INET6
 char *netname6 (struct sockaddr_in6 *, struct sockaddr *);
@@ -277,19 +317,19 @@ intpr(void (*pfunc)(char *))
 		printf("%-5.5s %-5.5s %-13.13s %-15.15s %8.8s %5.5s",
 		       "Name", "Mtu", "Network", "Address", "Ipkts", "Ierrs");
 		if (prioflag >= 0)
-			printf(" %8.8s", "Itcpkts");
+			printf(" %8.8s %8.8s", "Itcpkts", "Ipvpkts");
 		if (bflag) {
 			printf(" %10.10s","Ibytes");
 			if (prioflag >= 0)
-				printf(" %10.10s", "Itcbytes");
+				printf(" %8.8s %8.8s", "Itcbytes", "Ipvbytes");
 		}
 		printf(" %8.8s %5.5s", "Opkts", "Oerrs");
 		if (prioflag >= 0)
-			printf(" %8.8s", "Otcpkts");
+			printf(" %8.8s %8.8s", "Otcpkts", "Opvpkts");
 		if (bflag) {
 			printf(" %10.10s","Obytes");
 			if (prioflag >= 0)
-				printf(" %10.10s", "Otcbytes");
+				printf(" %8.8s %8.8s", "Otcbytes", "Opvbytes");
 		}
 		printf(" %5s", "Coll");
 		if (tflag)
@@ -307,7 +347,11 @@ intpr(void (*pfunc)(char *))
 		u_int64_t	ift_itcb = 0;		/* input tc bytes */
 		u_int64_t	ift_otcp = 0;		/* output tc packets */
 		u_int64_t	ift_otcb = 0;		/* output tc bytes */
-		
+		u_int64_t	ift_ipvp = 0;	/* input priv tc packets */
+		u_int64_t	ift_ipvb = 0;	/* input priv tc bytes */
+		u_int64_t	ift_opvp = 0;	/* output priv tc packets */
+		u_int64_t	ift_opvb = 0;	/* output priv tc bytes */
+
 		bzero(&ifmsupp, sizeof(struct ifmibdata_supplemental));
 		
 		network_layer = 0;
@@ -364,6 +408,12 @@ intpr(void (*pfunc)(char *))
 					err(1, "sysctl IFDATA_SUPPLEMENTAL");
 
 				switch (prioflag) {
+					case SO_TC_BE:
+						ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibepackets;
+						ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibebytes;
+						ift_otcp = ifmsupp.ifmd_traffic_class.ifi_obepackets;
+						ift_otcb = ifmsupp.ifmd_traffic_class.ifi_obebytes;
+						break;
 					case SO_TC_BK:
 						ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibkpackets;
 						ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibkbytes;
@@ -387,8 +437,16 @@ intpr(void (*pfunc)(char *))
 						ift_itcb = 0;
 						ift_otcp = 0;
 						ift_otcb = 0;
+						ift_ipvp = 0;
+						ift_ipvb = 0;
+						ift_opvp = 0;
+						ift_opvb = 0;
 						break;
 				}
+				ift_ipvp = ifmsupp.ifmd_traffic_class.ifi_ipvpackets;
+				ift_ipvb = ifmsupp.ifmd_traffic_class.ifi_ipvbytes;
+				ift_opvp = ifmsupp.ifmd_traffic_class.ifi_opvpackets;
+				ift_opvb = ifmsupp.ifmd_traffic_class.ifi_opvbytes;
 			}
 
             get_rti_info(if2m->ifm_addrs, (struct sockaddr*)(if2m + 1), rti_info);
@@ -488,12 +546,16 @@ intpr(void (*pfunc)(char *))
 		if (prioflag >= 0) {
 			show_stat("llu", 8, ift_itcp, link_layer|network_layer);
 			printf(" ");
+			show_stat("llu", 8, ift_ipvp, link_layer|network_layer);
+			printf(" ");
 		}
 		if (bflag) {
 			show_stat("llu", 10, ibytes, link_layer|network_layer);
 			printf(" ");
 			if (prioflag >= 0) {
 				show_stat("llu", 8, ift_itcb, link_layer|network_layer);
+				printf(" ");
+				show_stat("llu", 8, ift_ipvb, link_layer|network_layer);
 				printf(" ");
 			}
 		}
@@ -504,12 +566,16 @@ intpr(void (*pfunc)(char *))
 		if (prioflag >= 0) {
 			show_stat("llu", 8, ift_otcp, link_layer|network_layer);
 			printf(" ");
+			show_stat("llu", 8, ift_opvp, link_layer|network_layer);
+			printf(" ");
 		}
 		if (bflag) {
 			show_stat("llu", 10, obytes, link_layer|network_layer);
 			printf(" ");
 			if (prioflag >= 0) {
 				show_stat("llu", 8, ift_otcb, link_layer|network_layer);
+				printf(" ");
+				show_stat("llu", 8, ift_opvb, link_layer|network_layer);
 				printf(" ");
 			}
 		}
@@ -545,6 +611,10 @@ struct	iftot {
 	u_int64_t	ift_itcb;		/* input tc bytes */
 	u_int64_t	ift_otcp;		/* output tc packets */
 	u_int64_t	ift_otcb;		/* output tc bytes */
+	u_int64_t	ift_ipvp;		/* input priv tc packets */
+	u_int64_t	ift_ipvb;		/* input priv tc bytes */
+	u_int64_t	ift_opvp;		/* output priv tc packets */
+	u_int64_t	ift_opvb;		/* output priv tc bytes */
 };
 
 u_char	signalled;			/* set if alarm goes off "early" */
@@ -620,7 +690,7 @@ sidewaysintpr()
 	first = 1;
 banner:
 	if (prioflag >= 0)
-		printf("%37s %14s %16s", "input",
+		printf("%39s %39s %36s", "input",
 		    interesting ? interesting->ift_name : "(Total)", "output");
 	else
 		printf("%17s %14s %16s", "input",
@@ -629,13 +699,13 @@ banner:
 	printf("%10s %5s %10s ", 
 	    "packets", "errs", "bytes");
 	if (prioflag >= 0)
-		printf(" %10s %10s", "tcpkts", "tcbytes");
+		printf(" %10s %10s %10s %10s", "tcpkts", "tcbytes", "pvpkts", "pvbytes");
 	printf("%10s %5s %10s %5s",
 	    "packets", "errs", "bytes", "colls");
 	if (dflag)
 		printf(" %5.5s", "drops");
 	if (prioflag >= 0)
-		printf(" %10s %10s", "tcpkts", "tcbytes");
+		printf(" %10s %10s %10s %10s", "tcpkts", "tcbytes", "pvpkts", "pvbytes");
 	putchar('\n');
 	fflush(stdout);
 	line = 0;
@@ -659,12 +729,18 @@ loop:
 			if (sysctl(name, 6, &ifmsupp, &len, (void *)0, 0) == -1)
 				err(1, "sysctl IFDATA_SUPPLEMENTAL %d", interesting_row);
 		}
+
 		if (!first) {
 			printf("%10llu %5llu %10llu ",
 				ifmd.ifmd_data.ifi_ipackets - interesting->ift_ip,
 				ifmd.ifmd_data.ifi_ierrors - interesting->ift_ie,
 				ifmd.ifmd_data.ifi_ibytes - interesting->ift_ib);
 			switch (prioflag) {
+				case SO_TC_BE:
+					printf("%10llu %10llu ",
+					    ifmsupp.ifmd_traffic_class.ifi_ibepackets - interesting->ift_itcp,
+					    ifmsupp.ifmd_traffic_class.ifi_ibebytes - interesting->ift_itcb);
+					break;
 				case SO_TC_BK:
 					printf("%10llu %10llu ",
 					    ifmsupp.ifmd_traffic_class.ifi_ibkpackets - interesting->ift_itcp,
@@ -683,6 +759,11 @@ loop:
 				default:
 					break;
 			}
+			if (prioflag >= 0) {
+				printf("%10llu %10llu ",
+				    ifmsupp.ifmd_traffic_class.ifi_ipvpackets - interesting->ift_ipvp,
+				    ifmsupp.ifmd_traffic_class.ifi_ipvbytes - interesting->ift_ipvb);
+			}
 			printf("%10llu %5llu %10llu %5llu",
 				ifmd.ifmd_data.ifi_opackets - interesting->ift_op,
 				ifmd.ifmd_data.ifi_oerrors - interesting->ift_oe,
@@ -691,6 +772,11 @@ loop:
 			if (dflag)
 				printf(" %5llu", ifmd.ifmd_snd_drops - interesting->ift_dr);
 			switch (prioflag) {
+				case SO_TC_BE:
+					printf(" %10llu %10llu",
+					    ifmsupp.ifmd_traffic_class.ifi_obepackets - interesting->ift_otcp,
+					    ifmsupp.ifmd_traffic_class.ifi_obebytes - interesting->ift_otcb);
+					break;
 				case SO_TC_BK:
 					printf(" %10llu %10llu",
 					    ifmsupp.ifmd_traffic_class.ifi_obkpackets - interesting->ift_otcp,
@@ -709,6 +795,11 @@ loop:
 				default:
 					break;
 			}
+			if (prioflag >= 0) {
+				printf("%10llu %10llu ",
+				    ifmsupp.ifmd_traffic_class.ifi_opvpackets - interesting->ift_opvp,
+				    ifmsupp.ifmd_traffic_class.ifi_opvbytes - interesting->ift_opvb);
+			}
 		}
 		interesting->ift_ip = ifmd.ifmd_data.ifi_ipackets;
 		interesting->ift_ie = ifmd.ifmd_data.ifi_ierrors;
@@ -720,6 +811,12 @@ loop:
 		interesting->ift_dr = ifmd.ifmd_snd_drops;
 		/* private counters */
 		switch (prioflag) {
+			case SO_TC_BE:
+				interesting->ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibepackets;
+				interesting->ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibebytes;
+				interesting->ift_otcp = ifmsupp.ifmd_traffic_class.ifi_obepackets;
+				interesting->ift_otcb = ifmsupp.ifmd_traffic_class.ifi_obebytes;
+				break;
 			case SO_TC_BK:
 				interesting->ift_itcp = ifmsupp.ifmd_traffic_class.ifi_ibkpackets;
 				interesting->ift_itcb = ifmsupp.ifmd_traffic_class.ifi_ibkbytes;
@@ -740,6 +837,12 @@ loop:
 				break;
 			default:
 				break;
+		}
+		if (prioflag >= 0) {
+			interesting->ift_ipvp = ifmsupp.ifmd_traffic_class.ifi_ipvpackets;
+			interesting->ift_ipvb = ifmsupp.ifmd_traffic_class.ifi_ipvbytes;
+			interesting->ift_opvp = ifmsupp.ifmd_traffic_class.ifi_opvpackets;
+			interesting->ift_opvb = ifmsupp.ifmd_traffic_class.ifi_opvbytes;
 		}
 	} else {
 		unsigned int latest_ifcount;
@@ -790,6 +893,10 @@ loop:
 		sum->ift_itcb = 0;
 		sum->ift_otcp = 0;
 		sum->ift_otcb = 0;
+		sum->ift_ipvp = 0;
+		sum->ift_ipvb = 0;
+		sum->ift_opvp = 0;
+		sum->ift_opvb = 0;
 		for (i = 0; i < ifcount; i++) {
 			struct ifmibdata *ifmd = ifmdall + i;
 			
@@ -805,6 +912,12 @@ loop:
 			if (prioflag >= 0) {
 				struct ifmibdata_supplemental *ifmsupp = ifmsuppall + i;
 				switch (prioflag) {
+					case SO_TC_BE:
+						sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ibepackets;
+						sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ibebytes;
+						sum->ift_otcp += ifmsupp->ifmd_traffic_class.ifi_obepackets;
+						sum->ift_otcb += ifmsupp->ifmd_traffic_class.ifi_obebytes;
+						break;
 					case SO_TC_BK:
 						sum->ift_itcp += ifmsupp->ifmd_traffic_class.ifi_ibkpackets;
 						sum->ift_itcb += ifmsupp->ifmd_traffic_class.ifi_ibkbytes;
@@ -826,6 +939,10 @@ loop:
 					default:
 						break;
 				}
+				sum->ift_ipvp += ifmsupp->ifmd_traffic_class.ifi_ipvpackets;
+				sum->ift_ipvb += ifmsupp->ifmd_traffic_class.ifi_ipvbytes;
+				sum->ift_opvp += ifmsupp->ifmd_traffic_class.ifi_opvpackets;
+				sum->ift_opvb += ifmsupp->ifmd_traffic_class.ifi_opvbytes;
 			}
 		}
 		if (!first) {
@@ -834,9 +951,11 @@ loop:
 				sum->ift_ie - total->ift_ie,
 				sum->ift_ib - total->ift_ib);
 			if (prioflag >= 0)
-				printf(" %10llu %10llu",
+				printf(" %10llu %10llu %10llu %10llu",
 				    sum->ift_itcp - total->ift_itcp,
-				    sum->ift_itcb - total->ift_itcb);
+				    sum->ift_itcb - total->ift_itcb,
+				    sum->ift_ipvp - total->ift_ipvp,
+				    sum->ift_ipvb - total->ift_ipvb);
 			printf("%10llu %5llu %10llu %5llu",
 				sum->ift_op - total->ift_op,
 				sum->ift_oe - total->ift_oe,
@@ -845,9 +964,11 @@ loop:
 			if (dflag)
 				printf(" %5llu", sum->ift_dr - total->ift_dr);
 			if (prioflag >= 0)
-				printf(" %10llu %10llu",
+				printf(" %10llu %10llu %10llu %10llu",
 				    sum->ift_otcp - total->ift_otcp,
-				    sum->ift_otcb - total->ift_otcb);
+				    sum->ift_otcb - total->ift_otcb,
+				    sum->ift_opvp - total->ift_opvp,
+				    sum->ift_opvb - total->ift_opvb);
 		}
 		*total = *sum;
 	}
@@ -979,8 +1100,12 @@ intpr_ri(void (*pfunc)(char *))
 		return;
 	}
 
-	printf("%-6s %-17s %8.8s %-9.9s %4s %4s\n",
-	       "Proto", "Linklayer Address", "Netif", "Expire", "Refs", "Prbs");
+	printf("%-6s %-17s %8.8s %-9.9s %4s %4s",
+	       "Proto", "Linklayer Address", "Netif", "Expire", "Refs",
+	       "Prbs");
+	if (xflag)
+		printf(" %7s %7s %7s", "RSSI", "LQM", "NPM");
+	printf("\n");
 
 	lim = buf + len;
 	if2m = (struct if_msghdr2 *)buf;
@@ -1063,9 +1188,59 @@ llreach_sysctl(uint32_t ifindex)
 		printf(" %4d", lri->lri_refcnt);
 		if (lri->lri_probes)
 			printf(" %4d", lri->lri_probes);
+
+		if (xflag) {
+			if (!lri->lri_probes)
+				printf(" %-4.4s", "none");
+
+			if (lri->lri_rssi != IFNET_RSSI_UNKNOWN)
+				printf(" %7d", lri->lri_rssi);
+			else
+				printf(" %-7.7s", "unknown");
+
+			switch (lri->lri_lqm)
+			{
+			case IFNET_LQM_THRESH_OFF:
+				printf(" %-7.7s", "off");
+				break;
+			case IFNET_LQM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_LQM_THRESH_POOR:
+				printf(" %-7.7s", "poor");
+				break;
+			case IFNET_LQM_THRESH_GOOD:
+				printf(" %-7.7s", "good");
+				break;
+			default:
+				printf(" %7d", lri->lri_lqm);
+				break;
+			}
+
+			switch (lri->lri_npm)
+			{
+			case IFNET_NPM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_NPM_THRESH_NEAR:
+				printf(" %-7.7s", "near");
+				break;
+			case IFNET_NPM_THRESH_GENERAL:
+				printf(" %-7.7s", "general");
+				break;
+			case IFNET_NPM_THRESH_FAR:
+				printf(" %-7.7s", "far");
+				break;
+			default:
+				printf(" %7d", lri->lri_npm);
+				break;
+			}
+		}
+
 		printf("\n");
 		len -= sizeof (*lri);
 	}
+
 	if (len > 0) {
 		fprintf(stderr, "warning: %u trailing bytes from %s\n",
 		    (unsigned int)len, "net.link.generic.system.llreach_info");
@@ -1074,4 +1249,787 @@ llreach_sysctl(uint32_t ifindex)
 out_free:
 	free(buf);
 #undef	MAX_SYSCTL_TRY
+}
+
+void
+aqstatpr(void)
+{
+	unsigned int ifindex;
+	struct itimerval timer_interval;
+	struct if_qstatsreq ifqr;
+	struct if_ifclassq_stats *ifcqs;
+	sigset_t sigset, oldsigset;
+	u_int32_t scheduler;
+	int s, n, tcq = 0;
+
+	if (cq < -1 || cq >= IFCQ_SC_MAX) {
+		fprintf(stderr, "Invalid classq index (range is 0-%d)\n",
+		     IFCQ_SC_MAX-1);
+		return;
+	}
+	ifindex = if_nametoindex(interface);
+	if (ifindex == 0) {
+		fprintf(stderr, "Invalid interface name\n");
+		return;
+	}
+
+	ifcqs = malloc(sizeof (*ifcqs));
+	if (ifcqs == NULL) {
+		fprintf(stderr, "Unable to allocate memory\n");
+		return;
+	}
+
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		perror("Warning: socket(AF_INET)");
+		free(ifcqs);
+		return;
+	}
+
+	bzero(&ifqr, sizeof (ifqr));
+	strlcpy(ifqr.ifqr_name, interface, sizeof (ifqr.ifqr_name));
+	ifqr.ifqr_buf = ifcqs;
+	ifqr.ifqr_len = sizeof (*ifcqs);
+
+loop:
+	if (interval > 0) {
+		/* create a timer that fires repeatedly every interval seconds */
+		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_usec = 0;
+		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_usec = 0;
+		(void) signal(SIGALRM, catchalarm);
+		signalled = NO;
+		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
+	}
+
+	ifqr.ifqr_slot = 0;
+	if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+		if (errno == ENXIO) {
+			printf("Queue statistics are not available on %s\n",
+			    interface);
+		} else {
+			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+		}
+		goto done;
+	}
+	scheduler = ifcqs->ifqs_scheduler;
+	tcq = (scheduler == PKTSCHEDT_TCQ);
+
+	printf("%s:\n"
+	    "%s     [ sched: %9s %sqlength:  %3d/%3d ]\n",
+	    interface, tcq ? "  " : "", sched2str(ifcqs->ifqs_scheduler),
+	    tcq ? "" : " ", ifcqs->ifqs_len, ifcqs->ifqs_maxlen);
+	printf("%s     [ pkts: %10llu %sbytes: %10llu "
+	    "%sdropped pkts: %6llu bytes: %6llu ]\n",
+	    (scheduler != PKTSCHEDT_TCQ) ? "" : "  ",
+	    ifcqs->ifqs_xmitcnt.packets, tcq ? "" : " ",
+	    ifcqs->ifqs_xmitcnt.bytes, tcq ? "" : " ",
+	    ifcqs->ifqs_dropcnt.packets, ifcqs->ifqs_dropcnt.bytes);
+
+	for (n = 0; n < IFCQ_SC_MAX; n++) {
+		qstats[n].printed = 0;
+		if (!tcq)
+			continue;
+		ifqr.ifqr_slot = n;
+		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+			goto done;
+		}
+		qstats[n].handle = ifcqs->ifqs_tcq_stats.class_handle;
+	}
+
+	for (n = 0; n < IFCQ_SC_MAX && scheduler != PKTSCHEDT_NONE; n++) {
+		if (cq >= 0 && cq != n)
+			continue;
+
+		ifqr.ifqr_slot = n;
+		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
+			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
+			goto done;
+		}
+
+		update_avg(ifcqs, &qstats[n]);
+
+		switch (scheduler) {
+			case PKTSCHEDT_CBQ:
+				print_cbqstats(n, &ifcqs->ifqs_cbq_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_HFSC:
+				print_hfscstats(n, &ifcqs->ifqs_hfsc_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_PRIQ:
+				print_priqstats(n, &ifcqs->ifqs_priq_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_FAIRQ:
+				print_fairqstats(n, &ifcqs->ifqs_fairq_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_TCQ:
+				print_tcqstats(n, &ifcqs->ifqs_tcq_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_QFQ:
+				print_qfqstats(n, &ifcqs->ifqs_qfq_stats,
+				    &qstats[n]);
+				break;
+			case PKTSCHEDT_NONE:
+			default:
+				break;
+		}
+	}
+
+	fflush(stdout);
+
+	if (interval > 0) {
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
+		if (!signalled) {
+			sigemptyset(&sigset);
+			sigsuspend(&sigset);
+		}
+		(void) sigprocmask(SIG_SETMASK, &oldsigset, NULL);
+
+		signalled = NO;
+		goto loop;
+	}
+
+done:
+	free(ifcqs);
+	close(s);
+}
+
+static void
+print_cbqstats(int slot, struct cbq_classstats *cs, struct queue_stats *qs)
+{
+	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
+	    (unsigned long long)cs->xmit_cnt.packets,
+	    (unsigned long long)cs->xmit_cnt.bytes,
+	    (unsigned long long)cs->drop_cnt.packets,
+	    (unsigned long long)cs->drop_cnt.bytes);
+	printf("     [ qlength: %3d/%3d  borrows: %6u  "
+	    "suspends: %6u  qalg: %s ]\n", cs->qcnt, cs->qmax,
+	    cs->borrows, cs->delays, qtype2str(cs->qtype));
+	printf("     [ service class: %5s ]\n", qid2str(cs->handle));
+
+	if (qs->avgn >= 2) {
+		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_priqstats(int slot, struct priq_classstats *cs, struct queue_stats *qs)
+{
+	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
+	    (unsigned long long)cs->xmitcnt.packets,
+	    (unsigned long long)cs->xmitcnt.bytes,
+	    (unsigned long long)cs->dropcnt.packets,
+	    (unsigned long long)cs->dropcnt.bytes);
+	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]\n",
+	     cs->qlength, cs->qlimit, qtype2str(cs->qtype),
+	     qid2str(cs->class_handle));
+
+	if (qs->avgn >= 2) {
+		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_hfscstats(int slot, struct hfsc_classstats *cs, struct queue_stats *qs)
+{
+	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
+	    (unsigned long long)cs->xmit_cnt.packets,
+	    (unsigned long long)cs->xmit_cnt.bytes,
+	    (unsigned long long)cs->drop_cnt.packets,
+	    (unsigned long long)cs->drop_cnt.bytes);
+	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]\n",
+	     cs->qlength, cs->qlimit, qtype2str(cs->qtype),
+	     qid2str(cs->class_handle));
+
+	if (qs->avgn >= 2) {
+		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_fairqstats(int slot, struct fairq_classstats *cs, struct queue_stats *qs)
+{
+	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
+	    (unsigned long long)cs->xmit_cnt.packets,
+	    (unsigned long long)cs->xmit_cnt.bytes,
+	    (unsigned long long)cs->drop_cnt.packets,
+	    (unsigned long long)cs->drop_cnt.bytes);
+	printf("     [ qlength: %3d/%3d  qalg: %11s  service class: %5s ]]\n",
+	    cs->qlength, cs->qlimit, qtype2str(cs->qtype),
+	    qid2str(cs->class_handle));
+
+	if (qs->avgn >= 2) {
+		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_tcqstats(int slot, struct tcq_classstats *cs, struct queue_stats *qs)
+{
+	int n;
+
+	if (qs->printed)
+		return;
+
+	qs->handle = cs->class_handle;
+	qs->printed++;
+
+	for (n = 0; n < IFCQ_SC_MAX; n++) {
+		if (&qstats[n] != qs && qstats[n].handle == qs->handle)
+			qstats[n].printed++;
+	}
+
+	printf("%5s: [ pkts: %10llu bytes: %10llu "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", tcqslot2str(slot),
+	    (unsigned long long)cs->xmitcnt.packets,
+	    (unsigned long long)cs->xmitcnt.bytes,
+	    (unsigned long long)cs->dropcnt.packets,
+	    (unsigned long long)cs->dropcnt.bytes);
+	printf("       [ qlength: %3d/%3d qalg: %11s "
+	    "svc class: %9s %-13s ]\n", cs->qlength, cs->qlimit,
+	    qtype2str(cs->qtype), qid2str(cs->class_handle),
+	    qstate2str(cs->qstate));
+
+	if (qs->avgn >= 2) {
+		printf("       [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_qfqstats(int slot, struct qfq_classstats *cs, struct queue_stats *qs)
+{
+	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
+	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
+	    (unsigned long long)cs->xmitcnt.packets,
+	    (unsigned long long)cs->xmitcnt.bytes,
+	    (unsigned long long)cs->dropcnt.packets,
+	    (unsigned long long)cs->dropcnt.bytes);
+	printf("     [ qlength: %3d/%3d  index: %10u  weight: %12u "
+	    "lmax: %7u ]\n", cs->qlength, cs->qlimit, cs->index,
+	    cs->weight, cs->lmax);
+	printf("     [ qalg: %10s  svc class: %6s %-35s ]\n",
+	    qtype2str(cs->qtype), qid2str(cs->class_handle),
+	    qstate2str(cs->qstate));
+
+	if (qs->avgn >= 2) {
+		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
+		    qs->avg_packets / interval,
+		    rate2str((8 * qs->avg_bytes) / interval));
+	}
+
+	if (qflag < 2)
+		return;
+
+	switch (cs->qtype) {
+	case Q_SFB:
+		print_sfbstats(&cs->sfb);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
+print_sfbstats(struct sfb_stats *sfb)
+{
+	struct sfbstats *sp = &sfb->sfbstats;
+	int i, j, cur = sfb->current;
+
+	printf("\n");
+	printf("     [ early drop: %12llu  rlimit drop: %11llu  "
+	    "marked: %11llu ]\n",
+	    sp->drop_early, sp->drop_pbox, sp->marked_packets);
+	printf("     [ penalized: %13llu  rehash cnt: %12llu  "
+	    "current: %10u ]\n", sp->pbox_packets, sp->num_rehash, cur);
+	printf("     [ deque avg: %13s  ", nsec_to_str(sp->dequeue_avg));
+	printf("rehash intvl: %11s]\n", nsec_to_str(sp->rehash_intval));
+	printf("     [ holdtime: %14s  ", nsec_to_str(sp->hold_time));
+	printf("pboxtime: %14s ]\n", nsec_to_str(sp->pbox_time));
+	printf("     [ allocation: %12u  drop thresh: %11u ]\n",
+	    sfb->allocation, sfb->dropthresh);
+	printf("     [ flow controlled: %7llu  adv feedback: %10llu ]\n",
+	    sp->flow_controlled, sp->flow_feedback);
+
+	printf("\n\t\t\t\tCurrent bins (set %d)", cur);
+	for (i = 0; i < SFB_LEVELS; ++i) {
+		unsigned int q;
+		double p;
+
+		printf("\n\tLevel: %d\n", i);
+		for (j = 0; j < SFB_BINS; ++j) {
+			if ((j % 4) == 0)
+				printf("\t%6d:\t", j + 1);
+			p = sfb->binstats[cur].stats[i][j].pmark;
+			q = sfb->binstats[cur].stats[i][j].pkts;
+			if (p > 0) {
+				p /= (1 << SFB_FP_SHIFT);
+				printf("[%1.4f %4u]", p, q);
+			} else {
+				printf("[           ]");
+			}
+			if (j > 0 && ((j + 1) % 4) == 0)
+				printf("\n");
+		}
+	}
+
+	cur ^= 1;
+	printf("\n\t\t\t\tWarm up bins (set %d)", cur);
+	for (i = 0; i < SFB_LEVELS; ++i) {
+		unsigned int q;
+		double p;
+
+		printf("\n\tLevel: %d\n", i);
+		for (j = 0; j < SFB_BINS; ++j) {
+			if ((j % 4) == 0)
+				printf("\t%6d:\t", j + 1);
+			p = sfb->binstats[cur].stats[i][j].pmark;
+			q = sfb->binstats[cur].stats[i][j].pkts;
+			if (p > 0) {
+				p /= (1 << SFB_FP_SHIFT);
+				printf("[%1.4f %4u]", p, q);
+			} else {
+				printf("[           ]");
+			}
+			if (j > 0 && ((j + 1) % 4) == 0)
+				printf("\n");
+		}
+	}
+	printf("\n");
+}
+
+static void
+update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
+{
+	u_int64_t		 b, p;
+	int			 n;
+
+	n = qs->avgn;
+
+	switch (ifcqs->ifqs_scheduler) {
+	case PKTSCHEDT_CBQ:
+		b = ifcqs->ifqs_cbq_stats.xmit_cnt.bytes;
+		p = ifcqs->ifqs_cbq_stats.xmit_cnt.packets;
+		break;
+	case PKTSCHEDT_PRIQ:
+		b = ifcqs->ifqs_priq_stats.xmitcnt.bytes;
+		p = ifcqs->ifqs_priq_stats.xmitcnt.packets;
+		break;
+	case PKTSCHEDT_HFSC:
+		b = ifcqs->ifqs_hfsc_stats.xmit_cnt.bytes;
+		p = ifcqs->ifqs_hfsc_stats.xmit_cnt.packets;
+		break;
+	case PKTSCHEDT_FAIRQ:
+		b = ifcqs->ifqs_fairq_stats.xmit_cnt.bytes;
+		p = ifcqs->ifqs_fairq_stats.xmit_cnt.packets;
+		break;
+	case PKTSCHEDT_TCQ:
+		b = ifcqs->ifqs_tcq_stats.xmitcnt.bytes;
+		p = ifcqs->ifqs_tcq_stats.xmitcnt.packets;
+		break;
+	case PKTSCHEDT_QFQ:
+		b = ifcqs->ifqs_qfq_stats.xmitcnt.bytes;
+		p = ifcqs->ifqs_qfq_stats.xmitcnt.packets;
+		break;
+	default:
+		b = 0;
+		p = 0;
+		break;
+	}
+
+	if (n == 0) {
+		qs->prev_bytes = b;
+		qs->prev_packets = p;
+		qs->avgn++;
+		return;
+	}
+
+	if (b >= qs->prev_bytes)
+		qs->avg_bytes = ((qs->avg_bytes * (n - 1)) +
+		    (b - qs->prev_bytes)) / n;
+
+	if (p >= qs->prev_packets)
+		qs->avg_packets = ((qs->avg_packets * (n - 1)) +
+		    (p - qs->prev_packets)) / n;
+
+	qs->prev_bytes = b;
+	qs->prev_packets = p;
+	if (n < AVGN_MAX)
+		qs->avgn++;
+}
+
+static char *
+qtype2str(classq_type_t t)
+{
+	char *c;
+
+	switch (t) {
+        case Q_DROPHEAD:
+		c = "DROPHEAD";
+		break;
+        case Q_DROPTAIL:
+		c = "DROPTAIL";
+		break;
+        case Q_RED:
+		c = "RED";
+		break;
+        case Q_RIO:
+		c = "RIO";
+		break;
+        case Q_BLUE:
+		c = "BLUE";
+		break;
+        case Q_SFB:
+		c = "SFB";
+		break;
+	default:
+		c = "UNKNOWN";
+		break;
+	}
+
+	return (c);
+}
+
+#define NSEC_PER_SEC    1000000000      /* nanoseconds per second */
+#define USEC_PER_SEC    1000000		/* nanoseconds per second */
+#define MSEC_PER_SEC    1000		/* nanoseconds per second */
+
+static char *
+nsec_to_str(unsigned long long nsec)
+{
+	static char buf[32];
+	const char *u;
+	long double n = nsec, t;
+
+	if (nsec >= NSEC_PER_SEC) {
+		t = n / NSEC_PER_SEC;
+		u = "sec ";
+	} else if (n >= USEC_PER_SEC) {
+		t = n / USEC_PER_SEC;
+		u = "msec";
+	} else if (n >= MSEC_PER_SEC) {
+		t = n / MSEC_PER_SEC;
+		u = "usec";
+	} else {
+		t = n;
+		u = "nsec";
+	}
+
+	snprintf(buf, sizeof (buf), "%-4.2Lf %4s", t, u);
+	return (buf);
+}
+
+static char *
+sched2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case PKTSCHEDT_NONE:
+		c = "NONE";
+		break;
+	case PKTSCHEDT_CBQ:
+		c = "CBQ";
+		break;
+	case PKTSCHEDT_HFSC:
+		c = "HFSC";
+		break;
+	case PKTSCHEDT_PRIQ:
+		c = "PRIQ";
+		break;
+	case PKTSCHEDT_FAIRQ:
+		c = "FAIRQ";
+		break;
+	case PKTSCHEDT_TCQ:
+		c = "TCQ";
+		break;
+	case PKTSCHEDT_QFQ:
+		c = "QFQ";
+		break;
+	default:
+		c = "UNKNOWN";
+		break;
+	}
+
+	return (c);
+}
+
+static char *
+qid2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case 0:
+		c = "BE";
+		break;
+	case 1:
+		c = "BK_SYS";
+		break;
+	case 2:
+		c = "BK";
+		break;
+	case 3:
+		c = "RD";
+		break;
+	case 4:
+		c = "OAM";
+		break;
+	case 5:
+		c = "AV";
+		break;
+	case 6:
+		c = "RV";
+		break;
+	case 7:
+		c = "VI";
+		break;
+	case 8:
+		c = "VO";
+		break;
+	case 9:
+		c = "CTL";
+		break;
+	default:
+		c = "UNKNOWN";
+		break;
+	}
+
+	return (c);
+}
+
+static char *
+tcqslot2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case 0:
+	case 3:
+	case 4:
+		c = "0,3,4";
+		break;
+	case 1:
+	case 2:
+		c = "1,2";
+		break;
+	case 5:
+	case 6:
+	case 7:
+		c = "5-7";
+		break;
+	case 8:
+	case 9:
+		c = "8,9";
+		break;
+	default:
+		c = "?";
+		break;
+	}
+
+	return (c);
+}
+
+static char *
+qstate2str(unsigned int s)
+{
+	char *c;
+
+	switch (s) {
+	case QS_RUNNING:
+		c = "(RUNNING)";
+		break;
+	case QS_SUSPENDED:
+		c = "(SUSPENDED)";
+		break;
+	default:
+		c = "(UNKNOWN)";
+		break;
+	}
+
+	return (c);
+}
+
+#define	R2S_BUFS	8
+#define	RATESTR_MAX	16
+
+static char *
+rate2str(long double rate)
+{
+	char		*buf;
+	static char	 r2sbuf[R2S_BUFS][RATESTR_MAX];  /* ring bufer */
+	static int	 idx = 0;
+	int		 i;
+	static const char unit[] = " KMG";
+
+	buf = r2sbuf[idx++];
+	if (idx == R2S_BUFS)
+		idx = 0;
+
+	for (i = 0; rate >= 1000 && i <= 3; i++)
+		rate /= 1000;
+
+	if ((int)(rate * 100) % 100)
+		snprintf(buf, RATESTR_MAX, "%.2Lf%cb", rate, unit[i]);
+	else
+		snprintf(buf, RATESTR_MAX, "%lld%cb", (int64_t)rate, unit[i]);
+
+	return (buf);
+}
+
+void
+rxpollstatpr(void)
+{
+	struct ifmibdata_supplemental ifmsupp;
+	size_t miblen = sizeof (ifmsupp);
+	struct itimerval timer_interval;
+	struct if_rxpoll_stats *sp;
+	sigset_t sigset, oldsigset;
+	unsigned int ifindex;
+	int name[6];
+
+	ifindex = if_nametoindex(interface);
+	if (ifindex == 0) {
+		fprintf(stderr, "Invalid interface name\n");
+		return;
+	}
+
+	bzero(&ifmsupp, sizeof (struct ifmibdata_supplemental));
+
+loop:
+	if (interval > 0) {
+		/* create a timer that fires repeatedly every interval seconds */
+		timer_interval.it_value.tv_sec = interval;
+		timer_interval.it_value.tv_usec = 0;
+		timer_interval.it_interval.tv_sec = interval;
+		timer_interval.it_interval.tv_usec = 0;
+		(void) signal(SIGALRM, catchalarm);
+		signalled = NO;
+		(void) setitimer(ITIMER_REAL, &timer_interval, NULL);
+	}
+
+	/* Common OID prefix */
+	name[0] = CTL_NET;
+	name[1] = PF_LINK;
+	name[2] = NETLINK_GENERIC;
+	name[3] = IFMIB_IFDATA;
+	name[4] = ifindex;
+	name[5] = IFDATA_SUPPLEMENTAL;
+	if (sysctl(name, 6, &ifmsupp, &miblen, NULL, 0) == -1)
+		err(1, "sysctl IFDATA_SUPPLEMENTAL");
+
+	sp = &ifmsupp.ifmd_rxpoll_stats;
+
+	printf("%-4s [ poll on requests:  %15u  errors: %27u ]\n",
+	    interface, sp->ifi_poll_on_req, sp->ifi_poll_on_err);
+	printf("     [ poll off requests: %15u  errors: %27u ]\n",
+	    sp->ifi_poll_off_req, sp->ifi_poll_off_err);
+	printf("     [ polled packets: %18llu  polled bytes: %21llu ]\n",
+	    sp->ifi_poll_packets, sp->ifi_poll_bytes);
+	printf("     [ sampled packets avg/min/max: %12u / %12u / %12u ]\n",
+	    sp->ifi_poll_packets_avg, sp->ifi_poll_packets_min,
+	    sp->ifi_poll_packets_max);
+	printf("     [ sampled bytes avg/min/max:   %12u / %12u / %12u ]\n",
+	    sp->ifi_poll_bytes_avg, sp->ifi_poll_bytes_min,
+	    sp->ifi_poll_bytes_max);
+	printf("     [ sampled wakeups avg:         %12u ]\n",
+	    sp->ifi_poll_wakeups_avg);
+	printf("     [ packets lowat/hiwat threshold: %10u / %10u ]\n",
+	    sp->ifi_poll_packets_lowat, sp->ifi_poll_packets_hiwat);
+	printf("     [ bytes lowat/hiwat threshold:   %10u / %10u ]\n",
+	    sp->ifi_poll_bytes_lowat, sp->ifi_poll_bytes_hiwat);
+	printf("     [ wakeups lowat/hiwat threshold: %10u / %10u ]\n",
+	    sp->ifi_poll_wakeups_lowat, sp->ifi_poll_wakeups_hiwat);
+
+	fflush(stdout);
+
+	if (interval > 0) {
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGALRM);
+		(void) sigprocmask(SIG_BLOCK, &sigset, &oldsigset);
+		if (!signalled) {
+			sigemptyset(&sigset);
+			sigsuspend(&sigset);
+		}
+		(void) sigprocmask(SIG_SETMASK, &oldsigset, NULL);
+
+		signalled = NO;
+		goto loop;
+	}
 }

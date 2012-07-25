@@ -30,36 +30,46 @@
 #include "V8DOMWrapper.h"
 #include "V8IsolatedContext.h"
 #include "V8Proxy.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 WrapperTypeInfo V8TestMediaQueryListListener::info = { V8TestMediaQueryListListener::GetTemplate, V8TestMediaQueryListListener::derefObject, 0, 0 };
 
-namespace TestMediaQueryListListenerInternal {
+namespace TestMediaQueryListListenerV8Internal {
 
 template <typename T> void V8_USE(T) { }
 
 static v8::Handle<v8::Value> methodCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestMediaQueryListListener.method");
+    if (args.Length() < 1)
+        return V8Proxy::throwNotEnoughArgumentsError();
     TestMediaQueryListListener* imp = V8TestMediaQueryListListener::toNative(args.Holder());
-    EXCEPTION_BLOCK(RefPtr<MediaQueryListListener>, listener, MediaQueryListListener::create(args[0]));
+    EXCEPTION_BLOCK(RefPtr<MediaQueryListListener>, listener, MediaQueryListListener::create(MAYBE_MISSING_PARAMETER(args, 0, DefaultIsUndefined)));
     imp->method(listener);
     return v8::Handle<v8::Value>();
 }
 
-} // namespace TestMediaQueryListListenerInternal
+} // namespace TestMediaQueryListListenerV8Internal
 
 static const BatchedCallback TestMediaQueryListListenerCallbacks[] = {
-    {"method", TestMediaQueryListListenerInternal::methodCallback},
+    {"method", TestMediaQueryListListenerV8Internal::methodCallback},
 };
+
 static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestMediaQueryListListenerTemplate(v8::Persistent<v8::FunctionTemplate> desc)
 {
-    v8::Local<v8::Signature> defaultSignature = configureTemplate(desc, "TestMediaQueryListListener", v8::Persistent<v8::FunctionTemplate>(), V8TestMediaQueryListListener::internalFieldCount,
+    desc->ReadOnlyPrototype();
+
+    v8::Local<v8::Signature> defaultSignature;
+    defaultSignature = configureTemplate(desc, "TestMediaQueryListListener", v8::Persistent<v8::FunctionTemplate>(), V8TestMediaQueryListListener::internalFieldCount,
         0, 0,
         TestMediaQueryListListenerCallbacks, WTF_ARRAY_LENGTH(TestMediaQueryListListenerCallbacks));
+    UNUSED_PARAM(defaultSignature); // In some cases, it will not be used.
     v8::Local<v8::ObjectTemplate> instance = desc->InstanceTemplate();
     v8::Local<v8::ObjectTemplate> proto = desc->PrototypeTemplate();
+    UNUSED_PARAM(instance); // In some cases, it will not be used.
+    UNUSED_PARAM(proto); // In some cases, it will not be used.
     
 
     // Custom toString template
@@ -69,14 +79,29 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestMediaQueryListListene
 
 v8::Persistent<v8::FunctionTemplate> V8TestMediaQueryListListener::GetRawTemplate()
 {
-    static v8::Persistent<v8::FunctionTemplate> V8TestMediaQueryListListenerRawCache = createRawTemplate();
-    return V8TestMediaQueryListListenerRawCache;
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    V8BindingPerIsolateData::TemplateMap::iterator result = data->rawTemplateMap().find(&info);
+    if (result != data->rawTemplateMap().end())
+        return result->second;
+
+    v8::HandleScope handleScope;
+    v8::Persistent<v8::FunctionTemplate> templ = createRawTemplate();
+    data->rawTemplateMap().add(&info, templ);
+    return templ;
 }
 
 v8::Persistent<v8::FunctionTemplate> V8TestMediaQueryListListener::GetTemplate()
 {
-    static v8::Persistent<v8::FunctionTemplate> V8TestMediaQueryListListenerCache = ConfigureV8TestMediaQueryListListenerTemplate(GetRawTemplate());
-    return V8TestMediaQueryListListenerCache;
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    V8BindingPerIsolateData::TemplateMap::iterator result = data->templateMap().find(&info);
+    if (result != data->templateMap().end())
+        return result->second;
+
+    v8::HandleScope handleScope;
+    v8::Persistent<v8::FunctionTemplate> templ =
+        ConfigureV8TestMediaQueryListListenerTemplate(GetRawTemplate());
+    data->templateMap().add(&info, templ);
+    return templ;
 }
 
 bool V8TestMediaQueryListListener::HasInstance(v8::Handle<v8::Value> value)
@@ -85,17 +110,19 @@ bool V8TestMediaQueryListListener::HasInstance(v8::Handle<v8::Value> value)
 }
 
 
-v8::Handle<v8::Object> V8TestMediaQueryListListener::wrapSlow(TestMediaQueryListListener* impl)
+v8::Handle<v8::Object> V8TestMediaQueryListListener::wrapSlow(PassRefPtr<TestMediaQueryListListener> impl, v8::Isolate* isolate)
 {
     v8::Handle<v8::Object> wrapper;
     V8Proxy* proxy = 0;
-    wrapper = V8DOMWrapper::instantiateV8Object(proxy, &info, impl);
-    if (wrapper.IsEmpty())
+    wrapper = V8DOMWrapper::instantiateV8Object(proxy, &info, impl.get());
+    if (UNLIKELY(wrapper.IsEmpty()))
         return wrapper;
 
-    impl->ref();
     v8::Persistent<v8::Object> wrapperHandle = v8::Persistent<v8::Object>::New(wrapper);
-    getDOMObjectMap().set(impl, wrapperHandle);
+
+    if (!hasDependentLifetime)
+        wrapperHandle.MarkIndependent();
+    V8DOMWrapper::setJSWrapperForDOMObject(impl, wrapperHandle, isolate);
     return wrapper;
 }
 

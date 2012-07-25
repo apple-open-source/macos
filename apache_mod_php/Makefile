@@ -9,7 +9,7 @@ Project         = php
 ProjectName     = apache_mod_php
 UserType        = Developer
 ToolType        = Commands
-Submission      = 66.6
+Submission      = 74
 
 # Environment is passed to BOTH configure AND make, which can cause problems if these
 # variables are intended to help configure, but not override the result.
@@ -38,10 +38,12 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-bcmath \
 			--with-bz2=$(USRDIR) \
 			--enable-calendar \
+			--disable-cgi \
 			--with-curl=$(USRDIR) \
 			--enable-dba \
 				--enable-ndbm=$(USRDIR) \
 			--enable-exif \
+			--enable-fpm \
 			--enable-ftp \
 			--with-gd \
 				--with-freetype-dir=$(DSTROOT)$(USRDIR)/local \
@@ -79,17 +81,17 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 
 # Additional project info used with AEP
 AEP		= YES
-AEP_Version	= 5.3.15
+AEP_Version	= 5.3.13
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	= suhosin-patch-5.3.9-0.9.10.patch \
 			MacOSX_build.patch arches.patch \
 			iconv.patch mysql_sock.patch pear.patch phar.patch \
-			xdebug.patch
+			xdebug.patch fpm.patch dSYM.patch
 AEP_ConfigDir	= $(ETCDIR)
-AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php
+AEP_Binaries	= $(shell $(USRSBINDIR)/apxs -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
 Dependencies	= freetype libjpeg libpng
-GnuAfterInstall	= archive-strip-binaries install-macosx install-xdebug install-webapp-plist
+GnuAfterInstall	= archive-strip-binaries install-macosx install-xdebug
 
 
 # Local targets that must be defined before including the following
@@ -131,6 +133,7 @@ $(GNUConfigStamp): post-extract-source $(TMPDIR)
 post-extract-source: extract-source
 	@echo "Executing extra patch after extraction..."
 	$(PERL) -i -pe 's|-i -a -n php5|-i -n php5|g' $(Sources)/configure
+	$(PERL) -i -pe 's|rm -f conftest|rm -rf conftest|g' $(Sources)/configure
 
 # Invoke pearcmd.php manually (instead of via /usr/bin/pear) so we can force
 # lookups from DSTROOT instead of final install location.
@@ -150,7 +153,7 @@ install-macosx:
 		&& $(SED) -e 's=-L$(DSTROOT)$(USRDIR)/local/lib==' $(SYMROOT)/php-config \
 		| $(SED) -e 's@$(DSTROOT)@@g' > $(DSTROOT)$(USRBINDIR)/php-config
 	$(CP) $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h $(SYMROOT) \
-		&& $(SED) -e 's@$(DSTROOT)@@g' $(SYMROOT)/build-defs.h \
+		&& LANG=C $(SED) -e 's@$(DSTROOT)@@g' $(SYMROOT)/build-defs.h \
 			> $(DSTROOT)$(USRINCLUDEDIR)/$(Project)/main/build-defs.h
 	@echo "Archiving private static libraries..."
 	-$(MV) $(DSTROOT)$(USRDIR)/local/lib/* $(SYMROOT)
@@ -159,8 +162,6 @@ install-macosx:
 	-$(RMDIR) $(DSTROOT)$(USRDIR)/local/include
 	@echo "Installing PEAR phar for installation at setup time."
 	$(INSTALL_FILE) $(SRCROOT)/install-pear-nozlib.phar $(DSTROOT)$(USRLIBDIR)/php
-	$(INSTALL_DIRECTORY) $(DSTROOT)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup/CommonExtras
-	$(INSTALL_SCRIPT) phpsetup $(DSTROOT)$(NSSYSTEMDIR)$(NSLIBRARYSUBDIR)/ServerSetup/CommonExtras
 	@echo "Fixing PEAR configuration file..."
 	if [ -e $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php ]; then	\
 		$(CP) $(DSTROOT)/$(USRLIBDIR)/php/pearcmd.php $(PEAR_Cmd);	\
@@ -182,6 +183,8 @@ install-macosx:
 		$(DSTROOT)/.registry \
 		$(DSTROOT)$(USRLIBDIR)/php/.lock \
 		$(DSTROOT)$(USRLIBDIR)/php/.depdblock
+	-$(STRIP) -x $(DSTROOT)/usr/bin/php $(DSTROOT)/usr/sbin/php-fpm
+	-$(RM) -rf $(DSTROOT)/usr/var
 	@echo "Mac OS X-specific cleanup complete."
 
 install-xdebug:
@@ -195,10 +198,6 @@ install-xdebug:
 			Sources=$(OBJROOT)/xdebug		\
 			CoreOSMakefiles=$(CoreOSMakefiles)
 	@echo "XDebug extension installed."
-
-install-webapp-plist:
-	$(MKDIR) $(DSTROOT)$(ETCDIR)/apache2/webapps
-	$(INSTALL_FILE) com.apple.webapp.php.plist $(DSTROOT)$(ETCDIR)/apache2/webapps
 
 $(DSTROOT)$(LIBEXECDIR)/apache2 $(TMPDIR):
 	$(MKDIR) $@

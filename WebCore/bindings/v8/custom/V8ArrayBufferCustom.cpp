@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-#include "ArrayBuffer.h"
+#include <wtf/ArrayBuffer.h>
 
 #include "ExceptionCode.h"
 #include "V8Binding.h"
@@ -43,7 +43,10 @@ v8::Handle<v8::Value> V8ArrayBuffer::constructorCallback(const v8::Arguments& ar
     INC_STATS("DOM.ArrayBuffer.Constructor");
 
     if (!args.IsConstructCall())
-        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::SyntaxError);
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
 
     // If we return a previously constructed ArrayBuffer,
     // e.g. from the call to ArrayBufferView.buffer, this code is called
@@ -70,7 +73,8 @@ v8::Handle<v8::Value> V8ArrayBuffer::constructorCallback(const v8::Arguments& ar
         return throwError("ArrayBuffer size is not a small enough positive integer.", V8Proxy::RangeError);
     // Transform the holder into a wrapper object for the array.
     V8DOMWrapper::setDOMWrapper(args.Holder(), &info, buffer.get());
-    return toV8(buffer.release(), args.Holder());
+    V8DOMWrapper::setJSWrapperForDOMObject(buffer.release(), v8::Persistent<v8::Object>::New(args.Holder()));
+    return args.Holder();
 }
 
 } // namespace WebCore

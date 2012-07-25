@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Digest-CRC</string>
+        <key>OpenSourceVersion</key>
+        <string>0.17</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/O/OL/OLIMAUL/Digest-CRC-0.17.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Public Domain</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-10-31</string>
+</dict>

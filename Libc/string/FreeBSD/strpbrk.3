@@ -43,20 +43,23 @@
 .Sh SYNOPSIS
 .In string.h
 .Ft char *
-.Fn strpbrk "const char *s" "const char *charset"
+.Fo strpbrk
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn strpbrk
 function
 locates in the null-terminated string
-.Fa s
+.Fa s1
 the first occurrence of any character in the string
-.Fa charset
-and returns a pointer to this character.
+.Fa s2 ,
+returning a pointer to this character.
 If no characters from
-.Fa charset
+.Fa s2
 occur anywhere in
-.Fa s
+.Fa s1 ,
 .Fn strpbrk
 returns NULL.
 .Sh SEE ALSO

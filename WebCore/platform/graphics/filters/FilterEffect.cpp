@@ -27,7 +27,7 @@
 #include "Filter.h"
 #include "ImageBuffer.h"
 #include "TextStream.h"
-#include <wtf/ByteArray.h>
+#include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -38,6 +38,7 @@ FilterEffect::FilterEffect(Filter* filter)
     , m_hasY(false)
     , m_hasWidth(false)
     , m_hasHeight(false)
+    , m_clipsToBounds(true)
 {
     ASSERT(m_filter);
 }
@@ -61,15 +62,19 @@ void FilterEffect::determineAbsolutePaintRect()
     for (unsigned i = 0; i < size; ++i)
         m_absolutePaintRect.unite(m_inputEffects.at(i)->absolutePaintRect());
     
-    // SVG specification wants us to clip to primitive subregion.
-    m_absolutePaintRect.intersect(enclosingIntRect(m_maxEffectRect));
+    // Filters in SVG clip to primitive subregion, while CSS doesn't.
+    if (m_clipsToBounds)
+        m_absolutePaintRect.intersect(enclosingIntRect(m_maxEffectRect));
+    else
+        m_absolutePaintRect.unite(enclosingIntRect(m_maxEffectRect));
+    
 }
 
 IntRect FilterEffect::requestedRegionOfInputImageData(const IntRect& effectRect) const
 {
     ASSERT(hasResult());
     IntPoint location = m_absolutePaintRect.location();
-    location.move(-effectRect.x(), -effectRect.y());
+    location.moveBy(-effectRect.location());
     return IntRect(location, m_absolutePaintRect.size());
 }
 
@@ -83,6 +88,64 @@ FilterEffect* FilterEffect::inputEffect(unsigned number) const
 {
     ASSERT(number < m_inputEffects.size());
     return m_inputEffects.at(number).get();
+}
+
+void FilterEffect::apply()
+{
+    if (hasResult())
+        return;
+    unsigned size = m_inputEffects.size();
+    for (unsigned i = 0; i < size; ++i) {
+        FilterEffect* in = m_inputEffects.at(i).get();
+        in->apply();
+        if (!in->hasResult())
+            return;
+    }
+    determineAbsolutePaintRect();
+
+    if (!isFilterSizeValid(m_absolutePaintRect))
+        return;
+
+    if (requiresValidPreMultipliedPixels()) {
+        for (unsigned i = 0; i < size; ++i)
+            inputEffect(i)->correctFilterResultIfNeeded();
+    }
+    
+    // Add platform specific apply functions here and return earlier.
+#if USE(SKIA)
+    if (platformApplySkia())
+        return;
+#endif
+    platformApplySoftware();
+}
+
+void FilterEffect::forceValidPreMultipliedPixels()
+{
+    // Must operate on pre-multiplied results; other formats cannot have invalid pixels.
+    if (!m_premultipliedImageResult)
+        return;
+
+    Uint8ClampedArray* imageArray = m_premultipliedImageResult.get();
+    unsigned char* pixelData = imageArray->data();
+    int pixelArrayLength = imageArray->length();
+
+    // We must have four bytes per pixel, and complete pixels
+    ASSERT(!(pixelArrayLength % 4));
+    int numPixels = pixelArrayLength / 4;
+
+    // Iterate over each pixel, checking alpha and adjusting color components if necessary
+    while (--numPixels >= 0) {
+        // Alpha is the 4th byte in a pixel
+        unsigned char a = *(pixelData + 3);
+        // Clamp each component to alpha, and increment the pixel location
+        for (int i = 0; i < 3; ++i) {
+            if (*pixelData > a)
+                *pixelData = a;
+            ++pixelData;
+        }
+        // Increment for alpha
+        ++pixelData;
+    }
 }
 
 void FilterEffect::clearResult()
@@ -101,32 +164,32 @@ ImageBuffer* FilterEffect::asImageBuffer()
         return 0;
     if (m_imageBufferResult)
         return m_imageBufferResult.get();
-    m_imageBufferResult = ImageBuffer::create(m_absolutePaintRect.size(), ColorSpaceLinearRGB);
+    m_imageBufferResult = ImageBuffer::create(m_absolutePaintRect.size(), 1, ColorSpaceLinearRGB, m_filter->renderingMode());
     IntRect destinationRect(IntPoint(), m_absolutePaintRect.size());
     if (m_premultipliedImageResult)
-        m_imageBufferResult->putPremultipliedImageData(m_premultipliedImageResult.get(), destinationRect.size(), destinationRect, IntPoint());
+        m_imageBufferResult->putByteArray(Premultiplied, m_premultipliedImageResult.get(), destinationRect.size(), destinationRect, IntPoint());
     else
-        m_imageBufferResult->putUnmultipliedImageData(m_unmultipliedImageResult.get(), destinationRect.size(), destinationRect, IntPoint());
+        m_imageBufferResult->putByteArray(Unmultiplied, m_unmultipliedImageResult.get(), destinationRect.size(), destinationRect, IntPoint());
     return m_imageBufferResult.get();
 }
 
-PassRefPtr<ByteArray> FilterEffect::asUnmultipliedImage(const IntRect& rect)
+PassRefPtr<Uint8ClampedArray> FilterEffect::asUnmultipliedImage(const IntRect& rect)
 {
     ASSERT(isFilterSizeValid(rect));
-    RefPtr<ByteArray> imageData = ByteArray::create(rect.width() * rect.height() * 4);
+    RefPtr<Uint8ClampedArray> imageData = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
     copyUnmultipliedImage(imageData.get(), rect);
     return imageData.release();
 }
 
-PassRefPtr<ByteArray> FilterEffect::asPremultipliedImage(const IntRect& rect)
+PassRefPtr<Uint8ClampedArray> FilterEffect::asPremultipliedImage(const IntRect& rect)
 {
     ASSERT(isFilterSizeValid(rect));
-    RefPtr<ByteArray> imageData = ByteArray::create(rect.width() * rect.height() * 4);
+    RefPtr<Uint8ClampedArray> imageData = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
     copyPremultipliedImage(imageData.get(), rect);
     return imageData.release();
 }
 
-inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destination, const IntRect& rect)
+inline void FilterEffect::copyImageBytes(Uint8ClampedArray* source, Uint8ClampedArray* destination, const IntRect& rect)
 {
     // Initialize the destination to transparent black, if not entirely covered by the source.
     if (rect.x() < 0 || rect.y() < 0 || rect.maxX() > m_absolutePaintRect.width() || rect.maxY() > m_absolutePaintRect.height())
@@ -170,7 +233,7 @@ inline void FilterEffect::copyImageBytes(ByteArray* source, ByteArray* destinati
     }
 }
 
-void FilterEffect::copyUnmultipliedImage(ByteArray* destination, const IntRect& rect)
+void FilterEffect::copyUnmultipliedImage(Uint8ClampedArray* destination, const IntRect& rect)
 {
     ASSERT(hasResult());
 
@@ -180,7 +243,7 @@ void FilterEffect::copyUnmultipliedImage(ByteArray* destination, const IntRect& 
             m_unmultipliedImageResult = m_imageBufferResult->getUnmultipliedImageData(IntRect(IntPoint(), m_absolutePaintRect.size()));
         else {
             ASSERT(isFilterSizeValid(m_absolutePaintRect));
-            m_unmultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
+            m_unmultipliedImageResult = Uint8ClampedArray::createUninitialized(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
             unsigned char* sourceComponent = m_premultipliedImageResult->data();
             unsigned char* destinationComponent = m_unmultipliedImageResult->data();
             unsigned char* end = sourceComponent + (m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
@@ -204,7 +267,7 @@ void FilterEffect::copyUnmultipliedImage(ByteArray* destination, const IntRect& 
     copyImageBytes(m_unmultipliedImageResult.get(), destination, rect);
 }
 
-void FilterEffect::copyPremultipliedImage(ByteArray* destination, const IntRect& rect)
+void FilterEffect::copyPremultipliedImage(Uint8ClampedArray* destination, const IntRect& rect)
 {
     ASSERT(hasResult());
 
@@ -214,7 +277,7 @@ void FilterEffect::copyPremultipliedImage(ByteArray* destination, const IntRect&
             m_premultipliedImageResult = m_imageBufferResult->getPremultipliedImageData(IntRect(IntPoint(), m_absolutePaintRect.size()));
         else {
             ASSERT(isFilterSizeValid(m_absolutePaintRect));
-            m_premultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
+            m_premultipliedImageResult = Uint8ClampedArray::createUninitialized(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
             unsigned char* sourceComponent = m_unmultipliedImageResult->data();
             unsigned char* destinationComponent = m_premultipliedImageResult->data();
             unsigned char* end = sourceComponent + (m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
@@ -236,39 +299,36 @@ ImageBuffer* FilterEffect::createImageBufferResult()
 {
     // Only one result type is allowed.
     ASSERT(!hasResult());
-    determineAbsolutePaintRect();
     if (m_absolutePaintRect.isEmpty())
         return 0;
-    m_imageBufferResult = ImageBuffer::create(m_absolutePaintRect.size(), ColorSpaceLinearRGB);
+    m_imageBufferResult = ImageBuffer::create(m_absolutePaintRect.size(), 1, ColorSpaceLinearRGB, m_filter->renderingMode());
     if (!m_imageBufferResult)
         return 0;
     ASSERT(m_imageBufferResult->context());
     return m_imageBufferResult.get();
 }
 
-ByteArray* FilterEffect::createUnmultipliedImageResult()
+Uint8ClampedArray* FilterEffect::createUnmultipliedImageResult()
 {
     // Only one result type is allowed.
     ASSERT(!hasResult());
     ASSERT(isFilterSizeValid(m_absolutePaintRect));
 
-    determineAbsolutePaintRect();
     if (m_absolutePaintRect.isEmpty())
         return 0;
-    m_unmultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
+    m_unmultipliedImageResult = Uint8ClampedArray::createUninitialized(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
     return m_unmultipliedImageResult.get();
 }
 
-ByteArray* FilterEffect::createPremultipliedImageResult()
+Uint8ClampedArray* FilterEffect::createPremultipliedImageResult()
 {
     // Only one result type is allowed.
     ASSERT(!hasResult());
     ASSERT(isFilterSizeValid(m_absolutePaintRect));
 
-    determineAbsolutePaintRect();
     if (m_absolutePaintRect.isEmpty())
         return 0;
-    m_premultipliedImageResult = ByteArray::create(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
+    m_premultipliedImageResult = Uint8ClampedArray::createUninitialized(m_absolutePaintRect.width() * m_absolutePaintRect.height() * 4);
     return m_premultipliedImageResult.get();
 }
 

@@ -41,6 +41,7 @@
 #include <err.h>
 
 #include "bless.h"
+#include "bless_private.h"
 #include "protos.h"
 
 void miniusage(char *program);
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]) {
 		errx(1, "Can't set OpenFirmware");
     }
 #else
-#ifdef __i386__
+#if defined(__i386__) || defined(__x86_64__)
 	if(0 != setefidevice(NULL, device + 5 /* strlen("/dev/") */,
 			     0,
 			     0,

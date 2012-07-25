@@ -26,14 +26,20 @@
 #include "InlineBox.h"
 #include "RenderText.h" // so textRenderer() can be inline
 #include "TextRun.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 struct CompositionUnderline;
-struct DocumentMarker;
+class DocumentMarker;
 
 const unsigned short cNoTruncation = USHRT_MAX;
 const unsigned short cFullTruncation = USHRT_MAX - 1;
+
+class BufferForAppendingHyphen : public StringBuilder {
+public:
+    BufferForAppendingHyphen() { reserveCapacity(256); }
+};
 
 // Helper functions shared by InlineTextBox / SVGRootInlineBox
 void updateGraphicsContext(GraphicsContext*, const Color& fillColor, const Color& strokeColor, float strokeThickness, ColorSpace);
@@ -69,45 +75,47 @@ public:
 
     unsigned short truncation() { return m_truncation; }
 
-    bool hasHyphen() const { return m_hasEllipsisBoxOrHyphen; }
-    void setHasHyphen(bool hasHyphen) { m_hasEllipsisBoxOrHyphen = hasHyphen; }
-
-    bool canHaveLeadingExpansion() const { return m_hasSelectedChildrenOrCanHaveLeadingExpansion; }
-    void setCanHaveLeadingExpansion(bool canHaveLeadingExpansion) { m_hasSelectedChildrenOrCanHaveLeadingExpansion = canHaveLeadingExpansion; }
+    using InlineBox::hasHyphen;
+    using InlineBox::setHasHyphen;
+    using InlineBox::canHaveLeadingExpansion;
+    using InlineBox::setCanHaveLeadingExpansion;
 
     static inline bool compareByStart(const InlineTextBox* first, const InlineTextBox* second) { return first->start() < second->start(); }
 
-    virtual int baselinePosition(FontBaseline) const;
-    virtual int lineHeight() const;
+    virtual LayoutUnit baselinePosition(FontBaseline) const;
+    virtual LayoutUnit lineHeight() const;
 
     bool getEmphasisMarkPosition(RenderStyle*, TextEmphasisPosition&) const;
 
-    IntRect logicalOverflowRect() const;
-    void setLogicalOverflowRect(const IntRect&);
-    int logicalTopVisualOverflow() const { return logicalOverflowRect().y(); }
-    int logicalBottomVisualOverflow() const { return logicalOverflowRect().maxY(); }
-    int logicalLeftVisualOverflow() const { return logicalOverflowRect().x(); }
-    int logicalRightVisualOverflow() const { return logicalOverflowRect().maxX(); }
+    LayoutRect logicalOverflowRect() const;
+    void setLogicalOverflowRect(const LayoutRect&);
+    LayoutUnit logicalTopVisualOverflow() const { return logicalOverflowRect().y(); }
+    LayoutUnit logicalBottomVisualOverflow() const { return logicalOverflowRect().maxY(); }
+    LayoutUnit logicalLeftVisualOverflow() const { return logicalOverflowRect().x(); }
+    LayoutUnit logicalRightVisualOverflow() const { return logicalOverflowRect().maxX(); }
 
 #ifndef NDEBUG
     virtual void showBox(int = 0) const;
     virtual const char* boxName() const;
 #endif
 private:
-    int selectionTop();
-    int selectionBottom();
-    int selectionHeight();
+    LayoutUnit selectionTop();
+    LayoutUnit selectionBottom();
+    LayoutUnit selectionHeight();
+
+    TextRun constructTextRun(RenderStyle*, const Font&, BufferForAppendingHyphen* = 0) const;
+    TextRun constructTextRun(RenderStyle*, const Font&, const UChar*, int length, int maximumLength, BufferForAppendingHyphen* = 0) const;
 
 public:
-    virtual IntRect calculateBoundaries() const { return IntRect(x(), y(), width(), height()); }
+    virtual FloatRect calculateBoundaries() const { return FloatRect(x(), y(), width(), height()); }
 
-    virtual IntRect selectionRect(int absx, int absy, int startPos, int endPos);
+    virtual LayoutRect localSelectionRect(int startPos, int endPos);
     bool isSelected(int startPos, int endPos) const;
     void selectionStartEnd(int& sPos, int& ePos);
 
 protected:
-    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom);
 
 public:
     RenderText* textRenderer() const;
@@ -127,7 +135,12 @@ private:
 public:
     virtual bool isLineBreak() const;
 
-    void setExpansion(int expansion) { m_logicalWidth -= m_expansion; m_expansion = expansion; m_logicalWidth += m_expansion; }
+    void setExpansion(int newExpansion)
+    {
+        m_logicalWidth -= expansion();
+        InlineBox::setExpansion(newExpansion);
+        m_logicalWidth += newExpansion;
+    }
 
 private:
     virtual bool isInlineTextBox() const { return true; }    
@@ -137,8 +150,6 @@ public:
     virtual int caretMaxOffset() const;
 
 private:
-    virtual unsigned caretMaxRenderedOffset() const;
-
     float textPos() const; // returns the x position relative to the left start of the text line.
 
 public:
@@ -165,22 +176,37 @@ protected:
     void paintDocumentMarkers(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&, bool background);
     void paintCompositionUnderline(GraphicsContext*, const FloatPoint& boxOrigin, const CompositionUnderline&);
 #if PLATFORM(MAC)
-    void paintCustomHighlight(int tx, int ty, const AtomicString& type);
+    void paintCustomHighlight(const LayoutPoint&, const AtomicString& type);
 #endif
 
 private:
     void paintDecoration(GraphicsContext*, const FloatPoint& boxOrigin, int decoration, const ShadowData*);
     void paintSelection(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&);
-    void paintSpellingOrGrammarMarker(GraphicsContext*, const FloatPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&, bool grammar);
-    void paintTextMatchMarker(GraphicsContext*, const FloatPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&);
-    void computeRectForReplacementMarker(const DocumentMarker&, RenderStyle*, const Font&);
+    void paintDocumentMarker(GraphicsContext*, const FloatPoint& boxOrigin, DocumentMarker*, RenderStyle*, const Font&, bool grammar);
+    void paintTextMatchMarker(GraphicsContext*, const FloatPoint& boxOrigin, DocumentMarker*, RenderStyle*, const Font&);
+    void computeRectForReplacementMarker(DocumentMarker*, RenderStyle*, const Font&);
 
     TextRun::ExpansionBehavior expansionBehavior() const
     {
         return (canHaveLeadingExpansion() ? TextRun::AllowLeadingExpansion : TextRun::ForbidLeadingExpansion)
-            | (m_expansion && nextLeafChild() ? TextRun::AllowTrailingExpansion : TextRun::ForbidTrailingExpansion);
+            | (expansion() && nextLeafChild() ? TextRun::AllowTrailingExpansion : TextRun::ForbidTrailingExpansion);
     }
 };
+
+inline InlineTextBox* toInlineTextBox(InlineBox* inlineBox)
+{
+    ASSERT(!inlineBox || inlineBox->isInlineTextBox());
+    return static_cast<InlineTextBox*>(inlineBox);
+}
+
+inline const InlineTextBox* toInlineTextBox(const InlineBox* inlineBox)
+{
+    ASSERT(!inlineBox || inlineBox->isInlineTextBox());
+    return static_cast<const InlineTextBox*>(inlineBox);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toInlineTextBox(const InlineTextBox*);
 
 inline RenderText* InlineTextBox::textRenderer() const
 {

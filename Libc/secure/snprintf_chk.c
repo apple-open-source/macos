@@ -28,8 +28,7 @@
 
 extern void __chk_fail (void) __attribute__((__noreturn__));
 extern int __snprintf_chk (char * __restrict, size_t, int, size_t,
-                           const char * __restrict, ...)
-  __DARWIN_LDBL_COMPAT (__snprintf_chk);
+                           const char * __restrict, ...);
 
 int
 __snprintf_chk (char *s, size_t maxlen, int flags, size_t len,

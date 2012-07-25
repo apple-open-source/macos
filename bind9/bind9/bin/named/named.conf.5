@@ -12,7 +12,7 @@
 .\" OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 .\" PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $Id$
+.\" $Id: named.conf.5,v 1.44.12.1 2011-02-03 12:29:12 tbox Exp $
 .\"
 .hy 0
 .ad l
@@ -195,6 +195,7 @@ options {
 	tcp\-listen\-queue \fIinteger\fR;
 	tkey\-dhkey \fIquoted_string\fR \fIinteger\fR;
 	tkey\-gssapi\-credential \fIquoted_string\fR;
+	tkey\-gssapi\-keytab \fIquoted_string\fR;
 	tkey\-domain \fIquoted_string\fR;
 	transfers\-per\-ns \fIinteger\fR;
 	transfers\-in \fIinteger\fR;
@@ -223,6 +224,7 @@ options {
 	queryport\-pool\-ports \fIinteger\fR;
 	queryport\-pool\-updateinterval \fIinteger\fR;
 	cleaning\-interval \fIinteger\fR;
+	resolver\-query\-timeout \fIinteger\fR;
 	min\-roots \fIinteger\fR; // not implemented
 	lame\-ttl \fIinteger\fR;
 	max\-ncache\-ttl \fIinteger\fR;
@@ -252,9 +254,20 @@ options {
 	disable\-algorithms \fIstring\fR { \fIstring\fR; ... };
 	dnssec\-enable \fIboolean\fR;
 	dnssec\-validation \fIboolean\fR;
-	dnssec\-lookaside ( \fIauto\fR | \fIno\fR | \fIdomain\fR trust\-anchor \fIdomain\fR );
+	dnssec\-lookaside \fIstring\fR trust\-anchor \fIstring\fR;
+	dnssec\-lookaside ( \fIauto\fR | \fIdomain\fR trust\-anchor \fIdomain\fR );
 	dnssec\-must\-be\-secure \fIstring\fR \fIboolean\fR;
 	dnssec\-accept\-expired \fIboolean\fR;
+	dns64\-server \fIstring\fR;
+	dns64\-contact \fIstring\fR;
+	dns64 \fIprefix\fR {
+		clients { <replacable>acl</replacable>; };
+		exclude { <replacable>acl</replacable>; };
+		mapped { <replacable>acl</replacable>; };
+		break\-dnssec \fIboolean\fR;
+		recursive\-only \fIboolean\fR;
+		suffix \fIipv6_address\fR;
+	};
 	empty\-server \fIstring\fR;
 	empty\-contact \fIstring\fR;
 	empty\-zones\-enable \fIboolean\fR;
@@ -381,6 +394,7 @@ view \fIstring\fR \fIoptional_class\fR {
 	queryport\-pool\-ports \fIinteger\fR;
 	queryport\-pool\-updateinterval \fIinteger\fR;
 	cleaning\-interval \fIinteger\fR;
+	resolver\-query\-timeout \fIinteger\fR;
 	min\-roots \fIinteger\fR; // not implemented
 	lame\-ttl \fIinteger\fR;
 	max\-ncache\-ttl \fIinteger\fR;
@@ -410,9 +424,19 @@ view \fIstring\fR \fIoptional_class\fR {
 	disable\-algorithms \fIstring\fR { \fIstring\fR; ... };
 	dnssec\-enable \fIboolean\fR;
 	dnssec\-validation \fIboolean\fR;
-	dnssec\-lookaside ( \fIauto\fR | \fIno\fR | \fIdomain\fR trust\-anchor \fIdomain\fR );
+	dnssec\-lookaside \fIstring\fR trust\-anchor \fIstring\fR;
 	dnssec\-must\-be\-secure \fIstring\fR \fIboolean\fR;
 	dnssec\-accept\-expired \fIboolean\fR;
+	dns64\-server \fIstring\fR;
+	dns64\-contact \fIstring\fR;
+	dns64 \fIprefix\fR {
+		clients { <replacable>acl</replacable>; };
+		exclude { <replacable>acl</replacable>; };
+		mapped { <replacable>acl</replacable>; };
+		break\-dnssec \fIboolean\fR;
+		recursive\-only \fIboolean\fR;
+		suffix \fIipv6_address\fR;
+	};
 	empty\-server \fIstring\fR;
 	empty\-contact \fIstring\fR;
 	empty\-zones\-enable \fIboolean\fR;

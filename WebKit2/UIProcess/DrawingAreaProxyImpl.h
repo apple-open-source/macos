@@ -29,32 +29,34 @@
 #include "BackingStore.h"
 #include "DrawingAreaProxy.h"
 #include "LayerTreeContext.h"
-#include "RunLoop.h"
+#include <WebCore/RunLoop.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
+namespace WebCore {
+class Region;
+}
+
 namespace WebKit {
 
-class Region;
+class LayerTreeHostProxy;
 
 class DrawingAreaProxyImpl : public DrawingAreaProxy {
 public:
     static PassOwnPtr<DrawingAreaProxyImpl> create(WebPageProxy*);
     virtual ~DrawingAreaProxyImpl();
 
-    void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, Region& unpaintedRegion);
+    void paint(BackingStore::PlatformGraphicsContext, const WebCore::IntRect&, WebCore::Region& unpaintedRegion);
 
 private:
     explicit DrawingAreaProxyImpl(WebPageProxy*);
 
     // DrawingAreaProxy
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    virtual void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
-    virtual bool paint(const WebCore::IntRect&, PlatformDrawingContext);
     virtual void sizeDidChange();
     virtual void deviceScaleFactorDidChange();
+    virtual void layerHostingModeDidChange() OVERRIDE;
+
     virtual void visibilityDidChange();
-    virtual void setPageIsVisible(bool);
     virtual void setBackingStoreIsDiscardable(bool);
     virtual void waitForBackingStoreUpdateOnNextPaint();
 
@@ -63,6 +65,7 @@ private:
     virtual void didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo&, const LayerTreeContext&);
     virtual void enterAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
     virtual void exitAcceleratedCompositingMode(uint64_t backingStoreStateID, const UpdateInfo&);
+    virtual void updateAcceleratedCompositingMode(uint64_t backingStoreStateID, const LayerTreeContext&);
 
     void incorporateUpdate(const UpdateInfo&);
 
@@ -74,11 +77,19 @@ private:
 #if USE(ACCELERATED_COMPOSITING)
     void enterAcceleratedCompositingMode(const LayerTreeContext&);
     void exitAcceleratedCompositingMode();
+    void updateAcceleratedCompositingMode(const LayerTreeContext&);
 
     bool isInAcceleratedCompositingMode() const { return !m_layerTreeContext.isEmpty(); }
+
+#if USE(UI_SIDE_COMPOSITING)
+    virtual void setVisibleContentsRect(const WebCore::IntRect& visibleContentsRect, float scale, const WebCore::FloatPoint& trajectory, const WebCore::FloatPoint& accurateVisibleContentsPosition = WebCore::FloatPoint());
+    void didReceiveLayerTreeHostProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#endif
 #else
     bool isInAcceleratedCompositingMode() const { return false; }
 #endif
+
+    virtual void pageCustomRepresentationChanged();
 
     void discardBackingStoreSoon();
     void discardBackingStore();
@@ -107,7 +118,7 @@ private:
     bool m_isBackingStoreDiscardable;
     OwnPtr<BackingStore> m_backingStore;
 
-    RunLoop::Timer<DrawingAreaProxyImpl> m_discardBackingStoreTimer;
+    WebCore::RunLoop::Timer<DrawingAreaProxyImpl> m_discardBackingStoreTimer;
 };
 
 } // namespace WebKit

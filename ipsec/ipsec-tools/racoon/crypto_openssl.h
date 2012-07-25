@@ -90,39 +90,11 @@ extern vchar_t *eay_des_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_des_weakkey __P((vchar_t *));
 extern int eay_des_keylen __P((int));
 
-#ifdef HAVE_OPENSSL
-/* IDEA */
-extern vchar_t *eay_idea_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern vchar_t *eay_idea_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern int eay_idea_weakkey __P((vchar_t *));
-extern int eay_idea_keylen __P((int));
-
-/* blowfish */
-extern vchar_t *eay_bf_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern vchar_t *eay_bf_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern int eay_bf_weakkey __P((vchar_t *));
-extern int eay_bf_keylen __P((int));
-
-/* RC5 */
-extern vchar_t *eay_rc5_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern vchar_t *eay_rc5_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern int eay_rc5_weakkey __P((vchar_t *));
-extern int eay_rc5_keylen __P((int));
-#endif /* HAVE_OPENSSL */
-
 /* 3DES */
 extern vchar_t *eay_3des_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern vchar_t *eay_3des_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_3des_weakkey __P((vchar_t *));
 extern int eay_3des_keylen __P((int));
-
-#ifdef HAVE_OPENSSL
-/* CAST */
-extern vchar_t *eay_cast_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern vchar_t *eay_cast_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
-extern int eay_cast_weakkey __P((vchar_t *));
-extern int eay_cast_keylen __P((int));
-#endif
 
 /* AES(RIJNDAEL) */
 extern vchar_t *eay_aes_encrypt __P((vchar_t *, vchar_t *, vchar_t *));

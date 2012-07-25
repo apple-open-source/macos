@@ -21,28 +21,28 @@
 module html {
 
     interface [
-        HasIndexGetter,
-        HasOverridingNameGetter
+        IndexedGetter,
+        CustomNamedGetter
     ] HTMLFormElement : HTMLElement {
+        attribute [Reflect=accept_charset] DOMString acceptCharset;
+        attribute [Reflect, URL] DOMString action;
+        attribute [Reflect] DOMString autocomplete;
+        attribute [TreatNullAs=NullString] DOMString enctype;
+        attribute [TreatNullAs=NullString] DOMString encoding;
+        attribute [TreatNullAs=NullString] DOMString method;
+        attribute [Reflect] DOMString name;
+        attribute [Reflect] boolean noValidate;
+        attribute [Reflect] DOMString target;
+
         readonly attribute HTMLCollection elements;
         readonly attribute long length;
 
-        attribute [Reflect] DOMString name;
-        attribute [Reflect] boolean noValidate;
-        attribute [Reflect=accept_charset] DOMString acceptCharset;
-        attribute [Reflect, URL] DOMString action;
-        attribute [ConvertNullToNullString] DOMString encoding;
-        attribute [ConvertNullToNullString] DOMString enctype;
-        attribute [Reflect] DOMString method;
-        attribute [Reflect] DOMString target;
-        
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [ImplementationFunction=submitFromJavaScript] void submit();
+        [ImplementedAs=submitFromJavaScript] void submit();
 #else
         void submit();
 #endif
         void reset();
         boolean checkValidity();
     };
-
 }

@@ -27,7 +27,7 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/string/strlen.c,v 1.7 2009/01/26 07:31:28 delphij Exp $");
 
-#include <sys/limits.h>
+#include <limits.h>
 #include <sys/types.h>
 #include <string.h>
 

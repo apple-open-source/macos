@@ -145,13 +145,6 @@ gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_export_name_oid_desc =
     {6, rk_UNCONST("\x2b\x06\x01\x05\x06\x04") };
 
 /*
- *
- */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_dn_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x16")}; /* 1.2.752.43.13.22 */
-
-/*
  *   This name form shall be represented by the Object Identifier {iso(1)
  *   member-body(2) United States(840) mit(113554) infosys(1) gssapi(2)
  *   krb5(2) krb5_name(1)}.  The recommended symbolic name for this type
@@ -169,193 +162,99 @@ gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_nt_principal_oid_desc =
     {10, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x02") };
 
 /*
- *   This name form shall be represented by the Object Identifier {iso(1)
- *   member-body(2) United States(840) mit(113554) infosys(1) gssapi(2)
- *   generic(1) user_name(1)}.  The recommended symbolic name for this
- *   type is "GSS_KRB5_NT_USER_NAME".
- */
-
-/*
- *   This name form shall be represented by the Object Identifier {iso(1)
- *   member-body(2) United States(840) mit(113554) infosys(1) gssapi(2)
- *   generic(1) machine_uid_name(2)}.  The recommended symbolic name for
- *   this type is "GSS_KRB5_NT_MACHINE_UID_NAME".
- */
-
-/*
- *   This name form shall be represented by the Object Identifier {iso(1)
- *   member-body(2) United States(840) mit(113554) infosys(1) gssapi(2)
- *   generic(1) string_uid_name(3)}.  The recommended symbolic name for
- *   this type is "GSS_KRB5_NT_STRING_UID_NAME".
- */
-
-/*
- *   To support ongoing experimentation, testing, and evolution of the
- *   specification, the Kerberos V5 GSS-API mechanism as defined in this
- *   and any successor memos will be identified with the following Object
- *   Identifier, as defined in RFC-1510, until the specification is
- *   advanced to the level of Proposed Standard RFC:
- *
- *   {iso(1), org(3), dod(5), internet(1), security(5), kerberosv5(2)}
- *
- *   Upon advancement to the level of Proposed Standard RFC, the Kerberos
- *   V5 GSS-API mechanism will be identified by an Object Identifier
- *   having the value:
- *
- *   {iso(1) member-body(2) United States(840) mit(113554) infosys(1)
- *   gssapi(2) krb5(2)}
- */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_mechanism_oid_desc =
-    {9, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02") };
-
-/*
- * IAKERB
- * { iso(1) org(3) dod(6) internet(1) security(5) kerberosV5(2)
- *   iakerb(5) }
- */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_iakerb_mechanism_oid_desc =
-    {6, rk_UNCONST("\x2b\x06\x01\x05\x02\x05")};
-
-/*
- * PK-U2U
- * { iso(1) org(3) dod(6) internet(1) security(5) kerberosV5(2) pku2u(7) }
- */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_pku2u_mechanism_oid_desc =
-    {6, rk_UNCONST("\x2b\x06\x01\x05\x02\x07")};
-
-/*
- *
- */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_peer_has_updated_spnego_oid_desc =
-    {9, (void *)"\x2b\x06\x01\x04\x01\xa9\x4a\x13\x05"};
-
-/*
- * 1.2.752.43.13 Heimdal GSS-API Extentions
- */
-
-/* 1.2.752.43.13.1 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_copy_ccache_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x01")};
-
-/* 1.2.752.43.13.2 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_tkt_flags_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x02")};
-
-/* 1.2.752.43.13.3 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_extract_authz_data_from_sec_context_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x03")};
-
-/* 1.2.752.43.13.4 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_compat_des3_mic_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x04")};
-
-/* 1.2.752.43.13.5 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_register_acceptor_identity_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x05")};
-
-/* 1.2.752.43.13.6 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_export_lucid_context_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x06")};
-
-/* 1.2.752.43.13.6.1 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_export_lucid_context_v1_x_oid_desc =
-    {7, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x06\x01")};
-
-/* 1.2.752.43.13.7 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_set_dns_canonicalize_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x07")};
-
-/* 1.2.752.43.13.8 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_subkey_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x08")};
-
-/* 1.2.752.43.13.9 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_initiator_subkey_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x09")};
-
-/* 1.2.752.43.13.10 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_acceptor_subkey_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0a")};
-
-/* 1.2.752.43.13.11 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_send_to_kdc_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0b")};
-
-/* 1.2.752.43.13.12 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_authtime_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0c")};
-
-/* 1.2.752.43.13.13 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_service_keyblock_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0d")};
-
-/* 1.2.752.43.13.14 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_set_allowable_enctypes_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0e")};
-
-/* 1.2.752.43.13.15 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_set_default_realm_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x0f")};
-
-/* 1.2.752.43.13.16 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_ccache_name_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x10")};
-
-/* 1.2.752.43.13.17 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_set_time_offset_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x11")};
-
-/* 1.2.752.43.13.18 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_get_time_offset_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x12")};
-
-/* 1.2.752.43.13.19 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_plugin_register_x_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x13")};
-
-/* 1.2.752.43.13.20 GSS_NTLM_GET_SESSION_KEY_X */
-/* 1.2.752.43.13.21 GSS_C_NT_NTLM */
-/* 1.2.752.43.13.22 GSS_C_NT_DN */
-/* 1.2.752.43.13.23 GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_krb5_nt_principal_name_referral_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x17")};
-
-/* 1.2.752.43.13.24 GSS_C_NTLM_AVGUEST */
-/* 1.2.752.43.13.25 GSS_C_NTLM_V1 */
-/* 1.2.752.43.13.26 GSS_C_NTLM_V2 */
-/* 1.2.752.43.13.27 GSS_C_NTLM_SESSION_KEY */
-/* 1.2.752.43.13.28 GSS_C_NTLM_FORCE_V1 */
-/* 1.2.752.43.13.29 GSS_C_NTLM_SUPPORT_CHANNELBINDINGS */
-
-/* 1.2.752.43.13.30 GSS_C_NT_UUID */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_uuid_desc =
-{6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x1e")};
-
-/* 1.2.752.43.13.31 GSS_C_NTLM_SUPPORT_LM2 */
-
-/* 1.2.752.43.14.1 */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_sasl_digest_md5_mechanism_oid_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x01") };
-
-/* 1.2.752.43.14.2 - netlogon ssp -- replaced by msft oid */
-
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_inq_sspi_session_key_oid_desc =
-    {11, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02\x05\x05"};
-
-/* 1.2.752.43.14.3 supports LKDC */
-gss_OID_desc GSSAPI_LIB_VARIABLE __gss_appl_lkdc_supported_desc =
-    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x03") };
-
-
-
-/*
  * Context for krb5 calls.
  */
+
+static gss_mo_desc krb5_mo[] = {
+    {
+	GSS_C_MA_SASL_MECH_NAME,
+	GSS_MO_MA,
+	"SASL mech name",
+	rk_UNCONST("GS2-KRB5"),
+	_gss_mo_get_ctx_as_string,
+	NULL
+    },
+    {
+	GSS_C_MA_MECH_NAME,
+	GSS_MO_MA,
+	"Mechanism name",
+	rk_UNCONST("KRB5"),
+	_gss_mo_get_ctx_as_string,
+	NULL
+    },
+    {
+	GSS_C_MA_MECH_DESCRIPTION,
+	GSS_MO_MA,
+	"Mechanism description",
+	rk_UNCONST("Heimdal Kerberos 5 mech"),
+	_gss_mo_get_ctx_as_string,
+	NULL
+    },
+    {
+	GSS_C_MA_MECH_CONCRETE,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_ITOK_FRAMED,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_AUTH_INIT,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_AUTH_TARG,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_AUTH_INIT_ANON,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_DELEG_CRED,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_INTEG_PROT,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_CONF_PROT,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_MIC,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_WRAP,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_PROT_READY,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_REPLAY_DET,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_OOS_DET,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_CBINDINGS,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_PFS,
+	GSS_MO_MA
+    },
+    {
+	GSS_C_MA_CTX_TRANS,
+	GSS_MO_MA
+    }
+};
 
 /*
  *
@@ -364,7 +263,7 @@ gss_OID_desc GSSAPI_LIB_VARIABLE __gss_appl_lkdc_supported_desc =
 static gssapi_mech_interface_desc krb5_mech = {
     GMI_VERSION,
     "kerberos 5",
-    {9, "\x2a\x86\x48\x86\xf7\x12\x01\x02\x02" },
+    {9, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02") },
     0,
     _gsskrb5_acquire_cred,
     _gsskrb5_release_cred,
@@ -406,15 +305,25 @@ static gssapi_mech_interface_desc krb5_mech = {
     _gsskrb5_store_cred,
     _gsskrb5_export_cred,
     _gsskrb5_import_cred,
-    _gss_krb5_acquire_cred_ex,
+    _gss_krb5_acquire_cred_ext,
     _gss_krb5_iter_creds_f,
     _gsskrb5_destroy_cred,
     _gsskrb5_cred_hold,
     _gsskrb5_cred_unhold,
     _gsskrb5_cred_label_get,
     _gsskrb5_cred_label_set,
+    krb5_mo,
+    sizeof(krb5_mo) / sizeof(krb5_mo[0]),
+    _gsskrb5_pname_to_uid,
+    _gsskrb5_authorize_localname,
     NULL,
-    0
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    _gsskrb5_appl_change_password
 };
 
 static gssapi_mech_interface_desc iakerb_mech = {
@@ -462,7 +371,7 @@ static gssapi_mech_interface_desc iakerb_mech = {
     _gsskrb5_store_cred,
     _gsskrb5_export_cred,
     _gsskrb5_import_cred,
-    _gss_iakerb_acquire_cred_ex,
+    _gss_iakerb_acquire_cred_ext,
     _gss_iakerb_iter_creds_f,
     _gsskrb5_destroy_cred,
     _gsskrb5_cred_hold,
@@ -470,7 +379,17 @@ static gssapi_mech_interface_desc iakerb_mech = {
     _gsskrb5_cred_label_get,
     _gsskrb5_cred_label_set,
     NULL,
-    0
+    0,
+    _gsskrb5_pname_to_uid,
+    _gsskrb5_authorize_localname,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    _gsskrb5_appl_change_password
 };
 
 
@@ -521,7 +440,7 @@ static gssapi_mech_interface_desc pku2u_mech = {
     _gsskrb5_store_cred,
     _gsskrb5_export_cred,
     _gsskrb5_import_cred,
-    _gss_krb5_acquire_cred_ex,
+    _gss_krb5_acquire_cred_ext,
     _gss_pku2u_iter_creds_f,
     _gsskrb5_destroy_cred,
     _gsskrb5_cred_hold,
@@ -529,7 +448,17 @@ static gssapi_mech_interface_desc pku2u_mech = {
     _gsskrb5_cred_label_get,
     _gsskrb5_cred_label_set,
     NULL,
-    0
+    0,
+    _gsskrb5_pname_to_uid,
+    _gsskrb5_authorize_localname,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    _gsskrb5_appl_change_password
 };
 
 #endif
@@ -560,174 +489,7 @@ __gss_iakerb_initialize(void)
  * compat glue
  */
 
-#undef GSS_C_INQ_WIN2K_PAC_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_INQ_WIN2K_PAC_X =
-    &__gss_c_inq_win2k_pac_x_oid_desc;
-
-#undef GSS_C_NT_ANONYMOUS
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_ANONYMOUS =
-    &__gss_c_nt_anonymous_oid_desc;
-
-#undef GSS_C_NT_DN
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_DN =
-    &__gss_c_nt_dn_oid_desc;
-
-#undef GSS_C_NT_EXPORT_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_EXPORT_NAME =
-    &__gss_c_nt_export_name_oid_desc;
-
-#undef GSS_C_NT_HOSTBASED_SERVICE
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_HOSTBASED_SERVICE =
-    &__gss_c_nt_hostbased_service_oid_desc;
-
-#undef GSS_C_NT_HOSTBASED_SERVICE_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_HOSTBASED_SERVICE_X =
-    &__gss_c_nt_hostbased_service_x_oid_desc;
-
-#undef GSS_C_NT_MACHINE_UID_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_MACHINE_UID_NAME =
-    &__gss_c_nt_machine_uid_name_oid_desc;
-
-#undef GSS_C_NT_STRING_UID_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_STRING_UID_NAME =
-    &__gss_c_nt_string_uid_name_oid_desc;
-
-#undef GSS_C_NT_USER_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_NT_USER_NAME =
-    &__gss_c_nt_user_name_oid_desc;
-
-#undef GSS_C_PEER_HAS_UPDATED_SPNEGO
-GSSAPI_LIB_VARIABLE gss_OID GSS_C_PEER_HAS_UPDATED_SPNEGO =
-    &__gss_c_peer_has_updated_spnego_oid_desc;
-
-#undef GSS_IAKERB_MECHANISM
-GSSAPI_LIB_VARIABLE gss_OID GSS_IAKERB_MECHANISM =
-    &__gss_iakerb_mechanism_oid_desc;
-
-#undef GSS_KRB5_CCACHE_NAME_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_CCACHE_NAME_X =
-    &__gss_krb5_ccache_name_x_oid_desc;
-
-#undef GSS_KRB5_COMPAT_DES3_MIC_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_COMPAT_DES3_MIC_X =
-    &__gss_krb5_compat_des3_mic_x_oid_desc;
-
-#undef GSS_KRB5_COPY_CCACHE_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_COPY_CCACHE_X =
-    &__gss_krb5_copy_ccache_x_oid_desc;
-
-#undef GSS_KRB5_CRED_NO_CI_FLAGS_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_CRED_NO_CI_FLAGS_X =
-    &__gss_krb5_cred_no_ci_flags_x_oid_desc;
-
-#undef GSS_KRB5_EXPORT_LUCID_CONTEXT_V1_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_EXPORT_LUCID_CONTEXT_V1_X =
-    &__gss_krb5_export_lucid_context_v1_x_oid_desc;
-
-#undef GSS_KRB5_EXPORT_LUCID_CONTEXT_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_EXPORT_LUCID_CONTEXT_X =
-    &__gss_krb5_export_lucid_context_x_oid_desc;
-
-#undef GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_EXTRACT_AUTHZ_DATA_FROM_SEC_CONTEXT_X =
-    &__gss_krb5_extract_authz_data_from_sec_context_x_oid_desc;
-
-#undef GSS_KRB5_GET_ACCEPTOR_SUBKEY_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_ACCEPTOR_SUBKEY_X =
-    &__gss_krb5_get_acceptor_subkey_x_oid_desc;
-
-#undef GSS_KRB5_GET_AUTHTIME_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_AUTHTIME_X =
-    &__gss_krb5_get_authtime_x_oid_desc;
-
-#undef GSS_KRB5_GET_INITIATOR_SUBKEY_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_INITIATOR_SUBKEY_X =
-    &__gss_krb5_get_initiator_subkey_x_oid_desc;
-
-#undef GSS_KRB5_GET_SERVICE_KEYBLOCK_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_SERVICE_KEYBLOCK_X =
-    &__gss_krb5_get_service_keyblock_x_oid_desc;
-
-#undef GSS_KRB5_GET_SUBKEY_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_SUBKEY_X =
-    &__gss_krb5_get_subkey_x_oid_desc;
-
-#undef GSS_KRB5_GET_TIME_OFFSET_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_TIME_OFFSET_X =
-    &__gss_krb5_get_time_offset_x_oid_desc;
-
-#undef GSS_KRB5_GET_TKT_FLAGS_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_GET_TKT_FLAGS_X =
-    &__gss_krb5_get_tkt_flags_x_oid_desc;
-
-#undef GSS_KRB5_IMPORT_CRED_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_IMPORT_CRED_X =
-    &__gss_krb5_import_cred_x_oid_desc;
-
-#undef GSS_KRB5_MECHANISM
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_MECHANISM =
-    &__gss_krb5_mechanism_oid_desc;
-
-#undef GSS_KRB5_NT_MACHINE_UID_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_MACHINE_UID_NAME =
-    &__gss_c_nt_machine_uid_name_oid_desc;
-
-#undef GSS_KRB5_NT_PRINCIPAL
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_PRINCIPAL =
-    &__gss_krb5_nt_principal_oid_desc;
-
-#undef GSS_KRB5_NT_PRINCIPAL_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_PRINCIPAL_NAME =
-    &__gss_krb5_nt_principal_name_oid_desc;
-
-#undef GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL =
-    &__gss_krb5_nt_principal_name_referral_oid_desc;
-
-#undef GSS_KRB5_NT_STRING_UID_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_STRING_UID_NAME =
-    &__gss_c_nt_string_uid_name_oid_desc;
-
-#undef GSS_KRB5_NT_USER_NAME
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_NT_USER_NAME =
-    &__gss_c_nt_user_name_oid_desc;
-
-#undef GSS_KRB5_PLUGIN_REGISTER_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_PLUGIN_REGISTER_X =
-    &__gss_krb5_plugin_register_x_oid_desc;
-
-#undef GSS_KRB5_REGISTER_ACCEPTOR_IDENTITY_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_REGISTER_ACCEPTOR_IDENTITY_X =
-    &__gss_krb5_register_acceptor_identity_x_oid_desc;
-
-#undef GSS_KRB5_SEND_TO_KDC_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_SEND_TO_KDC_X =
-    &__gss_krb5_send_to_kdc_x_oid_desc;
-
-#undef GSS_KRB5_SET_ALLOWABLE_ENCTYPES_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_SET_ALLOWABLE_ENCTYPES_X =
-    &__gss_krb5_set_allowable_enctypes_x_oid_desc;
-
-#undef GSS_KRB5_SET_DEFAULT_REALM_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_SET_DEFAULT_REALM_X =
-    &__gss_krb5_set_default_realm_x_oid_desc;
-
-#undef GSS_KRB5_SET_DNS_CANONICALIZE_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_SET_DNS_CANONICALIZE_X =
-    &__gss_krb5_set_dns_canonicalize_x_oid_desc;
-
-#undef GSS_KRB5_SET_TIME_OFFSET_X
-GSSAPI_LIB_VARIABLE gss_OID GSS_KRB5_SET_TIME_OFFSET_X =
-    &__gss_krb5_set_time_offset_x_oid_desc;
-
-#undef GSS_PKU2U_MECHANISM
-GSSAPI_LIB_VARIABLE gss_OID GSS_PKU2U_MECHANISM =
-    &__gss_pku2u_mechanism_oid_desc;
-
-#undef GSS_SASL_DIGEST_MD5_MECHANISM
-GSSAPI_LIB_VARIABLE gss_OID GSS_SASL_DIGEST_MD5_MECHANISM =
-    &__gss_sasl_digest_md5_mechanism_oid_desc;
-
-#undef GSS_C_INQ_SSPI_SESSION_KEY
-gss_OID GSSAPI_LIB_VARIABLE GSS_C_INQ_SSPI_SESSION_KEY =
-    &__gss_c_inq_sspi_session_key_oid_desc;
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_appl_lkdc_supported_desc =
+    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0e\x03") };
+gss_OID_desc GSSAPI_LIB_VARIABLE __gss_c_nt_uuid_desc =
+    {6, rk_UNCONST("\x2a\x85\x70\x2b\x0d\x1e")};

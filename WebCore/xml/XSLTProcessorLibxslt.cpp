@@ -101,7 +101,7 @@ void XSLTProcessor::parseErrorFunc(void* userData, xmlError* error)
         break;
     }
 
-    console->addMessage(XMLMessageSource, LogMessageType, level, error->message, error->line, error->file);
+    console->addMessage(XMLMessageSource, LogMessageType, level, error->message, error->file, error->line);
 }
 
 // FIXME: There seems to be no way to control the ctxt pointer for loading here, thus we have globals.
@@ -168,9 +168,9 @@ static inline void setXSLTLoadCallBack(xsltDocLoaderFunc func, XSLTProcessor* pr
     globalCachedResourceLoader = cachedResourceLoader;
 }
 
-static int writeToVector(void* context, const char* buffer, int len)
+static int writeToStringBuilder(void* context, const char* buffer, int len)
 {
-    Vector<UChar>& resultOutput = *static_cast<Vector<UChar>*>(context);
+    StringBuilder& resultOutput = *static_cast<StringBuilder*>(context);
 
     if (!len)
         return 0;
@@ -197,9 +197,9 @@ static bool saveResultToString(xmlDocPtr resultDoc, xsltStylesheetPtr sheet, Str
     if (!outputBuf)
         return false;
 
-    Vector<UChar> resultVector;
-    outputBuf->context = &resultVector;
-    outputBuf->writecallback = writeToVector;
+    StringBuilder resultBuilder;
+    outputBuf->context = &resultBuilder;
+    outputBuf->writecallback = writeToStringBuilder;
 
     int retval = xsltSaveResultTo(outputBuf, resultDoc, sheet);
     xmlOutputBufferClose(outputBuf);
@@ -207,10 +207,10 @@ static bool saveResultToString(xmlDocPtr resultDoc, xsltStylesheetPtr sheet, Str
         return false;
 
     // Workaround for <http://bugzilla.gnome.org/show_bug.cgi?id=495668>: libxslt appends an extra line feed to the result.
-    if (resultVector.size() > 0 && resultVector[resultVector.size() - 1] == '\n')
-        resultVector.removeLast();
+    if (resultBuilder.length() > 0 && resultBuilder[resultBuilder.length() - 1] == '\n')
+        resultBuilder.resize(resultBuilder.length() - 1);
 
-    resultString = String::adopt(resultVector);
+    resultString = resultBuilder.toString();
 
     return true;
 }
@@ -307,6 +307,7 @@ bool XSLTProcessor::transformToString(Node* sourceNode, String& mimeType, String
     xsltStylesheetPtr sheet = xsltStylesheetPointer(m_stylesheet, m_stylesheetRootNode.get());
     if (!sheet) {
         setXSLTLoadCallBack(0, 0, 0);
+        m_stylesheet = 0;
         return false;
     }
     m_stylesheet->clearDocuments();

@@ -40,12 +40,107 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/err.c,v 1.15 2008/04/03 20:36:44 imp Exp $"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vis.h>
 #include "un-namespace.h"
 
+#ifdef __BLOCKS__
+#include <Block.h>
+#endif /* __BLOCKS__ */
 #include "libc_private.h"
 
-static FILE *err_file; /* file to use for error output */
-static void (*err_exit)(int);
+#define ERR_EXIT_UNDEF	0
+#ifdef __BLOCKS__
+#define ERR_EXIT_BLOCK	1
+#endif /* __BLOCKS__ */
+#define ERR_EXIT_FUNC	2
+struct _e_err_exit {
+	unsigned int type;
+#ifdef __BLOCKS__
+	union {
+#endif /* __BLOCKS__ */
+		void (*func)(int);
+#ifdef __BLOCKS__
+		void (^block)(int);
+	};
+#endif /* __BLOCKS__ */
+};
+
+#ifdef BUILDING_VARIANT
+
+__private_extern__ FILE *_e_err_file; /* file to use for error output */
+__private_extern__ struct _e_err_exit _e_err_exit;
+__private_extern__ void _e_visprintf(FILE * __restrict, const char * __restrict, va_list);
+
+#else /* !BUILDING_VARIANT */
+
+__private_extern__ FILE *_e_err_file = NULL; /* file to use for error output */
+__private_extern__ struct _e_err_exit _e_err_exit = {ERR_EXIT_UNDEF};
+
+/*
+ * zero means pass as is
+ * 255 means use \nnn (octal)
+ * otherwise use \x (x is value)
+ * (NUL isn't used)
+ */
+static unsigned char escape[256] = {
+     /* NUL */
+	 0, /* Unused: strings can't contain nulls */
+     /*      SOH  STX  ETX  EOT  ENQ  ACK  BEL */
+	     255, 255, 255, 255, 255, 255, 'a',
+     /* BS   HT   NL   VT   NP   CR   SO   SI  */
+	'b',  0,   0,  'v', 'f', 'r', 255, 255,
+     /* DLE  DC1  DC2  DC3  DC4  NAK  SYN  ETB */
+	255, 255, 255, 255, 255, 255, 255, 255,
+     /* CAN  EM   SUB  ESC  FS   GS   RS   US  */
+	255, 255, 255, 255, 255, 255, 255, 255,
+     /* the rest are zero */
+};
+
+/*
+ * Make characters visible.  If we can't allocate enough
+ * memory, we fall back on vfprintf().
+ */
+__private_extern__ void
+_e_visprintf(FILE * __restrict stream, const char * __restrict format, va_list ap)
+{
+	int failed = 0;
+	char *str, *visstr;
+	va_list backup;
+
+	va_copy(backup, ap);
+	vasprintf(&str, format, ap);
+	if (str != NULL) {
+		if ((visstr = malloc(4 * strlen(str) + 1)) != NULL) {
+			unsigned char *fp = (unsigned char *)str;
+			unsigned char *tp = (unsigned char *)visstr;
+			while(*fp) {
+				switch(escape[*fp]) {
+				case 0:
+					*tp++ = *fp;
+					break;
+				case 255:
+					sprintf((char *)tp, "\\%03o", *fp);
+					tp += 4;
+					break;
+				default:
+					*tp++ = '\\';
+					*tp++ = escape[*fp];
+					break;
+				}
+				fp++;
+			}
+			*tp = 0;
+			fputs(visstr, stream);
+			free(visstr);
+		} else
+			failed = 1;
+		free(str);
+	} else
+		failed = 1;
+	if (failed)
+		vfprintf(stream, format, backup);
+	va_end(backup);
+}
 
 /*
  * This is declared to take a `void *' so that the caller is not required
@@ -56,16 +151,27 @@ void
 err_set_file(void *fp)
 {
 	if (fp)
-		err_file = fp;
+		_e_err_file = fp;
 	else
-		err_file = stderr;
+		_e_err_file = stderr;
 }
 
 void
 err_set_exit(void (*ef)(int))
 {
-	err_exit = ef;
+	_e_err_exit.type = ERR_EXIT_FUNC;
+	_e_err_exit.func = ef;
 }
+
+#ifdef __BLOCKS__
+void
+err_set_exit_b(void (^ef)(int))
+{
+	_e_err_exit.type = ERR_EXIT_BLOCK;
+	_e_err_exit.block = Block_copy(ef);
+}
+#endif /* __BLOCKS__ */
+#endif /* !BUILDING_VARIANT */
 
 __weak_reference(_err, err);
 
@@ -99,16 +205,21 @@ errc(int eval, int code, const char *fmt, ...)
 void
 verrc(int eval, int code, const char *fmt, va_list ap)
 {
-	if (err_file == 0)
+	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
-	fprintf(err_file, "%s: ", _getprogname());
+	fprintf(_e_err_file, "%s: ", _getprogname());
 	if (fmt != NULL) {
-		vfprintf(err_file, fmt, ap);
-		fprintf(err_file, ": ");
+		_e_visprintf(_e_err_file, fmt, ap);
+		fprintf(_e_err_file, ": ");
 	}
-	fprintf(err_file, "%s\n", strerror(code));
-	if (err_exit)
-		err_exit(eval);
+	fprintf(_e_err_file, "%s\n", strerror(code));
+	if (_e_err_exit.type)
+#ifdef __BLOCKS__
+		if (_e_err_exit.type == ERR_EXIT_BLOCK)
+			_e_err_exit.block(eval);
+		else
+#endif /* __BLOCKS__ */
+			_e_err_exit.func(eval);
 	exit(eval);
 }
 
@@ -124,14 +235,19 @@ errx(int eval, const char *fmt, ...)
 void
 verrx(int eval, const char *fmt, va_list ap)
 {
-	if (err_file == 0)
+	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
-	fprintf(err_file, "%s: ", _getprogname());
+	fprintf(_e_err_file, "%s: ", _getprogname());
 	if (fmt != NULL)
-		vfprintf(err_file, fmt, ap);
-	fprintf(err_file, "\n");
-	if (err_exit)
-		err_exit(eval);
+		_e_visprintf(_e_err_file, fmt, ap);
+	fprintf(_e_err_file, "\n");
+	if (_e_err_exit.type)
+#ifdef __BLOCKS__
+		if (_e_err_exit.type == ERR_EXIT_BLOCK)
+			_e_err_exit.block(eval);
+		else
+#endif /* __BLOCKS__ */
+			_e_err_exit.func(eval);
 	exit(eval);
 }
 
@@ -164,14 +280,14 @@ warnc(int code, const char *fmt, ...)
 void
 vwarnc(int code, const char *fmt, va_list ap)
 {
-	if (err_file == 0)
+	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
-	fprintf(err_file, "%s: ", _getprogname());
+	fprintf(_e_err_file, "%s: ", _getprogname());
 	if (fmt != NULL) {
-		vfprintf(err_file, fmt, ap);
-		fprintf(err_file, ": ");
+		_e_visprintf(_e_err_file, fmt, ap);
+		fprintf(_e_err_file, ": ");
 	}
-	fprintf(err_file, "%s\n", strerror(code));
+	fprintf(_e_err_file, "%s\n", strerror(code));
 }
 
 void
@@ -186,10 +302,10 @@ warnx(const char *fmt, ...)
 void
 vwarnx(const char *fmt, va_list ap)
 {
-	if (err_file == 0)
+	if (_e_err_file == 0)
 		err_set_file((FILE *)0);
-	fprintf(err_file, "%s: ", _getprogname());
+	fprintf(_e_err_file, "%s: ", _getprogname());
 	if (fmt != NULL)
-		vfprintf(err_file, fmt, ap);
-	fprintf(err_file, "\n");
+		_e_visprintf(_e_err_file, fmt, ap);
+	fprintf(_e_err_file, "\n");
 }

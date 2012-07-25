@@ -553,8 +553,8 @@ format1(const struct stat *st,
 	int l, small, formats;
 
 	tsp = NULL;
-	formats = 0;
-	small = 0;
+//	formats = 0;
+//	small = 0;
 
 	/*
 	 * First, pick out the data and tweak it based on hilo or
@@ -689,8 +689,11 @@ format1(const struct stat *st,
 		ts = *tsp;		/* copy so we can muck with it */
 		small = (sizeof(ts.tv_sec) == 4);
 		data = ts.tv_sec;
-		small = 1;
 		tm = localtime(&ts.tv_sec);
+		if (tm == NULL) {
+			ts.tv_sec = 0;
+			tm = localtime(&ts.tv_sec);
+		}
 		(void)strftime(path, sizeof(path), timefmt, tm);
 		sdata = path;
 		formats = FMTF_DECIMAL | FMTF_OCTAL | FMTF_UNSIGNED | FMTF_HEX |

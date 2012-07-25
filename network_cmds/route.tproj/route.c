@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1297,7 +1297,7 @@ char routeflags[] =
 "\011CLONING\012XRESOLVE\013LLINFO\014STATIC\015BLACKHOLE\016b016"
 "\017PROTO2\020PROTO1\021PRCLONING\022WASCLONED\023PROTO3\024b024"
 "\025PINNED\026LOCAL\027BROADCAST\030MULTICAST\031IFSCOPE\032CONDEMNED"
-"\033IFREF";
+"\033IFREF\034PROXY\035ROUTER";
 char ifnetflags[] =
 "\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5PTP\6b6\7RUNNING\010NOARP"
 "\011PPROMISC\012ALLMULTI\013OACTIVE\014SIMPLEX\015LINK0\016LINK1"
@@ -1350,10 +1350,8 @@ print_rtmsg(rtm, msglen)
 			(long)rtm->rtm_pid, rtm->rtm_seq, rtm->rtm_errno);
 		if (rtm->rtm_flags & RTF_IFSCOPE)
 			(void) printf("ifscope %d, ", rtm->rtm_index);
-#ifdef RTF_IFREF
 			if (rtm->rtm_flags & RTF_IFREF)
 			(void) printf("ifref, ");
-#endif /* RTF_IFREF */
 			(void) printf("flags:");
 		bprintf(stdout, rtm->rtm_flags, routeflags);
 		pmsg_common(rtm);
@@ -1371,7 +1369,7 @@ print_getmsg(rtm, msglen)
 	register char *cp;
 	register int i;
 
-	(void) printf("   route to: %s\n", routename(&so_dst));
+	(void) printf("   route to: %s\n", routename(&so_dst.sa));
 	if (rtm->rtm_version != RTM_VERSION) {
 		warnx("routing message version %d not understood",
 		     rtm->rtm_version);

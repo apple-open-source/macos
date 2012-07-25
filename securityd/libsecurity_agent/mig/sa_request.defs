@@ -1,0 +1,70 @@
+//
+// sa_request.defs - Client-side Mach RPC interface to SecurityAgent.
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem secagentrequest 1100;
+serverprefix sa_request_server_;
+userprefix sa_request_client_;
+
+import <security_agent_client/sa_types.h>;
+
+//
+// Data types
+//
+type Data = array [] of char;
+
+type AuthorizationString = c_string[*:1024];
+type AuthorizationItemSetBlob = Data
+	ctype: AuthorizationItemSetPtr;
+type AuthorizationItemSetPtr = unsigned32;
+type AuthorizationValueVectorBlob = Data
+	ctype: AuthorizationValueVectorPtr;
+type AuthorizationValueVectorPtr = unsigned32;
+type SessionId = unsigned32;
+type Choice = struct[2] of unsigned32;
+
+#define BLOB(name,type)	name: type##Blob; name##Base: type##Ptr
+
+//
+// Staged SecurityAgent request protocol
+//
+simpleroutine create(requestport agentPort: mach_port_t;
+	instanceReplyPort: mach_port_make_send_t; // give agent send rights for replies
+	sessionId: SessionId;
+	pluginId: AuthorizationString;
+	mechanismId: AuthorizationString);
+
+simpleroutine invoke(requestport instanceRequestPort: mach_port_t;
+	BLOB(argumentsIn,AuthorizationValueVector);
+	BLOB(hintsIn,AuthorizationItemSet);
+	BLOB(contextIn,AuthorizationItemSet));
+
+simpleroutine deactivate(requestport instanceRequestPort: mach_port_t);
+
+simpleroutine destroy(requestport instanceRequestPort: mach_port_t);
+
+//
+// Tell the SecurityAgent to go away we no longer need you.
+//
+simpleroutine terminate(requestport agentPort: mach_port_t);
+
+//
+// Support transaction semantics outside the usual client protocol
+// (those semantics not defined here)
+//
+routine txStart(agentPort: mach_port_t;
+    sreplyport clientReplyPort: mach_port_make_send_once_t);
+    
+simpleroutine txEnd(agentPort: mach_port_t);
+
+//
+// client check-in
+//
+simpleroutine contact(requestport agentPort: mach_port_t;
+    clientPort: mach_port_make_send_t;
+    serveraudittoken sourceAudit: audit_token_t; 
+    jobPort: mach_port_move_send_t;
+    processBootstrap: mach_port_t;
+    userPrefs: mach_port_t);

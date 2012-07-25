@@ -13,13 +13,10 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonHMAC.h>
 
-#ifdef __APPLE_TARGET_EMBEDDED__
-#include "CCDGlue.h"
-#include <CommonCrypto/CommonRandomSPI.h>
-#else
 #include <CommonCrypto/CommonDigestSPI.h>
 #include <CommonCrypto/CommonCryptorSPI.h>
 #include <CommonCrypto/CommonRandomSPI.h>
+#ifndef __APPLE_TARGET_EMBEDDED__
 #include <hcrypto/des.h>
 #include <hcrypto/rc4.h>
 #include <hcrypto/rc2.h>

@@ -1,4 +1,4 @@
-#include <TargetConfig.h>
+#include <TargetConditionals.h>
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
@@ -472,13 +472,11 @@
 /* Define to 1 if you have the <math.h> header file. */
 #define HAVE_MATH_H 1
 
-#if !TARGET_OS_EMBEDDED
 /* Define to 1 if you have the `MD5Init' function. */
-#define HAVE_MD5INIT 1
+/* #undef HAVE_MD5INIT */
 
 /* Define to 1 if you have the <md5.h> header file. */
-#define HAVE_MD5_H 1
-#endif
+/* #undef HAVE_MD5_H 1 */
 
 /* Define to 1 if you have the `memcpy' function. */
 #define HAVE_MEMCPY 1
@@ -1173,10 +1171,8 @@
 /* Do we have support for SHMEM_STATUS? */
 #define ONCORE_SHMEM_STATUS 1
 
-#if !TARGET_OS_EMBEDDED
 /* Use OpenSSL? */
-#define OPENSSL /**/
-#endif
+/* #undef OPENSSL */
 
 /* Should we open the broadcast socket? */
 #define OPEN_BCAST_SOCKET 1

@@ -65,8 +65,8 @@ vchar_t *privsep_getpsk __P((const char *, const int));
 int privsep_xauth_login_system __P((char *, char *));
 #ifdef HAVE_LIBPAM
 int privsep_accounting_pam __P((int, int));
-int privsep_xauth_login_pam __P((int, struct sockaddr *, char *, char *));
+int privsep_xauth_login_pam __P((int, struct sockaddr_storage *, char *, char *));
 void privsep_cleanup_pam __P((int));
 #endif
-int privsep_accounting_system __P((int, struct sockaddr *, char *, int));
+int privsep_accounting_system __P((int, struct sockaddr_storage *, char *, int));
 #endif /* _PRIVSEP_H */

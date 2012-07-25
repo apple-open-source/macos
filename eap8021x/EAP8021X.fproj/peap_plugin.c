@@ -56,6 +56,7 @@
 #include <EAP8021X/EAPUtil.h>
 #include <EAP8021X/EAPClientModule.h>
 #include "myCFUtil.h"
+#include "nbo.h"
 #include "printdata.h"
 
 enum {
@@ -129,41 +130,41 @@ enum {
 static __inline__ void
 EAPExtensionsPacketSetAVPLength(EAPExtensionsPacketRef pkt, uint16_t length)
 {
-    *((u_short *)pkt->avp_length) = htons(length);
+    net_uint16_set(pkt->avp_length, length); 
     return;
 }
 
 static __inline__ uint16_t
 EAPExtensionsPacketGetAVPLength(const EAPExtensionsPacketRef pkt)
 {
-    return (ntohs(*((u_short *)pkt->avp_length)));
+    return (net_uint16_get(pkt->avp_length));
 }
 
 static __inline__ void
 EAPExtensionsPacketSetAVPType(EAPExtensionsPacketRef pkt, uint16_t type)
 {
-    *((u_short *)pkt->avp_type) = htons(type);
+    net_uint16_set(pkt->avp_type, type);
     return;
 }
 
 static __inline__ uint16_t
 EAPExtensionsPacketGetAVPType(const EAPExtensionsPacketRef pkt)
 {
-    return (ntohs(*((u_short *)pkt->avp_type)));
+    return (net_uint16_get(pkt->avp_type));
 }
 
 static __inline__ void
 EAPExtensionsResultPacketSetStatus(EAPExtensionsResultPacketRef pkt, 
 				   uint16_t status)
 {
-    *((u_short *)pkt->status) = htons(status);
+    net_uint16_set(pkt->status, status);
     return;
 }
 
 static __inline__ uint16_t
 EAPExtensionsResultPacketGetStatus(const EAPExtensionsResultPacketRef pkt)
 {
-    return (ntohs(*((u_short *)pkt->status)));
+    return (net_uint16_get(pkt->status));
 }
 
 static __inline__ bool
@@ -1189,7 +1190,8 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
     u_int32_t		tls_message_length = 0;
     RequestType		type;
 
-    eaptls_in_l = (EAPTLSLengthIncludedPacket *)in_pkt;
+    /* ALIGN: void * cast OK, we don't expect proper alignment */
+    eaptls_in_l = (EAPTLSLengthIncludedPacket *)(void *)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
 	syslog(LOG_NOTICE, "peap_request: length %d < %ld",
 	       in_length, sizeof(*eaptls_in));
@@ -1222,7 +1224,7 @@ peap_request(EAPClientPluginDataRef plugin, SSLSessionState ssl_state,
 	    goto ignore;
 	}
 	tls_message_length 
-	    = ntohl(*((u_int32_t *)eaptls_in_l->tls_message_length));
+	    = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kEAPTLSAvoidDenialOfServiceSize) {
 	    if ((eaptls_in->flags & kEAPTLSPacketFlagsMoreFragments) != 0) {
 		syslog(LOG_NOTICE, 
@@ -1621,7 +1623,10 @@ peap_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
 	    pkt->identifier, length, eaptls_pkt->flags,
 	    (PEAPPacketFlagsFlags(eaptls_pkt->flags) != 0) ? " [" : "");
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacket *)pkt;
+
+    /* ALIGN: void * cast OK, we don't expect proper alignment */ 
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacket *)(void *)pkt;
+    
     data_ptr = eaptls_pkt->tls_data;
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
@@ -1633,7 +1638,7 @@ peap_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    data_ptr = eaptls_pkt_l->tls_data;
 	    data_length = length - sizeof(EAPTLSLengthIncludedPacket);
 	    tls_message_length 
-		= ntohl(*((u_int32_t *)eaptls_pkt_l->tls_message_length));
+		= EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
 	    fprintf(out_f, " length=%u", tls_message_length);
 	
 	}

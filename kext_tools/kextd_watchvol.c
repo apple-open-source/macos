@@ -534,13 +534,14 @@ static int signalWaiter(CFMachPortRef waiter, int status)
     replyPort=(mach_port_t)(intptr_t)CFDictionaryGetValue(sReplyPorts,waiter);
     CFDictionaryRemoveValue(sReplyPorts, waiter);
 
-    if (replyPort != MACH_PORT_NULL)
+    if (replyPort != MACH_PORT_NULL) {
         if (waiter == sRebootWaiter) {
             mountpoint_t empty;
             rval = lock_reboot_reply(replyPort, KERN_SUCCESS, empty, status);
         } else {
             rval = lock_volume_reply(replyPort, KERN_SUCCESS, status);
         }
+    }
 
     if (rval) {
         OSKextLog(/* kext */ NULL,
@@ -656,6 +657,7 @@ finish:
         if (watch_path(fullp, fsPort, watched)) \
             goto finish; \
     } while(0)
+#define kInstallCommitPath "/private/var/run/installd.commit.pid"
 static void vol_appeared(DADiskRef disk, void *launchCtx)
 {
     int result = 0; // for now, ignore inability to get basic data (4528851)
@@ -708,6 +710,7 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
         struct statfs sfs;
         if (statfs(path, &sfs) == -1)       goto finish;
         if (sfs.f_flags & MNT_RDONLY)       goto finish;    // ignore r-only
+        if (sfs.f_flags & MNT_DONTBROWSE)   goto finish;    // respect nobrowse
     } else {
         // couldn't get a path, we don't care about this one
         goto finish;
@@ -733,9 +736,12 @@ static void vol_appeared(DADiskRef disk, void *launchCtx)
     fsPort = CFMachPortGetPort(sFsysChangedPort);
     if (fsPort == MACH_PORT_NULL)               goto finish;
 
-    // for path in { exts, kernel, locSrcs, rpspaths[], booters, miscpaths[] }
-    // rpspaths contains mkext, bootconfig; miscpaths the label file
-    // cache paths are relative; need to make absolute
+    /* for path in { bootcaches.plist, installd.commit.pid, exts, kernel,
+     * locSrcs, rpspaths[], booters, miscpaths[] }
+     * rpspaths contains mkext, bootconfig; miscpaths the label file
+     * cache paths are relative; WATCH() makes absolute */
+    WATCH(watched, path, kBootCachesPath, fsPort);
+    WATCH(watched, path, kInstallCommitPath, fsPort);
     WATCH(watched, path, caches->exts, fsPort);
     WATCH(watched, path, caches->kernel, fsPort);
     WATCH(watched, path, caches->locSource, fsPort);
@@ -1145,9 +1151,10 @@ static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
     struct watchedVol *watched;
     int notify_status = NOTIFY_STATUS_OK;
     int token;
+    FILE *f;
     mach_msg_empty_rcv_t *msg = (mach_msg_empty_rcv_t*)m;
 
-    char bcPath[PATH_MAX];
+    char path[PATH_MAX];
     struct stat sb;
 
     // msg_id==token -> notify_get_state() -> watchedVol*
@@ -1182,20 +1189,39 @@ static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
         goto finish;
     }
 
-    // the goal is to schedule a timer to do the update later,
-    // but if bootcaches.plist changed, we'll let that take priority
-    // and do an immediate update (XX fstat() when unlinked?).
-    if (strlcpy(bcPath,watched->caches->root,sizeof(bcPath)) >= sizeof(bcPath))
+    // The goal is to schedule a timer to do the update later, but if
+    // the installer is installing, then we'll ignore this change.
+    // Changes to the .pid file will call us again.
+    if (strlcpy(path,watched->caches->root,sizeof(path)) >= sizeof(path))
         goto finish;
-    if (strlcat(bcPath, kBootCachesPath, sizeof(bcPath)) >= sizeof(bcPath))
+    if (strlcat(path, kInstallCommitPath, sizeof(path)) >= sizeof(path))
         goto finish;
-    // if it went away, let vol_disappeared get called by diskarb
-    if (stat(bcPath, &sb) != 0) {
+    if ((f = fopen(path, "r"))) {
+        pid_t pid;
+        int nmatched = fscanf(f, "%d", &pid);
+        fclose(f);
+        if (nmatched == 1) {
+            if (0 == kill(pid, 0)) {
+                OSKextLog(NULL,kOSKextLogDetailLevel|kOSKextLogFileAccessFlag,
+                          "%s: installer active, ignoring changes",
+                          watched->caches->root);
+                goto finish;
+            }
+        }
+    }
+
+    // Check for new bootcaches.plist content
+    if (strlcpy(path,watched->caches->root,sizeof(path)) >= sizeof(path))
+        goto finish;
+    if (strlcat(path, kBootCachesPath, sizeof(path)) >= sizeof(path))
+        goto finish;
+    if (stat(path, &sb) != 0) {
         if (errno != ENOENT) {
             OSKextLogCFString(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
-                CFSTR("stat failed for %s: %s."), bcPath, strerror(errno));
+                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                CFSTR("stat failed for %s: %s."), path, strerror(errno));
         }
+        // no longer a bootcaches.plist, bail (w/o canceling watch)
         goto finish;
     }
 
@@ -1219,6 +1245,8 @@ static void fsys_changed(CFMachPortRef p, void *m, CFIndex size, void *info)
             goto finish;
         }
 
+        // X: doesn't work for '/', but users' bootcaches.plist shouldn't change
+        // except from the InstallOS with their '/' as /Volumes/Mac HD. :)
         vol_disappeared(disk, NULL);    // destroys watched (incl sb)
         vol_appeared(disk, NULL);       // checks if rebuild needed
         CFRelease(disk);
@@ -1312,6 +1340,7 @@ static Boolean check_rebuild(struct watchedVol *watched)
 
         goto dorebuild;
     }
+
     // updates isBootRoot and modifies NVRAM if needed
     check_boots_set_nvram(watched);
 
@@ -1970,7 +1999,7 @@ static Boolean reconsiderVolumes(mountpoint_t busyVol)
         if (sfs->f_flags & MNT_LOCAL && strcmp(sfs->f_fstypename, "devfs")) {
             if (reconsiderVolume(sfs->f_mntonname) && !rval) {
                 // only capture first volume, but check them all
-                strlcpy(busyVol, sfs->f_mntonname, sizeof(busyVol));
+                strlcpy(busyVol, sfs->f_mntonname, sizeof(mountpoint_t));
                 rval = true;
             }
         }

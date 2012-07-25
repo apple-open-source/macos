@@ -23,7 +23,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef MediaQuery_h
@@ -38,7 +38,7 @@ namespace WebCore {
 class MediaQueryExp;
 
 class MediaQuery {
-    WTF_MAKE_NONCOPYABLE(MediaQuery); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum Restrictor {
         Only, Not, None
@@ -56,7 +56,11 @@ public:
     String cssText() const;
     bool ignored() const { return m_ignored; }
 
+    PassOwnPtr<MediaQuery> copy() const { return adoptPtr(new MediaQuery(*this)); }
+
  private:
+    MediaQuery(const MediaQuery&);
+
     Restrictor m_restrictor;
     String m_mediaType;
     OwnPtr<ExpressionVector> m_expressions;

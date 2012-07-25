@@ -120,33 +120,15 @@ confstr(name, buf, len)
 
 	case _CS_XBS5_ILP32_OFF32_LINTFLAGS:		/* legacy */
 
-	case _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS:
-	case _CS_XBS5_ILP32_OFFBIG_CFLAGS:		/* legacy */
-
-	case _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS:
-	case _CS_XBS5_ILP32_OFFBIG_LDFLAGS:		/* legacy */
-
 	case _CS_POSIX_V6_ILP32_OFFBIG_LIBS:
 	case _CS_XBS5_ILP32_OFFBIG_LIBS:		/* legacy */
 
 	case _CS_XBS5_ILP32_OFFBIG_LINTFLAGS:		/* legacy */
 
-	case _CS_POSIX_V6_LP64_OFF64_CFLAGS:
-	case _CS_XBS5_LP64_OFF64_CFLAGS:		/* legacy */
-
-	case _CS_POSIX_V6_LP64_OFF64_LDFLAGS:
-	case _CS_XBS5_LP64_OFF64_LDFLAGS:		/* legacy */
-
 	case _CS_POSIX_V6_LP64_OFF64_LIBS:
 	case _CS_XBS5_LP64_OFF64_LIBS:			/* legacy */
 
 	case _CS_XBS5_LP64_OFF64_LINTFLAGS:		/* legacy */
-
-	case _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS:
-	case _CS_XBS5_LPBIG_OFFBIG_CFLAGS:		/* legacy */
-
-	case _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS:
-	case _CS_XBS5_LPBIG_OFFBIG_LDFLAGS:		/* legacy */
 
 	case _CS_POSIX_V6_LPBIG_OFFBIG_LIBS:
 	case _CS_XBS5_LPBIG_OFFBIG_LIBS:		/* legacy */
@@ -154,6 +136,28 @@ confstr(name, buf, len)
 	case _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS:		/* legacy */
 		/* No special flags... yet */
 		p = "";
+		goto docopy;
+
+	case _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS:
+	case _CS_XBS5_ILP32_OFFBIG_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS:
+	case _CS_XBS5_ILP32_OFFBIG_LDFLAGS:		/* legacy */
+		p = "-W 32";
+		goto docopy;
+
+	case _CS_POSIX_V6_LP64_OFF64_CFLAGS:
+	case _CS_XBS5_LP64_OFF64_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LP64_OFF64_LDFLAGS:
+	case _CS_XBS5_LP64_OFF64_LDFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS:
+	case _CS_XBS5_LPBIG_OFFBIG_CFLAGS:		/* legacy */
+
+	case _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS:
+	case _CS_XBS5_LPBIG_OFFBIG_LDFLAGS:		/* legacy */
+		p = "-W 64";
 		goto docopy;
 
 	case _CS_POSIX_V6_WIDTH_RESTRICTED_ENVS:
@@ -172,8 +176,11 @@ docopy:
 			errno = ENOMEM;
 			return (CONFSTR_ERR_RET);
 		}
-		if (_dirhelper(DIRHELPER_USER_LOCAL, p, PATH_MAX) == NULL)
+		if (_dirhelper(DIRHELPER_USER_LOCAL, p, PATH_MAX) == NULL) {
+			if (errno != ENOMEM)
+				errno = EIO;
 			return (CONFSTR_ERR_RET);
+		}
 		goto docopy;
 
 	case _CS_DARWIN_USER_TEMP_DIR:
@@ -182,6 +189,7 @@ docopy:
 			return (CONFSTR_ERR_RET);
 		}
 		if (_dirhelper(DIRHELPER_USER_LOCAL_TEMP, p, PATH_MAX) == NULL) {
+			int dh_errno = errno;
 			/*
 			 * If _dirhelper() fails, try TMPDIR and P_tmpdir,
 			 * finally failing otherwise.
@@ -190,6 +198,10 @@ docopy:
 				goto docopy;
 			if (access(p = P_tmpdir, W_OK) == 0)
 				goto docopy;
+			if (dh_errno == ENOMEM)
+				errno = ENOMEM;
+			else
+				errno = EIO;
 			return (CONFSTR_ERR_RET);
 		}
 		goto docopy;
@@ -199,8 +211,11 @@ docopy:
 			errno = ENOMEM;
 			return (CONFSTR_ERR_RET);
 		}
-		if (_dirhelper(DIRHELPER_USER_LOCAL_CACHE, p, PATH_MAX) == NULL)
+		if (_dirhelper(DIRHELPER_USER_LOCAL_CACHE, p, PATH_MAX) == NULL) {
+			if (errno != ENOMEM)
+				errno = EIO;
 			return (CONFSTR_ERR_RET);
+		}
 		goto docopy;
 
 	default:

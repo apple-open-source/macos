@@ -29,8 +29,8 @@
 
 #include "AffineTransform.h"
 #include "GraphicsContext.h"
-
 #include <ApplicationServices/ApplicationServices.h>
+#include <wtf/MainThread.h>
 
 #if PLATFORM(MAC) || PLATFORM(CHROMIUM)
 #include "WebCoreSystemInterface.h"
@@ -44,7 +44,7 @@ namespace WebCore {
 
 static void patternCallback(void* info, CGContextRef context)
 {
-    CGImageRef platformImage = static_cast<Image*>(info)->getCGImageRef();
+    CGImageRef platformImage = static_cast<CGImageRef>(info);
     if (!platformImage)
         return;
 
@@ -53,9 +53,14 @@ static void patternCallback(void* info, CGContextRef context)
     CGContextDrawImage(context, rect, platformImage);
 }
 
+static void patternReleaseOnMainThreadCallback(void* info)
+{
+    CGImageRelease(static_cast<CGImageRef>(info));
+}
+
 static void patternReleaseCallback(void* info)
 {
-    static_cast<Image*>(info)->deref();
+    callOnMainThread(patternReleaseOnMainThreadCallback, info);
 }
 
 CGPatternRef Pattern::createPlatformPattern(const AffineTransform& userSpaceTransformation) const
@@ -79,12 +84,11 @@ CGPatternRef Pattern::createPlatformPattern(const AffineTransform& userSpaceTran
     CGFloat xStep = m_repeatX ? tileRect.width() : (1 << 22);
     CGFloat yStep = m_repeatY ? tileRect.height() : (1 << 22);
 
-    // The pattern will release the tile when it's done rendering in patternReleaseCallback
-    tileImage()->ref();
+    // The pattern will release the CGImageRef when it's done rendering in patternReleaseCallback
+    CGImageRef platformImage = CGImageRetain(tileImage()->getCGImageRef());
 
     const CGPatternCallbacks patternCallbacks = { 0, patternCallback, patternReleaseCallback };
-    return CGPatternCreate(tileImage(), tileRect, patternTransform, xStep, yStep,
-        kCGPatternTilingConstantSpacing, TRUE, &patternCallbacks);
+    return CGPatternCreate(platformImage, tileRect, patternTransform, xStep, yStep, kCGPatternTilingConstantSpacing, TRUE, &patternCallbacks);
 }
 
 }

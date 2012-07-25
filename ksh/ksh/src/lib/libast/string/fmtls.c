@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -85,7 +85,7 @@ fmtls(char* buf, const char* name, register struct stat* st, const char* info, c
 		else
 			s += sfsprintf(s, LS_W_MAX, "%8I*u ", sizeof(st->st_size), st->st_size);
 		tm = (flags & LS_ATIME) ? st->st_atime : (flags & LS_CTIME) ? st->st_ctime : st->st_mtime;
-		s = tmfmt(s, LS_W_LONG / 2, "%?%l", &tm);
+		s = tmfmt(s, LS_W_LONG / 2, "%?%QL", &tm);
 		*s++ = ' ';
 	}
 	if (info)

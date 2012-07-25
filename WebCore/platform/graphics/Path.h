@@ -28,7 +28,8 @@
 #ifndef Path_h
 #define Path_h
 
-#include "RoundedIntRect.h"
+#include "RoundedRect.h"
+#include "WindRule.h"
 #include <wtf/FastAllocBase.h>
 #include <wtf/Forward.h>
 
@@ -53,9 +54,6 @@ typedef WebCore::CairoPath PlatformPath;
 #elif USE(SKIA)
 class SkPath;
 typedef SkPath PlatformPath;
-#elif PLATFORM(HAIKU)
-class BRegion;
-typedef BRegion PlatformPath;
 #elif OS(WINCE)
 namespace WebCore {
     class PlatformPath;
@@ -81,19 +79,17 @@ namespace WebCore {
     class GraphicsContext;
     class StrokeStyleApplier;
 
-    enum WindRule {
-        RULE_NONZERO = 0,
-        RULE_EVENODD = 1
-    };
-
     enum PathElementType {
-        PathElementMoveToPoint,
-        PathElementAddLineToPoint,
-        PathElementAddQuadCurveToPoint,
-        PathElementAddCurveToPoint,
-        PathElementCloseSubpath
+        PathElementMoveToPoint, // The points member will contain 1 value.
+        PathElementAddLineToPoint, // The points member will contain 1 value.
+        PathElementAddQuadCurveToPoint, // The points member will contain 2 values.
+        PathElementAddCurveToPoint, // The points member will contain 3 values.
+        PathElementCloseSubpath // The points member will contain no values.
     };
 
+    // The points in the sturcture are the same as those that would be used with the
+    // add... method. For example, a line returns the endpoint, while a cubic returns
+    // two tangent points and the endpoint.
     struct PathElement {
         PathElementType type;
         FloatPoint* points;
@@ -112,7 +108,10 @@ namespace WebCore {
 
         bool contains(const FloatPoint&, WindRule rule = RULE_NONZERO) const;
         bool strokeContains(StrokeStyleApplier*, const FloatPoint&) const;
+        // fastBoundingRect() should equal or contain boundingRect(); boundingRect()
+        // should perfectly bound the points within the path.
         FloatRect boundingRect() const;
+        FloatRect fastBoundingRect() const;
         FloatRect strokeBoundingRect(StrokeStyleApplier* = 0) const;
         
         float length() const;
@@ -136,9 +135,15 @@ namespace WebCore {
         void addArc(const FloatPoint&, float radius, float startAngle, float endAngle, bool anticlockwise);
         void addRect(const FloatRect&);
         void addEllipse(const FloatRect&);
-        void addRoundedRect(const FloatRect&, const FloatSize& roundingRadii);
-        void addRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
-        void addRoundedRect(const RoundedIntRect&);
+
+        enum RoundedRectStrategy {
+            PreferNativeRoundedRect,
+            PreferBezierRoundedRect
+        };
+
+        void addRoundedRect(const FloatRect&, const FloatSize& roundingRadii, RoundedRectStrategy = PreferNativeRoundedRect);
+        void addRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius, RoundedRectStrategy = PreferNativeRoundedRect);
+        void addRoundedRect(const RoundedRect&);
 
         void translate(const FloatSize&);
 
@@ -146,6 +151,13 @@ namespace WebCore {
 
         void apply(void* info, PathApplierFunction) const;
         void transform(const AffineTransform&);
+
+        void addPathForRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius, RoundedRectStrategy = PreferNativeRoundedRect);
+        void addBeziersForRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
+
+#if USE(CG)
+        void platformAddPathForRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
+#endif
 
     private:
         PlatformPathPtr m_path;

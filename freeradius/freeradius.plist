@@ -6,18 +6,21 @@
 		<key>OpenSourceProject</key>
 		<string>freeradius</string>
 		<key>OpenSourceVersion</key>
-		<string>2.1.10</string>
+		<string>2.1.12</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://freeradius.org/</string>
                 <key>OpenSourceURL</key>
-                <string>ftp://ftp.freeradius.org:/pub/freeradius/freeradius-server-2.1.10.tar.bz2</string>
+                <string>ftp://ftp.freeradius.org:/pub/freeradius/freeradius-server-2.1.12.tar.bz2</string>
 		<key>OpenSourceImportDate</key>
-		<string>2010-11-30</string>
+		<string>2012-01-06</string>
 		<key>OpenSourceLicense</key>
 		<string>GPLv2</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>freeradius.txt</string>
 		<key>OpenSourceModifications</key>
+                <array>
+                  <string>Uses OpenDirectory Framework for user/group lookups</string>
+                  <string>Uses NetLogon to handle AD MSCHAP auths</string>
 		</array>
 	</dict>
 </array>

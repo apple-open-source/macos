@@ -1,3 +1,0 @@
-1998-06-23  Markku Rossi  <mtr@ngs.fi>
-
-	* headers.test: Added checks for the `--header' option.

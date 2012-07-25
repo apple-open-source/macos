@@ -1,0 +1,319 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4C30839C053237110028A8C6 /* mdsapi.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308389053237100028A8C6 /* mdsapi.cpp */; };
+		4C30839D053237110028A8C6 /* MDSAttrParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838A053237100028A8C6 /* MDSAttrParser.cpp */; };
+		4C30839E053237110028A8C6 /* MDSAttrParser.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838B053237100028A8C6 /* MDSAttrParser.h */; settings = {ATTRIBUTES = (); }; };
+		4C30839F053237110028A8C6 /* MDSAttrStrings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */; };
+		4C3083A0053237110028A8C6 /* MDSAttrStrings.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838D053237100028A8C6 /* MDSAttrStrings.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A1053237110028A8C6 /* MDSAttrUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */; };
+		4C3083A2053237110028A8C6 /* MDSAttrUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30838F053237100028A8C6 /* MDSAttrUtils.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A3053237110028A8C6 /* MDSDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308390053237100028A8C6 /* MDSDatabase.cpp */; };
+		4C3083A4053237110028A8C6 /* MDSDatabase.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308391053237100028A8C6 /* MDSDatabase.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A5053237110028A8C6 /* MDSDictionary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308392053237100028A8C6 /* MDSDictionary.cpp */; };
+		4C3083A6053237110028A8C6 /* MDSDictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308393053237100028A8C6 /* MDSDictionary.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083A7053237110028A8C6 /* MDSModule.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308394053237100028A8C6 /* MDSModule.cpp */; };
+		4C3083A8053237110028A8C6 /* MDSModule.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308395053237100028A8C6 /* MDSModule.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083AB053237110028A8C6 /* MDSSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C308398053237100028A8C6 /* MDSSchema.cpp */; };
+		4C3083AC053237110028A8C6 /* MDSSchema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C308399053237100028A8C6 /* MDSSchema.h */; settings = {ATTRIBUTES = (); }; };
+		4C3083AD053237110028A8C6 /* MDSSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C30839A053237100028A8C6 /* MDSSession.cpp */; };
+		4C3083AE053237110028A8C6 /* MDSSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C30839B053237100028A8C6 /* MDSSession.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36F80058137FF00834D11 /* mds.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CCB009105800B7C00981D43 /* mds.h */; settings = {ATTRIBUTES = (); }; };
+		4CF36F81058137FF00834D11 /* mds_schema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CCB009005800B7C00981D43 /* mds_schema.h */; settings = {ATTRIBUTES = (); }; };
+		C2FEF720067FB56800AE16D6 /* mdspriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2FEF71E067FB53F00AE16D6 /* mdspriv.h */; settings = {ATTRIBUTES = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB367146F1255000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurity_cdsa_plugin;
+		};
+		182BB369146F1259000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = libsecurity_cdsa_plugin_generate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		182BB35E146F11F1000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB35F146F11F1000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB360146F11F1000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB361146F11F1000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_cdsa_plugin.xcodeproj; path = ../libsecurity_cdsa_plugin/libsecurity_cdsa_plugin.xcodeproj; sourceTree = "<group>"; };
+		4C308389053237100028A8C6 /* mdsapi.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = mdsapi.cpp; sourceTree = "<group>"; };
+		4C30838A053237100028A8C6 /* MDSAttrParser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrParser.cpp; sourceTree = "<group>"; };
+		4C30838B053237100028A8C6 /* MDSAttrParser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrParser.h; sourceTree = "<group>"; };
+		4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrStrings.cpp; sourceTree = "<group>"; };
+		4C30838D053237100028A8C6 /* MDSAttrStrings.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrStrings.h; sourceTree = "<group>"; };
+		4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSAttrUtils.cpp; sourceTree = "<group>"; };
+		4C30838F053237100028A8C6 /* MDSAttrUtils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSAttrUtils.h; sourceTree = "<group>"; };
+		4C308390053237100028A8C6 /* MDSDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDatabase.cpp; sourceTree = "<group>"; };
+		4C308391053237100028A8C6 /* MDSDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDatabase.h; sourceTree = "<group>"; };
+		4C308392053237100028A8C6 /* MDSDictionary.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSDictionary.cpp; sourceTree = "<group>"; };
+		4C308393053237100028A8C6 /* MDSDictionary.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSDictionary.h; sourceTree = "<group>"; };
+		4C308394053237100028A8C6 /* MDSModule.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSModule.cpp; sourceTree = "<group>"; };
+		4C308395053237100028A8C6 /* MDSModule.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSModule.h; sourceTree = "<group>"; };
+		4C308398053237100028A8C6 /* MDSSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSchema.cpp; sourceTree = "<group>"; };
+		4C308399053237100028A8C6 /* MDSSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSchema.h; sourceTree = "<group>"; };
+		4C30839A053237100028A8C6 /* MDSSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MDSSession.cpp; sourceTree = "<group>"; };
+		4C30839B053237100028A8C6 /* MDSSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MDSSession.h; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_mds.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_mds.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CCB008B05800B0B00981D43 /* security_mds.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_mds.exp; sourceTree = "<group>"; };
+		4CCB009005800B7C00981D43 /* mds_schema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mds_schema.h; sourceTree = "<group>"; };
+		4CCB009105800B7C00981D43 /* mds.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mds.h; sourceTree = "<group>"; };
+		C2FEF71E067FB53F00AE16D6 /* mdspriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = mdspriv.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		182BB35D146F11F1000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB35E146F11F1000BF1F3 /* base.xcconfig */,
+				182BB35F146F11F1000BF1F3 /* debug.xcconfig */,
+				182BB360146F11F1000BF1F3 /* lib.xcconfig */,
+				182BB361146F11F1000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB363146F1255000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB368146F1255000BF1F3 /* libsecurity_cdsa_plugin.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4C308388053237100028A8C6 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				4C308389053237100028A8C6 /* mdsapi.cpp */,
+				4C30838A053237100028A8C6 /* MDSAttrParser.cpp */,
+				4C30838B053237100028A8C6 /* MDSAttrParser.h */,
+				4C30838C053237100028A8C6 /* MDSAttrStrings.cpp */,
+				4C30838D053237100028A8C6 /* MDSAttrStrings.h */,
+				4C30838E053237100028A8C6 /* MDSAttrUtils.cpp */,
+				4C30838F053237100028A8C6 /* MDSAttrUtils.h */,
+				4C308390053237100028A8C6 /* MDSDatabase.cpp */,
+				4C308391053237100028A8C6 /* MDSDatabase.h */,
+				4C308392053237100028A8C6 /* MDSDictionary.cpp */,
+				4C308393053237100028A8C6 /* MDSDictionary.h */,
+				4C308394053237100028A8C6 /* MDSModule.cpp */,
+				4C308395053237100028A8C6 /* MDSModule.h */,
+				4C308398053237100028A8C6 /* MDSSchema.cpp */,
+				4C308399053237100028A8C6 /* MDSSchema.h */,
+				4C30839A053237100028A8C6 /* MDSSession.cpp */,
+				4C30839B053237100028A8C6 /* MDSSession.h */,
+				4CCB009005800B7C00981D43 /* mds_schema.h */,
+				4CCB009105800B7C00981D43 /* mds.h */,
+				C2FEF71E067FB53F00AE16D6 /* mdspriv.h */,
+				4CCB008B05800B0B00981D43 /* security_mds.exp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */,
+				4C308388053237100028A8C6 /* lib */,
+				182BB35D146F11F1000BF1F3 /* config */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_mds.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CF36F80058137FF00834D11 /* mds.h in Headers */,
+				4CF36F81058137FF00834D11 /* mds_schema.h in Headers */,
+				C2FEF720067FB56800AE16D6 /* mdspriv.h in Headers */,
+				4C30839E053237110028A8C6 /* MDSAttrParser.h in Headers */,
+				4C3083A0053237110028A8C6 /* MDSAttrStrings.h in Headers */,
+				4C3083A2053237110028A8C6 /* MDSAttrUtils.h in Headers */,
+				4C3083A4053237110028A8C6 /* MDSDatabase.h in Headers */,
+				4C3083A6053237110028A8C6 /* MDSDictionary.h in Headers */,
+				4C3083A8053237110028A8C6 /* MDSModule.h in Headers */,
+				4C3083AC053237110028A8C6 /* MDSSchema.h in Headers */,
+				4C3083AE053237110028A8C6 /* MDSSession.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_mds */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3A40987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_mds" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB36A146F1259000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_mds;
+			productName = libsecurity_mds;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_mds.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD3A80987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_mds" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB363146F1255000BF1F3 /* Products */;
+					ProjectRef = 182BB362146F1255000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_mds */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB368146F1255000BF1F3 /* libsecurity_cdsa_plugin.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_cdsa_plugin.a;
+			remoteRef = 182BB367146F1255000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C30839C053237110028A8C6 /* mdsapi.cpp in Sources */,
+				4C30839D053237110028A8C6 /* MDSAttrParser.cpp in Sources */,
+				4C30839F053237110028A8C6 /* MDSAttrStrings.cpp in Sources */,
+				4C3083A1053237110028A8C6 /* MDSAttrUtils.cpp in Sources */,
+				4C3083A3053237110028A8C6 /* MDSDatabase.cpp in Sources */,
+				4C3083A5053237110028A8C6 /* MDSDictionary.cpp in Sources */,
+				4C3083A7053237110028A8C6 /* MDSModule.cpp in Sources */,
+				4C3083AB053237110028A8C6 /* MDSSchema.cpp in Sources */,
+				4C3083AD053237110028A8C6 /* MDSSession.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB36A146F1259000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_cdsa_plugin_generate;
+			targetProxy = 182BB369146F1259000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3A50987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB35F146F11F1000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3A70987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB361146F11F1000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD3A90987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB360146F11F1000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3AB0987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB360146F11F1000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3A40987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_mds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3A50987FCDE001272E0 /* Debug */,
+				C27AD3A70987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3A80987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_mds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3A90987FCDE001272E0 /* Debug */,
+				C27AD3AB0987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

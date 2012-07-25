@@ -102,6 +102,10 @@ static uint32_t *arch_header_sizes = NULL;
  */
 #undef OUTPUT_OPTION
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The install_name_tool allow the dynamic shared library install names of a
  * Mach-O binary to be changed.  For this tool to work when the install names
@@ -571,6 +575,26 @@ struct object *object)
 		object->output_sym_info_size +=
 		    object->func_starts_info_cmd->datasize;
 	    }
+	    if(object->data_in_code_cmd != NULL){
+		object->output_data_in_code_info_data = 
+		(object->object_addr + object->data_in_code_cmd->dataoff);
+		object->output_data_in_code_info_data_size = 
+		    object->data_in_code_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+	    }
+	    if(object->code_sign_drs_cmd != NULL){
+		object->output_code_sign_drs_info_data = 
+		(object->object_addr + object->code_sign_drs_cmd->dataoff);
+		object->output_code_sign_drs_info_data_size = 
+		    object->code_sign_drs_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
+	    }
 	    if(object->hints_cmd != NULL){
 		object->output_hints = (struct twolevel_hint *)
 		    (object->object_addr +
@@ -1027,6 +1051,14 @@ uint32_t *header_size)
 		break;
 	    case LC_FUNCTION_STARTS:
 		arch->object->func_starts_info_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_DATA_IN_CODE:
+		arch->object->data_in_code_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_DYLIB_CODE_SIGN_DRS:
+		arch->object->code_sign_drs_cmd =
 		    (struct linkedit_data_command *)lc1;
 		break;
 	    }

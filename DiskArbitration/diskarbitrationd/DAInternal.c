@@ -23,18 +23,14 @@
 
 #include "DAInternal.h"
 
-#include <grp.h>
 #include <paths.h>
-#include <pwd.h>
-#include <unistd.h>
-#include <mach/mach.h>
 #include <DiskArbitration/DiskArbitration.h>
 
-__private_extern__ const char * _kDAAuthorizeRightAdopt   = "system.volume.adopt";
-__private_extern__ const char * _kDAAuthorizeRightEncode  = "system.volume.encode";
-__private_extern__ const char * _kDAAuthorizeRightMount   = "system.volume.mount";
-__private_extern__ const char * _kDAAuthorizeRightRename  = "system.volume.rename";
-__private_extern__ const char * _kDAAuthorizeRightUnmount = "system.volume.unmount";
+__private_extern__ const char * _kDAAuthorizeRightAdopt   = "adopt";
+__private_extern__ const char * _kDAAuthorizeRightEncode  = "encode";
+__private_extern__ const char * _kDAAuthorizeRightMount   = "mount";
+__private_extern__ const char * _kDAAuthorizeRightRename  = "rename";
+__private_extern__ const char * _kDAAuthorizeRightUnmount = "unmount";
 
 __private_extern__ const CFStringRef _kDACallbackAddressKey       = CFSTR( "DACallbackAddress"   );
 __private_extern__ const CFStringRef _kDACallbackArgument0Key     = CFSTR( "DACallbackArgument0" );
@@ -63,8 +59,8 @@ __private_extern__ const CFStringRef _kDARequestDissenterKey      = CFSTR( "DARe
 __private_extern__ const CFStringRef _kDARequestKindKey           = CFSTR( "DARequestKind"       );
 __private_extern__ const CFStringRef _kDARequestLinkKey           = CFSTR( "DARequestLink"       );
 __private_extern__ const CFStringRef _kDARequestStateKey          = CFSTR( "DARequestState"      );
-__private_extern__ const CFStringRef _kDARequestUserGIDKey        = CFSTR( "DARequestUserEGID"   );
-__private_extern__ const CFStringRef _kDARequestUserUIDKey        = CFSTR( "DARequestUserEUID"   );
+__private_extern__ const CFStringRef _kDARequestUserGIDKey        = CFSTR( "DARequestUserGID"    );
+__private_extern__ const CFStringRef _kDARequestUserUIDKey        = CFSTR( "DARequestUserUID"    );
 
 const CFStringRef kDADiskDescriptionVolumeKindKey      = CFSTR( "DAVolumeKind"      );
 const CFStringRef kDADiskDescriptionVolumeMountableKey = CFSTR( "DAVolumeMountable" );
@@ -128,35 +124,6 @@ static const char * __kDAKindNameList[] =
 };
 
 extern CFIndex __CFBinaryPlistWriteToStream( CFPropertyListRef plist, CFTypeRef stream );
-
-__private_extern__ int ___isadmin( uid_t uid )
-{
-    struct group * group;
-
-    group = getgrgid( ___GID_ADMIN );
-
-    if ( group )
-    {
-        struct passwd * user;
-
-        user = getpwuid( uid );
-
-        if ( user )
-        {
-            char ** users;
-
-            for ( users = group->gr_mem; *users; users++ )
-            {
-                if ( strcmp( *users, user->pw_name ) == 0 )
-                {
-                    return 1;
-                }
-            }
-        }
-    }
-
-    return 0;
-}
 
 __private_extern__ int ___statfs( const char * path, struct statfs * buf, int flags )
 {

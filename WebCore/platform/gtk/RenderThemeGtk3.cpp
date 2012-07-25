@@ -77,18 +77,41 @@ static StyleContextMap& styleContextMap()
 
 static GtkStyleContext* getStyleContext(GType widgetType)
 {
-    std::pair<StyleContextMap::iterator, bool> result = styleContextMap().add(widgetType, 0);
-    if (!result.second)
-        return result.first->second.get();
+    StyleContextMap::AddResult result = styleContextMap().add(widgetType, 0);
+    if (!result.isNewEntry)
+        return result.iterator->second.get();
 
     GtkWidgetPath* path = gtk_widget_path_new();
     gtk_widget_path_append_type(path, widgetType);
+
+    if (widgetType == GTK_TYPE_SCROLLBAR)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_SCROLLBAR);
+    else if (widgetType == GTK_TYPE_ENTRY)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_ENTRY);
+    else if (widgetType == GTK_TYPE_ARROW)
+        gtk_widget_path_iter_add_class(path, 0, "arrow");
+    else if (widgetType == GTK_TYPE_BUTTON)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_BUTTON);
+    else if (widgetType == GTK_TYPE_SCALE)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_SCALE);
+    else if (widgetType == GTK_TYPE_SEPARATOR)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_SEPARATOR);
+    else if (widgetType == GTK_TYPE_PROGRESS_BAR)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_PROGRESSBAR);
+    else if (widgetType == GTK_TYPE_SPIN_BUTTON)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_SPINBUTTON);
+    else if (widgetType == GTK_TYPE_TREE_VIEW)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_VIEW);
+    else if (widgetType == GTK_TYPE_CHECK_BUTTON)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_CHECK);
+    else if (widgetType == GTK_TYPE_RADIO_BUTTON)
+        gtk_widget_path_iter_add_class(path, 0, GTK_STYLE_CLASS_RADIO);
 
     GRefPtr<GtkStyleContext> context = adoptGRef(gtk_style_context_new());
     gtk_style_context_set_path(context.get(), path);
     gtk_widget_path_free(path);
 
-    result.first->second = context;
+    result.iterator->second = context;
     return context.get();
 }
 
@@ -149,7 +172,7 @@ void RenderThemeGtk::adjustRepaintRect(const RenderObject* renderObject, IntRect
         return;
     case SliderVerticalPart:
     case SliderHorizontalPart:
-        context = getStyleContext(part == SliderThumbHorizontalPart ?  GTK_TYPE_HSCALE : GTK_TYPE_VSCALE);
+        context = getStyleContext(GTK_TYPE_SCALE);
         break;
     case ButtonPart:
     case MenulistButtonPart:
@@ -195,10 +218,27 @@ static void setToggleSize(GtkStyleContext* context, RenderStyle* style)
         style->setHeight(Length(indicatorSize, Fixed));
 }
 
-static void paintToggle(const RenderThemeGtk* theme, GType widgetType, RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
+static void paintToggle(const RenderThemeGtk* theme, GType widgetType, RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& fullRect)
 {
     GtkStyleContext* context = getStyleContext(widgetType);
     gtk_style_context_save(context);
+
+    // Some themes do not render large toggle buttons properly, so we simply
+    // shrink the rectangle back down to the default size and then center it
+    // in the full toggle button region. The reason for not simply forcing toggle
+    // buttons to be a smaller size is that we don't want to break site layouts.
+    gint indicatorSize;
+    gtk_style_context_get_style(context, "indicator-size", &indicatorSize, NULL);
+    IntRect rect(fullRect);
+    if (rect.width() > indicatorSize) {
+        rect.inflateX(-(rect.width() - indicatorSize) / 2);
+        rect.setWidth(indicatorSize); // In case rect.width() was equal to indicatorSize + 1.
+    }
+
+    if (rect.height() > indicatorSize) {
+        rect.inflateY(-(rect.height() - indicatorSize) / 2);
+        rect.setHeight(indicatorSize); // In case rect.height() was equal to indicatorSize + 1.
+    }
 
     gtk_style_context_set_direction(context, static_cast<GtkTextDirection>(gtkTextDirection(renderObject->style()->direction())));
     gtk_style_context_add_class(context, widgetType == GTK_TYPE_CHECK_BUTTON ? GTK_STYLE_CLASS_CHECK : GTK_STYLE_CLASS_RADIO);
@@ -343,7 +383,7 @@ static void getComboBoxMetrics(RenderStyle* style, GtkBorder& border, int& focus
     if (style->appearance() == NoControlPart)
         return;
 
-    GtkStyleContext* context = getStyleContext(GTK_TYPE_BUTTON);
+    GtkStyleContext* context = getStyleContext(GTK_TYPE_COMBO_BOX);
     gtk_style_context_save(context);
 
     gtk_style_context_add_class(context, GTK_STYLE_CLASS_BUTTON);
@@ -499,12 +539,11 @@ bool RenderThemeGtk::paintMenuList(RenderObject* renderObject, const PaintInfo& 
     gtk_style_context_restore(arrowStyleContext);
 
     // Paint the separator if needed.
-    GtkStyleContext* separatorStyleContext = getStyleContext(GTK_TYPE_SEPARATOR);
+    GtkStyleContext* separatorStyleContext = getStyleContext(GTK_TYPE_COMBO_BOX);
     gtk_style_context_save(separatorStyleContext);
 
     gtk_style_context_set_direction(separatorStyleContext, direction);
     gtk_style_context_add_class(separatorStyleContext, "separator");
-    gtk_style_context_add_class(separatorStyleContext, GTK_STYLE_CLASS_BUTTON);
 
     gboolean wideSeparators;
     gint separatorWidth;
@@ -593,16 +632,25 @@ bool RenderThemeGtk::paintTextField(RenderObject* renderObject, const PaintInfo&
     return false;
 }
 
+static void applySliderStyleContextClasses(GtkStyleContext* context, ControlPart part)
+{
+    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SCALE);
+    if (part == SliderHorizontalPart || part == SliderThumbHorizontalPart)
+        gtk_style_context_add_class(context, GTK_STYLE_CLASS_HORIZONTAL);
+    else if (part == SliderVerticalPart || part == SliderThumbVerticalPart)
+        gtk_style_context_add_class(context, GTK_STYLE_CLASS_VERTICAL);
+}
+
 bool RenderThemeGtk::paintSliderTrack(RenderObject* renderObject, const PaintInfo& paintInfo, const IntRect& rect)
 {
     ControlPart part = renderObject->style()->appearance();
-    ASSERT(part == SliderHorizontalPart || part == SliderVerticalPart || part == MediaVolumeSliderPart);
+    ASSERT_UNUSED(part, part == SliderHorizontalPart || part == SliderVerticalPart || part == MediaVolumeSliderPart);
 
-    GtkStyleContext* context = getStyleContext(part == SliderThumbHorizontalPart ? GTK_TYPE_HSCALE : GTK_TYPE_VSCALE);
+    GtkStyleContext* context = getStyleContext(GTK_TYPE_SCALE);
     gtk_style_context_save(context);
 
     gtk_style_context_set_direction(context, gtkTextDirection(renderObject->style()->direction()));
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SCALE);
+    applySliderStyleContextClasses(context, part);
     gtk_style_context_add_class(context, GTK_STYLE_CLASS_TROUGH);
 
     if (!isEnabled(renderObject) || isReadOnlyControl(renderObject))
@@ -633,18 +681,12 @@ bool RenderThemeGtk::paintSliderThumb(RenderObject* renderObject, const PaintInf
     ControlPart part = renderObject->style()->appearance();
     ASSERT(part == SliderThumbHorizontalPart || part == SliderThumbVerticalPart || part == MediaVolumeSliderThumbPart);
 
-    GtkStyleContext* context = getStyleContext(part == SliderThumbHorizontalPart ? GTK_TYPE_HSCALE : GTK_TYPE_VSCALE);
+    GtkStyleContext* context = getStyleContext(GTK_TYPE_SCALE);
     gtk_style_context_save(context);
 
     gtk_style_context_set_direction(context, gtkTextDirection(renderObject->style()->direction()));
-    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SCALE);
+    applySliderStyleContextClasses(context, part);
     gtk_style_context_add_class(context, GTK_STYLE_CLASS_SLIDER);
-
-    gint troughBorder;
-    gtk_style_context_get_style(context, "trough-border", &troughBorder, NULL);
-
-    IntRect sliderRect(rect);
-    sliderRect.inflate(-troughBorder);
 
     guint flags = 0;
     if (!isEnabled(renderObject) || isReadOnlyControl(renderObject))
@@ -655,7 +697,7 @@ bool RenderThemeGtk::paintSliderThumb(RenderObject* renderObject, const PaintInf
         flags |= GTK_STATE_FLAG_ACTIVE;
     gtk_style_context_set_state(context, static_cast<GtkStateFlags>(flags));
 
-    gtk_render_slider(context, paintInfo.context->platformContext()->cr(), sliderRect.x(), sliderRect.y(), sliderRect.width(), sliderRect.height(),
+    gtk_render_slider(context, paintInfo.context->platformContext()->cr(), rect.x(), rect.y(), rect.width(), rect.height(),
                       part == SliderThumbHorizontalPart ? GTK_ORIENTATION_HORIZONTAL : GTK_ORIENTATION_VERTICAL);
 
     gtk_style_context_restore(context);
@@ -663,29 +705,29 @@ bool RenderThemeGtk::paintSliderThumb(RenderObject* renderObject, const PaintInf
     return false;
 }
 
-void RenderThemeGtk::adjustSliderThumbSize(RenderObject* renderObject) const
+void RenderThemeGtk::adjustSliderThumbSize(RenderStyle* style) const
 {
-    ControlPart part = renderObject->style()->appearance();
+    ControlPart part = style->appearance();
 #if ENABLE(VIDEO)
     if (part == MediaSliderThumbPart) {
-        adjustMediaSliderThumbSize(renderObject);
+        adjustMediaSliderThumbSize(style);
         return;
     }
 #endif
 
     gint sliderWidth, sliderLength;
-    gtk_style_context_get_style(getStyleContext(part == SliderThumbHorizontalPart ? GTK_TYPE_HSCALE : GTK_TYPE_VSCALE),
+    gtk_style_context_get_style(getStyleContext(GTK_TYPE_SCALE),
                                 "slider-width", &sliderWidth,
                                 "slider-length", &sliderLength,
                                 NULL);
     if (part == SliderThumbHorizontalPart) {
-        renderObject->style()->setWidth(Length(sliderLength, Fixed));
-        renderObject->style()->setHeight(Length(sliderWidth, Fixed));
+        style->setWidth(Length(sliderLength, Fixed));
+        style->setHeight(Length(sliderWidth, Fixed));
         return;
     }
     ASSERT(part == SliderThumbVerticalPart || part == MediaVolumeSliderThumbPart);
-    renderObject->style()->setWidth(Length(sliderWidth, Fixed));
-    renderObject->style()->setHeight(Length(sliderLength, Fixed));
+    style->setWidth(Length(sliderWidth, Fixed));
+    style->setHeight(Length(sliderLength, Fixed));
 }
 
 #if ENABLE(PROGRESS_TAG)
@@ -732,7 +774,7 @@ static gint spinButtonArrowSize(GtkStyleContext* context)
     return arrowSize - arrowSize % 2; // Force even.
 }
 
-void RenderThemeGtk::adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+void RenderThemeGtk::adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle* style, Element*) const
 {
     GtkStyleContext* context = getStyleContext(GTK_TYPE_SPIN_BUTTON);
 

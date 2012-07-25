@@ -499,7 +499,7 @@ pfkey_spdump1(m, withports)
 		switch (sa->sa_family) {
 		case AF_INET:
 		case AF_INET6:
-			if (getnameinfo(sa, (socklen_t)sysdep_sa_len(sa), NULL,
+			if (getnameinfo(sa, (socklen_t)sysdep_sa_len((struct sockaddr *)sa), NULL,
 			    0, pbuf, sizeof(pbuf), NI_NUMERICSERV) != 0)
 				sport = 0;	/*XXX*/
 			else
@@ -520,7 +520,7 @@ pfkey_spdump1(m, withports)
 		switch (sa->sa_family) {
 		case AF_INET:
 		case AF_INET6:
-			if (getnameinfo(sa, (socklen_t)sysdep_sa_len(sa), NULL,
+			if (getnameinfo(sa, (socklen_t)sysdep_sa_len((struct sockaddr *)sa), NULL,
 			    0, pbuf, sizeof(pbuf), NI_NUMERICSERV) != 0)
 				dport = 0;	/*XXX*/
 			else

@@ -34,11 +34,13 @@
 #include "IntRect.h"
 #include "WebView.h"
 
+using namespace WebKit;
+
 namespace WebCore {
 
 class ChromeClientWx : public ChromeClient {
 public:
-    ChromeClientWx(wxWebView*);
+    ChromeClientWx(WebView*);
     virtual ~ChromeClientWx();
     virtual void chromeDestroyed();
 
@@ -103,13 +105,13 @@ public:
     virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
     virtual void updateBackingStore();
     
-    virtual void invalidateWindow(const IntRect&, bool);
-    virtual void invalidateContentsAndWindow(const IntRect&, bool);
+    virtual void invalidateRootView(const IntRect&, bool);
+    virtual void invalidateContentsAndRootView(const IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
     virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
 
-    virtual IntPoint screenToWindow(const IntPoint&) const;
-    virtual IntRect windowToScreen(const IntRect&) const;
+    virtual IntPoint screenToRootView(const IntPoint&) const;
+    virtual IntRect rootViewToScreen(const IntRect&) const;
     virtual PlatformPageClient platformPageClient() const;
     virtual void contentsSizeChanged(Frame*, const IntSize&) const;
 
@@ -120,31 +122,21 @@ public:
 
     virtual void print(Frame*);
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
-    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
-#endif
-
-#if ENABLE(CONTEXT_MENUS)
-    virtual void showContextMenu() { }
-#endif
-
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-    virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
+    virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
 
     virtual void formStateDidChange(const Node*) { }
 
     virtual void setCursor(const Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool) { }
 
-    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
-
-    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-    virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
+    virtual void scrollRectIntoView(const IntRect&) const { }
 
     virtual bool selectItemWritingDirectionIsNatural();
     virtual bool selectItemAlignmentFollowsMenuWritingDirection();
@@ -153,9 +145,12 @@ public:
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
+    virtual void numTouchEventHandlersChanged(unsigned) { }
+    
+    virtual bool hasOpenedPopup() const;
 
 private:
-    wxWebView* m_webView;
+    WebView* m_webView;
 };
 
 }

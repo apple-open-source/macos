@@ -146,4 +146,4 @@ link_addr_to_string(char * string_buffer, int string_buffer_length,
 		    const uint8_t * hwaddr, int hwaddr_len);
 
 
-#endif _S_UTIL_H
+#endif /* _S_UTIL_H */

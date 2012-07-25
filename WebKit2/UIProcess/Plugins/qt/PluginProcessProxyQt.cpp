@@ -28,14 +28,51 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
-#include "PluginProcessCreationParameters.h"
-#include <WebCore/NotImplemented.h>
+#include "ProcessExecutablePath.h"
+#include <QByteArray>
+#include <QCoreApplication>
+#include <QDir>
+#include <QEventLoop>
+#include <QProcess>
+#include <QString>
 
 namespace WebKit {
 
-void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationParameters& parameters)
+class PluginProcessCreationParameters;
+
+void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationParameters&)
 {
-    notImplemented();
+}
+
+bool PluginProcessProxy::scanPlugin(const String& pluginPath, RawPluginMetaData& result)
+{
+    QString commandLine = QLatin1String("%1 %2 %3");
+    commandLine = commandLine.arg(executablePathOfPluginProcess());
+    commandLine = commandLine.arg(QStringLiteral("-scanPlugin")).arg(static_cast<QString>(pluginPath));
+
+    QProcess process;
+    process.setReadChannel(QProcess::StandardOutput);
+    process.start(commandLine);
+
+    if (!process.waitForFinished()
+        || process.exitStatus() != QProcess::NormalExit
+        || process.exitCode() != EXIT_SUCCESS) {
+        process.kill();
+        return false;
+    }
+
+    QByteArray outputBytes = process.readAll();
+    ASSERT(!(outputBytes.size() % sizeof(UChar)));
+
+    String output(reinterpret_cast<const UChar*>(outputBytes.constData()), outputBytes.size() / sizeof(UChar));
+    Vector<String> lines;
+    output.split(UChar('\n'), lines);
+    ASSERT(lines.size() == 3);
+
+    result.name.swap(lines[0]);
+    result.description.swap(lines[1]);
+    result.mimeDescription.swap(lines[2]);
+    return !result.mimeDescription.isEmpty();
 }
 
 } // namespace WebKit

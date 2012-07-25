@@ -1,0 +1,9 @@
+iff AST_API
+
+ver ast 20100601
+
+api ast 20100601 pathaccess pathcanon pathcat pathkey pathpath pathprobe pathrepl
+
+api ast 20000308 sfkeyprintf
+
+print	#define _AST_VERSION	AST_VERSION	/* pre-20100601 compatibility */

@@ -88,6 +88,8 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.driver.AppleMobileFileIntegrity</key>
+		<string>1.0.2</string>
 		<key>com.apple.kpi.private</key>
 		<string>8.0.0</string>
 		<key>com.apple.kpi.bsd</key>

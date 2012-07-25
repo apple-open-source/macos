@@ -36,8 +36,8 @@
 .Dt POPEN 3
 .Os
 .Sh NAME
-.Nm popen ,
-.Nm pclose
+.Nm pclose ,
+.Nm popen
 .Nd process
 .Tn I/O
 .Sh LIBRARY
@@ -45,16 +45,20 @@
 .Sh SYNOPSIS
 .In stdio.h
 .Ft FILE *
-.Fn popen "const char *command" "const char *type"
+.Fo popen
+.Fa "const char *command"
+.Fa "const char *mode"
+.Fc
 .Ft int
-.Fn pclose "FILE *stream"
+.Fo pclose
+.Fa "FILE *stream"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn popen
 function
 .Dq opens
-a process by creating a bidirectional pipe
-forking,
+a process by creating a bidirectional pipe, forking,
 and invoking the shell.
 Any streams opened by previous
 .Fn popen
@@ -62,18 +66,18 @@ calls in the parent process are closed in the new child process.
 Historically,
 .Fn popen
 was implemented with a unidirectional pipe;
-hence many implementations of
+hence, many implementations of
 .Fn popen
 only allow the
-.Fa type
+.Fa mode
 argument to specify reading or writing, not both.
-Since
+Because
 .Fn popen
 is now implemented using a bidirectional pipe, the
-.Fa type
+.Fa mode
 argument may request a bidirectional data flow.
 The
-.Fa type
+.Fa mode
 argument is a pointer to a null-terminated string
 which must be
 .Ql r
@@ -88,7 +92,7 @@ The
 argument is a pointer to a null-terminated string
 containing a shell command line.
 This command is passed to
-.Pa /bin/sh
+.Pa /bin/sh ,
 using the
 .Fl c
 flag; interpretation, if any, is performed by the shell.
@@ -97,7 +101,7 @@ The return value from
 .Fn popen
 is a normal standard
 .Tn I/O
-stream in all respects
+stream in all respects,
 save that it must be closed with
 .Fn pclose
 rather than
@@ -115,12 +119,12 @@ the command's standard input is the same as that of the process that called
 .Pp
 Note that output
 .Fn popen
-streams are fully buffered by default.
+streams are fully buffered, by default.
 .Pp
 The
 .Fn pclose
-function waits for the associated process to terminate
-and returns the exit status of the command
+function waits for the associated process to terminate;
+it returns the exit status of the command,
 as returned by
 .Xr wait4 2 .
 .Sh RETURN VALUES

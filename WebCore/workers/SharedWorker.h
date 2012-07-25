@@ -40,10 +40,12 @@ namespace WebCore {
 
     class SharedWorker : public AbstractWorker {
     public:
-        static PassRefPtr<SharedWorker> create(const String& url, const String& name, ScriptExecutionContext*, ExceptionCode&);
+        static PassRefPtr<SharedWorker> create(ScriptExecutionContext*, const String& url, const String& name, ExceptionCode&);
         virtual ~SharedWorker();
 
         MessagePort* port() const { return m_port.get(); }
+
+        virtual const AtomicString& interfaceName() const;
 
     private:
         SharedWorker(ScriptExecutionContext*);

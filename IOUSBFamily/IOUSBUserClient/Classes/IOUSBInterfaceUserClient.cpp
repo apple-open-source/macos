@@ -27,6 +27,7 @@
 //
 //================================================================================================
 //
+
 #include <IOKit/usb/IOUSBControllerV3.h>
 #include <IOKit/IOKitKeys.h>
 
@@ -1077,6 +1078,7 @@ IOUSBInterfaceUserClientV2::GetBandwidthAvailable(uint64_t *pBandwidth)
 	
     if (fOwner && !isInactive())
     {
+#ifdef SUPPORTS_SS_USB
 		IOUSBDevice *myDevice = fOwner->GetDevice();
 		
 		if (myDevice && myDevice->_expansionData)
@@ -1090,6 +1092,7 @@ IOUSBInterfaceUserClientV2::GetBandwidthAvailable(uint64_t *pBandwidth)
 			}
 		}
 		if (ret != kIOReturnSuccess)
+#endif
 		{
 			// default to the old bahavior
 			bandwidth = fOwner->GetDevice()->GetBus()->GetBandwidthAvailable();

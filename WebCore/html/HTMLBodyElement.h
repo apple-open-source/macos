@@ -70,31 +70,27 @@ public:
 private:
     HTMLBodyElement(const QualifiedName&, Document*);
 
-    virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
-    virtual void insertedIntoDocument();
-
-    void createLinkDecl();
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void didNotifyDescendantInseretions(Node*) OVERRIDE;
     
     virtual bool isURLAttribute(Attribute*) const;
     
     virtual bool supportsFocus() const;
 
-    virtual int scrollLeft() const;
+    virtual int scrollLeft();
     virtual void setScrollLeft(int scrollLeft);
     
-    virtual int scrollTop() const;
+    virtual int scrollTop();
     virtual void setScrollTop(int scrollTop);
     
-    virtual int scrollHeight() const;
-    virtual int scrollWidth() const;
+    virtual int scrollHeight();
+    virtual int scrollWidth();
     
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
-    
-    virtual void didMoveToNewOwnerDocument();
-
-    RefPtr<CSSMutableStyleDeclaration> m_linkDecl;
 };
 
 } //namespace

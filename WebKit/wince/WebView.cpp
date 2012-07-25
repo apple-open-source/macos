@@ -39,7 +39,6 @@
 #include "InitializeThreading.h"
 #include "InspectorClientWinCE.h"
 #include "IntSize.h"
-#include "MainThread.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
@@ -50,6 +49,7 @@
 #include "Settings.h"
 #include "SharedBuffer.h"
 #include "WebCoreInstanceHandle.h"
+#include <wtf/MainThread.h>
 
 using namespace WebCore;
 
@@ -101,7 +101,7 @@ WebView::WebView(HWND hwnd, unsigned features)
     settings->setDefaultFontSize(14);
     settings->setMinimumFontSize(8);
     settings->setMinimumLogicalFontSize(8);
-    settings->setJavaScriptEnabled(true);
+    settings->setScriptEnabled(true);
     settings->setLoadsImagesAutomatically(true);
 
     WebKit::FrameLoaderClientWinCE* loaderClient = new WebKit::FrameLoaderClientWinCE(this);
@@ -288,8 +288,8 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
     // of the event to be at (MINSHORT, MINSHORT).
     PlatformMouseEvent mouseEvent(hWnd, message, wParam, lParam);
 
-    bool insideThreshold = abs(globalPrevPoint.x() - mouseEvent.pos().x()) < ::GetSystemMetrics(SM_CXDOUBLECLK)
-                           && abs(globalPrevPoint.y() - mouseEvent.pos().y()) < ::GetSystemMetrics(SM_CYDOUBLECLK);
+    bool insideThreshold = abs(globalPrevPoint.x() - mouseEvent.position().x()) < ::GetSystemMetrics(SM_CXDOUBLECLK)
+                           && abs(globalPrevPoint.y() - mouseEvent.position().y()) < ::GetSystemMetrics(SM_CYDOUBLECLK);
     LONG messageTime = 0;
 
     bool handled = false;
@@ -313,7 +313,7 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
             globalClickCount = 1;
         globalPrevMouseDownTime = messageTime;
         globalPrevButton = mouseEvent.button();
-        globalPrevPoint = mouseEvent.pos();
+        globalPrevPoint = mouseEvent.position();
 
         mouseEvent.setClickCount(globalClickCount);
         handled = m_page->mainFrame()->eventHandler()->handleMousePressEvent(mouseEvent);
@@ -324,7 +324,7 @@ bool WebView::handleMouseEvent(HWND hWnd, UINT message, WPARAM wParam, LPARAM lP
     } else if (message == WM_LBUTTONUP || message == WM_MBUTTONUP || message == WM_RBUTTONUP) {
         // Record the global position and the button of the up.
         globalPrevButton = mouseEvent.button();
-        globalPrevPoint = mouseEvent.pos();
+        globalPrevPoint = mouseEvent.position();
         mouseEvent.setClickCount(globalClickCount);
         m_page->mainFrame()->eventHandler()->handleMouseReleaseEvent(mouseEvent);
         ReleaseCapture();
@@ -348,7 +348,7 @@ bool WebView::handleKeyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKe
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
-    PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformKeyboardEvent::RawKeyDown, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformEvent::RawKeyDown, systemKeyDown);
     bool handled = frame->eventHandler()->keyEvent(keyEvent);
 
     // These events cannot be canceled, and we have no default handling for them.
@@ -370,7 +370,7 @@ bool WebView::handleKeyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
-    PlatformKeyboardEvent keyEvent(m_windowHandle, charCode, keyData, PlatformKeyboardEvent::Char, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_windowHandle, charCode, keyData, PlatformEvent::Char, systemKeyDown);
     // IE does not dispatch keypress event for WM_SYSCHAR.
     if (systemKeyDown)
         return frame->eventHandler()->handleAccessKey(keyEvent);
@@ -382,7 +382,7 @@ bool WebView::handleKeyPress(WPARAM charCode, LPARAM keyData, bool systemKeyDown
 
 bool WebView::handleKeyUp(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
 {
-    PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformKeyboardEvent::KeyUp, systemKeyDown);
+    PlatformKeyboardEvent keyEvent(m_windowHandle, virtualKeyCode, keyData, PlatformEvent::KeyUp, systemKeyDown);
 
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
     return frame->eventHandler()->keyEvent(keyEvent);

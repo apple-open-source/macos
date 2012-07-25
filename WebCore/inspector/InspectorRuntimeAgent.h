@@ -33,6 +33,7 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "InspectorBaseAgent.h"
 #include "ScriptState.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -41,30 +42,63 @@ namespace WebCore {
 
 class InjectedScriptManager;
 class InspectorArray;
+class InspectorFrontend;
 class InspectorObject;
 class InspectorValue;
+class InstrumentingAgents;
+class ScriptDebugServer;
+class WorkerContext;
 
 typedef String ErrorString;
 
-class InspectorRuntimeAgent {
+class InspectorRuntimeAgent : public InspectorBaseAgent<InspectorRuntimeAgent>, public InspectorBackendDispatcher::RuntimeCommandHandler {
     WTF_MAKE_NONCOPYABLE(InspectorRuntimeAgent);
 public:
     virtual ~InspectorRuntimeAgent();
 
     // Part of the protocol.
-    void evaluate(ErrorString*, const String& expression, const String* const objectGroup, const bool* const includeCommandLineAPI, RefPtr<InspectorObject>* result, bool* wasThrown);
-    void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result, bool* wasThrown);
-    void releaseObject(ErrorString*, const String& objectId);
-    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* result);
-    void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
-    void releaseObjectGroup(ErrorString*, const String& objectGroup);
+    virtual void evaluate(ErrorString*,
+                  const String& expression,
+                  const String* objectGroup,
+                  const bool* includeCommandLineAPI,
+                  const bool* doNotPauseOnExceptionsAndMuteConsole,
+                  const String* frameId,
+                  const bool* returnByValue,
+                  RefPtr<TypeBuilder::Runtime::RemoteObject>& result,
+                  TypeBuilder::OptOutput<bool>* wasThrown);
+    virtual void callFunctionOn(ErrorString*,
+                        const String& objectId,
+                        const String& expression,
+                        const RefPtr<InspectorArray>* optionalArguments,
+                        const bool* doNotPauseOnExceptionsAndMuteConsole,
+                        const bool* returnByValue,
+                        RefPtr<TypeBuilder::Runtime::RemoteObject>& result,
+                        TypeBuilder::OptOutput<bool>* wasThrown);
+    virtual void releaseObject(ErrorString*, const String& objectId);
+    virtual void getProperties(ErrorString*, const String& objectId, const bool* ownProperties, RefPtr<TypeBuilder::Array<TypeBuilder::Runtime::PropertyDescriptor> >& result);
+    virtual void releaseObjectGroup(ErrorString*, const String& objectGroup);
+    virtual void run(ErrorString*);
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    void setScriptDebugServer(ScriptDebugServer*);
+#if ENABLE(WORKERS)
+    void pauseWorkerContext(WorkerContext*);
+#endif
+#endif
 
 protected:
-    explicit InspectorRuntimeAgent(InjectedScriptManager*);
-    virtual ScriptState* getDefaultInspectedState() = 0;
+    InspectorRuntimeAgent(InstrumentingAgents*, InspectorState*, InjectedScriptManager*);
+    virtual ScriptState* scriptStateForEval(ErrorString*, const String* frameId) = 0;
+
+    virtual void muteConsole() = 0;
+    virtual void unmuteConsole() = 0;
 
 private:
     InjectedScriptManager* m_injectedScriptManager;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    ScriptDebugServer* m_scriptDebugServer;
+#endif
+    bool m_paused;
 };
 
 } // namespace WebCore

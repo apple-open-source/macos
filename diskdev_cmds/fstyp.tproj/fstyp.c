@@ -36,7 +36,7 @@
 #define NULL_REDIRECTION ">/dev/null 2>&1"
 
 void usage(void);
-int select_fstyp(struct dirent * dp);
+int select_fstyp(const struct dirent * dp);
 int test(const char *dir, const struct dirent * dp, const char *dev);
 void dealloc(struct dirent ** dpp, int numElems);
 
@@ -106,7 +106,7 @@ main(int argc, char *argv[])
 }
 
 int
-select_fstyp(struct dirent * dp)
+select_fstyp(const struct dirent * dp)
 {
 	return ((dp != NULL) &&
 		((dp->d_type == DT_REG) || (dp->d_type == DT_LNK)) &&

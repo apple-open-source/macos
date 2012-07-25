@@ -41,48 +41,73 @@ CanvasRenderingContext::CanvasRenderingContext(HTMLCanvasElement* canvas)
 {
 }
 
-void CanvasRenderingContext::checkOrigin(const CanvasPattern* pattern)
+bool CanvasRenderingContext::wouldTaintOrigin(const CanvasPattern* pattern)
 {
     if (canvas()->originClean() && pattern && !pattern->originClean())
-        canvas()->setOriginTainted();
+        return true;
+    return false;
 }
 
-void CanvasRenderingContext::checkOrigin(const HTMLCanvasElement* sourceCanvas)
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLCanvasElement* sourceCanvas)
 {
     if (canvas()->originClean() && sourceCanvas && !sourceCanvas->originClean())
-        canvas()->setOriginTainted();
+        return true;
+    return false;
 }
 
-void CanvasRenderingContext::checkOrigin(const HTMLImageElement* image)
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLImageElement* image)
 {
     if (!image || !canvas()->originClean())
-        return;
+        return false;
 
     CachedImage* cachedImage = image->cachedImage();
-    checkOrigin(cachedImage->response().url());
+    if (!cachedImage->image()->hasSingleSecurityOrigin())
+        return true;
 
-    if (canvas()->originClean() && !cachedImage->image()->hasSingleSecurityOrigin())
-        canvas()->setOriginTainted();
+    return wouldTaintOrigin(cachedImage->response().url()) && !cachedImage->passesAccessControlCheck(canvas()->securityOrigin());
 }
 
-void CanvasRenderingContext::checkOrigin(const HTMLVideoElement* video)
+bool CanvasRenderingContext::wouldTaintOrigin(const HTMLVideoElement* video)
 {
 #if ENABLE(VIDEO)
-    checkOrigin(KURL(KURL(), video->currentSrc()));
-    if (canvas()->originClean() && video && !video->hasSingleSecurityOrigin())
-        canvas()->setOriginTainted();
+    // FIXME: This check is likely wrong when a redirect is involved. We need
+    // to test the finalURL. Please be careful when fixing this issue not to
+    // make currentSrc be the final URL because then the
+    // HTMLMediaElement.currentSrc DOM API would leak redirect destinations!
+    if (!video || !canvas()->originClean())
+        return false;
+
+    if (wouldTaintOrigin(video->currentSrc()))
+        return true;
+
+    if (!video->hasSingleSecurityOrigin())
+        return true;
+#else
+    UNUSED_PARAM(video);
 #endif
+
+    return false;
+}
+
+bool CanvasRenderingContext::wouldTaintOrigin(const KURL& url)
+{
+    if (!canvas()->originClean() || m_cleanURLs.contains(url.string()))
+        return false;
+
+    if (canvas()->securityOrigin()->taintsCanvas(url))
+        return true;
+
+    if (url.protocolIsData())
+        return false;
+
+    m_cleanURLs.add(url.string());
+    return false;
 }
 
 void CanvasRenderingContext::checkOrigin(const KURL& url)
 {
-    if (!canvas()->originClean() || m_cleanOrigins.contains(url.string()))
-        return;
-
-    if (canvas()->securityOrigin().taintsCanvas(url))
+    if (wouldTaintOrigin(url))
         canvas()->setOriginTainted();
-    else
-        m_cleanOrigins.add(url.string());
 }
 
 } // namespace WebCore

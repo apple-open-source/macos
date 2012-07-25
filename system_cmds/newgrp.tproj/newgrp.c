@@ -29,7 +29,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.2 2003/10/30 15:14:34 harti Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/newgrp/newgrp.c,v 1.5 2009/12/13 03:14:06 delphij Exp $");
 
 #include <sys/types.h>
 
@@ -143,20 +143,25 @@ restoregrps(void)
 	if (initres < 0)
 		warn("initgroups");
 	if (setres < 0)
-		warn("setgroups");
+		warn("setgid");
 }
 
 static void
 addgroup(const char *grpname)
 {
-	gid_t grps[NGROUPS_MAX];
-	long lgid;
+	gid_t *grps;
+	long lgid, ngrps_max;
 	int dbmember, i, ngrps;
 	gid_t egid;
 	struct group *grp;
 	char *ep, *pass;
 	char **p;
 	char *grp_passwd;
+#ifdef __APPLE__
+	uuid_t user_uuid;
+	uuid_t group_uuid;
+	int status;
+#endif
 
 	egid = getegid();
 
@@ -168,6 +173,19 @@ addgroup(const char *grpname)
 			return;
 		}
 
+#ifdef __APPLE__
+	status = mbr_uid_to_uuid(pwd->pw_uid, user_uuid);
+	if (status)
+		errc(1, status, "mbr_uid_to_uuid");
+
+	status = mbr_gid_to_uuid(grp->gr_gid, group_uuid);
+	if (status)
+		errc(1, status, "mbr_gid_to_uuid");
+
+	status = mbr_check_membership(user_uuid, group_uuid, &dbmember);
+	if (status)
+		errc(1, status, "mbr_check_membership");
+#else
 	/*
 	 * If the user is not a member of the requested group and the group
 	 * has a password, prompt and check it.
@@ -180,6 +198,8 @@ addgroup(const char *grpname)
 			dbmember = 1;
 			break;
 		}
+#endif
+
 	grp_passwd = grp->gr_passwd;
 	if ((grp_passwd == NULL) || (grp_passwd[0] == '\0'))
 		grp_passwd = "*";
@@ -192,9 +212,12 @@ addgroup(const char *grpname)
 		}
 	}
 
-	if ((ngrps = getgroups(NGROUPS_MAX, (gid_t *)grps)) < 0) {
+	ngrps_max = sysconf(_SC_NGROUPS_MAX) + 1;
+	if ((grps = malloc(sizeof(gid_t) * ngrps_max)) == NULL)
+		err(1, "malloc");
+	if ((ngrps = getgroups(ngrps_max, (gid_t *)grps)) < 0) {
 		warn("getgroups");
-		return;
+		goto end;
 	}
 
 	/* Remove requested gid from supp. list if it exists. */
@@ -208,7 +231,7 @@ addgroup(const char *grpname)
 		if (setgroups(ngrps, (const gid_t *)grps) < 0) {
 			PRIV_END;
 			warn("setgroups");
-			return;
+			goto end;
 		}
 		PRIV_END;
 	}
@@ -217,14 +240,14 @@ addgroup(const char *grpname)
 	if (setgid(grp->gr_gid)) {
 		PRIV_END;
 		warn("setgid");
-		return;
+		goto end;
 	}
 	PRIV_END;
 	grps[0] = grp->gr_gid;
 
 	/* Add old effective gid to supp. list if it does not exist. */
 	if (egid != grp->gr_gid && !inarray(egid, grps, ngrps)) {
-		if (ngrps == NGROUPS_MAX)
+		if (ngrps + 1 >= ngrps_max)
 			warnx("too many groups");
 		else {
 			grps[ngrps++] = egid;
@@ -232,12 +255,14 @@ addgroup(const char *grpname)
 			if (setgroups(ngrps, (const gid_t *)grps)) {
 				PRIV_END;
 				warn("setgroups");
-				return;
+				goto end;
 			}
 			PRIV_END;
 		}
 	}
 
+end:
+	free(grps);
 }
 
 static int

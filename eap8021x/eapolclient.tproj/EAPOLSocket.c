@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -272,7 +272,7 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t def)
     boolean_t		ret = def;
 
     b = isA_CFBoolean(CFDictionaryGetValue(plist, key));
-    if (b) {
+    if (b != NULL) {
 	ret = CFBooleanGetValue(b);
     }
     if (eapolclient_should_log(kLogFlagTunables)) {
@@ -294,7 +294,7 @@ S_get_plist_int_log(CFDictionaryRef plist, CFStringRef key, int def,
     int			ret = def;
 
     n = isA_CFNumber(CFDictionaryGetValue(plist, key));
-    if (n) {
+    if (n != NULL) {
 	if (CFNumberGetValue(n, kCFNumberIntType, &ret) == FALSE) {
 	    ret = def;
 	}
@@ -308,8 +308,8 @@ S_get_plist_int_log(CFDictionaryRef plist, CFStringRef key, int def,
     return (ret);
 }
 
-static int
-S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
+__private_extern__ int
+get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
 {
     return (S_get_plist_int_log(plist, key, def, TRUE));
 }
@@ -369,18 +369,20 @@ EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 	S_enable_preauth
 	    = S_get_plist_boolean(plist, kEnablePreauthentication,
 				  FALSE);
-	S_scan_delay_authenticated_secs
-	    = S_get_plist_int(plist, kScanDelayAuthenticatedSeconds,
-			      SCAN_DELAY_AUTHENTICATED_SECS);
-	S_scan_delay_roam_secs
-	    = S_get_plist_int(plist, kScanDelayRoamSeconds,
-			      SCAN_DELAY_ROAM_SECS);
-	S_scan_period_secs
-	    = S_get_plist_int(plist, kScanPeriodSeconds,
-			      SCAN_PERIOD_SECS);
-	S_number_of_scans
-	    = S_get_plist_int(plist, kNumberOfScans,
-			      NUMBER_OF_SCANS);
+	if (S_enable_preauth) {
+	    S_scan_delay_authenticated_secs
+		= get_plist_int(plist, kScanDelayAuthenticatedSeconds,
+				SCAN_DELAY_AUTHENTICATED_SECS);
+	    S_scan_delay_roam_secs
+		= get_plist_int(plist, kScanDelayRoamSeconds,
+				SCAN_DELAY_ROAM_SECS);
+	    S_scan_period_secs
+		= get_plist_int(plist, kScanPeriodSeconds,
+				SCAN_PERIOD_SECS);
+	    S_number_of_scans
+		= get_plist_int(plist, kNumberOfScans,
+				NUMBER_OF_SCANS);
+	}
     }
 
     plist = SCPreferencesGetValue(prefs, kTesting);
@@ -522,7 +524,7 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 {
 #ifdef NO_WIRELESS
     return (FALSE);
-#else NO_WIRELESS
+#else /* NO_WIRELESS */
     if (sock->source->is_wireless == FALSE) {
 	return (FALSE);
     }
@@ -535,7 +537,7 @@ EAPOLSocketGetSSID(EAPOLSocketRef sock)
 {
 #ifdef NO_WIRELESS
     return (NULL);
-#else NO_WIRELESS
+#else /* NO_WIRELESS */
     if (sock->source->is_wireless == FALSE) {
 	return (NULL);
     }
@@ -613,8 +615,9 @@ EAPOLSocketClearPMKCache(EAPOLSocketRef sock)
 }
 
 boolean_t
-EAPOLSocketSetPMK(EAPOLSocketRef sock, 
-		  const uint8_t * key, int key_length)
+EAPOLSocketSetWPAKey(EAPOLSocketRef sock, 
+		     const uint8_t * session_key, int session_key_length,
+		     const uint8_t * server_key, int server_key_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
@@ -628,7 +631,7 @@ EAPOLSocketSetPMK(EAPOLSocketRef sock,
     if (source->sock == sock) {
 	/* main supplicant */
 	bssid = NULL;
-	if (key_length != 0) {
+	if (session_key_length != 0) {
 	    EAPOLSocketSourceScheduleHandshakeNotification(source);
 	}
 	else {
@@ -642,14 +645,18 @@ EAPOLSocketSetPMK(EAPOLSocketRef sock,
     }
     if (eapolclient_should_log(kLogFlagBasic)) {
 	if (bssid == NULL) {
-	    eapolclient_log(kLogFlagBasic, "set_key %d\n", key_length);
+	    eapolclient_log(kLogFlagBasic, "set_key %d/%d\n",
+			    session_key_length, server_key_length);
 	}
 	else {
-	    eapolclient_log(kLogFlagBasic, "set_key %s %d\n",
-			    ether_ntoa(bssid), key_length);
+	    eapolclient_log(kLogFlagBasic, 
+			    "set_key %s %d/%d\n", ether_ntoa(bssid),
+			    session_key_length, server_key_length);
 	}
     }
-    return (wireless_set_wpa_pmk(source->wref, bssid, key, key_length));
+    return (wireless_set_wpa_key(source->wref, bssid,
+				 session_key, session_key_length,
+				 server_key, server_key_length));
 #endif /* NO_WIRELESS */
 }
 
@@ -789,6 +796,28 @@ EAPOLSocketStopClient(EAPOLSocketRef sock)
 	wireless_disassociate(source->wref);
     }
     return;
+}
+
+boolean_t
+EAPOLSocketReassociate(EAPOLSocketRef sock)
+{
+    boolean_t			ret;
+    CFDictionaryRef		scan_record;
+    EAPOLSocketSourceRef	source = sock->source;
+
+    if (EAPOLSocketIsWireless(sock) == FALSE) {
+	return (FALSE);
+    }
+    if (EAPOLSocketIsMain(sock) == FALSE) {
+	return (FALSE);
+    }
+    scan_record = wireless_copy_scan_record(source->if_name, source->store);
+    if (scan_record == NULL) {
+	return (FALSE);
+    }
+    ret = wireless_reassociate(source->wref, scan_record);
+    CFRelease(scan_record);
+    return (ret);
 }
 
 /**
@@ -1488,7 +1517,7 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
-#else NO_WIRELESS
+#else /* NO_WIRELESS */
     struct ether_addr	ap_mac;
     bool 		ap_mac_valid = FALSE;
     bool		changed = FALSE;

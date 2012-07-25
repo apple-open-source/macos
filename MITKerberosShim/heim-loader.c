@@ -158,6 +158,8 @@ fun_krb5_get_error_string = dlsym(hf, "krb5_get_error_string");
 if (!fun_krb5_get_error_string) { syslog(LOG_ERR, "krb5_get_error_string failed loading"); }
 fun_krb5_get_default_principal = dlsym(hf, "krb5_get_default_principal");
 if (!fun_krb5_get_default_principal) { syslog(LOG_ERR, "krb5_get_default_principal failed loading"); }
+fun_krb5_get_error_message = dlsym(hf, "krb5_get_error_message");
+if (!fun_krb5_get_error_message) { syslog(LOG_ERR, "krb5_get_error_message failed loading"); }
 fun_krb5_get_init_creds_opt_alloc = dlsym(hf, "krb5_get_init_creds_opt_alloc");
 if (!fun_krb5_get_init_creds_opt_alloc) { syslog(LOG_ERR, "krb5_get_init_creds_opt_alloc failed loading"); }
 fun_krb5_get_init_creds_opt_free = dlsym(hf, "krb5_get_init_creds_opt_free");
@@ -378,8 +380,6 @@ fun_krb5_clear_error_message = dlsym(hf, "krb5_clear_error_message");
 if (!fun_krb5_clear_error_message) { syslog(LOG_ERR, "krb5_clear_error_message failed loading"); }
 fun_krb5_free_error_message = dlsym(hf, "krb5_free_error_message");
 if (!fun_krb5_free_error_message) { syslog(LOG_ERR, "krb5_free_error_message failed loading"); }
-fun_krb5_get_error_message = dlsym(hf, "krb5_get_error_message");
-if (!fun_krb5_get_error_message) { syslog(LOG_ERR, "krb5_get_error_message failed loading"); }
 fun_krb5_set_default_realm = dlsym(hf, "krb5_set_default_realm");
 if (!fun_krb5_set_default_realm) { syslog(LOG_ERR, "krb5_set_default_realm failed loading"); }
 fun_krb5_set_error_message = dlsym(hf, "krb5_set_error_message");

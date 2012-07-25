@@ -20,20 +20,19 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSStyleSheet.h"
+#include "CachedFont.h"
+#include "CachedResourceLoader.h"
+#include "Document.h"
 #include "FontCustomPlatformData.h"
 #include "Node.h"
 
 namespace WebCore {
-
-CSSFontFaceSrcValue::~CSSFontFaceSrcValue()
-{
-}
 
 #if ENABLE(SVG_FONTS)
 bool CSSFontFaceSrcValue::isSVGFontFaceSrc() const
@@ -60,7 +59,7 @@ bool CSSFontFaceSrcValue::isSupportedFormat() const
            ;
 }
 
-String CSSFontFaceSrcValue::cssText() const
+String CSSFontFaceSrcValue::customCssText() const
 {
     String result;
     if (isLocal())
@@ -74,10 +73,19 @@ String CSSFontFaceSrcValue::cssText() const
     return result;
 }
 
-void CSSFontFaceSrcValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const CSSStyleSheet* styleSheet)
+void CSSFontFaceSrcValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const StyleSheetInternal* styleSheet)
 {
     if (!isLocal())
         addSubresourceURL(urls, styleSheet->completeURL(m_resource));
+}
+
+CachedFont* CSSFontFaceSrcValue::cachedFont(Document* document)
+{
+    if (!m_cachedFont) {
+        ResourceRequest request(document->completeURL(m_resource));
+        m_cachedFont = document->cachedResourceLoader()->requestFont(request);
+    }
+    return m_cachedFont.get();
 }
 
 }

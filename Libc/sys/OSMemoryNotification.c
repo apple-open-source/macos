@@ -27,6 +27,8 @@
 #include <notify.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/private.h>
 
 const char *kOSMemoryNotificationName = "com.apple.system.memorystatus";
 
@@ -69,7 +71,6 @@ OSMemoryNotificationDestroy(OSMemoryNotificationRef note)
 int
 OSMemoryNotificationWait(OSMemoryNotificationRef note, OSMemoryNotificationLevel *level)
 {
-
 	return OSMemoryNotificationTimedWait(note, level, NULL);
 }
 
@@ -95,49 +96,40 @@ abs_to_timeout(const struct timeval *abstime)
 int
 OSMemoryNotificationTimedWait(OSMemoryNotificationRef note, OSMemoryNotificationLevel *level, const struct timeval *abstime)
 {
-	mach_msg_empty_rcv_t msg = {{0}};
-	mach_msg_return_t ret;
-	uint64_t val;
+    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+    dispatch_retain(sema);
+    
+    dispatch_source_t memoryNotificationSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
+    dispatch_source_set_event_handler(memoryNotificationSource, ^{
+        dispatch_semaphore_signal(sema);
+        dispatch_release(sema);
+    });
 
-	if (abstime) {
-		mach_msg_timeout_t timeout = abs_to_timeout(abstime);
+    dispatch_resume(memoryNotificationSource);
+    
+    dispatch_time_t waitTime = DISPATCH_TIME_FOREVER;
+    if (abstime) {
+        mach_msg_timeout_t timeout = abs_to_timeout(abstime);
+        waitTime = dispatch_time(DISPATCH_TIME_NOW, timeout * 1e6);
+    }
+    
+    long ret = dispatch_semaphore_wait(sema, waitTime);
 
-		if (0 == timeout)
-			return ETIMEDOUT;
+    dispatch_release(sema);
+    dispatch_release(memoryNotificationSource);
 
-		ret = mach_msg(&msg.header, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof msg, note->port, timeout, MACH_PORT_NULL);
-
-		if (MACH_RCV_TIMED_OUT == ret) {
-			return ETIMEDOUT;
-		} 
-	} else {
-		ret = mach_msg(&msg.header, MACH_RCV_MSG, 0, sizeof msg, note->port, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-	}
-
-	if (MACH_MSG_SUCCESS != ret)
-		return EINVAL;
-
-	if (NOTIFY_STATUS_OK != notify_get_state(note->token, &val))
-		return EINVAL;
-
-	*level = (OSMemoryNotificationLevel)val;
-
-	return 0;
+    if (ret != 0) {
+        return ETIMEDOUT;
+    }
+    
+    if (level) {
+        *level = OSMemoryNotificationLevelUrgent;
+    }
+    
+    return 0;
 }
 
 OSMemoryNotificationLevel OSMemoryNotificationCurrentLevel(void)
 {
-	uint64_t val;
-	int token;
-
-	if (NOTIFY_STATUS_OK != notify_register_check(kOSMemoryNotificationName, &token))
-		return OSMemoryNotificationLevelAny;
-
-	if (NOTIFY_STATUS_OK != notify_get_state(token, &val))
-		return OSMemoryNotificationLevelAny;
-
-	if (NOTIFY_STATUS_OK != notify_cancel(token))
-		return OSMemoryNotificationLevelAny;
-
-	return (OSMemoryNotificationLevel)val;
+	return OSMemoryNotificationLevelNormal;
 }

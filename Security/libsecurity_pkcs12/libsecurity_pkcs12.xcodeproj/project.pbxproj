@@ -1,0 +1,318 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */; };
+		05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */ = {isa = PBXBuildFile; fileRef = 05396DB90417B81000003D05 /* pkcs12Debug.h */; };
+		054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289210416A4EA00003D05 /* pkcs12SafeBag.h */; };
+		054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289230416A5A800003D05 /* pkcs12BagAttrs.h */; };
+		054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */ = {isa = PBXBuildFile; fileRef = 054289250416AA2F00003D05 /* pkcs12Coder.h */; };
+		054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289280416B3D100003D05 /* pkcs12Coder.cpp */; };
+		0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892B0416B65F00003D05 /* pkcs12Encode.cpp */; };
+		0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0542892D0416B6C300003D05 /* pkcs12Decode.cpp */; };
+		054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 054289330416C36700003D05 /* pkcs12SafeBag.cpp */; };
+		0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */; };
+		0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */; };
+		0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */; };
+		0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */; };
+		0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA604156B4000003D05 /* pkcs7Templates.h */; };
+		0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA704156B4000003D05 /* pkcs12Crypto.h */; };
+		0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACA904156B4000003D05 /* pkcs12Templates.h */; };
+		0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACAA04156B4000003D05 /* pkcs12Utils.h */; };
+		0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */ = {isa = PBXBuildFile; fileRef = 0592ACD0041665AE00003D05 /* SecPkcs12.h */; };
+		0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0592ACD304167B1F00003D05 /* SecPkcs12.cpp */; };
+		05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB3E0146F2039000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB3DB146F2039000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
+			remoteInfo = libsecurity_utilities;
+		};
+		182BB3E2146F204A000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB3DB146F2039000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
+			remoteInfo = libsecurity_utilitiesDTrace;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12BagAttrs.cpp; sourceTree = "<group>"; };
+		05396DB90417B81000003D05 /* pkcs12Debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Debug.h; sourceTree = "<group>"; };
+		054289210416A4EA00003D05 /* pkcs12SafeBag.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12SafeBag.h; sourceTree = "<group>"; };
+		054289230416A5A800003D05 /* pkcs12BagAttrs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12BagAttrs.h; sourceTree = "<group>"; };
+		054289250416AA2F00003D05 /* pkcs12Coder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pkcs12Coder.h; sourceTree = "<group>"; };
+		054289280416B3D100003D05 /* pkcs12Coder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Coder.cpp; sourceTree = "<group>"; };
+		0542892B0416B65F00003D05 /* pkcs12Encode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Encode.cpp; sourceTree = "<group>"; };
+		0542892D0416B6C300003D05 /* pkcs12Decode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Decode.cpp; sourceTree = "<group>"; };
+		054289330416C36700003D05 /* pkcs12SafeBag.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12SafeBag.cpp; sourceTree = "<group>"; };
+		0592AC8C0415523C00003D05 /* libsecurity_pkcs12.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_pkcs12.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs7Templates.cpp; sourceTree = "<group>"; };
+		0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Crypto.cpp; sourceTree = "<group>"; };
+		0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Templates.cpp; sourceTree = "<group>"; };
+		0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Utils.cpp; sourceTree = "<group>"; };
+		0592ACA604156B4000003D05 /* pkcs7Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs7Templates.h; sourceTree = "<group>"; };
+		0592ACA704156B4000003D05 /* pkcs12Crypto.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Crypto.h; sourceTree = "<group>"; };
+		0592ACA904156B4000003D05 /* pkcs12Templates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Templates.h; sourceTree = "<group>"; };
+		0592ACAA04156B4000003D05 /* pkcs12Utils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pkcs12Utils.h; sourceTree = "<group>"; };
+		0592ACD0041665AE00003D05 /* SecPkcs12.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecPkcs12.h; sourceTree = "<group>"; };
+		0592ACD304167B1F00003D05 /* SecPkcs12.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SecPkcs12.cpp; sourceTree = "<group>"; };
+		05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = pkcs12Keychain.cpp; sourceTree = "<group>"; };
+		182BB3D7146F1F86000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB3D8146F1F86000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB3D9146F1F86000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB3DA146F1F86000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB3DB146F2039000BF1F3 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0592AC890415523C00003D05 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0592AC81041551E100003D05 = {
+			isa = PBXGroup;
+			children = (
+				182BB3DB146F2039000BF1F3 /* libsecurity_utilities.xcodeproj */,
+				0592AC96041552BB00003D05 /* lib */,
+				182BB3D6146F1F86000BF1F3 /* config */,
+				0592AC8D0415523C00003D05 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0592AC8D0415523C00003D05 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0592AC8C0415523C00003D05 /* libsecurity_pkcs12.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0592AC96041552BB00003D05 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				05396DB50417A34400003D05 /* pkcs12BagAttrs.cpp */,
+				054289230416A5A800003D05 /* pkcs12BagAttrs.h */,
+				054289280416B3D100003D05 /* pkcs12Coder.cpp */,
+				054289250416AA2F00003D05 /* pkcs12Coder.h */,
+				0592AC9904156B2B00003D05 /* pkcs12Crypto.cpp */,
+				0592ACA704156B4000003D05 /* pkcs12Crypto.h */,
+				05396DB90417B81000003D05 /* pkcs12Debug.h */,
+				0542892D0416B6C300003D05 /* pkcs12Decode.cpp */,
+				0542892B0416B65F00003D05 /* pkcs12Encode.cpp */,
+				05A9EF64041FB7C600003D05 /* pkcs12Keychain.cpp */,
+				054289330416C36700003D05 /* pkcs12SafeBag.cpp */,
+				054289210416A4EA00003D05 /* pkcs12SafeBag.h */,
+				0592AC9B04156B2B00003D05 /* pkcs12Templates.cpp */,
+				0592ACA904156B4000003D05 /* pkcs12Templates.h */,
+				0592AC9C04156B2B00003D05 /* pkcs12Utils.cpp */,
+				0592ACAA04156B4000003D05 /* pkcs12Utils.h */,
+				0592AC9804156B2B00003D05 /* pkcs7Templates.cpp */,
+				0592ACA604156B4000003D05 /* pkcs7Templates.h */,
+				0592ACD304167B1F00003D05 /* SecPkcs12.cpp */,
+				0592ACD0041665AE00003D05 /* SecPkcs12.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		182BB3D6146F1F86000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB3D7146F1F86000BF1F3 /* base.xcconfig */,
+				182BB3D8146F1F86000BF1F3 /* debug.xcconfig */,
+				182BB3D9146F1F86000BF1F3 /* lib.xcconfig */,
+				182BB3DA146F1F86000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB3DC146F2039000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB3E1146F2039000BF1F3 /* libsecurity_utilities.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0592AC870415523C00003D05 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0592ACAD04156B4000003D05 /* pkcs7Templates.h in Headers */,
+				0592ACAE04156B4000003D05 /* pkcs12Crypto.h in Headers */,
+				0592ACB004156B4000003D05 /* pkcs12Templates.h in Headers */,
+				0592ACB104156B4000003D05 /* pkcs12Utils.h in Headers */,
+				0592ACD1041665AE00003D05 /* SecPkcs12.h in Headers */,
+				054289220416A4EA00003D05 /* pkcs12SafeBag.h in Headers */,
+				054289240416A5A800003D05 /* pkcs12BagAttrs.h in Headers */,
+				054289260416AA2F00003D05 /* pkcs12Coder.h in Headers */,
+				05396DBA0417B81000003D05 /* pkcs12Debug.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3C40987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_pkcs12" */;
+			buildPhases = (
+				0592AC870415523C00003D05 /* Headers */,
+				0592AC880415523C00003D05 /* Sources */,
+				0592AC890415523C00003D05 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB3E3146F204A000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_pkcs12;
+			productInstallPath = /usr/local/lib;
+			productName = libnsspkcs12;
+			productReference = 0592AC8C0415523C00003D05 /* libsecurity_pkcs12.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0592AC85041551E100003D05 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 0592AC81041551E100003D05;
+			productRefGroup = 0592AC8D0415523C00003D05 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB3DC146F2039000BF1F3 /* Products */;
+					ProjectRef = 182BB3DB146F2039000BF1F3 /* libsecurity_utilities.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				0592AC8B0415523C00003D05 /* libsecurity_pkcs12 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB3E1146F2039000BF1F3 /* libsecurity_utilities.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_utilities.a;
+			remoteRef = 182BB3E0146F2039000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0592AC880415523C00003D05 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05396DB60417A34400003D05 /* pkcs12BagAttrs.cpp in Sources */,
+				054289290416B3D100003D05 /* pkcs12Coder.cpp in Sources */,
+				0592ACA004156B2B00003D05 /* pkcs12Crypto.cpp in Sources */,
+				0542892E0416B6C300003D05 /* pkcs12Decode.cpp in Sources */,
+				0542892C0416B65F00003D05 /* pkcs12Encode.cpp in Sources */,
+				05A9EF65041FB7C600003D05 /* pkcs12Keychain.cpp in Sources */,
+				054289340416C36700003D05 /* pkcs12SafeBag.cpp in Sources */,
+				0592ACA204156B2B00003D05 /* pkcs12Templates.cpp in Sources */,
+				0592ACA304156B2B00003D05 /* pkcs12Utils.cpp in Sources */,
+				0592AC9F04156B2B00003D05 /* pkcs7Templates.cpp in Sources */,
+				0592ACD404167B1F00003D05 /* SecPkcs12.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB3E3146F204A000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_utilitiesDTrace;
+			targetProxy = 182BB3E2146F204A000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3C50987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3D8146F1F86000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3C70987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3DA146F1F86000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD3C90987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3D9146F1F86000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3CB0987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB3D9146F1F86000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3C40987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C50987FCDF001272E0 /* Debug */,
+				C27AD3C70987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3C80987FCDF001272E0 /* Build configuration list for PBXProject "libsecurity_pkcs12" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3C90987FCDF001272E0 /* Debug */,
+				C27AD3CB0987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0592AC85041551E100003D05 /* Project object */;
+}

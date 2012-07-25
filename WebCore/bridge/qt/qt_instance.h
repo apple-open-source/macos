@@ -22,9 +22,10 @@
 
 #include "BridgeJSC.h"
 #include "runtime_root.h"
+#include <QStack>
+#include <QWeakPointer>
 #include <QtScript/qscriptengine.h>
 #include <qhash.h>
-#include <qpointer.h>
 #include <qset.h>
 
 namespace JSC {
@@ -59,7 +60,7 @@ public:
     JSValue numberValue(ExecState* exec) const;
     JSValue booleanValue() const;
 
-    QObject* getObject() const { return m_object; }
+    QObject* getObject() const { return m_object.data(); }
     QObject* hashKey() const { return m_hashkey; }
 
     static PassRefPtr<QtInstance> getQtInstance(QObject*, PassRefPtr<RootObject>, QScriptEngine::ValueOwnership ownership);
@@ -71,6 +72,18 @@ public:
 
     static QtInstance* getInstance(JSObject*);
 
+    class QtSenderStack {
+    public:
+        QObject* top() const { return m_stack.isEmpty() ? 0 : m_stack.top(); }
+        void push(QObject* object) { m_stack.push(object); }
+        void pop() { Q_ASSERT(!m_stack.isEmpty()); m_stack.pop(); }
+    private:
+        QStack<QObject*> m_stack;
+    };
+
+    // Used to implement '__qt_sender__'.
+    static QtSenderStack* qtSenderStack();
+
 private:
     static PassRefPtr<QtInstance> create(QObject *instance, PassRefPtr<RootObject> rootObject, QScriptEngine::ValueOwnership ownership)
     {
@@ -81,11 +94,10 @@ private:
     friend class QtField;
     QtInstance(QObject*, PassRefPtr<RootObject>, QScriptEngine::ValueOwnership ownership); // Factory produced only..
     mutable QtClass* m_class;
-    QPointer<QObject> m_object;
+    QWeakPointer<QObject> m_object;
     QObject* m_hashkey;
     mutable QHash<QByteArray, WriteBarrier<JSObject> > m_methods;
     mutable QHash<QString, QtField*> m_fields;
-    mutable WriteBarrier<QtRuntimeMetaMethod> m_defaultMethod;
     QScriptEngine::ValueOwnership m_ownership;
 };
 

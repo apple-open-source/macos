@@ -99,7 +99,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB923508733DC60010E9CD /* Build configuration list for PBXProject "ATAPILogger" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* SAMLogger */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -135,10 +139,7 @@
 					"_GLIBCXX_DEBUG=1",
 					"_GLIBCXX_DEBUG_PEDANTIC=1",
 				);
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",
@@ -157,10 +158,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",

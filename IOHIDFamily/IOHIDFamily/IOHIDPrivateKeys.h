@@ -79,6 +79,8 @@ typedef enum {
 
 #define kIOHIDAbsoluteAxisBoundsRemovalPercentage   "AbsoluteAxisBoundsRemovalPercentage"
 
+#define kIOHIDEventServiceQueueSize         "QueueSize"
+
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATEKEYS_H_ */

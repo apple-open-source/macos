@@ -23,33 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
 #ifndef RenderMathMLSubSup_h
 #define RenderMathMLSubSup_h
 
 #if ENABLE(MATHML)
 
 #include "RenderMathMLBlock.h"
-#include "RenderTable.h"
 
 namespace WebCore {
     
+// Render a base with a subscript and/or a superscript.
 class RenderMathMLSubSup : public RenderMathMLBlock {
 public:
-    RenderMathMLSubSup(Element* fraction);
+    RenderMathMLSubSup(Element*);
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-    virtual bool hasBase() const { return true; }
-    virtual int nonOperatorHeight() const;
-    virtual void stretchToHeight(int pixelHeight);
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    
+    virtual RenderMathMLOperator* unembellishedOperator();
 
 protected:
     virtual void layout();
     
 private:
+    virtual const char* renderName() const { return "RenderMathMLSubSup"; }
+
+    // Omit our subscript and/or superscript. This may return 0 for a non-MathML base (which
+    // won't occur in valid MathML).
+    RenderBoxModelObject* base() const;
+    
     enum SubSupType { Sub, Sup, SubSup };
     SubSupType m_kind;
-    RenderBlock* m_scripts;
+    RenderMathMLBlock* m_scripts;
 };
     
 }
@@ -57,4 +60,3 @@ private:
 #endif // ENABLE(MATHML)
 
 #endif // RenderMathMLSubSup_h
-

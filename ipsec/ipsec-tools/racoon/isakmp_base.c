@@ -303,10 +303,6 @@ base_i2recv(iph1, msg)
 	vchar_t *satmp = NULL;
 	int error = -1;
 	int vid_numeric;
-#ifdef ENABLE_HYBRID
-	vchar_t *unity_vid;
-	vchar_t *xauth_vid;
-#endif
 
 	/* validity check */
 	if (iph1->status != PHASE1ST_MSG1SENT) {
@@ -319,7 +315,7 @@ base_i2recv(iph1, msg)
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL)
 		goto end;
-	pa = (struct isakmp_parse_t *)pbuf->v;
+	pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 
 	/* SA payload is fixed postion */
 	if (pa->type != ISAKMP_NPTYPE_SA) {
@@ -577,13 +573,13 @@ base_i2send(iph1, msg)
 		plog (LLV_INFO, LOCATION, NULL, "Adding remote and local NAT-D payloads.\n");
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"NAT-D hashing failed for %s\n", saddr2str(iph1->remote));
+				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->remote));
 			goto end;
 		}
 
 		if ((natd[1] = natt_hash_addr (iph1, iph1->local)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"NAT-D hashing failed for %s\n", saddr2str(iph1->local));
+				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->local));
 			goto end;
 		}
 
@@ -662,7 +658,7 @@ base_i3recv(iph1, msg)
 	if (pbuf == NULL)
 		goto end;
 
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 
@@ -876,7 +872,7 @@ base_r1recv(iph1, msg)
 	pbuf = isakmp_parse(msg);
 	if (pbuf == NULL)
 		goto end;
-	pa = (struct isakmp_parse_t *)pbuf->v;
+	pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 
 	/* check the position of SA payload */
 	if (pa->type != ISAKMP_NPTYPE_SA) {
@@ -1202,7 +1198,7 @@ base_r2recv(iph1, msg)
 
 	iph1->pl_hash = NULL;
 
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 
@@ -1465,13 +1461,13 @@ base_r2send(iph1, msg)
 		plog (LLV_INFO, LOCATION, NULL, "Adding remote and local NAT-D payloads.\n");
 		if ((natd[0] = natt_hash_addr (iph1, iph1->remote)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"NAT-D hashing failed for %s\n", saddr2str(iph1->remote));
+				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->remote));
 			goto end;
 		}
 
 		if ((natd[1] = natt_hash_addr (iph1, iph1->local)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"NAT-D hashing failed for %s\n", saddr2str(iph1->local));
+				"NAT-D hashing failed for %s\n", saddr2str((struct sockaddr *)iph1->local));
 			goto end;
 		}
 

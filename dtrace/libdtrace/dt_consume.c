@@ -825,11 +825,12 @@ int
 dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
     caddr_t addr, int depth, int size)
 {
-	dtrace_syminfo_t dts;
-	GElf_Sym sym;
-	int i, indent;
-	char c[PATH_MAX * 2];
-	uint64_t pc;
+        dtrace_syminfo_t dts;
+        GElf_Sym sym;
+        char aux_symbol_name[32];
+        int i, indent;
+        char c[PATH_MAX * 2];
+        uint64_t pc;
 
 	if (dt_printf(dtp, fp, "\n") < 0)
 		return (-1);
@@ -867,7 +868,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			return (-1);
 
 #if defined(__APPLE__)
-		if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) 
+		if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, aux_symbol_name, sizeof(aux_symbol_name), &sym, &dts) == 0) 
 #else
 		if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) 
 #endif
@@ -887,7 +888,7 @@ dt_print_stack(dtrace_hdl_t *dtp, FILE *fp, const char *format,
 			 * interested in the containing module.
 			 */
 #if defined(__APPLE__)
-			if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) 
+			if ((dtp->dt_options[DTRACEOPT_STACKSYMBOLS] != DTRACEOPT_UNSET) && dtrace_lookup_by_addr(dtp, pc, NULL, 0, NULL, &dts) == 0) 
 #else
 			if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) 
 #endif
@@ -1136,15 +1137,16 @@ static int
 dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 {
 	/* LINTED - alignment */
-	uint64_t pc = *((uint64_t *)addr);
-	dtrace_syminfo_t dts;
-	GElf_Sym sym;
-	char c[PATH_MAX * 2];
-
+        uint64_t pc = *((uint64_t *)addr);
+        dtrace_syminfo_t dts;
+        GElf_Sym sym;
+        char c[PATH_MAX * 2];
+        char aux_symbol_name[32];
+        
 	if (format == NULL)
 		format = "  %-50s";
 
-	if (dtrace_lookup_by_addr(dtp, pc, &sym, &dts) == 0) {
+	if (dtrace_lookup_by_addr(dtp, pc, aux_symbol_name, sizeof(aux_symbol_name), &sym, &dts) == 0) {
 		(void) snprintf(c, sizeof (c), "%s`%s",
 		    dts.dts_object, dts.dts_name);
 	} else {
@@ -1153,7 +1155,7 @@ dt_print_sym(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 		 * NULL GElf_Sym -- indicating that we're only interested in
 		 * the containing module.
 		 */
-		if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
+		if (dtrace_lookup_by_addr(dtp, pc, NULL, 0, NULL, &dts) == 0) {
 			(void) snprintf(c, sizeof (c), "%s`0x%llx",
 			    dts.dts_object, (u_longlong_t)pc);
 		} else {
@@ -1175,11 +1177,12 @@ dt_print_mod(dtrace_hdl_t *dtp, FILE *fp, const char *format, caddr_t addr)
 	uint64_t pc = *((uint64_t *)addr);
 	dtrace_syminfo_t dts;
 	char c[PATH_MAX * 2];
+        char aux_symbol_name[32];
 
 	if (format == NULL)
 		format = "  %-50s";
 
-	if (dtrace_lookup_by_addr(dtp, pc, NULL, &dts) == 0) {
+	if (dtrace_lookup_by_addr(dtp, pc, NULL, 0, NULL, &dts) == 0) {
 		(void) snprintf(c, sizeof (c), "%s", dts.dts_object);
 	} else {
 		(void) snprintf(c, sizeof (c), "0x%llx", (u_longlong_t)pc);

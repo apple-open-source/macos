@@ -27,7 +27,44 @@
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
-    
+ 
+template<>
+struct SVGPropertyTraits<ChannelSelectorType> {
+    static unsigned highestEnumValue() { return CHANNEL_A; }
+
+    static String toString(ChannelSelectorType type)
+    {
+        switch (type) {
+        case CHANNEL_UNKNOWN:
+            return emptyString();
+        case CHANNEL_R:
+            return "R";
+        case CHANNEL_G:
+            return "G";
+        case CHANNEL_B:
+            return "B";
+        case CHANNEL_A:
+            return "A";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static ChannelSelectorType fromString(const String& value)
+    {
+        if (value == "R")
+            return CHANNEL_R;
+        if (value == "G")
+            return CHANNEL_G;
+        if (value == "B")
+            return CHANNEL_B;
+        if (value == "A")
+            return CHANNEL_A;
+        return CHANNEL_UNKNOWN;
+    }
+};
+
 class SVGFEDisplacementMapElement : public SVGFilterPrimitiveStandardAttributes {
 public:
     static PassRefPtr<SVGFEDisplacementMapElement> create(const QualifiedName&, Document*);
@@ -37,20 +74,19 @@ public:
 private:
     SVGFEDisplacementMapElement(const QualifiedName& tagName, Document*);
     
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_STRING(In2, in2)
-    DECLARE_ANIMATED_ENUMERATION(XChannelSelector, xChannelSelector)
-    DECLARE_ANIMATED_ENUMERATION(YChannelSelector, yChannelSelector)
-    DECLARE_ANIMATED_NUMBER(Scale, scale)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEDisplacementMapElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_STRING(In2, in2)
+        DECLARE_ANIMATED_ENUMERATION(XChannelSelector, xChannelSelector, ChannelSelectorType)
+        DECLARE_ANIMATED_ENUMERATION(YChannelSelector, yChannelSelector, ChannelSelectorType)
+        DECLARE_ANIMATED_NUMBER(Scale, scale)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

@@ -5,6 +5,107 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.31 release (the cctools-829 release):
+- Fixed the change in check_fat_object_in_archive() in ofile.c to handle llvm
+  bitcode in fat files in archives for Radar bug #9087924.  The added code was
+  slightly in the wrong place.  Radar bug #11423019.
+
+Changes for the 5.31 release (the cctools-827 release):
+- Changed check_fat_object_in_archive() in ofile.c to handle llvm bitcode in
+  fat files in archives.  Radar bug #9087924.
+- Fixed the type of the second parameter to in the calls to 
+  _NSGetExecutablePath() so they are uint32_t in execute.c llvm.c lto.c.
+  Radar bug #11274640.
+
+Changes for the 5.31 release (the cctools-825 release):
+- Changed the type of the local variables size and offset from uint32_t to
+  uint64_t in ofile_first_member(), ofile_next_member(), ofile_specific_member()
+  and check_archive() in ofile.c .  Radar bug #11089424.
+
+Changes for the 5.31 release (the cctools-824 release):
+- Added a test of filetype not being MH_DSYM before the calls to 
+  check_overlaping_element() for section contents in check_Mach_O() in ofile.c
+  to allow the tools to work with dSYM files.  Radar bug #8483201.
+- Change the Makefile to also use -I$(DT_TOOLCHAIN_DIR)/usr/local/include where
+  it uses -I/Developer/usr/local/include.  When the project nolonger neededs to
+  build on older system then the -I/Developer/usr/local/include can be removed.
+  Radar bug #11015395.
+- Changed one check in check_Mach_O() when checking that the section offset is
+  greater than the size of headers to not cause an error when the section size
+  is zero.  Radar bug #9608550.
+- Changed the size variable in ofile_map() and the size parameter in 
+  ofile_map_from_memory() from a uint32_t type to a uint64_t type.  Radar bug
+  #10645295.
+
+Changes for the 5.30 release (the cctools-822 release):
+- The "low risk fix to strip(1)" below in cctools-821 for Radar bug #10718585
+  breaks striping .o files with dwarf debug info.  Because the input file has
+  an "ld -r" run on it so it is not the original input file.  That change has
+  been backed out.
+
+Changes for the 5.30 release (the cctools-821 release):
+- As part of a low risk fix to strip(1) to fix bugs when stripping objects with
+  code signature data, code was added in dyld_order() in checkout.c that
+  records the size of the symbolic information in the new field
+  checkout_sym_info_size in the object struct.  Radar bug #10718585.
+
+Changes for the 5.30 release (the cctools-820 release):
+- Added creating an apple_version.c file in the Makefile that uses
+  $(RC_ProjectSourceVersion).  Radar bug #10596469.
+
+Changes for the 5.30 release (the cctools-814 release):
+- Added support for new load commands LC_MAIN, LC_DATA_IN_CODE,
+  LC_SOURCE_VERSION and LC_DYLIB_CODE_SIGN_DRS.
+  - Added swap_entry_point_command() and swap_source_version_command()
+    added to bytesex.c .
+  - Added code in check_Mach_O() in ofile.c to check the new load commands.
+  - Added code in swap_object_headers() in swap_headers.c for the new load
+    commands.
+  - Added code in check_object() and dyld_order() in checkout.c for
+    LC_DATA_IN_CODE and LC_DYLIB_CODE_SIGN_DRS load commands.
+  - Added code in copy_new_symbol_info() in writeout.c for the data of the new
+    LC_DATA_IN_CODE and LC_DYLIB_CODE_SIGN_DRS load commands.
+  Radar bug #10290817.
+- Update copy_new_symbol_info() in writeout.c to handle object files without
+  an LC_DYLD_INFO to that might have a LC_FUNCTION_STARTS load command
+  and write out its data.  Radar bug #10171548.
+
+Changes for the 5.27 release (the cctools-809 release):
+- Added is_llvm_bitcode_from_memory() to "stuff/lto.h" and changed
+  is_llvm_bitcode() to use it.  Changed set_lto_cputype() to get_lto_cputype()
+  and to take a pointer to an arch_flag struct.  Radar bug #9087924.
+
+Changes for the 5.27 release (the cctools-806 release):
+- Maded more changes to check_archive_toc() only set the new ofile bad_toc
+  field when the anything is bad about the table of contents.  Radar bug
+  #9594589.
+
+Changes for the 5.27 release (the cctools-805 release):
+- Changed check_archive_toc() to set the new ofile bad_toc field when the
+  file offset or string offset of a toc entry is out of range.  This will
+  cause libtool/ranlib to rebuild it.  Radar bug #9475790.
+
+Changes for the 5.27 release (the cctools-804 release):
+- Fixed a bug that when check_archive_toc() was geting called when the whole
+  was not a file is a thin archive it was producing an error when it should
+  have just not done the checks.  Radar bug #9505797.
+
+Changes for the 5.27 release (the cctools-803 release):
+- Changed ofile_first_member() in ofile.c to fill in the added toc_* fields in
+  the ofile struct.  And added a check_archive_toc() routine to make sure
+  the table of contents offests are valid.  Radar bug #9354605.
+
+Changes for the 5.28 release (the cctools-801 release):
+- Changed ofile_map_from_memory() to take an mtime parameter and ofile_map()
+  to pass it.  ofile_map_from_memory() then saves that into the ofile's new
+  file_mtime field.  Changed breakout_mem() in breakout.c to pass 0 as the mtime
+  parameter.  Radar bug #9354501
+
+Changes for the 5.28 release (the cctools-800.3 release):
+- Added armv7[fk] entries to arch_flags[] in arch.c, code in set_lto_cputype()
+  in lto.c, code in get_arch_from_host() in get_arch_from_host.c and code in
+  cpusubtype_findbestarch() in best_arch.c for these. Radar bug #8987684.
+
 Changes for the 5.28 release (the cctools-799 release):
 - Changed is_llvm_bitcode() in lto.c to check for a filesize of zero and just
   return since the libLTO API's will crash it handed a empty file.  Radar bug

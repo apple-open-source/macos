@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*-
  *
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,7 +36,6 @@
 #include <mach-o/loader.h>
 #include <mach-o/getsect.h>
 #include <mach-o/dyld_priv.h>
-#include <mach/i386/thread_status.h>
 #include <Availability.h>
 
 #include "FileAbstraction.hpp"
@@ -45,9 +44,8 @@
 #include "dwarf2.h"
 
 
-#if 0
-#if __i386__ || __x86_64__ 
-// In 10.6 and later i386 and x86_64 don't have a __dyld section
+#if __i386__ && defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
+// For iOS simulator to link, we need a __dyld section
 // We need one to access private _dyld_func_lookup function.
 
 struct __DATA__dyld { long lazy; int (*lookup)(const char*, void**); };
@@ -59,10 +57,6 @@ static int my_dyld_func_lookup(const char* dyld_func_name, void **address)
 {
 	return (*myDyldSection.lookup)(dyld_func_name, address);
 }
-#else
-	#define my_dyld_func_lookup _dyld_func_lookup
-#endif
-
 
 bool _dyld_find_unwind_sections(void* addr, dyld_unwind_sections* info)
 {
@@ -72,8 +66,7 @@ bool _dyld_find_unwind_sections(void* addr, dyld_unwind_sections* info)
 	    my_dyld_func_lookup("__dyld_find_unwind_sections", (void**)&p);
 	return p(addr, info);
 }
-#endif // 0
-
+#endif
 
 
 namespace libunwind {
@@ -429,7 +422,6 @@ struct unw_addr_space_ppc : public unw_addr_space
 
 
 } // namespace libunwind 
-
 
 
 #endif // __ADDRESSSPACE_HPP__

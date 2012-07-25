@@ -2332,25 +2332,17 @@ enum byte_sex target_byte_sex)
 __private_extern__
 void
 swap_arm_thread_state_t(
-struct arm_thread_state *cpu,
+arm_thread_state_t *cpu,
 enum byte_sex target_byte_sex)
 {
-	cpu->r0 = SWAP_INT(cpu->r0);
-	cpu->r1 = SWAP_INT(cpu->r1);
-	cpu->r2 = SWAP_INT(cpu->r2);
-	cpu->r3 = SWAP_INT(cpu->r3);
-	cpu->r4 = SWAP_INT(cpu->r4);
-	cpu->r5 = SWAP_INT(cpu->r5);
-	cpu->r6 = SWAP_INT(cpu->r6);
-	cpu->r7 = SWAP_INT(cpu->r7);
-	cpu->r8 = SWAP_INT(cpu->r8);
-	cpu->r9 = SWAP_INT(cpu->r9);
-	cpu->r10 = SWAP_INT(cpu->r10);
-	cpu->r11 = SWAP_INT(cpu->r11);
-	cpu->r12 = SWAP_INT(cpu->r12);
-	cpu->r13 = SWAP_INT(cpu->r13);
-	cpu->r14 = SWAP_INT(cpu->r14);
-	cpu->r15 = SWAP_INT(cpu->r15);
+    int i;
+
+	for(i = 0; i < 13; i++)
+	    cpu->__r[i] = SWAP_INT(cpu->__r[i]);
+	cpu->__sp = SWAP_INT(cpu->__sp);
+	cpu->__lr = SWAP_INT(cpu->__lr);
+	cpu->__pc = SWAP_INT(cpu->__pc);
+	cpu->__cpsr = SWAP_INT(cpu->__cpsr);
 }
 
 __private_extern__
@@ -2555,6 +2547,29 @@ enum byte_sex target_byte_sex)
 	ed->lazy_bind_size = SWAP_INT(ed->lazy_bind_size);
 	ed->export_off = SWAP_INT(ed->export_off);
 	ed->export_size = SWAP_INT(ed->export_size);
+}
+
+__private_extern__
+void
+swap_entry_point_command(
+struct entry_point_command *ep,
+enum byte_sex target_byte_sex)
+{
+	ep->cmd = SWAP_INT(ep->cmd);
+	ep->cmdsize = SWAP_INT(ep->cmdsize);
+	ep->entryoff = SWAP_LONG_LONG(ep->entryoff);
+	ep->stacksize = SWAP_LONG_LONG(ep->stacksize);
+}
+
+__private_extern__
+void
+swap_source_version_command(
+struct source_version_command *sv,
+enum byte_sex target_byte_sex)
+{
+	sv->cmd = SWAP_INT(sv->cmd);
+	sv->cmdsize = SWAP_INT(sv->cmdsize);
+	sv->version = SWAP_LONG_LONG(sv->version);
 }
 
 __private_extern__

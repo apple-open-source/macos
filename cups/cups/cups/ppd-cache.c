@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-cache.c 3724 2012-03-07 17:32:32Z msweet $"
+ * "$Id: ppd-cache.c 3721 2012-03-07 17:16:29Z msweet $"
  *
  *   PPD cache implementation for CUPS.
  *
@@ -170,6 +170,8 @@ _ppdCacheCreateWithFile(
     DEBUG_puts("_ppdCacheCreateWithFile: Unable to allocate _ppd_cache_t.");
     goto create_error;
   }
+
+  pc->max_copies = 9999;
 
  /*
   * Read the file...
@@ -553,6 +555,8 @@ _ppdCacheCreateWithFile(
 
       cupsArrayAdd(pc->finishings, finishings);
     }
+    else if (!_cups_strcasecmp(line, "MaxCopies"))
+      pc->max_copies = atoi(value);
     else
     {
       DEBUG_printf(("_ppdCacheCreateWithFile: Unknown %s on line %d.", line,
@@ -1352,6 +1356,17 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
   }
 
  /*
+  * Max copies...
+  */
+
+  if ((ppd_attr = ppdFindAttr(ppd, "cupsMaxCopies", NULL)) != NULL)
+    pc->max_copies = atoi(ppd_attr->value);
+  else if (ppd->manual_copies)
+    pc->max_copies = 1;
+  else
+    pc->max_copies = 9999;
+
+ /*
   * Return the cache data...
   */
 
@@ -1522,9 +1537,11 @@ _ppdCacheGetFinishingOptions(
 
   if (job && (attr = ippFindAttribute(job, "finishings", IPP_TAG_ENUM)) != NULL)
   {
-    for (i = 0; i < attr->num_values; i ++)
+    int	num_values = ippGetCount(attr);	/* Number of values */
+
+    for (i = 0; i < num_values; i ++)
     {
-      key.value = attr->values[i].integer;
+      key.value = ippGetInteger(attr, i);
 
       if ((f = cupsArrayFind(pc->finishings, &key)) != NULL)
       {
@@ -1638,7 +1655,7 @@ _ppdCacheGetInputSlot(
 
     media_col = ippFindAttribute(job, "media-col", IPP_TAG_BEGIN_COLLECTION);
     if (media_col &&
-        (media_source = ippFindAttribute(media_col->values[0].collection,
+        (media_source = ippFindAttribute(ippGetCollection(media_col, 0),
                                          "media-source",
 	                                 IPP_TAG_KEYWORD)) != NULL)
     {
@@ -1646,7 +1663,7 @@ _ppdCacheGetInputSlot(
       * Use the media-source value from media-col...
       */
 
-      keyword = media_source->values[0].string.text;
+      keyword = ippGetString(media_source, 0, NULL);
     }
     else if (_pwgInitSize(&size, job, &margins_set))
     {
@@ -2335,6 +2352,12 @@ _ppdCacheWriteFile(
   }
 
  /*
+  * Max copies...
+  */
+
+  cupsFilePrintf(fp, "MaxCopies %d\n", pc->max_copies);
+
+ /*
   * IPP attributes, if any...
   */
 
@@ -2602,5 +2625,5 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
 
 /*
- * End of "$Id: ppd-cache.c 3724 2012-03-07 17:32:32Z msweet $".
+ * End of "$Id: ppd-cache.c 3721 2012-03-07 17:16:29Z msweet $".
  */

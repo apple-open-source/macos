@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -51,11 +51,6 @@
 #define ASL_TIME_FMT_UTC "utc"
 #define ASL_TIME_FMT_LCL "lcl"
 
-#define ASL_ENCODE_NONE 0
-#define ASL_ENCODE_SAFE 1
-#define ASL_ENCODE_VIS  2
-#define ASL_ENCODE_ASL  3
-
 #define ASL_OPT_IGNORE "ignore"
 #define ASL_OPT_STORE "store"
 
@@ -89,25 +84,13 @@ typedef struct __aslclient
 	uint64_t aslfileid;
 	uint32_t reserved1;
 	void *reserved2;
+	int32_t refcount;
 } asl_client_t;
-
-typedef struct __aslresponse
-{
-	uint32_t count;
-	uint32_t curr;
-	asl_msg_t **msg;
-} asl_search_result_t;
 
 __BEGIN_DECLS
 
 int asl_add_output(aslclient asl, int fd, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int asl_remove_output(aslclient asl, int fd) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-char *asl_format_message(asl_msg_t *msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-uint32_t asl_msg_string_length(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-uint32_t asl_msg_to_string_buffer(asl_msg_t *msg, char *buf, uint32_t bufsize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
-char *asl_msg_to_string(asl_msg_t *in, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
-asl_search_result_t *asl_list_from_string(const char *buf) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
-char *asl_list_to_string(asl_search_result_t *, uint32_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int asl_store_location() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 int asl_get_filter(aslclient asl, int *local, int *master, int *remote, int *active) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 char *asl_remote_notify_name() __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);

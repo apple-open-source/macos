@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdio.h>
+#include "passwd.h"
+
+#ifdef INFO_PAM
 
 #include <security/pam_appl.h>
 #include <security/openpam.h>	/* for openpam_ttyconv() */
@@ -73,3 +76,5 @@ pamerr:
 	pam_end(pamh, retval);
 	return retval;
 }
+
+#endif /* INFO_PAM */

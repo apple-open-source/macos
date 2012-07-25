@@ -29,8 +29,12 @@
 #include <stdint.h>
 
 #include <string.h>
+#ifdef KERNEL
+#include <machine/limits.h>
+#else
 #include <limits.h>
 #include <stdlib.h>
+#endif /* KERNEL */
 #include <Availability.h>
 
 
@@ -42,8 +46,8 @@ enum {
     kCCWRAPAES = 1,
 };
 
-extern const uint8_t *CCrfc3394_iv  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
-extern const size_t CCrfc3394_ivLen  __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+extern const uint8_t *CCrfc3394_iv  __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
+extern const size_t CCrfc3394_ivLen  __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
 
 typedef uint32_t CCWrappingAlgorithm;
 
@@ -82,7 +86,7 @@ CCSymmetricKeyWrap( CCWrappingAlgorithm algorithm,
                    const uint8_t *kek, size_t kekLen,
                    const uint8_t *rawKey, size_t rawKeyLen,
                    uint8_t  *wrappedKey, size_t *wrappedKeyLen)
-                   __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+                   __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*!
  @function  CCSymmetricKeyUnwrap
@@ -118,7 +122,7 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm algorithm,
                      const uint8_t *kek, size_t kekLen,
                      const uint8_t  *wrappedKey, size_t wrappedKeyLen,
                      uint8_t  *rawKey, size_t *rawKeyLen)
-                     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+                     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*!
  @function  CCSymmetricWrappedSize
@@ -133,7 +137,7 @@ CCSymmetricKeyUnwrap( CCWrappingAlgorithm algorithm,
 
 size_t
 CCSymmetricWrappedSize( CCWrappingAlgorithm algorithm, size_t rawKeyLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*!
  @function  CCSymmetricUnwrappedSize
@@ -148,7 +152,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 size_t
 CCSymmetricUnwrappedSize( CCWrappingAlgorithm algorithm, size_t wrappedKeyLen)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #ifdef __cplusplus
 }

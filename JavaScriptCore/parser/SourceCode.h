@@ -72,11 +72,6 @@ namespace JSC {
         int firstLine() const { return m_firstLine; }
         int startOffset() const { return m_startChar; }
         int endOffset() const { return m_endChar; }
-        const UChar* data() const
-        {
-            ASSERT(m_provider->data());
-            return m_provider->data()->characters16() + m_startChar;
-        }
         int length() const { return m_endChar - m_startChar; }
         
         SourceCode subExpression(unsigned openBrace, unsigned closeBrace, int firstLine);
@@ -88,9 +83,9 @@ namespace JSC {
         int m_firstLine;
     };
 
-    inline SourceCode makeSource(const UString& source, const UString& url = UString(), int firstLine = 1)
+    inline SourceCode makeSource(const UString& source, const UString& url = UString(), const TextPosition& startPosition = TextPosition::minimumPosition())
     {
-        return SourceCode(UStringSourceProvider::create(source, url), firstLine);
+        return SourceCode(UStringSourceProvider::create(source, url, startPosition), startPosition.m_line.oneBasedInt());
     }
 
     inline SourceCode SourceCode::subExpression(unsigned openBrace, unsigned closeBrace, int firstLine)

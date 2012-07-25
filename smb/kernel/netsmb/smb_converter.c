@@ -458,7 +458,7 @@ smb_utf16_strlchr(const uint16_t *s, uint16_t ch, size_t max)
 	
 	/* Make sure es is on even boundry */	
 	es += (max / 2);
-	while(*str && (str != es))  { 
+	while((str != es) && *str)  { 
 		if (*str == ch)
 			return (void *)str;
 		str++;

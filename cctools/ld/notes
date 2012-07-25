@@ -23,6 +23,11 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+  - Updated ld.c to print "Apple Inc." not "Apple Computer, Inc." and the
+    comment where apple_version[] comes from.
+
 Changes for the 5.28 release (the cctools-778 release):
 - Changed trunc() to trnc() in pass2.c and removed -fno-builtin-trunc from the
   Makefile.  Radar bug #7481062.

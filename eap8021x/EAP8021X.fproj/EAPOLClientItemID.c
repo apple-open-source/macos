@@ -49,6 +49,9 @@
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustedApplicationPriv.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <pthread.h>
+#include <mach/mach_init.h>
+#include <mach/vm_map.h>
 #include "EAPCertificateUtil.h"
 #include "EAPOLClientConfigurationInternal.h"
 #include "EAPOLClientConfigurationPrivate.h"

@@ -36,6 +36,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdlib/strtoimax.c,v 1.8 2002/09/06 11:23:59 tjr
 #endif
 __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoimax.c,v 1.3 2007/01/09 00:28:01 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <errno.h>
 #include <inttypes.h>
 #include <stdlib.h>
@@ -46,8 +48,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoimax.c,v 1.3 2007/01/09 00:28:01 im
  * Convert a wide character string to an intmax_t integer.
  */
 intmax_t
-wcstoimax(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
-    int base)
+wcstoimax_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    int base, locale_t loc)
 {
 	const wchar_t *s;
 	uintmax_t acc;
@@ -55,13 +57,14 @@ wcstoimax(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	uintmax_t cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * See strtoimax for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
 		c = *s++;
-	} while (iswspace(c));
+	} while (iswspace_l(c, loc));
 	if (c == L'-') {
 		neg = 1;
 		c = *s++;
@@ -88,8 +91,8 @@ wcstoimax(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	cutoff /= base;
 	for ( ; ; c = *s++) {
 #ifdef notyet
-		if (iswdigit(c))
-			c = digittoint(c);
+		if (iswdigit_l(c, loc))
+			c = digittoint_l(c, loc);
 		else
 #endif
 		if (c >= L'0' && c <= L'9')
@@ -121,4 +124,11 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (wchar_t *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+intmax_t
+wcstoimax(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    int base)
+{
+	return wcstoimax_l(nptr, endptr, base, __current_locale());
 }

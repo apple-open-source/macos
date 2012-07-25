@@ -1,0 +1,264 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		C2196B69053B59D4005808D4 /* AppleDLBuiltin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196B68053B59D4005808D4 /* AppleDLBuiltin.cpp */; };
+		C28436E00534880F000AE0FC /* AppleFileDL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28436DD0534880F000AE0FC /* AppleFileDL.cpp */; };
+		C28436E10534880F000AE0FC /* AppleFileDL.h in Headers */ = {isa = PBXBuildFile; fileRef = C28436DE0534880F000AE0FC /* AppleFileDL.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB34C146F1102000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 184460F4146E818D00B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = libsecurity_cdsa_plugin_generate;
+		};
+		184460F9146E818D00B12992 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 184460F4146E818D00B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurity_cdsa_plugin;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		184460E6146E808700B12992 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		184460E7146E808700B12992 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		184460E8146E808700B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		184460E9146E808700B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		184460F4146E818D00B12992 /* libsecurity_cdsa_plugin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_cdsa_plugin.xcodeproj; path = ../libsecurity_cdsa_plugin/libsecurity_cdsa_plugin.xcodeproj; sourceTree = "<group>"; };
+		4094B099057EA68B00B44BCC /* dl_common.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dl_common.mdsinfo; sourceTree = "<group>"; };
+		4094B09A057EA68B00B44BCC /* dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = dl_primary.mdsinfo; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_apple_file_dl.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_apple_file_dl.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196B68053B59D4005808D4 /* AppleDLBuiltin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = AppleDLBuiltin.cpp; path = lib/AppleDLBuiltin.cpp; sourceTree = "<group>"; };
+		C28436DC0534880F000AE0FC /* AppleDLPlugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleDLPlugin.cpp; sourceTree = "<group>"; };
+		C28436DD0534880F000AE0FC /* AppleFileDL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleFileDL.cpp; sourceTree = "<group>"; };
+		C28436DE0534880F000AE0FC /* AppleFileDL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleFileDL.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		184460E5146E808700B12992 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				184460E6146E808700B12992 /* base.xcconfig */,
+				184460E7146E808700B12992 /* debug.xcconfig */,
+				184460E8146E808700B12992 /* lib.xcconfig */,
+				184460E9146E808700B12992 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		184460F5146E818D00B12992 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				184460FA146E818D00B12992 /* libsecurity_cdsa_plugin.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4094B098057EA68B00B44BCC /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4094B099057EA68B00B44BCC /* dl_common.mdsinfo */,
+				4094B09A057EA68B00B44BCC /* dl_primary.mdsinfo */,
+			);
+			path = mds;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				184460F4146E818D00B12992 /* libsecurity_cdsa_plugin.xcodeproj */,
+				C28436DB0534880F000AE0FC /* lib */,
+				184460E5146E808700B12992 /* config */,
+				C2196B68053B59D4005808D4 /* AppleDLBuiltin.cpp */,
+				4094B098057EA68B00B44BCC /* mds */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_apple_file_dl.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C28436DB0534880F000AE0FC /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C28436DC0534880F000AE0FC /* AppleDLPlugin.cpp */,
+				C28436DD0534880F000AE0FC /* AppleFileDL.cpp */,
+				C28436DE0534880F000AE0FC /* AppleFileDL.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C28436E10534880F000AE0FC /* AppleFileDL.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_file_dl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2770987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_file_dl" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB34D146F1102000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_apple_file_dl;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurity_apple_file_dl;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_apple_file_dl.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD27B0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_file_dl" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 184460F5146E818D00B12992 /* Products */;
+					ProjectRef = 184460F4146E818D00B12992 /* libsecurity_cdsa_plugin.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_apple_file_dl */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		184460FA146E818D00B12992 /* libsecurity_cdsa_plugin.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_cdsa_plugin.a;
+			remoteRef = 184460F9146E818D00B12992 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C28436E00534880F000AE0FC /* AppleFileDL.cpp in Sources */,
+				C2196B69053B59D4005808D4 /* AppleDLBuiltin.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB34D146F1102000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_cdsa_plugin_generate;
+			targetProxy = 182BB34C146F1102000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2780987FCDC001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184460E7146E808700B12992 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD27A0987FCDC001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184460E9146E808700B12992 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD27C0987FCDC001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184460E8146E808700B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD27E0987FCDC001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184460E8146E808700B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2770987FCDC001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_apple_file_dl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2780987FCDC001272E0 /* Debug */,
+				C27AD27A0987FCDC001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD27B0987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_apple_file_dl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD27C0987FCDC001272E0 /* Debug */,
+				C27AD27E0987FCDC001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

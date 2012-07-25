@@ -45,24 +45,24 @@ public:
     }
 private:
     virtual bool isRenderFullScreenPlaceholder() const { return true; }
-    virtual void destroy();
+    virtual void willBeDestroyed();
     RenderFullScreen* m_owner;
 };
 
-void RenderFullScreenPlaceholder::destroy()
+void RenderFullScreenPlaceholder::willBeDestroyed()
 {
     m_owner->setPlaceholder(0);
-    RenderBlock::destroy();
+    RenderBlock::willBeDestroyed();
 }
 
 RenderFullScreen::RenderFullScreen(Node* node) 
-    : RenderFlexibleBox(node) 
+    : RenderDeprecatedFlexibleBox(node)
     , m_placeholder(0)
 { 
     setReplaced(false); 
 }
 
-void RenderFullScreen::destroy()
+void RenderFullScreen::willBeDestroyed()
 {
     if (m_placeholder) {
         remove();
@@ -76,7 +76,7 @@ void RenderFullScreen::destroy()
     if (document() && document()->fullScreenRenderer() == this)
         document()->fullScreenRendererDestroyed();
 
-    RenderFlexibleBox::destroy();
+    RenderDeprecatedFlexibleBox::willBeDestroyed();
 }
 
 static PassRefPtr<RenderStyle> createFullScreenStyle()
@@ -90,7 +90,7 @@ static PassRefPtr<RenderStyle> createFullScreenStyle()
     fullscreenStyle->font().update(0);
 
     fullscreenStyle->setDisplay(BOX);
-    fullscreenStyle->setBoxPack(BCENTER);
+    fullscreenStyle->setBoxPack(Center);
     fullscreenStyle->setBoxAlign(BCENTER);
     fullscreenStyle->setBoxOrient(VERTICAL);
     
@@ -113,25 +113,27 @@ RenderObject* RenderFullScreen::wrapRenderer(RenderObject* object, Document* doc
         if (RenderObject* parent = object->parent()) {
             parent->addChild(fullscreenRenderer, object);
             object->remove();
+            parent->setNeedsLayoutAndPrefWidthsRecalc();
         }
         fullscreenRenderer->addChild(object);
+        fullscreenRenderer->setNeedsLayoutAndPrefWidthsRecalc();
     }
     document->setFullScreenRenderer(fullscreenRenderer);
-    if (fullscreenRenderer->placeholder())
-        return fullscreenRenderer->placeholder();
     return fullscreenRenderer;
 }
 
 void RenderFullScreen::unwrapRenderer()
 {
-    RenderObject* holder = placeholder() ? placeholder() : this;
-    if (holder->parent()) {
+    if (parent()) {
         RenderObject* child;
         while ((child = firstChild())) {
             child->remove();
-            holder->parent()->addChild(child, holder);
+            parent()->addChild(child, this);
+            parent()->setNeedsLayoutAndPrefWidthsRecalc();
         }
     }
+    if (placeholder())
+        placeholder()->remove();
     remove();
     document()->setFullScreenRenderer(0);
 }
@@ -141,7 +143,7 @@ void RenderFullScreen::setPlaceholder(RenderBlock* placeholder)
     m_placeholder = placeholder;
 }
 
-void RenderFullScreen::createPlaceholder(PassRefPtr<RenderStyle> style, const IntRect& frameRect)
+void RenderFullScreen::createPlaceholder(PassRefPtr<RenderStyle> style, const LayoutRect& frameRect)
 {
     if (style->width().isAuto())
         style->setWidth(Length(frameRect.width(), Fixed));
@@ -153,9 +155,8 @@ void RenderFullScreen::createPlaceholder(PassRefPtr<RenderStyle> style, const In
         m_placeholder->setStyle(style);
         if (parent()) {
             parent()->addChild(m_placeholder, this);
-            remove();
+            parent()->setNeedsLayoutAndPrefWidthsRecalc();
         }
-        m_placeholder->addChild(this);
     } else
         m_placeholder->setStyle(style);
 }

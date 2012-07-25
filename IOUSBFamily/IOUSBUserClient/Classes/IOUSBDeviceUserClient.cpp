@@ -2572,7 +2572,11 @@ IOUSBDeviceUserClientV2::CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqI
 //
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  0);
 OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  1);
-OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  2);
+#ifdef SUPPORTS_SS_USB
+	OSMetaClassDefineReservedUsed(IOUSBDeviceUserClientV2,  2);
+#else
+    OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  2);
+#endif
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  3);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  4);
 OSMetaClassDefineReservedUnused(IOUSBDeviceUserClientV2,  5);

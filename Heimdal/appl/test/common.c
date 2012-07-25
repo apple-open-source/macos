@@ -33,22 +33,22 @@
 
 #include "test_locl.h"
 
-RCSID("$Id$");
-
 static int help_flag;
 static int version_flag;
 static char *port_str;
-static char *keytab_str;
+char *keytab_str;
 krb5_keytab keytab;
-char *service = SERVICE;
+char *service_str = SERVICE;
 char *mech = "krb5";
 int fork_flag;
+char *password = NULL;
 
 static struct getargs args[] = {
     { "port", 'p', arg_string, &port_str, "port to listen to", "port" },
-    { "service", 's', arg_string, &service, "service to use", "service" },
+    { "service", 's', arg_string, &service_str, "service to use", "service" },
     { "keytab", 'k', arg_string, &keytab_str, "keytab to use", "keytab" },
     { "mech", 'm', arg_string, &mech, "gssapi mech to use", "mech" },
+    { "password", 'P', arg_string, &password, "password to use", "password" },
     { "fork", 'f', arg_flag, &fork_flag, "do fork" },
     { "help", 'h', arg_flag, &help_flag },
     { "version", 0, arg_flag, &version_flag }
@@ -57,16 +57,16 @@ static struct getargs args[] = {
 static int num_args = sizeof(args) / sizeof(args[0]);
 
 static void
-server_usage(int code, struct getargs *args, int num_args)
+server_usage(int code, struct getargs *largs, int lnum_args)
 {
-    arg_printusage(args, num_args, NULL, "");
+    arg_printusage(largs, lnum_args, NULL, "");
     exit(code);
 }
 
 static void
-client_usage(int code, struct getargs *args, int num_args)
+client_usage(int code, struct getargs *largs, int lnum_args)
 {
-    arg_printusage(args, num_args, NULL, "host");
+    arg_printusage(largs, lnum_args, NULL, "host");
     exit(code);
 }
 
@@ -92,7 +92,7 @@ common_setup(krb5_context *context, int *argc, char **argv,
 	else {
 	    char *ptr;
 
-	    port = strtol (port_str, &ptr, 10);
+	    port = (int)strtol (port_str, &ptr, 10);
 	    if (port == 0 && ptr == port_str)
 		errx (1, "Bad port `%s'", port_str);
 	    port = htons(port);
@@ -125,16 +125,16 @@ server_setup(krb5_context *context, int argc, char **argv)
 int
 client_setup(krb5_context *context, int *argc, char **argv)
 {
-    int optind = *argc;
-    int port = common_setup(context, &optind, argv, client_usage);
-    if(*argc - optind != 1)
+    int optidx = *argc;
+    int port = common_setup(context, &optidx, argv, client_usage);
+    if(*argc - optidx != 1)
 	client_usage(1, args, num_args);
-    *argc = optind;
+    *argc = optidx;
     return port;
 }
 
 int
-client_doit (const char *hostname, int port, const char *service,
+client_doit (const char *hostname, int port, const char *serv,
 	     int (*func)(int, const char *hostname, const char *service))
 {
     struct addrinfo *ai, *a;
@@ -166,7 +166,7 @@ client_doit (const char *hostname, int port, const char *service,
 	    continue;
 	}
 	freeaddrinfo (ai);
-	return (*func) (s, hostname, service);
+	return (*func) (s, hostname, serv);
     }
     warnx ("failed to contact %s", hostname);
     freeaddrinfo (ai);

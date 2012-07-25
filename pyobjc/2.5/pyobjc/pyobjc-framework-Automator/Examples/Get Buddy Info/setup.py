@@ -17,17 +17,17 @@ infoPlist = dict(
     ),
     AMApplication=[
         'Address Book',
-        'iChat',
+        'Messages',
     ],
     AMCanShowWhenRun = True,
-    AMCategory = 'iChat',
+    AMCategory = 'Messages',
     AMDefaultParameters = dict(),
     AMDescription = dict(
-        AMDAlert='iChat must be running for this action to work properly.',
+        AMDAlert='Messages must be running for this action to work properly.',
         AMDNote='Information will not be returned for the current user.',
         AMDSummary='This action returns the Instant Message information of the people passed from the previous action.',
     ),
-    AMIconName='iChat',
+    AMIconName='Messages',
     AMKeywords=(
         'Instant',
         'Message',

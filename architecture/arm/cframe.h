@@ -50,9 +50,7 @@
  * size, which is what we define it to be.
  */
 #if defined (__LP64__)
-#define	C_ARGSAVE_LEN	64      /* "minimum arg save area" (but see above) */
-#define	C_STACK_ALIGN	32      /* stack must be 32 byte aligned */
-#define	C_RED_ZONE      320     /* 320 bytes to skip over saved registers */
+#define	C_STACK_ALIGN	16      /* stack must be 32 byte aligned */
 #else
 #define	C_ARGSAVE_LEN	32      /* "minimum arg save area" (but see above) */
 #define	C_STACK_ALIGN	16      /* stack must be 16 byte aligned */

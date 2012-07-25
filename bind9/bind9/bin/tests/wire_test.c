@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: wire_test.c,v 1.67 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: wire_test.c,v 1.67 2007-06-19 23:46:59 tbox Exp $ */
 
 #include <config.h>
 

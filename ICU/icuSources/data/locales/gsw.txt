@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/gsw.xml
@@ -38,7 +38,7 @@ gsw{
             }
         }
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -99,9 +99,9 @@ gsw{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"yyyy-M"}
-                yMEd{"EEE, yyyy-M-d"}
+                yMEd{"E, yyyy-M-d"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE, d. MMM y"}
+                yMMMEd{"E, d. MMM y"}
                 yMMMM{"MMMM y"}
                 yQ{"Q yyyy"}
                 yQQQ{"QQQ y"}
@@ -162,11 +162,9 @@ gsw{
                     relative{
                         "-1"{"geschter"}
                         "-2"{"vorgeschter"}
-                        "-3"{"vor drü Tääg"}
                         "0"{"hüt"}
                         "1"{"moorn"}
                         "2"{"übermoorn"}
-                        "3"{"i drü Tääg"}
                     }
                 }
                 dayperiod{

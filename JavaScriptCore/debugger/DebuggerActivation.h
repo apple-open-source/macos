@@ -36,7 +36,7 @@ namespace JSC {
 
         static DebuggerActivation* create(JSGlobalData& globalData, JSObject* object)
         {
-            DebuggerActivation* activation = new (allocateCell<DebuggerActivation>(globalData.heap)) DebuggerActivation(globalData);
+            DebuggerActivation* activation = new (NotNull, allocateCell<DebuggerActivation>(globalData.heap)) DebuggerActivation(globalData);
             activation->finishCreation(globalData, object);
             return activation;
         }
@@ -45,12 +45,13 @@ namespace JSC {
         static UString className(const JSObject*);
         static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier& propertyName, PropertySlot&);
         static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
-        static void putWithAttributes(JSObject*, ExecState*, const Identifier& propertyName, JSValue, unsigned attributes);
+        static void putDirectVirtual(JSObject*, ExecState*, const Identifier& propertyName, JSValue, unsigned attributes);
         static bool deleteProperty(JSCell*, ExecState*, const Identifier& propertyName);
         static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
         static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
-        static void defineGetter(JSObject*, ExecState*, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes);
-        static void defineSetter(JSObject*, ExecState*, const Identifier& propertyName, JSObject* setterFunction, unsigned attributes);
+        static bool defineOwnProperty(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&, bool shouldThrow);
+
+        JS_EXPORTDATA static const ClassInfo s_info;
 
         static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue prototype) 
         {
@@ -60,10 +61,10 @@ namespace JSC {
     protected:
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesVisitChildren | JSObject::StructureFlags;
 
-        void finishCreation(JSGlobalData&, JSObject* activation);
+        JS_EXPORT_PRIVATE void finishCreation(JSGlobalData&, JSObject* activation);
 
     private:
-        DebuggerActivation(JSGlobalData&);
+        JS_EXPORT_PRIVATE DebuggerActivation(JSGlobalData&);
         WriteBarrier<JSActivation> m_activation;
     };
 

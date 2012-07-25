@@ -31,8 +31,7 @@
 #ifndef RequestAnimationFrameCallback_h
 #define RequestAnimationFrameCallback_h
 
-#include "Element.h"
-#include <wtf/PassRefPtr.h>
+#include "DOMTimeStamp.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -42,7 +41,6 @@ public:
     virtual ~RequestAnimationFrameCallback() { }
     virtual bool handleEvent(DOMTimeStamp) = 0;
 
-    RefPtr<Element> m_element;
     int m_id;
     bool m_firedOrCancelled;
 };

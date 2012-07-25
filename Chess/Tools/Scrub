@@ -1,7 +1,0 @@
-#!/bin/sh
-#
-# Remove non-release material from Chess sources
-#
-
-./Tools/ScrubSource Sources/*.{h,m,mm,l}
-rm -rf contributors Documentation ChangeLog */*/CVS

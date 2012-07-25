@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2011, International Business Machines
+*   Copyright (C) 1996-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -43,6 +43,13 @@ _createTimeZone(const UChar* zoneID, int32_t len, UErrorCode* ec) {
         }
     }
     return zone;
+}
+
+U_CAPI UEnumeration* U_EXPORT2
+ucal_openTimeZoneIDEnumeration(USystemTimeZoneType zoneType, const char* region,
+                                const int32_t* rawOffset, UErrorCode* ec) {
+    return uenum_openFromStringEnumeration(TimeZone::createTimeZoneIDEnumeration(
+        zoneType, region, rawOffset, *ec), ec);
 }
 
 U_CAPI UEnumeration* U_EXPORT2
@@ -251,6 +258,12 @@ ucal_setGregorianChange(UCalendar *cal, UDate date, UErrorCode *pErrorCode) {
     // Not if(gregocal == NULL) {
     // because we really want to work only with a GregorianCalendar, not with
     // its subclasses like BuddhistCalendar.
+    if (cpp_cal == NULL) {
+        // We normally don't check "this" pointers for NULL, but this here avoids
+        // compiler-generated exception-throwing code in case cal == NULL.
+        *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
     if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return;
@@ -267,6 +280,12 @@ ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode) {
     const GregorianCalendar *gregocal = dynamic_cast<const GregorianCalendar *>(cpp_cal);
     // Not if(gregocal == NULL) {
     // see comments in ucal_setGregorianChange().
+    if (cpp_cal == NULL) {
+        // We normally don't check "this" pointers for NULL, but this here avoids
+        // compiler-generated exception-throwing code in case cal == NULL.
+        *pErrorCode = U_ILLEGAL_ARGUMENT_ERROR;
+        return (UDate)0;
+    }
     if(typeid(*cpp_cal) != typeid(GregorianCalendar)) {
         *pErrorCode = U_UNSUPPORTED_ERROR;
         return (UDate)0;
@@ -288,6 +307,12 @@ ucal_getAttribute(    const    UCalendar*              cal,
 
   case UCAL_MINIMAL_DAYS_IN_FIRST_WEEK:
       return ((Calendar*)cal)->getMinimalDaysInFirstWeek();
+
+  case UCAL_REPEATED_WALL_TIME:
+      return ((Calendar*)cal)->getRepeatedWallTimeOption();
+
+  case UCAL_SKIPPED_WALL_TIME:
+      return ((Calendar*)cal)->getSkippedWallTimeOption();
 
   default:
       break;
@@ -312,6 +337,14 @@ ucal_setAttribute(      UCalendar*              cal,
 
   case UCAL_MINIMAL_DAYS_IN_FIRST_WEEK:
       ((Calendar*)cal)->setMinimalDaysInFirstWeek((uint8_t)newValue);
+      break;
+
+  case UCAL_REPEATED_WALL_TIME:
+      ((Calendar*)cal)->setRepeatedWallTimeOption((UCalendarWallTimeOption)newValue);
+      break;
+
+  case UCAL_SKIPPED_WALL_TIME:
+      ((Calendar*)cal)->setSkippedWallTimeOption((UCalendarWallTimeOption)newValue);
       break;
     }
 }
@@ -620,8 +653,7 @@ ucal_getKeywordValuesForLocale(const char * /* key */, const char* locale, UBool
     prefRegionLength = uloc_getCountry(locale, prefRegion, sizeof(prefRegion), status);
     if (prefRegionLength == 0) {
         char loc[ULOC_FULLNAME_CAPACITY] = "";
-        int32_t locLength = 0;
-        locLength = uloc_addLikelySubtags(locale, loc, sizeof(loc), status);
+        uloc_addLikelySubtags(locale, loc, sizeof(loc), status);
         
         prefRegionLength = uloc_getCountry(loc, prefRegion, sizeof(prefRegion), status);
     }

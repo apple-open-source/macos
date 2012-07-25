@@ -38,12 +38,15 @@
 
 #include <CoreFoundation/CFRuntime.h>
 #include <Security/Security.h>
+#include <Security/SecCertificatePriv.h>
 #include <CommonCrypto/CommonDigest.h>
 
 #include <CoreServices/CoreServices.h>
 #include <CoreServices/CoreServicesPriv.h>
 
 #include "LKDCHelper.h"
+#include "DeconstructServiceName.h"
+#include "utils.h"
 
 static void add_user_selections(NAHRef na);
 
@@ -55,7 +58,8 @@ const CFStringRef kNAHServiceVNCServer = CFSTR("vnc");
 
 static const char *nah_created = "nah-created";
 
-static bool nah_use_gss_uam = false;
+static bool nah_use_gss_uam = true;
+static bool nah_vnc_support_iakerb = true;
 static dispatch_once_t init_globals;
 
 enum NAHMechType {
@@ -64,7 +68,8 @@ enum NAHMechType {
     GSS_KERBEROS_U2U,
     GSS_KERBEROS_IAKERB,
     GSS_KERBEROS_PKU2U,
-    GSS_NTLM
+    GSS_NTLM,
+    GSS_SPNEGO
 };
 
 struct NAHSelectionData {
@@ -124,8 +129,8 @@ struct NAHData {
 
 static void signal_result(NAHSelectionRef selection);
 static Boolean wait_result(NAHSelectionRef selection);
-static void nalog(CFStringRef fmt, ...)
-    __attribute__ ((format(CFString, 1, 2)));
+static void nalog(int level, CFStringRef fmt, ...)
+    __attribute__((format(CFString, 2, 3)));
 
 #define CFRELEASE(x) do { if ((x)) { CFRelease((x)); (x) = NULL; } } while(0)
 
@@ -133,12 +138,72 @@ static void nalog(CFStringRef fmt, ...)
  *
  */
 
+CFStringRef
+NAHCopyMMeUserNameFromCertificate(SecCertificateRef cert)
+{
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    char str[CC_SHA1_DIGEST_LENGTH * 2 + 1];
+    CFDataRef certData;
+    CC_SHA1_CTX ctx;
+    char *cpOut;
+    unsigned dex;
+
+    certData = SecCertificateCopyData(cert);
+    if (NULL == certData)
+        return NULL;
+
+    CC_SHA1_Init(&ctx);
+    CC_SHA1_Update(&ctx, CFDataGetBytePtr(certData), CFDataGetLength(certData));
+    CC_SHA1_Final(digest, &ctx);
+
+    CFRelease(certData);
+
+    cpOut = str;
+
+    for(dex = 0; dex < CC_SHA1_DIGEST_LENGTH; dex++) {
+	snprintf(cpOut, 3, "%02X", (unsigned)(digest[dex]));
+	cpOut += 2;
+    }
+
+    return CFStringCreateWithCString(NULL, str, kCFStringEncodingASCII);
+}
+
+/*
+ *
+ */
+
+static char *
+cf2cstring(CFStringRef inString)
+{
+    char *string = NULL;
+    CFIndex length;
+    
+    string = (char *) CFStringGetCStringPtr(inString, kCFStringEncodingUTF8);
+    if (string)
+	return strdup(string);
+
+    length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(inString), 
+					       kCFStringEncodingUTF8) + 1;
+    string = malloc (length);
+    if (string == NULL)
+	return NULL;
+    if (!CFStringGetCString(inString, string, length, kCFStringEncodingUTF8)) {
+	free (string);
+	return NULL;
+    }
+    return string;
+}
+
+/*
+ *
+ */
+
 static void
-nalog(CFStringRef fmt, ...)
+nalog(int level, CFStringRef fmt, ...)
 {
     CFStringRef str;
     va_list ap;
-    const char *s;
+    char *s;
 
     va_start(ap, fmt);
     str = CFStringCreateWithFormatAndArguments(NULL, 0, fmt, ap);
@@ -148,7 +213,7 @@ nalog(CFStringRef fmt, ...)
 	return;
 
     if (__KRBCreateUTF8StringFromCFString (str, &s) == 0) {
-	asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "%s", s);
+	asl_log(NULL, NULL, level, "%s", s);
 	__KRBReleaseUTF8String(s);
     }
     CFRelease(str);
@@ -206,7 +271,7 @@ const CFStringRef kNAHErrorDomain = CFSTR("com.apple.NetworkAuthenticationHelper
 static bool
 updateError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFStringRef fmt, ...)
 {
-    void *keys[1] = { (void *)CFSTR("NetworkAuthenticationHelper") };
+    const void *keys[1] = { kCFErrorDescriptionKey };
     void *values[1];
     va_list va;
 
@@ -221,7 +286,7 @@ updateError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 	return false;
     }
     
-    nalog(CFSTR("NAH: error: %@"), values[0]);
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAH: error: %@"), values[0]);
 
     *error = CFErrorCreateWithUserInfoKeysAndValues(alloc, kNAHErrorDomain, errorcode,
 						    (const void * const *)keys,
@@ -234,12 +299,14 @@ updateError(CFAllocatorRef alloc, CFErrorRef *error, CFIndex errorcode, CFString
 static struct {
     CFStringRef name;
     enum NAHMechType mech;
+    gss_OID oid;
 } mechs[] = {
-    { CFSTR("Kerberos"), GSS_KERBEROS },
-    { CFSTR("KerberosUser2User"), GSS_KERBEROS_U2U },
-    { CFSTR("PKU2U"), GSS_KERBEROS_PKU2U },
-    { CFSTR("IAKerb"), GSS_KERBEROS_IAKERB },
-    { CFSTR("NTLM"), GSS_NTLM }
+    { CFSTR("Kerberos"), GSS_KERBEROS, GSS_KRB5_MECHANISM },
+    { CFSTR("KerberosUser2User"), GSS_KERBEROS_U2U, NULL },
+    { CFSTR("PKU2U"), GSS_KERBEROS_PKU2U, GSS_PKU2U_MECHANISM },
+    { CFSTR("IAKerb"), GSS_KERBEROS_IAKERB, GSS_IAKERB_MECHANISM },
+    { CFSTR("NTLM"), GSS_NTLM, GSS_NTLM_MECHANISM },
+    { CFSTR("SPNEGO"), GSS_SPNEGO, GSS_SPNEGO_MECHANISM }
 };
 
 static enum NAHMechType
@@ -257,6 +324,21 @@ name2mech(CFStringRef name)
     return NO_MECH;
 }
 
+static gss_OID
+name2oid(CFStringRef name)
+{
+    size_t n;
+
+    if (name == NULL)
+	return NO_MECH;
+
+    for (n = 0; n < sizeof(mechs) / sizeof(mechs[0]); n++) {
+	if (CFStringCompare(mechs[n].name, name, kCFCompareCaseInsensitive) == kCFCompareEqualTo)
+	    return mechs[n].oid;
+    }
+    return NULL;
+}
+
 static CFStringRef
 mech2name(enum NAHMechType mech)
 {
@@ -267,6 +349,19 @@ mech2name(enum NAHMechType mech)
     }
     return NULL;
 }
+
+
+static gss_OID
+mech2oid(enum NAHMechType mech)
+{
+    size_t n;
+    for (n = 0; n < sizeof(mechs) / sizeof(mechs[0]); n++) {
+	if (mechs[n].mech == mech)
+	    return mechs[n].oid;
+    }
+    return GSS_C_NO_OID;
+}
+
 
 static CFTypeID
 NAHSelectionGetTypeID(void)
@@ -457,7 +552,7 @@ addSelection(NAHRef na,
 
     matching = (flags & FORCE_ADD) || (na->specificname == NULL) || CFStringHasPrefix(client, na->specificname);
 
-    nalog(CFSTR("addSelection: %@ (%d) %@ %@ %s %s"),
+    nalog(ASL_LEVEL_DEBUG, CFSTR("addSelection: %@ (%d) %@ %@ %s %s"),
 	  mech2name(mech), (int)mech, client, server, (flags & USE_SPNEGO) ? "SPNEGO" : "raw",
 	  matching ? "matching" : "no-matching");
     
@@ -538,7 +633,7 @@ findUsername(CFAllocatorRef alloc, NAHRef na, CFDictionaryRef info)
 		CFRetain(na->specificname);
 	    }
 
-	    nalog(CFSTR("NAH: specific name is: %@ foo"), na->specificname);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAH: specific name is: %@ foo"), na->specificname);
 
 	    return true;
 	}
@@ -596,24 +691,37 @@ classic_lkdc_background(NAHSelectionRef nasel)
 static bool
 have_lkdcish_hostname(NAHRef na, bool localIsLKDC)
 {
+    CFMutableStringRef btmmDomain = NULL;
+    CFStringRef btmmDomainData;
     bool ret = false;
+
+    btmmDomainData = _CSBackToMyMacCopyDomain();
+    if (btmmDomainData) {
+	btmmDomain = CFStringCreateMutableCopy(na->alloc, 0, btmmDomainData);
+	CFRELEASE(btmmDomainData);
+	if (btmmDomain) {
+	    CFStringTrim(btmmDomain, CFSTR("."));
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("using BTMM domain %@"), btmmDomain);
+	}
+    }
+    
 
     if (na->lchostname == NULL) {
 	na->lchostname = CFStringCreateMutableCopy(NULL, 0, na->hostname);
-	if (na->lchostname == NULL)
+	if (na->lchostname == NULL) {
+	    CFRELEASE(btmmDomain);
 	    return false;
+	}
     }
 
     CFStringLowercase(na->lchostname, CFLocaleGetSystem());
 
     if (localIsLKDC && CFStringHasSuffix(na->lchostname, CFSTR(".local")))
 	ret = true;
-    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.btmm.icloud.com")))
+    else if (btmmDomain && CFStringHasSuffix(na->lchostname, btmmDomain))
 	ret = true;
-    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.mac.com")))
-	ret = true;
-    else if (CFStringHasSuffix(na->lchostname, CFSTR(".members.me.com")))
-	ret = true;
+
+    CFRELEASE(btmmDomain);
 
     return ret;
 }
@@ -632,30 +740,8 @@ classic_lkdc(NAHRef na, unsigned long flags)
     /* if we have certs, lets push those names too */
     for (n = 0; na->x509identities && n < CFArrayGetCount(na->x509identities); n++) {
 	SecCertificateRef cert = (void *)CFArrayGetValueAtIndex(na->x509identities, n);
-	unsigned char digest[CC_SHA1_DIGEST_LENGTH];
-	char str[CC_SHA1_DIGEST_LENGTH * 2 + 1], *cp;
-	CC_SHA1_CTX ctx;
-	size_t m;
 
-        /* get the cert data */
-	CFDataRef certData = SecCertificateCopyData(cert);
-        if (certData == NULL)
-	    continue;
-
-	CC_SHA1_Init(&ctx);
-	CC_SHA1_Update(&ctx,
-		       CFDataGetBytePtr(certData), CFDataGetLength(certData));
-	CC_SHA1_Final(digest, &ctx);
-
-	cp = str;
-	for (m = 0; m < CC_SHA1_DIGEST_LENGTH; m++) {
-	    sprintf(cp, "%02X", digest[m]);
-	    cp += 2;
-	}
-	*cp = '\0';
-
-	u = CFStringCreateWithCString(na->alloc, str, kCFStringEncodingUTF8);
-	CFRELEASE(certData);
+	u = NAHCopyMMeUserNameFromCertificate(cert);
 	if (u == NULL)
 	    continue;
 
@@ -663,7 +749,7 @@ classic_lkdc(NAHRef na, unsigned long flags)
 	    CFStringRef label = NULL;
 	    SecCertificateInferLabel(cert, &label);
 	    if (label) {
-		nalog(CFSTR("Adding classic LKDC for %@"), label);
+		nalog(ASL_LEVEL_DEBUG, CFSTR("Adding classic LKDC for %@"), label);
 		CFRelease(label);
 	    }
 	}
@@ -895,12 +981,12 @@ use_existing_principals(NAHRef na, int only_lkdc, unsigned long flags)
 	    server = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/%s@%s"),
 					      na->service, client->realm, client->realm);
 
-	    nalog(CFSTR("Adding existing LKDC cache: %@ -> %@"), u, server);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("Adding existing LKDC cache: %@ -> %@"), u, server);
 
 	} else {
 	    server = CFStringCreateWithFormat(na->alloc, NULL, CFSTR("%@/%@@%s"), na->service, na->hostname,
 					      krb5_principal_get_realm(na->context, client));
-	    nalog(CFSTR("Adding existing cache: %@ -> %@"), u, server);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("Adding existing cache: %@ -> %@"), u, server);
 	}
 	krb5_free_principal(na->context, client);
 
@@ -1020,10 +1106,9 @@ guess_kerberos(NAHRef na)
     unsigned long flags = USE_SPNEGO;
 
     if (nah_use_gss_uam
-	&& na->password
+	&& (na->password || na->x509identities)
 	&& haveMech(na, kGSSAPIMechIAKERB)
-	&& haveMech(na, kGSSAPIMechSupportsAppleLKDC)
-	&& !is_smb(na))
+	&& haveMech(na, kGSSAPIMechSupportsAppleLKDC))
     {
 	/* if we support IAKERB and AppleLDKC and is not SMB (client can't handle it, rdar://problem/8437184), let go for iakerb with */
 	try_iakerb_with_lkdc = true;
@@ -1031,9 +1116,11 @@ guess_kerberos(NAHRef na)
 	try_wlkdc = true;
     } else if (CFStringCompare(na->service, kNAHServiceVNCServer, 0) == kCFCompareEqualTo) {
 	try_wlkdc = true;
+	if (nah_vnc_support_iakerb && (na->password || na->x509identities))
+	    try_iakerb_with_lkdc = true;
     }
 
-    /* 
+    /*
      * let check if we should disable LKDC classic mode
      *
      * There is two cases where we know that we don't want to do LKDC
@@ -1045,11 +1132,11 @@ guess_kerberos(NAHRef na)
 
     if (haveMech(na, kGSSAPIMechPKU2UOID) || haveMech(na, kGSSAPIMechSupportsAppleLKDC)) {
 	try_lkdc_classic = false;
-	nalog(CFSTR("Turing off LKDC classic since server announces support for wellknown name: %@"), na->servermechs);
+	nalog(ASL_LEVEL_DEBUG, CFSTR("Turing off LKDC classic since server announces support for wellknown name: %@"), na->servermechs);
     } else if (na->spnegoServerName) {
 	CFRange res = CFStringFind(na->spnegoServerName, CFSTR("@LKDC"), 0);
 	if (res.location == kCFNotFound) {
-	    nalog(CFSTR("Turing off LKDC classic since spnegoServerName didn't contain LKDC: %@"),
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("Turing off LKDC classic since spnegoServerName didn't contain LKDC: %@"),
 		  na->spnegoServerName);
 	    try_lkdc_classic = false;
 	}
@@ -1071,7 +1158,7 @@ guess_kerberos(NAHRef na)
 	haveMech(na, kGSSAPIMechKerberosMicrosoftOID) ||
 	haveMech(na, kGSSAPIMechPKU2UOID);
 
-    nalog(CFSTR("NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s try-lkdc-classic=%s use-spnego=%s"),
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate-krb: have_kerberos=%s try_iakerb_with_lkdc=%s try-wkdc=%s try-lkdc-classic=%s use-spnego=%s"),
 	  have_kerberos ? "yes" : "no",
 	  try_iakerb_with_lkdc ? "yes" : "no",
 	  try_wlkdc ? "yes" : "no",
@@ -1270,9 +1357,10 @@ NAHCreate(CFAllocatorRef alloc,
 	nah_use_gss_uam = CFPreferencesGetAppBooleanValue(CFSTR("GSSEnable"), CFSTR("com.apple.NetworkAuthenticationHelper"), &have_key);
 	if (!have_key)
 	    nah_use_gss_uam = true;
+	nah_vnc_support_iakerb = CFPreferencesGetAppBooleanValue(CFSTR("VNCSupportIAKerb"), CFSTR("com.apple.NetworkAuthenticationHelper"), &have_key);
     });
 
-    nalog(CFSTR("NAHCreate: hostname=%@ service=%@"), hostname, service);
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: hostname=%@ service=%@"), hostname, service);
     
     /* first undo the damage BrowserServices have done to the hostname */
 
@@ -1294,23 +1382,26 @@ NAHCreate(CFAllocatorRef alloc,
     }
     CFStringTrim(na->hostname, CFSTR("."));
 
-    nalog(CFSTR("NAHCreate: will use hostname=%@"), na->hostname);
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: will use hostname=%@"), na->hostname);
 
     na->service = CFRetain(service);
+
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: will use service=%@"), na->service);
+
 
     if (!findUsername(alloc, na, info)) {
 	CFRELEASE(na);
 	return NULL;
     }
 
-    nalog(CFSTR("NAHCreate: username=%@ username %s"), na->username, na->specificname ? 
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: username=%@ username %s"), na->username, na->specificname ? 
 	  "given" : "generated");
 
 
     if (info) {
 	na->password = CFDictionaryGetValue(info, kNAHPassword);
 	if (na->password) {
-	    nalog(CFSTR("NAHCreate: password"));
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: password"));
 	    CFRetain(na->password);
 	}
     }
@@ -1332,7 +1423,7 @@ NAHCreate(CFAllocatorRef alloc,
 		CFRetain(na->servermechs);
 	    na->spnegoServerName = CFDictionaryGetValue(nti, kSPNEGONegTokenInitHintsHostname);
 	    if (na->spnegoServerName) {
-		nalog(CFSTR("NAHCreate: SPNEGO hints name %@"), na->spnegoServerName);
+		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: SPNEGO hints name %@"), na->spnegoServerName);
 		CFRetain(na->spnegoServerName);
 	    }
 	}
@@ -1341,7 +1432,7 @@ NAHCreate(CFAllocatorRef alloc,
 	if (certs) {
 	    CFTypeID type = CFGetTypeID(certs);
 
-	    nalog(CFSTR("NAHCreate: %@"), certs);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCreate: %@"), certs);
 
 	    if (CFArrayGetTypeID() == type) {
 		CFRetain(certs);
@@ -1352,7 +1443,7 @@ NAHCreate(CFAllocatorRef alloc,
 		na->x509identities = a;
 	    } else {
 		CFStringRef desc = CFCopyDescription(certs);
-		nalog(CFSTR("unknown type of certificates: %@"), desc);
+		nalog(ASL_LEVEL_DEBUG, CFSTR("unknown type of certificates: %@"), desc);
 		CFRELEASE(desc);
 	    }
 	}
@@ -1394,6 +1485,57 @@ searchArray(CFArrayRef array, CFTypeRef key)
     return NULL;
 }
 
+static CFStringRef
+copyInferedNameFromCert(SecCertificateRef cert)
+{
+    CFStringRef inferredLabel;
+
+    inferredLabel = _CSCopyAppleIDAccountForAppleIDCertificate(cert, NULL);
+    if (inferredLabel == NULL) {
+	const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
+	const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
+	void *values[4] = { (void *)kSecOIDDescription, (void *)kSecOIDCommonName, (void *)kSecOIDOrganizationalUnitName, (void *)kSecOIDX509V1SubjectName };
+	CFArrayRef attrs = CFArrayCreate(NULL, (const void **)values, sizeof(values) / sizeof(values[0]), &kCFTypeArrayCallBacks);
+
+	if (NULL == attrs)
+	    return NULL;
+
+	CFDictionaryRef certval = SecCertificateCopyValues(cert, attrs, NULL);
+	CFRelease(attrs);
+	if (NULL == certval)
+	    return NULL;
+
+	CFDictionaryRef subject = CFDictionaryGetValue(certval, kSecOIDX509V1SubjectName);
+	if (NULL != subject) {
+
+	    CFArrayRef val = CFDictionaryGetValue(subject, kSecPropertyKeyValue);
+
+	    if (NULL != val) {
+
+		CFStringRef description = searchArray(val, kSecOIDDescription);
+
+		if (NULL != description &&
+		    (kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
+		{
+		    CFStringRef commonName = searchArray(val, kSecOIDCommonName);
+		    CFStringRef organizationalUnit = searchArray(val, kSecOIDOrganizationalUnitName);
+
+		    if (NULL != commonName && NULL != organizationalUnit) {
+			inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@@%@"), commonName, organizationalUnit);
+		    }
+		}
+	    }
+	}
+
+	CFRelease(certval);
+    }
+    if (inferredLabel == NULL)
+	SecCertificateInferLabel(cert, &inferredLabel);
+
+    return inferredLabel;
+}
+
+
 static void
 setFriendlyName(NAHRef na,
 		NAHSelectionRef selection,
@@ -1404,48 +1546,8 @@ setFriendlyName(NAHRef na,
     CFStringRef inferredLabel = NULL;
 
     if (cert) {
-	
-	inferredLabel = _CSCopyAppleIDAccountForAppleIDCertificate(cert, NULL);
-	if (inferredLabel == NULL) {
-	    const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
-	    const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
-	    void *values[4] = { (void *)kSecOIDDescription, (void *)kSecOIDCommonName, (void *)kSecOIDOrganizationalUnitName, (void *)kSecOIDX509V1SubjectName };
-	    CFArrayRef attrs = CFArrayCreate(NULL, (const void **)values, sizeof(values) / sizeof(values[0]), &kCFTypeArrayCallBacks);
-	    
-	    if (NULL == attrs)
-		return;
-	    
-	    CFDictionaryRef certval = SecCertificateCopyValues(cert, attrs, NULL);
-	    CFRelease(attrs);
-	    if (NULL == certval)
-		return;
-	    
-	    CFDictionaryRef subject = CFDictionaryGetValue(certval, kSecOIDX509V1SubjectName);
-	    if (NULL != subject) {
-		
-		CFArrayRef val = CFDictionaryGetValue(subject, kSecPropertyKeyValue);
-		
-		if (NULL != val) {
-		    
-		    CFStringRef description = searchArray(val, kSecOIDDescription);
-		    
-		    if (NULL != description &&
-			(kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
-		    {
-			CFStringRef commonName = searchArray(val, kSecOIDCommonName);
-			CFStringRef organizationalUnit = searchArray(val, kSecOIDOrganizationalUnitName);
-			
-			if (NULL != commonName && NULL != organizationalUnit) {
-			    inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@@%@"), commonName, organizationalUnit);
-			}
-		    }
-		}
-	    }
-	    
-	    CFRelease(certval);
-	}
-	if (inferredLabel == NULL)
-	    SecCertificateInferLabel(cert, &inferredLabel);
+	inferredLabel = copyInferedNameFromCert(cert);
+
     } else if (na->specificname || is_lkdc) {
 	inferredLabel = na->username;
 	CFRetain(inferredLabel);
@@ -1462,7 +1564,7 @@ setFriendlyName(NAHRef na,
 
 	    data.data = label;
 	    data.length = strlen(label) + 1;
-	    
+
 	    krb5_cc_set_config(na->context, id, NULL, "FriendlyName", &data);
 	    free(label);
 	}
@@ -1490,7 +1592,7 @@ acquire_kerberos(NAHRef na,
 
     memset(&cred, 0, sizeof(cred));
 
-    nalog(CFSTR("acquire_kerberos: %@ with pw:%s cert:%s"),
+    nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: %@ with pw:%s cert:%s"),
 	  selection->client,
 	  password ? "yes" : "no",
 	  cert ? "yes" : "no");
@@ -1516,7 +1618,7 @@ acquire_kerberos(NAHRef na,
 
     ret = krb5_unparse_name(na->context, client, &str);
     if (ret == 0) {
-	nalog(CFSTR("acquire_kerberos: trying with %s as client principal"), str);
+	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: trying with %s as client principal"), str);
 	free(str);
     }
 
@@ -1627,7 +1729,7 @@ acquire_kerberos(NAHRef na,
 	    goto out;
 	}
 
-	nalog(CFSTR("acquire_kerberos: got %@ as client principal"), newclient);
+	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos: got %@ as client principal"), newclient);
 
 	if (CFStringCompare(newclient, selection->client, 0) != kCFCompareEqualTo) {
 
@@ -1666,7 +1768,7 @@ acquire_kerberos(NAHRef na,
 	      selection->client, ret, e);
 	krb5_free_error_message(na->context, e);
     } else {
-	nalog(CFSTR("acquire_kerberos successful"));
+	nalog(ASL_LEVEL_DEBUG, CFSTR("acquire_kerberos successful"));
     }
 
     if (opt)
@@ -1727,6 +1829,22 @@ NAHSelectionAcquireCredentialAsync(NAHSelectionRef selection,
     return true;
 }
 
+static void
+setGSSLabel(gss_cred_id_t cred, const char *label, CFStringRef value)
+{
+    gss_buffer_desc buf;
+    OM_uint32 junk;
+
+    buf.value = cf2cstring(value);
+    if (buf.value == NULL)
+	return;
+    buf.length = strlen((char *)buf.value);
+
+    gss_cred_label_set(&junk, cred, label, &buf);
+    free(buf.value);
+}
+
+
 const CFStringRef kNAHForceRefreshCredential = CFSTR("kNAHForceRefreshCredential");
 
 Boolean
@@ -1746,23 +1864,23 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 
     if (selection->mech == GSS_KERBEROS) {
 
-	nalog(CFSTR("NAHSelectionAcquireCredential: kerberos client: %@ (server %@)"),
+	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: kerberos client: %@ (server %@)"),
 	      selection->client, selection->server);
 
 	/* if we already have a cache, skip acquire unless force */
 	if (selection->ccache) {
-	    nalog(CFSTR("have ccache"));
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("have ccache"));
 	    KRBCredChangeReferenceCount(selection->client, 1, 1);
 	    return true;
 	}
 
 	if (selection->na->password == NULL && selection->certificate == NULL) {
-	    nalog(CFSTR("krb5: no password or cert, punting"));
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("krb5: no password or cert, punting"));
 	    CFRelease(selection->na);
 	    return false;
 	}
 
-	int ret; 
+	int ret;
 
 	ret = acquire_kerberos(selection->na,
 			       selection,
@@ -1771,6 +1889,8 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 			       error);
 
 	CFRelease(selection->na);
+	if (ret && error && *error)
+	    nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential %@"), *error);
 
 	return (ret == 0) ? true : false;
 
@@ -1783,7 +1903,7 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	dispatch_semaphore_t s;
 	char *str;
 
-	nalog(CFSTR("NAHSelectionAcquireCredential: ntlm"));
+	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: ntlm"));
 
 	if (selection->have_cred) {
 	    CFRelease(selection->na);
@@ -1850,17 +1970,20 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 					} else {
 					    updateError(NULL, error, 1, CFSTR("failed to create ntlm cred"));
 					}
-					
+
 					dispatch_semaphore_signal(s);
 					CFRelease(selection->na);
 				    });
 	gss_release_name(&junk, &name);
 	if (major == GSS_S_COMPLETE) {
 	    dispatch_semaphore_wait(s, DISPATCH_TIME_FOREVER);
+
+	    if (error && *error)
+		nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential ntlm %@"), *error);
+
 	} else {
 	    updateError(NULL, error, major, CFSTR("Failed to acquire NTLM credentials"));
 	    CFRelease(selection->na);
-	    CFRELEASE(error);
 	}
 
 	__KRBReleaseUTF8String(user);
@@ -1874,69 +1997,95 @@ NAHSelectionAcquireCredential(NAHSelectionRef selection,
 	char *user;
 	OM_uint32 major, minor, junk;
 	gss_cred_id_t cred;
-	
-	nalog(CFSTR("NAHSelectionAcquireCredential: iakerb %@"), selection->client);
-	
-	if (selection->have_cred || selection->na->password == NULL) {
-	    nalog(CFSTR("NAHSelectionAcquireCredential: iakerb no password"));
+
+	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: iakerb %@"), selection->client);
+
+	if (selection->have_cred) {
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: already have cred, why iakerb then ?"));
 	    CFRelease(selection->na);
 	    return false;
 	}
-	
+
+
+	if (selection->na->password == NULL && selection->certificate == NULL) {
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: no password nor cert"));
+	    CFRelease(selection->na);
+	    return false;
+	}
+
 	__KRBCreateUTF8StringFromCFString(selection->client, &user);
-	
+
 	gbuf.value = user;
 	gbuf.length = strlen(user);
-	
+
 	major = gss_import_name(&minor, &gbuf, GSS_C_NT_USER_NAME, &name);
 	__KRBReleaseUTF8String(user);
 	if (major) {
 	    CFRelease(selection->na);
 	    return false;
 	}
-	
-	selection->inferredLabel = selection->client;
-	CFRetain(selection->inferredLabel);
-	
+
+	if (selection->certificate)
+	    selection->inferredLabel = copyInferedNameFromCert(selection->certificate);
+
+	if (selection->inferredLabel == NULL) {
+	    CFMutableStringRef str = CFStringCreateMutableCopy(NULL, 0, selection->client);
+	    CFRange range = CFStringFind(str, CFSTR("@"), 0);
+	    if (range.location != kCFNotFound)
+		CFStringPad(str, NULL, range.location, 0);
+	    selection->inferredLabel = str;
+	}
+
 	CFMutableDictionaryRef dict = NULL;
-	
+
 	dict = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	
-	CFDictionaryAddValue(dict, kGSSICPassword, selection->na->password);
 
-	major = gss_aapl_initial_cred(name, GSS_IAKERB_MECHANISM, dict, &cred, NULL);
+	if (selection->na->password)
+	    CFDictionaryAddValue(dict, kGSSICPassword, selection->na->password);
+	if (selection->certificate)
+	    CFDictionaryAddValue(dict, kGSSICCertificate, selection->certificate);
+
+	major = gss_aapl_initial_cred(name, GSS_IAKERB_MECHANISM, dict, &cred, error);
 	CFRelease(dict);
-	gss_release_name(&junk, &name);	
+	gss_release_name(&junk, &name);
 	if (major) {
-	    nalog(CFSTR("NAHSelectionAcquireCredential: failed with %d"), major);
+	    if (error && *error)
+		nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential iakerb %@"), *error);
 	    CFRelease(selection->na);
 	    return false;
 	}
 
-	gss_buffer_set_t dataset = GSS_C_NO_BUFFER_SET;
-	
-	major = gss_inquire_cred_by_oid(&minor, cred, GSS_C_NT_UUID, &dataset);
-	if (major || dataset->count != 1) {
-	    nalog(CFSTR("NAHSelectionAcquireCredential: failed with no uuid"));
+	setGSSLabel(cred, "FriendlyName", selection->inferredLabel);
+	setGSSLabel(cred, "lkdc-hostname", selection->na->hostname);
+
+	{
+	    gss_buffer_set_t dataset = GSS_C_NO_BUFFER_SET;
+
+	    major = gss_inquire_cred_by_oid(&minor, cred, GSS_C_NT_UUID, &dataset);
+	    if (major || dataset->count != 1) {
+		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: failed with no uuid"));
+		gss_release_buffer_set(&junk, &dataset);
+		CFRelease(selection->na);
+		return false;
+	    }
+	    
+	    CFStringRef newclient = CFStringCreateWithBytes(NULL, dataset->elements[0].value, dataset->elements[0].length, kCFStringEncodingUTF8, false);
+	    if (newclient) {
+		CFRELEASE(selection->client);
+		selection->client = newclient;
+		selection->clienttype = kNAHNTUUID;
+	    }
 	    gss_release_buffer_set(&junk, &dataset);
-	    CFRelease(selection->na);
-	    return false;
 	}
-	
-	CFStringRef newclient = CFStringCreateWithBytes(NULL, dataset->elements[0].value, dataset->elements[0].length, kCFStringEncodingUTF8, false);
-	if (newclient) {
-	    CFRELEASE(selection->client);
-	    selection->client = newclient;
-	    selection->clienttype = kNAHNTUUID;
-	}
-	gss_release_buffer_set(&junk, &dataset);
+	nalog(ASL_LEVEL_NOTICE, CFSTR("NAHSelectionAcquireCredential complete: iakerb %@ - %@: %@"), selection->client, selection->inferredLabel, cred);
+
 	gss_release_cred(&junk, &cred);
 
 	CFRelease(selection->na);
 	
 	return true;
     } else {
-	nalog(CFSTR("NAHSelectionAcquireCredential: unknown"));
+	nalog(ASL_LEVEL_DEBUG, CFSTR("NAHSelectionAcquireCredential: unknown"));
     }
 
     return false;
@@ -2052,7 +2201,7 @@ NAHSelectionCopyAuthInfo(NAHSelectionRef selection)
     CFDictionaryAddValue(dict, kNAHClientNameType, selection->clienttype);
 
     if (CFStringCompare(selection->clienttype, kNAHNTUUID, 0) == 0) {
-	gssdclient = GSSD_USER; /* XXX add GSSD_UUID */
+	gssdclient = GSSD_UUID;
     } else if (CFStringCompare(selection->clienttype, kNAHNTKRB5Principal, 0) == 0) {
 	gssdclient = GSSD_KRB5_PRINCIPAL;
     } else if (CFStringCompare(selection->clienttype, kNAHNTUsername, 0) == 0) {
@@ -2072,7 +2221,7 @@ NAHSelectionCopyAuthInfo(NAHSelectionRef selection)
     else
 	gssdserver = GSSD_HOSTBASED;
 
-    
+
     CFNumberRef num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &gssdclient);
     if (num) {
 	CFDictionaryAddValue(dict, kNAHClientNameTypeGSSD, num);
@@ -2134,19 +2283,26 @@ static Boolean
 CredChange(CFStringRef referenceKey, int count, const char *label)
 {
     const char *mechname;
+    gss_OID nametype;
     gss_OID oid;
 
     if (referenceKey == NULL)
 	return false;
 
-    nalog(CFSTR("NAHCredChange: %@ count: %d label: %s"), 
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHCredChange: %@ count: %d label: %s"),
 	  referenceKey, count, label ? label : "<nolabel>");
 
     if (CFStringHasPrefix(referenceKey, CFSTR("krb5:"))) {
 	oid = GSS_KRB5_MECHANISM;
+	nametype = GSS_C_NT_USER_NAME;
 	mechname = "kerberos";
+    } else if (CFStringHasPrefix(referenceKey, CFSTR("uuid:"))) {
+	oid = NULL;
+	nametype = GSS_C_NT_UUID;
+	mechname = "uuid";
     } else if (CFStringHasPrefix(referenceKey, CFSTR("ntlm:"))) {
 	oid = GSS_NTLM_MECHANISM;
+	nametype = GSS_C_NT_USER_NAME;
 	mechname = "ntlm";
     } else
 	return false;
@@ -2158,11 +2314,13 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
 	CFStringRef name;
 	gss_name_t gname;
 	OSStatus ret;
-	gss_OID_set_desc ntlmset;
+	gss_OID_set_desc mechset;
 	char *n;
 
-	ntlmset.elements = oid;
-	ntlmset.count = 1;
+	if (oid) {
+	    mechset.elements = oid;
+	    mechset.count = 1;
+	}
 
 	name = CFStringCreateWithSubstring(NULL, referenceKey, CFRangeMake(5, CFStringGetLength(referenceKey) - 5));
 	if (name == NULL)
@@ -2176,17 +2334,18 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
 	gbuf.value = n;
 	gbuf.length = strlen(n);
 
-	maj_stat = gss_import_name(&min_stat, &gbuf, GSS_C_NT_USER_NAME, &gname);
+	maj_stat = gss_import_name(&min_stat, &gbuf, nametype, &gname);
 	if (maj_stat != GSS_S_COMPLETE) {
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("ChangeCred: name not importable %s/%s"), n, mechname);
 	    free(n);
 	    return false;
 	}
 
-	maj_stat = gss_acquire_cred(&min_stat, gname, GSS_C_INDEFINITE, &ntlmset, GSS_C_INITIATE, &cred, NULL, NULL);
+	maj_stat = gss_acquire_cred(&min_stat, gname, GSS_C_INDEFINITE, oid ? &mechset : NULL, GSS_C_INITIATE, &cred, NULL, NULL);
 	gss_release_name(&min_stat, &gname);
 
 	if (maj_stat != GSS_S_COMPLETE) {
-	    nalog(CFSTR("ChangeCred: cred name %s/%s not found"), n, mechname);
+	    nalog(ASL_LEVEL_DEBUG, CFSTR("ChangeCred: cred name %s/%s not found"), n, mechname);
 	    free(n);
 	    return false;
 	}
@@ -2225,6 +2384,24 @@ CredChange(CFStringRef referenceKey, int count, const char *label)
     }
 }
 
+char *
+NAHCreateRefLabelFromIdentifier(CFStringRef identifier)
+{
+    CFStringRef str = CFStringCreateWithFormat(NULL, NULL, CFSTR("reference-label:%@"), identifier);
+    OSStatus ret;
+    char *label;
+
+    if (str == NULL)
+	return NULL;
+
+    ret = __KRBCreateUTF8StringFromCFString(str, &label);
+    CFRelease(str);
+    if (ret != noErr)
+	return NULL;
+    return label;
+}
+
+
 Boolean
 NAHAddReferenceAndLabel(NAHSelectionRef selection,
 			CFStringRef identifier)
@@ -2239,10 +2416,11 @@ NAHAddReferenceAndLabel(NAHSelectionRef selection,
     ref = NAHCopyReferenceKey(selection);
     if (ref == NULL)
 	return false;
-    
-    nalog(CFSTR("NAHAddReferenceAndLabel: %@ label: %@"), ref, identifier);
 
-    if (__KRBCreateUTF8StringFromCFString(identifier, &ident) != noErr) {
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHAddReferenceAndLabel: %@ label: %@"), ref, identifier);
+
+    ident = NAHCreateRefLabelFromIdentifier(identifier);
+    if (ident == NULL) {
 	CFRelease(ref);
 	return false;
     }
@@ -2253,7 +2431,7 @@ NAHAddReferenceAndLabel(NAHSelectionRef selection,
 
     return res;
 }
-		
+
 CFStringRef
 NAHCopyReferenceKey(NAHSelectionRef selection)
 {
@@ -2263,9 +2441,11 @@ NAHCopyReferenceKey(NAHSelectionRef selection)
 
     switch (selection->mech) {
     case GSS_KERBEROS:
+	type = CFSTR("krb5");
+	break;
     case GSS_KERBEROS_PKU2U:
     case GSS_KERBEROS_IAKERB:
-	type = CFSTR("krb5");
+	type = CFSTR("uuid");
 	break;
     case GSS_NTLM:
 	type = CFSTR("ntlm");
@@ -2273,6 +2453,11 @@ NAHCopyReferenceKey(NAHSelectionRef selection)
     default:
 	return NULL;
     }
+
+    /* if we are using UUID name types, prefer that over mech type */
+    if (selection->clienttype && CFStringCompare(selection->clienttype, kNAHNTUUID, 0) == 0)
+	type = CFSTR("uuid");
+
     return CFStringCreateWithFormat(NULL, 0, CFSTR("%@:%@"),
 				    type, selection->client);
 }
@@ -2280,13 +2465,12 @@ NAHCopyReferenceKey(NAHSelectionRef selection)
 void
 NAHFindByLabelAndRelease(CFStringRef identifier)
 {
-    OSStatus ret;
     char *str;
-    
-    nalog(CFSTR("NAHFindByLabelAndRelease: looking for label %@"), identifier);
 
-    ret = __KRBCreateUTF8StringFromCFString(identifier, &str);
-    if (ret)
+    nalog(ASL_LEVEL_DEBUG, CFSTR("NAHFindByLabelAndRelease: looking for label %@"), identifier);
+
+    str = NAHCreateRefLabelFromIdentifier(identifier);
+    if (str == NULL)
 	return;
 
     gss_iter_creds(NULL, 0, GSS_C_NO_OID, ^(gss_OID mech, gss_cred_id_t cred) {
@@ -2302,7 +2486,7 @@ NAHFindByLabelAndRelease(CFStringRef identifier)
 		return;
 	    }
 	    gss_release_buffer(&min_stat, &buffer);
-	    
+
 	    buffer.value = NULL;
 	    buffer.length = 0;
 
@@ -2310,7 +2494,7 @@ NAHFindByLabelAndRelease(CFStringRef identifier)
 	    maj_stat = gss_cred_label_get(&min_stat, cred, str, &buffer);
 	    gss_release_buffer(&min_stat, &buffer);
 	    if (maj_stat == GSS_S_COMPLETE) {
-		nalog(CFSTR("NAHFindByLabelAndRelease: found credential unholding"));
+		nalog(ASL_LEVEL_DEBUG, CFSTR("NAHFindByLabelAndRelease: found credential unholding"));
 		gss_cred_label_set(&min_stat, cred, str, NULL);
 		gss_cred_unhold(&min_stat, cred);
 	    }
@@ -2412,22 +2596,99 @@ add_user_selections(NAHRef na)
  * GSS-API Support
  */
 
-gss_cred_id_t
-NAHSelectionGetGSSCredential(NAHSelectionRef selection)
+static gss_OID
+ntstring2oid(CFStringRef name)
 {
-    if (!wait_result(selection))
-	return NULL;
+    if (CFStringCompare(name, kNAHNTServiceBasedName, 0) == 0)
+	return GSS_C_NT_HOSTBASED_SERVICE;
+    else if (CFStringCompare(name, kNAHNTKRB5PrincipalReferral, 0) == 0)
+	return GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL;
+    else if (CFStringCompare(name, kNAHNTKRB5Principal, 0) == 0)
+	return GSS_KRB5_NT_PRINCIPAL_NAME;
+    else if (CFStringCompare(name, kNAHNTUUID, 0) == 0)
+	return GSS_C_NT_UUID;
 
     return NULL;
 }
 
-gss_name_t
-NAHSelectionGetGSSAcceptorName(NAHSelectionRef selection)
+
+
+gss_cred_id_t
+NAHSelectionGetGSSCredential(NAHSelectionRef selection, CFErrorRef *error)
 {
+    gss_buffer_desc buffer;
+    OM_uint32 minor_status, major_status, junk;
+    gss_name_t name;
+    gss_cred_id_t cred = NULL;
+    gss_OID nt;
+
+    if (error)
+	*error = NULL;
+
     if (!wait_result(selection))
 	return NULL;
 
-    return NULL;
+    if (selection->client == NULL)
+	return NULL;
+
+    nt = ntstring2oid(selection->clienttype);
+    if (nt == NULL)
+	nt = GSS_C_NT_USER_NAME;
+
+    buffer.value = cf2cstring(selection->client);
+    if (buffer.value == NULL)
+	return NULL;
+    buffer.length = strlen((char *)buffer.value);
+
+    major_status = gss_import_name(&minor_status, &buffer, nt, &name);
+    free(buffer.value);
+    if (major_status) {
+	updateError(NULL, error, major_status, CFSTR("Failed create name for %@"), selection->server);
+	return NULL;
+    }
+
+    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INITIATE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
+    gss_release_name(&junk, &name);
+    if (major_status) {
+	updateError(NULL, error, major_status, CFSTR("Failed create credential for %@"), selection->server);
+	return NULL;
+    }
+
+    return cred;
+}
+
+gss_name_t
+NAHSelectionGetGSSAcceptorName(NAHSelectionRef selection, CFErrorRef *error)
+{
+    gss_buffer_desc buffer;
+    OM_uint32 minor_status, major_status;
+    gss_name_t name;
+    gss_OID nt;
+
+    if (error)
+	*error = NULL;
+
+    if (!wait_result(selection))
+	return GSS_C_NO_NAME;
+
+    if (selection->server == NULL)
+	return GSS_C_NO_NAME;
+
+    buffer.value = cf2cstring(selection->server);
+    if (buffer.value == NULL)
+	return NULL;
+    buffer.length = strlen((char *)buffer.value);
+
+    nt = ntstring2oid(selection->servertype);
+    if (nt == NULL)
+	nt = GSS_C_NT_HOSTBASED_SERVICE;
+
+    major_status = gss_import_name(&minor_status, &buffer, nt, &name);
+    free(buffer.value);
+    if (major_status)
+	updateError(NULL, error, major_status, CFSTR("Failed create name for %@"), selection->server);
+
+    return name;
 }
 
 gss_OID
@@ -2436,7 +2697,115 @@ NAHSelectionGetGSSMech(NAHSelectionRef selection)
     if (!wait_result(selection))
 	return  NULL;
 
-    return NULL;
+    return mech2oid(selection->mech);
+}
+
+/*
+ * Same again, but for AuthenticationInfo dictionary
+ */
+
+gss_cred_id_t
+NAHAuthenticationInfoCopyClientCredential(CFDictionaryRef authInfo, CFErrorRef *error)
+{
+    gss_buffer_desc buffer;
+    OM_uint32 minor_status, major_status, junk;
+    gss_name_t name;
+    gss_cred_id_t cred = NULL;
+    gss_OID nt, mech;
+
+    if (error)
+	*error = NULL;
+
+    CFStringRef mechanism = CFDictionaryGetValue(authInfo, kNAHCredentialType);
+    CFStringRef clientName = CFDictionaryGetValue(authInfo, kNAHClientPrincipal);
+    CFStringRef clientNameType = CFDictionaryGetValue(authInfo, kNAHClientNameType);
+
+    if (mechanism == NULL || clientName == NULL || clientNameType == NULL) {
+	updateError(NULL, error, EINVAL, CFSTR("key missing from AuthenticationInfo"));
+	return NULL;
+    }
+
+    mech = name2oid(mechanism);
+    if (mech == NULL) {
+	updateError(NULL, error, EINVAL, CFSTR("unknown mech"));
+	return NULL;
+    }
+
+    nt = ntstring2oid(clientNameType);
+    if (nt == NULL)
+	nt = GSS_C_NT_USER_NAME;
+
+    buffer.value = cf2cstring(clientName);
+    if (buffer.value == NULL)
+	return NULL;
+    buffer.length = strlen((char *)buffer.value);
+
+    major_status = gss_import_name(&minor_status, &buffer, nt, &name);
+    free(buffer.value);
+    if (major_status) {
+	updateError(NULL, error, major_status, CFSTR("Failed create name for %@"), clientName);
+	return NULL;
+    }
+
+    major_status = gss_acquire_cred(&minor_status, name, GSS_C_INITIATE, NULL, GSS_C_INITIATE, &cred, NULL, NULL);
+    gss_release_name(&junk, &name);
+    if (major_status) {
+	updateError(NULL, error, major_status, CFSTR("Failed create credential for %@"), clientName);
+	return NULL;
+    }
+
+    return cred;
+}
+
+gss_name_t
+NAHAuthenticationInfoCopyServerName(CFDictionaryRef authInfo, CFErrorRef *error)
+{
+    gss_buffer_desc buffer;
+    OM_uint32 minor_status, major_status;
+    gss_name_t name;
+    gss_OID nt;
+
+    if (error)
+	*error = NULL;
+
+    CFStringRef serverName = CFDictionaryGetValue(authInfo, kNAHServerPrincipal);
+    CFStringRef serverNameType = CFDictionaryGetValue(authInfo, kNAHServerNameType);
+
+    if (serverName == NULL || serverNameType == NULL) {
+	updateError(NULL, error, EINVAL, CFSTR("key missing from AuthenticationInfo"));
+	return NULL;
+    }
+
+    nt = ntstring2oid(serverNameType);
+    if (nt == NULL)
+	nt = GSS_C_NT_HOSTBASED_SERVICE;
+
+    buffer.value = cf2cstring(serverName);
+    if (buffer.value == NULL)
+	return NULL;
+    buffer.length = strlen((char *)buffer.value);
+
+    major_status = gss_import_name(&minor_status, &buffer, nt, &name);
+    free(buffer.value);
+    if (major_status) {
+	updateError(NULL, error, major_status, CFSTR("Failed create name for %@"), serverName);
+	return NULL;
+    }
+
+    return name;
+}
+
+gss_OID
+NAHAuthenticationInfoGetGSSMechanism(CFDictionaryRef authInfo, CFErrorRef *error)
+{
+    CFStringRef mechanism = CFDictionaryGetValue(authInfo, kNAHMechanism);
+
+    if (mechanism == NULL) {
+	updateError(NULL, error, EINVAL, CFSTR("key missing from AuthenticationInfo"));
+	return NULL;
+    }
+
+    return name2oid(mechanism);
 }
 
 /*

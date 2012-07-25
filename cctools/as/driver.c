@@ -1,10 +1,10 @@
 /*
- * The assembler driver that lives in /bin/as and runs the assembler for the
- * "-arch <arch_flag>" (if given) in /usr/libexec/gcc/darwin/<arch_flag>/as or
- * in /usr/local/libexec/gcc/darwin/<arch_flag>/as.  Or runs the assembler for
- * the host architecture as returned by get_arch_from_host().  The driver only
- * checks to make sure their are not multiple arch_flags and then passes all
- * flags to the assembler it will run.
+ * The assembler driver as and runs the assembler for the "-arch <arch_flag>"
+ * (if given) in ../libexec/as/<arch_flag>/as or
+ * ../local/libexec/as/<arch_flag>/as.  Or runs the assembler for the host
+ * architecture as returned by get_arch_from_host().  The driver only checks to
+ * make sure their are not multiple arch_flags and then passes all flags to the
+ * assembler it will run.
  */
 #include "stdio.h"
 #include "stdlib.h"
@@ -27,38 +27,28 @@ int argc,
 char **argv,
 char **envp)
 {
-    const char *LIB =
-#if defined(__OPENSTEP__) || defined(__HERA__) || \
-    defined(__GONZO_BUNSEN_BEAKER__) || defined(__KODIAK__)
-		    "../libexec/";
-#else
-		    "../libexec/gcc/darwin/";
-#endif
-    const char *LOCALLIB =
-#if defined(__OPENSTEP__) || defined(__HERA__) || \
-    defined(__GONZO_BUNSEN_BEAKER__) || defined(__KODIAK__)
-		    "../local/libexec/";
-#else
-		    "../local/libexec/gcc/darwin/";
-#endif
+    const char *LIB = "../libexec/as/";
+    const char *LOCALLIB = "../local/libexec/as/";
     const char *AS = "/as";
-    const char *LLVM_MC = "llvm-mc";
 
     int i, j;
-    uint32_t count, verbose, run_llvm_mc;
+    uint32_t count, verbose, run_clang;
     char *p, c, *arch_name, *as, *as_local;
-    char **llvm_mc_argv;
+    char **new_argv;
+    const char *CLANG = "clang";
     char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
     unsigned long bufsize;
     struct arch_flag arch_flag;
     const struct arch_flag *arch_flags, *family_arch_flag;
-    enum bool oflag_specified;
+    enum bool oflag_specified, qflag, Qflag;
 
 	progname = argv[0];
 	arch_name = NULL;
 	verbose = 0;
-	run_llvm_mc = 0;
+	run_clang = 0;
 	oflag_specified = FALSE;
+	qflag = FALSE;
+	Qflag = FALSE;
 	/*
 	 * Construct the prefix to the assembler driver.
 	 */
@@ -138,13 +128,15 @@ char **envp)
 		    case 'v':
 		    case 'W':
 		    case 'L':
+		    case 'l':
 		    default:
 			/* just recognize it, do nothing */
 			break;
-		    case 'l':
-			if(strcmp(p, "llvm-mc") == 0)
-			    run_llvm_mc = i;
-			/* also just recognize 'l' and do nothing */
+		    case 'q':
+			qflag = TRUE;
+			break;
+		    case 'Q':
+			Qflag = TRUE;
 			break;
 		    case 'V':
 			verbose = 1;
@@ -152,57 +144,6 @@ char **envp)
 		    }
 		}
 	    }
-	}
-
-	/*
-	 * If the -llvm-mc flag was specified then run llvm-mc from the same
-	 * directory as the driver.
-	 */
-	if(run_llvm_mc != 0){
-	    as = makestr(prefix, LLVM_MC, NULL);
-	    if(access(as, F_OK) != 0){
-		printf("%s: assembler (%s) not installed\n", progname, as);
-		exit(1);
-	    }
-	    llvm_mc_argv = allocate(argc + 3);
-	    llvm_mc_argv[0] = as;
-	    j = 1;
-	    for(i = 1; i < argc; i++){
-		/*
-		 * Do not pass -llvm-mc
-		 */
-		if(i != run_llvm_mc){
-		    /*
-		     * Do not pass command line argument that are Unknown to
-		     * to llvm-mc.
-		     */
-		    if(strcmp(argv[i], "-v") != 0 &&
-		       strcmp(argv[i], "-V") != 0 &&
-		       strcmp(argv[i], "-force_cpusubtype_ALL") != 0){
-			llvm_mc_argv[j] = argv[i];
-			j++;
-		    }
-		}
-	    }
-	    /*
-	     * Add -filetype=obj or llvm-mc will write to stdout.
-	     */
-	    llvm_mc_argv[j] = "-filetype=obj";
-	    j++;
-	    /*
-	     * llvm-mc requires a "-o a.out" if not -o is specified.
-	     */
-	    if(oflag_specified == FALSE){
-		llvm_mc_argv[j] = "-o";
-		j++;
-		llvm_mc_argv[j] = "a.out";
-		j++;
-	    }
-	    llvm_mc_argv[j] = NULL;
-	    if(execute(llvm_mc_argv, verbose))
-		exit(0);
-	    else
-		exit(1);
 	}
 
 	/*
@@ -240,54 +181,140 @@ char **envp)
 
 	}
 
-	as = makestr(prefix, LIB, arch_name, AS, NULL);
+	if(qflag == TRUE && Qflag == TRUE){
+	    printf("%s: can't specifiy both -q and -Q\n", progname);
+	    exit(1);
+	}
+	if(qflag == TRUE &&
+	   (arch_flag.cputype != CPU_TYPE_X86_64 &&
+	    arch_flag.cputype != CPU_TYPE_I386 &&
+	    arch_flag.cputype != CPU_TYPE_ARM)){
+	    printf("%s: can't specifiy -q with -arch %s\n", progname,
+		   arch_flag.name);
+	    exit(1);
+	}
+
+#ifdef notyet
+	/*
+	 * Use the x86 LLVM assembler as the default via running clang.
+	 * That is after rdar://11139995 "Qualify as(1) using the x86 LLVM
+	 * assembler as the default" is done.
+	 */
+	if(arch_flag.cputype == CPU_TYPE_X86_64 ||
+	   arch_flag.cputype == CPU_TYPE_I386)
+	    run_clang = 1;
+#endif /* notyet */
+
+	/*
+	 * Use the clang as the assembler if is the default or asked to with
+	 * the -q flag. But don't use it asked to use the system assembler
+	 * with the -Q flag.
+	 */
+	if((run_clang || qflag) && !Qflag &&
+	   (arch_flag.cputype == CPU_TYPE_X86_64 ||
+	    arch_flag.cputype == CPU_TYPE_I386 ||
+	    arch_flag.cputype == CPU_TYPE_ARM)){
+	    as = makestr(prefix, CLANG, NULL);
+	    if(access(as, F_OK) != 0){
+		printf("%s: assembler (%s) not installed\n", progname, as);
+		exit(1);
+	    }
+	    new_argv = allocate((argc + 5) * sizeof(char *));
+	    new_argv[0] = as;
+	    j = 1;
+	    for(i = 1; i < argc; i++){
+		/*
+		 * Do not pass command line argument that are Unknown to
+		 * to clang.
+		 */
+		if(strcmp(argv[i], "-V") != 0 &&
+		   strcmp(argv[i], "-q") != 0 &&
+		   strcmp(argv[i], "-Q") != 0){
+		    new_argv[j] = argv[i];
+		    j++;
+		}
+	    }
+	    /*
+	     * clang requires a "-o a.out" if not -o is specified.
+	     */
+	    if(oflag_specified == FALSE){
+		new_argv[j] = "-o";
+		j++;
+		new_argv[j] = "a.out";
+		j++;
+	    }
+	    /* Add -integrated-as or clang will run as(1). */
+	    new_argv[j] = "-integrated-as";
+	    j++;
+	    /* Add -c or clang will run ld(1). */
+	    new_argv[j] = "-c";
+	    j++;
+	    new_argv[j] = NULL;
+	    if(execute(new_argv, verbose))
+		exit(0);
+	    else
+		exit(1);
+	}
 
 	/*
 	 * If this assembler exist try to run it else print an error message.
 	 */
+	as = makestr(prefix, LIB, arch_name, AS, NULL);
+	new_argv = allocate((argc + 1) * sizeof(char *));
+	new_argv[0] = as;
+	j = 1;
+	for(i = 1; i < argc; i++){
+	    /*
+	     * Do not pass command line argument that are unknown to as.
+	     */
+	    if(strcmp(argv[i], "-q") != 0 &&
+	       strcmp(argv[i], "-Q") != 0){
+		new_argv[j] = argv[i];
+		j++;
+	    }
+	}
+	new_argv[j] = NULL;
 	if(access(as, F_OK) == 0){
 	    argv[0] = as;
-	    if(execute(argv, verbose))
+	    if(execute(new_argv, verbose))
 		exit(0);
 	    else
 		exit(1);
 	}
 	as_local = makestr(prefix, LOCALLIB, arch_name, AS, NULL);
+	new_argv[0] = as_local;
 	if(access(as_local, F_OK) == 0){
 	    argv[0] = as_local;
-	    if(execute(argv, verbose))
+	    if(execute(new_argv, verbose))
 		exit(0);
 	    else
 		exit(1);
 	}
-	else{
-	    printf("%s: assembler (%s or %s) for architecture %s not "
-		   "installed\n", progname, as, as_local, arch_name);
-	    arch_flags = get_arch_flags();
-	    count = 0;
-	    for(i = 0; arch_flags[i].name != NULL; i++){
-		as = makestr(prefix, LIB, arch_flags[i].name, AS, NULL);
-		if(access(as, F_OK) == 0){
+	printf("%s: assembler (%s or %s) for architecture %s not installed\n",
+	       progname, as, as_local, arch_name);
+	arch_flags = get_arch_flags();
+	count = 0;
+	for(i = 0; arch_flags[i].name != NULL; i++){
+	    as = makestr(prefix, LIB, arch_flags[i].name, AS, NULL);
+	    if(access(as, F_OK) == 0){
+		if(count == 0)
+		    printf("Installed assemblers are:\n");
+		printf("%s for architecture %s\n", as, arch_flags[i].name);
+		count++;
+	    }
+	    else{
+		as_local = makestr(prefix, LOCALLIB, arch_flags[i].name, AS,
+				   NULL);
+		if(access(as_local, F_OK) == 0){
 		    if(count == 0)
 			printf("Installed assemblers are:\n");
-		    printf("%s for architecture %s\n", as, arch_flags[i].name);
+		    printf("%s for architecture %s\n", as_local,
+			   arch_flags[i].name);
 		    count++;
 		}
-		else{
-		    as_local = makestr(prefix, LOCALLIB, arch_flags[i].name,
-				       AS, NULL);
-		    if(access(as_local, F_OK) == 0){
-			if(count == 0)
-			    printf("Installed assemblers are:\n");
-			printf("%s for architecture %s\n", as_local,
-			       arch_flags[i].name);
-			count++;
-		    }
-		}
 	    }
-	    if(count == 0)
-		printf("%s: no assemblers installed\n", progname);
-	    exit(1);
 	}
-	return(0);
+	if(count == 0)
+	    printf("%s: no assemblers installed\n", progname);
+	exit(1);
 }

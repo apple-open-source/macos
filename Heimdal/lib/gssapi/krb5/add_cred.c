@@ -35,7 +35,7 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32 _gsskrb5_add_cred (
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_add_cred (
      OM_uint32           *minor_status,
      const gss_cred_id_t input_cred_handle,
      const gss_name_t    desired_name,
@@ -83,7 +83,7 @@ OM_uint32 _gsskrb5_add_cred (
 	    return(GSS_S_FAILURE);
 	}
     }
-	
+
     /* check that we have the same name */
     if (dname != NULL &&
 	krb5_principal_compare(context, dname,
@@ -111,7 +111,9 @@ OM_uint32 _gsskrb5_add_cred (
 	handle->keytab = NULL;
 	handle->ccache = NULL;
 	HEIMDAL_MUTEX_init(&handle->cred_id_mutex);
-	
+
+	ret = GSS_S_FAILURE;
+
 	kret = krb5_copy_principal(context, cred->principal,
 				  &handle->principal);
 	if (kret) {
@@ -122,23 +124,11 @@ OM_uint32 _gsskrb5_add_cred (
 	}
 
 	if (cred->keytab) {
-	    char name[KRB5_KT_PREFIX_MAX_LEN + MAXPATHLEN];
-	    int len;
-	
+	    char *name = NULL;
+
 	    ret = GSS_S_FAILURE;
 
-	    kret = krb5_kt_get_type(context, cred->keytab,
-				    name, KRB5_KT_PREFIX_MAX_LEN);
-	    if (kret) {
-		*minor_status = kret;
-		goto failure;
-	    }
-	    len = strlen(name);
-	    name[len++] = ':';
-
-	    kret = krb5_kt_get_name(context, cred->keytab,
-				    name + len,
-				    sizeof(name) - len);
+	    kret = krb5_kt_get_full_name(context, cred->keytab, &name);
 	    if (kret) {
 		*minor_status = kret;
 		goto failure;
@@ -146,6 +136,7 @@ OM_uint32 _gsskrb5_add_cred (
 
 	    kret = krb5_kt_resolve(context, name,
 				   &handle->keytab);
+	    krb5_xfree(name);
 	    if (kret){
 		*minor_status = kret;
 		goto failure;
@@ -165,7 +156,7 @@ OM_uint32 _gsskrb5_add_cred (
 	    }
 
 	    if (strcmp(type, "MEMORY") == 0) {
-		ret = krb5_cc_new_unique(context, type, 
+		ret = krb5_cc_new_unique(context, type,
 					 NULL, &handle->ccache);
 		if (ret) {
 		    *minor_status = ret;
@@ -185,20 +176,20 @@ OM_uint32 _gsskrb5_add_cred (
 		    *minor_status = ENOMEM;
 		    goto failure;
 		}
-		
+
 		kret = asprintf(&type_name, "%s:%s", type, name);
 		if (kret < 0 || type_name == NULL) {
 		    *minor_status = ENOMEM;
 		    goto failure;
 		}
-		
+
 		kret = krb5_cc_resolve(context, type_name,
 				       &handle->ccache);
 		free(type_name);
 		if (kret) {
 		    *minor_status = kret;
 		    goto failure;
-		}	
+		}
 	    }
 	}
     }

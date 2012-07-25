@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,6 +127,14 @@ open_dhcpv6_socket(uint16_t client_port)
 	my_log(LOG_ERR, "DHCPv6Socket: setsockopt(IPV6_PKTINFO) failed, %m");
 	goto failed;
     }
+
+#ifdef SO_TC_CTL
+    /* set the traffic class */
+    opt = SO_TC_CTL;
+    /* set traffic class, we don't care if it failed. */
+    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		     sizeof(opt));
+#endif /* SO_TC_CTL */
     return (sockfd);
 
  failed:
@@ -407,7 +415,8 @@ DHCPv6SocketRead(void * arg1, void * arg2)
 	    if (cm->cmsg_len < CMSG_LEN(sizeof(struct in6_pktinfo))) {
 		continue;
 	    }
-	    pktinfo = (struct in6_pktinfo *)(CMSG_DATA(cm));
+	    /* ALIGN: CMSG_DATA is should return aligned data */ 
+	    pktinfo = (struct in6_pktinfo *)(void *)(CMSG_DATA(cm));
 	    break;
 	default:
 	    /* this should never occur */
@@ -529,7 +538,8 @@ S_send_packet(int sockfd, int ifindex, DHCPv6PacketRef pkt, int pkt_size)
     cm->cmsg_level = IPPROTO_IPV6;
     cm->cmsg_type = IPV6_PKTINFO;
     cm->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
-    pi = (struct in6_pktinfo *)CMSG_DATA(cm);
+    /* ALIGN: CMSG_DATA should return aligned data */
+    pi = (struct in6_pktinfo *)(void *)CMSG_DATA(cm);
     pi->ipi6_ifindex = ifindex;
 
     n = sendmsg(sockfd, &mhdr, 0);

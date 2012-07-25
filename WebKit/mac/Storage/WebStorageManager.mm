@@ -23,8 +23,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if ENABLE(DOM_STORAGE)
-
 #import "WebSecurityOriginInternal.h"
 #import "WebStorageManagerPrivate.h"
 #import "WebStorageManagerInternal.h"
@@ -32,13 +30,16 @@
 
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/StorageTracker.h>
+#import <pthread.h>
 
 using namespace WebCore;
 
 NSString * const WebStorageDirectoryDefaultsKey = @"WebKitLocalStorageDatabasePathPreferenceKey";
 NSString * const WebStorageDidModifyOriginNotification = @"WebStorageDidModifyOriginNotification";
 
-static NSString *storageDirectoryPath();
+static NSString *sLocalStoragePath;
+static void initializeLocalStoragePath();
+static pthread_once_t registerLocalStoragePath = PTHREAD_ONCE_INIT;
 
 @implementation WebStorageManager
 
@@ -90,14 +91,22 @@ static NSString *storageDirectoryPath();
     StorageTracker::tracker().syncFileSystemAndTrackerDatabase();
 }
 
-static NSString *storageDirectoryPath()
++ (NSString *)_storageDirectoryPath
+{
+    pthread_once(&registerLocalStoragePath, initializeLocalStoragePath);
+    return sLocalStoragePath;
+}
+
+static void initializeLocalStoragePath() 
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSString *storageDirectory = [defaults objectForKey:WebStorageDirectoryDefaultsKey];
-    if (!storageDirectory || ![storageDirectory isKindOfClass:[NSString class]])
-        storageDirectory = @"~/Library/WebKit/LocalStorage";
-    
-    return [storageDirectory stringByStandardizingPath];
+    sLocalStoragePath = [defaults objectForKey:WebStorageDirectoryDefaultsKey];
+    if (!sLocalStoragePath || ![sLocalStoragePath isKindOfClass:[NSString class]]) {
+        NSArray *paths = NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES);
+        NSString *libraryDirectory = [paths objectAtIndex:0];
+        sLocalStoragePath = [libraryDirectory stringByAppendingPathComponent:@"WebKit/LocalStorage"];
+    }
+    sLocalStoragePath = [[sLocalStoragePath stringByStandardizingPath] retain];
 }
 
 void WebKitInitializeStorageIfNecessary()
@@ -106,13 +115,9 @@ void WebKitInitializeStorageIfNecessary()
     if (initialized)
         return;
     
-    StorageTracker::initializeTracker(storageDirectoryPath());
-    
-    StorageTracker::tracker().setClient(WebStorageTrackerClient::sharedWebStorageTrackerClient());
-    
+    StorageTracker::initializeTracker([WebStorageManager _storageDirectoryPath], WebStorageTrackerClient::sharedWebStorageTrackerClient());
+        
     initialized = YES;
 }
 
 @end
-
-#endif

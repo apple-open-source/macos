@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -250,38 +250,8 @@ _cleanupRemovedSessionKeys(const void *value, void *context)
 
 __private_extern__
 int
-__SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
+__SCDynamicStorePush(void)
 {
-	serverSessionRef		mySession;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;		/* you must have an open session to play */
-	}
-
-	if ((storeLocked == 0) || !storePrivate->locked) {
-		return kSCStatusNeedLock;		/* sorry, you don't have the lock */
-	}
-
-	if ((storeLocked > 1) && recursive) {
-		/* if the lock is being held for a recursive (internal) request */
-		storeLocked--;
-		return kSCStatusOK;
-	}
-
-	if (!recursive && _configd_trace) {
-		SCTrace(TRUE, _configd_trace, CFSTR("unlock  : %5d\n"), storePrivate->server);
-	}
-
-	/*
-	 * all of the changes can be committed to the (real) store.
-	 */
-	CFDictionaryRemoveAllValues(storeData_s);
-	CFDictionaryRemoveAllValues(patternData_s);
-	CFSetRemoveAllValues       (changedKeys_s);
-	CFSetRemoveAllValues       (deferredRemovals_s);
-	CFSetRemoveAllValues       (removedSessionKeys_s);
-
 	/*
 	 * push notifications to any session watching those keys which
 	 * were recently changed.
@@ -299,32 +269,5 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 	CFSetApplyFunction(removedSessionKeys, _cleanupRemovedSessionKeys, NULL);
 	CFSetRemoveAllValues(removedSessionKeys);
 
-	/* Remove the "locked" run loop source for this port */
-	mySession = getSession(storePrivate->server);
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), mySession->serverRunLoopSource, CFSTR("locked"));
-
-	storeLocked          = 0;	/* global lock flag */
-	storePrivate->locked = FALSE;	/* per-session lock flag */
-
 	return kSCStatusOK;
-}
-
-
-__private_extern__
-kern_return_t
-_configunlock(mach_port_t server, int *sc_status)
-{
-	serverSessionRef	mySession = getSession(server);
-
-	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		return KERN_SUCCESS;
-	}
-
-	*sc_status = __SCDynamicStoreUnlock(mySession->store, FALSE);
-	if (*sc_status != kSCStatusOK) {
-		return KERN_SUCCESS;
-	}
-
-	return KERN_SUCCESS;
 }

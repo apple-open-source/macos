@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1256,6 +1256,20 @@ PRIVATE void rpc__binding_free (
         unsigned32                  * /* status */
     );
 
+PRIVATE void rpc__string_netaddr_escape
+(
+        unsigned_char_p_t           /* netaddr */,
+        unsigned_char_p_t           * /* escaped_netaddr */,
+        unsigned32                  * /* status */
+);
+
+PRIVATE void rpc__string_netaddr_unescape
+(
+        unsigned_char_p_t           /* escaped_netaddr */,
+        unsigned_char_p_t           * /* netaddr */,
+        unsigned32                  * /* status */
+);
+
 PRIVATE rpc_binding_rep_t *rpc__binding_alloc (
         boolean32                   /* is_server */,
         uuid_p_t                    /* object_uuid */,
@@ -1699,7 +1713,7 @@ PRIVATE void rpc__strncpy (
         size_t                      /* max_length */
     );
 
-PRIVATE unsigned32 rpc__strsqz ( unsigned_char_p_t, boolean32);
+PRIVATE unsigned32 rpc__strsqz ( unsigned_char_p_t);
 
 PRIVATE unsigned_char_p_t rpc__stralloc ( unsigned_char_p_t);
 

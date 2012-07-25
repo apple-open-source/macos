@@ -133,17 +133,10 @@
 #endif
 
 #ifdef HAVE_OPENSSL
-/* Define to 1 if you have the <openssl/aes.h> header file. */
-#define HAVE_OPENSSL_AES_H 1
 
 /* Define to 1 if you have the <openssl/engine.h> header file. */
 #define HAVE_OPENSSL_ENGINE_H 1
 
-/* Define to 1 if you have the <openssl/idea.h> header file. */
-#undef HAVE_OPENSSL_IDEA_H
-
-/* Define to 1 if you have the <openssl/rc5.h> header file. */
-#define HAVE_OPENSSL_RC5_H 1
 #endif
 
 /* Define to 1 if you have the `pam_start' function. */

@@ -67,6 +67,9 @@ class IOGraphicsDevice;
 #define kIOHIDSystem508MouseClickMessage        iokit_family_msg(sub_iokit_hidsystem, 1)
 #define kIOHIDSystemDeviceSeizeRequestMessage	iokit_family_msg(sub_iokit_hidsystem, 2)
 #define kIOHIDSystem508SpecialKeyDownMessage    iokit_family_msg(sub_iokit_hidsystem, 3)
+// 4 is used by IOHIDSecurePrompt
+#define kIOHIDSystemActivityTickle              iokit_family_msg(sub_iokit_hidsystem, 5)
+
 
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
@@ -235,7 +238,8 @@ private:
   static IOReturn powerStateHandler( void *target, void *refCon,
                UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
  /* Resets */
-  void _resetMouseParameters();
+    void    _resetMouseParameters();
+    void    _setScrollCountParameters(OSDictionary *newSettings = NULL);
 
   /* Initialize the shared memory area */
   void     initShmem(bool clean);
@@ -558,6 +562,9 @@ public:
   IOReturn extSetBounds( IOGBounds * bounds );
     IOReturn extGetModifierLockState(void*,void*,void*,void*,void*,void*);
     IOReturn extSetModifierLockState(void*,void*,void*,void*,void*,void*);
+    IOReturn extRegisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
+    IOReturn extUnregisterVirtualDisplay(void*,void*,void*,void*,void*,void*);
+    IOReturn extSetVirtualDisplayBounds(void*,void*,void*,void*,void*,void*);
 
 /*
  * HISTORICAL NOTE:
@@ -578,7 +585,7 @@ public:
         /* virtual bounds */ IOGBounds * vbp);
 private:
     static IOReturn doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp, void *arg3);
-    void            registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp);
+    IOReturn        registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp, SInt32 *index);
 public:
     
 
@@ -689,9 +696,12 @@ static	IOReturn	doSetEventsEnablePre (IOHIDSystem *self, void *p1);
 static	IOReturn	doSetEventsEnablePost (IOHIDSystem *self, void *p1);
         IOReturn	setEventsEnablePostGated (void *p1);
         
-static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0);
-        void		unregisterScreenGated (int index);
+static	IOReturn	doUnregisterScreen (IOHIDSystem *self, void * arg0, void *arg1);
+        IOReturn	unregisterScreenGated (int index, bool internal);
 
+static	IOReturn	doSetDisplayBounds (IOHIDSystem *self, void * arg0, void * arg1);
+        IOReturn	setDisplayBoundsGated (UInt32 index, IOGBounds *bounds);
+    
 static	IOReturn	doCreateShmem (IOHIDSystem *self, void * arg0);
         IOReturn	createShmemGated (void * p1);
 

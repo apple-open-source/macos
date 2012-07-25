@@ -30,6 +30,7 @@
 
 #include "Connection.h"
 #include "Plugin.h"
+#include <WebCore/AffineTransform.h>
 #include <WebCore/IntRect.h>
 
 #if PLATFORM(MAC)
@@ -57,13 +58,13 @@ public:
     void pluginProcessCrashed();
 
     void didReceivePluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments);
-    CoreIPC::SyncReplyMode didReceiveSyncPluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    void didReceiveSyncPluginProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
 
 private:
     explicit PluginProxy(const String& pluginPath);
 
     // Plugin
-    virtual bool initialize(PluginController*, const Parameters&);
+    virtual bool initialize(const Parameters&);
     virtual void destroy();
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
     virtual PassRefPtr<ShareableBitmap> snapshot();
@@ -71,7 +72,7 @@ private:
     virtual PlatformLayer* pluginLayer();
 #endif
     virtual bool isTransparent();
-    virtual void deprecatedGeometryDidChange(const WebCore::IntRect& frameRectInWindowCoordinates, const WebCore::IntRect& clipRectInWindowCoordinates);
+    virtual bool wantsWheelEvents() OVERRIDE;
     virtual void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::IntRect& clipRect, const WebCore::AffineTransform& pluginToRootViewTransform);
     virtual void visibilityDidChange();
     virtual void frameDidFinishLoading(uint64_t requestID);
@@ -100,19 +101,21 @@ private:
     virtual void windowVisibilityChanged(bool);
     virtual uint64_t pluginComplexTextInputIdentifier() const;
     virtual void sendComplexTextInput(const String& textInput);
+    virtual void setLayerHostingMode(LayerHostingMode) OVERRIDE;
 #endif
 
     virtual void contentsScaleFactorChanged(float);
     virtual void privateBrowsingStateChanged(bool);
+    virtual bool getFormValue(String& formValue);
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
-    virtual bool wantsWindowRelativeCoordinates();
     virtual WebCore::Scrollbar* horizontalScrollbar();
     virtual WebCore::Scrollbar* verticalScrollbar();
 
-    virtual PluginController* controller();
-
+    float contentsScaleFactor();
     bool needsBackingStore() const;
+    bool updateBackingStore();
     uint64_t windowNPObjectID();
+    WebCore::IntRect pluginBounds();
 
     void geometryDidChange();
 
@@ -129,7 +132,13 @@ private:
     void cancelManualStreamLoad();
     void setStatusbarText(const String& statusbarText);
 #if PLATFORM(MAC)
-    void setComplexTextInputEnabled(bool);
+    void pluginFocusOrWindowFocusChanged(bool);
+    void setComplexTextInputState(uint64_t);
+    void setLayerHostingContextID(uint32_t);
+#endif
+#if PLUGIN_ARCHITECTURE(X11)
+    void createPluginContainer(uint64_t& windowID);
+    void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID);
 #endif
 
     String m_pluginPath;
@@ -137,13 +146,13 @@ private:
     RefPtr<PluginProcessConnection> m_connection;
     uint64_t m_pluginInstanceID;
 
-    PluginController* m_pluginController;
+    WebCore::IntSize m_pluginSize;
 
-    // The plug-in rect in window coordinates.
-    WebCore::IntRect m_frameRectInWindowCoordinates;
+    // The clip rect in plug-in coordinates.
+    WebCore::IntRect m_clipRect;
 
-    // The plug-in clip rect in window coordinates.
-    WebCore::IntRect m_clipRectInWindowCoordinates;
+    // A transform that can be used to convert from root view coordinates to plug-in coordinates.
+    WebCore::AffineTransform m_pluginToRootViewTransform;
 
     // This is the backing store that we paint when we're told to paint.
     RefPtr<ShareableBitmap> m_backingStore;
@@ -159,6 +168,9 @@ private:
 
     // Whether we're called invalidate in response to an update call, and are now waiting for a paint call.
     bool m_waitingForPaintInResponseToUpdate;
+
+    // Whether we should send wheel events to this plug-in or not.
+    bool m_wantsWheelEvents;
 
     // The client ID for the CA layer in the plug-in process. Will be 0 if the plug-in is not a CA plug-in.
     uint32_t m_remoteLayerClientID;

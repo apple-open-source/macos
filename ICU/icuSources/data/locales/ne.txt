@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ne.xml
@@ -10,16 +10,17 @@
  *  ICU <specials> source: <path>/xml/main/ne.xml
  */
 ne{
-    AuxExemplarCharacters{"[\u200C \u200D]"}
+    AuxExemplarCharacters{"[\u200C\u200D]"}
     ExemplarCharacters{
-        "[ॐ अ आ इ ई उ ऊ ऋ ऌ ऍ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त थ द ध न प फ ब"
-        " भ म य र ल ळ व श ष स ह ़ ँ ं ः ऽ ् ा ि ी ु ू ृ ॄ ॅ े ै ॉ ो ौ]"
+        "[\u093C \u0901 \u0902 ः ॐ अ आ इ ई उ ऊ ऋ ऌ ऍ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट "
+        "ठ ड ढ ण त थ द ध न प फ ब भ म य र ल ळ व श ष स ह ऽ ा ि ी \u0941 \u0942 \u0943 "
+        "\u0944 \u0945 \u0947 \u0948 ॉ ो ौ \u094D]"
     }
     LocaleScript{
         "Deva",
     }
     NumberElements{
-        default{"deva"}
+        default{"latn"}
         latn{
             symbols{
                 decimal{"."}
@@ -28,8 +29,9 @@ ne{
                 minusSign{"-"}
             }
         }
+        native{"deva"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.64.72"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -126,10 +128,10 @@ ne{
         }
     }
     delimiters{
-        alternateQuotationEnd{"\""}
-        alternateQuotationStart{"\""}
-        quotationEnd{"'"}
-        quotationStart{"'"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
     }
     units{
         day{

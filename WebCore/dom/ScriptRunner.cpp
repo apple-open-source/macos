@@ -47,11 +47,14 @@ ScriptRunner::~ScriptRunner()
         m_document->decrementLoadEventDelayCount();
     for (size_t i = 0; i < m_scriptsToExecuteInOrder.size(); ++i)
         m_document->decrementLoadEventDelayCount();
+    for (int i = 0; i < m_pendingAsyncScripts.size(); ++i)
+        m_document->decrementLoadEventDelayCount();
 }
 
 void ScriptRunner::queueScriptForExecution(ScriptElement* scriptElement, CachedResourceHandle<CachedScript> cachedScript, ExecutionType executionType)
 {
     ASSERT(scriptElement);
+    ASSERT(cachedScript.get());
 
     Element* element = scriptElement->element();
     ASSERT(element);
@@ -61,17 +64,12 @@ void ScriptRunner::queueScriptForExecution(ScriptElement* scriptElement, CachedR
 
     switch (executionType) {
     case ASYNC_EXECUTION:
-        m_scriptsToExecuteSoon.append(PendingScript(element, cachedScript.get()));
-        if (!m_timer.isActive())
-            m_timer.startOneShot(0);
+        m_pendingAsyncScripts.add(scriptElement, PendingScript(element, cachedScript.get()));
         break;
 
     case IN_ORDER_EXECUTION:
         m_scriptsToExecuteInOrder.append(PendingScript(element, cachedScript.get()));
         break;
-
-    default:
-        ASSERT_NOT_REACHED();
     }
 }
 
@@ -86,9 +84,18 @@ void ScriptRunner::resume()
         m_timer.startOneShot(0);
 }
 
-void ScriptRunner::notifyInOrderScriptReady()
+void ScriptRunner::notifyScriptReady(ScriptElement* scriptElement, ExecutionType executionType)
 {
-    ASSERT(!m_scriptsToExecuteInOrder.isEmpty());
+    switch (executionType) {
+    case ASYNC_EXECUTION:
+        ASSERT(m_pendingAsyncScripts.contains(scriptElement));
+        m_scriptsToExecuteSoon.append(m_pendingAsyncScripts.take(scriptElement));
+        break;
+
+    case IN_ORDER_EXECUTION:
+        ASSERT(!m_scriptsToExecuteInOrder.isEmpty());
+        break;
+    }
     m_timer.startOneShot(0);
 }
 

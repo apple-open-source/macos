@@ -22,10 +22,11 @@ module css {
 
     // Introduced in DOM Level 2:
     interface [
-        CustomMarkFunction,
-        GenerateIsReachable,
-        CustomToJS,
-        Polymorphic
+        JSCustomMarkFunction,
+        JSGenerateIsReachable,
+        CustomToJSObject,
+        ObjCPolymorphic,
+        V8DependentLifetime
     ] CSSRule {
 
         // RuleType
@@ -36,12 +37,15 @@ module css {
         const unsigned short MEDIA_RULE = 4;
         const unsigned short FONT_FACE_RULE = 5;
         const unsigned short PAGE_RULE = 6;
-        const unsigned short WEBKIT_KEYFRAMES_RULE = 8;
-        const unsigned short WEBKIT_KEYFRAME_RULE = 9;
+        const unsigned short WEBKIT_KEYFRAMES_RULE = 7;
+        const unsigned short WEBKIT_KEYFRAME_RULE = 8;
+#if defined(ENABLE_CSS_REGIONS) && ENABLE_CSS_REGIONS
+        const unsigned short WEBKIT_REGION_RULE = 10;
+#endif
 
         readonly attribute unsigned short   type;
 
-                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        cssText
+                 attribute [TreatReturnedNullStringAs=Null, TreatNullAs=NullString] DOMString        cssText
                      setter raises (DOMException);
 
         readonly attribute CSSStyleSheet    parentStyleSheet;

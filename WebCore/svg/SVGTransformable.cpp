@@ -37,24 +37,24 @@ static int parseTransformParamList(const UChar*& ptr, const UChar* end, float* v
 {
     int optionalParams = 0, requiredParams = 0;
     
-    if (!skipOptionalSpaces(ptr, end) || *ptr != '(')
+    if (!skipOptionalSVGSpaces(ptr, end) || *ptr != '(')
         return -1;
     
     ptr++;
    
-    skipOptionalSpaces(ptr, end);
+    skipOptionalSVGSpaces(ptr, end);
 
     while (requiredParams < required) {
         if (ptr >= end || !parseNumber(ptr, end, values[requiredParams], false))
             return -1;
         requiredParams++;
         if (requiredParams < required)
-            skipOptionalSpacesOrDelimiter(ptr, end);
+            skipOptionalSVGSpacesOrDelimiter(ptr, end);
     }
-    if (!skipOptionalSpaces(ptr, end))
+    if (!skipOptionalSVGSpaces(ptr, end))
         return -1;
     
-    bool delimParsed = skipOptionalSpacesOrDelimiter(ptr, end);
+    bool delimParsed = skipOptionalSVGSpacesOrDelimiter(ptr, end);
 
     if (ptr >= end)
         return -1;
@@ -69,13 +69,13 @@ static int parseTransformParamList(const UChar*& ptr, const UChar* end, float* v
                 return -1;
             optionalParams++;
             if (optionalParams < optional)
-                skipOptionalSpacesOrDelimiter(ptr, end);
+                skipOptionalSVGSpacesOrDelimiter(ptr, end);
         }
         
-        if (!skipOptionalSpaces(ptr, end))
+        if (!skipOptionalSVGSpaces(ptr, end))
             return -1;
         
-        delimParsed = skipOptionalSpacesOrDelimiter(ptr, end);
+        delimParsed = skipOptionalSVGSpacesOrDelimiter(ptr, end);
         
         if (ptr >= end || *ptr != ')' || delimParsed)
             return -1;
@@ -170,10 +170,12 @@ static inline bool parseAndSkipType(const UChar*& currTransform, const UChar* en
     return true;
 }
 
-bool SVGTransformable::parseTransformAttribute(SVGTransformList& list, const AtomicString& transform)
+SVGTransform::SVGTransformType SVGTransformable::parseTransformType(const String& typeString)
 {
-    const UChar* start = transform.characters();
-    return parseTransformAttribute(list, start, start + transform.length());
+    unsigned short type = SVGTransform::SVG_TRANSFORM_UNKNOWN;
+    const UChar* characters = typeString.characters();
+    parseAndSkipType(characters, characters + typeString.length(), type);
+    return static_cast<SVGTransform::SVGTransformType>(type);
 }
 
 bool SVGTransformable::parseTransformAttribute(SVGTransformList& list, const UChar*& currTransform, const UChar* end, TransformParsingMode mode)
@@ -185,7 +187,7 @@ bool SVGTransformable::parseTransformAttribute(SVGTransformList& list, const UCh
     while (currTransform < end) {
         delimParsed = false;
         unsigned short type = SVGTransform::SVG_TRANSFORM_UNKNOWN;
-        skipOptionalSpaces(currTransform, end);
+        skipOptionalSVGSpaces(currTransform, end);
 
         if (!parseAndSkipType(currTransform, end, type))
             return false;
@@ -195,20 +197,15 @@ bool SVGTransformable::parseTransformAttribute(SVGTransformList& list, const UCh
             return false;
 
         list.append(transform);
-        skipOptionalSpaces(currTransform, end);
+        skipOptionalSVGSpaces(currTransform, end);
         if (currTransform < end && *currTransform == ',') {
             delimParsed = true;
             ++currTransform;
         }
-        skipOptionalSpaces(currTransform, end);
+        skipOptionalSVGSpaces(currTransform, end);
     }
 
     return !delimParsed;
-}
-
-bool SVGTransformable::isKnownAttribute(const QualifiedName& attrName)
-{
-    return attrName == SVGNames::transformAttr;
 }
 
 }

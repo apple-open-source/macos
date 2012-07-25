@@ -1,6 +1,6 @@
 /*
  ******************************************************************************
- * Copyright (C) 1996-2010, International Business Machines Corporation and
+ * Copyright (C) 1996-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ******************************************************************************
  */
@@ -70,6 +70,7 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "putilimp.h"
+#include "ustr_imp.h"
 
 /* public RuleBasedCollator constructor ---------------------------------- */
 
@@ -248,6 +249,7 @@ Collator* RuleBasedCollator::clone() const
 {
     return new RuleBasedCollator(*this);
 }
+
 
 CollationElementIterator* RuleBasedCollator::createCollationElementIterator
                                            (const UnicodeString& source) const
@@ -452,21 +454,46 @@ CollationKey& RuleBasedCollator::getCollationKey(const UChar* source,
                                                     CollationKey& sortkey,
                                                     UErrorCode& status) const
 {
-    if (U_FAILURE(status))
-    {
+    if (U_FAILURE(status)) {
+        return sortkey.setToBogus();
+    }
+    if (sourceLen < -1 || (source == NULL && sourceLen != 0)) {
+        status = U_ILLEGAL_ARGUMENT_ERROR;
         return sortkey.setToBogus();
     }
 
-    if ((!source) || (sourceLen == 0)) {
+    if (sourceLen < 0) {
+        sourceLen = u_strlen(source);
+    }
+    if (sourceLen == 0) {
         return sortkey.reset();
     }
 
     uint8_t *result;
-    int32_t resultLen = ucol_getSortKeyWithAllocation(ucollator,
-                                                      source, sourceLen,
-                                                      &result,
-                                                      &status);
-    sortkey.adopt(result, resultLen);
+    int32_t resultCapacity;
+    if (sortkey.fCapacity >= (sourceLen * 3)) {
+        // Try to reuse the CollationKey.fBytes.
+        result = sortkey.fBytes;
+        resultCapacity = sortkey.fCapacity;
+    } else {
+        result = NULL;
+        resultCapacity = 0;
+    }
+    int32_t resultLen = ucol_getSortKeyWithAllocation(ucollator, source, sourceLen,
+                                                      result, resultCapacity, &status);
+
+    if (U_SUCCESS(status)) {
+        if (result == sortkey.fBytes) {
+            sortkey.setLength(resultLen);
+        } else {
+            sortkey.adopt(result, resultCapacity, resultLen);
+        }
+    } else {
+        if (result != sortkey.fBytes) {
+            uprv_free(result);
+        }
+        sortkey.setToBogus();
+    }
     return sortkey;
 }
 
@@ -598,9 +625,17 @@ void RuleBasedCollator::setReorderCodes(const int32_t *reorderCodes,
                                        int32_t reorderCodesLength,
                                        UErrorCode& status)
 {
+    checkOwned();
     ucol_setReorderCodes(ucollator, reorderCodes, reorderCodesLength, &status);
 }
 
+int32_t RuleBasedCollator::getEquivalentReorderCodes(int32_t reorderCode,
+                                int32_t* dest,
+                                int32_t destCapacity,
+                                UErrorCode& status)
+{
+    return ucol_getEquivalentReorderCodes(reorderCode, dest, destCapacity, &status);
+}
 
 /**
 * Create a hash code for this collation. Just hash the main rule table -- that
@@ -610,7 +645,7 @@ int32_t RuleBasedCollator::hashCode() const
 {
     int32_t length;
     const UChar *rules = ucol_getRules(ucollator, &length);
-    return uhash_hashUCharsN(rules, length);
+    return ustr_hashUCharsN(rules, length);
 }
 
 /**
@@ -704,8 +739,9 @@ void
 RuleBasedCollator::setUCollator(const char *locale,
                                 UErrorCode &status)
 {
-    if (U_FAILURE(status))
+    if (U_FAILURE(status)) {
         return;
+    }
     if (ucollator && dataIsOwned)
         ucol_close(ucollator);
     ucollator = ucol_open_internal(locale, &status);
@@ -724,6 +760,16 @@ RuleBasedCollator::checkOwned() {
         isWriteThroughAlias = FALSE;
     }
 }
+
+
+int32_t RuleBasedCollator::internalGetShortDefinitionString(const char *locale,
+                                                                      char *buffer,
+                                                                      int32_t capacity,
+                                                                      UErrorCode &status) const {
+  /* simply delegate */
+  return ucol_getShortDefinitionString(ucollator, locale, buffer, capacity, &status);
+}
+
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedCollator)
 

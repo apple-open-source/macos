@@ -28,6 +28,47 @@
 
 namespace WebCore {
 
+template<>
+struct SVGPropertyTraits<BlendModeType> {
+    static unsigned highestEnumValue() { return FEBLEND_MODE_LIGHTEN; }
+
+    static String toString(BlendModeType type)
+    {
+        switch (type) {
+        case FEBLEND_MODE_UNKNOWN:
+            return emptyString();
+        case FEBLEND_MODE_NORMAL:
+            return "normal";
+        case FEBLEND_MODE_MULTIPLY:
+            return "multiply";
+        case FEBLEND_MODE_SCREEN:
+            return "screen";
+        case FEBLEND_MODE_DARKEN:
+            return "darken";
+        case FEBLEND_MODE_LIGHTEN:
+            return "lighten";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static BlendModeType fromString(const String& value)
+    {
+        if (value == "normal")
+            return FEBLEND_MODE_NORMAL;
+        if (value == "multiply")
+            return FEBLEND_MODE_MULTIPLY;
+        if (value == "screen")
+            return FEBLEND_MODE_SCREEN;
+        if (value == "darken")
+            return FEBLEND_MODE_DARKEN;
+        if (value == "lighten")
+            return FEBLEND_MODE_LIGHTEN;
+        return FEBLEND_MODE_UNKNOWN;
+    }
+};
+
 class SVGFEBlendElement : public SVGFilterPrimitiveStandardAttributes {
 public:
     static PassRefPtr<SVGFEBlendElement> create(const QualifiedName&, Document*);
@@ -35,18 +76,17 @@ public:
 private:
     SVGFEBlendElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_STRING(In2, in2)
-    DECLARE_ANIMATED_ENUMERATION(Mode, mode)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEBlendElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_STRING(In2, in2)
+        DECLARE_ANIMATED_ENUMERATION(Mode, mode, BlendModeType)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

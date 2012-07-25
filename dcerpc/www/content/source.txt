@@ -8,9 +8,9 @@ filter:
 ---
 ## Getting and building the source
 
-The DCE/RPC source code is available from the git.macosforge.org git repository:
+The DCE/RPC source code is available from the git.dcerpc.org git repository:
 
-    ~ $ git clone git://git.macosforge.org/dcerpc.git dcerpc.git
+    ~ $ git clone git://git.dcerpc.org/dcerpc.git dcerpc.git
 
 To build the project on Mac OS X, use the Xcode project. This will
 build the DCERPC framework and the dceidl IDL compiler, which is

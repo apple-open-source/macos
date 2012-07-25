@@ -32,6 +32,7 @@ public:
     }
 
     WebCore::Frame* coreFrame() const { return frame(); }
+    virtual SoupSession* soupSession() const;
 
 private:
     FrameNetworkingContextGtk(WebCore::Frame* frame)

@@ -36,46 +36,38 @@
 .Sh NAME
 .Nm ffs ,
 .Nm ffsl ,
-.Nm ffsll ,
 .Nm fls ,
-.Nm flsl ,
-.Nm flsll
+.Nm flsl
 .Nd find first or last bit set in a bit string
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In strings.h
 .Ft int
-.Fn ffs "int value"
+.Fn ffs "int i"
 .Ft int
-.Fn ffsl "long value"
+.Fn ffsl "long i"
 .Ft int
+.Fn fls "int i"
 .Ft int
-.Fn ffsll "long long value"
-.Fn fls "int value"
-.Ft int
-.Fn flsl "long value"
-.Ft int
-.Fn flsll "long long value"
+.Fn flsl "long i"
 .Sh DESCRIPTION
 The
-.Fn ffs ,
-.Fn ffsl
+.Fn ffs
 and
-.Fn ffsll
+.Fn ffsl
 functions find the first bit set
 (beginning with the least significant bit)
 in
-.Fa value
+.Fa i
 and return the index of that bit.
 .Pp
 The
-.Fn fls ,
-.Fn flsl
+.Fn fls
 and
-.Fn flsll
+.Fn flsl
 functions find the last bit set in
-.Fa value
+.Fa i
 and return the index of that bit.
 .Pp
 Bits are numbered starting at 1 (the least significant bit).
@@ -98,14 +90,8 @@ compliance.
 .Pp
 The
 .Fn ffsl ,
-.Fn fls
+.Fn fls ,
 and
 .Fn flsl
 functions appeared in
 .Fx 5.3 .
-The
-.Fn ffsll
-and
-.Fn flsll
-functions appeared in
-.Fx 7.1 .

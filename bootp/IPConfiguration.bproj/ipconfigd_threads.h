@@ -322,16 +322,6 @@ ServiceRemoveAddressConflict(ServiceRef service_p);
 /**
  ** router_arp routines
  **/
-#if 0
-void
-ServiceIPv4RouterSetHWAddr(ServiceRef service_p,
-			   uint8_t * hwaddr, int hwaddr_len);
-const uint8_t *
-ServiceIPv4RouterGetHWAddr(ServiceRef service_p, int * hwaddr_len);
-
-void
-ServiceIPv4RouterClearHWAddr(ServiceRef service_p);
-#endif 0
 
 /* Router IP Address */
 boolean_t	service_router_is_hwaddr_valid(ServiceRef service_p);

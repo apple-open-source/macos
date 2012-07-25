@@ -794,6 +794,7 @@ void rpc_ss_ndr_u_struct_pointees
                                              struct_offset_vec_ptr,
                                              array_dims,
                                              Z_values,
+                                             FALSE,
                                              NULL,
                                              IDL_msp );
 
@@ -1467,6 +1468,7 @@ void rpc_ss_init_new_struct_ptrs
                                              struct_offset_vec_ptr,
                                              array_dims,
                                              conf_Z_values,
+                                             TRUE,
                                              NULL,
                                              IDL_msp );
 
@@ -1497,6 +1499,7 @@ void rpc_ss_init_new_struct_ptrs
                                              struct_offset_vec_ptr,
                                              array_dims,
                                              conf_Z_values,
+                                             TRUE,
                                              NULL,
                                              IDL_msp );
 
@@ -1906,6 +1909,7 @@ void rpc_ss_ndr_unmar_pointee_desc
                                      p_pointee_desc->struct_offset_vec_ptr,
                                      p_pointee_desc->dimensionality,
                                      p_pointee_desc->Z_values,
+                                     FALSE,
                                      NULL,
                                      IDL_msp );
             break;
@@ -1925,6 +1929,7 @@ void rpc_ss_ndr_unmar_pointee_desc
                                      p_pointee_desc->struct_offset_vec_ptr,
                                      p_pointee_desc->dimensionality,
                                      p_pointee_desc->Z_values,
+                                     FALSE,
                                      &correl_bounds_list,
                                      IDL_msp );
             rpc_ss_ndr_unmar_range_list( p_pointee_desc->dimensionality,

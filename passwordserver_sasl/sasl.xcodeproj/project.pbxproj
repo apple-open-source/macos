@@ -71,7 +71,6 @@
 			buildConfigurationList = B062B4210D9C55E100C883E4 /* Build configuration list for PBXAggregateTarget "include" */;
 			buildPhases = (
 				B062B40F0D9C55E100C883E4 /* CopyFiles */,
-				B062B4180D9C55E100C883E4 /* CopyFiles */,
 			);
 			dependencies = (
 			);
@@ -100,14 +99,6 @@
 		B062B4150D9C55E100C883E4 /* sasl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A790236D84505DD284B /* sasl.h */; };
 		B062B4160D9C55E100C883E4 /* saslplug.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7A0236D84505DD284B /* saslplug.h */; };
 		B062B4170D9C55E100C883E4 /* saslutil.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7B0236D84505DD284B /* saslutil.h */; };
-		B062B4190D9C55E100C883E4 /* gai.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A710236D84505DD284B /* gai.h */; };
-		B062B41A0D9C55E100C883E4 /* hmac-md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A720236D84505DD284B /* hmac-md5.h */; };
-		B062B41B0D9C55E100C883E4 /* md5global.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 777745B10236D8FA05DD284B /* md5global.h */; };
-		B062B41C0D9C55E100C883E4 /* md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A760236D84505DD284B /* md5.h */; };
-		B062B41D0D9C55E100C883E4 /* prop.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A780236D84505DD284B /* prop.h */; };
-		B062B41E0D9C55E100C883E4 /* sasl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A790236D84505DD284B /* sasl.h */; };
-		B062B41F0D9C55E100C883E4 /* saslplug.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7A0236D84505DD284B /* saslplug.h */; };
-		B062B4200D9C55E100C883E4 /* saslutil.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7B0236D84505DD284B /* saslutil.h */; };
 		B062B4270D9C55E100C883E4 /* saslint.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7C6A0236E73C05DD284B /* saslint.h */; };
 		B062B4280D9C55E100C883E4 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
 		B062B4290D9C55E100C883E4 /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = F56C514B029C0BA301DD284B /* plugin_common.h */; };
@@ -418,23 +409,6 @@
 				B062B4150D9C55E100C883E4 /* sasl.h in CopyFiles */,
 				B062B4160D9C55E100C883E4 /* saslplug.h in CopyFiles */,
 				B062B4170D9C55E100C883E4 /* saslutil.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		B062B4180D9C55E100C883E4 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/Developer/Headers/sasl;
-			dstSubfolderSpec = 0;
-			files = (
-				B062B4190D9C55E100C883E4 /* gai.h in CopyFiles */,
-				B062B41A0D9C55E100C883E4 /* hmac-md5.h in CopyFiles */,
-				B062B41B0D9C55E100C883E4 /* md5global.h in CopyFiles */,
-				B062B41C0D9C55E100C883E4 /* md5.h in CopyFiles */,
-				B062B41D0D9C55E100C883E4 /* prop.h in CopyFiles */,
-				B062B41E0D9C55E100C883E4 /* sasl.h in CopyFiles */,
-				B062B41F0D9C55E100C883E4 /* saslplug.h in CopyFiles */,
-				B062B4200D9C55E100C883E4 /* saslutil.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -1637,7 +1611,11 @@
 			isa = PBXProject;
 			buildConfigurationList = AAD4EA2E09856D170066F8B3 /* Build configuration list for PBXProject "sasl" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 77F5D6980236D69405DD284B;
 			productRefGroup = 77F5D6A70236D6B705DD284B /* Products */;
 			projectDirPath = "";

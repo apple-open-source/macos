@@ -125,7 +125,7 @@ SQLRETURN SQL_API SQLColAttributeW (
     SQLPOINTER		  pCharAttr,
     SQLSMALLINT		  cbCharAttrMax,
     SQLSMALLINT		* pcbCharAttr,
-    SQLLEN		* pNumAttr);
+    SQLLEN		* pNumAttr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColAttributesW (
     SQLHSTMT		  hstmt,
@@ -134,7 +134,7 @@ SQLRETURN SQL_API SQLColAttributesW (
     SQLPOINTER		  rgbDesc,
     SQLSMALLINT		  cbDescMax,
     SQLSMALLINT		* pcbDesc,
-    SQLLEN		* pfDesc);
+    SQLLEN		* pfDesc) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLConnectW (
     SQLHDBC		  hdbc,
@@ -143,7 +143,7 @@ SQLRETURN SQL_API SQLConnectW (
     SQLWCHAR		* szUID,
     SQLSMALLINT		  cbUID,
     SQLWCHAR		* szAuthStr,
-    SQLSMALLINT		  cbAuthStr);
+    SQLSMALLINT		  cbAuthStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDescribeColW (
     SQLHSTMT		  hstmt,
@@ -154,7 +154,7 @@ SQLRETURN SQL_API SQLDescribeColW (
     SQLSMALLINT		* pfSqlType,
     SQLULEN		* pcbColDef,
     SQLSMALLINT		* pibScale,
-    SQLSMALLINT		* pfNullable);
+    SQLSMALLINT		* pfNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLErrorW (
     SQLHENV		  henv,
@@ -164,25 +164,25 @@ SQLRETURN SQL_API SQLErrorW (
     SQLINTEGER		* pfNativeError,
     SQLWCHAR		* szErrorMsg,
     SQLSMALLINT		  cbErrorMsgMax,
-    SQLSMALLINT		* pcbErrorMsg);
+    SQLSMALLINT		* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLExecDirectW (
     SQLHSTMT		  hstmt,
     SQLWCHAR		* szSqlStr,
-    SQLINTEGER		  cbSqlStr);
+    SQLINTEGER		  cbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetConnectAttrW (
     SQLHDBC		  hdbc,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetCursorNameW (
     SQLHSTMT		  hstmt,
     SQLWCHAR		* szCursor,
     SQLSMALLINT		  cbCursorMax,
-    SQLSMALLINT		* pcbCursor);
+    SQLSMALLINT		* pcbCursor) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLSetDescFieldW (
@@ -190,7 +190,7 @@ SQLRETURN SQL_API SQLSetDescFieldW (
     SQLSMALLINT		  RecNumber,
     SQLSMALLINT		  FieldIdentifier,
     SQLPOINTER		  Value,
-    SQLINTEGER		  BufferLength);
+    SQLINTEGER		  BufferLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDescFieldW (
     SQLHDESC		  hdesc,
@@ -198,7 +198,7 @@ SQLRETURN SQL_API SQLGetDescFieldW (
     SQLSMALLINT		  iField,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDescRecW (
     SQLHDESC		  hdesc,
@@ -211,7 +211,7 @@ SQLRETURN SQL_API SQLGetDescRecW (
     SQLLEN		* pLength,
     SQLSMALLINT		* pPrecision,
     SQLSMALLINT		* pScale,
-    SQLSMALLINT		* pNullable);
+    SQLSMALLINT		* pNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagFieldW (
     SQLSMALLINT		  fHandleType,
@@ -220,7 +220,7 @@ SQLRETURN SQL_API SQLGetDiagFieldW (
     SQLSMALLINT		  fDiagField,
     SQLPOINTER		  rgbDiagInfo,
     SQLSMALLINT		  cbDiagInfoMax,
-    SQLSMALLINT		* pcbDiagInfo);
+    SQLSMALLINT		* pcbDiagInfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagRecW (
     SQLSMALLINT		  fHandleType,
@@ -230,24 +230,24 @@ SQLRETURN SQL_API SQLGetDiagRecW (
     SQLINTEGER		* pfNativeError,
     SQLWCHAR		* szErrorMsg,
     SQLSMALLINT		  cbErrorMsgMax,
-    SQLSMALLINT		* pcbErrorMsg);
+    SQLSMALLINT		* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLPrepareW (
     SQLHSTMT		  hstmt,
     SQLWCHAR		* szSqlStr,
-    SQLINTEGER		  cbSqlStr);
+    SQLINTEGER		  cbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetConnectAttrW (
     SQLHDBC		  hdbc,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
-    SQLINTEGER		  cbValue);
+    SQLINTEGER		  cbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetCursorNameW (
     SQLHSTMT		  hstmt,
     SQLWCHAR		* szCursor,
-    SQLSMALLINT		  cbCursor);
+    SQLSMALLINT		  cbCursor) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColumnsW (
     SQLHSTMT		  hstmt,
@@ -258,28 +258,28 @@ SQLRETURN SQL_API SQLColumnsW (
     SQLWCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLWCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetConnectOptionW (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fOption,
-    SQLPOINTER		  pvParam);
+    SQLPOINTER		  pvParam) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetInfoW (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fInfoType,
     SQLPOINTER		  rgbInfoValue,
     SQLSMALLINT		  cbInfoValueMax,
-    SQLSMALLINT		* pcbInfoValue);
+    SQLSMALLINT		* pcbInfoValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetTypeInfoW (
     SQLHSTMT		  StatementHandle,
-    SQLSMALLINT		  DataType);
+    SQLSMALLINT		  DataType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetConnectOptionW (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fOption,
-    SQLULEN		  vParam);
+    SQLULEN		  vParam) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSpecialColumnsW (
     SQLHSTMT		  hstmt,
@@ -291,7 +291,7 @@ SQLRETURN SQL_API SQLSpecialColumnsW (
     SQLWCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLUSMALLINT	  fScope,
-    SQLUSMALLINT	  fNullable);
+    SQLUSMALLINT	  fNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLStatisticsW (
     SQLHSTMT		  hstmt,
@@ -302,7 +302,7 @@ SQLRETURN SQL_API SQLStatisticsW (
     SQLWCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLUSMALLINT	  fUnique,
-    SQLUSMALLINT	  fAccuracy);
+    SQLUSMALLINT	  fAccuracy) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTablesW (
     SQLHSTMT		  hstmt,
@@ -313,7 +313,7 @@ SQLRETURN SQL_API SQLTablesW (
     SQLWCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLWCHAR		* szTableType,
-    SQLSMALLINT		  cbTableType);
+    SQLSMALLINT		  cbTableType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDataSourcesW (
     SQLHENV		  henv,
@@ -323,7 +323,7 @@ SQLRETURN SQL_API SQLDataSourcesW (
     SQLSMALLINT		* pcbDSN,
     SQLWCHAR		* szDescription,
     SQLSMALLINT		  cbDescriptionMax,
-    SQLSMALLINT		* pcbDescription);
+    SQLSMALLINT		* pcbDescription) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDriverConnectW (
     SQLHDBC		  hdbc,
@@ -333,7 +333,7 @@ SQLRETURN SQL_API SQLDriverConnectW (
     SQLWCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
     SQLSMALLINT		* pcbConnStrOut,
-    SQLUSMALLINT	  fDriverCompletion);
+    SQLUSMALLINT	  fDriverCompletion) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLBrowseConnectW (
     SQLHDBC		  hdbc,
@@ -341,7 +341,7 @@ SQLRETURN SQL_API SQLBrowseConnectW (
     SQLSMALLINT		  cbConnStrIn,
     SQLWCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
-    SQLSMALLINT		* pcbConnStrOut);
+    SQLSMALLINT		* pcbConnStrOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColumnPrivilegesW (
     SQLHSTMT		  hstmt,
@@ -352,20 +352,20 @@ SQLRETURN SQL_API SQLColumnPrivilegesW (
     SQLWCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLWCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetStmtAttrW (
     SQLHSTMT		  hstmt,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetStmtAttrW (
     SQLHSTMT		  hstmt,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
-    SQLINTEGER		  cbValueMax);
+    SQLINTEGER		  cbValueMax) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLForeignKeysW (
     SQLHSTMT		  hstmt,
@@ -380,7 +380,7 @@ SQLRETURN SQL_API SQLForeignKeysW (
     SQLWCHAR		* szFkSchemaName,
     SQLSMALLINT		  cbFkSchemaName,
     SQLWCHAR		* szFkTableName,
-    SQLSMALLINT		  cbFkTableName);
+    SQLSMALLINT		  cbFkTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLNativeSqlW (
     SQLHDBC		  hdbc,
@@ -388,7 +388,7 @@ SQLRETURN SQL_API SQLNativeSqlW (
     SQLINTEGER		  cbSqlStrIn,
     SQLWCHAR		* szSqlStr,
     SQLINTEGER		  cbSqlStrMax,
-    SQLINTEGER		* pcbSqlStr);
+    SQLINTEGER		* pcbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLPrimaryKeysW (
     SQLHSTMT		  hstmt,
@@ -397,7 +397,7 @@ SQLRETURN SQL_API SQLPrimaryKeysW (
     SQLWCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLWCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProcedureColumnsW (
     SQLHSTMT		  hstmt,
@@ -408,7 +408,7 @@ SQLRETURN SQL_API SQLProcedureColumnsW (
     SQLWCHAR		* szProcName,
     SQLSMALLINT		  cbProcName,
     SQLWCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProceduresW (
     SQLHSTMT		  hstmt,
@@ -417,7 +417,7 @@ SQLRETURN SQL_API SQLProceduresW (
     SQLWCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLWCHAR		* szProcName,
-    SQLSMALLINT		  cbProcName);
+    SQLSMALLINT		  cbProcName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTablePrivilegesW (
     SQLHSTMT		  hstmt,
@@ -426,7 +426,7 @@ SQLRETURN SQL_API SQLTablePrivilegesW (
     SQLWCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLWCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDriversW (
     SQLHENV		  henv,
@@ -436,7 +436,7 @@ SQLRETURN SQL_API SQLDriversW (
     SQLSMALLINT		* pcbDriverDesc,
     SQLWCHAR		* szDriverAttributes,
     SQLSMALLINT		  cbDrvrAttrMax,
-    SQLSMALLINT		* pcbDrvrAttr);
+    SQLSMALLINT		* pcbDrvrAttr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 
 /*
@@ -450,7 +450,7 @@ SQLRETURN SQL_API SQLColAttributeA (
     SQLPOINTER		  pCharAttr,
     SQLSMALLINT		  cbCharAttrMax,
     SQLSMALLINT		* pcbCharAttr,
-    SQLLEN		* pNumAttr);
+    SQLLEN		* pNumAttr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColAttributesA (
     SQLHSTMT		  hstmt,
@@ -459,7 +459,7 @@ SQLRETURN SQL_API SQLColAttributesA (
     SQLPOINTER		  rgbDesc,
     SQLSMALLINT		  cbDescMax,
     SQLSMALLINT		* pcbDesc,
-    SQLLEN		* pfDesc);
+    SQLLEN		* pfDesc) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLConnectA (
     SQLHDBC		  hdbc,
@@ -468,7 +468,7 @@ SQLRETURN SQL_API SQLConnectA (
     SQLCHAR		* szUID,
     SQLSMALLINT		  cbUID,
     SQLCHAR		* szAuthStr,
-    SQLSMALLINT		  cbAuthStr);
+    SQLSMALLINT		  cbAuthStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDescribeColA (
     SQLHSTMT		  hstmt,
@@ -479,7 +479,7 @@ SQLRETURN SQL_API SQLDescribeColA (
     SQLSMALLINT		* pfSqlType,
     SQLULEN		* pcbColDef,
     SQLSMALLINT		* pibScale,
-    SQLSMALLINT		* pfNullable);
+    SQLSMALLINT		* pfNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLErrorA (
     SQLHENV		  henv,
@@ -489,25 +489,25 @@ SQLRETURN SQL_API SQLErrorA (
     SQLINTEGER		* pfNativeError,
     SQLCHAR		* szErrorMsg,
     SQLSMALLINT		  cbErrorMsgMax,
-    SQLSMALLINT		* pcbErrorMsg);
+    SQLSMALLINT		* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLExecDirectA (
     SQLHSTMT		  hstmt,
     SQLCHAR		* szSqlStr,
-    SQLINTEGER		  cbSqlStr);
+    SQLINTEGER		  cbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetConnectAttrA (
     SQLHDBC		  hdbc,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetCursorNameA (
     SQLHSTMT		  hstmt,
     SQLCHAR		* szCursor,
     SQLSMALLINT		  cbCursorMax,
-    SQLSMALLINT		* pcbCursor);
+    SQLSMALLINT		* pcbCursor) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLSetDescFieldA (
@@ -515,7 +515,7 @@ SQLRETURN SQL_API SQLSetDescFieldA (
     SQLSMALLINT		  RecNumber,
     SQLSMALLINT		  FieldIdentifier,
     SQLPOINTER		  Value,
-    SQLINTEGER		  BufferLength);
+    SQLINTEGER		  BufferLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDescFieldA (
     SQLHDESC		  hdesc,
@@ -523,7 +523,7 @@ SQLRETURN SQL_API SQLGetDescFieldA (
     SQLSMALLINT		  iField,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDescRecA (
     SQLHDESC		  hdesc,
@@ -536,7 +536,7 @@ SQLRETURN SQL_API SQLGetDescRecA (
     SQLLEN		* pLength,
     SQLSMALLINT		* pPrecision,
     SQLSMALLINT		* pScale,
-    SQLSMALLINT		* pNullable);
+    SQLSMALLINT		* pNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagFieldA (
     SQLSMALLINT		  fHandleType,
@@ -545,7 +545,7 @@ SQLRETURN SQL_API SQLGetDiagFieldA (
     SQLSMALLINT		  fDiagField,
     SQLPOINTER		  rgbDiagInfo,
     SQLSMALLINT		  cbDiagInfoMax,
-    SQLSMALLINT		* pcbDiagInfo);
+    SQLSMALLINT		* pcbDiagInfo) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagRecA (
     SQLSMALLINT		  fHandleType,
@@ -555,24 +555,24 @@ SQLRETURN SQL_API SQLGetDiagRecA (
     SQLINTEGER		* pfNativeError,
     SQLCHAR		* szErrorMsg,
     SQLSMALLINT		  cbErrorMsgMax,
-    SQLSMALLINT		* pcbErrorMsg);
+    SQLSMALLINT		* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLPrepareA (
     SQLHSTMT		  hstmt,
     SQLCHAR		* szSqlStr,
-    SQLINTEGER		  cbSqlStr);
+    SQLINTEGER		  cbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetConnectAttrA (
     SQLHDBC		  hdbc,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
-    SQLINTEGER		  cbValue);
+    SQLINTEGER		  cbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetCursorNameA (
     SQLHSTMT		  hstmt,
     SQLCHAR		* szCursor,
-    SQLSMALLINT		  cbCursor);
+    SQLSMALLINT		  cbCursor) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColumnsA (
     SQLHSTMT		  hstmt,
@@ -583,28 +583,28 @@ SQLRETURN SQL_API SQLColumnsA (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetConnectOptionA (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fOption,
-    SQLPOINTER		  pvParam);
+    SQLPOINTER		  pvParam) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetInfoA (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fInfoType,
     SQLPOINTER		  rgbInfoValue,
     SQLSMALLINT		  cbInfoValueMax,
-    SQLSMALLINT		* pcbInfoValue);
+    SQLSMALLINT		* pcbInfoValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetTypeInfoA (
     SQLHSTMT		  StatementHandle,
-    SQLSMALLINT		  DataType);
+    SQLSMALLINT		  DataType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetConnectOptionA (
     SQLHDBC		  hdbc,
     SQLUSMALLINT	  fOption,
-    SQLULEN		  vParam);
+    SQLULEN		  vParam) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSpecialColumnsA (
     SQLHSTMT		  hstmt,
@@ -616,7 +616,7 @@ SQLRETURN SQL_API SQLSpecialColumnsA (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLUSMALLINT	  fScope,
-    SQLUSMALLINT	  fNullable);
+    SQLUSMALLINT	  fNullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLStatisticsA (
     SQLHSTMT		  hstmt,
@@ -627,7 +627,7 @@ SQLRETURN SQL_API SQLStatisticsA (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLUSMALLINT	  fUnique,
-    SQLUSMALLINT	  fAccuracy);
+    SQLUSMALLINT	  fAccuracy) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTablesA (
     SQLHSTMT		  hstmt,
@@ -638,7 +638,7 @@ SQLRETURN SQL_API SQLTablesA (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLCHAR		* szTableType,
-    SQLSMALLINT		  cbTableType);
+    SQLSMALLINT		  cbTableType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDataSourcesA (
     SQLHENV		  henv,
@@ -648,7 +648,7 @@ SQLRETURN SQL_API SQLDataSourcesA (
     SQLSMALLINT		* pcbDSN,
     SQLCHAR		* szDescription,
     SQLSMALLINT		  cbDescriptionMax,
-    SQLSMALLINT		* pcbDescription);
+    SQLSMALLINT		* pcbDescription) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDriverConnectA (
     SQLHDBC		  hdbc,
@@ -658,7 +658,7 @@ SQLRETURN SQL_API SQLDriverConnectA (
     SQLCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
     SQLSMALLINT		* pcbConnStrOut,
-    SQLUSMALLINT	  fDriverCompletion);
+    SQLUSMALLINT	  fDriverCompletion) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLBrowseConnectA (
     SQLHDBC		  hdbc,
@@ -666,7 +666,7 @@ SQLRETURN SQL_API SQLBrowseConnectA (
     SQLSMALLINT		  cbConnStrIn,
     SQLCHAR		* szConnStrOut,
     SQLSMALLINT		  cbConnStrOutMax,
-    SQLSMALLINT		* pcbConnStrOut);
+    SQLSMALLINT		* pcbConnStrOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLColumnPrivilegesA (
     SQLHSTMT		  hstmt,
@@ -677,20 +677,20 @@ SQLRETURN SQL_API SQLColumnPrivilegesA (
     SQLCHAR		* szTableName,
     SQLSMALLINT		  cbTableName,
     SQLCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetStmtAttrA (
     SQLHSTMT		  hstmt,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
     SQLINTEGER		  cbValueMax,
-    SQLINTEGER		* pcbValue);
+    SQLINTEGER		* pcbValue) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetStmtAttrA (
     SQLHSTMT		  hstmt,
     SQLINTEGER		  fAttribute,
     SQLPOINTER		  rgbValue,
-    SQLINTEGER		  cbValueMax);
+    SQLINTEGER		  cbValueMax) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLForeignKeysA (
     SQLHSTMT		  hstmt,
@@ -705,7 +705,7 @@ SQLRETURN SQL_API SQLForeignKeysA (
     SQLCHAR		* szFkSchemaName,
     SQLSMALLINT		  cbFkSchemaName,
     SQLCHAR		* szFkTableName,
-    SQLSMALLINT		  cbFkTableName);
+    SQLSMALLINT		  cbFkTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLNativeSqlA (
     SQLHDBC		  hdbc,
@@ -713,7 +713,7 @@ SQLRETURN SQL_API SQLNativeSqlA (
     SQLINTEGER		  cbSqlStrIn,
     SQLCHAR		* szSqlStr,
     SQLINTEGER		  cbSqlStrMax,
-    SQLINTEGER		* pcbSqlStr);
+    SQLINTEGER		* pcbSqlStr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLPrimaryKeysA (
     SQLHSTMT		  hstmt,
@@ -722,7 +722,7 @@ SQLRETURN SQL_API SQLPrimaryKeysA (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProcedureColumnsA (
     SQLHSTMT		  hstmt,
@@ -733,7 +733,7 @@ SQLRETURN SQL_API SQLProcedureColumnsA (
     SQLCHAR		* szProcName,
     SQLSMALLINT		  cbProcName,
     SQLCHAR		* szColumnName,
-    SQLSMALLINT		  cbColumnName);
+    SQLSMALLINT		  cbColumnName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLProceduresA (
     SQLHSTMT		  hstmt,
@@ -742,7 +742,7 @@ SQLRETURN SQL_API SQLProceduresA (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szProcName,
-    SQLSMALLINT		  cbProcName);
+    SQLSMALLINT		  cbProcName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTablePrivilegesA (
     SQLHSTMT		  hstmt,
@@ -751,7 +751,7 @@ SQLRETURN SQL_API SQLTablePrivilegesA (
     SQLCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLCHAR		* szTableName,
-    SQLSMALLINT		  cbTableName);
+    SQLSMALLINT		  cbTableName) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDriversA (
     SQLHENV		  henv,
@@ -761,7 +761,7 @@ SQLRETURN SQL_API SQLDriversA (
     SQLSMALLINT		* pcbDriverDesc,
     SQLCHAR		* szDriverAttributes,
     SQLSMALLINT		  cbDrvrAttrMax,
-    SQLSMALLINT		* pcbDrvrAttr);
+    SQLSMALLINT		* pcbDrvrAttr) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 
 /*

@@ -108,7 +108,8 @@ def test_fat32(dir, fsck, newfs):
 	long_name(rdisk, fsck, newfs, newfs_opts)
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
-	fat_mark_clean(rdisk, fsck, newfs, newfs_opts)
+	fat_mark_clean_corrupt(rdisk, fsck, newfs, newfs_opts)
+	fat_mark_clean_ok(rdisk, fsck, newfs, newfs_opts)
 	file_4GB(rdisk, fsck, newfs, newfs_opts)
 	file_4GB_excess_clusters(rdisk, fsck, newfs, newfs_opts)
 	
@@ -165,7 +166,8 @@ def test_fat16(dir, fsck, newfs):
 	long_name(rdisk, fsck, newfs, newfs_opts)
 	past_end_of_dir(rdisk, fsck, newfs, newfs_opts)
 	fat_bad_0_or_1(rdisk, fsck, newfs, newfs_opts)
-	fat_mark_clean(rdisk, fsck, newfs, newfs_opts)
+	fat_mark_clean_corrupt(rdisk, fsck, newfs, newfs_opts)
+	fat_mark_clean_ok(rdisk, fsck, newfs, newfs_opts)
 	
 	#
 	# Detach the image
@@ -732,7 +734,7 @@ def fat_bad_0_or_1(disk, fsck, newfs, newfs_opts):
 # Mark the volume dirty, and cause some minor damage (orphan clusters).
 # Make sure the volume gets marked clean afterwards.
 #
-def fat_mark_clean(disk, fsck, newfs, newfs_opts):
+def fat_mark_clean_corrupt(disk, fsck, newfs, newfs_opts):
 	launch([newfs]+newfs_opts+[disk])
 
 	f = file(disk, "r+")
@@ -777,8 +779,58 @@ def fat_mark_clean(disk, fsck, newfs, newfs_opts):
 	launch(['/sbin/fsck_msdos', '-n', disk])
 
 #
+# Mark the volume dirty (with no corruption).
+# Make sure the volume gets marked clean afterwards.
+# Make sure the exit status is 0, even with "-n".
+#
+def fat_mark_clean_ok(disk, fsck, newfs, newfs_opts):
+	launch([newfs]+newfs_opts+[disk])
+	
+	f = file(disk, "r+")
+	v = msdosfs(f)
+	
+	# Mark the volume "dirty" by clearing the "clean" bit.
+	if v.type == 32:
+		v.fat[1] = v.fat[1] & 0x07FFFFFF
+	else:
+		v.fat[1] = v.fat[1] & 0x7FFF
+	
+	v.flush()
+	del v
+	f.close()
+	del f
+	
+	# Make sure that we ask the user to mark the disk clean, but don't return
+	# a non-zero exit status if the user declines.
+	stdout, stderr = launch([fsck, '-n', disk], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	assert "\nMARK FILE SYSTEM CLEAN? no\n" in stdout
+	assert "\n***** FILE SYSTEM IS LEFT MARKED AS DIRTY *****\n" in stdout
+	
+	stdout, stderr = launch([fsck, '-y', disk], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	assert "\nMARK FILE SYSTEM CLEAN? yes\n" in stdout
+	assert "\nMARKING FILE SYSTEM CLEAN\n" in stdout
+	
+	f = file(disk, "r")
+	v = msdosfs(f)
+	
+	# Make sure the "clean" bit is now set.
+	if v.type == 32:
+		clean = v.fat[1] & 0x08000000
+	else:
+		clean = v.fat[1] & 0x8000
+	if not clean:
+		raise RuntimeError("Volume still dirty!")
+	
+	v.flush()
+	del v
+	f.close()
+	del f
+	
+	launch(['/sbin/fsck_msdos', '-n', disk])
+
+#
 # Make a file whose physical size is 4GB.  The logical size is 4GB-100.
-# This is actually NOT corrupt; it's here to verify that fsck_hfs does not
+# This is actually NOT corrupt; it's here to verify that fsck_msdos does not
 # try to truncate the file due to overflow of the physical size.  [4988133]
 #
 def file_4GB(disk, fsck, newfs, newfs_opts):
@@ -789,6 +841,7 @@ def file_4GB(disk, fsck, newfs, newfs_opts):
 	# be rounded up to the next multiple of the cluster size, meaning the
 	# physical size will be 4GB.
 	#
+	print "# Creating a 4GiB file.  This may take some time."
 	f = file(disk, "r+")
 	v = msdosfs(f)
 	four_GB = 4*1024*1024*1024
@@ -819,6 +872,7 @@ def file_4GB_excess_clusters(disk, fsck, newfs, newfs_opts):
 	#
 	# Create files with too many clusters for their size
 	#
+	print "# Creating a 4GiB+ file.  This may take some time."
 	f = file(disk, "r+")
 	v = msdosfs(f)
 	four_GB = 4*1024*1024*1024
@@ -902,14 +956,14 @@ def test_bad_args(disk, fsck, newfs, newfs_opts):
 	except LaunchError:
 		pass
 	else:
-		raise FailureExpected("Expected bad argument: -M 1x")
+		raise FailureExpected("Expected bad argument: -M foo")
 
 	try:
 		launch([fsck, '-p', '-M', 'foo', disk])
 	except LaunchError:
 		pass
 	else:
-		raise FailureExpected("Expected bad argument: -M 1x")
+		raise FailureExpected("Expected bad argument: -p -M foo")
 
 	try:
 		launch([fsck, '-M', '1x', disk])

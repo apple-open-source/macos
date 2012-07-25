@@ -30,7 +30,7 @@
 #include "TextCodecGtk.h"
 
 #include <gio/gio.h>
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
 #include "Logging.h"
 #include "PlatformString.h"
 #include <wtf/Assertions.h>
@@ -57,7 +57,7 @@ const size_t ConversionBufferSize = 16384;
 
 static PassOwnPtr<TextCodec> newTextCodecGtk(const TextEncoding& encoding, const void*)
 {
-    return new TextCodecGtk(encoding);
+    return adoptPtr(new TextCodecGtk(encoding));
 }
 
 static bool isEncodingAvailable(const gchar* encodingName)

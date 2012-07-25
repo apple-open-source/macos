@@ -2519,6 +2519,7 @@ IOReturn IONDRVFramebuffer::setGammaTable(
 IOReturn IONDRVFramebuffer::setMirror( IONDRVFramebuffer * other )
 {
     IOReturn            err = kIOReturnSuccess;
+//    IONDRVFramebuffer * next;
     VDMirrorRec         mirror;
 
     if (mirrored == (other != 0))
@@ -2555,12 +2556,8 @@ IOReturn IONDRVFramebuffer::setMirror( IONDRVFramebuffer * other )
             continue;
 
         mirrored = (other != 0);
-		if (metaCast("NVDAG7xxx"))
-		{
-		    IONDRVFramebuffer * next;
-			if ((next = OSDynamicCast(IONDRVFramebuffer, nextDependent)))
-				next->setMirror( (other != 0) ? this : 0 );
-		}
+//        if ((next = OSDynamicCast(IONDRVFramebuffer, nextDependent)))
+//            next->setMirror( (other != 0) ? this : 0 );
     }
     while (false);
 
@@ -2640,10 +2637,8 @@ IOReturn IONDRVFramebuffer::setAttribute( IOSelect attribute, uintptr_t _value )
 
                 OSNumber * num = OSDynamicCast(OSNumber, getProperty(kIOFBDependentIndexKey));
                 mirrorPrimary = mirrored && (!num || (1 == num->unsigned32BitValue()));
-				if (metaCast("NVDAG7xxx"))
-				{
-	                (void) setDisplayMode( currentDisplayMode, currentDepth );
-				}
+
+//                (void) setDisplayMode( currentDisplayMode, currentDepth );
             }
             while (false);
 
@@ -3611,9 +3606,7 @@ IOReturn IONDRVFramebuffer::getDDCBlock( IOIndex /* connectIndex */,
 
     if (err == noErr)
     {
-        if (actualLength < kDDCBlockSize)
-            actualLength = actualLength;
-        else
+        if (actualLength > kDDCBlockSize)
             actualLength = kDDCBlockSize;
         bcopy( ddcRec.ddcBlockData, data, actualLength);
         *length = actualLength;

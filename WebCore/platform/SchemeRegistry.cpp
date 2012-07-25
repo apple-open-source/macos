@@ -20,11 +20,12 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 #include "config.h"
 #include "SchemeRegistry.h"
+#include <wtf/MainThread.h>
 
 namespace WebCore {
 
@@ -68,10 +69,13 @@ static URLSchemesMap& schemesWithUniqueOrigins()
 {
     DEFINE_STATIC_LOCAL(URLSchemesMap, schemesWithUniqueOrigins, ());
 
-    // This is a willful violation of HTML5.
-    // See https://bugs.webkit.org/show_bug.cgi?id=11885
-    if (schemesWithUniqueOrigins.isEmpty())
+    if (schemesWithUniqueOrigins.isEmpty()) {
+        schemesWithUniqueOrigins.add("about");
+        schemesWithUniqueOrigins.add("javascript");
+        // This is a willful violation of HTML5.
+        // See https://bugs.webkit.org/show_bug.cgi?id=11885
         schemesWithUniqueOrigins.add("data");
+    }
 
     return schemesWithUniqueOrigins;
 }
@@ -86,22 +90,32 @@ static URLSchemesMap& emptyDocumentSchemes()
     return emptyDocumentSchemes;
 }
 
+static HashSet<String>& schemesForbiddenFromDomainRelaxation()
+{
+    DEFINE_STATIC_LOCAL(HashSet<String>, schemes, ());
+    return schemes;
+}
+
 static URLSchemesMap& canDisplayOnlyIfCanRequestSchemes()
 {
     DEFINE_STATIC_LOCAL(URLSchemesMap, canDisplayOnlyIfCanRequestSchemes, ());
 
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
-    if (canDisplayOnlyIfCanRequestSchemes.isEmpty()) {
 #if ENABLE(BLOB)
+    if (canDisplayOnlyIfCanRequestSchemes.isEmpty()) {
         canDisplayOnlyIfCanRequestSchemes.add("blob");
-#endif
 #if ENABLE(FILE_SYSTEM)
         canDisplayOnlyIfCanRequestSchemes.add("filesystem");
 #endif
     }
-#endif // ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+#endif // ENABLE(BLOB)
 
     return canDisplayOnlyIfCanRequestSchemes;
+}
+
+static URLSchemesMap& notAllowingJavascriptURLsSchemes()
+{
+    DEFINE_STATIC_LOCAL(URLSchemesMap, notAllowingJavascriptURLsSchemes, ());
+    return notAllowingJavascriptURLsSchemes;
 }
 
 void SchemeRegistry::registerURLSchemeAsLocal(const String& scheme)
@@ -135,6 +149,19 @@ static URLSchemesMap& schemesAllowingDatabaseAccessInPrivateBrowsing()
 {
     DEFINE_STATIC_LOCAL(URLSchemesMap, schemesAllowingDatabaseAccessInPrivateBrowsing, ());
     return schemesAllowingDatabaseAccessInPrivateBrowsing;
+}
+
+static URLSchemesMap& CORSEnabledSchemes()
+{
+    // FIXME: http://bugs.webkit.org/show_bug.cgi?id=77160
+    DEFINE_STATIC_LOCAL(URLSchemesMap, CORSEnabledSchemes, ());
+
+    if (CORSEnabledSchemes.isEmpty()) {
+        CORSEnabledSchemes.add("http");
+        CORSEnabledSchemes.add("https");
+    }
+
+    return CORSEnabledSchemes;
 }
 
 bool SchemeRegistry::shouldTreatURLSchemeAsLocal(const String& scheme)
@@ -192,6 +219,24 @@ bool SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(const String& scheme)
     return emptyDocumentSchemes().contains(scheme);
 }
 
+void SchemeRegistry::setDomainRelaxationForbiddenForURLScheme(bool forbidden, const String& scheme)
+{
+    if (scheme.isEmpty())
+        return;
+
+    if (forbidden)
+        schemesForbiddenFromDomainRelaxation().add(scheme);
+    else
+        schemesForbiddenFromDomainRelaxation().remove(scheme);
+}
+
+bool SchemeRegistry::isDomainRelaxationForbiddenForURLScheme(const String& scheme)
+{
+    if (scheme.isEmpty())
+        return false;
+    return schemesForbiddenFromDomainRelaxation().contains(scheme);
+}
+
 bool SchemeRegistry::canDisplayOnlyIfCanRequest(const String& scheme)
 {
     if (scheme.isEmpty())
@@ -202,6 +247,18 @@ bool SchemeRegistry::canDisplayOnlyIfCanRequest(const String& scheme)
 void SchemeRegistry::registerAsCanDisplayOnlyIfCanRequest(const String& scheme)
 {
     canDisplayOnlyIfCanRequestSchemes().add(scheme);
+}
+
+void SchemeRegistry::registerURLSchemeAsNotAllowingJavascriptURLs(const String& scheme)
+{
+    notAllowingJavascriptURLsSchemes().add(scheme);
+}
+
+bool SchemeRegistry::shouldTreatURLSchemeAsNotAllowingJavascriptURLs(const String& scheme)
+{
+    if (scheme.isEmpty())
+        return false;
+    return notAllowingJavascriptURLsSchemes().contains(scheme);
 }
 
 void SchemeRegistry::registerURLSchemeAsAllowingLocalStorageAccessInPrivateBrowsing(const String& scheme)
@@ -226,6 +283,18 @@ bool SchemeRegistry::allowsDatabaseAccessInPrivateBrowsing(const String& scheme)
     if (scheme.isEmpty())
         return false;
     return schemesAllowingDatabaseAccessInPrivateBrowsing().contains(scheme);
+}
+
+void SchemeRegistry::registerURLSchemeAsCORSEnabled(const String& scheme)
+{
+    CORSEnabledSchemes().add(scheme);
+}
+
+bool SchemeRegistry::shouldTreatURLSchemeAsCORSEnabled(const String& scheme)
+{
+    if (scheme.isEmpty())
+        return false;
+    return CORSEnabledSchemes().contains(scheme);
 }
 
 } // namespace WebCore

@@ -68,6 +68,7 @@ void clear_tt(void)
 {
   memset(DP_TTable, 0, sizeof(TType) * TTSize);
   memset(AS_TTable, 0, sizeof(TType) * TTSize);
+  memset(QS_TTable, 0, sizeof(QTType) * TTSize);
 };
 
 void clear_dp_tt(void)

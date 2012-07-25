@@ -103,7 +103,11 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     client->postAccessibilityNotification(obj, notification);        
 }
 
-void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, unsigned)
+void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&)
+{
+}
+
+void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject*, AXLoadingEvent)
 {
 }
 

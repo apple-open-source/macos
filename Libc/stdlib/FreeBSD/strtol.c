@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)strtol.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtol.c,v 1.20 2007/01/09 00:28:10 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <limits.h>
 #include <ctype.h>
 #include <errno.h>
@@ -46,7 +48,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtol.c,v 1.20 2007/01/09 00:28:10 imp 
  * alphabets and digits are each contiguous.
  */
 long
-strtol(const char * __restrict nptr, char ** __restrict endptr, int base)
+strtol_l(const char * __restrict nptr, char ** __restrict endptr, int base,
+    locale_t loc)
 {
 	const char *s;
 	unsigned long acc;
@@ -54,6 +57,7 @@ strtol(const char * __restrict nptr, char ** __restrict endptr, int base)
 	unsigned long cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * Skip white space and pick up leading +/- sign if any.
 	 * If base is 0, allow 0x for hex and 0 for octal, else
@@ -62,7 +66,7 @@ strtol(const char * __restrict nptr, char ** __restrict endptr, int base)
 	s = nptr;
 	do {
 		c = *s++;
-	} while (isspace((unsigned char)c));
+	} while (isspace_l((unsigned char)c, loc));
 	if (c == '-') {
 		neg = 1;
 		c = *s++;
@@ -137,4 +141,10 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (char *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+long
+strtol(const char * __restrict nptr, char ** __restrict endptr, int base)
+{
+	return strtol_l(nptr, endptr, base, __current_locale());
 }

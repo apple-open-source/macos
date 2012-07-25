@@ -34,6 +34,7 @@
 #include <IOKit/firewire/IOConfigDirectory.h>
 #include <IOKit/firewire/IOFireWireDevice.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOTimeStamp.h>
 
 // FireWire Transport includes
 #include "IOFireWireSerialBusProtocolTransport.h"

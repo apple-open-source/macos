@@ -252,6 +252,7 @@ class msdosfs(object):
 		self.clusterStart = clustersStart
 		dataSectors = self.totalSectors - clustersStart
 		self.clusters = clusters = dataSectors / sectorsPerCluster
+		self.maxcluster = clusters+1
 		if clusters < 4085:
 			self.type = 12
 			self.fat = self.FAT12(self)
@@ -305,7 +306,7 @@ class msdosfs(object):
 		"""Base class to represent the File Allocation Table.  Do not
 		instantiate this class; use FAT12, FAT16 or FAT32 instead."""
 
-		def __init__(self, dev, bootSector, clusters):
+		def __init__(self):
 			raise NotImplementedError("Do not instantiate class FAT directly")
 		
 		def __del__(self):
@@ -318,7 +319,7 @@ class msdosfs(object):
 				raise ValueError("Invalid count of clusters")
 			
 			clusters = []
-			for cluster in xrange(start, self.clusters):
+			for cluster in xrange(start, self.maxcluster+1):
 				if self[cluster] == CLUST_FREE:
 					clusters.append(cluster)
 					count -= 1
@@ -360,7 +361,7 @@ class msdosfs(object):
 			self.dev = vol.dev		# File object to use for I/O
 			self.reservedSectors = vol.reservedSectors
 			self.bytesPerSector = vol.bytesPerSector
-			self.clusters = vol.clusters	# Number of clusters + 2
+			self.maxcluster = vol.maxcluster
 			self.sector = None	# Sector number of cached sector
 			self.bytes = None	# Raw bytes from cached sector
 			self.entries = None	# Array of entries from cached sector
@@ -382,8 +383,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Make sure we have the correct sector cached
@@ -403,8 +404,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Make sure the value is valid
@@ -455,7 +456,7 @@ class msdosfs(object):
 			self.dev = vol.dev		# File object to use for I/O
 			self.reservedSectors = vol.reservedSectors
 			self.bytesPerSector = vol.bytesPerSector
-			self.clusters = vol.clusters	# Number of clusters + 2
+			self.maxcluster = vol.maxcluster
 			self.sector = None	# Sector number of cached sector
 			self.bytes = None	# Raw bytes from cached sector
 			self.entries = None	# Array of entries from cached sector
@@ -477,8 +478,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Make sure we have the correct sector cached
@@ -498,8 +499,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Make sure the value is valid
@@ -546,7 +547,7 @@ class msdosfs(object):
 		def __init__(self, vol):
 			self.vol = vol
 			self.dev = vol.dev		# File object to use for I/O
-			self.clusters = vol.clusters	# Number of clusters + 2
+			self.maxcluster = vol.maxcluster
 			self.dirty = False
 			
 			# Read in the entire FAT, converting it to the self.entries array.
@@ -554,8 +555,8 @@ class msdosfs(object):
 			bytes = self.dev.read(vol.fatSectors * vol.bytesPerSector)
 			
 			# We always unpack a multiple of two entries, for convenience.
-			self.entries = [0] * (self.clusters + 1)
-			for i in xrange(0, self.clusters, 2):
+			self.entries = [0] * (self.maxcluster + 2)
+			for i in xrange(0, self.maxcluster + 1, 2):
 				index = i * 3 / 2
 				self.entries[i]   = struct.unpack("<H", bytes[index:index+2])[0] & 0x0FFF
 				self.entries[i+1] = struct.unpack("<H", bytes[index+1:index+3])[0] >> 4
@@ -564,8 +565,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Return the desired entry from the current sector.
@@ -580,8 +581,8 @@ class msdosfs(object):
 			#
 			# Make sure the requested cluster number is valid
 			#
-			if key < 0 or key >= self.clusters:
-				raise IndexError("cluster number out of range")
+			if key < 0 or key > self.maxcluster:
+				raise IndexError("cluster number %d out of range" % key)
 			
 			#
 			# Make sure the value is valid
@@ -603,7 +604,7 @@ class msdosfs(object):
 			if not self.dirty:
 				return
 			
-			if len(self.entries) != self.clusters + 1:
+			if len(self.entries) != self.maxcluster + 2:
 				raise RuntimeError("FAT entries corrupt!")
 			
 			vol = self.vol
@@ -613,7 +614,7 @@ class msdosfs(object):
 			bytes = self.dev.read(vol.fatSectors * vol.bytesPerSector)
 
 			# Update the bytes with values from self.entries
-			for i in xrange(0, self.clusters, 2):
+			for i in xrange(0, self.maxcluster + 1, 2):
 				index = i * 3 / 2
 				pair = struct.pack("<I", self.entries[i] + (self.entries[i+1] << 12))
 				bytes = bytes[:index] + pair[:3] + bytes[index+3:]
@@ -1017,16 +1018,187 @@ class msdosfs(object):
 				self.volume.dev.write(fsinfo)
 				self.dirty = False
 
+def chain_extents(chain):
+	"""
+	Given a chain of extents (a list of the clusters in the chain), generate
+	a list of extents in the form (start, count).
+	"""
+	if len(chain) == 0:
+		return
+	from itertools import izip
+	start = chain[0]
+	count = 1
+	for last,next in izip(chain, chain[1:]):
+		if next == last+1:
+			count += 1
+		else:
+			yield (start, count)
+			start = next
+			count = 1
+	yield (start, count)
+
+#
+# Walk the FAT looking for chains, and reporting what percentage of
+# logically contiguous clusters are physically contiguous.
+#
+# NOTE: This examines all FAT entries/chains, including those that
+# are not referenced by any directory entry.  This routine will fail
+# if there is a cycle in a cluster chain.
+#
+def info_fragmentation(argv):
+	"""
+	Display information about fragmentation on the volume.  Pass -v
+	to see the largest number of extents per file/directory.  Pass
+	-v a second time to see the list of extents for that file/directory.
+	Pass -v a third time to see the list of extents for all fragmented
+	files and directories.
+	"""
+	
+	verbose = 0
+	while "-v" in argv:
+		verbose += 1
+		argv.remove("-v")
+	
+	dev = file(argv[0], "r")
+	v = msdosfs(dev)
+	fat = v.fat
+	ignore = set([CLUST_FREE, 1, CLUST_RSRVD, CLUST_BAD])	# FAT values to ignore
+	
+	# Build a dictionary of all cluster chains.  The key is the first cluster
+	# in the chain.  The value is a list of all clusters in the chain, in
+	# logical order within the file.
+	chains = dict()
+	
+	# To start, each cluster is a chain of just itself
+	for cl in xrange(CLUST_FIRST, v.maxcluster+1):
+		next = fat[cl]
+		if next not in ignore:
+			chains[cl] = [cl]
+	
+	# Connect clusters into chains
+	again = True
+	while again:
+		again = False
+		for cl in chains.keys():
+			if cl in chains:	# May have already been removed
+				next = fat[chains[cl][-1]]
+				if next in ignore:
+					print "Warning: %d -> 0x%x" % (chains[cl][-1], next)
+				if next in chains:
+					chains[cl].extend(chains[next])
+					del chains[next]
+					again = True
+	
+	# Examine each chain, gathering statistics
+	total = 0	# Number of logically contiguous links
+	frags = 0	# Number of physically discontiguous links
+	max_extents = []
+	contigs = set()		# Set of lengths of contiguous extents
+	for chain in chains.itervalues():
+		extents = list(chain_extents(chain))
+		total += len(chain) - 1
+		frags += len(extents) - 1
+		for start, count in extents:
+			contigs.add(count)
+		if verbose and len(extents) > 1:
+			if verbose > 2:
+				print "{0}: {1}".format(len(extents), extents)
+			if len(extents) > len(max_extents):
+				max_extents = extents
+	
+	# Print the stats
+	try:
+		percent = 100.0 * float(frags)/float(total)
+	except ZeroDivisionError:
+		percent = 0.0
+	print "Fragmentation: %f%% (%d of %d links)" % (percent, frags, total)
+	if verbose:
+		print "Most extents per file: {0}".format(len(max_extents))
+		if verbose > 1:
+			print max_extents
+	print "Cluster chains: {0}".format(len(chains))
+	print "Longest fragment: %d clusters, Shortest: %d clusters" % (max(contigs), min(contigs))
+
+def info(argv):
+	"""Display general information about a volume.
+
+	argv[0]		"frag" or path to device
+	"""
+	if argv[0] == "frag":
+		return info_fragmentation(argv[1:])
+
+	dev = file(argv[0], "r")
+	v = msdosfs(dev)
+
+	print "bytesPerSector: ", v.bytesPerSector
+	print "totalSectors:   ", v.totalSectors
+	print "reservedSectors:", v.reservedSectors
+	print "fatSectors:     ", v.fatSectors
+	print "rootSectors:    ", v.rootSectors
+	print "clusterStart:   ", v.clusterStart
+	print "numFATs:        ", v.numFATs
+	print "rootEntryCount: ", v.rootEntryCount
+	print "clusters:       ", v.clusters, "  (FAT%d)" % v.type
+	print "maxCluster:     ", v.maxcluster
+	print "bytesPerCluster:", v.bytesPerCluster
+	# TODO: Print FSInfo stuff, if it exists
+
+def fragment_free(argv):
+	"""Fragment the free space on a volume by marking various clusters 'bad'
+	so they can't be allocated.
+	
+	argv[0]		Path to device
+	argv[1]		Interval between clusters
+	"""
+	dev = file(argv[0], "r+")
+	v = msdosfs(dev)
+	skip = int(argv[1],0)
+	clusters = 0
+	for cl in xrange(CLUST_FIRST, v.maxcluster+1, skip):
+		if v.fat[cl] == CLUST_FREE:
+			v.fat[cl] = CLUST_BAD
+			clusters += 1
+	if v.fsinfo:
+		v.fsinfo.allocate(clusters)
+	v.flush()
+	dev.close()
+
+def free_bad(argv):
+	"""Free and clusters currently marked 'bad'
+	
+	argv[0]		Path to device
+	"""
+	dev = file(argv[0], "r+")
+	v = msdosfs(dev)
+	fat = v.fat
+	clusters = 0
+	for cl in xrange(CLUST_FIRST, v.maxcluster+1):
+		if fat[cl] == CLUST_BAD:
+			fat[cl] = CLUST_FREE
+			clusters += 1
+	if v.fsinfo:
+		v.fsinfo.allocate(-clusters)
+	v.flush()
+	dev.close()
+
+def usage():
+	print "Usage:"
+	print "  python msdosfs.py info <device_path>"
+	print "  python msdosfs.py info frag <device_path>"
+	print "  python msdosfs.py fragment <device_path> <interval>"
+	print "  python msdosfs.py freebad <device_path>"
+
 if __name__ == "__main__":
 	import sys
-	from HexDump import HexDump
-	
-	dev = file(sys.argv[1], "r+")
-	v = msdosfs(dev)
-	r = v.root()
-	head = v.fat.allocate(7, 100)
-	v.root().mkfile('FOO        ', head=head, length=6*v.bytesPerCluster)
-	v.flush()
-	del v
-	dev.close()
-	del dev
+	if len(sys.argv) == 1:
+		usage()
+	elif sys.argv[1] == 'info':
+		info(sys.argv[2:])
+	elif sys.argv[1] == 'fragment':
+		fragment_free(sys.argv[2:])
+	elif sys.argv[1] == 'freebad':
+		free_bad(sys.argv[2:])
+	else:
+		print 'Unknown command:', sys.argv[1]
+		usage()
+

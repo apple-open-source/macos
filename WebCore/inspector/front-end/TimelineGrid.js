@@ -28,6 +28,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.TimelineGrid = function()
 {
     this.element = document.createElement("div");
@@ -55,24 +58,30 @@ WebInspector.TimelineGrid.prototype = {
         return this._itemsGraphsElement;
     },
 
-    
-    updateDividers: function(force, calculator, paddingLeft)
+    get dividersElement()
     {
-        var dividerCount = Math.round(this._dividersElement.offsetWidth / 64);
-        var slice = calculator.boundarySpan / dividerCount;
-        if (!force && this._currentDividerSlice === slice)
-            return false;
+        return this._dividersElement;
+    },
 
-        if (typeof paddingLeft !== "number")
-            paddingLeft = 0;
+    removeDividers: function()
+    {
+        this._dividersElement.removeChildren();
+        this._dividersLabelBarElement.removeChildren();
+    },
+
+    updateDividers: function(calculator)
+    {
+        var dividersElementClientWidth = this._dividersElement.clientWidth;
+        var dividerCount = Math.round(dividersElementClientWidth / 64);
+        var slice = calculator.boundarySpan / dividerCount;
+
         this._currentDividerSlice = slice;
 
         // Reuse divider elements and labels.
         var divider = this._dividersElement.firstChild;
         var dividerLabelBar = this._dividersLabelBarElement.firstChild;
 
-        var dividersLabelBarElementClientWidth = this._dividersLabelBarElement.clientWidth;
-        var clientWidth = dividersLabelBarElementClientWidth - paddingLeft;
+        var paddingLeft = calculator.paddingLeft;
         for (var i = paddingLeft ? 0 : 1; i <= dividerCount; ++i) {
             if (!divider) {
                 divider = document.createElement("div");
@@ -86,7 +95,6 @@ WebInspector.TimelineGrid.prototype = {
                 dividerLabelBar._labelElement = label;
                 dividerLabelBar.appendChild(label);
                 this._dividersLabelBarElement.appendChild(dividerLabelBar);
-                dividersLabelBarElementClientWidth = this._dividersLabelBarElement.clientWidth;
             }
 
             if (i === (paddingLeft ? 0 : 1)) {
@@ -105,14 +113,16 @@ WebInspector.TimelineGrid.prototype = {
                 dividerLabelBar.removeStyleClass("last");
             }
 
-            var left = paddingLeft + clientWidth * (i / dividerCount);
-            var percentLeft = 100 * left / dividersLabelBarElementClientWidth;
-            this._setDividerAndBarLeft(divider, dividerLabelBar, percentLeft);
-
-            if (!isNaN(slice))
-                dividerLabelBar._labelElement.textContent = calculator.formatValue(slice * i);
-            else
+            var left;
+            if (!slice) {
+                left = dividersElementClientWidth / dividerCount * i + paddingLeft;
                 dividerLabelBar._labelElement.textContent = "";
+            } else {
+                left = calculator.computePosition(calculator.minimumBoundary + slice * i);
+                dividerLabelBar._labelElement.textContent = calculator.formatTime(slice * i);
+            }
+            var percentLeft = 100 * left / dividersElementClientWidth;
+            this._setDividerAndBarLeft(divider, dividerLabelBar, percentLeft);
 
             divider = divider.nextSibling;
             dividerLabelBar = dividerLabelBar.nextSibling;
@@ -149,9 +159,10 @@ WebInspector.TimelineGrid.prototype = {
     addEventDividers: function(dividers)
     {
         this.element.removeChild(this._eventDividersElement);
-        for (var i = 0; i < dividers.length; ++i)
+        for (var i = 0; i < dividers.length; ++i) {
             if (dividers[i])
                 this._eventDividersElement.appendChild(dividers[i]);
+        }
         this.element.appendChild(this._eventDividersElement);
     },
 

@@ -191,7 +191,7 @@ PSLowPowerPSChange(CFTypeRef ps_blob)
             }
             
 #if HAVE_CF_USER_NOTIFICATION
-            if(!_UPSAlert) _UPSAlert = _showUPSWarning();
+            if(!_UPSAlert) _UPSAlert = _copyUPSWarning();
 #endif 
 
         }
@@ -311,7 +311,7 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
 {
     static int      _alreadyShuttingDown = 0;
     CFDictionaryRef _ESSettings = NULL;
-    char            *shutdown_argv[2];
+    char            *shutdown_argv[3];
     CFNumberRef     auto_restart;
     IOReturn        error;
     bool            upsRestart = false;

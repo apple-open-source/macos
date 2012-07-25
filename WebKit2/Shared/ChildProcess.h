@@ -27,7 +27,7 @@
 #define ChildProcess_h
 
 #include "Connection.h"
-#include "RunLoop.h"
+#include <WebCore/RunLoop.h>
 
 namespace WebKit {
 
@@ -57,11 +57,11 @@ public:
         ChildProcess& m_childProcess;
     };
 
+    static void didCloseOnConnectionWorkQueue(WorkQueue&, CoreIPC::Connection*);
+
 protected:
     explicit ChildProcess(double terminationTimeout);
     ~ChildProcess();
-
-    static void didCloseOnConnectionWorkQueue(WorkQueue&, CoreIPC::Connection*);
 
 private:
     void terminationTimerFired();
@@ -77,7 +77,7 @@ private:
     // after a given period of time.
     unsigned m_terminationCounter;
 
-    RunLoop::Timer<ChildProcess> m_terminationTimer;
+    WebCore::RunLoop::Timer<ChildProcess> m_terminationTimer;
 };
 
 } // namespace WebKit

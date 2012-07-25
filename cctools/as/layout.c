@@ -349,7 +349,7 @@ void)
 		    nbytes = fragP->fr_next->fr_address -
 			     fragP->fr_address -
 			     fragP->fr_fix;
-		    if(nbytes < 0){
+		    if((int)nbytes < 0){
 			as_warn("rs_org invalid, dot past value by %d bytes",
 				nbytes);
 			nbytes = 0;

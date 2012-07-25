@@ -55,8 +55,8 @@ int evtlist_len = 0;
 
 void
 evt_push(src, dst, type, optdata)
-	struct sockaddr *src;
-	struct sockaddr *dst;
+	struct sockaddr_storage *src;
+	struct sockaddr_storage *dst;
 	int type;
 	vchar_t *optdata;
 {
@@ -103,9 +103,9 @@ evt_push(src, dst, type, optdata)
 	}
 
 	if (src)
-		memcpy(&evtdump->src, src, sysdep_sa_len(src));
+		memcpy(&evtdump->src, src, sysdep_sa_len((struct sockaddr *)src));
 	if (dst)
-		memcpy(&evtdump->dst, dst, sysdep_sa_len(dst));
+		memcpy(&evtdump->dst, dst, sysdep_sa_len((struct sockaddr *)dst));
 	evtdump->len = len;
 	evtdump->type = type;
 	time(&evtdump->timestamp);

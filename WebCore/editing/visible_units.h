@@ -26,6 +26,7 @@
 #ifndef visible_units_h
 #define visible_units_h
 
+#include "EditingBehaviorTypes.h"
 #include "EditingBoundary.h"
 #include "TextDirection.h"
 
@@ -41,8 +42,8 @@ VisiblePosition startOfWord(const VisiblePosition &, EWordSide = RightWordIfOnBo
 VisiblePosition endOfWord(const VisiblePosition &, EWordSide = RightWordIfOnBoundary);
 VisiblePosition previousWordPosition(const VisiblePosition &);
 VisiblePosition nextWordPosition(const VisiblePosition &);
-VisiblePosition rightWordPosition(const VisiblePosition&);
-VisiblePosition leftWordPosition(const VisiblePosition&);
+VisiblePosition rightWordPosition(const VisiblePosition&, bool skipsSpaceWhenMovingRight);
+VisiblePosition leftWordPosition(const VisiblePosition&, bool skipsSpaceWhenMovingRight);
 bool isStartOfWord(const VisiblePosition&);
 
 // sentences
@@ -54,10 +55,9 @@ VisiblePosition nextSentencePosition(const VisiblePosition &);
 // lines
 VisiblePosition startOfLine(const VisiblePosition &);
 VisiblePosition endOfLine(const VisiblePosition &);
-VisiblePosition previousLinePosition(const VisiblePosition &, int x);
-VisiblePosition nextLinePosition(const VisiblePosition &, int x);
+VisiblePosition previousLinePosition(const VisiblePosition&, int lineDirectionPoint, EditableType = ContentIsEditable);
+VisiblePosition nextLinePosition(const VisiblePosition&, int lineDirectionPoint, EditableType = ContentIsEditable);
 bool inSameLine(const VisiblePosition &, const VisiblePosition &);
-bool inSameLogicalLine(const VisiblePosition &, const VisiblePosition &);
 bool isStartOfLine(const VisiblePosition &);
 bool isEndOfLine(const VisiblePosition &);
 VisiblePosition logicalStartOfLine(const VisiblePosition &);

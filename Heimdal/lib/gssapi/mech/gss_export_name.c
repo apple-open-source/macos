@@ -30,7 +30,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_export_name(OM_uint32 *minor_status,
     const gss_name_t input_name,
     gss_buffer_t exported_name)
@@ -45,7 +45,7 @@ gss_export_name(OM_uint32 *minor_status,
 	 * one, otherwise export based on the first mechanism in our
 	 * list.
 	 */
-	mn = SLIST_FIRST(&name->gn_mn);
+	mn = HEIM_SLIST_FIRST(&name->gn_mn);
 	if (!mn) {
 		*minor_status = 0;
 		return (GSS_S_NAME_NOT_MN);
@@ -56,7 +56,7 @@ gss_export_name(OM_uint32 *minor_status,
 }
 
 OM_uint32
-gss_mg_export_name(OM_uint32 *minor_status, const gss_OID mech,
+gss_mg_export_name(OM_uint32 *minor_status, const gss_const_OID mech,
 		   const void *name, size_t length, gss_buffer_t exported_name)
 {
     uint8_t *buf;

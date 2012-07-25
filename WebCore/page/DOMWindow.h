@@ -28,7 +28,9 @@
 #define DOMWindow_h
 
 #include "EventTarget.h"
+#include "FrameDestructionObserver.h"
 #include "KURL.h"
+#include "Supplementable.h"
 
 namespace WebCore {
 
@@ -40,14 +42,12 @@ namespace WebCore {
     class DOMApplicationCache;
     class DOMSelection;
     class DOMURL;
+    class DOMWindowProperty;
     class Database;
     class DatabaseCallback;
     class Document;
     class Element;
-    class EntryCallback;
-    class ErrorCallback;
     class EventListener;
-    class FileSystemCallback;
     class FloatRect;
     class Frame;
     class History;
@@ -56,7 +56,7 @@ namespace WebCore {
     class MediaQueryList;
     class Navigator;
     class Node;
-    class NotificationCenter;
+    class Page;
     class Performance;
     class PostMessageTimer;
     class ScheduledAction;
@@ -80,18 +80,22 @@ namespace WebCore {
 
     enum SetLocationLocking { LockHistoryBasedOnGestureState, LockHistoryAndBackForwardList };
 
-    class DOMWindow : public RefCounted<DOMWindow>, public EventTarget {
+    class DOMWindow : public RefCounted<DOMWindow>, public EventTarget, public FrameDestructionObserver, public Supplementable<DOMWindow> {
     public:
         static PassRefPtr<DOMWindow> create(Frame* frame) { return adoptRef(new DOMWindow(frame)); }
         virtual ~DOMWindow();
 
-        virtual DOMWindow* toDOMWindow() { return this; }
+        virtual const AtomicString& interfaceName() const;
         virtual ScriptExecutionContext* scriptExecutionContext() const;
 
-        Frame* frame() const { return m_frame; }
-        void disconnectFrame();
+        virtual DOMWindow* toDOMWindow();
+
+        void registerProperty(DOMWindowProperty*);
+        void unregisterProperty(DOMWindowProperty*);
 
         void clear();
+        void suspendForPageCache();
+        void resumeFromPageCache();
 
         PassRefPtr<MediaQueryList> matchMedia(const String&);
 
@@ -225,9 +229,6 @@ namespace WebCore {
         void printErrorMessage(const String&);
         String crossDomainAccessErrorMessage(DOMWindow* activeWindow);
 
-        void pageDestroyed();
-        void resetGeolocation();
-
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
         // FIXME: remove this when we update the ObjC bindings (bug #28774).
         void postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
@@ -251,8 +252,9 @@ namespace WebCore {
 
         // WebKit animation extensions
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-        int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>, Element*);
-        void webkitCancelRequestAnimationFrame(int id);
+        int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>);
+        void webkitCancelAnimationFrame(int id);
+        void webkitCancelRequestAnimationFrame(int id) { webkitCancelAnimationFrame(id); }
 #endif
 
         // Events
@@ -264,7 +266,6 @@ namespace WebCore {
         using EventTarget::dispatchEvent;
         bool dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget> prpTarget);
         void dispatchLoadEvent();
-        void dispatchTimedEvent(PassRefPtr<Event> event, Document* target, double* startTime, double* endTime);
 
         DEFINE_ATTRIBUTE_EVENT_LISTENER(abort);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(beforeunload);
@@ -345,54 +346,23 @@ namespace WebCore {
         using RefCounted<DOMWindow>::ref;
         using RefCounted<DOMWindow>::deref;
 
-#if ENABLE(BLOB)
-        DOMURL* webkitURL() const;
-#endif
-
-#if ENABLE(DATABASE)
-        // HTML 5 client-side database
-        PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
-#endif
-
 #if ENABLE(DEVICE_ORIENTATION)
         DEFINE_ATTRIBUTE_EVENT_LISTENER(devicemotion);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(deviceorientation);
 #endif
 
-#if ENABLE(DOM_STORAGE)
         // HTML 5 key/value storage
         Storage* sessionStorage(ExceptionCode&) const;
         Storage* localStorage(ExceptionCode&) const;
-#endif
-
-#if ENABLE(FILE_SYSTEM)
-        // They are placed here and in all capital letters so they can be checked against the constants in the
-        // IDL at compile time.
-        enum FileSystemType {
-            TEMPORARY,
-            PERSISTENT,
-            EXTERNAL,
-        };
-        void webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
-        void webkitResolveLocalFileSystemURL(const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>);
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-        IDBFactory* webkitIndexedDB() const;
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        NotificationCenter* webkitNotifications() const;
-#endif
+        Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
+        Storage* optionalLocalStorage() const { return m_localStorage.get(); }
 
 #if ENABLE(QUOTA)
         StorageInfo* webkitStorageInfo() const;
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
         DOMApplicationCache* applicationCache() const;
         DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
-#endif
 
 #if ENABLE(ORIENTATION_EVENTS)
         // This is the interface orientation in degrees. Some examples are:
@@ -414,14 +384,22 @@ namespace WebCore {
         Performance* performance() const;
 #endif
 
-    private:
-        DOMWindow(Frame*);
-
         // FIXME: When this DOMWindow is no longer the active DOMWindow (i.e.,
         // when its document is no longer the document that is displayed in its
         // frame), we would like to zero out m_frame to avoid being confused
         // by the document that is currently active in m_frame.
         bool isCurrentlyDisplayedInFrame() const;
+
+        void willDetachDocumentFromFrame();
+        void willDestroyCachedFrame();
+
+    private:
+        explicit DOMWindow(Frame*);
+
+        Page* page();
+
+        virtual void frameDestroyed() OVERRIDE;
+        virtual void willDetachPage() OVERRIDE;
 
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
@@ -433,11 +411,19 @@ namespace WebCore {
             PrepareDialogFunction = 0, void* functionContext = 0);
         bool isInsecureScriptAccess(DOMWindow* activeWindow, const String& urlString);
 
+        void clearDOMWindowProperties();
+        void disconnectDOMWindowProperties();
+        void reconnectDOMWindowProperties();
+        void willDestroyDocumentInFrame();
+
         RefPtr<SecurityOrigin> m_securityOrigin;
         KURL m_url;
 
         bool m_shouldPrintWhenFinishedLoading;
-        Frame* m_frame;
+        bool m_suspendedForPageCache;
+
+        HashSet<DOMWindowProperty*> m_properties;
+
         mutable RefPtr<Screen> m_screen;
         mutable RefPtr<DOMSelection> m_selection;
         mutable RefPtr<History> m_history;
@@ -458,22 +444,9 @@ namespace WebCore {
         String m_status;
         String m_defaultStatus;
 
-#if ENABLE(DOM_STORAGE)
         mutable RefPtr<Storage> m_sessionStorage;
         mutable RefPtr<Storage> m_localStorage;
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-        mutable RefPtr<IDBFactory> m_idbFactory;
-#endif
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
         mutable RefPtr<DOMApplicationCache> m_applicationCache;
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        mutable RefPtr<NotificationCenter> m_notifications;
-#endif
 
 #if ENABLE(WEB_TIMING)
         mutable RefPtr<Performance> m_performance;

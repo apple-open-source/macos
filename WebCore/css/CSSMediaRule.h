@@ -24,44 +24,40 @@
 #define CSSMediaRule_h
 
 #include "CSSRule.h"
-#include "CSSRuleList.h"
 #include "MediaList.h"
 #include "PlatformString.h" // needed so bindings will compile
 
 namespace WebCore {
 
 class CSSRuleList;
-class MediaList;
+class StyleRuleMedia;
 
 class CSSMediaRule : public CSSRule {
 public:
-    static PassRefPtr<CSSMediaRule> create(CSSStyleSheet* parent, PassRefPtr<MediaList> media, PassRefPtr<CSSRuleList> rules)
-    {
-        return adoptRef(new CSSMediaRule(parent, media, rules));
-    }
-    virtual ~CSSMediaRule();
+    static PassRefPtr<CSSMediaRule> create(StyleRuleMedia* rule, CSSStyleSheet* sheet) { return adoptRef(new CSSMediaRule(rule, sheet)); }
 
-    MediaList* media() const { return m_lstMedia.get(); }
-    CSSRuleList* cssRules() { return m_lstCSSRules.get(); }
+    ~CSSMediaRule();
+
+    MediaList* media() const;
+    CSSRuleList* cssRules() const;
 
     unsigned insertRule(const String& rule, unsigned index, ExceptionCode&);
     void deleteRule(unsigned index, ExceptionCode&);
 
-    virtual String cssText() const;
-
-    // Not part of the CSSOM
-    unsigned append(CSSRule*);
+    String cssText() const;
+        
+    // For CSSRuleList
+    unsigned length() const;
+    CSSRule* item(unsigned index) const;
 
 private:
-    CSSMediaRule(CSSStyleSheet* parent, PassRefPtr<MediaList>, PassRefPtr<CSSRuleList>);
+    CSSMediaRule(StyleRuleMedia*, CSSStyleSheet*);
+    
+    RefPtr<StyleRuleMedia> m_mediaRule;
 
-    virtual bool isMediaRule() { return true; }
-
-    // Inherited from CSSRule
-    virtual unsigned short type() const { return MEDIA_RULE; }
-
-    RefPtr<MediaList> m_lstMedia;
-    RefPtr<CSSRuleList> m_lstCSSRules;
+    mutable RefPtr<MediaList> m_mediaCSSOMWrapper;
+    mutable Vector<RefPtr<CSSRule> > m_childRuleCSSOMWrappers;
+    mutable OwnPtr<CSSRuleList> m_ruleListCSSOMWrapper;
 };
 
 } // namespace WebCore

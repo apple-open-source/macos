@@ -44,7 +44,7 @@ kcm_ccache_resolve_client(krb5_context context,
 {
     krb5_error_code ret;
 
-    ret = kcm_ccache_resolve(context, name, ccache);
+    ret = kcm_ccache_resolve_by_name(context, name, ccache);
     if (ret) {
 	kcm_log(1, "Failed to resolve cache %s", name);
 	return ret;
@@ -67,7 +67,7 @@ kcm_ccache_destroy_client(krb5_context context,
     krb5_error_code ret;
     kcm_ccache ccache;
 
-    ret = kcm_ccache_resolve(context, name, &ccache);
+    ret = kcm_ccache_resolve_by_name(context, name, &ccache);
     if (ret) {
 	kcm_log(1, "Failed to resolve cache %s", name);
 	return ret;
@@ -111,8 +111,8 @@ kcm_ccache_new_client(krb5_context context,
 	if (bad && !CLIENT_IS_ROOT(client))
 	    return KRB5_CC_BADNAME;
     }
-	
-    ret = kcm_ccache_resolve(context, name, &ccache);
+
+    ret = kcm_ccache_resolve_by_name(context, name, &ccache);
     if (ret == 0) {
 	if ((ccache->uid != client->uid) && !CLIENT_IS_ROOT(client))
 	    return KRB5_FCC_PERM;

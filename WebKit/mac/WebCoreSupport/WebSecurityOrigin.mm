@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -64,6 +64,11 @@ using namespace WebCore;
 - (NSString *)databaseIdentifier
 {
     return reinterpret_cast<SecurityOrigin*>(_private)->databaseIdentifier();
+}
+
+- (NSString *)stringValue
+{
+    return reinterpret_cast<SecurityOrigin*>(_private)->toString();
 }
 
 // Deprecated. Use host instead. This needs to stay here until we ship a new Safari.
@@ -162,7 +167,7 @@ using namespace WebCore;
 
 - (unsigned long long)usage
 {
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     return DatabaseTracker::tracker().usageForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
 #else
     return 0;
@@ -171,7 +176,7 @@ using namespace WebCore;
 
 - (unsigned long long)quota
 {
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     return DatabaseTracker::tracker().quotaForOrigin(reinterpret_cast<SecurityOrigin*>(_private));
 #else
     return 0;
@@ -180,7 +185,7 @@ using namespace WebCore;
 
 - (void)setQuota:(unsigned long long)quota
 {
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     DatabaseTracker::tracker().setQuota(reinterpret_cast<SecurityOrigin*>(_private), quota);
 #endif
 }

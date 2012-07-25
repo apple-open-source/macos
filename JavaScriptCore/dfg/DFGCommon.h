@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,7 +53,7 @@
 #define DFG_ENABLE_CONSISTENCY_CHECK 0
 // Emit a breakpoint into the head of every generated function, to aid debugging in GDB.
 #define DFG_ENABLE_JIT_BREAK_ON_EVERY_FUNCTION 0
-// Emit a breakpoint into the head of every generated node, to aid debugging in GDB.
+// Emit a breakpoint into the head of every generated block, to aid debugging in GDB.
 #define DFG_ENABLE_JIT_BREAK_ON_EVERY_BLOCK 0
 // Emit a breakpoint into the head of every generated node, to aid debugging in GDB.
 #define DFG_ENABLE_JIT_BREAK_ON_EVERY_NODE 0
@@ -69,8 +69,11 @@
 #define DFG_ENABLE_OSR_ENTRY ENABLE(DFG_JIT)
 // Generate stats on how successful we were in making use of the DFG jit, and remaining on the hot path.
 #define DFG_ENABLE_SUCCESS_STATS 0
-// Used to enable conditionally supported opcodes that currently result in performance regressions.
-#define DFG_ENABLE_RESTRICTIONS 1
+// Enable verification that the DFG is able to insert code for control flow edges.
+#define DFG_ENABLE_EDGE_CODE_VERIFICATION 0
+// Pretend that all variables in the top-level code block got captured. Great
+// for testing code gen for activations.
+#define DFG_ENABLE_ALL_VARIABLES_CAPTURED 0
 
 namespace JSC { namespace DFG {
 
@@ -91,6 +94,34 @@ struct NodeIndexTraits {
             fprintf(out, "@%u", value);
     }
 };
+
+enum UseKind {
+    UntypedUse,
+    DoubleUse,
+    LastUseKind // Must always be the last entry in the enum, as it is used to denote the number of enum elements.
+};
+
+inline const char* useKindToString(UseKind useKind)
+{
+    switch (useKind) {
+    case UntypedUse:
+        return "";
+    case DoubleUse:
+        return "d";
+    default:
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
+inline bool isX86()
+{
+#if CPU(X86_64) || CPU(X86)
+    return true;
+#else
+    return false;
+#endif
+}
 
 } } // namespace JSC::DFG
 

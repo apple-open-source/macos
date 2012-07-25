@@ -1,0 +1,16 @@
+// Versioning
+CURRENT_PROJECT_VERSION = $(RC_ProjectSourceVersion)
+DYLIB_COMPATIBILITY_VERSION = 1
+DYLIB_CURRENT_VERSION = $(CURRENT_PROJECT_VERSION)
+
+// Linking
+LINK_WITH_STANDARD_LIBRARIES = NO // -nostdlib
+OTHER_LDFLAGS = -umbrella System -L/usr/lib/system -lsystem_c -lsystem_kernel -llaunch -ldyld
+
+// Variant setup
+BUILD_VARIANTS = normal debug profile
+OTHER_CFLAGS_debug = -DDEBUG
+OTHER_CFLAGS_profile = -pg -DPROFILE
+
+// Misc
+WARNING_CFLAGS = -Wall -W

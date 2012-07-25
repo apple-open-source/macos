@@ -43,6 +43,10 @@
 #include "png.h"
 #include <wtf/PassOwnPtr.h>
 
+#if PLATFORM(CHROMIUM)
+#include "TraceEvent.h"
+#endif
+
 #if defined(PNG_LIBPNG_VER_MAJOR) && defined(PNG_LIBPNG_VER_MINOR) && (PNG_LIBPNG_VER_MAJOR > 1 || (PNG_LIBPNG_VER_MAJOR == 1 && PNG_LIBPNG_VER_MINOR >= 4))
 #define JMPBUF(png_ptr) png_jmpbuf(png_ptr)
 #else
@@ -60,6 +64,9 @@ const double cInverseGamma = 0.45455;
 const unsigned long cMaxPNGSize = 1000000UL;
 
 // Called if the decoding of the image fails.
+#if PLATFORM(QT)
+static void PNGAPI decodingFailed(png_structp, png_const_charp) NO_RETURN;
+#endif
 static void PNGAPI decodingFailed(png_structp png, png_const_charp)
 {
     longjmp(JMPBUF(png), 1);
@@ -223,8 +230,10 @@ bool PNGImageDecoder::setFailed()
     return ImageDecoder::setFailed();
 }
 
-static ColorProfile readColorProfile(png_structp png, png_infop info)
+static void readColorProfile(png_structp png, png_infop info, ColorProfile& colorProfile)
 {
+    ASSERT(colorProfile.isEmpty());
+
 #ifdef PNG_iCCP_SUPPORTED
     char* profileName;
     int compressionType;
@@ -234,13 +243,22 @@ static ColorProfile readColorProfile(png_structp png, png_infop info)
     png_bytep profile;
 #endif
     png_uint_32 profileLength;
-    if (png_get_iCCP(png, info, &profileName, &compressionType, &profile, &profileLength)) {
-        ColorProfile colorProfile;
-        colorProfile.append(profile, profileLength);
-        return colorProfile;
-    }
+    if (!png_get_iCCP(png, info, &profileName, &compressionType, &profile, &profileLength))
+        return;
+
+    // Only accept RGB color profiles from input class devices.
+    bool ignoreProfile = false;
+    char* profileData = reinterpret_cast<char*>(profile);
+    if (profileLength < ImageDecoder::iccColorProfileHeaderLength)
+        ignoreProfile = true;
+    else if (!ImageDecoder::rgbColorProfile(profileData, profileLength))
+        ignoreProfile = true;
+    else if (!ImageDecoder::inputDeviceColorProfile(profileData, profileLength))
+        ignoreProfile = true;
+
+    if (!ignoreProfile)
+        colorProfile.append(profileData, profileLength);
 #endif
-    return ColorProfile();
 }
 
 void PNGImageDecoder::headerAvailable()
@@ -249,13 +267,13 @@ void PNGImageDecoder::headerAvailable()
     png_infop info = m_reader->infoPtr();
     png_uint_32 width = png_get_image_width(png, info);
     png_uint_32 height = png_get_image_height(png, info);
-    
+
     // Protect against large images.
     if (width > cMaxPNGSize || height > cMaxPNGSize) {
         longjmp(JMPBUF(png), 1);
         return;
     }
-    
+
     // We can fill in the size now that the header is available.  Avoid memory
     // corruption issues by neutering setFailed() during this call; if we don't
     // do this, failures will cause |m_reader| to be deleted, and our jmpbuf
@@ -279,7 +297,7 @@ void PNGImageDecoder::headerAvailable()
         // don't similarly transform the color profile.  We'd either need to transform
         // the color profile or we'd need to decode into a gray-scale image buffer and
         // hand that to CoreGraphics.
-        m_colorProfile = readColorProfile(png, info);
+        readColorProfile(png, info, m_colorProfile);
     }
 
     // The options we set here match what Mozilla does.
@@ -287,7 +305,7 @@ void PNGImageDecoder::headerAvailable()
     // Expand to ensure we use 24-bit for RGB and 32-bit for RGBA.
     if (colorType == PNG_COLOR_TYPE_PALETTE || (colorType == PNG_COLOR_TYPE_GRAY && bitDepth < 8))
         png_set_expand(png);
-    
+
     png_bytep trns = 0;
     int trnsCount = 0;
     if (png_get_valid(png, info, PNG_INFO_tRNS)) {
@@ -343,26 +361,31 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
     // Initialize the framebuffer if needed.
     ImageFrame& buffer = m_frameBufferCache[0];
     if (buffer.status() == ImageFrame::FrameEmpty) {
+        png_structp png = m_reader->pngPtr();
         if (!buffer.setSize(scaledSize().width(), scaledSize().height())) {
-            longjmp(JMPBUF(m_reader->pngPtr()), 1);
+            longjmp(JMPBUF(png), 1);
             return;
         }
+
+        if (PNG_INTERLACE_ADAM7 == png_get_interlace_type(png, m_reader->infoPtr())) {
+            unsigned colorChannels = m_reader->hasAlpha() ? 4 : 3;
+            m_reader->createInterlaceBuffer(colorChannels * size().width() * size().height());
+            if (!m_reader->interlaceBuffer()) {
+                longjmp(JMPBUF(png), 1);
+                return;
+            }
+        }
+
         buffer.setStatus(ImageFrame::FramePartial);
         buffer.setHasAlpha(false);
         buffer.setColorProfile(m_colorProfile);
 
         // For PNGs, the frame always fills the entire image.
         buffer.setOriginalFrameRect(IntRect(IntPoint(), size()));
-
-        if (png_get_interlace_type(m_reader->pngPtr(), m_reader->infoPtr()) != PNG_INTERLACE_NONE)
-            m_reader->createInterlaceBuffer((m_reader->hasAlpha() ? 4 : 3) * size().width() * size().height());
     }
 
-    if (!rowBuffer)
-        return;
-
-    // libpng comments (pasted in here to explain what follows)
-    /*
+    /* libpng comments (here to explain what follows).
+     *
      * this function is called for every row in the image.  If the
      * image is interlacing, and you turned on the interlace handler,
      * this function will be called for every row in every pass.
@@ -371,6 +394,18 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
      * The rows and passes are called in order, so you don't really
      * need the row_num and pass, but I'm supplying them because it
      * may make your life easier.
+     */
+
+    // Nothing to do if the row is unchanged, or the row is outside
+    // the image bounds: libpng may send extra rows, ignore them to
+    // make our lives easier.
+    if (!rowBuffer)
+        return;
+    int y = !m_scaled ? rowIndex : scaledY(rowIndex);
+    if (y < 0 || y >= scaledSize().height())
+        return;
+
+    /* libpng comments (continued).
      *
      * For the non-NULL rows of interlaced images, you must call
      * png_progressive_combine_row() passing in the row and the
@@ -389,31 +424,36 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
      * old row and the new row.
      */
 
-    png_structp png = m_reader->pngPtr();
     bool hasAlpha = m_reader->hasAlpha();
     unsigned colorChannels = hasAlpha ? 4 : 3;
-    png_bytep row;
-    png_bytep interlaceBuffer = m_reader->interlaceBuffer();
-    if (interlaceBuffer) {
+    png_bytep row = rowBuffer;
+
+    if (png_bytep interlaceBuffer = m_reader->interlaceBuffer()) {
         row = interlaceBuffer + (rowIndex * colorChannels * size().width());
-        png_progressive_combine_row(png, row, rowBuffer);
-    } else
-        row = rowBuffer;
+        png_progressive_combine_row(m_reader->pngPtr(), row, rowBuffer);
+    }
 
-    // Copy the data into our buffer.
+    // Write the decoded row pixels to the frame buffer.
     int width = scaledSize().width();
-    int destY = scaledY(rowIndex);
-
-    // Check that the row is within the image bounds. LibPNG may supply an extra row.
-    if (destY < 0 || destY >= scaledSize().height())
-        return;
     bool nonTrivialAlpha = false;
+
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
     for (int x = 0; x < width; ++x) {
         png_bytep pixel = row + (m_scaled ? m_scaledColumns[x] : x) * colorChannels;
         unsigned alpha = hasAlpha ? pixel[3] : 255;
-        buffer.setRGBA(x, destY, pixel[0], pixel[1], pixel[2], alpha);
+        buffer.setRGBA(x, y, pixel[0], pixel[1], pixel[2], alpha);
         nonTrivialAlpha |= alpha < 255;
     }
+#else
+    ASSERT(!m_scaled);
+    png_bytep pixel = row;
+    for (int x = 0; x < width; ++x, pixel += colorChannels) {
+        unsigned alpha = hasAlpha ? pixel[3] : 255;
+        buffer.setRGBA(x, y, pixel[0], pixel[1], pixel[2], alpha);
+        nonTrivialAlpha |= alpha < 255;
+    }
+#endif
+
     if (nonTrivialAlpha && !buffer.hasAlpha())
         buffer.setHasAlpha(nonTrivialAlpha);
 }
@@ -426,6 +466,9 @@ void PNGImageDecoder::pngComplete()
 
 void PNGImageDecoder::decode(bool onlySize)
 {
+#if PLATFORM(CHROMIUM)
+    TRACE_EVENT("PNGImageDecoder::decode", this, 0);
+#endif
     if (failed())
         return;
 

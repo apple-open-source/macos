@@ -26,23 +26,51 @@
 
 #include "Attribute.h"
 #include "RenderSVGResourceMarker.h"
+#include "SVGElementInstance.h"
 #include "SVGFitToViewBox.h"
 #include "SVGNames.h"
 #include "SVGSVGElement.h"
 
 namespace WebCore {
+ 
+// Define custom animated property 'orientType'.
+const SVGPropertyInfo* SVGMarkerElement::orientTypePropertyInfo()
+{
+    static const SVGPropertyInfo* s_propertyInfo = 0;
+    if (!s_propertyInfo) {
+        s_propertyInfo = new SVGPropertyInfo(AnimatedEnumeration,
+                                             SVGNames::orientAttr,
+                                             orientTypeIdentifier(),
+                                             &SVGMarkerElement::synchronizeOrientType,
+                                             &SVGMarkerElement::lookupOrCreateOrientTypeWrapper);
+    }
+    return s_propertyInfo;
+}
 
 // Animated property definitions
 DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::refXAttr, RefX, refX)
 DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::refYAttr, RefY, refY)
 DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::markerWidthAttr, MarkerWidth, markerWidth)
 DEFINE_ANIMATED_LENGTH(SVGMarkerElement, SVGNames::markerHeightAttr, MarkerHeight, markerHeight)
-DEFINE_ANIMATED_ENUMERATION(SVGMarkerElement, SVGNames::markerUnitsAttr, MarkerUnits, markerUnits)
-DEFINE_ANIMATED_ENUMERATION_MULTIPLE_WRAPPERS(SVGMarkerElement, SVGNames::orientAttr, orientTypeIdentifier(), OrientType, orientType)
-DEFINE_ANIMATED_ANGLE_MULTIPLE_WRAPPERS(SVGMarkerElement, SVGNames::orientAttr, orientAngleIdentifier(), OrientAngle, orientAngle)
+DEFINE_ANIMATED_ENUMERATION(SVGMarkerElement, SVGNames::markerUnitsAttr, MarkerUnits, markerUnits, SVGMarkerUnitsType)
+DEFINE_ANIMATED_ANGLE_AND_ENUMERATION(SVGMarkerElement, SVGNames::orientAttr, orientAngleIdentifier(), OrientAngle, orientAngle)
 DEFINE_ANIMATED_BOOLEAN(SVGMarkerElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 DEFINE_ANIMATED_RECT(SVGMarkerElement, SVGNames::viewBoxAttr, ViewBox, viewBox)
 DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGMarkerElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGMarkerElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(refX)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(refY)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(markerWidth)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(markerHeight)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(markerUnits)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(orientAngle)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(orientType)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(viewBox)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(preserveAspectRatio)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGMarkerElement::SVGMarkerElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
@@ -50,11 +78,12 @@ inline SVGMarkerElement::SVGMarkerElement(const QualifiedName& tagName, Document
     , m_refY(LengthModeHeight)
     , m_markerWidth(LengthModeWidth, "3")
     , m_markerHeight(LengthModeHeight, "3") 
-    , m_markerUnits(SVG_MARKERUNITS_STROKEWIDTH)
-    , m_orientType(SVG_MARKER_ORIENT_ANGLE)
+    , m_markerUnits(SVGMarkerUnitsStrokeWidth)
+    , m_orientType(SVGMarkerOrientAngle)
 {
     // Spec: If the markerWidth/markerHeight attribute is not specified, the effect is as if a value of "3" were specified.
     ASSERT(hasTagName(SVGNames::markerTag));
+    registerAnimatedPropertiesForSVGMarkerElement();
 }
 
 PassRefPtr<SVGMarkerElement> SVGMarkerElement::create(const QualifiedName& tagName, Document* document)
@@ -79,129 +108,75 @@ AffineTransform SVGMarkerElement::viewBoxToViewTransform(float viewWidth, float 
     return SVGFitToViewBox::viewBoxToViewTransform(viewBox(), preserveAspectRatio(), viewWidth, viewHeight);
 }
 
-void SVGMarkerElement::parseMappedAttribute(Attribute* attr)
+bool SVGMarkerElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::markerUnitsAttr) {
-        if (attr->value() == "userSpaceOnUse")
-            setMarkerUnitsBaseValue(SVG_MARKERUNITS_USERSPACEONUSE);
-        else if (attr->value() == "strokeWidth")
-            setMarkerUnitsBaseValue(SVG_MARKERUNITS_STROKEWIDTH);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        SVGFitToViewBox::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::markerUnitsAttr);
+        supportedAttributes.add(SVGNames::refXAttr);
+        supportedAttributes.add(SVGNames::refYAttr);
+        supportedAttributes.add(SVGNames::markerWidthAttr);
+        supportedAttributes.add(SVGNames::markerHeightAttr);
+        supportedAttributes.add(SVGNames::orientAttr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGMarkerElement::parseAttribute(Attribute* attr)
+{
+    SVGParsingError parseError = NoError;
+    const AtomicString& value = attr->value();
+
+    if (!isSupportedAttribute(attr->name()))
+        SVGStyledElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::markerUnitsAttr) {
+        SVGMarkerUnitsType propertyValue = SVGPropertyTraits<SVGMarkerUnitsType>::fromString(value);
+        if (propertyValue > 0)
+            setMarkerUnitsBaseValue(propertyValue);
     } else if (attr->name() == SVGNames::refXAttr)
-        setRefXBaseValue(SVGLength(LengthModeWidth, attr->value()));
+        setRefXBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (attr->name() == SVGNames::refYAttr)
-        setRefYBaseValue(SVGLength(LengthModeHeight, attr->value()));
+        setRefYBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
     else if (attr->name() == SVGNames::markerWidthAttr)
-        setMarkerWidthBaseValue(SVGLength(LengthModeWidth, attr->value()));
+        setMarkerWidthBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (attr->name() == SVGNames::markerHeightAttr)
-        setMarkerHeightBaseValue(SVGLength(LengthModeHeight, attr->value()));
+        setMarkerHeightBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
     else if (attr->name() == SVGNames::orientAttr) {
         SVGAngle angle;
+        SVGMarkerOrientType orientType = SVGPropertyTraits<SVGMarkerOrientType>::fromString(value, angle);
+        if (orientType > 0)
+            setOrientTypeBaseValue(orientType);
+        if (orientType == SVGMarkerOrientAngle)
+            setOrientAngleBaseValue(angle);
+    } else if (SVGLangSpace::parseAttribute(attr)
+             || SVGExternalResourcesRequired::parseAttribute(attr)
+             || SVGFitToViewBox::parseAttribute(document(), attr)) {
+    } else
+        ASSERT_NOT_REACHED();
 
-        if (attr->value() == "auto")
-            setOrientTypeBaseValue(SVG_MARKER_ORIENT_AUTO);
-        else {
-            ExceptionCode ec = 0;
-            angle.setValueAsString(attr->value(), ec);
-            setOrientTypeBaseValue(SVG_MARKER_ORIENT_ANGLE);
-        }
-
-        setOrientAngleBaseValue(angle);
-    } else {
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        if (SVGFitToViewBox::parseMappedAttribute(document(), attr))
-            return;
-
-        SVGStyledElement::parseMappedAttribute(attr);
-    }
+    reportAttributeParsingError(parseError, attr);
 }
 
 void SVGMarkerElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledElement::svgAttributeChanged(attrName);
+        return;
+    }
 
-    bool invalidateClients = false;
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
     if (attrName == SVGNames::refXAttr
         || attrName == SVGNames::refYAttr
         || attrName == SVGNames::markerWidthAttr
-        || attrName == SVGNames::markerHeightAttr) {
-        invalidateClients = true;
+        || attrName == SVGNames::markerHeightAttr)
         updateRelativeLengthsInformation();
-    }
 
-    RenderObject* object = renderer();
-    if (!object)
-        return;
-
-    if (invalidateClients
-        || attrName == SVGNames::markerUnitsAttr
-        || attrName == SVGNames::orientAttr
-        || SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
-        || SVGFitToViewBox::isKnownAttribute(attrName)
-        || SVGStyledElement::isKnownAttribute(attrName))
+    if (RenderObject* object = renderer())
         object->setNeedsLayout(true);
-}
-
-void SVGMarkerElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeMarkerUnits();
-        synchronizeRefX();
-        synchronizeRefY();
-        synchronizeMarkerWidth();
-        synchronizeMarkerHeight();
-        synchronizeOrientAngle();
-        synchronizeOrientType();
-        synchronizeExternalResourcesRequired();
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
-        return;
-    }
-
-    if (attrName == SVGNames::markerUnitsAttr)
-        synchronizeMarkerUnits();
-    else if (attrName == SVGNames::refXAttr)
-        synchronizeRefX();
-    else if (attrName == SVGNames::refYAttr)
-        synchronizeRefY();
-    else if (attrName == SVGNames::markerWidthAttr)
-        synchronizeMarkerWidth();
-    else if (attrName == SVGNames::markerHeightAttr)
-        synchronizeMarkerHeight();
-    else if (attrName == SVGNames::orientAttr) {
-        synchronizeOrientAngle();
-        synchronizeOrientType();
-    } else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
-    }
-}
-
-AttributeToPropertyTypeMap& SVGMarkerElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGMarkerElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::refXAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::refYAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::markerWidthAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::markerHeightAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::markerUnitsAttr, AnimatedEnumeration);
-    attributeToPropertyTypeMap.set(SVGNames::orientAttr, AnimatedAngle);
-    attributeToPropertyTypeMap.set(SVGNames::viewBoxAttr, AnimatedRect);
 }
 
 void SVGMarkerElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -217,20 +192,26 @@ void SVGMarkerElement::childrenChanged(bool changedByParser, Node* beforeChange,
 
 void SVGMarkerElement::setOrientToAuto()
 {
-    setOrientTypeBaseValue(SVG_MARKER_ORIENT_AUTO);
+    setOrientTypeBaseValue(SVGMarkerOrientAuto);
     setOrientAngleBaseValue(SVGAngle());
-
-    if (RenderObject* object = renderer())
-        object->setNeedsLayout(true);
+ 
+    // Mark orientAttr dirty - the next XML DOM access of that attribute kicks in synchronization.
+    m_orientAngle.shouldSynchronize = true;
+    m_orientType.shouldSynchronize = true;
+    invalidateSVGAttributes();
+    svgAttributeChanged(orientAnglePropertyInfo()->attributeName);
 }
 
 void SVGMarkerElement::setOrientToAngle(const SVGAngle& angle)
 {
-    setOrientTypeBaseValue(SVG_MARKER_ORIENT_ANGLE);
+    setOrientTypeBaseValue(SVGMarkerOrientAngle);
     setOrientAngleBaseValue(angle);
 
-    if (RenderObject* object = renderer())
-        object->setNeedsLayout(true);
+    // Mark orientAttr dirty - the next XML DOM access of that attribute kicks in synchronization.
+    m_orientAngle.shouldSynchronize = true;
+    m_orientType.shouldSynchronize = true;
+    invalidateSVGAttributes();
+    svgAttributeChanged(orientAnglePropertyInfo()->attributeName);
 }
 
 RenderObject* SVGMarkerElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -244,6 +225,35 @@ bool SVGMarkerElement::selfHasRelativeLengths() const
         || refY().isRelative()
         || markerWidth().isRelative()
         || markerHeight().isRelative();
+}
+
+void SVGMarkerElement::synchronizeOrientType(void* contextElement)
+{
+    ASSERT(contextElement);
+    SVGMarkerElement* ownerType = static_cast<SVGMarkerElement*>(contextElement);
+    if (!ownerType->m_orientType.shouldSynchronize)
+        return;
+
+    // If orient is not auto, the previous call to synchronizeOrientAngle already set the orientAttr to the right angle.
+    if (ownerType->m_orientType.value != SVGMarkerOrientAuto)
+        return;
+
+    DEFINE_STATIC_LOCAL(AtomicString, autoString, ("auto"));
+    SVGAnimatedPropertySynchronizer<true>::synchronize(ownerType, orientTypePropertyInfo()->attributeName, autoString);
+}
+
+PassRefPtr<SVGAnimatedProperty> SVGMarkerElement::lookupOrCreateOrientTypeWrapper(void* contextElement)
+{
+    ASSERT(contextElement);
+    SVGMarkerElement* ownerType = static_cast<SVGMarkerElement*>(contextElement);
+    return SVGAnimatedProperty::lookupOrCreateWrapper<SVGMarkerElement, SVGAnimatedEnumerationPropertyTearOff<SVGMarkerOrientType>, SVGMarkerOrientType, true>
+           (ownerType, orientTypePropertyInfo(), ownerType->m_orientType.value);
+}
+  
+PassRefPtr<SVGAnimatedEnumerationPropertyTearOff<SVGMarkerOrientType> > SVGMarkerElement::orientTypeAnimated()
+{
+    m_orientType.shouldSynchronize = true;
+    return static_pointer_cast<SVGAnimatedEnumerationPropertyTearOff<SVGMarkerOrientType> >(lookupOrCreateOrientTypeWrapper(this));
 }
 
 }

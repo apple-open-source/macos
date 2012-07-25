@@ -28,6 +28,7 @@
 
 #include "FloatPoint.h"
 #include "IntPoint.h"
+#include "LayoutTypes.h"
 #include <string.h> //for memcpy
 #include <wtf/FastAllocBase.h>
 
@@ -41,6 +42,7 @@ typedef struct CGAffineTransform CGAffineTransform;
 #elif PLATFORM(OPENVG)
 #include "VGUtils.h"
 #elif PLATFORM(QT)
+#include <QMatrix4x4>
 #include <QTransform>
 #elif USE(SKIA)
 #include <SkMatrix.h>
@@ -60,6 +62,7 @@ namespace WebCore {
 
 class AffineTransform;
 class IntRect;
+class FractionalLayoutRect;
 class FloatPoint3D;
 class FloatRect;
 class FloatQuad;
@@ -79,6 +82,11 @@ public:
     {
         setMatrix(m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34, m41, m42, m43, m44);
     }
+
+#if PLATFORM(QT)
+    TransformationMatrix(const QTransform&);
+    TransformationMatrix(const QMatrix4x4&);
+#endif
 
     void setMatrix(double a, double b, double c, double d, double e, double f)
     {
@@ -142,6 +150,7 @@ public:
     // Rounds the resulting mapped rectangle out. This is helpful for bounding
     // box computations but may not be what is wanted in other contexts.
     IntRect mapRect(const IntRect&) const;
+    FractionalLayoutRect mapRect(const FractionalLayoutRect&) const;
 
     // If the matrix has 3D components, the z component of the result is
     // dropped, effectively projecting the quad into the z=0 plane
@@ -152,9 +161,12 @@ public:
     // a ray perpendicular to the source plane and computing
     // the local x,y position of the point where that ray intersects
     // with the destination plane.
-    FloatPoint projectPoint(const FloatPoint&) const;
+    FloatPoint projectPoint(const FloatPoint&, bool* clamped = 0) const;
     // Projects the four corners of the quad
     FloatQuad projectQuad(const FloatQuad&) const;
+    // Projects the four corners of the quad and takes a bounding box,
+    // while sanitizing values created when the w component is negative.
+    LayoutRect clampedBoundsOfProjectedQuad(const FloatQuad&) const;
 
     double m11() const { return m_matrix[0][0]; }
     void setM11(double f) { m_matrix[0][0] = f; }
@@ -321,6 +333,7 @@ public:
     operator VGMatrix() const;
 #elif PLATFORM(QT)
     operator QTransform() const;
+    operator QMatrix4x4() const;
 #elif USE(SKIA)
     operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
@@ -338,6 +351,20 @@ public:
             && m_matrix[2][0] == 0 && m_matrix[2][1] == 0 && m_matrix[2][2] == 1 && m_matrix[2][3] == 0
             && m_matrix[3][3] == 1;
     }
+
+    bool isIntegerTranslation() const;
+
+    // This method returns the matrix without 3D components.
+    TransformationMatrix to2dTransform() const;
+    
+    typedef float FloatMatrix4[16];
+    void toColumnMajorFloatArray(FloatMatrix4& result) const;
+
+    // A local-space layer is implicitly defined at the z = 0 plane, with its front side
+    // facing the positive z-axis (i.e. a camera looking along the negative z-axis sees
+    // the front side of the layer). This function checks if the transformed layer's back
+    // face would be visible to a camera looking along the negative z-axis in the target space.
+    bool isBackFaceVisible() const;
 
 private:
     // multiply passed 2D point by matrix (assume z=0)

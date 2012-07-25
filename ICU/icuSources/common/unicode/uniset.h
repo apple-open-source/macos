@@ -1,6 +1,6 @@
 /*
 ***************************************************************************
-* Copyright (C) 1999-2010, International Business Machines Corporation
+* Copyright (C) 1999-2011, International Business Machines Corporation
 * and others. All Rights Reserved.
 ***************************************************************************
 *   Date        Name        Description
@@ -24,6 +24,7 @@ U_NAMESPACE_BEGIN
 
 class BMPSet;
 class ParsePosition;
+class RBBIRuleScanner;
 class SymbolTable;
 class UnicodeSetStringSpan;
 class UVector;
@@ -376,6 +377,7 @@ public:
     UnicodeSet(const UnicodeString& pattern,
                UErrorCode& status);
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Constructs a set from the given pattern.  See the class
      * description for the syntax of the pattern language.
@@ -392,6 +394,7 @@ public:
                uint32_t options,
                const SymbolTable* symbols,
                UErrorCode& status);
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * Constructs a set from the given pattern.  See the class description
@@ -575,8 +578,8 @@ public:
 
     /**
      * Modifies this set to represent the set specified by the given
-     * pattern, optionally ignoring white space.  See the class
-     * description for the syntax of the pattern language.
+     * pattern, ignoring Unicode Pattern_White_Space characters.
+     * See the class description for the syntax of the pattern language.
      * A frozen set will not be modified.
      * @param pattern a string specifying what characters are in the set
      * @param status returns <code>U_ILLEGAL_ARGUMENT_ERROR</code> if the pattern
@@ -588,10 +591,11 @@ public:
     UnicodeSet& applyPattern(const UnicodeString& pattern,
                              UErrorCode& status);
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * Modifies this set to represent the set specified by the given
-     * pattern, optionally ignoring white space.  See the class
-     * description for the syntax of the pattern language.
+     * pattern, optionally ignoring Unicode Pattern_White_Space characters.
+     * See the class description for the syntax of the pattern language.
      * A frozen set will not be modified.
      * @param pattern a string specifying what characters are in the set
      * @param options bitmask for options to apply to the pattern.
@@ -608,6 +612,7 @@ public:
                              uint32_t options,
                              const SymbolTable* symbols,
                              UErrorCode& status);
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * Parses the given pattern, starting at the given position.  The
@@ -974,6 +979,7 @@ private:
      * @param limit the limit offset for matching, either last+1 in
      * the forward direction, or last-1 in the reverse direction,
      * where last is the index of the last character to match.
+     * @param s
      * @return If part of s matches up to the limit, return |limit -
      * start|.  If all of s matches before reaching the limit, return
      * s.length().  If there is a mismatch between s and text, return
@@ -1466,6 +1472,7 @@ private:
     virtual UBool matchesIndexValue(uint8_t v) const;
 
 private:
+    friend class RBBIRuleScanner;
 
     //----------------------------------------------------------------
     // Implementation: Clone as thawed (see ICU4J Freezable)
@@ -1477,10 +1484,16 @@ private:
     // Implementation: Pattern parsing
     //----------------------------------------------------------------
 
+    void applyPatternIgnoreSpace(const UnicodeString& pattern,
+                                 ParsePosition& pos,
+                                 const SymbolTable* symbols,
+                                 UErrorCode& status);
+
     void applyPattern(RuleCharacterIterator& chars,
                       const SymbolTable* symbols,
                       UnicodeString& rebuiltPat,
                       uint32_t options,
+                      UnicodeSet& (UnicodeSet::*caseClosure)(int32_t attribute),
                       UErrorCode& ec);
 
     //----------------------------------------------------------------
@@ -1540,8 +1553,8 @@ private:
      * \\p{foo} \\P{foo}  - white space not allowed within "\\p" or "\\P"
      * \\N{name}         - white space not allowed within "\\N"
      *
-     * Other than the above restrictions, white space is ignored.  Case
-     * is ignored except in "\\p" and "\\P" and "\\N".  In 'name' leading
+     * Other than the above restrictions, Unicode Pattern_White_Space characters are ignored.
+     * Case is ignored except in "\\p" and "\\P" and "\\N".  In 'name' leading
      * and trailing space is deleted, and internal runs of whitespace
      * are collapsed to a single space.
      *
@@ -1562,6 +1575,7 @@ private:
      * On return, the position after the last character parsed, that is,
      * the locations marked '%'.  If the parse fails, ppos is returned
      * unchanged.
+     * @param ec status
      * @return a reference to this.
      */
     UnicodeSet& applyPropertyPattern(const UnicodeString& pattern,

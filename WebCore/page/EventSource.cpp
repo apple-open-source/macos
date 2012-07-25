@@ -32,18 +32,16 @@
  */
 
 #include "config.h"
-
-#if ENABLE(EVENTSOURCE)
-
 #include "EventSource.h"
 
-#include "MemoryCache.h"
+#include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "Event.h"
 #include "EventException.h"
 #include "ExceptionCode.h"
-#include "PlatformString.h"
+#include "MemoryCache.h"
 #include "MessageEvent.h"
+#include "PlatformString.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -65,14 +63,13 @@ inline EventSource::EventSource(const KURL& url, ScriptExecutionContext* context
     , m_decoder(TextResourceDecoder::create("text/plain", "UTF-8"))
     , m_reconnectTimer(this, &EventSource::reconnectTimerFired)
     , m_discardTrailingNewline(false)
-    , m_failSilently(false)
     , m_requestInFlight(false)
     , m_reconnectDelay(defaultReconnectDelay)
     , m_origin(context->securityOrigin()->toString())
 {
 }
 
-PassRefPtr<EventSource> EventSource::create(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+PassRefPtr<EventSource> EventSource::create(ScriptExecutionContext* context, const String& url, ExceptionCode& ec)
 {
     if (url.isEmpty()) {
         ec = SYNTAX_ERR;
@@ -91,20 +88,32 @@ PassRefPtr<EventSource> EventSource::create(const String& url, ScriptExecutionCo
         return 0;
     }
 
+    if (!context->contentSecurityPolicy()->allowConnectFromSource(fullURL)) {
+        // FIXME: Should this be throwing an exception?
+        ec = SECURITY_ERR;
+        return 0;
+    }
+
     RefPtr<EventSource> source = adoptRef(new EventSource(fullURL, context));
 
     source->setPendingActivity(source.get());
     source->connect();
+    source->suspendIfNeeded();
 
     return source.release();
 }
 
 EventSource::~EventSource()
 {
+    ASSERT(m_state == CLOSED);
+    ASSERT(!m_requestInFlight);
 }
 
 void EventSource::connect()
 {
+    ASSERT(m_state == CONNECTING);
+    ASSERT(!m_requestInFlight);
+
     ResourceRequest request(m_url);
     request.setHTTPMethod("GET");
     request.setHTTPHeaderField("Accept", "text/event-stream");
@@ -113,24 +122,23 @@ void EventSource::connect()
         request.setHTTPHeaderField("Last-Event-ID", m_lastEventId);
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = true;
-    options.sniffContent = false;
-    options.allowCredentials = true;
+    options.sendLoadCallbacks = SendCallbacks;
+    options.sniffContent = DoNotSniffContent;
+    options.allowCredentials = AllowStoredCredentials;
+    options.shouldBufferData = DoNotBufferData;
 
     m_loader = ThreadableLoader::create(scriptExecutionContext(), this, request, options);
 
-    m_requestInFlight = true;
+    if (m_loader)
+        m_requestInFlight = true;
 }
 
-void EventSource::endRequest()
+void EventSource::networkRequestEnded()
 {
     if (!m_requestInFlight)
         return;
 
     m_requestInFlight = false;
-
-    if (!m_failSilently)
-        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 
     if (m_state != CLOSED)
         scheduleReconnect();
@@ -142,6 +150,7 @@ void EventSource::scheduleReconnect()
 {
     m_state = CONNECTING;
     m_reconnectTimer.startOneShot(m_reconnectDelay / 1000);
+    dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
 void EventSource::reconnectTimerFired(Timer<EventSource>*)
@@ -161,19 +170,26 @@ EventSource::State EventSource::readyState() const
 
 void EventSource::close()
 {
-    if (m_state == CLOSED)
+    if (m_state == CLOSED) {
+        ASSERT(!m_requestInFlight);
         return;
+    }
 
+    // Stop trying to reconnect if EventSource was explicitly closed or if ActiveDOMObject::stop() was called.
     if (m_reconnectTimer.isActive()) {
         m_reconnectTimer.stop();
         unsetPendingActivity(this);
     }
 
-    m_state = CLOSED;
-    m_failSilently = true;
-
     if (m_requestInFlight)
         m_loader->cancel();
+
+    m_state = CLOSED;
+}
+
+const AtomicString& EventSource::interfaceName() const
+{
+    return eventNames().interfaceForEventSource;
 }
 
 ScriptExecutionContext* EventSource::scriptExecutionContext() const
@@ -181,22 +197,24 @@ ScriptExecutionContext* EventSource::scriptExecutionContext() const
     return ActiveDOMObject::scriptExecutionContext();
 }
 
-void EventSource::didReceiveResponse(const ResourceResponse& response)
+void EventSource::didReceiveResponse(unsigned long, const ResourceResponse& response)
 {
+    ASSERT(m_state == CONNECTING);
+    ASSERT(m_requestInFlight);
+
     int statusCode = response.httpStatusCode();
     bool mimeTypeIsValid = response.mimeType() == "text/event-stream";
     bool responseIsValid = statusCode == 200 && mimeTypeIsValid;
     if (responseIsValid) {
         const String& charset = response.textEncodingName();
-        // If we have a charset, the only allowed value is UTF-8 (case-insensitive). This should match
-        // the updated EventSource standard.
+        // If we have a charset, the only allowed value is UTF-8 (case-insensitive).
         responseIsValid = charset.isEmpty() || equalIgnoringCase(charset, "UTF-8");
         if (!responseIsValid) {
             String message = "EventSource's response has a charset (\"";
             message += charset;
             message += "\") that is not UTF-8. Aborting the connection.";
             // FIXME: We are missing the source line.
-            scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String(), 0);
+            scriptExecutionContext()->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message);
         }
     } else {
         // To keep the signal-to-noise ratio low, we only log 200-response with an invalid MIME type.
@@ -205,7 +223,7 @@ void EventSource::didReceiveResponse(const ResourceResponse& response)
             message += response.mimeType();
             message += "\") that is not \"text/event-stream\". Aborting the connection.";
             // FIXME: We are missing the source line.
-            scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message, 1, String(), 0);
+            scriptExecutionContext()->addConsoleMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, message);
         }
     }
 
@@ -213,40 +231,56 @@ void EventSource::didReceiveResponse(const ResourceResponse& response)
         m_state = OPEN;
         dispatchEvent(Event::create(eventNames().openEvent, false, false));
     } else {
-        if (statusCode <= 200 || statusCode > 299)
-            m_state = CLOSED;
         m_loader->cancel();
+        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
     }
 }
 
 void EventSource::didReceiveData(const char* data, int length)
 {
+    ASSERT(m_state == OPEN);
+    ASSERT(m_requestInFlight);
+
     append(m_receiveBuf, m_decoder->decode(data, length));
     parseEventStream();
 }
 
 void EventSource::didFinishLoading(unsigned long, double)
 {
+    ASSERT(m_state == OPEN);
+    ASSERT(m_requestInFlight);
+
     if (m_receiveBuf.size() > 0 || m_data.size() > 0) {
-        append(m_receiveBuf, "\n\n");
         parseEventStream();
+
+        // Discard everything that has not been dispatched by now.
+        m_receiveBuf.clear();
+        m_data.clear();
+        m_eventName = "";
+        m_currentlyParsedEventId = String();
     }
-    m_state = CONNECTING;
-    endRequest();
+    networkRequestEnded();
 }
 
 void EventSource::didFail(const ResourceError& error)
 {
-    int canceled = error.isCancellation();
-    if (((m_state == CONNECTING) && !canceled) || ((m_state == OPEN) && canceled))
+    ASSERT(m_state != CLOSED);
+    ASSERT(m_requestInFlight);
+
+    if (error.isCancellation())
         m_state = CLOSED;
-    endRequest();
+    networkRequestEnded();
 }
 
 void EventSource::didFailRedirectCheck()
 {
-    m_state = CLOSED;
+    ASSERT(m_state == CONNECTING);
+    ASSERT(m_requestInFlight);
+
     m_loader->cancel();
+
+    ASSERT(m_state == CLOSED);
+    dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
 void EventSource::parseEventStream()
@@ -294,6 +328,10 @@ void EventSource::parseEventStreamLine(unsigned int bufPos, int fieldLength, int
     if (!lineLength) {
         if (!m_data.isEmpty()) {
             m_data.removeLast();
+            if (!m_currentlyParsedEventId.isNull()) {
+                m_lastEventId.swap(m_currentlyParsedEventId);
+                m_currentlyParsedEventId = String();
+            }
             dispatchEvent(createMessageEvent());
         }
         if (!m_eventName.isEmpty())
@@ -319,7 +357,7 @@ void EventSource::parseEventStreamLine(unsigned int bufPos, int fieldLength, int
         } else if (field == "event")
             m_eventName = valueLength ? String(&m_receiveBuf[bufPos], valueLength) : "";
         else if (field == "id")
-            m_lastEventId = valueLength ? String(&m_receiveBuf[bufPos], valueLength) : "";
+            m_currentlyParsedEventId = valueLength ? String(&m_receiveBuf[bufPos], valueLength) : "";
         else if (field == "retry") {
             if (!valueLength)
                 m_reconnectDelay = defaultReconnectDelay;
@@ -357,5 +395,3 @@ EventTargetData* EventSource::ensureEventTargetData()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(EVENTSOURCE)

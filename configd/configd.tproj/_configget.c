@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,10 +41,6 @@ __SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef *v
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFDictionaryRef			dict;
 
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
-
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
 			CFSTR("%s : %5d : %@\n"),
@@ -73,10 +69,11 @@ _configget(mach_port_t			server,
 	   xmlDataOut_t			*dataRef,	/* raw XML bytes */
 	   mach_msg_type_number_t	*dataLen,
 	   int				*newInstance,
-	   int				*sc_status
-)
+	   int				*sc_status,
+	   audit_token_t		audit_token)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
+	CFIndex			len;
 	serverSessionRef	mySession;
 	Boolean			ok;
 	CFDataRef		value;
@@ -97,8 +94,12 @@ _configget(mach_port_t			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		goto done;
+		mySession = tempSession(server, CFSTR("SCDynamicStoreCopyValue"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
 	}
 
 	*sc_status = __SCDynamicStoreCopyValue(mySession->store, key, &value, FALSE);
@@ -107,7 +108,8 @@ _configget(mach_port_t			server,
 	}
 
 	/* serialize the data */
-	ok = _SCSerializeData(value, (void **)dataRef, (CFIndex *)dataLen);
+	ok = _SCSerializeData(value, (void **)dataRef, &len);
+	*dataLen = len;
 	CFRelease(value);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;
@@ -185,10 +187,6 @@ __SCDynamicStoreCopyMultiple(SCDynamicStoreRef store, CFArrayRef keys, CFArrayRe
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	addSpecific			myContext;
 
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
-
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
 			CFSTR("copy m  : %5d : %d keys, %d patterns\n"),
@@ -232,10 +230,12 @@ _configget_m(mach_port_t		server,
 	     mach_msg_type_number_t	patternsLen,
 	     xmlDataOut_t		*dataRef,
 	     mach_msg_type_number_t	*dataLen,
-	     int			*sc_status)
+	     int			*sc_status,
+	     audit_token_t		audit_token)
 {
 	CFDictionaryRef		dict		= NULL;	/* keys/values (un-serialized) */
 	CFArrayRef		keys		= NULL;	/* keys (un-serialized) */
+	CFIndex			len;
 	serverSessionRef	mySession;
 	Boolean			ok;
 	CFArrayRef		patterns	= NULL;	/* patterns (un-serialized) */
@@ -275,15 +275,20 @@ _configget_m(mach_port_t		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		goto done;
+		mySession = tempSession(server, CFSTR("SCDynamicStoreCopyMultiple"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
 	}
 
 	/* fetch the requested information */
 	*sc_status = __SCDynamicStoreCopyMultiple(mySession->store, keys, patterns, &dict);
 
 	/* serialize the dictionary of matching keys/patterns */
-	ok = _SCSerialize(dict, NULL, (void **)dataRef, (CFIndex *)dataLen);
+	ok = _SCSerialize(dict, NULL, (void **)dataRef, &len);
+	*dataLen = len;
 	CFRelease(dict);
 	if (!ok) {
 		*sc_status = kSCStatusFailed;

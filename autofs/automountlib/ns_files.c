@@ -511,10 +511,10 @@ file_open(map, fname, stack, stkptr)
 
 	if (*map != '/') {
 		/* prepend an "/etc" */
-		(void) strcpy(fname, "/etc/");
-		(void) strcat(fname, map);
+		(void) strlcpy(fname, "/etc/", MAXFILENAMELEN);
+		(void) strlcat(fname, map, MAXFILENAMELEN);
 	} else
-		(void) strcpy(fname, map);
+		(void) strlcpy(fname, map, MAXFILENAMELEN);
 
 	fp = fopen(fname, "r");
 

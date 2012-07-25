@@ -175,7 +175,7 @@ char **envp)
 		*work_argv = NULL; /* NULL means 'not a file-name' */
 		continue;
 	    }
-	    if(strcmp(arg, "--gdwarf2") == 0){
+	    if(strcmp(arg, "--gdwarf2") == 0 || strcmp(arg, "-gdwarf-2") == 0){
 		debug_type = DEBUG_DWARF2;
 		*work_argv = NULL; /* NULL means 'not a file-name' */
 		continue;
@@ -716,6 +716,28 @@ char **envp)
 				specific_archflag = *work_argv;
 				archflag_cpusubtype =
 				    CPU_SUBTYPE_ARM_V7;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv7f") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V7F)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V7F;
+			    }
+			    else if(strcmp(*work_argv,
+					   "armv7k") == 0){
+				if(archflag_cpusubtype != -1 &&
+				   archflag_cpusubtype !=
+					CPU_SUBTYPE_ARM_V7K)
+				    as_fatal("can't specify more "
+				       "than one -arch flag ");
+				specific_archflag = *work_argv;
+				archflag_cpusubtype =
+				    CPU_SUBTYPE_ARM_V7K;
 			    }
 			    else
 				as_fatal("I expected 'arm' after "

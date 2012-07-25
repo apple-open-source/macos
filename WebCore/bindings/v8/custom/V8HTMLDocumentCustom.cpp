@@ -44,6 +44,8 @@
 #include "V8IsolatedContext.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
+#include "V8RecursionScope.h"
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 
@@ -65,7 +67,11 @@ v8::Local<v8::Object> V8HTMLDocument::WrapInShadowObject(v8::Local<v8::Object> w
     if (shadowConstructor.IsEmpty())
         return v8::Local<v8::Object>();
 
-    v8::Local<v8::Object> shadow = shadowConstructor->NewInstance();
+    v8::Local<v8::Object> shadow;
+    {
+        V8RecursionScope::MicrotaskSuppression scope;
+        shadow = shadowConstructor->NewInstance();
+    }
     if (shadow.IsEmpty())
         return v8::Local<v8::Object>();
     V8DOMWrapper::setDOMWrapper(shadow, &V8HTMLDocument::info, impl);
@@ -73,12 +79,12 @@ v8::Local<v8::Object> V8HTMLDocument::WrapInShadowObject(v8::Local<v8::Object> w
     return shadow;
 }
 
-v8::Handle<v8::Value> V8HTMLDocument::GetNamedProperty(HTMLDocument* htmlDocument, const AtomicString& key)
+v8::Handle<v8::Value> V8HTMLDocument::GetNamedProperty(HTMLDocument* htmlDocument, const AtomicString& key, v8::Isolate* isolate)
 {
     if (!htmlDocument->hasNamedItem(key.impl()) && !htmlDocument->hasExtraNamedItem(key.impl()))
         return v8::Handle<v8::Value>();
 
-    RefPtr<HTMLCollection> items = htmlDocument->documentNamedItems(key);
+    HTMLCollection* items = htmlDocument->documentNamedItems(key);
     if (!items->length())
         return v8::Handle<v8::Value>();
 
@@ -86,12 +92,12 @@ v8::Handle<v8::Value> V8HTMLDocument::GetNamedProperty(HTMLDocument* htmlDocumen
         Node* node = items->firstItem();
         Frame* frame = 0;
         if (node->hasTagName(HTMLNames::iframeTag) && (frame = static_cast<HTMLIFrameElement*>(node)->contentFrame()))
-            return toV8(frame->domWindow());
+            return toV8(frame->domWindow(), isolate);
 
-        return toV8(node);
+        return toV8(node, isolate);
     }
 
-    return toV8(items.release());
+    return toV8(items, isolate);
 }
 
 // HTMLDocument ----------------------------------------------------------------
@@ -132,9 +138,9 @@ v8::Handle<v8::Value> V8HTMLDocument::openCallback(const v8::Arguments& args)
     HTMLDocument* htmlDocument = V8HTMLDocument::toNative(args.Holder());
 
     if (args.Length() > 2) {
-        if (Frame* frame = htmlDocument->frame()) {
+        if (RefPtr<Frame> frame = htmlDocument->frame()) {
             // Fetch the global object for the frame.
-            v8::Local<v8::Context> context = V8Proxy::context(frame);
+            v8::Local<v8::Context> context = V8Proxy::context(frame.get());
             // Bail out if we cannot get the context.
             if (context.IsEmpty())
                 return v8::Undefined();
@@ -147,15 +153,15 @@ v8::Handle<v8::Value> V8HTMLDocument::openCallback(const v8::Arguments& args)
                 return v8::Undefined();
             }
             // Wrap up the arguments and call the function.
-            v8::Local<v8::Value>* params = new v8::Local<v8::Value>[args.Length()];
+            OwnArrayPtr<v8::Local<v8::Value> > params = adoptArrayPtr(new v8::Local<v8::Value>[args.Length()]);
             for (int i = 0; i < args.Length(); i++)
                 params[i] = args[i];
 
-            V8Proxy* proxy = V8Proxy::retrieve(frame);
-            ASSERT(proxy);
+            V8Proxy* proxy = V8Proxy::retrieve(frame.get());
+            if (!proxy)
+                return v8::Undefined();
 
-            v8::Local<v8::Value> result = proxy->callFunction(v8::Local<v8::Function>::Cast(function), global, args.Length(), params);
-            delete[] params;
+            v8::Local<v8::Value> result = proxy->callFunction(v8::Local<v8::Function>::Cast(function), global, args.Length(), params.get());
             return result;
         }
     }
@@ -171,7 +177,7 @@ v8::Handle<v8::Value> V8HTMLDocument::allAccessorGetter(v8::Local<v8::String> na
     INC_STATS("DOM.HTMLDocument.all._get");
     v8::Handle<v8::Object> holder = info.Holder();
     HTMLDocument* htmlDocument = V8HTMLDocument::toNative(holder);
-    return toV8(htmlDocument->all());
+    return toV8(htmlDocument->all(), info.GetIsolate());
 }
 
 void V8HTMLDocument::allAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
@@ -180,11 +186,11 @@ void V8HTMLDocument::allAccessorSetter(v8::Local<v8::String> name, v8::Local<v8:
     info.This()->ForceSet(name, value);
 }
 
-v8::Handle<v8::Value> toV8(HTMLDocument* impl, bool forceNewObject)
+v8::Handle<v8::Value> toV8(HTMLDocument* impl, v8::Isolate* isolate, bool forceNewObject)
 {
     if (!impl)
         return v8::Null();
-    v8::Handle<v8::Object> wrapper = V8HTMLDocument::wrap(impl, forceNewObject);
+    v8::Handle<v8::Object> wrapper = V8HTMLDocument::wrap(impl, isolate, forceNewObject);
     if (wrapper.IsEmpty())
         return wrapper;
     if (!V8IsolatedContext::getEntered()) {

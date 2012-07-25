@@ -101,26 +101,24 @@ struct hash_foo sha256 = {
     (void (*)(void*, void*))SHA256_Final,
     EVP_sha256
 };
-#ifdef HAVE_SHA384
 struct hash_foo sha384 = {
     "SHA-384",
-    sizeof(struct sha512),
+    sizeof(SHA384_CTX),
     48,
     (void (*)(void*))SHA384_Init,
     (void (*)(void*,const void*, size_t))SHA384_Update,
-    (void (*)(void*, void*))SHA384_Final
+    (void (*)(void*, void*))SHA384_Final,
+    EVP_sha384
 };
-#endif
-#ifdef HAVE_SHA512
 struct hash_foo sha512 = {
     "SHA-512",
-    sizeof(struct sha512),
+    sizeof(SHA512_CTX),
     64,
     (void (*)(void*))SHA512_Init,
     (void (*)(void*,const void*, size_t))SHA512_Update,
-    (void (*)(void*, void*))SHA512_Final
+    (void (*)(void*, void*))SHA512_Final,
+    EVP_sha512
 };
-#endif
 
 struct test {
     char *str;
@@ -208,7 +206,6 @@ struct test sha256_tests[] = {
     { NULL }
 };
 
-#ifdef HAVE_SHA384
 struct test sha384_tests[] = {
     { "abc",
       { 0xcb,0x00,0x75,0x3f,0x45,0xa3,0x5e,0x8b,
@@ -234,8 +231,7 @@ struct test sha384_tests[] = {
 	0xae,0x97,0xdd,0xd8,0x7f,0x3d,0x89,0x85}},
     {NULL}
 };
-#endif
-#ifdef HAVE_SHA512
+
 struct test sha512_tests[] = {
     { "abc",
       { 0xdd,0xaf,0x35,0xa1,0x93,0x61,0x7a,0xba,
@@ -267,7 +263,6 @@ struct test sha512_tests[] = {
 	0x4e,0xad,0xb2,0x17,0xad,0x8c,0xc0,0x9b }},
     { NULL }
 };
-#endif
 
 static int
 hash_test (struct hash_foo *hash, struct test *tests)
@@ -284,7 +279,7 @@ hash_test (struct hash_foo *hash, struct test *tests)
 
 	ectx = EVP_MD_CTX_create();
 	EVP_DigestInit_ex(ectx, hash->evp(), NULL);
-	
+
 	(*hash->init)(ctx);
 	if(strcmp(t->str, ONE_MILLION_A) == 0) {
 	    int i;
@@ -318,7 +313,7 @@ hash_test (struct hash_foo *hash, struct test *tests)
 	    printf("\n");
 	    return 1;
 	}
-	
+
 	EVP_DigestFinal_ex(ectx, res, &esize);
 	EVP_MD_CTX_destroy(ectx);
 
@@ -326,7 +321,7 @@ hash_test (struct hash_foo *hash, struct test *tests)
 	    printf("EVP %s returned wrong hash size\n", hash->name);
 	    return 1;
 	}
-	
+
 	if (memcmp (res, t->hash, hash->hsize) != 0) {
 	    printf("EVP %s failed here old function where successful!\n",
 		   hash->name);
@@ -346,13 +341,8 @@ main (void)
 	hash_test(&md2, md2_tests) +
 	hash_test(&md4, md4_tests) +
 	hash_test(&md5, md5_tests) +
-	hash_test(&sha1, sha1_tests)
-	+ hash_test(&sha256, sha256_tests)
-#ifdef HAVE_SHA384
-	+ hash_test(&sha384, sha384_tests)
-#endif
-#ifdef HAVE_SHA512
-	+ hash_test(&sha512, sha512_tests)
-#endif
-	;
+	hash_test(&sha1, sha1_tests) +
+	hash_test(&sha256, sha256_tests) +
+	hash_test(&sha384, sha384_tests) +
+	hash_test(&sha512, sha512_tests);
 }

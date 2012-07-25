@@ -341,36 +341,6 @@ This directive tells racoon to not listen on the admin socket.
 .El
 .El
 .\"
-.Ss Miscellaneous Global Parameters
-.Bl -tag -width Ds -compact
-.It Ic gss_id_enc Ar enctype ;
-Older versions of
-.Xr racoon 8
-used ISO-Latin-1 as the encoding of the GSS-API identifier attribute.
-For interoperability with Microsoft Windows' GSS-API authentication
-scheme, the default encoding has been changed to UTF-16LE.
-The
-.Ic gss_id_enc
-parameter allows
-.Xr racoon 8
-to be configured to use the old encoding for compatibility with existing
-.Xr racoon 8
-installations.
-The following are valid values for
-.Ar enctype :
-.Pp
-.Bl -tag -width Ds -compact
-.It Ic utf-16le
-Use UTF-16LE to encode the GSS-API identifier attribute.
-This is the default encoding.
-This encoding is compatible with Microsoft Windows.
-.It Ic latin1
-Use ISO-Latin-1 to encode the GSS-API identifier attribute.
-This is the encoding used by older versions of
-.Xr racoon 8 .
-.El
-.El
-.\"
 .Ss Remote Nodes Specifications
 .Bl -tag -width Ds -compact
 .It Xo
@@ -844,8 +814,7 @@ Specifies the encryption algorithm used for the phase 1 negotiation.
 This directive must be defined.
 .Ar algorithm
 is one of following:
-.Ic des, 3des, blowfish, cast128, aes, camellia
-.\".Ic rc5 , idea
+.Ic des, 3des, aes
 for Oakley.
 For other transforms, this statement should not be used.
 .\"
@@ -862,9 +831,8 @@ Defines the authentication method used for the phase 1 negotiation.
 This directive must be defined.
 .Ar type
 is one of:
-.Ic pre_shared_key , rsasig
-(for plain RSA authentication),
-.Ic gssapi_krb , hybrid_rsa_server ,
+.Ic pre_shared_key,
+.Ic hybrid_rsa_server ,
 .Ic hybrid_rsa_client , xauth_rsa_server , xauth_rsa_client , xauth_psk_server
 or
 .Ic xauth_psk_client .
@@ -874,10 +842,8 @@ Defines the group used for the Diffie-Hellman exponentiations.
 This directive must be defined.
 .Ar group
 is one of following:
-.Ic modp768 , modp1024 , modp1536 ,
-.Ic modp2048 , modp3072 , modp4096 ,
-.Ic modp6144 , modp8192 .
-Or you can define 1, 2, 5, 14, 15, 16, 17, or 18 as the DH group number.
+.Ic modp1024 , modp1536 .
+Or you can define 2 or 5 as the DH group number.
 When you want to use aggressive mode,
 you must define the same DH group in each proposal.
 .It Ic lifetime time Ar number Ar timeunit ;
@@ -887,17 +853,6 @@ Refer to the description of the
 directive defined in the
 .Ic remote
 directive.
-.It Ic gss_id Ar string ;
-Defines the GSS-API endpoint name, to be included as an attribute in the SA,
-if the
-.Ic gssapi_krb
-authentication method is used.
-If this is not defined, the default value of
-.Ql host/hostname
-is used, where hostname is the value returned by the
-.Xr hostname 1
-command.
-.El
 .El
 .El
 .\"
@@ -971,10 +926,8 @@ If you do not require PFS then you can omit this directive.
 Any proposal will be accepted if you do not specify one.
 .Ar group
 is one of following:
-.Ic modp768 , modp1024 , modp1536 ,
-.Ic modp2048 , modp3072 , modp4096 ,
-.Ic modp6144 , modp8192 .
-Or you can define 1, 2, 5, 14, 15, 16, 17, or 18 as the DH group number.
+.Ic modp1024 , modp1536 .
+Or you can define 2 or 5 as the DH group number.
 .\"
 .It Ic lifetime time Ar number Ar timeunit ;
 define how long an IPsec-SA will be used, in timeunits.
@@ -1025,9 +978,7 @@ Note that the kernel may not support the algorithm you have specified.
 .Bl -tag -width Ds -compact
 .It Ic encryption_algorithm Ar algorithms ;
 .Ic des , 3des , des_iv64 , des_iv32 ,
-.Ic rc5 , rc4 , idea , 3idea ,
-.Ic cast128 , blowfish , null_enc ,
-.Ic twofish , rijndael , aes , camellia
+.Ic null_enc ,rijndael , aes
 .Pq used with ESP
 .\"
 .It Ic authentication_algorithm Ar algorithms ;

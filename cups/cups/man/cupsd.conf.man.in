@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: cupsd.conf.man.in 9784 2011-05-18 21:33:35Z mike $"
+.\" "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $"
 .\"
 .\"   cupsd.conf man page for CUPS.
 .\"
-.\"   Copyright 2007-2011 by Apple Inc.
+.\"   Copyright 2007-2012 by Apple Inc.
 .\"   Copyright 1997-2006 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
@@ -12,7 +12,7 @@
 .\"   which should have been included with this file.  If this file is
 .\"   file is missing or damaged, see the license at "http://www.cups.org/".
 .\"
-.TH cupsd.conf 5 "CUPS" "18 May 2011" "Apple Inc."
+.TH cupsd.conf 5 "CUPS" "18 May 2012" "Apple Inc."
 .SH NAME
 cupsd.conf \- server configuration file for cups
 .SH DESCRIPTION
@@ -94,121 +94,9 @@ AutoPurgeJobs No
 Specifies whether to purge job history data automatically when
 it is no longer required for quotas.
 .TP 5
-BrowseAddress ip-address
-.TP 5
-BrowseAddress @IF(name)
-.TP 5
-BrowseAddress @LOCAL
+BrowseLocalProtocols [All] [DNSSD]
 .br
-Specifies a broadcast address for outgoing printer information packets.
-.TP 5
-BrowseAllow all
-.TP 5
-BrowseAllow none
-.TP 5
-BrowseAllow host.domain.com
-.TP 5
-BrowseAllow *.domain.com
-.TP 5
-BrowseAllow ip-address
-.TP 5
-BrowseAllow ip-address/netmask
-.TP 5
-BrowseAllow ip-address/mm
-.TP 5
-BrowseAllow @IF(name)
-.TP 5
-BrowseAllow @LOCAL
-.br
-Allows incoming printer information packets from the named host or address.
-.TP 5
-BrowseDeny all
-.TP 5
-BrowseDeny none
-.TP 5
-BrowseDeny host.domain.com
-.TP 5
-BrowseDeny *.domain.com
-.TP 5
-BrowseDeny ip-address
-.TP 5
-BrowseDeny ip-address/netmask
-.TP 5
-BrowseDeny ip-address/mm
-.TP 5
-BrowseDeny @IF(name)
-.TP 5
-BrowseDeny @LOCAL
-.br
-Denies incoming printer information packets from the named host or address.
-.TP 5
-BrowseInterval seconds
-.br
-Specifies the maximum interval between printer information broadcasts.
-.TP 5
-BrowseLDAPBindDN
-.br
-Specifies the LDAP domain name to use when registering printers.
-.TP 5
-BrowseLDAPCACertFile
-.br
-Specifies the SSL certificate authority file to use.
-.TP 5
-BrowseLDAPDN
-.br
-Specifies the LDAP domain name to use when discovering printers.
-.TP 5
-BrowseLDAPPassword
-.br
-Specifies the password to use when accessing the LDAP server.
-.TP 5
-BrowseLDAPServer
-.br
-Specifies the LDAP server to use.
-.TP 5
-BrowseOrder allow,deny
-.TP 5
-BrowseOrder deny,allow
-.br
-Specifies the order of printer information access control (allow,deny or deny,allow)
-.TP 5
-BrowsePoll host-or-ip-address
-.br
-Specifies a server to poll for printer information.
-.TP 5
-BrowsePort port
-.br
-Specifies the port to listen to for printer information packets.
-.TP 5
-BrowseProtocols [All] [CUPS] [DNSSD] [LDAP] [SLP]
-.br
-Specifies the protocols to use for printer browsing.
-.TP 5
-BrowseLocalProtocols [All] [CUPS] [DNSSD] [LDAP] [SLP]
-.br
-Specifies the protocols to use for local printer browsing.
-.TP 5
-BrowseRemoteProtocols [All] [CUPS] [DNSSD] [LDAP] [SLP]
-.br
-Specifies the protocols to use for remote printer browsing.
-.TP 5
-BrowseRelay from-address to-address
-.br
-Specifies that printer information packets should be relayed from one host or
-network to another.
-.TP 5
-BrowseShortNames Yes
-.TP 5
-BrowseShortNames No
-.br
-Specifies whether remote printers will use short names ("printer") or not
-("printer@server"). This option is ignored if more than one remote printer
-exists with the same name.
-.TP 5
-BrowseTimeout seconds
-.br
-Specifies the maximum interval between printer information updates before
-remote printers will be removed from the list of available printers.
+Specifies the protocols to use for local printer sharing.
 .TP 5
 BrowseWebIF Yes
 .TP 5
@@ -362,11 +250,10 @@ Group group-name-or-number
 Specifies the group name or ID that will be used when executing
 external programs.
 .TP 5
-HideImplicitMembers Yes
-.TP 5
-HideImplicitMembers No
+GSSServiceName name
 .br
-Specifies whether to hide members of implicit classes.
+Specifies the service name when using Kerberos authentication. The default
+service name is "@CUPS_DEFAULT_GSSSERVICENAME@".
 .TP 5
 HostNameLookups On
 .TP 5
@@ -375,21 +262,6 @@ HostNameLookups Off
 HostNameLookups Double
 .br
 Specifies whether or not to do reverse lookups on client addresses.
-.TP 5
-ImplicitAnyClasses Yes
-.TP 5
-ImplicitAnyClasses No
-.br
-Specifies whether or not to create implicit classes for local and
-remote printers, e.g. "AnyPrinter" from "Printer", "Printer@server1",
-and "Printer@server2".
-.TP 5
-ImplicitClasses Yes
-.TP 5
-ImplicitClasses No
-.br
-Specifies whether or not to create implicit classes from identical
-remote printers.
 .TP 5
 Include filename
 .br
@@ -514,6 +386,11 @@ MaxCopies number
 .br
 Specifies the maximum number of copies that a user can print of each job.
 .TP 5
+MaxHoldTime seconds
+.br
+Specifies the maximum time a job may remain in the "indefinite" hold state
+before it is canceled. Set to 0 to disable cancellation of held jobs.
+.TP 5
 MaxJobs number
 .br
 Specifies the maximum number of simultaneous jobs to support.
@@ -525,6 +402,12 @@ Specifies the maximum number of simultaneous jobs per printer to support.
 MaxJobsPerUser number
 .br
 Specifies the maximum number of simultaneous jobs per user to support.
+.TP 5
+MaxJobTime seconds
+.br
+Specifies the maximum time a job may take to print before it is canceled. The
+default is 10800 seconds (3 hours). Set to 0 to disable cancellation of "stuck"
+jobs.
 .TP 5
 MaxLogSize number-bytes
 .br
@@ -708,6 +591,13 @@ SSLPort
 .br
 Listens on the specified port for encrypted connections.
 .TP 5
+StrictConformance Yes
+.TP 5
+StrictConformance No
+.br
+Specifies whether the scheduler requires clients to strictly adhere to the IPP
+specifications. The default is No.
+.TP 5
 SubscriptionPrivateAccess all
 .TP 5
 SubscriptionPrivateAccess default
@@ -756,7 +646,7 @@ Specifies whether the web interface is enabled.
 .br
 http://localhost:631/help
 .SH COPYRIGHT
-Copyright 2007-2011 by Apple Inc.
+Copyright 2007-2012 by Apple Inc.
 .\"
-.\" End of "$Id: cupsd.conf.man.in 9784 2011-05-18 21:33:35Z mike $".
+.\" End of "$Id: cupsd.conf.man.in 7935 2008-09-11 01:54:11Z mike $".
 .\"

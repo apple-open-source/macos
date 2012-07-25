@@ -431,7 +431,7 @@ namespace Auto {
                     break;
                 case auto_memory_block_association:
                     // include associations with non-blocks as roots.
-                    if (!_zone->is_block(slotNode->_address)) {
+                    if (!_zone->is_block(slotNode->_address) || slotNode->_is_retained) {
                         addPath(paths, slotNode);
                     }
                     break;

@@ -28,6 +28,11 @@
 #import <CoreServices/CoreServices.h>
 #import <CoreServices/CoreServicesPriv.h>
 
+#include <err.h>
+
+static NSString *username;
+static NSString *password;
+
 @interface NSURLCredential (NSURLCredentialInternal)
 - (id) _initWithCFURLCredential:(CFURLCredentialRef)credential;
 @end
@@ -132,9 +137,14 @@
 
 	CFDictionaryAddValue(info, kNAHNegTokenInit, krbtoken);
 	CFRelease(krbtoken);
-
-	/* XXX add user to info */
-	/* XXX add password to info if we have one so that NAHAcquireCredential have something to do */
+	
+	if (username){
+	    NSLog(@"using %@ as username", username);
+	    CFDictionaryAddValue(info, kNAHUserName, username);
+	}
+	
+	if (password)
+	    CFDictionaryAddValue(info, kNAHPassword, password);
 
 	_nah = NAHCreate(NULL, (CFStringRef)[protectionSpace host], CFSTR("HTTP"), info);
 	if (_nah == NULL)
@@ -207,8 +217,26 @@ main(int argc, char **argv)
 {
     NSURL *url;
     Foo *foo;
+    int ch;
+    
+    while ((ch = getopt(argc, argv, "u:p:")) != -1) {
+	switch (ch) {
+	    case 'u':
+		username = [NSString stringWithCString:optarg encoding:NSUTF8StringEncoding];
+		break;
+	    case 'p':
+		password = [NSString stringWithCString:optarg encoding:NSUTF8StringEncoding];
+		break;
+	}
+    }
+    
+    argv += optind;
+    argc -= optind;
+    
+    if (argc < 0)
+	errx(1, "missing url");
 	
-    url = [NSURL URLWithString:[NSString stringWithUTF8String:argv[1]]];
+    url = [NSURL URLWithString:[NSString stringWithUTF8String:argv[0]]];
 
     foo = [[Foo alloc] init];
 

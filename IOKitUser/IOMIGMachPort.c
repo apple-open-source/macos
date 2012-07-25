@@ -212,7 +212,7 @@ mach_port_t IOMIGMachPortGetPort(IOMIGMachPortRef migPort)
 //------------------------------------------------------------------------------
 void IOMIGMachPortRegisterDemuxCallback(IOMIGMachPortRef migPort, IOMIGMachPortDemuxCallback callback, void *refcon)
 {
-    migPort->demuxCallback= callback;
+    migPort->demuxCallback = callback;
     migPort->demuxRefcon   = refcon;
 }
 
@@ -246,9 +246,16 @@ void __IOMIGMachPortPortCallback(CFMachPortRef port __unused, void *msg, CFIndex
     if ( __NoMoreSenders(&bufRequest->Head, &bufReply->Head) ) {
         if ( migPort->terminationCallback )
             (*migPort->terminationCallback)(migPort, migPort->terminationRefcon);
+        else {
+            goto exit;
+        }
     } else {
         if ( migPort->demuxCallback )
             (*migPort->demuxCallback)(migPort, &bufRequest->Head, &bufReply->Head, migPort->demuxRefcon);
+        else {
+            mach_msg_destroy(&bufRequest->Head);
+            goto exit;
+        }
     }
 
     if (!(bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) &&

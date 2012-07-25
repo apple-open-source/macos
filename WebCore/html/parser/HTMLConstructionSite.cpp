@@ -37,6 +37,7 @@
 #include "HTMLFormElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
@@ -79,68 +80,85 @@ bool causesFosterParenting(const QualifiedName& tagName)
         || tagName == trTag;
 }
 
-} // namespace
-
-template<typename ChildType>
-PassRefPtr<ChildType> HTMLConstructionSite::attach(ContainerNode* rawParent, PassRefPtr<ChildType> prpChild)
+inline bool isAllWhitespace(const String& string)
 {
-    RefPtr<ChildType> child = prpChild;
-    RefPtr<ContainerNode> parent = rawParent;
-
-    // FIXME: It's confusing that HTMLConstructionSite::attach does the magic
-    // redirection to the foster parent but HTMLConstructionSite::attachAtSite
-    // doesn't. It feels like we're missing a concept somehow.
-    if (shouldFosterParent()) {
-        fosterParent(child.get());
-        ASSERT(child->attached() || !child->parentNode() || !child->parentNode()->attached());
-        return child.release();
-    }
-
-    parent->parserAddChild(child);
-
-    // An event handler (DOM Mutation, beforeload, et al.) could have removed
-    // the child, in which case we shouldn't try attaching it.
-    if (!child->parentNode())
-        return child.release();
-
-    if (parent->attached() && !child->attached())
-        child->attach();
-    return child.release();
+    return string.isAllSpecialCharacters<isHTMLSpace>();
 }
 
-void HTMLConstructionSite::attachAtSite(const AttachmentSite& site, PassRefPtr<Node> prpChild)
-{
-    // FIXME: It's unfortunate that we need to hold a reference to child
-    // here to call attach().  We should investigate whether we can rely on
-    // |site.parent| to hold a ref at this point.
-    RefPtr<Node> child = prpChild;
+} // namespace
 
-    if (site.nextChild)
-        site.parent->parserInsertBefore(child, site.nextChild);
+static inline void executeTask(HTMLConstructionSiteTask& task)
+{
+    if (task.nextChild)
+        task.parent->parserInsertBefore(task.child.get(), task.nextChild.get());
     else
-        site.parent->parserAddChild(child);
+        task.parent->parserAddChild(task.child.get());
 
     // JavaScript run from beforeload (or DOM Mutation or event handlers)
     // might have removed the child, in which case we should not attach it.
-    if (child->parentNode() && site.parent->attached() && !child->attached())
-        child->attach();
+
+    if (task.child->parentNode() && task.parent->attached() && !task.child->attached())
+        task.child->attach();
+
+    task.child->beginParsingChildren();
+
+    if (task.selfClosing)
+        task.child->finishParsingChildren();
 }
 
-HTMLConstructionSite::HTMLConstructionSite(Document* document)
+void HTMLConstructionSite::attachLater(ContainerNode* parent, PassRefPtr<Node> prpChild)
+{
+    HTMLConstructionSiteTask task;
+    task.parent = parent;
+    task.child = prpChild;
+
+    if (shouldFosterParent()) {
+        fosterParent(task.child);
+        return;
+    }
+
+    // Add as a sibling of the parent if we have reached the maximum depth allowed.
+    if (m_openElements.stackDepth() > m_maximumDOMTreeDepth && task.parent->parentNode())
+        task.parent = task.parent->parentNode();
+
+    ASSERT(task.parent);
+    m_attachmentQueue.append(task);
+}
+
+void HTMLConstructionSite::executeQueuedTasks()
+{
+    const size_t size = m_attachmentQueue.size();
+    if (!size)
+        return;
+
+    // Copy the task queue into a local variable in case executeTask
+    // re-enters the parser.
+    AttachmentQueue queue;
+    queue.swap(m_attachmentQueue);
+
+    for (size_t i = 0; i < size; ++i)
+        executeTask(queue[i]);
+
+    // We might be detached now.
+}
+
+HTMLConstructionSite::HTMLConstructionSite(Document* document, unsigned maximumDOMTreeDepth)
     : m_document(document)
     , m_attachmentRoot(document)
     , m_fragmentScriptingPermission(FragmentScriptingAllowed)
     , m_isParsingFragment(false)
     , m_redirectAttachToFosterParent(false)
+    , m_maximumDOMTreeDepth(maximumDOMTreeDepth)
 {
 }
 
-HTMLConstructionSite::HTMLConstructionSite(DocumentFragment* fragment, FragmentScriptingPermission scriptingPermission)
+HTMLConstructionSite::HTMLConstructionSite(DocumentFragment* fragment, FragmentScriptingPermission scriptingPermission, unsigned maximumDOMTreeDepth)
     : m_document(fragment->document())
     , m_attachmentRoot(fragment)
     , m_fragmentScriptingPermission(scriptingPermission)
     , m_isParsingFragment(true)
     , m_redirectAttachToFosterParent(false)
+    , m_maximumDOMTreeDepth(maximumDOMTreeDepth)
 {
 }
 
@@ -176,31 +194,33 @@ void HTMLConstructionSite::dispatchDocumentElementAvailableIfNeeded()
 void HTMLConstructionSite::insertHTMLHtmlStartTagBeforeHTML(AtomicHTMLToken& token)
 {
     RefPtr<HTMLHtmlElement> element = HTMLHtmlElement::create(m_document);
-    element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
-    m_openElements.pushHTMLHtmlElement(attach<Element>(m_attachmentRoot, element.get()));
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    element->parserSetAttributes(token.attributes(), m_fragmentScriptingPermission);
+    attachLater(m_attachmentRoot, element);
+    m_openElements.pushHTMLHtmlElement(element);
+
+    executeQueuedTasks();
     element->insertedByParser();
-#endif
     dispatchDocumentElementAvailableIfNeeded();
 }
 
 void HTMLConstructionSite::mergeAttributesFromTokenIntoElement(AtomicHTMLToken& token, Element* element)
 {
-    if (!token.attributes())
+    if (token.attributes().isEmpty())
         return;
 
-    NamedNodeMap* attributes = element->attributes(false);
-    for (unsigned i = 0; i < token.attributes()->length(); ++i) {
-        Attribute* attribute = token.attributes()->attributeItem(i);
-        if (!attributes->getAttributeItem(attribute->name()))
-            element->setAttribute(attribute->name(), attribute->value());
+    ElementAttributeData* elementAttributeData = element->ensureAttributeData();
+
+    for (unsigned i = 0; i < token.attributes().size(); ++i) {
+        const Attribute& tokenAttribute = token.attributes().at(i);
+        if (!elementAttributeData->getAttributeItem(tokenAttribute.name()))
+            element->setAttribute(tokenAttribute.name(), tokenAttribute.value());
     }
 }
 
 void HTMLConstructionSite::insertHTMLHtmlStartTagInBody(AtomicHTMLToken& token)
 {
     // FIXME: parse error
-    
+
     // Fragments do not have a root HTML element, so any additional HTML elements
     // encountered during fragment parsing should be ignored.
     if (m_isParsingFragment)
@@ -217,9 +237,11 @@ void HTMLConstructionSite::insertHTMLBodyStartTagInBody(AtomicHTMLToken& token)
 
 void HTMLConstructionSite::insertDoctype(AtomicHTMLToken& token)
 {
-    ASSERT(token.type() == HTMLToken::DOCTYPE);
-    attach(m_attachmentRoot, DocumentType::create(m_document, token.name(), String::adopt(token.publicIdentifier()), String::adopt(token.systemIdentifier())));
-    
+    ASSERT(token.type() == HTMLTokenTypes::DOCTYPE);
+
+    RefPtr<DocumentType> doctype = DocumentType::create(m_document, token.name(), String::adopt(token.publicIdentifier()), String::adopt(token.systemIdentifier()));
+    attachLater(m_attachmentRoot, doctype.release());
+
     // DOCTYPE nodes are only processed when parsing fragments w/o contextElements, which
     // never occurs.  However, if we ever chose to support such, this code is subtly wrong,
     // because context-less fragments can determine their own quirks mode, and thus change
@@ -228,75 +250,76 @@ void HTMLConstructionSite::insertDoctype(AtomicHTMLToken& token)
     ASSERT(!m_isParsingFragment);
     if (m_isParsingFragment)
         return;
-    
+
     if (token.forceQuirks())
         m_document->setCompatibilityMode(Document::QuirksMode);
-    else
+    else {
+        // We need to actually add the Doctype node to the DOM.
+        executeQueuedTasks();
         m_document->setCompatibilityModeFromDoctype();
+    }
 }
 
 void HTMLConstructionSite::insertComment(AtomicHTMLToken& token)
 {
-    ASSERT(token.type() == HTMLToken::Comment);
-    attach(currentNode(), Comment::create(currentNode()->document(), token.comment()));
+    ASSERT(token.type() == HTMLTokenTypes::Comment);
+    attachLater(currentNode(), Comment::create(currentNode()->document(), token.comment()));
 }
 
 void HTMLConstructionSite::insertCommentOnDocument(AtomicHTMLToken& token)
 {
-    ASSERT(token.type() == HTMLToken::Comment);
-    attach(m_attachmentRoot, Comment::create(m_document, token.comment()));
+    ASSERT(token.type() == HTMLTokenTypes::Comment);
+    attachLater(m_attachmentRoot, Comment::create(m_document, token.comment()));
 }
 
 void HTMLConstructionSite::insertCommentOnHTMLHtmlElement(AtomicHTMLToken& token)
 {
-    ASSERT(token.type() == HTMLToken::Comment);
+    ASSERT(token.type() == HTMLTokenTypes::Comment);
     ContainerNode* parent = m_openElements.rootNode();
-    attach(parent, Comment::create(parent->document(), token.comment()));
-}
-
-PassRefPtr<Element> HTMLConstructionSite::attachToCurrent(PassRefPtr<Element> child)
-{
-    return attach(currentNode(), child);
+    attachLater(parent, Comment::create(parent->document(), token.comment()));
 }
 
 void HTMLConstructionSite::insertHTMLHeadElement(AtomicHTMLToken& token)
 {
     ASSERT(!shouldFosterParent());
-    m_head = attachToCurrent(createHTMLElement(token));
+    m_head = createHTMLElement(token);
+    attachLater(currentNode(), m_head);
     m_openElements.pushHTMLHeadElement(m_head);
 }
 
 void HTMLConstructionSite::insertHTMLBodyElement(AtomicHTMLToken& token)
 {
     ASSERT(!shouldFosterParent());
-    m_openElements.pushHTMLBodyElement(attachToCurrent(createHTMLElement(token)));
+    RefPtr<Element> body = createHTMLElement(token);
+    attachLater(currentNode(), body);
+    m_openElements.pushHTMLBodyElement(body.release());
 }
 
 void HTMLConstructionSite::insertHTMLFormElement(AtomicHTMLToken& token, bool isDemoted)
 {
     RefPtr<Element> element = createHTMLElement(token);
     ASSERT(element->hasTagName(formTag));
-    RefPtr<HTMLFormElement> form = static_pointer_cast<HTMLFormElement>(element.release());
-    form->setDemoted(isDemoted);
-    m_openElements.push(attachToCurrent(form.release()));
-    ASSERT(currentElement()->isHTMLElement());
-    ASSERT(currentElement()->hasTagName(formTag));
-    m_form = static_cast<HTMLFormElement*>(currentElement());
+    m_form = static_pointer_cast<HTMLFormElement>(element.release());
+    m_form->setDemoted(isDemoted);
+    attachLater(currentNode(), m_form);
+    m_openElements.push(m_form);
 }
 
 void HTMLConstructionSite::insertHTMLElement(AtomicHTMLToken& token)
 {
-    m_openElements.push(attachToCurrent(createHTMLElement(token)));
+    RefPtr<Element> element = createHTMLElement(token);
+    attachLater(currentNode(), element);
+    m_openElements.push(element.release());
 }
 
 void HTMLConstructionSite::insertSelfClosingHTMLElement(AtomicHTMLToken& token)
 {
-    ASSERT(token.type() == HTMLToken::StartTag);
-    RefPtr<Element> element = attachToCurrent(createHTMLElement(token));
+    ASSERT(token.type() == HTMLTokenTypes::StartTag);
+    attachLater(currentNode(), createHTMLElement(token));
     // Normally HTMLElementStack is responsible for calling finishParsingChildren,
     // but self-closing elements are never in the element stack so the stack
     // doesn't get a chance to tell them that we're done parsing their children.
-    element->finishParsingChildren();
+    m_attachmentQueue.last().selfClosing = true;
     // FIXME: Do we want to acknowledge the token's self-closing flag?
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#acknowledge-self-closing-flag
 }
@@ -314,34 +337,43 @@ void HTMLConstructionSite::insertScriptElement(AtomicHTMLToken& token)
 {
     RefPtr<HTMLScriptElement> element = HTMLScriptElement::create(scriptTag, currentNode()->document(), true);
     if (m_fragmentScriptingPermission == FragmentScriptingAllowed)
-        element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
-    m_openElements.push(attachToCurrent(element.release()));
+        element->parserSetAttributes(token.attributes(), m_fragmentScriptingPermission);
+    attachLater(currentNode(), element);
+    m_openElements.push(element.release());
 }
 
 void HTMLConstructionSite::insertForeignElement(AtomicHTMLToken& token, const AtomicString& namespaceURI)
 {
-    ASSERT(token.type() == HTMLToken::StartTag);
+    ASSERT(token.type() == HTMLTokenTypes::StartTag);
     notImplemented(); // parseError when xmlns or xmlns:xlink are wrong.
 
-    RefPtr<Element> element = attachToCurrent(createElement(token, namespaceURI));
+    RefPtr<Element> element = createElement(token, namespaceURI);
+    attachLater(currentNode(), element);
+    // FIXME: Don't we need to set the selfClosing flag on the task if we're
+    // not going to push the element on to the stack of open elements?
     if (!token.selfClosing())
-        m_openElements.push(element);
+        m_openElements.push(element.release());
 }
 
-void HTMLConstructionSite::insertTextNode(const String& characters)
+void HTMLConstructionSite::insertTextNode(const String& characters, WhitespaceMode whitespaceMode)
 {
-    AttachmentSite site;
-    site.parent = currentNode();
-    site.nextChild = 0;
+    HTMLConstructionSiteTask task;
+    task.parent = currentNode();
+
     if (shouldFosterParent())
-        findFosterSite(site);
+        findFosterSite(task);
+
+    // Strings composed entirely of whitespace are likely to be repeated.
+    // Turn them into AtomicString so we share a single string for each.
+    bool shouldUseAtomicString = whitespaceMode == AllWhitespace
+        || (whitespaceMode == WhitespaceUnknown && isAllWhitespace(characters));
 
     unsigned currentPosition = 0;
 
     // FIXME: Splitting text nodes into smaller chunks contradicts HTML5 spec, but is currently necessary
     // for performance, see <https://bugs.webkit.org/show_bug.cgi?id=55898>.
 
-    Node* previousChild = site.nextChild ? site.nextChild->previousSibling() : site.parent->lastChild();
+    Node* previousChild = task.nextChild ? task.nextChild->previousSibling() : task.parent->lastChild();
     if (previousChild && previousChild->isTextNode()) {
         // FIXME: We're only supposed to append to this text node if it
         // was the last text node inserted by the parser.
@@ -350,14 +382,17 @@ void HTMLConstructionSite::insertTextNode(const String& characters)
     }
 
     while (currentPosition < characters.length()) {
-        RefPtr<Text> textNode = Text::createWithLengthLimit(site.parent->document(), characters, currentPosition);
+        RefPtr<Text> textNode = Text::createWithLengthLimit(task.parent->document(), shouldUseAtomicString ? AtomicString(characters).string() : characters, currentPosition);
         // If we have a whole string of unbreakable characters the above could lead to an infinite loop. Exceeding the length limit is the lesser evil.
-        if (!textNode->length())
-            textNode = Text::create(site.parent->document(), characters.substring(currentPosition));
+        if (!textNode->length()) {
+            String substring = characters.substring(currentPosition);
+            textNode = Text::create(task.parent->document(), shouldUseAtomicString ? AtomicString(substring).string() : substring);
+        }
 
         currentPosition += textNode->length();
         ASSERT(currentPosition <= characters.length());
-        attachAtSite(site, textNode.release());
+        task.child = textNode.release();
+        executeTask(task);
     }
 }
 
@@ -365,7 +400,7 @@ PassRefPtr<Element> HTMLConstructionSite::createElement(AtomicHTMLToken& token, 
 {
     QualifiedName tagName(nullAtom, token.name(), namespaceURI);
     RefPtr<Element> element = currentNode()->document()->createElement(tagName, true);
-    element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
+    element->parserSetAttributes(token.attributes(), m_fragmentScriptingPermission);
     return element.release();
 }
 
@@ -376,7 +411,7 @@ PassRefPtr<Element> HTMLConstructionSite::createHTMLElement(AtomicHTMLToken& tok
     // have to pass the current form element.  We should rework form association
     // to occur after construction to allow better code sharing here.
     RefPtr<Element> element = HTMLElementFactory::createHTMLElement(tagName, currentNode()->document(), form(), true);
-    element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
+    element->parserSetAttributes(token.attributes(), m_fragmentScriptingPermission);
     ASSERT(element->isHTMLElement());
     return element.release();
 }
@@ -384,25 +419,6 @@ PassRefPtr<Element> HTMLConstructionSite::createHTMLElement(AtomicHTMLToken& tok
 PassRefPtr<Element> HTMLConstructionSite::createHTMLElementFromElementRecord(HTMLElementStack::ElementRecord* record)
 {
     return createHTMLElementFromSavedElement(record->element());
-}
-
-namespace {
-
-PassRefPtr<NamedNodeMap> cloneAttributes(Element* element)
-{
-    NamedNodeMap* attributes = element->attributes(true);
-    if (!attributes)
-        return 0;
-
-    RefPtr<NamedNodeMap> newAttributes = NamedNodeMap::create();
-    for (size_t i = 0; i < attributes->length(); ++i) {
-        Attribute* attribute = attributes->attributeItem(i);
-        RefPtr<Attribute> clone = Attribute::createMapped(attribute->name(), attribute->value());
-        newAttributes->addAttribute(clone);
-    }
-    return newAttributes.release();
-}
-
 }
 
 PassRefPtr<Element> HTMLConstructionSite::createHTMLElementFromSavedElement(Element* element)
@@ -415,7 +431,12 @@ PassRefPtr<Element> HTMLConstructionSite::createHTMLElementFromSavedElement(Elem
     // spec implies it should be "1".  Minefield matches the HTML5 spec here.
 
     ASSERT(element->isHTMLElement()); // otherwise localName() might be wrong.
-    AtomicHTMLToken fakeToken(HTMLToken::StartTag, element->localName(), cloneAttributes(element));
+
+    Vector<Attribute> clonedAttributes;
+    if (ElementAttributeData* attributeData = element->updatedAttributeData())
+        clonedAttributes = attributeData->clonedAttributeVector();
+
+    AtomicHTMLToken fakeToken(HTMLTokenTypes::StartTag, element->localName(), clonedAttributes);
     return createHTMLElement(fakeToken);
 }
 
@@ -447,7 +468,8 @@ void HTMLConstructionSite::reconstructTheActiveFormattingElements()
     for (; unopenEntryIndex < m_activeFormattingElements.size(); ++unopenEntryIndex) {
         HTMLFormattingElementList::Entry& unopenedEntry = m_activeFormattingElements.at(unopenEntryIndex);
         RefPtr<Element> reconstructed = createHTMLElementFromSavedElement(unopenedEntry.element());
-        m_openElements.push(attachToCurrent(reconstructed.release()));
+        attachLater(currentNode(), reconstructed);
+        m_openElements.push(reconstructed.release());
         unopenedEntry.replaceElement(currentElement());
     }
 }
@@ -464,23 +486,21 @@ void HTMLConstructionSite::generateImpliedEndTags()
         m_openElements.pop();
 }
 
-void HTMLConstructionSite::findFosterSite(AttachmentSite& site)
+void HTMLConstructionSite::findFosterSite(HTMLConstructionSiteTask& task)
 {
     HTMLElementStack::ElementRecord* lastTableElementRecord = m_openElements.topmost(tableTag.localName());
     if (lastTableElementRecord) {
         Element* lastTableElement = lastTableElementRecord->element();
         if (ContainerNode* parent = lastTableElement->parentNode()) {
-            site.parent = parent;
-            site.nextChild = lastTableElement;
+            task.parent = parent;
+            task.nextChild = lastTableElement;
             return;
         }
-        site.parent = lastTableElementRecord->next()->element();
-        site.nextChild = 0;
+        task.parent = lastTableElementRecord->next()->element();
         return;
     }
     // Fragment case
-    site.parent = m_openElements.rootNode(); // DocumentFragment
-    site.nextChild = 0;
+    task.parent = m_openElements.rootNode(); // DocumentFragment
 }
 
 bool HTMLConstructionSite::shouldFosterParent() const
@@ -490,11 +510,13 @@ bool HTMLConstructionSite::shouldFosterParent() const
         && causesFosterParenting(currentElement()->tagQName());
 }
 
-void HTMLConstructionSite::fosterParent(Node* node)
+void HTMLConstructionSite::fosterParent(PassRefPtr<Node> node)
 {
-    AttachmentSite site;
-    findFosterSite(site);
-    attachAtSite(site, node);
+    HTMLConstructionSiteTask task;
+    findFosterSite(task);
+    task.child = node;
+    ASSERT(task.parent);
+    m_attachmentQueue.append(task);
 }
 
 }

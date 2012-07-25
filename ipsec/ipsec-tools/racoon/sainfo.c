@@ -90,16 +90,16 @@ getsainfo(src, dst, peer, use_nat_addr)
 	if (use_nat_addr && lcconf->ext_nat_id == NULL)
 		return NULL;
 
-	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - src id:\n");
-	if (src != NULL)
-		plogdump(LLV_DEBUG2, src->v, src->l);
-	else
-		plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
-	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - dst id:\n");
-	if (dst != NULL)
-		plogdump(LLV_DEBUG2, dst->v, dst->l);
-	else
-		plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
+	//plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - src id:\n");
+	//if (src != NULL)
+	//	plogdump(LLV_DEBUG2, src->v, src->l);
+	//else
+	//	plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
+	//plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - dst id:\n");
+	//if (dst != NULL)
+	//	plogdump(LLV_DEBUG2, dst->v, dst->l);
+	//else
+	//	plog(LLV_DEBUG2, LOCATION, NULL, " anonymous\n");
 	if (peer == NULL)
 		pass = 2;
     again:
@@ -107,13 +107,13 @@ getsainfo(src, dst, peer, use_nat_addr)
 		if (s->to_delete || s->to_remove) {
 			continue;
 		}
-		if (s->idsrc != NULL) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id - src & dst:\n");
-			plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
-			plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
-		} else {
-			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id = anonymous\n");
-		}
+		//if (s->idsrc != NULL) {
+		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id - src & dst:\n");
+		//	plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
+		//	plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
+		//} else {
+		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id = anonymous\n");
+		//}
 		if (s->id_i != NULL) {
 			if (pass == 2)
 				continue;
@@ -180,13 +180,13 @@ getsainfo_by_dst_id(dst, peer)
 		if (s->to_delete || s->to_remove) {
 			continue;
 		}
-		if (s->idsrc != NULL) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id - src & dst:\n");
-			plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
-			plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
-		} else {
-			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id = anonymous\n");
-		}
+		//if (s->idsrc != NULL) {
+		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id - src & dst:\n");
+		//	plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
+		//	plogdump(LLV_DEBUG2, s->iddst->v, s->iddst->l);
+		//} else {
+		//	plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id = anonymous\n");
+		//}
 		if (s->id_i != NULL) {
 			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo_by_dst_id - sainfo id_i:\n");
 			plogdump(LLV_DEBUG2, s->id_i->v, s->id_i->l);

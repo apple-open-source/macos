@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/wcsrtombs.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,12 +36,18 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcsrtombs.c,v 1.6 2004/07/21 10:54:57 tj
 #include "mblocal.h"
 
 size_t
+wcsrtombs_l(char * __restrict dst, const wchar_t ** __restrict src, size_t len,
+    mbstate_t * __restrict ps, locale_t loc)
+{
+	NORMALIZE_LOCALE(loc);
+	if (ps == NULL)
+		ps = &loc->__mbs_wcsrtombs;
+	return (loc->__lc_ctype->__wcsnrtombs(dst, src, SIZE_T_MAX, len, ps, loc));
+}
+
+size_t
 wcsrtombs(char * __restrict dst, const wchar_t ** __restrict src, size_t len,
     mbstate_t * __restrict ps)
 {
-	static mbstate_t mbs;
-
-	if (ps == NULL)
-		ps = &mbs;
-	return (__wcsnrtombs(dst, src, SIZE_T_MAX, len, ps));
+	return wcsrtombs_l(dst, src, len, ps, __current_locale());
 }

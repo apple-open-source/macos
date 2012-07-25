@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Motorola Mobility Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,42 +30,84 @@
 
 #include "DOMURL.h"
 
+#include "ActiveDOMObject.h"
+#include "Blob.h"
+#include "BlobURL.h"
 #include "KURL.h"
+#include "MemoryCache.h"
+#include "PublicURLManager.h"
 #include "ScriptExecutionContext.h"
+#include "SecurityOrigin.h"
+#include "ThreadableBlobRegistry.h"
+#include <wtf/PassOwnPtr.h>
+#include <wtf/MainThread.h>
+
+#if ENABLE(MEDIA_STREAM)
+#include "MediaStream.h"
+#include "MediaStreamRegistry.h"
+#endif
 
 namespace WebCore {
 
-DOMURL::DOMURL(ScriptExecutionContext* scriptExecutionContext)
-    : m_scriptExecutionContext(scriptExecutionContext)
+#if ENABLE(MEDIA_STREAM)
+String DOMURL::createObjectURL(ScriptExecutionContext* scriptExecutionContext, MediaStream* stream)
 {
-    if (m_scriptExecutionContext)
-        m_scriptExecutionContext->createdDomUrl(this);
-}
-
-DOMURL::~DOMURL()
-{
-    if (m_scriptExecutionContext)
-        m_scriptExecutionContext->destroyedDomUrl(this);
-}
-
-void DOMURL::contextDestroyed()
-{
-    ASSERT(m_scriptExecutionContext);
-    m_scriptExecutionContext = 0;
-}
-
-String DOMURL::createObjectURL(Blob* blob)
-{
-    if (!m_scriptExecutionContext)
+    if (!scriptExecutionContext || !stream)
         return String();
-    return m_scriptExecutionContext->createPublicBlobURL(blob).string();
+
+    KURL publicURL = BlobURL::createPublicURL(scriptExecutionContext->securityOrigin());
+    if (publicURL.isEmpty())
+        return String();
+
+    // Since WebWorkers cannot obtain Stream objects, we should be on the main thread.
+    ASSERT(isMainThread());
+
+    MediaStreamRegistry::registry().registerMediaStreamURL(publicURL, stream);
+    scriptExecutionContext->publicURLManager().streamURLs().add(publicURL.string());
+
+    return publicURL.string();
+}
+#endif
+
+String DOMURL::createObjectURL(ScriptExecutionContext* scriptExecutionContext, Blob* blob)
+{
+    if (!scriptExecutionContext || !blob)
+        return String();
+
+    KURL publicURL = BlobURL::createPublicURL(scriptExecutionContext->securityOrigin());
+    if (publicURL.isEmpty())
+        return String();
+
+    ThreadableBlobRegistry::registerBlobURL(publicURL, blob->url());
+    scriptExecutionContext->publicURLManager().blobURLs().add(publicURL.string());
+
+    return publicURL.string();
 }
 
-void DOMURL::revokeObjectURL(const String& urlString)
+void DOMURL::revokeObjectURL(ScriptExecutionContext* scriptExecutionContext, const String& urlString)
 {
-    if (!m_scriptExecutionContext)
+    if (!scriptExecutionContext)
         return;
-    m_scriptExecutionContext->revokePublicBlobURL(KURL(KURL(), urlString));
+
+    MemoryCache::removeUrlFromCache(scriptExecutionContext, urlString);
+
+    KURL url(KURL(), urlString);
+    HashSet<String>& blobURLs = scriptExecutionContext->publicURLManager().blobURLs();
+    if (blobURLs.contains(url.string())) {
+        ThreadableBlobRegistry::unregisterBlobURL(url);
+        blobURLs.remove(url.string());
+    }
+
+#if ENABLE(MEDIA_STREAM)
+    HashSet<String>& streamURLs = scriptExecutionContext->publicURLManager().streamURLs();
+    if (streamURLs.contains(url.string())) {
+        // FIXME: make sure of this assertion below. Raise a spec question if required.
+        // Since WebWorkers cannot obtain Stream objects, we should be on the main thread.
+        ASSERT(isMainThread());
+        MediaStreamRegistry::registry().unregisterMediaStreamURL(url);
+        streamURLs.remove(url.string());
+    }
+#endif
 }
 
 } // namespace WebCore

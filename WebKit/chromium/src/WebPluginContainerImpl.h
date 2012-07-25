@@ -35,8 +35,12 @@
 #include "WebPluginContainer.h"
 #include "Widget.h"
 
+#include <public/WebExternalTextureLayer.h>
+#include <public/WebIOSurfaceLayer.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 struct NPObject;
 
@@ -46,14 +50,18 @@ class IntRect;
 class KeyboardEvent;
 class LayerChromium;
 class MouseEvent;
-class PluginLayerChromium;
 class ResourceError;
 class ResourceResponse;
 class WheelEvent;
+
+#if ENABLE(GESTURE_EVENTS)
+class PlatformGestureEvent;
+#endif
 }
 
 namespace WebKit {
 
+class ScrollbarGroup;
 class WebPlugin;
 class WebPluginLoadObserver;
 
@@ -63,6 +71,9 @@ public:
     {
         return adoptRef(new WebPluginContainerImpl(element, webPlugin));
     }
+
+    // PluginViewBase methods
+    virtual bool getFormValue(String&);
 
     // Widget methods
     virtual void setFrameRect(const WebCore::IntRect&);
@@ -85,12 +96,17 @@ public:
     virtual void scrollRect(int dx, int dy, const WebRect&);
     virtual void reportGeometry();
     virtual void setBackingTextureId(unsigned);
+    virtual void setBackingIOSurfaceId(int width,
+                                       int height,
+                                       uint32_t ioSurfaceId);
     virtual void commitBackingTexture();
     virtual void clearScriptObjects();
     virtual NPObject* scriptableObjectForElement();
     virtual WebString executeScriptURL(const WebURL&, bool popupsAllowed);
     virtual void loadFrameRequest(const WebURLRequest&, const WebString& target, bool notifyNeeded, void* notifyData);
     virtual void zoomLevelChanged(double zoomLevel);    
+    virtual void setOpaque(bool);
+    virtual bool isRectTopmost(const WebRect&);
 
     // This cannot be null.
     WebPlugin* plugin() { return m_webPlugin; }
@@ -101,6 +117,9 @@ public:
     // Whether the plugin supports its own paginated print. The other print
     // interface methods are called only if this method returns true.
     bool supportsPaginatedPrint() const;
+    // If the plugin content should not be scaled to the printable area of
+    // the page, then this method should return true.
+    bool isPrintScalingDisabled() const;
     // Sets up printing at the given print rect and printer DPI. printableArea
     // is in points (a point is 1/72 of an inch).Returns the number of pages to
     // be printed at these settings.
@@ -127,6 +146,13 @@ public:
     virtual WebCore::LayerChromium* platformLayer() const;
 #endif
 
+    ScrollbarGroup* scrollbarGroup();
+
+    void willStartLiveResize();
+    void willEndLiveResize();
+
+    bool paintCustomOverhangArea(WebCore::GraphicsContext*, const WebCore::IntRect&, const WebCore::IntRect&, const WebCore::IntRect&);
+
 private:
     WebPluginContainerImpl(WebCore::HTMLPlugInElement* element, WebPlugin* webPlugin);
     ~WebPluginContainerImpl();
@@ -148,8 +174,18 @@ private:
     Vector<WebPluginLoadObserver*> m_pluginLoadObservers;
 
 #if USE(ACCELERATED_COMPOSITING)
-    RefPtr<WebCore::PluginLayerChromium> m_platformLayer;
+    // A composited plugin will either have no composited layer, a texture layer, or an IOSurface layer.
+    // It will never have both a texture and IOSurface output.
+    unsigned m_textureId;
+    WebExternalTextureLayer m_textureLayer;
+
+    unsigned m_ioSurfaceId;
+    WebIOSurfaceLayer m_ioSurfaceLayer;
 #endif
+
+    // The associated scrollbar group object, created lazily. Used for Pepper
+    // scrollbars.
+    OwnPtr<ScrollbarGroup> m_scrollbarGroup;
 };
 
 } // namespace WebKit

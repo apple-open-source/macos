@@ -54,7 +54,15 @@ public:
     // LayerTypeRootLayer is used on some platforms. It has no backing store, so setNeedsDisplay
     // should not call CACFLayerSetNeedsDisplay, but rather just notify the renderer that it
     // has changed and should be re-rendered.
-    enum LayerType { LayerTypeLayer, LayerTypeWebLayer, LayerTypeTransformLayer, LayerTypeWebTiledLayer, LayerTypeRootLayer, LayerTypeCustom };
+    enum LayerType {
+        LayerTypeLayer,
+        LayerTypeWebLayer,
+        LayerTypeTransformLayer,
+        LayerTypeWebTiledLayer,
+        LayerTypeTileCacheLayer,
+        LayerTypeRootLayer,
+        LayerTypeCustom
+    };
     enum FilterType { Linear, Nearest, Trilinear };
 
     static PassRefPtr<PlatformCALayer> create(LayerType, PlatformCALayerClient*);
@@ -72,6 +80,9 @@ public:
     PlatformLayer* platformLayer() const;
 
     PlatformCALayer* rootLayer() const;
+    
+    // A list of sublayers that GraphicsLayerCA should maintain as the first sublayers.
+    const PlatformCALayerList* customSublayers() const { return m_customSublayers.get(); }
     
     static bool isValueFunctionSupported();
     
@@ -171,6 +182,11 @@ public:
 
     float opacity() const;
     void setOpacity(float);
+    
+#if ENABLE(CSS_FILTERS)
+    void setFilters(const FilterOperations&);
+    static bool filtersCanBeComposited(const FilterOperations&);
+#endif
 
     String name() const;
     void setName(const String&);
@@ -187,12 +203,18 @@ public:
     float contentsScale() const;
     void setContentsScale(float);
 
+    TiledBacking* tiledBacking();
+
 #if PLATFORM(WIN)
     HashMap<String, RefPtr<PlatformCAAnimation> >& animations() { return m_animations; }
 #endif
 
 #if PLATFORM(WIN) && !defined(NDEBUG)
     void printTree() const;
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    void synchronouslyDisplayTilesInRect(const FloatRect&);
 #endif
 
 protected:
@@ -202,6 +224,7 @@ private:
     PlatformCALayerClient* m_owner;
     LayerType m_layerType;
     
+    OwnPtr<PlatformCALayerList> m_customSublayers;
 #if PLATFORM(MAC) || PLATFORM(WIN)
     RetainPtr<PlatformLayer> m_layer;
 #endif

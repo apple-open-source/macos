@@ -58,6 +58,7 @@ enum fsck_msgtype {
     fsckMsgDamageInfo,      /* information about corrupt files/folders */
     fsckMsgInfo,            /* information about an error message or any fsck operation */
     fsckMsgProgress,        /* percentage progress of verify/repair operation */
+    fsckMsgNotice,	    /* A traditional notice that doesn't fall into other categories */
 };
 
 /* Type of parameter for fsck message string.  

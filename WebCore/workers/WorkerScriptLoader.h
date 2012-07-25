@@ -32,19 +32,28 @@
 
 #include "KURL.h"
 #include "ResourceRequest.h"
-#include "ResourceResponse.h"
-#include "TextResourceDecoder.h"
 #include "ThreadableLoader.h"
 #include "ThreadableLoaderClient.h"
 
+#include <wtf/FastAllocBase.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
+
 namespace WebCore {
 
+    class ResourceRequest;
+    class ResourceResponse;
     class ScriptExecutionContext;
+    class TextResourceDecoder;
     class WorkerScriptLoaderClient;
 
-    class WorkerScriptLoader : public ThreadableLoaderClient {
+    class WorkerScriptLoader : public RefCounted<WorkerScriptLoader>, public ThreadableLoaderClient {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
-        explicit WorkerScriptLoader(ResourceRequestBase::TargetType);
+        static PassRefPtr<WorkerScriptLoader> create()
+        {
+            return adoptRef(new WorkerScriptLoader());
+        }
 
         void loadSynchronously(ScriptExecutionContext*, const KURL&, CrossOriginRequestPolicy);
         void loadAsynchronously(ScriptExecutionContext*, const KURL&, CrossOriginRequestPolicy, WorkerScriptLoaderClient*);
@@ -57,14 +66,22 @@ namespace WebCore {
         bool failed() const { return m_failed; }
         unsigned long identifier() const { return m_identifier; }
 
-        virtual void didReceiveResponse(const ResourceResponse&);
+        virtual void didReceiveResponse(unsigned long /*identifier*/, const ResourceResponse&);
         virtual void didReceiveData(const char* data, int dataLength);
         virtual void didFinishLoading(unsigned long identifier, double);
         virtual void didFail(const ResourceError&);
         virtual void didFailRedirectCheck();
-        virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
+
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+        void setTargetType(ResourceRequest::TargetType targetType) { m_targetType = targetType; }
+#endif
 
     private:
+        friend class WTF::RefCounted<WorkerScriptLoader>;
+
+        WorkerScriptLoader();
+        ~WorkerScriptLoader();
+
         PassOwnPtr<ResourceRequest> createResourceRequest();
         void notifyFinished();
 
@@ -77,7 +94,10 @@ namespace WebCore {
         KURL m_responseURL;
         bool m_failed;
         unsigned long m_identifier;
-        ResourceRequestBase::TargetType m_targetType;
+        bool m_finishing;
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+        ResourceRequest::TargetType m_targetType;
+#endif
     };
 
 } // namespace WebCore

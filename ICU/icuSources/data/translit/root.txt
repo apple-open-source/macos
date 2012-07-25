@@ -1,12 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// *  Copyright (C) 2004-2010, International Business Machines
+// *  Copyright (C) 2004-2012, International Business Machines
 // *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 // *
 // ***************************************************************************
 // File: root.txt
 // Generated from CLDR 
-// Plus Apple addition for SoftbankSMS
+// Plus Apple addition for SoftbankSMS, az_Upper el_Upper lt_Upper tr_Upper,
+// and Simplified-Traditional/UniqueTraditionals
 //
 root {
     RuleBasedTransliteratorIDs {
@@ -776,6 +777,19 @@ root {
             }
         }
 
+        Latin-Bopomofo {
+            file {
+                resource:process(transliterator) {"Latin_Bopomofo.txt"}
+                direction {"FORWARD"}
+            }
+        }
+        Bopomofo-Latin {
+            file {
+                resource:process(transliterator) {"Latin_Bopomofo.txt"}
+                direction {"REVERSE"}
+            }
+        }
+
         Latin-ConjoiningJamo {
             internal {
                 resource:process(transliterator) {"Latin_ConjoiningJamo.txt"}
@@ -1111,6 +1125,13 @@ root {
             file {
                 resource:process(transliterator) {"Simplified_Traditional.txt"}
                 direction {"REVERSE"}
+            }
+        }
+
+        Simplified-Traditional/UniqueTraditionals {
+            file {
+                resource:process(transliterator) {"Simplified_Traditional_UniqueTraditionals.txt"}
+                direction {"FORWARD"}
             }
         }
 

@@ -33,7 +33,7 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32 _gsskrb5_process_context_token (
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_process_context_token (
 	OM_uint32          *minor_status,
 	const gss_ctx_id_t context_handle,
 	const gss_buffer_t token_buffer
@@ -52,7 +52,8 @@ OM_uint32 _gsskrb5_process_context_token (
 				       (gsskrb5_ctx)context_handle,
 				       context,
 				       token_buffer, &empty_buffer,
-				       GSS_C_QOP_DEFAULT, "\x01\x02");
+				       GSS_C_QOP_DEFAULT,
+				       "\x01\x02");
 
     if (ret == GSS_S_COMPLETE)
 	ret = _gsskrb5_delete_sec_context(minor_status,

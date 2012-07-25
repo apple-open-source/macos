@@ -144,19 +144,19 @@ getph1byindex0(index)
  */
 struct ph1handle *
 getph1byaddr(local, remote)
-	struct sockaddr *local, *remote;
+	struct sockaddr_storage *local, *remote;
 {
 	struct ph1handle *p;
 
 	plog(LLV_DEBUG2, LOCATION, NULL, "getph1byaddr: start\n");
-	plog(LLV_DEBUG2, LOCATION, NULL, "local: %s\n", saddr2str(local));
-	plog(LLV_DEBUG2, LOCATION, NULL, "remote: %s\n", saddr2str(remote));
+	plog(LLV_DEBUG2, LOCATION, NULL, "local: %s\n", saddr2str((struct sockaddr *)local));
+	plog(LLV_DEBUG2, LOCATION, NULL, "remote: %s\n", saddr2str((struct sockaddr *)remote));
 
 	LIST_FOREACH(p, &ph1tree, chain) {
 		if (p->status == PHASE1ST_EXPIRED)
 			continue;
-		plog(LLV_DEBUG2, LOCATION, NULL, "p->local: %s\n", saddr2str(p->local));
-		plog(LLV_DEBUG2, LOCATION, NULL, "p->remote: %s\n", saddr2str(p->remote));
+		plog(LLV_DEBUG2, LOCATION, NULL, "p->local: %s\n", saddr2str((struct sockaddr *)p->local));
+		plog(LLV_DEBUG2, LOCATION, NULL, "p->remote: %s\n", saddr2str((struct sockaddr *)p->remote));
 		if (CMPSADDR(local, p->local) == 0
 			&& CMPSADDR(remote, p->remote) == 0){
 			plog(LLV_DEBUG2, LOCATION, NULL, "matched\n");
@@ -171,7 +171,7 @@ getph1byaddr(local, remote)
 
 struct ph1handle *
 getph1byaddrwop(local, remote)
-	struct sockaddr *local, *remote;
+	struct sockaddr_storage *local, *remote;
 {
 	struct ph1handle *p;
 
@@ -193,7 +193,7 @@ getph1byaddrwop(local, remote)
  */
 struct ph1handle *
 getph1bydstaddrwop(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	struct ph1handle *p;
 
@@ -246,14 +246,14 @@ dumpph1()
 			"failed to get buffer\n");
 		return NULL;
 	}
-	pd = (struct ph1dump *)buf->v;
+	pd = ALIGNED_CAST(struct ph1dump *)buf->v;
 
 	LIST_FOREACH(iph1, &ph1tree, chain) {
 		memcpy(&pd->index, &iph1->index, sizeof(iph1->index));
 		pd->status = iph1->status;
 		pd->side = iph1->side;
-		memcpy(&pd->remote, iph1->remote, sysdep_sa_len(iph1->remote));
-		memcpy(&pd->local, iph1->local, sysdep_sa_len(iph1->local));
+		memcpy(&pd->remote, iph1->remote, sysdep_sa_len((struct sockaddr *)iph1->remote));
+		memcpy(&pd->local, iph1->local, sysdep_sa_len((struct sockaddr *)iph1->local));
 		pd->version = iph1->version;
 		pd->etype = iph1->etype;
 		pd->created = iph1->created;
@@ -542,7 +542,7 @@ getph2bymsgid(iph1, msgid)
 
 struct ph2handle *
 getph2byid(src, dst, spid)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	u_int32_t spid;
 {
 	struct ph2handle *p;
@@ -572,7 +572,7 @@ getph2byid(src, dst, spid)
 
 struct ph2handle *
 getph2bysaddr(src, dst)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 {
 	struct ph2handle *p;
 
@@ -590,7 +590,7 @@ getph2bysaddr(src, dst)
  */
 struct ph2handle *
 getph2bysaidx(src, dst, proto_id, spi)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	u_int proto_id;
 	u_int32_t spi;
 {
@@ -672,7 +672,7 @@ initph2(iph2)
 
 	/* clear the generated policy */
 	if (iph2->spidx_gen) {
-		delsp_bothdir((struct policyindex *)iph2->spidx_gen);
+		delsp_bothdir(iph2->spidx_gen);
 		racoon_free(iph2->spidx_gen);
 		iph2->spidx_gen = NULL;
 	}
@@ -823,7 +823,7 @@ flushph2(int ignore_estab_or_assert_handles)
  */
 void
 deleteallph2(src, dst, proto_id)
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	u_int proto_id;
 {
 	struct ph2handle *iph2, *next;
@@ -872,7 +872,7 @@ deleteallph2(src, dst, proto_id)
  */
 void
 deleteallph1(src, dst)
-struct sockaddr *src, *dst;
+struct sockaddr_storage *src, *dst;
 {
 	struct ph1handle *iph1, *next;
 
@@ -949,7 +949,7 @@ struct ph2handle *iph2;
  */
 struct contacted *
 getcontacted(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	struct contacted *p;
 
@@ -966,7 +966,7 @@ getcontacted(remote)
  */
 int
 inscontacted(remote)
-	struct sockaddr *remote;
+	struct sockaddr_storage *remote;
 {
 	struct contacted *new;
 
@@ -975,7 +975,7 @@ inscontacted(remote)
 	if (new == NULL)
 		return -1;
 
-	new->remote = dupsaddr(remote);
+	new->remote = dupsaddr((struct sockaddr *)remote);
 	if (new->remote == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to allocate buffer.\n");
@@ -1030,7 +1030,7 @@ get_exp_retx_interval (int num_retries, int fixed_retry_interval)
  */
 int
 check_recvdpkt(remote, local, rbuf)
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 	vchar_t *rbuf;
 {
 	vchar_t *hash;
@@ -1075,12 +1075,12 @@ check_recvdpkt(remote, local, rbuf)
 	if (t - r->time_send < 1) {
 		plog(LLV_WARNING, LOCATION, NULL,
 			"the packet retransmitted in a short time from %s\n",
-			saddr2str(remote));
+			saddr2str((struct sockaddr *)remote));
 		/*XXX should it be error ? */
 	}
 
 	/* select the socket to be sent */
-	s = getsockmyaddr(r->local);
+	s = getsockmyaddr((struct sockaddr *)r->local);
 	if (s == -1)
 		return -1;
 
@@ -1123,7 +1123,7 @@ check_recvdpkt(remote, local, rbuf)
 		del_recvdpkt(r);
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"deleted the retransmission packet to %s.\n",
-			saddr2str(remote));
+			saddr2str((struct sockaddr *)remote));
 	} else {
 		r->time_send = t;
 		r->retry_interval = get_exp_retx_interval((lcconf->retry_counter - r->retry_counter),
@@ -1138,7 +1138,7 @@ check_recvdpkt(remote, local, rbuf)
  */
 int
 add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 	vchar_t *sbuf, *rbuf;
     size_t non_esp;
     u_int32_t frag_flags;
@@ -1164,14 +1164,14 @@ add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
 		del_recvdpkt(new);
 		return -1;
 	}
-	new->remote = dupsaddr(remote);
+	new->remote = dupsaddr((struct sockaddr *)remote);
 	if (new->remote == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to allocate buffer.\n");
 		del_recvdpkt(new);
 		return -1;
 	}
-	new->local = dupsaddr(local);
+	new->local = dupsaddr((struct sockaddr *)local);
 	if (new->local == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to allocate buffer.\n");
@@ -1191,7 +1191,7 @@ add_recvdpkt(remote, local, sbuf, rbuf, non_esp, frag_flags)
             del_recvdpkt(new);
             return -1;
         }
-        *(u_int32_t *)new->sendbuf->v = 0;
+        *ALIGNED_CAST(u_int32_t *)new->sendbuf->v = 0;
         memcpy(new->sendbuf->v + non_esp, sbuf->v, sbuf->l);
     } else {
         new->sendbuf = vdup(sbuf);
@@ -1296,7 +1296,7 @@ init_recvdpkt()
  */
 int
 exclude_cfg_addr(addr)
-	const struct sockaddr *addr;
+	const struct sockaddr_storage *addr;
 {
 	struct ph1handle *p;
 	struct sockaddr_in *sin;
@@ -1304,7 +1304,7 @@ exclude_cfg_addr(addr)
 	LIST_FOREACH(p, &ph1tree, chain) {
 		if ((p->mode_cfg != NULL) &&
 		    (p->mode_cfg->flags & ISAKMP_CFG_GOT_ADDR4) &&
-		    (addr->sa_family == AF_INET)) {
+		    (addr->ss_family == AF_INET)) {
 			sin = (struct sockaddr_in *)addr;
 			if (sin->sin_addr.s_addr == p->mode_cfg->addr4.s_addr)
 				return 0;
@@ -1355,28 +1355,30 @@ purgeph1bylogin(login)
 
 int
 purgephXbydstaddrwop(remote)
-struct sockaddr *remote;
+struct sockaddr_storage *remote;
 {
 	int    found = 0;
 	struct ph1handle *p;
 	struct ph2handle *p2;
 
 	LIST_FOREACH(p2, &ph2tree, chain) {
+		if (p2->is_dying || p2->status == PHASE2ST_EXPIRED) {
+			continue;
+		}
 		if (cmpsaddrwop(remote, p2->dst) == 0) {
             plog(LLV_WARNING, LOCATION, NULL,
                  "in %s... purging phase2s\n", __FUNCTION__);
 			if (p2->status == PHASE2ST_ESTABLISHED)
 				isakmp_info_send_d2(p2);
-			if (p2->status < PHASE2ST_EXPIRED) {
-				isakmp_ph2expire(p2);
-			} else {
-				isakmp_ph2delete(p2);
-			}
+			isakmp_ph2expire(p2);
 			found++;
 		}
 	}
 
 	LIST_FOREACH(p, &ph1tree, chain) {
+		if (p->is_dying || p->status == PHASE1ST_EXPIRED) {
+			continue;
+		}
 		if (cmpsaddrwop(remote, p->remote) == 0) {
             plog(LLV_WARNING, LOCATION, NULL,
                  "in %s... purging phase1 and related phase2s\n", __FUNCTION__);
@@ -1435,7 +1437,7 @@ purgephXbyspid(u_int32_t spid,
 
 #ifdef ENABLE_DPD
 int
-ph1_force_dpd (struct sockaddr *remote)
+ph1_force_dpd (struct sockaddr_storage *remote)
 {
     int status = -1;
     struct ph1handle *p;

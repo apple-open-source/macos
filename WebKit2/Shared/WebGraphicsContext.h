@@ -32,8 +32,8 @@
 
 #if USE(CG)
 #include <wtf/RetainPtr.h>
-#elif PLATFORM(GTK)
-#include "RefPtrCairo.h"
+#elif USE(CAIRO)
+#include <WebCore/RefPtrCairo.h>
 #endif
 
 namespace WebKit {
@@ -49,7 +49,7 @@ public:
 
 #if USE(CG)
     CGContextRef platformContext() { return m_platformContext.get(); }
-#elif PLATFORM(GTK)
+#elif USE(CAIRO)
     cairo_t* platformContext() { return m_platformContext.get(); }
 #endif
 
@@ -61,7 +61,7 @@ private:
 
 #if USE(CG)
     RetainPtr<CGContextRef> m_platformContext;
-#elif PLATFORM(GTK)
+#elif USE(CAIRO)
     RefPtr<cairo_t> m_platformContext;
 #endif
 };

@@ -53,7 +53,6 @@ inline bool isNumberedHeaderElement(ContainerNode* node)
 inline bool isRootNode(ContainerNode* node)
 {
     return node->nodeType() == Node::DOCUMENT_FRAGMENT_NODE
-        || node->nodeType() == Node::SHADOW_ROOT_NODE
         || node->hasTagName(htmlTag);
 }
 
@@ -107,14 +106,8 @@ inline bool isTableRowScopeMarker(ContainerNode* node)
 
 inline bool isForeignContentScopeMarker(ContainerNode* node)
 {
-    return node->hasTagName(MathMLNames::miTag)
-        || node->hasTagName(MathMLNames::moTag)
-        || node->hasTagName(MathMLNames::mnTag)
-        || node->hasTagName(MathMLNames::msTag)
-        || node->hasTagName(MathMLNames::mtextTag)
-        || node->hasTagName(SVGNames::foreignObjectTag)
-        || node->hasTagName(SVGNames::descTag)
-        || node->hasTagName(SVGNames::titleTag)
+    return HTMLElementStack::isMathMLTextIntegrationPoint(node)
+        || HTMLElementStack::isHTMLIntegrationPoint(node)
         || isInHTMLNamespace(node);
 }
 
@@ -164,6 +157,7 @@ HTMLElementStack::HTMLElementStack()
     : m_rootNode(0)
     , m_headElement(0)
     , m_bodyElement(0)
+    , m_stackDepth(0)
 {
 }
 
@@ -207,6 +201,7 @@ void HTMLElementStack::popAll()
     m_rootNode = 0;
     m_headElement = 0;
     m_bodyElement = 0;
+    m_stackDepth = 0;
     while (m_top) {
         topNode()->finishParsingChildren();
         m_top = m_top->releaseNext();
@@ -274,6 +269,38 @@ void HTMLElementStack::popUntilTableRowScopeMarker()
         pop();
 }
 
+// http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#mathml-text-integration-point
+bool HTMLElementStack::isMathMLTextIntegrationPoint(ContainerNode* node)
+{
+    if (!node->isElementNode())
+        return false;
+    Element* element = static_cast<Element*>(node);
+    return element->hasTagName(MathMLNames::miTag)
+        || element->hasTagName(MathMLNames::moTag)
+        || element->hasTagName(MathMLNames::mnTag)
+        || element->hasTagName(MathMLNames::msTag)
+        || element->hasTagName(MathMLNames::mtextTag);
+}
+
+// http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#html-integration-point
+bool HTMLElementStack::isHTMLIntegrationPoint(ContainerNode* node)
+{
+    if (!node->isElementNode())
+        return false;
+    Element* element = static_cast<Element*>(node);
+    if (element->hasTagName(MathMLNames::annotation_xmlTag)) {
+        // FIXME: Technically we shouldn't read back from the DOM here.
+        // Instead, we're supposed to track this information in the element
+        // stack, which lets the parser run on its own thread.
+        String encoding = element->fastGetAttribute(MathMLNames::encodingAttr);
+        return equalIgnoringCase(encoding, "text/html")
+            || equalIgnoringCase(encoding, "application/xhtml+xml");
+    }
+    return element->hasTagName(SVGNames::foreignObjectTag)
+        || element->hasTagName(SVGNames::descTag)
+        || element->hasTagName(SVGNames::titleTag);
+}
+
 void HTMLElementStack::popUntilForeignContentScopeMarker()
 {
     while (!isForeignContentScopeMarker(topNode()))
@@ -282,7 +309,7 @@ void HTMLElementStack::popUntilForeignContentScopeMarker()
     
 void HTMLElementStack::pushRootNode(PassRefPtr<ContainerNode> rootNode)
 {
-    ASSERT(rootNode->nodeType() == Node::DOCUMENT_FRAGMENT_NODE || rootNode->nodeType() == Node::SHADOW_ROOT_NODE);
+    ASSERT(rootNode->nodeType() == Node::DOCUMENT_FRAGMENT_NODE);
     pushRootNodeCommon(rootNode);
 }
 
@@ -343,6 +370,7 @@ void HTMLElementStack::insertAbove(PassRefPtr<Element> element, ElementRecord* r
         if (recordAbove->next() != recordBelow)
             continue;
 
+        m_stackDepth++;
         recordAbove->setNext(adoptPtr(new ElementRecord(element, recordAbove->releaseNext())));
         recordAbove->next()->element()->beginParsingChildren();
         return;
@@ -358,10 +386,12 @@ HTMLElementStack::ElementRecord* HTMLElementStack::topRecord() const
 
 Element* HTMLElementStack::oneBelowTop() const
 {
-    // We should never be calling this if it could be 0.
+    // We should never call this if there are fewer than 2 elements on the stack.
     ASSERT(m_top);
     ASSERT(m_top->next());
-    return m_top->next()->element();
+    if (m_top->next()->node()->isElementNode())
+        return m_top->next()->element();
+    return 0;
 }
 
 Element* HTMLElementStack::bottom() const
@@ -553,8 +583,9 @@ ContainerNode* HTMLElementStack::rootNode() const
 void HTMLElementStack::pushCommon(PassRefPtr<ContainerNode> node)
 {
     ASSERT(m_rootNode);
+
+    m_stackDepth++;
     m_top = adoptPtr(new ElementRecord(node, m_top.release()));
-    topNode()->beginParsingChildren();
 }
 
 void HTMLElementStack::popCommon()
@@ -564,6 +595,8 @@ void HTMLElementStack::popCommon()
     ASSERT(!top()->hasTagName(HTMLNames::bodyTag) || !m_bodyElement);
     top()->finishParsingChildren();
     m_top = m_top->releaseNext();
+
+    m_stackDepth--;
 }
 
 void HTMLElementStack::removeNonTopCommon(Element* element)
@@ -577,6 +610,7 @@ void HTMLElementStack::removeNonTopCommon(Element* element)
             // when the children aren't actually finished?
             element->finishParsingChildren();
             pos->setNext(pos->next()->releaseNext());
+            m_stackDepth--;
             return;
         }
     }

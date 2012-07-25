@@ -53,9 +53,9 @@ static getarg_strings policy_libraries = { 0, NULL };
 
 static struct getargs args[] = {
     {	"principal", 	'p',	arg_string,	&client_name,
-	"principal to authenticate as" },
+	"principal to authenticate as", NULL },
     {   "keytab",	'K',	arg_string,	&keytab,
-   	"keytab for authentication principal" },
+   	"keytab for authentication principal", NULL },
     {
 	"config-file",	'c',	arg_string,	&config_file,
 	"location of config file",	"file"
@@ -64,15 +64,15 @@ static struct getargs args[] = {
 	"key-file",	'k',	arg_string, &keyfile,
 	"location of master key file", "file"
     },
-    {	
+    {
 	"realm",	'r',	arg_string,   &realm,
 	"realm to use", "realm"
     },
-    {	
+    {
 	"admin-server",	'a',	arg_string,   &admin_server,
 	"server to contact", "host"
     },
-    {	
+    {
 	"server-port",	's',	arg_integer,   &server_port,
 	"port to use", "port number"
     },
@@ -86,9 +86,9 @@ static struct getargs args[] = {
     { "policy-libraries", 0, arg_strings, &policy_libraries,
       "password check function to load", "function" },
 #endif
-    {	"local", 'l', arg_flag, &local_flag, "local admin mode" },
-    {	"help",		'h',	arg_flag,   &help_flag },
-    {	"version",	'v',	arg_flag,   &version_flag }
+    {	"local", 'l', arg_flag, &local_flag, "local admin mode", NULL },
+    {	"help",		'h',	arg_flag,   &help_flag, NULL, NULL },
+    {	"version",	'v',	arg_flag,   &version_flag, NULL, NULL }
 };
 
 static int num_args = sizeof(args) / sizeof(args[0]);
@@ -111,6 +111,18 @@ exit_kadmin (void *opt, int argc, char **argv)
 {
     exit_seen = 1;
     return 0;
+}
+
+int
+lock(void *opt, int argc, char **argv)
+{
+    return kadm5_lock(kadm_handle);
+}
+
+int
+unlock(void *opt, int argc, char **argv)
+{
+    return kadm5_unlock(kadm_handle);
 }
 
 static void
@@ -212,7 +224,7 @@ main(int argc, char **argv)
 
 	kadm5_setup_passwd_quality_check (context,
 					  check_library, check_function);
-	
+
 	for (i = 0; i < policy_libraries.num_strings; i++) {
 	    ret = kadm5_add_passwd_quality_verifier(context,
 						    policy_libraries.strings[i]);
@@ -222,7 +234,7 @@ main(int argc, char **argv)
 	ret = kadm5_add_passwd_quality_verifier(context, NULL);
 	if (ret)
 	    krb5_err(context, 1, ret, "kadm5_add_passwd_quality_verifier");
-	
+
 	ret = kadm5_s_init_with_password_ctx(context,
 					     KADM5_ADMIN_SERVICE,
 					     NULL,

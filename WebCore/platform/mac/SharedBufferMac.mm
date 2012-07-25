@@ -48,7 +48,11 @@ using namespace WebCore;
 + (void)initialize
 {
     JSC::initializeThreading();
+#if PLATFORM(QT) && USE(QTKIT)
+    WTF::initializeMainThread();
+#else
     WTF::initializeMainThreadToProcessMainThread();
+#endif
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -106,9 +110,9 @@ CFDataRef SharedBuffer::createCFData()
         return m_cfData.get();
     }
     
-    return (CFDataRef)RetainPtr<WebCoreSharedBufferData>(AdoptNS, [[WebCoreSharedBufferData alloc] initWithSharedBuffer:this]).releaseRef();
+    return (CFDataRef)RetainPtr<WebCoreSharedBufferData>(AdoptNS, [[WebCoreSharedBufferData alloc] initWithSharedBuffer:this]).leakRef();
 }
-
+#if !(PLATFORM(QT) && USE(QTKIT))
 PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
 {
     NSData *resourceData = [NSData dataWithContentsOfFile:filePath];
@@ -116,6 +120,6 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& fi
         return SharedBuffer::wrapNSData(resourceData);
     return 0;
 }
-
+#endif
 }
 

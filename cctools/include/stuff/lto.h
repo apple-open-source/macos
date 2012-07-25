@@ -1,14 +1,15 @@
 #ifndef _STUFF_LTO_H_
 #define _STUFF_LTO_H_
 
+#include "stuff/arch.h"
+
 #ifdef LTO_SUPPORT
 
-#include "stuff/ofile.h"
-
-__private_extern__ int is_llvm_bitcode(
-    struct ofile *ofile,
+__private_extern__ int is_llvm_bitcode_from_memory(
     char *addr,
-    size_t size);
+    uint32_t size,
+    struct arch_flag *arch_flag,
+    void **mod); /* maybe NULL */
 
 __private_extern__ uint32_t lto_get_nsyms(
     void *mod);

@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGAnimatedNumberList {
+    interface [
+        Conditional=SVG
+    ] SVGAnimatedNumberList {
         readonly attribute SVGNumberList baseVal;
         readonly attribute SVGNumberList animVal;
     };

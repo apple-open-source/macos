@@ -44,7 +44,7 @@ verify_mic_des
             const gss_buffer_t token_buffer,
             gss_qop_t * qop_state,
 	    krb5_keyblock *key,
-	    char *type
+	    const char *type
 	    )
 {
   u_char *p;
@@ -146,7 +146,7 @@ verify_mic_des3
             const gss_buffer_t token_buffer,
             gss_qop_t * qop_state,
 	    krb5_keyblock *key,
-	    char *type
+	    const char *type
 	    )
 {
   u_char *p;
@@ -290,7 +290,7 @@ _gsskrb5_verify_mic_internal
             const gss_buffer_t message_buffer,
             const gss_buffer_t token_buffer,
             gss_qop_t * qop_state,
-	    char * type
+	    const char * type
 	    )
 {
     krb5_keyblock *key;
@@ -312,30 +312,34 @@ _gsskrb5_verify_mic_internal
 
     switch (key->keytype) {
 #ifdef HEIM_KRB5_DES
-    case ETYPE_DES_CBC_CRC:
-    case ETYPE_DES_CBC_MD4:
-    case ETYPE_DES_CBC_MD5:
+    case KRB5_ENCTYPE_DES_CBC_CRC :
+    case KRB5_ENCTYPE_DES_CBC_MD4 :
+    case KRB5_ENCTYPE_DES_CBC_MD5 :
 	ret = verify_mic_des (minor_status, ctx, context,
 			      message_buffer, token_buffer, qop_state, key,
 			      type);
 	break;
 #endif
+
 #ifdef HEIM_KRB5_DES3
-    case ETYPE_DES3_CBC_SHA1:
+    case KRB5_ENCTYPE_DES3_CBC_MD5 :
+    case KRB5_ENCTYPE_DES3_CBC_SHA1 :
 	ret = verify_mic_des3 (minor_status, ctx, context,
 			       message_buffer, token_buffer, qop_state, key,
 			       type);
 	break;
 #endif
+
 #ifdef HEIM_KRB5_ARCFOUR
-    case ETYPE_ARCFOUR_HMAC_MD5:
-    case ETYPE_ARCFOUR_HMAC_MD5_56:
+    case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5:
+    case KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56:
 	ret = _gssapi_verify_mic_arcfour (minor_status, ctx,
 					  context,
 					  message_buffer, token_buffer,
 					  qop_state, key, type);
 	break;
 #endif
+
     default :
 	ret = GSS_S_FAILURE;
 	break;
@@ -345,7 +349,7 @@ _gsskrb5_verify_mic_internal
     return ret;
 }
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_verify_mic
            (OM_uint32 * minor_status,
             const gss_ctx_id_t context_handle,
@@ -366,7 +370,7 @@ _gsskrb5_verify_mic
 				       (gsskrb5_ctx)context_handle,
 				       context,
 				       message_buffer, token_buffer,
-				       qop_state, "\x01\x01");
+				       qop_state, (void *)(intptr_t)"\x01\x01");
 
     return ret;
 }

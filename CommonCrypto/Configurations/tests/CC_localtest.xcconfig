@@ -1,0 +1,13 @@
+//
+//  CommonCrypto_unittest_base.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+//
+
+ARCHS = $(NATIVE_ARCH) $(ARCHS_STANDARD_64_BIT) arm
+GCC_OPTIMIZATION_LEVEL = 0
+GCC_PREPROCESSOR_DEFINITIONS = _FORTIFY_SOURCE=2 DEBUG
+COPY_PHASE_STRIP = NO
+WARNING_CFLAGS = -Wall

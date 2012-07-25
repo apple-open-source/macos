@@ -56,7 +56,7 @@ argument
 specifies the size of the
 .Fa name
 array.
-The returned name is null-terminated unless insufficient space is provided.
+The returned name is null-terminated, unless insufficient space is provided.
 .Pp
 The
 .Fn sethostname
@@ -68,8 +68,8 @@ which has length
 This call is restricted to the super-user and
 is normally used only when the system is bootstrapped.
 .Pp
-Host names are limited to
-.Brq Dv HOST_NAME_MAX
+Host names are limited in length to
+.Brq Dv sysconf(_SC_HOST_NAME_MAX)
 characters, not including the trailing null, currently 255.
 .Sh RETURN VALUES
 .Rv -std
@@ -101,7 +101,7 @@ The
 function conforms to
 .St -p1003.1-2001 .
 Callers should be aware that
-.Brq Dv HOST_NAME_MAX
+.Brq Dv sysconf(_SC_HOST_NAME_MAX)
 may be variable or infinite, but is guaranteed to be no less than
 .Brq Dv _POSIX_HOST_NAME_MAX .
 On older systems, this limit was defined in the non-standard header

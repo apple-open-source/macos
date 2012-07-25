@@ -2,11 +2,13 @@
  * ksh makefile
  */
 
-SH = ksh		/* name of the shell program */
+SH := $(PWD:B:/[0-9]*$//:N=ksh*:-ksh)		/* name of the shell program */
 VERSION = 1.1
 LICENSE = since=1982,author=dgk
 CATALOG = libshell
 ERROR_CONTEXT_T == Error_context_t /* workaround until switch from errorpush()/errorpop() => errorctx() */
+RELEASE := $(SH:/.*sh//)
+SHCOMP := shcomp$(RELEASE)
 
 /*
  * set these variables to 1 to enable, 0 to disable, null to probe
@@ -18,14 +20,18 @@ SHOPT_ACCTFILE ==  		/* per user accounting info */
 SHOPT_AUDIT ==
 SHOPT_AUDITFILE == "/etc/ksh_audit"  		/* auditing file */
 SHOPT_BASH ==			/* bash compatibility code */
+SHOPT_BGX == 1			/* one SIGCHLD trap per completed job */
 SHOPT_BRACEPAT == 1		/* C-shell {...,...} expansions (, required) */
 SHOPT_CMDLIB_HDR ==		/* -lcmd builtin list: <cmdlist.h> */
 SHOPT_CMDLIB_DIR ==		/* SHOPT_CMDLIB_HDR prefix SH_CMDLIB_DIR + <cmdlist.h> */
+SHOPT_COSHELL == 1		/* build with connection to coshell */
 SHOPT_CRNL ==			/* accept <cr><nl> for <nl> */
 SHOPT_DYNAMIC == 1		/* dynamic loading for builtins */
 SHOPT_ECHOPRINT ==		/* make echo equivalent to print */
+SHOPT_EDPREDICT == 1		/* predictive editing  */
 SHOPT_ESH == 1			/* emacs/gmacs edit mode */
 SHOPT_FILESCAN == 1		/* fast file scan */
+SHOPT_FIXEDARRAY == 1		/* fixed dimension indexed array */
 SHOPT_FS_3D == 			/* 3d file system */
 SHOPT_HISTEXPAND == 1		/* csh-style history file expansions */
 SHOPT_KIA == 1			/* shell information database generation */
@@ -36,12 +42,15 @@ SHOPT_OPTIMIZE == 1		/* optimize loop invariants */
 SHOPT_PFSH == 1			/* solaris exec_attr(4) profile execution */
 SHOPT_P_SUID ==			/* real uid's that require -p for set[ug]id */
 SHOPT_RAWONLY == 1		/* make viraw the only vi mode */
+SHOPT_REGRESS ==		/* enable __regress__ builtin and instrumented intercepts for testing */
 SHOPT_REMOTE ==			/* enable --rc if running as a remote shell */
 SHOPT_SEVENBIT ==		/* strip the eigth bit from characters */
 SHOPT_SPAWN ==			/* use spawnveg for fork/exec */
+SHOPT_STATS ==	1		/* add .sh.stats variable */
 SHOPT_SUID_EXEC == 1		/* allow (safe) suid/sgid shell scripts */
 SHOPT_SYSRC ==			/* attempt . /etc/ksh.kshrc if interactive */
 SHOPT_TIMEOUT ==		/* number of seconds for shell timeout */
+SHOPT_TYPEDEF == 1		/* enable typeset type definitions */
 SHOPT_VSH == 1			/* vi edit mode */
 
 if CC.HOSTTYPE == "linux.alpha"
@@ -53,9 +62,9 @@ if CC.HOSTTYPE == "*.s390-64"
 	CC.DLL = $(CC.DLLBIG)
 end
 
-if SHOPT_DYNAMIC && ( "$(CC.DIALECT:N=EXPORT=DLL)" || "$(PACKAGE_OPTIMIZE:N=space)" )
-	CCFLAGS += $$(CC.DLL)
-	LIBS_req = -lshell
+if SHOPT_DYNAMIC && ( "$(CC.DIALECT:N=EXPORT=DLL)" || "$(PACKAGE_OPTIONS:N=optimize-space)" )
+	CCFLAGS += $$(CC.DLL) $$(CC.SUFFIX.DEBUG:+$$(CC.DEBUG))
+	LIBS_req = -lshell$(RELEASE)
 else
 	if VARIANT
 		SHOPT_DYNAMIC = 1
@@ -65,16 +74,16 @@ else
 	if SHOPT_DYNAMIC
 		CCLDFLAGS += $$(CC.EXPORT.DYNAMIC)
 	end
-	LIBS_req = +lshell
+	LIBS_req = +lshell$(RELEASE)
 end
 
-:PACKAGE: ast$(libtype) --clobber=!($(SH))
+:PACKAGE: ast$(libtype):20100309 order:coshell --clobber=!($(SH))
 
 .SOURCE : edit sh bltins data tests fun
 .SOURCE.h : include 
 
 /* documentation files */
-DOCFILES = sh.memo builtins.mm README RELEASE PROMO.mm COMPATIBILITY \
+DOCFILES = sh.memo builtins.mm README RELEASE TYPES PROMO.mm COMPATIBILITY \
 		DESIGN OBSOLETE RELEASE93 RELEASE88
 
 KSHELL == 1			/* this is ksh */
@@ -110,7 +119,7 @@ if CC.HOSTTYPE == "linux.sparc*"
 	/* the linux.sparc linker still has some problems */
 	LIBS_opt += -ldll
 end
-LIBS_opt += -lsecdb -ldl
+LIBS_opt += -lsecdb
 if CC.HOSTTYPE == "sol.*"
 	LIBS_opt += +lw
 end
@@ -139,24 +148,24 @@ if SHOPT_X
 	LDFLAGS += -u _XtAppInitialize -L/usr/add-on/X11/lib
 end
 
-:ALL: $(SH) shcomp $(SHOPT_SUID_EXEC:+suid_exec) $(SHOPT_BASH:+bash)
+:ALL: $(SH) $(SHCOMP) $(SHOPT_SUID_EXEC:+suid_exec) $(SHOPT_BASH:+bash$(RELEASE))
 
 $(SH) :: sh.1 pmain.c $(LIBS_req)
 
 DATAFILES = limits.c msg.c strdata.c testops.c keywords.c options.c \
                  signals.c aliases.c builtins.c variables.c lexstates.c
 
-shell $(VERSION) :LIBRARY: shell.3 nval.3 alarm.c cd_pwd.c cflow.c deparse.c \
-	getopts.c hist.c misc.c print.c read.c sleep.c trap.c test.c \
-	typeset.c ulimit.c umask.c whence.c main.c nvdisc.c \
-	arith.c args.c array.c completion.c defs.c edit.c expand.c \
+shell$(RELEASE) $(VERSION) id=shell :LIBRARY: shell.3 nval.3 alarm.c cd_pwd.c cflow.c deparse.c \
+	enum.c getopts.c hist.c misc.c print.c read.c sleep.c trap.c test.c \
+	typeset.c ulimit.c umask.c whence.c main.c nvdisc.c nvtype.c \
+	arith.c args.c array.c completion.c defs.c edit.c expand.c regress.c \
 	fault.c fcin.c history.c init.c io.c jobs.c lex.c macro.c name.c \
 	nvtree.c parse.c path.c string.c streval.c subshell.c tdump.c timers.c \
 	trestore.c waitevent.c xec.c env.c $(DATAFILES) $(FILES_opt) \
-	-lcmd -last -lm
+	$(SHOPT_COSHELL:+-lcoshell) -lcmd -last -lm
 
-"sol*.i386*" :NOOPTIMIZE: main.c
-"win32*" :NOOPTIMIZE: trestore.c
+"sol*.i386*"	:NOOPTIMIZE: main.c
+"win32*"	:NOOPTIMIZE: strdata.c trestore.c
 
 if CC.HOSTTYPE == "win32*"
 :DLL: $(CC.DEBUG)
@@ -170,32 +179,44 @@ $(INCLUDEDIR) :INSTALLPROTO: nval.h shell.h history.h
 
 LIBCMD = $(.LIB.NAME. cmd:T=F)
 
+if SHOPT_SUID_EXEC && ! "$(RELEASE)"
 suid_exec ::	CC.DLL= suid_exec.c +last
+end
 
-shcomp	::	CC.DLL= SH_DICT='"libshell"' shcomp.c $(LIBS_req)
+$(SHCOMP) ::	CC.DLL= SH_DICT='"libshell"' shcomp.c $(LIBS_req)
 
 $(FUNDIR) :INSTALLDIR: mode=+x dirs popd pushd
 
 shcomp.o : _BLD_DLL= $(CC.HOSTTYPE:N=cygwin.*:??_BLD_shell=?)
 
 if SHOPT_BASH
-bash :LINK: $(SH)
+
+bash$(RELEASE) :LINK: $(SH)
 
 bash_pre_rc.c : bash_pre_rc.sh
 	echo "const char bash_pre_rc[] = " > $(<)
 	sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/'"'"'/\\'"'"'/g' -e 's/^[[:space:]]*\(.*\)$/\"\1\\n\"/' $(*) >> $(<)
 	echo ";" >> $(<)
+
 end
 
 :: math.tab syscall.s mamexec mamstate.c $(DOCFILES) \
-	bash.c bash_pre_rc.sh hexpand.c mkservice.c
+	bash.c bash_pre_rc.sh hexpand.c mkservice.c \
+	shopen.mk shopen.c
 
 :: shtests \
-	alias.sh append.sh arith.sh arrays.sh arrays2.sh attributes.sh \
-	basic.sh bracket.sh builtins.sh case.sh comvar.sh coprocess.sh \
-	exit.sh expand.sh functions.sh glob.sh grep.sh heredoc.sh io.sh \
-	nameref.sh options.sh path.sh quoting.sh quoting2.sh restricted.sh \
-	return.sh select.sh substring.sh tilde.sh variables.sh 
+	alias.sh append.sh arith.sh arrays.sh arrays2.sh \
+	attributes.sh basic.sh bracket.sh builtins.sh case.sh \
+	comvar.sh coprocess.sh cubetype.sh enum.sh exit.sh \
+	expand.sh functions.sh glob.sh grep.sh heredoc.sh io.sh \
+	leaks.sh locale.sh math.sh nameref.sh options.sh path.sh \
+	pointtype.sh pty.sh quoting.sh quoting2.sh recttype.sh \
+	restricted.sh return.sh select.sh shtests sigchld.sh \
+	signal.sh statics.sh subshell.sh substring.sh tilde.sh \
+	timetype.sh treemove.sh types.sh variables.sh \
+	vartree1.sh vartree2.sh
+
+:: ksh-regress.rt ksh-regress.tst
 
 if "$(PWD:B:N=cc-*)"
 
@@ -203,33 +224,24 @@ test : .NULL
 
 else
 
-test : test.ksh - test.shcomp
+test : test.ksh
 
 test.ksh : $(BINDIR)/$(SH) $(SH) shtests
 	$(SILENT) $(CMP) $(CMPFLAGS) $(*:O=1) $(*:O=2) 2>/dev/null ||
 	echo "make install to run the tests on the latest $(SH)" >&2
 	cd $(*:O=3:P=L!:D)
-	SHELL=$(*:O=1:P=A) $(*:O=1:P=A) $(*:O=3:B)
+	SHELL=$(*:O=1:P=A) $(*:O=1:P=A) $(*:O=3:B) $(SHTESTSFLAGS)
 
-test.% : %.sh $(BINDIR)/$(SH) $(SH) shtests
+test.% : %.sh COSHELL_OPTIONS=separate $(BINDIR)/$(SH) $(SH) shtests
 	$(SILENT) $(CMP) $(CMPFLAGS) $(*:O=2) $(*:O=3) 2>/dev/null ||
 	echo "make install to run the tests on the latest $(SH)" >&2
 	cd $(*:O=4:P=L!:D)
-	SHELL=$(*:O=2:P=A) $(*:O=2:P=A) $(*:O=4:B) $(*:O=1:P=A)
+	SHELL=$(*:O=2:P=A) $(*:O=2:P=A) $(*:O=4:B) $(SHTESTSFLAGS) $(*:O=1:P=A)
 
-test.shcomp : $(BINDIR)/$(SH) $(SH) shtests shcomp
-	$(SILENT) $(CMP) $(CMPFLAGS) $(*:O=1) $(*:O=2) 2>/dev/null ||
-	echo "make install to run the tests on the latest $(SH)" >&2
-	cd $(*:O=3:P=L!:D)
-	tmp=/tmp/ksh-$(tmp)
-	mkdir $tmp
-	for i in *.sh
-	do	tst=$tmp/shcomp-${i%.sh}.ksh
-		if	$(*:O=4) $i > $tst
-		then	SHELL=$(*:O=1:P=A) $(*:O=1:P=A) $(*:O=3:B) $tst
-		fi
-		rm -f $tst
-	done
-	rm -rf $tmp
+if RELEASE
+
+.INSTALL : .CLEAR $(*.INSTALL:N=*$(RELEASE)*([!/]))
+
+end
 
 end

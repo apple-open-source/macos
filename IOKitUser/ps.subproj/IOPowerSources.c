@@ -33,6 +33,8 @@
 #include "IOSystemConfiguration.h"
 #include "IOPSKeys.h"
 #include "IOPowerSources.h"
+#include "IOPowerSourcesPrivate.h"
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <notify.h>
 
 #ifndef kIOPSDynamicStorePathKey
@@ -270,6 +272,87 @@ CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps) {
     // and return
     return CFDictionaryGetValue(blob, ps);
 }
+
+static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
+{
+    CFDictionaryRef the_dict = IOPSGetPowerSourceDescription(blob, id);
+    return CFDictionaryGetValue(the_dict, CFSTR(kIOPSPowerSourceStateKey));
+}
+
+/* IOPSGetProvidingPowerSourceType
+ * Argument: 
+ *  ps_blob: as returned from IOPSCopyPowerSourcesInfo()
+ * Returns: 
+ *  The current system power source.
+ *  CFSTR("AC Power"), CFSTR("Battery Power"), CFSTR("UPS Power")
+ */
+CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
+{
+    CFTypeRef       the_ups = NULL;
+    CFTypeRef       the_batt = NULL;
+    CFStringRef     ps_state = NULL;
+    
+    
+    if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMBatteryPowerKey)))
+    {
+        if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey))) {
+            // no batteries, no UPS -> AC Power
+            return CFSTR(kIOPMACPowerKey);
+        } else {
+            // optimization opportunity: needless loops inside IOPSGetActiveUPS
+            the_ups = IOPSGetActiveUPS(ps_blob);
+            if(!the_ups) return CFSTR(kIOPMACPowerKey);
+            ps_state = getPowerSourceState(ps_blob, the_ups);
+            if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
+            {
+                // no batteries, yes UPS, UPS is running off of AC power -> AC Power
+                return CFSTR(kIOPMACPowerKey);
+            } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
+            {
+                // no batteries, yes UPS, UPS is running off of Battery power -> UPS Power
+                return CFSTR(kIOPMUPSPowerKey);
+            }
+            
+        }
+        // Error in the data we were passed
+        return CFSTR(kIOPMACPowerKey);
+    } else {
+        // Optimization opportunity: needless loops inside IOPSGetActiveBattery
+        the_batt = IOPSGetActiveBattery(ps_blob);
+        if(!the_batt) return CFSTR(kIOPMACPowerKey);
+        ps_state = getPowerSourceState(ps_blob, the_batt);
+        if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))
+        {
+            // Yes batteries, yes running on battery power -> Battery power
+            return CFSTR(kIOPMBatteryPowerKey);
+        } else {
+            // batteries are on AC power. let's check UPS.
+            // optimize.
+            if(kCFBooleanFalse == IOPSPowerSourceSupported(ps_blob, CFSTR(kIOPMUPSPowerKey)))
+            {
+                // yes batteries on AC power, no UPS -> AC Power
+                return CFSTR(kIOPMACPowerKey);
+            } else {
+                the_ups = IOPSGetActiveUPS(ps_blob);
+                if(!the_ups) return CFSTR(kIOPMACPowerKey);
+                ps_state = getPowerSourceState(ps_blob, the_ups);
+                if(ps_state && CFEqual(ps_state, CFSTR(kIOPSBatteryPowerValue)))                
+                {
+                    // yes batteries on AC power, UPS is on battery power -> UPS Power
+                    return CFSTR(kIOPMUPSPowerKey);
+                } else if(ps_state && CFEqual(ps_state, CFSTR(kIOPSACPowerValue)))
+                {
+                    // yes batteries on AC Power, UPS is on AC Power -> AC Power
+                    return CFSTR(kIOPMACPowerKey);
+                }
+            }
+        }
+    }
+    
+    // Should not reach this point. Return something safe.
+    return CFSTR(kIOPMACPowerKey);
+}
+
 
 /***
  Support structures and functions for IOPSNotificationCreateRunLoopSource

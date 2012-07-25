@@ -53,10 +53,9 @@ PassRefPtr<HTMLHtmlElement> HTMLHtmlElement::create(const QualifiedName& tagName
 
 bool HTMLHtmlElement::isURLAttribute(Attribute* attribute) const
 {
-    return attribute->name() == manifestAttr;
+    return attribute->name() == manifestAttr || HTMLElement::isURLAttribute(attribute);
 }
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void HTMLHtmlElement::insertedByParser()
 {
     // When parsing a fragment, its dummy document has a null parser.
@@ -76,6 +75,5 @@ void HTMLHtmlElement::insertedByParser()
     else
         documentLoader->applicationCacheHost()->selectCacheWithManifest(document()->completeURL(manifest));
 }
-#endif
 
 }

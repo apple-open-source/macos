@@ -110,6 +110,13 @@ to designate the current process ID; can be used in
 Construct the principal from the authenticating user's username, rather
 than obtaining it from the AuthenticationAuthority of the  user's
 OpenDirectory record.
+.It Cm use_kcminit
+Don't verify password, instead store the password in kcm and return
+success in the pam chain.  So when used in this mode, the pam_krb5
+module needs to be configured to be
+.Ql optional
+and some other module
+.Ql required .
 .El
 .Ss Kerberos 5 Account Management Module
 The Kerberos 5 account management component

@@ -266,6 +266,7 @@ const command commands[] =
 	  "    -l  Match \"label\" string\n"
 	  "    -s  Match \"service\" string\n"
 	  "    -g  Display the password for the item found\n"
+	  "    -w  Display only the password on stdout\n"
 	  "If no keychains are specified to search, the default search list is used.",
 	  "Find a generic password item."},
 
@@ -297,6 +298,7 @@ const command commands[] =
 	  "    -s  Match \"server\" string\n"
 	  "    -t  Match \"authenticationType\" (four-character code)\n"
 	  "    -g  Display the password for the item found\n"
+	  "    -w  Display only the password on stdout\n"
 	  "If no keychains are specified to search, the default search list is used.",
 	  "Find an internet password item."},
 
@@ -511,9 +513,9 @@ const command commands[] =
 	  " [<options>]\n"
 	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
 	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
-	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate\n"
-	  "                              pkgSign, pkinitClient, pkinitServer, eap, macappstore, appleID);"
-	  "								default is basic.\n"
+	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate,\n"
+	  "                                       pkgSign, pkinitClient, pkinitServer, eap, appleID,\n"
+	  "                                       macappstore, timestamping); default is basic.\n"
 	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
 	  "    -n                  No keychain search list.\n"
 	  "    -L                  Local certificates only (do not try to fetch missing CA certs from net).\n"

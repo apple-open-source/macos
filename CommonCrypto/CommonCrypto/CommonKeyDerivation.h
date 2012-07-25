@@ -24,15 +24,15 @@
 #ifndef _CC_PBKDF_H_
 #define _CC_PBKDF_H_
 
-#include <sys/types.h>
 #include <sys/param.h>
-
 #include <string.h>
+#include <Availability.h>
+#ifdef KERNEL
+#include <machine/limits.h>
+#else
 #include <limits.h>
 #include <stdlib.h>
-
-#include <Availability.h>
-
+#endif /* KERNEL */
 #include <CommonCrypto/CommonDigest.h>
 #include <CommonCrypto/CommonHMAC.h>
 
@@ -92,8 +92,9 @@ typedef uint32_t CCPseudoRandomAlgorithm;
  * kCCPRFHmacAlgSHA384
  * kCCPRFHmacAlgSHA512
  
- @result     kCCParamError can result from bad values for the password, salt, 
-                and unwrapped key pointers as well as a bad value for the prf function.
+ @result     kCCParamError can result from bad values for the password, salt,
+ 	     and unwrapped key pointers as well as a bad value for the prf
+	     function.
  
  */
 
@@ -102,7 +103,7 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
                       const uint8_t *salt, size_t saltLen,
                       CCPseudoRandomAlgorithm prf, uint rounds, 
                       uint8_t *derivedKey, size_t derivedKeyLen)
-                      __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+                      __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*
  * All lengths are in bytes - not bits.
@@ -129,7 +130,7 @@ CCKeyDerivationPBKDF( CCPBKDFAlgorithm algorithm, const char *password, size_t p
 uint
 CCCalibratePBKDF(CCPBKDFAlgorithm algorithm, size_t passwordLen, size_t saltLen,
                  CCPseudoRandomAlgorithm prf, size_t derivedKeyLen, uint32_t msec)
-                 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+                 __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 #ifdef __cplusplus
 }

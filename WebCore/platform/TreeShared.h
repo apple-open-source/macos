@@ -24,7 +24,6 @@
 #include <wtf/Assertions.h>
 #include <wtf/MainThread.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -37,8 +36,8 @@ template<typename T> class TreeShared {
     WTF_MAKE_NONCOPYABLE(TreeShared);
 public:
     TreeShared()
-        : m_refCount(1)
-        , m_parent(0)
+        : m_parent(0)
+        , m_refCount(1)
 #ifndef NDEBUG
         , m_adoptionIsRequired(true)
 #endif
@@ -124,8 +123,9 @@ private:
     friend void adopted<>(TreeShared<T>*);
 #endif
 
-    int m_refCount;
     T* m_parent;
+    int m_refCount;
+
 #ifndef NDEBUG
     bool m_adoptionIsRequired;
 #endif

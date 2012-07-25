@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: name.c,v 1.174.8.1 2011-03-11 06:47:04 marka Exp $ */
 
 /*! \file */
 
@@ -1021,7 +1021,7 @@ dns_name_toregion(dns_name_t *name, isc_region_t *r) {
 
 isc_result_t
 dns_name_fromtext(dns_name_t *name, isc_buffer_t *source,
-		  dns_name_t *origin, unsigned int options,
+		  const dns_name_t *origin, unsigned int options,
 		  isc_buffer_t *target)
 {
 	unsigned char *ndata, *label = NULL;
@@ -2389,6 +2389,14 @@ isc_result_t
 dns_name_fromstring(dns_name_t *target, const char *src, unsigned int options,
 		    isc_mem_t *mctx)
 {
+	return (dns_name_fromstring2(target, src, dns_rootname, options, mctx));
+}
+
+isc_result_t
+dns_name_fromstring2(dns_name_t *target, const char *src,
+		     const dns_name_t *origin, unsigned int options,
+		     isc_mem_t *mctx)
+{
 	isc_result_t result;
 	isc_buffer_t buf;
 	dns_fixedname_t fn;
@@ -2405,13 +2413,12 @@ dns_name_fromstring(dns_name_t *target, const char *src, unsigned int options,
 		name = dns_fixedname_name(&fn);
 	}
 
-	result = dns_name_fromtext(name, &buf, dns_rootname, options, NULL);
+	result = dns_name_fromtext(name, &buf, origin, options, NULL);
 	if (result != ISC_R_SUCCESS)
 		return (result);
 
 	if (name != target)
-		result = dns_name_dup(name, mctx, target);
-
+		result = dns_name_dupwithoffsets(name, mctx, target);
 	return (result);
 }
 

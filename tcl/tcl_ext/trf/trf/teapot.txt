@@ -1,0 +1,15 @@
+Package Trf 2.1.4.2009.05.20.12.34.07
+Meta as::author  {Andreas Kupries}
+Meta as::origin  http://sourceforge.net/projects/tcltrf
+Meta category    Channel
+Meta description This package provides a number of channel
+Meta description transformations, mainly various encodings, and
+Meta description cryptographic hashes. Beyond that it also provides
+Meta description (de_compression and error-correcting coding. It does not
+Meta description provide any type of encryption however.
+Meta license     BSD
+Meta platform    source
+Meta require     {Tcl 8.4}
+Meta subject     channel encoding compression hashes transformation
+Meta subject     error-correction ecc reed-solomon
+Meta summary     Channel transformations

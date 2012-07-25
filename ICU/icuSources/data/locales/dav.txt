@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/dav.xml
@@ -23,7 +23,7 @@ dav{
             }
         }
     }
-    Version{"2.0.45.90"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -61,10 +61,12 @@ dav{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/y"}
-                yMEd{"EEE, M/d/y"}
+                yMEd{"E, M/d/y"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE, MMM d, y"}
+                yMMMEd{"E, MMM d, y"}
                 yMMMM{"MMMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
                 yQ{"'K'Q y"}
                 yQQQ{"QQQ y"}
             }
@@ -82,7 +84,7 @@ dav{
                     wide{
                         "Ituku ja jumwa",
                         "Kuramuka jimweri",
-                        "Kuramuka  kawi",
+                        "Kuramuka kawi",
                         "Kuramuka kadadu",
                         "Kuramuka kana",
                         "Kuramuka kasanu",
@@ -218,9 +220,9 @@ dav{
         }
     }
     delimiters{
-        alternateQuotationEnd{"”"}
-        alternateQuotationStart{"“"}
-        quotationEnd{"'"}
-        quotationStart{"'"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
     }
 }

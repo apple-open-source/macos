@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 #include "config.h"
 #include "V8DOMWindow.h"
 
+#include <wtf/ArrayBuffer.h>
 #include "Chrome.h"
 #include "ContentSecurityPolicy.h"
 #include "DOMTimer.h"
@@ -41,7 +42,9 @@
 #include "FrameView.h"
 #include "HTMLCollection.h"
 #include "HTMLDocument.h"
+#include "Location.h"
 #include "MediaPlayer.h"
+#include "MessagePort.h"
 #include "Page.h"
 #include "PlatformScreen.h"
 #include "ScheduledAction.h"
@@ -56,17 +59,10 @@
 #include "V8EventListener.h"
 #include "V8GCForContextDispose.h"
 #include "V8HiddenPropertyName.h"
-#include "V8HTMLAudioElementConstructor.h"
 #include "V8HTMLCollection.h"
-#include "V8HTMLImageElementConstructor.h"
-#include "V8HTMLOptionElementConstructor.h"
-#include "V8MessagePortCustom.h"
 #include "V8Node.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
-#if ENABLE(WEB_SOCKETS)
-#include "WebSocket.h"
-#endif
 #include "WindowFeatures.h"
 
 namespace WebCore {
@@ -82,7 +78,7 @@ v8::Handle<v8::Value> WindowSetTimeoutImpl(const v8::Arguments& args, bool singl
     ScriptExecutionContext* scriptContext = static_cast<ScriptExecutionContext*>(imp->document());
 
     if (!scriptContext) {
-        V8Proxy::setDOMException(INVALID_ACCESS_ERR);
+        V8Proxy::setDOMException(INVALID_ACCESS_ERR, args.GetIsolate());
         return v8::Undefined();
     }
 
@@ -200,7 +196,8 @@ void V8DOMWindow::locationAccessorSetter(v8::Local<v8::String> name, v8::Local<v
     if (!firstWindow)
       return;
 
-    imp->setLocation(toWebCoreString(value), activeWindow, firstWindow);
+    if (Location* location = imp->location())
+        location->setHref(toWebCoreString(value), activeWindow, firstWindow);
 }
 
 void V8DOMWindow::openerAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
@@ -225,28 +222,6 @@ void V8DOMWindow::openerAccessorSetter(v8::Local<v8::String> name, v8::Local<v8:
 
     // Put property on the front (this) object.
     info.This()->Set(name, value);
-}
-
-#if ENABLE(VIDEO)
-
-v8::Handle<v8::Value> V8DOMWindow::AudioAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
-{
-    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
-    return V8DOMWrapper::getConstructor(&V8HTMLAudioElementConstructor::info, window);
-}
-
-#endif
-
-v8::Handle<v8::Value> V8DOMWindow::ImageAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
-{
-    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
-    return V8DOMWrapper::getConstructor(&V8HTMLImageElementConstructor::info, window);
-}
-
-v8::Handle<v8::Value> V8DOMWindow::OptionAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
-{
-    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
-    return V8DOMWrapper::getConstructor(&V8HTMLOptionElementConstructor::info, window);
 }
 
 v8::Handle<v8::Value> V8DOMWindow::addEventListenerCallback(const v8::Arguments& args)
@@ -313,41 +288,74 @@ v8::Handle<v8::Value> V8DOMWindow::removeEventListenerCallback(const v8::Argumen
     return v8::Undefined();
 }
 
-v8::Handle<v8::Value> V8DOMWindow::postMessageCallback(const v8::Arguments& args)
+static bool isLegacyTargetOriginDesignation(v8::Handle<v8::Value> value)
 {
-    INC_STATS("DOM.DOMWindow.postMessage()");
+    if (value->IsString() || value->IsStringObject())
+        return true;
+    return false;
+}
+
+
+static v8::Handle<v8::Value> handlePostMessageCallback(const v8::Arguments& args, bool extendedTransfer)
+{
+    // None of these need to be RefPtr because args and context are guaranteed
+    // to hold on to them.
     DOMWindow* window = V8DOMWindow::toNative(args.Holder());
+    DOMWindow* source = V8Proxy::retrieveWindowForCallingContext();
 
-    DOMWindow* source = V8Proxy::retrieveFrameForCallingContext()->domWindow();
-    ASSERT(source->frame());
-
-    bool didThrow = false;
-    RefPtr<SerializedScriptValue> message = SerializedScriptValue::create(args[0], didThrow);
-    if (didThrow)
-        return v8::Undefined();
-
+    // This function has variable arguments and can be:
+    // Per current spec:
+    //   postMessage(message, targetOrigin)
+    //   postMessage(message, targetOrigin, {sequence of transferrables})
+    // Legacy non-standard implementations in webkit allowed:
+    //   postMessage(message, {sequence of transferrables}, targetOrigin);
     MessagePortArray portArray;
+    ArrayBufferArray arrayBufferArray;
     String targetOrigin;
+    {
+        v8::TryCatch tryCatch;
+        int targetOriginArgIndex = 1;
+        if (args.Length() > 2) {
+            int transferablesArgIndex = 2;
+            if (isLegacyTargetOriginDesignation(args[2])) {
+                targetOriginArgIndex = 2;
+                transferablesArgIndex = 1;
+            }
+            if (!extractTransferables(args[transferablesArgIndex], portArray, arrayBufferArray))
+                return v8::Undefined();
+        } 
+        targetOrigin = toWebCoreStringWithNullOrUndefinedCheck(args[targetOriginArgIndex]);
 
-    // This function has variable arguments and can either be:
-    //   postMessage(message, port, targetOrigin);
-    // or
-    //   postMessage(message, targetOrigin);
-    v8::TryCatch tryCatch;
-    if (args.Length() > 2) {
-        if (!getMessagePortArray(args[1], portArray))
+        if (tryCatch.HasCaught())
             return v8::Undefined();
-        targetOrigin = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
-    } else {
-        targetOrigin = toWebCoreStringWithNullOrUndefinedCheck(args[1]);
     }
 
-    if (tryCatch.HasCaught())
+
+    bool didThrow = false;
+    RefPtr<SerializedScriptValue> message =
+        SerializedScriptValue::create(args[0],
+                                      &portArray,
+                                      extendedTransfer ? &arrayBufferArray : 0,
+                                      didThrow,
+                                      args.GetIsolate());
+    if (didThrow)
         return v8::Undefined();
 
     ExceptionCode ec = 0;
     window->postMessage(message.release(), &portArray, targetOrigin, source, ec);
     return throwError(ec);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::postMessageCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.DOMWindow.postMessage()");
+    return handlePostMessageCallback(args, false);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::webkitPostMessageCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.DOMWindow.webkitPostMessage()");
+    return handlePostMessageCallback(args, true);
 }
 
 // FIXME(fqian): returning string is cheating, and we should
@@ -421,18 +429,17 @@ v8::Handle<v8::Value> V8DOMWindow::showModalDialogCallback(const v8::Arguments& 
 {
     INC_STATS("DOM.DOMWindow.showModalDialog()");
     DOMWindow* impl = V8DOMWindow::toNative(args.Holder());
-
     V8BindingState* state = V8BindingState::Only();
-
-    DOMWindow* activeWindow = state->activeWindow();
-    DOMWindow* firstWindow = state->firstWindow();
+    if (!V8BindingSecurity::canAccessFrame(state, impl->frame(), true))
+        return v8::Undefined();
 
     // FIXME: Handle exceptions properly.
     String urlString = toWebCoreStringWithNullOrUndefinedCheck(args[0]);
+    DialogHandler handler(args[1]);
     String dialogFeaturesString = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
 
-    DialogHandler handler(args[1]);
-
+    DOMWindow* activeWindow = state->activeWindow();
+    DOMWindow* firstWindow = state->firstWindow();
     impl->showModalDialog(urlString, dialogFeaturesString, activeWindow, firstWindow, setUpDialog, &handler);
 
     return handler.returnValue();
@@ -442,21 +449,22 @@ v8::Handle<v8::Value> V8DOMWindow::openCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.DOMWindow.open()");
     DOMWindow* impl = V8DOMWindow::toNative(args.Holder());
-
     V8BindingState* state = V8BindingState::Only();
-
-    DOMWindow* activeWindow = state->activeWindow();
-    DOMWindow* firstWindow = state->firstWindow();
+    if (!V8BindingSecurity::canAccessFrame(state, impl->frame(), true))
+        return v8::Undefined();
 
     // FIXME: Handle exceptions properly.
     String urlString = toWebCoreStringWithNullOrUndefinedCheck(args[0]);
     AtomicString frameName = (args[1]->IsUndefined() || args[1]->IsNull()) ? "_blank" : AtomicString(toWebCoreString(args[1]));
     String windowFeaturesString = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
 
+    DOMWindow* activeWindow = state->activeWindow();
+    DOMWindow* firstWindow = state->firstWindow();
     RefPtr<DOMWindow> openedWindow = impl->open(urlString, frameName, windowFeaturesString, activeWindow, firstWindow);
     if (!openedWindow)
         return v8::Undefined();
-    return toV8(openedWindow.release());
+
+    return toV8(openedWindow.release(), args.GetIsolate());
 }
 
 v8::Handle<v8::Value> V8DOMWindow::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
@@ -471,9 +479,9 @@ v8::Handle<v8::Value> V8DOMWindow::indexedPropertyGetter(uint32_t index, const v
     if (!frame)
         return notHandledByInterceptor();
 
-    Frame* child = frame->tree()->child(index);
+    Frame* child = frame->tree()->scopedChild(index);
     if (child)
-        return toV8(child->domWindow());
+        return toV8(child->domWindow(), info.GetIsolate());
 
     return notHandledByInterceptor();
 }
@@ -494,25 +502,24 @@ v8::Handle<v8::Value> V8DOMWindow::namedPropertyGetter(v8::Local<v8::String> nam
 
     // Search sub-frames.
     AtomicString propName = v8StringToAtomicWebCoreString(name);
-    Frame* child = frame->tree()->child(propName);
+    Frame* child = frame->tree()->scopedChild(propName);
     if (child)
-        return toV8(child->domWindow());
+        return toV8(child->domWindow(), info.GetIsolate());
 
     // Search IDL functions defined in the prototype
-    v8::Handle<v8::Value> result = info.Holder()->GetRealNamedProperty(name);
-    if (!result.IsEmpty())
-        return result;
+    if (!info.Holder()->GetRealNamedProperty(name).IsEmpty())
+        return notHandledByInterceptor();
 
     // Search named items in the document.
     Document* doc = frame->document();
 
     if (doc && doc->isHTMLDocument()) {
         if (static_cast<HTMLDocument*>(doc)->hasNamedItem(propName.impl()) || doc->hasElementWithId(propName.impl())) {
-            RefPtr<HTMLCollection> items = doc->windowNamedItems(propName);
+            HTMLCollection* items = doc->windowNamedItems(propName);
             if (items->length() >= 1) {
                 if (items->length() == 1)
-                    return toV8(items->firstItem());
-                return toV8(items.release());
+                    return toV8(items->firstItem(), info.GetIsolate());
+                return toV8(items, info.GetIsolate());
             }
         }
     }
@@ -549,12 +556,18 @@ bool V8DOMWindow::namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::V
         return false;
 
     if (key->IsString()) {
+        DEFINE_STATIC_LOCAL(AtomicString, nameOfProtoProperty, ("__proto__"));
+
         String name = toWebCoreString(key);
+        Frame* childFrame = target->tree()->scopedChild(name);
         // Notice that we can't call HasRealNamedProperty for ACCESS_HAS
         // because that would generate infinite recursion.
-        if (type == v8::ACCESS_HAS && target->tree()->child(name))
+        if (type == v8::ACCESS_HAS && childFrame)
             return true;
-        if (type == v8::ACCESS_GET && target->tree()->child(name) && !host->HasRealNamedProperty(key->ToString()))
+        // We need to explicitly compare against nameOfProtoProperty because
+        // V8's JSObject::LocalLookup finds __proto__ before
+        // interceptors and even when __proto__ isn't a "real named property".
+        if (type == v8::ACCESS_GET && childFrame && !host->HasRealNamedProperty(key->ToString()) && name != nameOfProtoProperty)
             return true;
     }
 
@@ -574,18 +587,19 @@ bool V8DOMWindow::indexedSecurityCheck(v8::Local<v8::Object> host, uint32_t inde
     Frame* target = targetWindow->frame();
     if (!target)
         return false;
+    Frame* childFrame =  target->tree()->scopedChild(index);
 
     // Notice that we can't call HasRealNamedProperty for ACCESS_HAS
     // because that would generate infinite recursion.
-    if (type == v8::ACCESS_HAS && target->tree()->child(index))
+    if (type == v8::ACCESS_HAS && childFrame)
         return true;
-    if (type == v8::ACCESS_GET && target->tree()->child(index) && !host->HasRealIndexedProperty(index))
+    if (type == v8::ACCESS_GET && childFrame && !host->HasRealIndexedProperty(index))
         return true;
 
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), target, false);
 }
 
-v8::Handle<v8::Value> toV8(DOMWindow* window)
+v8::Handle<v8::Value> toV8(DOMWindow* window, v8::Isolate* isolate)
 {
     if (!window)
         return v8::Null();

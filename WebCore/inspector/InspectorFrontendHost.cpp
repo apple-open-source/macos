@@ -28,9 +28,10 @@
  */
 
 #include "config.h"
-#include "InspectorFrontendHost.h"
 
 #if ENABLE(INSPECTOR)
+
+#include "InspectorFrontendHost.h"
 
 #include "ContextMenu.h"
 #include "ContextMenuItem.h"
@@ -47,6 +48,7 @@
 #include "Page.h"
 #include "Pasteboard.h"
 #include "ScriptFunctionCall.h"
+#include "UserGestureIndicator.h"
 
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -91,6 +93,7 @@ private:
     virtual void contextMenuItemSelected(ContextMenuItem* item)
     {
         if (m_frontendHost) {
+            UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
             int itemNumber = item->action() - ContextMenuItemBaseCustomTag;
 
             ScriptFunctionCall function(m_webInspector, "contextMenuItemSelected");
@@ -159,6 +162,12 @@ void InspectorFrontendHost::requestDetachWindow()
         m_client->requestDetachWindow();
 }
 
+void InspectorFrontendHost::requestSetDockSide(const String& side)
+{
+    if (m_client)
+        m_client->requestSetDockSide(side);
+}
+
 void InspectorFrontendHost::closeWindow()
 {
     if (m_client) {
@@ -167,18 +176,15 @@ void InspectorFrontendHost::closeWindow()
     }
 }
 
-void InspectorFrontendHost::disconnectFromBackend()
-{
-    if (m_client) {
-        m_client->disconnectFromBackend();
-        disconnectClient(); // Disconnect from client.
-    }
-}
-
 void InspectorFrontendHost::bringToFront()
 {
     if (m_client)
         m_client->bringToFront();
+}
+
+void InspectorFrontendHost::setZoomFactor(float zoom)
+{
+    m_frontendPage->mainFrame()->setPageAndTextZoomFactors(zoom, 1);
 }
 
 void InspectorFrontendHost::inspectedURLChanged(const String& newURL)
@@ -199,20 +205,20 @@ void InspectorFrontendHost::moveWindowBy(float x, float y) const
         m_client->moveWindowBy(x, y);
 }
 
-void InspectorFrontendHost::setExtensionAPI(const String& script)
+void InspectorFrontendHost::setInjectedScriptForOrigin(const String& origin, const String& script)
 {
     ASSERT(m_frontendPage->inspectorController());
-    m_frontendPage->inspectorController()->setInspectorExtensionAPI(script);
+    m_frontendPage->inspectorController()->setInjectedScriptForOrigin(origin, script);
 }
 
 String InspectorFrontendHost::localizedStringsURL()
 {
-    return m_client->localizedStringsURL();
+    return m_client ? m_client->localizedStringsURL() : "";
 }
 
 String InspectorFrontendHost::hiddenPanels()
 {
-    return m_client->hiddenPanels();
+    return m_client ? m_client->hiddenPanels() : "";
 }
 
 void InspectorFrontendHost::copyText(const String& text)
@@ -220,24 +226,29 @@ void InspectorFrontendHost::copyText(const String& text)
     Pasteboard::generalPasteboard()->writePlainText(text);
 }
 
-void InspectorFrontendHost::saveAs(const String& fileName, const String& content)
+void InspectorFrontendHost::openInNewTab(const String& url)
 {
     if (m_client)
-        m_client->saveAs(fileName, content);
+        m_client->openInNewTab(url);
 }
 
-void InspectorFrontendHost::saveSessionSetting(const String& key, const String& value)
+bool InspectorFrontendHost::canSave()
 {
     if (m_client)
-        m_client->saveSessionSetting(key, value);
+        return m_client->canSave();
+    return false;
 }
 
-String InspectorFrontendHost::loadSessionSetting(const String& key)
+void InspectorFrontendHost::save(const String& url, const String& content, bool forceSaveAs)
 {
-    String value;
     if (m_client)
-        m_client->loadSessionSetting(key, &value);
-    return value;
+        m_client->save(url, content, forceSaveAs);
+}
+
+void InspectorFrontendHost::append(const String& url, const String& content)
+{
+    if (m_client)
+        m_client->append(url, content);
 }
 
 void InspectorFrontendHost::sendMessageToBackend(const String& message)
@@ -262,6 +273,18 @@ void InspectorFrontendHost::showContextMenu(Event* event, const Vector<ContextMe
     m_menuProvider = menuProvider.get();
 }
 #endif
+
+String InspectorFrontendHost::loadResourceSynchronously(const String& url)
+{
+    ResourceRequest request(url);
+    request.setHTTPMethod("GET");
+
+    Vector<char> data;
+    ResourceError error;
+    ResourceResponse response;
+    m_frontendPage->mainFrame()->loader()->loadResourceSynchronously(request, DoNotAllowStoredCredentials, error, response, data);
+    return String(data.data(), data.size());
+}
 
 } // namespace WebCore
 

@@ -26,6 +26,7 @@
 #ifndef History_h
 #define History_h
 
+#include "DOMWindowProperty.h"
 #include "KURL.h"
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
@@ -38,14 +39,12 @@ class ScriptExecutionContext;
 class SerializedScriptValue;
 typedef int ExceptionCode;
 
-class History : public RefCounted<History> {
+class History : public RefCounted<History>, public DOMWindowProperty {
 public:
     static PassRefPtr<History> create(Frame* frame) { return adoptRef(new History(frame)); }
-    
-    Frame* frame() const;
-    void disconnectFrame();
 
     unsigned length() const;
+    SerializedScriptValue* state();
     void back();
     void forward();
     void go(int distance);
@@ -54,6 +53,9 @@ public:
     void forward(ScriptExecutionContext*);
     void go(ScriptExecutionContext*, int distance);
 
+    bool stateChanged() const;
+    bool isSameAsCurrentState(SerializedScriptValue*) const;
+
     enum StateObjectType {
         StateObjectPush,
         StateObjectReplace
@@ -61,11 +63,13 @@ public:
     void stateObjectAdded(PassRefPtr<SerializedScriptValue>, const String& title, const String& url, StateObjectType, ExceptionCode&);
 
 private:
-    History(Frame*);
+    explicit History(Frame*);
 
     KURL urlForState(const String& url);
 
-    Frame* m_frame;
+    SerializedScriptValue* stateInternal() const;
+
+    SerializedScriptValue* m_lastStateObjectRequested;
 };
 
 } // namespace WebCore

@@ -32,15 +32,9 @@
 #include "Plugin.h"
 #include "PluginController.h"
 #include "PluginControllerProxyMessages.h"
-#include "RunLoop.h"
 #include "ShareableBitmap.h"
+#include <WebCore/RunLoop.h>
 #include <wtf/Noncopyable.h>
-
-#if PLATFORM(MAC)
-#include <wtf/RetainPtr.h>
-
-typedef struct __WKCARemoteLayerClientRef *WKCARemoteLayerClientRef;
-#endif
 
 namespace CoreIPC {
     class DataReference;
@@ -48,6 +42,7 @@ namespace CoreIPC {
 
 namespace WebKit {
 
+class LayerHostingContext;
 class ShareableBitmap;
 class WebProcessConnection;
 struct PluginCreationParameters;
@@ -65,7 +60,9 @@ public:
     void destroy();
 
     void didReceivePluginControllerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncPluginControllerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    void didReceiveSyncPluginControllerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
+
+    bool wantsWheelEvents() const;
 
 #if PLATFORM(MAC)
     uint32_t remoteLayerClientID() const;
@@ -89,14 +86,14 @@ private:
     virtual NPObject* windowScriptNPObject();
     virtual NPObject* pluginElementNPObject();
     virtual bool evaluate(NPObject*, const String& scriptString, NPVariant* result, bool allowPopups);
-    virtual bool tryToShortCircuitInvoke(NPObject*, NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, bool& returnValue, NPVariant& result);
     virtual void setStatusbarText(const String&);
     virtual bool isAcceleratedCompositingEnabled();
     virtual void pluginProcessCrashed();
     virtual void willSendEventToPlugin();
 
 #if PLATFORM(MAC)
-    virtual void setComplexTextInputEnabled(bool);
+    virtual void pluginFocusOrWindowFocusChanged(bool);
+    virtual void setComplexTextInputState(PluginComplexTextInputState);
     virtual mach_port_t compositingRenderServerPort();
 #endif
 
@@ -108,11 +105,15 @@ private:
     virtual bool getAuthenticationInfo(const WebCore::ProtectionSpace&, String& username, String& password);
     virtual void protectPluginFromDestruction();
     virtual void unprotectPluginFromDestruction();
+#if PLUGIN_ARCHITECTURE(X11)
+    virtual uint64_t createPluginContainer();
+    virtual void windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID);
+#endif
     
     // Message handlers.
     void frameDidFinishLoading(uint64_t requestID);
     void frameDidFail(uint64_t requestID, bool wasCancelled);
-    void geometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, float contentsScaleFactor, const ShareableBitmap::Handle& backingStoreHandle);
+    void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::IntRect& clipRect, const WebCore::AffineTransform& pluginToRootViewTransform, float contentsScaleFactor, const ShareableBitmap::Handle& backingStoreHandle);
     void didEvaluateJavaScript(uint64_t requestID, const String& result);
     void streamDidReceiveResponse(uint64_t streamID, const String& responseURLString, uint32_t streamLength, uint32_t lastModifiedTime, const String& mimeType, const String& headers);
     void streamDidReceiveData(uint64_t streamID, const CoreIPC::DataReference& data);
@@ -138,15 +139,15 @@ private:
     void windowAndViewFramesChanged(const WebCore::IntRect& windowFrameInScreenCoordinates, const WebCore::IntRect& viewFrameInWindowCoordinates);
     void windowVisibilityChanged(bool);
     void sendComplexTextInput(const String& textInput);
+    void setLayerHostingMode(uint32_t);
+
+    void updateLayerHostingContext(LayerHostingMode);
 #endif
 
     void privateBrowsingStateChanged(bool);
+    void getFormValue(bool& returnValue, String& formValue);
 
-    bool tryToShortCircuitEvaluate(NPObject*, const String& scriptString, NPVariant* result);
-
-    bool inInitialize() const { return m_pluginCreationParameters; }
-
-    void platformInitialize();
+    void platformInitialize(const PluginCreationParameters&);
     void platformDestroy();
     void platformGeometryDidChange();
 
@@ -159,25 +160,20 @@ private:
 
     RefPtr<Plugin> m_plugin;
 
-    // The plug-in rect and clip rect in window coordinates.
-    WebCore::IntRect m_frameRect;
-    WebCore::IntRect m_clipRect;
+    WebCore::IntSize m_pluginSize;
 
     // The dirty rect in plug-in coordinates.
     WebCore::IntRect m_dirtyRect;
 
     // The paint timer, used for coalescing painting.
-    RunLoop::Timer<PluginControllerProxy> m_paintTimer;
+    WebCore::RunLoop::Timer<PluginControllerProxy> m_paintTimer;
     
     // A counter used to prevent the plug-in from being destroyed.
     unsigned m_pluginDestructionProtectCount;
 
     // A timer that we use to prevent destruction of the plug-in while plug-in
     // code is on the stack.
-    RunLoop::Timer<PluginControllerProxy> m_pluginDestroyTimer;
-
-    // Will point to the plug-in creation parameters of the plug-in we're currently initializing and will be null when we're done initializing.
-    const PluginCreationParameters* m_pluginCreationParameters;
+    WebCore::RunLoop::Timer<PluginControllerProxy> m_pluginDestroyTimer;
 
     // Whether we're waiting for the plug-in proxy in the web process to draw the contents of its
     // backing store into the web process backing store.
@@ -190,12 +186,12 @@ private:
     // Whether complex text input is enabled for this plug-in.
     bool m_isComplexTextInputEnabled;
 
+    // For CA plug-ins, this holds the information needed to export the layer hierarchy to the UI process.
+    OwnPtr<LayerHostingContext> m_layerHostingContext;
+#endif
+
     // The contents scale factor of this plug-in.
     float m_contentsScaleFactor;
-
-    // For CA plug-ins, this holds the information needed to export the layer hierarchy to the UI process.
-    RetainPtr<WKCARemoteLayerClientRef> m_remoteLayerClient;
-#endif
     
     // The backing store that this plug-in draws into.
     RefPtr<ShareableBitmap> m_backingStore;

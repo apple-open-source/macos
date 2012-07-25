@@ -45,7 +45,7 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     ASSERT(codeBlock->numberOfDFGOSREntries());
 
 #if ENABLE(JIT_VERBOSE_OSR)
-    printf("OSR in %p(%p) from bc#%u\n", codeBlock, codeBlock->alternative(), bytecodeIndex);
+    dataLog("OSR in %p(%p) from bc#%u\n", codeBlock, codeBlock->alternative(), bytecodeIndex);
 #endif
     
     JSGlobalData* globalData = &exec->globalData();
@@ -80,9 +80,9 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     for (size_t argument = 0; argument < entry->m_expectedValues.numberOfArguments(); ++argument) {
         if (argument >= exec->argumentCountIncludingThis()) {
 #if ENABLE(JIT_VERBOSE_OSR)
-            printf("    OSR failed because argument %lu was not passed, expected ", argument);
-            entry->m_expectedValues.argument(argument).dump(stdout);
-            printf(".\n");
+            dataLog("    OSR failed because argument %zu was not passed, expected ", argument);
+            entry->m_expectedValues.argument(argument).dump(WTF::dataFile());
+            dataLog(".\n");
 #endif
             return 0;
         }
@@ -95,25 +95,34 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
         
         if (!entry->m_expectedValues.argument(argument).validate(value)) {
 #if ENABLE(JIT_VERBOSE_OSR)
-            printf("    OSR failed because argument %lu is %s, expected ", argument, value.description());
-            entry->m_expectedValues.argument(argument).dump(stdout);
-            printf(".\n");
+            dataLog("    OSR failed because argument %zu is %s, expected ", argument, value.description());
+            entry->m_expectedValues.argument(argument).dump(WTF::dataFile());
+            dataLog(".\n");
 #endif
             return 0;
         }
     }
     
     for (size_t local = 0; local < entry->m_expectedValues.numberOfLocals(); ++local) {
+        if (entry->m_localsForcedDouble.get(local)) {
+            if (!exec->registers()[local].jsValue().isNumber()) {
+#if ENABLE(JIT_VERBOSE_OSR)
+                dataLog("    OSR failed because variable %zu is %s, expected number.\n", local, exec->registers()[local].jsValue().description());
+#endif
+                return 0;
+            }
+            continue;
+        }
         if (!entry->m_expectedValues.local(local).validate(exec->registers()[local].jsValue())) {
 #if ENABLE(JIT_VERBOSE_OSR)
-            printf("    OSR failed because variable %lu is %s, expected ", local, exec->registers()[local].jsValue().description());
-            entry->m_expectedValues.local(local).dump(stdout);
-            printf(".\n");
+            dataLog("    OSR failed because variable %zu is %s, expected ", local, exec->registers()[local].jsValue().description());
+            entry->m_expectedValues.local(local).dump(WTF::dataFile());
+            dataLog(".\n");
 #endif
             return 0;
         }
     }
-    
+
     // 2) Check the stack height. The DFG JIT may require a taller stack than the
     //    baseline JIT, in some cases. If we can't grow the stack, then don't do
     //    OSR right now. That's the only option we have unless we want basic block
@@ -123,25 +132,31 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     
     if (!globalData->interpreter->registerFile().grow(&exec->registers()[codeBlock->m_numCalleeRegisters])) {
 #if ENABLE(JIT_VERBOSE_OSR)
-        printf("    OSR failed because stack growth failed.\n");
+        dataLog("    OSR failed because stack growth failed.\n");
 #endif
         return 0;
     }
     
 #if ENABLE(JIT_VERBOSE_OSR)
-    printf("    OSR should succeed.\n");
+    dataLog("    OSR should succeed.\n");
 #endif
     
-    // 3) Fix the call frame.
+    // 3) Perform data format conversions.
+    for (size_t local = 0; local < entry->m_expectedValues.numberOfLocals(); ++local) {
+        if (entry->m_localsForcedDouble.get(local))
+            *bitwise_cast<double*>(exec->registers() + local) = exec->registers()[local].jsValue().asNumber();
+    }
+    
+    // 4) Fix the call frame.
     
     exec->setCodeBlock(codeBlock);
     
-    // 4) Find and return the destination machine code address.
+    // 5) Find and return the destination machine code address.
     
     void* result = codeBlock->getJITCode().executableAddressAtOffset(entry->m_machineCodeOffset);
     
 #if ENABLE(JIT_VERBOSE_OSR)
-    printf("    OSR returning machine code address %p.\n", result);
+    dataLog("    OSR returning machine code address %p.\n", result);
 #endif
     
     return result;

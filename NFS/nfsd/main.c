@@ -84,6 +84,7 @@
 #include <sys/sysctl.h>
 
 #include <libutil.h>
+#include <util.h>
 #include <launch.h>
 
 #include <netinet/in.h>
@@ -102,7 +103,8 @@
 
 #define GETOPT			"F:Nn:P:p:Rrtuv"
 
-#define MAX_NFSD_THREADS	128
+#define MAX_NFSD_THREADS_SOFT	192
+#define MAX_NFSD_THREADS_HARD	512
 
 const struct nfs_conf_server config_defaults =
 {
@@ -629,10 +631,15 @@ config_sanity_check(struct nfs_conf_server *conf)
 	if (conf->nfsd_threads < 1) {
 		log(LOG_WARNING, "nfsd thread count %d; reset to %d", conf->nfsd_threads, config_defaults.nfsd_threads);
 		conf->nfsd_threads = config_defaults.nfsd_threads;
-	} else if (conf->nfsd_threads > MAX_NFSD_THREADS) {
-		log(LOG_WARNING, "nfsd thread count %d; limited to %d", conf->nfsd_threads, MAX_NFSD_THREADS);
-		conf->nfsd_threads = MAX_NFSD_THREADS;
+	} else if (conf->nfsd_threads > MAX_NFSD_THREADS_SOFT) {
+		if (conf->nfsd_threads > MAX_NFSD_THREADS_HARD) {
+			log(LOG_WARNING, "nfsd thread count %d; limited to %d", conf->nfsd_threads, MAX_NFSD_THREADS_HARD);
+			conf->nfsd_threads = MAX_NFSD_THREADS_HARD;
+		}
+		log(LOG_WARNING, "Recomended maximum is %d threads. An nfsd thread count of %d may cause system performance problems.",
+		    MAX_NFSD_THREADS_SOFT, conf->nfsd_threads);
 	}
+
 	if (!config.udp && !config.tcp)
 		log(LOG_WARNING, "No network transport(s) configured.");
 }

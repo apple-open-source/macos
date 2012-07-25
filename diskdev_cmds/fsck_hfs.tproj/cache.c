@@ -181,9 +181,6 @@ void CalculateCacheSizes(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *
 	*calcTotalBlocks = cacheSize / blockSize;
 	
 out:
-	if (debug) {
-		printf ("\tUsing cacheBlockSize=%uK cacheTotalBlock=%u cacheSize=%uK.\n", *calcBlockSize/1024, *calcTotalBlocks, ((*calcBlockSize/1024) * (*calcTotalBlocks)));
-	}
 	return;
 }
 
@@ -213,13 +210,40 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	cache->BlockSize = cacheBlockSize;
 
 	/* Allocate the cache memory */
-	cache->FreeHead = mmap (NULL,
-	                        cacheTotalBlocks * cacheBlockSize,
-	                        PROT_READ | PROT_WRITE,
-	                        MAP_ANON | MAP_PRIVATE,
-	                        -1,
-	                        0);
-	if (cache->FreeHead == (void *)-1) return (ENOMEM);
+	/* Break out of the loop on success, or when the proposed cache is < MinCacheSize */
+	while (1) {
+		extern int debug;
+		cache->FreeHead = mmap (NULL,
+					cacheTotalBlocks * cacheBlockSize,
+					PROT_READ | PROT_WRITE,
+					MAP_ANON | MAP_PRIVATE,
+					-1,
+					0);
+		if (cache->FreeHead == (void *)-1) {
+			if ((cacheTotalBlocks * cacheBlockSize) <= MinCacheSize) {
+				if (debug)
+					printf("\tTried to allocate %dK, minimum is %dK\n",
+						(cacheTotalBlocks * cacheBlockSize) / 1024,
+						MinCacheSize / 1024);
+				break;
+			}
+			if (debug)
+				printf("\tFailed to allocate %uK for cache; trying %uK\n",
+					(cacheTotalBlocks * cacheBlockSize) / 1024,
+					(cacheTotalBlocks * cacheBlockSize / 2) / 1024);
+			CalculateCacheSizes((cacheTotalBlocks * cacheBlockSize) / 2, &cacheBlockSize, &cacheTotalBlocks, debug);
+			continue;
+		} else {
+			if (debug) {
+				printf ("\tUsing cacheBlockSize=%uK cacheTotalBlock=%u cacheSize=%uK.\n", cacheBlockSize/1024, cacheTotalBlocks, (cacheBlockSize/1024) * cacheTotalBlocks);
+			}
+			break;
+		}
+	}
+	if (cache->FreeHead == (void*)-1) {
+		return (ENOMEM);
+	}
+
 
 	/* If necessary, touch a byte in each page */
 	if (preTouch) {
@@ -1227,19 +1251,22 @@ int CacheLookup (Cache_t *cache, uint64_t off, Tag_t **tag)
 int CacheRawRead (Cache_t *cache, uint64_t off, uint32_t len, void *buf)
 {
 	uint64_t	result;
+	ssize_t		nread;
 		
 	/* Both offset and length must be multiples of the device block size */
 	if (off % cache->DevBlockSize) return (EINVAL);
 	if (len % cache->DevBlockSize) return (EINVAL);
 	
 	/* Seek to the position */
+	errno = 0;
 	result = lseek (cache->FD_R, off, SEEK_SET);
-	if (result < 0) return (errno);
+	if (result == (off_t)-1 && errno != 0)
+		return errno;
 	if (result != off) return (ENXIO);
 	/* Read into the buffer */
-	result = read (cache->FD_R, buf, len);
-	if (result < 0) return (errno);
-	if (result == 0) return (ENXIO);
+	nread = read (cache->FD_R, buf, len);
+	if (nread == -1) return (errno);
+	if (nread == 0) return (ENXIO);
 
 	/* Update counters */
 	cache->DiskRead++;
@@ -1255,20 +1282,22 @@ int CacheRawRead (Cache_t *cache, uint64_t off, uint32_t len, void *buf)
 int CacheRawWrite (Cache_t *cache, uint64_t off, uint32_t len, void *buf)
 {
 	uint64_t	result;
+	ssize_t		nwritten;
 	
 	/* Both offset and length must be multiples of the device block size */
 	if (off % cache->DevBlockSize) return (EINVAL);
 	if (len % cache->DevBlockSize) return (EINVAL);
 	
 	/* Seek to the position */
+	errno = 0;
 	result = lseek (cache->FD_W, off, SEEK_SET);
-	if (result < 0) return (errno);
+	if (result == (off_t)-1 && errno != 0) return (errno);
 	if (result != off) return (ENXIO);
 	
 	/* Write into the buffer */
-	result = write (cache->FD_W, buf, len);
-	if (result < 0) return (errno);
-	if (result == 0) return (ENXIO);
+	nwritten = write (cache->FD_W, buf, len);
+	if (nwritten == -1) return (errno);
+	if (nwritten == 0) return (ENXIO);
 	
 	/* Update counters */
 	cache->DiskWrite++;

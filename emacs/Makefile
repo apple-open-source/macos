@@ -2,7 +2,7 @@
 # Makefile for emacs
 ##
 
-Extra_CC_Flags = -no-cpp-precomp -mdynamic-no-pic -Wno-pointer-sign -D_FORTIFY_SOURCE=2
+Extra_CC_Flags = -Wno-pointer-sign
 Extra_LD_Flags = -Wl,-headerpad,0x1000 -Wl,-no_pie -Wl,-no_function_starts
 Extra_Configure_Flags = --without-x --without-carbon ac_cv_host=mac-apple-darwin ac_cv_func_posix_memalign=no
 
@@ -17,8 +17,9 @@ GnuNoBuild = YES
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 DSYMUTIL?=dsymutil
-
+Environment+= SHELL="$(SRCROOT)"/pipefail.sh
 NJOBS=$(shell sysctl -n hw.activecpu)
+
 # Automatic Extract & Patch
 AEP_Project    = $(Project)
 AEP_Version    = $(GNUVersion)
@@ -28,7 +29,7 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Apple.diff files.el.diff \
 	CVE-2007-6109.diff darwin.h.diff vcdiff.diff lread.c.diff \
 	fast-lock.el.diff python.el.diff src_Makefile.in.diff \
-	lisp_Makefile.in.diff xdisp.c.diff
+	lisp_Makefile.in.diff xdisp.c.diff lib-src_update-game-score.c.diff
 
 # Extract the source.
 install_source::
@@ -82,6 +83,7 @@ install-dumpemacs: $(SYMROOT)/dumpemacs
 	$(INSTALL) -m 444 -o root -g wheel $(SRCROOT)/emacs-undumped.1 "$(DSTROOT)"/usr/share/man/man1
 
 build::
+	find "$(OBJROOT)" -name Makefile -exec $(SRCROOT)/fixMakefile {} \;
 	@echo "Bootstraping $(Project)..."
 	$(MKDIR) $(OBJROOT)/src/arch
 ifeq (ppc,$(filter ppc,$(RC_ARCHS)))
@@ -89,7 +91,7 @@ ifeq (ppc,$(filter ppc,$(RC_ARCHS)))
 	$(CC) $(CFLAGS) -o $(OBJROOT)/src/arch/emacs-ppc $(OBJROOT)/emacs-ppc.o
 	lipo $(OBJROOT)/src/arch/emacs-ppc -extract_family ppc -output $(OBJROOT)/src/arch/emacs-ppc
 endif
-	${SDKROOT}/Developer/Makefiles/bin/version.pl emacs > $(OBJROOT)/src/version.h
+	ruby version.rb emacs > $(OBJROOT)/src/version.h
 	$(_v) $(MAKE) -j $(NJOBS) -C $(BuildDirectory) $(Environment) bootstrap
 	$(CP) $(OBJROOT)/src/emacs $(SYMROOT)
 	$(DSYMUTIL) $(SYMROOT)/emacs # Use current objs

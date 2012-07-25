@@ -135,6 +135,7 @@
 
 #include "file_id.h"
 #include "mail_params.h"
+#define MAIL_QUEUE_INTERNAL
 #include "mail_queue.h"
 
 #define STR	vstring_str
@@ -148,6 +149,8 @@ const char *mail_queue_dir(VSTRING *buf, const char *queue_name,
     static VSTRING *private_buf = 0;
     static VSTRING *hash_buf = 0;
     static ARGV *hash_queue_names = 0;
+    static VSTRING *usec_buf = 0;
+    const char *delim;
     char  **cpp;
 
     /*
@@ -182,8 +185,14 @@ const char *mail_queue_dir(VSTRING *buf, const char *queue_name,
      */
     for (cpp = hash_queue_names->argv; *cpp; cpp++) {
 	if (strcasecmp(*cpp, queue_name) == 0) {
+	    if (MQID_FIND_LG_INUM_SEPARATOR(delim, queue_id)) {
+		if (usec_buf == 0)
+		    usec_buf = vstring_alloc(20);
+		MQID_LG_GET_HEX_USEC(usec_buf, delim);
+		queue_id = STR(usec_buf);
+	    }
 	    vstring_strcat(buf,
-		      dir_forest(hash_buf, queue_id, var_hash_queue_depth));
+		       dir_forest(hash_buf, queue_id, var_hash_queue_depth));
 	    break;
 	}
     }
@@ -311,6 +320,8 @@ VSTREAM *mail_queue_enter(const char *queue_name, mode_t mode,
 			          struct timeval * tp)
 {
     const char *myname = "mail_queue_enter";
+    static VSTRING *sec_buf;
+    static VSTRING *usec_buf;
     static VSTRING *id_buf;
     static int pid;
     static VSTRING *path_buf;
@@ -326,6 +337,8 @@ VSTREAM *mail_queue_enter(const char *queue_name, mode_t mode,
      */
     if (id_buf == 0) {
 	pid = getpid();
+	sec_buf = vstring_alloc(10);
+	usec_buf = vstring_alloc(10);
 	id_buf = vstring_alloc(10);
 	path_buf = vstring_alloc(10);
 	temp_path = vstring_alloc(100);
@@ -366,7 +379,7 @@ VSTREAM *mail_queue_enter(const char *queue_name, mode_t mode,
      * 
      * If someone is racing against us, try to win.
      */
-    file_id = get_file_id(fd);
+    file_id = get_file_id_fd(fd, var_long_queue_ids);
 
     /*
      * XXX Some systems seem to have clocks that correlate with process
@@ -377,7 +390,16 @@ VSTREAM *mail_queue_enter(const char *queue_name, mode_t mode,
      */
     for (count = 0;; count++) {
 	GETTIMEOFDAY(tp);
-	vstring_sprintf(id_buf, "%05X%s", (int) tp->tv_usec, file_id);
+	if (var_long_queue_ids) {
+	    vstring_sprintf(id_buf, "%s%s%c%s",
+			    MQID_LG_ENCODE_SEC(sec_buf, tp->tv_sec),
+			    MQID_LG_ENCODE_USEC(usec_buf, tp->tv_usec),
+			    MQID_LG_INUM_SEP, file_id);
+	} else {
+	    vstring_sprintf(id_buf, "%s%s",
+			    MQID_SH_ENCODE_USEC(usec_buf, tp->tv_usec),
+			    file_id);
+	}
 	mail_queue_path(path_buf, queue_name, STR(id_buf));
 	if (sane_rename(STR(temp_path), STR(path_buf)) == 0)	/* success */
 	    break;

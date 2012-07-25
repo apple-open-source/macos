@@ -32,8 +32,8 @@
 #define WebFileChooserCompletionImpl_h
 
 #include "WebFileChooserCompletion.h"
-#include "WebString.h"
-#include "WebVector.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
 #include "FileChooser.h"
 #include <wtf/PassRefPtr.h>
@@ -49,6 +49,7 @@ public:
     WebFileChooserCompletionImpl(PassRefPtr<WebCore::FileChooser> chooser);
     ~WebFileChooserCompletionImpl();
     virtual void didChooseFile(const WebVector<WebString>& fileNames);
+    virtual void didChooseFile(const WebVector<SelectedFileInfo>& files);
 private:
     RefPtr<WebCore::FileChooser> m_fileChooser;
 };

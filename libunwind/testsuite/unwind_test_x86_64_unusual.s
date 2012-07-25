@@ -43,7 +43,6 @@ LCFI3:
 LFE13:
 
 
-.globl Ltest_rbx
 Ltest_rbx:
 LFB10:
 	pushq	%rbp
@@ -171,7 +170,6 @@ LASFDE3:
 	.align 3
 LEFDE3:
 
-.globl Ltest_rbx.eh
 Ltest_rbx.eh:
 LSFDE9:
 	.set L$set$17,LEFDE9-LASFDE9
@@ -286,8 +284,8 @@ LEFDE9b:
 .globl _test_rbx_same_register.eh
 _test_rbx_same_register.eh:
 LSFDE9c:
-	.set L$set$12,LEFDE9c-LASFDE9c
-	.long L$set$12	# FDE Length
+	.set L$set$12c,LEFDE9c-LASFDE9c
+	.long L$set$12c	# FDE Length
 LASFDE9c:
 	.long	LASFDE9c-EH_frame1	# FDE CIE offset
 	.quad	LFB10c-.	# FDE initial location

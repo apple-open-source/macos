@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; -*- 
  *
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

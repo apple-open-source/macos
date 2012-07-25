@@ -38,7 +38,7 @@ LSOF_CONFIGURE  = $(OBJROOT)/Configure
 install-patched-source: shadow_source
 	$(_v) echo "*** patching Configure"
 	$(_v) $(CAT) $(LSOF_CONFIGURE)						>  /tmp/build.lsof.$(UNIQUE)
-	$(_v) echo '/^[ 	]*900|1000)/n'					>  /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*900|1000|1100)/n'				>  /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      if [ -n "$${SDKROOT}" ]; then'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '        LSOF_CC="`xcrun -sdk $${SDKROOT} -find cc`"'	>> /tmp/build.lsof.$(UNIQUE)-ed
@@ -47,7 +47,7 @@ install-patched-source: shadow_source
 	$(_v) echo '        LSOF_CC="`xcrun -sdk / -find cc`"'			>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      fi'							>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '.'								>> /tmp/build.lsof.$(UNIQUE)-ed
-	$(_v) echo '/^[ 	]*1100)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
+	$(_v) echo '/^[ 	]*1200)/n'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '/^[ 	]*;;/i'						>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_UNSUP=""'					>> /tmp/build.lsof.$(UNIQUE)-ed
 	$(_v) echo '      LSOF_TSTBIGF=" "'					>> /tmp/build.lsof.$(UNIQUE)-ed

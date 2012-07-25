@@ -1,9 +1,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/hid/IOHIDLib.h>
 
-static uint8_t  gReport[64] = {0};
-static bool     gValue  = FALSE;
-static bool     gSend   = FALSE;
+static bool     gReport         = TRUE;
+static bool     gValue          = FALSE;
+static bool     gSend           = FALSE;
 
 static char * getReportTypeString(IOHIDReportType type)
 {
@@ -23,7 +23,7 @@ static void __deviceReportCallback(void * context, IOReturn result, void * sende
 {
     int index;
 
-    printf("IOHIDDeviceRef[%p]: reportType=%s reportID=%d reportLength=%d: ", sender, getReportTypeString(type), reportID, reportLength);
+    printf("IOHIDDeviceRef[%p]: reportType=%s reportID=%d reportLength=%ld: ", sender, getReportTypeString(type), reportID, reportLength);
     for (index=0; index<reportLength; index++)
         printf("%02x ", report[index]);
     printf("\n");
@@ -41,7 +41,7 @@ void __deviceValueCallback (void * context, IOReturn result, void * sender, IOHI
 {
     IOHIDElementRef element = IOHIDValueGetElement(value);
     
-    printf("IOHIDDeviceRef[%p]: value=%p timestamp=%lld cookie=%d usagePage=%d usage=%d intValue=%d\n", sender, value, IOHIDValueGetTimeStamp(value), IOHIDElementGetCookie(element), IOHIDElementGetUsagePage(element), IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value));
+    printf("IOHIDDeviceRef[%p]: value=%p timestamp=%lld cookie=%d usagePage=%d usage=%d intValue=%ld\n", sender, value, IOHIDValueGetTimeStamp(value), (uint32_t)IOHIDElementGetCookie(element), IOHIDElementGetUsagePage(element), IOHIDElementGetUsage(element), IOHIDValueGetIntegerValue(value));
 }
 
 
@@ -63,14 +63,22 @@ int main (int argc, const char * argv[]) {
             gSend = TRUE;
             printf("Send response out data supported\n");
         }
+        else if ( 0 == strcmp("-nr", argv[a]) ) {
+            gReport = FALSE;
+            printf("Input report data suppressed\n");
+        }
     }
     
     
         
     IOHIDManagerRegisterDeviceMatchingCallback(manager, __deviceCallback, (void*)TRUE);
     IOHIDManagerRegisterDeviceRemovalCallback(manager, __deviceCallback, (void*)FALSE);
-    IOHIDManagerRegisterInputReportCallback(manager, __deviceReportCallback, NULL);
-    if ( gValue ) IOHIDManagerRegisterInputValueCallback(manager, __deviceValueCallback, NULL);
+    
+    if ( gReport )
+        IOHIDManagerRegisterInputReportCallback(manager, __deviceReportCallback, NULL);
+    if ( gValue ) 
+        IOHIDManagerRegisterInputValueCallback(manager, __deviceValueCallback, NULL);
+    
     IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
     IOHIDManagerSetDeviceMatching(manager, NULL);
     IOHIDManagerOpen(manager, 0);

@@ -27,7 +27,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 /*
  * Bzero, tuned for processors with SSE4.2 and 64-byte cache lines, ie Nehalem.

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -106,9 +106,9 @@
 
 #undef LEN
 #if SHOPT_MULTIBYTE
-    static int NXT, LEN;
-#   define isaname(c)	((c)>0xff?isalpha(c): sh_lexstates[ST_NAME][(c)]==0)
-#   define isaletter(c)	((c)>0xff?isalpha(c): sh_lexstates[ST_DOL][(c)]==S_ALP && (c)!='.')
+#   define LEN		_Fcin.fclen
+#   define isaname(c)	((c)>0x7f?isalpha(c): sh_lexstates[ST_NAME][(c)]==0)
+#   define isaletter(c)	((c)>0x7f?isalpha(c): sh_lexstates[ST_DOL][(c)]==S_ALP && (c)!='.')
 #else
 #   undef mbwide
 #   define mbwide()	(0)
@@ -116,7 +116,7 @@
 #   define isaname(c)	(sh_lexstates[ST_NAME][c]==0)
 #   define isaletter(c)	(sh_lexstates[ST_DOL][c]==S_ALP && (c)!='.')
 #endif
-#define STATE(s,c)  	(mbwide()?(c=fcmbstate(s,&NXT,&LEN),NXT):s[c=fcget()])
+#define STATE(s,c)	(s[mbwide()?((c=fcmbget(&LEN)),LEN>1?'a':c):(c=fcget())])
 #define isadigit(c)	(sh_lexstates[ST_DOL][c]==S_DIG)
 #define isastchar(c)	((c)=='@' || (c)=='*')
 #define isexp(c)	(sh_lexstates[ST_MACRO][c]==S_PAT||(c)=='$'||(c)=='`')
@@ -132,12 +132,15 @@ extern const char e_lexlabunknown[];
 extern const char e_lexsyntax1[];
 extern const char e_lexsyntax2[];
 extern const char e_lexsyntax3[];
+extern const char e_lexsyntax4[];
+extern const char e_lexwarnvar[];
 extern const char e_lexobsolete1[];
 extern const char e_lexobsolete2[];
 extern const char e_lexobsolete3[];
 extern const char e_lexobsolete4[];
 extern const char e_lexobsolete5[];
 extern const char e_lexobsolete6[];
+extern const char e_lexnonstandard[];
 extern const char e_lexusebrace[];
 extern const char e_lexusequote[];
 extern const char e_lexescape[];
@@ -148,4 +151,6 @@ extern const char e_lexlongquote[];
 extern const char e_lexfuture[];
 extern const char e_lexzerobyte[];
 extern const char e_lexemptyfor[];
+extern const char e_lextypeset[];
+extern const char e_lexcharclass[];
 #endif

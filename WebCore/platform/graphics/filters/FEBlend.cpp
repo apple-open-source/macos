@@ -31,7 +31,7 @@
 #include "RenderTreeAsText.h"
 #include "TextStream.h"
 
-#include <wtf/ByteArray.h>
+#include <wtf/Uint8ClampedArray.h>
 
 typedef unsigned char (*BlendType)(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB);
 
@@ -61,73 +61,81 @@ bool FEBlend::setBlendMode(BlendModeType mode)
     return true;
 }
 
-static unsigned char unknown(unsigned char, unsigned char, unsigned char, unsigned char)
-{
-    return 0;
-}
-
-static unsigned char normal(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char)
+static inline unsigned char normal(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char)
 {
     return (((255 - alphaA) * colorB + colorA * 255) / 255);
 }
 
-static unsigned char multiply(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
+static inline unsigned char multiply(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
 {
     return (((255 - alphaA) * colorB + (255 - alphaB + colorB) * colorA) / 255);
 }
 
-static unsigned char screen(unsigned char colorA, unsigned char colorB, unsigned char, unsigned char)
+static inline unsigned char screen(unsigned char colorA, unsigned char colorB, unsigned char, unsigned char)
 {
     return (((colorB + colorA) * 255 - colorA * colorB) / 255);
 }
 
-static unsigned char darken(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
+static inline unsigned char darken(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
 {
     return ((std::min((255 - alphaA) * colorB + colorA * 255, (255 - alphaB) * colorA + colorB * 255)) / 255);
 }
 
-static unsigned char lighten(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
+static inline unsigned char lighten(unsigned char colorA, unsigned char colorB, unsigned char alphaA, unsigned char alphaB)
 {
     return ((std::max((255 - alphaA) * colorB + colorA * 255, (255 - alphaB) * colorA + colorB * 255)) / 255);
 }
 
-void FEBlend::apply()
+void FEBlend::platformApplySoftware()
 {
-    if (hasResult())
-        return;
     FilterEffect* in = inputEffect(0);
     FilterEffect* in2 = inputEffect(1);
-    in->apply();
-    in2->apply();
-    if (!in->hasResult() || !in2->hasResult())
-        return;
 
-    if (m_mode <= FEBLEND_MODE_UNKNOWN || m_mode > FEBLEND_MODE_LIGHTEN)
-        return;
+    ASSERT(m_mode > FEBLEND_MODE_UNKNOWN);
+    ASSERT(m_mode <= FEBLEND_MODE_LIGHTEN);
 
-    ByteArray* dstPixelArray = createPremultipliedImageResult();
+    Uint8ClampedArray* dstPixelArray = createPremultipliedImageResult();
     if (!dstPixelArray)
         return;
 
     IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-    RefPtr<ByteArray> srcPixelArrayA = in->asPremultipliedImage(effectADrawingRect);
+    RefPtr<Uint8ClampedArray> srcPixelArrayA = in->asPremultipliedImage(effectADrawingRect);
 
     IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
-    RefPtr<ByteArray> srcPixelArrayB = in2->asPremultipliedImage(effectBDrawingRect);
-
-    // Keep synchronized with BlendModeType
-    static const BlendType callEffect[] = {unknown, normal, multiply, screen, darken, lighten};
+    RefPtr<Uint8ClampedArray> srcPixelArrayB = in2->asPremultipliedImage(effectBDrawingRect);
 
     unsigned pixelArrayLength = srcPixelArrayA->length();
     ASSERT(pixelArrayLength == srcPixelArrayB->length());
     for (unsigned pixelOffset = 0; pixelOffset < pixelArrayLength; pixelOffset += 4) {
-        unsigned char alphaA = srcPixelArrayA->get(pixelOffset + 3);
-        unsigned char alphaB = srcPixelArrayB->get(pixelOffset + 3);
+        unsigned char alphaA = srcPixelArrayA->item(pixelOffset + 3);
+        unsigned char alphaB = srcPixelArrayB->item(pixelOffset + 3);
         for (unsigned channel = 0; channel < 3; ++channel) {
-            unsigned char colorA = srcPixelArrayA->get(pixelOffset + channel);
-            unsigned char colorB = srcPixelArrayB->get(pixelOffset + channel);
+            unsigned char colorA = srcPixelArrayA->item(pixelOffset + channel);
+            unsigned char colorB = srcPixelArrayB->item(pixelOffset + channel);
+            unsigned char result;
 
-            unsigned char result = (*callEffect[m_mode])(colorA, colorB, alphaA, alphaB);
+            switch (m_mode) {
+            case FEBLEND_MODE_NORMAL:
+                result = normal(colorA, colorB, alphaA, alphaB);
+                break;
+            case FEBLEND_MODE_MULTIPLY:
+                result = multiply(colorA, colorB, alphaA, alphaB);
+                break;
+            case FEBLEND_MODE_SCREEN:
+                result = screen(colorA, colorB, alphaA, alphaB);
+                break;
+            case FEBLEND_MODE_DARKEN:
+                result = darken(colorA, colorB, alphaA, alphaB);
+                break;
+            case FEBLEND_MODE_LIGHTEN:
+                result = lighten(colorA, colorB, alphaA, alphaB);
+                break;
+            case FEBLEND_MODE_UNKNOWN:
+            default:
+                result = 0;
+                break;
+            }
+
             dstPixelArray->set(pixelOffset + channel, result);
         }
         unsigned char alphaR = 255 - ((255 - alphaA) * (255 - alphaB)) / 255;

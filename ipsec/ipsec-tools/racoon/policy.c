@@ -111,8 +111,8 @@ getsp_r(spidx, iph2)
 					// for tunnel mode: verify the outer ip addresses match the phase2's addresses
 					if (spidx->dir == IPSEC_DIR_INBOUND) {
 						// TODO: look out for wildcards
-						if (!cmpsaddrwop(iph2->dst, (struct sockaddr *)&isr->saidx.src) &&
-							!cmpsaddrwop(iph2->src, (struct sockaddr *)&isr->saidx.dst)) {
+						if (!cmpsaddrwop(iph2->dst, &isr->saidx.src) &&
+							!cmpsaddrwop(iph2->src, &isr->saidx.dst)) {
 							plog(LLV_DEBUG2, LOCATION, NULL, "%s, inbound policy outer addresses matched phase2's addresses\n",
 								 __FUNCTION__);
 							return p;
@@ -121,8 +121,8 @@ getsp_r(spidx, iph2)
 						}
 					} else if (spidx->dir == IPSEC_DIR_OUTBOUND) {
 						// TODO: look out for wildcards
-						if (!cmpsaddrwop(iph2->src, (struct sockaddr *)&isr->saidx.src) &&
-							!cmpsaddrwop(iph2->dst, (struct sockaddr *)&isr->saidx.dst)) {
+						if (!cmpsaddrwop(iph2->src, &isr->saidx.src) &&
+							!cmpsaddrwop(iph2->dst, &isr->saidx.dst)) {
 							plog(LLV_DEBUG2, LOCATION, NULL, "%s, outbound policy outer addresses matched phase2's addresses\n",
 								 __FUNCTION__);
 							return p;
@@ -136,11 +136,11 @@ getsp_r(spidx, iph2)
 						plog(LLV_DEBUG2, LOCATION, NULL, "%s, policy outer addresses matched phase2's addresses: dir %d\n",
 							 __FUNCTION__, spidx->dir);
 						plog(LLV_DEBUG, LOCATION, NULL, "src1: %s\n",
-							 saddr2str(iph2->src));
+							 saddr2str((struct sockaddr *)iph2->src));
 						plog(LLV_DEBUG, LOCATION, NULL, "src2: %s\n",
 							 saddr2str((struct sockaddr *)&isr->saidx.src));
 						plog(LLV_DEBUG, LOCATION, NULL, "dst1: %s\n",
-							 saddr2str(iph2->dst));
+							 saddr2str((struct sockaddr *)iph2->dst));
 						plog(LLV_DEBUG, LOCATION, NULL, "dst2: %s\n",
 							 saddr2str((struct sockaddr *)&isr->saidx.dst));
 					}
@@ -191,16 +191,16 @@ getsp_r(spidx, iph2)
 	plog(LLV_DEBUG, LOCATION, NULL, "src1: %s\n",
 		saddr2str(iph2->src));
 	plog(LLV_DEBUG, LOCATION, NULL, "src2: %s\n",
-		saddr2str((struct sockaddr *)&spidx->src));
-	if (cmpsaddrwop(iph2->src, (struct sockaddr *)&spidx->src)
+		saddr2str(&spidx->src));
+	if (cmpsaddrwop(iph2->src, &spidx->src)
 	 || spidx->prefs != prefixlen)
 		return NULL;
 
 	plog(LLV_DEBUG, LOCATION, NULL, "dst1: %s\n",
 		saddr2str(iph2->dst));
 	plog(LLV_DEBUG, LOCATION, NULL, "dst2: %s\n",
-		saddr2str((struct sockaddr *)&spidx->dst));
-	if (cmpsaddrwop(iph2->dst, (struct sockaddr *)&spidx->dst)
+		saddr2str(&spidx->dst));
+	if (cmpsaddrwop(iph2->dst, &spidx->dst)
 	 || spidx->prefd != prefixlen)
 		return NULL;
 
@@ -239,8 +239,8 @@ int
 cmpspidxstrict(a, b)
 	struct policyindex *a, *b;
 {
-	plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
-	plog(LLV_DEBUG, LOCATION, NULL, "db :%p: %s\n", b, spidx2str(b));
+	//plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
+	//plog(LLV_DEBUG, LOCATION, NULL, "db :%p: %s\n", b, spidx2str(b));
 
 	/* XXX don't check direction now, but it's to be checked carefully. */
 	if (a->dir != b->dir
@@ -249,11 +249,9 @@ cmpspidxstrict(a, b)
 	 || a->ul_proto != b->ul_proto)
 		return 1;
 
-	if (cmpsaddrstrict((struct sockaddr *)&a->src,
-			   (struct sockaddr *)&b->src))
+	if (cmpsaddrstrict(&a->src, &b->src))
 		return 1;
-	if (cmpsaddrstrict((struct sockaddr *)&a->dst,
-			   (struct sockaddr *)&b->dst))
+	if (cmpsaddrstrict(&a->dst, &b->dst))
 		return 1;
 
 	return 0;
@@ -271,8 +269,8 @@ cmpspidxwild(a, b)
 {
 	struct sockaddr_storage sa1, sa2;
 
-	plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
-	plog(LLV_DEBUG, LOCATION, NULL, "db: %p: %s\n", b, spidx2str(b));
+	//plog(LLV_DEBUG, LOCATION, NULL, "sub:%p: %s\n", a, spidx2str(a));
+	//plog(LLV_DEBUG, LOCATION, NULL, "db: %p: %s\n", b, spidx2str(b));
 
 	if (!(b->dir == IPSEC_DIR_ANY || a->dir == b->dir))
 		return 1;
@@ -295,15 +293,13 @@ cmpspidxwild(a, b)
 			a->src.ss_len, b->src.ss_len);
 		return 1;
 	}
-	mask_sockaddr((struct sockaddr *)&sa1, (struct sockaddr *)&a->src,
-		b->prefs);
-	mask_sockaddr((struct sockaddr *)&sa2, (struct sockaddr *)&b->src,
-		b->prefs);
+	mask_sockaddr(&sa1, &a->src, b->prefs);
+	mask_sockaddr(&sa2, &b->src, b->prefs);
 	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
 		a, b->prefs, saddr2str((struct sockaddr *)&sa1));
 	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
 		b, b->prefs, saddr2str((struct sockaddr *)&sa2));
-	if (cmpsaddrwild((struct sockaddr *)&sa1, (struct sockaddr *)&sa2))
+	if (cmpsaddrwild(&sa1, &sa2))
 		return 1;
 
 	/* compare dst address */
@@ -311,15 +307,13 @@ cmpspidxwild(a, b)
 		plog(LLV_ERROR, LOCATION, NULL, "unexpected error\n");
 		exit(1);
 	}
-	mask_sockaddr((struct sockaddr *)&sa1, (struct sockaddr *)&a->dst,
-		b->prefd);
-	mask_sockaddr((struct sockaddr *)&sa2, (struct sockaddr *)&b->dst,
-		b->prefd);
+	mask_sockaddr(&sa1, &a->dst, b->prefd);
+	mask_sockaddr(&sa2, &b->dst, b->prefd);
 	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
 		a, b->prefd, saddr2str((struct sockaddr *)&sa1));
 	plog(LLV_DEBUG, LOCATION, NULL, "%p masked with /%d: %s\n",
 		b, b->prefd, saddr2str((struct sockaddr *)&sa2));
-	if (cmpsaddrwild((struct sockaddr *)&sa1, (struct sockaddr *)&sa2))
+	if (cmpsaddrwild(&sa1, &sa2))
 		return 1;
 
 	return 0;

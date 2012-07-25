@@ -1,8 +1,8 @@
 /* ldapmodify.c - generic program to modify or add entries using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodify.c,v 1.186.2.14 2010/04/15 22:16:50 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * Portions Copyright 2006 Howard Chu.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
@@ -64,7 +64,6 @@
 #include "lutil_ldap.h"
 #include "ldif.h"
 #include "ldap_defaults.h"
-#include "ldap_log.h"
 #include "ldap_pvt.h"
 #include "lber_pvt.h"
 
@@ -242,7 +241,7 @@ main( int argc, char **argv )
 {
 	char		*rbuf = NULL, *rejbuf = NULL;
 	FILE		*rejfp;
-	struct LDIFFP *ldiffp, ldifdummy = {0};
+	struct LDIFFP *ldiffp = NULL, ldifdummy = {0};
 	char		*matched_msg, *error_msg;
 	int		rc, retval, ldifrc;
 	int		len;
@@ -264,7 +263,8 @@ main( int argc, char **argv )
 	if ( rejfile != NULL ) {
 		if (( rejfp = fopen( rejfile, "w" )) == NULL ) {
 			perror( rejfile );
-			return( EXIT_FAILURE );
+			retval = EXIT_FAILURE;
+			goto fail;
 		}
 	} else {
 		rejfp = NULL;
@@ -273,7 +273,8 @@ main( int argc, char **argv )
 	if ( infile != NULL ) {
 		if (( ldiffp = ldif_open( infile, "r" )) == NULL ) {
 			perror( infile );
-			return( EXIT_FAILURE );
+			retval = EXIT_FAILURE;
+			goto fail;
 		}
 	} else {
 		ldifdummy.fp = stdin;
@@ -294,7 +295,10 @@ main( int argc, char **argv )
 		rc = ldap_txn_start_s( ld, NULL, NULL, &txn_id );
 		if( rc != LDAP_SUCCESS ) {
 			tool_perror( "ldap_txn_start_s", rc, NULL, NULL, NULL, NULL );
-			if( txn > 1 ) return EXIT_FAILURE;
+			if( txn > 1 ) {
+				retval = EXIT_FAILURE;
+				goto fail;
+			}
 			txn = 0;
 		}
 	}
@@ -328,7 +332,8 @@ main( int argc, char **argv )
 			len = strlen( rbuf );
 			if (( rejbuf = (char *)ber_memalloc( len+1 )) == NULL ) {
 				perror( "malloc" );
-				exit( EXIT_FAILURE );
+				retval = EXIT_FAILURE;
+				goto fail;
 			}
 			memcpy( rejbuf, rbuf, len+1 );
 		}
@@ -383,16 +388,16 @@ main( int argc, char **argv )
 	}
 #endif
 
-	if ( !dont ) {
-		tool_unbind( ld );
-	}
-
+fail:;
 	if ( rejfp != NULL ) {
 		fclose( rejfp );
 	}
 
-	tool_destroy();
-	return( retval );
+	if ( ldiffp != NULL && ldiffp != &ldifdummy ) {
+		ldif_close( ldiffp );
+	}
+
+	tool_exit( ld, retval );
 }
 
 
@@ -450,7 +455,7 @@ process_ldif_rec( char *rbuf, int linenum )
 			fprintf( stderr, _("%s: invalid format (line %d) entry: \"%s\"\n"),
 				prog, linenum+i, dn == NULL ? "" : dn );
 			rc = LDAP_PARAM_ERROR;
-			break;
+			goto leave;
 		}
 		freeval[i] = freev;
 
@@ -904,8 +909,8 @@ parse_ldif_control(
 	char *s, *oidStart;
 	LDAPControl *newctrl = NULL;
 	LDAPControl **pctrls = NULL;
-	struct berval type, bv;
-	int freeval;
+	struct berval type, bv = BER_BVNULL;
+	int freeval = 0;
 
 	if (ppctrls) pctrls = *ppctrls;
 	/* OID should come first. Validate and extract it. */
@@ -1259,7 +1264,7 @@ static int process_response(
 
 	if ( text ) ldap_memfree( text );
 	if ( matched ) ldap_memfree( matched );
-	if ( text ) ber_memvfree( (void **)refs );
+	if ( refs ) ber_memvfree( (void **)refs );
 
 	if ( ctrls ) {
 		tool_print_ctrls( ld, ctrls );

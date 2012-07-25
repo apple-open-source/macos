@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010-2011. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +22,8 @@
 
 #if ENABLE(SVG)
 #include "SVGTextMetrics.h"
+#include <wtf/HashMap.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -29,55 +31,48 @@ namespace WebCore {
 
 class RenderSVGInlineText;
 
+struct SVGCharacterData {
+    SVGCharacterData();
+
+    float x;
+    float y;
+    float dx;
+    float dy;
+    float rotate;
+};
+
+typedef HashMap<unsigned, SVGCharacterData> SVGCharacterDataMap;
+
 class SVGTextLayoutAttributes {
+    WTF_MAKE_NONCOPYABLE(SVGTextLayoutAttributes);
 public:
-    struct PositioningLists {
-        void fillWithEmptyValues(unsigned length);
-        void appendEmptyValues();
-        void appendValuesFromPosition(const PositioningLists&, unsigned position);
+    SVGTextLayoutAttributes(RenderSVGInlineText*);
 
-        Vector<float> xValues;
-        Vector<float> yValues;
-        Vector<float> dxValues;
-        Vector<float> dyValues;
-        Vector<float> rotateValues;
-    };
-
-    SVGTextLayoutAttributes(RenderSVGInlineText* context = 0);
-
-    void reserveCapacity(unsigned length);
+    void clear();
     void dump() const;
-
     static float emptyValue();
 
     RenderSVGInlineText* context() const { return m_context; }
-
-    PositioningLists& positioningLists() { return m_positioningLists; }
-    const PositioningLists& positioningLists() const { return m_positioningLists; }
-
-    Vector<float>& xValues() { return m_positioningLists.xValues; }
-    const Vector<float>& xValues() const { return m_positioningLists.xValues; }
-
-    Vector<float>& yValues() { return m_positioningLists.yValues; }
-    const Vector<float>& yValues() const { return m_positioningLists.yValues; }
-
-    Vector<float>& dxValues() { return m_positioningLists.dxValues; }
-    const Vector<float>& dxValues() const { return m_positioningLists.dxValues; }
-
-    Vector<float>& dyValues() { return m_positioningLists.dyValues; }
-    const Vector<float>& dyValues() const { return m_positioningLists.dyValues; }
-
-    Vector<float>& rotateValues() { return m_positioningLists.rotateValues; }
-    const Vector<float>& rotateValues() const { return m_positioningLists.rotateValues; }
+    
+    SVGCharacterDataMap& characterDataMap() { return m_characterDataMap; }
+    const SVGCharacterDataMap& characterDataMap() const { return m_characterDataMap; }
 
     Vector<SVGTextMetrics>& textMetricsValues() { return m_textMetricsValues; }
-    const Vector<SVGTextMetrics>& textMetricsValues() const { return m_textMetricsValues; }
 
 private:
     RenderSVGInlineText* m_context;
-    PositioningLists m_positioningLists;
+    SVGCharacterDataMap m_characterDataMap;
     Vector<SVGTextMetrics> m_textMetricsValues;
 };
+
+inline SVGCharacterData::SVGCharacterData()
+    : x(SVGTextLayoutAttributes::emptyValue())
+    , y(SVGTextLayoutAttributes::emptyValue())
+    , dx(SVGTextLayoutAttributes::emptyValue())
+    , dy(SVGTextLayoutAttributes::emptyValue())
+    , rotate(SVGTextLayoutAttributes::emptyValue())
+{
+}
 
 } // namespace WebCore
 

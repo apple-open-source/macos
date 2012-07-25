@@ -28,27 +28,22 @@
 #define WebContextMenuProxyQt_h
 
 #include "WebContextMenuProxy.h"
-#include <PassOwnPtr.h>
-
-class QMenu;
-class QWKPage;
-class WebContextMenuItemData;
+#include <QtCore/QObject>
 
 namespace WebKit {
 
-class WebContextMenuProxyQt : public WebContextMenuProxy {
+class WebPageProxy;
+
+class WebContextMenuProxyQt : public QObject, public WebContextMenuProxy {
+    Q_OBJECT
 public:
-    static PassRefPtr<WebContextMenuProxyQt> create(QWKPage*);
+    static PassRefPtr<WebContextMenuProxyQt> create(WebPageProxy*);
 
 private:
-    WebContextMenuProxyQt(QWKPage*);
+    WebContextMenuProxyQt(WebPageProxy*);
 
     virtual void showContextMenu(const WebCore::IntPoint&, const Vector<WebContextMenuItemData>&);
     virtual void hideContextMenu();
-
-    PassOwnPtr<QMenu> createContextMenu(const Vector<WebContextMenuItemData>& items) const;
-
-    QWKPage* const m_page;
 };
 
 } // namespace WebKit

@@ -31,6 +31,13 @@
 
 namespace JSC {
 
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSCell);
+
+void JSCell::destroy(JSCell* cell)
+{
+    cell->JSCell::~JSCell();
+}
+
 bool JSCell::getString(ExecState* exec, UString&stringValue) const
 {
     if (!isString())
@@ -90,14 +97,23 @@ bool JSCell::getOwnPropertySlotByIndex(JSCell* cell, ExecState* exec, unsigned i
 
 void JSCell::put(JSCell* cell, ExecState* exec, const Identifier& identifier, JSValue value, PutPropertySlot& slot)
 {
+    if (cell->isString()) {
+        JSValue(cell).putToPrimitive(exec, identifier, value, slot);
+        return;
+    }
     JSObject* thisObject = cell->toObject(exec, exec->lexicalGlobalObject());
     thisObject->methodTable()->put(thisObject, exec, identifier, value, slot);
 }
 
-void JSCell::putByIndex(JSCell* cell, ExecState* exec, unsigned identifier, JSValue value)
+void JSCell::putByIndex(JSCell* cell, ExecState* exec, unsigned identifier, JSValue value, bool shouldThrow)
 {
+    if (cell->isString()) {
+        PutPropertySlot slot(shouldThrow);
+        JSValue(cell).putToPrimitive(exec, Identifier::from(exec, identifier), value, slot);
+        return;
+    }
     JSObject* thisObject = cell->toObject(exec, exec->lexicalGlobalObject());
-    thisObject->methodTable()->putByIndex(thisObject, exec, identifier, value);
+    thisObject->methodTable()->putByIndex(thisObject, exec, identifier, value, shouldThrow);
 }
 
 bool JSCell::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& identifier)
@@ -138,34 +154,17 @@ double JSCell::toNumber(ExecState* exec) const
     return static_cast<const JSObject*>(this)->toNumber(exec);
 }
 
-UString JSCell::toString(ExecState* exec) const
-{
-    if (isString())
-        return static_cast<const JSString*>(this)->toString(exec);
-    return static_cast<const JSObject*>(this)->toString(exec);
-}
-
 JSObject* JSCell::toObject(ExecState* exec, JSGlobalObject* globalObject) const
 {
     if (isString())
         return static_cast<const JSString*>(this)->toObject(exec, globalObject);
     ASSERT(isObject());
-    return static_cast<JSObject*>(const_cast<JSCell*>(this));
+    return jsCast<JSObject*>(const_cast<JSCell*>(this));
 }
 
 void slowValidateCell(JSCell* cell)
 {
     ASSERT_GC_OBJECT_LOOKS_VALID(cell);
-}
-
-void JSCell::defineGetter(JSObject*, ExecState*, const Identifier&, JSObject*, unsigned)
-{
-    ASSERT_NOT_REACHED();
-}
-
-void JSCell::defineSetter(JSObject*, ExecState*, const Identifier&, JSObject*, unsigned)
-{
-    ASSERT_NOT_REACHED();
 }
 
 JSValue JSCell::defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType)
@@ -196,7 +195,7 @@ bool JSCell::hasInstance(JSObject*, ExecState*, JSValue, JSValue)
     return false;
 }
 
-void JSCell::putWithAttributes(JSObject*, ExecState*, const Identifier&, JSValue, unsigned)
+void JSCell::putDirectVirtual(JSObject*, ExecState*, const Identifier&, JSValue, unsigned)
 {
     ASSERT_NOT_REACHED();
 }

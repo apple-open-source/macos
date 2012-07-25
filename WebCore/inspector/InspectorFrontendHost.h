@@ -60,27 +60,30 @@ public:
     void loaded();
     void requestAttachWindow();
     void requestDetachWindow();
+    void requestSetDockSide(const String&);
     void closeWindow();
-    void disconnectFromBackend();
     void bringToFront();
+    void setZoomFactor(float);
     void inspectedURLChanged(const String&);
 
     void setAttachedWindowHeight(unsigned height);
     void moveWindowBy(float x, float y) const;
-    void setExtensionAPI(const String& script);
+    void setInjectedScriptForOrigin(const String& origin, const String& script);
 
     String localizedStringsURL();
     String hiddenPanels();
 
     void copyText(const String& text);
-    void saveAs(const String& fileName, const String& content);
-
-    void saveSessionSetting(const String& key, const String& value);
-    String loadSessionSetting(const String& key);
+    void openInNewTab(const String& url);
+    bool canSave();
+    void save(const String& url, const String& content, bool forceSaveAs);
+    void append(const String& url, const String& content);
 
     // Called from [Custom] implementations.
     void showContextMenu(Event*, const Vector<ContextMenuItem*>& items);
     void sendMessageToBackend(const String& message);
+
+    String loadResourceSynchronously(const String& url);
 
 private:
 #if ENABLE(CONTEXT_MENUS)

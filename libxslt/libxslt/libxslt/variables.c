@@ -43,6 +43,10 @@ const xmlChar *xsltDocFragFake = (const xmlChar *) " fake node libxslt";
 const xmlChar *xsltComputingGlobalVarMarker =
  (const xmlChar *) " var/param being computed";
 
+#define XSLT_VAR_GLOBAL 1<<0
+#define XSLT_VAR_IN_SELECT 1<<1
+#define XSLT_TCTXT_VARIABLE(c) ((xsltStackElemPtr) (c)->contextVariable)
+
 /************************************************************************
  *									*
  *  Result Value Tree (Result Tree Fragment) interfaces			*
@@ -671,6 +675,9 @@ xsltStackLookup(xsltTransformContextPtr ctxt, const xmlChar *name,
     return(NULL);
 }
 
+#ifdef XSLT_REFACTORED
+#else
+
 /**
  * xsltCheckStackElem:
  * @ctxt:  xn XSLT transformation context
@@ -705,6 +712,8 @@ xsltCheckStackElem(xsltTransformContextPtr ctxt, const xmlChar *name,
     
     return(1);
 }
+
+#endif /* XSLT_REFACTORED */
 
 /**
  * xsltAddStackElem:
@@ -1041,7 +1050,11 @@ xsltEvalGlobalVariable(xsltStackElemPtr elem, xsltTransformContextPtr ctxt)
 #endif
 
     oldInst = ctxt->inst;
+#ifdef XSLT_REFACTORED
+    comp = (xsltStyleBasicItemVariablePtr) elem->comp;
+#else
     comp = elem->comp;
+#endif
     oldVarName = elem->name;
     elem->name = xsltComputingGlobalVarMarker;
     /*

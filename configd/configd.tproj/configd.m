@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,7 @@
  * - created
  */
 
-//#define DO_NOT_INFORM
+#define DO_NOT_INFORM
 
 #include <getopt.h>
 #include <stdio.h>
@@ -66,6 +66,9 @@ __private_extern__
 FILE	*_configd_trace			= NULL;		/* non-NULL if tracing enabled */
 
 __private_extern__
+CFMutableSetRef	_plugins_allowed	= NULL;		/* bundle identifiers to allow when loading */
+
+__private_extern__
 CFMutableSetRef	_plugins_exclude	= NULL;		/* bundle identifiers to exclude from loading */
 
 __private_extern__
@@ -78,6 +81,7 @@ static CFMachPortRef termRequested	= NULL;		/* Mach port used to notify runloop 
 
 
 static const struct option longopts[] = {
+//	{ "include-plugin",	required_argument,	0,	'A' },
 //	{ "no-bundles",		no_argument,		0,	'b' },
 //	{ "exclude-plugin",	required_argument,	0,	'B' },
 //	{ "no-fork",		no_argument,		0,	'd' },
@@ -93,7 +97,7 @@ static const struct option longopts[] = {
 static void
 usage(const char *prog)
 {
-	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-t bundle-path]\n"), prog);
+	SCPrint(TRUE, stderr, CFSTR("%s: [-d] [-v] [-V bundleID] [-b] [-B bundleID] [-A bundleID] [-t bundle-path]\n"), prog);
 	SCPrint(TRUE, stderr, CFSTR("options:\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-d\tdisable daemon/run in foreground\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-v\tenable verbose logging\n"));
@@ -101,6 +105,7 @@ usage(const char *prog)
 	SCPrint(TRUE, stderr, CFSTR("\t-f\tload ALL plug-ins in a separate process\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-b\tdisable loading of ALL plug-ins\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-B\tdisable loading of the specified plug-in\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t-A\tenable loading of the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-t\tload/test the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t\t  (Note: only the plug-in will be started)\n"));
 	exit (EX_USAGE);
@@ -260,20 +265,6 @@ fork_child()
 	return 0;
 }
 
-
-static void
-writepid(void)
-{
-	FILE *fp;
-
-	fp = fopen("/var/run/configd.pid", "w");
-	if (fp != NULL) {
-		fprintf(fp, "%d\n", getpid());
-		fclose(fp);
-	}
-}
-
-
 static CFStringRef
 termMPCopyDescription(const void *info)
 {
@@ -297,20 +288,26 @@ main(int argc, char * const argv[])
 	Boolean			loadBundles	= TRUE;
 	struct sigaction	nact;
 	int			opt;
-	extern int		optind;
+//	extern int		optind;
 	const char		*prog		= argv[0];
 	CFRunLoopSourceRef	rls;
 	kern_return_t		status;
 	CFStringRef		str;
 	const char		*testBundle	= NULL;
 
+	_plugins_allowed = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 	_plugins_exclude = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 	_plugins_verbose = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
 	/* process any arguments */
 
-	while ((opt = getopt_long(argc, argv, "bB:dt:vV:f", longopts, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "A:bB:dt:vV:f", longopts, NULL)) != -1) {
 		switch(opt) {
+			case 'A':
+				str = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingMacRoman);
+				CFSetSetValue(_plugins_allowed, str);
+				CFRelease(str);
+				break;
 			case 'b':
 				loadBundles = FALSE;
 				break;
@@ -436,11 +433,6 @@ main(int argc, char * const argv[])
 
 	/* check/enable trace logging */
 	set_trace();
-
-	/* record process id */
-	if (testBundle == NULL) {
-		writepid();
-	}
 
 	/* add signal handler to catch a SIGHUP */
 	nact.sa_handler = catcher;

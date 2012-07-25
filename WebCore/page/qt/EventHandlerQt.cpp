@@ -50,9 +50,11 @@
 #include "RenderWidget.h"
 #include "Scrollbar.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
 QT_BEGIN_NAMESPACE
 Q_GUI_EXPORT extern bool qt_tab_all_widgets; // from qapplication.cpp
 QT_END_NAMESPACE
+#endif
 
 namespace WebCore {
 
@@ -64,7 +66,11 @@ const double EventHandler::TextDragDelay = 0.0;
 
 bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+    return !isKeyboardOptionTab(event);
+#else
     return (isKeyboardOptionTab(event) ? !qt_tab_all_widgets : qt_tab_all_widgets);
+#endif
 }
 
 void EventHandler::focusDocumentView()
@@ -89,7 +95,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
     return false;
 }
 
-bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& event, Widget* widget)
+bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widget* widget)
 {
     Q_ASSERT(widget);
     if (!widget->isFrameView())
@@ -124,9 +130,9 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
 unsigned EventHandler::accessKeyModifiers()
 {
 #if OS(DARWIN)
-    return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
+    return PlatformEvent::CtrlKey | PlatformEvent::AltKey;
 #else
-    return PlatformKeyboardEvent::AltKey;
+    return PlatformEvent::AltKey;
 #endif
 }
 

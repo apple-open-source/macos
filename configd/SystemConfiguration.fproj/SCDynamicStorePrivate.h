@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,18 +97,6 @@
  */
 
 /*!
-	@typedef SCDynamicStoreCallBack
-	@discussion Type of the callback function used when a
-		dynamic store change is delivered.
-	@param store The "dynamic store" session.
-	@param info ....
- */
-typedef boolean_t (*SCDynamicStoreCallBack_v1)	(
-						SCDynamicStoreRef	store,
-						void			*info
-						);
-
-/*!
 	@typedef SCDynamicStoreDisconnectCallBack
 	@discussion Type of callback function used when notification of
 		the dynamic store session being disconnected is delivered.
@@ -122,45 +110,6 @@ typedef void (*SCDynamicStoreDisconnectCallBack)	(
 
 
 __BEGIN_DECLS
-
-/*!
-	@function SCDynamicStoreLock
-	@discussion Locks access to the configuration "dynamic store".  All
-		other clients attempting to access the "dynamic store" will
-		block. All change notifications will be deferred until the
-		lock is released.
-	@param store The "dynamic store" session that should be locked.
-	@result TRUE if the lock was obtained; FALSE if an error was encountered.
- */
-Boolean
-SCDynamicStoreLock			(SCDynamicStoreRef		store);
-
-/*!
-	@function SCDynamicStoreUnlock
-	@discussion Unlocks access to the configuration "dynamic store".  Other
-		clients will be able to access the "dynamic store". Any change
-		notifications will be delivered.
-	@param store The "dynamic store" session that should be unlocked.
-	@result TRUE if the lock was released; FALSE if an error was encountered.
- */
-Boolean
-SCDynamicStoreUnlock			(SCDynamicStoreRef		store);
-
-/*!
-	@function SCDynamicStoreTouchValue
-	@discussion Updates the value of the specified key in the
-		"dynamic store".
-		If the value does not exist then a CFDate object
-		will be associated with the key.
-		If the associated data is already a CFDate object
-		then it will be updated with the current time.
-	@param store The "dynamic store" session.
-	@param key The key of the value to updated.
-	@result TRUE if the value was updated; FALSE if an error was encountered.
- */
-Boolean
-SCDynamicStoreTouchValue		(SCDynamicStoreRef		store,
-					 CFStringRef			key);
 
 /*!
 	@function SCDynamicStoreAddWatchedKey
@@ -195,61 +144,6 @@ Boolean
 SCDynamicStoreRemoveWatchedKey		(SCDynamicStoreRef		store,
 					 CFStringRef			key,
 					 Boolean			isRegex);
-
-/*!
-	@function SCDynamicStoreNotifyCallback
-	@discussion Requests that the specified function be called whenever a
-		change has been detected to one of the "dynamic store" values
-		being monitored.
-
-	The callback function will be called with two arguments, store and
-	context, that correspond to the current "dynamic store" session and
-	the provided context argument.
-
-	The callback function should return a Boolean value indicating
-	whether an error occurred during execution of the callback.
-
-	Note: An additional run loop source will be added for the notification.
-	This additional source will be removed if the notification is cancelled
-	or if the callback indicates that an error was detected.
-
-	@param store The "dynamic store" session.
-	@param runLoop A pointer to the run loop.
-	@param func The callback function to call for each notification.
-		If this parameter is not a pointer to a function of the
-		correct prototype, the behavior is undefined.
-	@param context A pointer-sized user-defined value, that is passed as
-		the second parameter to the notification callback function,
-		but is otherwise unused by this function.  If the context
-		is not what is expected by the notification function, the
-		behavior is undefined.
-	@result TRUE if the notification callback runloop source was
-		successfully added; FALSE if an error was encountered.
- */
-Boolean
-SCDynamicStoreNotifyCallback		(SCDynamicStoreRef		store,
-					 CFRunLoopRef			runLoop,
-					 SCDynamicStoreCallBack_v1	func,
-					 void				*context);
-
-/*!
-	@function SCDynamicStoreNotifyMachPort
-	@discussion Allocates a mach port that can be used to detect changes to
-		one of the system configuration data entries associated with the
-		current session's notifier keys. When a change is detected, an
-		empty (no data) mach message with the specified identifier will
-		be delivered to the calling application via the allocated port.
-
-	@param store An SCDynamicStoreRef that should be used for communication with the server.
-	@param msgid A mach message ID to be included with any notifications.
-	@param port A pointer to a mach port.  Upon return, port will be filled
-		with the mach port that will be used for any notifications.
-	@result A boolean indicating the success (or failure) of the call.
- */
-Boolean
-SCDynamicStoreNotifyMachPort		(SCDynamicStoreRef		store,
-					 mach_msg_id_t			msgid,
-					 mach_port_t			*port);
 
 /*!
 	@function SCDynamicStoreNotifyFileDescriptor

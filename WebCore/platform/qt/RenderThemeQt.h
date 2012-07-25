@@ -24,12 +24,12 @@
 
 #include "RenderTheme.h"
 
-#include <QStyle>
+#include <QBrush>
+#include <QSharedPointer>
+#include <QString>
 
 QT_BEGIN_NAMESPACE
-class QLineEdit;
 class QPainter;
-class QWidget;
 QT_END_NAMESPACE
 
 namespace WebCore {
@@ -39,22 +39,25 @@ class RenderProgress;
 #endif
 class RenderStyle;
 class HTMLMediaElement;
-class ScrollbarThemeQt;
+class StylePainter;
+class ScrollbarTheme;
+
+typedef PassRefPtr<RenderTheme> (*QtThemeFactoryFunction)(Page* page);
 
 class RenderThemeQt : public RenderTheme {
-private:
-    RenderThemeQt(Page* page);
-    virtual ~RenderThemeQt();
 
 public:
-    static PassRefPtr<RenderTheme> create(Page*);
+    RenderThemeQt(Page*);
+
+    static void setCustomTheme(QtThemeFactoryFunction, ScrollbarTheme* customScrollbarTheme);
+    static ScrollbarTheme* customScrollbarTheme();
 
     String extraDefaultStyleSheet();
 
     virtual bool supportsHover(const RenderStyle*) const;
-    virtual bool supportsFocusRing(const RenderStyle* style) const;
+    virtual bool supportsFocusRing(const RenderStyle*) const;
 
-    virtual int baselinePosition(const RenderObject* o) const;
+    virtual LayoutUnit baselinePosition(const RenderObject*) const;
 
     // A method asking if the control changes its tint when the window has focus or not.
     virtual bool controlSupportsTints(const RenderObject*) const;
@@ -62,7 +65,7 @@ public:
     // A general method asking if any control tinting is supported at all.
     virtual bool supportsControlTints() const;
 
-    virtual void adjustRepaintRect(const RenderObject* o, IntRect& r);
+    virtual void adjustRepaintRect(const RenderObject*, IntRect&);
 
     // The platform selection color.
     virtual Color platformActiveSelectionBackgroundColor() const;
@@ -77,72 +80,58 @@ public:
 
     virtual int minimumMenuListSize(RenderStyle*) const;
 
-    virtual void adjustSliderThumbSize(RenderObject*) const;
+    virtual void adjustSliderThumbSize(RenderStyle*) const;
 
     virtual double caretBlinkInterval() const;
 
-    virtual bool isControlStyled(const RenderStyle*, const BorderData&, const FillLayer&, const Color& backgroundColor) const;
-#if USE(QT_MOBILE_THEME)
-    virtual int popupInternalPaddingBottom(RenderStyle*) const;
-#endif
+    virtual bool isControlStyled(const RenderStyle*, const BorderData&, const FillLayer&, const Color&) const;
 
 #if ENABLE(VIDEO)
     virtual String extraMediaControlsStyleSheet();
 #endif
 
-    QStyle* qStyle() const;
-
 protected:
-    virtual bool paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r);
+    virtual bool paintCheckbox(RenderObject*, const PaintInfo&, const IntRect&);
     virtual void setCheckboxSize(RenderStyle*) const;
 
-    virtual bool paintRadio(RenderObject* o, const PaintInfo& i, const IntRect& r);
+    virtual bool paintRadio(RenderObject*, const PaintInfo&, const IntRect&);
     virtual void setRadioSize(RenderStyle*) const;
 
-    virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintButton(RenderObject*, const PaintInfo&, const IntRect&);
     virtual void setButtonSize(RenderStyle*) const;
 
-    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustTextFieldStyle(StyleResolver*, RenderStyle*, Element*) const;
 
     virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustTextAreaStyle(StyleResolver*, RenderStyle*, Element*) const;
 
-    virtual bool paintMenuList(RenderObject* o, const PaintInfo& i, const IntRect& r);
-    virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustMenuListStyle(StyleResolver*, RenderStyle*, Element*) const;
 
-    virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustMenuListButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
 
 #if ENABLE(PROGRESS_TAG)
-    virtual void adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual void adjustProgressBarStyle(StyleResolver*, RenderStyle*, Element*) const;
+    // Returns the repeat interval of the animation for the progress bar.
+    virtual double animationRepeatIntervalForProgressBar(RenderProgress*) const;
 #endif
 
-    virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSliderTrackStyle(StyleResolver*, RenderStyle*, Element*) const;
 
-    virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSliderThumbStyle(StyleResolver*, RenderStyle*, Element*) const;
 
     virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
-    virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSearchFieldStyle(StyleResolver*, RenderStyle*, Element*) const;
 
-    virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSearchFieldCancelButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSearchFieldDecorationStyle(StyleResolver*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual void adjustSearchFieldResultsDecorationStyle(StyleResolver*, RenderStyle*, Element*) const;
     virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
-#if ENABLE(PROGRESS_TAG)
-    // Returns the repeat interval of the animation for the progress bar.
-    virtual double animationRepeatIntervalForProgressBar(RenderProgress* renderProgress) const;
-    // Returns the duration of the animation for the progress bar.
-    virtual double animationDurationForProgressBar(RenderProgress* renderProgress) const;
+#ifndef QT_NO_SPINBOX
+    virtual void adjustInnerSpinButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
 #endif
 
 #if ENABLE(VIDEO)
@@ -159,66 +148,50 @@ protected:
     virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
     virtual String formatMediaControlsRemainingTime(float currentTime, float duration) const;
     virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
-private:
-    void paintMediaBackground(QPainter* painter, const IntRect& r) const;
+
+    void paintMediaBackground(QPainter*, const IntRect&) const;
     double mediaControlsBaselineOpacity() const;
-    QColor getMediaControlForegroundColor(RenderObject* o = 0) const;
+    QColor getMediaControlForegroundColor(RenderObject* = 0) const;
 #endif
-    void computeSizeBasedOnStyle(RenderStyle* renderStyle) const;
+    virtual void computeSizeBasedOnStyle(RenderStyle*) const = 0;
 
-private:
-    bool supportsFocus(ControlPart) const;
+    virtual String fileListNameForWidth(const FileList*, const Font&, int width, bool multipleFilesAllowed) const OVERRIDE;
 
-    ControlPart initializeCommonQStyleOptions(QStyleOption&, RenderObject*) const;
-
-    void setButtonPadding(RenderStyle*) const;
-    void setPopupPadding(RenderStyle*) const;
+    virtual QRect inflateButtonRect(const QRect& originalRect) const;
 
     void setPaletteFromPageClientIfExists(QPalette&) const;
 
-    int findFrameLineWidth(QStyle* style) const;
+    virtual void setPopupPadding(RenderStyle*) const = 0;
 
-    QStyle* fallbackStyle() const;
+    virtual QSharedPointer<StylePainter> getStylePainter(const PaintInfo&) = 0;
+
+    bool supportsFocus(ControlPart) const;
 
     IntRect convertToPaintingRect(RenderObject* inputRenderer, const RenderObject* partRenderer, IntRect partRect, const IntRect& localOffset) const;
 
     Page* m_page;
 
-#ifdef Q_WS_MAC
-    int m_buttonFontPixelSize;
-#endif
     QString m_buttonFontFamily;
 
-    QStyle* m_fallbackStyle;
-    mutable QLineEdit* m_lineEdit;
 };
 
 class StylePainter {
 public:
-    explicit StylePainter(RenderThemeQt*, const PaintInfo&);
-    explicit StylePainter(ScrollbarThemeQt*, GraphicsContext*);
-    ~StylePainter();
+    virtual ~StylePainter();
 
-    bool isValid() const { return painter && style; }
+    bool isValid() const { return painter; }
 
     QPainter* painter;
-    QWidget* widget;
-    QStyle* style;
 
-    void drawPrimitive(QStyle::PrimitiveElement pe, const QStyleOption& opt)
-    { style->drawPrimitive(pe, &opt, painter, widget); }
-    void drawControl(QStyle::ControlElement ce, const QStyleOption& opt)
-    { style->drawControl(ce, &opt, painter, widget); }
-    void drawComplexControl(QStyle::ComplexControl cc, const QStyleOptionComplex& opt)
-    { style->drawComplexControl(cc, &opt, painter, widget); }
+protected:
+    StylePainter(RenderThemeQt*, const PaintInfo&);
+    StylePainter();
+    void init(GraphicsContext*);
 
 private:
-    void init(GraphicsContext* context, QStyle*);
+    QBrush m_previousBrush;
+    bool m_previousAntialiasing;
 
-    QBrush oldBrush;
-    bool oldAntialiasing;
-
-    Q_DISABLE_COPY(StylePainter)
 };
 
 }

@@ -1,1 +1,0 @@
-uuidsrc/compare.c

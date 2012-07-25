@@ -92,13 +92,18 @@ public:
         MergeToSuccessors
     };
     
-    AbstractState(CodeBlock*, Graph&);
+    AbstractState(Graph&);
     
     ~AbstractState();
     
     AbstractValue& forNode(NodeIndex nodeIndex)
     {
-        return m_nodes[nodeIndex - m_block->begin];
+        return m_nodes[nodeIndex];
+    }
+    
+    AbstractValue& forNode(Edge nodeUse)
+    {
+        return forNode(nodeUse.index());
     }
     
     // Call this before beginning CFA to initialize the abstract values of
@@ -147,7 +152,7 @@ public:
     // if execution should continue past this node. Notably, it will return true
     // for block terminals, so long as those terminals are not Return or variants
     // of Throw.
-    bool execute(NodeIndex);
+    bool execute(unsigned);
     
     // Is the execution state still valid? This will be false if execute() has
     // returned false previously.
@@ -158,20 +163,20 @@ public:
     // that block must be abstractly interpreted again. This also sets
     // to->cfaShouldRevisit to true, if it returns true, or if to has not been
     // visited yet.
-    static bool merge(BasicBlock* from, BasicBlock* to);
+    bool merge(BasicBlock* from, BasicBlock* to);
     
     // Merge the abstract state stored at the block's tail into all of its
     // successors. Returns true if any of the successors' states changed. Note
     // that this is automatically called in endBasicBlock() if MergeMode is
     // MergeToSuccessors.
-    static bool mergeToSuccessors(Graph&, BasicBlock*);
+    bool mergeToSuccessors(Graph&, BasicBlock*);
 
 #ifndef NDEBUG
     void dump(FILE* out);
 #endif
     
 private:
-    void clobberStructures(NodeIndex);
+    void clobberStructures(unsigned);
     
     bool mergeStateAtTail(AbstractValue& destination, AbstractValue& inVariable, NodeIndex);
     
@@ -180,7 +185,7 @@ private:
     CodeBlock* m_codeBlock;
     Graph& m_graph;
     
-    Vector<AbstractValue, 32> m_nodes;
+    Vector<AbstractValue, 64> m_nodes;
     Operands<AbstractValue> m_variables;
     BasicBlock* m_block;
     bool m_haveStructures;

@@ -718,7 +718,7 @@ int BLSetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
  */
 int BLGetDeviceForOpenFirmwarePath(BLContextPtr context,
 				   const char * ofstring,
-				   char * mntfrm);
+				   char * mntfrm) DEPRECATED_ATTRIBUTE;
 
 
 int BLCopyOpenFirmwareNVRAMVariableAsString(BLContextPtr context,
@@ -818,6 +818,8 @@ int BLValidateXMLBootOption(BLContextPtr context,
 							CFStringRef	 binaryName);
 
 kern_return_t BLSetEFIBootDevice(BLContextPtr context, char *bsdName);
+kern_return_t BLSetEFIBootDeviceOnce(BLContextPtr context, char *bsdName);
+kern_return_t BLSetEFIBootFileOnce(BLContextPtr context, char *path);
 
 bool BLSupportsLegacyMode(BLContextPtr context);
 

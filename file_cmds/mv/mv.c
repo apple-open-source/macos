@@ -266,8 +266,8 @@ do_move(char *from, char *to)
 			strmode(sb.st_mode, modep);
 			(void)fprintf(stderr, "override %s%s%s/%s for %s? %s",
 			    modep + 1, modep[9] == ' ' ? "" : " ",
-			    user_from_uid((unsigned long)sb.st_uid, 0),
-			    group_from_gid((unsigned long)sb.st_gid, 0), to, YESNO);
+			    user_from_uid(sb.st_uid, 0),
+			    group_from_gid(sb.st_gid, 0), to, YESNO);
 			ask = 1;
 		}
 		if (ask) {
@@ -324,7 +324,8 @@ fastcopy(char *from, char *to, struct stat *sbp)
 	static u_int blen;
 	static char *bp;
 	mode_t oldmode;
-	int nread, from_fd, to_fd;
+	ssize_t nread;
+	int from_fd, to_fd;
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0) {
 		warn("%s", from);
@@ -412,7 +413,7 @@ err:		if (unlink(to))
 	 * on a file that we copied, i.e., that we didn't create.)
 	 */
 	errno = 0;
-	if (fchflags(to_fd, (u_long)sbp->st_flags))
+	if (fchflags(to_fd, (u_int)sbp->st_flags))
 		if (errno != ENOTSUP || sbp->st_flags != 0)
 			warn("%s: set flags (was: 0%07o)", to, sbp->st_flags);
 

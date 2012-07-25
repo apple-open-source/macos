@@ -31,15 +31,15 @@
 #include "config.h"
 #include "WebNotification.h"
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 #include "Event.h"
 #include "Notification.h"
 #include "UserGestureIndicator.h"
 
-#include "WebString.h"
+#include "platform/WebString.h"
 #include "WebTextDirection.h"
-#include "WebURL.h"
+#include "platform/WebURL.h"
 
 #include <wtf/PassRefPtr.h>
 
@@ -88,13 +88,13 @@ WebURL WebNotification::iconURL() const
 WebString WebNotification::title() const
 {
     ASSERT(!isHTML());
-    return m_private->contents().title();
+    return m_private->title();
 }
 
 WebString WebNotification::body() const
 {
     ASSERT(!isHTML());
-    return m_private->contents().body();
+    return m_private->body();
 }
 
 WebTextDirection WebNotification::direction() const
@@ -106,7 +106,7 @@ WebTextDirection WebNotification::direction() const
 
 WebString WebNotification::replaceId() const
 {
-    return m_private->replaceId();
+    return m_private->tag();
 }
 
 void WebNotification::detachPresenter()
@@ -116,40 +116,49 @@ void WebNotification::detachPresenter()
 
 void WebNotification::dispatchDisplayEvent()
 {
-    RefPtr<Event> event = Event::create("display", false, true);
-    m_private->dispatchEvent(event.release());
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    dispatchEvent("display");
+#endif
+    dispatchEvent("show");
 }
 
 void WebNotification::dispatchErrorEvent(const WebKit::WebString& /* errorMessage */)
 {
     // FIXME: errorMessage not supported by WebCore yet
-    RefPtr<Event> event = Event::create(eventNames().errorEvent, false, true);
-    m_private->dispatchEvent(event.release());
+    dispatchEvent(eventNames().errorEvent);
 }
 
 void WebNotification::dispatchCloseEvent(bool /* byUser */)
 {
     // FIXME: byUser flag not supported by WebCore yet
-    RefPtr<Event> event = Event::create(eventNames().closeEvent, false, true);
-    m_private->dispatchEvent(event.release());
+    dispatchEvent(eventNames().closeEvent);
 }
 
 void WebNotification::dispatchClickEvent()
 {
     // Make sure clicks on notifications are treated as user gestures.
     UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
-    RefPtr<Event> event = Event::create(eventNames().clickEvent, false, true);
+    dispatchEvent(eventNames().clickEvent);
+}
+
+void WebNotification::dispatchEvent(const WTF::AtomicString& type)
+{
+    // Do not dispatch if the context is gone.
+    if (!m_private->scriptExecutionContext())
+        return;
+
+    RefPtr<Event> event = Event::create(type, false, true);
     m_private->dispatchEvent(event.release());
 }
 
 WebNotification::WebNotification(const WTF::PassRefPtr<Notification>& notification)
-    : m_private(static_cast<WebNotificationPrivate*>(notification.releaseRef()))
+    : m_private(static_cast<WebNotificationPrivate*>(notification.leakRef()))
 {
 }
 
 WebNotification& WebNotification::operator=(const WTF::PassRefPtr<Notification>& notification)
 {
-    assign(static_cast<WebNotificationPrivate*>(notification.releaseRef()));
+    assign(static_cast<WebNotificationPrivate*>(notification.leakRef()));
     return *this;
 }
 
@@ -168,4 +177,4 @@ void WebNotification::assign(WebNotificationPrivate* p)
 
 } // namespace WebKit
 
-#endif // ENABLE(NOTIFICATIONS)
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)

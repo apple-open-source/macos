@@ -52,14 +52,14 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
     c->require_preauth = TRUE;
     c->kdc_warn_pwexpire = 0;
     c->encode_as_rep_as_tgs_rep = FALSE;
+    c->as_use_strongest_session_key = FALSE;
+    c->preauth_use_strongest_session_key = FALSE;
+    c->tgs_use_strongest_session_key = FALSE;
+    c->use_strongest_server_key = TRUE;
     c->check_ticket_addresses = TRUE;
     c->allow_null_ticket_addresses = TRUE;
     c->allow_anonymous = FALSE;
     c->trpolicy = TRPOLICY_ALWAYS_CHECK;
-    c->enable_v4 = FALSE;
-    c->enable_kaserver = FALSE;
-    c->enable_524 = FALSE;
-    c->enable_v4_cross_realm = FALSE;
     c->enable_pkinit = FALSE;
     c->pkinit_princ_in_cert = FALSE;
     c->pkinit_require_binding = TRUE;
@@ -71,19 +71,6 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
 	krb5_config_get_bool_default(context, NULL,
 				     c->require_preauth,
 				     "kdc", "require-preauth", NULL);
-    c->enable_v4 =
-	krb5_config_get_bool_default(context, NULL,
-				     c->enable_v4,
-				     "kdc", "enable-kerberos4", NULL);
-    c->enable_v4_cross_realm =
-	krb5_config_get_bool_default(context, NULL,
-				     c->enable_v4_cross_realm,
-				     "kdc",
-				     "enable-kerberos4-cross-realm", NULL);
-    c->enable_524 =
-	krb5_config_get_bool_default(context, NULL,
-				     c->enable_v4,
-				     "kdc", "enable-524", NULL);
 #ifdef DIGEST
     c->enable_digest =
 	krb5_config_get_bool_default(context, NULL,
@@ -134,6 +121,27 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
     }
 #endif
 
+    c->as_use_strongest_session_key =
+	krb5_config_get_bool_default(context, NULL,
+				     c->as_use_strongest_session_key,
+				     "kdc",
+				     "as-use-strongest-session-key", NULL);
+    c->preauth_use_strongest_session_key =
+	krb5_config_get_bool_default(context, NULL,
+				     c->preauth_use_strongest_session_key,
+				     "kdc",
+				     "preauth-use-strongest-session-key", NULL);
+    c->tgs_use_strongest_session_key =
+	krb5_config_get_bool_default(context, NULL,
+				     c->tgs_use_strongest_session_key,
+				     "kdc",
+				     "tgs-use-strongest-session-key", NULL);
+    c->use_strongest_server_key =
+	krb5_config_get_bool_default(context, NULL,
+				     c->use_strongest_server_key,
+				     "kdc",
+				     "use-strongest-server-key", NULL);
+
     c->check_ticket_addresses =
 	krb5_config_get_bool_default(context, NULL,
 				     c->check_ticket_addresses,
@@ -181,28 +189,6 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
 	}
     }
 
-    {
-	const char *p;
-	p = krb5_config_get_string (context, NULL,
-				    "kdc",
-				    "v4-realm",
-				    NULL);
-	if(p != NULL) {
-	    c->v4_realm = strdup(p);
-	    if (c->v4_realm == NULL)
-		krb5_errx(context, 1, "out of memory");
-	} else {
-	    c->v4_realm = NULL;
-	}
-    }
-
-    c->enable_kaserver =
-	krb5_config_get_bool_default(context,
-				     NULL,
-				     c->enable_kaserver,
-				     "kdc", "enable-kaserver", NULL);
-
-
     c->encode_as_rep_as_tgs_rep =
 	krb5_config_get_bool_default(context, NULL,
 				     c->encode_as_rep_as_tgs_rep,
@@ -224,7 +210,7 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
 				     NULL);
 
 
-    c->pkinit_kdc_identity = 
+    c->pkinit_kdc_identity =
 	krb5_config_get_string(context, NULL,
 			       "kdc", "pkinit_identity", NULL);
     c->pkinit_kdc_anchors =
@@ -236,7 +222,7 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
     c->pkinit_kdc_revoke =
 	krb5_config_get_strings(context, NULL,
 				"kdc", "pkinit_revoke", NULL);
-    c->pkinit_kdc_ocsp_file = 
+    c->pkinit_kdc_ocsp_file =
 	krb5_config_get_string(context, NULL,
 			       "kdc", "pkinit_kdc_ocsp", NULL);
     c->pkinit_kdc_friendly_name =
@@ -268,4 +254,41 @@ krb5_kdc_get_config(krb5_context context, krb5_kdc_configuration **config)
     *config = c;
 
     return 0;
+}
+
+krb5_error_code
+krb5_kdc_pkinit_config(krb5_context context, krb5_kdc_configuration *config)
+{
+#ifdef PKINIT
+#ifdef __APPLE__
+    config->enable_pkinit = 1;
+
+    if (config->pkinit_kdc_identity == NULL) {
+	if (config->pkinit_kdc_friendly_name == NULL)
+	    config->pkinit_kdc_friendly_name =
+		strdup("O=System Identity,CN=com.apple.kerberos.kdc");
+	config->pkinit_kdc_identity = strdup("KEYCHAIN:");
+    }
+    if (config->pkinit_kdc_anchors == NULL)
+	config->pkinit_kdc_anchors = strdup("KEYCHAIN:");
+
+#endif /* __APPLE__ */
+
+    if (config->enable_pkinit) {
+	if (config->pkinit_kdc_identity == NULL)
+	    krb5_errx(context, 1, "pkinit enabled but no identity");
+
+	if (config->pkinit_kdc_anchors == NULL)
+	    krb5_errx(context, 1, "pkinit enabled but no X509 anchors");
+
+	krb5_kdc_pk_initialize(context, config,
+			       config->pkinit_kdc_identity,
+			       config->pkinit_kdc_anchors,
+			       config->pkinit_kdc_cert_pool,
+			       config->pkinit_kdc_revoke);
+
+    }
+
+    return 0;
+#endif /* PKINIT */
 }

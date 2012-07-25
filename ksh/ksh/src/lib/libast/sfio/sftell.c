@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,16 +27,17 @@
 */
 
 #if __STD_C
-Sfoff_t sftell(reg Sfio_t* f)
+Sfoff_t sftell(Sfio_t* f)
 #else
 Sfoff_t sftell(f)
-reg Sfio_t	*f;
+Sfio_t	*f;
 #endif
 {	
 	reg int	mode;
 	Sfoff_t	p;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f, (Sfoff_t)(-1));
+	SFMTXENTER(f, (Sfoff_t)(-1));
 
 	/* set the stream to the right mode */
 	if((mode = f->mode&SF_RDWR) != (int)f->mode && _sfmode(f,mode,0) < 0)

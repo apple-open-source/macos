@@ -31,14 +31,14 @@
 #include "config.h"
 #include "WorkerAsyncFileWriterChromium.h"
 
-#if ENABLE(FILE_SYSTEM)
+#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
 
 #include "AsyncFileSystem.h"
 #include "Blob.h"
 #include "ScriptExecutionContext.h"
-#include "WebFileSystem.h"
+#include "platform/WebFileSystem.h"
 #include "WebFileWriter.h"
-#include "WebURL.h"
+#include "platform/WebURL.h"
 #include "WebWorkerBase.h"
 #include "WorkerContext.h"
 #include "WorkerFileWriterCallbacksBridge.h"
@@ -50,7 +50,7 @@ using namespace WebKit;
 
 namespace WebCore {
 
-WorkerAsyncFileWriterChromium::WorkerAsyncFileWriterChromium(WebFileSystem* webFileSystem, const String& path, WorkerContext* workerContext, AsyncFileWriterClient* client, WriterType type)
+WorkerAsyncFileWriterChromium::WorkerAsyncFileWriterChromium(WebFileSystem* webFileSystem, const WebURL& path, WorkerContext* workerContext, AsyncFileWriterClient* client, WriterType type)
     : m_type(type)
 {
     ASSERT(m_type == Asynchronous); // Synchronous is not implemented yet.

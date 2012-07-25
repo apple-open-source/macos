@@ -42,7 +42,7 @@ public:
         return adoptRef(new ShadowValue(x, y, blur, spread, style, color));
     }
 
-    virtual String cssText() const;
+    String customCssText() const;
 
     RefPtr<CSSPrimitiveValue> x;
     RefPtr<CSSPrimitiveValue> y;
@@ -58,8 +58,6 @@ private:
         PassRefPtr<CSSPrimitiveValue> spread,
         PassRefPtr<CSSPrimitiveValue> style,
         PassRefPtr<CSSPrimitiveValue> color);
-
-    virtual bool isShadowValue() const { return true; }
 };
 
 } // namespace

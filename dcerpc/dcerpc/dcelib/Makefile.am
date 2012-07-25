@@ -5,7 +5,7 @@ include $(top_srcdir)/ncklib/ncklib.mk
 
 # Build the shared library
 lib_LTLIBRARIES = libdcerpc.la
-libdcerpc_la_SOURCES = dummyfuncs.c mswrappers.c
+libdcerpc_la_SOURCES = dummyfuncs.c strlcpy.c strlcat.c
 libdcerpc_la_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS_unistr)
 libdcerpc_la_LDFLAGS = $(AM_LDFLAGS) $(LDFLAGS_unistr) $(NAF_NP_LDFLAGS)
 
@@ -15,10 +15,13 @@ else
 libdcerpc_la_LDFLAGS += -version-info 1:2:0 -all_load
 endif
 
-if TARGET_OS_DARWIN
-libdcerpc_la_LDFLAGS += -no-undefined
-libdcerpc_la_SOURCES += darwin/wc16str.c
-endif
+# uint16 converters not really needed now
+#
+# libdcerpc_la_SOURCES += mswrappers.c
+# if TARGET_OS_DARWIN
+# libdcerpc_la_LDFLAGS += -no-undefined
+# libdcerpc_la_SOURCES += darwin/wc16str.c
+# endif
 
 libdcerpc_la_LIBADD =			\
 	../ncklib/libnck.la		\

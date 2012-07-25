@@ -78,7 +78,7 @@ LN_S		= @LN_S@
 
 CC		= @CC@
 CPP		= @CPP@
-CFLAGS		= @CFLAGS@ -mdynamic-no-pic
+CFLAGS		= @CFLAGS@
 
 INCDIR		= $(top_srcdir)/include
 CPPFLAGS	= -I../progs -I$(srcdir) -DHAVE_CONFIG_H @CPPFLAGS@

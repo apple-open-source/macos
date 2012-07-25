@@ -76,4 +76,4 @@ extern boolean_t	G_disk_space_warned;
 extern uint32_t		G_shadow_size_meg;
 extern NBSPListRef	G_client_sharepoints;
 
-#endif _S_BSDPD_H
+#endif /* _S_BSDPD_H */

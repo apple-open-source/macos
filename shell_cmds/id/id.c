@@ -365,7 +365,7 @@ group(struct passwd *pw, int nflag)
 	struct group *gr;
 	int cnt, id, lastid, ngroups;
 #ifdef __APPLE__
-	gid_t *groups;
+	gid_t *groups = NULL;
 #else
 	gid_t groups[NGROUPS + 1];
 #endif

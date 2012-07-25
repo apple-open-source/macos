@@ -104,6 +104,10 @@ kc_rsa_sign(int type, const unsigned char *from, unsigned int flen,
 	stype = CSSM_ALGID_SHA1;
     } else if (type == NID_sha256) {
 	stype = CSSM_ALGID_SHA256;
+    } else if (type == NID_sha384) {
+	stype = CSSM_ALGID_SHA384;
+    } else if (type == NID_sha512) {
+	stype = CSSM_ALGID_SHA512;
     } else
 	return -1;
 
@@ -325,7 +329,7 @@ set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
     RSA *rsa;
     int ret;
 
-    ret = _hx509_private_key_init(&key, NULL, NULL);
+    ret = hx509_private_key_init(&key, NULL, NULL);
     if (ret)
 	return ret;
 
@@ -369,9 +373,10 @@ set_private_key(hx509_context context, hx509_cert cert, SecKeyRef pkey)
      *
      */
 
-    _hx509_private_key_assign_rsa(key, rsa);
+    hx509_private_key_assign_rsa(key, rsa);
     _hx509_cert_set_key(cert, key);
-    _hx509_private_key_free(&key);
+
+    hx509_private_key_free(&key);
 
     return 0;
 }
@@ -440,10 +445,76 @@ keychain_free(hx509_certs certs, void *data)
  *
  */
 
+
+static void
+setPersistentRef(hx509_cert cert, SecCertificateRef itemRef)
+{
+    CFDataRef persistent;
+    OSStatus ret;
+
+    ret = SecKeychainItemCreatePersistentReference((SecKeychainItemRef)itemRef, &persistent);
+    if (ret == noErr) {
+	heim_octet_string os;
+
+	os.data = rk_UNCONST(CFDataGetBytePtr(persistent));
+	os.length = CFDataGetLength(persistent);
+
+	hx509_cert_set_persistent(cert, &os);
+	CFRelease(persistent);
+    }
+}
+
+/*
+ *
+ */
+
+static int
+keychain_query(hx509_context context,
+	       hx509_certs certs,
+	       void *data,
+	       const hx509_query *query,
+	       hx509_cert *cert)
+{
+    int ret;
+
+    if ((query->match & HX509_QUERY_MATCH_PERSISTENT) == 0)
+	return HX509_UNIMPLEMENTED_OPERATION;
+
+    SecIdentityRef identity = NULL;
+
+    CFMutableDictionaryRef secQuery = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,  &kCFTypeDictionaryValueCallBacks);
+
+    CFDictionaryAddValue(secQuery, kSecClass, kSecClassIdentity);
+    CFDictionaryAddValue(secQuery, kSecReturnRef, kCFBooleanTrue);
+
+    if (query->match & HX509_QUERY_MATCH_PERSISTENT) {
+	CFDataRef refdata = CFDataCreateWithBytesNoCopy(NULL, query->persistent->data, query->persistent->length, kCFAllocatorNull);
+	CFDictionaryAddValue(secQuery, kSecValuePersistentRef, refdata);
+	CFRelease(refdata);
+    }
+
+    OSStatus status = SecItemCopyMatching(secQuery, (CFTypeRef *)&identity);
+    CFRelease(secQuery);
+    if (status) {
+	hx509_clear_error_string(context);
+	return HX509_CERT_NOT_FOUND;
+    }
+
+    ret = hx509_cert_init_SecFramework(context, identity, cert);
+    CFRelease(identity);
+
+    return ret;
+}
+
+/*
+ *
+ */
+
 struct iter {
     hx509_certs certs;
     void *cursor;
-    SecKeychainSearchRef searchRef;
+    CFArrayRef search;
+    CFIndex index;
 };
 
 static int
@@ -482,13 +553,16 @@ keychain_iter_start(hx509_context context,
 	for (i = 0; i < CFArrayGetCount(anchors); i++) {
 	    SecCertificateRef cr;
 	    hx509_cert cert;
-	    CSSM_DATA cssm;
+	    CFDataRef dataref;
 
 	    cr = (SecCertificateRef)CFArrayGetValueAtIndex(anchors, i);
 
-	    SecCertificateGetData(cr, &cssm);
+	    dataref = SecCertificateCopyData(cr);
+	    if (dataref == NULL)
+		continue;
 
-	    ret = hx509_cert_init_data(context, cssm.Data, cssm.Length, &cert);
+	    ret = hx509_cert_init_data(context, CFDataGetBytePtr(dataref), CFDataGetLength(dataref), &cert);
+	    CFRelease(dataref);
 	    if (ret)
 		continue;
 
@@ -515,15 +589,28 @@ keychain_iter_start(hx509_context context,
 	}
     } else {
 	OSStatus ret;
+	const void *keys[] = {
+	    kSecClass,
+	    kSecReturnRef,
+	    kSecMatchLimit
+	};
+	const void *values[] = {
+	    kSecClassCertificate,
+	    kCFBooleanTrue,
+	    kSecMatchLimitAll
+	};
 
-	ret = SecKeychainSearchCreateFromAttributes(ctx->keychain,
-						    kSecCertificateItemClass,
-						    NULL,
-						    &iter->searchRef);
+	CFDictionaryRef secQuery;
+
+	secQuery = CFDictionaryCreate(NULL, keys, values,
+				      sizeof(keys) / sizeof(*keys),
+				      &kCFTypeDictionaryKeyCallBacks,
+				      &kCFTypeDictionaryValueCallBacks);
+	
+	ret = SecItemCopyMatching(secQuery, (CFTypeRef *)&iter->search);
+	CFRelease(secQuery);
 	if (ret) {
 	    free(iter);
-	    hx509_set_error_string(context, 0, ret,
-				   "Failed to start search for attributes");
 	    return ENOMEM;
 	}
     }
@@ -536,51 +623,12 @@ keychain_iter_start(hx509_context context,
  *
  */
 
-static SecKeyRef
-find_private_key(void *data, size_t len)
-{
-    SecKeychainSearchRef search;
-    SecKeychainAttribute attrKeyid;
-    SecKeychainAttributeList attrList;
-    SecKeychainItemRef itemRef;
-    OSStatus ret;
-
-    attrKeyid.tag = kSecKeyLabel;
-    attrKeyid.length = len;
-    attrKeyid.data = data;
-
-    attrList.count = 1;
-    attrList.attr = &attrKeyid;
-
-    ret = SecKeychainSearchCreateFromAttributes(NULL,
-						CSSM_DL_DB_RECORD_PRIVATE_KEY,
-						&attrList,
-						&search);
-    if (ret)
-	return NULL;
-
-    ret = SecKeychainSearchCopyNext(search, &itemRef);
-    CFRelease(search);
-    if (ret)
-	return NULL;
-
-    return (SecKeyRef)itemRef;
-}
-
-
 static int
 keychain_iter(hx509_context context,
 	      hx509_certs certs, void *data, void *cursor, hx509_cert *cert)
 {
-    SecKeychainAttributeList *attrs = NULL;
-    SecKeychainAttributeInfo attrInfo;
-    UInt32 attrFormat[1] = { 0 };
-    SecKeychainItemRef itemRef;
-    SecItemAttr item[1];
     struct iter *iter = cursor;
-    OSStatus ret;
-    UInt32 len;
-    void *ptr = NULL;
+    OSStatus ret = 0;
 
     if (iter->certs)
 	return hx509_certs_next_cert(context, iter->certs, iter->cursor, cert);
@@ -588,51 +636,17 @@ keychain_iter(hx509_context context,
     *cert = NULL;
 
 next:
-    ret = SecKeychainSearchCopyNext(iter->searchRef, &itemRef);
-    if (ret == errSecItemNotFound)
+    if (iter->index < CFArrayGetCount(iter->search)) {
+	
+	CFTypeRef secCert = CFArrayGetValueAtIndex(iter->search, iter->index);
+
+	ret = hx509_cert_init_SecFramework(context, (void *)secCert, cert);
+	iter->index++;
+	if (ret)
+	    goto next;
+    }
+    if (iter->index == CFArrayGetCount(iter->search))
 	return 0;
-    else if (ret != 0)
-	return EINVAL;
-
-    /*
-     * Pick out certificate and matching "keyid"
-     */
-
-    item[0] = kSecPublicKeyHashItemAttr;
-
-    attrInfo.count = 1;
-    attrInfo.tag = item;
-    attrInfo.format = attrFormat;
-
-    ret = SecKeychainItemCopyAttributesAndData(itemRef, &attrInfo, NULL,
-					       &attrs, &len, &ptr);
-    if (ret) {
-	CFRelease(itemRef);
-	goto next;
-    }
-
-    ret = hx509_cert_init_data(context, ptr, len, cert);
-    if (ret) {
-	SecKeychainItemFreeAttributesAndData(attrs, ptr);
-	CFRelease(itemRef);
-	goto next;
-    }
-
-    /*
-     * Find related private key if there is one by looking at
-     * kSecPublicKeyHashItemAttr == kSecKeyLabel
-     */
-    {
-	SecKeyRef pkey;
-
-	pkey = find_private_key(attrs->attr[0].data, attrs->attr[0].length);
-	if (pkey) {
-	    set_private_key(context, *cert, pkey);
-	    CFRelease(pkey);
-	}
-    }
-    CFRelease(itemRef);
-    SecKeychainItemFreeAttributesAndData(attrs, ptr);
 
     return ret;
 }
@@ -653,7 +667,7 @@ keychain_iter_end(hx509_context context,
 	hx509_certs_end_seq(context, iter->certs, iter->cursor);
 	hx509_certs_free(&iter->certs);
     } else {
-	CFRelease(iter->searchRef);
+	CFRelease(iter->search);
     }
 
     memset(iter, 0, sizeof(*iter));
@@ -672,7 +686,7 @@ struct hx509_keyset_ops keyset_keychain = {
     NULL,
     keychain_free,
     NULL,
-    NULL,
+    keychain_query,
     keychain_iter_start,
     keychain_iter,
     keychain_iter_end
@@ -740,6 +754,12 @@ hx509_cert_init_SecFramework(hx509_context context, void * identity,  hx509_cert
 	CFRelease(seccert);
 	return ret;
     }
+
+    /*
+     * Set Persistent identity
+     */
+
+    setPersistentRef(c, seccert);
 
     /* if identity assign private key too */
     if (SecIdentityGetTypeID() == typeid) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,9 @@
  * Mac OS Finder flags
  */
 enum {
-	kHasBeenInited	= 0x0100,	/* Files only */														/* Clear if the file contains desktop database */																/* bit 0x0200 was the letter bit for AOCE, but is now reserved for future use */
+	kHasBeenInited	= 0x0100,	/* Files only */
+	/* Clear if the file contains desktop database */
+	/* bit 0x0200 was the letter bit for AOCE, but is now reserved for future use */
 	kHasCustomIcon	= 0x0400,	/* Files and folders */
 	kIsStationery	= 0x0800,	/* Files only */
 	kNameLocked	= 0x1000,	/* Files and folders */
@@ -225,6 +227,9 @@ struct hfsparams {
 	uid_t		owner;
 	gid_t		group;
 	mode_t		mask;
+#ifdef DEBUG_BUILD
+	uint16_t	protectlevel;
+#endif
 };
 typedef struct hfsparams hfsparams_t;
 

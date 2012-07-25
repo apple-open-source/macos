@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sv.xml
@@ -33,7 +33,6 @@ sv{
         054{"Melanesien"}
         057{"Mikronesiska öarna"}
         061{"Polynesien"}
-        062{"södra Centralasien"}
         142{"Asien"}
         143{"Centralasien"}
         145{"Västasien"}
@@ -41,9 +40,7 @@ sv{
         151{"Östeuropa"}
         154{"Nordeuropa"}
         155{"Västeuropa"}
-        172{"Oberoende staters samvälde"}
-        419{"Latinamerika och Karibien"}
-        830{"Kanalöarna"}
+        419{"Latinamerika"}
         AC{"Ascension"}
         AD{"Andorra"}
         AE{"Förenade Arabemiraten"}
@@ -99,6 +96,7 @@ sv{
         CS{"Serbien och Montenegro"}
         CU{"Kuba"}
         CV{"Kap Verde"}
+        CW{"Curaçao"}
         CX{"Julön"}
         CY{"Cypern"}
         CZ{"Tjeckien"}
@@ -138,7 +136,7 @@ sv{
         GP{"Guadeloupe"}
         GQ{"Ekvatorialguinea"}
         GR{"Grekland"}
-        GS{"Sydgeorgien och Södra Sandwichöarna"}
+        GS{"Sydgeorgien och Sydsandwichöarna"}
         GT{"Guatemala"}
         GU{"Guam"}
         GW{"Guinea-Bissau"}
@@ -260,6 +258,7 @@ sv{
         SR{"Surinam"}
         ST{"São Tomé och Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Syrien"}
         SZ{"Swaziland"}
         TA{"Tristan da Cunha"}
@@ -301,5 +300,5 @@ sv{
         ZW{"Zimbabwe"}
         ZZ{"okänd eller ogiltig regionkod"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
 }

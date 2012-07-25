@@ -1,5 +1,5 @@
 #
-# "$Id: ipp-2.1.test 9230 2010-08-10 00:02:02Z mike $"
+# "$Id$"
 #
 #   IPP/2.1 test suite.
 #
@@ -92,5 +92,5 @@ INCLUDE "ipp-2.0.test"
 
 
 #
-# End of "$Id: ipp-2.1.test 9230 2010-08-10 00:02:02Z mike $".
+# End of "$Id$".
 #

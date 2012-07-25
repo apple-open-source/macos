@@ -47,6 +47,8 @@
 
 #include <stdio.h>
 
+using namespace WebKit;
+
 namespace WebCore {
 
 static const unsigned CtrlKey = 1 << 0;
@@ -223,7 +225,7 @@ bool EditorClientWx::shouldInsertText(const String&, Range*,
     return true;
 }
 
-bool EditorClientWx::shouldApplyStyle(CSSStyleDeclaration*,
+bool EditorClientWx::shouldApplyStyle(StylePropertySet*,
                                        Range*)
 {
     notImplemented();
@@ -253,9 +255,9 @@ void EditorClientWx::respondToChangedContents()
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
     
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
-            wxWebViewContentsChangedEvent wkEvent(webKitWin);
+            WebKit::WebViewContentsChangedEvent wkEvent(webKitWin);
             webKitWin->GetEventHandler()->ProcessEvent(wkEvent);
         }
     }
@@ -276,27 +278,25 @@ void EditorClientWx::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-void EditorClientWx::registerCommandForUndo(PassRefPtr<EditCommand> command)
+void EditorClientWx::registerUndoStep(PassRefPtr<UndoStep> step)
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
-        if (webKitWin) {
-            webKitWin->m_impl->undoStack.append(EditCommandWx(command));
-        }
+        WebView* webKitWin = dynamic_cast<WebView*>(frame->view()->hostWindow()->platformPageClient());
+        if (webKitWin)
+            webKitWin->m_impl->undoStack.append(step);
     }
 }
 
-void EditorClientWx::registerCommandForRedo(PassRefPtr<EditCommand> command)
+void EditorClientWx::registerRedoStep(PassRefPtr<UndoStep> step)
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
-        if (webKitWin) {
-            webKitWin->m_impl->redoStack.insert(0, EditCommandWx(command));
-        }
+        WebView* webKitWin = dynamic_cast<WebView*>(frame->view()->hostWindow()->platformPageClient());
+        if (webKitWin)
+            webKitWin->m_impl->redoStack.append(step);
     }
 }
 
@@ -305,7 +305,7 @@ void EditorClientWx::clearUndoRedoOperations()
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
     
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
             webKitWin->m_impl->redoStack.clear();
             webKitWin->m_impl->undoStack.clear();
@@ -328,7 +328,7 @@ bool EditorClientWx::canUndo() const
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
             return webKitWin->m_impl->undoStack.size() != 0;
         }
@@ -341,7 +341,7 @@ bool EditorClientWx::canRedo() const
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin && webKitWin) {
             return webKitWin->m_impl->redoStack.size() != 0;
         }
@@ -354,10 +354,10 @@ void EditorClientWx::undo()
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
-            webKitWin->m_impl->undoStack.last().editCommand()->unapply();
-            webKitWin->m_impl->undoStack.removeLast();
+            webKitWin->m_impl->undoStack.last()->unapply();
+            webKitWin->m_impl->undoStack.remove(--webKitWin->m_impl->undoStack.end());
         }
     }
 }
@@ -367,10 +367,10 @@ void EditorClientWx::redo()
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {    
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
-            webKitWin->m_impl->redoStack.last().editCommand()->reapply();
-            webKitWin->m_impl->redoStack.removeLast();
+            webKitWin->m_impl->redoStack.last()->reapply();
+            webKitWin->m_impl->redoStack.remove(--webKitWin->m_impl->redoStack.end());
         }
     }
 }
@@ -390,7 +390,7 @@ bool EditorClientWx::handleEditingKeyboardEvent(KeyboardEvent* event)
 
     Editor::Command command = frame->editor()->command(interpretKeyEvent(event));
 
-    if (keyEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
+    if (keyEvent->type() == PlatformEvent::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
         // so we leave it upon WebCore to either handle them immediately (e.g. Tab that changes focus) or if not to let a CHAR event be generated
         // (e.g. Tab that inserts a Tab character, or Enter).
@@ -409,7 +409,7 @@ bool EditorClientWx::handleEditingKeyboardEvent(KeyboardEvent* event)
 
 const char* EditorClientWx::interpretKeyEvent(const KeyboardEvent* evt)
 {
-    ASSERT(evt->keyEvent()->type() == PlatformKeyboardEvent::RawKeyDown || evt->keyEvent()->type() == PlatformKeyboardEvent::Char);
+    ASSERT(evt->keyEvent()->type() == PlatformEvent::RawKeyDown || evt->keyEvent()->type() == PlatformEvent::Char);
 
     static HashMap<int, const char*>* keyDownCommandsMap = 0;
     static HashMap<int, const char*>* keyPressCommandsMap = 0;
@@ -433,7 +433,7 @@ const char* EditorClientWx::interpretKeyEvent(const KeyboardEvent* evt)
     if (evt->ctrlKey())
         modifiers |= CtrlKey;
 
-    if (evt->keyEvent()->type() == PlatformKeyboardEvent::RawKeyDown) {
+    if (evt->keyEvent()->type() == PlatformEvent::RawKeyDown) {
         int mapKey = modifiers << 16 | evt->keyCode();
         return mapKey ? keyDownCommandsMap->get(mapKey) : 0;
     }
@@ -487,13 +487,12 @@ void EditorClientWx::textDidChangeInTextArea(Element*)
     notImplemented();
 }
 
-void EditorClientWx::respondToChangedSelection()
+void EditorClientWx::respondToChangedSelection(Frame* frame)
 {
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
     if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        WebKit::WebView* webKitWin = dynamic_cast<WebKit::WebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
-            wxWebViewSelectionChangedEvent wkEvent(webKitWin);
+            WebKit::WebViewSelectionChangedEvent wkEvent(webKitWin);
             webKitWin->GetEventHandler()->ProcessEvent(wkEvent);
         }
     }

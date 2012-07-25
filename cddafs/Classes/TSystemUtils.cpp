@@ -64,28 +64,34 @@ TSystemUtils::GetPreferredLanguages ( void )
 	uid = FindUIDToUse ( );
 	seteuid ( uid );
 	
-	userName = ::CFGetUserName ( );
+	userName = ::CFCopyUserName ( );
 	require ( ( userName != NULL ), ErrorExit );
 	
 	equal = ::CFStringCompare ( userName, CFSTR ( kEmptyString ), 0 );
-	require ( ( equal != kCFCompareEqualTo ), ErrorExit );
+	require ( ( equal != kCFCompareEqualTo ), ReleaseExit );
 	
 	languages = ::CFPreferencesCopyValue ( CFSTR ( kAppleLanguagesString ),
 										   kCFPreferencesAnyApplication,
 										   userName,
 										   kCFPreferencesAnyHost );
 	
-	require ( ( languages != NULL ), ErrorExit );
+	require ( ( languages != NULL ), ReleaseExit );
 	require_action ( ( ::CFGetTypeID ( languages ) == ::CFArrayGetTypeID ( ) ),
-					 ErrorExit,
+					 ReleaseExit,
 					 ::CFRelease ( languages ) );
 	
 	preferredLanguages = ( CFArrayRef ) languages;
+
+
+ReleaseExit:
+
 	
-	
+    ::CFRelease ( userName );
+
+
 ErrorExit:
 	
-	
+    
 	seteuid ( 0 );
 	
 	return preferredLanguages;

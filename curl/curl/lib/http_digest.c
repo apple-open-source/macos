@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -19,15 +19,10 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
+
 #include "setup.h"
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
-/* -- WIN32 approved -- */
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <ctype.h>
 
 #include "urldata.h"
 #include "sendf.h"
@@ -38,7 +33,7 @@
 #include "strtok.h"
 #include "url.h" /* for Curl_safefree() */
 #include "curl_memory.h"
-#include "easyif.h" /* included for Curl_convert_... prototypes */
+#include "non-ascii.h" /* included for Curl_convert_... prototypes */
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -48,6 +43,8 @@
 
 #define MAX_VALUE_LENGTH 256
 #define MAX_CONTENT_LENGTH 1024
+
+static void digest_cleanup_one(struct digestdata *dig);
 
 /*
  * Return 0 on success and then the buffers are filled in fine.
@@ -88,8 +85,8 @@ static int get_pair(const char *str, char *value, char *content,
       break;
     case ',':
       if(!starts_with_quote) {
-        /* this signals the end of the content if we didn't get a starting quote
-           and then we do "sloppy" parsing */
+        /* this signals the end of the content if we didn't get a starting
+           quote and then we do "sloppy" parsing */
         c=0; /* the end */
         continue;
       }
@@ -156,7 +153,7 @@ CURLdigest Curl_input_digest(struct connectdata *conn,
       before = TRUE;
 
     /* clear off any former leftovers and init to defaults */
-    Curl_digest_cleanup_one(d);
+    digest_cleanup_one(d);
 
     for(;;) {
       char value[MAX_VALUE_LENGTH];
@@ -283,7 +280,8 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   unsigned char *ha1;
   unsigned char ha2[33];/* 32 digits and 1 zero byte */
   char cnoncebuf[7];
-  char *cnonce;
+  char *cnonce = NULL;
+  size_t cnonce_sz = 0;
   char *tmp = NULL;
   struct timeval now;
 
@@ -294,7 +292,6 @@ CURLcode Curl_output_digest(struct connectdata *conn,
 
   struct SessionHandle *data = conn->data;
   struct digestdata *d;
-#ifdef CURL_DOES_CONVERSIONS
   CURLcode rc;
 /* The CURL_OUTPUT_DIGEST_CONV macro below is for non-ASCII machines.
    It converts digest text to ASCII so the MD5 will be correct for
@@ -306,9 +303,6 @@ CURLcode Curl_output_digest(struct connectdata *conn,
     free(b); \
     return rc; \
   }
-#else
-#define CURL_OUTPUT_DIGEST_CONV(a, b)
-#endif /* CURL_DOES_CONVERSIONS */
 
   if(proxy) {
     d = &data->state.proxydigest;
@@ -350,10 +344,12 @@ CURLcode Curl_output_digest(struct connectdata *conn,
     /* Generate a cnonce */
     now = Curl_tvnow();
     snprintf(cnoncebuf, sizeof(cnoncebuf), "%06ld", (long)now.tv_sec);
-    if(Curl_base64_encode(data, cnoncebuf, strlen(cnoncebuf), &cnonce))
-      d->cnonce = cnonce;
-    else
-      return CURLE_OUT_OF_MEMORY;
+
+    rc = Curl_base64_encode(data, cnoncebuf, strlen(cnoncebuf),
+                            &cnonce, &cnonce_sz);
+    if(rc)
+      return rc;
+    d->cnonce = cnonce;
   }
 
   /*
@@ -543,7 +539,7 @@ CURLcode Curl_output_digest(struct connectdata *conn,
   return CURLE_OK;
 }
 
-void Curl_digest_cleanup_one(struct digestdata *d)
+static void digest_cleanup_one(struct digestdata *d)
 {
   if(d->nonce)
     free(d->nonce);
@@ -577,8 +573,8 @@ void Curl_digest_cleanup_one(struct digestdata *d)
 
 void Curl_digest_cleanup(struct SessionHandle *data)
 {
-  Curl_digest_cleanup_one(&data->state.digest);
-  Curl_digest_cleanup_one(&data->state.proxydigest);
+  digest_cleanup_one(&data->state.digest);
+  digest_cleanup_one(&data->state.proxydigest);
 }
 
 #endif

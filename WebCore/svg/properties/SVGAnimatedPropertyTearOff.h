@@ -29,40 +29,89 @@ namespace WebCore {
 template<typename PropertyType>
 class SVGAnimatedPropertyTearOff : public SVGAnimatedProperty {
 public:
-    SVGProperty* baseVal()
+    typedef SVGPropertyTearOff<PropertyType> PropertyTearOff;
+    typedef PropertyType ContentType;
+
+    PropertyTearOff* baseVal()
     {
         if (!m_baseVal)
-            m_baseVal = SVGPropertyTearOff<PropertyType>::create(this, BaseValRole, m_property);
+            m_baseVal = PropertyTearOff::create(this, BaseValRole, m_property);
         return m_baseVal.get();
     }
 
-    SVGProperty* animVal()
+    PropertyTearOff* animVal()
     {
         if (!m_animVal)
-            m_animVal = SVGPropertyTearOff<PropertyType>::create(this, AnimValRole, m_property);
+            m_animVal = PropertyTearOff::create(this, AnimValRole, m_property);
         return m_animVal.get();
     }
 
-private:
-    friend class SVGAnimatedProperty;
-
-    static PassRefPtr<SVGAnimatedPropertyTearOff<PropertyType> > create(SVGElement* contextElement, const QualifiedName& attributeName, PropertyType& property)
+    static PassRefPtr<SVGAnimatedPropertyTearOff<PropertyType> > create(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, PropertyType& property)
     {
         ASSERT(contextElement);
-        return adoptRef(new SVGAnimatedPropertyTearOff<PropertyType>(contextElement, attributeName, property));
+        return adoptRef(new SVGAnimatedPropertyTearOff<PropertyType>(contextElement, attributeName, animatedPropertyType, property));
     }
 
-    SVGAnimatedPropertyTearOff(SVGElement* contextElement, const QualifiedName& attributeName, PropertyType& property)
-        : SVGAnimatedProperty(contextElement, attributeName)
+    PropertyType& currentAnimatedValue()
+    {
+        ASSERT(m_isAnimating);
+        ASSERT(m_animVal);
+        return m_animVal->propertyReference();
+    }
+
+    const PropertyType& currentBaseValue() const
+    {
+        return m_property;
+    }
+
+    void animationStarted(PropertyType* newAnimVal)
+    {
+        ASSERT(!m_isAnimating);
+        ASSERT(newAnimVal);
+        animVal()->setValue(*newAnimVal);
+        m_isAnimating = true;
+    }
+
+    void animationEnded()
+    {
+        ASSERT(m_isAnimating);
+        ASSERT(m_animVal);
+        m_animVal->setValue(m_property);
+        m_isAnimating = false;
+
+        SVGElement* element = contextElement();
+        if (!element || !element->inDocument() || !element->parentNode())
+            return;
+        ASSERT(!element->m_deletionHasBegun);
+        element->svgAttributeChanged(attributeName());
+    }
+
+    void animValWillChange()
+    {
+        // no-op for non list types.
+        ASSERT(m_isAnimating);
+        ASSERT(m_animVal);
+    }
+
+    void animValDidChange()
+    {
+        ASSERT(m_isAnimating);
+        ASSERT(m_animVal);
+
+        ASSERT(contextElement());
+        contextElement()->svgAttributeChanged(attributeName());
+    }
+
+private:
+    SVGAnimatedPropertyTearOff(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, PropertyType& property)
+        : SVGAnimatedProperty(contextElement, attributeName, animatedPropertyType)
         , m_property(property)
     {
     }
 
-private:
     PropertyType& m_property;
-
-    RefPtr<SVGProperty> m_baseVal;
-    RefPtr<SVGProperty> m_animVal;
+    RefPtr<PropertyTearOff> m_baseVal;
+    RefPtr<PropertyTearOff> m_animVal;
 };
 
 }

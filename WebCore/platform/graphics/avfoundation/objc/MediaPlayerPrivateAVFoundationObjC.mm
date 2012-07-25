@@ -29,7 +29,6 @@
 
 #import "MediaPlayerPrivateAVFoundationObjC.h"
 
-#import "ApplicationCacheResource.h"
 #import "BlockExceptions.h"
 #import "FloatConversion.h"
 #import "FrameView.h"
@@ -106,7 +105,6 @@ enum MediaPlayerAVFoundationObservationContext {
 -(void)disconnect;
 -(void)playableKnown;
 -(void)metadataLoaded;
--(void)timeChanged:(double)time;
 -(void)seekCompleted:(BOOL)finished;
 -(void)didEnd:(NSNotification *)notification;
 -(void)observeValueForKeyPath:keyPath ofObject:(id)object change:(NSDictionary *)change context:(MediaPlayerAVFoundationObservationContext)context;
@@ -201,6 +199,8 @@ void MediaPlayerPrivateAVFoundationObjC::createContextVideoRenderer()
 
     [m_imageGenerator.get() setApertureMode:AVAssetImageGeneratorApertureModeCleanAperture];
     [m_imageGenerator.get() setAppliesPreferredTrackTransform:YES];
+    [m_imageGenerator.get() setRequestedTimeToleranceBefore:kCMTimeZero];
+    [m_imageGenerator.get() setRequestedTimeToleranceAfter:kCMTimeZero];
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createImageGenerator(%p) - returning %p", this, m_imageGenerator.get());
 }
@@ -256,37 +256,32 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const String& url)
 
     setDelayCallbacks(true);
 
-    NSDictionary *options = [NSDictionary dictionaryWithObjectsAndKeys:
-                        [NSNumber numberWithInt:AVAssetReferenceRestrictionForbidRemoteReferenceToLocal | AVAssetReferenceRestrictionForbidLocalReferenceToRemote], AVURLAssetReferenceRestrictionsKey, 
-                        nil];
-    NSURL *cocoaURL = KURL(ParsedURLString, url);
-    m_avAsset.adoptNS([[AVURLAsset alloc] initWithURL:cocoaURL options:options]);
+    RetainPtr<NSMutableDictionary> options(AdoptNS, [[NSMutableDictionary alloc] init]);    
 
-    m_haveCheckedPlayability = false;
+    [options.get() setObject:[NSNumber numberWithInt:AVAssetReferenceRestrictionForbidRemoteReferenceToLocal | AVAssetReferenceRestrictionForbidLocalReferenceToRemote] forKey:AVURLAssetReferenceRestrictionsKey];
 
-    setDelayCallbacks(false);
-}
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+    RetainPtr<NSMutableDictionary> headerFields(AdoptNS, [[NSMutableDictionary alloc] init]);
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-void MediaPlayerPrivateAVFoundationObjC::createAVAssetForCacheResource(ApplicationCacheResource* resource)
-{
-    if (m_avAsset)
-        return;
+    String referrer = player()->referrer();
+    if (!referrer.isEmpty())
+        [headerFields.get() setObject:referrer forKey:@"Referer"];
 
-    LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createAVAssetForCacheResource(%p)", this);
+    String userAgent = player()->userAgent();
+    if (!userAgent.isEmpty())
+        [headerFields.get() setObject:userAgent forKey:@"User-Agent"];
 
-    // AVFoundation can't open arbitrary data pointers.
-    ASSERT(!resource->path().isEmpty());
-    
-    setDelayCallbacks(true);
-
-    NSURL* localURL = [NSURL fileURLWithPath:resource->path()];
-    m_avAsset.adoptNS([[AVURLAsset alloc] initWithURL:localURL options:nil]);
-    m_haveCheckedPlayability = false;
-
-    setDelayCallbacks(false);
-}
+    if ([headerFields.get() count])
+        [options.get() setObject:headerFields.get() forKey:@"AVURLAssetHTTPHeaderFieldsKey"];
 #endif
+
+    NSURL *cocoaURL = KURL(ParsedURLString, url);
+    m_avAsset.adoptNS([[AVURLAsset alloc] initWithURL:cocoaURL options:options.get()]);
+
+    m_haveCheckedPlayability = false;
+
+    setDelayCallbacks(false);
+}
 
 void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
 {
@@ -300,13 +295,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     m_avPlayer.adoptNS([[AVPlayer alloc] init]);
     [m_avPlayer.get() addObserver:m_objcObserver.get() forKeyPath:@"rate" options:nil context:(void *)MediaPlayerAVFoundationObservationContextPlayer];
     
-    // Add a time observer, ask to be called infrequently because we don't really want periodic callbacks but
-    // our observer will also be called whenever a seek happens.
-    const double veryLongInterval = 60 * 60 * 24 * 30;
-    WebCoreAVFMovieObserver *observer = m_objcObserver.get();
-    m_timeObserver = [m_avPlayer.get() addPeriodicTimeObserverForInterval:CMTimeMakeWithSeconds(veryLongInterval, 10) queue:nil usingBlock:^(CMTime time){
-        [observer timeChanged:CMTimeGetSeconds(time)];
-    }];
+    if (m_avPlayerItem)
+        [m_avPlayer.get() replaceCurrentItemWithPlayerItem:m_avPlayerItem.get()];
 
     setDelayCallbacks(false);
 }
@@ -318,8 +308,6 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem(%p)", this);
 
-    ASSERT(m_avPlayer);
-
     setDelayCallbacks(true);
 
     // Create the player item so we can load media data. 
@@ -330,7 +318,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
     for (NSString *keyName in itemKVOProperties())
         [m_avPlayerItem.get() addObserver:m_objcObserver.get() forKeyPath:keyName options:nil context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
 
-    [m_avPlayer.get() replaceCurrentItemWithPlayerItem:m_avPlayerItem.get()];
+    if (m_avPlayer)
+        [m_avPlayer.get() replaceCurrentItemWithPlayerItem:m_avPlayerItem.get()];
 
     setDelayCallbacks(false);
 }
@@ -440,8 +429,12 @@ float MediaPlayerPrivateAVFoundationObjC::platformDuration() const
     if (CMTIME_IS_NUMERIC(cmDuration))
         return narrowPrecisionToFloat(CMTimeGetSeconds(cmDuration));
 
-    if (CMTIME_IS_INDEFINITE(cmDuration))
-        return numeric_limits<float>::infinity();
+    if (CMTIME_IS_INDEFINITE(cmDuration)) {
+        if (![[m_avAsset.get() tracks] count])
+            return 0;
+        else
+            return numeric_limits<float>::infinity();
+    }
 
     LOG(Media, "MediaPlayerPrivateAVFoundationObjC::platformDuration(%p) - invalid duration, returning %.0f", this, invalidTime());
     return invalidTime();
@@ -453,8 +446,9 @@ float MediaPlayerPrivateAVFoundationObjC::currentTime() const
         return 0;
 
     CMTime itemTime = [m_avPlayerItem.get() currentTime];
-    if (CMTIME_IS_NUMERIC(itemTime))
-        return narrowPrecisionToFloat(CMTimeGetSeconds(itemTime));
+    if (CMTIME_IS_NUMERIC(itemTime)) {
+        return max(narrowPrecisionToFloat(CMTimeGetSeconds(itemTime)), 0.0f);
+    }
 
     return 0;
 }
@@ -663,7 +657,7 @@ RetainPtr<CGImageRef> MediaPlayerPrivateAVFoundationObjC::createImageForTimeInRe
 #endif
 
     [m_imageGenerator.get() setMaximumSize:CGSize(rect.size())];
-    CGImageRef image = [m_imageGenerator.get() copyCGImageAtTime:CMTimeMakeWithSeconds(time, 600) actualTime:nil error:nil];
+    RetainPtr<CGImageRef> image = adoptCF([m_imageGenerator.get() copyCGImageAtTime:CMTimeMakeWithSeconds(time, 600) actualTime:nil error:nil]);
 
 #if !LOG_DISABLED
     double duration = WTF::currentTime() - start;
@@ -854,14 +848,6 @@ NSArray* itemKVOProperties()
         return;
 
     m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::AssetPlayabilityKnown);
-}
-
-- (void)timeChanged:(double)time
-{
-    if (!m_callback)
-        return;
-
-    m_callback->scheduleMainThreadNotification(MediaPlayerPrivateAVFoundation::Notification::PlayerTimeChanged, time);
 }
 
 - (void)seekCompleted:(BOOL)finished

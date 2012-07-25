@@ -33,7 +33,7 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gsskrb5_delete_sec_context(OM_uint32 * minor_status,
 			    gss_ctx_id_t * context_handle,
 			    gss_buffer_t output_token)
@@ -66,6 +66,7 @@ _gsskrb5_delete_sec_context(OM_uint32 * minor_status,
     }
 
     krb5_auth_con_free (context, ctx->auth_context);
+    krb5_auth_con_free (context, ctx->deleg_auth_context);
     if (ctx->kcred)
 	krb5_free_creds(context, ctx->kcred);
     if(ctx->source)
@@ -82,13 +83,13 @@ _gsskrb5_delete_sec_context(OM_uint32 * minor_status,
     if (ctx->gk5c.crypto)
     	krb5_crypto_destroy(context, ctx->gk5c.crypto);
 #ifdef PKINIT
-    if (ctx->icc)
-	krb5_init_creds_free(context, ctx->icc);
     if (ctx->cert)
 	hx509_cert_free(ctx->cert);
     if (ctx->gic_opt)
 	krb5_get_init_creds_opt_free(context, ctx->gic_opt);
 #endif
+    if (ctx->asctx)
+	krb5_init_creds_free(context, ctx->asctx);
     if (ctx->password) {
 	memset(ctx->password, 0, strlen(ctx->password));
 	free(ctx->password);
@@ -99,6 +100,10 @@ _gsskrb5_delete_sec_context(OM_uint32 * minor_status,
 	free(ctx->iakerbrealm);
     if (ctx->messages)
 	krb5_storage_free(ctx->messages);
+    if (ctx->friendlyname.length)
+	krb5_data_free(&ctx->friendlyname);
+    if (ctx->lkdchostname.length)
+	krb5_data_free(&ctx->lkdchostname);
 
     HEIMDAL_MUTEX_unlock(&ctx->ctx_id_mutex);
     HEIMDAL_MUTEX_destroy(&ctx->ctx_id_mutex);

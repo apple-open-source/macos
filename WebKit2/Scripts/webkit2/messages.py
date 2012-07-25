@@ -1,4 +1,4 @@
-# Copyright (C) 2010 Apple Inc. All rights reserved.
+# Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -21,9 +21,13 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import collections
-import itertools
 import re
 
+import parser
+
+
+DELAYED_ATTRIBUTE = 'Delayed'
+DISPATCH_ON_CONNECTION_QUEUE_ATTRIBUTE = 'DispatchOnConnectionQueue'
 
 _license_header = """/*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
@@ -51,94 +55,6 @@ _license_header = """/*
 
 """
 
-class MessageReceiver(object):
-    def __init__(self, name, messages, condition):
-        self.name = name
-        self.messages = messages
-        self.condition = condition
-
-    def iterparameters(self):
-        return itertools.chain((parameter for message in self.messages for parameter in message.parameters),
-            (reply_parameter for message in self.messages if message.reply_parameters for reply_parameter in message.reply_parameters))
-
-    @classmethod
-    def parse(cls, file):
-        destination = None
-        messages = []
-        condition = None
-        master_condition = None
-        for line in file:
-            match = re.search(r'messages -> ([A-Za-z_0-9]+) {', line)
-            if match:
-                if condition:
-                    master_condition = condition
-                    condition = None
-                destination = match.group(1)
-                continue
-            if line.startswith('#'):
-                if line.startswith('#if '):
-                    condition = line.rstrip()[4:]
-                elif line.startswith('#endif'):
-                    condition = None
-                continue
-            match = re.search(r'([A-Za-z_0-9]+)\((.*?)\)(?:(?:\s+->\s+)\((.*?)\))?(?:\s+(.*))?', line)
-            if match:
-                name, parameters_string, reply_parameters_string, attributes_string = match.groups()
-                if parameters_string:
-                    parameters = parse_parameter_string(parameters_string)
-                else:
-                    parameters = []
-
-                for parameter in parameters:
-                    parameter.condition = condition
-
-                if attributes_string:
-                    attributes = frozenset(attributes_string.split())
-                    is_delayed = "Delayed" in attributes
-                    dispatch_on_connection_queue = "DispatchOnConnectionQueue" in attributes
-                else:
-                    is_delayed = False
-                    dispatch_on_connection_queue = False
-
-                if reply_parameters_string:
-                    reply_parameters = parse_parameter_string(reply_parameters_string)
-                elif reply_parameters_string == '':
-                    reply_parameters = []
-                else:
-                    reply_parameters = None
-
-                messages.append(Message(name, parameters, reply_parameters, is_delayed, dispatch_on_connection_queue, condition))
-        return MessageReceiver(destination, messages, master_condition)
-
-
-class Message(object):
-    def __init__(self, name, parameters, reply_parameters, is_delayed, dispatch_on_connection_queue, condition):
-        self.name = name
-        self.parameters = parameters
-        self.reply_parameters = reply_parameters
-        if self.reply_parameters is not None:
-            self.is_delayed = is_delayed
-        self.dispatch_on_connection_queue = dispatch_on_connection_queue
-        self.condition = condition
-        if len(self.parameters) != 0:
-            self.is_variadic = parameter_type_is_variadic(self.parameters[-1].type)
-        else:
-            self.is_variadic = False
-
-    def id(self):
-        return '%sID' % self.name
-
-
-class Parameter(object):
-    def __init__(self, type, name, condition=None):
-        self.type = type
-        self.name = name
-        self.condition = condition
-
-
-def parse_parameter_string(parameter_string):
-    return [Parameter(*type_and_name.rsplit(' ', 1)) for type_and_name in parameter_string.split(', ')]
-
 
 def messages_header_filename(receiver):
     return '%sMessages.h' % receiver.name
@@ -158,13 +74,13 @@ def messages_to_kind_enum(messages):
     return ''.join(result)
 
 
-def parameter_type_is_variadic(type):
+def message_is_variadic(message):
     variadic_types = frozenset([
         'WebKit::InjectedBundleUserMessageEncoder',
         'WebKit::WebContextUserMessageEncoder',
     ])
 
-    return type in variadic_types
+    return len(message.parameters) and message.parameters[-1].type in variadic_types
 
 def function_parameter_type(type):
     # Don't use references for built-in types.
@@ -208,7 +124,7 @@ def reply_type(message):
 
 
 def decode_type(message):
-    if message.is_variadic:
+    if message_is_variadic(message):
         return arguments_type(message.parameters[:-1], reply_parameter_type)
     return base_class(message)
 
@@ -224,7 +140,7 @@ def message_to_struct_declaration(message):
     result.append(' {\n')
     result.append('    static const Kind messageID = %s;\n' % message.id())
     if message.reply_parameters != None:
-        if message.is_delayed:
+        if message.has_attribute(DELAYED_ATTRIBUTE):
             send_parameters = [(function_parameter_type(x.type), x.name) for x in message.reply_parameters]
             result.append('    struct DelayedReply : public ThreadSafeRefCounted<DelayedReply> {\n')
             result.append('        DelayedReply(PassRefPtr<CoreIPC::Connection>, PassOwnPtr<CoreIPC::ArgumentEncoder>);\n')
@@ -251,13 +167,31 @@ def message_to_struct_declaration(message):
 
 def struct_or_class(namespace, type):
     structs = frozenset([
+        'WebCore::Animation',
         'WebCore::EditorCommandsForKeyEvent',
         'WebCore::CompositionUnderline',
+        'WebCore::DragSession',
+        'WebCore::FloatPoint3D',
+        'WebCore::FileChooserSettings',
         'WebCore::GrammarDetail',
+        'WebCore::IdentityTransformOperation',
         'WebCore::KeypressCommand',
+        'WebCore::Length',
+        'WebCore::MatrixTransformOperation',
+        'WebCore::Matrix3DTransformOperation',
+        'WebCore::NotificationContents',
+        'WebCore::PerspectiveTransformOperation',
         'WebCore::PluginInfo',
         'WebCore::PrintInfo',
-        'WebCore::ViewportArguments',
+        'WebCore::RotateTransformOperation',
+        'WebCore::ScaleTransformOperation',
+        'WebCore::SkewTransformOperation',
+        'WebCore::TimingFunction',
+        'WebCore::TransformationMatrix',
+        'WebCore::TransformOperation',
+        'WebCore::TransformOperations',
+        'WebCore::TranslateTransformOperation',
+        'WebCore::ViewportAttributes',
         'WebCore::WindowFeatures',
         'WebKit::AttributedString',
         'WebKit::ContextMenuState',
@@ -272,7 +206,6 @@ def struct_or_class(namespace, type):
         'WebKit::StatisticsData',
         'WebKit::TextCheckerState',
         'WebKit::WebNavigationDataStore',
-        'WebKit::WebOpenPanelParameters::Data',
         'WebKit::WebPageCreationParameters',
         'WebKit::WebPreferencesStore',
         'WebKit::WebProcessCreationParameters',
@@ -302,7 +235,7 @@ def forward_declarations_and_headers(receiver):
     ])
 
     for message in receiver.messages:
-        if message.reply_parameters != None and message.is_delayed:
+        if message.reply_parameters != None and message.has_attribute(DELAYED_ATTRIBUTE):
             headers.add('<wtf/ThreadSafeRefCounted.h>')
             types_by_namespace['CoreIPC'].update(['ArgumentEncoder', 'Connection'])
 
@@ -331,7 +264,7 @@ def forward_declarations_and_headers(receiver):
     return (forward_declarations, headers)
 
 def generate_messages_header(file):
-    receiver = MessageReceiver.parse(file)
+    receiver = parser.parse(file)
     header_guard = messages_header_filename(receiver).replace('.', '_')
 
     result = []
@@ -378,36 +311,36 @@ def handler_function(receiver, message):
     return '%s::%s' % (receiver.name, message.name[0].lower() + message.name[1:])
 
 
-def async_case_statement(receiver, message, return_value=None):
+def async_case_statement(receiver, message):
+    dispatch_function_args = ['arguments', 'this', '&%s' % handler_function(receiver, message)]
     dispatch_function = 'handleMessage'
-    if message.is_variadic:
+    if message_is_variadic(message):
         dispatch_function += 'Variadic'
-
+    if message.has_attribute(DISPATCH_ON_CONNECTION_QUEUE_ATTRIBUTE):
+        dispatch_function += 'OnConnectionQueue'
+        dispatch_function_args.insert(0, 'connection')
+        
     result = []
     result.append('    case Messages::%s::%s:\n' % (receiver.name, message.id()))
-    result.append('        CoreIPC::%s<Messages::%s::%s>(arguments, this, &%s);\n' % (dispatch_function, receiver.name, message.name, handler_function(receiver, message)))
-    if return_value:
-        result.append('        return %s;\n' % return_value)
-    else:
-        result.append('        return;\n')
+
+    result.append('        CoreIPC::%s<Messages::%s::%s>(%s);\n' % (dispatch_function, receiver.name, message.name, ', '.join(dispatch_function_args)))
+    if message.has_attribute(DISPATCH_ON_CONNECTION_QUEUE_ATTRIBUTE):
+        result.append('        didHandleMessage = true;\n')
+    result.append('        return;\n')
     return surround_in_condition(''.join(result), message.condition)
 
 
 def sync_case_statement(receiver, message):
     dispatch_function = 'handleMessage'
-    if message.is_delayed:
+    if message.has_attribute(DELAYED_ATTRIBUTE):
         dispatch_function += 'Delayed'
-    if message.is_variadic:
+    if message_is_variadic(message):
         dispatch_function += 'Variadic'
 
     result = []
     result.append('    case Messages::%s::%s:\n' % (receiver.name, message.id()))
-    result.append('        CoreIPC::%s<Messages::%s::%s>(%sarguments, reply, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if message.is_delayed else '', handler_function(receiver, message)))
-
-    if message.is_delayed:
-        result.append('        return CoreIPC::ManualReply;\n')
-    else:
-        result.append('        return CoreIPC::AutomaticReply;\n')
+    result.append('        CoreIPC::%s<Messages::%s::%s>(%sarguments, reply%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, 'connection, ' if message.has_attribute(DELAYED_ATTRIBUTE) else '', '' if message.has_attribute(DELAYED_ATTRIBUTE) else '.get()', handler_function(receiver, message)))
+    result.append('        return;\n')
 
     return surround_in_condition(''.join(result), message.condition)
 
@@ -445,20 +378,27 @@ def headers_for_type(type):
         return ['<wtf/Vector.h>'] + headers_for_type(element_type)
 
     special_cases = {
-        'WTF::String': '<wtf/text/WTFString.h>',
-        'WebCore::CompositionUnderline': '<WebCore/Editor.h>',
-        'WebCore::GrammarDetail': '<WebCore/TextCheckerClient.h>',
-        'WebCore::KeypressCommand': '<WebCore/KeyboardEvent.h>',
-        'WebCore::PluginInfo': '<WebCore/PluginData.h>',
-        'WebCore::TextCheckingResult': '<WebCore/TextCheckerClient.h>',
-        'WebKit::WebGestureEvent': '"WebEvent.h"',
-        'WebKit::WebKeyboardEvent': '"WebEvent.h"',
-        'WebKit::WebMouseEvent': '"WebEvent.h"',
-        'WebKit::WebTouchEvent': '"WebEvent.h"',
-        'WebKit::WebWheelEvent': '"WebEvent.h"',
+        'WTF::String': ['<wtf/text/WTFString.h>'],
+        'WebCore::CompositionUnderline': ['<WebCore/Editor.h>'],
+        'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
+        'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
+        'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
+        'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
+        'WebCore::PluginInfo': ['<WebCore/PluginData.h>'],
+        'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
+        'WebCore::ViewportAttributes': ['<WebCore/ViewportArguments.h>'],
+        'WebKit::InjectedBundleUserMessageEncoder': [],
+        'WebKit::WebContextUserMessageEncoder': [],
+        'WebKit::WebGestureEvent': ['"WebEvent.h"'],
+        'WebKit::WebLayerID': ['"WebLayerTreeInfo.h"'],
+        'WebKit::WebLayerInfo': ['"WebLayerTreeInfo.h"'],
+        'WebKit::WebKeyboardEvent': ['"WebEvent.h"'],
+        'WebKit::WebMouseEvent': ['"WebEvent.h"'],
+        'WebKit::WebTouchEvent': ['"WebEvent.h"'],
+        'WebKit::WebWheelEvent': ['"WebEvent.h"'],
     }
     if type in special_cases:
-        return [special_cases[type]]
+        return special_cases[type]
 
     # We assume that we must include a header for a type iff it has a scope
     # resolution operator (::).
@@ -471,36 +411,37 @@ def headers_for_type(type):
 
 
 def generate_message_handler(file):
-    receiver = MessageReceiver.parse(file)
+    receiver = parser.parse(file)
     headers = {
-        '"%s"' % messages_header_filename(receiver): None,
-        '"HandleMessage.h"': None,
-        '"ArgumentDecoder.h"': None,
+        '"%s"' % messages_header_filename(receiver): [None],
+        '"HandleMessage.h"': [None],
+        '"ArgumentDecoder.h"': [None],
     }
 
     type_conditions = {}
     for parameter in receiver.iterparameters():
+        if not parameter.type in type_conditions:
+            type_conditions[parameter.type] = []
+
+        if not parameter.condition in type_conditions[parameter.type]:
+            type_conditions[parameter.type].append(parameter.condition)
+
+    for parameter in receiver.iterparameters():
         type = parameter.type
-        condition = parameter.condition
+        conditions = type_conditions[type]
 
-        if type in type_conditions:
-            if not type_conditions[type]:
-                condition = type_conditions[type]
-            else:
-                if not condition:
-                    type_conditions[type] = condition
-        else:
-            type_conditions[type] = condition
-
-        argument_encoder_headers = argument_coder_headers_for_type(parameter.type)
+        argument_encoder_headers = argument_coder_headers_for_type(type)
         if argument_encoder_headers:
             for header in argument_encoder_headers:
-                headers[header] = condition
-            continue
+                if header not in headers:
+                    headers[header] = []
+                headers[header].extend(conditions)
 
         type_headers = headers_for_type(type)
         for header in type_headers:
-            headers[header] = condition
+            if header not in headers:
+                headers[header] = []
+            headers[header].extend(conditions)
 
     for message in receiver.messages:
         if message.reply_parameters is not None:
@@ -509,12 +450,16 @@ def generate_message_handler(file):
                 argument_encoder_headers = argument_coder_headers_for_type(type)
                 if argument_encoder_headers:
                     for header in argument_encoder_headers:
-                        headers[header] = message.condition
-                    continue
+                        if header not in headers:
+                            headers[header] = []
+                        headers[header].append(message.condition)
 
                 type_headers = headers_for_type(type)
                 for header in type_headers:
-                    headers[header] = message.condition
+                    if header not in headers:
+                        headers[header] = []
+                    headers[header].append(message.condition)
+
 
     result = []
 
@@ -527,8 +472,8 @@ def generate_message_handler(file):
 
     result.append('#include "%s.h"\n\n' % receiver.name)
     for headercondition in sorted(headers):
-        if headers[headercondition]:
-            result.append('#if %s\n' % headers[headercondition])
+        if headers[headercondition] and not None in headers[headercondition]:
+            result.append('#if %s\n' % ' || '.join(set(headers[headercondition])))
             result += ['#include %s\n' % headercondition]
             result.append('#endif\n')
         else:
@@ -537,7 +482,7 @@ def generate_message_handler(file):
 
     sync_delayed_messages = []
     for message in receiver.messages:
-        if message.reply_parameters != None and message.is_delayed:
+        if message.reply_parameters != None and message.has_attribute(DELAYED_ATTRIBUTE):
             sync_delayed_messages.append(message)
 
     if sync_delayed_messages:
@@ -583,27 +528,27 @@ def generate_message_handler(file):
     sync_messages = []
     for message in receiver.messages:
         if message.reply_parameters is not None:
-            if message.dispatch_on_connection_queue:
+            if message.has_attribute(DISPATCH_ON_CONNECTION_QUEUE_ATTRIBUTE):
                 sync_dispatch_on_connection_queue_messages.append(message)
             else:
                 sync_messages.append(message)
         else:
-            if message.dispatch_on_connection_queue:
+            if message.has_attribute(DISPATCH_ON_CONNECTION_QUEUE_ATTRIBUTE):
                 async_dispatch_on_connection_queue_messages.append(message)
             else:
                 async_messages.append(message)
 
     if async_dispatch_on_connection_queue_messages:
-        result.append('bool %s::willProcess%sMessageOnClientRunLoop(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)\n' % (receiver.name, receiver.name))
+        result.append('void %s::didReceive%sMessageOnConnectionWorkQueue(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage)\n' % (receiver.name, receiver.name))
         result.append('{\n')
         result.append('#if COMPILER(MSVC)\n')
         result.append('#pragma warning(push)\n')
         result.append('#pragma warning(disable: 4065)\n')
         result.append('#endif\n')
         result.append('    switch (messageID.get<Messages::%s::Kind>()) {\n' % receiver.name)
-        result += [async_case_statement(receiver, message, 'false') for message in async_dispatch_on_connection_queue_messages]
+        result += [async_case_statement(receiver, message) for message in async_dispatch_on_connection_queue_messages]
         result.append('    default:\n')
-        result.append('        return true;\n')
+        result.append('        return;\n')
         result.append('    }\n')
         result.append('#if COMPILER(MSVC)\n')
         result.append('#pragma warning(pop)\n')
@@ -623,7 +568,7 @@ def generate_message_handler(file):
 
     if sync_messages:
         result.append('\n')
-        result.append('CoreIPC::SyncReplyMode %s::didReceiveSync%sMessage(CoreIPC::Connection*%s, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)\n' % (receiver.name, receiver.name, ' connection' if sync_delayed_messages else ''))
+        result.append('void %s::didReceiveSync%sMessage(CoreIPC::Connection*%s, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)\n' % (receiver.name, receiver.name, ' connection' if sync_delayed_messages else ''))
         result.append('{\n')
         result.append('    switch (messageID.get<Messages::%s::Kind>()) {\n' % receiver.name)
         result += [sync_case_statement(receiver, message) for message in sync_messages]
@@ -631,7 +576,6 @@ def generate_message_handler(file):
         result.append('        break;\n')
         result.append('    }\n\n')
         result.append('    ASSERT_NOT_REACHED();\n')
-        result.append('    return CoreIPC::AutomaticReply;\n')
         result.append('}\n')
 
     result.append('\n} // namespace WebKit\n')

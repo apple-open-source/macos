@@ -30,9 +30,11 @@
 #include "PlatformCALayerWinInternal.h"
 
 #include "Font.h"
+#include "FontCache.h"
 #include "PlatformCALayer.h"
 #include "TextRun.h"
 #include <QuartzCore/CACFLayer.h>
+#include <wtf/MainThread.h>
 
 using namespace std;
 using namespace WebCore;
@@ -61,6 +63,8 @@ PlatformCALayerWinInternal::~PlatformCALayerWinInternal()
 
 void PlatformCALayerWinInternal::displayCallback(CACFLayerRef caLayer, CGContextRef context)
 {
+    ASSERT(isMainThread());
+    
     if (!owner() || !owner()->owner())
         return;
 
@@ -93,6 +97,8 @@ void PlatformCALayerWinInternal::displayCallback(CACFLayerRef caLayer, CGContext
 #endif
 
     if (owner()->owner()->platformCALayerShowRepaintCounter()) {
+        FontCachePurgePreventer fontCachePurgePreventer;
+
         String text = String::number(owner()->owner()->platformCALayerIncrementRepaintCount());
 
         CGContextSaveGState(context);

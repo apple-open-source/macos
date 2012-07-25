@@ -39,21 +39,21 @@
  */
 
 static krb5_error_code
-get_default (kadm5_server_context *context,
+get_default (kadm5_server_context *contextp,
 	     krb5_principal princ,
 	     kadm5_principal_ent_t default_ent)
 {
     krb5_error_code ret;
     krb5_principal def_principal;
-    krb5_const_realm realm = krb5_principal_get_realm(context->context, princ);
+    krb5_const_realm realm = krb5_principal_get_realm(contextp->context, princ);
 
-    ret = krb5_make_principal (context->context, &def_principal,
+    ret = krb5_make_principal (contextp->context, &def_principal,
 			       realm, "default", NULL);
     if (ret)
 	return ret;
-    ret = kadm5_get_principal (context, def_principal, default_ent,
+    ret = kadm5_get_principal (contextp, def_principal, default_ent,
 			       KADM5_PRINCIPAL_NORMAL_MASK);
-    krb5_free_principal (context->context, def_principal);
+    krb5_free_principal (contextp->context, def_principal);
     return ret;
 }
 
@@ -69,6 +69,7 @@ add_one_principal (const char *name,
 		   int use_defaults,
 		   int verbose_flag,
 		   char *password,
+		   char *policy,
 		   krb5_key_data *key_data,
 		   const char *max_ticket_life,
 		   const char *max_renewable_life,
@@ -95,7 +96,7 @@ add_one_principal (const char *name,
 
     ret = set_entry(context, &princ, &mask,
 		    max_ticket_life, max_renewable_life,
-		    expiration, pw_expiration, attributes);
+		    expiration, pw_expiration, attributes, policy);
     if (ret)
 	goto out;
 
@@ -166,10 +167,15 @@ add_one_principal (const char *name,
 	    goto out;
 	}
 	princ.attributes &= (~KRB5_KDB_DISALLOW_ALL_TIX);
+	/*
+	 * Updating kvno w/o key data and vice-versa gives _kadm5_setup_entry()
+	 * and _kadm5_set_keys2() headaches.  But we used to, so we handle
+	 * this in in those two functions.  Might as well leave this code as
+	 * it was then.
+	 */
 	princ.kvno = 1;
 	kadm5_modify_principal(kadm_handle, &princ,
 			       KADM5_ATTRIBUTES | KADM5_KVNO);
-	kadm5_free_principal_ent(kadm_handle, &princ);
     } else if (key_data) {
 	ret = kadm5_chpass_principal_with_key (kadm_handle, princ_ent,
 					       3, key_data);
@@ -180,7 +186,6 @@ add_one_principal (const char *name,
 			    KADM5_PRINCIPAL | KADM5_ATTRIBUTES);
 	princ.attributes &= (~KRB5_KDB_DISALLOW_ALL_TIX);
 	kadm5_modify_principal(kadm_handle, &princ, KADM5_ATTRIBUTES);
-	kadm5_free_principal_ent(kadm_handle, &princ);
     } else if (rand_password) {
 	char *princ_name;
 
@@ -197,8 +202,7 @@ add_one_principal (const char *name,
     }
 
 out:
-    if (princ_ent)
-	krb5_free_principal (context, princ_ent);
+    kadm5_free_principal_ent(kadm_handle, &princ); /* frees princ_ent */
     if(default_ent)
 	kadm5_free_principal_ent (kadm_handle, default_ent);
     if (password != NULL)
@@ -261,6 +265,7 @@ add_new_key(struct add_options *opt, int argc, char **argv)
 				 opt->use_defaults_flag,
 				 opt->verbose_flag,
 				 opt->password_string,
+				 opt->policy_string,
 				 kdp,
 				 opt->max_ticket_life_string,
 				 opt->max_renewable_life_string,

@@ -1,5 +1,5 @@
 NAME = setuptools
-VERSION = 0.6c12dev-r85381
+VERSION = 0.6c12dev-r88846
 
 SETUPARGS = --install-scripts=/usr/bin
 

@@ -28,7 +28,7 @@
 
 #import "DataReference.h"
 #import "WKAPICast.h"
-#import "WKView.h"
+#import "WKViewPrivate.h"
 #import "WebData.h"
 #import "WebEventFactory.h"
 #import "WebPageGroup.h"
@@ -36,6 +36,8 @@
 #import "WebPreferences.h"
 #import <PDFKit/PDFKit.h>
 #import <WebCore/LocalizedStrings.h>
+#import <objc/runtime.h>
+#import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
 // Redeclarations of PDFKit notifications. We can't use the API since we use a weak link to the framework.
@@ -113,6 +115,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 - (PDFView *)pdfView;
 - (void)setDocument:(PDFDocument *)pdfDocument;
 
+- (BOOL)forwardScrollWheelEvent:(NSEvent *)wheelEvent;
 - (void)_applyPDFPreferences;
 - (PDFSelection *)_nextMatchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag fromSelection:(PDFSelection *)initialSelection startInSelection:(BOOL)startInSelection;
 @end
@@ -377,6 +380,16 @@ static void insertOpenWithDefaultPDFMenuItem(NSMenu *menu, NSUInteger index)
     _pdfViewController->savePDFToDownloadsFolder();
 }
 
+- (void)PDFViewPerformPrint:(PDFView *)sender
+{
+    _pdfViewController->print();
+}
+
+- (BOOL)forwardScrollWheelEvent:(NSEvent *)wheelEvent
+{
+    return _pdfViewController->forwardScrollWheelEvent(wheelEvent);
+}
+
 @end
 
 namespace WebKit {
@@ -446,12 +459,12 @@ void PDFViewController::setPDFDocumentData(const String& mimeType, const String&
         m_pdfData = convertPostScriptDataSourceToPDF(dataReference);
         if (!m_pdfData)
             return;
+        m_suggestedFilename = String(suggestedFilename + ".pdf");
     } else {
         // Make sure to copy the data.
         m_pdfData.adoptCF(CFDataCreate(0, dataReference.data(), dataReference.size()));
+        m_suggestedFilename = suggestedFilename;
     }
-
-    m_suggestedFilename = suggestedFilename;
 
     RetainPtr<PDFDocument> pdfDocument(AdoptNS, [[pdfDocumentClass() alloc] initWithData:(NSData *)m_pdfData.get()]);
     [m_wkPDFView.get() setDocument:pdfDocument.get()];
@@ -480,7 +493,54 @@ Class PDFViewController::pdfPreviewViewClass()
     
     return pdfPreviewViewClass;
 }
+
+bool PDFViewController::forwardScrollWheelEvent(NSEvent *wheelEvent)
+{
+    CGFloat deltaX = [wheelEvent deltaX];
+    if ((deltaX > 0 && !page()->canGoBack()) || (deltaX < 0 && !page()->canGoForward()))
+        return false;
+
+    [m_wkView scrollWheel:wheelEvent];
+    return true;
+}
+
+#ifndef BUILDING_ON_SNOW_LEOPARD
+static IMP oldPDFViewScrollView_scrollWheel;
+
+static WKPDFView *findEnclosingWKPDFView(NSView *view)
+{
+    for (NSView *superview = [view superview]; superview; superview = [superview superview]) {
+        if ([superview isKindOfClass:[WKPDFView class]])
+            return static_cast<WKPDFView *>(superview);
+    }
+
+    return nil;
+}
+
+static void PDFViewScrollView_scrollWheel(NSScrollView* self, SEL _cmd, NSEvent *wheelEvent)
+{
+    CGFloat deltaX = [wheelEvent deltaX];
+    CGFloat deltaY = [wheelEvent deltaY];
+
+    NSSize contentsSize = [[self documentView] bounds].size;
+    NSRect visibleRect = [self documentVisibleRect];
+
+    // We only want to forward the wheel events if the horizontal delta is non-zero,
+    // and only if we're pinned to either the left or right side.
+    // We also never want to forward momentum scroll events.
+    if ([wheelEvent momentumPhase] == NSEventPhaseNone && deltaX && fabsf(deltaY) < fabsf(deltaX)
+        && ((deltaX > 0 && visibleRect.origin.x <= 0) || (deltaX < 0 && contentsSize.width <= NSMaxX(visibleRect)))) {
     
+        if (WKPDFView *pdfView = findEnclosingWKPDFView(self)) {
+            if ([pdfView forwardScrollWheelEvent:wheelEvent])
+                return;
+        }
+    }
+
+    oldPDFViewScrollView_scrollWheel(self, _cmd, wheelEvent);
+}
+#endif
+
 NSBundle* PDFViewController::pdfKitBundle()
 {
     static NSBundle *pdfKitBundle;
@@ -496,6 +556,14 @@ NSBundle* PDFViewController::pdfKitBundle()
     pdfKitBundle = [NSBundle bundleWithPath:pdfKitPath];
     if (![pdfKitBundle load])
         LOG_ERROR("Couldn't load PDFKit.framework");
+
+#ifndef BUILDING_ON_SNOW_LEOPARD
+    if (Class pdfViewScrollViewClass = [pdfKitBundle classNamed:@"PDFViewScrollView"]) {
+        if (Method scrollWheel = class_getInstanceMethod(pdfViewScrollViewClass, @selector(scrollWheel:)))
+            oldPDFViewScrollView_scrollWheel = method_setImplementation(scrollWheel, reinterpret_cast<IMP>(PDFViewScrollView_scrollWheel));
+    }
+#endif
+
     return pdfKitBundle;
 }
 
@@ -618,6 +686,11 @@ void PDFViewController::linkClicked(const String& url)
     }
     
     page()->linkClicked(url, event);
+}
+
+void PDFViewController::print()
+{
+    page()->printMainFrame();
 }
 
 void PDFViewController::findString(const String& string, FindOptions options, unsigned maxMatchCount)

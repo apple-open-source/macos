@@ -1,14 +1,51 @@
 #!/usr/bin/ruby
+# Copyright (c) 2012 Apple Inc. All Rights Reserved.
+#
+# IMPORTANT NOTE: This file is licensed only for use on Apple-branded
+# computers and is subject to the terms and conditions of the Apple Software
+# License Agreement accompanying the package this file is a part of.
+# You may not port this file to another platform without Apple's written consent.
 
 # Wrapper script for postgres; waits for dataPath to be mounted before proceeding
+# Reads additional arguments from a plist specified by optional
+#   "--apple-configuration" flag. These args are appended to the original ARGV, and
+#   the --apple-configuration args are removed, before handing the final set of args
+#   to the real postgres executable.
+
+postgres_real_path = "@PATH_TEMPLATE@"
+PLIST_BUDDY = "/usr/libexec/PlistBuddy"
+
+config_file_index = ARGV.index("--apple-configuration")
+if !config_file_index.nil?
+	config_path = ARGV[config_file_index + 1]
+	if config_path.nil?
+		puts "Error: missing required argument for --apple-configuration"
+		exit(1)
+	end
+	ARGV.delete_at(config_file_index+1)
+	ARGV.delete_at(config_file_index)
+	if !FileTest.exists?(config_path)
+		puts "Error: missing configuration file at #{config_path}"
+		exit(1)
+	end
+	config_lines = `#{PLIST_BUDDY} -c 'Print :ProgramArguments' #{config_path}`
+	config_lines.each do |line|
+		if (line =~ /^Array \{/) || (line =~ /^\}/)
+			next
+		end
+		line.chomp!
+		line = line.sub(/^\s+/, '')
+		ARGV.push(line)
+	end
+end
 
 dataPathArgIndicatorIndex = ARGV.index("-D")
 
 if !dataPathArgIndicatorIndex.nil?
-        dataPathArg = ARGV[dataPathArgIndicatorIndex + 1]
-        system("/bin/wait4path", dataPathArg) unless dataPathArg.nil?
+	dataPathArg = ARGV[dataPathArgIndicatorIndex + 1]
+	system("/bin/wait4path", dataPathArg) unless dataPathArg.nil?
 end
 
-nargv = ["/usr/bin/postgres_real", ARGV].flatten
+nargv = ["#{postgres_real_path}", ARGV].flatten
 exec(*nargv)
 exit(0)

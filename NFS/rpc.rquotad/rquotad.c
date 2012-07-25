@@ -58,6 +58,7 @@ __RCSID("$NetBSD: rquotad.c,v 1.23 2006/05/09 20:18:07 mrg Exp $");
 #include <pthread.h>
 #include <syslog.h>
 #include <libutil.h>
+#include <util.h>
 
 #include <oncrpc/rpc.h>
 #include <oncrpc/rpcb.h>

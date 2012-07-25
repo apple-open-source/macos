@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2010, International Business Machines
+ * Copyright (C) 1996-2012, International Business Machines
  * Corporation and others. All Rights Reserved.
  *******************************************************************************
 */
@@ -172,6 +172,62 @@ typedef enum UDateFormatStyle {
 
 } UDateFormatStyle;
 
+/* Cannot use #ifndef U_HIDE_DRAFT_API for UDateFormatContextType and UDateFormatContextValue
+ * since a SimpleDateFormat virtual method & data member depends on them */
+/** Date format context types
+ *  @draft ICU 49
+ */
+typedef enum UDateFormatContextType {
+    /**
+     * Type (key) for specifying the capitalization context for which a date
+     * is to be formatted (possible values are in UDateFormatContextValue).
+     * @draft ICU 49
+     */
+    UDAT_CAPITALIZATION = 1
+} UDateFormatContextType;
+
+/** Values for date format context types
+ *  @draft ICU 49
+ */
+typedef enum UDateFormatContextValue {
+       /** Values for any UDateFormatContextType (key) */
+    /**
+     * Value for any UDateFormatContextType (such as UDAT_CAPITALIZATION) if the
+     * relevant context to be used in formatting a date is unknown (this is the
+     * default value for any UDateFormatContextType when no value has been
+     * explicitly specified for that UDateFormatContextType).
+     * @draft ICU 49
+     */
+    UDAT_CONTEXT_UNKNOWN = 0,
+#if !UCONFIG_NO_BREAK_ITERATION
+    /** Values for type (key) UDAT_CAPITALIZATION */
+    /**
+     * UDAT_CAPITALIZATION value if a date (or date symbol) is to be formatted
+     * with capitalization appropriate for the middle of a sentence.
+     * @draft ICU 49
+     */
+    UDAT_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE = 1,
+    /**
+     * UDAT_CAPITALIZATION value if a date (or date symbol) is to be formatted
+     * with capitalization appropriate for the beginning of a sentence.
+     * @draft ICU 49
+     */
+    UDAT_CAPITALIZATION_FOR_BEGINNING_OF_SENTENCE = 2,
+    /**
+     * UDAT_CAPITALIZATION value if a date (or date symbol) is to be formatted
+     * with capitalization appropriate for a user-interface list or menu item.
+     * @draft ICU 49
+     */
+    UDAT_CAPITALIZATION_FOR_UI_LIST_OR_MENU = 3,
+    /**
+     * UDAT_CAPITALIZATION value if a date (or date symbol) is to be formatted
+     * with capitalization appropriate for stand-alone usage such as an
+     * isolated name on a calendar page.
+     * @draft ICU 49
+     */
+    UDAT_CAPITALIZATION_FOR_STANDALONE = 4
+#endif
+} UDateFormatContextValue;
 
 /**
  * @{
@@ -484,6 +540,15 @@ typedef enum UDateFormatField {
      */
     UDAT_TIMEZONE_SPECIAL_FIELD = 29,
 
+    /**
+     * FieldPosition selector for "U" field alignment,
+     * corresponding to cyclic year names. This is implemented
+     * using the {@link #UCAL_YEAR} field. This displays
+     * the cyclic year name, if available.
+     * @draft ICU 49
+     */
+    UDAT_YEAR_NAME_FIELD = 30,
+
    /**
      * Number of FieldPosition and UFieldPosition selectors for
      * DateFormat and UDateFormat.
@@ -492,7 +557,7 @@ typedef enum UDateFormatField {
      * in the future.
      * @stable ICU 3.0
      */
-    UDAT_FIELD_COUNT = 30
+    UDAT_FIELD_COUNT = 31
 
 } UDateFormatField;
 
@@ -515,10 +580,14 @@ udat_toCalendarDateField(UDateFormatField field);
  * and to parse dates in calls to {@link #udat_parse }.
  * @param timeStyle The style used to format times; one of UDAT_FULL, UDAT_LONG,
  * UDAT_MEDIUM, UDAT_SHORT, UDAT_DEFAULT, or UDAT_NONE (relative time styles
- * are not currently supported)
+ * are not currently supported).
  * @param dateStyle The style used to format dates; one of UDAT_FULL, UDAT_LONG,
  * UDAT_MEDIUM, UDAT_SHORT, UDAT_DEFAULT, UDAT_FULL_RELATIVE, UDAT_LONG_RELATIVE,
- * UDAT_MEDIUM_RELATIVE, UDAT_SHORT_RELATIVE, or UDAT_NONE
+ * UDAT_MEDIUM_RELATIVE, UDAT_SHORT_RELATIVE, or UDAT_NONE. As currently implemented,
+ * relative date formatting only affects a limited range of calendar days before or
+ * after the current date, based on the CLDR &lt;field type="day"&gt;/&lt;relative&gt; data: For
+ * example, in English, "Yesterday", "Today", and "Tomorrow". Outside of this range,
+ * dates are formatted using the corresponding non-relative style.
  * @param locale The locale specifying the formatting conventions
  * @param tzID A timezone ID specifying the timezone to use.  If 0, use
  * the default timezone.
@@ -609,7 +678,19 @@ udat_format(    const    UDateFormat*    format,
 
 /**
 * Parse a string into an date/time using a UDateFormat.
-* The date will be parsed using the conventions specified in {@link #udat_open }
+* The date will be parsed using the conventions specified in {@link #udat_open }.
+* <P>
+* Note that the normal date formats associated with some calendars - such
+* as the Chinese lunar calendar - do not specify enough fields to enable
+* dates to be parsed unambiguously. In the case of the Chinese lunar
+* calendar, while the year within the current 60-year cycle is specified,
+* the number of such cycles since the start date of the calendar (in the
+* UCAL_ERA field of the UCalendar object) is not normally part of the format,
+* and parsing may assume the wrong era. For cases such as this it is
+* recommended that clients parse using udat_parseCalendar with the UCalendar
+* passed in set to the current date, or to a date within the era/cycle that
+* should be assumed if absent in the format.
+*
 * @param format The formatter to use.
 * @param text The text to parse.
 * @param textLength The length of text, or -1 if null-terminated.
@@ -621,17 +702,25 @@ udat_format(    const    UDateFormat*    format,
 * @stable ICU 2.0
 */
 U_STABLE UDate U_EXPORT2 
-udat_parse(    const    UDateFormat*    format,
-            const    UChar*          text,
+udat_parse(const    UDateFormat*    format,
+           const    UChar*          text,
                     int32_t         textLength,
                     int32_t         *parsePos,
                     UErrorCode      *status);
 
 /**
 * Parse a string into an date/time using a UDateFormat.
-* The date will be parsed using the conventions specified in {@link #udat_open }
+* The date will be parsed using the conventions specified in {@link #udat_open }.
 * @param format The formatter to use.
-* @param calendar The calendar in which to store the parsed data.
+* @param calendar A calendar set on input to the date and time to be used for
+*                 missing values in the date/time string being parsed, and set
+*                 on output to the parsed date/time. When the calendar type is
+*                 different from the internal calendar held by the UDateFormat
+*                 instance, the internal calendar will be cloned to a work
+*                 calendar set to the same milliseconds and time zone as this
+*                 calendar parameter, field values will be parsed based on the
+*                 work calendar, then the result (milliseconds and time zone)
+*                 will be set in this calendar.
 * @param text The text to parse.
 * @param textLength The length of text, or -1 if null-terminated.
 * @param parsePos If not 0, on input a pointer to an integer specifying the offset at which
@@ -937,6 +1026,37 @@ udat_getLocaleByType(const UDateFormat *fmt,
                      ULocDataLocaleType type,
                      UErrorCode* status); 
 
+#ifndef U_HIDE_DRAFT_API
+/**
+ * Set the formatter's default value for a particular context type,
+ * such as UDAT_CAPITALIZATION.
+ * @param fmt The formatter for which to set a context type's default value.
+ * @param type The context type for which the default value should be set.
+ * @param value The default value to set for the specified context type.
+ * @param status A pointer to an UErrorCode to receive any errors
+ * @draft ICU 49
+ */
+U_DRAFT void U_EXPORT2
+udat_setDefaultContext(UDateFormat* fmt,
+                       UDateFormatContextType type, UDateFormatContextValue value,
+                       UErrorCode* status);
+
+/**
+ * Get the formatter's default value for a particular context type,
+ * such as UDAT_CAPITALIZATION.
+ * @param fmt The formatter from which to get a context type's default value.
+ * @param type The context type for which the default value should be obtained.
+ * @param status A pointer to an UErrorCode to receive any errors
+ * @return The current default value for the specified context type.
+ * @draft ICU 49
+ */
+U_DRAFT int32_t U_EXPORT2
+udat_getDefaultContext(UDateFormat* fmt,
+                       UDateFormatContextType type,
+                       UErrorCode* status);
+#endif  /* U_HIDE_DRAFT_API */
+
+#ifndef U_HIDE_INTERNAL_API
 /**
 * Extract the date pattern from a UDateFormat set for relative date formatting.
 * The pattern will follow the pattern syntax rules.
@@ -990,6 +1110,34 @@ udat_applyPatternRelative(UDateFormat *format,
                           const UChar *timePattern,
                           int32_t     timePatternLength,
                           UErrorCode  *status);
+#endif  /* U_HIDE_INTERNAL_API */
+
+/**
+ * @internal
+ * @see udat_open
+ */
+typedef UDateFormat* (U_EXPORT2 *UDateFormatOpener) (UDateFormatStyle  timeStyle,
+                                                    UDateFormatStyle  dateStyle,
+                                                    const char        *locale,
+                                                    const UChar       *tzID,
+                                                    int32_t           tzIDLength,
+                                                    const UChar       *pattern,
+                                                    int32_t           patternLength,
+                                                    UErrorCode        *status);
+
+/**
+ * Register a provider factory
+ * @internal ICU 49
+ */
+U_INTERNAL void U_EXPORT2
+udat_registerOpener(UDateFormatOpener opener, UErrorCode *status);
+
+/**
+ * Un-Register a provider factory
+ * @internal ICU 49
+ */
+U_INTERNAL UDateFormatOpener U_EXPORT2
+udat_unregisterOpener(UDateFormatOpener opener, UErrorCode *status);
 
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

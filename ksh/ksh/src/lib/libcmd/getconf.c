@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: getconf (AT&T Research) 2007-02-07 $\n]"
+"[-?\n@(#)$Id: getconf (AT&T Research) 2008-04-24 $\n]"
 USAGE_LICENSE
 "[+NAME?getconf - get configuration values]"
 "[+DESCRIPTION?\bgetconf\b displays the system configuration value for"
@@ -36,6 +36,8 @@ USAGE_LICENSE
 "	directory if \apath\a is omitted. If \avalue\a is specified then"
 "	\bgetconf\b attempts to change the process local value to \avalue\a."
 "	\b-\b may be used in place of \apath\a when it is not relevant."
+"	If \apath\a is \b=\b then the the \avalue\a is cached and used"
+"	for subsequent tests in the calling and all child processes."
 "	Only \bwritable\b variables may be set; \breadonly\b variables"
 "	cannot be changed.]"
 "[+?The current value for \aname\a is written to the standard output. If"

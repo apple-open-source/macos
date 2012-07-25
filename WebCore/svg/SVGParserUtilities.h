@@ -30,34 +30,37 @@ typedef Vector<UnicodeRange> UnicodeRanges;
 
 namespace WebCore {
 
+class FloatRect;
 class SVGPointList;
 
 bool parseNumber(const UChar*& ptr, const UChar* end, float& number, bool skip = true);
+bool parseNumberFromString(const String&, float& number, bool skip = true);
 bool parseNumberOptionalNumber(const String& s, float& h, float& v);
 bool parseArcFlag(const UChar*& ptr, const UChar* end, bool& flag);
+bool parseRect(const String&, FloatRect&);
 
 // SVG allows several different whitespace characters:
 // http://www.w3.org/TR/SVG/paths.html#PathDataBNF
-inline bool isWhitespace(const UChar& c)
+inline bool isSVGSpace(UChar c)
 {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-inline bool skipOptionalSpaces(const UChar*& ptr, const UChar* end)
+inline bool skipOptionalSVGSpaces(const UChar*& ptr, const UChar* end)
 {
-    while (ptr < end && isWhitespace(*ptr))
+    while (ptr < end && isSVGSpace(*ptr))
         ptr++;
     return ptr < end;
 }
 
-inline bool skipOptionalSpacesOrDelimiter(const UChar*& ptr, const UChar* end, UChar delimiter = ',')
+inline bool skipOptionalSVGSpacesOrDelimiter(const UChar*& ptr, const UChar* end, UChar delimiter = ',')
 {
-    if (ptr < end && !isWhitespace(*ptr) && *ptr != delimiter)
+    if (ptr < end && !isSVGSpace(*ptr) && *ptr != delimiter)
         return false;
-    if (skipOptionalSpaces(ptr, end)) {
+    if (skipOptionalSVGSpaces(ptr, end)) {
         if (ptr < end && *ptr == delimiter) {
             ptr++;
-            skipOptionalSpaces(ptr, end);
+            skipOptionalSVGSpaces(ptr, end);
         }
     }
     return ptr < end;

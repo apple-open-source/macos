@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2009, 2012 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #include "V8SQLStatementErrorCallback.h"
 
@@ -56,10 +56,11 @@ bool V8SQLStatementErrorCallback::handleEvent(SQLTransaction* transaction, SQLEr
 
     v8::Context::Scope scope(v8Context);
 
-    v8::Handle<v8::Value> transactionHandle = toV8(transaction);
-    v8::Handle<v8::Value> errorHandle = toV8(error);
+    v8::Handle<v8::Value> transactionHandle = toV8(transaction, 0);
+    v8::Handle<v8::Value> errorHandle = toV8(error, 0);
     if (transactionHandle.IsEmpty() || errorHandle.IsEmpty()) {
-        CRASH();
+        if (!isScriptControllerTerminating())
+            CRASH();
         return true;
     }
 

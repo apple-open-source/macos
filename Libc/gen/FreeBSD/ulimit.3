@@ -34,28 +34,31 @@
 .Sh SYNOPSIS
 .In ulimit.h
 .Ft long
-.Fn ulimit "int cmd" "..."
+.Fo ulimit
+.Fa "int cmd"
+.Fa "..."
+.Fc
 .Sh DESCRIPTION
 The
 .Fn ulimit
 function will get and set process limits.
-Currently this is limited to the maximum file size.
+Currently, this is limited to the maximum file size.
 The
 .Fa cmd
 argument is one of the following:
 .Bl -tag -width ".Dv UL_GETFSIZE"
 .It Dv UL_GETFSIZE
-will return the maximum file size in units of 512 blocks of
-the current process.
+will return the maximum file size of the current process,
+in units of 512-byte blocks.
 .It Dv UL_SETFSIZE
 will attempt to set the maximum file size of the current
-process and its children with the second argument expressed as a long.
+process and its children, using the second argument (expressed as a long).
 .El
 .Sh RETURN VALUES
 Upon successful completion,
 .Fn ulimit
 returns the value requested;
-otherwise the value \-1 is returned and the global variable
+otherwise, the value \-1 is returned and the global variable
 .Va errno
 is set to indicate the error.
 .Sh ERRORS

@@ -43,6 +43,8 @@ WebInspector.applyFormatters = function(value)
             break;
 
         case "object":
+            if (value instanceof Node)
+                return value;
             if (value instanceof Array) {
                 formatter = WebInspector.AuditFormatters.concat;
                 args = value;
@@ -88,5 +90,11 @@ WebInspector.AuditFormatters = {
         if (allowExternalNavigation)
             a.target = "_blank";
         return a;
+    },
+
+    resourceLink: function(url, line)
+    {
+        // FIXME: use WebInspector.DebuggerPresentationModel.Linkifier
+        return WebInspector.linkifyResourceAsNode(url, line, "console-message-url webkit-html-resource-link");
     }
 };

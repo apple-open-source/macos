@@ -15,7 +15,6 @@
 
 #include <string.h>
 #ifdef HAVE_TIME_H
-#define __USE_XOPEN
 #include <time.h>
 #endif
 #ifdef HAVE_STDLIB_H

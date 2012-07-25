@@ -31,19 +31,15 @@
 #ifndef ScrollAnimator_h
 #define ScrollAnimator_h
 
+#include "PlatformWheelEvent.h"
 #include "ScrollTypes.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
 class FloatPoint;
-class PlatformWheelEvent;
 class ScrollableArea;
 class Scrollbar;
-
-#if ENABLE(GESTURE_EVENTS)
-class PlatformGestureEvent;
-#endif
 
 class ScrollAnimator {
 public:
@@ -63,14 +59,17 @@ public:
 
     virtual void setIsActive() { }
 
-    virtual void handleWheelEvent(PlatformWheelEvent&);
-#if ENABLE(GESTURE_EVENTS)
-    virtual void handleGestureEvent(const PlatformGestureEvent&);
+    virtual bool handleWheelEvent(const PlatformWheelEvent&);
+
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
+    virtual void handleWheelEventPhase(PlatformWheelEventPhase) { }
 #endif
 
+    void setCurrentPosition(const FloatPoint&);
     FloatPoint currentPosition() const;
 
     virtual void cancelAnimations() { }
+    virtual void serviceScrollAnimations() { }
 
     virtual void contentAreaWillPaint() const { }
     virtual void mouseEnteredContentArea() const { }
@@ -89,10 +88,16 @@ public:
     virtual void didAddHorizontalScrollbar(Scrollbar*) { }
     virtual void willRemoveHorizontalScrollbar(Scrollbar*) { }
 
+    virtual bool shouldScrollbarParticipateInHitTesting(Scrollbar*) { return true; }
+
+    virtual void notifyContentAreaScrolled() { }
+
+    virtual bool isRubberBandInProgress() const { return false; }
+
 protected:
     ScrollAnimator(ScrollableArea*);
 
-    virtual void notityPositionChanged();
+    virtual void notifyPositionChanged();
 
     ScrollableArea* m_scrollableArea;
     float m_currentPosX; // We avoid using a FloatPoint in order to reduce

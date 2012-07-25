@@ -166,6 +166,22 @@ int racoon_send_cmd_xauthinfo(int fd, u_int32_t address, struct isakmp_xauth *is
 int racoon_send_cmd_start_dpd(int fd, u_int32_t address) ;
 
 
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+int ipsec_init_things()
+{
+
+    // TO DO: save each configuration and remove them upon configd restart, 
+    // in case they are leftover after a crash.
+    
+#if TARGET_OS_EMBEDDED
+    // currently only VPN uses IPSec on embedded
+    IPSecFlushAll();
+#endif /* TARGET_OS_EMBEDDED */
+
+    return 0;
+}
+
 /* ----------------------------------------------------------------------------- 
 get the ipsec string corresponding to the ike error
 ----------------------------------------------------------------------------- */
@@ -419,6 +435,7 @@ int ipsec_setup_service(struct service *serv)
 					 FLAG_SETUP_PREVENTIDLESLEEP +
 					 FLAG_SETUP_DISCONNECTONFASTUSERSWITCH +
 					 FLAG_SETUP_ONDEMAND +
+					 FLAG_DARKWAKE +
 					 FLAG_SETUP_PERSISTCONNECTION);
 	
 	serv->flags |= (    
@@ -687,6 +704,11 @@ int ask_user_xauth(struct service *serv, char* message)
     if ((serv->flags & FLAG_ALERTPASSWORDS) == 0)
         return -1;
 
+#if !TARGET_OS_EMBEDDED
+    if (serv->flags & FLAG_DARKWAKE)
+        return -1;
+#endif
+
 	/* first, remove any pending notification, if any */
 	if (serv->userNotificationRef) {
 		CFUserNotificationCancel(serv->userNotificationRef);
@@ -826,7 +848,7 @@ static int process_xauth_need_info(struct service *serv)
 	char *message = NULL;
 	struct vpnctl_cmd_xauth_info *cmd_xauth_info;
 
-	cmd_xauth_info = (struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
+	cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
 
 	char *xauth_data = (char*)serv->u.ipsec.msg + sizeof(struct vpnctl_cmd_xauth_info); 
 	int xauth_data_len = ntohs(serv->u.ipsec.msghdr.len) - (sizeof(struct vpnctl_cmd_xauth_info) -  sizeof(struct vpnctl_hdr));
@@ -843,7 +865,7 @@ static int process_xauth_need_info(struct service *serv)
 		int tlv;
 		u_int16_t type;
 		
-		attr = (struct isakmp_data *)dataptr;
+		attr = ALIGNED_CAST(struct isakmp_data *)dataptr;
 		type = ntohs(attr->type) & 0x7FFF;
 		tlv = (type ==  ntohs(attr->type));
 		
@@ -1040,21 +1062,21 @@ static void print_racoon_msg(struct service *serv)
 			case VPNCTL_CMD_CONNECT:
 			case VPNCTL_CMD_RECONNECT:
 			case VPNCTL_CMD_DISCONNECT:
-				cmd_bind = (struct vpnctl_cmd_bind *)serv->u.ipsec.msg;
+				cmd_bind = ALIGNED_CAST(struct vpnctl_cmd_bind *)serv->u.ipsec.msg; 
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_bind->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				break;
 
 			case VPNCTL_CMD_XAUTH_INFO:
-				cmd_xauth_info = (struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
+				cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_xauth_info->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				break;
 
 			case VPNCTL_STATUS_IKE_FAILED:
-				failed_status = (struct vpnctl_status_failed *)serv->u.ipsec.msg;
+				failed_status = ALIGNED_CAST(struct vpnctl_status_failed *)serv->u.ipsec.msg;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = failed_status->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
@@ -1063,7 +1085,7 @@ static void print_racoon_msg(struct service *serv)
 
 				switch (ntohs(failed_status->ike_code)) {
 					case VPNCTL_NTYPE_LOAD_BALANCE:		
-						addr.s_addr = *(u_int32_t*)failed_status->data;
+						addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
 						SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	redirect address = %s"), inet_ntoa(addr));
 						break;
 				}
@@ -1077,13 +1099,13 @@ static void print_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PH1_ESTABLISHED:
-				phase_change_status = (struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
+				phase_change_status = ALIGNED_CAST(struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
 				addr.s_addr = phase_change_status->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
 				if (ntohs(phase_change_status->hdr.flags) & VPNCTL_FLAG_MODECFG_USED) {
 					char *modecfg_data = (char*)serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params);
 					int modecfg_data_len = ntohs(serv->u.ipsec.msghdr.len) - ((sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params)) -  sizeof(struct vpnctl_hdr));
-					struct vpnctl_modecfg_params *modecfg = (struct vpnctl_modecfg_params *)(serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change));
+					struct vpnctl_modecfg_params *modecfg = ALIGNED_CAST(struct vpnctl_modecfg_params *)(void*)(serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change));
 					addr.s_addr = modecfg->outer_local_addr;
 					SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	outer_local_addr = %s"), inet_ntoa(addr));
 					SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	outer_remote_port = %d"), ntohs(modecfg->outer_remote_port));
@@ -1091,27 +1113,27 @@ static void print_racoon_msg(struct service *serv)
 					SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ifname = %s"), modecfg->ifname);
 
 					int tlen = modecfg_data_len;
-					struct isakmp_data *attr;
 					char	*dataptr = modecfg_data;
 					
 					while (tlen > 0)
 					{
 						int tlv;
 						u_int16_t type;
+                        struct isakmp_data attr;
 						
-						attr = (struct isakmp_data *)dataptr;
-						type = ntohs(attr->type) & 0x7FFF;
-						tlv = (type ==  ntohs(attr->type));
+                        memcpy(&attr, dataptr, sizeof(attr));       // Wcast-align fix - memcpy for unaligned access
+						type = ntohs(attr.type) & 0x7FFF;
+						tlv = (type ==  ntohs(attr.type));
 
 						SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Type = %d (%s)"), type, ipsec_modecfgtype_to_str(type));
 						if (tlv) {
-							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Length = %d Value = ..."), ntohs(attr->lorv));
+							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Length = %d Value = ..."), ntohs(attr.lorv));
 
-							tlen -= ntohs(attr->lorv);
-							dataptr += ntohs(attr->lorv);
+							tlen -= ntohs(attr.lorv);
+							dataptr += ntohs(attr.lorv);
 						}
 						else {
-							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Value = %d"), ntohs(attr->lorv));
+							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	ModeConfig Attribute Value = %d"), ntohs(attr.lorv));
 						}
 						
 						tlen -= sizeof(u_int32_t);
@@ -1131,7 +1153,7 @@ static void print_racoon_msg(struct service *serv)
 #if !TARGET_OS_EMBEDDED
 			case VPNCTL_STATUS_NEED_REAUTHINFO:
 #endif /* !TARGET_OS_EMBEDDED */
-				cmd_xauth_info = (struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
+				cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)serv->u.ipsec.msg;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = cmd_xauth_info->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	address = %s"), inet_ntoa(addr));
@@ -1140,37 +1162,37 @@ static void print_racoon_msg(struct service *serv)
 				int xauth_data_len = ntohs(serv->u.ipsec.msghdr.len) - (sizeof(struct vpnctl_cmd_xauth_info) -  sizeof(struct vpnctl_hdr));
 
 				int tlen = xauth_data_len;
-				struct isakmp_data *attr;
 				char	*dataptr = xauth_data;
 				
 				while (tlen > 0)
 				{
 					int tlv;
 					u_int16_t type;
-					
-					attr = (struct isakmp_data *)dataptr;
-					type = ntohs(attr->type) & 0x7FFF;
-					tlv = (type ==  ntohs(attr->type));
+					struct isakmp_data attr;
+                    
+                    memcpy(&attr, dataptr, sizeof(attr));   // Wcast-align fix - memcpy for unaligned access
+					type = ntohs(attr.type) & 0x7FFF;
+					tlv = (type ==  ntohs(attr.type));
 
 					SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Type = %d (%s)"), type, ipsec_xauthtype_to_str(type));
 					if (tlv) {
 						if (type == XAUTH_MESSAGE) {
-							char *message = malloc(ntohs(attr->lorv) + 1);
+							char *message = malloc(ntohs(attr.lorv) + 1);
 							if (message) {
-								bcopy(dataptr + sizeof(u_int32_t), message, ntohs(attr->lorv));
-								message[ntohs(attr->lorv)] = 0;
+								bcopy(dataptr + sizeof(u_int32_t), message, ntohs(attr.lorv));
+								message[ntohs(attr.lorv)] = 0;
 								SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Value = %s"), message);
 								free(message);
 							}
 						}
 						else 
-							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Length = %d Value = ..."), ntohs(attr->lorv));
+							SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Length = %d Value = ..."), ntohs(attr.lorv));
 
-						tlen -= ntohs(attr->lorv);
-						dataptr += ntohs(attr->lorv);
+						tlen -= ntohs(attr.lorv);
+						dataptr += ntohs(attr.lorv);
 					}
 					else {
-						SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Value = %d"), ntohs(attr->lorv));
+						SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	XAuth Attribute Value = %d"), ntohs(attr.lorv));
 					}
 					
 					tlen -= sizeof(u_int32_t);
@@ -1180,7 +1202,7 @@ static void print_racoon_msg(struct service *serv)
 				break;
 
 			case VPNCTL_STATUS_PEER_RESP:
-				peer_resp = (__typeof__(peer_resp))serv->u.ipsec.msg;
+				peer_resp = ALIGNED_CAST(__typeof__(peer_resp))serv->u.ipsec.msg;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				addr.s_addr = peer_resp->address;
 				SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(addr));
@@ -1213,7 +1235,7 @@ static void process_racoon_msg(struct service *serv)
 	switch (ntohs(serv->u.ipsec.msghdr.msg_type)) {
 			case VPNCTL_STATUS_IKE_FAILED:
 				SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: IKE FAILED. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
-				failed_status = (struct vpnctl_status_failed *)serv->u.ipsec.msg;
+				failed_status = ALIGNED_CAST(struct vpnctl_status_failed *)serv->u.ipsec.msg;
 
 				switch (ntohs(failed_status->ike_code)) {
 
@@ -1222,7 +1244,7 @@ static void process_racoon_msg(struct service *serv)
 						redirect_addr.sin_len = sizeof(redirect_addr);
 						redirect_addr.sin_family = AF_INET;
 						redirect_addr.sin_port = htons(0);
-						redirect_addr.sin_addr.s_addr = *(u_int32_t*)failed_status->data;
+						redirect_addr.sin_addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
 						SCLog(TRUE, LOG_INFO, CFSTR("IPSec Controller: connection redirected to server '%s'..."), inet_ntoa(redirect_addr.sin_addr));
 						racoon_restart(serv, &redirect_addr);
 						break;
@@ -1293,7 +1315,7 @@ static void process_racoon_msg(struct service *serv)
 				if (serv->u.ipsec.phase != IPSEC_PHASE1 && !IPSEC_IS_ASSERTED_PHASE1(serv->u.ipsec))
 					break;
 				if (serv->u.ipsec.phase == IPSEC_PHASE1) {
-					phase_change_status = (struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
+					phase_change_status = ALIGNED_CAST(struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
 					if (ntohs(phase_change_status->hdr.flags) & VPNCTL_FLAG_MODECFG_USED) {
 						install_mode_config(serv);
 					}
@@ -1364,7 +1386,7 @@ static void process_racoon_msg(struct service *serv)
 
 			case VPNCTL_STATUS_PEER_RESP:
 				SCLog(gSCNCVerbose, LOG_INFO, CFSTR("IPSec Controller: PEER RESP. phase %d, assert %d"), serv->u.ipsec.phase, serv->u.ipsec.asserted);
-				peer_resp = (__typeof__(peer_resp))serv->u.ipsec.msg;
+				peer_resp = ALIGNED_CAST(__typeof__(peer_resp))serv->u.ipsec.msg;
 				SCLog(gSCNCVerbose, LOG_INFO, CFSTR("IPSec Controller:	----------------------------"));
 				peer_addr.s_addr = peer_resp->address;
 				SCLog(gSCNCVerbose, LOG_INFO, CFSTR("IPSec Controller:	response from address = %s"), inet_ntoa(peer_addr));
@@ -1413,7 +1435,7 @@ racoon_trigger_phase2(char *ifname, struct in_addr *ping)
 	struct icmp *icp;
 	int cc, i, j, nbping;    
 	struct sockaddr_in whereto;	/* who to ping */
-	uint8_t data[256];
+	uint8_t data[256] __attribute__ ((aligned (4)));
 	int s, ifindex;
 	
 	s = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
@@ -1427,7 +1449,7 @@ racoon_trigger_phase2(char *ifname, struct in_addr *ping)
 	whereto.sin_port = 0;		/* Source port */
 	whereto.sin_addr.s_addr = ping->s_addr;	/* Dest. address */
 	
-	icp = (struct icmp *)data;
+	icp = ALIGNED_CAST(struct icmp *)data;
 	icp->icmp_type = ICMP_ECHO;
 	icp->icmp_code = 0;
 	icp->icmp_cksum = 0;
@@ -1527,8 +1549,8 @@ static void install_mode_config(struct service *serv)
 	
 	serv->u.ipsec.ping_addr.s_addr = 0;
 
-	struct vpnctl_status_phase_change *phase_change_status = (struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
-	struct vpnctl_modecfg_params *modecfg = (struct vpnctl_modecfg_params *)(serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change));
+	struct vpnctl_status_phase_change *phase_change_status = ALIGNED_CAST(struct vpnctl_status_phase_change *)serv->u.ipsec.msg;
+	struct vpnctl_modecfg_params *modecfg = ALIGNED_CAST(struct vpnctl_modecfg_params *)(serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change));
 
 	char *modecfg_data = (char*)serv->u.ipsec.msg + sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params);
 	int modecfg_data_len = ntohs(serv->u.ipsec.msghdr.len) - ((sizeof(struct vpnctl_status_phase_change) + sizeof(struct vpnctl_modecfg_params)) -  sizeof(struct vpnctl_hdr));
@@ -1542,8 +1564,8 @@ static void install_mode_config(struct service *serv)
 	/* first pass, get mandatory parameters */
 
 	int tlen = modecfg_data_len;
-	struct isakmp_data *attr;
 	char	*dataptr = modecfg_data;
+    struct isakmp_data attr;
 
 	IPSECLOGASLMSG("IPSec Network Configuration started.\n");
 
@@ -1552,21 +1574,23 @@ static void install_mode_config(struct service *serv)
 		int tlv;
 		u_int16_t type;
 		
-		attr = (struct isakmp_data *)dataptr;
-		type = ntohs(attr->type) & 0x7FFF;
-		tlv = (type ==  ntohs(attr->type));
+        memcpy(&attr, dataptr, sizeof(attr));   // Wcast-align fix - memcpy for unbaligned access		
+		type = ntohs(attr.type) & 0x7FFF;
+		tlv = (type ==  ntohs(attr.type));
 		
 		switch (type)
 		{
 			case INTERNAL_IP4_ADDRESS:
-				internal_ip4_address = *(u_int32_t *)(dataptr + sizeof(u_int32_t));  // network byte order
+                // Wcast-align fix - memcpy for unaligned access
+                memcpy(&internal_ip4_address, dataptr + sizeof(u_int32_t), sizeof(internal_ip4_address));   // network byte order
 				addr.s_addr = internal_ip4_address;
 				IPSECLOGASLMSG("IPSec Network Configuration: INTERNAL-IP4-ADDRESS = %s.\n",
 							   inet_ntoa(addr));
 				break;
 
 			case INTERNAL_IP4_NETMASK:
-				internal_ip4_netmask = *(u_int32_t *)(dataptr + sizeof(u_int32_t));  // network byte order
+                // Wcast-align fix - memcpy for unaligned access
+                memcpy(&internal_ip4_netmask, dataptr + sizeof(u_int32_t), sizeof(internal_ip4_netmask));   // network byte order
 				addr.s_addr = internal_ip4_netmask;
 				IPSECLOGASLMSG("IPSec Network Configuration: INTERNAL-IP4-MASK = %s.\n",
 							   inet_ntoa(addr));
@@ -1577,8 +1601,8 @@ static void install_mode_config(struct service *serv)
 		}
 		
 		if (tlv) {
-			tlen -= ntohs(attr->lorv);
-			dataptr += ntohs(attr->lorv);
+			tlen -= ntohs(attr.lorv);
+			dataptr += ntohs(attr.lorv);
 		}
 		
 		tlen -= sizeof(u_int32_t);
@@ -1610,9 +1634,9 @@ static void install_mode_config(struct service *serv)
 		int tlv;
 		u_int16_t type;
 		
-		attr = (struct isakmp_data *)dataptr;
-		type = ntohs(attr->type) & 0x7FFF;
-		tlv = (type ==  ntohs(attr->type));
+		memcpy(&attr, dataptr, sizeof(attr));        // Wcast-align fix - memcpy for unaligned access
+		type = ntohs(attr.type) & 0x7FFF;
+		tlv = (type ==  ntohs(attr.type));
 		
 		switch (type)
 		{
@@ -1623,7 +1647,7 @@ static void install_mode_config(struct service *serv)
 				if (!dns_array)
 					break;
 				
-				dns = *(u_int32_t *)(dataptr + sizeof(u_int32_t));  // network byte order
+                memcpy(&dns, dataptr + sizeof(u_int32_t), sizeof(u_int32_t));      // Wcast-align fix - memcpy for unaligned access
 				strRef = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns));
 				if (!strRef)
 					break;
@@ -1641,8 +1665,8 @@ static void install_mode_config(struct service *serv)
 
 
 		if (tlv) {
-			tlen -= ntohs(attr->lorv);
-			dataptr += ntohs(attr->lorv);
+			tlen -= ntohs(attr.lorv);
+			dataptr += ntohs(attr.lorv);
 		}
 		
 		tlen -= sizeof(u_int32_t);
@@ -1751,10 +1775,7 @@ static void install_mode_config(struct service *serv)
 
 //	publish_stateaddr(gDynamicStore, serv->serviceID, modecfg->inner_local_addr,modecfg->inner_local_addr, modecfg->inner_local_mask, 1);
 	publish_stateaddr(gDynamicStore, serv->serviceID, serv->if_name, serv->u.ipsec.peer_address.sin_addr.s_addr, internal_ip4_address,internal_ip4_address, internal_ip4_netmask, isdefault);
-	
-	
-	
-
+		
 	if (error = racoon_send_cmd_start_ph2(serv->u.ipsec.controlfd, serv->u.ipsec.peer_address.sin_addr.s_addr, policies) != 0) {
 		SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: racoon_send_cmd_start_ph2 failed '%s'"), errorstr);
 		goto fail;
@@ -1774,6 +1795,7 @@ static void install_mode_config(struct service *serv)
 		publish_dns(gDynamicStore, serv->serviceID, dns_array, domain_name, split_dns_array);
 	}
 	
+
 	my_CFRelease(&split_dns_array);
 	my_CFRelease(&domain_name);
 	my_CFRelease(&dns_array);
@@ -1830,8 +1852,8 @@ static int unassert_mode_config(struct service *serv)
  ----------------------------------------------------------------------------- */
 int racoon_send_cmd_reconnect(int fd, u_int32_t address) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_connect	*cmd_reconnect = (struct vpnctl_cmd_connect *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_connect	*cmd_reconnect = ALIGNED_CAST(struct vpnctl_cmd_connect *)data;
 	
 	bzero(cmd_reconnect, sizeof(struct vpnctl_cmd_connect));
 	cmd_reconnect->hdr.len = htons(sizeof(*cmd_reconnect) - sizeof(cmd_reconnect->hdr));
@@ -2262,12 +2284,13 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
     struct ifaddrs *ifap = NULL;
 
     
-	char                 	buf[256], ev_if[32];
+	char                 	buf[256] __attribute__ ((aligned(4))); 		// Wcast-align fix - force alignment
+    char                    ev_if[32];
 	struct kern_event_msg	*ev_msg;
 	struct kev_in_data     	*inetdata;
 
 	if (recv(s, &buf, sizeof(buf), 0) != -1) {
-		ev_msg = (struct kern_event_msg *) &buf;
+		ev_msg = ALIGNED_CAST(struct kern_event_msg *) &buf;
 		inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
 		IPSecLogVPNInterfaceAddressEvent(__FUNCTION__, ev_msg, serv->u.ipsec.timeout_lower_interface_change, serv->u.ipsec.lower_interface, &serv->u.ipsec.our_address.sin_addr);
 		switch (ev_msg->event_code) {
@@ -2294,7 +2317,7 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
 										&& ifa->ifa_addr
 										&& !strncmp(ifa->ifa_name, serv->u.ipsec.lower_interface, sizeof(serv->u.ipsec.lower_interface))
 										&& ifa->ifa_addr->sa_family == AF_INET
-										&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == serv->u.ipsec.our_address.sin_addr.s_addr);
+										&& (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == serv->u.ipsec.our_address.sin_addr.s_addr);
 							}
 							freeifaddrs(ifap);
 						}
@@ -2322,7 +2345,7 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
 
 								// check to see if network has changed (despite the address)
 								if (DISCONNECT_VPN_IFLOCATIONCHANGED(serv)) {
-									SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface %s network changed\n"),
+									SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface %s network changed."),
 									      serv->u.ipsec.lower_interface);
 									serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;	
 									ipsec_stop(serv, 0);
@@ -2343,7 +2366,7 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
 													 __FUNCTION__,
 													 ev_msg,
 													 serv->u.ipsec.lower_interface)) {
-								SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface/service has changed unrecoverably\n"));
+								SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface/service has changed unrecoverably."));
 								serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;   
 								ipsec_stop(serv, 0);
 								break;
@@ -2375,7 +2398,7 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
 													&serv->u.ipsec.our_address.sin_addr,
 													serv)) {
 								        // disconnect immediately
-								        SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface %s address changed\n"),
+								        SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: the underlying interface %s address changed."),
 									      serv->u.ipsec.lower_interface);
 									serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;	
 									ipsec_stop(serv, 0);
@@ -2389,7 +2412,7 @@ void event_callback(CFSocketRef inref, CFSocketCallBackType type,
 				        if (IPSecCheckVPNInterfaceAddressAlternate((serv->u.ipsec.phase == IPSEC_WAITING && serv->u.ipsec.interface_timerref),
 										   ev_msg,
 										   serv->u.ipsec.lower_interface)) {
-					        SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: an alternative interface %s was detected while the underlying interface %s was down\n"),
+					        SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: an alternative interface %s was detected while the underlying interface %s was down."),
 						      ev_if, serv->u.ipsec.lower_interface);
 						serv->u.ipsec.laststatus = IPSEC_NETWORKCHANGE_ERROR;	
 						ipsec_stop(serv, 0);
@@ -2602,7 +2625,7 @@ int racoon_send_cmd_xauthinfo(int fd, u_int32_t address, struct isakmp_xauth *is
 		return -1;
 	}
 
-	cmd_xauth_info = (struct vpnctl_cmd_xauth_info *)data;
+	cmd_xauth_info = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)data;
 	bzero(cmd_xauth_info, sizeof(struct vpnctl_cmd_xauth_info));
 	cmd_xauth_info->hdr.msg_type = htons(VPNCTL_CMD_XAUTH_INFO);
 	cmd_xauth_info->hdr.len = htons(totlen - sizeof(struct vpnctl_hdr));
@@ -2611,15 +2634,17 @@ int racoon_send_cmd_xauthinfo(int fd, u_int32_t address, struct isakmp_xauth *is
 	p = data + sizeof(struct vpnctl_cmd_xauth_info);
 
 	for (i = 0; i < isakmp_nb; i++) {
-		struct isakmp_data *d = (struct isakmp_data *)p;
+		struct isakmp_data d;
+        
 		CFIndex olen, len = (isakmp_array[i].str ? CFStringGetLength(isakmp_array[i].str) : 0);
 		CFRange range;
 		range.location = 0;
 		range.length = len;
 		
-		d->type = htons(isakmp_array[i].type);
-		d->lorv = htons(len);
-		p += sizeof(u_int32_t);
+		d.type = htons(isakmp_array[i].type);
+		d.lorv = htons(len);
+		memcpy(p, &d, sizeof(struct isakmp_data));      // Wcast-align fix - memcpy for unaligned access
+		p += sizeof(u_int32_t);		// skip isakmp_data
 		if (len) {
 			CFStringGetBytes(isakmp_array[i].str, range, kCFStringEncodingUTF8, 0, false, p, len, &olen);		
 			p += len;
@@ -2639,8 +2664,8 @@ int racoon_send_cmd_xauthinfo(int fd, u_int32_t address, struct isakmp_xauth *is
 ----------------------------------------------------------------------------- */
 int racoon_send_cmd_connect(int fd, u_int32_t address) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_connect	*cmd_connect = (struct vpnctl_cmd_connect *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_connect	*cmd_connect = ALIGNED_CAST(struct vpnctl_cmd_connect *)data;
 
 	bzero(cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	cmd_connect->hdr.len = htons(sizeof(struct vpnctl_cmd_connect) - sizeof(struct vpnctl_hdr));
@@ -2656,8 +2681,8 @@ int racoon_send_cmd_connect(int fd, u_int32_t address)
 ----------------------------------------------------------------------------- */
 int racoon_send_cmd_disconnect(int fd, u_int32_t address) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_connect	*cmd_connect = (struct vpnctl_cmd_connect *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_connect	*cmd_connect = ALIGNED_CAST(struct vpnctl_cmd_connect *)data;
 
 	bzero(cmd_connect, sizeof(struct vpnctl_cmd_connect));
 	cmd_connect->hdr.len = htons(sizeof(struct vpnctl_cmd_connect) - sizeof(struct vpnctl_hdr));
@@ -2672,8 +2697,8 @@ int racoon_send_cmd_disconnect(int fd, u_int32_t address)
  ----------------------------------------------------------------------------- */
 int racoon_send_cmd_start_dpd(int fd, u_int32_t address) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_start_dpd	*cmd_start_dpd = (struct vpnctl_cmd_start_dpd *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_start_dpd	*cmd_start_dpd = ALIGNED_CAST(struct vpnctl_cmd_start_dpd *)data;
 	
 	bzero(cmd_start_dpd, sizeof(struct vpnctl_cmd_start_dpd));
 	cmd_start_dpd->hdr.len = htons(sizeof(struct vpnctl_cmd_start_dpd) - sizeof(struct vpnctl_hdr));
@@ -2689,8 +2714,8 @@ int racoon_send_cmd_start_dpd(int fd, u_int32_t address)
 ----------------------------------------------------------------------------- */
 int racoon_send_cmd_bind(int fd, u_int32_t address, char *version) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_bind	*cmd_bind = (struct vpnctl_cmd_bind *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_bind	*cmd_bind = ALIGNED_CAST(struct vpnctl_cmd_bind *)data;
 	int vers_len = 0;
 	
 	if (version)
@@ -2712,8 +2737,8 @@ int racoon_send_cmd_bind(int fd, u_int32_t address, char *version)
 ----------------------------------------------------------------------------- */
 int racoon_send_cmd_unbind(int fd, u_int32_t address) 
 {
-	u_int8_t					data[256]; 
-	struct vpnctl_cmd_unbind	*cmd_unbind = (struct vpnctl_cmd_unbind *)data;
+	u_int8_t					data[256] __attribute__ ((aligned (4))); 		// Wcast-align fix - force alignment
+	struct vpnctl_cmd_unbind	*cmd_unbind = ALIGNED_CAST(struct vpnctl_cmd_unbind *)data;
 
 	bzero(cmd_unbind, sizeof(struct vpnctl_cmd_unbind));
 	cmd_unbind->hdr.len = htons(sizeof(struct vpnctl_cmd_unbind) - sizeof(struct vpnctl_hdr));
@@ -2917,7 +2942,7 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 		/* setup phase2 command */
 		
 		if (out) {
-			sa = (struct vpnctl_sa_selector *)p;
+			sa = ALIGNED_CAST(struct vpnctl_sa_selector *)p;
 			sa->src_tunnel_address = local_net_address.s_addr;
 			sa->src_tunnel_mask = htonl(local_mask);
 			sa->src_tunnel_port = local_net_port;
@@ -2930,7 +2955,7 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 		}
 				
 		if (in) {
-			sa = (struct vpnctl_sa_selector *)p;
+			sa = ALIGNED_CAST(struct vpnctl_sa_selector *)p;
 			sa->dst_tunnel_address = local_net_address.s_addr;
 			sa->dst_tunnel_mask = htonl(local_mask);
 			sa->dst_tunnel_port = local_net_port;
@@ -2944,37 +2969,37 @@ int racoon_send_cmd_start_ph2(int fd, u_int32_t address, CFDictionaryRef ipsec_d
 	}
 	cmd_start_ph2->selector_count = htons(selector_count);
 	
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_enc);
 	algo->algo = htons(algtype_aes);
 	algo->key_len = htons(256);
 	
 	p += sizeof(struct vpnctl_algo);
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_enc);
 	algo->algo = htons(algtype_aes);
 	algo->key_len = htons(0);
 
 	p += sizeof(struct vpnctl_algo);
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_enc);
 	algo->algo = htons(algtype_3des);
 	algo->key_len = htons(0);
 	
 	p += sizeof(struct vpnctl_algo);
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_auth);
 	algo->algo = htons(algtype_hmac_sha1);
 	algo->key_len = htons(0);
 
 	p += sizeof(struct vpnctl_algo);
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_auth);
 	algo->algo = htons(algtype_hmac_md5);
 	algo->key_len = htons(0);
 
 	p += sizeof(struct vpnctl_algo);
-	algo = (struct vpnctl_algo *)p;
+	algo = ALIGNED_CAST(struct vpnctl_algo *)p;
 	algo->algo_class = htons(algclass_ipsec_comp);
 	algo->algo = htons(algtype_deflate);
 	algo->key_len = htons(0);
@@ -3140,8 +3165,8 @@ int racoon_restart(struct service *serv, struct sockaddr_in *address)
 		/* now create the default config */
 		CFStringRef remote_address = CFDictionaryGetValue(serv->systemprefs, kRASPropIPSecRemoteAddress);
 
-		serv->u.ipsec.config = IPSecCreateCiscoDefaultConfiguration((struct sockaddr *)&serv->u.ipsec.our_address, 
-			(struct sockaddr *)&serv->u.ipsec.peer_address, cfstring_is_ip(remote_address) ? NULL : remote_address, auth_method, 
+		serv->u.ipsec.config = IPSecCreateCiscoDefaultConfiguration(&serv->u.ipsec.our_address, 
+			&serv->u.ipsec.peer_address, cfstring_is_ip(remote_address) ? NULL : remote_address, auth_method, 
 			1, 0, verify_id);
 		if (!serv->u.ipsec.config) {
 			SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: cannot create IPSec dictionary..."));
@@ -3802,7 +3827,7 @@ int ipsec_stop(struct service *serv, int signal)
 	}
 	
 	ipsec_updatephase(serv, IPSEC_IDLE);
-	unpublish_dict(gDynamicStore, serv->serviceID, kSCEntNetIPSec);
+    	cleanup_dynamicstore((void *)serv);
 	IPSEC_UNASSERT(serv->u.ipsec);
 	CLEAR_VPN_PORTMAPPING(serv);
 	serv->persist_connect = 0;
@@ -4076,7 +4101,7 @@ void ipsec_log_out(struct service *serv)
 {
 	if (serv->u.ipsec.phase != IPSEC_IDLE
 		&& (serv->flags & FLAG_SETUP_DISCONNECTONLOGOUT))
-		scnc_stop(serv, 0, SIGTERM);
+		scnc_stop(serv, 0, SIGTERM, SCNC_STOP_USER_LOGOUT);
 }
 
 /* -----------------------------------------------------------------------------
@@ -4099,7 +4124,7 @@ void ipsec_log_switch(struct service *serv)
 			
 		default:
 			if (serv->flags & FLAG_SETUP_DISCONNECTONFASTUSERSWITCH)
-				scnc_stop(serv, 0, SIGTERM);
+				scnc_stop(serv, 0, SIGTERM, SCNC_STOP_USER_SWITCH);
 	}
 }
 
@@ -4138,7 +4163,7 @@ int ipsec_will_sleep(struct service	*serv, int checking)
 		delay = 1;
 		alert = 2;
 		if (!checking)
-			scnc_stop(serv, 0, SIGTERM);
+			scnc_stop(serv, 0, SIGTERM, SCNC_STOP_SYS_SLEEP);
 	}
         
     return delay + alert;

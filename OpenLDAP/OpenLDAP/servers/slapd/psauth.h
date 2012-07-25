@@ -1,3 +1,5 @@
+#include "portable.h"
+#include "slap.h"
 /*
  *  psauth.h
  *  AuthTest
@@ -20,5 +22,5 @@ enum {
 #define SHADOWHASH_AUTH_TYPE "ShadowHash"
 
 int CheckAuthType(char* inAuthAuthorityData, char* authType);
-int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData);
+int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData, Connection *conn, const char *dn);
 

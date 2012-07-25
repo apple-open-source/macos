@@ -25,6 +25,7 @@
 #include "RenderSVGInlineText.h"
 #include "SVGElement.h"
 #include "SVGInlineTextBox.h"
+#include "SVGLengthContext.h"
 
 namespace WebCore {
 
@@ -127,15 +128,16 @@ void SVGTextChunkBuilder::addTextChunk(Vector<SVGInlineTextBox*>& lineLayoutBoxe
     // Handle 'lengthAdjust' property.
     float desiredTextLength = 0;
     if (SVGTextContentElement* textContentElement = SVGTextContentElement::elementFromRenderer(textRenderer->parent())) {
-        desiredTextLength = textContentElement->specifiedTextLength().value(textContentElement);
+        SVGLengthContext lengthContext(textContentElement);
+        desiredTextLength = textContentElement->specifiedTextLength().value(lengthContext);
 
-        switch (static_cast<SVGTextContentElement::SVGLengthAdjustType>(textContentElement->lengthAdjust())) {
-        case SVGTextContentElement::LENGTHADJUST_UNKNOWN:
+        switch (textContentElement->lengthAdjust()) {
+        case SVGLengthAdjustUnknown:
             break;
-        case SVGTextContentElement::LENGTHADJUST_SPACING:
+        case SVGLengthAdjustSpacing:
             chunkStyle |= SVGTextChunk::LengthAdjustSpacing;
             break;
-        case SVGTextContentElement::LENGTHADJUST_SPACINGANDGLYPHS:
+        case SVGLengthAdjustSpacingAndGlyphs:
             chunkStyle |= SVGTextChunk::LengthAdjustSpacingAndGlyphs;
             break;
         };

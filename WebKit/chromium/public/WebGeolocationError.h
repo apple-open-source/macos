@@ -26,8 +26,8 @@
 #ifndef WebGeolocationError_h
 #define WebGeolocationError_h
 
-#include "WebCommon.h"
-#include "WebPrivatePtr.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
 
 #if WEBKIT_IMPLEMENTATION
 #include <wtf/PassRefPtr.h>
@@ -50,9 +50,9 @@ public:
     WebGeolocationError(const WebGeolocationError& other) { assign(other); }
     ~WebGeolocationError() { reset(); }
 
-    WEBKIT_API void assign(Error code, const WebString& message);
-    WEBKIT_API void assign(const WebGeolocationError&);
-    WEBKIT_API void reset();
+    WEBKIT_EXPORT void assign(Error code, const WebString& message);
+    WEBKIT_EXPORT void assign(const WebGeolocationError&);
+    WEBKIT_EXPORT void reset();
 
 #if WEBKIT_IMPLEMENTATION
     WebGeolocationError(WTF::PassRefPtr<WebCore::GeolocationError>);

@@ -290,6 +290,9 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  4.1x		   41x0
 				  5.x		   50x0
 				  6.x		   60x0
+				  7.x		   70x0
+				  8.x		   80x0
+				  9.x		   90x0
 	hpux	    HPUX	  9.1		    901
      hpuxgcc	    HPUX	  9.5		    905
 				  10.0		   1000
@@ -521,6 +524,12 @@ LINUX_CLIB		specifies the definition of the Linux C library:
 			default: ""             (standard C library)
 			others: -DGLIBCV=2      (glibc2)
 
+LINUX_CONF_CC		specifies the location of the C compiler to use during
+			the running of the Configure script:
+
+			default: the value of the LSOF_CC variable, if defined,
+				 or cc
+
 LINUX_HASSELINUX	If this environment variable has a value of "Y" or "y",
 			Configure unconditionally activates SELinux support.
 			If it has any other value, Configure unconditionally
@@ -528,6 +537,10 @@ LINUX_HASSELINUX	If this environment variable has a value of "Y" or "y",
 
 			Default: assumed to be "Y" if <selinux/selinux.h>
 				 exists
+
+LINUX_INCL		specifies the path to the header file tree:
+
+			default: /usr/include
 
 LINUX_LSEEK		If this environment variable has a value of "Y" or "y",
 			Configure uses Makefile.lseek in place of Makefile in
@@ -537,6 +550,13 @@ LINUX_LSEEK		If this environment variable has a value of "Y" or "y",
 			need is determined by compilation.
 
 			default: determined by test program
+
+LINUX_VERSION_CODE	specifies the value of the LINUX_VERSION_CODE in the
+			same decimal form as found in the LINUX_VERSION_CODE
+			#define of /usr/include/linux/version.h:
+
+			default: the value of LINUX_VERSION_CODE in
+				 /usr/include/linux/version.h
 
 NETBSD_SYS		specifies the path to the NetBSD system source
 			directory.
@@ -680,4 +700,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-January 18, 2010
+September 27, 2011

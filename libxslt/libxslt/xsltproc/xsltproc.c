@@ -461,6 +461,11 @@ xsltProcess(xmlDocPtr doc, xsltStylesheetPtr cur, const char *filename) {
 	ctxt = xsltNewTransformContext(cur, doc);
 	if (ctxt == NULL)
 	    return;
+	xsltSetCtxtParseOptions(ctxt, options);
+#ifdef LIBXML_XINCLUDE_ENABLED
+	if (xinclude)
+	    ctxt->xinclude = 1;
+#endif
 	if (profile) {
 	    ret = xsltRunStylesheetUser(cur, doc, params, output,
 		                        NULL, NULL, stderr, ctxt);

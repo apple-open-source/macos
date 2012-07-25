@@ -76,14 +76,14 @@ set_timer(void)
     dispatch_source_set_timer(timer,
 			      dispatch_time(DISPATCH_TIME_NOW,
 					    timeoutvalue * NSEC_PER_SEC),
-			      timeoutvalue * NSEC_PER_SEC, 1000000); 
+			      timeoutvalue * NSEC_PER_SEC, 1000000);
 }
 
 static void
 init_globals(void)
 {
     static dispatch_once_t once;
-    dispatch_once(&once, ^{ 
+    dispatch_once(&once, ^{
 	timerq = dispatch_queue_create("hiem-sipc-timer-q", NULL);
         timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, timerq);
 	dispatch_source_set_event_handler(timer, ^{ timer_ev(); } );
@@ -104,8 +104,10 @@ _heim_ipc_suspend_timer(void)
 void
 _heim_ipc_restart_timer(void)
 {
-    dispatch_sync(timerq, ^{ set_timer(); });
-    dispatch_resume(timer);
+    dispatch_async(timerq, ^{
+	    set_timer();
+	    dispatch_resume(timer);
+	});
 }
 
 struct mach_service {
@@ -140,9 +142,9 @@ mach_complete_sync(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	replyout = 0; replyoutCnt = 0;
     } else {
 	replyinCnt = 0;
-	vm_read(mach_task_self(), 
-		     (vm_address_t)reply->data, reply->length,
-		     (vm_address_t *)&replyout, &replyoutCnt);
+	vm_read(mach_task_self(),
+		(vm_address_t)reply->data, reply->length,
+		(vm_address_t *)&replyout, &replyoutCnt);
     }
 
     mheim_ripc_call_reply(s->reply_port, returnvalue,
@@ -177,7 +179,7 @@ mach_complete_async(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	kr = KERN_SUCCESS;
     } else {
 	replyinCnt = 0;
-	kr = vm_read(mach_task_self(), 
+	kr = vm_read(mach_task_self(),
 		     (vm_address_t)reply->data, reply->length,
 		     (vm_address_t *)&replyout, &replyoutCnt);
     }
@@ -222,11 +224,11 @@ mheim_do_call(mach_port_t server_port,
     s = malloc(sizeof(*s));
     if (s == NULL)
 	return KERN_MEMORY_FAILURE; /* XXX */
-    
+
     s->reply_port = reply_port;
-    
+
     audit_token_to_au32(client_creds, NULL, &uid, &gid, NULL, NULL, &pid, &session, NULL);
-    
+
     kr = _heim_ipc_create_cred(uid, gid, pid, session, &s->cred);
     if (kr) {
 	free(s);
@@ -244,7 +246,7 @@ mheim_do_call(mach_port_t server_port,
 	memcpy(s->req.data, requestout, requestoutCnt);
 	s->req.length = requestoutCnt;
     }
-    
+
     dispatch_async(workq, ^{
 	(ctx->callback)(ctx->userctx, &s->req, s->cred,
 			mach_complete_sync, (heim_sipc_call)s);
@@ -269,15 +271,15 @@ mheim_do_call_request(mach_port_t server_port,
     gid_t gid;
     pid_t pid;
     au_asid_t session;
-    
+
     s = malloc(sizeof(*s));
     if (s == NULL)
 	return KERN_MEMORY_FAILURE; /* XXX */
-    
+
     s->reply_port = reply_port;
-    
+
     audit_token_to_au32(client_creds, NULL, &uid, &gid, NULL, NULL, &pid, &session, NULL);
-    
+
     kr = _heim_ipc_create_cred(uid, gid, pid, session, &s->cred);
     if (kr) {
 	free(s);
@@ -295,12 +297,12 @@ mheim_do_call_request(mach_port_t server_port,
 	memcpy(s->req.data, requestout, requestoutCnt);
 	s->req.length = requestoutCnt;
     }
-    
+
     dispatch_async(workq, ^{
 	(ctx->callback)(ctx->userctx, &s->req, s->cred,
 			mach_complete_async, (heim_sipc_call)s);
     });
-    
+
     return KERN_SUCCESS;
 }
 
@@ -322,7 +324,7 @@ mach_init(const char *service, mach_port_t sport, heim_sipc ctx)
     free(name);
     s->sport = sport;
 
-    s->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, 
+    s->source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV,
 				       s->sport, 0, s->queue);
     if (s->source == NULL) {
 	dispatch_release(s->queue);
@@ -339,9 +341,9 @@ mach_init(const char *service, mach_port_t sport, heim_sipc ctx)
 	});
 
     dispatch_source_set_cancel_handler(s->source, ^{
-	    heim_sipc ctx = dispatch_get_context(dispatch_get_current_queue());
-	    struct mach_service *st = ctx->mech;
-	    mach_port_mod_refs(mach_task_self(), st->sport, 
+	    heim_sipc cctx = dispatch_get_context(dispatch_get_current_queue());
+	    struct mach_service *st = cctx->mech;
+	    mach_port_mod_refs(mach_task_self(), st->sport,
 			       MACH_PORT_RIGHT_RECEIVE, -1);
 	    dispatch_release(st->queue);
 	    dispatch_release(st->source);
@@ -373,13 +375,13 @@ mach_checkin_or_register(const char *service)
     if (kr == KERN_SUCCESS)
 	return mp;
 
-#if 0
+#if __MAC_OS_X_VERSION_MIN_REQUIRED <= 1050 && __IPHONE_OS_VERSION_MIN_REQUIRED <= __IPHONE_5_0
     /* Pre SnowLeopard version */
     kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &mp);
     if (kr != KERN_SUCCESS)
 	return MACH_PORT_NULL;
 
-    kr = mach_port_insert_right(mach_task_self(), mp, mp, 
+    kr = mach_port_insert_right(mach_task_self(), mp, mp,
 				MACH_MSG_TYPE_MAKE_SEND);
     if (kr != KERN_SUCCESS) {
 	mach_port_destroy(mach_task_self(), mp);
@@ -456,7 +458,7 @@ heim_sipc_launchd_mach_init(const char *service,
     c->release = mach_release;
     c->userctx = user;
     c->callback = callback;
-		 
+
     ret = mach_init(service, sport, c);
     if (ret)
 	goto error;
@@ -467,7 +469,7 @@ heim_sipc_launchd_mach_init(const char *service,
     if (c)
 	free(c);
     if (sport != MACH_PORT_NULL)
-	mach_port_mod_refs(mach_task_self(), sport, 
+	mach_port_mod_refs(mach_task_self(), sport,
 			   MACH_PORT_RIGHT_RECEIVE, -1);
     return ret;
 #else /* !(__APPLE__ && HAVE_GCD) */
@@ -495,7 +497,8 @@ struct client {
 
 #define INHERIT_MASK	0xffff0000
 #define INCLUDE_ERROR_CODE (1 << 16)
-#define ALLOW_HTTP	(1<<18)
+#define ALLOW_HTTP	(1<<17)
+#define UNIX_SOCKET	(1<<18)
     unsigned calls;
     size_t ptr, len;
     uint8_t *inmsg;
@@ -520,6 +523,128 @@ static void handle_stream(struct client *);
 static void handle_dgram(struct client *);
 static void handle_write(struct client *);
 static int maybe_close(struct client *);
+
+struct socket_call {
+    heim_idata in;
+    struct client *c;
+    heim_icred cred;
+};
+
+/*
+ * Update peer credentials from socket.
+ *
+ * SCM_CREDS can only be updated the first time there is read data to
+ * read from the filedescriptor, so if we read do it before this
+ * point, the cred data might not be is not there yet.
+ */
+
+static int
+update_client_creds(struct client *c, struct socket_call *cs)
+{
+    if (cs->cred != NULL)
+	return 1;
+
+#ifdef HAVE_GETPEERUCRED
+    /* Solaris 10 */
+    {
+	ucred_t *peercred;
+
+	if (getpeerucred(c->fd, &peercred) != 0) {
+	    _heim_ipc_create_cred(ucred_geteuid(peercred), ucred_getegid(peercred), 0, 0, &cs->cred);
+	    ucred_free(peercred);
+	    return 1;
+	}
+    }
+#endif
+#ifdef HAVE_GETPEEREID
+    /* FreeBSD, OpenBSD */
+    {
+	uid_t uid;
+	gid_t gid;
+
+	if (getpeereid(c->fd, &uid, &gid) == 0) {
+	    _heim_ipc_create_cred(uid, gid, 0, 0, &cs->cred);
+	    return 1;
+	}
+    }
+#endif
+#ifdef SO_PEERCRED
+    /* Linux */
+    {
+	struct ucred pc;
+	socklen_t pclen = sizeof(pc);
+
+	if (getsockopt(c->fd, SOL_SOCKET, SO_PEERCRED, (void *)&pc, &pclen) == 0) {
+	    _heim_ipc_create_cred(pc.uid, pc.gid, pc.pid, 0, &cs->cred);
+	    return 1;
+	}
+    }
+#endif
+#if defined(LOCAL_PEERCRED) && defined(XUCRED_VERSION)
+    {
+	struct xucred peercred;
+	socklen_t peercredlen = sizeof(peercred);
+
+	if (getsockopt(c->fd, LOCAL_PEERCRED, 1,
+		       (void *)&peercred, &peercredlen) == 0
+	    && peercred.cr_version == XUCRED_VERSION)
+	{
+	    _heim_ipc_create_cred(peercred.cr_uid, peercred.cr_gid, 0, 0, &cs->cred);
+	    return 1;
+	}
+    }
+#endif
+#if defined(SOCKCREDSIZE) && defined(SCM_CREDS)
+    /* NetBSD */
+    {
+	struct msghdr msg;
+	socklen_t crmsgsize;
+	void *crmsg;
+	struct cmsghdr *cmp;
+	struct sockcred *sc;
+
+	memset(&msg, 0, sizeof(msg));
+	crmsgsize = CMSG_SPACE(SOCKCREDSIZE(NGROUPS));
+	if (crmsgsize == 0)
+	    return 1 ;
+
+	crmsg = malloc(crmsgsize);
+	if (crmsg == NULL)
+	    goto failed_scm_creds;
+
+	memset(crmsg, 0, crmsgsize);
+
+	msg.msg_control = crmsg;
+	msg.msg_controllen = crmsgsize;
+
+	if (recvmsg(c->fd, &msg, 0) < 0) {
+	    free(crmsg);
+	    goto failed_scm_creds;
+	}
+
+	if (msg.msg_controllen == 0 || (msg.msg_flags & MSG_CTRUNC) != 0) {
+	    free(crmsg);
+	    goto failed_scm_creds;
+	}
+
+	cmp = CMSG_FIRSTHDR(&msg);
+	if (cmp->cmsg_level != SOL_SOCKET || cmp->cmsg_type != SCM_CREDS) {
+	    free(crmsg);
+	    goto failed_scm_creds;
+	}
+
+	sc = (struct sockcred *)(void *)CMSG_DATA(cmp);
+
+	_heim_ipc_create_cred(sc->sc_euid, sc->sc_egid, 0, 0, &cs->cred);
+
+	free(crmsg);
+	return 1;
+    }
+ failed_scm_creds:
+#endif
+    return 0;
+}
+
 
 static struct client *
 add_new_socket(int fd,
@@ -603,8 +728,8 @@ add_new_socket(int fd,
 
 #ifdef HAVE_GCD
     init_globals();
-	
-    c->in = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, 
+
+    c->in = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ,
 				   c->fd, 0, eventq);
     c->out = dispatch_source_create(DISPATCH_SOURCE_TYPE_WRITE,
 				    c->fd, 0, eventq);
@@ -628,7 +753,7 @@ add_new_socket(int fd,
 	    }
 	    maybe_close(c);
 	});
-    
+
     dispatch_resume(c->in);
 #else
     clients = erealloc(clients, sizeof(clients[0]) * (num_clients + 1));
@@ -654,6 +779,7 @@ maybe_close(struct client *c)
     dispatch_release(c->in);
 
     dispatch_source_cancel(c->out);
+
     if ((c->flags & WRITE_RUN) == 0) {
 	c->flags |= WRITE_RUN;
 	dispatch_resume(c->out);
@@ -669,13 +795,6 @@ maybe_close(struct client *c)
 
     return 1;
 }
-
-
-struct socket_call {
-    heim_idata in;
-    struct client *c;
-    heim_icred cred;
-};
 
 static void
 output_data(struct client *c, const void *data, size_t len)
@@ -731,7 +850,8 @@ stream_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
     }
 
     c->calls--;
-
+    if (sc->cred)
+	heim_ipc_free_cred(sc->cred);
     free(sc->in.data);
     sc->c = NULL; /* so we can catch double complete */
 
@@ -747,14 +867,13 @@ dgram_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
     struct socket_call *sc = (struct socket_call *)ctx;
     struct client *c = sc->c;
     struct msghdr hdr;
-    struct iovec iov[2], *iovp = &iov[0];
+    struct iovec iov[2], *iovp;
     uint32_t u32rv;
     struct cmsghdr *cm;
     void *cmsg;
     size_t cmsglen = 0;
     krb5_socklen_t namelen;
     struct sockaddr *client, *server;
-    int ret;
 
     sc->c = NULL; /* so we can catch double complete */
 
@@ -840,7 +959,7 @@ dgram_complete(heim_sipc_call ctx, int returnvalue, heim_idata *reply)
 	break;
     }
 
-    ret = sendmsg(c->fd, &hdr, 0);
+    (void)sendmsg(c->fd, &hdr, 0);
     free(cmsg);
 
     c->calls--;
@@ -1094,7 +1213,7 @@ handle_stream(struct client *c)
 			    c->len + 1024);
 	c->len += 1024;
     }
-    
+
     len = read(c->fd, c->inmsg + c->ptr, c->len - c->ptr);
     if (len <= 0) {
 	c->flags |= WAITING_CLOSE;
@@ -1104,7 +1223,7 @@ handle_stream(struct client *c)
     c->ptr += len;
     if (c->ptr > c->len)
 	abort();
-    
+
     while (c->ptr >= sizeof(dlen)) {
 	struct socket_call *cs;
 	
@@ -1136,21 +1255,30 @@ handle_stream(struct client *c)
 	    if (dlen > c->ptr - sizeof(dlen)) {
 		break;
 	    }
-	
+
 	    cs = emalloc(sizeof(*cs));
 	    cs->c = c;
 	    cs->cred = NULL;
 	    cs->in.data = emalloc(dlen);
 	    memcpy(cs->in.data, c->inmsg + sizeof(dlen), dlen);
 	    cs->in.length = dlen;
-	
+
 	    c->ptr -= sizeof(dlen) + dlen;
 	    memmove(c->inmsg,
 		    c->inmsg + sizeof(dlen) + dlen,
 		    c->ptr);
 	}
-	
+
 	c->calls++;
+
+	if (c->flags & UNIX_SOCKET) {
+	    if (update_client_creds(c, cs) == 0) {
+		c->flags |= WAITING_CLOSE;
+		c->flags &= ~WAITING_READ;
+		return;
+	    }
+	}
+
 	c->callback(c->userctx, &cs->in,
 		    c->streamcred, stream_complete,
 		    (heim_sipc_call)cs);
@@ -1168,7 +1296,7 @@ handle_write(struct client *c)
     if (len < 0) {
 	c->flags |= WAITING_CLOSE;
 	c->flags &= ~(WAITING_WRITE);
-    } else if (c->olen != len) {
+    } else if (c->olen != (size_t)len) {
 	memmove(&c->outmsg[0], &c->outmsg[len], c->olen - len);
 	c->olen -= len;
     } else {
@@ -1205,7 +1333,7 @@ process_loop(void)
 		fds[n].events |= POLLIN;
 	    if (clients[n]->flags & WAITING_WRITE)
 		fds[n].events |= POLLOUT;
-	    
+
 	    fds[n].revents = 0;
 	}
 
@@ -1294,6 +1422,7 @@ heim_sipc_stream_listener(int fd, int type,
 
     ct->mech = c;
     ct->release = socket_release;
+
     *ctx = ct;
     return 0;
 }
@@ -1361,8 +1490,12 @@ heim_sipc_service_unix(const char *service,
 
     ret = heim_sipc_stream_listener(fd, HEIM_SIPC_TYPE_IPC,
 				    callback, user, ctx);
-    if (ret)
+    if (ret) {
 	close(fd);
+    } else {
+	struct client *c = (*ctx)->mech;
+	c->flags |= UNIX_SOCKET;
+    }
 
     return ret;
 }
@@ -1408,7 +1541,6 @@ heim_sipc_set_timeout_handler(void (*func)(void))
     abort();
 #endif
 }
-
 
 void
 heim_sipc_free_context(heim_sipc ctx)

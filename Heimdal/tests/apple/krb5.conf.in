@@ -11,6 +11,9 @@
 	HEIM-TEST-DOMAIN.APPLE.COM = {
 		kdc = localhost
 	}
+	APPLECONNECT-UAT.APPLE.COM = {
+		kdc = idms-ad-uat.corp.apple.com:4281
+	}
 
 [logging]
 	kdc = 0-/FILE:@testdir@/messages.log

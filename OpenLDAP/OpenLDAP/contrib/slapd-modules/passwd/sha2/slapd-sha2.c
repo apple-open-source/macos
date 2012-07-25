@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/passwd/sha2/slapd-sha2.c,v 1.1.2.3 2009/08/17 22:57:54 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2009 The OpenLDAP Foundation.
+ * Copyright 2009-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -15,6 +15,8 @@
 /* ACKNOWLEDGEMENT:
  * This work was initially developed by Jeff Turner for inclusion
  * in OpenLDAP Software.
+ *
+ * Hash methods for passwords generation added by Cédric Delfosse.
  */
 
 #include <lber.h>
@@ -94,6 +96,69 @@ char * sha512_hex_hash(const char * passwd) {
 	return real_hash;
 }
 
+static int hash_sha256(
+	const struct berval *scheme,
+	const struct berval *passwd,
+	struct berval *hash,
+	const char **text )
+{
+	SHA256_CTX ct;
+	unsigned char hash256[SHA256_DIGEST_LENGTH];
+
+	SHA256_Init(&ct);
+	SHA256_Update(&ct, (const uint8_t*)passwd->bv_val, passwd->bv_len);
+	SHA256_Final(hash256, &ct);
+
+	struct berval digest;
+	digest.bv_val = (char *) hash256;
+	digest.bv_len = sizeof(hash256);
+
+	return lutil_passwd_string64(scheme, &digest, hash, NULL);
+}
+
+static int hash_sha384(
+	const struct berval *scheme,
+	const struct berval *passwd,
+	struct berval *hash,
+	const char **text )
+{
+	SHA384_CTX ct;
+	unsigned char hash384[SHA384_DIGEST_LENGTH];
+
+#ifdef SLAPD_SHA2_DEBUG
+	fprintf(stderr, "hashing password\n");
+#endif
+	SHA384_Init(&ct);
+	SHA384_Update(&ct, (const uint8_t*)passwd->bv_val, passwd->bv_len);
+	SHA384_Final(hash384, &ct);
+
+	struct berval digest;
+	digest.bv_val = (char *) hash384;
+	digest.bv_len = sizeof(hash384);
+
+	return lutil_passwd_string64(scheme, &digest, hash, NULL);
+}
+
+static int hash_sha512(
+	const struct berval *scheme,
+	const struct berval *passwd,
+	struct berval *hash,
+	const char **text )
+{
+	SHA512_CTX ct;
+	unsigned char hash512[SHA512_DIGEST_LENGTH];
+
+	SHA512_Init(&ct);
+	SHA512_Update(&ct, (const uint8_t*)passwd->bv_val, passwd->bv_len);
+	SHA512_Final(hash512, &ct);
+
+	struct berval digest;
+	digest.bv_val = (char *) hash512;
+	digest.bv_len = sizeof(hash512);
+
+	return lutil_passwd_string64(scheme, &digest, hash, NULL);
+}
+
 static int chk_sha256(
 	const struct berval *scheme, // Scheme of hashed reference password
 	const struct berval *passwd, // Hashed reference password to check against
@@ -150,10 +215,10 @@ const struct berval sha512scheme = BER_BVC("{SHA512}");
 
 int init_module(int argc, char *argv[]) {
 	int result = 0;
-	result = lutil_passwd_add( (struct berval *)&sha256scheme, chk_sha256, NULL );
+	result = lutil_passwd_add( (struct berval *)&sha256scheme, chk_sha256, hash_sha256 );
 	if (result != 0) return result;
-	result = lutil_passwd_add( (struct berval *)&sha384scheme, chk_sha384, NULL );
+	result = lutil_passwd_add( (struct berval *)&sha384scheme, chk_sha384, hash_sha384 );
 	if (result != 0) return result;
-	result = lutil_passwd_add( (struct berval *)&sha512scheme, chk_sha512, NULL );
+	result = lutil_passwd_add( (struct berval *)&sha512scheme, chk_sha512, hash_sha512 );
 	return result;
 }

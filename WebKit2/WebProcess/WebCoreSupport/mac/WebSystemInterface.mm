@@ -37,9 +37,13 @@ void InitWebCoreSystemInterface(void)
     
     dispatch_once(&initOnce, ^{
         INIT(AdvanceDefaultButtonPulseAnimation);
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+        INIT(CALayerEnumerateRectsBeingDrawnWithBlock);
+#endif
         INIT(CopyCFLocalizationPreferredName);
         INIT(CGContextGetShouldSmoothFonts);
         INIT(CGPatternCreateWithImageAndTransform);
+        INIT(CGContextResetClip);
         INIT(CopyCONNECTProxyResponse);
         INIT(CopyNSURLResponseStatusLine);
         INIT(CreateCTLineWithUniCharProvider);
@@ -57,6 +61,7 @@ void InitWebCoreSystemInterface(void)
         INIT(GetFontInLanguageForRange);
         INIT(GetGlyphTransformedAdvances);
         INIT(GetGlyphsForCharacters);
+        INIT(GetVerticalGlyphsForCharacters);
         INIT(GetHTTPPipeliningPriority);
         INIT(GetMIMETypeForExtension);
         INIT(GetNSURLResponseLastModifiedDate);
@@ -64,6 +69,7 @@ void InitWebCoreSystemInterface(void)
         INIT(GetPreferredExtensionForMIMEType);
         INIT(GetUserToBaseCTM);
         INIT(GetWheelEventDeltas);
+        INIT(GetNSEventKeyChar);
         INIT(HitTestMediaUIPart);
         INIT(InitializeMaximumHTTPConnectionCountPerHost);
         INIT(MeasureMediaUIPart);
@@ -109,6 +115,8 @@ void InitWebCoreSystemInterface(void)
         INIT(SetHTTPCookiesForURL);
         INIT(DeleteHTTPCookie);
 
+        INIT(SetMetadataURL);
+        
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
         INIT(IOSurfaceContextCreate);
         INIT(IOSurfaceContextCreateImage);
@@ -122,7 +130,15 @@ void InitWebCoreSystemInterface(void)
         INIT(GetHyphenationLocationBeforeIndex);
         INIT(GetNSEventMomentumPhase);
 #endif
-        
+#if USE(CFNETWORK)
+        INIT(GetDefaultHTTPCookieStorage);
+        INIT(CopyCredentialFromCFPersistentStorage);
+        INIT(SetCFURLRequestShouldContentSniff);
+        INIT(CFURLRequestCopyHTTPRequestBodyParts);
+        INIT(CFURLRequestSetHTTPRequestBodyParts);
+        INIT(SetRequestStorageSession);
+#endif
+
         INIT(GetAXTextMarkerTypeID);
         INIT(GetAXTextMarkerRangeTypeID);
         INIT(CreateAXTextMarker);
@@ -132,12 +148,44 @@ void InitWebCoreSystemInterface(void)
         INIT(CopyAXTextMarkerRangeEnd);
         INIT(AccessibilityHandleFocusChanged);
         INIT(CreateAXUIElementRef);
-        INIT(UnregisterUniqueIdForElement);        
+        INIT(UnregisterUniqueIdForElement);
 
         INIT(GetCFURLResponseMIMEType);
         INIT(GetCFURLResponseURL);
         INIT(GetCFURLResponseHTTPResponse);
         INIT(CopyCFURLResponseSuggestedFilename);
         INIT(SetCFURLResponseMIMEType);
+
+        INIT(SetMetadataURL);
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+        INIT(CreateVMPressureDispatchOnMainQueue);
+#endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+        INIT(GetMacOSXVersionString);
+        INIT(ExecutableWasLinkedOnOrBeforeLion);
+#endif
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+        INIT(CGPathAddRoundedRect);
+#endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+        INIT(CFURLRequestAllowAllPostCaching);
+#endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+        INIT(FilterIsManagedSession);
+        INIT(FilterCreateInstance);
+        INIT(FilterRelease);
+        INIT(FilterWasBlocked);
+        INIT(FilterAddData);
+        INIT(FilterDataComplete);
+
+        INIT(NSElasticDeltaForTimeDelta);
+        INIT(NSElasticDeltaForReboundDelta);
+        INIT(NSReboundDeltaForElasticDelta);
+#endif
+
     });
 }

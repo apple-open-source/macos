@@ -3,6 +3,5 @@
  */
 
 
-#define SBSLAUNCHER_TYPE_PROFILE_JANITOR "sbslauncher_type_profile_janitor"
 
 

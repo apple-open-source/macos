@@ -82,6 +82,12 @@ public:
         addCallArgument(arg2);
     }
 
+    ALWAYS_INLINE void setupArguments(GPRReg arg1)
+    {
+        resetCallArguments();
+        addCallArgument(arg1);
+    }
+
     ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2)
     {
         resetCallArguments();
@@ -386,6 +392,11 @@ public:
     }
 #endif
 
+    ALWAYS_INLINE void setupArguments(GPRReg arg1)
+    {
+        move(arg1, GPRInfo::argumentGPR0);
+    }
+
     ALWAYS_INLINE void setupArguments(GPRReg arg1, GPRReg arg2)
     {
         setupTwoStubArgs<GPRInfo::argumentGPR0, GPRInfo::argumentGPR1>(arg1, arg2);
@@ -420,8 +431,22 @@ public:
         move(arg2, GPRInfo::argumentGPR2);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
     }
+    
+    ALWAYS_INLINE void setupArgumentsWithExecState(GPRReg arg1, ImmPtr arg2)
+    {
+        move(arg1, GPRInfo::argumentGPR1);
+        move(arg2, GPRInfo::argumentGPR2);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
 
     ALWAYS_INLINE void setupArgumentsWithExecState(TrustedImmPtr arg1, GPRReg arg2)
+    {
+        move(arg2, GPRInfo::argumentGPR2); // Move this first, so setting arg1 does not trample!
+        move(arg1, GPRInfo::argumentGPR1);
+        move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+    }
+    
+    ALWAYS_INLINE void setupArgumentsWithExecState(ImmPtr arg1, GPRReg arg2)
     {
         move(arg2, GPRInfo::argumentGPR2); // Move this first, so setting arg1 does not trample!
         move(arg1, GPRInfo::argumentGPR1);

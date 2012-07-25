@@ -28,7 +28,7 @@
 .\"	From: @(#)err.3	8.1 (Berkeley) 6/9/93
 .\" $FreeBSD: src/lib/libc/gen/err.3,v 1.24 2008/10/31 15:14:40 rwatson Exp $
 .\"
-.Dd March 6, 1999
+.Dd May 20, 2008
 .Dt ERR 3
 .Os
 .Sh NAME
@@ -45,6 +45,9 @@
 .Nm warnx ,
 .Nm vwarnx ,
 .Nm err_set_exit ,
+#ifdef UNIFDEF_BLOCKS
+.Nm err_set_exit_b ,
+#endif
 .Nm err_set_file
 .Nd formatted error messages
 .Sh LIBRARY
@@ -55,6 +58,10 @@
 .Fn err "int eval" "const char *fmt" "..."
 .Ft void
 .Fn err_set_exit "void (*exitf)(int)"
+#ifdef UNIFDEF_BLOCKS
+.Ft void
+.Fn err_set_exit_b "void (^exitb)(int)"
+#endif
 .Ft void
 .Fn err_set_file "void *vfp"
 .Ft void
@@ -165,6 +172,24 @@ function can be used to specify a function which is called before
 to perform any necessary cleanup; passing a null function pointer for
 .Va exitf
 resets the hook to do nothing.
+#ifdef UNIFDEF_BLOCKS
+The
+.Fn err_set_exit_b
+function is like
+.Fn err_set_exit
+except it takes a block pointer instead of a function pointer.
+.Bd -ragged -offset indent
+Note: The
+.Fn Block_copy
+function (defined in
+.In Blocks.h )
+is used by
+.Fn err_set_exit_b
+to make a copy of the block, especially for the case when a stack-based
+block might go out of scope when the subroutine returns.
+.Ed
+.Pp
+#endif
 The
 .Fn err_set_file
 function sets the output stream used by the other functions.
@@ -231,3 +256,8 @@ and
 .Fn warnc
 functions first appeared in
 .Fx 3.0 .
+#ifdef UNIFDEF_BLOCKS
+The
+.Fn err_set_exit_b
+function first appeared in Mac OS X 10.6.
+#endif

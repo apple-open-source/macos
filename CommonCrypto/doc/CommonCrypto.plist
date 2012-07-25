@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceLicense</key>
-		<string>openssl</string>
-		<key>OpenSourceImportDate</key>
-		<string>2004-04-07</string>
+		<string>Eric Young</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>CommonCrypto.txt</string>
 		<key>OpenSourceModifications</key>
@@ -24,7 +22,7 @@
 		<key>OpenSourceImportDate</key>
 		<string>2004-04-07</string>
 		<key>OpenSourceLicense</key>
-		<string>other</string>
+		<string>Brian Gladman</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>CommonCrypto.txt</string>
 		<key>OpenSourceModifications</key>
@@ -32,17 +30,17 @@
 		<key>OpenSourceProject</key>
 		<string>Gladman AES</string>
 		<key>OpenSourceURL</key>
-		<string>http://gladman.plushost.co.uk/oldsite/AES/aes-src-29-04-09.zip</string>
+		<string>http://fp.gladman.plus.com/AES/aesfull.zip</string>
 		<key>OpenSourceVersion</key>
 		<string>aes-src-26-08-05</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.gladman.me.uk/</string>
+		<string>http://fp.gladman.plus.com/AES/index.htm</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
 		<string>2005-09-02</string>
 		<key>OpenSourceLicense</key>
-		<string>other</string>
+		<string>Brian Gladman</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>CommonCrypto.txt</string>
 		<key>OpenSourceModifications</key>
@@ -50,29 +48,11 @@
 		<key>OpenSourceProject</key>
 		<string>Gladman SHA2</string>
 		<key>OpenSourceURL</key>
-		<string>http://gladman.plushost.co.uk/oldsite/cryptography_technology/sha/sha2-07-01-07.zip</string>
+		<string>http://fp.gladman.plus.com/cryptography_technology/sha/sha-26-08-05.zip</string>
 		<key>OpenSourceVersion</key>
 		<string>sha-26-08-05</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.gladman.me.uk/</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2010-01-04</string>
-		<key>OpenSourceLicense</key>
-		<string>other</string>
-		<key>OpenSourceLicenseFile</key>
-		<string>CommonCrypto.txt</string>
-		<key>OpenSourceModifications</key>
-		<string>Branched for OS X</string>
-		<key>OpenSourceProject</key>
-		<string>libTomCrypt</string>
-		<key>OpenSourceURL</key>
-		<string>http://libtom.org/files/crypt-1.17.zip</string>
-		<key>OpenSourceVersion</key>
-		<string>1.17</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://libtom.org/</string>
+		<string>http://fp.gladman.plus.com/cryptography_technology/sha/index.htm</string>
 	</dict>
 </array>
 </plist>

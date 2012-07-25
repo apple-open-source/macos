@@ -758,8 +758,8 @@ Old Routes = <IPv4RouteList[4]> = {
  3. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [never] [SCOPED]
 }
 New Routes = <IPv4RouteList[2]> = {
- 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [never] [SCOPED*]
- 1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [never] [SCOPED*]
+ 0. Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en1 Ifa 10.0.0.20 [never] [SCOPED]
+ 1. Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.20 Ifp en1 Ifa 10.0.0.20 [never] [SCOPED]
 }
 Remove old[0] = Dest 0.0.0.0 Mask 0.0.0.0 Gate 10.0.0.1 Ifp en0 Ifa 10.0.0.10
 Remove old[2] = Dest 10.0.0.0 Mask 255.255.255.0 Gate 10.0.0.10 Ifp en0 Ifa 10.0.0.10

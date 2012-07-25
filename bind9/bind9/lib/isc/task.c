@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: task.c,v 1.115.14.2 2011-02-28 01:20:03 tbox Exp $ */
 
 /*! \file
  * \author Principal Author: Bob Halley
@@ -233,9 +233,7 @@ static struct isc__taskmethods {
 	 * The following are defined just for avoiding unused static functions.
 	 */
 #ifndef BIND9
-	void *purgeevent, *unsendrange,
-		*getname, *gettag, *getcurrenttime, *beginexclusive,
-		*endexclusive;
+	void *purgeevent, *unsendrange, *getname, *gettag, *getcurrenttime;
 #endif
 } taskmethods = {
 	{
@@ -249,14 +247,15 @@ static struct isc__taskmethods {
 		isc__task_shutdown,
 		isc__task_setname,
 		isc__task_purge,
-		isc__task_purgerange
+		isc__task_purgerange,
+		isc__task_beginexclusive,
+		isc__task_endexclusive
 	}
 #ifndef BIND9
 	,
 	(void *)isc__task_purgeevent, (void *)isc__task_unsendrange,
 	(void *)isc__task_getname, (void *)isc__task_gettag,
-	(void *)isc__task_getcurrenttime, (void *)isc__task_beginexclusive,
-	(void *)isc__task_endexclusive
+	(void *)isc__task_getcurrenttime
 #endif
 };
 
@@ -1211,6 +1210,8 @@ isc__taskmgr_create(isc_mem_t *mctx, unsigned int workers,
 
 #ifdef USE_SHARED_MANAGER
 	if (taskmgr != NULL) {
+		if (taskmgr->refs == 0)
+			return (ISC_R_SHUTTINGDOWN);
 		taskmgr->refs++;
 		*managerp = (isc_taskmgr_t *)taskmgr;
 		return (ISC_R_SUCCESS);
@@ -1326,8 +1327,8 @@ isc__taskmgr_destroy(isc_taskmgr_t **managerp) {
 #endif /* USE_WORKER_THREADS */
 
 #ifdef USE_SHARED_MANAGER
-	if (manager->refs > 1) {
-		manager->refs--;
+	manager->refs--;
+	if (manager->refs > 0) {
 		*managerp = NULL;
 		return;
 	}
@@ -1397,6 +1398,9 @@ isc__taskmgr_destroy(isc_taskmgr_t **managerp) {
 		isc_mem_printallactive(stderr);
 #endif
 	INSIST(ISC_LIST_EMPTY(manager->tasks));
+#ifdef USE_SHARED_MANAGER
+	taskmgr = NULL;
+#endif
 #endif /* USE_WORKER_THREADS */
 
 	manager_free(manager);

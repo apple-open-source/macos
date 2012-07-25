@@ -7,6 +7,11 @@ PROJECT = python
 VERSION = 2.5.6
 
 PWD := $(shell pwd)
+
+ifeq ($(MAKECMDGOALS),)
+MAKECMDGOALS = no_target
+endif
+ifneq ($(filter no_target install,$(MAKECMDGOALS)),)
 ifndef DSTROOT
 ifdef DESTDIR
 export DSTROOT := $(shell mkdir -p '$(DESTDIR)' && echo '$(DESTDIR)')
@@ -17,11 +22,13 @@ endif
 ifndef OBJROOT
 export OBJROOT := $(shell mkdir -p '$(PWD)/OBJROOT' && echo '$(PWD)/OBJROOT')
 endif
-ifndef SRCROOT
-export SRCROOT := $(PWD)
-endif
 ifndef SYMROOT
 export SYMROOT := $(shell mkdir -p '$(PWD)/SYMROOT' && echo '$(PWD)/SYMROOT')
+endif
+endif
+
+ifndef SRCROOT
+export SRCROOT := $(PWD)
 endif
 ifndef RC_ARCHS
 export RC_ARCHS := $(shell arch)
@@ -92,6 +99,18 @@ extras: python
 # will crash.  And patch unixccompiler for wxWidgets (submit back to python).
 # The default ARCHFLAGS is the union of RC_ARCHS and tconf --archs (without
 # RC_ARCHS set); we also remove the 64-bit architectures.
+#
+# autoconf is now (normally) unavailable.  So we save the output of autoconf
+# in fix/autoconf and use it to overwrite the original files.  If we need
+# to update the version of python, we will need to install autoconf, and then
+# we run:
+#
+#    % make `pwd`/python OBJROOT=`pwd` PYTHON_AUTOCONF=NO
+#    % mv python python.bak
+#    % make `pwd`/python OBJROOT=`pwd` PYTHON_AUTOCONF=YES
+#    % diff -r --brief python.bak python
+#
+# Copy the difference files to fix/autoconf.
 ##---------------------------------------------------------------------
 archs = $(shell export -n RC_ARCHS && tconf --archs)
 union = $(foreach a,$(archs),$(findstring $(a),$(RC_ARCHS)))
@@ -100,10 +119,9 @@ defarchflags = $(foreach u,$(filter-out %64,$(union)),-arch $(u))
 $(OBJROOT)/$(PROJECT):
 	@set -x && \
 	cd '$(OBJROOT)' && \
-	bzcat $(TARBALL) | gnutar xof - && \
+	tar -xof $(TARBALL) && \
 	rm -rf $(PROJECT) && \
 	mv $(NAMEVERS) $(PROJECT) && \
-	ed - $(PROJECT)/configure.in < $(FIX)/configure.in.ed && \
 	ed - $(PROJECT)/Include/py_curses.h < $(FIX)/py_curses.h.ed && \
 	ed - $(PROJECT)/Include/pymactoolbox.h < $(FIX)/pymactoolbox.h.ed && \
 	ed - $(PROJECT)/Lib/ctypes/__init__.py < $(FIX)/Lib_ctypes___init__.py.ed && \
@@ -150,10 +168,17 @@ $(OBJROOT)/$(PROJECT):
 	patch -p0 -i $(FIX)/qt-changes.diff && \
 	patch -p0 -i $(FIX)/CVE-2009-4134,CVE-2010-1449,CVE-2010-1450-rgbimg-int-overflow.patch && \
 	patch -p0 -i $(FIX)/additional-2.6.7-security-fixes.patch
+ifdef PYTHON_AUTOCONF
 	@set -x && \
 	cd '$(OBJROOT)' && \
+	ed - $(PROJECT)/configure.in < $(FIX)/configure.in.ed && \
 	ed - $(PROJECT)/configure.in < $(FIX)/configure42.in.ed
+ifeq ($(PYTHON_AUTOCONF),YES)
 	cd '$(OBJROOT)/$(PROJECT)' && autoconf
+endif
+else # !PYTHON_AUTOCONF
+	tar -xof $(FIX)/autoconf.tar.bz2 -C '$(OBJROOT)/$(PROJECT)'
+endif
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 
 install: installpython installextras

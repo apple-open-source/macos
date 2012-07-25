@@ -8,11 +8,11 @@
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://public.research.att.com/~gsf/download/</string>
 		<key>OpenSourceURL</key>
-		<string>http://public.research.att.com/~gsf/download/tgz/ast-ksh.2007-11-05.tgz</string>
+		<string>http://public.research.att.com/~gsf/download/tgz/ast-ksh.2011-02-08.tgz</string>
 		<key>OpenSourceSHA1</key>
-		<string>c7882fbbf06881d7c1b0aefafa4cedcb66832a3c</string>
+		<string>a84d4d119b5b0e05b63965a70d545e19df94d0bf</string>
 		<key>OpenSourceImportDate</key>
-		<string>2007-11-05</string>
+		<string>2011-07-12</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -30,11 +30,11 @@
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://public.research.att.com/~gsf/download/</string>
 		<key>OpenSourceURL</key>
-		<string>http://public.research.att.com/~gsf/download/tgz/INIT.2007-11-05.tgz</string>
+		<string>http://public.research.att.com/~gsf/download/tgz/INIT.2011-02-08.tgz</string>
 		<key>OpenSourceSHA1</key>
-		<string>1bd4dbbd12da80b435a89fc37008681926c2aead</string>
+		<string>69f909e437376c1ebcf0b1298794ccfc93504faf</string>
 		<key>OpenSourceImportDate</key>
-		<string>2007-11-05</string>
+		<string>2011-07-12</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>

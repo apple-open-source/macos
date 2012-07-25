@@ -689,9 +689,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
  * @function                    IOPMAssertionCreateWithProperties
  *
  * @abstract                    Creates an IOPMAssertion with more flexibility than <code>@link IOPMAssertionCreateWithDescription @/link</code>.
- * @param AssertionType         The CFString assertion type to request from the PM system.
- * @param AssertionLevel        Pass <code>@link kIOPMAssertionLevelOn@/link</code> or <code>@link kIOPMAssertionLevelOff@/link</code>.
- * @param AssertionProperties   Caller must describe the assertion to be created, and the caller itself.
+ * @param AssertionProperties   Dictionary providing the properties of the assertion that need to be created.
  * @param AssertionID           (Output) On successful return, contains a unique reference to a PM assertion.
  *
  * @discussion          
@@ -700,10 +698,9 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
  *      The following keys are recommend and/or required to be specified in the AssertionProperties 
  *      dictionary argument.
  *      <ul>
- *          <li> REQUIRED: Define at least one assertion as a key, with its initial level as a value:
- *                     <code>@link kIOPMAssertionTypePreventSystemSleep@/link</code> 
- *                  or <code>@link kIOPMAssertionTypeNoIdleSleep@/link</code> 
- *                  or <code>@link kIOPMAssertionTypePreventSystemSleep@/link</code> 
+ *          <li> REQUIRED: <code>kIOPMAssertionTypeKey</code> define the assertion type.
+ *
+ *          <li> REQUIRED: <code>kIOPMAssertionValueKey</code> define an inital value.
  *
  *          <li> REQUIRED: <code>kIOPMAssertionNameKey</code> Caller must describe the name for the activity that
  *               requires the change in behavior provided by the assertion. 

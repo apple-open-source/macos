@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -147,28 +147,31 @@ static int comm(Sfio_t *in1, Sfio_t *in2, register Sfio_t *out,register int mode
 int
 b_comm(int argc, char *argv[], void* context)
 {
-	register int n;
 	register int mode = C_FILE1|C_FILE2|C_COMMON;
 	register char *cp;
 	Sfio_t *f1, *f2;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
-	while (n = optget(argv, usage)) switch (n)
+	for (;;)
 	{
- 	    case '1':
-		mode &= ~C_FILE1;
-		break;
-	    case '2':
-		mode &= ~C_FILE2;
-		break;
-	    case '3':
-		mode &= ~C_COMMON;
-		break;
-	    case ':':
-		error(2, "%s",opt_info.arg);
-		break;
-	    case '?':
-		error(ERROR_usage(2), "%s",opt_info.arg);
+		switch (optget(argv, usage))
+		{
+ 		case '1':
+			mode &= ~C_FILE1;
+			continue;
+		case '2':
+			mode &= ~C_FILE2;
+			continue;
+		case '3':
+			mode &= ~C_COMMON;
+			continue;
+		case ':':
+			error(2, "%s",opt_info.arg);
+			break;
+		case '?':
+			error(ERROR_usage(2), "%s",opt_info.arg);
+			break;
+		}
 		break;
 	}
 	argv += opt_info.index;
@@ -196,6 +199,5 @@ b_comm(int argc, char *argv[], void* context)
 		sfclose(f1);
 	if(f2!=sfstdin)
 		sfclose(f2);
-	return(error_info.errors);
+	return error_info.errors;
 }
-

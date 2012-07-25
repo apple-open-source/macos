@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2009, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,28 +21,22 @@
 #ifndef RenderFileUploadControl_h
 #define RenderFileUploadControl_h
 
-#include "FileChooser.h"
 #include "RenderBlock.h"
 
 namespace WebCore {
 
-class Chrome;
 class HTMLInputElement;
 
 // Each RenderFileUploadControl contains a RenderButton (for opening the file chooser), and
 // sufficient space to draw a file icon and filename. The RenderButton has a shadow node
 // associated with it to receive click/hover events.
 
-class RenderFileUploadControl : public RenderBlock, private FileChooserClient {
+class RenderFileUploadControl : public RenderBlock {
 public:
     RenderFileUploadControl(HTMLInputElement*);
     virtual ~RenderFileUploadControl();
 
     virtual bool isFileUploadControl() const { return true; }
-
-    void click();
-
-    void receiveDroppedFiles(const Vector<String>&);
 
     String buttonValue();
     String fileTextValue() const;
@@ -52,31 +46,17 @@ private:
 
     virtual void updateFromElement();
     virtual void computePreferredLogicalWidths();
-    virtual void paintObject(PaintInfo&, int tx, int ty);
-
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual void paintObject(PaintInfo&, const LayoutPoint&);
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
 
-    // FileChooserClient methods.
-    void valueChanged();
-    void repaint() { RenderBlock::repaint(); }
-    bool allowsMultipleFiles();
-#if ENABLE(DIRECTORY_UPLOAD)
-    bool allowsDirectoryUpload();
-    void receiveDropForDirectoryUpload(const Vector<String>&);
-#endif
-    String acceptTypes();
-    void chooseIconForFiles(FileChooser*, const Vector<String>&);
-
-    Chrome* chrome() const;
     int maxFilenameWidth() const;
-    PassRefPtr<RenderStyle> createButtonStyle(const RenderStyle* parentStyle) const;
     
-    virtual VisiblePosition positionForPoint(const IntPoint&);
+    virtual VisiblePosition positionForPoint(const LayoutPoint&);
 
-    RefPtr<HTMLInputElement> m_button;
-    RefPtr<FileChooser> m_fileChooser;
+    HTMLInputElement* uploadButton() const;
+
+    bool m_canReceiveDroppedFiles;
 };
 
 inline RenderFileUploadControl* toRenderFileUploadControl(RenderObject* object)

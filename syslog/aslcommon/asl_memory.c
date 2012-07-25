@@ -199,11 +199,10 @@ asl_memory_string_cache_search_hash(asl_memory_t *s, uint32_t hash)
 		return 1;
 	}
 
-	top = s->string_count - 1;
+	range = top = s->string_count - 1;
 	bot = 0;
 	mid = top / 2;
 
-	range = top - bot;
 	while (range > 1)
 	{
 		ms = (mem_string_t *)s->string_cache[mid];
@@ -1129,7 +1128,6 @@ asl_memory_match(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t 
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (res == NULL) return ASL_STATUS_INVALID_ARG;
 
-	do_match = 1;
 	qp = NULL;
 	qtype = NULL;
 	rescount = 0;

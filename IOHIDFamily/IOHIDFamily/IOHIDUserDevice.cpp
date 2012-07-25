@@ -263,6 +263,21 @@ OSNumber *IOHIDUserDevice::newReportIntervalNumber() const
 }
 
 //----------------------------------------------------------------------------------------------------
+// IOHIDUserDevice::newLocationIDNumber
+//----------------------------------------------------------------------------------------------------
+OSNumber *IOHIDUserDevice::newLocationIDNumber() const
+{
+    OSNumber * number = OSDynamicCast(OSNumber, _properties->getObject(kIOHIDLocationIDKey));
+    
+    if ( !number ) 
+        return NULL;
+    
+    number->retain();
+    
+    return number;
+}
+
+//----------------------------------------------------------------------------------------------------
 // IOHIDUserDevice::newReportDescriptor
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDUserDevice::newReportDescriptor(IOMemoryDescriptor ** descriptor ) const

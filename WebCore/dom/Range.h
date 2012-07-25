@@ -25,7 +25,9 @@
 #ifndef Range_h
 #define Range_h
 
+#include "ExceptionCodePlaceholder.h"
 #include "FloatRect.h"
+#include "FragmentScriptingPermission.h"
 #include "IntRect.h"
 #include "Node.h"
 #include "RangeBoundaryPoint.h"
@@ -61,12 +63,12 @@ public:
     int startOffset(ExceptionCode&) const;
     Node* endContainer(ExceptionCode&) const;
     int endOffset(ExceptionCode&) const;
-    bool collapsed(ExceptionCode&) const;
+    bool collapsed(ExceptionCode& = ASSERT_NO_EXCEPTION) const;
 
     Node* commonAncestorContainer(ExceptionCode&) const;
     static Node* commonAncestorContainer(Node* containerA, Node* containerB);
-    void setStart(PassRefPtr<Node> container, int offset, ExceptionCode&);
-    void setEnd(PassRefPtr<Node> container, int offset, ExceptionCode&);
+    void setStart(PassRefPtr<Node> container, int offset, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    void setEnd(PassRefPtr<Node> container, int offset, ExceptionCode& = ASSERT_NO_EXCEPTION);
     void collapse(bool toStart, ExceptionCode&);
     bool isPointInRange(Node* refNode, int offset, ExceptionCode&);
     short comparePoint(Node* refNode, int offset, ExceptionCode&) const;
@@ -87,34 +89,42 @@ public:
     String toHTML() const;
     String text() const;
 
-    PassRefPtr<DocumentFragment> createContextualFragment(const String& html, ExceptionCode&) const;
+    PassRefPtr<DocumentFragment> createContextualFragment(const String& html, ExceptionCode&, FragmentScriptingPermission = FragmentScriptingAllowed);
+    static PassRefPtr<DocumentFragment> createDocumentFragmentForElement(const String& markup, Element*,  FragmentScriptingPermission = FragmentScriptingAllowed);
 
     void detach(ExceptionCode&);
     PassRefPtr<Range> cloneRange(ExceptionCode&) const;
 
-    void setStartAfter(Node*, ExceptionCode&);
-    void setEndBefore(Node*, ExceptionCode&);
-    void setEndAfter(Node*, ExceptionCode&);
-    void selectNode(Node*, ExceptionCode&);
+    void setStartAfter(Node*, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    void setEndBefore(Node*, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    void setEndAfter(Node*, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    void selectNode(Node*, ExceptionCode& = ASSERT_NO_EXCEPTION);
     void selectNodeContents(Node*, ExceptionCode&);
     void surroundContents(PassRefPtr<Node>, ExceptionCode&);
     void setStartBefore(Node*, ExceptionCode&);
 
     const Position startPosition() const { return m_start.toPosition(); }
     const Position endPosition() const { return m_end.toPosition(); }
+    void setStart(const Position&, ExceptionCode& = ASSERT_NO_EXCEPTION);
+    void setEnd(const Position&, ExceptionCode& = ASSERT_NO_EXCEPTION);
 
     Node* firstNode() const;
     Node* pastLastNode() const;
 
-    Position editingStartPosition() const;
-
     Node* shadowTreeRootNode() const;
 
     IntRect boundingBox();
+    
+    enum RangeInFixedPosition {
+        NotFixedPosition,
+        PartiallyFixedPosition,
+        EntirelyFixedPosition
+    };
+    
     // Not transform-friendly
-    void textRects(Vector<IntRect>&, bool useSelectionHeight = false);
+    void textRects(Vector<IntRect>&, bool useSelectionHeight = false, RangeInFixedPosition* = 0);
     // Transform-friendly
-    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false) const;
+    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false, RangeInFixedPosition* = 0) const;
     void getBorderAndTextQuads(Vector<FloatQuad>&) const;
     FloatRect boundingRect() const;
 

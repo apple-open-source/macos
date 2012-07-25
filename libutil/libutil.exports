@@ -1,4 +1,3 @@
-__secure_path
 _freemntopts
 _getmnt_silent
 _getmntoptnum
@@ -9,19 +8,12 @@ _pidfile_close
 _pidfile_open
 _pidfile_remove
 _pidfile_write
-_properties_free
-_properties_read
-_property_find
 _realhostname
 _realhostname_sa
 _reexec_to_match_kernel
 _reexec_to_match_lp64ness
-_trimdomain
-_uu_lock
-_uu_lock_txfr
-_uu_lockerr
-_uu_unlock
 _wipefs_alloc
 _wipefs_except_blocks
 _wipefs_free
+_wipefs_include_blocks
 _wipefs_wipe

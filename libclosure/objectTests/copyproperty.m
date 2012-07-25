@@ -42,7 +42,7 @@ int Retained = 0;
 int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     TestObject *to = [[TestObject alloc] init];
-    TestObject *co = [[CountingObject alloc] init];
+    CountingObject *co = [[CountingObject alloc] init];
     long (^localBlock)(void) = ^{ return 10L + (long)[co self]; };
     to.getInt = localBlock;    
     if (localBlock == to.getInt) {

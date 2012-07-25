@@ -94,8 +94,7 @@ void setNetworkAccountSID(void *sessionRef, void *args)
 	if ((properties.authType == kSMBAuthTypeGuest) || (properties.authType == kSMBAuthTypeAnonymous)) {
 		goto done;
 	}
-	status = GetNetworkAccountSID(properties.serverName, &account, &domain, &ntsid, 
-								  (properties.internalFlags & kWorkAroundEMCPanic) ? TRUE : FALSE);
+	status = GetNetworkAccountSID(properties.serverName, &account, &domain, &ntsid);
 	if (!NT_SUCCESS(status)) {
 		goto done;
 	}

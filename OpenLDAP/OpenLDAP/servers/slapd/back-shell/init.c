@@ -1,8 +1,8 @@
 /* init.c - initialize shell backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/init.c,v 1.37.2.5 2010/04/13 20:23:39 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,7 @@ shell_back_initialize(
 	bi->bi_destroy = 0;
 
 	bi->bi_db_init = shell_back_db_init;
-	bi->bi_db_config = shell_back_db_config;
+	bi->bi_db_config = 0;
 	bi->bi_db_open = 0;
 	bi->bi_db_close = 0;
 	bi->bi_db_destroy = shell_back_db_destroy;
@@ -73,7 +73,7 @@ shell_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
-	return 0;
+	return shell_back_init_cf( bi );
 }
 
 int
@@ -87,6 +87,7 @@ shell_back_db_init(
 	si = (struct shellinfo *) ch_calloc( 1, sizeof(struct shellinfo) );
 
 	be->be_private = si;
+	be->be_cf_ocs = be->bd_info->bi_cf_ocs;
 
 	return si == NULL;
 }

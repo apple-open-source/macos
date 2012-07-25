@@ -1,7 +1,0 @@
-#ifndef __CONFIG_H__
-#define __CONFIG_H__
-#include <TargetConfig.h>
-#define HAVE_QUARANTINE TARGET_HAVE_QUARANTINE
-#define HAVE_SANDBOX TARGET_HAVE_SANDBOX
-#define HAVE_LIBAUDITD !TARGET_OS_EMBEDDED
-#endif /* __CONFIG_H__ */

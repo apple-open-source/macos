@@ -128,7 +128,7 @@ void PCSCMonitor::pollReaders()
 	
 	// now ask PCSC for status changes
 	mSession.statusChange(states);
-#if DEBUGDUMP
+#if 0 //DEBUGDUMP
 	if (Debug::dumping("pcsc"))
 		for (unsigned int n = 0; n < count; n++)
 			states[n].dump();

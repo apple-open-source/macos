@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dnssrv.c,v 1.39.2.6 2010/04/13 20:22:56 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -202,9 +202,7 @@ int ldap_domain2hostlist(
     }
     sprintf(request, "_ldap._tcp.%s", domain);
 
-#ifdef LDAP_R_COMPILE
-    ldap_pvt_thread_mutex_lock(&ldap_int_resolv_mutex);
-#endif
+    LDAP_MUTEX_LOCK(&ldap_int_resolv_mutex);
 
     rc = LDAP_UNAVAILABLE;
 #ifdef NS_HFIXEDSZ
@@ -289,7 +287,7 @@ int ldap_domain2hostlist(
 		    /* not first time around */
 		    hostlist[cur++] = ' ';
 		}
-		cur += sprintf(&hostlist[cur], "%s:%hd", host, port);
+		cur += sprintf(&hostlist[cur], "%s:%hu", host, port);
 	    }
 add_size:;
 	    p += size;
@@ -305,9 +303,7 @@ add_size:;
 	*list = hostlist;
 
   out:
-#ifdef LDAP_R_COMPILE
-    ldap_pvt_thread_mutex_unlock(&ldap_int_resolv_mutex);
-#endif
+    LDAP_MUTEX_UNLOCK(&ldap_int_resolv_mutex);
 
     if (request != NULL) {
 	LDAP_FREE(request);

@@ -28,6 +28,10 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Flags := $(shell echo $(Install_Flags) | sed 's/prefix=[^ ]* *//')
 Install_Target = frameworkinstall
+
+# Override the CC and CXX overrides in Common.make (9967906)
+Make_Flags += CC=$(WITH_GCC) CXX=$(WITH_GXX)
+
 FIX = '$(SRCROOT)/fix'
 
 ##---------------------------------------------------------------------
@@ -48,7 +52,6 @@ $(ConfigStamp2): $(ConfigStamp)
 APPS = /Applications
 USRBIN = /usr/bin
 PYTHONAPPNAME = Python.app
-PYTHONLAUNCHERNAME = Python Launcher.app
 FRAMEWORKS = /System/Library/Frameworks
 PYFRAMEWORK = $(FRAMEWORKS)/Python.framework
 VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
@@ -57,15 +60,11 @@ LIBPYTHONVERS = $(VERSIONSVERS)/lib/python$(VERS)
 PYTHONAPP = $(RESOURCESVERS)/$(PYTHONAPPNAME)
 PACONTENTS = $(PYTHONAPP)/Contents
 PAMACOS = $(PACONTENTS)/MacOS
-MACPYTHON = $(APPS)/MacPython $(VERS)
-PYTHONLAUNCHER = $(RESOURCESVERS)/$(PYTHONLAUNCHERNAME)
-PLCONTENTS = $(PYTHONLAUNCHER)/Contents
 RUNPYTHON = DYLD_FRAMEWORK_PATH='$(OBJROOT)' '$(OBJROOT)/python.exe'
 BYTE2UTF16 = $(RUNPYTHON) $(FIX)/byte2utf16.py
 UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
 
 fixup-after-install: delete-stuff \
-		     move-things-around \
 		     strip-64-bit \
 		     strip-installed-files \
 		     fix-PAInfo \
@@ -78,41 +77,31 @@ fixup-after-install: delete-stuff \
 		     fix-config-Makefile \
 		     additional-man-pages
 
-delete-stuff:
-	rm -rf '$(DSTROOT)/usr/local'
-
 # We leave "Build Applet.app" in $(APPS) to be deleted, because it uses
 # Carbon, and doesn't work in 64-bit.  Even though python 2.5 is 32-bit only,
 # no one should be using 2.5 for new developement anyways, so we remove it
-# to be consistent with the other python versions.
-move-things-around:
-	mv -f '$(DSTROOT)$(MACPYTHON)/$(PYTHONLAUNCHERNAME)' '$(DSTROOT)$(RESOURCESVERS)'
-	rm -rf '$(DSTROOT)$(APPS)'
+# to be consistent with the other python versions.  We also leave "Python
+# Launcher.app" in $(APPS) to be deleted (10692664).
+delete-stuff:
+	rm -rf '$(DSTROOT)/usr/local' '$(DSTROOT)$(APPS)'
 
 ##---------------------------------------------------------------------
-# Force python, pythonw and Python Launcher to be 32-bit only
+# Force python and pythonw to be 32-bit only
 # (python will have previously been forced)
 ##---------------------------------------------------------------------
-Python_Launcher = $(DSTROOT)$(PLCONTENTS)/MacOS/Python Launcher
 PYTHON = $(DSTROOT)$(VERSIONSVERS)/bin/python$(VERS)
 PYTHONW = $(DSTROOT)$(VERSIONSVERS)/bin/pythonw$(VERS)
 strip-64-bit:
 	@set -x && a='' && \
-	for i in '$(PYTHON)' '$(PYTHONW)' '$(Python_Launcher)'; do \
-	    ditto "$$i" $(SYMROOT) || exit 1; \
-	done && \
-	for i in ppc64 x86_64; do \
-	    lipo '$(PYTHONW)' -verify_arch $$i && a="$$a -remove $$i"; \
-	done; \
-	test -z "$$a" || \
-	for i in '$(PYTHON)' '$(PYTHONW)' '$(Python_Launcher)'; do \
-	    lipo  "$$i" $$a -output "$$i" || exit 1; \
+	for i in '$(PYTHON)' '$(PYTHONW)'; do \
+	    f=`basename "$$i"` && \
+	    ditto "$$i" $(SYMROOT) && \
+	    ditto `lipo -info "$$i" | sed 's/^.*: //' | perl -ane 'for(@F){print "-arch $$_\n" unless /64$$/}'` "$(SYMROOT)/$$f" "$$i" || exit 1; \
 	done
 
 strip-installed-files:
 	$(CP) '$(DSTROOT)$(VERSIONSVERS)/Python' '$(SYMROOT)'
 	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
-	strip -x '$(Python_Launcher)'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
 	cd '$(SYMROOT)/lib-dynload' && \
 	for so in *.so; do \

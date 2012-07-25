@@ -109,7 +109,7 @@ class TransparencyWin::OwnedBuffers {
 public:
     OwnedBuffers(const IntSize& size, bool needReferenceBuffer)
     {
-        m_destBitmap = ImageBuffer::create(size);
+        m_destBitmap = ImageBuffer::create(size, 1);
 
         if (needReferenceBuffer) {
             m_referenceBitmap.setConfig(SkBitmap::kARGB_8888_Config, size.width(), size.height());
@@ -127,7 +127,7 @@ public:
     // Returns whether the current layer will fix a buffer of the given size.
     bool canHandleSize(const IntSize& size) const
     {
-        return m_destBitmap->size().width() >= size.width() && m_destBitmap->size().height() >= size.height();
+        return m_destBitmap->internalSize().width() >= size.width() && m_destBitmap->internalSize().height() >= size.height();
     }
 
 private:
@@ -210,11 +210,19 @@ void TransparencyWin::computeLayerSize()
         // uses the variable: to determine how to translate things to account
         // for the offset of the layer.
         m_transformedSourceRect = m_sourceRect;
-        m_layerSize = IntSize(m_sourceRect.width(), m_sourceRect.height());
-    } else {
+    } else if (m_transformMode == KeepTransform && m_layerMode != TextComposite) {
+        // FIXME: support clipping for other modes
+        IntRect clippedSourceRect = m_sourceRect;
+        SkRect clipBounds;
+        if (m_destContext->platformContext()->canvas()->getClipBounds(&clipBounds)) {
+            FloatRect clipRect(clipBounds.left(), clipBounds.top(), clipBounds.width(), clipBounds.height());
+            clippedSourceRect.intersect(enclosingIntRect(clipRect));
+        }
+        m_transformedSourceRect = m_orgTransform.mapRect(clippedSourceRect);
+    } else
         m_transformedSourceRect = m_orgTransform.mapRect(m_sourceRect);
-        m_layerSize = IntSize(m_transformedSourceRect.width(), m_transformedSourceRect.height());
-    }
+
+    m_layerSize = IntSize(m_transformedSourceRect.width(), m_transformedSourceRect.height());
 }
 
 void TransparencyWin::setupLayer()

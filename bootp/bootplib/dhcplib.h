@@ -62,4 +62,4 @@ boolean_t
 dhcp_packet_match(struct bootp * packet, u_int32_t xid, 
 		  u_char hwtype, void * hwaddr, int hwlen);
 
-#endif _S_DHCPLIB_H
+#endif /* _S_DHCPLIB_H */

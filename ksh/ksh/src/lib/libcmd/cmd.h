@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -35,6 +35,8 @@
 
 #define cmdinit			_cmd_init
 
+#define ERROR_CALLBACK		ERROR_SET
+
 #if _BLD_cmd && defined(__EXPORT__)
 #define extern		__EXPORT__
 #endif
@@ -54,8 +56,6 @@
 #if CMD_DYNAMIC
 
 #include <dlldefs.h>
-
-typedef int (*Shbltin_f)(int, char**, void*);
 
 #else
 
@@ -86,7 +86,7 @@ cmdinit(int argc, register char** argv, void* context, const char* catalog, int 
 		error_info.catalog = (char*)catalog;
 	opt_info.index = 0;
 	if (context)
-		error_info.flags |= flags;
+		error_info.flags |= flags & ~(ERROR_CALLBACK|ERROR_NOTIFY);
 	return 0;
 }
 
@@ -124,7 +124,7 @@ main(int argc, char** argv)
 			if (fun = (Shbltin_f)dlsym(dll, buf))
 				break;
 		}
-		if (dll = dllfind("cmd", NiL, RTLD_LAZY))
+		if (dll = dllplug(NiL, "cmd", NiL, RTLD_LAZY, NiL, 0))
 		{
 			if (fun = (Shbltin_f)dlsym(dll, buf + 1))
 				break;

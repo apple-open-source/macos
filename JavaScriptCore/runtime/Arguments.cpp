@@ -109,8 +109,7 @@ void Arguments::createStrictModeCallerIfNecessary(ExecState* exec)
 
     d->overrodeCaller = true;
     PropertyDescriptor descriptor;
-    JSValue thrower = createTypeErrorFunction(exec, "Unable to access caller of strict mode function");
-    descriptor.setAccessorDescriptor(thrower, thrower, DontEnum | DontDelete | Getter | Setter);
+    descriptor.setAccessorDescriptor(globalObject()->throwTypeErrorGetterSetter(exec), DontEnum | DontDelete | Accessor);
     methodTable()->defineOwnProperty(this, exec, exec->propertyNames().caller, descriptor, false);
 }
 
@@ -121,8 +120,7 @@ void Arguments::createStrictModeCalleeIfNecessary(ExecState* exec)
     
     d->overrodeCallee = true;
     PropertyDescriptor descriptor;
-    JSValue thrower = createTypeErrorFunction(exec, "Unable to access callee of strict mode function");
-    descriptor.setAccessorDescriptor(thrower, thrower, DontEnum | DontDelete | Getter | Setter);
+    descriptor.setAccessorDescriptor(globalObject()->throwTypeErrorGetterSetter(exec), DontEnum | DontDelete | Accessor);
     methodTable()->defineOwnProperty(this, exec, exec->propertyNames().callee, descriptor, false);
 }
 
@@ -198,7 +196,7 @@ void Arguments::getOwnPropertyNames(JSObject* object, ExecState* exec, PropertyN
     JSObject::getOwnPropertyNames(thisObject, exec, propertyNames, mode);
 }
 
-void Arguments::putByIndex(JSCell* cell, ExecState* exec, unsigned i, JSValue value)
+void Arguments::putByIndex(JSCell* cell, ExecState* exec, unsigned i, JSValue value, bool shouldThrow)
 {
     Arguments* thisObject = jsCast<Arguments*>(cell);
     if (i < static_cast<unsigned>(thisObject->d->numArguments) && (!thisObject->d->deletedArguments || !thisObject->d->deletedArguments[i])) {
@@ -206,7 +204,7 @@ void Arguments::putByIndex(JSCell* cell, ExecState* exec, unsigned i, JSValue va
         return;
     }
 
-    PutPropertySlot slot;
+    PutPropertySlot slot(shouldThrow);
     JSObject::put(thisObject, exec, Identifier(exec, UString::number(i)), value, slot);
 }
 
@@ -245,6 +243,9 @@ bool Arguments::deletePropertyByIndex(JSCell* cell, ExecState* exec, unsigned i)
 {
     Arguments* thisObject = jsCast<Arguments*>(cell);
     if (i < thisObject->d->numArguments) {
+        if (!Base::deletePropertyByIndex(cell, exec, i))
+            return false;
+
         if (!thisObject->d->deletedArguments) {
             thisObject->d->deletedArguments = adoptArrayPtr(new bool[thisObject->d->numArguments]);
             memset(thisObject->d->deletedArguments.get(), 0, sizeof(bool) * thisObject->d->numArguments);
@@ -260,10 +261,16 @@ bool Arguments::deletePropertyByIndex(JSCell* cell, ExecState* exec, unsigned i)
 
 bool Arguments::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& propertyName) 
 {
+    if (exec->globalData().isInDefineOwnProperty())
+        return Base::deleteProperty(cell, exec, propertyName);
+
     Arguments* thisObject = jsCast<Arguments*>(cell);
     bool isArrayIndex;
     unsigned i = propertyName.toArrayIndex(isArrayIndex);
     if (isArrayIndex && i < thisObject->d->numArguments) {
+        if (!Base::deleteProperty(cell, exec, propertyName))
+            return false;
+
         if (!thisObject->d->deletedArguments) {
             thisObject->d->deletedArguments = adoptArrayPtr(new bool[thisObject->d->numArguments]);
             memset(thisObject->d->deletedArguments.get(), 0, sizeof(bool) * thisObject->d->numArguments);
@@ -287,10 +294,60 @@ bool Arguments::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& 
         thisObject->createStrictModeCalleeIfNecessary(exec);
     }
     
-    if (propertyName == exec->propertyNames().caller && !thisObject->d->isStrictMode)
+    if (propertyName == exec->propertyNames().caller && thisObject->d->isStrictMode)
         thisObject->createStrictModeCallerIfNecessary(exec);
 
     return JSObject::deleteProperty(thisObject, exec, propertyName);
+}
+
+bool Arguments::defineOwnProperty(JSObject* object, ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor, bool shouldThrow)
+{
+    Arguments* thisObject = jsCast<Arguments*>(object);
+    bool isArrayIndex;
+    unsigned i = propertyName.toArrayIndex(isArrayIndex);
+    if (isArrayIndex && i < thisObject->d->numArguments) {
+        // If the property is not yet present on the object, and is not yet marked as deleted, then add it now.
+        PropertySlot slot;
+        if ((!thisObject->d->deletedArguments || !thisObject->d->deletedArguments[i]) && !JSObject::getOwnPropertySlot(thisObject, exec, propertyName, slot))
+            object->putDirect(exec->globalData(), propertyName, thisObject->argument(i).get(), 0);
+        if (!Base::defineOwnProperty(object, exec, propertyName, descriptor, shouldThrow))
+            return false;
+
+        if (!thisObject->d->deletedArguments) {
+            thisObject->d->deletedArguments = adoptArrayPtr(new bool[thisObject->d->numArguments]);
+            memset(thisObject->d->deletedArguments.get(), 0, sizeof(bool) * thisObject->d->numArguments);
+        }
+        // From ES 5.1, 10.6 Arguments Object
+        // 5. If the value of isMapped is not undefined, then
+        if (!thisObject->d->deletedArguments[i]) {
+            // a. If IsAccessorDescriptor(Desc) is true, then
+            if (descriptor.isAccessorDescriptor()) {
+                // i. Call the [[Delete]] internal method of map passing P, and false as the arguments.
+                thisObject->d->deletedArguments[i] = true;
+            } else { // b. Else
+                // i. If Desc.[[Value]] is present, then
+                // 1. Call the [[Put]] internal method of map passing P, Desc.[[Value]], and Throw as the arguments.
+                if (descriptor.value())
+                    thisObject->argument(i).set(exec->globalData(), thisObject, descriptor.value());
+                // ii. If Desc.[[Writable]] is present and its value is false, then
+                // 1. Call the [[Delete]] internal method of map passing P and false as arguments.
+                if (descriptor.writablePresent() && !descriptor.writable())
+                    thisObject->d->deletedArguments[i] = true;
+            }
+        }
+        return true;
+    }
+
+    if (propertyName == exec->propertyNames().length && !thisObject->d->overrodeLength) {
+        thisObject->putDirect(exec->globalData(), propertyName, jsNumber(thisObject->d->numArguments), DontEnum);
+        thisObject->d->overrodeLength = true;
+    } else if (propertyName == exec->propertyNames().callee && !thisObject->d->overrodeCallee) {
+        thisObject->putDirect(exec->globalData(), propertyName, thisObject->d->callee.get(), DontEnum);
+        thisObject->d->overrodeCallee = true;
+    } else if (propertyName == exec->propertyNames().caller && thisObject->d->isStrictMode)
+        thisObject->createStrictModeCallerIfNecessary(exec);
+
+    return Base::defineOwnProperty(object, exec, propertyName, descriptor, shouldThrow);
 }
 
 void Arguments::tearOff(CallFrame* callFrame)
@@ -332,6 +389,13 @@ void Arguments::tearOff(CallFrame* callFrame)
             break;
         case AlreadyInRegisterFileAsUnboxedBoolean:
             value = jsBoolean(location->unboxedBoolean());
+            break;
+        case AlreadyInRegisterFileAsUnboxedDouble:
+#if USE(JSVALUE64)
+            value = jsNumber(*bitwise_cast<double*>(location));
+#else
+            value = location->jsValue();
+#endif
             break;
         case Constant:
             value = recovery.constant();

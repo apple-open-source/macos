@@ -26,6 +26,7 @@
 #include "ChromeClientWinCE.h"
 
 #include "FileChooser.h"
+#include "FileIconLoader.h"
 #include "Icon.h"
 #include "NotImplemented.h"
 #include "NavigationAction.h"
@@ -225,12 +226,12 @@ IntRect ChromeClientWinCE::windowResizerRect() const
     return IntRect();
 }
 
-void ChromeClientWinCE::invalidateWindow(const IntRect&, bool)
+void ChromeClientWinCE::invalidateRootView(const IntRect&, bool)
 {
     notImplemented();
 }
 
-void ChromeClientWinCE::invalidateContentsAndWindow(const IntRect& updateRect, bool immediate)
+void ChromeClientWinCE::invalidateContentsAndRootView(const IntRect& updateRect, bool immediate)
 {
     RECT rect = updateRect;
     InvalidateRect(m_webView->windowHandle(), &rect, FALSE);
@@ -241,21 +242,21 @@ void ChromeClientWinCE::invalidateContentsAndWindow(const IntRect& updateRect, b
 
 void ChromeClientWinCE::invalidateContentsForSlowScroll(const IntRect& updateRect, bool immediate)
 {
-    invalidateContentsAndWindow(updateRect, immediate);
+    invalidateContentsAndRootView(updateRect, immediate);
 }
 
 void ChromeClientWinCE::scroll(const IntSize&, const IntRect& rectToScroll, const IntRect&)
 {
-    invalidateContentsAndWindow(rectToScroll, false);
+    invalidateContentsAndRootView(rectToScroll, false);
 }
 
-IntRect ChromeClientWinCE::windowToScreen(const IntRect& rect) const
+IntRect ChromeClientWinCE::rootViewToScreen(const IntRect& rect) const
 {
     notImplemented();
     return rect;
 }
 
-IntPoint ChromeClientWinCE::screenToWindow(const IntPoint& point) const
+IntPoint ChromeClientWinCE::screenToRootView(const IntPoint& point) const
 {
     notImplemented();
     return point;
@@ -272,7 +273,7 @@ void ChromeClientWinCE::contentsSizeChanged(Frame*, const IntSize&) const
     notImplemented();
 }
 
-void ChromeClientWinCE::scrollRectIntoView(const IntRect&, const ScrollView*) const
+void ChromeClientWinCE::scrollRectIntoView(const IntRect&) const
 {
     notImplemented();
 }
@@ -297,24 +298,22 @@ void ChromeClientWinCE::print(Frame*)
     notImplemented();
 }
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 void ChromeClientWinCE::exceededDatabaseQuota(Frame*, const String&)
 {
     notImplemented();
 }
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientWinCE::reachedMaxAppCacheSize(int64_t)
 {
     notImplemented();
 }
 
-void ChromeClientWinCE::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+void ChromeClientWinCE::reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t)
 {
     notImplemented();
 }
-#endif
 
 #if ENABLE(TOUCH_EVENTS)
 void ChromeClientWinCE::needTouchEvents(bool)
@@ -345,9 +344,9 @@ void ChromeClientWinCE::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoo
     notImplemented();
 }
 
-void ChromeClientWinCE::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
+void ChromeClientWinCE::loadIconForFiles(const Vector<String>& filenames, FileIconLoader* loader)
 {
-    chooser->iconLoaded(Icon::createIconForFiles(filenames));
+    loader->notifyFinished(Icon::createIconForFiles(filenames));
 }
 
 void ChromeClientWinCE::setCursor(const Cursor&)
@@ -370,16 +369,6 @@ void ChromeClientWinCE::formStateDidChange(const Node*)
     notImplemented();
 }
 
-void ChromeClientWinCE::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
-{
-    notImplemented();
-}
-
-void ChromeClientWinCE::cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*)
-{
-    notImplemented();
-}
-
 bool ChromeClientWinCE::selectItemWritingDirectionIsNatural()
 {
     return false;
@@ -387,6 +376,12 @@ bool ChromeClientWinCE::selectItemWritingDirectionIsNatural()
 
 bool ChromeClientWinCE::selectItemAlignmentFollowsMenuWritingDirection()
 {
+    return false;
+}
+
+bool ChromeClientWinCE::hasOpenedPopup() const
+{
+    notImplemented();
     return false;
 }
 

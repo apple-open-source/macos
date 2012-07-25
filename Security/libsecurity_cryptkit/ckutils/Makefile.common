@@ -1,0 +1,88 @@
+#
+# Common makefile fragment for ckutils.
+# This is -included from project-specific Makefiles, assumed
+# to be one directory down from this file.
+#
+# Standard binary locations. Assume LOCAL_BUILD_DIR in environment.
+#
+
+LOCAL_BUILD ?= $(shell echo $(LOCAL_BUILD_DIR))
+ifeq "" "$(LOCAL_BUILD)"
+	LOCAL_BUILD = .
+endif
+
+CRYPTKIT_SRC= ../../lib
+
+OFILES= $(CSOURCE:%.c=%.o) $(CPPSOURCE:%.cpp=%.o)
+ALL_OFILES= $(OFILES) $(CRYPTKIT_LIB_BIN)
+
+#
+# override with recursive make for e.g. debug build
+#
+VARIANT_SUFFIX=
+
+# 
+# override this with a recursive make to test minimal signature build
+# 
+CRYPTKIT_CONFIG=-DCK_STANDALONE_BUILD
+
+#
+# override with recursive make to link against other binary 
+#
+CRYPTKIT_BINARY=CryptKit
+
+#
+# Assume final load with cc, not ld
+#
+STD_LIBS= -l$(CRYPTKIT_BINARY)$(VARIANT_SUFFIX)
+STD_LIBPATH=-L$(LOCAL_BUILD)
+ALL_LIBS= $(STD_LIBS) $(PROJ_LIBS) 
+ALL_LIBPATHS= $(STD_LIBPATH) $(PROJ_LIBPATH) 
+
+#
+# Override this from the make command line to add e.g. -lMallocDebug
+#
+CMDLINE_LDFLAGS=
+
+STD_FRAMEWORKS= 
+STD_FRAME_PATH= -F$(LOCAL_BUILD) -F/usr/local/SecurityPieces/Frameworks
+
+#
+ALL_LDFLAGS= $(CMDLINE_LDFLAGS)  $(ALL_LIBS) $(ALL_LIBPATHS) $(STD_FRAME_PATH) $(PROJ_LDFLAGS)
+
+CC= /usr/bin/gcc
+
+ALL_FRAMEWORKS= $(STD_FRAMEWORKS) $(PROJ_FRAMEWORKS)
+
+# CryptKit headers accessed via <CryptKit/foo.h> 
+STD_INCLUDES= -I$(CRYPTKIT_SRC) -I..
+ALL_INCLUDES= $(STD_INCLUDES) $(PROJ_INCLUDES)
+CINCLUDES= $(ALL_INCLUDES)
+
+WFLAGS= -Wno-four-char-constants -Wall -Werror -Wno-format -Wno-deprecated-declarations
+STD_CFLAGS= -g $(VERBOSE) $(CRYPTKIT_CONFIG)
+
+ALL_CFLAGS= $(CINCLUDES) $(STD_CFLAGS) $(PROJ_CFLAGS) $(WFLAGS) $(STD_FRAME_PATH)
+
+BUILT_TARGET= $(EXECUTABLE)
+
+first:	$(BUILT_TARGET)
+
+debug:
+	echo making debug
+	make "VARIANT_SUFFIX=_debug"
+
+smallsig:
+	make "CRYPTKIT_CONFIG=-DCK_MINIMUM_SIG_BUILD" "CRYPTKIT_BINARY=CryptKitSignature"
+
+clean:
+	rm -f $(OFILES) $(EXECUTABLE) $(OTHER_TO_CLEAN)
+
+$(BUILT_TARGET):	$(ALL_OFILES) $(PROJ_DEPENDS)
+	cc -o $(BUILT_TARGET) $(ALL_OFILES) $(ALL_FRAMEWORKS) $(ALL_LDFLAGS)
+
+.c.o:
+	$(CC) $(ALL_CFLAGS) -c -o $*.o $<
+
+.cpp.o:
+	$(CC) $(ALL_CFLAGS) -c -o $*.o $<

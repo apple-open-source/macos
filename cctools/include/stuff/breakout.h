@@ -148,6 +148,10 @@ struct object {
 	*split_info_cmd;    	    /* the split info load command, if any*/
     struct linkedit_data_command
 	*func_starts_info_cmd; 	    /* the func starts load command, if any*/
+    struct linkedit_data_command
+	*data_in_code_cmd;	    /* the data in code load command, if any */
+    struct linkedit_data_command
+	*code_sign_drs_cmd;	    /* the code signing DRs command, if any */
     struct section **sections;	    /* array of 32-bit section structs */
     struct section_64 **sections64; /* array of 64-bit section structs */
     struct dyld_info_command
@@ -192,6 +196,10 @@ struct object {
     uint32_t      output_split_info_data_size;
     char *output_func_start_info_data;
     uint32_t      output_func_start_info_data_size;
+    char *output_data_in_code_info_data;
+    uint32_t      output_data_in_code_info_data_size;
+    char *output_code_sign_drs_info_data;
+    uint32_t      output_code_sign_drs_info_data_size;
 
     uint32_t      output_ilocalsym;
     uint32_t      output_nlocalsym;

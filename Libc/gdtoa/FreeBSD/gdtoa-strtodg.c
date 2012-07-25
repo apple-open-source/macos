@@ -29,13 +29,29 @@ THIS SOFTWARE.
 /* Please send bug reports to David M. Gay (dmg at acm dot org,
  * with " at " changed at "@" and " dot " changed to ".").	*/
 
+#include "xlocale_private.h"
+
 #include "gdtoaimp.h"
 
 #ifdef USE_LOCALE
 #include "locale.h"
 #endif
 
- static CONST int
+#define fivesbits __fivesbits_D2A
+#define all_on __all_on_D2A
+#define set_ones __set_ones_D2A
+#define rvOK __rvOK_D2A
+#define mantbits __mantbits_D2A
+
+#ifdef BUILDING_VARIANT
+extern CONST int fivesbits[];
+int all_on(Bigint *b, int n);
+Bigint *set_ones(Bigint *b, int n);
+int rvOK(U *d, FPI *fpi, Long *exp, ULong *bits, int exact, int rd, int *irv);
+int mantbits(U *d);
+#else /* !BUILDING_VARIANT */
+
+ __private_extern__ CONST int
 fivesbits[] = {	 0,  3,  5,  7, 10, 12, 14, 17, 19, 21,
 		24, 26, 28, 31, 33, 35, 38, 40, 42, 45,
 		47, 49, 52
@@ -121,7 +137,7 @@ decrement(Bigint *b)
 #endif
 	}
 
- static int
+ __private_extern__ int
 #ifdef KR_headers
 all_on(b, n) Bigint *b; int n;
 #else
@@ -168,7 +184,7 @@ set_ones(Bigint *b, int n)
 	return b;
 	}
 
- static int
+ __private_extern__ int
 rvOK
 #ifdef KR_headers
  (d, fpi, exp, bits, exact, rd, irv)
@@ -289,7 +305,7 @@ rvOK
 	return rv;
 	}
 
- static int
+ __private_extern__ int
 #ifdef KR_headers
 mantbits(d) U *d;
 #else
@@ -312,13 +328,15 @@ mantbits(U *d)
 	return P - 32 - lo0bits(&L);
 	}
 
+#endif /* BUILDING_VARIANT */
+
  int
 strtodg
 #ifdef KR_headers
-	(s00, se, fpi, exp, bits)
-	CONST char *s00; char **se; FPI *fpi; Long *exp; ULong *bits;
+	(s00, se, fpi, exp, bits, loc)
+	CONST char *s00; char **se; FPI *fpi; Long *exp; ULong *bits; locale_t loc;
 #else
-	(CONST char *s00, char **se, FPI *fpi, Long *exp, ULong *bits)
+	(CONST char *s00, char **se, FPI *fpi, Long *exp, ULong *bits, locale_t loc)
 #endif
 {
 	int abe, abits, asub;
@@ -327,21 +345,23 @@ strtodg
 	int j, k, nbits, nd, nd0, nf, nz, nz0, rd, rvbits, rve, rve1, sign;
 	int sudden_underflow;
 	CONST char *s, *s0, *s1;
+	char *strunc = NULL;
 	double adj0, tol;
 	Long L;
 	U adj, rv;
 	ULong *b, *be, y, z;
 	Bigint *ab, *bb, *bb1, *bd, *bd0, *bs, *delta, *rvb, *rvb0;
 #ifdef USE_LOCALE /*{{*/
+	NORMALIZE_LOCALE(loc);
 #ifdef NO_LOCALE_CACHE
-	char *decimalpoint = localeconv()->decimal_point;
+	char *decimalpoint = localeconv_l(loc)->decimal_point;
 	int dplen = strlen(decimalpoint);
 #else
 	char *decimalpoint;
 	static char *decimalpoint_cache;
 	static int dplen;
 	if (!(s0 = decimalpoint_cache)) {
-		s0 = localeconv()->decimal_point;
+		s0 = localeconv_l(loc)->decimal_point;
 		if ((decimalpoint_cache = (char*)MALLOC(strlen(s0) + 1))) {
 			strcpy(decimalpoint_cache, s0);
 			s0 = decimalpoint_cache;
@@ -388,7 +408,7 @@ strtodg
 		switch(s[1]) {
 		  case 'x':
 		  case 'X':
-			irv = gethex(&s, fpi, exp, &rvb, sign);
+			irv = gethex(&s, fpi, exp, &rvb, sign, loc);
 			if (irv == STRTOG_NoNumber) {
 				s = s00;
 				sign = 0;
@@ -525,6 +545,7 @@ strtodg
 			}
 		goto ret;
 		}
+	TRUNCATE_DIGITS(s0, strunc, nd, nd0, nf, fpi->nbits, fpi->emin, dplen);
 
 	irv = STRTOG_Normal;
 	e1 = e -= nf;
@@ -693,6 +714,10 @@ strtodg
 					rvb->x[0] = 0;
 					*exp = emin;
 					irv = STRTOG_Underflow | STRTOG_Inexlo;
+/* When __DARWIN_UNIX03 is set, we don't need this (errno is set later) */
+#if !defined(NO_ERRNO) && !__DARWIN_UNIX03
+					errno = ERANGE;
+#endif
 					goto ret;
 					}
 				rvb->x[0] = rvb->wds = rvbits = 1;
@@ -1038,7 +1063,7 @@ strtodg
 		if (sudden_underflow) {
 			rvb->wds = 0;
 			irv = STRTOG_Underflow | STRTOG_Inexlo;
-#ifndef NO_ERRNO
+#if !defined(NO_ERRNO) && __DARWIN_UNIX03
 			errno = ERANGE;
 #endif
 			}
@@ -1047,7 +1072,7 @@ strtodg
 				(rvb->wds > 0 ? STRTOG_Denormal : STRTOG_Zero);
 			if (irv & STRTOG_Inexact) {
 				irv |= STRTOG_Underflow;
-#ifndef NO_ERRNO
+#if !defined(NO_ERRNO) && __DARWIN_UNIX03
 				errno = ERANGE;
 #endif
 				}
@@ -1061,5 +1086,11 @@ strtodg
 		copybits(bits, nbits, rvb);
 		Bfree(rvb);
 		}
+	if (strunc)
+#ifdef FREE
+		FREE(strunc);
+#else
+		free(strunc);
+#endif
 	return irv;
 	}

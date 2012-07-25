@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sk.xml
@@ -32,7 +32,7 @@ sk{
             }
         }
     }
-    Version{"2.0.58.59"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -55,7 +55,7 @@ sk{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"EEE, d."}
+                Ed{"E, d."}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -71,9 +71,9 @@ sk{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 yM{"M.yyyy"}
-                yMEd{"EEE, d.M.yyyy"}
+                yMEd{"E, d.M.yyyy"}
                 yMMM{"LLL y"}
-                yMMMEd{"EEE, d. MMM y"}
+                yMMMEd{"E, d. MMM y"}
                 yMMMM{"LLLL y"}
                 yMMMd{"d.M.yyyy"}
                 yMd{"d.M.yyyy"}
@@ -156,11 +156,9 @@ sk{
                     relative{
                         "-1"{"Včera"}
                         "-2"{"Predvčerom"}
-                        "-3"{"Pred tromi dňami"}
                         "0"{"Dnes"}
                         "1"{"Zajtra"}
                         "2"{"Pozajtra"}
-                        "3"{"O tri dni"}
                     }
                 }
                 dayperiod{
@@ -211,7 +209,7 @@ sk{
             }
             intervalFormats{
                 H{
-                    H{"HH - HH"}
+                    H{"HH – HH"}
                     a{"H-H"}
                 }
                 Hm{
@@ -225,18 +223,18 @@ sk{
                     m{"H:mm - H:mm v"}
                 }
                 Hv{
-                    H{"HH - HH v"}
+                    H{"HH – HH v"}
                     a{"H-H v"}
                 }
                 M{
-                    M{"M. - M."}
+                    M{"M. – M."}
                 }
                 MEd{
                     M{"E, d.M. - E, d.M."}
                     d{"E, d.M. - E, d.M."}
                 }
                 MMM{
-                    M{"LLL - LLL"}
+                    M{"LLL – LLL"}
                 }
                 MMMEd{
                     M{"E, d. MMM - E, d. MMM"}
@@ -254,12 +252,12 @@ sk{
                     d{"d.M. - d.M."}
                 }
                 d{
-                    d{"d. - d."}
+                    d{"d. – d."}
                 }
                 fallback{"{0} - {1}"}
                 h{
                     a{"h a - h a"}
-                    h{"h - h a"}
+                    h{"h – h a"}
                 }
                 hm{
                     a{"h:mm a - h:mm a"}
@@ -273,7 +271,7 @@ sk{
                 }
                 hv{
                     a{"h a - h a v"}
-                    h{"h - h a v"}
+                    h{"h – h a v"}
                 }
                 y{
                     y{"y - y"}
@@ -412,10 +410,10 @@ sk{
         }
     }
     delimiters{
-        alternateQuotationEnd{"“"}
-        alternateQuotationStart{"„"}
-        quotationEnd{"‘"}
-        quotationStart{"‚"}
+        alternateQuotationEnd{"‘"}
+        alternateQuotationStart{"‚"}
+        quotationEnd{"“"}
+        quotationStart{"„"}
     }
     listPattern{
         standard{
@@ -434,35 +432,133 @@ sk{
             one{"{0} deň"}
             other{"{0} dní"}
         }
+        day-future{
+            0{"O 0 dní"}
+            1{"O 1 deň"}
+            few{"O {0} dni"}
+            one{"{0} deň"}
+            other{"O {0} dní"}
+        }
+        day-past{
+            0{"Pred 0 dňami"}
+            1{"Pred 1 dňom"}
+            few{"Pred {0} dňami"}
+            one{"{0} dňom"}
+            other{"Pred {0} dňami"}
+        }
         hour{
             few{"{0} hodiny"}
             one{"{0} hodina"}
             other{"{0} hodín"}
+        }
+        hour-future{
+            0{"O 0 hodín"}
+            1{"O 1 hodinu"}
+            few{"O {0} hodiny"}
+            one{"{0} hodinu"}
+            other{"O {0} hodín"}
+        }
+        hour-past{
+            0{"Pred 0 hodinami"}
+            1{"Pred 1 hodinou"}
+            few{"Pred {0} hodinami"}
+            one{"{0} hodinou"}
+            other{"Pred {0} hodinami"}
         }
         minute{
             few{"{0} minúty"}
             one{"{0} minúta"}
             other{"{0} minút"}
         }
+        minute-future{
+            0{"O 0 minút"}
+            1{"O 1 minútu"}
+            few{"O {0} minúty"}
+            one{"{0} minútu"}
+            other{"O {0} minút"}
+        }
+        minute-past{
+            0{"Pred 0 minútami"}
+            1{"Pred 1 minútou"}
+            few{"Pred {0} minútami"}
+            one{"{0} minútou"}
+            other{"Pred {0} minútami"}
+        }
         month{
             few{"{0} mesiace"}
             one{"{0} mesiac"}
             other{"{0} mesiacov"}
+        }
+        month-future{
+            0{"O 0 mesiacov"}
+            1{"O 1 mesiac"}
+            few{"O {0} mesiace"}
+            one{"{0} mesiac"}
+            other{"O {0} mesiacov"}
+        }
+        month-past{
+            0{"Pred 0 mesiacmi"}
+            1{"Pred 1 mesiacom"}
+            few{"Pred {0} mesiacmi"}
+            one{"{0} mesiacom"}
+            other{"Pred {0} mesiacmi"}
         }
         second{
             few{"{0} sekundy"}
             one{"{0} sekunda"}
             other{"{0} sekúnd"}
         }
+        second-future{
+            0{"O 0 sekúnd"}
+            1{"O 1 sekundu"}
+            few{"O {0} sekundy"}
+            one{"{0} sekundu"}
+            other{"O {0} sekúnd"}
+        }
+        second-past{
+            0{"Pred 0 sekundami"}
+            1{"Pred 1 sekundou"}
+            few{"Pred {0} sekundami"}
+            one{"{0} sekundou"}
+            other{"Pred {0} sekundami"}
+        }
         week{
             few{"{0} týždne"}
             one{"{0} týždeň"}
             other{"{0} týždňov"}
         }
+        week-future{
+            0{"O 0 týždňov"}
+            1{"O 1 týždeň"}
+            few{"O {0} týždne"}
+            one{"{0} týždeň"}
+            other{"O {0} týždňov"}
+        }
+        week-past{
+            0{"Pred 0 týždňami"}
+            1{"Pred 1 týždňom"}
+            few{"Pred {0} týždňami"}
+            one{"{0} týždňom"}
+            other{"Pred {0} týždňami"}
+        }
         year{
             few{"{0} roky"}
             one{"{0} rok"}
             other{"{0} rokov"}
+        }
+        year-future{
+            0{"O 0 rokov"}
+            1{"O 1 rok"}
+            few{"O {0} roky"}
+            one{"{0} rok"}
+            other{"O {0} rokov"}
+        }
+        year-past{
+            0{"Pred 0 rokmi"}
+            1{"Pred 1 rokom"}
+            few{"Pred {0} rokmi"}
+            one{"{0} rokom"}
+            other{"Pred {0} rokmi"}
         }
     }
     unitsShort{

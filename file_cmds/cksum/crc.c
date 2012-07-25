@@ -116,14 +116,15 @@ int
 crc(int fd, uint32_t *cval, off_t *clen)
 {
 	uint32_t lcrc;
-	int nr;
+	ssize_t nr;
 	off_t len;
 	u_char *p;
 	u_char buf[16 * 1024];
 
 #define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
 
-	lcrc = len = 0;
+	lcrc = 0;
+	len = 0;
 	crc_total = ~crc_total;
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 		for (len += nr, p = buf; nr--; ++p) {

@@ -46,8 +46,6 @@
 
 #define kMaxTestThreads 3
 
-#define kSleepTime  1
-
 void threadLoopConnection(void *context)
 {
     IOReturn                ret = kIOReturnSuccess;

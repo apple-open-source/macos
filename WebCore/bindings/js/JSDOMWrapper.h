@@ -33,18 +33,13 @@ class JSDOMWrapper : public JSC::JSNonFinalObject {
 public:
     JSDOMGlobalObject* globalObject() const
     {
-        return static_cast<JSDOMGlobalObject*>(JSC::JSNonFinalObject::globalObject());
+        return JSC::jsCast<JSDOMGlobalObject*>(JSC::JSNonFinalObject::globalObject());
     }
 
     ScriptExecutionContext* scriptExecutionContext() const
     {
         // FIXME: Should never be 0, but can be due to bug 27640.
         return globalObject()->scriptExecutionContext();
-    }
-
-    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
-    {
-        return JSC::Structure::create(globalData, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), &s_info);
     }
 
 protected:
@@ -56,10 +51,6 @@ protected:
         // needing to reach through the frame to get to the Document*.  See bug 27640.
         // ASSERT(globalObject->scriptExecutionContext());
     }
-
-#ifndef NDEBUG
-    virtual ~JSDOMWrapper();
-#endif
 };
 
 } // namespace WebCore

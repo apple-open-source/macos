@@ -32,7 +32,6 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -136,12 +135,12 @@ bool CrossOriginPreflightResultCacheItem::allowsCrossOriginHeaders(const HTTPHea
     return true;
 }
 
-bool CrossOriginPreflightResultCacheItem::allowsRequest(bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders) const
+bool CrossOriginPreflightResultCacheItem::allowsRequest(StoredCredentials includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders) const
 {
     String ignoredExplanation;
     if (m_absoluteExpiryTime < currentTime())
         return false;
-    if (includeCredentials && !m_credentials)
+    if (includeCredentials == AllowStoredCredentials && m_credentials == DoNotAllowStoredCredentials)
         return false;
     if (!allowsCrossOriginMethod(method, ignoredExplanation))
         return false;
@@ -160,25 +159,19 @@ CrossOriginPreflightResultCache& CrossOriginPreflightResultCache::shared()
 void CrossOriginPreflightResultCache::appendEntry(const String& origin, const KURL& url, PassOwnPtr<CrossOriginPreflightResultCacheItem> preflightResult)
 {
     ASSERT(isMainThread());
-    CrossOriginPreflightResultCacheItem* resultPtr = preflightResult.leakPtr();
-    pair<CrossOriginPreflightResultHashMap::iterator, bool> addResult = m_preflightHashMap.add(make_pair(origin, url), resultPtr);
-    if (!addResult.second) {
-        // FIXME: We need to delete the old value before replacing with the new one.
-        addResult.first->second = resultPtr;
-    }
+    m_preflightHashMap.set(make_pair(origin, url), preflightResult);
 }
 
-bool CrossOriginPreflightResultCache::canSkipPreflight(const String& origin, const KURL& url, bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders)
+bool CrossOriginPreflightResultCache::canSkipPreflight(const String& origin, const KURL& url, StoredCredentials includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders)
 {
     ASSERT(isMainThread());
-    CrossOriginPreflightResultHashMap::iterator cacheIt = m_preflightHashMap.find(std::make_pair(origin, url));
+    CrossOriginPreflightResultHashMap::iterator cacheIt = m_preflightHashMap.find(make_pair(origin, url));
     if (cacheIt == m_preflightHashMap.end())
         return false;
 
     if (cacheIt->second->allowsRequest(includeCredentials, method, requestHeaders))
         return true;
 
-    delete cacheIt->second;
     m_preflightHashMap.remove(cacheIt);
     return false;
 }
@@ -186,7 +179,6 @@ bool CrossOriginPreflightResultCache::canSkipPreflight(const String& origin, con
 void CrossOriginPreflightResultCache::empty()
 {
     ASSERT(isMainThread());
-    deleteAllValues(m_preflightHashMap);
     m_preflightHashMap.clear();
 }
 

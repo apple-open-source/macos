@@ -27,31 +27,23 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "DADisk.h"
+#include "DAInternal.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 
-enum
-{
-    kDAAuthorizeOptionDefault  = 0x00000000,
-    kDAAuthorizeOptionForce    = 0x00080000,
-    kDAAuthorizeOptionInteract = 0x00000001
-};
-
-typedef UInt32 DAAuthorizeOptions;
-
 typedef void ( *DAAuthorizeCallback )( DAReturn status, void * context );
 
-extern DAReturn DAAuthorize( DASessionRef       session,
-                             DAAuthorizeOptions options,
-                             DADiskRef          disk,
-                             uid_t              userUID,
-                             gid_t              userGID,
-                             const char *       right );
+extern DAReturn DAAuthorize( DASessionRef        session,
+                             _DAAuthorizeOptions options,
+                             DADiskRef           disk,
+                             uid_t               userUID,
+                             gid_t               userGID,
+                             const char *        right );
 
 extern void DAAuthorizeWithCallback( DASessionRef        session,
-                                     DAAuthorizeOptions  options,
+                                     _DAAuthorizeOptions options,
                                      DADiskRef           disk,
                                      uid_t               userUID,
                                      gid_t               userGID,

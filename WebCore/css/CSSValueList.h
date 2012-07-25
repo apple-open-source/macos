@@ -33,46 +33,76 @@ class CSSValueList : public CSSValue {
 public:
     static PassRefPtr<CSSValueList> createCommaSeparated()
     {
-        return adoptRef(new CSSValueList(false));
+        return adoptRef(new CSSValueList(CommaSeparator));
     }
     static PassRefPtr<CSSValueList> createSpaceSeparated()
     {
-        return adoptRef(new CSSValueList(true));
+        return adoptRef(new CSSValueList(SpaceSeparator));
+    }
+    static PassRefPtr<CSSValueList> createSlashSeparated()
+    {
+        return adoptRef(new CSSValueList(SlashSeparator));
     }
     static PassRefPtr<CSSValueList> createFromParserValueList(CSSParserValueList* list)
     {
         return adoptRef(new CSSValueList(list));
     }
 
-    virtual ~CSSValueList();
-
     size_t length() const { return m_values.size(); }
-    CSSValue* item(unsigned);
-    CSSValue* itemWithoutBoundsCheck(unsigned index) { return m_values[index].get(); }
+    CSSValue* item(size_t index) { return index < m_values.size() ? m_values[index].get() : 0; }
+    CSSValue* itemWithoutBoundsCheck(size_t index) { return m_values[index].get(); }
 
     void append(PassRefPtr<CSSValue>);
     void prepend(PassRefPtr<CSSValue>);
     bool removeAll(CSSValue*);
-    bool hasValue(CSSValue*);
+    bool hasValue(CSSValue*) const;
     PassRefPtr<CSSValueList> copy();
 
-    virtual String cssText() const;
+    String customCssText() const;
 
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*);
+    void addSubresourceStyleURLs(ListHashSet<KURL>&, const StyleSheetInternal*);
+    
+    PassRefPtr<CSSValueList> cloneForCSSOM() const;
 
 protected:
-    CSSValueList(bool isSpaceSeparated);
-    CSSValueList(CSSParserValueList*);
+    CSSValueList(ClassType, ValueListSeparator);
+    CSSValueList(const CSSValueList& cloneFrom);
 
 private:
-    virtual bool isValueList() const { return true; }
-
-    virtual unsigned short cssValueType() const;
+    explicit CSSValueList(ValueListSeparator);
+    explicit CSSValueList(CSSParserValueList*);
 
     Vector<RefPtr<CSSValue> > m_values;
-    bool m_isSpaceSeparated;
 };
 
+// Objects of this class are intended to be stack-allocated and scoped to a single function.
+// Please take care not to pass these around as they do hold onto a raw pointer.
+class CSSValueListInspector {
+public:
+    CSSValueListInspector(CSSValue* value) : m_list((value && value->isValueList()) ? static_cast<CSSValueList*>(value) : 0) { }
+    CSSValue* item(size_t index) const { ASSERT(index < length()); return m_list->itemWithoutBoundsCheck(index); }
+    CSSValue* first() const { return item(0); }
+    CSSValue* second() const { return item(1); }
+    size_t length() const { return m_list ? m_list->length() : 0; }
+private:
+    CSSValueList* m_list;
+};
+
+// Wrapper that can be used to iterate over any CSSValue. Non-list values and 0 behave as zero-length lists.
+// Objects of this class are intended to be stack-allocated and scoped to a single function.
+// Please take care not to pass these around as they do hold onto a raw pointer.
+class CSSValueListIterator {
+public:
+    CSSValueListIterator(CSSValue* value) : m_inspector(value), m_position(0) { }
+    bool hasMore() const { return m_position < m_inspector.length(); }
+    CSSValue* value() const { return m_inspector.item(m_position); }
+    bool isPrimitiveValue() const { return value()->isPrimitiveValue(); }
+    void advance() { m_position++; ASSERT(m_position <= m_inspector.length());}
+    size_t index() const { return m_position; }
+private:
+    CSSValueListInspector m_inspector;
+    size_t m_position;
+};
 } // namespace WebCore
 
 #endif // CSSValueList_h

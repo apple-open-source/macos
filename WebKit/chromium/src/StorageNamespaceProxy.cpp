@@ -24,13 +24,7 @@
  */
 
 #include "config.h"
-
-// FIXME: Remove this define!
-#define LOOSE_OWN_PTR
-
 #include "StorageNamespaceProxy.h"
-
-#if ENABLE(DOM_STORAGE)
 
 #include "Chrome.h"
 #include "ChromeClientImpl.h"
@@ -38,9 +32,9 @@
 #include "SecurityOrigin.h"
 #include "StorageAreaProxy.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
+#include "platform/WebKitPlatformSupport.h"
 #include "WebStorageNamespace.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
 
@@ -48,7 +42,7 @@ namespace WebCore {
 
 PassRefPtr<StorageNamespace> StorageNamespace::localStorageNamespace(const String& path, unsigned quota)
 {
-    return adoptRef(new StorageNamespaceProxy(WebKit::webKitClient()->createLocalStorageNamespace(path, quota), LocalStorage));
+    return adoptRef(new StorageNamespaceProxy(WebKit::webKitPlatformSupport()->createLocalStorageNamespace(path, quota), LocalStorage));
 }
 
 PassRefPtr<StorageNamespace> StorageNamespace::sessionStorageNamespace(Page* page, unsigned quota)
@@ -57,8 +51,9 @@ PassRefPtr<StorageNamespace> StorageNamespace::sessionStorageNamespace(Page* pag
     return adoptRef(new StorageNamespaceProxy(webViewClient->createSessionStorageNamespace(quota), SessionStorage));
 }
 
+// FIXME: storageNamespace argument should be a PassOwnPtr.
 StorageNamespaceProxy::StorageNamespaceProxy(WebKit::WebStorageNamespace* storageNamespace, StorageType storageType)
-    : m_storageNamespace(storageNamespace)
+    : m_storageNamespace(adoptPtr(storageNamespace))
     , m_storageType(storageType)
 {
 }
@@ -87,12 +82,7 @@ PassRefPtr<StorageArea> StorageNamespaceProxy::storageArea(PassRefPtr<SecurityOr
 
 void StorageNamespaceProxy::close()
 {
-    m_storageNamespace->close();
-}
-
-void StorageNamespaceProxy::unlock()
-{
-    // FIXME: Implement.
+    // N/A to the chromium port.
 }
 
 void StorageNamespaceProxy::clearOriginForDeletion(SecurityOrigin* origin)
@@ -110,6 +100,9 @@ void StorageNamespaceProxy::sync()
     ASSERT_NOT_REACHED();
 }
 
-} // namespace WebCore
+bool StorageNamespaceProxy::isSameNamespace(const WebKit::WebStorageNamespace& sessionNamespace)
+{
+    return m_storageNamespace->isSameNamespace(sessionNamespace);
+}
 
-#endif // ENABLE(DOM_STORAGE)
+} // namespace WebCore

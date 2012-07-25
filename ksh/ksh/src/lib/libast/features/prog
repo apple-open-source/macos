@@ -1,0 +1,10 @@
+lib	getexecname
+
+tst	run{
+	for p in /proc/self/exe /proc/self/path/a.out
+	do	if	test -e $p
+		then	echo "#define _PROC_PROG	\"$p\""
+			break
+		fi
+	done
+}end

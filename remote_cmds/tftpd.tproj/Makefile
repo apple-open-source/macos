@@ -4,7 +4,7 @@ Install_Dir = /usr/libexec
 HFILES = tftpsubs.h
 CFILES = tftpd.c ../tftp.tproj/tftpsubs.c
 MANPAGES = tftpd.8
-LAUNCHD_PLISTS = tftp.plist tftp.plist-SERVER
+LAUNCHD_PLISTS = tftp.plist
 
 Extra_CC_Flags = -Wall -Werror -fPIE
 Extra_CC_Flags += -D__FBSDID=__RCSID

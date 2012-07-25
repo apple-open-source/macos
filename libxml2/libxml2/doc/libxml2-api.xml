@@ -37,11 +37,13 @@
      <exports symbol='HTML_NA' type='enum'/>
      <exports symbol='HTML_PARSE_COMPACT' type='enum'/>
      <exports symbol='HTML_VALID' type='enum'/>
-     <exports symbol='HTML_PARSE_NOERROR' type='enum'/>
      <exports symbol='HTML_PARSE_NOBLANKS' type='enum'/>
+     <exports symbol='HTML_PARSE_NODEFDTD' type='enum'/>
      <exports symbol='HTML_DEPRECATED' type='enum'/>
+     <exports symbol='HTML_PARSE_NOERROR' type='enum'/>
      <exports symbol='HTML_PARSE_PEDANTIC' type='enum'/>
      <exports symbol='HTML_PARSE_RECOVER' type='enum'/>
+     <exports symbol='HTML_PARSE_NOIMPLIED' type='enum'/>
      <exports symbol='HTML_PARSE_NOWARNING' type='enum'/>
      <exports symbol='htmlParserNodeInfo' type='typedef'/>
      <exports symbol='htmlParserInput' type='typedef'/>
@@ -217,6 +219,10 @@
      <summary>Provide Canonical XML and Exclusive XML Canonicalization</summary>
      <description>the c14n modules provides a  &quot;Canonical XML&quot; implementation</description>
      <author>Aleksey Sanin &lt;aleksey@aleksey.com&gt; </author>
+     <exports symbol='XML_C14N_1_1' type='enum'/>
+     <exports symbol='XML_C14N_1_0' type='enum'/>
+     <exports symbol='XML_C14N_EXCLUSIVE_1_0' type='enum'/>
+     <exports symbol='xmlC14NMode' type='typedef'/>
      <exports symbol='xmlC14NExecute' type='function'/>
      <exports symbol='xmlC14NDocSaveTo' type='function'/>
      <exports symbol='xmlC14NIsVisibleCallback' type='function'/>
@@ -404,10 +410,12 @@
      <exports symbol='XML_CHAR_ENCODING_8859_1' type='enum'/>
      <exports symbol='XML_CHAR_ENCODING_UTF8' type='enum'/>
      <exports symbol='XML_CHAR_ENCODING_UCS2' type='enum'/>
+     <exports symbol='uconv_t' type='typedef'/>
      <exports symbol='xmlCharEncoding' type='typedef'/>
      <exports symbol='xmlCharEncodingHandler' type='typedef'/>
      <exports symbol='xmlCharEncodingHandlerPtr' type='typedef'/>
      <exports symbol='_xmlCharEncodingHandler' type='struct'/>
+     <exports symbol='_uconv_t' type='struct'/>
      <exports symbol='xmlDelEncodingAlias' type='function'/>
      <exports symbol='xmlGetEncodingAlias' type='function'/>
      <exports symbol='xmlRegisterCharEncodingHandler' type='function'/>
@@ -481,6 +489,7 @@
      <exports symbol='xmlMalloc' type='variable'/>
      <exports symbol='xmlParserVersion' type='variable'/>
      <exports symbol='xmlStructuredError' type='variable'/>
+     <exports symbol='xmlStructuredErrorContext' type='variable'/>
      <exports symbol='xmlDoValidityCheckingDefaultValue' type='variable'/>
      <exports symbol='xmlOutputBufferCreateFilenameValue' type='variable'/>
      <exports symbol='xmlPedanticParserDefaultValue' type='variable'/>
@@ -610,6 +619,8 @@
      <summary>minimal FTP implementation</summary>
      <description>minimal FTP implementation allowing to fetch resources like external subset. </description>
      <author>Daniel Veillard </author>
+     <exports symbol='INVALID_SOCKET' type='macro'/>
+     <exports symbol='SOCKET' type='macro'/>
      <exports symbol='xmlNanoFTPQuit' type='function'/>
      <exports symbol='xmlNanoFTPClose' type='function'/>
      <exports symbol='ftpListCallback' type='function'/>
@@ -681,6 +692,7 @@
      <exports symbol='XML_WITH_HTML' type='enum'/>
      <exports symbol='XML_PARSE_OLDSAX' type='enum'/>
      <exports symbol='XML_WITH_WRITER' type='enum'/>
+     <exports symbol='XML_WITH_ICU' type='enum'/>
      <exports symbol='XML_WITH_C14N' type='enum'/>
      <exports symbol='XML_PARSE_PUSH_DOM' type='enum'/>
      <exports symbol='XML_PARSER_PROLOG' type='enum'/>
@@ -1814,6 +1826,7 @@
      <exports symbol='XINCLUDE_OLD_NS' type='macro'/>
      <exports symbol='xmlXIncludeCtxt' type='typedef'/>
      <exports symbol='xmlXIncludeCtxtPtr' type='typedef'/>
+     <exports symbol='xmlXIncludeProcessTreeFlagsData' type='function'/>
      <exports symbol='xmlXIncludeProcessFlagsData' type='function'/>
      <exports symbol='xmlXIncludeProcessFlags' type='function'/>
      <exports symbol='xmlXIncludeProcessTree' type='function'/>
@@ -2996,6 +3009,7 @@
      <exports symbol='XML_SAVE_NO_DECL' type='enum'/>
      <exports symbol='XML_SAVE_AS_HTML' type='enum'/>
      <exports symbol='XML_SAVE_FORMAT' type='enum'/>
+     <exports symbol='XML_SAVE_WSNONSIG' type='enum'/>
      <exports symbol='xmlSaveOption' type='typedef'/>
      <exports symbol='xmlSaveCtxt' type='typedef'/>
      <exports symbol='xmlSaveCtxtPtr' type='typedef'/>
@@ -3336,7 +3350,7 @@
      <description>compile-time version informations for the XML library </description>
      <author>Daniel Veillard </author>
      <exports symbol='LIBXML_VERSION_EXTRA' type='macro'/>
-     <exports symbol='LIBXML_DOCB_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_MODULES_ENABLED' type='macro'/>
      <exports symbol='LIBXML_LEGACY_ENABLED' type='macro'/>
      <exports symbol='LIBXML_READER_ENABLED' type='macro'/>
      <exports symbol='LIBXML_THREAD_ENABLED' type='macro'/>
@@ -3345,8 +3359,8 @@
      <exports symbol='LIBXML_DEBUG_ENABLED' type='macro'/>
      <exports symbol='LIBXML_XINCLUDE_ENABLED' type='macro'/>
      <exports symbol='ATTRIBUTE_UNUSED' type='macro'/>
-     <exports symbol='LIBXML_MODULES_ENABLED' type='macro'/>
-     <exports symbol='ATTRIBUTE_PRINTF' type='macro'/>
+     <exports symbol='LIBXML_DOCB_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_PUSH_ENABLED' type='macro'/>
      <exports symbol='LIBXML_SAX1_ENABLED' type='macro'/>
      <exports symbol='WITHOUT_TRIO' type='macro'/>
      <exports symbol='LIBXML_SCHEMATRON_ENABLED' type='macro'/>
@@ -3358,26 +3372,27 @@
      <exports symbol='LIBXML_XPTR_ENABLED' type='macro'/>
      <exports symbol='LIBXML_VERSION_STRING' type='macro'/>
      <exports symbol='LIBXML_CATALOG_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_ATTR_ALLOC_SIZE' type='macro'/>
      <exports symbol='LIBXML_REGEXP_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_ICU_ENABLED' type='macro'/>
      <exports symbol='LIBXML_MODULE_EXTENSION' type='macro'/>
      <exports symbol='LIBXML_ICONV_ENABLED' type='macro'/>
      <exports symbol='LIBXML_HTML_ENABLED' type='macro'/>
-     <exports symbol='LIBXML_WRITER_ENABLED' type='macro'/>
      <exports symbol='LIBXML_UNICODE_ENABLED' type='macro'/>
      <exports symbol='LIBXML_FTP_ENABLED' type='macro'/>
      <exports symbol='LIBXML_AUTOMATA_ENABLED' type='macro'/>
      <exports symbol='LIBXML_ZLIB_ENABLED' type='macro'/>
-     <exports symbol='ATTRIBUTE_ALLOC_SIZE' type='macro'/>
-     <exports symbol='LIBXML_PUSH_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_WRITER_ENABLED' type='macro'/>
      <exports symbol='LIBXML_C14N_ENABLED' type='macro'/>
      <exports symbol='LIBXML_SCHEMAS_ENABLED' type='macro'/>
      <exports symbol='DEBUG_MEMORY_LOCATION' type='macro'/>
+     <exports symbol='LIBXML_ATTR_FORMAT' type='macro'/>
      <exports symbol='LIBXML_TEST_VERSION' type='macro'/>
      <exports symbol='LIBXML_XPATH_ENABLED' type='macro'/>
-     <exports symbol='LIBXML_EXPR_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_PATTERN_ENABLED' type='macro'/>
      <exports symbol='LIBXML_VALID_ENABLED' type='macro'/>
      <exports symbol='LIBXML_TREE_ENABLED' type='macro'/>
-     <exports symbol='LIBXML_PATTERN_ENABLED' type='macro'/>
+     <exports symbol='LIBXML_EXPR_ENABLED' type='macro'/>
      <exports symbol='xmlCheckVersion' type='function'/>
     </file>
     <file name='xmlwriter'>
@@ -3768,12 +3783,6 @@
     </file>
   </files>
   <symbols>
-    <macro name='ATTRIBUTE_ALLOC_SIZE' file='xmlversion'>
-      <info>Macro used to indicate to GCC this is an allocator function</info>
-    </macro>
-    <macro name='ATTRIBUTE_PRINTF' file='xmlversion'>
-      <info>Macro used to indicate to GCC the parameter are printf like</info>
-    </macro>
     <macro name='ATTRIBUTE_UNUSED' file='xmlversion'>
       <info>Macro used to signal to GCC unused function parameters</info>
     </macro>
@@ -3833,6 +3842,9 @@
     </macro>
     <macro name='INPUT_CHUNK' file='parserInternals'>
       <info>The parser tries to always have that amount of input ready. One of the point is providing context when reporting errors.</info>
+    </macro>
+    <macro name='INVALID_SOCKET' file='nanoftp'>
+      <info>macro used to provide portability of code to windows sockets the value to be used when the socket is not valid</info>
     </macro>
     <macro name='IS_ASCII_DIGIT' file='parserInternals'>
       <info>Macro to check [0-9]</info>
@@ -3910,6 +3922,12 @@
       <info>Same as IS_PUBIDCHAR but for single-byte value</info>
       <arg name='c' info='an xmlChar value (normally unsigned char)'/>
     </macro>
+    <macro name='LIBXML_ATTR_ALLOC_SIZE' file='xmlversion'>
+      <info>Macro used to indicate to GCC this is an allocator function</info>
+    </macro>
+    <macro name='LIBXML_ATTR_FORMAT' file='xmlversion'>
+      <info>Macro used to indicate to GCC the parameter are printf like</info>
+    </macro>
     <macro name='LIBXML_AUTOMATA_ENABLED' file='xmlversion'>
       <info>Whether the automata interfaces are compiled in</info>
     </macro>
@@ -3947,6 +3965,9 @@
     </macro>
     <macro name='LIBXML_ICONV_ENABLED' file='xmlversion'>
       <info>Whether iconv support is available</info>
+    </macro>
+    <macro name='LIBXML_ICU_ENABLED' file='xmlversion'>
+      <info>Whether icu support is available</info>
     </macro>
     <macro name='LIBXML_ISO8859X_ENABLED' file='xmlversion'>
       <info>Whether ISO-8859-* support is made available in case iconv is not</info>
@@ -4034,6 +4055,9 @@
     <macro name='SKIP_EOL' file='parserInternals'>
       <info>Skips the end of line chars.</info>
       <arg name='p' info='and UTF8 string pointer'/>
+    </macro>
+    <macro name='SOCKET' file='nanoftp'>
+      <info>macro used to provide portability of code to windows sockets</info>
     </macro>
     <macro name='WITHOUT_TRIO' file='xmlversion'>
       <info>defined if the trio support should not be configured in</info>
@@ -4586,7 +4610,9 @@
     <enum name='HTML_NA' file='HTMLparser' value='0' type='htmlStatus' info='something we don&apos;t check at all'/>
     <enum name='HTML_PARSE_COMPACT' file='HTMLparser' value='65536' type='htmlParserOption' info=' compact small text nodes'/>
     <enum name='HTML_PARSE_NOBLANKS' file='HTMLparser' value='256' type='htmlParserOption' info='remove blank nodes'/>
+    <enum name='HTML_PARSE_NODEFDTD' file='HTMLparser' value='4' type='htmlParserOption' info='do not default a doctype if not found'/>
     <enum name='HTML_PARSE_NOERROR' file='HTMLparser' value='32' type='htmlParserOption' info='suppress error reports'/>
+    <enum name='HTML_PARSE_NOIMPLIED' file='HTMLparser' value='8192' type='htmlParserOption' info='Do not add implied html/body... elements'/>
     <enum name='HTML_PARSE_NONET' file='HTMLparser' value='2048' type='htmlParserOption' info='Forbid network access'/>
     <enum name='HTML_PARSE_NOWARNING' file='HTMLparser' value='64' type='htmlParserOption' info='suppress warning reports'/>
     <enum name='HTML_PARSE_PEDANTIC' file='HTMLparser' value='128' type='htmlParserOption' info='pedantic error reporting'/>
@@ -4624,8 +4650,11 @@
     <enum name='XML_BUFFER_ALLOC_EXACT' file='tree' value='2' type='xmlBufferAllocationScheme' info='grow only to the minimal size'/>
     <enum name='XML_BUFFER_ALLOC_IMMUTABLE' file='tree' value='3' type='xmlBufferAllocationScheme' info='immutable buffer'/>
     <enum name='XML_BUFFER_ALLOC_IO' file='tree' value='4' type='xmlBufferAllocationScheme' info=' special allocation scheme used for I/O'/>
+    <enum name='XML_C14N_1_0' file='c14n' value='0' type='xmlC14NMode' info='Origianal C14N 1.0 spec'/>
+    <enum name='XML_C14N_1_1' file='c14n' value='2' type='xmlC14NMode' info=' C14N 1.1 spec'/>
     <enum name='XML_C14N_CREATE_CTXT' file='xmlerror' value='1950' type='xmlParserErrors'/>
     <enum name='XML_C14N_CREATE_STACK' file='xmlerror' value='1952' type='xmlParserErrors' info='1952'/>
+    <enum name='XML_C14N_EXCLUSIVE_1_0' file='c14n' value='1' type='xmlC14NMode' info='Exclusive C14N 1.0 spec'/>
     <enum name='XML_C14N_INVALID_NODE' file='xmlerror' value='1953' type='xmlParserErrors' info='1953'/>
     <enum name='XML_C14N_RELATIVE_NAMESPACE' file='xmlerror' value='1955' type='xmlParserErrors' info='1955'/>
     <enum name='XML_C14N_REQUIRES_UTF8' file='xmlerror' value='1951' type='xmlParserErrors' info='1951'/>
@@ -5257,7 +5286,7 @@ crash if you try to modify the tree)'/>
     <enum name='XML_RNGP_VALUE_NO_CONTENT' file='xmlerror' value='1120' type='xmlParserErrors' info='1120'/>
     <enum name='XML_RNGP_XMLNS_NAME' file='xmlerror' value='1121' type='xmlParserErrors' info='1121'/>
     <enum name='XML_RNGP_XML_NS' file='xmlerror' value='1122' type='xmlParserErrors' info='1122'/>
-    <enum name='XML_SAVE_AS_HTML' file='xmlsave' value='64' type='xmlSaveOption' info=' force HTML serialization on XML doc'/>
+    <enum name='XML_SAVE_AS_HTML' file='xmlsave' value='64' type='xmlSaveOption' info='force HTML serialization on XML doc'/>
     <enum name='XML_SAVE_AS_XML' file='xmlsave' value='32' type='xmlSaveOption' info='force XML serialization on HTML doc'/>
     <enum name='XML_SAVE_CHAR_INVALID' file='xmlerror' value='1401' type='xmlParserErrors' info='1401'/>
     <enum name='XML_SAVE_FORMAT' file='xmlsave' value='1' type='xmlSaveOption' info='format save output'/>
@@ -5267,6 +5296,7 @@ crash if you try to modify the tree)'/>
     <enum name='XML_SAVE_NO_EMPTY' file='xmlsave' value='4' type='xmlSaveOption' info='no empty tags'/>
     <enum name='XML_SAVE_NO_XHTML' file='xmlsave' value='8' type='xmlSaveOption' info='disable XHTML1 specific rules'/>
     <enum name='XML_SAVE_UNKNOWN_ENCODING' file='xmlerror' value='1403' type='xmlParserErrors' info='1403'/>
+    <enum name='XML_SAVE_WSNONSIG' file='xmlsave' value='128' type='xmlSaveOption' info=' format with non-significant whitespace'/>
     <enum name='XML_SAVE_XHTML' file='xmlsave' value='16' type='xmlSaveOption' info='force XHTML1 specific rules'/>
     <enum name='XML_SCHEMAP_AG_PROPS_CORRECT' file='xmlerror' value='3087' type='xmlParserErrors' info='3086'/>
     <enum name='XML_SCHEMAP_ATTRFORMDEFAULT_VALUE' file='xmlerror' value='1701' type='xmlParserErrors' info='1701'/>
@@ -5708,6 +5738,7 @@ crash if you try to modify the tree)'/>
     <enum name='XML_WITH_HTML' file='parser' value='12' type='xmlFeature'/>
     <enum name='XML_WITH_HTTP' file='parser' value='10' type='xmlFeature'/>
     <enum name='XML_WITH_ICONV' file='parser' value='19' type='xmlFeature'/>
+    <enum name='XML_WITH_ICU' file='parser' value='32' type='xmlFeature'/>
     <enum name='XML_WITH_ISO8859X' file='parser' value='20' type='xmlFeature'/>
     <enum name='XML_WITH_LEGACY' file='parser' value='13' type='xmlFeature'/>
     <enum name='XML_WITH_MODULES' file='parser' value='27' type='xmlFeature'/>
@@ -5860,6 +5891,10 @@ if necessary or NULL'/>
     <typedef name='htmlSAXHandler' file='HTMLparser' type='xmlSAXHandler'/>
     <typedef name='htmlSAXHandlerPtr' file='HTMLparser' type='xmlSAXHandlerPtr'/>
     <typedef name='htmlStatus' file='HTMLparser' type='enum'/>
+    <struct name='uconv_t' file='encoding' type='struct _uconv_t'>
+      <field name='uconv' type='UConverter *' info=' for conversion between an encoding and UTF-16'/>
+      <field name='utf8' type='UConverter *' info=' for conversion between UTF-8 and UTF-16'/>
+    </struct>
     <typedef name='xlinkActuate' file='xlink' type='enum'/>
     <typedef name='xlinkHRef' file='xlink' type='xmlChar *'/>
     <struct name='xlinkHandler' file='xlink' type='struct _xlinkHandler'>
@@ -5927,6 +5962,7 @@ if necessary or NULL'/>
     </struct>
     <typedef name='xmlBufferAllocationScheme' file='tree' type='enum'/>
     <typedef name='xmlBufferPtr' file='tree' type='xmlBuffer *'/>
+    <typedef name='xmlC14NMode' file='c14n' type='enum'/>
     <struct name='xmlCatalog' file='catalog' type='struct _xmlCatalog'/>
     <typedef name='xmlCatalogAllow' file='catalog' type='enum'/>
     <typedef name='xmlCatalogPrefer' file='catalog' type='enum'/>
@@ -5958,6 +5994,8 @@ if necessary or NULL'/>
       <field name='output' type='xmlCharEncodingOutputFunc' info=''/>
       <field name='iconv_in' type='iconv_t' info=''/>
       <field name='iconv_out' type='iconv_t' info=''/>
+      <field name='uconv_in' type='uconv_t *' info=''/>
+      <field name='uconv_out' type='uconv_t *' info=''/>
     </struct>
     <typedef name='xmlCharEncodingHandlerPtr' file='encoding' type='xmlCharEncodingHandler *'/>
     <struct name='xmlDOMWrapCtxt' file='tree' type='struct _xmlDOMWrapCtxt'>
@@ -6151,6 +6189,7 @@ set at the end of parsing'/>
       <field name='xmlLastError' type='xmlError' info=''/>
       <field name='xmlParserInputBufferCreateFilenameValue' type='xmlParserInputBufferCreateFilenameFunc' info=''/>
       <field name='xmlOutputBufferCreateFilenameValue' type='xmlOutputBufferCreateFilenameFunc' info=''/>
+      <field name='xmlStructuredErrorContext' type='void *' info=''/>
     </struct>
     <typedef name='xmlGlobalStatePtr' file='globals' type='xmlGlobalState *'/>
     <struct name='xmlHashTable' file='hash' type='struct _xmlHashTable'/>
@@ -6246,7 +6285,10 @@ set at the end of parsing'/>
       <field name='version' type='const xmlChar *' info=' the XML version string'/>
       <field name='encoding' type='const xmlChar *' info=' the declared encoding, if any'/>
       <field name='standalone' type='int' info=' standalone document'/>
-      <field name='html' type='int' info=' an HTML(1)/Docbook(2) document Input stream stack'/>
+      <field name='html' type='int' info=' an HTML(1)/Docbook(2) document
+* 3 is HTML after &lt;head&gt;
+* 10 is HTML after &lt;body&gt;
+* Input stream stack'/>
       <field name='input' type='xmlParserInputPtr' info=' Current input stream'/>
       <field name='inputNr' type='int' info=' Number of current input streams'/>
       <field name='inputMax' type='int' info=' Max number of input streams'/>
@@ -6325,7 +6367,11 @@ actually an xmlCharEncoding'/>
       <field name='lastError' type='xmlError' info=''/>
       <field name='parseMode' type='xmlParserMode' info=' the parser mode'/>
       <field name='nbentities' type='unsigned long' info=' number of entities references'/>
-      <field name='sizeentities' type='unsigned long' info=' size of parsed entities'/>
+      <field name='sizeentities' type='unsigned long' info=' size of parsed entities for use by HTML non-recursive parser'/>
+      <field name='nodeInfo' type='xmlParserNodeInfo *' info=' Current NodeInfo'/>
+      <field name='nodeInfoNr' type='int' info=' Depth of the parsing stack'/>
+      <field name='nodeInfoMax' type='int' info=' Max depth of the parsing stack'/>
+      <field name='nodeInfoTab' type='xmlParserNodeInfo *' info=' array of nodeInfos'/>
     </struct>
     <typedef name='xmlParserCtxtPtr' file='tree' type='xmlParserCtxt *'/>
     <typedef name='xmlParserErrors' file='xmlerror' type='enum'/>
@@ -6892,6 +6938,7 @@ Could we use @subtypes for this?'/>
     <variable name='xmlStringText' file='parserInternals' type='const xmlCharxmlStringText[]'/>
     <variable name='xmlStringTextNoenc' file='parserInternals' type='const xmlCharxmlStringTextNoenc[]'/>
     <variable name='xmlStructuredError' file='globals' type='xmlStructuredErrorFunc'/>
+    <variable name='xmlStructuredErrorContext' file='globals' type='void *'/>
     <variable name='xmlSubstituteEntitiesDefaultValue' file='globals' type='int'/>
     <variable name='xmlTreeIndentString' file='globals' type='const char *'/>
     <variable name='xmlXPathNAN' file='xpath' type='double'/>
@@ -7632,7 +7679,7 @@ Could we use @subtypes for this?'/>
     </function>
     <function name='htmlParseElement' file='HTMLparser' module='HTMLparser'>
       <cond>defined(LIBXML_HTML_ENABLED)</cond>
-      <info>parse an HTML element, this is highly recursive  [39] element ::= EmptyElemTag | STag content ETag  [41] Attribute ::= Name Eq AttValue</info>
+      <info>parse an HTML element, this is highly recursive this is kept for compatibility with previous code versions  [39] element ::= EmptyElemTag | STag content ETag  [41] Attribute ::= Name Eq AttValue</info>
       <return type='void'/>
       <arg name='ctxt' type='htmlParserCtxtPtr' info='an HTML parser context'/>
     </function>
@@ -8581,7 +8628,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='the number of bytes written on success or a negative value on fail'/>
       <arg name='doc' type='xmlDocPtr' info='the XML document for canonization'/>
       <arg name='nodes' type='xmlNodeSetPtr' info='the nodes set to be included in the canonized image or NULL if all document nodes should be included'/>
-      <arg name='exclusive' type='int' info='the exclusive flag (0 - non-exclusive canonicalization; otherwise - exclusive canonicalization)'/>
+      <arg name='mode' type='int' info='the c14n mode (see @xmlC14NMode)'/>
       <arg name='inclusive_ns_prefixes' type='xmlChar **' info='the list of inclusive namespace prefixes ended with a NULL or NULL if there is no inclusive namespaces (only for exclusive canonicalization, ignored otherwise)'/>
       <arg name='with_comments' type='int' info='include comments in the result (!=0) or not (==0)'/>
       <arg name='doc_txt_ptr' type='xmlChar **' info='the memory pointer for allocated canonical XML text; the caller of this functions is responsible for calling xmlFree() to free allocated memory'/>
@@ -8592,7 +8639,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='the number of bytes written success or a negative value on fail'/>
       <arg name='doc' type='xmlDocPtr' info='the XML document for canonization'/>
       <arg name='nodes' type='xmlNodeSetPtr' info='the nodes set to be included in the canonized image or NULL if all document nodes should be included'/>
-      <arg name='exclusive' type='int' info='the exclusive flag (0 - non-exclusive canonicalization; otherwise - exclusive canonicalization)'/>
+      <arg name='mode' type='int' info='the c14n mode (see @xmlC14NMode)'/>
       <arg name='inclusive_ns_prefixes' type='xmlChar **' info='the list of inclusive namespace prefixes ended with a NULL or NULL if there is no inclusive namespaces (only for exclusive canonicalization, ignored otherwise)'/>
       <arg name='with_comments' type='int' info='include comments in the result (!=0) or not (==0)'/>
       <arg name='filename' type='const char *' info='the filename to store canonical XML image'/>
@@ -8604,7 +8651,7 @@ Could we use @subtypes for this?'/>
       <return type='int' info='non-negative value on success or a negative value on fail'/>
       <arg name='doc' type='xmlDocPtr' info='the XML document for canonization'/>
       <arg name='nodes' type='xmlNodeSetPtr' info='the nodes set to be included in the canonized image or NULL if all document nodes should be included'/>
-      <arg name='exclusive' type='int' info='the exclusive flag (0 - non-exclusive canonicalization; otherwise - exclusive canonicalization)'/>
+      <arg name='mode' type='int' info='the c14n mode (see @xmlC14NMode)'/>
       <arg name='inclusive_ns_prefixes' type='xmlChar **' info='the list of inclusive namespace prefixes ended with a NULL or NULL if there is no inclusive namespaces (only for exclusive canonicalization, ignored otherwise)'/>
       <arg name='with_comments' type='int' info='include comments in the result (!=0) or not (==0)'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the output buffer to store canonical XML; this buffer MUST have encoder==NULL because C14N requires UTF-8 output'/>
@@ -8616,7 +8663,7 @@ Could we use @subtypes for this?'/>
       <arg name='doc' type='xmlDocPtr' info='the XML document for canonization'/>
       <arg name='is_visible_callback' type='xmlC14NIsVisibleCallback' info='the function to use to determine is node visible or not'/>
       <arg name='user_data' type='void *' info='the first parameter for @is_visible_callback function (in most cases, it is nodes set)'/>
-      <arg name='exclusive' type='int' info='the exclusive flag (0 - non-exclusive canonicalization; otherwise - exclusive canonicalization)'/>
+      <arg name='mode' type='int' info='the c14n mode (see @xmlC14NMode)'/>
       <arg name='inclusive_ns_prefixes' type='xmlChar **' info='the list of inclusive namespace prefixes ended with a NULL or NULL if there is no inclusive namespaces (only for exclusive canonicalization, ignored otherwise)'/>
       <arg name='with_comments' type='int' info='include comments in the result (!=0) or not (==0)'/>
       <arg name='buf' type='xmlOutputBufferPtr' info='the output buffer to store canonical XML; this buffer MUST have encoder==NULL because C14N requires UTF-8 output'/>
@@ -8829,7 +8876,7 @@ Could we use @subtypes for this?'/>
       <arg name='ret' type='xmlParserInputPtr' info='an XML parser input'/>
     </function>
     <function name='xmlCheckLanguageID' file='parserInternals' module='parser'>
-      <info>Checks that the value conforms to the LanguageID production:  NOTE: this is somewhat deprecated, those productions were removed from the XML Second edition.  [33] LanguageID ::= Langcode (&apos;-&apos; Subcode)* [34] Langcode ::= ISO639Code |  IanaCode |  UserCode [35] ISO639Code ::= ([a-z] | [A-Z]) ([a-z] | [A-Z]) [36] IanaCode ::= (&apos;i&apos; | &apos;I&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [37] UserCode ::= (&apos;x&apos; | &apos;X&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [38] Subcode ::= ([a-z] | [A-Z])+</info>
+      <info>Checks that the value conforms to the LanguageID production:  NOTE: this is somewhat deprecated, those productions were removed from the XML Second edition.  [33] LanguageID ::= Langcode (&apos;-&apos; Subcode)* [34] Langcode ::= ISO639Code |  IanaCode |  UserCode [35] ISO639Code ::= ([a-z] | [A-Z]) ([a-z] | [A-Z]) [36] IanaCode ::= (&apos;i&apos; | &apos;I&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [37] UserCode ::= (&apos;x&apos; | &apos;X&apos;) &apos;-&apos; ([a-z] | [A-Z])+ [38] Subcode ::= ([a-z] | [A-Z])+  The current REC reference the sucessors of RFC 1766, currently 5646  http://www.rfc-editor.org/rfc/rfc5646.txt langtag       = language [&quot;-&quot; script] [&quot;-&quot; region] *(&quot;-&quot; variant) *(&quot;-&quot; extension) [&quot;-&quot; privateuse] language      = 2*3ALPHA            ; shortest ISO 639 code [&quot;-&quot; extlang]       ; sometimes followed by ; extended language subtags / 4ALPHA              ; or reserved for future use / 5*8ALPHA            ; or registered language subtag  extlang       = 3ALPHA              ; selected ISO 639 codes *2(&quot;-&quot; 3ALPHA)      ; permanently reserved  script        = 4ALPHA              ; ISO 15924 code  region        = 2ALPHA              ; ISO 3166-1 code / 3DIGIT              ; UN M.49 code  variant       = 5*8alphanum         ; registered variants / (DIGIT 3alphanum)  extension     = singleton 1*(&quot;-&quot; (2*8alphanum))  ; Single alphanumerics ; &quot;x&quot; reserved for private use singleton     = DIGIT               ; 0 - 9 / %x41-57             ; A - W / %x59-5A             ; Y - Z / %x61-77             ; a - w / %x79-7A             ; y - z  it sounds right to still allow Irregular i-xxx IANA and user codes too The parser below doesn&apos;t try to cope with extension or privateuse that could be added but that&apos;s not interoperable anyway</info>
       <return type='int' info='1 if correct 0 otherwise'/>
       <arg name='lang' type='const xmlChar *' info='pointer to the string value'/>
     </function>
@@ -8875,7 +8922,7 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
     </function>
     <function name='xmlCleanupParser' file='parser' module='parser'>
-      <info>This function name is somewhat misleading. It does not clean up parser state, it cleans up memory allocated by the library itself. It is a cleanup function for the XML library. It tries to reclaim all related global memory allocated for the library processing. It doesn&apos;t deallocate any document related memory. One should call xmlCleanupParser() only when the process has finished using the library and all XML/HTML documents built with it. See also xmlInitParser() which has the opposite function of preparing the library for operations.</info>
+      <info>This function name is somewhat misleading. It does not clean up parser state, it cleans up memory allocated by the library itself. It is a cleanup function for the XML library. It tries to reclaim all related global memory allocated for the library processing. It doesn&apos;t deallocate any document related memory. One should call xmlCleanupParser() only when the process has finished using the library and all XML/HTML documents built with it. See also xmlInitParser() which has the opposite function of preparing the library for operations.  WARNING: if your application is multithreaded or has plugin support calling this may crash the application if another thread or a plugin is still using libxml2. It&apos;s sometimes very hard to guess if libxml2 is in use in the application, some libraries or plugins may use it without notice. In case of doubt abstain from calling this function or do it just before calling exit() to avoid leak reports from valgrind !</info>
       <return type='void'/>
     </function>
     <function name='xmlCleanupPredefinedEntities' file='entities' module='legacy'>
@@ -8884,7 +8931,7 @@ Could we use @subtypes for this?'/>
       <return type='void'/>
     </function>
     <function name='xmlCleanupThreads' file='threads' module='threads'>
-      <info>xmlCleanupThreads() is used to to cleanup all the thread related data of the libxml2 library once processing has ended.</info>
+      <info>xmlCleanupThreads() is used to to cleanup all the thread related data of the libxml2 library once processing has ended.  WARNING: if your application is multithreaded or has plugin support calling this may crash the application if another thread or a plugin is still using libxml2. It&apos;s sometimes very hard to guess if libxml2 is in use in the application, some libraries or plugins may use it without notice. In case of doubt abstain from calling this function or do it just before calling exit() to avoid leak reports from valgrind !</info>
       <return type='void'/>
     </function>
     <function name='xmlClearNodeInfoSeq' file='parser' module='parserInternals'>
@@ -10115,7 +10162,7 @@ Could we use @subtypes for this?'/>
       <arg name='ID' type='const xmlChar *' info='the ID value'/>
     </function>
     <function name='xmlGetThreadId' file='threads' module='threads'>
-      <info>xmlGetThreadId() find the current thread ID number</info>
+      <info>xmlGetThreadId() find the current thread ID number Note that this is likely to be broken on some platforms using pthreads as the specification doesn&apos;t mandate pthread_t to be an integer type</info>
       <return type='int' info='the current thread ID number'/>
     </function>
     <function name='xmlGetUTF8Char' file='xmlstring' module='xmlstring'>
@@ -11019,7 +11066,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoFTPGetConnection' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Try to open a data connection to the server. Currently only passive mode is supported.</info>
-      <return type='int' info='-1 incase of error, 0 otherwise'/>
+      <return type='SOCKET' info='-1 incase of error, 0 otherwise'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
     </function>
     <function name='xmlNanoFTPGetResponse' file='nanoftp' module='nanoftp'>
@@ -11031,7 +11078,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlNanoFTPGetSocket' file='nanoftp' module='nanoftp'>
       <cond>defined(LIBXML_FTP_ENABLED)</cond>
       <info>Initiate fetch of the given file from the server.</info>
-      <return type='int' info='the socket for the data connection, or &lt;0 in case of error'/>
+      <return type='SOCKET' info='the socket for the data connection, or &lt;0 in case of error'/>
       <arg name='ctx' type='void *' info='an FTP context'/>
       <arg name='filename' type='const char *' info='the file to retrieve (or NULL if path is in context).'/>
     </function>
@@ -11606,7 +11653,7 @@ Could we use @subtypes for this?'/>
       <arg name='encoding' type='const char *' info='an optional encoding string'/>
     </function>
     <function name='xmlNodeGetBase' file='tree' module='tree'>
-      <info>Searches for the BASE URL. The code should work on both XML and HTML document even if base mechanisms are completely different. It returns the base as defined in RFC 2396 sections 5.1.1. Base URI within Document Content and 5.1.2. Base URI from the Encapsulating Entity However it does not return the document base (5.1.3), use xmlDocumentGetBase() for this</info>
+      <info>Searches for the BASE URL. The code should work on both XML and HTML document even if base mechanisms are completely different. It returns the base as defined in RFC 2396 sections 5.1.1. Base URI within Document Content and 5.1.2. Base URI from the Encapsulating Entity However it does not return the document base (5.1.3), use doc-&gt;URL in this case</info>
       <return type='xmlChar *' info='a pointer to the base URL, or NULL if not found It&apos;s up to the caller to free the memory with xmlFree().'/>
       <arg name='doc' type='xmlDocPtr' info='the document the node pertains to'/>
       <arg name='cur' type='xmlNodePtr' info='the node being checked'/>
@@ -11944,7 +11991,7 @@ Could we use @subtypes for this?'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
     </function>
     <function name='xmlParseElementChildrenContentDecl' file='parserInternals' module='parser'>
-      <info>parse the declaration for a Mixed Element content The leading &apos;(&apos; and spaces have been skipped in xmlParseElementContentDecl   [47] children ::= (choice | seq) (&apos;?&apos; | &apos;*&apos; | &apos;+&apos;)?  [48] cp ::= (Name | choice | seq) (&apos;?&apos; | &apos;*&apos; | &apos;+&apos;)?  [49] choice ::= &apos;(&apos; S? cp ( S? &apos;|&apos; S? cp )* S? &apos;)&apos;  [50] seq ::= &apos;(&apos; S? cp ( S? &apos;,&apos; S? cp )* S? &apos;)&apos;  [ VC: Proper Group/PE Nesting ] applies to [49] and [50] TODO Parameter-entity replacement text must be properly nested with parenthesized groups. That is to say, if either of the opening or closing parentheses in a choice, seq, or Mixed construct is contained in the replacement text for a parameter entity, both must be contained in the same replacement text. For interoperability, if a parameter-entity reference appears in a choice, seq, or Mixed construct, its replacement text should not be empty, and neither the first nor last non-blank character of the replacement text should be a connector (| or ,).</info>
+      <info>parse the declaration for a Mixed Element content The leading &apos;(&apos; and spaces have been skipped in xmlParseElementContentDecl  [47] children ::= (choice | seq) (&apos;?&apos; | &apos;*&apos; | &apos;+&apos;)?  [48] cp ::= (Name | choice | seq) (&apos;?&apos; | &apos;*&apos; | &apos;+&apos;)?  [49] choice ::= &apos;(&apos; S? cp ( S? &apos;|&apos; S? cp )* S? &apos;)&apos;  [50] seq ::= &apos;(&apos; S? cp ( S? &apos;,&apos; S? cp )* S? &apos;)&apos;  [ VC: Proper Group/PE Nesting ] applies to [49] and [50] TODO Parameter-entity replacement text must be properly nested with parenthesized groups. That is to say, if either of the opening or closing parentheses in a choice, seq, or Mixed construct is contained in the replacement text for a parameter entity, both must be contained in the same replacement text. For interoperability, if a parameter-entity reference appears in a choice, seq, or Mixed construct, its replacement text should not be empty, and neither the first nor last non-blank character of the replacement text should be a connector (| or ,).</info>
       <return type='xmlElementContentPtr' info='the tree of xmlElementContentPtr describing the element hierarchy.'/>
       <arg name='ctxt' type='xmlParserCtxtPtr' info='an XML parser context'/>
       <arg name='inputchk' type='int' info='the input used for the current entity, needed for boundary checks'/>
@@ -12625,7 +12672,7 @@ Could we use @subtypes for this?'/>
       <cond>defined(LIBXML_SAX1_ENABLED)</cond>
       <info>parse an XML in-memory document and build a tree. In the case the document is not Well Formed, a attempt to build a tree is tried anyway</info>
       <return type='xmlDocPtr' info='the resulting document tree or NULL in case of failure'/>
-      <arg name='cur' type='xmlChar *' info='a pointer to an array of xmlChar'/>
+      <arg name='cur' type='const xmlChar *' info='a pointer to an array of xmlChar'/>
     </function>
     <function name='xmlRecoverFile' file='parser' module='parser'>
       <cond>defined(LIBXML_SAX1_ENABLED)</cond>
@@ -14301,7 +14348,7 @@ Could we use @subtypes for this?'/>
       <info>a case-ignoring strstr for xmlChar&apos;s</info>
       <return type='const xmlChar *' info='the xmlChar * for the first occurrence or NULL.'/>
       <arg name='str' type='const xmlChar *' info='the xmlChar * array (haystack)'/>
-      <arg name='val' type='xmlChar *' info='the xmlChar to search (needle)'/>
+      <arg name='val' type='const xmlChar *' info='the xmlChar to search (needle)'/>
     </function>
     <function name='xmlStrcat' file='xmlstring' module='xmlstring'>
       <info>a strcat for array of xmlChar&apos;s. Since they are supposed to be encoded in UTF-8 or an encoding with 8bit based chars, we assume a termination mark of &apos;0&apos;.</info>
@@ -14513,7 +14560,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderBaseUri' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>The base URI of the node.</info>
-      <return type='xmlChar *' info='the base URI or NULL if not available'/>
+      <return type='xmlChar *' info='the base URI or NULL if not available, if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderByteConsumed' file='xmlreader' module='xmlreader'>
@@ -14716,13 +14763,13 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderLocalName' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>The local name of the node.</info>
-      <return type='xmlChar *' info='the local name or NULL if not available'/>
+      <return type='xmlChar *' info='the local name or NULL if not available, if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderLocatorBaseURI' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>Obtain the base URI for the given locator.</info>
-      <return type='xmlChar *' info='the base URI or NULL in case of error.'/>
+      <return type='xmlChar *' info='the base URI or NULL in case of error, if non NULL it need to be freed by the caller.'/>
       <arg name='locator' type='xmlTextReaderLocatorPtr' info='the xmlTextReaderLocatorPtr used'/>
     </function>
     <function name='xmlTextReaderLocatorLineNumber' file='xmlreader' module='xmlreader'>
@@ -14781,13 +14828,13 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderName' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>The qualified name of the node, equal to Prefix :LocalName.</info>
-      <return type='xmlChar *' info='the local name or NULL if not available'/>
+      <return type='xmlChar *' info='the local name or NULL if not available, if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderNamespaceUri' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>The URI defining the namespace associated with the node.</info>
-      <return type='xmlChar *' info='the namespace URI or NULL if not available'/>
+      <return type='xmlChar *' info='the namespace URI or NULL if not available, if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderNext' file='xmlreader' module='xmlreader'>
@@ -14817,7 +14864,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderPrefix' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>A shorthand reference to the namespace associated with the node.</info>
-      <return type='xmlChar *' info='the prefix or NULL if not available'/>
+      <return type='xmlChar *' info='the prefix or NULL if not available, if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderPreserve' file='xmlreader' module='xmlreader'>
@@ -14861,7 +14908,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderReadOuterXml' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED) &amp;&amp; defined(LIBXML_WRITER_ENABLED)</cond>
       <info>Reads the contents of the current node, including child nodes and markup.</info>
-      <return type='xmlChar *' info='a string containing the XML content, or NULL if the current node is neither an element nor attribute, or has no child nodes. The string must be deallocated by the caller.'/>
+      <return type='xmlChar *' info='a string containing the node and any XML content, or NULL if the current node cannot be serialized. The string must be deallocated by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextReaderReadState' file='xmlreader' module='xmlreader'>
@@ -14961,7 +15008,7 @@ Could we use @subtypes for this?'/>
     <function name='xmlTextReaderXmlLang' file='xmlreader' module='xmlreader'>
       <cond>defined(LIBXML_READER_ENABLED)</cond>
       <info>The xml:lang scope within which the node resides.</info>
-      <return type='xmlChar *' info='the xml:lang value or NULL if none exists.'/>
+      <return type='xmlChar *' info='the xml:lang value or NULL if none exists., if non NULL it need to be freed by the caller.'/>
       <arg name='reader' type='xmlTextReaderPtr' info='the xmlTextReaderPtr used'/>
     </function>
     <function name='xmlTextWriterEndAttribute' file='xmlwriter' module='xmlwriter'>
@@ -17040,6 +17087,14 @@ Could we use @subtypes for this?'/>
       <arg name='tree' type='xmlNodePtr' info='a node in an XML document'/>
       <arg name='flags' type='int' info='a set of xmlParserOption used for parsing XML includes'/>
     </function>
+    <function name='xmlXIncludeProcessTreeFlagsData' file='xinclude' module='xinclude'>
+      <cond>defined(LIBXML_XINCLUDE_ENABLED)</cond>
+      <info>Implement the XInclude substitution on the XML node @tree</info>
+      <return type='int' info='0 if no substitution were done, -1 if some processing failed or the number of substitutions done.'/>
+      <arg name='tree' type='xmlNodePtr' info='an XML node'/>
+      <arg name='flags' type='int' info='a set of xmlParserOption used for parsing XML includes'/>
+      <arg name='data' type='void *' info='application data that will be passed to the parser context in the _private field of the parser context(s)'/>
+    </function>
     <function name='xmlXIncludeSetFlags' file='xinclude' module='xinclude'>
       <cond>defined(LIBXML_XINCLUDE_ENABLED)</cond>
       <info>Set the flags used for further processing of XML resources.</info>
@@ -17901,7 +17956,7 @@ Could we use @subtypes for this?'/>
       <info>Register a new namespace. If @ns_uri is NULL it unregisters the namespace</info>
       <return type='int' info='0 in case of success, -1 in case of error'/>
       <arg name='ctxt' type='xmlXPathContextPtr' info='the XPath context'/>
-      <arg name='prefix' type='const xmlChar *' info='the namespace prefix'/>
+      <arg name='prefix' type='const xmlChar *' info='the namespace prefix cannot be NULL or empty string'/>
       <arg name='ns_uri' type='const xmlChar *' info='the namespace name'/>
     </function>
     <function name='xmlXPathRegisterVariable' file='xpathInternals' module='xpath'>

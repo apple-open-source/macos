@@ -3,22 +3,22 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2010-01-13</string>
+	<string>2012-02-14</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libevent.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>0b3ea18c634072d12b3c1ee734263664</string>
+	<string>dad64aaaaff16b5fbec25160c06fee9a</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceProject</key>
 	<string>libevent</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.monkey.org/~provos/libevent-1.4.13-stable.tar.gz</string>
+	<string>https://github.com/downloads/libevent/libevent/libevent-2.0.17-stable.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>1.4.13</string>
+	<string>2.0.17</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://monkey.org/~provos/libevent/</string>
+	<string>http://libevent.org/</string>
 </dict>
 </plist>

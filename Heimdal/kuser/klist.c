@@ -35,23 +35,32 @@
 
 #include "kuser_locl.h"
 #include "parse_units.h"
+#include "kcc-commands.h"
+
+static char*
+printable_time_internal(time_t t, int x)
+{
+    static char s[128];
+    char *p;
+
+    if ((p = ctime(&t)) == NULL)
+	strlcpy(s, "?", sizeof(s));
+    else
+	strlcpy(s, p + 4, sizeof(s));
+    s[x] = 0;
+    return s;
+}
 
 static char*
 printable_time(time_t t)
 {
-    static char s[128];
-    strlcpy(s, ctime(&t)+ 4, sizeof(s));
-    s[15] = 0;
-    return s;
+    return printable_time_internal(t, 20);
 }
 
 static char*
 printable_time_long(time_t t)
 {
-    static char s[128];
-    strlcpy(s, ctime(&t)+ 4, sizeof(s));
-    s[20] = 0;
-    return s;
+    return printable_time_internal(t, 20);
 }
 
 #define COL_ISSUED		NP_("  Issued","")
@@ -122,7 +131,7 @@ print_cred(krb5_context context, krb5_creds *cred, rtbl_t ct, int do_flags)
 static void
 print_cred_verbose(krb5_context context, krb5_creds *cred)
 {
-    int j;
+    size_t j;
     char *str;
     krb5_error_code ret;
     krb5_timestamp sec;
@@ -134,7 +143,7 @@ print_cred_verbose(krb5_context context, krb5_creds *cred)
 	exit(1);
     printf(N_("Server: %s\n", ""), str);
     free (str);
-    
+
     ret = krb5_unparse_name(context, cred->client, &str);
     if(ret)
 	exit(1);
@@ -145,7 +154,7 @@ print_cred_verbose(krb5_context context, krb5_creds *cred)
 	Ticket t;
 	size_t len;
 	char *s;
-	
+
 	decode_Ticket(cred->ticket.data, cred->ticket.length, &t, &len);
 	ret = krb5_enctype_to_string(context, t.enc_part.etype, &s);
 	printf(N_("Ticket etype: ", ""));
@@ -186,7 +195,7 @@ print_cred_verbose(krb5_context context, krb5_creds *cred)
 	       printable_time_long(cred->times.renew_till));
     {
 	char flags[1024];
-	unparse_flags(TicketFlags2int(cred->flags.b), 
+	unparse_flags(TicketFlags2int(cred->flags.b),
 		      asn1_TicketFlags_units(),
 		      flags, sizeof(flags));
 	printf(N_("Ticket flags: %s\n", ""), flags);
@@ -199,7 +208,7 @@ print_cred_verbose(krb5_context context, krb5_creds *cred)
 	    if(j) printf(", ");
 	    ret = krb5_print_address(&cred->addresses.val[j],
 				     buf, sizeof(buf), &len);
-	
+
 	    if(ret == 0)
 		printf("%s", buf);
 	}
@@ -247,9 +256,12 @@ print_tickets (krb5_context context,
     }
     free (str);
 
-    if(do_verbose)
+    if(do_verbose) {
 	printf ("%17s: %d\n", N_("Cache version", ""),
 		krb5_cc_get_version(context, ccache));
+    } else {
+        krb5_cc_set_flags(context, ccache, KRB5_TC_NOTICKET);
+    }
 
     ret = krb5_cc_get_kdc_offset(context, ccache, &sec);
 
@@ -258,13 +270,13 @@ print_tickets (krb5_context context,
 	int val;
 	int sig;
 
-	val = sec;
+	val = (int)sec;
 	sig = 1;
 	if (val < 0) {
 	    sig = -1;
 	    val = -val;
 	}
-	
+
 	unparse_time (val, buf, sizeof(buf));
 
 	printf ("%17s: %s%s\n", N_("KDC time offset", ""),
@@ -557,157 +569,74 @@ list_caches(krb5_context context)
  *
  */
 
-static int version_flag		= 0;
-static int help_flag		= 0;
-static int do_verbose		= 0;
-static int do_list_caches	= 0;
-static int do_all_content	= 0;
-static int do_test		= 0;
-#ifndef NO_AFS
-static int do_tokens		= 0;
-#endif
-static int do_v5		= 1;
-static char *cred_cache;
-static int do_flags	 	= 0;
-static int do_hidden	 	= 0;
-
-static struct getargs args[] = {
-    { NULL, 'f', arg_flag, &do_flags },
-    { "cache",			'c', arg_string, &cred_cache,
-      NP_("credentials cache to list", ""), "cache" },
-    { "test",			't', arg_flag, &do_test,
-      NP_("test for having tickets", ""), NULL },
-    { NULL,			's', arg_flag, &do_test },
-#ifndef NO_AFS
-    { "tokens",			'T',   arg_flag, &do_tokens,
-      NP_("display AFS tokens", ""), NULL },
-#endif
-    { "v5",			'5',	arg_flag, &do_v5,
-      NP_("display v5 cred cache", ""), NULL},
-    { "all-content",		'A', arg_flag, &do_all_content,
-      NP_("all caches with their content", ""), NULL },
-    { "list-caches",		'l', arg_flag, &do_list_caches,
-      NP_("list all caches", ""), NULL },
-    { "verbose",		'v', arg_flag, &do_verbose,
-      NP_("verbose output", ""), NULL },
-    { "hidden",			0,   arg_flag, &do_hidden,
-      NP_("display hidden credentials", ""), NULL },
-    { NULL,			'a', arg_flag, &do_verbose },
-    { NULL,			'n', arg_flag, &do_verbose },
-    { "version", 		0,   arg_flag, &version_flag,
-      NP_("print version", ""), NULL },
-    { "help",			0,   arg_flag, &help_flag,
-      NULL, NULL}
-};
-
-static void
-usage (int ret)
-{
-    arg_printusage_i18n (args,
-			 sizeof(args)/sizeof(*args),
-			 N_("Usage: ", ""),
-			 NULL,
-			 "",
-			 getarg_i18n);
-    exit (ret);
-}
-
 int
-main (int argc, char **argv)
+klist(struct klist_options *opt, int argc, char **argv)
 {
-    krb5_context context;
     krb5_error_code ret;
-    int optidx = 0;
     int exit_status = 0;
 
-    setprogname (argv[0]);
+    int do_verbose =
+	opt->verbose_flag ||
+	opt->a_flag ||
+	opt->n_flag;
+    int do_test =
+	opt->test_flag ||
+	opt->s_flag;
 
-    setlocale (LC_ALL, "");
-    bindtextdomain ("heimdal_kuser", HEIMDAL_LOCALEDIR);
-    textdomain("heimdal_kuser");
-
-    if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optidx))
-	usage(1);
-
-    if (help_flag)
-	usage (0);
-
-    if(version_flag){
+    if(opt->version_flag) {
 	print_version(NULL);
 	exit(0);
     }
 
-    argc -= optidx;
-    argv += optidx;
-
-    /*
-     * MIT compat: Allow user to specify on credential cache on the
-     * command line as an alternative to -c
-     */
-    if (argc == 1 && cred_cache == NULL) {
-	cred_cache = argv[0];
-	argc--;
-    }
-
-    if (argc != 0)
-	usage (1);
-
-    ret = krb5_init_context (&context);
-    if (ret)
-	errx (1, "krb5_init_context failed: %d", ret);
-
-
-    if (do_list_caches) {
-	exit_status = list_caches(context);
+    if (opt->list_all_flag) {
+	exit_status = list_caches(kcc_context);
 	return exit_status;
     }
 
-    if (do_v5) {
+    if (opt->v5_flag) {
 	krb5_ccache id;
 
-	if (do_all_content) {
-	    krb5_cccol_cursor cursor;
+	if (opt->all_content_flag) {
+	    krb5_cc_cache_cursor cursor;
 
-	    ret = krb5_cccol_cursor_new(context, &cursor);
+	    ret = krb5_cc_cache_get_first(kcc_context, NULL, &cursor);
 	    if (ret)
-		krb5_err(context, 1, ret, "krb5_cccol_cursor_new");
+		krb5_err(kcc_context, 1, ret, "krb5_cc_cache_get_first");
 
 
-	    while (krb5_cccol_cursor_next(context, cursor, &id) == 0) {
-		exit_status |= display_v5_ccache(context, id, do_test,
-						 do_verbose, do_flags,
-						 do_hidden);
+	    while (krb5_cc_cache_next(kcc_context, cursor, &id) == 0) {
+		exit_status |= display_v5_ccache(kcc_context, id, do_test,
+						 do_verbose, opt->flags_flag,
+						 opt->hidden_flag);
 		printf("\n\n");
 	    }
-	    krb5_cccol_cursor_free(context, &cursor);
+	    krb5_cc_cache_end_seq_get(kcc_context, cursor);
 
 	} else {
-	    if(cred_cache) {
-		ret = krb5_cc_resolve(context, cred_cache, &id);
+	    if(opt->cache_string) {
+		ret = krb5_cc_resolve(kcc_context, opt->cache_string, &id);
 		if (ret)
-		    krb5_err (context, 1, ret, "%s", cred_cache);
+		    krb5_err(kcc_context, 1, ret, "%s", opt->cache_string);
 	    } else {
-		ret = krb5_cc_default (context, &id);
+		ret = krb5_cc_default(kcc_context, &id);
 		if (ret)
-		    krb5_err (context, 1, ret, "krb5_cc_resolve");
+		    krb5_err(kcc_context, 1, ret, "krb5_cc_resolve");
 	    }
-	    exit_status = display_v5_ccache(context, id, do_test,
-					    do_verbose, do_flags,
-					    do_hidden);
+	    exit_status = display_v5_ccache(kcc_context, id, do_test,
+					    do_verbose, opt->flags_flag,
+					    opt->hidden_flag);
 	}
     }
 
     if (!do_test) {
 #ifndef NO_AFS
-	if (do_tokens && k_hasafs ()) {
-	    if (do_v5)
-		printf ("\n");
-	    display_tokens (do_verbose);
+	if (opt->tokens_flag && k_hasafs()) {
+	    if (opt->v5_flag)
+		printf("\n");
+	    display_tokens(opt->verbose_flag);
 	}
 #endif
     }
-
-    krb5_free_context(context);
 
     return exit_status;
 }

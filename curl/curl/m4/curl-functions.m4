@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
 #***************************************************************************
 
 # File version for 'aclocal' use. Keep it a single number.
-# serial 65
+# serial 68
 
 
 dnl CURL_INCLUDES_ARPA_INET
@@ -2311,6 +2311,99 @@ AC_DEFUN([CURL_CHECK_FUNC_GETHOSTBYADDR], [
   else
     AC_MSG_RESULT([no])
     ac_cv_func_gethostbyaddr="no"
+  fi
+])
+
+dnl CURL_CHECK_FUNC_GAI_STRERROR
+dnl -------------------------------------------------
+dnl Verify if gai_strerror is available, prototyped,
+dnl and can be compiled. If all of these are true,
+dnl and usage has not been previously disallowed with
+dnl shell variable curl_disallow_gai_strerror, then
+dnl HAVE_GAI_STRERROR will be defined.
+
+AC_DEFUN([CURL_CHECK_FUNC_GAI_STRERROR], [
+  AC_REQUIRE([CURL_INCLUDES_WINSOCK2])dnl
+  AC_REQUIRE([CURL_INCLUDES_NETDB])dnl
+  #
+  tst_links_gai_strerror="unknown"
+  tst_proto_gai_strerror="unknown"
+  tst_compi_gai_strerror="unknown"
+  tst_allow_gai_strerror="unknown"
+  #
+  AC_MSG_CHECKING([if gai_strerror can be linked])
+  AC_LINK_IFELSE([
+    AC_LANG_PROGRAM([[
+      $curl_includes_winsock2
+      $curl_includes_netdb
+    ]],[[
+      if(0 != gai_strerror(0))
+        return 1;
+    ]])
+  ],[
+    AC_MSG_RESULT([yes])
+    tst_links_gai_strerror="yes"
+  ],[
+    AC_MSG_RESULT([no])
+    tst_links_gai_strerror="no"
+  ])
+  #
+  if test "$tst_links_gai_strerror" = "yes"; then
+    AC_MSG_CHECKING([if gai_strerror is prototyped])
+    AC_EGREP_CPP([gai_strerror],[
+      $curl_includes_winsock2
+      $curl_includes_netdb
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_proto_gai_strerror="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_proto_gai_strerror="no"
+    ])
+  fi
+  #
+  if test "$tst_proto_gai_strerror" = "yes"; then
+    AC_MSG_CHECKING([if gai_strerror is compilable])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([[
+        $curl_includes_winsock2
+        $curl_includes_netdb
+      ]],[[
+        if(0 != gai_strerror(0))
+          return 1;
+      ]])
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_compi_gai_strerror="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_compi_gai_strerror="no"
+    ])
+  fi
+  #
+  if test "$tst_compi_gai_strerror" = "yes"; then
+    AC_MSG_CHECKING([if gai_strerror usage allowed])
+    if test "x$curl_disallow_gai_strerror" != "xyes"; then
+      AC_MSG_RESULT([yes])
+      tst_allow_gai_strerror="yes"
+    else
+      AC_MSG_RESULT([no])
+      tst_allow_gai_strerror="no"
+    fi
+  fi
+  #
+  AC_MSG_CHECKING([if gai_strerror might be used])
+  if test "$tst_links_gai_strerror" = "yes" &&
+     test "$tst_proto_gai_strerror" = "yes" &&
+     test "$tst_compi_gai_strerror" = "yes" &&
+     test "$tst_allow_gai_strerror" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AC_DEFINE_UNQUOTED(HAVE_GAI_STRERROR, 1,
+      [Define to 1 if you have the gai_strerror function.])
+    ac_cv_func_gai_strerror="yes"
+  else
+    AC_MSG_RESULT([no])
+    ac_cv_func_gai_strerror="no"
   fi
 ])
 
@@ -5527,6 +5620,95 @@ AC_DEFUN([CURL_CHECK_FUNC_SOCKET], [
   else
     AC_MSG_RESULT([no])
     ac_cv_func_socket="no"
+  fi
+])
+
+
+dnl CURL_CHECK_FUNC_SOCKETPAIR
+dnl -------------------------------------------------
+dnl Verify if socketpair is available, prototyped, and
+dnl can be compiled. If all of these are true, and
+dnl usage has not been previously disallowed with
+dnl shell variable curl_disallow_socketpair, then
+dnl HAVE_SOCKETPAIR will be defined.
+
+AC_DEFUN([CURL_CHECK_FUNC_SOCKETPAIR], [
+  AC_REQUIRE([CURL_INCLUDES_SYS_SOCKET])dnl
+  AC_REQUIRE([CURL_INCLUDES_SOCKET])dnl
+  #
+  tst_links_socketpair="unknown"
+  tst_proto_socketpair="unknown"
+  tst_compi_socketpair="unknown"
+  tst_allow_socketpair="unknown"
+  #
+  AC_MSG_CHECKING([if socketpair can be linked])
+  AC_LINK_IFELSE([
+    AC_LANG_FUNC_LINK_TRY([socketpair])
+  ],[
+    AC_MSG_RESULT([yes])
+    tst_links_socketpair="yes"
+  ],[
+    AC_MSG_RESULT([no])
+    tst_links_socketpair="no"
+  ])
+  #
+  if test "$tst_links_socketpair" = "yes"; then
+    AC_MSG_CHECKING([if socketpair is prototyped])
+    AC_EGREP_CPP([socketpair],[
+      $curl_includes_sys_socket
+      $curl_includes_socket
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_proto_socketpair="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_proto_socketpair="no"
+    ])
+  fi
+  #
+  if test "$tst_proto_socketpair" = "yes"; then
+    AC_MSG_CHECKING([if socketpair is compilable])
+    AC_COMPILE_IFELSE([
+      AC_LANG_PROGRAM([[
+        $curl_includes_sys_socket
+        $curl_includes_socket
+      ]],[[
+        int sv[2];
+        if(0 != socketpair(0, 0, 0, sv))
+          return 1;
+      ]])
+    ],[
+      AC_MSG_RESULT([yes])
+      tst_compi_socketpair="yes"
+    ],[
+      AC_MSG_RESULT([no])
+      tst_compi_socketpair="no"
+    ])
+  fi
+  #
+  if test "$tst_compi_socketpair" = "yes"; then
+    AC_MSG_CHECKING([if socketpair usage allowed])
+    if test "x$curl_disallow_socketpair" != "xyes"; then
+      AC_MSG_RESULT([yes])
+      tst_allow_socketpair="yes"
+    else
+      AC_MSG_RESULT([no])
+      tst_allow_socketpair="no"
+    fi
+  fi
+  #
+  AC_MSG_CHECKING([if socketpair might be used])
+  if test "$tst_links_socketpair" = "yes" &&
+     test "$tst_proto_socketpair" = "yes" &&
+     test "$tst_compi_socketpair" = "yes" &&
+     test "$tst_allow_socketpair" = "yes"; then
+    AC_MSG_RESULT([yes])
+    AC_DEFINE_UNQUOTED(HAVE_SOCKETPAIR, 1,
+      [Define to 1 if you have the socketpair function.])
+    ac_cv_func_socketpair="yes"
+  else
+    AC_MSG_RESULT([no])
+    ac_cv_func_socketpair="no"
   fi
 ])
 

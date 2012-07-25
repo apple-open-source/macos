@@ -48,34 +48,7 @@
  * $FreeBSD: src/lib/libc/i386/_fpmath.h,v 1.3 2004/01/18 07:57:01 das Exp $
  */
 
-#if defined(__ppc__) || defined(__ppc64__)
-
-union IEEEl2bits {
-	long double	e;
-	double		d[2];
-	struct {
-		unsigned long long	sign	:1;
-		unsigned long long	exp	:11;
-		unsigned long long	manh	:52;
-		unsigned long long	sign2	:1;
-		unsigned long long	exp2	:11;
-		unsigned long long	manl	:52;
-	} bits;
-};
-
-#define	mask_nbit_l(u)	((void)0)
-#define LDBL_IMPLICIT_NBIT
-
-#define	LDBL_MANH_SIZE	52
-#define	LDBL_MANL_SIZE	53	// includes hidden bit
-
-#define LDBL_HEAD_TAIL_PAIR
-
-__private_extern__ int _ldbl2array32dd(union IEEEl2bits, uint32_t *);
-
-#define	LDBL_TO_ARRAY32(u, a) _ldbl2array32dd(u, a)
-
-#elif defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 
 union IEEEl2bits {
 	long double	e;
@@ -97,7 +70,7 @@ union IEEEl2bits {
 	(a)[0] = (uint32_t)(u).bits.manl;		\
 	(a)[1] = (uint32_t)(u).bits.manh;		\
 } while(0)
-#elif defined(__arm__)
+#elif defined(__arm__) 
 
 union IEEEl2bits {
     long double     e;

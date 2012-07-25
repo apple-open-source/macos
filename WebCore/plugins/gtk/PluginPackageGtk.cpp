@@ -58,12 +58,12 @@ bool PluginPackage::fetchInfo()
     char* buffer = 0;
     NPError err = NPP_GetValue(0, NPPVpluginNameString, &buffer);
     if (err == NPERR_NO_ERROR)
-        m_name = buffer;
+        m_name = String::fromUTF8(buffer);
 
     buffer = 0;
     err = NPP_GetValue(0, NPPVpluginDescriptionString, &buffer);
     if (err == NPERR_NO_ERROR) {
-        m_description = buffer;
+        m_description = String::fromUTF8(buffer);
         determineModuleVersionFromDescription();
     }
 
@@ -119,17 +119,6 @@ static int webkitgtkXError(Display* xdisplay, XErrorEvent* error)
 }
 #endif
 
-static bool moduleMixesGtkSymbols(GModule* module)
-{
-    gpointer symbol;
-#ifdef GTK_API_VERSION_2
-    return g_module_symbol(module, "gtk_application_get_type", &symbol);
-#else
-    return g_module_symbol(module, "gtk_object_get_type", &symbol);
-#endif
-}
-
-
 bool PluginPackage::load()
 {
     if (m_isLoaded) {
@@ -158,12 +147,6 @@ bool PluginPackage::load()
 
     if (!m_module) {
         LOG(Plugins,"Module Load Failed :%s, Error:%s\n", (m_path.utf8()).data(), g_module_error());
-        return false;
-    }
-
-    if (moduleMixesGtkSymbols(m_module)) {
-        LOG(Plugins, "Module '%s' mixes GTK+ 2 and GTK+ 3 symbols, ignoring plugin.\n", m_path.utf8().data());
-        g_module_close(m_module);
         return false;
     }
 

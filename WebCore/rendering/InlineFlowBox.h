@@ -46,6 +46,9 @@ public:
         , m_includeLogicalLeftEdge(false)
         , m_includeLogicalRightEdge(false)
         , m_descendantsHaveSameLineHeightAndBaseline(true)
+        , m_baselineType(AlphabeticBaseline)
+        , m_hasAnnotationsBefore(false)
+        , m_hasAnnotationsAfter(false)
 #ifndef NDEBUG
         , m_hasBadChildList(false)
 #endif
@@ -85,7 +88,7 @@ public:
     virtual void setConstructed()
     {
         InlineBox::setConstructed();
-        for (InlineBox* child = firstChild(); child; child = child->next())
+        for (InlineBox* child = firstChild(); child; child = child->nextOnLine())
             child->setConstructed();
     }
 
@@ -103,26 +106,28 @@ public:
 
     IntRect roundedFrameRect() const;
     
-    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void paintMask(PaintInfo&, int tx, int ty);
-    void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, const IntRect&, CompositeOperator = CompositeSourceOver);
-    void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, const IntRect&, CompositeOperator = CompositeSourceOver);
-    void paintBoxShadow(GraphicsContext*, RenderStyle*, ShadowStyle, const IntRect&);
-    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
+    virtual void paintBoxDecorations(PaintInfo&, const LayoutPoint&);
+    virtual void paintMask(PaintInfo&, const LayoutPoint&);
+    void paintFillLayers(const PaintInfo&, const Color&, const FillLayer*, const LayoutRect&, CompositeOperator = CompositeSourceOver);
+    void paintFillLayer(const PaintInfo&, const Color&, const FillLayer*, const LayoutRect&, CompositeOperator = CompositeSourceOver);
+    void paintBoxShadow(const PaintInfo&, RenderStyle*, ShadowStyle, const LayoutRect&);
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom);
+
+    bool boxShadowCanBeAppliedToBackground(const FillLayer&) const;
 
     virtual RenderLineBoxList* rendererLineBoxes() const;
 
     // logicalLeft = left in a horizontal line and top in a vertical line.
-    int marginBorderPaddingLogicalLeft() const { return marginLogicalLeft() + borderLogicalLeft() + paddingLogicalLeft(); }
-    int marginBorderPaddingLogicalRight() const { return marginLogicalRight() + borderLogicalRight() + paddingLogicalRight(); }
-    int marginLogicalLeft() const
+    LayoutUnit marginBorderPaddingLogicalLeft() const { return marginLogicalLeft() + borderLogicalLeft() + paddingLogicalLeft(); }
+    LayoutUnit marginBorderPaddingLogicalRight() const { return marginLogicalRight() + borderLogicalRight() + paddingLogicalRight(); }
+    LayoutUnit marginLogicalLeft() const
     {
         if (!includeLogicalLeftEdge())
             return 0;
         return isHorizontal() ? boxModelObject()->marginLeft() : boxModelObject()->marginTop();
     }
-    int marginLogicalRight() const
+    LayoutUnit marginLogicalRight() const
     {
         if (!includeLogicalRightEdge())
             return 0;
@@ -132,13 +137,13 @@ public:
     {
         if (!includeLogicalLeftEdge())
             return 0;
-        return isHorizontal() ? renderer()->style()->borderLeftWidth() : renderer()->style()->borderTopWidth();
+        return isHorizontal() ? renderer()->style(isFirstLineStyle())->borderLeftWidth() : renderer()->style(isFirstLineStyle())->borderTopWidth();
     }
     int borderLogicalRight() const
     {
         if (!includeLogicalRightEdge())
             return 0;
-        return isHorizontal() ? renderer()->style()->borderRightWidth() : renderer()->style()->borderBottomWidth();
+        return isHorizontal() ? renderer()->style(isFirstLineStyle())->borderRightWidth() : renderer()->style(isFirstLineStyle())->borderBottomWidth();
     }
     int paddingLogicalLeft() const
     {
@@ -163,22 +168,22 @@ public:
 
     // Helper functions used during line construction and placement.
     void determineSpacingForFlowBoxes(bool lastLine, bool isLogicallyLastRunWrapped, RenderObject* logicallyLastRunRenderer);
-    int getFlowSpacingLogicalWidth();
+    LayoutUnit getFlowSpacingLogicalWidth();
     float placeBoxesInInlineDirection(float logicalLeft, bool& needsWordSpacing, GlyphOverflowAndFallbackFontsMap&);
-    void computeLogicalBoxHeights(RootInlineBox*, int& maxPositionTop, int& maxPositionBottom,
-                                  int& maxAscent, int& maxDescent, bool& setMaxAscent, bool& setMaxDescent,
+    void computeLogicalBoxHeights(RootInlineBox*, LayoutUnit& maxPositionTop, LayoutUnit& maxPositionBottom,
+                                  LayoutUnit& maxAscent, LayoutUnit& maxDescent, bool& setMaxAscent, bool& setMaxDescent,
                                   bool strictMode, GlyphOverflowAndFallbackFontsMap&, FontBaseline, VerticalPositionCache&);
-    void adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
-                                   int maxPositionTop, int maxPositionBottom);
-    void placeBoxesInBlockDirection(int logicalTop, int maxHeight, int maxAscent, bool strictMode, int& lineTop, int& lineBottom, bool& setLineTop,
-                                    int& lineTopIncludingMargins, int& lineBottomIncludingMargins, bool& hasAnnotationsBefore, bool& hasAnnotationsAfter, FontBaseline);
-    void flipLinesInBlockDirection(int lineTop, int lineBottom);
+    void adjustMaxAscentAndDescent(LayoutUnit& maxAscent, LayoutUnit& maxDescent,
+                                   LayoutUnit maxPositionTop, LayoutUnit maxPositionBottom);
+    void placeBoxesInBlockDirection(LayoutUnit logicalTop, LayoutUnit maxHeight, LayoutUnit maxAscent, bool strictMode, LayoutUnit& lineTop, LayoutUnit& lineBottom, bool& setLineTop,
+                                    LayoutUnit& lineTopIncludingMargins, LayoutUnit& lineBottomIncludingMargins, bool& hasAnnotationsBefore, bool& hasAnnotationsAfter, FontBaseline);
+    void flipLinesInBlockDirection(LayoutUnit lineTop, LayoutUnit lineBottom);
     bool requiresIdeographicBaseline(const GlyphOverflowAndFallbackFontsMap&) const;
 
-    int computeOverAnnotationAdjustment(int allowedPosition) const;
-    int computeUnderAnnotationAdjustment(int allowedPosition) const;
+    LayoutUnit computeOverAnnotationAdjustment(LayoutUnit allowedPosition) const;
+    LayoutUnit computeUnderAnnotationAdjustment(LayoutUnit allowedPosition) const;
 
-    void computeOverflow(int lineTop, int lineBottom, GlyphOverflowAndFallbackFontsMap&);
+    void computeOverflow(LayoutUnit lineTop, LayoutUnit lineBottom, GlyphOverflowAndFallbackFontsMap&);
     
     void removeChild(InlineBox* child);
 
@@ -189,77 +194,79 @@ public:
 
     bool hasTextChildren() const { return m_hasTextChildren; }
     bool hasTextDescendants() const { return m_hasTextDescendants; }
-
+    void setHasTextChildren() { m_hasTextChildren = true; setHasTextDescendants(); }
+    void setHasTextDescendants() { m_hasTextDescendants = true; }
+    
     void checkConsistency() const;
     void setHasBadChildList();
 
     // Line visual and layout overflow are in the coordinate space of the block.  This means that they aren't purely physical directions.
     // For horizontal-tb and vertical-lr they will match physical directions, but for horizontal-bt and vertical-rl, the top/bottom and left/right
     // respectively are flipped when compared to their physical counterparts.  For example minX is on the left in vertical-lr, but it is on the right in vertical-rl.
-    IntRect layoutOverflowRect(int lineTop, int lineBottom) const
+    LayoutRect layoutOverflowRect(LayoutUnit lineTop, LayoutUnit lineBottom) const
     { 
-        return m_overflow ? m_overflow->layoutOverflowRect() : enclosingIntRect(frameRectIncludingLineHeight(lineTop, lineBottom));
+        return m_overflow ? m_overflow->layoutOverflowRect() : enclosingLayoutRect(frameRectIncludingLineHeight(lineTop, lineBottom));
     }
-    int logicalLeftLayoutOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->minXLayoutOverflow() : m_overflow->minYLayoutOverflow()) : logicalLeft(); }
-    int logicalRightLayoutOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->maxXLayoutOverflow() : m_overflow->maxYLayoutOverflow()) : ceilf(logicalRight()); }
-    int logicalTopLayoutOverflow(int lineTop) const
+    LayoutUnit logicalLeftLayoutOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->minXLayoutOverflow() : m_overflow->minYLayoutOverflow()) : static_cast<LayoutUnit>(logicalLeft()); }
+    LayoutUnit logicalRightLayoutOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->maxXLayoutOverflow() : m_overflow->maxYLayoutOverflow()) : static_cast<LayoutUnit>(ceilf(logicalRight())); }
+    LayoutUnit logicalTopLayoutOverflow(LayoutUnit lineTop) const
     {
         if (m_overflow)
             return isHorizontal() ? m_overflow->minYLayoutOverflow() : m_overflow->minXLayoutOverflow();
         return lineTop;
     }
-    int logicalBottomLayoutOverflow(int lineBottom) const
+    LayoutUnit logicalBottomLayoutOverflow(LayoutUnit lineBottom) const
     {
         if (m_overflow)
             return isHorizontal() ? m_overflow->maxYLayoutOverflow() : m_overflow->maxXLayoutOverflow();
         return lineBottom;
     }
-    IntRect logicalLayoutOverflowRect(int lineTop, int lineBottom) const
+    LayoutRect logicalLayoutOverflowRect(LayoutUnit lineTop, LayoutUnit lineBottom) const
     {
-        IntRect result = layoutOverflowRect(lineTop, lineBottom);
+        LayoutRect result = layoutOverflowRect(lineTop, lineBottom);
         if (!renderer()->isHorizontalWritingMode())
             result = result.transposedRect();
         return result;
     }
 
-    IntRect visualOverflowRect(int lineTop, int lineBottom) const
+    LayoutRect visualOverflowRect(LayoutUnit lineTop, LayoutUnit lineBottom) const
     { 
-        return m_overflow ? m_overflow->visualOverflowRect() : enclosingIntRect(frameRectIncludingLineHeight(lineTop, lineBottom));
+        return m_overflow ? m_overflow->visualOverflowRect() : enclosingLayoutRect(frameRectIncludingLineHeight(lineTop, lineBottom));
     }
-    int logicalLeftVisualOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->minXVisualOverflow() : m_overflow->minYVisualOverflow()) : logicalLeft(); }
-    int logicalRightVisualOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->maxXVisualOverflow() : m_overflow->maxYVisualOverflow()) : ceilf(logicalRight()); }
-    int logicalTopVisualOverflow(int lineTop) const
+    LayoutUnit logicalLeftVisualOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->minXVisualOverflow() : m_overflow->minYVisualOverflow()) : static_cast<LayoutUnit>(logicalLeft()); }
+    LayoutUnit logicalRightVisualOverflow() const { return m_overflow ? (isHorizontal() ? m_overflow->maxXVisualOverflow() : m_overflow->maxYVisualOverflow()) : static_cast<LayoutUnit>(ceilf(logicalRight())); }
+    LayoutUnit logicalTopVisualOverflow(LayoutUnit lineTop) const
     {
         if (m_overflow)
             return isHorizontal() ? m_overflow->minYVisualOverflow() : m_overflow->minXVisualOverflow();
         return lineTop;
     }
-    int logicalBottomVisualOverflow(int lineBottom) const
+    LayoutUnit logicalBottomVisualOverflow(LayoutUnit lineBottom) const
     {
         if (m_overflow)
             return isHorizontal() ? m_overflow->maxYVisualOverflow() : m_overflow->maxXVisualOverflow();
         return lineBottom;
     }
-    IntRect logicalVisualOverflowRect(int lineTop, int lineBottom) const
+    LayoutRect logicalVisualOverflowRect(LayoutUnit lineTop, LayoutUnit lineBottom) const
     {
-        IntRect result = visualOverflowRect(lineTop, lineBottom);
+        LayoutRect result = visualOverflowRect(lineTop, lineBottom);
         if (!renderer()->isHorizontalWritingMode())
             result = result.transposedRect();
         return result;
     }
 
-    void setOverflowFromLogicalRects(const IntRect& logicalLayoutOverflow, const IntRect& logicalVisualOverflow, int lineTop, int lineBottom);
-    void setLayoutOverflow(const IntRect&, int lineTop, int lineBottom);
-    void setVisualOverflow(const IntRect&, int lineTop, int lineBottom);
+    void setOverflowFromLogicalRects(const LayoutRect& logicalLayoutOverflow, const LayoutRect& logicalVisualOverflow, LayoutUnit lineTop, LayoutUnit lineBottom);
+    void setLayoutOverflow(const LayoutRect&, LayoutUnit lineTop, LayoutUnit lineBottom);
+    void setVisualOverflow(const LayoutRect&, LayoutUnit lineTop, LayoutUnit lineBottom);
 
-    FloatRect frameRectIncludingLineHeight(int lineTop, int lineBottom) const
+    FloatRect frameRectIncludingLineHeight(LayoutUnit lineTop, LayoutUnit lineBottom) const
     {
         if (isHorizontal())
-            return FloatRect(m_x, lineTop, width(), lineBottom - lineTop);
-        return FloatRect(lineTop, m_y, lineBottom - lineTop, height());
+            return FloatRect(m_topLeft.x(), lineTop, width(), lineBottom - lineTop);
+        return FloatRect(lineTop, m_topLeft.y(), lineBottom - lineTop, height());
     }
     
-    FloatRect logicalFrameRectIncludingLineHeight(int lineTop, int lineBottom) const
+    FloatRect logicalFrameRectIncludingLineHeight(LayoutUnit lineTop, LayoutUnit lineBottom) const
     {
         return FloatRect(logicalLeft(), lineTop, logicalWidth(), lineBottom - lineTop);
     }
@@ -273,10 +280,11 @@ public:
     }
 
 private:
-    void addBoxShadowVisualOverflow(IntRect& logicalVisualOverflow);
-    void addBorderOutsetVisualOverflow(IntRect& logicalVisualOverflow);
-    void addTextBoxVisualOverflow(InlineTextBox*, GlyphOverflowAndFallbackFontsMap&, IntRect& logicalVisualOverflow);
-    void addReplacedChildOverflow(const InlineBox*, IntRect& logicalLayoutOverflow, IntRect& logicalVisualOverflow);
+    void addBoxShadowVisualOverflow(LayoutRect& logicalVisualOverflow);
+    void addBorderOutsetVisualOverflow(LayoutRect& logicalVisualOverflow);
+    void addTextBoxVisualOverflow(InlineTextBox*, GlyphOverflowAndFallbackFontsMap&, LayoutRect& logicalVisualOverflow);
+    void addReplacedChildOverflow(const InlineBox*, LayoutRect& logicalLayoutOverflow, LayoutRect& logicalVisualOverflow);
+    void constrainToLineTopAndBottomIfNeeded(LayoutRect&) const;
 
 protected:
     OwnPtr<RenderOverflow> m_overflow;
@@ -289,16 +297,49 @@ protected:
     InlineFlowBox* m_prevLineBox; // The previous box that also uses our RenderObject
     InlineFlowBox* m_nextLineBox; // The next box that also uses our RenderObject
 
-    bool m_includeLogicalLeftEdge : 1;
-    bool m_includeLogicalRightEdge : 1;
-    bool m_hasTextChildren : 1;
-    bool m_hasTextDescendants : 1;
-    bool m_descendantsHaveSameLineHeightAndBaseline : 1;
+private:
+    unsigned m_includeLogicalLeftEdge : 1;
+    unsigned m_includeLogicalRightEdge : 1;
+    unsigned m_hasTextChildren : 1;
+    unsigned m_hasTextDescendants : 1;
+    unsigned m_descendantsHaveSameLineHeightAndBaseline : 1;
+
+protected:
+    // The following members are only used by RootInlineBox but moved here to keep the bits packed.
+
+    // Whether or not this line uses alphabetic or ideographic baselines by default.
+    unsigned m_baselineType : 1; // FontBaseline
+
+    // If the line contains any ruby runs, then this will be true.
+    unsigned m_hasAnnotationsBefore : 1;
+    unsigned m_hasAnnotationsAfter : 1;
+
+    unsigned m_lineBreakBidiStatusEor : 5; // WTF::Unicode::Direction
+    unsigned m_lineBreakBidiStatusLastStrong : 5; // WTF::Unicode::Direction
+    unsigned m_lineBreakBidiStatusLast : 5; // WTF::Unicode::Direction
+
+    // End of RootInlineBox-specific members.
 
 #ifndef NDEBUG
-    bool m_hasBadChildList;
+private:
+    unsigned m_hasBadChildList : 1;
 #endif
 };
+
+inline InlineFlowBox* toInlineFlowBox(InlineBox* object)
+{
+    ASSERT(!object || object->isInlineFlowBox());
+    return static_cast<InlineFlowBox*>(object);
+}
+
+inline const InlineFlowBox* toInlineFlowBox(const InlineBox* object)
+{
+    ASSERT(!object || object->isInlineFlowBox());
+    return static_cast<const InlineFlowBox*>(object);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toInlineFlowBox(const InlineFlowBox*);
 
 #ifdef NDEBUG
 inline void InlineFlowBox::checkConsistency() const

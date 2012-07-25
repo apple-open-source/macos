@@ -1,4 +1,4 @@
-<!--* $Id: dict.dtd,v 1.1 2001/03/29 08:28:29 veillard Exp $
+<!--* $Id$
     *-->
 <!--* &c; expands to "&c." *-->
 <!ENTITY c "&#38;#38;c.">

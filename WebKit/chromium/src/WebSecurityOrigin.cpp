@@ -33,8 +33,8 @@
 
 #include "KURL.h"
 #include "SecurityOrigin.h"
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 #include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
@@ -90,10 +90,10 @@ unsigned short WebSecurityOrigin::port() const
     return m_private->port();
 }
 
-bool WebSecurityOrigin::isEmpty() const
+bool WebSecurityOrigin::isUnique() const
 {
     ASSERT(m_private);
-    return m_private->isEmpty();
+    return m_private->isUnique();
 }
 
 bool WebSecurityOrigin::canAccess(const WebSecurityOrigin& other) const
@@ -128,13 +128,13 @@ bool WebSecurityOrigin::canAccessPasswordManager() const
 }
 
 WebSecurityOrigin::WebSecurityOrigin(const WTF::PassRefPtr<WebCore::SecurityOrigin>& origin)
-    : m_private(static_cast<WebSecurityOriginPrivate*>(origin.releaseRef()))
+    : m_private(static_cast<WebSecurityOriginPrivate*>(origin.leakRef()))
 {
 }
 
 WebSecurityOrigin& WebSecurityOrigin::operator=(const WTF::PassRefPtr<WebCore::SecurityOrigin>& origin)
 {
-    assign(static_cast<WebSecurityOriginPrivate*>(origin.releaseRef()));
+    assign(static_cast<WebSecurityOriginPrivate*>(origin.leakRef()));
     return *this;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,7 +62,10 @@
 #define VERIFY_STATUS_EXCEEDED_QUOTA 2
 
 extern void disaster_message(aslmsg m);
+extern int asl_action_reset(void);
+
 static char myname[MAXHOSTNAMELEN + 1] = {0};
+static int name_change_token = -1;
 
 static OSSpinLock count_lock = 0;
 
@@ -74,11 +77,23 @@ static vproc_transaction_t vproc_trans = {0};
 #define QUOTA_TABLE_SLOTS 8
 
 #define QUOTA_EXCEEDED_MESSAGE "*** process %d exceeded %d log message per second limit  -  remaining messages this second discarded ***"
+#define QUOTA_KERN_EXCEEDED_MESSAGE "*** kernel exceeded %d log message per second limit  -  remaining messages this second discarded ***"
 #define QUOTA_EXCEEDED_LEVEL "3"
+
+#define DEFAULT_DB_FILE_MAX 25600000
+#define DEFAULT_DB_MEMORY_MAX 8192
+#define DEFAULT_DB_MINI_MAX 256
+#define DEFAULT_MPS_LIMIT 500
+#define DEFAULT_REMOTE_DELAY 5000
+#define DEFAULT_BSD_MAX_DUP_SEC 30
+#define DEFAULT_MARK_SEC 0
+#define DEFAULT_UTMP_TTL_SEC 31622400
 
 static time_t quota_table_time = 0;
 static pid_t quota_table_pid[QUOTA_TABLE_SIZE];
 static int32_t quota_table_quota[QUOTA_TABLE_SIZE];
+static int32_t kern_quota;
+static int32_t kern_level;
 
 static const char *kern_notify_key[] = 
 {
@@ -92,23 +107,7 @@ static const char *kern_notify_key[] =
 	"com.apple.system.log.kernel.debug"
 };
 
-struct asloutput
-{
-	aslsendmsgfn sendmsg;
-	const char *outid;
-	TAILQ_ENTRY(asloutput) entries;
-};
-
-struct aslmatch
-{
-	char *outid;
-	asl_msg_t *query;
-	TAILQ_ENTRY(aslmatch) entries;
-};
-
-TAILQ_HEAD(ae, aslevent) Eventq;
-TAILQ_HEAD(ao, asloutput) Outq;
-TAILQ_HEAD(am, aslmatch) Matchq;
+static int kern_notify_token[8] = {-1, -1, -1, -1, -1, -1, -1, -1 };
 
 static char **
 _insertString(char *s, char **l, uint32_t x)
@@ -231,20 +230,45 @@ freeList(char **l)
  */
  
 static uint32_t
-quota_check(pid_t pid, time_t now, aslmsg msg)
+quota_check(pid_t pid, time_t now, aslmsg msg, uint32_t level)
 {
 	int i, x, maxx, max;
-	char *str;
+	char *str, lstr[2];
 
 	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
 	if (global.mps_limit == 0) return VERIFY_STATUS_OK;
 
-	OSSpinLockLock(&global.lock);
-
 	if (quota_table_time != now)
 	{
 		memset(quota_table_pid, 0, sizeof(quota_table_pid));
+		kern_quota = global.mps_limit;
+		kern_level = 7;
 		quota_table_time = now;
+	}
+
+	/* kernel gets it's own quota */
+	if (pid == 0)
+	{
+		if (level < kern_level) kern_level = level;
+		if (kern_quota > 0) kern_quota--;
+
+		if (kern_quota > 0) return VERIFY_STATUS_OK;
+		if (kern_quota < 0)	return VERIFY_STATUS_EXCEEDED_QUOTA;
+
+		kern_quota = -1;
+
+		str = NULL;
+		asprintf(&str, QUOTA_KERN_EXCEEDED_MESSAGE, global.mps_limit);
+		if (str != NULL)
+		{
+			asl_set(msg, ASL_KEY_MSG, str);
+			free(str);
+			lstr[0] = kern_level + '0';
+			lstr[1] = 0;
+			asl_set(msg, ASL_KEY_LEVEL, lstr);
+		}
+
+		return VERIFY_STATUS_OK;
 	}
 
 	/* hash is last 10 bits of the pid, shifted up 3 bits to allow 8 slots per bucket */
@@ -259,7 +283,6 @@ quota_check(pid_t pid, time_t now, aslmsg msg)
 			quota_table_pid[x] = pid;
 			quota_table_quota[x] = global.mps_limit;
 
-			OSSpinLockUnlock(&global.lock);
 			return VERIFY_STATUS_OK;
 		}
 
@@ -280,17 +303,14 @@ quota_check(pid_t pid, time_t now, aslmsg msg)
 					asl_set(msg, ASL_KEY_LEVEL, QUOTA_EXCEEDED_LEVEL);
 				}
 
-				OSSpinLockUnlock(&global.lock);
 				return VERIFY_STATUS_OK;
 			}
 
 			if (quota_table_quota[x] < 0)
 			{
-				OSSpinLockUnlock(&global.lock);
 				return VERIFY_STATUS_EXCEEDED_QUOTA;
 			}
 
-			OSSpinLockUnlock(&global.lock);
 			return VERIFY_STATUS_OK;
 		}
 
@@ -308,7 +328,6 @@ quota_check(pid_t pid, time_t now, aslmsg msg)
 	quota_table_pid[maxx] = pid;
 	quota_table_quota[maxx] = global.mps_limit;
 
-	OSSpinLockUnlock(&global.lock);
 	return VERIFY_STATUS_OK;
 }
 
@@ -344,152 +363,34 @@ asl_check_option(aslmsg msg, const char *opt)
 	return 0;
 }
 
-int
-aslevent_init(void)
-{
-	TAILQ_INIT(&Eventq);
-	TAILQ_INIT(&Outq);
-	TAILQ_INIT(&Matchq);
-
-	return 0;
-}
-
-int
-aslevent_log(aslmsg msg, char *outid)
-{
-	struct asloutput *i;
-	int status = -1;
-
-	for (i = Outq.tqh_first; i != NULL; i = i->entries.tqe_next)
-	{
-		if ((outid != NULL) && (strcmp(i->outid, outid) == 0))
-		{
-			status = i->sendmsg(msg, outid);
-			if (status < 0) break;
-		}
-	}
-
-	return status;
-}
-
-int
-aslevent_addmatch(asl_msg_t *query, char *outid)
-{
-	struct aslmatch *tmp;
-
-	if (query == NULL) return -1;
-	if (outid == NULL) return -1;
-
-	tmp = calloc(1, sizeof(struct aslmatch));
-	if (tmp == NULL) return -1;
-
-	tmp->query = query;
-	tmp->outid = outid;
-	TAILQ_INSERT_TAIL(&Matchq, tmp, entries);
-
-	return 0;
-}
-
-void
-asl_message_match_and_log(aslmsg msg)
-{
-	struct aslmatch *i;
-	int status = -1;
-
-	if (msg == NULL) return;
-
-	for (i = Matchq.tqh_first; i != NULL; i = i->entries.tqe_next)
-	{
-		if (asl_msg_cmp(i->query, (asl_msg_t *)msg) != 0)
-		{
-			status = aslevent_log(msg, i->outid);
-			if (status < 0) break;
-		}
-	}
-}
-
-int
-aslevent_removefd(int fd)
-{
-	struct aslevent *e, *next;
-
-	e = Eventq.tqh_first;
-
-	while (e != NULL)
-	{
-		next = e->entries.tqe_next;
-		if (fd == e->fd)
-		{
-			e->fd = -1;
-			return 0;
-		}
-
-		e = next;
-	}
-
-	return -1;
-}
-
-static const char *_source_name(int n)
-{
-	switch (n)
-	{
-		case SOURCE_INTERNAL: return "internal";
-		case SOURCE_ASL_SOCKET: return "ASL socket";
-		case SOURCE_BSD_SOCKET: return "BSD socket";
-		case SOURCE_UDP_SOCKET: return "UDP socket";
-		case SOURCE_KERN: return "kernel";
-		case SOURCE_ASL_MESSAGE: return "ASL message";
-		case SOURCE_LAUNCHD: return "launchd";
-		case SOURCE_SESSION: return "session";
-		default: return "unknown";
-	}
-
-	return "unknown";
-}
-
-void
-aslevent_check()
-{
-	struct aslevent *e, *next;
-	fd_set test;
-	struct timeval zero = {0};
-	int max;
-
-	e = Eventq.tqh_first;
-
-	while (e != NULL)
-	{
-		next = e->entries.tqe_next;
-		if (e->fd >= 0)
-		{
-			FD_ZERO(&test);
-			FD_SET(e->fd, &test);
-			max = e->fd + 1;
-
-			if (select(max, &test, NULL, NULL, &zero) < 0)
-			{
-				asldebug("aslevent_check: fd %d source %d (%s) errno %d\n", e->fd, e->source, _source_name(e->source), e->fd);
-			}
-		}
-
-		e = next;
-	}
-}
-
 const char *
 whatsmyhostname()
 {
+	static dispatch_once_t once;
 	char *dot;
+	int check, status;
+
+	dispatch_once(&once, ^{
+		snprintf(myname, sizeof(myname), "%s", "localhost");
+		notify_register_check(kNotifySCHostNameChange, &name_change_token);
+	});
+
+	check = 1;
+	status = 0;
+
+	if (name_change_token >= 0) status = notify_check(name_change_token, &check);
+
+	if ((status == 0) && (check == 0)) return (const char *)myname;
 
 	if (gethostname(myname, MAXHOSTNAMELEN) < 0)
 	{
-		memset(myname, 0, sizeof(myname));
-		return "localhost";
+		snprintf(myname, sizeof(myname), "%s", "localhost");
 	}
-
-	dot = strchr(myname, '.');
-	if (dot != NULL) *dot = '\0';
+	else
+	{
+		dot = strchr(myname, '.');
+		if (dot != NULL) *dot = '\0';
+	}
 
 	return (const char *)myname;
 }
@@ -526,111 +427,6 @@ asl_client_count_decrement()
 	OSSpinLockUnlock(&count_lock);
 }
 
-int
-aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwritefn writefn, aslexceptfn exceptfn)
-{
-	struct aslevent *e;
-	int found = 0, status;
-#ifdef LOCAL_PEERCRED
-	struct xucred cr;
-#endif
-	socklen_t len;
-	uid_t u;
-	gid_t g;
-	struct sockaddr_storage ss;
-	char *sender, str[256];
-
-	u = 99;
-	g = 99;
-	sender = NULL;
-
-	memset(&ss, 0, sizeof(struct sockaddr_storage));
-	memset(str, 0, sizeof(str));
-
-	len = sizeof(struct sockaddr_storage);
-
-	if (flags & ADDFD_FLAGS_LOCAL)
-	{
-		snprintf(str, sizeof(str), "localhost");
-		sender = str;
-
-#ifdef LOCAL_PEERCRED
-		len = sizeof(cr);
-
-		status = getsockopt(fd, LOCAL_PEERCRED, 1, &cr, &len);
-		if (status == 0)
-		{
-			u = cr.cr_uid;
-			g = cr.cr_gid;
-		}
-#endif
-	}
-	else
-	{
-		status = getpeername(fd, (struct sockaddr *)&ss, &len);
-		if (status == 0)
-		{
-			if (len == 0)
-			{
-				/* UNIX Domain socket */
-				snprintf(str, sizeof(str), "localhost");
-				sender = str;
-			}
-			else
-			{
-				if (inet_ntop(ss.ss_family, (struct sockaddr *)&ss, str, 256) == NULL) sender = str;
-			}
-		}
-	}
-
-	asldebug("source %d fd %d   flags 0x%08x UID %d   GID %d   Sender %s\n", source, fd, flags, u, g, (sender == NULL) ? "NULL" : sender );
-
-	for (e = Eventq.tqh_first; e != NULL; e = e->entries.tqe_next)
-	{
-		if (fd == e->fd)
-		{
-			e->readfn = readfn;
-			e->writefn = writefn;
-			e->exceptfn = exceptfn;
-			if (e->sender != NULL) free(e->sender);
-			e->sender = NULL;
-			if (sender != NULL)
-			{
-				e->sender = strdup(sender);
-				if (e->sender == NULL) return -1;
-			}
-
-			e->uid = u;
-			e->gid = g;
-			found = 1;
-		}
-	}
-
-	if (found) return 0;
-
-	e = calloc(1, sizeof(struct aslevent));
-	if (e == NULL) return -1;
-
-	e->source = source;
-	e->fd = fd;
-	e->readfn = readfn;
-	e->writefn = writefn;
-	e->exceptfn = exceptfn;
-	e->sender = NULL;
-	if (sender != NULL)
-	{
-		e->sender = strdup(sender);
-		if (e->sender == NULL) return -1;
-	}
-
-	e->uid = u;
-	e->gid = g;
-
-	TAILQ_INSERT_TAIL(&Eventq, e, entries);
-
-	return 0;
-}
-
 /*
  * Checks message content and sets attributes as required
  *
@@ -644,40 +440,20 @@ aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwritefn 
  */
 
 static uint32_t
-aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_post_level)
+aslmsg_verify(aslmsg msg, uint32_t source, int32_t *kern_post_level, uid_t *uid_out)
 {
 	const char *val, *fac, *ruval, *rgval;
 	char buf[64];
 	time_t tick, now;
 	uid_t uid;
+	gid_t gid;
 	uint32_t status, level, fnum;
 	pid_t pid;
 
 	if (msg == NULL) return VERIFY_STATUS_INVALID_MESSAGE;
 
 	if (kern_post_level != NULL) *kern_post_level = -1;
-
-	/* Time */
-	now = time(NULL);
-
-	tick = 0;
-	val = asl_get(msg, ASL_KEY_TIME);
-	if (val != NULL) tick = asl_parse_time(val);
-
-	/* Set time to now if it is unset or from the future (not allowed!) */
-	if ((tick == 0) || (tick > now)) tick = now;
-
-	/* Canonical form: seconds since the epoch */
-	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
-	asl_set(msg, ASL_KEY_TIME, buf);
-
-	/* Host */
-	if (e == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
-	else if (e->sender != NULL)
-	{
-		if (!strcmp(e->sender, "localhost")) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
-		else asl_set(msg, ASL_KEY_HOST, e->sender);
-	}
+	if (uid_out != NULL) *uid_out = -2;
 
 	/* PID */
 	pid = 0;
@@ -693,74 +469,63 @@ aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_pos
 		if (val != NULL) pid = (pid_t)atoi(val);
 	}
 
+	/* Time */
+	now = time(NULL);
+
+	/* Level */
+	val = asl_get(msg, ASL_KEY_LEVEL);
+	level = ASL_LEVEL_DEBUG;
+	if ((val != NULL) && (val[1] == '\0') && (val[0] >= '0') && (val[0] <= '7')) level = val[0] - '0';
+	snprintf(buf, sizeof(buf), "%d", level);
+	asl_set(msg, ASL_KEY_LEVEL, buf);
+
 	/*
-	 * if quotas are enabled and pid > 1 (not kernel or launchd)
-	 * and no processes are watching, then check quota
+	 * check quota if no processes are watching
 	 */
-	if ((global.mps_limit > 0) && (pid > 1) && (global.watchers_active == 0))
+	if (global.watchers_active == 0)
 	{
-		status = quota_check(pid, now, msg);
+		status = quota_check(pid, now, msg, level);
 		if (status != VERIFY_STATUS_OK) return status;
 	}
 
-	/* UID */
+	tick = 0;
+	val = asl_get(msg, ASL_KEY_TIME);
+	if (val != NULL) tick = asl_parse_time(val);
+
+	/* Set time to now if it is unset or from the future (not allowed!) */
+	if ((tick == 0) || (tick > now)) tick = now;
+
+	/* Canonical form: seconds since the epoch */
+	snprintf(buf, sizeof(buf) - 1, "%lu", tick);
+	asl_set(msg, ASL_KEY_TIME, buf);
+
+	val = asl_get(msg, ASL_KEY_HOST);
+	if (val == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
+
 	uid = -2;
 	val = asl_get(msg, ASL_KEY_UID);
-
-	switch (source)
+	if (val != NULL)
 	{
-		case SOURCE_KERN:
-		case SOURCE_INTERNAL:
-		{
-			/* we know the UID is 0 */
-			uid = 0;
-			asl_set(msg, ASL_KEY_UID, "0");
-			break;
-		}
-		case SOURCE_ASL_SOCKET:
-		case SOURCE_ASL_MESSAGE:
-		case SOURCE_LAUNCHD:
-		{
-			/* we trust the UID in the message */
-			if (val != NULL) uid = atoi(val);
-			break;
-		}
-		case SOURCE_BSD_SOCKET:
-		case SOURCE_UDP_SOCKET:
-		{
-			if (val == NULL)
-			{
-				if (e == NULL) asl_set(msg, ASL_KEY_UID, "-2");
-				else if (e->uid == 99) asl_set(msg, ASL_KEY_UID, "-2");
-				else
-				{
-					uid = e->uid;
-					snprintf(buf, sizeof(buf), "%d", e->uid);
-					asl_set(msg, ASL_KEY_UID, buf);
-				}
-			}
-			else if ((e != NULL) && (e->uid != 99))
-			{
-				uid = e->uid;
-				snprintf(buf, sizeof(buf), "%d", e->uid);
-				asl_set(msg, ASL_KEY_UID, buf);
-			}
-		}
-		default:
-		{
-			asl_set(msg, ASL_KEY_UID, "-2");
-		}
+		uid = atoi(val);
+		if ((uid == 0) && strcmp(val, "0")) uid = -2;
+		if (uid_out != NULL) *uid_out = uid;
 	}
 
-	/* GID */
+	gid = -2;
 	val = asl_get(msg, ASL_KEY_GID);
+	if (val != NULL)
+	{
+		gid = atoi(val);
+		if ((gid == 0) && strcmp(val, "0")) gid = -2;
+	}
 
+	/* UID  & GID */
 	switch (source)
 	{
 		case SOURCE_KERN:
 		case SOURCE_INTERNAL:
 		{
-			/* we know the GID is 0 */
+			asl_set(msg, ASL_KEY_UID, "0");
 			asl_set(msg, ASL_KEY_GID, "0");
 			break;
 		}
@@ -768,31 +533,14 @@ aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_pos
 		case SOURCE_ASL_MESSAGE:
 		case SOURCE_LAUNCHD:
 		{
-			/* we trust the GID in the message */
+			/* we trust the UID & GID in the message */
 			break;
-		}
-		case SOURCE_BSD_SOCKET:
-		case SOURCE_UDP_SOCKET:
-		{
-			if (val == NULL)
-			{
-				if (e == NULL) asl_set(msg, ASL_KEY_GID, "-2");
-				else if (e->gid == 99) asl_set(msg, ASL_KEY_GID, "-2");
-				else
-				{
-					snprintf(buf, sizeof(buf), "%d", e->gid);
-					asl_set(msg, ASL_KEY_GID, buf);
-				}
-			}
-			else if ((e != NULL) && (e->gid != 99))
-			{
-				snprintf(buf, sizeof(buf), "%d", e->gid);
-				asl_set(msg, ASL_KEY_GID, buf);
-			}
 		}
 		default:
 		{
-			asl_set(msg, ASL_KEY_GID, "-2");
+			/* we do not trust the UID 0 or GID 0 or 80 in the message */
+			if (uid == 0) asl_set(msg, ASL_KEY_UID, "-2");
+			if ((gid == 0) || (gid == 80)) asl_set(msg, ASL_KEY_GID, "-2");
 		}
 	}
 
@@ -823,13 +571,6 @@ aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_pos
 		/* allow UID 0 to send messages with "Sender kernel", but nobody else */
 		asl_set(msg, ASL_KEY_SENDER, "Unknown");
 	}
-
-	/* Level */
-	val = asl_get(msg, ASL_KEY_LEVEL);
-	level = ASL_LEVEL_DEBUG;
-	if ((val != NULL) && (val[1] == '\0') && (val[0] >= '0') && (val[0] <= '7')) level = val[0] - '0';
-	snprintf(buf, sizeof(buf), "%d", level);
-	asl_set(msg, ASL_KEY_LEVEL, buf);
 
 	/* Facility */
 	fac = asl_get(msg, ASL_KEY_FACILITY);
@@ -885,10 +626,10 @@ aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_pos
 		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
-	/* Set DB Expire Time for Filestsrem errors */
+	/* Set DB Expire Time for Filesystem errors */
 	if (!strcmp(fac, FSLOG_VAL_FACILITY))
 	{
-		snprintf(buf, sizeof(buf), "%lu", tick + global.fs_ttl);
+		snprintf(buf, sizeof(buf), "%lu", tick + FS_TTL_SEC);
 		asl_set(msg, ASL_KEY_EXPIRE_TIME, buf);
 	}
 
@@ -902,82 +643,6 @@ aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_pos
 	}
 
 	return VERIFY_STATUS_OK;
-}
-
-int
-aslevent_addoutput(aslsendmsgfn fn, const char *outid)
-{
-	struct asloutput *tmp;
-
-	tmp = calloc(1, sizeof(struct asloutput));
-	if (tmp == NULL) return -1;
-
-	tmp->sendmsg = fn;
-	tmp->outid = outid;
-
-	TAILQ_INSERT_TAIL(&Outq, tmp, entries);
-
-	return 0;
-}
-
-int
-aslevent_fdsets(fd_set *rd, fd_set *wr, fd_set *ex)
-{
-	struct aslevent *e;
-	int status = 0;
-
-//	asldebug("--> aslevent_fdsets\n");
-	FD_ZERO(rd);
-	FD_ZERO(wr);
-	FD_ZERO(ex);
-
-	for (e = Eventq.tqh_first; e != NULL; e = e->entries.tqe_next)
-	{
-		if (e->fd < 0) continue;
-
-//		asldebug("adding fd %d\n", e->fd);
-		if (e->readfn)
-		{
-			FD_SET(e->fd, rd);
-			status = MAX(e->fd, status);
-		}
-
-		if (e->writefn)
-		{
-			FD_SET(e->fd, wr);
-			status = MAX(e->fd, status);
-		}
-
-		if (e->exceptfn)
-		{
-			FD_SET(e->fd, ex);
-			status = MAX(e->fd, status);
-		}
-	}
-
-//	asldebug("<--aslevent_fdsets\n");
-	return status;
-}
-
-void
-aslevent_cleanup()
-{
-	struct aslevent *e, *next;
-
-	e = Eventq.tqh_first;
-
-	while (e != NULL)
-	{
-		next = e->entries.tqe_next;
-		if (e->fd < 0)
-		{
-			TAILQ_REMOVE(&Eventq, e, entries);
-			if (e->sender != NULL) free(e->sender);
-			free(e);
-		}
-
-		e = next;
-	}
 }
 
 void
@@ -1016,110 +681,236 @@ list_append_msg(asl_search_result_t *list, aslmsg msg)
 }
 
 void
-work_enqueue(aslmsg m)
+init_globals(void)
 {
-	pthread_mutex_lock(global.work_queue_lock);
-	list_append_msg(global.work_queue, m);
-	pthread_mutex_unlock(global.work_queue_lock);
-	pthread_cond_signal(&global.work_queue_cond);
+	OSSpinLockLock(&global.lock);
+
+	global.debug = 0;
+	free(global.debug_file);
+	global.debug_file = NULL;
+
+#ifdef CONFIG_IPHONE
+	global.dbtype = DB_TYPE_MINI;
+#else
+	global.dbtype = DB_TYPE_FILE;
+#endif
+	global.db_file_max = DEFAULT_DB_FILE_MAX;
+	global.db_memory_max = DEFAULT_DB_MEMORY_MAX;
+	global.db_mini_max = DEFAULT_DB_MINI_MAX;
+	global.mps_limit = DEFAULT_MPS_LIMIT;
+	global.remote_delay_time = DEFAULT_REMOTE_DELAY;
+	global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
+	global.mark_time = DEFAULT_MARK_SEC;
+	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
+
+	OSSpinLockUnlock(&global.lock);
+}
+
+/*
+ * Used to set config parameters.
+ * Line format "= name value"
+ */
+int
+control_set_param(const char *s)
+{
+	char **l;
+	uint32_t intval, count, v32a, v32b, v32c;
+
+	if (s == NULL) return -1;
+	if (s[0] == '\0') return 0;
+
+	/* skip '=' and whitespace */
+	s++;
+	while ((*s == ' ') || (*s == '\t')) s++;
+
+	l = explode(s, " \t");
+	if (l == NULL) return -1;
+
+	for (count = 0; l[count] != NULL; count++);
+
+	/* name is required */
+	if (count == 0)
+	{
+		freeList(l);
+		return -1;
+	}
+
+	/* value is required */
+	if (count == 1)
+	{
+		freeList(l);
+		return -1;
+	}
+
+	if (!strcasecmp(l[0], "debug"))
+	{
+		/* = debug {0|1} [file] */
+		intval = atoi(l[1]);
+		config_debug(intval, l[2]);
+	}
+	else if (!strcasecmp(l[0], "mark_time"))
+	{
+		/* = mark_time seconds */
+		OSSpinLockLock(&global.lock);
+		global.mark_time = atoll(l[1]);
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "dup_delay"))
+	{
+		/* = bsd_max_dup_time seconds */
+		OSSpinLockLock(&global.lock);
+		global.bsd_max_dup_time = atoll(l[1]);
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "remote_delay"))
+	{
+		/* = remote_delay microseconds */
+		OSSpinLockLock(&global.lock);
+		global.remote_delay_time = atol(l[1]);
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "utmp_ttl"))
+	{
+		/* = utmp_ttl seconds */
+		OSSpinLockLock(&global.lock);
+		global.utmp_ttl = (time_t)atoll(l[1]);
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "mps_limit"))
+	{
+		/* = mps_limit number */
+		OSSpinLockLock(&global.lock);
+		global.mps_limit = (uint32_t)atol(l[1]);
+		OSSpinLockUnlock(&global.lock);
+	}
+	else if (!strcasecmp(l[0], "max_file_size"))
+	{
+		/* = max_file_size bytes */
+		pthread_mutex_lock(global.db_lock);
+
+		if (global.dbtype & DB_TYPE_FILE)
+		{
+			asl_store_close(global.file_db);
+			global.file_db = NULL;
+			global.db_file_max = atoi(l[1]);
+		}
+
+		pthread_mutex_unlock(global.db_lock);
+	}
+	else if ((!strcasecmp(l[0], "db")) || (!strcasecmp(l[0], "database")) || (!strcasecmp(l[0], "datastore")))
+	{
+		/* NB this is private / unpublished */
+		/* = db type [max]... */
+
+		v32a = 0;
+		v32b = 0;
+		v32c = 0;
+
+		if ((l[1][0] >= '0') && (l[1][0] <= '9'))
+		{
+			intval = atoi(l[1]);
+			if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
+			if ((count >= 4) && (strcmp(l[3], "-"))) v32b = atoi(l[3]);
+			if ((count >= 5) && (strcmp(l[4], "-"))) v32c = atoi(l[4]);
+		}
+		else if (!strcasecmp(l[1], "file"))
+		{
+			intval = DB_TYPE_FILE;
+			if ((count >= 3) && (strcmp(l[2], "-"))) v32a = atoi(l[2]);
+		}
+		else if (!strncasecmp(l[1], "mem", 3))
+		{
+			intval = DB_TYPE_MEMORY;
+			if ((count >= 3) && (strcmp(l[2], "-"))) v32b = atoi(l[2]);
+		}
+		else if (!strncasecmp(l[1], "min", 3))
+		{
+			intval = DB_TYPE_MINI;
+			if ((count >= 3) && (strcmp(l[2], "-"))) v32c = atoi(l[2]);
+		}
+		else
+		{
+			freeList(l);
+			return -1;
+		}
+
+		if (v32a == 0) v32a = global.db_file_max;
+		if (v32b == 0) v32b = global.db_memory_max;
+		if (v32c == 0) v32c = global.db_mini_max;
+
+		config_data_store(intval, v32a, v32b, v32c);
+	}
+
+	freeList(l);
+	return 0;
+}
+
+static int
+control_message(aslmsg msg)
+{
+	const char *str = asl_get(msg, ASL_KEY_MSG);
+
+	if (str == NULL) return 0;
+
+	if (!strncmp(str, "= reset", 7))
+	{
+		init_globals();
+		return asl_action_reset();
+	}
+	else if (!strncmp(str, "= rotate", 8))
+	{
+		const char *p = str + 8;
+		while ((*p == ' ') || (*p == '\t')) p++;
+		if (*p == '\0') p = NULL;
+		return asl_action_file_rotate(p);
+	}
+	else if (!strncmp(str, "= ", 2))
+	{
+		return control_set_param(str);
+	}
+
+	return 0;
 }
 
 void
-asl_enqueue_message(uint32_t source, struct aslevent *e, aslmsg msg)
+process_message(aslmsg msg, uint32_t source)
 {
 	int32_t kplevel;
 	uint32_t status;
+	uid_t uid;
 
 	if (msg == NULL) return;
 
 	kplevel = -1;
-	status = aslmsg_verify(source, e, msg, &kplevel);
+	uid = -2;
+
+	status = aslmsg_verify(msg, source, &kplevel, &uid);
 	if (status == VERIFY_STATUS_OK)
 	{
-		if ((source == SOURCE_KERN) && (kplevel >= 0)) notify_post(kern_notify_key[kplevel]);
-		work_enqueue(msg);
-	}
-	else
-	{
-		asl_free(msg);
-	}
-}
-
-aslmsg *
-work_dequeue(uint32_t *count)
-{
-	aslmsg *work;
-
-	pthread_mutex_lock(global.work_queue_lock);
-	if (global.work_queue->count == 0)
-	{
-		pthread_cond_wait(&global.work_queue_cond, global.work_queue_lock);
-	}
-
-	work = NULL;
-	*count = 0;
-
-	if (global.work_queue->count == 0)
-	{
-		pthread_mutex_unlock(global.work_queue_lock);
-		return NULL;
-	}
-
-	work = (aslmsg *)(global.work_queue->msg);
-	*count = global.work_queue->count;
-
-	global.work_queue->count = 0;
-	global.work_queue->curr = 0;
-	global.work_queue->msg = NULL;
-
-	pthread_mutex_unlock(global.work_queue_lock);
-	return work;
-}
-
-void
-aslevent_handleevent(fd_set *rd, fd_set *wr, fd_set *ex)
-{
-	struct aslevent *e;
-	char *out = NULL;
-	aslmsg msg;
-	int32_t cleanup;
-
-//	asldebug("--> aslevent_handleevent\n");
-
-	cleanup = 0;
-
-	for (e = Eventq.tqh_first; e != NULL; e = e->entries.tqe_next)
-	{
-		if (e->fd < 0)
+		if ((source == SOURCE_KERN) && (kplevel >= 0))
 		{
-			cleanup = 1;
-			continue;
+			if (kplevel > 7) kplevel = 7;
+			if (kern_notify_token[kplevel] < 0)
+			{
+				status = notify_register_plain(kern_notify_key[kplevel], &(kern_notify_token[kplevel]));
+				if (status != 0) asldebug("notify_register_plain(%s) failed status %u\n", status);
+			}
+
+			notify_post(kern_notify_key[kplevel]);
 		}
 
-		if (FD_ISSET(e->fd, rd) && (e->readfn != NULL))
-		{
-//			asldebug("handling read event on %d\n", e->fd);
-			msg = e->readfn(e->fd);
-			if (msg == NULL) continue;
+		if ((uid == 0) && asl_check_option(msg, ASL_OPT_CONTROL)) control_message(msg);
 
-			asl_enqueue_message(e->source, e, msg);
-		}
-
-		if (FD_ISSET(e->fd, ex) && e->exceptfn)
-		{
-			asldebug("handling except event on %d\n", e->fd);
-			out = e->exceptfn(e->fd);
-			if (out == NULL) asldebug("error writing message\n\n");
-		}
+		/* send message to output modules */
+		asl_out_message(msg);
+		if (global.bsd_out_enabled) bsd_out_message(msg);
 	}
 
-	if (cleanup != 0) aslevent_cleanup();
-
-//	asldebug("<-- aslevent_handleevent\n");
+	asl_free(msg);
 }
 
 int
-asl_log_string(const char *str)
+internal_log_message(const char *str)
 {
 	aslmsg msg;
 
@@ -1128,7 +919,7 @@ asl_log_string(const char *str)
 	msg = (aslmsg)asl_msg_from_string(str);
 	if (msg == NULL) return 1;
 
-	asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
+	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
 
 	return 0;
 }
@@ -1137,32 +928,21 @@ int
 asldebug(const char *str, ...)
 {
 	va_list v;
-	int status;
-	FILE *dfp;
+	FILE *dfp = NULL;
 
-	OSSpinLockLock(&global.lock);
-	if (global.debug == 0)
-	{
-		OSSpinLockUnlock(&global.lock);
-		return 0;
-	}
+	if (global.debug == 0) return 0;
 
-	dfp = stderr;
-	if (global.debug_file != NULL) dfp = fopen(global.debug_file, "a");
-	if (dfp == NULL)
-	{
-		OSSpinLockUnlock(&global.lock);
-		return 0;
-	}
+	if (global.debug_file == NULL) dfp = fopen(_PATH_SYSLOGD_LOG, "a");
+	else dfp = fopen(global.debug_file, "a");
+	if (dfp == NULL) return 0;
 
 	va_start(v, str);
-	status = vfprintf(dfp, str, v);
+	vfprintf(dfp, str, v);
 	va_end(v);
 
-	if (global.debug_file != NULL) fclose(dfp);
-	OSSpinLockUnlock(&global.lock);
+	fclose(dfp);
 
-	return status;
+	return 0;
 }
 
 void
@@ -1177,7 +957,7 @@ asl_mark(void)
 			 ASL_KEY_PID, getpid(),
 			 ASL_KEY_MSG, ASL_KEY_UID, ASL_KEY_GID);
 
-	asl_log_string(str);
+	internal_log_message(str);
 	if (str != NULL) free(str);
 }
 
@@ -1277,7 +1057,6 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 		asl_set(msg, ASL_KEY_MSG, p);
 		asl_set(msg, ASL_KEY_LEVEL, prival);
 		asl_set(msg, ASL_KEY_PID, "0");
-		asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
 
 		return msg;
 	}
@@ -1393,11 +1172,15 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 	asl_set(msg, ASL_KEY_UID, "-2");
 	asl_set(msg, ASL_KEY_GID, "-2");
 
-	if (rhost == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
-	else if (hval != NULL)  asl_set(msg, ASL_KEY_HOST, hval);
-	else asl_set(msg, ASL_KEY_HOST, rhost);
-
-	if (hval != NULL) free(hval);
+	if (hval != NULL)
+	{
+		asl_set(msg, ASL_KEY_HOST, hval);
+		free(hval);
+	}
+	else if (rhost != NULL)
+	{
+		asl_set(msg, ASL_KEY_HOST, rhost);
+	}
 
 	return msg;
 }
@@ -1406,7 +1189,7 @@ aslmsg
 asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 {
 	aslmsg msg;
-	int status, x, legacy;
+	int status, x, legacy, off;
 
 	asldebug("asl_input_parse: %s\n", (in == NULL) ? "NULL" : in);
 
@@ -1421,7 +1204,8 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 	/*
 	 * Determine if the input is "old" syslog format or new ASL format.
 	 * Old format lines should start with "<", but they can just be straight text.
-	 * ASL input starts with a length (10 bytes) followed by a space and a '['.
+	 * ASL input may start with a length (10 bytes) followed by a space and a '['.
+	 * The length is optional, so ASL messages may also just start with '['.
 	 */
 	if ((in[0] != '<') && (len > 11))
 	{
@@ -1431,7 +1215,10 @@ asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 
 	if (legacy == 1) return asl_syslog_input_convert(in, len, rhost, source);
 
-	msg = (aslmsg)asl_msg_from_string(in + 11);
+	off = 11;
+	if (in[0] == '[') off = 0;
+
+	msg = (aslmsg)asl_msg_from_string(in + off);
 	if (msg == NULL) return NULL;
 
 	if (rhost != NULL) asl_set(msg, ASL_KEY_HOST, rhost);
@@ -1454,6 +1241,7 @@ get_line_from_file(FILE *f)
 
 	memcpy(s, out, len);
 
+	if (s[len - 1] != '\n') len++;
 	s[len - 1] = '\0';
 	return s;
 }
@@ -1495,9 +1283,6 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 		snprintf(str, sizeof(str), "%lu", now);
 		asl_set(m, ASL_KEY_TIME, str);
 	}
-
-	/* Host */
-	asl_set(m, ASL_KEY_HOST, whatsmyhostname());
 
 	/* Facility */
 	asl_set(m, ASL_KEY_FACILITY, FACILITY_CONSOLE);
@@ -1558,15 +1343,6 @@ launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t se
 		asl_set(m, ASL_KEY_MSG, msg);
 	}
 
-	/* verify and push to receivers */
-	asl_enqueue_message(SOURCE_LAUNCHD, NULL, m);
+	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_LAUNCHD); });
 }
 
-void
-launchd_drain()
-{
-	forever
-	{
-		_vprocmgr_log_drain(NULL, NULL, launchd_callback);
-	}
-}

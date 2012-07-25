@@ -47,30 +47,33 @@ class WebView;
 
 namespace WebCore {
 
+class Frame;
 class Page;
 
 }
+
+class WebInspectorFrontendClient;
 
 class WebInspectorClient : public WebCore::InspectorClient {
 public:
     WebInspectorClient(WebView *);
 
-    virtual void inspectorDestroyed();
+    virtual void inspectorDestroyed() OVERRIDE;
 
-    virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void openInspectorFrontend(WebCore::InspectorController*) OVERRIDE;
+    virtual void closeInspectorFrontend() OVERRIDE;
+    virtual void bringFrontendToFront() OVERRIDE;
+    virtual void didResizeMainFrame(WebCore::Frame*) OVERRIDE;
 
-    virtual void highlight(WebCore::Node*);
-    virtual void hideHighlight();
+    virtual void highlight() OVERRIDE;
+    virtual void hideHighlight() OVERRIDE;
 
-    virtual bool sendMessageToFrontend(const WTF::String&);
+    virtual bool sendMessageToFrontend(const WTF::String&) OVERRIDE;
 
     bool inspectorStartsAttached();
     void setInspectorStartsAttached(bool);
 
-    void releaseFrontendPage();
-
-    void saveSessionSetting(const String& key, const String& value);
-    void loadSessionSetting(const String& key, String* value);
+    void releaseFrontend();
 
 private:
     WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
@@ -78,8 +81,7 @@ private:
     WebView *m_webView;
     RetainPtr<WebNodeHighlighter> m_highlighter;
     WebCore::Page* m_frontendPage;
-
-    WTF::HashMap<WTF::String, WTF::String> m_sessionSettings;
+    WebInspectorFrontendClient* m_frontendClient;
 };
 
 
@@ -101,9 +103,6 @@ public:
 
     virtual void setAttachedWindowHeight(unsigned height);
     virtual void inspectedURLChanged(const WTF::String& newURL);
-
-    virtual void saveSessionSetting(const String& key, const String& value);
-    virtual void loadSessionSetting(const String& key, String* value);
 
 private:
     void updateWindowTitle() const;

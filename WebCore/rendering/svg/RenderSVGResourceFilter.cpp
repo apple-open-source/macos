@@ -35,14 +35,16 @@
 #include "ImageBuffer.h"
 #include "ImageData.h"
 #include "IntRect.h"
+#include "Page.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceFilterPrimitive.h"
+#include "Settings.h"
 #include "SVGElement.h"
 #include "SVGFilter.h"
 #include "SVGFilterElement.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
-#include "SVGImageBufferTools.h"
 #include "SVGNames.h"
+#include "SVGRenderingContext.h"
 #include "SVGStyledElement.h"
 #include "SVGUnitTypes.h"
 
@@ -93,10 +95,10 @@ void RenderSVGResourceFilter::removeClientFromCache(RenderObject* client, bool m
     markClientForInvalidation(client, markForInvalidation ? BoundariesInvalidation : ParentOnlyInvalidation);
 }
 
-PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(Filter* filter)
+PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(SVGFilter* filter)
 {
     SVGFilterElement* filterElement = static_cast<SVGFilterElement*>(node());
-    bool primitiveBoundingBoxMode = filterElement->primitiveUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX;
+    FloatRect targetBoundingBox = filter->targetBoundingBox();
 
     // Add effects to the builder
     RefPtr<SVGFilterBuilder> builder = SVGFilterBuilder::create(filter);
@@ -115,7 +117,8 @@ PassRefPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives(Filter* fi
             return 0;
         }
         builder->appendEffectToEffectReferences(effect, effectElement->renderer());
-        effectElement->setStandardAttributes(primitiveBoundingBoxMode, effect.get());
+        effectElement->setStandardAttributes(effect.get());
+        effect->setEffectBoundaries(SVGLengthContext::resolveRectangle<SVGFilterPrimitiveStandardAttributes>(effectElement, filterElement->primitiveUnits(), targetBoundingBox));
         builder->add(effectElement->result(), effect);
     }
     return builder.release();
@@ -156,18 +159,18 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     FloatRect targetBoundingBox = object->objectBoundingBox();
 
     SVGFilterElement* filterElement = static_cast<SVGFilterElement*>(node());
-    filterData->boundaries = filterElement->filterBoundingBox(targetBoundingBox);
+    filterData->boundaries = SVGLengthContext::resolveRectangle<SVGFilterElement>(filterElement, filterElement->filterUnits(), targetBoundingBox);
     if (filterData->boundaries.isEmpty())
         return false;
 
     // Determine absolute transformation matrix for filter. 
     AffineTransform absoluteTransform;
-    SVGImageBufferTools::calculateTransformationToOutermostSVGCoordinateSystem(object, absoluteTransform);
+    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(object, absoluteTransform);
     if (!absoluteTransform.isInvertible())
         return false;
 
     // Eliminate shear of the absolute transformation matrix, to be able to produce unsheared tile images for feTile.
-    filterData->shearFreeAbsoluteTransform = AffineTransform(absoluteTransform.xScale(), 0, 0, absoluteTransform.yScale(), absoluteTransform.e(), absoluteTransform.f());
+    filterData->shearFreeAbsoluteTransform = AffineTransform(absoluteTransform.xScale(), 0, 0, absoluteTransform.yScale(), 0, 0);
 
     // Determine absolute boundaries of the filter and the drawing region.
     FloatRect absoluteFilterBoundaries = filterData->shearFreeAbsoluteTransform.mapRect(filterData->boundaries);
@@ -225,25 +228,26 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
         return false;
     }
 
-    absoluteDrawingRegion.scale(scale.width(), scale.height());
+    // Change the coordinate transformation applied to the filtered element to reflect the resolution of the filter.
+    AffineTransform effectiveTransform;
+    effectiveTransform.scale(scale.width(), scale.height());
+    effectiveTransform.multiply(filterData->shearFreeAbsoluteTransform);
 
     OwnPtr<ImageBuffer> sourceGraphic;
-    if (!SVGImageBufferTools::createImageBuffer(absoluteDrawingRegion, absoluteDrawingRegion, sourceGraphic, ColorSpaceLinearRGB)) {
+    RenderingMode renderingMode = object->document()->page()->settings()->acceleratedFiltersEnabled() ? Accelerated : Unaccelerated;
+    if (!SVGRenderingContext::createImageBuffer(drawingRegion, effectiveTransform, sourceGraphic, ColorSpaceLinearRGB, renderingMode)) {
         ASSERT(!m_filter.contains(object));
         filterData->savedContext = context;
         m_filter.set(object, filterData.leakPtr());
         return false;
     }
     
+    // Set the rendering mode from the page's settings.
+    filterData->filter->setRenderingMode(renderingMode);
+
     GraphicsContext* sourceGraphicContext = sourceGraphic->context();
     ASSERT(sourceGraphicContext);
   
-    sourceGraphicContext->translate(-absoluteDrawingRegion.x(), -absoluteDrawingRegion.y());
-    if (scale.width() != 1 || scale.height() != 1)
-        sourceGraphicContext->scale(scale);
-
-    sourceGraphicContext->concatCTM(filterData->shearFreeAbsoluteTransform);
-    sourceGraphicContext->clearRect(FloatRect(FloatPoint(), absoluteDrawingRegion.size()));
     filterData->sourceGraphicBuffer = sourceGraphic.release();
     filterData->savedContext = context;
 
@@ -255,7 +259,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, 
     return true;
 }
 
-void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode, const Path*)
+void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode, const Path*, const RenderSVGShape*)
 {
     ASSERT(object);
     ASSERT(context);
@@ -285,7 +289,7 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
     }
 
     FilterEffect* lastEffect = filterData->builder->lastEffect();
-    
+
     if (lastEffect && !filterData->boundaries.isEmpty() && !lastEffect->filterPrimitiveSubregion().isEmpty()) {
         // This is the real filtering of the object. It just needs to be called on the
         // initial filtering process. We just take the stored filter result on a
@@ -296,6 +300,7 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
         // Always true if filterData is just built (filterData->builded is false).
         if (!lastEffect->hasResult()) {
             lastEffect->apply();
+            lastEffect->correctFilterResultIfNeeded();
 #if !USE(CG)
             ImageBuffer* resultImage = lastEffect->asImageBuffer();
             if (resultImage)
@@ -322,7 +327,7 @@ void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsCo
 FloatRect RenderSVGResourceFilter::resourceBoundingBox(RenderObject* object)
 {
     if (SVGFilterElement* element = static_cast<SVGFilterElement*>(node()))
-        return element->filterBoundingBox(object->objectBoundingBox());
+        return SVGLengthContext::resolveRectangle<SVGFilterElement>(element, element->filterUnits(), object->objectBoundingBox());
 
     return FloatRect();
 }

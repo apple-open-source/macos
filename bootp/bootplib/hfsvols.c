@@ -75,7 +75,7 @@ volumeInfo_get(u_char * path, volumeInfo_t * volinfo)
     if (getattrlist(path, &attrspec, volinfo, sizeof(*volinfo), 0)) {
 #ifdef DEBUG
         perror("getattrlist");
-#endif DEBUG
+#endif /* DEBUG */
         return (FALSE);
     }
     return (TRUE);
@@ -277,7 +277,7 @@ hfs_set_file_size(int fd, off_t size)
 {
 #ifdef F_SETSIZE
     fcntl(fd, F_SETSIZE, &size);
-#endif F_SETSIZE
+#endif /* F_SETSIZE */
     return (ftruncate(fd, size));
 }
 
@@ -298,5 +298,5 @@ main(int argc, u_char * argv[])
 	hfsVolList_print(vlist);
     exit(0);
 }
-#endif TEST_HFSVOLS
+#endif /* TEST_HFSVOLS */
 

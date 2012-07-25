@@ -36,6 +36,9 @@
 /*
 /*	In case of an immediate error, psc_send_socket() sends a 421
 /*	reply to the remote SMTP client and closes the connection.
+/*	If the 220- greeting was sent, sending 421 would be invalid;
+/*	instead, the client is redirected to the dummy SMTP engine
+/*	which sends the 421 reply at the first legitimate opportunity.
 /* LICENSE
 /* .ad
 /* .fi
@@ -121,7 +124,7 @@ int     psc_send_reply(PSC_STATE *state, const char *text)
 		STR(state->send_buf), LEN(state->send_buf));
     if (ret > 0)
 	vstring_truncate(state->send_buf, ret - LEN(state->send_buf));
-    if (ret < 0 && errno != EAGAIN && errno != EPIPE)
+    if (ret < 0 && errno != EAGAIN && errno != EPIPE && errno != ECONNRESET)
 	msg_warn("write [%s]:%s: %m", state->smtp_client_addr,
 		 state->smtp_client_port);
     return (ret < 0 && errno != EAGAIN);
@@ -187,17 +190,25 @@ void    psc_send_socket(PSC_STATE *state)
 	 PASS_CONNECT(psc_smtpd_service_name, NON_BLOCKING,
 		      PSC_SEND_SOCK_CONNECT_TIMEOUT)) < 0) {
 	msg_warn("cannot connect to service %s: %m", psc_smtpd_service_name);
-	PSC_SEND_REPLY(state, "421 4.3.2 All server ports are busy\r\n");
-	psc_free_session_state(state);
+	if (state->flags & PSC_STATE_FLAG_PREGR_TODO) {
+	    PSC_SMTPD_X21(state, "421 4.3.2 No system resources\r\n");
+	} else {
+	    PSC_SEND_REPLY(state, "421 4.3.2 All server ports are busy\r\n");
+	    psc_free_session_state(state);
+	}
 	return;
     }
-    PSC_ADD_SERVER_STATE(state, server_fd);
-    if (LOCAL_SEND_FD(state->smtp_server_fd,
+    if (LOCAL_SEND_FD(server_fd,
 		      vstream_fileno(state->smtp_client_stream)) < 0) {
 	msg_warn("cannot pass connection to service %s: %m",
 		 psc_smtpd_service_name);
-	PSC_SEND_REPLY(state, "421 4.3.2 No system resources\r\n");
-	psc_free_session_state(state);
+	(void) close(server_fd);
+	if (state->flags & PSC_STATE_FLAG_PREGR_TODO) {
+	    PSC_SMTPD_X21(state, "421 4.3.2 No system resources\r\n");
+	} else {
+	    PSC_SEND_REPLY(state, "421 4.3.2 No system resources\r\n");
+	    psc_free_session_state(state);
+	}
 	return;
     } else {
 
@@ -209,6 +220,7 @@ void    psc_send_socket(PSC_STATE *state)
 #if 0
 	PSC_DEL_CLIENT_STATE(state);
 #endif
+	PSC_ADD_SERVER_STATE(state, server_fd);
 	PSC_READ_EVENT_REQUEST(state->smtp_server_fd, psc_send_socket_close_event,
 			       (char *) state, PSC_SEND_SOCK_NOTIFY_TIMEOUT);
 	return;

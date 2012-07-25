@@ -46,6 +46,10 @@ static void hack_seg(
     struct load_command *lc,
     struct segment_command *sg);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The seg_hack(1) program changes all segments names to the one specified on
  * the command line:

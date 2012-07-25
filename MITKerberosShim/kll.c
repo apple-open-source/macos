@@ -46,17 +46,6 @@ struct KLLoginOptions {
     char *service;
 };
 
-krb5_context milcontext;
-
-void
-mshim_init_context(void)
-{
-    static dispatch_once_t once = 0;
-    dispatch_once(&once, ^{
-	    heim_krb5_init_context(&milcontext);
-	});
-}
-
 /* 
  * Deprecated Error codes 
  */
@@ -160,8 +149,6 @@ acquireticket_ui(KLPrincipal inPrincipal,
     CFDataRef d = NULL;
     
     LOG_ENTRY();
-
-    mshim_init_context();
 
     if (outPrincipal)
 	*outPrincipal = NULL;
@@ -289,16 +276,15 @@ KLAcquireNewInitialTickets (KLPrincipal      inPrincipal,
 KLStatus
 KLDestroyTickets(KLPrincipal inPrincipal)
 {
+    krb5_context context = mshim_ctx();
     krb5_error_code ret;
     krb5_ccache id;
 
-    mshim_init_context();
-
-    ret = heim_krb5_cc_cache_match(milcontext, inPrincipal, &id);
+    ret = heim_krb5_cc_cache_match(context, inPrincipal, &id);
     if (ret)
 	return ret;
 
-    return krb5_cc_destroy((mit_krb5_context)milcontext, (mit_krb5_ccache)id);
+    return krb5_cc_destroy((mit_krb5_context)context, (mit_krb5_ccache)id);
 }
 
 
@@ -342,6 +328,7 @@ KLAcquireNewInitialTicketsWithPassword(KLPrincipal      inPrincipal,
 				       const char      *inPassword,
 				       char           **outCredCacheName)
 {
+    krb5_context context = mshim_ctx();
     krb5_error_code ret;
     krb5_ccache cache;
     krb5_creds creds;
@@ -350,14 +337,12 @@ KLAcquireNewInitialTicketsWithPassword(KLPrincipal      inPrincipal,
 
     LOG_ENTRY();
 
-    mshim_init_context();
-
     if (inLoginOptions) {
 	service = inLoginOptions->service;
 	opt = inLoginOptions->opt;
     }
 
-    ret = heim_krb5_get_init_creds_password(milcontext, &creds,
+    ret = heim_krb5_get_init_creds_password(context, &creds,
 					    inPrincipal, inPassword,
 					    NULL, NULL, 0,
 					    service,
@@ -365,31 +350,31 @@ KLAcquireNewInitialTicketsWithPassword(KLPrincipal      inPrincipal,
     if (ret)
 	return ret;
 
-    ret = heim_krb5_cc_cache_match(milcontext, inPrincipal, &cache);
+    ret = heim_krb5_cc_cache_match(context, inPrincipal, &cache);
     if (ret)
-	ret = heim_krb5_cc_new_unique(milcontext, NULL, NULL, &cache);
+	ret = heim_krb5_cc_new_unique(context, NULL, NULL, &cache);
     if (ret)
 	goto out;
 	
-    ret = heim_krb5_cc_initialize(milcontext, cache, creds.client);
+    ret = heim_krb5_cc_initialize(context, cache, creds.client);
     if(ret)
 	goto out;
 
-    ret = heim_krb5_cc_store_cred(milcontext, cache, &creds);
+    ret = heim_krb5_cc_store_cred(context, cache, &creds);
     if (ret)
 	goto out;
 
     if (outCredCacheName)
-	*outCredCacheName = strdup(heim_krb5_cc_get_name(milcontext, cache));
+	*outCredCacheName = strdup(heim_krb5_cc_get_name(context, cache));
 
  out:
     if (cache) {
 	if (ret)
-	    krb5_cc_destroy((mit_krb5_context)milcontext, (mit_krb5_ccache)cache);
+	    krb5_cc_destroy((mit_krb5_context)context, (mit_krb5_ccache)cache);
 	else
-	    heim_krb5_cc_close(milcontext, cache);
+	    heim_krb5_cc_close(context, cache);
     }
-    heim_krb5_free_cred_contents(milcontext, &creds);
+    heim_krb5_free_cred_contents(context, &creds);
 
     return ret;
 }
@@ -454,6 +439,7 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
 		      KLPrincipal     *outPrincipal,
 		      char           **outCredCacheName)
 {
+    krb5_context context = mshim_ctx();
     krb5_error_code ret;
     krb5_creds in, *cred = NULL;
     krb5_ccache id;
@@ -465,8 +451,6 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
 
     LOG_ENTRY();
 
-    mshim_init_context();
-
     if (outPrincipal)
 	*outPrincipal = NULL;
     if (outCredCacheName)
@@ -475,30 +459,30 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
     if (inPrincipal) {
 	principal = inPrincipal;
     } else {
-	ret = heim_krb5_get_default_principal(milcontext, &principal);
+	ret = heim_krb5_get_default_principal(context, &principal);
 	if (ret)
 	    return ret;
     }
 
-    ret = heim_krb5_cc_cache_match(milcontext, principal, &id);
+    ret = heim_krb5_cc_cache_match(context, principal, &id);
     if (ret) {
 	if (inPrincipal == NULL)
-	    heim_krb5_free_principal(milcontext, principal);
+	    heim_krb5_free_principal(context, principal);
 	return ret;
     }
 
     in.client = principal;
 
-    realm = heim_krb5_principal_get_realm(milcontext, in.client);
+    realm = heim_krb5_principal_get_realm(context, in.client);
 
     if (inLoginOptions && inLoginOptions->service)
-	ret = heim_krb5_make_principal(milcontext, &in.server, realm, inLoginOptions->service, NULL);
+	ret = heim_krb5_make_principal(context, &in.server, realm, inLoginOptions->service, NULL);
     else
-	ret = heim_krb5_make_principal(milcontext, &in.server, realm, KRB5_TGS_NAME, realm, NULL);
+	ret = heim_krb5_make_principal(context, &in.server, realm, KRB5_TGS_NAME, realm, NULL);
     if (ret) {
 	if (inPrincipal == NULL)
-	    heim_krb5_free_principal(milcontext, principal);
-	heim_krb5_cc_close(milcontext, id);
+	    heim_krb5_free_principal(context, principal);
+	heim_krb5_cc_close(context, id);
 	return ret;
     }
 
@@ -507,30 +491,30 @@ KLRenewInitialTickets(KLPrincipal      inPrincipal,
 	flags.i = inLoginOptions->opt->flags;
 
     /* Pull out renewable from previous ticket */
-    ret = heim_krb5_get_credentials(milcontext, KRB5_GC_CACHED, id, &in, &cred);
+    ret = heim_krb5_get_credentials(context, KRB5_GC_CACHED, id, &in, &cred);
     if (inPrincipal == NULL)
-	heim_krb5_free_principal(milcontext, principal);
+	heim_krb5_free_principal(context, principal);
     if (ret == 0 && cred) {
 	flags.b.renewable = cred->flags.b.renewable;
-	heim_krb5_free_creds (milcontext, cred);
+	heim_krb5_free_creds (context, cred);
 	cred = NULL;
     }
 
     flags.b.renew = 1;
 
-    ret = heim_krb5_get_kdc_cred(milcontext, id, flags, NULL, NULL, &in, &cred);
-    heim_krb5_free_principal(milcontext, in.server);
+    ret = heim_krb5_get_kdc_cred(context, id, flags, NULL, NULL, &in, &cred);
+    heim_krb5_free_principal(context, in.server);
     if (ret)
 	goto out;
-    ret = heim_krb5_cc_initialize(milcontext, id, in.client);
+    ret = heim_krb5_cc_initialize(context, id, in.client);
     if (ret)
 	goto out;
-    ret = heim_krb5_cc_store_cred(milcontext, id, cred);
+    ret = heim_krb5_cc_store_cred(context, id, cred);
 
  out:
     if (cred)
-	heim_krb5_free_creds (milcontext, cred);
-    heim_krb5_cc_close(milcontext, id);
+	heim_krb5_free_creds (context, cred);
+    heim_krb5_cc_close(context, id);
 
     return ret;
 }
@@ -556,8 +540,6 @@ KLLastChangedTime(KLTime *outLastChangedTime)
     KLStatus ret;
     
     LOG_ENTRY();
-
-    mshim_init_context();
 
     if (outLastChangedTime == NULL)
 	return klParameterErr;
@@ -593,6 +575,7 @@ static krb5_error_code
 fetch_creds(KLPrincipal inPrincipal, krb5_creds **ocreds,
 	    char **outCredCacheName)
 {	    
+    krb5_context context = mshim_ctx();
     krb5_principal princ = NULL;
     krb5_creds in_creds;
     krb5_const_realm realm;
@@ -601,40 +584,38 @@ fetch_creds(KLPrincipal inPrincipal, krb5_creds **ocreds,
 
     LOG_ENTRY();
 
-    mshim_init_context();
-
     memset(&in_creds, 0, sizeof(in_creds));
 
     if (inPrincipal) {
-	ret = heim_krb5_cc_cache_match(milcontext, inPrincipal, &id);
+	ret = heim_krb5_cc_cache_match(context, inPrincipal, &id);
     } else {
-	ret = heim_krb5_cc_default(milcontext, &id);
+	ret = heim_krb5_cc_default(context, &id);
 	if (ret == 0)
-	    ret = heim_krb5_cc_get_principal(milcontext, id, &princ);
+	    ret = heim_krb5_cc_get_principal(context, id, &princ);
 	inPrincipal = princ;
     }
     if (ret)
 	goto out;
 
-    realm = heim_krb5_principal_get_realm(milcontext, inPrincipal);
-    ret = heim_krb5_make_principal(milcontext, &in_creds.server, realm, KRB5_TGS_NAME, realm, NULL);
+    realm = heim_krb5_principal_get_realm(context, inPrincipal);
+    ret = heim_krb5_make_principal(context, &in_creds.server, realm, KRB5_TGS_NAME, realm, NULL);
     if (ret)
 	goto out;
 
     in_creds.client = inPrincipal;
 
-    ret = heim_krb5_get_credentials(milcontext, KRB5_GC_CACHED, id,
+    ret = heim_krb5_get_credentials(context, KRB5_GC_CACHED, id,
 				    &in_creds, ocreds);
-    heim_krb5_free_principal(milcontext, in_creds.server);
+    heim_krb5_free_principal(context, in_creds.server);
 
     if (outCredCacheName)
-	*outCredCacheName = strdup(heim_krb5_cc_get_name(milcontext, id));
+	*outCredCacheName = strdup(heim_krb5_cc_get_name(context, id));
 
  out:
     if (id)
-	heim_krb5_cc_close(milcontext, id);
+	heim_krb5_cc_close(context, id);
     if (princ)
-	heim_krb5_free_principal(milcontext, princ);
+	heim_krb5_free_principal(context, princ);
 
     return LOG_FAILURE(ret, "fetch_creds");
 }
@@ -650,8 +631,6 @@ KLStatus KLCacheHasValidTickets (KLPrincipal         inPrincipal,
     krb5_creds *ocreds;
 
     LOG_ENTRY();
-
-    mshim_init_context();
 
     if (CHECK_VERSION(inKerberosVersion))
 	return LOG_FAILURE(klInvalidVersionErr, "wrong version");
@@ -688,8 +667,6 @@ KLStatus KLTicketStartTime (KLPrincipal        inPrincipal,
 
     LOG_ENTRY();
 
-    mshim_init_context();
-    
     if (CHECK_VERSION(inKerberosVersion))
 	return LOG_FAILURE(klInvalidVersionErr, "wrong version");
 
@@ -713,8 +690,6 @@ KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
 
     LOG_ENTRY();
 
-    mshim_init_context();
-
     if (CHECK_VERSION(inKerberosVersion))
 	return LOG_FAILURE(klInvalidVersionErr, "wrong version");
     
@@ -732,18 +707,17 @@ KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
 KLStatus
 KLSetSystemDefaultCache (KLPrincipal inPrincipal)
 {
+    krb5_context context = mshim_ctx();
     krb5_error_code ret;
     krb5_ccache id;
 
     LOG_ENTRY();
 
-    mshim_init_context();
-
-    ret = heim_krb5_cc_cache_match(milcontext, inPrincipal, &id);
+    ret = heim_krb5_cc_cache_match(context, inPrincipal, &id);
     if (ret)
 	return LOG_FAILURE(ret, "ccache match");
-    ret = heim_krb5_cc_switch(milcontext, id);
-    heim_krb5_cc_close(milcontext, id);
+    ret = heim_krb5_cc_switch(context, id);
+    heim_krb5_cc_close(context, id);
     if (ret)
 	return LOG_FAILURE(ret, "cc switch");
     return klNoErr;
@@ -762,14 +736,16 @@ KLStatus KLHandleError (KLStatus           inError,
 KLStatus KLGetErrorString (KLStatus   inError,
                            char     **outErrorString)
 {
+    const char *msg;
     LOG_ENTRY();
 
-    mshim_init_context();
-
-    *outErrorString = heim_krb5_get_error_string(milcontext);
-    if (*outErrorString == NULL)
+    msg = heim_krb5_get_error_message(milcontext, (krb5_error_code)inError);
+    if (msg) {
+	*outErrorString = strdup(msg);
+	krb5_free_error_message((mit_krb5_context)milcontext, msg);
+    } else
 	asprintf(outErrorString, "unknown error: %d\n", (int)inError);
-    if (outErrorString == NULL)
+    if (*outErrorString == NULL)
 	return klMemFullErr;
     return klNoErr;
 }
@@ -915,8 +891,6 @@ KLStatus KLGetKerberosDefaultRealmByName (char **outRealmName)
 {
     LOG_ENTRY();
 
-    mshim_init_context();
-
     return krb5_get_default_realm((mit_krb5_context)milcontext, outRealmName);
 }
 
@@ -941,8 +915,6 @@ KLCreatePrincipalFromTriplet (const char  *inName,
 			      const char  *inRealm,
 			      KLPrincipal *outPrincipal)
 {
-    mshim_init_context();
-
     return heim_krb5_make_principal(milcontext, outPrincipal, inRealm, inName, inInstance, NULL);
 }
 
@@ -953,8 +925,6 @@ KLCreatePrincipalFromString (const char        *inFullPrincipal,
 			     KLPrincipal       *outPrincipal)
 {
     LOG_ENTRY();
-
-    mshim_init_context();
 
     if (CHECK_VERSION(inKerberosVersion))
 	return LOG_FAILURE(klInvalidVersionErr, "wrong version");
@@ -968,7 +938,6 @@ KLCreatePrincipalFromString (const char        *inFullPrincipal,
 KLStatus KLCreatePrincipalFromKerberos5Principal (void           *inKerberos5Principal,
                                                   KLPrincipal    *outPrincipal)
 {
-    mshim_init_context();
     if (inKerberos5Principal == NULL)
 	return klParameterErr;
     return heim_krb5_copy_principal(milcontext, inKerberos5Principal, outPrincipal);
@@ -978,7 +947,6 @@ KLStatus KLCreatePrincipalFromKerberos5Principal (void           *inKerberos5Pri
 KLStatus KLCreatePrincipalFromPrincipal (KLPrincipal inPrincipal,
                                          KLPrincipal *outPrincipal)
 {
-    mshim_init_context();
     if (inPrincipal == NULL)
 	return klParameterErr;
     return heim_krb5_copy_principal(milcontext, inPrincipal, outPrincipal);
@@ -992,7 +960,6 @@ KLGetTripletFromPrincipal(KLPrincipal inPrincipal,
 			  char **outRealm)
 {
     LOG_ENTRY();
-    mshim_init_context();
     *outInstance = NULL;
     if (inPrincipal == NULL)
 	return klParameterErr;
@@ -1015,7 +982,6 @@ KLGetStringFromPrincipal (KLPrincipal         inPrincipal,
 			  char              **outFullPrincipal)
 {
     LOG_ENTRY();
-    mshim_init_context();
     if (inPrincipal == NULL)
 	return klParameterErr;
     if (CHECK_VERSION(inKerberosVersion))
@@ -1030,7 +996,6 @@ KLGetDisplayStringFromPrincipal (KLPrincipal         inPrincipal,
 				 char              **outFullPrincipal)
 {
     LOG_ENTRY();
-    mshim_init_context();
     if (inPrincipal == NULL)
 	return klParameterErr;
     if (CHECK_VERSION(inKerberosVersion))
@@ -1045,7 +1010,6 @@ KLComparePrincipal (KLPrincipal  inFirstPrincipal,
 		    KLBoolean   *outAreEquivalent)
 {
     LOG_ENTRY();
-    mshim_init_context();
     if (inFirstPrincipal == NULL || inSecondPrincipal == NULL)
 	return klParameterErr;
     *outAreEquivalent = heim_krb5_principal_compare(milcontext, inFirstPrincipal, inSecondPrincipal);
@@ -1057,7 +1021,6 @@ KLStatus
 KLDisposePrincipal (KLPrincipal inPrincipal)
 {
     LOG_ENTRY();
-    mshim_init_context();
     if (inPrincipal == NULL)
 	return klNoErr;
     heim_krb5_free_principal(milcontext, inPrincipal);
@@ -1076,8 +1039,6 @@ KLCreateLoginOptions (KLLoginOptions *outOptions)
     *outOptions = NULL;
 
     LOG_ENTRY();
-
-    mshim_init_context();
 
     opt = calloc(1, sizeof(*opt));
 
@@ -1160,7 +1121,6 @@ KLLoginOptionsSetServiceName(KLLoginOptions  ioOptions,
 KLStatus KLDisposeLoginOptions(KLLoginOptions ioOptions)
 {
     LOG_ENTRY();
-    mshim_init_context();
     heim_krb5_get_init_creds_opt_free(milcontext, ioOptions->opt);
     if (ioOptions->service)
 	free(ioOptions->service);

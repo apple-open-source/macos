@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2004-2012 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -42,6 +42,7 @@
 #include <Security/SecAsn1Coder.h>
 #include <Security/ocspTemplates.h>
 #include <Security/cssmapple.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <time.h>
@@ -81,15 +82,15 @@ const char *gCrlPath = "/var/db/crls/";
 
 #pragma mark ----- OCSP utilities -----
 
-/* 
+/*
  * Once we've gotten a response from a server, cook up a SecAsn1OCSPDReply.
  */
 static SecAsn1OCSPDReply *ocspdGenReply(
-	SecAsn1CoderRef coder, 
+	SecAsn1CoderRef coder,
 	const CSSM_DATA &resp,
 	const CSSM_DATA &certID)
 {
-	SecAsn1OCSPDReply *ocspdRep = 
+	SecAsn1OCSPDReply *ocspdRep =
 		(SecAsn1OCSPDReply *)SecAsn1Malloc(coder, sizeof(*ocspdRep));
 	SecAsn1AllocCopyItem(coder, &resp, &ocspdRep->ocspResp);
 	SecAsn1AllocCopyItem(coder, &certID, &ocspdRep->certID);
@@ -97,15 +98,15 @@ static SecAsn1OCSPDReply *ocspdGenReply(
 }
 
 static SecAsn1OCSPDReply *ocspdHandleReq(
-	SecAsn1CoderRef coder, 
+	SecAsn1CoderRef coder,
 	SecAsn1OCSPDRequest &request,
 	bool recursing)
 {
 	CSSM_DATA derResp = {0, NULL};
-	CSSM_RETURN crtn;	
+	CSSM_RETURN crtn;
 	bool cacheReadDisable = false;
 	bool cacheWriteDisable = false;
-		
+
 	if((request.cacheReadDisable != NULL) &&
 	   (request.cacheReadDisable->Length != 0) &&
 	   (request.cacheReadDisable->Data[0] != 0)) {
@@ -125,7 +126,7 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 			return ocspdGenReply(coder, derResp, request.certID);
 		}
 	}
-	
+
 	if(request.localRespURI) {
 		if(request.ocspReq == NULL) {
 			ocspdErrorLog("ocspdHandleReq: localRespURI but no request to send\n");
@@ -140,7 +141,7 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 			return reply;
 		}
 	}
-	
+
 	/* now try everything in requests.urls, the normal case */
 	unsigned numUris = ocspdArraySize((const void **)request.urls);
 	for(unsigned dex=0; dex<numUris; dex++) {
@@ -221,117 +222,6 @@ static SecAsn1OCSPDReply *ocspdHandleReq(
 
 
 #pragma mark ----- CRL utilities -----
-
-/*
- * Create specified directory, including intermediate directories.
- */
-static int
-_mkpath_np(char *path, mode_t omode)
-{
-	char *apath = NULL;
-	unsigned int depth = 0;
-	mode_t chmod_mode = 0;
-	int retval = 0;
-	int old_errno = errno;
-
-	/* Try the trivial case first. */
-	if (0 == mkdir(path, omode)) {
-		goto mkpath_exit;
-	}
-
-	/* Anything other than an ENOENT indicates an error that we need to
-	 * send back to the caller.  ENOENT indicates that we need to try a
-	 * lower level.
-	 */
-	if (errno != ENOENT) {
-		retval = errno;
-		goto mkpath_exit;
-	}
-
-	apath = strdup(path);
-	if (apath == NULL) {
-		retval = ENOMEM;
-		goto mkpath_exit;
-	}
-
-	while (1) {
-		/* Increase our depth and try making that directory */
-		char *s = strrchr(apath, '/');
-		if (!s) {
-			/* We should never hit this under normal circumstances,
-			 * but it can occur due to really unfortunate timing
-			 */
-			retval = ENOENT;
-			goto mkpath_exit;
-		}
-		*s = '\0';
-		depth++;
-
-		if (0 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
-			/* Found our starting point */
-
-			/* POSIX 1003.2:
-			 * For each dir operand that does not name an existing
-			 * directory, effects equivalent to those cased by the
-			 * following command shall occcur:
-			 *
-			 * mkdir -p -m $(umask -S),u+wx $(dirname dir) &&
-			 *    mkdir [-m mode] dir
-			 */
-
-			struct stat dirstat;
-			if (-1 == stat(apath, &dirstat)) {
-				/* Really unfortunate timing ... */
-				retval = ENOENT;
-				goto mkpath_exit;
-			}
-
-			if ((dirstat.st_mode & (S_IWUSR | S_IXUSR)) != (S_IWUSR | S_IXUSR)) {
-			        chmod_mode = dirstat.st_mode | S_IWUSR | S_IXUSR;
-				if (-1 == chmod(apath, chmod_mode)) {
-					/* Really unfortunate timing ... */
-					retval = ENOENT;
-					goto mkpath_exit;
-				}
-			}
-			break;
-		}
-		if (errno != ENOENT) {
-			retval = errno;
-			goto mkpath_exit;
-		}
-	}
-
-	while (depth > 1) {
-		/* Decrease our depth and make that directory */
-		char *s = strrchr(apath, '\0');
-		*s = '/';
-		depth--;
-
-		if (-1 == mkdir(apath, S_IRWXU | S_IRWXG | S_IRWXO)) {
-			retval = errno;
-			goto mkpath_exit;
-		}
-
-		if (chmod_mode) {
-			if (-1 == chmod(apath, chmod_mode)) {
-				/* Really unfortunate timing ... */
-				retval = ENOENT;
-				goto mkpath_exit;
-			}
-		}
-	}
-
-	if (-1 == mkdir(path, omode)) {
-		retval = errno;
-	}
-
-mkpath_exit:
-	free(apath);
-
-	errno = old_errno;
-	return retval;
-}
 
 /*
  * Generate and malloc a CRL filename given a lookup key,
@@ -416,6 +306,11 @@ bool crlSignatureValid(
 	const char *updateFileName,
 	const char *revokedFileName)
 {
+	struct stat sb;
+	if(stat(crlFileName, &sb) != 0 || stat(issuersFileName, &sb) != 0) {
+		/* must have both files to proceed past this point */
+		return false;
+	}
 	const char *vc1 = "/usr/bin/openssl crl -inform DER -noout -in \"";
 	const char *vc2 = "\" -CAfile \"";
 	const char *vc3 = "\" 2>&1 | /usr/bin/grep OK";
@@ -558,28 +453,38 @@ bool crlSerialNumberRevoked(
 	const char *revokedFileName,
 	const char *serialNumber)
 {
-	const char *sc1 = "/usr/bin/grep -e \"^";
-	const char *sc2 = "$\" \"";
-	const char *sc3 = "\" 2>&1 >/dev/null";
-	size_t cmdLen = strlen(sc1)+strlen(serialNumber)+
-					strlen(sc2)+strlen(revokedFileName)+
-					strlen(sc3)+1;
-	char *command = (char*)malloc(cmdLen);
-	size_t tmpLen = cmdLen;
-	strlcpy(command, sc1, tmpLen);
-	tmpLen -= strlen(sc1);
-	strncat(command, serialNumber, tmpLen);
-	tmpLen -= strlen(serialNumber);
-	strncat(command, sc2, tmpLen);
-	tmpLen -= strlen(sc2);
-	strncat(command, revokedFileName, tmpLen);
-	tmpLen -= strlen(revokedFileName);
-	strncat(command, sc3, tmpLen);
-
-	bool revoked = (system(command) == 0);
-	free(command);
-
-	return revoked;
+	bool result = false;
+	size_t serialNumberLen = (serialNumber) ? strlen(serialNumber) : 0;
+	if (!serialNumberLen) {
+		return result;
+	}
+	unsigned char *revokedBytes = NULL;
+	unsigned int revokedLen = 0;
+	int err;
+	if((err=readFile(revokedFileName, &revokedBytes, &revokedLen) != 0)) {
+		ocspdCrlDebug("crlSerialNumberRevoked: error %d reading %s\n",
+			err, revokedFileName);
+		return result;
+	}
+	char *start = (char *)revokedBytes;
+	size_t bytesRemaining = revokedLen;
+	while (bytesRemaining > 0) {
+		/* find next EOL (or EOF) */
+		char *end = (char *)memchr(start, 0x0A, bytesRemaining);
+		size_t bytesRead = (end) ? ((uintptr_t)end - (uintptr_t)start) + 1 : bytesRemaining;
+		bytesRemaining -= bytesRead;
+		if (bytesRead >= serialNumberLen) {
+			if (!memcmp(start, serialNumber, serialNumberLen)) {
+				result = true;
+				break;
+			}
+		}
+		if (bytesRemaining) {
+			start = ++end;
+		}
+	}
+	free(revokedBytes);
+	return result;
 }
 
 /*
@@ -587,7 +492,7 @@ bool crlSerialNumberRevoked(
  */
 int crlCheckCachePath()
 {
-	return _mkpath_np((char*)gCrlPath, 0755);
+	return mkpath_np((char*)gCrlPath, 0755);
 }
 
 
@@ -615,7 +520,7 @@ kern_return_t ocsp_server_ocspdFetch (
 	pid_t pid = -1;
 	audit_token_to_au32(auditToken, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
 	bool recursing = (getpid() == pid);
-	
+
 	/* decode top-level SecAsn1OCSPDRequests */
 	SecAsn1CoderRef coder;
 	SecAsn1CoderCreate(&coder);
@@ -629,21 +534,21 @@ kern_return_t ocsp_server_ocspdFetch (
 	}
 	if((requests.version.Length == 0) ||
 	   (requests.version.Data[0] != OCSPD_REQUEST_VERS)) {
-		/* 
+		/*
 		 * Eventually handle backwards compatibility here
 		 */
 		ocspdErrorLog("ocsp_server_ocspdFetch: request version mismatch\n");
 		krtn = CSSMERR_APPLETP_OCSP_BAD_REQUEST;
 		goto errOut;
 	}
-	
+
 	numRequests = ocspdArraySize((const void **)requests.requests);
-	replies.replies = (SecAsn1OCSPDReply **)SecAsn1Malloc(coder, (numRequests + 1) * 
+	replies.replies = (SecAsn1OCSPDReply **)SecAsn1Malloc(coder, (numRequests + 1) *
 		sizeof(SecAsn1OCSPDReply *));
 	memset(replies.replies, 0, (numRequests + 1) * sizeof(SecAsn1OCSPDReply *));
 	replies.version.Data = &version;
 	replies.version.Length = 1;
-	
+
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
 
@@ -654,7 +559,7 @@ kern_return_t ocsp_server_ocspdFetch (
 			replies.replies[numReplies++] = reply;
 		}
 	}
-	
+
 	/* if we got any replies, sent them back to client */
 	if(replies.replies[0] != NULL) {
 		CSSM_DATA derRep = {0, NULL};
@@ -664,9 +569,9 @@ kern_return_t ocsp_server_ocspdFetch (
 			krtn = CSSMERR_TP_INTERNAL_ERROR;
 			goto errOut;
 		}
-		
-		/* 
-		 * Use server's persistent Allocator to alloc this and tell 
+
+		/*
+		 * Use server's persistent Allocator to alloc this and tell
 		 * MachServer to dealloc after the RPC completes
 		 */
 		Allocator &alloc = OcspdServer::active().alloc();
@@ -675,7 +580,7 @@ kern_return_t ocsp_server_ocspdFetch (
 		*ocspd_repCnt = derRep.Length;
 		MachPlusPlus::MachServer::active().releaseWhenDone(alloc, *ocspd_rep);
 	}
-	ocspdDebug("ocsp_server_ocspFetch returning %u bytes of replies", 
+	ocspdDebug("ocsp_server_ocspFetch returning %u bytes of replies",
 		(unsigned)*ocspd_repCnt);
 
 errOut:
@@ -706,7 +611,7 @@ kern_return_t ocsp_server_ocspdCacheFlushStale (
 }
 
 /*
- * Given a CSSM_DATA which was allocated in our server's alloc space, 
+ * Given a CSSM_DATA which was allocated in our server's alloc space,
  * pass referent data back to caller and schedule a dealloc after the RPC
  * completes with MachServer.
  */
@@ -732,7 +637,7 @@ bool callerHasNetworkEntitlement(
 	SecTaskRef task = SecTaskCreateWithAuditToken(NULL, auditToken);
 	if(task != NULL) {
 		CFTypeRef appSandboxValue = SecTaskCopyValueForEntitlement(task,
-			CFSTR("com.apple.security.app-protection"),
+			CFSTR("com.apple.security.app-sandbox"),
 			NULL);
 		if(appSandboxValue != NULL) {
 			if(!CFEqual(kCFBooleanFalse, appSandboxValue)) {
@@ -756,7 +661,7 @@ bool callerHasNetworkEntitlement(
 
 #pragma mark ----- Mig-referenced routines for cert and CRL maintenance -----
 
-/* 
+/*
  * Fetch a cert from the net. Currently we don't do any validation at all of
  * the returned data; that is handled by the caller. However, we do check
  * that the caller has a network entitlement if running under App Sandbox.
@@ -765,7 +670,7 @@ bool callerHasNetworkEntitlement(
  * is that the keychain schema does not allow for the storage of an expiration
  * date attribute or a URI, so we'd have to cook up yet another cert schema
  * (The system already has two - the Open Group standard and the custom version
- * we use) and I really don't want to do that. 
+ * we use) and I really don't want to do that.
  */
 kern_return_t ocsp_server_certFetch (
 	mach_port_t serverport,
@@ -779,7 +684,7 @@ kern_return_t ocsp_server_certFetch (
 	CSSM_DATA urlData = { cert_urlCnt, (uint8 *)cert_url};
 	CSSM_DATA certData = {0, NULL};
 	kern_return_t krtn;
-	
+
 	/* preparing for net fetch: enable another thread */
 	OcspdServer::active().longTermActivity();
 
@@ -797,8 +702,8 @@ kern_return_t ocsp_server_certFetch (
 			krtn = CSSMERR_APPLETP_NETWORK_FAILURE;
 		}
 		else {
-			/* 
-			 * We used server's persistent Allocator to alloc this; tell 
+			/*
+			 * We used server's persistent Allocator to alloc this; tell
 			 * MachServer to dealloc after the RPC completes
 			 */
 			passDataToCaller(certData, cert_data, cert_dataCnt);
@@ -822,6 +727,8 @@ kern_return_t ocsp_server_crlStatus (
     Data crl_url,                               // optional
     mach_msg_type_number_t crl_urlCnt)
 {
+	ocspdCrlDebug("Processing crlStatus request");
+	ocspdCrlDebug("Status requested for %ld issuer bytes, %ld URL bytes", crl_issuerCnt, crl_urlCnt);
 	ServerActivity();
 	kern_return_t krtn;
 	struct stat sb;
@@ -837,6 +744,7 @@ kern_return_t ocsp_server_crlStatus (
 	names.updateFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".update");
 	names.revokedFile = crlGenerateFileName(dataPtr, dataLen, gCrlPath, ".revoked");
 	if(!names.crlFile || !names.pemFile || !names.updateFile || !names.revokedFile) {
+		ocspdCrlDebug("ocsp_server_crlStatus failed to generate CRL name");
 		krtn = CSSMERR_TP_INTERNAL_ERROR;
 		goto crlStatus_cleanup;
 	}
@@ -861,6 +769,7 @@ kern_return_t ocsp_server_crlStatus (
 			CFRelease(crlNameStr);
 		}
 		if(downloadInProgress) {
+			ocspdCrlDebug("ocsp_server_crlStatus: download already in progress for \"%s\"", names.crlFile);
 			krtn = CSSMERR_APPLETP_NETWORK_FAILURE; /* busy, download not yet complete! */
 			goto crlStatus_cleanup;
 		}
@@ -894,6 +803,7 @@ kern_return_t ocsp_server_crlStatus (
 		/* Note that returning "not found" will trigger a subsequent call
 		 * to crlFetch, which will first look for the CRL in our cache
 		 * before attempting to fetch it from the network. */
+		ocspdCrlDebug("ocsp_server_crlStatus: CRL file \"%s\" not found", names.crlFile);
 		krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 		goto crlStatus_cleanup;
 	}
@@ -911,6 +821,7 @@ kern_return_t ocsp_server_crlStatus (
 			remove(names.pemFile);
 			remove(names.crlFile);
 
+			ocspdCrlDebug("ocsp_server_crlStatus: CRL file \"%s\" needs update, removing", names.crlFile);
 			krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 			goto crlStatus_cleanup;
 		}
@@ -934,11 +845,13 @@ kern_return_t ocsp_server_crlStatus (
 			free(serialStr);
 		}
 		else {
+			ocspdCrlDebug("ocsp_server_crlStatus: no serial number provided!");
 			krtn = CSSMERR_TP_INTERNAL_ERROR;
 		}
 	}
 	else {
 		/* CRL file isn't present or isn't valid; need to download it */
+		ocspdCrlDebug("ocsp_server_crlStatus: CRL file \"%s\" was invalid", names.crlFile);
 		krtn = CSSMERR_APPLETP_CRL_NOT_FOUND;
 	}
 
@@ -968,6 +881,7 @@ kern_return_t ocsp_server_crlFetch (
 	Data *crl_data,
 	mach_msg_type_number_t *crl_dataCnt)
 {
+	ocspdCrlDebug("Processing crlFetch request");
 	ServerActivity();
 	const CSSM_DATA urlData = {crl_urlCnt, (uint8 *)crl_url};
 	CSSM_DATA crlData = {0, NULL};
@@ -976,11 +890,11 @@ kern_return_t ocsp_server_crlFetch (
 	/*
 	 * 1. Read from cache if enabled. Look up by issuer if we have it, else
 	 *    look up by URL. Per Radar 4565280, the same CRL might be
-	 *    vended from different URLs; we don't care where we got it 
+	 *    vended from different URLs; we don't care where we got it
 	 *    from at this point as long as the client knew - by the absence
-	 *    of a crlIssuer field in the crlDistributionPoints extension - 
+	 *    of a crlIssuer field in the crlDistributionPoints extension -
 	 *    that the issuer of the CRL is the same as the issuer of the cert
-	 *    being verified. 
+	 *    being verified.
 	 */
 	if(cache_read) {
 		const CSSM_DATA vfyTimeData = {verifyTimeCnt, (uint8 *)verifyTime};
@@ -988,24 +902,44 @@ kern_return_t ocsp_server_crlFetch (
 		const CSSM_DATA *issuerPtr;
 		const CSSM_DATA *urlPtr;
 		bool brtn;
-		
+
 		if(crl_issuerCnt) {
 			/* look up by issuer */
+			ocspdCrlDebug("Cache lookup with %ld bytes of issuer data", issuerData.Length);
 			issuerPtr = &issuerData;
 			urlPtr    = NULL;
 		}
 		else {
 			/* look up by URL */
+			ocspdCrlDebug("Cache lookup with %ld bytes of URL data", urlData.Length);
 			issuerPtr = NULL;
 			urlPtr    = &urlData;
 		}
+		#if OCSP_DEBUG
+		if(verifyTimeCnt) {
+			char *buf = (char*)malloc(verifyTimeCnt+1);
+			memcpy(buf, verifyTime, verifyTimeCnt);
+			buf[verifyTimeCnt]=0;
+			ocspdCrlDebug("Cache lookup verify time: %s", buf);
+			free(buf);
+		}
+		#endif
 		brtn = crlCacheLookup(alloc, urlPtr, issuerPtr, vfyTimeData, crlData);
+		if(!brtn && issuerPtr) {
+			/* unable to find by issuer; retry lookup with URL */
+			issuerPtr = NULL;
+			urlPtr = &urlData;
+			ocspdCrlDebug("Cache lookup with %ld bytes of URL data", urlData.Length);
+			brtn = crlCacheLookup(alloc, urlPtr, issuerPtr, vfyTimeData, crlData);
+		}
 		if(brtn) {
 			/* Cache hit: Pass CRL back to caller & dealloc */
+			ocspdCrlDebug("Cache lookup succeeded, returning %ld bytes", crlData.Length);
 			assert((crlData.Data != NULL) && (crlData.Length != 0));
 			passDataToCaller(crlData, crl_data, crl_dataCnt);
 			return 0;
 		}
+		ocspdCrlDebug("Cache lookup failed; will attempt net fetch");
 	}
 
 	/*
@@ -1126,7 +1060,7 @@ kern_return_t ocsp_server_crlRefresh
      * for Trust Settings fetch. enable another thread. */
 	ServerActivity();
 	OcspdServer::active().longTermActivity();
-	crlCacheRefresh(stale_days, expire_overlap_seconds, purge_all, 
+	crlCacheRefresh(stale_days, expire_overlap_seconds, purge_all,
 		full_crypto_verify, true);
 	return 0;
 }
@@ -1161,7 +1095,7 @@ void OcspdServer::OcspdTimer::action()
 	secdebug("ocspdRefresh", "OcspdTimer firing");
 	ocspdDbCacheFlushStale();
 	crlCacheRefresh(0,		// stale_days
-					0,		// expire_overlap_seconds, 
+					0,		// expire_overlap_seconds,
 					false,	// purge_all
 					false,	// full_crypto_verify
 					false);	// do Refresh
@@ -1172,13 +1106,13 @@ void OcspdServer::OcspdTimer::action()
 
 #pragma mark ----- OcspdServer, trivial subclass of MachPlusPlus::MachServer -----
 
-OcspdServer::OcspdServer(const char *bootstrapName) 
+OcspdServer::OcspdServer(const char *bootstrapName)
 	: MachServer(bootstrapName),
 	  mAlloc(Allocator::standard()),
 	  mTimer(*this)
 {
 	maxThreads(MAX_OCSPD_THREADS);
-	
+
 	/* schedule a refresh */
 	Time::Interval nextFire = OCSPD_TIMER_FIRST;
 	setTimer(&mTimer, nextFire);

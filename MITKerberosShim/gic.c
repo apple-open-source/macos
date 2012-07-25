@@ -296,7 +296,7 @@ krb5_get_in_tkt_with_password(mit_krb5_context context,
 void KRB5_CALLCONV
 krb5_verify_init_creds_opt_init(mit_krb5_verify_init_creds_opt *options)
 {
-    memset(options, 0, sizeof(options));
+    memset(options, 0, sizeof(*options));
 }
 
 void KRB5_CALLCONV

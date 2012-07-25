@@ -26,6 +26,7 @@
 #include "RenderBlock.h"
 #include "SVGInlineTextBox.h"
 #include "SVGNames.h"
+#include "SVGPathData.h"
 #include "SVGPathElement.h"
 #include "SVGRootInlineBox.h"
 #include "SVGTextPathElement.h"
@@ -35,7 +36,7 @@ namespace WebCore {
 
 RenderSVGTextPath::RenderSVGTextPath(Node* n)
     : RenderSVGInline(n)
-    , m_startOffset(0.0f)
+    , m_startOffset(0)
     , m_exactAlignment(true)
     , m_stretchMethod(false)
 {
@@ -44,15 +45,15 @@ RenderSVGTextPath::RenderSVGTextPath(Node* n)
 Path RenderSVGTextPath::layoutPath() const
 {
     SVGTextPathElement* textPathElement = static_cast<SVGTextPathElement*>(node());
-        String pathId = SVGURIReference::getTarget(textPathElement->href());
-    Element* targetElement = textPathElement->treeScope()->getElementById(pathId);    
+    Element* targetElement = SVGURIReference::targetElementFromIRIString(textPathElement->href(), textPathElement->document());
     if (!targetElement || !targetElement->hasTagName(SVGNames::pathTag))
         return Path();
     
     SVGPathElement* pathElement = static_cast<SVGPathElement*>(targetElement);
     
     Path pathData;
-    pathElement->toPathData(pathData);
+    updatePathFromGraphicsElement(pathElement, pathData);
+
     // Spec:  The transform attribute on the referenced 'path' element represents a
     // supplemental transformation relative to the current user coordinate system for
     // the current 'text' element, including any adjustments to the current user coordinate
@@ -69,12 +70,12 @@ float RenderSVGTextPath::startOffset() const
 
 bool RenderSVGTextPath::exactAlignment() const
 {
-    return static_cast<SVGTextPathElement*>(node())->spacing() == SVG_TEXTPATH_SPACINGTYPE_EXACT;
+    return static_cast<SVGTextPathElement*>(node())->spacing() == SVGTextPathSpacingExact;
 }
 
 bool RenderSVGTextPath::stretchMethod() const
 {
-    return static_cast<SVGTextPathElement*>(node())->method() == SVG_TEXTPATH_METHODTYPE_STRETCH;
+    return static_cast<SVGTextPathElement*>(node())->method() == SVGTextPathMethodStretch;
 }
 
 }

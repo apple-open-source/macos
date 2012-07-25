@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/el.xml
@@ -14,11 +14,12 @@ el{
     ExemplarCharacters{"[α ά β γ δ ε έ ζ η ή θ ι ί ϊ ΐ κ λ μ ν ξ ο ό π ρ σ ς τ υ ύ ϋ ΰ φ χ ψ ω ώ]"}
     ExemplarCharactersCurrency{"[α β γ δ ε ζ η θ ι κ λ μ ν ξ ο π ρ σ τ υ φ χ ψ ω]"}
     ExemplarCharactersIndex{"[Α Β Γ Δ Ε Ζ Η Θ Ι Κ Λ Μ Ν Ξ Ο Π Ρ Σ Τ Υ Φ Χ Ψ Ω]"}
-    ExemplarCharactersPunctuation{"[\- ‐ – — , ; \: ! . … \" ( ) \[ \] @ * / \\ \& §]"}
+    ExemplarCharactersPunctuation{"[\- ‐ – — , ; \: ! . … \" ( ) \[ \] § @ * / \\ \&]"}
     LocaleScript{
         "Grek",
     }
     NumberElements{
+        default{"latn"}
         latn{
             patterns{
                 currencyFormat{"#,##0.00 ¤"}
@@ -38,8 +39,10 @@ el{
                 plusSign{"+"}
             }
         }
+        native{"latn"}
+        traditional{"grek"}
     }
-    Version{"2.0.58.79"}
+    Version{"2.0.65.46"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -60,16 +63,16 @@ el{
             availableFormats{
                 Ed{"E d"}
                 Gy{"y G"}
-                MEd{"EEE, d/M"}
+                MEd{"E, d/M"}
                 MMM{"LLL"}
-                MMMEd{"EEE, d MMM"}
+                MMMEd{"E, d MMM"}
                 MMMd{"d MMM"}
                 Md{"d/M"}
                 y{"y G"}
                 yM{"M/y"}
-                yMEd{"EEE, d/M/y"}
+                yMEd{"E, d/M/y"}
                 yMMM{"LLL, y G"}
-                yMMMEd{"EEE, d MMM, y G"}
+                yMMMEd{"E, d MMM, y G"}
                 yMMMd{"d MMM, y G"}
                 yMd{"d/M/y"}
             }
@@ -95,7 +98,6 @@ el{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
                 Ed{"E d"}
                 H{"HH"}
                 HHmm{"HH:mm"}
@@ -119,9 +121,9 @@ el{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/yyyy"}
-                yMEd{"EEE, d/M/yyyy"}
+                yMEd{"E, d/M/yyyy"}
                 yMMM{"LLL y"}
-                yMMMEd{"EEE, d MMM y"}
+                yMMMEd{"E, d MMM y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/yyyy"}
                 yQ{"y Q"}
@@ -206,11 +208,9 @@ el{
                     relative{
                         "-1"{"Χτες"}
                         "-2"{"Προχτές"}
-                        "-3"{"Πριν από τρεις ημέρες"}
                         "0"{"Σήμερα"}
                         "1"{"Αύριο"}
                         "2"{"Μεθαύριο"}
-                        "3"{"Σε τρεις ημέρες από τώρα"}
                     }
                 }
                 dayperiod{
@@ -536,9 +536,9 @@ el{
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M/y G"}
-                yyyyMEd{"EEE, d/M/y G"}
+                yyyyMEd{"E, d/M/y G"}
                 yyyyMMM{"LLL, y G"}
-                yyyyMMMEd{"EEE, d MMM, y G"}
+                yyyyMMMEd{"E, d MMM, y G"}
                 yyyyMMMd{"d MMM, y G"}
                 yyyyMd{"d/M/y G"}
                 yyyyQ{"y G Q"}
@@ -553,8 +553,8 @@ el{
         }
     }
     delimiters{
-        alternateQuotationEnd{"’"}
-        alternateQuotationStart{"‘"}
+        alternateQuotationEnd{"”"}
+        alternateQuotationStart{"“"}
         quotationEnd{"»"}
         quotationStart{"«"}
     }
@@ -574,58 +574,149 @@ el{
             one{"{0} ημέρα"}
             other{"{0} ημέρες"}
         }
+        day-future{
+            0{"Σε 0 ημέρες"}
+            1{"Σε 1 ημέρα"}
+            one{"Σε {0} ημέρα"}
+            other{"Σε {0} ημέρες"}
+        }
+        day-past{
+            0{"Πριν από 0 ημέρες"}
+            1{"Πριν από 1 ημέρα"}
+            one{"Πριν από {0} ημέρα"}
+            other{"Πριν από {0} ημέρες"}
+        }
         hour{
             one{"{0} ώρα"}
             other{"{0} ώρες"}
+        }
+        hour-future{
+            0{"Σε 0 ώρες"}
+            1{"Σε 1 ώρα"}
+            one{"Σε {0} ώρα"}
+            other{"Σε {0} ώρες"}
+        }
+        hour-past{
+            0{"Πριν από 0 ώρες"}
+            1{"Πριν από 1 ώρα"}
+            one{"Πριν από {0} ώρα"}
+            other{"Πριν από {0} ώρες"}
         }
         minute{
             one{"{0} λεπτό"}
             other{"{0} λεπτά"}
         }
+        minute-future{
+            0{"Σε 0 λεπτά"}
+            1{"Σε 1 λεπτό"}
+            one{"Σε {0} λεπτό"}
+            other{"Σε {0} λεπτά"}
+        }
+        minute-past{
+            0{"Πριν από 0 λεπτά"}
+            1{"Πριν από 1 λεπτό"}
+            one{"Πριν από {0} λεπτό"}
+            other{"Πριν από {0} λεπτά"}
+        }
         month{
             one{"{0} μήνας"}
             other{"{0} μήνες"}
+        }
+        month-future{
+            0{"Σε 0 μήνες"}
+            1{"Σε 1 μήνα"}
+            one{"Σε {0} μήνα"}
+            other{"Σε {0} μήνες"}
+        }
+        month-past{
+            0{"Πριν από 0 μήνες"}
+            1{"Πριν από 1 μήνα"}
+            one{"Πριν από {0} μήνα"}
+            other{"Πριν από {0} μήνες"}
         }
         second{
             one{"{0} δευτερόλεπτο"}
             other{"{0} δευτερόλεπτα"}
         }
+        second-future{
+            0{"Σε 0 δευτερόλεπτα"}
+            1{"Σε 1 δευτερόλεπτο"}
+            one{"Σε {0} δευτερόλεπτο"}
+            other{"Σε {0} δευτερόλεπτα"}
+        }
+        second-past{
+            0{"Πριν από 0 δευτερόλεπτα"}
+            1{"Πριν από 1 δευτερόλεπτο"}
+            one{"Πριν από {0} δευτερόλεπτο"}
+            other{"Πριν από {0} δευτερόλεπτα"}
+        }
         week{
             one{"{0} εβδομάδα"}
             other{"{0} εβδομάδες"}
+        }
+        week-future{
+            0{"Σε 0 εβδομάδες"}
+            1{"Σε 1 εβδομάδα"}
+            one{"Σε {0} εβδομάδα"}
+            other{"Σε {0} εβδομάδες"}
+        }
+        week-past{
+            0{"Πριν από 0 εβδομάδες"}
+            1{"Πριν από 1 εβδομάδα"}
+            one{"Πριν από {0} εβδομάδα"}
+            other{"Πριν από {0} εβδομάδες"}
         }
         year{
             one{"{0} έτος"}
             other{"{0} έτη"}
         }
+        year-future{
+            0{"Σε 0 έτη"}
+            1{"Σε 1 έτος"}
+            one{"Σε {0} έτος"}
+            other{"Σε {0} έτη"}
+        }
+        year-past{
+            0{"Πριν από 0 έτη"}
+            1{"Πριν από 1 έτος"}
+            one{"Πριν από {0} έτος"}
+            other{"Πριν από {0} έτη"}
+        }
     }
     unitsShort{
         day{
-            one{"{0} ημέρα"}
+            0{"0 ημέρες"}
+            1{"1 ημέρα"}
             other{"{0} ημέρες"}
         }
         hour{
-            one{"{0} ώρα"}
+            0{"0 ώρες"}
+            1{"1 ώρα"}
             other{"{0} ώρες"}
         }
         minute{
-            one{"{0} λεπτό"}
+            0{"0 λεπτά"}
+            1{"1 λεπτό"}
             other{"{0} λεπτά"}
         }
         month{
-            one{"{0} μήνας"}
+            0{"0 μήνες"}
+            1{"1 μήνας"}
             other{"{0} μήνες"}
         }
         second{
-            one{"{0} δευτερόλεπτο"}
+            0{"0 δευτερόλεπτα"}
+            1{"1 δευτερόλεπτο"}
             other{"{0} δευτερόλεπτα"}
         }
         week{
-            one{"{0} εβδομάδα"}
+            0{"0 εβδομάδες"}
+            1{"1 εβδομάδα"}
             other{"{0} εβδομάδες"}
         }
         year{
-            one{"{0} έτος"}
+            0{"0 έτη"}
+            1{"1 έτος"}
             other{"{0} έτη"}
         }
     }

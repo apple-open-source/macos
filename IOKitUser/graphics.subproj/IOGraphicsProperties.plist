@@ -139,9 +139,11 @@
 		<integer>640</integer>
 		<integer>800</integer>
 		<integer>1024</integer>
+                <data>AAAFAAAAAtAAAAABAQAAAAAAAAA=</data>
 		<integer>1280</integer>
 		<integer>1344</integer>
 		<integer>1600</integer>
+                <data>AAAHgAAABDgAAAABAQAAAAAAAAA=</data>
 		<integer>1920</integer>
 		<integer>2048</integer>
 	</array>

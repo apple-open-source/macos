@@ -31,12 +31,11 @@
 #ifndef WebStorageArea_h
 #define WebStorageArea_h
 
-#include "WebCommon.h"
-#include "WebString.h"
+#include "platform/WebCommon.h"
+#include "platform/WebString.h"
 
 namespace WebKit {
 
-class WebFrame;
 class WebURL;
 
 // In WebCore, there's one distinct StorageArea per origin per StorageNamespace. This
@@ -66,15 +65,7 @@ public:
     // Set the value that corresponds to a specific key. Result will either be ResultOK
     // or some particular error. The value is NOT set when there's an error.  url is the
     // url that should be used if a storage event fires.
-    virtual void setItem(const WebString& key, const WebString& newValue, const WebURL& url, Result& result, WebString& oldValue, WebFrame*)
-    {
-        setItem(key, newValue, url, result, oldValue);
-    }
-    // FIXME: Remove soon (once Chrome has rolled past this revision).
-    virtual void setItem(const WebString& key, const WebString& newValue, const WebURL& url, Result& result, WebString& oldValue)
-    {
-        setItem(key, newValue, url, result, oldValue, 0);
-    }
+    virtual void setItem(const WebString& key, const WebString& newValue, const WebURL&, Result&, WebString& oldValue) = 0;
 
     // Remove the value associated with a particular key.  url is the url that should be used
     // if a storage event fires.

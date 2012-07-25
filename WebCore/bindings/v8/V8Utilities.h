@@ -34,23 +34,28 @@
 #include <wtf/Forward.h>
 #include <v8.h>
 
+#include "OwnHandle.h"
+
+namespace WTF {
+class ArrayBuffer;
+}
+
 namespace WebCore {
 
     class EventListener;
     class Frame;
     class KURL;
+    class MessagePort;
     class ScriptExecutionContext;
     class ScriptState;
 
     // Use an array to hold dependents. It works like a ref-counted scheme. A value can be added more than once to the DOM object.
     void createHiddenDependency(v8::Handle<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
     void removeHiddenDependency(v8::Handle<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
-    
+
     // Combo create/remove, for generated event-handler-setter bindings:
     void transferHiddenDependency(v8::Handle<v8::Object>, EventListener* oldValue, v8::Local<v8::Value> newValue, int cacheIndex);
-    
-    bool processingUserGesture();
-    bool shouldAllowNavigation(Frame*);
+
     KURL completeURL(const String& relativeURL);
 
     ScriptExecutionContext* getScriptExecutionContext();
@@ -63,6 +68,25 @@ namespace WebCore {
     };
 
     typedef unsigned CallbackAllowedValueFlags;
+
+    class V8AuxiliaryContext {
+    public:
+        V8AuxiliaryContext();
+        virtual ~V8AuxiliaryContext();
+    private:
+        v8::HandleScope m_handleScope;
+        static v8::Persistent<v8::Context>& auxiliaryContext();
+    };
+
+    typedef WTF::Vector<RefPtr<MessagePort>, 1> MessagePortArray;
+    typedef WTF::Vector<RefPtr<ArrayBuffer>, 1> ArrayBufferArray;
+
+    // Helper function which pulls the values out of a JS sequence and into a MessagePortArray.
+    // Also validates the elements per sections 4.1.13 and 4.1.15 of the WebIDL spec and section 8.3.3 
+    // of the HTML5 spec and generates exceptions as appropriate.
+    // Returns true if the array was filled, or false if the passed value was not of an appropriate type.
+    bool extractTransferables(v8::Local<v8::Value>, MessagePortArray&, ArrayBufferArray&); 
+    bool getMessagePortArray(v8::Local<v8::Value>, MessagePortArray&);
 
     // 'FunctionOnly' is assumed for the created callback.
     template <typename V8CallbackType>
@@ -83,56 +107,6 @@ namespace WebCore {
         }
 
         return V8CallbackType::create(value, getScriptExecutionContext());
-    }
-
-    class AllowAllocation {
-    public:
-        inline AllowAllocation()
-        {
-            m_previous = m_current;
-            m_current = true;
-        }
-
-        inline ~AllowAllocation()
-        {
-            m_current = m_previous;
-        }
-
-        static bool m_current;
-
-    private:
-        bool m_previous;
-    };
-
-    class SafeAllocation {
-     public:
-      static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>);
-      static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::ObjectTemplate>);
-      static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
-    };
-
-    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::Function> function)
-    {
-        if (function.IsEmpty())
-            return v8::Local<v8::Object>();
-        AllowAllocation allow;
-        return function->NewInstance();
-    }
-
-    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::ObjectTemplate> objectTemplate)
-    {
-        if (objectTemplate.IsEmpty())
-            return v8::Local<v8::Object>();
-        AllowAllocation allow;
-        return objectTemplate->NewInstance();
-    }
-
-    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::Function> function, int argc, v8::Handle<v8::Value> argv[])
-    {
-        if (function.IsEmpty())
-            return v8::Local<v8::Object>();
-        AllowAllocation allow;
-        return function->NewInstance(argc, argv);
     }
 
 } // namespace WebCore

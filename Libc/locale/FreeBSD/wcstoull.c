@@ -36,6 +36,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdlib/strtoull.c,v 1.18 2002/09/06 11:23:59 tjr
 #endif
 __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoull.c,v 1.2 2007/01/09 00:28:01 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
@@ -46,8 +48,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoull.c,v 1.2 2007/01/09 00:28:01 imp
  * Convert a wide character string to an unsigned long long integer.
  */
 unsigned long long
-wcstoull(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
-    int base)
+wcstoull_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    int base, locale_t loc)
 {
 	const wchar_t *s;
 	unsigned long long acc;
@@ -55,13 +57,14 @@ wcstoull(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	unsigned long long cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * See strtoull for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
 		c = *s++;
-	} while (iswspace(c));
+	} while (iswspace_l(c, loc));
 	if (c == L'-') {
 		neg = 1;
 		c = *s++;
@@ -86,8 +89,8 @@ wcstoull(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
 	cutlim = ULLONG_MAX % base;
 	for ( ; ; c = *s++) {
 #ifdef notyet
-		if (iswdigit(c))
-			c = digittoint(c);
+		if (iswdigit_l(c, loc))
+			c = digittoint_l(c, loc);
 		else
 #endif
 		if (c >= L'0' && c <= L'9')
@@ -119,4 +122,11 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (wchar_t *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+unsigned long long
+wcstoull(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    int base)
+{
+	return wcstoull_l(nptr, endptr, base, __current_locale());
 }

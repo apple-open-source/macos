@@ -50,7 +50,7 @@ namespace JSC {
 void JIT::emit_op_call_put_result(Instruction* instruction)
 {
     int dst = instruction[1].u.operand;
-    emitValueProfilingSite(FirstProfilingSite);
+    emitValueProfilingSite();
     emitStore(dst, regT1, regT0);
 }
 
@@ -149,7 +149,7 @@ void JIT::compileLoadVarargs(Instruction* instruction)
         emitLoadTag(arguments, regT1);
         slowCase.append(branch32(NotEqual, regT1, TrustedImm32(JSValue::EmptyValueTag)));
 
-        emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT2);
+        load32(payloadFor(RegisterFile::ArgumentCount), regT2);
         slowCase.append(branch32(Above, regT2, TrustedImm32(Arguments::MaxArguments + 1)));
         // regT2: argumentCountIncludingThis
 
@@ -171,7 +171,7 @@ void JIT::compileLoadVarargs(Instruction* instruction)
 
         // Copy arguments.
         neg32(regT2);
-        end.append(branchAdd32(Zero, Imm32(1), regT2));
+        end.append(branchAdd32(Zero, TrustedImm32(1), regT2));
         // regT2: -argumentCount;
 
         Label copyLoop = label();
@@ -179,7 +179,7 @@ void JIT::compileLoadVarargs(Instruction* instruction)
         load32(BaseIndex(callFrameRegister, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag) +(CallFrame::thisArgumentOffset() * static_cast<int>(sizeof(Register)))), regT1);
         store32(regT0, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload) +(CallFrame::thisArgumentOffset() * static_cast<int>(sizeof(Register)))));
         store32(regT1, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag) +(CallFrame::thisArgumentOffset() * static_cast<int>(sizeof(Register)))));
-        branchAdd32(NonZero, Imm32(1), regT2).linkTo(copyLoop, this);
+        branchAdd32(NonZero, TrustedImm32(1), regT2).linkTo(copyLoop, this);
 
         end.append(jump());
     }
@@ -245,6 +245,8 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
 
         store32(TrustedImm32(argCount), payloadFor(RegisterFile::ArgumentCount, regT3));
     } // regT3 holds newCallFrame with ArgumentCount initialized.
+    
+    storePtr(TrustedImmPtr(instruction), tagFor(RegisterFile::ArgumentCount, callFrameRegister));
     emitLoad(callee, regT1, regT0); // regT1, regT0 holds callee.
 
     storePtr(callFrameRegister, Address(regT3, RegisterFile::CallerFrame * static_cast<int>(sizeof(Register))));
@@ -264,7 +266,6 @@ void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned ca
     addSlowCase(slowCase);
     addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag)));
 
-    ASSERT_JIT_OFFSET(differenceBetween(addressOfLinkedFunctionCheck, slowCase), patchOffsetOpCallCompareToJump);
     ASSERT(m_callStructureStubCompilationInfo.size() == callLinkInfoIndex);
     m_callStructureStubCompilationInfo.append(StructureStubCompilationInfo());
     m_callStructureStubCompilationInfo[callLinkInfoIndex].hotPathBegin = addressOfLinkedFunctionCheck;

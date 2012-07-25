@@ -181,7 +181,7 @@ static void printReport(uint8_t * report, CFIndex reportLength, bool rcv)
 {
     int index;
 
-    printf("%s report: reportLength=%d: ", rcv ? "Received" : "Dispatching", reportLength);
+    printf("%s report: reportLength=%ld: ", rcv ? "Received" : "Dispatching", reportLength);
     for (index=0; index<reportLength; index++)
         printf("%02x ", report[index]);
     printf("\n");

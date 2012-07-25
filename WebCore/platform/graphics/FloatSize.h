@@ -28,14 +28,22 @@
 #ifndef FloatSize_h
 #define FloatSize_h
 
-#include "IntSize.h"
+#include "IntPoint.h"
 #include <wtf/MathExtras.h>
 
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+#if PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace Platform {
+class FloatSize;
+}
+}
+#endif
+
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
 typedef struct CGSize CGSize;
 #endif
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN)) || (PLATFORM(QT) && USE(QTKIT))
 #ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGSize NSSize;
 #else
@@ -46,12 +54,14 @@ typedef struct _NSSize NSSize;
 namespace WebCore {
 
 class IntSize;
+class FractionalLayoutSize;
 
 class FloatSize {
 public:
     FloatSize() : m_width(0), m_height(0) { }
     FloatSize(float width, float height) : m_width(width), m_height(height) { }
     FloatSize(const IntSize&);
+    FloatSize(const FractionalLayoutSize&);
 
     static FloatSize narrowPrecision(double width, double height);
 
@@ -66,6 +76,12 @@ public:
     bool isExpressibleAsIntSize() const;
 
     float aspectRatio() const { return m_width / m_height; }
+
+    void expand(float width, float height)
+    {
+        m_width += width;
+        m_height += height;
+    }
 
     void scale(float s) { scale(s, s); }
 
@@ -93,13 +109,23 @@ public:
         return m_width * m_width + m_height * m_height;
     }
 
-#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
+    FloatSize transposedSize() const
+    {
+        return FloatSize(m_height, m_width);
+    }
+
+#if PLATFORM(BLACKBERRY)
+    FloatSize(const BlackBerry::Platform::FloatSize&);
+    operator BlackBerry::Platform::FloatSize() const;
+#endif
+
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROMIUM)
     explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
     operator CGSize() const;
 #endif
 
 #if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)) \
-        || (PLATFORM(CHROMIUM) && OS(DARWIN))
+        || (PLATFORM(CHROMIUM) && OS(DARWIN)) || (PLATFORM(QT) && USE(QTKIT))
     explicit FloatSize(const NSSize &); // don't do this implicitly since it's lossy
     operator NSSize() const;
 #endif
@@ -152,9 +178,19 @@ inline IntSize roundedIntSize(const FloatSize& p)
     return IntSize(static_cast<int>(roundf(p.width())), static_cast<int>(roundf(p.height())));
 }
 
+inline IntSize flooredIntSize(const FloatSize& p)
+{
+    return IntSize(static_cast<int>(p.width()), static_cast<int>(p.height()));
+}
+
 inline IntSize expandedIntSize(const FloatSize& p)
 {
     return IntSize(clampToInteger(ceilf(p.width())), clampToInteger(ceilf(p.height())));
+}
+
+inline IntPoint flooredIntPoint(const FloatSize& p)
+{
+    return IntPoint(static_cast<int>(p.width()), static_cast<int>(p.height()));
 }
 
 } // namespace WebCore

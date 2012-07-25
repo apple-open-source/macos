@@ -200,7 +200,7 @@ void IOHIDConsumer::dispatchConsumerEvent(
 	}
     
     //Copy the device flags (modifier flags) from the ADB keyboard driver
-    if ( _keyboardNub = sendingkeyboardNub )
+    if ( NULL != (_keyboardNub = sendingkeyboardNub) )
     {
         UInt32  currentFlags;
         

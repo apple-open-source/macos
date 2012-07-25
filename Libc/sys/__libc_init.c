@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <pthread_machdep.h>
+#include <machine/cpu_capabilities.h>
 
 struct ProgramVars; /* forward reference */
 
@@ -35,9 +36,12 @@ extern void _libc_fork_init(void (*prepare)(void), void (*parent)(void), void (*
 extern void _init_clock_port();
 extern pthread_lock_t _malloc_lock;
 extern void __xlocale_init(void);
+extern void __pthread_pfz_setup(const char *apple[]);
 extern void __guard_setup(const char *apple[]);
 extern void __malloc_entropy_setup(const char *apple[]);
 extern int usenew_impl;
+
+__private_extern__ uintptr_t commpage_pfz_base;
 
 #ifdef PR_5243343
 /* 5243343 - temporary hack to detect if we are running the conformance test */
@@ -46,6 +50,7 @@ __private_extern__ int PR_5243343_flag = 0;
 #endif /* PR_5243343 */
 __private_extern__ int __pthread_lock_debug = 0;
 __private_extern__ int __pthread_lock_old = 0;
+
 
 void
 __libc_init(const struct ProgramVars *vars, void (*atfork_prepare)(void), void (*atfork_parent)(void), void (*atfork_child)(void), const char *apple[])
@@ -56,6 +61,7 @@ __libc_init(const struct ProgramVars *vars, void (*atfork_prepare)(void), void (
 	_init_clock_port();
 	__xlocale_init();
 	__guard_setup(apple);
+	__pthread_pfz_setup(apple);
 	__malloc_entropy_setup(apple);
 
 

@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2008, International Business Machines
+ *   Copyright (C) 2005-2012, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -90,6 +90,36 @@ static const uint16_t commonChars_gb_18030[] = {
 0xcfb5, 0xcfc2, 0xcfd6, 0xd0c2, 0xd0c5, 0xd0d0, 0xd0d4, 0xd1a7, 0xd2aa, 0xd2b2,
 0xd2b5, 0xd2bb, 0xd2d4, 0xd3c3, 0xd3d0, 0xd3fd, 0xd4c2, 0xd4da, 0xd5e2, 0xd6d0};
 
+#if U_PLATFORM_IS_DARWIN_BASED
+static const uint8_t keyStrings_sjis[][MAX_KEY_STRING_WITH_NULL] = {
+    {0x82,0xa9,0x82,0xe7,0x91,0x97,0x90,0x4d,0}, // Signatures - Sent from my ...
+    {0x93,0x5d,0x91,0x97,0x83,0x81,0x83,0x62,0x83,0x5a,0x81,0x5b,0x83,0x57,0}, // forward
+    {0}
+};
+static const uint8_t keyStrings_euc_jp[][MAX_KEY_STRING_WITH_NULL] = {
+    {0xa4,0xab,0xa4,0xe9,0xc1,0xf7,0xbf,0xae,0}, // Signatures - Sent from my ...
+    {0xc5,0xbe,0xc1,0xf7,0xa5,0xe1,0xa5,0xc3,0xa5,0xbb,0xa1,0xbc,0xa5,0xb8,0}, // forward
+    {0}
+};
+static const uint8_t keyStrings_euc_kr[][MAX_KEY_STRING_WITH_NULL] = {
+    {0xb3,0xaa,0xc0,0xc7,0}, // Signatures - Sent from my ... #1
+    {0xbf,0xa1,0xbc,0xad,0x20,0xba,0xb8,0xb3,0xbf,0}, // Signatures - Sent from my ... #2
+    {0xc0,0xfc,0xb4,0xde,0xb5,0xc8,0x20,0xb8,0xde,0xbd,0xc3,0xc1,0xf6,0}, // forward
+    {0}
+};
+static const uint8_t keyStrings_big5[][MAX_KEY_STRING_WITH_NULL] = {
+    {0xb1,0x71,0xa7,0xda,0xaa,0xba,0}, // Signatures - Sent from my ... #1
+    {0xb6,0xc7,0xb0,0x65,0}, // Signatures - Sent from my ... #2
+    {0xb6,0x7d,0xa9,0x6c,0xc2,0xe0,0xb1,0x48,0xb6,0x6c,0xa5,0xf3,0}, // forward
+    {0}
+};
+static const uint8_t keyStrings_gb_18030[][MAX_KEY_STRING_WITH_NULL] = {
+    {0xb7,0xa2,0xd7,0xd4,0xce,0xd2,0xb5,0xc4,0}, // Signatures - Sent from my iP...
+    {0xd7,0xaa,0xb7,0xa2,0xb5,0xc4,0xd3,0xca,0xbc,0xfe,0}, // forward
+    {0}
+};
+#endif
+
 static int32_t binarySearch(const uint16_t *array, int32_t len, uint16_t value)
 {
     int32_t start = 0, end = len-1;
@@ -111,6 +141,18 @@ static int32_t binarySearch(const uint16_t *array, int32_t len, uint16_t value)
 
     return -1;
 }
+
+#if U_PLATFORM_IS_DARWIN_BASED
+// If testPrefix is a prefix of base, return its length, else return 0
+static int32_t isPrefix(const uint8_t *testPrefix, const uint8_t *base, const uint8_t *baseLimit) {
+    const uint8_t *testPrefixStart = testPrefix;
+    while (*testPrefix != 0 && base < baseLimit && *testPrefix == *base) {
+        testPrefix++;
+        base++;
+    }
+    return (*testPrefix == 0)? (int32_t)(testPrefix-testPrefixStart): 0;
+}
+#endif
 
 IteratedChar::IteratedChar() : 
 charValue(0), index(-1), nextIndex(0), error(FALSE), done(FALSE)
@@ -143,13 +185,20 @@ CharsetRecog_mbcs::~CharsetRecog_mbcs()
     // nothing to do.
 }
 
+#if U_PLATFORM_IS_DARWIN_BASED
+int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen, const uint8_t (*keyStrings)[MAX_KEY_STRING_WITH_NULL] ) {
+#else
 int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars[], int32_t commonCharsLen) {
+#endif
     int32_t singleByteCharCount = 0;
     int32_t doubleByteCharCount = 0;
     int32_t commonCharCount     = 0;
     int32_t badCharCount        = 0;
     int32_t totalCharCount      = 0;
     int32_t confidence          = 0;
+#if U_PLATFORM_IS_DARWIN_BASED
+    int32_t confidenceFromKeys  = 0;
+#endif
     IteratedChar iter;
 
     while (nextChar(&iter, det)) {
@@ -168,6 +217,15 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
                         commonCharCount += 1;
                     }
                 }
+#if U_PLATFORM_IS_DARWIN_BASED
+                if (doubleByteCharCount <= 20) {
+                    int32_t keyIndex;
+                    for ( keyIndex = 0; keyStrings[keyIndex][0] != 0; keyIndex++ ) {
+                        int32_t prefixLen = isPrefix(keyStrings[keyIndex], &det->fRawInput[iter.index], &det->fRawInput[det->fRawLength]);
+                        confidenceFromKeys += prefixLen*5;
+                    }
+                }
+#endif
             }
         }
 
@@ -190,7 +248,16 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         else {
             //   ASCII or ISO file?  It's probably not our encoding,
             //   but is not incompatible with our encoding, so don't give it a zero.
+#if U_PLATFORM_IS_DARWIN_BASED
+            if (confidenceFromKeys > 90) {
+                confidenceFromKeys = 90;
+            } else if (confidenceFromKeys > 0 && confidenceFromKeys < 70) {
+                confidenceFromKeys += 20;
+            }
+            confidence = 10 + confidenceFromKeys;
+#else
             confidence = 10;
+#endif
         }
 
         return confidence;
@@ -211,6 +278,9 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         //  Assess confidence purely on having a reasonable number of
         //  multi-byte characters (the more the better)
         confidence = 30 + doubleByteCharCount - 20*badCharCount;
+#if U_PLATFORM_IS_DARWIN_BASED
+        confidence += confidenceFromKeys;
+#endif
 
         if (confidence > 100) {
             confidence = 100;
@@ -220,9 +290,12 @@ int32_t CharsetRecog_mbcs::match_mbcs(InputText *det, const uint16_t commonChars
         // Frequency of occurence statistics exist.
         //
 
-        double maxVal = log10((double)doubleByteCharCount / 4); /*(float)?*/
+        double maxVal = log((double)doubleByteCharCount / 4); /*(float)?*/
         double scaleFactor = 90.0 / maxVal;
-        confidence = (int32_t)(log10((double)commonCharCount+1) * scaleFactor + 10.0);
+        confidence = (int32_t)(log((double)commonCharCount+1) * scaleFactor + 10.0);
+#if U_PLATFORM_IS_DARWIN_BASED
+        confidence += confidenceFromKeys;
+#endif
 
         confidence = min(confidence, 100);
     }
@@ -269,7 +342,11 @@ UBool CharsetRecog_sjis::nextChar(IteratedChar* it, InputText* det) {
 
 int32_t CharsetRecog_sjis::match(InputText* det)
 {
+#if U_PLATFORM_IS_DARWIN_BASED
+    return match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis), keyStrings_sjis);
+#else
     return match_mbcs(det, commonChars_sjis, ARRAY_SIZE(commonChars_sjis));
+#endif
 }
 
 const char *CharsetRecog_sjis::getName() const
@@ -368,7 +445,11 @@ const char *CharsetRecog_euc_jp::getLanguage() const
 
 int32_t CharsetRecog_euc_jp::match(InputText *det)
 {
+#if U_PLATFORM_IS_DARWIN_BASED
+    return match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp), keyStrings_euc_jp);
+#else
     return match_mbcs(det, commonChars_euc_jp, ARRAY_SIZE(commonChars_euc_jp));
+#endif
 }
 
 CharsetRecog_euc_kr::~CharsetRecog_euc_kr()
@@ -388,7 +469,11 @@ const char *CharsetRecog_euc_kr::getLanguage() const
 
 int32_t CharsetRecog_euc_kr::match(InputText *det)
 {
+#if U_PLATFORM_IS_DARWIN_BASED
+    return match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr), keyStrings_euc_kr);
+#else
     return match_mbcs(det, commonChars_euc_kr, ARRAY_SIZE(commonChars_euc_kr));
+#endif
 }
 
 CharsetRecog_big5::~CharsetRecog_big5()
@@ -438,7 +523,11 @@ const char *CharsetRecog_big5::getLanguage() const
 
 int32_t CharsetRecog_big5::match(InputText *det)
 {
+#if U_PLATFORM_IS_DARWIN_BASED
+    return match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5), keyStrings_big5);
+#else
     return match_mbcs(det, commonChars_big5, ARRAY_SIZE(commonChars_big5));
+#endif
 }
 
 CharsetRecog_gb_18030::~CharsetRecog_gb_18030()
@@ -512,7 +601,11 @@ const char *CharsetRecog_gb_18030::getLanguage() const
 
 int32_t CharsetRecog_gb_18030::match(InputText *det)
 {
+#if U_PLATFORM_IS_DARWIN_BASED
+    return match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030), keyStrings_gb_18030);
+#else
     return match_mbcs(det, commonChars_gb_18030, ARRAY_SIZE(commonChars_gb_18030));
+#endif
 }
 
 U_NAMESPACE_END

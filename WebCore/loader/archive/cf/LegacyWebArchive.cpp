@@ -44,7 +44,9 @@
 #include "Logging.h"
 #include "markup.h"
 #include "Node.h"
+#include "Page.h"
 #include "Range.h"
+#include "Settings.h"
 #include "SharedBuffer.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
@@ -199,7 +201,7 @@ PassRefPtr<ArchiveResource> LegacyWebArchive::createResource(CFDictionaryRef dic
     }
     
     CFStringRef mimeType = static_cast<CFStringRef>(CFDictionaryGetValue(dictionary, LegacyWebArchiveResourceMIMETypeKey));
-    if (!mimeType || CFGetTypeID(mimeType) != CFStringGetTypeID()) {
+    if (mimeType && CFGetTypeID(mimeType) != CFStringGetTypeID()) {
         LOG(Archives, "LegacyWebArchive - MIME type is not of type CFString, cannot create invalid resource");
         return 0;
     }
@@ -262,6 +264,11 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(PassRefPtr<ArchiveResource
 
 PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(SharedBuffer* data)
 {
+    return create(KURL(), data);
+}
+
+PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const KURL&, SharedBuffer* data)
+{
     LOG(Archives, "LegacyWebArchive - Creating from raw data");
     
     RefPtr<LegacyWebArchive> archive = create();
@@ -322,6 +329,11 @@ bool LegacyWebArchive::extract(CFDictionaryRef dictionary)
         return false;
     }
     
+    if (mainResource()->mimeType().isNull()) {
+        LOG(Archives, "LegacyWebArchive - Main resource MIME type is required, but was null.");
+        return false;
+    }
+    
     CFArrayRef subresourceArray = static_cast<CFArrayRef>(CFDictionaryGetValue(dictionary, LegacyWebArchiveSubresourcesKey));
     if (subresourceArray && CFGetTypeID(subresourceArray) != CFArrayGetTypeID()) {
         LOG(Archives, "LegacyWebArchive - Subresources is not the expected Array, aborting invalid WebArchive");
@@ -336,7 +348,9 @@ bool LegacyWebArchive::extract(CFDictionaryRef dictionary)
                 LOG(Archives, "LegacyWebArchive - Subresource is not expected CFDictionary, aborting invalid WebArchive");
                 return false;
             }
-            addSubresource(createResource(subresourceDict));
+            
+            if (RefPtr<ArchiveResource> subresource = createResource(subresourceDict))
+                addSubresource(subresource.release());
         }
     }
     
@@ -366,6 +380,11 @@ bool LegacyWebArchive::extract(CFDictionaryRef dictionary)
     return true;
 }
 
+Archive::Type LegacyWebArchive::type() const
+{
+    return Archive::WebArchive;
+}
+    
 RetainPtr<CFDataRef> LegacyWebArchive::rawDataRepresentation()
 {
     RetainPtr<CFDictionaryRef> propertyList = createPropertyListRepresentation(this);
@@ -411,7 +430,7 @@ RetainPtr<CFDataRef> LegacyWebArchive::createPropertyListRepresentation(const Re
 
 #endif
 
-PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Node* node)
+PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Node* node, FrameFilter* filter)
 {
     ASSERT(node);
     if (!node)
@@ -421,14 +440,23 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Node* node)
     Frame* frame = document ? document->frame() : 0;
     if (!frame)
         return create();
+
+    // If the page was loaded with javascript enabled, we don't want to archive <noscript> tags
+    // In practice we don't actually know whether scripting was enabled when the page was originally loaded
+    // but we can approximate that by checking if scripting is enabled right now.
+    OwnPtr<Vector<QualifiedName> > tagNamesToFilter;
+    if (frame->page() && frame->page()->settings()->isScriptEnabled()) {
+        tagNamesToFilter = adoptPtr(new Vector<QualifiedName>);
+        tagNamesToFilter->append(HTMLNames::noscriptTag);
+    }
         
     Vector<Node*> nodeList;
-    String markupString = createMarkup(node, IncludeNode, &nodeList);
+    String markupString = createMarkup(node, IncludeNode, &nodeList, DoNotResolveURLs, tagNamesToFilter.get());
     Node::NodeType nodeType = node->nodeType();
     if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
         markupString = frame->documentTypeString() + markupString;
 
-    return create(markupString, frame, nodeList);
+    return create(markupString, frame, nodeList, filter);
 }
 
 PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Frame* frame)
@@ -477,10 +505,10 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(Range* range)
     // FIXME: This is always "for interchange". Is that right? See the previous method.
     String markupString = frame->documentTypeString() + createMarkup(range, &nodeList, AnnotateForInterchange);
 
-    return create(markupString, frame, nodeList);
+    return create(markupString, frame, nodeList, 0);
 }
 
-PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Frame* frame, const Vector<Node*>& nodes)
+PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Frame* frame, const Vector<Node*>& nodes, FrameFilter* frameFilter)
 {
     ASSERT(frame);
     
@@ -490,7 +518,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
     // it's possible to have a response without a URL here
     // <rdar://problem/5454935>
     if (responseURL.isNull())
-        responseURL = KURL(ParsedURLString, "");
+        responseURL = KURL(ParsedURLString, emptyString());
         
     PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(utf8Buffer(markupString), responseURL, response.mimeType(), "UTF-8", frame->tree()->uniqueName());
 
@@ -504,7 +532,10 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
         Frame* childFrame;
         if ((node->hasTagName(HTMLNames::frameTag) || node->hasTagName(HTMLNames::iframeTag) || node->hasTagName(HTMLNames::objectTag)) &&
              (childFrame = static_cast<HTMLFrameOwnerElement*>(node)->contentFrame())) {
-            RefPtr<LegacyWebArchive> subframeArchive = create(childFrame->document());
+            if (frameFilter && !frameFilter->shouldIncludeSubframe(childFrame))
+                continue;
+                
+            RefPtr<LegacyWebArchive> subframeArchive = create(childFrame->document(), frameFilter);
             
             if (subframeArchive)
                 subframeArchives.append(subframeArchive);
@@ -567,7 +598,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(Frame* frame)
     Vector<Node*> nodeList;
     String markupString = frame->documentTypeString() + createMarkup(selectionRange.get(), &nodeList, AnnotateForInterchange);
     
-    RefPtr<LegacyWebArchive> archive = create(markupString, frame, nodeList);
+    RefPtr<LegacyWebArchive> archive = create(markupString, frame, nodeList, 0);
     
     if (!frame->document() || !frame->document()->isFrameSet())
         return archive.release();

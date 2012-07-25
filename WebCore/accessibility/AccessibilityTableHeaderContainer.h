@@ -45,14 +45,12 @@ public:
     
     virtual AccessibilityRole roleValue() const { return TableHeaderContainerRole; }
     
-    virtual const AccessibilityChildrenVector& children();
     virtual void addChildren();
     
-    virtual IntSize size() const;
-    virtual IntRect elementRect() const;
+    virtual LayoutRect elementRect() const;
     
 private:
-    IntRect m_headerRect;
+    LayoutRect m_headerRect;
     
     virtual bool accessibilityIsIgnored() const;
 }; 

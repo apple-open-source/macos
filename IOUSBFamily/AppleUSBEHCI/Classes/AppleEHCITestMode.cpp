@@ -205,24 +205,6 @@ AppleUSBEHCI::UIMSetTestMode(UInt32 mode, UInt32 port)
     
     switch (mode)
     {
-#ifdef SUPPORTS_SS_USB
-    case kEHCITestMode_SwitchMuxesToEHCI:
-        if ( _xhciController )
-        {
-            // port is the number of ports in built-in hub
-            SwitchMuxes(port, kIOUSBMessageMuxFromXHCIToEHCI);
-        }
-        break;
-
-    case kEHCITestMode_SwitchMuxesToXHCI:
-        if ( _xhciController )
-        {
-            // port is the number of ports in built-in hub
-            SwitchMuxes(port, kIOUSBMessageMuxFromEHCIToXHCI);
-        }
-        break;
-#endif
-
 	case kEHCITestMode_Off:
 	case kEHCITestMode_J_State:
 	case kEHCITestMode_K_State:

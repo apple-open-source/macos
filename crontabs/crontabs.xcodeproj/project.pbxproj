@@ -1,0 +1,666 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FDB436271492D24A00D5E278 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDB4362A1492D24A00D5E278 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FDB436481492D29200D5E278 /* PBXTargetDependency */,
+				FDB436401492D27900D5E278 /* PBXTargetDependency */,
+				FDB436421492D27A00D5E278 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+		FDB4363B1492D27200D5E278 /* periodic */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDB4363C1492D27200D5E278 /* Build configuration list for PBXAggregateTarget "periodic" */;
+			buildPhases = (
+				FDB4365F1492D41A00D5E278 /* Install periodic.sh */,
+				FDB4365D1492D3E500D5E278 /* Install man8 */,
+			);
+			dependencies = (
+			);
+			name = periodic;
+			productName = periodic;
+		};
+		FDB436431492D28D00D5E278 /* files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDB436441492D28D00D5E278 /* Build configuration list for PBXAggregateTarget "files" */;
+			buildPhases = (
+				FDB436911492DBBD00D5E278 /* Install etc */,
+				FDB436BA1492DFC400D5E278 /* Install etc/newsyslog.d */,
+				FDB436931492DBCF00D5E278 /* Install etc/defaults */,
+				FDB436951492DC0500D5E278 /* Install man5 */,
+				FDB436881492DB6500D5E278 /* Install LaunchDaemons */,
+				FDB436971492DC2100D5E278 /* Install daily */,
+				FDB436981492DC2800D5E278 /* Install weekly */,
+				FDB436991492DC3E00D5E278 /* Install monthly */,
+				FDB436A81492DDC600D5E278 /* Fix Permissions */,
+			);
+			dependencies = (
+			);
+			name = files;
+			productName = "Other Files";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FDB436531492D37200D5E278 /* newsyslog.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB4364E1492D37200D5E278 /* newsyslog.c */; };
+		FDB436541492D37200D5E278 /* ptimes.c in Sources */ = {isa = PBXBuildFile; fileRef = FDB436511492D37200D5E278 /* ptimes.c */; };
+		FDB436551492D3A300D5E278 /* newsyslog.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4364F1492D37200D5E278 /* newsyslog.conf.5 */; };
+		FDB436571492D3AF00D5E278 /* newsyslog.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = FDB4364D1492D37200D5E278 /* newsyslog.8 */; };
+		FDB4365E1492D3EE00D5E278 /* periodic.8 in Install man8 */ = {isa = PBXBuildFile; fileRef = FDB4365B1492D3D900D5E278 /* periodic.8 */; };
+		FDB436891492DB7E00D5E278 /* com.apple.newsyslog.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436721492DB0B00D5E278 /* com.apple.newsyslog.plist */; };
+		FDB4368A1492DB8000D5E278 /* com.apple.periodic-daily.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */; };
+		FDB4368B1492DB8200D5E278 /* com.apple.periodic-monthly.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */; };
+		FDB4368C1492DB8500D5E278 /* com.apple.periodic-weekly.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */; };
+		FDB4368F1492DB9800D5E278 /* com.apple.var-db-dslocal-backup.plist in Install LaunchDaemons */ = {isa = PBXBuildFile; fileRef = FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */; };
+		FDB436921492DBCD00D5E278 /* newsyslog.conf in Install etc */ = {isa = PBXBuildFile; fileRef = FDB4367C1492DB0B00D5E278 /* newsyslog.conf */; };
+		FDB436941492DBE400D5E278 /* periodic.conf in Install etc/defaults */ = {isa = PBXBuildFile; fileRef = FDB4367D1492DB0B00D5E278 /* periodic.conf */; };
+		FDB436961492DC1300D5E278 /* periodic.conf.5 in Install man5 */ = {isa = PBXBuildFile; fileRef = FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */; };
+		FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436681492DB0B00D5E278 /* 110.clean-tmps */; };
+		FDB4369B1492DCFE00D5E278 /* 130.clean-msgs in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436691492DB0B00D5E278 /* 130.clean-msgs */; };
+		FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */; };
+		FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366B1492DB0B00D5E278 /* 199.clean-fax */; };
+		FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366C1492DB0B00D5E278 /* 310.accounting */; };
+		FDB4369F1492DD0800D5E278 /* 400.status-disks in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366D1492DB0B00D5E278 /* 400.status-disks */; };
+		FDB436A01492DD0A00D5E278 /* 420.status-network in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366E1492DB0B00D5E278 /* 420.status-network */; };
+		FDB436A11492DD0E00D5E278 /* 430.status-rwho in Install daily */ = {isa = PBXBuildFile; fileRef = FDB4366F1492DB0B00D5E278 /* 430.status-rwho */; };
+		FDB436A21492DD1100D5E278 /* 999.local in Install daily */ = {isa = PBXBuildFile; fileRef = FDB436701492DB0B00D5E278 /* 999.local */; };
+		FDB436A31492DD1F00D5E278 /* 320.whatis in Install weekly */ = {isa = PBXBuildFile; fileRef = FDB436801492DB0B00D5E278 /* 320.whatis */; };
+		FDB436A41492DD2100D5E278 /* 999.local in Install weekly */ = {isa = PBXBuildFile; fileRef = FDB436811492DB0B00D5E278 /* 999.local */; };
+		FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB436791492DB0B00D5E278 /* 199.rotate-fax */; };
+		FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367A1492DB0B00D5E278 /* 200.accounting */; };
+		FDB436A71492DD2B00D5E278 /* 999.local in Install monthly */ = {isa = PBXBuildFile; fileRef = FDB4367B1492DB0B00D5E278 /* 999.local */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FDB4363F1492D27900D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB4361D1492D22C00D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB4362F1492D25500D5E278;
+			remoteInfo = newsyslog;
+		};
+		FDB436411492D27A00D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB4361D1492D22C00D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB4363B1492D27200D5E278;
+			remoteInfo = periodic;
+		};
+		FDB436471492D29200D5E278 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FDB4361D1492D22C00D5E278 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDB436431492D28D00D5E278;
+			remoteInfo = "Other Files";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FDB4362E1492D25500D5E278 /* Install man5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436551492D3A300D5E278 /* newsyslog.conf.5 in Install man5 */,
+			);
+			name = "Install man5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436561492D3A500D5E278 /* Install man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436571492D3AF00D5E278 /* newsyslog.8 in Install man8 */,
+			);
+			name = "Install man8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB4365D1492D3E500D5E278 /* Install man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB4365E1492D3EE00D5E278 /* periodic.8 in Install man8 */,
+			);
+			name = "Install man8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436881492DB6500D5E278 /* Install LaunchDaemons */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436891492DB7E00D5E278 /* com.apple.newsyslog.plist in Install LaunchDaemons */,
+				FDB4368A1492DB8000D5E278 /* com.apple.periodic-daily.plist in Install LaunchDaemons */,
+				FDB4368B1492DB8200D5E278 /* com.apple.periodic-monthly.plist in Install LaunchDaemons */,
+				FDB4368C1492DB8500D5E278 /* com.apple.periodic-weekly.plist in Install LaunchDaemons */,
+				FDB4368F1492DB9800D5E278 /* com.apple.var-db-dslocal-backup.plist in Install LaunchDaemons */,
+			);
+			name = "Install LaunchDaemons";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436911492DBBD00D5E278 /* Install etc */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436921492DBCD00D5E278 /* newsyslog.conf in Install etc */,
+			);
+			name = "Install etc";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436931492DBCF00D5E278 /* Install etc/defaults */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/defaults;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436941492DBE400D5E278 /* periodic.conf in Install etc/defaults */,
+			);
+			name = "Install etc/defaults";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436951492DC0500D5E278 /* Install man5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436961492DC1300D5E278 /* periodic.conf.5 in Install man5 */,
+			);
+			name = "Install man5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436971492DC2100D5E278 /* Install daily */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/periodic/daily;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB4369A1492DCFB00D5E278 /* 110.clean-tmps in Install daily */,
+				FDB4369B1492DCFE00D5E278 /* 130.clean-msgs in Install daily */,
+				FDB4369C1492DD0000D5E278 /* 140.clean-rwho in Install daily */,
+				FDB4369D1492DD0200D5E278 /* 199.clean-fax in Install daily */,
+				FDB4369E1492DD0500D5E278 /* 310.accounting in Install daily */,
+				FDB4369F1492DD0800D5E278 /* 400.status-disks in Install daily */,
+				FDB436A01492DD0A00D5E278 /* 420.status-network in Install daily */,
+				FDB436A11492DD0E00D5E278 /* 430.status-rwho in Install daily */,
+				FDB436A21492DD1100D5E278 /* 999.local in Install daily */,
+			);
+			name = "Install daily";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436981492DC2800D5E278 /* Install weekly */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/periodic/weekly;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436A31492DD1F00D5E278 /* 320.whatis in Install weekly */,
+				FDB436A41492DD2100D5E278 /* 999.local in Install weekly */,
+			);
+			name = "Install weekly";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDB436991492DC3E00D5E278 /* Install monthly */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/periodic/monthly;
+			dstSubfolderSpec = 0;
+			files = (
+				FDB436A51492DD2700D5E278 /* 199.rotate-fax in Install monthly */,
+				FDB436A61492DD2900D5E278 /* 200.accounting in Install monthly */,
+				FDB436A71492DD2B00D5E278 /* 999.local in Install monthly */,
+			);
+			name = "Install monthly";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FDB436301492D25500D5E278 /* newsyslog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newsyslog; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDB4364A1492D37200D5E278 /* extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
+		FDB4364D1492D37200D5E278 /* newsyslog.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = newsyslog.8; sourceTree = "<group>"; };
+		FDB4364E1492D37200D5E278 /* newsyslog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = newsyslog.c; sourceTree = "<group>"; };
+		FDB4364F1492D37200D5E278 /* newsyslog.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = newsyslog.conf.5; sourceTree = "<group>"; };
+		FDB436501492D37200D5E278 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		FDB436511492D37200D5E278 /* ptimes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ptimes.c; sourceTree = "<group>"; };
+		FDB4365B1492D3D900D5E278 /* periodic.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = periodic.8; sourceTree = "<group>"; };
+		FDB4365C1492D3D900D5E278 /* periodic.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = periodic.sh; sourceTree = "<group>"; };
+		FDB436681492DB0B00D5E278 /* 110.clean-tmps */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "110.clean-tmps"; sourceTree = "<group>"; };
+		FDB436691492DB0B00D5E278 /* 130.clean-msgs */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "130.clean-msgs"; sourceTree = "<group>"; };
+		FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "140.clean-rwho"; sourceTree = "<group>"; };
+		FDB4366B1492DB0B00D5E278 /* 199.clean-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.clean-fax"; sourceTree = "<group>"; };
+		FDB4366C1492DB0B00D5E278 /* 310.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 310.accounting; sourceTree = "<group>"; };
+		FDB4366D1492DB0B00D5E278 /* 400.status-disks */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "400.status-disks"; sourceTree = "<group>"; };
+		FDB4366E1492DB0B00D5E278 /* 420.status-network */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "420.status-network"; sourceTree = "<group>"; };
+		FDB4366F1492DB0B00D5E278 /* 430.status-rwho */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "430.status-rwho"; sourceTree = "<group>"; };
+		FDB436701492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
+		FDB436721492DB0B00D5E278 /* com.apple.newsyslog.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = com.apple.newsyslog.plist; sourceTree = "<group>"; };
+		FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-daily.plist"; sourceTree = "<group>"; };
+		FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-monthly.plist"; sourceTree = "<group>"; };
+		FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.periodic-weekly.plist"; sourceTree = "<group>"; };
+		FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "com.apple.var-db-dslocal-backup.plist"; sourceTree = "<group>"; };
+		FDB436791492DB0B00D5E278 /* 199.rotate-fax */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "199.rotate-fax"; sourceTree = "<group>"; };
+		FDB4367A1492DB0B00D5E278 /* 200.accounting */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 200.accounting; sourceTree = "<group>"; };
+		FDB4367B1492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
+		FDB4367C1492DB0B00D5E278 /* newsyslog.conf */ = {isa = PBXFileReference; lastKnownFileType = text; path = newsyslog.conf; sourceTree = "<group>"; };
+		FDB4367D1492DB0B00D5E278 /* periodic.conf */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = periodic.conf; sourceTree = "<group>"; };
+		FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */ = {isa = PBXFileReference; lastKnownFileType = text; path = periodic.conf.5; sourceTree = "<group>"; };
+		FDB436801492DB0B00D5E278 /* 320.whatis */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 320.whatis; sourceTree = "<group>"; };
+		FDB436811492DB0B00D5E278 /* 999.local */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = 999.local; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FDB4362D1492D25500D5E278 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FDB4361B1492D22C00D5E278 = {
+			isa = PBXGroup;
+			children = (
+				FDB436661492DB0B00D5E278 /* files */,
+				FDB436491492D37200D5E278 /* newsyslog */,
+				FDB436581492D3D900D5E278 /* periodic */,
+				FDB436311492D25500D5E278 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FDB436311492D25500D5E278 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436301492D25500D5E278 /* newsyslog */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FDB436491492D37200D5E278 /* newsyslog */ = {
+			isa = PBXGroup;
+			children = (
+				FDB4364A1492D37200D5E278 /* extern.h */,
+				FDB4364D1492D37200D5E278 /* newsyslog.8 */,
+				FDB4364E1492D37200D5E278 /* newsyslog.c */,
+				FDB4364F1492D37200D5E278 /* newsyslog.conf.5 */,
+				FDB436501492D37200D5E278 /* pathnames.h */,
+				FDB436511492D37200D5E278 /* ptimes.c */,
+			);
+			path = newsyslog;
+			sourceTree = "<group>";
+		};
+		FDB436581492D3D900D5E278 /* periodic */ = {
+			isa = PBXGroup;
+			children = (
+				FDB4365B1492D3D900D5E278 /* periodic.8 */,
+				FDB4365C1492D3D900D5E278 /* periodic.sh */,
+			);
+			path = periodic;
+			sourceTree = "<group>";
+		};
+		FDB436661492DB0B00D5E278 /* files */ = {
+			isa = PBXGroup;
+			children = (
+				FDB4367C1492DB0B00D5E278 /* newsyslog.conf */,
+				FDB4367D1492DB0B00D5E278 /* periodic.conf */,
+				FDB4367E1492DB0B00D5E278 /* periodic.conf.5 */,
+				FDB436711492DB0B00D5E278 /* LaunchDaemons */,
+				FDB436671492DB0B00D5E278 /* daily */,
+				FDB4367F1492DB0B00D5E278 /* weekly */,
+				FDB436781492DB0B00D5E278 /* monthly */,
+			);
+			path = files;
+			sourceTree = "<group>";
+		};
+		FDB436671492DB0B00D5E278 /* daily */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436681492DB0B00D5E278 /* 110.clean-tmps */,
+				FDB436691492DB0B00D5E278 /* 130.clean-msgs */,
+				FDB4366A1492DB0B00D5E278 /* 140.clean-rwho */,
+				FDB4366B1492DB0B00D5E278 /* 199.clean-fax */,
+				FDB4366C1492DB0B00D5E278 /* 310.accounting */,
+				FDB4366D1492DB0B00D5E278 /* 400.status-disks */,
+				FDB4366E1492DB0B00D5E278 /* 420.status-network */,
+				FDB4366F1492DB0B00D5E278 /* 430.status-rwho */,
+				FDB436701492DB0B00D5E278 /* 999.local */,
+			);
+			path = daily;
+			sourceTree = "<group>";
+		};
+		FDB436711492DB0B00D5E278 /* LaunchDaemons */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436721492DB0B00D5E278 /* com.apple.newsyslog.plist */,
+				FDB436731492DB0B00D5E278 /* com.apple.periodic-daily.plist */,
+				FDB436741492DB0B00D5E278 /* com.apple.periodic-monthly.plist */,
+				FDB436751492DB0B00D5E278 /* com.apple.periodic-weekly.plist */,
+				FDB436761492DB0B00D5E278 /* com.apple.var-db-dslocal-backup.plist */,
+			);
+			path = LaunchDaemons;
+			sourceTree = "<group>";
+		};
+		FDB436781492DB0B00D5E278 /* monthly */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436791492DB0B00D5E278 /* 199.rotate-fax */,
+				FDB4367A1492DB0B00D5E278 /* 200.accounting */,
+				FDB4367B1492DB0B00D5E278 /* 999.local */,
+			);
+			path = monthly;
+			sourceTree = "<group>";
+		};
+		FDB4367F1492DB0B00D5E278 /* weekly */ = {
+			isa = PBXGroup;
+			children = (
+				FDB436801492DB0B00D5E278 /* 320.whatis */,
+				FDB436811492DB0B00D5E278 /* 999.local */,
+			);
+			path = weekly;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FDB4362F1492D25500D5E278 /* newsyslog */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDB436381492D25500D5E278 /* Build configuration list for PBXNativeTarget "newsyslog" */;
+			buildPhases = (
+				FDB4362C1492D25500D5E278 /* Sources */,
+				FDB4362D1492D25500D5E278 /* Frameworks */,
+				FDB4362E1492D25500D5E278 /* Install man5 */,
+				FDB436561492D3A500D5E278 /* Install man8 */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = newsyslog;
+			productName = newsyslog;
+			productReference = FDB436301492D25500D5E278 /* newsyslog */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FDB4361D1492D22C00D5E278 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = FDB436201492D22C00D5E278 /* Build configuration list for PBXProject "crontabs" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FDB4361B1492D22C00D5E278;
+			productRefGroup = FDB436311492D25500D5E278 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDB436271492D24A00D5E278 /* All */,
+				FDB436431492D28D00D5E278 /* files */,
+				FDB4362F1492D25500D5E278 /* newsyslog */,
+				FDB4363B1492D27200D5E278 /* periodic */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FDB4365F1492D41A00D5E278 /* Install periodic.sh */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/periodic/periodic.sh",
+			);
+			name = "Install periodic.sh";
+			outputPaths = (
+				"$(DSTROOT)/usr/sbin/periodic",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/install_executable.sh";
+			showEnvVarsInLog = 0;
+		};
+		FDB436A81492DDC600D5E278 /* Fix Permissions */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"",
+			);
+			name = "Fix Permissions";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/fix_permissions.sh";
+			showEnvVarsInLog = 0;
+		};
+		FDB436BA1492DFC400D5E278 /* Install etc/newsyslog.d */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install etc/newsyslog.d";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}\"/private/etc/newsyslog.d";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FDB4362C1492D25500D5E278 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDB436531492D37200D5E278 /* newsyslog.c in Sources */,
+				FDB436541492D37200D5E278 /* ptimes.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FDB436401492D27900D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB4362F1492D25500D5E278 /* newsyslog */;
+			targetProxy = FDB4363F1492D27900D5E278 /* PBXContainerItemProxy */;
+		};
+		FDB436421492D27A00D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB4363B1492D27200D5E278 /* periodic */;
+			targetProxy = FDB436411492D27A00D5E278 /* PBXContainerItemProxy */;
+		};
+		FDB436481492D29200D5E278 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDB436431492D28D00D5E278 /* files */;
+			targetProxy = FDB436471492D29200D5E278 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FDB436221492D22C00D5E278 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PROVISIONING_PROFILE = "";
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+			};
+			name = Debug;
+		};
+		FDB436231492D22C00D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APPLY_RULES_IN_COPY_FILES = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PROVISIONING_PROFILE = "";
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+			};
+			name = Release;
+		};
+		FDB436281492D24A00D5E278 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FDB436291492D24A00D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FDB436391492D25500D5E278 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Werror",
+				);
+			};
+			name = Debug;
+		};
+		FDB4363A1492D25500D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Werror",
+				);
+			};
+			name = Release;
+		};
+		FDB4363D1492D27200D5E278 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FDB4363E1492D27200D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FDB436451492D28D00D5E278 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		FDB436461492D28D00D5E278 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FDB436201492D22C00D5E278 /* Build configuration list for PBXProject "crontabs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436221492D22C00D5E278 /* Debug */,
+				FDB436231492D22C00D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB4362A1492D24A00D5E278 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436281492D24A00D5E278 /* Debug */,
+				FDB436291492D24A00D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB436381492D25500D5E278 /* Build configuration list for PBXNativeTarget "newsyslog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436391492D25500D5E278 /* Debug */,
+				FDB4363A1492D25500D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB4363C1492D27200D5E278 /* Build configuration list for PBXAggregateTarget "periodic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB4363D1492D27200D5E278 /* Debug */,
+				FDB4363E1492D27200D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDB436441492D28D00D5E278 /* Build configuration list for PBXAggregateTarget "files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDB436451492D28D00D5E278 /* Debug */,
+				FDB436461492D28D00D5E278 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FDB4361D1492D22C00D5E278 /* Project object */;
+}

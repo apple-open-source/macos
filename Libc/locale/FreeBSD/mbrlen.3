@@ -28,21 +28,35 @@
 .Dt MBRLEN 3
 .Os
 .Sh NAME
-.Nm mbrlen
+.Nm mbrlen ,
+.Nm mbrlen_l
 .Nd "get number of bytes in a character (restartable)"
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In wchar.h
 .Ft size_t
-.Fn mbrlen "const char * restrict s" "size_t n" "mbstate_t * restrict ps"
+.Fo mbrlen
+.Fa "const char *restrict s"
+.Fa "size_t n"
+.Fa "mbstate_t *restrict ps"
+.Fc
+.In wchar.h
+.In xlocale.h
+.Ft size_t
+.Fo mbrlen_l
+.Fa "const char *restrict s"
+.Fa "size_t n"
+.Fa "mbstate_t *restrict ps"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn mbrlen
 function inspects at most
 .Fa n
-bytes pointed to by
-.Fa s
+bytes, pointed to by
+.Fa s ,
 to determine the number of bytes needed to complete the next
 multibyte character.
 .Pp
@@ -63,7 +77,7 @@ It is equivalent to:
 .Pp
 .Dl "mbrtowc(NULL, s, n, ps);"
 .Pp
-Except that when
+Except that, when
 .Fa ps
 is a
 .Dv NULL
@@ -72,6 +86,14 @@ pointer,
 uses its own static, internal
 .Vt mbstate_t
 object to keep track of the shift state.
+.Pp
+Although the
+.Fn mbrlen
+function uses the current locale, the
+.Fn mbrlen_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn mbrlen
@@ -137,7 +159,8 @@ The conversion state is invalid.
 .Sh SEE ALSO
 .Xr mblen 3 ,
 .Xr mbrtowc 3 ,
-.Xr multibyte 3
+.Xr multibyte 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn mbrlen

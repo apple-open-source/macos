@@ -27,6 +27,7 @@
 #define WebKitLogging_h
 
 #include <wtf/Assertions.h>
+#include <wtf/text/WTFString.h>
 
 #if !LOG_DISABLED
 
@@ -38,12 +39,16 @@ namespace WebKit {
 
 extern WTFLogChannel LogContextMenu;
 extern WTFLogChannel LogIconDatabase;
+extern WTFLogChannel LogKeyHandling;
 extern WTFLogChannel LogSessionState;
 extern WTFLogChannel LogTextInput;
 extern WTFLogChannel LogView;
 
 void initializeLogChannel(WTFLogChannel*);
 void initializeLogChannelsIfNecessary(void);
+#if PLATFORM(GTK)
+WTFLogChannel* getChannelFromName(const String& channelName);
+#endif
 
 } // namespace WebKit
 

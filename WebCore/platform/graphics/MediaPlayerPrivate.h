@@ -29,6 +29,7 @@
 #if ENABLE(VIDEO)
 
 #include "MediaPlayer.h"
+#include "TimeRanges.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -56,6 +57,7 @@ public:
 
     virtual bool supportsFullscreen() const { return false; }
     virtual bool supportsSave() const { return false; }
+    virtual bool supportsScanning() const { return false; }
 
     virtual IntSize naturalSize() const = 0;
 
@@ -71,6 +73,8 @@ public:
     virtual bool seeking() const = 0;
 
     virtual float startTime() const { return 0; }
+
+    virtual double initialTime() const { return 0; }
 
     virtual void setRate(float) = 0;
     virtual void setPreservesPitch(bool) { }
@@ -88,6 +92,7 @@ public:
     virtual MediaPlayer::NetworkState networkState() const = 0;
     virtual MediaPlayer::ReadyState readyState() const = 0;
 
+    virtual PassRefPtr<TimeRanges> seekable() const { return maxTimeSeekable() ? TimeRanges::create(0, maxTimeSeekable()) : TimeRanges::create(); }
     virtual float maxTimeSeekable() const = 0;
     virtual PassRefPtr<TimeRanges> buffered() const = 0;
 
@@ -110,7 +115,10 @@ public:
     virtual void deliverNotification(MediaPlayerProxyNotificationType) = 0;
     virtual void setMediaPlayerProxy(WebMediaPlayerProxy*) = 0;
     virtual void setControls(bool) { }
-    virtual void enterFullscreen() { }
+#endif
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO) || USE(NATIVE_FULLSCREEN_VIDEO)
+    virtual bool enterFullscreen() const { return false; }
     virtual void exitFullscreen() { }
 #endif
 
@@ -146,6 +154,24 @@ public:
     void clearMediaCacheForSite(const String&) { }
 
     virtual void setPrivateBrowsingMode(bool) { }
+
+
+#if ENABLE(WEB_AUDIO)
+    virtual AudioSourceProvider* audioSourceProvider() { return 0; }
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+    virtual MediaPlayer::AddIdStatus sourceAddId(const String&, const String&) { return MediaPlayer::NotSupported; }
+    virtual bool sourceRemoveId(const String&) { return false; }
+    virtual bool sourceAppend(const unsigned char*, unsigned) { return false; }
+    virtual void sourceEndOfStream(MediaPlayer::EndOfStreamStatus) { };
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    virtual MediaPlayer::MediaKeyException addKey(const String& keySystem, const unsigned char* key, unsigned keyLength, const unsigned char* initData, unsigned initDataLength, const String& sessionId) { return MediaPlayer::KeySystemNotSupported; }
+    virtual MediaPlayer::MediaKeyException generateKeyRequest(const String& keySystem, const unsigned char* initData, unsigned initDataLength) { return MediaPlayer::KeySystemNotSupported; }
+    virtual MediaPlayer::MediaKeyException cancelKeyRequest(const String& keySystem, const String& sessionId) { return MediaPlayer::KeySystemNotSupported; }
+#endif
 };
 
 }

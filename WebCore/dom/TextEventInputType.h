@@ -35,6 +35,8 @@ enum TextEventInputType {
     TextEventInputBackTab,
     TextEventInputPaste,
     TextEventInputDrop,
+    TextEventInputDictation,
+    TextEventInputOther,
 };
 
 } // namespace WebCore

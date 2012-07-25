@@ -1,8 +1,8 @@
 /* ava.c - routines for dealing with attribute value assertions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.45.2.6 2010/04/13 20:23:11 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -98,7 +98,7 @@ get_ava(
 			aa->aa_desc = slap_bv2tmp_ad( &type, op->o_tmpmemctx );
 			ber_dupbv_x( &aa->aa_value, &value, op->o_tmpmemctx );
 			f->f_ava = aa;
-			return rc;
+			return LDAP_SUCCESS;
 		}
 	}
 
@@ -122,7 +122,7 @@ get_ava(
 			rc = get_aliased_filter_aa ( op, aa, a_alias, text );
 			if( rc != LDAP_SUCCESS ) {
 				Debug( LDAP_DEBUG_FILTER,
-						"get_ava:Invalid Attribute Aliasing\n", 0, 0, 0 );
+						"get_ava: Invalid Attribute Aliasing\n", 0, 0, 0 );
 				return rc;
 			}
 		}

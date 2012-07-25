@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
+ * Copyright (C) 2011 Motorola Mobility, Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,35 +22,46 @@
 module html {
 
     interface HTMLTextAreaElement : HTMLElement {
-        attribute [ConvertNullToNullString] DOMString defaultValue;
-        readonly attribute HTMLFormElement form;
-        readonly attribute ValidityState validity;
-        attribute [Reflect] DOMString accessKey;
-        attribute long cols;
-        attribute [Reflect] boolean disabled;
         attribute [Reflect] boolean autofocus;
+        attribute long cols;
+        attribute [Reflect] DOMString dirName;
+        attribute [Reflect] boolean disabled;
+        readonly attribute HTMLFormElement form;
         attribute long maxLength setter raises(DOMException);
-        attribute [ConvertNullToNullString] DOMString name;
+        attribute [TreatNullAs=NullString] DOMString name;
         attribute [Reflect] DOMString placeholder;
         attribute [Reflect] boolean readOnly;
         attribute [Reflect] boolean required;
         attribute long rows;
+        attribute [Reflect] DOMString wrap;
+
         readonly attribute DOMString type;
-        attribute [ConvertNullToNullString] DOMString value;
+        attribute [TreatNullAs=NullString] DOMString defaultValue;
+        attribute [TreatNullAs=NullString] DOMString value;
         readonly attribute unsigned long textLength;
 
-        void select();
-
         readonly attribute boolean willValidate;
+        readonly attribute ValidityState validity;
         readonly attribute DOMString validationMessage;
         boolean checkValidity();
-        void setCustomValidity(in [ConvertUndefinedOrNullToNullString] DOMString error);
+        void setCustomValidity(in [TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString error);
 
-        // WinIE & FireFox extension:
+        readonly attribute NodeList labels;
+
+        void select();
         attribute long selectionStart;
         attribute long selectionEnd;
+        attribute DOMString selectionDirection;
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         void setSelectionRange(in long start, in long end);
-        readonly attribute NodeList labels;
-    };
+#else
+        void setSelectionRange(in [Optional=DefaultIsUndefined] long start,
+                               in [Optional=DefaultIsUndefined] long end,
+                               in [Optional] DOMString direction);
+#endif
 
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+        attribute [Reflect] DOMString accessKey;
+#endif
+    };
 }

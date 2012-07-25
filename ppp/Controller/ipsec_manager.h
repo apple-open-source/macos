@@ -97,4 +97,6 @@ void ipsec_user_notification_callback(struct service *serv, CFUserNotificationRe
 int ipsec_ondemand_add_service_data(struct service *serv, CFMutableDictionaryRef ondemand_dict);
 void ipsec_cellular_event(struct service *serv, int event);
 
+int ipsec_init_things();
+
 #endif

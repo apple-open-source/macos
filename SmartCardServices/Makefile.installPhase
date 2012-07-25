@@ -61,9 +61,6 @@ endif
 # Copy over man pages
 
 	mkdir -p $(MAN_DIR)
-	cp installPhase/man/pcscd.8 $(MAN_DIR)
-	cp installPhase/man/pcsctool.8 $(MAN_DIR)
-	cp installPhase/man/pcsctest.8 $(MAN_DIR)
 	cp installPhase/man/sc_auth.8 $(MAN_DIR)
 	chown root:wheel $(MAN_DIR)/sc_auth.8
 

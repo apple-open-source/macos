@@ -42,6 +42,7 @@ kcm_ccache_refresh(krb5_context context,
     krb5_kdc_flags flags;
     krb5_const_realm realm;
     krb5_ccache_data ccdata;
+    struct kcm_creds *kcred;
 
     memset(&in, 0, sizeof(in));
     *expire = 0;
@@ -86,6 +87,20 @@ kcm_ccache_refresh(krb5_context context,
     flags.i = 0;
     flags.b.renewable = TRUE;
     flags.b.renew = TRUE;
+
+    /*
+     * Capture the forwardable/proxyable bit from previous matching
+     * service ticket, we can't use initial since that get lost in the
+     * first renewal.
+     */
+
+    for (kcred = ccache->creds; kcred != NULL; kcred = kcred->next) {
+	if (krb5_principal_compare(context, kcred->cred.server, in.server)) {
+	    flags.b.forwardable = kcred->cred.flags.b.forwardable;
+	    flags.b.proxiable = kcred->cred.flags.b.proxiable;
+	    break;
+	}
+    }
 
     ret = krb5_get_kdc_cred(context,
 			    &ccdata,

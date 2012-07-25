@@ -1045,7 +1045,7 @@ resub(regex_t *rp, regmatch_t *pm, char *src, char *inpt, char *dest,
 		 * continue if the subexpression is bogus
 		 */
 		if ((pmpt->rm_so < 0) || (pmpt->rm_eo < 0) ||
-		    ((len = pmpt->rm_eo - pmpt->rm_so) <= 0))
+		    ((len = (int)(pmpt->rm_eo - pmpt->rm_so)) <= 0))
 			continue;
 
 		/*

@@ -3,7 +3,7 @@
 #
 #   Filter makefile for CUPS.
 #
-#   Copyright 2007-2011 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -19,41 +19,28 @@ include ../Makedefs
 
 
 FILTERS	=	\
-		$(BANNERTOPS) \
 		commandtops \
 		gziptoany \
-		$(TEXTTOPS) \
 		pstops \
-		$(IMGFILTERS) \
-		$(PDFTOPS) \
 		rastertoepson \
 		rastertohp \
 		rastertolabel \
 		rastertopwg
 LIBTARGETS =	\
 		$(LIBCUPSIMAGE) \
-		libcupsimage.a \
-		$(LIB32CUPSIMAGE) \
-		$(LIB64CUPSIMAGE)
+		libcupsimage.a
 UNITTARGETS =	\
 		rasterbench \
-		testimage \
 		testraster
 TARGETS	=	\
 		$(LIBTARGETS) \
 		$(FILTERS)
 
-IMAGEOBJS =	image-bmp.o image-colorspace.o image-gif.o image-jpeg.o \
-		image-photocd.o image-pix.o image-png.o image-pnm.o \
-		image-sgi.o image-sgilib.o image-sun.o image-tiff.o \
-		image-zoom.o image.o error.o interpret.o raster.o
-IMAGE32OBJS =	$(IMAGEOBJS:.o=.32.o)
-IMAGE64OBJS =	$(IMAGEOBJS:.o=.64.o)
+IMAGEOBJS =	error.o interpret.o raster.o
 OBJS	=	$(IMAGEOBJS) \
-		bannertops.o commandtops.o gziptoany.o imagetops.o \
-		imagetoraster.o common.o pdftops.o pstext.o pstops.o \
+		commandtops.o gziptoany.o common.o pstops.o \
 		rasterbench.o rastertoepson.o rastertohp.o rastertolabel.o \
-		rastertopwg.o testimage.o testraster.o textcommon.o texttops.o
+		rastertopwg.o testraster.o
 
 
 #
@@ -84,7 +71,6 @@ unittests:	$(UNITTARGETS)
 clean:
 	$(RM) $(OBJS) $(TARGETS) $(UNITTARGETS)
 	$(RM) libcupsimage.so libcupsimage.sl libcupsimage.dylib
-	$(RM) -r 32bit 64bit
 
 
 #
@@ -92,13 +78,7 @@ clean:
 #
 
 depend:
-	touch Dependencies.tmp
-	makedepend -Y -I.. -fDependencies.tmp $(OBJS:.o=.c) >/dev/null 2>&1
-	$(RM) Dependencies
-	cp Dependencies.tmp Dependencies
-	sed -E -e '1,$$s/^([^.]+)\.o:/\1\.32.o: \1\.c /' Dependencies.tmp >>Dependencies
-	sed -E -e '1,$$s/^([^.]+)\.o:/\1\.64.o: \1\.c /' Dependencies.tmp >>Dependencies
-	$(RM) Dependencies.tmp
+	$(CC) -MM $(ALL_CFLAGS) $(OBJS:.o=.c) >Dependencies
 
 
 #
@@ -139,15 +119,13 @@ install-exec:
 #
 
 install-headers:
-	$(INSTALL_DIR) -m 755 $(INCLUDEDIR)/cups
-	$(INSTALL_DATA) image.h $(INCLUDEDIR)/cups
 
 
 #
 # Install libraries...
 #
 
-install-libs: $(INSTALLSTATIC) $(INSTALL32) $(INSTALL64)
+install-libs: $(INSTALLSTATIC)
 	$(INSTALL_DIR) -m 755 $(LIBDIR)
 	$(INSTALL_LIB) $(LIBCUPSIMAGE) $(LIBDIR)
 	-if test $(LIBCUPSIMAGE) = "libcupsimage.so.2" -o $(LIBCUPSIMAGE) = "libcupsimage.sl.2"; then \
@@ -169,22 +147,12 @@ installstatic:
 	$(RANLIB) $(LIBDIR)/libcupsimage.a
 	$(CHMOD) 555 $(LIBDIR)/libcupsimage.a
 
-install32bit:
-	$(INSTALL_DIR) -m 755 $(LIB32DIR)
-	$(INSTALL_LIB) 32bit/libcupsimage.so.2 $(LIB32DIR)/libcupsimage.so.2
-	$(LN) libcupsimage.so.2 $(LIB32DIR)/libcupsimage.so
-
-install64bit:
-	$(INSTALL_DIR) -m 755 $(LIB64DIR)
-	$(INSTALL_LIB) 64bit/libcupsimage.so.2 $(LIB64DIR)/libcupsimage.so.2
-	$(LN) libcupsimage.so.2 $(LIB64DIR)/libcupsimage.so
-
 
 #
 # Uninstall all targets...
 #
 
-uninstall: $(UNINSTALL32) $(UNINSTALL64)
+uninstall:
 	for file in $(FILTERS); do \
 		$(RM) $(SERVERBIN)/filter/$$file; \
 	done
@@ -200,18 +168,6 @@ uninstall: $(UNINSTALL32) $(UNINSTALL64)
 	$(RM) $(LIBDIR)/libcupsimage.so
 	$(RM) $(LIBDIR)/libcupsimage.so.2
 	-$(RMDIR) $(LIBDIR)
-	$(RM) $(INCLUDEDIR)/cups/image.h
-	-$(RMDIR) $(INCLUDEDIR)/cups
-
-uninstall32bit:
-	$(RM) $(LIB32DIR)/libcupsimage.so
-	$(RM) $(LIB32DIR)/libcupsimage.so.2
-	-$(RMDIR) $(LIB32DIR)
-
-uninstall64bit:
-	$(RM) $(LIB64DIR)/libcupsimage.so
-	$(RM) $(LIB64DIR)/libcupsimage.so.2
-	-$(RMDIR) $(LIB64DIR)
 
 
 #
@@ -287,16 +243,6 @@ framedhelp:
 
 
 #
-# bannertops
-#
-
-bannertops:	bannertops.o pstext.o common.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ bannertops.o pstext.o common.o $(LINKCUPSIMAGE) \
-		$(IMGLIBS) $(LIBS)
-
-
-#
 # commandtops
 #
 
@@ -324,28 +270,6 @@ libcupsimage.so.2 libcupsimage.sl.2:	$(IMAGEOBJS)
 		-L../cups $(LINKCUPS)
 	$(RM) `basename $@ .2`
 	$(LN) $@ `basename $@ .2`
-
-
-#
-# 32bit/libcupsimage.so.2
-#
-
-32bit/libcupsimage.so.2:	$(IMAGE32OBJS)
-	echo Linking 32-bit $@...
-	-mkdir 32bit
-	$(DSO) $(ARCH32FLAGS) $(DSO32FLAGS) -o $@ $(IMAGE32OBJS) $(DSOLIBS) \
-		-L../cups/32bit $(LINKCUPS)
-
-
-#
-# 64bit/libcupsimage.so.2
-#
-
-64bit/libcupsimage.so.2:	$(IMAGE64OBJS)
-	echo Linking 64-bit $@...
-	-mkdir 64bit
-	$(DSO) $(ARCH64FLAGS) $(DSO64FLAGS) -o $@ $(IMAGE64OBJS) $(DSOLIBS) \
-		-L../cups/64bit $(LINKCUPS)
 
 
 #
@@ -398,53 +322,12 @@ libcupsimage.a:	$(IMAGEOBJS)
 
 
 #
-# testimage
-#
-
-testimage:	testimage.o libcupsimage.a ../Makedefs
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ testimage.o libcupsimage.a \
-		$(IMGLIBS) $(DSOLIBS) $(LIBS)
-
-
-#
-# imagetops
-#
-
-imagetops:	imagetops.o common.o $(LIBCUPSIMAGE) \
-		../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ imagetops.o common.o $(LINKCUPSIMAGE) \
-		$(IMGLIBS) $(LIBS)
-
-
-#
-# imagetoraster
-#
-
-imagetoraster:	imagetoraster.o common.o $(LIBCUPSIMAGE) \
-		../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ imagetoraster.o common.o $(LINKCUPSIMAGE) \
-		$(IMGLIBS) $(LIBS)
-
-
-#
 # pstops
 #
 
 pstops:	pstops.o common.o ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o $@ pstops.o common.o $(LIBS)
-
-
-#
-# pdftops
-#
-
-pdftops:	pdftops.o common.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ pdftops.o common.o $(LIBS)
 
 
 #
@@ -503,16 +386,6 @@ testraster:	testraster.o ../cups/$(LIBCUPSSTATIC) libcupsimage.a
 rasterbench:	rasterbench.o libcupsimage.a
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o $@ rasterbench.o libcupsimage.a $(LIBS)
-
-
-#
-# texttops
-#
-
-texttops:	texttops.o textcommon.o common.o \
-		../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ texttops.o textcommon.o common.o $(LIBS)
 
 
 #

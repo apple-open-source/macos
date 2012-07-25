@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gdtoa/_ldtoa.c,v 1.2 2004/01/18 07:53:49 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gdtoa/_ldtoa.c,v 1.5 2007/12/09 19:48:57 das Exp $");
 
 #include <float.h>
 #include <inttypes.h>
@@ -46,11 +46,18 @@ char *
 __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
     char **rve)
 {
-	static FPI fpi = {
+#if defined(__arm__) 
+	/* On arm, double == long double, so short circuit this */
+	char * ret = __dtoa((double)*ld, mode, ndigits, decpt, sign, rve);
+	if (*decpt == 9999)
+		*decpt = INT_MAX;
+	return ret;
+#else
+	FPI fpi = {
 		LDBL_MANT_DIG,			/* nbits */
 		LDBL_MIN_EXP - LDBL_MANT_DIG,	/* emin */
 		LDBL_MAX_EXP - LDBL_MANT_DIG,	/* emax */
-		FPI_Round_near,	       		/* rounding */
+		FLT_ROUNDS,	       		/* rounding */
 #ifdef Sudden_Underflow	/* unused, but correct anyway */
 		1
 #else
@@ -61,14 +68,26 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 	char *ret;
 	union IEEEl2bits u;
 	uint32_t bits[(LDBL_MANT_DIG + 31) / 32];
+	void *vbits = bits;
+	int type;
 
 	u.e = *ld;
+	type = fpclassify(u.e);
+
+	/*
+	 * gdtoa doesn't know anything about the sign of the number, so
+	 * if the number is negative, we need to swap rounding modes of
+	 * 2 (upwards) and 3 (downwards).
+	 */
 	*sign = u.bits.sign;
+	fpi.rounding ^= (fpi.rounding >> 1) & u.bits.sign;
+
 	be = u.bits.exp - (LDBL_MAX_EXP - 1) - (LDBL_MANT_DIG - 1);
 	LDBL_TO_ARRAY32(u, bits);
 
-	switch (fpclassify(u.e)) {
+	switch (type) {
 	case FP_NORMAL:
+	case FP_SUPERNORMAL:
 		kind = STRTOG_Normal;
 #ifdef	LDBL_IMPLICIT_NBIT
 		bits[LDBL_MANT_DIG / 32] |= 1 << ((LDBL_MANT_DIG - 1) % 32);
@@ -79,9 +98,7 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 		break;
 	case FP_SUBNORMAL:
 		kind = STRTOG_Denormal;
-#ifdef	LDBL_IMPLICIT_NBIT
 		be++;
-#endif
 		break;
 	case FP_INFINITE:
 		kind = STRTOG_Infinite;
@@ -90,11 +107,12 @@ __ldtoa(long double *ld, int mode, int ndigits, int *decpt, int *sign,
 		kind = STRTOG_NaN;
 		break;
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", type);
 	}
 
-	ret = gdtoa(&fpi, be, (ULong *)bits, &kind, mode, ndigits, decpt, rve);
+	ret = gdtoa(&fpi, be, vbits, &kind, mode, ndigits, decpt, rve);
 	if (*decpt == -32768)
 		*decpt = INT_MAX;
 	return ret;
+#endif
 }

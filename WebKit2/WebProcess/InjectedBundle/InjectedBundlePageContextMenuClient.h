@@ -26,6 +26,8 @@
 #ifndef InjectedBundlePageContextMenuClient_h
 #define InjectedBundlePageContextMenuClient_h
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "APIClient.h"
 #include "WKBundlePage.h"
 #include <wtf/Vector.h>
@@ -41,11 +43,12 @@ class InjectedBundleHitTestResult;
 class WebContextMenuItemData;
 class WebPage;
 
-class InjectedBundlePageContextMenuClient : public APIClient<WKBundlePageContextMenuClient> {
+class InjectedBundlePageContextMenuClient : public APIClient<WKBundlePageContextMenuClient, kWKBundlePageContextMenuClientCurrentVersion> {
 public:
     bool getCustomMenuFromDefaultItems(WebPage*, InjectedBundleHitTestResult*, const Vector<WebContextMenuItemData>& defaultMenu, Vector<WebContextMenuItemData>& newMenu, RefPtr<APIObject>& userData);
 };
 
 } // namespace WebKit
 
+#endif // ENABLE(CONTEXT_MENUS)
 #endif // InjectedBundlePageEditorClient_h

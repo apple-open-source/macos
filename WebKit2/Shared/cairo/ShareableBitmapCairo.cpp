@@ -28,10 +28,11 @@
 #include "config.h"
 #include "ShareableBitmap.h"
 
+#include <WebCore/BitmapImage.h>
 #include <WebCore/CairoUtilities.h>
 #include <WebCore/GraphicsContext.h>
-#include <WebCore/NotImplemented.h>
 #include <WebCore/PlatformContextCairo.h>
+#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
@@ -50,11 +51,18 @@ void ShareableBitmap::paint(GraphicsContext& context, const IntPoint& dstPoint, 
                                                                                    CAIRO_FORMAT_ARGB32,
                                                                                    m_size.width(), m_size.height(),
                                                                                    m_size.width() * 4));
-
-    // This copy is not copy-on-write, so this is probably sub-optimal.
-    RefPtr<cairo_surface_t> surfaceCopy = copyCairoImageSurface(surface.get());
     FloatRect destRect(dstPoint, srcRect.size());
-    context.platformContext()->drawSurfaceToContext(surfaceCopy.get(), destRect, srcRect, &context);
+    context.platformContext()->drawSurfaceToContext(surface.get(), destRect, srcRect, &context);
+}
+
+void ShareableBitmap::paint(GraphicsContext& context, float scaleFactor, const IntPoint& dstPoint, const IntRect& srcRect)
+{
+    if (scaleFactor != 1) {
+        // See <https://bugs.webkit.org/show_bug.cgi?id=64665>.
+        notImplemented();
+        return;
+    }
+    paint(context, dstPoint, srcRect);
 }
 
 PassRefPtr<cairo_surface_t> ShareableBitmap::createCairoSurface()
@@ -73,6 +81,16 @@ PassRefPtr<cairo_surface_t> ShareableBitmap::createCairoSurface()
 void ShareableBitmap::releaseSurfaceData(void* typelessBitmap)
 {
     static_cast<ShareableBitmap*>(typelessBitmap)->deref(); // Balanced by ref in createCairoSurface.
+}
+
+PassRefPtr<Image> ShareableBitmap::createImage()
+{
+    RefPtr<cairo_surface_t> surface = createCairoSurface();
+    if (!surface)
+        return 0;
+
+    // BitmapImage::create adopts the cairo_surface_t that's passed in, which is why we need to leakRef here.
+    return BitmapImage::create(surface.release().leakRef());
 }
 
 } // namespace WebKit

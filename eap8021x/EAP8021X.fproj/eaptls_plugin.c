@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -490,7 +490,8 @@ eaptls_request(EAPClientPluginDataRef plugin,
     u_int32_t		tls_message_length = 0;
     RequestType		type;
 
-    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)in_pkt;
+    /* ALIGN: void * cast OK, we don't expect proper alignment */
+    eaptls_in_l = (EAPTLSLengthIncludedPacketRef)(void *)in_pkt;
     if (in_length < sizeof(*eaptls_in)) {
 	syslog(LOG_NOTICE, "eaptls_request: length %d < %ld",
 	       in_length, sizeof(*eaptls_in));
@@ -534,8 +535,7 @@ eaptls_request(EAPClientPluginDataRef plugin,
 	}
 	in_data_ptr = eaptls_in_l->tls_data;
 	in_data_length = in_length - sizeof(EAPTLSLengthIncludedPacket);
-	tls_message_length 
-	    = ntohl(*((u_int32_t *)eaptls_in_l->tls_message_length));
+	tls_message_length = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_in_l);
 	if (tls_message_length > kAvoidDenialOfServiceSize) {
 	    syslog(LOG_NOTICE, 
 		   "eaptls_request: received message too large, %d > %d",
@@ -845,7 +845,10 @@ eaptls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	    pkt->code == kEAPCodeRequest ? "Request" : "Response",
 	    pkt->identifier, length, eaptls_pkt->flags,
 	    eaptls_pkt->flags != 0 ? " [" : "");
-    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)pkt;
+
+    /* ALIGN: void * cast OK, we don't expect proper alignment */    
+    eaptls_pkt_l = (EAPTLSLengthIncludedPacketRef)(void *)pkt;
+    
     data_ptr = eaptls_pkt->tls_data;
     tls_message_length = data_length = length - sizeof(EAPTLSPacket);
 
@@ -860,8 +863,7 @@ eaptls_packet_dump(FILE * out_f, const EAPPacketRef pkt)
 	}
 	data_ptr = eaptls_pkt_l->tls_data;
 	data_length = length - sizeof(EAPTLSLengthIncludedPacket);
-	tls_message_length 
-	    = ntohl(*((u_int32_t *)eaptls_pkt_l->tls_message_length));
+	tls_message_length = EAPTLSLengthIncludedPacketGetMessageLength(eaptls_pkt_l);
 	fprintf(out_f, " length=%u", tls_message_length);
 	
     }

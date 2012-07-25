@@ -26,18 +26,18 @@
 #include "config.h"
 #include "SpellingCorrectionCommand.h"
 
+#include "AlternativeTextController.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "Frame.h"
 #include "ReplaceSelectionCommand.h"
 #include "SetSelectionCommand.h"
-#include "SpellingCorrectionController.h"
 #include "TextIterator.h"
 #include "markup.h"
 
 namespace WebCore {
 
-#if SUPPORT_AUTOCORRECTION_PANEL
+#if USE(AUTOCORRECTION_PANEL)
 // On Mac OS X, we use this command to keep track of user undoing a correction for the first time.
 // This information is needed by spell checking service to update user specific data.
 class SpellingCorrectionRecordUndoCommand : public SimpleEditCommand {
@@ -55,11 +55,11 @@ private:
     {
     }
 
-    virtual void doApply()
+    virtual void doApply() OVERRIDE
     {
     }
 
-    virtual void doUnapply()
+    virtual void doUnapply() OVERRIDE
     {
         if (!m_hasBeenUndone) {
             document()->frame()->editor()->unappliedSpellCorrection(startingSelection(), m_corrected, m_correction);
@@ -67,6 +67,12 @@ private:
         }
         
     }
+
+#ifndef NDEBUG
+    virtual void getNodesInCommand(HashSet<Node*>&) OVERRIDE
+    {
+    }
+#endif
 
     String m_corrected;
     String m_correction;
@@ -96,7 +102,7 @@ void SpellingCorrectionCommand::doApply()
         return;
 
     applyCommandToComposite(SetSelectionCommand::create(m_selectionToBeCorrected, FrameSelection::SpellCorrectionTriggered | FrameSelection::CloseTyping | FrameSelection::ClearTypingStyle));
-#if SUPPORT_AUTOCORRECTION_PANEL
+#if USE(AUTOCORRECTION_PANEL)
     applyCommandToComposite(SpellingCorrectionRecordUndoCommand::create(document(), m_corrected, m_correction));
 #endif
     applyCommandToComposite(ReplaceSelectionCommand::create(document(), fragment, ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting, EditActionPaste));

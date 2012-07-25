@@ -58,18 +58,17 @@ public:
     
     bool hitTestClipContent(const FloatRect&, const FloatPoint&);
 
-    SVGUnitTypes::SVGUnitType clipPathUnits() const { return toUnitType(static_cast<SVGClipPathElement*>(node())->clipPathUnits()); }
+    SVGUnitTypes::SVGUnitType clipPathUnits() const { return static_cast<SVGClipPathElement*>(node())->clipPathUnits(); }
 
     static RenderSVGResourceType s_resourceType;
 private:
     // clipPath can be clipped too, but don't have a boundingBox or repaintRect. So we can't call
     // applyResource directly and use the rects from the object, since they are empty for RenderSVGResources
     bool applyClippingToContext(RenderObject*, const FloatRect&, const FloatRect&, GraphicsContext*);
-    bool pathOnlyClipping(GraphicsContext*, const FloatRect&);
+    bool pathOnlyClipping(GraphicsContext*, const AffineTransform&, const FloatRect&);
     bool drawContentIntoMaskImage(ClipperData*, const FloatRect& objectBoundingBox);
     void calculateClipContentRepaintRect();
 
-    bool m_invalidationBlocked;
     FloatRect m_clipBoundaries;
     HashMap<RenderObject*, ClipperData*> m_clipper;
 };

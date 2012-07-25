@@ -82,7 +82,7 @@ static gssapi_mech_interface_desc scram_mech = {
     NULL,
     NULL,
     NULL,
-    _gss_scram_acquire_cred_ex,
+    _gss_scram_acquire_cred_ext,
     _gss_scram_iter_creds_f,
     _gss_scram_destroy_cred,
     NULL,

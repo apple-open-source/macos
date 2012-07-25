@@ -300,4 +300,4 @@ static const dhcptype_info_t dhcptype_info_table[] = {
   /* 12 */ { 8, dhcptype_ip_e, "ip_pairs", 1 },
   /* 13 */ { 0, dhcptype_none_e, "dns_namelist", 1 },
 };
-#endif _S_DHCP_PARSE_TABLE
+#endif /* _S_DHCP_PARSE_TABLE */

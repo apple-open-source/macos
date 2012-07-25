@@ -72,6 +72,7 @@ const ClassInfo DateConstructor::s_info = { "Function", &InternalFunction::s_inf
 */
 
 ASSERT_CLASS_FITS_IN_CELL(DateConstructor);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(DateConstructor);
 
 DateConstructor::DateConstructor(JSGlobalObject* globalObject, Structure* structure)
     : InternalFunction(globalObject, structure) 
@@ -124,13 +125,13 @@ JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, const Arg
             args.at(5).toNumber(exec), 
             args.at(6).toNumber(exec)
         };
-        if (isnan(doubleArguments[0])
-                || isnan(doubleArguments[1])
-                || (numArgs >= 3 && isnan(doubleArguments[2]))
-                || (numArgs >= 4 && isnan(doubleArguments[3]))
-                || (numArgs >= 5 && isnan(doubleArguments[4]))
-                || (numArgs >= 6 && isnan(doubleArguments[5]))
-                || (numArgs >= 7 && isnan(doubleArguments[6])))
+        if (!isfinite(doubleArguments[0])
+            || !isfinite(doubleArguments[1])
+            || (numArgs >= 3 && !isfinite(doubleArguments[2]))
+            || (numArgs >= 4 && !isfinite(doubleArguments[3]))
+            || (numArgs >= 5 && !isfinite(doubleArguments[4]))
+            || (numArgs >= 6 && !isfinite(doubleArguments[5]))
+            || (numArgs >= 7 && !isfinite(doubleArguments[6])))
             value = std::numeric_limits<double>::quiet_NaN();
         else {
             GregorianDateTime t;
@@ -165,10 +166,8 @@ ConstructType DateConstructor::getConstructData(JSCell*, ConstructData& construc
 // ECMA 15.9.2
 static EncodedJSValue JSC_HOST_CALL callDate(ExecState* exec)
 {
-    time_t localTime = time(0);
-    tm localTM;
-    getLocalTime(&localTime, &localTM);
-    GregorianDateTime ts(exec, localTM);
+    GregorianDateTime ts;
+    msToGregorianDateTime(exec, currentTimeMS(), false, ts);
     DateConversionBuffer date;
     DateConversionBuffer time;
     formatDate(ts, date);
@@ -184,7 +183,7 @@ CallType DateConstructor::getCallData(JSCell*, CallData& callData)
 
 static EncodedJSValue JSC_HOST_CALL dateParse(ExecState* exec)
 {
-    return JSValue::encode(jsNumber(parseDate(exec, exec->argument(0).toString(exec))));
+    return JSValue::encode(jsNumber(parseDate(exec, exec->argument(0).toString(exec)->value(exec))));
 }
 
 static EncodedJSValue JSC_HOST_CALL dateNow(ExecState*)

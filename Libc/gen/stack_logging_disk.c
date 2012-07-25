@@ -170,6 +170,7 @@ static OSSpinLock stack_logging_lock = OS_SPINLOCK_INIT;
 extern void __stack_logging_fork_prepare();
 extern void __stack_logging_fork_parent();
 extern void __stack_logging_fork_child();
+extern void __stack_logging_early_finished();
 
 // support for gdb and others checking for stack_logging locks
 __private_extern__ boolean_t __stack_logging_locked();
@@ -247,6 +248,13 @@ __create_uniquing_table(void)
 	malloc_printf("create_uniquing_table(): table: %p; end: %p\n", uniquing_table->table, (void*)((uintptr_t)uniquing_table->table + (uintptr_t)uniquing_table->tableSize));
 #endif
 	return uniquing_table;
+}
+
+static void
+__destroy_uniquing_table(backtrace_uniquing_table* table)
+{
+	deallocate_pages(table->table, table->tableSize);
+	deallocate_pages(table, sizeof(backtrace_uniquing_table));
 }
 
 static void 
@@ -389,6 +397,17 @@ append_int(char * filename, pid_t pid, size_t maxLength)
 }
 
 /*
+ * <rdar://problem/11128080> if we needed to call confstr during init then setting this
+ * flag will postpone stack logging until after Libsystem's initialiser has run.
+ */
+static void
+postpone_stack_logging(void)
+{
+	_malloc_printf(ASL_LEVEL_INFO, "stack logging postponed until after initialization.\n");
+	stack_logging_postponed = 1;
+}
+
+/*
  * Check various temporary directory options starting with _PATH_TMP and use confstr.
  * Allocating and releasing target buffer is the caller's responsibility.
  */
@@ -400,10 +419,20 @@ get_writeable_temp_dir(char* target)
 		strlcpy(target, _PATH_TMP, (size_t)PATH_MAX);
 		return true;
 	}
-	size_t n = confstr(_CS_DARWIN_USER_TEMP_DIR, target, (size_t) PATH_MAX);
-	if ((n > 0) && (n < PATH_MAX)) return true;
-	n = confstr(_CS_DARWIN_USER_CACHE_DIR, target, (size_t) PATH_MAX);
-	if ((n > 0) && (n < PATH_MAX)) return true;
+	if (getenv("TMPDIR") && (-1 != access(getenv("TMPDIR"), W_OK))) {
+		strlcpy(target, getenv("TMPDIR"), (size_t)PATH_MAX);
+		return true;
+	}
+	if (stack_logging_finished_init) {
+		size_t n = confstr(_CS_DARWIN_USER_TEMP_DIR, target, (size_t) PATH_MAX);
+		if ((n > 0) && (n < PATH_MAX)) return true;
+		n = confstr(_CS_DARWIN_USER_CACHE_DIR, target, (size_t) PATH_MAX);
+		if ((n > 0) && (n < PATH_MAX)) return true;
+	} else {
+		/* <rdar://problem/11128080> Can't call confstr during init, so postpone
+		 logging till after */
+		postpone_stack_logging();
+	}
 	/* No writeable tmp directory found. Maybe shd try /private/var/tmp for device here ... */
 	*target = '\0';
 	return false;
@@ -458,7 +487,9 @@ create_log_file(void)
 	}
 	if (!use_alternate_location || (access(stack_log_location, W_OK) == -1)) {
 		if (!get_writeable_temp_dir(stack_log_location)) {
-			_malloc_printf(ASL_LEVEL_INFO, "No writeable tmp dir\n");
+			if (!stack_logging_postponed) {
+				_malloc_printf(ASL_LEVEL_INFO, "No writeable tmp dir\n");
+			}
 			return NULL;
 		}
 		if (0 != strcmp(stack_log_location, _PATH_TMP))
@@ -809,7 +840,7 @@ prepare_to_log_stacks(void)
 			disable_stack_logging();
 			return;
 		}
-		
+
 		// Store and use the buffer offsets in shared memory so that they can be accessed remotely
 		pre_write_buffers->start_index_offset = 0ull;
 		pre_write_buffers->next_free_index_buffer_offset = 0;
@@ -822,8 +853,9 @@ prepare_to_log_stacks(void)
 			disable_stack_logging();
 			return;
 		}
-		
-		stack_buffer = (vm_address_t*)allocate_pages((uint64_t)round_page(sizeof(vm_address_t) * STACK_LOGGING_MAX_STACK_SIZE));
+
+		uint64_t stack_buffer_sz = (uint64_t)round_page(sizeof(vm_address_t) * STACK_LOGGING_MAX_STACK_SIZE);
+		stack_buffer = (vm_address_t*)allocate_pages(stack_buffer_sz);
 		if (!stack_buffer) {
 			_malloc_printf(ASL_LEVEL_INFO, "error while allocating stack trace buffer\n");
 			disable_stack_logging();
@@ -833,10 +865,20 @@ prepare_to_log_stacks(void)
 		// malloc() can be called by the following, so these need to be done outside the stack_logging_lock but after the buffers have been set up.
 		atexit(delete_log_files);		// atexit() can call malloc()
 		reap_orphaned_log_files(true);		// this calls opendir() which calls malloc()
-		
+
 		// this call ensures that the log files exist; analyzing processes will rely on this assumption.
 		if (create_log_file() == NULL) {
-			disable_stack_logging();
+			/* postponement support requires cleaning up these structures now */
+			__destroy_uniquing_table(pre_write_buffers->uniquing_table);
+			deallocate_pages(stack_buffer, stack_buffer_sz);
+			stack_buffer = NULL;
+
+			munmap(pre_write_buffers, full_shared_mem_size);
+			pre_write_buffers = NULL;
+
+			if (!stack_logging_postponed) {
+				disable_stack_logging();
+			}
 			return;
 		}
 	}
@@ -845,7 +887,7 @@ prepare_to_log_stacks(void)
 void
 __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_t size, uintptr_t ptr_arg, uintptr_t return_val, uint32_t num_hot_to_skip)
 {
-	if (!stack_logging_enable_logging) return;
+	if (!stack_logging_enable_logging || stack_logging_postponed) return;
 	
 	// check incoming data
 	if (type_flags & stack_logging_type_alloc && type_flags & stack_logging_type_dealloc) {
@@ -877,7 +919,8 @@ __disk_stack_logging_log_stack(uint32_t type_flags, uintptr_t zone_ptr, uintptr_
 	prepare_to_log_stacks();
 
 	// since there could have been a fatal (to stack logging) error such as the log files not being created, check this variable before continuing
-	if (!stack_logging_enable_logging) return;
+	if (!stack_logging_enable_logging || stack_logging_postponed) return;
+
 	vm_address_t self_thread = (vm_address_t)pthread_self();	// use pthread_self() rather than mach_thread_self() to avoid system call
 	
 	// lock and enter
@@ -972,8 +1015,14 @@ __stack_logging_fork_child() {
 	OSSpinLockUnlock(&stack_logging_lock);
 }
 
+void
+__stack_logging_early_finished() {
+	stack_logging_finished_init = 1;
+	stack_logging_postponed = 0;
+}
+
 boolean_t
-__stack_logging_locked() 
+__stack_logging_locked()
 {
 	bool acquired_lock = OSSpinLockTry(&stack_logging_lock);
 	if (acquired_lock) OSSpinLockUnlock(&stack_logging_lock);

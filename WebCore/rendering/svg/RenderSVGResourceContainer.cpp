@@ -22,7 +22,9 @@
 #if ENABLE(SVG)
 #include "RenderSVGResourceContainer.h"
 
-#include "RenderSVGShadowTreeRootContainer.h"
+#include "RenderSVGRoot.h"
+#include "RenderView.h"
+#include "SVGResourcesCache.h"
 #include "SVGStyledTransformableElement.h"
 
 namespace WebCore {
@@ -36,8 +38,9 @@ static inline SVGDocumentExtensions* svgExtensionsFromNode(Node* node)
 
 RenderSVGResourceContainer::RenderSVGResourceContainer(SVGStyledElement* node)
     : RenderSVGHiddenContainer(node)
-    , m_id(node->hasID() ? node->getIdAttribute() : nullAtom)
+    , m_id(node->getIdAttribute())
     , m_registered(false)
+    , m_isInvalidating(false)
 {
 }
 
@@ -50,16 +53,16 @@ RenderSVGResourceContainer::~RenderSVGResourceContainer()
 void RenderSVGResourceContainer::layout()
 {
     // Invalidate all resources if our layout changed.
-    if (m_everHadLayout && selfNeedsLayout())
-        removeAllClientsFromCache();
+    if (everHadLayout() && selfNeedsLayout())
+        RenderSVGRoot::addResourceForClientInvalidation(this);
 
     RenderSVGHiddenContainer::layout();
 }
 
-void RenderSVGResourceContainer::destroy()
+void RenderSVGResourceContainer::willBeDestroyed()
 {
     SVGResourcesCache::resourceDestroyed(this);
-    RenderSVGHiddenContainer::destroy();
+    RenderSVGHiddenContainer::willBeDestroyed();
 }
 
 void RenderSVGResourceContainer::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -87,9 +90,10 @@ void RenderSVGResourceContainer::idChanged()
 
 void RenderSVGResourceContainer::markAllClientsForInvalidation(InvalidationMode mode)
 {
-    if (m_clients.isEmpty())
+    if (m_clients.isEmpty() || m_isInvalidating)
         return;
 
+    m_isInvalidating = true;
     bool needsLayout = mode == LayoutAndBoundariesInvalidation;
     bool markForInvalidation = mode != ParentOnlyInvalidation;
 
@@ -104,20 +108,9 @@ void RenderSVGResourceContainer::markAllClientsForInvalidation(InvalidationMode 
         if (markForInvalidation)
             markClientForInvalidation(client, mode);
 
-        if (needsLayout)
-            client->setNeedsLayout(true);
-
-        // Invalidate resources in ancestor chain, if needed.
-        RenderObject* current = client->parent();
-        while (current) {
-            if (current->isSVGResourceContainer()) {
-                current->toRenderSVGResourceContainer()->removeAllClientsFromCache(markForInvalidation);
-                break;
-            }
-
-            current = current->parent();
-        }
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(client, needsLayout);
     }
+    m_isInvalidating = false;
 }
 
 void RenderSVGResourceContainer::markClientForInvalidation(RenderObject* client, InvalidationMode mode)
@@ -154,7 +147,7 @@ void RenderSVGResourceContainer::removeClient(RenderObject* client)
 void RenderSVGResourceContainer::registerResource()
 {
     SVGDocumentExtensions* extensions = svgExtensionsFromNode(node());
-    if (!extensions->hasPendingResources(m_id)) {
+    if (!extensions->hasPendingResource(m_id)) {
         extensions->addResource(m_id, this);
         return;
     }
@@ -180,7 +173,7 @@ void RenderSVGResourceContainer::registerResource()
 // FIXME: This does not belong here.
 AffineTransform RenderSVGResourceContainer::transformOnNonScalingStroke(RenderObject* object, const AffineTransform& resourceTransform)
 {
-    if (!object->isSVGPath())
+    if (!object->isSVGShape())
         return resourceTransform;
 
     SVGStyledTransformableElement* element = static_cast<SVGStyledTransformableElement*>(object->node());

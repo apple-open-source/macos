@@ -113,22 +113,23 @@ Boston, MA 02110-1301, USA.  */
 #include <assert.h>
 #include "version.h"
 
-#ifdef _LP64
-#define mach_header			mach_header_64
-#define segment_command			segment_command_64
-#undef  VM_REGION_BASIC_INFO_COUNT
-#define VM_REGION_BASIC_INFO_COUNT	VM_REGION_BASIC_INFO_COUNT_64
-#undef  VM_REGION_BASIC_INFO
-#define VM_REGION_BASIC_INFO		VM_REGION_BASIC_INFO_64
-#undef  LC_SEGMENT
-#define LC_SEGMENT			LC_SEGMENT_64
-#define vm_region			vm_region_64
-#define section				section_64
-#undef MH_MAGIC
-#define MH_MAGIC			MH_MAGIC_64
+#if _LP64
+#define mach_header				mach_header_64
+#define segment_command				segment_command_64
+#define vm_region				vm_region_64
+#define section					section_64
+#define target_VM_REGION_BASIC_INFO_COUNT	VM_REGION_BASIC_INFO_COUNT_64
+#define target_VM_REGION_BASIC_INFO		VM_REGION_BASIC_INFO_64
+#define target_LC_SEGMENT			LC_SEGMENT_64
+#define target_MH_MAGIC				MH_MAGIC_64
+#else
+#define target_VM_REGION_BASIC_INFO_COUNT	VM_REGION_BASIC_INFO_COUNT
+#define target_VM_REGION_BASIC_INFO		VM_REGION_BASIC_INFO
+#define target_LC_SEGMENT			LC_SEGMENT
+#define target_MH_MAGIC				MH_MAGIC
 #endif
 
-#define VERBOSE 0
+#define VERBOSE 1
 
 /* Size of buffer used to copy data from the input file to the output
    file in function unexec_copy.  */
@@ -325,14 +326,14 @@ print_regions ()
   vm_address_t address = (vm_address_t) 0;
   vm_size_t size;
   struct vm_region_basic_info info;
-  mach_msg_type_number_t info_count = VM_REGION_BASIC_INFO_COUNT;
+  mach_msg_type_number_t info_count = target_VM_REGION_BASIC_INFO_COUNT;
   mach_port_t object_name;
 
   printf ("   address     size prot maxp\n");
 
   while (vm_region (target_task, &address, &size, VM_REGION_BASIC_INFO,
 		    (vm_region_info_t) &info, &info_count, &object_name)
-	 == KERN_SUCCESS && info_count == VM_REGION_BASIC_INFO_COUNT)
+	 == KERN_SUCCESS && info_count == target_VM_REGION_BASIC_INFO_COUNT)
     {
       print_region (address, size, info.protection, info.max_protection);
 
@@ -547,44 +548,114 @@ print_load_command_name (int lc)
   switch (lc)
     {
     case LC_SEGMENT:
-#ifndef _LP64
-      printf ("LC_SEGMENT       ");
-#else
-      printf ("LC_SEGMENT_64    ");
-#endif
-      break;
-    case LC_LOAD_DYLINKER:
-      printf ("LC_LOAD_DYLINKER ");
-      break;
-    case LC_LOAD_DYLIB:
-      printf ("LC_LOAD_DYLIB    ");
+      printf("LC_SEGMENT             ");
       break;
     case LC_SYMTAB:
-      printf ("LC_SYMTAB        ");
+      printf("LC_SYMTAB              ");
       break;
-    case LC_DYSYMTAB:
-      printf ("LC_DYSYMTAB      ");
+    case LC_SYMSEG:
+      printf("LC_SYMSEG              ");
       break;
     case LC_UNIXTHREAD:
-      printf ("LC_UNIXTHREAD    ");
+      printf("LC_UNIXTHREAD          ");
+      break;
+    case LC_DYSYMTAB:
+      printf("LC_DYSYMTAB            ");
+      break;
+    case LC_LOAD_DYLIB:
+      printf("LC_LOAD_DYLIB          ");
+      break;
+    case LC_ID_DYLIB:
+      printf("LC_ID_DYLIB            ");
+      break;
+    case LC_LOAD_DYLINKER:
+      printf("LC_LOAD_DYLINKER       ");
       break;
     case LC_PREBOUND_DYLIB:
-      printf ("LC_PREBOUND_DYLIB");
+      printf("LC_PREBOUND_DYLIB      ");
+      break;
+    case LC_ROUTINES:
+      printf("LC_ROUTINES            ");
+      break;
+    case LC_SUB_FRAMEWORK:
+      printf("LC_SUBFRAMEWORK        ");
+      break;
+    case LC_SUB_UMBRELLA:
+      printf("LC_SUB_UMBRELLA        ");
+      break;
+    case LC_SUB_CLIENT:
+      printf("LC_SUB_CLIENT          ");
+      break;
+    case LC_SUB_LIBRARY:
+      printf("LC_SUB_LIBRARY         ");
       break;
     case LC_TWOLEVEL_HINTS:
-      printf ("LC_TWOLEVEL_HINTS");
+      printf("LC_TWOLEVEL_HINTS      ");
+      break;
+    case LC_PREBIND_CKSUM:
+      printf("LC_PREBIND_CKSUM       ");
+      break;
+    case LC_LOAD_WEAK_DYLIB:
+      printf("LC_LOAD_WEAK_DYLIB     ");
+      break;
+    case LC_SEGMENT_64:
+      printf("LC_SEGMENT_64          ");
+      break;
+    case LC_ROUTINES_64:
+      printf("LC_ROUTINES_64         ");
       break;
     case LC_UUID:
-      printf("LC_UUID");
+      printf("LC_UUID                ");
+      break;
+    case LC_RPATH:
+      printf("LC_RPATH               ");
       break;
     case LC_CODE_SIGNATURE:
-      printf("LC_CODE_SIGNATURE");
+      printf("LC_CODE_SIGNATURE      ");
+      break;
+    case LC_SEGMENT_SPLIT_INFO:
+      printf("LC_SEGMENT_SPLIT_INFO  ");
+      break;
+    case LC_REEXPORT_DYLIB:
+      printf("LC_REEXPORT_DYLIB      ");
+      break;
+    case LC_LAZY_LOAD_DYLIB:
+      printf("LC_LAZY_LOAD_DYLIB     ");
+      break;
+    case LC_ENCRYPTION_INFO:
+      printf("LC_ENCRYPTION_INFO     ");
+      break;
+    case LC_DYLD_INFO:
+      printf("LC_DYLD_INFO           ");
       break;
     case LC_DYLD_INFO_ONLY:
-      printf("LC_DYLD_INFO_ONLY");
+      printf("LC_DYLD_INFO_ONLY      ");
       break;
+    case LC_LOAD_UPWARD_DYLIB:
+      printf("LC_LOAD_UPWARD_DYLIB   ");
+      break;
+    case LC_VERSION_MIN_MACOSX:
+      printf("LC_VERSION_MIN_MACOSX  ");
+      break;
+    case LC_VERSION_MIN_IPHONEOS:
+      printf("LC_VERSION_MIN_IPHONEOS");
+      break;
+    case LC_FUNCTION_STARTS:
+      printf("LC_FUNCTION_STARTS     ");
+      break;
+    case LC_DYLD_ENVIRONMENT:
+      printf("LC_DYLD_ENVIRONMENT    ");
+      break;
+    case LC_SOURCE_VERSION:
+      printf("LC_SOURCE_VERSION      ");
+      break;
+    case LC_DYLIB_CODE_SIGN_DRS:
+      printf("LC_DYLIB_CODE_SIGN_DRS ");
+      break;
+
     default:
-      printf ("unknown          ");
+      printf("unknown(%2d)            ", lc);
+      break;
     }
 }
 
@@ -594,7 +665,7 @@ print_load_command (struct load_command *lc)
   print_load_command_name (lc->cmd);
   printf ("%8d", lc->cmdsize);
 
-  if (lc->cmd == LC_SEGMENT)
+  if (lc->cmd == LC_SEGMENT || lc->cmd == LC_SEGMENT_64)
     {
       struct segment_command *scp;
       struct section *sectp;
@@ -627,8 +698,8 @@ read_load_commands ()
   if (!unexec_read (&mh, sizeof (struct mach_header)))
     unexec_error ("cannot read mach-o header");
 
-  if (mh.magic != MH_MAGIC)
-    unexec_error ("input file not in Mach-O format");
+  if (mh.magic != target_MH_MAGIC)
+    unexec_error ("input file not in correct Mach-O format");
 
   if (mh.filetype != MH_EXECUTE)
     unexec_error ("input Mach-O file is not an executable object file");
@@ -658,7 +729,7 @@ read_load_commands ()
       memcpy (lca[i], &lc, sizeof (struct load_command));
       if (!unexec_read (lca[i] + 1, lc.cmdsize - sizeof (struct load_command)))
         unexec_error ("cannot read content of load command");
-      if (lc.cmd == LC_SEGMENT)
+      if (lc.cmd == LC_SEGMENT || lc.cmd == LC_SEGMENT_64)
 	{
 	  struct segment_command *scp = (struct segment_command *) lca[i];
 
@@ -859,7 +930,7 @@ copy_data_segment (struct load_command *lc)
     {
       struct segment_command sc;
 
-      sc.cmd = LC_SEGMENT;
+      sc.cmd = target_LC_SEGMENT;
       sc.cmdsize = sizeof (struct segment_command);
       strncpy (sc.segname, SEG_DATA, 16);
       sc.vmaddr = unexec_regions[j].range.address;
@@ -896,15 +967,17 @@ copy_symtab (struct load_command *lc, long delta)
   stp->symoff += delta;
   stp->stroff += delta;
 
-  printf ("Writing LC_SYMTAB command\n");
+  printf ("Writing ");
+  print_load_command_name (lc->cmd);
+  printf (" command\n");
 
   if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
-    unexec_error ("cannot write symtab command to header");
+    unexec_error ("cannot write LC_SYMTAB command to header");
 
   curr_header_offset += lc->cmdsize;
 }
 
-/* Copy a LC_SYMTAB load command from the input file to the output
+/* Copy a LC_DYLD_INFO_ONLY load command from the input file to the output
    file, adjusting the file offset fields.  */
 static void
 copy_dyld_info_only (struct load_command *lc, long delta)
@@ -922,14 +995,35 @@ copy_dyld_info_only (struct load_command *lc, long delta)
   if (dyld->export_size)
     dyld->export_off += delta;
 
-  printf ("Writing LC_DYLD_INFO_ONLY command\n");
+  printf ("Writing ");
+  print_load_command_name (lc->cmd);
+  printf (" command\n");
 
   if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
-    unexec_error ("cannot write symtab command to header");
+    unexec_error ("cannot write LC_DYLD_INFO_ONLY command to header");
 
   curr_header_offset += lc->cmdsize;
 }
 
+/* Copy a LC_DYLIB_CODE_SIGN_DRS load command from the input file to the output
+   file, adjusting the file offset fields.  */
+static void
+copy_linkedit_data (struct load_command *lc, long delta)
+{
+  struct linkedit_data_command *data = (struct linkedit_data_command *) lc;
+
+  if (data->dataoff)
+    data->dataoff += delta;
+
+  printf ("Writing ");
+  print_load_command_name (lc->cmd);
+  printf (" command\n");
+
+  if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
+	  unexec_error ("cannot write %d command to header", lc->cmd);
+
+  curr_header_offset += lc->cmdsize;
+}
 /* Fix up relocation entries. */
 static void
 unrelocate (const char *name, off_t reloff, int nrel)
@@ -1010,7 +1104,9 @@ copy_dysymtab (struct load_command *lc, long delta)
   if (dstp->nindirectsyms > 0)
     dstp->indirectsymoff += delta;
 
-  printf ("Writing LC_DYSYMTAB command\n");
+  printf ("Writing ");
+  print_load_command_name (lc->cmd);
+  printf (" command\n");
 
   if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
     unexec_error ("cannot write symtab command to header");
@@ -1029,7 +1125,9 @@ copy_twolevelhints (struct load_command *lc, long delta)
     tlhp->offset += delta;
   }
 
-  printf ("Writing LC_TWOLEVEL_HINTS command\n");
+  printf ("Writing ");
+  print_load_command_name (lc->cmd);
+  printf (" command\n");
 
   if (!unexec_write (curr_header_offset, lc, lc->cmdsize))
     unexec_error ("cannot write two level hint command to header");
@@ -1067,7 +1165,7 @@ dump_it ()
   for (i = 0; i < nlc; i++)
     switch (lca[i]->cmd)
       {
-      case LC_SEGMENT:
+      case target_LC_SEGMENT:
 	{
 	  struct segment_command *scp = (struct segment_command *) lca[i];
 	  if (strncmp (scp->segname, SEG_DATA, 16) == 0)
@@ -1108,6 +1206,14 @@ dump_it ()
       case LC_DYLD_INFO_ONLY:
 	copy_dyld_info_only(lca[i], linkedit_delta);
 	break;
+      case LC_CODE_SIGNATURE:
+      case LC_SEGMENT_SPLIT_INFO:
+      case LC_FUNCTION_STARTS:
+      case LC_DATA_IN_CODE:
+      case LC_DYLIB_CODE_SIGN_DRS:
+	copy_linkedit_data(lca[i], linkedit_delta);
+	break;
+
       default:
 	copy_other (lca[i]);
 	break;

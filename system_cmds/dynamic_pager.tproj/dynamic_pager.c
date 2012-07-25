@@ -35,9 +35,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <default_pager/default_pager_types.h>
-#include <default_pager_alerts_server.h>
+#include <default_pager_alertsServer.h>
 #include <backing_store_alerts.h>
-#include <backing_store_triggers_server.h>
+#include <backing_store_triggersServer.h>
 
 /*
  * HI_WATER_DEFAULT set to this funny value to 

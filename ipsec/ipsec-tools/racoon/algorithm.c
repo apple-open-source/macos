@@ -104,29 +104,9 @@ static struct enc_algorithm oakley_encdef[] = {
 { "des",	algtype_des,		OAKLEY_ATTR_ENC_ALG_DES,	8,
 		eay_des_encrypt,	eay_des_decrypt,
 		eay_des_weakkey,	eay_des_keylen, },
-#ifdef HAVE_OPENSSL
-#ifdef HAVE_OPENSSL_IDEA_H
-{ "idea",	algtype_idea,		OAKLEY_ATTR_ENC_ALG_IDEA,	8,
-		eay_idea_encrypt,	eay_idea_decrypt,
-		eay_idea_weakkey,	eay_idea_keylen, },
-#endif
-{ "blowfish",	algtype_blowfish,	OAKLEY_ATTR_ENC_ALG_BLOWFISH,	8,
-		eay_bf_encrypt,		eay_bf_decrypt,
-		eay_bf_weakkey,		eay_bf_keylen, },
-#ifdef HAVE_OPENSSL_RC5_H
-{ "rc5",	algtype_rc5,		OAKLEY_ATTR_ENC_ALG_RC5,	8,
-		eay_rc5_encrypt,	eay_rc5_decrypt,
-		eay_rc5_weakkey,	eay_rc5_keylen, },
-#endif
-#endif
 { "3des",	algtype_3des,		OAKLEY_ATTR_ENC_ALG_3DES,	8,
 		eay_3des_encrypt,	eay_3des_decrypt,
 		eay_3des_weakkey,	eay_3des_keylen, },
-#ifdef HAVE_OPENSSL
-{ "cast",	algtype_cast128,	OAKLEY_ATTR_ENC_ALG_CAST,	8,
-		eay_cast_encrypt,	eay_cast_decrypt,
-		eay_cast_weakkey,	eay_cast_keylen, },
-#endif
 { "aes",	algtype_aes,	OAKLEY_ATTR_ENC_ALG_AES,	16,
 		eay_aes_encrypt,	eay_aes_decrypt,
 		eay_aes_weakkey,	eay_aes_keylen, },
@@ -142,19 +122,6 @@ static struct enc_algorithm ipsec_encdef[] = {
 { "3des",	algtype_3des,		IPSECDOI_ESP_3DES,		8,
 		NULL,			NULL,
 		NULL,			eay_3des_keylen, },
-#ifdef HAVE_OPENSSL
-#ifdef HAVE_OPENSSL_RC5_H
-{ "rc5",	algtype_rc5,		IPSECDOI_ESP_RC5,		8,
-		NULL,			NULL,
-		NULL,			eay_rc5_keylen, },
-#endif
-{ "cast",	algtype_cast128,	IPSECDOI_ESP_CAST,		8,
-		NULL,			NULL,
-		NULL,			eay_cast_keylen, },
-{ "blowfish",	algtype_blowfish,	IPSECDOI_ESP_BLOWFISH,		8,
-		NULL,			NULL,
-		NULL,			eay_bf_keylen, },
-#endif
 { "des-iv32",	algtype_des_iv32,	IPSECDOI_ESP_DES_IV32,		8,
 		NULL,			NULL,
 		NULL,			eay_des_keylen, },
@@ -164,22 +131,6 @@ static struct enc_algorithm ipsec_encdef[] = {
 { "aes",	algtype_aes,		IPSECDOI_ESP_AES,		16,
 		NULL,			NULL,
 		NULL,			eay_aes_keylen, },
-#ifdef HAVE_OPENSSL
-{ "twofish",	algtype_twofish,	IPSECDOI_ESP_TWOFISH,		16,
-		NULL,			NULL,
-		NULL,			eay_twofish_keylen, },
-#ifdef HAVE_OPENSSL_IDEA_H
-{ "3idea",	algtype_3idea,		IPSECDOI_ESP_3IDEA,		8,
-		NULL,			NULL,
-		NULL,			NULL, },
-{ "idea",	algtype_idea,		IPSECDOI_ESP_IDEA,		8,
-		NULL,			NULL,
-		NULL,			NULL, },
-#endif
-{ "rc4",	algtype_rc4,		IPSECDOI_ESP_RC4,		8,
-		NULL,			NULL,
-		NULL,			NULL, },
-#endif
 };
 
 static struct hmac_algorithm ipsec_hmacdef[] = {
@@ -191,12 +142,6 @@ static struct hmac_algorithm ipsec_hmacdef[] = {
 		NULL,			NULL,
 		NULL,			eay_sha1_hashlen,
 		NULL, },
-#ifdef HAVE_OPENSSL
-{ "kpdk",	algtype_kpdk,		IPSECDOI_ATTR_AUTH_KPDK,
-		NULL,			NULL,
-		NULL,			eay_kpdk_hashlen,
-		NULL, },
-#endif
 { "null",	algtype_non_auth,	IPSECDOI_ATTR_AUTH_NONE,
 		NULL,			NULL,
 		NULL,			eay_null_hashlen,

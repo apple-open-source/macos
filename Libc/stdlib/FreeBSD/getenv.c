@@ -36,8 +36,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/getenv.c,v 1.8 2007/05/01 16:02:41 ache 
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
+#include <crt_externs.h>
 
-inline char *__findenv(const char *, int *);
+__private_extern__ char *__findenv(const char *, int *, char **);
 
 /*
  * __findenv --
@@ -48,12 +49,12 @@ inline char *__findenv(const char *, int *);
  *
  *	This routine *should* be a static; don't use it.
  */
-inline char *
-__findenv(name, offset)
+__private_extern__ char *
+__findenv(name, offset, environ)
 	const char *name;
 	int *offset;
+	char **environ;
 {
-	extern char **environ;
 	int len, i;
 	const char *np;
 	char **p, *cp;
@@ -76,6 +77,19 @@ __findenv(name, offset)
 }
 
 /*
+ * _getenvp -- SPI using an arbitrary pointer to string array (the array must
+ * have been created with malloc) and an env state, created by _allocenvstate().
+ *	Returns ptr to value associated with name, if any, else NULL.
+ */
+char *
+_getenvp(const char *name, char ***envp, void *state __unused)
+{
+	int offset;
+
+	return (__findenv(name, &offset, *envp));
+}
+
+/*
  * getenv --
  *	Returns ptr to value associated with name, if any, else NULL.
  */
@@ -85,5 +99,5 @@ getenv(name)
 {
 	int offset;
 
-	return (__findenv(name, &offset));
+	return (__findenv(name, &offset, *_NSGetEnviron()));
 }

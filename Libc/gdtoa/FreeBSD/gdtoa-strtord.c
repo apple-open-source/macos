@@ -67,27 +67,3 @@ ULtod(ULong *L, ULong *bits, Long exp, int k)
 	if (k & STRTOG_Neg)
 		L[_0] |= 0x80000000L;
 	}
-
- int
-#ifdef KR_headers
-strtord(s, sp, rounding, d) CONST char *s; char **sp; int rounding; double *d;
-#else
-strtord(CONST char *s, char **sp, int rounding, double *d)
-#endif
-{
-	static FPI fpi0 = { 53, 1-1023-53+1, 2046-1023-53+1, 1, SI };
-	FPI *fpi, fpi1;
-	ULong bits[2];
-	Long exp;
-	int k;
-
-	fpi = &fpi0;
-	if (rounding != FPI_Round_near) {
-		fpi1 = fpi0;
-		fpi1.rounding = rounding;
-		fpi = &fpi1;
-		}
-	k = strtodg(s, sp, fpi, &exp, bits);
-	ULtod((ULong*)d, bits, exp, k);
-	return k;
-	}

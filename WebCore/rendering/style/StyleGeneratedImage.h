@@ -33,34 +33,29 @@ class CSSImageGeneratorValue;
 
 class StyleGeneratedImage : public StyleImage {
 public:
-    static PassRefPtr<StyleGeneratedImage> create(CSSImageGeneratorValue* val, bool fixedSize)
+    static PassRefPtr<StyleGeneratedImage> create(CSSImageGeneratorValue* value)
     {
-        return adoptRef(new StyleGeneratedImage(val, fixedSize));
+        return adoptRef(new StyleGeneratedImage(value));
     }
 
-    virtual WrappedImagePtr data() const { return m_generator; }
+    virtual WrappedImagePtr data() const { return m_imageGeneratorValue.get(); }
 
-    virtual bool isGeneratedImage() const { return true; }
-    
     virtual PassRefPtr<CSSValue> cssValue() const;
 
     virtual IntSize imageSize(const RenderObject*, float multiplier) const;
     virtual bool imageHasRelativeWidth() const { return !m_fixedSize; }
     virtual bool imageHasRelativeHeight() const { return !m_fixedSize; }
+    virtual void computeIntrinsicDimensions(const RenderObject*, Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio);
     virtual bool usesImageContainerSize() const { return !m_fixedSize; }
-    virtual void setImageContainerSize(const IntSize&);
+    virtual void setContainerSizeForRenderer(const RenderObject*, const IntSize& containerSize, float) { m_containerSize = containerSize; }
     virtual void addClient(RenderObject*);
     virtual void removeClient(RenderObject*);
     virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) const;
     
 private:
-    StyleGeneratedImage(CSSImageGeneratorValue* val, bool fixedSize)
-        : m_generator(val)
-        , m_fixedSize(fixedSize)
-    {
-    }
+    StyleGeneratedImage(PassRefPtr<CSSImageGeneratorValue>);
     
-    CSSImageGeneratorValue* m_generator; // The generator holds a reference to us.
+    RefPtr<CSSImageGeneratorValue> m_imageGeneratorValue;
     IntSize m_containerSize;
     bool m_fixedSize;
 };

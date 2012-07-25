@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -39,6 +39,9 @@
 
 #ifndef DEBUG_trace
 #define DEBUG_trace		0
+#endif
+#if DEBUG_trace
+#undef setlocale
 #endif
 
 #if _lib_catopen
@@ -78,9 +81,9 @@ _ast_catopen(const char* name, int flag)
 	 */
 
 #if DEBUG_trace
-sfprintf(sfstderr, "AHA#%d:%s %s\n", __LINE__, __FILE__, name);
+sfprintf(sfstderr, "AHA#%d:%s %s LC_MESSAGES=%s:%s\n", __LINE__, __FILE__, name, _ast_setlocale(LC_MESSAGES, 0), setlocale(LC_MESSAGES, 0));
 #endif
-	if ((s = mcfind(path, NiL, name, LC_MESSAGES, flag)) && (ip = sfopen(NiL, s, "r")))
+	if ((s = mcfind(NiL, name, LC_MESSAGES, flag, path, sizeof(path))) && (ip = sfopen(NiL, s, "r")))
 	{
 #if DEBUG_trace
 sfprintf(sfstderr, "AHA#%d:%s %s\n", __LINE__, __FILE__, s);

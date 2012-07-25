@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -111,7 +111,7 @@ struct {
     { bad_sysid3, sizeof(bad_sysid3) },
     { bad_sysid4, sizeof(bad_sysid4) },
 };
-#endif TEST_BAD_SYSID
+#endif /* TEST_BAD_SYSID */
 static const unsigned char	rfc_magic[4] = RFC_OPTIONS_MAGIC;
 
 static const u_char dhcp_params[] = {
@@ -504,7 +504,7 @@ make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
 		dhcpoa_err(options_p));
 	goto err;
     }
-#else TEST_BAD_SYSID
+#else /* TEST_BAD_SYSID */
     { 
 	static int	bad_sysid_index;
 
@@ -522,7 +522,7 @@ make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
 	    bad_sysid_index = 0;
 	}
     }
-#endif TEST_BAD_SYSID
+#endif /* TEST_BAD_SYSID */
     return (request);
 
   err:
@@ -552,10 +552,19 @@ S_open_socket(u_short * ret_port)
     opt = IP_PORTRANGE_LOW;
     status = setsockopt(sockfd, IPPROTO_IP, IP_PORTRANGE, &opt, 
 			sizeof(opt));
+
     if (status < 0) {
 	perror("setsockopt IPPROTO_IP IP_PORTRANGE");
 	goto failed;
     }
+
+#ifdef SO_TC_CTL
+    opt = SO_TC_CTL;
+    /* set traffic class, we don't care if it failed. */
+    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		     sizeof(opt));
+#endif /* SO_TC_CTL */
+
     status = bind(sockfd, (struct sockaddr *)&me, sizeof(me));
     if (status != 0) {
 	perror("bind");
@@ -1617,4 +1626,4 @@ main(int argc, char * argv[])
     exit (0);
     return (0);
 }
-#endif TEST_BAD_SYSID
+#endif /* TEST_BAD_SYSID */

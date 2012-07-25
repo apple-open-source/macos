@@ -28,8 +28,14 @@
 
 #import "WebKitSystemInterface.h"
 #import "WebProcessCreationParameters.h"
+#import <WebCore/Color.h>
 #import <WebCore/FileSystem.h>
+#import <WebCore/PlatformPasteboard.h>
 #import <sys/param.h>
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+#import <QuartzCore/CARemoteLayerServer.h>
+#endif
 
 using namespace WebCore;
 
@@ -88,8 +94,16 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     ASSERT(!parameters.nsURLCachePath.isEmpty());
 
+#if ENABLE(PLUGIN_PROCESS)
+    parameters.disablePluginProcessMessageTimeout = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitDisablePluginProcessMessageTimeout"];
+#endif
+
 #if USE(ACCELERATED_COMPOSITING) && HAVE(HOSTED_CORE_ANIMATION)
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    mach_port_t renderServerPort = [[CARemoteLayerServer sharedServer] serverPort];
+#else
     mach_port_t renderServerPort = WKInitializeRenderServer();
+#endif
     if (renderServerPort != MACH_PORT_NULL)
         parameters.acceleratedCompositingPort = CoreIPC::MachPort(renderServerPort, MACH_MSG_TYPE_COPY_SEND);
 #endif
@@ -97,9 +111,7 @@ void WebContext::platformInitializeWebProcess(WebProcessCreationParameters& para
     // FIXME: This should really be configurable; we shouldn't just blindly allow read access to the UI process bundle.
     parameters.uiProcessBundleResourcePath = [[NSBundle mainBundle] resourcePath];
 
-#if USE(CFURLSTORAGESESSIONS)
     parameters.uiProcessBundleIdentifier = String([[NSBundle mainBundle] bundleIdentifier]);
-#endif
     
     // Listen for enhanced accessibility changes and propagate them to the WebProcess.
     m_enhancedAccessibilityObserver = [[NSNotificationCenter defaultCenter] addObserverForName:WebKitApplicationDidChangeAccessibilityEnhancedUserInterfaceNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *note) {
@@ -141,6 +153,88 @@ bool WebContext::omitPDFSupport()
 {
     // Since this is a "secret default" we don't bother registering it.
     return [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitOmitPDFSupport"];
+}
+
+void WebContext::getPasteboardTypes(const String& pasteboardName, Vector<String>& pasteboardTypes)
+{
+    PlatformPasteboard(pasteboardName).getTypes(pasteboardTypes);
+}
+
+void WebContext::getPasteboardPathnamesForType(const String& pasteboardName, const String& pasteboardType, Vector<String>& pathnames)
+{
+    PlatformPasteboard(pasteboardName).getPathnamesForType(pathnames, pasteboardType);
+}
+
+void WebContext::getPasteboardStringForType(const String& pasteboardName, const String& pasteboardType, String& string)
+{
+    string = PlatformPasteboard(pasteboardName).stringForType(pasteboardType);
+}
+
+void WebContext::getPasteboardBufferForType(const String& pasteboardName, const String& pasteboardType, SharedMemory::Handle& handle, uint64_t& size)
+{
+    RefPtr<SharedBuffer> buffer = PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
+    if (!buffer)
+        return;
+    size = buffer->size();
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(size);
+    memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
+    sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+}
+
+void WebContext::pasteboardCopy(const String& fromPasteboard, const String& toPasteboard)
+{
+    PlatformPasteboard(toPasteboard).copy(fromPasteboard);
+}
+
+void WebContext::getPasteboardChangeCount(const String& pasteboardName, uint64_t& changeCount)
+{
+    changeCount = PlatformPasteboard(pasteboardName).changeCount();
+}
+
+void WebContext::getPasteboardUniqueName(String& pasteboardName)
+{
+    pasteboardName = PlatformPasteboard::uniqueName();
+}
+
+void WebContext::getPasteboardColor(const String& pasteboardName, WebCore::Color& color)
+{
+    color = PlatformPasteboard(pasteboardName).color();    
+}
+
+void WebContext::getPasteboardURL(const String& pasteboardName, WTF::String& urlString)
+{
+    urlString = PlatformPasteboard(pasteboardName).url().string();
+}
+
+void WebContext::addPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes)
+{
+    PlatformPasteboard(pasteboardName).addTypes(pasteboardTypes);
+}
+
+void WebContext::setPasteboardTypes(const String& pasteboardName, const Vector<String>& pasteboardTypes)
+{
+    PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes);
+}
+
+void WebContext::setPasteboardPathnamesForType(const String& pasteboardName, const String& pasteboardType, const Vector<String>& pathnames)
+{
+    PlatformPasteboard(pasteboardName).setPathnamesForType(pathnames, pasteboardType);
+}
+
+void WebContext::setPasteboardStringForType(const String& pasteboardName, const String& pasteboardType, const String& string)
+{
+    PlatformPasteboard(pasteboardName).setStringForType(string, pasteboardType);    
+}
+
+void WebContext::setPasteboardBufferForType(const String& pasteboardName, const String& pasteboardType, const SharedMemory::Handle& handle, uint64_t size)
+{
+    if (handle.isNull()) {
+        PlatformPasteboard(pasteboardName).setBufferForType(0, pasteboardType);
+        return;
+    }
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(handle, SharedMemory::ReadOnly);
+    RefPtr<SharedBuffer> buffer = SharedBuffer::create(static_cast<unsigned char *>(sharedMemoryBuffer->data()), size);
+    PlatformPasteboard(pasteboardName).setBufferForType(buffer, pasteboardType);
 }
 
 } // namespace WebKit

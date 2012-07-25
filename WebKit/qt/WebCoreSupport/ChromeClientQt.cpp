@@ -32,7 +32,9 @@
 
 #include "ApplicationCacheStorage.h"
 #include "DatabaseTracker.h"
+#include "Document.h"
 #include "FileChooser.h"
+#include "FileIconLoader.h"
 #include "Frame.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
@@ -47,15 +49,10 @@
 #include "NavigationAction.h"
 #include "NetworkingContext.h"
 #include "NotImplemented.h"
-#include "NotificationPresenterClientQt.h"
 #include "Page.h"
 #include "PageClientQt.h"
 #include "PopupMenuQt.h"
-#if defined(Q_WS_MAEMO_5)
-#include "QtMaemoWebPopup.h"
-#else
 #include "QtFallbackWebPopup.h"
-#endif
 #include "QWebPageClient.h"
 #include "ScrollbarTheme.h"
 #include "SearchPopupMenuQt.h"
@@ -72,11 +69,11 @@
 #include "qwebview.h"
 #include <qdebug.h>
 #include <qeventloop.h>
-#include <qtextdocument.h>
 #include <qtooltip.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/qt/UtilsQt.h>
 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && ((USE(GSTREAMER) && !defined(GST_API_VERSION_1)) || USE(QT_MULTIMEDIA) || USE(QTKIT))
 #include "FullScreenVideoQt.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
@@ -93,7 +90,7 @@ bool ChromeClientQt::dumpVisitedLinksCallbacks = false;
 ChromeClientQt::ChromeClientQt(QWebPage* webPage)
     : m_webPage(webPage)
     , m_eventLoop(0)
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && ((USE(GSTREAMER) && !defined(GST_API_VERSION_1)) || USE(QT_MULTIMEDIA) || USE(QTKIT))
     , m_fullScreenVideo(0)
 #endif
 {
@@ -105,7 +102,7 @@ ChromeClientQt::~ChromeClientQt()
     if (m_eventLoop)
         m_eventLoop->exit();
 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && ((USE(GSTREAMER) && !defined(GST_API_VERSION_1)) || USE(QT_MULTIMEDIA) || USE(QTKIT))
     delete m_fullScreenVideo;
 #endif
 }
@@ -382,7 +379,7 @@ IntRect ChromeClientQt::windowResizerRect() const
 
     // There's no API in Qt to query for the size of the resizer, so we assume
     // it has the same width and height as the scrollbar thickness.
-    int scollbarThickness = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+    int scollbarThickness = ScrollbarTheme::theme()->scrollbarThickness();
 
     // There's no API in Qt to query for the position of the resizer. Sometimes
     // it's drawn by the system, and sometimes it's a QSizeGrip. For RTL locales
@@ -400,9 +397,9 @@ IntRect ChromeClientQt::windowResizerRect() const
 #endif
 }
 
-void ChromeClientQt::invalidateWindow(const IntRect& windowRect, bool)
+void ChromeClientQt::invalidateRootView(const IntRect& windowRect, bool)
 {
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
     if (platformPageClient()) {
         WebCore::TiledBackingStore* backingStore = QWebFramePrivate::core(m_webPage->mainFrame())->tiledBackingStore();
         if (!backingStore)
@@ -414,7 +411,7 @@ void ChromeClientQt::invalidateWindow(const IntRect& windowRect, bool)
 #endif
 }
 
-void ChromeClientQt::invalidateContentsAndWindow(const IntRect& windowRect, bool immediate)
+void ChromeClientQt::invalidateContentsAndRootView(const IntRect& windowRect, bool immediate)
 {
     // No double buffer, so only update the QWidget if content changed.
     if (platformPageClient()) {
@@ -431,7 +428,7 @@ void ChromeClientQt::invalidateContentsAndWindow(const IntRect& windowRect, bool
 
 void ChromeClientQt::invalidateContentsForSlowScroll(const IntRect& windowRect, bool immediate)
 {
-    invalidateContentsAndWindow(windowRect, immediate);
+    invalidateContentsAndRootView(windowRect, immediate);
 }
 
 void ChromeClientQt::scroll(const IntSize& delta, const IntRect& scrollViewRect, const IntRect&)
@@ -441,7 +438,7 @@ void ChromeClientQt::scroll(const IntSize& delta, const IntRect& scrollViewRect,
     emit m_webPage->scrollRequested(delta.width(), delta.height(), scrollViewRect);
 }
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 void ChromeClientQt::delegatedScrollRequested(const IntPoint& point)
 {
     QPoint currentPosition(m_webPage->mainFrame()->scrollPosition());
@@ -449,7 +446,7 @@ void ChromeClientQt::delegatedScrollRequested(const IntPoint& point)
 }
 #endif
 
-IntRect ChromeClientQt::windowToScreen(const IntRect& rect) const
+IntRect ChromeClientQt::rootViewToScreen(const IntRect& rect) const
 {
     QWebPageClient* pageClient = platformPageClient();
     if (!pageClient)
@@ -465,7 +462,7 @@ IntRect ChromeClientQt::windowToScreen(const IntRect& rect) const
     return screenRect;
 }
 
-IntPoint ChromeClientQt::screenToWindow(const IntPoint& point) const
+IntPoint ChromeClientQt::screenToRootView(const IntPoint& point) const
 {
     QWebPageClient* pageClient = platformPageClient();
     if (!pageClient)
@@ -498,7 +495,7 @@ void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsign
         lastHoverURL = result.absoluteLinkURL();
         lastHoverTitle = result.title(dir);
         lastHoverContent = result.textContent();
-        emit m_webPage->linkHovered(lastHoverURL.prettyURL(),
+        emit m_webPage->linkHovered(lastHoverURL.string(),
                 lastHoverTitle, lastHoverContent);
     }
 }
@@ -514,7 +511,7 @@ void ChromeClientQt::setToolTip(const String &tip, TextDirection)
         view->setToolTip(QString());
         QToolTip::hideText();
     } else {
-        QString dtip = QLatin1String("<p>") + Qt::escape(tip) + QLatin1String("</p>");
+        QString dtip = QLatin1String("<p>") + escapeHtml(tip) + QLatin1String("</p>");
         view->setToolTip(dtip);
     }
 #else
@@ -527,7 +524,7 @@ void ChromeClientQt::print(Frame* frame)
     emit m_webPage->printRequested(QWebFramePrivate::kit(frame));
 }
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 void ChromeClientQt::exceededDatabaseQuota(Frame* frame, const String& databaseName)
 {
     quint64 quota = QWebSettings::offlineStorageDefaultQuota();
@@ -539,14 +536,13 @@ void ChromeClientQt::exceededDatabaseQuota(Frame* frame, const String& databaseN
 }
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
 void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
 {
     // FIXME: Free some space.
     notImplemented();
 }
 
-void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin* origin)
+void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin* origin, int64_t totalSpaceNeeded)
 {
     int64_t quota;
     quint64 defaultOriginQuota = WebCore::cacheStorage().defaultOriginQuota();
@@ -554,32 +550,24 @@ void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin* origin)
     QWebSecurityOriginPrivate* priv = new QWebSecurityOriginPrivate(origin);
     QWebSecurityOrigin* securityOrigin = new QWebSecurityOrigin(priv);
 
-    if (!WebCore::cacheStorage().quotaForOrigin(origin, quota))
+    if (!WebCore::cacheStorage().calculateQuotaForOrigin(origin, quota))
        WebCore::cacheStorage().storeUpdatedQuotaForOrigin(origin, defaultOriginQuota);
 
-    emit m_webPage->applicationCacheQuotaExceeded(securityOrigin, defaultOriginQuota);
+    emit m_webPage->applicationCacheQuotaExceeded(securityOrigin, defaultOriginQuota, static_cast<quint64>(totalSpaceNeeded));
 }
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-NotificationPresenter* ChromeClientQt::notificationPresenter() const
-{
-    return NotificationPresenterClientQt::notificationPresenter();
-}
-#endif
 
 void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileChooser)
 {
     RefPtr<FileChooser> fileChooser = prpFileChooser;
     bool supportMulti = m_webPage->supportsExtension(QWebPage::ChooseMultipleFilesExtension);
 
-    if (fileChooser->allowsMultipleFiles() && supportMulti) {
+    if (fileChooser->settings().allowsMultipleFiles && supportMulti) {
         QWebPage::ChooseMultipleFilesExtensionOption option;
         option.parentFrame = QWebFramePrivate::kit(frame);
 
-        if (!fileChooser->filenames().isEmpty())
-            for (unsigned i = 0; i < fileChooser->filenames().size(); ++i)
-                option.suggestedFileNames += fileChooser->filenames()[i];
+        if (!fileChooser->settings().selectedFiles.isEmpty())
+            for (unsigned i = 0; i < fileChooser->settings().selectedFiles.size(); ++i)
+                option.suggestedFileNames += fileChooser->settings().selectedFiles[i];
 
         QWebPage::ChooseMultipleFilesExtensionReturn output;
         m_webPage->extension(QWebPage::ChooseMultipleFilesExtension, &option, &output);
@@ -592,17 +580,17 @@ void ChromeClientQt::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileC
         }
     } else {
         QString suggestedFile;
-        if (!fileChooser->filenames().isEmpty())
-            suggestedFile = fileChooser->filenames()[0];
+        if (!fileChooser->settings().selectedFiles.isEmpty())
+            suggestedFile = fileChooser->settings().selectedFiles[0];
         QString file = m_webPage->chooseFile(QWebFramePrivate::kit(frame), suggestedFile);
         if (!file.isEmpty())
             fileChooser->chooseFile(file);
     }
 }
 
-void ChromeClientQt::chooseIconForFiles(const Vector<String>& filenames, FileChooser* chooser)
+void ChromeClientQt::loadIconForFiles(const Vector<String>& filenames, FileIconLoader* loader)
 {
-    chooser->iconLoaded(Icon::createIconForFiles(filenames));
+    loader->notifyFinished(Icon::createIconForFiles(filenames));
 }
 
 void ChromeClientQt::setCursor(const Cursor& cursor)
@@ -642,14 +630,14 @@ void ChromeClientQt::scheduleCompositingLayerSync()
 ChromeClient::CompositingTriggerFlags ChromeClientQt::allowedCompositingTriggers() const
 {
     if (platformPageClient() && platformPageClient()->allowsAcceleratedCompositing())
-        return AllTriggers;
+        return ThreeDTransformTrigger | VideoTrigger | CanvasTrigger | AnimationTrigger;
 
     return 0;
 }
 
 #endif
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 IntRect ChromeClientQt::visibleRectForTiledBackingStore() const
 {
     if (!platformPageClient() || !m_webPage)
@@ -662,7 +650,7 @@ IntRect ChromeClientQt::visibleRectForTiledBackingStore() const
 }
 #endif
 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && ((USE(GSTREAMER) && !defined(GST_API_VERSION_1)) || USE(QT_MULTIMEDIA) || USE(QTKIT))
 FullScreenVideoQt* ChromeClientQt::fullScreenVideo()
 {
     if (!m_fullScreenVideo)
@@ -702,16 +690,14 @@ PassOwnPtr<QWebSelectMethod> ChromeClientQt::createSelectPopup() const
     if (result)
         return result.release();
 
-#if defined(Q_WS_MAEMO_5)
-    return adoptPtr(new QtMaemoWebPopup);
-#elif !defined(QT_NO_COMBOBOX)
+#if !defined(QT_NO_COMBOBOX)
     return adoptPtr(new QtFallbackWebPopup(this));
 #else
     return nullptr;
 #endif
 }
 
-void ChromeClientQt::dispatchViewportDataDidChange(const ViewportArguments&) const
+void ChromeClientQt::dispatchViewportPropertiesDidChange(const ViewportArguments&) const
 {
     emit m_webPage->viewportChangeRequested();
 }
@@ -723,6 +709,12 @@ bool ChromeClientQt::selectItemWritingDirectionIsNatural()
 
 bool ChromeClientQt::selectItemAlignmentFollowsMenuWritingDirection()
 {
+    return false;
+}
+
+bool ChromeClientQt::hasOpenedPopup() const
+{
+    notImplemented();
     return false;
 }
 

@@ -30,7 +30,9 @@
 
 #include "WorkerThread.h"
 
+#include "DatabaseContext.h"
 #include "DedicatedWorkerContext.h"
+#include "InspectorInstrumentation.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ScriptSourceCode.h"
@@ -40,7 +42,7 @@
 #include <utility>
 #include <wtf/Noncopyable.h>
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 #include "DatabaseTask.h"
 #include "DatabaseTracker.h"
 #endif
@@ -64,30 +66,39 @@ unsigned WorkerThread::workerThreadCount()
 struct WorkerThreadStartupData {
     WTF_MAKE_NONCOPYABLE(WorkerThreadStartupData); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
+    static PassOwnPtr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerThreadStartMode startMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType)
     {
-        return adoptPtr(new WorkerThreadStartupData(scriptURL, userAgent, sourceCode));
+        return adoptPtr(new WorkerThreadStartupData(scriptURL, userAgent, sourceCode, startMode, contentSecurityPolicy, contentSecurityPolicyType));
     }
 
     KURL m_scriptURL;
     String m_userAgent;
     String m_sourceCode;
+    WorkerThreadStartMode m_startMode;
+    String m_contentSecurityPolicy;
+    ContentSecurityPolicy::HeaderType m_contentSecurityPolicyType;
 private:
-    WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode);
+    WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerThreadStartMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType);
 };
 
-WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
+WorkerThreadStartupData::WorkerThreadStartupData(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerThreadStartMode startMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType)
     : m_scriptURL(scriptURL.copy())
     , m_userAgent(userAgent.isolatedCopy())
     , m_sourceCode(sourceCode.isolatedCopy())
+    , m_startMode(startMode)
+    , m_contentSecurityPolicy(contentSecurityPolicy.isolatedCopy())
+    , m_contentSecurityPolicyType(contentSecurityPolicyType)
 {
 }
 
-WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy)
+WorkerThread::WorkerThread(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerLoaderProxy& workerLoaderProxy, WorkerReportingProxy& workerReportingProxy, WorkerThreadStartMode startMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType)
     : m_threadID(0)
     , m_workerLoaderProxy(workerLoaderProxy)
     , m_workerReportingProxy(workerReportingProxy)
-    , m_startupData(WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode))
+    , m_startupData(WorkerThreadStartupData::create(scriptURL, userAgent, sourceCode, startMode, contentSecurityPolicy, contentSecurityPolicyType))
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    , m_notificationClient(0)
+#endif
 {
     MutexLocker lock(threadCountMutex());
     m_threadCount++;
@@ -113,16 +124,16 @@ bool WorkerThread::start()
     return m_threadID;
 }
 
-void* WorkerThread::workerThreadStart(void* thread)
+void WorkerThread::workerThreadStart(void* thread)
 {
-    return static_cast<WorkerThread*>(thread)->workerThread();
+    static_cast<WorkerThread*>(thread)->workerThread();
 }
 
-void* WorkerThread::workerThread()
+void WorkerThread::workerThread()
 {
     {
         MutexLocker lock(m_threadCreationMutex);
-        m_workerContext = createWorkerContext(m_startupData->m_scriptURL, m_startupData->m_userAgent);
+        m_workerContext = createWorkerContext(m_startupData->m_scriptURL, m_startupData->m_userAgent, m_startupData->m_contentSecurityPolicy, m_startupData->m_contentSecurityPolicyType);
 
         if (m_runLoop.terminated()) {
             // The worker was terminated before the thread had a chance to run. Since the context didn't exist yet,
@@ -130,8 +141,16 @@ void* WorkerThread::workerThread()
            m_workerContext->script()->forbidExecution();
         }
     }
+#if PLATFORM(CHROMIUM)
+    // The corresponding call to didStopWorkerRunLoop is in
+    // ~WorkerScriptController.
+    PlatformSupport::didStartWorkerRunLoop(&m_runLoop);
+#endif
 
     WorkerScriptController* script = m_workerContext->script();
+#if ENABLE(INSPECTOR)
+    InspectorInstrumentation::willEvaluateWorkerScript(workerContext(), m_startupData->m_startMode);
+#endif
     script->evaluate(ScriptSourceCode(m_startupData->m_sourceCode, m_startupData->m_scriptURL));
     // Free the startup data to cause its member variable deref's happen on the worker's thread (since
     // all ref/derefs of these objects are happening on the thread at this point). Note that
@@ -153,8 +172,6 @@ void* WorkerThread::workerThread()
 
     // The thread object may be already destroyed from notification now, don't try to access "this".
     detachThread(threadID);
-
-    return 0;
 }
 
 void WorkerThread::runEventLoop()
@@ -174,6 +191,9 @@ public:
     {
         ASSERT(context->isWorkerContext());
         WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+#if ENABLE(INSPECTOR)
+        workerContext->clearInspector();
+#endif
         // It's not safe to call clearScript until all the cleanup tasks posted by functions initiated by WorkerThreadShutdownStartTask have completed.
         workerContext->clearScript();
     }
@@ -193,9 +213,10 @@ public:
         ASSERT(context->isWorkerContext());
         WorkerContext* workerContext = static_cast<WorkerContext*>(context);
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
+        // FIXME: Should we stop the databases as part of stopActiveDOMObjects() below?
         DatabaseTaskSynchronizer cleanupSync;
-        workerContext->stopDatabases(&cleanupSync);
+        DatabaseContext::stopDatabases(workerContext, &cleanupSync);
 #endif
 
         workerContext->stopActiveDOMObjects();
@@ -206,7 +227,7 @@ public:
         // which become dangling once Heap is destroyed.
         workerContext->removeAllEventListeners();
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
         // We wait for the database thread to clean up all its stuff so that we
         // can do more stringent leak checks as we exit.
         cleanupSync.waitForTaskCompletion();
@@ -229,7 +250,7 @@ void WorkerThread::stop()
     if (m_workerContext) {
         m_workerContext->script()->scheduleExecutionTermination();
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
         DatabaseTracker::tracker().interruptAllDatabasesForContext(m_workerContext.get());
 #endif
         m_runLoop.postTask(WorkerThreadShutdownStartTask::create());

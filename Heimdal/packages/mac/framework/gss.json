@@ -1,0 +1,377 @@
+{
+	"gss_accept_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_add_buffer_set_member" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_add_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_add_oid_set_member" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_canonicalize_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_compare_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_context_time" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_create_empty_buffer_set" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_create_empty_oid_set" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_decapsulate_token" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_delete_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_destroy_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_display_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_display_status" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_duplicate_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_duplicate_oid" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_encapsulate_token" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_export_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_export_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_export_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_get_mic" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_import_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_import_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_import_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_indicate_mechs" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_init_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_cred_by_mech" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_cred_by_oid" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_mechs_for_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_names_for_mech" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_sec_context_by_oid" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_sec_context_by_oid" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_iter_creds" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_iter_creds_f" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_export_lucid_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_free_lucid_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_set_allowable_enctypes" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_oid_equal" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_oid_to_str" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_process_context_token" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_pseudo_random" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_buffer" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_buffer_set" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_oid" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_release_oid_set" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_seal" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7",
+		"deprecated" : "Use gss_wrap"
+	},
+	"gss_set_cred_option" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_set_sec_context_option" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_sign" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7",
+		"deprecated" : "Use gss_get_mic"
+	},
+	"gss_test_oid_set_member" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_unseal" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7",
+		"deprecated" : "Use gss_unwrap"
+	},
+	"gss_unwrap" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_verify" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7",
+		"deprecated" : "Use gss_verify_mic"
+	},
+	"gss_verify_mic" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_wrap" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_wrap_size_limit" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gsskrb5_extract_authz_data_from_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gsskrb5_register_acceptor_identity" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"krb5_gss_register_acceptor_identity" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_inquire_attrs_for_mech" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_display_mech_attr" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_acquire_cred" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_acquire_cred_with_password" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_ccache_name" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_copy_ccache" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7",
+		"deprecated" : "Use gss_export_cred"
+	},
+	"gss_krb5_export_lucid_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gss_krb5_free_lucid_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gsskrb5_register_acceptor_identity" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"krb5_gss_register_acceptor_identity" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	},
+	"gsskrb5_extract_authz_data_from_sec_context" : {
+		"export" : true,
+		"ios" : "5_0",
+		"macos" : "10_7"
+	}
+}

@@ -46,7 +46,9 @@
 
 /* Disk Quota  (has no specific value) */
 #define	kXMLKeyDiskQuota				"kUserDiskQuota"
-//extern XSEventPortRef	gEventPort;
+
+#define kClientUserPath					"/var/db/.mailusersettings.plist"
+#define kServerUserPath					"/Library/Server/Mail/Data/db/.mailusersettings.plist"
 
 typedef enum {
 	eUnknownAcctState	= 0,

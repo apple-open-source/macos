@@ -38,7 +38,7 @@
 #include "JSDOMBinding.h"
 #include "JSEntryCallback.h"
 #include "JSErrorCallback.h"
-#include "JSWebKitFlags.h"
+#include <runtime/Error.h>
 #include <wtf/Assertions.h>
 
 using namespace JSC;
@@ -47,6 +47,9 @@ namespace WebCore {
 
 JSValue JSDirectoryEntry::getFile(ExecState* exec)
 {
+    if (exec->argumentCount() < 1)
+        return throwError(exec, createNotEnoughArgumentsError(exec));
+
     DirectoryEntry* imp = static_cast<DirectoryEntry*>(impl());
     const String& path = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
     if (exec->hadException())
@@ -59,15 +62,14 @@ JSValue JSDirectoryEntry::getFile(ExecState* exec)
     }
 
     RefPtr<WebKitFlags> flags;
-    if (!exec->argument(1).isNull() && !exec->argument(1).isUndefined() && exec->argument(1).isObject() && !exec->argument(1).inherits(&JSWebKitFlags::s_info)) {
+    if (!exec->argument(1).isNull() && !exec->argument(1).isUndefined() && exec->argument(1).isObject()) {
         JSObject* object = exec->argument(1).getObject();
         flags = WebKitFlags::create();
         JSValue jsCreate = object->get(exec, Identifier(exec, "create"));
         flags->setCreate(jsCreate.toBoolean(exec));
         JSValue jsExclusive = object->get(exec, Identifier(exec, "exclusive"));
         flags->setExclusive(jsExclusive.toBoolean(exec));
-    } else
-        flags = toWebKitFlags(exec->argument(1));
+    }
     if (exec->hadException())
         return jsUndefined();
     RefPtr<EntryCallback> successCallback;
@@ -93,6 +95,9 @@ JSValue JSDirectoryEntry::getFile(ExecState* exec)
 
 JSValue JSDirectoryEntry::getDirectory(ExecState* exec)
 {
+    if (exec->argumentCount() < 1)
+        return throwError(exec, createNotEnoughArgumentsError(exec));
+
     DirectoryEntry* imp = static_cast<DirectoryEntry*>(impl());
     const String& path = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
     if (exec->hadException())
@@ -105,15 +110,14 @@ JSValue JSDirectoryEntry::getDirectory(ExecState* exec)
     }
 
     RefPtr<WebKitFlags> flags;
-    if (!exec->argument(1).isNull() && !exec->argument(1).isUndefined() && exec->argument(1).isObject() && !exec->argument(1).inherits(&JSWebKitFlags::s_info)) {
+    if (!exec->argument(1).isNull() && !exec->argument(1).isUndefined() && exec->argument(1).isObject()) {
         JSObject* object = exec->argument(1).getObject();
         flags = WebKitFlags::create();
         JSValue jsCreate = object->get(exec, Identifier(exec, "create"));
         flags->setCreate(jsCreate.toBoolean(exec));
         JSValue jsExclusive = object->get(exec, Identifier(exec, "exclusive"));
         flags->setExclusive(jsExclusive.toBoolean(exec));
-    } else
-        flags = toWebKitFlags(exec->argument(1));
+    }
     if (exec->hadException())
         return jsUndefined();
     RefPtr<EntryCallback> successCallback;

@@ -279,14 +279,7 @@ AppleUSBHub::ConfigureHubDriver(void)
         IOSleep( _startupDelay );
     }
 	
-	boolProperty = (OSBoolean *)_device->getProperty("kVIASSHub");
-    if ( boolProperty )
-    {
-        _isVIASSHub = boolProperty->isTrue();
-		USBLog(5, "AppleUSBHub[%p]::ConfigureHubDriver - found kVIASSHub (%d)", this, _isVIASSHub);
-    }
-    
-   boolProperty = (OSBoolean *)_device->getProperty("kIgnoreDisconnectOnWakeup");
+    boolProperty = (OSBoolean *)_device->getProperty("kIgnoreDisconnectOnWakeup");
     if ( boolProperty )
     {
         _ignoreDisconnectOnWakeup = boolProperty->isTrue();
@@ -1306,7 +1299,7 @@ AppleUSBHub::ConfigureHub()
 	
 	// Some USB3 hubs do support the USB3 wakeup.  Some don't.  For now, just enabled it for VIA hubs.
 #ifdef SUPPORTS_SS_USB
-	if (_ssHub && _isVIASSHub)
+	if (_ssHub && _ignoreDisconnectOnWakeup)
 	{
 		USBLog(4,"AppleUSBHub[%p]::ConfigureHub(hub @ 0x%x)  SetPortRemoteWakeMask to 0x3", this, (uint32_t)_locationID);
 		// In order to enable remote wakeup on Super Speed hubs, we need to set the wakeup mask to 0x3 (bit 0 is connection wakeup, bit 1 is disconnect wakeup
@@ -5347,8 +5340,8 @@ AppleUSBHub::GetPortInformation(UInt32 portNum, UInt32 *info)
 					information |= ( kUSBInformationDeviceIsConnectedMask | kUSBInformationDeviceIsEnabledMask);
 				}
 				else
-				{
 #endif
+				{
 					if ( portStatus.statusFlags & kHubPortConnection )
 					{
 						information |= ( kUSBInformationDeviceIsConnectedMask | kUSBInformationDeviceIsEnabledMask);

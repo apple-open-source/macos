@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/connection.c,v 1.358.2.40 2010/04/13 20:23:13 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,10 @@
 
 #include "lutil.h"
 #include "slap.h"
+
+#ifdef LDAP_CONNECTIONLESS
+#include "../../libraries/liblber/lber-int.h"	/* ber_int_sb_read() */
+#endif
 
 #ifdef LDAP_SLAPI
 #include "slapi/slapi.h"
@@ -239,14 +243,36 @@ int connections_timeout_idle(time_t now)
 				connection_closing( c, "writetimeout" );
 				connection_close( c );
 				i++;
+				continue;
 			}
 		}
 	}
-	connection_done( c );
 	if ( old && !writers )
 		slapd_clr_writetime( old );
 
 	return i;
+}
+
+/* Drop all client connections */
+void connections_drop()
+{
+	Connection* c;
+	int connindex;
+
+	for( c = connection_first( &connindex );
+		c != NULL;
+		c = connection_next( c, &connindex ) )
+	{
+		/* Don't close a slow-running request or a persistent
+		 * outbound connection.
+		 */
+		if(( c->c_n_ops_executing && !c->c_writewaiter)
+			|| c->c_conn_state == SLAP_C_CLIENT ) {
+			continue;
+		}
+		connection_closing( c, "dropping" );
+		connection_close( c );
+	}
 }
 
 static Connection* connection_get( ber_socket_t s )
@@ -272,12 +298,11 @@ static Connection* connection_get( ber_socket_t s )
 		if( c->c_struct_state != SLAP_C_USED ) {
 			/* connection must have been closed due to resched */
 
-			assert( c->c_conn_state == SLAP_C_INVALID );
-			assert( c->c_sd == AC_SOCKET_INVALID );
-
 			Debug( LDAP_DEBUG_CONNS,
 				"connection_get(%d): connection not used\n",
 				s, 0, 0 );
+			assert( c->c_conn_state == SLAP_C_INVALID );
+			assert( c->c_sd == AC_SOCKET_INVALID );
 
 			ldap_pvt_thread_mutex_unlock( &c->c_mutex );
 			return NULL;
@@ -554,9 +579,10 @@ Connection * connection_init(
 	slap_sasl_external( c, ssf, authid );
 
 	slapd_add_internal( s, 1 );
-	ldap_pvt_thread_mutex_unlock( &c->c_mutex );
 
+	ldap_pvt_thread_mutex_unlock( &c->c_mutex );
 	backend_connection_init(c);
+	//ldap_pvt_thread_mutex_unlock( &c->c_mutex );
 
 	return c;
 }
@@ -732,7 +758,6 @@ static void connection_abandon( Connection *c )
 
 	Operation *o, *next, op = {0};
 	Opheader ohdr = {0};
-	SlapReply rs = {0};
 
 	op.o_hdr = &ohdr;
 	op.o_conn = c;
@@ -740,6 +765,8 @@ static void connection_abandon( Connection *c )
 	op.o_tag = LDAP_REQ_ABANDON;
 
 	for ( o = LDAP_STAILQ_FIRST( &c->c_ops ); o; o=next ) {
+		SlapReply rs = {REP_RESULT};
+
 		next = LDAP_STAILQ_NEXT( o, o_next );
 		op.orn_msgid = o->o_msgid;
 		o->o_abandon = 1;
@@ -1504,12 +1531,20 @@ connection_input( Connection *conn , conn_readinfo *cri )
 #ifdef LDAP_CONNECTIONLESS
 	if ( conn->c_is_udp ) {
 		char peername[sizeof("IP=255.255.255.255:65336")];
+		const char *peeraddr_string = NULL;
 
 		len = ber_int_sb_read(conn->c_sb, &peeraddr, sizeof(struct sockaddr));
 		if (len != sizeof(struct sockaddr)) return 1;
 
+#if defined( HAVE_GETADDRINFO ) && defined( HAVE_INET_NTOP )
+		char addr[INET_ADDRSTRLEN];
+		peeraddr_string = inet_ntop( AF_INET, &peeraddr.sa_in_addr.sin_addr,
+			   addr, sizeof(addr) );
+#else /* ! HAVE_GETADDRINFO || ! HAVE_INET_NTOP */
+		peeraddr_string = inet_ntoa( peeraddr.sa_in_addr.sin_addr );
+#endif /* ! HAVE_GETADDRINFO || ! HAVE_INET_NTOP */
 		sprintf( peername, "IP=%s:%d",
-			inet_ntoa( peeraddr.sa_in_addr.sin_addr ),
+			 peeraddr_string,
 			(unsigned) ntohs( peeraddr.sa_in_addr.sin_port ) );
 		Statslog( LDAP_DEBUG_STATS,
 			"conn=%lu UDP request from %s (%s) accepted.\n",
@@ -1555,8 +1590,8 @@ connection_input( Connection *conn , conn_readinfo *cri )
 #ifdef LDAP_CONNECTIONLESS
 	if( conn->c_is_udp ) {
 		if( tag == LBER_OCTETSTRING ) {
-			ber_get_stringa( ber, &cdn );
-			tag = ber_peek_tag(ber, &len);
+			if ( (tag = ber_get_stringa( ber, &cdn )) != LBER_ERROR )
+				tag = ber_peek_tag( ber, &len );
 		}
 		if( tag != LDAP_REQ_ABANDON && tag != LDAP_REQ_SEARCH ) {
 			Debug( LDAP_DEBUG_ANY, "invalid req for UDP 0x%lx\n", tag, 0, 0 );

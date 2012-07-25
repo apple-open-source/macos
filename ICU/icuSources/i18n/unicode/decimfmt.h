@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2010, International Business Machines
+*   Copyright (C) 1997-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -37,8 +37,7 @@
 #include "unicode/locid.h"
 #include "unicode/fpositer.h"
 #include "unicode/stringpiece.h"
-
-union UHashTok;
+#include "unicode/curramt.h"
 
 U_NAMESPACE_BEGIN
 
@@ -656,9 +655,13 @@ public:
                              towards the nearest even integer if equidistant */
         kRoundHalfDown, /**< Round towards the nearest integer, or
                              towards zero if equidistant */
-        kRoundHalfUp    /**< Round towards the nearest integer, or
+        kRoundHalfUp,   /**< Round towards the nearest integer, or
                              away from zero if equidistant */
-        // We don't support ROUND_UNNECESSARY
+        /**
+          *  Return U_FORMAT_INEXACT_ERROR if number does not format exactly. 
+          *  @stable ICU 4.8 
+          */
+        kRoundUnnecessary
     };
 
     /**
@@ -726,6 +729,7 @@ public:
                     DecimalFormatSymbols* symbolsToAdopt,
                     UErrorCode& status);
 
+#ifndef U_HIDE_INTERNAL_API
     /**
      * This API is for ICU use only.
      * Create a DecimalFormat from the given pattern, symbols, and style.
@@ -733,15 +737,16 @@ public:
      * @param pattern           a non-localized pattern string
      * @param symbolsToAdopt    the set of symbols to be used.  The caller should not
      *                          delete this object after making this call.
-     * @param style             style of decimal format, kNumberStyle etc.
+     * @param style             style of decimal format
      * @param status            Output param set to success/failure code. If the
      *                          pattern is invalid this will be set to a failure code.
      * @internal ICU 4.2
      */
     DecimalFormat(  const UnicodeString& pattern,
                     DecimalFormatSymbols* symbolsToAdopt,
-                    NumberFormat::EStyles style,
+                    UNumberFormatStyle style,
                     UErrorCode& status);
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * Create a DecimalFormat from the given pattern and symbols.
@@ -1101,6 +1106,7 @@ public:
                        Formattable& result,
                        UErrorCode& status) const;
 
+/* Cannot use #ifndef U_HIDE_DRAFT_API for the following draft method since it is virtual */
     /**
      * Parses text from the given string as a currency amount.  Unlike
      * the parse() method, this method will attempt to parse a generic
@@ -1111,18 +1117,17 @@ public:
      * (U+00A4) in its prefix or suffix.
      *
      * @param text the string to parse
-     * @param result output parameter to receive result. This will have
-     * its currency set to the parsed ISO currency code.
-     * @param pos input-output position; on input, the position within
-     * text to match; must have 0 <= pos.getIndex() < text.length();
-     * on output, the position after the last matched character. If
-     * the parse fails, the position in unchanged upon output.
-     * @return a reference to result
-     * @internal
+     * @param pos  input-output position; on input, the position within text
+     *             to match; must have 0 <= pos.getIndex() < text.length();
+     *             on output, the position after the last matched character.
+     *             If the parse fails, the position in unchanged upon output.
+     * @return     if parse succeeds, a pointer to a newly-created CurrencyAmount
+     *             object (owned by the caller) containing information about
+     *             the parsed currency; if parse fails, this is NULL.
+     * @draft ICU 49
      */
-    virtual Formattable& parseCurrency(const UnicodeString& text,
-                                       Formattable& result,
-                                       ParsePosition& pos) const;
+    virtual CurrencyAmount* parseCurrency(const UnicodeString& text,
+                                          ParsePosition& pos) const;
 
     /**
      * Returns the decimal format symbols, which is generally not changed
@@ -1937,7 +1942,7 @@ private:
     void parse(const UnicodeString& text,
                Formattable& result,
                ParsePosition& pos,
-               UBool parseCurrency) const;
+               UChar* currency) const;
 
     enum {
         fgStatusInfinite,
@@ -1980,9 +1985,9 @@ private:
     static int32_t compareSimpleAffix(const UnicodeString& affix,
                                       const UnicodeString& input,
                                       int32_t pos,
-                                      UBool strict);
+                                      UBool lenient);
 
-    static int32_t skipRuleWhiteSpace(const UnicodeString& text, int32_t pos);
+    static int32_t skipPatternWhiteSpace(const UnicodeString& text, int32_t pos);
 
     static int32_t skipUWhiteSpace(const UnicodeString& text, int32_t pos);
 
@@ -1998,6 +2003,16 @@ private:
 
     static UBool matchSymbol(const UnicodeString &text, int32_t position, int32_t length, const UnicodeString &symbol,
                              UnicodeSet *sset, UChar32 schar);
+
+    static UBool matchDecimal(UChar32 symbolChar,
+                            UBool sawDecimal,  UChar32 sawDecimalChar,
+                             const UnicodeSet *sset, UChar32 schar);
+
+    static UBool matchGrouping(UChar32 groupingChar,
+                            UBool sawGrouping, UChar32 sawGroupingChar,
+                             const UnicodeSet *sset,
+                             UChar32 decimalChar, const UnicodeSet *decimalSet,
+                             UChar32 schar);
 
     /**
      * Get a decimal format symbol.
@@ -2162,7 +2177,7 @@ private:
      * and plural currency style. And the patterns are set through applyPattern.
      */
     // TODO: innerclass?
-	/* This is not needed in the class declaration, so it is moved into decimfmp.cpp
+    /* This is not needed in the class declaration, so it is moved into decimfmp.cpp
     struct AffixPatternsForCurrency : public UMemory {
         // negative prefix pattern
         UnicodeString negPrefixPatternForCurrency;
@@ -2192,7 +2207,7 @@ private:
      * equals to 3, such as the pattern contains 3 currency sign or
      * the formatter style is currency plural format style.
      */
-	/* This is not needed in the class declaration, so it is moved into decimfmp.cpp
+    /* This is not needed in the class declaration, so it is moved into decimfmp.cpp
     struct AffixesForCurrency : public UMemory {
         // negative prefix
         UnicodeString negPrefixForCurrency;
@@ -2302,10 +2317,12 @@ DecimalFormat::format(int32_t number,
     return format((int64_t)number, appendTo, pos);
 }
 
+#ifndef U_HIDE_INTERNAL_API
 inline const UnicodeString &
 DecimalFormat::getConstSymbol(DecimalFormatSymbols::ENumberFormatSymbol symbol) const {
     return fSymbols->getConstSymbol(symbol);
 }
+#endif
 
 U_NAMESPACE_END
 

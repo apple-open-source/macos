@@ -67,6 +67,7 @@
 #endif /* !_KERNEL */
 
 #include "config.h"
+#include "var.h"
 #include "libpfkey.h"
 
 static void kdebug_sadb_prop __P((struct sadb_ext *));
@@ -80,7 +81,7 @@ static void kdebug_sadb_x_sa2 __P((struct sadb_ext *));
 static void kdebug_sadb_session_id __P((struct sadb_ext *));
 static void kdebug_sadb_sastat __P((struct sadb_ext *));
 static void kdebug_sadb_x_policy __P((struct sadb_ext *ext));
-static void kdebug_sockaddr __P((struct sockaddr *addr));
+static void kdebug_sockaddr __P((struct sockaddr_storage *addr));
 
 #ifdef SADB_X_EXT_NAT_T_TYPE
 static void kdebug_sadb_x_nat_t_type __P((struct sadb_ext *ext));
@@ -435,7 +436,7 @@ static void
 kdebug_sadb_session_id(ext)
 struct sadb_ext *ext;
 {
-    struct sadb_session_id *p = (__typeof__(p))ext;
+    struct sadb_session_id *p = ALIGNED_CAST(__typeof__(p))ext;      // Wcast-align fix (void*) - sadb structs come from and aligned buffer
 
     /* sanity check */
     if (ext == NULL) {
@@ -452,7 +453,7 @@ static void
 kdebug_sadb_sastat(ext)
 struct sadb_ext *ext;
 {
-    struct sadb_sastat *p = (__typeof__(p))ext;
+    struct sadb_sastat *p = ALIGNED_CAST(__typeof__(p))ext;      // Wcast-align fix (void*) - sadb structs come from and aligned buffer
     struct sastat      *stats;
     int    i;
 
@@ -477,7 +478,7 @@ kdebug_sadb_x_policy(ext)
 	struct sadb_ext *ext;
 {
 	struct sadb_x_policy *xpl = (void *)ext;
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 
 	/* sanity check */
 	if (ext == NULL)
@@ -514,7 +515,7 @@ kdebug_sadb_x_policy(ext)
 				addr = (void *)(xisr + 1);
 				kdebug_sockaddr(addr);
 				addr = (void *)((caddr_t)(void *)addr
-							+ sysdep_sa_len(addr));
+							+ sysdep_sa_len((struct sockaddr *)addr));
 				kdebug_sockaddr(addr);
 			}
 
@@ -798,7 +799,7 @@ kdebug_mbuf(m0)
 
 static void
 kdebug_sockaddr(addr)
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 {
 	struct sockaddr_in *sin4;
 #ifdef INET6
@@ -810,9 +811,9 @@ kdebug_sockaddr(addr)
 		panic("kdebug_sockaddr: NULL pointer was passed.\n");
 
 	/* NOTE: We deal with port number as host byte order. */
-	printf("sockaddr{ len=%u family=%u", sysdep_sa_len(addr), addr->sa_family);
+	printf("sockaddr_storage{ len=%u family=%u", sysdep_sa_len((struct sockaddr *)addr), addr->ss_family);
 
-	switch (addr->sa_family) {
+	switch (addr->ss_family) {
 	case AF_INET:
 		sin4 = (void *)addr;
 		printf(" port=%u\n", ntohs(sin4->sin_port));

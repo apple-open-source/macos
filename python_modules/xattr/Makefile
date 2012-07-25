@@ -1,5 +1,5 @@
 NAME = xattr
-VERSION = 0.6.1
+VERSION = 0.6.2
 
 SETUPARGS = --install-scripts=/usr/bin
 

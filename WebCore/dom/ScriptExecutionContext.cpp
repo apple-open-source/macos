@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,22 +29,17 @@
 #include "ScriptExecutionContext.h"
 
 #include "ActiveDOMObject.h"
-#include "Blob.h"
-#include "BlobURL.h"
+#include "ContentSecurityPolicy.h"
 #include "DOMTimer.h"
-#include "DOMURL.h"
-#include "Database.h"
-#include "DatabaseTask.h"
-#include "DatabaseThread.h"
 #include "ErrorEvent.h"
 #include "EventListener.h"
 #include "EventTarget.h"
 #include "FileThread.h"
 #include "MessagePort.h"
+#include "PublicURLManager.h"
 #include "ScriptCallStack.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include "ThreadableBlobRegistry.h"
 #include "WorkerContext.h"
 #include "WorkerThread.h"
 #include <wtf/MainThread.h>
@@ -51,6 +47,7 @@
 #include <wtf/Vector.h>
 
 #if USE(JSC)
+// FIXME: This is a layering violation.
 #include "JSDOMWindow.h"
 #endif
 
@@ -85,24 +82,29 @@ public:
     RefPtr<ScriptCallStack> m_callStack;
 };
 
+void ScriptExecutionContext::AddConsoleMessageTask::performTask(ScriptExecutionContext* context)
+{
+    context->addConsoleMessage(m_source, m_type, m_level, m_message);
+}
+
 ScriptExecutionContext::ScriptExecutionContext()
     : m_iteratingActiveDOMObjects(false)
     , m_inDestructor(false)
     , m_inDispatchErrorEvent(false)
-#if ENABLE(DATABASE)
-    , m_hasOpenDatabases(false)
-#endif
+    , m_activeDOMObjectsAreSuspended(false)
+    , m_reasonForSuspendingActiveDOMObjects(static_cast<ActiveDOMObject::ReasonForSuspension>(-1))
+    , m_activeDOMObjectsAreStopped(false)
 {
 }
 
 ScriptExecutionContext::~ScriptExecutionContext()
 {
     m_inDestructor = true;
-    for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != m_activeDOMObjects.end(); iter = m_activeDOMObjects.begin()) {
-        ActiveDOMObject* object = iter->first;
-        m_activeDOMObjects.remove(iter);
-        ASSERT(object->scriptExecutionContext() == this);
-        object->contextDestroyed();
+    for (HashSet<ContextDestructionObserver*>::iterator iter = m_destructionObservers.begin(); iter != m_destructionObservers.end(); iter = m_destructionObservers.begin()) {
+        ContextDestructionObserver* observer = *iter;
+        m_destructionObservers.remove(observer);
+        ASSERT(observer->scriptExecutionContext() == this);
+        observer->contextDestroyed();
     }
 
     HashSet<MessagePort*>::iterator messagePortsEnd = m_messagePorts.end();
@@ -110,57 +112,15 @@ ScriptExecutionContext::~ScriptExecutionContext()
         ASSERT((*iter)->scriptExecutionContext() == this);
         (*iter)->contextDestroyed();
     }
-#if ENABLE(DATABASE)
-    if (m_databaseThread) {
-        ASSERT(m_databaseThread->terminationRequested());
-        m_databaseThread = 0;
-    }
-#endif
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+#if ENABLE(BLOB)
     if (m_fileThread) {
         m_fileThread->stop();
         m_fileThread = 0;
     }
-#endif
-
-#if ENABLE(BLOB)
-    HashSet<String>::iterator publicBlobURLsEnd = m_publicBlobURLs.end();
-    for (HashSet<String>::iterator iter = m_publicBlobURLs.begin(); iter != publicBlobURLsEnd; ++iter)
-        ThreadableBlobRegistry::unregisterBlobURL(KURL(ParsedURLString, *iter));
-
-    HashSet<DOMURL*>::iterator domUrlsEnd = m_domUrls.end();
-    for (HashSet<DOMURL*>::iterator iter = m_domUrls.begin(); iter != domUrlsEnd; ++iter) {
-        ASSERT((*iter)->scriptExecutionContext() == this);
-        (*iter)->contextDestroyed();
-    }
+    if (m_publicURLManager)
+        m_publicURLManager->contextDestroyed();
 #endif
 }
-
-#if ENABLE(DATABASE)
-
-DatabaseThread* ScriptExecutionContext::databaseThread()
-{
-    if (!m_databaseThread && !m_hasOpenDatabases) {
-        // Create the database thread on first request - but not if at least one database was already opened,
-        // because in that case we already had a database thread and terminated it and should not create another.
-        m_databaseThread = DatabaseThread::create();
-        if (!m_databaseThread->start())
-            m_databaseThread = 0;
-    }
-
-    return m_databaseThread.get();
-}
-
-void ScriptExecutionContext::stopDatabases(DatabaseTaskSynchronizer* cleanupSync)
-{
-    ASSERT(isContextThread());
-    if (m_databaseThread)
-        m_databaseThread->requestTermination(cleanupSync);
-    else if (cleanupSync)
-        cleanupSync->taskCompleted();
-}
-
-#endif
 
 void ScriptExecutionContext::processMessagePortMessagesSoon()
 {
@@ -207,20 +167,6 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort* port)
     m_messagePorts.remove(port);
 }
 
-#if ENABLE(BLOB)
-void ScriptExecutionContext::createdDomUrl(DOMURL* url)
-{
-    ASSERT(url);
-    m_domUrls.add(url);
-}
-
-void ScriptExecutionContext::destroyedDomUrl(DOMURL* url)
-{
-    ASSERT(url);
-    m_domUrls.remove(url);
-}
-#endif
-
 bool ScriptExecutionContext::canSuspendActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: canSuspend() shouldn't execute arbitrary JS.
@@ -228,11 +174,12 @@ bool ScriptExecutionContext::canSuspendActiveDOMObjects()
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
+        ASSERT(iter->first->suspendIfNeededCalled());
         if (!iter->first->canSuspend()) {
             m_iteratingActiveDOMObjects = false;
             return false;
         }
-    }    
+    }
     m_iteratingActiveDOMObjects = false;
     return true;
 }
@@ -244,18 +191,23 @@ void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForS
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
+        ASSERT(iter->first->suspendIfNeededCalled());
         iter->first->suspend(why);
     }
     m_iteratingActiveDOMObjects = false;
+    m_activeDOMObjectsAreSuspended = true;
+    m_reasonForSuspendingActiveDOMObjects = why;
 }
 
 void ScriptExecutionContext::resumeActiveDOMObjects()
 {
+    m_activeDOMObjectsAreSuspended = false;
     // No protection against m_activeDOMObjects changing during iteration: resume() shouldn't execute arbitrary JS.
     m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
+        ASSERT(iter->first->suspendIfNeededCalled());
         iter->first->resume();
     }
     m_iteratingActiveDOMObjects = false;
@@ -263,11 +215,13 @@ void ScriptExecutionContext::resumeActiveDOMObjects()
 
 void ScriptExecutionContext::stopActiveDOMObjects()
 {
+    m_activeDOMObjectsAreStopped = true;
     // No protection against m_activeDOMObjects changing during iteration: stop() shouldn't execute arbitrary JS.
     m_iteratingActiveDOMObjects = true;
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
+        ASSERT(iter->first->suspendIfNeededCalled());
         iter->first->stop();
     }
     m_iteratingActiveDOMObjects = false;
@@ -276,7 +230,15 @@ void ScriptExecutionContext::stopActiveDOMObjects()
     closeMessagePorts();
 }
 
-void ScriptExecutionContext::createdActiveDOMObject(ActiveDOMObject* object, void* upcastPointer)
+void ScriptExecutionContext::suspendActiveDOMObjectIfNeeded(ActiveDOMObject* object)
+{
+    ASSERT(m_activeDOMObjects.contains(object));
+    // Ensure all ActiveDOMObjects are suspended also newly created ones.
+    if (m_activeDOMObjectsAreSuspended)
+        object->suspend(m_reasonForSuspendingActiveDOMObjects);
+}
+
+void ScriptExecutionContext::didCreateActiveDOMObject(ActiveDOMObject* object, void* upcastPointer)
 {
     ASSERT(object);
     ASSERT(upcastPointer);
@@ -286,12 +248,25 @@ void ScriptExecutionContext::createdActiveDOMObject(ActiveDOMObject* object, voi
     m_activeDOMObjects.add(object, upcastPointer);
 }
 
-void ScriptExecutionContext::destroyedActiveDOMObject(ActiveDOMObject* object)
+void ScriptExecutionContext::willDestroyActiveDOMObject(ActiveDOMObject* object)
 {
     ASSERT(object);
     if (m_iteratingActiveDOMObjects)
         CRASH();
     m_activeDOMObjects.remove(object);
+}
+
+void ScriptExecutionContext::didCreateDestructionObserver(ContextDestructionObserver* observer)
+{
+    ASSERT(observer);
+    ASSERT(!m_inDestructor);
+    m_destructionObservers.add(observer);
+}
+
+void ScriptExecutionContext::willDestroyDestructionObserver(ContextDestructionObserver* observer)
+{
+    ASSERT(observer);
+    m_destructionObservers.remove(observer);
 }
 
 void ScriptExecutionContext::closeMessagePorts() {
@@ -300,11 +275,6 @@ void ScriptExecutionContext::closeMessagePorts() {
         ASSERT((*iter)->scriptExecutionContext() == this);
         (*iter)->close();
     }
-}
-
-void ScriptExecutionContext::setSecurityOrigin(PassRefPtr<SecurityOrigin> securityOrigin)
-{
-    m_securityOrigin = securityOrigin;
 }
 
 bool ScriptExecutionContext::sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL)
@@ -329,17 +299,28 @@ void ScriptExecutionContext::reportException(const String& errorMessage, int lin
 
     // First report the original exception and only then all the nested ones.
     if (!dispatchErrorEvent(errorMessage, lineNumber, sourceURL))
-        logExceptionToConsole(errorMessage, lineNumber, sourceURL, callStack);
+        logExceptionToConsole(errorMessage, sourceURL, lineNumber, callStack);
 
     if (!m_pendingExceptions)
         return;
 
     for (size_t i = 0; i < m_pendingExceptions->size(); i++) {
         PendingException* e = m_pendingExceptions->at(i).get();
-        logExceptionToConsole(e->m_errorMessage, e->m_lineNumber, e->m_sourceURL, e->m_callStack);
+        logExceptionToConsole(e->m_errorMessage, e->m_sourceURL, e->m_lineNumber, e->m_callStack);
     }
     m_pendingExceptions.clear();
 }
+
+void ScriptExecutionContext::addConsoleMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack> callStack)
+{
+    addMessage(source, type, level, message, sourceURL, lineNumber, callStack);
+}
+
+void ScriptExecutionContext::addConsoleMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptCallStack> callStack)
+{
+    addMessage(source, type, level, message, String(), 0, callStack);
+}
+
 
 bool ScriptExecutionContext::dispatchErrorEvent(const String& errorMessage, int lineNumber, const String& sourceURL)
 {
@@ -377,28 +358,6 @@ DOMTimer* ScriptExecutionContext::findTimeout(int timeoutId)
 }
 
 #if ENABLE(BLOB)
-KURL ScriptExecutionContext::createPublicBlobURL(Blob* blob)
-{
-    if (!blob)
-        return KURL();
-    KURL publicURL = BlobURL::createPublicURL(securityOrigin());
-    if (publicURL.isEmpty())
-        return KURL();
-    ThreadableBlobRegistry::registerBlobURL(publicURL, blob->url());
-    m_publicBlobURLs.add(publicURL.string());
-    return publicURL;
-}
-
-void ScriptExecutionContext::revokePublicBlobURL(const KURL& url)
-{
-    if (m_publicBlobURLs.contains(url.string())) {
-        ThreadableBlobRegistry::unregisterBlobURL(url);
-        m_publicBlobURLs.remove(url.string());
-    }
-}
-#endif
-
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
 FileThread* ScriptExecutionContext::fileThread()
 {
     if (!m_fileThread) {
@@ -407,6 +366,13 @@ FileThread* ScriptExecutionContext::fileThread()
             m_fileThread = 0;
     }
     return m_fileThread.get();
+}
+
+PublicURLManager& ScriptExecutionContext::publicURLManager()
+{
+    if (!m_publicURLManager)
+        m_publicURLManager = PublicURLManager::create();
+    return *m_publicURLManager;
 }
 #endif
 

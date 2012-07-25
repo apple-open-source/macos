@@ -24,6 +24,7 @@ import unittest
 from StringIO import StringIO
 
 import messages
+import parser
 
 _messages_file_contents = """# Copyright (C) 2010 Apple Inc. All rights reserved.
 #
@@ -71,6 +72,8 @@ messages -> WebPage {
     TestMultipleAttributes() -> () DispatchOnConnectionQueue Delayed
     TestConnectionQueue(uint64_t pluginID) DispatchOnConnectionQueue
 
+    TestParameterAttributes([AttributeOne AttributeTwo] uint64_t foo, double bar, [AttributeThree] double baz)
+
 #if PLATFORM(MAC)
     DidCreateWebProcessConnection(CoreIPC::MachPort connectionIdentifier)
 #endif
@@ -79,6 +82,14 @@ messages -> WebPage {
     # Keyboard support
     InterpretKeyEvent(uint32_t type) -> (Vector<WebCore::KeypressCommand> commandName)
 #endif
+
+#if ENABLE(DEPRECATED_FEATURE)
+    DeprecatedOperation(CoreIPC::DummyType dummy)
+#endif
+
+#if ENABLE(EXPERIMENTAL_FEATURE)
+    ExperimentalOperation(CoreIPC::DummyType dummy)
+#endif
 }
 
 #endif
@@ -86,21 +97,21 @@ messages -> WebPage {
 
 _expected_results = {
     'name': 'WebPage',
-    'condition': 'ENABLE(WEBKIT2)',
+    'conditions': ('ENABLE(WEBKIT2)'),
     'messages': (
         {
             'name': 'LoadURL',
             'parameters': (
                 ('WTF::String', 'url'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'TouchEvent',
             'parameters': (
                 ('WebKit::WebTouchEvent', 'event'),
             ),
-            'condition': 'ENABLE(TOUCH_EVENTS)',
+            'conditions': ('ENABLE(TOUCH_EVENTS)'),
         },
         {
             'name': 'DidReceivePolicyDecision',
@@ -109,19 +120,19 @@ _expected_results = {
                 ('uint64_t', 'listenerID'),
                 ('uint32_t', 'policyAction'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'Close',
             'parameters': (),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'PreferencesDidChange',
             'parameters': (
                 ('WebKit::WebPreferencesStore', 'store'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'SendDoubleAndFloat',
@@ -129,7 +140,7 @@ _expected_results = {
                 ('double', 'd'),
                 ('float', 'f'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'SendInts',
@@ -137,7 +148,7 @@ _expected_results = {
                 ('Vector<uint64_t>', 'ints'),
                 ('Vector<Vector<uint64_t> >', 'intVectors')
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'CreatePlugin',
@@ -148,7 +159,7 @@ _expected_results = {
             'reply_parameters': (
                 ('bool', 'result'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'RunJavaScriptAlert',
@@ -157,7 +168,7 @@ _expected_results = {
                 ('WTF::String', 'message')
             ),
             'reply_parameters': (),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'GetPlugins',
@@ -167,7 +178,7 @@ _expected_results = {
             'reply_parameters': (
                 ('Vector<WebCore::PluginInfo>', 'plugins'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'GetPluginProcessConnection',
@@ -177,7 +188,7 @@ _expected_results = {
             'reply_parameters': (
                 ('CoreIPC::Connection::Handle', 'connectionHandle'),
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'TestMultipleAttributes',
@@ -185,21 +196,30 @@ _expected_results = {
             ),
             'reply_parameters': (
             ),
-            'condition': None,
+            'conditions': (None),
         },
         {
             'name': 'TestConnectionQueue',
             'parameters': (
                 ('uint64_t', 'pluginID'),
             ),
-            'condition': None,
+            'conditions': (None),
+        },
+        {
+            'name': 'TestParameterAttributes',
+            'parameters': (
+                ('uint64_t', 'foo', ('AttributeOne', 'AttributeTwo')),
+                ('double', 'bar'),
+                ('double', 'baz', ('AttributeThree',)),
+            ),
+            'conditions': (None),
         },
         {
             'name': 'DidCreateWebProcessConnection',
             'parameters': (
                 ('CoreIPC::MachPort', 'connectionIdentifier'),
             ),
-            'condition': 'PLATFORM(MAC)',
+            'conditions': ('PLATFORM(MAC)'),
         },
         {
             'name': 'InterpretKeyEvent',
@@ -209,15 +229,29 @@ _expected_results = {
             'reply_parameters': (
                 ('Vector<WebCore::KeypressCommand>', 'commandName'),
             ),
-            'condition': 'PLATFORM(MAC)',
+            'conditions': ('PLATFORM(MAC)'),
         },
+        {
+            'name': 'DeprecatedOperation',
+            'parameters': (
+                ('CoreIPC::DummyType', 'dummy'),
+            ),
+            'conditions': ('ENABLE(DEPRECATED_FEATURE)'),
+        },
+        {
+            'name': 'ExperimentalOperation',
+            'parameters': (
+                ('CoreIPC::DummyType', 'dummy'),
+            ),
+            'conditions': ('ENABLE(EXPERIMENTAL_FEATURE)'),
+        }
     ),
 }
 
 
 class MessagesTest(unittest.TestCase):
     def setUp(self):
-        self.receiver = messages.MessageReceiver.parse(StringIO(_messages_file_contents))
+        self.receiver = parser.parse(StringIO(_messages_file_contents))
 
 
 class ParsingTest(MessagesTest):
@@ -225,20 +259,27 @@ class ParsingTest(MessagesTest):
         self.assertEquals(message.name, expected_message['name'])
         self.assertEquals(len(message.parameters), len(expected_message['parameters']))
         for index, parameter in enumerate(message.parameters):
-            self.assertEquals(parameter.type, expected_message['parameters'][index][0])
-            self.assertEquals(parameter.name, expected_message['parameters'][index][1])
+            expected_parameter = expected_message['parameters'][index]
+            self.assertEquals(parameter.type, expected_parameter[0])
+            self.assertEquals(parameter.name, expected_parameter[1])
+            if len(expected_parameter) > 2:
+                self.assertEquals(parameter.attributes, frozenset(expected_parameter[2]))
+                for attribute in expected_parameter[2]:
+                    self.assertTrue(parameter.has_attribute(attribute))
+            else:
+                self.assertEquals(parameter.attributes, frozenset())
         if message.reply_parameters != None:
             for index, parameter in enumerate(message.reply_parameters):
                 self.assertEquals(parameter.type, expected_message['reply_parameters'][index][0])
                 self.assertEquals(parameter.name, expected_message['reply_parameters'][index][1])
         else:
             self.assertFalse('reply_parameters' in expected_message)
-        self.assertEquals(message.condition, expected_message['condition'])
+        self.assertEquals(message.condition, expected_message['conditions'])
 
     def test_receiver(self):
         """Receiver should be parsed as expected"""
         self.assertEquals(self.receiver.name, _expected_results['name'])
-        self.assertEquals(self.receiver.condition, _expected_results['condition'])
+        self.assertEquals(self.receiver.condition, _expected_results['conditions'])
         self.assertEquals(len(self.receiver.messages), len(_expected_results['messages']))
         for index, message in enumerate(self.receiver.messages):
             self.check_message(message, _expected_results['messages'][index])
@@ -284,6 +325,7 @@ _expected_header = """/*
 namespace CoreIPC {
     class ArgumentEncoder;
     class Connection;
+    class DummyType;
     class MachPort;
 }
 
@@ -316,11 +358,18 @@ enum Kind {
     GetPluginProcessConnectionID,
     TestMultipleAttributesID,
     TestConnectionQueueID,
+    TestParameterAttributesID,
 #if PLATFORM(MAC)
     DidCreateWebProcessConnectionID,
 #endif
 #if PLATFORM(MAC)
     InterpretKeyEventID,
+#endif
+#if ENABLE(DEPRECATED_FEATURE)
+    DeprecatedOperationID,
+#endif
+#if ENABLE(EXPERIMENTAL_FEATURE)
+    ExperimentalOperationID,
 #endif
 };
 
@@ -462,6 +511,15 @@ struct TestConnectionQueue : CoreIPC::Arguments1<uint64_t> {
     }
 };
 
+struct TestParameterAttributes : CoreIPC::Arguments3<uint64_t, double, double> {
+    static const Kind messageID = TestParameterAttributesID;
+    typedef CoreIPC::Arguments3<uint64_t, double, double> DecodeType;
+    TestParameterAttributes(uint64_t foo, double bar, double baz)
+        : CoreIPC::Arguments3<uint64_t, double, double>(foo, bar, baz)
+    {
+    }
+};
+
 #if PLATFORM(MAC)
 struct DidCreateWebProcessConnection : CoreIPC::Arguments1<const CoreIPC::MachPort&> {
     static const Kind messageID = DidCreateWebProcessConnectionID;
@@ -480,6 +538,28 @@ struct InterpretKeyEvent : CoreIPC::Arguments1<uint32_t> {
     typedef CoreIPC::Arguments1<uint32_t> DecodeType;
     explicit InterpretKeyEvent(uint32_t type)
         : CoreIPC::Arguments1<uint32_t>(type)
+    {
+    }
+};
+#endif
+
+#if ENABLE(DEPRECATED_FEATURE)
+struct DeprecatedOperation : CoreIPC::Arguments1<const CoreIPC::DummyType&> {
+    static const Kind messageID = DeprecatedOperationID;
+    typedef CoreIPC::Arguments1<const CoreIPC::DummyType&> DecodeType;
+    explicit DeprecatedOperation(const CoreIPC::DummyType& dummy)
+        : CoreIPC::Arguments1<const CoreIPC::DummyType&>(dummy)
+    {
+    }
+};
+#endif
+
+#if ENABLE(EXPERIMENTAL_FEATURE)
+struct ExperimentalOperation : CoreIPC::Arguments1<const CoreIPC::DummyType&> {
+    static const Kind messageID = ExperimentalOperationID;
+    typedef CoreIPC::Arguments1<const CoreIPC::DummyType&> DecodeType;
+    explicit ExperimentalOperation(const CoreIPC::DummyType& dummy)
+        : CoreIPC::Arguments1<const CoreIPC::DummyType&>(dummy)
     {
     }
 };
@@ -532,24 +612,29 @@ _expected_receiver_implementation = """/*
 
 #include "WebPage.h"
 
-#if PLATFORM(MAC)
 #include "ArgumentCoders.h"
-#endif
 #include "ArgumentDecoder.h"
 #include "Connection.h"
+#if ENABLE(DEPRECATED_FEATURE) || ENABLE(EXPERIMENTAL_FEATURE)
+#include "DummyType.h"
+#endif
 #include "HandleMessage.h"
 #if PLATFORM(MAC)
 #include "MachPort.h"
 #endif
 #include "Plugin.h"
-#if PLATFORM(MAC)
 #include "WebCoreArgumentCoders.h"
-#endif
 #if ENABLE(TOUCH_EVENTS)
 #include "WebEvent.h"
 #endif
 #include "WebPageMessages.h"
 #include "WebPreferencesStore.h"
+#if PLATFORM(MAC)
+#include <WebCore/KeyboardEvent.h>
+#endif
+#include <WebCore/PluginData.h>
+#include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 
 namespace Messages {
 
@@ -600,7 +685,7 @@ bool TestMultipleAttributes::DelayedReply::send()
 
 namespace WebKit {
 
-bool WebPage::willProcessWebPageMessageOnClientRunLoop(CoreIPC::Connection*, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+void WebPage::didReceiveWebPageMessageOnConnectionWorkQueue(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage)
 {
 #if COMPILER(MSVC)
 #pragma warning(push)
@@ -608,10 +693,11 @@ bool WebPage::willProcessWebPageMessageOnClientRunLoop(CoreIPC::Connection*, Cor
 #endif
     switch (messageID.get<Messages::WebPage::Kind>()) {
     case Messages::WebPage::TestConnectionQueueID:
-        CoreIPC::handleMessage<Messages::WebPage::TestConnectionQueue>(arguments, this, &WebPage::testConnectionQueue);
-        return false;
+        CoreIPC::handleMessageOnConnectionQueue<Messages::WebPage::TestConnectionQueue>(connection, arguments, this, &WebPage::testConnectionQueue);
+        didHandleMessage = true;
+        return;
     default:
-        return true;
+        return;
     }
 #if COMPILER(MSVC)
 #pragma warning(pop)
@@ -644,9 +730,22 @@ void WebPage::didReceiveWebPageMessage(CoreIPC::Connection*, CoreIPC::MessageID 
     case Messages::WebPage::SendIntsID:
         CoreIPC::handleMessage<Messages::WebPage::SendInts>(arguments, this, &WebPage::sendInts);
         return;
+    case Messages::WebPage::TestParameterAttributesID:
+        CoreIPC::handleMessage<Messages::WebPage::TestParameterAttributes>(arguments, this, &WebPage::testParameterAttributes);
+        return;
 #if PLATFORM(MAC)
     case Messages::WebPage::DidCreateWebProcessConnectionID:
         CoreIPC::handleMessage<Messages::WebPage::DidCreateWebProcessConnection>(arguments, this, &WebPage::didCreateWebProcessConnection);
+        return;
+#endif
+#if ENABLE(DEPRECATED_FEATURE)
+    case Messages::WebPage::DeprecatedOperationID:
+        CoreIPC::handleMessage<Messages::WebPage::DeprecatedOperation>(arguments, this, &WebPage::deprecatedOperation);
+        return;
+#endif
+#if ENABLE(EXPERIMENTAL_FEATURE)
+    case Messages::WebPage::ExperimentalOperationID:
+        CoreIPC::handleMessage<Messages::WebPage::ExperimentalOperation>(arguments, this, &WebPage::experimentalOperation);
         return;
 #endif
     default:
@@ -656,29 +755,28 @@ void WebPage::didReceiveWebPageMessage(CoreIPC::Connection*, CoreIPC::MessageID 
     ASSERT_NOT_REACHED();
 }
 
-CoreIPC::SyncReplyMode WebPage::didReceiveSyncWebPageMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)
+void WebPage::didReceiveSyncWebPageMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
 {
     switch (messageID.get<Messages::WebPage::Kind>()) {
     case Messages::WebPage::CreatePluginID:
-        CoreIPC::handleMessage<Messages::WebPage::CreatePlugin>(arguments, reply, this, &WebPage::createPlugin);
-        return CoreIPC::AutomaticReply;
+        CoreIPC::handleMessage<Messages::WebPage::CreatePlugin>(arguments, reply.get(), this, &WebPage::createPlugin);
+        return;
     case Messages::WebPage::RunJavaScriptAlertID:
-        CoreIPC::handleMessage<Messages::WebPage::RunJavaScriptAlert>(arguments, reply, this, &WebPage::runJavaScriptAlert);
-        return CoreIPC::AutomaticReply;
+        CoreIPC::handleMessage<Messages::WebPage::RunJavaScriptAlert>(arguments, reply.get(), this, &WebPage::runJavaScriptAlert);
+        return;
     case Messages::WebPage::GetPluginProcessConnectionID:
         CoreIPC::handleMessageDelayed<Messages::WebPage::GetPluginProcessConnection>(connection, arguments, reply, this, &WebPage::getPluginProcessConnection);
-        return CoreIPC::ManualReply;
+        return;
 #if PLATFORM(MAC)
     case Messages::WebPage::InterpretKeyEventID:
-        CoreIPC::handleMessage<Messages::WebPage::InterpretKeyEvent>(arguments, reply, this, &WebPage::interpretKeyEvent);
-        return CoreIPC::AutomaticReply;
+        CoreIPC::handleMessage<Messages::WebPage::InterpretKeyEvent>(arguments, reply.get(), this, &WebPage::interpretKeyEvent);
+        return;
 #endif
     default:
         break;
     }
 
     ASSERT_NOT_REACHED();
-    return CoreIPC::AutomaticReply;
 }
 
 } // namespace WebKit

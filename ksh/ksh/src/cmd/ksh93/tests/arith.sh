@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -26,8 +26,13 @@ function err_exit
 alias err_exit='err_exit $LINENO'
 
 Command=${0##*/}
-trap '' FPE # NOTE: osf.alpha requires this (no ieee math)
 integer Errors=0
+
+tmp=$(mktemp -dt) || { err_exit mktemp -dt failed; exit 1; }
+trap "cd /; rm -rf $tmp" EXIT
+
+trap '' FPE # NOTE: osf.alpha requires this (no ieee math)
+
 integer x=1 y=2 z=3
 if	(( 2+2 != 4 ))
 then	err_exit 2+2!=4
@@ -135,7 +140,7 @@ if [[ $? == 0 ]]
 then	err_exit 'floating point allowed with % operator'
 fi
 x=.125
-if	[[ $(( 4 * x/2 )) != 0.25 ]] 
+if	[[ $(( 4 * x/2 )) != 0.25 ]]
 then	err_exit '(( 4 * x/2 )) is not 0.25, with x=.125'
 fi
 if	[[ $(( pow(2,3) )) != 8 ]]
@@ -190,7 +195,7 @@ then	err_exit "&= not working"
 fi
 function newscope
 {
-	float x=1.5 
+	float x=1.5
 	(( x += 1 ))
 	print -r -- $x
 }
@@ -308,7 +313,6 @@ if	[[ $x != 42#18 ]]
 then	err_exit 'display of unsigned integers in non-decimal bases wrong'
 fi
 $SHELL -c 'i=0;(( ofiles[i] != -1 && (ofiles[i] < mins || mins == -1) ));exit 0' 2> /dev/null || err_exit 'lexical error with arithemtic expression'
-rm -f core
 $SHELL -c '(( +1 == 1))' 2> /dev/null || err_exit 'unary + not working'
 typeset -E20 val=123.01234567890
 [[ $val == 123.0123456789 ]] || err_exit "rounding error val=$val"
@@ -328,13 +332,13 @@ do	let "x = $x+1"
 done
 (( x == n ))  || err_exit 'let with zero filled fields not working'
 (( y == n ))  || err_exit '((...)) with zero filled fields not working'
-typeset -LZ3 x=10
+typeset -RZ3 x=10
 [[ $(($x)) == 10 && $((1$x)) == 1010 ]] || err_exit 'zero filled fields not preserving leading zeros'
 unset y
 [[ $(let y=$x;print $y) == 10 && $(let y=1$x;print $y) == 1010 ]] || err_exit 'zero filled fields not preserving leading zeros with let'
 unset i ip ipx
 typeset -i hex=( 172 30 18 1)
-typeset -iu ip=0 ipx=0
+typeset -ui ip=0 ipx=0
 integer i
 for	((i=0; i < 4; i++))
 do	(( ip =  (ip<<8) | hex[i]))
@@ -343,10 +347,10 @@ for ((i=0; i < 4; i++))
 do	(( ipx = ip % 256 ))
 	(( ip /= 256 ))
 	(( ipx != hex[3-i] )) && err_exit "hex digit $((3-i)) not correct"
-done	
+done
 unset x
 x=010
-(( x == 8 )) || err_exit 'leading zeros not treated as octal arithmetic'
+(( x == 10 )) || err_exit 'leading zeros in x treated as octal arithmetic with $((x))'
 (( $x == 8 )) || err_exit 'leading zeros not treated as octal arithmetic with $x'
 unset x
 typeset -Z x=010
@@ -357,7 +361,7 @@ typeset -i i=x
 (( ${x:0:1} == 0 )) || err_exit 'leading zero should not be stripped for x:a:b'
 c010=3
 (( c$x  == 3 )) || err_exit 'leading zero with variable should not be stripped'
-[[ $( ($SHELL -c '((++1))' 2>&1)2>/dev/null ) == *lvalue* ]] || err_exit "((--1)) not generating error message"
+[[ $( ($SHELL -c '((++1))' 2>&1) 2>/dev/null ) == *++1:* ]] || err_exit "((++1)) not generating error message"
 i=2
 (( "22" == 22 )) || err_exit "double quoted constants fail"
 (( "2$i" == 22 )) || err_exit "double quoted variables fail"
@@ -366,8 +370,7 @@ i=2
 unset i; typeset -i i=01-2
 (( i == -1 )) || err_exit "01-2 is not -1"
 
-trap 'rm -f /tmp/script$$ /tmp/data$$.[12]' EXIT
-cat > /tmp/script$$ <<-\!
+cat > $tmp/script <<-\!
 tests=$*
 typeset -A blop
 function blop.get
@@ -413,14 +416,14 @@ function mkobj
 }
 mkobj bla
 !
-chmod +x /tmp/script$$
-[[ $(/tmp/script$$ 1) != '( bar=2 baz=3 foo=1 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 2) != '( faz=0 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 3) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 4) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 5) != '( fuz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 6) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
-[[ $(/tmp/script$$ 7) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+chmod +x $tmp/script
+[[ $($tmp/script 1) != '( bar=2 baz=3 foo=1 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 2) != '( faz=0 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 3) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 4) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 5) != '( fuz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 6) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $($tmp/script 7) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
 unset foo
 typeset -F1 foo=123456789.19
 [[ $foo == 123456789.2 ]] || err_exit 'typeset -F1 not working correctly'
@@ -435,37 +438,241 @@ for expr in '1/(1.0/2)' '1/(1/2.0)'
 do	[[ $( ( $SHELL -c "( print -r -- \$(($expr)) )" ) 2>/dev/null ) == 2 ]] || err_exit "invalid value for: $expr"
 done
 [[ $((5||0)) == 1 ]] || err_exit '$((5||0))'" == $((5||0)) should be 1"
-$SHELL -c 'integer x=3 y=2; (( (y += x += 2) == 7  && x==5))' 2> /dev/null || err_exit '((y += x += 2)) not working' 
+$SHELL -c 'integer x=3 y=2; (( (y += x += 2) == 7  && x==5))' 2> /dev/null || err_exit '((y += x += 2)) not working'
 $SHELL -c 'b=0; [[ $((b?a=1:b=9)) == 9 ]]' 2> /dev/null || err_exit 'b?a=1:b=9 not working'
 unset x
 (( x = 4*atan(1.0) ))
 [[ $x == "$((x))" ]] || err_exit  '$x !- $((x)) when x is pi'
 $SHELL -c  "[[  ${x//./} == {14,100}(\d) ]]" 2> /dev/null || err_exit 'pi has less than 14 significant places'
 if	(( Inf+1 == Inf ))
-then	[[ $(printf "%g\n" $((Inf))) == inf ]] || err_exit 'printf "%g\n" $((Inf)) fails'
-#	[[ $(printf "%g\n" $((Nan))) == inf ]] || err_exit 'printf "%g\n" $((Nan)) fails'
-	[[ $(printf "%g\n" Inf) == inf ]] || err_exit 'printf "%g\n" Inf fails'
-	[[ $(printf "%g\n" NaN) == nan ]] || err_exit 'printf "%g\n" NaN fails'
-	[[ $(print -- $((Inf))) == inf ]] || err_exit 'print -- $((Inf)) fails'
+then	set \
+		Inf		inf	\
+		-Inf		-inf	\
+		Nan		nan	\
+		-Nan		-nan	\
+		1.0/0.0		inf
+	while	(( $# >= 2 ))
+	do	x=$(printf "%g\n" $(($1)))
+		[[ $x == $2 ]] || err_exit "printf '%g\\n' \$(($1)) failed -- expected $2, got $x"
+		x=$(printf "%g\n" $1)
+		[[ $x == $2 ]] || err_exit "printf '%g\\n' $1 failed -- expected $2, got $x"
+		x=$(printf -- $(($1)))
+		[[ $x == $2 ]] || err_exit "print -- \$(($1)) failed -- expected $2, got $x"
+		shift 2
+	done
 	(( 1.0/0.0 == Inf )) || err_exit '1.0/0.0 != Inf'
-	[[ $(print -- $((0.0/0.0))) == nan ]] || err_exit '0.0/0.0 != NaN'
+	[[ $(print -- $((0.0/0.0))) == ?(-)nan ]] || err_exit '0.0/0.0 != NaN'
 	(( Inf*Inf == Inf )) || err_exit 'Inf*Inf != Inf'
 	(( NaN != NaN )) || err_exit 'NaN == NaN'
 	(( -5*Inf == -Inf )) || err_exit '-5*Inf != -Inf'
-	[[ $(print -- $((sqrt(-1.0)))) == nan ]]|| err_exit 'sqrt(-1.0) != NaN'
+	[[ $(print -- $((sqrt(-1.0)))) == ?(-)nan ]]|| err_exit 'sqrt(-1.0) != NaN'
 	(( pow(1.0,Inf) == 1.0 )) || err_exit 'pow(1.0,Inf) != 1.0'
 	(( pow(Inf,0.0) == 1.0 )) || err_exit 'pow(Inf,0.0) != 1.0'
-	[[ $(print -- $((NaN/Inf))) == nan ]] || err_exit 'NaN/Inf != NaN'
+	[[ $(print -- $((NaN/Inf))) == ?(-)nan ]] || err_exit 'NaN/Inf != NaN'
 	(( 4.0/Inf == 0.0 )) || err_exit '4.0/Inf != 0.0'
 else	err_exit 'Inf and NaN not working'
 fi
-unset x y
-float x=14.555 y
+unset x y n r
+n=14.555
+float x=$n y
 y=$(printf "%a" x)
-(( x == y )) || err_exit "output of printf %a not self preserving -- expected $x, got $y"
+r=$y
+[[ $r == $n ]] || err_exit "output of printf %a not self preserving -- expected $x, got $y"
 unset x y r
 x=-0
 y=$(printf "%g %g %g %g %g %g\n" -0. -0 $((-0)) x $x $((x)))
 r="-0 -0 -0 -0 -0 -0"
 [[ $y == "$r" ]] || err_exit "-0 vs -0.0 inconsistency -- expected '$r', got '$y'"
-exit $((Errors))
+$SHELL -c '(( x=));:' 2> /dev/null && err_exit '((x=)) should be an error'
+$SHELL -c '(( x+=));:' 2> /dev/null && err_exit '((x+=)) should be an error'
+$SHELL -c '(( x=+));:' 2> /dev/null && err_exit '((x=+)) should be an error'
+$SHELL -c 'x=();x.arr[0]=(z=3); ((x.arr[0].z=2))' 2> /dev/null || err_exit '(((x.arr[0].z=2)) should not be an error'
+
+float t
+typeset a b r
+v="-0.0 0.0 +0.0 -1.0 1.0 +1.0"
+for a in $v
+do	for b in $v
+	do	(( r = copysign(a,b) ))
+		(( t = copysign(a,b) ))
+		[[ $r == $t ]] || err_exit $(printf "float t=copysign(%3.1f,%3.1f) => %3.1f -- expected %3.1f\n" a b t r)
+	done
+done
+
+typeset -l y y_ascii
+(( y=sin(90) )) 
+y_ascii=$y 
+(( y == y_ascii )) || err_exit "no match,\n\t$(printf "%a\n" y)\n!=\n\t$(printf "%a\n" y_ascii)"
+
+( $SHELL  <<- \EOF
+	p=5
+	t[p]=6
+	while (( t[p] != 0 )) ; do
+		((
+		p+=1 , 
+		t[p]+=2 , 
+		p+=3 , 
+		t[p]+=5 , 
+		p+=1 , 
+		t[p]+=2 , 
+		p+=1 , 
+		t[p]+=1 , 
+		p-=6  ,
+		t[p]-=1 
+		))
+	:
+	done
+EOF) 2> /dev/null ||  err_exit 'error with comma expression'
+
+N=(89551 89557)
+i=0 j=1
+[[ $(printf "%d" N[j]-N[i]) == 6 ]] || err_exit 'printf %d N[i]-N[j] failed'
+[[ $((N[j]-N[i])) == 6 ]] || err_exit  '$((N[j]-N[i])) incorrect'
+
+unset a x
+x=0
+((a[++x]++))
+(( x==1)) || err_exit '((a[++x]++)) should only increment x once'
+(( a[1]==1))  || err_exit 'a[1] not incremented'
+unset a
+x=0
+((a[x++]++))
+(( x==1)) || err_exit '((a[x++]++)) should only increment x once'
+(( a[0]==1))  || err_exit 'a[0] not incremented'
+unset a
+x=0
+((a[x+=2]+=1))
+(( x==2)) || err_exit '((a[x+=2]++)) should result in x==2'
+(( a[2]==1))  || err_exit 'a[0] not 1'
+
+unset a i
+typeset -a a
+i=1
+(( a[i]=1 ))
+(( a[0] == 0 )) || err_exit 'a[0] not 0'
+(( a[1] == 1 )) || err_exit 'a[1] not 1'
+
+unset a
+typeset -i a
+for ((i=0;i<1000;i++))
+do ((a[RANDOM%2]++))
+done
+(( (a[0]+a[1])==1000)) || err_exit '(a[0]+a[1])!=1000'
+
+(( 4.**3/10 == 6.4 )) || err_exit '4.**3/10!=6.4'
+(( (.5+3)/7 == .5 )) || err_exit '(.5+3)/7!==.5'
+
+function .sh.math.mysin x
+{
+        ((.sh.value = x - x**3/6. + x**5/120.-x**7/5040. + x**9/362880.))
+}
+
+(( abs(sin(.5)-mysin(.5)) < 1e-6 )) || err_exit 'mysin() not close to sin()'
+
+$SHELL 2> /dev/null  <<- \EOF || err_exit "arithmetic functions defined and referenced in compound command not working"
+{
+	function .sh.math.mysin x
+	{
+	        ((.sh.value = x-x**3/6. + x**5/120.-x**7/5040. + x**9/362880.))
+	}
+	(( abs(sin(.5)-mysin(.5)) < 1e-6 )) 
+	exit 0
+}
+EOF
+
+
+
+function .sh.math.max x y z
+{
+	.sh.value=x
+	(( y > x )) && .sh.value=y
+	(( z > .sh.value )) && .sh.value=z
+}
+(( max(max(3,8,5),7,5)==8)) || err_exit 'max(max(3,8,5),7,5)!=8'
+(( max(max(3,8,5),7,9)==9)) || err_exit 'max(max(3,8,9),7,5)!=9'
+(( max(6,max(3,9,5),7)==9 )) || err_exit 'max(6,max(3,8,5),7)!=9'
+(( max(6,7, max(3,8,5))==8 )) || err_exit 'max(6,7,max(3,8,5))!=8'
+
+enum color_t=(red green blue yellow)
+color_t shirt pants=blue
+(( pants == blue )) || err_exit 'pants should be blue'
+(( shirt == red )) || err_exit 'pants should be red'
+(( shirt != green )) || err_exit 'shirt should not be green'
+(( pants != shirt )) || err_exit 'pants should be the same as shirt'
+(( pants = yellow ))
+(( pants == yellow )) || err_exit 'pants should be yellow'
+
+unset z
+integer -a z=( [1]=90 )
+function x
+{
+	nameref nz=$1
+	float x y
+	float x=$((log10(nz))) y=$((log10($nz)))
+	(( abs(x-y) < 1e-10 )) || err_exit '$nz and nz differs in arithmetic expression when nz is reference to array instance'
+} 
+x z[1]
+
+unset x
+float x
+x=$( ($SHELL -c 'print -- $(( asinh(acosh(atanh(sin(cos(tan(atan(acos(asin(tanh(cosh(sinh(asinh(acosh(atanh(sin(cos(tan(atan(acos(asin(tanh(cosh(sinh(.5)))))))))))))))))))))))) )) ';:) 2> /dev/null)
+(( abs(x-.5) < 1.e-10 )) || err_exit 'bug in composite function evaluation'
+
+unset x
+typeset -X x=16
+{ (( $x == 16 )) ;} 2> /dev/null || err_exit 'expansions of hexfloat not working in arithmetic expansions'
+
+unset foo
+function foobar
+{
+	(( foo = 8))
+}
+typeset -i foo
+foobar
+(( foo == 8 )) || err_exit  'arithmetic assignment binding to the wrong scope'
+
+(( tgamma(4)/12 )) || err_exit 'floating point attribute for functions not preserved'  
+
+unset F
+function f
+{
+ ((F=1))
+}
+f
+[[ $F == 1 ]] || err_exit 'scoping bug with arithmetic expression'
+
+F=1
+function f
+{
+ typeset F
+ ((F=2))
+}
+[[ $F == 1 ]] || err_exit 'scoping bug2 with arithmetic expression'
+
+unset play foo x z
+typeset -A play
+x=foo
+play[$x]=(x=2)
+for ((i=0; i < 2; i++))
+do	(( play[$x].y , z++  ))
+done
+(( z==2 )) || err_exit 'unset compound array variable error with for loop optimization'
+
+[[ $($SHELL 2> /dev/null -c 'print -- $(( ldexp(1, 4) ))' ) == 16 ]] || err_exit 'function ldexp not implement or not working correctly'
+
+
+$SHELL 2> /dev/null -c 'str="0x1.df768ed398ee1e01329a130627ae0000p-1";typeset -l -E x;((x=str))' || err_exit '((x=var)) fails for hexfloat with var begining with 0x1.nnn'
+
+x=(3 6 12)
+(( x[2] /= x[0]))
+(( x[2] == 4 ))  || err_exit '(( x[2] /= x[0])) fails for index array'
+
+x=([0]=3 [1]=6 [2]=12)
+(( x[2] /= x[0]))
+(( x[2] == 4 )) || err_exit '(( x[2] /= x[0])) fails for associative array'
+
+got=$($SHELL 2> /dev/null -c 'compound -a x;compound -a x[0].y; integer -a x[0].y[0].z; (( x[0].y[0].z[2]=3 )); typeset -p x')
+exp='typeset -C -a x=((typeset -C -a y=( [0]=(typeset -a -l -i z=([2]=3);));))'
+[[ $got == "$exp" ]] || err_exit '(( x[0].y[0].z[2]=3 )) not working'
+
+exit $((Errors<125?Errors:125))

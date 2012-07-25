@@ -48,52 +48,34 @@ BIND 9
 	For a detailed list of user-visible changes from
 	previous releases, see the CHANGES file.
 
-        For up-to-date release notes and errata, see
-        http://www.isc.org/software/bind9/releasenotes
+BIND 9.8.1
 
-BIND 9.7.6
+        BIND 9.8.1 includes a number of bug fixes and enhancements from
+	BIND 9.8 and earlier releases.  New features include:
 
-	BIND 9.7.6 is a maintenance release, fixing bugs in 9.7.5.
+	- The DLZ "dlopen" driver is now built by default.
+	- Added a new include file with function typedefs
+          for the DLZ "dlopen" driver.
+	- Made "--with-gssapi" default.
+	- More verbose error reporting from DLZ LDAP.
 
-BIND 9.7.5
+BIND 9.8.0
 
-	BIND 9.7.5 includes a number of bug fixes and prevents a security
-	problem described in CVE-2011-4313
+        BIND 9.8.0 includes a number of changes from BIND 9.7 and earlier
+        releases.  New features include:
 
-BIND 9.7.4
-
-	BIND 9.7.4 is a maintenance release, fixing bugs in 9.7.3.
-
-BIND 9.7.3
-
-	BIND 9.7.3 is a maintenance release, fixing bugs in 9.7.2.
-
-BIND 9.7.2
-
-	BIND 9.7.2 will address bugs in 9.7.1, and also introduces
-        some new functionality:
-
-	- "rndc loadkeys" to allow new keys to be added to a managed
-	  zone without having them sign the content immediately.
-        - "rndc addzone" and "rndc delzone" allow adding and deleting
-          zones at runtime.  This requires the view to have the
-          "new-zone-file" option set to a filename.  Zone configuration
-          information for new zones is specified in the 'rndc addzone'
-          command line, and is stored in that file.  To make new
-	  zones persist after a restart, "include" the file
-	  into named.conf in the appropriate view.  (Note:
-	  This feature is not yet documented, and its syntax
-          is expected to change.)
-        - "rndc secroots" dumps a list of the current trusted and
-          managed DNSSEC keys for each view.
-        - "filter-aaaa-on-v4" can now be applied selectively to
-          some IPv4 clients but not others, using the "filter-aaaa"
-          ACL.  (This feature requires BIND 9 to be built with
-          the --enable-filter-aaaa configure option.)
-
-BIND 9.7.1
-
-	BIND 9.7.1 is a maintenance release, fixing bugs in 9.7.0.
+        - Built-in trust anchor for the root zone, which can be
+          switched on via "dnssec-validation auto;"
+        - Support for DNS64.
+        - Support for response policy zones (RPZ).
+        - Support for writable DLZ zones.
+        - Improved ease of configuration of GSS/TSIG for
+          interoperability with Active Directory
+        - Support for GOST signing algorithm for DNSSEC.
+        - Removed RTT Banding from server selection algorithm.
+        - New "static-stub" zone type.
+        - Allow configuration of resolver timeouts via
+          "resolver-query-timeout" option.
 
 BIND 9.7.0
 
@@ -125,17 +107,6 @@ BIND 9.7.0
 	  OpenSSL engine selection.
 
 	Known issues in this release:
-
-	- A validating resolver that has been incorrectly configured with
-	  an invalid trust anchor will be unable to resolve names covered
-	  by that trust anchor.  In all current versions of BIND 9, such a
-	  resolver will also generate significant unnecessary DNS traffic
-	  while trying to validate.  The latter problem will be addressed
-	  in future BIND 9 releases.  In the meantime, to avoid these
-	  problems, exercise caution when configuring "trusted-keys":
-	  make sure all keys are correct and current when you add them,
-	  and update your configuration in a timely manner when keys
-	  roll over.
 
 	- In rare cases, DNSSEC validation can leak memory.  When this 
 	  happens, it will cause an assertion failure when named exits,
@@ -190,9 +161,9 @@ Building
 		Ubuntu 7.04, 7.10
 		Windows XP/2003/2008
 
-	NOTE:  As of BIND 9.5.1, 9.4.3, and 9.3.6, older versions of
-	Windows, including Windows NT and Windows 2000, are no longer
-	supported.
+        NOTE:  As of BIND 9.5.1, 9.4.3, and 9.3.6, older versions of
+        Windows, including Windows NT and Windows 2000, are no longer
+        supported.
 
 	We have recent reports from the user community that a supported
 	version of BIND will build and run on the following systems:
@@ -292,10 +263,10 @@ Building
 	on the configure command line.  The default is operating
 	system dependent.
 
-	Support for the "fixed" rrset-order option can be enabled
-	or disabled by specifying "--enable-fixed-rrset" or
-	"--disable-fixed-rrset" on the configure command line.
-	The default is "disabled", to reduce memory footprint.
+        Support for the "fixed" rrset-order option can be enabled
+        or disabled by specifying "--enable-fixed-rrset" or
+        "--disable-fixed-rrset" on the configure command line.
+        The default is "disabled", to reduce memory footprint.
 
 	If your operating system has integrated support for IPv6, it
 	will be used automatically.  If you have installed KAME IPv6
@@ -361,50 +332,8 @@ Documentation
 	Frequently asked questions and their answers can be found in
 	FAQ.
 
-	Additional information on various subjects can be found
-	in the other README files.
-
-
-Change Log
-
-	A detailed list of all changes to BIND 9 is included in the 
-	file CHANGES, with the most recent changes listed first.
-	Change notes include tags indicating the category of the
-	change that was made; these categories are:
-
-	   [func]	  New feature
-
-	   [bug]	  General bug fix
-
-	   [security]	  Fix for a significant security flaw
-
-	   [experimental] Used for new features when the syntax
-	   		  or other aspects of the design are still
-			  in flux and may change
-
-	   [port]	  Portability enhancement
-
-	   [maint]	  Updates to built-in data such as root
-			  server addresses and keys
-
-	   [tuning]	  Changes to built-in configuration defaults
-	   		  and constants to improve performanceo
-
-	   [protocol]	  Updates to the DNS protocol such as new
-			  RR types
-
-           [test]         Changes to the automatic tests, not
-                          affecting server functionality
-
-           [cleanup]      Minor corrections and refactoring
-
-	   [doc]	  Documentation
-
-	In general, [func] and [experimental] tags will only appear
-	in new-feature releases (i.e., those with version numbers
-	ending in zero).  Some new functionality may be backported to
-	older releases on a case-by-case basis.  All other change
-	types may be applied to all currently-supported releases.
+        Additional information on various subjects can be found
+        in the other README files.
 
 
 Bug Reports and Mailing Lists

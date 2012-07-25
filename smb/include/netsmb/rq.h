@@ -37,7 +37,7 @@
 
 #include <sys/types.h>
 
-struct smb_rq;
+struct smb_usr_rq;
 
 int smb_ntwrkpath_to_localpath(struct smb_ctx *, 
 							   const char */*ntwrkstr*/, size_t /*ntwrk_len*/,
@@ -49,33 +49,33 @@ int smb_localpath_to_ntwrkpath(struct smb_ctx *,
 							   uint32_t /*flags*/);
 
 /*
- * Calling smb_rq_init_rcvsize with a request size causes it to allocate a 
+ * Calling smb_usr_rq_init_rcvsize with a request size causes it to allocate a 
  * receive buffer of that size. 
  */
-int  smb_rq_init_rcvsize(struct smb_ctx *, u_char, uint16_t, size_t, struct smb_rq **);
-/* The smb_rq_init routtine will always allocate a receive buffer of page size. */
-int  smb_rq_init(struct smb_ctx *, u_char, uint16_t, struct smb_rq **);
-void smb_rq_done(struct smb_rq *);
-mbchain_t smb_rq_getrequest(struct smb_rq *);
-mdchain_t smb_rq_getreply(struct smb_rq *);
-uint32_t smb_rq_get_error(struct smb_rq *);
-uint32_t smb_rq_flags2(struct smb_rq *);
-uint32_t smb_rq_nt_error(struct smb_rq *rqp);
-void smb_rq_setflags2(struct smb_rq *, uint32_t );
-void smb_rq_wstart(struct smb_rq *);
-void smb_rq_wend(struct smb_rq *);
-void smb_rq_bstart(struct smb_rq *);
-void smb_rq_bend(struct smb_rq *);
-int smb_rq_simple(struct smb_rq *);
-int smb_put_dmem(struct smb_ctx *, mbchain_t , const char *, 
-				 size_t , int /*flags*/, size_t *);
-int smb_rq_put_dstring(struct smb_ctx *, mbchain_t , const char *, size_t, 
-						int /*flags*/, size_t *);
+int  smb_usr_rq_init_rcvsize(struct smb_ctx *, u_char, uint16_t, size_t, struct smb_usr_rq **);
+/* The smb_usr_rq_init routtine will always allocate a receive buffer of page size. */
+int  smb_usr_rq_init(struct smb_ctx *, u_char, uint16_t, struct smb_usr_rq **);
+void smb_usr_rq_done(struct smb_usr_rq *);
+mbchain_t smb_usr_rq_getrequest(struct smb_usr_rq *);
+mdchain_t smb_usr_rq_getreply(struct smb_usr_rq *);
+uint32_t smb_usr_rq_get_error(struct smb_usr_rq *);
+uint32_t smb_usr_rq_flags2(struct smb_usr_rq *);
+uint32_t smb_usr_rq_nt_error(struct smb_usr_rq *rqp);
+void smb_usr_rq_setflags2(struct smb_usr_rq *, uint32_t );
+void smb_usr_rq_wstart(struct smb_usr_rq *);
+void smb_usr_rq_wend(struct smb_usr_rq *);
+void smb_usr_rq_bstart(struct smb_usr_rq *);
+void smb_usr_rq_bend(struct smb_usr_rq *);
+int smb_usr_rq_simple(struct smb_usr_rq *);
+int smb_usr_put_dmem(struct smb_ctx *, mbchain_t , const char *, 
+            			size_t , int /*flags*/, size_t *);
+int smb_usr_rq_put_dstring(struct smb_ctx *, mbchain_t , const char *, size_t, 
+							int /*flags*/, size_t *);
 
-int smb_t2_request(struct smb_ctx *ctx, int setupcount, uint16_t *setup, const char *name, 
-				   uint16_t tparamcnt, const void *tparam, 
-				   uint16_t tdatacnt, const void *tdata, 
-				   uint16_t *rparamcnt, void *rparam, 
-				   uint16_t *rdatacnt, void *rdata, 
-				   uint32_t *buffer_oflow);
+int smb_usr_t2_request(struct smb_ctx *ctx, int setupcount, uint16_t *setup, const char *name, 
+				   		uint16_t tparamcnt, const void *tparam, 
+				   		uint16_t tdatacnt, const void *tdata, 
+				   		uint16_t *rparamcnt, void *rparam, 
+				   		uint16_t *rdatacnt, void *rdata, 
+				   		uint32_t *buffer_oflow);
 #endif // _NETSMB_RQ_H_

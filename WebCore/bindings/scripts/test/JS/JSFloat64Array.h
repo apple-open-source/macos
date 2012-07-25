@@ -33,7 +33,7 @@ public:
     typedef JSArrayBufferView Base;
     static JSFloat64Array* create(JSC::Structure* structure, JSDOMGlobalObject* globalObject, PassRefPtr<Float64Array> impl)
     {
-        JSFloat64Array* ptr = new (JSC::allocateCell<JSFloat64Array>(globalObject->globalData().heap)) JSFloat64Array(structure, globalObject, impl);
+        JSFloat64Array* ptr = new (NotNull, JSC::allocateCell<JSFloat64Array>(globalObject->globalData().heap)) JSFloat64Array(structure, globalObject, impl);
         ptr->finishCreation(globalObject->globalData());
         return ptr;
     }
@@ -43,7 +43,7 @@ public:
     static bool getOwnPropertyDescriptor(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&);
     static bool getOwnPropertySlotByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::PropertySlot&);
     static void put(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, JSC::PutPropertySlot&);
-    static void putByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::JSValue);
+    static void putByIndex(JSC::JSCell*, JSC::ExecState*, unsigned propertyName, JSC::JSValue, bool shouldThrow);
     static const JSC::ClassInfo s_info;
 
     static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
@@ -57,7 +57,7 @@ public:
     {
         return static_cast<Float64Array*>(Base::impl());
     }
-    static const TypedArrayType TypedArrayStorageType = TypedArrayFloat64;
+    static const JSC::TypedArrayType TypedArrayStorageType = JSC::TypedArrayFloat64;
     intptr_t m_storageLength;
     void* m_storage;
 protected:
@@ -77,7 +77,7 @@ public:
     static JSC::JSObject* self(JSC::ExecState*, JSC::JSGlobalObject*);
     static JSFloat64ArrayPrototype* create(JSC::JSGlobalData& globalData, JSC::JSGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSFloat64ArrayPrototype* ptr = new (JSC::allocateCell<JSFloat64ArrayPrototype>(globalData.heap)) JSFloat64ArrayPrototype(globalData, globalObject, structure);
+        JSFloat64ArrayPrototype* ptr = new (NotNull, JSC::allocateCell<JSFloat64ArrayPrototype>(globalData.heap)) JSFloat64ArrayPrototype(globalData, globalObject, structure);
         ptr->finishCreation(globalData);
         return ptr;
     }
@@ -105,7 +105,7 @@ public:
     typedef DOMConstructorObject Base;
     static JSFloat64ArrayConstructor* create(JSC::ExecState* exec, JSC::Structure* structure, JSDOMGlobalObject* globalObject)
     {
-        JSFloat64ArrayConstructor* ptr = new (JSC::allocateCell<JSFloat64ArrayConstructor>(*exec->heap())) JSFloat64ArrayConstructor(structure, globalObject);
+        JSFloat64ArrayConstructor* ptr = new (NotNull, JSC::allocateCell<JSFloat64ArrayConstructor>(*exec->heap())) JSFloat64ArrayConstructor(structure, globalObject);
         ptr->finishCreation(exec, globalObject);
         return ptr;
     }

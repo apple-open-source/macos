@@ -32,10 +32,16 @@ namespace WebCore {
 DEFINE_ANIMATED_STRING(SVGMPathElement, XLinkNames::hrefAttr, Href, href)
 DEFINE_ANIMATED_BOOLEAN(SVGMPathElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGMPathElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(href)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGMPathElement::SVGMPathElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
 {
     ASSERT(hasTagName(SVGNames::mpathTag));
+    registerAnimatedPropertiesForSVGMPathElement();
 }
 
 PassRefPtr<SVGMPathElement> SVGMPathElement::create(const QualifiedName& tagName, Document* document)
@@ -43,43 +49,34 @@ PassRefPtr<SVGMPathElement> SVGMPathElement::create(const QualifiedName& tagName
     return adoptRef(new SVGMPathElement(tagName, document));
 }
 
-void SVGMPathElement::parseMappedAttribute(Attribute* attr)
+bool SVGMPathElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (SVGURIReference::parseMappedAttribute(attr))
-        return;
-    SVGElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGURIReference::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGMPathElement::synchronizeProperty(const QualifiedName& attrName)
+void SVGMPathElement::parseAttribute(Attribute* attr)
 {
-    SVGElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeExternalResourcesRequired();
-        synchronizeHref();
+    if (!isSupportedAttribute(attr->name())) {
+        SVGElement::parseAttribute(attr);
         return;
     }
 
-    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGURIReference::isKnownAttribute(attrName))
-        synchronizeHref();
-}
+    if (SVGURIReference::parseAttribute(attr))
+        return;
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
 
-AttributeToPropertyTypeMap& SVGMPathElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGMPathElement::fillAttributeToPropertyTypeMap()
-{
-    attributeToPropertyTypeMap().set(XLinkNames::hrefAttr, AnimatedString);
+    ASSERT_NOT_REACHED();
 }
 
 SVGPathElement* SVGMPathElement::pathElement()
 {
-    Element* target = treeScope()->getElementById(getTarget(href()));
+    Element* target = targetElementFromIRIString(href(), document());
     if (target && target->hasTagName(SVGNames::pathTag))
         return static_cast<SVGPathElement*>(target);
     return 0;

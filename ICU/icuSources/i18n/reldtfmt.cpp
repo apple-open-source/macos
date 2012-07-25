@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2010, International Business Machines Corporation and
+* Copyright (C) 2007-2011, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 */
@@ -344,7 +344,7 @@ RelativeDateFormat::getDateFormatSymbols() const
 {
     SimpleDateFormat* sdtfmt = NULL;
     if (fDateFormat && (sdtfmt = dynamic_cast<SimpleDateFormat*>(fDateFormat)) != NULL) {
-    	return sdtfmt->getDateFormatSymbols();
+        return sdtfmt->getDateFormatSymbols();
     }
     return NULL;
 }

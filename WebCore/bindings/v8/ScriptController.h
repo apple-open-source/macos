@@ -47,7 +47,7 @@
 #if PLATFORM(QT)
 #include <qglobal.h>
 QT_BEGIN_NAMESPACE
-class QScriptEngine;
+class QJSEngine;
 QT_END_NAMESPACE
 #endif
 
@@ -59,6 +59,7 @@ class DOMWrapperWorld;
 class Event;
 class Frame;
 class HTMLPlugInElement;
+class PagePopupClient;
 class ScriptSourceCode;
 class Widget;
 
@@ -73,6 +74,7 @@ public:
 
     ScriptValue executeScript(const ScriptSourceCode&);
     ScriptValue executeScript(const String& script, bool forceUserGesture = false);
+    ScriptValue callFunctionEvenIfScriptDisabled(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
 
     // Returns true if argument is a JavaScript URL.
     bool executeIfJavaScriptURL(const KURL&, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL = ReplaceDocumentIfJavaScriptURL);
@@ -85,7 +87,7 @@ public:
     // as a string.
     ScriptValue evaluate(const ScriptSourceCode&);
 
-    void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>&);
+    void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>& sources, Vector<ScriptValue>* results);
 
     // Executes JavaScript in an isolated world. The script gets its own global scope,
     // its own prototypes for intrinsic JavaScript objects (String, Array, and so-on),
@@ -97,7 +99,12 @@ public:
     // If the worldID is 0, a new world is always created.
     //
     // FIXME: Get rid of extensionGroup here.
-    void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>&, int extensionGroup);
+    void evaluateInIsolatedWorld(unsigned worldID, const Vector<ScriptSourceCode>& sources, int extensionGroup, Vector<ScriptValue>* results);
+
+    // Associates an isolated world (see above for description) with a security
+    // origin. XMLHttpRequest instances used in that world will be considered
+    // to come from that origin, not the frame's.
+    void setIsolatedWorldSecurityOrigin(int worldID, PassRefPtr<SecurityOrigin>);
 
     // Masquerade 'this' as the windowShell.
     // This is a bit of a hack, but provides reasonable compatibility
@@ -114,6 +121,9 @@ public:
     void bindToWindowObject(Frame*, const String& key, NPObject*);
 
     PassScriptInstance createScriptInstanceForWidget(Widget*);
+#if ENABLE(PAGE_POPUP)
+    void installFunctionsForPagePopup(Frame*, PagePopupClient*);
+#endif
 
     // Check if the javascript engine has been initialized.
     bool haveInterpreter() const;
@@ -142,21 +152,14 @@ public:
     // V8Proxy::retrieveFrameForEnteredContext() for more information.
     static Frame* retrieveFrameForCurrentContext();
 
-    // Check whether it is safe to access a frame in another domain.
-    static bool isSafeScript(Frame*);
-
     // Pass command-line flags to the JS engine.
     static void setFlags(const char* string, int length);
 
     void finishedWithEvent(Event*);
 
-    TextPosition0 eventHandlerPosition() const;
+    TextPosition eventHandlerPosition() const;
 
-    void setProcessingTimerCallback(bool processingTimerCallback) { m_processingTimerCallback = processingTimerCallback; }
-    // FIXME: Currently we don't use the parameter world at all.
-    // See http://trac.webkit.org/changeset/54182
     static bool processingUserGesture();
-    bool anyPageIsProcessingUserGesture() const;
 
     void setPaused(bool paused) { m_paused = paused; }
     bool isPaused() const { return m_paused; }
@@ -174,36 +177,27 @@ public:
     void updatePlatformScriptObjects();
     void cleanupScriptObjectsForPlugin(Widget*);
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
     NPObject* createScriptObjectForPluginElement(HTMLPlugInElement*);
     NPObject* windowScriptNPObject();
-#endif
 
 #if PLATFORM(QT)
-    QScriptEngine* qtScriptEngine();
+    QJSEngine* qtScriptEngine();
 #endif
 
     // Dummy method to avoid a bunch of ifdef's in WebCore.
     void evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld*);
-    static void getAllWorlds(Vector<DOMWrapperWorld*>& worlds);
-
-    void setAllowPopupsFromPlugin(bool allowPopupsFromPlugin) { m_allowPopupsFromPlugin = allowPopupsFromPlugin; }
-    bool allowPopupsFromPlugin() const { return m_allowPopupsFromPlugin; }
+    static void getAllWorlds(Vector<RefPtr<DOMWrapperWorld> >& worlds);
 
 private:
     Frame* m_frame;
     const String* m_sourceURL;
 
-    bool m_inExecuteScript;
-
-    bool m_processingTimerCallback;
     bool m_paused;
-    bool m_allowPopupsFromPlugin;
 
     OwnPtr<V8Proxy> m_proxy;
     typedef HashMap<Widget*, NPObject*> PluginObjectMap;
 #if PLATFORM(QT)
-    OwnPtr<QScriptEngine> m_qtScriptEngine;
+    OwnPtr<QJSEngine> m_qtScriptEngine;
 #endif
 
     // A mapping between Widgets and their corresponding script object.
@@ -211,9 +205,14 @@ private:
     // invalidate all sub-objects which are associated with that plugin.
     // The frame keeps a NPObject reference for each item on the list.
     PluginObjectMap m_pluginObjects;
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    NPObject* m_windowScriptNPObject;
-#endif
+    // The window script object can get destroyed while there are outstanding
+    // references to it. Please refer to ScriptController::clearScriptObjects
+    // for more information as to why this is necessary. To avoid crashes due
+    // to calls on the destroyed window object, we return a proxy NPObject
+    // which wraps the underlying window object. The wrapped window object
+    // pointer in this object is cleared out when the window object is
+    // destroyed.
+    NPObject* m_wrappedWindowScriptNPObject;
 };
 
 } // namespace WebCore

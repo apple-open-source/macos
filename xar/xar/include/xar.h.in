@@ -195,6 +195,8 @@ void xar_subdoc_remove(xar_subdoc_t s);
 
 /* signature api for adding various signature types */
 xar_signature_t xar_signature_new(xar_t x,const char *type, int32_t length, xar_signer_callback callback, void *callback_context);
+/* extended signatures are ignored by previous versions of xar */
+xar_signature_t xar_signature_new_extended(xar_t x,const char *type, int32_t length, xar_signer_callback callback, void *callback_context);
 
 const char *xar_signature_type(xar_signature_t s);
 

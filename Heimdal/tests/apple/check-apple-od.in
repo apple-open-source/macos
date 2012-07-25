@@ -41,9 +41,21 @@ echo "checking for od.apple.com"
 (dscl /LDAPv3/od.apple.com -read /Users/smbtest  | grep 'RealName: smbtest' > /dev/null ) || \
       { echo "no od.apple.com, skipping tests" ; exit 0; }
 
+echo "Interactive kinit for smbtest@OD.APPLE.COM"
+    kinitpty=${testdir}/foopassword.rkpty
+cat > ${kinitpty} <<EOF
+expect Password
+password smbtest\n
+EOF
+   ${rkpty} ${kinitpty} ${kinit} smbtest@OD.APPLE.COM >/dev/null || exit 1
+${kdestroy}
+
+
+echo "checking ntlm"
 ${test_context} --mech-type=ntlm --cred-type=ntlm \
 	--client-name='smbtest@\targetname' --password='smbtest' service@host || exit 1
 
+echo "checking signing is disabled"
 ${gsstool} supporte --opt| \
     grep -e 'NTLM session key.*no' > /dev/null || \
 	{ echo "signing and joined to od.apple.com" ; exit 1 ; }

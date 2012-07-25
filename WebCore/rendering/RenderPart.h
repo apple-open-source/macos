@@ -40,6 +40,9 @@ public:
     bool requiresAcceleratedCompositing() const;
 #endif
 
+    virtual bool needsPreferredWidthsRecalculation() const;
+    virtual RenderBox* embeddedContentBox() const;
+
 protected:
 #if USE(ACCELERATED_COMPOSITING)
     virtual bool requiresLayer() const;

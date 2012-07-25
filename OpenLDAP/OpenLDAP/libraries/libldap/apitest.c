@@ -1,8 +1,8 @@
 /* apitest.c -- OpenLDAP API Test Program */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/apitest.c,v 1.25.2.5 2010/04/13 20:22:55 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *

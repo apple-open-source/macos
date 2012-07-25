@@ -1,21 +1,25 @@
 /*
- * Copyright (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All Rights Reserved.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * along with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ *  THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS'' AND ANY
+ *  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *  DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ *  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ *  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ *  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -27,33 +31,40 @@
 namespace WebCore {
 
 StyleFlexibleBoxData::StyleFlexibleBoxData()
-    : flex(RenderStyle::initialBoxFlex())
-    , flex_group(RenderStyle::initialBoxFlexGroup())
-    , ordinal_group(RenderStyle::initialBoxOrdinalGroup())
-    , align(RenderStyle::initialBoxAlign())
-    , pack(RenderStyle::initialBoxPack())
-    , orient(RenderStyle::initialBoxOrient())
-    , lines(RenderStyle::initialBoxLines())
+    : m_positiveFlex(RenderStyle::initialPositiveFlex())
+    , m_negativeFlex(RenderStyle::initialNegativeFlex())
+    , m_preferredSize(RenderStyle::initialFlexPreferredSize())
+    , m_flexOrder(RenderStyle::initialFlexOrder())
+    , m_flexPack(RenderStyle::initialFlexPack())
+    , m_flexAlign(RenderStyle::initialFlexAlign())
+    , m_flexItemAlign(RenderStyle::initialFlexItemAlign())
+    , m_flexDirection(RenderStyle::initialFlexDirection())
+    , m_flexWrap(RenderStyle::initialFlexWrap())
+    , m_flexLinePack(RenderStyle::initialFlexLinePack())
 {
 }
 
 StyleFlexibleBoxData::StyleFlexibleBoxData(const StyleFlexibleBoxData& o)
     : RefCounted<StyleFlexibleBoxData>()
-    , flex(o.flex)
-    , flex_group(o.flex_group)
-    , ordinal_group(o.ordinal_group)
-    , align(o.align)
-    , pack(o.pack)
-    , orient(o.orient)
-    , lines(o.lines)
+    , m_positiveFlex(o.m_positiveFlex)
+    , m_negativeFlex(o.m_negativeFlex)
+    , m_preferredSize(o.m_preferredSize)
+    , m_flexOrder(o.m_flexOrder)
+    , m_flexPack(o.m_flexPack)
+    , m_flexAlign(o.m_flexAlign)
+    , m_flexItemAlign(o.m_flexItemAlign)
+    , m_flexDirection(o.m_flexDirection)
+    , m_flexWrap(o.m_flexWrap)
+    , m_flexLinePack(o.m_flexLinePack)
 {
 }
 
 bool StyleFlexibleBoxData::operator==(const StyleFlexibleBoxData& o) const
 {
-    return flex == o.flex && flex_group == o.flex_group &&
-           ordinal_group == o.ordinal_group && align == o.align &&
-           pack == o.pack && orient == o.orient && lines == o.lines;
+    return m_positiveFlex == o.m_positiveFlex && m_negativeFlex == o.m_negativeFlex && m_preferredSize == o.m_preferredSize
+        && m_flexOrder == o.m_flexOrder && m_flexPack == o.m_flexPack && m_flexAlign == o.m_flexAlign
+        && m_flexItemAlign == o.m_flexItemAlign && m_flexDirection == o.m_flexDirection && m_flexWrap == o.m_flexWrap
+        && m_flexLinePack == o.m_flexLinePack;
 }
 
-} // namespace WebCore
+}

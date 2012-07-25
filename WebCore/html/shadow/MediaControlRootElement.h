@@ -66,11 +66,18 @@ class MediaPlayer;
 class RenderBox;
 class RenderMedia;
 
+#if ENABLE(VIDEO_TRACK)
+class MediaControlTextTrackContainerElement;
+class MediaControlTextTrackDisplayElement;
+#endif
+
 class MediaControlRootElement : public MediaControls {
 public:
-    static PassRefPtr<MediaControlRootElement> create(HTMLMediaElement*);
+    static PassRefPtr<MediaControlRootElement> create(Document*);
 
     // MediaControls implementation.
+    void setMediaController(MediaControllerInterface*);
+
     void show();
     void hide();
     void makeOpaque();
@@ -96,10 +103,19 @@ public:
     void updateTimeDisplay();
     void updateStatusDisplay();
 
+#if ENABLE(VIDEO_TRACK)
+    void createTextTrackDisplay();
+    void showTextTrackDisplay();
+    void hideTextTrackDisplay();
+    void updateTextTrackDisplay();
+#endif
+
     virtual bool shouldHideControls();
 
+    void bufferingProgressed();
+
 private:
-    MediaControlRootElement(HTMLMediaElement*);
+    MediaControlRootElement(Document*);
 
     virtual void defaultEventHandler(Event*);
     void hideFullscreenControlsTimerFired(Timer<MediaControlRootElement>*);
@@ -110,7 +126,7 @@ private:
 
     bool containsRelatedTarget(Event*);
 
-    HTMLMediaElement* m_mediaElement;
+    MediaControllerInterface* m_mediaController;
 
     MediaControlRewindButtonElement* m_rewindButton;
     MediaControlPlayButtonElement* m_playButton;
@@ -132,9 +148,13 @@ private:
     MediaControlFullscreenVolumeSliderElement* m_fullScreenVolumeSlider;
     MediaControlFullscreenVolumeMaxButtonElement* m_fullScreenMaxVolumeButton;
     MediaControlPanelElement* m_panel;
-    bool m_opaque;
-    bool m_isMouseOverControls;
+#if ENABLE(VIDEO_TRACK)
+    MediaControlTextTrackContainerElement* m_textDisplayContainer;
+    MediaControlTextTrackDisplayElement* m_textTrackDisplay;
+#endif
     Timer<MediaControlRootElement> m_hideFullscreenControlsTimer;
+    bool m_isMouseOverControls;
+    bool m_isFullscreen;
 };
 
 }

@@ -29,15 +29,15 @@
 #ifndef InspectorClientGtk_h
 #define InspectorClientGtk_h
 
-#include "GOwnPtr.h"
 #include "InspectorClient.h"
 #include "InspectorFrontendClientLocal.h"
 #include "webkitwebview.h"
 #include "webkitwebinspector.h"
 #include <wtf/Forward.h>
+#include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
 
 namespace WebCore {
-    class Node;
     class Page;
 }
 
@@ -55,8 +55,10 @@ namespace WebKit {
         virtual void inspectorDestroyed();
 
         virtual void openInspectorFrontend(WebCore::InspectorController*);
+        virtual void closeInspectorFrontend();
+        virtual void bringFrontendToFront();
 
-        virtual void highlight(WebCore::Node*);
+        virtual void highlight();
         virtual void hideHighlight();
 
         virtual bool sendMessageToFrontend(const WTF::String&);
@@ -74,6 +76,7 @@ namespace WebKit {
     class InspectorFrontendClient : public WebCore::InspectorFrontendClientLocal {
     public:
         InspectorFrontendClient(WebKitWebView* inspectedWebView, WebKitWebView* inspectorWebView, WebKitWebInspector* webInspector, WebCore::Page* inspectorPage, InspectorClient* inspectorClient);
+        virtual ~InspectorFrontendClient();
 
         void disconnectInspectorClient() { m_inspectorClient = 0; }
 
@@ -85,7 +88,6 @@ namespace WebKit {
 
         virtual void bringToFront();
         virtual void closeWindow();
-        virtual void disconnectFromBackend();
 
         virtual void attachWindow();
         virtual void detachWindow();
@@ -95,11 +97,9 @@ namespace WebKit {
         virtual void inspectedURLChanged(const WTF::String& newURL);
 
     private:
-        virtual ~InspectorFrontendClient();
-
         WebKitWebView* m_inspectorWebView;
         WebKitWebView* m_inspectedWebView;
-        WebKitWebInspector* m_webInspector;
+        GRefPtr<WebKitWebInspector> m_webInspector;
         InspectorClient* m_inspectorClient;
     };
 }

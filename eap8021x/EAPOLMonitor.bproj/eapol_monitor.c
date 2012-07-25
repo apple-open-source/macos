@@ -1353,4 +1353,4 @@ main()
     exit(0);
     return (0);
 }
-#endif TEST_PLUGIN
+#endif /* TEST_PLUGIN */

@@ -28,8 +28,8 @@
 
 #include "DrawingArea.h"
 #include "LayerTreeHost.h"
-#include "Region.h"
-#include "RunLoop.h"
+#include <WebCore/Region.h>
+#include <WebCore/RunLoop.h>
 
 namespace WebCore {
     class GraphicsContext;
@@ -45,7 +45,6 @@ public:
     static PassOwnPtr<DrawingAreaImpl> create(WebPage*, const WebPageCreationParameters&);
     virtual ~DrawingAreaImpl();
 
-    void setLayerHostNeedsDisplay();
     void layerHostDidFlushLayers();
 
 private:
@@ -55,24 +54,31 @@ private:
     virtual void setNeedsDisplay(const WebCore::IntRect&);
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollOffset);
     virtual void setLayerTreeStateIsFrozen(bool);
+    virtual bool layerTreeStateIsFrozen() const { return m_layerTreeStateIsFrozen; }
+    virtual LayerTreeHost* layerTreeHost() const { return m_layerTreeHost.get(); }
     virtual void forceRepaint();
-
-    virtual void enableDisplayThrottling();
-    virtual void disableDisplayThrottling();
 
     virtual void didInstallPageOverlay();
     virtual void didUninstallPageOverlay();
     virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&);
+    virtual void setPageOverlayOpacity(float);
+    virtual bool pageOverlayShouldApplyFadeWhenPainting() const;
 
     virtual void setPaintingEnabled(bool);
 
     virtual void setRootCompositingLayer(WebCore::GraphicsLayer*);
     virtual void scheduleCompositingLayerSync();
-    virtual void syncCompositingLayers();
-    virtual void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 
 #if PLATFORM(WIN)
     virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&);
+#endif
+
+#if PLATFORM(MAC)
+    virtual void setLayerHostingMode(uint32_t) OVERRIDE;
+#endif
+
+#if USE(UI_SIDE_COMPOSITING)
+    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
 #endif
 
     // CoreIPC message handlers.
@@ -80,6 +86,8 @@ private:
     virtual void didUpdate();
     virtual void suspendPainting();
     virtual void resumePainting();
+    
+    virtual void pageCustomRepresentationChanged();
 
     void sendDidUpdateBackingStoreState();
 
@@ -96,7 +104,7 @@ private:
 
     uint64_t m_backingStoreStateID;
 
-    Region m_dirtyRegion;
+    WebCore::Region m_dirtyRegion;
     WebCore::IntRect m_scrollRect;
     WebCore::IntSize m_scrollOffset;
 
@@ -130,13 +138,8 @@ private:
     bool m_isPaintingSuspended;
     bool m_alwaysUseCompositing;
 
-    // Whether we should throttle displays to a set update rate on the WebProcess side.
-    bool m_shouldThrottleDisplay;
-
-    double m_lastDisplayTime;
-
-    RunLoop::Timer<DrawingAreaImpl> m_displayTimer;
-    RunLoop::Timer<DrawingAreaImpl> m_exitCompositingTimer;
+    WebCore::RunLoop::Timer<DrawingAreaImpl> m_displayTimer;
+    WebCore::RunLoop::Timer<DrawingAreaImpl> m_exitCompositingTimer;
 
     // The layer tree host that handles accelerated compositing.
     RefPtr<LayerTreeHost> m_layerTreeHost;

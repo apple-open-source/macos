@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -97,7 +97,7 @@ int	fcfill(void)
 			_Fcin.fcptr = ptr = last;
 	}
 	if((n = ptr-_Fcin.fcbuff) && _Fcin.fcfun)
-		(*_Fcin.fcfun)(f,(const char*)_Fcin.fcbuff,n);
+		(*_Fcin.fcfun)(f,(const char*)_Fcin.fcbuff,n,_Fcin.context);
 	sfread(f, (char*)_Fcin.fcbuff, n);
 	_Fcin.fcoff +=n;
 	_Fcin._fcfile = 0;
@@ -128,9 +128,10 @@ int fcclose(void)
 /*
  * Set the notify function that is called for each fcfill()
  */
-void fcnotify(void (*fun)(Sfio_t*,const char*,int))
+void fcnotify(void (*fun)(Sfio_t*,const char*,int,void*),void* context)
 {
 	_Fcin.fcfun = fun;
+	_Fcin.context = context;
 }
 
 #ifdef __EXPORT__
@@ -149,13 +150,19 @@ extern void fcrestore(Fcin_t *fp)
 	_Fcin = *fp;
 }
 
+/* for testing purposes with small buffers */
+#if defined(IOBSIZE) && (IOBSIZE < 2*MB_LEN_MAX)
+#   undef MB_LEN_MAX
+#   define MB_LEN_MAX	(IOBSIZE/2)
+#endif
+
 struct Extra
 {
 	unsigned char	buff[2*MB_LEN_MAX];
 	unsigned char	*next;
 };
 
-int fcmbstate(const char *state, int *s, int *len)
+int _fcmbget(short *len)
 {
 	static struct Extra	extra;
 	register int		i, c, n;
@@ -170,14 +177,11 @@ int fcmbstate(const char *state, int *s, int *len)
 		}
 		*len = c;
 		if(c==1)
-			*s = state[*extra.next++];
+			c = *extra.next++;
 		else if(c==0)
 			_Fcin.fcleft = 0;
 		else
-		{
 			c = mbchar(extra.next);
-			*s = state['a'];
-		}
 		return(c);
 	}
 	switch(*len = mbsize(_Fcin.fcptr))
@@ -185,7 +189,7 @@ int fcmbstate(const char *state, int *s, int *len)
 	    case -1:
 		if(_Fcin._fcfile && (n=(_Fcin.fclast-_Fcin.fcptr)) < MB_LEN_MAX)
 		{
-			memcmp(extra.buff, _Fcin.fcptr, n);
+			memcpy(extra.buff, _Fcin.fcptr, n);
 			_Fcin.fcptr = _Fcin.fclast;
 			for(i=n; i < MB_LEN_MAX+n; i++)
 			{
@@ -194,17 +198,16 @@ int fcmbstate(const char *state, int *s, int *len)
 			}
 			_Fcin.fcleft = n;
 			extra.next = extra.buff;
-			return(fcmbstate(state,s,len));
+			return(fcmbget(len));
 		}
 		*len = 1;
 		/* fall through */
 	    case 0:
 	    case 1:
-		*s = state[c=fcget()];
+		c=fcget();
 		break;
 	    default:
 		c = mbchar(_Fcin.fcptr);
-		*s = state['a'];
 	}
 	return(c);
 } 

@@ -55,130 +55,163 @@ extern "C" {
 #include "IONetworkUserClient.h"
 #include "IONetworkStack.h"
 #include "IONetworkControllerPrivate.h"
+#include "IONetworkDebug.h"
+#include "IOMbufQueue.h"
 
 #include <TargetConditionals.h>
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors( IONetworkInterface, IOService )
-OSMetaClassDefineReservedUnused( IONetworkInterface,  5);
-OSMetaClassDefineReservedUnused( IONetworkInterface,  6);
-OSMetaClassDefineReservedUnused( IONetworkInterface,  7);
-OSMetaClassDefineReservedUnused( IONetworkInterface,  8);
-OSMetaClassDefineReservedUnused( IONetworkInterface,  9);
-OSMetaClassDefineReservedUnused( IONetworkInterface, 10);
+OSMetaClassDefineReservedUsed( IONetworkInterface,  5);
+OSMetaClassDefineReservedUsed( IONetworkInterface,  6);
+OSMetaClassDefineReservedUsed( IONetworkInterface,  7);
+OSMetaClassDefineReservedUsed( IONetworkInterface,  8);
+OSMetaClassDefineReservedUsed( IONetworkInterface,  9);
+OSMetaClassDefineReservedUsed( IONetworkInterface, 10);
 OSMetaClassDefineReservedUnused( IONetworkInterface, 11);
 OSMetaClassDefineReservedUnused( IONetworkInterface, 12);
 OSMetaClassDefineReservedUnused( IONetworkInterface, 13);
 OSMetaClassDefineReservedUnused( IONetworkInterface, 14);
 OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Macros
 
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
+#define IFNET_TO_THIS(x)        ((IONetworkInterface *) ifnet_softc(ifp))
 
-#define WAITING_FOR_DETACH(n)          ((n)->_clientVar[1])
+#define WAITING_FOR_DETACH(n)   ((n)->_clientVar[1])
 
-#define _unit					_reserved->unit
-#define _type					_reserved->type
-#define _mtu					_reserved->mtu
-#define _flags					_reserved->flags
-#define _eflags					_reserved->eflags
-#define _addrlen				_reserved->addrlen
-#define _hdrlen					_reserved->hdrlen
+#define _unit                   _reserved->unit
+#define _type                   _reserved->type
+#define _mtu                    _reserved->mtu
+#define _flags                  _reserved->flags
+#define _eflags                 _reserved->eflags
+#define _addrlen                _reserved->addrlen
+#define _hdrlen                 _reserved->hdrlen
+#define _outputQueueModel       _reserved->outputQueueModel
 #define _inputDeltas            _reserved->inputDeltas
-#define _driverStats			_reserved->driverStats
-#define _lastDriverStats		_reserved->lastDriverStats
-#define _detachLock				_reserved->detachLock
+#define _driverStats            _reserved->driverStats
+#define _lastDriverStats        _reserved->lastDriverStats
+#define _publicLock             _reserved->publicLock
 #define _remote_NMI_pattern     _reserved->remote_NMI_pattern
 #define _remote_NMI_len         _reserved->remote_NMI_len
+#define _controller             _reserved->controller
+#define _configFlags            _reserved->configFlags
+#define _txRingSize             _reserved->txRingSize
+#define _txPullOptions          _reserved->txPullOptions
+#define _txQueueSize            _reserved->txQueueSize
+#define _txSchedulingModel      _reserved->txSchedulingModel
+#define _txThreadState          _reserved->txThreadState
+#define _txThreadFlags          _reserved->txThreadFlags
+#define _txThreadSignal         _reserved->txThreadSignal
+#define _txThreadSignalLast     _reserved->txThreadSignalLast
+#define _txStartThread          _reserved->txStartThread
+#define _txStartAction          _reserved->txStartAction
+#define _txWorkLoop             _reserved->txWorkLoop
+#define _rxRingSize             _reserved->rxRingSize
+#define _rxPollOptions          _reserved->rxPollOptions
+#define _rxPollModel            _reserved->rxPollModel
+#define _rxPollAction           _reserved->rxPollAction
+#define _rxCtlAction            _reserved->rxCtlAction
+#define _rxPollEmpty            _reserved->rxPollEmpty
+#define _rxPollTotal            _reserved->rxPollTotal
+#define _peqHandler             _reserved->peqHandler
+#define _peqTarget              _reserved->peqTarget
+#define _peqRefcon              _reserved->peqRefcon
 
-#define kIONetworkControllerProperties  "IONetworkControllerProperties"
-#define kRemoteNMI                      "remote_nmi"
+#define kRemoteNMI                  "remote_nmi"
+#define REMOTE_NMI_PATTERN_LEN      32
 
-#define REMOTE_NMI_PATTERN_LEN          32
+// _txThreadState
+#define kTxThreadStateInit          0x00000001  // initial state
+#define kTxThreadStateStop          0x00000100  // temporarily disable
+#define kTxThreadStateDetach        0x00000200  // permanently disable
+#define kTxThreadStateHalted        0x00000800  // stop confirmation
+#define kTxThreadStatePurge         0x00001000  // purge new packets
 
-void IONetworkInterface::_syncToBackingIfnet()
-{
-	if(_backingIfnet == NULL)
-		return;
-	ifnet_set_mtu(_backingIfnet, _mtu);
-	ifnet_set_flags(_backingIfnet, _flags, 0xffff);
-// 3741463, we won't make eflags accessible any more	ifnet_set_eflags(_backingIfnet, _eflags, 0xffff);
-	ifnet_set_addrlen(_backingIfnet, _addrlen);
-	ifnet_set_hdrlen(_backingIfnet, _hdrlen);
-}
+// _txThreadFlags
+#define kTxThreadWakeupEnable       0x00000001  // enable ifnet_start call
+#define kTxThreadWakeupSignal       0x00000002  // driver signaled
+#define kTxThreadWakeupMask         0x00000003  // wakeup bits
 
-void IONetworkInterface::_syncFromBackingIfnet() const
-{
-	if(_backingIfnet == NULL)
-		return;
-	_mtu = ifnet_mtu(_backingIfnet);
-	_flags = ifnet_flags(_backingIfnet);
-	_eflags = ifnet_eflags(_backingIfnet);
-	_addrlen = ifnet_addrlen(_backingIfnet);
-	_hdrlen = ifnet_hdrlen(_backingIfnet);
-}
+enum {
+    kConfigFrozen       = 0x01,
+    kConfigTxPull       = 0x02,
+    kConfigRxPoll       = 0x04,
+    kConfigDataRates    = 0x08,
+    kConfigPreEnqueue   = 0x10
+};
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Initialize an IONetworkInterface instance.
 //
 // Returns true if initialized successfully, false otherwise.
 
-bool IONetworkInterface::init(IONetworkController * controller)
+bool IONetworkInterface::init( IONetworkController * controller )
 {
+    IONetworkData * nd;
+#if TARGET_OS_EMBEDDED
+	OSString *      networkType;
+#endif
+
     // Propagate the init() call to our superclass.
 
     if ( super::init() == false )
-        return false;
+        goto fail;
 
-	// a non-null value at this point means the subclass is pre-kpi and allocated its ifnet/arpcom itself.
-	// we can't work with such a sublcass but at least we can fail gracefully.
-	if(getIfnet())
+	// A non-null value at this point means the subclass is pre-kpi
+    // and allocated its ifnet/arpcom itself.
+	// We can't work with such a sublcass but at least we can fail gracefully.
+
+    if (getIfnet())
 	{
 		IOLog("\33[00m\33[31m%s: IONetworkingFamily interface KPIs do not support IONetworkInterface subclasses that use ifnets\n\33[00m", getName());
-		return false;
+		goto fail;
 	}
 	
     // The controller object provided must be valid.
 
     if ( OSDynamicCast(IONetworkController, controller) == 0 )
-        return false;
+        goto fail;
 
-    _controller = controller;
+    _driver = controller;
+    _driver->retain();
 
     // Allocate memory for the ExpansionData structure.
 
     _reserved = IONew( ExpansionData, 1 );
     if ( _reserved == 0 )
-        return false;
+        goto fail;
 
     // Initialize the fields in the ExpansionData structure.
 
-    bzero( _reserved, sizeof(ExpansionData) );
+    bzero(_reserved, sizeof(ExpansionData));
 
-	_detachLock = IOLockAlloc();
-	if( _detachLock == 0)
-		return false;
+	_privateLock = IOLockAlloc();
+	if ( _privateLock == 0)
+		goto fail;
 
-    // Create interface lock to serialize ifnet updates.
+    _publicLock = IORecursiveLockAlloc();
+    if ( _publicLock == 0 )
+        goto fail;
 
-    _ifLock = IORecursiveLockAlloc();
-    if ( _ifLock == 0 )
-        return false;
+    _controller = controller;
+    _rxPollModel = IFNET_MODEL_INPUT_POLL_OFF;
+
+    _inputPushQueue = IONew(IOMbufQueue, 1);
+    bzero(_inputPushQueue, sizeof(*_inputPushQueue));
+
+    // Set initial queue state before attaching to network stack.
+    _txThreadState = kTxThreadStateInit | kTxThreadStateHalted;
 
     // Create an OSNumber to store interface state bits.
 
     _stateBits = OSNumber::withNumber((UInt64) 0, 32);
     if ( _stateBits == 0 )
-        return false;
+        goto fail;
     setProperty( kIOInterfaceState, _stateBits );
 
     // Create an OSSet to store client objects. Initial capacity
@@ -186,77 +219,92 @@ bool IONetworkInterface::init(IONetworkController * controller)
 
     _clientSet = OSSet::withCapacity(2);
     if ( _clientSet == 0 )
-        return false;
+        goto fail;
 
-
-    // Create a data dictionary.
+    // Dictionary to store network data.
 
     if ( (_dataDict = OSDictionary::withCapacity(5)) == 0 )
-        return false;
+        goto fail;
 
-    IONetworkData * data = IONetworkData::withExternalBuffer(
-                                    kIONetworkStatsKey,
-                                    sizeof(IONetworkStats),
-									&_driverStats);
-    if ( data )
+    nd = IONetworkData::withExternalBuffer(
+                            kIONetworkStatsKey,
+                            sizeof(IONetworkStats),
+                            &_driverStats);
+    if ( nd )
     {
-        addNetworkData(data);
-        data->release();
+        addNetworkData(nd);
+        nd->release();
     }
 
-    // Register default output handler.
+    // Register default output handler (not used for pull transmit model)
 
-    if ( registerOutputHandler( controller,
-                                controller->getOutputHandler() ) == false )
-    {
-        return false;
-    }
+    if (!registerOutputHandler(controller, controller->getOutputHandler()))
+        goto fail;
 
     // Set the kIOInterfaceNamePrefix and kIOPrimaryInterface properties.
     // These may be used by an user space agent as hints when assigning a
     // BSD name for the interface.
 
     setProperty( kIOInterfaceNamePrefix, getNamePrefix() );
+
 #if TARGET_OS_EMBEDDED
-	OSString *networkType = OSDynamicCast(OSString, controller->getProperty( "IONetworkRootType" ));
-	if(networkType)
+    networkType = OSDynamicCast(OSString, controller->getProperty( "IONetworkRootType" ));
+    if (networkType)
 		setProperty( "IONetworkRootType", networkType );
 #endif /* TARGET_OS_EMBEDDED */
 
     if (IOService *provider = controller->getProvider())
-	{
-		bool gotLocation = false;
-		
-		setProperty( kIOBuiltin, (bool)( provider->getProperty( "built-in" ) ) );
-		
-		if(OSData *locationAsData = OSDynamicCast(OSData, provider->getProperty("location")))
-		{
-			//the data may be null terminated...but to be on the safe side, let's assume it's not, and add a null...
-			if(OSData *locationAsCstr = OSData::withData(locationAsData)) //create a copy that we can convert to C string
-			{
-				locationAsCstr->appendByte(0, 1); //make sure it's null terminated;
-				if(OSString *locationAsString = OSString::withCString((const char *)locationAsCstr->getBytesNoCopy())) //now create the OSString
-				{
-					gotLocation = true;
-					setProperty( kIOLocation, locationAsString);
-					locationAsString->release(); //setProperty took a ref
-				}
-				locationAsCstr->release();
-			}
-		}
-		if(gotLocation == false)
-			setProperty( kIOLocation, "");
-	}
-		
+    {
+        bool        gotLocation = false;
+        OSData *    locationAsData;
+        OSData *    locationAsCstr;
+        OSString *  locationAsString;
+
+        setProperty(kIOBuiltin, (bool)(provider->getProperty("built-in")));
+
+        if ((locationAsData = OSDynamicCast(OSData, provider->getProperty("location"))))
+        {
+			// the data may be null terminated...but to be on the safe side,
+            // let's assume it's not, and add a null...
+            // create a copy that we can convert to C string
+			if ((locationAsCstr = OSData::withData(locationAsData)))
+            {
+                locationAsCstr->appendByte(0, 1);
+                // now create the OSString
+                if ((locationAsString = OSString::withCString(
+                     (const char *) locationAsCstr->getBytesNoCopy())))
+                {
+                    gotLocation = true;
+                    setProperty(kIOLocation, locationAsString);
+                    locationAsString->release(); //setProperty took a ref
+                }
+                locationAsCstr->release();
+            }
+        }
+        if (!gotLocation)
+            setProperty(kIOLocation, "");
+    }
+
+    DLOG("IONetworkInterface::init(%p, %s)\n", this, controller->getName());
     return true;
+
+fail:
+    LOG("IONetworkInterface::init(%p, %s) failed\n", this, controller->getName());
+    return false;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Destroy the interface. Release all allocated resources.
 
-void IONetworkInterface::free()
+void IONetworkInterface::free( void )
 {
-    DLOG("IONetworkInterface::free()\n");
+    DLOG("IONetworkInterface::free(%p)\n", this);
+
+    if (_driver)
+    {
+        _driver->release();
+        _driver = 0;
+    }
 
     if ( _clientSet )
     {
@@ -266,13 +314,35 @@ void IONetworkInterface::free()
         _clientSet = 0;
     }
 
-    if ( _dataDict  ) { _dataDict->release();  _dataDict  = 0; }
-    if ( _stateBits ) { _stateBits->release(); _stateBits = 0; }
-
-    if ( _ifLock )
+    if ( _dataDict  )
     {
-        IORecursiveLockFree(_ifLock);
-        _ifLock = 0;
+        _dataDict->release();
+        _dataDict = 0;
+    }
+
+    if ( _stateBits )
+    {
+        _stateBits->release();
+        _stateBits = 0;
+    }
+
+    if ( _inputPushQueue )
+    {
+		clearInputQueue();
+        IODelete(_inputPushQueue, IOMbufQueue, 1);
+        _inputPushQueue = 0;
+    }
+
+    if ( _privateLock )
+    {
+        IOLockFree(_privateLock);
+        _privateLock = 0;
+    }
+
+    if (_backingIfnet)
+    {
+        ifnet_release(_backingIfnet);
+        _backingIfnet = 0;
     }
 
     // Free resources referenced through fields in the ExpansionData
@@ -280,37 +350,41 @@ void IONetworkInterface::free()
 
     if ( _reserved )
     {
-		clearInputQueue();  //relies on fields in the _reserved structure
-		
-		if( _detachLock )
-			IOLockFree( _detachLock);
+        if ( _publicLock )
+        {
+            IORecursiveLockFree(_publicLock);
+            _publicLock = 0;
+        }
 
         if (_remote_NMI_pattern) {
             IOFree(_remote_NMI_pattern, _remote_NMI_len);
         }
 
-        IODelete( _reserved, ExpansionData, 1 );
+        if (_txWorkLoop)
+            _txWorkLoop->release();
+
+        memset(_reserved, 0, sizeof(ExpansionData));
+        IODelete(_reserved, ExpansionData, 1);
         _reserved = 0;
     }
-
 
     super::free();
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Returns true if the receiver of this method is the system's primary
 // network interface.
 
 bool IONetworkInterface::isPrimaryInterface() const
 {
-    IOService * provider  = getController();
+    IOService * provider  = _driver;
     bool        isPrimary = false;
 
     if ( provider ) provider = provider->getProvider();
 
     // Look for the built-in property in the ethernet entry.
 
-    if ( provider && provider->getProperty( "built-in" ) && getUnitNumber()==0)
+    if ( provider && provider->getProperty("built-in") && getUnitNumber() == 0)
     {
         isPrimary = true;
     }
@@ -318,32 +392,33 @@ bool IONetworkInterface::isPrimaryInterface() const
     return isPrimary;
 }
 
-//---------------------------------------------------------------------------
-// Get the IONetworkCotroller object that is servicing this interface.
+//------------------------------------------------------------------------------
 
-IONetworkController * IONetworkInterface::getController() const
+IONetworkController * IONetworkInterface::getController( void ) const
 {
     return _controller;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Get the value that should be set in the hwassist field in the ifnet
 // structure. Currently, this field is solely used for advertising the
 // hardware checksumming support.
 
-static UInt32 getIfnetHardwareAssistValue( IONetworkController * ctr )
+static UInt32 getIfnetHardwareAssistValue(
+    IONetworkController * driver )
 {
     UInt32  input;
     UInt32  output;
     UInt32  hwassist = 0;
+    UInt32  driverFeatures = driver->getFeatures();
 
     do {
-        if ( ctr->getChecksumSupport(
+        if ( driver->getChecksumSupport(
                      &input,
                      IONetworkController::kChecksumFamilyTCPIP,
                      false ) != kIOReturnSuccess ) break;
         
-        if ( ctr->getChecksumSupport(
+        if ( driver->getChecksumSupport(
                      &output,
                      IONetworkController::kChecksumFamilyTCPIP,
                      true ) != kIOReturnSuccess ) break;
@@ -383,95 +458,84 @@ static UInt32 getIfnetHardwareAssistValue( IONetworkController * ctr )
     }
     while ( false );
 
-	if( ctr->getFeatures() & kIONetworkFeatureHardwareVlan)
+	if( driverFeatures & kIONetworkFeatureHardwareVlan)
 		hwassist |= IFNET_VLAN_TAGGING;
 	
-	if( ctr->getFeatures() & kIONetworkFeatureSoftwareVlan)
+	if( driverFeatures & kIONetworkFeatureSoftwareVlan)
 		hwassist |= IFNET_VLAN_MTU;
 	
-	if( ctr->getFeatures() & kIONetworkFeatureMultiPages)
+	if( driverFeatures & kIONetworkFeatureMultiPages)
 		hwassist |= IFNET_MULTIPAGES;
 
-	if( ctr->getFeatures() & kIONetworkFeatureTSOIPv4)
+	if( driverFeatures & kIONetworkFeatureTSOIPv4)
 		hwassist |= IFNET_TSO_IPV4;
 
-	if( ctr->getFeatures() & kIONetworkFeatureTSOIPv6)
+	if( driverFeatures & kIONetworkFeatureTSOIPv6)
 		hwassist |= IFNET_TSO_IPV6;
 
     return hwassist;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Initialize the ifnet structure.
     
-bool IONetworkInterface::initIfnet(struct ifnet * ifp)
+bool IONetworkInterface::initIfnet( struct ifnet * ifp )
 {
-	return false;
+	return false;   // deprecated - replaced by initIfnetParams() 
 }
 
 OSMetaClassDefineReservedUsed(IONetworkInterface, 4);
-bool IONetworkInterface::initIfnetParams(struct ifnet_init_params *params)
+
+bool IONetworkInterface::initIfnetParams( struct ifnet_init_params *params )
 {
     // Register our 'shim' functions. These function pointers
     // points to static member functions inside this class.
 	params->name		= (char *) getNamePrefix();
 	params->type		= _type;
 	params->unit		= _unit;
-	params->output		= output_shim;
-	params->ioctl		= ioctl_shim;
-	params->set_bpf_tap = set_bpf_tap_shim;
-	params->detach		= detach_shim;
+	params->output		= if_output;
+	params->ioctl		= if_ioctl;
+	params->set_bpf_tap = if_set_bpf_tap;
+	params->detach		= if_detach;
 	params->softc		= this;
 
     return true;
 }
 
-//---------------------------------------------------------------------------
-// Implement family specific matching.
-
-bool IONetworkInterface::matchPropertyTable(OSDictionary * table,
-                                            SInt32       * score)
-{ 
-    return super::matchPropertyTable(table, score);
-}
-
-//---------------------------------------------------------------------------
-// Take the interface lock.
+//------------------------------------------------------------------------------
+// Take/release the interface lock.
 
 void IONetworkInterface::lock()
 {
-    IORecursiveLockLock(_ifLock);
+    IORecursiveLockLock(_publicLock);
 }
-
-//---------------------------------------------------------------------------
-// Release the interface lock.
 
 void IONetworkInterface::unlock()
 {
-    IORecursiveLockUnlock(_ifLock);
+    IORecursiveLockUnlock(_publicLock);
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Inspect the controller after it has been opened.
 
-bool IONetworkInterface::controllerDidOpen(IONetworkController * controller)
+bool IONetworkInterface::controllerDidOpen( IONetworkController * controller )
 {
     return true;   // by default, always accept the controller open.
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Perform cleanup before the controller is closed.
 
-void IONetworkInterface::controllerWillClose(IONetworkController * controller)
+void IONetworkInterface::controllerWillClose( IONetworkController * controller )
 {
 }
 
-//---------------------------------------------------------------------------
-// Handle a client open on the interface.
+//------------------------------------------------------------------------------
+// Handle a client open on the interface (IONetworkStack or user client)
 
-bool IONetworkInterface::handleOpen(IOService *  client,
-                                    IOOptionBits options,
-                                    void *       argument)
+bool IONetworkInterface::handleOpen( IOService *  client,
+                                     IOOptionBits options,
+                                     void *       argument )
 {
     bool  accept         = false;
     bool  controllerOpen = false;
@@ -481,8 +545,8 @@ bool IONetworkInterface::handleOpen(IOService *  client,
 
         if ( _clientSet->containsObject(client) )
         {
-            DLOG("%s: multiple opens from client %lx\n",
-                 getName(), (UInt32) client);
+            DLOG("%s: rejected open from existing client %s\n",
+                getName(), client->getName());
             accept = true;
             break;
         }
@@ -493,14 +557,15 @@ bool IONetworkInterface::handleOpen(IOService *  client,
         // a client. If the controller open fails, the client open will
         // be rejected.
 
-        if ( ( getInterfaceState() & kIONetworkInterfaceOpenedState ) == 0 )
+        if (( getInterfaceState() & kIONetworkInterfaceOpenedState ) == 0)
         {
-            if ( ( (controllerOpen = _controller->open(this)) == false ) ||
-                 ( controllerDidOpen(_controller) == false ) )
+            if (!_driver ||
+                 ((controllerOpen = _driver->open(this)) == false) ||
+                 (controllerDidOpen(_driver) == false))
                 break;
         }
 
-        // Qualify the client.
+        // Allow subclasses to intercept.
 
         if ( handleClientOpen(client, options, argument) == false )
             break;
@@ -525,50 +590,55 @@ bool IONetworkInterface::handleOpen(IOService *  client,
         if (accept)
         {
             setInterfaceState( kIONetworkInterfaceOpenedState );
-            _controller->registerInterestedDriver( this );
+            _driver->registerInterestedDriver( this );
         }
-        else {
-            controllerWillClose(_controller);
-            _controller->close(this);
+        else
+        {
+            controllerWillClose(_driver);
+            _driver->close(this);
         }
     }
 
     return accept;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle a client close on the interface.
 
-void IONetworkInterface::handleClose(IOService * client, IOOptionBits options)
+void IONetworkInterface::handleClose( IOService * client, IOOptionBits options )
 {
-    // Remove the object from the client OSSet.
-
     if ( _clientSet->containsObject(client) )
     {
-        // Call handleClientClose() to handle the client close.
+        // Call handleClientClose() for subclass to handle the client close.
 
         handleClientClose( client, options );
 
-        // If this is the last client, then close our provider.
+        // Close our provider on last client close.
 
         if ( _clientSet->getCount() == 1 )
         {
-            _controller->deRegisterInterestedDriver( this );
-            controllerWillClose( _controller );
-            _controller->close( this );
+            _driver->deRegisterInterestedDriver( this );
+            controllerWillClose( _driver );
+            _driver->close( this );
             setInterfaceState( 0, kIONetworkInterfaceOpenedState );
+
+            // Closed by IONetworkStack after detaching interface,
+            // drop the driver retain from init().
+
+            if (!isRegistered())
+            {
+                _driver->release();
+                _driver = 0;
+            }
         }
-
-        // Remove the client from our OSSet.
-
         _clientSet->removeObject(client);
     }
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Query whether a client has an open on the interface.
 
-bool IONetworkInterface::handleIsOpen(const IOService * client) const
+bool IONetworkInterface::handleIsOpen( const IOService * client ) const
 {
     if (client)
         return _clientSet->containsObject(client);
@@ -576,7 +646,7 @@ bool IONetworkInterface::handleIsOpen(const IOService * client) const
         return (_clientSet->getCount() > 0);
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle a client open on the interface.
 
 bool IONetworkInterface::handleClientOpen(IOService *  client,
@@ -586,7 +656,7 @@ bool IONetworkInterface::handleClientOpen(IOService *  client,
     return true;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle a client close on the interface.
 
 void IONetworkInterface::handleClientClose(IOService *  client,
@@ -594,39 +664,42 @@ void IONetworkInterface::handleClientClose(IOService *  client,
 {
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Register the output packet handler.
 
 bool IONetworkInterface::registerOutputHandler(OSObject *      target,
                                                IOOutputAction  action)
 {
-    lock();
+    IOLockLock(_privateLock);
 
-    // Sanity check on the arguments.
+    // Sanity check the arguments.
 
     if ( (getInterfaceState() & kIONetworkInterfaceOpenedState) ||
          !target || !action )
     {
-        unlock();
+        IOLockUnlock(_privateLock);
         return false;
     }
 
     _outTarget = target;
     _outAction = action;
 
-    unlock();
+    IOLockUnlock(_privateLock);
 
     return true;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Feed packets to the input/output BPF packet filter taps.
+
 OSMetaClassDefineReservedUsed(IONetworkInterface, 2);
 
 void IONetworkInterface::feedPacketInputTap(mbuf_t  m)
 {
-	bpf_packet_func inFilter = _inputFilterFunc; //PR3662433 we're not protected from this getting changed out from under us
-	if(inFilter)						// so double check it hasn't be set to null and use a local ptr to avoid the race
+    // PR3662433 we're not protected from this getting changed out from under us
+    // so use a local ptr and double check for NULL to avoid the race
+	bpf_packet_func inFilter = _inputFilterFunc; 
+	if (inFilter)
 		inFilter(_backingIfnet, m); 
 }
 
@@ -634,77 +707,86 @@ OSMetaClassDefineReservedUsed(IONetworkInterface, 3);
 
 void IONetworkInterface::feedPacketOutputTap(mbuf_t m)
 {
-	bpf_packet_func outFilter = _outputFilterFunc; //see comment in feedPacketInputTap
-	if(outFilter)
+    // see comment in feedPacketInputTap
+	bpf_packet_func outFilter = _outputFilterFunc;
+	if (outFilter)
 		outFilter(_backingIfnet, m);
 }
 
-//---------------------------------------------------------------------------
-// Called by a network controller to submit a single packet received from
-// the network to the data link layer.
+//------------------------------------------------------------------------------
+
 #define ABS(a)  ((a) < 0 ? -(a) : (a))
 
-#define IN_Q_ENQUEUE(m)                   \
-{                                         \
-    if (_inputQHead == 0) {               \
-        _inputQHead = _inputQTail = (m);  \
-    }                                     \
-    else {                                \
-       mbuf_setnextpkt(_inputQTail, (m)) ;    \
-        _inputQTail = (m);                \
-    }                                     \
-    _inputQCount++;                       \
+void IONetworkInterface::pushInputQueue( IOMbufQueue * queue )
+{
+    uint32_t    temp;
+    int         delta;
+
+    _inputDeltas.packets_in = queue->count;
+    _inputDeltas.bytes_in   = queue->bytes;
+
+    // Report our packet count rather than rely on the driver stats.
+    // ifnet_input_extended() requires the count to be accurate.
+
+    temp = _driverStats.inputErrors;
+    delta =  temp - _lastDriverStats.inputErrors;
+    _inputDeltas.errors_in = ABS(delta);
+    _lastDriverStats.inputErrors = temp;
+
+    temp = _driverStats.collisions;
+    delta = temp - _lastDriverStats.collisions;
+    _inputDeltas.collisions = ABS(delta);
+    _lastDriverStats.collisions = temp;
+
+    ifnet_input_extended(_backingIfnet, queue->head, queue->tail, &_inputDeltas);
+    IOMbufQueueInit(queue);
 }
 
-__inline__  void IONetworkInterface::DLIL_INPUT(mbuf_t m_head)
+void IONetworkInterface::pushInputPacket( mbuf_t packet, uint32_t length )
 {
-    if ( m_head ) {
-		UInt32 noraceTemp;
-		int delta;
-		
-		//_inputDeltas.bytes_in already contains the count accumlated between calls to DLIL_INPUT
-		
-		// now copy over the stats that the driver maintains.
-		noraceTemp = _driverStats.inputPackets;
-		delta = noraceTemp - _lastDriverStats.inputPackets ;
-		_inputDeltas.packets_in = ABS(delta);
-		_lastDriverStats.inputPackets = noraceTemp;
+    uint32_t    temp;
+    int         delta;
 
-		noraceTemp = _driverStats.inputErrors;
-		delta =  noraceTemp - _lastDriverStats.inputErrors;
-		_inputDeltas.errors_in = ABS(delta);
-		_lastDriverStats.inputErrors = noraceTemp;
+    _inputDeltas.packets_in = 1;
+    _inputDeltas.bytes_in   = length;
 
-		noraceTemp = _driverStats.collisions;
-		delta = noraceTemp - _lastDriverStats.collisions;
-		_inputDeltas.collisions = ABS(delta);
-		_lastDriverStats.collisions = noraceTemp;
-		
-        ifnet_input(_backingIfnet, m_head, &_inputDeltas);
-		_inputDeltas.bytes_in = 0;	//reset to 0
+    // Report our packet count rather than rely on the driver stats.
+    // ifnet_input_extended() requires the count to be accurate.
+
+    temp = _driverStats.inputErrors;
+    delta =  temp - _lastDriverStats.inputErrors;
+    _inputDeltas.errors_in = ABS(delta);
+    _lastDriverStats.inputErrors = temp;
+
+    temp = _driverStats.collisions;
+    delta = temp - _lastDriverStats.collisions;
+    _inputDeltas.collisions = ABS(delta);
+    _lastDriverStats.collisions = temp;
+
+    ifnet_input_extended(_backingIfnet, packet, packet, &_inputDeltas);
+}
+
+UInt32 IONetworkInterface::flushInputQueue( void )
+{
+    UInt32 count = _inputPushQueue->count;
+
+    if (count)
+    {
+        //DLOG("push pkt cnt %u\n", count);
+        pushInputQueue(_inputPushQueue);
     }
-}
-
-UInt32 IONetworkInterface::flushInputQueue()
-{
-    UInt32 count = _inputQCount;
-
-    DLIL_INPUT(_inputQHead);
-    _inputQHead  = _inputQTail = 0;
-    _inputQCount = 0;
 
     return count;
 }
 
-UInt32 IONetworkInterface::clearInputQueue()
+UInt32 IONetworkInterface::clearInputQueue( void )
 {
-    UInt32 count = _inputQCount;
+    UInt32 count = _inputPushQueue->count;
 
-    mbuf_freem_list( _inputQHead );
-	_inputDeltas.bytes_in = 0;
-    _inputQHead = _inputQTail = 0;
-    _inputQCount = 0;
+    if (count)
+        mbuf_freem_list(_inputPushQueue->head);
 
+    IOMbufQueueInit(_inputPushQueue);
     return count;
 }
 
@@ -718,7 +800,7 @@ inline static const char *get_icmp_data(mbuf_t *pkt, int hdrlen, int datalen)
 
     /* make sure hdrlen is sane with respect to mbuf */
     if (mbuf_len(*pkt) < (sizeof(*ip) + hdrlen))
-	goto error;    
+        goto error;    
 
     /* only work for IPv4 packets */
     ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen);
@@ -729,21 +811,21 @@ inline static const char *get_icmp_data(mbuf_t *pkt, int hdrlen, int datalen)
 
     /* make sure header and data is contiguous */
     if (mbuf_pullup(pkt, hlen + icmplen) != 0)
-	goto error;
+        goto error;
 
     /* refresh the pointer and hlen in case buffer was shifted */
     ip = (struct ip *) ((char *) mbuf_data(*pkt) + hdrlen); 
-    hlen = IP_VHL_HL(ip->ip_vhl) << 2;
+        hlen = IP_VHL_HL(ip->ip_vhl) << 2;
 
     if (ip->ip_p != IPPROTO_ICMP)
-	goto error;
+        goto error;
 
     if (ip->ip_len < (icmplen + datalen))
         goto error;
 
     icmp = (struct icmp *) (((char *) mbuf_data(*pkt) + hdrlen) + hlen);
     if (icmp->icmp_type != ICMP_ECHO)
-	goto error;
+        goto error;
 
     return (const char *) (((char *) mbuf_data(*pkt) + hdrlen) + icmplen);
 
@@ -751,87 +833,99 @@ error:
     return NULL;
 }
 
-
-UInt32 IONetworkInterface::inputPacket(mbuf_t pkt,
-                                       UInt32        length,
-                                       IOOptionBits  options,
-                                       void *        param)
+UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
+                                        UInt32          length,
+                                        IOOptionBits    options,
+                                        void *          param )
 {
-    UInt32 count;
-	UInt32 hdrlen = getMediaHeaderLength();
-    assert(pkt);
+	const UInt32    hdrlen = _hdrlen;
+    UInt32          count;
+    void *          mdata;
 
+    assert(packet);
+    assert(_backingIfnet);
+    if (!packet || !_backingIfnet)
+        return 0;
 
-    // Set the source interface and length of the received frame.
+    assert((mbuf_flags(packet) & MBUF_PKTHDR));
+    assert((mbuf_nextpkt(packet) == 0));
 
-    if ( length )
+	mbuf_pkthdr_setrcvif(packet, _backingIfnet);
+
+    if (length)
     {
-        if ( mbuf_next(pkt) == 0 )
+        // Driver wants interface to set the mbuf length.
+        if (mbuf_next(packet) == 0)
         {
-            mbuf_pkthdr_setlen(pkt, length);
-			mbuf_setlen(pkt, length);
+            mbuf_pkthdr_setlen(packet, length);
+			mbuf_setlen(packet, length);
         }
         else
         {
-            mbuf_t m   = pkt;
-            mbuf_pkthdr_setlen(pkt, length);
+            // rare case of single packet but multiple mbufs.
+            mbuf_t      m = packet;
+            uint32_t    remain = length;
+            mbuf_pkthdr_setlen(packet, remain);
             do {
-                if (length < (UInt32) mbuf_len(m))
-                    mbuf_setlen(m, length);
-                length -= mbuf_len(m);
-            } while (( m = mbuf_next(m) ));
-            assert(length == 0);
+                if (remain < (UInt32) mbuf_len(m))
+                    mbuf_setlen(m, remain);
+                remain -= mbuf_len(m);
+            } while ((m = mbuf_next(m)));
+            assert(remain == 0);
         }
     }
+    else
+    {
+        length = mbuf_pkthdr_len(packet);
+    }
 
-	mbuf_pkthdr_setrcvif(pkt, _backingIfnet);
-    
     // check for special debugger packet 
     if (_remote_NMI_len) {
-       const char *data = get_icmp_data((mbuf_t *) &pkt, hdrlen, _remote_NMI_len);
+       const char *data = get_icmp_data(&packet, hdrlen, _remote_NMI_len);
 
        if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
            IOKernelDebugger::signalDebugger();
        } 
     }
+	
+    // input BPF tap
+	if (_inputFilterFunc)
+		feedPacketInputTap(packet);
 
-    // Increment input byte count. (accumulate until DLIL_INPUT is called)
-	_inputDeltas.bytes_in += mbuf_pkthdr_len(pkt);
-	
-    // Feed BPF tap.
-	if(_inputFilterFunc)
-		feedPacketInputTap(pkt);
-	
-	mbuf_pkthdr_setheader(pkt, mbuf_data(pkt));
-    mbuf_pkthdr_setlen(pkt, mbuf_pkthdr_len(pkt) - hdrlen);
-    mbuf_setdata(pkt, (char *)mbuf_data(pkt) + hdrlen, mbuf_len(pkt) - hdrlen);
+    // frame header at start of mbuf data
+    mdata = mbuf_data(packet);
+	mbuf_pkthdr_setheader(packet, mdata);
+
+    // packet length does not include the frame header
+    mbuf_pkthdr_setlen(packet, length - hdrlen);
+
+    // adjust the mbuf data and length to skip over the frame header
+    mbuf_setdata(packet, (char *)mdata + hdrlen, mbuf_len(packet) - hdrlen);
 
     if ( options & kInputOptionQueuePacket )
     {
-        IN_Q_ENQUEUE(pkt);
+        IOMbufQueueTailAdd(_inputPushQueue, packet, length);
         count = 0;
     }
     else
     {
-        if ( _inputQHead )  // queue is not empty
+        if (!IOMbufQueueIsEmpty(_inputPushQueue))
         {
-            IN_Q_ENQUEUE(pkt);
-
-            count = _inputQCount;
-            DLIL_INPUT(_inputQHead);
-            _inputQHead  = _inputQTail = 0;
-            _inputQCount = 0;
+            IOMbufQueueTailAdd(_inputPushQueue, packet, length);
+            count = _inputPushQueue->count;
+            pushInputQueue(_inputPushQueue);
         }
         else
         {
-            DLIL_INPUT(pkt);
+            pushInputPacket(packet, length);
             count = 1;
         }
     }
+
     return count;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Deliver an event to the network layer.
 
 bool IONetworkInterface::inputEvent(UInt32 type, void * data)
@@ -848,11 +942,27 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
     {
         // Deliver an IOKit defined event.
 
-        case kIONetworkEventTypeLinkUp:
+        case kIONetworkEventTypeLinkUp:        
         case kIONetworkEventTypeLinkDown:
+        case kIONetworkEventTypeLinkSpeedChange:
             // Send an event only if DLIL has a reference to this
             // interface.
-            if ( _backingIfnet )
+            if (!_backingIfnet)
+                break;
+
+            // Use link speed to report bandwidth for legacy drivers
+            if (data && ((_configFlags & kConfigDataRates) == 0))
+            {
+                if_bandwidths_t bw;
+                uint64_t *      bps = (uint64_t *) data;
+
+                bw.max_bw = *bps;
+                bw.eff_bw = *bps;
+                ifnet_set_bandwidths(_backingIfnet, &bw, &bw);
+            }
+
+            if ((type == kIONetworkEventTypeLinkUp) ||
+                (type == kIONetworkEventTypeLinkDown))
             {
 				bzero((void *) &event, sizeof(event));
                 event.header.total_size    = sizeof(event);
@@ -866,7 +976,7 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
                 strncpy(&event.if_name[0], ifnet_name(_backingIfnet), IFNAMSIZ);
 
                 ifnet_event(_backingIfnet, &event.header);
-            }
+            }            
             break;
 
         // Deliver a raw kernel event to DLIL.
@@ -888,7 +998,7 @@ bool IONetworkInterface::inputEvent(UInt32 type, void * data)
     return success;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // SIOCSIFMTU (set interface MTU) ioctl handler.
 
 SInt32 IONetworkInterface::syncSIOCSIFMTU(IONetworkController * ctr,
@@ -918,7 +1028,7 @@ SInt32 IONetworkInterface::syncSIOCSIFMTU(IONetworkController * ctr,
     return error;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // SIOCSIFMEDIA (SET interface media) ioctl handler.
 
 SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
@@ -994,7 +1104,7 @@ SInt32 IONetworkInterface::syncSIOCSIFMEDIA(IONetworkController * ctr,
     return error;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // SIOCGIFMEDIA (GET interface media) ioctl handler.
 
 SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
@@ -1141,7 +1251,7 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
     return error;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle ioctl commands sent to the network interface.
 
 SInt32 IONetworkInterface::performCommand(IONetworkController * ctr,
@@ -1193,7 +1303,7 @@ SInt32 IONetworkInterface::performCommand(IONetworkController * ctr,
     return ret;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Perform an ioctl command on the controller's workloop context.
 
 int IONetworkInterface::performGatedCommand(void * target,
@@ -1239,73 +1349,64 @@ int IONetworkInterface::performGatedCommand(void * target,
     return ret;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // if_ioctl() handler - Calls performCommand() when we receive an ioctl
 // from DLIL.
 
 errno_t
-IONetworkInterface::ioctl_shim(ifnet_t ifn, unsigned long cmd, void * data)
+IONetworkInterface::if_ioctl( ifnet_t ifp, unsigned long cmd, void * data )
 {
-    IONetworkInterface *    nif = (IONetworkInterface *) ifnet_softc(ifn);
-    IONetworkController *   ctr;
+	IONetworkInterface *    self = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
     errno_t                 err;
     
-    if (!nif || nif->isInactive())
+    if (!self || self->isInactive())
     {
         return EOPNOTSUPP;
     }
 
-    ctr = nif->_controller;
-    if (!ctr)
+    driver = self->_driver;
+    if (!driver)
     {
         return EINVAL;
     }
-    
-    ctr->retain();
 
-    err = nif->performCommand( ctr, cmd, (void *) ifn, data );
+    assert(ifp == self->_backingIfnet);
 
-    ctr->release();
-
+    err = self->performCommand( driver, cmd, (void *) ifp, data );
     return err;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // if_output() handler.
 //
 // Handle a call from the network stack to transmit the given mbuf.
 // For now, we can assume that the mbuf is singular, and never chained.
 
-int IONetworkInterface::output_shim(ifnet_t ifn, mbuf_t m)
+int IONetworkInterface::if_output( ifnet_t ifp, mbuf_t m )
 {
-	UInt32 noraceTemp;
-	int delta;
-	u_int32_t outPackets, outErrors;
-	
-//    assert(ifp && ifp->if_private);
+	UInt32      noraceTemp;
+	int         delta;
+	u_int32_t   outPackets, outErrors;
 
-    IONetworkInterface * self = (IONetworkInterface *) ifnet_softc(ifn);
+	IONetworkInterface * self = IFNET_TO_THIS(ifp);
     
-//    assert(ifp == self->_ifp);
+    assert(ifp == self->_backingIfnet);
 
     if ( m == 0 )
     {
-        DLOG("IONetworkInterface: NULL output mbuf\n");
+        DLOG("%s: NULL output mbuf\n", self->getName());
         return EINVAL;
     }
 
     if ( (mbuf_flags(m) & MBUF_PKTHDR) == 0 )
     {
-        DLOG("IONetworkInterface: MBUF_PKTHDR bit not set\n");
+        DLOG("%s: MBUF_PKTHDR bit not set\n", self->getName());
         mbuf_freem(m);
         return EINVAL;
     }
 
-    // Increment output related statistics.
-	// There is a race condition if this function in entered by more than one packet
-	// at the same time: the fields in _lastDriverStats could get an incorrect update from the other thread.
-	// As of Tiger, IP transmit is single threaded though.
-	
+    // Increment output related statistics.	
 	// update the stats that the driver maintains	
 	noraceTemp = self->_driverStats.outputErrors;
 	delta = noraceTemp - self->_lastDriverStats.outputErrors;
@@ -1328,21 +1429,20 @@ int IONetworkInterface::output_shim(ifnet_t ifn, mbuf_t m)
 	return ((self->_outTarget)->*(self->_outAction))(m, 0);
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // if_set_bpf_tap() handler. Handles request from the DLIL to enable or
 // disable the input/output filter taps.
 //
 // FIXME - locking may be needed.
 
-errno_t IONetworkInterface::set_bpf_tap_shim(ifnet_t ifn,
-                                         bpf_tap_mode            mode,
-                                         bpf_packet_func       func)
+errno_t IONetworkInterface::if_set_bpf_tap(
+    ifnet_t             ifp,
+    bpf_tap_mode        mode,
+    bpf_packet_func     func)
 {
-//    assert(ifp && ifp->if_private);
+	IONetworkInterface * self = IFNET_TO_THIS(ifp);
 
-    IONetworkInterface * self = (IONetworkInterface *) ifnet_softc(ifn);
-
-//    assert(ifp == self->_ifp);
+    assert(ifp == self->_backingIfnet);
 
     switch ( mode )
     {
@@ -1366,58 +1466,28 @@ errno_t IONetworkInterface::set_bpf_tap_shim(ifnet_t ifn,
             break;
 
         default:
-            DLOG("IONetworkInterface: Unknown BPF tap mode %d\n", mode);
+            DLOG("%s: Unknown BPF tap mode %d\n", self->getName(), mode);
             break;
     }
 
     return 0;
 }
 
-void IONetworkInterface::detach_shim(ifnet_t ifn)
+void IONetworkInterface::if_detach( ifnet_t ifp )
 {
-	IONetworkInterface * self = (IONetworkInterface *) ifnet_softc(ifn);
-	
-	IOLockLock( self->_detachLock);
+	IONetworkInterface * self = IFNET_TO_THIS(ifp);
+
+    assert(WAITING_FOR_DETACH(self) == 1);
+    self->retain();
+	IOLockLock(self->_privateLock);
 	WAITING_FOR_DETACH(self) = 0;
-	thread_wakeup( (void *) self->getIfnet() );
-	IOLockUnlock( self->_detachLock);
+	thread_wakeup((void *) self);
+	IOLockUnlock(self->_privateLock);
+    self->release();
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // ifnet field (and property table) getter/setter.
-
-bool IONetworkInterface::_setInterfaceProperty(UInt32  value,
-                                               UInt32  mask,
-                                               UInt32  bytes,
-                                               void *  addr,
-                                               char *  key)
-{
-    bool    updateOk = true;
-    UInt32  newValue;
-
-    // Update the property in ifnet.
-
-    switch (bytes)
-    {
-        case 1:
-            newValue = (*((UInt8 *) addr) & mask) | value;
-            *((UInt8 *) addr) = (UInt8) newValue;
-            break;
-        case 2:
-            newValue = (*((UInt16 *) addr) & mask) | value;
-            *((UInt16 *) addr) = (UInt16) newValue;
-            break;
-        case 4:
-            newValue = (*((UInt32 *) addr) & mask) | value;
-            *((UInt32 *) addr) = (UInt32) newValue;
-            break;
-        default:
-            updateOk = false;
-            break;
-    }
-
-    return updateOk;
-}
 
 #define IO_IFNET_GET(func, type, field, kpi)                    \
 type IONetworkInterface::func(void) const                       \
@@ -1447,15 +1517,14 @@ bool IONetworkInterface::func(type set, type clear)             \
 	return true;                                                \
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Interface type accessors (ifp->if_type). The list of interface types is
 // defined in <bsd/net/if_types.h>.
 
-//IO_IFNET_SET(setInterfaceType, UInt8, type, kIOInterfaceType)
 bool IONetworkInterface::setInterfaceType(UInt8 type)
 {
 	// once attached to dlil, we can't change the interface type
-	if(_backingIfnet)
+	if (_backingIfnet)
 		return false;
 	else
 		_type = type;
@@ -1467,61 +1536,49 @@ UInt8 IONetworkInterface::getInterfaceType(void) const
     return _type;
 }
 
-//---------------------------------------------------------------------------
-// Mtu (MaxTransferUnit) accessors (ifp->if_mtu).
-
 IO_IFNET_SET(setMaxTransferUnit, UInt32, mtu, ifnet_set_mtu)
 IO_IFNET_GET(getMaxTransferUnit, UInt32, mtu, ifnet_mtu)
 
-//---------------------------------------------------------------------------
-// Flags accessors (ifp->if_flags). This is a read-modify-write operation.
-
 IO_IFNET_RMW(setFlags, UInt16, flags, ifnet_set_flags)
 IO_IFNET_GET(getFlags, UInt16, flags, ifnet_flags)
-
-//---------------------------------------------------------------------------
-// EFlags accessors (ifp->if_eflags). This is a read-modify-write operation.
 
 bool IONetworkInterface::setExtraFlags( UInt32 set, UInt32 clear )
 {
     _eflags = (_eflags & ~clear) | set;
     return true;
 }
-IO_IFNET_GET(getExtraFlags, UInt32, eflags, ifnet_eflags)
 
-//---------------------------------------------------------------------------
-// MediaAddressLength accessors (ifp->if_addrlen)
+IO_IFNET_GET(getExtraFlags, UInt32, eflags, ifnet_eflags)
 
 IO_IFNET_SET(setMediaAddressLength, UInt8, addrlen, ifnet_set_addrlen)
 IO_IFNET_GET(getMediaAddressLength, UInt8, addrlen, ifnet_addrlen)
 
-//---------------------------------------------------------------------------
-// MediaHeaderLength accessors (ifp->if_hdrlen)
-
 IO_IFNET_SET(setMediaHeaderLength, UInt8, hdrlen, ifnet_set_hdrlen)
 IO_IFNET_GET(getMediaHeaderLength, UInt8, hdrlen, ifnet_hdrlen)
 
-//---------------------------------------------------------------------------
-// Interface unit number. The unit number for the interface is assigned
-// by our client.
+IO_IFNET_GET(getUnitNumber, UInt16, unit, ifnet_unit)
 
 bool IONetworkInterface::setUnitNumber( UInt16 value )
 {
-	if(_backingIfnet)   //once we've attached to dlil, unit can't be changed
+    // once we've attached to dlil, unit can't be changed
+	if (_backingIfnet)
 		return false;
 	
-    if ( setProperty( kIOInterfaceUnit, value, 16 ) )
+    if (setProperty( kIOInterfaceUnit, value, 32 ))
     {
+        char name[128];
+
         _unit = value;
 		setProperty( kIOPrimaryInterface, isPrimaryInterface() );
+        snprintf(name, sizeof(name), "%s%u", getNamePrefix(), _unit);
+        setName(name);
         return true;
     }
     else
         return false;
 }
-IO_IFNET_GET(getUnitNumber, UInt16, unit, ifnet_unit)
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Return true if the interface has been registered with the network layer,
 // false otherwise.
 
@@ -1530,7 +1587,7 @@ bool IONetworkInterface::isRegistered() const
     return (bool)(getInterfaceState() & kIONetworkInterfaceRegisteredState);
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // serialize
 
 bool IONetworkInterface::serializeProperties( OSSerialize * s ) const
@@ -1547,7 +1604,7 @@ bool IONetworkInterface::serializeProperties( OSSerialize * s ) const
     return super::serializeProperties( s );
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Return the interface state flags.
 
 UInt32 IONetworkInterface::getInterfaceState() const
@@ -1555,7 +1612,7 @@ UInt32 IONetworkInterface::getInterfaceState() const
     return _stateBits->unsigned32BitValue();
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Set (or clear) the interface state flags.
 
 UInt32 IONetworkInterface::setInterfaceState( UInt32 set,
@@ -1565,17 +1622,17 @@ UInt32 IONetworkInterface::setInterfaceState( UInt32 set,
 
     assert( _stateBits );
 
-    lock();
+    IOLockLock(_privateLock);
 
     val = ( _stateBits->unsigned32BitValue() | set ) & ~clear;
     _stateBits->setValue( val );
 
-    unlock();
+    IOLockUnlock(_privateLock);
 
     return val;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Perform a lookup of the dictionary kept by the interface,
 // and return an entry that matches the specified string key.
 //
@@ -1593,7 +1650,7 @@ IONetworkData * IONetworkInterface::getNetworkData(const char * key) const
     return OSDynamicCast(IONetworkData, _dataDict->getObject(key));
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // A private function to copy the data dictionary to the property table.
 
 bool IONetworkInterface::_syncNetworkDataDict()
@@ -1609,51 +1666,33 @@ bool IONetworkInterface::_syncNetworkDataDict()
     return ret;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Remove an entry from the IONetworkData dictionary managed by the interface.
 // The removed object is released.
 
 bool IONetworkInterface::removeNetworkData(const OSSymbol * aKey)
 {
-    bool ret = false;
+    bool ret;
 
-    lock();
-
-    do {
-        if ( getInterfaceState() & kIONetworkInterfaceOpenedState )
-            break;
-
-        _dataDict->removeObject(aKey);
-        ret = _syncNetworkDataDict();
-    }
-    while (0);
-
-    unlock();
-
+    IOLockLock(_privateLock);
+    _dataDict->removeObject(aKey);
+    ret = _syncNetworkDataDict();
+    IOLockUnlock(_privateLock);
     return ret;
 }
 
 bool IONetworkInterface::removeNetworkData(const char * aKey)
 {
-    bool ret = false;
+    bool ret;
 
-    lock();
-
-    do {
-        if ( getInterfaceState() & kIONetworkInterfaceOpenedState )
-            break;
-
-        _dataDict->removeObject(aKey);
-        ret = _syncNetworkDataDict();
-    }
-    while (0);
-
-    unlock();
-
+    IOLockLock(_privateLock);
+    _dataDict->removeObject(aKey);
+    ret = _syncNetworkDataDict();
+    IOLockUnlock(_privateLock);
     return ret;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Add an IONetworkData object to a dictionary managed by the interface.
 
 bool IONetworkInterface::addNetworkData(IONetworkData * aData)
@@ -1663,20 +1702,14 @@ bool IONetworkInterface::addNetworkData(IONetworkData * aData)
     if (OSDynamicCast(IONetworkData, aData) == 0)
         return false;
 
-    lock();
-
-    if (( getInterfaceState() & kIONetworkInterfaceOpenedState ) == 0)
-    {
-        if ((ret = _dataDict->setObject(aData->getKey(), aData)))
-            ret = _syncNetworkDataDict();
-    }
-
-    unlock();
-
+    IOLockLock(_privateLock);
+    if (_dataDict->setObject(aData->getKey(), aData))
+        ret = _syncNetworkDataDict();
+    IOLockUnlock(_privateLock);
     return ret;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Create a new IOUserClient to handle client requests. The default
 // implementation will create an IONetworkUserClient instance if
 // the type given is kIONetworkUserClientTypeID.
@@ -1710,7 +1743,7 @@ IOReturn IONetworkInterface::newUserClient(task_t           owningTask,
     return err;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Power change notices are posted by the controller's policy-maker to
 // inform the interface that the controller is changing power states.
 // There are two notifications for each state change, delivered prior
@@ -1728,7 +1761,7 @@ enum {
     kPhasePowerStateDidChange  = 0x02
 };
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle controller's power state transitions.
 
 IOReturn
@@ -1759,7 +1792,7 @@ IONetworkInterface::controllerDidChangePowerState(
     return kIOReturnSuccess;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Static member functions called by power-management notification handlers.
 // Act as stub functions that will simply forward the call to virtual member
 // functions.
@@ -1773,13 +1806,15 @@ IONetworkInterface::powerChangeHandler( void * target,
 	IONetworkPowerChangeNotice * notice;
 
     assert( self );
+    if (!self->_driver)
+        return;
 
     if ( param1 == 0 )
     {
         // Issue a call to this same function synchronized with the
         // work loop thread.
 
-        self->getController()->executeCommand(
+        self->_driver->executeCommand(
               /* client */ self,
               /* action */ (IONetworkController::Action) &powerChangeHandler,
               /* target */ self,
@@ -1792,14 +1827,14 @@ IONetworkInterface::powerChangeHandler( void * target,
     notice = (IONetworkPowerChangeNotice *) param0;
     assert( notice );
 
-    DLOG("%s: power change flags:%08x, state:%d, from:%p, phase:%d\n",
+    DLOG("%s: power change flags:%08x state:%d from:%p phase:%d\n",
          self->getName(), (uint32_t) notice->powerFlags,
          notice->stateNumber, notice->policyMaker, notice->phase );
 
     if ( notice->phase == kPhasePowerStateWillChange )
     {
         self->controllerWillChangePowerState(
-              self->getController(),
+              self->_driver,
               notice->powerFlags,
               notice->stateNumber,
               notice->policyMaker );
@@ -1807,14 +1842,14 @@ IONetworkInterface::powerChangeHandler( void * target,
     else if ( notice->phase == kPhasePowerStateDidChange )
     {
         self->controllerDidChangePowerState(
-              self->getController(),
+              self->_driver,
               notice->powerFlags,
               notice->stateNumber,
               notice->policyMaker );
     }
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Handle notitifications triggered by controller's power state change.
 
 IOReturn
@@ -1851,65 +1886,57 @@ IONetworkInterface::powerStateDidChangeTo( IOPMPowerFlags  powerFlags,
     return kIOPMAckImplied;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 IOReturn IONetworkInterface::message( UInt32 type, IOService * provider,
                                       void * argument )
 {
     if (kMessageControllerWillShutdown == type)
     {
-        // Handle shutdown or restarts the same as when the controller
-        // is transitioning to an "unusable" power state.
+        // Handle system shutdown or restarts. Handle this by performing the
+        // same work when driver is transitioning to an unusable power state.
 
+        DLOG("%s: kMessageControllerWillShutdown\n", getName());
+        haltOutputThread( kTxThreadStateDetach );
         powerStateWillChangeTo( 0, 0, NULL );
         return kIOReturnSuccess;
     }
-    
+
     return super::message( type, provider, argument );
 }
 
-//---------------------------------------------------------------------------
-// Handle a request to set properties from kernel or non-kernel clients.
-// For non-kernel clients, the preferred mechanism is through an user
-// client.
+//------------------------------------------------------------------------------
+// Termination
 
-IOReturn IONetworkInterface::setProperties( OSObject * properties )
+bool IONetworkInterface::requestTerminate(
+    IOService *     provider,
+    IOOptionBits    options )
 {
-    IOReturn       ret;
-    OSDictionary * dict;
-    OSObject *     obj;
-
-    // Controller properties are routed to our provider.
-
-    if (( dict = OSDynamicCast( OSDictionary, properties ) ) &&
-        ( obj  = dict->getObject( kIONetworkControllerProperties ) ))
+    // Early indication that provider started termination
+    if (provider == _driver)
     {
-        ret = _controller->setProperties( obj );
-    }
-    else
-    {
-        ret = super::setProperties(properties);
+        // Stop transmit thread before a later disable by the
+        // driver on work loop context, which can deadlock.
+
+        DLOG("%s::requestTerminate(%s)\n",
+            getName(), provider->getName());
+        haltOutputThread( kTxThreadStateDetach );
     }
 
-    return ret;
+    return super::requestTerminate(provider, options);
 }
-
-//---------------------------------------------------------------------------
-// willTerminate
 
 bool IONetworkInterface::willTerminate( IOService *  provider,
                                         IOOptionBits options )
 {
-    DLOG("%s::%s\n", getName(), __FUNCTION__);
-
-    // Mark the interface as disabled.
+    DLOG("%s::%s(%s, 0x%x)\n", getName(), __FUNCTION__,
+        provider->getName(), (uint32_t) options);
 
     setInterfaceState( kIONetworkInterfaceDisabledState );
-
     return super::willTerminate( provider, options );
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Inlined functions pulled from header file to ensure
 // binary compatibility with drivers built with gcc2.95.
 
@@ -1919,99 +1946,238 @@ IONetworkData * IONetworkInterface::getParameter(const char * aKey) const
 bool IONetworkInterface::setExtendedFlags(UInt32 flags, UInt32 clear)
 { return true; }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+
+ifnet_t IONetworkInterface::getIfnet( void ) const
+{
+	return _backingIfnet;
+}
 
 OSMetaClassDefineReservedUsed(IONetworkInterface, 0);
 
 IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
                                                     void *       parameter )
 {
-    ifnet_init_params   iparams;
-	struct sockaddr_dl *ll_addr = 0;
-	char                buffer[2*sizeof(struct sockaddr_dl)];
-	UInt32              asize;
-    OSObject            *prop;
-	IOReturn            ret = kIOReturnInternalError;
+    ifnet_init_params       params;
+    ifnet_init_eparams      eparams;
+	struct sockaddr_dl *    ll_addr = 0;
+	char                    buffer[2 * sizeof(struct sockaddr_dl)];
+    errno_t                 error;
+    OSObject *              prop;
+    IOReturn                result = kIOReturnInternalError;
 
-	memset(&iparams, 0, sizeof(iparams));
-	initIfnetParams(&iparams);
-
-	if (ifnet_allocate( &iparams, &_backingIfnet))
-		return kIOReturnNoMemory;
-
-	ifnet_set_offload (_backingIfnet, getIfnetHardwareAssistValue( getController() ));		
-
-    prop = getController()->copyProperty(kIOMACAddress);
-    if (prop)
+    if (!_driver)
     {
-		OSData *hardAddr = OSDynamicCast(OSData, prop);
-
-        memset(buffer, 0, sizeof(buffer));
-        ll_addr = (struct sockaddr_dl *)buffer;
-
-        asize = sizeof(buffer) - offsetof(struct sockaddr_dl, sdl_data);
-        if (hardAddr && (hardAddr->getLength() <= asize))
-        {
-            asize = hardAddr->getLength();
-            bcopy(hardAddr->getBytesNoCopy(), ll_addr->sdl_data, asize);
-            ll_addr->sdl_len = offsetof(struct sockaddr_dl, sdl_data) + asize;
-            ll_addr->sdl_family = AF_LINK;
-            ll_addr->sdl_alen = asize;
-        }
-        prop->release();
+        LOG("%s: BSD attach failed, no driver\n", getName());
+        goto fail;
     }
-    
-    _syncToBackingIfnet();
 
-    if ((!ll_addr || (ll_addr->sdl_alen != 0)) &&
-        (ifnet_attach(_backingIfnet, ll_addr) == 0))
+	memset(&params, 0, sizeof(params));
+    if (!initIfnetParams(&params))
     {
-        ret = kIOReturnSuccess;
+        LOG("%s: initIfnetParams failed\n", getName());
+        goto fail;
+    }
+
+    memset(&eparams, 0, sizeof(eparams));
+
+    IOLockLock(_privateLock);
+    _configFlags |= kConfigFrozen;
+
+    // Pass ifnet_init_params to subclass which is then converted to
+    // the new ifnet_init_eparams. All this to avoid burning another
+    // vtable pad slot, and subclasses don't need to change.
+
+    eparams.ver             = IFNET_INIT_CURRENT_VERSION;
+    eparams.len             = sizeof(eparams);
+
+    eparams.uniqueid        = params.uniqueid;
+    eparams.uniqueid_len    = params.uniqueid_len;
+    eparams.name            = params.name;
+    eparams.unit            = params.unit;
+    eparams.family          = params.family;
+    eparams.type            = params.type;
+
+    eparams.demux           = params.demux;
+    eparams.add_proto       = params.add_proto;
+    eparams.del_proto       = params.del_proto;
+    eparams.check_multi     = params.check_multi;
+    eparams.framer          = params.framer;
+    eparams.softc           = params.softc;
+    eparams.ioctl           = params.ioctl;
+    eparams.set_bpf_tap     = params.set_bpf_tap;
+    eparams.detach          = params.detach;
+    eparams.event           = params.event;
+    eparams.broadcast_addr  = params.broadcast_addr;
+    eparams.broadcast_len   = params.broadcast_len;
+
+    if (!(_configFlags & kConfigRxPoll) &&
+        !(_configFlags & kConfigTxPull))
+    {
+        eparams.flags       = IFNET_INIT_LEGACY;
+    }
+
+    if (_configFlags & kConfigRxPoll)
+    {
+        eparams.flags       = IFNET_INIT_INPUT_POLL;
+        eparams.input_ctl   = if_input_ctl;
+        eparams.input_poll  = (_rxPollOptions & kIONetworkWorkLoopSynchronous) ?
+                              if_input_poll_gated : if_input_poll;
+            
+        // cache the driver's inputPacketPoll action
+        _rxPollAction = (void *) OSMemberFunctionCast(
+            IONetworkController::Action,
+            _driver, &IONetworkController::pollInputPackets);
+
+        _rxCtlAction =  (void *) OSMemberFunctionCast(
+            IONetworkController::Action,
+            this, &IONetworkInterface::actionInputCtl);
+
+        DLOG("%s: supports input polling\n", getName());
+    }
+
+    if (_configFlags & kConfigTxPull)
+    {
+        eparams.sndq_maxlen = _txQueueSize;
+        if (_txQueueSize)
+            DLOG("%s: sndq_maxlen = %u\n", getName(), _txQueueSize);
+
+        eparams.output_sched_model = _txSchedulingModel;
+
+        if (_txPullOptions & kIONetworkWorkLoopSynchronous)
+        {
+            eparams.start   = if_start_gated;
+
+            // retain work loop for transmitThreadStop()
+            _txWorkLoop = _driver->getWorkLoop();
+            if (!_txWorkLoop)
+            {
+                IOLockUnlock(_privateLock);
+                goto fail;
+            }
+            _txWorkLoop->retain();
+
+            _txStartAction = (void *) OSMemberFunctionCast(
+                IONetworkController::Action,
+                this, &IONetworkInterface::drainOutputQueue);
+        }
+        else
+        {
+            eparams.start   = if_start;
+        }
+
+        if (_configFlags & kConfigPreEnqueue)
+        {
+            eparams.pre_enqueue = if_output_pre_enqueue;
+        }
+
+        DLOG("%s: supports %stransmit pull, pre_enqueue %d\n",
+            getName(), _txWorkLoop ? "gated " : "", (eparams.pre_enqueue != 0));
     }
     else
     {
-        // error condition, clean up
+        eparams.output      = params.output;
+    }
+
+    // ifnet_pre_enqueue_func pre_enqueue
+    // ifnet_ctl_func output_ctl
+    // u_int64_t output_bw
+    // u_int64_t input_bw
+
+    IOLockUnlock(_privateLock);
+
+    error = ifnet_allocate_extended(&eparams, &_backingIfnet);
+    if (error)
+    {
+        LOG("%s: ifnet_allocate_extended error %d\n", getName(), error);
+        goto fail;
+    }
+
+	error = ifnet_set_offload(_backingIfnet,
+            getIfnetHardwareAssistValue(_driver));		
+    if (error)
+        LOG("%s: ifnet_set_offload error %d\n", getName(), error);
+
+    prop = _driver->copyProperty(kIOMACAddress);
+    if (prop)
+    {
+		OSData *    macAddr = OSDynamicCast(OSData, prop);
+        uint32_t    len;
+
+        memset(buffer, 0, sizeof(buffer));
+        len = sizeof(buffer) - offsetof(struct sockaddr_dl, sdl_data);
+
+        if (macAddr && macAddr->getLength() && (macAddr->getLength() <= len))
+        {
+            len = macAddr->getLength();
+            ll_addr = (struct sockaddr_dl *) buffer;
+            bcopy(macAddr->getBytesNoCopy(), ll_addr->sdl_data, len);
+            ll_addr->sdl_len = offsetof(struct sockaddr_dl, sdl_data) + len;
+            ll_addr->sdl_family = AF_LINK;
+            ll_addr->sdl_alen = len;
+        }
+        prop->release();
+        
+        if (!ll_addr)
+        {
+            LOG("%s: BSD attach failed, bad MAC address\n", getName());
+            goto fail;
+        }
+    }
+
+	ifnet_set_mtu(_backingIfnet, _mtu);
+	ifnet_set_flags(_backingIfnet, _flags, 0xffff);
+	ifnet_set_addrlen(_backingIfnet, _addrlen);
+	ifnet_set_hdrlen(_backingIfnet, _hdrlen);
+    if (_configFlags & kConfigRxPoll)
+        ifnet_set_rcvq_maxlen(_backingIfnet, _rxRingSize);
+
+    error = ifnet_attach(_backingIfnet, ll_addr);
+    if (!error)
+        result = kIOReturnSuccess;
+    else
+        LOG("%s: ifnet_attach error %d\n", getName(), error);
+
+fail:    
+    if ((result != kIOReturnSuccess) && _backingIfnet)
+    {
+        // attach failed, clean up
         ifnet_release(_backingIfnet);
         _backingIfnet = NULL;
     }
 
-    return ret;
+    return result;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 
 OSMetaClassDefineReservedUsed(IONetworkInterface, 1);
 
-void IONetworkInterface::detachFromDataLinkLayer( IOOptionBits options,
-                                                  void *       parameter )
+void IONetworkInterface::detachFromDataLinkLayer(
+    IOOptionBits options, void * parameter )
 {
-    WAITING_FOR_DETACH(this) = 1;
-	ifnet_detach( _backingIfnet ); //this will lead to detach_shim getting called on another thread.
+    // Running on thread call context
+    // Permanently halt the transmit thread before ifnet detach
+    DLOG("%s: detachFromDataLinkLayer\n", getName());
+    haltOutputThread( kTxThreadStateDetach );
 
-	IOLockLock(_detachLock); // protect against the detach_shim running before we block
-    if ( WAITING_FOR_DETACH( this ) ) //if this is false, it means detach_shim has already done its thing
+    WAITING_FOR_DETACH(this) = true;
+
+    // this will lead to another thread calling if_detach()
+	ifnet_detach(_backingIfnet);
+
+    // protect against if_detach() running before we block
+	IOLockLock(_privateLock);
+    while (WAITING_FOR_DETACH(this)) // if false, if_detach is done
     {
-		// otherwise, prepare to release the lock...
-        assert_wait( (event_t) _backingIfnet, THREAD_UNINT );
-		IOLockUnlock( _detachLock );
-		// and block waiting for detach_shim.
-        thread_block( THREAD_CONTINUE_NULL );
-		//reacquire lock to ensure we don't continue until detach_shim is totally done.
-		IOLockLock(_detachLock);
+        IOLockSleep(_privateLock, this, THREAD_UNINT);
     }
-	// at this point detach_shim has done its thing, so we can safely continue with tear-down
-	IOLockUnlock(_detachLock);
-	ifnet_release(_backingIfnet);
-	_backingIfnet = NULL;
+	IOLockUnlock(_privateLock);
 }
 
-ifnet_t IONetworkInterface::getIfnet() const
-{
-	return _backingIfnet;
-}
+//------------------------------------------------------------------------------
 
-
-void IONetworkInterface::debuggerRegistered(void)
+void IONetworkInterface::debuggerRegistered( void )
 {
     char buffer[REMOTE_NMI_PATTERN_LEN + 2];
     unsigned int i;
@@ -2039,4 +2205,880 @@ void IONetworkInterface::debuggerRegistered(void)
     _remote_NMI_pattern[i] = '\0';
     memcpy(_remote_NMI_pattern, buffer, i);
     _remote_NMI_len = i;
+}
+
+//------------------------------------------------------------------------------
+
+void IONetworkInterface::reportDataTransferRates(
+    uint64_t    outputRateMax,
+    uint64_t    inputRateMax,
+    uint64_t    outputRateEffective,
+    uint64_t    inputRateEffective )
+{
+    if_bandwidths_t bw_out, bw_in;
+
+    if ((_configFlags & kConfigDataRates) == 0)
+    {
+        IOLockLock(_privateLock);
+        _configFlags |= kConfigDataRates;
+        IOLockUnlock(_privateLock);
+    }
+
+    if (!outputRateEffective)
+        outputRateEffective = outputRateMax;
+    if (!inputRateEffective)
+        inputRateEffective = inputRateMax;
+
+    bw_out.max_bw = outputRateMax;
+    bw_out.eff_bw = outputRateEffective;
+    bw_in.max_bw  = inputRateMax;
+    bw_in.eff_bw  = inputRateEffective;
+
+    if (_backingIfnet)
+        ifnet_set_bandwidths(_backingIfnet, &bw_out, &bw_in);    
+}
+
+//------------------------------------------------------------------------------
+// Driver-pull output model
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::configureOutputPullModel(
+    uint32_t       driverQueueSize,
+    IOOptionBits   options,
+    uint32_t       outputQueueSize,
+    uint32_t       outputSchedulingModel )
+{
+    IOReturn ret = kIOReturnError;
+
+    IOLockLock(_privateLock);
+    if ((_configFlags & kConfigFrozen) == 0)
+    {
+        _txRingSize         = driverQueueSize;
+        _txPullOptions      = options;
+        _txQueueSize        = outputQueueSize;
+        _txSchedulingModel  = outputSchedulingModel;
+        _configFlags       |= kConfigTxPull;
+        ret = kIOReturnSuccess;
+    }
+    IOLockUnlock(_privateLock);
+
+    return ret;
+}
+
+IOReturn IONetworkInterface::installOutputPreEnqueueHandler(
+    OutputPreEnqueueHandler handler,
+    void *                  target,
+    void *                  refCon )
+{
+    IOReturn ret = kIOReturnError;
+
+    if (!handler)
+        return kIOReturnBadArgument;
+
+    IOLockLock(_privateLock);
+    if ((_configFlags & kConfigFrozen) == 0)
+    {
+        _peqHandler   = handler;
+        _peqTarget    = target;
+        _peqRefcon    = refCon;
+        _configFlags |= kConfigPreEnqueue;
+        ret = kIOReturnSuccess;
+    }
+    IOLockUnlock(_privateLock);
+
+    return ret;
+}
+
+errno_t IONetworkInterface::if_output_pre_enqueue( ifnet_t ifp, mbuf_t packet )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    errno_t                 ret;
+
+    assert(ifp == me->_backingIfnet);
+    assert(me->_peqAction);
+
+    ret = me->_peqHandler(me->_peqTarget, me->_peqRefcon, packet);
+    return ret;
+}
+
+void IONetworkInterface::if_start( ifnet_t ifp )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+
+    assert(ifp == me->_backingIfnet);
+
+    // Thread will be halted before we drop our open/retain on the controller.
+    if (me->_txThreadState & kTxThreadStateHalted)
+    {
+        if (me->_txThreadState & kTxThreadStatePurge)
+            ifnet_purge(ifp);
+        return;
+    }
+
+    driver = me->_driver;
+    assert(driver);
+    if (__builtin_expect(!driver, 0))
+    {
+        IOLockLock(me->_privateLock);
+        me->_txThreadState |= kTxThreadStateHalted;
+        IOLockUnlock(me->_privateLock);
+        return;
+    }
+
+    me->drainOutputQueue(ifp, driver);
+}
+
+void IONetworkInterface::if_start_gated( ifnet_t ifp )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+
+    assert(ifp == me->_backingIfnet);
+
+    // Queue will be halted before we drop our open/retain on the controller.
+    if (me->_txThreadState & kTxThreadStateHalted)
+    {
+        if (me->_txThreadState & kTxThreadStatePurge)
+            ifnet_purge(ifp);
+        return;
+    }
+
+    driver = me->_driver;
+    assert(driver);
+    if (__builtin_expect(!driver, 0))
+    {
+        IOLockLock(me->_privateLock);
+        me->_txThreadState |= kTxThreadStateHalted;
+        IOLockUnlock(me->_privateLock);
+        return;
+    }
+
+    driver->executeCommand(
+            /* client */ me,
+            /* action */ (IONetworkController::Action) me->_txStartAction,
+            /* target */ me,
+            /* param0 */ ifp,
+            /* param1 */ driver,
+            /* param2 */ 0,
+            /* param3 */ 0 );
+}
+
+//------------------------------------------------------------------------------
+
+errno_t IONetworkInterface::enqueueOutputPacket( mbuf_t packet, IOOptionBits options )
+{
+    return ifnet_enqueue(_backingIfnet, packet);
+}
+
+//------------------------------------------------------------------------------
+
+void IONetworkInterface::drainOutputQueue(
+    ifnet_t                 ifp,
+    IONetworkController *   driver )
+{
+    uint32_t                count;
+    IOReturn                status;
+
+    while (true)
+    {
+        // must respond to queue state transitions before exiting the loop
+        if (__builtin_expect((_txThreadState != 0), 0))
+        {
+            bool halted = false;
+
+            IOLockLock(_privateLock);
+            if (_txThreadState & kTxThreadStateInit)
+            {
+                // The initial if_start call
+                assert(_txStartThread == 0);
+                _txStartThread = current_thread();
+                _txThreadState &= ~kTxThreadStateInit;
+            }
+            if (_txThreadState & (kTxThreadStateStop | kTxThreadStateDetach))
+            {
+                // Disable request or interface detached from DLIL
+                _txThreadState &= ~kTxThreadStateStop;
+                _txThreadState |=  kTxThreadStateHalted;
+                thread_wakeup(&_txThreadState);
+            }
+            if (_txThreadState & kTxThreadStateHalted)
+            {
+                halted = true;
+            }
+            IOLockUnlock(_privateLock);
+
+            if (halted)
+                break;
+        }
+
+        // check for queue empty
+        if (ifnet_get_sndq_len(ifp, &count) || !count)
+            break;
+
+        _txThreadFlags = 0;
+        status = driver->outputStart(this, 0);
+
+        if (kIOReturnSuccess != status)
+        {
+            if (kIOReturnNoResources == status)
+            {
+                // Try again on next packet enqueue, or when driver
+                // calls outputThreadSignal().
+                // Retry transmit if preempted by outputThreadSignal()
+
+                if (OSCompareAndSwap(0, kTxThreadWakeupEnable, &_txThreadFlags))
+                    break;
+            }
+            else
+            {
+                // Driver error, or dequeue failed
+                break;
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::dequeueOutputPackets(
+    uint32_t                maxCount,
+    mbuf_t *                packetHead,
+    mbuf_t *                packetTail,
+    uint32_t *              packetCount,
+    uint64_t *              packetBytes )
+{
+    uint32_t    txByteCount, temp, txPackets = 0, txErrors = 0;
+    int         delta;
+    errno_t     error;
+
+    if (!maxCount || !packetHead)
+        return kIOReturnBadArgument;
+
+    if (_txThreadState & (kTxThreadStateInit | kTxThreadStateDetach))
+    {
+        goto no_frames;
+    }
+
+    assert(_backingIfnet);
+
+    if (maxCount == 1)
+    {
+        error = ifnet_dequeue(_backingIfnet, packetHead);
+        if (!error)
+        {
+            if (packetTail)
+                *packetTail = *packetHead;
+            if (packetCount)
+                *packetCount = 1;
+            txByteCount  = mbuf_pkthdr_len(*packetHead);
+        }
+    }
+    else
+    {
+        error = ifnet_dequeue_multi(
+                    _backingIfnet, maxCount,
+                    packetHead, packetTail, packetCount, &txByteCount);
+    }
+    if (error)
+        goto no_frames;
+
+    // feed output tap
+    if (_outputFilterFunc)
+    {
+        mbuf_t  m, n;
+
+        m = *packetHead;
+        assert(m);
+        assert((mbuf_flags(m) & MBUF_PKTHDR));
+
+        for (n = m; n != 0; n = mbuf_nextpkt(n))
+            feedPacketOutputTap(n);
+    }
+
+    if (_txThreadSignal != _txThreadSignalLast)
+    {
+        // Update the stats that the driver maintains
+        temp = _driverStats.outputErrors;
+        delta = temp - _lastDriverStats.outputErrors;
+        if (delta)
+        {
+            txErrors = ABS(delta);
+            _lastDriverStats.outputErrors = temp;
+        }
+
+        temp = _driverStats.outputPackets;
+        delta = temp - _lastDriverStats.outputPackets;
+        txPackets = ABS(delta);
+        _lastDriverStats.outputPackets = temp;
+        _txThreadSignalLast = _txThreadSignal;
+    }
+
+    // update interface output byte count
+    ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
+    if (packetBytes)
+        *packetBytes = txByteCount;
+
+    return kIOReturnSuccess;
+
+no_frames:
+    *packetHead  = 0;
+    if (packetTail)
+        packetTail = 0;
+    if (packetCount)
+        packetCount = 0;
+    if (packetBytes)
+        packetBytes = 0;
+    return kIOReturnNoFrames;
+}
+
+IOReturn IONetworkInterface::dequeueOutputPacketsWithServiceClass(
+    uint32_t                maxCount,
+    IOMbufServiceClass      serviceClass,
+    mbuf_t *                packetHead,
+    mbuf_t *                packetTail,
+    uint32_t *              packetCount,
+    uint64_t *              packetBytes )
+{
+    uint32_t            txByteCount, temp, txPackets = 0, txErrors = 0;
+    int                 delta;
+    mbuf_svc_class_t    mbufSC;
+    errno_t             error;
+
+    if (!maxCount || !packetHead)
+        return kIOReturnBadArgument;
+
+    if (_txThreadState & (kTxThreadStateInit | kTxThreadStateDetach))
+    {
+        goto no_frames;
+    }
+
+    assert(_backingIfnet);
+
+    // convert from I/O Kit SC to mbuf SC
+    switch (serviceClass)
+    {
+        case kIOMbufServiceClassBE:    mbufSC = MBUF_SC_BE;  break;
+        case kIOMbufServiceClassBKSYS: mbufSC = MBUF_SC_BK_SYS; break;
+        case kIOMbufServiceClassBK:    mbufSC = MBUF_SC_BK;  break;
+        case kIOMbufServiceClassRD:    mbufSC = MBUF_SC_RD;  break;
+        case kIOMbufServiceClassOAM:   mbufSC = MBUF_SC_OAM; break;
+        case kIOMbufServiceClassAV:    mbufSC = MBUF_SC_AV;  break;
+        case kIOMbufServiceClassRV:    mbufSC = MBUF_SC_RV;  break;
+        case kIOMbufServiceClassVI:    mbufSC = MBUF_SC_VI;  break;
+        case kIOMbufServiceClassVO:    mbufSC = MBUF_SC_VO;  break;
+        case kIOMbufServiceClassCTL:   mbufSC = MBUF_SC_CTL; break;
+        default:
+            return kIOReturnBadArgument;
+    }
+
+    if (maxCount == 1)
+    {
+        error = ifnet_dequeue_service_class(
+                    _backingIfnet, mbufSC, packetHead);
+        if (!error)
+        {
+            if (packetTail)
+                *packetTail = *packetHead;
+            if (packetCount)
+                *packetCount = 1;
+            txByteCount  = mbuf_pkthdr_len(*packetHead);
+        }
+    }
+    else
+    {
+        error = ifnet_dequeue_service_class_multi(
+                    _backingIfnet, mbufSC, maxCount,
+                    packetHead, packetTail, packetCount, &txByteCount);
+    }
+    if (error)
+        goto no_frames;
+
+    // feed output tap
+    if (_outputFilterFunc)
+    {
+        mbuf_t  m, n;
+
+        m = *packetHead;
+        assert(m);
+        assert((mbuf_flags(m) & MBUF_PKTHDR));
+
+        for (n = m; n != 0; n = mbuf_nextpkt(n))
+            feedPacketOutputTap(n);
+    }
+
+    if (_txThreadSignal != _txThreadSignalLast)
+    {
+        // Update the stats that the driver maintains
+        temp = _driverStats.outputErrors;
+        delta = temp - _lastDriverStats.outputErrors;
+        if (delta)
+        {
+            txErrors = ABS(delta);
+            _lastDriverStats.outputErrors = temp;
+        }
+
+        temp = _driverStats.outputPackets;
+        delta = temp - _lastDriverStats.outputPackets;
+        txPackets = ABS(delta);
+        _lastDriverStats.outputPackets = temp;
+        _txThreadSignalLast = _txThreadSignal;
+    }
+
+    // update interface output byte count
+    ifnet_stat_increment_out(_backingIfnet, txPackets, txByteCount, txErrors);
+    if (packetBytes)
+        *packetBytes = txByteCount;
+
+    return kIOReturnSuccess;
+
+no_frames:
+    *packetHead  = 0;
+    if (packetTail)
+        packetTail = 0;
+    if (packetCount)
+        packetCount = 0;
+    if (packetBytes)
+        packetBytes = 0;
+    return kIOReturnNoFrames;
+}
+
+//------------------------------------------------------------------------------
+
+void IONetworkInterface::signalOutputThread( IOOptionBits options )
+{
+    // Unconditionally signal completion, to trigger drain loop retry
+    UInt32 old = OSBitOrAtomic(kTxThreadWakeupSignal, &_txThreadFlags);
+
+    // Interface detached from network stack
+    if (_txThreadState & (kTxThreadStateInit | kTxThreadStateDetach))
+    {
+        return;
+    }
+
+    // Only wake if_start thread if drain loop left wakeup enabled
+    if ((old & kTxThreadWakeupMask) == kTxThreadWakeupEnable)
+    {
+        assert(_backingIfnet);
+        ifnet_start(_backingIfnet);
+    }
+    
+    _txThreadSignal++;
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::startOutputThread( IOOptionBits options )
+{
+    const uint32_t  mask  = (kTxThreadStateHalted | kTxThreadStateStop);
+    IOReturn        error = kIOReturnUnsupported;
+    bool            purge = false;
+
+    DLOG("%s: %s(0x%x)\n",
+        getName(), __FUNCTION__, _txThreadState);
+
+    IOLockLock(_privateLock);
+    if (_txThreadState & kTxThreadStateDetach)
+    {
+        error = kIOReturnNotAttached;
+    }
+    else
+    {
+        error = kIOReturnSuccess;
+        purge = ((_txThreadState & kTxThreadStatePurge) != 0);        
+        _txThreadState &= ~kTxThreadStatePurge;
+
+        if (_txThreadState & mask)
+        {
+            _txThreadState &= ~mask;
+
+            // No need to kick if_start thread if it hasn't called us yet.
+            // This safety check covers the time before ifnet_attach.
+
+            if ((_txThreadState & kTxThreadStateInit) == 0)
+            {
+                assert(_backingIfnet);
+                if (purge)
+                    ifnet_purge(_backingIfnet);
+                ifnet_start(_backingIfnet);
+            }
+        }
+    }
+    IOLockUnlock(_privateLock);
+
+    return error;
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::haltOutputThread( uint32_t stateBit )
+{
+    AbsoluteTime    deadline;
+    uint32_t        count = 0;
+    const uint32_t  timeout = 100;
+    IOReturn        error = kIOReturnSuccess;
+
+    DLOG("%s: %s(0x%x, 0x%x)\n",
+        getName(), __FUNCTION__, _txThreadState, stateBit);
+
+    IOLockLock(_privateLock);
+
+    do {
+        // Prevent queue enable while we drop the lock
+        _txThreadState |= (stateBit & kTxThreadStateDetach);
+        _txThreadState &= ~kTxThreadStatePurge;
+
+        // Already halted, thread may have terminated
+        if (_txThreadState & kTxThreadStateHalted)
+            break;
+
+        if (!_txStartThread)
+        {
+            // Before the initial if_start call. Can update state directly
+            // since this thread holds the lock that blocks if_start.
+            _txThreadState |= kTxThreadStateHalted;
+            break;
+        }
+
+        // if_start thread cannot call us without ifnet attach
+        assert(_backingIfnet);
+
+        if (current_thread() == _txStartThread)
+        {
+            // Driver called stop from if_start context
+            _txThreadState |= kTxThreadStateHalted;
+            break;
+        }
+
+        if (_txWorkLoop && _txWorkLoop->inGate())
+        {
+            // stopped from gated context
+            _txThreadState |= kTxThreadStateHalted;
+            break;
+        }
+
+        // Wait for halt confirmation from if_start thread
+        while ((_txThreadState & kTxThreadStateHalted) == 0)
+        {
+            if (count)
+            {
+                LOG("%s: %s(0x%x, 0x%x) retry %u\n",
+                    getName(), __FUNCTION__, _txThreadState, stateBit, count);
+                if (count >= timeout)
+                {
+                    error = kIOReturnTimeout;
+                    break;
+                }
+            }
+
+            _txThreadState |= stateBit;
+            clock_interval_to_deadline(100, kMillisecondScale, &deadline);
+            ifnet_start(_backingIfnet);
+            IOLockSleepDeadline(_privateLock, &_txThreadState,
+                deadline, THREAD_UNINT);
+            count++;
+        }
+    } while (false);
+
+    IOLockUnlock(_privateLock);
+
+    DLOG("%s: %s(0x%x, 0x%x) done after %u try\n",
+        getName(), __FUNCTION__, _txThreadState, stateBit, count);
+
+    return error;
+}
+
+IOReturn IONetworkInterface::stopOutputThread( IOOptionBits options )
+{
+    return haltOutputThread( kTxThreadStateStop );
+}
+
+//------------------------------------------------------------------------------
+
+void IONetworkInterface::flushOutputQueue( IOOptionBits options )
+{
+    DLOG("%s: %s(0x%x)\n",
+        getName(), __FUNCTION__, _txThreadState);
+
+    IOLockLock(_privateLock);
+    // synchronized with interface detach
+    if (_backingIfnet && ((_txThreadState & kTxThreadStateDetach) == 0))
+    {
+        // Drop new packets if output thread stopped
+        if (_txThreadState & kTxThreadStateHalted)
+            _txThreadState |= kTxThreadStatePurge;
+
+        ifnet_purge(_backingIfnet);
+    }
+    IOLockUnlock(_privateLock);
+}
+
+//------------------------------------------------------------------------------
+// Stack-poll input model
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::configureInputPacketPolling(
+    uint32_t       driverQueueSize,
+    IOOptionBits   options )
+{
+    IOReturn ret = kIOReturnError;
+
+    IOLockLock(_privateLock);
+    if ((_configFlags & kConfigFrozen) == 0)
+    {
+        _rxRingSize    = driverQueueSize;
+        _rxPollOptions = options;
+        _configFlags  |= kConfigRxPoll;
+        ret = kIOReturnSuccess;
+    }
+    IOLockUnlock(_privateLock);
+    return ret;
+}
+
+void IONetworkInterface::if_input_poll(
+    ifnet_t     ifp,
+    uint32_t    flags,
+    uint32_t    max_count,
+    mbuf_t *    first_packet,
+    mbuf_t *    last_packet,
+    uint32_t *  cnt,
+    uint32_t *  len )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+    IOMbufQueue             queue;
+
+    assert(ifp == me->_backingIfnet);
+    assert(max_count != 0);
+
+    driver = me->_driver;
+    assert(driver);
+    if (__builtin_expect(!driver, 0))
+    {
+        return;
+    }
+
+    me->_rxPollTotal++;
+
+    IOMbufQueueInit(&queue);
+
+    driver->pollInputPackets(me, max_count, &queue, 0);
+
+    if (!IOMbufQueueIsEmpty(&queue))
+    {
+        *first_packet = queue.head;
+        *last_packet  = queue.tail;
+        *cnt          = queue.count;
+        *len          = queue.bytes;
+    }
+    else
+    {
+        me->_rxPollEmpty++;
+        *first_packet = 0;
+        *last_packet  = 0;
+        *cnt = 0;
+        *len = 0;
+    }
+}
+
+void IONetworkInterface::if_input_poll_gated(
+    ifnet_t     ifp,
+    uint32_t    flags,
+    uint32_t    max_count,
+    mbuf_t *    first_packet,
+    mbuf_t *    last_packet,
+    uint32_t *  cnt,
+    uint32_t *  len )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+    IOMbufQueue             queue;
+
+    assert(ifp == me->_backingIfnet);
+    assert(max_count != 0);
+
+    driver = me->_driver;
+    assert(driver);
+    if (__builtin_expect(!driver, 0))
+    {
+        return;
+    }
+
+    me->_rxPollTotal++;
+
+    IOMbufQueueInit(&queue);
+
+    driver->executeCommand(
+            /* client */ me,
+            /* action */ (IONetworkController::Action) me->_rxPollAction,
+            /* target */ driver,
+            /* param0 */ me,
+            /* param1 */ (void *)(uintptr_t) max_count,
+            /* param2 */ &queue,
+            /* param3 */ 0 );
+
+    if (!IOMbufQueueIsEmpty(&queue))
+    {
+        *first_packet = queue.head;
+        *last_packet  = queue.tail;
+        *cnt          = queue.count;
+        *len          = queue.bytes;
+    }
+    else
+    {
+        me->_rxPollEmpty++;
+        *first_packet = 0;
+        *last_packet  = 0;
+        *cnt = 0;
+        *len = 0;
+    }
+}
+
+//------------------------------------------------------------------------------
+
+IOReturn IONetworkInterface::enqueueInputPacket(
+    mbuf_t              packet,
+    IOMbufQueue *       queue,
+    IOOptionBits        options )
+{
+	const uint32_t      hdrlen = _hdrlen;
+    void *              mdata;
+    uint32_t            length;
+
+    assert(packet);
+    assert(_backingIfnet);
+
+    if (!packet)
+        return kIOReturnBadArgument;
+
+    if (!_backingIfnet)
+    {
+        mbuf_freem(packet);
+        return kIOReturnNotAttached;
+    }
+
+    if (!queue)
+    {
+        // use the push model queue
+        queue = _inputPushQueue;
+    }
+
+    assert((mbuf_flags(packet) & MBUF_PKTHDR));
+    assert((mbuf_nextpkt(packet) == 0));
+
+	mbuf_pkthdr_setrcvif(packet, _backingIfnet);
+
+    length = mbuf_pkthdr_len(packet);
+    assert(length != 0);
+
+    // check for special debugger packet 
+    if (_remote_NMI_len) {
+        const char *data = get_icmp_data(&packet, hdrlen, _remote_NMI_len);
+        
+        if (data && (memcmp(data, _remote_NMI_pattern, _remote_NMI_len) == 0)) {
+            IOKernelDebugger::signalDebugger();
+        } 
+    }
+
+    // input BPF tap
+	if (_inputFilterFunc)
+		feedPacketInputTap(packet);
+
+    // frame header at start of mbuf data
+    mdata = mbuf_data(packet);
+	mbuf_pkthdr_setheader(packet, mdata);
+
+    // packet header length does not include the frame header
+    mbuf_pkthdr_setlen(packet, length - hdrlen);
+
+    // adjust the mbuf data and length to exclude the frame header
+    mbuf_setdata(packet, (char *)mdata + hdrlen, mbuf_len(packet) - hdrlen);
+
+    IOMbufQueueTailAdd(queue, packet, length);
+    return kIOReturnSuccess;
+}
+
+//------------------------------------------------------------------------------
+
+errno_t IONetworkInterface::if_input_ctl( ifnet_t           ifp,
+                                          ifnet_ctl_cmd_t   cmd,
+                                          u_int32_t         arglen,
+                                          void *            arg )
+{
+    IONetworkInterface *    me = IFNET_TO_THIS(ifp);
+    IONetworkController *   driver;
+    
+    assert(ifp == me->_backingIfnet);
+
+    driver = me->_driver;
+    assert(driver);
+    if (!driver)
+    {
+        return 0;
+    }
+
+    driver->executeCommand(
+            /* client */ me,
+            /* action */ (IONetworkController::Action) me->_rxCtlAction,
+            /* target */ me,
+            /* param0 */ driver,
+            /* param1 */ (void *)(ifnet_ctl_cmd_t)(uintptr_t) cmd,
+            /* param2 */ (void *)(uint32_t)(uintptr_t) arglen,
+            /* param3 */ arg );
+
+    return 0;
+}
+
+void IONetworkInterface::actionInputCtl( IONetworkController *  driver,
+                                         ifnet_ctl_cmd_t        cmd,
+                                         uint32_t               arglen,
+                                         void *                 arg )
+{
+    ifnet_model_params * params = (ifnet_model_params *) arg;
+
+    switch (cmd)
+    {
+        case IFNET_CTL_SET_INPUT_MODEL:
+            if (arglen != sizeof(ifnet_model_params))
+            {
+                LOG("%s: SET_INPUT_MODEL bad params size %u != %u\n",
+                    getName(), arglen, (uint32_t) sizeof(ifnet_model_params));
+            }
+            else if ((params->model != IFNET_MODEL_INPUT_POLL_OFF) &&
+                     (params->model != IFNET_MODEL_INPUT_POLL_ON))
+            {
+                LOG("%s: SET_INPUT_MODEL unknown model 0x%x\n",
+                    getName(), params->model);
+            }
+            else if (params->model != _rxPollModel)
+            {
+                // IFNET_MODEL_INPUT_POLL_OFF
+                // IFNET_MODEL_INPUT_POLL_ON
+                _rxPollModel = params->model;
+                DLOG("%s: SET_INPUT_MODEL 0x%x\n", getName(), _rxPollModel);
+                DLOG("%s: poll cnt %llu, empty %llu\n", getName(),
+                    _rxPollTotal, _rxPollEmpty);
+                _rxPollEmpty = 0;
+                _rxPollTotal = 0;
+
+                driver->setInputPacketPollingEnable(
+                        this, _rxPollModel == IFNET_MODEL_INPUT_POLL_ON );
+            }
+            break;
+
+        case IFNET_CTL_GET_INPUT_MODEL:
+            if (arglen != sizeof(ifnet_model_params))
+            {
+                LOG("%s: GET_INPUT_MODEL bad params size %u != %u\n",
+                    getName(), arglen, (uint32_t) sizeof(ifnet_model_params));
+            }
+            else
+            {
+                params->model = _rxPollModel;
+            }
+            break;
+
+        default:
+            DLOG("%s: if_input_ctl unknown cmd 0x%x\n", getName(), cmd);
+    }
 }

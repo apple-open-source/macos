@@ -74,6 +74,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "config.h"
 #include <ctype.h>
 #include <commonp.h>
 #include <string.h>
@@ -84,7 +85,7 @@
 
 #include <CrashReporterClient.h>
 
-#else
+#elif defined(__APPLE__)
 
 /*
  * The following symbol is reference by Crash Reporter symbolicly
@@ -104,6 +105,15 @@ asm(".desc ___crashreporter_info__, 0x10");
     __crashreporter_info__ = (msg); \
 } while (0)
 
+#else
+
+/* No CrashReporter support, spit it out to stderr and hope someone is
+ * watching.
+ */
+#define CRSetCrashLogMessage(msg) do { \
+    write(STDERR_FILENO, strlen(msg), msg); \
+} while (0)
+
 #endif
 
 /*
@@ -117,9 +127,9 @@ void rpc_dce_svc_printf (
                         const char* file,
                         unsigned int line,
                         const char *format,
-                        uint32_t dbg_switch ATTRIBUTE_UNUSED,
-                        uint32_t sev_action_flags,
-                        uint32_t error_code,
+                        unsigned32 dbg_switch ATTRIBUTE_UNUSED,
+                        unsigned32 sev_action_flags,
+                        unsigned32 error_code,
                         ... )
 {
     char buff[1024];

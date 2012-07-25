@@ -38,7 +38,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/Threading.h>
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
 #include <mach/mach_port.h>
 #elif PLATFORM(WIN)
 #include <string>
@@ -46,21 +46,19 @@
 class QSocketNotifier;
 #endif
 
-#if PLATFORM(QT) || PLATFORM(GTK)
+#if PLATFORM(QT) || PLATFORM(GTK) || PLATFORM(EFL)
 #include "PlatformProcessIdentifier.h"
 #endif
 
+namespace WebCore {
 class RunLoop;
+}
 
 namespace CoreIPC {
 
+class BinarySemaphore;
 class MessageID;
     
-enum SyncReplyMode {
-    AutomaticReply,
-    ManualReply
-};
-
 enum MessageSendFlags {
     // Whether this message should be dispatched when waiting for a sync reply.
     // This is the default for synchronous messages.
@@ -85,7 +83,7 @@ public:
     class MessageReceiver {
     public:
         virtual void didReceiveMessage(Connection*, MessageID, ArgumentDecoder*) = 0;
-        virtual SyncReplyMode didReceiveSyncMessage(Connection*, MessageID, ArgumentDecoder*, ArgumentEncoder*) { ASSERT_NOT_REACHED(); return AutomaticReply; }
+        virtual void didReceiveSyncMessage(Connection*, MessageID, ArgumentDecoder*, OwnPtr<ArgumentEncoder>&) { ASSERT_NOT_REACHED(); }
 
     protected:
         virtual ~MessageReceiver() { }
@@ -107,28 +105,28 @@ public:
 
     class QueueClient {
     public:
-        virtual bool willProcessMessageOnClientRunLoop(Connection*, MessageID, ArgumentDecoder*) = 0;
+        virtual void didReceiveMessageOnConnectionWorkQueue(Connection*, MessageID, ArgumentDecoder*, bool& didHandleMessage) = 0;
 
     protected:
         virtual ~QueueClient() { }
     };
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     typedef mach_port_t Identifier;
 #elif PLATFORM(WIN)
     typedef HANDLE Identifier;
     static bool createServerAndClientIdentifiers(Identifier& serverIdentifier, Identifier& clientIdentifier);
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     typedef int Identifier;
 #endif
 
-    static PassRefPtr<Connection> createServerConnection(Identifier, Client*, RunLoop* clientRunLoop);
-    static PassRefPtr<Connection> createClientConnection(Identifier, Client*, RunLoop* clientRunLoop);
+    static PassRefPtr<Connection> createServerConnection(Identifier, Client*, WebCore::RunLoop* clientRunLoop);
+    static PassRefPtr<Connection> createClientConnection(Identifier, Client*, WebCore::RunLoop* clientRunLoop);
     ~Connection();
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     void setShouldCloseConnectionOnMachExceptions();
-#elif PLATFORM(QT) || PLATFORM(GTK)
+#elif PLATFORM(QT)
     void setShouldCloseConnectionOnProcessTermination(WebKit::PlatformProcessIdentifier);
 #endif
 
@@ -169,8 +167,9 @@ public:
     // All clients should move to the overloads that take a message type.
     template<typename E, typename T> bool deprecatedSend(E messageID, uint64_t destinationID, const T& arguments);
     template<typename E, typename T, typename U> bool deprecatedSendSync(E messageID, uint64_t destinationID, const T& arguments, const U& reply, double timeout = NoTimeout);
-    template<typename E> PassOwnPtr<ArgumentDecoder> deprecatedWaitFor(E messageID, uint64_t destinationID, double timeout);
     
+    void wakeUpRunLoop();
+
 private:
     template<typename T> class Message {
     public:
@@ -212,7 +211,7 @@ public:
     typedef Message<ArgumentEncoder> OutgoingMessage;
 
 private:
-    Connection(Identifier, bool isServer, Client*, RunLoop* clientRunLoop);
+    Connection(Identifier, bool isServer, Client*, WebCore::RunLoop* clientRunLoop);
     void platformInitialize(Identifier);
     void platformInvalidate();
     
@@ -227,6 +226,9 @@ private:
     void processIncomingMessage(MessageID, PassOwnPtr<ArgumentDecoder>);
     void processIncomingSyncReply(PassOwnPtr<ArgumentDecoder>);
 
+    void addQueueClientOnWorkQueue(QueueClient*);
+    void removeQueueClientOnWorkQueue(QueueClient*);
+    
     bool canSendOutgoingMessages() const;
     bool platformCanSendOutgoingMessages() const;
     void sendOutgoingMessages();
@@ -238,7 +240,7 @@ private:
     // Called on the listener thread.
     void dispatchConnectionDidClose();
     void dispatchMessage(IncomingMessage&);
-    void dispatchMessages();
+    void dispatchOneMessage();
     void dispatchSyncMessage(MessageID, ArgumentDecoder*);
     void didFailToSendSyncMessage();
 
@@ -255,9 +257,8 @@ private:
 
     bool m_isConnected;
     WorkQueue m_connectionQueue;
-    RunLoop* m_clientRunLoop;
+    WebCore::RunLoop* m_clientRunLoop;
 
-    Mutex m_connectionQueueClientsMutex;
     Vector<QueueClient*> m_connectionQueueClients;
 
     unsigned m_inDispatchMessageCount;
@@ -321,7 +322,7 @@ private:
     bool m_shouldWaitForSyncReplies;
     Vector<PendingSyncReply> m_pendingSyncReplies;
 
-#if PLATFORM(MAC)
+#if OS(DARWIN)
     // Called on the connection queue.
     void receiveSourceEventHandler();
     void initializeDeadNameSource();
@@ -339,19 +340,28 @@ private:
     void readEventHandler();
     void writeEventHandler();
 
+    // Called by Connection::SyncMessageState::waitWhileDispatchingSentWin32Messages.
+    // The absoluteTime is in seconds, starting on January 1, 1970. The time is assumed to use the
+    // same time zone as WTF::currentTime(). Dispatches sent (not posted) messages to the passed-in
+    // set of HWNDs until the semaphore is signaled or absoluteTime is reached. Returns true if the
+    // semaphore is signaled, false otherwise.
+    static bool dispatchSentMessagesUntil(const Vector<HWND>& windows, CoreIPC::BinarySemaphore& semaphore, double absoluteTime);
+
     Vector<uint8_t> m_readBuffer;
     OVERLAPPED m_readState;
     OwnPtr<ArgumentEncoder> m_pendingWriteArguments;
     OVERLAPPED m_writeState;
     HANDLE m_connectionPipe;
-#elif USE(UNIX_DOMAIN_SOCKETS) || OS(SYMBIAN)
+#elif USE(UNIX_DOMAIN_SOCKETS)
     // Called on the connection queue.
     void readyReadHandler();
+    bool processMessage();
 
     Vector<uint8_t> m_readBuffer;
-    size_t m_currentMessageSize;
+    size_t m_readBufferSize;
+    Vector<int> m_fileDescriptors;
+    size_t m_fileDescriptorsSize;
     int m_socketDescriptor;
-
 #if PLATFORM(QT)
     QSocketNotifier* m_socketNotifier;
 #endif
@@ -421,11 +431,6 @@ bool Connection::deprecatedSend(E messageID, uint64_t destinationID, const T& ar
     argumentEncoder->encode(arguments);
 
     return sendMessage(MessageID(messageID), argumentEncoder.release());
-}
-
-template<typename E> inline PassOwnPtr<ArgumentDecoder> Connection::deprecatedWaitFor(E messageID, uint64_t destinationID, double timeout)
-{
-    return waitForMessage(MessageID(messageID), destinationID, timeout);
 }
 
 } // namespace CoreIPC

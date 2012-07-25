@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010, 2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,22 +21,37 @@
 #define SVGAnimatedEnumeration_h
 
 #if ENABLE(SVG)
+#include "SVGAnimatedEnumerationPropertyTearOff.h"
 #include "SVGAnimatedPropertyMacros.h"
-#include "SVGAnimatedStaticPropertyTearOff.h"
+#include "SVGAnimatedTypeAnimator.h"
 
 namespace WebCore {
 
-typedef SVGAnimatedStaticPropertyTearOff<int> SVGAnimatedEnumeration;
+typedef SVGAnimatedStaticPropertyTearOff<unsigned> SVGAnimatedEnumeration;
 
 // Helper macros to declare/define a SVGAnimatedEnumeration object
-#define DECLARE_ANIMATED_ENUMERATION(UpperProperty, LowerProperty) \
-DECLARE_ANIMATED_PROPERTY(SVGAnimatedEnumeration, int, UpperProperty, LowerProperty)
+#define DECLARE_ANIMATED_ENUMERATION(UpperProperty, LowerProperty, EnumType) \
+DECLARE_ANIMATED_PROPERTY(SVGAnimatedEnumerationPropertyTearOff<EnumType>, EnumType, UpperProperty, LowerProperty)
 
-#define DEFINE_ANIMATED_ENUMERATION(OwnerType, DOMAttribute, UpperProperty, LowerProperty) \
-DEFINE_ANIMATED_PROPERTY(OwnerType, DOMAttribute, DOMAttribute.localName(), SVGAnimatedEnumeration, int, UpperProperty, LowerProperty)
+#define DEFINE_ANIMATED_ENUMERATION(OwnerType, DOMAttribute, UpperProperty, LowerProperty, EnumType) \
+DEFINE_ANIMATED_PROPERTY(AnimatedEnumeration, OwnerType, DOMAttribute, DOMAttribute.localName(), UpperProperty, LowerProperty)
 
-#define DEFINE_ANIMATED_ENUMERATION_MULTIPLE_WRAPPERS(OwnerType, DOMAttribute, SVGDOMAttributeIdentifier, UpperProperty, LowerProperty) \
-DEFINE_ANIMATED_PROPERTY(OwnerType, DOMAttribute, SVGDOMAttributeIdentifier, SVGAnimatedEnumeration, int, UpperProperty, LowerProperty)
+class SVGAnimatedEnumerationAnimator : public SVGAnimatedTypeAnimator {
+public:
+    SVGAnimatedEnumerationAnimator(SVGAnimationElement*, SVGElement*);
+    virtual ~SVGAnimatedEnumerationAnimator() { }
+
+    virtual PassOwnPtr<SVGAnimatedType> constructFromString(const String&);
+    virtual PassOwnPtr<SVGAnimatedType> startAnimValAnimation(const SVGElementAnimatedPropertyList&);
+    virtual void stopAnimValAnimation(const SVGElementAnimatedPropertyList&);
+    virtual void resetAnimValToBaseVal(const SVGElementAnimatedPropertyList&, SVGAnimatedType*);
+    virtual void animValWillChange(const SVGElementAnimatedPropertyList&);
+    virtual void animValDidChange(const SVGElementAnimatedPropertyList&);
+
+    virtual void addAnimatedTypes(SVGAnimatedType*, SVGAnimatedType*);
+    virtual void calculateAnimatedValue(float percentage, unsigned repeatCount, SVGAnimatedType*, SVGAnimatedType*, SVGAnimatedType*, SVGAnimatedType*);
+    virtual float calculateDistance(const String& fromString, const String& toString);
+};
 
 } // namespace WebCore
 

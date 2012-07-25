@@ -23,11 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.JavaScriptBreakpointsSidebarPane = function(model, showSourceLineDelegate)
+/**
+ * @constructor
+ * @param {WebInspector.BreakpointManager} breakpointManager
+ * @extends {WebInspector.SidebarPane}
+ */
+WebInspector.JavaScriptBreakpointsSidebarPane = function(breakpointManager, showSourceLineDelegate)
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Breakpoints"));
 
-    this._model = model;
+    this._breakpointManager = breakpointManager;
     this._showSourceLineDelegate = showSourceLineDelegate;
 
     this.listElement = document.createElement("ol");
@@ -38,41 +43,59 @@ WebInspector.JavaScriptBreakpointsSidebarPane = function(model, showSourceLineDe
     this.emptyElement.textContent = WebInspector.UIString("No Breakpoints");
 
     this.bodyElement.appendChild(this.emptyElement);
+    this.bodyElement.addEventListener("contextmenu", this._contextMenu.bind(this), false);
 
-    this._items = {};
+    this._items = new Map();
+    this._breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.BreakpointAdded, this._breakpointAdded, this);
+    this._breakpointManager.addEventListener(WebInspector.BreakpointManager.Events.BreakpointRemoved, this._breakpointRemoved, this);
 }
 
 WebInspector.JavaScriptBreakpointsSidebarPane.prototype = {
-    addBreakpoint: function(breakpoint)
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _breakpointAdded: function(event)
     {
+        this._breakpointRemoved(event);
+
+        var breakpoint = /** @type {WebInspector.BreakpointManager.Breakpoint} */ event.data.breakpoint;
+        var uiLocation = /** @type {WebInspector.UILocation} */ event.data.uiLocation;
+
         var element = document.createElement("li");
         element.addStyleClass("cursor-pointer");
-        element.addEventListener("contextmenu", this._contextMenu.bind(this, breakpoint), true);
-        element.addEventListener("click", this._breakpointClicked.bind(this, breakpoint), false);
+        element.addEventListener("contextmenu", this._breakpointContextMenu.bind(this, breakpoint), true);
+        element.addEventListener("click", this._breakpointClicked.bind(this, uiLocation), false);
 
         var checkbox = document.createElement("input");
         checkbox.className = "checkbox-elem";
         checkbox.type = "checkbox";
-        checkbox.checked = breakpoint.enabled;
+        checkbox.checked = breakpoint.enabled();
         checkbox.addEventListener("click", this._breakpointCheckboxClicked.bind(this, breakpoint), false);
         element.appendChild(checkbox);
 
-        var displayName = breakpoint.url ? WebInspector.displayNameForURL(breakpoint.url) : WebInspector.UIString("(program)");
-        var labelElement = document.createTextNode(displayName + ":" + (breakpoint.lineNumber + 1));
+        var url = uiLocation.uiSourceCode.url;
+        var displayName = url ? WebInspector.displayNameForURL(url) : WebInspector.UIString("(program)");
+        var labelElement = document.createTextNode(displayName + ":" + (uiLocation.lineNumber + 1));
         element.appendChild(labelElement);
 
         var snippetElement = document.createElement("div");
         snippetElement.className = "source-text monospace";
         element.appendChild(snippetElement);
-        if (breakpoint.loadSnippet) {
-            function didLoadSnippet(snippet)
-            {
-                snippetElement.textContent = snippet;
-            }
-            breakpoint.loadSnippet(didLoadSnippet);
-        }
 
-        element._data = breakpoint;
+        /**
+         * @param {?string} content
+         * @param {boolean} contentEncoded
+         * @param {string} mimeType
+         */
+        function didRequestContent(content, contentEncoded, mimeType)
+        {
+            var lineEndings = content.lineEndings();
+            if (uiLocation.lineNumber < lineEndings.length)
+                snippetElement.textContent = content.substring(lineEndings[uiLocation.lineNumber - 1], lineEndings[uiLocation.lineNumber]);
+        }
+        uiLocation.uiSourceCode.requestContent(didRequestContent.bind(this));
+
+        element._data = uiLocation;
         var currentElement = this.listElement.firstChild;
         while (currentElement) {
             if (currentElement._data && this._compareBreakpoints(currentElement._data, element._data) > 0)
@@ -84,25 +107,32 @@ WebInspector.JavaScriptBreakpointsSidebarPane.prototype = {
         var breakpointItem = {};
         breakpointItem.element = element;
         breakpointItem.checkbox = checkbox;
-        this._items[this._createBreakpointItemId(breakpoint.sourceFileId, breakpoint.lineNumber)] = breakpointItem;
+        this._items.put(breakpoint, breakpointItem);
 
         if (!this.expanded)
             this.expanded = true;
     },
 
-    removeBreakpoint: function(sourceFileId, lineNumber)
+    /**
+     * @param {WebInspector.Event} event
+     */
+    _breakpointRemoved: function(event)
     {
-        var breakpointItemId = this._createBreakpointItemId(sourceFileId, lineNumber);
-        var breakpointItem = this._items[breakpointItemId];
+        var breakpoint = /** @type {WebInspector.BreakpointManager.Breakpoint} */ event.data.breakpoint;
+        var uiLocation = /** @type {WebInspector.UILocation} */ event.data.uiLocation;
+        var breakpointItem = this._items.get(breakpoint);
         if (!breakpointItem)
             return;
-        delete this._items[breakpointItemId];
+        this._items.remove(breakpoint);
         this._removeListElement(breakpointItem.element);
     },
 
-    highlightBreakpoint: function(sourceFileId, lineNumber)
+    /**
+     * @param {WebInspector.BreakpointManager.Breakpoint} breakpoint
+     */
+    highlightBreakpoint: function(breakpoint)
     {
-        var breakpointItem = this._items[this._createBreakpointItemId(sourceFileId, lineNumber)];
+        var breakpointItem = this._items.get(breakpoint);
         if (!breakpointItem)
             return;
         breakpointItem.element.addStyleClass("breakpoint-hit");
@@ -117,31 +147,38 @@ WebInspector.JavaScriptBreakpointsSidebarPane.prototype = {
         }
     },
 
-    _createBreakpointItemId: function(sourceFileId, lineNumber)
+    _breakpointClicked: function(uiLocation, event)
     {
-        return sourceFileId + ":" + lineNumber;
+        this._showSourceLineDelegate(uiLocation.uiSourceCode, uiLocation.lineNumber);
     },
 
-    _breakpointClicked: function(breakpoint, event)
-    {
-        this._showSourceLineDelegate(breakpoint.sourceFileId, breakpoint.lineNumber);
-    },
-
+    /**
+     * @param {WebInspector.BreakpointManager.Breakpoint} breakpoint
+     */
     _breakpointCheckboxClicked: function(breakpoint, event)
     {
         // Breakpoint element has it's own click handler.
-        event.stopPropagation();
-
-        this._model.setBreakpointEnabled(breakpoint.sourceFileId, breakpoint.lineNumber, event.target.checked);
+        event.consume();
+        breakpoint.setEnabled(event.target.checked);
     },
 
-    _contextMenu: function(breakpoint, event)
+    /**
+     * @param {WebInspector.BreakpointManager.Breakpoint} breakpoint
+     */
+    _breakpointContextMenu: function(breakpoint, event)
     {
         var contextMenu = new WebInspector.ContextMenu();
+        contextMenu.appendItem(WebInspector.UIString("Remove Breakpoint"), breakpoint.remove.bind(breakpoint));
+        var removeAllTitle = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Remove all JavaScript breakpoints" : "Remove All JavaScript Breakpoints");
+        contextMenu.appendItem(removeAllTitle, this._breakpointManager.removeAllBreakpoints.bind(this._breakpointManager));
+        contextMenu.show(event);
+    },
 
-        var removeHandler = this._model.removeBreakpoint.bind(this._model, breakpoint.sourceFileId, breakpoint.lineNumber);
-        contextMenu.appendItem(WebInspector.UIString("Remove Breakpoint"), removeHandler);
-
+    _contextMenu: function(event)
+    {
+        var contextMenu = new WebInspector.ContextMenu();
+        var removeAllTitle = WebInspector.UIString(WebInspector.useLowerCaseMenuTitles() ? "Remove all JavaScript breakpoints" : "Remove All JavaScript Breakpoints");
+        contextMenu.appendItem(removeAllTitle, this._breakpointManager.removeAllBreakpoints.bind(this._breakpointManager));
         contextMenu.show(event);
     },
 
@@ -186,12 +223,16 @@ WebInspector.JavaScriptBreakpointsSidebarPane.prototype = {
             this.bodyElement.removeChild(this.listElement);
             this.bodyElement.appendChild(this.emptyElement);
         }
-        this._items = {};
+        this._items.clear();
     }
 }
 
 WebInspector.JavaScriptBreakpointsSidebarPane.prototype.__proto__ = WebInspector.SidebarPane.prototype;
 
+/**
+ * @constructor
+ * @extends {WebInspector.SidebarPane}
+ */
 WebInspector.NativeBreakpointsSidebarPane = function(title)
 {
     WebInspector.SidebarPane.call(this, title);
@@ -241,6 +282,10 @@ WebInspector.NativeBreakpointsSidebarPane.prototype = {
 
 WebInspector.NativeBreakpointsSidebarPane.prototype.__proto__ = WebInspector.SidebarPane.prototype;
 
+/**
+ * @constructor
+ * @extends {WebInspector.NativeBreakpointsSidebarPane}
+ */
 WebInspector.XHRBreakpointsSidebarPane = function()
 {
     WebInspector.NativeBreakpointsSidebarPane.call(this, WebInspector.UIString("XHR Breakpoints"));
@@ -248,7 +293,7 @@ WebInspector.XHRBreakpointsSidebarPane = function()
     this._breakpointElements = {};
 
     var addButton = document.createElement("button");
-    addButton.className = "add";
+    addButton.className = "pane-title-button add";
     addButton.addEventListener("click", this._addButtonClicked.bind(this), false);
     this.titleElement.appendChild(addButton);
 
@@ -258,7 +303,7 @@ WebInspector.XHRBreakpointsSidebarPane = function()
 WebInspector.XHRBreakpointsSidebarPane.prototype = {
     _addButtonClicked: function(event)
     {
-        event.stopPropagation();
+        event.consume();
 
         this.expanded = true;
 
@@ -280,10 +325,8 @@ WebInspector.XHRBreakpointsSidebarPane.prototype = {
             }
         }
 
-        WebInspector.startEditing(inputElement, {
-            commitHandler: finishEditing.bind(this, true),
-            cancelHandler: finishEditing.bind(this, false)
-        });
+        var config = new WebInspector.EditingConfig(finishEditing.bind(this, true), finishEditing.bind(this, false));
+        WebInspector.startEditing(inputElement, config);
     },
 
     _setBreakpoint: function(url, enabled)
@@ -377,10 +420,7 @@ WebInspector.XHRBreakpointsSidebarPane.prototype = {
                 element.removeStyleClass("hidden");
         }
 
-        WebInspector.startEditing(inputElement, {
-            commitHandler: finishEditing.bind(this, true),
-            cancelHandler: finishEditing.bind(this, false)
-        });
+        WebInspector.startEditing(inputElement, new WebInspector.EditingConfig(finishEditing.bind(this, true), finishEditing.bind(this, false)));
     },
 
     highlightBreakpoint: function(url)
@@ -406,12 +446,12 @@ WebInspector.XHRBreakpointsSidebarPane.prototype = {
         var breakpoints = [];
         for (var url in this._breakpointElements)
             breakpoints.push({ url: url, enabled: this._breakpointElements[url]._checkboxElement.checked });
-        WebInspector.settings.xhrBreakpoints = breakpoints;
+        WebInspector.settings.xhrBreakpoints.set(breakpoints);
     },
 
     _restoreBreakpoints: function()
     {
-        var breakpoints = WebInspector.settings.xhrBreakpoints;
+        var breakpoints = WebInspector.settings.xhrBreakpoints.get();
         for (var i = 0; i < breakpoints.length; ++i) {
             var breakpoint = breakpoints[i];
             if (breakpoint && typeof breakpoint.url === "string")
@@ -422,6 +462,10 @@ WebInspector.XHRBreakpointsSidebarPane.prototype = {
 
 WebInspector.XHRBreakpointsSidebarPane.prototype.__proto__ = WebInspector.NativeBreakpointsSidebarPane.prototype;
 
+/**
+ * @constructor
+ * @extends {WebInspector.SidebarPane}
+ */
 WebInspector.EventListenerBreakpointsSidebarPane = function()
 {
     WebInspector.SidebarPane.call(this, WebInspector.UIString("Event Listener Breakpoints"));
@@ -434,20 +478,25 @@ WebInspector.EventListenerBreakpointsSidebarPane = function()
     this.bodyElement.appendChild(this.categoriesElement);
 
     this._breakpointItems = {};
-    this._createCategory(WebInspector.UIString("Keyboard"), "listener", ["keydown", "keyup", "keypress", "textInput"]);
-    this._createCategory(WebInspector.UIString("Mouse"), "listener", ["click", "dblclick", "mousedown", "mouseup", "mouseover", "mousemove", "mouseout", "mousewheel"]);
     // FIXME: uncomment following once inspector stops being drop targer in major ports.
     // Otherwise, inspector page reacts on drop event and tries to load the event data.
-    // this._createCategory(WebInspector.UIString("Drag"), "listener", ["drag", "drop", "dragstart", "dragend", "dragenter", "dragleave", "dragover"]);
-    this._createCategory(WebInspector.UIString("Control"), "listener", ["resize", "scroll", "zoom", "focus", "blur", "select", "change", "submit", "reset"]);
-    this._createCategory(WebInspector.UIString("Clipboard"), "listener", ["copy", "cut", "paste", "beforecopy", "beforecut", "beforepaste"]);
-    this._createCategory(WebInspector.UIString("Load"), "listener", ["load", "unload", "abort", "error"]);
-    this._createCategory(WebInspector.UIString("DOM Mutation"), "listener", ["DOMActivate", "DOMFocusIn", "DOMFocusOut", "DOMAttrModified", "DOMCharacterDataModified", "DOMNodeInserted", "DOMNodeInsertedIntoDocument", "DOMNodeRemoved", "DOMNodeRemovedFromDocument", "DOMSubtreeModified", "DOMContentLoaded"]);
-    this._createCategory(WebInspector.UIString("Device"), "listener", ["deviceorientation", "devicemotion"]);
-    this._createCategory(WebInspector.UIString("Timer"), "instrumentation", ["setTimer", "clearTimer", "timerFired"]);
+    // this._createCategory(WebInspector.UIString("Drag"), true, ["drag", "drop", "dragstart", "dragend", "dragenter", "dragleave", "dragover"]);
+    this._createCategory(WebInspector.UIString("Animation"), false, ["requestAnimationFrame", "cancelAnimationFrame", "animationFrameFired"]);
+    this._createCategory(WebInspector.UIString("Control"), true, ["resize", "scroll", "zoom", "focus", "blur", "select", "change", "submit", "reset"]);
+    this._createCategory(WebInspector.UIString("Clipboard"), true, ["copy", "cut", "paste", "beforecopy", "beforecut", "beforepaste"]);
+    this._createCategory(WebInspector.UIString("DOM Mutation"), true, ["DOMActivate", "DOMFocusIn", "DOMFocusOut", "DOMAttrModified", "DOMCharacterDataModified", "DOMNodeInserted", "DOMNodeInsertedIntoDocument", "DOMNodeRemoved", "DOMNodeRemovedFromDocument", "DOMSubtreeModified", "DOMContentLoaded"]);
+    this._createCategory(WebInspector.UIString("Device"), true, ["deviceorientation", "devicemotion"]);
+    this._createCategory(WebInspector.UIString("Keyboard"), true, ["keydown", "keyup", "keypress", "textInput"]);
+    this._createCategory(WebInspector.UIString("Load"), true, ["load", "unload", "abort", "error"]);
+    this._createCategory(WebInspector.UIString("Mouse"), true, ["click", "dblclick", "mousedown", "mouseup", "mouseover", "mousemove", "mouseout", "mousewheel"]);
+    this._createCategory(WebInspector.UIString("Timer"), false, ["setTimer", "clearTimer", "timerFired"]);
+    this._createCategory(WebInspector.UIString("Touch"), true, ["touchstart", "touchmove", "touchend", "touchcancel"]);
 
     this._restoreBreakpoints();
 }
+
+WebInspector.EventListenerBreakpointsSidebarPane.categotyListener = "listener:";
+WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation = "instrumentation:";
 
 WebInspector.EventListenerBreakpointsSidebarPane.eventNameForUI = function(eventName)
 {
@@ -455,14 +504,17 @@ WebInspector.EventListenerBreakpointsSidebarPane.eventNameForUI = function(event
         WebInspector.EventListenerBreakpointsSidebarPane._eventNamesForUI = {
             "instrumentation:setTimer": WebInspector.UIString("Set Timer"),
             "instrumentation:clearTimer": WebInspector.UIString("Clear Timer"),
-            "instrumentation:timerFired": WebInspector.UIString("Timer Fired")
+            "instrumentation:timerFired": WebInspector.UIString("Timer Fired"),
+            "instrumentation:requestAnimationFrame": WebInspector.UIString("Request Animation Frame"),
+            "instrumentation:cancelAnimationFrame": WebInspector.UIString("Cancel Animation Frame"),
+            "instrumentation:animationFrameFired": WebInspector.UIString("Animation Frame Fired")
         };
     }
     return WebInspector.EventListenerBreakpointsSidebarPane._eventNamesForUI[eventName] || eventName.substring(eventName.indexOf(":") + 1);
 }
 
 WebInspector.EventListenerBreakpointsSidebarPane.prototype = {
-    _createCategory: function(name, type, eventNames)
+    _createCategory: function(name, isDOMEvent, eventNames)
     {
         var categoryItem = {};
         categoryItem.element = new TreeElement(name);
@@ -475,7 +527,7 @@ WebInspector.EventListenerBreakpointsSidebarPane.prototype = {
 
         categoryItem.children = {};
         for (var i = 0; i < eventNames.length; ++i) {
-            var eventName = type + ":" + eventNames[i];
+            var eventName = (isDOMEvent ? WebInspector.EventListenerBreakpointsSidebarPane.categotyListener :  WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation) + eventNames[i];
 
             var breakpointItem = {};
             var title = WebInspector.EventListenerBreakpointsSidebarPane.eventNameForUI(eventName);
@@ -535,7 +587,10 @@ WebInspector.EventListenerBreakpointsSidebarPane.prototype = {
         if (!breakpointItem)
             return;
         breakpointItem.checkbox.checked = true;
-        DOMDebuggerAgent.setEventListenerBreakpoint(eventName);
+        if (eventName.startsWith(WebInspector.EventListenerBreakpointsSidebarPane.categotyListener))
+            DOMDebuggerAgent.setEventListenerBreakpoint(eventName.substring(WebInspector.EventListenerBreakpointsSidebarPane.categotyListener.length));
+        else if (eventName.startsWith(WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation))
+            DOMDebuggerAgent.setInstrumentationBreakpoint(eventName.substring(WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation.length));
         this._updateCategoryCheckbox(breakpointItem.parent);
     },
 
@@ -545,7 +600,10 @@ WebInspector.EventListenerBreakpointsSidebarPane.prototype = {
         if (!breakpointItem)
             return;
         breakpointItem.checkbox.checked = false;
-        DOMDebuggerAgent.removeEventListenerBreakpoint(eventName);
+        if (eventName.startsWith(WebInspector.EventListenerBreakpointsSidebarPane.categotyListener))
+            DOMDebuggerAgent.removeEventListenerBreakpoint(eventName.substring(WebInspector.EventListenerBreakpointsSidebarPane.categotyListener.length));
+        else if (eventName.startsWith(WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation))
+            DOMDebuggerAgent.removeInstrumentationBreakpoint(eventName.substring(WebInspector.EventListenerBreakpointsSidebarPane.categotyInstrumentation.length));
         this._updateCategoryCheckbox(breakpointItem.parent);
     },
 
@@ -589,12 +647,12 @@ WebInspector.EventListenerBreakpointsSidebarPane.prototype = {
             if (this._breakpointItems[eventName].checkbox.checked)
                 breakpoints.push({ eventName: eventName });
         }
-        WebInspector.settings.eventListenerBreakpoints = breakpoints;
+        WebInspector.settings.eventListenerBreakpoints.set(breakpoints);
     },
 
     _restoreBreakpoints: function()
     {
-        var breakpoints = WebInspector.settings.eventListenerBreakpoints;
+        var breakpoints = WebInspector.settings.eventListenerBreakpoints.get();
         for (var i = 0; i < breakpoints.length; ++i) {
             var breakpoint = breakpoints[i];
             if (breakpoint && typeof breakpoint.eventName === "string")

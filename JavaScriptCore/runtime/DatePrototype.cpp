@@ -60,8 +60,10 @@
 #include <sys/timeb.h>
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WX) && OS(DARWIN)) || (PLATFORM(QT) && OS(DARWIN))
 #include <CoreFoundation/CoreFoundation.h>
+#elif USE(ICU_UNICODE)
+#include <unicode/udat.h>
 #endif
 
 #if OS(WINCE) && !PLATFORM(QT)
@@ -128,7 +130,7 @@ namespace JSC {
 
 enum LocaleDateTimeFormat { LocaleDateAndTime, LocaleDate, LocaleTime };
  
-#if PLATFORM(MAC) || PLATFORM(IOS)
+#if PLATFORM(MAC) || PLATFORM(IOS) || (PLATFORM(WX) && OS(DARWIN)) || (PLATFORM(QT) && OS(DARWIN))
 
 // FIXME: Since this is superior to the strftime-based version, why limit this to PLATFORM(MAC)?
 // Instead we should consider using this whenever USE(CF) is true.
@@ -154,13 +156,13 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMil
     bool useCustomFormat = false;
     UString customFormatString;
 
-    UString arg0String = exec->argument(0).toString(exec);
+    UString arg0String = exec->argument(0).toString(exec)->value(exec);
     if (arg0String == "custom" && !exec->argument(1).isUndefined()) {
         useCustomFormat = true;
-        customFormatString = exec->argument(1).toString(exec);
+        customFormatString = exec->argument(1).toString(exec)->value(exec);
     } else if (format == LocaleDateAndTime && !exec->argument(1).isUndefined()) {
         dateStyle = styleFromArgString(arg0String, dateStyle);
-        timeStyle = styleFromArgString(exec->argument(1).toString(exec), timeStyle);
+        timeStyle = styleFromArgString(exec->argument(1).toString(exec)->value(exec), timeStyle);
     } else if (format != LocaleTime && !exec->argument(0).isUndefined())
         dateStyle = styleFromArgString(arg0String, dateStyle);
     else if (format != LocaleDate && !exec->argument(0).isUndefined())
@@ -195,7 +197,29 @@ static JSCell* formatLocaleDate(ExecState* exec, DateInstance*, double timeInMil
     return jsNontrivialString(exec, UString(buffer, length));
 }
 
-#else // !PLATFORM(MAC) && !PLATFORM(IOS)
+#elif USE(ICU_UNICODE) && !UCONFIG_NO_FORMATTING
+
+static JSCell* formatLocaleDate(ExecState* exec, DateInstance* dateObject, double timeInMilliseconds, LocaleDateTimeFormat format)
+{
+    UDateFormatStyle timeStyle = (format != LocaleDate ? UDAT_LONG : UDAT_NONE);
+    UDateFormatStyle dateStyle = (format != LocaleTime ? UDAT_LONG : UDAT_NONE);
+
+    UErrorCode status = U_ZERO_ERROR;
+    UDateFormat* df = udat_open(timeStyle, dateStyle, 0, 0, -1, 0, 0, &status);
+    if (!df)
+        return jsEmptyString(exec);
+
+    UChar buffer[128];
+    int32_t length;
+    length = udat_format(df, timeInMilliseconds, buffer, 128, 0, &status);
+    udat_close(df);
+    if (status != U_ZERO_ERROR)
+        return jsEmptyString(exec);
+
+    return jsNontrivialString(exec, UString(buffer, length));
+}
+
+#else
 
 static JSCell* formatLocaleDate(ExecState* exec, const GregorianDateTime& gdt, LocaleDateTimeFormat format)
 {
@@ -508,10 +532,13 @@ EncodedJSValue JSC_HOST_CALL dateProtoFuncToISOString(ExecState* exec)
     // 6 for formatting and one for null termination = 28. We add one extra character to allow us to force null termination.
     char buffer[29];
     // If the year is outside the bounds of 0 and 9999 inclusive we want to use the extended year format (ES 15.9.1.15.1).
+    int ms = static_cast<int>(fmod(thisDateObj->internalNumber(), msPerSecond));
+    if (ms < 0)
+        ms += msPerSecond;
     if (gregorianDateTime->year > 8099 || gregorianDateTime->year < -1900)
-        snprintf(buffer, sizeof(buffer) - 1, "%+07d-%02d-%02dT%02d:%02d:%02d.%03dZ", 1900 + gregorianDateTime->year, gregorianDateTime->month + 1, gregorianDateTime->monthDay, gregorianDateTime->hour, gregorianDateTime->minute, gregorianDateTime->second, static_cast<int>(fmod(thisDateObj->internalNumber(), 1000)));
+        snprintf(buffer, sizeof(buffer) - 1, "%+07d-%02d-%02dT%02d:%02d:%02d.%03dZ", 1900 + gregorianDateTime->year, gregorianDateTime->month + 1, gregorianDateTime->monthDay, gregorianDateTime->hour, gregorianDateTime->minute, gregorianDateTime->second, ms);
     else
-        snprintf(buffer, sizeof(buffer) - 1, "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", 1900 + gregorianDateTime->year, gregorianDateTime->month + 1, gregorianDateTime->monthDay, gregorianDateTime->hour, gregorianDateTime->minute, gregorianDateTime->second, static_cast<int>(fmod(thisDateObj->internalNumber(), 1000)));
+        snprintf(buffer, sizeof(buffer) - 1, "%04d-%02d-%02dT%02d:%02d:%02d.%03dZ", 1900 + gregorianDateTime->year, gregorianDateTime->month + 1, gregorianDateTime->monthDay, gregorianDateTime->hour, gregorianDateTime->minute, gregorianDateTime->second, ms);
     buffer[sizeof(buffer) - 1] = 0;
     return JSValue::encode(jsNontrivialString(exec, buffer));
 }

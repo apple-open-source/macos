@@ -52,7 +52,7 @@ const char i2a_sealmagic[] =
     "session key to client-to-server sealing key magic constant";
 
 
-void
+static void
 _gss_ntlm_set_key(struct ntlmv2_key *key, int acceptor, int sealsign,
 		  unsigned char *data, size_t len)
 {
@@ -82,13 +82,68 @@ _gss_ntlm_set_key(struct ntlmv2_key *key, int acceptor, int sealsign,
     CCDigestFinal(ctx, out);
     CCDigestDestroy(ctx);
 
-    EVP_CIPHER_CTX_init(&key->sealkey);
+    EVP_CIPHER_CTX_cleanup(&key->sealkey);
 
     EVP_CipherInit_ex(&key->sealkey, EVP_rc4(), NULL, out, NULL, 1);
     if (sealsign) {
 	key->signsealkey = &key->sealkey;
     }
 }
+
+/*
+ * Set (or reset) keys
+ */
+
+void
+_gss_ntlm_set_keys(ntlm_ctx ctx)
+{
+    int acceptor = (ctx->status & STATUS_CLIENT) ? 0 : 1;
+
+    if (ctx->sessionkey.length == 0)
+	return;
+
+    ctx->status |= STATUS_SESSIONKEY;
+	
+    if (ctx->flags & NTLM_NEG_SEAL)
+	ctx->gssflags |= GSS_C_CONF_FLAG;
+    if (ctx->flags & (NTLM_NEG_SIGN|NTLM_NEG_ALWAYS_SIGN))
+	ctx->gssflags |= GSS_C_INTEG_FLAG;
+
+    if (ctx->flags & NTLM_NEG_NTLM2_SESSION) {
+	_gss_ntlm_set_key(&ctx->u.v2.send, acceptor,
+			  (ctx->flags & NTLM_NEG_KEYEX),
+			  ctx->sessionkey.data,
+			  ctx->sessionkey.length);
+	_gss_ntlm_set_key(&ctx->u.v2.recv, !acceptor,
+			  (ctx->flags & NTLM_NEG_KEYEX),
+			  ctx->sessionkey.data,
+			  ctx->sessionkey.length);
+    } else {
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v1.crypto_send.key);
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v1.crypto_recv.key);
+	
+	EVP_CipherInit_ex(&ctx->u.v1.crypto_send.key, EVP_rc4(), NULL,
+			  ctx->sessionkey.data, NULL, 1);
+	EVP_CipherInit_ex(&ctx->u.v1.crypto_recv.key, EVP_rc4(), NULL,
+			  ctx->sessionkey.data, NULL, 1);
+    }
+}
+
+void
+_gss_ntlm_destroy_crypto(ntlm_ctx ctx)
+{
+    if ((ctx->status & STATUS_SESSIONKEY) == 0)
+	return;
+
+    if (ctx->flags & NTLM_NEG_NTLM2_SESSION) {
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v2.send.sealkey);
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v2.recv.sealkey);
+    } else {
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v1.crypto_send.key);
+	EVP_CIPHER_CTX_cleanup(&ctx->u.v1.crypto_recv.key);
+    }
+}
+
 
 /*
  *
@@ -152,7 +207,7 @@ v2_sign_message(unsigned char signkey[16],
 
     assert(trailer->buffer.length == 16);
 
-	CCHmacInit(&c, kCCHmacAlgMD5, signkey, 16);
+    CCHmacInit(&c, kCCHmacAlgMD5, signkey, 16);
 
     _gss_mg_encode_le_uint32(seq, hmac);
     CCHmacUpdate(&c, hmac, 4);
@@ -202,6 +257,11 @@ v2_verify_message(unsigned char signkey[16],
     unsigned char outbuf[16];
     gss_iov_buffer_desc out;
 
+    if (trailer->buffer.length != 16)
+	return GSS_S_BAD_MIC;
+
+    _gss_mg_decode_be_uint32((uint8_t *)trailer->buffer.value + 12, &seq);
+
     out.type = GSS_IOV_BUFFER_TYPE_TRAILER;
     out.buffer.length = sizeof(outbuf);
     out.buffer.value = outbuf;
@@ -210,7 +270,7 @@ v2_verify_message(unsigned char signkey[16],
     if (ret)
 	return ret;
 
-    if (memcmp(trailer->buffer.value, outbuf, 16) != 0)
+    if (ct_memcmp(trailer->buffer.value, outbuf, 16))
 	return GSS_S_BAD_MIC;
 
     return GSS_S_COMPLETE;
@@ -409,7 +469,7 @@ verify_mic_iov
 
 	ret = v2_verify_message(ctx->u.v2.recv.signkey,
 				ctx->u.v2.recv.signsealkey,
-				ctx->u.v2.recv.seq++,
+				0,
 				trailer, iov, iov_count);
 	if (ret)
 	    return ret;

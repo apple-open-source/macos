@@ -37,37 +37,36 @@
 #include "ContentLayerChromium.h"
 #include "PlatformImage.h"
 
-#if USE(CG)
-#include <wtf/RetainPtr.h>
-#endif
-
 namespace WebCore {
 
 class Image;
+class ImageLayerTextureUpdater;
 
 // A Layer that contains only an Image element.
-class ImageLayerChromium : public ContentLayerChromium {
+class ImageLayerChromium : public TiledLayerChromium {
 public:
-    static PassRefPtr<ImageLayerChromium> create(GraphicsLayerChromium* owner = 0);
+    static PassRefPtr<ImageLayerChromium> create();
+    virtual ~ImageLayerChromium();
 
-    virtual void paintContentsIfDirty(const IntRect& targetSurfaceRect);
-    virtual void updateCompositorResources();
-    virtual bool drawsContent() const { return m_contents; }
+    virtual bool drawsContent() const OVERRIDE;
+    virtual void update(CCTextureUpdater&, const CCOcclusionTracker*) OVERRIDE;
+    virtual bool needsContentsScale() const OVERRIDE;
 
     void setContents(Image* image);
 
-protected:
-    virtual const char* layerTypeAsString() const { return "ImageLayer"; }
-
-    virtual TransformationMatrix tilingTransform();
-    virtual IntRect layerBounds() const;
-
 private:
-    ImageLayerChromium(GraphicsLayerChromium* owner);
+    ImageLayerChromium();
 
-    PlatformImage m_decodedImage;
+    void setTilingOption(TilingOption);
+
+    virtual LayerTextureUpdater* textureUpdater() const OVERRIDE;
+    virtual void createTextureUpdaterIfNeeded() OVERRIDE;
+    virtual IntSize contentBounds() const OVERRIDE;
+
     NativeImagePtr m_imageForCurrentFrame;
     RefPtr<Image> m_contents;
+
+    RefPtr<ImageLayerTextureUpdater> m_textureUpdater;
 };
 
 }

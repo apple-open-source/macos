@@ -80,8 +80,8 @@
 /* .ad
 /* .fi
 /* .IP "\fBqmqpd_error_delay (1s)\fR"
-/*	How long the QMQP server will pause before sending a negative reply
-/*	to the client.
+/*	How long the Postfix QMQP server will pause before sending a negative
+/*	reply to the remote QMQP client.
 /* MISCELLANEOUS CONTROLS
 /* .ad
 /* .fi
@@ -105,7 +105,8 @@
 /* .IP "\fBprocess_name (read-only)\fR"
 /*	The process name of a Postfix command or daemon process.
 /* .IP "\fBqmqpd_authorized_clients (empty)\fR"
-/*	What clients are allowed to connect to the QMQP server port.
+/*	What remote QMQP clients are allowed to connect to the Postfix QMQP
+/*	server port.
 /* .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
@@ -166,6 +167,7 @@
 #include <vstream.h>
 #include <netstring.h>
 #include <dict.h>
+#include <inet_proto.h>
 
 /* Global library. */
 
@@ -685,12 +687,16 @@ static void qmqpd_proto(QMQPD_STATE *state)
 	/*
 	 * See if we want to talk to this client at all.
 	 */
-	if (namadr_list_match(qmqpd_clients, state->name, state->addr) == 0) {
+	if (namadr_list_match(qmqpd_clients, state->name, state->addr) != 0) {
+	    qmqpd_receive(state);
+	} else if (qmqpd_clients->error == 0) {
 	    qmqpd_reply(state, DONT_LOG, QMQPD_STAT_HARD,
 			"Error: %s is not authorized to use this service",
 			state->namaddr);
-	} else
-	    qmqpd_receive(state);
+	} else {
+	    qmqpd_reply(state, DONT_LOG, QMQPD_STAT_RETRY,
+			"Error: server configuration error");
+	}
 	break;
     }
 
@@ -714,6 +720,15 @@ static void qmqpd_service(VSTREAM *stream, char *unused_service, char **argv)
      */
     if (argv[0])
 	msg_fatal("unexpected command-line argument: %s", argv[0]);
+
+    /*
+     * For sanity, require that at least one of INET or INET6 is enabled.
+     * Otherwise, we can't look up interface information, and we can't
+     * convert names or addresses.
+     */
+    if (inet_proto_info()->ai_family_list[0] == 0)
+	msg_fatal("all network protocols are disabled (%s = %s)",
+		  VAR_INET_PROTOCOLS, var_inet_protocols);
 
     /*
      * This routine runs when a client has connected to our network port.
@@ -760,7 +775,8 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 {
     debug_peer_init();
     qmqpd_clients =
-	namadr_list_init(match_parent_style(VAR_QMQPD_CLIENTS),
+	namadr_list_init(MATCH_FLAG_RETURN
+			 | match_parent_style(VAR_QMQPD_CLIENTS),
 			 var_qmqpd_clients);
 }
 

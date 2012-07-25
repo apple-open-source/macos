@@ -47,6 +47,7 @@ _hc_get_cdsa_csphandle(void);
 
 #endif
 
+
 int
 _hc_BN_to_integer(BIGNUM *, heim_integer *);
 

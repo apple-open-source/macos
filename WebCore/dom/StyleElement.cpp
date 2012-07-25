@@ -28,6 +28,7 @@
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "ScriptableDocumentParser.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -49,7 +50,7 @@ StyleElement::StyleElement(Document* document, bool createdByParser)
     , m_startLineNumber(0)
 {
     if (createdByParser && document && document->scriptableDocumentParser())
-        m_startLineNumber = document->scriptableDocumentParser()->lineNumber();
+        m_startLineNumber = document->scriptableDocumentParser()->lineNumber().zeroBasedInt();
 }
 
 StyleElement::~StyleElement()
@@ -73,15 +74,12 @@ void StyleElement::removedFromDocument(Document* document, Element* element)
     ASSERT(element);
     document->removeStyleSheetCandidateNode(element);
 
-    if (m_sheet) {
-        ASSERT(m_sheet->ownerNode() == element);
-        m_sheet->clearOwnerNode();
-        m_sheet = 0;
-    }
+    if (m_sheet)
+        clearSheet();
 
     // If we're in document teardown, then we don't need to do any notification of our sheet's removal.
     if (document->renderer())
-        document->styleSelectorChanged(DeferRecalcStyle);
+        document->styleResolverChanged(DeferRecalcStyle);
 }
 
 void StyleElement::clearDocumentData(Document* document, Element* element)
@@ -125,21 +123,24 @@ void StyleElement::process(Element* e)
             resultLength += length;
         }
     }
-    UChar* text;
-    String sheetText = String::createUninitialized(resultLength, text);
+    StringBuilder sheetText;
+    sheetText.reserveCapacity(resultLength);
 
-    UChar* p = text;
     for (Node* c = e->firstChild(); c; c = c->nextSibling()) {
         if (isValidStyleChild(c)) {
-            String nodeValue = c->nodeValue();
-            unsigned nodeLength = nodeValue.length();
-            memcpy(p, nodeValue.characters(), nodeLength * sizeof(UChar));
-            p += nodeLength;
+            sheetText.append(c->nodeValue());
         }
     }
-    ASSERT(p == text + resultLength);
+    ASSERT(sheetText.length() == resultLength);
 
-    createSheet(e, m_startLineNumber, sheetText);
+    createSheet(e, m_startLineNumber, sheetText.toString());
+}
+
+void StyleElement::clearSheet()
+{
+    ASSERT(m_sheet);
+    m_sheet->clearOwnerNode();
+    m_sheet = 0;
 }
 
 void StyleElement::createSheet(Element* e, int startLineNumber, const String& text)
@@ -150,28 +151,36 @@ void StyleElement::createSheet(Element* e, int startLineNumber, const String& te
     if (m_sheet) {
         if (m_sheet->isLoading())
             document->removePendingSheet();
-        m_sheet = 0;
+        clearSheet();
     }
 
     // If type is empty or CSS, this is a CSS style sheet.
     const AtomicString& type = this->type();
     if (document->contentSecurityPolicy()->allowInlineStyle() && isCSS(e, type)) {
-        RefPtr<MediaList> mediaList = MediaList::create(media(), e->isHTMLElement());
+        RefPtr<MediaQuerySet> mediaQueries;
+        if (e->isHTMLElement())
+            mediaQueries = MediaQuerySet::createAllowingDescriptionSyntax(media());
+        else
+            mediaQueries = MediaQuerySet::create(media());
+
         MediaQueryEvaluator screenEval("screen", true);
         MediaQueryEvaluator printEval("print", true);
-        if (screenEval.eval(mediaList.get()) || printEval.eval(mediaList.get())) {
+        if (screenEval.eval(mediaQueries.get()) || printEval.eval(mediaQueries.get())) {
             document->addPendingSheet();
             m_loading = true;
-            m_sheet = CSSStyleSheet::create(e, String(), KURL(), document->inputEncoding());
-            m_sheet->parseStringAtLine(text, !document->inQuirksMode(), startLineNumber);
-            m_sheet->setMedia(mediaList.get());
+
+            m_sheet = CSSStyleSheet::createInline(e, KURL(), document->inputEncoding());
+            m_sheet->setMediaQueries(mediaQueries.release());
             m_sheet->setTitle(e->title());
+    
+            m_sheet->internal()->parseStringAtLine(text, startLineNumber);
+
             m_loading = false;
         }
     }
 
     if (m_sheet)
-        m_sheet->checkLoaded();
+        m_sheet->internal()->checkLoaded();
 }
 
 bool StyleElement::isLoading() const
@@ -189,6 +198,12 @@ bool StyleElement::sheetLoaded(Document* document)
 
     document->removePendingSheet();
     return true;
+}
+
+void StyleElement::startLoadingDynamicSheet(Document* document)
+{
+    ASSERT(document);
+    document->addPendingSheet();
 }
 
 }

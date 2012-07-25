@@ -4,9 +4,14 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = python
-VERSION = 2.7.1
+VERSION = 2.7.2
 
 PWD := $(shell pwd)
+
+ifeq ($(MAKECMDGOALS),)
+MAKECMDGOALS = no_target
+endif
+ifneq ($(filter no_target install,$(MAKECMDGOALS)),)
 ifndef DSTROOT
 ifdef DESTDIR
 export DSTROOT := $(shell mkdir -p '$(DESTDIR)' && echo '$(DESTDIR)')
@@ -17,11 +22,13 @@ endif
 ifndef OBJROOT
 export OBJROOT := $(shell mkdir -p '$(PWD)/OBJROOT' && echo '$(PWD)/OBJROOT')
 endif
-ifndef SRCROOT
-export SRCROOT := $(PWD)
-endif
 ifndef SYMROOT
 export SYMROOT := $(shell mkdir -p '$(PWD)/SYMROOT' && echo '$(PWD)/SYMROOT')
+endif
+endif
+
+ifndef SRCROOT
+export SRCROOT := $(PWD)
 endif
 ifndef RC_ARCHS
 export RC_ARCHS := $(shell arch)
@@ -139,9 +146,6 @@ $(OBJROOT)/$(PROJECT):
 	    echo '#' > $$i; \
 	done && \
 	echo > $(PROJECT)/Lib/test/nullcert.pem
-	@set -x && \
-	cd '$(OBJROOT)/$(PROJECT)' && \
-	patch -p0 -i $(FIX)/2.7.2-security-fixes.patch
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 
 install: installpython installextras

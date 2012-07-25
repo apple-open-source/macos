@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: int.h,v 1.13 2007/06/19 23:47:20 tbox Exp $ */
+/* $Id: int.h,v 1.13 2007-06-19 23:47:20 tbox Exp $ */
 
 #ifndef ISC_INT_H
 #define ISC_INT_H 1

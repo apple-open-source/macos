@@ -46,6 +46,9 @@ extern char *yytext;
 #define alloca(x) malloc(x)
 #endif
 
+#define YYMALLOC malloc
+#define YYFREE free
+
 %}
 
 %union {
@@ -114,7 +117,7 @@ statement	: INDEX NUMBER
 		| EC STRING ',' STRING
 		{
 		    struct error_code *ec = malloc(sizeof(*ec));
-		
+
 		    if (ec == NULL)
 			errx(1, "malloc");
 
@@ -167,5 +170,5 @@ name2number(const char *str)
 void
 yyerror (char *s)
 {
-     error_message ("%s\n", s);
+     _lex_error_message ("%s\n", s);
 }

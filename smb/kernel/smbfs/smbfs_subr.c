@@ -218,7 +218,7 @@ smbfs_create_start_path(struct smbmount *smp, struct smb_mount_args *args,
 	}
 	
 	smp->sm_args.path_len = (args->path_len * 2) + 2;	/* Start with the max size */
-	MALLOC(smp->sm_args.path, char *, smp->sm_args.path_len, M_TEMP, M_WAITOK);
+	SMB_MALLOC(smp->sm_args.path, char *, smp->sm_args.path_len, M_TEMP, M_WAITOK);
 	if (smp->sm_args.path == NULL) {
 		smp->sm_args.path_len = 0;
 		return;	/* Give up */
@@ -267,7 +267,7 @@ smbfs_ntwrkname_tolocal(const char *ntwrk_name, size_t *nmlen, int usingUnicode)
 	} else {
 		length = MIN(*nmlen * 3, SMB_MAXPKTLEN);
 	}
-	MALLOC(dst, char *, length+1, M_TEMP, M_WAITOK | M_ZERO);
+	SMB_MALLOC(dst, char *, length+1, M_TEMP, M_WAITOK | M_ZERO);
 	outlen = length;
 	inlen = *nmlen;
 	odst = dst;

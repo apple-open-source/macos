@@ -302,7 +302,7 @@ DH_check_pubkey(const DH *dh, const BIGNUM *pub_key, int *codes)
     if (!BN_set_word(bn, 2))
 	goto out;
 
-    if (BN_cmp(bn, pub_key) == 0) {
+    if (BN_cmp(bn, dh->g) == 0) {
 	unsigned i, n = BN_num_bits(pub_key);
 	unsigned bits = 0;
 
@@ -310,7 +310,7 @@ DH_check_pubkey(const DH *dh, const BIGNUM *pub_key, int *codes)
 	    if (BN_is_bit_set(pub_key, i))
 		bits++;
 
-	if (bits > 1) {
+	if (bits < 2) {
 	    *codes |= DH_CHECK_PUBKEY_TOO_SMALL;
 	    goto out;
 	}
@@ -549,8 +549,10 @@ i2d_DHparams(DH *dh, unsigned char **pp)
 	free_DHParameter(&data);
 	if (ret)
 	    return -1;
-	if (len != size)
+	if (len != size) {
 	    abort();
+            return -1;
+        }
 
 	memcpy((char *)*pp, p, size);
 	free(p);

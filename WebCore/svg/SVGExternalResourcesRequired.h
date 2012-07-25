@@ -22,10 +22,13 @@
 #define SVGExternalResourcesRequired_h
 
 #if ENABLE(SVG)
+#include "QualifiedName.h"
+#include "SVGElement.h"
+#include <wtf/HashSet.h>
+
 namespace WebCore {
 
 class Attribute;
-class QualifiedName;
 
 // Notes on a SVG 1.1 spec discrepancy:
 // The SVG DOM defines the attribute externalResourcesRequired as being of type SVGAnimatedBoolean, whereas the 
@@ -36,11 +39,24 @@ class SVGExternalResourcesRequired {
 public:
     virtual ~SVGExternalResourcesRequired() { }
 
-    bool parseMappedAttribute(Attribute*);
+    bool parseAttribute(Attribute*);
     bool isKnownAttribute(const QualifiedName&);
+    void addSupportedAttributes(HashSet<QualifiedName>&);
+    bool handleAttributeChange(SVGElement*, const QualifiedName&);
 
 protected:
+    // These types look a bit awkward, but have to match the generic types of the SVGAnimatedProperty macros.
     virtual void setExternalResourcesRequiredBaseValue(const bool&) = 0;
+    virtual bool& externalResourcesRequiredBaseValue() const = 0;
+
+    virtual void setHaveFiredLoadEvent(bool) { }
+    virtual bool isParserInserted() const { return false; }
+    virtual bool haveFiredLoadEvent() const { return false; }
+
+    void dispatchLoadEvent(SVGElement*);
+    void insertedIntoDocument(SVGElement*);
+    void finishParsingChildren();
+    bool haveLoadedRequiredResources() const;
 };
 
 } // namespace WebCore

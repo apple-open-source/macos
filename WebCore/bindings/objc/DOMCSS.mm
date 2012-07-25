@@ -48,6 +48,14 @@
 #import "DOMWebKitCSSKeyframesRule.h"
 #import "DOMWebKitCSSTransformValue.h"
 
+#if ENABLE(CSS_FILTERS)
+#import "DOMWebKitCSSFilterValue.h"
+#endif
+
+#if ENABLE(CSS_REGIONS)
+#import "DOMWebKitCSSRegionRule.h"
+#endif
+
 #if ENABLE(SVG_DOM_OBJC_BINDINGS)
 #import "DOMSVGPaint.h"
 #endif
@@ -86,6 +94,10 @@ Class kitClass(WebCore::CSSRule* impl)
             return [DOMWebKitCSSKeyframesRule class];
         case DOM_WEBKIT_KEYFRAME_RULE:
             return [DOMWebKitCSSKeyframeRule class];
+#if ENABLE(CSS_REGIONS)
+        case DOM_WEBKIT_REGION_RULE:
+            return [DOMWebKitCSSRegionRule class];
+#endif
     }
     ASSERT_NOT_REACHED();
     return nil;
@@ -102,6 +114,10 @@ Class kitClass(WebCore::CSSValue* impl)
         case WebCore::CSSValue::CSS_VALUE_LIST:
             if (impl->isWebKitCSSTransformValue())
                 return [DOMWebKitCSSTransformValue class];
+#if ENABLE(CSS_FILTERS)
+            if (impl->isWebKitCSSFilterValue())
+                return [DOMWebKitCSSFilterValue class];
+#endif
             return [DOMCSSValueList class];
         case WebCore::CSSValue::CSS_INHERIT:
         case WebCore::CSSValue::CSS_INITIAL:

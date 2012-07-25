@@ -42,6 +42,7 @@ to provide the cryptography engine.</p>
 </div>
 <div id="quickview"><h3 class="directives">Directives</h3>
 <ul id="toc">
+<li><img alt="" src="../images/down.gif" /> <a href="#sslallowemptyfragments">SSLAllowEmptyFragments</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslcacertificatefile">SSLCACertificateFile</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslcacertificatepath">SSLCACertificatePath</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#sslcadnrequestfile">SSLCADNRequestFile</a></li>
@@ -177,6 +178,23 @@ provided. Information about this function is provided in the <a href="../ssl/ssl
 CustomLog logs/ssl_request_log \
           "%t %h %{SSL_PROTOCOL}x %{SSL_CIPHER}x \"%r\" %b"
 </code></p></div>
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="SSLAllowEmptyFragments" id="SSLAllowEmptyFragments">SSLAllowEmptyFragments</a> <a name="sslallowemptyfragments" id="sslallowemptyfragments">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Allow or prevent sending empty fragments</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLAllowEmptyFragments on|off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>SSLAllowEmptyFragments on</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+</table>
+<p>See the description of <code>SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS</code> in the documentation for OpenSSL's
+<a href="http://www.openssl.org/docs/ssl/SSL_CTX_set_options.html#item_SSL_OP_DONT_INSERT_EMPTY_FRAGMEN">SSL_CTX_set_options</a> function.</p>
+<p>When <code>SSLAllowEmptyFragments</code> is <code>on</code>, mod_ssl clears the <code>SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS</code> option.
+When <code>SSLAllowEmptyFragments</code> is <code>off</code>, mod_ssl sets the <code>SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS</code> option.</p>
+<p>The default is <code>on</code> to address the <a href="http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2011-3389">BEAST security vulnerability</a>
+but it may cause compatibility problems with certain clients or network gear (not known).  If SSL connection problems occur turn this <code>off</code>.</p>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="SSLCACertificateFile" id="SSLCACertificateFile">SSLCACertificateFile</a> <a name="sslcacertificatefile" id="sslcacertificatefile">Directive</a></h2>

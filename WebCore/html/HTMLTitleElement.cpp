@@ -25,6 +25,7 @@
 
 #include "Document.h"
 #include "HTMLNames.h"
+#include "NodeRenderingContext.h"
 #include "RenderStyle.h"
 #include "Text.h"
 
@@ -43,24 +44,27 @@ PassRefPtr<HTMLTitleElement> HTMLTitleElement::create(const QualifiedName& tagNa
     return adoptRef(new HTMLTitleElement(tagName, document));
 }
 
-void HTMLTitleElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLTitleElement::insertedInto(Node* insertionPoint)
 {
-    HTMLElement::insertedIntoDocument();
-    document()->setTitleElement(m_title, this);
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint->inDocument())
+        document()->setTitleElement(m_title, this);
+    return InsertionDone;
 }
 
-void HTMLTitleElement::removedFromDocument()
+void HTMLTitleElement::removedFrom(Node* insertionPoint)
 {
-    HTMLElement::removedFromDocument();
-    document()->removeTitle(this);
+    HTMLElement::removedFrom(insertionPoint);
+    if (insertionPoint->inDocument())
+        document()->removeTitle(this);
 }
 
 void HTMLTitleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
     m_title = textWithDirection();
     if (inDocument())
         document()->setTitleElement(m_title, this);
-    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 String HTMLTitleElement::text() const
@@ -69,7 +73,7 @@ String HTMLTitleElement::text() const
     
     for (Node *n = firstChild(); n; n = n->nextSibling()) {
         if (n->isTextNode())
-            val += static_cast<Text*>(n)->data();
+            val += toText(n)->data();
     }
 
     return val;
@@ -87,12 +91,14 @@ StringWithDirection HTMLTitleElement::textWithDirection()
 
 void HTMLTitleElement::setText(const String &value)
 {
+    RefPtr<Node> protectFromMutationEvents(this);
+
     ExceptionCode ec = 0;
     int numChildren = childNodeCount();
     
     if (numChildren == 1 && firstChild()->isTextNode())
-        static_cast<Text*>(firstChild())->setData(value, ec);
-    else {  
+        toText(firstChild())->setData(value, ec);
+    else {
         // We make a copy here because entity of "value" argument can be Document::m_title,
         // which goes empty during removeChildren() invocation below,
         // which causes HTMLTitleElement::childrenChanged(), which ends up Document::setTitle().

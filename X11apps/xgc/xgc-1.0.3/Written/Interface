@@ -1,9 +1,0 @@
-The command buttons at the top -
-
-  Benchmark Options, Graphics Options, etc. 
-
-should just bring up the window, not force you to use it.
-
-1) It is nicer to the person who might want to have both up at once.
-
-2) It is nicer to the programmer who doesn't know how to focus events.

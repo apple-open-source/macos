@@ -41,10 +41,12 @@ namespace WebCore {
 
 using namespace VectorMath;
 
-void AudioChannel::scale(double scale)
+void AudioChannel::scale(float scale)
 {
-    float s = static_cast<float>(scale);
-    vsmul(data(), 1, &s, data(), 1, length());
+    if (isSilent())
+        return;
+
+    vsmul(data(), 1, &scale, mutableData(), 1, length());
 }
 
 void AudioChannel::copyFrom(const AudioChannel* sourceChannel)
@@ -54,11 +56,18 @@ void AudioChannel::copyFrom(const AudioChannel* sourceChannel)
     if (!isSafe)
         return;
 
-    memcpy(data(), sourceChannel->data(), sizeof(float) * length());
+    if (sourceChannel->isSilent()) {
+        zero();
+        return;
+    }
+    memcpy(mutableData(), sourceChannel->data(), sizeof(float) * length());
 }
 
 void AudioChannel::copyFromRange(const AudioChannel* sourceChannel, unsigned startFrame, unsigned endFrame)
 {
+    if (sourceChannel->isSilent() && isSilent())
+        return;
+
     // Check that range is safe for reading from sourceChannel.
     bool isRangeSafe = sourceChannel && startFrame < endFrame && endFrame <= sourceChannel->length();
     ASSERT(isRangeSafe);
@@ -73,28 +82,41 @@ void AudioChannel::copyFromRange(const AudioChannel* sourceChannel, unsigned sta
         return;
 
     const float* source = sourceChannel->data();
-    float* destination = data();
-    memcpy(destination, source + startFrame, sizeof(float) * rangeLength);
+    float* destination = mutableData();
+
+    if (sourceChannel->isSilent()) {
+        if (rangeLength == length())
+            zero();
+        else
+            memset(destination, 0, sizeof(float) * rangeLength);
+    } else
+        memcpy(destination, source + startFrame, sizeof(float) * rangeLength);
 }
 
 void AudioChannel::sumFrom(const AudioChannel* sourceChannel)
 {
+    if (sourceChannel->isSilent())
+        return;
+
     bool isSafe = sourceChannel && sourceChannel->length() >= length();
     ASSERT(isSafe);
     if (!isSafe)
         return;
 
-    vadd(data(), 1, sourceChannel->data(), 1, data(), 1, length());
+    if (isSilent())
+        copyFrom(sourceChannel);
+    else
+        vadd(data(), 1, sourceChannel->data(), 1, mutableData(), 1, length());
 }
 
 float AudioChannel::maxAbsValue() const
 {
-    const float* p = data();
-    int n = length();
+    if (isSilent())
+        return 0;
 
-    float max = 0.0f;
-    while (n--)
-        max = std::max(max, fabsf(*p++));
+    float max = 0;
+
+    vmaxmgv(data(), 1, &max, length());
 
     return max;
 }

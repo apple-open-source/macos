@@ -131,7 +131,7 @@ void V8Location::protocolAccessorSetter(v8::Local<v8::String> name, v8::Local<v8
     ExceptionCode ec = 0;
     impl->setProtocol(protocol, state->activeWindow(), state->firstWindow(), ec);
     if (UNLIKELY(ec))
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, info.GetIsolate());
 }
 
 void V8Location::searchAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
@@ -272,15 +272,15 @@ bool V8Location::namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::Va
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), false);
 }
 
-v8::Handle<v8::Value> toV8(Location* impl)
+v8::Handle<v8::Value> toV8(Location* impl, v8::Isolate* isolate)
 {
     if (!impl)
         return v8::Null();
     v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
     if (wrapper.IsEmpty()) {
-        wrapper = V8Location::wrap(impl);
+        wrapper = V8Location::wrap(impl, isolate);
         if (!wrapper.IsEmpty())
-            V8DOMWrapper::setHiddenWindowReference(impl->frame(), wrapper);
+            V8DOMWrapper::setNamedHiddenWindowReference(impl->frame(), "location", wrapper);
     }
     return wrapper;
 }

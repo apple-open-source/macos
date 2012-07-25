@@ -41,8 +41,7 @@ double	 strtod_l(const char *, char **, locale_t) __DARWIN_ALIAS(strtod_l);
 float	 strtof_l(const char *, char **, locale_t) __DARWIN_ALIAS(strtof_l);
 long	 strtol_l(const char *, char **, int, locale_t);
 long double
-	 strtold_l(const char *, char **, locale_t)
-	     __DARWIN_LDBL_COMPAT2(strtold_l);
+	 strtold_l(const char *, char **, locale_t);
 long long
 	 strtoll_l(const char *, char **, int, locale_t);
 #if !__DARWIN_NO_LONG_LONG

@@ -56,13 +56,15 @@ print_addr(krb5_context context, const char *addr)
 	printf("addr %d: %s (%d/%d)\n", i, buf, (int)len, (int)strlen(buf));
 #endif
 	if (strlen(buf) > sizeof(buf))
-	    abort();
+	    krb5_err(context, 1, ret, "len %d larger then buf %d",
+		     (int)strlen(buf), (int)sizeof(buf));
 	krb5_print_address(&addresses.val[i], buf2, sizeof(buf2), &len);
 #if 0
 	printf("addr %d: %s (%d/%d)\n", i, buf2, (int)len, (int)strlen(buf2));
 #endif
 	if (strlen(buf2) > sizeof(buf2))
-	    abort();
+	    krb5_err(context, 1, ret, "len %d larger then buf %d",
+		     (int)strlen(buf2), (int)sizeof(buf2));
 
     }
     krb5_free_addresses(context, &addresses);
@@ -90,13 +92,16 @@ truncated_addr(krb5_context context, const char *addr,
     krb5_print_address(&addresses.val[0], buf, truncate_len, &len);
 
 #if 0
-    printf("addr %s (%d/%d)\n", buf, (int)len, (int)strlen(buf));
+    printf("addr %s (%d/%d) should be %d\n", buf, (int)len, (int)strlen(buf), (int)outlen);
 #endif
 
     if (truncate_len > strlen(buf) + 1)
-	abort();
+	krb5_err(context, 1, ret, "%s truncate_len %d larger then strlen %d source %s",
+		 buf, (int)truncate_len, (int)strlen(buf), addr);
+
     if (outlen != len)
-	abort();
+	krb5_err(context, 1, ret, "%s: outlen %d != len %d",
+		 buf, (int)outlen, (int)strlen(buf));
 
     krb5_print_address(&addresses.val[0], buf, outlen + 1, &len);
 
@@ -117,6 +122,8 @@ static void
 check_truncation(krb5_context context, const char *addr)
 {
     int i, len = strlen(addr);
+
+    truncated_addr(context, addr, len, len);
 
     for (i = 0; i < len; i++)
 	truncated_addr(context, addr, i, len);
@@ -201,7 +208,7 @@ main(int argc, char **argv)
     print_addr(context, "RANGE:IPv4:127.0.0.0-IPv4:127.0.0.255");
     print_addr(context, "RANGE:130.237.237.4/29");
 #ifdef HAVE_IPV6
-    print_addr(context, "RANGE:fe80::209:6bff:fea0:e522/64");
+    print_addr(context, "RANGE:2001:db8:1:2:3:4:1428:7ab/64");
     print_addr(context, "RANGE:IPv6:fe80::209:6bff:fea0:e522/64");
     print_addr(context, "RANGE:IPv6:fe80::-IPv6:fe80::ffff:ffff:ffff:ffff");
     print_addr(context, "RANGE:fe80::-fe80::ffff:ffff:ffff:ffff");
@@ -210,7 +217,10 @@ main(int argc, char **argv)
     check_truncation(context, "IPv4:127.0.0.0");
     check_truncation(context, "RANGE:IPv4:127.0.0.0-IPv4:127.0.0.255");
 #ifdef HAVE_IPV6
+    check_truncation(context, "IPv6:::");
     check_truncation(context, "IPv6:::1");
+    check_truncation(context, "IPv6:2001:db8:1:2:3:4:1428:7ab");
+    check_truncation(context, "IPv6:fe80::209:0:0:0");
     check_truncation(context, "IPv6:fe80::ffff:ffff:ffff:ffff");
 #endif
 

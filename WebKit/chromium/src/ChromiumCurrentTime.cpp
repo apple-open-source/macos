@@ -32,13 +32,18 @@
 #include <wtf/CurrentTime.h>
 
 #include "WebKit.h"
-#include "WebKitClient.h"
+#include "platform/WebKitPlatformSupport.h"
 
 namespace WTF {
 
 double currentTime()
 {
-    return WebKit::webKitClient()->currentTime();
+    return WebKit::Platform::current()->currentTime();
+}
+
+double monotonicallyIncreasingTime()
+{
+    return WebKit::Platform::current()->monotonicallyIncreasingTime();
 }
 
 }  // namespace WTF

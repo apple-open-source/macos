@@ -32,12 +32,6 @@ using namespace JSC;
 
 namespace WebCore {
 
-#ifndef NDEBUG
-
-JSDOMWrapper::~JSDOMWrapper()
-{
-}
-
-#endif
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSDOMWrapper);
 
 } // namespace WebCore

@@ -37,6 +37,8 @@ class AccessibilityMenuListOption : public AccessibilityMockObject {
 public:
     static PassRefPtr<AccessibilityMenuListOption> create() { return adoptRef(new AccessibilityMenuListOption); }
 
+    virtual bool accessibilityIsIgnored() const;
+
     void setElement(HTMLElement*);
 
 private:
@@ -46,7 +48,6 @@ private:
 
     virtual AccessibilityRole roleValue() const { return MenuListOptionRole; }
     virtual bool canHaveChildren() const { return false; }
-    virtual IntSize size() const { return elementRect().size(); }
 
     virtual Element* actionElement() const;
     virtual bool isEnabled() const;
@@ -56,7 +57,7 @@ private:
     virtual String nameForMSAA() const;
     virtual void setSelected(bool);
     virtual bool canSetSelectedAttribute() const;
-    virtual IntRect elementRect() const;
+    virtual LayoutRect elementRect() const;
     virtual String stringValue() const;
 
     RefPtr<HTMLElement> m_element;

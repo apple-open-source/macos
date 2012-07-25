@@ -23,17 +23,20 @@
 #ifndef ImageLoader_h
 #define ImageLoader_h
 
-#include "CachedResourceClient.h"
+#include "CachedImage.h"
 #include "CachedResourceHandle.h"
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 class Element;
-class ImageLoadEventSender;
+class ImageLoader;
 class RenderImageResource;
 
-class ImageLoader : public CachedResourceClient {
+template<typename T> class EventSender;
+typedef EventSender<ImageLoader> ImageEventSender;
+
+class ImageLoader : public CachedImageClient {
 public:
     ImageLoader(Element*);
     virtual ~ImageLoader();
@@ -46,7 +49,7 @@ public:
     // doesn't change; starts new load unconditionally (matches Firefox and Opera behavior).
     void updateFromElementIgnoringPreviousError();
 
-    void elementWillMoveToNewOwnerDocument();
+    void elementDidMoveToNewDocument();
 
     Element* element() const { return m_element; }
     bool imageComplete() const { return m_imageComplete; }
@@ -56,11 +59,14 @@ public:
 
     void setLoadManually(bool loadManually) { m_loadManually = loadManually; }
 
-    bool haveFiredBeforeLoadEvent() const { return m_firedBeforeLoad; }
-    bool haveFiredLoadEvent() const { return m_firedLoad; }
+    bool hasPendingBeforeLoadEvent() const { return m_hasPendingBeforeLoadEvent; }
+    bool hasPendingLoadEvent() const { return m_hasPendingLoadEvent; }
+
+    void dispatchPendingEvent(ImageEventSender*);
 
     static void dispatchPendingBeforeLoadEvents();
     static void dispatchPendingLoadEvents();
+    static void dispatchPendingErrorEvents();
 
 protected:
     virtual void notifyFinished(CachedResource*);
@@ -69,9 +75,9 @@ private:
     virtual void dispatchLoadEvent() = 0;
     virtual String sourceURI(const AtomicString&) const = 0;
 
-    friend class ImageEventSender;
     void dispatchPendingBeforeLoadEvent();
     void dispatchPendingLoadEvent();
+    void dispatchPendingErrorEvent();
 
     RenderImageResource* renderImageResource();
     void updateRenderer();
@@ -79,8 +85,9 @@ private:
     Element* m_element;
     CachedResourceHandle<CachedImage> m_image;
     AtomicString m_failedLoadURL;
-    bool m_firedBeforeLoad : 1;
-    bool m_firedLoad : 1;
+    bool m_hasPendingBeforeLoadEvent : 1;
+    bool m_hasPendingLoadEvent : 1;
+    bool m_hasPendingErrorEvent : 1;
     bool m_imageComplete : 1;
     bool m_loadManually : 1;
 };

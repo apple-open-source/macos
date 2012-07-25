@@ -26,10 +26,10 @@
 #ifndef LevelDBSlice_h
 #define LevelDBSlice_h
 
-#if ENABLE(LEVELDB)
+#if USE(LEVELDB)
 
 #include "PlatformString.h"
-#include <Vector.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -63,5 +63,6 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(LEVELDB)
+#endif // USE(LEVELDB)
+
 #endif // LevelDBSlice_h

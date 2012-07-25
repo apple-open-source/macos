@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 8983 2010-02-13 02:20:23Z mike $"
+# "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $"
 #
 #   System V commands makefile for CUPS.
 #
-#   Copyright 2007-2010 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -57,7 +57,7 @@ clean:
 #
 
 depend:
-	makedepend -Y -I.. -fDependencies $(OBJS:.o=.c) >/dev/null 2>&1
+	$(CC) -MM $(ALL_CFLAGS) $(OBJS:.o=.c) >Dependencies
 
 
 #
@@ -289,5 +289,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 8983 2010-02-13 02:20:23Z mike $".
+# End of "$Id: Makefile 7929 2008-09-10 22:23:59Z mike $".
 #

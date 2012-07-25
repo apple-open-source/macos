@@ -26,6 +26,7 @@
 #include "config.h"
 #include "ArgumentEncoder.h"
 
+#include "DataReference.h"
 #include <algorithm>
 #include <stdio.h>
 
@@ -53,7 +54,7 @@ ArgumentEncoder::~ArgumentEncoder()
 #if !USE(UNIX_DOMAIN_SOCKETS)
     // FIXME: We need to dispose of the attachments in cases of failure.
 #else
-    for (int i = 0; i < m_attachments.size(); ++i)
+    for (size_t i = 0; i < m_attachments.size(); ++i)
         m_attachments[i].dispose();
 #endif
 }
@@ -70,8 +71,11 @@ uint8_t* ArgumentEncoder::grow(unsigned alignment, size_t size)
     if (alignedSize + size > m_bufferCapacity) {
         size_t newCapacity = std::max(alignedSize + size, std::max(static_cast<size_t>(32), m_bufferCapacity + m_bufferCapacity / 4 + 1));
         // Use system malloc / realloc instead of fastMalloc due to 
-        // fastMalloc using MADV_FREE_REUSABLE doesn't work with
+        // fastMalloc using MADV_FREE_REUSABLE which doesn't work with
         // mach messages with OOL message and MACH_MSG_VIRTUAL_COPY.
+        // System malloc also calls madvise(MADV_FREE_REUSABLE) but after first
+        // checking via madvise(CAN_REUSE) that it will succeed. Should this
+        // behavior change we'll need to revisit this.
         if (!m_buffer)
             m_buffer = static_cast<uint8_t*>(malloc(newCapacity));
         else
@@ -88,14 +92,20 @@ uint8_t* ArgumentEncoder::grow(unsigned alignment, size_t size)
     return m_buffer + alignedSize;
 }
 
-void ArgumentEncoder::encodeBytes(const uint8_t* bytes, size_t size)
+void ArgumentEncoder::encodeFixedLengthData(const uint8_t* data, size_t size, unsigned alignment)
+{
+    ASSERT(!(reinterpret_cast<uintptr_t>(data) % alignment));
+
+    uint8_t* buffer = grow(alignment, size);
+    memcpy(buffer, data, size);
+}
+
+void ArgumentEncoder::encodeVariableLengthByteArray(const DataReference& dataReference)
 {
     // Encode the size.
-    encodeUInt64(static_cast<uint64_t>(size));
-    
-    uint8_t* buffer = grow(1, size);
-    
-    memcpy(buffer, bytes, size);
+    encodeUInt64(static_cast<uint64_t>(dataReference.size()));
+
+    encodeFixedLengthData(dataReference.data(), dataReference.size(), 1);
 }
 
 void ArgumentEncoder::encodeBool(bool n)
@@ -103,6 +113,13 @@ void ArgumentEncoder::encodeBool(bool n)
     uint8_t* buffer = grow(sizeof(n), sizeof(n));
     
     *reinterpret_cast<bool*>(buffer) = n;
+}
+
+void ArgumentEncoder::encodeUInt16(uint16_t n)
+{
+    uint8_t* buffer = grow(sizeof(n), sizeof(n));
+
+    *reinterpret_cast<uint16_t*>(buffer) = n;
 }
 
 void ArgumentEncoder::encodeUInt32(uint32_t n)

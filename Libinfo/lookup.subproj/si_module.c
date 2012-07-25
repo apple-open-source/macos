@@ -32,7 +32,7 @@
 #include <pthread.h>
 #include <mach/mach.h>
 #include <dispatch/dispatch.h>
-
+#include <dispatch/private.h>
 #include "si_module.h"
 
 #define PLUGIN_DIR_PATH "/usr/lib/info"
@@ -521,6 +521,14 @@ si_user_byuid(si_mod_t *si, uid_t uid)
 	return si->vtable->sim_user_byuid(si, uid);
 }
 
+si_item_t *
+si_user_byuuid(si_mod_t *si, uuid_t uuid)
+{
+	if (si == NULL) return NULL;
+	if (si->vtable->sim_user_byuuid == NULL) return NULL;
+	return si->vtable->sim_user_byuuid(si, uuid);
+}
+
 si_list_t *
 si_user_all(si_mod_t *si)
 {
@@ -545,6 +553,14 @@ si_group_bygid(si_mod_t *si, gid_t gid)
 	return si->vtable->sim_group_bygid(si, gid);
 }
 
+si_item_t *
+si_group_byuuid(si_mod_t *si, uuid_t uuid)
+{
+	if (si == NULL) return NULL;
+	if (si->vtable->sim_group_byuuid == NULL) return NULL;
+	return si->vtable->sim_group_byuuid(si, uuid);
+}
+
 si_list_t *
 si_group_all(si_mod_t *si)
 {
@@ -554,11 +570,11 @@ si_group_all(si_mod_t *si)
 }
 
 si_item_t *
-si_grouplist(si_mod_t *si, const char *name)
+si_grouplist(si_mod_t *si, const char *name, uint32_t count)
 {
 	if (si == NULL) return NULL;
 	if (si->vtable->sim_grouplist == NULL) return NULL;
-	return si->vtable->sim_grouplist(si, name);
+	return si->vtable->sim_grouplist(si, name, count);
 }
 
 si_list_t *
@@ -772,7 +788,7 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_USER_BYUID: return si_user_byuid(si, (uid_t)num1);
 		case SI_CALL_GROUP_BYNAME: return si_group_byname(si, str1);
 		case SI_CALL_GROUP_BYGID: return si_group_bygid(si, (gid_t)num1);
-		case SI_CALL_GROUPLIST: return si_grouplist(si, str1);
+		case SI_CALL_GROUPLIST: return si_grouplist(si, str1, (int) num1);
 		case SI_CALL_ALIAS_BYNAME: return si_alias_byname(si, str1);
 		case SI_CALL_HOST_BYNAME: return si_host_byname(si, str1, num1, str3, err);
 		case SI_CALL_HOST_BYADDR: return si_host_byaddr(si, (void *)str1, num1, str3, err);
@@ -986,6 +1002,12 @@ si_async_workunit_release(si_async_workunit_t *r)
 	if (r->str2 != NULL) free(r->str2);
 	if (r->str3 != NULL) free(r->str3);
 
+	/* release send-once right if it has not been used */
+	if (r->send != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), r->send);
+
+	/* release receive right */
+	mach_port_mod_refs(mach_task_self(), r->port, MACH_PORT_RIGHT_RECEIVE, -1);
+
 	free(r);
 }
 
@@ -1033,6 +1055,7 @@ si_async_launchpad(si_async_workunit_t *r)
 
 	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_MOVE_SEND_ONCE, MACH_MSGH_BITS_ZERO);
 	msg.header.msgh_remote_port = r->send;
+	r->send = MACH_PORT_NULL;
 	msg.header.msgh_local_port = MACH_PORT_NULL;
 	msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
 	msg.header.msgh_id = r->call;
@@ -1101,7 +1124,7 @@ si_async_cancel(mach_port_t p)
 
 	/*
 	 * Test and set the WORKUNIT_CANCELLED flag.
-	 * If it was already set, this work item has been executed - too late to cancel.
+	 * If it was already set, this work item has been executed - too late to really cancel.
 	 */
 	if (OSAtomicTestAndSetBarrier(WORKUNIT_CANCELLED_BIT_ADDRESS, &(r->flags)) == 1)
 	{
@@ -1109,7 +1132,6 @@ si_async_cancel(mach_port_t p)
 #ifdef CALL_TRACE
 		fprintf(stderr, "** %s worklist item %p has executed\n", __func__, r);
 #endif
-		return;
 	}
 
 #ifdef CALL_TRACE
@@ -1123,8 +1145,6 @@ si_async_cancel(mach_port_t p)
 	}
 
 	si_async_workunit_release(r);
-
-	mach_port_mod_refs(mach_task_self(), p, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
 void
@@ -1169,8 +1189,6 @@ si_async_handle_reply(mach_msg_header_t *msg)
 	}
 
 	si_async_workunit_release(r);
-
-	mach_port_mod_refs(mach_task_self(), reply, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
 char *

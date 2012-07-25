@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2011-03-13</string>
+		<string>2012-04-06</string>
 		<key>OpenSourceLicense</key>
 		<string>other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,11 +12,11 @@
 		<key>OpenSourceProject</key>
 		<string>International Components for Unicode</string>
 		<key>OpenSourceURL</key>
-		<string>http://source.icu-project.org/repos/icu/icu/tags/release-4-6-1/</string>
+		<string>http://source.icu-project.org/repos/icu/icu/tags/release-49-1-1</string>
 		<key>OpenSourceVersion</key>
-		<string>4.6.1</string>
+		<string>49.1.1</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.icu-project.org/</string>
+		<string>http://site.icu-project.org/</string>
 	</dict>
 </array>
 </plist>

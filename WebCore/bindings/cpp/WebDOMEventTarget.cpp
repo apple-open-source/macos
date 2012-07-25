@@ -33,15 +33,9 @@
 #include "ThreadCheck.h"
 #include "WebDOMDOMApplicationCache.h"
 #include "WebDOMDOMWindow.h"
-#include "WebDOMDedicatedWorkerContext.h"
 #include "WebDOMEventSource.h"
 #include "WebDOMMessagePort.h"
 #include "WebDOMNode.h"
-#include "WebDOMNotification.h"
-#include "WebDOMSharedWorker.h"
-#include "WebDOMSharedWorkerContext.h"
-#include "WebDOMWebSocket.h"
-#include "WebDOMWorker.h"
 #include "WebDOMXMLHttpRequest.h"
 #include "WebDOMXMLHttpRequestUpload.h"
 #include "WebExceptionHandler.h"
@@ -51,6 +45,24 @@
 #include "XMLHttpRequestUpload.h"
 
 #include <wtf/RefPtr.h>
+
+#if ENABLE(WORKERS)
+#include "WebDOMDedicatedWorkerContext.h"
+#include "WebDOMWorker.h"
+#endif
+
+#if ENABLE(SHARED_WORKERS)
+#include "WebDOMSharedWorker.h"
+#include "WebDOMSharedWorkerContext.h"
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#include "WebDOMNotification.h"
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+#include "WebDOMWebSocket.h"
+#endif
 
 struct WebDOMEventTarget::WebDOMEventTargetPrivate {
     WebDOMEventTargetPrivate(WebCore::EventTarget* object = 0)
@@ -99,19 +111,8 @@ WebDOM##type WebDOMEventTarget::to##type() \
 
 ConvertTo(Node)
 ConvertTo(DOMWindow)
-ConvertTo(XMLHttpRequest)
-ConvertTo(XMLHttpRequestUpload)
-ConvertTo(MessagePort)
 
-#if ENABLE(EVENTSOURCE)
-ConvertTo(EventSource)
-#endif
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-ConvertTo(DOMApplicationCache)
-#endif
-
-#if ENABLE(WORKERS)
+#if ENABLE(WORKERS) && 0
 ConvertTo(Worker)
 ConvertTo(DedicatedWorkerContext)
 #endif
@@ -121,7 +122,7 @@ ConvertTo(SharedWorker)
 ConvertTo(SharedWorkerContext)
 #endif
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 ConvertTo(Notification)
 #endif
 
@@ -142,20 +143,6 @@ WebDOMEventTarget toWebKit(WebCore::EventTarget* value)
     if (WebCore::DOMWindow* window = value->toDOMWindow())
         return toWebKit(window);
 
-    if (WebCore::XMLHttpRequest* xhr = value->toXMLHttpRequest())
-        return toWebKit(xhr);
-
-    if (WebCore::XMLHttpRequestUpload* upload = value->toXMLHttpRequestUpload())
-        return toWebKit(upload);
-
-    if (WebCore::MessagePort* messagePort = value->toMessagePort())
-        return toWebKit(messagePort);
-
-#if ENABLE(EVENTSOURCE)
-    if (WebCore::EventSource* eventSource = value->toEventSource())
-        return toWebKit(eventSource);
-#endif
-
 #if ENABLE(SVG) && 0
     // FIXME: Enable once SVG bindings are generated.
     // SVGElementInstance supports both toSVGElementInstance and toNode since so much mouse handling code depends on toNode returning a valid node.
@@ -163,12 +150,7 @@ WebDOMEventTarget toWebKit(WebCore::EventTarget* value)
         return toWebKit(instance);
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    if (WebCore::DOMApplicationCache* cache = value->toDOMApplicationCache())
-        return toWebKit(cache);
-#endif
-
-#if ENABLE(WORKERS)
+#if ENABLE(WORKERS) && 0
     if (WebCore::Worker* worker = value->toWorker())
         return toWebKit(worker);
 
@@ -184,7 +166,7 @@ WebDOMEventTarget toWebKit(WebCore::EventTarget* value)
         return toWebKit(workerContext);
 #endif
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
     if (WebCore::Notification* notification = value->toNotification())
         return toWebKit(notification);
 #endif

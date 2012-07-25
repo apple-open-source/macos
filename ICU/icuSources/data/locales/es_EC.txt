@@ -1,20 +1,25 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/es_EC.xml
 // *
 // ***************************************************************************
 es_EC{
+    %%Parent{"es_419"}
     NumberElements{
         latn{
             patterns{
                 currencyFormat{"¤#,##0.00;¤-#,##0.00"}
             }
+            symbols{
+                decimal{","}
+                group{"."}
+            }
         }
     }
-    Version{"2.0.45.82"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             DateTimePatterns{
@@ -22,7 +27,7 @@ es_EC{
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
-                "EEEE d 'de' MMMM 'de' y",
+                "EEEE, d 'de' MMMM 'de' y",
                 "d 'de' MMMM 'de' y",
                 "dd/MM/yyyy",
                 "dd/MM/yy",

@@ -44,6 +44,10 @@ class IntRect;
 
 #if PLATFORM(MAC)
 OBJC_CLASS WKView;
+#elif PLATFORM(GTK)
+typedef struct _WebKitWebViewBase WebKitWebViewBase;
+#elif PLATFORM(QT)
+class QQuickWebView;
 #endif
 
 namespace WebKit {
@@ -54,10 +58,11 @@ typedef WKView PlatformWebView;
 class WebView;
 typedef WebView PlatformWebView;
 #elif PLATFORM(QT)
-typedef QGraphicsWKView PlatformWebView;
+typedef QQuickWebView PlatformWebView;
 #elif PLATFORM(GTK)
-class WebView;
-typedef WebView PlatformWebView;
+typedef WebKitWebViewBase PlatformWebView;
+#elif PLATFORM(EFL)
+typedef Evas_Object PlatformWebView;
 #endif
 
 class WebPageProxy;
@@ -71,17 +76,18 @@ public:
     void invalidate();
 
     void setWebView(PlatformWebView*);
+    bool isFullScreen();
+    void close();
 
     void didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply);
+    void didReceiveSyncMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply);
 
     void willEnterFullScreen();
     void didEnterFullScreen();
     void willExitFullScreen();
     void didExitFullScreen();
-    void beginEnterFullScreenAnimation(float duration);
-    void beginExitFullScreenAnimation(float duration);
-    void disposeOfLayerClient();
+    void setAnimatingFullScreen(bool);
+    void requestExitFullScreen();
 
 private:
     WebFullScreenManagerProxy(WebPageProxy*);
@@ -89,19 +95,14 @@ private:
     void supportsFullScreen(bool withKeyboard, bool&);
     void enterFullScreen();
     void exitFullScreen();
-    void beganEnterFullScreenAnimation();
-    void finishedEnterFullScreenAnimation(bool completed);
-    void beganExitFullScreenAnimation();
-    void finishedExitFullScreenAnimation(bool completed);
-    void enterAcceleratedCompositingMode(const LayerTreeContext&);
-    void exitAcceleratedCompositingMode();
-    void getFullScreenRect(WebCore::IntRect&);
+    void beganEnterFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame);
+    void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame);
 
     WebPageProxy* m_page;
     PlatformWebView* m_webView;
 
     void didReceiveWebFullScreenManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncWebFullScreenManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply);
+    void didReceiveSyncWebFullScreenManagerProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply);
 };
 
 } // namespace WebKit

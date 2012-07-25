@@ -36,26 +36,26 @@ class Color;
 class FloatRect;
 class FloatSize;
 class Node;
-class RenderBlock;
 class RenderImage;
 class RenderObject;
 class RenderSVGGradientStop;
 class RenderSVGImage;
-class RenderSVGPath;
+class RenderSVGInlineText;
+class RenderSVGShape;
 class RenderSVGRoot;
-class RenderText;
+class RenderSVGText;
 class AffineTransform;
 class SVGUnitTypes;
 
 // functions used by the main RenderTreeAsText code
-void write(TextStream&, const RenderSVGPath&, int indent);
+void write(TextStream&, const RenderSVGShape&, int indent);
 void write(TextStream&, const RenderSVGRoot&, int indent);
 void writeSVGGradientStop(TextStream&, const RenderSVGGradientStop&, int indent);
 void writeSVGResourceContainer(TextStream&, const RenderObject&, int indent);
 void writeSVGContainer(TextStream&, const RenderObject&, int indent);
 void writeSVGImage(TextStream&, const RenderSVGImage&, int indent);
-void writeSVGInlineText(TextStream&, const RenderText&, int indent);
-void writeSVGText(TextStream&, const RenderBlock&, int indent);
+void writeSVGInlineText(TextStream&, const RenderSVGInlineText&, int indent);
+void writeSVGText(TextStream&, const RenderSVGText&, int indent);
 void writeResources(TextStream&, const RenderObject&, int indent);
 
 // helper operators defined used in various classes to dump the render tree.

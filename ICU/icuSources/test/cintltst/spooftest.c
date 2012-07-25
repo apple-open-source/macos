@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2009-2010, International Business Machines Corporation and
+ * Copyright (c) 2009-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -98,6 +98,8 @@ const UChar lll_Cyrl[]    = {(UChar)0x0406, (UChar)0x04C0, (UChar)0x31, 0};
 /* The skeleton transform for all of thes 'lll' lookalikes is all lower case l. */
 const UChar lll_Skel[]    = {(UChar)0x6c, (UChar)0x6c, (UChar)0x6c, 0};  
 
+const UChar han_Hiragana[] = {(UChar)0x3086, (UChar)0x308A, (UChar)0x0020, (UChar)0x77F3, (UChar)0x7530, 0};
+
 /* Provide better code coverage */
 const char goodLatinUTF8[]    = {0x75, 0x77, 0};
 /*
@@ -142,7 +144,7 @@ static void TestUSpoofCAPI(void) {
     fileName = malloc(strlen(dataSrcDir) + 100);
     strcpy(fileName, dataSrcDir);
     strcat(fileName, U_FILE_SEP_STRING "unidata" U_FILE_SEP_STRING "confusables.txt");
-    f = fopen(fileName, "r");
+    f = fopen(fileName, "rb");
     TEST_ASSERT_NE(f, NULL);
     confusables = malloc(3000000);
     confusablesLength = fread(confusables, 1, 3000000, f);
@@ -151,7 +153,7 @@ static void TestUSpoofCAPI(void) {
     
     strcpy(fileName, dataSrcDir);
     strcat(fileName, U_FILE_SEP_STRING "unidata" U_FILE_SEP_STRING "confusablesWholeScript.txt");
-    f = fopen(fileName, "r");
+    f = fopen(fileName, "rb");
     TEST_ASSERT_NE(f, NULL);
     confusablesWholeScript = malloc(1000000);
     confusablesWholeScriptLength = fread(confusablesWholeScript, 1, 1000000, f);
@@ -287,6 +289,25 @@ static void TestUSpoofCAPI(void) {
         TEST_ASSERT_EQ(USPOOF_SINGLE_SCRIPT | USPOOF_MIXED_SCRIPT_CONFUSABLE, checkResults);
         uspoof_close(clone2);
     TEST_TEARDOWN;
+
+     /*
+     *  basic uspoof_check()
+     */
+     TEST_SETUP
+         int32_t result;
+         result = uspoof_check(sc, goodLatin, -1, NULL, &status);
+         TEST_ASSERT_SUCCESS(status);
+         TEST_ASSERT_EQ(0, result);
+
+         result = uspoof_check(sc, han_Hiragana, -1, NULL, &status);
+         TEST_ASSERT_SUCCESS(status);
+         TEST_ASSERT_EQ(0, result);
+
+         result = uspoof_check(sc, scMixed, -1, NULL, &status);
+         TEST_ASSERT_SUCCESS(status);
+         TEST_ASSERT_EQ(USPOOF_SINGLE_SCRIPT | USPOOF_MIXED_SCRIPT_CONFUSABLE, result);
+     TEST_TEARDOWN
+
 
     /*
      *  get & set Checks

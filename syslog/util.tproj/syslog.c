@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,6 +69,9 @@
 /* Shared with Libc */
 #define NOTIFY_RC "com.apple.asl.remote"
 
+/* XXX add to asl_private.h */
+#define ASL_OPT_CONTROL "control"
+
 #define SEARCH_EOF -1
 #define SEARCH_NULL 0
 #define SEARCH_MATCH 1
@@ -77,17 +80,12 @@
 #define PROC_NOT_UNIQUE -2
 
 #define RC_MASTER -1
-#define RC_SYSLOGD -2
 
 #define CHUNK 64
 #define forever for(;;)
 
 #define SEND_FORMAT_LEGACY 0
 #define SEND_FORMAT_ASL 1
-
-#define TIME_SEC		0x00000010
-#define TIME_UTC		0x00000020
-#define TIME_LCL		0x00000040
 
 #define FORMAT_RAW		0x00000100
 #define FORMAT_LEGACY	0x00000200
@@ -131,6 +129,7 @@ static const char *sort_key_2 = NULL;
 static int sort_numeric = 0;
 static char *last_printmsg_str = NULL;
 static int last_printmsg_count = 0;
+static const char *tfmt = NULL;
 
 #ifdef CONFIG_IPHONE
 static uint32_t dbselect = DB_SELECT_SYSLOGD;
@@ -175,6 +174,9 @@ usage()
 	fprintf(stderr, "   i = Info\n");
 	fprintf(stderr, "   d = Debug\n");
 	fprintf(stderr, "   a minus sign preceeding a single letter means \"up to\" that level\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "%s -config params...\n", myname);
+	fprintf(stderr, "   set or reset syslogd configuration parameters\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-nocompress] [-u] [-sort key1 [key2]] [-nsort key1 [key2]] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
 	fprintf(stderr, "   -f     read named file[s], rather than standard log message store.\n");
@@ -512,7 +514,6 @@ rcontrol_name(pid_t pid, uid_t uid)
 {
 	static char str[1024];
 
-	if (pid == RC_SYSLOGD) return NOTIFY_SYSTEM_ASL_FILTER;
 	if (pid == RC_MASTER) return NOTIFY_SYSTEM_MASTER;
 
 	memset(str, 0, sizeof(str));
@@ -525,23 +526,19 @@ int
 rcontrol_get(pid_t pid, uid_t uid)
 {
 	int filter, status;
-	const char *name;
 
 	filter = 0;
 
 	if (pid < 0)
 	{
-		name = "Master";
-		if (pid == RC_SYSLOGD) name = "ASL Data Store";
-
 		status = rcontrol_get_string(rcontrol_name(pid, uid), &filter);
 		if (status == NOTIFY_STATUS_OK)
 		{
-			printf("%s filter mask: %s\n", name, asl_filter_string(filter));
+			printf("Master filter mask: %s\n", asl_filter_string(filter));
 			return 0;
 		}
 
-		printf("Unable to determine %s filter mask\n", name);
+		printf("Unable to determine master filter mask\n");
 		return -1;
 	}
 
@@ -560,14 +557,12 @@ int
 rcontrol_set(pid_t pid, uid_t uid, int filter)
 {
 	int status;
-	const char *name, *rcname;
+	const char *rcname;
 
 	rcname = rcontrol_name(pid, uid);
 
 	if (pid < 0)
 	{
-		name = "Master";
-		if (pid == RC_SYSLOGD) name = "ASL Data Store";
 		status = rcontrol_set_string(rcname, filter);
 
 		if (status == NOTIFY_STATUS_OK)
@@ -576,7 +571,7 @@ rcontrol_set(pid_t pid, uid_t uid, int filter)
 			return 0;
 		}
 
-		printf("Unable to set %s syslog filter mask: %s\n", name, notify_status_string(status));
+		printf("Unable to set master syslog filter mask: %s\n", notify_status_string(status));
 		return -1;
 	}
 
@@ -777,9 +772,8 @@ syslog_remote_control(int argc, char *argv[])
 
 	if ((!strcmp(argv[2], "syslogd")) || (!strcmp(argv[2], "syslog")))
 	{
-		pid = RC_SYSLOGD;
-		uid = 0;
-		status = 0;
+		fprintf(stderr, "%s: does not have a filter mask\n", argv[2]);
+		return -1;
 	}
 	else if (_isanumber(argv[2]) != 0)
 	{
@@ -809,7 +803,6 @@ syslog_remote_control(int argc, char *argv[])
 	if (argc == 4)
 	{
 		if ((pid == RC_MASTER) && (!strcasecmp(argv[3], "off"))) mask = 0;
-		else if ((pid == RC_SYSLOGD) && (!strcasecmp(argv[3], "off"))) mask = 0;
 		else
 		{
 			mask = asl_string_to_filter(argv[3]);
@@ -833,7 +826,7 @@ syslog_remote_control(int argc, char *argv[])
 int
 syslog_send(int argc, char *argv[])
 {
-	int i, start, kv, len, rfmt, rlevel, filter, status;
+	int i, start, kv, len, rfmt, rlevel;
 	aslclient asl;
 	aslmsg m;
 	char tmp[64], *str, *rhost;
@@ -906,18 +899,6 @@ syslog_send(int argc, char *argv[])
 
 	if (rhost == NULL)
 	{
-		filter = 0;
-		status = rcontrol_get_string(rcontrol_name(RC_SYSLOGD, 0), &filter);
-		if (status != 0)
-		{
-			fprintf(stderr, "Warning: Can't get current syslogd ASL filter value\n");
-		}
-		else if ((ASL_FILTER_MASK(rlevel) & filter) == 0)
-		{
-			fprintf(stderr, "Warning: The current syslogd ASL filter value (%s)\n", asl_filter_string(filter));
-			fprintf(stderr, "         will exclude this message from the ASL database\n");
-		}
-
 		asl_send(asl, m);
 	}
 	else if (rfmt == SEND_FORMAT_ASL)
@@ -933,6 +914,48 @@ syslog_send(int argc, char *argv[])
 
 	if (str != NULL) free(str);
 
+	asl_close(asl);
+
+	return 0;
+}
+
+int
+syslog_config(int argc, char *argv[])
+{
+	int i;
+	uid_t uid;
+	aslclient asl;
+	aslmsg m;
+	asl_string_t *str;
+
+	uid = geteuid();
+	if (uid != 0)
+	{
+		fprintf(stderr, "syslogd parameters may only be set by the superuser\n");
+		return -1;
+	}
+
+	str = asl_string_new(0);
+	asl_string_append(str, "= ");
+
+	for (i = 2; i < argc; i++)
+	{
+		asl_string_append(str, argv[i]);
+		if ((i + 1) < argc) asl_string_append(str, " ");
+	}
+
+	asl = asl_open(myname, "syslog", 0);
+
+	m = asl_new(ASL_TYPE_MSG);
+	asl_set(m, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
+	asl_set(m, ASL_KEY_OPTION, ASL_OPT_CONTROL);
+	asl_set(m, ASL_KEY_SENDER, myname);
+	asl_set(m, ASL_KEY_MSG, asl_string_bytes(str));
+
+	asl_send(asl, m);
+
+	asl_string_free(str);
+	asl_free(m);
 	asl_close(asl);
 
 	return 0;
@@ -962,7 +985,7 @@ static void
 printmsg(FILE *f, aslmsg msg, char *fmt, int pflags)
 {
 	char *str;
-	const char *mf, *tf;
+	const char *mf;
 	uint32_t encode, len, status;
 	uint64_t xid;
 
@@ -991,12 +1014,8 @@ printmsg(FILE *f, aslmsg msg, char *fmt, int pflags)
 	else if (pflags & FORMAT_LEGACY) mf = ASL_MSG_FMT_BSD;
 	else if (pflags & FORMAT_XML) mf = ASL_MSG_FMT_XML;
 
-	tf = ASL_TIME_FMT_SEC;
-	if (pflags & TIME_UTC) tf = ASL_TIME_FMT_UTC;
-	if (pflags & TIME_LCL) tf = ASL_TIME_FMT_LCL;
-
 	len = 0;
-	str = asl_format_message((asl_msg_t *)msg, mf, tf, encode, &len);
+	str = asl_format_message((asl_msg_t *)msg, mf, tfmt, encode, &len);
 	if (str == NULL) return;
 
 	if (pflags & COMPRESS_DUPS)
@@ -1158,11 +1177,13 @@ filter_and_print(aslmsg msg, asl_search_result_t *ql, FILE *f, char *pfmt, int p
 	if (did_match != 0) printmsg(f, msg, pfmt, pflags);
 }
 
+#ifdef CONFIG_IPHONE
 void
 syslogd_direct_watch(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql)
 {
 	struct sockaddr_in address;
-	int i, bytes, n, inlen, sock, stream, status;
+	int i, bytes, sock, stream, status;
+	uint32_t n, inlen;
 	uint16_t port;
 	socklen_t addresslength;
 	char *str, buf[DIRECT_BUF_SIZE];
@@ -1178,13 +1199,12 @@ syslogd_direct_watch(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql)
 		}
 	}
 
-reset:
-
 	addresslength = sizeof(address);
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	port = (arc4random() % (IPPORT_HILASTAUTO - IPPORT_HIFIRSTAUTO)) + IPPORT_HIFIRSTAUTO;
 
-	address.sin_addr.s_addr = 0;
+	memset(&address, 0, addresslength);
+	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	address.sin_family = AF_INET;
 	address.sin_port = htons(port);
 
@@ -1225,18 +1245,16 @@ reset:
 	forever
 	{
 		inlen = 0;
+		errno = 0;
 		bytes = recvfrom(stream, &n, sizeof(n), 0, NULL, NULL);
-		if (bytes == 0) break;
+		if (bytes <= 0)
+		{
+			fprintf(stderr, "\nrecvfrom (message length) returned %d (errno %d) - exiting\n", bytes, errno);
+			break;
+		}
 		else inlen = ntohl(n);
 
 		if (inlen == 0) continue;
-		if (inlen > MAX_DIRECT_SIZE)
-		{
-			fprintf(f, "\n*** received invalid message data [%d] from syslogd - resetting connection ***\n\n", inlen);
-			close(stream);
-			close(sock);
-			goto reset;
-		}
 
 		str = NULL;
 		if (inlen <= DIRECT_BUF_SIZE)
@@ -1258,9 +1276,22 @@ reset:
 		n = 0;
 		while (n < inlen)
 		{
+			errno = 0;
 			bytes = recvfrom(stream, str + n, inlen - n, 0, NULL, NULL);
-			if (bytes == 0) break;
+			if (bytes <= 0)
+			{
+				fprintf(stderr, "\nrecvfrom (message body) returned %d (errno %d) at length %d of %d - exiting\n", bytes, errno, n, inlen);
+				break;
+			}
 			else n += bytes;
+		}
+
+		if (n < inlen)
+		{
+			fprintf(stderr, "\ntruncated message: expected %d bytes received %d bytes\n", inlen, n);
+			close(stream);
+			close(sock);
+			exit(1);
 		}
 
 		msg = (aslmsg)asl_msg_from_string(str);
@@ -1274,6 +1305,7 @@ reset:
 
 	address.sin_addr.s_addr = 0;
 }
+#endif
 
 int
 sort_compare_key(const void *a, const void *b, const char *key)
@@ -1656,7 +1688,7 @@ int
 main(int argc, char *argv[])
 {
 	FILE *outfile;
-	int i, j, n, watch, status, pflags, tflags, iamroot, user_tflag, export_preserve_id, saw_dash_d, since_boot;
+	int i, j, n, watch, status, pflags, iamroot, user_tflag, export_preserve_id, saw_dash_d, since_boot;
 	int notify_file, notify_token;
 	asl_search_result_t *qlist;
 	asl_msg_t *cq;
@@ -1673,7 +1705,6 @@ main(int argc, char *argv[])
 	tail_count = 0;
 	batch = FETCH_BATCH;
 	pflags = FORMAT_STD | COMPRESS_DUPS;
-	tflags = TIME_LCL;
 	encode = ASL_ENCODE_SAFE;
 	cq = NULL;
 	exportname = NULL;
@@ -1694,10 +1725,16 @@ main(int argc, char *argv[])
 			exit(0);
 		}
 
-		if (!strcmp(argv[i], "-time"))
+		if ((!strcmp(argv[i], "-time")) || (!strcmp(argv[i], "--time")))
 		{
 			qmin = time(NULL);
 			printf("%llu\n", qmin);
+			exit(0);
+		}
+
+		if ((!strcmp(argv[i], "-config")) || (!strcmp(argv[i], "--config")))
+		{
+			syslog_config(argc, argv);
 			exit(0);
 		}
 
@@ -1850,7 +1887,7 @@ main(int argc, char *argv[])
 		}
 		else if (!strcmp(argv[i], "-u"))
 		{
-			tflags = TIME_UTC;
+			tfmt = "Z";
 			user_tflag = 1;
 		}
 		else if ((!strcmp(argv[i], "-x")) || (!strcmp(argv[i], "-X")))
@@ -1896,7 +1933,7 @@ main(int argc, char *argv[])
 			if (!strcmp(argv[i], "raw"))
 			{
 				pflags = FORMAT_RAW;
-				if (user_tflag == 0) tflags = TIME_SEC;
+				if (user_tflag == 0) tfmt = "sec";
 			}
 			else if (!strcmp(argv[i], "std"))
 			{
@@ -1926,13 +1963,8 @@ main(int argc, char *argv[])
 			}
 
 			i++;
+			tfmt = argv[i];
 			user_tflag = 1;
-
-			if (!strcmp(argv[i], "sec")) tflags = TIME_SEC;
-			else if (!strcmp(argv[i], "utc")) tflags = TIME_UTC;
-			else if (!strcmp(argv[i], "local")) tflags = TIME_LCL;
-			else if (!strcmp(argv[i], "lcl")) tflags = TIME_LCL;
-			else  tflags = TIME_LCL;
 		}
 		else if (!strcmp(argv[i], "-nodc"))
 		{
@@ -2039,7 +2071,6 @@ main(int argc, char *argv[])
 		}
 	}
 
-	pflags |= tflags;
 	pflags |= encode;
 
 	outfile = stdout;
@@ -2134,13 +2165,13 @@ main(int argc, char *argv[])
 		asl_set_query(bq, "ut_type", "2", ASL_QUERY_OP_EQUAL);
 		bt->count = 1;
 		bt->msg[0] = (asl_msg_t *)bq;
-	
+
 		/* XXX */
 		search_once(NULL, NULL, 0, bt, -1, &qmin, 1, 1, -1, 0);
 		asl_free(bq);
 		free(bt->msg);
 		free(bt);
-	
+
 		if (qmin > 0) qmin--;
 		tail_count = 0;
 	}
@@ -2171,7 +2202,12 @@ main(int argc, char *argv[])
 	{
 		if (dbselect == DB_SELECT_SYSLOGD)
 		{
+#ifdef CONFIG_IPHONE
 			syslogd_direct_watch(outfile, pfmt, pflags, qlist);
+#else
+			fprintf(stderr, "Warning: -w flag cannot be used when querying syslogd directly\n");
+			exit(1);
+#endif
 		}
 		else if (notify_token == -1)
 		{

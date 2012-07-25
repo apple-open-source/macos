@@ -3,11 +3,6 @@
 
 #import <Foundation/Foundation.h>
 
-#ifndef NSINTEGER_DEFINED
-
-typedef unsigned int NSUInteger;
-
-#endif
 
 
 @interface OC_TestSet : NSObject {}

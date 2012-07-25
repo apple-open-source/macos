@@ -60,10 +60,10 @@ config_plugin(krb5_context context,
 static krb5_error_code
 get_plugin(krb5_context context, heim_array_t array)
 {
-    return _krb5_plugin_run_f(context, "krb5",
-			      KRB5_PLUGIN_CONFIGURATION,
-			      KRB5_PLUGIN_CONFIGURATION_VERSION_0,
-			      0, array, config_plugin);
+    return krb5_plugin_run_f(context, "krb5",
+			     KRB5_PLUGIN_CONFIGURATION,
+			     KRB5_PLUGIN_CONFIGURATION_VERSION_0,
+			     0, array, config_plugin);
 }
 
 /**

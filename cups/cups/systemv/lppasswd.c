@@ -1,9 +1,9 @@
 /*
- * "$Id: lppasswd.c 9384 2010-11-22 07:06:39Z mike $"
+ * "$Id: lppasswd.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   MD5 password program for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -48,7 +48,7 @@
  * Local functions...
  */
 
-static void	usage(FILE *fp);
+static void	usage(FILE *fp) __attribute__((noreturn));
 
 
 /*
@@ -429,7 +429,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (error)
   {
     _cupsLangPuts(stderr, _("lppasswd: Password file not updated."));
-    
+
     unlink(passwdnew);
 
     return (1);
@@ -475,7 +475,7 @@ usage(FILE *fp)		/* I - File to send usage to */
   if (getuid())
     _cupsLangPuts(fp, _("Usage: lppasswd [-g groupname]"));
   else
-    _cupsLangPuts(fp, 
+    _cupsLangPuts(fp,
                   _("Usage: lppasswd [-g groupname] [username]\n"
 		    "       lppasswd [-g groupname] -a [username]\n"
 		    "       lppasswd [-g groupname] -x [username]"));
@@ -485,5 +485,5 @@ usage(FILE *fp)		/* I - File to send usage to */
 
 
 /*
- * End of "$Id: lppasswd.c 9384 2010-11-22 07:06:39Z mike $".
+ * End of "$Id: lppasswd.c 9042 2010-03-24 00:45:34Z mike $".
  */

@@ -1,0 +1,6 @@
+BUILD_VARIANTS = debug
+GCC_GENERATE_DEBUGGING_SYMBOLS = YES
+OPT_CFLAGS = -O0
+ZERO_LINK = YES
+
+#include "libsecurity_transform_core.xcconfig"

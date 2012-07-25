@@ -42,6 +42,9 @@ includes
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 #include <SystemConfiguration/SCPreferencesPathKey.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#if	!TARGET_OS_EMBEDDED
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#endif
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>
 #include <mach/task_special_ports.h>
@@ -67,7 +70,6 @@ includes
 #include "ppp_privmsg.h"
 #include "scnc_client.h"
 #include "ipsec_manager.h"
-#include "sbslauncher.h"
 #include "ppp_manager.h"
 #include "ppp_option.h"
 #include "ppp_socket_server.h"
@@ -122,6 +124,7 @@ static int can_sleep();
 static int will_sleep(int checking);
 static void wake_up();
 #if	!TARGET_OS_EMBEDDED
+static void wake_from_dark();
 static void log_out();
 static void log_in();
 static void log_switch();
@@ -176,6 +179,8 @@ TAILQ_HEAD(, service) 	service_head;
 
 #if !TARGET_OS_EMBEDDED
 static vproc_transaction_t gController_vt = NULL;		/* opaque handle used to track outstanding transactions, used by instant off */
+static int gDarkWake = 0;
+IOPMConnection      gIOconnection = NULL;
 #endif
 static u_int32_t           gWaitForPrimaryService = 0;
 
@@ -190,7 +195,7 @@ void terminate_all()
 	CFRunLoopSourceInvalidate(gTerminalrls);
 	CFRelease(gTerminalrls);
     TAILQ_FOREACH(serv, &service_head, next) {
-		scnc_stop(serv, 0, SIGTERM);
+		scnc_stop(serv, 0, SIGTERM, SCNC_STOP_TERM_ALL);
     }
 	
 	allow_stop();    	
@@ -309,6 +314,70 @@ int allow_dispose(struct service *serv)
 }
 
 
+#if	!TARGET_OS_EMBEDDED
+
+#define DARKWAKE (kIOPMSystemPowerStateCapabilityCPU | kIOPMSystemPowerStateCapabilityNetwork | kIOPMSystemPowerStateCapabilityDisk)
+#define NORMALWAKE (DARKWAKE | kIOPMSystemPowerStateCapabilityVideo | kIOPMSystemPowerStateCapabilityAudio)
+
+void pm_ConnectionHandler(void *param, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMSystemPowerStateCapabilities capabilities)
+{
+    /* From Dark Wake spec */
+    /* Off/Asleep: Capabilities = 0 = (None) */
+    /* On in dark wake: Capabilites = 0x19 = CPU + Disk + Network */
+    /* On in GUI: Capabilities = 0x1f = CPU + Disk + Network + Graphics + Audio. */
+    
+    IOReturn                ret;
+    int                     dowake;
+    
+    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler capabilities = 0x%x."), capabilities);
+    if ( capabilities & kIOPMSystemPowerStateCapabilityCPU )
+    {
+        if ((capabilities & kIOPMSystemPowerStateCapabilityNetwork)){
+            /* wake from sleep */
+            if ((capabilities & NORMALWAKE) == NORMALWAKE){
+                if (gDarkWake){
+                    dowake = false;
+                    wake_from_dark();
+                    gDarkWake = false;
+                }else
+                    dowake = true;
+
+            }else {
+                gDarkWake = true;
+                dowake = true;
+            }
+            
+            if (dowake){
+               gSleeping = 0; // time to wakeup
+                gWakeUpTime = mach_absolute_time();
+                if (gSleepNotification) {
+                    CFUserNotificationCancel(gSleepNotification);
+                    CFRelease(gSleepNotification);
+                    gSleepNotification = 0;
+                }
+                
+                time(&gWokeAt);
+                wake_up();
+            }else {
+                
+            }
+            
+        }
+    } else {
+        SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: pm_ConnectionHandler going to sleep"));
+       /* sleep */
+        if (0 != capabilities) {
+            SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: pm_ConnectionHandler capabilities=0x%x, should be 0"), capabilities);
+        }
+    }
+
+    if ((ret = IOPMConnectionAcknowledgeEvent(connection, token)) != kIOReturnSuccess)
+        SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IOPMConnectionAcknowledgeEvent fails with error %d."), ret);
+    
+    return;
+    
+}
+#endif
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -336,6 +405,9 @@ int init_things()
 #endif
         NULL,
     };
+#if	!TARGET_OS_EMBEDDED
+    IOReturn ioret;
+#endif
 	
 	gBundleURLRef = CFBundleCopyBundleURL(gBundleRef);
  	absurlref = CFURLCopyAbsoluteURL(gBundleURLRef);
@@ -391,9 +463,42 @@ int init_things()
     }
     
     CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                        IONotificationPortGetRunLoopSource(notify),
-                        kCFRunLoopDefaultMode);
-                        
+                       IONotificationPortGetRunLoopSource(notify),
+                       kCFRunLoopDefaultMode);
+    
+#if	!TARGET_OS_EMBEDDED
+
+    ioret = IOPMConnectionCreate( CFSTR("VPN"), kIOPMSystemPowerStateCapabilityDisk 
+                                                | kIOPMSystemPowerStateCapabilityNetwork
+                                                | kIOPMSystemPowerStateCapabilityAudio 
+                                                | kIOPMSystemPowerStateCapabilityVideo,
+                                                &gIOconnection);
+    
+    if (ioret != kIOReturnSuccess) {
+        SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IOPMConnectionCreate failed"));
+        goto fail;
+    }
+    
+    ioret = IOPMConnectionSetNotification(gIOconnection, NULL, (IOPMEventHandlerType)pm_ConnectionHandler);
+    
+    
+    if (ioret != kIOReturnSuccess) {
+        SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IOPMConnectionSetNotification failed"));
+        IOPMConnectionRelease(gIOconnection);
+        gIOconnection = NULL;
+        goto fail;
+    }
+    
+    ioret = IOPMConnectionScheduleWithRunLoop(gIOconnection, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+    
+    if (ioret != kIOReturnSuccess) {
+        SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: IOPMConnectionScheduleWithRunLoop failed"));
+        IOPMConnectionRelease(gIOconnection);
+        gIOconnection = NULL;
+        goto fail;
+    }
+#endif
+    
 	/* init time scale */
     if (mach_timebase_info(&timebaseInfo) != KERN_SUCCESS) {	// returns scale factor for ns
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: mach_timebase_info failed"));
@@ -410,6 +515,8 @@ int init_things()
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(rls);
 
+
+	ipsec_init_things();
 
 #if	!TARGET_OS_EMBEDDED
     gLoggedInUser = SCDynamicStoreCopyConsoleUser(gDynamicStore, &gLoggedInUserUID, 0);
@@ -491,6 +598,13 @@ done:
     return ret;
 	
 fail:
+#if	!TARGET_OS_EMBEDDED
+    if (gIOconnection){
+        IOPMConnectionUnscheduleFromRunLoop(gIOconnection, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+        IOPMConnectionRelease(gIOconnection);
+        gIOconnection = NULL;
+    }
+#endif
     my_CFRelease(&gDynamicStore);
     ret = -1;
     goto done;
@@ -519,6 +633,10 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
             if (delay == 0)
                 IOAllowPowerChange(gIOPort, (long)messageArgument);
             else {
+#if	!TARGET_OS_EMBEDDED
+                if (gDarkWake)      /* we are in dark wake, do not display error */
+                    break;
+#endif
                 if (delay & 2) {
                     dict = CFDictionaryCreateMutable(NULL, 0, 
                         &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -549,18 +667,26 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
             break;
 			
         case kIOMessageSystemWillPowerOn:
+#if TARGET_OS_EMBEDDED
 			gSleeping = 0; // time to wakeup
 			gWakeUpTime = mach_absolute_time();
             if (gSleepNotification) {
                 CFUserNotificationCancel(gSleepNotification);
                 CFRelease(gSleepNotification);
                 gSleepNotification = 0;
-           }
-           break;
+            }
+#else
+            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemWillPowerOn"));
+#endif
+            break;
             
         case kIOMessageSystemHasPoweredOn:
+#if TARGET_OS_EMBEDDED
             time(&gWokeAt);
             wake_up();            
+#else
+            SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: iosleep_notifier kIOMessageSystemHasPoweredOn"));
+#endif
             break;
     }
     
@@ -742,6 +868,9 @@ int will_sleep(int checking)
     struct service	*serv;
             
     TAILQ_FOREACH(serv, &service_head, next) {
+#if !TARGET_OS_EMBEDDED
+        serv->flags &= ~FLAG_DARKWAKE;
+#endif
 		switch (serv->type) {
 			case TYPE_PPP:  ret |= ppp_will_sleep(serv, checking); break;
 			case TYPE_IPSEC:  ret |= ipsec_will_sleep(serv, checking); break;
@@ -761,6 +890,12 @@ void wake_up()
 
     TAILQ_FOREACH(serv, &service_head, next) {
 		serv->flags |= FLAG_FIRSTDIAL;
+#if !TARGET_OS_EMBEDDED
+        if (gDarkWake)
+            serv->flags |= FLAG_DARKWAKE;
+       else
+           serv->flags &= ~FLAG_DARKWAKE;
+#endif
 		switch (serv->type) {
 			case TYPE_PPP:  ppp_wake_up(serv); break;
 			case TYPE_IPSEC:  ipsec_wake_up(serv); break;
@@ -784,6 +919,22 @@ int allow_sleep()
     }
 	return 0;
 }
+
+#if	!TARGET_OS_EMBEDDED
+/* -----------------------------------------------------------------------------
+ system is waking up from dark wake
+ ----------------------------------------------------------------------------- */
+static 
+void wake_from_dark()
+{
+    struct service	*serv;
+    
+    SCLog(TRUE, LOG_DEBUG, CFSTR("SCNC Controller: wake_from_dark"));
+    TAILQ_FOREACH(serv, &service_head, next) {
+            serv->flags &= ~FLAG_DARKWAKE;
+    }
+}
+#endif
 
 /* -----------------------------------------------------------------------------
  service has started
@@ -832,7 +983,7 @@ service_ending_verify_primaryservice(struct service *serv)
 #endif
 			gWaitForPrimaryService = 1;
 
-		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: %s, waiting for PrimaryService. status = %x\n"),
+		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: %s, waiting for PrimaryService. status = %x."),
 			  __FUNCTION__, gWaitForPrimaryService);
     }
 	
@@ -968,7 +1119,7 @@ void ipv4_state_changed()
 		vproc_transaction_end(NULL, gController_vt);
 		gController_vt = NULL;
 #endif
-	   SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: %s, done waiting for ServiceID.\n"),
+	   SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: %s, done waiting for ServiceID."),
 			  __FUNCTION__);		
     }
 	if (newPrimary)
@@ -999,7 +1150,7 @@ int update_service(CFStringRef serviceID)
         goto done;
     }
 
-    //SCDLog(LOG_INFO, CFSTR("change appears, subtype = %d, serviceID = %@\n"), subtype, serviceID);
+    //SCDLog(LOG_INFO, CFSTR("change appears, subtype = %d, serviceID = %@."), subtype, serviceID);
 
     /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP or VPN plugin id */
     subtype = CFDictionaryGetValue(interface, kSCPropNetInterfaceSubType);
@@ -1111,7 +1262,7 @@ int dispose_service(struct service *serv)
 	int delay = 0; 
 	
     // need to close the protocol first
-    scnc_stop(serv, 0, SIGTERM);
+    scnc_stop(serv, 0, SIGTERM, SCNC_STOP_SERV_DISPOSE);
 
 	switch (serv->type) {
 		case TYPE_PPP: delay = ppp_dispose_service(serv); break;
@@ -1959,12 +2110,70 @@ get_plugin_pid_str (struct service *serv, int pid, char *pid_buf, int pid_buf_le
 }
 
 static void
-log_scnc_stop (struct service *serv)
+log_scnc_stop (struct service *serv, pid_t pid, int scnc_reason)
 {
+	char pid_buf[128];
+	char *p;
+	const char *scnc_reason_str = scnc_get_reason_str(scnc_reason);
+
+	if (!scnc_reason_str) {
+		return; // silently
+	}
+
+	// log the initiator and reason
+	if (!pid) {
+		pid = getpid(); // controller initiated disconnect
+	}
+	p = get_plugin_pid_str(serv, pid, pid_buf, sizeof(pid_buf));
+
 	if (serv->type == TYPE_IPSEC) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop, type %@"), CFSTR("IPSec"));	
+		const char *status_str = ipsec_error_to_string(serv->u.ipsec.laststatus);
+		if (status_str) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %s"), p, CFSTR("IPSec"), scnc_reason_str, status_str);
+		} else if (serv->u.ipsec.laststatus) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status (%d)"), p, CFSTR("IPSec"),
+				  scnc_reason_str, serv->u.ipsec.laststatus);
+		} else {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s"), p, CFSTR("IPSec"), scnc_reason_str);
+		}
+	} else if (serv->type == TYPE_PPP) {
+		const char *status_str = ppp_error_to_string(serv->u.ppp.laststatus);
+		const char *dev_status_str = ppp_dev_error_to_string(serv->subtype, serv->u.ppp.lastdevstatus);
+		if (status_str && dev_status_str) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %s.%s"), p, serv->subtypeRef,
+				  scnc_reason_str, 
+				  status_str,
+				  dev_status_str);
+		} else if (status_str) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %s.(%d)"), p, serv->subtypeRef,
+				  scnc_reason_str, 
+				  status_str,
+				  serv->u.ppp.lastdevstatus);			
+		} else if (dev_status_str) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status (%d).%s"), p, serv->subtypeRef,
+				  scnc_reason_str, 
+				  serv->u.ppp.laststatus,
+				  dev_status_str);
+		} else if (serv->u.ppp.laststatus || serv->u.ppp.lastdevstatus) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status (%d.%d)"), p, serv->subtypeRef,
+				  scnc_reason_str, 
+				  serv->u.ppp.laststatus,
+				  serv->u.ppp.lastdevstatus);
+		} else {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s"), p, serv->subtypeRef, scnc_reason_str);
+		}
+	} else if (serv->type == TYPE_VPN) {
+		const char *status_str = vpn_error_to_string(serv->u.vpn.laststatus);
+		if (status_str) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %s"), p, serv->subtypeRef, scnc_reason_str, status_str);
+		} else if (serv->u.vpn.laststatus) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status %d"), p, serv->subtypeRef,
+				  scnc_reason_str, serv->u.vpn.laststatus);			
+		} else {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s"), p, serv->subtypeRef, scnc_reason_str);
+		}
 	} else {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop, type %@"), serv->subtypeRef);	
+		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop%s, type %@, reason %s, status Unknown"), p, serv->subtypeRef, scnc_reason_str);	
 	}
 }
 
@@ -2010,12 +2219,14 @@ log_scnc_start (struct service *serv, int onDemand, CFStringRef onDemandHostName
 -----------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int scnc_stop(struct service *serv, void *client, int signal)
+int scnc_stop(struct service *serv, void *client, int signal, int scnc_reason)
 {
 	int ret = -1;
-	
+	pid_t pid = client? ((struct client *)client)->pid : 0;
+
     /* arbitration mechanism : disconnects only when no client is using it */
-    if (client) {
+    if (client &&
+		(scnc_reason != SCNC_STOP_USER_REQ_NO_CLIENT && scnc_reason != SCNC_STOP_SOCK_DISCONNECT_NO_CLIENT)) {
         if (get_client(serv, client))
             remove_client(serv, client);
 
@@ -2027,7 +2238,7 @@ int scnc_stop(struct service *serv, void *client, int signal)
         remove_all_clients(serv);
     }
 
-	log_scnc_stop(serv);
+	log_scnc_stop(serv, pid, scnc_reason);
 
 	switch (serv->type) {
 		case TYPE_PPP: ret = ppp_stop(serv, signal); break;
@@ -2267,7 +2478,7 @@ int scnc_disconnectifoverslept (const char *function, struct service *serv, char
 #if TARGET_OS_EMBEDDED
 	if (gWakeUpTime != -1 && gSleptAt != -1) {
 		double sleptFor = difftime(gWokeAt, gSleptAt);
-		SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs, interface %s will disconnect\n"),
+		SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs, interface %s will disconnect."),
 		      function,
 		      sleptFor,
 		      if_name);
@@ -2278,14 +2489,14 @@ int scnc_disconnectifoverslept (const char *function, struct service *serv, char
 	if (gWakeUpTime != -1 && gSleptAt != -1) {
 		double sleptFor = difftime(gWokeAt, gSleptAt);
 		double timeout = scnc_getsleepwaketimeout(serv);
-		SCLog(gSCNCVerbose, LOG_INFO, CFSTR("%s: System slept for %f secs (interface %s's limit is %f secs)\n"),
+		SCLog(gSCNCVerbose, LOG_INFO, CFSTR("%s: System slept for %f secs (interface %s's limit is %f secs)."),
 		      function,
 		      sleptFor,
 		      if_name,
 		      timeout);
 		serv->connectionslepttime += (u_int32_t)sleptFor;
 		if (sleptFor > timeout) {
-			SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs (more than %f secs), interface %s will disconnect\n"),
+			SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs (more than %f secs), interface %s will disconnect."),
 				  function,
 				  sleptFor,
 				  timeout,

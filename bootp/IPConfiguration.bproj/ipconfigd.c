@@ -214,11 +214,15 @@
 #include "rtutil.h"
 #include "DHCPv6Client.h"
 #include "DHCPv6Socket.h"
+#include "IPConfigurationServiceInternal.h"
 
 #define RIFLAGS_IADDR_VALID	((uint32_t)0x1)
 #define RIFLAGS_HWADDR_VALID	((uint32_t)0x2)
 #define RIFLAGS_ARP_VERIFIED	((uint32_t)0x4)
 #define RIFLAGS_ALL_VALID	(RIFLAGS_IADDR_VALID | RIFLAGS_HWADDR_VALID | RIFLAGS_ARP_VERIFIED)
+
+#define kARPResolvedIPAddress		CFSTR("ARPResolvedIPAddress")
+#define kARPResolvedHardwareAddress	CFSTR("ARPResolvedHardwareAddress")
 
 typedef struct {
     uint32_t			flags;
@@ -252,9 +256,11 @@ struct ServiceInfo {
     ipconfig_method_t		method;
     ipconfig_status_t		status;
     boolean_t			is_dynamic;
+    boolean_t			no_publish;
+    boolean_t			ready;
     CFStringRef			parent_serviceID;
     CFStringRef			child_serviceID;
-    boolean_t			ready;
+    dispatch_source_t		pid_source;
     void * 			private;
 #if ! TARGET_OS_EMBEDDED
     CFUserNotificationRef	user_notification;
@@ -568,6 +574,13 @@ service_ifstate(ServiceRef service_p)
     return (service_p->ifstate);
 }
 
+static boolean_t
+S_get_plist_boolean_quiet(CFDictionaryRef plist, CFStringRef key,
+			  boolean_t def);
+static int
+S_get_plist_int_quiet(CFDictionaryRef plist, CFStringRef key,
+		       int def);
+
 static unsigned int
 S_get_service_rank(CFArrayRef arr, ServiceRef service_p);
 
@@ -593,6 +606,9 @@ S_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac);
 
 static int
 S_remove_ip_address(const char * ifname, struct in_addr this_ip);
+
+STATIC ipconfig_status_t
+S_remove_service_with_id_str(CFStringRef serviceID);
 
 static ipconfig_status_t
 method_info_from_dict(CFDictionaryRef dict,
@@ -863,7 +879,15 @@ ServiceFree(void * arg)
     my_CFRelease(&service_p->serviceID);
     my_CFRelease(&service_p->parent_serviceID);
     my_CFRelease(&service_p->child_serviceID);
+    if (service_p->pid_source != NULL) {
+	CFStringRef	serviceID;
 
+	serviceID = (CFStringRef)dispatch_get_context(service_p->pid_source);
+	CFRelease(serviceID);
+	dispatch_source_cancel(service_p->pid_source);
+	dispatch_release(service_p->pid_source);
+	service_p->pid_source = NULL;
+    }
     free(service_p);
     return;
 }
@@ -930,6 +954,62 @@ ServiceCreate(IFStateRef ifstate, CFStringRef serviceID,
     }
     *status_p = status;
     return (NULL);
+}
+
+static void
+ServiceHandleProcessExit(dispatch_source_t source)
+{
+    pid_t		pid;
+    CFStringRef		serviceID;
+    ipconfig_status_t	status;
+
+    pid = (pid_t)dispatch_source_get_handle(source);
+    my_log(LOG_DEBUG, "IPConfiguration: pid %d exited", pid);
+    serviceID = (CFStringRef)dispatch_get_context(source);
+    status = S_remove_service_with_id_str(serviceID);
+    if (status != ipconfig_status_success_e) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR("IPConfiguration: failed to stop service %@, %s"),
+	      serviceID, ipconfig_status_string(status));
+    }
+    return;
+}
+
+static CFRunLoopRef 	S_plugin_runloop;
+
+static void
+ServiceProcessExited(dispatch_source_t source)
+{
+    /* handle the source on our runloop to avoid locking issues */
+    CFRunLoopPerformBlock(S_plugin_runloop,
+			  kCFRunLoopDefaultMode,
+			  ^{ ServiceHandleProcessExit(source); });
+    CFRunLoopWakeUp(S_plugin_runloop);
+    return;
+}
+
+static void
+ServiceMonitorPID(ServiceRef service_p, pid_t pid)
+{
+    dispatch_source_t		source;
+
+    if (S_plugin_runloop == NULL) {
+	S_plugin_runloop = CFRunLoopGetCurrent();
+    }
+    source = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
+				    DISPATCH_PROC_EXIT,
+				    dispatch_get_main_queue());
+    if (source == NULL) {
+	my_log(LOG_ERR, "IPConfiguration: dispatch_source_create failed");
+	return;
+    }
+    CFRetain(service_p->serviceID);
+    dispatch_set_context(source, (void *)service_p->serviceID);
+    dispatch_source_set_event_handler(source,
+				      ^{ ServiceProcessExited(source); });
+    dispatch_resume(source);
+    service_p->pid_source = source;
+    return;
 }
 
 static ServiceRef
@@ -1148,26 +1228,55 @@ IFStateGetServiceWithMethod(IFStateRef ifstate,
 }
 
 static void
-IFStateFreeIPv4Services(IFStateRef ifstate)
+S_FreeNonDynamicServices(dynarray_t * services_p)
 {
-    /* ifstate->free_in_progress = TRUE; */
-    dynarray_free(&ifstate->services);
-    /* dynarray_init(&ifstate->services, ServiceFree, NULL); */
-    /* ifstate->free_in_progress = FALSE; */
+    int	count;
+    int	i;
+
+    count = dynarray_count(services_p);
+    for (i = 0; i < count; ) {
+	ServiceRef	service_p = dynarray_element(services_p, i);
+
+	if (service_p->is_dynamic) {
+	    i++;
+	    continue;
+	}
+	dynarray_free_element(services_p, i);
+	count--;
+    }
+    return;
+}
+
+static void
+IFStateFreeIPv4Services(IFStateRef ifstate, boolean_t all)
+{
+    if (all) {
+	dynarray_free(&ifstate->services);
+    }
+    else {
+	S_FreeNonDynamicServices(&ifstate->services);
+    }
     ifstate->startup_ready = TRUE;
-    if (if_ift_type(ifstate->if_p) != IFT_STF) {
+    if (dynarray_count(&ifstate->services) == 0
+	&& if_ift_type(ifstate->if_p) != IFT_STF) {
 	inet_detach_interface(if_name(ifstate->if_p));
     }
     return;
 }
 
 static void
-IFStateFreeIPv6Services(IFStateRef ifstate)
+IFStateFreeIPv6Services(IFStateRef ifstate, boolean_t all)
 {
-    dynarray_free(&ifstate->services_v6);
-    /* dynarray_init(&ifstate->services_v6, ServiceFree, NULL); */
-    (void)inet6_linklocal_stop(if_name(ifstate->if_p));
-    inet6_detach_interface(if_name(ifstate->if_p));
+    if (all) {
+	dynarray_free(&ifstate->services_v6);
+    }
+    else {
+	S_FreeNonDynamicServices(&ifstate->services_v6);
+    }
+    if (dynarray_count(&ifstate->services_v6) == 0) {
+	(void)inet6_linklocal_stop(if_name(ifstate->if_p));
+	inet6_detach_interface(if_name(ifstate->if_p));
+    }
     return;
 }
 
@@ -1363,8 +1472,8 @@ IFState_free(void * arg)
     if (G_IPConfiguration_verbose) {
 	my_log(LOG_NOTICE, "IFState_free(%s)", if_name(ifstate->if_p));
     }
-    IFStateFreeIPv4Services(ifstate);
-    IFStateFreeIPv6Services(ifstate);
+    IFStateFreeIPv4Services(ifstate, TRUE);
+    IFStateFreeIPv6Services(ifstate, TRUE);
     my_CFRelease(&ifstate->ifname);
     IFState_set_ssid_bssid(ifstate, NULL, NULL);
     if_free(&ifstate->if_p);
@@ -1533,7 +1642,7 @@ netboot_addresses(struct in_addr * ip, struct in_addr * server_ip)
 
 #ifndef KERN_NETBOOT
 #define KERN_NETBOOT            40      /* int: are we netbooted? 1=yes,0=no */
-#endif KERN_NETBOOT
+#endif /* KERN_NETBOOT */
 
 static boolean_t
 S_netboot_root()
@@ -1577,7 +1686,8 @@ S_netboot_init()
 	}
 	is_dhcp = FALSE;
     }
-    dhcp = (struct dhcp *)CFDataGetBytePtr(response);
+    /* ALIGN: CFDataGetBytePtr should be at least sizeof(uint64_t) */
+    dhcp = (struct dhcp *)(void *)CFDataGetBytePtr(response);
     length = CFDataGetLength(response);
     if (dhcp->dp_yiaddr.s_addr != 0) {
 	S_netboot_ip = dhcp->dp_yiaddr;
@@ -1693,7 +1803,8 @@ service_publish_clear(ServiceRef service_p)
     }
     my_SCDynamicStoreSetService(S_scd_session,
 				service_p->serviceID,
-				entities, values, entity_count);
+				entities, values, entity_count,
+				service_p->no_publish);
     my_CFRelease(&dns_dict);
     return;
 }
@@ -1727,29 +1838,40 @@ static void
 dict_insert_router_info(ServiceRef service_p, CFMutableDictionaryRef dict)
 {
     interface_t *		if_p = service_interface(service_p);
-    char			link_string[MAX_LINK_ADDR_LEN * 3];
-    CFMutableStringRef		sig_str;
+    char			link_addr[MAX_LINK_ADDR_LEN * 3];
+    CFStringRef			link_addr_cf;
+    CFStringRef			router_ip;
+    CFStringRef			sig_str;
 
     if (service_router_all_valid(service_p) == FALSE) {
 	return;
     }
 
-    sig_str = CFStringCreateMutable(NULL, 0);
-
     /* router IP address */
-    CFStringAppendFormat(sig_str, NULL, CFSTR("IPv4.Router=" IP_FORMAT),
-			 IP_LIST(&service_p->u.v4.router.iaddr));
-
+    router_ip
+	= CFStringCreateWithFormat(NULL, NULL, 
+				   CFSTR(IP_FORMAT),
+				   IP_LIST(&service_p->u.v4.router.iaddr));
     /* router link address */
-    link_addr_to_string(link_string, sizeof(link_string),
+    link_addr_to_string(link_addr, sizeof(link_addr),
 			service_p->u.v4.router.hwaddr,
 			if_link_length(if_p));
-    CFStringAppendFormat(sig_str, NULL,
-			 CFSTR(";IPv4.RouterHardwareAddress=%s"),
-			 link_string);
+    link_addr_cf = CFStringCreateWithCString(NULL,
+					     link_addr,
+					     kCFStringEncodingASCII);
 
+    /* signature */
+    sig_str
+	= CFStringCreateWithFormat(NULL, NULL, 
+				   CFSTR("IPv4.Router=%@;IPv4.RouterHardwareAddress=%s"),
+				   router_ip,
+				   link_addr);
     CFDictionarySetValue(dict, kNetworkSignature, sig_str);
+    CFDictionarySetValue(dict, kARPResolvedIPAddress, router_ip);
+    CFDictionarySetValue(dict, kARPResolvedHardwareAddress, link_addr_cf);
     CFRelease(sig_str);
+    CFRelease(router_ip);
+    CFRelease(link_addr_cf);
     return;
 }
 
@@ -1807,7 +1929,8 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
     if (service_p->parent_serviceID != NULL) {
 	parent_service_p 
 	    = IFStateGetServiceWithID(service_ifstate(service_p), 
-				      service_p->parent_serviceID, TRUE);
+				      service_p->parent_serviceID,
+				      IS_IPV4);
 	if (parent_service_p == NULL
 	    || parent_service_p->u.v4.info.addr.s_addr != 0) {
 	    return;
@@ -1978,13 +2101,15 @@ ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p)
 
     if (parent_service_p != NULL) {
 	my_SCDynamicStoreSetService(S_scd_session,
-					service_p->parent_serviceID,
-					entities, values, entity_count);
+				    service_p->parent_serviceID,
+				    entities, values, entity_count,
+				    service_p->no_publish);
     }
     else {
 	my_SCDynamicStoreSetService(S_scd_session,
 				    service_p->serviceID,
-				    entities, values, entity_count);
+				    entities, values, entity_count,
+				    service_p->no_publish);
     }
     my_CFRelease(&ipv4_dict);
     my_CFRelease(&dns_dict);
@@ -2134,7 +2259,8 @@ ServicePublishSuccessIPv6(ServiceRef service_p,
 		     kSCEntNetDHCPv6, dhcp_dict, &entity_count);
     my_SCDynamicStoreSetService(S_scd_session,
 				service_p->serviceID,
-				entities, values, entity_count);
+				entities, values, entity_count,
+				service_p->no_publish);
     my_CFRelease(&ipv6_dict);
     my_CFRelease(&dns_dict);
     my_CFRelease(&dhcp_dict);
@@ -2153,13 +2279,13 @@ service_publish_failure_sync(ServiceRef service_p, ipconfig_status_t status,
 	    child_service_p 
 		= IFStateGetServiceWithID(service_ifstate(service_p), 
 					  service_p->child_serviceID,
-					  TRUE);
+					  IS_IPV4);
 	}
 	if (service_p->parent_serviceID != NULL) {
 	    parent_service_p 
 		= IFStateGetServiceWithID(service_ifstate(service_p), 
 					  service_p->parent_serviceID,
-					  TRUE);
+					  IS_IPV4);
 	}
 	if (child_service_p != NULL
 	    && child_service_p->u.v4.info.addr.s_addr != 0) {
@@ -2366,7 +2492,7 @@ linklocal_service_change(ServiceRef parent_service_p, boolean_t allocate)
 	}
 	ll_parent_p = IFStateGetServiceWithID(ifstate,
 					      ll_service_p->parent_serviceID,
-					      TRUE);
+					      IS_IPV4);
     }
     if (ll_parent_p == NULL) {
 	linklocal_set_needs_attention();
@@ -2461,7 +2587,7 @@ S_linklocal_elect(CFArrayRef service_order)
 		ll_parent_p
 		    = IFStateGetServiceWithID(ifstate,
 					      ll_service_p->parent_serviceID,
-					      TRUE);
+					      IS_IPV4);
 		if (ll_parent_p == NULL) {
 		    /* parent of link-local service is gone, child goes too */
 		    IFStateFreeService(ifstate, ll_service_p);
@@ -3112,7 +3238,7 @@ set_loopback()
 
 #ifndef INADDR_LOOPBACK_NET
 #define	INADDR_LOOPBACK_NET		(u_int32_t)0x7f000000
-#endif	INADDR_LOOPBACK_NET
+#endif /* INADDR_LOOPBACK_NET */
 
     loopback.s_addr = htonl(INADDR_LOOPBACK);
     loopback_mask.s_addr = htonl(IN_CLASSA_NET);
@@ -3684,10 +3810,10 @@ set_if(const char * name, ipconfig_method_t method,
     if (method == ipconfig_method_none_e
 	|| method == ipconfig_method_none_v4_e
 	|| ipconfig_method_is_v4(method)) {
-	IFStateFreeIPv4Services(ifstate);
+	IFStateFreeIPv4Services(ifstate, TRUE);
     }
     else {
-	IFStateFreeIPv6Services(ifstate);
+	IFStateFreeIPv6Services(ifstate, TRUE);
     }
     switch (method) {
     case ipconfig_method_none_e:
@@ -3719,7 +3845,8 @@ static ipconfig_status_t
 add_or_set_service(const char * name, ipconfig_method_t method, 
 		   bool add_only,
 		   void * method_data, 
-		   void * service_id, unsigned int * service_id_len)
+		   void * service_id, unsigned int * service_id_len,
+		   CFDictionaryRef plist, pid_t pid)
 {
     interface_t * 	if_p = ifl_find_name(S_interfaces, name);
     IFStateRef   	ifstate;
@@ -3775,8 +3902,31 @@ add_or_set_service(const char * name, ipconfig_method_t method,
     status = IFState_service_add(ifstate, serviceID, method, method_data,
 				 NULL, &service_p);
     if (status == ipconfig_status_success_e) {
+	boolean_t	no_publish = FALSE;
+	CFDictionaryRef	options_dict = NULL;
+	pid_t		monitor_pid = -1;
 	CFIndex		len = 0;
+
+	if (plist != NULL) {
+	    options_dict = CFDictionaryGetValue(plist, 
+						kIPConfigurationServiceOptions);
+	    if (isA_CFDictionary(options_dict) != NULL) {
+		if (S_get_plist_boolean_quiet(options_dict, 
+					      kIPConfigurationServiceOptionMonitorPID,
+					      FALSE)) {
+		    monitor_pid = pid;
+		}
+		no_publish 
+		    = S_get_plist_boolean_quiet(options_dict,
+						kIPConfigurationServiceOptionNoPublish,
+						FALSE);
+	    }
+	}
 	service_p->is_dynamic = TRUE;
+	service_p->no_publish = no_publish;
+	if (monitor_pid != -1) {
+	    ServiceMonitorPID(service_p, monitor_pid);
+	}
 	(void)CFStringGetBytes(serviceID,
 			       CFRangeMake(0, CFStringGetLength(serviceID)),
 			       kCFStringEncodingASCII,
@@ -3791,10 +3941,11 @@ add_or_set_service(const char * name, ipconfig_method_t method,
 PRIVATE_EXTERN ipconfig_status_t
 add_service(const char * name, ipconfig_method_t method,
 	    ipconfig_method_data_t * method_data,
-	    void * service_id, unsigned int * service_id_len)
+	    void * service_id, unsigned int * service_id_len,
+	    CFDictionaryRef plist, pid_t pid)
 {
     return (add_or_set_service(name, method, TRUE, method_data,
-			       service_id, service_id_len));
+			       service_id, service_id_len, plist, pid));
 }
 
 PRIVATE_EXTERN ipconfig_status_t
@@ -3803,15 +3954,61 @@ set_service(const char * name, ipconfig_method_t method,
 	    void * service_id, unsigned int * service_id_len)
 {
     return (add_or_set_service(name, method, FALSE, method_data,
-			       service_id, service_id_len));
+			       service_id, service_id_len, NULL, -1));
+}
+
+STATIC ipconfig_status_t
+S_remove_service(IFStateRef ifstate, ServiceRef service_p)
+{
+    boolean_t		is_ipv4;
+
+    is_ipv4 = ipconfig_method_is_v4(service_p->method);
+    if (service_p->is_dynamic == FALSE) {
+	return (ipconfig_status_invalid_operation_e);
+    }
+    if (G_IPConfiguration_verbose) {
+	my_log(LOG_NOTICE, "remove_service %s %s", if_name(ifstate->if_p),
+	       ServiceGetMethodString(service_p));
+    }
+
+    /* remove the service */
+    IFStateFreeService(ifstate, service_p);
+    if (is_ipv4 == FALSE
+	&& dynarray_count(&ifstate->services_v6) == 0) {
+	(void)inet6_linklocal_stop(if_name(ifstate->if_p));
+	inet6_detach_interface(if_name(ifstate->if_p));
+    }
+    return (ipconfig_status_success_e);
+}
+
+STATIC ipconfig_status_t
+S_remove_service_with_id_str(CFStringRef serviceID)
+{
+    IFStateRef   	ifstate;
+    ServiceRef		service_p;
+    ipconfig_status_t	status;
+
+    ifstate = IFStateListGetServiceWithID(&S_ifstate_list,
+					  serviceID, &service_p,
+					  IS_IPV6);
+    if (ifstate == NULL) {
+	ifstate = IFStateListGetServiceWithID(&S_ifstate_list,
+					      serviceID, &service_p,
+					      IS_IPV4);
+    }
+    if (ifstate == NULL) {
+	status = ipconfig_status_no_such_service_e;
+    }
+    else {
+	status = S_remove_service(ifstate, service_p);
+    }
+    return (status);
 }
 
 PRIVATE_EXTERN ipconfig_status_t
 remove_service_with_id(void * service_id, unsigned int service_id_len)
 {
-    IFStateRef   	ifstate;
     CFStringRef		serviceID;
-    ServiceRef		service_p;
     ipconfig_status_t	status;
 
     serviceID = CFStringCreateWithBytes(NULL, service_id, service_id_len,
@@ -3819,26 +4016,7 @@ remove_service_with_id(void * service_id, unsigned int service_id_len)
     if (serviceID == NULL) {
 	return (ipconfig_status_allocation_failed_e);
     }
-    ifstate = IFStateListGetServiceWithID(&S_ifstate_list,
-					  serviceID, &service_p,
-					  TRUE);
-    if (ifstate == NULL) {
-	status = ipconfig_status_no_such_service_e;
-	goto done;
-    }
-    if (service_p->is_dynamic == FALSE) {
-	status = ipconfig_status_invalid_operation_e;
-	goto done;
-    }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_NOTICE, "remove_service %s %s", if_name(ifstate->if_p),
-	       ServiceGetMethodString(service_p));
-    }
-    /* remove the service */
-    IFStateFreeService(ifstate, service_p);
-    status = ipconfig_status_success_e;
-
- done:
+    status = S_remove_service_with_id_str(serviceID);
     CFRelease(serviceID);
     return (status);
 }
@@ -3917,16 +4095,7 @@ remove_service(const char * name, ipconfig_method_t method,
     if (service_p == NULL) {
 	return (ipconfig_status_no_such_service_e);
     }
-    if (service_p->is_dynamic == FALSE) {
-	return (ipconfig_status_invalid_operation_e);
-    }
-    if (G_IPConfiguration_verbose) {
-	my_log(LOG_NOTICE, "remove_service %s %s", if_name(ifstate->if_p),
-	       ServiceGetMethodString(service_p));
-    }
-    /* remove the service */
-    IFStateFreeService(ifstate, service_p);
-    return (ipconfig_status_success_e);
+    return (S_remove_service(ifstate, service_p));
 }
 
 static boolean_t
@@ -4195,6 +4364,12 @@ method_info_from_ipv6_dict(CFDictionaryRef dict,
 		   "IPConfiguration: %s Addresses invalid",
 		   ipconfig_method_string(method));
 	    goto done;
+	}
+	if (IN6_IS_ADDR_LINKLOCAL(&address)) {
+	    my_log(LOG_ERR,
+		   "IPConfiguration: %s cannot configure IPv6 Link Local address",
+		   ipconfig_method_string(method));
+	    goto done; 
 	}
 	if (prefixes != NULL) {
 	    if (count != CFArrayGetCount(prefixes)) {
@@ -5013,10 +5188,10 @@ interface_configuration_changed(interface_t * if_p, CFArrayRef all,
 						if_name(if_p), NULL);
 	if (ifstate != NULL) {
 	    if (is_ipv4) {
-		IFStateFreeIPv4Services(ifstate);
+		IFStateFreeIPv4Services(ifstate, FALSE);
 	    }
 	    else {
-		IFStateFreeIPv6Services(ifstate);
+		IFStateFreeIPv6Services(ifstate, FALSE);
 	    }
 	}
 	return;
@@ -5268,11 +5443,7 @@ get_interface_list(void)
 /*
  * Function: check_for_detached_interfaces
  * Purpose:
- *   Remove interface state for any interface that has been removed, or
- *   an interface whose flags no longer have IFF_UP set.  The IFF_UP flag
- *   could have been cleared if the interface went away and came back
- *   (see <rdar://problem/9253668>).
- *
+ *   Remove interface state for any interface that has been removed.
  *   Create a temporary list to store the name of each interface that
  *   has been removed.  Iterate through that list to remove individual
  *   interface state records.  This is done to avoid problems with
@@ -5297,11 +5468,9 @@ check_for_detached_interfaces()
 	return;
     }
     for (i = 0; i < count; i++) {
-	interface_t *	if_p;
 	IFStateRef	ifstate = dynarray_element(&S_ifstate_list, i);
 	
-	if_p = ifl_find_name(S_interfaces, if_name(ifstate->if_p));
-	if (if_p == NULL || (if_flags(if_p) & IFF_UP) == 0) {
+	if (ifl_find_name(S_interfaces, if_name(ifstate->if_p)) == NULL) {
 	    names[names_count++] = if_name(ifstate->if_p);
 	}
     }
@@ -5313,8 +5482,8 @@ check_for_detached_interfaces()
 }
 
 static void
-before_blocking(CFRunLoopObserverRef observer, 
-		CFRunLoopActivity activity, void *info)
+runloop_observer(CFRunLoopObserverRef observer, 
+		 CFRunLoopActivity activity, void *info)
 {
     if (S_scd_session == NULL) {
 	return;
@@ -5325,7 +5494,7 @@ before_blocking(CFRunLoopObserverRef observer,
 	S_linklocal_needs_attention = FALSE;
 	service_order = S_get_service_order(S_scd_session);
 	if (G_IPConfiguration_verbose) {
-	    my_log(LOG_NOTICE, "before_blocking: calling S_linklocal_elect");
+	    my_log(LOG_NOTICE, "runloop_observer: calling S_linklocal_elect");
 	}
 	S_linklocal_elect(service_order);
 	my_CFRelease(&service_order);
@@ -5354,7 +5523,8 @@ woke_from_hibernation(void)
 					     CFSTR(kIOHibernateStateKey)); 
     if (isA_CFData(hib_prop) != NULL 
 	&& CFDataGetLength(hib_prop) == sizeof(hibernate_state)) {
-	hibernate_state = *((uint32_t *)CFDataGetBytePtr(hib_prop));
+	/* ALIGN: CFDataGetBytePtr aligns to at least sizeof(uint64), cast safe */
+	hibernate_state = *((uint32_t *)(void *)CFDataGetBytePtr(hib_prop));
     }
     my_CFRelease(&hib_prop);
     return (hibernate_state == kIOHibernateStateWakingFromHibernate);
@@ -5548,8 +5718,9 @@ start_initialization(SCDynamicStoreRef session)
 {
     CFPropertyListRef		value = NULL;
 
-    S_observer = CFRunLoopObserverCreate(NULL, kCFRunLoopBeforeWaiting,
-					 TRUE, 0, before_blocking, NULL);
+    S_observer = CFRunLoopObserverCreate(NULL,
+					 kCFRunLoopAllActivities,
+					 TRUE, 0, runloop_observer, NULL);
     if (S_observer != NULL) {
 	CFRunLoopAddObserver(CFRunLoopGetCurrent(), S_observer, 
 			     kCFRunLoopDefaultMode);
@@ -5634,97 +5805,6 @@ link_refresh(SCDynamicStoreRef session, CFStringRef cache_key)
     return;
 }
 
-#if 0
-static void
-inet6_addrlist_init(inet6_addrlist_t * addr_list_p,
-		   SCDynamicStoreRef session, CFStringRef cache_key)
-{
-    CFArrayRef		addr_list;
-    int			count;
-    CFDictionaryRef	dict;
-    int			i;
-    inet6_addrinfo_t *	list;
-    CFArrayRef		flags_list;
-    CFArrayRef		plen_list;
-
-    bzero(addr_list_p, sizeof(*addr_list_p));
-    if (session == NULL) {
-	return;
-    }
-    dict = my_SCDynamicStoreCopyDictionary(session, cache_key);
-    if (isA_CFDictionary(dict) == NULL) {
-	return;
-    }
-    addr_list = CFDictionaryGetValue(dict, kSCPropNetIPv6Addresses);
-    flags_list = CFDictionaryGetValue(dict, kSCPropNetIPv6Flags);
-    plen_list = CFDictionaryGetValue(dict, kSCPropNetIPv6PrefixLength);
-    if (isA_CFArray(addr_list) == NULL || isA_CFArray(flags_list) == NULL
-	|| isA_CFArray(plen_list) == NULL) {
-	SCLog(TRUE, LOG_NOTICE,
-	      CFSTR("IPConfiguration: invalid content in %@ = %@"),
-	      cache_key, dict);
-	return;
-    }
-    count = CFArrayGetCount(addr_list);
-    if (count == 0) {
-	return;
-    }
-    if (CFArrayGetCount(flags_list) != count
-	|| CFArrayGetCount(plen_list) != count) {
-	SCLog(TRUE, LOG_NOTICE,
-	      CFSTR("IPConfiguration: arrays have different counts %@ = %@"),
-	      cache_key, dict);
-	return;
-    }
-    list = (inet6_addrinfo_t *)malloc(sizeof(*list) * count);
-    if (list == NULL) {
-	return;
-    }
-    for (i = 0; i < count; i++) {
-	CFStringRef	addr = CFArrayGetValueAtIndex(addr_list, i);
-	CFNumberRef	flags = CFArrayGetValueAtIndex(flags_list, i);
-	CFNumberRef	plen = CFArrayGetValueAtIndex(plen_list, i);
-	int		val;
-
-	/* address */
-	if (my_CFStringToIPv6Address(addr, &(list[i].addr)) == FALSE) {
-	    SCLog(TRUE, LOG_NOTICE,
-		  CFSTR("IPConfiguration: %@.Addresses[%d] = %@ is invalid"),
-		  cache_key, i, addr);
-	    goto failed;
-	}
-
-	/* flags */
-	if (isA_CFNumber(flags) == NULL
-	    || CFNumberGetValue(flags, kCFNumberIntType, &val) == FALSE) {
-	    SCLog(TRUE, LOG_NOTICE,
-		  CFSTR("IPConfiguration: %@.Flags[%d] = %@ is invalid"),
-		  cache_key, flags);
-	    goto failed;
-	}
-	list[i].addr_flags = val;
-
-	/* prefix length */
-	if (isA_CFNumber(plen) == NULL
-	    || CFNumberGetValue(plen, kCFNumberIntType, &val) == FALSE) {
-	    SCLog(TRUE, LOG_NOTICE,
-		  CFSTR("IPConfiguration: %@.PrefixLength[%d] = %@ is invalid"),
-		  cache_key, plen);
-	    goto failed;
-	}
-	list[i].prefix_length = val;
-    }
-    /* return the values */
-    addr_list_p->list = list;
-    addr_list_p->count = count;
-    return;
-
- failed:
-    free(list);
-    return;
-}
-#endif 0
-
 static void
 ipv6_interface_address_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 {
@@ -5750,10 +5830,6 @@ ipv6_interface_address_changed(SCDynamicStoreRef session, CFStringRef cache_key)
 	/* not tracking this event */
 	goto done;
     }
-#if 0
-    /* get the addresses from the interface and deliver the event */
-    inet6_addrlist_init(&addr_list, session, cache_key);
-#endif 0
     /* get the addresses from the interface and deliver the event */
     inet6_addrlist_copy(&addr_list, if_link_index(ifstate->if_p));
     service_list_event(&ifstate->services_v6,
@@ -5817,7 +5893,7 @@ S_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac)
     return (ssid_str);
 }
 
-#else NO_WIRELESS
+#else /* NO_WIRELESS */
 
 static CFStringRef
 S_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac)
@@ -5825,7 +5901,7 @@ S_copy_ssid_bssid(CFStringRef ifname, struct ether_addr * ap_mac)
     return (NULL);
 }
 
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
 
 static void
 link_timer_expired(void * arg0, void * arg1, void * arg2)
@@ -5966,8 +6042,8 @@ link_key_changed(SCDynamicStoreRef session, CFStringRef cache_key)
     if (dict != NULL) {
 	if (CFDictionaryContainsKey(dict, kSCPropNetLinkDetaching)) {
 	    if (ifstate != NULL) {
-		IFStateFreeIPv4Services(ifstate);
-		IFStateFreeIPv6Services(ifstate);
+		IFStateFreeIPv4Services(ifstate, TRUE);
+		IFStateFreeIPv6Services(ifstate, TRUE);
 	    }
 	    goto done;
 	}
@@ -6426,8 +6502,8 @@ ServiceRemoveIPv6AddressConflict(service_p)
  ** simple types.
  **/
 static boolean_t
-S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
-		    boolean_t def)
+S_get_plist_boolean_quiet(CFDictionaryRef plist, CFStringRef key,
+			  boolean_t def)
 {
     CFBooleanRef 	b;
     boolean_t		ret = def;
@@ -6436,6 +6512,15 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
     if (b) {
 	ret = CFBooleanGetValue(b);
     }
+    return (ret);
+}
+
+static boolean_t
+S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
+		    boolean_t def)
+{
+    boolean_t	ret;
+    ret = S_get_plist_boolean_quiet(plist, key, def);
     if (G_IPConfiguration_verbose) {
 	SCLog(TRUE, LOG_NOTICE, 
 	      CFSTR("%@ = %s"), key, ret == TRUE ? "true" : "false");
@@ -6444,8 +6529,8 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
 }
 
 static int
-S_get_plist_int(CFDictionaryRef plist, CFStringRef key,
-		int def)
+S_get_plist_int_quiet(CFDictionaryRef plist, CFStringRef key,
+		      int def)
 {
     CFNumberRef 	n;
     int			ret = def;
@@ -6456,11 +6541,22 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key,
 	    ret = def;
 	}
     }
+    return (ret);
+}
+
+static int
+S_get_plist_int(CFDictionaryRef plist, CFStringRef key,
+		int def)
+{
+    int		ret;
+
+    ret = S_get_plist_int_quiet(plist, key, def);
     if (G_IPConfiguration_verbose) {
 	SCLog(TRUE, LOG_NOTICE, CFSTR("%@ = %d"), key, ret);
     }
     return (ret);
 }
+
 
 #include <math.h>
 static struct timeval

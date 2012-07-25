@@ -25,4 +25,4 @@
  */
 extern unsigned short in_cksum(void * pkt, int len);
 
-#endif _S_IN_CKSUM_H
+#endif /* _S_IN_CKSUM_H */

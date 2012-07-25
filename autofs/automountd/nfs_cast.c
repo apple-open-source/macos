@@ -41,8 +41,8 @@
 #include <sys/resource.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <rpc/rpc.h>
-#include <rpc/pmap_prot.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/pmap_prot.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #define	NFSCLIENT
@@ -301,7 +301,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 	}
 	msg.rm_call.cb_cred = sys_auth->ah_cred;
 	msg.rm_call.cb_verf = sys_auth->ah_verf;
-	xdrmem_create(xdrs, outbuf, sizeof (outbuf), XDR_ENCODE);
+	xdrmem_create(xdrs, (uint8_t *) outbuf, sizeof (outbuf), XDR_ENCODE);
 	if (! xdr_callmsg(xdrs, &msg)) {
 		clnt_stat = RPC_CANTENCODEARGS;
 		goto done_broad;
@@ -452,7 +452,7 @@ nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 		 * different from the send addr if the host has
 		 * more than one addr.
 		 */
-		xdrmem_create(xdrs, inbuf, (uint_t)len,	XDR_DECODE);
+		xdrmem_create(xdrs, (uint8_t *) inbuf, (uint_t)len,	XDR_DECODE);
 		if (xdr_replymsg(xdrs, &msg)) {
 		    if (msg.rm_reply.rp_stat == MSG_ACCEPTED &&
 			(msg.rm_xid & ~0xFF) == xid) {

@@ -35,16 +35,19 @@ QT_END_NAMESPACE
 
 namespace WebCore {
 
+class FormDataIODevice;
+class ResourceError;
 class ResourceHandle;
 class ResourceRequest;
 class ResourceResponse;
 class QNetworkReplyHandler;
 
-class QNetworkReplyHandlerCallQueue {
+class QNetworkReplyHandlerCallQueue : public QObject {
+    Q_OBJECT
 public:
     QNetworkReplyHandlerCallQueue(QNetworkReplyHandler*, bool deferSignals);
     bool deferSignals() const { return m_deferSignals; }
-    void setDeferSignals(bool);
+    void setDeferSignals(bool, bool sync = false);
 
     typedef void (QNetworkReplyHandler::*EnqueuedCall)();
     void push(EnqueuedCall method);
@@ -59,7 +62,7 @@ private:
     bool m_flushing;
     QList<EnqueuedCall> m_enqueuedCalls;
 
-    void flush();
+    Q_INVOKABLE void flush();
 };
 
 class QNetworkReplyWrapper : public QObject {
@@ -119,7 +122,7 @@ public:
     };
 
     QNetworkReplyHandler(ResourceHandle*, LoadType, bool deferred = false);
-    void setLoadingDeferred(bool deferred) { m_queue.setDeferSignals(deferred); }
+    void setLoadingDeferred(bool deferred) { m_queue.setDeferSignals(deferred, m_loadType == SynchronousLoad); }
 
     QNetworkReply* reply() const { return m_replyWrapper ? m_replyWrapper->reply() : 0; }
 
@@ -131,6 +134,8 @@ public:
     void forwardData();
     void sendResponseIfNeeded();
 
+    static ResourceError errorForReply(QNetworkReply*);
+
 private slots:
     void uploadProgress(qint64 bytesSent, qint64 bytesTotal);
 
@@ -140,6 +145,8 @@ private:
     void redirect(ResourceResponse&, const QUrl&);
     bool wasAborted() const { return !m_resourceHandle; }
     QNetworkReply* sendNetworkRequest(QNetworkAccessManager*, const ResourceRequest&);
+    FormDataIODevice* getIODevice(const ResourceRequest&);
+    void clearContentHeaders();
 
     OwnPtr<QNetworkReplyWrapper> m_replyWrapper;
     ResourceHandle* m_resourceHandle;

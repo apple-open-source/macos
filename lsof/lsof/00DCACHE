@@ -714,7 +714,7 @@ Appendix B.1 Setuid-root Lsof Dialects
 These dialect versions of lsof need root permission.  For general
 use they may have to be installed setuid-root.
 
-    Apple Darwin 9 (Mac OS X 10.5)
+    Apple Darwin 9 and Mac OS X 10.[56]
     HP-UX 11.11 and 11.23
     Linux (no device cache support needed)
 
@@ -742,4 +742,4 @@ machine.h header files.
 
 
 Vic Abell <abe@purdue.edu>
-January 18, 2010
+September 27, 2011

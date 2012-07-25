@@ -52,6 +52,10 @@
 #include <mach-o/loader.h>
 #import <mach/m68k/thread_status.h>
 #import <mach/ppc/thread_status.h>
+#undef MACHINE_THREAD_STATE     /* need to undef these to avoid warnings */
+#undef MACHINE_THREAD_STATE_COUNT
+#undef THREAD_STATE_NONE
+#undef VALID_THREAD_STATE_FLAVOR
 #import <mach/m88k/thread_status.h>
 #import <mach/i860/thread_status.h>
 #import <mach/i386/thread_status.h>
@@ -120,6 +124,8 @@ static enum check_type check_extend_format_1(
     struct ar_hdr *ar_hdr,
     uint32_t size_left,
     uint32_t *member_name_size);
+static enum check_type check_archive_toc(
+    struct ofile *ofile);
 static enum check_type check_Mach_O(
     struct ofile *ofile);
 static void swap_back_Mach_O(
@@ -826,7 +832,8 @@ enum bool archives_with_fat_objects)
 {
     int fd;
     struct stat stat_buf;
-    uint32_t size, magic;
+    uint64_t size;
+    uint32_t magic;
     char *addr;
 
 	magic = 0; /* to shut up the compiler warning message */
@@ -868,8 +875,8 @@ enum bool archives_with_fat_objects)
 	    printf("Modification time = %ld\n", (long int)stat_buf.st_mtime);
 #endif /* OTOOL */
 
-	return(ofile_map_from_memory(addr, size, file_name, arch_flag,
-			     object_name, ofile, archives_with_fat_objects));
+	return(ofile_map_from_memory(addr, size, file_name, stat_buf.st_mtime,
+		  arch_flag, object_name, ofile, archives_with_fat_objects));
 }
 
 /*
@@ -884,8 +891,9 @@ enum bool
 #endif
 ofile_map_from_memory(
 char *addr,
-uint32_t size,
+uint64_t size,
 const char *file_name,
+uint64_t mtime,
 const struct arch_flag *arch_flag,	/* can be NULL */
 const char *object_name,		/* can be NULL */
 struct ofile *ofile,
@@ -908,6 +916,7 @@ enum bool archives_with_fat_objects)
 	    return(FALSE);
 	ofile->file_addr = addr;
 	ofile->file_size = size;
+	ofile->file_mtime = mtime;
 
 	/* Try to figure out what kind of file this is */
 
@@ -1607,7 +1616,15 @@ uint32_t narch)
 	 * program.
 	 */
 	else{
-	    ofile->arch_type = OFILE_UNKNOWN;
+#ifdef LTO_SUPPORT
+	    if(is_llvm_bitcode(ofile, addr, size) == TRUE){
+		ofile->arch_type = OFILE_LLVM_BITCODE;
+		ofile->object_addr = addr;
+		ofile->object_size = size;
+	    }
+	    else
+#endif /* LTO_SUPPORT */
+	        ofile->arch_type = OFILE_UNKNOWN;
 	}
 	return(TRUE);
 cleanup:
@@ -1647,7 +1664,7 @@ ofile_first_member(
 struct ofile *ofile)
 {
     char *addr;
-    uint32_t size, offset;
+    uint64_t size, offset;
     uint32_t magic;
     enum byte_sex host_byte_sex;
     struct ar_hdr *ar_hdr;
@@ -1746,6 +1763,17 @@ struct ofile *ofile)
 	    ofile->member_name_size = size_ar_name(ar_hdr);
 	    ar_name_size = 0;
 	}
+	/* Clear these in case there is no table of contents */
+	ofile->toc_addr = NULL;
+	ofile->toc_size = 0;
+	ofile->toc_ar_hdr = NULL;
+	ofile->toc_name = NULL;
+	ofile->toc_name_size = 0;
+	ofile->toc_ranlibs = NULL;
+	ofile->toc_nranlibs = 0;
+	ofile->toc_strings = NULL;
+	ofile->toc_strsize = 0;
+	ofile->toc_bad = FALSE;
 
 	host_byte_sex = get_host_byte_sex();
 
@@ -1835,6 +1863,19 @@ struct ofile *ofile)
 		if(check_Mach_O(ofile) == CHECK_BAD)
 		    goto cleanup;
 	    }
+	    if(ofile->member_type == OFILE_UNKNOWN &&
+	       (strncmp(ofile->member_name, SYMDEF_SORTED,
+		        sizeof(SYMDEF_SORTED) - 1) == 0 ||
+	        strncmp(ofile->member_name, SYMDEF,
+		        sizeof(SYMDEF) - 1) == 0)){
+		ofile->toc_addr = ofile->member_addr;
+		ofile->toc_size = ofile->member_size;
+		ofile->toc_ar_hdr = ofile->member_ar_hdr;
+		ofile->toc_name = ofile->member_name;
+		ofile->toc_name_size = ofile->member_name_size;
+		if(check_archive_toc(ofile) == CHECK_BAD)
+		    goto cleanup;
+	    }
 #ifdef LTO_SUPPORT
 	    if(ofile->member_type == OFILE_UNKNOWN &&
 	       strncmp(ofile->member_name, SYMDEF_SORTED,
@@ -1887,7 +1928,7 @@ ofile_next_member(
 struct ofile *ofile)
 {
     char *addr;
-    uint32_t size, offset;
+    uint64_t size, offset;
     uint32_t magic;
     enum byte_sex host_byte_sex;
     struct ar_hdr *ar_hdr;
@@ -2115,7 +2156,7 @@ struct ofile *ofile)
 {
     int32_t i;
     char *addr;
-    uint32_t size, offset;
+    uint64_t size, offset;
     uint32_t magic;
     enum byte_sex host_byte_sex;
     char *ar_name;
@@ -2873,11 +2914,23 @@ struct ofile *ofile)
 #endif /* ALIGNMENT_CHECKS_ARCHIVE_64_BIT */
 	    }
 	    else{
-		archive_member_error(ofile, "fat file for cputype (%d) "
-			"cpusubtype (%d) is not an object file (bad magic "
-			"number)", ofile->fat_archs[i].cputype,
-			ofile->fat_archs[i].cpusubtype & ~CPU_SUBTYPE_MASK);
-		return(CHECK_BAD);
+#ifdef LTO_SUPPORT
+	        if(is_llvm_bitcode(ofile, ofile->file_addr +
+		   ofile->member_offset + ofile->fat_archs[i].offset,
+		   ofile->fat_archs[i].size) == TRUE){
+		    ofile->member_type = OFILE_LLVM_BITCODE;
+		    ofile->object_addr = ofile->member_addr;
+		    ofile->object_size = ofile->member_size;
+	        }
+		else
+#endif /* LTO_SUPPORT */
+		{
+		    archive_member_error(ofile, "fat file for cputype (%d) "
+			    "cpusubtype (%d) is not an object file (bad magic "
+			    "number)", ofile->fat_archs[i].cputype,
+			    ofile->fat_archs[i].cpusubtype & ~CPU_SUBTYPE_MASK);
+		    return(CHECK_BAD);
+		}
 	    }
 	}
 	for(i = 0; i < ofile->fat_header->nfat_arch; i++){
@@ -2910,7 +2963,7 @@ enum bool archives_with_fat_objects)
 	return(CHECK_GOOD);
 #else /* !defined OTOOL */
     char *addr;
-    uint32_t size, offset;
+    uint64_t size, offset;
     uint64_t big_size;
     uint32_t magic;
     enum byte_sex host_byte_sex;
@@ -3123,6 +3176,153 @@ uint32_t *member_name_size)
 }
 
 /*
+ * check_archive_toc() checks the archive table of contents referenced in the
+ * thin archive via the ofile for correctness and if bad sets the bad_toc field
+ * in the ofile struct to TRUE.   If not it sets the other toc_* fields that
+ * ranlib(1) uses to know it can't update the table of contents and doesn't
+ * have to totally rebuild it.  And by this always returning CHECK_GOOD it
+ * allows otool(1) to print messed up tables of contents for debugging.
+ */
+static
+enum check_type
+check_archive_toc(
+struct ofile *ofile)
+{
+    uint32_t i, symdef_length, offset, nranlibs, strsize;
+    enum byte_sex host_byte_sex, toc_byte_sex;
+    struct ranlib *ranlibs;
+    char *strings;
+
+	ofile->toc_ranlibs = NULL;
+	ofile->toc_nranlibs = 0;
+	ofile->toc_strings = NULL;
+	ofile->toc_strsize = 0;
+
+	/*
+	 * Note this can only be called when the whole file is a thin archive.
+	 */
+	if(ofile->file_type != OFILE_ARCHIVE)
+	    return(CHECK_GOOD);
+
+	symdef_length = ofile->toc_size;
+	/*
+	 * The contents of a __.SYMDEF file is begins with a 32-bit word giving 
+	 * the size in bytes of ranlib structures which immediately follow, and
+	 * then continues with a string table consisting of a 32-bit word giving
+	 * the number of bytes of strings which follow and then the strings
+	 * themselves.  So the smallest valid size is two 32-bit words long.
+	 */
+	if(symdef_length < 2 * sizeof(uint32_t)){
+	    /*
+	     * Size of table of contents for archive too small to be a valid
+	     * table of contents.
+	     */
+	    ofile->toc_bad = TRUE;
+	    return(CHECK_GOOD);
+	}
+	host_byte_sex = get_host_byte_sex();
+	toc_byte_sex = get_toc_byte_sex(ofile->file_addr, ofile->file_size);
+	if(toc_byte_sex == UNKNOWN_BYTE_SEX){
+	    /*
+	     * Can't determine the byte order of table of contents as it
+	     * contains no Mach-O files.
+	     */
+	    ofile->toc_bad = TRUE;
+	    return(CHECK_GOOD);
+	}
+	offset = 0;
+	nranlibs = *((uint32_t *)(ofile->toc_addr + offset));
+	if(toc_byte_sex != host_byte_sex)
+	    nranlibs = SWAP_INT(nranlibs);
+	nranlibs = nranlibs / sizeof(struct ranlib);
+	offset += sizeof(uint32_t);
+	ranlibs = (struct ranlib *)(ofile->toc_addr + offset);
+	offset += sizeof(struct ranlib) * nranlibs;
+	if(nranlibs == 0)
+	    return(CHECK_GOOD);
+	if(offset - (2 * sizeof(uint32_t)) > symdef_length){
+	    /*
+	     * Truncated or malformed archive.  The ranlib structures in table
+	     * of contents extends past the end of the table of contents.
+	     */
+	    ofile->toc_bad = TRUE;
+	    return(CHECK_GOOD);
+	}
+	strsize = *((uint32_t *)(ofile->toc_addr + offset));
+	if(toc_byte_sex != host_byte_sex)
+	    strsize = SWAP_INT(strsize);
+	offset += sizeof(uint32_t);
+	strings = ofile->toc_addr + offset;
+	offset += strsize;
+	if(offset - (2 * sizeof(uint32_t)) > symdef_length){
+	    /*
+	     * Truncated or malformed archive.  The ranlib strings in table of
+	     * contents extends past the end of the table of contents.
+	     */
+	    ofile->toc_bad = TRUE;
+	    return(CHECK_GOOD);
+	}
+	if(symdef_length == 2 * sizeof(uint32_t))
+	    return(CHECK_GOOD);
+
+	/*
+	 * Check the string offset and the member offsets of the ranlib structs.
+	 */
+	if(toc_byte_sex != host_byte_sex)
+	    swap_ranlib(ranlibs, nranlibs, host_byte_sex);
+	for(i = 0; i < nranlibs; i++){
+	    if(ranlibs[i].ran_un.ran_strx >= strsize){
+		/*
+		 * Malformed table of contents.  The ranlib struct at this index
+		 * has a bad string index field.
+		 */
+		ofile->toc_bad = TRUE;
+		return(CHECK_GOOD);
+	    }
+	    if(ranlibs[i].ran_off >= ofile->file_size){
+		/*
+		 * Malformed table of contents.  The ranlib struct at this index
+		 * has a bad library member offset field.
+		 */
+		ofile->toc_bad = TRUE;
+		return(CHECK_GOOD);
+	    }
+	    /*
+	     * These should be on 4 byte boundaries because the maximum
+	     * alignment of the header structures and relocation are 4 bytes.
+	     * But this is has to be 2 bytes because that's the way ar(1) has
+	     * worked historicly in the past.  Fortunately this works on the
+	     * 68k machines but will have to change when this is on a real
+	     * machine.
+	     */
+#if defined(mc68000) || defined(__i386__)
+	    if(ranlibs[i].ran_off % sizeof(short) != 0){
+		/*
+		 * Malformed table of contents.  This ranlib struct library
+		 * member offset not a multiple 2 bytes.
+		 */
+		ofile->toc_bad = TRUE;
+		return(CHECK_GOOD);
+	    }
+#else
+	    if(ranlibs[i].ran_off % sizeof(uint32_t) != 0){
+		/*
+		 * Malformed table of contents.  This ranlib struct library
+	         * member offset not a multiple of 4 bytes.
+		 */
+		ofile->toc_bad = TRUE;
+		return(CHECK_GOOD);
+	    }
+#endif
+	}
+	ofile->toc_ranlibs = ranlibs;
+	ofile->toc_nranlibs = nranlibs;
+	ofile->toc_strings = strings;
+	ofile->toc_strsize = strsize;
+	return(CHECK_GOOD);
+}
+
+/*
  * check_Mach_O() checks the object file's mach header and load commands
  * referenced in the ofile for correctness (this also swaps the mach header
  * and load commands into the host byte sex if needed).
@@ -3137,7 +3337,7 @@ struct ofile *ofile)
 #else /* !defined OTOOL */
     uint32_t size, i, j, ncmds, sizeofcmds, load_command_multiple, sizeofhdrs;
     cpu_type_t cputype;
-    char *addr, *cmd_name;
+    char *addr, *cmd_name, *element_name;
     enum byte_sex host_byte_sex;
     enum bool swapped;
     struct mach_header *mh;
@@ -3163,13 +3363,16 @@ struct ofile *ofile)
     struct routines_command *rc;
     struct routines_command_64 *rc64;
     struct twolevel_hints_command *hints;
-    struct linkedit_data_command *code_sig, *split_info, *func_starts;
+    struct linkedit_data_command *code_sig, *split_info, *func_starts,
+			     *data_in_code, *code_sign_drs, *linkedit_data;
     struct version_min_command *vers;
     struct prebind_cksum_command *cs;
     struct encryption_info_command *encrypt_info;
     struct dyld_info_command *dyld_info;
     struct uuid_command *uuid;
     struct rpath_command *rpath;
+    struct entry_point_command *ep;
+    struct source_version_command *sv;
     uint32_t flavor, count, nflavor;
     char *p, *state;
     uint32_t sizeof_nlist, sizeof_dylib_module;
@@ -3259,6 +3462,8 @@ struct ofile *ofile)
 	hints = NULL;
 	code_sig = NULL;
 	func_starts = NULL;
+	data_in_code = NULL;
+	code_sign_drs = NULL;
 	split_info = NULL;
 	cs = NULL;
 	uuid = NULL;
@@ -3359,7 +3564,8 @@ struct ofile *ofile)
 		    if(mh->filetype != MH_DYLIB_STUB &&
 		       s->flags != S_ZEROFILL &&
 		       s->flags != S_THREAD_LOCAL_ZEROFILL &&
-		       sg->fileoff == 0 && s->offset < sizeofhdrs){
+		       sg->fileoff == 0 && s->offset < sizeofhdrs &&
+		       s->size != 0){
 			Mach_O_error(ofile, "malformed object (offset field of "
 				"section %u in LC_SEGMENT command %u not "
 				"past the headers of the file)", j, i);
@@ -3404,6 +3610,7 @@ struct ofile *ofile)
 			goto return_bad;
 		    }
 		    if(mh->filetype != MH_DYLIB_STUB &&
+		       mh->filetype != MH_DSYM &&
 		       s->flags != S_ZEROFILL &&
 		       s->flags != S_THREAD_LOCAL_ZEROFILL &&
 		       check_overlaping_element(ofile, &elements, s->offset,
@@ -3496,6 +3703,7 @@ struct ofile *ofile)
 			goto return_bad;
 		    }
 		    if(mh64->filetype != MH_DYLIB_STUB &&
+		       mh64->filetype != MH_DSYM &&
 		       s64->flags != S_ZEROFILL &&
 		       s64->flags != S_THREAD_LOCAL_ZEROFILL &&
 		       check_overlaping_element(ofile, &elements, s64->offset,
@@ -3808,129 +4016,94 @@ struct ofile *ofile)
 		    goto return_bad;
 		break;
 
-	    case LC_CODE_SIGNATURE:
-		if(l.cmdsize < sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_CODE_SIGNATURE "
-				 "cmdsize too small) in command %u", i);
-		    goto return_bad;
-		}
-		if(code_sig != NULL){
-		    Mach_O_error(ofile, "malformed object (more than one "
-			"LC_CODE_SIGNATURE command)");
-		    goto return_bad;
-		}
-		code_sig = (struct linkedit_data_command *)lc;
-		if(swapped)
-		    swap_linkedit_data_command(code_sig, host_byte_sex);
-		if(code_sig->cmdsize != sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_CODE_SIGNATURE "
-			         "command %u has incorrect cmdsize)", i);
-		    goto return_bad;
-		}
-		if(code_sig->dataoff > size){
-		    Mach_O_error(ofile, "truncated or malformed object "
-			"(dataoff field of LC_CODE_SIGNATURE command %u "
-			"extends past the end of the file)", i);
-		    goto return_bad;
-		}
-		big_size = code_sig->dataoff;
-		big_size += code_sig->datasize;
-		if(big_size > size){
-		    Mach_O_error(ofile, "truncated or malformed object "
-			"(dataoff field plus datasize field of "
-			"LC_CODE_SIGNATURE command %u extends past the end of "
-			"the file)", i);
-		    goto return_bad;
-		}
-		if(check_overlaping_element(ofile, &elements, code_sig->dataoff,
-			code_sig->datasize, "code signature data") == CHECK_BAD)
-		    goto return_bad;
-		break;
-
 	    case LC_SEGMENT_SPLIT_INFO:
-		if(l.cmdsize < sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_SEGMENT_SPLIT_"
-				 "INFO cmdsize too small) in command %u", i);
-		    goto return_bad;
-		}
+		cmd_name = "LC_SEGMENT_SPLIT_INFO";
+		element_name = "split info data";
 		if(split_info != NULL){
 		    Mach_O_error(ofile, "malformed object (more than one "
-			"LC_SEGMENT_SPLIT_INFO command)");
+			"%s command)", cmd_name);
 		    goto return_bad;
 		}
 		split_info = (struct linkedit_data_command *)lc;
-		if(swapped)
-		    swap_linkedit_data_command(split_info, host_byte_sex);
-		if(split_info->cmdsize != sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_SEGMENT_SPLIT_"
-				 "INFO command %u has incorrect cmdsize)", i);
+		goto check_linkedit_data_command;
+
+	    case LC_CODE_SIGNATURE:
+		cmd_name = "LC_CODE_SIGNATURE";
+		element_name = "code signature data";
+		if(code_sig != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"%s command)", cmd_name);
 		    goto return_bad;
 		}
-		if(split_info->dataoff > size){
-		    Mach_O_error(ofile, "truncated or malformed object "
-			"(dataoff field of LC_SEGMENT_SPLIT_INFO command %u "
-			"extends past the end of the file)", i);
-		    goto return_bad;
-		}
-		big_size = split_info->dataoff;
-		big_size += split_info->datasize;
-		if(big_size > size){
-		    Mach_O_error(ofile, "truncated or malformed object "
-			"(dataoff field plus datasize field of LC_SEGMENT_"
-			"SPLIT_INFO command %u extends past the end of "
-			"the file)", i);
-		    goto return_bad;
-		}
-		if((split_info->datasize % load_command_multiple) != 0){
-		    Mach_O_error(ofile, "truncated or malformed object "
-			"(datasize field of LC_SEGMENT_SPLIT_INFO command %u "
-			"is not a multple of %u)", i, load_command_multiple);
-		    goto return_bad;
-		}
-		if(check_overlaping_element(ofile, &elements,
-			split_info->dataoff, split_info->datasize,
-			"split info data") == CHECK_BAD)
-		    goto return_bad;
-		break;
+		code_sig = (struct linkedit_data_command *)lc;
+		goto check_linkedit_data_command;
 
 	    case LC_FUNCTION_STARTS:
-		if(l.cmdsize < sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_FUNCTION_STARTS "
-				 "cmdsize too small) in command %u", i);
-		    goto return_bad;
-		}
+		cmd_name = "LC_FUNCTION_STARTS";
+		element_name = "function starts data";
 		if(func_starts != NULL){
 		    Mach_O_error(ofile, "malformed object (more than one "
-			"LC_FUNCTION_STARTS command)");
+			"%s command)", cmd_name);
 		    goto return_bad;
 		}
 		func_starts = (struct linkedit_data_command *)lc;
+		goto check_linkedit_data_command;
+
+	    case LC_DATA_IN_CODE:
+		cmd_name = "LC_DATA_IN_CODE";
+		element_name = "date in code info";
+		if(data_in_code != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"%s command)", cmd_name);
+		    goto return_bad;
+		}
+		data_in_code = (struct linkedit_data_command *)lc;
+		goto check_linkedit_data_command;
+
+	    case LC_DYLIB_CODE_SIGN_DRS:
+		cmd_name = "LC_DYLIB_CODE_SIGN_DRS";
+		element_name = "code signing RDs data";
+		if(code_sign_drs != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"%s command)", cmd_name);
+		    goto return_bad;
+		}
+		code_sign_drs = (struct linkedit_data_command *)lc;
+		goto check_linkedit_data_command;
+
+check_linkedit_data_command:
+		if(l.cmdsize < sizeof(struct linkedit_data_command)){
+		    Mach_O_error(ofile, "malformed object (%s cmdsize too "
+				 "small) in command %u", cmd_name, i);
+		    goto return_bad;
+		}
+		linkedit_data = (struct linkedit_data_command *)lc;
 		if(swapped)
-		    swap_linkedit_data_command(func_starts, host_byte_sex);
-		if(func_starts->cmdsize !=
+		    swap_linkedit_data_command(linkedit_data, host_byte_sex);
+		if(linkedit_data->cmdsize !=
 		   sizeof(struct linkedit_data_command)){
-		    Mach_O_error(ofile, "malformed object (LC_FUNCTION_STARTS "
-			         "command %u has incorrect cmdsize)", i);
+		    Mach_O_error(ofile, "malformed object (%s command %u has "
+				 "incorrect cmdsize)", cmd_name, i);
 		    goto return_bad;
 		}
-		if(func_starts->dataoff > size){
+		if(linkedit_data->dataoff > size){
 		    Mach_O_error(ofile, "truncated or malformed object "
-			"(dataoff field of LC_FUNCTION_STARTS command %u "
-			"extends past the end of the file)", i);
+			"(dataoff field of %s command %u extends past the end "
+			"of the file)", cmd_name, i);
 		    goto return_bad;
 		}
-		big_size = func_starts->dataoff;
-		big_size += func_starts->datasize;
+		big_size = linkedit_data->dataoff;
+		big_size += linkedit_data->datasize;
 		if(big_size > size){
 		    Mach_O_error(ofile, "truncated or malformed object "
 			"(dataoff field plus datasize field of "
-			"LC_FUNCTION_STARTS command %u extends past the end of "
-			"the file)", i);
+			"%s command %u extends past the end of "
+			"the file)", cmd_name, i);
 		    goto return_bad;
 		}
 		if(check_overlaping_element(ofile, &elements,
-			func_starts->dataoff, func_starts->datasize,
-			"function starts data") == CHECK_BAD)
+			linkedit_data->dataoff, linkedit_data->datasize,
+			element_name) == CHECK_BAD)
 		    goto return_bad;
 		break;
 
@@ -5566,6 +5739,30 @@ check_dylinker_command:
 		    goto return_bad;
 		}
 		break;
+	    case LC_MAIN:
+		if(l.cmdsize < sizeof(struct entry_point_command)){
+		    Mach_O_error(ofile, "malformed object (LC_MAIN cmdsize "
+			         "too small) in command %u", i);
+		    goto return_bad;
+		}
+		ep = (struct entry_point_command *)lc;
+		if(swapped)
+		    swap_entry_point_command(ep, host_byte_sex);
+		/*
+		 * If we really wanted we could check that the entryoff field
+		 * really is an offset into the __TEXT segment.  But since it
+		 * is not used here, we won't needlessly check it.
+		 */
+		break;
+	    case LC_SOURCE_VERSION:
+		if(l.cmdsize < sizeof(struct source_version_command)){
+		    Mach_O_error(ofile, "malformed object (LC_SOURCE_VERSION "
+				 "cmdsize too small) in command %u", i);
+		    goto return_bad;
+		}
+		sv = (struct source_version_command *)lc;
+		if(swapped)
+		    swap_source_version_command(sv, host_byte_sex);
 	    case LC_IDENT:
 		if(l.cmdsize < sizeof(struct ident_command)){
 		    Mach_O_error(ofile, "malformed object (LC_IDENT cmdsize "

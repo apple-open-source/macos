@@ -1,8 +1,8 @@
 /* acl.c - routines to parse and check acl's */
-/* $OpenLDAP: pkg/ldap/servers/slapd/acl.c,v 1.303.2.25 2010/04/15 20:01:38 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -57,7 +57,9 @@ static AccessControl * slap_acl_get(
 	AccessControlState *state );
 
 static slap_control_t slap_acl_mask(
-	AccessControl *ac, slap_mask_t *mask,
+	AccessControl *ac,
+	AccessControl *prev,
+	slap_mask_t *mask,
 	Operation *op, Entry *e,
 	AttributeDescription *desc,
 	struct berval *val,
@@ -141,7 +143,7 @@ slap_access_allowed(
 {
 	int				ret = 1;
 	int				count;
-	AccessControl			*a = NULL;
+	AccessControl			*a, *prev;
 
 #ifdef LDAP_DEBUG
 	char				accessmaskbuf[ACCESSMASK_MAXLEN];
@@ -220,7 +222,7 @@ slap_access_allowed(
 		state = &acl_state;
 	if ( state->as_desc == desc &&
 		state->as_access == access &&
-		state->as_vd_acl != NULL )
+		state->as_vd_acl_present )
 	{
 		a = state->as_vd_acl;
 		count = state->as_vd_acl_count;
@@ -236,6 +238,7 @@ slap_access_allowed(
 	}
 
 	MATCHES_MEMSET( &matches );
+	prev = a;
 
 	while ( ( a = slap_acl_get( a, &count, op, e, desc, val,
 		&matches, &mask, state ) ) != NULL )
@@ -282,7 +285,7 @@ slap_access_allowed(
 			Debug( LDAP_DEBUG_ACL, "\n", 0, 0, 0 );
 		}
 
-		control = slap_acl_mask( a, &mask, op,
+		control = slap_acl_mask( a, prev, &mask, op,
 			e, desc, val, &matches, count, state, access );
 
 		if ( control != ACL_BREAK ) {
@@ -290,6 +293,7 @@ slap_access_allowed(
 		}
 
 		MATCHES_MEMSET( &matches );
+		prev = a;
 	}
 
 	if ( ACL_IS_INVALID( mask ) ) {
@@ -405,7 +409,7 @@ access_allowed_mask(
 		if ( state->as_desc == desc &&
 			state->as_access == access &&
 			state->as_result != -1 &&
-			state->as_vd_acl == NULL )
+			!state->as_vd_acl_present )
 			{
 			Debug( LDAP_DEBUG_ACL,
 				"=> access_allowed: result was in cache (%s)\n",
@@ -615,7 +619,8 @@ slap_acl_get(
 				continue;
 			}
 
-			if ( state->as_vd_acl == NULL ) {
+			if ( !state->as_vd_acl_present ) {
+				state->as_vd_acl_present = 1;
 				state->as_vd_acl = prev;
 				state->as_vd_acl_count = *count - 1;
 				ACL_PRIV_ASSIGN ( state->as_vd_mask, *mask );
@@ -714,9 +719,10 @@ slap_acl_get(
  * Record value-dependent access control state
  */
 #define ACL_RECORD_VALUE_STATE do { \
-		if( state && state->as_vd_acl == NULL ) { \
-			state->as_vd_acl = a; \
-			state->as_vd_acl_count = count; \
+		if( state && !state->as_vd_acl_present ) { \
+			state->as_vd_acl_present = 1; \
+			state->as_vd_acl = prev; \
+			state->as_vd_acl_count = count - 1; \
 			ACL_PRIV_ASSIGN( state->as_vd_mask, *mask ); \
 		} \
 	} while( 0 )
@@ -1070,8 +1076,6 @@ acl_mask_dnattr(
 		if ( ! bdn->a_self )
 			return 1;
 
-		ACL_RECORD_VALUE_STATE;
-
 		/* this is a self clause, check if the target is an
 		 * attribute.
 		 */
@@ -1106,6 +1110,7 @@ acl_mask_dnattr(
 static slap_control_t
 slap_acl_mask(
 	AccessControl		*a,
+	AccessControl		*prev,
 	slap_mask_t		*mask,
 	Operation		*op,
 	Entry			*e,
@@ -1152,6 +1157,36 @@ slap_acl_mask(
 		slap_mask_t oldmask, modmask;
 
 		ACL_INVALIDATE( modmask );
+
+		/* check for the "self" modifier in the <access> field */
+		if ( b->a_dn.a_self ) {
+			const char *dummy;
+			int rc, match = 0;
+
+			ACL_RECORD_VALUE_STATE;
+
+			/* must have DN syntax */
+			if ( desc->ad_type->sat_syntax != slap_schema.si_syn_distinguishedName &&
+				!is_at_syntax( desc->ad_type, SLAPD_NAMEUID_SYNTAX )) continue;
+
+			/* check if the target is an attribute. */
+			if ( val == NULL ) continue;
+
+			/* a DN must be present */
+			if ( BER_BVISEMPTY( &op->o_ndn ) ) {
+				continue;
+			}
+
+			/* target is attribute, check if the attribute value
+			 * is the op dn.
+			 */
+			rc = value_match( &match, desc,
+				desc->ad_type->sat_equality, 0,
+				val, &op->o_ndn, &dummy );
+			/* on match error or no match, fail the ACL clause */
+			if ( rc != LDAP_SUCCESS || match != 0 )
+				continue;
+		}
 
 		/* AND <who> clauses */
 		if ( !BER_BVISEMPTY( &b->a_dn_pat ) ) {
@@ -1724,36 +1759,6 @@ slap_acl_mask(
 			}
 		}
 
-		/* check for the "self" modifier in the <access> field */
-		if ( b->a_dn.a_self ) {
-			const char *dummy;
-			int rc, match = 0;
-
-			ACL_RECORD_VALUE_STATE;
-
-			/* must have DN syntax */
-			if ( desc->ad_type->sat_syntax != slap_schema.si_syn_distinguishedName &&
-				!is_at_syntax( desc->ad_type, SLAPD_NAMEUID_SYNTAX )) continue;
-
-			/* check if the target is an attribute. */
-			if ( val == NULL ) continue;
-
-			/* a DN must be present */
-			if ( BER_BVISEMPTY( &op->o_ndn ) ) {
-				continue;
-			}
-
-			/* target is attribute, check if the attribute value
-			 * is the op dn.
-			 */
-			rc = value_match( &match, desc,
-				desc->ad_type->sat_equality, 0,
-				val, &op->o_ndn, &dummy );
-			/* on match error or no match, fail the ACL clause */
-			if ( rc != LDAP_SUCCESS || match != 0 )
-				continue;
-		}
-
 #ifdef SLAP_DYNACL
 		if ( b->a_dynacl ) {
 			slap_dynacl_t	*da;
@@ -1985,7 +1990,14 @@ acl_check_modlist(
 			/* fall thru to check value to add */
 
 		case LDAP_MOD_ADD:
+		case SLAP_MOD_ADD_IF_NOT_PRESENT:
 			assert( mlist->sml_values != NULL );
+
+			if ( mlist->sml_op == SLAP_MOD_ADD_IF_NOT_PRESENT
+				&& attr_find( e->e_attrs, mlist->sml_desc ) )
+			{
+				break;
+			}
 
 			for ( bv = mlist->sml_nvalues
 					? mlist->sml_nvalues : mlist->sml_values;
@@ -2003,6 +2015,7 @@ acl_check_modlist(
 			break;
 
 		case LDAP_MOD_DELETE:
+		case SLAP_MOD_SOFTDEL:
 			if ( mlist->sml_values == NULL ) {
 				if ( ! access_allowed( op, e,
 					mlist->sml_desc, NULL,

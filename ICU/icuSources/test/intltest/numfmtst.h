@@ -1,6 +1,6 @@
 /************************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2010, International Business Machines Corporation
+ * Copyright (c) 1997-2012, International Business Machines Corporation
  * and others. All Rights Reserved.
  ************************************************************************/
 
@@ -130,6 +130,8 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     /* Port of ICU4J rounding test. */
     void TestRounding(void);
 
+    void TestRoundingPattern(void);
+
     void TestNonpositiveMultiplier(void);
 
     void TestNumberingSystems();
@@ -151,6 +153,10 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestCurrencyFractionDigits();
 
     void TestExponentParse();
+    void TestExplicitParents();
+    void TestAvailableNumberingSystems();
+    void Test9087();
+
 
  private:
 

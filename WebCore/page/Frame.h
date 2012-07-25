@@ -44,7 +44,7 @@
 #include "FrameWin.h"
 #endif
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 #include "TiledBackingStoreClient.h"
 #endif
 
@@ -63,23 +63,18 @@ typedef struct HBITMAP__* HBITMAP;
 namespace WebCore {
 
     class Document;
+    class FrameDestructionObserver;
     class FrameView;
     class HTMLTableCellElement;
-    class MediaStreamFrameController;
     class RegularExpression;
     class RenderPart;
     class TiledBackingStore;
 
-#if !ENABLE(TILED_BACKING_STORE)
+#if !USE(TILED_BACKING_STORE)
     class TiledBackingStoreClient { };
 #endif
 
-    class FrameDestructionObserver {
-    public:
-        virtual ~FrameDestructionObserver() { }
-
-        virtual void frameDestroyed() = 0;
-    };
+    class TreeScope;
 
     class Frame : public RefCounted<Frame>, public TiledBackingStoreClient {
     public:
@@ -96,8 +91,8 @@ namespace WebCore {
         void addDestructionObserver(FrameDestructionObserver*);
         void removeDestructionObserver(FrameDestructionObserver*);
 
+        void willDetachPage();
         void detachFromPage();
-        void pageDestroyed();
         void disconnectOwnerElement();
 
         Page* page() const;
@@ -118,8 +113,6 @@ namespace WebCore {
         RenderView* contentRenderer() const; // Root of the render tree for the document contained in this frame.
         RenderPart* ownerRenderer() const; // Renderer for the element that contains this frame.
 
-        void transferChildFrameToNewDocument();
-
 #if ENABLE(PAGE_VISIBILITY_API)
         void dispatchVisibilityStateChangeEvent();
 #endif
@@ -130,6 +123,7 @@ namespace WebCore {
         void setIsDisconnected(bool);
         bool excludeFromTextSearch() const;
         void setExcludeFromTextSearch(bool);
+        bool inScope(TreeScope*) const;
 
         void injectUserScripts(UserScriptInjectionTime);
         
@@ -140,20 +134,18 @@ namespace WebCore {
         DOMWindow* domWindow() const;
         DOMWindow* existingDOMWindow() { return m_domWindow.get(); }
         void setDOMWindow(DOMWindow*);
-        void clearFormerDOMWindow(DOMWindow*);
         void clearDOMWindow();
 
         static Frame* frameForWidget(const Widget*);
 
         Settings* settings() const; // can be NULL
 
-        void setPrinting(bool printing, const FloatSize& pageSize, float maximumShrinkRatio, AdjustViewSizeOrNot);
+        void setPrinting(bool printing, const FloatSize& pageSize, const FloatSize& originalPageSize, float maximumShrinkRatio, AdjustViewSizeOrNot);
+        bool shouldUsePrintingLayout() const;
+        FloatSize resizePageRectsKeepingRatio(const FloatSize& originalSize, const FloatSize& expectedSize);
 
         bool inViewSourceMode() const;
         void setInViewSourceMode(bool = true);
-
-        void keepAlive(); // Used to keep the frame alive when running a script that might destroy it.
-        static void cancelAllKeepAlive();
 
         void setDocument(PassRefPtr<Document>);
 
@@ -163,9 +155,9 @@ namespace WebCore {
         float textZoomFactor() const { return m_textZoomFactor; }
         void setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor);
 
-        // FIXME: These functions should move to Page.
-        void scalePage(float scale, const IntPoint& origin);
-        float pageScaleFactor() const { return m_pageScaleFactor; }
+        // Scale factor of this frame with respect to the container.
+        float frameScaleFactor() const;
+
 #if USE(ACCELERATED_COMPOSITING)
         void deviceOrPageScaleFactorChanged();
 #endif
@@ -195,22 +187,20 @@ namespace WebCore {
         String searchForLabelsAboveCell(RegularExpression*, HTMLTableCellElement*, size_t* resultDistanceFromStartOfCell);
         String searchForLabelsBeforeElement(const Vector<String>& labels, Element*, size_t* resultDistance, bool* resultIsInCellAbove);
         String matchLabelsAgainstElement(const Vector<String>& labels, Element*);
-        
-#if PLATFORM(MAC)
-        NSString* searchForLabelsBeforeElement(NSArray* labels, Element*, size_t* resultDistance, bool* resultIsInCellAbove);
-        NSString* matchLabelsAgainstElement(NSArray* labels, Element*);
 
+#if PLATFORM(MAC)
         NSImage* selectionImage(bool forceBlackText = false) const;
+        NSImage* rangeImage(Range*, bool forceBlackText = false) const;
         NSImage* snapshotDragImage(Node*, NSRect* imageRect, NSRect* elementRect) const;
         NSImage* imageFromRect(NSRect) const;
 #endif
+        void suspendActiveDOMObjectsAndAnimations();
+        void resumeActiveDOMObjectsAndAnimations();
+        bool activeDOMObjectsAndAnimationsSuspended() const { return m_activeDOMObjectsAndAnimationsSuspendedCount > 0; }
 
-#if ENABLE(MEDIA_STREAM)
-        MediaStreamFrameController* mediaStreamFrameController() const { return m_mediaStreamFrameController.get(); }
-#endif
-        
         // Should only be called on the main frame of a page.
         void notifyChromeClientWheelEventHandlerCountChanged() const;
+        void notifyChromeClientTouchEventHandlerCountChanged() const;
 
     // ========
 
@@ -218,7 +208,6 @@ namespace WebCore {
         Frame(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
 
         void injectUserScriptsForWorld(DOMWrapperWorld*, const UserScriptVector&, UserScriptInjectionTime);
-        void lifeSupportTimerFired(Timer<Frame>*);
 
         HashSet<FrameDestructionObserver*> m_destructionObservers;
 
@@ -228,7 +217,6 @@ namespace WebCore {
         mutable NavigationScheduler m_navigationScheduler;
 
         mutable RefPtr<DOMWindow> m_domWindow;
-        HashSet<DOMWindow*> m_liveFormerWindows;
 
         HTMLFrameOwnerElement* m_ownerElement;
         RefPtr<FrameView> m_view;
@@ -241,12 +229,8 @@ namespace WebCore {
         mutable EventHandler m_eventHandler;
         mutable AnimationController m_animationController;
 
-        Timer<Frame> m_lifeSupportTimer;
-
         float m_pageZoomFactor;
         float m_textZoomFactor;
-
-        float m_pageScaleFactor;
 
 #if ENABLE(ORIENTATION_EVENTS)
         int m_orientation;
@@ -256,7 +240,7 @@ namespace WebCore {
         bool m_isDisconnected;
         bool m_excludeFromTextSearch;
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
     // FIXME: The tiled backing store belongs in FrameView, not Frame.
 
     public:
@@ -275,9 +259,7 @@ namespace WebCore {
         OwnPtr<TiledBackingStore> m_tiledBackingStore;
 #endif
 
-#if ENABLE(MEDIA_STREAM)
-        OwnPtr<MediaStreamFrameController> m_mediaStreamFrameController;
-#endif
+        int m_activeDOMObjectsAndAnimationsSuspendedCount;
     };
 
     inline void Frame::init()

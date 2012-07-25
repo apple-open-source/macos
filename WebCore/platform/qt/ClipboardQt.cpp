@@ -30,7 +30,7 @@
 #include "ClipboardQt.h"
 
 #include "CachedImage.h"
-#include "DataTransferItemsQt.h"
+#include "DataTransferItemListQt.h"
 #include "Document.h"
 #include "DragData.h"
 #include "Element.h"
@@ -143,28 +143,21 @@ void ClipboardQt::clearAllData()
     m_writableData = 0;
 }
 
-String ClipboardQt::getData(const String& type, bool& success) const
+String ClipboardQt::getData(const String& type) const
 {
 
-    if (policy() != ClipboardReadable) {
-        success = false;
+    if (policy() != ClipboardReadable)
         return String();
-    }
 
-    if (isHtmlMimeType(type) && m_readableData->hasHtml()) {
-        success = true;
+    if (isHtmlMimeType(type) && m_readableData->hasHtml())
         return m_readableData->html();
-    }
 
-    if (isTextMimeType(type) && m_readableData->hasText()) {
-        success = true;
+    if (isTextMimeType(type) && m_readableData->hasText())
         return m_readableData->text();
-    }
 
     ASSERT(m_readableData);
     QByteArray rawData = m_readableData->data(type);
     QString data = QTextCodec::codecForName("UTF-16")->toUnicode(rawData);
-    success = !data.isEmpty();
     return data;
 }
 
@@ -185,10 +178,6 @@ bool ClipboardQt::setData(const String& type, const String& data)
         m_writableData->setData(QString(type), array);
     }
 
-#ifndef QT_NO_CLIPBOARD
-    if (isForCopyAndPaste())
-        QGuiApplication::clipboard()->setMimeData(m_writableData);
-#endif
     return true;
 }
 
@@ -282,27 +271,18 @@ void ClipboardQt::declareAndWriteDragImage(Element* element, const KURL& url, co
         m_writableData = new QMimeData;
 
     CachedImage* cachedImage = getCachedImage(element);
-    if (!cachedImage || !cachedImage->image() || !cachedImage->isLoaded())
+    if (!cachedImage || !cachedImage->imageForRenderer(element->renderer()) || !cachedImage->isLoaded())
         return;
-    QPixmap* pixmap = cachedImage->image()->nativeImageForCurrentFrame();
+    QPixmap* pixmap = cachedImage->imageForRenderer(element->renderer())->nativeImageForCurrentFrame();
     if (pixmap)
         m_writableData->setImageData(*pixmap);
 
-    AtomicString imageURL = element->getAttribute(HTMLNames::srcAttr);
-    if (imageURL.isEmpty())
-        return;
-
-    KURL fullURL = frame->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(imageURL));
-    if (fullURL.isEmpty())
-        return;
-
     QList<QUrl> urls;
     urls.append(url);
-    urls.append(fullURL);
 
     m_writableData->setText(title);
     m_writableData->setUrls(urls);
-    m_writableData->setHtml(createMarkup(element, IncludeNode, 0, AbsoluteURLs));
+    m_writableData->setHtml(createMarkup(element, IncludeNode, 0, ResolveAllURLs));
 #ifndef QT_NO_CLIPBOARD
     if (isForCopyAndPaste())
         QGuiApplication::clipboard()->setMimeData(m_writableData);
@@ -335,7 +315,7 @@ void ClipboardQt::writeRange(Range* range, Frame* frame)
     QString text = frame->editor()->selectedText();
     text.replace(QChar(0xa0), QLatin1Char(' '));
     m_writableData->setText(text);
-    m_writableData->setHtml(createMarkup(range, 0, AnnotateForInterchange, false, AbsoluteURLs));
+    m_writableData->setHtml(createMarkup(range, 0, AnnotateForInterchange, false, ResolveNonLocalURLs));
 #ifndef QT_NO_CLIPBOARD
     if (isForCopyAndPaste())
         QGuiApplication::clipboard()->setMimeData(m_writableData);
@@ -364,13 +344,13 @@ bool ClipboardQt::hasData()
 }
 
 #if ENABLE(DATA_TRANSFER_ITEMS)
-PassRefPtr<DataTransferItems> ClipboardQt::items()
+PassRefPtr<DataTransferItemList> ClipboardQt::items()
 {
 
     if (!m_frame && !m_frame->document())
         return 0;
 
-    RefPtr<DataTransferItemsQt> items = DataTransferItemsQt::create(this, m_frame->document()->scriptExecutionContext());
+    RefPtr<DataTransferItemListQt> items = DataTransferItemListQt::create(this, m_frame->document()->scriptExecutionContext());
 
     if (!m_readableData)
         return items;

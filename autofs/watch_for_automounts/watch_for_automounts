@@ -1,16 +1,29 @@
 #!/usr/sbin/dtrace -s
+/*
+ * Usage: sudo watch_for_automounts
+ *
+ * Watches for paths that trigger kernel
+ * interaction with automountd.
+ */
+#pragma D option quiet
+
+BEGIN
+{
+	printf("Watching for automounts - ^C to quit ...\n");
+}
+
 fbt::lookup:entry
 {
-	self->nd = (struct nameidata *)arg0;
+	self->nd = (struct nameidata *) arg0;
 }
 fbt::lookup:return
 {
 	self->nd = NULL;
 }
-fbt::vfs_context_get_special_port:entry / self->nd /
+
+fbt::host_get_special_port:entry / self->nd /
 {
-	trace(execname);
-	trace(stringof(self->nd->ni_cnd.cn_nameptr));
-	trace(stringof(self->nd->ni_cnd.cn_pnbuf));
+	printf("\n\t%Y uid=%-4d pid=%-4d %s %s\n", walltimestamp,
+		uid, pid, execname, ((struct nameidata *) self->nd)->ni_pathbuf);
 	ustack();
 }

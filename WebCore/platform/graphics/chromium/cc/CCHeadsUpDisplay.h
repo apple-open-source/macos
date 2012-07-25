@@ -27,67 +27,46 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "Font.h"
-#include "ProgramBinding.h"
-#include "ShaderChromium.h"
+#include "cc/CCFontAtlas.h"
 
 namespace WebCore {
 
-class GeometryBinding;
-class GraphicsContext3D;
-class LayerRendererChromium;
-class LayerTexture;
+class CCDebugRectHistory;
+class CCFrameRateCounter;
+class CCLayerTreeHostImpl;
+class GraphicsContext;
+class ManagedTexture;
+struct CCSettings;
 
 // Class that handles drawing of composited render layers using GL.
 class CCHeadsUpDisplay {
     WTF_MAKE_NONCOPYABLE(CCHeadsUpDisplay);
 public:
-    static PassOwnPtr<CCHeadsUpDisplay> create(LayerRendererChromium* owner)
+    static PassOwnPtr<CCHeadsUpDisplay> create()
     {
-        return adoptPtr(new CCHeadsUpDisplay(owner));
+        return adoptPtr(new CCHeadsUpDisplay());
     }
 
     ~CCHeadsUpDisplay();
 
-    void onFrameBegin(double timestamp);
-    void onPresent();
+    void setFontAtlas(PassOwnPtr<CCFontAtlas>);
 
-    void setShowFPSCounter(bool enable) { m_showFPSCounter = enable; }
-    bool showFPSCounter() const { return m_showFPSCounter; }
-
-    void setShowPlatformLayerTree(bool enable) { m_showPlatformLayerTree = enable; }
-    bool showPlatformLayerTree() const { return m_showPlatformLayerTree; }
-
-    bool enabled() const { return m_showPlatformLayerTree || m_showFPSCounter; }
-    void draw();
-
-    typedef ProgramBinding<VertexShaderPosTex, FragmentShaderBGRATexAlpha> Program;
+    bool enabled(const CCSettings&) const;
+    void draw(CCLayerTreeHostImpl*);
 
 private:
-    explicit CCHeadsUpDisplay(LayerRendererChromium* owner);
-    void drawHudContents(GraphicsContext*, const IntSize& hudSize);
-    void drawFPSCounter(GraphicsContext*, int top, int height);
-    void drawPlatformLayerTree(GraphicsContext*, int top);
+    CCHeadsUpDisplay() { };
 
+    void drawHudContents(GraphicsContext*, CCLayerTreeHostImpl*, const CCSettings&, const IntSize& hudSize);
+    void drawFPSCounter(GraphicsContext*, CCFrameRateCounter*, int top, int height);
+    void drawFPSCounterText(GraphicsContext*, CCFrameRateCounter*, int top, int width, int height);
+    void drawDebugRects(GraphicsContext*, CCDebugRectHistory*, const CCSettings&);
 
-    int m_currentFrameNumber;
+    bool showPlatformLayerTree(const CCSettings&) const;
+    bool showDebugRects(const CCSettings&) const;
 
-    double m_filteredFrameTime;
-
-    OwnPtr<LayerTexture> m_hudTexture;
-
-    LayerRendererChromium* m_layerRenderer;
-
-    static const int kBeginFrameHistorySize = 64;
-    double m_beginTimeHistoryInSec[kBeginFrameHistorySize];
-
-    bool m_showFPSCounter;
-    bool m_showPlatformLayerTree;
-
-    OwnPtr<Font> m_smallFont;
-    OwnPtr<Font> m_mediumFont;
-
-    bool m_useMapSubForUploads;
+    OwnPtr<ManagedTexture> m_hudTexture;
+    OwnPtr<CCFontAtlas> m_fontAtlas;
 };
 
 }

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2010, International Business Machines
+*   Copyright (C) 1996-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -23,6 +23,7 @@
 #include "unicode/ustring.h"
 #include "cpputils.h"
 #include "reldtfmt.h"
+#include "umutex.h"
 
 U_NAMESPACE_USE
 
@@ -73,7 +74,8 @@ static UCalendarDateFields gDateFieldMapping[] = {
     UCAL_MONTH,                // UDAT_QUARTER_FIELD = 27
     UCAL_MONTH,                // UDAT_STANDALONE_QUARTER_FIELD = 28
     UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_SPECIAL_FIELD = 29
-    UCAL_FIELD_COUNT,          // UDAT_FIELD_COUNT = 30
+    UCAL_YEAR,                 // UDAT_YEAR_NAME_FIELD = 30
+    UCAL_FIELD_COUNT,          // UDAT_FIELD_COUNT = 31
     // UCAL_IS_LEAP_MONTH is not the target of a mapping
 };
 
@@ -81,6 +83,40 @@ U_CAPI UCalendarDateFields U_EXPORT2
 udat_toCalendarDateField(UDateFormatField field) {
   return gDateFieldMapping[field];
 }
+
+/* For now- one opener. */
+static UDateFormatOpener gOpener = NULL;
+
+U_INTERNAL void U_EXPORT2
+udat_registerOpener(UDateFormatOpener opener, UErrorCode *status)
+{
+  if(U_FAILURE(*status)) return;
+  umtx_lock(NULL);
+  if(gOpener==NULL) {
+    gOpener = opener;
+  } else {
+    *status = U_ILLEGAL_ARGUMENT_ERROR;
+  }
+  umtx_unlock(NULL);
+}
+
+U_INTERNAL UDateFormatOpener U_EXPORT2
+udat_unregisterOpener(UDateFormatOpener opener, UErrorCode *status)
+{
+  if(U_FAILURE(*status)) return NULL;
+  UDateFormatOpener oldOpener = NULL;
+  umtx_lock(NULL);
+  if(gOpener==NULL || gOpener!=opener) {
+    *status = U_ILLEGAL_ARGUMENT_ERROR;
+  } else {
+    oldOpener=gOpener;
+    gOpener=NULL;
+  }
+  umtx_unlock(NULL);
+  return oldOpener;
+}
+
+
 
 U_CAPI UDateFormat* U_EXPORT2
 udat_open(UDateFormatStyle  timeStyle,
@@ -95,6 +131,12 @@ udat_open(UDateFormatStyle  timeStyle,
     DateFormat *fmt;
     if(U_FAILURE(*status)) {
         return 0;
+    }
+    if(gOpener!=NULL) { // if it's registered
+      fmt = (DateFormat*) (*gOpener)(timeStyle,dateStyle,locale,tzID,tzIDLength,pattern,patternLength,status);
+      if(fmt!=NULL) {
+        return (UDateFormat*)fmt;
+      } // else fall through.
     }
     if(timeStyle != UDAT_IGNORE) {
         if(locale == 0) {
@@ -898,6 +940,32 @@ udat_getLocaleByType(const UDateFormat *fmt,
     }
     return ((Format*)fmt)->getLocaleID(type, *status);
 }
+
+
+U_CAPI void U_EXPORT2
+udat_setDefaultContext(UDateFormat* fmt,
+                       UDateFormatContextType type, UDateFormatContextValue value,
+                       UErrorCode* status)
+{
+    verifyIsSimpleDateFormat(fmt, status);
+    if (U_FAILURE(*status)) {
+        return;
+    }
+    ((SimpleDateFormat*)fmt)->setDefaultContext(type, value, *status);
+}
+
+U_CAPI int32_t U_EXPORT2
+udat_getDefaultContext(UDateFormat* fmt,
+                       UDateFormatContextType type,
+                       UErrorCode* status)
+{
+    verifyIsSimpleDateFormat(fmt, status);
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    return ((SimpleDateFormat*)fmt)->getDefaultContext(type, *status);
+}
+
 
 /**
  * Verify that fmt is a RelativeDateFormat. Invalid error if not.

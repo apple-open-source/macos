@@ -172,6 +172,91 @@ THIS SOFTWARE.
 
 #ifndef GDTOAIMP_H_INCLUDED
 #define GDTOAIMP_H_INCLUDED
+/*
+ * Paranoia: Protect exported symbols, including ones in files we don't
+ * compile right now.  The standard strtof and strtod survive.
+ */
+#define	dtoa		__dtoa
+#define	gdtoa		__gdtoa
+#define	freedtoa	__freedtoa
+#define	strtodg		__strtodg
+#define	g_ddfmt		__g_ddfmt
+#define	g_dfmt		__g_dfmt
+#define	g_ffmt		__g_ffmt
+#define	g_Qfmt		__g_Qfmt
+#define	g_xfmt		__g_xfmt
+#define	g_xLfmt		__g_xLfmt
+#define	strtoId		__strtoId
+#define	strtoIdd	__strtoIdd
+#define	strtoIf		__strtoIf
+#define	strtoIQ		__strtoIQ
+#define	strtoIx		__strtoIx
+#define	strtoIxL	__strtoIxL
+#define	strtord		__strtord
+#define	strtordd	__strtordd
+#define	strtorf		__strtorf
+#define	strtorQ		__strtorQ
+#define	strtorx		__strtorx
+#define	strtorxL	__strtorxL
+#define	strtodI		__strtodI
+#define	strtopd		__strtopd
+#define	strtopdd	__strtopdd
+#define	strtopf		__strtopf
+#define	strtopQ		__strtopQ
+#define	strtopx		__strtopx
+#define	strtopxL	__strtopxL
+
+/* Protect gdtoa-internal symbols */
+#define	Balloc		__Balloc_D2A
+#define	Bfree		__Bfree_D2A
+#define	ULtoQ		__ULtoQ_D2A
+#define	ULtof		__ULtof_D2A
+#define	ULtod		__ULtod_D2A
+#define	ULtodd		__ULtodd_D2A
+#define	ULtox		__ULtox_D2A
+#define	ULtoxL		__ULtoxL_D2A
+#define	any_on		__any_on_D2A
+#define	b2d		__b2d_D2A
+#define	bigtens		__bigtens_D2A
+#define	cmp		__cmp_D2A
+#define	copybits	__copybits_D2A
+#define	d2b		__d2b_D2A
+#define	decrement	__decrement_D2A
+#define	diff		__diff_D2A
+#define	dtoa_result	__dtoa_result_D2A
+#define	g__fmt		__g__fmt_D2A
+#define	gethex		__gethex_D2A
+#define	hexdig		__hexdig_D2A
+#define	hexdig_init_D2A	__hexdig_init_D2A
+#define	hexnan		__hexnan_D2A
+#define	hi0bits		__hi0bits_D2A
+#define	hi0bits_D2A	__hi0bits_D2A
+#define	i2b		__i2b_D2A
+#define	increment	__increment_D2A
+#define	lo0bits		__lo0bits_D2A
+#define	lshift		__lshift_D2A
+#define	match		__match_D2A
+#define	mult		__mult_D2A
+#define	multadd		__multadd_D2A
+#define	nrv_alloc	__nrv_alloc_D2A
+#define	pow5mult	__pow5mult_D2A
+#define	quorem		__quorem_D2A
+#define	ratio		__ratio_D2A
+#define	rshift		__rshift_D2A
+#define	rv_alloc	__rv_alloc_D2A
+#define	s2b		__s2b_D2A
+#define	set_ones	__set_ones_D2A
+#define	strcp		__strcp_D2A
+#define	strcp_D2A      	__strcp_D2A
+#define	strtoIg		__strtoIg_D2A
+#define	sum		__sum_D2A
+#define	tens		__tens_D2A
+#define	tinytens	__tinytens_D2A
+#define	tinytens	__tinytens_D2A
+#define	trailz		__trailz_D2A
+#define	ulp		__ulp_D2A
+
+#include <xlocale.h>
 #include "gdtoa.h"
 #include "gd_qnan.h"
 #ifdef Honor_FLT_ROUNDS
@@ -183,8 +268,11 @@ THIS SOFTWARE.
 #define Bug(x) {fprintf(stderr, "%s\n", x); exit(1);}
 #endif
 
+#include "limits.h"
 #include "stdlib.h"
 #include "string.h"
+#include "libc_private.h"
+#include "spinlock.h"
 
 #ifdef KR_headers
 #define Char char
@@ -197,6 +285,10 @@ extern Char *MALLOC ANSI((size_t));
 #else
 #define MALLOC malloc
 #endif
+
+#define INFNAN_CHECK
+#define USE_LOCALE
+#define NO_LOCALE_CACHE
 
 #undef IEEE_Arith
 #undef Avoid_Underflow
@@ -446,10 +538,14 @@ extern double rnd_prod(double, double), rnd_quot(double, double);
 #define ALL_ON 0xffff
 #endif
 
-#ifndef MULTIPLE_THREADS
-#define ACQUIRE_DTOA_LOCK(n)	/*nothing*/
-#define FREE_DTOA_LOCK(n)	/*nothing*/
-#endif
+#define MULTIPLE_THREADS
+extern spinlock_t __gdtoa_locks[2];
+#define ACQUIRE_DTOA_LOCK(n)	do {				\
+	if (__isthreaded) _SPINLOCK(&__gdtoa_locks[n]);		\
+} while(0)
+#define FREE_DTOA_LOCK(n)	do {				\
+	if (__isthreaded) _SPINUNLOCK(&__gdtoa_locks[n]);	\
+} while(0)
 
 #define Kmax 9
 
@@ -471,52 +567,6 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
 #else /* !NO_STRING_H */
 #define Bcopy(x,y) memcpy(&x->sign,&y->sign,y->wds*sizeof(ULong) + 2*sizeof(int))
 #endif /* NO_STRING_H */
-
-#define Balloc Balloc_D2A
-#define Bfree Bfree_D2A
-#define ULtoQ ULtoQ_D2A
-#define ULtof ULtof_D2A
-#define ULtod ULtod_D2A
-#define ULtodd ULtodd_D2A
-#define ULtox ULtox_D2A
-#define ULtoxL ULtoxL_D2A
-#define any_on any_on_D2A
-#define b2d b2d_D2A
-#define bigtens bigtens_D2A
-#define cmp cmp_D2A
-#define copybits copybits_D2A
-#define d2b d2b_D2A
-#define decrement decrement_D2A
-#define diff diff_D2A
-#define dtoa_result dtoa_result_D2A
-#define g__fmt g__fmt_D2A
-#define gethex gethex_D2A
-#define hexdig hexdig_D2A
-#define hexnan hexnan_D2A
-#define hi0bits(x) hi0bits_D2A((ULong)(x))
-#define i2b i2b_D2A
-#define increment increment_D2A
-#define lo0bits lo0bits_D2A
-#define lshift lshift_D2A
-#define match match_D2A
-#define mult mult_D2A
-#define multadd multadd_D2A
-#define nrv_alloc nrv_alloc_D2A
-#define pow5mult pow5mult_D2A
-#define quorem quorem_D2A
-#define ratio ratio_D2A
-#define rshift rshift_D2A
-#define rv_alloc rv_alloc_D2A
-#define s2b s2b_D2A
-#define set_ones set_ones_D2A
-#define strcp strcp_D2A
-#define strtoIg strtoIg_D2A
-#define sum sum_D2A
-#define tens tens_D2A
-#define tinytens tinytens_D2A
-#define tinytens tinytens_D2A
-#define trailz trailz_D2A
-#define ulp ulp_D2A
 
  extern char *dtoa_result;
  extern CONST double bigtens[], tens[], tinytens[];
@@ -540,7 +590,7 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern char *dtoa ANSI((double d, int mode, int ndigits,
 			int *decpt, int *sign, char **rve));
  extern char *g__fmt ANSI((char*, char*, char*, int, ULong, size_t));
- extern int gethex ANSI((CONST char**, FPI*, Long*, Bigint**, int));
+ extern int gethex ANSI((CONST char**, FPI*, Long*, Bigint**, int, locale_t));
  extern void hexdig_init_D2A(Void);
  extern int hexnan ANSI((CONST char**, FPI*, ULong*));
  extern int hi0bits_D2A ANSI((ULong));
@@ -562,6 +612,7 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
  extern char *strcp ANSI((char*, const char*));
  extern int strtoIg ANSI((CONST char*, char**, FPI*, Long*, Bigint**, int*));
  extern double strtod ANSI((const char *s00, char **se));
+ extern double strtod_l ANSI((const char *s00, char **se, locale_t));
  extern Bigint *sum ANSI((Bigint*, Bigint*));
  extern int trailz ANSI((Bigint*));
  extern double ulp ANSI((U*));
@@ -612,5 +663,79 @@ extern void memcpy_D2A ANSI((void*, const void*, size_t));
 #else
 #define SI 0
 #endif
+
+/*
+ * For very large strings, strtod and family might exhaust memory in tight
+ * memory conditions (especially in 32-bits).  Such large strings could also
+ * tie up a CPU for minutes at a time.  Either can be considered a denial-of-
+ * service vunerability.
+ *
+ * To fix, we limit the string size to the maximum we need to calculate the
+ * rounding point correctly.  The longest string corresponding to the exact
+ * value of a floating point number occuring at 1.f...f p^-n, where n is
+ * the (absolute value of the) smallest exponent for a normalize number.
+ *
+ * To calculate this number of decimal digits, we use the formula:
+ *
+ * (n + m) - int(n * log10(2)) + 3
+ *
+ * where m is the number of bits in the f...f fraction.  This is the number
+ * of decimal digits for the least significant bit minus the number of leading
+ * zeros for the most significant bit (the '1'), plus a few to compensate for
+ * an extra digits due to the full 1.f...f value, an extra digit for the
+ * mid-way point for rounding and an extra guard digit.
+ *
+ * Using the approximation log10(2) ~ 1233 / (2^12), converting to the fpi.emin
+ * and fpi.nbits values, we get:
+ *
+ * -fpi.emin -((1233 * (-fpi.nbits - fpi.emin)) >> 12) + 3
+ *
+ * Finally, we add an extra digit, either '1' or '0', to represent whether
+ * to-be-truncated digits contain a non-zero digit, or are all zeros,
+ * respectively.
+ *
+ * The truncated string is allocated on the heap, so code using
+ * TRUNCATE_DIGITS() will need to free that space when no longer needed.
+ * Pass a char * as the second argument, initialized to NULL; if its value
+ * becomes non-NULL, memory was allocated.
+ */
+#define LOG2NUM 1233
+#define LOG2DENOMSHIFT 12
+#define TRUNCATEDIGITS(_nbits, _emin)	(-(_emin) - ((LOG2NUM * (-(_nbits) - (_emin))) >> LOG2DENOMSHIFT) + 3)
+
+#define TRUNCATE_DIGITS(_s0, _temp, _nd, _nd0, _nf, _nbits, _emin, _dplen) \
+{ \
+	int _maxdigits = TRUNCATEDIGITS((_nbits), (_emin)); \
+	if ((_nd) > _maxdigits && \
+	  ((_temp) = MALLOC(_maxdigits + (_dplen) + 2)) != NULL) { \
+		char *_tp = (_temp) + _maxdigits; \
+		if ((_nd0) >= _maxdigits) { \
+			memcpy((_temp), (_s0), _maxdigits); \
+			if ((_nd) > (_nd0)) *_tp++ = '1'; \
+			else { \
+			    const char *_q = (_s0) + _maxdigits; \
+			    int _n = (_nd0) - _maxdigits; \
+			    for(; _n > 0 && *_q == '0'; _n--, _q++) {} \
+			    *_tp++ = _n > 0 ? '1' : '0'; \
+			    } \
+			(_nf) = -((_nd0) - (_maxdigits + 1)); \
+			(_nd0) = _maxdigits + 1; \
+			} \
+		else if ((_nd0) == 0) { \
+			memcpy((_temp), (_s0), _maxdigits); \
+			*_tp++ = '1'; \
+			(_nf) -= ((_nd) - (_maxdigits + 1)); \
+			} \
+		else { \
+			memcpy((_temp), (_s0), _maxdigits + (_dplen)); \
+			_tp += (_dplen); \
+			*_tp++ = '1'; \
+			(_nf) = (_maxdigits + 1) - (_nd0); \
+			} \
+		*_tp = 0; \
+		(_nd) = _maxdigits + 1; \
+		(_s0) = (_temp); \
+		} \
+	}
 
 #endif /* GDTOAIMP_H_INCLUDED */

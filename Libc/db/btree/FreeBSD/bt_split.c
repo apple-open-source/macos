@@ -201,7 +201,7 @@ __bt_split(BTREE *t, PAGE *sp, const DBT *key, const DBT *data, int flags,
 			nbytes = NRINTERNAL;
 			break;
 		default:
-			abort();
+			LIBC_ABORT("illegal rchild->flags & P_TYPE (0x%x)", rchild->flags & P_TYPE);
 		}
 
 		/* Split the parent page if necessary or shift the indices. */
@@ -276,7 +276,7 @@ __bt_split(BTREE *t, PAGE *sp, const DBT *key, const DBT *data, int flags,
 			((RINTERNAL *)dest)->pgno = rchild->pgno;
 			break;
 		default:
-			abort();
+			LIBC_ABORT("illegal rchild->flags & P_TYPE (0x%x)", rchild->flags & P_TYPE);
 		}
 
 		/* Unpin the held pages. */
@@ -556,7 +556,7 @@ bt_broot(BTREE *t, PAGE *h, PAGE *l, PAGE *r)
 		((BINTERNAL *)dest)->pgno = r->pgno;
 		break;
 	default:
-		abort();
+		LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
 	}
 
 	/* There are two keys on the page. */
@@ -635,7 +635,7 @@ bt_psplit(BTREE *t, PAGE *h, PAGE *l, PAGE *r, indx_t *pskip, size_t ilen)
 				isbigkey = 0;
 				break;
 			default:
-				abort();
+				LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
 			}
 
 		/*
@@ -728,7 +728,7 @@ bt_psplit(BTREE *t, PAGE *h, PAGE *l, PAGE *r, indx_t *pskip, size_t ilen)
 			nbytes = NRLEAF(rl);
 			break;
 		default:
-			abort();
+			LIBC_ABORT("illegal h->flags & P_TYPE (0x%x)", h->flags & P_TYPE);
 		}
 		++nxt;
 		r->linp[off] = r->upper -= nbytes;

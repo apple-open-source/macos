@@ -30,6 +30,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/wcstol.c,v 1.2 2007/01/09 00:28:01 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -40,7 +42,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstol.c,v 1.2 2007/01/09 00:28:01 imp E
  * Convert a string to a long integer.
  */
 long
-wcstol(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr, int base)
+wcstol_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    int base, locale_t loc)
 {
 	const wchar_t *s;
 	unsigned long acc;
@@ -48,13 +51,14 @@ wcstol(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr, int base)
 	unsigned long cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * See strtol for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
 		c = *s++;
-	} while (iswspace(c));
+	} while (iswspace_l(c, loc));
 	if (c == '-') {
 		neg = 1;
 		c = *s++;
@@ -81,8 +85,8 @@ wcstol(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr, int base)
 	cutoff /= base;
 	for ( ; ; c = *s++) {
 #ifdef notyet
-		if (iswdigit(c))
-			c = digittoint(c);
+		if (iswdigit_l(c, loc))
+			c = digittoint_l(c, loc);
 		else
 #endif
 		if (c >= L'0' && c <= L'9')
@@ -114,4 +118,10 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (wchar_t *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+long
+wcstol(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr, int base)
+{
+	return wcstol_l(nptr, endptr, base, __current_locale());
 }

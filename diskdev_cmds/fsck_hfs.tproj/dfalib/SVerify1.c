@@ -3779,10 +3779,16 @@ OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
 	while ( (extents != nil) && (err == noErr) )
 	{	
 		//	checkout the extent record first
-		err = ChkExtRec( GPtr, extents, &lastExtentIndex );
+		err = ChkExtRec( GPtr, fileNumber, extents, &lastExtentIndex );
 		if (err != noErr) {
 			DPRINTF (d_info, "%s: Bad extent for fileID %u in extent %u for startblock %u\n", __FUNCTION__, fileNumber, lastExtentIndex, blockCount);
-
+			if (cur_debug_level & d_dump_record)
+			{
+				plog("Extents:\n");
+				HexDump(extents, sizeof(HFSPlusExtentRecord), FALSE);
+				plog("\n");
+			}
+			
 			/* Stop verification if bad extent is found for system file or EA */
 			if ((fileNumber < kHFSFirstUserCatalogNodeID) ||
 				(forkType == kEAData)) {

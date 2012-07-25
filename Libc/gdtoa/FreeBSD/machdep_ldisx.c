@@ -33,6 +33,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gdtoa/machdep_ldisx.c,v 1.2 2003/04/09 05:58:43 das Exp $");
 
+#include "xlocale_private.h"
+
 #include "gdtoaimp.h"
 
 long double
@@ -40,6 +42,16 @@ strtold(const char * __restrict s, char ** __restrict sp)
 {
 	long double result;
 
-	strtopx(s, sp, &result);
+	strtopx(s, sp, &result, __current_locale());
+	return result;
+}
+
+long double
+strtold_l(const char * __restrict s, char ** __restrict sp, locale_t loc)
+{
+	long double result;
+
+	NORMALIZE_LOCALE(loc);
+	strtopx(s, sp, &result, loc);
 	return result;
 }

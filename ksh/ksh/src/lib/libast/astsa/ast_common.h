@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,7 +28,11 @@
 #define _END_EXTERNS_
 #define __STD_C		1
 
+#if _hdr_stdint
 #include <stdint.h>
+#else
+#include <inttypes.h>
+#endif
 
 #define _typ_int32_t	1
 #ifdef _ast_int8_t

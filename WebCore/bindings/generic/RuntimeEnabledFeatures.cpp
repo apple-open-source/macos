@@ -55,9 +55,19 @@ bool RuntimeEnabledFeatures::isTouchEnabled = true;
 bool RuntimeEnabledFeatures::isDeviceMotionEnabled = true;
 bool RuntimeEnabledFeatures::isDeviceOrientationEnabled = true;
 bool RuntimeEnabledFeatures::isSpeechInputEnabled = true;
+bool RuntimeEnabledFeatures::isCSSExclusionsEnabled = false;
+
+#if ENABLE(SCRIPTED_SPEECH)
+bool RuntimeEnabledFeatures::isScriptedSpeechEnabled = false;
+#endif
 
 #if ENABLE(MEDIA_STREAM)
-bool RuntimeEnabledFeatures::isMediaStreamEnabled = true;
+bool RuntimeEnabledFeatures::isMediaStreamEnabled = false;
+bool RuntimeEnabledFeatures::isPeerConnectionEnabled = true;
+#endif
+
+#if ENABLE(GAMEPAD)
+bool RuntimeEnabledFeatures::isGamepadEnabled = false;
 #endif
 
 #if ENABLE(XHR_RESPONSE_BLOB)
@@ -104,6 +114,16 @@ bool RuntimeEnabledFeatures::htmlVideoElementEnabled()
     return MediaPlayer::isAvailable();
 }
 
+bool RuntimeEnabledFeatures::htmlSourceElementEnabled()
+{
+    return MediaPlayer::isAvailable();
+}
+
+bool RuntimeEnabledFeatures::mediaControllerEnabled()
+{
+    return MediaPlayer::isAvailable();
+}
+
 bool RuntimeEnabledFeatures::mediaErrorEnabled()
 {
     return MediaPlayer::isAvailable();
@@ -130,7 +150,7 @@ bool RuntimeEnabledFeatures::webSocketEnabled()
 }
 #endif
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 bool RuntimeEnabledFeatures::openDatabaseEnabled()
 {
     return AbstractDatabase::isAvailable();
@@ -144,6 +164,42 @@ bool RuntimeEnabledFeatures::openDatabaseSyncEnabled()
 
 #if ENABLE(QUOTA)
 bool RuntimeEnabledFeatures::isQuotaEnabled = false;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+bool RuntimeEnabledFeatures::isFullScreenAPIEnabled = true;
+#endif
+
+#if ENABLE(POINTER_LOCK)
+bool RuntimeEnabledFeatures::isPointerLockEnabled = false;
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+bool RuntimeEnabledFeatures::isMediaSourceEnabled = false;
+#endif
+
+#if ENABLE(VIDEO_TRACK)
+#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(EFL)
+    bool RuntimeEnabledFeatures::isVideoTrackEnabled = true;
+#else
+    bool RuntimeEnabledFeatures::isVideoTrackEnabled = false;
+#endif
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+bool RuntimeEnabledFeatures::isEncryptedMediaEnabled = false;
+#endif
+
+#if ENABLE(SHADOW_DOM)
+bool RuntimeEnabledFeatures::isShadowDOMEnabled = false;
+#endif
+
+#if ENABLE(STYLE_SCOPED)
+bool RuntimeEnabledFeatures::isStyleScopedEnabled = false;
+#endif
+
+#if ENABLE(INPUT_TYPE_DATE)
+bool RuntimeEnabledFeatures::isInputTypeDateEnabled = true;
 #endif
 
 } // namespace WebCore

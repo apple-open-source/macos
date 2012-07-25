@@ -35,15 +35,17 @@
 #include "WebProcess.h"
 #include <WebCore/ArchiveResource.h>
 #include <WebCore/DocumentFragment.h>
-#include <WebCore/EditCommand.h>
 #include <WebCore/FocusController.h>
 #include <WebCore/Frame.h>
+#include <WebCore/FrameView.h>
 #include <WebCore/HTMLInputElement.h>
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
+#include <WebCore/TextIterator.h>
+#include <WebCore/UndoStep.h>
 #include <WebCore/UserTypingGestureIndicator.h>
 
 using namespace WebCore;
@@ -111,14 +113,6 @@ int WebEditorClient::spellCheckerDocumentTag()
     return false;
 }
 
-    
-bool WebEditorClient::isEditable()
-{
-    notImplemented();
-    return false;
-}
-
-
 bool WebEditorClient::shouldBeginEditing(Range* range)
 {
     bool result = m_page->injectedBundleEditorClient().shouldBeginEditing(m_page, range);
@@ -154,9 +148,9 @@ bool WebEditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange
     return result;
 }
     
-bool WebEditorClient::shouldApplyStyle(CSSStyleDeclaration* style, Range* range)
+bool WebEditorClient::shouldApplyStyle(StylePropertySet* style, Range* range)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldApplyStyle(m_page, style, range);
+    bool result = m_page->injectedBundleEditorClient().shouldApplyStyle(m_page, style->ensureCSSStyleDeclaration(), range);
     notImplemented();
     return result;
 }
@@ -182,15 +176,16 @@ void WebEditorClient::respondToChangedContents()
     notImplemented();
 }
 
-void WebEditorClient::respondToChangedSelection()
+void WebEditorClient::respondToChangedSelection(Frame* frame)
 {
     DEFINE_STATIC_LOCAL(String, WebViewDidChangeSelectionNotification, ("WebViewDidChangeSelectionNotification"));
     m_page->injectedBundleEditorClient().didChangeSelection(m_page, WebViewDidChangeSelectionNotification.impl());
-    Frame* frame = m_page->corePage()->focusController()->focusedFrame();
     if (!frame)
         return;
 
-    m_page->send(Messages::WebPageProxy::EditorStateChanged(m_page->editorState()));
+    EditorState state = m_page->editorState();
+
+    m_page->send(Messages::WebPageProxy::EditorStateChanged(state));
 
 #if PLATFORM(WIN)
     // FIXME: This should also go into the selection state.
@@ -200,9 +195,11 @@ void WebEditorClient::respondToChangedSelection()
     unsigned start;
     unsigned end;
     m_page->send(Messages::WebPageProxy::DidChangeCompositionSelection(frame->editor()->getCompositionSelection(start, end)));
+#elif PLATFORM(GTK)
+    setSelectionPrimaryClipboardIfNeeded(frame);
 #endif
 }
-    
+
 void WebEditorClient::didEndEditing()
 {
     DEFINE_STATIC_LOCAL(String, WebViewDidEndEditingNotification, ("WebViewDidEndEditingNotification"));
@@ -220,21 +217,21 @@ void WebEditorClient::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-void WebEditorClient::registerCommandForUndo(PassRefPtr<EditCommand> command)
+void WebEditorClient::registerUndoStep(PassRefPtr<UndoStep> step)
 {
     // FIXME: Add assertion that the command being reapplied is the same command that is
     // being passed to us.
     if (m_page->isInRedo())
         return;
 
-    RefPtr<WebEditCommand> webCommand = WebEditCommand::create(command);
-    m_page->addWebEditCommand(webCommand->commandID(), webCommand.get());
-    uint32_t editAction = static_cast<uint32_t>(webCommand->command()->editingAction());
+    RefPtr<WebUndoStep> webStep = WebUndoStep::create(step);
+    m_page->addWebUndoStep(webStep->stepID(), webStep.get());
+    uint32_t editAction = static_cast<uint32_t>(webStep->step()->editingAction());
 
-    m_page->send(Messages::WebPageProxy::RegisterEditCommandForUndo(webCommand->commandID(), editAction));
+    m_page->send(Messages::WebPageProxy::RegisterEditCommandForUndo(webStep->stepID(), editAction));
 }
 
-void WebEditorClient::registerCommandForRedo(PassRefPtr<EditCommand>)
+void WebEditorClient::registerRedoStep(PassRefPtr<UndoStep>)
 {
 }
 
@@ -279,7 +276,7 @@ void WebEditorClient::redo()
     m_page->sendSync(Messages::WebPageProxy::ExecuteUndoRedo(static_cast<uint32_t>(WebPageProxy::Redo)), Messages::WebPageProxy::ExecuteUndoRedo::Reply(result));
 }
 
-#if !PLATFORM(GTK) && !PLATFORM(MAC)
+#if !PLATFORM(GTK) && !PLATFORM(MAC) && !PLATFORM(EFL)
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
     if (m_page->handleEditingKeyboardEvent(event))
@@ -450,7 +447,7 @@ void WebEditorClient::setInputMethodState(bool)
     notImplemented();
 }
 
-void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker*, int, WebCore::TextCheckingTypeMask, const WTF::String&)
+void WebEditorClient::requestCheckingOfString(WebCore::SpellChecker*, const WebCore::TextCheckingRequest&)
 {
     notImplemented();
 }

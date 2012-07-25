@@ -26,13 +26,14 @@
 module html {
 
     interface [
-        HasIndexGetter,
-        HasNameGetter,
+        IndexedGetter,
+        NamedGetter,
         CustomCall,
-        MasqueradesAsUndefined
+        MasqueradesAsUndefined,
+        JSGenerateIsReachable
     ] HTMLAllCollection {
         readonly attribute unsigned long length;
-        [Custom] Node item(in unsigned long index);
+        [Custom] Node item(in [Optional=DefaultIsUndefined] unsigned long index);
         [Custom] Node namedItem(in DOMString name);
 
         // FIXME: This should return an HTMLAllCollection.

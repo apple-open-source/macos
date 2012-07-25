@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -200,7 +200,8 @@ inet_difaddr(int s, const char * name, const struct in_addr addr)
 
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    set_sockaddr_in((struct sockaddr_in *)&ifr.ifr_addr, addr);
+    /* ALIGN: ifr.ifr_addr is aligned (in union), cast okay. */
+    set_sockaddr_in((struct sockaddr_in *)(void *)&ifr.ifr_addr, addr);
     return (ioctl(s, SIOCDIFADDR, &ifr));
 }
 
@@ -590,8 +591,9 @@ inet6_get_prefix_length(const struct in6_addr * addr, int if_index)
 	goto done;
     }
 
-    end = (struct in6_prefix *)(buf + buf_len);
-    for (scan = (struct in6_prefix *)buf; scan < end; scan = next) {
+    /* ALIGN: buf is aligned (from malloc), cast ok. */
+    end = (struct in6_prefix *)(void *)(buf + buf_len);
+    for (scan = (struct in6_prefix *)(void *)buf; scan < end; scan = next) {
 	struct sockaddr_in6 *	advrtr;
 	struct in6_addr		netaddr;
 
@@ -768,8 +770,10 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
     ifname[0] = '\0';
     for (scan = buf; scan < buf_end; scan += rtm->rtm_msglen) {
 	struct if_msghdr * 	ifm;
-
-	rtm = (struct rt_msghdr *)scan;
+	
+	/* ALIGN: buf aligned (from calling get_if_info), scan aligned, 
+	 * cast ok. */
+	rtm = (struct rt_msghdr *)(void *)scan;
 	if (rtm->rtm_version != RTM_VERSION) {
 	    continue;
 	}
@@ -815,7 +819,7 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 	struct ifa_msghdr *	ifam;
 	struct rt_addrinfo	info;
 
-	rtm = (struct rt_msghdr *)scan;
+	rtm = (struct rt_msghdr *)(void *)scan;
 	if (rtm->rtm_version != RTM_VERSION) {
 	    continue;
 	}
@@ -832,8 +836,9 @@ inet6_addrlist_copy(inet6_addrlist_t * addr_list_p, int if_index)
 	    }
 	    for (i = 0; i < RTAX_MAX; i++) {
 		struct sockaddr_in6 *	sin6_p;
-
-		sin6_p = (struct sockaddr_in6 *)info.rti_info[i];
+		
+		/* ALIGN: info.rti_info aligned (sockaddr), cast ok. */
+		sin6_p = (struct sockaddr_in6 *)(void *)info.rti_info[i];
 		if (sin6_p == NULL
 		    || sin6_p->sin6_len < sizeof(struct sockaddr_in6)) {
 		    continue;
@@ -937,6 +942,24 @@ inet6_addrlist_contains_address(const inet6_addrlist_t * addr_list_p,
 	}
     }
     return (FALSE);
+}
+
+PRIVATE_EXTERN inet6_addrinfo_t *
+inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p)
+{
+    int			i;
+    inet6_addrinfo_t *	scan;
+
+    if (addr_list_p == NULL) {
+	return (NULL);
+    }
+    for (i = 0, scan = addr_list_p->list; 
+	 i < addr_list_p->count; i++, scan++) {
+	if (IN6_IS_ADDR_LINKLOCAL(&(scan->addr))) {
+	    return (scan);
+	}
+    }
+    return (NULL);
 }
 
 #if TEST_INET6_ADDRLIST

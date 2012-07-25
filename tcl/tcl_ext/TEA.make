@@ -34,7 +34,6 @@ Install_Target        = install
 
 TclExtLibDir          = $(NSLIBRARYDIR)/Tcl
 TclExtManDir          = $(MANDIR)/mann
-TclExtHtmlDir         = $(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/Tcl/$(ProjectName)
 
 Tclsh                 = $(USRBINDIR)/tclsh
 TclFramework          = $(NSFRAMEWORKDIR)/Tcl.framework

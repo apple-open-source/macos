@@ -99,6 +99,7 @@ XSLT_OBJS = $(XSLT_INTDIR)\attributes.obj\
 	$(XSLT_INTDIR)\transform.obj\
 	$(XSLT_INTDIR)\variables.obj\
 	$(XSLT_INTDIR)\xslt.obj\
+	$(XSLT_INTDIR)\xsltlocale.obj\
 	$(XSLT_INTDIR)\xsltutils.obj\
 	$(XSLT_INTDIR)\attrvt.obj\
 	$(XSLT_INTDIR)\version.res
@@ -120,6 +121,7 @@ XSLT_OBJS_A = $(XSLT_INTDIR_A)\attributes.obj\
 	$(XSLT_INTDIR_A)\transform.obj\
 	$(XSLT_INTDIR_A)\variables.obj\
 	$(XSLT_INTDIR_A)\xslt.obj\
+	$(XSLT_INTDIR_A)\xsltlocale.obj\
 	$(XSLT_INTDIR_A)\xsltutils.obj\
 	$(XSLT_INTDIR_A)\attrvt.obj
 

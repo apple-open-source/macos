@@ -34,7 +34,7 @@
 
 struct myaddrs {
 	struct myaddrs *next;
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 	int sock;
 	int udp_encap;
 	int	in_use;
@@ -45,7 +45,7 @@ extern void clear_myaddr __P((void));
 extern void grab_myaddrs __P((void));
 extern int update_myaddrs __P((void));
 extern int autoconf_myaddrsport __P((void));
-extern u_short getmyaddrsport __P((struct sockaddr *));
+extern u_short getmyaddrsport __P((struct sockaddr_storage *));
 extern struct myaddrs *newmyaddr __P((void));
 extern struct myaddrs *dupmyaddr __P((struct myaddrs *));
 extern void insmyaddr __P((struct myaddrs *, struct myaddrs **));

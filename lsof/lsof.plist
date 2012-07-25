@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-08-15</string>
+		<string>2012-01-17</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -16,11 +16,11 @@
 		<key>OpenSourceProject</key>
 		<string>lsof</string>
 		<key>OpenSourceSHA1</key>
-		<string>b4fd6011fc183c0602bbba2116b8335a0c57917b</string>
+		<string>d6b40a2de66f541e950b3f174437c9ede7d12b6f</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/NEW/lsof_4.84.tar.bz2</string>
+		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_4.85.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>4.84</string>
+		<string>4.85</string>
 	</dict>
 </array>
 </plist>

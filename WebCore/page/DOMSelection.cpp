@@ -38,6 +38,7 @@
 #include "PlatformString.h"
 #include "Range.h"
 #include "TextIterator.h"
+#include "TreeScope.h"
 #include "htmlediting.h"
 
 namespace WebCore {
@@ -47,25 +48,19 @@ static Node* selectionShadowAncestor(Frame* frame)
     Node* node = frame->selection()->selection().base().anchorNode();
     if (!node)
         return 0;
-    Node* shadowAncestor = node->shadowAncestorNode();
-    if (shadowAncestor == node)
+
+    if (!node->isInShadowTree())
         return 0;
+
+    Node* shadowAncestor = node->shadowAncestorNode();
+    while (shadowAncestor->isInShadowTree())
+        shadowAncestor = shadowAncestor->shadowAncestorNode();
     return shadowAncestor;
 }
 
 DOMSelection::DOMSelection(Frame* frame)
-    : m_frame(frame)
+    : DOMWindowProperty(frame)
 {
-}
-
-Frame* DOMSelection::frame() const
-{
-    return m_frame;
-}
-
-void DOMSelection::disconnectFrame()
-{
-    m_frame = 0;
 }
 
 const VisibleSelection& DOMSelection::visibleSelection() const
@@ -213,7 +208,7 @@ void DOMSelection::collapse(Node* node, int offset, ExceptionCode& ec)
         return;
 
     // FIXME: Eliminate legacy editing positions
-    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
+    m_frame->selection()->moveTo(VisiblePosition(createLegacyEditingPosition(node, offset), DOWNSTREAM));
 }
 
 void DOMSelection::collapseToEnd(ExceptionCode& ec)
@@ -267,8 +262,8 @@ void DOMSelection::setBaseAndExtent(Node* baseNode, int baseOffset, Node* extent
         return;
 
     // FIXME: Eliminate legacy editing positions
-    VisiblePosition visibleBase = VisiblePosition(Position(baseNode, baseOffset), DOWNSTREAM);
-    VisiblePosition visibleExtent = VisiblePosition(Position(extentNode, extentOffset), DOWNSTREAM);
+    VisiblePosition visibleBase = VisiblePosition(createLegacyEditingPosition(baseNode, baseOffset), DOWNSTREAM);
+    VisiblePosition visibleExtent = VisiblePosition(createLegacyEditingPosition(extentNode, extentOffset), DOWNSTREAM);
 
     m_frame->selection()->moveTo(visibleBase, visibleExtent);
 }
@@ -286,7 +281,7 @@ void DOMSelection::setPosition(Node* node, int offset, ExceptionCode& ec)
         return;
 
     // FIXME: Eliminate legacy editing positions
-    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
+    m_frame->selection()->moveTo(VisiblePosition(createLegacyEditingPosition(node, offset), DOWNSTREAM));
 }
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
@@ -333,12 +328,10 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
         granularity = ParagraphBoundary;
     else if (equalIgnoringCase(granularityString, "documentboundary"))
         granularity = DocumentBoundary;
-    else if (equalIgnoringCase(granularityString, "-webkit-visual-word"))
-        granularity = WebKitVisualWordGranularity;
     else
         return;
 
-    m_frame->selection()->modify(alter, direction, granularity, false);
+    m_frame->selection()->modify(alter, direction, granularity);
 }
 
 void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
@@ -360,7 +353,7 @@ void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
         return;
 
     // FIXME: Eliminate legacy editing positions
-    m_frame->selection()->setExtent(VisiblePosition(Position(node, offset), DOWNSTREAM));
+    m_frame->selection()->setExtent(VisiblePosition(createLegacyEditingPosition(node, offset), DOWNSTREAM));
 }
 
 PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
@@ -421,7 +414,7 @@ void DOMSelection::addRange(Range* r)
         }
     } else {
         // We don't support discontiguous selection. We don't do anything if r and range don't intersect.
-        if (r->compareBoundaryPoints(Range::END_TO_START, range.get(), ec) < 1) {
+        if (r->compareBoundaryPoints(Range::END_TO_START, range.get(), ec) < 1 && !ec) {
             if (r->compareBoundaryPoints(Range::END_TO_END, range.get(), ec) == -1)
                 // The original range contains r.
                 selection->setSelection(VisibleSelection(range.get()));

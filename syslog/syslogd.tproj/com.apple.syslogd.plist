@@ -41,7 +41,10 @@
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.system.logger</key>
-		<true/>
+		<dict>
+			<key>ResetAtClose</key>
+			<true/>
+		</dict>
 	</dict>
 	<key>Sockets</key>
 	<dict>

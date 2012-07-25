@@ -21,41 +21,34 @@
 #include "config.h"
 #include "ewk_main.h"
 
-#include "EWebKit.h"
 #include "FileSystem.h"
 #include "Logging.h"
 #include "PageCache.h"
 #include "PageGroup.h"
+#include "ResourceHandle.h"
+#include "ScriptController.h"
+#include "Settings.h"
+#include "StorageTracker.h"
+#include "StorageTrackerClientEfl.h"
+#include "ewk_auth_soup.h"
+#include "ewk_logging.h"
+#include "ewk_network.h"
 #include "ewk_private.h"
 #include "ewk_settings.h"
 #include "runtime/InitializeThreading.h"
-
 #include <Ecore.h>
 #include <Ecore_Evas.h>
 #include <Edje.h>
 #include <Eina.h>
 #include <Evas.h>
+#include <glib-object.h>
+#include <glib.h>
+#include <libsoup/soup.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <wtf/Threading.h>
 
-#if ENABLE(GLIB_SUPPORT)
-#include <glib-object.h>
-#include <glib.h>
-
-#ifdef ENABLE_GTK_PLUGINS_SUPPORT
-#include <gtk/gtk.h>
-#endif
-
-#endif
-
-#if USE(SOUP)
-// REMOVE-ME: see todo below
-#include "ResourceHandle.h"
-#include <libsoup/soup.h>
-#endif
-
-static int _ewk_init_count = 0;
+static int _ewkInitCount = 0;
 
 /**
  * \var     _ewk_log_dom
@@ -65,20 +58,10 @@ int _ewk_log_dom = -1;
 
 static Eina_Bool _ewk_init_body(void);
 
-/**
- * Initializes webkit's instance.
- *
- * - initializes components needed by Efl,
- * - sets web database location,
- * - sets page cache capacity,
- * - increases a reference count of webkit's instance.
- *
- * @return a reference count of webkit's instance on success or 0 on failure
- */
 int ewk_init(void)
 {
-    if (_ewk_init_count)
-        return ++_ewk_init_count;
+    if (_ewkInitCount)
+        return ++_ewkInitCount;
 
     if (!eina_init())
         goto error_eina;
@@ -114,7 +97,7 @@ int ewk_init(void)
         goto error_edje;
     }
 
-    return ++_ewk_init_count;
+    return ++_ewkInitCount;
 
 error_edje:
     ecore_evas_shutdown();
@@ -131,18 +114,11 @@ error_eina:
     return 0;
 }
 
-/**
- * Decreases a reference count of webkit's instance, possibly destroying it.
- *
- * If the reference count reaches 0 webkit's instance is destroyed.
- *
- * @return a reference count of webkit's instance
- */
 int ewk_shutdown(void)
 {
-    _ewk_init_count--;
-    if (_ewk_init_count)
-        return _ewk_init_count;
+    _ewkInitCount--;
+    if (_ewkInitCount)
+        return _ewkInitCount;
 
     ecore_evas_shutdown();
     ecore_shutdown();
@@ -154,29 +130,24 @@ int ewk_shutdown(void)
     return 0;
 }
 
+static WebCore::StorageTrackerClientEfl* trackerClient()
+{
+    DEFINE_STATIC_LOCAL(WebCore::StorageTrackerClientEfl, trackerClient, ());
+    return &trackerClient;
+}
+
 Eina_Bool _ewk_init_body(void)
 {
 
-#if ENABLE(GLIB_SUPPORT)
     g_type_init();
-
-    if (!g_thread_supported())
-        g_thread_init(0);
-
-#ifdef ENABLE_GTK_PLUGINS_SUPPORT
-    gdk_threads_init();
-    if (!gtk_init_check(0, 0))
-        WRN("Could not initialize GTK support.");
-#endif
 
     if (!ecore_main_loop_glib_integrate())
         WRN("Ecore was not compiled with GLib support, some plugins will not "
             "work (ie: Adobe Flash)");
-#endif
 
-    JSC::initializeThreading();
-    WTF::initializeMainThread();
-    WebCore::InitializeLoggingChannelsIfNecessary();
+    WebCore::ScriptController::initializeThreading();
+    WebCore::initializeLoggingChannelsIfNecessary();
+    WebCore::Settings::setDefaultMinDOMTimerInterval(0.004);
 
     // Page cache capacity (in pages). Comment from Mac port:
     // (Research indicates that value / page drops substantially after 3 pages.)
@@ -191,28 +162,22 @@ Eina_Bool _ewk_init_body(void)
         // Exit now - otherwise you may have some crash later
         int errnowas = errno;
         CRITICAL("Can't access HOME dir (or /tmp) - no place to save databases: %s", strerror(errnowas));
-        return EINA_FALSE;
+        return false;
     }
 
-    WTF::String wkdir = home + "/.webkit";
-    if (WebCore::makeAllDirectories(wkdir)) {
-        ewk_settings_web_database_path_set(wkdir.utf8().data());
-        ewk_settings_icon_database_path_set(wkdir.utf8().data());
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        ewk_settings_cache_directory_path_set(wkdir.utf8().data());
-#endif
+    WTF::String webkitDirectory = home + "/.webkit";
+    if (WebCore::makeAllDirectories(webkitDirectory)) {
+        ewk_settings_web_database_path_set(webkitDirectory.utf8().data());
+        ewk_settings_application_cache_path_set(webkitDirectory.utf8().data());
     }
 
-    // TODO: this should move to WebCore, already reported to webkit-gtk folks:
-#if USE(SOUP)
-    if (1) {
-        SoupSession* session = WebCore::ResourceHandle::defaultSession();
-        soup_session_add_feature_by_type(session, SOUP_TYPE_CONTENT_SNIFFER);
-        soup_session_add_feature_by_type(session, SOUP_TYPE_CONTENT_DECODER);
-    }
-#endif
+    ewk_network_tls_certificate_check_set(false);
 
-    return EINA_TRUE;
+    WebCore::StorageTracker::initializeTracker(webkitDirectory.utf8().data(), trackerClient());
+
+    SoupSession* session = WebCore::ResourceHandle::defaultSession();
+    SoupSessionFeature* auth_dialog = static_cast<SoupSessionFeature*>(g_object_new(EWK_TYPE_SOUP_AUTH_DIALOG, 0));
+    soup_session_add_feature(session, auth_dialog);
+
+    return true;
 }
-

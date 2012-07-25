@@ -124,8 +124,8 @@ wchar_t	*fgetws(wchar_t * __restrict, int, FILE * __restrict);
 wint_t	fputwc(wchar_t, FILE *);
 int	fputws(const wchar_t * __restrict, FILE * __restrict);
 int	fwide(FILE *, int);
-int	fwprintf(FILE * __restrict, const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(fwprintf);
-int	fwscanf(FILE * __restrict, const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(fwscanf);
+int	fwprintf(FILE * __restrict, const wchar_t * __restrict, ...);
+int	fwscanf(FILE * __restrict, const wchar_t * __restrict, ...);
 wint_t	getwc(FILE *);
 wint_t	getwchar(void);
 size_t	mbrlen(const char * __restrict, size_t, mbstate_t * __restrict);
@@ -136,15 +136,14 @@ size_t	mbsrtowcs(wchar_t * __restrict, const char ** __restrict, size_t,
 	    mbstate_t * __restrict);
 wint_t	putwc(wchar_t, FILE *);
 wint_t	putwchar(wchar_t);
-int	swprintf(wchar_t * __restrict, size_t, const wchar_t * __restrict,
-	    ...) __DARWIN_LDBL_COMPAT(swprintf);
-int	swscanf(const wchar_t * __restrict, const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(swscanf);
+int	swprintf(wchar_t * __restrict, size_t, const wchar_t * __restrict, ...);
+int	swscanf(const wchar_t * __restrict, const wchar_t * __restrict, ...);
 wint_t	ungetwc(wint_t, FILE *);
 int	vfwprintf(FILE * __restrict, const wchar_t * __restrict,
-	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vfwprintf);
+	    __darwin_va_list);
 int	vswprintf(wchar_t * __restrict, size_t, const wchar_t * __restrict,
-	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vswprintf);
-int	vwprintf(const wchar_t * __restrict, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwprintf);
+	    __darwin_va_list);
+int	vwprintf(const wchar_t * __restrict, __darwin_va_list);
 size_t	wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
 wchar_t	*wcscat(wchar_t * __restrict, const wchar_t * __restrict);
 wchar_t	*wcschr(const wchar_t *, wchar_t);
@@ -186,8 +185,8 @@ int	wmemcmp(const wchar_t *, const wchar_t *, size_t);
 wchar_t	*wmemcpy(wchar_t * __restrict, const wchar_t * __restrict, size_t);
 wchar_t	*wmemmove(wchar_t *, const wchar_t *, size_t);
 wchar_t	*wmemset(wchar_t *, wchar_t, size_t);
-int	wprintf(const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(wprintf);
-int	wscanf(const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(wscanf);
+int	wprintf(const wchar_t * __restrict, ...);
+int	wscanf(const wchar_t * __restrict, ...);
 int	wcswidth(const wchar_t *, size_t);
 int	wcwidth(wchar_t);
 __END_DECLS
@@ -202,13 +201,13 @@ __END_DECLS
 #if __DARWIN_C_LEVEL >= 200112L || defined(_C99_SOURCE) || defined(__cplusplus)
 __BEGIN_DECLS
 int	vfwscanf(FILE * __restrict, const wchar_t * __restrict,
-	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vfwscanf);
+	    __darwin_va_list);
 int	vswscanf(const wchar_t * __restrict, const wchar_t * __restrict,
-	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vswscanf);
-int	vwscanf(const wchar_t * __restrict, __darwin_va_list) __DARWIN_LDBL_COMPAT(vwscanf);
+	    __darwin_va_list);
+int	vwscanf(const wchar_t * __restrict, __darwin_va_list);
 float	wcstof(const wchar_t * __restrict, wchar_t ** __restrict);
 long double
-	wcstold(const wchar_t * __restrict, wchar_t ** __restrict) __DARWIN_LDBL_COMPAT(wcstold);
+	wcstold(const wchar_t * __restrict, wchar_t ** __restrict);
 #if !__DARWIN_NO_LONG_LONG
 long long
 	wcstoll(const wchar_t * __restrict, wchar_t ** __restrict, int);

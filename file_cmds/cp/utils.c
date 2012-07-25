@@ -71,7 +71,8 @@ copy_file(const FTSENT *entp, int dne)
 {
 	static char buf[MAXBSIZE];
 	struct stat *fs;
-	int ch, checkch, from_fd, rcount, rval, to_fd;
+	int ch, checkch, from_fd, rval, to_fd;
+	ssize_t rcount;
 	ssize_t wcount;
 	size_t wresid;
 	off_t wtotal;
@@ -294,7 +295,7 @@ copy_file(const FTSENT *entp, int dne)
 int
 copy_link(const FTSENT *p, int exists)
 {
-	int len;
+	ssize_t len;
 	char llink[PATH_MAX];
 
 	if ((len = readlink(p->fts_path, llink, sizeof(llink) - 1)) == -1) {

@@ -68,6 +68,7 @@ EXTRASLIB = $(EXTRAS)/$(ENV_PERL_BASE_VERSION)
 LIBRARYPERL = /Library/Perl/$(ENV_PERL_BASE_VERSION)
 APPENDFILE = AppendToPath
 PREPENDFILE = PrependToPath
+NONLP = No_Network_Library_Perl
 CORE = $(ENV_PERL_ARCHNAME)/CORE
 LIBPERL = libperl.dylib
 LIBBASE = lib/$(ENV_PERL_BASE_VERSION)
@@ -85,6 +86,7 @@ build:
 		OBJROOT='$(OBJROOT)/$(PROJECT)' DSTROOT='$(DSTROOT)' \
 		SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
 		PREPENDFILE='$(PREPENDFILE)' APPENDFILE='$(APPENDFILE)' \
+		NONLP='$(NONLP)' \
 		EXTRASLIB='$(EXTRASLIB)' EXTRASARCH='$(EXTRASARCH)' \
 		UPDATESLIB='$(UPDATESLIB)' UPDATESARCH='$(UPDATESARCH)' \
 		DESTDIR=$(DSTROOT)
@@ -92,7 +94,7 @@ build:
 OSV = /usr/local/OpenSourceVersions
 OSL = /usr/local/OpenSourceLicenses
 
-install: $(OBJROOT)/$(PROJECT) installperl installperlupdates installstrip fixupperl installopensource compressmanpages
+install: $(OBJROOT)/$(PROJECT) installperl installperlupdates installstrip fixupperl installopensource
 
 installopensource:
 	install -d $(DSTROOT)$(OSV)
@@ -111,6 +113,7 @@ installperl:
 		OBJROOT='$(OBJROOT)/$(PROJECT)' DSTROOT='$(DSTROOT)' \
 		SYMROOT='$(SYMROOT)' RC_ARCHS='$(RC_ARCHS)' \
 		PREPENDFILE='$(PREPENDFILE)' APPENDFILE='$(APPENDFILE)' \
+		NONLP='$(NONLP)' \
 		EXTRASLIB='$(EXTRASLIB)' EXTRASARCH='$(EXTRASARCH)' \
 		UPDATESLIB='$(UPDATESLIB)' UPDATESARCH='$(UPDATESARCH)' \
 		DESTDIR=$(DSTROOT) $(MOREARGS)
@@ -161,12 +164,10 @@ fixupperl:
 	@set -x && for i in $(COMPATVERSIONS); do \
 		echo /Library/Perl/$$i >> '$(DSTROOT)$(LIBRARYPERL)/$(APPENDFILE)'; \
 	done
+	touch '$(DSTROOT)$(LIBRARYPERL)/$(NONLP)'
 	install -d '$(DSTROOT)$(ENV_PERL)/$(LIBBASE)'
 	ln -s '$(LIBPERLLINK)' '$(DSTROOT)$(ENV_PERL)/$(LIBBASE)/$(LIBPERL)'
 	install_name_tool -id '$(ENV_PERL)/$(LIBBASE)/$(LIBPERL)' '$(DSTROOT)$(PRIVLIB)/$(CORE)/$(LIBPERL)'
-
-compressmanpages:
-	/Developer/Makefiles/bin/compress-man-pages.pl "$(DSTROOT)/usr/share/man"
 
 ##---------------------------------------------------------------------
 # 6476113: doio.c.ed and perlio.c.ed are used to fix this bug, which should
@@ -182,6 +183,7 @@ $(OBJROOT)/$(PROJECT):
 	    $(PROJECT)/lib/Pod/Perldoc.pm $(PROJECT)/perl.c && \
 	cat hints.append >> $(PROJECT)/hints/darwin.sh && \
 	ed - $(PROJECT)/doio.c < fix/doio.c.ed && \
+	ed - $(PROJECT)/ext/DB_File/config.in < fix/ext_DB_File_config.in.ed && \
 	ed - $(PROJECT)/ext/DynaLoader/dl_dlopen.xs < fix/dl_dlopen.xs.ed && \
 	ed - $(PROJECT)/handy.h < fix/handy.h.ed && \
 	ed - $(PROJECT)/hints/darwin.sh < fix/darwin.sh.ed && \

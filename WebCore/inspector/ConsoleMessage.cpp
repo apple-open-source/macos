@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "ConsoleMessage.h"
 
 #if ENABLE(INSPECTOR)
+
+#include "ConsoleMessage.h"
 
 #include "Console.h"
 #include "InjectedScript.h"
@@ -39,20 +40,21 @@
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "ScriptArguments.h"
+#include "ScriptCallFrame.h"
 #include "ScriptCallStack.h"
 #include "ScriptValue.h"
 
 namespace WebCore {
 
-ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, unsigned li, const String& u)
+ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, const String& u, unsigned li, const String& requestId)
     : m_source(s)
     , m_type(t)
     , m_level(l)
     , m_message(m)
-    , m_line(li)
     , m_url(u)
+    , m_line(li)
     , m_repeatCount(1)
-    , m_requestId(0)
+    , m_requestId(requestId)
 {
 }
 
@@ -62,23 +64,27 @@ ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, c
     , m_level(l)
     , m_message(m)
     , m_arguments(arguments)
-    , m_callStack(callStack)
-    , m_line(0)
     , m_url()
+    , m_line(0)
     , m_repeatCount(1)
-    , m_requestId(0)
 {
+    if (callStack && callStack->size()) {
+        const ScriptCallFrame& frame = callStack->at(0);
+        m_url = frame.sourceURL();
+        m_line = frame.lineNumber();
+    }
+    m_callStack = callStack;
 }
 
-ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, const String& responseUrl, unsigned long identifier)
+ConsoleMessage::ConsoleMessage(MessageSource s, MessageType t, MessageLevel l, const String& m, const String& responseUrl, const String& requestId)
     : m_source(s)
     , m_type(t)
     , m_level(l)
     , m_message(m)
-    , m_line(0)
     , m_url(responseUrl)
+    , m_line(0)
     , m_repeatCount(1)
-    , m_requestId(identifier)
+    , m_requestId(requestId)
 {
 }
 
@@ -87,75 +93,76 @@ ConsoleMessage::~ConsoleMessage()
 }
 
 // Keep in sync with inspector/front-end/ConsoleView.js
-static String messageSourceValue(MessageSource source)
+static TypeBuilder::Console::ConsoleMessage::Source::Enum messageSourceValue(MessageSource source)
 {
     switch (source) {
-    case HTMLMessageSource: return "html";
-    case XMLMessageSource: return "xml";
-    case JSMessageSource: return "javascript";
-    case CSSMessageSource: return "css";
-    case OtherMessageSource: return "other";
+    case HTMLMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Html;
+    case XMLMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Xml;
+    case JSMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Javascript;
+    case NetworkMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Network;
+    case ConsoleAPIMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Console_api;
+    case OtherMessageSource: return TypeBuilder::Console::ConsoleMessage::Source::Other;
     }
-    return "other";
+    return TypeBuilder::Console::ConsoleMessage::Source::Other;
 }
 
-static String messageTypeValue(MessageType type)
+static TypeBuilder::Console::ConsoleMessage::Type::Enum messageTypeValue(MessageType type)
 {
     switch (type) {
-    case LogMessageType: return "log";
-    case ObjectMessageType: return "other";
-    case TraceMessageType: return "trace";
-    case StartGroupMessageType: return "startGroup";
-    case StartGroupCollapsedMessageType: return "startGroupCollapsed";
-    case EndGroupMessageType: return "endGroup";
-    case AssertMessageType: return "assert";
-    case UncaughtExceptionMessageType: return "uncaughtException";
-    case NetworkErrorMessageType: return "networkError";
+    case LogMessageType: return TypeBuilder::Console::ConsoleMessage::Type::Log;
+    case DirMessageType: return TypeBuilder::Console::ConsoleMessage::Type::Dir;
+    case DirXMLMessageType: return TypeBuilder::Console::ConsoleMessage::Type::Dirxml;
+    case TraceMessageType: return TypeBuilder::Console::ConsoleMessage::Type::Trace;
+    case StartGroupMessageType: return TypeBuilder::Console::ConsoleMessage::Type::StartGroup;
+    case StartGroupCollapsedMessageType: return TypeBuilder::Console::ConsoleMessage::Type::StartGroupCollapsed;
+    case EndGroupMessageType: return TypeBuilder::Console::ConsoleMessage::Type::EndGroup;
+    case AssertMessageType: return TypeBuilder::Console::ConsoleMessage::Type::Assert;
     }
-    return "other";
+    return TypeBuilder::Console::ConsoleMessage::Type::Log;
 }
 
-static String messageLevelValue(MessageLevel level)
+static TypeBuilder::Console::ConsoleMessage::Level::Enum messageLevelValue(MessageLevel level)
 {
     switch (level) {
-    case TipMessageLevel: return "tip";
-    case LogMessageLevel: return "log";
-    case WarningMessageLevel: return "warning";
-    case ErrorMessageLevel: return "error";
-    case DebugMessageLevel: return "debug";
+    case TipMessageLevel: return TypeBuilder::Console::ConsoleMessage::Level::Tip;
+    case LogMessageLevel: return TypeBuilder::Console::ConsoleMessage::Level::Log;
+    case WarningMessageLevel: return TypeBuilder::Console::ConsoleMessage::Level::Warning;
+    case ErrorMessageLevel: return TypeBuilder::Console::ConsoleMessage::Level::Error;
+    case DebugMessageLevel: return TypeBuilder::Console::ConsoleMessage::Level::Debug;
     }
-    return "log";
+    return TypeBuilder::Console::ConsoleMessage::Level::Log;
 }
 
 void ConsoleMessage::addToFrontend(InspectorFrontend::Console* frontend, InjectedScriptManager* injectedScriptManager)
 {
-    RefPtr<InspectorObject> jsonObj = InspectorObject::create();
-    jsonObj->setString("source", messageSourceValue(m_source));
-    jsonObj->setString("type", messageTypeValue(m_type));
-    jsonObj->setString("level", messageLevelValue(m_level));
-    jsonObj->setNumber("line", static_cast<int>(m_line));
-    jsonObj->setString("url", m_url);
-    jsonObj->setNumber("repeatCount", static_cast<int>(m_repeatCount));
-    jsonObj->setString("text", m_message);
-    if (m_type == NetworkErrorMessageType) 
-        jsonObj->setNumber("networkIdentifier", m_requestId);
+    RefPtr<TypeBuilder::Console::ConsoleMessage> jsonObj = TypeBuilder::Console::ConsoleMessage::create()
+        .setSource(messageSourceValue(m_source))
+        .setLevel(messageLevelValue(m_level))
+        .setText(m_message);
+    // FIXME: only send out type for ConsoleAPI source messages.
+    jsonObj->setType(messageTypeValue(m_type));
+    jsonObj->setLine(static_cast<int>(m_line));
+    jsonObj->setUrl(m_url);
+    jsonObj->setRepeatCount(static_cast<int>(m_repeatCount));
+    if (m_source == NetworkMessageSource && !m_requestId.isEmpty())
+        jsonObj->setNetworkRequestId(m_requestId);
     if (m_arguments && m_arguments->argumentCount()) {
         InjectedScript injectedScript = injectedScriptManager->injectedScriptFor(m_arguments->globalState());
         if (!injectedScript.hasNoValue()) {
-            RefPtr<InspectorArray> jsonArgs = InspectorArray::create();
+            RefPtr<TypeBuilder::Array<TypeBuilder::Runtime::RemoteObject> > jsonArgs = TypeBuilder::Array<TypeBuilder::Runtime::RemoteObject>::create();
             for (unsigned i = 0; i < m_arguments->argumentCount(); ++i) {
-                RefPtr<InspectorValue> inspectorValue = injectedScript.wrapObject(m_arguments->argumentAt(i), "console");
+                RefPtr<TypeBuilder::Runtime::RemoteObject> inspectorValue = injectedScript.wrapObject(m_arguments->argumentAt(i), "console");
                 if (!inspectorValue) {
                     ASSERT_NOT_REACHED();
                     return;
                 }
-                jsonArgs->pushValue(inspectorValue);
+                jsonArgs->addItem(inspectorValue);
             }
-            jsonObj->setArray("parameters", jsonArgs);
+            jsonObj->setParameters(jsonArgs);
         }
     }
     if (m_callStack)
-        jsonObj->setArray("stackTrace", m_callStack->buildInspectorArray());
+        jsonObj->setStackTrace(m_callStack->buildInspectorArray());
     frontend->messageAdded(jsonObj);
 }
 
@@ -185,6 +192,24 @@ bool ConsoleMessage::isEqual(ConsoleMessage* msg) const
         && msg->m_line == m_line
         && msg->m_url == m_url
         && msg->m_requestId == m_requestId;
+}
+
+void ConsoleMessage::windowCleared(DOMWindow* window)
+{
+    if (!m_arguments)
+        return;
+    if (domWindowFromScriptState(m_arguments->globalState()) != window)
+        return;
+    if (!m_message)
+        m_message = "<message collected>";
+    m_arguments.clear();
+}
+
+unsigned ConsoleMessage::argumentCount()
+{
+    if (m_arguments)
+        return m_arguments->argumentCount();
+    return 0;
 }
 
 } // namespace WebCore

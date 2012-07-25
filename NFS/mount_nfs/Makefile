@@ -30,7 +30,9 @@ Extra_CC_Flags += -isysroot $(SDKROOT)
 endif
 
 DST_DIR = $(DSTROOT)/sbin
+ETC_DIR = $(DSTROOT)/private/etc
 MAN_DIR = $(DSTROOT)/usr/share/man/man8
+LAUNCHD_DIR = $(DSTROOT)/System/Library/LaunchDaemons
 
 #
 # Standard B&I targets
@@ -39,12 +41,16 @@ all: $(SYMROOT)/mount_nfs
 
 install:: all
 	install -d -o root -g wheel -m 755 $(DST_DIR)
-	install -c -o root -g wheel -m 4555 -s $(SYMROOT)/mount_nfs $(DST_DIR)
+	install -c -o root -g wheel -m 555 -s $(SYMROOT)/mount_nfs $(DST_DIR)
 	install -d -o root -g wheel -m 755 $(DSTROOT)/usr
 	install -d -o root -g wheel -m 755 $(DSTROOT)/usr/share
 	install -d -o root -g wheel -m 755 $(DSTROOT)/usr/share/man
 	install -d -o root -g wheel -m 755 $(MAN_DIR)
 	install -c -o root -g wheel -m 444 $(SRCROOT)/mount_nfs.8 $(MAN_DIR)
+	install -d -o root -g wheel -m 755 $(LAUNCHD_DIR)
+	install -c -o root -g wheel -m 444 $(SRCROOT)/com.apple.nfsconf.plist $(LAUNCHD_DIR)
+	install -d -o root -g wheel -m 755 $(ETC_DIR)
+	install -c -o root -g wheel -m 644 $(SRCROOT)/nfs.conf $(ETC_DIR)
 
 clean::
 	-rm -f *.o mount_nfs

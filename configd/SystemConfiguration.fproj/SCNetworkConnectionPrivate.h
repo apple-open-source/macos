@@ -68,6 +68,13 @@ SCNetworkConnectionSuspend			(SCNetworkConnectionRef		connection)		__OSX_AVAILAB
 Boolean
 SCNetworkConnectionResume			(SCNetworkConnectionRef		connection)		__OSX_AVAILABLE_STARTING(__MAC_10_3,__IPHONE_2_0);
 
+Boolean
+SCNetworkConnectionSetClientInfo		(SCNetworkConnectionRef		connection,
+						 mach_port_t			client_audit_session,
+						 uid_t				client_uid,
+						 gid_t				client_gid,
+						 pid_t				client_pid)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
+
 
 #pragma mark -
 #pragma mark SCNetworkConnection "VPN on Demand" SPIs
@@ -137,7 +144,6 @@ SCNetworkConnectionResume			(SCNetworkConnectionRef		connection)		__OSX_AVAILABL
 #define kSCNetworkConnectionOnDemandMatchDomainsNever		CFSTR("OnDemandMatchDomainsNever")
 
 
-__private_extern__
 Boolean
 __SCNetworkConnectionCopyOnDemandInfoWithName	(SCDynamicStoreRef		*storeP,
 						 CFStringRef			nodeName,

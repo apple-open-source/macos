@@ -87,11 +87,12 @@ struct hx509_collector;
 struct hx509_generate_private_context;
 typedef struct hx509_path hx509_path;
 
+#include <heimbase.h>
+
 #include <hx509.h>
 
 typedef void (*_hx509_cert_release_func)(struct hx509_cert_data *, void *);
 
-typedef struct hx509_private_key_ops hx509_private_key_ops;
 
 #include "sel.h"
 
@@ -125,31 +126,32 @@ struct hx509_path {
 
 struct hx509_query_data {
     int match;
-#define HX509_QUERY_FIND_ISSUER_CERT		0x000001
-#define HX509_QUERY_MATCH_SERIALNUMBER		0x000002
-#define HX509_QUERY_MATCH_ISSUER_NAME		0x000004
-#define HX509_QUERY_MATCH_SUBJECT_NAME		0x000008
-#define HX509_QUERY_MATCH_SUBJECT_KEY_ID	0x000010
-#define HX509_QUERY_MATCH_ISSUER_ID		0x000020
-#define HX509_QUERY_PRIVATE_KEY			0x000040
-#define HX509_QUERY_KU_ENCIPHERMENT		0x000080
-#define HX509_QUERY_KU_DIGITALSIGNATURE		0x000100
-#define HX509_QUERY_KU_KEYCERTSIGN		0x000200
-#define HX509_QUERY_KU_CRLSIGN			0x000400
-#define HX509_QUERY_KU_NONREPUDIATION		0x000800
-#define HX509_QUERY_KU_KEYAGREEMENT		0x001000
-#define HX509_QUERY_KU_DATAENCIPHERMENT		0x002000
-#define HX509_QUERY_ANCHOR			0x004000
-#define HX509_QUERY_MATCH_CERTIFICATE		0x008000
-#define HX509_QUERY_MATCH_LOCAL_KEY_ID		0x010000
-#define HX509_QUERY_NO_MATCH_PATH		0x020000
-#define HX509_QUERY_MATCH_FRIENDLY_NAME		0x040000
-#define HX509_QUERY_MATCH_FUNCTION		0x080000
-#define HX509_QUERY_MATCH_KEY_HASH_SHA1		0x100000
-#define HX509_QUERY_MATCH_TIME			0x200000
-#define HX509_QUERY_MATCH_EKU			0x400000
-#define HX509_QUERY_MATCH_EXPR			0x800000
-#define HX509_QUERY_MASK			0xffffff
+#define HX509_QUERY_FIND_ISSUER_CERT		0x0000001
+#define HX509_QUERY_MATCH_SERIALNUMBER		0x0000002
+#define HX509_QUERY_MATCH_ISSUER_NAME		0x0000004
+#define HX509_QUERY_MATCH_SUBJECT_NAME		0x0000008
+#define HX509_QUERY_MATCH_SUBJECT_KEY_ID	0x0000010
+#define HX509_QUERY_MATCH_ISSUER_ID		0x0000020
+#define HX509_QUERY_PRIVATE_KEY			0x0000040
+#define HX509_QUERY_KU_ENCIPHERMENT		0x0000080
+#define HX509_QUERY_KU_DIGITALSIGNATURE		0x0000100
+#define HX509_QUERY_KU_KEYCERTSIGN		0x0000200
+#define HX509_QUERY_KU_CRLSIGN			0x0000400
+#define HX509_QUERY_KU_NONREPUDIATION		0x0000800
+#define HX509_QUERY_KU_KEYAGREEMENT		0x0001000
+#define HX509_QUERY_KU_DATAENCIPHERMENT		0x0002000
+#define HX509_QUERY_ANCHOR			0x0004000
+#define HX509_QUERY_MATCH_CERTIFICATE		0x0008000
+#define HX509_QUERY_MATCH_LOCAL_KEY_ID		0x0010000
+#define HX509_QUERY_NO_MATCH_PATH		0x0020000
+#define HX509_QUERY_MATCH_FRIENDLY_NAME		0x0040000
+#define HX509_QUERY_MATCH_FUNCTION		0x0080000
+#define HX509_QUERY_MATCH_KEY_HASH_SHA1		0x0100000
+#define HX509_QUERY_MATCH_TIME			0x0200000
+#define HX509_QUERY_MATCH_EKU			0x0400000
+#define HX509_QUERY_MATCH_EXPR			0x0800000
+#define HX509_QUERY_MATCH_PERSISTENT		0x1000000
+#define HX509_QUERY_MASK			0x1ffffff
     Certificate *subject;
     Certificate *certificate;
     heim_integer *serial;
@@ -165,6 +167,7 @@ struct hx509_query_data {
     time_t timenow;
     heim_oid *eku;
     struct hx_expr *expr;
+    heim_octet_string *persistent;
 };
 
 struct hx509_keyset_ops {
@@ -200,7 +203,7 @@ struct hx509_context_data {
 #define HX509_CTX_VERIFY_MISSING_OK	1
     int ocsp_time_diff;
 #define HX509_DEFAULT_OCSP_TIME_DIFF	(5*60)
-    hx509_error error;
+    heim_error_t error;
     struct et_list *et_list;
     char *querystat;
     hx509_certs default_trust_anchors;

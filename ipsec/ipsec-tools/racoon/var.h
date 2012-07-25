@@ -76,7 +76,7 @@
 
 #define GETNAMEINFO(x, y, z) \
 do { \
-	if (getnameinfo((x), sysdep_sa_len(x), (y), sizeof(y), (z), sizeof(z), \
+	if (getnameinfo((x), sysdep_sa_len((struct sockaddr *)x), (y), sizeof(y), (z), sizeof(z), \
 			NIFLAGS) != 0) { \
 		if (y != NULL) \
 			strlcpy((y), "(invalid)", sizeof(y)); \
@@ -87,7 +87,7 @@ do { \
 
 #define GETNAMEINFO_NULL(x, y) \
 do { \
-	if (getnameinfo((x), sysdep_sa_len(x), (y), sizeof(y), NULL, 0, \
+	if (getnameinfo((x), sysdep_sa_len((struct sockaddr *)x), (y), sizeof(y), NULL, 0, \
 			NIFLAGS) != 0) { \
 		if (y != NULL) \
 			strlcpy((y), "(invalid)", sizeof(y)); \
@@ -101,6 +101,9 @@ do { \
 #endif
 
 #include "gcmalloc.h"
+
+/* For casting away alignment warnings when casting a ptr to a known aligned buffer */
+#define ALIGNED_CAST(type)	(type)(void *) 
 
 #endif /*!defined(_VAR_H_)*/
 

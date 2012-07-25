@@ -26,27 +26,34 @@
 #include "config.h"
 #include "TreeScope.h"
 
+#include "ContainerNode.h"
+#include "Document.h"
 #include "Element.h"
+#include "FocusController.h"
+#include "Frame.h"
 #include "HTMLAnchorElement.h"
+#include "HTMLFrameOwnerElement.h"
 #include "HTMLMapElement.h"
 #include "HTMLNames.h"
-#include "NodeRareData.h"
+#include "Page.h"
+#include "TreeScopeAdopter.h"
+#include <wtf/text/AtomicString.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-TreeScope::TreeScope(Document* document)
-    : ContainerNode(document)
+TreeScope::TreeScope(ContainerNode* rootNode)
+    : m_rootNode(rootNode)
     , m_parentTreeScope(0)
     , m_numNodeListCaches(0)
 {
+    ASSERT(rootNode);
 }
 
 TreeScope::~TreeScope()
 {
-    if (hasRareData())
-        rareData()->setTreeScope(0);
 }
 
 void TreeScope::destroyTreeScopeData()
@@ -58,7 +65,7 @@ void TreeScope::destroyTreeScopeData()
 void TreeScope::setParentTreeScope(TreeScope* newParentScope)
 {
     // A document node cannot be re-parented.
-    ASSERT(!isDocumentNode());
+    ASSERT(!rootNode()->isDocumentNode());
     // Every scope other than document needs a parent scope.
     ASSERT(newParentScope);
 
@@ -104,7 +111,7 @@ HTMLMapElement* TreeScope::getImageMap(const String& url) const
         return 0;
     size_t hashPos = url.find('#');
     String name = (hashPos == notFound ? url : url.substring(hashPos + 1)).impl();
-    if (document()->isHTMLDocument())
+    if (rootNode()->document()->isHTMLDocument())
         return static_cast<HTMLMapElement*>(m_imageMapsByName.getElementByLowercasedMapName(AtomicString(name.lower()).impl(), this));
     return static_cast<HTMLMapElement*>(m_imageMapsByName.getElementByMapName(AtomicString(name).impl(), this));
 }
@@ -115,10 +122,10 @@ Element* TreeScope::findAnchor(const String& name)
         return 0;
     if (Element* element = getElementById(name))
         return element;
-    for (Node* node = this; node; node = node->traverseNextNode()) {
+    for (Node* node = rootNode(); node; node = node->traverseNextNode()) {
         if (node->hasTagName(aTag)) {
             HTMLAnchorElement* anchor = static_cast<HTMLAnchorElement*>(node);
-            if (document()->inQuirksMode()) {
+            if (rootNode()->document()->inQuirksMode()) {
                 // Quirks mode, case insensitive comparison of names.
                 if (equalIgnoringCase(anchor->name(), name))
                     return anchor;
@@ -135,6 +142,47 @@ Element* TreeScope::findAnchor(const String& name)
 bool TreeScope::applyAuthorSheets() const
 {
     return true;
+}
+
+void TreeScope::adoptIfNeeded(Node* node)
+{
+    ASSERT(this);
+    ASSERT(node);
+    ASSERT(!node->isDocumentNode());
+    ASSERT(!node->m_deletionHasBegun);
+    TreeScopeAdopter adopter(node, this);
+    if (adopter.needsScopeChange())
+        adopter.execute();
+}
+
+static Node* focusedFrameOwnerElement(Frame* focusedFrame, Frame* currentFrame)
+{
+    for (; focusedFrame; focusedFrame = focusedFrame->tree()->parent()) {
+        if (focusedFrame->tree()->parent() == currentFrame)
+            return focusedFrame->ownerElement();
+    }
+    return 0;
+}
+
+Node* TreeScope::focusedNode()
+{
+    Document* document = rootNode()->document();
+    Node* node = document->focusedNode();
+    if (!node && document->page())
+        node = focusedFrameOwnerElement(document->page()->focusController()->focusedFrame(), document->frame());
+    if (!node)
+        return 0;
+
+    TreeScope* treeScope = node->treeScope();
+
+    while (treeScope != this && treeScope != document) {
+        node = treeScope->rootNode()->shadowHost();
+        treeScope = node->treeScope();
+    }
+    if (this != treeScope)
+        return 0;
+
+    return node;
 }
 
 } // namespace WebCore

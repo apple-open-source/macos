@@ -31,7 +31,7 @@
 #ifndef WebGlyphCache_h
 #define WebGlyphCache_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -40,7 +40,7 @@ namespace WebKit {
 class WebGlyphCache {
 public:
     // Returns the number of pages in the glyph cache.
-    WEBKIT_API static size_t pageCount();
+    WEBKIT_EXPORT static size_t pageCount();
 
 private:
     WebGlyphCache();  // Not intended to be instanced.

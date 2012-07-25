@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc.  All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,7 +52,7 @@ SocketStreamHandleBase::SocketStreamState SocketStreamHandleBase::state() const
 
 bool SocketStreamHandleBase::send(const char* data, int length)
 {
-    if (m_state == Connecting)
+    if (m_state == Connecting || m_state == Closing)
         return false;
     if (!m_buffer.isEmpty()) {
         if (m_buffer.size() + length > bufferSize) {
@@ -60,6 +60,8 @@ bool SocketStreamHandleBase::send(const char* data, int length)
             return false;
         }
         m_buffer.append(data, length);
+        if (m_client)
+            m_client->didUpdateBufferedAmount(static_cast<SocketStreamHandle*>(this), bufferedAmount());
         return true;
     }
     int bytesWritten = 0;
@@ -71,12 +73,25 @@ bool SocketStreamHandleBase::send(const char* data, int length)
         // FIXME: report error to indicate that buffer has no more space.
         return false;
     }
-    if (bytesWritten < length)
+    if (bytesWritten < length) {
         m_buffer.append(data + bytesWritten, length - bytesWritten);
+        if (m_client)
+            m_client->didUpdateBufferedAmount(static_cast<SocketStreamHandle*>(this), bufferedAmount());
+    }
     return true;
 }
 
 void SocketStreamHandleBase::close()
+{
+    if (m_state == Closed)
+        return;
+    m_state = Closing;
+    if (!m_buffer.isEmpty())
+        return;
+    disconnect();
+}
+
+void SocketStreamHandleBase::disconnect()
 {
     RefPtr<SocketStreamHandle> protect(static_cast<SocketStreamHandle*>(this)); // platformClose calls the client, which may make the handle get deallocated immediately.
 
@@ -92,10 +107,16 @@ void SocketStreamHandleBase::setClient(SocketStreamHandleClient* client)
 
 bool SocketStreamHandleBase::sendPendingData()
 {
-    if (m_state != Open)
+    if (m_state != Open && m_state != Closing)
         return false;
-    if (m_buffer.isEmpty())
-        return false;
+    if (m_buffer.isEmpty()) {
+        if (m_state == Open)
+            return false;
+        if (m_state == Closing) {
+            disconnect();
+            return false;
+        }
+    }
     int bytesWritten = platformSend(m_buffer.data(), m_buffer.size());
     if (bytesWritten <= 0)
         return false;
@@ -103,6 +124,8 @@ bool SocketStreamHandleBase::sendPendingData()
     ASSERT(m_buffer.size() - bytesWritten <= bufferSize);
     remainingData.append(m_buffer.data() + bytesWritten, m_buffer.size() - bytesWritten);
     m_buffer.swap(remainingData);
+    if (m_client)
+        m_client->didUpdateBufferedAmount(static_cast<SocketStreamHandle*>(this), bufferedAmount());
     return true;
 }
 

@@ -37,4 +37,5 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool displayIsOff)
 
 __private_extern__ void SystemLoadPrefsHaveChanged(void);
 
+__private_extern__ void SystemLoadSystemPowerStateHasChanged(void);
 #endif

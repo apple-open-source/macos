@@ -70,6 +70,9 @@ typedef struct {
 #define MIME_ERR_8BIT_IN_HEADER		(1<<2)
 #define MIME_ERR_8BIT_IN_7BIT_BODY	(1<<3)
 #define MIME_ERR_ENCODING_DOMAIN	(1<<4)
+#ifdef __APPLE_OS_X_SERVER__
+#define MIME_ERR_BODY_TOO_LARGE		(1<<5)
+#endif
 
 extern const MIME_STATE_DETAIL *mime_state_detail(int);
 extern const char *mime_state_error(int);

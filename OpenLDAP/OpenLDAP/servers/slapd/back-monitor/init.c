@@ -1,8 +1,8 @@
 /* init.c - initialize monitor backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/init.c,v 1.125.2.14 2010/04/19 16:53:03 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2010 The OpenLDAP Foundation.
+ * Copyright 2001-2011 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -830,7 +830,7 @@ monitor_search2ndn(
 	OperationBuffer	opbuf;
 	Operation	*op;
 	void	*thrctx;
-	SlapReply	rs = { 0 };
+	SlapReply	rs = { REP_RESULT };
 	slap_callback	cb = { NULL, monitor_search2ndn_cb, NULL, NULL };
 	int		rc;
 
@@ -1108,16 +1108,6 @@ done:;
 
 		*elpp = (entry_limbo_t *)ch_malloc( sizeof( entry_limbo_t ) );
 		if ( *elpp == NULL ) {
-			el.el_e->e_private = NULL;
-			entry_free( el.el_e );
-			return -1;
-		}
-
-		if ( *elpp != NULL ) {
-			el.el_next = NULL;
-			**elpp = el;
-
-		} else {
 			if ( !BER_BVISNULL( &el.el_filter ) ) {
 				ch_free( el.el_filter.bv_val );
 			}
@@ -1129,6 +1119,9 @@ done:;
 			}
 			return -1;
 		}
+
+		el.el_next = NULL;
+		**elpp = el;
 	}
 
 	return 0;
@@ -2051,7 +2044,7 @@ monitor_back_initialize(
 
 	bi->bi_extended = 0;
 
-	bi->bi_entry_release_rw = 0;
+	bi->bi_entry_release_rw = monitor_back_release;
 	bi->bi_chk_referrals = 0;
 	bi->bi_operational = monitor_back_operational;
 

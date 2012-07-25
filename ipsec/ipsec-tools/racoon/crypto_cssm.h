@@ -33,12 +33,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecBase.h>
 
-#if TARGET_OS_EMBEDDED
+
 extern int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname, SecKeyRef *publicKeyRef);
 extern int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature);
-#else
-extern int crypto_cssm_check_x509cert(cert_t *hostcert, cert_t *certchain, CFStringRef hostname);
-#endif
 extern SecCertificateRef crypto_cssm_x509cert_get_SecCertificateRef (vchar_t *cert);
 extern vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash);
 extern vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef, cert_status_t *certStatus);

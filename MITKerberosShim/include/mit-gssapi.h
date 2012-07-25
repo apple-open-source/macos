@@ -61,6 +61,8 @@ extern "C" {
 
 #ifndef KRB5_CALLCONV
 #define KRB5_CALLCONV
+#endif
+#ifndef KRB5_CALLCONV_C
 #define KRB5_CALLCONV_C
 #endif
 

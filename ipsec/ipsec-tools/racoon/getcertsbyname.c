@@ -53,6 +53,7 @@
 #include <strings.h>
 #endif
 
+#include "var.h"
 #include "netdb_dnssec.h"
 
 /* XXX should it use ci_errno to hold errno instead of h_errno ? */
@@ -244,7 +245,7 @@ getcertsbyname(name, res)
 	/* parse CERT RR */
 	eom = answer + anslen;
 
-	hp = (HEADER *)answer;
+	hp = ALIGNED_CAST(HEADER *)answer;
 	qdcount = ntohs(hp->qdcount);
 	ancount = ntohs(hp->ancount);
 

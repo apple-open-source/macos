@@ -229,12 +229,12 @@ extern int ipsecdoi_setid1 __P((struct ph1handle *));
 extern int set_identifier __P((vchar_t **, int, vchar_t *));
 extern int set_identifier_qual __P((vchar_t **, int, vchar_t *, int));
 extern int ipsecdoi_setid2 __P((struct ph2handle *));
-extern vchar_t *ipsecdoi_sockaddr2id __P((struct sockaddr *, u_int, u_int));
-extern int ipsecdoi_id2sockaddr __P((vchar_t *, struct sockaddr *,
+extern vchar_t *ipsecdoi_sockaddr2id __P((struct sockaddr_storage *, u_int, u_int));
+extern int ipsecdoi_id2sockaddr __P((vchar_t *, struct sockaddr_storage *,
 	u_int8_t *, u_int16_t *));
 extern char *ipsecdoi_id2str __P((const vchar_t *));
-extern vchar_t *ipsecdoi_sockrange2id __P((	struct sockaddr *,
-	struct sockaddr *, u_int));
+extern vchar_t *ipsecdoi_sockrange2id __P((	struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int));
 
 extern vchar_t *ipsecdoi_setph1proposal __P((struct isakmpsa *));
 extern int ipsecdoi_setph2proposal __P((struct ph2handle *));

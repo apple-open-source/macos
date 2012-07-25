@@ -101,13 +101,17 @@ void DragData::getDragFileContentData(int size, void* dataBlob)
 
 String DragData::asURL(Frame*, FilenameConversionPolicy filenamePolicy, String* title) const
 {
-    bool success;
-    return (m_platformDragData) ? getURL(m_platformDragData, filenamePolicy, success, title) : getURL(&m_dragDataMap, filenamePolicy, title);
+    return (m_platformDragData) ? getURL(m_platformDragData, filenamePolicy, title) : getURL(&m_dragDataMap, filenamePolicy, title);
 }
 
 bool DragData::containsFiles() const
 {
     return (m_platformDragData) ? SUCCEEDED(m_platformDragData->QueryGetData(cfHDropFormat())) : m_dragDataMap.contains(cfHDropFormat()->cfFormat);
+}
+
+unsigned DragData::numberOfFiles() const
+{
+    return 0;
 }
 
 void DragData::asFilenames(Vector<String>& result) const
@@ -150,8 +154,7 @@ bool DragData::containsPlainText() const
 
 String DragData::asPlainText(Frame*) const
 {
-    bool success;
-    return (m_platformDragData) ? getPlainText(m_platformDragData, success) : getPlainText(&m_dragDataMap);
+    return (m_platformDragData) ? getPlainText(m_platformDragData) : getPlainText(&m_dragDataMap);
 }
 
 bool DragData::containsColor() const

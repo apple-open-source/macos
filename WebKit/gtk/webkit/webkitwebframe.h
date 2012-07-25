@@ -27,6 +27,7 @@
 #include <JavaScriptCore/JSBase.h>
 
 #include <webkit/webkitdefines.h>
+#include <webkit/webkitdomdefines.h>
 #include <webkit/webkitnetworkrequest.h>
 #include <webkit/webkitwebdatasource.h>
 
@@ -99,13 +100,13 @@ webkit_web_frame_new                (WebKitWebView        *web_view);
 WEBKIT_API WebKitWebView *
 webkit_web_frame_get_web_view       (WebKitWebFrame       *frame);
 
-WEBKIT_API G_CONST_RETURN gchar *
+WEBKIT_API const gchar *
 webkit_web_frame_get_name           (WebKitWebFrame       *frame);
 
-WEBKIT_API G_CONST_RETURN gchar *
+WEBKIT_API const gchar *
 webkit_web_frame_get_title          (WebKitWebFrame       *frame);
 
-WEBKIT_API G_CONST_RETURN gchar *
+WEBKIT_API const gchar *
 webkit_web_frame_get_uri            (WebKitWebFrame       *frame);
 
 WEBKIT_API WebKitWebFrame*
@@ -174,6 +175,13 @@ webkit_web_frame_get_security_origin         (WebKitWebFrame       *frame);
 
 WEBKIT_API WebKitNetworkResponse*
 webkit_web_frame_get_network_response        (WebKitWebFrame       *frame);
+
+WEBKIT_API void
+webkit_web_frame_replace_selection           (WebKitWebFrame        *frame,
+                                              const char            *text);
+
+WEBKIT_API WebKitDOMRange*
+webkit_web_frame_get_range_for_word_around_caret (WebKitWebFrame    *frame);
 
 G_END_DECLS
 

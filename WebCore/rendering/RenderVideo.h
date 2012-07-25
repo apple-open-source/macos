@@ -66,13 +66,20 @@ private:
     virtual bool requiresLayer() const { return true; }
     virtual bool isVideo() const { return true; }
 
-    virtual void paintReplaced(PaintInfo&, int tx, int ty);
+    virtual void paintReplaced(PaintInfo&, const LayoutPoint&);
 
     virtual void layout();
 
-    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
-    virtual int computeReplacedLogicalHeight() const;
+    virtual LayoutUnit computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual LayoutUnit computeReplacedLogicalHeight() const;
     virtual int minimumReplacedHeight() const;
+
+#if ENABLE(FULLSCREEN_API)
+    virtual LayoutUnit offsetLeft() const;
+    virtual LayoutUnit offsetTop() const;
+    virtual LayoutUnit offsetWidth() const;
+    virtual LayoutUnit offsetHeight() const;
+#endif
 
     void updatePlayer();
 

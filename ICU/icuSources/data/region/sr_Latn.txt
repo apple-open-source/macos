@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sr_Latn.xml
@@ -10,7 +10,6 @@
  *  ICU <specials> source: <path>/xml/main/sr_Latn.xml
  */
 sr_Latn{
-    %%ParentIsRoot:int{1}
     Countries{
         001{"Svet"}
         002{"Afrika"}
@@ -34,7 +33,6 @@ sr_Latn{
         054{"Melanezija"}
         057{"Micronezija"}
         061{"Polinezija"}
-        062{"Južno-centralna Azija"}
         142{"Azija"}
         143{"Centralna Azija"}
         145{"Zapadna Azija"}
@@ -42,9 +40,7 @@ sr_Latn{
         151{"Istočna Evropa"}
         154{"Severna Evropa"}
         155{"Zapadna Evropa"}
-        172{"Komonvelt nezavisnih država"}
-        419{"Latinska Amerika i Karibi"}
-        830{"Kanalska ostrva"}
+        419{"Latinska Amerika"}
         AD{"Andora"}
         AE{"Ujedinjeni Arapski Emirati"}
         AF{"Avganistan"}
@@ -296,5 +292,5 @@ sr_Latn{
         ZW{"Zimbabve"}
         ZZ{"Nepoznat ili nevažeći region"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.66.10"}
 }

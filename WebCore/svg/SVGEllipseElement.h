@@ -42,25 +42,28 @@ private:
     SVGEllipseElement(const QualifiedName&, Document*);
     
     virtual bool isValid() const { return SVGTests::isValid(); }
+    virtual bool supportsFocus() const { return true; }
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
-
-    virtual void toPathData(Path&) const;
 
     virtual bool selfHasRelativeLengths() const;
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(Cx, cx)
-    DECLARE_ANIMATED_LENGTH(Cy, cy)
-    DECLARE_ANIMATED_LENGTH(Rx, rx)
-    DECLARE_ANIMATED_LENGTH(Ry, ry)
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*) OVERRIDE;
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGEllipseElement)
+        DECLARE_ANIMATED_LENGTH(Cx, cx)
+        DECLARE_ANIMATED_LENGTH(Cy, cy)
+        DECLARE_ANIMATED_LENGTH(Rx, rx)
+        DECLARE_ANIMATED_LENGTH(Ry, ry)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+    // SVGTests
+    virtual void synchronizeRequiredFeatures() { SVGTests::synchronizeRequiredFeatures(this); }
+    virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
+    virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
 };
 
 } // namespace WebCore

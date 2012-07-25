@@ -2304,7 +2304,7 @@ set_allowed_addrs(unit, addrs, opts)
 
 	hp = gethostbyname(ptr_word);
 	if (hp != NULL && hp->h_addrtype == AF_INET) {
-	    a = *(u_int32_t *)hp->h_addr;
+        memcpy(&a, hp->h_addr, sizeof(u_int32_t));      // Wcast-align fix - use memcpy for unknown alignment
 	} else {
 	    np = getnetbyname (ptr_word);
 	    if (np != NULL && np->n_addrtype == AF_INET) {

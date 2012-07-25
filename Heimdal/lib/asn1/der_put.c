@@ -181,14 +181,14 @@ int
 der_put_printable_string (unsigned char *p, size_t len,
 			  const heim_printable_string *str, size_t *size)
 {
-    return der_put_general_string(p, len, str, size);
+    return der_put_octet_string(p, len, str, size);
 }
 
 int
 der_put_ia5_string (unsigned char *p, size_t len,
 		    const heim_ia5_string *str, size_t *size)
 {
-    return der_put_general_string(p, len, str, size);
+    return der_put_octet_string(p, len, str, size);
 }
 
 int
@@ -426,27 +426,25 @@ der_put_length_and_tag (unsigned char *p, size_t len, size_t len_val,
 int
 _heim_time2generalizedtime (time_t t, heim_octet_string *s, int gtimep)
 {
-    struct tm *tm;
-    const size_t len = gtimep ? 15 : 13;
-    
-    s->data = malloc(len + 1);
-    if (s->data == NULL)
-	return ENOMEM;
-    s->length = len;
-    tm = gmtime (&t);
-    if (tm == NULL)
-	return ASN1_BAD_TIMEFORMAT;
-    
-    if (gtimep)
-	snprintf (s->data, len + 1, "%04d%02d%02d%02d%02d%02dZ",
-		  tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-		  tm->tm_hour, tm->tm_min, tm->tm_sec);
-    else
-	snprintf (s->data, len + 1, "%02d%02d%02d%02d%02d%02dZ",
-		  tm->tm_year % 100, tm->tm_mon + 1, tm->tm_mday,
-		  tm->tm_hour, tm->tm_min, tm->tm_sec);
-    
-    return 0;
+     struct tm tm;
+     const size_t len = gtimep ? 15 : 13;
+
+     s->data = malloc(len + 1);
+     if (s->data == NULL)
+	 return ENOMEM;
+     s->length = len;
+     if (_der_gmtime(t, &tm) == NULL)
+	 return ASN1_BAD_TIMEFORMAT;
+     if (gtimep)
+	 snprintf (s->data, len + 1, "%04d%02d%02d%02d%02d%02dZ",
+		   tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		   tm.tm_hour, tm.tm_min, tm.tm_sec);
+     else
+	 snprintf (s->data, len + 1, "%02d%02d%02d%02d%02d%02dZ",
+		   tm.tm_year % 100, tm.tm_mon + 1, tm.tm_mday,
+		   tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+     return 0;
 }
 
 int

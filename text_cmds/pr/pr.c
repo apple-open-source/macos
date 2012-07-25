@@ -70,6 +70,8 @@ __FBSDID("$FreeBSD: src/usr.bin/pr/pr.c,v 1.18 2004/07/26 20:24:59 charnier Exp 
 
 #ifdef __APPLE__
 #include <get_compat.h>
+/* err.h defines err(1) which conflicts with the global below */
+extern void errx(int, const char *, ...) __dead2 __printflike(2, 3);
 #else
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */

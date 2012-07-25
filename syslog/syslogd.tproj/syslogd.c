@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,9 @@
 #include <dlfcn.h>
 #include <libgen.h>
 #include <notify.h>
+#include <notify_keys.h>
 #include <utmpx.h>
+#include <vproc_priv.h>
 #include "daemon.h"
 
 #define SERVICE_NAME "com.apple.system.logger"
@@ -53,293 +55,175 @@
 #define SERVER_STATUS_ACTIVE 1
 #define SERVER_STATUS_ON_DEMAND 2
 
-#define DEFAULT_MARK_SEC 0
-#define DEFAULT_UTMP_TTL_SEC 31622400
-#define DEFAULT_FS_TTL_SEC 31622400
-#define DEFAULT_BSD_MAX_DUP_SEC 30
-#define DEFAULT_MPS_LIMIT 500
 #define BILLION 1000000000
 
 #define NOTIFY_DELAY 1
 
-#define NETWORK_CHANGE_NOTIFICATION "com.apple.system.config.network_change"
-
 #define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
-
-static uint64_t time_start = 0;
-static uint64_t mark_last = 0;
-static uint64_t ping_last = 0;
-static uint64_t time_last = 0;
 
 extern int __notify_78945668_info__;
 extern int _malloc_no_asl_log;
 
-static TAILQ_HEAD(ml, module_list) Moduleq;
-
 /* global */
 struct global_s global;
 
-/* Static Modules */
-int asl_in_init();
-int asl_in_reset();
-int asl_in_close();
-static int activate_asl_in = 1;
-
-int asl_action_init();
-int asl_action_reset();
-int asl_action_close();
-static int activate_asl_action = 1;
-
-int klog_in_init();
-int klog_in_reset();
-int klog_in_close();
+/* Input Modules */
+int klog_in_init(void);
+int klog_in_reset(void);
+int klog_in_close(void);
 static int activate_klog_in = 1;
 
-int bsd_in_init();
-int bsd_in_reset();
-int bsd_in_close();
+int bsd_in_init(void);
+int bsd_in_reset(void);
+int bsd_in_close(void);
 static int activate_bsd_in = 1;
 
-int bsd_out_init();
-int bsd_out_reset();
-int bsd_out_close();
-static int activate_bsd_out = 1;
-
-int remote_init();
-int remote_reset();
-int remote_close();
-static int activate_remote = 0;
-
-int udp_in_init();
-int udp_in_reset();
-int udp_in_close();
+int udp_in_init(void);
+int udp_in_reset(void);
+int udp_in_close(void);
 static int activate_udp_in = 1;
 
+/* Output Modules */
+int bsd_out_init(void);
+int bsd_out_reset(void);
+int bsd_out_close(void);
+static int activate_bsd_out = 1;
+
+int asl_action_init(void);
+int asl_action_reset(void);
+int asl_action_close(void);
+static int activate_asl_action = 1;
+
+/* Interactive Module */
+int remote_init(void);
+int remote_reset(void);
+int remote_close(void);
+static int remote_enabled = 0;
+
 extern void database_server();
-extern void output_worker();
-extern void launchd_drain();
-extern void bsd_flush_duplicates(time_t now);
-extern void bsd_close_idle_files(time_t now);
 
-/*
- * Module approach: only one type of module.  This module may implement
- * the set of functions necessary for any of the functions (input, output,
- * etc.)  Prior to using the modules, dlsym() is consulted to see what it
- * implements.
- */
-
-static int
-static_modules()
+static void
+init_modules()
 {
-	struct module_list *tmp;
+	module_t *m_klog_in, *m_bsd_in, *m_bsd_out, *m_udp_in;
+	module_t *m_asl, *m_remote;
 
-	/*
-	 * The order of these initializations is important.
-	 * When messages are sent to output modules, they are
-	 * sent in the same order as these initializations.
-	 * asl_action may add modify messages, for example to
-	 * add access controls, so it must come first.
-	 */
-	if (activate_asl_action != 0)
+	/* ASL module (configured by /etc/asl.conf) */
+	m_asl = (module_t *)calloc(1, sizeof(module_t));
+	if (m_asl == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("asl_action");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = asl_action_init;
-		tmp->reset = asl_action_reset;
-		tmp->close = asl_action_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules asl_action)\n");
+		exit(1);
 	}
 
-	if (activate_asl_in != 0)
+	m_asl->name = "asl_action";
+	m_asl->enabled = activate_asl_action;
+	m_asl->init = asl_action_init;
+	m_asl->reset = asl_action_reset;
+	m_asl->close = asl_action_close;
+
+	if (m_asl->enabled) m_asl->init();
+
+	/* BSD output module (configured by /etc/syslog.conf) */
+	m_bsd_out = (module_t *)calloc(1, sizeof(module_t));
+	if (m_bsd_out == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("asl_in");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = asl_in_init;
-		tmp->reset = asl_in_reset;
-		tmp->close = asl_in_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules bsd_out)\n");
+		exit(1);
 	}
 
-	if (activate_klog_in != 0)
+	m_bsd_out->name = "bsd_out";
+	m_bsd_out->enabled = activate_bsd_out;
+	m_bsd_out->init = bsd_out_init;
+	m_bsd_out->reset = bsd_out_reset;
+	m_bsd_out->close = bsd_out_close;
+
+	if (m_bsd_out->enabled)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("klog_in");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = klog_in_init;
-		tmp->reset = klog_in_reset;
-		tmp->close = klog_in_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		m_bsd_out->init();
+		global.bsd_out_enabled = 1;
 	}
 
-	if (activate_bsd_in != 0)
+	/* kernel input module */
+	m_klog_in = (module_t *)calloc(1, sizeof(module_t));
+	if (m_klog_in == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("bsd_in");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = bsd_in_init;
-		tmp->reset = bsd_in_reset;
-		tmp->close = bsd_in_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules klog_in)\n");
+		exit(1);
 	}
 
-	if (activate_bsd_out != 0)
+	m_klog_in->name = "klog_in";
+	m_klog_in->enabled = activate_klog_in;
+	m_klog_in->init = klog_in_init;
+	m_klog_in->reset = klog_in_reset;
+	m_klog_in->close = klog_in_close;
+
+	if (m_klog_in->enabled) m_klog_in->init();
+
+	/* BSD (UNIX domain socket) input module */
+	m_bsd_in = (module_t *)calloc(1, sizeof(module_t));
+	if (m_bsd_in == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("bsd_out");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = bsd_out_init;
-		tmp->reset = bsd_out_reset;
-		tmp->close = bsd_out_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules bsd_in)\n");
+		exit(1);
 	}
 
-	if (activate_remote != 0)
+	m_bsd_in->name = "bsd_in";
+	m_bsd_in->enabled = activate_bsd_in;
+	m_bsd_in->init = bsd_in_init;
+	m_bsd_in->reset = bsd_in_reset;
+	m_bsd_in->close = bsd_in_close;
+
+	if (m_bsd_in->enabled) m_bsd_in->init();
+
+	/* network (syslog protocol) input module */
+	m_udp_in = (module_t *)calloc(1, sizeof(module_t));
+	if (m_udp_in == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("remote");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = remote_init;
-		tmp->reset = remote_reset;
-		tmp->close = remote_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules udp_in)\n");
+		exit(1);
 	}
 
-	if (activate_udp_in != 0)
+	m_udp_in->name = "udp_in";
+	m_udp_in->enabled = activate_udp_in;
+	m_udp_in->init = udp_in_init;
+	m_udp_in->reset = udp_in_reset;
+	m_udp_in->close = udp_in_close;
+
+	if (m_udp_in->enabled) m_udp_in->init();
+
+	/* remote (iOS support) module */
+	m_remote = (module_t *)calloc(1, sizeof(module_t));
+	if (m_remote == NULL)
 	{
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL) return 1;
-
-		tmp->name = strdup("udp_in");
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = NULL;
-		tmp->init = udp_in_init;
-		tmp->reset = udp_in_reset;
-		tmp->close = udp_in_close;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
+		asldebug("alloc failed (init_modules remote)\n");
+		exit(1);
 	}
 
-	return 0;
-}
+	m_remote->name = "remote";
+	m_remote->enabled = remote_enabled;
+	m_remote->init = remote_init;
+	m_remote->reset = remote_reset;
+	m_remote->close = remote_close;
 
-/*
- * Loads all the modules.  This DOES NOT call the modules initializer
- * functions.  It simply scans the modules directory looking for modules
- * and loads them.  This does not mean the module will be used.  
- */
-static int
-load_modules(const char *mp)
-{
-	DIR *d;
-	struct dirent *de;
-	struct module_list *tmp;
-	void *c, *bn;
-	char *modulepath = NULL;
+	if (m_remote->enabled) m_remote->init();
 
-	d = opendir(mp);
-	if (d == NULL) return -1;
-
-	while (NULL != (de = readdir(d)))
+	/* save modules in global.module array */
+	global.module_count = 6;
+	global.module = (module_t **)calloc(global.module_count, sizeof(module_t *));
+	if (global.module == NULL)
 	{
-		if (de->d_name[0] == '.') continue;
-
-		/* Must have ".so" in the name" */
-		if (!strstr(de->d_name, ".so")) continue;
-
-		asprintf(&modulepath, "%s/%s", mp, de->d_name);
-		if (!modulepath) continue;
-
-		c = dlopen(modulepath, RTLD_LOCAL);
-		if (c == NULL)
-		{
-			free(modulepath);
-			continue;
-		}
-
-		tmp = calloc(1, sizeof(struct module_list));
-		if (tmp == NULL)
-		{
-			free(modulepath);
-			dlclose(c);
-			continue;
-		}
-
-		bn = basename(modulepath);
-		tmp->name = strdup(bn);
-		if (tmp->name == NULL)
-		{
-			free(tmp);
-			return 1;
-		}
-
-		tmp->module = c;
-		TAILQ_INSERT_TAIL(&Moduleq, tmp, entries);
-
-		tmp->init = dlsym(tmp->module, "aslmod_init");
-		tmp->reset = dlsym(tmp->module, "aslmod_reset");
-		tmp->close = dlsym(tmp->module, "aslmod_close");
-
-		free(modulepath);
+		asldebug("alloc failed (init_modules)\n");
+		exit(1);
 	}
 
-	closedir(d);
-
-	return 0;
+	global.module[0] = m_asl;
+	global.module[1] = m_bsd_out;
+	global.module[2] = m_klog_in;
+	global.module[3] = m_bsd_in;
+	global.module[4] = m_udp_in;
+	global.module[5] = m_remote;
 }
 
 static void
@@ -347,6 +231,9 @@ writepid(int *first)
 {
 	struct stat sb;
 	FILE *fp;
+	pid_t pid = getpid();
+
+	asldebug("\nsyslogd %d start\n", pid);
 
 	if (first != NULL)
 	{
@@ -361,168 +248,13 @@ writepid(int *first)
 	fp = fopen(_PATH_PIDFILE, "w");
 	if (fp != NULL)
 	{
-		fprintf(fp, "%d\n", getpid());
+		fprintf(fp, "%d\n", pid);
 		fclose(fp);
 	}
 }
 
-static void
-closeall(void)
-{
-	int i;
-
-	for (i = getdtablesize() - 1; i >= 0; i--) close(i);
-
-	open("/dev/null", O_RDWR, 0);
-	dup(0);
-	dup(0);
-}
-
-static void
-detach(void)
-{
-	signal(SIGINT, SIG_IGN);
-	signal(SIGPIPE, SIG_IGN);
-	setsid();
-}
-
-static void
-catch_sighup(int x)
-{
-	global.reset = RESET_CONFIG;
-}
-
-static void
-catch_siginfo(int x)
-{
-	global.reset = RESET_NETWORK;
-}
-
-static void
-send_reset(void)
-{
-	struct module_list *mod;
-
-	for (mod = Moduleq.tqh_first; mod != NULL; mod = mod->entries.tqe_next)
-	{
-		if (mod->reset != NULL) mod->reset();
-	}
-}
-
-/*
- * perform timed activities and set next run-loop timeout
- */
-static void
-timed_events(struct timeval **run)
-{
-	time_t now, delta, t;
-	static struct timeval next;
-
-	now = time(NULL);
-
-	*run = NULL;
-	next.tv_sec = 0;
-	next.tv_usec = 0;
-
-	if (time_start == 0)
-	{
-		/* startup */
-		time_start = now;
-		time_last = now;
-		mark_last = now;
-		ping_last = now;
-	}
-
-	/*
-	 * At startup, we try sending a notification once a second.
-	 * Once it succeeds, we set the Libc global __notify_78945668_info__ to 0
-	 * which lets Libc's localtime calculations use notifyd to invalidate
-	 * cached timezones.  This prevents a deadlock in localtime. 
-	 */
-	if (__notify_78945668_info__ < 0)
-	{
-		if (notify_post("com.apple.system.syslogd") == NOTIFY_STATUS_OK) __notify_78945668_info__ = 0;
-		else next.tv_sec = 1;
-	}
-
-	if (time_last > now)
-	{
-		/*
-		 * Despite Albert Einstein's assurance, time has gone backward.
-		 * Reset "last" times to current time.
-		 */
-		time_last = now;
-		mark_last = now;
-		ping_last = now;
-	}
-
-	/*
-	 * Tickle bsd_out module to flush duplicates.
-	 */
-	if (global.bsd_flush_time > 0)
-	{
-		bsd_flush_duplicates(now);
-		bsd_close_idle_files(now);
-		if (global.bsd_flush_time > 0)
-		{
-			if (next.tv_sec == 0) next.tv_sec = global.bsd_flush_time;
-			else if (global.bsd_flush_time < next.tv_sec) next.tv_sec = global.bsd_flush_time;
-		}
-	}
-
-	/*
-	 * Tickle asl_store to sweep file cache
-	 */
-	if (global.asl_store_ping_time > 0)
-	{
-		delta = now - ping_last; 
-		if (delta >= global.asl_store_ping_time)
-		{
-			db_ping_store();
-			bsd_close_idle_files(now);
-			ping_last = now;
-			t = global.asl_store_ping_time;
-		}
-		else
-		{
-			t = global.asl_store_ping_time - delta;
-		}
-
-		if (next.tv_sec == 0) next.tv_sec = t;
-		else if (t < next.tv_sec) next.tv_sec = t;
-	}
-
-	/*
-	 * Send MARK
-	 */
-	if (global.mark_time > 0)
-	{
-		delta = now - mark_last; 
-		if (delta >= global.mark_time)
-		{
-			asl_mark();
-			mark_last = now;
-			t = global.mark_time;
-		}
-		else
-		{
-			t = global.mark_time - delta;
-		}
-
-		if (next.tv_sec == 0) next.tv_sec = t;
-		else if (t < next.tv_sec) next.tv_sec = t;
-	}
-
-	/*
-	 * set output timeout parameter if runloop needs to have a timer
-	 */
-	if (next.tv_sec > 0) *run = &next;
-
-	time_last = now;
-}
-
 void
-init_config()
+launch_config()
 {
 	launch_data_t tmp, pdict;
 	kern_return_t status;
@@ -533,74 +265,52 @@ init_config()
 
 	if (global.launch_dict == NULL)
 	{
-		fprintf(stderr, "%d launchd checkin failed\n", getpid());
+		asldebug("%d launchd checkin failed\n", getpid());
 		exit(1);
 	}
 
 	tmp = launch_data_dict_lookup(global.launch_dict, LAUNCH_JOBKEY_MACHSERVICES);
 	if (tmp == NULL)
 	{
-		fprintf(stderr, "%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", getpid());
+		asldebug("%d launchd lookup of LAUNCH_JOBKEY_MACHSERVICES failed\n", getpid());
 		exit(1);
 	}
 
 	pdict = launch_data_dict_lookup(tmp, SERVICE_NAME);
 	if (pdict == NULL)
 	{
-		fprintf(stderr, "%d launchd lookup of SERVICE_NAME failed\n", getpid());
+		asldebug("%d launchd lookup of SERVICE_NAME failed\n", getpid());
 		exit(1);
 	}
 
 	global.server_port = launch_data_get_machport(pdict);
 
-	/* port for receiving internal messages */
-	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &(global.self_port));
-	if (status != KERN_SUCCESS)
-	{
-		fprintf(stderr, "mach_port_allocate self_port failed: %d", status);
-		exit(1);
-	}
-
-	status = mach_port_insert_right(mach_task_self(), global.self_port, global.self_port, MACH_MSG_TYPE_MAKE_SEND);
-	if (status != KERN_SUCCESS)
-	{
-		fprintf(stderr, "Can't make send right for self_port: %d\n", status);
-		exit(1);
-	}
-
 	/* port for receiving MACH_NOTIFY_DEAD_NAME notifications */
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &(global.dead_session_port));
 	if (status != KERN_SUCCESS)
 	{
-		fprintf(stderr, "mach_port_allocate dead_session_port failed: %d", status);
+		asldebug("mach_port_allocate dead_session_port failed: %d", status);
 		exit(1);
 	}
 
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &(global.listen_set));
 	if (status != KERN_SUCCESS)
 	{
-		fprintf(stderr, "mach_port_allocate listen_set failed: %d", status);
+		asldebug("mach_port_allocate listen_set failed: %d", status);
 		exit(1);
 	}
 
 	status = mach_port_move_member(mach_task_self(), global.server_port, global.listen_set);
 	if (status != KERN_SUCCESS)
 	{
-		fprintf(stderr, "mach_port_move_member server_port failed: %d", status);
-		exit(1);
-	}
-
-	status = mach_port_move_member(mach_task_self(), global.self_port, global.listen_set);
-	if (status != KERN_SUCCESS)
-	{
-		fprintf(stderr, "mach_port_move_member self_port failed: %d", status);
+		asldebug("mach_port_move_member server_port failed: %d", status);
 		exit(1);
 	}
 
 	status = mach_port_move_member(mach_task_self(), global.dead_session_port, global.listen_set);
 	if (status != KERN_SUCCESS)
 	{
-		fprintf(stderr, "mach_port_move_member dead_session_port failed (%u)", status);
+		asldebug("mach_port_move_member dead_session_port failed (%u)", status);
 		exit(1);
 	}
 }
@@ -611,7 +321,7 @@ config_debug(int enable, const char *path)
 	OSSpinLockLock(&global.lock);
 
 	global.debug = enable;
-	if (global.debug_file != NULL) free(global.debug_file);
+	free(global.debug_file);
 	global.debug_file = NULL;
 	if (path != NULL) global.debug_file = strdup(path);
 
@@ -672,7 +382,7 @@ write_boot_log(int first)
 		snprintf(buf, sizeof(buf), "%u", getpid());
 		asl_set(msg, ASL_KEY_PID, buf);
 		asl_set(msg, ASL_KEY_MSG, "--- syslogd restarted ---");
-		asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
+		dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
 		return;
 	}
 
@@ -711,23 +421,17 @@ write_boot_log(int first)
 	snprintf(buf, sizeof(buf), "%u%s", (unsigned int)utx.ut_tv.tv_usec, (utx.ut_tv.tv_usec == 0) ? "" : "000");
 	asl_set(msg, ASL_KEY_TIME_NSEC, buf);
 
-	asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
+	dispatch_async(global.work_queue, ^{ process_message(msg, SOURCE_INTERNAL); });
 }
 
 int
 main(int argc, const char *argv[])
 {
-	struct module_list *mod;
-	fd_set rd, wr, ex, kern;
-	int32_t fd, i, max, status, daemonize;
-	const char *mp;
-	struct timeval *runloop_timer, zto;
-	pthread_attr_t attr;
-	pthread_t t;
-	int network_change_token;
+	int32_t i;
+	int network_change_token, asl_db_token;
 	char tstr[32];
 	time_t now;
-	int first_syslogs_start = 1;
+	int first_syslogd_start = 1;
 
 	/* Set I/O policy */
 	setiopolicy_np(IOPOL_TYPE_DISK, IOPOL_SCOPE_PROCESS, IOPOL_PASSIVE);
@@ -737,41 +441,20 @@ main(int argc, const char *argv[])
 	global.db_lock = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
 	pthread_mutex_init(global.db_lock, NULL);
 
-	global.work_queue_lock = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
-	pthread_mutex_init(global.work_queue_lock, NULL);
+	/*
+	 * Create work queue, but suspend until output modules are initialized.
+	 */
+	global.work_queue = dispatch_queue_create("Work Queue", NULL);
+	dispatch_suspend(global.work_queue);
 
-	pthread_cond_init(&global.work_queue_cond, NULL);
-
-	global.work_queue = (asl_search_result_t *)calloc(1, sizeof(asl_search_result_t));
-
-	global.asl_log_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG);
-	global.db_file_max = 16384000;
-	global.db_memory_max = 8192;
-	global.db_mini_max = 256;
-	global.bsd_max_dup_time = DEFAULT_BSD_MAX_DUP_SEC;
-	global.utmp_ttl = DEFAULT_UTMP_TTL_SEC;
-	global.fs_ttl = DEFAULT_FS_TTL_SEC;
-	global.mps_limit = DEFAULT_MPS_LIMIT;
-	global.kfd = -1;
 	global.lockdown_session_fd = -1;
 
-#ifdef CONFIG_MAC
-	global.dbtype = DB_TYPE_FILE;
-	global.db_file_max = 25600000;
-	global.asl_store_ping_time = 150;
-#endif
+	init_globals();
 
 #ifdef CONFIG_IPHONE
-	global.dbtype = DB_TYPE_MINI;
-	activate_remote = 1;
+	remote_enabled = 1;
 	activate_bsd_out = 0;
 #endif
-
-	mp = _PATH_MODULE_LIB;
-	daemonize = 0;
-	__notify_78945668_info__ = 0xf0000000;
-	zto.tv_sec = 0;
-	zto.tv_usec = 0;
 
 	/* prevent malloc from calling ASL on error */
 	_malloc_no_asl_log = 1;
@@ -797,7 +480,7 @@ main(int argc, const char *argv[])
 				else if (streq(argv[i], "iphone"))
 				{
 					global.dbtype = DB_TYPE_MINI;
-					activate_remote = 1;
+					remote_enabled = 1;
 				}
 			}
 		}
@@ -837,10 +520,6 @@ main(int argc, const char *argv[])
 				}
 			}
 		}
-		else if (streq(argv[i], "-D"))
-		{
-			daemonize = 1;
-		}
 		else if (streq(argv[i], "-m"))
 		{
 			if ((i + 1) < argc) global.mark_time = 60 * atoll(argv[++i]);
@@ -849,37 +528,13 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) global.utmp_ttl = atol(argv[++i]);
 		}
-		else if (streq(argv[i], "-fs_ttl"))
-		{
-			if ((i + 1) < argc) global.fs_ttl = atol(argv[++i]);
-		}
 		else if (streq(argv[i], "-mps_limit"))
 		{
 			if ((i + 1) < argc) global.mps_limit = atol(argv[++i]);
 		}
-		else if (streq(argv[i], "-l"))
-		{
-			if ((i + 1) < argc) mp = argv[++i];
-		}
-		else if (streq(argv[i], "-c"))
-		{
-			if ((i + 1) < argc)
-			{
-				i++;
-				if ((argv[i][0] >= '0') && (argv[i][0] <= '7') && (argv[i][1] == '\0')) global.asl_log_filter = ASL_FILTER_MASK_UPTO(atoi(argv[i]));
-			}
-		}
 		else if (streq(argv[i], "-dup_delay"))
 		{
 			if ((i + 1) < argc) global.bsd_max_dup_time = atoll(argv[++i]);
-		}
-		else if (streq(argv[i], "-asl_in"))
-		{
-			if ((i + 1) < argc) activate_asl_in = atoi(argv[++i]);
-		}
-		else if (streq(argv[i], "-asl_action"))
-		{
-			if ((i + 1) < argc) activate_asl_action = atoi(argv[++i]);
 		}
 		else if (streq(argv[i], "-klog_in"))
 		{
@@ -889,17 +544,17 @@ main(int argc, const char *argv[])
 		{
 			if ((i + 1) < argc) activate_bsd_in = atoi(argv[++i]);
 		}
+		else if (streq(argv[i], "-udp_in"))
+		{
+			if ((i + 1) < argc) activate_udp_in = atoi(argv[++i]);
+		}
 		else if (streq(argv[i], "-bsd_out"))
 		{
 			if ((i + 1) < argc) activate_bsd_out = atoi(argv[++i]);
 		}
 		else if (streq(argv[i], "-remote"))
 		{
-			if ((i + 1) < argc) activate_remote = atoi(argv[++i]);
-		}
-		else if (streq(argv[i], "-udp_in"))
-		{
-			if ((i + 1) < argc) activate_udp_in = atoi(argv[++i]);
+			if ((i + 1) < argc) remote_enabled = atoi(argv[++i]);
 		}
 	}
 
@@ -907,126 +562,81 @@ main(int argc, const char *argv[])
 	{
 		global.dbtype = DB_TYPE_FILE;
 		global.db_file_max = 25600000;
-		global.asl_store_ping_time = 150;
 	}
 
-	TAILQ_INIT(&Moduleq);
-	static_modules();
-	load_modules(mp);
-	aslevent_init();
+	signal(SIGHUP, SIG_IGN);
 
-	if (global.debug == 0)
-	{
-		if (daemonize != 0)
-		{
-			if (fork() != 0) exit(0);
-
-			detach();
-			closeall();
-		}
-
-		writepid(&first_syslogs_start);
-	}
-
-	init_config();
-
-	signal(SIGHUP, catch_sighup);
-	signal(SIGINFO, catch_siginfo);
-
-	/* register for network change notifications if the udp_in module is active */
-	network_change_token = -1;
-	if (activate_udp_in != 0) notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGINFO, &network_change_token);
-
-	for (mod = Moduleq.tqh_first; mod != NULL; mod = mod->entries.tqe_next)
-	{
-		fd = mod->init();
-		if (fd < 0) continue;
-	}
-
-	/*
-	 * Start database server thread
-	 */
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_create(&t, &attr, (void *(*)(void *))database_server, NULL);
-	pthread_attr_destroy(&attr);
-
-	/*
-	 * Start output worker thread
-	 */
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_create(&t, &attr, (void *(*)(void *))output_worker, NULL);
-	pthread_attr_destroy(&attr);
-
-	FD_ZERO(&rd);
-	FD_ZERO(&wr);
-	FD_ZERO(&ex);
+	writepid(&first_syslogd_start);
 
 	/*
 	 * Log UTMPX boot time record
 	 */
-	write_boot_log(first_syslogs_start);
+	write_boot_log(first_syslogd_start);
 
-	/*
-	 * drain /dev/klog first
-	 */
-	if (global.kfd >= 0)
+	asldebug("reading launch plist\n");
+	launch_config();
+
+	asldebug("initializing modules\n");
+	init_modules();
+	dispatch_resume(global.work_queue);
+
+	/* network change notification resets UDP and BSD modules */
+    notify_register_dispatch(kNotifySCNetworkChange, &network_change_token, global.work_queue, ^(int x){
+        if (activate_udp_in != 0) udp_in_reset();
+        if (activate_bsd_out != 0) bsd_out_reset();
+    });
+
+	/* SIGHUP resets all modules */
+	global.sig_hup_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, (uintptr_t)SIGHUP, 0, dispatch_get_main_queue());
+	dispatch_source_set_event_handler(global.sig_hup_src, ^{
+		dispatch_async(global.work_queue, ^{
+			int i;
+
+			asldebug("SIGHUP reset\n");
+			for (i = 0; i < global.module_count; i++)
+			{
+				if (global.module[i]->enabled != 0) global.module[i]->reset();
+			}
+		});
+	});
+
+	dispatch_resume(global.sig_hup_src);
+
+	/* register for DB notification (posted by dbserver) for performance */
+	notify_register_plain(kNotifyASLDBUpdate, &asl_db_token);
+
+	/* timer for MARK facility */
+    if (global.mark_time > 0)
 	{
-		FD_ZERO(&kern);
-		FD_SET(global.kfd, &kern);
-		max = global.kfd + 1;
-		while (select(max, &kern, NULL, NULL, &zto) > 0)
-		{
-			aslevent_handleevent(&kern, &wr, &ex);
-		}
+		global.mark_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+		dispatch_source_set_event_handler(global.mark_timer, ^{ 
+			asl_mark();
+		});
+		dispatch_source_set_timer(global.mark_timer, dispatch_walltime(NULL, global.mark_time * NSEC_PER_SEC), global.mark_time * NSEC_PER_SEC, 0);
+		dispatch_resume(global.mark_timer);
 	}
 
 	/*
-	 * Start launchd drain thread
+	 * Start launchd service
+	 * This pins a thread in _vprocmgr_log_drain.  Eventually we will either
+	 * remove the whole stderr/stdout -> ASL mechanism entirely, or come up 
+	 * with a communication channel that we can trigger with a dispatch source.
 	 */
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_create(&t, &attr, (void *(*)(void *))launchd_drain, NULL);
-	pthread_attr_destroy(&attr);
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		forever _vprocmgr_log_drain(NULL, NULL, launchd_callback);
+	});
 
-	runloop_timer = NULL;
-	timed_events(&runloop_timer);
+	/*
+	 * Start mach server
+	 * Parks a thread in database_server.  In notifyd, we found that the overhead of
+	 * a dispatch source for mach calls was too high, especially on iOS.
+	 */
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+		database_server();
+	});
 
-	forever
-	{
-		/* aslevent_fdsets clears the fdsets, then sets any non-zero fds from the aslevent list */
-		max = aslevent_fdsets(&rd, &wr, &ex) + 1;
+	dispatch_main();
 
-		status = select(max, &rd, &wr, &ex, runloop_timer);
-		if ((status < 0) && (errno == EBADF))
-		{
-			/* Catastrophic error! */
-			aslevent_check();
-			abort();
-		}
-
-		if ((global.kfd >= 0) && FD_ISSET(global.kfd, &rd))
-		{
-			/*  drain /dev/klog */
-			FD_ZERO(&kern);
-			FD_SET(global.kfd, &kern);
-			max = global.kfd + 1;
-
-			while (select(max, &kern, NULL, NULL, &zto) > 0)
-			{
-				aslevent_handleevent(&kern, &wr, &ex);
-			}
-		}
-
-		if (status > 0) aslevent_handleevent(&rd, &wr, &ex);
-
-		if ((global.reset != RESET_NONE) || (status < 0))
-		{
-			send_reset();
-			global.reset = RESET_NONE;
-		}
-
-		timed_events(&runloop_timer);
- 	}
+	/* NOTREACHED */
+	return 0;
 }

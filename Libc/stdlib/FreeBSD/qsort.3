@@ -36,40 +36,77 @@
 .Dt QSORT 3
 .Os
 .Sh NAME
-.Nm qsort , qsort_r , heapsort , mergesort
+.Nm heapsort ,
+#ifdef UNIFDEF_BLOCKS
+.Nm heapsort_b ,
+#endif
+.Nm mergesort ,
+#ifdef UNIFDEF_BLOCKS
+.Nm mergesort_b ,
+#endif
+.Nm qsort ,
+#ifdef UNIFDEF_BLOCKS
+.Nm qsort_b ,
+#endif
+.Nm qsort_r
 .Nd sort functions
-.Sh LIBRARY
-.Lb libc
 .Sh SYNOPSIS
 .In stdlib.h
-.Ft void
-.Fo qsort
-.Fa "void *base"
-.Fa "size_t nmemb"
-.Fa "size_t size"
-.Fa "int \*[lp]*compar\*[rp]\*[lp]const void *, const void *\*[rp]"
-.Fc
-.Ft void
-.Fo qsort_r
-.Fa "void *base"
-.Fa "size_t nmemb"
-.Fa "size_t size"
-.Fa "void *thunk"
-.Fa "int \*[lp]*compar\*[rp]\*[lp]void *, const void *, const void *\*[rp]"
-.Fc
 .Ft int
 .Fo heapsort
 .Fa "void *base"
-.Fa "size_t nmemb"
-.Fa "size_t size"
+.Fa "size_t nel"
+.Fa "size_t width"
 .Fa "int \*[lp]*compar\*[rp]\*[lp]const void *, const void *\*[rp]"
 .Fc
+#ifdef UNIFDEF_BLOCKS
+.Ft int
+.Fo heapsort_b
+.Fa "void *base"
+.Fa "size_t nel"
+.Fa "size_t width"
+.Fa "int \*[lp]^compar\*[rp]\*[lp]const void *, const void *\*[rp]"
+.Fc
+#endif
 .Ft int
 .Fo mergesort
 .Fa "void *base"
-.Fa "size_t nmemb"
-.Fa "size_t size"
+.Fa "size_t nel"
+.Fa "size_t width"
 .Fa "int \*[lp]*compar\*[rp]\*[lp]const void *, const void *\*[rp]"
+.Fc
+#ifdef UNIFDEF_BLOCKS
+.Ft int
+.Fo mergesort_b
+.Fa "void *base"
+.Fa "size_t nel"
+.Fa "size_t width"
+.Fa "int \*[lp]^compar\*[rp]\*[lp]const void *, const void *\*[rp]"
+.Fc
+#endif
+.Ft void
+.Fo qsort
+.Fa "void *base"
+.Fa "size_t nel"
+.Fa "size_t width"
+.Fa "int \*[lp]*compar\*[rp]\*[lp]const void *, const void *\*[rp]"
+.Fc
+#ifdef UNIFDEF_BLOCKS
+.Ft void
+.Fo qsort_b
+.Fa "void *base"
+.Fa "size_t nel"
+.Fa "size_t width"
+.Fa "int \*[lp]^compar\*[rp]\*[lp]const void *, const void *\*[rp]"
+.Fc
+#endif
+.Ft void
+.Fo qsort_r
+.Fa "void *base"
+.Fa "size_t nel"
+.Fa "size_t width"
+.Fa "void *thunk"
+.Fa "int \*[lp]*compar\*[rp]\*[lp]void *, const void *, const void *\*[rp]"
 .Fc
 .Sh DESCRIPTION
 The
@@ -80,7 +117,7 @@ The
 function is a modified selection sort.
 The
 .Fn mergesort
-function is a modified merge sort with exponential search
+function is a modified merge sort with exponential search,
 intended for sorting data with pre-existing order.
 .Pp
 The
@@ -88,19 +125,19 @@ The
 and
 .Fn heapsort
 functions sort an array of
-.Fa nmemb
+.Fa nel
 objects, the initial member of which is pointed to by
 .Fa base .
 The size of each object is specified by
-.Fa size .
+.Fa width .
 The
 .Fn mergesort
 function
 behaves similarly, but
 .Em requires
 that
-.Fa size
-be greater than
+.Fa width
+be greater than or equal to
 .Dq "sizeof(void *) / 2" .
 .Pp
 The contents of the array
@@ -135,7 +172,7 @@ and
 .Fn heapsort
 are
 .Em not
-stable, that is, if two members compare as equal, their order in
+stable; that is, if two members compare as equal, their order in
 the sorted array is undefined.
 The
 .Fn mergesort
@@ -179,8 +216,8 @@ does not allocate memory, it is implemented using recursion.
 The function
 .Fn mergesort
 requires additional memory of size
-.Fa nmemb *
-.Fa size
+.Fa nel *
+.Fa width
 bytes; it should be used only when space is not at a premium.
 The
 .Fn mergesort
@@ -192,19 +229,40 @@ Normally,
 .Fn qsort
 is faster than
 .Fn mergesort
-is faster than
+which is faster than
 .Fn heapsort .
 Memory availability and pre-existing order in the data can make this
 untrue.
+#ifdef UNIFDEF_BLOCKS
+.Pp
+The
+.Fn heapsort_b ,
+.Fn mergesort_b ,
+and
+.Fn qsort_b
+routines are like the corresponding routines without the _b suffix, expect
+that the
+.Fa compar
+callback is a block pointer instead of a function pointer.
+#endif
 .Sh RETURN VALUES
 The
+#ifdef UNIFDEF_BLOCKS
+.Fn qsort ,
+.Fn qsort_b
+#else
 .Fn qsort
+#endif
 and
 .Fn qsort_r
 functions
 return no value.
 .Pp
-.Rv -std heapsort mergesort
+#ifdef UNIFDEF_BLOCKS
+.ds HEAPSORT_B heapsort_b
+.ds MERGESORT_B mergesort_b
+#endif
+.Rv -std heapsort \*[HEAPSORT_B] mergesort \*[MERGESORT_B]
 .Sh COMPATIBILITY
 Previous versions of
 .Fn qsort
@@ -213,26 +271,46 @@ did not permit the comparison routine itself to call
 This is no longer true.
 .Sh ERRORS
 The
+#ifdef UNIFDEF_BLOCKS
+.Fn heapsort ,
+.Fn heapsort_b ,
+.Fn mergesort ,
+and
+.Fn mergesort_b
+#else
 .Fn heapsort
 and
 .Fn mergesort
+#endif
 functions succeed unless:
 .Bl -tag -width Er
 .It Bq Er EINVAL
 The
-.Fa size
+.Fa width
 argument is zero, or,
 the
-.Fa size
+.Fa width
 argument to
 .Fn mergesort
+#ifdef UNIFDEF_BLOCKS
+or
+.Fn mergesort_b
+#endif
 is less than
 .Dq "sizeof(void *) / 2" .
 .It Bq Er ENOMEM
 The
+#ifdef UNIFDEF_BLOCKS
+.Fn heapsort ,
+.Fn heapsort_b ,
+.Fn mergesort ,
+or
+.Fn mergesort_b
+#else
 .Fn heapsort
 or
 .Fn mergesort
+#endif
 functions
 were unable to allocate memory.
 .El

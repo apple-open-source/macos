@@ -46,7 +46,7 @@
 
 #define PY_SSIZE_T_CLEAN
 
-#include <Python.h>
+#include <Python/Python.h>
 #if defined(MACOS) && !defined(MACOS_X_UNIX)
 # include "macglue.h"
 # include <CodeFragments.h>

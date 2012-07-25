@@ -2538,8 +2538,7 @@ ErrorExit:
 	if ( driver->fDeviceAttached == false && ( driver->isInactive() == false ) )
 	{
 		
-        // Leave behind some of evidence that there was a catastorphic failure which guided us 
-        // to self termination. 
+        // Leave behind some of evidence that there was a catastorphic failure which guided us to self termination. 
         IOLog ( "[%p](%u)/(%u) Device not responding\n", driver, driver->fConsecutiveResetCount, kMaxConsecutiveResets );
         
         if  ( driver->GetInterfaceReference() != NULL )
@@ -2548,7 +2547,7 @@ ErrorExit:
         }
         
         // Terminate.
-		driver->terminate();
+ 		driver->terminate();
 		
 	}
 	

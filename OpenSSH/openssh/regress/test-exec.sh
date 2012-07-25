@@ -3,8 +3,6 @@
 
 #SUDO=sudo
 
-export TEST_SHELL="${TEST_SHELL:-/bin/sh}"
-
 # Unbreak GNU head(1)
 _POSIX2_VERSION=199209
 export _POSIX2_VERSION
@@ -206,6 +204,11 @@ verbose ()
 	fi
 }
 
+warn ()
+{
+	echo "WARNING: $@" >>$TEST_SSH_LOGFILE
+	echo "WARNING: $@"
+}
 
 fail ()
 {
@@ -221,6 +224,17 @@ fatal ()
 	fail "$@"
 	cleanup
 	exit $RESULT
+}
+
+# Check whether preprocessor symbols are defined in config.h.
+config_defined ()
+{
+	str=$1
+	while test "x$2" != "x" ; do
+		str="$str|$2"
+		shift
+	done
+	egrep "^#define.*($str)" ${BUILDDIR}/config.h >/dev/null 2>&1
 }
 
 RESULT=0
@@ -353,7 +367,7 @@ fi
 # create a proxy version of the client config
 (
 	cat $OBJ/ssh_config
-	echo proxycommand ${SUDO} sh ${OBJ}/sshd-log-wrapper.sh ${SSHD} ${TEST_SSH_LOGFILE} -i -f $OBJ/sshd_proxy
+	echo proxycommand ${SUDO} sh ${SRC}/sshd-log-wrapper.sh ${SSHD} ${TEST_SSH_LOGFILE} -i -f $OBJ/sshd_proxy
 ) > $OBJ/ssh_proxy
 
 # check proxy config

@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)vsscanf.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.14 2008/04/17 22:17:54 jhb Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdio.h>
 #include <string.h>
 #include "local.h"
@@ -55,12 +57,16 @@ eofread(cookie, buf, len)
 }
 
 int
-vsscanf(str, fmt, ap)
+vsscanf_l(str, loc, fmt, ap)
 	const char * __restrict str;
+	locale_t loc;
 	const char * __restrict fmt;
 	__va_list ap;
 {
 	FILE f;
+	struct __sFILEX ext;
+	f._extra = &ext;
+	INITEXTRA(&f);
 
 	f._file = -1;
 	f._flags = __SRD;
@@ -71,5 +77,15 @@ vsscanf(str, fmt, ap)
 	f._lb._base = NULL;
 	f._orientation = 0;
 	memset(&f._mbstate, 0, sizeof(mbstate_t));
-	return (__svfscanf(&f, fmt, ap));
+	return (__svfscanf_l(&f, loc, fmt, ap));
 }
+
+int
+vsscanf(str, fmt, ap)
+	const char * __restrict str;
+	const char * __restrict fmt;
+	__va_list ap;
+{
+	return vsscanf_l(str, __current_locale(), fmt, ap);
+}
+

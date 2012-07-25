@@ -72,29 +72,24 @@
 #include "config.h"
 #include "JSDateMath.h"
 
-#include "Assertions.h"
-#include "ASCIICType.h"
-#include "CurrentTime.h"
 #include "JSObject.h"
-#include "MathExtras.h"
 #include "ScopeChain.h"
-#include "StdLibExtras.h"
-#include "StringExtras.h"
 
 #include <algorithm>
 #include <limits.h>
 #include <limits>
 #include <stdint.h>
 #include <time.h>
+#include <wtf/ASCIICType.h>
+#include <wtf/Assertions.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
+#include <wtf/StringExtras.h>
 #include <wtf/text/StringBuilder.h>
 
 #if HAVE(ERRNO_H)
 #include <errno.h>
-#endif
-
-#if OS(WINCE)
-extern "C" size_t strftime(char * const s, const size_t maxsize, const char * const format, const struct tm * const t);
-extern "C" struct tm * localtime(const time_t *timer);
 #endif
 
 #if HAVE(SYS_TIME_H)

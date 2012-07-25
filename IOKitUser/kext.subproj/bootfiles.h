@@ -76,4 +76,4 @@
 #define kRootUUIDKey          "Root UUID"
 #define kRootMatchKey         "Root Match"
 
-#endif __BOOTFILES_H__
+#endif /* __BOOTFILES_H__ */

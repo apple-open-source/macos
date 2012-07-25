@@ -78,10 +78,17 @@ void HTMLPlugInElement::detach()
         m_isCapturingMouseEvents = false;
     }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    if (m_NPObject) {
+        _NPN_ReleaseObject(m_NPObject);
+        m_NPObject = 0;
+    }
+#endif
+
     HTMLFrameOwnerElement::detach();
 }
 
-PassScriptInstance HTMLPlugInElement::getInstance() const
+PassScriptInstance HTMLPlugInElement::getInstance()
 {
     Frame* frame = document()->frame();
     if (!frame)
@@ -98,7 +105,22 @@ PassScriptInstance HTMLPlugInElement::getInstance() const
     return m_instance;
 }
 
-Widget* HTMLPlugInElement::pluginWidget() const
+bool HTMLPlugInElement::guardedDispatchBeforeLoadEvent(const String& sourceURL)
+{
+    // FIXME: Our current plug-in loading design can't guarantee the following
+    // assertion is true, since plug-in loading can be initiated during layout,
+    // and synchronous layout can be initiated in a beforeload event handler!
+    // See <http://webkit.org/b/71264>.
+    // ASSERT(!m_inBeforeLoadEventHandler);
+    m_inBeforeLoadEventHandler = true;
+    // static_cast is used to avoid a compile error since dispatchBeforeLoadEvent
+    // is intentionally undefined on this class.
+    bool beforeLoadAllowedLoad = static_cast<HTMLFrameOwnerElement*>(this)->dispatchBeforeLoadEvent(sourceURL);
+    m_inBeforeLoadEventHandler = false;
+    return beforeLoadAllowedLoad;
+}
+
+Widget* HTMLPlugInElement::pluginWidget()
 {
     if (m_inBeforeLoadEventHandler) {
         // The plug-in hasn't loaded yet, and it makes no sense to try to load if beforeload handler happened to touch the plug-in element.
@@ -113,40 +135,29 @@ Widget* HTMLPlugInElement::pluginWidget() const
     return renderWidget->widget();
 }
 
-bool HTMLPlugInElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
+bool HTMLPlugInElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attrName == widthAttr ||
-        attrName == heightAttr ||
-        attrName == vspaceAttr ||
-        attrName == hspaceAttr) {
-            result = eUniversal;
-            return false;
-    }
-    
-    if (attrName == alignAttr) {
-        result = eReplaced; // Share with <img> since the alignment behavior is the same.
-        return false;
-    }
-    
-    return HTMLFrameOwnerElement::mapToEntry(attrName, result);
+    if (name == widthAttr || name == heightAttr || name == vspaceAttr || name == hspaceAttr || name == alignAttr)
+        return true;
+    return HTMLFrameOwnerElement::isPresentationAttribute(name);
 }
 
-void HTMLPlugInElement::parseMappedAttribute(Attribute* attr)
+void HTMLPlugInElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == widthAttr)
-        addCSSLength(attr, CSSPropertyWidth, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyWidth, attr->value());
     else if (attr->name() == heightAttr)
-        addCSSLength(attr, CSSPropertyHeight, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyHeight, attr->value());
     else if (attr->name() == vspaceAttr) {
-        addCSSLength(attr, CSSPropertyMarginTop, attr->value());
-        addCSSLength(attr, CSSPropertyMarginBottom, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginTop, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginBottom, attr->value());
     } else if (attr->name() == hspaceAttr) {
-        addCSSLength(attr, CSSPropertyMarginLeft, attr->value());
-        addCSSLength(attr, CSSPropertyMarginRight, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginLeft, attr->value());
+        addHTMLLengthToStyle(style, CSSPropertyMarginRight, attr->value());
     } else if (attr->name() == alignAttr)
-        addHTMLAlignment(attr);
+        applyAlignmentAttributeToStyle(attr, style);
     else
-        HTMLFrameOwnerElement::parseMappedAttribute(attr);
+        HTMLFrameOwnerElement::collectStyleForAttribute(attr, style);
 }
 
 void HTMLPlugInElement::defaultEventHandler(Event* event)
@@ -158,8 +169,8 @@ void HTMLPlugInElement::defaultEventHandler(Event* event)
     // FIXME: Mouse down and scroll events are passed down to plug-in via custom code in EventHandler; these code paths should be united.
 
     RenderObject* r = renderer();
-    if (r && r->isEmbeddedObject() && toRenderEmbeddedObject(r)->showsMissingPluginIndicator()) {
-        toRenderEmbeddedObject(r)->handleMissingPluginIndicatorEvent(event);
+    if (r && r->isEmbeddedObject() && toRenderEmbeddedObject(r)->showsUnavailablePluginIndicator()) {
+        toRenderEmbeddedObject(r)->handleUnavailablePluginIndicatorEvent(event);
         return;
     }
 

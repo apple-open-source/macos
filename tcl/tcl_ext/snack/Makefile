@@ -17,7 +17,7 @@ Url                   = http://www.speech.kth.se/$(Project)/dist/$(UrlFile)$(Url
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-perms
+GnuAfterInstall       = strip fix-perms
 GnuNoBuild            = YES
 
 # include TEA Tcl extension build support
@@ -26,11 +26,6 @@ include ../TEA.make
 build::
 	@echo "Building $(Project)..."
 	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc"/*.html "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(RM) "$(DSTROOT)/$(TclExtHtmlDir)"/{python*,Sphere*}
 
 extract::
 	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/mac

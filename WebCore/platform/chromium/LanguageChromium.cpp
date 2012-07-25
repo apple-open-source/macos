@@ -31,17 +31,25 @@
 #include "config.h"
 #include "Language.h"
 
-#include "PlatformBridge.h"
 #include "PlatformString.h"
+#include <public/Platform.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-String platformDefaultLanguage()
+static String platformLanguage()
 {
-    static String computedDefaultLanguage;
+    DEFINE_STATIC_LOCAL(String, computedDefaultLanguage, ());
     if (computedDefaultLanguage.isEmpty())
-        computedDefaultLanguage = PlatformBridge::computedDefaultLanguage();
+        computedDefaultLanguage.append(WebKit::Platform::current()->defaultLocale());
     return computedDefaultLanguage;
+}
+
+Vector<String> platformUserPreferredLanguages()
+{
+    Vector<String> userPreferredLanguages;
+    userPreferredLanguages.append(platformLanguage());
+    return userPreferredLanguages;
 }
 
 } // namespace WebCore

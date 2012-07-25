@@ -24,6 +24,7 @@
 
 #include "Attribute.h"
 #include "FilterEffect.h"
+#include "SVGElementInstance.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
 
@@ -32,9 +33,18 @@ namespace WebCore {
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEDisplacementMapElement, SVGNames::inAttr, In1, in1)
 DEFINE_ANIMATED_STRING(SVGFEDisplacementMapElement, SVGNames::in2Attr, In2, in2)
-DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::xChannelSelectorAttr, XChannelSelector, xChannelSelector)
-DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::yChannelSelectorAttr, YChannelSelector, yChannelSelector)    
+DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::xChannelSelectorAttr, XChannelSelector, xChannelSelector, ChannelSelectorType)
+DEFINE_ANIMATED_ENUMERATION(SVGFEDisplacementMapElement, SVGNames::yChannelSelectorAttr, YChannelSelector, yChannelSelector, ChannelSelectorType)
 DEFINE_ANIMATED_NUMBER(SVGFEDisplacementMapElement, SVGNames::scaleAttr, Scale, scale)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEDisplacementMapElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in2)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(xChannelSelector)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(yChannelSelector)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(scale)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGFEDisplacementMapElement::SVGFEDisplacementMapElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
@@ -42,6 +52,7 @@ inline SVGFEDisplacementMapElement::SVGFEDisplacementMapElement(const QualifiedN
     , m_yChannelSelector(CHANNEL_A)
 {
     ASSERT(hasTagName(SVGNames::feDisplacementMapTag));
+    registerAnimatedPropertiesForSVGFEDisplacementMapElement();
 }
 
 PassRefPtr<SVGFEDisplacementMapElement> SVGFEDisplacementMapElement::create(const QualifiedName& tagName, Document* document)
@@ -49,44 +60,66 @@ PassRefPtr<SVGFEDisplacementMapElement> SVGFEDisplacementMapElement::create(cons
     return adoptRef(new SVGFEDisplacementMapElement(tagName, document));
 }
 
-ChannelSelectorType SVGFEDisplacementMapElement::stringToChannel(const String& key)
+bool SVGFEDisplacementMapElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (key == "R")
-        return CHANNEL_R;
-    if (key == "G")
-        return CHANNEL_G;
-    if (key == "B")
-        return CHANNEL_B;
-    if (key == "A")
-        return CHANNEL_A;
-
-    return CHANNEL_UNKNOWN;
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        supportedAttributes.add(SVGNames::inAttr);
+        supportedAttributes.add(SVGNames::in2Attr);
+        supportedAttributes.add(SVGNames::xChannelSelectorAttr);
+        supportedAttributes.add(SVGNames::yChannelSelectorAttr);
+        supportedAttributes.add(SVGNames::scaleAttr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
 }
 
-void SVGFEDisplacementMapElement::parseMappedAttribute(Attribute* attr)
+void SVGFEDisplacementMapElement::parseAttribute(Attribute* attr)
 {
-    const String& value = attr->value();
-    if (attr->name() == SVGNames::xChannelSelectorAttr)
-        setXChannelSelectorBaseValue(stringToChannel(value));
-    else if (attr->name() == SVGNames::yChannelSelectorAttr)
-        setYChannelSelectorBaseValue(stringToChannel(value));
-    else if (attr->name() == SVGNames::inAttr)
+    if (!isSupportedAttribute(attr->name())) {
+        SVGFilterPrimitiveStandardAttributes::parseAttribute(attr);
+        return;
+    }
+
+    const AtomicString& value = attr->value();
+    if (attr->name() == SVGNames::xChannelSelectorAttr) {
+        ChannelSelectorType propertyValue = SVGPropertyTraits<ChannelSelectorType>::fromString(value);
+        if (propertyValue > 0)
+            setXChannelSelectorBaseValue(propertyValue);
+        return;
+    }
+
+    if (attr->name() == SVGNames::yChannelSelectorAttr) {
+        ChannelSelectorType propertyValue = SVGPropertyTraits<ChannelSelectorType>::fromString(value);
+        if (propertyValue > 0)
+            setYChannelSelectorBaseValue(propertyValue);
+        return;
+    }
+
+    if (attr->name() == SVGNames::inAttr) {
         setIn1BaseValue(value);
-    else if (attr->name() == SVGNames::in2Attr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::in2Attr) {
         setIn2BaseValue(value);
-    else if (attr->name() == SVGNames::scaleAttr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::scaleAttr) {
         setScaleBaseValue(value.toFloat());
-    else
-        SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 bool SVGFEDisplacementMapElement::setFilterEffectAttribute(FilterEffect* effect, const QualifiedName& attrName)
 {
     FEDisplacementMap* displacementMap = static_cast<FEDisplacementMap*>(effect);
     if (attrName == SVGNames::xChannelSelectorAttr)
-        return displacementMap->setXChannelSelector(static_cast<ChannelSelectorType>(xChannelSelector()));
+        return displacementMap->setXChannelSelector(xChannelSelector());
     if (attrName == SVGNames::yChannelSelectorAttr)
-        return displacementMap->setYChannelSelector(static_cast<ChannelSelectorType>(yChannelSelector()));
+        return displacementMap->setYChannelSelector(yChannelSelector());
     if (attrName == SVGNames::scaleAttr)
         return displacementMap->setScale(scale());
 
@@ -96,65 +129,24 @@ bool SVGFEDisplacementMapElement::setFilterEffectAttribute(FilterEffect* effect,
 
 void SVGFEDisplacementMapElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::xChannelSelectorAttr) {
-        ChannelSelectorType selector = static_cast<ChannelSelectorType>(xChannelSelector());
-        if (CHANNEL_UNKNOWN > selector || selector > CHANNEL_A)
-            setXChannelSelectorBaseValue(CHANNEL_UNKNOWN);
-        primitiveAttributeChanged(attrName);
-    } else if (attrName == SVGNames::yChannelSelectorAttr) {
-        ChannelSelectorType selector = static_cast<ChannelSelectorType>(yChannelSelector());
-        if (CHANNEL_UNKNOWN > selector || selector > CHANNEL_A)
-            setYChannelSelectorBaseValue(CHANNEL_UNKNOWN);
-        primitiveAttributeChanged(attrName);
-    } else if (attrName == SVGNames::scaleAttr)
-        primitiveAttributeChanged(attrName);
-    else if (attrName == SVGNames::inAttr || attrName == SVGNames::in2Attr)
-        invalidate();
-}
-
-void SVGFEDisplacementMapElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeXChannelSelector();
-        synchronizeYChannelSelector();
-        synchronizeIn1();
-        synchronizeIn2();
-        synchronizeScale();
+    if (!isSupportedAttribute(attrName)) {
+        SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::xChannelSelectorAttr)
-        synchronizeXChannelSelector();
-    else if (attrName == SVGNames::yChannelSelectorAttr)
-        synchronizeYChannelSelector();
-    else if (attrName == SVGNames::inAttr)
-        synchronizeIn1();
-    else if (attrName == SVGNames::in2Attr)
-        synchronizeIn2();
-    else if (attrName == SVGNames::scaleAttr)
-        synchronizeScale();
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
+    if (attrName == SVGNames::xChannelSelectorAttr || attrName == SVGNames::yChannelSelectorAttr || attrName == SVGNames::scaleAttr) {
+        primitiveAttributeChanged(attrName);
+        return;
+    }
 
-AttributeToPropertyTypeMap& SVGFEDisplacementMapElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
+    if (attrName == SVGNames::inAttr || attrName == SVGNames::in2Attr) {
+        invalidate();
+        return;
+    }
 
-void SVGFEDisplacementMapElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::inAttr, AnimatedString);
-    attributeToPropertyTypeMap.set(SVGNames::in2Attr, AnimatedString);
-    attributeToPropertyTypeMap.set(SVGNames::xChannelSelectorAttr, AnimatedEnumeration);
-    attributeToPropertyTypeMap.set(SVGNames::yChannelSelectorAttr, AnimatedEnumeration);
-    attributeToPropertyTypeMap.set(SVGNames::scaleAttr, AnimatedNumber);
+    ASSERT_NOT_REACHED();
 }
 
 PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
@@ -165,8 +157,7 @@ PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* fi
     if (!input1 || !input2)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEDisplacementMap::create(filter, static_cast<ChannelSelectorType>(xChannelSelector()), 
-                                                                static_cast<ChannelSelectorType>(yChannelSelector()), scale());
+    RefPtr<FilterEffect> effect = FEDisplacementMap::create(filter, xChannelSelector(), yChannelSelector(), scale());
     FilterEffectVector& inputEffects = effect->inputEffects();
     inputEffects.reserveCapacity(2);
     inputEffects.append(input1);
@@ -177,5 +168,3 @@ PassRefPtr<FilterEffect> SVGFEDisplacementMapElement::build(SVGFilterBuilder* fi
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

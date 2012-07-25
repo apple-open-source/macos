@@ -35,12 +35,11 @@ namespace WebCore {
 
 using namespace MathMLNames;
 
-RenderMathMLMath::RenderMathMLMath(Node* math)
-    : RenderMathMLRow(math)
+RenderMathMLMath::RenderMathMLMath(Element* element)
+    : RenderMathMLRow(element)
 {
 }
 
 }
 
 #endif // ENABLE(MATHML)
-

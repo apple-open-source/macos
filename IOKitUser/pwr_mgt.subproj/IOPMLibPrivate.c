@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,43 +30,64 @@
 #include <mach/mach_port.h>
 #include <mach/vm_map.h>
 #include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <notify.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
+#include <asl.h>
 
 #include <unistd.h>
 #include <stdlib.h>
 #include <dirent.h>
+#include <pthread.h>
 
 
 #define pwrLogDirName "/System/Library/PowerEvents"
 
 static const int kMaxNameLength = 128;
+static mach_port_t powerd_connection = MACH_PORT_NULL;
 
+static void _reset_connection( )
+{
+  powerd_connection = MACH_PORT_NULL;
+}   
 
-__private_extern__ IOReturn _pm_connect(mach_port_t *newConnection)
+IOReturn _pm_connect(mach_port_t *newConnection)
 {
     kern_return_t       kern_result = KERN_SUCCESS;
     
     if(!newConnection) return kIOReturnBadArgument;
+    if (powerd_connection != MACH_PORT_NULL) {
+        *newConnection = powerd_connection;
+
+        return kIOReturnSuccess;
+    }
 
     // open reference to PM configd
-    kern_result = bootstrap_look_up(bootstrap_port, 
-            kIOPMServerBootstrapName, newConnection);
+    kern_result = bootstrap_look_up2(bootstrap_port, 
+                                     kIOPMServerBootstrapName, 
+                                     &powerd_connection, 
+                                     0, 
+                                     BOOTSTRAP_PRIVILEGED_SERVER);    
     if(KERN_SUCCESS != kern_result) {
-	*newConnection = MACH_PORT_NULL;
+        *newConnection = powerd_connection =  MACH_PORT_NULL;
+        asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                "bootstrap_look_up2 failed with 0x%x\n", kern_result);
         return kIOReturnError;
     }
+    *newConnection = powerd_connection;
+    if (pthread_atfork(NULL, NULL, _reset_connection) != 0)
+       powerd_connection = MACH_PORT_NULL;
+
     return kIOReturnSuccess;
 }
 
-__private_extern__ IOReturn _pm_disconnect(mach_port_t connection)
+IOReturn _pm_disconnect(mach_port_t connection __unused)
 {
-    if(!connection) return kIOReturnBadArgument;
-    mach_port_deallocate(mach_task_self(), connection);
+    // Do nothing. We re-use the mach port
     return kIOReturnSuccess;
 }
 
@@ -91,7 +112,7 @@ IOReturn IOPMCopyHIDPostEventHistory(CFArrayRef *outArray)
         goto exit;
 
     if (KERN_SUCCESS != io_pm_hid_event_copy_history(pmserverport, 
-                                &outBuffer, &outSize, &history_return))
+                                &outBuffer, (mach_msg_type_number_t *) &outSize, &history_return))
     {
         goto exit;
     }
@@ -330,6 +351,31 @@ IOReturn IOPMCopyPowerHistoryDetailed(CFStringRef UUID, CFDictionaryRef *details
 
 exit:   
     return return_code;
+}
+
+/******************************************************************************
+ * IOPMSetSleepServiceCapTimeout
+ *
+ ******************************************************************************/
+IOReturn IOPMSetSleepServicesWakeTimeCap(CFTimeInterval cap)
+{
+   mach_port_t             pm_server       = MACH_PORT_NULL;
+   kern_return_t           return_code     = KERN_SUCCESS;
+   int                     pm_mig_return = -1;
+
+   return_code = _pm_connect(&pm_server);
+
+   if(kIOReturnSuccess != return_code) {
+      return return_code;
+   }
+ 
+   return_code = io_pm_set_sleepservice_wake_time_cap(pm_server, (int)cap, &pm_mig_return);
+
+   _pm_disconnect(pm_server);
+   if (pm_mig_return == kIOReturnSuccess)
+      return return_code;
+   else
+      return pm_mig_return;
 }
 
 /******************************************************************************
@@ -915,6 +961,9 @@ IOReturn IOPMConnectionAcknowledgeEvent(
     IOPMConnectionMessageToken token)
 {
 #if TARGET_OS_EMBEDDED
+    (void)connect;
+    (void)token;
+    
     return kIOReturnUnsupported;
 #else
     return IOPMConnectionAcknowledgeEventWithOptions(
@@ -932,6 +981,10 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
     CFDictionaryRef options)
 {
 #if TARGET_OS_EMBEDDED
+    (void)myConnection;
+    (void)token;
+    (void)options;
+    
     return kIOReturnUnsupported;
 #else
     __IOPMConnection    *connection = (__IOPMConnection *)myConnection;
@@ -1106,7 +1159,75 @@ IOReturn IOPMSetPowerHistoryBookmark(char* uuid) {
 	return kern_result;
 }
 
+#if TARGET_OS_EMBEDDED
+IOReturn IOPMSetDebugFlags(uint32_t newFlags __unused, 
+            uint32_t *oldFlags __unused)
+{
+#else
+IOReturn IOPMSetDebugFlags(uint32_t newFlags, uint32_t *oldFlags)
+{
 
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           kern_result;
+    uint32_t                flags;
+    IOReturn                return_code = kIOReturnError;
+
+    return_code = _pm_connect(&pm_server);
+
+    if(pm_server == MACH_PORT_NULL)
+      return kIOReturnNotReady; 
+
+    kern_result = io_pm_set_debug_flags(pm_server, newFlags, &flags, &return_code);
+
+    _pm_disconnect(pm_server);
+
+    if ( kern_result == KERN_SUCCESS && return_code == kIOReturnSuccess) {
+        if (oldFlags) 
+            *oldFlags = flags;
+        return kIOReturnSuccess;
+    }
+    else 
+        return return_code;
+
+#endif
+    return kIOReturnSuccess;
+	
+}
+
+#if TARGET_OS_EMBEDDED
+IOReturn IOPMSetBTWakeInterval(uint32_t newInterval __unused, 
+      uint32_t *oldInterval __unused)
+{
+#else
+IOReturn IOPMSetBTWakeInterval(uint32_t newInterval, uint32_t *oldInterval)
+{
+
+    mach_port_t             pm_server = MACH_PORT_NULL;
+    kern_return_t           kern_result;
+    uint32_t                interval = 0;
+    IOReturn                return_code = kIOReturnError;
+
+    return_code = _pm_connect(&pm_server);
+
+    if(pm_server == MACH_PORT_NULL)
+      return kIOReturnNotReady; 
+
+    kern_result = io_pm_set_bt_wake_interval(pm_server, newInterval, &interval, &return_code);
+
+    _pm_disconnect(pm_server);
+
+    if ( kern_result == KERN_SUCCESS && return_code == kIOReturnSuccess) {
+        if (oldInterval) 
+            *oldInterval = interval;
+        return kIOReturnSuccess;
+    }
+    else 
+        return return_code;
+
+#endif
+    return kIOReturnSuccess;
+	
+}
 /*****************************************************************************/
 /*****************************************************************************/
 

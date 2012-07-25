@@ -29,9 +29,11 @@ extern char *smtpd_pw_server_authenticate(SMTPD_STATE *, const char *, const cha
   */
 extern void smtpd_sasl_initialize(void);
 #endif /* __APPLE_OS_X_SERVER__ */
+extern void smtpd_sasl_state_init(SMTPD_STATE *);
 extern void smtpd_sasl_activate(SMTPD_STATE *, const char *, const char *);
 extern void smtpd_sasl_deactivate(SMTPD_STATE *);
 extern int smtpd_sasl_authenticate(SMTPD_STATE *, const char *, const char *);
+extern void smtpd_sasl_login(SMTPD_STATE *, const char *, const char *);
 extern void smtpd_sasl_logout(SMTPD_STATE *);
 extern int permit_sasl_auth(SMTPD_STATE *, int, int);
 

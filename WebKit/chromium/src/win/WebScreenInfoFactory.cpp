@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 #include "config.h"
 #include "WebScreenInfoFactory.h"
 
+#include "HWndDC.h"
 #include "WebScreenInfo.h"
 
 #include <windows.h>
@@ -60,7 +61,12 @@ WebScreenInfo WebScreenInfoFactory::screenInfo(HWND window)
     devMode.dmDriverExtra = 0;
     EnumDisplaySettings(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devMode);
 
+    WebCore::HWndDC hdc(0);
+    ASSERT(hdc);
+
     WebScreenInfo results;
+    results.horizontalDPI = GetDeviceCaps(hdc, LOGPIXELSX);
+    results.verticalDPI = GetDeviceCaps(hdc, LOGPIXELSY);
     results.depth = devMode.dmBitsPerPel;
     results.depthPerComponent = devMode.dmBitsPerPel / 3;  // Assumes RGB
     results.isMonochrome = devMode.dmColor == DMCOLOR_MONOCHROME;

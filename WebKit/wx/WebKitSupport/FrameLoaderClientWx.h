@@ -37,8 +37,12 @@
 #include "HTMLPlugInElement.h"
 #include <wtf/Forward.h>
 
-class wxWebFrame;
-class wxWebView;
+namespace WebKit {
+
+class WebFrame;
+class WebView;
+
+}
 
 namespace WebCore {
 
@@ -55,8 +59,11 @@ namespace WebCore {
     public:
         FrameLoaderClientWx();
         ~FrameLoaderClientWx();
-        void setFrame(wxWebFrame *frame);
-        void setWebView(wxWebView *webview);
+        
+        WebKit::WebFrame* webFrame() { return m_webFrame; }
+        void setFrame(WebKit::WebFrame *frame);
+        WebKit::WebView* webView() { return m_webView; }
+        void setWebView(WebKit::WebView *webview);
 
         virtual bool hasWebView() const; // mainly for assertions
 
@@ -114,10 +121,9 @@ namespace WebCore {
         virtual void dispatchShow();
         virtual void cancelPolicyCheck();
 
-        virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
+        virtual void dispatchWillSendSubmitEvent(PassRefPtr<FormState>) { }
         virtual void dispatchWillSubmitForm(FramePolicyFunction, PassRefPtr<FormState>);
 
-        virtual void dispatchDidLoadMainResource(DocumentLoader*);
         virtual void revertToProvisionalState(DocumentLoader*);
 
         virtual void postProgressStartedNotification();
@@ -162,26 +168,24 @@ namespace WebCore {
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
         virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
-        virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
-        virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
-        virtual void dispatchDidChangeBackForwardIndex() const;
         virtual void saveScrollPositionAndViewStateToItem(HistoryItem*);
         virtual bool canCachePage() const;
         
         virtual void didDisplayInsecureContent();
         virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
+        virtual void didDetectXSS(const KURL&, bool didBlockEntirePage);
 
         virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
         virtual void committedLoad(DocumentLoader*, const char*, int);
         virtual ResourceError cancelledError(const ResourceRequest&);
         virtual ResourceError blockedError(const ResourceRequest&);
         virtual ResourceError cannotShowURLError(const ResourceRequest&);
-        virtual ResourceError interruptForPolicyChangeError(const ResourceRequest&);
+        virtual ResourceError interruptedForPolicyChangeError(const ResourceRequest&);
         virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&);
         virtual ResourceError fileDoesNotExistError(const ResourceResponse&);
         virtual bool shouldFallBack(const ResourceError&);
         virtual WTF::PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&);
-        virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
+        virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceResponse&);
 
         virtual void assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
         
@@ -203,15 +207,13 @@ namespace WebCore {
         virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>);
         virtual void dispatchUnableToImplementPolicy(const ResourceError&);
 
-        virtual void startDownload(const ResourceRequest&);
+        virtual void startDownload(const ResourceRequest&, const String& suggestedName = String());
         
         // FIXME: This should probably not be here, but it's needed for the tests currently
         virtual void partClearedInBegin();
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument(Page*);
-        virtual void transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*);
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&);
@@ -233,13 +235,12 @@ namespace WebCore {
         virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
     private:
-        wxWebFrame *m_webFrame;
+        WebKit::WebFrame *m_webFrame;
         Frame* m_frame;
-        wxWebView *m_webView;
+        WebKit::WebView *m_webView;
         PluginView* m_pluginView;
         bool m_hasSentResponseToPlugin;
         ResourceResponse m_response;
-        bool m_firstData;
     };
 
 }

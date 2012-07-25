@@ -40,6 +40,7 @@
 #include <gssapi_krb5.h>
 #include <gssapi_spnego.h>
 #include <gssapi_ntlm.h>
+#include <gssapi_oid.h>
 #include <gssapi_spi.h>
 #include <heim-ipc.h>
 #include <err.h>
@@ -68,12 +69,15 @@ usage (int ret)
     exit (ret);
 }
 
-#define COL_OID		"OID"
-#define COL_NAME	"Name"
-#define COL_MECH	"Mech"
-#define COL_OPTION	"Option"
+#define COL_DESC	"Description"
 #define COL_ENABLED	"Enabled"
 #define COL_EXPIRE	"Expire"
+#define COL_MECH	"Mech"
+#define COL_NAME	"Name"
+#define COL_OID		"OID"
+#define COL_OPTION	"Option"
+#define COL_SASL	"SASL"
+#define COL_VALUE	"Value"
 
 int
 supported_mechanisms(struct supported_mechanisms_options *opt, int argc, char **argv)
@@ -162,13 +166,14 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
 {
     char password[512];
     OM_uint32 maj_stat, min_stat;
-    gss_OID mech = NULL;
+    gss_const_OID mech = NULL;
     gss_OID nametype = GSS_C_NT_USER_NAME;
     gss_name_t name = GSS_C_NO_NAME;
     gss_buffer_desc buffer;
     gss_cred_id_t cred = GSS_C_NO_CREDENTIAL;
     CFMutableDictionaryRef attributes;
     CFStringRef pw;
+    CFErrorRef error = NULL;
 
     /*
      * mech
@@ -216,33 +221,49 @@ acquire_credential(struct acquire_credential_options *opt, int argc, char **argv
        errx(1, "failed reading password");
 
     pw = CFStringCreateWithCString(kCFAllocatorDefault, password, kCFStringEncodingUTF8);
-    CFDictionaryAddValue(attributes, kGSSICPassword, pw);
+    CFDictionarySetValue(attributes, kGSSICPassword, pw);
     CFRelease(pw);
+
+    if (opt->validate_flag)
+	CFDictionarySetValue(attributes, kGSSICVerifyCredential, kCFBooleanTrue);
 
     maj_stat = gss_aapl_initial_cred(name,
 				     mech,
 				     attributes,
 				     &cred,
-				     NULL);
-    if (maj_stat != GSS_S_COMPLETE)
-	errx(1, "gss_acquire_cred_ex_f: %d", (int)maj_stat);
-
+				     &error);
+    if (maj_stat != GSS_S_COMPLETE) {
+	char *msg = NULL;
+	if (error) {
+	    CFStringRef m;
+	    m = CFErrorCopyDescription(error);
+	    if (m) {
+		msg = rk_cfstring2cstring(m);
+		CFRelease(m);
+	    }
+	}
+	errx(1, "gss_acquire_cred_ext: %s: %d", 
+	     msg ? msg : "", (int)maj_stat);
+	free(msg);
+    }
     gss_release_cred(&min_stat, &cred);
     gss_release_name(&min_stat, &name);
 
     CFRelease(attributes);
+
+    if (error)
+	CFRelease(error);
 
     return 0;
 }
 
 
 struct print_cred {
-    heim_isemaphore s;
     rtbl_t t;
 };
 
 static void
-print_cred(void *ctx, gss_OID oid, gss_cred_id_t cred)
+print_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
 {
     struct print_cred *pc = ctx;
     OM_uint32 major, junk;
@@ -251,12 +272,15 @@ print_cred(void *ctx, gss_OID oid, gss_cred_id_t cred)
     const char *str;
     OM_uint32 expire;
 
-    if (cred == NULL) {
-	heim_ipc_semaphore_signal(pc->s);
+    if (cred == NULL)
 	return;
-    }
 
-    major = gss_inquire_cred(&junk, cred, &name, &expire, NULL, NULL);
+    major = gss_inquire_cred(&junk, cred, NULL, &expire, NULL, NULL);
+    if (major == GSS_S_CREDENTIALS_EXPIRED)
+	expire = 0;
+    else if (major)
+	goto out;
+    major = gss_inquire_cred_by_mech(&junk, cred, (gss_OID)oid, &name, NULL, NULL, NULL); 
     if (major) goto out;
     major = gss_display_name(&junk, name, &buffer, NULL);
     gss_release_name(&junk, &name);
@@ -285,38 +309,89 @@ print_cred(void *ctx, gss_OID oid, gss_cred_id_t cred)
     gss_release_cred(&junk, &cred);
 }
 
+static void
+diag_cred(void *ctx, gss_const_OID oid, gss_cred_id_t cred)
+{
+    const char *delim = "----------------";
+    gss_buffer_set_t data_set;
+    gss_buffer_desc buffer;
+    OM_uint32 major, junk;
+    gss_name_t name;
+    const char *mech;
+    size_t n;
+
+    if (cred == NULL)
+	return;
+
+    major = gss_inquire_cred_by_mech(&junk, cred, (gss_OID)oid, &name, NULL, NULL, NULL);
+    if (major)
+	return;
+
+    major = gss_display_name(&junk, name, &buffer, NULL);
+    gss_release_name(&junk, &name);
+    if (major)
+	return;
+    
+    mech = gss_oid_to_name(oid);
+
+    printf("@GSSCred\n%s\n%s: %.*s\n",
+	   delim,
+	   mech ? mech : "<unknown-mech>",
+	   (int)buffer.length, buffer.value);
+    gss_release_buffer(&junk, &buffer);
+
+    major = gss_inquire_cred_by_oid(&junk, cred, GSS_C_CRED_DIAG, &data_set);
+    if (major)
+	return;
+
+    for (n = 0; n < data_set->count; n++)
+	printf("%s\n%.*s\n", delim, (int)data_set->elements[n].length, data_set->elements[n].value);
+
+    printf("%s\n", delim);
+
+    gss_release_buffer_set(&junk, &data_set);
+}
+
 
 
 int
-list_credentials(void *opt, int argc, char **argv)
+list_credentials(struct list_credentials_options *opt, int argc, char **argv)
 {
     struct print_cred pc;
+    gss_const_OID mech = NULL;
 
-    pc.s = heim_ipc_semaphore_create(0);
+    if (opt->mech_string) {
+	mech = gss_name_to_oid(opt->mech_string);
+	if (mech == NULL)
+	    errx(1, "No such mech: %s", opt->mech_string);
+    }
 
-    pc.t = rtbl_create();
-    if (pc.t == NULL)
-	errx(1, "rtbl_create");
+    if (opt->verbose_flag) {
 
-    rtbl_set_separator(pc.t, "  ");
-    rtbl_add_column(pc.t, COL_NAME, 0);
-    rtbl_add_column(pc.t, COL_EXPIRE, 0);
-    rtbl_add_column(pc.t, COL_MECH, 0);
+	gss_iter_creds_f(NULL, 0, NULL, NULL, diag_cred);
 
-    gss_iter_creds_f(NULL, 0, NULL, &pc, print_cred);
+    } else {
 
-    heim_ipc_semaphore_wait(pc.s, HEIM_IPC_WAIT_FOREVER);
-
-    rtbl_format(pc.t, stdout);
-    rtbl_destroy(pc.t);
-
-    heim_ipc_semaphore_release(pc.s);
+	pc.t = rtbl_create();
+	if (pc.t == NULL)
+	    errx(1, "rtbl_create");
+	
+	rtbl_set_separator(pc.t, "  ");
+	rtbl_add_column(pc.t, COL_NAME, 0);
+	rtbl_add_column(pc.t, COL_EXPIRE, 0);
+	rtbl_add_column(pc.t, COL_MECH, 0);
+	
+	gss_iter_creds_f(NULL, 0, NULL, &pc, print_cred);
+	
+	rtbl_format(pc.t, stdout);
+	rtbl_destroy(pc.t);
+    }
 
     return 0;
 }
 
 static gss_cred_id_t
-acquire_cred(const char *name_string, gss_OID mech, gss_OID nametype)
+acquire_cred(const char *name_string, gss_const_OID mech, gss_const_OID nametype)
 {
     OM_uint32 maj_stat, min_stat;
     gss_OID_set mechset = NULL;
@@ -348,7 +423,7 @@ acquire_cred(const char *name_string, gss_OID mech, gss_OID nametype)
 }
 
 static void
-destroy_cred(void *arg1, gss_OID oid, gss_cred_id_t cred)
+destroy_cred(void *arg1, gss_const_OID oid, gss_cred_id_t cred)
 {
     gss_destroy_cred(NULL, &cred);
 }
@@ -356,7 +431,7 @@ destroy_cred(void *arg1, gss_OID oid, gss_cred_id_t cred)
 int
 destroy(struct destroy_options *opt, int argc, char **argv)
 {
-    gss_OID mech = NULL;
+    gss_const_OID mech = NULL;
 
     if (opt->mech_string) {
 	mech = gss_name_to_oid(opt->mech_string);
@@ -392,7 +467,7 @@ common_hold(OM_uint32 (*func)(OM_uint32 *, gss_cred_id_t),
 	    const char *mech_string, int argc, char **argv)
 {
     OM_uint32 min_stat, maj_stat;
-    gss_OID mech = GSS_C_NO_OID;
+    gss_const_OID mech = GSS_C_NO_OID;
     gss_cred_id_t cred;
 
     if (argc < 1) {
@@ -433,7 +508,7 @@ int
 get_label(struct get_label_options *opt, int argc, char **argv)
 {
     OM_uint32 min_stat, maj_stat;
-    gss_OID mech = GSS_C_NO_OID;
+    gss_const_OID mech = GSS_C_NO_OID;
     gss_cred_id_t cred;
     gss_buffer_desc buf;
 
@@ -461,7 +536,7 @@ int
 set_label(struct set_label_options *opt, int argc, char **argv)
 {
     OM_uint32 min_stat, maj_stat;
-    gss_OID mech = GSS_C_NO_OID;
+    gss_const_OID mech = GSS_C_NO_OID;
     gss_cred_id_t cred;
     gss_buffer_desc buf;
     gss_buffer_t bufp = NULL;
@@ -485,6 +560,92 @@ set_label(struct set_label_options *opt, int argc, char **argv)
 	errx(1, "label get failed");
 
     gss_release_cred(&min_stat, &cred);
+
+    return 0;
+}
+
+/*
+ *
+ */
+
+static void
+print_mech_attr(const char *mechname, gss_const_OID mech, gss_OID_set set)
+{
+    gss_buffer_desc name, desc;
+    OM_uint32 major, minor;
+    rtbl_t ct;
+    size_t n;
+
+    ct = rtbl_create();
+    if (ct == NULL)
+	errx(1, "rtbl_create");
+
+    rtbl_set_separator(ct, "  ");
+    rtbl_add_column(ct, COL_OID, 0);
+    rtbl_add_column(ct, COL_DESC, 0);
+    if (mech)
+	rtbl_add_column(ct, COL_VALUE, 0);
+
+    for (n = 0; n < set->count; n++) {
+	major = gss_display_mech_attr(&minor, &set->elements[n], &name, &desc, NULL);
+	if (major)
+	    continue;
+
+	rtbl_add_column_entryv(ct, COL_OID, "%.*s",
+			       (int)name.length, (char *)name.value);
+	rtbl_add_column_entryv(ct, COL_DESC, "%.*s",
+			       (int)desc.length, (char *)desc.value);
+	if (mech) {
+	    gss_buffer_desc value;
+
+	    if (gss_mo_get(mech, &set->elements[n], &value) != 0)
+		value.length = 0;
+
+	    if (value.length)
+		rtbl_add_column_entryv(ct, COL_VALUE, "%.*s",
+				       (int)value.length, (char *)value.value);
+	    else
+		rtbl_add_column_entryv(ct, COL_VALUE, "<>");
+	    gss_release_buffer(&minor, &value);
+	}
+
+	gss_release_buffer(&minor, &name);
+	gss_release_buffer(&minor, &desc);
+    }
+
+    printf("attributes for: %s\n", mechname);
+    rtbl_format(ct, stdout);
+    rtbl_destroy(ct);
+}
+
+int
+attrs_for_mech(struct attrs_for_mech_options *opt, int argc, char **argv)
+{
+    gss_OID_set mech_attr = NULL, known_mech_attrs = NULL;
+    gss_const_OID mech = GSS_C_NO_OID;
+    OM_uint32 major, minor;
+
+    if (opt->mech_string) {
+	mech = gss_name_to_oid(opt->mech_string);
+	if (mech == NULL)
+	    errx(1, "mech %s is unknown", opt->mech_string);
+    }
+
+    major = gss_inquire_attrs_for_mech(&minor,
+				       mech,
+				       &mech_attr,
+				       &known_mech_attrs);
+    if (major)
+	errx(1, "gss_inquire_attrs_for_mech");
+
+    if (mech)
+	print_mech_attr(opt->mech_string, mech, mech_attr);
+
+    if (opt->all_flag)
+	print_mech_attr("all mechs", NULL, known_mech_attrs);
+
+    gss_release_oid_set(&minor, &mech_attr);
+    gss_release_oid_set(&minor, &known_mech_attrs);
 
     return 0;
 }

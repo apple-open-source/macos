@@ -29,61 +29,20 @@
  */
 
 #include "config.h"
+
+#include "LocaleICU.h"
 #include "LocalizedNumber.h"
-
-#include <limits>
-#include <unicode/numfmt.h>
-#include <unicode/parsepos.h>
-#include <wtf/MathExtras.h>
-#include <wtf/PassOwnPtr.h>
-
-using namespace icu;
-using namespace std;
 
 namespace WebCore {
 
-static PassOwnPtr<NumberFormat> createFormatterForCurrentLocale()
+String convertToLocalizedNumber(const String& canonicalNumberString, unsigned fractionDigits)
 {
-    UErrorCode status = U_ZERO_ERROR;
-    OwnPtr<NumberFormat> formatter = adoptPtr(NumberFormat::createInstance(status));
-    return U_SUCCESS(status) ? formatter.release() : nullptr;
+    return ICULocale::currentLocale()->convertToLocalizedNumber(canonicalNumberString);
 }
 
-// This might return 0.
-static NumberFormat* numberFormatter()
+String convertFromLocalizedNumber(const String& localizedNumberString)
 {
-    ASSERT(isMainThread());
-    static NumberFormat* formatter = createFormatterForCurrentLocale().leakPtr();
-    return formatter;
-}
-
-double parseLocalizedNumber(const String& numberString)
-{
-    if (numberString.isEmpty())
-        return numeric_limits<double>::quiet_NaN();
-    NumberFormat* formatter = numberFormatter();
-    if (!formatter)
-        return numeric_limits<double>::quiet_NaN();
-    UnicodeString numberUnicodeString(numberString.characters(), numberString.length());
-    Formattable result;
-    ParsePosition position(0);
-    formatter->parse(numberUnicodeString, result, position);
-    if (position.getIndex() != numberUnicodeString.length())
-        return numeric_limits<double>::quiet_NaN();
-    UErrorCode status = U_ZERO_ERROR;
-    double numericResult = result.getDouble(status);
-    return U_SUCCESS(status) ? numericResult : numeric_limits<double>::quiet_NaN();
-}
-
-String formatLocalizedNumber(double number, unsigned fractionDigits)
-{
-    NumberFormat* formatter = numberFormatter();
-    if (!formatter)
-        return String();
-    UnicodeString result;
-    formatter->setMaximumFractionDigits(clampToInteger(fractionDigits));
-    formatter->format(number, result);
-    return String(result.getBuffer(), result.length());
+    return ICULocale::currentLocale()->convertFromLocalizedNumber(localizedNumberString);
 }
 
 } // namespace WebCore

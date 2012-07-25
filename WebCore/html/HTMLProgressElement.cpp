@@ -25,9 +25,8 @@
 #include "Attribute.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
-#include "FormDataList.h"
+#include "NodeRenderingContext.h"
 #include "HTMLDivElement.h"
-#include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "ProgressShadowElement.h"
@@ -42,8 +41,8 @@ using namespace HTMLNames;
 const double HTMLProgressElement::IndeterminatePosition = -1;
 const double HTMLProgressElement::InvalidPosition = -2;
 
-HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
-    : HTMLFormControlElement(tagName, document, form)
+HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document* document)
+    : LabelableElement(tagName, document)
 {
     ASSERT(hasTagName(progressTag));
 }
@@ -52,9 +51,9 @@ HTMLProgressElement::~HTMLProgressElement()
 {
 }
 
-PassRefPtr<HTMLProgressElement> HTMLProgressElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+PassRefPtr<HTMLProgressElement> HTMLProgressElement::create(const QualifiedName& tagName, Document* document)
 {
-    RefPtr<HTMLProgressElement> progress = adoptRef(new HTMLProgressElement(tagName, document, form));
+    RefPtr<HTMLProgressElement> progress = adoptRef(new HTMLProgressElement(tagName, document));
     progress->createShadowSubtree();
     return progress;
 }
@@ -64,40 +63,38 @@ RenderObject* HTMLProgressElement::createRenderer(RenderArena* arena, RenderStyl
     return new (arena) RenderProgress(this);
 }
 
+bool HTMLProgressElement::childShouldCreateRenderer(const NodeRenderingContext& childContext) const
+{
+    return childContext.isOnUpperEncapsulationBoundary() && HTMLElement::childShouldCreateRenderer(childContext);
+}
+
 bool HTMLProgressElement::supportsFocus() const
 {
     return Node::supportsFocus() && !disabled();
 }
 
-const AtomicString& HTMLProgressElement::formControlType() const
-{
-    DEFINE_STATIC_LOCAL(const AtomicString, progress, ("progress"));
-    return progress;
-}
-
-void HTMLProgressElement::parseMappedAttribute(Attribute* attribute)
+void HTMLProgressElement::parseAttribute(Attribute* attribute)
 {
     if (attribute->name() == valueAttr)
         didElementStateChange();
     else if (attribute->name() == maxAttr)
         didElementStateChange();
     else
-        HTMLFormControlElement::parseMappedAttribute(attribute);
+        LabelableElement::parseAttribute(attribute);
 }
 
 void HTMLProgressElement::attach()
 {
-    HTMLFormControlElement::attach();
+    LabelableElement::attach();
     didElementStateChange();
 }
 
 double HTMLProgressElement::value() const
 {
-    const AtomicString& valueString = getAttribute(valueAttr);
     double value;
-    bool ok = parseToDoubleForNumberType(valueString, &value);
+    bool ok = parseToDoubleForNumberType(fastGetAttribute(valueAttr), &value);
     if (!ok || value < 0)
-        return valueString.isNull() ? 1 : 0;
+        return 0;
     return (value > max()) ? max() : value;
 }
 
@@ -130,25 +127,38 @@ void HTMLProgressElement::setMax(double max, ExceptionCode& ec)
 
 double HTMLProgressElement::position() const
 {
-    if (!hasAttribute(valueAttr))
+    if (!isDeterminate())
         return HTMLProgressElement::IndeterminatePosition;
     return value() / max();
 }
 
+bool HTMLProgressElement::isDeterminate() const
+{
+    return fastHasAttribute(valueAttr);
+}
+    
 void HTMLProgressElement::didElementStateChange()
 {
-    m_value->setWidthPercentage(position()*100);
-    if (renderer())
+    m_value->setWidthPercentage(position() * 100);
+    if (renderer()) {
+        RenderProgress* render = toRenderProgress(renderer());
+        bool wasDeterminate = render->isDeterminate();
         renderer()->updateFromElement();
+        if (wasDeterminate != isDeterminate())
+            setNeedsStyleRecalc();
+    }
 }
 
 void HTMLProgressElement::createShadowSubtree()
 {
+    ASSERT(!hasShadowRoot());
+
     RefPtr<ProgressBarElement> bar = ProgressBarElement::create(document());
     m_value = ProgressValueElement::create(document());
-    ExceptionCode ec = 0;
-    bar->appendChild(m_value, ec);
-    ensureShadowRoot()->appendChild(bar, ec);
+    bar->appendChild(m_value, ASSERT_NO_EXCEPTION);
+
+    RefPtr<ShadowRoot> root = ShadowRoot::create(this, ShadowRoot::CreatingUserAgentShadowRoot, ASSERT_NO_EXCEPTION);
+    root->appendChild(bar, ASSERT_NO_EXCEPTION);
 }
 
 } // namespace

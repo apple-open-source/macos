@@ -19,12 +19,12 @@
 #include "config.h"
 #include "GtkUtilities.h"
 
-#include "IntRect.h"
+#include "IntPoint.h"
 #include <gtk/gtk.h>
 
 namespace WebCore {
 
-IntRect convertWidgetRectToScreenRect(GtkWidget* widget, const IntRect& rect)
+IntPoint convertWidgetPointToScreenPoint(GtkWidget* widget, const IntPoint& point)
 {
     // FIXME: This is actually a very tricky operation and the results of this function should
     // only be thought of as a guess. For instance, sometimes it may not correctly take into
@@ -32,16 +32,24 @@ IntRect convertWidgetRectToScreenRect(GtkWidget* widget, const IntRect& rect)
 
     GtkWidget* toplevelWidget = gtk_widget_get_toplevel(widget);
     if (!toplevelWidget || !gtk_widget_is_toplevel(toplevelWidget) || !GTK_IS_WINDOW(toplevelWidget))
-        return rect;
+        return point;
+
+    GdkWindow* gdkWindow = gtk_widget_get_window(toplevelWidget);
+    if (!gdkWindow)
+        return point;
 
     int xInWindow, yInWindow;
-    gtk_widget_translate_coordinates(widget, toplevelWidget, rect.x(), rect.y(), &xInWindow, &yInWindow);
-    int windowOriginX, windowOriginY;
-    gdk_window_get_origin(gtk_widget_get_window(toplevelWidget), &windowOriginX, &windowOriginY);
+    gtk_widget_translate_coordinates(widget, toplevelWidget, point.x(), point.y(), &xInWindow, &yInWindow);
 
-    IntRect rectInScreenCoordinates(rect);
-    rectInScreenCoordinates.move(windowOriginX + xInWindow, windowOriginY + yInWindow);
-    return rectInScreenCoordinates;
+    int windowOriginX, windowOriginY;
+    gdk_window_get_origin(gdkWindow, &windowOriginX, &windowOriginY);
+
+    return IntPoint(windowOriginX + xInWindow, windowOriginY + yInWindow);
+}
+
+bool widgetIsOnscreenToplevelWindow(GtkWidget* widget)
+{
+    return gtk_widget_is_toplevel(widget) && GTK_IS_WINDOW(widget) && !GTK_IS_OFFSCREEN_WINDOW(widget);
 }
 
 } // namespace WebCore

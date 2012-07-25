@@ -1,9 +1,9 @@
 /*
- * "$Id: snmp-private.h 1995 2010-03-24 16:25:12Z msweet $"
+ * "$Id: snmp-private.h 3765 2012-03-31 05:15:33Z msweet $"
  *
  *   Private SNMP definitions for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2006-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,9 +31,10 @@
  */
 
 #define CUPS_SNMP_PORT		161	/* SNMP well-known port */
+#define CUPS_SNMP_MAX_COMMUNITY	512	/* Maximum size of community name */
 #define CUPS_SNMP_MAX_OID	128	/* Maximum number of OID numbers */
 #define CUPS_SNMP_MAX_PACKET	1472	/* Maximum size of SNMP packet */
-#define CUPS_SNMP_MAX_STRING	512	/* Maximum size of string */
+#define CUPS_SNMP_MAX_STRING	1024	/* Maximum size of string */
 #define CUPS_SNMP_VERSION_1	0	/* SNMPv1 */
 
 
@@ -84,7 +85,7 @@ typedef struct cups_snmp_s		/**** SNMP data packet ****/
   const char	*error;			/* Encode/decode error */
   http_addr_t	address;		/* Source address */
   int		version;		/* Version number */
-  char		community[CUPS_SNMP_MAX_STRING];
+  char		community[CUPS_SNMP_MAX_COMMUNITY];
 					/* Community name */
   cups_asn1_t	request_type;		/* Request type */
   int		request_id;		/* request-id value */
@@ -141,5 +142,5 @@ extern int		_cupsSNMPWrite(int fd, http_addr_t *address, int version,
 
 
 /*
- * End of "$Id: snmp-private.h 1995 2010-03-24 16:25:12Z msweet $".
+ * End of "$Id: snmp-private.h 3765 2012-03-31 05:15:33Z msweet $".
  */

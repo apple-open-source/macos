@@ -26,11 +26,10 @@
 module offline {
  
     interface [
-        Conditional=OFFLINE_WEB_APPLICATIONS,
         EventTarget,
         OmitConstructor,
-        DontCheckEnums,
-        GenerateIsReachable=ImplFrame
+        DoNotCheckConstants,
+        JSGenerateIsReachable=ImplFrame
     ] DOMApplicationCache {
         // update status
         const unsigned short UNCACHED = 0;
@@ -45,6 +44,7 @@ module offline {
             raises(DOMException);
         void swapCache()
             raises(DOMException);
+        void abort();
 
         // events
         attribute EventListener onchecking;
@@ -59,10 +59,10 @@ module offline {
         // EventTarget interface
         void addEventListener(in DOMString type, 
                               in EventListener listener, 
-                              in boolean useCapture);
+                              in [Optional] boolean useCapture);
         void removeEventListener(in DOMString type, 
                                  in EventListener listener, 
-                                 in boolean useCapture);
+                                 in [Optional] boolean useCapture);
         boolean dispatchEvent(in Event evt)
             raises(EventException);
     };

@@ -47,7 +47,7 @@ krb5_kdc_update_time(struct timeval *tv)
 	_kdc_now = *tv;
 }
 
-static krb5_error_code 
+static krb5_error_code
 kdc_as_req(krb5_context context,
 	   krb5_kdc_configuration *config,
 	   krb5_data *req_buffer,
@@ -57,24 +57,31 @@ kdc_as_req(krb5_context context,
 	   size_t max_reply_size,
 	   int *claim)
 {
+    struct kdc_request_desc r;
     krb5_error_code ret;
-    KDC_REQ req;
     size_t len;
 
-    ret = decode_AS_REQ(req_buffer->data, req_buffer->length, &req, &len);
+    memset(&r, 0, sizeof(r));
+
+    ret = decode_AS_REQ(req_buffer->data, req_buffer->length, &r.req, &len);
     if (ret)
 	return ret;
 
+    r.context = context;
+    r.config = config;
+    r.request.data = req_buffer->data;
+    r.request.length = req_buffer->length;
+
     *claim = 1;
 
-    ret = _kdc_as_rep(context, config, &req, req_buffer,
-		      reply, from, addr, max_reply_size);
-    free_AS_REQ(&req);
+    ret = _kdc_as_rep(&r, reply, from, addr, max_reply_size);
+    free_AS_REQ(&r.req);
+
     return ret;
 }
 
 
-static krb5_error_code 
+static krb5_error_code
 kdc_tgs_req(krb5_context context,
 	    krb5_kdc_configuration *config,
 	    krb5_data *req_buffer,
@@ -91,7 +98,7 @@ kdc_tgs_req(krb5_context context,
     ret = decode_TGS_REQ(req_buffer->data, req_buffer->length, &req, &len);
     if (ret)
 	return ret;
-    
+
     *claim = 1;
 
     ret = _kdc_tgs_rep(context, config, &req, reply, 
@@ -102,7 +109,7 @@ kdc_tgs_req(krb5_context context,
 
 #ifdef DIGEST
 
-static krb5_error_code 
+static krb5_error_code
 kdc_digest(krb5_context context,
 	   krb5_kdc_configuration *config,
 	   krb5_data *req_buffer,
@@ -132,7 +139,7 @@ kdc_digest(krb5_context context,
 
 #ifdef KX509
 
-static krb5_error_code 
+static krb5_error_code
 kdc_kx509(krb5_context context,
 	  krb5_kdc_configuration *config,
 	  krb5_data *req_buffer,
@@ -237,7 +244,6 @@ krb5_kdc_process_krb5_request(krb5_context context,
     if (datagram_reply)
 	max_reply_size = config->max_datagram_reply_length;
 
-
     req_buffer.data = buf;
     req_buffer.length = len;
 
@@ -250,7 +256,7 @@ krb5_kdc_process_krb5_request(krb5_context context,
 	if (claim)
 	    return ret;
     }
-			
+
     return -1;
 }
 

@@ -235,18 +235,22 @@ ssh_krb5_cc_gen(krb5_context ctx, krb5_ccache *ccache) {
 	char ccname[40];
 	mode_t old_umask;
 #ifdef USE_CCAPI
-	char cctemplate[] = "API:krb5cc_%d";
-#else
-	char cctemplate[] = "FILE:/tmp/krb5cc_%d_XXXXXXXXXX";
-	int tmpfd;
-#endif
+	char cctemplate[] = "API:%d:krb5cc_%d_%d";
 
 	ret = snprintf(ccname, sizeof(ccname),
-	    cctemplate, geteuid());
+		       cctemplate, (int)geteuid(), (int)getpid(), (int)time(NULL));
 	if (ret < 0 || (size_t)ret >= sizeof(ccname))
 		return ENOMEM;
 
-#ifndef USE_CCAPI
+#else
+	char cctemplate[] = "FILE:/tmp/krb5cc_%d_XXXXXXXXXX";
+	int tmpfd;
+
+	ret = snprintf(ccname, sizeof(ccname),
+		       cctemplate, geteuid());
+	if (ret < 0 || (size_t)ret >= sizeof(ccname))
+		return ENOMEM;
+	
 	old_umask = umask(0177);
 	tmpfd = mkstemp(ccname + strlen("FILE:"));
 	umask(old_umask);

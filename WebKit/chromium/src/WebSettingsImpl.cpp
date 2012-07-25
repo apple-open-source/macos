@@ -33,8 +33,8 @@
 
 #include "FontRenderingMode.h"
 #include "Settings.h"
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 #include <wtf/UnusedParam.h>
 
 #if defined(OS_WIN)
@@ -47,41 +47,41 @@ namespace WebKit {
 
 WebSettingsImpl::WebSettingsImpl(Settings* settings)
     : m_settings(settings)
-    , m_compositeToTextureEnabled(false)
     , m_showFPSCounter(false)
     , m_showPlatformLayerTree(false)
+    , m_viewportEnabled(false)
 {
     ASSERT(settings);
 }
 
-void WebSettingsImpl::setStandardFontFamily(const WebString& font)
+void WebSettingsImpl::setStandardFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setStandardFontFamily(font);
+    m_settings->setStandardFontFamily(font, script);
 }
 
-void WebSettingsImpl::setFixedFontFamily(const WebString& font)
+void WebSettingsImpl::setFixedFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setFixedFontFamily((String)font);
+    m_settings->setFixedFontFamily(font, script);
 }
 
-void WebSettingsImpl::setSerifFontFamily(const WebString& font)
+void WebSettingsImpl::setSerifFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setSerifFontFamily((String)font);
+    m_settings->setSerifFontFamily(font, script);
 }
 
-void WebSettingsImpl::setSansSerifFontFamily(const WebString& font)
+void WebSettingsImpl::setSansSerifFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setSansSerifFontFamily((String)font);
+    m_settings->setSansSerifFontFamily(font, script);
 }
 
-void WebSettingsImpl::setCursiveFontFamily(const WebString& font)
+void WebSettingsImpl::setCursiveFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setCursiveFontFamily((String)font);
+    m_settings->setCursiveFontFamily(font, script);
 }
 
-void WebSettingsImpl::setFantasyFontFamily(const WebString& font)
+void WebSettingsImpl::setFantasyFontFamily(const WebString& font, UScriptCode script)
 {
-    m_settings->setFantasyFontFamily((String)font);
+    m_settings->setFantasyFontFamily(font, script);
 }
 
 void WebSettingsImpl::setDefaultFontSize(int size)
@@ -109,6 +109,11 @@ void WebSettingsImpl::setMinimumLogicalFontSize(int size)
     m_settings->setMinimumLogicalFontSize(size);
 }
 
+void WebSettingsImpl::setDefaultDeviceScaleFactor(int defaultDeviceScaleFactor)
+{
+    m_settings->setDefaultDeviceScaleFactor(defaultDeviceScaleFactor);
+}
+
 void WebSettingsImpl::setDefaultTextEncodingName(const WebString& encoding)
 {
     m_settings->setDefaultTextEncodingName((String)encoding);
@@ -116,7 +121,7 @@ void WebSettingsImpl::setDefaultTextEncodingName(const WebString& encoding)
 
 void WebSettingsImpl::setJavaScriptEnabled(bool enabled)
 {
-    m_settings->setJavaScriptEnabled(enabled);
+    m_settings->setScriptEnabled(enabled);
 }
 
 void WebSettingsImpl::setWebSecurityEnabled(bool enabled)
@@ -199,6 +204,11 @@ void WebSettingsImpl::setUsesPageCache(bool usesPageCache)
     m_settings->setUsesPageCache(usesPageCache);
 }
 
+void WebSettingsImpl::setPageCacheSupportsPlugins(bool pageCacheSupportsPlugins)
+{
+    m_settings->setPageCacheSupportsPlugins(pageCacheSupportsPlugins);
+}
+
 void WebSettingsImpl::setDownloadableBinaryFontsEnabled(bool enabled)
 {
     m_settings->setDownloadableBinaryFontsEnabled(enabled);
@@ -217,6 +227,11 @@ void WebSettingsImpl::setXSSAuditorEnabled(bool enabled)
 void WebSettingsImpl::setDNSPrefetchingEnabled(bool enabled)
 {
     m_settings->setDNSPrefetchingEnabled(enabled);
+}
+
+void WebSettingsImpl::setFixedElementsLayoutRelativeToFrame(bool fixedElementsLayoutRelativeToFrame)
+{
+    m_settings->setFixedElementsLayoutRelativeToFrame(fixedElementsLayoutRelativeToFrame);
 }
 
 void WebSettingsImpl::setLocalStorageEnabled(bool enabled)
@@ -243,11 +258,6 @@ void WebSettingsImpl::setFontRenderingModeNormal()
     //        define an enum in WebSettings.h and have a switch statement that
     //        translates.  Until then, this is probably fine, though.
     m_settings->setFontRenderingMode(WebCore::NormalRenderingMode);
-}
-
-void WebSettingsImpl::setShouldPaintCustomScrollbars(bool enabled)
-{
-    m_settings->setShouldPaintCustomScrollbars(enabled);
 }
 
 void WebSettingsImpl::setAllowUniversalAccessFromFileURLs(bool allow)
@@ -283,9 +293,29 @@ void WebSettingsImpl::setExperimentalWebGLEnabled(bool enabled)
     m_settings->setWebGLEnabled(enabled);
 }
 
+void WebSettingsImpl::setExperimentalCSSRegionsEnabled(bool enabled)
+{
+    m_settings->setCSSRegionsEnabled(enabled);
+}
+
+void WebSettingsImpl::setExperimentalCSSCustomFilterEnabled(bool enabled)
+{
+    m_settings->setCSSCustomFilterEnabled(enabled);
+}
+
 void WebSettingsImpl::setOpenGLMultisamplingEnabled(bool enabled)
 {
     m_settings->setOpenGLMultisamplingEnabled(enabled);
+}
+
+void WebSettingsImpl::setPrivilegedWebGLExtensionsEnabled(bool enabled)
+{
+    m_settings->setPrivilegedWebGLExtensionsEnabled(enabled);
+}
+
+void WebSettingsImpl::setWebGLErrorsToConsoleEnabled(bool enabled)
+{
+    m_settings->setWebGLErrorsToConsoleEnabled(enabled);
 }
 
 void WebSettingsImpl::setShowDebugBorders(bool show)
@@ -311,6 +341,7 @@ void WebSettingsImpl::setEditingBehavior(EditingBehavior behavior)
 void WebSettingsImpl::setAcceleratedCompositingEnabled(bool enabled)
 {
     m_settings->setAcceleratedCompositingEnabled(enabled);
+    m_settings->setScrollingCoordinatorEnabled(enabled);
 }
 
 void WebSettingsImpl::setForceCompositingMode(bool enabled)
@@ -318,9 +349,9 @@ void WebSettingsImpl::setForceCompositingMode(bool enabled)
     m_settings->setForceCompositingMode(enabled);
 }
 
-void WebSettingsImpl::setCompositeToTextureEnabled(bool enabled)
+void WebSettingsImpl::setMockScrollbarsEnabled(bool enabled)
 {
-    m_compositeToTextureEnabled = enabled;
+    m_settings->setMockScrollbarsEnabled(enabled);
 }
 
 void WebSettingsImpl::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
@@ -348,9 +379,9 @@ void WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled(bool enabled)
     m_settings->setAcceleratedCompositingForAnimationEnabled(enabled);
 }
 
-void WebSettingsImpl::setAcceleratedDrawingEnabled(bool enabled)
+void WebSettingsImpl::setAcceleratedFiltersEnabled(bool enabled)
 {
-    m_settings->setAcceleratedDrawingEnabled(enabled);
+    m_settings->setAcceleratedFiltersEnabled(enabled);
 }
 
 void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
@@ -358,9 +389,19 @@ void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
     m_settings->setAccelerated2dCanvasEnabled(enabled);
 }
 
-void WebSettingsImpl::setLegacyAccelerated2dCanvasEnabled(bool enabled)
+void WebSettingsImpl::setDeferred2dCanvasEnabled(bool enabled)
 {
-    m_settings->setLegacyAccelerated2dCanvasEnabled(enabled);
+    m_settings->setDeferred2dCanvasEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedCompositingForFixedPositionEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingForFixedPositionEnabled(enabled);
+}
+
+void WebSettingsImpl::setMinimumAccelerated2dCanvasSize(int numPixels)
+{
+    m_settings->setMinimumAccelerated2dCanvasSize(numPixels);
 }
 
 void WebSettingsImpl::setMemoryInfoEnabled(bool enabled)
@@ -373,9 +414,19 @@ void WebSettingsImpl::setHyperlinkAuditingEnabled(bool enabled)
     m_settings->setHyperlinkAuditingEnabled(enabled);
 }
 
+void WebSettingsImpl::setLayoutFallbackWidth(int width)
+{
+    m_settings->setLayoutFallbackWidth(width);
+}
+
 void WebSettingsImpl::setAsynchronousSpellCheckingEnabled(bool enabled)
 {
     m_settings->setAsynchronousSpellCheckingEnabled(enabled);
+}
+
+void WebSettingsImpl::setUnifiedTextCheckerEnabled(bool enabled)
+{
+    m_settings->setUnifiedTextCheckerEnabled(enabled);
 }
 
 void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)
@@ -415,6 +466,105 @@ void WebSettingsImpl::setAllowDisplayOfInsecureContent(bool enabled)
 void WebSettingsImpl::setAllowRunningOfInsecureContent(bool enabled)
 {
     m_settings->setAllowRunningOfInsecureContent(enabled);
+}
+
+void WebSettingsImpl::setPasswordEchoEnabled(bool flag)
+{
+    m_settings->setPasswordEchoEnabled(flag);
+}
+
+void WebSettingsImpl::setPasswordEchoDurationInSeconds(double durationInSeconds)
+{
+    m_settings->setPasswordEchoDurationInSeconds(durationInSeconds);
+}
+
+void WebSettingsImpl::setShouldPrintBackgrounds(bool enabled)
+{
+    m_settings->setShouldPrintBackgrounds(enabled);
+}
+
+void WebSettingsImpl::setEnableScrollAnimator(bool enabled)
+{
+#if ENABLE(SMOOTH_SCROLLING)
+    m_settings->setEnableScrollAnimator(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+bool WebSettingsImpl::scrollAnimatorEnabled() const
+{
+#if ENABLE(SMOOTH_SCROLLING)
+    return m_settings->scrollAnimatorEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebSettingsImpl::setHixie76WebSocketProtocolEnabled(bool enabled)
+{
+#if ENABLE(WEB_SOCKETS)
+    m_settings->setUseHixie76WebSocketProtocol(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void WebSettingsImpl::setVisualWordMovementEnabled(bool enabled)
+{
+    m_settings->setVisualWordMovementEnabled(enabled);
+}
+
+void WebSettingsImpl::setShouldDisplaySubtitles(bool enabled)
+{
+#if ENABLE(VIDEO_TRACK)
+    m_settings->setShouldDisplaySubtitles(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void WebSettingsImpl::setShouldDisplayCaptions(bool enabled)
+{
+#if ENABLE(VIDEO_TRACK)
+    m_settings->setShouldDisplayCaptions(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void WebSettingsImpl::setShouldDisplayTextDescriptions(bool enabled)
+{
+#if ENABLE(VIDEO_TRACK)
+    m_settings->setShouldDisplayTextDescriptions(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void WebSettingsImpl::setAcceleratedPaintingEnabled(bool enabled)
+{
+    m_settings->setAcceleratedDrawingEnabled(enabled);
+}
+
+void WebSettingsImpl::setPerTilePaintingEnabled(bool enabled)
+{
+    m_settings->setPerTileDrawingEnabled(enabled);
+}
+
+void WebSettingsImpl::setPartialSwapEnabled(bool enabled)
+{
+    m_settings->setPartialSwapEnabled(enabled);
+}
+
+void WebSettingsImpl::setThreadedAnimationEnabled(bool enabled)
+{
+    m_settings->setThreadedAnimationEnabled(enabled);
+}
+
+void WebSettingsImpl::setViewportEnabled(bool enabled)
+{
+    m_viewportEnabled = enabled;
 }
 
 } // namespace WebKit

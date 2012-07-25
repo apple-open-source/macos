@@ -280,7 +280,7 @@ zwrite(void *cookie, const char *wbp, int num)
 	hsize_reg = hsize;
 	cl_hash(zs, (count_int)hsize_reg);	/* Clear hash table. */
 
-middle:	for (i = 0; count--;) {
+middle:	for (; count--;) {
 		c = *bp++;
 		in_count++;
 		fcode = (long)(((long)c << maxbits) + ent);
@@ -402,8 +402,8 @@ output(struct s_zstate *zs, code_int ocode)
 			bytes_out += bits;
 			if (fwrite(bp, sizeof(char), bits, fp) != bits)
 				return (-1);
-			bp += bits;
-			bits = 0;
+//			bp += bits;
+//			bits = 0;
 			offset = 0;
 		}
 		/*

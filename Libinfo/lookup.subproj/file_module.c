@@ -30,6 +30,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <notify.h>
+#include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -132,21 +133,18 @@ _fsi_append_string(char *s, char **l)
 	int i, len;
 
 	if (s == NULL) return l;
-	if (l == NULL) 
-	{
-		l = (char **)malloc(2 * sizeof(char *));
-		l[0] = s;
-		l[1] = NULL;
-		return l;
+	if (l != NULL) {
+		for (i = 0; l[i] != NULL; i++);
+		len = i;
+	} else {
+		len = 0;
 	}
 
-	for (i = 0; l[i] != NULL; i++);
-	len = i + 1; /* count the NULL on the end of the list too! */
+	l = (char **) reallocf(l, (len + 2) * sizeof(char *));
+	if (l == NULL) return NULL;
 
-	l = (char **)reallocf(l, (len + 1) * sizeof(char *));
-
-	l[len - 1] = s;
-	l[len] = NULL;
+	l[len] = s;
+	l[len + 1] = NULL;
 	return l;
 }
 
@@ -276,7 +274,7 @@ _fsi_get_validation(si_mod_t *si, int vtype, const char *path, FILE *f, uint64_t
 	int status;
 
 	if (a != NULL) *a = 0;
-	if (b != NULL) *a = 0;
+	if (b != NULL) *b = 0;
 
 	if (si == NULL) return;
 	if (path == NULL) return;
@@ -984,8 +982,8 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	si_item_t *item;
 	FILE *f;
 	uint64_t va, vb;
-	int32_t gid, basegid, *gidp;
-	char **gidlist;
+	gid_t gid, basegid;
+	gid_t *gidlist;
 	struct passwd *pw;
 
 	if (user == NULL) return NULL;
@@ -1000,7 +998,8 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	{
 		pw = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));
 		basegid = pw->pw_gid;
-		free(item);
+		si_item_release(item);
+		item = NULL;
 	}
 
 	f = fopen(_PATH_GROUP, "r");
@@ -1034,12 +1033,13 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 		match = 0;
 		gid = -2;
 
-		for (i = 0; (i < ntokens) && (match == 0); i++)
+		for (i = 0; i < ntokens; i++)
 		{
 			if (string_equal(user, members[i]))
 			{
 				gid = atoi(tokens[2]);
 				match = 1;
+				break;
 			}
 		}
 
@@ -1050,40 +1050,24 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 
 		if (match == 1)
 		{
-			if (gidcount == 0) gidlist = (char **)calloc(1, sizeof(char *));
-			else gidlist = (char **)reallocf(gidlist, (gidcount + 1) * sizeof(char *));
-			gidp = (int32_t *)calloc(1, sizeof(int32_t));
-
+			gidlist = (gid_t *) reallocf(gidlist, (gidcount + 1) * sizeof(gid_t));
 			if (gidlist == NULL)
 			{
 				gidcount = 0;
 				break;
 			}
 
-			if (gidp == NULL)
-			{
-				for (i = 0; i < gidcount; i++) free(gidlist[i]);
-				free(gidlist);
-				gidcount = 0;
-				break;
-			}
-
-			*gidp = gid;
-			gidlist[gidcount++] = (char *)gidp;
+			gidlist[gidcount++] = gid;
 		}
 	}
 
 	fclose(f);
 
-	if (gidcount == 0) return NULL;
+	if (gidcount != 0) {
+		item = (si_item_t *)LI_ils_create("L4488s4@", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, user, gidcount, 
+										  gidcount * sizeof(gid_t), gidlist);
+	}
 
-	gidlist = (char **)reallocf(gidlist, (gidcount + 1) * sizeof(int32_t *));
-	if (gidlist == NULL) return NULL;
-	gidlist[gidcount] = NULL;
-
-	item = (si_item_t *)LI_ils_create("L4488s44a", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, user, basegid, gidcount, gidlist);
-
-	for (i = 0; i <= gidcount; i++) free(gidlist[i]);
 	free(gidlist);
 
 	return item;
@@ -2030,7 +2014,7 @@ file_group_all(si_mod_t *si)
 }
 
 static si_item_t *
-file_grouplist(si_mod_t *si, const char *name)
+file_grouplist(si_mod_t *si, const char *name, __unused uint32_t ignored)
 {
 	return _fsi_get_grouplist(si, name);
 }
@@ -2040,7 +2024,7 @@ file_netgroup_byname(si_mod_t *si, const char *name)
 {
 	si_list_t *list = NULL;
 	si_item_t *item;
-	uint64_t va, vb;
+	uint64_t va=0, vb=0;
 	file_netgroup_t *n;
 	file_si_private_t *pp;
 
@@ -2296,10 +2280,12 @@ si_module_static_file(void)
 
 		.sim_user_byname = &file_user_byname,
 		.sim_user_byuid = &file_user_byuid,
+		.sim_user_byuuid = NULL,
 		.sim_user_all = &file_user_all,
 
 		.sim_group_byname = &file_group_byname,
 		.sim_group_bygid = &file_group_bygid,
+		.sim_group_byuuid = NULL,
 		.sim_group_all = &file_group_all,
 
 		.sim_grouplist = &file_grouplist,

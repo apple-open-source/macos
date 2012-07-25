@@ -50,6 +50,7 @@
 #include "../../Helpers/pppd/chap-new.h"
 #include "../../Helpers/pppd/chap_ms.h"
 #include "../../Family/ppp_comp.h"
+#include "../../Helpers/pppd/ccp.h"
 #include "DSUser.h"
 
 #define BUF_LEN 1024
@@ -62,6 +63,7 @@ extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
 extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
 extern int mppe_keys_set;		/* Have the MPPE keys been set? */
 extern CFPropertyListRef 		systemOptions;
+extern ccp_options ccp_wantoptions[];
 
 static int dsauth_check(void);
 static int dsauth_ip_allowed_address(u_int32_t addr);
@@ -70,7 +72,7 @@ static int dsauth_chap(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space);
-static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, u_char *remmd, 
+static int dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, u_char *remmd, 
 				 tAttributeValueEntryPtr authAuthorityAttr,
  				 const unsigned char *challenge);
 static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_int32_t *passwordSize, char **password);
@@ -79,7 +81,7 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
             tAttributeValueEntryPtr *recordNameAttr, tAttributeValueEntryPtr *authAuthorityAttr);
 
 #define DSAuth_hex_print(name, str, len)     					\
-	{ int i; error("DSAuth: %s", name);			\
+	{ int i; error("DSAuth: Chap %s", name);			\
 	  for (i=0; i<len; i++) { error(" - %c %2x", str[i], str[i]); } \
 	} 
 
@@ -302,11 +304,11 @@ static int dsauth_chap(u_char *name, u_char *ourname, int id,
 					goto cleanup;
 				}
 			} else {
-				error("DSAccessControl plugin: No Interface subtype found\n");
+				error("DSAuth plugin: No Interface subtype found\n");
 				goto cleanup;
 			}
 		} else {
-			error("DSAccessControl plugin: No Interface dictionary found\n");
+			error("DSAuth plugin: No Interface dictionary found\n");
 			goto cleanup;
 		}
 
@@ -362,8 +364,12 @@ static int dsauth_chap(u_char *name, u_char *ourname, int id,
                                 slprintf((char*)message, message_space, "S=%s M=%s",
                                         responseDataBufPtr->fBufferData + 4, "Access granted");
                         authResult = 1;
-                        dsauth_set_mppe_keys(dirRef, userNode, response, authAuthorityAttr, challenge);
-
+			if ((ccp_wantoptions[0].mppe)) {
+			    if (!dsauth_set_mppe_keys(dirRef, userNode, response, authAuthorityAttr, challenge)) {
+				error("DSAuth plugin: MPPE key required, but its retrieval failed.\n");
+				authResult = 0;
+			    }
+			} 
                     } 
                 } 
             }
@@ -461,7 +467,7 @@ static tDataBufferPtr dsauth_agent_authbuffer(tDirReference dirRef, const char *
 //		know if the keys are actually going to be needed
 //		at this point.
 //----------------------------------------------------------------------
-static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, u_char *remmd, 
+static int dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, u_char *remmd, 
 				 tAttributeValueEntryPtr authAuthorityAttr,
 				 const unsigned char *challenge)
 {
@@ -480,6 +486,7 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
     u_int32_t			slotIDSize = 0;
 	const char			*slotID;
 	tContextData		dir_context = 0;
+    int				status = 0;
 
     mppe_keys_set = 0;
 
@@ -498,27 +505,29 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
 		ptr++;
 	}
 	
-	if (*ptr != ';')
-		return;
+	if (*ptr != ';') {
+		error("DSAuth plugin: Password Server not available for MPPE key retrieval.\n");
+		return (status);
+	}
 	if (strncmp(tagStart, kDSTagAuthAuthorityPasswordServer, ptr - tagStart) == 0) {
 		dsauth_get_admin_acct(&keyaccessNameSize, &keyaccessName, &keyaccessPasswordSize, &keyaccessPassword);
 		if (keyaccessName == 0) {
 			error("DSAuth plugin: Could not retrieve key agent account information.\n");
-			return;
+			return (status);
 		}
 		
 		// PWS auths expect to receive the PWS ID in the MPPE phase
 		comma = strchr(ptr, ',');
 		if (comma == NULL) {
 			error("DSAuth plugin: Could not retrieve slot ID.\n");
-			return;
+			return (status);
 		}
 
 		slotID = ptr + 1; // skip the ';' as well
 		slotIDSize = comma - slotID;
 	} else {
 	        error("DSAuth plugin: unsupported authen authority: recved %s, want %s\n", tagStart, kDSTagAuthAuthorityPasswordServer);
-		return;		// unsupported authentication authority - don't set the keys
+		return (status);		// unsupported authentication authority - don't set the keys
 	}
         
 	resp = (MS_Chap2Response*)remmd;
@@ -596,7 +605,10 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
 			if (len == sizeof(mppe_recv_key))
 					memcpy(mppe_recv_key, ptr, sizeof(mppe_recv_key));
 			mppe_keys_set = 1;
-		}
+			status = 1;
+		} else 
+		    error("DSAuth plugin: Invalid MPPE data for encryption keys retrieval\n");
+
 	} else
 		error("DSAuth plugin: Failed to retrieve MPPE encryption keys from the password server: errno %d, ctxt %x\n", dsResult, dir_context);
         
@@ -622,6 +634,7 @@ cleanup:
     if (authDataBufPtr)
         dsDataBufferDeAllocate(dirRef, authDataBufPtr);
    
+    return (status);
 }
 
 //----------------------------------------------------------------------

@@ -103,7 +103,7 @@ perform_tl_data(krb5_context context,
 				   NULL);
 	if (ret)
 	    return KADM5_BAD_TL_TYPE;
-	
+
 	ret = hdb_replace_extension(context, &ent->entry, &ext);
 	free_HDB_extension(&ext);
     } else {
@@ -180,8 +180,14 @@ _kadm5_setup_entry(kadm5_server_context *context,
 	}
     }
     if(mask & KADM5_KVNO
-       && princ_mask & KADM5_KVNO)
-	ent->entry.kvno = princ->kvno;
+       && (princ_mask & KADM5_KVNO)) {
+	krb5_error_code ret;
+
+	ret = hdb_change_kvno(context->context, princ->kvno, &ent->entry);
+	if (ret && ret != HDB_ERR_KVNO_NOT_FOUND)
+	    return ret;
+	ent->entry.kvno = princ->kvno; /* force it */
+    }
     if(mask & KADM5_MAX_RLIFE) {
 	if(princ_mask & KADM5_MAX_RLIFE) {
 	  if(princ->max_renewable_life)

@@ -31,15 +31,13 @@
 #include "config.h"
 #include "ApplicationCacheHost.h"
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "DocumentLoader.h"
 #include "WebApplicationCacheHostClient.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
-#include "WebURL.h"
+#include "platform/WebKitPlatformSupport.h"
+#include "platform/WebURL.h"
 
 namespace WebCore {
 
@@ -70,7 +68,7 @@ public:
 
     static WebKit::WebApplicationCacheHost* toWebApplicationCacheHost(ApplicationCacheHost* innerHost)
     {
-        if (innerHost && innerHost->m_internal.get())
+        if (innerHost && innerHost->m_internal)
             return innerHost->m_internal->m_outerHost.get();
         return 0;
     }
@@ -82,5 +80,3 @@ private:
 };
 
 }
-
-#endif  // ENABLE(OFFLINE_WEB_APPLICATIONS)

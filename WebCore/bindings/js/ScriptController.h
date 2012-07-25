@@ -29,15 +29,11 @@
 #include <heap/Strong.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/TextPosition.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-
-#ifdef __OBJC__
-@class WebScriptObject;
-#else
-class WebScriptObject;
-#endif
+OBJC_CLASS WebScriptObject;
 #endif
 
 struct NPObject;
@@ -88,7 +84,7 @@ public:
         return windowShell(world)->window();
     }
 
-    static void getAllWorlds(Vector<DOMWrapperWorld*>&);
+    static void getAllWorlds(Vector<RefPtr<DOMWrapperWorld> >&);
 
     ScriptValue executeScript(const ScriptSourceCode&);
     ScriptValue executeScript(const String& script, bool forceUserGesture = false);
@@ -104,13 +100,11 @@ public:
     ScriptValue evaluate(const ScriptSourceCode&);
     ScriptValue evaluateInWorld(const ScriptSourceCode&, DOMWrapperWorld*);
 
-    int eventHandlerLineNumber() const;
+    WTF::TextPosition eventHandlerPosition() const;
 
     void disableEval();
 
-    void setProcessingTimerCallback(bool b) { m_processingTimerCallback = b; }
     static bool processingUserGesture();
-    bool anyPageIsProcessingUserGesture() const;
 
     static bool canAccessFromCurrentOrigin(Frame*);
     bool canExecuteScripts(ReasonForCallingCanExecuteScripts);
@@ -122,9 +116,6 @@ public:
     void setPaused(bool b) { m_paused = b; }
     bool isPaused() const { return m_paused; }
 
-    void setAllowPopupsFromPlugin(bool allowPopupsFromPlugin) { m_allowPopupsFromPlugin = allowPopupsFromPlugin; }
-    bool allowPopupsFromPlugin() const { return m_allowPopupsFromPlugin; }
-    
     const String* sourceURL() const { return m_sourceURL; } // 0 if we are not evaluating any script
 
     void clearWindowShell(bool goingIntoPageCache = false);
@@ -173,17 +164,11 @@ private:
 
     void disconnectPlatformScriptObjects();
 
-    bool isJavaScriptAnchorNavigation() const;
-
     ShellMap m_windowShells;
     Frame* m_frame;
     const String* m_sourceURL;
 
-    bool m_inExecuteScript;
-
-    bool m_processingTimerCallback;
     bool m_paused;
-    bool m_allowPopupsFromPlugin;
 
     // The root object used for objects bound outside the context of a plugin, such
     // as NPAPI plugins. The plugins using these objects prevent a page from being cached so they

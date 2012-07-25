@@ -1,9 +1,9 @@
 /*
- * "$Id: http.c 9924 2011-08-26 18:13:31Z mike $"
+ * "$Id: http.c 7850 2008-08-20 00:07:25Z mike $"
  *
  *   HTTP routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   This file contains Kerberos support code, copyright 2006 by
@@ -19,103 +19,105 @@
  *
  * Contents:
  *
- *   httpAddCredential()       - Allocates and adds a single credential to an
- *                               array.
- *   _httpBIOMethods()         - Get the OpenSSL BIO methods for HTTP
- *                               connections.
- *   httpBlocking()            - Set blocking/non-blocking behavior on a
- *                               connection.
- *   httpCheck()               - Check to see if there is a pending response
- *                               from the server.
- *   httpClearCookie()         - Clear the cookie value(s).
- *   httpClearFields()         - Clear HTTP request fields.
- *   httpClose()               - Close an HTTP connection.
- *   httpConnect()             - Connect to a HTTP server.
- *   httpConnectEncrypt()      - Connect to a HTTP server using encryption.
- *   httpCopyCredentials()     - Copy the credentials associated with an
- *                               encrypted connection.
- *   _httpCreate()             - Create an unconnected HTTP connection.
- *   _httpCreateCredentials()  - Create credentials in the internal format.
- *   httpDelete()              - Send a DELETE request to the server.
- *   _httpDisconnect()         - Disconnect a HTTP connection.
- *   httpEncryption()          - Set the required encryption on the link.
- *   httpError()               - Get the last error on a connection.
- *   httpFlush()               - Flush data from a HTTP connection.
- *   httpFlushWrite()          - Flush data in write buffer.
- *   _httpFreeCredentials()    - Free internal credentials.
- *   httpFreeCredentials()     - Free an array of credentials.
- *   httpGet()                 - Send a GET request to the server.
- *   httpGetAuthString()       - Get the current authorization string.
- *   httpGetBlocking()         - Get the blocking/non-block state of a
- *                               connection.
- *   httpGetCookie()           - Get any cookie data from the response.
- *   httpGetFd()               - Get the file descriptor associated with a
- *                               connection.
- *   httpGetField()            - Get a field value from a request/response.
- *   httpGetLength()           - Get the amount of data remaining from the
- *                               content-length or transfer-encoding fields.
- *   httpGetLength2()          - Get the amount of data remaining from the
- *                               content-length or transfer-encoding fields.
- *   httpGetStatus()           - Get the status of the last HTTP request.
- *   httpGetSubField()         - Get a sub-field value.
- *   httpGetSubField2()        - Get a sub-field value.
- *   httpGets()                - Get a line of text from a HTTP connection.
- *   httpHead()                - Send a HEAD request to the server.
- *   httpInitialize()          - Initialize the HTTP interface library and set
- *                               the default HTTP proxy (if any).
- *   httpOptions()             - Send an OPTIONS request to the server.
- *   _httpPeek()               - Peek at data from a HTTP connection.
- *   httpPost()                - Send a POST request to the server.
- *   httpPrintf()              - Print a formatted string to a HTTP connection.
- *   httpPut()                 - Send a PUT request to the server.
- *   httpRead()                - Read data from a HTTP connection.
- *   httpRead2()               - Read data from a HTTP connection.
- *   _httpReadCDSA()           - Read function for the CDSA library.
- *   _httpReadGNUTLS()         - Read function for the GNU TLS library.
- *   httpReconnect()           - Reconnect to a HTTP server.
- *   httpSetAuthString()       - Set the current authorization string.
- *   httpSetCredentials()      - Set the credentials associated with an
- *                               encrypted connection.
- *   httpSetCookie()           - Set the cookie value(s).
- *   httpSetExpect()           - Set the Expect: header in a request.
- *   httpSetField()            - Set the value of an HTTP header.
- *   httpSetLength()           - Set the content-length and content-encoding.
- *   httpSetTimeout()          - Set read/write timeouts and an optional
- *                               callback.
- *   httpTrace()               - Send an TRACE request to the server.
- *   _httpUpdate()             - Update the current HTTP status for incoming
- *                               data.
- *   httpUpdate()              - Update the current HTTP state for incoming
- *                               data.
- *   _httpWait()               - Wait for data available on a connection (no
- *                               flush).
- *   httpWait()                - Wait for data available on a connection.
- *   httpWrite()               - Write data to a HTTP connection.
- *   httpWrite2()              - Write data to a HTTP connection.
- *   _httpWriteCDSA()          - Write function for the CDSA library.
- *   _httpWriteGNUTLS()        - Write function for the GNU TLS library.
- *   http_bio_ctrl()           - Control the HTTP connection.
- *   http_bio_free()           - Free OpenSSL data.
- *   http_bio_new()            - Initialize an OpenSSL BIO structure.
- *   http_bio_puts()           - Send a string for OpenSSL.
- *   http_bio_read()           - Read data for OpenSSL.
- *   http_bio_write()          - Write data for OpenSSL.
- *   http_debug_hex()          - Do a hex dump of a buffer.
- *   http_field()              - Return the field index for a field name.
- *   http_read_ssl()           - Read from a SSL/TLS connection.
- *   http_locking_cb()         - Lock/unlock a thread's mutex.
- *   http_send()               - Send a request with all fields and the trailing
- *                               blank line.
- *   http_set_credentials()    - Set the SSL/TLS credentials.
- *   http_set_timeout()        - Set the socket timeout values.
- *   http_set_wait()           - Set the default wait value for reads.
- *   http_setup_ssl()          - Set up SSL/TLS support on a connection.
- *   http_shutdown_ssl()       - Shut down SSL/TLS on a connection.
- *   http_threadid_cb()        - Return the current thread ID.
- *   http_upgrade()            - Force upgrade to TLS encryption.
- *   http_write()              - Write a buffer to a HTTP connection.
- *   http_write_chunk()        - Write a chunked buffer.
- *   http_write_ssl()          - Write to a SSL/TLS connection.
+ *   httpAddCredential()      - Allocates and adds a single credential to an
+ *				array.
+ *   _httpBIOMethods()	      - Get the OpenSSL BIO methods for HTTP
+ *				connections.
+ *   httpBlocking()	      - Set blocking/non-blocking behavior on a
+ *				connection.
+ *   httpCheck()	      - Check to see if there is a pending response
+ *				from the server.
+ *   httpClearCookie()	      - Clear the cookie value(s).
+ *   httpClearFields()	      - Clear HTTP request fields.
+ *   httpClose()	      - Close an HTTP connection.
+ *   httpConnect()	      - Connect to a HTTP server.
+ *   httpConnectEncrypt()     - Connect to a HTTP server using encryption.
+ *   httpCopyCredentials()    - Copy the credentials associated with an
+ *				encrypted connection.
+ *   _httpCreate()	      - Create an unconnected HTTP connection.
+ *   _httpCreateCredentials() - Create credentials in the internal format.
+ *   httpDelete()	      - Send a DELETE request to the server.
+ *   _httpDisconnect()	      - Disconnect a HTTP connection.
+ *   httpEncryption()	      - Set the required encryption on the link.
+ *   httpError()	      - Get the last error on a connection.
+ *   httpFlush()	      - Flush data from a HTTP connection.
+ *   httpFlushWrite()	      - Flush data in write buffer.
+ *   _httpFreeCredentials()   - Free internal credentials.
+ *   httpFreeCredentials()    - Free an array of credentials.
+ *   httpGet()		      - Send a GET request to the server.
+ *   httpGetAuthString()      - Get the current authorization string.
+ *   httpGetBlocking()	      - Get the blocking/non-block state of a
+ *				connection.
+ *   httpGetCookie()	      - Get any cookie data from the response.
+ *   httpGetFd()	      - Get the file descriptor associated with a
+ *				connection.
+ *   httpGetField()	      - Get a field value from a request/response.
+ *   httpGetLength()	      - Get the amount of data remaining from the
+ *				content-length or transfer-encoding fields.
+ *   httpGetLength2()	      - Get the amount of data remaining from the
+ *				content-length or transfer-encoding fields.
+ *   httpGets() 	      - Get a line of text from a HTTP connection.
+ *   httpGetState()	      - Get the current state of the HTTP request.
+ *   httpGetStatus()	      - Get the status of the last HTTP request.
+ *   httpGetSubField()	      - Get a sub-field value.
+ *   httpGetSubField2()       - Get a sub-field value.
+ *   httpGetVersion()	      - Get the HTTP version at the other end.
+ *   httpHead() 	      - Send a HEAD request to the server.
+ *   httpInitialize()	      - Initialize the HTTP interface library and set
+ *				the default HTTP proxy (if any).
+ *   httpOptions()	      - Send an OPTIONS request to the server.
+ *   _httpPeek()	      - Peek at data from a HTTP connection.
+ *   httpPost() 	      - Send a POST request to the server.
+ *   httpPrintf()	      - Print a formatted string to a HTTP connection.
+ *   httpPut()		      - Send a PUT request to the server.
+ *   httpRead() 	      - Read data from a HTTP connection.
+ *   httpRead2()	      - Read data from a HTTP connection.
+ *   _httpReadCDSA()	      - Read function for the CDSA library.
+ *   _httpReadGNUTLS()	      - Read function for the GNU TLS library.
+ *   httpReconnect()	      - Reconnect to a HTTP server.
+ *   httpReconnect2()	      - Reconnect to a HTTP server with timeout and
+ *				optional cancel.
+ *   httpSetAuthString()      - Set the current authorization string.
+ *   httpSetCredentials()     - Set the credentials associated with an
+ *				encrypted connection.
+ *   httpSetCookie()	      - Set the cookie value(s).
+ *   httpSetExpect()	      - Set the Expect: header in a request.
+ *   httpSetField()	      - Set the value of an HTTP header.
+ *   httpSetLength()	      - Set the content-length and content-encoding.
+ *   httpSetTimeout()	      - Set read/write timeouts and an optional
+ *				callback.
+ *   httpTrace()	      - Send an TRACE request to the server.
+ *   _httpUpdate()	      - Update the current HTTP status for incoming
+ *				data.
+ *   httpUpdate()	      - Update the current HTTP state for incoming
+ *				data.
+ *   _httpWait()	      - Wait for data available on a connection (no
+ *				flush).
+ *   httpWait() 	      - Wait for data available on a connection.
+ *   httpWrite()	      - Write data to a HTTP connection.
+ *   httpWrite2()	      - Write data to a HTTP connection.
+ *   _httpWriteCDSA()	      - Write function for the CDSA library.
+ *   _httpWriteGNUTLS()       - Write function for the GNU TLS library.
+ *   http_bio_ctrl()	      - Control the HTTP connection.
+ *   http_bio_free()	      - Free OpenSSL data.
+ *   http_bio_new()	      - Initialize an OpenSSL BIO structure.
+ *   http_bio_puts()	      - Send a string for OpenSSL.
+ *   http_bio_read()	      - Read data for OpenSSL.
+ *   http_bio_write()	      - Write data for OpenSSL.
+ *   http_debug_hex()	      - Do a hex dump of a buffer.
+ *   http_field()	      - Return the field index for a field name.
+ *   http_read_ssl()	      - Read from a SSL/TLS connection.
+ *   http_send()	      - Send a request with all fields and the trailing
+ *				blank line.
+ *   http_set_credentials()   - Set the SSL/TLS credentials.
+ *   http_set_timeout()       - Set the socket timeout values.
+ *   http_set_wait()	      - Set the default wait value for reads.
+ *   http_setup_ssl()	      - Set up SSL/TLS support on a connection.
+ *   http_shutdown_ssl()      - Shut down SSL/TLS on a connection.
+ *   http_upgrade()	      - Force upgrade to TLS encryption.
+ *   http_write()	      - Write a buffer to a HTTP connection.
+ *   http_write_chunk()       - Write a chunked buffer.
+ *   http_write_ssl()	      - Write to a SSL/TLS connection.
  */
 
 /*
@@ -133,18 +135,8 @@
 #  include <sys/resource.h>
 #endif /* WIN32 */
 #ifdef HAVE_POLL
-#  include <sys/poll.h>
+#  include <poll.h>
 #endif /* HAVE_POLL */
-
-
-/*
- * Some operating systems have done away with the Fxxxx constants for
- * the fcntl() call; this works around that "feature"...
- */
-
-#ifndef FNONBLK
-#  define FNONBLK O_NONBLOCK
-#endif /* !FNONBLK */
 
 
 /*
@@ -266,7 +258,7 @@ static BIO_METHOD	http_bio_methods =
  *
  * Use @code cupsArrayNew(NULL, NULL)@ to create a credentials array.
  *
- * @since CUPS 1.5/Mac OS X 10.7@
+ * @since CUPS 1.5/OS X 10.7@
  */
 
 int					/* O - 0 on success, -1 on error */
@@ -339,7 +331,7 @@ httpCheck(http_t *http)			/* I - Connection to server */
 /*
  * 'httpClearCookie()' - Clear the cookie value(s).
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 void
@@ -502,7 +494,7 @@ httpConnectEncrypt(
  * 'httpCopyCredentials()' - Copy the credentials associated with an encrypted
  *			     connection.
  *
- * @since CUPS 1.5/Mac OS X 10.7@
+ * @since CUPS 1.5/OS X 10.7@
  */
 
 int					/* O - Status of call (0 = success) */
@@ -606,6 +598,7 @@ _httpCreate(
 
   if ((http = calloc(sizeof(http_t), 1)) == NULL)
   {
+    _cupsSetError(IPP_INTERNAL_ERROR, strerror(errno), 0);
     httpAddrFreeList(addrlist);
     return (NULL);
   }
@@ -842,7 +835,7 @@ httpFlush(http_t *http)			/* I - Connection to server */
 /*
  * 'httpFlushWrite()' - Flush data in write buffer.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - Bytes written or -1 on error */
@@ -944,7 +937,7 @@ httpGet(http_t     *http,		/* I - Connection to server */
  * string to use with httpSetField() for the HTTP_FIELD_AUTHORIZATION
  * value.
  *
- * @since CUPS 1.3/Mac OS X 10.5@
+ * @since CUPS 1.3/OS X 10.5@
  */
 
 char *					/* O - Authorization string */
@@ -960,7 +953,7 @@ httpGetAuthString(http_t *http)		/* I - Connection to server */
 /*
  * 'httpGetBlocking()' - Get the blocking/non-block state of a connection.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - 1 if blocking, 0 if non-blocking */
@@ -973,7 +966,7 @@ httpGetBlocking(http_t *http)		/* I - Connection to server */
 /*
  * 'httpGetCookie()' - Get any cookie data from the response.
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 const char *				/* O - Cookie data or NULL */
@@ -986,7 +979,7 @@ httpGetCookie(http_t *http)		/* I - HTTP connecion */
 /*
  * 'httpGetFd()' - Get the file descriptor associated with a connection.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O - File descriptor or -1 if none */
@@ -1056,7 +1049,7 @@ httpGetLength(http_t *http)		/* I - Connection to server */
  * This function returns the complete content length, even for
  * content larger than 2^31 - 1.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 off_t					/* O - Content length */
@@ -1117,9 +1110,204 @@ httpGetLength2(http_t *http)		/* I - Connection to server */
 
 
 /*
+ * 'httpGets()' - Get a line of text from a HTTP connection.
+ */
+
+char *					/* O - Line or NULL */
+httpGets(char   *line,			/* I - Line to read into */
+         int    length,			/* I - Max length of buffer */
+	 http_t *http)			/* I - Connection to server */
+{
+  char	*lineptr,			/* Pointer into line */
+	*lineend,			/* End of line */
+	*bufptr,			/* Pointer into input buffer */
+	*bufend;			/* Pointer to end of buffer */
+  int	bytes,				/* Number of bytes read */
+	eol;				/* End-of-line? */
+
+
+  DEBUG_printf(("2httpGets(line=%p, length=%d, http=%p)", line, length, http));
+
+  if (http == NULL || line == NULL)
+    return (NULL);
+
+ /*
+  * Read a line from the buffer...
+  */
+
+  http->error = 0;
+  lineptr     = line;
+  lineend     = line + length - 1;
+  eol         = 0;
+
+  while (lineptr < lineend)
+  {
+   /*
+    * Pre-load the buffer as needed...
+    */
+
+#ifdef WIN32
+    WSASetLastError(0);
+#else
+    errno = 0;
+#endif /* WIN32 */
+
+    while (http->used == 0)
+    {
+     /*
+      * No newline; see if there is more data to be read...
+      */
+
+      while (!_httpWait(http, http->wait_value, 1))
+      {
+	if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
+	  continue;
+
+        DEBUG_puts("3httpGets: Timed out!");
+#ifdef WIN32
+        http->error = WSAETIMEDOUT;
+#else
+        http->error = ETIMEDOUT;
+#endif /* WIN32 */
+        return (NULL);
+      }
+
+#ifdef HAVE_SSL
+      if (http->tls)
+	bytes = http_read_ssl(http, http->buffer + http->used,
+	                      HTTP_MAX_BUFFER - http->used);
+      else
+#endif /* HAVE_SSL */
+        bytes = recv(http->fd, http->buffer + http->used,
+	             HTTP_MAX_BUFFER - http->used, 0);
+
+      DEBUG_printf(("4httpGets: read %d bytes...", bytes));
+
+#ifdef DEBUG
+      http_debug_hex("httpGets", http->buffer + http->used, bytes);
+#endif /* DEBUG */
+
+      if (bytes < 0)
+      {
+       /*
+	* Nope, can't get a line this time...
+	*/
+
+#ifdef WIN32
+        DEBUG_printf(("3httpGets: recv() error %d!", WSAGetLastError()));
+
+        if (WSAGetLastError() == WSAEINTR)
+	  continue;
+	else if (WSAGetLastError() == WSAEWOULDBLOCK)
+	{
+	  if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
+	    continue;
+
+	  http->error = WSAGetLastError();
+	}
+	else if (WSAGetLastError() != http->error)
+	{
+	  http->error = WSAGetLastError();
+	  continue;
+	}
+
+#else
+        DEBUG_printf(("3httpGets: recv() error %d!", errno));
+
+        if (errno == EINTR)
+	  continue;
+	else if (errno == EWOULDBLOCK || errno == EAGAIN)
+	{
+	  if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
+	    continue;
+	  else if (!http->timeout_cb && errno == EAGAIN)
+	    continue;
+
+	  http->error = errno;
+	}
+	else if (errno != http->error)
+	{
+	  http->error = errno;
+	  continue;
+	}
+#endif /* WIN32 */
+
+        return (NULL);
+      }
+      else if (bytes == 0)
+      {
+	http->error = EPIPE;
+
+        return (NULL);
+      }
+
+     /*
+      * Yup, update the amount used...
+      */
+
+      http->used += bytes;
+    }
+
+   /*
+    * Now copy as much of the current line as possible...
+    */
+
+    for (bufptr = http->buffer, bufend = http->buffer + http->used;
+         lineptr < lineend && bufptr < bufend;)
+    {
+      if (*bufptr == 0x0a)
+      {
+        eol = 1;
+	bufptr ++;
+	break;
+      }
+      else if (*bufptr == 0x0d)
+	bufptr ++;
+      else
+	*lineptr++ = *bufptr++;
+    }
+
+    http->used -= (int)(bufptr - http->buffer);
+    if (http->used > 0)
+      memmove(http->buffer, bufptr, http->used);
+
+    if (eol)
+    {
+     /*
+      * End of line...
+      */
+
+      http->activity = time(NULL);
+
+      *lineptr = '\0';
+
+      DEBUG_printf(("3httpGets: Returning \"%s\"", line));
+
+      return (line);
+    }
+  }
+
+  DEBUG_puts("3httpGets: No new line available!");
+
+  return (NULL);
+}
+
+
+/*
+ * 'httpGetState()' - Get the current state of the HTTP request.
+ */
+
+http_state_t				/* O - HTTP state */
+httpGetState(http_t *http)		/* I - Connection to server */
+{
+  return (http ? http->state : HTTP_ERROR);
+}
+
+
+/*
  * 'httpGetStatus()' - Get the status of the last HTTP request.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 http_status_t				/* O - HTTP status */
@@ -1148,7 +1336,7 @@ httpGetSubField(http_t       *http,	/* I - Connection to server */
 /*
  * 'httpGetSubField2()' - Get a sub-field value.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 char *					/* O - Value or NULL */
@@ -1278,182 +1466,13 @@ httpGetSubField2(http_t       *http,	/* I - Connection to server */
 
 
 /*
- * 'httpGets()' - Get a line of text from a HTTP connection.
+ * 'httpGetVersion()' - Get the HTTP version at the other end.
  */
 
-char *					/* O - Line or NULL */
-httpGets(char   *line,			/* I - Line to read into */
-         int    length,			/* I - Max length of buffer */
-	 http_t *http)			/* I - Connection to server */
+http_version_t				/* O - Version number */
+httpGetVersion(http_t *http)		/* I - Connection to server */
 {
-  char	*lineptr,			/* Pointer into line */
-	*lineend,			/* End of line */
-	*bufptr,			/* Pointer into input buffer */
-	*bufend;			/* Pointer to end of buffer */
-  int	bytes,				/* Number of bytes read */
-	eol;				/* End-of-line? */
-
-
-  DEBUG_printf(("2httpGets(line=%p, length=%d, http=%p)", line, length, http));
-
-  if (http == NULL || line == NULL)
-    return (NULL);
-
- /*
-  * Read a line from the buffer...
-  */
-
-  http->error = 0;
-  lineptr     = line;
-  lineend     = line + length - 1;
-  eol         = 0;
-
-  while (lineptr < lineend)
-  {
-   /*
-    * Pre-load the buffer as needed...
-    */
-
-#ifdef WIN32
-    WSASetLastError(0);
-#else
-    errno = 0;
-#endif /* WIN32 */
-
-    while (http->used == 0)
-    {
-     /*
-      * No newline; see if there is more data to be read...
-      */
-
-      while (!_httpWait(http, http->wait_value, 1))
-      {
-	if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
-	  continue;
-
-        DEBUG_puts("3httpGets: Timed out!");
-#ifdef WIN32
-        http->error = WSAETIMEDOUT;
-#else
-        http->error = ETIMEDOUT;
-#endif /* WIN32 */
-        return (NULL);
-      }
-
-#ifdef HAVE_SSL
-      if (http->tls)
-	bytes = http_read_ssl(http, http->buffer + http->used,
-	                      HTTP_MAX_BUFFER - http->used);
-      else
-#endif /* HAVE_SSL */
-        bytes = recv(http->fd, http->buffer + http->used,
-	             HTTP_MAX_BUFFER - http->used, 0);
-
-      DEBUG_printf(("4httpGets: read %d bytes...", bytes));
-
-      if (bytes < 0)
-      {
-       /*
-	* Nope, can't get a line this time...
-	*/
-
-#ifdef WIN32
-        DEBUG_printf(("3httpGets: recv() error %d!", WSAGetLastError()));
-
-        if (WSAGetLastError() == WSAEINTR)
-	  continue;
-	else if (WSAGetLastError() == WSAEWOULDBLOCK)
-	{
-	  if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
-	    continue;
-
-	  http->error = WSAGetLastError();
-	}
-	else if (WSAGetLastError() != http->error)
-	{
-	  http->error = WSAGetLastError();
-	  continue;
-	}
-
-#else
-        DEBUG_printf(("3httpGets: recv() error %d!", errno));
-
-        if (errno == EINTR)
-	  continue;
-	else if (errno == EWOULDBLOCK || errno == EAGAIN)
-	{
-	  if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
-	    continue;
-	  else if (!http->timeout_cb && errno == EAGAIN)
-	    continue;
-
-	  http->error = errno;
-	}
-	else if (errno != http->error)
-	{
-	  http->error = errno;
-	  continue;
-	}
-#endif /* WIN32 */
-
-        return (NULL);
-      }
-      else if (bytes == 0)
-      {
-	http->error = EPIPE;
-
-        return (NULL);
-      }
-
-     /*
-      * Yup, update the amount used...
-      */
-
-      http->used += bytes;
-    }
-
-   /*
-    * Now copy as much of the current line as possible...
-    */
-
-    for (bufptr = http->buffer, bufend = http->buffer + http->used;
-         lineptr < lineend && bufptr < bufend;)
-    {
-      if (*bufptr == 0x0a)
-      {
-        eol = 1;
-	bufptr ++;
-	break;
-      }
-      else if (*bufptr == 0x0d)
-	bufptr ++;
-      else
-	*lineptr++ = *bufptr++;
-    }
-
-    http->used -= (int)(bufptr - http->buffer);
-    if (http->used > 0)
-      memmove(http->buffer, bufptr, http->used);
-
-    if (eol)
-    {
-     /*
-      * End of line...
-      */
-
-      http->activity = time(NULL);
-
-      *lineptr = '\0';
-
-      DEBUG_printf(("3httpGets: Returning \"%s\"", line));
-
-      return (line);
-    }
-  }
-
-  DEBUG_puts("3httpGets: No new line available!");
-
-  return (NULL);
+  return (http ? http->version : HTTP_1_0);
 }
 
 
@@ -1649,6 +1668,8 @@ _httpPeek(http_t *http,			/* I - Connection to server */
     * Buffer small reads for better performance...
     */
 
+    ssize_t	buflen;			/* Length of read for buffer */
+
     if (!http->blocking)
     {
       while (!httpWait(http, http->wait_value))
@@ -1661,48 +1682,69 @@ _httpPeek(http_t *http,			/* I - Connection to server */
     }
 
     if (http->data_remaining > sizeof(http->buffer))
-      bytes = sizeof(http->buffer);
+      buflen = sizeof(http->buffer);
     else
-      bytes = http->data_remaining;
+      buflen = http->data_remaining;
 
+    DEBUG_printf(("2_httpPeek: Reading %d bytes into buffer.", (int)buflen));
+
+    do
+    {
 #ifdef HAVE_SSL
-    if (http->tls)
-      bytes = http_read_ssl(http, http->buffer, bytes);
-    else
+      if (http->tls)
+	bytes = http_read_ssl(http, http->buffer, buflen);
+      else
 #endif /* HAVE_SSL */
-    {
-      DEBUG_printf(("2_httpPeek: reading %d bytes from socket into buffer...",
-                    (int)bytes));
+      bytes = recv(http->fd, http->buffer, buflen, 0);
 
-      bytes = recv(http->fd, http->buffer, bytes, 0);
-
-      DEBUG_printf(("2_httpPeek: read %d bytes from socket into buffer...",
-                    (int)bytes));
-    }
-
-    if (bytes > 0)
-      http->used = bytes;
-    else if (bytes < 0)
-    {
+      if (bytes < 0)
+      {
 #ifdef WIN32
-      if (WSAGetLastError() != WSAEINTR && WSAGetLastError() != WSAEWOULDBLOCK)
-      {
-        http->error = WSAGetLastError();
-        return (-1);
-      }
+	if (WSAGetLastError() != WSAEINTR)
+	{
+	  http->error = WSAGetLastError();
+	  return (-1);
+	}
+	else if (WSAGetLastError() == WSAEWOULDBLOCK)
+	{
+	  if (!http->timeout_cb ||
+	      !(*http->timeout_cb)(http, http->timeout_data))
+	  {
+	    http->error = WSAEWOULDBLOCK;
+	    return (-1);
+	  }
+	}
 #else
-      if (errno != EINTR && errno != EAGAIN)
-      {
-        http->error = errno;
-        return (-1);
-      }
+	if (errno == EWOULDBLOCK || errno == EAGAIN)
+	{
+	  if (http->timeout_cb && !(*http->timeout_cb)(http, http->timeout_data))
+	  {
+	    http->error = errno;
+	    return (-1);
+	  }
+	  else if (!http->timeout_cb && errno != EAGAIN)
+	  {
+	    http->error = errno;
+	    return (-1);
+	  }
+	}
+	else if (errno != EINTR)
+	{
+	  http->error = errno;
+	  return (-1);
+	}
 #endif /* WIN32 */
+      }
     }
-    else
-    {
-      http->error = EPIPE;
-      return (0);
-    }
+    while (bytes < 0);
+
+    DEBUG_printf(("2_httpPeek: Read " CUPS_LLFMT " bytes into buffer.",
+                  CUPS_LLCAST bytes));
+#ifdef DEBUG
+    http_debug_hex("_httpPeek", http->buffer, (int)bytes);
+#endif /* DEBUG */
+
+    http->used = bytes;
   }
 
   if (http->used > 0)
@@ -1835,7 +1877,7 @@ httpRead(http_t *http,			/* I - Connection to server */
 /*
  * 'httpRead2()' - Read data from a HTTP connection.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 ssize_t					/* O - Number of bytes read */
@@ -1983,7 +2025,11 @@ httpRead2(http_t *http,			/* I - Connection to server */
     }
     while (bytes < 0);
 
-    DEBUG_printf(("2httpRead2: Read %d bytes into buffer.", (int)bytes));
+    DEBUG_printf(("2httpRead2: Read " CUPS_LLFMT " bytes into buffer.",
+                  CUPS_LLCAST bytes));
+#ifdef DEBUG
+    http_debug_hex("httpRead2", http->buffer, (int)bytes);
+#endif /* DEBUG */
 
     http->used = bytes;
   }
@@ -2086,6 +2132,9 @@ httpRead2(http_t *http,			/* I - Connection to server */
 
     DEBUG_printf(("2httpRead2: read " CUPS_LLFMT " bytes from socket...",
                   CUPS_LLCAST bytes));
+#ifdef DEBUG
+    http_debug_hex("httpRead2", buffer, (int)bytes);
+#endif /* DEBUG */
   }
 
   if (bytes > 0)
@@ -2126,10 +2175,6 @@ httpRead2(http_t *http,			/* I - Connection to server */
     else
       http->state = HTTP_WAITING;
   }
-
-#ifdef DEBUG
-  http_debug_hex("httpRead2", buffer, (int)bytes);
-#endif /* DEBUG */
 
   return (bytes);
 }
@@ -2250,6 +2295,22 @@ _httpReadGNUTLS(
 int					/* O - 0 on success, non-zero on failure */
 httpReconnect(http_t *http)		/* I - Connection to server */
 {
+  DEBUG_printf(("httpReconnect(http=%p)", http));
+
+  return (httpReconnect2(http, 30000, NULL));
+}
+
+
+/*
+ * 'httpReconnect2()' - Reconnect to a HTTP server with timeout and optional
+ *                      cancel.
+ */
+
+int					/* O - 0 on success, non-zero on failure */
+httpReconnect2(http_t *http,		/* I - Connection to server */
+	       int    msec,		/* I - Timeout in milliseconds */
+	       int    *cancel)		/* I - Pointer to "cancel" variable */
+{
   http_addrlist_t	*addr;		/* Connected address */
 #ifdef DEBUG
   http_addrlist_t	*current;	/* Current address */
@@ -2257,15 +2318,19 @@ httpReconnect(http_t *http)		/* I - Connection to server */
 #endif /* DEBUG */
 
 
-  DEBUG_printf(("httpReconnect(http=%p)", http));
+  DEBUG_printf(("httpReconnect2(http=%p, msec=%d, cancel=%p)", http, msec,
+                cancel));
 
   if (!http)
+  {
+    _cupsSetError(IPP_INTERNAL_ERROR, strerror(EINVAL), 0);
     return (-1);
+  }
 
 #ifdef HAVE_SSL
   if (http->tls)
   {
-    DEBUG_puts("2httpReconnect: Shutting down SSL/TLS...");
+    DEBUG_puts("2httpReconnect2: Shutting down SSL/TLS...");
     http_shutdown_ssl(http);
   }
 #endif /* HAVE_SSL */
@@ -2276,7 +2341,7 @@ httpReconnect(http_t *http)		/* I - Connection to server */
 
   if (http->fd >= 0)
   {
-    DEBUG_printf(("2httpReconnect: Closing socket %d...", http->fd));
+    DEBUG_printf(("2httpReconnect2: Closing socket %d...", http->fd));
 
 #ifdef WIN32
     closesocket(http->fd);
@@ -2310,12 +2375,13 @@ httpReconnect(http_t *http)		/* I - Connection to server */
 
 #ifdef DEBUG
   for (current = http->addrlist; current; current = current->next)
-    DEBUG_printf(("2httpReconnect: Address %s:%d",
+    DEBUG_printf(("2httpReconnect2: Address %s:%d",
                   httpAddrString(&(current->addr), temp, sizeof(temp)),
                   _httpAddrPort(&(current->addr))));
 #endif /* DEBUG */
 
-  if ((addr = httpAddrConnect(http->addrlist, &(http->fd))) == NULL)
+  if ((addr = httpAddrConnect2(http->addrlist, &(http->fd), msec,
+                               cancel)) == NULL)
   {
    /*
     * Unable to connect...
@@ -2328,13 +2394,13 @@ httpReconnect(http_t *http)		/* I - Connection to server */
 #endif /* WIN32 */
     http->status = HTTP_ERROR;
 
-    DEBUG_printf(("1httpReconnect: httpAddrConnect failed: %s",
+    DEBUG_printf(("1httpReconnect2: httpAddrConnect failed: %s",
                   strerror(http->error)));
 
     return (-1);
   }
 
-  DEBUG_printf(("2httpReconnect: New socket=%d", http->fd));
+  DEBUG_printf(("2httpReconnect2: New socket=%d", http->fd));
 
   if (http->timeout_value > 0)
     http_set_timeout(http->fd, http->timeout_value);
@@ -2364,7 +2430,7 @@ httpReconnect(http_t *http)		/* I - Connection to server */
     return (http_upgrade(http));
 #endif /* HAVE_SSL */
 
-  DEBUG_printf(("1httpReconnect: Connected to %s:%d...",
+  DEBUG_printf(("1httpReconnect2: Connected to %s:%d...",
 		httpAddrString(http->hostaddr, temp, sizeof(temp)),
 		_httpAddrPort(http->hostaddr)));
 
@@ -2380,7 +2446,7 @@ httpReconnect(http_t *http)		/* I - Connection to server */
  * HTTP_FIELD_AUTHORIZATION prior to issuing a HTTP request using httpGet(),
  * httpHead(), httpOptions(), httpPost, or httpPut().
  *
- * @since CUPS 1.3/Mac OS X 10.5@
+ * @since CUPS 1.3/OS X 10.5@
  */
 
 void
@@ -2437,7 +2503,7 @@ httpSetAuthString(http_t     *http,	/* I - Connection to server */
  * 'httpSetCredentials()' - Set the credentials associated with an encrypted
  *			    connection.
  *
- * @since CUPS 1.5/Mac OS X 10.7@
+ * @since CUPS 1.5/OS X 10.7@
  */
 
 int						/* O - Status of call (0 = success) */
@@ -2458,7 +2524,7 @@ httpSetCredentials(http_t	*http,		/* I - Connection to server */
 /*
  * 'httpSetCookie()' - Set the cookie value(s).
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 void
@@ -2483,7 +2549,7 @@ httpSetCookie(http_t     *http,		/* I - Connection */
  *
  * Currently only HTTP_CONTINUE is supported for the "expect" argument.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 void
@@ -2568,7 +2634,7 @@ httpSetField(http_t       *http,	/* I - Connection to server */
 /*
  * 'httpSetLength()' - Set the content-length and content-encoding.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 void
@@ -2598,7 +2664,7 @@ httpSetLength(http_t *http,		/* I - Connection to server */
  * The optional timeout callback receives both the HTTP connection and a user
  * data pointer and must return 1 to continue or 0 to error (time) out.
  *
- * @since CUPS 1.5/Mac OS X 10.7@
+ * @since CUPS 1.5/OS X 10.7@
  */
 
 void
@@ -2966,7 +3032,7 @@ _httpWait(http_t *http,			/* I - Connection to server */
 /*
  * 'httpWait()' - Wait for data available on a connection.
  *
- * @since CUPS 1.1.19/Mac OS X 10.3@
+ * @since CUPS 1.1.19/OS X 10.3@
  */
 
 int					/* O - 1 if data is available, 0 otherwise */
@@ -3029,7 +3095,7 @@ httpWrite(http_t     *http,		/* I - Connection to server */
 /*
  * 'httpWrite2()' - Write data to a HTTP connection.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 ssize_t					/* O - Number of bytes written */
@@ -4449,6 +4515,8 @@ http_write(http_t     *http,		/* I - Connection to server */
 
   while (length > 0)
   {
+    DEBUG_printf(("3http_write: About to write %d bytes.", (int)length));
+
     if (http->timeout_cb)
     {
 #ifdef HAVE_POLL
@@ -4512,6 +4580,9 @@ http_write(http_t     *http,		/* I - Connection to server */
     else
 #endif /* HAVE_SSL */
     bytes = send(http->fd, buffer, length, 0);
+
+    DEBUG_printf(("3http_write: Write of %d bytes returned %d.", (int)length,
+                  (int)bytes));
 
     if (bytes < 0)
     {
@@ -4706,5 +4777,5 @@ http_write_ssl(http_t     *http,	/* I - Connection to server */
 
 
 /*
- * End of "$Id: http.c 9924 2011-08-26 18:13:31Z mike $".
+ * End of "$Id: http.c 7850 2008-08-20 00:07:25Z mike $".
  */

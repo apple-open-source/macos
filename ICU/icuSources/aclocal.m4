@@ -1,5 +1,5 @@
 # aclocal.m4 for ICU
-# Copyright (c) 1999-2010, International Business Machines Corporation and
+# Copyright (c) 1999-2011, International Business Machines Corporation and
 # others. All Rights Reserved.
 # Stephen F. Booth
 
@@ -245,7 +245,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
             if test "$GCC" = yes; then
                 CFLAGS="${CFLAGS} -m64"
                 CXXFLAGS="${CXXFLAGS} -m64"
-                AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                    CAN_BUILD_64=yes, CAN_BUILD_64=no)
             else
                 case "${host}" in
@@ -253,8 +253,8 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                     # 1. try -m64
                     CFLAGS="${CFLAGS} -m64"
                     CXXFLAGS="${CXXFLAGS} -m64"
-                    AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
-                       CAN_BUILD_64=yes, CAN_BUILD_64=no)
+                    AC_RUN_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
+                       CAN_BUILD_64=yes, CAN_BUILD_64=no, CAN_BUILD_64=unknown)
                     if test "$CAN_BUILD_64" != yes; then
                         # Nope. back out changes.
                         CFLAGS="${CFLAGS_OLD}"
@@ -276,14 +276,15 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                     # 1. try -m64
                     CFLAGS="${CFLAGS} -m64"
                     CXXFLAGS="${CXXFLAGS} -m64"
-                    AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
-                       CAN_BUILD_64=yes, CAN_BUILD_64=no)
+                    AC_RUN_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
+                       CAN_BUILD_64=yes, CAN_BUILD_64=no, CAN_BUILD_64=unknown)
                     if test "$CAN_BUILD_64" != yes; then
                         # Nope. back out changes.
                         CFLAGS="${CFLAGS_OLD}"
                         CXXFLAGS="${CXXFLAGS_OLD}"
                         # 2. try the older compiler option
                         ## TODO: cross compile problem
+                        AMD64=`isainfo -n 2>&1 | grep amd64`
                         SOL64=`$CXX -xtarget=generic64 2>&1 && $CC -xtarget=generic64 2>&1 | grep -v usage:`
                         if test -z "$SOL64" && test -n "$AMD64"; then
                             CFLAGS="${CFLAGS} -xtarget=generic64"
@@ -313,7 +314,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                     CFLAGS="${CFLAGS} -q64"
                     CXXFLAGS="${CXXFLAGS} -q64"
                     LDFLAGS="${LDFLAGS} -q64"
-                    AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                        CAN_BUILD_64=yes, CAN_BUILD_64=no)
                     if test "$CAN_BUILD_64" = yes; then
                         # worked- set other options.
@@ -330,7 +331,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
 
                     CFLAGS="${CFLAGS} +DD64"
                     CXXFLAGS="${CXXFLAGS} +DD64"
-                    AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                         CAN_BUILD_64=yes, CAN_BUILD_64=no)
                     if test "$CAN_BUILD_64" != yes; then
                         # reset
@@ -339,7 +340,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                         # append
                         CFLAGS="${CFLAGS} +DA2.0W"
                         CXXFLAGS="${CXXFLAGS} +DA2.0W"
-                        AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                        AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                             CAN_BUILD_64=yes, CAN_BUILD_64=no)
                     fi
                     ;;
@@ -347,7 +348,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                     CFLAGS="${CFLAGS} -Wc,lp64"
                     CXXFLAGS="${CXXFLAGS} -Wc,lp64"
                     LDFLAGS="${LDFLAGS} -Wl,lp64"
-                    AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                    AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                        CAN_BUILD_64=yes, CAN_BUILD_64=no)
                     ;;
                 *)
@@ -358,7 +359,7 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
             AC_MSG_RESULT($CAN_BUILD_64)
             if test "$CAN_BUILD_64" = yes; then
                 AC_MSG_CHECKING([whether runnable 64-bit binaries are being built ])
-                AC_TRY_RUN(int main(void) {return (sizeof(void*)*8==64)?0:1;},
+                AC_RUN_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==64)?0:1;}])],
                    BITS_RUN_64=yes, BITS_RUN_64=no, BITS_RUN_64=unknown)
                 AC_MSG_RESULT($BITS_RUN_64);
 
@@ -379,13 +380,13 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
             if test "$GCC" = yes; then
                 CFLAGS="${CFLAGS} -m32"
                 CXXFLAGS="${CXXFLAGS} -m32"
-                AC_COMPILE_IFELSE(int main(void) {return (sizeof(void*)*8==32)?0:1;},
+                AC_COMPILE_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==32)?0:1;}])],
                    CAN_BUILD_32=yes, CAN_BUILD_32=no)
             fi
             AC_MSG_RESULT($CAN_BUILD_32)
             if test "$CAN_BUILD_32" = yes; then
                 AC_MSG_CHECKING([whether runnable 32-bit binaries are being built ])
-                AC_TRY_RUN(int main(void) {return (sizeof(void*)*8==32)?0:1;},
+                AC_RUN_IFELSE([AC_LANG_SOURCE([int main(void) {return (sizeof(void*)*8==32)?0:1;}])],
                    BITS_RUN_32=yes, BITS_RUN_32=no, BITS_RUN_32=unknown)
                 AC_MSG_RESULT($BITS_RUN_32);
                 CFLAGS_32="${CFLAGS}"
@@ -451,10 +452,15 @@ AC_DEFUN(AC_CHECK_STRICT_COMPILE,
     then
         if test "$GCC" = yes
         then
-            CFLAGS="$CFLAGS -Wall -ansi -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Wno-long-long"
             case "${host}" in
             *-*-solaris*)
+                CFLAGS="$CFLAGS -Wall -ansi -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Wno-long-long"
                 CFLAGS="$CFLAGS -D__STDC__=0";;
+            *-*-hpux*)
+                echo "# Note: We are not using '-ansi' with HP/UX GCC because int64_t broke, see <http://bugs.icu-project.org/trac/ticket/8493>"
+                CFLAGS="$CFLAGS -Wall -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Wno-long-long";;
+            *)
+                CFLAGS="$CFLAGS -Wall -ansi -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Wno-long-long";;
             esac
         else
             case "${host}" in

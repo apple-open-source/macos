@@ -54,7 +54,7 @@ install::
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-11.0.0
+AEP_ProjVers   = $(Project)-12.0.0
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 

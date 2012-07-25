@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# "$Id: 5.3-lpq.sh 8144 2008-11-19 19:23:12Z mike $"
+# "$Id: 5.3-lpq.sh 6649 2007-07-11 21:46:42Z mike $"
 #
 #   Test the lpq command.
 #
@@ -17,7 +17,7 @@
 echo "LPQ Test"
 echo ""
 echo "    lpq -P Test1"
-../berkeley/lpq -P Test1 2>&1
+$VALGRIND ../berkeley/lpq -P Test1 2>&1
 if test $? != 0; then
 	echo "    FAILED"
 	exit 1
@@ -27,5 +27,5 @@ fi
 echo ""
 
 #
-# End of "$Id: 5.3-lpq.sh 8144 2008-11-19 19:23:12Z mike $".
+# End of "$Id: 5.3-lpq.sh 6649 2007-07-11 21:46:42Z mike $".
 #

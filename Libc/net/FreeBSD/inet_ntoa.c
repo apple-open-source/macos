@@ -59,6 +59,7 @@ inet_ntoa(struct in_addr in) {
 	return (ret);
 }
 
+#if 0
 char *
 inet_ntoa_r(struct in_addr in, char *buf, socklen_t size)
 {
@@ -66,6 +67,7 @@ inet_ntoa_r(struct in_addr in, char *buf, socklen_t size)
 	(void) inet_ntop(AF_INET, &in, buf, size);
 	return (buf);
 }
+#endif
 
 /*
  * Weak aliases for applications that use certain private entry points,

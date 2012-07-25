@@ -164,5 +164,5 @@ int
 main(int argc, char **argv)
 {
     int port = server_setup(&context, argc, argv);
-    return doit (port, service);
+    return doit (port, service_str);
 }

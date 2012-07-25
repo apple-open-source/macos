@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/back-meta.h,v 1.64.2.17 2010/04/15 22:22:28 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -26,6 +26,10 @@
 
 #ifndef SLAPD_META_H
 #define SLAPD_META_H
+
+#ifdef LDAP_DEVEL
+#define SLAPD_META_CLIENT_PR 1
+#endif /* LDAP_DEVEL */
 
 #include "proto-meta.h"
 
@@ -114,11 +118,11 @@ ldap_back_map_filter(
 
 int
 ldap_back_map_attrs(
+	Operation *op,
 	struct ldapmap *at_map,
 	AttributeName *a,
 	int remap,
-	char ***mapped_attrs,
-	void *memctx );
+	char ***mapped_attrs );
 
 extern int ldap_back_map_config(
 	struct ldapmap	*oc_map,
@@ -255,6 +259,31 @@ typedef struct metaconn_t {
 	 * in one block with the metaconn_t structure */
 } metaconn_t;
 
+typedef enum meta_st_t {
+#if 0 /* todo */
+	META_ST_EXACT = LDAP_SCOPE_BASE,
+#endif
+	META_ST_SUBTREE = LDAP_SCOPE_SUBTREE,
+	META_ST_SUBORDINATE = LDAP_SCOPE_SUBORDINATE,
+	META_ST_REGEX /* last + 1 */
+} meta_st_t;
+
+typedef struct metasubtree_t {
+	meta_st_t ms_type;
+	union {
+		struct berval msu_dn;
+		struct {
+			regex_t msr_regex;
+			char *msr_regex_pattern;
+		} msu_regex;
+	} ms_un;
+#define ms_dn ms_un.msu_dn
+#define ms_regex ms_un.msu_regex.msr_regex
+#define ms_regex_pattern ms_un.msu_regex.msr_regex_pattern
+
+	struct metasubtree_t *ms_next;
+} metasubtree_t;
+
 typedef struct metatarget_t {
 	char			*mt_uri;
 	ldap_pvt_thread_mutex_t	mt_uri_mutex;
@@ -265,7 +294,10 @@ typedef struct metatarget_t {
 	LDAP_URLLIST_PROC	*mt_urllist_f;
 	void			*mt_urllist_p;
 
-	BerVarray		mt_subtree_exclude;
+	metasubtree_t		*mt_subtree;
+	/* F: subtree-include; T: subtree-exclude */
+	int			mt_subtree_exclude;
+
 	int			mt_scope;
 
 	struct berval		mt_psuffix;		/* pretty suffix */
@@ -273,6 +305,9 @@ typedef struct metatarget_t {
 
 	struct berval		mt_binddn;
 	struct berval		mt_bindpw;
+
+	/* we only care about the TLS options here */
+	slap_bindconf		mt_tls;
 
 	slap_idassert_t		mt_idassert;
 #define	mt_idassert_mode	mt_idassert.si_mode
@@ -332,6 +367,19 @@ typedef struct metatarget_t {
 	slap_mask_t		mt_rep_flags;
 
 	int			mt_version;
+
+#ifdef SLAPD_META_CLIENT_PR
+	/*
+	 * client-side paged results:
+	 * -1: accept unsolicited paged results responses
+	 *  0: off
+	 * >0: always request paged results with size == mt_ps
+	 */
+#define META_CLIENT_PR_DISABLE			(0)
+#define META_CLIENT_PR_ACCEPT_UNSOLICITED	(-1)
+	ber_int_t		mt_ps;
+#endif /* SLAPD_META_CLIENT_PR */
+
 	time_t			mt_network_timeout;
 	struct timeval		mt_bind_timeout;
 #define META_BIND_TIMEOUT	LDAP_BACK_RESULT_UTIMEOUT
@@ -408,6 +456,12 @@ typedef struct metainfo_t {
 #define META_BACK_QUARANTINE(mi)	LDAP_BACK_ISSET( (mi), LDAP_BACK_F_QUARANTINE )
 
 	int			mi_version;
+
+#ifdef SLAPD_META_CLIENT_PR
+	ber_int_t		mi_ps;
+#endif /* SLAPD_META_CLIENT_PR */
+
+
 	time_t			mi_network_timeout;
 	time_t			mi_conn_ttl;
 	time_t			mi_idle_timeout;
@@ -609,6 +663,9 @@ meta_dncache_delete_entry(
 
 extern void
 meta_dncache_free( void *entry );
+
+extern int
+meta_subtree_destroy( metasubtree_t *ms );
 
 extern LDAP_REBIND_PROC		meta_back_default_rebind;
 extern LDAP_URLLIST_PROC	meta_back_default_urllist;

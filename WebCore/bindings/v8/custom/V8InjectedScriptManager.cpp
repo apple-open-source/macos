@@ -29,11 +29,13 @@
  */
 
 #include "config.h"
+#if ENABLE(INSPECTOR)
 #include "InjectedScriptManager.h"
 
 #include "DOMWindow.h"
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
+#include "SafeAllocation.h"
 #include "ScriptValue.h"
 #include "V8Binding.h"
 #include "V8BindingState.h"
@@ -41,6 +43,7 @@
 #include "V8HiddenPropertyName.h"
 #include "V8InjectedScriptHost.h"
 #include "V8Proxy.h"
+#include "V8RecursionScope.h"
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -96,6 +99,7 @@ ScriptObject InjectedScriptManager::createInjectedScript(const String& scriptSou
     // injected script id and explicit reference to the inspected global object. The function is expected
     // to create and configure InjectedScript instance that is going to be used by the inspector.
     v8::Local<v8::Script> script = v8::Script::Compile(v8String(scriptSource));
+    V8RecursionScope::MicrotaskSuppression recursionScope;
     v8::Local<v8::Value> v = script->Run();
     ASSERT(!v.IsEmpty());
     ASSERT(v->IsFunction());
@@ -168,3 +172,5 @@ bool InjectedScriptManager::canAccessInspectedWindow(ScriptState* scriptState)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

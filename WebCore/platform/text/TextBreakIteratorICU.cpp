@@ -22,10 +22,8 @@
 #include "config.h"
 #include "TextBreakIterator.h"
 
+#include "LineBreakIteratorPoolICU.h"
 #include "PlatformString.h"
-#include "TextBreakIteratorInternalICU.h"
-#include <unicode/ubrk.h>
-#include <wtf/Assertions.h>
 
 using namespace std;
 
@@ -70,34 +68,27 @@ TextBreakIterator* wordBreakIterator(const UChar* string, int length)
         staticWordBreakIterator, UBRK_WORD, string, length);
 }
 
-static bool createdLineBreakIterator = false;
-static TextBreakIterator* staticLineBreakIterator;
-
-TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length)
+TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length, const AtomicString& locale)
 {
-    TextBreakIterator* lineBreakIterator = 0;
-    if (!createdLineBreakIterator || staticLineBreakIterator) {
-        setUpIterator(createdLineBreakIterator, staticLineBreakIterator, UBRK_LINE, string, length);
-        swap(staticLineBreakIterator, lineBreakIterator);
+    UBreakIterator* iterator = LineBreakIteratorPool::sharedPool().take(locale);
+    if (!iterator)
+        return 0;
+
+    UErrorCode setTextStatus = U_ZERO_ERROR;
+    ubrk_setText(iterator, string, length, &setTextStatus);
+    if (U_FAILURE(setTextStatus)) {
+        LOG_ERROR("ubrk_setText failed with status %d", setTextStatus);
+        return 0;
     }
 
-    if (!lineBreakIterator) {
-        bool createdNewLineBreakIterator = false;
-        setUpIterator(createdNewLineBreakIterator, lineBreakIterator, UBRK_LINE, string, length);
-    }
-
-    return lineBreakIterator;
+    return reinterpret_cast<TextBreakIterator*>(iterator);
 }
 
 void releaseLineBreakIterator(TextBreakIterator* iterator)
 {
-    ASSERT(createdLineBreakIterator);
-    ASSERT(iterator);
+    ASSERT_ARG(iterator, iterator);
 
-    if (!staticLineBreakIterator)
-        staticLineBreakIterator = iterator;
-    else
-        ubrk_close(reinterpret_cast<UBreakIterator*>(iterator));
+    LineBreakIteratorPool::sharedPool().put(reinterpret_cast<UBreakIterator*>(iterator));
 }
 
 TextBreakIterator* sentenceBreakIterator(const UChar* string, int length)
@@ -148,6 +139,12 @@ bool isTextBreak(TextBreakIterator* iterator, int position)
     return ubrk_isBoundary(reinterpret_cast<UBreakIterator*>(iterator), position);
 }
 
+bool isWordTextBreak(TextBreakIterator* iterator)
+{
+    int ruleStatus = ubrk_getRuleStatus(reinterpret_cast<UBreakIterator*>(iterator));
+    return ruleStatus != UBRK_WORD_NONE;
+}
+
 static TextBreakIterator* setUpIteratorWithRules(bool& createdIterator, TextBreakIterator*& iterator,
     const char* breakRules, const UChar* string, int length)
 {
@@ -182,6 +179,7 @@ TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
     // * Removed rules that prevent a cursor from moving after prepend characters (Bug 24342);
     // * Added rules that prevent a cursor from moving after virama signs of Indic languages except Tamil (Bug 15790), and;
     // * Added rules that prevent a cursor from moving before Japanese half-width katakara voiced marks.
+    // * Added rules for regional indicator symbols.
     static const char* kRules =
         "$CR      = [\\p{Grapheme_Cluster_Break = CR}];"
         "$LF      = [\\p{Grapheme_Cluster_Break = LF}];"
@@ -218,6 +216,7 @@ TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
         "$Mal0    = [\\u0D05-\\u0D39];"    // Malayalam Letter A,...,Ha
         "$MalV    = \\u0D4D;"              // Malayalam Sign Virama
         "$Mal1    = [\\u0D15-\\u0D39];"    // Malayalam Letter A,...,Ha
+        "$RI      = [\\U0001F1E6-\\U0001F1FF];" // Emoji regional indicators
         "!!chain;"
         "!!forward;"
         "$CR $LF;"
@@ -226,6 +225,8 @@ TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
         "($LVT | $T) $T;"
         "[^$Control $CR $LF] $Extend;"
         "[^$Control $CR $LF] $SpacingMark;"
+        "$RI $RI / $RI;"
+        "$RI $RI;"
         "$Hin0 $HinV $Hin1;"               // Devanagari Virama (forward)
         "$Ben0 $BenV $Ben1;"               // Bengali Virama (forward)
         "$Pan0 $PanV $Pan1;"               // Gurmukhi Virama (forward)
@@ -241,6 +242,8 @@ TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
         "$T ($LVT | $T);"
         "$Extend      [^$Control $CR $LF];"
         "$SpacingMark [^$Control $CR $LF];"
+        "$RI $RI / $RI $RI;"
+        "$RI $RI;"
         "$Hin1 $HinV $Hin0;"               // Devanagari Virama (backward)
         "$Ben1 $BenV $Ben0;"               // Bengali Virama (backward)
         "$Pan1 $PanV $Pan0;"               // Gurmukhi Virama (backward)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,7 +94,7 @@ removeAllKeys(SCDynamicStoreRef store, Boolean isRegex)
 
 __private_extern__
 int
-__SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
+__SCDynamicStoreClose(SCDynamicStoreRef *store)
 {
 	CFDictionaryRef			dict;
 	CFArrayRef			keys;
@@ -103,14 +103,9 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	CFStringRef			sessionKey;
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
 
-	if ((*store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
-
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
-			CFSTR("%s : %5d\n"),
-			internal ? "*close " : "close  ",
+			CFSTR("close   : %5d\n"),
 			storePrivate->server);
 	}
 
@@ -127,47 +122,23 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	dict = CFDictionaryGetValue(sessionData, sessionKey);
 	keys = CFDictionaryGetValue(dict, kSCDSessionKeys);
 	if (keys && ((keyCnt = CFArrayGetCount(keys)) > 0)) {
-		Boolean	wasLocked;
 		CFIndex	i;
+		Boolean	push	= FALSE;
 
-		/*
-		 * if necessary, claim a lock to ensure that we inform
-		 * any processes that a session key was removed.
-		 */
-		wasLocked = (storeLocked > 0);
-		if (!wasLocked) {
-			(void) __SCDynamicStoreLock(*store, FALSE);
-		}
-
-		/* remove keys from "locked" store" */
+		/* remove session keys */
 		for (i = 0; i < keyCnt; i++) {
 			if (isMySessionKey(sessionKey, CFArrayGetValueAtIndex(keys, i))) {
 				(void) __SCDynamicStoreRemoveValue(*store, CFArrayGetValueAtIndex(keys, i), TRUE);
+				push = TRUE;
 			}
 		}
 
-		if (wasLocked) {
-			/* remove keys from "unlocked" store" */
-			_swapLockedStoreData();
-			for (i = 0; i < keyCnt; i++) {
-				if (isMySessionKey(sessionKey, CFArrayGetValueAtIndex(keys, i)))
-					(void) __SCDynamicStoreRemoveValue(*store, CFArrayGetValueAtIndex(keys, i), TRUE);
-			}
-			_swapLockedStoreData();
+		if (push) {
+			/* push changes */
+			(void) __SCDynamicStorePush();
 		}
-
-		/*
-		 * Note: everyone who calls __SCDynamicStoreClose() ends
-		 *       up removing this sessions dictionary. As such,
-		 *       we don't need to worry about the session keys.
-		 */
 	}
 	CFRelease(sessionKey);
-
-	/* release the lock */
-	if (storePrivate->locked) {
-		(void) __SCDynamicStoreUnlock(*store, FALSE);
-	}
 
 	/*
 	 * invalidate and release our run loop source on the server
@@ -190,46 +161,4 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	*store = NULL;
 
 	return kSCStatusOK;
-}
-
-
-__private_extern__
-kern_return_t
-_configclose(mach_port_t server, int *sc_status)
-{
-	serverSessionRef	mySession = getSession(server);
-
-	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		return KERN_SUCCESS;
-	}
-
-	/*
-	 * Close the session.
-	 */
-	__MACH_PORT_DEBUG(TRUE, "*** _configclose", server);
-	*sc_status = __SCDynamicStoreClose(&mySession->store, FALSE);
-	if (*sc_status != kSCStatusOK) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR("_configclose __SCDynamicStoreClose() failed, status = %s"),
-		      SCErrorString(*sc_status));
-		return KERN_SUCCESS;
-	}
-	__MACH_PORT_DEBUG(TRUE, "*** _configclose (after __SCDynamicStoreClose)", server);
-
-	/*
-	 * Remove our receive right.
-	 *
-	 * Note: there is no need to cancel the notification request because the
-	 *       kernel will have no way to deliver the notification once the
-	 *       receive right has been removed.
-	 */
-	(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
-
-	/*
-	 * Remove the session entry.
-	 */
-	removeSession(server);
-
-	return KERN_SUCCESS;
 }

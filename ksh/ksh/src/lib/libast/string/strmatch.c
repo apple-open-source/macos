@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -92,11 +92,10 @@ strgrpmatch(const char* b, const char* p, int* sub, int n, register int flags)
 			regcache(NiL, 0, NiL);
 		return 0;
 	}
-	if (!*p) {
-		if (sub) {
-			sub[0] = 0;
-			sub[1] = 0;
-		}
+	if (!*p)
+	{
+		if (sub && n > 0)
+			sub[0] = sub[1] = 0;
 		return *b == 0;
 	}
 

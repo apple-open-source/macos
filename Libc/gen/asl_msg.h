@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #define __ASL_MSG_H__
 
 #include <stdint.h>
+#include <asl_private.h>
 
 #define IndexNull ((uint32_t)-1)
 
@@ -78,48 +79,27 @@
 
 #define ASL_PRIVATE_KEY_BASE  0x8200
 
-#define ASL_MSG_TYPE_AUX_0	0
-
-typedef struct
-{
-	const char *level;
-	const char *time;
-	const char *nano;
-	const char *host;
-	const char *sender;
-	const char *facility;
-	const char *pid;
-	const char *uid;
-	const char *gid;
-	const char *message;
-	const char *option;
-	const char *auxtitle;
-	const char *auxuti;
-	const char *auxurl;
-} asl_msg_aux_0_t;
-
-typedef struct
-{
-	uint32_t type;
-	union
-	{
-		asl_msg_aux_0_t *aux0;
-	} data;
-} asl_msg_aux_t;
-
 typedef struct asl_msg_s
 {
 	uint32_t type;
 	int32_t refcount;
 	uint32_t count;
 	uint32_t data_size;
-	void *aux;
 	struct asl_msg_s *next;
 	uint16_t key[ASL_MSG_PAGE_SLOTS];
 	uint16_t val[ASL_MSG_PAGE_SLOTS];
 	uint32_t op[ASL_MSG_PAGE_SLOTS];
 	char data[ASL_MSG_PAGE_DATA_SIZE];
 } asl_msg_t;
+
+typedef struct __aslresponse
+{
+	uint32_t count;
+	uint32_t curr;
+	asl_msg_t **msg;
+} asl_msg_list_t;
+
+#define asl_search_result_t asl_msg_list_t
 
 asl_msg_t *asl_msg_new(uint32_t type) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 asl_msg_t *asl_msg_retain(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
@@ -129,10 +109,19 @@ int asl_msg_set_key_val(asl_msg_t *msg, const char *key, const char *val) __OSX_
 int asl_msg_set_key_val_op(asl_msg_t *msg, const char *key, const char *val, uint32_t op) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 void asl_msg_unset(asl_msg_t *msg, const char *key) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
+asl_msg_t *asl_msg_copy(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
+asl_msg_t *asl_msg_merge(asl_msg_t *target, asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_1);
+
 int asl_msg_lookup(asl_msg_t *msg, const char *key, const char **valout, uint32_t *opout) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 uint32_t asl_msg_fetch(asl_msg_t *msg, uint32_t n, const char **keyout, const char **valout, uint32_t *opout) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 uint32_t asl_msg_type(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 uint32_t asl_msg_count(asl_msg_t *msg) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
+char *asl_msg_to_string(asl_msg_t *in, uint32_t *len) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_2_0);
+char *asl_list_to_string(asl_search_result_t *, uint32_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+asl_search_result_t *asl_list_from_string(const char *buf) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+
+char *asl_format_message(asl_msg_t *msg, const char *msg_fmt, const char *time_fmt, uint32_t text_encoding, uint32_t *outlen) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 #endif /* __ASL_MSG_H__ */

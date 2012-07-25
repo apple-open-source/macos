@@ -36,11 +36,11 @@
 #include "QuotaTracker.h"
 #include "SecurityOrigin.h"
 #include "WebDatabaseObserver.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
-#if !ENABLE(DATABASE)
+#if !ENABLE(SQL_DATABASE)
 namespace WebCore {
 class AbstractDatabase {
 public:
@@ -48,9 +48,10 @@ public:
     String displayName() const { return String(); }
     unsigned long long estimatedSize() const { return 0; }
     SecurityOrigin* securityOrigin() const { return 0; }
+    bool isSyncDatabase() const { return false; }
 };
 }
-#endif // !ENABLE(DATABASE)
+#endif // !ENABLE(SQL_DATABASE)
 
 using namespace WebCore;
 
@@ -82,6 +83,12 @@ WebSecurityOrigin WebDatabase::securityOrigin() const
     return WebSecurityOrigin(m_database->securityOrigin());
 }
 
+bool WebDatabase::isSyncDatabase() const
+{
+    ASSERT(m_database);
+    return m_database->isSyncDatabase();
+}
+
 void WebDatabase::setObserver(WebDatabaseObserver* observer)
 {
     databaseObserver = observer;
@@ -92,25 +99,32 @@ WebDatabaseObserver* WebDatabase::observer()
     return databaseObserver;
 }
 
-void WebDatabase::updateDatabaseSize(
-    const WebString& originIdentifier, const WebString& databaseName,
-    unsigned long long databaseSize, unsigned long long spaceAvailable)
+void WebDatabase::updateDatabaseSize(const WebString& originIdentifier, const WebString& name, long long size)
 {
-#if ENABLE(DATABASE)
-    WebCore::QuotaTracker::instance().updateDatabaseSizeAndSpaceAvailableToOrigin(
-        originIdentifier, databaseName, databaseSize, spaceAvailable);
-#endif // ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
+    QuotaTracker::instance().updateDatabaseSize(originIdentifier, name, size);
+#endif
+}
+
+void WebDatabase::updateSpaceAvailable(const WebString& originIdentifier, long long spaceAvailable)
+{
+#if ENABLE(SQL_DATABASE)
+    QuotaTracker::instance().updateSpaceAvailableToOrigin(originIdentifier, spaceAvailable);
+#endif
+}
+
+void WebDatabase::resetSpaceAvailable(const WebString& originIdentifier)
+{
+#if ENABLE(SQL_DATABASE)
+    QuotaTracker::instance().resetSpaceAvailableToOrigin(originIdentifier);
+#endif
 }
 
 void WebDatabase::closeDatabaseImmediately(const WebString& originIdentifier, const WebString& databaseName)
 {
-#if ENABLE(DATABASE)
-    HashSet<RefPtr<AbstractDatabase> > databaseHandles;
-    RefPtr<SecurityOrigin> origin = SecurityOrigin::createFromDatabaseIdentifier(originIdentifier);
-    DatabaseTracker::tracker().getOpenDatabases(origin.get(), databaseName, &databaseHandles);
-    for (HashSet<RefPtr<AbstractDatabase> >::iterator it = databaseHandles.begin(); it != databaseHandles.end(); ++it)
-        it->get()->closeImmediately();
-#endif // ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
+    DatabaseTracker::tracker().closeDatabasesImmediately(originIdentifier, databaseName);
+#endif
 }
 
 WebDatabase::WebDatabase(const AbstractDatabase* database)

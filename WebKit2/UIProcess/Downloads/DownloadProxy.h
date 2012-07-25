@@ -43,6 +43,7 @@ namespace WebKit {
 
 class WebContext;
 class WebData;
+class WebPageProxy;
 
 class DownloadProxy : public APIObject {
 public:
@@ -61,7 +62,11 @@ public:
     void processDidClose();
 
     void didReceiveDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    void didReceiveSyncDownloadProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
+
+#if PLATFORM(QT)
+    void startTransfer(const String& filename);
+#endif
 
 private:
     explicit DownloadProxy(WebContext*);

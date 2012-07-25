@@ -47,7 +47,7 @@
 struct BSDPClient_s;
 typedef struct BSDPClient_s * BSDPClientRef;
 
-typedef enum {
+enum {
     kBSDPClientStatusOK = 0,
     kBSDPClientStatusUnsupportedFirmware = 1,
     kBSDPClientStatusNoSuchInterface = 2,
@@ -59,13 +59,15 @@ typedef enum {
     kBSDPClientStatusTransmitFailed = 8,
     kBSDPClientStatusServerSentFailure = 9,
     kBSDPClientStatusLast = 9
-} BSDPClientStatus;
+};
+typedef uint32_t BSDPClientStatus;
 
-typedef enum {
+enum {
     kBSDPImageKindMacOS9 = 0,
     kBSDPImageKindMacOSX = 1,
     kBSDPImageKindMacOSXServer = 2,
-} BSDPImageKind;
+};
+typedef uint32_t BSDPImageKind;
 
 static __inline__ const char *
 BSDPClientStatusString(BSDPClientStatus status)
@@ -299,5 +301,5 @@ BSDPClientSelect(BSDPClientRef client,
 		 CFNumberRef Identifier,
 		 BSDPClientSelectCallBack callback, void * info);
 		      
-#endif _S_BSDPCLIENT_H
+#endif /* _S_BSDPCLIENT_H */
 

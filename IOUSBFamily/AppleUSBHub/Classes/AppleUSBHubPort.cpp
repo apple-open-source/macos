@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright © 1998-2012 Apple Inc.  All rights reserved.
+ * Copyright Â© 1998-2012 Apple Inc.  All rights reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -1711,9 +1711,9 @@ AppleUSBHubPort::ResetPort()
 		{
 			
 			USBLog(3, "AppleUSBHubPort[%p]::ResetPort - port %d, we have a reset error (0x%x), but we still have a connection, call RemoveDevice() and LaunchAddDeviceThread() )", this, _portNum, err);
-			RemoveDevice();
-			LaunchAddDeviceThread();
-		}
+		RemoveDevice();
+		LaunchAddDeviceThread();
+	}
 	}
 	
     USBLog(5, "AppleUSBHubPort[%p]::ResetPort for port %d, returning 0x%x", this, _portNum, (uint32_t)err);
@@ -1817,7 +1817,9 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub at 0x%x - start - status(0x%04x) change (0x%04x)", this, _portNum, (uint32_t)_hub->_locationID, (int)statusFlags, (int)changeFlags);
 	USBTrace_Start(kUSBTEnumeration, kTPEnumerationAddDeviceResetChangeHandler, (uintptr_t)this, _portNum, _hub->_locationID, err);
 
+#ifdef SUPPORTS_SS_USB
 	_portLinkErrorCount = 0;		// This Gets set to 0 on a reset
+#endif
 	
     if ( _extraResetDelay )
     {
@@ -2127,7 +2129,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
         }
         else
         {
-            // ¥¥¥ Why don't we add the -1 to setAddressFailed?  Don't add it!  It will break
+            // Â¥Â¥Â¥ Why don't we add the -1 to setAddressFailed?  Don't add it!  It will break
             // the fix for #2652091 (SetAddress failing).
             //
             delay = (_setAddressFailed * 30) + (_setAddressFailed * 3);
@@ -2228,7 +2230,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
             {if(_bus->getWorkLoop()->inGate()){USBLog(1, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - IOSleep in gate:%d", this, 6);}}
 #endif
-			IOSleep(10); // ¥¥ÊNine waits for only 1ms
+			IOSleep(10); // Â¥Â¥ÃŠNine waits for only 1ms
 			USBLog(6, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - calling LaunchAddDeviceThread for port %d on hub at 0x%x", this, _portNum, (uint32_t) _hub->_locationID);
 			LaunchAddDeviceThread();
 			return kIOReturnSuccess;
@@ -2414,7 +2416,9 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
     USBLog(5, "***** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub at 0x%x - start (_resetPending = %d)", this, _portNum, (uint32_t) _hub->_locationID, _resetPending);
     SetPortVector(&AppleUSBHubPort::DefaultResetChangeHandler, kHubPortBeingReset);
  
+#ifdef SUPPORTS_SS_USB
 	_portLinkErrorCount = 0;		// This Gets set to 0 on a reset
+#endif
 
 	if ( _extraResetDelay )
     {
@@ -2693,7 +2697,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
 #endif
             	_hub->ClearPortFeature(kUSBHubPortEnableFeature, _portNum);
             
-            // ¥¥ Not in 9 ¥¥
+            // Â¥Â¥ Not in 9 Â¥Â¥
             if (_devZero)
             {
                 USBLog(3, "**6** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d, releasing devZero lock", this, _portNum);
@@ -2711,7 +2715,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
         {
             // MacOS 9 STATE 8
             
-            // ¥¥¥ Why don't we add the -1 to setAddressFailed, as we do on 9?  Don't add it!  It will break
+            // Â¥Â¥Â¥ Why don't we add the -1 to setAddressFailed, as we do on 9?  Don't add it!  It will break
             // the fix for #2652091 (SetAddress failing).
             //
             delay = (_setAddressFailed * 30) + (_setAddressFailed * 3);
@@ -3977,7 +3981,7 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
             }
             
 			// If the port is suspended, we should unsuspend it and try again
-			// ¥¥¥¥
+			// Â¥Â¥Â¥Â¥
 			if ( status.statusFlags & kHubPortSuspend)
 			{
                 USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d of hub @ 0x%x - port is suspended", this, _portNum, (uint32_t)_hub->_locationID);
@@ -3998,8 +4002,8 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
                 retries = 1;
             }
             else
-            {
 #endif
+            {
                 // If we got a timeout error, then reset the retry to only 2
                 if ((err == kIOUSBTransactionTimeout) && ( retries == kMaxDevZeroRetries))
                 {
@@ -4143,7 +4147,6 @@ AppleUSBHubPort::ShouldApplyDisconnectWorkaround()
 			}
 			else if ( _hub->_isRootHub )
 			{
-				// Not quite sure why this check is here. I believe that it might have been for an M97 issue we were going to work around but did not need to do so.
 				USBLog(7, "AppleUSBHubPort[%p]::ShouldApplyDisconnectWorkaround - port %d - we have a disconnect/reconnect on a root hub that tells us to ignore it", this, _portNum);
 				returnValue = true;
 			}

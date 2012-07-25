@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,5 +120,8 @@ inet6_addrlist_print(const inet6_addrlist_t * addr_list_p);
 boolean_t
 inet6_addrlist_contains_address(const inet6_addrlist_t * addr_list_p,
 				const inet6_addrinfo_t * addr);
+
+inet6_addrinfo_t *
+inet6_addrlist_get_linklocal(const inet6_addrlist_t * addr_list_p);
 
 #endif /* _S_IFUTIL_H */

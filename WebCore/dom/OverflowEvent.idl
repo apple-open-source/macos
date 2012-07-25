@@ -22,19 +22,25 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
+
 module events {
-    interface OverflowEvent : Event {
+
+    interface [
+        ConstructorTemplate=Event
+    ] OverflowEvent : Event {
         const unsigned short HORIZONTAL = 0;
         const unsigned short VERTICAL   = 1;
         const unsigned short BOTH       = 2;
         
-        readonly attribute unsigned short orient;
-        readonly attribute boolean horizontalOverflow;
-        readonly attribute boolean verticalOverflow;        
+        readonly attribute [InitializedByEventConstructor] unsigned short orient;
+        readonly attribute [InitializedByEventConstructor] boolean horizontalOverflow;
+        readonly attribute [InitializedByEventConstructor] boolean verticalOverflow;
 
-        void initOverflowEvent(in unsigned short orient,
-                               in boolean horizontalOverflow,
-                               in boolean verticalOverflow);
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+        void initOverflowEvent(in [Optional=DefaultIsUndefined] unsigned short orient,
+                               in [Optional=DefaultIsUndefined] boolean horizontalOverflow,
+                               in [Optional=DefaultIsUndefined] boolean verticalOverflow);
+#endif
     };
 
 }

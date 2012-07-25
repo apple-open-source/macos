@@ -31,11 +31,9 @@
 #include "config.h"
 #include "ApplicationCacheHost.h"
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "ApplicationCacheHostInternal.h"
-#include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "InspectorApplicationCacheAgent.h"
 #include "InspectorInstrumentation.h"
@@ -44,12 +42,12 @@
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "WebFrameImpl.h"
-#include "WebURL.h"
-#include "WebURLError.h"
-#include "WebURLResponse.h"
-#include "WebVector.h"
 #include "WrappedResourceRequest.h"
 #include "WrappedResourceResponse.h"
+#include "platform/WebURL.h"
+#include "platform/WebURLError.h"
+#include "platform/WebURLResponse.h"
+#include "platform/WebVector.h"
 
 using namespace WebKit;
 
@@ -195,10 +193,12 @@ void ApplicationCacheHost::maybeLoadFallbackSynchronously(const ResourceRequest&
     // N/A to the chromium port
 }
 
-bool ApplicationCacheHost::canCacheInPageCache() const
+bool ApplicationCacheHost::canCacheInPageCache()
 {
-    // N/A to the chromium port which doesn't use the page cache.
-    return false;
+    // Chromium doesn't use the page cache, however, that's controlled by WebCore::Settings, which has usesPageCache() return
+    // false. So we return an hyptothetical here: Chromium won't end up using the PageCache, but the statistics in PageCache.cpp
+    // will be reported correctly for re-evaluating that decision.
+    return !isApplicationCacheEnabled() || status() == UNCACHED;
 }
 
 void ApplicationCacheHost::setDOMApplicationCache(DOMApplicationCache* domApplicationCache)
@@ -291,7 +291,15 @@ bool ApplicationCacheHost::update()
 
 bool ApplicationCacheHost::swapCache()
 {
-    return m_internal ? m_internal->m_outerHost->swapCache() : false;
+    bool success = m_internal ? m_internal->m_outerHost->swapCache() : false;
+    if (success)
+        InspectorInstrumentation::updateApplicationCacheStatus(m_documentLoader->frame());
+    return success;
+}
+
+void ApplicationCacheHost::abort()
+{
+    // FIXME: See https://bugs.webkit.org/show_bug.cgi?id=76270
 }
 
 bool ApplicationCacheHost::isApplicationCacheEnabled()
@@ -302,5 +310,3 @@ bool ApplicationCacheHost::isApplicationCacheEnabled()
 }
 
 }  // namespace WebCore
-
-#endif  // ENABLE(OFFLINE_WEB_APPLICATIONS)

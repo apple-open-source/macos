@@ -55,6 +55,13 @@ PKCS12_key_gen(const void *key, size_t keylen,
     unsigned char *outp = out;
     int i, vlen;
 
+    /**
+     * The argument key is pointing to an utf16 string, and thus
+     * keylen that is no a multiple of 2 is invalid.
+     */
+    if (keylen & 1)
+	return 0;
+
     ctx = EVP_MD_CTX_create();
     if (ctx == NULL)
 	return 0;
@@ -141,7 +148,7 @@ PKCS12_key_gen(const void *key, size_t keylen,
 		BN_bn2bin(bnI, I + i + vlen - j);
 	    }
 	    BN_free(bnI);
-	}	
+	}
 	BN_free(bnB);
 	BN_free(bnOne);
 	size_I = vlen * 2;

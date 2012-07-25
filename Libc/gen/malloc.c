@@ -98,7 +98,6 @@ static int malloc_debug_file = STDERR_FILENO;
  * 3 - a new default zone has been created and another environment variable scan
  */
 __private_extern__ int malloc_def_zone_state = 0;
-__private_extern__ malloc_zone_t *__zone0 = NULL;
 
 static const char Malloc_Facility[] = "com.apple.Libsystem.malloc";
 
@@ -218,7 +217,7 @@ malloc_error_break(void) {
 
 __private_extern__ boolean_t __stack_logging_locked();
 
-__private_extern__ __attribute__((noinline)) int
+__private_extern__ __attribute__((noinline)) __attribute__((used)) int
 malloc_gdb_po_unsafe(void) {
   // In order to implement "po" other data formatters in gdb, the debugger
   // calls functions that call malloc.  The debugger will  only run one thread 
@@ -405,7 +404,7 @@ set_flags_from_environment(void) {
     malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION; // Set always on 64-bit processes
 #else
     int libSystemVersion  = NSVersionOfLinkTimeLibrary("System");
-    if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 126))
+    if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 126) /* Lion or greater */)
 	malloc_debug_flags = 0;
     else
 	malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
@@ -617,24 +616,6 @@ malloc_destroy_zone(malloc_zone_t *zone) {
     malloc_set_zone_name(zone, NULL); // Deallocate zone name wherever it may reside PR_7701095
     malloc_zone_unregister(zone);
     zone->destroy(zone);
-}
-
-/* called from the {put,set,unset}env routine */
-__private_extern__ void
-__malloc_check_env_name(const char *name)
-{
-    MALLOC_LOCK();
-    /*
-     * 
-     * 2. malloc will no longer take notice of *programmatic* changes to the MALLOC_* environment variables 
-     * (i.e. calls to putenv() or setenv() that manipulate these environment variables.)
-     *
-     */
-#if 0 
-    if(malloc_def_zone_state == 2 && strncmp(name, "Malloc", 6) == 0)
-	malloc_def_zone_state = 1;
-#endif
-    MALLOC_UNLOCK();
 }
 
 /*********	Block creation and manipulation	************/
@@ -1392,6 +1373,7 @@ malloc_error(void (*func)(int)))(int) {
 extern void __stack_logging_fork_prepare();
 extern void __stack_logging_fork_parent();
 extern void __stack_logging_fork_child();
+extern void __stack_logging_early_finished();
 
 void
 _malloc_fork_prepare() {

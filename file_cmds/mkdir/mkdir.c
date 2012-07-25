@@ -57,7 +57,6 @@ __RCSID("$FreeBSD: src/bin/mkdir/mkdir.c,v 1.26 2002/06/30 05:13:54 obrien Exp $
 #include <sysexits.h>
 #include <unistd.h>
 
-static int	build(char *, mode_t);
 static void	usage(void);
 
 int vflag;
@@ -69,7 +68,7 @@ main(int argc, char *argv[])
 	mode_t omode, *set = (mode_t *)NULL;
 	char *mode;
 
-	omode = pflag = 0;
+	pflag = 0;
 	mode = NULL;
 	while ((ch = getopt(argc, argv, "m:pv")) != -1)
 		switch(ch) {
@@ -87,7 +86,7 @@ main(int argc, char *argv[])
 			usage();
 		}
 
-	argc -= optind;
+//	argc -= optind;
 	argv += optind;
 	if (argv[0] == NULL)
 		usage();
@@ -104,8 +103,11 @@ main(int argc, char *argv[])
 	for (exitval = 0; *argv != NULL; ++argv) {
 		success = 1;
 		if (pflag) {
-			if (build(*argv, omode))
+			int status = mkpath_np(*argv, omode);
+			if (status && status != EEXIST) {
+				warnc(status, "%s", *argv);
 				success = 0;
+			}
 		} else if (mkdir(*argv, omode) < 0) {
 			if (errno == ENOTDIR || errno == ENOENT)
 				warn("%s", dirname(*argv));
@@ -130,77 +132,6 @@ main(int argc, char *argv[])
 		}
 	}
 	exit(exitval);
-}
-
-int
-build(char *path, mode_t omode)
-{
-	struct stat sb;
-	mode_t numask, oumask;
-	int first, last, retval;
-	char *p;
-
-	p = path;
-	oumask = 0;
-	retval = 0;
-	if (p[0] == '/')		/* Skip leading '/'. */
-		++p;
-	for (first = 1, last = 0; !last ; ++p) {
-		if (p[0] == '\0')
-			last = 1;
-		else if (p[0] != '/')
-			continue;
-		*p = '\0';
-		if (p[1] == '\0')
-			last = 1;
-		if (first) {
-			/*
-			 * POSIX 1003.2:
-			 * For each dir operand that does not name an existing
-			 * directory, effects equivalent to those cased by the
-			 * following command shall occcur:
-			 *
-			 * mkdir -p -m $(umask -S),u+wx $(dirname dir) &&
-			 *    mkdir [-m mode] dir
-			 *
-			 * We change the user's umask and then restore it,
-			 * instead of doing chmod's.
-			 */
-			oumask = umask(0);
-			numask = oumask & ~(S_IWUSR | S_IXUSR);
-			(void)umask(numask);
-			first = 0;
-		}
-		if (last)
-			(void)umask(oumask);
-		if (mkdir(path, last ? omode : S_IRWXU | S_IRWXG | S_IRWXO) < 0) {
-			if (errno == EEXIST || errno == EISDIR) {
-				if (stat(path, &sb) < 0) {
-					warn("%s", path);
-					retval = 1;
-					break;
-				} else if (!S_ISDIR(sb.st_mode)) {
-					if (last)
-						errno = EEXIST;
-					else
-						errno = ENOTDIR;
-					warn("%s", path);
-					retval = 1;
-					break;
-				}
-			} else {
-				warn("%s", path);
-				retval = 1;
-				break;
-			}
-		} else if (vflag)
-			printf("%s\n", path);
-		if (!last)
-		    *p = '/';
-	}
-	if (!first && !last)
-		(void)umask(oumask);
-	return (retval);
 }
 
 void

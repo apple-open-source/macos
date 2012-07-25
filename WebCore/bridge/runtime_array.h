@@ -38,28 +38,31 @@ public:
 
     static RuntimeArray* create(ExecState* exec, Bindings::Array* array)
     {
+        // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+        // We need to pass in the right global object for "array".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<RuntimeArray>(exec);
-        RuntimeArray* runtimeArray = new (allocateCell<RuntimeArray>(*exec->heap())) RuntimeArray(exec, domStructure);
+        RuntimeArray* runtimeArray = new (NotNull, allocateCell<RuntimeArray>(*exec->heap())) RuntimeArray(exec, domStructure);
         runtimeArray->finishCreation(exec->globalData(), array);
         return runtimeArray;
     }
 
     typedef Bindings::Array BindingsArray;
-    virtual ~RuntimeArray();
+    ~RuntimeArray();
+    static void destroy(JSCell*);
 
     static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
     static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier&, PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned, PropertySlot&);
     static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
     static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
-    static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue);
+    static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
     
     static bool deleteProperty(JSCell*, ExecState*, const Identifier &propertyName);
     static bool deletePropertyByIndex(JSCell*, ExecState*, unsigned propertyName);
     
-    unsigned getLength() const { return getConcreteArray()->getLength(); }
+    unsigned getLength() const { return m_array->getLength(); }
     
-    Bindings::Array* getConcreteArray() const { return static_cast<BindingsArray*>(subclassData()); }
+    Bindings::Array* getConcreteArray() const { return m_array; }
 
     static const ClassInfo s_info;
 
@@ -82,6 +85,8 @@ private:
     RuntimeArray(ExecState*, Structure*);
     static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
     static JSValue indexGetter(ExecState*, JSValue, unsigned);
+
+    BindingsArray* m_array;
 };
     
 } // namespace JSC

@@ -70,18 +70,16 @@ void FEOffset::determineAbsolutePaintRect()
     FloatRect paintRect = inputEffect(0)->absolutePaintRect();
     Filter* filter = this->filter();
     paintRect.move(filter->applyHorizontalScale(m_dx), filter->applyVerticalScale(m_dy));
-    paintRect.intersect(maxEffectRect());
+    if (clipsToBounds())
+        paintRect.intersect(maxEffectRect());
+    else
+        paintRect.unite(maxEffectRect());
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void FEOffset::apply()
+void FEOffset::platformApplySoftware()
 {
-    if (hasResult())
-        return;
     FilterEffect* in = inputEffect(0);
-    in->apply();
-    if (!in->hasResult())
-        return;
 
     ImageBuffer* resultImage = createImageBufferResult();
     if (!resultImage)

@@ -436,6 +436,22 @@ uint32_t nfat_archs)
 	     *   ALL: v6, v5, xscale, v4t, ALL
 	     */
 	    if(cpusubtype == CPU_SUBTYPE_ARM_ALL ||
+	       cpusubtype == CPU_SUBTYPE_ARM_V7K){
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype == cputype &&
+		       fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7F)
+			return(fat_archs + i);
+		}
+	    }
+	    if(cpusubtype == CPU_SUBTYPE_ARM_ALL ||
+	       cpusubtype == CPU_SUBTYPE_ARM_V7F){
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype == cputype &&
+		       fat_archs[i].cpusubtype == CPU_SUBTYPE_ARM_V7)
+			return(fat_archs + i);
+		}
+	    }
+	    if(cpusubtype == CPU_SUBTYPE_ARM_ALL ||
 	       cpusubtype == CPU_SUBTYPE_ARM_V7 ||
 	       cpusubtype == CPU_SUBTYPE_ARM_V6){
 		for(i = 0; i < nfat_archs; i++){

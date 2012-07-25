@@ -784,3 +784,8 @@ _krb5_free_krbhst
 _krb5_get_krbhst
 _krb5_gss_oid_array
 _krb5_use_broken_arcfour_string2key
+___KerberosDebugLogLevel
+___KerberosDebugPrint
+___KerberosDebugVAPrint
+___KerberosDebugPrintMemory
+___KerberosDebugPrintSession

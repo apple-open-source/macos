@@ -59,7 +59,7 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 {
     NavigationAction action = loader->triggeringAction();
     if (action.isEmpty()) {
-        action = NavigationAction(request.url(), NavigationTypeOther);
+        action = NavigationAction(request, NavigationTypeOther);
         loader->setTriggeringAction(action);
     }
 
@@ -93,7 +93,7 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, NewWindowPolicyDecisionFunction function,
     const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName, void* argument)
 {
-    if (m_frame->document() && m_frame->document()->securityOrigin()->isSandboxed(SandboxNavigation))
+    if (m_frame->document() && m_frame->document()->isSandboxed(SandboxPopups))
         return continueAfterNavigationPolicy(PolicyIgnore);
 
     m_callback.set(request, formState, frameName, action, function, argument);
@@ -145,15 +145,18 @@ void PolicyChecker::continueAfterNavigationPolicy(PolicyAction policy)
         case PolicyIgnore:
             callback.clearRequest();
             break;
-        case PolicyDownload:
-            m_frame->loader()->client()->startDownload(callback.request());
+        case PolicyDownload: {
+            ResourceRequest request = callback.request();
+            m_frame->loader()->setOriginalURLForDownloadRequest(request);
+            m_frame->loader()->client()->startDownload(request);
             callback.clearRequest();
             break;
+        }
         case PolicyUse: {
             ResourceRequest request(callback.request());
 
             if (!m_frame->loader()->client()->canHandleRequest(request)) {
-                handleUnimplementablePolicy(m_frame->loader()->cannotShowURLError(callback.request()));
+                handleUnimplementablePolicy(m_frame->loader()->client()->cannotShowURLError(callback.request()));
                 callback.clearRequest();
                 shouldContinue = false;
             }

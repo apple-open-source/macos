@@ -24,21 +24,16 @@
 #if ENABLE(SVG_FONTS)
 #include "SVGHKernElement.h"
 
-#include "SVGFontData.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
 #include "SVGNames.h"
-#include "SimpleFontData.h"
-#include "XMLNames.h"
 
 namespace WebCore {
-
-using namespace SVGNames;
 
 inline SVGHKernElement::SVGHKernElement(const QualifiedName& tagName, Document* document)
     : SVGElement(tagName, document)
 {
-    ASSERT(hasTagName(hkernTag));
+    ASSERT(hasTagName(SVGNames::hkernTag));
 }
 
 PassRefPtr<SVGHKernElement> SVGHKernElement::create(const QualifiedName& tagName, Document* document)
@@ -46,32 +41,34 @@ PassRefPtr<SVGHKernElement> SVGHKernElement::create(const QualifiedName& tagName
     return adoptRef(new SVGHKernElement(tagName, document));
 }
 
-void SVGHKernElement::insertedIntoDocument()
+Node::InsertionNotificationRequest SVGHKernElement::insertedInto(Node* rootParent)
 {
     ContainerNode* fontNode = parentNode();
     if (fontNode && fontNode->hasTagName(SVGNames::fontTag)) {
         if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
             element->invalidateGlyphCache();
     }
-    SVGElement::insertedIntoDocument();
+
+    return SVGElement::insertedInto(rootParent);
 }
 
-void SVGHKernElement::removedFromDocument()
+void SVGHKernElement::removedFrom(Node* rootParent)
 {
     ContainerNode* fontNode = parentNode();
     if (fontNode && fontNode->hasTagName(SVGNames::fontTag)) {
         if (SVGFontElement* element = static_cast<SVGFontElement*>(fontNode))
             element->invalidateGlyphCache();
     }
-    SVGElement::removedFromDocument();
+
+    SVGElement::removedFrom(rootParent);
 }
 
 void SVGHKernElement::buildHorizontalKerningPair(KerningPairVector& kerningPairs)
 {
-    String u1 = getAttribute(u1Attr);
-    String g1 = getAttribute(g1Attr);
-    String u2 = getAttribute(u2Attr);
-    String g2 = getAttribute(g2Attr);
+    String u1 = fastGetAttribute(SVGNames::u1Attr);
+    String g1 = fastGetAttribute(SVGNames::g1Attr);
+    String u2 = fastGetAttribute(SVGNames::u2Attr);
+    String g2 = fastGetAttribute(SVGNames::g2Attr);
     if ((u1.isEmpty() && g1.isEmpty()) || (u2.isEmpty() && g2.isEmpty()))
         return;
 
@@ -80,7 +77,7 @@ void SVGHKernElement::buildHorizontalKerningPair(KerningPairVector& kerningPairs
         && parseGlyphName(g2, kerningPair.glyphName2)
         && parseKerningUnicodeString(u1, kerningPair.unicodeRange1, kerningPair.unicodeName1)
         && parseKerningUnicodeString(u2, kerningPair.unicodeRange2, kerningPair.unicodeName2)) {
-        kerningPair.kerning = getAttribute(kAttr).string().toFloat();
+        kerningPair.kerning = fastGetAttribute(SVGNames::kAttr).string().toFloat();
         kerningPairs.append(kerningPair);
     }
 }

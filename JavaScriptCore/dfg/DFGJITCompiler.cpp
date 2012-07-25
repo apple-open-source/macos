@@ -44,10 +44,9 @@ void JITCompiler::linkOSRExits()
     for (unsigned i = 0; i < codeBlock()->numberOfOSRExits(); ++i) {
         OSRExit& exit = codeBlock()->osrExit(i);
         exit.m_check.initialJump().link(this);
-        store32(Imm32(i), &globalData()->osrExitIndex);
-        beginUninterruptedSequence();
-        exit.m_check.switchToLateJump(jump());
-        endUninterruptedSequence();
+        jitAssertHasValidCallFrame();
+        store32(TrustedImm32(i), &globalData()->osrExitIndex);
+        exit.m_check.switchToLateJump(patchableJump());
     }
 }
 
@@ -75,7 +74,7 @@ void JITCompiler::compileBody(SpeculativeJIT& speculative)
     breakpoint();
 #endif
     
-    addPtr(Imm32(1), AbsoluteAddress(codeBlock()->addressOfSpeculativeSuccessCounter()));
+    addPtr(TrustedImm32(1), AbsoluteAddress(codeBlock()->addressOfSpeculativeSuccessCounter()));
 
     bool compiledSpeculative = speculative.compile();
     ASSERT_UNUSED(compiledSpeculative, compiledSpeculative);
@@ -95,12 +94,16 @@ void JITCompiler::compileBody(SpeculativeJIT& speculative)
     // If any exception checks were linked, generate code to lookup a handler.
     if (didLinkExceptionCheck) {
         // lookupExceptionHandler is passed two arguments, exec (the CallFrame*), and
-        // an identifier for the operation that threw the exception, which we can use
-        // to look up handler information. The identifier we use is the return address
-        // of the call out from JIT code that threw the exception; this is still
-        // available on the stack, just below the stack pointer!
+        // the index into the CodeBlock's callReturnIndexVector corresponding to the
+        // call that threw the exception (this was set in nonPreservedNonReturnGPR, when
+        // the exception check was planted).
+        move(GPRInfo::nonPreservedNonReturnGPR, GPRInfo::argumentGPR1);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
-        getPCAfterCall(GPRInfo::argumentGPR1);
+#if CPU(X86)
+        // FIXME: should use the call abstraction, but this is currently in the SpeculativeJIT layer!
+        poke(GPRInfo::argumentGPR0);
+        poke(GPRInfo::argumentGPR1, 1);
+#endif
         m_calls.append(CallLinkRecord(call(), lookupExceptionHandler));
         // lookupExceptionHandler leaves the handler CallFrame* in the returnValueGPR,
         // and the address of the handler in returnValueGPR2.
@@ -112,7 +115,7 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
 {
     // Link the code, populate data in CodeBlock data structures.
 #if DFG_ENABLE(DEBUG_VERBOSE)
-    fprintf(stderr, "JIT code for %p start at [%p, %p). Size = %lu.\n", m_codeBlock, linkBuffer.debugAddress(), static_cast<char*>(linkBuffer.debugAddress()) + linkBuffer.debugSize(), linkBuffer.debugSize());
+    dataLog("JIT code for %p start at [%p, %p). Size = %zu.\n", m_codeBlock, linkBuffer.debugAddress(), static_cast<char*>(linkBuffer.debugAddress()) + linkBuffer.debugSize(), linkBuffer.debugSize());
 #endif
 
     // Link all calls out from the JIT code to their respective functions.
@@ -130,27 +133,16 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
             m_codeBlock->callReturnIndexVector().append(CallReturnOffsetToBytecodeOffset(returnAddressOffset, exceptionInfo));
         }
     }
-    
-    unsigned numCallsFromInlineCode = 0;
-    for (unsigned i = 0; i < m_exceptionChecks.size(); ++i) {
-        if (m_exceptionChecks[i].m_codeOrigin.inlineCallFrame)
-            numCallsFromInlineCode++;
-    }
 
-    if (numCallsFromInlineCode) {
-        Vector<CodeOriginAtCallReturnOffset>& codeOrigins = m_codeBlock->codeOrigins();
-        codeOrigins.resize(numCallsFromInlineCode);
-        
-        for (unsigned i = 0, j = 0; i < m_exceptionChecks.size(); ++i) {
-            CallExceptionRecord& record = m_exceptionChecks[i];
-            if (record.m_codeOrigin.inlineCallFrame) {
-                unsigned returnAddressOffset = linkBuffer.returnAddressOffset(m_exceptionChecks[i].m_call);
-                codeOrigins[j].codeOrigin = record.m_codeOrigin;
-                codeOrigins[j].callReturnOffset = returnAddressOffset;
-                record.m_token.assertCodeOriginIndex(j);
-                j++;
-            }
-        }
+    Vector<CodeOriginAtCallReturnOffset>& codeOrigins = m_codeBlock->codeOrigins();
+    codeOrigins.resize(m_exceptionChecks.size());
+    
+    for (unsigned i = 0; i < m_exceptionChecks.size(); ++i) {
+        CallExceptionRecord& record = m_exceptionChecks[i];
+        unsigned returnAddressOffset = linkBuffer.returnAddressOffset(m_exceptionChecks[i].m_call);
+        codeOrigins[i].codeOrigin = record.m_codeOrigin;
+        codeOrigins[i].callReturnOffset = returnAddressOffset;
+        record.m_token.assertCodeOriginIndex(i);
     }
     
     m_codeBlock->setNumberOfStructureStubInfos(m_propertyAccesses.size());
@@ -159,25 +151,25 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
         CodeLocationCall callReturnLocation = linkBuffer.locationOf(m_propertyAccesses[i].m_functionCall);
         info.codeOrigin = m_propertyAccesses[i].m_codeOrigin;
         info.callReturnLocation = callReturnLocation;
-        info.deltaCheckImmToCall = differenceBetweenCodePtr(linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCheckImmToCall), callReturnLocation);
-        info.deltaCallToStructCheck = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToStructCheck));
+        info.patch.dfg.deltaCheckImmToCall = differenceBetweenCodePtr(linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCheckImmToCall), callReturnLocation);
+        info.patch.dfg.deltaCallToStructCheck = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToStructCheck));
 #if USE(JSVALUE64)
-        info.deltaCallToLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToLoadOrStore));
+        info.patch.dfg.deltaCallToLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToLoadOrStore));
 #else
-        info.deltaCallToTagLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToTagLoadOrStore));
-        info.deltaCallToPayloadLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToPayloadLoadOrStore));
+        info.patch.dfg.deltaCallToTagLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToTagLoadOrStore));
+        info.patch.dfg.deltaCallToPayloadLoadOrStore = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToPayloadLoadOrStore));
 #endif
-        info.deltaCallToSlowCase = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToSlowCase));
-        info.deltaCallToDone = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToDone));
-        info.baseGPR = m_propertyAccesses[i].m_baseGPR;
+        info.patch.dfg.deltaCallToSlowCase = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToSlowCase));
+        info.patch.dfg.deltaCallToDone = differenceBetweenCodePtr(callReturnLocation, linkBuffer.locationOf(m_propertyAccesses[i].m_deltaCallToDone));
+        info.patch.dfg.baseGPR = m_propertyAccesses[i].m_baseGPR;
 #if USE(JSVALUE64)
-        info.valueGPR = m_propertyAccesses[i].m_valueGPR;
+        info.patch.dfg.valueGPR = m_propertyAccesses[i].m_valueGPR;
 #else
-        info.valueTagGPR = m_propertyAccesses[i].m_valueTagGPR;
-        info.valueGPR = m_propertyAccesses[i].m_valueGPR;
+        info.patch.dfg.valueTagGPR = m_propertyAccesses[i].m_valueTagGPR;
+        info.patch.dfg.valueGPR = m_propertyAccesses[i].m_valueGPR;
 #endif
-        info.scratchGPR = m_propertyAccesses[i].m_scratchGPR;
-        info.registersFlushed = m_propertyAccesses[i].m_registerMode == PropertyAccessRecord::RegistersFlushed;
+        info.patch.dfg.scratchGPR = m_propertyAccesses[i].m_scratchGPR;
+        info.patch.dfg.registersFlushed = m_propertyAccesses[i].m_registerMode == PropertyAccessRecord::RegistersFlushed;
     }
     
     m_codeBlock->setNumberOfCallLinkInfos(m_jsCalls.size());
@@ -202,20 +194,26 @@ void JITCompiler::link(LinkBuffer& linkBuffer)
     codeBlock()->shrinkWeakReferenceTransitionsToFit();
 }
 
-void JITCompiler::compile(JITCode& entry)
+bool JITCompiler::compile(JITCode& entry)
 {
     compileEntry();
     SpeculativeJIT speculative(*this);
     compileBody(speculative);
 
-    LinkBuffer linkBuffer(*m_globalData, this);
+    // Create OSR entry trampolines if necessary.
+    speculative.createOSREntries();
+
+    LinkBuffer linkBuffer(*m_globalData, this, m_codeBlock, JITCompilationCanFail);
+    if (linkBuffer.didFailToAllocate())
+        return false;
     link(linkBuffer);
     speculative.linkOSREntries(linkBuffer);
 
     entry = JITCode(linkBuffer.finalizeCode(), JITCode::DFGJIT);
+    return true;
 }
 
-void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWithArityCheck)
+bool JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWithArityCheck)
 {
     compileEntry();
 
@@ -226,7 +224,7 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
     Label fromArityCheck(this);
     // Plant a check that sufficient space is available in the RegisterFile.
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=56291
-    addPtr(Imm32(m_codeBlock->m_numCalleeRegisters * sizeof(Register)), GPRInfo::callFrameRegister, GPRInfo::regT1);
+    addPtr(TrustedImm32(m_codeBlock->m_numCalleeRegisters * sizeof(Register)), GPRInfo::callFrameRegister, GPRInfo::regT1);
     Jump registerFileCheck = branchPtr(Below, AbsoluteAddress(m_globalData->interpreter->registerFile().addressOfEnd()), GPRInfo::regT1);
     // Return here after register file check.
     Label fromRegisterFileCheck = label();
@@ -247,7 +245,10 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
     registerFileCheck.link(this);
     move(stackPointerRegister, GPRInfo::argumentGPR0);
     poke(GPRInfo::callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof(void*));
+
+    CallBeginToken token = beginCall();
     Call callRegisterFileCheck = call();
+    notifyCall(callRegisterFileCheck, CodeOrigin(0), token);
     jump(fromRegisterFileCheck);
     
     // The fast entry point into a function does not check the correct number of arguments
@@ -258,17 +259,24 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
     Label arityCheck = label();
     compileEntry();
 
-    load32(Address(GPRInfo::callFrameRegister, RegisterFile::ArgumentCount * static_cast<int>(sizeof(Register))), GPRInfo::regT1);
-    branch32(AboveOrEqual, GPRInfo::regT1, Imm32(m_codeBlock->m_numParameters)).linkTo(fromArityCheck, this);
+    load32(AssemblyHelpers::payloadFor((VirtualRegister)RegisterFile::ArgumentCount), GPRInfo::regT1);
+    branch32(AboveOrEqual, GPRInfo::regT1, TrustedImm32(m_codeBlock->numParameters())).linkTo(fromArityCheck, this);
     move(stackPointerRegister, GPRInfo::argumentGPR0);
     poke(GPRInfo::callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof(void*));
+    token = beginCall();
     Call callArityCheck = call();
+    notifyCall(callArityCheck, CodeOrigin(0), token);
     move(GPRInfo::regT0, GPRInfo::callFrameRegister);
     jump(fromArityCheck);
+    
+    // Create OSR entry trampolines if necessary.
+    speculative.createOSREntries();
 
 
     // === Link ===
-    LinkBuffer linkBuffer(*m_globalData, this);
+    LinkBuffer linkBuffer(*m_globalData, this, m_codeBlock, JITCompilationCanFail);
+    if (linkBuffer.didFailToAllocate())
+        return false;
     link(linkBuffer);
     speculative.linkOSREntries(linkBuffer);
     
@@ -278,6 +286,7 @@ void JITCompiler::compileFunction(JITCode& entry, MacroAssemblerCodePtr& entryWi
 
     entryWithArityCheck = linkBuffer.locationOf(arityCheck);
     entry = JITCode(linkBuffer.finalizeCode(), JITCode::DFGJIT);
+    return true;
 }
 
 } } // namespace JSC::DFG

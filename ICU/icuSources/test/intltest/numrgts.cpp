@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 1997-2011, International Business Machines Corporation
+ * Copyright (c) 1997-2012, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -169,6 +169,7 @@ NumberFormatRegressionTest::runIndexedTest( int32_t index, UBool exec, const cha
         CASE(59,Test4243108);
         CASE(60,TestJ691);
         CASE(61,Test8199);
+        CASE(62,Test9109);
 
         default: name = ""; break;
     }
@@ -712,8 +713,8 @@ void NumberFormatRegressionTest::Test4090504 (void)
             df->setMaximumFractionDigits(i);
             //sb = new StringBuffer("");
             fp.setField(0);
-            logln("  getMaximumFractionDigits() = " + i);
-            logln("  formated: " + df->format(d, sb, fp));
+            logln(UnicodeString("  getMaximumFractionDigits() = ") + i);
+            logln(UnicodeString("  formated: ") + df->format(d, sb, fp));
         }
     /*} catch (Exception foo) {
         errln("Bug 4090504 regression test failed. Message : " + foo.getMessage());
@@ -1032,11 +1033,11 @@ void NumberFormatRegressionTest::Test4071014 (void)
     UnicodeString tempString;
     /* user error :
     String expectedDefault = "-5.789,987";
-    String expectedCurrency = "5.789,98 DM";
+    String expectedCurrency = "5.789,98 DEM";
     String expectedPercent = "-578.998%";
     */
     UnicodeString expectedDefault("-5.789,988");
-    UnicodeString expectedCurrency("5.789,99\\u00A0DM");
+    UnicodeString expectedCurrency("5.789,99\\u00A0DEM");
     UnicodeString expectedPercent("-578.999\\u00A0%");
 
     expectedCurrency = expectedCurrency.unescape();
@@ -1104,7 +1105,7 @@ void NumberFormatRegressionTest::Test4071859 (void)
     String expectedPercent = "-578.998%";
     */
     UnicodeString expectedDefault("-5.789,988");
-    UnicodeString expectedCurrency("-IT\\u20A4\\u00A05.790", -1, US_INV);
+    UnicodeString expectedCurrency("-ITL\\u00A05.790", -1, US_INV);
     UnicodeString expectedPercent("-578.999%");
     expectedCurrency = expectedCurrency.unescape();
 
@@ -1451,7 +1452,7 @@ void NumberFormatRegressionTest::Test4106658(void)
     UnicodeString temp;
     FieldPosition pos(FieldPosition::DONT_CARE);
 
-#if defined(U_HPUX)
+#if U_PLATFORM == U_PF_HPUX
     d1 = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
     d1 *= -1.0; // Some compilers have a problem with defining -0.0
@@ -1582,7 +1583,7 @@ void NumberFormatRegressionTest::Test4106667(void)
     FieldPosition pos(FieldPosition::DONT_CARE);
 
     logln("pattern: \"" + df->toPattern(temp) + "\"");
-#if defined(U_HPUX)
+#if U_PLATFORM == U_PF_HPUX
     d = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
     d *= -1.0; // Some compilers have a problem with defining -0.0
@@ -1598,7 +1599,7 @@ void NumberFormatRegressionTest::Test4106667(void)
 /* @bug 4110936
  * DecimalFormat.setMaximumIntegerDigits() works incorrectly.
  */
-#ifdef OS390
+#if U_PLATFORM == U_PF_OS390
 #   define MAX_INT_DIGITS 70
 #else
 #   define MAX_INT_DIGITS 128
@@ -1994,12 +1995,12 @@ void NumberFormatRegressionTest::Test4147295(void)
         int minIntDig = sdf->getMinimumIntegerDigits();
         if (minIntDig != 0) {
             errln("Test failed");
-            errln(" Minimum integer digits : " + minIntDig);
+            errln(UnicodeString(" Minimum integer digits : ") + minIntDig);
             UnicodeString temp;
-            errln(" new pattern: " + sdf->toPattern(temp));
+            errln(UnicodeString(" new pattern: ") + sdf->toPattern(temp));
         } else {
             logln("Test passed");
-            logln(" Minimum integer digits : " + minIntDig);
+            logln(UnicodeString(" Minimum integer digits : ") + minIntDig);
         }
     }
     delete sdf;
@@ -2023,7 +2024,7 @@ void NumberFormatRegressionTest::Test4147706(void)
         volatile double d1 = 0.0;   // volatile to prevent code optimization
         double d2 = -0.0001;
 
-#if defined(U_HPUX)
+#if U_PLATFORM == U_PF_HPUX
         d1 = 0.0 * -1.0;    // old HPUX compiler ignores volatile keyword
 #else
         d1 *= -1.0; // Some compilers have a problem with defining -0.0
@@ -2129,7 +2130,7 @@ NumberFormatRegressionTest::Test4162852(void)
         logln(UnicodeString("") +
               d + " -> " +
               '"' + s + '"' + " -> " + e);
-#if (defined(OS390) && !defined(IEEE_754)) || defined(OS400)
+#if (U_PLATFORM == U_PF_OS390 && !defined(IEEE_754)) || U_PLATFORM == U_PF_OS400
         if (e != 0.0) {
 #else
         if (e != 0.0 || 1.0/e > 0.0) {
@@ -2709,6 +2710,10 @@ void NumberFormatRegressionTest::TestJ691(void) {
 void NumberFormatRegressionTest::Test8199(void) {
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nf = NumberFormat::createInstance(Locale::getEnglish(), status);
+    if (nf == NULL) {
+        dataerrln("Fail: NumberFormat::createInstance(Locale::getEnglish(), status)");
+        return;
+    }
     TEST_CHECK_STATUS(status);
 
     // Note:  Retrieving parsed values from a Formattable as a reduced-precision type
@@ -2822,5 +2827,29 @@ void NumberFormatRegressionTest::Test8199(void) {
     delete nf;
 }
 
+void NumberFormatRegressionTest::Test9109(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    Formattable val;
+    ParsePosition pos;
+    DecimalFormat fmt("+##", status);
+    fmt.setLenient(TRUE);
+
+    if (U_FAILURE(status)) {
+        dataerrln("Failed to create DecimalFormat with pattern '+##' - %s", u_errorName(status));
+    }
+
+    UnicodeString text("123");
+    int32_t expected = 123;
+    int32_t expos = 3;
+
+    fmt.parse(text, val, pos);
+    if (pos.getErrorIndex() >= 0) {
+        errln(UnicodeString("Parse failure at ") + pos.getErrorIndex());
+    } else if (val.getLong() != 123) {
+        errln(UnicodeString("Incorrect parse result: ") + val.getLong() + " expected: " + expected);
+    } else if (pos.getIndex() != 3) {
+        errln(UnicodeString("Incorrect parse position: ") + pos.getIndex() + " expected: " + expos);
+    }
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

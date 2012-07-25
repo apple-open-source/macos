@@ -51,7 +51,6 @@
 #import "WebPreferenceKeysPrivate.h"
 #import "WebResourceInternal.h"
 #import "WebSystemInterface.h"
-#import "WebViewFactory.h"
 #import "WebViewInternal.h"
 #import "WebViewPrivate.h"
 #import <Foundation/NSURLRequest.h>
@@ -168,7 +167,7 @@ enum {
         if (dataSourceRepresentation && [dataSourceRepresentation class] == viewClass)
             documentView = (NSView <WebDocumentView> *)[dataSourceRepresentation retain];
         else
-            documentView = [[viewClass alloc] initWithFrame:[self bounds]];
+            documentView = [[viewClass alloc] init];
     } else
         documentView = nil;
     
@@ -288,6 +287,17 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     view->updateCanHaveScrollbars();
 }
 
+- (void)_frameSizeChanged
+{
+    // See WebFrameLoaderClient::provisionalLoadStarted.
+    if ([[[self webFrame] webView] drawsBackground])
+        [[self _scrollView] setDrawsBackground:YES];
+    if (Frame* coreFrame = [self _web_frame]) {
+        if (FrameView* coreFrameView = coreFrame->view())
+            coreFrameView->setNeedsLayout();
+    }
+}
+
 @end
 
 @implementation WebFrameView
@@ -306,8 +316,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
         // Need to tell WebCore what function to call for the "History Item has Changed" notification.
         // Note: We also do this in WebHistoryItem's init method.
         WebCore::notifyHistoryItemChanged = WKNotifyHistoryItemChanged;
-
-        [WebViewFactory createSharedFactory];
 
 // FIXME: Remove the NSAppKitVersionNumberWithDeferredWindowDisplaySupport check once
 // once AppKit's Deferred Window Display support is available.
@@ -496,22 +504,10 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (void)setFrameSize:(NSSize)size
 {
-    if (!NSEqualSizes(size, [self frame].size)) {
-        // See WebFrameLoaderClient::provisionalLoadStarted.
-        if ([[[self webFrame] webView] drawsBackground])
-            [[self _scrollView] setDrawsBackground:YES];
-        if (Frame* coreFrame = [self _web_frame]) {
-            if (FrameView* coreFrameView = coreFrame->view())
-                coreFrameView->setNeedsLayout();
-        }
-    }
-    [super setFrameSize:size];
-}
+    if (!NSEqualSizes(size, [self frame].size))
+        [self _frameSizeChanged];
 
-- (void)setBoundsSize:(NSSize)size
-{
-    [super setBoundsSize:size];
-    [[self _scrollView] setFrameSize:size];
+    [super setFrameSize:size];
 }
 
 - (void)viewDidMoveToWindow
@@ -788,7 +784,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     for (index = 0; index < count; ++index) {
         switch ([characters characterAtIndex:index]) {
             case NSDeleteCharacter:
-                if (!maintainsBackForwardList) {
+                if (!maintainsBackForwardList || ![[[self _webView] preferences] backspaceKeyNavigationEnabled]) {
                     callSuper = YES;
                     break;
                 }

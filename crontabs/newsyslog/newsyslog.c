@@ -953,7 +953,7 @@ expand_globs(struct conf_entry **work_p, struct conf_entry **glob_p)
 
 		if (verbose > 2)
 			printf("\t+ Expanding pattern %s\n", globent->log);
-		for (i = 0; i < pglob.gl_matchc; i++) {
+		for (i = 0; i < (size_t)pglob.gl_matchc; i++) {
 			mfname = pglob.gl_pathv[i];
 
 			/* See if this file already has a specific entry. */

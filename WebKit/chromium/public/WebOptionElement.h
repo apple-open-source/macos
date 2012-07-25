@@ -31,8 +31,8 @@
 #ifndef WebOptionElement_h
 #define WebOptionElement_h
 
-#include "WebFormControlElement.h"
-#include "WebVector.h"
+#include "WebElement.h"
+#include "platform/WebVector.h"
 
 #if WEBKIT_IMPLEMENTATION
 namespace WebCore { class HTMLOptionElement; }
@@ -41,27 +41,27 @@ namespace WebCore { class HTMLOptionElement; }
 namespace WebKit {
 
 // Provides readonly access to some properties of a DOM option element node.
-class WebOptionElement : public WebFormControlElement {
+class WebOptionElement : public WebElement {
 public:
-    WebOptionElement() : WebFormControlElement() { }
-    WebOptionElement(const WebOptionElement& element) : WebFormControlElement(element) { }
+    WebOptionElement() : WebElement() { }
+    WebOptionElement(const WebOptionElement& element) : WebElement(element) { }
 
     WebOptionElement& operator=(const WebOptionElement& element)
     {
-        WebFormControlElement::assign(element);
+        WebElement::assign(element);
         return *this;
     }
-    void assign(const WebOptionElement& element) { WebFormControlElement::assign(element); }
+    void assign(const WebOptionElement& element) { WebElement::assign(element); }
 
-    WEBKIT_API void setValue(const WebString&);
-    WEBKIT_API WebString value() const;
+    WEBKIT_EXPORT void setValue(const WebString&);
+    WEBKIT_EXPORT WebString value() const;
 
-    WEBKIT_API int index() const;
-    WEBKIT_API WebString text() const;
-    WEBKIT_API bool defaultSelected() const;
-    WEBKIT_API void setDefaultSelected(bool);
-    WEBKIT_API WebString label() const;
-    WEBKIT_API bool isEnabled() const;
+    WEBKIT_EXPORT int index() const;
+    WEBKIT_EXPORT WebString text() const;
+    WEBKIT_EXPORT bool defaultSelected() const;
+    WEBKIT_EXPORT void setDefaultSelected(bool);
+    WEBKIT_EXPORT WebString label() const;
+    WEBKIT_EXPORT bool isEnabled() const;
 
 #if WEBKIT_IMPLEMENTATION
     WebOptionElement(const WTF::PassRefPtr<WebCore::HTMLOptionElement>&);

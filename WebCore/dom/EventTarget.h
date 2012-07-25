@@ -32,8 +32,8 @@
 #ifndef EventTarget_h
 #define EventTarget_h
 
+#include "EventListenerMap.h"
 #include "EventNames.h"
-#include "RegisteredEventListener.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/AtomicStringHash.h>
@@ -54,6 +54,9 @@ namespace WebCore {
     class IDBTransaction;
     class IDBVersionChangeRequest;
     class JavaScriptAudioNode;
+    class LocalMediaStream;
+    class MediaController;
+    class MediaStream;
     class MessagePort;
     class Node;
     class Notification;
@@ -61,6 +64,8 @@ namespace WebCore {
     class ScriptExecutionContext;
     class SharedWorker;
     class SharedWorkerContext;
+    class TextTrack;
+    class TextTrackCue;
     class WebSocket;
     class Worker;
     class XMLHttpRequest;
@@ -82,14 +87,6 @@ namespace WebCore {
     };
     typedef Vector<FiringEventIterator, 1> FiringEventIteratorVector;
 
-    typedef Vector<RegisteredEventListener, 1> EventListenerVector;
-
-    struct EventListenerMapHashTraits : HashTraits<WTF::AtomicString> {
-        static const int minimumTableSize = 32;
-    };
-
-    typedef HashMap<AtomicString, EventListenerVector*, AtomicStringHash, EventListenerMapHashTraits> EventListenerMap;
-
     struct EventTargetData {
         WTF_MAKE_NONCOPYABLE(EventTargetData); WTF_MAKE_FAST_ALLOCATED;
     public:
@@ -105,54 +102,11 @@ namespace WebCore {
         void ref() { refEventTarget(); }
         void deref() { derefEventTarget(); }
 
-        virtual EventSource* toEventSource();
-        virtual MessagePort* toMessagePort();
+        virtual const AtomicString& interfaceName() const = 0;
+        virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
+
         virtual Node* toNode();
         virtual DOMWindow* toDOMWindow();
-        virtual XMLHttpRequest* toXMLHttpRequest();
-        virtual XMLHttpRequestUpload* toXMLHttpRequestUpload();
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        virtual DOMApplicationCache* toDOMApplicationCache();
-#endif
-#if ENABLE(SVG)
-        virtual SVGElementInstance* toSVGElementInstance();
-#endif
-#if ENABLE(WORKERS)
-        virtual Worker* toWorker();
-        virtual DedicatedWorkerContext* toDedicatedWorkerContext();
-#endif
-#if ENABLE(SHARED_WORKERS)
-        virtual SharedWorker* toSharedWorker();
-        virtual SharedWorkerContext* toSharedWorkerContext();
-#endif
-
-#if ENABLE(WEB_AUDIO)
-        virtual AudioContext* toAudioContext();
-        virtual JavaScriptAudioNode* toJavaScriptAudioNode();
-#endif
-
-#if ENABLE(WEB_SOCKETS)
-        virtual WebSocket* toWebSocket();
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-        virtual Notification* toNotification();
-#endif
-#if ENABLE(BLOB)
-        virtual FileReader* toFileReader();
-#endif
-#if ENABLE(FILE_SYSTEM)
-        virtual FileWriter* toFileWriter();
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-        virtual IDBDatabase* toIDBDatabase();
-        virtual IDBRequest* toIDBRequest();
-        virtual IDBTransaction* toIDBTransaction();
-        virtual IDBVersionChangeRequest* toIDBVersionChangeRequest();
-#endif
-
-        virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
 
         virtual bool addEventListener(const AtomicString& eventType, PassRefPtr<EventListener>, bool useCapture);
         virtual bool removeEventListener(const AtomicString& eventType, EventListener*, bool useCapture);
@@ -193,21 +147,6 @@ namespace WebCore {
         friend class EventListenerIterator;
     };
 
-    class EventListenerIterator {
-    public:
-        EventListenerIterator();
-
-        // EventTarget must not be modified while an iterator is active.
-        EventListenerIterator(EventTarget*);
-
-        EventListener* nextListener();
-
-    private:
-        EventListenerMap::iterator m_mapIterator;
-        EventListenerMap::iterator m_mapEnd;
-        unsigned m_index;
-    };
-
     // FIXME: These macros should be split into separate DEFINE and DECLARE
     // macros to avoid causing so many header includes.
     #define DEFINE_ATTRIBUTE_EVENT_LISTENER(attribute) \
@@ -246,16 +185,9 @@ namespace WebCore {
 #if USE(JSC)
     inline void EventTarget::visitJSEventListeners(JSC::SlotVisitor& visitor)
     {
-        EventTargetData* d = eventTargetData();
-        if (!d)
-            return;
-
-        EventListenerMap::iterator end = d->eventListenerMap.end();
-        for (EventListenerMap::iterator it = d->eventListenerMap.begin(); it != end; ++it) {
-            EventListenerVector& entry = *it->second;
-            for (size_t i = 0; i < entry.size(); ++i)
-                entry[i].listener->visitJSFunction(visitor);
-        }
+        EventListenerIterator iterator(this);
+        while (EventListener* listener = iterator.nextListener())
+            listener->visitJSFunction(visitor);
     }
 #endif
 

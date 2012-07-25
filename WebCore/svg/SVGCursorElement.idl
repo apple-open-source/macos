@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGCursorElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGCursorElement : SVGElement,
                                                    SVGURIReference,
                                                    SVGTests,
                                                    SVGExternalResourcesRequired {

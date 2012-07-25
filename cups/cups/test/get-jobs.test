@@ -31,8 +31,7 @@
 	ATTR language attributes-natural-language en
 	ATTR uri printer-uri $uri
 	ATTR keyword requested-attributes
-	     job-id,job-state,job-name,job-originating-user-name,job-media-sheets,job-media-sheets-completed,job-impressions,job-impressions-completed
-	ATTR name requesting-user-name $user
+	     job-id,job-state,job-state-reasons,job-name,job-originating-user-name,job-media-sheets,job-media-sheets-completed,job-impressions,job-impressions-completed
 
 	# What statuses are OK?
 	STATUS successful-ok

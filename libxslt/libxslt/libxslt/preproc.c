@@ -39,6 +39,7 @@
 #include "extra.h"
 #include "imports.h"
 #include "extensions.h"
+#include "pattern.h"
 
 #ifdef WITH_XSLT_DEBUG
 #define WITH_XSLT_DEBUG_PREPROC
@@ -82,7 +83,7 @@ xsltCheckTopLevelElement(xsltStylesheetPtr style, xmlNodePtr inst, int err) {
 	}
 	return(0);
     }
-    if ((parent->ns == NULL) ||
+    if ((parent->ns == NULL) || (parent->type != XML_ELEMENT_NODE) ||
         ((parent->ns != inst->ns) &&
 	 (!xmlStrEqual(parent->ns->href, inst->ns->href))) ||
 	((!xmlStrEqual(parent->name, BAD_CAST "stylesheet")) &&
@@ -391,6 +392,8 @@ xsltFreeStylePreComp(xsltStylePreCompPtr comp) {
             break;
         case XSLT_FUNC_SORT: {
 		xsltStyleItemSortPtr item = (xsltStyleItemSortPtr) comp;
+		if (item->locale != (xsltLocale)0)
+		    xsltFreeLocale(item->locale);
 		if (item->comp != NULL)
 		    xmlXPathFreeCompExpr(item->comp);
 	    }
@@ -417,7 +420,13 @@ xsltFreeStylePreComp(xsltStylePreCompPtr comp) {
 		    xmlXPathFreeCompExpr(item->comp);
 	    }
             break;
-        case XSLT_FUNC_NUMBER:
+        case XSLT_FUNC_NUMBER: {
+                xsltStyleItemNumberPtr item = (xsltStyleItemNumberPtr) comp;
+                if (item->numdata.countPat != NULL)
+                    xsltFreeCompMatchList(item->numdata.countPat);
+                if (item->numdata.fromPat != NULL)
+                    xsltFreeCompMatchList(item->numdata.fromPat);
+            }
             break;
         case XSLT_FUNC_APPLYIMPORTS:
             break;
@@ -487,8 +496,14 @@ xsltFreeStylePreComp(xsltStylePreCompPtr comp) {
 	    break;
     }
 #else    
+    if (comp->locale != (xsltLocale)0)
+	xsltFreeLocale(comp->locale);
     if (comp->comp != NULL)
 	xmlXPathFreeCompExpr(comp->comp);
+    if (comp->numdata.countPat != NULL)
+        xsltFreeCompMatchList(comp->numdata.countPat);
+    if (comp->numdata.fromPat != NULL)
+        xsltFreeCompMatchList(comp->numdata.fromPat);
     if (comp->nsList != NULL)
 	xmlFree(comp->nsList);
 #endif
@@ -728,6 +743,12 @@ xsltSortComp(xsltStylesheetPtr style, xmlNodePtr inst) {
     comp->lang = xsltEvalStaticAttrValueTemplate(style, inst,
 				 (const xmlChar *)"lang",
 				 NULL, &comp->has_lang);
+    if (comp->lang != NULL) {
+	comp->locale = xsltNewLocale(comp->lang);
+    }
+    else {
+        comp->locale = (xsltLocale)0;
+    }
 
     comp->select = xsltGetCNsProp(style, inst,(const xmlChar *)"select", XSLT_NAMESPACE);
     if (comp->select == NULL) {
@@ -1416,7 +1437,7 @@ xsltNumberComp(xsltStylesheetPtr style, xmlNodePtr cur) {
     comp->numdata.node = cur;
     comp->numdata.value = xsltGetCNsProp(style, cur, (const xmlChar *)"value",
 	                                XSLT_NAMESPACE);
-    
+
     prop = xsltEvalStaticAttrValueTemplate(style, cur,
 			 (const xmlChar *)"format",
 			 XSLT_NAMESPACE, &comp->numdata.has_format);
@@ -1427,10 +1448,22 @@ xsltNumberComp(xsltStylesheetPtr style, xmlNodePtr cur) {
     }
 
     comp->numdata.count = xsltGetCNsProp(style, cur, (const xmlChar *)"count",
-					XSLT_NAMESPACE);
+                                         XSLT_NAMESPACE);
     comp->numdata.from = xsltGetCNsProp(style, cur, (const xmlChar *)"from",
-					XSLT_NAMESPACE);
-    
+                                        XSLT_NAMESPACE);
+
+    prop = xsltGetCNsProp(style, cur, (const xmlChar *)"count", XSLT_NAMESPACE);
+    if (prop != NULL) {
+	comp->numdata.countPat = xsltCompilePattern(prop, cur->doc, cur, style,
+                                                    NULL);
+    }
+
+    prop = xsltGetCNsProp(style, cur, (const xmlChar *)"from", XSLT_NAMESPACE);
+    if (prop != NULL) {
+	comp->numdata.fromPat = xsltCompilePattern(prop, cur->doc, cur, style,
+                                                   NULL);
+    }
+
     prop = xsltGetCNsProp(style, cur, (const xmlChar *)"level", XSLT_NAMESPACE);
     if (prop != NULL) {
 	if (xmlStrEqual(prop, BAD_CAST("single")) ||
@@ -1834,6 +1867,9 @@ xsltVariableComp(xsltStylesheetPtr style, xmlNodePtr inst) {
     comp->select = xsltGetCNsProp(style, inst, (const xmlChar *)"select",
 	                        XSLT_NAMESPACE);
     if (comp->select != NULL) {
+#ifndef XSLT_REFACTORED
+        xmlNodePtr cur;
+#endif
 	comp->comp = xsltXPathCompile(style, comp->select);
 	if (comp->comp == NULL) {
 	    xsltTransformError(NULL, style, inst,
@@ -1841,12 +1877,25 @@ xsltVariableComp(xsltStylesheetPtr style, xmlNodePtr inst) {
 		comp->select);
 	    style->errors++;
 	}
+#ifdef XSLT_REFACTORED
 	if (inst->children != NULL) {
 	    xsltTransformError(NULL, style, inst,
-		"XSLT-variable: The must be no child nodes, since the "
+		"XSLT-variable: There must be no child nodes, since the "
 		"attribute 'select' was specified.\n");
 	    style->errors++;
 	}
+#else
+        for (cur = inst->children; cur != NULL; cur = cur->next) {
+            if (cur->type != XML_COMMENT_NODE &&
+                (cur->type != XML_TEXT_NODE || !xsltIsBlank(cur->content)))
+            {
+                xsltTransformError(NULL, style, inst,
+                    "XSLT-variable: There must be no child nodes, since the "
+                    "attribute 'select' was specified.\n");
+                style->errors++;
+            }
+        }
+#endif
     }
 }
 

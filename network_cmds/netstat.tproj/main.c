@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -274,6 +274,7 @@ extern void _serv_cache_close();
 int	Aflag;		/* show addresses of protocol control block */
 int	aflag;		/* show all sockets (including servers) */
 int	bflag;		/* show i/f total bytes in/out */
+int	cflag;		/* show specific classq */
 int	dflag;		/* show i/f dropped packets */
 #if defined(__APPLE__)
 int	gflag;		/* show group (multicast) routing or stats */
@@ -291,7 +292,11 @@ int	sflag;		/* show protocol statistics */
 int	tflag;		/* show i/f watchdog timers */
 int	vflag;		/* more verbose */
 int	Wflag;		/* wide display */
+int	qflag;		/* classq stats display */
+int	Qflag;		/* opportunistic polling stats display */
+int	xflag;		/* show extended link-layer reachability information */
 
+int	cq = -1;	/* send classq index (-1 for all) */
 int	interval;	/* repeat interval for i/f stats */
 
 char	*interface;	/* desired i/f for stats, or NULL for all i/fs */
@@ -309,7 +314,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnP:p:rRstuvWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabc:df:gI:iLlmnP:p:qQrRstuvWw:x")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -319,6 +324,10 @@ main(argc, argv)
 			break;
 		case 'b':
 			bflag = 1;
+			break;
+		case 'c':
+			cflag = 1;
+			cq = atoi(optarg);
 			break;
 		case 'd':
 			dflag = 1;
@@ -382,6 +391,12 @@ main(argc, argv)
 			}
 			pflag = 1;
 			break;
+		case 'q':
+			qflag++;
+			break;
+		case 'Q':
+			Qflag++;
+			break;
 		case 'R':
 			Rflag = 1;
 			break;
@@ -407,6 +422,10 @@ main(argc, argv)
 			interval = atoi(optarg);
 			iflag = 1;
 			break;
+		case 'x':
+			xflag = 1;
+			Rflag = 1;
+			break;
 		case '?':
 		default:
 			usage();
@@ -431,7 +450,7 @@ main(argc, argv)
 		mbpr();
 		exit(0);
 	}
-	if (iflag && !sflag && !gflag) {
+	if (iflag && !sflag && !gflag && !qflag && !Qflag) {
 		if (Rflag)
 			intpr_ri(NULL);
 		else
@@ -445,6 +464,19 @@ main(argc, argv)
 			routepr(nl[N_RTREE].n_value);
 		exit(0);
 	}
+	if (qflag || Qflag) {
+		if (interface == NULL) {
+			fprintf(stderr, "%s statistics option "
+			    "requires interface name\n", qflag ? "Queue" :
+			    "Polling");
+		} else if (qflag) {
+			aqstatpr();
+		} else {
+			rxpollstatpr();
+		}
+		exit(0);
+	}
+
 #if defined(__APPLE__)
 	if (gflag) {
 #if !TARGET_OS_EMBEDDED		

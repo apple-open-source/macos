@@ -104,7 +104,7 @@ void WebDrawText(WebTextRenderInfo* info)
         GraphicsContext context(info->cgContext);
         String drawString(info->text, info->length);
         if (info->drawAsPassword)
-            drawString = drawString.impl()->secure(WTF::Unicode::bullet);
+            drawString.fill(WTF::Unicode::bullet);
 
         context.save();
 
@@ -150,7 +150,7 @@ unsigned CenterTruncateStringToWidth(LPCTSTR text, int length, const WebFontDesc
 
     FontCachePurgePreventer fontCachePurgePreventer;
 
-    String result = StringTruncator::centerTruncate(String(text, length), width, makeFont(description));
+    String result = StringTruncator::centerTruncate(String(text, length), width, makeFont(description), StringTruncator::EnableRoundingHacks);
     memcpy(buffer, result.characters(), result.length() * sizeof(UChar));
     buffer[result.length()] = '\0';
     return result.length();
@@ -162,7 +162,7 @@ unsigned RightTruncateStringToWidth(LPCTSTR text, int length, const WebFontDescr
 
     FontCachePurgePreventer fontCachePurgePreventer;
 
-    String result = StringTruncator::rightTruncate(String(text, length), width, makeFont(description));
+    String result = StringTruncator::rightTruncate(String(text, length), width, makeFont(description), StringTruncator::EnableRoundingHacks);
     memcpy(buffer, result.characters(), result.length() * sizeof(UChar));
     buffer[result.length()] = '\0';
     return result.length();

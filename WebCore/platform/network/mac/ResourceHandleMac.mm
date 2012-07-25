@@ -34,6 +34,7 @@
 #import "BlobRegistry.h"
 #import "BlockExceptions.h"
 #import "CookieStorage.h"
+#import "CookieStorageCFNet.h"
 #import "CredentialStorage.h"
 #import "CachedResourceLoader.h"
 #import "EmptyProtocolDefinitions.h"
@@ -68,10 +69,6 @@ using namespace WebCore;
 // warning that the compiler would otherwise emit.
 @interface WebCoreNSURLConnectionDelegateProxy : NSObject <NSURLConnectionDelegate>
 - (void)setDelegate:(id<NSURLConnectionDelegate>)delegate;
-@end
-
-@interface NSURLConnection (NSURLConnectionTigerPrivate)
-- (NSData *)_bufferedData;
 @end
 
 @interface NSURLConnection (Details)
@@ -131,9 +128,11 @@ namespace WebCore {
 static bool isInitializingConnection;
 #endif
     
-static String encodeBasicAuthorization(const String& user, const String& password)
+static void applyBasicAuthorizationHeader(ResourceRequest& request, const Credential& credential)
 {
-    return base64Encode(String(user + ":" + password).utf8());
+    String authenticationHeader = "Basic " + base64Encode(String(credential.user() + ":" + credential.password()).utf8());
+    request.clearHTTPAuthorization(); // FIXME: Should addHTTPHeaderField be smart enough to not build comma-separated lists in headers like Authorization?
+    request.addHTTPHeaderField("Authorization", authenticationHeader);
 }
 
 ResourceHandleInternal::~ResourceHandleInternal()
@@ -148,12 +147,6 @@ ResourceHandle::~ResourceHandle()
     LOG(Network, "Handle %p destroyed", this);
 }
 
-static const double MaxFoundationVersionWithoutdidSendBodyDataDelegate = 677.21;
-bool ResourceHandle::didSendBodyDataDelegateExists()
-{
-    return NSFoundationVersionNumber > MaxFoundationVersionWithoutdidSendBodyDataDelegate;
-}
-
 static bool shouldRelaxThirdPartyCookiePolicy(const KURL& url)
 {
     // If a URL already has cookies, then we'll relax the 3rd party cookie policy and accept new cookies.
@@ -162,9 +155,9 @@ static bool shouldRelaxThirdPartyCookiePolicy(const KURL& url)
 
     NSHTTPCookieAcceptPolicy cookieAcceptPolicy;
 #if USE(CFURLSTORAGESESSIONS)
-    CFHTTPCookieStorageRef cfPrivateBrowsingStorage = privateBrowsingCookieStorage().get();
-    if (cfPrivateBrowsingStorage)
-        cookieAcceptPolicy =  wkGetHTTPCookieAcceptPolicy(cfPrivateBrowsingStorage);
+    RetainPtr<CFHTTPCookieStorageRef> cfCookieStorage = currentCFHTTPCookieStorage();
+    if (cfCookieStorage)
+        cookieAcceptPolicy = wkGetHTTPCookieAcceptPolicy(cfCookieStorage.get());
     else
 #endif
         cookieAcceptPolicy = [sharedStorage cookieAcceptPolicy];
@@ -174,8 +167,8 @@ static bool shouldRelaxThirdPartyCookiePolicy(const KURL& url)
 
     NSArray *cookies;
 #if USE(CFURLSTORAGESESSIONS)
-    if (cfPrivateBrowsingStorage)
-        cookies = wkHTTPCookiesForURL(cfPrivateBrowsingStorage, url);
+    if (cfCookieStorage)
+        cookies = wkHTTPCookiesForURL(cfCookieStorage.get(), url);
     else
 #endif
         cookies = [sharedStorage cookiesForURL:url];
@@ -186,7 +179,7 @@ static bool shouldRelaxThirdPartyCookiePolicy(const KURL& url)
 void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredentialStorage, bool shouldContentSniff)
 {
     // Credentials for ftp can only be passed in URL, the connection:didReceiveAuthenticationChallenge: delegate call won't be made.
-    if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty()) && !firstRequest().url().protocolInHTTPFamily()) {
+    if ((!d->m_user.isEmpty() || !d->m_pass.isEmpty()) && !firstRequest().url().protocolIsInHTTPFamily()) {
         KURL urlWithCredentials(firstRequest().url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
@@ -196,7 +189,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
     if (shouldRelaxThirdPartyCookiePolicy(firstRequest().url()))
         firstRequest().setFirstPartyForCookies(firstRequest().url());
 
-    if (shouldUseCredentialStorage && firstRequest().url().protocolInHTTPFamily()) {
+    if (shouldUseCredentialStorage && firstRequest().url().protocolIsInHTTPFamily()) {
         if (d->m_user.isEmpty() && d->m_pass.isEmpty()) {
             // <rdar://problem/7174050> - For URLs that match the paths of those previously challenged for HTTP Basic authentication, 
             // try and reuse the credential preemptively, as allowed by RFC 2617.
@@ -211,8 +204,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
         
     if (!d->m_initialCredential.isEmpty()) {
         // FIXME: Support Digest authentication, and Proxy-Authorization.
-        String authHeader = "Basic " + encodeBasicAuthorization(d->m_initialCredential.user(), d->m_initialCredential.password());
-        firstRequest().addHTTPHeaderField("Authorization", authHeader);
+        applyBasicAuthorizationHeader(firstRequest(), d->m_initialCredential);
     }
 
     NSURLRequest *nsRequest = firstRequest().nsURLRequest();
@@ -230,7 +222,7 @@ void ResourceHandle::createNSURLConnection(id delegate, bool shouldUseCredential
 #endif
 
 #if USE(CFURLSTORAGESESSIONS)
-    if (CFURLStorageSessionRef storageSession = privateBrowsingStorageSession())
+    if (CFURLStorageSessionRef storageSession = currentStorageSession())
         nsRequest = [wkCopyRequestWithStorageSession(storageSession, nsRequest) autorelease];
 #endif
 
@@ -267,10 +259,6 @@ bool ResourceHandle::start(NetworkingContext* context)
     [static_cast<WebCoreNSURLConnectionDelegateProxy*>(d->m_proxy.get()) setDelegate:ResourceHandle::delegate()];
 
     bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
-
-    if (!ResourceHandle::didSendBodyDataDelegateExists())
-        associateStreamWithResourceHandle([firstRequest().nsURLRequest() HTTPBodyStream], this);
-
 
     d->m_needsSiteSpecificQuirks = context->needsSiteSpecificQuirks();
 
@@ -323,8 +311,6 @@ void ResourceHandle::cancel()
     if (d->m_currentMacChallenge)
         [[d->m_currentMacChallenge sender] cancelAuthenticationChallenge:d->m_currentMacChallenge];
 
-    if (!ResourceHandle::didSendBodyDataDelegateExists())
-        disassociateStreamWithResourceHandle([firstRequest().nsURLRequest() HTTPBodyStream]);
     [d->m_connection.get() cancel];
 }
 
@@ -370,20 +356,6 @@ void ResourceHandle::releaseDelegate()
         [d->m_proxy.get() setDelegate:nil];
     [d->m_delegate.get() detachHandle];
     d->m_delegate = nil;
-}
-
-bool ResourceHandle::supportsBufferedData()
-{
-    static bool supportsBufferedData = [NSURLConnection instancesRespondToSelector:@selector(_bufferedData)];
-    return supportsBufferedData;
-}
-
-PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
-{
-    if (ResourceHandle::supportsBufferedData())
-        return SharedBuffer::wrapNSData([d->m_connection.get() _bufferedData]);
-
-    return 0;
 }
 
 id ResourceHandle::releaseProxy()
@@ -496,11 +468,28 @@ void ResourceHandle::willSendRequest(ResourceRequest& request, const ResourceRes
     d->m_pass = url.pass();
     d->m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
-    if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url()))
+
+    if (!protocolHostAndPortAreEqual(request.url(), redirectResponse.url())) {
+        // If the network layer carries over authentication headers from the original request
+        // in a cross-origin redirect, we want to clear those headers here.
+        // As of Lion, CFNetwork no longer does this.
         request.clearHTTPAuthorization();
+    } else {
+        // Only consider applying authentication credentials if this is actually a redirect and the redirect
+        // URL didn't include credentials of its own.
+        if (d->m_user.isEmpty() && d->m_pass.isEmpty() && !redirectResponse.isNull()) {
+            Credential credential = CredentialStorage::get(request.url());
+            if (!credential.isEmpty()) {
+                d->m_initialCredential = credential;
+                
+                // FIXME: Support Digest authentication, and Proxy-Authorization.
+                applyBasicAuthorizationHeader(request, d->m_initialCredential);
+            }
+        }
+    }
 
 #if USE(CFURLSTORAGESESSIONS)
-    if (CFURLStorageSessionRef storageSession = privateBrowsingStorageSession())
+    if (CFURLStorageSessionRef storageSession = currentStorageSession())
         request.setStorageSession(storageSession);
 #endif
 
@@ -522,6 +511,16 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     // Since NSURLConnection networking relies on keeping a reference to the original NSURLAuthenticationChallenge,
     // we make sure that is actually present
     ASSERT(challenge.nsURLAuthenticationChallenge());
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOWLEOPARD)
+    // Proxy authentication is handled by CFNetwork internally. We can get here if the user cancels
+    // CFNetwork authentication dialog, and we shouldn't ask the client to display another one in that case.
+    if (challenge.protectionSpace().isProxy()) {
+        // Cannot use receivedRequestToContinueWithoutCredential(), because current challenge is not yet set.
+        [challenge.sender() continueWithoutCredentialForAuthenticationChallenge:challenge.nsURLAuthenticationChallenge()];
+        return;
+    }
+#endif
 
     if (!d->m_user.isNull() && !d->m_pass.isNull()) {
         NSURLCredential *credential = [[NSURLCredential alloc] initWithUser:d->m_user
@@ -563,6 +562,9 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     d->m_currentWebChallenge = core(d->m_currentMacChallenge);
     d->m_currentWebChallenge.setAuthenticationClient(this);
 
+    // FIXME: Several concurrent requests can return with the an authentication challenge for the same protection space.
+    // We should avoid making additional client calls for the same protection space when already waiting for the user,
+    // because typing the same credentials several times is annoying.
     if (client())
         client()->didReceiveAuthenticationChallenge(this, d->m_currentWebChallenge);
 }
@@ -637,11 +639,6 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
 
 #if USE(CFURLSTORAGESESSIONS)
 
-RetainPtr<CFURLStorageSessionRef> ResourceHandle::createPrivateBrowsingStorageSession(CFStringRef identifier)
-{
-    return RetainPtr<CFURLStorageSessionRef>(AdoptCF, wkCreatePrivateStorageSession(identifier));
-}
-
 String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
 {
     return String([[NSBundle mainBundle] bundleIdentifier]);
@@ -714,17 +711,6 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
 
     m_handle->willSendRequest(request, redirectResponse);
 
-    if (!ResourceHandle::didSendBodyDataDelegateExists()) {
-        // The client may change the request's body stream, in which case we have to re-associate
-        // the handle with the new stream so upload progress callbacks continue to work correctly.
-        NSInputStream* oldBodyStream = [newRequest HTTPBodyStream];
-        NSInputStream* newBodyStream = [request.nsURLRequest() HTTPBodyStream];
-        if (oldBodyStream != newBodyStream) {
-            disassociateStreamWithResourceHandle(oldBodyStream);
-            associateStreamWithResourceHandle(newBodyStream, m_handle);
-        }
-    }
-
     return request.nsURLRequest();
 }
 
@@ -746,8 +732,10 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
 
     LOG(Network, "Handle %p delegate connection:%p didReceiveAuthenticationChallenge:%p", m_handle, connection, challenge);
 
-    if (!m_handle)
+    if (!m_handle) {
+        [[challenge sender] cancelAuthenticationChallenge:challenge];
         return;
+    }
     m_handle->didReceiveAuthenticationChallenge(core(challenge));
 }
 
@@ -763,13 +751,17 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
 }
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-- (BOOL)connection:(NSURLConnection *)unusedConnection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
+- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace
 {
-    UNUSED_PARAM(unusedConnection);
-    
+#if LOG_DISABLED
+    UNUSED_PARAM(connection);
+#endif
+
+    LOG(Network, "Handle %p delegate connection:%p canAuthenticateAgainstProtectionSpace:%p", m_handle, connection, protectionSpace);
+
     if (!m_handle)
         return NO;
-        
+
     return m_handle->canAuthenticateAgainstProtectionSpace(core(protectionSpace));
 }
 #endif
@@ -794,7 +786,7 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
     m_handle->client()->didReceiveResponse(m_handle, r);
 }
 
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
 - (void)connection:(NSURLConnection *)connection didReceiveDataArray:(NSArray *)dataArray
 {
     UNUSED_PARAM(connection);
@@ -806,19 +798,8 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
     if (!m_handle || !m_handle->client())
         return;
 
-    if (m_handle->client()->supportsDataArray())
-        m_handle->client()->didReceiveDataArray(m_handle, reinterpret_cast<CFArrayRef>(dataArray));
-    else {
-        // The call to didReceiveData below could cancel a load, which would result in the delegate
-        // (self) being released.
-        RetainPtr<WebCoreResourceHandleAsDelegate> protect(self);
-        for (NSData *data in dataArray) {
-            if (!m_handle)
-                break;
-            m_handle->client()->didReceiveData(m_handle, static_cast<const char*>([data bytes]), [data length], static_cast<int>([data length]));
-        }
-    }
-    return;
+    m_handle->handleDataArray(reinterpret_cast<CFArrayRef>(dataArray));
+    // The call to didReceiveData above can cancel a load, and if so, the delegate (self) could have been deallocated by this point.
 }
 #endif
 
@@ -876,9 +857,6 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
     if (!m_handle || !m_handle->client())
         return;
 
-    if (!ResourceHandle::didSendBodyDataDelegateExists())
-        disassociateStreamWithResourceHandle([m_handle->firstRequest().nsURLRequest() HTTPBodyStream]);
-
     m_handle->client()->didFinishLoading(m_handle, 0);
 }
 
@@ -890,9 +868,6 @@ String ResourceHandle::privateBrowsingStorageSessionIdentifierDefaultBase()
 
     if (!m_handle || !m_handle->client())
         return;
-
-    if (!ResourceHandle::didSendBodyDataDelegateExists())
-        disassociateStreamWithResourceHandle([m_handle->firstRequest().nsURLRequest() HTTPBodyStream]);
 
     m_handle->client()->didFail(m_handle, error);
 }
@@ -960,7 +935,7 @@ bool WebCoreSynchronousLoaderClient::shouldUseCredentialStorage(ResourceHandle*)
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
 bool WebCoreSynchronousLoaderClient::canAuthenticateAgainstProtectionSpace(ResourceHandle*, const ProtectionSpace&)
 {
-    // FIXME: We should ask FrameLoaderClient.
+    // FIXME: We should ask FrameLoaderClient. <http://webkit.org/b/65196>
     return true;
 }
 #endif

@@ -164,8 +164,8 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 				&& ifa->ifa_addr
 				&& (!strncmp(ifa->ifa_name, "utun", 4) || !strncmp(ifa->ifa_name, "ppp", 3))
 				&& ifa->ifa_addr->sa_family == AF_INET
-				&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == htonl(publicAddress)) {
-				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: related to VPN interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+				&& (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == htonl(publicAddress)) {
+				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: related to VPN interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 					   sd_name,
 					   ifa->ifa_name,
 					   publicAddress,
@@ -178,13 +178,13 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 				&& ifa->ifa_addr
 				&& !strncmp(ifa->ifa_name, if_name, if_name_siz)
 				&& ifa->ifa_addr->sa_family == AF_INET
-				&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == serv->u.ipsec.our_address.sin_addr.s_addr) {
+				&& (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == serv->u.ipsec.our_address.sin_addr.s_addr) {
 				found = 1;
 			}
 		}
 		freeifaddrs(ifap);
 	} else {
-		SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping update for %s ignored: failed to get interface list\n"),
+		SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping update for %s ignored: failed to get interface list."),
 			   sd_name,
 			   if_name);
 		return 1;
@@ -198,7 +198,7 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 	if (!strncmp((const char *)interfaceName, (const char *)if_name, if_name_siz)) {
 		if (strstr(if_name, "ppp") || strstr(if_name, "utun")) {
 			// change on PPP interface... we don't care
-			SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s ignored: underlying interface is PPP/VPN. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+			SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s ignored: underlying interface is PPP/VPN. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 				   sd_name,
 				   if_name,
 				   publicAddress,
@@ -212,7 +212,7 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 				return 0;
 			} else {
 				if (!publicAddress || (!publicPort && privatePort)) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: underlying interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: underlying interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 						   sd_name,
 						   if_name,
 						   publicAddress,
@@ -222,12 +222,12 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 					for (i = 0; i < serv->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
 						if (serv->nat_mapping[i].mDNSRef_tmp == sdRef) {
 							serv->nat_mapping[i].up = 0;
-							SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s flagged down because of no connectivity\n"), sd_name, if_name);
+							SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s flagged down because of no connectivity."), sd_name, if_name);
 						}
 					}
 					return 1;
 				}
-				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: underlying interface's address changed. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: underlying interface's address changed. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 					   sd_name,
 					   if_name,
 					   publicAddress,
@@ -250,7 +250,7 @@ ignorePortMappingUpdate (DNSServiceRef       sdRef,
 			return 0;
 		}
 		// change due to another interface, ignore for now
-		SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: not for interface %s. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+		SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping update for %s ignored: not for interface %s. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 			   sd_name,
 			   interfaceName,
 			   if_name,
@@ -282,7 +282,7 @@ public_port_mapping_timeout (CFRunLoopTimerRef timer, void *info)
 	struct service *serv = info;
 	
 	if (serv->type == TYPE_IPSEC) {
-		SCLog(TRUE, LOG_ERR, CFSTR("NAT's public interface down for more than %d secs... starting faster probe.\n"),
+		SCLog(TRUE, LOG_ERR, CFSTR("NAT's public interface down for more than %d secs... starting faster probe."),
 			   PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
 		startProbe(serv);
 	}
@@ -298,10 +298,10 @@ start_public_nat_port_mapping_timer (struct service *serv)
 			return;
 		}
 		
-		SCLog(TRUE, LOG_INFO, CFSTR("starting wait-port-mapping timer for IPSec: %d secs\n"), PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
+		SCLog(TRUE, LOG_INFO, CFSTR("starting wait-port-mapping timer for IPSec: %d secs"), PUBLIC_NAT_PORT_MAPPING_TIMEOUT);
 		serv->u.ipsec.port_mapping_timerref = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + PUBLIC_NAT_PORT_MAPPING_TIMEOUT, FAR_FUTURE, 0, 0, public_port_mapping_timeout, &context);
 		if (!serv->u.ipsec.port_mapping_timerref) {
-			SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: public interface down, cannot create RunLoop timer... starting faster probe.\n"));
+			SCLog(TRUE, LOG_ERR, CFSTR("IPSec Controller: public interface down, cannot create RunLoop timer... starting faster probe."));
 			startProbe(serv);
 			return;
 		}
@@ -334,7 +334,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 	u_int32_t if_name_siz = getInterfaceNameSize(serv);
 
 	if (serv->u.ipsec.modecfg_defaultroute) {
-		SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s ignored: VPN is the Primary interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+		SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s ignored: VPN is the Primary interface. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d"),
 			  sd_name,
 			  if_name,
 			  publicAddress,
@@ -346,11 +346,11 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 	}
 
 	if (errorCode != kDNSServiceErr_NoError && errorCode != kDNSServiceErr_DoubleNAT) {
-		SCLog(TRUE, LOG_ERR, CFSTR("%s failed to set port-mapping for %s, errorCode: %d\n"), sd_name, if_name, errorCode);
+		SCLog(TRUE, LOG_ERR, CFSTR("%s failed to set port-mapping for %s, errorCode: %d."), sd_name, if_name, errorCode);
 		if (errorCode == kDNSServiceErr_NATPortMappingUnsupported || errorCode == kDNSServiceErr_NATPortMappingDisabled) {
 			for (i = 0; i < serv->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
 				if (serv->nat_mapping[i].mDNSRef_tmp == sdRef) {
-					SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s became invalid. is Connected: %d, Protocol: %s, Private Port: %d, Previous publicAddress: (%x), Previous publicPort: (%d)\n"),
+					SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s became invalid. is Connected: %d, Protocol: %s, Private Port: %d, Previous publicAddress: (%x), Previous publicPort: (%d)."),
 						   sd_name,
 						   if_name,
 						   is_connected,
@@ -359,7 +359,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 						   serv->nat_mapping[i].reflexive.addr,
 						   serv->nat_mapping[i].reflexive.port);
 					if (serv->nat_mapping[i].up && is_connected) {
-						SCLog(TRUE, LOG_NOTICE, CFSTR("%s public port-mapping for %s changed... starting faster probe.\n"), sd_name, if_name);
+						SCLog(TRUE, LOG_NOTICE, CFSTR("%s public port-mapping for %s changed... starting faster probe."), sd_name, if_name);
 						startProbe(serv);
 					} else {
 						clearPortMapping(serv);
@@ -377,7 +377,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 		return;
 	}
 	
-	SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s, Protocol: %s, Private Port: %d, Public Address: %x, Public Port: %d, TTL: %d%s\n"),
+	SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s, Protocol: %s, Private Port: %d, Public Address: %x, Public Port: %d, TTL: %d%s."),
 		   sd_name,
 		   if_name,
 		   (protocol == 0)? "None":((protocol == kDNSServiceProtocol_UDP)? "UDP":"TCP"),
@@ -391,7 +391,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 	for (i = 0; i < serv->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
 		if (serv->nat_mapping[i].mDNSRef_tmp == sdRef) {
 			if (serv->nat_mapping[i].up && !publicAddress && !publicPort) {
-				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping for %s indicates public interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping for %s indicates public interface down. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 					   sd_name,
 					   if_name,
 					   publicAddress,
@@ -406,7 +406,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 			
 			if (serv->type == TYPE_IPSEC && serv->u.ipsec.our_address.sin_addr.s_addr == htonl(publicAddress) &&
 				privatePort == publicPort) {
-				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s indicates no NAT. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d\n"),
+				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping update for %s indicates no NAT. Public Address: %x, Protocol: %s, Private Port: %d, Public Port: %d."),
 					   sd_name,
 					   if_name,
 					   publicAddress,
@@ -418,21 +418,21 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 			if (serv->nat_mapping[i].interfaceIndex == interfaceIndex &&
 				serv->nat_mapping[i].protocol == protocol &&
 				serv->nat_mapping[i].privatePort == privatePort) {
-				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s consistent. is Connected: %d, interface: %d, protocol: %d, privatePort: %d\n"),
+				SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s consistent. is Connected: %d, interface: %d, protocol: %d, privatePort: %d."),
 					   sd_name, if_name, is_connected, interfaceIndex, protocol, privatePort);
 			} else {
 				// inconsistency (mostly because of mdns api only works for the primary interface): TODO revise
 				if (serv->nat_mapping[i].interfaceIndex != interfaceIndex) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous interface: %d, Current interface %d\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous interface: %d, Current interface %d."),
 						   sd_name, if_name, is_connected, serv->nat_mapping[i].interfaceIndex, interfaceIndex);
 					serv->nat_mapping[i].interfaceIndex = interfaceIndex;
 				}
 				if (serv->nat_mapping[i].protocol != protocol) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous protocol: %x, Current protocol %x\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous protocol: %x, Current protocol %x."),
 						   sd_name, if_name, is_connected, serv->nat_mapping[i].protocol, protocol);
 					serv->nat_mapping[i].protocol = protocol;
 				} else if (serv->nat_mapping[i].privatePort != privatePort) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous privatePort: %d, Current privatePort %d\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s inconsistent. is Connected: %d, Previous privatePort: %d, Current privatePort %d."),
 						   sd_name, if_name, serv->nat_mapping[i].privatePort, privatePort);
 					serv->nat_mapping[i].privatePort = privatePort;
 				}
@@ -440,12 +440,12 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 			// is mapping up?
 			if (!serv->nat_mapping[i].up) {
 				if (serv->nat_mapping[i].reflexive.addr != publicAddress) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s initialized. is Connected: %d, Previous publicAddress: (%x), Current publicAddress %x\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s initialized. is Connected: %d, Previous publicAddress: (%x), Current publicAddress %x."),
 						   sd_name, if_name, is_connected, serv->nat_mapping[i].reflexive.addr, publicAddress);
 					serv->nat_mapping[i].reflexive.addr = publicAddress;
 				}
 				if (serv->nat_mapping[i].reflexive.port != publicPort) {
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s initialized. is Connected: %d, Previous publicPort: (%d), Current publicPort %d\n"),
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s initialized. is Connected: %d, Previous publicPort: (%d), Current publicPort %d."),
 						   sd_name, if_name, is_connected, serv->nat_mapping[i].reflexive.port, publicPort);
 					serv->nat_mapping[i].reflexive.port = publicPort;
 				}
@@ -453,17 +453,17 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 				    ((!privatePort && !serv->nat_mapping[i].reflexive.port) || (serv->nat_mapping[i].reflexive.port))) {
 					// flag up mapping
 					serv->nat_mapping[i].up = 1;
-					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s fully initialized. Flagging up\n"), sd_name, if_name);
+					SCLog(TRUE, LOG_INFO, CFSTR("%s port-mapping for %s fully initialized. Flagging up."), sd_name, if_name);
 				}
 				return;
 			}
 			
 			if (serv->nat_mapping[i].reflexive.addr != publicAddress) {
-				SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s changed. is Connected: %d, Previous publicAddress: (%x), Current publicAddress %x\n"),
+				SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s changed. is Connected: %d, Previous publicAddress: (%x), Current publicAddress %x."),
 					   sd_name, if_name, is_connected, serv->nat_mapping[i].reflexive.addr, publicAddress);
 				if (is_connected) {
 					if (!privatePort || publicAddress) {
-						SCLog(TRUE, LOG_ERR, CFSTR("NAT's public address down or changed... starting faster probe.\n"));
+						SCLog(TRUE, LOG_ERR, CFSTR("NAT's public address down or changed... starting faster probe."));
 						startProbe(serv);
 						return;
 					}
@@ -474,11 +474,11 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 				return;
 			}
 			if (serv->nat_mapping[i].reflexive.port != publicPort) {
-				SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s changed. is Connected: %d, Previous publicPort: (%d), Current publicPort %d\n"),
+				SCLog(TRUE, LOG_ERR, CFSTR("%s port-mapping for %s changed. is Connected: %d, Previous publicPort: (%d), Current publicPort %d."),
 					   sd_name, if_name, is_connected, serv->nat_mapping[i].reflexive.port, publicPort);
 				if (is_connected) {
 					if (!privatePort || publicPort) {
-						SCLog(TRUE, LOG_ERR, CFSTR("NAT's public port down or changed... starting faster probe.\n"));
+						SCLog(TRUE, LOG_ERR, CFSTR("NAT's public port down or changed... starting faster probe."));
 						startProbe(serv);
 						return;
 					}
@@ -489,7 +489,7 @@ setPortMappingCallback (DNSServiceRef        sdRef,
 				return;
 			}
 			if (errorCode == kDNSServiceErr_DoubleNAT) {
-				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping for %s hasn't changed, however there's a Double NAT.  is Connected: %d\n"),
+				SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping for %s hasn't changed, however there's a Double NAT.  is Connected: %d."),
 					   sd_name, if_name, is_connected);
 			}
 			return;
@@ -510,7 +510,7 @@ clearPortMapping (struct service *serv)
 	if (!serv->nat_mapping_cnt)
 		return;
 	
-	SCLog(TRUE, LOG_INFO, CFSTR("%s clearing port-mapping for %s\n"), sd_name, if_name);
+	SCLog(TRUE, LOG_INFO, CFSTR("%s clearing port-mapping for %s."), sd_name, if_name);
 	
 	for (i = 0; i < serv->nat_mapping_cnt && i < MDNS_NAT_MAPPING_MAX; i++) {
 		clearOnePortMapping(&serv->nat_mapping[i]);
@@ -533,7 +533,7 @@ setPortMapping (struct service     *serv,
 	const char *if_name = getInterfaceName(serv);
 	
 	if (mapping == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("%s invalid mapping pointer for %s\n"), sd_name, if_name);
+		SCLog(TRUE, LOG_ERR, CFSTR("%s invalid mapping pointer for %s."), sd_name, if_name);
 		return -1;
 	}
 	
@@ -551,13 +551,13 @@ setPortMapping (struct service     *serv,
 	if (mapping->mDNSRef == NULL) {
 		err = DNSServiceCreateConnection(&mapping->mDNSRef);
 		if (err != kDNSServiceErr_NoError || mapping->mDNSRef == NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceCreateConnection for %s, error: %d\n"), sd_name, if_name, err);
+			SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceCreateConnection for %s, error: %d."), sd_name, if_name, err);
 			clearOnePortMapping(mapping);
 			return -1;
 		}
 		err = DNSServiceSetDispatchQueue(mapping->mDNSRef, dispatch_get_current_queue());
 		if (err != kDNSServiceErr_NoError) {
-			SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceSetDispatchQueue for %s, error: %d\n"), sd_name, if_name, err);
+			SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceSetDispatchQueue for %s, error: %d."), sd_name, if_name, err);
 			clearOnePortMapping(mapping);
 			return -1;
 		}
@@ -568,7 +568,7 @@ setPortMapping (struct service     *serv,
 	mapping->mDNSRef_tmp = mapping->mDNSRef;
 	err = DNSServiceNATPortMappingCreate(&mapping->mDNSRef_tmp, kDNSServiceFlagsShareConnection, interfaceIndex, protocol, htons(privatePort), publicPort, ttl, setPortMappingCallback, serv);
 	if (err != kDNSServiceErr_NoError) {
-		SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceNATPortMappingCreate for %s, error: %d\n"), sd_name, if_name, err);
+		SCLog(TRUE, LOG_ERR, CFSTR("%s Error calling DNSServiceNATPortMappingCreate for %s, error: %d."), sd_name, if_name, err);
 		clearOnePortMapping(mapping);
 		return -1;
 	}
@@ -577,7 +577,7 @@ setPortMapping (struct service     *serv,
 	mapping->privatePort = privatePort;
 	bzero(&mapping->reflexive, sizeof(mapping->reflexive));
 	
-	SCLog(TRUE, LOG_INFO, CFSTR("%s set port-mapping for %s, interface: %d, protocol: %d, privatePort: %d\n"), sd_name, if_name, interfaceIndex, protocol, privatePort);
+	SCLog(TRUE, LOG_INFO, CFSTR("%s set port-mapping for %s, interface: %d, protocol: %d, privatePort: %d."), sd_name, if_name, interfaceIndex, protocol, privatePort);
 	return 0;
 }
 
@@ -615,7 +615,7 @@ nat_port_mapping_set (struct service *serv)
 		const char *sd_name = getPortMappingType(serv);
 		const char *if_name = getInterfaceName(serv);
 
-		SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping API for %s ignored: VPN is the primary interface.\n"),
+		SCLog(TRUE, LOG_NOTICE, CFSTR("%s port-mapping API for %s ignored: VPN is the primary interface."),
 			  sd_name,
 			  if_name);
 		return;

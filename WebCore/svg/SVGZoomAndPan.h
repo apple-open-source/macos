@@ -22,13 +22,13 @@
 #define SVGZoomAndPan_h
 
 #if ENABLE(SVG)
-
+#include "QualifiedName.h"
+#include <wtf/HashSet.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
 
 class Attribute;
-class QualifiedName;
 
 class SVGZoomAndPan {
 public:
@@ -44,8 +44,9 @@ public:
     unsigned short zoomAndPan() const { return m_zoomAndPan; }
     virtual void setZoomAndPan(unsigned short zoomAndPan);
 
-    bool parseMappedAttribute(Attribute*);
+    bool parseAttribute(Attribute*);
     bool isKnownAttribute(const QualifiedName&);
+    void addSupportedAttributes(HashSet<QualifiedName>&);
 
     bool parseZoomAndPan(const UChar*& start, const UChar* end);
 

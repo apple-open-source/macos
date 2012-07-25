@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-common.m4 9866 2011-08-06 04:42:49Z mike $"
+dnl "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $"
 dnl
 dnl   Common configuration stuff for CUPS.
 dnl
@@ -20,11 +20,11 @@ dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
 dnl Version number information...
-CUPS_VERSION="1.5.4"
+CUPS_VERSION="1.6svn"
 CUPS_REVISION=""
-#if test -z "$CUPS_REVISION" -a -d .svn; then
-#	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
-#fi
+if test -z "$CUPS_REVISION" -a -d .svn; then
+	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
+fi
 CUPS_BUILD="cups-$CUPS_VERSION"
 
 AC_ARG_WITH(cups_build, [  --with-cups-build       set "cups-config --build" string ],
@@ -51,7 +51,6 @@ AC_PROG_RANLIB
 AC_PATH_PROG(AR,ar)
 AC_PATH_PROG(CHMOD,chmod)
 AC_PATH_PROG(GZIP,gzip)
-AC_PATH_PROG(HTMLDOC,htmldoc)
 AC_PATH_PROG(LD,ld)
 AC_PATH_PROG(LN,ln)
 AC_PATH_PROG(MV,mv)
@@ -93,8 +92,9 @@ dnl Check for pkg-config, which is used for some other tests later on...
 AC_PATH_PROG(PKGCONFIG, pkg-config)
 
 dnl Check for libraries...
-AC_SEARCH_LIBS(fmod, m)
+AC_SEARCH_LIBS(abs, m, AC_DEFINE(HAVE_ABS))
 AC_SEARCH_LIBS(crypt, crypt)
+AC_SEARCH_LIBS(fmod, m)
 AC_SEARCH_LIBS(getspent, sec gen)
 
 LIBMALLOC=""
@@ -125,6 +125,7 @@ AC_SUBST(LIBPAPER)
 
 dnl Checks for header files.
 AC_HEADER_STDC
+AC_CHECK_HEADER(stdlib.h,AC_DEFINE(HAVE_STDLIB_H))
 AC_CHECK_HEADER(crypt.h,AC_DEFINE(HAVE_CRYPT_H))
 AC_CHECK_HEADER(langinfo.h,AC_DEFINE(HAVE_LANGINFO_H))
 AC_CHECK_HEADER(malloc.h,AC_DEFINE(HAVE_MALLOC_H))
@@ -146,6 +147,16 @@ AC_CHECK_HEADER(iconv.h,
 		AC_DEFINE(HAVE_ICONV_H)
 		SAVELIBS="$SAVELIBS $LIBS")
 	LIBS="$SAVELIBS")
+
+dnl Checks for Mini-XML (www.minixml.org)...
+LIBMXML=""
+AC_CHECK_HEADER(mxml.h,
+	SAVELIBS="$LIBS"
+	AC_SEARCH_LIBS(mmxlNewElement,mxml,
+		AC_DEFINE(HAVE_MXML_H)
+		LIBMXML="-lmxml")
+	LIBS="$SAVELIBS")
+AC_SUBST(LIBMXML)
 
 dnl Checks for statfs and its many headers...
 AC_CHECK_HEADER(sys/mount.h,AC_DEFINE(HAVE_SYS_MOUNT_H))
@@ -244,6 +255,20 @@ if test x$enable_tcp_wrappers = xyes; then
 			LIBWRAP="-lwrap")])
 fi
 
+dnl ZLIB
+INSTALL_GZIP=""
+LIBZ=""
+AC_CHECK_HEADER(zlib.h,
+    AC_CHECK_LIB(z, gzgets,
+	AC_DEFINE(HAVE_LIBZ)
+	LIBZ="-lz"
+	LIBS="$LIBS -lz"
+	if test "x$GZIP" != z; then
+		INSTALL_GZIP="-z"
+	fi))
+AC_SUBST(INSTALL_GZIP)
+AC_SUBST(LIBZ)
+
 dnl Flags for "ar" command...
 case $uname in
         Darwin* | *BSD*)
@@ -313,11 +338,9 @@ dnl Extra platform-specific libraries...
 CUPS_DEFAULT_PRINTOPERATOR_AUTH="@SYSTEM"
 CUPS_SYSTEM_AUTHKEY=""
 INSTALLXPC=""
-LEGACY_BACKENDS="parallel"
 
 case $uname in
         Darwin*)
-		LEGACY_BACKENDS=""
                 BACKLIBS="$BACKLIBS -framework IOKit"
                 SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices"
                 LIBS="-framework SystemConfiguration -framework CoreFoundation -framework Security $LIBS"
@@ -331,12 +354,6 @@ case $uname in
 
 		dnl Check for dynamic store function...
 		AC_CHECK_FUNCS(SCDynamicStoreCopyComputerName)
-
-		dnl Check for new ColorSync APIs...
-		SAVELIBS="$LIBS"
-		LIBS="$LIBS -framework ApplicationServices"
-		AC_CHECK_FUNCS(ColorSyncRegisterDevice)
-		LIBS="$SAVELIBS"
 
 		dnl Check for the new membership functions in MacOSX 10.4...
 		AC_CHECK_HEADER(membership.h,AC_DEFINE(HAVE_MEMBERSHIP_H))
@@ -400,6 +417,8 @@ case $uname in
 		AC_CHECK_HEADER(xpc/xpc.h,
 			AC_DEFINE(HAVE_XPC)
 			INSTALLXPC="install-xpc")
+		AC_CHECK_HEADER(xpc/private.h,
+			AC_DEFINE(HAVE_XPC_PRIVATE_H))
                 ;;
 esac
 
@@ -407,7 +426,6 @@ AC_SUBST(CUPS_DEFAULT_PRINTOPERATOR_AUTH)
 AC_DEFINE_UNQUOTED(CUPS_DEFAULT_PRINTOPERATOR_AUTH, "$CUPS_DEFAULT_PRINTOPERATOR_AUTH")
 AC_SUBST(CUPS_SYSTEM_AUTHKEY)
 AC_SUBST(INSTALLXPC)
-AC_SUBST(LEGACY_BACKENDS)
 
 dnl Check for build components
 COMPONENTS="all"
@@ -419,7 +437,7 @@ AC_ARG_WITH(components, [  --with-components       set components to build:
 
 case "$COMPONENTS" in
 	all)
-		BUILDDIRS="filter backend berkeley cgi-bin driver monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
+		BUILDDIRS="filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
 		;;
 
 	core)
@@ -434,5 +452,5 @@ esac
 AC_SUBST(BUILDDIRS)
 
 dnl
-dnl End of "$Id: cups-common.m4 9866 2011-08-06 04:42:49Z mike $".
+dnl End of "$Id: cups-common.m4 8781 2009-08-28 17:34:54Z mike $".
 dnl

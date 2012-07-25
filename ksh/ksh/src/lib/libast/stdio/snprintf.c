@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -30,7 +30,7 @@ snprintf(char* s, int n, const char* fmt, ...)
 	int	v;
 
 	va_start(args, fmt);
-	v = s ? sfvsprintf(s, n, fmt, args) : -1;
+	v = sfvsprintf(s, n, fmt, args);
 	va_end(args);
 	return v;
 }

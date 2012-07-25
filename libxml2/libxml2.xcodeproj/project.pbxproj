@@ -1,0 +1,1000 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		5DB38AEE14F87BDD0060A507 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 5DB38AEF14F87BDD0060A507 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				5DB38AF414F87BE30060A507 /* PBXTargetDependency */,
+				5DB38B1B14F881320060A507 /* PBXTargetDependency */,
+				5DB38AF614F87BE50060A507 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCE14F81A8D00BE69D8 /* c14n.c */; };
+		5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFCF14F81A8D00BE69D8 /* catalog.c */; };
+		5D58B01814F81A8D00BE69D8 /* chvalid.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD014F81A8D00BE69D8 /* chvalid.c */; };
+		5D58B01914F81A8D00BE69D8 /* debugXML.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD114F81A8D00BE69D8 /* debugXML.c */; };
+		5D58B01A14F81A8D00BE69D8 /* dict.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD214F81A8D00BE69D8 /* dict.c */; };
+		5D58B01B14F81A8D00BE69D8 /* DOCBparser.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD314F81A8D00BE69D8 /* DOCBparser.c */; };
+		5D58B01C14F81A8D00BE69D8 /* encoding.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD414F81A8D00BE69D8 /* encoding.c */; };
+		5D58B01D14F81A8D00BE69D8 /* entities.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD514F81A8D00BE69D8 /* entities.c */; };
+		5D58B01E14F81A8D00BE69D8 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD614F81A8D00BE69D8 /* error.c */; };
+		5D58B01F14F81A8D00BE69D8 /* globals.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD714F81A8D00BE69D8 /* globals.c */; };
+		5D58B02014F81A8D00BE69D8 /* hash.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD814F81A8D00BE69D8 /* hash.c */; };
+		5D58B02114F81A8D00BE69D8 /* HTMLparser.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFD914F81A8D00BE69D8 /* HTMLparser.c */; };
+		5D58B02214F81A8D00BE69D8 /* HTMLtree.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDA14F81A8D00BE69D8 /* HTMLtree.c */; };
+		5D58B02314F81A8D00BE69D8 /* legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDB14F81A8D00BE69D8 /* legacy.c */; };
+		5D58B02414F81A8D00BE69D8 /* list.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDC14F81A8D00BE69D8 /* list.c */; };
+		5D58B02514F81A8D00BE69D8 /* nanoftp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDD14F81A8D00BE69D8 /* nanoftp.c */; };
+		5D58B02614F81A8D00BE69D8 /* nanohttp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDE14F81A8D00BE69D8 /* nanohttp.c */; };
+		5D58B02714F81A8D00BE69D8 /* parser.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFDF14F81A8D00BE69D8 /* parser.c */; };
+		5D58B02814F81A8D00BE69D8 /* parserInternals.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE014F81A8D00BE69D8 /* parserInternals.c */; };
+		5D58B02914F81A8D00BE69D8 /* pattern.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE114F81A8D00BE69D8 /* pattern.c */; };
+		5D58B02A14F81A8D00BE69D8 /* relaxng.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE214F81A8D00BE69D8 /* relaxng.c */; };
+		5D58B02F14F81A8D00BE69D8 /* SAX.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE714F81A8D00BE69D8 /* SAX.c */; };
+		5D58B03014F81A8D00BE69D8 /* SAX2.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE814F81A8D00BE69D8 /* SAX2.c */; };
+		5D58B03114F81A8D00BE69D8 /* schematron.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFE914F81A8D00BE69D8 /* schematron.c */; };
+		5D58B04614F81A8D00BE69D8 /* threads.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFFE14F81A8D00BE69D8 /* threads.c */; };
+		5D58B04714F81A8D00BE69D8 /* tree.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58AFFF14F81A8D00BE69D8 /* tree.c */; };
+		5D58B04B14F81A8D00BE69D8 /* uri.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00314F81A8D00BE69D8 /* uri.c */; };
+		5D58B04C14F81A8D00BE69D8 /* valid.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00414F81A8D00BE69D8 /* valid.c */; };
+		5D58B04D14F81A8D00BE69D8 /* xinclude.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00514F81A8D00BE69D8 /* xinclude.c */; };
+		5D58B04E14F81A8D00BE69D8 /* xlink.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00614F81A8D00BE69D8 /* xlink.c */; };
+		5D58B05014F81A8D00BE69D8 /* xmlIO.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00814F81A8D00BE69D8 /* xmlIO.c */; };
+		5D58B05214F81A8D00BE69D8 /* xmlmemory.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00A14F81A8D00BE69D8 /* xmlmemory.c */; };
+		5D58B05314F81A8D00BE69D8 /* xmlmodule.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00B14F81A8D00BE69D8 /* xmlmodule.c */; };
+		5D58B05414F81A8D00BE69D8 /* xmlreader.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00C14F81A8D00BE69D8 /* xmlreader.c */; };
+		5D58B05514F81A8D00BE69D8 /* xmlregexp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00D14F81A8D00BE69D8 /* xmlregexp.c */; };
+		5D58B05614F81A8D00BE69D8 /* xmlsave.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00E14F81A8D00BE69D8 /* xmlsave.c */; };
+		5D58B05714F81A8D00BE69D8 /* xmlschemas.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B00F14F81A8D00BE69D8 /* xmlschemas.c */; };
+		5D58B05814F81A8D00BE69D8 /* xmlschemastypes.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01014F81A8D00BE69D8 /* xmlschemastypes.c */; };
+		5D58B05914F81A8D00BE69D8 /* xmlstring.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01114F81A8D00BE69D8 /* xmlstring.c */; };
+		5D58B05A14F81A8D00BE69D8 /* xmlunicode.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01214F81A8D00BE69D8 /* xmlunicode.c */; };
+		5D58B05B14F81A8D00BE69D8 /* xmlwriter.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01314F81A8D00BE69D8 /* xmlwriter.c */; };
+		5D58B05C14F81A8D00BE69D8 /* xpath.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01414F81A8D00BE69D8 /* xpath.c */; };
+		5D58B05D14F81A8D00BE69D8 /* xpointer.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D58B01514F81A8D00BE69D8 /* xpointer.c */; };
+		5D58B05F14F81AF200BE69D8 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B05E14F81AF200BE69D8 /* config.h */; };
+		5D58B06214F81D2D00BE69D8 /* xmlversion.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06114F81D2D00BE69D8 /* xmlversion.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B06514F824A500BE69D8 /* libicucore.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58B06414F824A500BE69D8 /* libicucore.dylib */; };
+		5D58B06714F824C400BE69D8 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58B06614F824C400BE69D8 /* libz.dylib */; };
+		5D58B09A14F8261200BE69D8 /* c14n.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06A14F8261200BE69D8 /* c14n.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B09B14F8261200BE69D8 /* catalog.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06B14F8261200BE69D8 /* catalog.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B09C14F8261200BE69D8 /* chvalid.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06C14F8261200BE69D8 /* chvalid.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B09D14F8261200BE69D8 /* debugXML.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06D14F8261200BE69D8 /* debugXML.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B09E14F8261200BE69D8 /* dict.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06E14F8261200BE69D8 /* dict.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B09F14F8261200BE69D8 /* DOCBparser.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B06F14F8261200BE69D8 /* DOCBparser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A014F8261200BE69D8 /* encoding.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07014F8261200BE69D8 /* encoding.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A114F8261200BE69D8 /* entities.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07114F8261200BE69D8 /* entities.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A214F8261200BE69D8 /* globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07214F8261200BE69D8 /* globals.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A314F8261200BE69D8 /* hash.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07314F8261200BE69D8 /* hash.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A414F8261200BE69D8 /* HTMLparser.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07414F8261200BE69D8 /* HTMLparser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A514F8261200BE69D8 /* HTMLtree.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07514F8261200BE69D8 /* HTMLtree.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A614F8261200BE69D8 /* list.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07614F8261200BE69D8 /* list.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A714F8261200BE69D8 /* nanoftp.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07814F8261200BE69D8 /* nanoftp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A814F8261200BE69D8 /* nanohttp.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07914F8261200BE69D8 /* nanohttp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0A914F8261200BE69D8 /* parser.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07A14F8261200BE69D8 /* parser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AA14F8261200BE69D8 /* parserInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07B14F8261200BE69D8 /* parserInternals.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AB14F8261200BE69D8 /* pattern.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07C14F8261200BE69D8 /* pattern.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AC14F8261200BE69D8 /* relaxng.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07D14F8261200BE69D8 /* relaxng.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AD14F8261200BE69D8 /* SAX.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07E14F8261200BE69D8 /* SAX.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AE14F8261200BE69D8 /* SAX2.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B07F14F8261200BE69D8 /* SAX2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0AF14F8261200BE69D8 /* schemasInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08014F8261200BE69D8 /* schemasInternals.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B014F8261200BE69D8 /* schematron.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08114F8261200BE69D8 /* schematron.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B114F8261200BE69D8 /* threads.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08214F8261200BE69D8 /* threads.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B214F8261200BE69D8 /* tree.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08314F8261200BE69D8 /* tree.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B314F8261200BE69D8 /* uri.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08414F8261200BE69D8 /* uri.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B414F8261200BE69D8 /* valid.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08514F8261200BE69D8 /* valid.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B514F8261200BE69D8 /* xinclude.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08614F8261200BE69D8 /* xinclude.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B614F8261200BE69D8 /* xlink.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08714F8261200BE69D8 /* xlink.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B714F8261200BE69D8 /* xmlautomata.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08814F8261200BE69D8 /* xmlautomata.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B814F8261200BE69D8 /* xmlerror.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08914F8261200BE69D8 /* xmlerror.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0B914F8261200BE69D8 /* xmlexports.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08A14F8261200BE69D8 /* xmlexports.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BA14F8261200BE69D8 /* xmlIO.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08B14F8261200BE69D8 /* xmlIO.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BB14F8261200BE69D8 /* xmlmemory.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08C14F8261200BE69D8 /* xmlmemory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BC14F8261200BE69D8 /* xmlmodule.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08D14F8261200BE69D8 /* xmlmodule.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BD14F8261200BE69D8 /* xmlreader.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08E14F8261200BE69D8 /* xmlreader.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BE14F8261200BE69D8 /* xmlregexp.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B08F14F8261200BE69D8 /* xmlregexp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0BF14F8261200BE69D8 /* xmlsave.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09014F8261200BE69D8 /* xmlsave.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C014F8261200BE69D8 /* xmlschemas.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09114F8261200BE69D8 /* xmlschemas.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C114F8261200BE69D8 /* xmlschemastypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09214F8261200BE69D8 /* xmlschemastypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C214F8261200BE69D8 /* xmlstring.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09314F8261200BE69D8 /* xmlstring.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C314F8261200BE69D8 /* xmlunicode.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09414F8261200BE69D8 /* xmlunicode.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C414F8261200BE69D8 /* xmlwriter.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09614F8261200BE69D8 /* xmlwriter.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C514F8261200BE69D8 /* xpath.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09714F8261200BE69D8 /* xpath.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C614F8261200BE69D8 /* xpathInternals.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09814F8261200BE69D8 /* xpathInternals.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D58B0C714F8261200BE69D8 /* xpointer.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D58B09914F8261200BE69D8 /* xpointer.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5DB38AF814F87C740060A507 /* xmllint.c in Sources */ = {isa = PBXBuildFile; fileRef = 5DB38AF714F87C740060A507 /* xmllint.c */; };
+		5DB38B0414F87E360060A507 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		5DB38B0614F87EBA0060A507 /* xmllint.1 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 5DB38B0514F87EBA0060A507 /* xmllint.1 */; };
+		5DB38B0C14F880AA0060A507 /* libxml2.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */; };
+		5DB38B1714F881090060A507 /* xmlcatalog.c in Sources */ = {isa = PBXBuildFile; fileRef = 5DB38B1614F881090060A507 /* xmlcatalog.c */; };
+		5DB38B1914F8811C0060A507 /* xmlcatalog.1 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 5DB38B1814F8811C0060A507 /* xmlcatalog.1 */; };
+		5DB38B2114F882EE0060A507 /* libxml2.plist in Install Open Source Property List */ = {isa = PBXBuildFile; fileRef = 5DB38B2014F882EE0060A507 /* libxml2.plist */; };
+		5DB38B2514F884320060A507 /* libxml2.txt in Install License File */ = {isa = PBXBuildFile; fileRef = 5DB38B2414F884210060A507 /* libxml2.txt */; };
+		5DB38B2814F885040060A507 /* libxml.3 in Install libxml Man Page */ = {isa = PBXBuildFile; fileRef = 5DB38B2714F885040060A507 /* libxml.3 */; };
+		5DB38B2B14F886C30060A507 /* xml2-config in Install xml2-config */ = {isa = PBXBuildFile; fileRef = 5DB38B2914F886A10060A507 /* xml2-config */; };
+		5DB38B2F14F887410060A507 /* xml2-config.1 in Install xml2-config Man Page */ = {isa = PBXBuildFile; fileRef = 5DB38B2E14F887410060A507 /* xml2-config.1 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5DB38AF314F87BE30060A507 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5D58AF5B14F815F500BE69D8;
+			remoteInfo = libxml2;
+		};
+		5DB38AF514F87BE50060A507 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5DB38AE014F87AE80060A507;
+			remoteInfo = xmllint;
+		};
+		5DB38B1A14F881320060A507 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D58AF5314F815F500BE69D8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5DB38B0814F880AA0060A507;
+			remoteInfo = xmlcatalog;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5DB38ADF14F87AE80060A507 /* Install Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1/";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B0614F87EBA0060A507 /* xmllint.1 in Install Man Page */,
+			);
+			name = "Install Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B0D14F880AA0060A507 /* Install Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1/";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B1914F8811C0060A507 /* xmlcatalog.1 in Install Man Page */,
+			);
+			name = "Install Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B1C14F8828C0060A507 /* Install License File */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B2514F884320060A507 /* libxml2.txt in Install License File */,
+			);
+			name = "Install License File";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B1F14F882CA0060A507 /* Install Open Source Property List */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B2114F882EE0060A507 /* libxml2.plist in Install Open Source Property List */,
+			);
+			name = "Install Open Source Property List";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B2614F884D60060A507 /* Install libxml Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man3";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B2814F885040060A507 /* libxml.3 in Install libxml Man Page */,
+			);
+			name = "Install libxml Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B2A14F886B60060A507 /* Install xml2-config */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/bin";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B2B14F886C30060A507 /* xml2-config in Install xml2-config */,
+			);
+			name = "Install xml2-config";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/share/man/man1";
+			dstSubfolderSpec = 0;
+			files = (
+				5DB38B2F14F887410060A507 /* xml2-config.1 in Install xml2-config Man Page */,
+			);
+			name = "Install xml2-config Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libxml2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libxml2.xcconfig; sourceTree = "<group>"; };
+		5D58AF6C14F8170000BE69D8 /* DebugRelease.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = DebugRelease.xcconfig; sourceTree = "<group>"; };
+		5D58AFCE14F81A8D00BE69D8 /* c14n.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = c14n.c; sourceTree = "<group>"; };
+		5D58AFCF14F81A8D00BE69D8 /* catalog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = catalog.c; sourceTree = "<group>"; };
+		5D58AFD014F81A8D00BE69D8 /* chvalid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = chvalid.c; sourceTree = "<group>"; };
+		5D58AFD114F81A8D00BE69D8 /* debugXML.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = debugXML.c; sourceTree = "<group>"; };
+		5D58AFD214F81A8D00BE69D8 /* dict.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dict.c; sourceTree = "<group>"; };
+		5D58AFD314F81A8D00BE69D8 /* DOCBparser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DOCBparser.c; sourceTree = "<group>"; };
+		5D58AFD414F81A8D00BE69D8 /* encoding.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = encoding.c; sourceTree = "<group>"; };
+		5D58AFD514F81A8D00BE69D8 /* entities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = entities.c; sourceTree = "<group>"; };
+		5D58AFD614F81A8D00BE69D8 /* error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = error.c; sourceTree = "<group>"; };
+		5D58AFD714F81A8D00BE69D8 /* globals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = globals.c; sourceTree = "<group>"; };
+		5D58AFD814F81A8D00BE69D8 /* hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hash.c; sourceTree = "<group>"; };
+		5D58AFD914F81A8D00BE69D8 /* HTMLparser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = HTMLparser.c; sourceTree = "<group>"; };
+		5D58AFDA14F81A8D00BE69D8 /* HTMLtree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = HTMLtree.c; sourceTree = "<group>"; };
+		5D58AFDB14F81A8D00BE69D8 /* legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = legacy.c; sourceTree = "<group>"; };
+		5D58AFDC14F81A8D00BE69D8 /* list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = list.c; sourceTree = "<group>"; };
+		5D58AFDD14F81A8D00BE69D8 /* nanoftp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nanoftp.c; sourceTree = "<group>"; };
+		5D58AFDE14F81A8D00BE69D8 /* nanohttp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = nanohttp.c; sourceTree = "<group>"; };
+		5D58AFDF14F81A8D00BE69D8 /* parser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parser.c; sourceTree = "<group>"; };
+		5D58AFE014F81A8D00BE69D8 /* parserInternals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parserInternals.c; sourceTree = "<group>"; };
+		5D58AFE114F81A8D00BE69D8 /* pattern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pattern.c; sourceTree = "<group>"; };
+		5D58AFE214F81A8D00BE69D8 /* relaxng.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = relaxng.c; sourceTree = "<group>"; };
+		5D58AFE714F81A8D00BE69D8 /* SAX.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SAX.c; sourceTree = "<group>"; };
+		5D58AFE814F81A8D00BE69D8 /* SAX2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SAX2.c; sourceTree = "<group>"; };
+		5D58AFE914F81A8D00BE69D8 /* schematron.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = schematron.c; sourceTree = "<group>"; };
+		5D58AFFE14F81A8D00BE69D8 /* threads.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = threads.c; sourceTree = "<group>"; };
+		5D58AFFF14F81A8D00BE69D8 /* tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tree.c; sourceTree = "<group>"; };
+		5D58B00314F81A8D00BE69D8 /* uri.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = uri.c; sourceTree = "<group>"; };
+		5D58B00414F81A8D00BE69D8 /* valid.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = valid.c; sourceTree = "<group>"; };
+		5D58B00514F81A8D00BE69D8 /* xinclude.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xinclude.c; sourceTree = "<group>"; };
+		5D58B00614F81A8D00BE69D8 /* xlink.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xlink.c; sourceTree = "<group>"; };
+		5D58B00814F81A8D00BE69D8 /* xmlIO.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlIO.c; sourceTree = "<group>"; };
+		5D58B00A14F81A8D00BE69D8 /* xmlmemory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlmemory.c; sourceTree = "<group>"; };
+		5D58B00B14F81A8D00BE69D8 /* xmlmodule.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlmodule.c; sourceTree = "<group>"; };
+		5D58B00C14F81A8D00BE69D8 /* xmlreader.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlreader.c; sourceTree = "<group>"; };
+		5D58B00D14F81A8D00BE69D8 /* xmlregexp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlregexp.c; sourceTree = "<group>"; };
+		5D58B00E14F81A8D00BE69D8 /* xmlsave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlsave.c; sourceTree = "<group>"; };
+		5D58B00F14F81A8D00BE69D8 /* xmlschemas.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlschemas.c; sourceTree = "<group>"; };
+		5D58B01014F81A8D00BE69D8 /* xmlschemastypes.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlschemastypes.c; sourceTree = "<group>"; };
+		5D58B01114F81A8D00BE69D8 /* xmlstring.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlstring.c; sourceTree = "<group>"; };
+		5D58B01214F81A8D00BE69D8 /* xmlunicode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlunicode.c; sourceTree = "<group>"; };
+		5D58B01314F81A8D00BE69D8 /* xmlwriter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlwriter.c; sourceTree = "<group>"; };
+		5D58B01414F81A8D00BE69D8 /* xpath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpath.c; sourceTree = "<group>"; };
+		5D58B01514F81A8D00BE69D8 /* xpointer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xpointer.c; sourceTree = "<group>"; };
+		5D58B05E14F81AF200BE69D8 /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		5D58B06114F81D2D00BE69D8 /* xmlversion.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlversion.h; path = libxml/xmlversion.h; sourceTree = "<group>"; };
+		5D58B06414F824A500BE69D8 /* libicucore.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libicucore.dylib; path = /usr/lib/libicucore.dylib; sourceTree = "<absolute>"; };
+		5D58B06614F824C400BE69D8 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		5D58B06A14F8261200BE69D8 /* c14n.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = c14n.h; path = libxml/c14n.h; sourceTree = "<group>"; };
+		5D58B06B14F8261200BE69D8 /* catalog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = catalog.h; path = libxml/catalog.h; sourceTree = "<group>"; };
+		5D58B06C14F8261200BE69D8 /* chvalid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = chvalid.h; path = libxml/chvalid.h; sourceTree = "<group>"; };
+		5D58B06D14F8261200BE69D8 /* debugXML.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debugXML.h; path = libxml/debugXML.h; sourceTree = "<group>"; };
+		5D58B06E14F8261200BE69D8 /* dict.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dict.h; path = libxml/dict.h; sourceTree = "<group>"; };
+		5D58B06F14F8261200BE69D8 /* DOCBparser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DOCBparser.h; path = libxml/DOCBparser.h; sourceTree = "<group>"; };
+		5D58B07014F8261200BE69D8 /* encoding.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = encoding.h; path = libxml/encoding.h; sourceTree = "<group>"; };
+		5D58B07114F8261200BE69D8 /* entities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = entities.h; path = libxml/entities.h; sourceTree = "<group>"; };
+		5D58B07214F8261200BE69D8 /* globals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = globals.h; path = libxml/globals.h; sourceTree = "<group>"; };
+		5D58B07314F8261200BE69D8 /* hash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = hash.h; path = libxml/hash.h; sourceTree = "<group>"; };
+		5D58B07414F8261200BE69D8 /* HTMLparser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HTMLparser.h; path = libxml/HTMLparser.h; sourceTree = "<group>"; };
+		5D58B07514F8261200BE69D8 /* HTMLtree.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = HTMLtree.h; path = libxml/HTMLtree.h; sourceTree = "<group>"; };
+		5D58B07614F8261200BE69D8 /* list.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = list.h; path = libxml/list.h; sourceTree = "<group>"; };
+		5D58B07814F8261200BE69D8 /* nanoftp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nanoftp.h; path = libxml/nanoftp.h; sourceTree = "<group>"; };
+		5D58B07914F8261200BE69D8 /* nanohttp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nanohttp.h; path = libxml/nanohttp.h; sourceTree = "<group>"; };
+		5D58B07A14F8261200BE69D8 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parser.h; path = libxml/parser.h; sourceTree = "<group>"; };
+		5D58B07B14F8261200BE69D8 /* parserInternals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = parserInternals.h; path = libxml/parserInternals.h; sourceTree = "<group>"; };
+		5D58B07C14F8261200BE69D8 /* pattern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pattern.h; path = libxml/pattern.h; sourceTree = "<group>"; };
+		5D58B07D14F8261200BE69D8 /* relaxng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = relaxng.h; path = libxml/relaxng.h; sourceTree = "<group>"; };
+		5D58B07E14F8261200BE69D8 /* SAX.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SAX.h; path = libxml/SAX.h; sourceTree = "<group>"; };
+		5D58B07F14F8261200BE69D8 /* SAX2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SAX2.h; path = libxml/SAX2.h; sourceTree = "<group>"; };
+		5D58B08014F8261200BE69D8 /* schemasInternals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = schemasInternals.h; path = libxml/schemasInternals.h; sourceTree = "<group>"; };
+		5D58B08114F8261200BE69D8 /* schematron.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = schematron.h; path = libxml/schematron.h; sourceTree = "<group>"; };
+		5D58B08214F8261200BE69D8 /* threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = threads.h; path = libxml/threads.h; sourceTree = "<group>"; };
+		5D58B08314F8261200BE69D8 /* tree.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tree.h; path = libxml/tree.h; sourceTree = "<group>"; };
+		5D58B08414F8261200BE69D8 /* uri.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = uri.h; path = libxml/uri.h; sourceTree = "<group>"; };
+		5D58B08514F8261200BE69D8 /* valid.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = valid.h; path = libxml/valid.h; sourceTree = "<group>"; };
+		5D58B08614F8261200BE69D8 /* xinclude.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xinclude.h; path = libxml/xinclude.h; sourceTree = "<group>"; };
+		5D58B08714F8261200BE69D8 /* xlink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xlink.h; path = libxml/xlink.h; sourceTree = "<group>"; };
+		5D58B08814F8261200BE69D8 /* xmlautomata.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlautomata.h; path = libxml/xmlautomata.h; sourceTree = "<group>"; };
+		5D58B08914F8261200BE69D8 /* xmlerror.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlerror.h; path = libxml/xmlerror.h; sourceTree = "<group>"; };
+		5D58B08A14F8261200BE69D8 /* xmlexports.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlexports.h; path = libxml/xmlexports.h; sourceTree = "<group>"; };
+		5D58B08B14F8261200BE69D8 /* xmlIO.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlIO.h; path = libxml/xmlIO.h; sourceTree = "<group>"; };
+		5D58B08C14F8261200BE69D8 /* xmlmemory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlmemory.h; path = libxml/xmlmemory.h; sourceTree = "<group>"; };
+		5D58B08D14F8261200BE69D8 /* xmlmodule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlmodule.h; path = libxml/xmlmodule.h; sourceTree = "<group>"; };
+		5D58B08E14F8261200BE69D8 /* xmlreader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlreader.h; path = libxml/xmlreader.h; sourceTree = "<group>"; };
+		5D58B08F14F8261200BE69D8 /* xmlregexp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlregexp.h; path = libxml/xmlregexp.h; sourceTree = "<group>"; };
+		5D58B09014F8261200BE69D8 /* xmlsave.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlsave.h; path = libxml/xmlsave.h; sourceTree = "<group>"; };
+		5D58B09114F8261200BE69D8 /* xmlschemas.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlschemas.h; path = libxml/xmlschemas.h; sourceTree = "<group>"; };
+		5D58B09214F8261200BE69D8 /* xmlschemastypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlschemastypes.h; path = libxml/xmlschemastypes.h; sourceTree = "<group>"; };
+		5D58B09314F8261200BE69D8 /* xmlstring.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlstring.h; path = libxml/xmlstring.h; sourceTree = "<group>"; };
+		5D58B09414F8261200BE69D8 /* xmlunicode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlunicode.h; path = libxml/xmlunicode.h; sourceTree = "<group>"; };
+		5D58B09614F8261200BE69D8 /* xmlwriter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlwriter.h; path = libxml/xmlwriter.h; sourceTree = "<group>"; };
+		5D58B09714F8261200BE69D8 /* xpath.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xpath.h; path = libxml/xpath.h; sourceTree = "<group>"; };
+		5D58B09814F8261200BE69D8 /* xpathInternals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xpathInternals.h; path = libxml/xpathInternals.h; sourceTree = "<group>"; };
+		5D58B09914F8261200BE69D8 /* xpointer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xpointer.h; path = libxml/xpointer.h; sourceTree = "<group>"; };
+		5DB38AE114F87AE80060A507 /* xmllint */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xmllint; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DB38AF714F87C740060A507 /* xmllint.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmllint.c; sourceTree = "<group>"; };
+		5DB38B0214F87DF90060A507 /* libxml2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libxml2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DB38B0514F87EBA0060A507 /* xmllint.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = xmllint.1; path = libxml2/doc/xmllint.1; sourceTree = "<group>"; };
+		5DB38B1314F880AA0060A507 /* xmlcatalog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xmlcatalog; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DB38B1614F881090060A507 /* xmlcatalog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xmlcatalog.c; sourceTree = "<group>"; };
+		5DB38B1814F8811C0060A507 /* xmlcatalog.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = xmlcatalog.1; path = libxml2/doc/xmlcatalog.1; sourceTree = "<group>"; };
+		5DB38B1D14F882B90060A507 /* Copyright */ = {isa = PBXFileReference; lastKnownFileType = text; name = Copyright; path = libxml2/Copyright; sourceTree = "<group>"; };
+		5DB38B2014F882EE0060A507 /* libxml2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libxml2.plist; sourceTree = "<group>"; };
+		5DB38B2414F884210060A507 /* libxml2.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = libxml2.txt; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DB38B2714F885040060A507 /* libxml.3 */ = {isa = PBXFileReference; lastKnownFileType = text; name = libxml.3; path = libxml2/libxml.3; sourceTree = "<group>"; };
+		5DB38B2914F886A10060A507 /* xml2-config */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "xml2-config"; sourceTree = "<group>"; };
+		5DB38B2E14F887410060A507 /* xml2-config.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; name = "xml2-config.1"; path = "libxml2/xml2-config.1"; sourceTree = "<group>"; };
+		5DB38B3014F888F40060A507 /* Executable.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Executable.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5D58AF5914F815F500BE69D8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D58B06714F824C400BE69D8 /* libz.dylib in Frameworks */,
+				5D58B06514F824A500BE69D8 /* libicucore.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DB38ADE14F87AE80060A507 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DB38B0414F87E360060A507 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DB38B0B14F880AA0060A507 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DB38B0C14F880AA0060A507 /* libxml2.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5D50ACB014F976B700E199DE /* Man Pages */ = {
+			isa = PBXGroup;
+			children = (
+				5DB38B2714F885040060A507 /* libxml.3 */,
+				5DB38B2E14F887410060A507 /* xml2-config.1 */,
+				5DB38B1814F8811C0060A507 /* xmlcatalog.1 */,
+				5DB38B0514F87EBA0060A507 /* xmllint.1 */,
+			);
+			name = "Man Pages";
+			sourceTree = "<group>";
+		};
+		5D50ACB214F976CC00E199DE /* Internal Files */ = {
+			isa = PBXGroup;
+			children = (
+				5DB38B1D14F882B90060A507 /* Copyright */,
+				5DB38B2414F884210060A507 /* libxml2.txt */,
+				5DB38B2014F882EE0060A507 /* libxml2.plist */,
+			);
+			name = "Internal Files";
+			sourceTree = "<group>";
+		};
+		5D58AF5114F815F500BE69D8 = {
+			isa = PBXGroup;
+			children = (
+				5D58B06014F81D1100BE69D8 /* Pregenerated Files */,
+				5D58AF6D14F819EA00BE69D8 /* Source */,
+				5D58B06814F825E900BE69D8 /* Headers */,
+				5DB38B0714F87ECD0060A507 /* Other Installed Files */,
+				5D58AF6914F816BC00BE69D8 /* Configurations */,
+				5D58B06314F8247700BE69D8 /* Linked Libraries */,
+				5D58AF5D14F815F500BE69D8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5D58AF5D14F815F500BE69D8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */,
+				5DB38AE114F87AE80060A507 /* xmllint */,
+				5DB38B1314F880AA0060A507 /* xmlcatalog */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5D58AF6914F816BC00BE69D8 /* Configurations */ = {
+			isa = PBXGroup;
+			children = (
+				5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */,
+				5D58AF6C14F8170000BE69D8 /* DebugRelease.xcconfig */,
+				5DB38B3014F888F40060A507 /* Executable.xcconfig */,
+				5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */,
+			);
+			path = Configurations;
+			sourceTree = "<group>";
+		};
+		5D58AF6D14F819EA00BE69D8 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				5DB38B1614F881090060A507 /* xmlcatalog.c */,
+				5DB38AF714F87C740060A507 /* xmllint.c */,
+				5D58AFCE14F81A8D00BE69D8 /* c14n.c */,
+				5D58AFCF14F81A8D00BE69D8 /* catalog.c */,
+				5D58AFD014F81A8D00BE69D8 /* chvalid.c */,
+				5D58AFD114F81A8D00BE69D8 /* debugXML.c */,
+				5D58AFD214F81A8D00BE69D8 /* dict.c */,
+				5D58AFD314F81A8D00BE69D8 /* DOCBparser.c */,
+				5D58AFD414F81A8D00BE69D8 /* encoding.c */,
+				5D58AFD514F81A8D00BE69D8 /* entities.c */,
+				5D58AFD614F81A8D00BE69D8 /* error.c */,
+				5D58AFD714F81A8D00BE69D8 /* globals.c */,
+				5D58AFD814F81A8D00BE69D8 /* hash.c */,
+				5D58AFD914F81A8D00BE69D8 /* HTMLparser.c */,
+				5D58AFDA14F81A8D00BE69D8 /* HTMLtree.c */,
+				5D58AFDB14F81A8D00BE69D8 /* legacy.c */,
+				5D58AFDC14F81A8D00BE69D8 /* list.c */,
+				5D58AFDD14F81A8D00BE69D8 /* nanoftp.c */,
+				5D58AFDE14F81A8D00BE69D8 /* nanohttp.c */,
+				5D58AFDF14F81A8D00BE69D8 /* parser.c */,
+				5D58AFE014F81A8D00BE69D8 /* parserInternals.c */,
+				5D58AFE114F81A8D00BE69D8 /* pattern.c */,
+				5D58AFE214F81A8D00BE69D8 /* relaxng.c */,
+				5D58AFE714F81A8D00BE69D8 /* SAX.c */,
+				5D58AFE814F81A8D00BE69D8 /* SAX2.c */,
+				5D58AFE914F81A8D00BE69D8 /* schematron.c */,
+				5D58AFFE14F81A8D00BE69D8 /* threads.c */,
+				5D58AFFF14F81A8D00BE69D8 /* tree.c */,
+				5D58B00314F81A8D00BE69D8 /* uri.c */,
+				5D58B00414F81A8D00BE69D8 /* valid.c */,
+				5D58B00514F81A8D00BE69D8 /* xinclude.c */,
+				5D58B00614F81A8D00BE69D8 /* xlink.c */,
+				5D58B00814F81A8D00BE69D8 /* xmlIO.c */,
+				5D58B00A14F81A8D00BE69D8 /* xmlmemory.c */,
+				5D58B00B14F81A8D00BE69D8 /* xmlmodule.c */,
+				5D58B00C14F81A8D00BE69D8 /* xmlreader.c */,
+				5D58B00D14F81A8D00BE69D8 /* xmlregexp.c */,
+				5D58B00E14F81A8D00BE69D8 /* xmlsave.c */,
+				5D58B00F14F81A8D00BE69D8 /* xmlschemas.c */,
+				5D58B01014F81A8D00BE69D8 /* xmlschemastypes.c */,
+				5D58B01114F81A8D00BE69D8 /* xmlstring.c */,
+				5D58B01214F81A8D00BE69D8 /* xmlunicode.c */,
+				5D58B01314F81A8D00BE69D8 /* xmlwriter.c */,
+				5D58B01414F81A8D00BE69D8 /* xpath.c */,
+				5D58B01514F81A8D00BE69D8 /* xpointer.c */,
+			);
+			name = Source;
+			path = libxml2;
+			sourceTree = "<group>";
+		};
+		5D58B06014F81D1100BE69D8 /* Pregenerated Files */ = {
+			isa = PBXGroup;
+			children = (
+				5DB38B2914F886A10060A507 /* xml2-config */,
+				5D58B06114F81D2D00BE69D8 /* xmlversion.h */,
+				5D58B05E14F81AF200BE69D8 /* config.h */,
+			);
+			path = "Pregenerated Files";
+			sourceTree = "<group>";
+		};
+		5D58B06314F8247700BE69D8 /* Linked Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				5D58B06414F824A500BE69D8 /* libicucore.dylib */,
+				5D58B06614F824C400BE69D8 /* libz.dylib */,
+			);
+			name = "Linked Libraries";
+			sourceTree = "<group>";
+		};
+		5D58B06814F825E900BE69D8 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				5D58B06A14F8261200BE69D8 /* c14n.h */,
+				5D58B06B14F8261200BE69D8 /* catalog.h */,
+				5D58B06C14F8261200BE69D8 /* chvalid.h */,
+				5D58B06D14F8261200BE69D8 /* debugXML.h */,
+				5D58B06E14F8261200BE69D8 /* dict.h */,
+				5D58B06F14F8261200BE69D8 /* DOCBparser.h */,
+				5D58B07014F8261200BE69D8 /* encoding.h */,
+				5D58B07114F8261200BE69D8 /* entities.h */,
+				5D58B07214F8261200BE69D8 /* globals.h */,
+				5D58B07314F8261200BE69D8 /* hash.h */,
+				5D58B07414F8261200BE69D8 /* HTMLparser.h */,
+				5D58B07514F8261200BE69D8 /* HTMLtree.h */,
+				5D58B07614F8261200BE69D8 /* list.h */,
+				5D58B07814F8261200BE69D8 /* nanoftp.h */,
+				5D58B07914F8261200BE69D8 /* nanohttp.h */,
+				5D58B07A14F8261200BE69D8 /* parser.h */,
+				5D58B07B14F8261200BE69D8 /* parserInternals.h */,
+				5D58B07C14F8261200BE69D8 /* pattern.h */,
+				5D58B07D14F8261200BE69D8 /* relaxng.h */,
+				5D58B07E14F8261200BE69D8 /* SAX.h */,
+				5D58B07F14F8261200BE69D8 /* SAX2.h */,
+				5D58B08014F8261200BE69D8 /* schemasInternals.h */,
+				5D58B08114F8261200BE69D8 /* schematron.h */,
+				5D58B08214F8261200BE69D8 /* threads.h */,
+				5D58B08314F8261200BE69D8 /* tree.h */,
+				5D58B08414F8261200BE69D8 /* uri.h */,
+				5D58B08514F8261200BE69D8 /* valid.h */,
+				5D58B08614F8261200BE69D8 /* xinclude.h */,
+				5D58B08714F8261200BE69D8 /* xlink.h */,
+				5D58B08814F8261200BE69D8 /* xmlautomata.h */,
+				5D58B08914F8261200BE69D8 /* xmlerror.h */,
+				5D58B08A14F8261200BE69D8 /* xmlexports.h */,
+				5D58B08B14F8261200BE69D8 /* xmlIO.h */,
+				5D58B08C14F8261200BE69D8 /* xmlmemory.h */,
+				5D58B08D14F8261200BE69D8 /* xmlmodule.h */,
+				5D58B08E14F8261200BE69D8 /* xmlreader.h */,
+				5D58B08F14F8261200BE69D8 /* xmlregexp.h */,
+				5D58B09014F8261200BE69D8 /* xmlsave.h */,
+				5D58B09114F8261200BE69D8 /* xmlschemas.h */,
+				5D58B09214F8261200BE69D8 /* xmlschemastypes.h */,
+				5D58B09314F8261200BE69D8 /* xmlstring.h */,
+				5D58B09414F8261200BE69D8 /* xmlunicode.h */,
+				5D58B09614F8261200BE69D8 /* xmlwriter.h */,
+				5D58B09714F8261200BE69D8 /* xpath.h */,
+				5D58B09814F8261200BE69D8 /* xpathInternals.h */,
+				5D58B09914F8261200BE69D8 /* xpointer.h */,
+			);
+			name = Headers;
+			path = libxml2/include;
+			sourceTree = "<group>";
+		};
+		5DB38B0714F87ECD0060A507 /* Other Installed Files */ = {
+			isa = PBXGroup;
+			children = (
+				5D50ACB214F976CC00E199DE /* Internal Files */,
+				5D50ACB014F976B700E199DE /* Man Pages */,
+				5DB38B0214F87DF90060A507 /* libxml2.dylib */,
+			);
+			name = "Other Installed Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		5D58AF5A14F815F500BE69D8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D58B05F14F81AF200BE69D8 /* config.h in Headers */,
+				5D58B06214F81D2D00BE69D8 /* xmlversion.h in Headers */,
+				5D58B09A14F8261200BE69D8 /* c14n.h in Headers */,
+				5D58B09B14F8261200BE69D8 /* catalog.h in Headers */,
+				5D58B09C14F8261200BE69D8 /* chvalid.h in Headers */,
+				5D58B09D14F8261200BE69D8 /* debugXML.h in Headers */,
+				5D58B09E14F8261200BE69D8 /* dict.h in Headers */,
+				5D58B09F14F8261200BE69D8 /* DOCBparser.h in Headers */,
+				5D58B0A014F8261200BE69D8 /* encoding.h in Headers */,
+				5D58B0A114F8261200BE69D8 /* entities.h in Headers */,
+				5D58B0A214F8261200BE69D8 /* globals.h in Headers */,
+				5D58B0A314F8261200BE69D8 /* hash.h in Headers */,
+				5D58B0A414F8261200BE69D8 /* HTMLparser.h in Headers */,
+				5D58B0A514F8261200BE69D8 /* HTMLtree.h in Headers */,
+				5D58B0A614F8261200BE69D8 /* list.h in Headers */,
+				5D58B0A714F8261200BE69D8 /* nanoftp.h in Headers */,
+				5D58B0A814F8261200BE69D8 /* nanohttp.h in Headers */,
+				5D58B0A914F8261200BE69D8 /* parser.h in Headers */,
+				5D58B0AA14F8261200BE69D8 /* parserInternals.h in Headers */,
+				5D58B0AB14F8261200BE69D8 /* pattern.h in Headers */,
+				5D58B0AC14F8261200BE69D8 /* relaxng.h in Headers */,
+				5D58B0AD14F8261200BE69D8 /* SAX.h in Headers */,
+				5D58B0AE14F8261200BE69D8 /* SAX2.h in Headers */,
+				5D58B0AF14F8261200BE69D8 /* schemasInternals.h in Headers */,
+				5D58B0B014F8261200BE69D8 /* schematron.h in Headers */,
+				5D58B0B114F8261200BE69D8 /* threads.h in Headers */,
+				5D58B0B214F8261200BE69D8 /* tree.h in Headers */,
+				5D58B0B314F8261200BE69D8 /* uri.h in Headers */,
+				5D58B0B414F8261200BE69D8 /* valid.h in Headers */,
+				5D58B0B514F8261200BE69D8 /* xinclude.h in Headers */,
+				5D58B0B614F8261200BE69D8 /* xlink.h in Headers */,
+				5D58B0B714F8261200BE69D8 /* xmlautomata.h in Headers */,
+				5D58B0B814F8261200BE69D8 /* xmlerror.h in Headers */,
+				5D58B0B914F8261200BE69D8 /* xmlexports.h in Headers */,
+				5D58B0BA14F8261200BE69D8 /* xmlIO.h in Headers */,
+				5D58B0BB14F8261200BE69D8 /* xmlmemory.h in Headers */,
+				5D58B0BC14F8261200BE69D8 /* xmlmodule.h in Headers */,
+				5D58B0BD14F8261200BE69D8 /* xmlreader.h in Headers */,
+				5D58B0BE14F8261200BE69D8 /* xmlregexp.h in Headers */,
+				5D58B0BF14F8261200BE69D8 /* xmlsave.h in Headers */,
+				5D58B0C014F8261200BE69D8 /* xmlschemas.h in Headers */,
+				5D58B0C114F8261200BE69D8 /* xmlschemastypes.h in Headers */,
+				5D58B0C214F8261200BE69D8 /* xmlstring.h in Headers */,
+				5D58B0C314F8261200BE69D8 /* xmlunicode.h in Headers */,
+				5D58B0C414F8261200BE69D8 /* xmlwriter.h in Headers */,
+				5D58B0C514F8261200BE69D8 /* xpath.h in Headers */,
+				5D58B0C614F8261200BE69D8 /* xpathInternals.h in Headers */,
+				5D58B0C714F8261200BE69D8 /* xpointer.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		5D58AF5B14F815F500BE69D8 /* libxml2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5D58AF6014F815F500BE69D8 /* Build configuration list for PBXNativeTarget "libxml2" */;
+			buildPhases = (
+				5D58AF5A14F815F500BE69D8 /* Headers */,
+				5D58AF5814F815F500BE69D8 /* Sources */,
+				5D58AF5914F815F500BE69D8 /* Frameworks */,
+				5DB38AF914F87C9F0060A507 /* Create libxml2.dylib Symlink */,
+				5DB38B2314F883700060A507 /* Rename License File */,
+				5DB38B1C14F8828C0060A507 /* Install License File */,
+				5DB38B1F14F882CA0060A507 /* Install Open Source Property List */,
+				5DB38B2614F884D60060A507 /* Install libxml Man Page */,
+				5DB38B2A14F886B60060A507 /* Install xml2-config */,
+				5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libxml2;
+			productName = libxml2;
+			productReference = 5D58AF5C14F815F500BE69D8 /* libxml2.2.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		5DB38AE014F87AE80060A507 /* xmllint */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DB38AEB14F87AE80060A507 /* Build configuration list for PBXNativeTarget "xmllint" */;
+			buildPhases = (
+				5DB38ADD14F87AE80060A507 /* Sources */,
+				5DB38ADE14F87AE80060A507 /* Frameworks */,
+				5DB38ADF14F87AE80060A507 /* Install Man Page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xmllint;
+			productName = xmllint;
+			productReference = 5DB38AE114F87AE80060A507 /* xmllint */;
+			productType = "com.apple.product-type.tool";
+		};
+		5DB38B0814F880AA0060A507 /* xmlcatalog */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DB38B0F14F880AA0060A507 /* Build configuration list for PBXNativeTarget "xmlcatalog" */;
+			buildPhases = (
+				5DB38B0914F880AA0060A507 /* Sources */,
+				5DB38B0B14F880AA0060A507 /* Frameworks */,
+				5DB38B0D14F880AA0060A507 /* Install Man Page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = xmlcatalog;
+			productName = xmllint;
+			productReference = 5DB38B1314F880AA0060A507 /* xmlcatalog */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5D58AF5314F815F500BE69D8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = 5D58AF5614F815F500BE69D8 /* Build configuration list for PBXProject "libxml2" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 5D58AF5114F815F500BE69D8;
+			productRefGroup = 5D58AF5D14F815F500BE69D8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5DB38AEE14F87BDD0060A507 /* All */,
+				5D58AF5B14F815F500BE69D8 /* libxml2 */,
+				5DB38AE014F87AE80060A507 /* xmllint */,
+				5DB38B0814F880AA0060A507 /* xmlcatalog */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5DB38AF914F87C9F0060A507 /* Create libxml2.dylib Symlink */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Create libxml2.dylib Symlink";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/libxml2.dylib",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ln -sf libxml2.2.dylib \"${BUILT_PRODUCTS_DIR}/libxml2.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxml2.2.dylib \"${DSTROOT}${INSTALL_PATH}/libxml2.dylib\";\nfi;\n";
+		};
+		5DB38B2314F883700060A507 /* Rename License File */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/libxml2/Copyright",
+			);
+			name = "Rename License File";
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/libxml2.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cp libxml2/Copyright \"${BUILT_PRODUCTS_DIR}/libxml2.txt\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5D58AF5814F815F500BE69D8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5D58B01614F81A8D00BE69D8 /* c14n.c in Sources */,
+				5D58B01714F81A8D00BE69D8 /* catalog.c in Sources */,
+				5D58B01814F81A8D00BE69D8 /* chvalid.c in Sources */,
+				5D58B01914F81A8D00BE69D8 /* debugXML.c in Sources */,
+				5D58B01A14F81A8D00BE69D8 /* dict.c in Sources */,
+				5D58B01B14F81A8D00BE69D8 /* DOCBparser.c in Sources */,
+				5D58B01C14F81A8D00BE69D8 /* encoding.c in Sources */,
+				5D58B01D14F81A8D00BE69D8 /* entities.c in Sources */,
+				5D58B01E14F81A8D00BE69D8 /* error.c in Sources */,
+				5D58B01F14F81A8D00BE69D8 /* globals.c in Sources */,
+				5D58B02014F81A8D00BE69D8 /* hash.c in Sources */,
+				5D58B02114F81A8D00BE69D8 /* HTMLparser.c in Sources */,
+				5D58B02214F81A8D00BE69D8 /* HTMLtree.c in Sources */,
+				5D58B02314F81A8D00BE69D8 /* legacy.c in Sources */,
+				5D58B02414F81A8D00BE69D8 /* list.c in Sources */,
+				5D58B02514F81A8D00BE69D8 /* nanoftp.c in Sources */,
+				5D58B02614F81A8D00BE69D8 /* nanohttp.c in Sources */,
+				5D58B02714F81A8D00BE69D8 /* parser.c in Sources */,
+				5D58B02814F81A8D00BE69D8 /* parserInternals.c in Sources */,
+				5D58B02914F81A8D00BE69D8 /* pattern.c in Sources */,
+				5D58B02A14F81A8D00BE69D8 /* relaxng.c in Sources */,
+				5D58B02F14F81A8D00BE69D8 /* SAX.c in Sources */,
+				5D58B03014F81A8D00BE69D8 /* SAX2.c in Sources */,
+				5D58B03114F81A8D00BE69D8 /* schematron.c in Sources */,
+				5D58B04614F81A8D00BE69D8 /* threads.c in Sources */,
+				5D58B04714F81A8D00BE69D8 /* tree.c in Sources */,
+				5D58B04B14F81A8D00BE69D8 /* uri.c in Sources */,
+				5D58B04C14F81A8D00BE69D8 /* valid.c in Sources */,
+				5D58B04D14F81A8D00BE69D8 /* xinclude.c in Sources */,
+				5D58B04E14F81A8D00BE69D8 /* xlink.c in Sources */,
+				5D58B05014F81A8D00BE69D8 /* xmlIO.c in Sources */,
+				5D58B05214F81A8D00BE69D8 /* xmlmemory.c in Sources */,
+				5D58B05314F81A8D00BE69D8 /* xmlmodule.c in Sources */,
+				5D58B05414F81A8D00BE69D8 /* xmlreader.c in Sources */,
+				5D58B05514F81A8D00BE69D8 /* xmlregexp.c in Sources */,
+				5D58B05614F81A8D00BE69D8 /* xmlsave.c in Sources */,
+				5D58B05714F81A8D00BE69D8 /* xmlschemas.c in Sources */,
+				5D58B05814F81A8D00BE69D8 /* xmlschemastypes.c in Sources */,
+				5D58B05914F81A8D00BE69D8 /* xmlstring.c in Sources */,
+				5D58B05A14F81A8D00BE69D8 /* xmlunicode.c in Sources */,
+				5D58B05B14F81A8D00BE69D8 /* xmlwriter.c in Sources */,
+				5D58B05C14F81A8D00BE69D8 /* xpath.c in Sources */,
+				5D58B05D14F81A8D00BE69D8 /* xpointer.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DB38ADD14F87AE80060A507 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DB38AF814F87C740060A507 /* xmllint.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DB38B0914F880AA0060A507 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DB38B1714F881090060A507 /* xmlcatalog.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5DB38AF414F87BE30060A507 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5D58AF5B14F815F500BE69D8 /* libxml2 */;
+			targetProxy = 5DB38AF314F87BE30060A507 /* PBXContainerItemProxy */;
+		};
+		5DB38AF614F87BE50060A507 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5DB38AE014F87AE80060A507 /* xmllint */;
+			targetProxy = 5DB38AF514F87BE50060A507 /* PBXContainerItemProxy */;
+		};
+		5DB38B1B14F881320060A507 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5DB38B0814F880AA0060A507 /* xmlcatalog */;
+			targetProxy = 5DB38B1A14F881320060A507 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5D58AF5E14F815F500BE69D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6C14F8170000BE69D8 /* DebugRelease.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5D58AF5F14F815F500BE69D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6C14F8170000BE69D8 /* DebugRelease.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5D58AF6114F815F500BE69D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5D58AF6214F815F500BE69D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5D58AF6714F8164A00BE69D8 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6A14F816DF00BE69D8 /* Base.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		5D58AF6814F8164A00BE69D8 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5D58AF6B14F816DF00BE69D8 /* libxml2.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		5DB38AE814F87AE80060A507 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5DB38AE914F87AE80060A507 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5DB38AEA14F87AE80060A507 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		5DB38AF014F87BDD0060A507 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5DB38AF114F87BDD0060A507 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5DB38AF214F87BDD0060A507 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+		5DB38B1014F880AA0060A507 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		5DB38B1114F880AA0060A507 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		5DB38B1214F880AA0060A507 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5DB38B3014F888F40060A507 /* Executable.xcconfig */;
+			buildSettings = {
+			};
+			name = Production;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5D58AF5614F815F500BE69D8 /* Build configuration list for PBXProject "libxml2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D58AF5E14F815F500BE69D8 /* Debug */,
+				5D58AF5F14F815F500BE69D8 /* Release */,
+				5D58AF6714F8164A00BE69D8 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		5D58AF6014F815F500BE69D8 /* Build configuration list for PBXNativeTarget "libxml2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5D58AF6114F815F500BE69D8 /* Debug */,
+				5D58AF6214F815F500BE69D8 /* Release */,
+				5D58AF6814F8164A00BE69D8 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		5DB38AEB14F87AE80060A507 /* Build configuration list for PBXNativeTarget "xmllint" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DB38AE814F87AE80060A507 /* Debug */,
+				5DB38AE914F87AE80060A507 /* Release */,
+				5DB38AEA14F87AE80060A507 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		5DB38AEF14F87BDD0060A507 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DB38AF014F87BDD0060A507 /* Debug */,
+				5DB38AF114F87BDD0060A507 /* Release */,
+				5DB38AF214F87BDD0060A507 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		5DB38B0F14F880AA0060A507 /* Build configuration list for PBXNativeTarget "xmlcatalog" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DB38B1014F880AA0060A507 /* Debug */,
+				5DB38B1114F880AA0060A507 /* Release */,
+				5DB38B1214F880AA0060A507 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5D58AF5314F815F500BE69D8 /* Project object */;
+}

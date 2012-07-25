@@ -20,14 +20,14 @@
 
 #include "qdeclarativewebview_p.h"
 
+#include <QApplication>
+#include <QGraphicsSceneMouseEvent>
 #include <QtCore/QDebug>
 #include <QtCore/QEvent>
 #include <QtCore/QFile>
 #include <QtDeclarative/QDeclarativeContext>
 #include <QtDeclarative/QDeclarativeEngine>
 #include <QtDeclarative/qdeclarative.h>
-#include <QtGui/QApplication>
-#include <QtGui/QGraphicsSceneMouseEvent>
 #include <QtGui/QKeyEvent>
 #include <QtGui/QMouseEvent>
 #include <QtGui/QPen>
@@ -162,7 +162,7 @@ bool GraphicsWebView::sceneEvent(QEvent *event)
 
     This type is made available by importing the \c QtWebKit module:
 
-    \bold{import QtWebKit 1.0}
+    \b{import QtWebKit 1.0}
 
     The WebView item includes no scrolling, scaling, toolbars, or other common browser
     components. These must be implemented around WebView. See the \l{QML Web Browser}
@@ -577,11 +577,11 @@ void QDeclarativeWebView::setRenderingEnabled(bool enabled)
 
     Finds a zoom that:
     \list
-    \i shows a whole item
-    \i includes (\a clickX, \a clickY)
-    \i fits into the preferredWidth and preferredHeight
-    \i zooms by no more than \a maxZoom
-    \i is more than 10% above the current zoom
+    \li shows a whole item
+    \li includes (\a clickX, \a clickY)
+    \li fits into the preferredWidth and preferredHeight
+    \li zooms by no more than \a maxZoom
+    \li is more than 10% above the current zoom
     \endlist
 
     If such a zoom exists, emits zoomTo(zoom,centerX,centerY) and returns true; otherwise,
@@ -783,7 +783,6 @@ void QDeclarativeWebView::setPage(QWebPage* page)
     connect(page->mainFrame(), SIGNAL(javaScriptWindowObjectCleared()), this, SLOT(windowObjectCleared()));
 
     page->settings()->setAttribute(QWebSettings::TiledBackingStoreEnabled, true);
-
 }
 
 /*!

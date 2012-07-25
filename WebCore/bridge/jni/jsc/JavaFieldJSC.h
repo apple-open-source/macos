@@ -31,8 +31,8 @@
 
 #include "BridgeJSC.h"
 #include "JNIUtility.h"
-#include "JavaMethod.h"
-#include "JavaString.h"
+#include "JavaMethodJSC.h"
+#include "JavaStringJSC.h"
 #include "JobjectWrapper.h"
 
 namespace JSC {

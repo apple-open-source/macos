@@ -764,7 +764,7 @@ uint32_t strsize)
 	for(i = 0; i < nsymbols; i++){
 	    if(symbols[i].nl.n_un.n_strx == 0)
 		symbols[i].name = "";
-	    else if(symbols[i].nl.n_un.n_strx < 0 ||
+	    else if((int)symbols[i].nl.n_un.n_strx < -1 ||
 		    (uint32_t)symbols[i].nl.n_un.n_strx > strsize){
 		symbols[i].name = "bad string index";
 		printf ("Setting bad string index in exports\n");

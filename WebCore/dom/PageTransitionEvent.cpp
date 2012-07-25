@@ -29,7 +29,12 @@
 #include "EventNames.h"
 
 namespace WebCore {
-        
+
+PageTransitionEventInit::PageTransitionEventInit()
+    : persisted(false)
+{
+}
+
 PageTransitionEvent::PageTransitionEvent()
     : m_persisted(false)
 {
@@ -41,21 +46,19 @@ PageTransitionEvent::PageTransitionEvent(const AtomicString& type, bool persiste
 {
 }
 
+PageTransitionEvent::PageTransitionEvent(const AtomicString& type, const PageTransitionEventInit& initializer)
+    : Event(type, initializer)
+    , m_persisted(initializer.persisted)
+{
+}
+
 PageTransitionEvent::~PageTransitionEvent()
 {
 }
 
-void PageTransitionEvent::initPageTransitionEvent(const AtomicString& type, 
-                                            bool canBubbleArg,
-                                            bool cancelableArg,
-                                            bool persisted)
+const AtomicString& PageTransitionEvent::interfaceName() const
 {
-    if (dispatched())
-        return;
-    
-    initEvent(type, canBubbleArg, cancelableArg);
-    
-    m_persisted = persisted;
+    return eventNames().interfaceForPageTransitionEvent;
 }
 
 } // namespace WebCore

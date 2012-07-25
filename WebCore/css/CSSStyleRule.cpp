@@ -22,66 +22,96 @@
 #include "config.h"
 #include "CSSStyleRule.h"
 
-#include "CSSMutableStyleDeclaration.h"
 #include "CSSParser.h"
 #include "CSSSelector.h"
 #include "CSSStyleSheet.h"
 #include "Document.h"
-#include "StyleSheet.h"
+#include "PropertySetCSSStyleDeclaration.h"
+#include "StylePropertySet.h"
+#include "StyleRule.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-CSSStyleRule::CSSStyleRule(CSSStyleSheet* parent, int sourceLine)
-    : CSSRule(parent)
-    , m_sourceLine(sourceLine)
+typedef HashMap<const CSSStyleRule*, String> SelectorTextCache;
+static SelectorTextCache& selectorTextCache()
+{
+    DEFINE_STATIC_LOCAL(SelectorTextCache, cache, ());
+    return cache;
+}
+
+CSSStyleRule::CSSStyleRule(StyleRule* styleRule, CSSStyleSheet* parent)
+    : CSSRule(parent, CSSRule::STYLE_RULE)
+    , m_styleRule(styleRule)
 {
 }
 
 CSSStyleRule::~CSSStyleRule()
 {
-    if (m_style)
-        m_style->setParent(0);
+    if (m_propertiesCSSOMWrapper)
+        m_propertiesCSSOMWrapper->clearParentRule();
+
+    if (hasCachedSelectorText()) {
+        selectorTextCache().remove(this);
+        setHasCachedSelectorText(false);
+    }
+}
+
+CSSStyleDeclaration* CSSStyleRule::style() const
+{
+    if (!m_propertiesCSSOMWrapper)
+        m_propertiesCSSOMWrapper = StyleRuleCSSStyleDeclaration::create(m_styleRule->properties(), const_cast<CSSStyleRule*>(this));
+    return m_propertiesCSSOMWrapper.get();
+}
+
+String CSSStyleRule::generateSelectorText() const
+{
+    StringBuilder builder;
+    for (CSSSelector* s = m_styleRule->selectorList().first(); s; s = CSSSelectorList::next(s)) {
+        if (s != m_styleRule->selectorList().first())
+            builder.append(", ");
+        builder.append(s->selectorText());
+    }
+    return builder.toString();
 }
 
 String CSSStyleRule::selectorText() const
 {
-    String str;
-    for (CSSSelector* s = selectorList().first(); s; s = CSSSelectorList::next(s)) {
-        if (s != selectorList().first())
-            str += ", ";
-        str += s->selectorText();
+    if (hasCachedSelectorText()) {
+        ASSERT(selectorTextCache().contains(this));
+        return selectorTextCache().get(this);
     }
-    return str;
+
+    ASSERT(!selectorTextCache().contains(this));
+    String text = generateSelectorText();
+    selectorTextCache().set(this, text);
+    setHasCachedSelectorText(true);
+    return text;
 }
 
 void CSSStyleRule::setSelectorText(const String& selectorText)
 {
     Document* doc = 0;
-    StyleSheet* ownerStyleSheet = m_style->stylesheet();
-    if (ownerStyleSheet) {
-        if (ownerStyleSheet->isCSSStyleSheet())
-            doc = static_cast<CSSStyleSheet*>(ownerStyleSheet)->document();
-        if (!doc)
-            doc = ownerStyleSheet->ownerNode() ? ownerStyleSheet->ownerNode()->document() : 0;
-    }
-    if (!doc)
-        doc = m_style->node() ? m_style->node()->document() : 0;
-
+    if (CSSStyleSheet* styleSheet = parentStyleSheet())
+        doc = styleSheet->ownerDocument();
     if (!doc)
         return;
 
-    CSSParser p;
+    CSSParser p(parserContext());
     CSSSelectorList selectorList;
-    p.parseSelector(selectorText, doc, selectorList);
+    p.parseSelector(selectorText, selectorList);
     if (!selectorList.first())
         return;
 
     String oldSelectorText = this->selectorText();
-    m_selectorList.adopt(selectorList);
-    if (this->selectorText() == oldSelectorText)
-        return;
+    m_styleRule->wrapperAdoptSelectorList(selectorList);
 
-    doc->styleSelectorChanged(DeferRecalcStyle);
+    if (hasCachedSelectorText()) {
+        ASSERT(selectorTextCache().contains(this));
+        selectorTextCache().set(this, generateSelectorText());
+    }
+
+    doc->styleResolverChanged(DeferRecalcStyle);
 }
 
 String CSSStyleRule::cssText() const
@@ -89,27 +119,10 @@ String CSSStyleRule::cssText() const
     String result = selectorText();
 
     result += " { ";
-    result += m_style->cssText();
+    result += m_styleRule->properties()->asText();
     result += "}";
 
     return result;
-}
-
-bool CSSStyleRule::parseString(const String& /*string*/, bool /*strict*/)
-{
-    // FIXME
-    return false;
-}
-
-void CSSStyleRule::setDeclaration(PassRefPtr<CSSMutableStyleDeclaration> style)
-{
-    m_style = style;
-}
-
-void CSSStyleRule::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
-{
-    if (m_style)
-        m_style->addSubresourceStyleURLs(urls);
 }
 
 } // namespace WebCore

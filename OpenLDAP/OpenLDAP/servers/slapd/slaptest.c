@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slaptest.c,v 1.7.2.7 2010/04/13 20:23:21 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2010 The OpenLDAP Foundation.
+ * Copyright 2004-2011 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -37,6 +37,10 @@
 #include <lutil.h>
 
 #include "slapcommon.h"
+
+#ifndef S_IWRITE
+#define S_IWRITE	S_IWUSR
+#endif
 
 static int
 test_file( const char *fname, const char *ftype )

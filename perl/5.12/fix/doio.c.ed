@@ -13,4 +13,7 @@ extern void _zero_posn_(PerlIO *fp);
 	/* reset position to begining of file */
 	_zero_posn_(fp);
 .
+/anum = getgroups(0, gary);/a
+        if (anum <= 0) return FALSE;
+.
 w

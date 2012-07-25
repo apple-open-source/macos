@@ -1,9 +1,9 @@
 /*
- * "$Id: util.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: util.c 7850 2008-08-20 00:07:25Z mike $"
  *
  *   Printing utilities for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -106,7 +106,7 @@ cupsCancelJob(const char *name,		/* I - Name of printer or class */
  * Use the @link cupsLastError@ and @link cupsLastErrorString@ functions to get
  * the cause of any failure.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 ipp_status_t				/* O - IPP status */
@@ -194,7 +194,7 @@ cupsCancelJob2(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP_
  * print, use the @link cupsPrintFile2@ or @link cupsPrintFiles2@ function
  * instead.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 int					/* O - Job ID or 0 on error */
@@ -275,7 +275,7 @@ cupsCreateJob(
  *
  * The document must have been started using @link cupsStartDocument@.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 ipp_status_t				/* O - Status of document submission */
@@ -444,7 +444,7 @@ cupsGetDefault(void)
  * functions to get the user-defined default printer, as this function does
  * not support the lpoptions-defined default printer.
  *
- * @since CUPS 1.1.21/Mac OS X 10.4@
+ * @since CUPS 1.1.21/OS X 10.4@
  */
 
 const char *				/* O - Default printer or @code NULL@ */
@@ -535,7 +535,7 @@ cupsGetJobs(cups_job_t **jobs,		/* O - Job data */
  * pending, processing, or held and @code CUPS_WHICHJOBS_COMPLETED@ returns
  * jobs that are stopped, canceled, aborted, or completed.
  *
- * @since CUPS 1.1.21/Mac OS X 10.4@
+ * @since CUPS 1.1.21/OS X 10.4@
  */
 
 int					/* O - Number of jobs */
@@ -839,7 +839,7 @@ cupsGetPPD(const char *name)		/* I - Destination name */
  * each call to @link cupsGetPPD@ or @code cupsGetPPD2@.  The caller "owns" the
  * file that is created and must @code unlink@ the returned filename.
  *
- * @since CUPS 1.1.21/Mac OS X 10.4@
+ * @since CUPS 1.1.21/OS X 10.4@
  */
 
 const char *				/* O - Filename for PPD file */
@@ -880,7 +880,7 @@ cupsGetPPD2(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DE
  * For classes, @code cupsGetPPD3@ returns the PPD file for the first printer
  * in the class.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 http_status_t				/* O  - HTTP status */
@@ -1276,7 +1276,7 @@ cupsGetPrinters(char ***printers)	/* O - Printers */
  * overwritten on the next call to @link cupsGetPPD@, @link cupsGetPPD2@,
  * or @link cupsGetServerPPD@.
  *
- * @since CUPS 1.3/Mac OS X 10.5@
+ * @since CUPS 1.3/OS X 10.5@
  */
 
 char *					/* O - Name of PPD file or @code NULL@ on error */
@@ -1365,7 +1365,7 @@ cupsPrintFile(const char    *name,	/* I - Destination name */
  * 'cupsPrintFile2()' - Print a file to a printer or class on the specified
  *                      server.
  *
- * @since CUPS 1.1.21/Mac OS X 10.4@
+ * @since CUPS 1.1.21/OS X 10.4@
  */
 
 int					/* O - Job ID or 0 on error */
@@ -1417,7 +1417,7 @@ cupsPrintFiles(
  * 'cupsPrintFiles2()' - Print one or more files to a printer or class on the
  *                       specified server.
  *
- * @since CUPS 1.1.21/Mac OS X 10.4@
+ * @since CUPS 1.1.21/OS X 10.4@
  */
 
 int					/* O - Job ID or 0 on error */
@@ -1549,7 +1549,7 @@ cupsPrintFiles2(
  * @code CUPS_FORMAT_TEXT@ are provided for the "format" argument, although
  * any supported MIME type string can be supplied.
  *
- * @since CUPS 1.4/Mac OS X 10.6@
+ * @since CUPS 1.4/OS X 10.6@
  */
 
 http_status_t				/* O - HTTP status of request */
@@ -1574,7 +1574,7 @@ cupsStartDocument(
   if ((request = ippNewRequest(IPP_SEND_DOCUMENT)) == NULL)
   {
     _cupsSetError(IPP_INTERNAL_ERROR, strerror(ENOMEM), 0);
-    return (0);
+    return (HTTP_ERROR);
   }
 
   httpAssembleURIf(HTTP_URI_CODING_ALL, printer_uri, sizeof(printer_uri), "ipp",
@@ -1808,5 +1808,5 @@ cups_get_printer_uri(
 
 
 /*
- * End of "$Id: util.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: util.c 7850 2008-08-20 00:07:25Z mike $".
  */

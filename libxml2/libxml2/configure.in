@@ -1,11 +1,13 @@
 dnl Process this file with autoconf to produce a configure script.
+AC_PREREQ(2.59)
 AC_INIT(entities.c)
 AM_CONFIG_HEADER(config.h)
+AC_CONFIG_MACRO_DIR([m4])
 AC_CANONICAL_HOST
 
 LIBXML_MAJOR_VERSION=2
 LIBXML_MINOR_VERSION=7
-LIBXML_MICRO_VERSION=3
+LIBXML_MICRO_VERSION=8
 LIBXML_MICRO_VERSION_SUFFIX=
 LIBXML_VERSION=$LIBXML_MAJOR_VERSION.$LIBXML_MINOR_VERSION.$LIBXML_MICRO_VERSION$LIBXML_MICRO_VERSION_SUFFIX
 LIBXML_VERSION_INFO=`expr $LIBXML_MAJOR_VERSION + $LIBXML_MINOR_VERSION`:$LIBXML_MICRO_VERSION:$LIBXML_MINOR_VERSION
@@ -26,6 +28,14 @@ else if test -d .svn ; then
   then
       LIBXML_VERSION_EXTRA="-SVN$extra"
   fi
+else if test -d .git ; then
+  extra=`git describe | sed 's+LIBXML[[0-9.]]*-++'`
+  echo extra=$extra
+  if test "$extra" != ""
+  then
+      LIBXML_VERSION_EXTRA="-GIT$extra"
+  fi
+fi
 fi
 fi
 AC_SUBST(LIBXML_MAJOR_VERSION)
@@ -43,6 +53,7 @@ AM_INIT_AUTOMAKE(libxml2, $VERSION)
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
+AC_PROG_MKDIR_P
 AC_PROG_CPP
 AC_PATH_PROG(RM, rm, /bin/rm)
 AC_PATH_PROG(MV, mv, /bin/mv)
@@ -67,6 +78,22 @@ case $host_os in
     ;;
 esac
 dnl #endif // defined(__APPLE__)
+
+dnl
+dnl if the system support linker version scripts for symbol versioning
+dnl then add it
+dnl
+VERSION_SCRIPT_FLAGS=
+# lt_cv_prog_gnu_ld is from libtool 2.+
+if test "$lt_cv_prog_gnu_ld" = yes; then
+  VERSION_SCRIPT_FLAGS=-Wl,--version-script=
+else
+  case $host in
+  *-*-sunos*) VERSION_SCRIPT_FLAGS="-Wl,-M -Wl,";;
+  esac
+fi
+AC_SUBST(VERSION_SCRIPT_FLAGS)
+AM_CONDITIONAL([USE_VERSION_SCRIPT], [test -z "$VERSION_SCRIPT_FLAGS"])
 
 dnl
 dnl We process the AC_ARG_WITH first so that later we can modify
@@ -110,6 +137,8 @@ AC_ARG_WITH(http,
 [  --with-http             add the HTTP support (on)])
 AC_ARG_WITH(iconv,
 [  --with-iconv[[=DIR]]      add ICONV support (on)])
+AC_ARG_WITH(icu,
+[  --with-icu                add ICU support (off)])
 AC_ARG_WITH(iso8859x,
 [  --with-iso8859x         add ISO8859X support if no iconv (on)])
 AC_ARG_WITH(legacy,
@@ -423,6 +452,7 @@ AC_CHECK_HEADERS([arpa/inet.h], [], [],
 AC_CHECK_HEADERS([netdb.h])
 AC_CHECK_HEADERS([sys/time.h])
 AC_CHECK_HEADERS([sys/select.h])
+AC_CHECK_HEADERS([poll.h])
 AC_CHECK_HEADERS([sys/mman.h])
 AC_CHECK_HEADERS([sys/timeb.h])
 AC_CHECK_HEADERS([signal.h])
@@ -482,7 +512,7 @@ fi
 
 dnl Checks for inet libraries:
 AC_SEARCH_LIBS(gethostent, [nsl])
-AC_SEARCH_LIBS(setsockopt, [socket net])
+AC_SEARCH_LIBS(setsockopt, [socket net network])
 AC_SEARCH_LIBS(connect, [inet])
 
 dnl Determine what socket length (socklen_t) data type is
@@ -685,17 +715,23 @@ if test "$with_python" != "no" ; then
         echo Found python in $with_python/bin/python
         PYTHON="$with_python/bin/python"
     else
-	if test -x "$with_python"
-	then
-	    echo Found python in $with_python
-	    PYTHON="$with_python"
-	else
-	    if test -x "$PYTHON"
-	    then
-	        echo Found python in environment PYTHON=$PYTHON
-		with_python=`$PYTHON -c "import sys; print sys.exec_prefix"`
-	    else
-		AC_PATH_PROG(PYTHON, python python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0 python1.6 python1.5)
+        if test -x "$with_python/python.exe"
+        then
+            echo Found python in $with_python/python.exe
+            PYTHON="$with_python/python.exe"
+        else
+            if test -x "$with_python"
+            then
+                echo Found python in $with_python
+                PYTHON="$with_python"
+            else
+                if test -x "$PYTHON"
+                then
+                    echo Found python in environment PYTHON=$PYTHON
+                    with_python=`$PYTHON -c "import sys; print sys.exec_prefix"`
+                else
+                    AC_PATH_PROG(PYTHON, python python2.6 python2.5 python2.4 python2.3 python2.2 python2.1 python2.0 python1.6 python1.5)
+		fi
 	    fi
 	fi
     fi
@@ -722,7 +758,14 @@ if test "$with_python" != "no" ; then
 		    PYTHON_INCLUDES=/usr/include/python$PYTHON_VERSION
 	            PYTHON_SITE_PACKAGES=$libdir/python$PYTHON_VERSION/site-packages
 		else
-		    echo could not find python$PYTHON_VERSION/Python.h
+	            if test -r $with_python/include/Python.h -a \
+	               -d $with_python/lib/site-packages
+	            then
+	                PYTHON_INCLUDES=$with_python/include
+	                PYTHON_SITE_PACKAGES=$with_python/lib/site-packages
+	            else
+		        echo could not find python$PYTHON_VERSION/Python.h or $with_python/include/Python.h
+		    fi
 		fi
 	    fi
 	    if test ! -d "$PYTHON_SITE_PACKAGES"
@@ -730,6 +773,7 @@ if test "$with_python" != "no" ; then
 		    PYTHON_SITE_PACKAGES=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_lib()"`
 	    fi
 	fi
+	PYTHON_LIBS=`python$PYTHON_VERSION-config --ldflags`
     fi
     if test "$with_python" != ""
     then
@@ -749,6 +793,7 @@ else
 fi
 AC_SUBST(pythondir)
 AC_SUBST(PYTHON_SUBDIR)
+AC_SUBST(PYTHON_LIBS)
 
 dnl check for dso support
 WITH_MODULES=0
@@ -763,6 +808,10 @@ if test "$with_modules" != "no" ; then
     MODULE_PLATFORM_LIBS=
     AC_DEFINE([HAVE_DLOPEN], [], [Have dlopen based dso])
   ])
+  ;;
+  *-*-mingw*)
+  MODULE_EXTENSION=".dll"
+  WITH_MODULES=1
   ;;
   *)
   AC_CHECK_FUNC(shl_load, libxml_have_shl_load=yes, [
@@ -871,17 +920,21 @@ if test "$with_threads" = "no" ; then
     echo Disabling multithreaded support
 else
     echo Enabling multithreaded support
-
-    AC_CHECK_HEADER(pthread.h,
-	AC_CHECK_LIB(pthread, pthread_join,[
-	   THREAD_LIBS="-lpthread"
-	   AC_DEFINE([HAVE_LIBPTHREAD], [], [Define if pthread library is there (-lpthread)])
-	   AC_DEFINE([HAVE_PTHREAD_H], [], [Define if <pthread.h> is there])
-	   WITH_THREADS="1"]))
+    dnl Use pthread by default
+    if test "$with_threads" = "pthread" || test "$with_threads" = "" || test "$with_threads" = "yes" ; then
+        AC_CHECK_HEADER(pthread.h,
+	    AC_CHECK_LIB(pthread, pthread_join,[
+	       THREAD_LIBS="-lpthread"
+	       AC_DEFINE([HAVE_LIBPTHREAD], [], [Define if pthread library is there (-lpthread)])
+	       AC_DEFINE([HAVE_PTHREAD_H], [], [Define if <pthread.h> is there])
+	       WITH_THREADS="1"]))
+    fi
     case $host_os in
-       *mingw32*) WITH_THREADS="1"
-           THREADS_W32="Win32"
-	   THREAD_CFLAGS="$THREAD_CFLAGS -DHAVE_WIN32_THREADS"
+       *mingw32*) if test "$THREAD_LIBS" != "-lpthread"; then
+               WITH_THREADS="1"
+               THREADS_W32="Win32"
+	       THREAD_CFLAGS="$THREAD_CFLAGS -DHAVE_WIN32_THREADS"
+           fi
        ;;
        *cygwin*) THREAD_LIBS=""
        ;;
@@ -899,7 +952,7 @@ else
 		       THREAD_LIBS=""
 		       BASE_THREAD_LIBS="-lpthread"
 		   else
-		   if expr ${GCC_MAJOR} \> 3 > /dev/null 
+		   if expr ${GCC_MAJOR} \> 3 > /dev/null
 		   then
 		       THREAD_LIBS=""
 		       BASE_THREAD_LIBS="-lpthread"
@@ -1270,59 +1323,63 @@ case "$host" in
 	;;
 	*beos*) M_LIBS=""
 	;;
+        *haiku*) M_LIBS=""
+        ;;
 	*) M_LIBS="-lm"
 	;;
 esac
 AC_SUBST(WITH_ICONV)
 
 WITH_ICU=0
-AC_ARG_WITH(icu,
-[  --with-icu=[[=DIR]]       add ICU support (off)])
-if test "$with_minimum" = "yes" -a "$with_icu" = ""
-then
-    with_icu=no
-fi
-if test "$with_icu" = "no" ; then
+if test "$with_icu" != "yes" ; then
     echo Disabling ICU support
 else
-    if test "$with_icu" != "yes" -a "$with_iconv" != "" ; then
-        CPPFLAGS="${CPPFLAGS} -I$with_icu"
-        # Export this since our headers include icu.h
-        XML_INCLUDEDIR="${XML_INCLUDEDIR} -I$with_icu"
-    fi
-
-    AC_CHECK_HEADER(unicode/ucnv.h,
-    AC_MSG_CHECKING(for icu)
-    AC_TRY_LINK([#include <unicode/ucnv.h>],[
-UConverter *utf = ucnv_open("UTF-8", NULL);],[
-        AC_MSG_RESULT(yes)
-        WITH_ICU=1],[
-        AC_MSG_RESULT(no)
-        AC_MSG_CHECKING(for icu in -licucore)
-
-        _ldflags="${LDFLAGS}"
-        _libs="${LIBS}"
-        LDFLAGS="${LDFLAGS} ${ICU_LIBS}"
-        LIBS="${LIBS} -licucore"
-
+    ICU_CONFIG=icu-config
+    if ${ICU_CONFIG} --cflags >/dev/null 2>&1
+    then
+        ICU_LIBS=`icu-config --ldflags`
+        LDFLAGS="$LDFLAGS $ICU_LIBS"
+        WITH_ICU=1
+        echo Enabling ICU support
+    else
+        if test "$with_icu" != "yes" -a "$with_iconv" != "" ; then
+            CPPFLAGS="${CPPFLAGS} -I$with_icu"
+            # Export this since our headers include icu.h
+            XML_INCLUDEDIR="${XML_INCLUDEDIR} -I$with_icu"
+        fi
+    
+        AC_CHECK_HEADER(unicode/ucnv.h,
+        AC_MSG_CHECKING(for icu)
         AC_TRY_LINK([#include <unicode/ucnv.h>],[
-UConverter *utf = ucnv_open("UTF-8", NULL);],[
+    UConverter *utf = ucnv_open("UTF-8", NULL);],[
             AC_MSG_RESULT(yes)
-            WITH_ICU=1
-            ICU_LIBS="${ICU_LIBS} -licucore"
-            LIBS="${_libs}"
-            LDFLAGS="${_ldflags}"],[
+            WITH_ICU=1],[
             AC_MSG_RESULT(no)
-            LIBS="${_libs}"
-            LDFLAGS="${_ldflags}"])]))
-fi
+            AC_MSG_CHECKING(for icu in -licucore)
 
+            _ldflags="${LDFLAGS}"
+            _libs="${LIBS}"
+            LDFLAGS="${LDFLAGS} ${ICU_LIBS}"
+            LIBS="${LIBS} -licucore"
+
+            AC_TRY_LINK([#include <unicode/ucnv.h>],[
+    UConverter *utf = ucnv_open("UTF-8", NULL);],[
+                AC_MSG_RESULT(yes)
+                WITH_ICU=1
+                ICU_LIBS="${ICU_LIBS} -licucore"
+                LIBS="${_libs}"
+                LDFLAGS="${_ldflags}"],[
+                AC_MSG_RESULT(no)
+                LIBS="${_libs}"
+                LDFLAGS="${_ldflags}"])]))
+    fi
+fi
 XML_LIBS="-lxml2 $Z_LIBS $THREAD_LIBS $ICONV_LIBS $ICU_LIBS $M_LIBS $LIBS"
 XML_LIBTOOLLIBS="libxml2.la"
 AC_SUBST(WITH_ICU)
 
 WITH_ISO8859X=1
-if test "$WITH_ICONV" != "1" -o "$WITH_ICU" != "1"; then
+if test "$WITH_ICONV" != "1" ; then
 if test "$with_iso8859x" = "no" ; then
     echo Disabling ISO8859X support
     WITH_ISO8859X=0
@@ -1410,6 +1467,7 @@ WIN32_EXTRA_LIBADD=
 WIN32_EXTRA_LDFLAGS=
 CYGWIN_EXTRA_LDFLAGS=
 CYGWIN_EXTRA_PYTHON_LIBADD=
+WIN32_EXTRA_PYTHON_LIBADD=
 case "$host" in
  *-*-mingw*)
  CPPFLAGS="$CPPFLAGS -DWIN32"
@@ -1418,6 +1476,10 @@ case "$host" in
  AC_DEFINE([_WINSOCKAPI_],1,[Using the Win32 Socket implementation])
  AC_DEFINE([snprintf],[_snprintf],[Win32 Std C name mangling work-around])
  AC_DEFINE([vsnprintf],[_vsnprintf],[Win32 Std C name mangling work-around])
+ if test "${PYTHON}" != ""
+ then
+   WIN32_EXTRA_PYTHON_LIBADD="-L${pythondir}/../../libs -lpython${PYTHON_VERSION//./}"
+ fi
  ;;
  *-*-cygwin*)
  CYGWIN_EXTRA_LDFLAGS="-no-undefined"
@@ -1429,6 +1491,7 @@ case "$host" in
 esac
 AC_SUBST(WIN32_EXTRA_LIBADD)
 AC_SUBST(WIN32_EXTRA_LDFLAGS)
+AC_SUBST(WIN32_EXTRA_PYTHON_LIBADD)
 AC_SUBST(CYGWIN_EXTRA_LDFLAGS)
 AC_SUBST(CYGWIN_EXTRA_PYTHON_LIBADD)
 

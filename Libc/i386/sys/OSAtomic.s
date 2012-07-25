@@ -24,6 +24,7 @@
 
 #include <machine/cpu_capabilities.h>
 #include <platfunc.h>
+#include <architecture/i386/asm_help.h>
 
 #define ATOMIC_UP	0
 #define ATOMIC_MP	1
@@ -396,8 +397,10 @@ _OSAtomicFifoEnqueue:
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
 	movl	16(%esp),%edi	// %edi == ptr to list head
 	movl	20(%esp),%esi	// %esi == new
+	EXTERN_TO_REG(_commpage_pfz_base,%ecx)
+	movl	(%ecx), %ecx
+	addl	$(_COMM_TEXT_PFZ_ENQUEUE_OFFSET), %ecx
 	movl	24(%esp),%edx	// %edx == offset
-	movl	$(_COMM_PAGE_PFZ_ENQUEUE), %ecx
 	call	*%ecx
 	testl	%ebx,%ebx	// pending preemption?
 	jz	1f
@@ -416,8 +419,10 @@ _OSAtomicFifoDequeue:
 	pushl	%ebx
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
 	movl	16(%esp),%edi	// %edi == ptr to list head
+	PICIFY(_commpage_pfz_base)
+	movl	(%edx),%ecx
 	movl	20(%esp),%edx	// %edx == offset
-	movl	$(_COMM_PAGE_PFZ_DEQUEUE), %ecx
+	addl	$(_COMM_TEXT_PFZ_DEQUEUE_OFFSET), %ecx
 	call	*%ecx
 	testl	%ebx,%ebx	// pending preemption?
 	jz	1f

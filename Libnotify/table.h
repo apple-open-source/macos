@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Portions Copyright (c) 2003-2009 Apple Inc.  All Rights Reserved.
  *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -34,17 +32,24 @@ typedef struct __list_private list_t;
 extern table_t *_nc_table_new(uint32_t n);
 
 extern void _nc_table_insert(table_t *t, const char *key, void *datum);
+extern void _nc_table_insert_no_copy(table_t *t, const char *key, void *datum);
+extern void _nc_table_insert_pass(table_t *t, char *key, void *datum);
 extern void _nc_table_insert_n(table_t *t, uint32_t key, void *datum);
+extern void _nc_table_insert_64(table_t *t, uint64_t key, void *datum);
 
 extern void *_nc_table_find(table_t *t, const char *key);
+extern void *_nc_table_find_get_key(table_t *tin, const char *key, const char **shared_key);
 extern void *_nc_table_find_n(table_t *t, uint32_t key);
+extern void *_nc_table_find_64(table_t *t, uint64_t key);
 
 extern void _nc_table_delete(table_t *t, const char *key);
 extern void _nc_table_delete_n(table_t *t, uint32_t key);
+extern void _nc_table_delete_64(table_t *t, uint64_t key);
 
 extern void *_nc_table_traverse_start(table_t *tin);
 extern void *_nc_table_traverse(table_t *tin, void *ttin);
 extern void _nc_table_traverse_end(table_t *tin, void *ttin);
+
 extern void _nc_table_free(table_t *tin);
 
 extern list_t *_nc_list_new(void *d);

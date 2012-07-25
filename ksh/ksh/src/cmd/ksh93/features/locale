@@ -1,5 +1,7 @@
-hdr	locale,wchar
+hdr	locale,wchar,wctype
 lib	locale,localeconv,wctype,iswctype,iswblank
+lib	wctrans,towctrans wctype.h
+typ	wctrans_t wctype.h
 cat{
 	#if _PACKAGE_ast
 	#   undef  _hdr_locale

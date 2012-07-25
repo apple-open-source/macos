@@ -30,11 +30,30 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.CSSCompletions = function(values, acceptEmptyPrefix)
 {
     this._values = values.slice();
     this._values.sort();
     this._acceptEmptyPrefix = acceptEmptyPrefix;
+}
+
+
+/**
+ * @type {WebInspector.CSSCompletions}
+ */
+WebInspector.CSSCompletions.cssNameCompletions = null;
+
+WebInspector.CSSCompletions.requestCSSNameCompletions = function()
+{
+    function propertyNamesCallback(error, names)
+    {
+        if (!error)
+            WebInspector.CSSCompletions.cssNameCompletions = new WebInspector.CSSCompletions(names, false);
+    }
+    CSSAgent.getSupportedCSSProperties(propertyNamesCallback);
 }
 
 WebInspector.CSSCompletions.prototype = {
@@ -45,7 +64,7 @@ WebInspector.CSSCompletions.prototype = {
             return [];
 
         var results = [];
-        while (firstIndex < this._values.length && this._values[firstIndex].indexOf(prefix) === 0)
+        while (firstIndex < this._values.length && this._values[firstIndex].startsWith(prefix))
             results.push(this._values[firstIndex++]);
         return results;
     },
@@ -69,7 +88,7 @@ WebInspector.CSSCompletions.prototype = {
 
         do {
             var middleIndex = (maxIndex + minIndex) >> 1;
-            if (this._values[middleIndex].indexOf(prefix) === 0) {
+            if (this._values[middleIndex].startsWith(prefix)) {
                 foundIndex = middleIndex;
                 break;
             }
@@ -82,7 +101,7 @@ WebInspector.CSSCompletions.prototype = {
         if (foundIndex === undefined)
             return -1;
 
-        while (foundIndex && this._values[foundIndex - 1].indexOf(prefix) === 0)
+        while (foundIndex && this._values[foundIndex - 1].startsWith(prefix))
             foundIndex--;
 
         return foundIndex;
@@ -90,7 +109,9 @@ WebInspector.CSSCompletions.prototype = {
 
     keySet: function()
     {
-        return this._values.keySet();
+        if (!this._keySet)
+            this._keySet = this._values.keySet();
+        return this._keySet;
     },
 
     next: function(str, prefix)

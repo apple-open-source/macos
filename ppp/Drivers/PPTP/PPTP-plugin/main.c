@@ -374,12 +374,13 @@ void pptp_wait_input()
 
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
-        char                 	buf[256], ev_if[32];
+		char                 	buf[256] __attribute__ ((aligned(4)));		// Wcast-align fix - force alignment    
+		char                 	ev_if[32];
         struct kern_event_msg	*ev_msg;
         struct kev_in_data     	*inetdata;
 
         if (recv(eventsockfd, &buf, sizeof(buf), 0) != -1) {
-            ev_msg = (struct kern_event_msg *) &buf;
+            ev_msg = ALIGNED_CAST(struct kern_event_msg *) &buf;
             inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
 			log_vpn_interface_address_event(__FUNCTION__, ev_msg, wait_if_timeout, interface, &ouraddress.sin_addr);
             switch (ev_msg->event_code) {
@@ -406,7 +407,7 @@ void pptp_wait_input()
                                             && ifa->ifa_addr
                                             && !strncmp(ifa->ifa_name, (char*)interface, sizeof(interface))
                                             && ifa->ifa_addr->sa_family == AF_INET
-                                            && ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == ouraddress.sin_addr.s_addr);
+                                            && (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == ouraddress.sin_addr.s_addr);
                                 }
                                 freeifaddrs(ifap);
                             }
@@ -536,13 +537,13 @@ void *pptp_resolver_thread(void *arg)
 			
 			bzero(&peeraddress, sizeof(peeraddress));
 			if (count)
-				peeraddress = *(struct in_addr*)host->h_addr_list[rd8 % count];
+				peeraddress = *ALIGNED_CAST(struct in_addr*)host->h_addr_list[rd8 % count];
             bzero(alt_peer_address, sizeof(alt_peer_address));
             num_alt_peer_address = 0;
             if (count > 1) {
                 while (num_alt_peer_address < (count - 1) &&
                        num_alt_peer_address < MAX_CONNECT_RETRIES) {
-                    alt_peer_address[num_alt_peer_address] = *(struct in_addr*)host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count];
+                    alt_peer_address[num_alt_peer_address] = *ALIGNED_CAST(struct in_addr*)host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count];
                     num_alt_peer_address++;
                 }
             }
@@ -1286,7 +1287,7 @@ pptp_get_if_baudrate(char *if_name)
 
     /* get the baudrate for the interface */
 
-    ifm = (struct if_msghdr *)buf;
+    ifm = ALIGNED_CAST(struct if_msghdr *)buf;
     switch (ifm->ifm_type) {
         case RTM_IFINFO : {
             baudrate = ifm->ifm_data.ifi_baudrate;

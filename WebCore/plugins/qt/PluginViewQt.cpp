@@ -63,10 +63,9 @@
 #include "PluginPackage.h"
 #include "PluginMainThreadScheduler.h"
 #include "QWebPageClient.h"
-#include "RenderLayer.h"
+#include "RenderObject.h"
 #include "Settings.h"
 #include "npruntime_impl.h"
-#include "qwebpage_p.h"
 #if USE(JSC)
 #include "runtime_root.h"
 #endif
@@ -102,6 +101,8 @@ using namespace WTF;
 
 namespace WebCore {
 
+bool PluginView::s_isRunningUnderDRT = false;
+
 using namespace HTMLNames;
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -120,6 +121,13 @@ public:
 private:
     PluginView* m_view;
 };
+
+bool PluginView::shouldUseAcceleratedCompositing() const
+{
+    return m_parentFrame->page()->chrome()->client()->allowsAcceleratedCompositing()
+           && m_parentFrame->page()->settings()
+           && m_parentFrame->page()->settings()->acceleratedCompositingEnabled();
+}
 #endif
 
 void PluginView::updatePluginWidget()
@@ -145,20 +153,12 @@ void PluginView::updatePluginWidget()
         show();
 
     if (!m_isWindowed && m_windowRect.size() != oldWindowRect.size()) {
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-        // On Maemo5, Flash always renders to 16-bit buffer
-        if (m_renderToImage)
-            m_image = QImage(m_windowRect.width(), m_windowRect.height(), QImage::Format_RGB16);
-        else
-#endif
-        {
-            if (m_drawable)
-                XFreePixmap(QX11Info::display(), m_drawable);
+        if (m_drawable)
+            XFreePixmap(QX11Info::display(), m_drawable);
 
-            m_drawable = XCreatePixmap(QX11Info::display(), QX11Info::appRootWindow(), m_windowRect.width(), m_windowRect.height(), 
-                                       ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
-            QApplication::syncX(); // make sure that the server knows about the Drawable
-        }
+        m_drawable = XCreatePixmap(QX11Info::display(), QX11Info::appRootWindow(), m_windowRect.width(), m_windowRect.height(),
+                                   ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
+        QApplication::syncX(); // make sure that the server knows about the Drawable
     }
 
     // do not call setNPWindowIfNeeded immediately, will be called on paint()
@@ -172,7 +172,7 @@ void PluginView::updatePluginWidget()
     // (ii) if we are running layout tests from DRT, paint() won't ever get called
     // so we need to call setNPWindowIfNeeded() if window geometry has changed
     if (!m_windowRect.intersects(frameView->frameRect())
-        || (QWebPagePrivate::drtRun && platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect)))
+        || (s_isRunningUnderDRT && platformPluginWidget() && (m_windowRect != oldWindowRect || m_clipRect != oldClipRect)))
         setNPWindowIfNeeded();
 
     if (!m_platformLayer) {
@@ -189,7 +189,7 @@ void PluginView::setFocus(bool focused)
 {
     if (platformPluginWidget()) {
         if (focused)
-            platformPluginWidget()->setFocus(Qt::OtherFocusReason);
+            static_cast<QWidget*>(platformPluginWidget())->setFocus(Qt::OtherFocusReason);
     } else {
         Widget::setFocus(focused);
     }
@@ -206,71 +206,6 @@ void PluginView::hide()
     Q_ASSERT(platformPluginWidget() == platformWidget());
     Widget::hide();
 }
-
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-void PluginView::paintUsingImageSurfaceExtension(QPainter* painter, const IntRect& exposedRect)
-{
-    NPImageExpose imageExpose;
-    QPoint offset;
-    QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-    const bool surfaceHasUntransformedContents = client && qobject_cast<QWidget*>(client->pluginParent());
-
-    QPaintDevice* surface =  QPainter::redirected(painter->device(), &offset);
-
-    // If the surface is a QImage, we can render directly into it
-    if (surfaceHasUntransformedContents && surface && surface->devType() == QInternal::Image) {
-        QImage* image = static_cast<QImage*>(surface);
-        offset = -offset; // negating the offset gives us the offset of the view within the surface
-        imageExpose.data = reinterpret_cast<char*>(image->bits());
-        imageExpose.dataSize.width = image->width();
-        imageExpose.dataSize.height = image->height();
-        imageExpose.stride = image->bytesPerLine();
-        imageExpose.depth = image->depth(); // this is guaranteed to be 16 on Maemo5
-        imageExpose.translateX = offset.x() + m_windowRect.x();
-        imageExpose.translateY = offset.y() + m_windowRect.y();
-        imageExpose.scaleX = 1;
-        imageExpose.scaleY = 1;
-    } else {
-        if (m_isTransparent) {
-            // On Maemo5, Flash expects the buffer to contain the contents that are below it.
-            // We don't support transparency for non-raster graphicssystem, so clean the image 
-            // before giving to Flash.
-            QPainter imagePainter(&m_image);
-            imagePainter.fillRect(exposedRect, Qt::white);
-        }
-
-        imageExpose.data = reinterpret_cast<char*>(m_image.bits());
-        imageExpose.dataSize.width = m_image.width();
-        imageExpose.dataSize.height = m_image.height();
-        imageExpose.stride = m_image.bytesPerLine();
-        imageExpose.depth = m_image.depth();
-        imageExpose.translateX = 0;
-        imageExpose.translateY = 0;
-        imageExpose.scaleX = 1;
-        imageExpose.scaleY = 1;
-    }
-    imageExpose.x = exposedRect.x();
-    imageExpose.y = exposedRect.y();
-    imageExpose.width = exposedRect.width();
-    imageExpose.height = exposedRect.height();
-
-    XEvent xevent;
-    memset(&xevent, 0, sizeof(XEvent));
-    XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
-    exposeEvent.type = GraphicsExpose;
-    exposeEvent.display = 0;
-    exposeEvent.drawable = reinterpret_cast<XID>(&imageExpose);
-    exposeEvent.x = exposedRect.x();
-    exposeEvent.y = exposedRect.y();
-    exposeEvent.width = exposedRect.width();
-    exposeEvent.height = exposedRect.height();
-
-    dispatchNPEvent(xevent);
-
-    if (!surfaceHasUntransformedContents || !surface || surface->devType() != QInternal::Image)
-        painter->drawImage(QPoint(frameRect().x() + exposedRect.x(), frameRect().y() + exposedRect.y()), m_image, exposedRect);
-}
-#endif
 
 void PluginView::paintUsingXPixmap(QPainter* painter, const QRect &exposedRect)
 {
@@ -354,24 +289,13 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
         return;
 #endif
 
-    if (!m_drawable
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-        && m_image.isNull()
-#endif
-       )
+    if (!m_drawable)
         return;
 
     QPainter* painter = context->platformContext();
     IntRect exposedRect(rect);
     exposedRect.intersect(frameRect());
     exposedRect.move(-frameRect().x(), -frameRect().y());
-
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-    if (!m_image.isNull()) {
-        paintUsingImageSurfaceExtension(painter, exposedRect);
-        return;
-    }
-#endif
 
     painter->translate(frameRect().x(), frameRect().y());
     paintUsingXPixmap(painter, exposedRect);
@@ -384,14 +308,25 @@ bool PluginView::dispatchNPEvent(NPEvent& event)
     if (!m_plugin->pluginFuncs()->event)
         return false;
 
+    bool shouldPop = false;
+
+    if (m_plugin->pluginFuncs()->version < NPVERS_HAS_POPUPS_ENABLED_STATE
+        && (event.type == ButtonRelease || event.type == 3 /*KeyRelease*/)) {
+        pushPopupsEnabledState(true);
+        shouldPop = true;
+    }
+
     PluginView::setCurrentPluginView(this);
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif
     setCallingPlugin(true);
-    bool accepted = m_plugin->pluginFuncs()->event(m_instance, &event);
+    bool accepted = !m_plugin->pluginFuncs()->event(m_instance, &event);
     setCallingPlugin(false);
     PluginView::setCurrentPluginView(0);
+
+    if (shouldPop)
+        popPopupsEnabledState();
 
     return accepted;
 }
@@ -416,7 +351,7 @@ void PluginView::initXEvent(XEvent* xEvent)
     setSharedXEventFields(xEvent, ownerWidget);
 }
 
-void setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
+void PluginView::setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
 {
     const PlatformKeyboardEvent* keyEvent = event->keyEvent();
 
@@ -431,7 +366,7 @@ void setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
     // case fetch the XEvent's keycode from the event's text. The only
     // place this keycode will be used is in webkit_test_plugin_handle_event().
     // FIXME: Create Qt API so that we can set the appropriate keycode in DRT EventSender instead.
-    if (QWebPagePrivate::drtRun && !xEvent->xkey.keycode) {
+    if (s_isRunningUnderDRT && !xEvent->xkey.keycode) {
         QKeyEvent* qKeyEvent = keyEvent->qtEvent();
         ASSERT(qKeyEvent);
         QString keyText = qKeyEvent->text().left(1);
@@ -462,7 +397,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     initXEvent(&npEvent);
     setXKeyEventSpecificFields(&npEvent, event);
 
-    if (!dispatchNPEvent(npEvent))
+    if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
@@ -571,7 +506,7 @@ void PluginView::handleMouseEvent(MouseEvent* event)
     else
         return;
 
-    if (!dispatchNPEvent(npEvent))
+    if (dispatchNPEvent(npEvent))
         event->setDefaultHandled();
 }
 
@@ -637,7 +572,8 @@ void PluginView::setNPWindowIfNeeded()
     m_hasPendingGeometryChange = false;
 
     if (m_isWindowed) {
-        platformPluginWidget()->setGeometry(m_windowRect);
+        QWidget* widget = static_cast<QWidget*>(platformPluginWidget());
+        widget->setGeometry(m_windowRect);
 
         // Cut out areas of the plugin occluded by iframe shims
         Vector<IntRect> cutOutRects;
@@ -649,8 +585,8 @@ void PluginView::setNPWindowIfNeeded()
         }
         // if setMask is set with an empty QRegion, no clipping will
         // be performed, so in that case we hide the plugin view
-        platformPluginWidget()->setVisible(!clipRegion.isEmpty());
-        platformPluginWidget()->setMask(clipRegion);
+        widget->setVisible(!clipRegion.isEmpty());
+        widget->setMask(clipRegion);
 
         m_npWindow.x = m_windowRect.x();
         m_npWindow.y = m_windowRect.y();
@@ -704,7 +640,7 @@ void PluginView::setParentVisible(bool visible)
     Widget::setParentVisible(visible);
 
     if (isSelfVisible() && platformPluginWidget())
-        platformPluginWidget()->setVisible(visible);
+        static_cast<QWidget*>(platformPluginWidget())->setVisible(visible);
 }
 
 NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
@@ -755,13 +691,6 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
         *static_cast<NPBool*>(value) = true;
         *result = NPERR_NO_ERROR;
         return true;
-
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
-    case NPNVSupportsWindowlessLocal:
-        *static_cast<NPBool*>(value) = true;
-        *result = NPERR_NO_ERROR;
-        return true;
-#endif
 
     default:
         return false;
@@ -814,8 +743,9 @@ void PluginView::invalidateRect(const IntRect& rect)
         if (platformWidget()) {
             // update() will schedule a repaint of the widget so ensure
             // its knowledge of its position on the page is up to date.
-            platformWidget()->setGeometry(m_windowRect);
-            platformWidget()->update(rect);
+            QWidget* w = static_cast<QWidget*>(platformWidget());
+            w->setGeometry(m_windowRect);
+            w->update(rect);
         }
         return;
     }
@@ -854,6 +784,11 @@ static Display *getPluginDisplay()
     if (!library.load())
         return 0;
 
+    typedef void *(*gdk_init_check_ptr)(void*, void*);
+    gdk_init_check_ptr gdk_init_check = (gdk_init_check_ptr)library.resolve("gdk_init_check");
+    if (!gdk_init_check)
+        return 0;
+
     typedef void *(*gdk_display_get_default_ptr)();
     gdk_display_get_default_ptr gdk_display_get_default = (gdk_display_get_default_ptr)library.resolve("gdk_display_get_default");
     if (!gdk_display_get_default)
@@ -864,6 +799,7 @@ static Display *getPluginDisplay()
     if (!gdk_x11_display_get_xdisplay)
         return 0;
 
+    gdk_init_check(0, 0);
     return (Display*)gdk_x11_display_get_xdisplay(gdk_display_get_default());
 }
 
@@ -942,9 +878,7 @@ bool PluginView::platformStart()
         m_pluginDisplay = getPluginDisplay();
 
 #if USE(ACCELERATED_COMPOSITING) && !USE(TEXTURE_MAPPER)
-        if (m_parentFrame->page()->chrome()->client()->allowsAcceleratedCompositing()
-            && m_parentFrame->page()->settings() 
-            && m_parentFrame->page()->settings()->acceleratedCompositingEnabled()) {
+        if (shouldUseAcceleratedCompositing()) {
             m_platformLayer = adoptPtr(new PluginGraphicsLayerQt(this));
             // Trigger layer computation in RenderLayerCompositor
             m_element->setNeedsStyleRecalc(SyntheticStyleChange);
@@ -960,7 +894,7 @@ bool PluginView::platformStart()
     wsi->type = 0;
 
     if (m_isWindowed) {
-        const QX11Info* x11Info = &platformPluginWidget()->x11Info();
+        const QX11Info* x11Info = &static_cast<QWidget*>(platformPluginWidget())->x11Info();
 
         wsi->display = x11Info->display();
         wsi->visual = (Visual*)x11Info->visual();
@@ -968,7 +902,7 @@ bool PluginView::platformStart()
         wsi->colormap = x11Info->colormap();
 
         m_npWindow.type = NPWindowTypeWindow;
-        m_npWindow.window = (void*)platformPluginWidget()->winId();
+        m_npWindow.window = (void*)static_cast<QWidget*>(platformPluginWidget())->winId();
         m_npWindow.width = -1;
         m_npWindow.height = -1;
     } else {
@@ -1018,14 +952,6 @@ void PluginView::platformDestroy()
         XFreeColormap(QX11Info::display(), m_colormap);
 }
 
-void PluginView::halt()
-{
-}
-
-void PluginView::restart()
-{
-}
- 
 #if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* PluginView::platformLayer() const
 {

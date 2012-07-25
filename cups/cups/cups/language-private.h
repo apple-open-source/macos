@@ -1,5 +1,5 @@
 /*
- * "$Id: language-private.h 9382 2010-11-20 01:03:46Z mike $"
+ * "$Id$"
  *
  *   Private localization support for CUPS.
  *
@@ -62,21 +62,16 @@ extern void		_cupsLangPrintError(const char *prefix,
 			                    const char *message);
 extern int		_cupsLangPrintFilter(FILE *fp, const char *prefix,
 			                     const char *message, ...)
-#  ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 3, 4)))
-#  endif /* __GNUC__ */
-;
+			__attribute__ ((__format__ (__printf__, 3, 4)));
 extern int		_cupsLangPrintf(FILE *fp, const char *message, ...)
-#  ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 2, 3)))
-#  endif /* __GNUC__ */
-;
+			__attribute__ ((__format__ (__printf__, 2, 3)));
 extern int		_cupsLangPuts(FILE *fp, const char *message);
 extern const char	*_cupsLangString(cups_lang_t *lang,
 			                 const char *message);
 extern void		_cupsMessageFree(cups_array_t *a);
 extern cups_array_t	*_cupsMessageLoad(const char *filename, int unquote);
 extern const char	*_cupsMessageLookup(cups_array_t *a, const char *m);
+extern cups_array_t	*_cupsMessageNew(void *context);
 extern void		_cupsSetLocale(char *argv[]);
 
 
@@ -87,5 +82,5 @@ extern void		_cupsSetLocale(char *argv[]);
 #endif /* !_CUPS_LANGUAGE_PRIVATE_H_ */
 
 /*
- * End of "$Id: language-private.h 9382 2010-11-20 01:03:46Z mike $".
+ * End of "$Id$".
  */

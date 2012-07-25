@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,14 +35,16 @@
 
 __BEGIN_DECLS
 
+CF_RETURNS_RETAINED
 CFStringRef		_interface_description	(SCNetworkInterfaceRef interface);
+
 SCNetworkInterfaceRef	_find_interface		(int argc, char **argv, int *nArgs);
 
-void	create_interface	(int argc, char **argv);
-void	select_interface	(int argc, char **argv);
-void	set_interface		(int argc, char **argv);
-void	show_interface		(int argc, char **argv);
-void	show_interfaces		(int argc, char **argv);
+void			create_interface	(int argc, char **argv);
+void			select_interface	(int argc, char **argv);
+void			set_interface		(int argc, char **argv);
+void			show_interface		(int argc, char **argv);
+void			show_interfaces		(int argc, char **argv);
 
 __END_DECLS
 

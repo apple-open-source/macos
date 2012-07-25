@@ -60,6 +60,12 @@ PassRefPtr<ScriptProfileNode> ScriptProfile::head() const
     return ScriptProfileNode::create(m_profile->GetTopDownRoot());
 }
 
+PassRefPtr<ScriptProfileNode> ScriptProfile::bottomUpHead() const
+{
+    return ScriptProfileNode::create(m_profile->GetBottomUpRoot());
+}
+
+#if ENABLE(INSPECTOR)
 static PassRefPtr<InspectorObject> buildInspectorObjectFor(const v8::CpuProfileNode* node)
 {
     v8::HandleScope handleScope;
@@ -87,5 +93,11 @@ PassRefPtr<InspectorObject> ScriptProfile::buildInspectorObjectForHead() const
 {
     return buildInspectorObjectFor(m_profile->GetTopDownRoot());
 }
+
+PassRefPtr<InspectorObject> ScriptProfile::buildInspectorObjectForBottomUpHead() const
+{
+    return buildInspectorObjectFor(m_profile->GetBottomUpRoot());
+}
+#endif
 
 } // namespace WebCore

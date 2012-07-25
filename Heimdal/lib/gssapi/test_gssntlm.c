@@ -134,7 +134,10 @@ test_libntlm_v1(const char *test_name, int flags,
     memset(&type2, 0, sizeof(type2));
     memset(&type3, 0, sizeof(type3));
 
-    type1.flags = NTLM_NEG_UNICODE|NTLM_NEG_TARGET|NTLM_NEG_NTLM|NTLM_NEG_VERSION|flags;
+    type1.flags = 
+	NTLM_NEG_UNICODE|NTLM_NEG_TARGET|
+	NTLM_NEG_NTLM|NTLM_NEG_VERSION|
+	flags;
     type1.domain = strdup(domain);
     type1.hostname = NULL;
     type1.os[0] = 0;
@@ -186,7 +189,7 @@ test_libntlm_v1(const char *test_name, int flags,
 
     gss_release_buffer(&min_stat, &output);
 
-    type3.flags = type2.flags;
+    type3.flags = type1.flags & type2.flags;
     type3.username = rk_UNCONST(user);
     if (use_server_domain)
 	type3.targetname = type2.targetname;
@@ -206,7 +209,7 @@ test_libntlm_v1(const char *test_name, int flags,
 	heim_ntlm_v1_base_session(key.data, key.length, &tempsession);
 	heim_ntlm_free_buf(&key);
 
-	if (type2.flags & NTLM_NEG_KEYEX) {
+	if (type3.flags & NTLM_NEG_KEYEX) {
 	    heim_ntlm_keyex_wrap(&tempsession, &sessionkey, &type3.sessionkey);
 	    heim_ntlm_free_buf(&tempsession);
 	} else {
@@ -354,7 +357,7 @@ test_libntlm_v2(const char *test_name, int flags,
 	warnx("no targetinfo");
     }
 
-    type3.flags = type2.flags;
+    type3.flags = type1.flags & type2.flags;
     type3.username = rk_UNCONST(user);
     if (use_server_domain)
 	type3.targetname = type2.targetname;
@@ -395,7 +398,7 @@ test_libntlm_v2(const char *test_name, int flags,
 				  &tempsession);
 	heim_ntlm_free_buf(&key);
 
-	if (type2.flags & NTLM_NEG_KEYEX) {
+	if (type3.flags & NTLM_NEG_KEYEX) {
 	    heim_ntlm_keyex_wrap(&tempsession, &sessionkey, &type3.sessionkey);
 	    heim_ntlm_free_buf(&tempsession);
 	} else {
@@ -480,11 +483,11 @@ usage (int ret)
 int
 main(int argc, char **argv)
 {
-    int ret = 0, optind = 0;
+    int ret = 0, optidx = 0;
 
     setprogname(argv[0]);
 
-    if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optind))
+    if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optidx))
 	usage(1);
 
     if (help_flag)

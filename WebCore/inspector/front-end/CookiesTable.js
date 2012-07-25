@@ -28,8 +28,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.CookiesTable = function(cookieDomain, expandable, deleteCallback)
+/**
+ * @constructor
+ * @extends {WebInspector.View}
+ * @param {function(PageAgent.Cookie)=} deleteCallback
+ * @param {function()=} refreshCallback
+ */
+WebInspector.CookiesTable = function(cookieDomain, expandable, deleteCallback, refreshCallback)
 {
+    WebInspector.View.call(this);
+    this.element.className = "fill";
+
     this._cookieDomain = cookieDomain;
 
     var columns = { 0: {}, 1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {} };
@@ -62,12 +71,12 @@ WebInspector.CookiesTable = function(cookieDomain, expandable, deleteCallback)
     columns[7].sortable = true;
     columns[7].width = "7%";
 
-    this._dataGrid = new WebInspector.DataGrid(columns, null, deleteCallback ? this._onDeleteFromGrid.bind(this) : null);
+    this._dataGrid = new WebInspector.DataGrid(columns, undefined, deleteCallback ? this._onDeleteFromGrid.bind(this, deleteCallback) : undefined);
     this._dataGrid.addEventListener("sorting changed", this._rebuildTable, this);
+    this._dataGrid.refreshCallback = refreshCallback;
 
-    this.element = this._dataGrid.element;
+    this._dataGrid.show(this.element);
     this._data = [];
-    this._deleteCallback = deleteCallback;
 }
 
 WebInspector.CookiesTable.prototype = {
@@ -97,22 +106,26 @@ WebInspector.CookiesTable.prototype = {
 
     _rebuildTable: function()
     {
-        this._dataGrid.removeChildren();
+        this._dataGrid.rootNode().removeChildren();
         for (var i = 0; i < this._data.length; ++i) {
             var item = this._data[i];
             if (item.folderName) {
                 var groupData = [ item.folderName, "", "", "", "", this._totalSize(item.cookies), "", "" ];
                 var groupNode = new WebInspector.DataGridNode(groupData);
                 groupNode.selectable = true;
-                this._dataGrid.appendChild(groupNode);
+                this._dataGrid.rootNode().appendChild(groupNode);
                 groupNode.element.addStyleClass("row-group");
                 this._populateNode(groupNode, item.cookies);
                 groupNode.expand();
             } else
-                this._populateNode(this._dataGrid, item.cookies);
+                this._populateNode(this._dataGrid.rootNode(), item.cookies);
         }
     },
 
+    /**
+     * @param {WebInspector.DataGridNode} parentNode
+     * @param {Array.<PageAgent.Cookie>} cookies
+     */
     _populateNode: function(parentNode, cookies)
     {
         var selectedCookie = this.selectedCookie;
@@ -163,7 +176,7 @@ WebInspector.CookiesTable.prototype = {
         }
 
         var comparator;
-        switch (parseInt(this._dataGrid.sortColumnIdentifier)) {
+        switch (parseInt(this._dataGrid.sortColumnIdentifier, 10)) {
             case 0: comparator = localeCompare.bind(this, "name"); break;
             case 1: comparator = localeCompare.bind(this, "value"); break;
             case 2: comparator = localeCompare.bind(this, "domain"); break;
@@ -178,6 +191,9 @@ WebInspector.CookiesTable.prototype = {
         cookies.sort(comparator);
     },
 
+    /**
+     * @param {PageAgent.Cookie} cookie
+     */
     _createGridNode: function(cookie)
     {
         var data = {};
@@ -198,8 +214,10 @@ WebInspector.CookiesTable.prototype = {
         return node;
     },
 
-    _onDeleteFromGrid: function(node)
+    _onDeleteFromGrid: function(deleteCallback, node)
     {
-        this._deleteCallback(node.cookie);
+        deleteCallback(node.cookie);
     }
 }
+
+WebInspector.CookiesTable.prototype.__proto__ = WebInspector.View.prototype;

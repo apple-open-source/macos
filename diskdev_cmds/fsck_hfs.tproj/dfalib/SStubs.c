@@ -118,9 +118,6 @@ Handle NewHandle(Size byteCount)
 	Handle h;
 	Ptr p = NULL;
 
-	if (byteCount < 0)
-		return NULL;
-		
 	if (!(h = malloc(sizeof(Ptr) + sizeof(Size))))
 		return NULL;
 		
@@ -157,7 +154,7 @@ void SetHandleSize(Handle h, Size newSize)
 {
 	Ptr p = NULL;
 
-	if (!h || newSize < 0)
+	if (!h)
 		return;
 
 	if ((p = realloc(*h, newSize)))

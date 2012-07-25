@@ -36,10 +36,13 @@ private:
     HTMLSummaryElement(const QualifiedName&, Document*);
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual bool childShouldCreateRenderer(const NodeRenderingContext&) const OVERRIDE;
     virtual void defaultEventHandler(Event*);
 
     void createShadowSubtree();
     HTMLDetailsElement* detailsElement() const;
+
+    bool supportsFocus() const OVERRIDE;
 };
 
 }

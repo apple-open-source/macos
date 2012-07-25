@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
-  <xsl:output method="xml" encoding="ISO-8859-1" indent="yes"
+  <xsl:output method="xml" encoding="UTF-8" indent="yes"
       doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
       doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
 
@@ -397,7 +397,7 @@
       <li><a href="http://www.aleksey.com/xmlsec/">XML-DSig xmlsec</a></li>
       <li><a href="ftp://xmlsoft.org/">FTP</a></li>
       <li><a href="http://www.zlatkovic.com/projects/libxml/">Windows binaries</a></li>
-      <li><a href="http://www.blastwave.org/packages.php/libxml2">Solaris binaries</a></li>
+      <li><a href="http://opencsw.org/packages/libxml2">Solaris binaries</a></li>
       <li><a href="http://www.explain.com.au/oss/libxml2xslt.html">MacOsX binaries</a></li>
       <li><a href="http://codespeak.net/lxml/">lxml Python bindings</a></li>
       <li><a href="http://cpan.uwinnipeg.ca/dist/XML-LibXML">Perl bindings</a></li>
@@ -606,7 +606,7 @@ A:link, A:visited, A:active { text-decoration: underline }
     <xsl:variable name="title">
       <xsl:value-of select="$header"/>
     </xsl:variable>
-    <xsl:document href="{$filename}" method="xml" encoding="ISO-8859-1"
+    <xsl:document href="{$filename}" method="xml" encoding="UTF-8"
       doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
       doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
       <html>

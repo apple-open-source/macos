@@ -30,7 +30,7 @@
 #include "WebDatabaseManager.h"
 #include "WebKitDLL.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #include "CFDictionaryPropertyBag.h"
 #include "COMEnumVariant.h"
@@ -38,12 +38,12 @@
 #include "WebNotificationCenter.h"
 #include "WebSecurityOrigin.h"
 
-#include <JavaScriptCore/MainThread.h>
 #include <WebCore/BString.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/DatabaseTracker.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/SecurityOrigin.h>
+#include <wtf/MainThread.h>
 
 using namespace WebCore;
 
@@ -223,7 +223,7 @@ HRESULT STDMETHODCALLTYPE WebDatabaseManager::origins(
     DatabaseTracker::tracker().origins(origins);
         COMPtr<COMEnumVariant<Vector<RefPtr<SecurityOrigin> > > > enumVariant(AdoptCOM, COMEnumVariant<Vector<RefPtr<SecurityOrigin> > >::adopt(origins));
 
-    *result = enumVariant.releaseRef();
+    *result = enumVariant.leakRef();
     return S_OK;
 }
     
@@ -248,7 +248,7 @@ HRESULT STDMETHODCALLTYPE WebDatabaseManager::databasesWithOrigin(
 
     COMPtr<COMEnumVariant<Vector<String> > > enumVariant(AdoptCOM, COMEnumVariant<Vector<String> >::adopt(databaseNames));
 
-    *result = enumVariant.releaseRef();
+    *result = enumVariant.leakRef();
     return S_OK;
 }
 

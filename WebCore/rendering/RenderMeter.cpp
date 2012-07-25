@@ -27,7 +27,6 @@
 #include "HTMLMeterElement.h"
 #include "HTMLNames.h"
 #include "RenderTheme.h"
-#include "ShadowElement.h"
 
 using namespace std;
 
@@ -47,18 +46,23 @@ RenderMeter::~RenderMeter()
 void RenderMeter::computeLogicalWidth()
 {
     RenderBox::computeLogicalWidth();
-    setWidth(theme()->meterSizeForBounds(this, frameRect()).width());
+    setWidth(theme()->meterSizeForBounds(this, pixelSnappedIntRect(frameRect())).width());
 }
 
 void RenderMeter::computeLogicalHeight()
 {
     RenderBox::computeLogicalHeight();
-    setHeight(theme()->meterSizeForBounds(this, frameRect()).height());
+    setHeight(theme()->meterSizeForBounds(this, pixelSnappedIntRect(frameRect())).height());
 }
 
 double RenderMeter::valueRatio() const
 {
     return static_cast<HTMLMeterElement*>(node())->valueRatio();
+}
+
+void RenderMeter::updateFromElement()
+{
+    repaint();
 }
 
 } // namespace WebCore

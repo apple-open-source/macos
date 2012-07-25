@@ -39,6 +39,14 @@
 #include <wtf/MathExtras.h>
 #include <wtf/RetainPtr.h>
 
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM)
+#include "WebCoreSystemInterface.h"
+#endif
+
+#if PLATFORM(WIN)
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
+#endif
+
 namespace WebCore {
 
 static size_t putBytesNowhere(void*, const void*, size_t count)
@@ -124,7 +132,7 @@ static CGMutablePathRef copyCGPathClosingSubpaths(CGPathRef originalPath)
 
 bool Path::contains(const FloatPoint &point, WindRule rule) const
 {
-    if (!boundingRect().contains(point))
+    if (!fastBoundingRect().contains(point))
         return false;
 
     // CGPathContainsPoint returns false for non-closed paths, as a work-around, we copy and close the path first.  Radar 4758998 asks for a better CG API to use
@@ -163,7 +171,22 @@ void Path::translate(const FloatSize& size)
 
 FloatRect Path::boundingRect() const
 {
-    return CGPathGetBoundingBox(m_path);
+    // CGPathGetBoundingBox includes the path's control points, CGPathGetPathBoundingBox
+    // does not, but only exists on 10.6 and above.
+
+    CGRect bound = CGRectZero;
+#if !defined(BUILDING_ON_LEOPARD)
+    bound = CGPathGetPathBoundingBox(m_path);
+#else
+    bound = CGPathGetBoundingBox(m_path);
+#endif
+    return CGRectIsNull(bound) ? CGRectZero : bound;
+}
+
+FloatRect Path::fastBoundingRect() const
+{
+    CGRect bound = CGPathGetBoundingBox(m_path);
+    return CGRectIsNull(bound) ? CGRectZero : bound;
 }
 
 FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
@@ -183,7 +206,7 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
     CGRect box = CGContextIsPathEmpty(context) ? CGRectZero : CGContextGetPathBoundingBox(context);
     CGContextRestoreGState(context);
 
-    return box;
+    return CGRectIsNull(box) ? CGRectZero : box;
 }
 
 void Path::moveTo(const FloatPoint& point)
@@ -209,6 +232,21 @@ void Path::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const 
 void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
     CGPathAddArcToPoint(m_path, 0, p1.x(), p1.y(), p2.x(), p2.y(), radius);
+}
+
+void Path::platformAddPathForRoundedRect(const FloatRect& rect, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius)
+{
+#if PLATFORM(MAC) && (!defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD))
+    bool equalWidths = (topLeftRadius.width() == topRightRadius.width() && topRightRadius.width() == bottomLeftRadius.width() && bottomLeftRadius.width() == bottomRightRadius.width());
+    bool equalHeights = (topLeftRadius.height() == bottomLeftRadius.height() && bottomLeftRadius.height() == topRightRadius.height() && topRightRadius.height() == bottomRightRadius.height());
+
+    if (equalWidths && equalHeights) {
+        wkCGPathAddRoundedRect(m_path, 0, rect, topLeftRadius.width(), topLeftRadius.height());
+        return;
+    }
+#endif
+
+    addBeziersForRoundedRect(rect, topLeftRadius, topRightRadius, bottomLeftRadius, bottomRightRadius);
 }
 
 void Path::closeSubpath()

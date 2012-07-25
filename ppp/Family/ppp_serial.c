@@ -597,6 +597,7 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
 {
     struct pppserial 	*ld;
     int error = ENOTTY;
+    u_int32_t aligned_data;         // Wcast-align fix
 
     /*
         return -1 is the ioctl is ignored by the line discipline, 
@@ -637,7 +638,8 @@ int pppserial_ioctl(struct tty *tp, u_long cmd, caddr_t data, int flag, struct p
             if (!ld) {
                 error = ENXIO;	// can it happen ?
             } else {
-                *(u_int32_t *)data = ld->link.lk_index;
+                aligned_data = ld->link.lk_index;
+                memcpy(data, &aligned_data, sizeof(u_int32_t));     // Wcast-align fix - memcpy for unaligned move of u_int16_t to u_int32_t
                 error = 0;
             }
             break;

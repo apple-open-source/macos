@@ -107,4 +107,4 @@ boolean_t	NBImageEntry_attributes_match(NBImageEntryRef entry,
 					      const u_int16_t * attrs,
 					      int n_attrs);
 
-#endif _S_NBIMAGES_H
+#endif /* _S_NBIMAGES_H */

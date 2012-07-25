@@ -6,6 +6,9 @@
 /* SYNOPSIS
 /*	#include "smtpd_sasl_glue.h"
 /*
+/*	void	smtpd_sasl_state_init(state)
+/*	SMTPD_STATE *state;
+/*
 /*	void    smtpd_sasl_initialize()
 /*
 /*	void	smtpd_sasl_activate(state, sasl_opts_name, sasl_opts_val)
@@ -21,6 +24,11 @@
 /*	void	smtpd_sasl_logout(state)
 /*	SMTPD_STATE *state;
 /*
+/*	void	smtpd_sasl_login(state, sasl_username, sasl_method)
+/*	SMTPD_STATE *state;
+/*	const char *sasl_username;
+/*	const char *sasl_method;
+/*
 /*	void	smtpd_sasl_deactivate(state)
 /*	SMTPD_STATE *state;
 /*
@@ -32,6 +40,11 @@
 /* DESCRIPTION
 /*	This module encapsulates most of the detail specific to SASL
 /*	authentication.
+/*
+/*	smtpd_sasl_state_init() performs minimal server state
+/*	initialization to support external authentication (e.g.,
+/*	XCLIENT) without having to enable SASL in main.cf. This
+/*	should always be called at process startup.
 /*
 /*	smtpd_sasl_initialize() initializes the SASL library. This
 /*	routine should be called once at process start-up. It may
@@ -57,6 +70,10 @@
 /*	This member is a null pointer in the absence of successful
 /*	authentication.
 /* .PP
+/*	smtpd_sasl_login() records the result of successful external
+/*	authentication, i.e. without invoking smtpd_sasl_authenticate(),
+/*	but produces an otherwise equivalent result.
+/*
 /*	smtpd_sasl_logout() cleans up after smtpd_sasl_authenticate().
 /*	This routine exists for the sake of symmetry.
 /*
@@ -109,6 +126,11 @@
 #include <syslog.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/param.h>
+#include <get_hostname.h>
+
+#include "aod.h"
+#include "base64_code.h"
 #endif /* __APPLE_OS_X_SERVER__ */
 
 /* Utility library. */
@@ -133,28 +155,21 @@
 
 #ifdef __APPLE_OS_X_SERVER__
 /* Apple Open Directory */
-
 #include <OpenDirectory/OpenDirectory.h>
-#include <OpenDirectory/OpenDirectoryPriv.h>
-#include <DirectoryService/DirServicesTypes.h>
-
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesUtils.h>
 #include <DirectoryService/DirServicesConst.h>
 
+/* Core Foundation (CF) */
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFString.h>
-#include <CoreFoundation/CFNumber.h>
-#include <CoreFoundation/CFPropertyList.h>
 
 /* kerberos */
-//#include <Kerberos/Kerberos.h>
 #include <Kerberos/gssapi_krb5.h>
-//#include <Kerberos/gssapi.h>
 
 /* mach */
-
 #include <mach/boolean.h>
+
+/* system config */
+#include <SystemConfiguration/SystemConfiguration.h>
 #endif /* __APPLE_OS_X_SERVER__ */
 
 #ifdef USE_SASL_AUTH
@@ -173,18 +188,20 @@ static XSASL_SERVER_IMPL *smtpd_sasl_impl;
 
 /* Apple's Password Server */
 static NAME_MASK smtpd_pw_server_mask[] = {
-    "none",     PW_SERVER_NONE,
-    "login",    PW_SERVER_LOGIN,
-    "plain",    PW_SERVER_PLAIN,
-    "cram-md5", PW_SERVER_CRAM_MD5,
-    "gssapi",   PW_SERVER_GSSAPI,
-    0,
+	"none",       PW_SERVER_NONE,
+	"login",      PW_SERVER_LOGIN,
+	"plain",      PW_SERVER_PLAIN,
+	"cram-md5",   PW_SERVER_DIGEST_MD5,
+	"digest-md5", PW_SERVER_CRAM_MD5,
+	"gssapi",     PW_SERVER_GSSAPI,
+	0,
 };
 
 ODSessionRef		od_session_ref;
 ODNodeRef			od_node_ref;
 
-#define CFRelease_and_null(obj)	do { CFRelease(obj); obj = NULL; } while (0)
+#define CFSafeRelease(obj) do { if ((obj) != NULL) CFRelease((obj)); obj = NULL; } while (0)
+
 #endif /* __APPLE_OS_X_SERVER__ */
 
 /* smtpd_sasl_initialize - per-process initialization */
@@ -238,9 +255,6 @@ void    smtpd_sasl_activate(SMTPD_STATE *state, const char *sasl_opts_name,
      */
     state->sasl_reply = vstring_alloc(20);
     state->sasl_mechanism_list = 0;
-    state->sasl_username = 0;
-    state->sasl_method = 0;
-    state->sasl_sender = 0;
 
     /*
      * Set up a new server context for this connection.
@@ -261,7 +275,7 @@ void    smtpd_sasl_activate(SMTPD_STATE *state, const char *sasl_opts_name,
 			     client_addr = ADDR_OR_EMPTY(state->addr,
 						       CLIENT_ADDR_UNKNOWN),
 			     service = SMTPD_SASL_SERVICE,
-			     user_realm = REALM_OR_NULL(var_smtpd_sasl_realm),
+			   user_realm = REALM_OR_NULL(var_smtpd_sasl_realm),
 			     security_options = sasl_opts_val,
 			     tls_flag = tls_flag)) == 0)
 	msg_fatal("SASL per-connection initialization failed");
@@ -273,6 +287,16 @@ void    smtpd_sasl_activate(SMTPD_STATE *state, const char *sasl_opts_name,
 	 xsasl_server_get_mechanism_list(state->sasl_server)) == 0)
 	msg_fatal("no SASL authentication mechanisms");
     state->sasl_mechanism_list = mystrdup(mechanism_list);
+}
+
+/* smtpd_sasl_state_init - initialize state to allow extern authentication. */
+
+void    smtpd_sasl_state_init(SMTPD_STATE *state)
+{
+    /* Initialization to support external authentication (e.g., XCLIENT). */
+    state->sasl_username = 0;
+    state->sasl_method = 0;
+    state->sasl_sender = 0;
 }
 
 /* smtpd_sasl_deactivate - per-connection cleanup */
@@ -379,72 +403,133 @@ void    smtpd_sasl_logout(SMTPD_STATE *state)
     }
 }
 
+/* smtpd_sasl_login - set login information */
+
+void    smtpd_sasl_login(SMTPD_STATE *state, const char *sasl_username,
+			         const char *sasl_method)
+{
+    if (state->sasl_username)
+	myfree(state->sasl_username);
+    state->sasl_username = mystrdup(sasl_username);
+    if (state->sasl_method)
+	myfree(state->sasl_method);
+    state->sasl_method = mystrdup(sasl_method);
+}
+
 #ifdef __APPLE_OS_X_SERVER__
 /* -----------------------------------------------------------------
-	- Password Server auth methods
-   ----------------------------------------------------------------- */
+ *	- Password Server auth methods
+ */
 
-#include <sys/param.h>
-#include "base64_code.h"
-#include "aod.h"
-
-static bool			od_open					( void );
-static int			od_do_clear_text_auth	( const char *in_user, const char *in_passwd );
-static int			od_validate_response	( const char *in_user, const char *in_chal, const char *in_resp, const char *in_auth_type );
-static ODRecordRef	od_get_user_record		( const char *in_user );
-static void			print_cf_error			( CFErrorRef in_cf_err_ref, const char *in_user_name, const char *in_default_str );
-static char		   *do_auth_login			( SMTPD_STATE *state, const char *in_method );
-static char		   *do_auth_plain			( SMTPD_STATE *state, const char *in_method, const char *in_resp );
-static char		   *do_auth_cram_md5		( SMTPD_STATE *state, const char *in_method );
+static char	*auth_login( SMTPD_STATE *state, const char *in_method );
+static char	*auth_plain( SMTPD_STATE *state, const char *in_method, const char *in_resp );
+static char	*auth_cram_md5( SMTPD_STATE *state, const char *in_method );
+static char	*auth_digest_md5( SMTPD_STATE *state, const char *in_method );
 
 /* -----------------------------------------------------------------
-	- smtpd_pw_server_authenticate
-   ----------------------------------------------------------------- */
+ *	smtpd_pw_server_authenticate()
+ */
 
 char *smtpd_pw_server_authenticate ( SMTPD_STATE *state, const char *in_method, const char *in_resp )
 {
-    char *myname = "smtpd_pw_server_authenticate";
+	char *myname = "smtpd_pw_server_authenticate";
 
 	/*** Sanity check ***/
-    if ( state->sasl_username || state->sasl_method )
+	if ( state->sasl_username || state->sasl_method )
 		msg_panic( "%s: already authenticated", myname );
 
 	if ( strcasecmp( in_method, "LOGIN" ) == 0 )
-		return( do_auth_login( state, in_method ) );
+		return( auth_login( state, in_method ) );
 	else if ( strcasecmp( in_method, "PLAIN" ) == 0 )
-		return( do_auth_plain( state, in_method, in_resp ) );
+		return( auth_plain( state, in_method, in_resp ) );
 	else if ( strcasecmp( in_method, "CRAM-MD5" ) == 0 )
-		return( do_auth_cram_md5( state, in_method ) );
+		return( auth_cram_md5( state, in_method ) );
+	else if ( strcasecmp( in_method, "DIGEST-MD5" ) == 0 )
+		return( auth_digest_md5( state, in_method ) );
 
-	msg_error( "Authentication method: %s is not supported", in_method );
+	msg_error( "authentication method: %s is not supported", in_method );
 	return ( "504 Unsupported authentication method" );
-
 } /* smtpd_pw_server_authenticate */
 
-
 /* ------------------------------------------------------------------
-	- print_cf_error ()
-   ------------------------------------------------------------------ */
+ *	print_cf_error()
+ */
 
-static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_user_name, const char *in_default_str )
+static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_tag )
 {
-	char c_str[1024 + 1];
+	if ( !in_cf_err_ref )
+		return;
 
-	if ( in_cf_err_ref != NULL ) {
-		CFStringRef cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
-		if ( cf_str_ref != NULL ) {
-			CFStringGetCString( cf_str_ref, c_str, 1024, kCFStringEncodingUTF8 );
+	CFStringRef cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
+	if ( cf_str_ref ) {
+		char c_str[1025];
+		CFStringGetCString( cf_str_ref, c_str, 1024, kCFStringEncodingUTF8 );
 
-			msg_error( "CF: user %s: %s", in_user_name, c_str );
-			return;
-		}
+		msg_error( "%s: error: %s", in_tag, c_str );
+		return;
 	}
-	msg_error( "user %s: %s", in_user_name, in_default_str );
 } /* print_cf_error */
 
 /* ------------------------------------------------------------------
-	- validate_digest ()
-   ------------------------------------------------------------------ */
+ *	od_open()
+ */
+
+bool od_open ( void )
+{
+	CFErrorRef cf_err_ref = NULL;
+	od_session_ref = ODSessionCreate( kCFAllocatorDefault, NULL, &cf_err_ref );
+	if ( !od_session_ref ) {
+		print_cf_error( cf_err_ref, "initialize Open Directory" );
+		msg_error( "init Open Directory: unable to create OD session" );
+		CFSafeRelease(cf_err_ref);
+		return( FALSE );
+	}
+
+	od_node_ref = ODNodeCreateWithNodeType( kCFAllocatorDefault, od_session_ref, kODNodeTypeAuthentication, &cf_err_ref );
+	if ( !od_session_ref ) {
+		print_cf_error( cf_err_ref, "init Open Directory" );
+		msg_error( "init Open Directory: unable to create OD node reference" );
+		CFSafeRelease(cf_err_ref);
+		CFSafeRelease( od_session_ref );
+		return( FALSE );
+	}
+
+	CFRetain( od_session_ref );
+	CFRetain( od_node_ref );
+
+	return( TRUE );
+} /* od_open */
+
+/* ------------------------------------------------------------------
+ *	od_get_user_record()
+ */
+
+static ODRecordRef od_get_user_record ( const char *in_user )
+{
+	CFStringRef cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
+	if ( cf_str_user == NULL ) {
+		msg_error( "user lookup: memory allocation error" );
+		return( NULL );
+	}
+
+	CFErrorRef cf_err_ref = NULL;
+	CFTypeRef cf_type_val[] = { CFSTR(kDSAttributesStandardAll) };
+	CFArrayRef cf_arry_attr = CFArrayCreate( NULL, cf_type_val, 1, &kCFTypeArrayCallBacks );
+	ODRecordRef od_rec_ref = ODNodeCopyRecord( od_node_ref, CFSTR(kDSStdRecordTypeUsers), cf_str_user, cf_arry_attr, &cf_err_ref );
+	if ( !od_rec_ref ) {
+		print_cf_error( cf_err_ref, "get user record" );
+		msg_error( "get user record: unable to open user record for user=%s", in_user );
+	}
+
+	CFSafeRelease( cf_str_user );
+	CFSafeRelease( cf_arry_attr );
+
+	return( od_rec_ref );
+} /* od_get_user_record */
+
+/* ------------------------------------------------------------------
+ *	validate_digest()
+ */
 
 static int validate_digest ( const char *in_digest )
 {
@@ -466,25 +551,52 @@ static int validate_digest ( const char *in_digest )
  	return 1;
 }
 
-/* -----------------------------------------------------------------
-	- get_random_chars
-   ----------------------------------------------------------------- */
+/* ------------------------------------------------------------------
+ *	get_ad_realm()
+ */
+const char *get_ad_realm ( void )
+{
+	VSTRING *out_realm;
+	out_realm = vstring_alloc(10);
+
+	SCDynamicStoreRef store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("postfix.digest.auth"), NULL, NULL);
+	if ( store ) {
+		CFDictionaryRef dict = SCDynamicStoreCopyValue(store, CFSTR("com.apple.opendirectoryd.ActiveDirectory"));
+		if (dict) {
+			CFStringRef domain = CFDictionaryGetValue(dict, CFSTR("DomainNameFlat"));
+			if (domain) {
+				const char *ad_realm = CFStringGetCStringPtr(domain, kCFStringEncodingUTF8);
+				if (ad_realm) {
+					msg_info("ad realm: %s", ad_realm);
+					vstring_strcpy(out_realm, ad_realm);
+				}
+			}
+			CFRelease(dict);
+		}
+		CFRelease(store);
+	}
+	return( VSTRING_LEN(out_realm) ? STR(out_realm) : NULL );
+}
+
+/* ------------------------------------------------------------------
+ *	get_random_chars()
+ */
 
 static void get_random_chars ( char *out_buf, int in_len )
 {
-    memset( out_buf, 0, in_len );
+	memset( out_buf, 0, in_len );
 
-	/* try to open /dev/urandom */
-    int file = open( "/dev/urandom", O_RDONLY, 0 );
-    if ( file == -1 ) {
-		syslog( LOG_ERR, "Cannot open /dev/urandom" );
+	/* try /dev/urandom first */
+	int file = open( "/dev/urandom", O_RDONLY, 0 );
+	if ( file == -1 ) {
+		msg_error( "open /dev/urandom O_RDONLY failed" );
 
-		/* try to open /dev/random */
+		/* next try /dev/random */
 		file = open( "/dev/random", O_RDONLY, 0 );
 	}
 
-    if ( file == -1 ) {
-		syslog( LOG_ERR, "Cannot open /dev/random" );
+	if ( file == -1 ) {
+		msg_error( "open /dev/random O_RDONLY failed" );
 
 		struct timeval tv;
 		struct timezone tz;
@@ -495,7 +607,7 @@ static void get_random_chars ( char *out_buf, int in_len )
 		microseconds += (unsigned long long)tv.tv_usec;
 
 		snprintf( out_buf, in_len, "%llu", microseconds );
-    } else {
+	} else {
 		/* make sure the chars are printable */
 		int count = 0;
 		while ( count < (in_len - 1) ) {
@@ -507,28 +619,160 @@ static void get_random_chars ( char *out_buf, int in_len )
 	}
 } /* get_random_chars */
 
+/* ------------------------------------------------------------------
+ *	validate_pw()
+ */
 
-/* -----------------------------------------------------------------
-	- do_auth_login
-   ----------------------------------------------------------------- */
-
-static char * do_auth_login ( SMTPD_STATE *state, const char *in_method )
+static int validate_pw ( const char *in_user, const char *in_passwd )
 {
-    static VSTRING	*vs_base64	= 0;
-    static VSTRING	*vs_user	= 0;
-    static VSTRING	*vs_pwd		= 0;
+	/* sanity check */
+	if ( !in_user || !in_passwd ) {
+		msg_error( "verify password: invalid arguments" );
+		return( eAOD_param_error );
+	}
 
-	vs_base64 = vstring_alloc(10);
-	vs_user = vstring_alloc(10);
-	vs_pwd = vstring_alloc(10);
+	/* open OD */
+	if ( !od_open() ) {
+		msg_error( "verify password: failed to initialize open directory" );
+		return( eAOD_open_OD_failed );
+	}
 
+	/* do user lookup */
+	ODRecordRef od_rec_ref = od_get_user_record( in_user );
+	if ( !od_rec_ref ) {
+		msg_error( "verify password: unable to lookup user record for: user=%s", in_user );
+		return( eAOD_unknown_user );
+	}
+
+	CFStringRef cf_str_pwd = CFStringCreateWithCString( NULL, in_passwd, kCFStringEncodingUTF8 );
+	if ( !cf_str_pwd ) {
+		CFSafeRelease( od_rec_ref );
+		msg_error( "verify password: memory allocation error" );
+		return( eAOD_system_error );
+	}
+
+	int out_result = eAOD_passwd_mismatch;
+	CFErrorRef cf_err_ref = NULL;
+	if ( ODRecordVerifyPassword( od_rec_ref, cf_str_pwd, &cf_err_ref ) )
+		out_result = eAOD_no_error;
+	else {
+		print_cf_error( cf_err_ref, "verify password" );
+		msg_error( "verify password: authentication failed: user=%s", in_user );
+	}
+
+	/* do some cleanup */
+	CFSafeRelease( cf_err_ref );
+	CFSafeRelease( od_rec_ref );
+	CFSafeRelease( cf_str_pwd );
+
+	return( out_result );
+} /* validate_pw */
+
+/* ------------------------------------------------------------------
+ *	validate_response()
+ */
+
+int validate_response ( const char *in_user,
+							const char *in_chal,
+							const char *in_resp,
+							const char *in_auth_type,
+							VSTRING *vs_out )
+{
+	if ( !in_user || !in_chal || !in_resp || !in_auth_type ) {
+		msg_error( "invalid argument passed to validate response. user=%s (method=%s)", in_user, in_auth_type );
+		return( eAOD_param_error );
+	}
+
+	if ( !od_open() )
+		return( eAOD_open_OD_failed );
+
+	ODRecordRef od_rec_ref = od_get_user_record( in_user );
+	if ( !od_rec_ref ) {
+		msg_error( "validate response: unable to lookup user record for: %s", in_user );
+		return( eAOD_system_error );
+	}
+
+	/* Stuff auth buffer with, user name, challenge and response */
+	CFMutableArrayRef cf_arry_buf = CFArrayCreateMutable( NULL, 4, &kCFTypeArrayCallBacks );
+
+	/* user */
+	CFStringRef cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
+	CFArrayInsertValueAtIndex( cf_arry_buf, 0, cf_str_user );
+	CFSafeRelease( cf_str_user );
+
+	/* challenge */
+	CFStringRef cf_str_chal = CFStringCreateWithCString( NULL, in_chal, kCFStringEncodingUTF8 );
+	CFArrayInsertValueAtIndex( cf_arry_buf, 1, cf_str_chal );
+	CFSafeRelease( cf_str_chal );
+
+	/* response */
+	CFStringRef cf_str_resp = CFStringCreateWithCString( NULL, in_resp, kCFStringEncodingUTF8 );
+	CFArrayInsertValueAtIndex( cf_arry_buf, 2, cf_str_resp );
+	CFSafeRelease( cf_str_resp );
+
+	ODAuthenticationType od_auth_type = kODAuthenticationTypeCRAM_MD5;
+	if ( strcmp( in_auth_type, "DIGEST-MD5" ) == 0 ) {
+		od_auth_type = kODAuthenticationTypeDIGEST_MD5;
+		CFStringRef cf_str_uri = CFStringCreateWithCString( NULL, "AUTHENTICATE", kCFStringEncodingUTF8 );
+		CFArrayInsertValueAtIndex( cf_arry_buf, 3, cf_str_uri );
+		CFSafeRelease( cf_str_uri );
+	}
+
+	/* verify password */
+	CFErrorRef cf_err_ref = NULL;
+	CFArrayRef cf_arry_resp = NULL;
+	ODContextRef od_context_ref = NULL;
+	bool auth_result = ODRecordVerifyPasswordExtended( od_rec_ref, od_auth_type, cf_arry_buf,
+														&cf_arry_resp, &od_context_ref, &cf_err_ref );
+	CFSafeRelease( od_rec_ref );
+	CFSafeRelease( cf_arry_buf );
+
+	if ( !auth_result ) {
+		print_cf_error( cf_err_ref, "validate response" );
+		msg_error( "validate response: authentication failed for user=%s (method=%s)", in_user, in_auth_type );
+	}
+
+	/* if digest-md5 auth, get server response */
+	if ( strcmp( in_auth_type, "DIGEST-MD5" ) == 0 ) {
+		if ( !cf_arry_resp )
+			msg_error("DIGEST-MD5 authentication error: missing server response" );
+		else {
+			CFDataRef cf_data = CFArrayGetValueAtIndex(cf_arry_resp, 0);
+			if ( !cf_data || !CFDataGetLength(cf_data) )
+				msg_error("DIGEST-MD5 authentication error: missing server response" );
+			else {
+				const char *data_str = (const char *)CFDataGetBytePtr(cf_data);
+				vstring_strcpy( vs_out, data_str );
+			}
+		}
+	}
+
+	/* do some clean up */
+	CFSafeRelease( cf_arry_resp );
+	CFSafeRelease( cf_err_ref );
+
+	/* success */
+	if ( auth_result )
+		return( eAOD_no_error );
+
+	return( eAOD_passwd_mismatch );
+} /* validate_response */
+
+/* ------------------------------------------------------------------
+ *	auth_login()
+ */
+
+static char * auth_login ( SMTPD_STATE *state, const char *in_method )
+{
 	/* is LOGIN auth enabled */
 	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_LOGIN) ) {
-		msg_error( "Authentication method: LOGIN is not enabled" );
+		msg_error( "authentication method: LOGIN is not enabled" );
 		return( "504 Authentication method not enabled" );
 	}
 
 	/* encode the user name prompt and send it */
+	static VSTRING *vs_base64;
+	vs_base64 = vstring_alloc(10);
 	base64_encode( vs_base64, "Username:", 9 );
 	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
 
@@ -537,13 +781,15 @@ static char * do_auth_login ( SMTPD_STATE *state, const char *in_method )
 
 	/* has the client given up */
 	if ( strcmp(vstring_str( state->buffer ), "*") == 0 ) {
-		msg_error( "Authentication aborted by client" );
+		msg_error( "authentication aborted by client" );
 		return ( "501 Authentication aborted" );
 	}
 
 	/* decode user name */
-    if ( base64_decode( vs_user, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
-		msg_error( "Malformed response to: AUTH LOGIN" );
+	static VSTRING *vs_user;
+	vs_user = vstring_alloc(10);
+	if ( base64_decode( vs_user, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
+		msg_error( "malformed response to: AUTH LOGIN" );
 		return( "501 Authentication failed: malformed initial response" );
 	}
 
@@ -556,18 +802,20 @@ static char * do_auth_login ( SMTPD_STATE *state, const char *in_method )
 
 	/* has the client given up */
 	if ( strcmp(vstring_str( state->buffer ), "*") == 0 ) {
-		msg_error( "Authentication aborted by client" );
+		msg_error( "authentication aborted by client" );
 		return ( "501 Authentication aborted" );
 	}
 
 	/* decode the password */
-    if ( base64_decode( vs_pwd, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
-		msg_error( "Malformed response to: AUTH LOGIN" );
+	static VSTRING *vs_pwd;
+	vs_pwd = vstring_alloc(10);
+	if ( base64_decode( vs_pwd, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
+		msg_error( "malformed response to: AUTH LOGIN" );
 		return ( "501 Authentication failed: malformed response" );
 	}
 
 	/* do the auth */
-	if ( od_do_clear_text_auth( STR(vs_user), STR(vs_pwd) ) == eAOD_no_error ) {
+	if ( validate_pw( STR(vs_user), STR(vs_pwd) ) == eAOD_no_error ) {
 		state->sasl_username = mystrdup( STR(vs_user) );
 		state->sasl_method = mystrdup( in_method );
 
@@ -575,25 +823,23 @@ static char * do_auth_login ( SMTPD_STATE *state, const char *in_method )
 		return( NULL );
 	} else {
 		send_server_event(eAuthFailure, state->name, state->addr);
-		msg_error( "Authentication failed" );
+		msg_error( "authentication failed" );
 		return ( "535 Error: authentication failed" );
 	}
-} /* do_auth_login */
+} /* auth_login */
 
+/* ------------------------------------------------------------------
+ *	auth_plain()
+ */
 
-/* -----------------------------------------------------------------
-	- do_auth_plain
-   ----------------------------------------------------------------- */
-
-static char *do_auth_plain ( SMTPD_STATE *state, const char *in_method, const char *in_resp )
+static char *auth_plain ( SMTPD_STATE *state, const char *in_method, const char *in_resp )
 {
-    static VSTRING	*vs_base64	= 0;
-
+	static VSTRING *vs_base64;
 	vs_base64 = vstring_alloc(10);
 
 	/* is PLAIN auth enabled */
 	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_PLAIN) ) {
-		msg_error( "Authentication method: PLAIN is not enabled" );
+		msg_error( "authentication method: PLAIN is not enabled" );
 		return ( "504 Authentication method not enabled" );
 	}
 
@@ -616,7 +862,6 @@ static char *do_auth_plain ( SMTPD_STATE *state, const char *in_method, const ch
 		}
 	}
 
-
 	char *ptr = STR(vs_base64);
 	if ( *ptr == '\0' )
 		ptr++;
@@ -631,7 +876,7 @@ static char *do_auth_plain ( SMTPD_STATE *state, const char *in_method, const ch
 			char *p_pwd = ptr;
 
 			/* do the auth */
-			if ( od_do_clear_text_auth( p_user, p_pwd ) == eAOD_no_error ) {
+			if ( validate_pw( p_user, p_pwd ) == eAOD_no_error ) {
 				state->sasl_username = mystrdup( p_user );
 				state->sasl_method = mystrdup( in_method );
 
@@ -643,28 +888,17 @@ static char *do_auth_plain ( SMTPD_STATE *state, const char *in_method, const ch
 
 	send_server_event(eAuthFailure, state->name, state->addr);
 	return ( "535 Error: authentication failed" );
-} /* do_auth_plain */
+} /* auth_plain */
 
+/* ------------------------------------------------------------------
+ *	auth_cram_md5()
+ */
 
-/* -----------------------------------------------------------------
-	- do_auth_cram_md5
-   ----------------------------------------------------------------- */
-
-static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
+static char *auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 {
-    static VSTRING	*vs_base64	= 0;
-    static VSTRING	*vs_chal	= 0;
-    static VSTRING	*vs_user	= 0;
-
-	if (vs_base64 == NULL) {
-		vs_base64 = vstring_alloc(10);
-		vs_chal = vstring_alloc(10);
-		vs_user = vstring_alloc(10);
-	}
-
 	/* is CRAM-MD5 auth enabled */
 	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_CRAM_MD5) ) {
-		msg_error( "Authentication method: CRAM-MD5 is not enabled" );
+		msg_error( "authentication method: CRAM-MD5 is not enabled" );
 		return ( "504 Authentication method not enabled" );
 	}
 
@@ -677,10 +911,14 @@ static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 	get_random_chars( rand_buf, 17 );
 
 	/* now make the challenge string */
+	static VSTRING	*vs_chal;
+	if (!vs_chal) vs_chal = vstring_alloc(10);
 	vstring_sprintf( vs_chal, "<%lu.-%s.-%lu-@-%s>", (unsigned long) getpid(), rand_buf, time(0), host_name );
 
 	/* encode the challenge and send it */
-	base64_encode( vs_base64, STR(vs_chal),  VSTRING_LEN(vs_chal) );
+	static VSTRING *vs_base64;
+	vs_base64 = vstring_alloc(10);
+	base64_encode( vs_base64, STR(vs_chal), VSTRING_LEN(vs_chal) );
 	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
 
 	/* get the client response */
@@ -692,29 +930,31 @@ static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 
 	/* decode the response */
 	if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
-		msg_error( "Malformed response to: AUTH CRAM-MD5" );
+		msg_error( "malformed response to: AUTH CRAM-MD5" );
 		return( "501 Authentication failed: malformed initial response" );
 	}
 
 	/* pointer to digest */
 	/* get the user name */
+	static VSTRING *vs_user;
+	vs_user = vstring_alloc(10);
 	char *resp_ptr = STR(vs_base64);
 	char *digest = strrchr(resp_ptr, ' ');
 	if (digest) {
 		vs_user = vstring_strncpy( vs_user, resp_ptr, (digest - resp_ptr) );
 		digest++;
 	} else {
-		msg_error( "Malformed response to: AUTH CRAM-MD5: missing digest" );
+		msg_error( "malformed response to: AUTH CRAM-MD5: missing digest" );
 		return( "501 Authentication failed: malformed initial response" );
 	}
 
 	/* check for valid digest */
 	if (!validate_digest(digest)) {
-		msg_error( "Malformed response to: AUTH CRAM-MD5: invalid digest" );
+		msg_error( "malformed response to: AUTH CRAM-MD5: invalid digest" );
 		return( "501 Authentication failed: malformed initial response" );
 	}
 	/* validate the response */
-	if ( od_validate_response( STR(vs_user), STR(vs_chal), digest, kDSStdAuthCRAM_MD5 ) == eAOD_no_error ) {
+	if ( validate_response( STR(vs_user), STR(vs_chal), digest, "CRAM-MD5", NULL ) == eAOD_no_error ) {
 		state->sasl_username = mystrdup( STR(vs_user) );
 		state->sasl_method = mystrdup( in_method );
 
@@ -724,177 +964,121 @@ static char *do_auth_cram_md5 ( SMTPD_STATE *state, const char *in_method )
 
 	send_server_event(eAuthFailure, state->name, state->addr);
 	return ( "535 Error: authentication failed" );
-} /* do_auth_cram_md5 */
+} /* auth_cram_md5 */
 
+/* ------------------------------------------------------------------
+ *	auth_digest_md5()
+ */
 
-/* -----------------------------------------------------------------
-	od_do_clear_text_auth ()
-   ----------------------------------------------------------------- */
-
-static int od_do_clear_text_auth ( const char *in_user, const char *in_passwd )
+static char *auth_digest_md5 ( SMTPD_STATE *state, const char *in_method )
 {
-	int out_result = eAOD_auth_failed;
-	CFErrorRef cf_err_ref = NULL;
-
-	if ( (in_user == NULL) || (in_passwd == NULL) )
-		return( eAOD_param_error );
-
-	if ( od_open() == FALSE )
-		return( eAOD_open_OD_failed );
-
-	ODRecordRef od_rec_ref = od_get_user_record( in_user );
-	if ( od_rec_ref == NULL ) {
-		/* print the error and bail */
-		print_cf_error( cf_err_ref, in_user, "Unable to lookup user record" );
-
-		/* release OD session */ 
-		return( eAOD_unknown_user );
+	/* is DIGEST-MD5 auth enabled */
+	if ( !(smtpd_pw_server_sasl_opts & PW_SERVER_DIGEST_MD5) ) {
+		msg_error( "authentication method: DIGEST-MD5 is not enabled" );
+		return ( "504 Authentication method not enabled" );
 	}
 
-	CFStringRef cf_str_pwd = CFStringCreateWithCString( NULL, in_passwd, kCFStringEncodingUTF8 );
-	if ( cf_str_pwd == NULL ) {
-		CFRelease_and_null( od_rec_ref );
-		msg_error( "Unable to create user name CFStringRef" );
-		return( eAOD_system_error );
+	/* generate challenge */
+	/* realm */
+	const char *realm = get_ad_realm();
+	if ( !realm || !strlen(realm) ) {
+		realm = REALM_OR_NULL(var_smtpd_sasl_realm);
+		if ( !realm || !strlen(realm) ) {
+			realm = get_hostname();
+		}
 	}
 
-	if ( ODRecordVerifyPassword( od_rec_ref, cf_str_pwd, &cf_err_ref ) )
-		out_result = eAOD_no_error;
-	else {
-		if ( cf_err_ref != NULL )
-			print_cf_error( cf_err_ref, in_user, "Auth failed" );
+	/* get random data string */
+	char nonce[ 32 ];
+	get_random_chars( nonce, 32 );
 
-		out_result = eAOD_passwd_mismatch;
+	/* challenge: realm="host.name.com",nonce="sDl/UquB615peBwoR6iF6A==",qop="auth",algorithm=md5-sess,charset=utf-8 */
+	static VSTRING *vs_chal;
+	vs_chal = vstring_alloc(10);
+	vstring_sprintf( vs_chal, "realm=\"%s\",nonce=\"%s\",qop=\"auth\",algorithm=md5-sess,charset=utf-8", realm, nonce );
+	if (msg_verbose)
+		msg_info( "digest-md5 challenge: %s", STR(vs_chal) );
+
+	/* encode the challenge and send it */
+	static VSTRING *vs_base64;
+	vs_base64 = vstring_alloc(10);
+	base64_encode( vs_base64, STR(vs_chal), VSTRING_LEN(vs_chal) );
+	smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
+
+	/* get the client response */
+	smtpd_chat_query( state );
+
+	/* check if client cancelled */
+	if ( strcmp( vstring_str( state->buffer ), "*" ) == 0 )
+		return( "501 Authentication aborted" );
+
+	if (msg_verbose)
+		msg_info( "digest-md5 response: %s", STR(vs_chal) );
+
+	/* decode the response */
+	if ( base64_decode( vs_base64, STR(state->buffer), VSTRING_LEN(state->buffer) ) == 0 ) {
+		msg_info( "digest-md5 response: %s", STR(vs_base64) );
+		msg_error( "malformed response to: AUTH DIGEST-MD5" );
+		return( "501 Authentication failed: malformed initial response" );
 	}
 
-	/* do some cleanup */
-	if ( cf_err_ref ) CFRelease_and_null( cf_err_ref );
-	if ( od_rec_ref ) CFRelease_and_null( od_rec_ref );
-	if ( cf_str_pwd ) CFRelease_and_null( cf_str_pwd );
+	if (msg_verbose)
+		msg_info( "digest-md5 response: %s", STR(vs_base64) );
 
-	return( out_result );
-} /* od_do_clear_text_auth */
+	/* fix response: it must include algorithm=md5-sess for OD to validate */
+	char *resp_ptr = STR(vs_base64);
+	char *p = strstr(resp_ptr, "algorithm=md5-sess");
+	if ( !p )
+		vstring_strcat(vs_base64, ",algorithm=md5-sess" );
 
-
-/* -----------------------------------------------------------------
-	od_open ()
-   ----------------------------------------------------------------- */
-
-bool od_open ( void )
-{
-	CFErrorRef	cf_err_ref;
-
-	od_session_ref = ODSessionCreate( kCFAllocatorDefault, NULL, &cf_err_ref );
-	if ( od_session_ref == NULL ) {
-		/* print the error and bail */
-		print_cf_error( cf_err_ref, "-", "Unable to create OD Session" );
-		return( FALSE );
+	/* get username from response */
+	static VSTRING	*vs_user;
+	vs_user = vstring_alloc(10);
+	resp_ptr = STR(vs_base64);
+	p = strstr(resp_ptr, "username=\"");
+	if (p && (strlen(p) > 11)) {
+		char *n = p + 10;
+		char *r = strchr(n, '"');
+		if (r)
+			vstring_strncpy( vs_user, n, (r - n) );
+		else {
+			msg_info( "digest-md5 response: %s", STR(vs_base64) );
+			msg_error( "malformed response to: AUTH DIGEST-MD5: missing digest" );
+			return( "501 Authentication failed: malformed initial response" );
+		}
+	} else {
+		msg_info( "digest-md5 response: %s", STR(vs_base64) );
+		msg_error( "malformed response to: AUTH DIGEST-MD5: missing digest" );
+		return( "501 Authentication failed: malformed initial response" );
 	}
 
-	od_node_ref = ODNodeCreateWithNodeType( kCFAllocatorDefault, od_session_ref, kODNodeTypeAuthentication, &cf_err_ref );
-	if ( od_session_ref == NULL ) {
-		/* print the error and bail */
-		print_cf_error( cf_err_ref, "-", "Unable to create OD Node Reference" );
+	/* validate the response */
+	VSTRING	*vs_resp = 0;
+	vs_resp = vstring_alloc(10);
+	if ( !validate_response( STR(vs_user), STR(vs_chal), STR(vs_base64), "DIGEST-MD5", vs_resp) ) {
+		base64_encode( vs_base64, STR(vs_resp), VSTRING_LEN(vs_resp) );
+		smtpd_chat_reply( state, "334 %s", STR(vs_base64) );
 
-		/* release OD session */
-		CFRelease_and_null( od_session_ref );
-		od_session_ref = NULL;
-		return( FALSE );
-	}
+		/* get the client response */
+		smtpd_chat_query( state );
 
-	CFRetain( od_session_ref );
-	CFRetain( od_node_ref );
+		/* has the client given up */
+		if ( strcmp(vstring_str( state->buffer ), "*") == 0 ) {
+			msg_error( "authentication aborted by client" );
+			return ( "501 Authentication aborted" );
+		}
 
-	return( TRUE );
-} /* od_open */
+		/* save auth method and user name */
+		state->sasl_username = mystrdup( STR(vs_user) );
+		state->sasl_method = mystrdup( in_method );
 
-
-/* -----------------------------------------------------------------
-	od_get_user_record ()
-   ----------------------------------------------------------------- */
-
-static ODRecordRef od_get_user_record ( const char *in_user )
-{
-	CFTypeRef	cf_type_val[] = { CFSTR(kDSAttributesStandardAll) };
-	CFArrayRef	cf_arry_attr = CFArrayCreate( NULL, cf_type_val, 1, &kCFTypeArrayCallBacks );
-	CFErrorRef	cf_err_ref = NULL;
-
-	CFStringRef cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
-	if ( cf_str_user == NULL ) {
-		msg_error( "Unable to create user name CFStringRef" );
+		send_server_event(eAuthSuccess, state->name, state->addr);
 		return( NULL );
 	}
 
-	ODRecordRef od_rec_ref = ODNodeCopyRecord( od_node_ref, CFSTR(kDSStdRecordTypeUsers), cf_str_user, cf_arry_attr, &cf_err_ref );
-	if ( od_rec_ref == NULL ) {
-		/* print the error and bail */
-		print_cf_error( cf_err_ref, in_user, "Unable to lookup user record" );
-	}
-
-	if ( cf_str_user ) CFRelease_and_null( cf_str_user );
-	if ( cf_arry_attr ) CFRelease_and_null( cf_arry_attr );
-
-	return( od_rec_ref );
-} /* od_get_user_record */
-
-
-/* -----------------------------------------------------------------
-	od_validate_response ()
-   ----------------------------------------------------------------- */
-
-int od_validate_response ( const char *in_user, const char *in_chal, const char *in_resp, const char *in_auth_type )
-{
-	CFErrorRef cf_err_ref = NULL;
-	CFMutableArrayRef cf_arry_buf = CFArrayCreateMutable( NULL, 3, &kCFTypeArrayCallBacks );
-	CFArrayRef cf_arry_resp = NULL;
-	ODContextRef od_context_ref = NULL;
-
-	if ( (in_user == NULL) || (in_chal == NULL) || (in_resp == NULL) || (in_auth_type == NULL) ) {
-		msg_error( "AOD: Invalid argument passed to validate response" );
-		return( eAOD_param_error );
-	}
-
-	if ( od_open() == FALSE )
-		return( eAOD_open_OD_failed );
-
-	ODRecordRef od_rec_ref = od_get_user_record( in_user );
-	if ( od_rec_ref == NULL ) {
-		/* print the error and bail */
-		print_cf_error( cf_err_ref, in_user, "Unable to lookup user record" );
-
-		/* release OD session */
-		return( eAOD_system_error );
-	}
-
-	/* Stuff auth buffer with, user/record name, challenge and response  */
-	CFStringRef cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
-	CFArrayAppendValue( cf_arry_buf, cf_str_user );
-
-	CFStringRef cf_str_chal = CFStringCreateWithCString( NULL, in_chal, kCFStringEncodingUTF8 );
-	CFArrayAppendValue( cf_arry_buf, cf_str_chal );
-
-	CFStringRef cf_str_resp = CFStringCreateWithCString( NULL, in_resp, kCFStringEncodingUTF8 );
-	CFArrayAppendValue( cf_arry_buf, cf_str_resp );
-
-	/* verify password */
-	bool b_result = ODRecordVerifyPasswordExtended( od_rec_ref, kODAuthenticationTypeCRAM_MD5, cf_arry_buf, &cf_arry_resp, &od_context_ref, &cf_err_ref );
-
-	/* do some clean up */
-	if ( cf_str_user ) CFRelease_and_null( cf_str_user );
-	if ( cf_err_ref ) CFRelease_and_null( cf_err_ref );
-	if ( od_rec_ref ) CFRelease_and_null( od_rec_ref );
-	if ( cf_str_chal ) CFRelease_and_null( cf_str_chal );
-	if ( cf_str_resp ) CFRelease_and_null( cf_str_resp );
-	if ( cf_arry_buf ) CFRelease_and_null( cf_arry_buf );
-	if ( cf_arry_resp ) CFRelease_and_null( cf_arry_resp );
-
-	/* success */
-	if ( b_result == TRUE )
-		return( eAOD_no_error );
-
-	/* auth failure */
-	return( eAOD_passwd_mismatch );
-} /* od_validate_response */
+	send_server_event(eAuthFailure, state->name, state->addr);
+	return ( "535 Error: authentication failed" );
+} /* auth_digest_md5 */
 
 #endif /* __APPLE_OS_X_SERVER__ */
 #endif

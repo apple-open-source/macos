@@ -88,26 +88,29 @@ void FormSubmission::Attributes::parseAction(const String& action)
     m_action = stripLeadingAndTrailingHTMLSpaces(action);
 }
 
-void FormSubmission::Attributes::parseEncodingType(const String& type)
+String FormSubmission::Attributes::parseEncodingType(const String& type)
 {
-    if (type.contains("multipart", false) || type.contains("form-data", false)) {
-        m_encodingType = "multipart/form-data";
-        m_isMultiPartForm = true;
-    } else if (type.contains("text", false) || type.contains("plain", false)) {
-        m_encodingType = "text/plain";
-        m_isMultiPartForm = false;
-    } else {
-        m_encodingType = "application/x-www-form-urlencoded";
-        m_isMultiPartForm = false;
-    }
+    if (equalIgnoringCase(type, "multipart/form-data"))
+        return "multipart/form-data";
+    if (equalIgnoringCase(type, "text/plain"))
+        return "text/plain";
+    return "application/x-www-form-urlencoded";
 }
 
-void FormSubmission::Attributes::parseMethodType(const String& type)
+void FormSubmission::Attributes::updateEncodingType(const String& type)
 {
-    if (equalIgnoringCase(type, "post"))
-        m_method = FormSubmission::PostMethod;
-    else if (equalIgnoringCase(type, "get"))
-        m_method = FormSubmission::GetMethod;
+    m_encodingType = parseEncodingType(type);
+    m_isMultiPartForm = (m_encodingType == "multipart/form-data");
+}
+
+FormSubmission::Method FormSubmission::Attributes::parseMethodType(const String& type)
+{
+    return equalIgnoringCase(type, "post") ? FormSubmission::PostMethod : FormSubmission::GetMethod;
+}
+
+void FormSubmission::Attributes::updateMethodType(const String& type)
+{
+    m_method = parseMethodType(type);
 }
 
 void FormSubmission::Attributes::copyFrom(const Attributes& other)
@@ -139,8 +142,11 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
     ASSERT(form);
 
     HTMLFormControlElement* submitButton = 0;
-    if (event && event->target() && event->target()->toNode())
-        submitButton = static_cast<HTMLFormControlElement*>(event->target()->toNode());
+    if (event && event->target()) {
+        Node* node = event->target()->toNode();
+        if (node && node->isElementNode() && toElement(node)->isFormControlElement())
+            submitButton = static_cast<HTMLFormControlElement*>(node);
+    }
 
     FormSubmission::Attributes copiedAttributes;
     copiedAttributes.copyFrom(attributes);
@@ -149,9 +155,9 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
         if (!(attributeValue = submitButton->getAttribute(formactionAttr)).isNull())
             copiedAttributes.parseAction(attributeValue);
         if (!(attributeValue = submitButton->getAttribute(formenctypeAttr)).isNull())
-            copiedAttributes.parseEncodingType(attributeValue);
+            copiedAttributes.updateEncodingType(attributeValue);
         if (!(attributeValue = submitButton->getAttribute(formmethodAttr)).isNull())
-            copiedAttributes.parseMethodType(attributeValue);
+            copiedAttributes.updateMethodType(attributeValue);
         if (!(attributeValue = submitButton->getAttribute(formtargetAttr)).isNull())
             copiedAttributes.setTarget(attributeValue);
     }
@@ -174,6 +180,7 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
     RefPtr<DOMFormData> domFormData = DOMFormData::create(dataEncoding.encodingForFormSubmission());
     Vector<pair<String, String> > formValues;
 
+    bool containsPasswordData = false;
     for (unsigned i = 0; i < form->associatedElements().size(); ++i) {
         FormAssociatedElement* control = form->associatedElements()[i];
         HTMLElement* element = toHTMLElement(control);
@@ -186,6 +193,8 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
                 if (input->isSearchField())
                     input->addSearchResult();
             }
+            if (input->isPasswordField() && !input->value().isEmpty())
+                containsPasswordData = true;
         }
     }
 
@@ -196,7 +205,7 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
         formData = FormData::createMultiPart(*(static_cast<FormDataList*>(domFormData.get())), domFormData->encoding(), document);
         boundary = formData->boundary().data();
     } else {
-        formData = FormData::create(*(static_cast<FormDataList*>(domFormData.get())), domFormData->encoding());
+        formData = FormData::create(*(static_cast<FormDataList*>(domFormData.get())), domFormData->encoding(), attributes.method() == GetMethod ? FormData::FormURLEncoded : FormData::parseEncodingType(encodingType));
         if (copiedAttributes.method() == PostMethod && isMailtoForm) {
             // Convert the form data into a string that we put into the URL.
             appendMailtoPostFormDataToURL(actionURL, *formData, encodingType);
@@ -205,8 +214,9 @@ PassRefPtr<FormSubmission> FormSubmission::create(HTMLFormElement* form, const A
     }
 
     formData->setIdentifier(generateFormDataIdentifier());
+    formData->setContainsPasswordData(containsPasswordData);
     String targetOrBaseTarget = copiedAttributes.target().isEmpty() ? document->baseTarget() : copiedAttributes.target();
-    RefPtr<FormState> formState = FormState::create(form, formValues, document->frame(), trigger);
+    RefPtr<FormState> formState = FormState::create(form, formValues, document, trigger);
     return adoptRef(new FormSubmission(copiedAttributes.method(), actionURL, targetOrBaseTarget, encodingType, formState.release(), formData.release(), boundary, lockHistory, event));
 }
 

@@ -1,10 +1,11 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
 #include "ustrtest.h"
+#include "unicode/appendable.h"
 #include "unicode/std_string.h"
 #include "unicode/unistr.h"
 #include "unicode/uchar.h"
@@ -12,18 +13,15 @@
 #include "unicode/locid.h"
 #include "unicode/ucnv.h"
 #include "unicode/uenum.h"
+#include "unicode/utf16.h"
 #include "cmemory.h"
 #include "charstr.h"
 
 #if 0
 #include "unicode/ustream.h"
 
-#if U_IOSTREAM_SOURCE >= 199711
 #include <iostream>
 using namespace std;
-#elif U_IOSTREAM_SOURCE >= 198506
-#include <iostream.h>
-#endif
 
 #endif
 
@@ -62,6 +60,10 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
         case 17: name = "TestUTF32"; if (exec) TestUTF32(); break;
         case 18: name = "TestUTF8"; if (exec) TestUTF8(); break;
         case 19: name = "TestReadOnlyAlias"; if (exec) TestReadOnlyAlias(); break;
+        case 20: name = "TestAppendable"; if (exec) TestAppendable(); break;
+        case 21: name = "TestUnicodeStringImplementsAppendable"; if (exec) TestUnicodeStringImplementsAppendable(); break;
+        case 22: name = "TestSizeofUnicodeString"; if (exec) TestSizeofUnicodeString(); break;
+        case 23: name = "TestStartsWithAndEndsWithNulTerminated"; if (exec) TestStartsWithAndEndsWithNulTerminated(); break;
 
         default: name = ""; break; //needed to end loop
     }
@@ -967,6 +969,17 @@ UnicodeStringTest::TestPrefixAndSuffix()
 }
 
 void
+UnicodeStringTest::TestStartsWithAndEndsWithNulTerminated() {
+    UnicodeString test("abcde");
+    const UChar ab[] = { 0x61, 0x62, 0 };
+    const UChar de[] = { 0x64, 0x65, 0 };
+    assertTrue("abcde.startsWith(ab, -1)", test.startsWith(ab, -1));
+    assertTrue("abcde.startsWith(ab, 0, -1)", test.startsWith(ab, 0, -1));
+    assertTrue("abcde.endsWith(de, -1)", test.endsWith(de, -1));
+    assertTrue("abcde.endsWith(de, 0, -1)", test.endsWith(de, 0, -1));
+}
+
+void
 UnicodeStringTest::TestFindAndReplace()
 {
     UnicodeString test1("One potato, two potato, three potato, four\n");
@@ -1263,7 +1276,7 @@ UnicodeStringTest::TestStackAllocation()
 
     // test the UChar32 constructor
     UnicodeString c32Test((UChar32)0x10ff2a);
-    if( c32Test.length() != UTF_CHAR_LENGTH(0x10ff2a) ||
+    if( c32Test.length() != U16_LENGTH(0x10ff2a) ||
         c32Test.char32At(c32Test.length() - 1) != 0x10ff2a
     ) {
         errln("The UnicodeString(UChar32) constructor does not work with a 0x10ff2a filler");
@@ -1271,7 +1284,7 @@ UnicodeStringTest::TestStackAllocation()
 
     // test the (new) capacity constructor
     UnicodeString capTest(5, (UChar32)0x2a, 5);
-    if( capTest.length() != 5 * UTF_CHAR_LENGTH(0x2a) ||
+    if( capTest.length() != 5 * U16_LENGTH(0x2a) ||
         capTest.char32At(0) != 0x2a ||
         capTest.char32At(4) != 0x2a
     ) {
@@ -1279,7 +1292,7 @@ UnicodeStringTest::TestStackAllocation()
     }
 
     capTest = UnicodeString(5, (UChar32)0x10ff2a, 5);
-    if( capTest.length() != 5 * UTF_CHAR_LENGTH(0x10ff2a) ||
+    if( capTest.length() != 5 * U16_LENGTH(0x10ff2a) ||
         capTest.char32At(0) != 0x10ff2a ||
         capTest.char32At(4) != 0x10ff2a
     ) {
@@ -1758,7 +1771,6 @@ UnicodeStringTest::TestStringEnumeration() {
  *
  * Define a (bogus) UnicodeString class in another namespace and check for ambiguity.
  */
-#if U_HAVE_NAMESPACE
 namespace bogus {
     class UnicodeString {
     public:
@@ -1771,11 +1783,9 @@ namespace bogus {
         int32_t i;
     };
 }
-#endif
 
 void
 UnicodeStringTest::TestNameSpace() {
-#if U_HAVE_NAMESPACE
     // Provoke name collision unless the UnicodeString macros properly
     // qualify the icu::UnicodeString class.
     using namespace bogus;
@@ -1790,7 +1800,6 @@ UnicodeStringTest::TestNameSpace() {
     if(s4.length()!=9) {
         errln("Something wrong with UnicodeString::operator+().");
     }
-#endif
 }
 
 void
@@ -1870,7 +1879,7 @@ UnicodeStringTest::TestUTF8() {
         errln("UnicodeString::fromUTF8(StringPiece) did not create the expected string.");
     }
 #if U_HAVE_STD_STRING
-    U_STD_NSQ string utf8_string((const char *)utf8, sizeof(utf8));
+    std::string utf8_string((const char *)utf8, sizeof(utf8));
     UnicodeString from8b = UnicodeString::fromUTF8(utf8_string);
     if(from8b != expected) {
         errln("UnicodeString::fromUTF8(std::string) did not create the expected string.");
@@ -1899,10 +1908,10 @@ UnicodeStringTest::TestUTF8() {
     }
 #if U_HAVE_STD_STRING
     // Initial contents for testing that toUTF8String() appends.
-    U_STD_NSQ string result8 = "-->";
-    U_STD_NSQ string expected8 = "-->" + U_STD_NSQ string((const char *)expected_utf8, sizeof(expected_utf8));
+    std::string result8 = "-->";
+    std::string expected8 = "-->" + std::string((const char *)expected_utf8, sizeof(expected_utf8));
     // Use the return value just for testing.
-    U_STD_NSQ string &result8r = us.toUTF8String(result8);
+    std::string &result8r = us.toUTF8String(result8);
     if(result8r != expected8 || &result8r != &result8) {
         errln("UnicodeString::toUTF8String() did not create the expected string.");
     }
@@ -2011,5 +2020,85 @@ UnicodeStringTest::TestReadOnlyAlias() {
     temp.fastCopyFrom(bogusString.tempSubStringBetween(8, 18));
     if(!temp.isBogus()) {
         errln("UnicodeString.setToBogus().tempSubStringBetween(8, 18) failed");
+    }
+}
+
+void
+UnicodeStringTest::doTestAppendable(UnicodeString &dest, Appendable &app) {
+    static const UChar cde[3]={ 0x63, 0x64, 0x65 };
+    static const UChar fg[3]={ 0x66, 0x67, 0 };
+    if(!app.reserveAppendCapacity(12)) {
+        errln("Appendable.reserve(12) failed");
+    }
+    app.appendCodeUnit(0x61);
+    app.appendCodePoint(0x62);
+    app.appendCodePoint(0x50000);
+    app.appendString(cde, 3);
+    app.appendString(fg, -1);
+    UChar scratch[3];
+    int32_t capacity=-1;
+    UChar *buffer=app.getAppendBuffer(3, 3, scratch, 3, &capacity);
+    if(capacity<3) {
+        errln("Appendable.getAppendBuffer(min=3) returned capacity=%d<3", (int)capacity);
+        return;
+    }
+    static const UChar hij[3]={ 0x68, 0x69, 0x6a };
+    u_memcpy(buffer, hij, 3);
+    app.appendString(buffer, 3);
+    if(dest!=UNICODE_STRING_SIMPLE("ab\\U00050000cdefghij").unescape()) {
+        errln("Appendable.append(...) failed");
+    }
+    buffer=app.getAppendBuffer(0, 3, scratch, 3, &capacity);
+    if(buffer!=NULL || capacity!=0) {
+        errln("Appendable.getAppendBuffer(min=0) failed");
+    }
+    capacity=1;
+    buffer=app.getAppendBuffer(3, 3, scratch, 2, &capacity);
+    if(buffer!=NULL || capacity!=0) {
+        errln("Appendable.getAppendBuffer(scratch<min) failed");
+    }
+}
+
+class SimpleAppendable : public Appendable {
+public:
+    explicit SimpleAppendable(UnicodeString &dest) : str(dest) {}
+    virtual UBool appendCodeUnit(UChar c) { str.append(c); return TRUE; }
+    SimpleAppendable &reset() { str.remove(); return *this; }
+private:
+    UnicodeString &str;
+};
+
+void
+UnicodeStringTest::TestAppendable() {
+    UnicodeString dest;
+    SimpleAppendable app(dest);
+    doTestAppendable(dest, app);
+}
+
+void
+UnicodeStringTest::TestUnicodeStringImplementsAppendable() {
+    UnicodeString dest;
+    UnicodeStringAppendable app(dest);
+    doTestAppendable(dest, app);
+}
+
+void
+UnicodeStringTest::TestSizeofUnicodeString() {
+    // See the comments in unistr.h near the declaration of UnicodeString's fields.
+    size_t sizeofUniStr=sizeof(UnicodeString);
+    size_t expected;
+    switch(sizeof(void *)) {
+    case 4:
+        expected=32;
+        break;
+    case 8:
+        expected=40;
+        break;
+    default:
+        logln("This platform has neither 32-bit nor 64-bit pointers.");
+        return;
+    }
+    if(expected!=sizeofUniStr) {
+        errln("sizeof(UnicodeString)=%d, expected %d", (int)sizeofUniStr, (int)expected);
     }
 }

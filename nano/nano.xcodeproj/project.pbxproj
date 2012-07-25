@@ -25,7 +25,6 @@
 		FDF794260F9931E60016724F /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDF794250F9931E60016724F /* libncurses.dylib */; };
 		FDF794460F9933940016724F /* nano.1 in Install man1 (1) */ = {isa = PBXBuildFile; fileRef = FDF793F60F992FAA0016724F /* nano.1 */; };
 		FDF794480F9933B40016724F /* nanorc.5 in Install man5 (1) */ = {isa = PBXBuildFile; fileRef = FDF793F70F992FAA0016724F /* nanorc.5 */; };
-		FDF7944A0F9933CB0016724F /* nano.info in Install info */ = {isa = PBXBuildFile; fileRef = FDF794410F9933330016724F /* nano.info */; };
 		FDF7944C0F9934000016724F /* nanorc in Install etc */ = {isa = PBXBuildFile; fileRef = FDF793FC0F992FF80016724F /* nanorc */; };
 		FDF7944F0F99343D0016724F /* COPYING in Install OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = FDF793FB0F992FF80016724F /* COPYING */; };
 		FDF794500F9934430016724F /* nano.plist in Install OpenSourceVersions */ = {isa = PBXBuildFile; fileRef = FDF793E40F992F070016724F /* nano.plist */; };
@@ -52,17 +51,6 @@
 				FDF794480F9933B40016724F /* nanorc.5 in Install man5 (1) */,
 			);
 			name = "Install man5 (1)";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		FDF794630F99344A0016724F /* Install info */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/info;
-			dstSubfolderSpec = 0;
-			files = (
-				FDF7944A0F9933CB0016724F /* nano.info in Install info */,
-			);
-			name = "Install info";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		FDF794640F99344A0016724F /* Install etc */ = {
@@ -127,7 +115,6 @@
 		FDF793FB0F992FF80016724F /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = doc/COPYING; sourceTree = "<group>"; };
 		FDF793FC0F992FF80016724F /* nanorc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = nanorc; sourceTree = "<group>"; };
 		FDF794250F9931E60016724F /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
-		FDF794410F9933330016724F /* nano.info */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nano.info; path = doc/nano.info; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -190,7 +177,6 @@
 			isa = PBXGroup;
 			children = (
 				FDF793FB0F992FF80016724F /* COPYING */,
-				FDF794410F9933330016724F /* nano.info */,
 				FDF793FC0F992FF80016724F /* nanorc */,
 				FDF793F70F992FAA0016724F /* nanorc.5 */,
 				FDF793F60F992FAA0016724F /* nano.1 */,
@@ -210,7 +196,6 @@
 				FDF793BF0F992E950016724F /* Frameworks */,
 				FDF794610F99344A0016724F /* Install man1 (1) */,
 				FDF794620F99344A0016724F /* Install man5 (1) */,
-				FDF794630F99344A0016724F /* Install info */,
 				FDF794640F99344A0016724F /* Install etc */,
 				FDF794650F99344A0016724F /* Install OpenSourceVersions */,
 				FDF794660F99344A0016724F /* Install OpenSourceLicenses */,
@@ -232,7 +217,11 @@
 			isa = PBXProject;
 			buildConfigurationList = FDF7939C0F992DAB0016724F /* Build configuration list for PBXProject "nano" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = FDF793970F992DAB0016724F;
 			productRefGroup = FDF793C20F992E950016724F /* Products */;
 			projectDirPath = "";

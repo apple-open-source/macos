@@ -32,6 +32,7 @@ namespace WebKit {
 
 GtkAdjustmentWatcher::GtkAdjustmentWatcher(WebKitWebView* webView)
     : m_webView(webView)
+    , m_scrollbarsDisabled(false)
     , m_handlingGtkAdjustmentChange(false)
     , m_updateAdjustmentCallbackId(0)
 {
@@ -57,6 +58,8 @@ static void updateAdjustmentFromScrollbar(GtkAdjustment* adjustment, Scrollbar* 
 
 void GtkAdjustmentWatcher::updateAdjustmentsFromScrollbars()
 {
+    if (m_scrollbarsDisabled)
+        return;
     if (m_handlingGtkAdjustmentChange)
         return;
     if (!core(m_webView) || !core(m_webView)->mainFrame())
@@ -77,15 +80,14 @@ static gboolean updateAdjustmentCallback(GtkAdjustmentWatcher* watcher)
 void GtkAdjustmentWatcher::updateAdjustmentsFromScrollbarsLater() const
 {
     // We've already scheduled an update. No need to schedule another.
-    if (m_updateAdjustmentCallbackId)
+    if (m_updateAdjustmentCallbackId || m_scrollbarsDisabled)
         return;
 
     // The fact that this method was called means that we need to update the scrollbars, but at the
     // time of invocation they are not updated to reflect the scroll yet. We set a short timeout
     // here, which means that they will be updated as soon as WebKit returns to the main loop.
-    m_updateAdjustmentCallbackId = g_timeout_add_full(G_PRIORITY_HIGH_IDLE + 10, 0,
-                                                      reinterpret_cast<GSourceFunc>(updateAdjustmentCallback), 
-                                                      const_cast<void*>(static_cast<const void*>(this)), 0);
+    m_updateAdjustmentCallbackId = g_timeout_add(0, reinterpret_cast<GSourceFunc>(updateAdjustmentCallback),
+                                                 const_cast<void*>(static_cast<const void*>(this)));
 }
 
 static void adjustmentValueChangedCallback(GtkAdjustment* adjustment, GtkAdjustmentWatcher* watcher)
@@ -129,6 +131,19 @@ void GtkAdjustmentWatcher::adjustmentValueChanged(GtkAdjustment* adjustment)
         frameView->scrollToOffsetWithoutAnimation(scrollbar->orientation(), newValue);
         m_handlingGtkAdjustmentChange = false;
     }
+}
+
+void GtkAdjustmentWatcher::disableAllScrollbars()
+{
+    updateAdjustmentFromScrollbar(m_horizontalAdjustment.get(), 0);
+    updateAdjustmentFromScrollbar(m_verticalAdjustment.get(), 0);
+    m_scrollbarsDisabled = true;
+}
+
+void GtkAdjustmentWatcher::enableAllScrollbars()
+{
+    m_scrollbarsDisabled = false;
+    updateAdjustmentsFromScrollbars();
 }
 
 } // namespace WebKit

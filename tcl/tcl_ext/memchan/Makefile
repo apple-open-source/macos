@@ -16,7 +16,7 @@ TEApotVersion         = $(Release).2009.05.20.12.31.28
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-perms
+GnuAfterInstall       = strip fix-perms
 
 # include TEA Tcl extension build support
 include ../TEA.make
@@ -27,8 +27,3 @@ TclExtDir             = $(ProjectName)
 
 build::
 	$(_v) $(MAKE) -C $(BuildDirectory) $(Environment) doc-html
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(BuildDirectory)"/*.html \
-	        "$(DSTROOT)/$(TclExtHtmlDir)"

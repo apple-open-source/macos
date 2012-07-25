@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/cgg.xml
@@ -22,7 +22,7 @@ cgg{
             }
         }
     }
-    Version{"2.0.46.52"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             DateTimePatterns{
@@ -56,10 +56,12 @@ cgg{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/y"}
-                yMEd{"EEE, M/d/y"}
+                yMEd{"E, M/d/y"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE, MMM d, y"}
+                yMMMEd{"E, MMM d, y"}
                 yMMMM{"MMMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
                 yQ{"Q y"}
                 yQQQ{"QQQ y"}
             }
@@ -154,7 +156,7 @@ cgg{
                         "KMK",
                         "KMS",
                         "KMN",
-                        "KMN",
+                        "KMW",
                         "KKM",
                         "KNK",
                         "KNB",
@@ -210,9 +212,9 @@ cgg{
         }
     }
     delimiters{
-        alternateQuotationEnd{"„"}
-        alternateQuotationStart{"“"}
-        quotationEnd{"'"}
-        quotationStart{"'"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
     }
 }

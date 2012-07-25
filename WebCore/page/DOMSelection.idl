@@ -32,8 +32,8 @@ module window {
     // This is based off of Mozilla's Selection interface
     // https://developer.mozilla.org/En/DOM/Selection
     interface [
-        GenerateIsReachable=ImplFrame,
-        OmitConstructor
+        JSGenerateIsReachable=ImplFrame,
+        InterfaceName=Selection
     ] DOMSelection {
         readonly attribute Node anchorNode;
         readonly attribute long anchorOffset;
@@ -43,7 +43,8 @@ module window {
         readonly attribute boolean isCollapsed;
         readonly attribute long rangeCount;
 
-        void collapse(in Node node, in long index)
+        void collapse(in [Optional=DefaultIsUndefined] Node node, 
+                      in [Optional=DefaultIsUndefined] long index)
             raises(DOMException);
         void collapseToEnd()
             raises(DOMException);
@@ -51,20 +52,22 @@ module window {
             raises(DOMException);
 
         void deleteFromDocument();
-        boolean containsNode(in Node node, in boolean allowPartial);
-        void selectAllChildren(in Node node)
+        boolean containsNode(in [Optional=DefaultIsUndefined] Node node, 
+                             in [Optional=DefaultIsUndefined] boolean allowPartial);
+        void selectAllChildren(in [Optional=DefaultIsUndefined] Node node)
             raises(DOMException);
 
-        void extend(in Node node, in long offset)
+        void extend(in [Optional=DefaultIsUndefined] Node node, 
+                    in [Optional=DefaultIsUndefined] long offset)
             raises(DOMException);
 
-        Range getRangeAt(in long index)
+        Range getRangeAt(in [Optional=DefaultIsUndefined] long index)
             raises(DOMException);
         void removeAllRanges();
-        void addRange(in Range range);
+        void addRange(in [Optional=DefaultIsUndefined] Range range);
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
         // WebKit extensions
@@ -77,10 +80,16 @@ module window {
         // IE's type accessor returns "none", "text" and "control"
         readonly attribute DOMString type;
 
-        void modify(in DOMString alter, in DOMString direction, in DOMString granularity);
-        void setBaseAndExtent(in Node baseNode, in long baseOffset, in Node extentNode, in long extentOffset)
+        void modify(in [Optional=DefaultIsUndefined] DOMString alter, 
+                    in [Optional=DefaultIsUndefined] DOMString direction, 
+                    in [Optional=DefaultIsUndefined] DOMString granularity);
+        void setBaseAndExtent(in [Optional=DefaultIsUndefined] Node baseNode, 
+                              in [Optional=DefaultIsUndefined] long baseOffset, 
+                              in [Optional=DefaultIsUndefined] Node extentNode, 
+                              in [Optional=DefaultIsUndefined] long extentOffset)
             raises(DOMException);
-        void setPosition(in Node node, in long offset)
+        void setPosition(in [Optional=DefaultIsUndefined] Node node, 
+                         in [Optional=DefaultIsUndefined] long offset)
             raises(DOMException);
 
         // IE extentions

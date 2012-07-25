@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: cups-launchd.m4 8983 2010-02-13 02:20:23Z mike $"
+dnl "$Id: cups-launchd.m4 6649 2007-07-11 21:46:42Z mike $"
 dnl
 dnl   launchd stuff for CUPS.
 dnl
@@ -39,5 +39,5 @@ AC_SUBST(DEFAULT_LAUNCHD_CONF)
 AC_SUBST(LAUNCHDLIBS)
 
 dnl
-dnl End of "$Id: cups-launchd.m4 8983 2010-02-13 02:20:23Z mike $".
+dnl End of "$Id: cups-launchd.m4 6649 2007-07-11 21:46:42Z mike $".
 dnl

@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsctl.c 9636 2011-03-21 22:02:00Z mike $"
+ * "$Id$"
  *
  *   Scheduler control program for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2006-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -32,7 +32,7 @@
  * Local functions...
  */
 
-static void	usage(const char *opt);
+static void	usage(const char *opt) __attribute__((noreturn));
 
 
 /*
@@ -82,12 +82,6 @@ main(int  argc,				/* I - Number of command-line args */
 	                               num_settings, &settings);
         else if (!strcmp(argv[i], "--no-remote-any"))
 	  num_settings = cupsAddOption(CUPS_SERVER_REMOTE_ANY, "0",
-	                               num_settings, &settings);
-        else if (!strcmp(argv[i], "--remote-printers"))
-	  num_settings = cupsAddOption(CUPS_SERVER_REMOTE_PRINTERS, "1",
-	                               num_settings, &settings);
-        else if (!strcmp(argv[i], "--no-remote-printers"))
-	  num_settings = cupsAddOption(CUPS_SERVER_REMOTE_PRINTERS, "0",
 	                               num_settings, &settings);
         else if (!strcmp(argv[i], "--share-printers"))
 	  num_settings = cupsAddOption(CUPS_SERVER_SHARE_PRINTERS, "1",
@@ -208,7 +202,7 @@ usage(const char *opt)			/* I - Option character/string */
   _cupsLangPuts(stdout, "");
   _cupsLangPuts(stdout, _("Options:"));
   _cupsLangPuts(stdout, "");
-  _cupsLangPuts(stdout, _("  -E                      Enable encryption."));
+  _cupsLangPuts(stdout, _("  -E                      Encrypt the connection."));
   _cupsLangPuts(stdout, _("  -U username             Specify username."));
   _cupsLangPuts(stdout, _("  -h server[:port]        Specify server "
                           "address."));
@@ -219,8 +213,6 @@ usage(const char *opt)			/* I - Option character/string */
                           "administration on/off."));
   _cupsLangPuts(stdout, _("  --[no-]remote-any       Allow/prevent access "
                           "from the Internet."));
-  _cupsLangPuts(stdout, _("  --[no-]remote-printers  Show/hide remote "
-                          "printers."));
   _cupsLangPuts(stdout, _("  --[no-]share-printers   Turn printer sharing "
                           "on/off."));
   _cupsLangPuts(stdout, _("  --[no-]user-cancel-any  Allow/prevent users to "
@@ -231,5 +223,5 @@ usage(const char *opt)			/* I - Option character/string */
 
 
 /*
- * End of "$Id: cupsctl.c 9636 2011-03-21 22:02:00Z mike $".
+ * End of "$Id$".
  */

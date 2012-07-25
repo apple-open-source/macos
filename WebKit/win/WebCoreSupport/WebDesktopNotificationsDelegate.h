@@ -30,9 +30,9 @@
 
 #include <WebCore/COMPtr.h>
 #include <WebCore/Notification.h>
-#include <WebCore/NotificationPresenter.h>
+#include <WebCore/NotificationClient.h>
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 interface IWebDesktopNotificationPresenter;
 
@@ -41,16 +41,23 @@ class Document;
 class KURL;
 }
 
-class WebDesktopNotificationsDelegate : public WebCore::NotificationPresenter {
+class WebDesktopNotificationsDelegate : public WebCore::NotificationClient {
 public:
     WebDesktopNotificationsDelegate(WebView* view);
 
-    /* WebCore::NotificationPresenter interface */
+    /* WebCore::NotificationClient interface */
     virtual bool show(WebCore::Notification* object);
     virtual void cancel(WebCore::Notification* object);
     virtual void notificationObjectDestroyed(WebCore::Notification* object);
-    virtual void requestPermission(WebCore::SecurityOrigin* origin, PassRefPtr<WebCore::VoidCallback> callback);
-    virtual WebCore::NotificationPresenter::Permission checkPermission(const KURL& url);
+    virtual void notificationControllerDestroyed();
+#if ENABLE(LEGACY_NOTIFICATIONS)
+    virtual void requestPermission(WebCore::SecurityOrigin*, PassRefPtr<WebCore::VoidCallback>);
+#endif
+#if ENABLE(NOTIFICATIONS)
+    virtual void requestPermission(WebCore::SecurityOrigin*, PassRefPtr<WebCore::NotificationPermissionCallback>);
+#endif
+    virtual void cancelRequestsForPermission(WebCore::ScriptExecutionContext*);
+    virtual WebCore::NotificationClient::Permission checkPermission(const KURL&);
 
 private:
     bool hasNotificationDelegate();

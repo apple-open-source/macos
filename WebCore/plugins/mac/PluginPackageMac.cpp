@@ -120,7 +120,7 @@ static Vector<String> stringListFromResourceId(SInt16 id)
 
     for (SInt16 i = 0; i < count; ++i) {
         unsigned char length = *p;
-        WTF::RetainPtr<CFStringRef> str = CFStringCreateWithPascalString(0, p, encoding);
+        WTF::RetainPtr<CFStringRef> str(AdoptCF, CFStringCreateWithPascalString(0, p, encoding));
         list.append(str.get());
         p += 1 + length;
     }
@@ -139,8 +139,8 @@ bool PluginPackage::fetchInfo()
     if (mimeTypesFileName && CFGetTypeID(mimeTypesFileName.get()) == CFStringGetTypeID()) {
 
         WTF::RetainPtr<CFStringRef> fileName = (CFStringRef)mimeTypesFileName.get();
-        WTF::RetainPtr<CFStringRef> homeDir = homeDirectoryPath().createCFString();
-        WTF::RetainPtr<CFStringRef> path = CFStringCreateWithFormat(0, 0, CFSTR("%@/Library/Preferences/%@"), homeDir.get(), fileName.get());
+        WTF::RetainPtr<CFStringRef> homeDir = adoptCF(homeDirectoryPath().createCFString());
+        WTF::RetainPtr<CFStringRef> path(AdoptCF, CFStringCreateWithFormat(0, 0, CFSTR("%@/Library/Preferences/%@"), homeDir.get(), fileName.get()));
 
         WTF::RetainPtr<CFDictionaryRef> plist = readPListFile(path.get(), /*createFile*/ false, m_module);
         if (plist) {

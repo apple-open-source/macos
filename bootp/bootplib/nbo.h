@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #define _S_NBO_H
 
 #include "symbol_scope.h"
+#include <strings.h>
 
 /*
  * Function: net_uint16_set
@@ -41,7 +42,9 @@
 INLINE void
 net_uint16_set(uint8_t * field, uint16_t value)
 {
-    *((uint16_t *)field) = htons(value);
+    uint16_t tmp_value = htons(value);
+    bcopy((void *)&tmp_value, (void *)field,
+	  sizeof(uint16_t));
     return;
 }
 
@@ -54,7 +57,11 @@ net_uint16_set(uint8_t * field, uint16_t value)
 INLINE uint16_t
 net_uint16_get(const uint8_t * field)
 {
-    return (ntohs(*((uint16_t *)field)));
+    uint16_t tmp_field;
+
+    bcopy((void *)field, (void *)&tmp_field, 
+	  sizeof(uint16_t));
+    return (ntohs(tmp_field));
 }
 
 /*
@@ -66,7 +73,10 @@ net_uint16_get(const uint8_t * field)
 INLINE void
 net_uint32_set(uint8_t * field, uint32_t value)
 {
-    *((uint32_t *)field) = htonl(value);
+    uint32_t tmp_value = htonl(value);
+    
+    bcopy((void *)&tmp_value, (void *)field, 
+	  sizeof(uint32_t));
     return;
 }
 
@@ -79,7 +89,11 @@ net_uint32_set(uint8_t * field, uint32_t value)
 INLINE uint32_t
 net_uint32_get(const uint8_t * field)
 {
-    return (ntohl(*((uint32_t *)field)));
+    uint32_t tmp_field;
+
+    bcopy((void *)field, &tmp_field, 
+	  sizeof(uint32_t));
+    return (ntohl(tmp_field));
 }
 
 #endif /* _S_NBO_H */

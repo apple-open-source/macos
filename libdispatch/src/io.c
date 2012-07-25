@@ -25,12 +25,10 @@ typedef void (^dispatch_fd_entry_init_callback_t)(dispatch_fd_entry_t fd_entry);
 DISPATCH_EXPORT DISPATCH_NOTHROW
 void _dispatch_iocntl(uint32_t param, uint64_t value);
 
-static void _dispatch_io_dispose(dispatch_io_t channel);
 static dispatch_operation_t _dispatch_operation_create(
 		dispatch_op_direction_t direction, dispatch_io_t channel, off_t offset,
 		size_t length, dispatch_data_t data, dispatch_queue_t queue,
 		dispatch_io_handler_t handler);
-static void _dispatch_operation_dispose(dispatch_operation_t operation);
 static void _dispatch_operation_enqueue(dispatch_operation_t op,
 		dispatch_op_direction_t direction, dispatch_data_t data);
 static dispatch_source_t _dispatch_operation_timer(dispatch_queue_t tq,
@@ -52,7 +50,6 @@ static void _dispatch_stream_init(dispatch_fd_entry_t fd_entry,
 static void _dispatch_stream_dispose(dispatch_fd_entry_t fd_entry,
 		dispatch_op_direction_t direction);
 static void _dispatch_disk_init(dispatch_fd_entry_t fd_entry, dev_t dev);
-static void _dispatch_disk_dispose(dispatch_disk_t disk);
 static void _dispatch_stream_enqueue_operation(dispatch_stream_t stream,
 		dispatch_operation_t operation, dispatch_data_t data);
 static void _dispatch_disk_enqueue_operation(dispatch_disk_t dsk,
@@ -98,35 +95,7 @@ enum {
 	DISPATCH_OP_FD_ERR,
 };
 
-#pragma mark -
-#pragma mark dispatch_io_vtable
-
-static const struct dispatch_io_vtable_s _dispatch_io_vtable = {
-	.do_type = DISPATCH_IO_TYPE,
-	.do_kind = "channel",
-	.do_dispose = _dispatch_io_dispose,
-	.do_invoke = NULL,
-	.do_probe = (void *)dummy_function_r0,
-	.do_debug = (void *)dummy_function_r0,
-};
-
-static const struct dispatch_operation_vtable_s _dispatch_operation_vtable = {
-	.do_type = DISPATCH_OPERATION_TYPE,
-	.do_kind = "operation",
-	.do_dispose = _dispatch_operation_dispose,
-	.do_invoke = NULL,
-	.do_probe = (void *)dummy_function_r0,
-	.do_debug = (void *)dummy_function_r0,
-};
-
-static const struct dispatch_disk_vtable_s _dispatch_disk_vtable = {
-	.do_type = DISPATCH_DISK_TYPE,
-	.do_kind = "disk",
-	.do_dispose = _dispatch_disk_dispose,
-	.do_invoke = NULL,
-	.do_probe = (void *)dummy_function_r0,
-	.do_debug = (void *)dummy_function_r0,
-};
+#define _dispatch_io_Block_copy(x) ((typeof(x))_dispatch_Block_copy((dispatch_block_t)(x)))
 
 #pragma mark -
 #pragma mark dispatch_io_hashtables
@@ -218,11 +187,9 @@ _dispatch_iocntl(uint32_t param, uint64_t value)
 static dispatch_io_t
 _dispatch_io_create(dispatch_io_type_t type)
 {
-	dispatch_io_t channel = calloc(1ul, sizeof(struct dispatch_io_s));
-	channel->do_vtable = &_dispatch_io_vtable;
+	dispatch_io_t channel = _dispatch_alloc(DISPATCH_VTABLE(io),
+			sizeof(struct dispatch_io_s));
 	channel->do_next = DISPATCH_OBJECT_LISTLESS;
-	channel->do_ref_cnt = 1;
-	channel->do_xref_cnt = 1;
 	channel->do_targetq = _dispatch_get_root_queue(0, true);
 	channel->params.type = type;
 	channel->params.high = SIZE_MAX;
@@ -263,7 +230,7 @@ _dispatch_io_init(dispatch_io_t channel, dispatch_fd_entry_t fd_entry,
 	}
 }
 
-static void
+void
 _dispatch_io_dispose(dispatch_io_t channel)
 {
 	if (channel->fd_entry && !(channel->atomic_flags & (DIO_CLOSED|DIO_STOPPED))) {
@@ -285,7 +252,6 @@ _dispatch_io_dispose(dispatch_io_t channel)
 	if (channel->barrier_group) {
 		dispatch_release(channel->barrier_group);
 	}
-	_dispatch_dispose(channel);
 }
 
 static int
@@ -908,12 +874,10 @@ _dispatch_operation_create(dispatch_op_direction_t direction,
 		});
 		return NULL;
 	}
-	dispatch_operation_t op;
-	op = calloc(1ul, sizeof(struct dispatch_operation_s));
-	op->do_vtable = &_dispatch_operation_vtable;
+	dispatch_operation_t op = _dispatch_alloc(DISPATCH_VTABLE(operation),
+			sizeof(struct dispatch_operation_s));
 	op->do_next = DISPATCH_OBJECT_LISTLESS;
-	op->do_ref_cnt = 1;
-	op->do_xref_cnt = 0; // operation object is not exposed externally
+	op->do_xref_cnt = -1; // operation object is not exposed externally
 	op->op_q = dispatch_queue_create("com.apple.libdispatch-io.opq", NULL);
 	op->op_q->do_targetq = queue;
 	_dispatch_retain(queue);
@@ -921,7 +885,7 @@ _dispatch_operation_create(dispatch_op_direction_t direction,
 	op->direction = direction;
 	op->offset = offset + channel->f_ptr;
 	op->length = length;
-	op->handler = Block_copy(handler);
+	op->handler = _dispatch_io_Block_copy(handler);
 	_dispatch_retain(channel);
 	op->channel = channel;
 	op->params = channel->params;
@@ -935,7 +899,7 @@ _dispatch_operation_create(dispatch_op_direction_t direction,
 	return op;
 }
 
-static void
+void
 _dispatch_operation_dispose(dispatch_operation_t op)
 {
 	// Deliver the data if there's any
@@ -964,7 +928,6 @@ _dispatch_operation_dispose(dispatch_operation_t op)
 		dispatch_release(op->op_q);
 	}
 	Block_release(op->handler);
-	_dispatch_dispose(op);
 }
 
 static void
@@ -1436,12 +1399,11 @@ _dispatch_disk_init(dispatch_fd_entry_t fd_entry, dev_t dev)
 	}
 	// Otherwise create a new entry
 	size_t pending_reqs_depth = dispatch_io_defaults.max_pending_io_reqs;
-	disk = calloc(1ul, sizeof(struct dispatch_disk_s) + (pending_reqs_depth *
-			sizeof(dispatch_operation_t)));
-	disk->do_vtable = &_dispatch_disk_vtable;
+	disk = _dispatch_alloc(DISPATCH_VTABLE(disk),
+			sizeof(struct dispatch_disk_s) +
+			(pending_reqs_depth * sizeof(dispatch_operation_t)));
 	disk->do_next = DISPATCH_OBJECT_LISTLESS;
-	disk->do_ref_cnt = 1;
-	disk->do_xref_cnt = 0;
+	disk->do_xref_cnt = -1;
 	disk->advise_list_depth = pending_reqs_depth;
 	disk->do_targetq = _dispatch_get_root_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT,
 			false);
@@ -1456,7 +1418,7 @@ out:
 	TAILQ_INIT(&fd_entry->stream_ops);
 }
 
-static void
+void
 _dispatch_disk_dispose(dispatch_disk_t disk)
 {
 	uintptr_t hash = DIO_HASH(disk->dev);
@@ -1467,7 +1429,6 @@ _dispatch_disk_dispose(dispatch_disk_t disk)
 		dispatch_assert(!disk->advise_list[i]);
 	}
 	dispatch_release(disk->pick_queue);
-	free(disk);
 }
 
 #pragma mark -

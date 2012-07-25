@@ -619,14 +619,13 @@ private slots:
     void javaScriptWindowObjectCleared();
     void javaScriptWindowObjectClearedOnEvaluate();
     void setHtml();
-    void setHtmlWithResource();
+    void setHtmlWithImageResource();
+    void setHtmlWithStylesheetResource();
     void setHtmlWithBaseURL();
     void setHtmlWithJSAlert();
     void ipv6HostEncoding();
     void metaData();
-#if !defined(Q_WS_MAEMO_5) && !defined(Q_OS_SYMBIAN) && !defined(QT_NO_COMBOBOX)
-    // as maemo 5 && symbian do not use QComboBoxes to implement the popups
-    // this test does not make sense for it.
+#if !defined(QT_NO_COMBOBOX)
     void popupFocus();
 #endif
     void inputFieldFocus();
@@ -637,7 +636,7 @@ private slots:
     void baseUrl_data();
     void baseUrl();
     void hasSetFocus();
-    void render();
+    void renderGeometry();
     void renderHints();
     void scrollPosition();
     void scrollToAnchor();
@@ -649,7 +648,7 @@ private slots:
     void setContent_data();
     void setContent();
     void setCacheLoadControlAttribute();
-    void setUrlWithPendingLoads();
+    //void setUrlWithPendingLoads();
     void setUrlWithFragment_data();
     void setUrlWithFragment();
     void setUrlToEmpty();
@@ -658,6 +657,9 @@ private slots:
     void setUrlSameUrl();
     void setUrlThenLoads_data();
     void setUrlThenLoads();
+    void loadFinishedAfterNotFoundError();
+    void loadInSignalHandlers_data();
+    void loadInSignalHandlers();
 
 private:
     QString  evalJS(const QString&s) {
@@ -704,15 +706,6 @@ private:
         }
         evalJS("delete retvalue; delete typevalue");
         return ret;
-    }
-    QObject* firstChildByClassName(QObject* parent, const char* className) {
-        const QObjectList & children = parent->children();
-        foreach (QObject* child, children) {
-            if (!strcmp(child->metaObject()->className(), className)) {
-                return child;
-            }
-        }
-        return 0;
     }
 
     const QString sTrue;
@@ -2004,10 +1997,9 @@ void tst_QWebFrame::overloadedSlots()
     QCOMPARE(m_myObject->qtFunctionInvoked(), 35);
     */
 
-    // should pick myOverloadedSlot(QRegExp)
+    // Should pick myOverloadedSlot(QWebElement).
     m_myObject->resetQtFunctionInvoked();
     evalJS("myObject.myOverloadedSlot(document.body)");
-    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=37319", Continue);
     QCOMPARE(m_myObject->qtFunctionInvoked(), 36);
 
     // should pick myOverloadedSlot(QObject*)
@@ -2039,8 +2031,11 @@ void tst_QWebFrame::enumerate_data()
         << "p1" << "p2" << "p4" << "p6"
         // dynamic properties
         << "dp1" << "dp2" << "dp3"
-        // inherited slots
+        // inherited signals and slots
         << "destroyed(QObject*)" << "destroyed()"
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+        << "objectNameChanged(QString)"
+#endif
         << "deleteLater()"
         // not included because it's private:
         // << "_q_reregisterTimers(void*)"
@@ -2302,6 +2297,8 @@ class FakeReply : public QNetworkReply {
     Q_OBJECT
 
 public:
+    static const QUrl urlFor404ErrorWithoutContents;
+
     FakeReply(const QNetworkRequest& request, QObject* parent = 0)
         : QNetworkReply(parent)
     {
@@ -2320,6 +2317,10 @@ public:
 #endif
         else if (request.url().host() == QLatin1String("abcdef.abcdef")) {
             setError(QNetworkReply::HostNotFoundError, tr("Invalid URL"));
+            QTimer::singleShot(0, this, SLOT(continueError()));
+        } else if (request.url() == FakeReply::urlFor404ErrorWithoutContents) {
+            setError(QNetworkReply::ContentNotFoundError, "Not found");
+            setAttribute(QNetworkRequest::HttpStatusCodeAttribute, 404);
             QTimer::singleShot(0, this, SLOT(continueError()));
         }
 
@@ -2352,6 +2353,8 @@ private slots:
     }
 };
 
+const QUrl FakeReply::urlFor404ErrorWithoutContents = QUrl("http://this.will/return-http-404-error-without-contents.html");
+
 class FakeNetworkManager : public QNetworkAccessManager {
     Q_OBJECT
 
@@ -2363,17 +2366,17 @@ protected:
     {
         QString url = request.url().toString();
         if (op == QNetworkAccessManager::GetOperation) {
-            if (url == "qrc:/test1.html" ||  url == "http://abcdef.abcdef/")
-                return new FakeReply(request, this);
 #ifndef QT_NO_OPENSSL
-            else if (url == "qrc:/fake-ssl-error.html") {
+            if (url == "qrc:/fake-ssl-error.html") {
                 FakeReply* reply = new FakeReply(request, this);
                 QList<QSslError> errors;
                 emit sslErrors(reply, errors << QSslError(QSslError::UnspecifiedError));
                 return reply;
             }
 #endif
-       }
+            if (url == "qrc:/test1.html" || url == "http://abcdef.abcdef/" || request.url() == FakeReply::urlFor404ErrorWithoutContents)
+                return new FakeReply(request, this);
+        }
 
         return QNetworkAccessManager::createRequest(op, request, outgoingData);
     }
@@ -2489,24 +2492,37 @@ void tst_QWebFrame::setHtml()
     QCOMPARE(spy.count(), 1);
 }
 
-void tst_QWebFrame::setHtmlWithResource()
+void tst_QWebFrame::setHtmlWithImageResource()
 {
-    QString html("<html><body><p>hello world</p><img src='qrc:/image.png'/></body></html>");
+    // By default, only security origins of local files can load local resources.
+    // So we should specify baseUrl to be a local file in order to get a proper origin and load the local image.
 
+    QLatin1String html("<html><body><p>hello world</p><img src='qrc:/image.png'/></body></html>");
     QWebPage page;
     QWebFrame* frame = page.mainFrame();
 
-    // in few seconds, the image should be completey loaded
-    QSignalSpy spy(&page, SIGNAL(loadFinished(bool)));
-    frame->setHtml(html);
+    frame->setHtml(html, QUrl(QLatin1String("file:///path/to/file")));
     waitForSignal(frame, SIGNAL(loadFinished(bool)), 200);
-    QCOMPARE(spy.count(), 1);
 
     QCOMPARE(frame->evaluateJavaScript("document.images.length").toInt(), 1);
     QCOMPARE(frame->evaluateJavaScript("document.images[0].width").toInt(), 128);
     QCOMPARE(frame->evaluateJavaScript("document.images[0].height").toInt(), 128);
 
-    QString html2 =
+    // Now we test the opposite: without a baseUrl as a local file, we cannot request local resources.
+
+    frame->setHtml(html);
+    waitForSignal(frame, SIGNAL(loadFinished(bool)), 200);
+    QCOMPARE(frame->evaluateJavaScript("document.images.length").toInt(), 1);
+    QCOMPARE(frame->evaluateJavaScript("document.images[0].width").toInt(), 0);
+    QCOMPARE(frame->evaluateJavaScript("document.images[0].height").toInt(), 0);
+}
+
+void tst_QWebFrame::setHtmlWithStylesheetResource()
+{
+    // By default, only security origins of local files can load local resources.
+    // So we should specify baseUrl to be a local file in order to be able to download the local stylesheet.
+
+    const char* htmlData =
         "<html>"
             "<head>"
                 "<link rel='stylesheet' href='qrc:/style.css' type='text/css' />"
@@ -2515,20 +2531,31 @@ void tst_QWebFrame::setHtmlWithResource()
                 "<p id='idP'>some text</p>"
             "</body>"
         "</html>";
+    QLatin1String html(htmlData);
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+    QWebElement webElement;
 
-    // in few seconds, the CSS should be completey loaded
-    frame->setHtml(html2);
+    frame->setHtml(html, QUrl(QLatin1String("qrc:///file")));
     waitForSignal(frame, SIGNAL(loadFinished(bool)), 200);
-    QCOMPARE(spy.size(), 2);
+    webElement = frame->documentElement().findFirst("p");
+    QCOMPARE(webElement.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
 
-    QWebElement p = frame->documentElement().findAll("p").at(0);
-    QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
+    // Now we test the opposite: without a baseUrl as a local file, we cannot request local resources.
+
+    frame->setHtml(html, QUrl(QLatin1String("http://www.example.com/")));
+    waitForSignal(frame, SIGNAL(loadFinished(bool)), 200);
+    webElement = frame->documentElement().findFirst("p");
+    QCOMPARE(webElement.styleProperty("color", QWebElement::CascadedStyle), QString());
 }
 
 void tst_QWebFrame::setHtmlWithBaseURL()
 {
+    // This tests if baseUrl is indeed affecting the relative paths from resources.
+    // As we are using a local file as baseUrl, its security origin should be able to load local resources.
+
     if (!QDir(TESTS_SOURCE_DIR).exists())
-        QSKIP(QString("This test requires access to resources found in '%1'").arg(TESTS_SOURCE_DIR).toLatin1().constData(), SkipAll);
+        W_QSKIP(QString("This test requires access to resources found in '%1'").arg(TESTS_SOURCE_DIR).toLatin1().constData(), SkipAll);
 
     QDir::setCurrent(TESTS_SOURCE_DIR);
 
@@ -2648,7 +2675,7 @@ void tst_QWebFrame::metaData()
     QCOMPARE(metaData.value("nonexistant"), QString());
 }
 
-#if !defined(Q_WS_MAEMO_5) && !defined(Q_OS_SYMBIAN) && !defined(QT_NO_COMBOBOX)
+#if !defined(QT_NO_COMBOBOX)
 void tst_QWebFrame::popupFocus()
 {
     QWebView view;
@@ -2676,8 +2703,8 @@ void tst_QWebFrame::popupFocus()
     // open the popup by clicking. check if focus is on the popup
     const QWebElement webCombo = view.page()->mainFrame()->documentElement().findFirst(QLatin1String("select[name=select]"));
     QTest::mouseClick(&view, Qt::LeftButton, 0, webCombo.geometry().center());
-    QObject* webpopup = firstChildByClassName(&view, "QComboBox");
-    QComboBox* combo = qobject_cast<QComboBox*>(webpopup);
+
+    QComboBox* combo = view.findChild<QComboBox*>();
     QVERIFY(combo != 0);
     QTRY_VERIFY(!view.hasFocus() && combo->view()->hasFocus()); // Focus should be on the popup
 
@@ -2747,26 +2774,26 @@ void tst_QWebFrame::ownership()
 {
     // test ownership
     {
-        QPointer<QObject> ptr = new QObject();
+        QWeakPointer<QObject> ptr = new QObject();
         QVERIFY(ptr != 0);
         {
             QWebPage page;
             QWebFrame* frame = page.mainFrame();
-            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::ScriptOwnership);
+            frame->addToJavaScriptWindowObject("test", ptr.data(), QScriptEngine::ScriptOwnership);
         }
         QVERIFY(ptr == 0);
     }
     {
-        QPointer<QObject> ptr = new QObject();
+        QWeakPointer<QObject> ptr = new QObject();
         QVERIFY(ptr != 0);
-        QObject* before = ptr;
+        QObject* before = ptr.data();
         {
             QWebPage page;
             QWebFrame* frame = page.mainFrame();
-            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::QtOwnership);
+            frame->addToJavaScriptWindowObject("test", ptr.data(), QScriptEngine::QtOwnership);
         }
-        QVERIFY(ptr == before);
-        delete ptr;
+        QVERIFY(ptr.data() == before);
+        delete ptr.data();
     }
     {
         QObject* parent = new QObject();
@@ -2781,24 +2808,24 @@ void tst_QWebFrame::ownership()
         QCOMPARE(qvariant_cast<QObject*>(v), (QObject *)0);
     }
     {
-        QPointer<QObject> ptr = new QObject();
+        QWeakPointer<QObject> ptr = new QObject();
         QVERIFY(ptr != 0);
         {
             QWebPage page;
             QWebFrame* frame = page.mainFrame();
-            frame->addToJavaScriptWindowObject("test", ptr, QScriptEngine::AutoOwnership);
+            frame->addToJavaScriptWindowObject("test", ptr.data(), QScriptEngine::AutoOwnership);
         }
         // no parent, so it should be like ScriptOwnership
         QVERIFY(ptr == 0);
     }
     {
         QObject* parent = new QObject();
-        QPointer<QObject> child = new QObject(parent);
+        QWeakPointer<QObject> child = new QObject(parent);
         QVERIFY(child != 0);
         {
             QWebPage page;
             QWebFrame* frame = page.mainFrame();
-            frame->addToJavaScriptWindowObject("test", child, QScriptEngine::AutoOwnership);
+            frame->addToJavaScriptWindowObject("test", child.data(), QScriptEngine::AutoOwnership);
         }
         // has parent, so it should be like QtOwnership
         QVERIFY(child != 0);
@@ -2881,7 +2908,7 @@ void tst_QWebFrame::hasSetFocus()
     QTRY_VERIFY(m_page->mainFrame()->hasFocus());
 }
 
-void tst_QWebFrame::render()
+void tst_QWebFrame::renderGeometry()
 {
     QString html("<html>" \
                     "<head><style>" \
@@ -2896,7 +2923,11 @@ void tst_QWebFrame::render()
     QList<QWebFrame*> frames = page.mainFrame()->childFrames();
     QWebFrame *frame = frames.at(0);
     QString innerHtml("<body style='margin: 0px;'><img src='qrc:/image.png'/></body>");
-    frame->setHtml(innerHtml);
+
+    // By default, only security origins of local files can load local resources.
+    // So we should specify baseUrl to be a local file in order to get a proper origin.
+    frame->setHtml(innerHtml, QUrl("file:///path/to/file"));
+    waitForSignal(frame, SIGNAL(loadFinished(bool)), 200);
 
     QPicture picture;
 
@@ -3134,8 +3165,10 @@ void tst_QWebFrame::scrollbarsOff()
                  "</body>");
 
 
+    QSignalSpy loadSpy(&view, SIGNAL(loadFinished(bool)));
     view.setHtml(html);
-    ::waitForSignal(&view, SIGNAL(loadFinished(bool)));
+    ::waitForSignal(&view, SIGNAL(loadFinished(bool)), 200);
+    QCOMPARE(loadSpy.count(), 1);
 
     mainFrame->evaluateJavaScript("checkScrollbar();");
     QCOMPARE(mainFrame->documentElement().findAll("span").at(0).toPlainText(), QString("SUCCESS"));
@@ -3350,12 +3383,16 @@ void tst_QWebFrame::webElementSlotOnly()
     QCOMPARE(evalJS("myWebElementSlotObject.tagName"), QString("BODY"));
 }
 
+// [Qt] Fix tst_QWebFrame::setUrlWithPendingLoads() API test
+// https://bugs.webkit.org/show_bug.cgi?id=63237
+/*
 void tst_QWebFrame::setUrlWithPendingLoads()
 {
     QWebPage page;
     page.mainFrame()->setHtml("<img src='dummy:'/>");
     page.mainFrame()->setUrl(QUrl("about:blank"));
 }
+*/
 
 void tst_QWebFrame::setUrlWithFragment_data()
 {
@@ -3453,15 +3490,17 @@ void tst_QWebFrame::setUrlToInvalid()
     QWebPage page;
     QWebFrame* frame = page.mainFrame();
 
-    const QUrl invalidUrl("http://strange;hostname/here");
+    const QUrl invalidUrl("http:/example.com");
     QVERIFY(!invalidUrl.isEmpty());
     QVERIFY(!invalidUrl.isValid());
     QVERIFY(invalidUrl != QUrl());
 
+    // QWebFrame will do its best to accept the URL, possible converting it to a valid equivalent URL.
+    const QUrl validUrl("http://example.com/");
     frame->setUrl(invalidUrl);
-    QCOMPARE(frame->url(), invalidUrl);
-    QCOMPARE(frame->requestedUrl(), invalidUrl);
-    QCOMPARE(frame->baseUrl(), invalidUrl);
+    QCOMPARE(frame->url(), validUrl);
+    QCOMPARE(frame->requestedUrl(), validUrl);
+    QCOMPARE(frame->baseUrl(), validUrl);
 
     // QUrls equivalent to QUrl() will be treated as such.
     const QUrl aboutBlank("about:blank");
@@ -3641,6 +3680,114 @@ void tst_QWebFrame::setUrlThenLoads()
     QCOMPARE(frame->url(), urlToLoad2);
     QCOMPARE(frame->requestedUrl(), urlToLoad2);
     QCOMPARE(frame->baseUrl(), extractBaseUrl(urlToLoad2));
+}
+
+void tst_QWebFrame::loadFinishedAfterNotFoundError()
+{
+    QWebPage page;
+    QWebFrame* frame = page.mainFrame();
+
+    QSignalSpy spy(&page, SIGNAL(loadFinished(bool)));
+    FakeNetworkManager* networkManager = new FakeNetworkManager(&page);
+    page.setNetworkAccessManager(networkManager);
+
+    frame->setUrl(FakeReply::urlFor404ErrorWithoutContents);
+    QTRY_COMPARE(spy.count(), 1);
+    const bool wasLoadOk = spy.at(0).at(0).toBool();
+    QVERIFY(!wasLoadOk);
+}
+
+class URLSetter : public QObject {
+    Q_OBJECT
+
+public:
+    enum Signal {
+        LoadStarted,
+        LoadFinished,
+        ProvisionalLoad
+    };
+
+    enum Type {
+        UseLoad,
+        UseSetUrl
+    };
+
+    URLSetter(QWebFrame*, Signal, Type, const QUrl&);
+
+public slots:
+    void execute();
+
+signals:
+    void finished();
+
+private:
+    QWebFrame* m_frame;
+    QUrl m_url;
+    Type m_type;
+};
+
+Q_DECLARE_METATYPE(URLSetter::Signal)
+Q_DECLARE_METATYPE(URLSetter::Type)
+
+URLSetter::URLSetter(QWebFrame* frame, Signal signal, URLSetter::Type type, const QUrl& url)
+    : m_frame(frame), m_url(url), m_type(type)
+{
+    if (signal == LoadStarted)
+        connect(m_frame, SIGNAL(loadStarted()), SLOT(execute()));
+    else if (signal == LoadFinished)
+        connect(m_frame, SIGNAL(loadFinished(bool)), SLOT(execute()));
+    else
+        connect(m_frame, SIGNAL(provisionalLoad()), SLOT(execute()));
+}
+
+void URLSetter::execute()
+{
+    // We track only the first emission.
+    m_frame->disconnect(this);
+    if (m_type == URLSetter::UseLoad)
+        m_frame->load(m_url);
+    else
+        m_frame->setUrl(m_url);
+    connect(m_frame, SIGNAL(loadFinished(bool)), SIGNAL(finished()));
+}
+
+void tst_QWebFrame::loadInSignalHandlers_data()
+{
+    QTest::addColumn<URLSetter::Type>("type");
+    QTest::addColumn<URLSetter::Signal>("signal");
+    QTest::addColumn<QUrl>("url");
+
+    const QUrl validUrl("qrc:/test2.html");
+    const QUrl invalidUrl("qrc:/invalid");
+
+    QTest::newRow("call load() in loadStarted() after valid url") << URLSetter::UseLoad << URLSetter::LoadStarted << validUrl;
+    QTest::newRow("call load() in loadStarted() after invalid url") << URLSetter::UseLoad << URLSetter::LoadStarted << invalidUrl;
+    QTest::newRow("call load() in loadFinished() after valid url") << URLSetter::UseLoad << URLSetter::LoadFinished << validUrl;
+    QTest::newRow("call load() in loadFinished() after invalid url") << URLSetter::UseLoad << URLSetter::LoadFinished << invalidUrl;
+    QTest::newRow("call load() in provisionalLoad() after valid url") << URLSetter::UseLoad << URLSetter::ProvisionalLoad << validUrl;
+    QTest::newRow("call load() in provisionalLoad() after invalid url") << URLSetter::UseLoad << URLSetter::ProvisionalLoad << invalidUrl;
+
+    QTest::newRow("call setUrl() in loadStarted() after valid url") << URLSetter::UseSetUrl << URLSetter::LoadStarted << validUrl;
+    QTest::newRow("call setUrl() in loadStarted() after invalid url") << URLSetter::UseSetUrl << URLSetter::LoadStarted << invalidUrl;
+    QTest::newRow("call setUrl() in loadFinished() after valid url") << URLSetter::UseSetUrl << URLSetter::LoadFinished << validUrl;
+    QTest::newRow("call setUrl() in loadFinished() after invalid url") << URLSetter::UseSetUrl << URLSetter::LoadFinished << invalidUrl;
+    QTest::newRow("call setUrl() in provisionalLoad() after valid url") << URLSetter::UseSetUrl << URLSetter::ProvisionalLoad << validUrl;
+    QTest::newRow("call setUrl() in provisionalLoad() after invalid url") << URLSetter::UseSetUrl << URLSetter::ProvisionalLoad << invalidUrl;
+}
+
+void tst_QWebFrame::loadInSignalHandlers()
+{
+    QFETCH(URLSetter::Type, type);
+    QFETCH(URLSetter::Signal, signal);
+    QFETCH(QUrl, url);
+
+    QWebFrame* frame = m_page->mainFrame();
+    const QUrl urlForSetter("qrc:/test1.html");
+    URLSetter setter(frame, signal, type, urlForSetter);
+
+    frame->load(url);
+    waitForSignal(&setter, SIGNAL(finished()), 200);
+    QCOMPARE(frame->url(), urlForSetter);
 }
 
 QTEST_MAIN(tst_QWebFrame)

@@ -41,7 +41,7 @@ void FontPlatformData::loadFont(NSFont* nsFont, float, NSFont*& outNSFont, CGFon
 }
 #endif  // PLATFORM(MAC)
 
-FontPlatformData::FontPlatformData(NSFont *nsFont, float size, bool syntheticBold, bool syntheticOblique, FontOrientation orientation,
+FontPlatformData::FontPlatformData(NSFont *nsFont, float size, bool isPrinterFont, bool syntheticBold, bool syntheticOblique, FontOrientation orientation,
                                    TextOrientation textOrientation, FontWidthVariant widthVariant)
     : m_syntheticBold(syntheticBold)
     , m_syntheticOblique(syntheticOblique)
@@ -50,18 +50,26 @@ FontPlatformData::FontPlatformData(NSFont *nsFont, float size, bool syntheticBol
     , m_size(size)
     , m_widthVariant(widthVariant)
     , m_font(nsFont)
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    // FIXME: Chromium: The following code isn't correct for the Chromium port since the sandbox might
-    // have blocked font loading, in which case we'll only have the real loaded font file after the call to loadFont().
-    , m_isColorBitmapFont(CTFontGetSymbolicTraits(toCTFontRef(nsFont)) & kCTFontColorGlyphsTrait)
-#else
     , m_isColorBitmapFont(false)
-#endif
+    , m_isCompositeFontReference(false)
+    , m_isPrinterFont(isPrinterFont)
 {
     ASSERT_ARG(nsFont, nsFont);
 
     CGFontRef cgFont = 0;
     loadFont(nsFont, size, m_font, cgFont);
+    
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    // FIXME: Chromium: The following code isn't correct for the Chromium port since the sandbox might
+    // have blocked font loading, in which case we'll only have the real loaded font file after the call to loadFont().
+    {
+        CTFontSymbolicTraits traits = CTFontGetSymbolicTraits(toCTFontRef(m_font));
+        m_isColorBitmapFont = traits & kCTFontColorGlyphsTrait;
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+        m_isCompositeFontReference = traits & kCTFontCompositeTrait;
+#endif
+    }
+#endif
 
     if (m_font)
         CFRetain(m_font);
@@ -141,7 +149,13 @@ void FontPlatformData::setFont(NSFont *font)
     
     m_cgFont.adoptCF(cgFont);
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    m_isColorBitmapFont = CTFontGetSymbolicTraits(toCTFontRef(m_font)) & kCTFontColorGlyphsTrait;
+    {
+        CTFontSymbolicTraits traits = CTFontGetSymbolicTraits(toCTFontRef(m_font));
+        m_isColorBitmapFont = traits & kCTFontColorGlyphsTrait;
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+        m_isCompositeFontReference = traits & kCTFontCompositeTrait;
+#endif
+    }
 #endif
     m_CTFont = 0;
 }
@@ -176,28 +190,110 @@ inline int mapFontWidthVariantToCTFeatureSelector(FontWidthVariant variant)
     return TextSpacingProportional;
 }
 
+static CFDictionaryRef createFeatureSettingDictionary(int featureTypeIdentifier, int featureSelectorIdentifier)
+{
+    RetainPtr<CFNumberRef> featureTypeIdentifierNumber(AdoptCF, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &featureTypeIdentifier));
+    RetainPtr<CFNumberRef> featureSelectorIdentifierNumber(AdoptCF, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &featureSelectorIdentifier));
+
+    const void* settingKeys[] = { kCTFontFeatureTypeIdentifierKey, kCTFontFeatureSelectorIdentifierKey };
+    const void* settingValues[] = { featureTypeIdentifierNumber.get(), featureSelectorIdentifierNumber.get() };
+
+    return CFDictionaryCreate(kCFAllocatorDefault, settingKeys, settingValues, WTF_ARRAY_LENGTH(settingKeys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+}
+
+static CTFontDescriptorRef cascadeToLastResortFontDescriptor()
+{
+    static CTFontDescriptorRef descriptor;
+    if (descriptor)
+        return descriptor;
+
+    const void* keys[] = { kCTFontCascadeListAttribute };
+    const void* descriptors[] = { CTFontDescriptorCreateWithNameAndSize(CFSTR("LastResort"), 0) };
+    const void* values[] = { CFArrayCreate(kCFAllocatorDefault, descriptors, WTF_ARRAY_LENGTH(descriptors), &kCFTypeArrayCallBacks) };
+    RetainPtr<CFDictionaryRef> attributes(AdoptCF, CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    descriptor = CTFontDescriptorCreateWithAttributes(attributes.get());
+
+    return descriptor;
+}
+
+static CTFontDescriptorRef cascadeToLastResortAndDisableSwashesFontDescriptor()
+{
+    static CTFontDescriptorRef descriptor;
+    if (descriptor)
+        return descriptor;
+
+    RetainPtr<CFDictionaryRef> lineInitialSwashesOffSetting(AdoptCF, createFeatureSettingDictionary(kSmartSwashType, kLineInitialSwashesOffSelector));
+    RetainPtr<CFDictionaryRef> lineFinalSwashesOffSetting(AdoptCF, createFeatureSettingDictionary(kSmartSwashType, kLineFinalSwashesOffSelector));
+
+    const void* settingDictionaries[] = { lineInitialSwashesOffSetting.get(), lineFinalSwashesOffSetting.get() };
+    RetainPtr<CFArrayRef> featureSettings(AdoptCF, CFArrayCreate(kCFAllocatorDefault, settingDictionaries, WTF_ARRAY_LENGTH(settingDictionaries), &kCFTypeArrayCallBacks));
+
+    const void* keys[] = { kCTFontFeatureSettingsAttribute };
+    const void* values[] = { featureSettings.get() };
+    RetainPtr<CFDictionaryRef> attributes(AdoptCF, CFDictionaryCreate(kCFAllocatorDefault, keys, values, WTF_ARRAY_LENGTH(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+    descriptor = CTFontDescriptorCreateCopyWithAttributes(cascadeToLastResortFontDescriptor(), attributes.get());
+
+    return descriptor;
+}
+
+// Adding a cascade list breaks the font on Leopard
+static bool canSetCascadeListForCustomFont()
+{
+#if PLATFORM(CHROMIUM)
+    static SInt32 systemVersion;
+    if (!systemVersion) {
+        if (Gestalt(gestaltSystemVersion, &systemVersion) != noErr)
+            return false;
+    }
+
+    return systemVersion >= 0x1060;
+#elif !defined(BUILDING_ON_LEOPARD)
+    return true;
+#else
+    return false;
+#endif
+}
+
 CTFontRef FontPlatformData::ctFont() const
 {
-    if (m_widthVariant == RegularWidth) {
-        if (m_font)
-            return toCTFontRef(m_font);
-        if (!m_CTFont)
-            m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_cgFont.get(), m_size, 0, 0));
+    if (m_CTFont)
+        return m_CTFont.get();
+
+#if PLATFORM(CHROMIUM)
+    if (m_inMemoryFont) {
+        m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_inMemoryFont->cgFont(), m_size, 0, canSetCascadeListForCustomFont() ? cascadeToLastResortFontDescriptor() : 0));
         return m_CTFont.get();
     }
-    
-    if (!m_CTFont) {
+#endif
+
+    m_CTFont = toCTFontRef(m_font);
+    if (m_CTFont) {
+        CTFontDescriptorRef fontDescriptor;
+        RetainPtr<CFStringRef> postScriptName(AdoptCF, CTFontCopyPostScriptName(m_CTFont.get()));
+        // Hoefler Text Italic has line-initial and -final swashes enabled by default, so disable them.
+        if (CFEqual(postScriptName.get(), CFSTR("HoeflerText-Italic")) || CFEqual(postScriptName.get(), CFSTR("HoeflerText-BlackItalic")))
+            fontDescriptor = cascadeToLastResortAndDisableSwashesFontDescriptor();
+        else
+            fontDescriptor = cascadeToLastResortFontDescriptor();
+        m_CTFont.adoptCF(CTFontCreateCopyWithAttributes(m_CTFont.get(), m_size, 0, fontDescriptor));
+    } else
+        m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_cgFont.get(), m_size, 0, canSetCascadeListForCustomFont() ? cascadeToLastResortFontDescriptor() : 0));
+
+    if (m_widthVariant != RegularWidth) {
         int featureTypeValue = kTextSpacingType;
         int featureSelectorValue = mapFontWidthVariantToCTFeatureSelector(m_widthVariant);
-        RetainPtr<CTFontRef> sourceFont(AdoptCF, CTFontCreateWithGraphicsFont(m_cgFont.get(), m_size, 0, 0));
-        RetainPtr<CTFontDescriptorRef> sourceDescriptor(AdoptCF, CTFontCopyFontDescriptor(sourceFont.get()));
+        RetainPtr<CTFontDescriptorRef> sourceDescriptor(AdoptCF, CTFontCopyFontDescriptor(m_CTFont.get()));
         RetainPtr<CFNumberRef> featureType(AdoptCF, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &featureTypeValue));
         RetainPtr<CFNumberRef> featureSelector(AdoptCF, CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &featureSelectorValue));
         RetainPtr<CTFontDescriptorRef> newDescriptor(AdoptCF, CTFontDescriptorCreateCopyWithFeature(sourceDescriptor.get(), featureType.get(), featureSelector.get()));
         RetainPtr<CTFontRef> newFont(AdoptCF, CTFontCreateWithFontDescriptor(newDescriptor.get(), m_size, 0));
 
-        m_CTFont = newFont.get() ? newFont : sourceFont;
+        if (newFont)
+            m_CTFont = newFont;
     }
+
     return m_CTFont.get();
 }
 

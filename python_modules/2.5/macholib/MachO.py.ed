@@ -1,9 +1,15 @@
-/^import sys/s//import os, sys/
-/raise ValueError("Unknown load command:/c
-                # skip unknown load commands rather than raise an exception
-                data_size = cmd_load.cmdsize - sizeof(load_command)
-                fh.seek(data_size, os.SEEK_CUR)
-                read_bytes += cmd_load.cmdsize
-                continue
+/klass = LC_REGISTRY\.get(cmd_load.cmd, None)/a
+.
+.,/raise ValueError("Unknown load command:/c
+            # Unknown load commands are just treated as raw data, using
+            # unknown_command class
+            klass = LC_REGISTRY.get(cmd_load.cmd, unknown_command)
+.
+/lc, cmd, old_data = self\.commands\[idx]/a
+        old_len = len(old_data)
+.
+/data = data + ('/a
+        if old_len > len(data):
+            data = data + ('\x00' * (old_len - len(data)))
 .
 w

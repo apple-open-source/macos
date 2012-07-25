@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -96,19 +96,19 @@ enum {
 extern NSString *WebConsoleMessageHTMLMessageSource;
 extern NSString *WebConsoleMessageXMLMessageSource;
 extern NSString *WebConsoleMessageJSMessageSource;
-extern NSString *WebConsoleMessageCSSMessageSource;
+extern NSString *WebConsoleMessageNetworkMessageSource;
+extern NSString *WebConsoleMessageConsoleAPIMessageSource;
 extern NSString *WebConsoleMessageOtherMessageSource;
 
 // Message Types.
 extern NSString *WebConsoleMessageLogMessageType;
-extern NSString *WebConsoleMessageObjectMessageType;
+extern NSString *WebConsoleMessageDirMessageType;
+extern NSString *WebConsoleMessageDirXMLMessageType;
 extern NSString *WebConsoleMessageTraceMessageType;
 extern NSString *WebConsoleMessageStartGroupMessageType;
 extern NSString *WebConsoleMessageStartGroupCollapsedMessageType;
 extern NSString *WebConsoleMessageEndGroupMessageType;
 extern NSString *WebConsoleMessageAssertMessageType;
-extern NSString *WebConsoleMessageUncaughtExceptionMessageType;
-extern NSString *WebConsoleMessageNetworkErrorMessageType;
 
 // Message Levels.
 extern NSString *WebConsoleMessageTipMessageLevel;
@@ -117,9 +117,11 @@ extern NSString *WebConsoleMessageWarningMessageLevel;
 extern NSString *WebConsoleMessageErrorMessageLevel;
 extern NSString *WebConsoleMessageDebugMessageLevel;
 
+@class DOMElement;
+@class DOMNode;
 @class WebSecurityOrigin;
 
-@protocol WebGeolocationPolicyListener <NSObject>
+@protocol WebAllowDenyPolicyListener <NSObject>
 - (void)allow;
 - (void)deny;
 @end
@@ -185,7 +187,6 @@ extern NSString *WebConsoleMessageDebugMessageLevel;
 - (void)webView:(WebView *)sender willPopupMenu:(NSMenu *)menu;
 - (void)webView:(WebView *)sender contextMenuItemSelected:(NSMenuItem *)item forElement:(NSDictionary *)element;
 - (void)webView:(WebView *)sender saveFrameView:(WebFrameView *)frameView showingPanel:(BOOL)showingPanel;
-- (BOOL)webView:(WebView *)sender shouldHaltPlugin:(DOMNode *)pluginNode isWindowed:(BOOL)isWindowed pluginName:(NSString *)pluginName;
 - (BOOL)webView:(WebView *)sender didPressMissingPluginButton:(DOMElement *)element;
 /*!
     @method webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:
@@ -197,14 +198,16 @@ extern NSString *WebConsoleMessageDebugMessageLevel;
 - (void)webView:(WebView *)sender frame:(WebFrame *)frame exceededDatabaseQuotaForSecurityOrigin:(WebSecurityOrigin *)origin database:(NSString *)databaseIdentifier;
 
 /*!
-    @method webView:exceededApplicationCacheOriginQuotaForSecurityOrigin:
+    @method webView:exceededApplicationCacheOriginQuotaForSecurityOrigin:totalSpaceNeeded:
     @param sender The WebView sending the delegate method.
-    @param origin The security origin that needs a larger quota
+    @param origin The security origin that needs a larger quota.
+    @param totalSpaceNeeded The amount of space needed to store the new manifest and keep all other
+    previously stored caches for this origin.
     @discussion This method is called when a page attempts to store more in the Application Cache
     for an origin than was allowed by the quota (or default) set for the origin. This allows the
     quota to be increased for the security origin.
 */
-- (void)webView:(WebView *)sender exceededApplicationCacheOriginQuotaForSecurityOrigin:(WebSecurityOrigin *)origin;
+- (void)webView:(WebView *)sender exceededApplicationCacheOriginQuotaForSecurityOrigin:(WebSecurityOrigin *)origin totalSpaceNeeded:(NSUInteger)totalSpaceNeeded;
 
 - (WebView *)webView:(WebView *)sender createWebViewWithRequest:(NSURLRequest *)request windowFeatures:(NSDictionary *)features;
 
@@ -221,10 +224,11 @@ extern NSString *WebConsoleMessageDebugMessageLevel;
 */
 - (void)webView:(WebView *)webView decidePolicyForGeolocationRequestFromOrigin:(WebSecurityOrigin *)origin
                                                                          frame:(WebFrame *)frame
-                                                                      listener:(id<WebGeolocationPolicyListener>)listener;
+                                                                      listener:(id<WebAllowDenyPolicyListener>)listener;
+- (void)webView:(WebView *)webView decidePolicyForNotificationRequestFromOrigin:(WebSecurityOrigin *)origin listener:(id<WebAllowDenyPolicyListener>)listener;
 
-- (void)webView:(WebView *)sender formDidFocusNode:(DOMNode *)node;
-- (void)webView:(WebView *)sender formDidBlurNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender elementDidFocusNode:(DOMNode *)node;
+- (void)webView:(WebView *)sender elementDidBlurNode:(DOMNode *)node;
 
 /*!
     @method webView:printFrame:

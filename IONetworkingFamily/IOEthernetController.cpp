@@ -32,6 +32,7 @@
 #include <IOKit/assert.h>
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOEthernetInterface.h>
+#include "IONetworkDebug.h"
 
 extern "C" {
 #include <sys/param.h>  // mbuf limits defined here.
@@ -73,15 +74,6 @@ OSMetaClassDefineReservedUnused( IOEthernetController, 28);
 OSMetaClassDefineReservedUnused( IOEthernetController, 29);
 OSMetaClassDefineReservedUnused( IOEthernetController, 30);
 OSMetaClassDefineReservedUnused( IOEthernetController, 31);
-
-//-------------------------------------------------------------------------
-// Macros
-
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
 
 //---------------------------------------------------------------------------
 // IOEthernetController class initializer.

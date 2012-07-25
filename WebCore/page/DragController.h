@@ -37,10 +37,12 @@ namespace WebCore {
     class Document;
     class DragClient;
     class DragData;
+    struct DragSession;
     struct DragState;
     class Element;
     class Frame;
     class FrameSelection;
+    class HTMLInputElement;
     class Image;
     class IntRect;
     class Node;
@@ -51,13 +53,15 @@ namespace WebCore {
     class DragController {
         WTF_MAKE_NONCOPYABLE(DragController); WTF_MAKE_FAST_ALLOCATED;
     public:
-        DragController(Page*, DragClient*);
         ~DragController();
+
+        static PassOwnPtr<DragController> create(Page*, DragClient*);
+
         DragClient* client() const { return m_client; }
 
-        DragOperation dragEntered(DragData*);
+        DragSession dragEntered(DragData*);
         void dragExited(DragData*);
-        DragOperation dragUpdated(DragData*);
+        DragSession dragUpdated(DragData*);
         bool performDrag(DragData*);
         
         // FIXME: It should be possible to remove a number of these accessors once all
@@ -74,7 +78,7 @@ namespace WebCore {
 
         Document* documentUnderMouse() const { return m_documentUnderMouse.get(); }
         DragDestinationAction dragDestinationAction() const { return m_dragDestinationAction; }
-        DragSourceAction delegateDragSourceAction(const IntPoint& pagePoint);
+        DragSourceAction delegateDragSourceAction(const IntPoint& rootViewPoint);
         
         Node* draggableNode(const Frame*, Node*, const IntPoint&, DragState&) const;
         void dragEnded();
@@ -91,12 +95,14 @@ namespace WebCore {
         static const float DragImageAlpha;
 
     private:
+        DragController(Page*, DragClient*);
+
         bool dispatchTextInputEventFor(Frame*, DragData*);
         bool canProcessDrag(DragData*);
         bool concludeEditDrag(DragData*);
-        DragOperation dragEnteredOrUpdated(DragData*);
+        DragSession dragEnteredOrUpdated(DragData*);
         DragOperation operationForLoad(DragData*);
-        bool tryDocumentDrag(DragData*, DragDestinationAction, DragOperation&);
+        bool tryDocumentDrag(DragData*, DragDestinationAction, DragSession&);
         bool tryDHTMLDrag(DragData*, DragOperation&);
         DragOperation dragOperation(DragData*);
         void cancelDrag();
@@ -116,6 +122,7 @@ namespace WebCore {
         
         RefPtr<Document> m_documentUnderMouse; // The document the mouse was last dragged over.
         RefPtr<Document> m_dragInitiator; // The Document (if any) that initiated the drag.
+        RefPtr<HTMLInputElement> m_fileInputElementUnderMouse;
         
         DragDestinationAction m_dragDestinationAction;
         DragSourceAction m_dragSourceAction;

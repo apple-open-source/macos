@@ -1,8 +1,8 @@
 /* sockbuf.c - i/o routines with support for adding i/o layers. */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/sockbuf.c,v 1.65.2.6 2010/04/13 20:22:54 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -541,7 +541,8 @@ sb_stream_close( Sockbuf_IO_Desc *sbiod )
 {
 	assert( sbiod != NULL );
 	assert( SOCKBUF_VALID( sbiod->sbiod_sb ) );
-	tcp_close( sbiod->sbiod_sb->sb_fd );
+	if ( sbiod->sbiod_sb->sb_fd != AC_SOCKET_INVALID )
+		tcp_close( sbiod->sbiod_sb->sb_fd );
    return 0;
 }
 
@@ -754,7 +755,8 @@ sb_fd_close( Sockbuf_IO_Desc *sbiod )
 	assert( sbiod != NULL );
 	assert( SOCKBUF_VALID( sbiod->sbiod_sb ) );
 
-	close( sbiod->sbiod_sb->sb_fd );
+	if ( sbiod->sbiod_sb->sb_fd != AC_SOCKET_INVALID )
+		close( sbiod->sbiod_sb->sb_fd );
 	return 0;
 }
 
@@ -956,8 +958,9 @@ sb_dgram_close( Sockbuf_IO_Desc *sbiod )
 {
 	assert( sbiod != NULL );
 	assert( SOCKBUF_VALID( sbiod->sbiod_sb ) );
-
-	tcp_close( sbiod->sbiod_sb->sb_fd );
+  
+	if ( sbiod->sbiod_sb->sb_fd != AC_SOCKET_INVALID )
+		tcp_close( sbiod->sbiod_sb->sb_fd );
 	return 0;
 }
 

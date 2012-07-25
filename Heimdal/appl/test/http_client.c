@@ -32,13 +32,12 @@
  */
 
 #include "test_locl.h"
-#include <gssapi/gssapi.h>
-#include <gssapi/gssapi_krb5.h>
-#include <gssapi/gssapi_spnego.h>
+#include <gssapi.h>
+#include <gssapi_krb5.h>
+#include <gssapi_spnego.h>
+#include <gssapi_ntlm.h>
 #include "gss_common.h"
 #include <base64.h>
-
-RCSID("$Id$");
 
 /*
  * A simplistic client implementing draft-brezak-spnego-http-04.txt
@@ -80,12 +79,12 @@ do_connect (const char *hostname, const char *port)
 }
 
 static void
-fdprintf(int s, const char *fmt, ...)
+storage_printf(krb5_storage *sp, const char *fmt, ...)
 {
     size_t len;
     ssize_t ret;
     va_list ap;
-    char *str, *buf;
+    char *str;
 
     va_start(ap, fmt);
     vasprintf(&str, fmt, ap);
@@ -94,17 +93,12 @@ fdprintf(int s, const char *fmt, ...)
     if (str == NULL)
 	errx(1, "vasprintf");
 
-    buf = str;
-    len = strlen(buf);
-    while (len) {
-	ret = write(s, buf, len);
-	if (ret == 0)
-	    err(1, "connection closed");
-	else if (ret < 0)
-	    err(1, "error");
-	len -= ret;
-	buf += ret;
-    }
+    len = strlen(str);
+
+    ret = krb5_storage_write(sp, str, len);
+    if (ret != len)
+	errx(1, "failed to write to server");
+
     free(str);
 }
 
@@ -115,6 +109,8 @@ static int mutual_flag = 1;
 static int delegate_flag;
 static char *port_str = "http";
 static char *gss_service = "HTTP";
+static char *client_str = NULL;
+static char *cred_mech_str = NULL;
 
 static struct getargs http_args[] = {
     { "verbose", 'v', arg_flag, &verbose_flag, "verbose logging", },
@@ -123,7 +119,9 @@ static struct getargs http_args[] = {
     { "gss-service", 's', arg_string, &gss_service, "gssapi service to use",
       "service" },
     { "mech", 'm', arg_string, &mech, "gssapi mech to use", "mech" },
+    { "cred-mech", 'c', arg_string, &cred_mech_str, "gssapi mech to use for the cred", "mech" },
     { "mutual", 0, arg_negative_flag, &mutual_flag, "no gssapi mutual auth" },
+    { "client", 0, arg_string, &client_str, "client_name" },
     { "help", 'h', arg_flag, &help_flag },
     { "version", 0, arg_flag, &version_flag }
 };
@@ -176,7 +174,7 @@ http_req_free(struct http_req *req)
 static const char *
 http_find_header(struct http_req *req, const char *header)
 {
-    int i, len = strlen(header);
+    size_t i, len = strlen(header);
 
     for (i = 0; i < req->num_headers; i++) {
 	if (strncasecmp(header, req->headers[i], len) == 0) {
@@ -188,94 +186,89 @@ http_find_header(struct http_req *req, const char *header)
 
 
 static int
-http_query(const char *host, const char *page,
+http_query(krb5_storage *sp,
+	   const char *host, const char *page,
 	   char **headers, int num_headers, struct http_req *req)
 {
     enum { RESPONSE, HEADER, BODY } state;
     ssize_t ret;
-    char in_buf[1024], *in_ptr = in_buf;
-    size_t in_len = 0;
-    int s, i;
+    char in_buf[1024];
+    size_t in_len = 0, content_length;
+    int i;
 
     http_req_zero(req);
+    
+    if (verbose_flag) {
+	for (i = 0; i < num_headers; i++)
+	    printf("outheader[%d]: %s\n", i, headers[0]);
+    }
 
-    s = do_connect(host, port_str);
-    if (s < 0)
-	errx(1, "connection failed");
-
-    fdprintf(s, "GET %s HTTP/1.0\r\n", page);
+    storage_printf(sp, "GET %s HTTP/1.1\r\n", page);
     for (i = 0; i < num_headers; i++)
-	fdprintf(s, "%s\r\n", headers[i]);
-    fdprintf(s, "Host: %s\r\n\r\n", host);
+	storage_printf(sp, "%s\r\n", headers[i]);
+    storage_printf(sp, "Host: %s\r\n\r\n", host);
 
     state = RESPONSE;
 
     while (1) {
-	ret = read (s, in_ptr, sizeof(in_buf) - in_len - 1);
-	if (ret == 0)
-	    break;
-	else if (ret < 0)
-	    err (1, "read: %lu", (unsigned long)ret);
+	char *p;
+
+	ret = krb5_storage_read(sp, in_buf + in_len, 1);
+	if (ret != 1)
+	    errx(1, "storage foo");
 	
-	in_buf[ret + in_len] = '\0';
+	in_len += 1;
 
-	if (state == HEADER || state == RESPONSE) {
-	    char *p;
+	in_buf[in_len] = '\0';
 
-	    in_len += ret;
-	    in_ptr += ret;
+	p = strstr(in_buf, "\r\n");
 
-	    while (1) {
-		p = strstr(in_buf, "\r\n");
-
-		if (p == NULL) {
-		    break;
-		} else if (p == in_buf) {
-		    memmove(in_buf, in_buf + 2, sizeof(in_buf) - 2);
-		    state = BODY;
-		    in_len -= 2;
-		    in_ptr -= 2;
-		    break;
-		} else if (state == RESPONSE) {
-		    req->response = strndup(in_buf, p - in_buf);
-		    state = HEADER;
-		} else {
-		    req->headers = realloc(req->headers,
-					   (req->num_headers + 1) * sizeof(req->headers[0]));
-		    req->headers[req->num_headers] = strndup(in_buf, p - in_buf);
-		    if (req->headers[req->num_headers] == NULL)
-			errx(1, "strdup");
-		    req->num_headers++;
-		}
-		memmove(in_buf, p + 2, sizeof(in_buf) - (p - in_buf) - 2);
-		in_len -= (p - in_buf) + 2;
-		in_ptr -= (p - in_buf) + 2;
-	    }
+	if (p == NULL)
+	    continue;
+	
+	if (p == in_buf) {
+	    memmove(in_buf, in_buf + 2, sizeof(in_buf) - 2);
+	    state = BODY;
+	    break;
+	} else if (state == RESPONSE) {
+	    req->response = strndup(in_buf, p - in_buf);
+	    state = HEADER;
+	} else {
+	    req->headers = realloc(req->headers,
+				   (req->num_headers + 1) * sizeof(req->headers[0]));
+	    req->headers[req->num_headers] = strndup(in_buf, p - in_buf);
+	    if (req->headers[req->num_headers] == NULL)
+		errx(1, "strdup");
+	    req->num_headers++;
 	}
-
-	if (state == BODY) {
-
-	    req->body = erealloc(req->body, req->body_size + ret + 1);
-
-	    memcpy((char *)req->body + req->body_size, in_buf, ret);
-	    req->body_size += ret;
-	    ((char *)req->body)[req->body_size] = '\0';
-
-	    in_ptr = in_buf;
-	    in_len = 0;
-	} else
-	    abort();
+	in_len = 0;
     }
 
+    if (state != BODY)
+	abort();
+
+    const char *h = http_find_header(req, "Content-Length:");
+    if (h == NULL)
+	errx(1, "Missing `Content-Length'");
+
+    content_length = atoi(h);
+
+    req->body_size = content_length;
+    req->body = erealloc(req->body, content_length + 1);
+
+    ret = krb5_storage_read(sp, req->body, req->body_size);
+    if (ret != req->body_size)
+	errx(1, "failed to read body");
+
+    ((char *)req->body)[req->body_size] = '\0';
+	
     if (verbose_flag) {
-	int i;
 	printf("response: %s\n", req->response);
 	for (i = 0; i < req->num_headers; i++)
-	    printf("header[%d] %s\n", i, req->headers[i]);
+	    printf("response-header[%d] %s\n", i, req->headers[i]);
 	printf("body: %.*s\n", (int)req->body_size, (char *)req->body);
     }
 
-    close(s);
     return 0;
 }
 
@@ -283,20 +276,23 @@ http_query(const char *host, const char *page,
 int
 main(int argc, char **argv)
 {
-    struct http_req req;
+    int i, s, done, print_body, gssapi_done, gssapi_started, optidx = 0;
     const char *host, *page;
-    int i, done, print_body, gssapi_done, gssapi_started;
-    char *headers[10]; /* XXX */
+    struct http_req req;
+    char *headers[99]; /* XXX */
     int num_headers;
+    krb5_storage *sp;
+
+    gss_cred_id_t client_cred = GSS_C_NO_CREDENTIAL;
     gss_ctx_id_t context_hdl = GSS_C_NO_CONTEXT;
     gss_name_t server = GSS_C_NO_NAME;
-    int optind = 0;
-    gss_OID mech_oid;
+    gss_OID mech_oid, cred_mech_oid;
     OM_uint32 flags;
+    OM_uint32 maj_stat, min_stat;
 
     setprogname(argv[0]);
 
-    if(getarg(http_args, num_http_args, argc, argv, &optind))
+    if(getarg(http_args, num_http_args, argc, argv, &optidx))
 	usage(1);
 
     if (help_flag)
@@ -307,10 +303,15 @@ main(int argc, char **argv)
 	exit(0);
     }
 
-    argc -= optind;
-    argv += optind;
+    argc -= optidx;
+    argv += optidx;
 
     mech_oid = select_mech(mech);
+
+    if (cred_mech_str)
+	cred_mech_oid = select_mech(cred_mech_str);
+    else
+	cred_mech_oid = mech_oid;
 
     if (argc != 1 && argc != 2)
 	errx(1, "usage: %s host [page]", getprogname());
@@ -328,12 +329,63 @@ main(int argc, char **argv)
 
     done = 0;
     num_headers = 0;
-    gssapi_done = 1;
+    gssapi_done = 0;
     gssapi_started = 0;
+
+    if (client_str) {
+	gss_buffer_desc name_buffer;
+	gss_name_t name;
+	gss_OID_set mechset = GSS_C_NO_OID_SET;
+
+	name_buffer.value = client_str;
+	name_buffer.length = strlen(client_str);
+
+	maj_stat = gss_import_name(&min_stat, &name_buffer, GSS_C_NT_USER_NAME, &name);
+	if (maj_stat)
+	    errx(1, "failed to import name");
+
+	if (cred_mech_oid) {
+	    gss_create_empty_oid_set(&min_stat, &mechset);
+	    gss_add_oid_set_member(&min_stat, cred_mech_oid, &mechset);
+	}
+	
+	maj_stat = gss_acquire_cred(&min_stat, name, GSS_C_INDEFINITE,
+				    mechset, GSS_C_INITIATE,
+				    &client_cred, NULL, NULL);
+	gss_release_name(&min_stat, &name);
+	gss_release_oid_set(&min_stat, &mechset);
+	if (maj_stat)
+	    errx(1, "failed to find cred of name %s", client_str);
+    }
+
+    {
+	gss_buffer_desc name_token;
+	char *name;
+	asprintf(&name, "%s@%s", gss_service, host);
+	name_token.length = strlen(name);
+	name_token.value = name;
+	
+	maj_stat = gss_import_name(&min_stat,
+				   &name_token,
+				   GSS_C_NT_HOSTBASED_SERVICE,
+				   &server);
+	if (GSS_ERROR(maj_stat))
+	    gss_err (1, min_stat, "gss_inport_name: %s", name);
+	free(name);
+    }
+
+    s = do_connect(host, port_str);
+    if (s < 0)
+	errx(1, "connection failed");
+
+    sp = krb5_storage_from_fd(s);
+    if (sp == NULL)
+	errx(1, "krb5_storage_from_fd");
+
     do {
 	print_body = 0;
 
-	http_query(host, page, headers, num_headers, &req);
+	http_query(sp, host, page, headers, num_headers, &req);
 	for (i = 0 ; i < num_headers; i++)
 	    free(headers[i]);
 	num_headers = 0;
@@ -344,7 +396,6 @@ main(int argc, char **argv)
 	} else if (strstr(req.response, " 401 ") != NULL) {
 	    if (http_find_header(&req, "WWW-Authenticate:") == NULL)
 		errx(1, "Got %s but missed `WWW-Authenticate'", req.response);
-	    gssapi_done = 0;
 	}
 
 	if (!gssapi_done) {
@@ -353,41 +404,24 @@ main(int argc, char **argv)
 		errx(1, "Got %s but missed `WWW-Authenticate'", req.response);
 
 	    if (strncasecmp(h, "Negotiate", 9) == 0) {
-		OM_uint32 maj_stat, min_stat;
 		gss_buffer_desc input_token, output_token;
 
 		if (verbose_flag)
 		    printf("Negotiate found\n");
-		
-		if (server == GSS_C_NO_NAME) {
-		    char *name;
-		    asprintf(&name, "%s@%s", gss_service, host);
-		    input_token.length = strlen(name);
-		    input_token.value = name;
-
-		    maj_stat = gss_import_name(&min_stat,
-					       &input_token,
-					       GSS_C_NT_HOSTBASED_SERVICE,
-					       &server);
-		    if (GSS_ERROR(maj_stat))
-			gss_err (1, min_stat, "gss_inport_name");
-		    free(name);
-		    input_token.length = 0;
-		    input_token.value = NULL;
-		}
 
 		i = 9;
 		while(h[i] && isspace((unsigned char)h[i]))
 		    i++;
 		if (h[i] != '\0') {
-		    int len = strlen(&h[i]);
+		    size_t len = strlen(&h[i]);
+		    int slen;
 		    if (len == 0)
 			errx(1, "invalid Negotiate token");
 		    input_token.value = emalloc(len);
-		    len = base64_decode(&h[i], input_token.value);
-		    if (len < 0)
+		    slen = base64_decode(&h[i], input_token.value);
+		    if (slen < 0)
 			errx(1, "invalid base64 Negotiate token %s", &h[i]);
-		    input_token.length = len;
+		    input_token.length = slen;
 		} else {
 		    if (gssapi_started)
 			errx(1, "Negotiate already started");
@@ -397,9 +431,12 @@ main(int argc, char **argv)
 		    input_token.value = NULL;
 		}
 
+		if (strstr(req.response, " 200 ") != NULL)
+		    sleep(1);
+
 		maj_stat =
 		    gss_init_sec_context(&min_stat,
-					 GSS_C_NO_CREDENTIAL,
+					 client_cred,
 					 &context_hdl,
 					 server,
 					 mech_oid,
@@ -411,18 +448,14 @@ main(int argc, char **argv)
 					 &output_token,
 					 NULL,
 					 NULL);
-		if (GSS_ERROR(maj_stat))
-		    gss_err (1, min_stat, "gss_init_sec_context");
-		else if (maj_stat & GSS_S_CONTINUE_NEEDED)
-		    gssapi_done = 0;
-		else {
+		if (maj_stat == GSS_S_CONTINUE_NEEDED) {
+
+		} else if (maj_stat == GSS_S_COMPLETE) {
 		    gss_name_t targ_name, src_name;
 		    gss_buffer_desc name_buffer;
 		    gss_OID mech_type;
 
 		    gssapi_done = 1;
-
-		    printf("Negotiate done: %s\n", mech);
 
 		    maj_stat = gss_inquire_context(&min_stat,
 						   context_hdl,
@@ -436,16 +469,18 @@ main(int argc, char **argv)
 		    if (GSS_ERROR(maj_stat))
 			gss_err (1, min_stat, "gss_inquire_context");
 
+		    printf("Negotiate done: %s\n", mech);
+
 		    maj_stat = gss_display_name(&min_stat,
 						src_name,
 						&name_buffer,
 						NULL);
 		    if (GSS_ERROR(maj_stat))
-			gss_err (1, min_stat, "gss_display_name");
-
-		    printf("Source: %.*s\n",
-			   (int)name_buffer.length,
-			   (char *)name_buffer.value);
+			gss_print_errors(min_stat);
+		    else
+			printf("Source: %.*s\n",
+			       (int)name_buffer.length,
+			       (char *)name_buffer.value);
 
 		    gss_release_buffer(&min_stat, &name_buffer);
 
@@ -454,23 +489,26 @@ main(int argc, char **argv)
 						&name_buffer,
 						NULL);
 		    if (GSS_ERROR(maj_stat))
-			gss_err (1, min_stat, "gss_display_name");
-
-		    printf("Target: %.*s\n",
-			   (int)name_buffer.length,
-			   (char *)name_buffer.value);
+			gss_print_errors(min_stat);
+		    else
+			printf("Target: %.*s\n",
+			       (int)name_buffer.length,
+			       (char *)name_buffer.value);
 
 		    gss_release_name(&min_stat, &targ_name);
 		    gss_release_buffer(&min_stat, &name_buffer);
+		} else {
+		    gss_err (1, min_stat, "gss_init_sec_context");
 		}
+
 
 		if (output_token.length) {
 		    char *neg_token;
 
 		    base64_encode(output_token.value,
-				  output_token.length,
+				  (int)output_token.length,
 				  &neg_token);
-		
+
 		    asprintf(&headers[0], "Authorization: Negotiate %s",
 			     neg_token);
 
@@ -486,13 +524,6 @@ main(int argc, char **argv)
 	} else
 	    done = 1;
 
-	if (verbose_flag) {
-	    printf("%s\n\n", req.response);
-
-	    for (i = 0; i < req.num_headers; i++)
-		printf("%s\n", req.headers[i]);
-	    printf("\n");
-	}
 	if (print_body || verbose_flag)
 	    printf("%.*s\n", (int)req.body_size, (char *)req.body);
 
@@ -501,6 +532,9 @@ main(int argc, char **argv)
 
     if (gssapi_done == 0)
 	errx(1, "gssapi not done but http dance done");
+
+    krb5_storage_free(sp);
+    close(s);
 
     return 0;
 }

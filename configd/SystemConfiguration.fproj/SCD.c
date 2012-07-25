@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,7 @@
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
+#include "SCD.h"
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
@@ -55,12 +56,6 @@ int	_sc_log		= TRUE;		/* 0 if SC messages should be written to stdout/stderr,
 #pragma mark Thread specific data
 
 
-typedef struct {
-	aslclient	_asl;
-	int		_sc_error;
-} __SCThreadSpecificData, *__SCThreadSpecificDataRef;
-
-
 static pthread_once_t	tsKeyInitialized	= PTHREAD_ONCE_INIT;
 static pthread_key_t	tsDataKey;
 
@@ -71,7 +66,8 @@ __SCThreadSpecificDataFinalize(void *arg)
 	__SCThreadSpecificDataRef	tsd = (__SCThreadSpecificDataRef)arg;
 
 	if (tsd != NULL) {
-		if (tsd->_asl    != NULL) asl_close(tsd->_asl);
+		if (tsd->_asl != NULL) asl_close(tsd->_asl);
+		if (tsd->_sc_store != NULL) CFRelease(tsd->_sc_store);
 		CFAllocatorDeallocate(kCFAllocatorSystemDefault, tsd);
 	}
 	return;
@@ -86,7 +82,8 @@ __SCThreadSpecificKeyInitialize()
 }
 
 
-static __SCThreadSpecificDataRef
+__private_extern__
+__SCThreadSpecificDataRef
 __SCGetThreadSpecificData()
 {
 	__SCThreadSpecificDataRef	tsd;
@@ -96,9 +93,9 @@ __SCGetThreadSpecificData()
 	tsd = pthread_getspecific(tsDataKey);
 	if (tsd == NULL) {
 		tsd = CFAllocatorAllocate(kCFAllocatorSystemDefault, sizeof(__SCThreadSpecificData), 0);
-		tsd->_asl = asl_open(NULL, NULL, 0);
-		asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
+		tsd->_asl = NULL;
 		tsd->_sc_error = kSCStatusOK;
+		tsd->_sc_store = NULL;
 		pthread_setspecific(tsDataKey, tsd);
 	}
 
@@ -370,6 +367,10 @@ __SCLog(aslclient asl, aslmsg msg, int level, CFStringRef formatString, va_list 
 		__SCThreadSpecificDataRef	tsd;
 
 		tsd = __SCGetThreadSpecificData();
+		if (tsd->_asl == NULL) {
+			tsd->_asl = asl_open(NULL, NULL, 0);
+			asl_set_filter(tsd->_asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
+		}
 		asl = tsd->_asl;
 	}
 

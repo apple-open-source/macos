@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/fi.xml
@@ -39,7 +39,7 @@ fi{
             }
         }
     }
-    Version{"2.0.51.9"}
+    Version{"2.0.65.46"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -64,10 +64,11 @@ fi{
                 Hm{"H.mm"}
                 Hms{"H.mm.ss"}
                 M{"L"}
-                MEd{"E d.M."}
+                MEd{"ccc d.M."}
                 MMM{"LLL"}
-                MMMEd{"E d. MMM"}
-                MMMd{"d. MMM"}
+                MMMEd{"ccc d. MMM"}
+                MMMMd{"d. MMMM"}
+                MMMd{"d.M."}
                 Md{"d.M."}
                 d{"d"}
                 hm{"h.mm a"}
@@ -75,19 +76,52 @@ fi{
                 ms{"mm.ss"}
                 y{"y G"}
                 yM{"L.y G"}
-                yMEd{"EEE d.M.y G"}
+                yMEd{"E d.M.y G"}
                 yMMM{"LLLL y G"}
-                yMMMEd{"EEE d. MMM y G"}
+                yMMMEd{"E d. MMM y G"}
                 yMMMMccccd{"cccc, d. MMMM y G"}
+                yMMMd{"d. MMM y G"}
+                yMd{"d.M.y G"}
                 yQ{"Q/y G"}
                 yQQQ{"QQQ y G"}
                 yyMM{"M.y G"}
                 yyMMM{"LLLL y G"}
                 yyQ{"Q/y G"}
                 yyyyM{"M.y G"}
-                yyyyMEEEd{"EEE d.M.y G"}
+                yyyyMEd{"E d.M.y G"}
                 yyyyMMMM{"LLLL y G"}
                 yyyyQQQQ{"QQQQ y G"}
+            }
+        }
+        chinese{
+            DateTimePatterns{
+                "H.mm.ss zzzz",
+                "H.mm.ss z",
+                "H.mm.ss",
+                "H.mm",
+                "cccc d.M.y",
+                "d.M.y",
+                "d.M.y",
+                "d.M.y",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                H{"H"}
+                Hm{"H.mm"}
+                Hms{"H.mm.ss"}
+                MEd{"E d.M."}
+                MMMEd{"E d.M."}
+                MMMd{"d.M."}
+                Md{"d.M."}
+                hm{"h.mm a"}
+                hms{"h.mm.ss a"}
+                ms{"mm.ss"}
+                yMEd{"E d.M.y"}
+                yMd{"d.M.y"}
             }
         }
         gregorian{
@@ -116,10 +150,11 @@ fi{
                 Hm{"H.mm"}
                 Hms{"H.mm.ss"}
                 M{"L"}
-                MEd{"E d.M."}
+                MEd{"ccc d.M."}
                 MMM{"LLL"}
-                MMMEd{"E d. MMM"}
-                MMMd{"d. MMM"}
+                MMMEd{"ccc d. MMM"}
+                MMMMd{"d. MMMM"}
+                MMMd{"d.M."}
                 Md{"d.M."}
                 d{"d"}
                 hm{"h.mm a"}
@@ -127,17 +162,19 @@ fi{
                 ms{"mm.ss"}
                 y{"y"}
                 yM{"L.yyyy"}
-                yMEd{"EEE d.M.yyyy"}
+                yMEd{"E d.M.yyyy"}
                 yMMM{"LLL y"}
-                yMMMEd{"EEE d. MMM y"}
+                yMMMEd{"E d. MMM y"}
                 yMMMMccccd{"cccc, d. MMMM y"}
+                yMMMd{"d. MMM y"}
+                yMd{"d.M.yyyy"}
                 yQ{"Q/yyyy"}
                 yQQQ{"QQQ y"}
                 yyMM{"M/yy"}
                 yyMMM{"LLLL yy"}
                 yyQ{"Q/yy"}
                 yyyyM{"M/yyyy"}
-                yyyyMEEEd{"EEE d.M.yyyy"}
+                yyyyMEd{"E d.M.yyyy"}
                 yyyyMMMM{"LLLL y"}
                 yyyyQQQQ{"QQQQ y"}
             }
@@ -152,6 +189,15 @@ fi{
                         "pe",
                         "la",
                     }
+                    narrow{
+                        "S",
+                        "M",
+                        "T",
+                        "K",
+                        "T",
+                        "P",
+                        "L",
+                    }
                     wide{
                         "sunnuntaina",
                         "maanantaina",
@@ -163,6 +209,15 @@ fi{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "su",
+                        "ma",
+                        "ti",
+                        "ke",
+                        "to",
+                        "pe",
+                        "la",
+                    }
                     narrow{
                         "S",
                         "M",
@@ -188,6 +243,10 @@ fi{
                     "eKr.",
                     "jKr.",
                 }
+                narrow{
+                    "eK",
+                    "jK",
+                }
                 wide{
                     "ennen Kristuksen syntymää",
                     "jälkeen Kristuksen syntymän",
@@ -205,7 +264,7 @@ fi{
                     }
                 }
                 dayperiod{
-                    dn{"ap./ip."}
+                    dn{"vuorokaudenaika"}
                 }
                 era{
                     dn{"aikakausi"}
@@ -218,18 +277,33 @@ fi{
                 }
                 month{
                     dn{"kuukausi"}
+                    relative{
+                        "-1"{"viime kuussa"}
+                        "0"{"tässä kuussa"}
+                        "1"{"ensi kuussa"}
+                    }
                 }
                 second{
                     dn{"sekunti"}
                 }
                 week{
                     dn{"viikko"}
+                    relative{
+                        "-1"{"viime viikolla"}
+                        "0"{"tällä viikolla"}
+                        "1"{"ensi viikolla"}
+                    }
                 }
                 weekday{
                     dn{"viikonpäivä"}
                 }
                 year{
                     dn{"vuosi"}
+                    relative{
+                        "-1"{"viime vuonna"}
+                        "0"{"tänä vuonna"}
+                        "1"{"ensi vuonna"}
+                    }
                 }
                 zone{
                     dn{"aikavyöhyke"}
@@ -353,6 +427,20 @@ fi{
                         "marraskuuta",
                         "joulukuuta",
                     }
+                    narrow{
+                        "T",
+                        "H",
+                        "M",
+                        "H",
+                        "T",
+                        "K",
+                        "H",
+                        "E",
+                        "S",
+                        "L",
+                        "M",
+                        "J",
+                    }
                     wide{
                         "tammikuuta",
                         "helmikuuta",
@@ -415,6 +503,26 @@ fi{
             }
             quarters{
                 format{
+                    abbreviated{
+                        "1. nelj.",
+                        "2. nelj.",
+                        "3. nelj.",
+                        "4. nelj.",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                    wide{
+                        "1. neljännes",
+                        "2. neljännes",
+                        "3. neljännes",
+                        "4. neljännes",
+                    }
+                }
+                stand-alone{
                     abbreviated{
                         "1. nelj.",
                         "2. nelj.",
@@ -525,10 +633,11 @@ fi{
                 Hm{"H.mm"}
                 Hms{"H.mm.ss"}
                 M{"L"}
-                MEd{"E d.M."}
+                MEd{"ccc d.M."}
                 MMM{"LLL"}
-                MMMEd{"E d. MMM"}
-                MMMd{"d. MMM"}
+                MMMEd{"ccc d. MMM"}
+                MMMMd{"d. MMMM"}
+                MMMd{"d.M."}
                 Md{"d.M."}
                 d{"d"}
                 hm{"h.mm a"}
@@ -537,12 +646,14 @@ fi{
                 y{"y G"}
                 yyyy{"y G"}
                 yyyyM{"M.y G"}
-                yyyyMEd{"EEE d.M.y G"}
+                yyyyMEd{"E d.M.y G"}
                 yyyyMM{"M.y G"}
                 yyyyMMM{"LLLL y G"}
-                yyyyMMMEd{"EEE d. MMM y G"}
+                yyyyMMMEd{"E d. MMM y G"}
                 yyyyMMMM{"LLLL y G"}
                 yyyyMMMMccccd{"cccc, d. MMMM y G"}
+                yyyyMMMd{"d. MMM y G"}
+                yyyyMd{"d.M.y G"}
                 yyyyQ{"Q/y G"}
                 yyyyQQQ{"QQQ y G"}
                 yyyyQQQQ{"QQQQ y G"}
@@ -551,8 +662,12 @@ fi{
                 abbreviated{
                     "AH",
                 }
-                narrow:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
-                wide:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
+                narrow{
+                    "AH",
+                }
+                wide{
+                    "AH",
+                }
             }
             monthNames{
                 format{
@@ -594,10 +709,11 @@ fi{
                 Gy{"y G"}
                 Hm{"H.mm"}
                 Hms{"H.mm.ss"}
-                MEd{"E d.M."}
-                MMMEd{"E d. MMM"}
+                MEd{"ccc d.M."}
+                MMMEd{"ccc d. MMM"}
                 MMMMd{"d. MMMM"}
-                Md{"d.M"}
+                MMMd{"d.M."}
+                Md{"d.M."}
                 hm{"h.mm a"}
                 hms{"h.mm.ss a"}
                 ms{"mm.ss"}
@@ -606,8 +722,8 @@ fi{
                 yyyyM{"M.y G"}
                 yyyyMEd{"E d.M.y G"}
                 yyyyMMM{"LLLL yy G"}
-                yyyyMMMd{"d. MMM yy G"}
                 yyyyMMMEd{"E d. MMM yy G"}
+                yyyyMMMd{"d. MMM yy G"}
                 yyyyMd{"d.M.y G"}
             }
         }
@@ -634,7 +750,8 @@ fi{
                 Hms{"H.mm.ss"}
                 MEd{"E d.M."}
                 MMMEd{"E d. MMM"}
-                MMMd{"d. MMM"}
+                MMMMd{"d. MMMM"}
+                MMMd{"d.M."}
                 Md{"d.M."}
                 hm{"h.mm a"}
                 hms{"h.mm.ss a"}
@@ -644,8 +761,8 @@ fi{
                 yyyyM{"M.y G"}
                 yyyyMEd{"E d.M.y G"}
                 yyyyMMM{"LLLL y G"}
+                yyyyMMMEd{"E d. MMM y G"}
                 yyyyMMMd{"d. MMM y G"}
-                yyyyMMMEd{"EEE d. MMM y G"}
                 yyyyMd{"d.M.y G"}
             }
         }
@@ -663,6 +780,7 @@ fi{
         }
     }
     measurementSystemNames{
+        UK{"brittiläinen"}
         US{"amerikkalainen"}
         metric{"metrinen"}
     }
@@ -671,29 +789,113 @@ fi{
             one{"{0} päivä"}
             other{"{0} päivää"}
         }
+        day-future{
+            0{"alle päivän päästä"}
+            1{"päivän päästä"}
+            one{"{0} päivän päästä"}
+            other{"{0} päivän päästä"}
+        }
+        day-past{
+            0{"alle päivä sitten"}
+            1{"päivä sitten"}
+            one{"{0} päivä sitten"}
+            other{"{0} päivää sitten"}
+        }
         hour{
             one{"{0} tunti"}
             other{"{0} tuntia"}
+        }
+        hour-future{
+            0{"alle tunnin päästä"}
+            1{"tunnin päästä"}
+            one{"{0} tunnin päästä"}
+            other{"{0} tunnin päästä"}
+        }
+        hour-past{
+            0{"alle tunti sitten"}
+            1{"tunti sitten"}
+            one{"{0} tunti sitten"}
+            other{"{0} tuntia sitten"}
         }
         minute{
             one{"{0} minuutti"}
             other{"{0} minuuttia"}
         }
+        minute-future{
+            0{"alle minuutin päästä"}
+            1{"minuutin päästä"}
+            one{"{0} minuutin päästä"}
+            other{"{0} minuutin päästä"}
+        }
+        minute-past{
+            0{"alle minuutti sitten"}
+            1{"minuutti sitten"}
+            one{"{0} minuutti sitten"}
+            other{"{0} minuuttia sitten"}
+        }
         month{
             one{"{0} kuukausi"}
             other{"{0} kuukautta"}
+        }
+        month-future{
+            0{"alle kuukauden päästä"}
+            1{"kuukauden päästä"}
+            one{"{0} kuukauden päästä"}
+            other{"{0} kuukauden päästä"}
+        }
+        month-past{
+            0{"alle kuukausi sitten"}
+            1{"kuukausi sitten"}
+            one{"{0} kuukausi sitten"}
+            other{"{0} kuukautta sitten"}
         }
         second{
             one{"{0} sekunti"}
             other{"{0} sekuntia"}
         }
+        second-future{
+            0{"alle sekunnin päästä"}
+            1{"sekunnin päästä"}
+            one{"{0} sekunnin päästä"}
+            other{"{0} sekunnin päästä"}
+        }
+        second-past{
+            0{"alle sekunti sitten"}
+            1{"sekunti sitten"}
+            one{"{0} sekunti sitten"}
+            other{"{0} sekuntia sitten"}
+        }
         week{
             one{"{0} viikko"}
             other{"{0} viikkoa"}
         }
+        week-future{
+            0{"alle viikon päästä"}
+            1{"viikon päästä"}
+            one{"{0} viikon päästä"}
+            other{"{0} viikon päästä"}
+        }
+        week-past{
+            0{"alle viikko sitten"}
+            1{"viikko sitten"}
+            one{"{0} viikko sitten"}
+            other{"{0} viikkoa sitten"}
+        }
         year{
             one{"{0} vuosi"}
             other{"{0} vuotta"}
+        }
+        year-future{
+            0{"alle vuoden päästä"}
+            1{"vuoden päästä"}
+            one{"{0} vuoden päästä"}
+            other{"{0} vuoden päästä"}
+        }
+        year-past{
+            0{"alle vuosi sitten"}
+            1{"vuosi sitten"}
+            one{"{0} vuosi sitten"}
+            other{"{0} vuotta sitten"}
         }
     }
     unitsShort{
@@ -718,8 +920,8 @@ fi{
             other{"{0} s"}
         }
         week{
-            one{"{0} vko"}
-            other{"{0} vko"}
+            one{"{0} vk"}
+            other{"{0} vk"}
         }
         year{
             one{"{0} v"}

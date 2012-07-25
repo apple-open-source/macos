@@ -27,8 +27,20 @@
 #include <spawn.h>
 #include <sys/cdefs.h>
 #include <Availability.h>
+#include <TargetConditionals.h>
 
 int     posix_spawnattr_getpcontrol_np(const posix_spawnattr_t * __restrict, int * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 int     posix_spawnattr_setpcontrol_np(posix_spawnattr_t *, const int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+int     posix_spawnattr_getapptype_np(const posix_spawnattr_t * __restrict, int * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int     posix_spawnattr_setapptype_np(posix_spawnattr_t *, const int) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+int	posix_spawnattr_setcpumonitor(posix_spawnattr_t * __restrict, uint64_t, uint64_t) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+int	posix_spawnattr_getcpumonitor(posix_spawnattr_t * __restrict, uint64_t *, uint64_t *) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+#if TARGET_OS_EMBEDDED
+int     posix_spawnattr_setjetsam(posix_spawnattr_t * __restrict attr,
+    		short flags, int priority, int high_water_mark) __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_5_0);
+#endif
 
 #endif /* !defined _SPAWN_PRIVATE_H_*/

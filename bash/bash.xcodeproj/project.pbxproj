@@ -1401,7 +1401,11 @@
 			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "bash" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* bash */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -1435,7 +1439,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -x\nchmod a+x ${DSTROOT}/usr/bin/bashbug\ngzip -f ${DSTROOT}/usr/share/man/man1/*.1\nln -fs bash.1.gz ${DSTROOT}/usr/share/man/man1/sh.1.gz\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
+			shellScript = "set -ev\nchmod a+x ${DSTROOT}/usr/bin/bashbug\ngzip -f ${DSTROOT}/usr/share/man/man1/*.1\nln -fs bash.1.gz ${DSTROOT}/usr/share/man/man1/sh.1.gz\nmkdir -p ${DSTROOT}/usr/local/bin\nln -fs /bin/bash ${DSTROOT}/usr/local/bin/bash\nif [[ ${UID} -eq 0 ]]; then\n\tchown -hR root:wheel ${DSTROOT}\nfi\nfind ${DSTROOT} -type f -perm -u+w -print0 | xargs -0t chmod u-w\nexit 0\n";
 			showEnvVarsInLog = 0;
 		};
 		59DC3C521120DC9C00B033EC /* ostype.h */ = {
@@ -1451,7 +1455,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\nREL=$(uname -r)\nOSVER=${REL%%.*}\n\ncat > ${DERIVED_FILES_DIR}/ostype.h <<EOF\n#ifndef __OSTYPE__\n#define __OSTYPE__\n\n#define OSTYPE \"darwin${OSVER}\"\n#endif /* __OSTYPE__ */\nEOF\n# $(OBJROOT)/** didn't work in header search paths\nln -s ${DERIVED_FILES_DIR}/ostype.h ${SYMROOT}";
+			shellScript = "set -ev\nREL=$(uname -r)\nOSVER=${REL%%.*}\n\ncat > ${DERIVED_FILES_DIR}/ostype.h <<EOF\n#ifndef __OSTYPE__\n#define __OSTYPE__\n\n#define OSTYPE \"darwin${OSVER}\"\n#endif /* __OSTYPE__ */\nEOF\n# $(OBJROOT)/** didn't work in header search paths\nln -fs ${DERIVED_FILES_DIR}/ostype.h ${SYMROOT}";
 			showEnvVarsInLog = 0;
 		};
 		724AC29E0FE8A2FC00061EAD /* run-all */ = {

@@ -36,6 +36,7 @@ int IPSecRemoveConfigurationFile(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecKickConfiguration();
 
 int IPSecSelfRepair();
+int IPSecFlushAll();
 
 /* Kernel Policies */
 int IPSecCountPolicies(CFDictionaryRef ipsec_dict);
@@ -50,10 +51,10 @@ int IPSecSetSecurityAssociationsPreference(int *oldval, int newval);
 
 /* Functions to manipulate well known configurations */
 CFMutableDictionaryRef 
-IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, 
+IPSecCreateL2TPDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, char *dst_hostName, 
 		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
 CFMutableDictionaryRef 
-IPSecCreateCiscoDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, CFStringRef dst_hostName, 
+IPSecCreateCiscoDefaultConfiguration(struct sockaddr_in *src, struct sockaddr_in *dst, CFStringRef dst_hostName, 
 		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
 
 /* Miscellaneous */

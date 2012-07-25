@@ -1,9 +1,9 @@
 /*
- * "$Id: options.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: options.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Option routines for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -438,7 +438,7 @@ cupsParseOptions(
 /*
  * 'cupsRemoveOption()' - Remove an option from an option array.
  *
- * @since CUPS 1.2/Mac OS X 10.5@
+ * @since CUPS 1.2/OS X 10.5@
  */
 
 int					/* O  - New number of options */
@@ -707,5 +707,5 @@ cups_find_option(
 
 
 /*
- * End of "$Id: options.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: options.c 9042 2010-03-24 00:45:34Z mike $".
  */

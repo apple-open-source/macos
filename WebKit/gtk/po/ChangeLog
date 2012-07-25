@@ -1,3 +1,212 @@
+2012-05-04  Daniel Mustieles  <daniel.mustieles@gmail.com>
+
+        Updated Spanish translation
+        https://bugs.webkit.org/show_bug.cgi?id=83995
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * es.po:
+
+2012-04-30  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Unreviewed. Fix make distcheck.
+
+        * GNUmakefile.am: Use += for ALL_MOFILES variable to make sure all
+        .mo files are cleaned by distclean.
+
+2012-03-24  Christian Kirbach  <Christian.Kirbach@googlemail.com>
+
+        Updated German translation
+        https://bugs.webkit.org/show_bug.cgi?id=77834
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * de.po:
+
+2012-03-24  Kjartan Maraas  <kmaraas@gnome.org>
+
+        Updated Norwegian bokmål translation for webkitgtk
+        https://bugs.webkit.org/show_bug.cgi?id=73891
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * nb.po:
+
+2012-03-24  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed, rolling out r90755.
+        http://trac.webkit.org/changeset/90755
+        https://bugs.webkit.org/show_bug.cgi?id=44410
+
+        This is actually less up-to-date then the one we committed
+        before
+
+        * id.po:
+
+2012-03-24  Sandeep Shedmake <sshedmak@redhat.com>
+
+        [l10n] [mr] WebKitGTK+ Marathi Translations
+        https://bugs.webkit.org/show_bug.cgi?id=82014
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * mr.po: Added.
+
+2012-03-24  Chris Leonard  <cjl@laptop.org>
+
+        Updated en_GB translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=82093
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * en_GB.po:
+
+2012-03-24  Fran Dieguez  <frandieguez@gnome.org>
+
+        Add Galician translations for webkitgtk
+        https://bugs.webkit.org/show_bug.cgi?id=67591
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * gl.po:
+
+2012-03-24  Matej Urbančič  <mateju@svn.gnome.org>
+
+        Slovenian translation update
+        https://bugs.webkit.org/show_bug.cgi?id=68504
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * sl.po:
+
+2012-03-02  Alexandre Rostovtsev  <tetromino@gentoo.org>
+
+        Make webkit-gtk translations respect LINGUAS
+        https://bugs.webkit.org/show_bug.cgi?id=79605
+
+        Reviewed by Martin Robinson.
+
+        * GNUmakefile.am:
+
+2011-11-09  Philippe Normand  <pnormand@igalia.com>
+
+        Esperanto-translation
+        https://bugs.webkit.org/show_bug.cgi?id=69760
+
+        Unreviewed.
+        Patch by Kristjan SCHMIDT <kristjan.schmidt@googlemail.com>
+
+        * eo.po: Added.
+
+2011-10-18  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Fix distcheck.
+
+        * GNUmakefile.am: create po directory when it's not there yet both
+        when updating the pot and the po files.
+
+2011-09-26  Alejandro G. Castro  <alex@igalia.com>
+
+        [GTK] pot file is not properly remove during distcheck
+        https://bugs.webkit.org/show_bug.cgi?id=68797
+
+        DOMAIN is already defined, we just add the value to the variable.
+
+        Reviewed by Martin Robinson.
+
+        * GNUmakefile.am:
+
+2011-09-20  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        [GTK] WebProcess shouldn't use the GTK+ API
+        https://bugs.webkit.org/show_bug.cgi?id=68062
+
+        Reviewed by Martin Robinson.
+
+        * POTFILES: Remove FrameLoaderGtk.cpp and add ErrorsGtk.cpp.
+
+2011-09-19  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Fix paths used by update-po, and avoid changing directory
+        unnecessarily.
+
+        [GTK] make update-po is b0rked
+        https://bugs.webkit.org/show_bug.cgi?id=68352
+
+        Reviewed by Martin Robinson.
+
+        * GNUmakefile.am:
+
+2011-08-31  Yuri Chornoivan  <yurchor@ukr.net>
+
+        Ukrainian translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=66543
+
+        Reviewed by Gustavo Noronha.
+
+        * uk.po: updated.
+
+2011-09-12  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed. Rename Greek translation file, the correct code is el
+        (http://www.science.co.il/language/Locale-Codes.asp?s=decimal).
+
+        * el.po: Renamed from Source/WebKit/gtk/po/gr.po.
+
+2011-09-09  Tiffany Antopolski  <tiffany@antopolski.com>
+
+        Canadian English translation.
+        https://bugzilla.gnome.org/show_bug.cgi?id=610152
+
+        Reviewed by Gustavo Noronha.
+
+        * en_CA.po: Added.
+
+2011-08-11  Xan Lopez  <xlopez@igalia.com>
+
+        [GTK] create pot files in builddir, not (read only) srcdir
+        https://bugs.webkit.org/show_bug.cgi?id=66059
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * GNUmakefile.am: write and read pot files from the build dir.
+
+2011-07-11  Yuri Chornoivan  <yurchor@ukr.net>
+
+        Ukrainian translation for WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=36415
+
+        Reviewed by Gustavo Noronha.
+
+        * uk.po: added.
+
+2011-07-11  Andika Triwidada  <andika@gmail.com>
+
+        Indonesian translation
+        https://bugs.webkit.org/show_bug.cgi?id=44410
+
+        Reviewed by Gustavo Noronha.
+
+        * id.po: updated.
+
+2011-07-11  Duarte Loreto  <happyguy_pt@hotmail.com>
+
+        Portuguese translation update
+        https://bugs.webkit.org/show_bug.cgi?id=46137
+
+        Reviewed by Gustavo Noronha.
+
+        * pt.po: updated.
+
+2011-06-14  Claudio Saavedra  <csaavedra@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Broken reference to webkitsoupauthdialog.c
+        https://bugs.webkit.org/show_bug.cgi?id=62650
+
+        * POTFILES: Fix reference to webkitsoupauthdialog.cpp
+
 2011-03-23  Luca Ferretti  <lferrett@gnome.org>
 
         Rubber-stamped by Gustavo Noronha.

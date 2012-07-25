@@ -36,7 +36,7 @@
 namespace WebCore {
 
 inline ProcessingInstruction::ProcessingInstruction(Document* document, const String& target, const String& data)
-    : ContainerNode(document)
+    : Node(document, CreateOther)
     , m_target(target)
     , m_data(data)
     , m_cachedSheet(0)
@@ -103,12 +103,6 @@ PassRefPtr<Node> ProcessingInstruction::cloneNode(bool /*deep*/)
     return create(document(), m_target, m_data);
 }
 
-// DOM Section 1.1.1
-bool ProcessingInstruction::childTypeAllowed(NodeType) const
-{
-    return false;
-}
-
 void ProcessingInstruction::checkStyleSheet()
 {
     if (m_target == "xml-stylesheet" && document()->frame() && parentNode() == document()) {
@@ -140,6 +134,9 @@ void ProcessingInstruction::checkStyleSheet()
         m_title = attrs.get("title");
         m_media = attrs.get("media");
 
+        if (m_alternate && m_title.isEmpty())
+            return;
+
         if (href.length() > 1 && href[0] == '#') {
             m_localHref = href.substring(1);
 #if ENABLE(XSLT)
@@ -164,9 +161,10 @@ void ProcessingInstruction::checkStyleSheet()
             m_loading = true;
             document()->addPendingSheet();
             
+            ResourceRequest request(document()->completeURL(href));
 #if ENABLE(XSLT)
             if (m_isXSL)
-                m_cachedSheet = document()->cachedResourceLoader()->requestXSLStyleSheet(url);
+                m_cachedSheet = document()->cachedResourceLoader()->requestXSLStyleSheet(request);
             else
 #endif
             {
@@ -174,7 +172,7 @@ void ProcessingInstruction::checkStyleSheet()
                 if (charset.isEmpty())
                     charset = document()->charset();
 
-                m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(url, charset);
+                m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(request, charset);
             }
             if (m_cachedSheet)
                 m_cachedSheet->addClient(this);
@@ -213,15 +211,21 @@ void ProcessingInstruction::setCSSStyleSheet(const String& href, const KURL& bas
     }
 
     ASSERT(m_isCSS);
-    RefPtr<CSSStyleSheet> newSheet = CSSStyleSheet::create(this, href, baseURL, charset);
-    m_sheet = newSheet;
+    CSSParserContext parserContext(document(), baseURL, charset);
+
+    RefPtr<StyleSheetInternal> newSheet = StyleSheetInternal::create(href, baseURL, parserContext);
+
+    RefPtr<CSSStyleSheet> cssSheet = CSSStyleSheet::create(newSheet, this);
+    cssSheet->setDisabled(m_alternate);
+    cssSheet->setTitle(m_title);
+    cssSheet->setMediaQueries(MediaQuerySet::create(m_media));
+
+    m_sheet = cssSheet.release();
+
     // We don't need the cross-origin security check here because we are
     // getting the sheet text in "strict" mode. This enforces a valid CSS MIME
     // type.
     parseStyleSheet(sheet->sheetText(true));
-    newSheet->setTitle(m_title);
-    newSheet->setMedia(MediaList::create(newSheet.get(), m_media));
-    newSheet->setDisabled(m_alternate);
 }
 
 #if ENABLE(XSLT)
@@ -235,13 +239,25 @@ void ProcessingInstruction::setXSLStyleSheet(const String& href, const KURL& bas
 
 void ProcessingInstruction::parseStyleSheet(const String& sheet)
 {
-    m_sheet->parseString(sheet, true);
+    if (m_isCSS)
+        static_cast<CSSStyleSheet*>(m_sheet.get())->internal()->parseString(sheet);
+#if ENABLE(XSLT)
+    else if (m_isXSL)
+        static_cast<XSLStyleSheet*>(m_sheet.get())->parseString(sheet);
+#endif
+
     if (m_cachedSheet)
         m_cachedSheet->removeClient(this);
     m_cachedSheet = 0;
 
     m_loading = false;
-    m_sheet->checkLoaded();
+
+    if (m_isCSS)
+        static_cast<CSSStyleSheet*>(m_sheet.get())->internal()->checkLoaded();
+#if ENABLE(XSLT)
+    else if (m_isXSL)
+        static_cast<XSLStyleSheet*>(m_sheet.get())->checkLoaded();
+#endif
 }
 
 void ProcessingInstruction::setCSSStyleSheet(PassRefPtr<CSSStyleSheet> sheet)
@@ -249,8 +265,8 @@ void ProcessingInstruction::setCSSStyleSheet(PassRefPtr<CSSStyleSheet> sheet)
     ASSERT(!m_cachedSheet);
     ASSERT(!m_loading);
     m_sheet = sheet;
-    m_sheet->setTitle(m_title);
-    m_sheet->setDisabled(m_alternate);
+    sheet->setTitle(m_title);
+    sheet->setDisabled(m_alternate);
 }
 
 bool ProcessingInstruction::offsetInCharacters() const
@@ -271,17 +287,22 @@ void ProcessingInstruction::addSubresourceAttributeURLs(ListHashSet<KURL>& urls)
     addSubresourceURL(urls, sheet()->baseURL());
 }
 
-void ProcessingInstruction::insertedIntoDocument()
+Node::InsertionNotificationRequest ProcessingInstruction::insertedInto(Node* insertionPoint)
 {
-    ContainerNode::insertedIntoDocument();
+    Node::insertedInto(insertionPoint);
+    if (!insertionPoint->inDocument())
+        return InsertionDone;
     document()->addStyleSheetCandidateNode(this, m_createdByParser);
     checkStyleSheet();
+    return InsertionDone;
 }
 
-void ProcessingInstruction::removedFromDocument()
+void ProcessingInstruction::removedFrom(Node* insertionPoint)
 {
-    ContainerNode::removedFromDocument();
-
+    Node::removedFrom(insertionPoint);
+    if (!insertionPoint->inDocument())
+        return;
+    
     document()->removeStyleSheetCandidateNode(this);
 
     if (m_sheet) {
@@ -291,13 +312,13 @@ void ProcessingInstruction::removedFromDocument()
     }
 
     if (m_cachedSheet)
-        document()->styleSelectorChanged(DeferRecalcStyle);
+        document()->styleResolverChanged(DeferRecalcStyle);
 }
 
 void ProcessingInstruction::finishParsingChildren()
 {
     m_createdByParser = false;
-    ContainerNode::finishParsingChildren();
+    Node::finishParsingChildren();
 }
 
 } // namespace

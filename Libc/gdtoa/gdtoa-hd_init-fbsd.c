@@ -1,1 +1,0 @@
-FreeBSD/gdtoa-hd_init.c

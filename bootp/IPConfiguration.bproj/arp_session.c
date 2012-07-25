@@ -257,6 +257,8 @@ arpop_name(u_int16_t op)
     return ("<unknown>");
 }
 
+/* NOTE: caller should make sure arp_p pointed structure
+ * be at least 4 byte aligned */
 static void
 dump_arp(struct arphdr * arp_p)
 
@@ -270,31 +272,45 @@ dump_arp(struct arphdr * arp_p)
     switch (arphrd) {
     case ARPHRD_ETHER:
 	{
-	    struct ether_arp * earp = (struct ether_arp *)arp_p;
+	    /* ALIGN: alignment not assumed, using bcopy */
+	    struct ether_arp * earp = (struct ether_arp *)(void *)arp_p;
+	    struct in_addr iaddr;
+
 	    if (arp_p->ar_hln == sizeof(earp->arp_sha)) {
+		struct ether_addr eaddr;
+		
+		bcopy(earp->arp_sha, &eaddr, sizeof(eaddr));
 		printf("Sender H/W\t%s\n", 
-		       ether_ntoa((const struct ether_addr *)earp->arp_sha));
+		       ether_ntoa((const struct ether_addr *)&eaddr));
+
+		bcopy(earp->arp_tha, &eaddr, sizeof(eaddr));
 		printf("Target H/W\t%s\n", 
-		       ether_ntoa((const struct ether_addr *)earp->arp_tha));
+		       ether_ntoa((const struct ether_addr *)&eaddr));
 	    }
+	    bcopy(earp->arp_spa, &iaddr, sizeof(iaddr));
 	    printf("Sender IP\t%s\n", 
-		   inet_ntoa(*((struct in_addr *)earp->arp_spa)));
+		   inet_ntoa(iaddr));
+
+	    bcopy(earp->arp_tpa, &iaddr, sizeof(iaddr));
 	    printf("Target IP\t%s\n", 
-		   inet_ntoa(*((struct in_addr *)earp->arp_tpa)));
+		   inet_ntoa(iaddr));
 	}
 	break;
     case ARPHRD_IEEE1394:
 	{
-	    struct firewire_arp * farp = (struct firewire_arp *)arp_p;
+	    /* ALIGN: arp_p is aligned, cast ok. */
+	    struct firewire_arp * farp = (struct firewire_arp *)(void *)arp_p;
 
 	    if (arp_p->ar_hln == sizeof(farp->arp_sha)) {
 		printf("Sender H/W\t" FWA_FORMAT "\n",
 		       FWA_LIST(farp->arp_sha));
 	    }
+	    /* ALIGN: arp_p is aligned, cast ok. */
 	    printf("Sender IP\t%s\n", 
-		   inet_ntoa(*((struct in_addr *)farp->arp_spa)));
+		   inet_ntoa(*((struct in_addr *)(void *)farp->arp_spa)));
+	    /* ALIGN: arp_p is aligned, cast ok. */
 	    printf("Target IP\t%s\n", 
-		   inet_ntoa(*((struct in_addr *)farp->arp_tpa)));
+		   inet_ntoa(*((struct in_addr *)(void *)farp->arp_tpa)));
 	}
 	break;
     }
@@ -557,19 +573,22 @@ arp_if_session_read(void * arg1, void * arg2)
     }
     for (offset = if_session->receive_buf; n > 0; ) {
 	struct arphdr *		arp_p;
-	struct bpf_hdr * 	bpf = (struct bpf_hdr *)offset;
+	struct bpf_hdr * 	bpf = (struct bpf_hdr *)(void *)offset;
 	void *			hwaddr;
 	boolean_t		is_our_address;
 	short			op;
 	char *			pkt_start;
+	struct in_addr		source_ip_aligned;
 	struct in_addr *	source_ip_p;
+	struct in_addr		target_ip_aligned;
 	struct in_addr *	target_ip_p;
 	int			skip;
 	
 	dprintf(("bpf remaining %d header %d captured %d\n", n, 
 		 bpf->bh_hdrlen, bpf->bh_caplen));
+	/* ALIGN: offset is aligned to sizeof(int) bytes */
 	pkt_start = offset + bpf->bh_hdrlen;
-	arp_p = (struct arphdr *)(pkt_start + link_header_size);
+	arp_p = (struct arphdr *)(void *)(pkt_start + link_header_size);
 	if (debug) {
 	    dump_arp(arp_p);
 	}
@@ -588,8 +607,12 @@ arp_if_session_read(void * arg1, void * arg2)
 		struct ether_arp * earp;
 		
 		earp = (struct ether_arp *)arp_p;
-		source_ip_p = (struct in_addr *)earp->arp_spa;
-		target_ip_p = (struct in_addr *)earp->arp_tpa;
+	
+		/* ALIGN: don't assume fields in earp are aligned */
+		source_ip_p = &source_ip_aligned;
+		target_ip_p = &target_ip_aligned;
+		bcopy(earp->arp_spa, source_ip_p, sizeof(struct in_addr));
+		bcopy(earp->arp_tpa, target_ip_p, sizeof(struct in_addr));
 		hwaddr = earp->arp_sha;
 	    }
 	    break;
@@ -598,8 +621,9 @@ arp_if_session_read(void * arg1, void * arg2)
 		struct firewire_arp * farp;
 
 		farp = (struct firewire_arp *)arp_p;
-		source_ip_p = (struct in_addr *)farp->arp_spa;
-		target_ip_p = (struct in_addr *)farp->arp_tpa;
+		/* ALIGN: arp_p aligned, cast ok. */
+		source_ip_p = (struct in_addr *)(void *)farp->arp_spa;
+		target_ip_p = (struct in_addr *)(void *)farp->arp_tpa;
 		hwaddr = farp->arp_sha;
 	    }
 	    break;
@@ -852,7 +876,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    struct ether_arp *		earp;
 
 	    /* fill in the ethernet header */
-	    eh_p = (struct ether_header *)txbuf;
+	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
+	    eh_p = (struct ether_header *)(void *)txbuf;
 	    eh_p->ether_type = htons(ETHERTYPE_ARP);
 	    if (info_p != NULL) {
 		bcopy(info_p->target_hardware, eh_p->ether_dhost,
@@ -863,7 +888,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 		      sizeof(eh_p->ether_dhost));
 	    }
 	    /* fill in the arp packet contents */
-	    earp = (struct ether_arp *)(txbuf + sizeof(*eh_p));
+	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
+	    earp = (struct ether_arp *)(void *)(txbuf + sizeof(*eh_p));
 	    hdr = &earp->ea_hdr;
 	    hdr->ar_hrd = htons(ARPHRD_ETHER);
 	    hdr->ar_pro = htons(ETHERTYPE_IP);
@@ -873,18 +899,18 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    bcopy(if_link_address(if_session->if_p), earp->arp_sha,
 		  sizeof(earp->arp_sha));
 	    if (info_p != NULL) {
-		*((struct in_addr *)earp->arp_spa) = info_p->sender_ip;
-		*((struct in_addr *)earp->arp_tpa) = info_p->target_ip;
+		*((struct in_addr *)(void *)earp->arp_spa) = info_p->sender_ip;
+		*((struct in_addr *)(void *)earp->arp_tpa) = info_p->target_ip;
 	    }
 	    else {
 		if (send_gratuitous == TRUE
 		    && client->sender_ip.s_addr == 0) {
-		    *((struct in_addr *)earp->arp_spa) = client->target_ip;
+		    *((struct in_addr *)(void *)earp->arp_spa) = client->target_ip;
 		}
 		else {
-		    *((struct in_addr *)earp->arp_spa) = client->sender_ip;
+		    *((struct in_addr *)(void *)earp->arp_spa) = client->sender_ip;
 		}
-		*((struct in_addr *)earp->arp_tpa) = client->target_ip;
+		*((struct in_addr *)(void *)earp->arp_tpa) = client->target_ip;
 	    }
 	    size = sizeof(*eh_p) + sizeof(*earp);
 	}
@@ -895,7 +921,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    struct firewire_arp *	farp;
 
 	    /* fill in the firewire header */
-	    fh_p = (struct firewire_header *)txbuf;
+	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
+	    fh_p = (struct firewire_header *)(void *)txbuf;
 	    fh_p->firewire_type = htons(ETHERTYPE_ARP);
 	    if (info_p != NULL) {
 		bcopy(info_p->target_hardware, fh_p->firewire_dhost,
@@ -907,7 +934,8 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    }
 
 	    /* fill in the arp packet contents */
-	    farp = (struct firewire_arp *)(txbuf + sizeof(*fh_p));
+	    /* ALIGN: txbuf is aligned to sizeof(int) bytes */
+	    farp = (struct firewire_arp *)(void *)(txbuf + sizeof(*fh_p));
 	    hdr = &farp->fw_hdr;
 	    hdr->ar_hrd = htons(ARPHRD_IEEE1394);
 	    hdr->ar_pro = htons(ETHERTYPE_IP);
@@ -917,18 +945,18 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	    bcopy(&if_session->fw_addr, farp->arp_sha,
 		  sizeof(farp->arp_sha));
 	    if (info_p != NULL) {
-		*((struct in_addr *)farp->arp_spa) = info_p->sender_ip;
-		*((struct in_addr *)farp->arp_tpa) = info_p->target_ip;
+		*((struct in_addr *)(void *)farp->arp_spa) = info_p->sender_ip;
+		*((struct in_addr *)(void *)farp->arp_tpa) = info_p->target_ip;
 	    }
 	    else {
 		if (send_gratuitous == TRUE
 		    && client->sender_ip.s_addr == 0) {
-		    *((struct in_addr *)farp->arp_spa) = client->target_ip;
+		    *((struct in_addr *)(void *)farp->arp_spa) = client->target_ip;
 		}
 		else {
-		    *((struct in_addr *)farp->arp_spa) = client->sender_ip;
+		    *((struct in_addr *)(void *)farp->arp_spa) = client->sender_ip;
 		}
-		*((struct in_addr *)farp->arp_tpa) = client->target_ip;
+		*((struct in_addr *)(void *)farp->arp_tpa) = client->target_ip;
 	    }
 	    size = sizeof(*fh_p) + sizeof(*farp);
 	}
@@ -1408,7 +1436,7 @@ arp_client_detect(arp_client_t * client,
     client->detect_list_count = list_count;
     client->command_status = arp_status_unknown_e;
     client->command = arp_client_command_detect_e;
-    arp_client_detect_retransmit(client, (void*) (uintptr_t)resolve, 
+    arp_client_detect_retransmit(client, (void *)(uintptr_t)resolve, 
 				 NULL);
     return;
 }

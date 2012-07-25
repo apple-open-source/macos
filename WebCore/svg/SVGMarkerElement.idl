@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGMarkerElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGMarkerElement : SVGElement,
                                                    SVGLangSpace,
                                                    SVGExternalResourcesRequired,
                                                    SVGStylable,
@@ -49,7 +51,7 @@ module svg {
         readonly attribute SVGAnimatedAngle       orientAngle;
 
         void setOrientToAuto();
-        void setOrientToAngle(in SVGAngle angle);
+        void setOrientToAngle(in [Optional=DefaultIsUndefined] SVGAngle angle);
     };
 
 }

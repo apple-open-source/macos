@@ -52,7 +52,7 @@ static void *
 __loadSecurity(void) {
 	static void *image = NULL;
 	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Versions/A/Security";
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
@@ -145,6 +145,8 @@ _prefs_open(CFStringRef name, CFStringRef prefsID)
 
 #if	!TARGET_OS_IPHONE
 		authorization = _createAuthorization();
+#else
+		authorization = (AuthorizationRef)kSCPreferencesUseEntitlementAuthorization;
 #endif	/* !TARGET_OS_IPHONE */
 	}
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.h 9350 2010-11-04 23:23:25Z mike $"
+ * "$Id: classes.h 6649 2007-07-11 21:46:42Z mike $"
  *
  *   Printer class definitions for the CUPS scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,9 +28,8 @@ extern cupsd_printer_t	*cupsdFindAvailablePrinter(const char *name);
 extern cupsd_printer_t	*cupsdFindClass(const char *name);
 extern void		cupsdLoadAllClasses(void);
 extern void		cupsdSaveAllClasses(void);
-extern void		cupsdUpdateImplicitClasses(void);
 
 
 /*
- * End of "$Id: classes.h 9350 2010-11-04 23:23:25Z mike $".
+ * End of "$Id: classes.h 6649 2007-07-11 21:46:42Z mike $".
  */

@@ -76,7 +76,7 @@ TAILQ_HEAD(evtlist, evt);
 #ifdef ENABLE_ADMINPORT
 struct evtdump *evt_pop(void);
 vchar_t *evt_dump(void);
-void evt_push(struct sockaddr *, struct sockaddr *, int, vchar_t *);
+void evt_push(struct sockaddr_storage *, struct sockaddr_storage *, int, vchar_t *);
 #endif
 
 #ifdef ENABLE_ADMINPORT

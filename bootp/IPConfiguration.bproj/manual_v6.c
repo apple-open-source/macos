@@ -170,7 +170,8 @@ manual_v6_address_changed(ServiceRef service_p,
 	    service_publish_failure(service_p,
 				    ipconfig_status_address_in_use_e);
 	}
-	else {
+	else if ((scan->addr_flags & IN6_IFF_TENTATIVE) == 0) {
+	    /* DaD complete */
 	    manual_v6_publish(service_p);
 	}
 	break;

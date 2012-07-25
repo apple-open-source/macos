@@ -1,3 +1,6 @@
+1i
+#include <Availability.h>
+.
 /define APR_HAS_LARGE_FILES/c
 #ifdef __LP64__
 #define APR_HAS_LARGE_FILES       0
@@ -13,18 +16,10 @@
 #endif
 .
 /apr_int64_t/c
-#ifdef __LP64__
-typedef  long            apr_int64_t;
-#else
-typedef  long long            apr_int64_t;
-#endif
+typedef int64_t apr_int64_t;
 .
 /apr_uint64_t/c
-#ifdef __LP64__
-typedef  unsigned long   apr_uint64_t;
-#else
-typedef  unsigned long long   apr_uint64_t;
-#endif
+typedef uint64_t apr_uint64_t;
 .
 /define APR_SIZEOF_VOIDP/c
 #ifdef __LP64__
@@ -37,21 +32,21 @@ typedef  unsigned long long   apr_uint64_t;
 #define APR_OFF_T_FMT APR_INT64_T_FMT
 .
 /define APR_INT64_T_FMT/c
-#ifdef __LP64__
+#if defined(__LP64__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 #define APR_INT64_T_FMT "ld"
 #else
 #define APR_INT64_T_FMT "lld"
 #endif
 .
 /define APR_UINT64_T_FMT/c
-#ifdef __LP64__
+#if defined(__LP64__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 #define APR_UINT64_T_FMT "lu"
 #else
 #define APR_UINT64_T_FMT "llu"
 #endif
 .
 /define APR_UINT64_T_HEX_FMT/c
-#ifdef __LP64__
+#if defined(__LP64__) && defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < 1080
 #define APR_UINT64_T_HEX_FMT "lx"
 #else
 #define APR_UINT64_T_HEX_FMT "llx"

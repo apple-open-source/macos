@@ -1,40 +1,88 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/fr_CA.xml
 // *
 // ***************************************************************************
 fr_CA{
-    Version{"2.0.45.82"}
+    Version{"2.0.65.46"}
     zoneStrings{
-        "meta:Alaska"{
-            cu:int{1}
+        "America:Cayman"{
+            ec{"Îles Caïmans"}
+        }
+        "America:Godthab"{
+            ec{"Nuuk"}
+        }
+        "America:St_Kitts"{
+            ec{"Saint-Christophe-et-Niévès"}
+        }
+        "America:St_Thomas"{
+            ec{"Saint Thomas"}
+        }
+        "Asia:Baghdad"{
+            ec{"Baghdad"}
+        }
+        "Asia:Dhaka"{
+            ec{"Dacca"}
+        }
+        "Atlantic:Faeroe"{
+            ec{"Îles Féroé"}
+        }
+        "Europe:Vatican"{
+            ec{"Vatican"}
+        }
+        "Indian:Chagos"{
+            ec{"Archipel des Chagos"}
+        }
+        "Indian:Christmas"{
+            ec{"Île Christmas"}
+        }
+        "Indian:Cocos"{
+            ec{"Îles Cocos"}
+        }
+        "Indian:Comoro"{
+            ec{"Union des Comores"}
+        }
+        "Indian:Kerguelen"{
+            ec{"Îles Kerguelen"}
+        }
+        "Pacific:Norfolk"{
+            ec{"Île Norfolk"}
+        }
+        "Pacific:Pitcairn"{
+            ec{"Île Pitcairn"}
+        }
+        "Pacific:Wallis"{
+            ec{"Uvéa"}
         }
         "meta:America_Central"{
-            cu:int{1}
+            sd{"HAC"}
+            sg{"HC"}
+            ss{"HNC"}
         }
         "meta:America_Eastern"{
-            cu:int{1}
+            sd{"HAE"}
+            sg{"HE"}
+            ss{"HNE"}
         }
         "meta:America_Mountain"{
-            cu:int{1}
+            sd{"HAR"}
+            sg{"HR"}
+            ss{"HNR"}
         }
         "meta:America_Pacific"{
-            cu:int{1}
-        }
-        "meta:Atlantic"{
-            cu:int{1}
-        }
-        "meta:Europe_Central"{
-            cu:int{0}
-        }
-        "meta:Europe_Eastern"{
-            cu:int{0}
+            sd{"HAP"}
+            sg{"HP"}
+            ss{"HNP"}
         }
         "meta:Newfoundland"{
-            cu:int{1}
+            sd{"HAT"}
+            sg{"HT"}
+            ss{"HNT"}
         }
+        fallbackRegionFormat{"Heure de {1} ({0})"}
+        regionFormat{"Heure de {0}"}
     }
 }

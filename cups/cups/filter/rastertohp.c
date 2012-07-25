@@ -1,9 +1,9 @@
 /*
- * "$Id: rastertohp.c 9384 2010-11-22 07:06:39Z mike $"
+ * "$Id: rastertohp.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Hewlett-Packard Page Control Language filter for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -877,13 +877,10 @@ main(int  argc,				/* I - Number of command-line arguments */
     return (1);
   }
   else
-  {
-    _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
     return (0);
-  }
 }
 
 
 /*
- * End of "$Id: rastertohp.c 9384 2010-11-22 07:06:39Z mike $".
+ * End of "$Id: rastertohp.c 9042 2010-03-24 00:45:34Z mike $".
  */

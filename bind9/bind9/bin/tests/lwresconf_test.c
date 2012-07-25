@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: lwresconf_test.c,v 1.13 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: lwresconf_test.c,v 1.13 2007-06-19 23:46:59 tbox Exp $ */
 
 #include <config.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -251,14 +251,10 @@ server_init()
 
 	/*
 	 * Create and add a run loop source for the port and add this source
-	 * to both the default run loop mode and the "locked" mode. These two
-	 * modes will be used for normal (unlocked) communication with the
-	 * server and when multiple (locked) updates are requested by a single
-	 * session.
+	 * to the default run loop mode.
 	 */
 	rls = CFMachPortCreateRunLoopSource(NULL, configd_port, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, CFSTR("locked"));
 	CFRelease(rls);
 
 	return;
@@ -293,16 +289,13 @@ __private_extern__
 void
 server_loop()
 {
-	CFStringRef	rlMode;
-
 	pthread_setname_np("SCDynamicStore");
 
 	while (TRUE) {
 		/*
 		 * process one run loop event
 		 */
-		rlMode = (storeLocked > 0) ? CFSTR("locked") : kCFRunLoopDefaultMode;
-		CFRunLoopRunInMode(rlMode, 1.0e10, TRUE);
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0e10, TRUE);
 
 		/*
 		 * check for, and if necessary, push out change notifications

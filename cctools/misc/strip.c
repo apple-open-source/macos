@@ -346,6 +346,10 @@ static int cmp_bsearch_global_64(
     const struct nlist_64 **sym);
 #endif /* NMEDIT */
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 int
 main(
 int argc,
@@ -1238,26 +1242,19 @@ struct object *object)
 	    if(no_uuid == TRUE)
 		strip_LC_UUID_commands(arch, member, object);
 #endif /* !defined(NMEDIT) */
-	    if(object->mh != NULL)
-		object->output_sym_info_size =
-		    new_nsyms * sizeof(struct nlist) +
-		    new_strsize;
-	    else
-		object->output_sym_info_size =
-		    new_nsyms * sizeof(struct nlist_64) +
-		    new_strsize;
-
-	    object->st->nsyms = new_nsyms; 
-	    object->st->strsize = new_strsize;
-
-	    if(object->mh != NULL)
-		object->output_symbols = new_symbols;
-	    else
-		object->output_symbols64 = new_symbols64;
-	    object->output_nsymbols = new_nsyms;
-	    object->output_strings = new_strings;
-	    object->output_strings_size = new_strsize;
-
+	    /*
+	     * The parts that make up output_sym_info_size must be added up in
+	     * the output order so that when the sizes of things are rounded up
+	     * before parts that must be aligned the final output_sym_info_size
+	     * is correct.
+	     *
+	     * Also the parts that make up input_sym_info_size must be added up
+	     * in the same way.  And must be done here as the input file may
+	     * have been changed to and "ld -r" file and may not be the
+	     * the original input file.
+	     */
+	    object->output_sym_info_size = 0;
+	    object->input_sym_info_size = 0;
 	    if(object->dyld_info != NULL){
 		/* there are five parts to the dyld info, but
 		 strip does not alter them, so copy as a block */
@@ -1301,19 +1298,164 @@ struct object *object)
 				 "-exported_symbols_list at link time when "
 				 "building: ");
 		}
+		object->input_sym_info_size += object->dyld_info->rebase_size
+					    + object->dyld_info->bind_size
+					    + object->dyld_info->weak_bind_size
+					    + object->dyld_info->lazy_bind_size
+					    + object->dyld_info->export_size;
 	    }
+
+	    if(object->dyst != NULL){
+#ifndef NMEDIT
+		/*
+		 * When stripping out the section contents to create a
+		 * dynamic library stub the relocation info also gets
+		 * stripped.
+		 */
+		if(!cflag) 
+#endif /* !(NMEDIT) */
+		{
+		    object->output_sym_info_size +=
+			object->dyst->nlocrel * sizeof(struct relocation_info);
+		}
+		object->input_sym_info_size +=
+		    object->dyst->nlocrel * sizeof(struct relocation_info);
+	    }
+
 	    if(object->split_info_cmd != NULL){
 		object->output_split_info_data = object->object_addr +
 		    object->split_info_cmd->dataoff;
 		object->output_split_info_data_size = 
 		    object->split_info_cmd->datasize;
+		object->input_sym_info_size += object->split_info_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->split_info_cmd->datasize;
 	    }
+
 	    if(object->func_starts_info_cmd != NULL){
 		object->output_func_start_info_data = object->object_addr +
 		    object->func_starts_info_cmd->dataoff;
 		object->output_func_start_info_data_size = 
 		    object->func_starts_info_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->func_starts_info_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->func_starts_info_cmd->datasize;
 	    }
+
+	    if(object->data_in_code_cmd != NULL){
+		object->output_data_in_code_info_data = object->object_addr +
+		    object->data_in_code_cmd->dataoff;
+		object->output_data_in_code_info_data_size = 
+		    object->data_in_code_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+	    }
+
+	    if(object->code_sign_drs_cmd != NULL){
+		object->output_code_sign_drs_info_data = object->object_addr +
+		    object->code_sign_drs_cmd->dataoff;
+		object->output_code_sign_drs_info_data_size = 
+		    object->code_sign_drs_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
+	    }
+
+	    if(object->mh != NULL){
+		object->input_sym_info_size += nsyms * sizeof(struct nlist);
+		object->output_symbols = new_symbols;
+		object->output_sym_info_size +=
+		    new_nsyms * sizeof(struct nlist);
+	    }
+	    else{
+		object->input_sym_info_size += nsyms * sizeof(struct nlist_64);
+		object->output_symbols64 = new_symbols64;
+		object->output_sym_info_size +=
+		    new_nsyms * sizeof(struct nlist_64);
+	    }
+	    object->output_nsymbols = new_nsyms;
+	    object->st->nsyms = new_nsyms; 
+
+	    if(object->hints_cmd != NULL){
+		object->input_sym_info_size +=
+		    object->hints_cmd->nhints *
+		    sizeof(struct twolevel_hint);
+		object->output_sym_info_size +=
+		    object->hints_cmd->nhints *
+		    sizeof(struct twolevel_hint);
+	    }
+
+	    if(object->dyst != NULL){
+#ifndef NMEDIT
+		/*
+		 * When stripping out the section contents to create a
+		 * dynamic library stub the relocation info also gets
+		 * stripped.
+		 */
+		if(!cflag) 
+#endif /* !(NMEDIT) */
+		{
+		    object->output_sym_info_size +=
+			object->dyst->nextrel * sizeof(struct relocation_info);
+		}
+		object->input_sym_info_size +=
+		    object->dyst->nextrel * sizeof(struct relocation_info);
+	    }
+
+	    if(object->dyst != NULL){
+		object->output_sym_info_size +=
+		    object->dyst->nindirectsyms * sizeof(uint32_t) +
+		    object->input_indirectsym_pad;
+		if(object->mh != NULL){
+		    object->input_sym_info_size +=
+			object->dyst->nindirectsyms * sizeof(uint32_t);
+		}
+		else{
+		    object->input_sym_info_size +=
+			object->dyst->nindirectsyms * sizeof(uint32_t) +
+			object->input_indirectsym_pad;
+		}
+	    }
+
+	    if(object->dyst != NULL){
+		object->output_sym_info_size +=
+		    new_ntoc * sizeof(struct dylib_table_of_contents);
+		object->input_sym_info_size +=
+		    object->dyst->ntoc * sizeof(struct dylib_table_of_contents);
+	    }
+
+	    if(object->dyst != NULL){
+		if(object->mh != NULL){
+		    object->output_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module);
+		    object->input_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module);
+		}
+		else{
+		    object->output_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module_64);
+		    object->input_sym_info_size +=
+			object->dyst->nmodtab * sizeof(struct dylib_module_64);
+		}
+	    }
+
+	    if(object->dyst != NULL){
+		object->output_sym_info_size +=
+		    new_nextrefsyms * sizeof(struct dylib_reference);
+		object->input_sym_info_size +=
+		    object->dyst->nextrefsyms * sizeof(struct dylib_reference);
+	    }
+
+	    object->output_strings = new_strings;
+	    object->output_strings_size = new_strsize;
+	    object->output_sym_info_size += new_strsize;
+	    object->input_sym_info_size += strsize;
+	    object->st->strsize = new_strsize;
+
 	    if(object->code_sig_cmd != NULL){
 #ifndef NMEDIT
 		if(!cflag)
@@ -1322,6 +1464,22 @@ struct object *object)
 		    object->output_code_sig_data = object->object_addr +
 			object->code_sig_cmd->dataoff;
 		    object->output_code_sig_data_size = 
+			object->code_sig_cmd->datasize;
+		}
+		object->input_sym_info_size =
+		    rnd(object->input_sym_info_size, 16);
+		object->input_sym_info_size +=
+		    object->code_sig_cmd->datasize;
+#ifndef NMEDIT
+		if(cflag){
+		    strip_LC_CODE_SIGNATURE_commands(arch, member, object);
+		}
+		else
+#endif /* !(NMEDIT) */
+		{
+		    object->output_sym_info_size =
+			rnd(object->output_sym_info_size, 16);
+		    object->output_sym_info_size +=
 			object->code_sig_cmd->datasize;
 		}
 	    }
@@ -1382,94 +1540,6 @@ struct object *object)
 			    object->object_byte_sex);
 		    }
 		}
-		if(object->dyld_info != NULL){
-		    object->input_sym_info_size += object->dyld_info->rebase_size
-						+ object->dyld_info->bind_size
-						+ object->dyld_info->weak_bind_size
-						+ object->dyld_info->lazy_bind_size
-						+ object->dyld_info->export_size;
-		}
-		object->input_sym_info_size +=
-		    object->dyst->nlocrel * sizeof(struct relocation_info) +
-		    object->dyst->nextrel * sizeof(struct relocation_info) +
-		    object->dyst->ntoc * sizeof(struct dylib_table_of_contents)+
-		    object->dyst->nextrefsyms * sizeof(struct dylib_reference);
-		if(object->mh != NULL){
-		    object->input_sym_info_size +=
-			object->dyst->nmodtab * sizeof(struct dylib_module) +
-			object->dyst->nindirectsyms * sizeof(uint32_t);
-		}
-		else{
-		    object->input_sym_info_size +=
-			object->dyst->nmodtab * sizeof(struct dylib_module_64) +
-			object->dyst->nindirectsyms * sizeof(uint32_t) +
-			object->input_indirectsym_pad;
-		}
-#ifndef NMEDIT
-		/*
-		 * When stripping out the section contents to create a
-		 * dynamic library stub the relocation info also gets
-		 * stripped.
-		 */
-		if(!cflag) 
-#endif /* !(NMEDIT) */
-		{
-		    object->output_sym_info_size +=
-			object->dyst->nlocrel * sizeof(struct relocation_info) +
-			object->dyst->nextrel * sizeof(struct relocation_info);
-		}
-		object->output_sym_info_size +=
-		    new_ntoc * sizeof(struct dylib_table_of_contents)+
-		    new_nextrefsyms * sizeof(struct dylib_reference) +
-		    object->dyst->nindirectsyms * sizeof(uint32_t) +
-		    object->input_indirectsym_pad;
-		if(object->mh != NULL){
-		    object->output_sym_info_size +=
-			object->dyst->nmodtab * sizeof(struct dylib_module);
-		}
-		else{
-		    object->output_sym_info_size +=
-			object->dyst->nmodtab * sizeof(struct dylib_module_64);
-		}
-		if(object->hints_cmd != NULL){
-		    object->input_sym_info_size +=
-			object->hints_cmd->nhints *
-			sizeof(struct twolevel_hint);
-		    object->output_sym_info_size +=
-			object->hints_cmd->nhints *
-			sizeof(struct twolevel_hint);
-		}
-		if(object->split_info_cmd != NULL){
-		    object->input_sym_info_size +=
-			object->split_info_cmd->datasize;
-		    object->output_sym_info_size +=
-			object->split_info_cmd->datasize;
-		}
-		if(object->func_starts_info_cmd != NULL){
-		    object->input_sym_info_size +=
-			object->func_starts_info_cmd->datasize;
-		    object->output_sym_info_size +=
-			object->func_starts_info_cmd->datasize;
-		}
-		if(object->code_sig_cmd != NULL){
-		    object->input_sym_info_size =
-			rnd(object->input_sym_info_size, 16);
-		    object->input_sym_info_size +=
-			object->code_sig_cmd->datasize;
-#ifndef NMEDIT
-		    if(cflag){
-			strip_LC_CODE_SIGNATURE_commands(arch, member, object);
-		    }
-		    else
-#endif /* !(NMEDIT) */
-		    {
-			object->output_sym_info_size =
-			    rnd(object->output_sym_info_size, 16);
-			object->output_sym_info_size +=
-			    object->code_sig_cmd->datasize;
-		    }
-		}
-
 		object->dyst->ntoc = new_ntoc;
 		object->dyst->nextrefsyms = new_nextrefsyms;
 
@@ -1530,6 +1600,16 @@ struct object *object)
 		if(object->func_starts_info_cmd != NULL){
 		    object->func_starts_info_cmd->dataoff = offset;
 		    offset += object->func_starts_info_cmd->datasize;
+		}
+
+		if(object->data_in_code_cmd != NULL){
+		    object->data_in_code_cmd->dataoff = offset;
+		    offset += object->data_in_code_cmd->datasize;
+		}
+
+		if(object->code_sign_drs_cmd != NULL){
+		    object->code_sign_drs_cmd->dataoff = offset;
+		    offset += object->code_sign_drs_cmd->datasize;
 		}
 
 		if(object->st->nsyms != 0){
@@ -1785,6 +1865,8 @@ struct object *object)
 			      object->input_indirectsym_pad;
 		}
 	    }
+	    if(no_uuid == TRUE)
+		strip_LC_UUID_commands(arch, member, object);
 	}
 #endif /* !defined(NMEDIT) */
 
@@ -2308,8 +2390,8 @@ enum byte_sex host_byte_sex)
 		    n_type = symbols64[index].n_type;
 		    n_strx = symbols64[index].n_un.n_strx;
 		}
-		if((n_type && N_TYPE) != N_UNDF &&
-		   (n_type && N_TYPE) != N_PBUD &&
+		if((n_type & N_TYPE) != N_UNDF &&
+		   (n_type & N_TYPE) != N_PBUD &&
 		   section_type == S_NON_LAZY_SYMBOL_POINTERS){
 		    object->output_indirect_symtab[reserved1 + k] =
 			    INDIRECT_SYMBOL_LOCAL;
@@ -2531,19 +2613,7 @@ uint32_t nextrefsyms)
 		}
 		lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	    }
-	    /*
-	     * Because of the bugs in ld(1) for:
-	     * radr://5675774 ld64 should preserve JBSR relocations without
-	     *		      -static
-	     * radr://5658046 cctools-679 creates scattered relocations in
-	     *                __TEXT,__const section in kexts, which breaks
-	     *		      kexts built for older systems
-	     * we can't use ld -r to strip dwarf info in 32-bit objects until
-	     * these are fixed. But if the user as specified the -l flag then
-	     * go ahead and do it and the user will have to be aware of these
-	     * bugs.
-	     */
-	    if((lflag == TRUE && has_dwarf == TRUE) || object->mh64 != NULL)
+	    if(has_dwarf == TRUE)
 		make_ld_r_object(arch, member, object);
 	}
 	/*
@@ -2676,8 +2746,8 @@ uint32_t nextrefsyms)
 		 * For x86_64 .o files we have run ld -r on them and are stuck
 		 * keeping all resulting symbols.
 		 */
-		if(object->mh == NULL && 
-		   object->mh64->cputype == CPU_TYPE_X86_64 &&
+		if(object->mh == NULL && (
+		   object->mh64->cputype == CPU_TYPE_X86_64) &&
 		   object->mh64->filetype == MH_OBJECT){
 		    if(n_strx != 0)
 			new_strsize += strlen(strings + n_strx) + 1;
@@ -4044,6 +4114,14 @@ struct object *object)
 		object->func_starts_info_cmd =
 				         (struct linkedit_data_command *)lc1;
 		break;
+	    case LC_DATA_IN_CODE:
+		object->data_in_code_cmd =
+				         (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_DYLIB_CODE_SIGN_DRS:
+		object->code_sign_drs_cmd =
+				         (struct linkedit_data_command *)lc1;
+		break;
 	    case LC_CODE_SIGNATURE:
 		object->code_sig_cmd = (struct linkedit_data_command *)lc1;
 		break;
@@ -4156,6 +4234,14 @@ struct object *object)
 	    case LC_FUNCTION_STARTS:
 		object->func_starts_info_cmd =
 					 (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_DATA_IN_CODE:
+		object->data_in_code_cmd =
+				         (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_DYLIB_CODE_SIGN_DRS:
+		object->code_sign_drs_cmd =
+				         (struct linkedit_data_command *)lc1;
 		break;
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);

@@ -42,9 +42,10 @@
 struct krb5_dh_moduli;
 struct AlgorithmIdentifier;
 struct _krb5_krb_auth_data;
-struct key_data;
-struct key_type;
-struct checksum_type;
+struct _krb5_key_data;
+struct _krb5_key_type;
+struct _krb5_checksum_type;
+struct _krb5_encryption_type;
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>
@@ -81,6 +82,7 @@ int pk_use_enckey	= 0;
 static int canonicalize_flag = 0;
 static int enterprise_flag = 0;
 static int ok_as_delegate_flag = 0;
+static char *fast_armor_cache_string = NULL;
 static int use_referrals_flag = 0;
 static int verbose_flag = 0;
 static int windows_flag = 0;
@@ -101,7 +103,7 @@ static struct getargs args[] = {
      * 9:
      */
     { "afslog", 	0  , arg_flag, &do_afslog,
-      NP_("obtain afs tokens", "")  },
+      NP_("obtain afs tokens", ""), NULL },
 
     { "cache", 		'c', arg_string, &cred_cache,
       NP_("credentials cache", ""), "cachename" },
@@ -115,21 +117,20 @@ static struct getargs args[] = {
     { "forwardable",	'f', arg_flag, &forwardable_flag,
       NP_("get forwardable tickets", "")},
 #endif
-
     { "keytab",         't', arg_string, &keytab_str,
       NP_("keytab to use", ""), "keytabname" },
 
     { "lifetime",	'l', arg_string, &lifetime,
-      NP_("lifetime of tickets", ""), "time"},
+      NP_("lifetime of tickets", ""), "time" },
 
     { "proxiable",	'p', arg_flag, &proxiable_flag,
-      NP_("get proxiable tickets", "") },
+      NP_("get proxiable tickets", ""), NULL },
 
     { "renew",          'R', arg_flag, &renew_flag,
-      NP_("renew TGT", "") },
+      NP_("renew TGT", ""), NULL },
 
     { "renewable",	0,   arg_flag, &renewable_flag,
-      NP_("get renewable tickets", "") },
+      NP_("get renewable tickets", ""), NULL },
 
     { "renewable-life",	'r', arg_string, &renew_life,
       NP_("renewable lifetime of tickets", ""), "time" },
@@ -144,19 +145,19 @@ static struct getargs args[] = {
       NP_("redirect the request to specific KDC", ""), "hostname" },
 
     { "use-keytab",     'k', arg_flag, &use_keytab,
-      NP_("get key from keytab", "") },
+      NP_("get key from keytab", ""), NULL },
 
     { "validate",	'v', arg_flag, &validate_flag,
-      NP_("validate TGT", "") },
+      NP_("validate TGT", ""), NULL },
 
     { "enctypes",	'e', arg_strings, &etype_str,
       NP_("encryption types to use", ""), "enctypes" },
 
     { "fcache-version", 0,   arg_integer, &fcache_version,
-      NP_("file cache version to create", "") },
+      NP_("file cache version to create", ""), NULL },
 
     { "addresses",	'A',   arg_negative_flag,	&addrs_flag,
-      NP_("request a ticket with no addresses", "") },
+      NP_("request a ticket with no addresses", ""), NULL },
 
     { NULL,		'a',   arg_flag,		&addrs_flag,
       NP_("request a ticket with addresses", "") },
@@ -165,22 +166,22 @@ static struct getargs args[] = {
       NP_("include these extra addresses", ""), "addresses" },
 
     { "anonymous",	0,   arg_flag,	&anonymous_flag,
-      NP_("request an anonymous ticket", "") },
+      NP_("request an anonymous ticket", ""), NULL },
 
     { "request-pac",	0,   arg_flag,	&pac_flag,
-      NP_("request a Windows PAC", "") },
+      NP_("request a Windows PAC", ""), NULL },
 
     { "password-file",	0,   arg_string, &password_file,
-      NP_("read the password from a file", "") },
+      NP_("read the password from a file", ""), NULL },
 
     { "canonicalize",0,   arg_flag, &canonicalize_flag,
-      NP_("canonicalize client principal", "") },
+      NP_("canonicalize client principal", ""), NULL },
 
     { "enterprise",0,   arg_flag, &enterprise_flag,
-      NP_("parse principal as a KRB5-NT-ENTERPRISE name", "") },
+      NP_("parse principal as a KRB5-NT-ENTERPRISE name", ""), NULL },
 #ifdef PKINIT
     { "pk-enterprise",	0,	arg_flag,	&pk_enterprise_flag,
-      NP_("use enterprise name from certificate", "") },
+      NP_("use enterprise name from certificate", ""), NULL },
 
     { "pk-user",	'C',	arg_string,	&pk_user_id,
       NP_("principal's public/private/certificate identifier", ""), "id" },
@@ -189,26 +190,29 @@ static struct getargs args[] = {
       NP_("directory with CA certificates", ""), "directory" },
 
     { "pk-use-enckey",	0,  arg_flag, &pk_use_enckey,
-      NP_("Use RSA encrypted reply (instead of DH)", "") },
+      NP_("Use RSA encrypted reply (instead of DH)", ""), NULL },
 #endif
 
     { "change-default",  0,  arg_negative_flag, &switch_cache_flags,
-      NP_("switch the default cache to the new credentials cache", "") },
+      NP_("switch the default cache to the new credentials cache", ""), NULL },
 
     { "ok-as-delegate",	0,  arg_flag, &ok_as_delegate_flag,
-      NP_("honor ok-as-delegate on tickets", "") },
+      NP_("honor ok-as-delegate on tickets", ""), NULL },
+
+    { "fast-armor-cache",	0,  arg_string, &fast_armor_cache_string,
+      NP_("use this credential cache as FAST armor cache", ""), "cache" },
 
     { "use-referrals",	0,  arg_flag, &use_referrals_flag,
-      NP_("only use referrals, no dns canalisation", "") },
+      NP_("only use referrals, no dns canalisation", ""), NULL },
 
     { "verbose",	'V',arg_flag, &verbose_flag,
       NP_("verbose output", "") },
 
     { "windows",	0,  arg_flag, &windows_flag,
-      NP_("get windows behavior", "") },
+      NP_("get windows behavior", ""), NULL },
 
-    { "version", 	0,   arg_flag, &version_flag },
-    { "help",		0,   arg_flag, &help_flag }
+    { "version", 	0,   arg_flag, &version_flag, NULL, NULL },
+    { "help",		0,   arg_flag, &help_flag, NULL, NULL }
 };
 
 static void
@@ -346,7 +350,7 @@ get_new_tickets(krb5_context context,
     char passwd[256];
     krb5_deltat start_time = 0;
     krb5_deltat renew = 0;
-    char *renewstr = NULL;
+    const char *renewstr = NULL;
     krb5_enctype *enctype = NULL;
     krb5_ccache tempccache;
     krb5_init_creds_context icc;
@@ -390,14 +394,18 @@ get_new_tickets(krb5_context context,
 	if (ret)
 	    goto nopassword;
 
-	osret = SecKeychainFindGenericPassword(NULL, strlen(realm), realm,
-					       strlen(name), name,
+	osret = SecKeychainFindGenericPassword(NULL, (UInt32)strlen(realm), realm,
+					       (UInt32)strlen(name), name,
 					       &length, &buffer, NULL);
 	free(name);
-	if (osret == noErr && length < sizeof(passwd) - 1) {
+	if (osret != noErr)
+	    goto nopassword;
+
+	if (length < sizeof(passwd) - 1) {
 	    memcpy(passwd, buffer, length);
 	    passwd[length] = '\0';
 	}
+	SecKeychainItemFreeContent(NULL, buffer);
     nopassword:
 	do { } while(0);
     }
@@ -424,7 +432,7 @@ get_new_tickets(krb5_context context,
 						pac_flag ? TRUE : FALSE);
     if (canonicalize_flag)
 	krb5_get_init_creds_opt_set_canonicalize(context, opt, TRUE);
-    if ((pk_enterprise_flag || enterprise_flag || canonicalize_flag) && windows_flag)
+    if (pk_enterprise_flag || enterprise_flag || canonicalize_flag || windows_flag)
 	krb5_get_init_creds_opt_set_win2k(context, opt, TRUE);
     if (pk_user_id || ent_user_id || anonymous_flag) {
 	ret = krb5_get_init_creds_opt_set_pkinit(context, opt,
@@ -441,7 +449,7 @@ get_new_tickets(krb5_context context,
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_get_init_creds_opt_set_pkinit");
 	if (ent_user_id)
-	    _krb5_get_init_creds_opt_set_pkinit_user_cert(context, opt, ent_user_id);
+	    krb5_get_init_creds_opt_set_pkinit_user_cert(context, opt, ent_user_id);
     }
 
     if (addrs_flag != -1)
@@ -456,7 +464,7 @@ get_new_tickets(krb5_context context,
 	renew = parse_time (renewstr, "s");
 	if (renew < 0)
 	    errx (1, "unparsable time: %s", renewstr);
-	
+
 	krb5_get_init_creds_opt_set_renew_life (opt, renew);
     }
 
@@ -504,6 +512,18 @@ get_new_tickets(krb5_context context,
     if (kdc_hostname)
 	krb5_init_creds_set_kdc_hostname(context, icc, kdc_hostname);
 
+    if (fast_armor_cache_string) {
+	krb5_ccache fastid;
+	
+	ret = krb5_cc_resolve(context, fast_armor_cache_string, &fastid);
+	if (ret)
+	    krb5_err(context, 1, ret, "krb5_cc_resolve(FAST cache)");
+	
+	ret = krb5_init_creds_set_fast_ccache(context, icc, fastid);
+	if (ret)
+	    krb5_err(context, 1, ret, "krb5_init_creds_set_fast_ccache");
+    }
+
     if(use_keytab || keytab_str) {
 	if(keytab_str)
 	    ret = krb5_kt_resolve(context, keytab_str, &kt);
@@ -519,24 +539,16 @@ get_new_tickets(krb5_context context,
 
     need_prompt = !(pk_user_id || ent_user_id || anonymous_flag || use_keytab || keytab_str);
 
-    if (!interactive && passwd[0] == '\0' && need_prompt) {
-	krb5_warnx(context, "Not interactive, failed to get initial ticket");
-	krb5_init_creds_free(context, icc);
-	krb5_get_init_creds_opt_free(context, opt);
-	return 0;
-    }
-
-    /* XXX */
-    if (passwd[0] == '\0' && need_prompt) {
+    if (interactive && passwd[0] == '\0' && need_prompt) {
 	char *p, *prompt;
-	
-	krb5_unparse_name (context, principal, &p);
+
+	krb5_unparse_name(context, principal, &p);
 	asprintf (&prompt, N_("%s's Password: ", ""), p);
-	free (p);
-	
+	free(p);
+
 	if (UI_UTIL_read_pw_string(passwd, sizeof(passwd)-1, prompt, 0)){
 	    memset(passwd, 0, sizeof(passwd));
-	    exit(1);
+	    errx(1, "failed to read password");
 	}
 	free (prompt);
     }
@@ -548,6 +560,7 @@ get_new_tickets(krb5_context context,
     }
 
     ret = krb5_init_creds_get(context, icc);
+
     memset(passwd, 0, sizeof(passwd));
 
     switch(ret){
@@ -558,6 +571,7 @@ get_new_tickets(krb5_context context,
     case KRB5KRB_AP_ERR_BAD_INTEGRITY:
     case KRB5KRB_AP_ERR_MODIFIED:
     case KRB5KDC_ERR_PREAUTH_FAILED:
+    case KRB5_GET_IN_TKT_LOOP:
 	krb5_errx(context, 1, N_("Password incorrect", ""));
 	break;
     case KRB5KRB_AP_ERR_V4_REPLY:
@@ -574,39 +588,16 @@ get_new_tickets(krb5_context context,
     if (ret)
 	krb5_err(context, 1, ret, "krb5_init_creds_get_creds");
 
-    if(ticket_life != 0) {
-	if(abs(cred.times.endtime - cred.times.starttime - ticket_life) > 30) {
-	    char life[64];
-	    unparse_time_approx(cred.times.endtime - cred.times.starttime,
-				life, sizeof(life));
-	    krb5_warnx(context, N_("NOTICE: ticket lifetime is %s", ""), life);
-	}
-    }
-    if(renew_life) {
-	if(abs(cred.times.renew_till - cred.times.starttime - renew) > 30) {
-	    char life[64];
-	    unparse_time_approx(cred.times.renew_till - cred.times.starttime,
-				life, sizeof(life));
-	    krb5_warnx(context, 
-		       N_("NOTICE: ticket renewable lifetime is %s", ""),
-		       life);
-	}
-    }
+    krb5_process_last_request(context, opt, icc);
 
     ret = krb5_cc_new_unique(context, krb5_cc_get_type(context, ccache),
 			     NULL, &tempccache);
     if (ret)
 	krb5_err (context, 1, ret, "krb5_cc_new_unique");
 
-    ret = krb5_cc_initialize (context, tempccache, cred.client);
+    ret = krb5_init_creds_store(context, icc, tempccache);
     if (ret)
-	krb5_err (context, 1, ret, "krb5_cc_initialize");
-
-    ret = krb5_cc_store_cred (context, tempccache, &cred);
-    if (ret)
-	krb5_err (context, 1, ret, "krb5_cc_store_cred");
-
-    krb5_free_cred_contents (context, &cred);
+	krb5_err(context, 1, ret, "krb5_init_creds_store");
 
     ret = krb5_init_creds_store_config(context, icc, tempccache);
     if (ret)
@@ -766,9 +757,9 @@ main (int argc, char **argv)
 
     if (pk_enterprise_flag) {
 #ifdef PKINIT
-		ret = _krb5_pk_enterprise_cert(context, pk_user_id,
-				       argv[0], &principal,
-				       &ent_user_id);
+	    ret = krb5_pk_enterprise_cert(context, pk_user_id,
+					  argv[0], &principal,
+					  &ent_user_id);
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_pk_enterprise_certs");
 	pk_user_id = NULL;
@@ -778,7 +769,7 @@ main (int argc, char **argv)
     } else if (anonymous_flag) {
 
 	ret = krb5_make_principal(context, &principal, argv[0],
-				  KRB5_WELLKNOWN_NAME, KRB5_ANON_NAME, 
+				  KRB5_WELLKNOWN_NAME, KRB5_ANON_NAME,
 				  NULL);
 	if (ret)
 	    krb5_err(context, 1, ret, "krb5_make_principal");
@@ -830,7 +821,7 @@ main (int argc, char **argv)
 		if (ret)
 		    krb5_err (context, 1, ret, N_("resolving credentials cache", ""));
 
-		/* 
+		/*
 		 * Check if the type support switching, and we do,
 		 * then do that instead over overwriting the current
 		 * default credential
@@ -922,7 +913,7 @@ main (int argc, char **argv)
 	    krb5_warnx(context, N_("permission denied: %s", ""), argv[1]);
 	else if(ret == EX_NOTFOUND)
 	    krb5_warnx(context, N_("command not found: %s", ""), argv[1]);
-	
+
 	krb5_cc_destroy(context, ccache);
 #ifndef NO_AFS
 	if(k_hasafs())

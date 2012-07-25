@@ -31,15 +31,18 @@
 module html {
 
     interface [
-        GenerateIsReachable=Impl,
-        NoStaticTables
+        JSGenerateIsReachable=Impl,
+        CustomToJSObject,
+        JSNoStaticTables,
+        CustomConstructor,
+        ConstructorParameters=2
     ] Blob {
         readonly attribute unsigned long long size;
         readonly attribute DOMString type;
 
 #if !defined(LANGUAGE_OBJECTIVE_C)
 #if defined(ENABLE_BLOB) && ENABLE_BLOB
-        Blob webkitSlice(in long long start, in [Optional] long long end, in [Optional, ConvertUndefinedOrNullToNullString] DOMString contentType);
+        Blob webkitSlice(in [Optional] long long start, in [Optional] long long end, in [Optional, TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString contentType);
 #endif
 #endif
     };

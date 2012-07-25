@@ -57,7 +57,7 @@ void RenderIFrame::computeLogicalHeight()
         if (!view)
             return;
         int border = borderTop() + borderBottom();
-        setHeight(max(height(), view->contentsHeight() + border));
+        setHeight(max<LayoutUnit>(height(), view->contentsHeight() + border));
     }
 }
 
@@ -74,8 +74,8 @@ void RenderIFrame::computeLogicalWidth()
         FrameView* view = static_cast<FrameView*>(widget());
         if (!view)
             return;
-        int border = borderLeft() + borderRight();
-        setWidth(max(width(), view->contentsWidth() + border));
+        LayoutUnit border = borderLeft() + borderRight();
+        setWidth(max<LayoutUnit>(width(), view->contentsWidth() + border));
     }
 }
 
@@ -85,24 +85,24 @@ bool RenderIFrame::flattenFrame()
         return false;
 
     HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
-    bool isScrollable = element->scrollingMode() != ScrollbarAlwaysOff;
-
-    if (!isScrollable && style()->width().isFixed()
-        && style()->height().isFixed())
-        return false;
-
     Frame* frame = element->document()->frame();
-    bool enabled = frame && frame->settings()->frameFlatteningEnabled();
+
+    bool enabled = frame && frame->settings() && frame->settings()->frameFlatteningEnabled();
 
     if (!enabled || !frame->page())
         return false;
 
-    FrameView* view = frame->page()->mainFrame()->view();
-    if (!view)
-        return false;
+    if (style()->width().isFixed() && style()->height().isFixed()) {
+        // Do not flatten iframes with scrolling="no".
+        if (element->scrollingMode() == ScrollbarAlwaysOff)
+            return false;
+        if (style()->width().value() <= 0 || style()->height().value() <= 0)
+            return false;
+    }
 
-    // Do not flatten offscreen inner frames during frame flattening.
-    return absoluteBoundingBoxRect().intersects(IntRect(IntPoint(0, 0), view->contentsSize()));
+    // Do not flatten offscreen inner frames during frame flattening, as flattening might make them visible.
+    IntRect boundingRect = absoluteBoundingBoxRectIgnoringTransforms();
+    return boundingRect.maxX() > 0 && boundingRect.maxY() > 0;
 }
 
 void RenderIFrame::layout()
@@ -120,7 +120,7 @@ void RenderIFrame::layout()
     RenderPart::layout();
 
     m_overflow.clear();
-    addBoxShadowAndBorderOverflow();
+    addVisualEffectOverflow();
     updateLayerTransform();
 
     setNeedsLayout(false);

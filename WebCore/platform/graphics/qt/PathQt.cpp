@@ -1,7 +1,8 @@
 /*
- * Copyright (C) 2006 Zack Rusin   <zack@kde.org>
- *               2006 Rob Buis     <buis@kde.org>
- *               2009, 2010 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2006 Zack Rusin <zack@kde.org>
+ * Copyright (C) 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2009, 2010 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2010, 2011 Andreas Kling <kling@webkit.org>
  *
  * All rights reserved.
  *
@@ -144,14 +145,12 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
 
 void Path::translate(const FloatSize& size)
 {
-    QTransform matrix;
-    matrix.translate(size.width(), size.height());
-    m_path = m_path * matrix;
+    m_path.translate(size.width(), size.height());
 }
 
 FloatRect Path::boundingRect() const
 {
-    return m_path.boundingRect();
+    return m_path.controlPointRect();
 }
 
 FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const

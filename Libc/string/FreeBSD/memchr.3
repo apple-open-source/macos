@@ -43,9 +43,11 @@
 .Sh SYNOPSIS
 .In string.h
 .Ft void *
-.Fn memchr "const void *b" "int c" "size_t len"
-.Ft void *
-.Fn memrchr "const void *b" "int c" "size_t len"
+.Fo memchr
+.Fa "const void *s"
+.Fa "int c"
+.Fa "size_t n"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn memchr
@@ -54,28 +56,16 @@ locates the first occurrence of
 .Fa c
 (converted to an unsigned char)
 in string
-.Fa b .
-.Pp
-The
-.Fn memrchr
-function behaves like
-.Fn memchr ,
-except that it locates the last occurrence of
-.Fa c
-in string
-.Fa b .
+.Fa s .
 .Sh RETURN VALUES
 The
 .Fn memchr
-and
-.Fn memrchr
-functions
-return a pointer to the byte located,
+function
+returns a pointer to the byte located,
 or NULL if no such byte exists within
-.Fa len
+.Fa n
 bytes.
 .Sh SEE ALSO
-.Xr memmem 3 ,
 .Xr strchr 3 ,
 .Xr strcspn 3 ,
 .Xr strpbrk 3 ,
@@ -91,15 +81,3 @@ The
 function
 conforms to
 .St -isoC .
-.Pp
-The
-.Fn memrchr       
-function is a GNU extension and conforms to no standard.
-.Sh HISTORY
-The
-.Fn memrchr
-function first appeared in GNU libc 2.1.91, this implementation
-first appeared in
-.Fx 6.4 ,
-coming from
-.Ox 4.3 .

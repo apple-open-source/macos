@@ -6,7 +6,7 @@
 
 // test non-GC -release of block-captured objects
 
-// TEST_CONFIG GC=0
+// TEST_CONFIG MEM=mrc
 // TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
@@ -18,7 +18,7 @@ int global = 0;
 @interface TestObject : NSObject
 @end
 @implementation TestObject
-- (void)release {
+- (oneway void)release {
     global = 1;
     [super release];
 }

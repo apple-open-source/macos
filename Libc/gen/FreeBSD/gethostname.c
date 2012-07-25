@@ -33,8 +33,10 @@ static char sccsid[] = "@(#)gethostname.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.8 2007/01/09 00:27:54 imp Exp $");
 
+#include <string.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
+#include <limits.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -48,10 +50,22 @@ gethostname(name, namelen)
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_HOSTNAME;
+	if (namelen < MAXHOSTNAMELEN + 1) {
+		char local_buf[MAXHOSTNAMELEN + 1];
+		size_t local_len = sizeof(local_buf);
+		if (sysctl(mib, 2, local_buf, &local_len, NULL, 0) == -1) {
+			if (errno == ENOMEM)
+				errno = ENAMETOOLONG;
+			return (-1);
+		}
+		strncpy(name, local_buf, namelen);
+		name[namelen - 1] = 0;
+	} else {
 	if (sysctl(mib, 2, name, &namelen, NULL, 0) == -1) {
 		if (errno == ENOMEM)
 			errno = ENAMETOOLONG;
 		return (-1);
+		}
 	}
 	return (0);
 }

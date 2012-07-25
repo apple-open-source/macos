@@ -201,7 +201,7 @@ compress(const char *in, const char *out, int bits)
 {
 	size_t nr;
 	struct stat isb, sb;
-	FILE *ifp, *ofp;
+	FILE *ifp = NULL, *ofp = NULL;
 	int exists, isreg, oreg;
 	u_char buf[1024];
 
@@ -212,7 +212,6 @@ compress(const char *in, const char *out, int bits)
 	}
 	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
-	ifp = ofp = NULL;
 	if ((ifp = fopen(in, "r")) == NULL) {
 		cwarn("%s", in);
 		return;
@@ -304,7 +303,7 @@ decompress(const char *in, const char *out, int bits)
 	}
 	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
-	ifp = ofp = NULL;
+	ofp = NULL;
 	if ((ifp = zopen(in, "r", bits)) == NULL) {
 		cwarn("%s", in);
 		return;

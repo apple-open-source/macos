@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -182,6 +210,19 @@ in_set_tunnel(int s, struct addrinfo *srcres, struct addrinfo *dstres)
 		warn("SIOCSIFPHYADDR");
 }
 
+static void
+in_set_router(int s, int enable)
+{
+	struct ifreq ifr;
+
+	bzero(&ifr, sizeof (ifr));
+	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+	ifr.ifr_intval = enable;
+
+	if (ioctl(s, SIOCSETROUTERMODE, &ifr) < 0)
+		warn("SIOCSETROUTERMODE");
+}
+
 static struct afswtch af_inet = {
 	.af_name	= "inet",
 	.af_af		= AF_INET,
@@ -189,6 +230,7 @@ static struct afswtch af_inet = {
 	.af_getaddr	= in_getaddr,
 	.af_status_tunnel = in_status_tunnel,
 	.af_settunnel	= in_set_tunnel,
+	.af_setrouter	= in_set_router,
 	.af_difaddr	= SIOCDIFADDR,
 	.af_aifaddr	= SIOCAIFADDR,
 	.af_ridreq	= &in_ridreq,

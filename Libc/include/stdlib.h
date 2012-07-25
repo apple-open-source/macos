@@ -188,7 +188,7 @@ double	 strtod(const char *, char **) __DARWIN_ALIAS(strtod);
 float	 strtof(const char *, char **) __DARWIN_ALIAS(strtof);
 long	 strtol(const char *, char **, int);
 long double
-	 strtold(const char *, char **) __DARWIN_LDBL_COMPAT(strtold);
+	 strtold(const char *, char **);
 #if !__DARWIN_NO_LONG_LONG
 long long 
 	 strtoll(const char *, char **, int);

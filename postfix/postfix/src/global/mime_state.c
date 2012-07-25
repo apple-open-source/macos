@@ -73,6 +73,10 @@
 /*	content transfer encoding domain, or specifies a transformation
 /*	(quoted-printable, base64) instead of a domain (7bit, 8bit,
 /*	or binary).
+/* #ifdef __APPLE_OS_X_SERVER__
+/* .IP MIME_ERR_BODY_TOO_LARGE
+/*	A MIME body exceeded the mime_max_body_size.
+/* #endif
 /* .PP
 /*	mime_state_free() releases storage for a MIME state machine,
 /*	and conveniently returns a null pointer.
@@ -441,6 +445,19 @@ static const MIME_ENCODING mime_encoding_map[] = {	/* RFC 2045 */
 	} \
     } while(0)
 
+#ifdef __APPLE_OS_X_SERVER__
+#define BODY_OUT(ptr, rec_type, text, len) do { \
+	if ((ptr)->body_out) { \
+	    if (var_mime_max_body_size > 0 && \
+		(ptr)->nesting_level > 0 && \
+		(ptr)->body_offset + (len) + 1 > (off_t) var_mime_max_body_size) \
+		REPORT_ERROR_LEN(ptr, MIME_ERR_BODY_TOO_LARGE, text, len); \
+	    (ptr)->body_out((ptr)->app_context, (rec_type), \
+			    (text), (len), (ptr)->body_offset); \
+	    (ptr)->body_offset += (len) + 1; \
+	} \
+    } while(0)
+#else
 #define BODY_OUT(ptr, rec_type, text, len) do { \
 	if ((ptr)->body_out) { \
 	    (ptr)->body_out((ptr)->app_context, (rec_type), \
@@ -448,6 +465,7 @@ static const MIME_ENCODING mime_encoding_map[] = {	/* RFC 2045 */
 	    (ptr)->body_offset += (len) + 1; \
 	} \
     } while(0)
+#endif
 
 /* mime_state_push - push boundary onto stack */
 
@@ -518,6 +536,7 @@ MIME_STATE *mime_state_alloc(int flags,
 		   MIME_ENC_7BIT, MIME_ENC_7BIT);
     state->output_buffer = vstring_alloc(100);
     state->prev_rec_type = 0;
+    state->nesting_level = 0;				/* APPLE */
     state->stack = 0;
     state->token_buffer = vstring_alloc(1);
     state->base64_align_count = 0;			/* APPLE - RFC 3030 */
@@ -1063,7 +1082,9 @@ int     mime_state_update(MIME_STATE *state, int rec_type,
 		    if (state->curr_domain != MIME_ENC_7BIT)
 			REPORT_ERROR(state, MIME_ERR_ENCODING_DOMAIN,
 				 mime_state_enc_name(state->curr_encoding));
-		} else {
+		}
+		/* EAI: message/global allows non-identity encoding. */
+		else if (state->curr_stype == MIME_STYPE_RFC822) {
 		    if (state->curr_encoding != state->curr_domain)
 			REPORT_ERROR(state, MIME_ERR_ENCODING_DOMAIN,
 				 mime_state_enc_name(state->curr_encoding));
@@ -1295,6 +1316,9 @@ static const MIME_STATE_DETAIL mime_err_detail[] = {
     MIME_ERR_8BIT_IN_HEADER, "5.6.0", "improper use of 8-bit data in message header",
     MIME_ERR_8BIT_IN_7BIT_BODY, "5.6.0", "improper use of 8-bit data in message body",
     MIME_ERR_ENCODING_DOMAIN, "5.6.0", "invalid message/* or multipart/* encoding domain",
+#ifdef __APPLE_OS_X_SERVER__
+    MIME_ERR_BODY_TOO_LARGE, "5.6.0", "MIME body part too large",
+#endif
     0,
 };
 
@@ -1441,6 +1465,10 @@ int     main(int unused_argc, char **argv)
 	msg_warn("improper use of 8-bit data in message body");
     if (err & MIME_ERR_ENCODING_DOMAIN)
 	msg_warn("improper message/* or multipart/* encoding domain");
+#ifdef __APPLE_OS_X_SERVER__
+    if (err & MIME_ERR_BODY_TOO_LARGE)
+	msg_warn("MIME body part too large");
+#endif
 
     /*
      * Cleanup.

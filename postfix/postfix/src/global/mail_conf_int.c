@@ -170,6 +170,7 @@ void    set_mail_conf_int(const char *name, int value)
 {
     char    buf[BUFSIZ];		/* yeah! crappy code! */
 
+    /* APPLE */
     snprintf(buf, sizeof buf, "%d", value);			/* yeah! more crappy code! */
     mail_conf_update(name, buf);
 }

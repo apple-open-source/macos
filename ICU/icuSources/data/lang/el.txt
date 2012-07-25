@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/el.xml
@@ -671,6 +671,10 @@ el{
         Zyyy{"Κοινό"}
         Zzzz{"Άγνωστη ή ακατάλληλη γραφή"}
     }
+    Scripts%stand-alone{
+        Hans{"Απλοποιημένα Χαν"}
+        Hant{"Παραδοσιακά Χαν"}
+    }
     Types{
         calendar{
             buddhist{"Βουδιστικό ημερολόγιο"}
@@ -690,10 +694,10 @@ el{
         collation{
             big5han{"Σειρά ταξινόμησης Παραδοσιακών Κινεζικών - Big5"}
             dictionary{"Σειρά ταξινόμησης ημερολογίου"}
-            direct{"Άμεση σειρά ταξινόμησης"}
             ducet{"Προεπιλεγμένη σειρά ταξινόμησης Unicode"}
             gb2312han{"Σειρά ταξινόμησης Απλουστευμένων Κινεζικών - GB2312"}
             phonebook{"Σειρά ταξινόμησης τηλεφωνικού καταλόγου"}
+            phonetic{"Φωνητική σειρά ταξινόμησης"}
             pinyin{"Σειρά ταξινόμησης Πινγίν"}
             reformed{"Ανασχηματισμένη σειρά ταξινόμησης"}
             search{"Αναζήτηση γενικού τύπου"}
@@ -774,7 +778,7 @@ el{
         VALENCIA{"Βαλενθιανά"}
         WADEGILE{"Εκλατινισμένα Γουάντ-Γκιλς"}
     }
-    Version{"2.0.58.79"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"Γλώσσα: {0}"}
         script{"Σύστημα γραφής: {0}"}

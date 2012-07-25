@@ -1,6 +1,6 @@
 ##
 # Wrapper makefile for ICU
-# Copyright (C) 2003-2010 Apple Inc. All rights reserved.
+# Copyright (C) 2003-2012 Apple Inc. All rights reserved.
 #
 # See http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents
 # for documentation on makefiles. Most of this was culled from the ncurses makefile.
@@ -33,7 +33,9 @@ CROSSHOST_OBJROOT=$(OBJROOT)/crossbuildhost
 APPLE_INTERNAL_DIR=/AppleInternal
 RC_ARCHS=
 MAC_OS_X_VERSION_MIN_REQUIRED=1060
-MAC_OS_X_VERSION_MIN_STRING=10.6
+OSX_HOST_VERSION_MIN_STRING=10.7
+IOS_VERSION_TARGET_STRING=6.0
+OSX_VERSION_TARGET_STRING=10.8
 
 UNAME_PROCESSOR=$(shell uname -p)
 ifneq "$(RC_ARCHS)" ""
@@ -86,7 +88,7 @@ $(info # TARGET_SPEC=$(TARGET_SPEC))
 $(info # ENV_CONFIGURE_ARCHS=$(ENV_CONFIGURE_ARCHS))
 
 ifeq "$(RC_INDIGO)" "YES"
-	-include /Developer/AppleInternal/Makefiles/Makefile.indigo
+	-include $(DEVELOPER_DIR)/AppleInternal/Makefiles/Makefile.indigo
 	ifndef SDKROOT
 		SDKROOT=$(INDIGO_PREFIX)
 	endif
@@ -97,12 +99,14 @@ endif
 $(info # SDKROOT=$(SDKROOT))
 $(info # RC_INDIGO=$(RC_INDIGO))
 $(info # CROSS_BUILD=$(CROSS_BUILD))
+$(info # DSTROOT=$(DSTROOT))
+$(info # DEST_ROOT=$(DEST_ROOT))
 
-SET_MACOSX_MIN_VER :=
+ICU_TARGET_VERSION_FOR_TZ_EXTRA :=
 ifeq "$(filter arm armv6 armv7,$(RC_ARCHS))" ""
 	THUMB_FLAG =
 	ifneq "$(SDKROOT)" ""
-		SET_MACOSX_MIN_VER := -mmacosx-version-min=$(MAC_OS_X_VERSION_MIN_STRING)
+		ICU_TARGET_VERSION_FOR_TZ_EXTRA := -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING)
 	endif
 else
 	THUMB_FLAG = -mthumb
@@ -120,16 +124,22 @@ else ifeq "$(LINUX)" "YES"
 	EMBEDDED:=0
 	ISYSROOT =
 else ifeq "$(SDKROOT)" ""
-	CC := $(shell xcrun -find llvm-gcc-4.2)
-	CXX := $(shell xcrun -find llvm-g++-4.2)
+	CC := $(shell xcrun -find cc)
+	CXX := $(shell xcrun -find c++)
+	NM := $(shell xcrun -find nm)
+	STRIPCMD := $(shell xcrun -find strip)
 	EMBEDDED:=$(shell $(CXX) -E -dM -x c -include TargetConditionals.h /dev/null | fgrep TARGET_OS_EMBEDDED | cut -d' ' -f3)
 	ISYSROOT =
 else
-	CC := $(shell xcrun -sdk $(SDKROOT) -find gcc)
-	CXX := $(shell xcrun -sdk $(SDKROOT) -find g++)
+	CC := $(shell xcrun -sdk $(SDKROOT) -find cc)
+	CXX := $(shell xcrun -sdk $(SDKROOT) -find c++)
+	NM := $(shell xcrun -sdk $(SDKROOT) -find nm)
+	STRIPCMD := $(shell xcrun -sdk $(SDKROOT) -find strip)
 	EMBEDDED:=$(shell $(CXX) -E -dM -x c -isysroot $(SDKROOT) -include TargetConditionals.h /dev/null | fgrep TARGET_OS_EMBEDDED | cut -d' ' -f3)
 	ISYSROOT:= -isysroot $(SDKROOT)
 endif
+$(info # CC=$(CC))
+$(info # CXX=$(CXX))
 
 ifeq "$(EMBEDDED)" "1"
 	export APPLE_EMBEDDED=YES
@@ -141,6 +151,13 @@ else
 	export APPLE_EMBEDDED=NO
 	DISABLE_DRAFT=NO
 endif
+
+ifeq "$(APPLE_EMBEDDED)" "YES"
+	ICU_TARGET_VERSION := -miphoneos-version-min=$(IOS_VERSION_TARGET_STRING)
+else
+	ICU_TARGET_VERSION := 
+endif
+$(info # ICU_TARGET_VERSION=$(ICU_TARGET_VERSION))
 
 ifeq "$(DISABLE_DRAFT)" "YES"
 	DRAFT_FLAG=--disable-draft
@@ -308,11 +325,11 @@ else ifeq "$(LINUX)" "YES"
 else ifeq "$(APPLE_EMBEDDED)" "YES"
 	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples --disable-icuio \
 		--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
-		$(DRAFT_FLAG) --srcdir=$(SRCROOT)/icuSources
+		$(DRAFT_FLAG)
 else
 	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout --disable-samples \
 		--with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
-		$(DRAFT_FLAG) --srcdir=$(SRCROOT)/icuSources
+		$(DRAFT_FLAG)
 endif
 
 #################################
@@ -327,7 +344,7 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 46
+ICU_VERS = 49
 ICU_SUBVERS = 1
 CORE_VERS = A
 
@@ -494,7 +511,7 @@ else ifeq "$(LINUX)" "YES"
 			DYLD_LIBRARY_PATH="$(DEST_ROOT)/usr/local/lib"
 	endif
 else
-	export TZ_EXTRA_CXXFLAGS:=-DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(SET_MACOSX_MIN_VER)
+	export TZ_EXTRA_CXXFLAGS:=-DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(ICU_TARGET_VERSION_FOR_TZ_EXTRA)
 	ifeq "$(ICU_BUILD)" "0"
 		CPPOPTIONS = CPPFLAGS="-DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED)"
 	else
@@ -503,8 +520,8 @@ else
 	ENV_CONFIGURE=	$(CPPOPTIONS) APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(ENV_CONFIGURE_ARCHS) $(SET_MACOSX_MIN_VER) -g -Os -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(ENV_CONFIGURE_ARCHS) $(SET_MACOSX_MIN_VER) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" $(FORCEENDIAN)\
 		TZDATA="$(TZDATA)" \
@@ -513,8 +530,8 @@ else
 	ENV=	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -g -Os -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -523,8 +540,8 @@ else
 	ENV_DEBUG = APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -O0 -gfull -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -O0 -gfull -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -533,23 +550,23 @@ else
 	ENV_PROFILE = APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -g -Os -pg -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -g -Os -pg -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG)" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG)" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DEST_ROOT)/usr/local/lib"
 
 	ENV_CONFIGURE_BUILDHOST =	$(CPPOPTIONS) APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(MAC_OS_X_VERSION_MIN_STRING) -g -Os -fno-exceptions -fvisibility=hidden" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(MAC_OS_X_VERSION_MIN_STRING) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DEST_ROOT)/usr/local/lib"
 	
 	ENV_BUILDHOST =	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(MAC_OS_X_VERSION_MIN_STRING) -g -Os -fno-exceptions -fvisibility=hidden" \
-		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(MAC_OS_X_VERSION_MIN_STRING) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden" \
+		CXXFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -mmacosx-version-min=$(OSX_HOST_VERSION_MIN_STRING) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden" \
 		TZ_EXTRA_CXXFLAGS="$(TZ_EXTRA_CXXFLAGS)" \
 		TZDATA="$(TZDATA)" \
 		DYLD_LIBRARY_PATH="$(DEST_ROOT)/usr/local/lib"
@@ -609,7 +626,7 @@ icu debug profile : $(OBJROOT)/Makefile
 					rm -f icuuc40shim.o; \
 					rm -f ../lib/libicuuc.dll.manifest; \
 					rm -f ../lib/icuuc40.dll.manifest; \
-					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF \
+					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF /MANIFEST \
 						/IMPLIB:../lib/libicuuc.lib /out:../lib/libicuuc.dll \
 						*.o libicuuc.res ../stubdata/icudt.lib advapi32.lib; \
 					mt.exe -nologo -manifest ../lib/libicuuc.dll.manifest -outputresource:"../lib/libicuuc.dll;2"; \
@@ -620,7 +637,7 @@ icu debug profile : $(OBJROOT)/Makefile
 						/c /Foicuuc40shim.o icuuc40shim.cpp; \
 					rc.exe /foicuuc40shim.res $(CPPFLAGS) -DU_RELEASE=1 -D_CRT_SECURE_NO_DEPRECATE -I. -I../i18n \
 						"-DDEFAULT_ICU_PLUGINS=\"/AppleInternal/lib/icu\" " -DU_LOCAL_SERVICE_HOOK=1 icuuc40shim.rc; \
-					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF \
+					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF /MANIFEST \
 						/IMPLIB:../lib/shim/icuuc.lib /out:../lib/icuuc40.dll \
 						icuuc40shim.o icuuc40shim.res ../lib/libicuuc.lib ../stubdata/icudt.lib advapi32.lib; \
 					mt.exe -nologo -manifest ../lib/icuuc40.dll.manifest -outputresource:"../lib/icuuc40.dll;2"; \
@@ -629,7 +646,7 @@ icu debug profile : $(OBJROOT)/Makefile
 					rm -f icuin40shim.o; \
 					rm -f ../lib/libicuin.dll.manifest; \
 					rm -f ../lib/icuin40.dll.manifest; \
-					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF \
+					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF /MANIFEST \
 						/IMPLIB:../lib/libicuin.lib /out:../lib/libicuin.dll \
 						*.o libicuin.res ../lib/libicuuc.lib ../stubdata/icudt.lib advapi32.lib; \
 					mt.exe -nologo -manifest ../lib/libicuin.dll.manifest -outputresource:"../lib/libicuin.dll;2"; \
@@ -640,7 +657,7 @@ icu debug profile : $(OBJROOT)/Makefile
 						/c /Foicuin40shim.o icuin40shim.cpp; \
 					rc.exe /foicuin40shim.res $(CPPFLAGS) -DU_RELEASE=1 -D_CRT_SECURE_NO_DEPRECATE -I. -I../common \
 						"-DDEFAULT_ICU_PLUGINS=\"/AppleInternal/lib/icu\" " -DU_LOCAL_SERVICE_HOOK=1 icuin40shim.rc; \
-					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF \
+					LINK.EXE /DLL /NXCOMPAT /SAFESEH /DYNAMICBASE /DEBUG /OPT:REF /MANIFEST \
 						/IMPLIB:../lib/shim/icuin.lib /out:../lib/icuin40.dll \
 						icuin40shim.o icuin40shim.res ../lib/libicuin.lib ../stubdata/icudt.lib advapi32.lib; \
 					mt.exe -nologo -manifest ../lib/icuin40.dll.manifest -outputresource:"../lib/icuin40.dll;2"; \
@@ -661,9 +678,9 @@ icu debug profile : $(OBJROOT)/Makefile
 				fi; \
 			else \
 				tmpfile=`mktemp -t weakexternal.XXXXXX` || exit 1; \
-				nm -m $(RC_ARCHS:%=-arch %) $(DYLIB_OBJS) | fgrep "weak external" | fgrep -v "undefined" | sed -e 's/.*weak external[^_]*//' | sort | uniq | cat >$$tmpfile; \
+				$(NM) -m $(RC_ARCHS:%=-arch %) $(DYLIB_OBJS) | fgrep "weak external" | fgrep -v "undefined" | sed -e 's/.*weak external[^_]*//' | sort | uniq | cat >$$tmpfile; \
 				$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
-					$(RC_ARCHS:%=-arch %) $(SET_MACOSX_MIN_VER) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
+					$(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) \
 					$(CXXFLAGS) $(LDFLAGS) -single_module $(SECTORDER_FLAGS) -unexported_symbols_list $$tmpfile -dead_strip \
 					-install_name $(libdir)$($(INSTALLED_DYLIB_$@)) -o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
 				if test "$@" = "icu"; then \
@@ -725,46 +742,30 @@ endif
 	if test ! -d $(OBJROOT); then \
 		mkdir -p $(OBJROOT); \
 	fi;
+	cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT);
 	if test "$(WINDOWS)" = "YES"; then \
-		cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT); \
 		(cd $(OBJROOT)/data/unidata; mv base_unidata/*.txt .;); \
 		(cd $(OBJROOT)/data/unidata/norm2; mv base_norm2/*.txt .;); \
 		(cd $(OBJROOT)/data/in; mv base_in/*.nrm .; mv base_in/*.icu .;); \
 		(cd $(OBJROOT); $(ENV_CONFIGURE) ./runConfigureICU Cygwin/MSVC $(CONFIG_FLAGS);) \
 	elif test "$(LINUX)" = "YES"; then \
-		cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT); \
 		(cd $(OBJROOT)/data/unidata; mv base_unidata/*.txt .;); \
 		(cd $(OBJROOT)/data/unidata/norm2; mv base_norm2/*.txt .;); \
 		(cd $(OBJROOT)/data/in; mv base_in/*.nrm .; mv base_in/*.icu .;); \
 		(cd $(OBJROOT); $(ENV_CONFIGURE) ./runConfigureICU Linux $(CONFIG_FLAGS);) \
 	elif test "$(CROSS_BUILD)" = "YES"; then \
-		(cd $(OBJROOT); $(ENV_CONFIGURE) $(SRCROOT)/icuSources/configure --host=$(TARGET_SPEC) --with-cross-build=$(CROSSHOST_OBJROOT) $(CONFIG_FLAGS);) \
+		(cd $(OBJROOT); $(ENV_CONFIGURE) ./configure --host=$(TARGET_SPEC) --with-cross-build=$(CROSSHOST_OBJROOT) $(CONFIG_FLAGS);) \
 	else \
-		(cd $(OBJROOT); $(ENV_CONFIGURE) $(SRCROOT)/icuSources/runConfigureICU MacOSX $(CONFIG_FLAGS);) \
+		(cd $(OBJROOT); $(ENV_CONFIGURE) ./runConfigureICU MacOSX $(CONFIG_FLAGS);) \
 	fi;
 	if test "$(APPLE_EMBEDDED)" = "YES"; then \
-		(cd $(OBJROOT)/common/unicode/; \
-			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
-			cp $(SRCROOT)/icuSources/common/unicode/udata.h . ; \
-			cp $(SRCROOT)/icuSources/common/unicode/utypes.h . ; \
-			patch <$(SRCROOT)/minimalpatchconfig.txt;) \
+		(cd $(OBJROOT)/common/unicode/; patch <$(SRCROOT)/minimalpatchconfig.txt;) \
 	elif test "$(WINDOWS)" = "YES"; then \
-		(cd $(OBJROOT)/common/unicode/; \
-			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
-			cp $(SRCROOT)/icuSources/common/unicode/utypes.h . ; \
-			patch <$(SRCROOT)/windowspatchconfig.txt;) \
+		(cd $(OBJROOT)/common/unicode/; patch <$(SRCROOT)/windowspatchconfig.txt;) \
 	else \
-		(cd $(OBJROOT)/common/unicode/; \
-			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
-			cp $(SRCROOT)/icuSources/common/unicode/utypes.h . ; \
-			patch <$(SRCROOT)/patchconfig.txt;) \
+		(cd $(OBJROOT)/common/unicode/; patch <$(SRCROOT)/patchconfig.txt;) \
 	fi; \
-	if test -f $(SRCROOT)/icuSources/common/Makefile.local; then \
-		cp -p $(SRCROOT)/icuSources/common/Makefile.local $(OBJROOT)/common/ ; \
-	fi; 
-	if test -f $(SRCROOT)/icuSources/i18n/Makefile.local; then \
-		cp -p $(SRCROOT)/icuSources/i18n/Makefile.local $(OBJROOT)/i18n/ ; \
-	fi; 
+	# used to copy the Makefile.local from common & i18n in $(SRCROOT) to $(OBJROOT), no longer needed since we copy all of $(SRCROOT)
 
 # for the tools that build the data file, cannot set UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES
 # as minimalpatchconfig.txt does; need different patches for the host build.
@@ -772,17 +773,10 @@ $(CROSSHOST_OBJROOT)/Makefile :
 	if test ! -d $(CROSSHOST_OBJROOT); then \
 		mkdir -p $(CROSSHOST_OBJROOT); \
 	fi;
-	(cd $(CROSSHOST_OBJROOT); $(ENV_CONFIGURE_BUILDHOST) $(SRCROOT)/icuSources/runConfigureICU MacOSX $(CONFIG_FLAGS);)
-	(cd $(CROSSHOST_OBJROOT)/common/unicode/; \
-		cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
-		cp $(SRCROOT)/icuSources/common/unicode/utypes.h . ; \
-		patch <$(SRCROOT)/crosshostpatchconfig.txt;)
-	if test -f $(SRCROOT)/icuSources/common/Makefile.local; then \
-		cp -p $(SRCROOT)/icuSources/common/Makefile.local $(CROSSHOST_OBJROOT)/common/ ; \
-	fi; 
-	if test -f $(SRCROOT)/icuSources/i18n/Makefile.local; then \
-		cp -p $(SRCROOT)/icuSources/i18n/Makefile.local $(CROSSHOST_OBJROOT)/i18n/ ; \
-	fi; 
+	cp -Rpf $(SRCROOT)/icuSources/* $(CROSSHOST_OBJROOT);
+	(cd $(CROSSHOST_OBJROOT); $(ENV_CONFIGURE_BUILDHOST) ./runConfigureICU MacOSX $(CONFIG_FLAGS);)
+	(cd $(CROSSHOST_OBJROOT)/common/unicode/; patch <$(SRCROOT)/crosshostpatchconfig.txt;)
+	# used to copy the Makefile.local from common & i18n in $(SRCROOT) to $(CROSSHOST_OBJROOT), no longer needed since we copy all of $(SRCROOT)
 
 #################################
 # B&I TARGETS
@@ -876,7 +870,7 @@ install : installhdrsint icu
 			(cd $(DEST_ROOT)$(libdir); \
 			ln -fs  $(INSTALLED_DYLIB) $(DYLIB)); \
 			cp $(OBJROOT)/$(INSTALLED_DYLIB) $(SYMROOT)/$(INSTALLED_DYLIB); \
-			strip -x -u -r -S $(DEST_ROOT)$(libdir)$(INSTALLED_DYLIB); \
+			$(STRIPCMD) -x -u -r -S $(DEST_ROOT)$(libdir)$(INSTALLED_DYLIB); \
 		fi;	\
 		for subdir in $(EXTRA_LIBS); do \
 			(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DEST_ROOT) $(ENV) install-library;) \
@@ -930,7 +924,7 @@ install_debug install_profile : $$(DEPEND_$$@)
 			(cd $(DEST_ROOT)$(libdir); \
 			ln -fs  $($(INSTALLED_DYLIB_$(DEPEND_$@))) $($(DYLIB_$(DEPEND_$@)))); \
 			cp $(OBJROOT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(SYMROOT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
-			strip -x -u -r -S $(DEST_ROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+			$(STRIPCMD) -x -u -r -S $(DEST_ROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
 		fi;	\
 		for subdir in $(EXTRA_LIBS); do \
 			(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DEST_ROOT) $(ENV) install-library;) \

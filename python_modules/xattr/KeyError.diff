@@ -1,5 +1,5 @@
---- xattr/__init__.py.orig	2010-08-26 05:47:17.000000000 -0700
-+++ xattr/__init__.py	2010-11-19 15:21:32.000000000 -0800
+--- xattr/__init__.py.orig	2011-08-16 22:57:36.000000000 -0700
++++ xattr/__init__.py	2011-11-14 16:56:53.000000000 -0800
 @@ -118,19 +118,13 @@
          return len(self.list())
  
@@ -8,8 +8,8 @@
 -            self.remove(item)
 -        except IOError:
 -            raise KeyError(item)
-+	self.remove(item)
-     
++        self.remove(item)
+ 
      def __setitem__(self, item, value):
          self.set(item, value)
  
@@ -18,8 +18,8 @@
 -            return self.get(item)
 -        except IOError:
 -            raise KeyError(item)
-+	return self.get(item)
-         
++        return self.get(item)
+ 
      def iterkeys(self):
          return iter(self.list())
 @@ -140,7 +134,7 @@
@@ -31,7 +31,7 @@
              return False
          else:
              return True
-@@ -161,10 +155,8 @@
+@@ -161,11 +155,8 @@
          return dict(self.iteritems())
  
      def setdefault(self, k, d=''):
@@ -39,14 +39,15 @@
 -            d = self.get(k)
 -        except IOError:
 -            self[k] = d
-+	d = self.get(k)
-+	self[k] = d
-         return d
-     
+-        return d
++        d = self.get(k)
++        self[k] = d
+ 
      def keys(self):
---- xattr/_xattr.c.orig	2010-08-26 05:47:17.000000000 -0700
-+++ xattr/_xattr.c	2010-11-19 15:21:32.000000000 -0800
-@@ -544,19 +544,27 @@
+         return self.list()
+--- xattr/_xattr.c.orig	2011-08-16 22:54:30.000000000 -0700
++++ xattr/_xattr.c	2011-11-14 16:57:54.000000000 -0800
+@@ -543,19 +543,27 @@
  #define xattr_flistxattr flistxattr
  #endif
  
@@ -79,7 +80,7 @@
  }
  
  PyDoc_STRVAR(pydoc_getxattr,
-@@ -589,7 +597,7 @@
+@@ -588,7 +596,7 @@
          res = xattr_getxattr((const char *)path, (const char *)name, NULL, 0, position, options);
          Py_END_ALLOW_THREADS
          if (res == -1) {    
@@ -88,7 +89,7 @@
              PyMem_Free(path);
              PyMem_Free(name);
              return tmp;
-@@ -606,7 +614,7 @@
+@@ -605,7 +613,7 @@
      res = xattr_getxattr((const char *)path, (const char *)name, (void *)PyString_AS_STRING(buffer), size, position, options);
      Py_END_ALLOW_THREADS
      if (res == -1) {
@@ -97,7 +98,7 @@
          Py_DECREF(buffer);
          PyMem_Free(path);
          PyMem_Free(name);
-@@ -651,7 +659,7 @@
+@@ -650,7 +658,7 @@
          Py_END_ALLOW_THREADS
          if (res == -1) {    
              PyMem_Free(name);
@@ -106,7 +107,7 @@
          }
          size = res;
      }
-@@ -666,7 +674,7 @@
+@@ -665,7 +673,7 @@
      PyMem_Free(name);
      if (res == -1) {
          Py_DECREF(buffer);
@@ -115,7 +116,7 @@
      }
      if (res != size) {
          _PyString_Resize(&buffer, (int)res);
-@@ -704,7 +712,7 @@
+@@ -703,7 +711,7 @@
      res = xattr_setxattr((const char *)path, (const char *)name, (void *)value, size, position, options);
      Py_END_ALLOW_THREADS
      if (res) {
@@ -124,7 +125,7 @@
      } else {
          Py_INCREF(Py_None);
          result = Py_None;
-@@ -744,7 +752,7 @@
+@@ -743,7 +751,7 @@
      Py_END_ALLOW_THREADS
      PyMem_Free(name);
      if (res) {
@@ -133,7 +134,7 @@
      }
      Py_INCREF(Py_None);
      return Py_None;
-@@ -775,7 +783,7 @@
+@@ -774,7 +782,7 @@
      res = xattr_removexattr((const char *)path, (const char *)name, options);
      Py_END_ALLOW_THREADS
      if (res) {
@@ -142,7 +143,7 @@
      } else {
          Py_INCREF(Py_None);
          result = Py_None;
-@@ -810,7 +818,7 @@
+@@ -809,7 +817,7 @@
      Py_END_ALLOW_THREADS
      PyMem_Free(name);
      if (res) {
@@ -151,7 +152,7 @@
      }
      Py_INCREF(Py_None);
      return Py_None;
-@@ -839,7 +847,7 @@
+@@ -838,7 +846,7 @@
      res = xattr_listxattr((const char *)path, NULL, 0, options);
      Py_END_ALLOW_THREADS
      if (res == -1) {    
@@ -160,7 +161,7 @@
          PyMem_Free(path);
          return tmp;
      }
-@@ -857,7 +865,7 @@
+@@ -856,7 +864,7 @@
      res = xattr_listxattr((const char *)path, (void *)PyString_AS_STRING(buffer), (size_t)PyString_GET_SIZE(buffer), options);
      Py_END_ALLOW_THREADS
      if (res == -1) {
@@ -169,7 +170,7 @@
          Py_DECREF(buffer);
          PyMem_Free(path);
          return tmp;
-@@ -892,7 +900,7 @@
+@@ -891,7 +899,7 @@
      res = xattr_flistxattr(fd, NULL, 0, options);
      Py_END_ALLOW_THREADS
      if (res == -1) {    
@@ -178,7 +179,7 @@
      }
      buffer = PyString_FromStringAndSize((char *)NULL, (int)res);
      if (buffer == NULL) {
-@@ -903,7 +911,7 @@
+@@ -902,7 +910,7 @@
      Py_END_ALLOW_THREADS
      if (res == -1) {
          Py_DECREF(buffer);

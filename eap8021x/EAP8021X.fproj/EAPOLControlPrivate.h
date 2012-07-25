@@ -88,16 +88,6 @@ EAPOLControlStartWithOptions(const char * if_name,
 			     CFDictionaryRef options);
 
 /*
- * Function: EAPOLControlDidUserCancel
- *
- * Purpose:
- *    Returns whether the user cancelled the authentication session.  Used
- *    by EAPOLMonitor to determine whether to bother the user again.
- */
-boolean_t
-EAPOLControlDidUserCancel(const char * if_name);
-
-/*
  * Function: EAPOLControlCopyItemIDForAuthenticator
  * Purpose:
  *   Return the binding for the current user for the specified

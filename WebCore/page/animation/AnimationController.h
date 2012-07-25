@@ -31,6 +31,7 @@
 
 #include "CSSPropertyNames.h"
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
@@ -58,13 +59,16 @@ public:
 
     bool pauseAnimationAtTime(RenderObject*, const String& name, double t); // To be used only for testing
     bool pauseTransitionAtTime(RenderObject*, const String& property, double t); // To be used only for testing
-    unsigned numberOfActiveAnimations() const; // To be used only for testing
+    unsigned numberOfActiveAnimations(Document*) const; // To be used only for testing
     
     bool isRunningAnimationOnRenderer(RenderObject*, CSSPropertyID, bool isRunningNow = true) const;
     bool isRunningAcceleratedAnimationOnRenderer(RenderObject*, CSSPropertyID, bool isRunningNow = true) const;
 
     void suspendAnimations();
     void resumeAnimations();
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    void serviceAnimations();
+#endif
 
     void suspendAnimationsForDocument(Document*);
     void resumeAnimationsForDocument(Document*);
@@ -77,7 +81,7 @@ public:
     PassRefPtr<WebKitAnimationList> animationsForRenderer(RenderObject*) const;
 
 private:
-    AnimationControllerPrivate* m_data;
+    OwnPtr<AnimationControllerPrivate> m_data;
 };
 
 } // namespace WebCore

@@ -23,7 +23,7 @@
 			buildConfigurationList = AA6D4B860E6F3B8D0050206D /* Build configuration list for PBXAggregateTarget "startup" */;
 			buildPhases = (
 				AA6D4B800E6F3B210050206D /* ShellScript */,
-				18CD1CEB1460A7F100F7D110 /* Run Script (install /etc/authorization.merge) */,
+				18132F7B148D6DD900CC58B2 /* Run Script (install /etc/authorization.merge) */,
 			);
 			dependencies = (
 			);
@@ -44,6 +44,23 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1865FFB11474FED300FD79DF /* libsecurity_tokend_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFB01474FED300FD79DF /* libsecurity_tokend_client.a */; };
+		1865FFB3147505C800FD79DF /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFB2147505C800FD79DF /* libbsm.dylib */; };
+		1865FFCF1475169A00FD79DF /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFCE1475169A00FD79DF /* libsecurityd_client.a */; };
+		1865FFDC14751B0600FD79DF /* libobjc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B514731B78005A4D2E /* libobjc.dylib */; };
+		1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B314731B69005A4D2E /* libauto.dylib */; };
+		1865FFEA1475208000FD79DF /* libsecurity_codesigning.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */; };
+		1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B967B114731B55005A4D2E /* libsqlite3.dylib */; };
+		18B27134148C2C3D0087AE98 /* securityd_dtrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 18B27133148C2C3D0087AE98 /* securityd_dtrace.h */; };
+		18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */; };
+		18B965D314731963005A4D2E /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D214731963005A4D2E /* libsecurity_utilities.a */; };
+		18B965D51473197B005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */; };
+		18B965D614731996005A4D2E /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CDD506B0537666500FEC36D /* IOKit.framework */; };
+		18B965D71473199F005A4D2E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CDD5018053765A900FEC36D /* CoreFoundation.framework */; };
+		18B965D8147319A6005A4D2E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CDD5019053765A900FEC36D /* Security.framework */; };
+		18B965DA147319C8005A4D2E /* libsecurity_cdsa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */; };
+		18B965DC147319E5005A4D2E /* libsecurityd_server.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965DB147319E5005A4D2E /* libsecurityd_server.a */; };
+		18B965DD147319F6005A4D2E /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C276AAD60663E7A400B57276 /* PCSC.framework */; };
 		4E0BB2B40F79590300BBFEFA /* ccaudit_extensions.h in Headers */ = {isa = PBXBuildFile; fileRef = 4E0BB2B20F79590300BBFEFA /* ccaudit_extensions.h */; };
 		4E0BB2B50F79590300BBFEFA /* ccaudit_extensions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4E0BB2B30F79590300BBFEFA /* ccaudit_extensions.cpp */; };
 		AAC707230E6F4335003CC2B2 /* acl_keychain.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C9264990534866F004B0E72 /* acl_keychain.h */; };
@@ -136,6 +153,27 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		18B965BC147314BE005A4D2E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurity_agent_client;
+		};
+		18B965C0147314BE005A4D2E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FED4052A450F00F22E42;
+			remoteInfo = libsecurity_agent_server;
+		};
+		18B967B814731BB1005A4D2E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 40635B69052E4CBD0009891B;
+			remoteInfo = world;
+		};
 		AA1A9FF80E71EF08003D0309 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEB0052A3C5800F22E42 /* Project object */;
@@ -173,7 +211,22 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		18CD1CEC1460A80A00F7D110 /* authmerge.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = authmerge.sh; sourceTree = "<group>"; };
+		1865FFA01474FB1100FD79DF /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		1865FFA11474FB1100FD79DF /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		1865FFA21474FB1100FD79DF /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		1865FFB01474FED300FD79DF /* libsecurity_tokend_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_tokend_client.a; path = /usr/local/lib/libsecurity_tokend_client.a; sourceTree = "<absolute>"; };
+		1865FFB2147505C800FD79DF /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
+		1865FFCE1475169A00FD79DF /* libsecurityd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_client.a; path = /usr/local/lib/libsecurityd_client.a; sourceTree = "<absolute>"; };
+		1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_codesigning.a; path = /usr/local/lib/libsecurity_codesigning.a; sourceTree = "<absolute>"; };
+		18B27133148C2C3D0087AE98 /* securityd_dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = securityd_dtrace.h; path = derived_src/securityd_dtrace.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_agent.xcodeproj; path = libsecurity_agent/libsecurity_agent.xcodeproj; sourceTree = "<group>"; };
+		18B965D214731963005A4D2E /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
+		18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
+		18B965DB147319E5005A4D2E /* libsecurityd_server.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_server.a; path = /usr/local/lib/libsecurityd_server.a; sourceTree = "<absolute>"; };
+		18B967B114731B55005A4D2E /* libsqlite3.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsqlite3.dylib; path = /usr/lib/libsqlite3.dylib; sourceTree = "<absolute>"; };
+		18B967B314731B69005A4D2E /* libauto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libauto.dylib; path = /usr/lib/libauto.dylib; sourceTree = "<absolute>"; };
+		18B967B514731B78005A4D2E /* libobjc.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libobjc.dylib; path = /usr/lib/libobjc.dylib; sourceTree = "<absolute>"; };
 		405845650663B2010083E58C /* AuthorizationMechEval.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AuthorizationMechEval.cpp; sourceTree = "<group>"; };
 		405845660663B2010083E58C /* AuthorizationMechEval.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AuthorizationMechEval.h; sourceTree = "<group>"; };
 		40689F840725DCE00021A502 /* authhost.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = authhost.h; sourceTree = "<group>"; };
@@ -237,9 +290,9 @@
 		C20764E705ED250F004FEEDA /* localkey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = localkey.h; sourceTree = "<group>"; };
 		C209B3AD06ADBDB4007B9E6D /* mig.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mig.mk; sourceTree = "<group>"; };
 		C209B3AE06ADBDB4007B9E6D /* self.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = self.defs; sourceTree = "<group>"; };
-		C209B3B206ADBE64007B9E6D /* self.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = self.h; sourceTree = "<group>"; };
-		C209B3B306ADBE64007B9E6D /* selfServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = selfServer.cpp; sourceTree = "<group>"; };
-		C209B3B406ADBE64007B9E6D /* selfUser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = selfUser.cpp; sourceTree = "<group>"; };
+		C209B3B206ADBE64007B9E6D /* self.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = self.h; path = derived_src/self.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		C209B3B306ADBE64007B9E6D /* selfServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = selfServer.cpp; path = derived_src/selfServer.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C209B3B406ADBE64007B9E6D /* selfUser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = selfUser.cpp; path = derived_src/selfUser.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		C20AF37C05F689540055732C /* tempdatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tempdatabase.cpp; sourceTree = "<group>"; };
 		C20AF37D05F689540055732C /* tempdatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tempdatabase.h; sourceTree = "<group>"; };
 		C22A7F8C06AF06D9006087B7 /* tokend.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokend.cpp; sourceTree = "<group>"; };
@@ -286,12 +339,47 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1865FFEB1475208B00FD79DF /* libsqlite3.dylib in Frameworks */,
+				1865FFEA1475208000FD79DF /* libsecurity_codesigning.a in Frameworks */,
+				1865FFE114751C9100FD79DF /* libauto.dylib in Frameworks */,
+				1865FFDC14751B0600FD79DF /* libobjc.dylib in Frameworks */,
+				18B965CD14731612005A4D2E /* libsecurity_agent_client.a in Frameworks */,
+				1865FFCF1475169A00FD79DF /* libsecurityd_client.a in Frameworks */,
+				18B965DC147319E5005A4D2E /* libsecurityd_server.a in Frameworks */,
+				1865FFB11474FED300FD79DF /* libsecurity_tokend_client.a in Frameworks */,
+				18B965D51473197B005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
+				18B965DA147319C8005A4D2E /* libsecurity_cdsa_client.a in Frameworks */,
+				18B965D314731963005A4D2E /* libsecurity_utilities.a in Frameworks */,
+				1865FFB3147505C800FD79DF /* libbsm.dylib in Frameworks */,
+				18B965DD147319F6005A4D2E /* PCSC.framework in Frameworks */,
+				18B965D8147319A6005A4D2E /* Security.framework in Frameworks */,
+				18B965D71473199F005A4D2E /* CoreFoundation.framework in Frameworks */,
+				18B965D614731996005A4D2E /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1865FF9F1474FB1100FD79DF /* config */ = {
+			isa = PBXGroup;
+			children = (
+				1865FFA01474FB1100FD79DF /* debug.xcconfig */,
+				1865FFA11474FB1100FD79DF /* project.xcconfig */,
+				1865FFA21474FB1100FD79DF /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		18B965B1147314BE005A4D2E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */,
+				18B965C1147314BE005A4D2E /* libsecurity_agent_server.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
 		4C9264970534866F004B0E72 /* src */ = {
 			isa = PBXGroup;
 			children = (
@@ -313,6 +401,8 @@
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */,
+				1865FF9F1474FB1100FD79DF /* config */,
 				4C9264970534866F004B0E72 /* src */,
 				C209B39106ADBB19007B9E6D /* mig */,
 				C26CF0290CD933D60094DD9D /* DTrace */,
@@ -336,7 +426,6 @@
 		4CD8CCBB055884E0006B3584 /* Other Installs */ = {
 			isa = PBXGroup;
 			children = (
-				18CD1CEC1460A80A00F7D110 /* authmerge.sh */,
 				C26FB2650BC2C3A300D8EFC8 /* com.apple.securityd.plist */,
 				4CD8CCBC055884E0006B3584 /* authorization.plist */,
 				4CD8CCBD055884E0006B3584 /* CodeEquivalenceCandidates */,
@@ -349,6 +438,17 @@
 		4CDD50150537658500FEC36D /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				1865FFD0147516CF00FD79DF /* libsecurity_codesigning.a */,
+				1865FFCE1475169A00FD79DF /* libsecurityd_client.a */,
+				1865FFB2147505C800FD79DF /* libbsm.dylib */,
+				1865FFB01474FED300FD79DF /* libsecurity_tokend_client.a */,
+				18B967B514731B78005A4D2E /* libobjc.dylib */,
+				18B967B314731B69005A4D2E /* libauto.dylib */,
+				18B967B114731B55005A4D2E /* libsqlite3.dylib */,
+				18B965DB147319E5005A4D2E /* libsecurityd_server.a */,
+				18B965D9147319C8005A4D2E /* libsecurity_cdsa_client.a */,
+				18B965D41473197B005A4D2E /* libsecurity_cdsa_utilities.a */,
+				18B965D214731963005A4D2E /* libsecurity_utilities.a */,
 				4CDD5018053765A900FEC36D /* CoreFoundation.framework */,
 				4CDD506B0537666500FEC36D /* IOKit.framework */,
 				C276AAD60663E7A400B57276 /* PCSC.framework */,
@@ -409,6 +509,7 @@
 		C26CF0290CD933D60094DD9D /* DTrace */ = {
 			isa = PBXGroup;
 			children = (
+				18B27133148C2C3D0087AE98 /* securityd_dtrace.h */,
 				C26CF0230CD933AE0094DD9D /* securityd.d */,
 				C26CF0880CDFE1180094DD9D /* dtrace.h */,
 				C2CB75A90CE26A3600727A2B /* securityd-watch.d */,
@@ -641,6 +742,7 @@
 				AAC7074C0E6F4335003CC2B2 /* dtrace.h in Headers */,
 				4E0BB2B40F79590300BBFEFA /* ccaudit_extensions.h in Headers */,
 				C274C51F0F9E8E0F001ABDA3 /* auditevents.h in Headers */,
+				18B27134148C2C3D0087AE98 /* securityd_dtrace.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -659,6 +761,7 @@
 			buildRules = (
 			);
 			dependencies = (
+				18B967B914731BB1005A4D2E /* PBXTargetDependency */,
 				AA1AA00F0E71F2ED003D0309 /* PBXTargetDependency */,
 				AA1AA0110E71F2F7003D0309 /* PBXTargetDependency */,
 				AA1A9FF90E71EF08003D0309 /* PBXTargetDependency */,
@@ -686,6 +789,12 @@
 			mainGroup = 4CA1FEAC052A3C5800F22E42;
 			productRefGroup = 4CA1FEB7052A3C6D00F22E42 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 18B965B1147314BE005A4D2E /* Products */;
+					ProjectRef = 18B965B0147314BE005A4D2E /* libsecurity_agent.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				AA6D4B890E6F3BB80050206D /* securityd */,
@@ -696,8 +805,25 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXReferenceProxy section */
+		18B965BD147314BE005A4D2E /* libsecurity_agent_client.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_agent_client.a;
+			remoteRef = 18B965BC147314BE005A4D2E /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		18B965C1147314BE005A4D2E /* libsecurity_agent_server.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_agent_server.a;
+			remoteRef = 18B965C0147314BE005A4D2E /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
 /* Begin PBXShellScriptBuildPhase section */
-		18CD1CEB1460A7F100F7D110 /* Run Script (install /etc/authorization.merge) */ = {
+		18132F7B148D6DD900CC58B2 /* Run Script (install /etc/authorization.merge) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -808,6 +934,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		18B967B914731BB1005A4D2E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = world;
+			targetProxy = 18B967B814731BB1005A4D2E /* PBXContainerItemProxy */;
+		};
 		AA1A9FF90E71EF08003D0309 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C26CF02C0CD934260094DD9D /* DTrace */;
@@ -826,455 +957,91 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		AA6D4B7B0E6F3A910050206D /* Development */ = {
+		AA6D4B7B0E6F3A910050206D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				COPY_PHASE_STRIP = NO;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
+			};
+			name = Debug;
+		};
+		AA6D4B7E0E6F3A910050206D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		AA6D4B820E6F3B210050206D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		AA6D4B850E6F3B210050206D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		AA6D4B8C0E6F3BB80050206D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FFA01474FB1100FD79DF /* debug.xcconfig */;
+			buildSettings = {
 				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(SRCROOT)",
 				);
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = generate;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		AA6D4B7C0E6F3A910050206D /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				COPY_PHASE_STRIP = YES;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = generate;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		AA6D4B7D0E6F3A910050206D /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				COPY_PHASE_STRIP = NO;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O1 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CPLUSPLUSFLAGS) -O1 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = generate;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		AA6D4B7E0E6F3A910050206D /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = generate;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		AA6D4B820E6F3B210050206D /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				COPY_PHASE_STRIP = NO;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = startup;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		AA6D4B830E6F3B210050206D /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				DEAD_CODE_STRIPPING = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = startup;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		AA6D4B840E6F3B210050206D /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = startup_native;
-			};
-			name = "normal with debug";
-		};
-		AA6D4B850E6F3B210050206D /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = startup_native;
-			};
-			name = Default;
-		};
-		AA6D4B8C0E6F3BB80050206D /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = x86_64;
-				BUILD_VARIANTS = debug;
-				COPY_PHASE_STRIP = NO;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55126.5;
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/securityd,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
 				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../../build/Products\"",
+				);
 				ORDER_FILE = "$(SRCROOT)/src/securityd.order";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline -gdwarf-2";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS = "-lbsm";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"PCSC,_debug\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_debug\" \"-framework\" \"security_tokend_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_server,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_codesigning,_debug\" -gdwarf-2";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"PCSC\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_tokend_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_server$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg \"-framework\" \"Security,_profile\"  \"-framework\" \"PCSC,_profile\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_profile\" \"-framework\" \"security_tokend_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_server,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"";
-				PREBINDING = NO;
-				PRODUCT_NAME = securityd;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Development;
+			name = Debug;
 		};
-		AA6D4B8D0E6F3BB80050206D /* Deployment */ = {
+		AA6D4B8F0E6F3BB80050206D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FFA21474FB1100FD79DF /* release.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = x86_64;
-				BUILD_VARIANTS = (
-					normal,
-				);
-				COPY_PHASE_STRIP = "(null)";
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55126.5;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/securityd,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_OPTIMIZATION_LEVEL = s;
-				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				ORDER_FILE = "$(SRCROOT)/src/securityd.order";
-				OTHER_ASFLAGS_debug = "\"$(OTHER_CFLAGS)\"";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline -gdwarf-2";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS = "-lbsm";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"PCSC,_debug\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_debug\" \"-framework\" \"security_tokend_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_server,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_codesigning,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"PCSC\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_tokend_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_server$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg \"-framework\" \"Security,_profile\"  \"-framework\" \"PCSC,_profile\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_profile\" \"-framework\" \"security_tokend_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_server,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"";
-				PREBINDING = NO;
-				PRODUCT_NAME = securityd;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		AA6D4B8E0E6F3BB80050206D /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				BUILD_VARIANTS = normal;
-				COPY_PHASE_STRIP = NO;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 55126.5;
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/securityd,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_DYNAMIC_NO_PIC = "";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = "";
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = "";
-				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/derived_src\"";
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				ORDER_FILE = "$(SRCROOT)/src/securityd.order";
-				OTHER_ASFLAGS_debug = "\"$(OTHER_CFLAGS)\"";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O1 -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline -gdwarf-2";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CPLUSPLUSFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS = "-lbsm";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"PCSC,_debug\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_debug\" \"-framework\" \"security_tokend_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_server,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_codesigning,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"PCSC\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_tokend_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_server$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg \"-framework\" \"Security,_profile\"  \"-framework\" \"PCSC,_profile\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_profile\" \"-framework\" \"security_tokend_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_server,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"";
-				PREBINDING = NO;
-				PRODUCT_NAME = securityd;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = "normal with debug";
-		};
-		AA6D4B8F0E6F3BB80050206D /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				BUILD_VARIANTS = (
-					normal,
-				);
-				COPY_PHASE_STRIP = "(null)";
-				CSSM_HEADERS = "";
-				CURRENT_PROJECT_VERSION = 55126.5;
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/securityd,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
-				);
-				GCC_DYNAMIC_NO_PIC = "";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/derived_src";
-				INSTALL_PATH = /usr/sbin;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				ORDER_FILE = "$(SRCROOT)/src/securityd.order";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline -gdwarf-2";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline -gdwarf-2 ";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS = "-lbsm";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"PCSC,_debug\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_debug\" \"-framework\" \"security_tokend_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"securityd_server,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-framework\" \"security_codesigning,_debug\"";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"PCSC\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_tokend_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_client$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_server$(OPT_LDXNOPIC)\" \"-framework\" \"securityd_client$(OPT_LDXNOPIC)\" \"-framework\" \"security_cdsa_utilities$(OPT_LDXNOPIC)\" \"-framework\" \"security_utilities$(OPT_LDXNOPIC)\"";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg \"-framework\" \"Security,_profile\"  \"-framework\" \"PCSC,_profile\" \"-framework\" \"IOKit\" \"-framework\" \"CoreFoundation\" \"-framework\" \"security_agent_client,_profile\" \"-framework\" \"security_tokend_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"securityd_server,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\"";
-				PREBINDING = NO;
-				PRODUCT_NAME = securityd;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Default;
-		};
-		C26CF02D0CD934260094DD9D /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				PRODUCT_NAME = DTrace;
-			};
-			name = Development;
-		};
-		C26CF02E0CD934260094DD9D /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				PRODUCT_NAME = DTrace;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C26CF02F0CD934260094DD9D /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				PRODUCT_NAME = DTrace;
-			};
-			name = "normal with debug";
-		};
-		C26CF0300CD934260094DD9D /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				INSTALLHDRS_SCRIPT_PHASE = YES;
-				PRODUCT_NAME = DTrace;
-			};
-			name = Default;
-		};
-		C27AD4AE0987FCF4001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = x86_64;
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_OPTIMIZATION_LEVEL = 0;
 				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)/derived_src",
+					"$(SRCROOT)",
 				);
-				STRIP_STYLE = debugging;
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)/../../../build/Products\"",
+				);
+				ORDER_FILE = "$(SRCROOT)/src/securityd.order";
 			};
-			name = Development;
+			name = Release;
 		};
-		C27AD4AF0987FCF4001272E0 /* Deployment */ = {
+		C26CF02D0CD934260094DD9D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				STRIP_STYLE = debugging;
 			};
-			name = Deployment;
+			name = Debug;
 		};
-		C27AD4B00987FCF4001272E0 /* normal with debug */ = {
+		C26CF0300CD934260094DD9D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				STRIP_STYLE = debugging;
 			};
-			name = "normal with debug";
+			name = Release;
 		};
-		C27AD4B10987FCF4001272E0 /* Default */ = {
+		C27AD4AE0987FCF4001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FFA11474FB1100FD79DF /* project.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				STRIP_STYLE = debugging;
 			};
-			name = Default;
+			name = Debug;
+		};
+		C27AD4B10987FCF4001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FFA11474FB1100FD79DF /* project.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1282,57 +1049,47 @@
 		AA6D4B7F0E6F3AE50050206D /* Build configuration list for PBXAggregateTarget "mig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA6D4B7B0E6F3A910050206D /* Development */,
-				AA6D4B7C0E6F3A910050206D /* Deployment */,
-				AA6D4B7D0E6F3A910050206D /* normal with debug */,
-				AA6D4B7E0E6F3A910050206D /* Default */,
+				AA6D4B7B0E6F3A910050206D /* Debug */,
+				AA6D4B7E0E6F3A910050206D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		AA6D4B860E6F3B8D0050206D /* Build configuration list for PBXAggregateTarget "startup" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA6D4B820E6F3B210050206D /* Development */,
-				AA6D4B830E6F3B210050206D /* Deployment */,
-				AA6D4B840E6F3B210050206D /* normal with debug */,
-				AA6D4B850E6F3B210050206D /* Default */,
+				AA6D4B820E6F3B210050206D /* Debug */,
+				AA6D4B850E6F3B210050206D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		AA6D4B900E6F3BE80050206D /* Build configuration list for PBXNativeTarget "securityd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				AA6D4B8C0E6F3BB80050206D /* Development */,
-				AA6D4B8D0E6F3BB80050206D /* Deployment */,
-				AA6D4B8E0E6F3BB80050206D /* normal with debug */,
-				AA6D4B8F0E6F3BB80050206D /* Default */,
+				AA6D4B8C0E6F3BB80050206D /* Debug */,
+				AA6D4B8F0E6F3BB80050206D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C26CF03B0CD934420094DD9D /* Build configuration list for PBXAggregateTarget "DTrace" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C26CF02D0CD934260094DD9D /* Development */,
-				C26CF02E0CD934260094DD9D /* Deployment */,
-				C26CF02F0CD934260094DD9D /* normal with debug */,
-				C26CF0300CD934260094DD9D /* Default */,
+				C26CF02D0CD934260094DD9D /* Debug */,
+				C26CF0300CD934260094DD9D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD4AD0987FCF4001272E0 /* Build configuration list for PBXProject "securityd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4AE0987FCF4001272E0 /* Development */,
-				C27AD4AF0987FCF4001272E0 /* Deployment */,
-				C27AD4B00987FCF4001272E0 /* normal with debug */,
-				C27AD4B10987FCF4001272E0 /* Default */,
+				C27AD4AE0987FCF4001272E0 /* Debug */,
+				C27AD4B10987FCF4001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

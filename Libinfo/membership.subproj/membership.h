@@ -62,6 +62,27 @@
 #define ID_TYPE_GROUPNAME		5
 
 /*!
+	@defined	ID_TYPE_UUID
+	@abstract	is of type uuid_t
+	@discussion	is of type uuid_t
+*/
+#define ID_TYPE_UUID			6
+
+/*!
+    @defined    ID_TYPE_GROUP_NFS
+    @abstract   is a NULL terminated UTF8 string
+    @discussion is a NULL terminated UTF8 string
+*/
+#define ID_TYPE_GROUP_NFS	7
+
+/*!
+    @defined    ID_TYPE_USER_NFS
+    @abstract   is a NULL terminated UTF8 string
+    @discussion is a NULL terminated UTF8 string
+*/
+#define ID_TYPE_USER_NFS		8
+
+/*!
 	@defined    ID_TYPE_GSS_EXPORT_NAME
 	@abstract	is a gss exported name
 	@discussion	is the data in gss_buffer_t as returned from gss_export_name.

@@ -22,7 +22,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGNumber {
+    interface [
+        Conditional=SVG
+    ] SVGNumber {
         attribute [StrictTypeChecking] float value;
     };
 

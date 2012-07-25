@@ -14,7 +14,7 @@
 
 // test non-GC -retain
 
-// TEST_CONFIG GC=0
+// TEST_CONFIG MEM=mrc
 // TEST_CFLAGS -framework Foundation
 
 #import <stdio.h>

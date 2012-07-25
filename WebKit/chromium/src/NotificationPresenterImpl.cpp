@@ -31,7 +31,7 @@
 #include "config.h"
 #include "NotificationPresenterImpl.h"
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 #include "KURL.h"
 #include "Notification.h"
@@ -41,7 +41,7 @@
 #include "WebNotification.h"
 #include "WebNotificationPermissionCallback.h"
 #include "WebNotificationPresenter.h"
-#include "WebURL.h"
+#include "platform/WebURL.h"
 
 #include <wtf/PassRefPtr.h>
 
@@ -64,6 +64,8 @@ public:
     }
 
 private:
+    virtual ~VoidCallbackClient() { }
+
     RefPtr<VoidCallback> m_callback;
 };
 
@@ -92,10 +94,14 @@ void NotificationPresenterImpl::notificationObjectDestroyed(Notification* notifi
     m_presenter->objectDestroyed(PassRefPtr<Notification>(notification));
 }
 
-NotificationPresenter::Permission NotificationPresenterImpl::checkPermission(ScriptExecutionContext* context)
+void NotificationPresenterImpl::notificationControllerDestroyed()
 {
-    int result = m_presenter->checkPermission(context->url());
-    return static_cast<NotificationPresenter::Permission>(result);
+}
+
+NotificationClient::Permission NotificationPresenterImpl::checkPermission(ScriptExecutionContext* context)
+{
+    int result = m_presenter->checkPermission(WebSecurityOrigin(context->securityOrigin()));
+    return static_cast<NotificationClient::Permission>(result);
 }
 
 void NotificationPresenterImpl::requestPermission(ScriptExecutionContext* context, PassRefPtr<VoidCallback> callback)
@@ -105,4 +111,4 @@ void NotificationPresenterImpl::requestPermission(ScriptExecutionContext* contex
 
 } // namespace WebKit
 
-#endif // ENABLE(NOTIFICATIONS)
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)

@@ -151,7 +151,7 @@ if (not $restore) {
 } else {
 	$kdc_local = $restore_directory."/private".$kdc_local;
 	my $KDC_LOCAL;
-	if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:[0]" '. $kdc_local. '|')) {
+	if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:0" "' . ${kdc_local} . '" |')) {
 		print 'Error: '. $progname ." failed to find $kdc_local\n";
 		exit 1;
 	}
@@ -240,6 +240,7 @@ if (not $restore) {
     print CONF "}\n";
     close CONF;
 
+    printf "dumping database\n";
     system $kadmin, @dump_args, "dump", "-d", $df;
 
     my $OLD_DUMP;
@@ -262,12 +263,13 @@ if (not $restore) {
     open CONF, ">${migration_conf}";
     print CONF "[kdc]\n";
     print CONF "database = {\n";
-    print CONF "\tdbname = od:/Local/Default&${restore_directory}/private/var/db/dslocal/nodes/Default\n";
+    print CONF "\tdbname = od:/Local/Default\n";
     print CONF "\tmkey_file = FILE:${kdc_db_dir}/m-key\n";
     print CONF "\tlog_file = ${kdc_db_dir}/log-${LKDC_realm}\n";
     print CONF "}\n";
     close CONF;
 
+    printf "merge in new database\n";
     system $kadmin, @args, "merge", "--fix-salts", "${df}.new";
 
     unlink $df;
@@ -311,7 +313,11 @@ if ($make_keytab_flag or $update_plists_flag) {
 unlink($migration_conf) if ($restore);
 
 # restore just migrates user, rerun provisioning of krbtgt on next boot
-system "touch", $configured if (not $restore and not $plist_set);
+if (not $restore and not $plist_set) {
+    system "touch", $configured;
+} else {
+    unlink $configured;
+}
 
 sub configure_service {
 	my $config = shift;

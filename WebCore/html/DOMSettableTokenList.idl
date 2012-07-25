@@ -25,9 +25,8 @@
 module core {
 
     interface [
-        GenerateConstructor,
-        HasIndexGetter,
-        GenerateToJS
+        IndexedGetter,
+        JSGenerateToJSObject
     ] DOMSettableTokenList : DOMTokenList {
         attribute DOMString value;
     };

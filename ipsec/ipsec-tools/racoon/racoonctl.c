@@ -838,7 +838,7 @@ f_vpnc(ac, av)
 	char *inet = "inet";
 	char *srcaddr;
 	struct addrinfo hints, *res;
-	struct sockaddr *src;
+	struct sockaddr_storage *src;
 	char *idx;
 
 	if (ac < 1)
@@ -904,7 +904,7 @@ f_vpntest(ac, av)
 	char *inet = "inet";
 	char *srcaddr;
 	struct addrinfo hints, *res;
-	struct sockaddr *src;
+	struct sockaddr_storage *src;
 	char *idx;
 
 	if (ac < 1)
@@ -1087,7 +1087,7 @@ get_comindexes(family, ac, av)
 	struct admin_com_indexes *ci;
 	char *p_name = NULL, *p_port = NULL;
 	char *p_prefs = NULL, *p_prefd = NULL;
-	struct sockaddr *src = NULL, *dst = NULL;
+	struct sockaddr_storage *src = NULL, *dst = NULL;
 	int ulproto;
 
 	if (ac != 2 && ac != 3) {
@@ -1307,7 +1307,7 @@ char *header3 =
 	while (len-- > 0) {
 		/* source address */
 		if (long_format >= 2) {
-			GETNAMEINFO((struct sockaddr *)&pd->local, _addr1_, _addr2_);
+			GETNAMEINFO((struct sockaddr_storage *)&pd->local, _addr1_, _addr2_);
 			switch (long_format) {
 			case 0:
 				break;
@@ -1323,7 +1323,7 @@ char *header3 =
 		}
 
 		/* destination address */
-		GETNAMEINFO((struct sockaddr *)&pd->remote, _addr1_, _addr2_);
+		GETNAMEINFO((struct sockaddr_storage *)&pd->remote, _addr1_, _addr2_);
 		switch (long_format) {
 		case 0:
 		case 1:
@@ -1375,7 +1375,7 @@ dump_internal(buf, tlen)
 	int tlen;
 {
 	struct ph2handle *iph2;
-	struct sockaddr *addr;
+	struct sockaddr_storage *addr;
 
 /*
 short header;
@@ -1398,7 +1398,7 @@ char *long_h1 =
 
 	while (tlen > 0) {
 		iph2 = (struct ph2handle *)buf;
-		addr = (struct sockaddr *)(++iph2);
+		addr = (struct sockaddr_storage *)(++iph2);
 
 		GETNAMEINFO(addr, _addr1_, _addr2_);
 		printf("%s ", long_format ?
@@ -1514,12 +1514,12 @@ print_evt(buf, len)
 	else
 		printf("%s : ", evtmsg[i].msg);
 
-	if ((srcstr = saddr2str((struct sockaddr *)&evtdump->src)) == NULL)
+	if ((srcstr = saddr2str((struct sockaddr_storage *)&evtdump->src)) == NULL)
 		printf("unknown");
 	else 
 		printf("%s", srcstr);
 	printf(" -> ");
-	if ((dststr = saddr2str((struct sockaddr *)&evtdump->dst)) == NULL)
+	if ((dststr = saddr2str((struct sockaddr_storage *)&evtdump->dst)) == NULL)
 		printf("unknown");
 	else 
 		printf("%s", dststr);

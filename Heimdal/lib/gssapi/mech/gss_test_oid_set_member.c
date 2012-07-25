@@ -28,13 +28,13 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_test_oid_set_member(OM_uint32 *minor_status,
-    const gss_OID member,
+    gss_const_OID member,
     const gss_OID_set set,
     int *present)
 {
-	int i;
+	size_t i;
 
 	*present = 0;
 	for (i = 0; i < set->count; i++)

@@ -31,7 +31,7 @@
 #ifndef WebAccessibilityRole_h
 #define WebAccessibilityRole_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -67,6 +67,7 @@ enum WebAccessibilityRole {
     WebAccessibilityRoleDocumentRegion,
     WebAccessibilityRoleDrawer,
     WebAccessibilityRoleEditableText,
+    WebAccessibilityRoleFooter,
     WebAccessibilityRoleForm,
     WebAccessibilityRoleGrid,
     WebAccessibilityRoleGroup,
@@ -115,6 +116,8 @@ enum WebAccessibilityRole {
     WebAccessibilityRoleSheet,
     WebAccessibilityRoleSlider,
     WebAccessibilityRoleSliderThumb,
+    WebAccessibilityRoleSpinButton,
+    WebAccessibilityRoleSpinButtonPart,
     WebAccessibilityRoleSplitGroup,
     WebAccessibilityRoleSplitter,
     WebAccessibilityRoleStaticText,

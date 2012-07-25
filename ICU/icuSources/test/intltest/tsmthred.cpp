@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2010, International Business Machines Corporation and
+ * Copyright (c) 1999-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -24,22 +24,26 @@
 #include "unicode/uloc.h"
 #include "unicode/locid.h"
 #include "putilimp.h"
-#if !defined(U_WINDOWS) && !defined(XP_MAC) && !defined(U_RHAPSODY)
-#define POSIX 1
+
+#if U_PLATFORM_USES_ONLY_WIN32_API
+    /* Prefer native Windows APIs even if POSIX is implemented (i.e., on Cygwin). */
+#   undef POSIX
+#elif U_PLATFORM_IMPLEMENTS_POSIX
+#   define POSIX
+#else
+#   undef POSIX
 #endif
 
 /* Needed by z/OS to get usleep */
-#if defined(OS390)
+#if U_PLATFORM == U_PF_OS390
 #define __DOT1 1
 #define __UU
-#define _XOPEN_SOURCE_EXTENDED 1
 #ifndef _XPG4_2
 #define _XPG4_2
 #endif
 #include <unistd.h>
-/*#include "platform_xopen_source_extended.h"*/
 #endif
-#if defined(POSIX) || defined(U_SOLARIS) || defined(U_AIX) || defined(U_HPUX)
+#if defined(POSIX)
 
 #define HAVE_IMP
 
@@ -58,11 +62,11 @@
 #define __EXTENSIONS__
 #endif
 
-#if defined(OS390)
+#if U_PLATFORM == U_PF_OS390
 #include <sys/types.h>
 #endif
 
-#if !defined(OS390)
+#if U_PLATFORM != U_PF_OS390
 #include <signal.h>
 #endif
 
@@ -709,7 +713,7 @@ public:
                 countryToCheck=                     Locale("","BF");
                 currencyToCheck=                    2.32;
                 expected=                           CharsToUnicodeString(
-                                                    "1:A customer in Burkina Faso is receiving a #8 error - U_INDEX_OUTOFBOUNDS_ERROR. Their telephone call is costing 2,32\\u00A0DM.");
+                                                    "1:A customer in Burkina Faso is receiving a #8 error - U_INDEX_OUTOFBOUNDS_ERROR. Their telephone call is costing 2,32\\u00A0DEM.");
                 break;
             case 2:
                 statusToCheck=                      U_MEMORY_ALLOCATION_ERROR;

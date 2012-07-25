@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Moose-Autobox</string>
+        <key>OpenSourceVersion</key>
+        <string>0.11</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/R/RJ/RJBS/Moose-Autobox-0.11.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-11-02</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2008-2010 Apple Inc. All Rights Reserved.
+# Copyright (c) 2008-2012 Apple Inc. All Rights Reserved.
 #
 
 # General project info
@@ -24,7 +24,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP			= YES
-AEP_Version		= 2.4.7
+AEP_Version		= 2.4.9
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
 AEP_Patches		=

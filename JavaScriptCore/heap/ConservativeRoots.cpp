@@ -26,6 +26,8 @@
 #include "config.h"
 #include "ConservativeRoots.h"
 
+#include "CopiedSpace.h"
+#include "CopiedSpaceInlineMethods.h"
 #include "CodeBlock.h"
 #include "DFGCodeBlocks.h"
 #include "JSCell.h"
@@ -34,16 +36,12 @@
 
 namespace JSC {
 
-inline bool isPointerAligned(void* p)
-{
-    return !((intptr_t)(p) & (sizeof(char*) - 1));
-}
-
-ConservativeRoots::ConservativeRoots(const MarkedBlockSet* blocks)
+ConservativeRoots::ConservativeRoots(const MarkedBlockSet* blocks, CopiedSpace* copiedSpace)
     : m_roots(m_inlineRoots)
     , m_size(0)
     , m_capacity(inlineCapacity)
     , m_blocks(blocks)
+    , m_copiedSpace(copiedSpace)
 {
 }
 
@@ -73,6 +71,10 @@ template<typename MarkHook>
 inline void ConservativeRoots::genericAddPointer(void* p, TinyBloomFilter filter, MarkHook& markHook)
 {
     markHook.mark(p);
+    
+    CopiedBlock* block;
+    if (m_copiedSpace->contains(p, block))
+        m_copiedSpace->pin(block);
     
     MarkedBlock* candidate = MarkedBlock::blockFor(p);
     if (filter.ruleOut(reinterpret_cast<Bits>(candidate))) {
@@ -110,8 +112,8 @@ void ConservativeRoots::genericAddSpan(void* begin, void* end, MarkHook& markHoo
 
 void ConservativeRoots::add(void* begin, void* end)
 {
-    DummyMarkHook dummyMarkHook;
-    genericAddSpan(begin, end, dummyMarkHook);
+    DummyMarkHook hook;
+    genericAddSpan(begin, end, hook);
 }
 
 void ConservativeRoots::add(void* begin, void* end, DFGCodeBlocks& dfgCodeBlocks)

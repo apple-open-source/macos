@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; -*- 
  *
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,7 +33,9 @@
 #include <string.h>
 #include <pthread.h>
 #include <setjmp.h>
-
+#if !FOR_DYLD
+	#include <System/pthread_machdep.h>
+#endif
 #include "unwind.h"
 #include "InternalMacros.h"
 
@@ -77,24 +79,14 @@ struct _Unwind_FunctionContext
 	extern struct _Unwind_FunctionContext* __Unwind_SjLj_GetTopOfFunctionStack(); 
 	extern void __Unwind_SjLj_SetTopOfFunctionStack(struct _Unwind_FunctionContext* fc);
 #else
-	static pthread_key_t sPerThreadTopOfFunctionStack = 0; 
-	static pthread_once_t sOnceFlag = PTHREAD_ONCE_INIT;
-
-	static void __Unwind_SjLj_MakeTopOfFunctionStackKey()
-	{
-		pthread_key_create(&sPerThreadTopOfFunctionStack, NULL);
-	}
-
 	static struct _Unwind_FunctionContext* __Unwind_SjLj_GetTopOfFunctionStack()
 	{
-		pthread_once(&sOnceFlag, __Unwind_SjLj_MakeTopOfFunctionStackKey);
-		return (struct _Unwind_FunctionContext*)pthread_getspecific(sPerThreadTopOfFunctionStack);
+		return (struct _Unwind_FunctionContext*)_pthread_getspecific_direct(__PTK_LIBC_DYLD_Unwind_SjLj_Key);
 	}
 
 	static void __Unwind_SjLj_SetTopOfFunctionStack(struct _Unwind_FunctionContext* fc)
 	{
-		pthread_once(&sOnceFlag, __Unwind_SjLj_MakeTopOfFunctionStackKey);
-		pthread_setspecific(sPerThreadTopOfFunctionStack, fc);
+		_pthread_setspecific_direct(__PTK_LIBC_DYLD_Unwind_SjLj_Key, fc);
 	}
 #endif
 
@@ -335,8 +327,10 @@ EXPORT _Unwind_Reason_Code _Unwind_SjLj_Resume_or_Rethrow(struct _Unwind_Excepti
 	DEBUG_PRINT_API("__Unwind_SjLj_Resume_or_Rethrow(ex_obj=%p), private_1=%ld\n", exception_object, exception_object->private_1);
 	// if this is non-forced and a stopping place was found, then this is a re-throw
 	// call _Unwind_RaiseException() as if this was a new exception
-	if ( exception_object->private_1 == 0 )
-		_Unwind_SjLj_RaiseException(exception_object); 
+	if ( exception_object->private_1 == 0 ) {
+		return _Unwind_SjLj_RaiseException(exception_object); 
+		// should return if there is no catch clause, so that __cxa_rethrow can call std::terminate()
+	}
 	
 	// call through to _Unwind_Resume() which distiguishes between forced and regular exceptions
 	_Unwind_SjLj_Resume(exception_object); 
@@ -473,6 +467,25 @@ EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context* context)
 
 
 
+#if !FOR_DYLD && __IPHONE_OS_VERSION_MIN_REQUIRED
+//
+// symbols in libSystem.dylib in iOS 5.0 and later, but are in libgcc_s.dylib in earlier versions
+//
+NOT_HERE_BEFORE_5_0(_Unwind_GetLanguageSpecificData)
+NOT_HERE_BEFORE_5_0(_Unwind_GetRegionStart)
+NOT_HERE_BEFORE_5_0(_Unwind_GetIP)
+NOT_HERE_BEFORE_5_0(_Unwind_SetGR)
+NOT_HERE_BEFORE_5_0(_Unwind_SetIP)
+NOT_HERE_BEFORE_5_0(_Unwind_DeleteException)
+NOT_HERE_BEFORE_5_0(_Unwind_SjLj_Register)
+NOT_HERE_BEFORE_5_0(_Unwind_GetGR)
+NOT_HERE_BEFORE_5_0(_Unwind_GetIPInfo)
+NOT_HERE_BEFORE_5_0(_Unwind_GetCFA)
+NOT_HERE_BEFORE_5_0(_Unwind_SjLj_Resume)
+NOT_HERE_BEFORE_5_0(_Unwind_SjLj_RaiseException)
+NOT_HERE_BEFORE_5_0(_Unwind_SjLj_Resume_or_Rethrow)
+NOT_HERE_BEFORE_5_0(_Unwind_SjLj_Unregister)
+#endif //  !FOR_DYLD
 
 
 #endif // __arm__

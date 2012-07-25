@@ -55,7 +55,6 @@
 #include "PluginDebug.h"
 #include "PluginPackage.h"
 #include "PluginMainThreadScheduler.h"
-#include "RenderLayer.h"
 #include "ScriptController.h"
 #include "Settings.h"
 #include "npruntime_impl.h"
@@ -104,7 +103,7 @@ static inline WindowRef nativeWindowFor(PlatformWidget widget)
 #if PLATFORM(QT)
     if (widget)
 #if QT_MAC_USE_COCOA
-        return static_cast<WindowRef>([qt_mac_window_for(widget) windowRef]);
+        return static_cast<WindowRef>([qt_mac_window_for(static_cast<QWidget*>(widget)) windowRef]);
 #else
         return static_cast<WindowRef>(qt_mac_window_for(widget));
 #endif
@@ -119,7 +118,7 @@ static inline CGContextRef cgHandleFor(PlatformWidget widget)
 {
 #if PLATFORM(QT)
     if (widget)
-        return (CGContextRef)widget->macCGHandle();
+        return (CGContextRef)static_cast<QWidget*>(widget)->macCGHandle();
 #endif
 #if PLATFORM(WX)
     if (widget)
@@ -132,8 +131,8 @@ static inline IntPoint topLevelOffsetFor(PlatformWidget widget)
 {
 #if PLATFORM(QT)
     if (widget) {
-        PlatformWidget topLevel = widget->window();
-        return widget->mapTo(topLevel, QPoint(0, 0)) + topLevel->geometry().topLeft() - topLevel->pos();
+        QWidget* topLevel = static_cast<QWidget*>(widget)->window();
+        return static_cast<QWidget*>(widget)->mapTo(topLevel, QPoint(0, 0)) + topLevel->geometry().topLeft() - topLevel->pos();
     }
 #endif
 #if PLATFORM(WX)
@@ -348,7 +347,7 @@ void PluginView::setFocus(bool focused)
 
     if (platformPluginWidget())
 #if PLATFORM(QT)
-       platformPluginWidget()->setFocus(Qt::OtherFocusReason);
+       static_cast<QWidget*>(platformPluginWidget())->setFocus(Qt::OtherFocusReason);
 #else
         platformPluginWidget()->SetFocus();
 #endif
@@ -535,7 +534,7 @@ void PluginView::invalidateRect(const IntRect& rect)
 {
     if (platformPluginWidget())
 #if PLATFORM(QT)
-        platformPluginWidget()->update(convertToContainingWindow(rect));
+        static_cast<QWidget*>(platformPluginWidget())->update(convertToContainingWindow(rect));
 #else
         platformPluginWidget()->RefreshRect(convertToContainingWindow(rect));
 #endif
@@ -625,19 +624,19 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     EventRecord record;
 
     if (event->type() == eventNames().keydownEvent) {
-        // This event is the result of a PlatformKeyboardEvent::KeyDown which
+        // This event is the result of a PlatformEvent::KeyDown which
         // was disambiguated into a PlatformKeyboardEvent::RawKeyDown. Since
         // we don't have access to the text here, we return, and wait for the
         // corresponding event based on PlatformKeyboardEvent::Char.
         return;
     } else if (event->type() == eventNames().keypressEvent) {
         // Which would be this one. This event was disambiguated from the same
-        // PlatformKeyboardEvent::KeyDown, but to a PlatformKeyboardEvent::Char,
+        // PlatformEvent::KeyDown, but to a PlatformEvent::Char,
         // which retains the text from the original event. So, we can safely pass
         // on the event as a key-down event to the plugin.
         record.what = keyDown;
     } else if (event->type() == eventNames().keyupEvent) {
-        // PlatformKeyboardEvent::KeyUp events always have the text, so nothing
+        // PlatformEvent::KeyUp events always have the text, so nothing
         // fancy here.
         record.what = keyUp;
     } else {
@@ -808,14 +807,6 @@ NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const
         return NPERR_FILE_NOT_FOUND;
 
     return NPERR_NO_ERROR;
-}
-
-void PluginView::halt()
-{
-}
-
-void PluginView::restart()
-{
 }
 
 } // namespace WebCore

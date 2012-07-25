@@ -10,6 +10,7 @@ AC_INIT(build/apr_common.m4)
 AC_CONFIG_HEADER(include/arch/unix/apr_private.h)
 AC_CONFIG_MACRO_DIR(build)
 AC_CONFIG_AUX_DIR(build)
+AC_CONFIG_MACRO_DIR(build)
 
 dnl 
 dnl Include our own M4 macros along with those for libtool
@@ -40,6 +41,60 @@ AH_BOTTOM([
 #else
 #define BEOS_BONE 1
 #endif
+
+/*
+ * Darwin 10's default compiler (gcc42) builds for both 64 and
+ * 32 bit architectures unless specifically told not to.
+ * In those cases, we need to override types depending on how
+ * we're being built at compile time.
+ * NOTE: This is an ugly work-around for Darwin's
+ * concept of universal binaries, a single package
+ * (executable, lib, etc...) which contains both 32
+ * and 64 bit versions. The issue is that if APR is
+ * built universally, if something else is compiled
+ * against it, some bit sizes will depend on whether
+ * it is 32 or 64 bit. This is determined by the __LP64__
+ * flag. Since we need to support both, we have to
+ * handle OS X unqiuely.
+ */
+#ifdef DARWIN_10
+
+#undef APR_OFF_T_STRFN
+#undef APR_INT64_STRFN
+#undef SIZEOF_LONG
+#undef SIZEOF_SIZE_T
+#undef SIZEOF_SSIZE_T
+#undef SIZEOF_VOIDP
+#undef SIZEOF_STRUCT_IOVEC
+
+#ifdef __LP64__
+ #define APR_INT64_STRFN strtol
+ #define SIZEOF_LONG    8
+ #define SIZEOF_SIZE_T  8
+ #define SIZEOF_SSIZE_T 8
+ #define SIZEOF_VOIDP   8
+ #define SIZEOF_STRUCT_IOVEC 16
+#else
+ #define APR_INT64_STRFN strtoll
+ #define SIZEOF_LONG    4
+ #define SIZEOF_SIZE_T  4
+ #define SIZEOF_SSIZE_T 4
+ #define SIZEOF_VOIDP   4
+ #define SIZEOF_STRUCT_IOVEC 8
+#endif
+
+#undef APR_OFF_T_STRFN
+#define APR_OFF_T_STRFN APR_INT64_STRFN
+ 
+
+#undef SETPGRP_VOID
+#ifdef __DARWIN_UNIX03
+ #define SETPGRP_VOID 1
+#else
+/* #undef SETPGRP_VOID */
+#endif
+ 
+#endif /* DARWIN_10 */
 
 /*
  * Include common private declarations.
@@ -129,6 +184,12 @@ dnl can only be used once within a configure script, so this prevents a
 dnl preload section from invoking the macro to get compiler info.
 AC_PROG_CC
 
+dnl AC_PROG_SED is only avaliable in recent autoconf versions.
+dnl Use AC_CHECK_PROG instead if AC_PROG_SED is not present.
+ifdef([AC_PROG_SED],
+      [AC_PROG_SED],
+      [AC_CHECK_PROG(SED, sed, sed)])
+
 dnl Preload
 APR_PRELOAD
 
@@ -171,6 +232,11 @@ echo "performing libtool configuration..."
 
 AC_ARG_ENABLE(experimental-libtool,[  --enable-experimental-libtool Use experimental custom libtool],
   [experimental_libtool=$enableval],[experimental_libtool=no])
+
+dnl Workarounds for busted Libtool 2.x when we don't call AC_PROG_LIBTOOL
+if test "x$Xsed" = "x"; then
+  Xsed="$SED -e 1s/^X//"
+fi
 
 case $host in
 *-os2*)
@@ -476,11 +542,7 @@ case $host in
        eolstr="\\n"
        ;;
    *mingw*)
-       APR_ADDTO(CPPFLAGS,-DWIN32)
        OSDIR="win32"
-       ac_cv_file__dev_zero="no"
-       ac_cv_func_setpgrp_void="no"
-       apr_cv_tcp_nodelay_with_cork="no"
        enable_threads="system_threads"
        eolstr="\\r\\n"
        file_as_socket=0
@@ -489,7 +551,6 @@ case $host in
        ;;
    *cygwin*)
        OSDIR="unix"
-       APR_ADDTO(CPPFLAGS,-DCYGWIN)
        enable_threads="no"
        eolstr="\\n"
        ;;
@@ -608,16 +669,8 @@ dnl without the extra " " in that case, but they didn't do that.  So, we
 dnl end up LIBS="-lm -lcrypt -lnsl  -ldl" which is an annoyance.
 case $host in
    *mingw*)
-      dnl APR_ADDTO(LIBS,[-lmsvcrt --lshell32 -ladvapi32 -lws2_32])
-
-      AC_CHECK_LIB(msvcrt, getpid)
-      APR_CHECK_DLL_FUNC(kernel32, SetErrorMode@4)
-      APR_CHECK_DLL_FUNC(advapi32, GetSecurityInfo@32)
-      APR_CHECK_DLL_FUNC(ws2_32, gethostbyname@4)
-      APR_CHECK_DLL_FUNC(shell32, CommandLineToArgvW@8)
-      APR_CHECK_DLL_FUNC(kernel32,[CreateFileMappingA@24],
-         [ac_cv_func_CreateFileMapping=$ac_cv_lib_kernel32_CreateFileMappingA])
-      APR_CHECK_DLL_FUNC(rpcrt4,[UuidCreate@4])
+      APR_ADDTO(LIBS,[-lshell32 -ladvapi32 -lws2_32 -lrpcrt4 -lmswsock])
+      ac_cv_func_CreateFileMapping=yes
       ;;
    *)
       AC_SEARCH_LIBS(gethostbyname, nsl)
@@ -1465,6 +1518,7 @@ AC_SUBST(timeh)
 AC_SUBST(unistdh)
 AC_SUBST(signalh)
 AC_SUBST(sys_waith)
+AC_SUBST(processh)
 AC_SUBST(pthreadh)
 AC_SUBST(semaphoreh)
 AC_SUBST(windowsh)
@@ -1477,6 +1531,17 @@ if test "$netdbh" = "1"; then
     AC_MSG_ERROR([can not find h_errno in netdb.h])
   fi
 fi
+
+AC_ARG_ENABLE(allocator-uses-mmap,
+  [  --enable-allocator-uses-mmap    Use mmap in apr_allocator instead of malloc (experimental)],
+  [ if test "$enableval" = "yes"; then
+        APR_IFALLYES(header:sys/mman.h func:mmap func:munmap define:MAP_ANON,
+                     [AC_DEFINE(APR_ALLOCATOR_USES_MMAP, 1,
+                                [Define if apr_allocator should use mmap]) ],
+		     [AC_MSG_ERROR([mmap()/MAP_ANON not supported]) ]
+		    )
+    fi ]
+)
 
 dnl ----------------------------- Checks for standard typedefs
 AC_TYPE_OFF_T
@@ -1665,6 +1730,14 @@ case $host in
         esac
         size_t_fmt="lu"
         ;;
+    *-mingw*)
+        int64_t_fmt='#define APR_INT64_T_FMT "I64d"'
+        uint64_t_fmt='#define APR_UINT64_T_FMT "I64u"'
+        uint64_t_hex_fmt='#define APR_UINT64_T_HEX_FMT "I64x"'
+        int64_value="__int64"
+        long_value="__int64"
+        int64_strfn="_strtoi64"
+        ;; 
 esac
 
 APR_CHECK_TYPES_COMPATIBLE(ssize_t, int, [ssize_t_fmt="d"])
@@ -1752,13 +1825,12 @@ elif test "$ac_cv_type_off_t" = "yes"; then
     fi
     # Per OS tuning...
     case $host in
-     *apple-darwin10.*)
-      # off_t is a long long, but long == long long
-      if test "$ac_cv_sizeof_long" = "$ac_cv_sizeof_long_long"; then
-       off_t_fmt='#define APR_OFF_T_FMT "lld"'
-      fi
-    ;;
-   esac
+    *-mingw*)
+        off_t_value=apr_int64_t
+        off_t_fmt='#define APR_OFF_T_FMT "I64d"'
+        off_t_strfn='_strtoi64'
+        ;;
+    esac
 else
    # Fallback on int
    off_t_value=apr_int32_t
@@ -1767,22 +1839,35 @@ else
 fi
 AC_MSG_RESULT($off_t_value)
 
-# Regardless of whether _LARGEFILE64_SOURCE is used, on 32-bit
+# Regardless of whether _LARGEFILE64_SOURCE is used, on some
 # platforms _FILE_OFFSET_BITS will affect the size of ino_t and hence
 # the build-time ABI may be different from the apparent ABI when using
 # APR with another package which *does* define _FILE_OFFSET_BITS.
 # (Exactly as per the case above with off_t where LFS is *not* used)
 #
-# To be safe, hard-code apr_ino_t as 'unsigned long' iff that is
-# exactly the size of ino_t here; otherwise use ino_t as existing
+# To be safe, hard-code apr_ino_t as 'unsigned long' or 'unsigned int'
+# iff that is exactly the size of ino_t here; otherwise use ino_t as existing
 # releases did.  To be correct, apr_ino_t should have been made an
 # ino64_t as apr_off_t is off64_t, but this can't be done now without
 # breaking ABI.
-ino_t_value=ino_t
-if test "$ac_cv_sizeof_long" = "4"; then
-    APR_CHECK_TYPES_COMPATIBLE(ino_t, unsigned long, 
-                               ino_t_value="unsigned long")
-fi
+
+# Per OS tuning...
+case $host in
+*mingw*)
+    ino_t_value=apr_int64_t
+    ;;
+*)
+    ino_t_value=ino_t
+    APR_CHECK_SIZEOF_EXTENDED(AC_INCLUDES_DEFAULT, ino_t, $ac_cv_sizeof_long)
+    if test $ac_cv_sizeof_ino_t = 4; then
+        if test $ac_cv_sizeof_long = 4; then
+            ino_t_value="unsigned long"
+        else
+            ino_t_value="unsigned int"
+        fi
+    fi
+    ;;
+esac
 AC_MSG_NOTICE([using $ino_t_value for ino_t])
 
 # Checks for endianness
@@ -1877,9 +1962,8 @@ if test "$dsotype" = "any"; then
         *darwin[[0-8]]\.*) 
           # Original Darwin, not for 9.0!:
           AC_CHECK_FUNC(NSLinkModule, [dsotype=dyld]);;
-        *-hpux[[1-9]]\.*|*-hpux1[[01]]*)
-          # shl is specific to hpux(?), and is suboptimal for 64 bit builds,
-          # and most unlikely to be the choice of 12.x developers.
+        hppa*-hpux[[1-9]]\.*|hppa*-hpux1[[01]]*)
+          # shl is specific to parisc hpux SOM binaries, not used for 64 bit
           AC_CHECK_LIB(dld, shl_load, [have_shl=1])
           if test "$ac_cv_sizeof_voidp$have_shl" = "41"; then
             dsotype=shl; APR_ADDTO(LIBS,-ldld)
@@ -2608,13 +2692,23 @@ dnl Check for langinfo support
 AC_CHECK_HEADERS(langinfo.h)
 AC_CHECK_FUNCS(nl_langinfo)
 
+dnl ------------------------------ Defaults for some platform nuances
+
 dnl Do we have a Win32-centric Unicode FS?
-
-if test -z "$have_unicode_fs"; then
-  have_unicode_fs="0"
-fi
-
+APR_SETIFNULL(have_unicode_fs, [0])
 AC_SUBST(have_unicode_fs)
+
+APR_SETIFNULL(apr_has_xthread_files, [0])
+AC_SUBST(apr_has_xthread_files)
+
+APR_SETIFNULL(apr_procattr_user_set_requires_password, [0])
+AC_SUBST(apr_procattr_user_set_requires_password)
+
+APR_SETIFNULL(apr_thread_func, [])
+AC_SUBST(apr_thread_func)
+
+APR_SETIFNULL(apr_has_user, [1])
+AC_SUBST(apr_has_user)
 
 dnl ----------------------------- Finalize the variables
 
@@ -2699,15 +2793,6 @@ for i in $APR_SAVE_HEADERS; do
   rm -f $i.save
 done
 chmod +x apr-$APR_MAJOR_VERSION-config
-# for mingw builds, we currently won't allow the unix apr_private.h to exist.
-# instead, we will rely on the manually-crafted win32 apr_private.h instead.
-case $APR_PLATFORM in
-    *-mingw*)
-        rm include/arch/unix/apr_private.h
-        ;;
-    *)
-        ;;
-esac
 ],[
 dnl This section is expanded by configure UNQUOTED so variable 
 dnl references must be backslash-escaped as necessary.

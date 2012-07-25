@@ -78,7 +78,7 @@ enum bool calculate_input_prebind_cksum)
 	 * Rely on the ofile_*() routines to do all the checking and only
 	 * return valid ofiles files broken out.
 	 */
-	if(ofile_map_from_memory((char *)membuf, length, filename, NULL, NULL,
+	if(ofile_map_from_memory((char *)membuf, length, filename, 0,NULL, NULL,
 				 ofile, FALSE) == FALSE){
 	    free(ofile);
 	    return(NULL);

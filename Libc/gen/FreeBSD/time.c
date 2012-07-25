@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/time.c,v 1.5 2007/01/09 00:27:55 imp Exp $"
 
 #include <sys/types.h>
 #include <sys/time.h>
+#include <fenv.h>
 
 time_t
 time(t)
@@ -42,12 +43,21 @@ time(t)
 {
 	struct timeval tt;
 	time_t retval;
+#ifdef FE_DFL_ENV
+	fenv_t fenv;
+#endif /* FE_DFL_ENV */
 
+#ifdef FE_DFL_ENV
+	fegetenv(&fenv); /* 3965505 - need to preserve floating point enviroment */
+#endif /* FE_DFL_ENV */
 	if (gettimeofday(&tt, (struct timezone *)0) < 0)
 		retval = -1;
 	else
 		retval = tt.tv_sec;
 	if (t != NULL)
 		*t = retval;
+#ifdef FE_DFL_ENV
+	fesetenv(&fenv);
+#endif /* FE_DFL_ENV */
 	return (retval);
 }

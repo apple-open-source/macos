@@ -31,6 +31,39 @@
 
 namespace WebCore {
 
+template<>
+struct SVGPropertyTraits<EdgeModeType> {
+    static unsigned highestEnumValue() { return EDGEMODE_NONE; }
+
+    static String toString(EdgeModeType type)
+    {
+        switch (type) {
+        case EDGEMODE_UNKNOWN:
+            return emptyString();
+        case EDGEMODE_DUPLICATE:
+            return "duplicate";
+        case EDGEMODE_WRAP:
+            return "wrap";
+        case EDGEMODE_NONE:
+            return "none";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static EdgeModeType fromString(const String& value)
+    {
+        if (value == "duplicate")
+            return EDGEMODE_DUPLICATE;
+        if (value == "wrap")
+            return EDGEMODE_WRAP;
+        if (value == "none")
+            return EDGEMODE_NONE;
+        return EDGEMODE_UNKNOWN;
+    }
+};
+
 class SVGFEConvolveMatrixElement : public SVGFilterPrimitiveStandardAttributes {
 public:
     static PassRefPtr<SVGFEConvolveMatrixElement> create(const QualifiedName&, Document*);
@@ -41,11 +74,10 @@ public:
 private:
     SVGFEConvolveMatrixElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName&);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
     static const AtomicString& orderXIdentifier();
@@ -53,19 +85,20 @@ private:
     static const AtomicString& kernelUnitLengthXIdentifier();
     static const AtomicString& kernelUnitLengthYIdentifier();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_INTEGER(OrderX, orderX)
-    DECLARE_ANIMATED_INTEGER(OrderY, orderY)
-    DECLARE_ANIMATED_NUMBER_LIST(KernelMatrix, kernelMatrix)
-    DECLARE_ANIMATED_NUMBER(Divisor, divisor)
-    DECLARE_ANIMATED_NUMBER(Bias, bias)
-    DECLARE_ANIMATED_INTEGER(TargetX, targetX)
-    DECLARE_ANIMATED_INTEGER(TargetY, targetY)
-    DECLARE_ANIMATED_ENUMERATION(EdgeMode, edgeMode)
-    DECLARE_ANIMATED_NUMBER(KernelUnitLengthX, kernelUnitLengthX)
-    DECLARE_ANIMATED_NUMBER(KernelUnitLengthY, kernelUnitLengthY)
-    DECLARE_ANIMATED_BOOLEAN(PreserveAlpha, preserveAlpha)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEConvolveMatrixElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_INTEGER(OrderX, orderX)
+        DECLARE_ANIMATED_INTEGER(OrderY, orderY)
+        DECLARE_ANIMATED_NUMBER_LIST(KernelMatrix, kernelMatrix)
+        DECLARE_ANIMATED_NUMBER(Divisor, divisor)
+        DECLARE_ANIMATED_NUMBER(Bias, bias)
+        DECLARE_ANIMATED_INTEGER(TargetX, targetX)
+        DECLARE_ANIMATED_INTEGER(TargetY, targetY)
+        DECLARE_ANIMATED_ENUMERATION(EdgeMode, edgeMode, EdgeModeType)
+        DECLARE_ANIMATED_NUMBER(KernelUnitLengthX, kernelUnitLengthX)
+        DECLARE_ANIMATED_NUMBER(KernelUnitLengthY, kernelUnitLengthY)
+        DECLARE_ANIMATED_BOOLEAN(PreserveAlpha, preserveAlpha)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

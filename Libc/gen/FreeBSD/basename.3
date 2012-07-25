@@ -36,7 +36,9 @@
 .Sh SYNOPSIS
 .In libgen.h
 .Ft char *
-.Fn basename "const char *path"
+.Fo basename
+.Fa "char *path"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn basename
@@ -81,12 +83,27 @@ The path component to be returned was larger than
 The
 .Fn basename
 function
-returns a pointer to internal static storage space that will be overwritten
-by subsequent calls.
+returns a pointer to internal static storage space
+that will be overwritten by subsequent calls.
+The function may modify the string pointed to by
+.Fa path .
+.Sh LEGACY SYNOPSIS
+.Fd #include <libgen.h>
+.Pp
+.Ft char *
+.br
+.Fo basename
+.Fa "const char *path"
+.Fc ;
+.Pp
+In legacy mode,
+.Fa path
+will not be changed.
 .Sh SEE ALSO
 .Xr basename 1 ,
 .Xr dirname 1 ,
-.Xr dirname 3
+.Xr dirname 3 ,
+.Xr compat 5
 .Sh STANDARDS
 The
 .Fn basename

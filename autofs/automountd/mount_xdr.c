@@ -21,7 +21,7 @@ xdr_fhandle(xdrs, objp)
 	fhandle objp;
 {
 
-	if (!xdr_opaque(xdrs, objp, FHSIZE))
+	if (!xdr_opaque(xdrs, (uint8_t *) objp, FHSIZE))
 		return (FALSE);
 	return (TRUE);
 }
@@ -32,7 +32,7 @@ xdr_fhandle3(xdrs, objp)
 	fhandle3 *objp;
 {
 
-	if (!xdr_bytes(xdrs, (char **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3))
+	if (!xdr_bytes(xdrs, (uint8_t **)&objp->fhandle3_val, (u_int *)&objp->fhandle3_len, FHSIZE3))
 		return (FALSE);
 	return (TRUE);
 }
@@ -75,7 +75,7 @@ xdr_mountres3_ok(xdrs, objp)
 
 	if (!xdr_fhandle3(xdrs, &objp->fhandle))
 		return (FALSE);
-	if (!xdr_array(xdrs, (char **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int))
+	if (!xdr_array(xdrs, (void **)&objp->auth_flavors.auth_flavors_val, (u_int *)&objp->auth_flavors.auth_flavors_len, ~0, sizeof(int), (xdrproc_t)xdr_int))
 		return (FALSE);
 	return (TRUE);
 }

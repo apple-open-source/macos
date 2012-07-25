@@ -40,14 +40,14 @@ UTILS_INTDIR = int.utils.msvc
 
 # The preprocessor and its options.
 CPP = cl.exe /EP
-CPPFLAGS = /nologo /I$(XML_SRCDIR)\include
+CPPFLAGS = /nologo /I$(XML_SRCDIR)\include /D "NOLIBTOOL" 
 !if "$(WITH_THREADS)" != "no"
 CPPFLAGS = $(CPPFLAGS) /D "_REENTRANT"
 !endif
 
 # The compiler and its options.
 CC = cl.exe
-CFLAGS = /nologo /D "WIN32" /D "_WINDOWS" /D "_MBCS" /W1 /GS $(CRUNTIME)
+CFLAGS = /nologo /D "WIN32" /D "_WINDOWS" /D "_MBCS"  /D "NOLIBTOOL" /W1 /GS $(CRUNTIME)
 CFLAGS = $(CFLAGS) /I$(XML_SRCDIR) /I$(XML_SRCDIR)\include /I$(INCPREFIX)
 !if "$(WITH_THREADS)" != "no"
 CFLAGS = $(CFLAGS) /D "_REENTRANT"
@@ -62,7 +62,7 @@ CFLAGS = $(CFLAGS) /D "HAVE_PTHREAD_H"
 !if "$(WITH_ZLIB)" == "1"
 CFLAGS = $(CFLAGS) /D "HAVE_ZLIB_H"
 !endif
-CFLAGS = $(CFLAGS) /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /D _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
+CFLAGS = $(CFLAGS) /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE /D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES
 
 # The linker and its options.
 LD = link.exe

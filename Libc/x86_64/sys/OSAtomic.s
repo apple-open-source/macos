@@ -23,7 +23,8 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
+#include <architecture/i386/asm_help.h>
 
 #define DECLARE(x)   \
 	.align 2, 0x90      ; \
@@ -317,7 +318,8 @@ _OSAtomicDequeue:		// %rdi == list head, %rsi == offset
 _OSAtomicFifoEnqueue:
 	pushq	%rbx
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
-	movq	$(_COMM_PAGE_PFZ_ENQUEUE), %rcx
+	movq 	_commpage_pfz_base(%rip),%rcx
+	addq	$(_COMM_TEXT_PFZ_ENQUEUE_OFFSET), %rcx
 	call	*%rcx
 	testl	%ebx,%ebx	// pending preemption?
 	jz	1f
@@ -333,8 +335,9 @@ _OSAtomicFifoEnqueue:
 _OSAtomicFifoDequeue:
 	pushq	%rbx
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
+	movq	_commpage_pfz_base(%rip), %rcx
 	movq	%rsi,%rdx	// move offset to %rdx to be like the Enqueue case
-	movq	$(_COMM_PAGE_PFZ_DEQUEUE), %rcx
+	addq	$(_COMM_TEXT_PFZ_DEQUEUE_OFFSET), %rcx
 	call	*%rcx
 	testl	%ebx,%ebx	// pending preemption?
 	jz	1f

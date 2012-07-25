@@ -27,17 +27,15 @@
 #define NetscapePluginModule_h
 
 #include "Module.h"
+#include "PluginModuleInfo.h"
 #include "PluginQuirks.h"
 #include <WebCore/npruntime_internal.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
-// FIXME: We should not include PluginInfoStore.h here. Instead,
-// PluginInfoStore::Plugin should be moved out into its own header which we can
-// put in Shared/Plugins.
-#include "PluginInfoStore.h"
-
 namespace WebKit {
+
+class RawPluginMetaData;
 
 class NetscapePluginModule : public RefCounted<NetscapePluginModule> {
 public:
@@ -49,7 +47,7 @@ public:
     void incrementLoadCount();
     void decrementLoadCount();
 
-    static bool getPluginInfo(const String& pluginPath, PluginInfoStore::Plugin&);
+    static bool getPluginInfo(const String& pluginPath, PluginModuleInfo&);
 
     const PluginQuirks& pluginQuirks() const { return m_pluginQuirks; }
 
@@ -65,13 +63,17 @@ public:
     static bool createPluginMIMETypesPreferences(const String& pluginPath);
 #endif
 
+#if PLUGIN_ARCHITECTURE(X11)
+    static bool scanPlugin(const String& pluginPath);
+#endif
+
 private:
     explicit NetscapePluginModule(const String& pluginPath);
 
     void determineQuirks();
 
 #if PLUGIN_ARCHITECTURE(X11)
-    void applyX11QuirksBeforeLoad();
+    bool getPluginInfoForLoadedPlugin(RawPluginMetaData&);
 #endif
 
     bool tryGetSitesWithData(Vector<String>&);

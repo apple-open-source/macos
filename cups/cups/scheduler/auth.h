@@ -1,5 +1,5 @@
 /*
- * "$Id: auth.h 9652 2011-03-25 21:25:38Z mike $"
+ * "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $"
  *
  *   Authorization definitions for the CUPS scheduler.
  *
@@ -30,6 +30,7 @@
 #define CUPSD_AUTH_DIGEST	2	/* Digest authentication */
 #define CUPSD_AUTH_BASICDIGEST	3	/* Basic authentication w/passwd.md5 */
 #define CUPSD_AUTH_NEGOTIATE	4	/* Kerberos authentication */
+#define CUPSD_AUTH_AUTO		5	/* Kerberos or Basic, depending on configuration of server */
 
 #define CUPSD_AUTH_ANON		0	/* Anonymous access */
 #define CUPSD_AUTH_USER		1	/* Must have a valid username/password */
@@ -112,8 +113,6 @@ typedef struct cupsd_client_s cupsd_client_t;
 
 VAR cups_array_t	*Locations	VALUE(NULL);
 					/* Authorization locations */
-VAR int			DefaultAuthType	VALUE(CUPSD_AUTH_BASIC);
-					/* Default AuthType, if not specified */
 #ifdef HAVE_SSL
 VAR http_encryption_t	DefaultEncryption VALUE(HTTP_ENCRYPT_REQUIRED);
 					/* Default encryption for authentication */
@@ -148,5 +147,5 @@ extern cupsd_location_t	*cupsdNewLocation(const char *location);
 
 
 /*
- * End of "$Id: auth.h 9652 2011-03-25 21:25:38Z mike $".
+ * End of "$Id: auth.h 7317 2008-02-15 22:29:27Z mike $".
  */

@@ -53,6 +53,7 @@
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/ResourceRequest.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
@@ -60,7 +61,7 @@
 #import <WebKit/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
-#import <wtf/Threading.h>
+#import <wtf/MainThread.h>
 
 using namespace WebCore;
 
@@ -81,6 +82,7 @@ using namespace WebCore;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -195,7 +197,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 
 - (BOOL)_transferApplicationCache:(NSString*)destinationBundleIdentifier
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     DocumentLoader* loader = [self _documentLoader];
     
     if (!loader)
@@ -204,9 +205,6 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     NSString *cacheDir = [NSString _webkit_localCacheDirectoryWithBundleIdentifier:destinationBundleIdentifier];
     
     return ApplicationCacheStorage::storeCopyOfCache(cacheDir, loader->applicationCacheHost());
-#else
-    return NO;
-#endif
 }
 
 - (void)_setDeferMainResourceDataLoad:(BOOL)flag
@@ -235,9 +233,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     RetainPtr<WebDataSource*> protect(self);
     
     [[self representation] receivedData:data withDataSource:self];
-
-    if ([[self _webView] _usesDocumentViews])
-        [[[[self webFrame] frameView] documentView] dataSourceUpdated:self];
+    [[[[self webFrame] frameView] documentView] dataSourceUpdated:self];
 }
 
 - (void)_setMainDocumentError:(NSError *)error
@@ -380,7 +376,7 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
     
     _private = [[WebDataSourcePrivate alloc] init];
     
-    _private->loader = loader.releaseRef();
+    _private->loader = loader.leakRef();
         
     LOG(Loading, "creating datasource for %@", static_cast<NSURL *>(_private->loader->request().url()));
 

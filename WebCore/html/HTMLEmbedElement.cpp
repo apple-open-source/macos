@@ -68,23 +68,31 @@ static inline RenderWidget* findWidgetRenderer(const Node* n)
     return 0;
 }
 
-RenderWidget* HTMLEmbedElement::renderWidgetForJSBindings() const
+RenderWidget* HTMLEmbedElement::renderWidgetForJSBindings()
 {
     document()->updateLayoutIgnorePendingStylesheets();
     return findWidgetRenderer(this);
 }
 
-bool HTMLEmbedElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
+bool HTMLEmbedElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attrName == hiddenAttr) {
-        result = eUniversal;
-        return false;
-    }
-        
-    return HTMLPlugInImageElement::mapToEntry(attrName, result);
+    if (name == hiddenAttr)
+        return true;
+    return HTMLPlugInImageElement::isPresentationAttribute(name);
 }
 
-void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
+void HTMLEmbedElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+{
+    if (attr->name() == hiddenAttr) {
+        if (equalIgnoringCase(attr->value(), "yes") || equalIgnoringCase(attr->value(), "true")) {
+            addPropertyToAttributeStyle(style, CSSPropertyWidth, 0, CSSPrimitiveValue::CSS_PX);
+            addPropertyToAttributeStyle(style, CSSPropertyHeight, 0, CSSPrimitiveValue::CSS_PX);
+        }
+    } else
+        HTMLPlugInImageElement::collectStyleForAttribute(attr, style);
+}
+
+void HTMLEmbedElement::parseAttribute(Attribute* attr)
 {
     const AtomicString& value = attr->value();
   
@@ -104,32 +112,17 @@ void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
                 m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
         }
-    } else if (attr->name() == hiddenAttr) {
-        if (equalIgnoringCase(value.string(), "yes") || equalIgnoringCase(value.string(), "true")) {
-            // FIXME: Not dynamic, since we add this but don't remove it, but it may be OK for now
-            // that this rarely-used attribute won't work properly if you remove it.
-            addCSSLength(attr, CSSPropertyWidth, "0");
-            addCSSLength(attr, CSSPropertyHeight, "0");
-        }
-    } else if (attr->name() == nameAttr) {
-        if (inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-            document->removeNamedItem(m_name);
-            document->addNamedItem(value);
-        }
-        m_name = value;
     } else
-        HTMLPlugInImageElement::parseMappedAttribute(attr);
+        HTMLPlugInImageElement::parseAttribute(attr);
 }
 
 void HTMLEmbedElement::parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues)
 {
-    NamedNodeMap* attributes = this->attributes(true);
-    if (!attributes)
+    if (!hasAttributes())
         return;
 
-    for (unsigned i = 0; i < attributes->length(); ++i) {
-        Attribute* it = attributes->attributeItem(i);
+    for (unsigned i = 0; i < attributeCount(); ++i) {
+        Attribute* it = attributeItem(i);
         paramNames.append(it->localName().string());
         paramValues.append(it->value().string());
     }
@@ -139,10 +132,8 @@ void HTMLEmbedElement::parametersForPlugin(Vector<String>& paramNames, Vector<St
 // moved down into HTMLPluginImageElement.cpp
 void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
 {
-    ASSERT(!renderEmbeddedObject()->pluginCrashedOrWasMissing());
-    // FIXME: We should ASSERT(needsWidgetUpdate()), but currently
-    // FrameView::updateWidget() calls updateWidget(false) without checking if
-    // the widget actually needs updating!
+    ASSERT(!renderEmbeddedObject()->showsUnavailablePluginIndicator());
+    ASSERT(needsWidgetUpdate());
     setNeedsWidgetUpdate(false);
 
     if (m_url.isEmpty() && m_serviceType.isEmpty())
@@ -152,22 +143,23 @@ void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
     // <object> which modifies url and serviceType before calling these.
     if (!allowedToLoadFrameURL(m_url))
         return;
+
     // FIXME: It's sadness that we have this special case here.
     //        See http://trac.webkit.org/changeset/25128 and
     //        plugins/netscape-plugin-setwindow-size.html
-    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(m_url, m_serviceType))
+    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(m_url, m_serviceType)) {
+        // Ensure updateWidget() is called again during layout to create the Netscape plug-in.
+        setNeedsWidgetUpdate(true);
         return;
+    }
 
     // FIXME: These should be joined into a PluginParameters class.
     Vector<String> paramNames;
     Vector<String> paramValues;
     parametersForPlugin(paramNames, paramValues);
 
-    ASSERT(!m_inBeforeLoadEventHandler);
-    m_inBeforeLoadEventHandler = true;
-    bool beforeLoadAllowedLoad = dispatchBeforeLoadEvent(m_url);
-    m_inBeforeLoadEventHandler = false;
-
+    RefPtr<HTMLEmbedElement> protect(this); // Loading the plugin might remove us from the document.
+    bool beforeLoadAllowedLoad = guardedDispatchBeforeLoadEvent(m_url);
     if (!beforeLoadAllowedLoad) {
         if (document()->isPluginDocument()) {
             // Plugins inside plugin documents load differently than other plugins. By the time
@@ -177,16 +169,18 @@ void HTMLEmbedElement::updateWidget(PluginCreationOption pluginCreationOption)
         }
         return;
     }
+    if (!renderer()) // Do not load the plugin if beforeload removed this element or its renderer.
+        return;
 
     SubframeLoader* loader = document()->frame()->loader()->subframeLoader();
     // FIXME: beforeLoad could have detached the renderer!  Just like in the <object> case above.
-    loader->requestObject(this, m_url, getAttribute(nameAttr), m_serviceType, paramNames, paramValues);
+    loader->requestObject(this, m_url, getNameAttribute(), m_serviceType, paramNames, paramValues);
 }
 
-bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLEmbedElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     if (isImageType())
-        return HTMLPlugInImageElement::rendererIsNeeded(style);
+        return HTMLPlugInImageElement::rendererIsNeeded(context);
 
     Frame* frame = document()->frame();
     if (!frame)
@@ -211,57 +205,12 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
     }
 #endif
 
-    return HTMLPlugInImageElement::rendererIsNeeded(style);
-}
-
-void HTMLEmbedElement::insertedIntoDocument()
-{
-    HTMLPlugInImageElement::insertedIntoDocument();
-    if (!inDocument())
-        return;
-
-    if (document()->isHTMLDocument())
-        static_cast<HTMLDocument*>(document())->addNamedItem(m_name);
-
-    String width = getAttribute(widthAttr);
-    String height = getAttribute(heightAttr);
-    if (!width.isEmpty() || !height.isEmpty()) {
-        Node* n = parentNode();
-        while (n && !n->hasTagName(objectTag))
-            n = n->parentNode();
-        if (n) {
-            if (!width.isEmpty())
-                static_cast<HTMLObjectElement*>(n)->setAttribute(widthAttr, width);
-            if (!height.isEmpty())
-                static_cast<HTMLObjectElement*>(n)->setAttribute(heightAttr, height);
-        }
-    }
-}
-
-void HTMLEmbedElement::removedFromDocument()
-{
-    if (document()->isHTMLDocument())
-        static_cast<HTMLDocument*>(document())->removeNamedItem(m_name);
-
-    HTMLPlugInImageElement::removedFromDocument();
-}
-
-void HTMLEmbedElement::attributeChanged(Attribute* attr, bool preserveDecls)
-{
-    HTMLPlugInImageElement::attributeChanged(attr, preserveDecls);
-
-    if ((attr->name() == widthAttr || attr->name() == heightAttr) && !attr->isEmpty()) {
-        ContainerNode* n = parentNode();
-        while (n && !n->hasTagName(objectTag))
-            n = n->parentNode();
-        if (n)
-            static_cast<HTMLObjectElement*>(n)->setAttribute(attr->name(), attr->value());
-    }
+    return HTMLPlugInImageElement::rendererIsNeeded(context);
 }
 
 bool HTMLEmbedElement::isURLAttribute(Attribute* attr) const
 {
-    return attr->name() == srcAttr;
+    return attr->name() == srcAttr || HTMLPlugInImageElement::isURLAttribute(attr);
 }
 
 const QualifiedName& HTMLEmbedElement::imageSourceAttributeName() const
@@ -275,5 +224,17 @@ void HTMLEmbedElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) cons
 
     addSubresourceURL(urls, document()->completeURL(getAttribute(srcAttr)));
 }
+
+#if ENABLE(MICRODATA)
+String HTMLEmbedElement::itemValueText() const
+{
+    return getURLAttribute(srcAttr);
+}
+
+void HTMLEmbedElement::setItemValueText(const String& value, ExceptionCode&)
+{
+    setAttribute(srcAttr, value);
+}
+#endif
 
 }

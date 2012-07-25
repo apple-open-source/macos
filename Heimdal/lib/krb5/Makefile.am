@@ -2,7 +2,7 @@
 
 include $(top_srcdir)/Makefile.am.common
 
-AM_CPPFLAGS += $(INCLUDE_krb4) $(INCLUDE_hcrypto) -I../com_err -I$(srcdir)/../com_err $(INCLUDE_sqlite3) $(INCLUDE_libintl)
+AM_CPPFLAGS += $(INCLUDE_hcrypto) -I../com_err -I$(srcdir)/../com_err $(INCLUDE_sqlite3) $(INCLUDE_libintl)
 
 bin_PROGRAMS = verify_krb5_conf
 
@@ -24,7 +24,6 @@ TESTS =						\
 	aes-test				\
 	derived-key-test			\
 	n-fold-test				\
-	name-45-test				\
 	parse-name-test				\
 	store-test				\
 	string-to-key-test			\
@@ -43,7 +42,10 @@ TESTS =						\
 	test_princ				\
 	test_pkinit_dh2key			\
 	test_pknistkdf				\
-	test_time
+	test_time				\
+	test_x500
+
+check_DATA = test_config_strings.out
 
 check_PROGRAMS = $(TESTS) test_hostname test_ap-req
 
@@ -62,13 +64,28 @@ use_sqlite = $(LIB_sqlite3)
 endif
 
 libkrb5_la_LIBADD = \
+	$(top_builddir)/lib/asn1/libasn1.la \
+	$(top_builddir)/lib/ipc/libheim-ipcc.la \
+	$(top_builddir)/lib/wind/libwind.la \
+	$(top_builddir)/base/libheimbase.la \
 	$(LIB_pkinit) \
 	$(use_sqlite) \
 	$(LIB_com_err) \
 	$(LIB_hcrypto) \
+	$(LIB_libintl) \
+	$(LIBADD_roken) \
+	$(PTHREAD_LIBADD) \
+	$(LIB_door_create) \
+	$(LIB_dlopen)
+
+librfc3961_la_LIBADD = \
 	$(top_builddir)/lib/asn1/libasn1.la \
-	../ipc/libheim-ipcc.la \
-	../wind/libwind.la \
+	$(top_builddir)/lib/ipc/libheim-ipcc.la \
+	$(top_builddir)/lib/wind/libwind.la \
+	$(LIB_pkinit) \
+	$(use_sqlite) \
+	$(LIB_com_err) \
+	$(LIB_hcrypto) \
 	$(LIB_libintl) \
 	$(LIBADD_roken) \
 	$(PTHREAD_LIBADD) \
@@ -100,7 +117,8 @@ libkrb5_la_CPPFLAGS = \
 
 librfc3961_la_CPPFLAGS = \
 	-DBUILD_KRB5_LIB \
-	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS) \
+	-DHEIMDAL_LOCALEDIR='"$(localedir)"'
 
 dist_libkrb5_la_SOURCES =			\
 	acache.c				\
@@ -143,6 +161,7 @@ dist_libkrb5_la_SOURCES =			\
 	error_string.c				\
 	expand_hostname.c			\
 	expand_path.c				\
+	fast.c					\
 	fcache.c				\
 	free.c					\
 	free_host_realm.c			\
@@ -185,6 +204,7 @@ dist_libkrb5_la_SOURCES =			\
 	n-fold.c				\
 	pac.c					\
 	padata.c				\
+	pcache.c				\
 	pkinit.c				\
 	principal.c				\
 	prog_setup.c				\
@@ -218,7 +238,6 @@ dist_libkrb5_la_SOURCES =			\
 	ticket.c				\
 	time.c					\
 	transited.c				\
-	v4_glue.c				\
 	verify_init.c				\
 	verify_user.c				\
 	version.c				\
@@ -228,13 +247,50 @@ dist_libkrb5_la_SOURCES =			\
 nodist_libkrb5_la_SOURCES =			\
 	$(ERR_FILES)
 
+libkrb5_la_DEPENDENCIES =			\
+	version-script.map
+
 libkrb5_la_LDFLAGS = -version-info 26:0:0
 
 if versionscript
 libkrb5_la_LDFLAGS += $(LDFLAGS_VERSION_SCRIPT)$(srcdir)/version-script.map
 endif
 
-$(libkrb5_la_OBJECTS) $(verify_krb5_conf_OBJECTS): $(srcdir)/krb5-protos.h $(srcdir)/krb5-private.h
+$(libkrb5_la_OBJECTS) $(verify_krb5_conf_OBJECTS) $(librfc3961_la_OBJECTS): $(srcdir)/krb5-protos.h $(srcdir)/krb5-private.h krb5_err.h heim_err.h k524_err.h krb5_err.h krb_err.h k524_err.h
+
+librfc3961_la_SOURCES =				\
+	crc.c					\
+	crypto.c				\
+	crypto.h				\
+	crypto-aes.c				\
+	crypto-algs.c				\
+	crypto-arcfour.c			\
+	crypto-des.c				\
+	crypto-des-common.c			\
+	crypto-des3.c				\
+	crypto-evp.c				\
+	crypto-null.c				\
+	crypto-pk.c				\
+	crypto-rand.c				\
+	crypto-stubs.c				\
+	data.c					\
+	error_string.c				\
+	keyblock.c				\
+	n-fold.c				\
+	salt.c					\
+	salt-aes.c				\
+	salt-arcfour.c				\
+	salt-des.c				\
+	salt-des3.c				\
+	store-int.c				\
+	warn.c
+
+test_rfc3961_LDADD = 				\
+	librfc3961.la 				\
+	$(top_builddir)/lib/asn1/libasn1.la	\
+	$(top_builddir)/lib/wind/libwind.la 	\
+	$(LIB_hcrypto)				\
+	$(LIB_roken)
 
 nodist_librfc3961_la_SOURCES =			\
 	crc.c					\
@@ -327,17 +383,18 @@ dist_include_HEADERS = \
 	krb5-private.h \
 	krb5_ccapi.h
 
-nodist_include_HEADERS = krb5_err.h heim_err.h k524_err.h 
+nodist_include_HEADERS = krb5_err.h heim_err.h k524_err.h
 
 # XXX use nobase_include_HEADERS = krb5/locate_plugin.h
 krb5dir = $(includedir)/krb5
-krb5_HEADERS = locate_plugin.h send_to_kdc_plugin.h
+krb5_HEADERS = locate_plugin.h send_to_kdc_plugin.h ccache_plugin.h
 
 build_HEADERZ = \
 	$(krb5_HEADERS) \
 	krb_err.h
 
 CLEANFILES = \
+	test_config_strings.out \
 	test-store-data \
 	krb5_err.c krb5_err.h \
 	krb_err.c krb_err.h \
@@ -346,13 +403,19 @@ CLEANFILES = \
 
 $(libkrb5_la_OBJECTS): krb5_err.h krb_err.h heim_err.h k524_err.h crypto.h
 
+test_config_strings.out: test_config_strings.cfg
+	$(CP) $(srcdir)/test_config_strings.cfg test_config_strings.out
+
 EXTRA_DIST = \
+	NTMakefile \
+	verify_krb5_conf-version.rc \
 	krb5_err.et \
 	krb_err.et \
 	heim_err.et \
 	k524_err.et \
 	$(man_MANS) \
 	version-script.map \
+	test_config_strings.cfg \
 	krb5.moduli
 
 #sysconf_DATA = krb5.moduli

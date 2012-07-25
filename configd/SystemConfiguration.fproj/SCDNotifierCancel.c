@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,25 +56,6 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 		case NotifierNotRegistered :
 			/* if no notifications have been registered */
 			return TRUE;
-		case Using_NotifierInformViaCallback :
-			/* invalidate and release the run loop source */
-			if (storePrivate->callbackRLS != NULL) {
-				CFRunLoopSourceInvalidate(storePrivate->callbackRLS);
-				CFRelease(storePrivate->callbackRLS);
-				storePrivate->callbackRLS = NULL;
-			}
-
-			/* invalidate and release the callback mach port */
-			if (storePrivate->callbackPort != NULL) {
-				__MACH_PORT_DEBUG(TRUE, "*** SCDynamicStoreNotifyCancel", CFMachPortGetPort(storePrivate->callbackPort));
-				CFMachPortInvalidate(storePrivate->callbackPort);
-				CFRelease(storePrivate->callbackPort);
-				storePrivate->callbackPort = NULL;
-			}
-
-			storePrivate->callbackArgument	= NULL;
-			storePrivate->callbackFunction	= NULL;
-			break;
 		case Using_NotifierInformViaRunLoop :
 			CFRunLoopSourceInvalidate(storePrivate->rls);
 			storePrivate->rls = NULL;
@@ -93,21 +74,12 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 	}
 
 	status = notifycancel(storePrivate->server, (int *)&sc_status);
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyCancel notifycancel(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if (((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED))
-		    && __SCDynamicStoreReconnect(store)) {
-			sc_status = kSCStatusOK;
-		} else {
-			sc_status = status;
-		}
+
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreNotifyCancel notifycancel()")) {
+		sc_status = kSCStatusOK;
 	}
 
     done :

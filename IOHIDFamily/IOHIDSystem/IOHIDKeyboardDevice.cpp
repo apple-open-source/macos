@@ -318,7 +318,7 @@ IOHIDKeyboardDevice::newKeyboardDeviceAndStart(IOService * owner, UInt32 locatio
 {
     IOService * provider = owner;
     
-    while (provider = provider->getProvider())
+    while ( NULL != (provider = provider->getProvider()) )
     {
 	if(OSDynamicCast(IOHIDDevice, provider) || OSDynamicCast(IOHIDevice, provider))
             return  0;
@@ -422,9 +422,9 @@ IOReturn IOHIDKeyboardDevice::newReportDescriptor(
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDKeyboardDevice::getReport( IOMemoryDescriptor * report,
-                                 IOHIDReportType      reportType,
-                                 IOOptionBits         options )
+IOReturn IOHIDKeyboardDevice::getReport(IOMemoryDescriptor  *report,
+                                        IOHIDReportType     reportType,
+                                        IOOptionBits        options __unused )
 {
     if (!report)
         return kIOReturnError;
@@ -437,7 +437,7 @@ IOReturn IOHIDKeyboardDevice::getReport( IOMemoryDescriptor * report,
 }
 
 IOReturn IOHIDKeyboardDevice::setReport(IOMemoryDescriptor * report,
-                                        IOHIDReportType      reportType,
+                                        IOHIDReportType      reportType __unused,
                                         IOOptionBits         options )
 {
     UInt8 	ledState;

@@ -26,6 +26,7 @@
 #ifndef Color_h
 #define Color_h
 
+#include "AnimationUtilities.h"
 #include <wtf/FastAllocBase.h>
 #include <wtf/Forward.h>
 #include <wtf/unicode/Unicode.h>
@@ -53,10 +54,6 @@ typedef struct _GdkRGBA GdkRGBA;
 class wxColour;
 #endif
 
-#if PLATFORM(HAIKU)
-struct rgb_color;
-#endif
-
 namespace WebCore {
 
 class Color;
@@ -82,7 +79,7 @@ class Color {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     Color() : m_color(0), m_valid(false) { }
-    Color(RGBA32 col) : m_color(col), m_valid(true) { }
+    Color(RGBA32 color, bool valid = true) : m_color(color), m_valid(valid) { ASSERT(!m_color || m_valid); }
     Color(int r, int g, int b) : m_color(makeRGB(r, g, b)), m_valid(true) { }
     Color(int r, int g, int b, int a) : m_color(makeRGBA(r, g, b, a)), m_valid(true) { }
     // Color is currently limited to 32bit RGBA, perhaps some day we'll support better colors
@@ -148,11 +145,6 @@ public:
     Color(CGColorRef);
 #endif
 
-#if PLATFORM(HAIKU)
-    Color(const rgb_color&);
-    operator rgb_color() const;
-#endif
-
     static bool parseHexColor(const String& name, RGBA32& rgb);
     static bool parseHexColor(const UChar* name, unsigned length, RGBA32& rgb);
 
@@ -180,6 +172,32 @@ inline bool operator!=(const Color& a, const Color& b)
 
 Color colorFromPremultipliedARGB(unsigned);
 unsigned premultipliedARGBFromColor(const Color&);
+
+inline Color blend(const Color& from, const Color& to, double progress, bool blendPremultiplied = true)
+{
+    // We need to preserve the state of the valid flag at the end of the animation
+    if (progress == 1 && !to.isValid())
+        return Color();
+    
+    if (blendPremultiplied) {
+        // Contrary to the name, RGBA32 actually stores ARGB, so we can initialize Color directly from premultipliedARGBFromColor().
+        // Also, premultipliedARGBFromColor() bails on zero alpha, so special-case that.
+        Color premultFrom = from.alpha() ? premultipliedARGBFromColor(from) : 0;
+        Color premultTo = to.alpha() ? premultipliedARGBFromColor(to) : 0;
+
+        Color premultBlended(blend(premultFrom.red(), premultTo.red(), progress),
+                     blend(premultFrom.green(), premultTo.green(), progress),
+                     blend(premultFrom.blue(), premultTo.blue(), progress),
+                     blend(premultFrom.alpha(), premultTo.alpha(), progress));
+
+        return Color(colorFromPremultipliedARGB(premultBlended.rgb()));
+    }
+
+    return Color(blend(from.red(), to.red(), progress),
+                 blend(from.green(), to.green(), progress),
+                 blend(from.blue(), to.blue(), progress),
+                 blend(from.alpha(), to.alpha(), progress));
+}
 
 #if USE(CG)
 CGColorRef cachedCGColor(const Color&, ColorSpace);

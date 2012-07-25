@@ -31,8 +31,23 @@ namespace WebCore {
 
 namespace VectorMath {
 
+// Vector scalar multiply and then add.
+void vsma(const float* sourceP, int sourceStride, const float* scale, float* destP, int destStride, size_t framesToProcess);
+
 void vsmul(const float* sourceP, int sourceStride, const float* scale, float* destP, int destStride, size_t framesToProcess);
 void vadd(const float* source1P, int sourceStride1, const float* source2P, int sourceStride2, float* destP, int destStride, size_t framesToProcess);
+
+// Finds the maximum magnitude of a float vector.
+void vmaxmgv(const float* sourceP, int sourceStride, float* maxP, size_t framesToProcess);
+
+// Sums the squares of a float vector's elements.
+void vsvesq(const float* sourceP, int sourceStride, float* sumP, size_t framesToProcess);
+
+// For an element-by-element multiply of two float vectors.
+void vmul(const float* source1P, int sourceStride1, const float* source2P, int sourceStride2, float* destP, int destStride, size_t framesToProcess);
+
+// Multiplies two complex vectors.
+void zvmul(const float* real1P, const float* imag1P, const float* real2P, const float* imag2P, float* realDestP, float* imagDestP, size_t framesToProcess);
 
 } // namespace VectorMath
 

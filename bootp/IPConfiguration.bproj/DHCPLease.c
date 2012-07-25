@@ -131,7 +131,8 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict)
     lease_p->lease_length = lease_time;
 
     /* get the IP address */
-    lease_p->our_ip = ((struct dhcp *)lease_p->pkt)->dp_yiaddr;
+    /* ALIGN: lease_p->pkt is aligned, cast ok. */
+    lease_p->our_ip = ((struct dhcp *)(void *)lease_p->pkt)->dp_yiaddr;
 
     /* get the router information */
     if (router_p != NULL) {

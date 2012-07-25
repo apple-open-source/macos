@@ -63,9 +63,9 @@ _gss_ntlm_create_name(OM_uint32 *minor_status,
 
 static OM_uint32
 anon_name(OM_uint32 *minor_status,
-	  const gss_OID mech,
+	  gss_const_OID mech,
 	  const gss_buffer_t input_name_buffer,
-	  const gss_OID input_name_type,
+	  gss_const_OID input_name_type,
 	  gss_name_t *output_name)
 {
     *output_name = _gss_ntlm_create_name(minor_status, "", "", NTLM_ANON_NAME);
@@ -76,9 +76,9 @@ anon_name(OM_uint32 *minor_status,
 
 static OM_uint32
 hostbased_name(OM_uint32 *minor_status,
-	       const gss_OID mech,
+	       gss_const_OID mech,
 	       const gss_buffer_t input_name_buffer,
-	       const gss_OID input_name_type,
+	       gss_const_OID input_name_type,
 	       gss_name_t *output_name)
 {
     char *name, *p;
@@ -93,12 +93,12 @@ hostbased_name(OM_uint32 *minor_status,
 
     /* find "domain" part of the name and uppercase it */
     p = strchr(name, '@');
-    if (p == NULL) {
-        free(name);
-	return GSS_S_BAD_NAME;
+    if (p) {
+	p[0] = '\0';
+	p++;
+    } else {
+	p = "";
     }
-    p[0] = '\0';
-    p++;
 
     *output_name = _gss_ntlm_create_name(minor_status, name, p, 0);
     free(name);
@@ -110,10 +110,10 @@ hostbased_name(OM_uint32 *minor_status,
 
 static OM_uint32
 parse_name(OM_uint32 *minor_status,
-	   const gss_OID mech,
+	   gss_const_OID mech,
 	   int domain_required,
 	   const gss_buffer_t input_name_buffer,
-	   const gss_OID input_name_type,
+	   gss_const_OID input_name_type,
 	   gss_name_t *output_name)
 {
     char *name, *p, *user, *domain;
@@ -157,9 +157,9 @@ parse_name(OM_uint32 *minor_status,
 
 static OM_uint32
 user_name(OM_uint32 *minor_status,
-	  const gss_OID mech,
+	  gss_const_OID mech,
 	  const gss_buffer_t input_name_buffer,
-	  const gss_OID input_name_type,
+	  gss_const_OID input_name_type,
 	  gss_name_t *output_name)
 {
     return parse_name(minor_status, mech, 0, input_name_buffer, input_name_type, output_name);
@@ -167,9 +167,9 @@ user_name(OM_uint32 *minor_status,
 
 static OM_uint32
 parse_ntlm_name(OM_uint32 *minor_status,
-		const gss_OID mech,
+		gss_const_OID mech,
 		const gss_buffer_t input_name_buffer,
-		const gss_OID input_name_type,
+		gss_const_OID input_name_type,
 		gss_name_t *output_name)
 {
     return parse_name(minor_status, mech, 1, input_name_buffer, input_name_type, output_name);
@@ -177,9 +177,9 @@ parse_ntlm_name(OM_uint32 *minor_status,
 
 static OM_uint32
 export_name(OM_uint32 *minor_status,
-	    const gss_OID mech,
+	    gss_const_OID mech,
 	    const gss_buffer_t input_name_buffer,
-	    const gss_OID input_name_type,
+	    gss_const_OID input_name_type,
 	    gss_name_t *output_name)
 {
     return parse_name(minor_status, mech, 1, input_name_buffer, input_name_type, output_name);
@@ -198,7 +198,7 @@ static struct _gss_name_type ntlm_names[] = {
 OM_uint32 _gss_ntlm_import_name
            (OM_uint32 * minor_status,
             const gss_buffer_t input_name_buffer,
-            const gss_OID input_name_type,
+            gss_const_OID input_name_type,
             gss_name_t * output_name
            )
 {
@@ -209,7 +209,7 @@ OM_uint32 _gss_ntlm_import_name
 
 OM_uint32 _gss_ntlm_inquire_names_for_mech (
             OM_uint32 * minor_status,
-            const gss_OID mechanism,
+            gss_const_OID mechanism,
             gss_OID_set * name_types
            )
 {

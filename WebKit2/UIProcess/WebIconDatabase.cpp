@@ -33,6 +33,7 @@
 #include <WebCore/FileSystem.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/IconDatabaseBase.h>
+#include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
@@ -132,9 +133,14 @@ void WebIconDatabase::synchronousIconDataForPageURL(const String&, CoreIPC::Data
     iconData = CoreIPC::DataReference();
 }
 
-void WebIconDatabase::synchronousIconURLForPageURL(const String&, String& iconURL)
+void WebIconDatabase::synchronousIconURLForPageURL(const String& pageURL, String& iconURL)
 {
-    iconURL = String();
+    if (!m_iconDatabaseImpl) {
+        iconURL = String();
+        return;
+    }
+
+    iconURL = m_iconDatabaseImpl->synchronousIconURLForPageURL(pageURL);
 }
 
 void WebIconDatabase::synchronousIconDataKnownForIconURL(const String&, bool& iconDataKnown) const
@@ -174,14 +180,14 @@ void WebIconDatabase::getLoadDecisionForIconURL(const String& iconURL, uint64_t 
     m_webContext->sendToAllProcesses(Messages::WebIconDatabaseProxy::ReceivedIconLoadDecision((int)decision, callbackID));
 }
 
-Image* WebIconDatabase::imageForPageURL(const String& pageURL)
+Image* WebIconDatabase::imageForPageURL(const String& pageURL, const WebCore::IntSize& iconSize)
 {
     if (!m_webContext || !m_iconDatabaseImpl || !m_iconDatabaseImpl->isOpen() || pageURL.isEmpty())
         return 0;    
 
     // The WebCore IconDatabase ignores the passed in size parameter.
     // If that changes we'll need to rethink how this API is exposed.
-    return m_iconDatabaseImpl->synchronousIconForPageURL(pageURL, WebCore::IntSize(32, 32));
+    return m_iconDatabaseImpl->synchronousIconForPageURL(pageURL, iconSize);
 }
 
 void WebIconDatabase::removeAllIcons()
@@ -264,9 +270,9 @@ void WebIconDatabase::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC
     didReceiveWebIconDatabaseMessage(connection, messageID, decoder);
 }
 
-CoreIPC::SyncReplyMode WebIconDatabase::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* decoder, CoreIPC::ArgumentEncoder* reply)
+void WebIconDatabase::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* decoder, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
 {
-    return didReceiveSyncWebIconDatabaseMessage(connection, messageID, decoder, reply);
+    didReceiveSyncWebIconDatabaseMessage(connection, messageID, decoder, reply);
 }
 
 } // namespace WebKit

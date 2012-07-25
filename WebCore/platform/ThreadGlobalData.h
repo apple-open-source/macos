@@ -30,6 +30,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/text/StringHash.h>
 
 #if ENABLE(WORKERS)
@@ -41,10 +42,12 @@ using WTF::ThreadSpecific;
 namespace WebCore {
 
     class EventNames;
-    struct ICUConverterWrapper;
-    struct TECConverterWrapper;
+    class ThreadLocalInspectorCounters;
     class ThreadTimers;
     class XMLMIMETypeRegExp;
+
+    struct ICUConverterWrapper;
+    struct TECConverterWrapper;
 
     class ThreadGlobalData {
         WTF_MAKE_NONCOPYABLE(ThreadGlobalData);
@@ -55,7 +58,7 @@ namespace WebCore {
 
         EventNames& eventNames() { return *m_eventNames; }
         ThreadTimers& threadTimers() { return *m_threadTimers; }
-        XMLMIMETypeRegExp& xmlTypeRegExp() { return *m_xmlTypeRegExp; } 
+        XMLMIMETypeRegExp& xmlTypeRegExp() { return *m_xmlTypeRegExp; }
 
 #if USE(ICU_UNICODE)
         ICUConverterWrapper& cachedConverterICU() { return *m_cachedConverterICU; }
@@ -65,21 +68,29 @@ namespace WebCore {
         TECConverterWrapper& cachedConverterTEC() { return *m_cachedConverterTEC; }
 #endif
 
+#if ENABLE(INSPECTOR)
+        ThreadLocalInspectorCounters& inspectorCounters() { return *m_inspectorCounters; }
+#endif
+
     private:
-        EventNames* m_eventNames;
-        ThreadTimers* m_threadTimers;
-        XMLMIMETypeRegExp* m_xmlTypeRegExp; 
+        OwnPtr<EventNames> m_eventNames;
+        OwnPtr<ThreadTimers> m_threadTimers;
+        OwnPtr<XMLMIMETypeRegExp> m_xmlTypeRegExp;
 
 #ifndef NDEBUG
         bool m_isMainThread;
 #endif
 
 #if USE(ICU_UNICODE)
-        ICUConverterWrapper* m_cachedConverterICU;
+        OwnPtr<ICUConverterWrapper> m_cachedConverterICU;
 #endif
 
 #if PLATFORM(MAC)
-        TECConverterWrapper* m_cachedConverterTEC;
+        OwnPtr<TECConverterWrapper> m_cachedConverterTEC;
+#endif
+
+#if ENABLE(INSPECTOR)
+        OwnPtr<ThreadLocalInspectorCounters> m_inspectorCounters;
 #endif
 
 #if ENABLE(WORKERS)

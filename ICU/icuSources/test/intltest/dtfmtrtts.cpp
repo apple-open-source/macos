@@ -125,6 +125,7 @@ void DateFormatRoundTripTest::TestCentury()
 }
 
 // ==
+
 void DateFormatRoundTripTest::TestDateFormatRoundTrip() 
 {
     UErrorCode status = U_ZERO_ERROR;

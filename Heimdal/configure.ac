@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_REVISION($Revision$)
 AC_PREREQ(2.62)
 test -z "$CFLAGS" && CFLAGS="-g"
-AC_INIT([Heimdal],[1.3.99],[heimdal-bugs@h5l.org])
+AC_INIT([Heimdal],[1.5.99],[heimdal-bugs@h5l.org])
 AC_CONFIG_SRCDIR([kuser/kinit.c])
 AC_CONFIG_HEADERS(include/config.h)
 AC_CONFIG_MACRO_DIR([cf])
@@ -88,6 +88,9 @@ else
 
    ASN1_COMPILE_DEP=
    SLC_DEP=
+
+   ac_cv_prog_COMPILE_ET=${with_cross_tools}compile_et
+
 fi
 
 AC_SUBST([ASN1_COMPILE])
@@ -139,13 +142,6 @@ if test "$enable_kx509" != no ;then
 	AC_DEFINE([KX509], 1, [Define to enable kx509.])
 fi
 
-AC_ARG_ENABLE(krb4, 
-	AS_HELP_STRING([--disable-krb4],
-		[if you want disable to krb4 support]))
-if test "$enable_krb4" != no ;then
-	AC_DEFINE([KRB4], 1, [Define to enable Kerberos 4.])
-fi
-
 dnl Need to test if pkg-config exists
 PKG_PROG_PKG_CONFIG
 
@@ -179,6 +175,8 @@ if test "X$with_sqlite3" != Xyes ; then
 fi
 AM_CONDITIONAL(SQLITE3,  test "X$with_sqlite3" = Xyes)
 
+AC_DEFINE(HAVE_SQLITE3, 1, [Define if you want support for sqlite in Heimdal.])
+
 AC_ARG_ENABLE(sqlite-cache, 
 	AS_HELP_STRING([--disable-sqlite-cache],[if you want support for cache in sqlite]))
 if test "$enable_sqlite_cache" != no; then
@@ -200,12 +198,6 @@ AC_ARG_WITH([hdbdir],
 DIR_hdbdir="$with_hdbdir"
 AC_SUBST([DIR_hdbdir])
 
-
-dnl no kerberos4 any more
-with_krb4=no
-AC_SUBST(INCLUDE_krb4)
-AC_SUBST(LIB_krb4)
-AM_CONDITIONAL(KRB4, false)
 
 AM_CONDITIONAL(KRB5, true)
 AM_CONDITIONAL(do_roken_rename, true)
@@ -245,6 +237,7 @@ AC_ARG_ENABLE([afs-support],
 	AS_HELP_STRING([--disable-afs-support],[if you don't want support for AFS]))
 if test "$enable_afs_support" = no; then
 	AC_DEFINE(NO_AFS, 1, [Define if you don't wan't support for AFS.])
+	NO_AFS="1"
 fi
 AC_SUBST(NO_AFS)dnl
 
@@ -283,7 +276,23 @@ rk_CHECK_MAN
 
 rk_TEST_PACKAGE(readline,
 [#include <stdio.h>
- #include <readline.h>],-lreadline,,, READLINE)
+#if defined(HAVE_READLINE_READLINE_H)
+#include <readline/readline.h>
+#elif defined(HAVE_READLINE_H)
+#include <readline.h>
+#endif
+],-lreadline,,, READLINE,, [readline.h readline/readline.h])
+
+rk_TEST_PACKAGE(libedit,
+[#include <stdio.h>
+#if defined(HAVE_READLINE_READLINE_H)
+#include <readline/readline.h>
+#elif defined(HAVE_READLINE_H)
+#include <readline.h>
+#endif
+],-ledit,,, READLINE,, [readline.h readline/readline.h])
+
+AC_CONFIG_SUBDIRS([lib/libedit])
 
 rk_TEST_PACKAGE(hesiod,[#include <hesiod.h>],-lhesiod,,, HESIOD)
 
@@ -312,12 +321,14 @@ AC_HEADER_STDC
 
 AC_CHECK_HEADERS([\
 	CommonCrypto/CommonDigest.h		\
+	CommonCrypto/CommonCryptor.h		\
 	arpa/ftp.h				\
 	arpa/telnet.h				\
 	bind/bitypes.h				\
 	bsdsetjmp.h				\
 	curses.h				\
 	dlfcn.h					\
+	execinfo.h				\
 	fnmatch.h				\
 	inttypes.h				\
 	io.h					\
@@ -445,6 +456,7 @@ AC_CHECK_FUNCS([				\
 	_getpty					\
 	_scrsize				\
 	arc4random				\
+	backtrace				\
 	fcntl					\
 	getpeereid				\
 	getpeerucred				\
@@ -473,6 +485,15 @@ AC_CHECK_FUNCS([				\
 	vhangup					\
 	yp_get_default_domain			\
 ])
+
+AC_MSG_CHECKING([checking for __sync_add_and_fetch])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>]],
+	[[unsigned int foo; __sync_add_and_fetch(&foo, 1);]])],
+	[ac_rk_have___sync_add_and_fetch=yes], [ac_rk_have___sync_add_and_fetch=no])
+if test "$ac_rk_have___sync_add_and_fetch" = "yes" ; then
+	AC_DEFINE_UNQUOTED(HAVE___SYNC_ADD_AND_FETCH, 1, [have __sync_add_and_fetch])
+fi
+AC_MSG_RESULT($ac_rk_have___sync_add_and_fetch)
 
 AC_FUNC_MMAP
 
@@ -520,6 +541,13 @@ AC_HAVE_STRUCT_FIELD(struct utmp, ut_id, [#include <utmp.h>])
 AC_HAVE_STRUCT_FIELD(struct utmp, ut_pid, [#include <utmp.h>])
 AC_HAVE_STRUCT_FIELD(struct utmp, ut_type, [#include <utmp.h>])
 AC_HAVE_STRUCT_FIELD(struct utmp, ut_user, [#include <utmp.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_host, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_id, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_line, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_pid, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_tv, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_type, [#include <utmpx.h>])
+AC_HAVE_STRUCT_FIELD(struct utmpx, ut_user, [#include <utmpx.h>])
 AC_HAVE_STRUCT_FIELD(struct utmpx, ut_exit, [#include <utmpx.h>])
 AC_HAVE_STRUCT_FIELD(struct utmpx, ut_syslen, [#include <utmpx.h>])
 
@@ -559,9 +587,18 @@ rk_DESTDIRS
 rk_WFLAGS([-Wall -Wmissing-prototypes -Wpointer-arith -Wbad-function-cast -Wmissing-declarations -Wnested-externs])
 
 
+AH_BOTTOM([#ifdef __APPLE__
+#include <AvailabilityMacros.h>
+#endif])
+
 AH_BOTTOM([#ifdef ROKEN_RENAME
 #include "roken_rename.h"
 #endif])
+
+AC_ARG_ENABLE(heimdal-documentation,
+	AS_HELP_STRING([--disable-heimdal-documentation],
+		[if you want disable to heimdal documentation]))
+AM_CONDITIONAL(HEIMDAL_DOCUMENTATION, test "$enable_heimdal_documentation" != no)
 
 AC_CONFIG_FILES(Makefile 		\
 	etc/Makefile			\
@@ -570,14 +607,10 @@ AC_CONFIG_FILES(Makefile 		\
 	include/hcrypto/Makefile	\
 	include/kadm5/Makefile		\
 	lib/Makefile			\
-	lib/auth/Makefile		\
-	lib/auth/afskauthlib/Makefile	\
-	lib/auth/pam/Makefile		\
-	lib/auth/sia/Makefile		\
+	base/Makefile			\
 	lib/asn1/Makefile		\
 	lib/com_err/Makefile		\
 	lib/hcrypto/Makefile		\
-	lib/editline/Makefile		\
 	lib/hx509/Makefile		\
 	lib/gssapi/Makefile		\
 	lib/ntlm/Makefile		\

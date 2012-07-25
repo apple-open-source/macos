@@ -24,8 +24,12 @@
  */
 
 #include "config.h"
+
+#if ENABLE(CONTEXT_MENUS)
+
 #include "WebContextMenuClient.h"
 
+#include "WebContextMenu.h"
 #include "WebContextMenuItemData.h"
 #include "WebPage.h"
 #include <WebCore/ContextMenu.h>
@@ -83,8 +87,16 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
 
     if (Page* page = frame->page()) {
         UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
-        page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, SendReferrer);
+        page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, MaybeSendReferrer);
     }
 }
 
+#if USE(ACCESSIBILITY_CONTEXT_MENUS)
+void WebContextMenuClient::showContextMenu()
+{
+    m_page->contextMenu()->show();
+}
+#endif
+
 } // namespace WebKit
+#endif // ENABLE(CONTEXT_MENUS)

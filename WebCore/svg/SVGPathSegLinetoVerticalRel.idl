@@ -26,7 +26,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGPathSegLinetoVerticalRel : SVGPathSeg {
+    interface [
+        Conditional=SVG
+    ] SVGPathSegLinetoVerticalRel : SVGPathSeg {
         attribute [StrictTypeChecking] float y;
     };
 

@@ -33,11 +33,13 @@ public:
         return adoptRef(new CSSInheritedValue);
     }
 
-    virtual String cssText() const;
+    String customCssText() const;
 
 private:
-    CSSInheritedValue() { }
-    virtual unsigned short cssValueType() const;
+    CSSInheritedValue()
+        : CSSValue(InheritedClass)
+    {
+    }
 };
 
 } // namespace WebCore

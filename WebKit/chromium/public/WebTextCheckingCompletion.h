@@ -31,7 +31,7 @@
 #ifndef WebTextCheckingCompletion_h
 #define WebTextCheckingCompletion_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -42,6 +42,7 @@ template <typename T> class WebVector;
 class WebTextCheckingCompletion {
 public:
     virtual void didFinishCheckingText(const WebVector<WebTextCheckingResult>&) = 0;
+    virtual void didCancelCheckingText() { };
 protected:
     ~WebTextCheckingCompletion() { }
 };

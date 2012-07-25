@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
 
 #ifdef TESTING
 #include "util.h"
-#endif TESTING
+#endif /* TESTING */
 
 int
 bpf_set_timeout(int fd, struct timeval * tv_p)
@@ -73,6 +73,10 @@ bpf_new()
 	snprintf(bpfdev, sizeof(bpfdev), "/dev/bpf%d", i);
 	fd = open(bpfdev, O_RDWR , 0);
 	if (fd >= 0) {
+#ifdef SO_TC_CTL
+	    int tc = SO_TC_CTL;
+	    (void) ioctl(fd, BIOCSETTC, &tc);
+#endif /* SO_TC_CTL */
 	    break;
 	}
 	if (errno != EBUSY) {
@@ -190,4 +194,4 @@ main(int argc, char * argv[])
     exit(0);
     return (0);
 }
-#endif TESTING
+#endif /* TESTING */

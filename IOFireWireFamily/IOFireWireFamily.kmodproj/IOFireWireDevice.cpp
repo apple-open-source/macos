@@ -568,7 +568,7 @@ void IOFireWireDevice::terminateDevice(void *refcon)
 
 void IOFireWireDevice::free()
 {
-	FWKLOG(( "IOFireWireDevice@0x%08lx::free()\n", (UInt32)this ));		
+	FWKLOG(( "IOFireWireDevice@%p::free()\n", this ));		
     
 	if( fDeviceROM )
 	{
@@ -680,7 +680,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
     }
 
 	
-	FWKLOG(( "IOFireWireDevice@0x%08lx::setNodeROM entered with nodeID = 0x%04x\n", (UInt32)this, fNodeID ));
+	FWKLOG(( "IOFireWireDevice@%p::setNodeROM entered with nodeID = 0x%04x\n", this, fNodeID ));
 	
 	prop = OSNumber::withNumber( fNodeID, 16 );
     setProperty( gFireWireNodeID, prop );
@@ -746,7 +746,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 		IOLog("IOFireWireDevice, ROM unchanged 0x%p\n", this);
 		#endif
 		
-		FWKLOG(( "IOFireWireDevice@0x%08lx::setNodeROM exited - ROM unchanged\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireDevice@%p::setNodeROM exited - ROM unchanged\n", this ));
 	
 		return;		// ROM unchanged, node resumed
 	}
@@ -835,7 +835,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 	}
 	
 			
-	FWKLOG(( "IOFireWireDevice@0x%08lx::setNodeROM exited\n", (UInt32)this ));	
+	FWKLOG(( "IOFireWireDevice@%p::setNodeROM exited\n", this ));	
 }
 
 void IOFireWireDevice::readROMDirGlue(void *refcon, IOReturn status,
@@ -896,7 +896,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 	fControl->openGate();
 
 
-	FWKLOG(( "IOFireWireDevice@0x%08lx::processROM generation %ld entered\n", (UInt32)this, generation ));
+	FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld entered\n", this, generation ));
 
 	//
 	// bail if we're on a ROM scan thread for a different generation
@@ -904,7 +904,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 	
 	if( romScan->fROMGeneration != generation )
 	{
-		FWKLOG(( "IOFireWireDevice@0x%08lx::processROM generation %ld != romScan->fROMGeneration\n", (UInt32)this, generation ));
+		FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld != romScan->fROMGeneration\n", this, generation ));
 		status = kIOReturnError;
 	}
 	
@@ -1062,7 +1062,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 		rom->release();
 	}
 	
-	FWKLOG(( "IOFireWireDevice@0x%08lx::processROM generation %ld exited\n", (UInt32)this, generation ));
+	FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld exited\n", this, generation ));
 }
 
 // preprocessDirectories
@@ -1284,7 +1284,7 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 	OSString * modelName = NULL;
 	OSString * vendorName = NULL;
 
-	FWKLOG(( "IOFireWireDevice@0x%08lx::readRootDirectory entered\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireDevice@%p::readRootDirectory entered\n", this ));
 	
 	//
 	// read device keys
@@ -1396,7 +1396,7 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 		vendorName->release();
 	}
 	
-	FWKLOG(( "IOFireWireDevice@0x%08lx::readRootDirectory returned status = 0x%08lx\n", (UInt32)this, (UInt32)status ));
+	FWKLOG(( "IOFireWireDevice@%p::readRootDirectory returned status = 0x%08lx\n", this, (UInt32)status ));
 		
 	return status;
 }
@@ -1446,7 +1446,7 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 
 	OSString *		modelName = NULL;
 
-	FWKLOG(( "IOFireWireDevice@0x%08lx::readUnitDirectory entered\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireDevice@%p::readUnitDirectory entered\n", this ));
 
 	if( status == kIOReturnSuccess )
 	{
@@ -1593,7 +1593,7 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 		}
 	}
 
-	FWKLOG(( "IOFireWireDevice@0x%08lx::readUnitDirectory returned status = 0x%08lx\n", (UInt32)this, (UInt32)status ));
+	FWKLOG(( "IOFireWireDevice@%p::readUnitDirectory returned status = 0x%08lx\n", this, (UInt32)status ));
 	
 	return status;
 }

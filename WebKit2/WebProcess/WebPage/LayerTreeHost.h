@@ -26,18 +26,25 @@
 #ifndef LayerTreeHost_h
 #define LayerTreeHost_h
 
+#include "LayerTreeContext.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
+namespace CoreIPC {
+class ArgumentDecoder;
+class Connection;
+class MessageID;
+}
+
 namespace WebCore {
-    class IntRect;
-    class IntSize;
-    class GraphicsLayer;
+class FloatPoint;
+class IntRect;
+class IntSize;
+class GraphicsLayer;
 }
 
 namespace WebKit {
 
-class LayerTreeContext;
 class UpdateInfo;
 class WebPage;
 
@@ -68,28 +75,39 @@ public:
     virtual void didInstallPageOverlay() = 0;
     virtual void didUninstallPageOverlay() = 0;
     virtual void setPageOverlayNeedsDisplay(const WebCore::IntRect&) = 0;
+    virtual void setPageOverlayOpacity(float) { }
+    virtual bool pageOverlayShouldApplyFadeWhenPainting() const { return true; }
 
     virtual void pauseRendering() { }
     virtual void resumeRendering() { }
 
-    // If a derived class overrides this function to return true, the derived class must also
-    // override the functions beneath it.
-    virtual bool participatesInDisplay() { return false; }
-    virtual bool needsDisplay() { ASSERT_NOT_REACHED(); return false; }
-    virtual double timeUntilNextDisplay() { ASSERT_NOT_REACHED(); return 0; }
-    virtual void display(UpdateInfo&) { ASSERT_NOT_REACHED(); }
+#if USE(UI_SIDE_COMPOSITING)
+    virtual void setVisibleContentsRect(const WebCore::IntRect&, float scale, const WebCore::FloatPoint&) { }
+    virtual void setVisibleContentsRectForLayer(int layerID, const WebCore::IntRect&) { }
+    virtual void renderNextFrame() { }
+    virtual void purgeBackingStores() { }
+    virtual void didReceiveLayerTreeHostMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
+#endif
 
 #if PLATFORM(WIN)
     virtual void scheduleChildWindowGeometryUpdate(const WindowGeometry&) = 0;
+#endif
+
+#if PLATFORM(MAC)
+    virtual void setLayerHostingMode(LayerHostingMode) { }
 #endif
 
 protected:
     explicit LayerTreeHost(WebPage*);
 
     WebPage* m_webPage;
+
+#if USE(UI_SIDE_COMPOSITING)
+    bool m_waitingForUIProcess;
+#endif
 };
 
-#if !PLATFORM(WIN)
+#if !PLATFORM(WIN) && !PLATFORM(QT)
 inline bool LayerTreeHost::supportsAcceleratedCompositing()
 {
     return true;

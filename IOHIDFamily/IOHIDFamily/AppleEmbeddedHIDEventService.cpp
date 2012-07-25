@@ -71,9 +71,9 @@ void AppleEmbeddedHIDEventService::dispatchAccelerometerEvent(AbsoluteTime times
 //====================================================================================================
 // AppleEmbeddedHIDEventService::dispatchGyroEvent
 //====================================================================================================
-void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOFixed qx, IOFixed qy, IOFixed qz, IOFixed qw, IOOptionBits options)
+void AppleEmbeddedHIDEventService::dispatchGyroEvent(AbsoluteTime timestamp, IOFixed x, IOFixed y, IOFixed z, IOHIDGyroType type, IOHIDGyroSubType subType, IOOptionBits options)
 {
-    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, qx, qy, qz, qw, options);
+    IOHIDEvent * event = IOHIDEvent::gyroEvent(timestamp, x, y, z, type, subType, options);
     
     if ( event ) {
         dispatchEvent(event);
@@ -126,6 +126,19 @@ void AppleEmbeddedHIDEventService::dispatchAmbientLightSensorEvent(AbsoluteTime 
 void AppleEmbeddedHIDEventService::dispatchTemperatureEvent(AbsoluteTime timestamp, IOFixed temperature, IOOptionBits options)
 {
     IOHIDEvent * event = IOHIDEvent::temperatureEvent(timestamp, temperature, options);
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+}
+
+//====================================================================================================
+// AppleEmbeddedHIDEventService::dispatchPowerEvent
+//====================================================================================================
+void AppleEmbeddedHIDEventService::dispatchPowerEvent(AbsoluteTime timestamp, IOFixed measurement, IOHIDPowerType powerType, IOHIDPowerSubType powerSubType, IOOptionBits options)
+{
+    IOHIDEvent * event = IOHIDEvent::powerEvent(timestamp, measurement, powerType, powerSubType, options);
     
     if ( event ) {
         dispatchEvent(event);

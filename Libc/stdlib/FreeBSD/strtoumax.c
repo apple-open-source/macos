@@ -33,6 +33,8 @@ static char sccsid[] = "from @(#)strtoul.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoumax.c,v 1.11 2007/01/09 00:28:10 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -45,7 +47,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoumax.c,v 1.11 2007/01/09 00:28:10 i
  * alphabets and digits are each contiguous.
  */
 uintmax_t
-strtoumax(const char * __restrict nptr, char ** __restrict endptr, int base)
+strtoumax_l(const char * __restrict nptr, char ** __restrict endptr, int base,
+    locale_t loc)
 {
 	const char *s;
 	uintmax_t acc;
@@ -53,13 +56,14 @@ strtoumax(const char * __restrict nptr, char ** __restrict endptr, int base)
 	uintmax_t cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * See strtoimax for comments as to the logic used.
 	 */
 	s = nptr;
 	do {
 		c = *s++;
-	} while (isspace((unsigned char)c));
+	} while (isspace_l((unsigned char)c, loc));
 	if (c == '-') {
 		neg = 1;
 		c = *s++;
@@ -115,4 +119,10 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (char *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+uintmax_t
+strtoumax(const char * __restrict nptr, char ** __restrict endptr, int base)
+{
+	return strtoumax_l(nptr, endptr, base, __current_locale());
 }

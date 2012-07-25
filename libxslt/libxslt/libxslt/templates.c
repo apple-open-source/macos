@@ -279,7 +279,17 @@ xsltAttrTemplateValueProcessNode(xsltTransformContextPtr ctxt,
 	    ret = xmlStrncat(ret, str, cur - str);
 	    str = cur;
 	    cur++;
-	    while ((*cur != 0) && (*cur != '}')) cur++;
+	    while ((*cur != 0) && (*cur != '}')) {
+		/* Need to check for literal (bug539741) */
+		if ((*cur == '\'') || (*cur == '"')) {
+		    char delim = *(cur++);
+		    while ((*cur != 0) && (*cur != delim))
+			cur++;
+		    if (*cur != 0)
+			cur++;	/* skip the ending delimiter */
+		} else
+		    cur++;
+            }
 	    if (*cur == 0) {
 	        xsltTransformError(ctxt, NULL, inst,
 			"xsltAttrTemplateValueProcessNode: unmatched '{'\n");
@@ -637,7 +647,7 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
 	    last = last->next;
     } else {
 	last = NULL;
-    }    
+    }
     attr = attrs;
     do {
 	/*
@@ -719,20 +729,20 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
 		copyNs = NULL;
 	}
 	copy->ns = copyNs;
-	
+
 	/*
 	* Set the value.
-	*/	    
+	*/
 	text = xmlNewText(NULL);
 	if (text != NULL) {
 	    copy->last = copy->children = text;
 	    text->parent = (xmlNodePtr) copy;
 	    text->doc = copy->doc;
-	    
+
 	    if (attr->psvi != NULL) {
 		/*
 		* Evaluate the Attribute Value Template.
-		*/		
+		*/
 		valueAVT = xsltEvalAVT(ctxt, attr->psvi, attr->parent);
 		if (valueAVT == NULL) {
 		    /*
@@ -743,7 +753,7 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
 			xsltTransformError(ctxt, NULL, attr->parent,
 			    "Internal error: Failed to evaluate the AVT "
 			    "of attribute '{%s}%s'.\n",
-			    attr->ns->href, attr->name);			    
+			    attr->ns->href, attr->name);
 		    } else {
 			xsltTransformError(ctxt, NULL, attr->parent,
 			    "Internal error: Failed to evaluate the AVT "
@@ -763,6 +773,9 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
 	    } else {
 		text->content = xmlStrdup(value);
 	    }
+            if ((copy != NULL) && (text != NULL) &&
+                (xmlIsID(copy->doc, copy->parent, copy)))
+                xmlAddID(NULL, copy->doc, text->content, copy);
 	}
 
 next_attribute:

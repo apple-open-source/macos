@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,6 +72,7 @@ establishNewPreferences()
 {
 	CFBundleRef     bundle;
 	SCNetworkSetRef	current		= NULL;
+	CFStringRef	new_model;
 	Boolean		ok		= FALSE;
 	int		sc_status	= kSCStatusFailed;
 	SCNetworkSetRef	set		= NULL;
@@ -93,6 +94,59 @@ establishNewPreferences()
 			      SCErrorString(sc_status));
 			return FALSE;
 		}
+	}
+
+	/* Ensure that the preferences has the new model */
+	new_model = _SC_hw_model();
+
+	/* Need to regenerate the new configuration for new model */
+	if (new_model != NULL) {
+		CFStringRef	old_model;
+
+		old_model = SCPreferencesGetValue(prefs, MODEL);
+		if ((old_model != NULL) && !_SC_CFEqual(old_model, new_model)) {
+			CFIndex		count;
+			CFIndex		index;
+			CFArrayRef	keys;
+
+			keys = SCPreferencesCopyKeyList(prefs);
+			count = (keys != NULL) ? CFArrayGetCount(keys) : 0;
+			// if new hardware
+			for (index = 0; index < count; index++) {
+				CFStringRef		existing_key;
+
+				existing_key = CFArrayGetValueAtIndex(keys, index);
+
+				if (isA_CFString(existing_key) != NULL) {
+					CFStringRef		new_key;
+					CFPropertyListRef	value;
+
+					/* If it already contains a Model
+					   or if it already contains a MODEL:KEY key skip it*/
+					if (CFEqual(existing_key, MODEL)
+					    || CFStringFind(existing_key, CFSTR(":"), 0).location
+					    != kCFNotFound) {
+						continue;
+					}
+
+					value = SCPreferencesGetValue(prefs, existing_key);
+
+					/* Create a new key as OLD_MODEL:OLD_KEY */
+					new_key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"),
+									   old_model, existing_key);
+					SCPreferencesSetValue(prefs, new_key, value);
+					SCPreferencesRemoveValue(prefs, existing_key);
+					CFRelease(new_key);
+				}
+			}
+
+			if (keys != NULL) {
+				CFRelease(keys);
+			}
+		}
+
+		/* Set the new model */
+		SCPreferencesSetValue(prefs, MODEL, new_model);
 	}
 
 	current = SCNetworkSetCopyCurrent(prefs);
@@ -569,11 +623,18 @@ updateSCDynamicStore(SCPreferencesRef prefs)
 	}
 
 	/* Update the dynamic store */
+#ifndef MAIN
 	if (!SCDynamicStoreSetMultiple(store, newPrefs, removedPrefsKeys, NULL)) {
 		SCLog(TRUE, LOG_ERR,
 		      CFSTR("SCDynamicStoreSetMultiple() failed: %s"),
 		      SCErrorString(SCError()));
 	}
+#else	// !MAIN
+	SCLog(TRUE, LOG_NOTICE,
+	      CFSTR("SCDynamicStore\nset: %@\nremove: %@\n"),
+	      newPrefs,
+	      removedPrefsKeys);
+#endif	// !MAIN
 
 	CFRelease(currentPrefs);
 	CFRelease(newPrefs);
@@ -663,15 +724,37 @@ load_PreferencesMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 
 	/* open a SCPreferences session */
+#ifndef	MAIN
 	prefs = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), NULL);
+#else	// !MAIN
+	prefs = SCPreferencesCreate(NULL, CFSTR("PreferencesMonitor.bundle"), CFSTR("/tmp/preferences.plist"));
+#endif	// !MAIN
 	if (prefs != NULL) {
-		SCNetworkSetRef	current;
+		Boolean		need_update = FALSE;
+		CFStringRef	new_model;
 
-		current = SCNetworkSetCopyCurrent(prefs);
-		if (current != NULL) {
-			/* network configuration available, disable template creation */
-			initPrefs = FALSE;
-			CFRelease(current);
+		new_model = _SC_hw_model();
+
+		/* Need to regenerate the new configuration for new model */
+		if (new_model != NULL) {
+			CFStringRef	old_model;
+
+			old_model = SCPreferencesGetValue(prefs, MODEL);
+			if (old_model != NULL && !_SC_CFEqual(old_model, new_model)) {
+				// if new hardware
+				need_update = TRUE;
+			}
+		}
+
+		if (need_update == FALSE) {
+			SCNetworkSetRef current;
+
+			current = SCNetworkSetCopyCurrent(prefs);
+			if (current != NULL) {
+				/* network configuration available, disable template creation */
+				initPrefs = FALSE;
+				CFRelease(current);
+			}
 		}
 	} else {
 		SCLog(TRUE, LOG_ERR,

@@ -8,7 +8,7 @@ ProjectName           = OpenLDAP
 UserType              = Administrator
 ToolType              = Commands
 
-Extra_CC_Flags        = -DLDAP_RESPONSE_RB_TREE=1 -DLDAP_DEPRECATED=1 -DLDAP_CONNECTIONLESS=1 -DSLAP_DYNACL=1 -DUSES_KRBNAME=1 -I/usr/local/BerkeleyDB/include -I/usr/include/krb5 -I${SRCROOT}/OpenLDAP/include -I${OBJROOT}/include -I${SRCROOT}/OpenLDAP/libraries/libldap -I${SRCROOT}/OpenLDAP/servers/slapd -I/usr/include/sasl -fno-common -Os
+Extra_CC_Flags        = -DLDAP_RESPONSE_RB_TREE=1 -DLDAP_DEPRECATED=1 -DLDAP_CONNECTIONLESS=1 -DSLAP_DYNACL=1 -DUSES_KRBNAME=1 -DTGT_OS_VERSION="\\\"$(MACOSX_DEPLOYMENT_TARGET)\\\"" -DPROJVERSION="\\\"$(RC_ProjectSourceVersion)\\\"" -I/usr/local/BerkeleyDB/include -I/usr/include/krb5 -I${SRCROOT}/OpenLDAP/include -I${OBJROOT}/include -I${SRCROOT}/OpenLDAP/libraries/libldap -I${SRCROOT}/OpenLDAP/servers/slapd -I/usr/include/sasl -fno-common -Os -Wno-format-extra-args
 Extra_LD_Flags        = -L${OBJROOT}/libraries -L/usr/local/BerkeleyDB/lib/
 Extra_Environment     = CPPFLAGS="-I/usr/include/sasl -I/usr/local/BerkeleyDB/include"
 Extra_Environment    += AR=${SRCROOT}/ar.sh
@@ -24,15 +24,15 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Extra_Configure_Flags = --disable-shared --disable-cleartext --enable-bdb  --x-libraries=/usr/local/BerkeleyDB/lib
 Extra_Configure_Flags += --prefix=${DSTROOT}/private --sysconfdir=${DSTROOT}/private/etc --localstatedir=${DSTROOT}/private/var/db/openldap --enable-aci=yes
 #Extra_Configure_Flags +=  DESTDIR="${DSTROOT}" --bindir="$(BINDIR)" --sbindir="$(SBINDIR)" --libexecdir="/usr/libexec" --datadir="$(SHAREDIR)/openldap" --sysconfdir="$(ETCDIR)" --localstatedir="${VARDIR}/db/openldap"
-Extra_Configure_Flags +=  --enable-overlays=yes --enable-dynid=yes --enable-auditlog=yes --enable-unique=yes --enable-odlocales=yes
+Extra_Configure_Flags +=  --enable-overlays=yes --enable-dynid=yes --enable-auditlog=yes --enable-unique=yes --enable-odlocales=yes --enable-odusers=yes
 Install_Target = install
 
 Extra_CC_Flags        += -F/System/Library/PrivateFrameworks
-Extra_LD_Libraries    += -framework CoreFoundation -framework Security -framework SystemConfiguration
+Extra_LD_Libraries    += -framework CoreFoundation -framework Security -framework SystemConfiguration -framework IOKit
 ifeq "$(RC_ProjectName)" "LDAPFramework"
 Extra_LD_Libraries    += 
 else
-Extra_LD_Libraries    += -framework Heimdal -framework PasswordServer -framework OpenDirectory -lpac
+Extra_LD_Libraries    += -framework Heimdal -framework OpenDirectory -lpac
 endif
 Extra_Configure_Flags += --enable-local --enable-crypt --with-tls --program-transform-name="s/^sl/ni-sl/"
 
@@ -58,6 +58,8 @@ apple_port:
 	cp $(SRCROOT)/OpenLDAP/LICENSE $(DSTROOT)/usr/local/OpenSourceLicenses/OpenLDAP.txt
 	mkdir -p $(DSTROOT)/usr/local/OpenSourceVersions/
 	cp $(SRCROOT)/AppleExtras/Resources/OpenLDAP.plist $(DSTROOT)/usr/local/OpenSourceVersions/
+	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
+	cp $(SRCROOT)/AppleExtras/Resources/org.openldap.slapd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	rm -rf ${DSTROOT}/usr/include # remove includes from server target
 	rm -rf ${DSTROOT}/usr/local/include # remove local includes from server target
 
@@ -65,7 +67,7 @@ apple_framework:
 	rm -rf ${OBJROOT}/libraries/liblber/*test.o
 	rm -rf ${OBJROOT}/libraries/libldap/*test.o
 	rm -rf ${OBJROOT}/libraries/libldap_r/*test.o
-	gcc ${RC_CFLAGS} -install_name /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP -compatibility_version 1.0.0 -current_version 2.2.0 \
+	gcc ${RC_CFLAGS} -install_name /System/Library/Frameworks/LDAP.framework/Versions/A/LDAP -compatibility_version 1.0.0 -current_version 2.4.0 \
 		-o ${SYMROOT}/LDAP ${LDAP_SECTORDER_FLAGS} ${OBJROOT}/libraries/liblber/*.o ${OBJROOT}/libraries/libldap_r/*.o \
 		-lsasl2 -lcrypto -lssl -lresolv ${Extra_LD_Libraries} "-Wl,-exported_symbols_list" \
 		${SRCROOT}/AppleExtras/ldap.exp -twolevel_namespace -dead_strip "-Wl,-single_module" -dynamiclib

@@ -29,14 +29,11 @@
 #include "WebGeolocationManagerProxyMessages.h"
 #include "WebPage.h"
 #include "WebProcess.h"
-
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
 #include <WebCore/Geolocation.h>
 #include <WebCore/GeolocationController.h>
 #include <WebCore/GeolocationError.h>
 #include <WebCore/GeolocationPosition.h>
 #include <WebCore/Page.h>
-#endif
 
 using namespace WebCore;
 
@@ -58,29 +55,25 @@ void WebGeolocationManager::didReceiveMessage(CoreIPC::Connection* connection, C
 
 void WebGeolocationManager::registerWebPage(WebPage* page)
 {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
     bool wasEmpty = m_pageSet.isEmpty();
 
     m_pageSet.add(page);
     
     if (wasEmpty)
         m_process->connection()->send(Messages::WebGeolocationManagerProxy::StartUpdating(), 0);
-#endif
 }
 
 void WebGeolocationManager::unregisterWebPage(WebPage* page)
 {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
     m_pageSet.remove(page);
 
     if (m_pageSet.isEmpty())
         m_process->connection()->send(Messages::WebGeolocationManagerProxy::StopUpdating(), 0);
-#endif
 }
 
 void WebGeolocationManager::didChangePosition(const WebGeolocationPosition::Data& data)
 {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
+#if ENABLE(GEOLOCATION)
     RefPtr<GeolocationPosition> position = GeolocationPosition::create(data.timestamp, data.latitude, data.longitude, data.accuracy);
 
     HashSet<WebPage*>::const_iterator it = m_pageSet.begin();
@@ -88,14 +81,14 @@ void WebGeolocationManager::didChangePosition(const WebGeolocationPosition::Data
     for (; it != end; ++it) {
         WebPage* page = *it;
         if (page->corePage())
-            page->corePage()->geolocationController()->positionChanged(position.get());
+            GeolocationController::from(page->corePage())->positionChanged(position.get());
     }
-#endif
+#endif // ENABLE(GEOLOCATION)
 }
 
 void WebGeolocationManager::didFailToDeterminePosition()
 {
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
+#if ENABLE(GEOLOCATION)
     // FIXME: Add localized error string.
     RefPtr<GeolocationError> error = GeolocationError::create(GeolocationError::PositionUnavailable, /* Localized error string */ String(""));
 
@@ -104,9 +97,9 @@ void WebGeolocationManager::didFailToDeterminePosition()
     for (; it != end; ++it) {
         WebPage* page = *it;
         if (page->corePage())
-            page->corePage()->geolocationController()->errorOccurred(error.get());
+            GeolocationController::from(page->corePage())->errorOccurred(error.get());
     }
-#endif
+#endif // ENABLE(GEOLOCATION)
 }
 
 } // namespace WebKit

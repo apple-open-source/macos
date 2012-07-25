@@ -1,1 +1,0 @@
---x-include=$X11_PREFIX/include --x-lib=$X11_PREFIX/lib --disable-quartz --enable-xlib --enable-xlib-xrender --enable-xcb --enable-xcb-shm --enable-xlib-xcb --enable-tee --enable-xml --disable-trace

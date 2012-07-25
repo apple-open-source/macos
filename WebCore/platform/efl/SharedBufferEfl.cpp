@@ -29,11 +29,11 @@
 #include "config.h"
 #include "SharedBuffer.h"
 
-#include <wtf/text/CString.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -61,10 +61,10 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& fi
         return 0;
     }
 
-    fread(result->m_buffer.data(), 1, fileStat.st_size, file);
+    const size_t bytesRead = fread(result->m_buffer.data(), 1, fileStat.st_size, file);
     fclose(file);
 
-    return result.release();
+    return bytesRead == static_cast<unsigned>(fileStat.st_size) ? result.release() : 0;
 }
 
 } // namespace WebCore

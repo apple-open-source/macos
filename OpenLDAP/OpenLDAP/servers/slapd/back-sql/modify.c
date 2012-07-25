@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/modify.c,v 1.53.2.8 2010/04/13 20:23:43 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -102,16 +102,10 @@ backsql_modify( Operation *op, SlapReply *rs )
 		goto done;
 	}
 
-#ifdef BACKSQL_ARBITRARY_KEY
 	Debug( LDAP_DEBUG_TRACE, "   backsql_modify(): "
-		"modifying entry \"%s\" (id=%s)\n", 
+		"modifying entry \"%s\" (id=" BACKSQL_IDFMT ")\n", 
 		bsi.bsi_base_id.eid_dn.bv_val,
-		bsi.bsi_base_id.eid_id.bv_val, 0 );
-#else /* ! BACKSQL_ARBITRARY_KEY */
-	Debug( LDAP_DEBUG_TRACE, "   backsql_modify(): "
-		"modifying entry \"%s\" (id=%ld)\n", 
-		bsi.bsi_base_id.eid_dn.bv_val, bsi.bsi_base_id.eid_id, 0 );
-#endif /* ! BACKSQL_ARBITRARY_KEY */
+		BACKSQL_IDARG(bsi.bsi_base_id.eid_id), 0 );
 
 	if ( get_assert( op ) &&
 			( test_filter( op, &m, get_assertion( op ) )

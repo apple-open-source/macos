@@ -56,8 +56,9 @@ static inline bool canReferToParentFrameEncoding(const Frame* frame, const Frame
     
 DocumentWriter::DocumentWriter(Frame* frame)
     : m_frame(frame)
-    , m_receivedData(false)
+    , m_hasReceivedSomeData(false)
     , m_encodingWasChosenByUser(false)
+    , m_state(NotStartedWritingState)
 {
 }
 
@@ -70,8 +71,8 @@ void DocumentWriter::replaceDocument(const String& source, Document* ownerDocume
     begin(m_frame->document()->url(), true, ownerDocument);
 
     if (!source.isNull()) {
-        if (!m_receivedData) {
-            m_receivedData = true;
+        if (!m_hasReceivedSomeData) {
+            m_hasReceivedSomeData = true;
             m_frame->document()->setCompatibilityMode(Document::NoQuirksMode);
         }
 
@@ -87,7 +88,7 @@ void DocumentWriter::replaceDocument(const String& source, Document* ownerDocume
 void DocumentWriter::clear()
 {
     m_decoder = 0;
-    m_receivedData = false;
+    m_hasReceivedSomeData = false;
     if (!m_encodingWasChosenByUser)
         m_encoding = String();
 }
@@ -119,12 +120,12 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
     
     // If the new document is for a Plugin but we're supposed to be sandboxed from Plugins,
     // then replace the document with one whose parser will ignore the incoming data (bug 39323)
-    if (document->isPluginDocument() && m_frame->loader()->isSandboxed(SandboxPlugins))
+    if (document->isPluginDocument() && document->isSandboxed(SandboxPlugins))
         document = SinkDocument::create(m_frame, url);
 
     // FIXME: Do we need to consult the content security policy here about blocked plug-ins?
 
-    bool resetScripting = !(m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
+    bool resetScripting = !(m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->isSecureTransitionTo(url));
     m_frame->loader()->clear(resetScripting, resetScripting);
     clear();
     if (resetScripting)
@@ -147,8 +148,15 @@ void DocumentWriter::begin(const KURL& urlReference, bool dispatch, Document* ow
 
     document->implicitOpen();
 
+    // We grab a reference to the parser so that we'll always send data to the
+    // original parser, even if the document acquires a new parser (e.g., via
+    // document.open).
+    m_parser = document->parser();
+
     if (m_frame->view() && m_frame->loader()->client()->hasHTMLView())
         m_frame->view()->setContentsSize(IntSize());
+
+    m_state = StartedWritingState;
 }
 
 TextResourceDecoder* DocumentWriter::createDecoderIfNeeded()
@@ -188,79 +196,62 @@ TextResourceDecoder* DocumentWriter::createDecoderIfNeeded()
 void DocumentWriter::reportDataReceived()
 {
     ASSERT(m_decoder);
-    if (!m_receivedData) {
-        m_receivedData = true;
-        if (m_decoder->encoding().usesVisualOrdering())
-            m_frame->document()->setVisuallyOrdered();
-        m_frame->document()->recalcStyle(Node::Force);
-    }
+    if (m_hasReceivedSomeData)
+        return;
+    m_hasReceivedSomeData = true;
+    if (m_decoder->encoding().usesVisualOrdering())
+        m_frame->document()->setVisuallyOrdered();
+    m_frame->document()->recalcStyle(Node::Force);
 }
 
-void DocumentWriter::addData(const char* str, int len, bool flush)
+void DocumentWriter::addData(const char* bytes, size_t length)
 {
-    if (len == -1)
-        len = strlen(str);
+    // Check that we're inside begin()/end().
+    // FIXME: Change these to ASSERT once https://bugs.webkit.org/show_bug.cgi?id=80427 has
+    // been resolved.
+    if (m_state == NotStartedWritingState)
+        CRASH();
+    if (m_state == FinishedWritingState)
+        CRASH();
 
-    DocumentParser* parser = m_frame->document()->parser();
-    if (parser)
-        parser->appendBytes(this, str, len, flush);
+    ASSERT(m_parser);
+    m_parser->appendBytes(this, bytes, length);
 }
 
 void DocumentWriter::end()
 {
-    m_frame->loader()->didEndDocument();
-    endIfNotLoadingMainResource();
-}
+    ASSERT(m_frame->page());
+    ASSERT(m_frame->document());
 
-void DocumentWriter::endIfNotLoadingMainResource()
-{
-    if (m_frame->loader()->isLoadingMainResource() || !m_frame->page() || !m_frame->document())
-        return;
+    // The parser is guaranteed to be released after this point. begin() would
+    // have to be called again before we can start writing more data.
+    m_state = FinishedWritingState;
 
     // http://bugs.webkit.org/show_bug.cgi?id=10854
     // The frame's last ref may be removed and it can be deleted by checkCompleted(), 
     // so we'll add a protective refcount
     RefPtr<Frame> protector(m_frame);
 
-    // make sure nothing's left in there
-    addData(0, 0, true);
-    m_frame->document()->finishParsing();
-}
-
-String DocumentWriter::encoding() const
-{
-    if (m_encodingWasChosenByUser && !m_encoding.isEmpty())
-        return m_encoding;
-    if (m_decoder && m_decoder->encoding().isValid())
-        return m_decoder->encoding().name();
-    Settings* settings = m_frame->settings();
-    return settings ? settings->defaultTextEncodingName() : String();
+    if (!m_parser)
+        return;
+    // FIXME: m_parser->finish() should imply m_parser->flush().
+    m_parser->flush(this);
+    if (!m_parser)
+        return;
+    m_parser->finish();
+    m_parser = 0;
 }
 
 void DocumentWriter::setEncoding(const String& name, bool userChosen)
 {
-    m_frame->loader()->willSetEncoding();
     m_encoding = name;
     m_encodingWasChosenByUser = userChosen;
 }
 
-void DocumentWriter::setDecoder(TextResourceDecoder* decoder)
-{
-    m_decoder = decoder;
-}
-
-String DocumentWriter::deprecatedFrameEncoding() const
-{
-    Document* document = m_frame->document();
-    if (!document || document->url().isEmpty())
-        return m_encoding;
-
-    return encoding();
-}
-
 void DocumentWriter::setDocumentWasLoadedAsPartOfNavigation()
 {
-    m_frame->document()->parser()->setDocumentWasLoadedAsPartOfNavigation();
+    ASSERT(m_parser && !m_parser->isStopped());
+    m_parser->setDocumentWasLoadedAsPartOfNavigation();
 }
 
 } // namespace WebCore

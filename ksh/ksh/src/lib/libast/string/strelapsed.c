@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -42,6 +42,7 @@ strelapsed(register const char* s, char** e, int n)
 	unsigned long		t = 0;
 	int			f = 0;
 	int			p = 0;
+	int			z = 1;
 	int			m;
 	const char*		last;
 
@@ -51,6 +52,15 @@ strelapsed(register const char* s, char** e, int n)
 			s++;
 		if (!*(last = s))
 			break;
+		if (z)
+		{
+			z = 0;
+			if (*s == '0' && (!(c = *(s + 1)) || isspace(c) || c == '_'))
+			{
+				last = s + 1;
+				break;
+			}
+		}
 		v = 0;
 		while ((c = *s++) >= '0' && c <= '9')
 			v = v * 10 + c - '0';
@@ -118,10 +128,12 @@ strelapsed(register const char* s, char** e, int n)
 				v *= 20 * 12 * 4 * 7 * 24 * 60 * 60;
 				break;
 			}
-			/*FALLTHROUGH*/
-		case 0:
 			v += f;
 			f = 0;
+			break;
+		case 0:
+			s--;
+			v += f;
 			break;
 		default:
 			if (p)

@@ -1,9 +1,9 @@
 /*
- * "$Id: testpwg.c 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: testpwg.c 3786 2012-04-13 18:12:13Z msweet $"
  *
  *   PWG test program for CUPS.
  *
- *   Copyright 2009-2011 by Apple Inc.
+ *   Copyright 2009-2012 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -260,6 +260,34 @@ main(int  argc,				/* I - Number of command-line args */
   else
     puts("PASS");
 
+  fputs("_pwgMediaForSize(9842, 19050): ", stdout);
+  if ((pwgmedia = _pwgMediaForSize(9842, 19050)) == NULL)
+  {
+    puts("FAIL (not found)");
+    status ++;
+  }
+  else if (strcmp(pwgmedia->pwg, "na_monarch_3.875x7.5in"))
+  {
+    printf("FAIL (%s)\n", pwgmedia->pwg);
+    status ++;
+  }
+  else
+    printf("PASS (%s)\n", pwgmedia->pwg);
+
+  fputs("_pwgMediaForSize(9800, 19000): ", stdout);
+  if ((pwgmedia = _pwgMediaForSize(9800, 19000)) == NULL)
+  {
+    puts("FAIL (not found)");
+    status ++;
+  }
+  else if (strcmp(pwgmedia->pwg, "jpn_you6_98x190mm"))
+  {
+    printf("FAIL (%s)\n", pwgmedia->pwg);
+    status ++;
+  }
+  else
+    printf("PASS (%s)\n", pwgmedia->pwg);
+
   return (status);
 }
 
@@ -493,5 +521,5 @@ test_ppd_cache(_ppd_cache_t *pc,	/* I - PWG mapping data */
 
 
 /*
- * End of "$Id: testpwg.c 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: testpwg.c 3786 2012-04-13 18:12:13Z msweet $".
  */

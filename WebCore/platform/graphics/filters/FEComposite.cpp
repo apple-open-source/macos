@@ -26,12 +26,13 @@
 #if ENABLE(FILTERS)
 #include "FEComposite.h"
 
+#include "FECompositeArithmeticNEON.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
 #include "RenderTreeAsText.h"
 #include "TextStream.h"
 
-#include <wtf/ByteArray.h>
+#include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -115,12 +116,20 @@ bool FEComposite::setK4(float k4)
     return true;
 }
 
+void FEComposite::correctFilterResultIfNeeded()
+{
+    if (m_type != FECOMPOSITE_OPERATOR_ARITHMETIC)
+        return;
+
+    forceValidPreMultipliedPixels();
+}
+
 template <int b1, int b2, int b3, int b4>
-inline void computeArithmeticPixels(unsigned char* source, unsigned char* destination, int pixelArrayLength,
+static inline void computeArithmeticPixels(unsigned char* source, unsigned char* destination, int pixelArrayLength,
                                     float k1, float k2, float k3, float k4)
 {
-    float scaledK4;
     float scaledK1;
+    float scaledK4;
     if (b1)
         scaledK1 = k1 / 255.f;
     if (b4)
@@ -150,14 +159,9 @@ inline void computeArithmeticPixels(unsigned char* source, unsigned char* destin
     }
 }
 
-inline void arithmetic(ByteArray* srcPixelArrayA, ByteArray* srcPixelArrayB,
+static inline void arithmeticSoftware(unsigned char* source, unsigned char* destination, int pixelArrayLength,
                        float k1, float k2, float k3, float k4)
 {
-    int pixelArrayLength = srcPixelArrayA->length();
-    ASSERT(pixelArrayLength == static_cast<int>(srcPixelArrayB->length()));
-    unsigned char* source = srcPixelArrayA->data();
-    unsigned char* destination = srcPixelArrayB->data();
-
     if (!k4) {
         if (!k1) {
             computeArithmeticPixels<0, 1, 1, 0>(source, destination, pixelArrayLength, k1, k2, k3, k4);
@@ -173,6 +177,21 @@ inline void arithmetic(ByteArray* srcPixelArrayA, ByteArray* srcPixelArrayB,
         return;
     }
     computeArithmeticPixels<1, 1, 1, 1>(source, destination, pixelArrayLength, k1, k2, k3, k4);
+}
+
+inline void FEComposite::platformArithmeticSoftware(Uint8ClampedArray* source, Uint8ClampedArray* destination,
+    float k1, float k2, float k3, float k4)
+{
+    int length = source->length();
+    ASSERT(length == static_cast<int>(destination->length()));
+    // The selection here eventually should happen dynamically.
+#if CPU(ARM_NEON) && COMPILER(GCC)
+    ASSERT(!(length & 0x3));
+    float coefficients[4]  = { k1, k2, k3, k4 };
+    platformArithmeticNeon(source->data(), destination->data(), length, coefficients);
+#else
+    arithmeticSoftware(source->data(), destination->data(), length, k1, k2, k3, k4);
+#endif
 }
 
 void FEComposite::determineAbsolutePaintRect()
@@ -196,29 +215,23 @@ void FEComposite::determineAbsolutePaintRect()
     }
 }
 
-void FEComposite::apply()
+void FEComposite::platformApplySoftware()
 {
-    if (hasResult())
-        return;
     FilterEffect* in = inputEffect(0);
     FilterEffect* in2 = inputEffect(1);
-    in->apply();
-    in2->apply();
-    if (!in->hasResult() || !in2->hasResult())
-        return;
 
     if (m_type == FECOMPOSITE_OPERATOR_ARITHMETIC) {
-        ByteArray* dstPixelArray = createPremultipliedImageResult();
+        Uint8ClampedArray* dstPixelArray = createPremultipliedImageResult();
         if (!dstPixelArray)
             return;
 
         IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-        RefPtr<ByteArray> srcPixelArray = in->asPremultipliedImage(effectADrawingRect);
+        RefPtr<Uint8ClampedArray> srcPixelArray = in->asPremultipliedImage(effectADrawingRect);
 
         IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
         in2->copyPremultipliedImage(dstPixelArray, effectBDrawingRect);
 
-        arithmetic(srcPixelArray.get(), dstPixelArray, m_k1, m_k2, m_k3, m_k4);
+        platformArithmeticSoftware(srcPixelArray.get(), dstPixelArray, m_k1, m_k2, m_k3, m_k4);
         return;
     }
 
@@ -234,9 +247,19 @@ void FEComposite::apply()
         filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
         break;
     case FECOMPOSITE_OPERATOR_IN: {
-        GraphicsContextStateSaver stateSaver(*filterContext);
-        filterContext->clipToImageBuffer(in2->asImageBuffer(), drawingRegionOfInputImage(in2->absolutePaintRect()));
-        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, drawingRegionOfInputImage(in->absolutePaintRect()));
+        // Applies only to the intersected region.
+        IntRect destinationRect = in->absolutePaintRect();
+        destinationRect.intersect(in2->absolutePaintRect());
+        destinationRect.intersect(absolutePaintRect());
+        if (destinationRect.isEmpty())
+            break;
+        IntPoint destinationPoint(destinationRect.x() - absolutePaintRect().x(), destinationRect.y() - absolutePaintRect().y());
+        IntRect sourceRect(IntPoint(destinationRect.x() - in->absolutePaintRect().x(),
+                                    destinationRect.y() - in->absolutePaintRect().y()), destinationRect.size());
+        IntRect source2Rect(IntPoint(destinationRect.x() - in2->absolutePaintRect().x(),
+                                     destinationRect.y() - in2->absolutePaintRect().y()), destinationRect.size());
+        filterContext->drawImageBuffer(in2->asImageBuffer(), ColorSpaceDeviceRGB, destinationPoint, source2Rect);
+        filterContext->drawImageBuffer(in->asImageBuffer(), ColorSpaceDeviceRGB, destinationPoint, sourceRect, CompositeSourceIn);
         break;
     }
     case FECOMPOSITE_OPERATOR_OUT:

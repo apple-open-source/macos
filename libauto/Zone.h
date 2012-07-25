@@ -93,6 +93,7 @@ namespace Auto {
         struct weak_entry_t  *weak_refs_table;
         spin_lock_t           weak_refs_table_lock;
 
+        dispatch_once_t       _zone_init_predicate;
         dispatch_queue_t      _collection_queue;
         uint32_t              _collection_count;
         uint32_t              _collector_disable_count;     // counter for external disable-collector API
@@ -343,6 +344,7 @@ namespace Auto {
         dispatch_queue_t       collection_queue() const     { return _collection_queue; }
         inline bool            compaction_disabled() const  { return _compaction_disabled; }
         inline bool            compaction_enabled() const   { return !_compaction_disabled; }
+        inline pthread_key_t   thread_key() const           { return _registered_threads_key; }
         
         inline void           add_blocks_and_bytes(int64_t block_count, int64_t byte_count) { _stats.add_count(block_count); _stats.add_size(byte_count); }
         

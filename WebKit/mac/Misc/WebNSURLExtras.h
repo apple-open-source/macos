@@ -69,6 +69,8 @@
 
 - (NSString *)_webkit_suggestedFilenameWithMIMEType:(NSString *)MIMEType;
 
+- (NSURL *)_webkit_URLFromURLOrSchemelessFileURL;
+
 @end
 
 @interface NSString (WebNSURLExtras)

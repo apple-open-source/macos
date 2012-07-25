@@ -19,14 +19,16 @@
 
 module ranges {
 
-    interface [DontCheckEnums] RangeException {
+    exception [
+        DoNotCheckConstants
+    ] RangeException {
 
         readonly attribute unsigned short   code;
         readonly attribute DOMString        name;
         readonly attribute DOMString        message;
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
         // DOM Level 2

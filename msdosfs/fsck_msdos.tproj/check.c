@@ -217,7 +217,6 @@ Again:
 				mod |= fat_mark_clean();
 			} else {
 				pwarn("\n***** FILE SYSTEM IS LEFT MARKED AS DIRTY *****\n");
-				mod |= FSERROR; /* file system not clean */
 			}
 		}
 	}

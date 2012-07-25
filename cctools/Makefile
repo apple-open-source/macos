@@ -21,6 +21,7 @@
 export USE_APPLE_PB_SUPPORT = all
 
 DSTROOT = /
+DT_TOOLCHAIN_DIR ?= $(INSTALL_LOCATION)
 RC_OS = macos
 RC_CFLAGS =
 
@@ -78,7 +79,8 @@ ifeq "macos" "$(RC_OS)"
 		     [ "$(RC_RELEASE)" = "BigBear" ]    || \
 		     [ "$(RC_RELEASE)" = "Homewood" ]   || \
 		     [ "$(RC_RELEASE)" = "Kirkwood" ]   || \
-		     [ "$(RC_RELEASE)" = "Northstar" ]; then \
+		     [ "$(RC_RELEASE)" = "Northstar" ]  || \
+		     [ "$(RC_PURPLE)" = "YES" ]; then \
 			    echo "" ; \
 			else \
 			    echo "-DTRIE_SUPPORT" ; fi; )
@@ -207,7 +209,7 @@ install:
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		EFITOOLS="$(EFITOOLS)" TRIE="$(TRIE)"			\
-		LTO="$(LTO)" DSTROOT=$$DSTROOT/$(INSTALL_LOCATION)	\
+		LTO="$(LTO)" DSTROOT=$$DSTROOT/$(DT_TOOLCHAIN_DIR)	\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT) $$target;				\
@@ -296,7 +298,7 @@ ofiles_install:
 	$(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
 		RC_ARCHS="$(RC_ARCHS)"					\
 		RC_OS="$(RC_OS)"					\
-		DSTROOT=$$DSTROOT/$(INSTALL_LOCATION)			\
+		DSTROOT=$$DSTROOT/$(DT_TOOLCHAIN_DIR)			\
 		SRCROOT=$(SRCROOT)					\
 		OBJROOT=$(OBJROOT)					\
 		SYMROOT=$(SYMROOT)					\
@@ -388,6 +390,63 @@ lib_ofiles lib_ofiles_install: installhdrs
 		TRIE="$(TRIE)" LTO="$(LTO)"				\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	    (cd cbtlibs; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		DSTROOT=$$DSTROOT $@) || exit 1;			\
+	fi
+
+install_dev_tools:
+	@ export RC_FORCEHDRS=YES;					\
+	$(MAKE) RC_CFLAGS="$(RC_CFLAGS)"				\
+		RC_ARCHS="$(RC_ARCHS)"					\
+		RC_OS="$(RC_OS)"					\
+		DT_TOOLCHAIN_DIR=$(DT_TOOLCHAIN_DIR)			\
+		DSTROOT=$(DSTROOT)					\
+		SRCROOT=$(SRCROOT)					\
+		OBJROOT=$(OBJROOT)					\
+		SYMROOT=$(SYMROOT)					\
+		EFITOOLS="$(EFITOOLS)" TRIE="$(TRIE)"			\
+		LTO="$(LTO)" install
+
+install_os_tools: installhdrs
+	@if [ $(SRCROOT) ];						\
+	then								\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
+	    echo =========== $(MAKE) all for libstuff =============;	\
+	    (cd libstuff; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		OLD_LIBKLD="$(OLD_LIBKLD)" 				\
+		DSTROOT=$$DSTROOT					\
+		SRCROOT=$(SRCROOT)/libstuff				\
+		OBJROOT=$(OBJROOT)/libstuff				\
+		SYMROOT=$(SYMROOT)/libstuff all) || exit 1;		\
+	    echo =========== $(MAKE) $@ for misc =============;	\
+	    (cd misc; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		TRIE="$(TRIE)" LTO="$(LTO)"				\
+		DSTROOT=$$DSTROOT					\
+		SRCROOT=$(SRCROOT)/misc					\
+		OBJROOT=$(OBJROOT)/misc					\
+		SYMROOT=$(SYMROOT)/misc $@) || exit 1;			\
+	    echo =========== $(MAKE) $@ for man =============;	\
+	    (cd man; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		DSTROOT=$$DSTROOT					\
+		SRCROOT=$(SRCROOT)/man					\
+		OBJROOT=$(OBJROOT)/man					\
+		SYMROOT=$(SYMROOT)/man $@) || exit 1;			\
+	else								\
+	    CWD=`pwd`; cd "$(DSTROOT)"; DSTROOT=`pwd`; cd "$$CWD";	\
+	    echo =========== $(MAKE) all for libstuff =============;	\
+	    (cd libstuff; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"		\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		DSTROOT=$$DSTROOT all) || exit 1;			\
+	    echo =========== $(MAKE) $@ for misc =============;		\
+	    (cd misc; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
+		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
+		TRIE="$(TRIE)" LTO="$(LTO)"				\
+		DSTROOT=$$DSTROOT $@) || exit 1;			\
+	    echo =========== $(MAKE) $@ for man =============;		\
+	    (cd man; $(MAKE) "RC_CFLAGS=$(RC_CFLAGS)"			\
 		RC_ARCHS="$(RC_ARCHS)" RC_OS="$(RC_OS)"			\
 		DSTROOT=$$DSTROOT $@) || exit 1;			\
 	fi

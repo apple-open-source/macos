@@ -56,7 +56,6 @@ public:
     virtual int scrollSize(ScrollbarOrientation orientation) const;
     virtual int scrollPosition(Scrollbar*) const;
     virtual void setScrollOffset(const IntPoint&);
-    virtual void didCompleteRubberBand(const IntSize&) const;
     virtual void notifyPageThatContentAreaWillPaint() const;
     virtual bool isScrollCornerVisible() const;
     virtual void scrollbarStyleChanged(int newStyle, bool forceUpdate);
@@ -142,10 +141,10 @@ public:
     // and height. By default the scrollbars themselves are excluded from this rectangle, but an optional boolean argument allows them to be
     // included.
     // In the situation the client is responsible for the scrolling (ie. with a tiled backing store) it is possible to use
-    // the actualVisibleContentRect instead, though this must be updated manually, e.g after panning ends.
-    IntRect visibleContentRect(bool includeScrollbars = false) const;
-    IntRect actualVisibleContentRect() const { return m_actualVisibleContentRect.isEmpty() ? visibleContentRect() : m_actualVisibleContentRect; }
-    void setActualVisibleContentRect(const IntRect& actualVisibleContentRect) { m_actualVisibleContentRect = actualVisibleContentRect; }
+    // the setFixedVisibleContentRect instead for the mainframe, though this must be updated manually, e.g just before resuming the page
+    // which usually will happen when panning, pinching and rotation ends, or when scale or position are changed manually.
+    virtual IntRect visibleContentRect(bool includeScrollbars = false) const;
+    virtual void setFixedVisibleContentRect(const IntRect& visibleContentRect) { m_fixedVisibleContentRect = visibleContentRect; }
     int visibleWidth() const { return visibleContentRect().width(); }
     int visibleHeight() const { return visibleContentRect().height(); }
 
@@ -232,25 +231,16 @@ public:
     
     // Widget override to update our scrollbars and notify our contents of the resize.
     virtual void setFrameRect(const IntRect&);
-    virtual void setBoundsSize(const IntSize&);
 
     // For platforms that need to hit test scrollbars from within the engine's event handlers (like Win32).
     Scrollbar* scrollbarAtPoint(const IntPoint& windowPoint);
-
-    // This function exists for scrollviews that need to handle wheel events manually.
-    // On Mac the underlying NSScrollView just does the scrolling, but on other platforms
-    // (like Windows), we need this function in order to do the scroll ourselves.
-    void wheelEvent(PlatformWheelEvent&);
-#if ENABLE(GESTURE_EVENTS)
-    void gestureEvent(const PlatformGestureEvent&);
-#endif
 
     IntPoint convertChildToSelf(const Widget* child, const IntPoint& point) const
     {
         IntPoint newPoint = point;
         if (!isScrollViewScrollbar(child))
             newPoint = point - scrollOffset();
-        newPoint.move(child->x(), child->y());
+        newPoint.moveBy(child->location());
         return newPoint;
     }
 
@@ -259,7 +249,7 @@ public:
         IntPoint newPoint = point;
         if (!isScrollViewScrollbar(child))
             newPoint = point + scrollOffset();
-        newPoint.move(-child->x(), -child->y());
+        newPoint.moveBy(-child->location());
         return newPoint;
     }
 
@@ -282,6 +272,7 @@ public:
     virtual bool scrollbarCornerPresent() const;
     virtual IntRect scrollCornerRect() const;
     virtual void paintScrollCorner(GraphicsContext*, const IntRect& cornerRect);
+    virtual void paintScrollbar(GraphicsContext*, Scrollbar*, const IntRect&);
 
     virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
@@ -291,20 +282,20 @@ public:
     bool containsScrollableAreaWithOverlayScrollbars() const { return m_containsScrollableAreaWithOverlayScrollbars; }
     void setContainsScrollableAreaWithOverlayScrollbars(bool contains) { m_containsScrollableAreaWithOverlayScrollbars = contains; }
 
+    void calculateAndPaintOverhangAreas(GraphicsContext*, const IntRect& dirtyRect);
+
 protected:
     ScrollView();
 
     virtual void repaintContentRectangle(const IntRect&, bool now = false);
     virtual void paintContents(GraphicsContext*, const IntRect& damageRect) = 0;
 
-    void calculateOverhangAreasForPainting(IntRect& horizontalOverhangRect, IntRect& verticalOverhangRect);
     virtual void paintOverhangAreas(GraphicsContext*, const IntRect& horizontalOverhangArea, const IntRect& verticalOverhangArea, const IntRect& dirtyRect);
 
-    virtual void contentsResized() = 0;
     virtual void visibleContentsResized() = 0;
+    virtual void delegatesScrollingDidChange() { }
 
-    IntSize boundsSize() const { return m_boundsSize; }
-    void setInitialBoundsSize(const IntSize&);
+    IntRect fixedVisibleContentRect() const { return m_fixedVisibleContentRect; }
 
     // These functions are used to create/destroy scrollbars.
     void setHasHorizontalScrollbar(bool);
@@ -319,7 +310,6 @@ protected:
     virtual void scrollContentsSlowPath(const IntRect& updateRect);
 
     void setScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
-    IntPoint scrollOrigin() const { return m_scrollOrigin; }
 
     // Subclassed by FrameView to check the writing-mode of the document.
     virtual bool isVerticalDocument() const { return true; }
@@ -342,7 +332,7 @@ private:
     // whether it is safe to blit on scroll.
     bool m_canBlitOnScroll;
 
-    IntRect m_actualVisibleContentRect;
+    IntRect m_fixedVisibleContentRect;
     IntSize m_scrollOffset; // FIXME: Would rather store this as a position, but we will wait to make this change until more code is shared.
     IntPoint m_cachedScrollPosition;
     IntSize m_fixedLayoutSize;
@@ -364,8 +354,6 @@ private:
 
     bool m_containsScrollableAreaWithOverlayScrollbars;
 
-    IntSize m_boundsSize;
-
     void init();
     void destroy();
 
@@ -374,7 +362,8 @@ private:
     IntRect rectToCopyOnScroll() const;
 
     // Called when the scroll position within this view changes.  FrameView overrides this to generate repaint invalidations.
-    virtual void repaintFixedElementsAfterScrolling() {}
+    virtual void repaintFixedElementsAfterScrolling() { }
+    virtual void updateFixedElementsAfterScrolling() { }
 
     void platformInit();
     void platformDestroy();
@@ -385,7 +374,6 @@ private:
     void platformSetCanBlitOnScroll(bool);
     bool platformCanBlitOnScroll() const;
     IntRect platformVisibleContentRect(bool includeScrollbars) const;
-    IntSize platformContentsSize() const;
     void platformSetContentsSize();
     IntRect platformContentsToScreen(const IntRect&) const;
     IntPoint platformScreenToContents(const IntPoint&) const;
@@ -397,6 +385,9 @@ private:
     void platformSetScrollbarOverlayStyle(ScrollbarOverlayStyle);
    
     void platformSetScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
+
+    void calculateOverhangAreasForPainting(IntRect& horizontalOverhangRect, IntRect& verticalOverhangRect);
+    void updateOverhangAreas();
 
 #if PLATFORM(MAC) && defined __OBJC__
 public:

@@ -34,17 +34,17 @@ parse_header(const gss_buffer_t input_token, gss_OID mech_oid)
 	unsigned char *p = input_token->value;
 	size_t len = input_token->length;
 	size_t a, b;
-	
+
 	/*
 	 * Token must start with [APPLICATION 0] SEQUENCE.
 	 * But if it doesn't assume it is DCE-STYLE Kerberos!
 	 */
 	if (len == 0)
 		return (GSS_S_DEFECTIVE_TOKEN);
-	
+
 	p++;
 	len--;
-		
+
 	/*
 	 * Decode the length and make sure it agrees with the
 	 * token length.
@@ -71,7 +71,7 @@ parse_header(const gss_buffer_t input_token, gss_OID mech_oid)
 	}
 	if (a != len)
 		return (GSS_S_DEFECTIVE_TOKEN);
-		
+
 	/*
 	 * Decode the OID for the mechanism. Simplify life by
 	 * assuming that the OID length is less than 128 bytes.
@@ -83,9 +83,9 @@ parse_header(const gss_buffer_t input_token, gss_OID mech_oid)
 	mech_oid->length = p[1];
 	p += 2;
 	mech_oid->elements = p;
-	
+
 	return GSS_S_COMPLETE;
-}		
+}
 
 static gss_OID_desc krb5_mechanism =
     {9, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02")};
@@ -143,7 +143,8 @@ choose_mech(const gss_buffer_t input, gss_OID mech_oid)
 }
 
 
-OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
+gss_accept_sec_context(OM_uint32 *minor_status,
     gss_ctx_id_t *context_handle,
     const gss_cred_id_t acceptor_cred_handle,
     const gss_buffer_t input_token,
@@ -213,7 +214,7 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 	if (m->gm_flags & GM_USE_MG_CRED) {
 		acceptor_mc = acceptor_cred_handle;
 	} else if (cred) {
-		SLIST_FOREACH(mc, &cred->gc_mc, gmc_link)
+		HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link)
 			if (mc->gmc_mech == m)
 				break;
 		if (!mc) {
@@ -221,7 +222,7 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 			_gss_mg_log(10, "gss-asc: client sent mech %s "
 				    "but no credential was matching",
 				    m->gm_name);
-			SLIST_FOREACH(mc, &cred->gc_mc, gmc_link)
+			HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link)
 				_gss_mg_log(10, "gss-asc: available creds where %s", mc->gmc_mech->gm_name);
 			return (GSS_S_BAD_MECH);
 		}
@@ -230,7 +231,7 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 		acceptor_mc = GSS_C_NO_CREDENTIAL;
 	}
 	delegated_mc = GSS_C_NO_CREDENTIAL;
-	
+
 	mech_ret_flags = 0;
 	major_status = m->gm_accept_sec_context(minor_status,
 	    &ctx->gc_ctx,
@@ -258,7 +259,7 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 		/*
 		 * Make a new name and mark it as an MN.
 		 */
-		struct _gss_name *name = _gss_make_name(m, src_mn);
+		struct _gss_name *name = _gss_create_name(src_mn, m);
 
 		if (!name) {
 			m->gm_release_name(minor_status, &src_mn);
@@ -272,7 +273,11 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 
 	if (mech_ret_flags & GSS_C_DELEG_FLAG) {
 		if (!delegated_cred_handle) {
-			m->gm_release_cred(minor_status, &delegated_mc);
+			if (m->gm_flags	 & GM_USE_MG_CRED)
+				gss_release_cred(minor_status, &delegated_mc);
+			else
+				m->gm_release_cred(minor_status, &delegated_mc);
+
 			mech_ret_flags &=
 			    ~(GSS_C_DELEG_FLAG|GSS_C_DELEG_POLICY_FLAG);
 		} else if ((m->gm_flags & GM_USE_MG_CRED) != 0) {
@@ -282,17 +287,25 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 			 */
 			*delegated_cred_handle = delegated_mc;
 
+		} else if (gss_oid_equal(mech_ret_type, &m->gm_mech_oid) == 0) {
+			/*
+			 * If the returned mech_type is not the same
+			 * as the mech, assume its pseudo mech type
+			 * and the returned type is already a
+			 * mech-glue object
+			 */
+			*delegated_cred_handle = delegated_mc;
+
 		} else if (delegated_mc) {
 			struct _gss_cred *dcred;
 			struct _gss_mechanism_cred *dmc;
 
-			dcred = malloc(sizeof(struct _gss_cred));
+			dcred = _gss_mg_alloc_cred();
 			if (!dcred) {
 				*minor_status = ENOMEM;
 				gss_delete_sec_context(&junk, context_handle, NULL);
 				return (GSS_S_FAILURE);
 			}
-			SLIST_INIT(&dcred->gc_mc);
 			dmc = malloc(sizeof(struct _gss_mechanism_cred));
 			if (!dmc) {
 				free(dcred);
@@ -303,7 +316,7 @@ OM_uint32 gss_accept_sec_context(OM_uint32 *minor_status,
 			dmc->gmc_mech = m;
 			dmc->gmc_mech_oid = &m->gm_mech_oid;
 			dmc->gmc_cred = delegated_mc;
-			SLIST_INSERT_HEAD(&dcred->gc_mc, dmc, gmc_link);
+			HEIM_SLIST_INSERT_HEAD(&dcred->gc_mc, dmc, gmc_link);
 
 			*delegated_cred_handle = (gss_cred_id_t) dcred;
 		}

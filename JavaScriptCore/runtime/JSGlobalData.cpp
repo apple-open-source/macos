@@ -35,11 +35,11 @@
 #include "DebuggerActivation.h"
 #include "FunctionConstructor.h"
 #include "GetterSetter.h"
+#include "HostCallReturnValue.h"
 #include "Interpreter.h"
 #include "JSActivation.h"
 #include "JSAPIValueWrapper.h"
 #include "JSArray.h"
-#include "JSByteArray.h"
 #include "JSClassRef.h"
 #include "JSFunction.h"
 #include "JSLock.h"
@@ -57,36 +57,19 @@
 #include <wtf/Threading.h>
 #include <wtf/WTFThreadData.h>
 
+#if ENABLE(DFG_JIT)
+#include "ConservativeRoots.h"
+#endif
+
 #if ENABLE(REGEXP_TRACING)
 #include "RegExp.h"
 #endif
 
-#if PLATFORM(MAC)
+#if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
 using namespace WTF;
-
-namespace {
-
-using namespace JSC;
-
-class Recompiler : public MarkedBlock::VoidFunctor {
-public:
-    void operator()(JSCell*);
-};
-
-inline void Recompiler::operator()(JSCell* cell)
-{
-    if (!cell->inherits(&JSFunction::s_info))
-        return;
-    JSFunction* function = asFunction(cell);
-    if (!function->executable() || function->executable()->isHostFunction())
-        return;
-    function->jsExecutable()->discardCode();
-}
-
-} // namespace
 
 namespace JSC {
 
@@ -101,7 +84,7 @@ extern const HashTable globalObjectTable;
 extern const HashTable mathTable;
 extern const HashTable numberConstructorTable;
 extern const HashTable numberPrototypeTable;
-extern const HashTable objectConstructorTable;
+JS_EXPORTDATA extern const HashTable objectConstructorTable;
 extern const HashTable objectPrototypeTable;
 extern const HashTable regExpTable;
 extern const HashTable regExpConstructorTable;
@@ -109,69 +92,34 @@ extern const HashTable regExpPrototypeTable;
 extern const HashTable stringTable;
 extern const HashTable stringConstructorTable;
 
-void* JSGlobalData::jsFinalObjectVPtr;
-void* JSGlobalData::jsArrayVPtr;
-void* JSGlobalData::jsByteArrayVPtr;
-void* JSGlobalData::jsStringVPtr;
-void* JSGlobalData::jsFunctionVPtr;
+#if ENABLE(ASSEMBLER) && (ENABLE(CLASSIC_INTERPRETER) || ENABLE(LLINT))
+static bool enableAssembler(ExecutableAllocator& executableAllocator)
+{
+    if (!executableAllocator.isValid() || !Options::useJIT)
+        return false;
 
-#if COMPILER(GCC)
-// Work around for gcc trying to coalesce our reads of the various cell vptrs
-#define CLOBBER_MEMORY() do { \
-    asm volatile ("" : : : "memory"); \
-} while (false)
-#else
-#define CLOBBER_MEMORY() do { } while (false)
+#if USE(CF)
+    CFStringRef canUseJITKey = CFStringCreateWithCString(0 , "JavaScriptCoreUseJIT", kCFStringEncodingMacRoman);
+    CFBooleanRef canUseJIT = (CFBooleanRef)CFPreferencesCopyAppValue(canUseJITKey, kCFPreferencesCurrentApplication);
+    if (canUseJIT) {
+        return kCFBooleanTrue == canUseJIT;
+        CFRelease(canUseJIT);
+    }
+    CFRelease(canUseJITKey);
 #endif
 
-void JSGlobalData::storeVPtrs()
-{
-    // Enough storage to fit a JSArray, JSByteArray, JSString, or JSFunction.
-    // COMPILE_ASSERTS below check that this is true.
-    char storage[64];
-
-    COMPILE_ASSERT(sizeof(JSFinalObject) <= sizeof(storage), sizeof_JSFinalObject_must_be_less_than_storage);
-    JSCell* jsFinalObject = new (storage) JSFinalObject(JSFinalObject::VPtrStealingHack);
-    CLOBBER_MEMORY();
-    JSGlobalData::jsFinalObjectVPtr = jsFinalObject->vptr();
-
-    COMPILE_ASSERT(sizeof(JSArray) <= sizeof(storage), sizeof_JSArray_must_be_less_than_storage);
-    JSCell* jsArray = new (storage) JSArray(JSArray::VPtrStealingHack);
-    CLOBBER_MEMORY();
-    JSGlobalData::jsArrayVPtr = jsArray->vptr();
-
-    COMPILE_ASSERT(sizeof(JSByteArray) <= sizeof(storage), sizeof_JSByteArray_must_be_less_than_storage);
-    JSCell* jsByteArray = new (storage) JSByteArray(JSByteArray::VPtrStealingHack);
-    CLOBBER_MEMORY();
-    JSGlobalData::jsByteArrayVPtr = jsByteArray->vptr();
-
-    COMPILE_ASSERT(sizeof(JSString) <= sizeof(storage), sizeof_JSString_must_be_less_than_storage);
-    JSCell* jsString = new (storage) JSString(JSString::VPtrStealingHack);
-    CLOBBER_MEMORY();
-    JSGlobalData::jsStringVPtr = jsString->vptr();
-
-    COMPILE_ASSERT(sizeof(JSFunction) <= sizeof(storage), sizeof_JSFunction_must_be_less_than_storage);
-    JSCell* jsFunction = new (storage) JSFunction(JSCell::VPtrStealingHack);
-    CLOBBER_MEMORY();
-    JSGlobalData::jsFunctionVPtr = jsFunction->vptr();
-
-    // Until we fully remove our reliance on vptrs, we need to make sure that everybody that 
-    // we think has a unique virtual pointer actually does.
-    if (jsFinalObjectVPtr == jsArrayVPtr
-        || jsFinalObjectVPtr == jsByteArrayVPtr
-        || jsFinalObjectVPtr == jsStringVPtr
-        || jsFinalObjectVPtr == jsFunctionVPtr
-        || jsArrayVPtr == jsByteArrayVPtr
-        || jsArrayVPtr == jsStringVPtr
-        || jsArrayVPtr == jsFunctionVPtr
-        || jsByteArrayVPtr == jsStringVPtr
-        || jsByteArrayVPtr == jsFunctionVPtr
-        || jsStringVPtr == jsFunctionVPtr)
-        CRASH();
+#if USE(CF) || OS(UNIX)
+    char* canUseJITString = getenv("JavaScriptCoreUseJIT");
+    return !canUseJITString || atoi(canUseJITString);
+#else
+    return true;
+#endif
 }
+#endif
 
 JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType threadStackType, HeapSize heapSize)
-    : globalDataType(globalDataType)
+    : heap(this, heapSize)
+    , globalDataType(globalDataType)
     , clientData(0)
     , topCallFrame(CallFrame::noCaller())
     , arrayConstructorTable(fastNew<HashTable>(JSC::arrayConstructorTable))
@@ -201,7 +149,8 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , parserArena(adoptPtr(new ParserArena))
     , keywords(adoptPtr(new Keywords(this)))
     , interpreter(0)
-    , heap(this, heapSize)
+    , jsArrayClassInfo(&JSArray::s_info)
+    , jsFinalObjectClassInfo(&JSFinalObject::s_info)
 #if ENABLE(DFG_JIT)
     , sizeOfLastScratchBuffer(0)
 #endif
@@ -218,9 +167,13 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
 #if CPU(X86) && ENABLE(JIT)
     , m_timeoutCount(512)
 #endif
-#if ENABLE(GC_VALIDATION)
-    , m_isInitializingObject(false)
+#if ENABLE(ASSEMBLER) && (ENABLE(CLASSIC_INTERPRETER) || ENABLE(LLINT))
+    , m_canUseAssembler(enableAssembler(executableAllocator))
 #endif
+#if ENABLE(GC_VALIDATION)
+    , m_initializingObjectClass(0)
+#endif
+    , m_inDefineOwnProperty(false)
 {
     interpreter = new Interpreter;
 
@@ -250,68 +203,26 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
 
     wtfThreadData().setCurrentIdentifierTable(existingEntryIdentifierTable);
 
-#if ENABLE(JIT) && ENABLE(INTERPRETER)
-#if USE(CF)
-    CFStringRef canUseJITKey = CFStringCreateWithCString(0 , "JavaScriptCoreUseJIT", kCFStringEncodingMacRoman);
-    CFBooleanRef canUseJIT = (CFBooleanRef)CFPreferencesCopyAppValue(canUseJITKey, kCFPreferencesCurrentApplication);
-    if (canUseJIT) {
-        m_canUseJIT = kCFBooleanTrue == canUseJIT;
-        CFRelease(canUseJIT);
-    } else {
-      char* canUseJITString = getenv("JavaScriptCoreUseJIT");
-      m_canUseJIT = !canUseJITString || atoi(canUseJITString);
-    }
-    CFRelease(canUseJITKey);
-#elif OS(UNIX)
-    char* canUseJITString = getenv("JavaScriptCoreUseJIT");
-    m_canUseJIT = !canUseJITString || atoi(canUseJITString);
-#else
-    m_canUseJIT = true;
-#endif
-#endif
 #if ENABLE(JIT)
-#if ENABLE(INTERPRETER)
-    if (m_canUseJIT)
-        m_canUseJIT = executableAllocator.isValid();
-#endif
     jitStubs = adoptPtr(new JITThunks(this));
 #endif
+    
+    interpreter->initialize(&llintData, this->canUseJIT());
+    
+    initializeHostCallReturnValue(); // This is needed to convince the linker not to drop host call return support.
 
     heap.notifyIsSafeToCollect();
-}
-
-void JSGlobalData::clearBuiltinStructures()
-{
-    structureStructure.clear();
-    debuggerActivationStructure.clear();
-    activationStructure.clear();
-    interruptedExecutionErrorStructure.clear();
-    terminatedExecutionErrorStructure.clear();
-    staticScopeStructure.clear();
-    strictEvalActivationStructure.clear();
-    stringStructure.clear();
-    notAnObjectStructure.clear();
-    propertyNameIteratorStructure.clear();
-    getterSetterStructure.clear();
-    apiWrapperStructure.clear();
-    scopeChainNodeStructure.clear();
-    executableStructure.clear();
-    nativeExecutableStructure.clear();
-    evalExecutableStructure.clear();
-    programExecutableStructure.clear();
-    functionExecutableStructure.clear();
-    regExpStructure.clear();
-    structureChainStructure.clear();
+    
+    llintData.performAssertions(*this);
 }
 
 JSGlobalData::~JSGlobalData()
 {
-    // By the time this is destroyed, heap.destroy() must already have been called.
+    heap.lastChanceToFinalize();
 
     delete interpreter;
 #ifndef NDEBUG
-    // Zeroing out to make the behavior more predictable when someone attempts to use a deleted instance.
-    interpreter = 0;
+    interpreter = reinterpret_cast<Interpreter*>(0xbbadbeef);
 #endif
 
     arrayPrototypeTable->deleteTable();
@@ -442,7 +353,7 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
 
 NativeExecutable* JSGlobalData::getHostFunction(NativeFunction function, NativeFunction constructor)
 {
-#if ENABLE(INTERPRETER)
+#if ENABLE(CLASSIC_INTERPRETER)
     if (!canUseJIT())
         return NativeExecutable::create(*this, function, constructor);
 #endif
@@ -491,15 +402,6 @@ void JSGlobalData::dumpSampleData(ExecState* exec)
 #endif
 }
 
-void JSGlobalData::recompileAllJSFunctions()
-{
-    // If JavaScript is running, it's not safe to recompile, since we'll end
-    // up throwing away code that is live on the stack.
-    ASSERT(!dynamicGlobalObject);
-    
-    heap.objectSpace().forEachCell<Recompiler>();
-}
-
 struct StackPreservingRecompiler : public MarkedBlock::VoidFunctor {
     HashSet<FunctionExecutable*> currentlyExecutingFunctions;
     void operator()(JSCell* cell)
@@ -526,7 +428,7 @@ void JSGlobalData::releaseExecutableMemory()
             if (cell->inherits(&ScriptExecutable::s_info))
                 executable = static_cast<ScriptExecutable*>(*ptr);
             else if (cell->inherits(&JSFunction::s_info)) {
-                JSFunction* function = asFunction(*ptr);
+                JSFunction* function = jsCast<JSFunction*>(*ptr);
                 if (function->isHostFunction())
                     continue;
                 executable = function->jsExecutable();
@@ -549,6 +451,19 @@ void releaseExecutableMemory(JSGlobalData& globalData)
     globalData.releaseExecutableMemory();
 }
 
+#if ENABLE(DFG_JIT)
+void JSGlobalData::gatherConservativeRoots(ConservativeRoots& conservativeRoots)
+{
+    for (size_t i = 0; i < scratchBuffers.size(); i++) {
+        ScratchBuffer* scratchBuffer = scratchBuffers[i];
+        if (scratchBuffer->activeLength()) {
+            void* bufferStart = scratchBuffer->dataBuffer();
+            conservativeRoots.add(bufferStart, static_cast<void*>(static_cast<char*>(bufferStart) + scratchBuffer->activeLength()));
+        }
+    }
+}
+#endif
+
 #if ENABLE(REGEXP_TRACING)
 void JSGlobalData::addRegExpToTrace(RegExp* regExp)
 {
@@ -561,17 +476,17 @@ void JSGlobalData::dumpRegExpTrace()
     RTTraceList::iterator iter = ++m_rtTraceList->begin();
     
     if (iter != m_rtTraceList->end()) {
-        printf("\nRegExp Tracing\n");
-        printf("                                                            match()    matches\n");
-        printf("Regular Expression                          JIT Address      calls      found\n");
-        printf("----------------------------------------+----------------+----------+----------\n");
+        dataLog("\nRegExp Tracing\n");
+        dataLog("                                                            match()    matches\n");
+        dataLog("Regular Expression                          JIT Address      calls      found\n");
+        dataLog("----------------------------------------+----------------+----------+----------\n");
     
         unsigned reCount = 0;
     
         for (; iter != m_rtTraceList->end(); ++iter, ++reCount)
             (*iter)->printTraceData();
 
-        printf("%d Regular Expressions\n", reCount);
+        dataLog("%d Regular Expressions\n", reCount);
     }
     
     m_rtTraceList->clear();

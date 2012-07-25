@@ -4,7 +4,7 @@
  * @APPLE_LLVM_LICENSE_HEADER@
  */
 
-// TEST_CONFIG SDK=macosx GC=1
+// TEST_CONFIG SDK=macosx MEM=gc
 // TEST_CFLAGS -framework Foundation
 
 #import <objc/objc-auto.h>

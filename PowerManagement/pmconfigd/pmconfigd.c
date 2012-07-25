@@ -51,6 +51,11 @@
 #include "PMConnection.h"
 #include "ExternalMedia.h"
 
+// To support importance donation across IPCs on embedded
+#if TARGET_OS_EMBEDDED
+#include <libproc_internal.h>
+#endif
+
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath        "com.apple.PowerManagement.xml"
 #define pwrLogDirName       "/System/Library/PowerEvents"
@@ -219,6 +224,7 @@ __private_extern__ void dynamicStoreNotifyCallBack(
                 CFArrayRef          changedKeys,
                 void                *info);
 
+bool smcSilentRunningSupport( );
 
 /* load
  *
@@ -303,8 +309,6 @@ int main(int argc __unused, char *argv[] __unused)
     
     initializeSleepWakeNotifications();
 
-
-
     // Prime the messagetracer UUID pump
     pushNewSleepWakeUUID();
     
@@ -373,12 +377,6 @@ static void BatteryInterest(
 
     if(kIOPMMessageBatteryStatusHasChanged == messageType)
     {
-#if 0
-        if (changed_batt->me != (io_registry_entry_t)batt) {
-            asl_log(NULL, NULL, ASL_LEVEL_ERR, "PM:BatteryInterest(Berr) me!=batt (%d, %d)\n", changed_batt->me, batt);
-        }
-#endif
-
         // Update the arbiter
         changed_batt->me = (io_registry_entry_t)batt;
         _batteryChanged(changed_batt);
@@ -479,6 +477,8 @@ ESPrefsHaveChanged(
         // Tell ES Prefs listeners that the prefs have changed
         PMSettingsPrefsHaveChanged();
         SystemLoadPrefsHaveChanged();
+        PMAssertions_SettingsHaveChanged();
+        mt2EvaluateSystemSupport();
 #if !TARGET_OS_EMBEDDED
         PSLowPowerPrefsHaveChanged();
         TTYKeepAwakePrefsHaveChanged();
@@ -695,6 +695,7 @@ static void lwShutdownCallback(
     return;
 }
 
+
 /* displayPowerStateChange
  *
  * displayPowerStateChange gets notified when the display changes power state.
@@ -724,8 +725,12 @@ displayPowerStateChange(void *ref, io_service_t service, natural_t messageType, 
             if ( params->stateNumber != 4 )
             {
                 gDisplayIsAsleep = true;
-                SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
+            }
 
+            if ( params->stateNumber <= 1)
+            {
+               // Notify a SystemLoad state change when display is completely off
+                SystemLoadDisplayPowerStateHasChanged(gDisplayIsAsleep);
                 // Display is transition from dim to full sleep.
                 broadcastGMTOffset();            
             }
@@ -914,7 +919,7 @@ pm_mig_demux(
 
         handled = BatteryHandleDeadName(deadRequest->not_port);
         if (!handled) {
-            handled = PMConnectionHandleDeadName(deadRequest->not_port);
+            PMConnectionHandleDeadName(deadRequest->not_port);
         }
         
         __MACH_PORT_DEBUG(true, "pm_mig_demux: Deallocating dead name port", deadRequest->not_port);
@@ -949,9 +954,17 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
         NULL, _powermanagement_subsystem.maxsize, 0);
     mach_msg_return_t   mr;
     int                 options;
+#if TARGET_OS_EMBEDDED
+    int                 ret = 0;
+    uint64_t            token;
+#endif
 
     __MACH_PORT_DEBUG(true, "mig_server_callback", serverPort);
-
+    
+#if TARGET_OS_EMBEDDED
+    ret = proc_importance_assertion_begin_with_msg(&bufRequest->Head, NULL, &token);
+#endif /* 1*/
+    
     /* we have a request message */
     (void) pm_mig_demux(&bufRequest->Head, &bufReply->Head);
 
@@ -965,8 +978,8 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
              * error would not normally get returned either to the local
              * user or the remote one, we pretend it's ok.
              */
-            CFAllocatorDeallocate(NULL, bufReply);
-            return;
+            goto out;
+            
         }
 
         /*
@@ -982,8 +995,7 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
         if (bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
             mach_msg_destroy(&bufReply->Head);
         }
-        CFAllocatorDeallocate(NULL, bufReply);
-        return;
+        goto out;
     }
 
     /*
@@ -1024,7 +1036,15 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
             break;
     }
 
+
+out:
+#if TARGET_OS_EMBEDDED
+    if (ret == 0)
+        proc_importance_assertion_complete(token);
+#endif 
     CFAllocatorDeallocate(NULL, bufReply);
+    return;
+
 }
 
 /* dynamicStoreNotifyCallBack
@@ -1054,6 +1074,44 @@ void dynamicStoreNotifyCallBack(
     
     return;
 }
+
+kern_return_t _io_pm_get_value_int(
+    mach_port_t   server,
+    audit_token_t token,
+    int           selector,
+    int           *outValue)
+{
+    uid_t   callerUID;
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, 0, 0, NULL, NULL);
+
+    
+    switch(selector) {
+      case kIOPMGetSilentRunningInfo:
+         if ( (_get_SR_Override() != kPMSROverrideDisable) &&
+             smcSilentRunningSupport( ))
+            *outValue = 1;
+         else 
+            *outValue = 0;
+         break;
+        
+     case kIOPMMT2Bookmark:
+            if (0 == callerUID)
+            {
+                mt2PublishReports();
+                *outValue = 0;
+            } else {
+                *outValue = 1;
+            }
+          break;
+
+      default:
+         *outValue = 0;
+         break;
+
+    }
+    return KERN_SUCCESS;
+}
+
 
 
 kern_return_t _io_pm_force_active_settings(
@@ -1168,10 +1226,14 @@ initializeInterestNotifications()
                                 displayMatched,
                                 (void *)notify_port,
                                 &display_iter);
-    if(KERN_SUCCESS != kr) 
+    if(KERN_SUCCESS == kr) 
     {
         // Install notifications on existing instances.
         displayMatched((void *)notify_port, display_iter);
+    }
+    else {
+        asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                "Failed to match DisplayWrangler(0x%x)\n", kr);
     }
     
 
@@ -1494,7 +1556,7 @@ initializeShutdownNotifications(void)
 /*****************************************************************************/
 /*****************************************************************************/
 
-CFDictionaryRef dictionaryForEvent(IOPMSystemEventRecord *event)
+CFDictionaryRef copyDictionaryForEvent(IOPMSystemEventRecord *event)
 {
     CFMutableDictionaryRef outD = NULL;
 
@@ -1863,7 +1925,7 @@ static void packagePowerDetailLogForUUID(CFStringRef uuid)
     //   and append that dictionary to an array
     index = setUUIDindex;
     do {
-        _eventDictionary = dictionaryForEvent(&gPowerLogRecords[index]);
+        _eventDictionary = copyDictionaryForEvent(&gPowerLogRecords[index]);
         if (_eventDictionary) {
             CFArrayAppendValue(_eventsForUUIDArray, _eventDictionary);
             
@@ -1878,7 +1940,7 @@ static void packagePowerDetailLogForUUID(CFStringRef uuid)
     } while (clearUUIDindex != incrementDetailLogIndex(&index));
     
     // We're intrested in separately logging the UUIDClear time
-    _eventDictionary = dictionaryForEvent(&gPowerLogRecords[index]);
+    _eventDictionary = copyDictionaryForEvent(&gPowerLogRecords[index]);
     if(_eventDictionary) {
       CFArrayAppendValue(_eventsForUUIDArray, _eventDictionary);
       
@@ -1916,7 +1978,6 @@ static void packagePowerDetailLogForUUID(CFStringRef uuid)
                          clear_time);
     CFNumberGetValue(clear_time, kCFNumberDoubleType, &ct);
     
-    CFRelease(_eventsForUUIDArray);
 
     // We're now ready to write out details of current UUID to disk
     fileName = CFStringCreateMutable(kCFAllocatorDefault,  255); 
@@ -1998,6 +2059,8 @@ exit:
         CFRelease(fileName);
     if (_uuidDetails)
         CFRelease(_uuidDetails);
+    if(_eventsForUUIDArray)
+        CFRelease(_eventsForUUIDArray);
     return;
 }
 
@@ -2075,6 +2138,14 @@ RootDomainInterest(
         // Let System Events know about just-occurred thermal state change
         
         PMSystemEventsRootDomainInterest();
+    }
+
+    if(messageType == kIOPMMessageDarkWakeThermalEmergency)
+    {
+        mt2RecordThermalEvent(kThermalStateSleepRequest);
+        // FIXME: When required to do chained DarkWakes after honoring the
+        // first SMC DarkWake sleep request,
+        // add code here:
     }
 
     if (messageType == kIOPMMessageFeatureChange)

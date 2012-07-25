@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -36,50 +36,127 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type)
-    : m_idsDone(false)
-    , m_base(base)
+HTMLCollection::HTMLCollection(Node* base, CollectionType type)
+    : m_includeChildren(shouldIncludeChildren(type))
     , m_type(type)
-    , m_info(m_base->isDocumentNode() ? static_cast<Document*>(m_base.get())->collectionInfo(type) : 0)
-    , m_ownsInfo(false)
+    , m_base(base)
 {
+    ASSERT(m_base);
+    m_cache.clear();
 }
 
-HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type, CollectionCache* info)
-    : m_idsDone(false)
-    , m_base(base)
-    , m_type(type)
-    , m_info(info)
-    , m_ownsInfo(false)
+bool HTMLCollection::shouldIncludeChildren(CollectionType type)
 {
+    switch (type) {
+    case DocAll:
+    case DocAnchors:
+    case DocApplets:
+    case DocEmbeds:
+    case DocForms:
+    case DocImages:
+    case DocLinks:
+    case DocObjects:
+    case DocScripts:
+    case DocumentNamedItems:
+    case MapAreas:
+    case OtherCollection:
+    case SelectOptions:
+    case SelectedOptions:
+    case DataListOptions:
+    case WindowNamedItems:
+#if ENABLE(MICRODATA)
+    case ItemProperties:
+#endif
+        return true;
+    case NodeChildren:
+    case TRCells:
+    case TSectionRows:
+    case TableTBodies:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
-PassRefPtr<HTMLCollection> HTMLCollection::create(PassRefPtr<Node> base, CollectionType type)
+PassOwnPtr<HTMLCollection> HTMLCollection::create(Node* base, CollectionType type)
 {
-    return adoptRef(new HTMLCollection(base, type));
+    return adoptPtr(new HTMLCollection(base, type));
 }
 
 HTMLCollection::~HTMLCollection()
 {
-    if (m_ownsInfo)
-        delete m_info;
 }
 
-void HTMLCollection::resetCollectionInfo() const
+void HTMLCollection::invalidateCacheIfNeeded() const
 {
     uint64_t docversion = static_cast<HTMLDocument*>(m_base->document())->domTreeVersion();
 
-    if (!m_info) {
-        m_info = new CollectionCache;
-        m_ownsInfo = true;
-        m_info->version = docversion;
+    if (m_cache.version == docversion)
         return;
-    }
 
-    if (m_info->version != docversion) {
-        m_info->reset();
-        m_info->version = docversion;
+    m_cache.clear();
+    m_cache.version = docversion;
+}
+
+inline bool HTMLCollection::isAcceptableElement(Element* element) const
+{
+    if (!element->isHTMLElement() && !(m_type == DocAll || m_type == NodeChildren))
+        return false;
+
+    switch (m_type) {
+    case DocImages:
+        return element->hasLocalName(imgTag);
+    case DocScripts:
+        return element->hasLocalName(scriptTag);
+    case DocForms:
+        return element->hasLocalName(formTag);
+    case TableTBodies:
+        return element->hasLocalName(tbodyTag);
+    case TRCells:
+        return element->hasLocalName(tdTag) || element->hasLocalName(thTag);
+    case TSectionRows:
+        return element->hasLocalName(trTag);
+    case SelectOptions:
+        return element->hasLocalName(optionTag);
+    case SelectedOptions:
+        if (element->hasLocalName(optionTag)) {
+            HTMLOptionElement* option = static_cast<HTMLOptionElement*>(element);
+            if (option->selected())
+                return true;
+        }
+        return false;
+    case DataListOptions:
+        if (element->hasLocalName(optionTag)) {
+            HTMLOptionElement* option = static_cast<HTMLOptionElement*>(element);
+            if (!option->disabled() && !option->value().isEmpty())
+                return true;
+        }
+        return false;
+    case MapAreas:
+        return element->hasLocalName(areaTag);
+    case DocApplets:
+        return element->hasLocalName(appletTag) || (element->hasLocalName(objectTag) && static_cast<HTMLObjectElement*>(element)->containsJavaApplet());
+    case DocEmbeds:
+        return element->hasLocalName(embedTag);
+    case DocObjects:
+        return element->hasLocalName(objectTag);
+    case DocLinks:
+        return (element->hasLocalName(aTag) || element->hasLocalName(areaTag)) && element->fastHasAttribute(hrefAttr);
+    case DocAnchors:
+        return element->hasLocalName(aTag) && element->fastHasAttribute(nameAttr);
+    case DocAll:
+    case NodeChildren:
+        return true;
+#if ENABLE(MICRODATA)
+    case ItemProperties:
+        return element->fastHasAttribute(itempropAttr);
+#endif
+    case DocumentNamedItems:
+    case OtherCollection:
+    case WindowNamedItems:
+        ASSERT_NOT_REACHED();
     }
+    return false;
 }
 
 static Node* nextNodeOrSibling(Node* base, Node* node, bool includeChildren)
@@ -89,114 +166,18 @@ static Node* nextNodeOrSibling(Node* base, Node* node, bool includeChildren)
 
 Element* HTMLCollection::itemAfter(Element* previous) const
 {
-    bool deep = true;
-
-    switch (m_type) {
-        case DocAll:
-        case DocAnchors:
-        case DocApplets:
-        case DocEmbeds:
-        case DocForms:
-        case DocImages:
-        case DocLinks:
-        case DocObjects:
-        case DocScripts:
-        case DocumentNamedItems:
-        case MapAreas:
-        case OtherCollection:
-        case SelectOptions:
-        case DataListOptions:
-        case WindowNamedItems:
-            break;
-        case NodeChildren:
-        case TRCells:
-        case TSectionRows:
-        case TableTBodies:
-            deep = false;
-            break;
-    }
-
     Node* current;
     if (!previous)
         current = m_base->firstChild();
     else
-        current = nextNodeOrSibling(m_base.get(), previous, deep);
+        current = nextNodeOrSibling(m_base, previous, m_includeChildren);
 
-    for (; current; current = nextNodeOrSibling(m_base.get(), current, deep)) {
+    for (; current; current = nextNodeOrSibling(m_base, current, m_includeChildren)) {
         if (!current->isElementNode())
             continue;
-        Element* e = static_cast<Element*>(current);
-        switch (m_type) {
-            case DocImages:
-                if (e->hasLocalName(imgTag))
-                    return e;
-                break;
-            case DocScripts:
-                if (e->hasLocalName(scriptTag))
-                    return e;
-                break;
-            case DocForms:
-                if (e->hasLocalName(formTag))
-                    return e;
-                break;
-            case TableTBodies:
-                if (e->hasLocalName(tbodyTag))
-                    return e;
-                break;
-            case TRCells:
-                if (e->hasLocalName(tdTag) || e->hasLocalName(thTag))
-                    return e;
-                break;
-            case TSectionRows:
-                if (e->hasLocalName(trTag))
-                    return e;
-                break;
-            case SelectOptions:
-                if (e->hasLocalName(optionTag))
-                    return e;
-                break;
-            case DataListOptions:
-                if (e->hasLocalName(optionTag)) {
-                    HTMLOptionElement* option = static_cast<HTMLOptionElement*>(e);
-                    if (!option->disabled() && !option->value().isEmpty())
-                        return e;
-                }
-                break;
-            case MapAreas:
-                if (e->hasLocalName(areaTag))
-                    return e;
-                break;
-            case DocApplets: // all <applet> elements and <object> elements that contain Java Applets
-                if (e->hasLocalName(appletTag))
-                    return e;
-                if (e->hasLocalName(objectTag) && static_cast<HTMLObjectElement*>(e)->containsJavaApplet())
-                    return e;
-                break;
-            case DocEmbeds:
-                if (e->hasLocalName(embedTag))
-                    return e;
-                break;
-            case DocObjects:
-                if (e->hasLocalName(objectTag))
-                    return e;
-                break;
-            case DocLinks: // all <a> and <area> elements with a value for href
-                if ((e->hasLocalName(aTag) || e->hasLocalName(areaTag)) && e->fastHasAttribute(hrefAttr))
-                    return e;
-                break;
-            case DocAnchors: // all <a> elements with a value for name
-                if (e->hasLocalName(aTag) && e->fastHasAttribute(nameAttr))
-                    return e;
-                break;
-            case DocAll:
-            case NodeChildren:
-                return e;
-            case DocumentNamedItems:
-            case OtherCollection:
-            case WindowNamedItems:
-                ASSERT_NOT_REACHED();
-                break;
-        }
+        Element* element = static_cast<Element*>(current);
+        if (isAcceptableElement(element))
+            return element;
     }
 
     return 0;
@@ -214,33 +195,33 @@ unsigned HTMLCollection::calcLength() const
 // calculation every time if anything has changed
 unsigned HTMLCollection::length() const
 {
-    resetCollectionInfo();
-    if (!m_info->hasLength) {
-        m_info->length = calcLength();
-        m_info->hasLength = true;
+    invalidateCacheIfNeeded();
+    if (!m_cache.hasLength) {
+        m_cache.length = calcLength();
+        m_cache.hasLength = true;
     }
-    return m_info->length;
+    return m_cache.length;
 }
 
 Node* HTMLCollection::item(unsigned index) const
 {
-     resetCollectionInfo();
-     if (m_info->current && m_info->position == index)
-         return m_info->current;
-     if (m_info->hasLength && m_info->length <= index)
+     invalidateCacheIfNeeded();
+     if (m_cache.current && m_cache.position == index)
+         return m_cache.current;
+     if (m_cache.hasLength && m_cache.length <= index)
          return 0;
-     if (!m_info->current || m_info->position > index) {
-         m_info->current = itemAfter(0);
-         m_info->position = 0;
-         if (!m_info->current)
+     if (!m_cache.current || m_cache.position > index) {
+         m_cache.current = itemAfter(0);
+         m_cache.position = 0;
+         if (!m_cache.current)
              return 0;
      }
-     Element* e = m_info->current;
-     for (unsigned pos = m_info->position; e && pos < index; pos++)
+     Element* e = m_cache.current;
+     for (unsigned pos = m_cache.position; e && pos < index; pos++)
          e = itemAfter(e);
-     m_info->current = e;
-     m_info->position = index;
-     return m_info->current;
+     m_cache.current = e;
+     m_cache.position = index;
+     return m_cache.current;
 }
 
 Node* HTMLCollection::firstItem() const
@@ -250,13 +231,26 @@ Node* HTMLCollection::firstItem() const
 
 Node* HTMLCollection::nextItem() const
 {
-     resetCollectionInfo();
- 
+     invalidateCacheIfNeeded();
+
      // Look for the 'second' item. The first one is currentItem, already given back.
-     Element* retval = itemAfter(m_info->current);
-     m_info->current = retval;
-     m_info->position++;
+     Element* retval = itemAfter(m_cache.current);
+     m_cache.current = retval;
+     m_cache.position++;
      return retval;
+}
+
+static inline bool nameShouldBeVisibleInDocumentAll(HTMLElement* element)
+{
+    // The document.all collection returns only certain types of elements by name,
+    // although it returns any type of element by id.
+    return element->hasLocalName(appletTag)
+        || element->hasLocalName(embedTag)
+        || element->hasLocalName(formTag)
+        || element->hasLocalName(imgTag)
+        || element->hasLocalName(inputTag)
+        || element->hasLocalName(objectTag)
+        || element->hasLocalName(selectTag);
 }
 
 bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const AtomicString& name) const
@@ -268,16 +262,10 @@ bool HTMLCollection::checkForNameMatch(Element* element, bool checkName, const A
     if (!checkName)
         return e->getIdAttribute() == name;
 
-    // document.all returns only images, forms, applets, objects and embeds
-    // by name (though everything by id)
-    if (m_type == DocAll && 
-        !(e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-          e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-          e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-          e->hasLocalName(selectTag)))
+    if (m_type == DocAll && !nameShouldBeVisibleInDocumentAll(e))
         return false;
 
-    return e->getAttribute(nameAttr) == name && e->getIdAttribute() != name;
+    return e->getNameAttribute() == name && e->getIdAttribute() != name;
 }
 
 Node* HTMLCollection::namedItem(const AtomicString& name) const
@@ -287,82 +275,79 @@ Node* HTMLCollection::namedItem(const AtomicString& name) const
     // attribute. If a match is not found, the method then searches for an
     // object with a matching name attribute, but only on those elements
     // that are allowed a name attribute.
-    resetCollectionInfo();
-    m_idsDone = false;
+    invalidateCacheIfNeeded();
 
     for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name)) {
-            m_info->current = e;
-            return e;
-        }
-    }
-        
-    m_idsDone = true;
-
-    for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name)) {
-            m_info->current = e;
+        if (checkForNameMatch(e, /* checkName */ false, name)) {
+            m_cache.current = e;
             return e;
         }
     }
 
-    m_info->current = 0;
+    for (Element* e = itemAfter(0); e; e = itemAfter(e)) {
+        if (checkForNameMatch(e, /* checkName */ true, name)) {
+            m_cache.current = e;
+            return e;
+        }
+    }
+
+    m_cache.current = 0;
     return 0;
 }
 
 void HTMLCollection::updateNameCache() const
 {
-    if (m_info->hasNameCache)
+    if (m_cache.hasNameCache)
         return;
-    
+
     for (Element* element = itemAfter(0); element; element = itemAfter(element)) {
         if (!element->isHTMLElement())
             continue;
         HTMLElement* e = toHTMLElement(element);
         const AtomicString& idAttrVal = e->getIdAttribute();
-        const AtomicString& nameAttrVal = e->getAttribute(nameAttr);
-        if (!idAttrVal.isEmpty()) {
-            // add to id cache
-            Vector<Element*>* idVector = m_info->idCache.get(idAttrVal.impl());
-            if (!idVector) {
-                idVector = new Vector<Element*>;
-                m_info->idCache.add(idAttrVal.impl(), idVector);
-            }
-            idVector->append(e);
-        }
-        if (!nameAttrVal.isEmpty() && idAttrVal != nameAttrVal
-            && (m_type != DocAll || 
-                (e->hasLocalName(imgTag) || e->hasLocalName(formTag) ||
-                 e->hasLocalName(appletTag) || e->hasLocalName(objectTag) ||
-                 e->hasLocalName(embedTag) || e->hasLocalName(inputTag) ||
-                 e->hasLocalName(selectTag)))) {
-            // add to name cache
-            Vector<Element*>* nameVector = m_info->nameCache.get(nameAttrVal.impl());
-            if (!nameVector) {
-                nameVector = new Vector<Element*>;
-                m_info->nameCache.add(nameAttrVal.impl(), nameVector);
-            }
-            nameVector->append(e);
-        }
+        const AtomicString& nameAttrVal = e->getNameAttribute();
+        if (!idAttrVal.isEmpty())
+            append(m_cache.idCache, idAttrVal, e);
+        if (!nameAttrVal.isEmpty() && idAttrVal != nameAttrVal && (m_type != DocAll || nameShouldBeVisibleInDocumentAll(e)))
+            append(m_cache.nameCache, nameAttrVal, e);
     }
 
-    m_info->hasNameCache = true;
+    m_cache.hasNameCache = true;
+}
+
+bool HTMLCollection::hasNamedItem(const AtomicString& name) const
+{
+    if (name.isEmpty())
+        return false;
+
+    invalidateCacheIfNeeded();
+    updateNameCache();
+
+    if (Vector<Element*>* idCache = m_cache.idCache.get(name.impl())) {
+        if (!idCache->isEmpty())
+            return true;
+    }
+
+    if (Vector<Element*>* nameCache = m_cache.nameCache.get(name.impl())) {
+        if (!nameCache->isEmpty())
+            return true;
+    }
+
+    return false;
 }
 
 void HTMLCollection::namedItems(const AtomicString& name, Vector<RefPtr<Node> >& result) const
 {
     ASSERT(result.isEmpty());
-    
     if (name.isEmpty())
         return;
 
-    resetCollectionInfo();
+    invalidateCacheIfNeeded();
     updateNameCache();
-    m_info->checkConsistency();
 
-    Vector<Element*>* idResults = m_info->idCache.get(name.impl());
-    Vector<Element*>* nameResults = m_info->nameCache.get(name.impl());
-    
+    Vector<Element*>* idResults = m_cache.idCache.get(name.impl());
+    Vector<Element*>* nameResults = m_cache.nameCache.get(name.impl());
+
     for (unsigned i = 0; idResults && i < idResults->size(); ++i)
         result.append(idResults->at(i));
 
@@ -370,38 +355,17 @@ void HTMLCollection::namedItems(const AtomicString& name, Vector<RefPtr<Node> >&
         result.append(nameResults->at(i));
 }
 
-
-Node* HTMLCollection::nextNamedItem(const AtomicString& name) const
-{
-    resetCollectionInfo();
-    m_info->checkConsistency();
-
-    for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name)) {
-            m_info->current = e;
-            return e;
-        }
-    }
-    
-    if (m_idsDone) {
-        m_info->current = 0; 
-        return 0;
-    }
-    m_idsDone = true;
-
-    for (Element* e = itemAfter(m_info->current); e; e = itemAfter(e)) {
-        if (checkForNameMatch(e, m_idsDone, name)) {
-            m_info->current = e;
-            return e;
-        }
-    }
-
-    return 0;
-}
-
 PassRefPtr<NodeList> HTMLCollection::tags(const String& name)
 {
     return m_base->getElementsByTagName(name);
+}
+
+void HTMLCollection::append(NodeCacheMap& map, const AtomicString& key, Element* element)
+{
+    OwnPtr<Vector<Element*> >& vector = map.add(key.impl(), nullptr).iterator->second;
+    if (!vector)
+        vector = adoptPtr(new Vector<Element*>);
+    vector->append(element);
 }
 
 } // namespace WebCore

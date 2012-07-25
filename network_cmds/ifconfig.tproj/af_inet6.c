@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -305,6 +305,8 @@ in6_status(int s __unused, const struct ifaddrs *ifa)
 		printf("anycast ");
 	if ((flags6 & IN6_IFF_TENTATIVE) != 0)
 		printf("tentative ");
+	if ((flags6 & IN6_IFF_OPTIMISTIC) != 0)
+		printf("optimistic ");
 	if ((flags6 & IN6_IFF_DUPLICATED) != 0)
 		printf("duplicated ");
 	if ((flags6 & IN6_IFF_DETACHED) != 0)
@@ -516,11 +518,31 @@ in6_set_tunnel(int s, struct addrinfo *srcres, struct addrinfo *dstres)
 		warn("SIOCSIFPHYADDR_IN6");
 }
 
+static void
+in6_set_router(int s, int enable)
+{
+	struct ifreq ifr;
+
+	bzero(&ifr, sizeof (ifr));
+	strncpy(ifr.ifr_name, name, IFNAMSIZ);
+	ifr.ifr_intval = enable;
+
+	if (ioctl(s, SIOCSETROUTERMODE_IN6, &ifr) < 0)
+		warn("SIOCSETROUTERMODE_IN6");
+}
+
 static struct cmd inet6_cmds[] = {
 	DEF_CMD_ARG("prefixlen",			setifprefixlen),
 	DEF_CMD("anycast",	IN6_IFF_ANYCAST,	setip6flags),
 	DEF_CMD("tentative",	IN6_IFF_TENTATIVE,	setip6flags),
 	DEF_CMD("-tentative",	-IN6_IFF_TENTATIVE,	setip6flags),
+	/* RFC 4429, section 3.1, says:
+	 * "Optimistic DAD SHOULD NOT be used for manually entered
+	 * addresses."
+	 *
+	 * DEF_CMD("optimistic",	IN6_IFF_OPTIMISTIC,	setip6flags),
+	 * DEF_CMD("-optimistic",	-IN6_IFF_OPTIMISTIC,	setip6flags),
+	 */
 	DEF_CMD("deprecated",	IN6_IFF_DEPRECATED,	setip6flags),
 	DEF_CMD("-deprecated", -IN6_IFF_DEPRECATED,	setip6flags),
 	DEF_CMD("autoconf",	IN6_IFF_AUTOCONF,	setip6flags),
@@ -539,9 +561,10 @@ static struct afswtch af_inet6 = {
 	.af_postproc	= in6_postproc,
 	.af_status_tunnel = in6_status_tunnel,
 	.af_settunnel	= in6_set_tunnel,
+	.af_setrouter	= in6_set_router,
 	.af_difaddr	= SIOCDIFADDR_IN6,
 	.af_aifaddr	= SIOCAIFADDR_IN6,
-	.af_ridreq	= &in6_addreq,
+	.af_ridreq	= &in6_ridreq,
 	.af_addreq	= &in6_addreq,
 };
 

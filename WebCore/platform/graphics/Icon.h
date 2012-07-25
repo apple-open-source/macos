@@ -28,15 +28,11 @@
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class NSImage;
-#else
-class NSImage;
-#endif
+OBJC_CLASS NSImage;
 #elif PLATFORM(WIN)
 typedef struct HICON__* HICON;
 #elif PLATFORM(QT)
-#include <QIcon>
+#include <QImage>
 #elif PLATFORM(GTK)
 typedef struct _GdkPixbuf GdkPixbuf;
 #elif PLATFORM(EFL)
@@ -74,7 +70,7 @@ private:
     HICON m_hIcon;
 #elif PLATFORM(QT)
     Icon();
-    QIcon m_icon;
+    QImage m_image;
 #elif PLATFORM(GTK)
     Icon();
     GdkPixbuf* m_icon;

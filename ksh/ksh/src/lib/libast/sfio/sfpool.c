@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -41,7 +41,7 @@ static int delpool(p)
 reg Sfpool_t*	p;
 #endif
 {
-	POOLMTXSTART(p);
+	POOLMTXENTER(p);
 
 	if(p->s_sf && p->sf != p->array)
 		free((Void_t*)p->sf);
@@ -85,7 +85,7 @@ reg int	mode;
 		POOLMTXUNLOCK(last);
 	}
 
-	POOLMTXSTART(p);
+	POOLMTXENTER(p);
 
 	p->mode = mode&SF_SHARE;
 	p->s_sf = sizeof(p->array)/sizeof(p->array[0]);
@@ -108,7 +108,7 @@ int		n;	/* current position in pool	*/
 	reg ssize_t	k, w, v;
 	reg int		rv;
 
-	POOLMTXSTART(p);
+	POOLMTXENTER(p);
 
 	if(n == 0)
 		POOLMTXRETURN(p,0);
@@ -175,7 +175,7 @@ Sfio_t*		f;	/* the stream		*/
 int		n;	/* position in pool	*/
 #endif
 {
-	POOLMTXSTART(p);
+	POOLMTXENTER(p);
 
 	p->n_sf -= 1;
 	for(; n < p->n_sf; ++n)
@@ -251,8 +251,9 @@ reg Sfio_t*	pf;
 reg int		mode;
 #endif
 {
-	reg Sfpool_t*	p;
-	reg Sfio_t*	rv;
+	int		k;
+	Sfpool_t*	p;
+	Sfio_t*		rv;
 
 	_Sfpmove = _sfpmove;
 
@@ -301,13 +302,21 @@ reg int		mode;
 		SFLOCK(pf,0);
 
 	if(!pf)	/* deleting f from its current pool */
-	{	if(!(p = f->pool) || p == &_Sfpool ||
-		   _sfpmove(f,-1) < 0 || _sfsetpool(f) < 0)
+	{	if((p = f->pool) != NIL(Sfpool_t*) && p != &_Sfpool)
+			for(k = 0; k < p->n_sf && pf == NIL(Sfio_t*); ++k)
+				if(p->sf[k] != f) /* a stream != f represents the pool */
+					pf = p->sf[k];
+		if(!pf) /* already isolated */
+		{	rv = f; /* just return self */
 			goto done;
+		}
 
-		if((p = f->pool) == &_Sfpool || p->n_sf <= 0)
-			rv = f;
-		else	rv = p->sf[0];	/* return head of pool */
+		if(_sfpmove(f,-1) < 0 || _sfsetpool(f) < 0)
+			goto done; /* can't delete */
+
+		if(!pf->pool || pf->pool == &_Sfpool || pf->pool->n_sf <= 0 )
+			rv = pf;
+		else	rv = pf->pool->sf[0];	/* return head of old pool */
 		goto done;
 	}
 

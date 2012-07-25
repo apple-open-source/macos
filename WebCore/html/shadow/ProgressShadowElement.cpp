@@ -52,10 +52,10 @@ HTMLProgressElement* ProgressShadowElement::progressElement() const
     return static_cast<HTMLProgressElement*>(node);
 }
 
-bool ProgressShadowElement::rendererIsNeeded(RenderStyle* style)
+bool ProgressShadowElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     RenderObject* progressRenderer = progressElement()->renderer();
-    return progressRenderer && !progressRenderer->style()->hasAppearance() && HTMLDivElement::rendererIsNeeded(style);
+    return progressRenderer && !progressRenderer->style()->hasAppearance() && HTMLDivElement::rendererIsNeeded(context);
 }
 
 const AtomicString& ProgressBarElement::shadowPseudoId() const
@@ -73,7 +73,7 @@ const AtomicString& ProgressValueElement::shadowPseudoId() const
 
 void ProgressValueElement::setWidthPercentage(double width)
 {
-    getInlineStyleDecl()->setProperty(CSSPropertyWidth, width, CSSPrimitiveValue::CSS_PERCENTAGE);
+    setInlineStyleProperty(CSSPropertyWidth, width, CSSPrimitiveValue::CSS_PERCENTAGE);
 }
 
 }

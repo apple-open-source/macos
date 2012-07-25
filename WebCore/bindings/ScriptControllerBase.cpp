@@ -29,18 +29,24 @@
 #include "Page.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
+#include "UserGestureIndicator.h"
 
 namespace WebCore {
 
 bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reason)
 {
-    // FIXME: We should get this information from the document instead of the frame.
-    if (m_frame->loader()->isSandboxed(SandboxScripts))
+    if (m_frame->document() && m_frame->document()->isSandboxed(SandboxScripts))
         return false;
 
+    if (m_frame->document() && m_frame->document()->isViewSource()) {
+        ASSERT(m_frame->document()->securityOrigin()->isUnique());
+        return true;
+    }
+
     Settings* settings = m_frame->settings();
-    const bool allowed = m_frame->loader()->client()->allowJavaScript(settings && settings->isJavaScriptEnabled());
+    const bool allowed = m_frame->loader()->client()->allowScript(settings && settings->isScriptEnabled());
     if (!allowed && reason == AboutToExecuteScript)
         m_frame->loader()->client()->didNotAllowScript();
     return allowed;
@@ -48,7 +54,8 @@ bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reaso
 
 ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture)
 {
-    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_frame->document()->url()));
+    UserGestureIndicator gestureIndicator(forceUserGesture ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
+    return executeScript(ScriptSourceCode(script, m_frame->document()->url()));
 }
 
 ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode)
@@ -56,17 +63,9 @@ ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode)
     if (!canExecuteScripts(AboutToExecuteScript) || isPaused())
         return ScriptValue();
 
-    bool wasInExecuteScript = m_inExecuteScript;
-    m_inExecuteScript = true;
+    RefPtr<Frame> protect(m_frame); // Script execution can destroy the frame, and thus the ScriptController.
 
-    ScriptValue result = evaluate(sourceCode);
-
-    if (!wasInExecuteScript) {
-        m_inExecuteScript = false;
-        Document::updateStyleForAllDocuments();
-    }
-
-    return result;
+    return evaluate(sourceCode);
 }
 
 bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
@@ -88,7 +87,7 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocu
     const int javascriptSchemeLength = sizeof("javascript:") - 1;
 
     String decodedURL = decodeURLEscapeSequences(url.string());
-    ScriptValue result = executeScript(decodedURL.substring(javascriptSchemeLength), false);
+    ScriptValue result = executeScript(decodedURL.substring(javascriptSchemeLength));
 
     // If executing script caused this frame to be removed from the page, we
     // don't want to try to replace its document!

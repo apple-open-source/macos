@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -27,6 +27,10 @@ alias err_exit='err_exit $LINENO'
 
 Command=${0##*/}
 integer Errors=0
+
+tmp=$(mktemp -dt) || { err_exit mktemp -dt failed; exit 1; }
+trap "cd /; rm -rf $tmp" EXIT
+
 function checkref
 {
 	nameref foo=$1 bar=$2
@@ -80,7 +84,7 @@ nameref x=.foo.bar
 if	[[ ${!x} != .foo.bar ]]
 then	err_exit "${!x} not working"
 fi
-typeset +n x $(typeset +n) 
+typeset +n x $(typeset +n)
 unset x
 nameref x=.foo.bar
 function x.set
@@ -96,7 +100,7 @@ fi
 if	[[ $(typeset -n) != x=.foo.bar ]]
 then	err_exit "typeset +n doesn't list values of reference variables"
 fi
-file=/tmp/shtest$$
+file=$tmp/test
 typeset +n foo bar 2> /dev/null
 unset foo bar
 export bar=foo
@@ -104,7 +108,6 @@ nameref foo=bar
 if	[[ $foo != foo ]]
 then	err_exit "value of nameref foo !=  $foo"
 fi
-trap "rm -f $file" EXIT INT
 cat > $file <<\!
 print -r -- $foo
 !
@@ -113,7 +116,7 @@ y=$( $file)
 if	[[ $y != '' ]]
 then	err_exit "reference variable not cleared"
 fi
-{ 
+{
 	command nameref xx=yy
 	command nameref yy=xx
 } 2> /dev/null && err_exit "self reference not detected"
@@ -127,7 +130,7 @@ then	err_exit 'nameref of positional paramters outside of function not working'
 fi
 unset foo bar
 bar=123
-function foobar 
+function foobar
 {
 	typeset -n foo=bar
 	typeset -n foo=bar
@@ -216,7 +219,7 @@ function local
 	qs=(integer  a=3; integer b=4)
 }
 local 2> /dev/null || err_exit 'function local has non-zero exit status'
-[[ ${qs.a} == 3 ]] || err_exit 'function cannot set compound global variable' 
+[[ ${qs.a} == 3 ]] || err_exit 'function cannot set compound global variable'
 unset fun i
 foo=(x=hi)
 function fun
@@ -231,6 +234,10 @@ typeset -A foo
 foo[x.y]=(x=3 y=4)
 nameref bar=foo[x.y]
 [[ ${bar.x} == 3 ]] || err_exit 'nameref to subscript containing . fails'
+[[ ${!bar} == 'foo[x.y]' ]] || err_exit '${!var} not correct for nameref to an array instance'
+typeset +n bar
+nameref bar=foo
+[[ ${!bar} == foo ]] || err_exit '${!var} not correct for nameref to array variable'
 $SHELL -c 'function bar { nameref x=foo[++];};typeset -A foo;bar' 2> /dev/null ||err_exit 'nameref of associative array tries to evaluate subscript'
 i=$($SHELL -c 'nameref foo=bar; bar[2]=(x=3 y=4); nameref x=foo[2].y;print -r -- $x' 2> /dev/null)
 [[ $i == 4 ]] || err_exit 'creating reference from subscripted variable whose name is a reference failed'
@@ -248,4 +255,242 @@ i=$($SHELL -c 'nameref foo=bar; bar[2]=(x=3 y=4); nameref x=foo[2].y;print -r --
 	foo
 +++EOF
 ) ==  *foo=hello* ]] || err_exit 'unable to display compound variable from name reference of local variable'
-exit $((Errors))
+#set -x
+for c in '=' '[' ']' '\' "'" '"' '<' '=' '('
+do	[[ $($SHELL 2> /dev/null <<- ++EOF++
+	i=\\$c;typeset -A a; a[\$i]=foo;typeset -n x=a[\$i]; print "\$x"
+	++EOF++
+) != foo ]] && err_exit 'nameref x=a[$c] '"not working for c=$c"
+done
+for c in '=' '[' ']' '\' "'" '"' '<' '=' '('
+do      [[ $($SHELL 2> /dev/null <<- ++EOF++
+	i=\\$c;typeset -A a; a[\$i]=foo;b=a[\$i];typeset -n x=\$b; print "\$x"
+	++EOF++
+) != foo ]] && err_exit 'nameref x=$b with b=a[$c] '"not working for c=$c"
+done
+
+unset -n foo x
+unset foo x
+typeset -A foo
+nameref x=foo[xyz]
+foo[xyz]=ok
+[[ $x == ok ]] || err_exit 'nameref to unset subscript not working'
+function function2
+{
+	nameref v=$1
+	v.x=19 v.y=20
+}
+function function1
+{
+	typeset compound_var=()
+	function2 compound_var
+	printf "x=%d, y=%d\n" compound_var.x compound_var.y
+}
+x="$(function1)"
+[[ "$x" != 'x=19, y=20' ]] && err_exit "expected 'x=19, y=20', got '${x}'"
+typeset +n bar
+unset foo bar
+[[ $(function a
+{
+	for i in  foo bar
+	do	typeset -n v=$i
+		print $v
+	done | cat
+}
+foo=1 bar=2;a) == $'1\n2' ]] 2> /dev/null || err_exit 'nameref in pipeline broken'
+function a
+{
+	typeset -n v=vars.data._1
+	print "${v.a} ${v.b}"
+}
+vars=(data=())
+vars.data._1.a=a.1
+vars.data._1.b=b.1
+[[ $(a) == 'a.1 b.1' ]] || err_exit 'nameref choosing wrong scope -- '
+typeset +n bam zip foo
+unset bam zip foo
+typeset -A foo
+foo[2]=bar
+typeset -n bam=foo[2]
+typeset -n zip=bam
+[[ $zip == bar ]] || err_exit 'nameref to another nameref to array element fails'
+[[ -R zip ]] || err_exit '[[ -R zip ]] should detect that zip is a reference'
+[[ -R bam ]] || err_exit '[[ -R bam ]] should detect that bam is a reference'
+[[ -R zip ]] || err_exit '[[ -v zip ]] should detect that zip is set'
+[[ -v bam ]] || err_exit '[[ -v bam ]] should detect that bam is set'
+[[ -R 123 ]] && err_exit '[[ -R 123 ]] should detect that 123 is not a reference'
+[[ -v 123 ]] && err_exit '[[ -v 123 ]] should detect that 123 is not set'
+
+unset ref x
+typeset -n ref
+x=3
+function foobar
+{
+	typeset xxx=3
+	ref=xxx
+	return 0
+}
+foobar 2> /dev/null && err_exit 'invalid reference should cause foobar to fail'
+[[ -v ref ]] && err_exit '$ref should be unset'
+ref=x
+[[ $ref == 3 ]] || err_exit "\$ref is $ref, it should be 3"
+function foobar
+{
+        typeset fvar=()
+        typeset -n ref=fvar.foo
+        ref=ok
+        print -r $ref
+}
+[[ $(foobar) ==  ok ]] 2> /dev/null  || err_exit 'nameref in function not creating variable in proper scope'
+function foobar
+{
+        nameref doc=docs
+        nameref bar=doc.num
+	[[ $bar == 2 ]] || err_exit 'nameref scoping error'
+}
+
+docs=(num=2)
+foobar
+
+typeset +n x y
+unset x y
+typeset -A x
+x[a]=(b=c)  
+typeset -n y=x[a]
+[[ ${!y.@} == 'x[a].b' ]] || err_exit 'reference to array element not expanded with ${!y.@}'
+
+typeset +n v
+v=()
+k=a.b.c/d
+command typeset -n n=v.${k//['./']/_} 2> /dev/null || err_exit 'patterns with quotes not handled correctly with name reference assignment'
+
+typeset _n sp
+nameref sp=addrsp
+sp[14]=( size=1 )
+[[ -v sp[19] ]]  && err_exit '[[ -v sp[19] ]] where sp is a nameref should not be set'
+
+function fun2
+{
+	nameref var=$1
+	var.foo=bar
+}
+
+function fun1
+{
+	compound -S container
+	fun2 container
+	[[ $container == *foo=bar* ]] || err_exit 'name references to static compound variables in parent scope not working'
+}
+fun1
+
+function fun2
+{
+	nameref var=$1
+	var.foo=bar
+}
+
+typeset -T container_t=(
+	typeset foo
+)
+
+function fun1
+{
+	container_t -S container
+	fun2 container 
+	[[ $container == *foo=bar* ]] || err_exit 'name references to static type variables in parent scope not working'
+}
+fun1
+
+function fun2
+{
+	nameref var=$1
+	nameref node=var.foo
+	node=bar
+}
+function fun3
+{
+       fun2 container #2> /dev/null
+}
+compound container
+fun3
+[[ $container == *foo=bar* ]] || err_exit 'name reference to a name reference variable in a function not working'
+
+typeset -A x=( [a]=1 ) 
+nameref c=x[h]
+[[ -v x[h] ]] && err_exit 'creating reference to non-existant associative array element causes element to get added'
+
+unset a
+function x
+{
+	nameref a=a
+	(( $# > 0 )) && typeset -A a
+	a[a b]=${1-99}  # this was cauing a syntax on the second call
+}
+x 7
+x 2> /dev/null
+[[ ${a[a b]} == 99 ]] || err_exit 'nameref not handling subscript correctly'
+
+nameref sizes=baz
+typeset -A -i sizes
+sizes[bar]=1
+[[ ${sizes[*]} == 1 ]] || err_exit 'adding -Ai attribute to name referenced variable not working'
+
+$SHELL 2> /dev/null -c 'nameref foo=bar; typeset -A foo; (( (x=foo[a])==0 ))' || err_exit 'references inside arithmetic expressions not working'
+:
+
+unset ar z
+integer -a ar
+nameref z=ar[0]
+(( z[2]=3))
+[[ ${ar[0][2]} == 3 ]] || err_exit "\${ar[0][2]} is '${ar[0][2]}' but should be 3"
+(( ar[0][2] == 3 )) || err_exit "ar[0][2] is '${ar[0][2]}' but should be 3"
+
+unset c x
+typeset +n c x
+compound c=( typeset -a x )  
+nameref x=c.x
+x[4]=1
+[[ ${ typeset -p c.x ;} == *-C* ]] && err_exit 'c.x should not have -C attributes'
+
+{ $SHELL 2> /dev/null  <<- \EOF 
+	typeset -T xxx_t=(
+		float x=1 y=2
+		typeset name=abc
+	)
+	xxx_t x
+	nameref r=x.y
+	[[ $r == 2 ]] || exit 1
+	unset x
+	[[ ${!r} == .deleted ]] || exit 2
+EOF
+} 2> /dev/null #|| print -u2 bad
+exitval=$?
+if	[[ $(kill -l $exitval) == SEGV ]]
+then	print -u2 'name reference to unset type instance causes segmentation violation'
+else 	if((exitval))
+	then	print -u2 'name reference to unset type instance not redirected to .deleted'
+	fi
+fi
+
+typeset +n nr
+unset c nr
+compound c
+compound -A c.a 
+nameref nr=c.a[hello]
+[[ ${!nr} == "c.a[hello]" ]] || err_exit 'name reference nr to unset associative array instance does not expand ${!nr} correctly.'
+
+typeset +n nr
+compound -a c.b 
+nameref nr=c.b[2]
+[[ ${!nr} == "c.b[2]" ]] || err_exit 'name reference nr to unset indexed array instance does not expand ${!nr} correctly.'
+
+typeset +n a b
+unset a b
+typeset -n a=ls[0] b=ls[1]
+read line << \!
+3 4
+!
+set -A ls -- $line
+[[ $a == 3 ]] || err_exit 'name reference to ls[0] when ls is not an array fails'
+
+exit $((Errors<125?Errors:125))

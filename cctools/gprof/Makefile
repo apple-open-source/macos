@@ -37,7 +37,7 @@ macos_LIBDIR    = /usr/share
 HFILES = gprof.h m68k.h vax.h
 CFILES = gprof.c arcs.c dfn.c lookup.c calls.c hertz.c printgprof.c \
 	 printlist.c getnfile.c scatter.c
-OBJS = $(CFILES:.c=.o) vers.o
+OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) $(HFILES) gprof.flat gprof.callg Makefile notes
 
 PRODUCT = gprof
@@ -47,9 +47,6 @@ $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/$@.private.o $(OBJS) $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/$@ $(SYMROOT)/$@.private.o
-
-vers.c:
-	vers_string -c $(VERS_STRING_FLAGS) $(PRODUCT) > $(OFILE_DIR)/$@
 
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
@@ -62,7 +59,7 @@ else
 endif
 
 clean: shlib_clean
-	-rm -f $(SYMROOT)/$(PRODUCT).NEW $(OFILE_DIR)/vers.c
+	-rm -f $(SYMROOT)/$(PRODUCT).NEW
 	-rm -f $(SYMROOT)/$(PRODUCT).NEW.private.o
 
 shlib_clean:

@@ -68,7 +68,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/hash_bigkey.c,v 1.10 2009/03/28 06:47:0
 #include <db.h>
 #include "hash.h"
 #include "page.h"
-#include "extern.h"
+#include "hash_extern.h"
 
 static int collect_key(HTAB *, BUFHEAD *, int, DBT *, int);
 static int collect_data(HTAB *, BUFHEAD *, int, int);

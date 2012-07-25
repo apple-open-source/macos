@@ -49,9 +49,7 @@ HTMLFrameElementBase::HTMLFrameElementBase(const QualifiedName& tagName, Documen
     , m_scrolling(ScrollbarAuto)
     , m_marginWidth(-1)
     , m_marginHeight(-1)
-    , m_checkInDocumentTimer(this, &HTMLFrameElementBase::checkInDocumentTimerFired)
     , m_viewSource(false)
-    , m_remainsAliveOnRemovalFromTree(false)
 {
 }
 
@@ -104,13 +102,15 @@ void HTMLFrameElementBase::openURL(bool lockHistory, bool lockBackForwardList)
         contentFrame()->setInViewSourceMode(viewSourceMode());
 }
 
-void HTMLFrameElementBase::parseMappedAttribute(Attribute* attr)
+void HTMLFrameElementBase::parseAttribute(Attribute* attr)
 {
-    if (attr->name() == srcAttr)
+    if (attr->name() == srcdocAttr)
+        setLocation("about:srcdoc");
+    else if (attr->name() == srcAttr && !fastHasAttribute(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(attr->value()));
     else if (isIdAttributeName(attr->name())) {
         // Important to call through to base for the id attribute so the hasID bit gets set.
-        HTMLFrameOwnerElement::parseMappedAttribute(attr);
+        HTMLFrameOwnerElement::parseAttribute(attr);
         m_frameName = attr->value();
     } else if (attr->name() == nameAttr) {
         m_frameName = attr->value();
@@ -142,49 +142,41 @@ void HTMLFrameElementBase::parseMappedAttribute(Attribute* attr)
         // FIXME: should <frame> elements have beforeunload handlers?
         setAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(this, attr));
     } else
-        HTMLFrameOwnerElement::parseMappedAttribute(attr);
+        HTMLFrameOwnerElement::parseAttribute(attr);
 }
 
 void HTMLFrameElementBase::setNameAndOpenURL()
 {
-    m_frameName = getAttribute(nameAttr);
+    m_frameName = getNameAttribute();
     if (m_frameName.isNull())
         m_frameName = getIdAttribute();
     openURL();
 }
 
-void HTMLFrameElementBase::updateOnReparenting()
+Node::InsertionNotificationRequest HTMLFrameElementBase::insertedInto(Node* insertionPoint)
 {
-    ASSERT(m_remainsAliveOnRemovalFromTree);
-
-    if (Frame* frame = contentFrame())
-        frame->transferChildFrameToNewDocument();
+    HTMLFrameOwnerElement::insertedInto(insertionPoint);
+    if (insertionPoint->inDocument())
+        return InsertionShouldCallDidNotifyDescendantInseretions;
+    return InsertionDone;
 }
 
-void HTMLFrameElementBase::insertedIntoDocument()
+void HTMLFrameElementBase::didNotifyDescendantInseretions(Node* insertionPoint)
 {
-    HTMLFrameOwnerElement::insertedIntoDocument();
+    ASSERT_UNUSED(insertionPoint, insertionPoint->inDocument());
 
-    if (m_remainsAliveOnRemovalFromTree) {
-        updateOnReparenting();
-        m_remainsAliveOnRemovalFromTree = false;
-        m_checkInDocumentTimer.stop();
-        return;
-    }
     // DocumentFragments don't kick of any loads.
     if (!document()->frame())
         return;
 
-    // Loads may cause synchronous javascript execution (e.g. beforeload or
-    // src=javascript), which could try to access the renderer before the normal
-    // parser machinery would call lazyAttach() and set us as needing style
-    // resolve.  Any code which expects this to be attached will resolve style
-    // before using renderer(), so this will make sure we attach in time.
-    // FIXME: Normally lazyAttach marks the renderer as attached(), but we don't
-    // want to do that here, as as callers expect to call attach() right after
-    // this and attach() will ASSERT(!attached())
-    ASSERT(!renderer()); // This recalc is unecessary if we already have a renderer.
-    lazyAttach(DoNotSetAttached);
+    // JavaScript in src=javascript: and beforeonload can access the renderer
+    // during attribute parsing *before* the normal parser machinery would
+    // attach the element. To support this, we lazyAttach here, but only
+    // if we don't already have a renderer (if we're inserted
+    // as part of a DocumentFragment, insertedInto from an earlier element
+    // could have forced a style resolve and already attached us).
+    if (!renderer())
+        lazyAttach(DoNotSetAttached);
     setNameAndOpenURL();
 }
 
@@ -200,6 +192,8 @@ void HTMLFrameElementBase::attach()
 
 KURL HTMLFrameElementBase::location() const
 {
+    if (fastHasAttribute(srcdocAttr))
+        return KURL(ParsedURLString, "about:srcdoc");
     return document()->completeURL(getAttribute(srcAttr));
 }
 
@@ -233,10 +227,10 @@ void HTMLFrameElementBase::setFocus(bool received)
 
 bool HTMLFrameElementBase::isURLAttribute(Attribute *attr) const
 {
-    return attr->name() == srcAttr;
+    return attr->name() == srcAttr || HTMLFrameOwnerElement::isURLAttribute(attr);
 }
 
-int HTMLFrameElementBase::width() const
+int HTMLFrameElementBase::width()
 {
     document()->updateLayoutIgnorePendingStylesheets();
     if (!renderBox())
@@ -244,43 +238,12 @@ int HTMLFrameElementBase::width() const
     return renderBox()->width();
 }
 
-int HTMLFrameElementBase::height() const
+int HTMLFrameElementBase::height()
 {
     document()->updateLayoutIgnorePendingStylesheets();
     if (!renderBox())
         return 0;
     return renderBox()->height();
-}
-
-void HTMLFrameElementBase::setRemainsAliveOnRemovalFromTree(bool value)
-{
-    m_remainsAliveOnRemovalFromTree = value;
-
-    // There is a possibility that JS will do document.adoptNode() on this element but will not insert it into the tree.
-    // Start the async timer that is normally stopped by attach(). If it's not stopped and fires, it'll unload the frame.
-    if (value)
-        m_checkInDocumentTimer.startOneShot(0);
-    else {
-        m_checkInDocumentTimer.stop();
-        willRemove();
-    }
-}
-
-void HTMLFrameElementBase::checkInDocumentTimerFired(Timer<HTMLFrameElementBase>*)
-{
-    ASSERT(!attached());
-    ASSERT(m_remainsAliveOnRemovalFromTree);
-
-    m_remainsAliveOnRemovalFromTree = false;
-    willRemove();
-}
-
-void HTMLFrameElementBase::willRemove()
-{
-    if (m_remainsAliveOnRemovalFromTree)
-        return;
-
-    HTMLFrameOwnerElement::willRemove();
 }
 
 #if ENABLE(FULLSCREEN_API)

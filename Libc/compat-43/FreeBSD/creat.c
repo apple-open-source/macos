@@ -33,14 +33,26 @@ static char sccsid[] = "@(#)creat.c	8.1 (Berkeley) 6/2/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/compat-43/creat.c,v 1.8 2007/01/09 00:27:49 imp Exp $");
 
+
 #include "namespace.h"
 #include <fcntl.h>
 #include "un-namespace.h"
 
+#ifdef VARIANT_CANCELABLE
+int __open(const char *path, int flags, mode_t mode);
+#else /* !VARIANT_CANCELABLE */
+int __open_nocancel(const char *path, int flags, mode_t mode);
+#endif /* VARIANT_CANCELABLE */
+
+
 int
 __creat(const char *path, mode_t mode)
 {
-	return(_open(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
+#ifdef VARIANT_CANCELABLE
+	return(__open(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
+#else /* !VARIANT_CANCELABLE */
+	return(__open_nocancel(path, O_WRONLY|O_CREAT|O_TRUNC, mode));
+#endif /* VARIANT_CANCELABLE */
 }
 __weak_reference(__creat, creat);
 __weak_reference(__creat, _creat);

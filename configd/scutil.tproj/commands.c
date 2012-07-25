@@ -76,7 +76,7 @@ const cmdInfo commands_store[] = {
 
 	{ "d.add",	2,	101,	do_dictSetKey,		1,	0,
 		" d.add key [*#?] val [v2 ...]  : add information to dictionary\n"
-		"       (*=array, #=number, ?=boolean)"				                },
+		"       (*=array, #=number, ?=boolean, %=hex data)"		                },
 
 	{ "d.remove",	1,	1,	do_dictRemoveKey,	1,	0,
 		" d.remove key                  : remove key from dictionary"			},
@@ -89,11 +89,8 @@ const cmdInfo commands_store[] = {
 	{ "close",	0,	0,	do_close,		2,	1,
 		" close                         : close current \"configd\" session"		},
 
-	{ "lock",	0,	0,	do_lock,		3,	1,
-		" lock                          : locks write access to data store"		},
-
-	{ "unlock",	0,	0,	do_unlock,		3,	1,
-		" unlock                        : unlocks write access to data store"		},
+	{ "block",	0,	1,	do_block,		3,	1,
+		" block [\"begin\" | \"end\"]     : block multiple data store transactions"	},
 
 	{ "list",	0,	2,	do_list,		4,	0,
 		" list [pattern]                : list keys in data store"			},
@@ -116,9 +113,6 @@ const cmdInfo commands_store[] = {
 	{ "notify",	1,	1,	do_notify,		4,	0,
 		" notify key                    : notify key in data store"			},
 
-	{ "touch",	1,	1,	do_touch,		4,	1,
-		" touch key                     : touch key in data store"			},
-
 	{ "n.list",	0,	1,	do_notify_list,		5,	0,
 		" n.list [\"pattern\"]            : list notification keys"			},
 
@@ -136,9 +130,6 @@ const cmdInfo commands_store[] = {
 
 	{ "n.wait",	0,	0,	do_notify_wait,		5,	2,
 		" n.wait                        : wait for changes"				},
-
-	{ "n.callback",	0,	1,	do_notify_callback,	5,	2,
-		" n.callback [\"verbose\"]        : watch for changes"				},
 
 	{ "n.signal",	1,	2,	do_notify_signal,	5,	2,
 		" n.signal sig [pid]            : signal changes"				},
@@ -272,7 +263,7 @@ const cmdInfo commands_prefs[] = {
 
 	{ "d.add",	2,	101,	do_dictSetKey,		1,	0,
 		" d.add key [*#?] val [v2 ...]  : add information to dictionary\n"
-		"       (*=array, #=number, ?=boolean)"				                },
+		"       (*=array, #=number, ?=boolean, %=hex data)"		                },
 
 	{ "d.remove",	1,	1,	do_dictRemoveKey,	1,	0,
 		" d.remove key                  : remove key from dictionary"			},

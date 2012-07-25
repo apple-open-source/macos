@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,20 +28,21 @@
 */
 
 #if __STD_C
-char* sfgetr(reg Sfio_t *f, reg int rc, int type)
+char* sfgetr(Sfio_t *f, int rc, int type)
 #else
 char* sfgetr(f,rc,type)
-reg Sfio_t*	f;	/* stream to read from	*/
-reg int		rc;	/* record separator	*/
+Sfio_t*		f;	/* stream to read from	*/
+int		rc;	/* record separator	*/
 int		type;
 #endif
 {
-	reg ssize_t	n, un;
-	reg uchar	*s, *ends, *us;
-	reg int		found;
-	reg Sfrsrv_t*	rsrv;
+	ssize_t		n, un;
+	uchar		*s, *ends, *us;
+	int		found;
+	Sfrsrv_t*	rsrv;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f, NIL(char*));
+	SFMTXENTER(f, NIL(char*));
 
 	if(rc < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0) )
 		SFMTXRETURN(f, NIL(char*));

@@ -47,38 +47,37 @@ NEVER_INLINE JSValue jsAddSlowCase(CallFrame* callFrame, JSValue v1, JSValue v2)
     JSValue p1 = v1.toPrimitive(callFrame);
     JSValue p2 = v2.toPrimitive(callFrame);
 
-    if (p1.isString()) {
-        return p2.isString()
-            ? jsString(callFrame, asString(p1), asString(p2))
-            : jsString(callFrame, asString(p1), jsString(callFrame, p2.toString(callFrame)));
-    }
+    if (p1.isString())
+        return jsString(callFrame, asString(p1), p2.toString(callFrame));
+
     if (p2.isString())
-        return jsString(callFrame, jsString(callFrame, p1.toString(callFrame)), asString(p2));
+        return jsString(callFrame, p1.toString(callFrame), asString(p2));
 
     return jsNumber(p1.toNumber(callFrame) + p2.toNumber(callFrame));
 }
 
 JSValue jsTypeStringForValue(CallFrame* callFrame, JSValue v)
 {
+    JSGlobalData& globalData = callFrame->globalData();
     if (v.isUndefined())
-        return jsNontrivialString(callFrame, "undefined");
+        return globalData.smallStrings.undefinedString(&globalData);
     if (v.isBoolean())
-        return jsNontrivialString(callFrame, "boolean");
+        return globalData.smallStrings.booleanString(&globalData);
     if (v.isNumber())
-        return jsNontrivialString(callFrame, "number");
+        return globalData.smallStrings.numberString(&globalData);
     if (v.isString())
-        return jsNontrivialString(callFrame, "string");
+        return globalData.smallStrings.stringString(&globalData);
     if (v.isObject()) {
         // Return "undefined" for objects that should be treated
         // as null when doing comparisons.
         if (asObject(v)->structure()->typeInfo().masqueradesAsUndefined())
-            return jsNontrivialString(callFrame, "undefined");
+            return globalData.smallStrings.undefinedString(&globalData);
         CallData callData;
         JSObject* object = asObject(v);
         if (object->methodTable()->getCallData(object, callData) != CallTypeNone)
-            return jsNontrivialString(callFrame, "function");
+            return globalData.smallStrings.functionString(&globalData);
     }
-    return jsNontrivialString(callFrame, "object");
+    return globalData.smallStrings.objectString(&globalData);
 }
 
 bool jsIsObjectType(JSValue v)

@@ -27,6 +27,9 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bms Exp $");
 
+/* 8120237: enable INET6 */
+#define __APPLE_USE_RFC_3542
+
 #include "namespace.h"
 
 #include <sys/types.h>
@@ -55,6 +58,10 @@ __FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bm
  */
 #ifndef INET
 #define INET
+#endif
+/* 8120237: enable INET6 */
+#ifndef INET6
+#define INET6
 #endif
 
 union sockunion {

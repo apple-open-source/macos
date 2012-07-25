@@ -115,8 +115,8 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
     RenderStyle* s = box->style();
     if (isHorizontal()) {
         bool ltr = s->isLeftToRightDirection();
-        int clientWidth = box->clientWidth();
-        int contentWidth = ltr ? box->maxXLayoutOverflow() : box->minXLayoutOverflow();
+        LayoutUnit clientWidth = box->clientWidth();
+        LayoutUnit contentWidth = ltr ? box->maxPreferredLogicalWidth() : box->minPreferredLogicalWidth();
         if (ltr)
             contentWidth += (box->paddingRight() - box->borderLeft());
         else {
@@ -125,13 +125,13 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
         }
         if (dir == MRIGHT) {
             if (stopAtContentEdge)
-                return max(0, ltr ? (contentWidth - clientWidth) : (clientWidth - contentWidth));
+                return max(ZERO_LAYOUT_UNIT, ltr ? (contentWidth - clientWidth) : (clientWidth - contentWidth));
             else
                 return ltr ? contentWidth : clientWidth;
         }
         else {
             if (stopAtContentEdge)
-                return min(0, ltr ? (contentWidth - clientWidth) : (clientWidth - contentWidth));
+                return min(ZERO_LAYOUT_UNIT, ltr ? (contentWidth - clientWidth) : (clientWidth - contentWidth));
             else
                 return ltr ? -clientWidth : -contentWidth;
         }
@@ -156,11 +156,7 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
 
 void RenderMarquee::start()
 {
-    if (m_timer.isActive() || m_layer->renderer()->style()->marqueeIncrement().isZero()
-#if ENABLE(WCSS) && ENABLE(XHTMLMP)
-        || (m_layer->renderer()->document()->isXHTMLMPDocument() && !m_layer->renderer()->style()->marqueeLoopCount())
-#endif
-       )
+    if (m_timer.isActive() || m_layer->renderer()->style()->marqueeIncrement().isZero())
         return;
 
     // We may end up propagating a scroll event. It is important that we suspend events until 
@@ -293,7 +289,7 @@ void RenderMarquee::timerFired(Timer<RenderMarquee>*)
         }
         bool positive = range > 0;
         int clientSize = (isHorizontal() ? m_layer->renderBox()->clientWidth() : m_layer->renderBox()->clientHeight());
-        int increment = abs(m_layer->renderer()->style()->marqueeIncrement().calcValue(clientSize));
+        int increment = abs(intValueForLength(m_layer->renderer()->style()->marqueeIncrement(), clientSize));
         int currentPos = (isHorizontal() ? m_layer->scrollXOffset() : m_layer->scrollYOffset());
         newPos =  currentPos + (addIncrement ? increment : -increment);
         if (positive)

@@ -22,6 +22,7 @@
 #include "markup.h"
 #include <gtk/gtk.h>
 #include <wtf/gobject/GOwnPtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -32,17 +33,17 @@ static void replaceNonBreakingSpaceWithSpace(String& str)
     str.replace(NonBreakingSpaceCharacter, SpaceCharacter);
 }
 
-String DataObjectGtk::text()
+String DataObjectGtk::text() const
 {
     if (m_range)
         return m_range->text();
     return m_text;
 }
 
-String DataObjectGtk::markup()
+String DataObjectGtk::markup() const
 {
     if (m_range)
-        return createMarkup(m_range.get(), 0, AnnotateForInterchange, false, AbsoluteURLs);
+        return createMarkup(m_range.get(), 0, AnnotateForInterchange, false, ResolveNonLocalURLs);
     return m_markup;
 }
 
@@ -110,14 +111,14 @@ void DataObjectGtk::setURL(const KURL& url, const String& label)
     if (actualLabel.isEmpty())
         actualLabel = url;
 
-    Vector<UChar> markup;
-    append(markup, "<a href=\"");
-    append(markup, url.string());
-    append(markup, "\">");
+    StringBuilder markup;
+    markup.append("<a href=\"");
+    markup.append(url.string());
+    markup.append("\">");
     GOwnPtr<gchar> escaped(g_markup_escape_text(actualLabel.utf8().data(), -1));
-    append(markup, String::fromUTF8(escaped.get()));
-    append(markup, "</a>");
-    setMarkup(String::adopt(markup));
+    markup.append(String::fromUTF8(escaped.get()));
+    markup.append("</a>");
+    setMarkup(markup.toString());
 }
 
 void DataObjectGtk::clearText()
@@ -132,7 +133,7 @@ void DataObjectGtk::clearMarkup()
     m_markup = "";
 }
 
-String DataObjectGtk::urlLabel()
+String DataObjectGtk::urlLabel() const
 {
     if (hasText())
         return text();
@@ -143,7 +144,7 @@ String DataObjectGtk::urlLabel()
     return String();
 }
 
-void DataObjectGtk::clear()
+void DataObjectGtk::clearAllExceptFilenames()
 {
     m_text = "";
     m_markup = "";
@@ -151,11 +152,12 @@ void DataObjectGtk::clear()
     m_url = KURL();
     m_image = 0;
     m_range = 0;
+}
 
-    // We do not clear filenames. According to the spec: "The clearData() method
-    // does not affect whether any files were included in the drag, so the types
-    // attribute's list might still not be empty after calling clearData() (it would 
-    // still contain the "Files" string if any files were included in the drag)."
+void DataObjectGtk::clearAll()
+{
+    clearAllExceptFilenames();
+    m_filenames.clear();
 }
 
 DataObjectGtk* DataObjectGtk::forClipboard(GtkClipboard* clipboard)

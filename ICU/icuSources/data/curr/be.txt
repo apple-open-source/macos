@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/be.xml
@@ -20,7 +20,7 @@ be{
             "бразільскі рэал",
         }
         BYB{
-            "Руб" /** ===  */,
+            "Руб",
             "BYB",
         }
         BYR{
@@ -29,10 +29,10 @@ be{
         }
         CNY{
             "CN¥",
-            "кітайскі юань Renminbi",
+            "кітайскі юань",
         }
         ERN{
-            "Nfk",
+            "ERN",
             "эрытрэйская накфа",
         }
         EUR{
@@ -44,7 +44,7 @@ be{
             "англійскі фунт",
         }
         INR{
-            "Rs",
+            "₹",
             "індыйская рупія",
         }
         JPY{
@@ -52,7 +52,7 @@ be{
             "японская іена",
         }
         NOK{
-            "Nkr",
+            "NOK",
             "нарвэская крона",
         }
         RUB{
@@ -68,5 +68,5 @@ be{
             "невядомая або недапушчальная валюта",
         }
     }
-    Version{"2.0.47.68"}
+    Version{"2.0.65.46"}
 }

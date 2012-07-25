@@ -27,6 +27,7 @@
 #include "Document.h"
 #include "RenderSVGGradientStop.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInstance.h"
 #include "SVGGradientElement.h"
 #include "SVGNames.h"
 
@@ -35,11 +36,17 @@ namespace WebCore {
 // Animated property definitions
 DEFINE_ANIMATED_NUMBER(SVGStopElement, SVGNames::offsetAttr, Offset, offset)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGStopElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(offset)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGStopElement::SVGStopElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
     , m_offset(0)
 {
     ASSERT(hasTagName(SVGNames::stopTag));
+    registerAnimatedPropertiesForSVGStopElement();
 }
 
 PassRefPtr<SVGStopElement> SVGStopElement::create(const QualifiedName& tagName, Document* document)
@@ -47,54 +54,61 @@ PassRefPtr<SVGStopElement> SVGStopElement::create(const QualifiedName& tagName, 
     return adoptRef(new SVGStopElement(tagName, document));
 }
 
-void SVGStopElement::parseMappedAttribute(Attribute* attr)
+bool SVGStopElement::isSupportedAttribute(const QualifiedName& attrName)
 {
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty())
+        supportedAttributes.add(SVGNames::offsetAttr);
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGStopElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledElement::parseAttribute(attr);
+        return;
+    }
+
     if (attr->name() == SVGNames::offsetAttr) {
         const String& value = attr->value();
-        if (value.endsWith("%"))
+        if (value.endsWith('%'))
             setOffsetBaseValue(value.left(value.length() - 1).toFloat() / 100.0f);
         else
             setOffsetBaseValue(value.toFloat());
-    } else
-        SVGStyledElement::parseMappedAttribute(attr);
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGStopElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledElement::svgAttributeChanged(attrName);
+        return;
+    }
+
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
     if (!renderer())
         return;
 
-    if (attrName == SVGNames::offsetAttr)
+    if (attrName == SVGNames::offsetAttr) {
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer());
-}
+        return;
+    }
 
-void SVGStopElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName() || attrName == SVGNames::offsetAttr)
-        synchronizeOffset();
-}
-
-AttributeToPropertyTypeMap& SVGStopElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGStopElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::offsetAttr, AnimatedLength);
+    ASSERT_NOT_REACHED();
 }
 
 RenderObject* SVGStopElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGGradientStop(this);
+}
+
+bool SVGStopElement::rendererIsNeeded(const NodeRenderingContext&)
+{
+    return true;
 }
 
 Color SVGStopElement::stopColorIncludingOpacity() const

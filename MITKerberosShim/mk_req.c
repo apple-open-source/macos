@@ -72,7 +72,7 @@ krb5_mk_req(mit_krb5_context context,
 
     LOG_ENTRY();
 
-    memset(outbuf, 0, sizeof(outbuf));
+    memset(outbuf, 0, sizeof(*outbuf));
 
     if (inbuf) {
 	d = &idata;
@@ -106,7 +106,7 @@ krb5_mk_req_extended(mit_krb5_context context,
 
     LOG_ENTRY();
 
-    memset(outbuf, 0, sizeof(outbuf));
+    memset(outbuf, 0, sizeof(*outbuf));
 
     mshim_mcred2hcred(HC(context), cred, &hcreds);
 

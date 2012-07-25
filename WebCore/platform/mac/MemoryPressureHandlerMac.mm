@@ -30,37 +30,33 @@
 #import <WebCore/FontCache.h>
 #import <WebCore/MemoryCache.h>
 #import <WebCore/PageCache.h>
+#import <wtf/CurrentTime.h>
 #import <wtf/FastMalloc.h>
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-#import <dispatch/dispatch.h>
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD) && !PLATFORM(IOS)
+#import "WebCoreSystemInterface.h"
 #import <notify.h>
-
-#ifndef DISPATCH_SOURCE_TYPE_VM
-#define DISPATCH_SOURCE_TYPE_VM (&_dispatch_source_type_vm)
-DISPATCH_EXPORT const struct dispatch_source_type_s _dispatch_source_type_vm;
 #endif
 
-#ifdef DISPATCH_VM_PRESSURE
-enum {
- DISPATCH_VM_PRESSURE = 0x80000000,
-};
-#endif
-
-#endif
+using std::max;
 
 namespace WebCore {
 
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
 
+#if !PLATFORM(IOS)
 static dispatch_source_t _cache_event_source = 0;
 static dispatch_source_t _timer_event_source = 0;
 static int _notifyToken;
 
-// Disable memory event reception for 5 seconds after receiving an event. 
-// This value seems reasonable and testing verifies that it throttles frequent
+// Disable memory event reception for a minimum of s_minimumHoldOffTime
+// seconds after receiving an event.  Don't let events fire any sooner than
+// s_holdOffMultiplier times the last cleanup processing time.  Effectively 
+// this is 1 / s_holdOffMultiplier percent of the time.
+// These value seems reasonable and testing verifies that it throttles frequent
 // low memory events, greatly reducing CPU usage.
-static const time_t s_secondsBetweenMemoryCleanup = 5;
+static const unsigned s_minimumHoldOffTime = 5;
+static const unsigned s_holdOffMultiplier = 20;
 
 void MemoryPressureHandler::install()
 {
@@ -68,7 +64,7 @@ void MemoryPressureHandler::install()
         return;
 
     dispatch_async(dispatch_get_main_queue(), ^{
-        _cache_event_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, dispatch_get_main_queue());
+        _cache_event_source = wkCreateVMPressureDispatchOnMainQueue();
         if (_cache_event_source) {
             dispatch_set_context(_cache_event_source, this);
             dispatch_source_set_event_handler(_cache_event_source, ^{ memoryPressureHandler().respondToMemoryPressure();});
@@ -104,13 +100,11 @@ void MemoryPressureHandler::uninstall()
 
 void MemoryPressureHandler::holdOff(unsigned seconds)
 {
-    uninstall();
-
     dispatch_async(dispatch_get_main_queue(), ^{
         _timer_event_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
         if (_timer_event_source) {
             dispatch_set_context(_timer_event_source, this);
-            dispatch_source_set_timer(_timer_event_source, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 1 * s_secondsBetweenMemoryCleanup);
+            dispatch_source_set_timer(_timer_event_source, dispatch_time(DISPATCH_TIME_NOW, seconds * NSEC_PER_SEC), DISPATCH_TIME_FOREVER, 1 * s_minimumHoldOffTime);
             dispatch_source_set_event_handler(_timer_event_source, ^{
                 dispatch_source_cancel(_timer_event_source);
                 dispatch_release(_timer_event_source);
@@ -124,21 +118,35 @@ void MemoryPressureHandler::holdOff(unsigned seconds)
 
 void MemoryPressureHandler::respondToMemoryPressure()
 {
-    holdOff(s_secondsBetweenMemoryCleanup);
+    uninstall();
 
+    double startTime = monotonicallyIncreasingTime();
+
+    releaseMemory(false);
+
+    unsigned holdOffTime = (monotonicallyIncreasingTime() - startTime) * s_holdOffMultiplier;
+
+    holdOff(max(holdOffTime, s_minimumHoldOffTime));
+}
+#endif // !PLATFORM(IOS)
+
+void MemoryPressureHandler::releaseMemory(bool critical)
+{
     int savedPageCacheCapacity = pageCache()->capacity();
-    pageCache()->setCapacity(pageCache()->pageCount()/2);
+    pageCache()->setCapacity(critical ? 0 : pageCache()->pageCount() / 2);
     pageCache()->setCapacity(savedPageCacheCapacity);
     pageCache()->releaseAutoreleasedPagesNow();
 
     NSURLCache *nsurlCache = [NSURLCache sharedURLCache];
     NSUInteger savedNsurlCacheMemoryCapacity = [nsurlCache memoryCapacity];
-    [nsurlCache setMemoryCapacity:[nsurlCache currentMemoryUsage]/2];
+    [nsurlCache setMemoryCapacity:critical ? 0 : [nsurlCache currentMemoryUsage] / 2];
     [nsurlCache setMemoryCapacity:savedNsurlCacheMemoryCapacity];
- 
+
     fontCache()->purgeInactiveFontData();
 
-    memoryCache()->pruneToPercentage(0.5f);
+    memoryCache()->pruneToPercentage(critical ? 0 : 0.5f);
+
+    gcController().discardAllCompiledCode();
 
     WTF::releaseFastMallocFreeMemory();
 }

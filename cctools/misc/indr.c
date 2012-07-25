@@ -170,6 +170,10 @@ static void add_list(
     struct list *list,
     struct indr_object *item);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The indr(l) program takes the following options:
  *
@@ -1288,6 +1292,20 @@ struct object *object)
 		object->func_starts_info_cmd->datasize;
 	}
 
+	if(object->data_in_code_cmd != NULL){
+	    object->input_sym_info_size +=
+		object->data_in_code_cmd->datasize;
+	    object->output_sym_info_size +=
+		object->data_in_code_cmd->datasize;
+	}
+
+	if(object->code_sign_drs_cmd != NULL){
+	    object->input_sym_info_size +=
+		object->code_sign_drs_cmd->datasize;
+	    object->output_sym_info_size +=
+		object->code_sign_drs_cmd->datasize;
+	}
+
 	if(object->hints_cmd != NULL){ 
 	    object->input_sym_info_size +=
 		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
@@ -1335,6 +1353,18 @@ struct object *object)
 	    (object->object_addr + object->func_starts_info_cmd->dataoff);
 	    object->output_func_start_info_data_size = 
 		object->func_starts_info_cmd->datasize;
+	}
+	if(object->data_in_code_cmd != NULL){
+	    object->output_data_in_code_info_data = 
+	    (object->object_addr + object->data_in_code_cmd->dataoff);
+	    object->output_data_in_code_info_data_size = 
+		object->data_in_code_cmd->datasize;
+	}
+	if(object->code_sign_drs_cmd != NULL){
+	    object->output_code_sign_drs_info_data = 
+	    (object->object_addr + object->code_sign_drs_cmd->dataoff);
+	    object->output_code_sign_drs_info_data_size = 
+		object->code_sign_drs_cmd->datasize;
 	}
 	object->output_ext_relocs = ext_relocs;
 	object->output_indirect_symtab = indirect_symtab;
@@ -1388,6 +1418,14 @@ struct object *object)
 	if(object->func_starts_info_cmd != NULL){
 	    object->func_starts_info_cmd->dataoff = offset;
 	    offset += object->func_starts_info_cmd->datasize;
+	}
+	if(object->data_in_code_cmd != NULL){
+	    object->data_in_code_cmd->dataoff = offset;
+	    offset += object->data_in_code_cmd->datasize;
+	}
+	if(object->code_sign_drs_cmd != NULL){
+	    object->code_sign_drs_cmd->dataoff = offset;
+	    offset += object->code_sign_drs_cmd->datasize;
 	}
 	if(object->st->nsyms != 0){
 	    object->st->symoff = offset;

@@ -40,23 +40,43 @@ public:
 
     static float calculateStdDeviation(float);
 
-    virtual void apply();
+    virtual void platformApplySoftware();
     virtual void dump();
     
     virtual void determineAbsolutePaintRect();
+    static void calculateKernelSize(Filter*, unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY);
+    static void calculateUnscaledKernelSize(unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY);
 
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
-    static void calculateKernelSize(Filter*, unsigned& kernelSizeX, unsigned& kernelSizeY, float stdX, float stdY);
+private:
+    static const int s_minimalRectDimension = 100 * 100; // Empirical data limit for parallel jobs
+
+    template<typename Type>
+    friend class ParallelJobs;
+
+    struct PlatformApplyParameters {
+        FEGaussianBlur* filter;
+        RefPtr<Uint8ClampedArray> srcPixelArray;
+        RefPtr<Uint8ClampedArray> dstPixelArray;
+        int width;
+        int height;
+        unsigned kernelSizeX;
+        unsigned kernelSizeY;
+    };
+
+    static void platformApplyWorker(PlatformApplyParameters*);
+
+    FEGaussianBlur(Filter*, float, float);
 
     static inline void kernelPosition(int boxBlur, unsigned& std, int& dLeft, int& dRight);
-    inline void platformApply(ByteArray* srcPixelArray, ByteArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
+    inline void platformApply(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
 
-    inline void platformApplyGeneric(ByteArray* srcPixelArray, ByteArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
-    inline void platformApplyNeon(ByteArray* srcPixelArray, ByteArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
-
-private:
-    FEGaussianBlur(Filter*, float, float);
+    inline void platformApplyGeneric(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
+    inline void platformApplyNeon(Uint8ClampedArray* srcPixelArray, Uint8ClampedArray* tmpPixelArray, unsigned kernelSizeX, unsigned kernelSizeY, IntSize& paintSize);
+#if USE(SKIA)
+    virtual bool platformApplySkia();
+#endif
 
     float m_stdX;
     float m_stdY;

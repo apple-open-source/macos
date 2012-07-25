@@ -55,6 +55,12 @@ void callMemberFunction(const Arguments7<P1, P2, P3, P4, P5, P6, P7>& args, C* o
     (object->*function)(args.argument1, args.argument2, args.argument3, args.argument4, args.argument5, args.argument6, args.argument7);
 }
 
+template<typename C, typename MF, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8>
+void callMemberFunction(const Arguments8<P1, P2, P3, P4, P5, P6, P7, P8>& args, C* object, MF function)
+{
+    (object->*function)(args.argument1, args.argument2, args.argument3, args.argument4, args.argument5, args.argument6, args.argument7, args.argument8);
+}
+
 template<typename C, typename MF, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10>
 void callMemberFunction(const Arguments10<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10>& args, C* object, MF function)
 {
@@ -196,6 +202,25 @@ void callMemberFunction(const Arguments1<P1>& args, PassRefPtr<R> delayedReply, 
     (object->*function)(args.argument1, delayedReply);
 }
 
+// Dispatch functions with connection parameter.
+template<typename C, typename MF, typename P1>
+void callMemberFunction(Connection* connection, const Arguments1<P1>& args, C* object, MF function)
+{
+    (object->*function)(connection, args.argument1);
+}
+
+template<typename C, typename MF, typename P1, typename P2>
+void callMemberFunction(Connection* connection, const Arguments2<P1, P2>& args, C* object, MF function)
+{
+    (object->*function)(connection, args.argument1, args.argument2);
+}
+
+template<typename C, typename MF, typename P1, typename P2, typename P3, typename P4>
+void callMemberFunction(Connection* connection, const Arguments4<P1, P2, P3, P4>& args, C* object, MF function)
+{
+    (object->*function)(connection, args.argument1, args.argument2, args.argument3, args.argument4);
+}
+
 // Variadic dispatch functions.
 
 template<typename C, typename MF>
@@ -290,6 +315,15 @@ void handleMessage(ArgumentDecoder* argumentDecoder, ArgumentEncoder* replyEncod
 }
 
 template<typename T, typename C, typename MF>
+void handleMessageOnConnectionQueue(Connection* connection, ArgumentDecoder* argumentDecoder, C* object, MF function)
+{
+    typename T::DecodeType::ValueType arguments;
+    if (!argumentDecoder->decode(arguments))
+        return;
+    callMemberFunction(connection, arguments, object, function);
+}
+
+template<typename T, typename C, typename MF>
 void handleMessageVariadic(ArgumentDecoder* argumentDecoder, C* object, MF function)
 {
     typename T::DecodeType::ValueType arguments;
@@ -312,13 +346,13 @@ void handleMessageVariadic(ArgumentDecoder* argumentDecoder, ArgumentEncoder* re
 }
 
 template<typename T, typename C, typename MF>
-void handleMessageDelayed(Connection* connection, ArgumentDecoder* argumentDecoder, ArgumentEncoder* replyEncoder, C* object, MF function)
+void handleMessageDelayed(Connection* connection, ArgumentDecoder* argumentDecoder, OwnPtr<ArgumentEncoder>& replyEncoder, C* object, MF function)
 {
     typename T::DecodeType::ValueType arguments;
     if (!argumentDecoder->decode(arguments))
         return;
 
-    RefPtr<typename T::DelayedReply> delayedReply = adoptRef(new typename T::DelayedReply(connection, adoptPtr(replyEncoder)));
+    RefPtr<typename T::DelayedReply> delayedReply = adoptRef(new typename T::DelayedReply(connection, replyEncoder.release()));
     callMemberFunction(arguments, delayedReply.release(), object, function);
 }
 

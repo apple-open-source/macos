@@ -33,30 +33,40 @@ def build(bld):
 
     import Options
 
-    jscore_excludes = ['jsc.cpp', 'ExecutableAllocatorPosix.cpp']
-    jscore_excludes.extend(get_excludes(jscore_dir, ['*CF.cpp', '*Symbian.cpp']))
-    jscore_excludes.extend(get_excludes(jscore_dir, ['*None.cpp']))
+    jscore_excludes = ['jsc.cpp', 'ExecutableAllocatorPosix.cpp', 'LLIntOffsetsExtractor.cpp']
+    jscore_exclude_patterns = get_port_excludes(Options.options.port)
+    jscore_exclude_patterns.append('*None.cpp')
 
     sources = []
 
     if Options.options.port == "wx":
         if building_on_win32:
             jscore_excludes += ['OSAllocatorPosix.cpp', 'ThreadingPthreads.cpp']
+            sources.extend(['../WTF/wtf/ThreadingWin.cpp', '../WTF/wtf/ThreadSpecificWin.cpp', '../WTF/wtf/OSAllocatorWin.cpp'])
         else:
             jscore_excludes.append('JSStringRefBSTR.cpp')
-            jscore_excludes.extend(get_excludes(jscore_dir, ['*Win.cpp']))
 
+    if sys.platform.startswith('darwin'):
+        jscore_excludes.append('GCActivityCallback.cpp') # this is an empty impl.
+
+    bld.env.LIBDIR = output_dir
     full_dirs = get_dirs_for_features(jscore_dir, features=[Options.options.port.lower()], dirs=jscore_dirs)
+    abs_dirs = []
+    for adir in full_dirs:
+        abs_dirs.append(os.path.join(jscore_dir, adir))
 
-    includes = common_includes + full_dirs
+    jscore_excludes.extend(get_excludes_in_dirs(abs_dirs, jscore_exclude_patterns))
+
+    includes = common_includes + full_dirs + [output_dir]
     if sys.platform.startswith('darwin'):
         includes.append(os.path.join(jscore_dir, 'icu'))
 
     # 1. A simple program
     jscore = bld.new_task_gen(
-        features = 'cc cxx cstaticlib',
-        includes = '. .. assembler DerivedSources ForwardingHeaders ' + ' '.join(includes),
+        features = 'cc cxx cshlib',
+        includes = '. .. assembler ../WTF ' + ' '.join(includes),
         source = sources,
+        defines = ['BUILDING_JavaScriptCore'],
         target = 'jscore',
         uselib = 'WX ICU ' + get_config(),
         uselib_local = '',
@@ -66,7 +76,7 @@ def build(bld):
     
     obj = bld.new_task_gen(
         features = 'cxx cprogram',
-        includes = '. .. assembler DerivedSources ForwardingHeaders ' + ' '.join(includes),
+        includes = '. .. assembler ../WTF ' + ' '.join(includes),
         source = 'jsc.cpp',
         target = 'jsc',
         uselib = 'WX ICU ' + get_config(),
@@ -80,4 +90,4 @@ def build(bld):
         myenv.CXXFLAGS.remove('/EHsc')
         obj.env = myenv
 
-    bld.install_files(os.path.join(output_dir, 'JavaScriptCore'), 'API/*.h')
+    bld.add_group()

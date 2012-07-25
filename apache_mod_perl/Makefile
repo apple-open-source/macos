@@ -17,9 +17,11 @@ PERLORDEREDVERS := $(filter-out $(PERLDEFAULT),$(PERLUNORDEREDVERS)) $(PERLDEFAU
 PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print $$Config::Config{installprivlib}'))
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
+CFLAGS += -std=c89
 
 install::
 	@echo "--> Extracting..."
+	$(MKDIR) $(OBJROOT)
 	$(TAR) -C $(OBJROOT) -zxf $(SRCROOT)/$(ProjectVersion).tar.gz
 
 	@echo "--> Building/installing..."

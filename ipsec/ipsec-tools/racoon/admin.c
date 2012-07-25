@@ -61,6 +61,7 @@
 #ifdef ENABLE_HYBRID
 #include <resolv.h>
 #endif
+#include <fcntl.h>
 
 #include "var.h"
 #include "misc.h"
@@ -112,7 +113,7 @@ admin_handler()
 	char *combuf = NULL;
 	int len, error = -1;
 
-	so2 = accept(lcconf->sock_admin, (struct sockaddr *)&from, &fromlen);
+	so2 = accept(lcconf->sock_admin, (struct sockaddr_storage *)&from, &fromlen);
 	if (so2 < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to accept admin command: %s\n",
@@ -285,14 +286,14 @@ out2:
 
 	case ADMIN_DELETE_SA: {
 		struct ph1handle *iph1;
-		struct sockaddr *dst;
-		struct sockaddr *src;
+		struct sockaddr_storage *dst;
+		struct sockaddr_storage *src;
 		char *loc, *rem;
 
-		src = (struct sockaddr *)
+		src = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->src;
-		dst = (struct sockaddr *)
+		dst = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
@@ -341,10 +342,10 @@ out2:
 
 	case ADMIN_DELETE_ALL_SA_DST: {
 		struct ph1handle *iph1;
-		struct sockaddr *dst;
+		struct sockaddr_storage *dst;
 		char *loc, *rem;
 
-		dst = (struct sockaddr *)
+		dst = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
@@ -375,7 +376,7 @@ out2:
 	{
 		struct admin_com_psk *acp;
 		char *data;
-		struct sockaddr *dst;
+		struct sockaddr_storage *dst;
 		struct bound_addr *target;
 
 		com->ac_errno = -1;
@@ -412,7 +413,7 @@ out2:
 		data = (char *)(data + acp->id_len);
 		memcpy(key->v, data, key->l);
 
-		dst = (struct sockaddr *)
+		dst = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 				
@@ -474,20 +475,20 @@ outofhere:
 	/* FALLTHROUGH */
 	case ADMIN_ESTABLISH_SA:
 	    {
-		struct sockaddr *dst;
-		struct sockaddr *src;
-		src = (struct sockaddr *)
+		struct sockaddr_storage *dst;
+		struct sockaddr_storage *src;
+		src = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->src;
-		dst = (struct sockaddr *)
+		dst = (struct sockaddr_storage *)
 			&((struct admin_com_indexes *)
 			    ((caddr_t)com + sizeof(*com)))->dst;
 
 		switch (com->ac_proto) {
 		case ADMIN_PROTO_ISAKMP: {
 			struct remoteconf *rmconf;
-			struct sockaddr *remote = NULL;
-			struct sockaddr *local = NULL;
+			struct sockaddr_storage *remote = NULL;
+			struct sockaddr_storage *local = NULL;
 			u_int16_t port;
 
 			com->ac_errno = -1;
@@ -505,7 +506,7 @@ outofhere:
 			if ((remote = dupsaddr(dst)) == NULL)
 				goto out1;
 
-			switch (remote->sa_family) {
+			switch (remote->ss_family) {
 			case AF_INET:
 				((struct sockaddr_in *)remote)->sin_port =
 					((struct sockaddr_in *)rmconf->remote)->sin_port;
@@ -519,7 +520,7 @@ outofhere:
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
 					"invalid family: %d\n",
-					remote->sa_family);
+					remote->ss_family);
 				com->ac_errno = -1;
 				break;
 			}
@@ -678,8 +679,13 @@ admin_init()
 		return -1;
 	}
 
+	if (fcntl(lcconf->sock_admin, F_SETFL, O_NONBLOCK) == -1) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to put admin socket in non-blocking mode\n");
+	}
+
 	unlink(sunaddr.sun_path);
-	if (bind(lcconf->sock_admin, (struct sockaddr *)&sunaddr,
+	if (bind(lcconf->sock_admin, (struct sockaddr_storage *)&sunaddr,
 			sizeof(sunaddr)) != 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"bind(sockname:%s): %s\n",

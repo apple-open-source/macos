@@ -1,0 +1,16 @@
+--- pyobjc-core/Modules/objc/objc-runtime-compat.h.orig	2009-05-26 07:46:38.000000000 -0700
++++ pyobjc-core/Modules/objc/objc-runtime-compat.h	2011-10-12 09:17:55.000000000 -0700
+@@ -204,6 +204,13 @@
+ 
+ #define class_addMethodList	PyObjC_class_addMethodList
+ 
++#if __OBJC2__
++@interface Object
++{
++}
++- (id)self;
++@end
++#endif // __OBJC2__
+ 
+ #endif
+ 

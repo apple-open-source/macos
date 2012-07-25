@@ -26,7 +26,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGPathSegArcAbs : SVGPathSeg {
+    interface [
+        Conditional=SVG
+    ] SVGPathSegArcAbs : SVGPathSeg {
         attribute [StrictTypeChecking] float x;
         attribute [StrictTypeChecking] float y;
         attribute [StrictTypeChecking] float r1;

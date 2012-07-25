@@ -47,13 +47,13 @@ public:
     bool isInvalid() const { return m_bufferPos > m_bufferEnd; }
     void markInvalid() { m_bufferPos = m_bufferEnd + 1; }
 
-    bool decodeBytes(Vector<uint8_t>&);
-    bool decodeBytes(uint8_t*, size_t);
+    bool decodeFixedLengthData(uint8_t*, size_t, unsigned alignment);
 
     // The data in the data reference here will only be valid for the lifetime of the ArgumentDecoder object.
-    bool decodeBytes(DataReference&);
+    bool decodeVariableLengthByteArray(DataReference&);
 
     bool decodeBool(bool&);
+    bool decodeUInt16(uint16_t&);
     bool decodeUInt32(uint32_t&);
     bool decodeUInt64(uint64_t&);
     bool decodeInt32(int32_t&);
@@ -125,6 +125,11 @@ private:
 template<> inline bool ArgumentDecoder::decode(bool& n)
 {
     return decodeBool(n);
+}
+
+template<> inline bool ArgumentDecoder::decode(uint16_t& n)
+{
+    return decodeUInt16(n);
 }
 
 template<> inline bool ArgumentDecoder::decode(uint32_t& n)

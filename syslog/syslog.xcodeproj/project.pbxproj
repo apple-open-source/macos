@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -29,7 +29,6 @@
 		5020A3821098EEFD00982ED6 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5020A3811098EEFD00982ED6 /* System.framework */; };
 		5039176F1091408B0001165E /* aslmanager.c in Sources */ = {isa = PBXBuildFile; fileRef = 5039176C1091408B0001165E /* aslmanager.c */; };
 		503917B81091410E0001165E /* asl_action.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917A61091410E0001165E /* asl_action.c */; };
-		503917B91091410E0001165E /* asl_in.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917A71091410E0001165E /* asl_in.c */; };
 		503917BA1091410E0001165E /* bb_convert.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917A91091410E0001165E /* bb_convert.c */; };
 		503917BB1091410E0001165E /* bsd_in.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AA1091410E0001165E /* bsd_in.c */; };
 		503917BC1091410E0001165E /* bsd_out.c in Sources */ = {isa = PBXBuildFile; fileRef = 503917AB1091410E0001165E /* bsd_out.c */; };
@@ -156,7 +155,6 @@
 		5039176D1091408B0001165E /* com.apple.aslmanager.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.aslmanager.plist; path = aslmanager.tproj/com.apple.aslmanager.plist; sourceTree = "<group>"; };
 		5039177C109140C30001165E /* syslogd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syslogd; sourceTree = BUILT_PRODUCTS_DIR; };
 		503917A61091410E0001165E /* asl_action.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asl_action.c; path = syslogd.tproj/asl_action.c; sourceTree = "<group>"; };
-		503917A71091410E0001165E /* asl_in.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = asl_in.c; path = syslogd.tproj/asl_in.c; sourceTree = "<group>"; };
 		503917A81091410E0001165E /* asl.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = asl.conf.5; path = syslogd.tproj/asl.conf.5; sourceTree = "<group>"; };
 		503917A91091410E0001165E /* bb_convert.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bb_convert.c; path = syslogd.tproj/bb_convert.c; sourceTree = "<group>"; };
 		503917AA1091410E0001165E /* bsd_in.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bsd_in.c; path = syslogd.tproj/bsd_in.c; sourceTree = "<group>"; };
@@ -249,7 +247,6 @@
 			children = (
 				503917A61091410E0001165E /* asl_action.c */,
 				2DB4DA0A125FC69A001CDC45 /* after_install.sh */,
-				503917A71091410E0001165E /* asl_in.c */,
 				503917A81091410E0001165E /* asl.conf.5 */,
 				503917A91091410E0001165E /* bb_convert.c */,
 				503917AA1091410E0001165E /* bsd_in.c */,
@@ -396,8 +393,11 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "syslog" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -478,7 +478,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				503917B81091410E0001165E /* asl_action.c in Sources */,
-				503917B91091410E0001165E /* asl_in.c in Sources */,
 				503917BA1091410E0001165E /* bb_convert.c in Sources */,
 				503917BB1091410E0001165E /* bsd_in.c in Sources */,
 				503917BC1091410E0001165E /* bsd_out.c in Sources */,
@@ -555,7 +554,6 @@
 				GCC_PREFIX_HEADER = "";
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				PREBINDING = NO;
 				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
@@ -567,7 +565,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = All;
 				ZERO_LINK = NO;
 			};
@@ -582,13 +579,11 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = (
 					"-Wall",
 					"-DINET6",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = aslmanager;
 				ZERO_LINK = NO;
 			};
@@ -603,7 +598,6 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/$(CURRENT_ARCH)",
 					"$(PROJECT_DIR)/aslcommon",
@@ -624,7 +618,6 @@
 					"-DCONFIG_MAC",
 					"-DREMOTE_IPV4",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = syslogd;
 				ZERO_LINK = NO;
 			};
@@ -639,7 +632,6 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/$(CURRENT_ARCH)",
 					"$(PROJECT_DIR)/aslcommon",
@@ -653,7 +645,6 @@
 					"$(OTHER_CFLAGS)",
 					"-DCONFIG_IPHONE",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = syslog;
 				ZERO_LINK = NO;
 			};
@@ -666,14 +657,12 @@
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				HEADER_SEARCH_PATHS = "$(PROJECT_DIR)/aslcommon";
 				INSTALL_PATH = /usr/local/lib;
 				OTHER_CFLAGS = (
 					"-Wall",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = aslcommon;
 				ZERO_LINK = NO;
 			};

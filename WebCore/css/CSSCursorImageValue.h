@@ -37,12 +37,12 @@ public:
         return adoptRef(new CSSCursorImageValue(url, hotSpot));
     }
 
-    virtual ~CSSCursorImageValue();
+    ~CSSCursorImageValue();
 
     IntPoint hotSpot() const { return m_hotSpot; }
 
     bool updateIfSVGCursorIsUsed(Element*);
-    virtual StyleCachedImage* cachedImage(CachedResourceLoader*);
+    StyleCachedImage* cachedImage(CachedResourceLoader*);
 
 #if ENABLE(SVG)
     void removeReferencedElement(SVGElement*);
@@ -50,7 +50,6 @@ public:
 
 private:
     CSSCursorImageValue(const String& url, const IntPoint& hotSpot);
-    virtual bool isCursorImageValue() const { return true; }
 
     IntPoint m_hotSpot;
 

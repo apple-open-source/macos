@@ -58,15 +58,15 @@ public:
     virtual void didSetSelectionTypesForPasteboard();
 
     virtual void respondToChangedContents();
-    virtual void respondToChangedSelection();
+    virtual void respondToChangedSelection(WebCore::Frame*);
 
     bool shouldShowDeleteInterface(WebCore::HTMLElement*);
     bool shouldDeleteRange(WebCore::Range*);
 
     bool shouldInsertNode(WebCore::Node*, WebCore::Range* replacingRange, WebCore::EditorInsertAction);
-    bool shouldApplyStyle(WebCore::CSSStyleDeclaration*, WebCore::Range*);
+    bool shouldApplyStyle(WebCore::StylePropertySet*, WebCore::Range*);
     bool shouldMoveRangeAfterDelete(WebCore::Range*, WebCore::Range*);
-    bool shouldChangeTypingStyle(WebCore::CSSStyleDeclaration* currentStyle, WebCore::CSSStyleDeclaration* toProposedStyle);
+    bool shouldChangeTypingStyle(WebCore::StylePropertySet* currentStyle, WebCore::StylePropertySet* toProposedStyle);
 
     void webViewDidChangeTypingStyle(WebNotification*);
     void webViewDidChangeSelection(WebNotification*);
@@ -74,8 +74,8 @@ public:
     bool smartInsertDeleteEnabled();
     bool isSelectTrailingWhitespaceEnabled();
 
-    void registerCommandForUndo(PassRefPtr<WebCore::EditCommand>);
-    void registerCommandForRedo(PassRefPtr<WebCore::EditCommand>);
+    void registerUndoStep(PassRefPtr<WebCore::UndoStep>);
+    void registerRedoStep(PassRefPtr<WebCore::UndoStep>);
     void clearUndoRedoOperations();
 
     bool canCopyCut(WebCore::Frame*, bool defaultValue) const;
@@ -110,7 +110,8 @@ public:
 
     virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool);
-    virtual void requestCheckingOfString(WebCore::SpellChecker*, int, WebCore::TextCheckingTypeMask, const WTF::String&) {}
+    virtual void requestCheckingOfString(WebCore::SpellChecker*, const WebCore::TextCheckingRequest&) { }
+
     virtual WebCore::TextCheckerClient* textChecker() { return this; }
 
 private:

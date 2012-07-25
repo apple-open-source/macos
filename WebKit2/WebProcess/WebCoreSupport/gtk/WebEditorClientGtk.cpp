@@ -21,11 +21,14 @@
 #include "WebEditorClient.h"
 
 #include "Frame.h"
+#include "FrameDestructionObserver.h"
 #include "PlatformKeyboardEvent.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
+#include <WebCore/DataObjectGtk.h>
 #include <WebCore/KeyboardEvent.h>
+#include <WebCore/PasteboardHelper.h>
 #include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
@@ -36,8 +39,9 @@ void WebEditorClient::getEditorCommandsForKeyEvent(const KeyboardEvent* event, V
 {
     ASSERT(event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent);
 
-    // First try to interpret the command in the UI and get the commands.
-    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(),
+    /* First try to interpret the command in the UI and get the commands.
+       UI needs to receive event type because only knows current NativeWebKeyboardEvent.*/
+    WebProcess::shared().connection()->sendSync(Messages::WebPageProxy::GetEditorCommandsForKeyEvent(event->type()),
                                                 Messages::WebPageProxy::GetEditorCommandsForKeyEvent::Reply(pendingEditorCommands),
                                                 m_page->pageID(), CoreIPC::Connection::NoTimeout);
 }
@@ -79,7 +83,7 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
         // During RawKeyDown events if an editor command will insert text, defer
         // the insertion until the keypress event. We want keydown to bubble up
         // through the DOM first.
-        if (platformEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
+        if (platformEvent->type() == PlatformEvent::RawKeyDown) {
             if (executePendingEditorCommands(frame, pendingEditorCommands, false))
                 event->setDefaultHandled();
 
@@ -124,6 +128,75 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 void WebEditorClient::handleInputMethodKeydown(KeyboardEvent*)
 {
     notImplemented();
+}
+
+#if PLATFORM(X11)
+class EditorClientFrameDestructionObserver : FrameDestructionObserver {
+public:
+    EditorClientFrameDestructionObserver(Frame* frame, GClosure* closure)
+        : FrameDestructionObserver(frame)
+        , m_closure(closure)
+    {
+        g_closure_add_finalize_notifier(m_closure, this, destroyOnClosureFinalization);
+    }
+
+    void frameDestroyed()
+    {
+        g_closure_invalidate(m_closure);
+        FrameDestructionObserver::frameDestroyed();
+    }
+private:
+    GClosure* m_closure;
+
+    static void destroyOnClosureFinalization(gpointer data, GClosure* closure)
+    {
+        // Calling delete void* will free the memory but won't invoke
+        // the destructor, something that is a must for us.
+        EditorClientFrameDestructionObserver* observer = static_cast<EditorClientFrameDestructionObserver*>(data);
+        delete observer;
+    }
+};
+
+static Frame* frameSettingClipboard;
+
+static void collapseSelection(GtkClipboard* clipboard, Frame* frame)
+{
+    if (frameSettingClipboard && frameSettingClipboard == frame)
+        return;
+
+    // Collapse the selection without clearing it.
+    ASSERT(frame);
+    frame->selection()->setBase(frame->selection()->extent(), frame->selection()->affinity());
+}
+#endif
+
+void WebEditorClient::setSelectionPrimaryClipboardIfNeeded(Frame* frame)
+{
+#if PLATFORM(X11)
+    GtkClipboard* clipboard = PasteboardHelper::defaultPasteboardHelper()->getPrimarySelectionClipboard(frame);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+
+    if (!frame->selection()->isRange())
+        return;
+
+    dataObject->clearAll();
+    dataObject->setRange(frame->selection()->toNormalizedRange());
+
+    frameSettingClipboard = frame;
+    GClosure* callback = g_cclosure_new(G_CALLBACK(collapseSelection), frame, 0);
+    // This observer will be self-destroyed on closure finalization,
+    // that will happen either after closure execution or after
+    // closure invalidation.
+    new EditorClientFrameDestructionObserver(frame, callback);
+    g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
+    PasteboardHelper::defaultPasteboardHelper()->writeClipboardContents(clipboard, PasteboardHelper::DoNotIncludeSmartPaste, callback);
+    frameSettingClipboard = 0;
+#endif
+}
+
+bool WebEditorClient::shouldShowUnicodeMenu()
+{
+    return true;
 }
 
 }

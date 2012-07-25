@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: sdb.c,v 1.76.8.1 2011-03-14 13:40:14 fdupont Exp $ */
 
 /*! \file */
 
@@ -841,17 +841,10 @@ find(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
 		 */
 		dns_name_getlabelsequence(name, nlabels - i, i, xname);
 		result = findnode(db, xname, ISC_FALSE, &node);
-		if (result == ISC_R_NOTFOUND) {
-			/*
-			 * No data at zone apex?
-			 */
-			if (i == olabels)
-				return (DNS_R_BADDB);
+		if (result != ISC_R_SUCCESS) {
 			result = DNS_R_NXDOMAIN;
 			continue;
 		}
-		if (result != ISC_R_SUCCESS)
-			return (result);
 
 		/*
 		 * Look for a DNAME at the current label, unless this is
@@ -1261,6 +1254,8 @@ static dns_dbmethods_t sdb_methods = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
+	NULL
 };
 
 static isc_result_t

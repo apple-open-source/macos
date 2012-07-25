@@ -32,6 +32,7 @@ namespace WebCore {
 
 // Space characters as defined by the HTML specification.
 bool isHTMLSpace(UChar);
+bool isHTMLLineBreak(UChar);
 bool isNotHTMLSpace(UChar);
 
 // Strip leading and trailing whitespace as defined by the HTML specification. 
@@ -49,6 +50,9 @@ bool parseToDoubleForNumberTypeWithDecimalPlaces(const String&, double*, unsigne
 // http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-integers
 bool parseHTMLInteger(const String&, int&);
 
+// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-non-negative-integers
+bool parseHTMLNonNegativeInteger(const String&, unsigned int&);
+
 // Inline implementations of some of the functions declared above.
 
 inline bool isHTMLSpace(UChar character)
@@ -64,6 +68,11 @@ inline bool isHTMLSpace(UChar character)
     // Accordingly, we check for non-spaces first, then space, then newline, then tab, then the other characters.
 
     return character <= ' ' && (character == ' ' || character == '\n' || character == '\t' || character == '\r' || character == '\f');
+}
+
+inline bool isHTMLLineBreak(UChar character)
+{
+    return character <= '\r' && (character == '\n' || character == '\r');
 }
 
 inline bool isNotHTMLSpace(UChar character)

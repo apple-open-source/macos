@@ -1032,7 +1032,7 @@ HexLine(const char *buf, size_t *bufSize, char linebuf[80])
 	size_t	i;
         char	*cptr = linebuf;
 
-        memset(linebuf,0,sizeof(linebuf));
+        memset(linebuf, 0, 80);
 
 	limit = (*bufSize > 16) ? 16 : *bufSize;
 	*bufSize -= limit;

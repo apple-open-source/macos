@@ -41,10 +41,12 @@ class JSGlobalObject;
 }
 
 namespace WebCore {
+class DOMWindow;
 class DOMWrapperWorld;
 class Frame;
 class Node;
 class Page;
+class ScriptExecutionContext;
 class WorkerContext;
 
 // The idea is to expose "state-like" methods (hadException, and any other
@@ -62,6 +64,12 @@ public:
 private:
     JSC::Strong<JSC::JSGlobalObject> m_globalObject;
 };
+
+DOMWindow* domWindowFromScriptState(ScriptState*);
+ScriptExecutionContext* scriptExecutionContextFromScriptState(ScriptState*);
+
+bool evalEnabled(ScriptState*);
+void setEvalEnabled(ScriptState*, bool);
 
 ScriptState* mainWorldScriptState(Frame*);
 

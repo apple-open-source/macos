@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,13 +38,14 @@
                 do not apply to stream ciphers. 
                 
                 The general operation of a CCCryptor is: initialize it
-                with raw key data and other optional fields with CCCryptorCreate(); 
-                process input data via one or more calls to CCCryptorUpdate(), 
-                each of which may result in output data being written to 
-                caller-supplied memory; and obtain possible remaining output data 
-                with CCCryptorFinal(). The CCCryptor is disposed of via 
-                CCCryptorRelease(), or it can be reused (with the same key data 
-                as provided to CCCryptorCreate()) by calling CCCryptorReset(). 
+                with raw key data and other optional fields with
+                CCCryptorCreate(); process input data via one or more calls to
+                CCCryptorUpdate(), each of which may result in output data
+                being written to caller-supplied memory; and obtain possible
+                remaining output data with CCCryptorFinal(). The CCCryptor is
+                disposed of via CCCryptorRelease(), or it can be reused (with
+                the same key data as provided to CCCryptorCreate()) by calling
+                CCCryptorReset(). 
                 
                 CCCryptors can be dynamically allocated by this module, or 
                 their memory can be allocated by the caller. See discussion for
@@ -63,10 +64,11 @@
                 provided, an IV of all zeroes will be used. 
                 
                 CCCryptor also implements block bufferring, so that individual
-                calls to CCCryptorUpdate() do not have to provide data whose length
-                is aligned to the block size. (If padding is disabled, encrypting
-                with block ciphers does require that the *total* length of data
-                input to CCCryptorUpdate() call(s) be aligned to the block size.)
+                calls to CCCryptorUpdate() do not have to provide data whose
+                length is aligned to the block size. (If padding is disabled,
+                encrypting with block ciphers does require that the *total*
+                length of data input to CCCryptorUpdate() call(s) be aligned
+                to the block size.)
     
                 A given CCCryptor can only be used by one thread at a time;
                 multiple threads can use safely different CCCryptors at the
@@ -78,7 +80,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#ifndef KERNEL
 #include <stddef.h>
+#endif /* KERNEL */
 #include <Availability.h>
 
 #ifdef __cplusplus
@@ -113,7 +117,8 @@ enum {
     kCCMemoryFailure    = -4302,
     kCCAlignmentError   = -4303,
     kCCDecodeError      = -4304,
-    kCCUnimplemented    = -4305
+    kCCUnimplemented    = -4305,
+    kCCOverflow         = -4306
 };
 typedef int32_t CCCryptorStatus;
 
@@ -138,7 +143,8 @@ typedef uint32_t CCOperation;
     @constant   kCCAlgorithmDES     Data Encryption Standard
     @constant   kCCAlgorithm3DES    Triple-DES, three key, EDE configuration
     @constant   kCCAlgorithmCAST    CAST
-    @constant   kCCAlgorithmRC4     RC4 stream cipher
+ 	@constant   kCCAlgorithmRC4     RC4 stream cipher
+ 	@constant   kCCAlgorithmBlowfish    Blowfish block cipher
 */
 enum {
     kCCAlgorithmAES128 = 0,
@@ -146,7 +152,8 @@ enum {
     kCCAlgorithm3DES,       
     kCCAlgorithmCAST,       
     kCCAlgorithmRC4,
-    kCCAlgorithmRC2     
+    kCCAlgorithmRC2,   
+    kCCAlgorithmBlowfish    
 };
 typedef uint32_t CCAlgorithm;
 
@@ -186,17 +193,19 @@ typedef uint32_t CCOptions;
                     CAST and RC4 have variable key sizes.
 */
 enum {
-    kCCKeySizeAES128    = 16,
-    kCCKeySizeAES192    = 24,
-    kCCKeySizeAES256    = 32,
-    kCCKeySizeDES       = 8,
-    kCCKeySize3DES      = 24,
-    kCCKeySizeMinCAST   = 5,
-    kCCKeySizeMaxCAST   = 16,
-    kCCKeySizeMinRC4    = 1,
-    kCCKeySizeMaxRC4    = 512,
-    kCCKeySizeMinRC2    = 1,
-    kCCKeySizeMaxRC2    = 128
+    kCCKeySizeAES128          = 16,
+    kCCKeySizeAES192          = 24,
+    kCCKeySizeAES256          = 32,
+    kCCKeySizeDES             = 8,
+    kCCKeySize3DES            = 24,
+    kCCKeySizeMinCAST         = 5,
+    kCCKeySizeMaxCAST         = 16,
+    kCCKeySizeMinRC4          = 1,
+    kCCKeySizeMaxRC4          = 512,
+    kCCKeySizeMinRC2          = 1,
+    kCCKeySizeMaxRC2          = 128,
+    kCCKeySizeMinBlowfish     = 8,
+    kCCKeySizeMaxBlowfish     = 56,
 };
 
 /*!
@@ -212,14 +221,15 @@ enum {
 */
 enum {
     /* AES */
-    kCCBlockSizeAES128  = 16,
+    kCCBlockSizeAES128        = 16,
     /* DES */
-    kCCBlockSizeDES     = 8,
+    kCCBlockSizeDES           = 8,
     /* 3DES */
-    kCCBlockSize3DES    = 8,
+    kCCBlockSize3DES          = 8,
     /* CAST */
-    kCCBlockSizeCAST    = 8,
-    kCCBlockSizeRC2     = 8,
+    kCCBlockSizeCAST          = 8,
+    kCCBlockSizeRC2           = 8,
+    kCCBlockSizeBlowfish      = 8,
 };
 
 /*!
@@ -247,14 +257,13 @@ enum {
 */
     
 enum {
-    kCCContextSizeGENERIC   = 4096,
-    kCCContextSizeAES128    = 4096,
-    kCCContextSizeDES       = 4096,
-    kCCContextSize3DES      = 4096,
-    kCCContextSizeCAST      = 4096,
-    kCCContextSizeRC4       = 4096
+    kCCContextSizeAES128	= 404,
+    kCCContextSizeDES		= 240,
+    kCCContextSize3DES		= 496,
+    kCCContextSizeCAST		= 240,
+    kCCContextSizeRC4		= 1072
 };
-
+    
 
 
 /*!
@@ -297,7 +306,7 @@ CCCryptorStatus CCCryptorCreate(
     size_t keyLength,   
     const void *iv,             /* optional initialization vector */
     CCCryptorRef *cryptorRef)  /* RETURNED */
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 /*!
     @function   CCCryptorCreateFromData
@@ -361,7 +370,7 @@ CCCryptorStatus CCCryptorCreateFromData(
     size_t dataLength,          /* length of data in bytes */
     CCCryptorRef *cryptorRef,   /* RETURNED */
     size_t *dataUsed)           /* optional, RETURNED */
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 /*!
     @function   CCCryptorRelease
@@ -375,7 +384,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 */
 CCCryptorStatus CCCryptorRelease(
     CCCryptorRef cryptorRef)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
     
 /*!
     @function   CCCryptorUpdate
@@ -391,13 +400,14 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
                                 "in-place", with the same buffer used for 
                                 input and output. 
     @param      dataOutAvailable The size of the dataOut buffer in bytes.  
-    @param      dataOutMoved    On successful return, the number of bytes written 
-                                to dataOut.
+    @param      dataOutMoved    On successful return, the number of bytes
+    				written to dataOut.
                                 
     @result     kCCBufferTooSmall indicates insufficent space in the dataOut
-                                buffer. The caller can use CCCryptorGetOutputLength() 
-                                to determine the required output buffer size in this 
-                                case. The operation can be retried; no state is lost 
+                                buffer. The caller can use
+				CCCryptorGetOutputLength() to determine the
+				required output buffer size in this case. The
+				operation can be retried; no state is lost 
                                 when this is returned. 
                                 
     @discussion This routine can be called multiple times. The caller does
@@ -417,10 +427,12 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
                 provided by the caller is that for block ciphers, the output 
                 length is never larger than the input length plus the block size.
                 For stream ciphers, the output length is always exactly the same
-                as the input length. See the discussion for CCCryptorGetOutputLength()
-                for more information on this topic. 
+                as the input length. See the discussion for
+		CCCryptorGetOutputLength() for more information on this topic. 
                  
-                Generally, when all data has been processed, call CCCryptorFinal().
+                Generally, when all data has been processed, call
+		CCCryptorFinal().
+
                 In the following cases, the CCCryptorFinal() is superfluous as
                 it will not yield any data nor return an error:
                 1. Encrypting or decrypting with a block cipher with padding 
@@ -435,7 +447,7 @@ CCCryptorStatus CCCryptorUpdate(
     void *dataOut,              /* data RETURNED here */
     size_t dataOutAvailable,
     size_t *dataOutMoved)       /* number of bytes written */
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 /*!
     @function   CCCryptorFinal
@@ -446,13 +458,14 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
                                 CCCryptorCreateFromData().
     @param      dataOut         Result is written here. Allocated by caller. 
     @param      dataOutAvailable The size of the dataOut buffer in bytes.  
-    @param      dataOutMoved    On successful return, the number of bytes written 
-                                to dataOut.
+    @param      dataOutMoved    On successful return, the number of bytes
+    				written to dataOut.
         
     @result     kCCBufferTooSmall indicates insufficent space in the dataOut
-                                buffer. The caller can use CCCryptorGetOutputLength() 
-                                to determine the required output buffer size in this 
-                                case. The operation can be retried; no state is lost 
+                                buffer. The caller can use
+				CCCryptorGetOutputLength() to determine the
+				required output buffer size in this case. The
+				operation can be retried; no state is lost 
                                 when this is returned. 
                 kCCAlignmentError When decrypting, or when encrypting with a
                                 block cipher with padding disabled, 
@@ -481,26 +494,28 @@ CCCryptorStatus CCCryptorFinal(
     void *dataOut,
     size_t dataOutAvailable,
     size_t *dataOutMoved)       /* number of bytes written */
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 /*!
     @function   CCCryptorGetOutputLength
-    @abstract   Determine output buffer size required to process a given input size. 
+    @abstract   Determine output buffer size required to process a given input
+    		size. 
     
     @param      cryptorRef  A CCCryptorRef created via CCCryptorCreate() or
                             CCCryptorCreateFromData().
     @param      inputLength The length of data which will be provided to 
                             CCCryptorUpdate().
-    @param      final       If false, the returned value will indicate the output 
-                            buffer space needed when 'inputLength' bytes are 
-                            provided to CCCryptorUpdate(). When 'final' is true, 
-                            the returned value will indicate the total combined 
-                            buffer space needed when 'inputLength' bytes are 
-                            provided to CCCryptorUpdate() and then CCCryptorFinal()
-                            is called. 
+    @param      final       If false, the returned value will indicate the
+    			    output buffer space needed when 'inputLength'
+			    bytes are provided to CCCryptorUpdate(). When
+			    'final' is true, the returned value will indicate
+			    the total combined buffer space needed when
+			    'inputLength' bytes are provided to
+			    CCCryptorUpdate() and then CCCryptorFinal() is
+			    called. 
                             
-    @result The maximum buffer space need to perform CCCryptorUpdate() and optionally
-            CCCryptorFinal(). 
+    @result The maximum buffer space need to perform CCCryptorUpdate() and
+    	    optionally CCCryptorFinal(). 
             
     @discussion Some general rules apply that allow clients of this module to
                 know a priori how much output buffer space will be required
@@ -519,7 +534,7 @@ size_t CCCryptorGetOutputLength(
     CCCryptorRef cryptorRef,
     size_t inputLength,
     bool final)
-__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
     
 /*!
@@ -544,7 +559,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 CCCryptorStatus CCCryptorReset(
     CCCryptorRef cryptorRef,
     const void *iv)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 
 /*!
@@ -556,7 +571,8 @@ CCCryptorStatus CCCryptorReset(
     @param      alg             Defines the encryption algorithm.
     
     
-    @param      op              Defines the basic operation: kCCEncrypt or kCCDecrypt.
+    @param      op              Defines the basic operation: kCCEncrypt or
+    				kCCDecrypt.
     
     @param      options         A word of flags defining options. See discussion
                                 for the CCOptions type.
@@ -589,11 +605,11 @@ CCCryptorStatus CCCryptorReset(
     
     @param      dataOutAvailable The size of the dataOut buffer in bytes.  
     
-    @param      dataOutMoved    On successful return, the number of bytes written 
-                                to dataOut. If kCCBufferTooSmall is returned as 
-                                a result of insufficient buffer space being 
-                                provided, the required buffer space is returned
-                                here. 
+    @param      dataOutMoved    On successful return, the number of bytes
+    				written to dataOut. If kCCBufferTooSmall is
+				returned as a result of insufficient buffer
+				space being provided, the required buffer space
+				is returned here. 
         
     @result     kCCBufferTooSmall indicates insufficent space in the dataOut
                                 buffer. In this case, the *dataOutMoved 
@@ -609,6 +625,7 @@ CCCryptorStatus CCCryptorReset(
                                 a "wrong key" error; occurs only during decrypt
                                 operations. 
  */
+    
 CCCryptorStatus CCCrypt(
     CCOperation op,         /* kCCEncrypt, etc. */
     CCAlgorithm alg,        /* kCCAlgorithmAES128, etc. */
@@ -621,9 +638,136 @@ CCCryptorStatus CCCrypt(
     void *dataOut,          /* data RETURNED here */
     size_t dataOutAvailable,
     size_t *dataOutMoved)
-    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
+    __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_4_0);
 
 
+/*!
+    @enum       Cipher Modes
+    @discussion These are the selections available for modes of operation for
+				use with block ciphers.  If RC4 is selected as the cipher (a stream
+				cipher) the only correct mode is kCCModeRC4.
+    
+    @constant kCCModeECB - Electronic Code Book Mode.
+    @constant kCCModeCBC - Cipher Block Chaining Mode.
+    @constant kCCModeCFB - Cipher Feedback Mode.
+    @constant kCCModeOFB - Output Feedback Mode.
+    @constant kCCModeXTS - XEX-based Tweaked CodeBook Mode.
+    @constant kCCModeRC4 - RC4 as a streaming cipher is handled internally as a mode.
+    @constant kCCModeCFB8 - Cipher Feedback Mode producing 8 bits per round.
+*/
+
+
+enum {
+	kCCModeECB		= 1,
+	kCCModeCBC		= 2,
+	kCCModeCFB		= 3,
+	kCCModeCTR		= 4,
+	kCCModeF8		= 5, // Unimplemented for now (not included)
+	kCCModeLRW		= 6, // Unimplemented for now (not included)
+	kCCModeOFB		= 7,
+	kCCModeXTS		= 8,
+	kCCModeRC4		= 9,
+	kCCModeCFB8		= 10,
+};
+typedef uint32_t CCMode;
+
+/*!
+    @enum       Padding for Block Ciphers
+    @discussion These are the padding options available for block modes.
+    
+    @constant ccNoPadding -  No padding.
+    @constant ccPKCS7Padding - PKCS7 Padding.
+*/
+
+enum {
+	ccNoPadding			= 0,
+	ccPKCS7Padding		= 1,
+};
+typedef uint32_t CCPadding;
+
+/*!
+    @enum       Mode options - so far only used for CTR mode
+    @discussion Values used to specify options for modes.
+    
+    @constant kCCModeOptionCTR_LE - CTR Mode Little Endian.
+    @constant kCCModeOptionCTR_BE - CTR Mode Big Endian.
+*/
+
+enum {
+	kCCModeOptionCTR_LE	= 0x0001,
+	kCCModeOptionCTR_BE = 0x0002
+};
+
+typedef uint32_t CCModeOptions;
+
+/*!
+     @function   CCCryptorCreateWithMode
+     @abstract   Create a cryptographic context. 
+     
+     @param      op         Defines the basic operation: kCCEncrypt or 
+                            kCCDecrypt.
+     
+     @param     mode		Specifies the cipher mode to use for operations.
+     
+     @param      alg        Defines the algorithm.
+     
+     @param		padding		Specifies the padding to use.
+     
+     @param      iv         Initialization vector, optional. Used by 
+                            block ciphers with the following modes:
+     
+                            Cipher Block Chaining (CBC) 
+                            Cipher Feedback (CFB and CFB8)
+                            Output Feedback (OFB)
+                            Counter (CTR)
+     
+                            If present, must be the same length as the selected
+                            algorithm's block size.  If no IV is present, a NULL
+                            (all zeroes) IV will be used. 
+     
+                            This parameter is ignored if ECB mode is used or
+                            if a stream cipher algorithm is selected. 
+     
+     @param      key         Raw key material, length keyLength bytes. 
+     
+     @param      keyLength   Length of key material. Must be appropriate 
+                            for the selected operation and algorithm. Some 
+                            algorithms  provide for varying key lengths.
+     
+     @param      tweak      Raw key material, length keyLength bytes. Used for the
+                            tweak key in XEX-based Tweaked CodeBook (XTS) mode.
+     
+     @param      tweakLength   Length of tweak key material. Must be appropriate 
+                            for the selected operation and algorithm. Some 
+                            algorithms  provide for varying key lengths.  For XTS 
+                            this is the same length as the encryption key.
+     
+     @param		numRounds	The number of rounds of the cipher to use.  0 uses the default.
+     
+     @param      options    A word of flags defining options. See discussion
+                            for the CCModeOptions type.
+     
+     @param      cryptorRef  A (required) pointer to the returned CCCryptorRef. 
+     
+     @result     Possible error returns are kCCParamError and kCCMemoryFailure.
+ */
+    
+
+CCCryptorStatus CCCryptorCreateWithMode(
+    CCOperation 	op,				/* kCCEncrypt, kCCEncrypt */
+    CCMode			mode,
+    CCAlgorithm		alg,
+    CCPadding		padding,		
+    const void 		*iv,			/* optional initialization vector */
+    const void 		*key,			/* raw key material */
+    size_t 			keyLength,	
+    const void 		*tweak,			/* raw tweak material */
+    size_t 			tweakLength,	
+    int				numRounds,		/* 0 == default */
+    CCModeOptions 	options,
+    CCCryptorRef	*cryptorRef)	/* RETURNED */
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+    
 #ifdef __cplusplus
 }
 #endif

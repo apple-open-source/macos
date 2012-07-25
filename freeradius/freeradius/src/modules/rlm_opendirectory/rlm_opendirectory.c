@@ -154,12 +154,14 @@ static int od_authenticate(UNUSED void *instance, REQUEST *request)
 								   desc_str_size,
 								   kCFStringEncodingUTF8);
 					}
+					CFRelease(desc);
 				}
 
 				RDEBUG2("Authentication failed for %s: error %d: %s",
 					request->username->vp_strvalue, CFErrorGetCode(error),
 					desc_str ? desc_str : "unknown error");
 
+                                if (desc_str) free(desc_str);
 				CFRelease(error);
 			}
 		}
@@ -270,17 +272,18 @@ static int od_authorize(UNUSED void *instance, REQUEST *request)
 		if (!vals || CFArrayGetCount(vals) == 0) {
 			RDEBUG("Could not find GUID for user %s", request->username->vp_strvalue);
 		} else {
-		    CFTypeRef user_guid = CFArrayGetValueAtIndex(vals, 0);
+			CFTypeRef user_guid = CFArrayGetValueAtIndex(vals, 0);
 			if (CFGetTypeID(user_guid) == CFStringGetTypeID()) {
 				size_t len = CFStringGetLength(user_guid) + 1;
 				char* user_guid_str = malloc(len);
 				if (user_guid_str) {
 					CFStringGetCString(user_guid, user_guid_str, len, kCFStringEncodingUTF8);
 					uuid_parse(user_guid_str, uuid);
+					free(user_guid_str);
 				} 
 			}
-			CFRelease(vals);
-		    }
+		}
+		if (vals) CFRelease(vals);
 		CFRelease(rec);
 	}
 	if (username) CFRelease(username);

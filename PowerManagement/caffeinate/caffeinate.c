@@ -2,14 +2,14 @@
  * Copyright (c) 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,17 +34,13 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 typedef enum {
-    kDefaultAssertionFlag   = 0,
-    kIdleAssertionFlag      = (1 << 0),
-    kDisplayAssertionFlag   = (1 << 1),
-    kSystemAssertionFlag    = (1 << 2),
+    kDefaultAssertionFlag    = 0,
+    kIdleAssertionFlag       = (1 << 0),
+    kDisplayAssertionFlag    = (1 << 1),
+    kSystemAssertionFlag     = (1 << 2),
     kUserActiveAssertionFlag = (1 << 3)
 } AssertionFlag;
 
-typedef enum {
-   kDefaultPropertyFlag     = 0,
-   kAssertionOnBattFlag     = (1 << 0)
-} PropertyFlag;
 typedef struct {
     AssertionFlag assertionFlag;
     CFStringRef assertionType;
@@ -58,30 +54,24 @@ AssertionMapEntry assertionMap[] = {
     { kUserActiveAssertionFlag, kIOPMAssertionUserIsActive}};
 
 
-typedef struct {
-    PropertyFlag  propertyFlag;
-    CFStringRef   propertyType;
-    CFTypeRef     propertyVal;
-} PropertyMapEntry;
-
 static CFStringRef        kHumanReadableReason = CFSTR("THE CAFFEINATE TOOL IS PREVENTING SLEEP.");
 static CFStringRef        kLocalizationBundlePath = CFSTR("/System/Library/CoreServices/powerd.bundle");
 
 #define kAssertionNameString    "caffeinate command-line tool"
 
-int createAssertions(const char *progname, AssertionFlag flags, PropertyFlag  propertyFlags, long timeout);
-void forkChild(char *argv[], AssertionFlag flag, PropertyFlag  propertyFlags);
+int createAssertions(const char *progname, AssertionFlag flags, long timeout);
+void forkChild(char *argv[], AssertionFlag flag);
 void usage(void);
 
 int
 main(int argc, char *argv[])
 {
     AssertionFlag flags = kDefaultAssertionFlag;
-    PropertyFlag  propFlags = kDefaultPropertyFlag;
     char ch;
     long timeout = 0;
 
-    while ((ch = getopt(argc, argv, "dhisbut:")) != -1) {
+    errno = 0;
+    while ((ch = getopt(argc, argv, "dhisut:")) != -1) {
         switch((char)ch) {
             case 'd':
                 flags |= kDisplayAssertionFlag;
@@ -94,9 +84,6 @@ main(int argc, char *argv[])
                 break;
             case 's':
                 flags |= kSystemAssertionFlag;
-                break;
-            case 'b':
-                propFlags |= kAssertionOnBattFlag;
                 break;
             case 'u':
                 flags |= kUserActiveAssertionFlag;
@@ -122,9 +109,9 @@ main(int argc, char *argv[])
 
     if (argc - optind) {
         argv += optind;
-        (void) forkChild(argv, flags, propFlags);
+        (void) forkChild(argv, flags);
     } else {
-        if (createAssertions(NULL, flags, propFlags, timeout)) {
+        if (createAssertions(NULL, flags, timeout)) {
             exit(1);
         }
         if (timeout) {
@@ -137,17 +124,13 @@ main(int argc, char *argv[])
 }
 
 int
-createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFlags, long timeout)
+createAssertions(const char *progname, AssertionFlag flags, long timeout)
 {
     IOReturn result = 1;
     char assertionDetails[128];
     CFStringRef assertionDetailsString = NULL;
     IOPMAssertionID assertionID = 0;
-    u_int i = 0, j = 0;
-    PropertyMapEntry propertiesMap[] = {
-      {kAssertionOnBattFlag, kIOPMAssertionAppliesToLimitedPowerKey, (CFBooleanRef)kCFBooleanTrue}
-    };
-
+    u_int i = 0;
 
     if (progname) {
         (void)snprintf(assertionDetails, sizeof(assertionDetails),
@@ -167,7 +150,7 @@ createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFla
         goto finish;
     }
 
-    for (i = 0; i < sizeof(assertionMap)/sizeof(AssertionMapEntry); ++i) 
+    for (i = 0; i < sizeof(assertionMap)/sizeof(AssertionMapEntry); ++i)
     {
         AssertionMapEntry *entry = assertionMap + i;
 
@@ -175,36 +158,18 @@ createAssertions(const char *progname, AssertionFlag flags, PropertyFlag propFla
         if ( (entry->assertionFlag == kUserActiveAssertionFlag) && (timeout == 0))
             timeout = 5;  /* Force a 5sec timeout on user active assertions */
 
-        result = IOPMAssertionCreateWithDescription(entry->assertionType, 
-                    CFSTR(kAssertionNameString), assertionDetailsString, 
-                    kHumanReadableReason, kLocalizationBundlePath, 
-                    (CFTimeInterval)timeout, kIOPMAssertionTimeoutActionRelease, 
+        result = IOPMAssertionCreateWithDescription(entry->assertionType,
+                    CFSTR(kAssertionNameString), assertionDetailsString,
+                    kHumanReadableReason, kLocalizationBundlePath,
+                    (CFTimeInterval)timeout, kIOPMAssertionTimeoutActionRelease,
                     &assertionID);
-        
-        if (result != kIOReturnSuccess) 
+
+        if (result != kIOReturnSuccess)
         {
             fprintf(stderr, "Failed to create %s assertion\n",
                 CFStringGetCStringPtr(entry->assertionType, kCFStringEncodingMacRoman));
             goto finish;
         }
-
-        for (j = 0; j < sizeof(propertiesMap)/sizeof(PropertyMapEntry); j++) 
-        {
-           if ( !(propFlags & propertiesMap[j].propertyFlag) ) continue;
-
-           result = IOPMAssertionSetProperty(assertionID, 
-                     propertiesMap[j].propertyType,
-                     propertiesMap[j].propertyVal);
-           if (result != kIOReturnSuccess)
-           {
-               fprintf(stderr, "Failed to set property %s on assertion %s\n",
-                   CFStringGetCStringPtr(propertiesMap[j].propertyType, kCFStringEncodingMacRoman), 
-                   CFStringGetCStringPtr(entry->assertionType, kCFStringEncodingMacRoman));
-               continue;
-           }
-
-        }
-
     }
 
     result = kIOReturnSuccess;
@@ -215,7 +180,7 @@ finish:
 }
 
 void
-forkChild(char *argv[], AssertionFlag flags, PropertyFlag propFlags)
+forkChild(char *argv[], AssertionFlag flags)
 {
     pid_t pid;
     dispatch_source_t source;
@@ -226,7 +191,7 @@ forkChild(char *argv[], AssertionFlag flags, PropertyFlag propFlags)
             exit(1);
             /* NOTREACHED */
         case 0:     /* child */
-            if (createAssertions(*argv, flags, propFlags, 0)) {
+            if (createAssertions(*argv, flags, 0)) {
                 _exit(1);
             }
             execvp(*argv, argv);
@@ -260,6 +225,6 @@ forkChild(char *argv[], AssertionFlag flags, PropertyFlag propFlags)
 void
 usage(void)
 {
-    fprintf(stderr, "usage: caffeinate [-disbu] [-t timeout] [command] [arguments]\n");
+    fprintf(stderr, "usage: caffeinate [-disu] [-t timeout] [command] [arguments]\n");
     return;
 }

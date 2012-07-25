@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,37 +26,39 @@
  */
 
 static const char usage[] =
-"[-?@(#)$Id: stty (AT&T Research) 2006-10-31 $\n]"
+"[-?@(#)$Id: stty (AT&T Research) 2010-04-01 $\n]"
 USAGE_LICENSE
 "[+NAME?stty - set or get terminal modes]"
 "[+DESCRIPTION?\bstty\b sets certain terminal I/O modes for the device "
-	"that is the current standard input; without arguments, it writes "
-	"the settings of certain modes to standard output.]"
-
+    "that is the current standard input; without arguments, it writes the "
+    "settings of certain modes to standard output.]"
 "[a:all?Writes to standard output all of the mode settings.]"
-"[g:save?Writes the current settings to standard output in a form that can "
-	"be used as an argument to another \bstty\b command.  The \brows\b "
-	"and \bcolumns\b values are not included.]"
+"[f|F:fd|file?Use \afd\a as the terminal fd.]#[fd:=0]"
+"[g:save?Writes the current settings to standard output in a form that "
+    "can be used as an argument to another \bstty\b command. The \brows\b "
+    "and \bcolumns\b values are not included.]"
+"[t:terminal-group?Print the terminal group id of the device, -1 if "
+    "unknown.]"
 "\n"
 "\n[mode ...]\n"
 "\n"
 "[+EXTENDED DESCRIPTION?Modes are specified either as a single name or "
-	"as a name followed by a value.  As indicated below, many of the "
-	"mode names can be preceded by a \b-\b to negate its meaning.  " 
-	"Modes are listed by group corresponding to field in the "
-	"\btermios\b structure defined in \b<termios.h>\b.  Modes "
-	"in the last group are implemented using options in the previous "
-	"groups.  Note that many combinations of modes make no sense, but "
-	"no sanity checking is performed.  The modes are selected from the "
-	"following:]{\fabc\f}"
-
-"[+EXIT STATUS?]{"
-      "[+0?All modes reported or set successfully.]"
-        "[+>0?Standard input not a terminaol or one or more modes failed.]"
-"}"
+    "as a name followed by a value. As indicated below, many of the mode "
+    "names can be preceded by a \b-\b to negate its meaning. Modes are "
+    "listed by group corresponding to field in the \btermios\b structure "
+    "defined in \b<termios.h>\b. Modes in the last group are implemented "
+    "using options in the previous groups. Note that many combinations of "
+    "modes make no sense, but no sanity checking is performed. The modes are "
+    "selected from the following:]"
+    "{\fabc\f}"
+"[+EXIT STATUS?]"
+    "{"
+        "[+0?All modes reported or set successfully.]"
+        "[+>0?Standard input not a terminaol or one or more modes "
+            "failed.]"
+    "}"
 "[+SEE ALSO?\btegetattr\b(2), \btcsetattr\b(2), \bioctl\b(2)]"
 ;
-
 
 #include	<cmd.h>
 #include	<ccode.h>
@@ -83,6 +85,7 @@ USAGE_LICENSE
 /* command options */
 #define A_FLAG	1
 #define G_FLAG	2
+#define T_FLAG	4
 
 /* termios fields */
 #define C_FLAG	1
@@ -313,9 +316,15 @@ static const Tty_t Ttable[] =
 #endif
 #ifdef TABDLY
 { "tabs",	TABS,	O_FLAG,	IG,	TABDLY, TAB3, C("Preserve (expand to spaces) tabs") },
+#ifdef TAB0
 { "tab0",	BITS,	O_FLAG,	IG|SS,	TABDLY, TAB0  },
+#endif
+#ifdef TAB1
 { "tab1",	BITS,	O_FLAG,	US,	TABDLY, TAB1  },
+#endif
+#ifdef TAB2
 { "tab2",	BITS,	O_FLAG,	US,	TABDLY, TAB2  },
+#endif
 { "tab3",	BITS,	O_FLAG,	US,	TABDLY, TAB3  },
 #endif
 #ifdef BSDLY
@@ -483,7 +492,7 @@ static void output(struct termios *sp, int flags)
 		{
 		    case BIT:
 		    case BITS:
-			off = 1;
+			off = off2 = 1;
 			switch(tp->field)
 			{
 			    case C_FLAG:
@@ -877,18 +886,26 @@ static int infof(Opt_t* op, Sfio_t* sp, const char* s, Optdisc_t* dp)
 	return(1);
 }
 
+#ifndef _lib_tcgetpgrp
+#  ifdef TIOCGPGRP
+	   static int _i_;
+#	   define tcgetpgrp(a) (ioctl(a, TIOCGPGRP, &_i_)>=0?_i_:-1)	
+#  else
+#	   define tcgetpgrp(a) (-1)
+#  endif /* TIOCGPGRP */
+#endif /* _lib_tcgetpgrp */
+
 int
 b_stty(int argc, char** argv, void* context)
 {
 	struct termios		tty;
 	register int		n;
 	register int		flags = 0;
+	int			fd = 0;
 	const Tty_t*		tp;
 	Optdisc_t		disc;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_INTERACTIVE);
-	if (tcgetattr(0, &tty) < 0)
-		error(ERROR_system(1),"not a tty");
 	memset(&disc, 0, sizeof(disc));
 	disc.version = OPT_VERSION;
 	disc.infof = infof;
@@ -897,8 +914,12 @@ b_stty(int argc, char** argv, void* context)
 	{
 		switch (n = optget(argv, usage))
 		{
+		case 'f':
+			fd = (int)opt_info.num;
+			continue;
 		case 'a':
 		case 'g':
+		case 't':
 			if (!opt_info.offset || !argv[opt_info.index][opt_info.offset])
 			{
 				switch (n)
@@ -908,6 +929,9 @@ b_stty(int argc, char** argv, void* context)
 					break;
 				case 'g':
 					flags |= G_FLAG;
+					break;
+				case 't':
+					flags |= T_FLAG;
 					break;
 				}
 				continue;
@@ -926,9 +950,13 @@ b_stty(int argc, char** argv, void* context)
 		break;
 	}
 	argv += opt_info.index;
-	if (error_info.errors || (flags && *argv))
+	if (error_info.errors || (flags && *argv) || (flags&(flags-1)))
 		error(ERROR_usage(2), "%s", optusage(NiL));
-	if (*argv)
+	if (tcgetattr(fd, &tty) < 0)
+		error(ERROR_system(1), "not a tty");
+	if (flags & T_FLAG)
+		sfprintf(sfstdout, "%d\n", tcgetpgrp(0));
+	else if (*argv)
 	{
 		if (!argv[1] && **argv == ':')
 			gin(*argv, &tty);

@@ -25,13 +25,11 @@
 #include "SVGLength.h"
 
 #include "CSSHelper.h"
+#include "CSSPrimitiveValue.h"
+#include "ExceptionCode.h"
 #include "FloatConversion.h"
-#include "FrameView.h"
-#include "RenderObject.h"
-#include "RenderView.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
-#include "SVGSVGElement.h"
 
 #include <wtf/MathExtras.h>
 #include <wtf/text/WTFString.h>
@@ -130,10 +128,26 @@ SVGLength::SVGLength(SVGLengthMode mode, const String& valueAsString)
     setValueAsString(valueAsString, ec);
 }
 
+SVGLength::SVGLength(const SVGLengthContext& context, float value, SVGLengthMode mode, SVGLengthType unitType)
+    : m_valueInSpecifiedUnits(0)
+    , m_unit(storeUnit(mode, unitType))
+{
+    ExceptionCode ec = 0;
+    setValue(value, context, ec);
+    ASSERT(!ec);
+}
+
 SVGLength::SVGLength(const SVGLength& other)
     : m_valueInSpecifiedUnits(other.m_valueInSpecifiedUnits)
     , m_unit(other.m_unit)
 {
+}
+
+void SVGLength::setValueAsString(const String& valueAsString, SVGLengthMode mode, ExceptionCode& ec)
+{
+    m_valueInSpecifiedUnits = 0;
+    m_unit = storeUnit(mode, LengthTypeNumber);
+    setValueAsString(valueAsString, ec);
 }
 
 bool SVGLength::operator==(const SVGLength& other) const
@@ -147,97 +161,58 @@ bool SVGLength::operator!=(const SVGLength& other) const
     return !operator==(other);
 }
 
+SVGLength SVGLength::construct(SVGLengthMode mode, const String& valueAsString, SVGParsingError& parseError, SVGLengthNegativeValuesMode negativeValuesMode)
+{
+    ExceptionCode ec = 0;
+    SVGLength length(mode);
+
+    length.setValueAsString(valueAsString, ec);
+
+    if (ec)
+        parseError = ParsingAttributeFailedError;
+    else if (negativeValuesMode == ForbidNegativeLengths && length.valueInSpecifiedUnits() < 0)
+        parseError = NegativeValueForbiddenError;
+
+    return length;
+}
+
 SVGLengthType SVGLength::unitType() const
 {
     return extractType(m_unit);
 }
 
-float SVGLength::value(const SVGElement* context) const
+SVGLengthMode SVGLength::unitMode() const
+{
+    return extractMode(m_unit);
+}
+
+float SVGLength::value(const SVGLengthContext& context) const
 {
     ExceptionCode ec = 0;
     return value(context, ec);
 }
 
-float SVGLength::value(const SVGElement* context, ExceptionCode& ec) const
+float SVGLength::value(const SVGLengthContext& context, ExceptionCode& ec) const
 {
-    switch (extractType(m_unit)) {
-    case LengthTypeUnknown:
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    case LengthTypeNumber:
-        return m_valueInSpecifiedUnits;
-    case LengthTypePercentage:
-        return convertValueFromPercentageToUserUnits(m_valueInSpecifiedUnits / 100, context, ec);
-    case LengthTypeEMS:
-        return convertValueFromEMSToUserUnits(m_valueInSpecifiedUnits, context, ec);
-    case LengthTypeEXS:
-        return convertValueFromEXSToUserUnits(m_valueInSpecifiedUnits, context, ec);
-    case LengthTypePX:
-        return m_valueInSpecifiedUnits;
-    case LengthTypeCM:
-        return m_valueInSpecifiedUnits / 2.54f * cssPixelsPerInch;
-    case LengthTypeMM:
-        return m_valueInSpecifiedUnits / 25.4f * cssPixelsPerInch;
-    case LengthTypeIN:
-        return m_valueInSpecifiedUnits * cssPixelsPerInch;
-    case LengthTypePT:
-        return m_valueInSpecifiedUnits / 72 * cssPixelsPerInch;
-    case LengthTypePC:
-        return m_valueInSpecifiedUnits / 6 * cssPixelsPerInch;
-    }
-
-    ASSERT_NOT_REACHED();
-    return 0;
+    return context.convertValueToUserUnits(m_valueInSpecifiedUnits, extractMode(m_unit), extractType(m_unit), ec);
 }
 
-void SVGLength::setValue(float value, const SVGElement* context, ExceptionCode& ec)
+void SVGLength::setValue(const SVGLengthContext& context, float value, SVGLengthMode mode, SVGLengthType unitType, ExceptionCode& ec)
 {
-    switch (extractType(m_unit)) {
-    case LengthTypeUnknown:
-        ec = NOT_SUPPORTED_ERR;
-        break;
-    case LengthTypeNumber:
-        m_valueInSpecifiedUnits = value;
-        break;
-    case LengthTypePercentage: {
-        float result = convertValueFromUserUnitsToPercentage(value, context, ec);
-        if (!ec)
-            m_valueInSpecifiedUnits = result; 
-        break;
-    }
-    case LengthTypeEMS: {
-        float result = convertValueFromUserUnitsToEMS(value, context, ec);
-        if (!ec)
-            m_valueInSpecifiedUnits = result;
-        break;
-    }
-    case LengthTypeEXS: {
-        float result = convertValueFromUserUnitsToEXS(value, context, ec);
-        if (!ec)
-            m_valueInSpecifiedUnits = result; 
-        break;
-    }
-    case LengthTypePX:
-        m_valueInSpecifiedUnits = value;
-        break;
-    case LengthTypeCM:
-        m_valueInSpecifiedUnits = value * 2.54f / cssPixelsPerInch;
-        break;
-    case LengthTypeMM:
-        m_valueInSpecifiedUnits = value * 25.4f / cssPixelsPerInch;
-        break;
-    case LengthTypeIN:
-        m_valueInSpecifiedUnits = value / cssPixelsPerInch;
-        break;
-    case LengthTypePT:
-        m_valueInSpecifiedUnits = value * 72 / cssPixelsPerInch;
-        break;
-    case LengthTypePC:
-        m_valueInSpecifiedUnits = value * 6 / cssPixelsPerInch;
-        break;
-    }
+    m_unit = storeUnit(mode, unitType);
+    setValue(value, context, ec);
 }
 
+void SVGLength::setValue(float value, const SVGLengthContext& context, ExceptionCode& ec)
+{
+    // 100% = 100.0 instead of 1.0 for historical reasons, this could eventually be changed
+    if (extractType(m_unit) == LengthTypePercentage)
+        value = value / 100;
+
+    float convertedValue = context.convertValueFromUserUnits(value, extractMode(m_unit), extractType(m_unit), ec);
+    if (!ec)
+        m_valueInSpecifiedUnits = convertedValue;
+}
 float SVGLength::valueAsPercentage() const
 {
     // 100% = 100.0 instead of 1.0 for historical reasons, this could eventually be changed
@@ -288,7 +263,7 @@ void SVGLength::newValueSpecifiedUnits(unsigned short type, float value, Excepti
     m_valueInSpecifiedUnits = value;
 }
 
-void SVGLength::convertToSpecifiedUnits(unsigned short type, const SVGElement* context, ExceptionCode& ec)
+void SVGLength::convertToSpecifiedUnits(unsigned short type, const SVGLengthContext& context, ExceptionCode& ec)
 {
     if (type == LengthTypeUnknown || type > LengthTypePC) {
         ec = NOT_SUPPORTED_ERR;
@@ -307,157 +282,6 @@ void SVGLength::convertToSpecifiedUnits(unsigned short type, const SVGElement* c
 
     // Eventually restore old unit and type
     m_unit = originalUnitAndType;
-}
-
-bool SVGLength::determineViewport(const SVGElement* context, float& width, float& height) const
-{
-    if (!context)
-        return false;
-
-    // Take size from outermost <svg> element.
-    Document* document = context->document();
-    if (document->documentElement() == context) {
-        if (RenderView* view = toRenderView(document->renderer())) {
-            width = view->viewWidth();
-            height = view->viewHeight();
-            return true;
-        }
-
-        return false;
-    }
-
-    // Resolve value against nearest viewport element (common case: inner <svg> elements)
-    SVGElement* viewportElement = context->viewportElement();
-    if (viewportElement && viewportElement->isSVG()) {
-        const SVGSVGElement* svg = static_cast<const SVGSVGElement*>(viewportElement);
-        if (svg->hasAttribute(SVGNames::viewBoxAttr)) {
-            width = svg->viewBox().width();
-            height = svg->viewBox().height();
-        } else {
-            width = svg->width().value(svg);
-            height = svg->height().value(svg);
-        }
-
-        return true;
-    }
-    
-    // Resolve value against enclosing non-SVG RenderBox
-    if (!context->parentNode() || context->parentNode()->isSVGElement())
-        return false;
-
-    RenderObject* renderer = context->renderer();
-    if (!renderer || !renderer->isBox())
-        return false;
-
-    RenderBox* box = toRenderBox(renderer);
-    width = box->width();
-    height = box->height();
-    return true;
-}
-
-float SVGLength::convertValueFromUserUnitsToPercentage(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    float width = 0;
-    float height = 0;
-    if (!determineViewport(context, width, height)) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    switch (extractMode(m_unit)) {
-    case LengthModeWidth:
-        return value / width * 100;
-    case LengthModeHeight:
-        return value / height * 100;
-    case LengthModeOther:
-        return value / (sqrtf((width * width + height * height) / 2)) * 100;
-    };
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-float SVGLength::convertValueFromPercentageToUserUnits(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    float width = 0;
-    float height = 0;
-    if (!determineViewport(context, width, height)) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    switch (extractMode(m_unit)) {
-    case LengthModeWidth:
-        return value * width;
-    case LengthModeHeight:
-        return value * height;
-    case LengthModeOther:
-        return value * sqrtf((width * width + height * height) / 2);
-    };
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-float SVGLength::convertValueFromUserUnitsToEMS(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    if (!context || !context->renderer() || !context->renderer()->style()) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    RenderStyle* style = context->renderer()->style();
-    float fontSize = style->fontSize();
-    if (!fontSize) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    return value / fontSize;
-}
-
-float SVGLength::convertValueFromEMSToUserUnits(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    if (!context || !context->renderer() || !context->renderer()->style()) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    RenderStyle* style = context->renderer()->style();
-    return value * style->fontSize();
-}
-
-float SVGLength::convertValueFromUserUnitsToEXS(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    if (!context || !context->renderer() || !context->renderer()->style()) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    RenderStyle* style = context->renderer()->style();
-
-    // Use of ceil allows a pixel match to the W3Cs expected output of coords-units-03-b.svg
-    // if this causes problems in real world cases maybe it would be best to remove this
-    float xHeight = ceilf(style->fontMetrics().xHeight());
-    if (!xHeight) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    return value / xHeight;
-}
-
-float SVGLength::convertValueFromEXSToUserUnits(float value, const SVGElement* context, ExceptionCode& ec) const
-{
-    if (!context || !context->renderer() || !context->renderer()->style()) {
-        ec = NOT_SUPPORTED_ERR;
-        return 0;
-    }
-
-    RenderStyle* style = context->renderer()->style();
-    // Use of ceil allows a pixel match to the W3Cs expected output of coords-units-03-b.svg
-    // if this causes problems in real world cases maybe it would be best to remove this
-    return value * ceilf(style->fontMetrics().xHeight());
 }
 
 SVGLength SVGLength::fromCSSPrimitiveValue(CSSPrimitiveValue* value)
@@ -553,6 +377,41 @@ PassRefPtr<CSSPrimitiveValue> SVGLength::toCSSPrimitiveValue(const SVGLength& le
     };
 
     return CSSPrimitiveValue::create(length.valueInSpecifiedUnits(), cssType);
+}
+
+SVGLengthMode SVGLength::lengthModeForAnimatedLengthAttribute(const QualifiedName& attrName)
+{
+    typedef HashMap<QualifiedName, SVGLengthMode> LengthModeForLengthAttributeMap;
+    DEFINE_STATIC_LOCAL(LengthModeForLengthAttributeMap, s_lengthModeMap, ());
+    
+    if (s_lengthModeMap.isEmpty()) {
+        s_lengthModeMap.set(SVGNames::xAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::yAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::cxAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::cyAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::dxAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::dyAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::fxAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::fyAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::rAttr, LengthModeOther);
+        s_lengthModeMap.set(SVGNames::widthAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::heightAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::x1Attr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::x2Attr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::y1Attr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::y2Attr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::refXAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::refYAttr, LengthModeHeight);
+        s_lengthModeMap.set(SVGNames::markerWidthAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::markerHeightAttr, LengthModeHeight);        
+        s_lengthModeMap.set(SVGNames::textLengthAttr, LengthModeWidth);
+        s_lengthModeMap.set(SVGNames::startOffsetAttr, LengthModeWidth);
+    }
+    
+    if (s_lengthModeMap.contains(attrName))
+        return s_lengthModeMap.get(attrName);
+    
+    return LengthModeOther;
 }
 
 }

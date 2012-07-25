@@ -31,10 +31,12 @@
 
 #include "AssemblerBuffer.h"
 #include "AssemblerBufferWithConstantPool.h"
+#include "JITCompilationEffort.h"
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <wtf/Assertions.h>
+#include <wtf/DataLog.h>
 #include <wtf/Vector.h>
 
 #ifndef NDEBUG
@@ -322,6 +324,10 @@ public:
         padForAlign8 = 0x00,
         padForAlign16 = 0x0009,
         padForAlign32 = 0x00090009,
+    };
+
+    enum JumpType { JumpFar,
+                    JumpNear
     };
 
     SH4Assembler()
@@ -1186,6 +1192,13 @@ public:
         return label;
     }
 
+    void extraInstrForBranch(RegisterID dst)
+    {
+        loadConstantUnReusable(0x0, dst);
+        nop();
+        nop();
+    }
+
     AssemblerLabel jmp(RegisterID dst)
     {
         jmpReg(dst);
@@ -1210,6 +1223,13 @@ public:
     {
         AssemblerLabel label = m_buffer.label();
         branch(BT_OPCODE, 0);
+        return label;
+    }
+
+    AssemblerLabel bra()
+    {
+        AssemblerLabel label = m_buffer.label();
+        branch(BRA_OPCODE, 0);
         return label;
     }
 
@@ -1422,7 +1442,7 @@ public:
 
     // Linking & patching
 
-    void linkJump(AssemblerLabel from, AssemblerLabel to)
+    void linkJump(AssemblerLabel from, AssemblerLabel to, JumpType type = JumpFar)
     {
         ASSERT(to.isSet());
         ASSERT(from.isSet());
@@ -1430,6 +1450,14 @@ public:
         uint16_t* instructionPtr = getInstructionPtr(data(), from.m_offset);
         uint16_t instruction = *instructionPtr;
         int offsetBits;
+
+        if (type == JumpNear) {
+            ASSERT((instruction ==  BT_OPCODE) || (instruction == BF_OPCODE) || (instruction == BRA_OPCODE));
+            int offset = (codeSize() - from.m_offset) - 4;
+            *instructionPtr++ = instruction | (offset >> 1);
+            printInstr(*instructionPtr, from.m_offset + 2);
+            return;
+        }
 
         if (((instruction & 0xff00) == BT_OPCODE) || ((instruction & 0xff00) == BF_OPCODE)) {
             /* BT label => BF 2
@@ -1513,9 +1541,9 @@ public:
         return reinterpret_cast<void*>(readPCrelativeAddress((*instructionPtr & 0xff), instructionPtr));
     }
 
-    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData)
+    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData, void* ownerUID, JITCompilationEffort effort)
     {
-        return m_buffer.executableCopy(globalData);
+        return m_buffer.executableCopy(globalData, ownerUID, effort);
     }
 
     void prefix(uint16_t pre)
@@ -2025,7 +2053,7 @@ public:
     static void vprintfStdoutInstr(const char* format, va_list args)
     {
         if (getenv("JavaScriptCoreDumpJIT"))
-            vfprintf(stdout, format, args);
+            WTF::dataLogV(format, args);
     }
 
     static void printBlockInstr(uint16_t* first, unsigned int offset, int nbInstr)

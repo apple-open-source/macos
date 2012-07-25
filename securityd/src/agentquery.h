@@ -145,7 +145,7 @@ public:
 class QueryOld : public SecurityAgentQuery {
 	static const int maxTries = kMaximumAuthorizationTries;
 public:
-	QueryOld(Database &db) : database(db) { }
+	QueryOld(Database &db) : database(db) {setTerminateOnSleep(true);}
 	
 	Database &database;
 	
@@ -216,11 +216,11 @@ private:
 class QueryGenericPassphrase : public SecurityAgentQuery {
 public:
     QueryGenericPassphrase()    { }
-    Reason operator () (const char *prompt, bool verify, 
+    Reason operator () (const CssmData *prompt, bool verify,
                         string &passphrase);
     
 protected:
-    Reason query(const char *prompt, bool verify, string &passphrase);
+    Reason query(const CssmData *prompt, bool verify, string &passphrase);
 };
 
 

@@ -17,34 +17,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#ifndef QT_NO_BEARERMANAGEMENT
+#include <QNetworkConfigurationManager>
+#endif
+
 #include <QtTest/QtTest>
 
 #include <qwebframe.h>
 #include <qwebview.h>
 #include <qpainter.h>
 
-/**
- * Starts an event loop that runs until the given signal is received.
- Optionally the event loop
- * can return earlier on a timeout.
- *
- * \return \p true if the requested signal was received
- *         \p false on timeout
- */
-static bool waitForSignal(QObject* obj, const char* signal, int timeout = 0)
-{
-    QEventLoop loop;
-    QObject::connect(obj, signal, &loop, SLOT(quit()));
-    QTimer timer;
-    QSignalSpy timeoutSpy(&timer, SIGNAL(timeout()));
-    if (timeout > 0) {
-        QObject::connect(&timer, SIGNAL(timeout()), &loop, SLOT(quit()));
-        timer.setSingleShot(true);
-        timer.start(timeout);
-    }
-    loop.exec();
-    return timeoutSpy.isEmpty();
-}
+#include "util.h"
 
 class tst_Loading : public QObject
 {
@@ -61,6 +44,9 @@ private Q_SLOTS:
     void load();
 
 private:
+#ifndef QT_NO_BEARERMANAGEMENT
+    QNetworkConfigurationManager m_manager;
+#endif
     QWebView* m_view;
     QWebPage* m_page;
 };
@@ -92,12 +78,16 @@ void tst_Loading::load()
 {
     QFETCH(QUrl, url);
 
+#ifndef QT_NO_BEARERMANAGEMENT
+    if (!m_manager.isOnline())
+        W_QSKIP("This test requires an active network connection", SkipSingle);
+#endif
 
     QBENCHMARK {
         m_view->load(url);
 
         // really wait for loading, painting is in another test
-        ::waitForSignal(m_view, SIGNAL(loadFinished(bool)));
+        ::waitForSignal(m_view, SIGNAL(loadFinished(bool)), 0);
     }
 }
 

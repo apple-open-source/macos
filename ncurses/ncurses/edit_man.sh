@@ -11,7 +11,7 @@ NCURSES_PATCH="20081102"
 NCURSES_OSPEED="short"
 TERMINFO="/usr/share/terminfo"
 
-MKDIRS="sh /Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/mkdirs.sh"
+MKDIRS="sh /tmp/ncurses-5.7/mkdirs.sh"
 
 INSTALL="/usr/bin/install -c"
 INSTALL_DATA="${INSTALL} -m 644"
@@ -61,8 +61,8 @@ case $i in #(vi
 	fi
 
 	# replace variables in man page
-	if test ! -f /Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/man_alias.sed ; then
-cat >>/Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/man_alias.sed <<-CF_EOF2
+	if test ! -f /tmp/ncurses-5.7/man_alias.sed ; then
+cat >>/tmp/ncurses-5.7/man_alias.sed <<-CF_EOF2
 		s,@DATADIR@,$datadir,g
 		s,@TERMINFO@,$TERMINFO,g
 		s,@NCURSES_MAJOR@,$NCURSES_MAJOR,g
@@ -77,7 +77,7 @@ s,@TIC@,tic,
 s,@TOE@,toe,
 s,@TPUT@,tput,
 CF_EOF2
-		echo "...made /Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/man_alias.sed"
+		echo "...made /tmp/ncurses-5.7/man_alias.sed"
 	fi
 
 	aliases=
@@ -88,14 +88,14 @@ CF_EOF2
 		echo .. skipped $cf_source
 		continue
 	fi
-	aliases=`sed -f $top_srcdir/man/manlinks.sed $inalias |sed -f /Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/man_alias.sed | sort -u`
+	aliases=`sed -f $top_srcdir/man/manlinks.sed $inalias |sed -f /tmp/ncurses-5.7/man_alias.sed | sort -u`
 	# perform program transformations for section 1 man pages
 	if test $section = 1 ; then
 		cf_target=$cf_subdir${section}/`echo $cf_source|sed "${transform}"`
 	else
 		cf_target=$cf_subdir${section}/$cf_source
 	fi
-	sed	-f /Volumes/data/stripes/R/PR-6917817/ncurses/ncurses/man_alias.sed \
+	sed	-f /tmp/ncurses-5.7/man_alias.sed \
 		< $i >$TMP
 if test $cf_tables = yes ; then
 	tbl $TMP >$TMP.out
@@ -105,13 +105,6 @@ fi
 		nroff -man $TMP >$TMP.out
 		mv $TMP.out $TMP
 	fi
-	if test $verb = installing ; then
-	if ( gzip -f $TMP )
-	then
-		mv $TMP.gz $TMP
-	fi
-	fi
-	cf_target="$cf_target.gz"
 	suffix=`basename $cf_target | sed -e 's%^[^.]*%%'`
 	if test $verb = installing ; then
 		echo $verb $cf_target
@@ -120,7 +113,7 @@ fi
 		test -n "$aliases" && (
 			cd $cf_subdir${section} && (
 				cf_source=`echo $cf_target |sed -e 's%^.*/\([^/][^/]*/[^/][^/]*$\)%\1%'`
-				test -n "gz" && cf_source=`echo $cf_source |sed -e 's%\.gz$%%'`
+				test -n "" && cf_source=`echo $cf_source |sed -e 's%\.$%%'`
 				cf_target=`basename $cf_target`
 				for cf_alias in $aliases
 				do
@@ -140,10 +133,6 @@ fi
 						ln -s $cf_target $cf_alias${suffix}
 					elif test "$cf_target" != "$cf_alias${suffix}" ; then
 						echo ".so $cf_source" >$TMP
-						if test -n "gz" ; then
-							gzip -f $TMP
-							mv $TMP.gz $TMP
-						fi
 						echo .. $verb alias $cf_alias${suffix}
 						rm -f $cf_alias${suffix}
 						$INSTALL_DATA $TMP $cf_alias${suffix}

@@ -99,6 +99,7 @@ struct kcm_ccache_data {
     time_t renew_time;
     heim_event_t expire_event;
     krb5_deltat expire;
+    time_t next_refresh_time;
     /* key */
     krb5_keytab keytab;
     char *password;
@@ -150,6 +151,8 @@ extern int detach_from_console;
 #endif
 extern int launchd_flag;
 extern int disallow_getting_krbtgt;
+extern int kcm_data_changed;
+extern int use_uid_matching;
 
 #if 0
 extern const krb5_cc_ops krb5_kcmss_ops;

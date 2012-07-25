@@ -193,7 +193,11 @@ IOReturn IOHIDQueueClass::getAsyncEventSource(CFTypeRef *source)
 }
 
 /* CFMachPortCallBack */
-void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
+void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef        cfPort __unused,
+                                               mach_msg_header_t    *msg __unused, 
+                                               CFIndex              size __unused,
+                                               void                 *info)
+{
     
     IOHIDQueueClass *queue = (IOHIDQueueClass *)info;
     
@@ -385,7 +389,7 @@ IOReturn IOHIDQueueClass::addElement (IOHIDElementRef element, IOOptionBits opti
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::removeElement (IOHIDElementRef element, IOOptionBits options)
+IOReturn IOHIDQueueClass::removeElement (IOHIDElementRef element, IOOptionBits options __unused)
 {
     IOReturn ret = kIOReturnSuccess;
 
@@ -414,7 +418,7 @@ IOReturn IOHIDQueueClass::removeElement (IOHIDElementRef element, IOOptionBits o
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::hasElement (IOHIDElementRef element, Boolean * pValue, IOOptionBits options)
+IOReturn IOHIDQueueClass::hasElement (IOHIDElementRef element, Boolean * pValue, IOOptionBits options __unused)
 {
     if (!element || !pValue)
         return kIOReturnBadArgument;
@@ -437,7 +441,7 @@ IOReturn IOHIDQueueClass::hasElement (IOHIDElementRef element, Boolean * pValue,
 
 
 /* start/stop data delivery to a queue */
-IOReturn IOHIDQueueClass::start (IOOptionBits options)
+IOReturn IOHIDQueueClass::start (IOOptionBits options __unused)
 {
     IOReturn ret = kIOReturnSuccess;
     
@@ -491,7 +495,7 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options)
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::stop (IOOptionBits options)
+IOReturn IOHIDQueueClass::stop (IOOptionBits options __unused)
 {
     IOReturn ret = kIOReturnSuccess;
 
@@ -511,7 +515,9 @@ IOReturn IOHIDQueueClass::stop (IOOptionBits options)
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::copyNextEventValue (IOHIDValueRef * pEvent, uint32_t timeout, IOOptionBits options)
+IOReturn IOHIDQueueClass::copyNextEventValue (IOHIDValueRef     *pEvent, 
+                                              uint32_t          timeout __unused, 
+                                              IOOptionBits      options __unused)
 {
     IOReturn ret = kIOReturnSuccess;
     
@@ -743,10 +749,26 @@ IOReturn IOHIDObsoleteQueueClass::addElement (IOHIDElementCookie cookie, uint32_
     return IOHIDQueueClass::addElement(fOwningDevice->getElement(cookie), flags);
 }
 
+IOReturn
+IOHIDObsoleteQueueClass::addElement (IOHIDElementRef element, 
+                                     IOOptionBits options)
+{
+    return IOHIDQueueClass::addElement(element, options);
+}
+
+
 IOReturn IOHIDObsoleteQueueClass::removeElement (IOHIDElementCookie cookie)
 {
     return IOHIDQueueClass::removeElement(fOwningDevice->getElement(cookie));
 }
+
+IOReturn 
+IOHIDObsoleteQueueClass::removeElement (IOHIDElementRef element, 
+                                        IOOptionBits options)
+{
+    return IOHIDQueueClass::removeElement(element, options);
+}
+
 
 Boolean IOHIDObsoleteQueueClass::hasElement (IOHIDElementCookie cookie)
 {
@@ -756,7 +778,15 @@ Boolean IOHIDObsoleteQueueClass::hasElement (IOHIDElementCookie cookie)
     return (IOHIDQueueClass::hasElement(element, &value) == kIOReturnSuccess) ? value : FALSE;
 }
 
-IOReturn IOHIDObsoleteQueueClass::getNextEvent (IOHIDEventStruct * pEventStruct, AbsoluteTime maxTime, uint32_t timeoutMS)
+IOReturn
+IOHIDObsoleteQueueClass::hasElement (IOHIDElementRef element, 
+                                Boolean * pValue, 
+                                IOOptionBits options)
+{
+    return IOHIDQueueClass::hasElement(element, pValue, options);
+}
+
+IOReturn IOHIDObsoleteQueueClass::getNextEvent (IOHIDEventStruct * pEventStruct, AbsoluteTime maxTime __unused, uint32_t timeoutMS)
 {
     IOHIDValueRef   event = NULL;
     IOReturn        ret   = kIOReturnBadArgument;

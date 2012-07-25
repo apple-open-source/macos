@@ -26,8 +26,7 @@
 #include "config.h"
 #include "StorageAreaImpl.h"
 
-#if ENABLE(DOM_STORAGE)
-
+#include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "Page.h"
@@ -38,6 +37,8 @@
 #include "StorageEventDispatcher.h"
 #include "StorageMap.h"
 #include "StorageSyncManager.h"
+#include "StorageTracker.h"
+#include <wtf/MainThread.h>
 
 namespace WebCore {
 
@@ -58,6 +59,10 @@ inline StorageAreaImpl::StorageAreaImpl(StorageType storageType, PassRefPtr<Secu
     ASSERT(isMainThread());
     ASSERT(m_securityOrigin);
     ASSERT(m_storageMap);
+    
+    // Accessing the shared global StorageTracker when a StorageArea is created 
+    // ensures that the tracker is properly initialized before anyone actually needs to use it.
+    StorageTracker::tracker();
 }
 
 PassRefPtr<StorageAreaImpl> StorageAreaImpl::create(StorageType storageType, PassRefPtr<SecurityOrigin> origin, PassRefPtr<StorageSyncManager> syncManager, unsigned quota)
@@ -104,7 +109,9 @@ bool StorageAreaImpl::disabledByPrivateBrowsingInFrame(const Frame* frame) const
     ASSERT(!frame);
     return false;
 #else
-    if (!frame->page() || !frame->page()->settings()->privateBrowsingEnabled())
+    if (!frame->page())
+        return true;
+    if (!frame->page()->settings()->privateBrowsingEnabled())
         return false;
     if (m_storageType != LocalStorage)
         return true;
@@ -112,7 +119,7 @@ bool StorageAreaImpl::disabledByPrivateBrowsingInFrame(const Frame* frame) const
 #endif
 }
 
-unsigned StorageAreaImpl::length() const
+unsigned StorageAreaImpl::length(Frame*) const
 {
     ASSERT(!m_isShutdown);
     blockUntilImportComplete();
@@ -120,7 +127,7 @@ unsigned StorageAreaImpl::length() const
     return m_storageMap->length();
 }
 
-String StorageAreaImpl::key(unsigned index) const
+String StorageAreaImpl::key(unsigned index, Frame*) const
 {
     ASSERT(!m_isShutdown);
     blockUntilImportComplete();
@@ -128,7 +135,7 @@ String StorageAreaImpl::key(unsigned index) const
     return m_storageMap->key(index);
 }
 
-String StorageAreaImpl::getItem(const String& key) const
+String StorageAreaImpl::getItem(const String& key, Frame*) const
 {
     ASSERT(!m_isShutdown);
     blockUntilImportComplete();
@@ -209,7 +216,7 @@ bool StorageAreaImpl::clear(Frame* frame)
     return true;
 }
 
-bool StorageAreaImpl::contains(const String& key) const
+bool StorageAreaImpl::contains(const String& key, Frame*) const
 {
     ASSERT(!m_isShutdown);
     blockUntilImportComplete();
@@ -265,5 +272,3 @@ void StorageAreaImpl::blockUntilImportComplete() const
 }
 
 }
-
-#endif // ENABLE(DOM_STORAGE)

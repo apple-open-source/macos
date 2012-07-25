@@ -34,6 +34,6 @@
 
 extern int isakmp_dump_open __P((char *));
 extern int isakmp_dump_close __P((void));
-extern int isakmp_dump __P((vchar_t *, struct sockaddr *, struct sockaddr *));
+extern int isakmp_dump __P((vchar_t *, struct sockaddr_storage *, struct sockaddr_storage *));
 
 #endif /* _DUMP_H */

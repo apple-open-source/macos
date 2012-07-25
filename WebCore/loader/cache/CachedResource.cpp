@@ -3,7 +3,7 @@
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
-    Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -30,18 +30,22 @@
 #include "CachedResourceClientWalker.h"
 #include "CachedResourceHandle.h"
 #include "CachedResourceLoader.h"
-#include "CachedResourceRequest.h"
+#include "CrossOriginAccessControl.h"
+#include "Document.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "KURL.h"
 #include "Logging.h"
 #include "PurgeableBuffer.h"
 #include "ResourceHandle.h"
+#include "ResourceLoadScheduler.h"
 #include "SharedBuffer.h"
+#include "SubresourceLoader.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/CString.h>
 #include <wtf/Vector.h>
 
 using namespace WTF;
@@ -57,27 +61,86 @@ static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type 
 #endif
             return ResourceLoadPriorityHigh;
         case CachedResource::Script:
+#if ENABLE(SVG)
+        case CachedResource::SVGDocumentResource:
+            return ResourceLoadPriorityLow;
+#endif
         case CachedResource::FontResource:
+        case CachedResource::RawResource:
             return ResourceLoadPriorityMedium;
         case CachedResource::ImageResource:
             return ResourceLoadPriorityLow;
 #if ENABLE(LINK_PREFETCH)
-        case CachedResource::LinkResource:
+        case CachedResource::LinkPrefetch:
             return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkPrerender:
+            return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkSubresource:
+            return ResourceLoadPriorityVeryLow;
+#endif
+#if ENABLE(VIDEO_TRACK)
+        case CachedResource::TextTrackResource:
+            return ResourceLoadPriorityLow;
+#endif
+#if ENABLE(CSS_SHADERS)
+        case CachedResource::ShaderResource:
+            return ResourceLoadPriorityMedium;
 #endif
     }
     ASSERT_NOT_REACHED();
     return ResourceLoadPriorityLow;
 }
 
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource::Type type)
+{
+    switch (type) {
+    case CachedResource::CSSStyleSheet:
+#if ENABLE(XSLT)
+    case CachedResource::XSLStyleSheet:
+#endif
+        return ResourceRequest::TargetIsStyleSheet;
+    case CachedResource::Script: 
+        return ResourceRequest::TargetIsScript;
+    case CachedResource::FontResource:
+        return ResourceRequest::TargetIsFontResource;
+    case CachedResource::ImageResource:
+        return ResourceRequest::TargetIsImage;
+#if ENABLE(CSS_SHADERS)
+    case CachedResource::ShaderResource:
+#endif
+    case CachedResource::RawResource:
+        return ResourceRequest::TargetIsSubresource;    
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+        return ResourceRequest::TargetIsPrefetch;
+    case CachedResource::LinkPrerender:
+        return ResourceRequest::TargetIsPrerender;
+    case CachedResource::LinkSubresource:
+        return ResourceRequest::TargetIsSubresource;
+#endif
+#if ENABLE(VIDEO_TRACK)
+    case CachedResource::TextTrackResource:
+        return ResourceRequest::TargetIsTextTrack;
+#endif
+#if ENABLE(SVG)
+    case CachedResource::SVGDocumentResource:
+        return ResourceRequest::TargetIsImage;
+#endif
+    }
+    ASSERT_NOT_REACHED();
+    return ResourceRequest::TargetIsSubresource;
+}
+#endif
+
 DEFINE_DEBUG_ONLY_GLOBAL(RefCountedLeakCounter, cachedResourceLeakCounter, ("CachedResource"));
 
-CachedResource::CachedResource(const String& url, Type type)
-    : m_url(url)
-    , m_request(0)
+CachedResource::CachedResource(const ResourceRequest& request, Type type)
+    : m_resourceRequest(request)
     , m_loadPriority(defaultPriorityForResourceType(type))
     , m_responseTimestamp(currentTime())
     , m_lastDecodedAccessTime(0)
+    , m_loadFinishTime(0)
     , m_encodedSize(0)
     , m_decodedSize(0)
     , m_accessCount(0)
@@ -86,9 +149,9 @@ CachedResource::CachedResource(const String& url, Type type)
     , m_preloadResult(PreloadNotReferenced)
     , m_inLiveDecodedResourcesList(false)
     , m_requestedFromNetworkingLayer(false)
-    , m_sendResourceLoadCallbacks(true)
     , m_inCache(false)
     , m_loading(false)
+    , m_switchingClientsToRevalidatedResource(false)
     , m_type(type)
     , m_status(Pending)
 #ifndef NDEBUG
@@ -103,6 +166,7 @@ CachedResource::CachedResource(const String& url, Type type)
     , m_resourceToRevalidate(0)
     , m_proxyResource(0)
 {
+    ASSERT(m_type == unsigned(type)); // m_type is a bitfield, so this tests careless updates of the enum.
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
@@ -125,11 +189,53 @@ CachedResource::~CachedResource()
         m_owningCachedResourceLoader->removeCachedResource(this);
 }
 
-void CachedResource::load(CachedResourceLoader* cachedResourceLoader, bool incremental, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks)
+void CachedResource::load(CachedResourceLoader* cachedResourceLoader, const ResourceLoaderOptions& options)
 {
-    m_sendResourceLoadCallbacks = sendResourceLoadCallbacks;
-    cachedResourceLoader->load(this, incremental, securityCheck, sendResourceLoadCallbacks);
+    m_options = options;
     m_loading = true;
+
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
+    if (m_resourceRequest.targetType() == ResourceRequest::TargetIsUnspecified)
+        m_resourceRequest.setTargetType(cachedResourceTypeToTargetType(type()));
+#endif
+
+    if (!accept().isEmpty())
+        m_resourceRequest.setHTTPAccept(accept());
+
+    if (isCacheValidator()) {
+        CachedResource* resourceToRevalidate = m_resourceToRevalidate;
+        ASSERT(resourceToRevalidate->canUseCacheValidator());
+        ASSERT(resourceToRevalidate->isLoaded());
+        const String& lastModified = resourceToRevalidate->response().httpHeaderField("Last-Modified");
+        const String& eTag = resourceToRevalidate->response().httpHeaderField("ETag");
+        if (!lastModified.isEmpty() || !eTag.isEmpty()) {
+            ASSERT(cachedResourceLoader->cachePolicy() != CachePolicyReload);
+            if (cachedResourceLoader->cachePolicy() == CachePolicyRevalidate)
+                m_resourceRequest.setHTTPHeaderField("Cache-Control", "max-age=0");
+            if (!lastModified.isEmpty())
+                m_resourceRequest.setHTTPHeaderField("If-Modified-Since", lastModified);
+            if (!eTag.isEmpty())
+                m_resourceRequest.setHTTPHeaderField("If-None-Match", eTag);
+        }
+    }
+
+#if ENABLE(LINK_PREFETCH)
+    if (type() == CachedResource::LinkPrefetch || type() == CachedResource::LinkPrerender || type() == CachedResource::LinkSubresource)
+        m_resourceRequest.setHTTPHeaderField("Purpose", "prefetch");
+#endif
+    m_resourceRequest.setPriority(loadPriority());
+    
+    m_loader = resourceLoadScheduler()->scheduleSubresourceLoad(cachedResourceLoader->document()->frame(), this, m_resourceRequest, m_resourceRequest.priority(), options);
+    if (!m_loader) {
+        // FIXME: What if resources in other frames were waiting for this revalidation?
+        LOG(ResourceLoading, "Cannot start loading '%s'", url().string().latin1().data());
+        if (m_resourceToRevalidate) 
+            memoryCache()->revalidationFailed(this); 
+        error(CachedResource::LoadError);
+        return;
+    }
+
+    m_status = Pending;
 }
 
 void CachedResource::checkNotify()
@@ -137,7 +243,7 @@ void CachedResource::checkNotify()
     if (isLoading())
         return;
 
-    CachedResourceClientWalker w(m_clients);
+    CachedResourceClientWalker<CachedResourceClient> w(m_clients);
     while (CachedResourceClient* c = w.next())
         c->notifyFinished(this);
 }
@@ -163,7 +269,14 @@ void CachedResource::error(CachedResource::Status status)
 
 void CachedResource::finish()
 {
-    m_status = Cached;
+    if (!errorOccurred())
+        m_status = Cached;
+}
+
+bool CachedResource::passesAccessControlCheck(SecurityOrigin* securityOrigin)
+{
+    String errorDescription;
+    return WebCore::passesAccessControlCheck(m_response, resourceRequest().allowCookies() ? AllowStoredCredentials : DoNotAllowStoredCredentials, securityOrigin, errorDescription);
 }
 
 bool CachedResource::isExpired() const
@@ -189,7 +302,7 @@ double CachedResource::currentAge() const
 double CachedResource::freshnessLifetime() const
 {
     // Cache non-http resources liberally
-    if (!m_response.url().protocolInHTTPFamily())
+    if (!m_response.url().protocolIsInHTTPFamily())
         return std::numeric_limits<double>::max();
 
     // RFC2616 13.2.4
@@ -212,6 +325,9 @@ void CachedResource::setResponse(const ResourceResponse& response)
 {
     m_response = response;
     m_responseTimestamp = currentTime();
+    String encoding = response.textEncodingName();
+    if (!encoding.isNull())
+        setEncoding(encoding);
 }
 
 void CachedResource::setSerializedCachedMetadata(const char* data, size_t size)
@@ -242,18 +358,17 @@ CachedMetadata* CachedResource::cachedMetadata(unsigned dataTypeID) const
     return m_cachedMetadata.get();
 }
 
-void CachedResource::setRequest(CachedResourceRequest* request)
+void CachedResource::stopLoading()
 {
-    if (request && !m_request)
-        m_status = Pending;
-    m_request = request;
+    ASSERT(m_loader);            
+    m_loader = 0;
 
     CachedResourceHandle<CachedResource> protect(this);
 
     // All loads finish with data(allDataReceived = true) or error(), except for
     // canceled loads, which silently set our request to 0. Be sure to notify our
     // client in that case, so we don't seem to continue loading forever.
-    if (!m_request && isLoading()) {
+    if (isLoading()) {
         setLoading(false);
         setStatus(Canceled);
         checkNotify();
@@ -262,17 +377,21 @@ void CachedResource::setRequest(CachedResourceRequest* request)
 
 void CachedResource::addClient(CachedResourceClient* client)
 {
-    addClientToSet(client);
-    didAddClient(client);
+    if (addClientToSet(client))
+        didAddClient(client);
 }
 
 void CachedResource::didAddClient(CachedResourceClient* c)
 {
+    if (m_clientsAwaitingCallback.contains(c)) {
+        m_clients.add(c);
+        m_clientsAwaitingCallback.remove(c);
+    }
     if (!isLoading())
         c->notifyFinished(this);
 }
 
-void CachedResource::addClientToSet(CachedResourceClient* client)
+bool CachedResource::addClientToSet(CachedResourceClient* client)
 {
     ASSERT(!isPurgeable());
 
@@ -286,13 +405,32 @@ void CachedResource::addClientToSet(CachedResourceClient* client)
     }
     if (!hasClients() && inCache())
         memoryCache()->addToLiveResourcesSize(this);
+
+    if (m_type == RawResource && !m_response.isNull() && !m_proxyResource) {
+        // Certain resources (especially XHRs) do crazy things if an asynchronous load returns
+        // synchronously (e.g., scripts may not have set all the state they need to handle the load).
+        // Therefore, rather than immediately sending callbacks on a cache hit like other CachedResources,
+        // we schedule the callbacks and ensure we never finish synchronously.
+        ASSERT(!m_clientsAwaitingCallback.contains(client));
+        m_clientsAwaitingCallback.add(client, CachedResourceCallback::schedule(this, client));
+        return false;
+    }
+
     m_clients.add(client);
+    return true;
 }
 
 void CachedResource::removeClient(CachedResourceClient* client)
 {
-    ASSERT(m_clients.contains(client));
-    m_clients.remove(client);
+    OwnPtr<CachedResourceCallback> callback = m_clientsAwaitingCallback.take(client);
+    if (callback) {
+        ASSERT(!m_clients.contains(client));
+        callback->cancel();
+        callback.clear();
+    } else {
+        ASSERT(m_clients.contains(client));
+        m_clients.remove(client);
+    }
 
     if (canDelete() && !inCache())
         delete this;
@@ -417,6 +555,9 @@ void CachedResource::setResourceToRevalidate(CachedResource* resource)
 void CachedResource::clearResourceToRevalidate() 
 { 
     ASSERT(m_resourceToRevalidate);
+    if (m_switchingClientsToRevalidatedResource)
+        return;
+
     // A resource may start revalidation before this method has been called, so check that this resource is still the proxy resource before clearing it out.
     if (m_resourceToRevalidate->m_proxyResource == this) {
         m_resourceToRevalidate->m_proxyResource = 0;
@@ -435,6 +576,7 @@ void CachedResource::switchClientsToRevalidatedResource()
 
     LOG(ResourceLoading, "CachedResource %p switchClientsToRevalidatedResource %p", this, m_resourceToRevalidate);
 
+    m_switchingClientsToRevalidatedResource = true;
     HashSet<CachedResourceHandleBase*>::iterator end = m_handlesToRevalidate.end();
     for (HashSet<CachedResourceHandleBase*>::iterator it = m_handlesToRevalidate.begin(); it != end; ++it) {
         CachedResourceHandleBase* handle = *it;
@@ -462,10 +604,14 @@ void CachedResource::switchClientsToRevalidatedResource()
     for (unsigned n = 0; n < moveCount; ++n)
         m_resourceToRevalidate->addClientToSet(clientsToMove[n]);
     for (unsigned n = 0; n < moveCount; ++n) {
+        // Calling didAddClient may do anything, including trying to cancel revalidation.
+        // Assert that it didn't succeed.
+        ASSERT(m_resourceToRevalidate);
         // Calling didAddClient for a client may end up removing another client. In that case it won't be in the set anymore.
         if (m_resourceToRevalidate->m_clients.contains(clientsToMove[n]))
             m_resourceToRevalidate->didAddClient(clientsToMove[n]);
     }
+    m_switchingClientsToRevalidatedResource = false;
 }
     
 void CachedResource::updateResponseAfterRevalidation(const ResourceResponse& validatingResponse)
@@ -602,11 +748,8 @@ bool CachedResource::wasPurged() const
 
 unsigned CachedResource::overheadSize() const
 {
-    return sizeof(CachedResource) + m_response.memoryUsage() + 576;
-    /*
-        576 = 192 +                   // average size of m_url
-              384;                    // average size of m_clients hash map
-    */
+    static const int kAverageClientsHashMapSize = 384;
+    return sizeof(CachedResource) + m_response.memoryUsage() + kAverageClientsHashMapSize + m_resourceRequest.url().string().length() * 2;
 }
     
 void CachedResource::setLoadPriority(ResourceLoadPriority loadPriority) 
@@ -614,6 +757,26 @@ void CachedResource::setLoadPriority(ResourceLoadPriority loadPriority)
     if (loadPriority == ResourceLoadPriorityUnresolved)
         return;
     m_loadPriority = loadPriority;
+}
+
+
+CachedResource::CachedResourceCallback::CachedResourceCallback(CachedResource* resource, CachedResourceClient* client)
+    : m_resource(resource)
+    , m_client(client)
+    , m_callbackTimer(this, &CachedResourceCallback::timerFired)
+{
+    m_callbackTimer.startOneShot(0);
+}
+
+void CachedResource::CachedResourceCallback::cancel()
+{
+    if (m_callbackTimer.isActive())
+        m_callbackTimer.stop();
+}
+
+void CachedResource::CachedResourceCallback::timerFired(Timer<CachedResourceCallback>*)
+{
+    m_resource->didAddClient(m_client);
 }
 
 }

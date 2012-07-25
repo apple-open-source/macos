@@ -55,9 +55,6 @@ typedef wxGraphicsBrush* PlatformPatternPtr;
 class wxBrush;
 typedef wxBrush* PlatformPatternPtr;
 #endif // USE(WXGC)
-#elif PLATFORM(HAIKU)
-#include <interface/GraphicsDefs.h>
-typedef pattern* PlatformPatternPtr;
 #elif OS(WINCE)
 typedef void* PlatformPatternPtr;
 #endif
@@ -98,6 +95,9 @@ private:
     bool m_repeatY;
     AffineTransform m_patternSpaceTransformation;
     PlatformPatternPtr m_pattern;
+#if USE(SKIA)
+    int m_externalMemoryAllocated;
+#endif
 };
 
 } //namespace

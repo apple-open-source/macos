@@ -31,9 +31,12 @@
 #include "config.h"
 #include "Performance.h"
 
+#include "Document.h"
+#include "DocumentLoader.h"
 #include "MemoryInfo.h"
 #include "PerformanceNavigation.h"
 #include "PerformanceTiming.h"
+#include <wtf/CurrentTime.h>
 
 #if ENABLE(WEB_TIMING)
 
@@ -42,34 +45,13 @@
 namespace WebCore {
 
 Performance::Performance(Frame* frame)
-    : m_frame(frame)
+    : DOMWindowProperty(frame)
 {
 }
 
-Frame* Performance::frame() const
+PassRefPtr<MemoryInfo> Performance::memory() const
 {
-    return m_frame;
-}
-
-void Performance::disconnectFrame()
-{
-    if (m_memory)
-        m_memory = 0;
-    if (m_navigation) {
-        m_navigation->disconnectFrame();
-        m_navigation = 0;
-    }
-    if (m_timing) {
-        m_timing->disconnectFrame();
-        m_timing = 0;
-    }
-    m_frame = 0;
-}
-
-MemoryInfo* Performance::memory() const
-{
-    m_memory = MemoryInfo::create(m_frame);
-    return m_memory.get();
+    return MemoryInfo::create(m_frame);
 }
 
 PerformanceNavigation* Performance::navigation() const
@@ -86,6 +68,33 @@ PerformanceTiming* Performance::timing() const
         m_timing = PerformanceTiming::create(m_frame);
 
     return m_timing.get();
+}
+
+#if ENABLE(PERFORMANCE_TIMELINE)
+
+PassRefPtr<PerformanceEntryList> Performance::webkitGetEntries() const
+{
+    RefPtr<PerformanceEntryList> entries = PerformanceEntryList::create();
+    return entries;
+}
+
+PassRefPtr<PerformanceEntryList> Performance::webkitGetEntriesByType(const String&)
+{
+    RefPtr<PerformanceEntryList> entries = PerformanceEntryList::create();
+    return entries;
+}
+
+PassRefPtr<PerformanceEntryList> Performance::webkitGetEntriesByName(const String&, const String&)
+{
+    RefPtr<PerformanceEntryList> entries = PerformanceEntryList::create();
+    return entries;
+}
+
+#endif // ENABLE(PERFORMANCE_TIMELINE)
+
+double Performance::webkitNow() const
+{
+    return 1000.0 * m_frame->document()->loader()->timing()->convertMonotonicTimeToZeroBasedDocumentTime(monotonicallyIncreasingTime());
 }
 
 } // namespace WebCore

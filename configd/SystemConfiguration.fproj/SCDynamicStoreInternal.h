@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,6 @@
 typedef enum {
 	NotifierNotRegistered = 0,
 	Using_NotifierWait,
-	Using_NotifierInformViaCallback,
 	Using_NotifierInformViaMachPort,
 	Using_NotifierInformViaFD,
 	Using_NotifierInformViaSignal,
@@ -61,9 +60,9 @@ typedef struct {
 
 	/* server side of the "configd" session */
 	mach_port_t			server;
+	Boolean				serverNullSession;
 
 	/* per-session flags */
-	Boolean				locked;
 	Boolean				useSessionKeys;
 
 	/* current status of notification requests */
@@ -74,27 +73,23 @@ typedef struct {
 	CFRunLoopSourceRef		rls;
 	SCDynamicStoreCallBack		rlsFunction;
 	SCDynamicStoreContext		rlsContext;
-
-	/* "client" information associated with SCDynamicStoreNotifyCallback() */
-	SCDynamicStoreCallBack_v1	callbackFunction;
-	void				*callbackArgument;
-	CFMachPortRef			callbackPort;
-	CFRunLoopSourceRef		callbackRLS;
+	CFMachPortRef			rlsNotifyPort;
+	CFRunLoopSourceRef		rlsNotifyRLS;
 
 	/* "client" information associated with SCDynamicStoreSetDispatchQueue() */
+	dispatch_group_t		dispatchGroup;
 	dispatch_queue_t		dispatchQueue;
-	dispatch_source_t		callbackSource;
-	dispatch_queue_t		callbackQueue;
+	dispatch_source_t		dispatchSource;
 
 	/* "client" information associated with SCDynamicStoreSetDisconnectCallBack() */
 	SCDynamicStoreDisconnectCallBack	disconnectFunction;
 	Boolean					disconnectForceCallBack;
 
-	/* "server" SCDynamicStoreKeys being watched */
+	/* SCDynamicStoreKeys being watched */
 	CFMutableArrayRef		keys;
 	CFMutableArrayRef		patterns;
 
-	/* "server" information associated with SCDynamicStoreNotifyMachPort() */
+	/* "server" information associated with mach port based notifications */
 	mach_port_t			notifyPort;
 	mach_msg_id_t			notifyPortIdentifier;
 
@@ -117,8 +112,14 @@ __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 SCDynamicStoreCallBack		callout,
 					 SCDynamicStoreContext		*context);
 
+SCDynamicStoreRef
+__SCDynamicStoreNullSession		(void);
+
 Boolean
-__SCDynamicStoreReconnect		(SCDynamicStoreRef		store);
+__SCDynamicStoreCheckRetryAndHandleError(SCDynamicStoreRef		store,
+					 kern_return_t			status,
+					 int				*sc_status,
+					 const char			*func);
 
 Boolean
 __SCDynamicStoreReconnectNotifications	(SCDynamicStoreRef		store);

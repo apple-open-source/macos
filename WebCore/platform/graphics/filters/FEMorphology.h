@@ -46,13 +46,38 @@ public:
     float radiusY() const;
     bool setRadiusY(float);
 
-    virtual void apply();
+    virtual void platformApplySoftware();
+#if USE(SKIA)
+    virtual bool platformApplySkia();
+#endif
     virtual void dump();
 
     virtual void determineAbsolutePaintRect();
 
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
+    struct PaintingData {
+        Uint8ClampedArray* srcPixelArray;
+        Uint8ClampedArray* dstPixelArray;
+        int width;
+        int height;
+        int radiusX;
+        int radiusY;
+    };
+
+    static const int s_minimalArea = (300 * 300); // Empirical data limit for parallel jobs
+
+    struct PlatformApplyParameters {
+        FEMorphology* filter;
+        int startY;
+        int endY;
+        PaintingData* paintingData;
+    };
+
+    static void platformApplyWorker(PlatformApplyParameters*);
+
+    inline void platformApply(PaintingData*);
+    inline void platformApplyGeneric(PaintingData*, const int yStart, const int yEnd);
 private:
     FEMorphology(Filter*, MorphologyOperatorType, float radiusX, float radiusY);
     

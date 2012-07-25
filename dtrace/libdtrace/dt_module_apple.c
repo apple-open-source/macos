@@ -12,6 +12,7 @@
 #include <CoreSymbolication/CoreSymbolicationPrivate.h>
 
 #include <libkern/OSAtomic.h>
+#include <sys/stat.h>
 
 #include <dtrace.h>
 #include <dt_module.h>
@@ -28,7 +29,7 @@ CSSymbolicatorRef dtrace_kernel_symbolicator() {
 	if (CSIsNull(symbolicator)) {
 		pthread_mutex_lock(&symbolicator_lock);
 		if (CSIsNull(symbolicator)) {
-			CSSymbolicatorRef temp = CSSymbolicatorCreateWithMachKernel();
+			CSSymbolicatorRef temp = CSSymbolicatorCreateWithMachKernelFlagsAndNotification(kCSSymbolicatorDefaultCreateFlags | kCSSymbolicatorUseSlidKernelAddresses, NULL);
 			OSMemoryBarrier();
 			symbolicator = temp;
 		}
@@ -104,7 +105,19 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
 		    
 			CFUUIDRef uuid_ref = CFUUIDCreateFromUUIDBytes(NULL, *(CFUUIDBytes*)uuid);
 			CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithUUIDAtTime(symbolicator, uuid_ref, kCSNow);
-			
+
+                        //
+                        // <rdar://problem/11219724> Please report UUID mismatches when sending symbols to the kernel
+                        //
+                        if (CSSymbolOwnerGetDataFlags(owner) & kCSSymbolOwnerDataEmpty) {
+                                struct stat statinfo; 
+                                if (CSSymbolOwnerGetPath(owner) && (stat(CSSymbolOwnerGetPath(owner), &statinfo) == 0)) {
+                                        if (S_ISREG(statinfo.st_mode)) {
+                                                fprintf(stderr,"WARNING: The file at [%s] does not match the UUID of the version loaded in the kernel\n", CSSymbolOwnerGetPath(owner));
+                                        }
+                                }
+                        }
+                        
 			// Construct a dtrace_module_symbols_t.
 			//
 			// First we need the count of symbols. This isn't quite as easy at it would seem at first glance.
@@ -171,51 +184,71 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp)
  * Exported interface to look up a symbol by address.  We return the GElf_Sym
  * and complete symbol information for the matching symbol.
  */
-int dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr, GElf_Sym *symp, dtrace_syminfo_t *sip)
+int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
+                          GElf_Addr addr, 
+                          char *aux_sym_name_buffer,	/* auxilary storage buffer for the symbol name */
+                          size_t aux_bufsize,		/* size of sym_name_buffer */
+                          GElf_Sym *symp,
+                          dtrace_syminfo_t *sip)
 {
-	CSSymbolicatorRef kernelSymbolicator = dtrace_kernel_symbolicator();
-	CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(kernelSymbolicator, (mach_vm_address_t)addr, kCSNow);
-	
-	if (CSIsNull(owner))
-		return (dt_set_errno(dtp, EDT_NOSYMADDR));
-	
-	if (symp != NULL) {
-		CSSymbolOwnerRef symbol = CSSymbolOwnerGetSymbolWithAddress(owner, (mach_vm_address_t)addr);
-		if (CSIsNull(symbol))
-			return (dt_set_errno(dtp, EDT_NOSYMADDR));
-		
-		CSRange addressRange = CSSymbolGetRange(symbol);
-		
-		symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
-		symp->st_other = 0;
-		symp->st_shndx = SHN_MACHO;
-		symp->st_value = addressRange.location;
-		symp->st_size = addressRange.length;
-		
-		const char *mangledName;
-		if (_dtrace_mangled &&
-		    (mangledName = CSSymbolGetMangledName(symbol)) &&
-		    strlen(mangledName) >= 3 &&
-		    mangledName[0] == '_' &&
-		    mangledName[1] == '_' &&
-		    mangledName[2] == 'Z') {
-			// mangled name - use it
-			symp->st_name = (uintptr_t)mangledName;
+        CSSymbolicatorRef kernelSymbolicator = dtrace_kernel_symbolicator();
+        CSSymbolOwnerRef owner = CSSymbolicatorGetSymbolOwnerWithAddressAtTime(kernelSymbolicator, (mach_vm_address_t)addr, kCSNow);
+        
+        if (CSIsNull(owner))
+                return (dt_set_errno(dtp, EDT_NOSYMADDR));
+        
+        if (symp != NULL) {
+                CSSymbolOwnerRef symbol = CSSymbolOwnerGetSymbolWithAddress(owner, (mach_vm_address_t)addr);
+                if (CSIsNull(symbol))
+                        return (dt_set_errno(dtp, EDT_NOSYMADDR));
+                
+                CSRange addressRange = CSSymbolGetRange(symbol);
+                
+                symp->st_info = GELF_ST_INFO((STB_GLOBAL), (STT_FUNC));
+                symp->st_other = 0;
+                symp->st_shndx = SHN_MACHO;
+                symp->st_value = addressRange.location;
+                symp->st_size = addressRange.length;
+                
+                if (CSSymbolIsUnnamed(symbol)) {
+                        // Hideous awful hack.
+                        // Unnamed symbols should display an address.
+                        // There is no place to store the addresses.
+                        // We force the callers to provide a small auxilary storage buffer...
+                        if (aux_sym_name_buffer) {
+                                if (CSArchitectureIs64Bit(CSSymbolOwnerGetArchitecture(CSSymbolGetSymbolOwner(symbol))))
+                                        snprintf(aux_sym_name_buffer, aux_bufsize, "0x%016llx", CSSymbolGetRange(symbol).location);
+                                else
+                                        snprintf(aux_sym_name_buffer, aux_bufsize, "0x%08llx", CSSymbolGetRange(symbol).location);                                
+                        }
+                        
+                        symp->st_name = (uintptr_t)aux_sym_name_buffer;
 		} else {
-			symp->st_name = (uintptr_t)CSSymbolGetName(symbol);
-		}
-	}
-	
-	if (sip != NULL) {
-		sip->dts_object = CSSymbolOwnerGetName(owner);
-		
-		if (symp != NULL) {
-			sip->dts_name = (const char *)(uintptr_t)symp->st_name;
-		} else {
-			sip->dts_name = NULL;
-		}
-		sip->dts_id = 0;
-	}
-	
-	return (0);
+                        const char *mangledName;
+                        if (_dtrace_mangled &&
+                            (mangledName = CSSymbolGetMangledName(symbol)) &&
+                            strlen(mangledName) >= 3 &&
+                            mangledName[0] == '_' &&
+                            mangledName[1] == '_' &&
+                            mangledName[2] == 'Z') {
+                                // mangled name - use it
+                                symp->st_name = (uintptr_t)mangledName;
+                        } else {
+                                symp->st_name = (uintptr_t)CSSymbolGetName(symbol);
+                        }
+                }
+        }
+        
+        if (sip != NULL) {
+                sip->dts_object = CSSymbolOwnerGetName(owner);
+                
+                if (symp != NULL) {
+                        sip->dts_name = (const char *)(uintptr_t)symp->st_name;
+                } else {
+                        sip->dts_name = NULL;
+                }
+                sip->dts_id = 0;
+        }
+        
+        return (0);
 }

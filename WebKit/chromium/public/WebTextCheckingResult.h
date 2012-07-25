@@ -31,27 +31,41 @@
 #ifndef WebTextCheckingResult_h
 #define WebTextCheckingResult_h
 
-#include "WebCommon.h"
+#include "WebTextCheckingType.h"
+#include "platform/WebCommon.h"
+#include "platform/WebString.h"
+
+namespace WebCore {
+struct TextCheckingResult;
+}
 
 namespace WebKit {
 
 // A checked entry of text checking.
 struct WebTextCheckingResult {
-    enum Error {
-        ErrorSpelling = 1 << 0,
-        ErrorGrammar = 1 << 1
-    };
-
-    explicit WebTextCheckingResult(Error e = ErrorSpelling, int p = 0, int l = 0) 
-        : error(e)
-        , position(p)
-        , length(l)
+    WebTextCheckingResult()
+        : type(WebTextCheckingTypeSpelling)
+        , location(0)
+        , length(0)
     {
     }
 
-    Error error;
-    int position;
+    WebTextCheckingResult(WebTextCheckingType type, int location, int length, const WebString& replacement = WebString())
+        : type(type)
+        , location(location)
+        , length(length)
+        , replacement(replacement)
+    {
+    }
+
+#if WEBKIT_IMPLEMENTATION
+    operator WebCore::TextCheckingResult() const;
+#endif
+
+    WebTextCheckingType type;
+    int location;
     int length;
+    WebString replacement;
 };
 
 } // namespace WebKit

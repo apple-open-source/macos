@@ -388,6 +388,12 @@ fn_display_match_list (EditLine *el, char **matches, size_t len, size_t max)
 	}
 }
 
+#ifdef WIDECHAR
+/* This is ugly, but we need to set rl_line_buffer to the encoded buffer,
+ * which may get changed by realloc() in the el_line() call.
+ */
+extern char *rl_line_buffer;
+#endif /* WIDECHAR */
 /*
  * Complete the word at or before point,
  * 'what_to_do' says what to do with the completion.
@@ -408,11 +414,17 @@ fn_complete(EditLine *el,
 	const char *(*app_func)(const char *), size_t query_items,
 	int *completion_type, int *over, int *point, int *end)
 {
-	const TYPE(LineInfo) *li;
-	Char *temp;
+	const LineInfo *li;
+#ifdef WIDECHAR
+	const LineInfoW *wli;
+#endif /* WIDECHAR */
+	char *temp;
         char **matches;
 	const Char *ctemp;
 	size_t len;
+#ifdef WIDECHAR
+	size_t ctemp_off;
+#endif /* WIDECHAR */
 	int what_to_do = '\t';
 	int retval = CC_NORM;
 
@@ -429,6 +441,10 @@ fn_complete(EditLine *el,
 		app_func = append_char_function;
 
 	/* We now look backwards for the start of a filename/variable word */
+#ifdef WIDECHAR
+	/* Map li to wli for the wide character version */
+#define li	wli
+#endif /* WIDECHAR */
 	li = FUN(el,line)(el);
 	ctemp = li->cursor;
 	while (ctemp > li->buffer
@@ -436,13 +452,31 @@ fn_complete(EditLine *el,
 	    && (!special_prefixes || !Strchr(special_prefixes, ctemp[-1]) ) )
 		ctemp--;
 
+#ifdef WIDECHAR
+	/* Unmap li and convert wide character values */
+#undef li
+	li = el_line(el);
+	{
+		const Char *p;
+		ctemp_off = 0;
+		for (p = wli->buffer; p < ctemp; p++)
+			ctemp_off += ct_enc_width(*p);
+		len = (li->cursor - li->buffer) - ctemp_off;
+	}
+	rl_line_buffer = li->buffer;
+#else /* !WIDECHAR */
 	len = li->cursor - ctemp;
+#endif /* !WIDECHAR */
 #if defined(__SSP__) || defined(__SSP_ALL__)
 	temp = malloc(sizeof(*temp) * (len + 1));
 #else
 	temp = alloca(sizeof(*temp) * (len + 1));
 #endif
-	(void)Strncpy(temp, ctemp, len);
+#ifdef WIDECHAR
+	(void)strncpy(temp, li->buffer + ctemp_off, len);
+#else /* !WIDECHAR */
+	(void)strncpy(temp, ctemp, len);
+#endif /* !WIDECHAR */
 	temp[len] = '\0';
 
 	/* these can be used by function called in completion_matches() */
@@ -454,13 +488,13 @@ fn_complete(EditLine *el,
 
 	if (attempted_completion_function) {
 		int cur_off = (int)(li->cursor - li->buffer);
-		matches = (*attempted_completion_function) (ct_encode_string(temp, &el->el_scratch),
+		matches = (*attempted_completion_function) (temp,
 		    (int)(cur_off - len), cur_off);
 	} else
 		matches = 0;
 	if (!attempted_completion_function || 
 	    (over != NULL && !*over && !matches))
-		matches = completion_matches(ct_encode_string(temp, &el->el_scratch), complet_func);
+		matches = completion_matches(temp, complet_func);
 
 	if (over != NULL)
 		*over = 0;
@@ -475,6 +509,9 @@ fn_complete(EditLine *el,
 		 * possible matches if there is possible completion.
 		 */
 		if (matches[0][0] != '\0') {
+#ifdef WIDECHAR
+			len = wli->cursor - ctemp;
+#endif /* WIDECHAR */
 			el_deletestr(el, (int) len);
 			FUN(el,insertstr)(el,
 			    ct_decode_string(matches[0], &el->el_scratch));

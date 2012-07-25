@@ -1,5 +1,5 @@
 /return os\.path\.join(libpython, "site-packages")/c
-            if sys.platform == "darwin" and prefix == sys.prefix:
+            if sys.platform == "darwin" and prefix.startswith('/System/Library/Frameworks/'):
                 return os.path.join("/Library/Python", get_python_version(), "site-packages")
             else:
                 return os.path.join(libpython, "site-packages")

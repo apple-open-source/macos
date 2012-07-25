@@ -26,7 +26,7 @@
 #ifndef ClipboardQt_h
 #define ClipboardQt_h
 
-#include "CachedResourceClient.h"
+#include "CachedImage.h"
 #include "Clipboard.h"
 
 QT_BEGIN_NAMESPACE
@@ -38,7 +38,7 @@ namespace WebCore {
 class CachedImage;
 
 // State available during IE's events for drag and drop and copy/paste
-class ClipboardQt : public Clipboard, public CachedResourceClient {
+class ClipboardQt : public Clipboard, public CachedImageClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassRefPtr<ClipboardQt> create(ClipboardAccessPolicy policy, const QMimeData* readableClipboard, Frame* frame)
@@ -53,7 +53,7 @@ public:
 
     void clearData(const String& type);
     void clearAllData();
-    String getData(const String& type, bool& success) const;
+    String getData(const String& type) const;
     bool setData(const String& type, const String& data);
 
     // extensions beyond IE's API
@@ -75,7 +75,7 @@ public:
     void invalidateWritableData() { m_writableData = 0; }
 
 #if ENABLE(DATA_TRANSFER_ITEMS)
-    virtual PassRefPtr<DataTransferItems> items();
+    virtual PassRefPtr<DataTransferItemList> items();
 #endif
 
 private:

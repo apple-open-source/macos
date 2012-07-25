@@ -1,6 +1,8 @@
 set	prototyped
+set	nooptimize
+set	stdio FEATURE/isoc99
 hdr	float,limits,math,values
-lib	fpclassify,frexp,frexpl,ldexp,ldexpl,finite,finitel,isinf,isinfl,isnan,isnanl,signbit,copysign,copysignl <math.h> -lm
+lib	fpclassify,frexp,frexpl,ldexp,ldexpl,finite,finitel,isinf,isinfl,isnan,isnanl,signbit,copysign,copysignl FEATURE/isoc99 math.h -lm
 
 tst	ast_no_um2fm note{ no unsigned intmax => floatmax cast }end nolink{
 	#include "FEATURE/common"
@@ -211,6 +213,7 @@ macro{
 
 tst	- note{ missing floating point limits }end output{
 	#include "FEATURE/common"
+	#include <stdio.h>
 	#if _hdr_float
 	#include <float.h>
 	#endif
@@ -863,6 +866,7 @@ tst	- note{ missing floating point limits }end output{
 
 tst	- note{ double exponent bitfoolery }end output{
 	#include "FEATURE/common"
+	#include <stdio.h>
 	typedef union _dbl_exp_u
 	{
 		unsigned _ast_int4_t	e[sizeof(double) / 4];
@@ -896,6 +900,7 @@ tst	- note{ double exponent bitfoolery }end output{
 
 tst	- note{ long double exponent bitfoolery }end output{
 	#include "FEATURE/common"
+	#include <stdio.h>
 	typedef union _ast_fltmax_exp_u
 	{
 		unsigned _ast_int4_t	e[sizeof(_ast_fltmax_t) / 4];
@@ -928,6 +933,7 @@ tst	- note{ long double exponent bitfoolery }end output{
 }end
 
 tst	- -DN=1 - -DN=2 note{ _ast_fltmax_t maximum integral type }end output{
+	#include <stdio.h>
 	int
 	main()
 	{
@@ -946,8 +952,13 @@ tst	- -DN=1 - -DN=2 note{ _ast_fltmax_t maximum integral type }end output{
 	}
 }end
 
-tst	- -lm -DSTRTO=1 - -DSCAN=1 - -DDIV=1 - -DEXP=1 - -DADD=1 - -DMPY=1 note{ INF and NAN memory representations }end output{
+tst	- -DSCAN=1 - -lm -DSTRTO=1 - -DMAC=1 - -DDIV=1 - -DEXP=1 - -DADD=1 - -DMPY=1 note{ INF and NAN memory representations }end output{
+	#if MAC
+	#define _AIX_COMPATIBILITY	1
+	#define _FP_MODE_VARIABLE	1
+	#endif
 	#include "FEATURE/common"
+	#include <stdio.h>
 	#include <sys/types.h>
 	#include <signal.h>
 	#if _hdr_float
@@ -1097,7 +1108,13 @@ tst	- -lm -DSTRTO=1 - -DSCAN=1 - -DDIV=1 - -DEXP=1 - -DADD=1 - -DMPY=1 note{ INF
 	#if MPY
 			f *= 2;
 	#endif
+	#if MAC
+			f = FLT_QNAN;
+	#endif
 			list("flt", "nan", &f, sizeof(f));
+	#if MAC
+			f = FLT_INFINITY;
+	#endif
 			list("flt", "inf", &f, sizeof(f));
 	#endif
 		}
@@ -1124,7 +1141,13 @@ tst	- -lm -DSTRTO=1 - -DSCAN=1 - -DDIV=1 - -DEXP=1 - -DADD=1 - -DMPY=1 note{ INF
 	#if MPY
 			f *= 2;
 	#endif
+	#if MAC
+			f = DBL_QNAN;
+	#endif
 			list("dbl", "nan", &f, sizeof(f));
+	#if MAC
+			f = DBL_INFINITY;
+	#endif
 			list("dbl", "inf", &f, sizeof(f));
 	#endif
 		}
@@ -1151,7 +1174,13 @@ tst	- -lm -DSTRTO=1 - -DSCAN=1 - -DDIV=1 - -DEXP=1 - -DADD=1 - -DMPY=1 note{ INF
 	#if MPY
 			f *= 2;
 	#endif
+	#if MAC
+			f = LDBL_QNAN;
+	#endif
 			list("ldbl", "nan", &f, sizeof(f));
+	#if MAC
+			f = LDBL_INFINITY;
+	#endif
 			list("ldbl", "inf", &f, sizeof(f));
 	#endif
 		}

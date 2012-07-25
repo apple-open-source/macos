@@ -30,8 +30,8 @@ module threads {
 
     interface [
         Conditional=WORKERS,
-        GenerateIsReachable=Impl,
-        NoStaticTables
+        JSGenerateIsReachable=Impl,
+        JSNoStaticTables
     ] WorkerLocation {
         readonly attribute DOMString href;
         readonly attribute DOMString protocol;
@@ -42,7 +42,7 @@ module threads {
         readonly attribute DOMString search;
         readonly attribute DOMString hash;
 
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
     };
 
 }

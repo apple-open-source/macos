@@ -1,8 +1,0 @@
-
-		    WARNING: MAKEDEPEND COULD NOT BE FOUND
-
-Makedepend did not run because the configure script did not find it when it
-was run.  You can fix this by compiling and installing the version from the
-makedepend subdirectory in the distribution.
-
-You're probably seeing this warning message a lot, but that's okay.

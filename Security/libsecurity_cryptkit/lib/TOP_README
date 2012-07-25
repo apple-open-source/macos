@@ -1,0 +1,30 @@
+                    Apple FEE Library Source, v. 1.0
+		        Last Update: 28 Jan 1998
+
+
+   NOTICE: USE OF THE MATERIALS ACCOMPANYING THIS NOTICE IS SUBJECT
+   TO THE TERMS OF THE SIGNED "FAST ELLIPTIC ENCRYPTION (FEE) REFERENCE
+   SOURCE CODE EVALUATION AGREEMENT" BETWEEN APPLE COMPUTER, INC. AND THE
+   ORIGINAL LICENSEE THAT OBTAINED THESE MATERIALS FROM APPLE COMPUTER,
+   INC.  ANY USE OF THESE MATERIALS NOT PERMITTED BY SUCH AGREEMENT WILL
+   EXPOSE YOU TO LIABILITY.
+
+This directory contains two subdirecories. One, CryptKit, contains the
+source code for the Apple Fast Elliptic Encryption (FEE) library. The
+other directory, Examples, contains a number of programs which illustrate
+the use of the FEE library. All code is written in ANSI C; UNIX Makefiles
+are provided for each directory. See the README files in the respective
+directories for information on the contents of specific files, porting
+issues, and so forth.
+
+Note that all source files in these directories are best viewed with an
+editor configured for 8-space tabs, a fixed pitch font, and a window
+of at least 80 characters in width.
+
+
+   Copyright (c) 1998 Apple Computer, Inc.  All rights reserved.
+
+Apple and Macintosh are trademarks of Apple Computer, Inc., registered
+in the U.S.A. and other countries.  OpenStep is a trademark of NeXT
+Software, Inc. registered in the U.S.A. and other countries.  All other
+trademarks are the property of their respective owners.

@@ -22,26 +22,99 @@
 #include "config.h"
 #include "CSSRule.h"
 
+#include "CSSCharsetRule.h"
+#include "CSSFontFaceRule.h"
+#include "CSSImportRule.h"
+#include "CSSMediaRule.h"
+#include "CSSPageRule.h"
+#include "CSSStyleRule.h"
+#include "CSSUnknownRule.h"
+#include "WebKitCSSKeyframeRule.h"
+#include "WebKitCSSKeyframesRule.h"
+#include "WebKitCSSRegionRule.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-CSSStyleSheet* CSSRule::parentStyleSheet() const
-{
-    StyleBase* curr = parent();
-    while (curr && !curr->isCSSStyleSheet())
-        curr = curr->parent();
-    return curr ? static_cast<CSSStyleSheet*>(curr) : 0;
-}
+struct SameSizeAsCSSRule : public RefCounted<SameSizeAsCSSRule> {
+    unsigned bitfields;
+    void* pointerUnion;
+};
 
-CSSRule* CSSRule::parentRule() const
-{
-    return (parent() && parent()->isRule()) ? static_cast<CSSRule*>(parent()) : 0;
-}
+COMPILE_ASSERT(sizeof(CSSRule) == sizeof(SameSizeAsCSSRule), CSSRule_should_stay_small);
 
 void CSSRule::setCssText(const String& /*cssText*/, ExceptionCode& /*ec*/)
 {
     notImplemented();
+}
+
+String CSSRule::cssText() const
+{
+    switch (type()) {
+    case UNKNOWN_RULE:
+        return String();
+    case STYLE_RULE:
+        return static_cast<const CSSStyleRule*>(this)->cssText();
+    case PAGE_RULE:
+        return static_cast<const CSSPageRule*>(this)->cssText();
+    case CHARSET_RULE:
+        return static_cast<const CSSCharsetRule*>(this)->cssText();
+    case IMPORT_RULE:
+        return static_cast<const CSSImportRule*>(this)->cssText();
+    case MEDIA_RULE:
+        return static_cast<const CSSMediaRule*>(this)->cssText();
+    case FONT_FACE_RULE:
+        return static_cast<const CSSFontFaceRule*>(this)->cssText();
+    case WEBKIT_KEYFRAMES_RULE:
+        return static_cast<const WebKitCSSKeyframesRule*>(this)->cssText();
+    case WEBKIT_KEYFRAME_RULE:
+        return static_cast<const WebKitCSSKeyframeRule*>(this)->cssText();
+#if ENABLE(CSS_REGIONS)
+    case WEBKIT_REGION_RULE:
+        return static_cast<const WebKitCSSRegionRule*>(this)->cssText();
+#endif
+    }
+    ASSERT_NOT_REACHED();
+    return String();
+}
+
+void CSSRule::destroy()
+{
+    switch (type()) {
+    case UNKNOWN_RULE:
+        delete static_cast<CSSUnknownRule*>(this);
+        return;
+    case STYLE_RULE:
+        delete static_cast<CSSStyleRule*>(this);
+        return;
+    case PAGE_RULE:
+        delete static_cast<CSSPageRule*>(this);
+        return;
+    case CHARSET_RULE:
+        delete static_cast<CSSCharsetRule*>(this);
+        return;
+    case IMPORT_RULE:
+        delete static_cast<CSSImportRule*>(this);
+        return;
+    case MEDIA_RULE:
+        delete static_cast<CSSMediaRule*>(this);
+        return;
+    case FONT_FACE_RULE:
+        delete static_cast<CSSFontFaceRule*>(this);
+        return;
+    case WEBKIT_KEYFRAMES_RULE:
+        delete static_cast<WebKitCSSKeyframesRule*>(this);
+        return;
+    case WEBKIT_KEYFRAME_RULE:
+        delete static_cast<WebKitCSSKeyframeRule*>(this);
+        return;
+#if ENABLE(CSS_REGIONS)
+    case WEBKIT_REGION_RULE:
+        delete static_cast<WebKitCSSRegionRule*>(this);
+        return;
+#endif
+    }
+    ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

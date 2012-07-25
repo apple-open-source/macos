@@ -1,5 +1,5 @@
 /*
- * "$Id: commandtops.c 3821 2012-05-16 01:05:45Z msweet $"
+ * "$Id: commandtops.c 3796 2012-04-23 22:54:48Z msweet $"
  *
  *   PostScript command filter for CUPS.
  *
@@ -71,7 +71,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     */
 
     _cupsLangPrintf(stderr,
-                    _("Usage: %s job-id user title copies options file"),
+                    _("Usage: %s job-id user title copies options [file]"),
                     argv[0]);
     return (1);
   }
@@ -534,5 +534,5 @@ report_levels(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: commandtops.c 3821 2012-05-16 01:05:45Z msweet $".
+ * End of "$Id: commandtops.c 3796 2012-04-23 22:54:48Z msweet $".
  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include <asl.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
+#include <sys/sysctl.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -58,6 +59,14 @@
 /*!
 	@header SCPrivate
  */
+
+
+/* atomic operations */
+#define _SC_ATOMIC_CMPXCHG(p, o, n)	__sync_bool_compare_and_swap((p), (o), (n))
+#define _SC_ATOMIC_INC(p)		__sync_fetch_and_add((p), 1)		// return (n++);
+#define _SC_ATOMIC_DEC(p)		__sync_sub_and_fetch((p), 1)		// return (--n);
+#define _SC_ATOMIC_ZERO(p)		__sync_fetch_and_and((p), 0)		// old_n = n; n = 0; return(old_n);
+
 
 /* framework variables */
 extern int	_sc_debug;	/* non-zero if debugging enabled */
@@ -119,14 +128,35 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
  */
 #define kSCNetworkReachabilityOptionInterface			CFSTR("interface")
 
-
 /*!
-	@constant kSCNetworkReachabilityOptionConnectionOnDemandByPass
+	@constant kSCNetworkReachabilityOptionConnectionOnDemandBypass
 	@discussion A CFBoolean that indicates if we should bypass the VPNOnDemand
 		checks for this target.
  */
-#define kSCNetworkReachabilityOptionConnectionOnDemandByPass	CFSTR("ConnectionOnDemandByPass")
+#define kSCNetworkReachabilityOptionConnectionOnDemandBypass	CFSTR("ConnectionOnDemandBypass")
 
+/*!
+	@constant kSCNetworkReachabilityOptionResolverBypass
+	@discussion A CFBoolean that indicates if we should bypass resolving any
+		node names.  Instead, the status of the DNS server configuration
+		associated with the name will be returned. */
+#define kSCNetworkReachabilityOptionResolverBypass		CFSTR("ResolverBypass")
+
+
+/*!
+	@constant kSCNetworkReachabilityOptionLongLivedQueryBypass
+	@discussion A CFBoolean that indicates if we should bypass usage of any
+		long-lived-queries (w/DNSServiceCreateConnection) when resolving
+		hostnames for this target.
+ */
+#define kSCNetworkReachabilityOptionLongLivedQueryBypass	CFSTR("LongLivedQueryBypass")
+
+/*!
+	@constant kSCNetworkReachabilityOptionServerBypass
+	@discussion A CFBoolean that indicates if we should bypass usage of the
+		SCNetworkReachability "server" for this target.
+ */
+#define kSCNetworkReachabilityOptionServerBypass		CFSTR("ServerBypass")
 
 /*!
 	@group
@@ -251,6 +281,7 @@ Boolean		_SCUnserializeData		(CFDataRef		*data,
 	@param dict The CFDictionary with CFPropertyList values.
 	@result The serialized CFDictionary with CFData values
  */
+CF_RETURNS_RETAINED
 CFDictionaryRef	_SCSerializeMultiple		(CFDictionaryRef	dict);
 
 /*!
@@ -261,6 +292,7 @@ CFDictionaryRef	_SCSerializeMultiple		(CFDictionaryRef	dict);
 	@param dict The CFDictionary with CFData values.
 	@result The serialized CFDictionary with CFPropertyList values
  */
+CF_RETURNS_RETAINED
 CFDictionaryRef	_SCUnserializeMultiple		(CFDictionaryRef	dict);
 
 
@@ -300,11 +332,30 @@ void		_SC_sockaddr_to_string		(const struct sockaddr  *address,
 
 
 /*!
+ *	@function _SC_string_to_sockaddr
+ *	@discussion Parses a string into a "struct sockaddr"
+ *	@param str The address string to parse
+ *	@param af Allowed address families (AF_UNSPEC, AF_INET, AF_INET6)
+ *	@param buf A user provided buffer of the specified length; NULL
+ *		if a new buffer should be allocated (and deallocated by the
+ *		caller).
+ *	@param bufLen The size of the user provided buffer.
+ *	@result A pointer to the parsed "struct sockaddr"; NULL if
+ *		the string could not be parsed as an IP[v6] address.
+ */
+struct sockaddr *
+_SC_string_to_sockaddr				(const char		*str,
+						 sa_family_t		af,
+						 void			*buf,
+						 size_t			bufLen);
+
+/*!
  *	@function _SC_trimDomain
  *	@discussion Trims leading and trailing "."s from a domain or host name
  *	@param domain The domain name to trim
  *	@result The trimmed domain name.
  */
+CF_RETURNS_RETAINED
 CFStringRef	_SC_trimDomain			(CFStringRef		domain);
 
 
@@ -483,6 +534,33 @@ _SC_checkResolverReachabilityByAddress		(SCDynamicStoreRef		*storeP,
 						 Boolean			*haveDNS,
 						 struct sockaddr		*sa);
 
+/*!
+	@function SCNetworkReachabilityGetInterfaceIndex
+	@discussion Returns the interface index associated with network interface that will
+		be used to interact with the target host.
+	@param target The SCNetworkReachability reference associated with the address or
+		name to be checked for reachability.
+	@result Returns the interface index associated with the target.  Returning -1 means that
+		the target is not reachable.
+ */
+int
+SCNetworkReachabilityGetInterfaceIndex		(SCNetworkReachabilityRef	target);
+
+#pragma mark -
+#pragma mark Domain
+
+/*!
+	@function    _SC_domainEndsWithDomain
+	@discussion  Checks if one domain is a subset of another
+	@param compare_domain The domain to be compared.
+	@param match_domain The domain to be matched.
+	@return TRUE if the match_domain is contained in the compare_domain.
+		 FLASE otherwise.
+ */
+Boolean
+_SC_domainEndsWithDomain			(CFStringRef			compare_domain,
+						 CFStringRef 			match_domain);
+
 #pragma mark -
 #pragma mark NetBIOS
 
@@ -587,6 +665,39 @@ _SC_isAppleInternal()
 	}
 
 	return (isInternal == 1);
+}
+
+#define	MODEL			CFSTR("Model")
+
+static __inline__ CFStringRef
+_SC_hw_model()
+{
+	/*
+	 * S_model
+	 *   Hardware model for this network configuration.
+	 */
+	static CFStringRef		model			= NULL;
+
+	if (model == NULL) {
+		char	hwModel[64];
+		int	mib[]		= { CTL_HW, HW_MODEL };
+		size_t	n		= sizeof(hwModel);
+		int	ret;
+
+		// get HW model name
+		bzero(&hwModel, sizeof(hwModel));
+		ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
+		if (ret != 0) {
+			SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+			return NULL;
+		}
+		hwModel[sizeof(hwModel) - 1] = '\0';
+
+		model = CFStringCreateWithCString(NULL, hwModel, kCFStringEncodingASCII);
+	}
+
+	return model;
+
 }
 
 /*

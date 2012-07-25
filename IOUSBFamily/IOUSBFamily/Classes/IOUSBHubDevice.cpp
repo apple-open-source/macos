@@ -27,7 +27,7 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/usb/IOUSBLog.h>
 
-#include "IOUSBHubDevice.h"
+#include <IOKit/usb/IOUSBHubDevice.h>
 
 /* Convert USBLog to use kprintf debugging */
 #ifndef IOUSBHUBDEVICE_USE_KPRINTF

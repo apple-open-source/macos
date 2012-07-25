@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2012 Apple Inc. All rights reserved.
+ * 
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +39,7 @@
 #include <paths.h>
 #include <mach/mach.h>
 #include <mach/kmod.h>
+#include <sys/attr.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
@@ -48,7 +50,6 @@
 #include <System/libkern/mkext.h>
 #include <System/libkern/OSKextLibPrivate.h>
 #include <DiskArbitration/DiskArbitration.h>        // for UUID fetching
-#include <DiskArbitration/DiskArbitrationPrivate.h> // path -> DADisk
 #include <IOKit/kext/fat_util.h>
 #include <IOKit/kext/macho_util.h>
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
@@ -82,6 +83,24 @@ static void removeTrailingSlashes(char * path);
         if (strlcat(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
     } while(0)
 
+
+// http://lists.freebsd.org/pipermail/freebsd-hackers/2004-February/005627.html
+#define LOGERRxlate(ctx1, ctx2, val) do { \
+        char *c2cpy = ctx2, ctx[80]; \
+        if (ctx2 != NULL) { \
+            snprintf(ctx, 80, "%s: %s", ctx1, c2cpy); \
+        } else { \
+            snprintf(ctx, 80, "%s", ctx1); \
+        } \
+        if (val == -1) { \
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag, \
+                      "%s: %s", ctx, strerror(errno)); \
+            val = errno; /* should change whatever was passed */ \
+        } else { \
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag, \
+                      "%s: %s", ctx, strerror(val)); \
+        } \
+    } while(0)
 
 /******************************************************************************
 * destroyCaches cleans up a bootCaches structure
@@ -145,42 +164,19 @@ finish:
     return rval;
 }
 
-// parse bootcaches.plist and dadisk dictionaries into passed struct
-// caller populates fields it needed to load the plist
-// and properly frees the structure if we fail
+// validate bootcaches.plist dict; data -> struct
+// caller properly frees the structure if we fail
 static int
-extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
-             CFDictionaryRef ddesc, char **errmsg)
+extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
 {
-    int rval = ELAST + 1;
+    int rval = ENODEV;
     CFDictionaryRef dict;   // don't release
     CFIndex keyCount;       // track whether we've handled all keys
     CFIndex rpsindex = 0;   // index into rps; compared to caches->nrps @ end
     CFStringRef str;        // used to point to objects owned by others
     CFStringRef createdStr = NULL;
-    CFUUIDRef uuid;
 
-    *errmsg = "error getting disk metadata";
-    // volume UUID, name, bsdname
-    if (!(uuid = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumeUUIDKey)))
-        goto finish;
-    if (!(createdStr = CFUUIDCreateString(nil, uuid)))
-        goto finish;
-     if (!CFStringGetFileSystemRepresentation(createdStr,caches->fsys_uuid,NCHARSUUID))
-        goto finish;
-
-    if (!(str = CFDictionaryGetValue(ddesc, kDADiskDescriptionVolumeNameKey)))
-        goto finish;
-    if (!CFStringGetFileSystemRepresentation(str, caches->volname, NAME_MAX))
-        goto finish;
-
-    // bsdname still needed for bless
-    if (!(str = CFDictionaryGetValue(ddesc, kDADiskDescriptionMediaBSDNameKey)))
-        goto finish;
-    if (!CFStringGetFileSystemRepresentation(str, caches->bsdname, NAME_MAX))
-        goto finish;
-
-    *errmsg = "unrecognized bootcaches.plist data"; // covers the rest
+    rval = EFTYPE;
     keyCount = CFDictionaryGetCount(bcDict);        // start with the top
 
     // process keys for paths read "before the booter"
@@ -292,6 +288,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
             caches->nrps += (acount - 1);
         } 
 
+
         // EncryptedRoot has 5 subkeys 
         erDict=(CFDictionaryRef)CFDictionaryGetValue(dict,kBCEncryptedRootKey);
         if (erDict) {
@@ -300,7 +297,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
             caches->nrps++;
 
             // the other three keys lead to a single localized resources cache
-            if (CFDictionaryGetValue(erDict,kBCCSFDELocalizedResourcesCache)) {
+            if (CFDictionaryGetValue(erDict,kBCCSFDELocalizationSrcKey)) {
                 caches->nrps++;
             }
         }
@@ -334,19 +331,31 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
         }
 
         // EncryptedRoot items
-        // two sub-keys required; a set of another three are optional
+        // two sub-keys required; one optional; one set of three optional
         if (erDict) {
+            CFNumberRef boolRef;
             keyCount += CFDictionaryGetCount(erDict);
 
-            str = CFDictionaryGetValue(erDict, kBCCSFDEPropertyCache);
+            str = CFDictionaryGetValue(erDict, kBCCSFDEPropertyCacheKey);
             if (str) {
                 MAKE_CACHEDPATH(&caches->rpspaths[rpsindex], caches, str);
                 caches->erpropcache = &caches->rpspaths[rpsindex++];
                 keyCount--;
             }
 
+            // !RootVolumePropertyCache => enable "timestamp only" optimization
+            boolRef = CFDictionaryGetValue(erDict,kBCCSFDERootVolPropCacheKey);
+            if (boolRef) {
+                if (CFGetTypeID(boolRef) == CFBooleanGetTypeID()) {
+                    caches->erpropTSOnly = CFEqual(boolRef, kCFBooleanFalse);
+                    keyCount--;
+                } else {
+                    goto finish;
+                }
+            }
+
             // 8163405: non-localized resources
-            str = CFDictionaryGetValue(erDict, kBCCSFDEDefaultResourcesDir);
+            str = CFDictionaryGetValue(erDict, kBCCSFDEDefResourcesDirKey);
             // XX check old key name for now
             if (!str) str=CFDictionaryGetValue(erDict,CFSTR("ResourcesDir")); 
             if (str) {
@@ -356,14 +365,14 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
             }
             
             // localized resource cache
-            str = CFDictionaryGetValue(erDict,kBCCSFDELocalizedResourcesCache);
+            str = CFDictionaryGetValue(erDict,kBCCSFDELocRsrcsCacheKey);
             if (str) {
                 MAKE_CACHEDPATH(&caches->rpspaths[rpsindex], caches, str);
                 caches->efiloccache = &caches->rpspaths[rpsindex++];
                 keyCount--;
                 
                 // localization source material (required)
-                str = CFDictionaryGetValue(erDict, kBCCSFDELocalizationSource);
+                str = CFDictionaryGetValue(erDict, kBCCSFDELocalizationSrcKey);
                 if (str && CFGetTypeID(str) == CFStringGetTypeID() &&
                         CFStringGetFileSystemRepresentation(str,
                             caches->locSource, sizeof(caches->locSource))) {
@@ -373,7 +382,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
                 }
                 
                 // localization prefs file (required)
-                str = CFDictionaryGetValue(erDict, kBCCSFDELanguagesPref);
+                str = CFDictionaryGetValue(erDict, kBCCSFDELanguagesPrefKey);
                 if (str && CFGetTypeID(str) == CFStringGetTypeID() &&
                     CFStringGetFileSystemRepresentation(str, caches->locPref,
                                                 sizeof(caches->locPref))) {
@@ -391,19 +400,23 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
         if (CFDictionaryContainsKey(dict, kBCMKextKey)) kcacheKeys++;
         if (CFDictionaryContainsKey(dict, kBCMKext2Key)) kcacheKeys++;
         if (CFDictionaryContainsKey(dict, kBCKernelcacheV1Key)) kcacheKeys++;
+        if (CFDictionaryContainsKey(dict, kBCKernelcacheV2Key)) kcacheKeys++;
 
         if (kcacheKeys > 1) { 
-            // big fat error
-            *errmsg = "multiple cache keys found";
+            // don't support multiple types of kernel caching ...
             goto finish;
         }
 
-      /* Handle the "Kernelcache" key for prelinked kernels for Barolo and
+      /* Handle the "Kernelcache" key for prelinked kernels for Lion and
        * later, the "MKext2 key" for format-2 mkext on Snow Leopard, and the
        * original "MKext" key for format-1 mkexts prior to SnowLeopard.
        */
         do {
             mkDict = (CFDictionaryRef)CFDictionaryGetValue(dict, kBCKernelcacheV1Key);
+            if (!mkDict) {
+                mkDict = (CFDictionaryRef)CFDictionaryGetValue(dict, kBCKernelcacheV2Key);
+            }
+
             if (mkDict) {
                 isKernelcache = true;
                 break;
@@ -439,6 +452,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
 
             // kernelcaches have a kernel path key, which we set up by hand
             if (isKernelcache) {
+
                 str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCKernelPathKey);
                 if (!str || CFGetTypeID(str) != CFStringGetTypeID()) goto finish;
 
@@ -446,6 +460,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
                     sizeof(caches->kernel))) {
                     goto finish;
                 }
+
             }
  
             // Archs are fetched from the cacheinfo dictionary when needed
@@ -455,12 +470,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict,
         keyCount--;     // postBootPaths handled
     }
 
-    if (keyCount || (unsigned)rpsindex != caches->nrps) {
-        *errmsg = "unrecognized bootcaches.plist data; skipping";
-        errno = EINVAL;
-    } else {
-        // hooray
-        *errmsg = NULL;
+    if (keyCount == 0 && (unsigned)rpsindex == caches->nrps) {
         rval = 0;
         caches->cacheinfo = CFRetain(bcDict);   // for archs, etc
     }
@@ -471,19 +481,18 @@ finish:
     return rval;
 }
 
-// create cache dirs as needed
-// readCaches_internal() calls on most volumes.
+// helper to create cache dirs; readBootCaches() decides when to call
 static int
 createCacheDirs(struct bootCaches *caches)
 {
-    int errnum;
-    char *errmsg;
+    int errnum, result = ELAST + 1;
+    char *errname;
     struct stat sb;
     char cachedir[PATH_MAX], uuiddir[PATH_MAX];      // bootstamps, csfde
 
     // bootstamps directory
     // (always made because it's used by libbless on non-BootRoot for ESP)
-    errmsg = "error creating " kTSCacheDir;
+    errname = kTSCacheDir;
     pathcpy(cachedir, caches->root);
     pathcat(cachedir, kTSCacheDir);
     pathcpy(uuiddir, cachedir);
@@ -497,64 +506,64 @@ createCacheDirs(struct bootCaches *caches)
             }
             // s..mkdir ensures the cache directory is on the same volume
             if ((errnum = sdeepmkdir(caches->cachefd,uuiddir,kCacheDirMode))){
-                goto finish;
+                result = errnum; goto finish;
             }
         } else {
-            goto finish;
+            result = errnum; goto finish;
         }
     }
 
     // create CoreStorage cache directories if appropriate
     if (caches->erpropcache) {
-        errmsg = "error creating encrypted root property cache dir";
+        errname = caches->erpropcache->rpath;
         pathcpy(cachedir, caches->root);
         pathcat(cachedir, dirname(caches->erpropcache->rpath));
-        if ((errnum = stat(cachedir, &sb))) {
+        errname = cachedir;
+        if ((-1 == stat(cachedir, &sb))) {
             if (errno == ENOENT) {
                 // s..mkdir ensures cachedir is on the same volume
                 errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
-                if (errnum)         goto finish;
+                if (errnum) {
+                    result = errnum; goto finish;
+                }
             } else {
-                goto finish;
+                result = errno; goto finish;
             }
         }
     }
 
     if (caches->efiloccache) {
-        errmsg = "error creating localized resources cache dir";
+        errname = caches->efiloccache->rpath;
         pathcpy(cachedir, caches->root);
         pathcat(cachedir, caches->efiloccache->rpath);
+        errname = cachedir;
         if ((errnum = stat(cachedir, &sb))) {
             if (errno == ENOENT) {
                 // s..mkdir ensures cachedir is on the same volume
                 errnum=sdeepmkdir(caches->cachefd,cachedir,kCacheDirMode);
-                if (errnum)         goto finish;
+                if (errnum) {
+                    result = errnum; goto finish;
+                }
             } else {
-                goto finish;
+                result = errno; goto finish;
             }
         }
     }
 
-    // success if the last assignment to errnum was 0
-    errmsg = NULL;
+    // success
+    errname = NULL;
+    result = 0;
 
 // XX need to centralize this sort of error decoding (w/9217695?)
 finish:
-    if (errmsg) {
-        if (errnum == -1) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                 "%s: %s: %s.", caches->root, errmsg, strerror(errno));
-        } else {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "%s: %s.", caches->root, errmsg);
-         }
+    if (result) {
+        LOGERRxlate(errname, NULL, result);
+
         // so kextcache -u doesn't claim bootcaches.plist didn't exist, etc
         errno = 0;
     }
 
-    return errnum;
+    return result;
 }
 
 static CFDictionaryRef
@@ -566,8 +575,8 @@ copy_dict_from_fd(int fd, struct stat *sb)
     CFDictionaryRef dict = NULL;
 
     // read the plist
-    if (sb->st_size > UINT_MAX || sb->st_size > LONG_MAX)     goto finish;
-    if (!(buf = malloc((size_t)sb->st_size)))              goto finish;
+    if (sb->st_size > UINT_MAX || sb->st_size > LONG_MAX)   goto finish;
+    if (!(buf = malloc((size_t)sb->st_size)))               goto finish;
     if (read(fd, buf, (size_t)sb->st_size) != sb->st_size)
         goto finish;
     if (!(data = CFDataCreate(nil, buf, (long)sb->st_size)))
@@ -590,42 +599,38 @@ finish:
     return rval;
 }
 
-static struct bootCaches*
-readCaches_internal(CFURLRef volURL, DADiskRef dadisk)
+/*
+ * readBootCaches() reads a volumes bootcaches.plist file and returns
+ * the contents in a new struct bootCaches.  Because it returns a pointer,
+ * it stores a more precise error code in errno.
+ */
+struct bootCaches*
+readBootCaches(char *volRoot)
 {
     struct bootCaches *rval = NULL, *caches = NULL;
+    int errnum = ELAST + 1;
     char *errmsg;
-    int errnum = 4;
+    struct statfs rootsfs;
     struct stat sb;
-    CFDictionaryRef ddesc = NULL;
-
     char bcpath[PATH_MAX];
     CFDictionaryRef bcDict = NULL;
-    struct statfs rootsfs;
-    io_object_t ioObj = IO_OBJECT_NULL;
-    CFTypeRef regEntry = NULL;
+    uuid_t vol_uuid;
+    char *vol_bsd, *vol_name;
 
     errmsg = "allocation failure";
     caches = calloc(1, sizeof(*caches));
     if (!caches)            goto finish;
     caches->cachefd = -1;       // set cardinal (fd 0 valid)
-    (void)strlcpy(caches->root, "<unknown>", sizeof(caches->root));
+    pathcpy(caches->root, volRoot);
 
-    errmsg = "error extracting volume's root path";
-    if (!CFURLGetFileSystemRepresentation(volURL, false, 
-        (UInt8*)caches->root, sizeof(caches->root))) {
-        goto finish;
-    }
-
-
-    errmsg = "error reading " kBootCachesPath;
+    errmsg = "error opening " kBootCachesPath;
     pathcpy(bcpath, caches->root);
     pathcat(bcpath, kBootCachesPath);
     // Sec: cachefd lets us validate data, operations
     caches->cachefd = (errnum = open(bcpath, O_RDONLY|O_EVTONLY));
     if (errnum == -1) {
         if (errno == ENOENT) {
-            // special case logged by kextcache -u
+            // let kextcache -u log this special case
             errmsg = NULL;
         }
         goto finish;
@@ -655,42 +660,44 @@ readCaches_internal(CFURLRef volURL, DADiskRef dadisk)
         goto finish;
     }
 
+    // get UUIDs & other info
+    errmsg = "error obtaining storage information";
+    vol_bsd = caches->bsdname;
+    vol_name = caches->volname;
+    if ((errnum = copyVolumeInfo(volRoot, &vol_uuid, &caches->csfde_uuid,
+                                 &vol_bsd, &vol_name))){
+        errno = errnum; goto finish;
+    }
+    uuid_unparse_upper(vol_uuid, caches->fsys_uuid);
+
+
     // plist -> dictionary
-    errmsg = "trouble reading " kBootCachesPath;
+    errmsg = "error reading " kBootCachesPath;
     bcDict = copy_dict_from_fd(caches->cachefd, &sb);
     if (!bcDict)        goto finish;
 
-    // get uuid of CoreStorage volume in case it is or becomes encrypted
-    errmsg = "error obtaining CoreStorage volume's UUID";
-    if (IO_OBJECT_NULL == (ioObj = DADiskCopyIOMedia(dadisk)))
-        goto finish;
-    regEntry = IORegistryEntryCreateCFProperty(ioObj,
-                                CFSTR(kCoreStorageLVFUUIDKey), nil, 0);
-    if (regEntry && CFGetTypeID(regEntry) == CFStringGetTypeID()) {
-        // retain the result (regEntry released below)
-        caches->csfde_uuid = (CFStringRef)CFRetain(regEntry);
-    }
 
-    // extractProps() will copy the properties into the structure
-    if (!(ddesc = DADiskCopyDescription(dadisk)))
-        goto finish;
-    if (extractProps(caches, bcDict, ddesc, &errmsg)) {
-        goto finish;
+    // error returned via errno now all that matters
+    errmsg = NULL;
+
+    // extractProps returns EFTYPE if the contents were whack
+    // this function returns NULL on failure -> sends err# via errno :P
+    if ((errnum = extractProps(caches, bcDict))) {
+        errno = errnum; goto finish;
     }
 
     // root proactively creates caches directories if missing
     // don't bother if owners are ignored (6206867)
     if (geteuid() == 0 && (rootsfs.f_flags & MNT_IGNORE_OWNERSHIP) == 0 &&
             (rootsfs.f_flags & MNT_RDONLY) == 0) {
-        errmsg = NULL;      // logs its own errors
-        errnum = createCacheDirs(caches);
-        if (errnum)     goto finish;
+        if ((errnum = createCacheDirs(caches))) {
+            errno = errnum; goto finish;
+        }
     }
 
 
     // success!
     rval = caches;
-    errmsg = NULL;
 
 finish:
     // report any error message
@@ -704,16 +711,10 @@ finish:
                 kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                 "%s: %s.", caches->root, errmsg);
         }
-        // so kextcache -u doesn't claim bootcaches.plist didn't exist, etc
-        errno = 0;
     }
 
     // clean up (unwind in reverse order of allocation)
-    if (ddesc)      CFRelease(ddesc);
     if (bcDict)     CFRelease(bcDict);  // extractProps() retains for struct
-    if (regEntry)   CFRelease(regEntry);
-    if (ioObj != IO_OBJECT_NULL)
-        IOObjectRelease(ioObj);
 
     // if things went awry, free anything associated with 'caches'
     if (!rval) {
@@ -723,42 +724,13 @@ finish:
     return rval;
 }
 
-/*******************************************************************************
-*******************************************************************************/
-struct bootCaches *
-readBootCachesForVolURL(CFURLRef volumeURL)
-{
-    struct bootCaches    * result       = NULL;
-    DASessionRef           daSession    = NULL;  // must release
-    DADiskRef              dadisk       = NULL;  // must release
-
-    daSession = DASessionCreate(kCFAllocatorDefault);
-    if (!daSession) {
-        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                  "couldn't get description from Disk Arbitration");
-        goto finish;
-    }
-
-    dadisk =DADiskCreateFromVolumePath(kCFAllocatorDefault,daSession,volumeURL);
-    if (!dadisk) {
-        goto finish;
-    }
-
-    result = readCaches_internal(volumeURL, dadisk);
-
-finish:
-    SAFE_RELEASE(dadisk);
-    SAFE_RELEASE(daSession);
-
-    return result;
-}
-
 struct bootCaches*
 readBootCachesForDADisk(DADiskRef dadisk)
 {
     struct bootCaches *rval = NULL;
     CFDictionaryRef ddesc = NULL;
-    CFURLRef volURL = NULL;     // owned by dict; don't release
+    CFURLRef volURL;        // owned by dict; don't release
+    char volRoot[PATH_MAX];
     int ntries = 0;
 
     // 'kextcache -U /' needs this retry to work around 5454260
@@ -777,23 +749,25 @@ readBootCachesForDADisk(DADiskRef dadisk)
     } while (++ntries < kKextdDiskArbMaxRetries);
 
     if (!volURL) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "Disk description missing mount point for %d tries",
-            ntries);
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "Disk description missing mount point for %d tries", ntries);
         goto finish;
     }
 
     if (ntries) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
             "Warning: readCaches got mount point after %d tries.", ntries);
     }
 
-    rval = readCaches_internal(volURL, dadisk);
+    if (!CFURLGetFileSystemRepresentation(volURL, /* resolveToBase */ true,
+                             (UInt8 *)volRoot, sizeof(volRoot))){
+        OSKextLogStringError(NULL);
+        goto finish;
+    }
+
+    rval = readBootCaches(volRoot);
 
 finish:
-    // clean up (unwind in allocation order)
     if (ddesc)      CFRelease(ddesc);
 
     return rval;
@@ -956,7 +930,7 @@ _sutimes(int fdvol, char *path, int oflags, struct timeval times[2])
         bsderr = fd;
         // XX sopen() should log on its own after we get errors correct
         OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                  "sopen(%s): %s", path, strerror(errno));
+                  "%s: %s", path, strerror(errno));
         goto finish;        
     }
     if ((bsderr = futimes(fd, times))) {
@@ -999,10 +973,21 @@ int
 updateStamps(struct bootCaches *caches, int command)
 {
     int rval = 0;
+    struct statfs sfs;
     cachedPath *cp;
     struct stat sb;
 
-    // allow known commands throug
+    // don't try to apply bootstamps to a read-only volume
+    if (statfs(caches->root, &sfs) == 0) {
+        if ((sfs.f_flags & MNT_RDONLY)) {
+            OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+                      "Warning: %s read-only: no bootstamp updates",
+                      caches->root);
+            return rval;    // noErr
+        }
+    } 
+
+    // allow known commands through
     switch (command) {
         case kBCStampsApplyTimes:
         case kBCStampsUnlinkOnly:
@@ -1026,10 +1011,8 @@ updateStamps(struct bootCaches *caches, int command)
         rval |= updateStamp(caches->root, cp, caches->cachefd, command);
     }
 
-    // clean shutdown should make sure these stamps are on disk, but until
-    // the root cause of 8603195 is found, we're not risking anything.
-    /* ??: if (stat(/AppleInternal, &sb) == 0 && 
-                    stat(/var/db/disableAppleInternal, &sb) != 0) */
+    // Clean shutdown should make sure these stamps are on disk; this
+    // code worked around 8603195/6848376 which were fixed by Lion GM.
     if (stat(BRDBG_DISABLE_EXTSYNC_F, &sb) == -1) {
         rval |= fcntl(caches->cachefd, F_FULLFSYNC);
     }
@@ -1076,6 +1059,9 @@ int rebuild_kext_boot_cache_file(
     */
     do {
         mkDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV1Key);
+        if (!mkDict)
+            mkDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV2Key);
+
         if (mkDict) {
             generateKernelcache = true;
             break;
@@ -1096,6 +1082,7 @@ int rebuild_kext_boot_cache_file(
     } while (0);
 
     if (!mkDict || CFGetTypeID(mkDict) != CFDictionaryGetTypeID())  goto finish;
+
         archArray = CFDictionaryGetValue(mkDict, kBCArchsKey);
     if (archArray) {
         narchs = CFArrayGetCount(archArray);
@@ -1410,55 +1397,73 @@ finish:
 * CoreStorage FDE check & update routines
 * kextd calls check_csfde; kextcache calls check_, rebuild_csfde_cache()
 *****************************************************************************/
-// We need both routines because kextd only checks while kextcache 
-// checks and rebuilds.
-
-// caller must release econtext on success
-static int
-copy_csfde_props(CFStringRef uuidStr,
-                 CFDictionaryRef *encContext,
-                 int64_t *timeStamp)
+// on success, caller is responsible for releasing econtext
+int
+copyCSFDEInfo(CFStringRef uuidStr, CFDictionaryRef *econtext,
+               time_t *timeStamp)
 {
-    int             rval = ELAST + 1;
-    CFDictionaryRef lvfprops = NULL, ectx = NULL;
-    CFNumberRef     propStampRef;
-    int64_t         propStamp;
+    int             rval = ELAST+1;
+    CFDictionaryRef lvfprops = NULL;
+    CFDictionaryRef ectx;
+    CFNumberRef     psRef;
+    CFArrayRef      eusers;     // owned by lvfprops
+    Boolean         encrypted;
 
-    if (!uuidStr)   goto finish;
+    if (!uuidStr) {
+        rval = EINVAL; goto finish;
+    }
 
     // 04/25/11 - gab: <rdar://problem/9168337>
     // can't operate without libCoreStorage func
     if (CoreStorageCopyFamilyProperties == NULL) {
-        rval = ESHLIBVERS;
-        goto finish;
+        rval = ESHLIBVERS; goto finish;
     }
 
     lvfprops = CoreStorageCopyFamilyProperties(uuidStr);
-    if (!lvfprops)  goto finish;
+    if (!lvfprops) {
+        rval = EFTYPE; goto finish;
+    }
 
     ectx = (CFMutableDictionaryRef)CFDictionaryGetValue(lvfprops,
                         CFSTR(kCoreStorageFamilyEncryptionContextKey));
-    if (!ectx || CFGetTypeID(ectx) != CFDictionaryGetTypeID())
-        goto finish;
+    if (!ectx || CFGetTypeID(ectx) != CFDictionaryGetTypeID()) {
+        rval = EFTYPE; goto finish;
+    }
 
-    // get properties' timestamp
-    propStampRef = CFDictionaryGetValue(ectx, CFSTR(kCSFDELastUpdateTime));
-    if (propStampRef) {
-        if (CFGetTypeID(propStampRef) != CFNumberGetTypeID())
-            goto finish;
-        if (!CFNumberGetValue(propStampRef, kCFNumberSInt64Type, &propStamp))
-            goto finish;
-    } else {
-        propStamp = 0LL;
+    // does it have encrypted users?
+    eusers = (CFArrayRef)CFDictionaryGetValue(ectx, CFSTR(kCSFDECryptoUsersID));
+    encrypted = (eusers && CFArrayGetCount(eusers));
+
+    if (encrypted) {
+        if (econtext) {
+            *econtext = CFRetain(ectx);
+        }
+        if (timeStamp) {
+            psRef = CFDictionaryGetValue(ectx, CFSTR(kCSFDELastUpdateTime));
+            if (psRef) {
+                if (CFGetTypeID(psRef) != CFNumberGetTypeID() ||
+                    !CFNumberGetValue(psRef,kCFNumberSInt64Type,timeStamp)){
+                    rval = EFTYPE; goto finish;
+                }
+            } else {    // no timestamp (odd, but maybe okay)
+                *timeStamp = 0LL;
+            }
+        }
+    } else {        // not encrypted
+        if (econtext)       *econtext = NULL;
+        if (timeStamp)      *timeStamp = 0LL;
     }
 
     rval = 0;
 
-    if (encContext) *encContext = CFRetain(ectx);
-    if (timeStamp)  *timeStamp = propStamp;
-
 finish:
     if (lvfprops)   CFRelease(lvfprops);
+
+    if (rval) {
+        OSKextLogCFString(NULL, kOSKextLogErrorLevel|kOSKextLogFileAccessFlag,
+                          CFSTR("could not copy LVF props for %@: %s"),
+                          uuidStr, strerror(rval));
+    }
 
     return rval;
 }
@@ -1466,25 +1471,15 @@ finish:
 Boolean
 check_csfde(struct bootCaches *caches)
 {
-    Boolean         encrypted, needsupdate = false;
-    CFDictionaryRef ectx = NULL;
-    CFArrayRef      eusers;     // owned by ectx
-
-    int64_t         propStamp, erStamp;
+    Boolean         needsupdate = false;
+    time_t          propStamp, erStamp;
     char            erpath[PATH_MAX];
     struct stat     ersb;
 
-    if (caches->csfde_uuid == NULL || !caches->erpropcache)
+    if (!caches->csfde_uuid || !caches->erpropcache)
         goto finish;
 
-    if (copy_csfde_props(caches->csfde_uuid, &ectx, &propStamp))
-        goto finish;
-
-    // does it have encrypted users?
-    eusers = (CFArrayRef)CFDictionaryGetValue(ectx, CFSTR(kCSFDECryptoUsersID));
-    encrypted = (eusers && CFArrayGetCount(eusers));
-
-    if (!encrypted)
+    if (copyCSFDEInfo(caches->csfde_uuid, NULL, &propStamp))
         goto finish;
 
     // get property cache file's timestamp
@@ -1500,73 +1495,208 @@ check_csfde(struct bootCaches *caches)
         }
     }
 
-    // the timestamp should only advance, but we'll count != as out of date
+    // generally the timestamp advances, but != means out of date
     needsupdate = erStamp != propStamp;
 
 finish:
-    if (ectx)       CFRelease(ectx);
-
     return needsupdate;
 }
 
-// XX after 10376911 is in, remove this declaration from /trunk
-bool CSFDEWritePropertyCacheToFD(CFDictionaryRef context, int fd, CFStringRef wipeKeyUUID);
-
-int
-rebuild_csfde_cache(struct bootCaches *caches)
+/*
+ * _writeCSFDENoFD()
+ * If possible, use CSFDEInitPropertyCache() to write
+ * EncryptedRoot.plist.wipekey to the requested path. 
+ *
+ * CSFDEInitPropertyCache() writes to <path>/S/L/Caches/com.apple.corestorage
+ * so the basic algorithm is
+ * 0) provided dstpath = /path/to/S/L/Caches/com.apple.corestorage
+ * 1) find substring S/L/Caches/c.a.corestorage/EncryptedRoot.plist.wipekey
+ * 2) create terminated parentpath = path/to/\0ystem/L/Caches...
+ * 3) create /path/to/.../SystemVersion.plist if it doesn't exist
+ * 4) call CSFDEInitPropertyCache(/path/to)!
+ */
+// CSFDEInitPropertyCache() uses /S/L/E in 10.7.2+, but _writeCSFDENoFD()
+// is only for 10.7.[01] where InitPropertyCache() uses SystemVersion.plist.
+#define kOrigInitCookieDir "/System/Library/CoreServices"
+#define kOrigInitCookieFile "/SystemVersion.plist"
+static int
+_writeCSFDENoFD(int scopefd, CFDictionaryRef ectx,
+                CFStringRef wipeKeyUUID, char *dstpath)  
 {
-    int             rval = ELAST + 1;
+    int bsderr, rval = ELAST + 1;       // all but path*() should set
+    int fd = -1;
+    Boolean createdCookie = false;
+    char parentpath[PATH_MAX], cookiepath[PATH_MAX];
+    char *relpath;
+    struct stat sb;
+
+    // detect expected relative path to EncryptedRoot.plist.wipekey
+    // and create terminated parentpath
+    pathcpy(parentpath, dstpath);
+    relpath = strstr(parentpath, kCSFDEPropertyCacheFileEncrypted);
+    if (!relpath) {
+        // modern ...ToFD() missing and function only writes to this path
+        rval = ESHLIBVERS; goto finish;
+    }
+    relpath[0] = '\0';      // terminate parentpath[] at common parent
+
+    // if necessary, create sibling SystemVersion.plist
+    pathcpy(cookiepath, parentpath);
+    pathcat(cookiepath, kOrigInitCookieDir);
+    if ((bsderr = sdeepmkdir(scopefd, cookiepath, kCacheDirMode))) {
+        rval = bsderr; goto finish;
+    }
+    pathcat(cookiepath, kOrigInitCookieFile);
+    if (0 != stat(cookiepath, &sb)) {
+        if (0>=(fd = sopen(scopefd, cookiepath, O_CREAT, kCacheFileMode))) {
+            rval = errno; goto finish;
+        } 
+        close(fd);
+        createdCookie = true;
+    }
+
+    // write via the 10.7.[01] function (scopefd ignored!)
+    errno = 0;
+    OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+              "WARNING: no CSFDEWritePropertyCacheToFD(); "
+              "trying CSFDEInitPropertyCache()");
+    if (false == CSFDEInitPropertyCache(ectx, parentpath, wipeKeyUUID)) {
+        rval = ELAST + 1;   // "internal error" :P
+        goto finish;
+    }
+    // make sure it did the deed
+    if (-1 == stat(dstpath, &sb)) {
+        rval = errno; goto finish;
+    }
+ 
+    // success!
+    rval = 0;
+
+finish:
+    if (createdCookie) {
+        (void)sunlink(scopefd, cookiepath);   // empty boot.?/S/L/CS okay
+    }
+
+    return rval;
+}
+
+// NOTE: weak-linking depends on -weak-l/-weak_framemwork *and* the
+// function declaration being marked correctly in the header file!
+int
+writeCSFDEProps(int scopefd, CFDictionaryRef ectx, 
+                char *cspvbsd, char *dstpath)  
+{
+    int             errnum, rval = ELAST + 1;
+    CFStringRef     wipeKeyUUID = NULL;
+    char            dstparent[PATH_MAX];
+    int             erfd = -1;
+
+    // 9168337 didn't quite do it, see 10831618
+    // check for required weak-linked symbol
+    if (CoreStorageCopyPVWipeKeyUUID==NULL) {
+        rval = ESHLIBVERS; goto finish;
+    }
+    wipeKeyUUID = CoreStorageCopyPVWipeKeyUUID(cspvbsd);
+    if (!wipeKeyUUID) {  
+        rval = ENODEV; goto finish;      
+    }
+
+    // prep (ENOENT ignored by szerofile())
+    if ((errnum = szerofile(scopefd, dstpath)) ||
+            ((errnum = sunlink(scopefd, dstpath)) && errno != ENOENT)) {
+        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+                  "WARNING: %s: %s", dstpath, strerror(errno));
+    }
+
+    // recursively create the parent directory       
+    if (strlcpy(dstparent,dirname(dstpath),PATH_MAX) >= PATH_MAX) {
+        rval = EOVERFLOW; goto finish;
+    }
+    errnum = sdeepmkdir(scopefd, dstparent, kCacheDirMode);
+    if (errnum) {
+        rval = errnum; goto finish;
+    }
+
+    // use modern function if available
+    if (CSFDEWritePropertyCacheToFD!=NULL) {
+        // open and write to FD
+        erfd = sopen(scopefd, dstpath, O_CREAT|O_RDWR, kCacheFileMode);
+        if (-1 == erfd) {
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                      "%s: %s", dstpath, strerror(errno));
+            rval = errno; goto finish;
+        }
+        if (!CSFDEWritePropertyCacheToFD(ectx, erfd, wipeKeyUUID)) {
+            OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                      "CSFDEWritePropertyCacheToFD(%s) failed", dstpath);
+            rval = ELAST + 1;   // "internal error" :P
+            goto finish;
+        }
+    } else {
+        // try to trick the old function into writing the cache
+        if ((errnum = _writeCSFDENoFD(scopefd,ectx,wipeKeyUUID,dstpath))) {
+            rval = errnum; goto finish;
+        }
+    }
+
+    // success
+    rval = 0;
+
+finish:
+    if (wipeKeyUUID)    CFRelease(wipeKeyUUID);
+    if (erfd != -1)     close(erfd);
+
+    if (rval == -1) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "%s: %s", dstpath, strerror(errno));
+    } else if (rval) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+            "%s: %s", dstpath, strerror(rval));
+    }
+
+    return rval;
+}
+
+// write out a populated EncryptedRoot.plist.wipekey to the root volume
+static int
+_writeLegacyCSFDECache(struct bootCaches *caches)
+{
+    int             errnum, rval = ELAST + 1;
+    CFArrayRef      dataVolumes = NULL;
+    CFStringRef     bsdStr;     // belongs to dataVolumes
+    char            bsdname[DEVMAXPATHSIZE];
     CFDictionaryRef ectx = NULL;
-    int64_t         propStamp;
     char           *errmsg = NULL;
     char            erpath[PATH_MAX];
     int             erfd = -1;
-    CFArrayRef      dataVolumes = NULL;
-    CFStringRef     wipeKeyUUID = NULL;
 
-    // 04/25/11 - gab: <rdar://problem/9168337>
-    // guard against calling unavailable weak-linked symbols
-    if (CoreStorageCopyPVWipeKeyUUID==NULL || CSFDEInitPropertyCache==NULL){
-        errmsg = "CoreStorage library symbols unavailable";
-        errno = ESHLIBVERS;
-        goto finish;
+    if (!caches->csfde_uuid || !caches->erpropcache) {
+        rval = EINVAL; goto finish;
     }
     
+    // hasBRBs() cares about Apple_Boot's; FDE, data partitions
     (void)hasBootRootBoots(caches, NULL, &dataVolumes, NULL);
-    if (!dataVolumes) {
-        errmsg = "no data partitions! (for Wipe Key)";
-        goto finish;
+    if (!dataVolumes || CFArrayGetCount(dataVolumes) == 0) {
+        errmsg = "no data partition! (for wipe key)";
+        rval = ENODEV; goto finish;
     }
 
-    // only handle one PV initially
-    CFIndex     count = CFArrayGetCount(dataVolumes);
-    if (count > 1) {
-        errmsg = "more than one physical volume encountered";
-        goto finish;
-    } else if (count == 0) {
-        errmsg = "no data partitions! (for Wipe Key)";
-        goto finish;
+    // legacy => encrypt with the first Apple_CoreStorage wipe key
+    errmsg = "error getting volume wipe key";
+    bsdStr = CFArrayGetValueAtIndex(dataVolumes, 0);
+    if (!bsdStr) {
+        rval = ENODEV; goto finish;
     }
-
-    CFStringRef physicalVolume = CFArrayGetValueAtIndex(dataVolumes, 0);
-    char        bsdName[DEVMAXPATHSIZE];
-
-    if (!CFStringGetCString(physicalVolume, bsdName, sizeof(bsdName), kCFStringEncodingUTF8)) {
-        errmsg = "String conversion failure for bsdName.";
-        goto finish;
-    }
-
-    wipeKeyUUID = CoreStorageCopyPVWipeKeyUUID(bsdName);
-    if (!wipeKeyUUID) {
-        errmsg = "error getting volume wipe key";
-        goto finish;
+    if (!CFStringGetFileSystemRepresentation(bsdStr,bsdname,sizeof(bsdname))){
+        rval = EINVAL; goto finish;
     }
 
     errmsg = "error getting encryption context data";
-    if (!caches->csfde_uuid || !caches->erpropcache)
-        goto finish;
-    if (copy_csfde_props(caches->csfde_uuid, &ectx, &propStamp))
-        goto finish;
+    if ((errnum = copyCSFDEInfo(caches->csfde_uuid, &ectx, NULL))) {
+        rval = errnum; goto finish;
+    }
 
     // build /<vol>/S/L/Caches/..corestorage/EncryptedRoot.plist.wipekey
     errmsg = "error building encryption context cache file path";
@@ -1574,23 +1704,15 @@ rebuild_csfde_cache(struct bootCaches *caches)
     pathcat(erpath, caches->erpropcache->rpath);
     errmsg = NULL;
 
-    // zero any existing file, sopen(), and write to validated fd
-    // (ENOENT ignored by szerofile())
-    if (szerofile(caches->cachefd, erpath)) {
-        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-                  "%s: %s", erpath, strerror(errno));
+    // if not encrypted, just nuke :)
+    if (!ectx) {
+        (void)sunlink(caches->cachefd, erpath);
+        rval = 0; goto finish;
     }
-    (void)sunlink(caches->cachefd, erpath);
-    if(-1==(erfd=sopen(caches->cachefd,erpath,O_CREAT|O_RDWR,kCacheFileMode))){
-        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                  "%s: %s", erpath, strerror(errno));
-        rval = errno;
-        goto finish;
-    }
-    if (!CSFDEWritePropertyCacheToFD(ectx, erfd, wipeKeyUUID)) {
-        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                  "CSFDEWritePropertyCacheToFD(%s) failed", erpath);
-        goto finish;
+
+    // logs its own
+    if ((errnum = writeCSFDEProps(caches->cachefd, ectx, bsdname, erpath))) {
+        rval = errnum; goto finish;
     }
 
     // success
@@ -1598,26 +1720,57 @@ rebuild_csfde_cache(struct bootCaches *caches)
     rval = 0;
 
 finish:
-    if (erfd != -1)
-        close (erfd);
-    if (dataVolumes)
-        CFRelease(dataVolumes);
-    if (wipeKeyUUID)
-        CFRelease(wipeKeyUUID);
-    if (ectx)
-        CFRelease(ectx);
+    if (erfd != -1)     close (erfd);
+    if (dataVolumes)    CFRelease(dataVolumes);
+    if (ectx)           CFRelease(ectx);
 
-    if (errmsg) {
-        if (rval == -1) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "%s: %s", errmsg, strerror(errno));
-        } else {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-                "%s: %s", caches->root, errmsg);
+    if (rval)
+        LOGERRxlate(caches->root, errmsg, rval);
+    
+    return rval;
+}
+
+int
+rebuild_csfde_cache(struct bootCaches *caches)
+{
+    int             errnum, rval = ELAST + 1;
+    time_t          timeStamp;
+    char            erpath[PATH_MAX] = "<unknown>";
+    struct timeval  times[2] = {{ 0, 0 }, { 0, 0 }};
+
+    if (!caches->csfde_uuid || !caches->erpropcache) {
+        rval = EINVAL; goto finish;
+    }
+
+    // OSes that only support single-PV CSFDE need content in erpropcache
+    if (caches->erpropTSOnly == false) {
+        return _writeLegacyCSFDECache(caches);    // takes care of everything
+    }
+
+    // otherwise, just grab the timestamp so update_boot.c knows to re-fetch
+    if ((errnum = copyCSFDEInfo(caches->csfde_uuid, NULL, &timeStamp))) {
+        rval = errnum; goto finish;
+    }
+    times[0].tv_sec = (__darwin_time_t)timeStamp;
+    times[1].tv_sec = (__darwin_time_t)timeStamp;    // mdworker -> atime
+
+    // build path and recreate proper timestamp
+    pathcpy(erpath, caches->root);
+    pathcat(erpath, caches->erpropcache->rpath);
+    (void)sunlink(caches->cachefd, erpath);
+
+    if (timeStamp != 0LL) {
+        if ((errnum = _sutimes(caches->cachefd, erpath, O_CREAT, times))) {
+            rval = errnum; goto finish;
         }
     }
+
+    // success
+    rval = 0;
+
+finish:
+    if (rval)
+        LOGERRxlate(erpath, NULL, rval);
     
     return rval;
 }
@@ -1786,7 +1939,7 @@ finish:
     return;
 }
 
-// ahh, ye olde SysLang.h :)
+// ahh, ye olde SysLang.h :]
 // #define GLOBALPREFSFILE "/Library/Preferences/.GlobalPreferences.plist"
 #define LANGSKEY    CFSTR("AppleLanguages")   // key in .GlobalPreferences
 #define ENGLISHKEY  CFSTR("en")
@@ -1806,6 +1959,7 @@ _writeEFILoginResources(struct bootCaches *caches,
     struct writeRsrcCtx applyCtx = { caches, locCacheDir, &result };
 
     // can't operate without EFILogin.framework function
+    // (XX as of Zin12A190, this function is not properly decorated ...)
     if (EFILoginCopyInterfaceGraphics == NULL) {
         result = ESHLIBVERS;
         goto finish;
@@ -1821,9 +1975,15 @@ _writeEFILoginResources(struct bootCaches *caches,
         // create a new array containing the default "en" (locsList !retained)
         CFRange range = { 0, 1 };
         locsList = CFArrayCreateMutable(nil, 1, &kCFTypeArrayCallBacks);
-        if (!locsList)      goto finish;
+        if (!locsList) {
+            result = ENOMEM;
+            goto finish;
+        }
         CFArrayAppendValue(locsList, ENGLISHKEY);
-        if (!CFArrayContainsValue(locsList, range, ENGLISHKEY)) goto finish;
+        if (!CFArrayContainsValue(locsList, range, ENGLISHKEY)) {
+            result = ENOMEM;    // ECFFAILED :P
+            goto finish;
+        }
     }
 
     // generate all resources
@@ -1856,7 +2016,7 @@ finish:
 int
 rebuild_loccache(struct bootCaches *caches)
 {
-    int result;
+    int errnum, result = ELAST + 1;
     struct stat cachesb, prefsb;
     char        locRsrcDir[PATH_MAX], prefPath[PATH_MAX];
     char        locCacheDir[PATH_MAX];
@@ -1865,39 +2025,46 @@ rebuild_loccache(struct bootCaches *caches)
     struct timeval times[2];
     
     // logs its own errors
-    if ((result = get_locres_info(caches, locRsrcDir, prefPath, &prefsb,
+    if ((errnum = get_locres_info(caches, locRsrcDir, prefPath, &prefsb,
                              locCacheDir, &validModTime))) {
-        goto finish;;
+        result = errnum; goto finish;
     }
 
     // empty out locCacheDir ...
     /* This cache is an optional part of RPS, thus it is okay to
        destroy on failure (leaving empty risks "right" timestamps). */
-    (void)sdeepunlink(caches->cachefd, locCacheDir);
-    if ((result = sdeepmkdir(caches->cachefd,locCacheDir,kCacheDirMode)))
-        goto finish;
+    if (sdeepunlink(caches->cachefd, locCacheDir) == -1 && errno == EROFS) {
+        result = errno; goto finish;
+    }
+    if ((errnum = sdeepmkdir(caches->cachefd,locCacheDir,kCacheDirMode))) {
+        result = errnum; goto finish;
+    }
 
     // actually write resources!
-    result = _writeEFILoginResources(caches, prefPath, &prefsb, locCacheDir);
-    if (result) {
+    errnum = _writeEFILoginResources(caches, prefPath, &prefsb, locCacheDir);
+    if (errnum) {
         OSKextLog(NULL, kOSKextLogErrorLevel|kOSKextLogFileAccessFlag,
                   "_writeEFILoginResources() failed: %d",
                   (result == -1) ? errno : result);
         (void)sdeepunlink(caches->cachefd, locCacheDir);
-        goto finish;
+        result = errnum; goto finish;
     }
 
     // get current times (keeping access, overwriting mod)
-    if ((result = stat(locCacheDir, &cachesb))) {
+    if ((errnum = stat(locCacheDir, &cachesb))) {
         OSKextLog(NULL, kOSKextLogWarningLevel|kOSKextLogFileAccessFlag,
                   "%s: %s", locCacheDir, strerror(errno));
-        goto finish;
+        result = errnum; goto finish;
     }
     cachesb.st_mtime = validModTime;
     TIMESPEC_TO_TIMEVAL(&times[0], &cachesb.st_atimespec);
     TIMESPEC_TO_TIMEVAL(&times[1], &cachesb.st_mtimespec);
-    result = _sutimes(caches->cachefd, locCacheDir, O_RDONLY, times);
+    if ((errnum = _sutimes(caches->cachefd, locCacheDir, O_RDONLY, times))) {
+        result = errnum; goto finish;
+    }
 
+    // success
+    result = 0;
     
 finish:
     if (fd != -1)       close(fd);
@@ -1909,6 +2076,7 @@ finish:
 
 /*****************************************************************************
 * hasBRBoots lets you know if a volume has boot partitions and if it's on GPT
+* no error reporting except residual errno
 *****************************************************************************/
 Boolean
 hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
@@ -1917,13 +2085,12 @@ hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
     CFDictionaryRef binfo = NULL;
     Boolean rval = false, apm = false;
     CFArrayRef dparts = NULL, bparts = NULL;
-    char * errmsg = NULL;
     char stack_bsdname[DEVMAXPATHSIZE];
     char * lookup_bsdname = caches->bsdname;
     CFArrayRef dataPartitions = NULL; // do not release;
     size_t fullLen;
     char fulldev[DEVMAXPATHSIZE];
-#if BLESS_BUG_RESOLVED
+#if DEBUG_REGISTRY
     char parentdevname[DEVMAXPATHSIZE];
     uint32_t partitionNum;
     BLPartitionType partitionType;
@@ -1946,7 +2113,6 @@ hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
         CFStringRef dpBsdName = CFArrayGetValueAtIndex(dataPartitions, 0);
 
         if (dpBsdName) {
-            errmsg = "String conversion failure for bsdname.";
             if (!CFStringGetFileSystemRepresentation(dpBsdName, stack_bsdname,
                     sizeof(stack_bsdname)))
                 goto finish;
@@ -1957,17 +2123,15 @@ hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
    /* Get the BL info about the partition type (that's all we use, but
     * we have to pass in valid buffer pointers for all the rest).
     */
-    errmsg = "Internal error.";
     fullLen = snprintf(fulldev, sizeof(fulldev), "/dev/%s", lookup_bsdname);
     if (fullLen >= sizeof(fulldev)) {
         goto finish;
     }
 
-#if BLESS_BUG_RESOLVED
+#if DEBUG_REGISTRY
     // doesn't work on watson w/USB disk??
-    errmsg = "Can't get partition type.";
     if (BLGetParentDeviceAndPartitionType(NULL /* context */,
-        fulldevname, parentdevname, &partitionNum, &partitionType)) 
+        fulldev, parentdevname, &partitionNum, &partitionType)) 
     {
         goto finish;
     }
@@ -1978,19 +2142,19 @@ hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
 
     // 5158091 / 6413843: 10.4.x APM Apple_Boot's aren't BootRoot
     // Boot!=Root was introduced in 10.4.7 for *Intel only*.
-    // BootX didn't learn about Boot!=Root until 10.5 (the era of
-    // the mkext2 format).
+    // BootX didn't learn about Boot!=Root until 10.5 (mkext2 era).
+    // XX 10740646 tracks reviewing / dropping ppc support
     // The check is APM-only because ppc only booted APM.
     if (apm) {
         CFDictionaryRef pbDict, mk2Dict, kcDict;
-
-        errmsg = NULL;
 
         // i.e. Leopard had BootX; SnowLeopard has mkext2
         pbDict = CFDictionaryGetValue(caches->cacheinfo, kBCPostBootKey);
         if (!pbDict || CFGetTypeID(pbDict) != CFDictionaryGetTypeID())  goto finish;
 
         kcDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV1Key);
+        if (!kcDict)
+            kcDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV2Key);
         mk2Dict = CFDictionaryGetValue(pbDict, kBCMKext2Key);
 
         // if none of these indicates a more modern OS, we skip
@@ -2003,8 +2167,6 @@ hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
     // check for helper partitions
     rval = (CFArrayGetCount(bparts) > 0);
 
-    errmsg = NULL;
-    
 finish:
     // out parameters set if provided
     if (auxPartsCopy) {
@@ -2020,20 +2182,13 @@ finish:
     // cleanup
     if (binfo)      CFRelease(binfo);
 
-    // errors
-    if (errmsg) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
-            "%s: %s", caches->root, errmsg);
-    }
-
     return rval;
 }
 
 CFArrayRef
 BRCopyActiveBootPartitions(CFURLRef volRoot)
 {   
-    CFArrayRef rval = NULL;
+    CFArrayRef bparts, rval = NULL;
     char path[PATH_MAX], *bsdname;
     struct statfs sfs;
     CFDictionaryRef binfo = NULL;
@@ -2055,10 +2210,12 @@ BRCopyActiveBootPartitions(CFURLRef volRoot)
     // (doesn't vet them as much as hasBootRootBoots())
     if (BLCreateBooterInformationDictionary(NULL, bsdname, &binfo))
         goto finish;
-    rval = CFDictionaryGetValue(binfo, kBLAuxiliaryPartitionsKey);
+    bparts = CFDictionaryGetValue(binfo, kBLAuxiliaryPartitionsKey);
 
     // success -> retain sub-dictionary for caller
-    if (rval)       CFRetain(rval);
+    if (bparts && CFArrayGetCount(bparts)) {
+        rval = CFRetain(bparts);
+    }
 
 finish:
     if (binfo)      CFRelease(binfo);
@@ -2096,13 +2253,14 @@ static void removeTrailingSlashes(char * path)
 }
 
 
+
 /******************************************************************************
  * updateMount() remounts the volume with the requested flags!
  *****************************************************************************/
 int
 updateMount(mountpoint_t mount, uint32_t mntgoal)
 {
-    int result = ELAST + 1;
+    int result = ELAST + 1;         // 3/22/12: all paths set result
     DASessionRef session = NULL;
     CFStringRef toggleMode = CFSTR("updateMountMode");
     CFURLRef volURL = NULL;
@@ -2119,18 +2277,28 @@ updateMount(mountpoint_t mount, uint32_t mntgoal)
        NULL };
 
     // same 'dis' logic as mountBoot in update_boot.c
-    if (!(session = DASessionCreate(nil)))      goto finish;
+    if (!(session = DASessionCreate(nil))) {
+        result = ENOMEM; goto finish;
+    }
     DASessionScheduleWithRunLoop(session, CFRunLoopGetCurrent(), toggleMode);
-    volURL=CFURLCreateFromFileSystemRepresentation(nil,(void*)mount,MNAMELEN,1);
-    if (!(volURL))      goto finish;
-    if (!(disk = DADiskCreateFromVolumePath(nil, session, volURL))) goto finish;
+    if (!(volURL=CFURLCreateFromFileSystemRepresentation(nil, (void*)mount,
+                                                   strlen(mount), true))) {
+        result = ENOMEM; goto finish;
+    }
+    if (!(disk = DADiskCreateFromVolumePath(nil, session, volURL))) {
+        result = ENOMEM; goto finish;
+    }
     DADiskMountWithArguments(disk, NULL, kDADiskMountOptionDefault, _daDone,
                              &dis, mountargs);
 
     while (dis == (void*)kCFNull) {
         CFRunLoopRunInMode(toggleMode, 0, true);    // _daDone updates 'dis'
     }
-    if (dis)    goto finish;
+    if (dis) {
+        result = DADissenterGetStatus(dis);     // XX errno |= unix_err()
+        if (result == 0)    result = ELAST + 1;
+        goto finish;
+    }
 
     result = 0;
 
@@ -2142,7 +2310,8 @@ finish:
 
     if (result) {
         OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
-            "Warning: couldn't update %s's mount to %0x", mount, mntgoal);
+            "Warning: couldn't update %s->f_flags to %#x: error %#x", mount,
+            mntgoal, result);
     }
 
     return result;
@@ -2192,41 +2361,61 @@ finish:
     return rval;
 }
 
-
 /*******************************************************************************
 *******************************************************************************/
-#define COMPILE_TIME_ASSERT(pred)   switch(0){case 0:case pred:;}
+struct nameAndUUID {
+    uint32_t nbytes;
+    struct attrreference nameref;
+    uuid_t uuid;
+    char namedata[NAME_MAX+1];
+};
 int
-copyVolumeUUIDs(const char *volPath, uuid_t vol_uuid, CFStringRef *cslvf_uuid __unused)
+copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid, CFStringRef *cslvf_uuid,
+               char **vol_bsd, char **vol_name)
 {
-    int rval = ENODEV;
-    DADiskRef dadisk = NULL;
-    CFDictionaryRef dadesc = NULL;
-    CFUUIDRef volUUID;      // just a reference into the dict
-    CFUUIDBytes uuidBytes;
-COMPILE_TIME_ASSERT(sizeof(CFUUIDBytes) == sizeof(uuid_t));
+    int bsderr, rval = ENODEV;
+    struct nameAndUUID attrs;
+    struct attrlist attrdesc = { ATTR_BIT_MAP_COUNT, 0, 0, ATTR_VOL_INFO |
+                                 ATTR_VOL_NAME | ATTR_VOL_UUID, 0, 0, 0 };
+    struct statfs sfs;
+    char *bsdname;
+    io_object_t ioObj = IO_OBJECT_NULL;
     CFTypeRef regEntry = NULL;
 
-    dadisk = createDiskForMount(NULL, volPath);
-    if (!dadisk) {
-        if (errno)      rval = errno;
-        goto finish;
+    // get basic data
+    // (don't worry about FSOPT_REPORT_FULLSIZE; NAME_MAX+1 is plenty :]
+    if ((bsderr=getattrlist(vol_path, &attrdesc, &attrs, sizeof(attrs), 0))
+            || attrs.nbytes >= sizeof(attrs)) {
+        rval = errno; goto finish;
     }
-    dadesc = DADiskCopyDescription(dadisk);
-    if (!dadesc)        goto finish;
-    volUUID = CFDictionaryGetValue(dadesc, kDADiskDescriptionVolumeUUIDKey);
-    if (!volUUID)       goto finish;
-    // XX 8679674: 
-    uuidBytes = CFUUIDGetUUIDBytes(volUUID);
-    memcpy(vol_uuid, &uuidBytes.byte0, sizeof(uuid_t));   // sizeof(vol_uuid)?
+    if (vol_bsd || cslvf_uuid) {
+        if ((bsderr = statfs(vol_path, &sfs))) {
+            rval = errno; goto finish;
+        }
+        bsdname = sfs.f_mntfromname;
+        if (strncmp(bsdname, _PATH_DEV, strlen(_PATH_DEV)) == 0) {
+            bsdname += strlen(_PATH_DEV);
+        }
+    }
 
-/* didn't end up needing this; might in future?
+
+    // handle UUID if requested
+    if (vol_uuid) {
+        memcpy(*vol_uuid, attrs.uuid, sizeof(uuid_t));
+    }
+
+    // CoreStorage UUID if requested
     if (cslvf_uuid) {
-        io_object_t ioObj = IO_OBJECT_NULL;
-
-        if (IO_OBJECT_NULL == (ioObj = DADiskCopyIOMedia(dadisk)))
-            goto finish;
-        
+        CFDictionaryRef matching;   // IOServiceGetMatchingServices() releases
+        matching = IOBSDNameMatching(kIOMasterPortDefault, 0, bsdname);
+        if (!matching) {
+            rval = ENOMEM; goto finish;
+        }
+        ioObj = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+        matching = NULL;        // IOServiceGetMatchingService() released
+        if (ioObj == IO_OBJECT_NULL) {
+            rval = ENODEV; goto finish;
+        }
         regEntry = IORegistryEntryCreateCFProperty(ioObj,
                                     CFSTR(kCoreStorageLVFUUIDKey), nil, 0);
         if (regEntry && CFGetTypeID(regEntry) == CFStringGetTypeID()) {
@@ -2236,14 +2425,31 @@ COMPILE_TIME_ASSERT(sizeof(CFUUIDBytes) == sizeof(uuid_t));
             *cslvf_uuid = NULL;
         }
     }
-*/
+
+    // BSD Name
+    if (vol_bsd) {
+        if (strlcpy(*vol_bsd, bsdname, DEVMAXPATHSIZE) >= DEVMAXPATHSIZE) {
+            rval = EOVERFLOW; goto finish;
+        }
+    }
+
+    // volume name
+    if (vol_name) {
+        char *volname = (char*)&attrs.nameref + attrs.nameref.attr_dataoffset;
+        (void)strlcpy(*vol_name, volname, NAME_MAX);
+    }
 
     rval = 0;
 
 finish:
-    if (regEntry)    CFRelease(regEntry);
-    if (dadesc)     CFRelease(dadesc);
-    if (dadisk)     CFRelease(dadisk);
+    if (rval) {
+        OSKextLog(NULL, kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
+                  "%s: %s", vol_path, strerror(rval));
+    }
+
+    if (regEntry)                   CFRelease(regEntry);
+    if (ioObj != IO_OBJECT_NULL)    IOObjectRelease(ioObj);
+    // matching consumed by IOServiceGetMatchingService()
 
     return rval;
 }

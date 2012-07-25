@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -39,7 +39,7 @@ ca{
             }
         }
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -62,7 +62,7 @@ ca{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"EEE d"}
+                Ed{"E d"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -83,7 +83,7 @@ ca{
                 yM{"M/yyyy"}
                 yMEd{"E d/M/yyyy"}
                 yMMM{"LLL y"}
-                yMMMEd{"EEE d MMM y"}
+                yMMMEd{"E d MMM y"}
                 yMMMM{"LLLL 'de' y"}
                 yMMMd{"d MMM y"}
                 yMd{"d/M/yyyy"}
@@ -164,11 +164,9 @@ ca{
                     relative{
                         "-1"{"ahir"}
                         "-2"{"abans d'ahir"}
-                        "-3"{"fa tres dies"}
                         "0"{"avui"}
                         "1"{"demà"}
                         "2"{"demà passat"}
-                        "3"{"d'aquí a tres dies"}
                     }
                 }
                 dayperiod{
@@ -445,10 +443,10 @@ ca{
         }
     }
     delimiters{
-        alternateQuotationEnd{"”"}
-        alternateQuotationStart{"“"}
-        quotationEnd{"’"}
-        quotationStart{"‘"}
+        alternateQuotationEnd{"»"}
+        alternateQuotationStart{"«"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
     }
     listPattern{
         standard{
@@ -466,29 +464,113 @@ ca{
             one{"{0} dia"}
             other{"{0} dies"}
         }
+        day-future{
+            0{"D'aquí a 0 dies"}
+            1{"D'aquí a 1 dia"}
+            one{"D'aquí a {0} dia"}
+            other{"D'aquí a {0} dies"}
+        }
+        day-past{
+            0{"Fa 0 dies"}
+            1{"Fa 1 dia"}
+            one{"Fa {0} dia"}
+            other{"Fa {0} dies"}
+        }
         hour{
             one{"{0} hora"}
             other{"{0} hores"}
+        }
+        hour-future{
+            0{"D'aquí a 0 hores"}
+            1{"D'aquí a 1 hora"}
+            one{"D'aquí a {0} hora"}
+            other{"D'aquí a {0} hores"}
+        }
+        hour-past{
+            0{"Fa 0 hores"}
+            1{"Fa 1 hora"}
+            one{"Fa {0} hora"}
+            other{"Fa {0} hores"}
         }
         minute{
             one{"{0} minut"}
             other{"{0} minuts"}
         }
+        minute-future{
+            0{"D'aquí a 0 minuts"}
+            1{"D'aquí a 1 minut"}
+            one{"D'aquí a {0} minut"}
+            other{"D'aquí a {0} minuts"}
+        }
+        minute-past{
+            0{"Fa 0 minuts"}
+            1{"Fa 1 minut"}
+            one{"Fa {0} minut"}
+            other{"Fa {0} minuts"}
+        }
         month{
             one{"{0} mes"}
             other{"{0} mesos"}
+        }
+        month-future{
+            0{"D'aquí a 0 mesos"}
+            1{"D'aquí a 1 mes"}
+            one{"D'aquí a {0} mes"}
+            other{"D'aquí a {0} mesos"}
+        }
+        month-past{
+            0{"Fa 0 mesos"}
+            1{"Fa 1 mes"}
+            one{"Fa {0} mes"}
+            other{"Fa {0} mesos"}
         }
         second{
             one{"{0} segon"}
             other{"{0} segons"}
         }
+        second-future{
+            0{"D'aquí a 0 segons"}
+            1{"D'aquí a 1 segon"}
+            one{"D'aquí a {0} segon"}
+            other{"D'aquí a {0} segons"}
+        }
+        second-past{
+            0{"Fa 0 segons"}
+            1{"Fa 1 segon"}
+            one{"Fa {0} segon"}
+            other{"Fa {0} segons"}
+        }
         week{
             one{"{0} setmana"}
             other{"{0} setmanes"}
         }
+        week-future{
+            0{"D'aquí a 0 setmanes"}
+            1{"D'aquí a 1 setmana"}
+            one{"D'aquí a {0} setmana"}
+            other{"D'aquí a {0} setmanes"}
+        }
+        week-past{
+            0{"Fa 0 setmanes"}
+            1{"Fa 1 setmana"}
+            one{"Fa {0} setmana"}
+            other{"Fa {0} setmanes"}
+        }
         year{
             one{"{0} any"}
             other{"{0} anys"}
+        }
+        year-future{
+            0{"D'aquí a 0 anys"}
+            1{"D'aquí a 1 any"}
+            one{"D'aquí a {0} any"}
+            other{"D'aquí a {0} anys"}
+        }
+        year-past{
+            0{"Fa 0 anys"}
+            1{"Fa 1 any"}
+            one{"Fa {0} any"}
+            other{"Fa {0} anys"}
         }
     }
     unitsShort{

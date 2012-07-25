@@ -17,6 +17,10 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char rcsid[] = "$Id: nsap_addr.c,v 1.3.18.2 2005/07/28 07:38:08 marka Exp $";
+
+/* the algorithms only can deal with ASCII, so we optimize for it */
+#define USE_ASCII
+
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/inet/nsap_addr.c,v 1.3 2007/06/03 17:20:26 ume Exp $");
@@ -33,9 +37,11 @@ __FBSDID("$FreeBSD: src/lib/libc/inet/nsap_addr.c,v 1.3 2007/06/03 17:20:26 ume 
 
 #include <ctype.h>
 #include <resolv.h>
-#include <resolv_mt.h>
+//#include <resolv_mt.h>
 
 #include "port_after.h"
+
+#include <stdlib.h>
 
 static char
 xtob(int c) {
@@ -82,9 +88,13 @@ char *
 inet_nsap_ntoa(int binlen, const u_char *binary, char *ascii) {
 	int nib;
 	int i;
-	char *tmpbuf = inet_nsap_ntoa_tmpbuf;
+	char *tmpbuf = NULL;
 	char *start;
 
+	if (tmpbuf == NULL) {
+		tmpbuf = malloc(255*3);
+		if (tmpbuf == NULL) return NULL;
+	}
 	if (ascii)
 		start = ascii;
 	else {

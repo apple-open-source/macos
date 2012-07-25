@@ -58,4 +58,4 @@ typedef const char * xmlData_t;
 typedef char * xmlDataOut_t;
 
 
-#endif _PPPOLCONTROLLER_TYPES_H
+#endif /* _PPPOLCONTROLLER_TYPES_H */

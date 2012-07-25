@@ -5,36 +5,35 @@
 	<key>OpenSourceProject</key>
 	<string>libxml2</string>
 	<key>OpenSourceVersion</key>
-	<string>2.7.3</string>
+	<string>2.7.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://xmlsoft.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://xmlsoft.org/sources/libxml2-2.7.3.tar.gz</string>
+	<string>http://xmlsoft.org/sources/libxml2-2.7.8.tar.gz</string>
 	<key>OpenSourceMD5</key>
-	<string>8f4fda3969237c2a33bdb1583b5d06b2</string>
+	<string>8127a65e8c3b08856093099b52599c86</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-02-20</string>
+	<string>2012-01-20</string>
 	<key>OpenSourceLicense</key>
 	<string>other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>libxml2.txt</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>rdar://problem/3871639</string>
 		<string>rdar://problem/3874282</string>
-		<string>rdar://problem/3949744</string>
 		<string>rdar://problem/3960539</string>
-		<string>rdar://problem/4529338</string>
-		<string>rdar://problem/4924865</string>
-		<string>rdar://problem/5205305</string>
-		<string>rdar://problem/5354321</string>
+		<string>rdar://problem/4723997</string>
+		<string>rdar://problem/5014269</string>
 		<string>rdar://problem/6514625</string>
+		<string>rdar://problem/8371582</string>
+		<string>rdar://problem/8677255</string>
 		<string>rdar://problem/9791139</string>
 		<string>rdar://problem/10141425</string>
 		<string>rdar://problem/10646045</string>
 		<string>rdar://problem/10646344</string>
 		<string>rdar://problem/10734584</string>
 		<string>rdar://problem/10734593</string>
+		<string>rdar://problem/10772343</string>
 	</array>
 </dict>
 </plist>

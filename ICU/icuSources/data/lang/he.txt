@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/he.xml
@@ -136,7 +136,6 @@ he{
         id{"אינדונזית"}
         ie{"אינטרלינגה"}
         ig{"איגבו"}
-        ik{"ik"}
         ine{"שפה הודו-אירופית"}
         inh{"אינגושית"}
         io{"אידו"}
@@ -361,6 +360,10 @@ he{
         Zyyy{"רגיל"}
         Zzzz{"כתב לא ידוע או לא תקף"}
     }
+    Scripts%stand-alone{
+        Hans{"כתב האן פשוט"}
+        Hant{"כתב האן מסורתי"}
+    }
     Types{
         calendar{
             buddhist{"לוח שנה בודהיסטי"}
@@ -380,10 +383,10 @@ he{
         collation{
             big5han{"מיון סינית מסורתית"}
             dictionary{"סדר מיון במילון"}
-            direct{"מיון ישיר"}
             ducet{"סדר מיון Unicode המוגדר כברירת מחדל"}
             gb2312han{"מיון סינית מודרנית"}
             phonebook{"מיון ספר טלפונים"}
+            phonetic{"סדר מיון פונטי"}
             pinyin{"מיון פיניין"}
             reformed{"סדר מיון מתוקן"}
             search{"חיפוש למטרה כללית"}
@@ -435,8 +438,9 @@ he{
         AREVMDA{"מערב ארמנית"}
         MONOTON{"מונוטונית"}
         POSIX{"מחשב"}
+        SCOTLAND{"אנגלית סקוטית סטנדרטית"}
     }
-    Version{"2.0.58.79"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"{0}"}
         script{"{0}"}

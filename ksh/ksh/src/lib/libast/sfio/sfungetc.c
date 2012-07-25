@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,13 +26,13 @@
 **	Written by Kiem-Phong Vo.
 */
 #if __STD_C
-static int _uexcept(reg Sfio_t* f, reg int type, Void_t* val, reg Sfdisc_t* disc)
+static int _uexcept(Sfio_t* f, int type, Void_t* val, Sfdisc_t* disc)
 #else
 static int _uexcept(f,type,val,disc)
-reg Sfio_t	*f;
-reg int		type;
+Sfio_t		*f;
+int		type;
 Void_t*		val;
-reg Sfdisc_t	*disc;
+Sfdisc_t	*disc;
 #endif
 {	
 	NOTUSED(val);
@@ -49,16 +49,17 @@ reg Sfdisc_t	*disc;
 }
 
 #if __STD_C
-int sfungetc(reg Sfio_t* f, reg int c)
+int sfungetc(Sfio_t* f, int c)
 #else
 int sfungetc(f,c)
-reg Sfio_t*	f;	/* push back one byte to this stream */
-reg int		c;	/* the value to be pushed back */
+Sfio_t*		f;	/* push back one byte to this stream */
+int		c;	/* the value to be pushed back */
 #endif
 {
 	reg Sfio_t*	uf;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f, -1)
+	SFMTXENTER(f, -1)
 
 	if(c < 0 || (f->mode != SF_READ && _sfmode(f,SF_READ,0) < 0))
 		SFMTXRETURN(f, -1);

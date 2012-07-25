@@ -136,11 +136,35 @@ public:
     virtual IOReturn create ();
     virtual IOReturn createAsyncEventSource(CFRunLoopSourceRef * pSource);
     virtual IOReturn addElement (IOHIDElementCookie cookie);
+    virtual IOReturn addElement (IOHIDElementRef element, 
+                                 IOOptionBits options=0);
     virtual IOReturn removeElement (IOHIDElementCookie cookie);
-    virtual Boolean hasElement (IOHIDElementCookie cookie);
-    virtual IOReturn setElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, IOOptionBits options = 0);
-    virtual IOReturn getElementValue(IOHIDElementCookie	cookie, IOHIDEventStruct * pEvent, IOOptionBits options = 0);
-    virtual IOReturn commit(uint32_t timeoutMS, IOHIDCallbackFunction callback, void * target, void * refcon);
+    virtual IOReturn removeElement (IOHIDElementRef element,
+                                    IOOptionBits options=0);
+    virtual Boolean  hasElement (IOHIDElementCookie cookie);
+    virtual IOReturn hasElement (IOHIDElementRef element, 
+                                 Boolean * pValue, 
+                                 IOOptionBits options=0);
+    virtual IOReturn setElementValue(IOHIDElementCookie cookie, 
+                                     IOHIDEventStruct * pEvent, 
+                                     IOOptionBits options = 0);
+    virtual IOReturn setElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef event, 
+                                     IOOptionBits options=0);
+    virtual IOReturn getElementValue(IOHIDElementCookie	cookie, 
+                                     IOHIDEventStruct * pEvent, 
+                                     IOOptionBits options = 0);
+    virtual IOReturn getElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef * pEvent, 
+                                     IOOptionBits options=0);
+    virtual IOReturn commit(uint32_t timeoutMS, 
+                            IOHIDCallbackFunction callback,
+                            void * target, 
+                            void * refcon);
+    virtual IOReturn commit(uint32_t timeoutMS, 
+                            IOHIDCallback callback,
+                            void * callbackRefcon, 
+                            IOOptionBits options=0);
 };
 
 #endif /* !_IOKIT_IOHIDOutputTransactionClass_H */

@@ -526,14 +526,7 @@ void l2tp_udp_clear_INP_INADDR_ANY(socket_t so)
 	if (so) {
 
 		lck_mtx_unlock(ppp_domain_mutex);
-	
-		sock_retain(so);
-		inp = sotoinpcb((struct socket *)so);
-		if (inp) {
-			inp->inp_flags &= ~INP_INADDR_ANY;
-		}
-		sock_release(so);
-
+		inp_clear_INP_INADDR_ANY(so);
 		lck_mtx_lock(ppp_domain_mutex);
     }
 	

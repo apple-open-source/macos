@@ -42,12 +42,10 @@ public:
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
         // We need to pass in the right global object for "i".
         Structure* structure = WebCore::deprecatedGetDOMStructure<ObjCRuntimeObject>(exec);
-        ObjCRuntimeObject* object = new (allocateCell<ObjCRuntimeObject>(*exec->heap())) ObjCRuntimeObject(exec, globalObject, inst, structure);
+        ObjCRuntimeObject* object = new (NotNull, allocateCell<ObjCRuntimeObject>(*exec->heap())) ObjCRuntimeObject(exec, globalObject, inst, structure);
         object->finishCreation(globalObject);
         return object;
     }
-
-    virtual ~ObjCRuntimeObject();
 
     ObjcInstance* getInternalObjCInstance() const;
 

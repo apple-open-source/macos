@@ -45,7 +45,7 @@ struct __DAAuthorizeWithCallbackContext
     DAAuthorizeCallback callback;
     void *              callbackContext;
     DADiskRef           disk;
-    DAAuthorizeOptions  options;
+    _DAAuthorizeOptions options;
     char *              right;
     DASessionRef        session;
     DAReturn            status;
@@ -83,12 +83,12 @@ void __DAAuthorizeWithCallbackCallback( int status, void * parameter )
     free( context );
 }
 
-DAReturn DAAuthorize( DASessionRef       session,
-                      DAAuthorizeOptions options,
-                      DADiskRef          disk,
-                      uid_t              userUID,
-                      gid_t              userGID,
-                      const char *       right )
+DAReturn DAAuthorize( DASessionRef        session,
+                      _DAAuthorizeOptions options,
+                      DADiskRef           disk,
+                      uid_t               userUID,
+                      gid_t               userGID,
+                      const char *        right )
 {
     DAReturn status;
 
@@ -96,43 +96,17 @@ DAReturn DAAuthorize( DASessionRef       session,
 
     if ( status )
     {
-        if ( userUID == ___UID_ROOT )
-        {
-            status = kDAReturnSuccess;
-        }
-    }
-
-    if ( status )
-    {
-        if ( ___isadmin( userUID ) )
-        {
-            status = kDAReturnSuccess;
-        }
-    }
-
-    if ( status )
-    {
-        if ( disk )
+        if ( ( options & _kDAAuthorizeOptionIsOwner ) )
         {
             uid_t diskUID;
 
-            diskUID = DADiskGetUserRUID( disk );
+            diskUID = DADiskGetUserUID( disk );
 
             if ( diskUID == userUID )
             {
                 status = kDAReturnSuccess;
             }
-
-            if ( diskUID == ___UID_UNKNOWN )
-            {
-                status = kDAReturnSuccess;
-            }
         }
-    }
-
-    if ( ( options & kDAAuthorizeOptionForce ) )
-    {
-        status = kDAReturnNotPrivileged;
     }
 
     if ( status )
@@ -168,34 +142,50 @@ DAReturn DAAuthorize( DASessionRef       session,
         {
             AuthorizationFlags  flags;
             AuthorizationItem   item;
+            char *              name;
             AuthorizationRights rights;
 
             flags = kAuthorizationFlagExtendRights;
 
-///w:start
-//          if ( ( options & kDAAuthorizeOptionForce ) )
-//          {
-//              flags |= kAuthorizationFlagDestroyRights;
-//          }
-///w:stop
-            if ( ( options & kDAAuthorizeOptionInteract ) )
+            if ( ( options & _kDAAuthorizeOptionAuthenticateAdministrator ) )
             {
                 flags |= kAuthorizationFlagInteractionAllowed;
             }
 
-            item.flags       = 0;
-            item.name        = right;
-            item.value       = NULL;
-            item.valueLength = 0;
-
-            rights.count = 1;
-            rights.items = &item;
-
-            status = AuthorizationCopyRights( authorization, &rights, NULL, flags, NULL );
-
-            if ( status )
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
             {
-                status = kDAReturnNotPrivileged;
+                asprintf( &name, "system.volume.removable.%s", right );
+            }
+            else
+            {
+                if ( DADiskGetDescription( disk, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                {
+                    asprintf( &name, "system.volume.internal.%s", right );
+                }
+                else
+                {
+                    asprintf( &name, "system.volume.external.%s", right );
+                }
+            }
+
+            if ( name )
+            {
+                item.flags       = 0;
+                item.name        = name;
+                item.value       = NULL;
+                item.valueLength = 0;
+
+                rights.count = 1;
+                rights.items = &item;
+
+                status = AuthorizationCopyRights( authorization, &rights, NULL, flags, NULL );
+
+                if ( status )
+                {
+                    status = kDAReturnNotPrivileged;
+                }
+
+                free( name );
             }
         }
     }
@@ -204,7 +194,7 @@ DAReturn DAAuthorize( DASessionRef       session,
 }
 
 void DAAuthorizeWithCallback( DASessionRef        session,
-                              DAAuthorizeOptions  options,
+                              _DAAuthorizeOptions options,
                               DADiskRef           disk,
                               uid_t               userUID,
                               gid_t               userGID,
@@ -214,7 +204,7 @@ void DAAuthorizeWithCallback( DASessionRef        session,
 {
     DAReturn status;
 
-    status = DAAuthorize( session, ( options & ~kDAAuthorizeOptionInteract ), disk, userUID, userGID, right );
+    status = DAAuthorize( session, ( options & ~_kDAAuthorizeOptionAuthenticateAdministrator ), disk, userUID, userGID, right );
 
     if ( status )
     {

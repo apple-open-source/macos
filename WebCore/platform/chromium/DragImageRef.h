@@ -29,7 +29,7 @@
 #ifndef DragImageRef_h
 #define DragImageRef_h
 
-#if OS(DARWIN)
+#if USE(CG)
 typedef struct CGImage* CGImageRef;
 #else
 class SkBitmap;
@@ -37,7 +37,7 @@ class SkBitmap;
 
 namespace WebCore {
 
-#if OS(DARWIN)
+#if USE(CG)
 typedef CGImageRef DragImageRef;
 #else
 typedef SkBitmap* DragImageRef;

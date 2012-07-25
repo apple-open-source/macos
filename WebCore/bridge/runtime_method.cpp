@@ -50,8 +50,9 @@ RuntimeMethod::RuntimeMethod(JSGlobalObject* globalObject, Structure* structure,
 {
 }
 
-void RuntimeMethod::vtableAnchor()
+void RuntimeMethod::destroy(JSCell* cell)
 {
+    jsCast<RuntimeMethod*>(cell)->RuntimeMethod::~RuntimeMethod();
 }
 
 void RuntimeMethod::finishCreation(JSGlobalData& globalData, const Identifier& ident)
@@ -115,7 +116,7 @@ static EncodedJSValue JSC_HOST_CALL callRuntimeMethod(ExecState* exec)
     } else {
         // Calling a runtime object of a plugin element?
         if (thisValue.inherits(&JSHTMLElement::s_info)) {
-            HTMLElement* element = static_cast<JSHTMLElement*>(asObject(thisValue))->impl();
+            HTMLElement* element = jsCast<JSHTMLElement*>(asObject(thisValue))->impl();
             instance = pluginInstance(element);
         }
         if (!instance)

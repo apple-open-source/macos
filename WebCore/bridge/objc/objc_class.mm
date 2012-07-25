@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2012 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,24 +31,9 @@
 
 namespace JSC {
 namespace Bindings {
-    
-static void deleteMethod(CFAllocatorRef, const void* value)
-{
-    delete static_cast<const Method*>(value);
-}
-    
-static void deleteField(CFAllocatorRef, const void* value)
-{
-    delete static_cast<const Field*>(value);
-}
 
-const CFDictionaryValueCallBacks MethodDictionaryValueCallBacks = { 0, 0, &deleteMethod, 0 , 0 };
-const CFDictionaryValueCallBacks FieldDictionaryValueCallBacks = { 0, 0, &deleteField, 0 , 0 };    
-    
 ObjcClass::ObjcClass(ClassStructPtr aClass)
     : _isa(aClass)
-    , _methods(AdoptCF, CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &MethodDictionaryValueCallBacks))
-    , _fields(AdoptCF, CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &FieldDictionaryValueCallBacks))
 {
 }
 
@@ -73,92 +58,101 @@ ObjcClass* ObjcClass::classForIsA(ClassStructPtr isa)
     return aClass;
 }
 
+/*
+    By default, a JavaScript method name is produced by concatenating the
+    components of an ObjectiveC method name, replacing ':' with '_', and
+    escaping '_' and '$' with a leading '$', such that '_' becomes "$_" and
+    '$' becomes "$$". For example:
+
+    ObjectiveC name         Default JavaScript name
+        moveTo::                moveTo__
+        moveTo_                 moveTo$_
+        moveTo$_                moveTo$$$_
+
+    This function performs the inverse of that operation.
+
+    @result Fills 'buffer' with the ObjectiveC method name that corresponds to 'JSName'.
+*/
+typedef Vector<char, 256> JSNameConversionBuffer;
+static inline void convertJSMethodNameToObjc(const CString& jsName, JSNameConversionBuffer& buffer)
+{
+    buffer.reserveInitialCapacity(jsName.length() + 1);
+
+    const char* source = jsName.data();
+    while (true) {
+        if (*source == '$') {
+            ++source;
+            buffer.uncheckedAppend(*source);
+        } else if (*source == '_')
+            buffer.uncheckedAppend(':');
+        else
+            buffer.uncheckedAppend(*source);
+
+        if (!*source)
+            return;
+
+        ++source;
+    }
+}
+
 MethodList ObjcClass::methodsNamed(const Identifier& identifier, Instance*) const
 {
     MethodList methodList;
-    char fixedSizeBuffer[1024];
-    char* buffer = fixedSizeBuffer;
-    CString jsName = identifier.ascii();
-    if (!convertJSMethodNameToObjc(jsName.data(), buffer, sizeof(fixedSizeBuffer))) {
-        int length = jsName.length() + 1;
-        buffer = new char[length];
-        if (!buffer || !convertJSMethodNameToObjc(jsName.data(), buffer, length))
-            return methodList;
-    }
-
-    
-    RetainPtr<CFStringRef> methodName(AdoptCF, CFStringCreateWithCString(NULL, buffer, kCFStringEncodingASCII));
-    Method* method = (Method*)CFDictionaryGetValue(_methods.get(), methodName.get());
-    if (method) {
+    if (Method* method = m_methodCache.get(identifier.impl())) {
         methodList.append(method);
         return methodList;
     }
 
+    CString jsName = identifier.ascii();
+    JSNameConversionBuffer buffer;
+    convertJSMethodNameToObjc(jsName, buffer);
+    RetainPtr<CFStringRef> methodName(AdoptCF, CFStringCreateWithCString(NULL, buffer.data(), kCFStringEncodingASCII));
+
     ClassStructPtr thisClass = _isa;
     while (thisClass && methodList.isEmpty()) {
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
         unsigned numMethodsInClass = 0;
         MethodStructPtr* objcMethodList = class_copyMethodList(thisClass, &numMethodsInClass);
-#else
-        void* iterator = 0;
-        struct objc_method_list* objcMethodList;
-        while ((objcMethodList = class_nextMethodList(thisClass, &iterator))) {
-            unsigned numMethodsInClass = objcMethodList->method_count;
-#endif
-            for (unsigned i = 0; i < numMethodsInClass; i++) {
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
-                MethodStructPtr objcMethod = objcMethodList[i];
-                SEL objcMethodSelector = method_getName(objcMethod);
-#else
-                struct objc_method* objcMethod = &objcMethodList->method_list[i];
-                SEL objcMethodSelector = objcMethod->method_name;
-#endif
-                const char* objcMethodSelectorName = sel_getName(objcMethodSelector);
-                NSString* mappedName = nil;
+        for (unsigned i = 0; i < numMethodsInClass; i++) {
+            MethodStructPtr objcMethod = objcMethodList[i];
+            SEL objcMethodSelector = method_getName(objcMethod);
+            const char* objcMethodSelectorName = sel_getName(objcMethodSelector);
+            NSString* mappedName = nil;
 
-                // See if the class wants to exclude the selector from visibility in JavaScript.
-                if ([thisClass respondsToSelector:@selector(isSelectorExcludedFromWebScript:)])
-                    if ([thisClass isSelectorExcludedFromWebScript:objcMethodSelector])
-                        continue;
+            // See if the class wants to exclude the selector from visibility in JavaScript.
+            if ([thisClass respondsToSelector:@selector(isSelectorExcludedFromWebScript:)])
+                if ([thisClass isSelectorExcludedFromWebScript:objcMethodSelector])
+                    continue;
 
-                // See if the class want to provide a different name for the selector in JavaScript.
-                // Note that we do not do any checks to guarantee uniqueness. That's the responsiblity
-                // of the class.
-                if ([thisClass respondsToSelector:@selector(webScriptNameForSelector:)])
-                    mappedName = [thisClass webScriptNameForSelector:objcMethodSelector];
+            // See if the class want to provide a different name for the selector in JavaScript.
+            // Note that we do not do any checks to guarantee uniqueness. That's the responsiblity
+            // of the class.
+            if ([thisClass respondsToSelector:@selector(webScriptNameForSelector:)])
+                mappedName = [thisClass webScriptNameForSelector:objcMethodSelector];
 
-                if ((mappedName && [mappedName isEqual:(NSString*)methodName.get()]) || strcmp(objcMethodSelectorName, buffer) == 0) {
-                    Method* aMethod = new ObjcMethod(thisClass, objcMethodSelector); // deleted when the dictionary is destroyed
-                    CFDictionaryAddValue(_methods.get(), methodName.get(), aMethod);
-                    methodList.append(aMethod);
-                    break;
-                }
+            if ((mappedName && [mappedName isEqual:(NSString*)methodName.get()]) || strcmp(objcMethodSelectorName, buffer.data()) == 0) {
+                OwnPtr<Method> method = adoptPtr(new ObjcMethod(thisClass, objcMethodSelector));
+                methodList.append(method.get());
+                m_methodCache.add(identifier.impl(), method.release());
+                break;
             }
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
-            thisClass = class_getSuperclass(thisClass);
-            free(objcMethodList);
-#else
         }
-        thisClass = thisClass->super_class;
-#endif
+        thisClass = class_getSuperclass(thisClass);
+        free(objcMethodList);
     }
-
-    if (buffer != fixedSizeBuffer)
-        delete [] buffer;
 
     return methodList;
 }
 
 Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) const
 {
+    Field* field = m_fieldCache.get(identifier.impl());
+    if (field)
+        return field;
+
     ClassStructPtr thisClass = _isa;
 
     CString jsName = identifier.ascii();
     RetainPtr<CFStringRef> fieldName(AdoptCF, CFStringCreateWithCString(NULL, jsName.data(), kCFStringEncodingASCII));
-    Field* aField = (Field*)CFDictionaryGetValue(_fields.get(), fieldName.get());
-    if (aField)
-        return aField;
-
     id targetObject = (static_cast<ObjcInstance*>(instance))->getObject();
     id attributes = [targetObject attributeKeys];
     if (attributes) {
@@ -181,8 +175,9 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
                 mappedName = [thisClass webScriptNameForKey:UTF8KeyName];
 
             if ((mappedName && [mappedName isEqual:(NSString*)fieldName.get()]) || [keyName isEqual:(NSString*)fieldName.get()]) {
-                aField = new ObjcField((CFStringRef)keyName); // deleted when the dictionary is destroyed
-                CFDictionaryAddValue(_fields.get(), fieldName.get(), aField);
+                OwnPtr<Field> newField = adoptPtr(new ObjcField((CFStringRef)keyName));
+                field = newField.get();
+                m_fieldCache.add(identifier.impl(), newField.release());
                 break;
             }
         }
@@ -191,52 +186,39 @@ Field* ObjcClass::fieldNamed(const Identifier& identifier, Instance* instance) c
         // introspection.
 
         while (thisClass) {
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
             unsigned numFieldsInClass = 0;
             IvarStructPtr* ivarsInClass = class_copyIvarList(thisClass, &numFieldsInClass);
-#else
-            struct objc_ivar_list* fieldsInClass = thisClass->ivars;
-            if (fieldsInClass) {
-                unsigned numFieldsInClass = fieldsInClass->ivar_count;
-#endif
-                for (unsigned i = 0; i < numFieldsInClass; i++) {
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
-                    IvarStructPtr objcIVar = ivarsInClass[i];
-                    const char* objcIvarName = ivar_getName(objcIVar);
-#else
-                    IvarStructPtr objcIVar = &fieldsInClass->ivar_list[i];
-                    const char* objcIvarName = objcIVar->ivar_name;
-#endif
-                    NSString* mappedName = 0;
 
-                    // See if the class wants to exclude the selector from visibility in JavaScript.
-                    if ([thisClass respondsToSelector:@selector(isKeyExcludedFromWebScript:)])
-                        if ([thisClass isKeyExcludedFromWebScript:objcIvarName])
-                            continue;
+            for (unsigned i = 0; i < numFieldsInClass; i++) {
+                IvarStructPtr objcIVar = ivarsInClass[i];
+                const char* objcIvarName = ivar_getName(objcIVar);
+                NSString* mappedName = 0;
 
-                    // See if the class want to provide a different name for the selector in JavaScript.
-                    // Note that we do not do any checks to guarantee uniqueness. That's the responsiblity
-                    // of the class.
-                    if ([thisClass respondsToSelector:@selector(webScriptNameForKey:)])
-                        mappedName = [thisClass webScriptNameForKey:objcIvarName];
+                // See if the class wants to exclude the selector from visibility in JavaScript.
+                if ([thisClass respondsToSelector:@selector(isKeyExcludedFromWebScript:)])
+                    if ([thisClass isKeyExcludedFromWebScript:objcIvarName])
+                        continue;
 
-                    if ((mappedName && [mappedName isEqual:(NSString*)fieldName.get()]) || strcmp(objcIvarName, jsName.data()) == 0) {
-                        aField = new ObjcField(objcIVar); // deleted when the dictionary is destroyed
-                        CFDictionaryAddValue(_fields.get(), fieldName.get(), aField);
-                        break;
-                    }
+                // See if the class want to provide a different name for the selector in JavaScript.
+                // Note that we do not do any checks to guarantee uniqueness. That's the responsiblity
+                // of the class.
+                if ([thisClass respondsToSelector:@selector(webScriptNameForKey:)])
+                    mappedName = [thisClass webScriptNameForKey:objcIvarName];
+
+                if ((mappedName && [mappedName isEqual:(NSString*)fieldName.get()]) || strcmp(objcIvarName, jsName.data()) == 0) {
+                    OwnPtr<Field> newField = adoptPtr(new ObjcField(objcIVar));
+                    field = newField.get();
+                    m_fieldCache.add(identifier.impl(), newField.release());
+                    break;
                 }
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
+            }
+
             thisClass = class_getSuperclass(thisClass);
             free(ivarsInClass);
-#else
-            }
-            thisClass = thisClass->super_class;
-#endif
         }
     }
 
-    return aField;
+    return field;
 }
 
 JSValue ObjcClass::fallbackObject(ExecState* exec, Instance* instance, const Identifier &propertyName)

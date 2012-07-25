@@ -21,14 +21,44 @@
 #define GRefPtrGStreamer_h
 #if USE(GSTREAMER)
 
-#include "GRefPtr.h"
+#include <wtf/gobject/GRefPtr.h>
 
 typedef struct _GstElement GstElement;
+typedef struct _GstPad GstPad;
+typedef struct _GstPadTemplate GstPadTemplate;
+typedef struct _GstCaps GstCaps;
+typedef struct _GstTask GstTask;
+typedef struct _GstBus GstBus;
+typedef struct _GstElementFactory GstElementFactory;
 
 namespace WTF {
 
+template<> GRefPtr<GstElement> adoptGRef(GstElement* ptr);
 template<> GstElement* refGPtr<GstElement>(GstElement* ptr);
 template<> void derefGPtr<GstElement>(GstElement* ptr);
+
+template<> GRefPtr<GstPad> adoptGRef(GstPad* ptr);
+template<> GstPad* refGPtr<GstPad>(GstPad* ptr);
+template<> void derefGPtr<GstPad>(GstPad* ptr);
+
+template<> GRefPtr<GstPadTemplate> adoptGRef(GstPadTemplate* ptr);
+template<> GstPadTemplate* refGPtr<GstPadTemplate>(GstPadTemplate* ptr);
+template<> void derefGPtr<GstPadTemplate>(GstPadTemplate* ptr);
+
+template<> GstCaps* refGPtr<GstCaps>(GstCaps* ptr);
+template<> void derefGPtr<GstCaps>(GstCaps* ptr);
+
+template<> GRefPtr<GstTask> adoptGRef(GstTask* ptr);
+template<> GstTask* refGPtr<GstTask>(GstTask* ptr);
+template<> void derefGPtr<GstTask>(GstTask* ptr);
+
+template<> GRefPtr<GstBus> adoptGRef(GstBus* ptr);
+template<> GstBus* refGPtr<GstBus>(GstBus* ptr);
+template<> void derefGPtr<GstBus>(GstBus* ptr);
+
+template<> GRefPtr<GstElementFactory> adoptGRef(GstElementFactory* ptr);
+template<> GstElementFactory* refGPtr<GstElementFactory>(GstElementFactory* ptr);
+template<> void derefGPtr<GstElementFactory>(GstElementFactory* ptr);
 
 }
 

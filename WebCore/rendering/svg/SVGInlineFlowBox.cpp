@@ -27,8 +27,9 @@
 #include "DocumentMarkerController.h"
 #include "GraphicsContext.h"
 #include "RenderSVGInlineText.h"
+#include "RenderedDocumentMarker.h"
 #include "SVGInlineTextBox.h"
-#include "SVGRenderSupport.h"
+#include "SVGRenderingContext.h"
 
 using namespace std;
 
@@ -48,7 +49,7 @@ void SVGInlineFlowBox::paintSelectionBackground(PaintInfo& paintInfo)
     }
 }
 
-void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int, int, int)
+void SVGInlineFlowBox::paint(PaintInfo& paintInfo, const LayoutPoint&, LayoutUnit, LayoutUnit)
 {
     ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
     ASSERT(!paintInfo.context->paintingDisabled());
@@ -56,24 +57,20 @@ void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int, int, int)
     RenderObject* boxRenderer = renderer();
     ASSERT(boxRenderer);
 
-    PaintInfo childPaintInfo(paintInfo);
-    GraphicsContextStateSaver stateSaver(*childPaintInfo.context);
-
-    if (SVGRenderSupport::prepareToRenderSVGContent(boxRenderer, childPaintInfo)) {
+    SVGRenderingContext renderingContext(boxRenderer, paintInfo, SVGRenderingContext::SaveGraphicsContext);
+    if (renderingContext.isRenderingPrepared()) {
         for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
             if (child->isSVGInlineTextBox())
                 computeTextMatchMarkerRectForRenderer(toRenderSVGInlineText(static_cast<SVGInlineTextBox*>(child)->textRenderer()));
 
-            child->paint(childPaintInfo, 0, 0, 0, 0);
+            child->paint(paintInfo, LayoutPoint(), 0, 0);
         }
     }
-
-    SVGRenderSupport::finishRenderSVGContent(boxRenderer, childPaintInfo, paintInfo.context);
 }
 
-IntRect SVGInlineFlowBox::calculateBoundaries() const
+FloatRect SVGInlineFlowBox::calculateBoundaries() const
 {
-    IntRect childRect;
+    FloatRect childRect;
     for (InlineBox* child = firstChild(); child; child = child->nextOnLine()) {
         if (!child->isSVGInlineTextBox() && !child->isSVGInlineFlowBox())
             continue;
@@ -95,14 +92,14 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
 
     AffineTransform fragmentTransform;
     Document* document = textRenderer->document();
-    Vector<DocumentMarker> markers = document->markers()->markersForNode(textRenderer->node());
+    Vector<DocumentMarker*> markers = document->markers()->markersFor(textRenderer->node());
 
-    Vector<DocumentMarker>::iterator markerEnd = markers.end();
-    for (Vector<DocumentMarker>::iterator markerIt = markers.begin(); markerIt != markerEnd; ++markerIt) {
-        const DocumentMarker& marker = *markerIt;
+    Vector<DocumentMarker*>::iterator markerEnd = markers.end();
+    for (Vector<DocumentMarker*>::iterator markerIt = markers.begin(); markerIt != markerEnd; ++markerIt) {
+        DocumentMarker* marker = *markerIt;
 
         // SVG is only interessted in the TextMatch marker, for now.
-        if (marker.type != DocumentMarker::TextMatch)
+        if (marker->type() != DocumentMarker::TextMatch)
             continue;
 
         FloatRect markerRect;
@@ -112,8 +109,8 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
 
             SVGInlineTextBox* textBox = static_cast<SVGInlineTextBox*>(box);
 
-            int markerStartPosition = max<int>(marker.startOffset - textBox->start(), 0);
-            int markerEndPosition = min<int>(marker.endOffset - textBox->start(), textBox->len());
+            int markerStartPosition = max<int>(marker->startOffset() - textBox->start(), 0);
+            int markerEndPosition = min<int>(marker->endOffset() - textBox->start(), textBox->len());
 
             if (markerStartPosition >= markerEndPosition)
                 continue;
@@ -140,7 +137,7 @@ void SVGInlineFlowBox::computeTextMatchMarkerRectForRenderer(RenderSVGInlineText
             }
         }
 
-        document->markers()->setRenderedRectForMarker(node, marker, textRenderer->localToAbsoluteQuad(markerRect).enclosingBoundingBox());
+        toRenderedDocumentMarker(marker)->setRenderedRect(textRenderer->localToAbsoluteQuad(markerRect).enclosingBoundingBox());
     }
 }
 

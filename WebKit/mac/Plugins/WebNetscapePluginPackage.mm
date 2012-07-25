@@ -67,6 +67,12 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 @implementation WebNetscapePluginPackage
 
 #ifndef __LP64__
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 + (void)initialize
 {
     // The Shockwave plugin requires a valid file in CurApRefNum.
@@ -92,6 +98,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         UseResFile(savedCurResFile);
     }
 }
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+
 #endif
 
 - (ResFileRefNum)openResourceFile
@@ -121,6 +132,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 
     CFBundleCloseBundleResourceMap(cfBundle.get(), resRef);
 }
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 - (NSString *)stringForStringListID:(SInt16)stringListID andIndex:(SInt16)index
 {
@@ -201,6 +217,9 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     
     return YES;
 }
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
 - (BOOL)_initWithPath:(NSString *)pluginPath
 {
@@ -302,7 +321,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 
 - (void)createPropertyListFile
 {
-    NetscapePluginHostManager::createPropertyListFile(path, pluginHostArchitecture);
+    NetscapePluginHostManager::shared().createPropertyListFile(path, pluginHostArchitecture, [self bundleIdentifier]);
 }
 
 #endif
@@ -424,13 +443,20 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         isCFM = YES;
     }
 #endif /* SUPPORT_CFM */
-    
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
     // Plugins (at least QT) require that you call UseResFile on the resource file before loading it.
     resourceRef = [self openResourceFile];
     if (resourceRef != -1) {
         UseResFile(resourceRef);
     }
-    
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+
     // swap function tables
 #ifdef SUPPORT_CFM
     if (isCFM) {
@@ -657,6 +683,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 - (NPPluginFuncs *)pluginFuncs
 {
     return &pluginFuncs;
+}
+
+- (NPNetscapeFuncs *)browserFuncs
+{
+    return &browserFuncs;
 }
 
 - (void)wasRemovedFromPluginDatabase:(WebPluginDatabase *)database

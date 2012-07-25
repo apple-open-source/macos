@@ -26,91 +26,31 @@
 
 #include "config.h"
 #include "ShadowRoot.h"
-#include "Element.h"
 
+#include "DOMSelection.h"
+#include "DOMWindow.h"
 #include "Document.h"
+#include "DocumentFragment.h"
+#include "Element.h"
+#include "HTMLContentElement.h"
+#include "HTMLContentSelector.h"
+#include "HTMLNames.h"
+#include "InsertionPoint.h"
 #include "NodeRareData.h"
-// FIXME: This dependency might look strange. But it should be sane. See https://bugs.webkit.org/show_bug.cgi?id=59117
-#include "ShadowContentElement.h"
+#include "ShadowTree.h"
+#include "SVGNames.h"
+#include "StyleResolver.h"
+#include "markup.h"
 
 namespace WebCore {
 
-static inline void forceReattach(Node* node)
-{
-    if (!node->attached())
-        return;
-    node->detach();
-    node->attach();
-}
-
-class ShadowContentSelector {
-    WTF_MAKE_NONCOPYABLE(ShadowContentSelector);
-public:
-    explicit ShadowContentSelector(ShadowRoot*);
-    ~ShadowContentSelector();
-
-    void attachChildrenFor(ShadowContentElement*);
-    ShadowRoot* shadowRoot() const { return m_shadowRoot; }
-    Element* activeElement() const { return m_activeElement; }
-
-    static ShadowContentSelector* currentInstance() { return s_currentInstance; }
-
-private:
-    ShadowContentSelector* m_parent;
-    ShadowRoot* m_shadowRoot;
-    Element* m_activeElement;
-    Vector<RefPtr<Node> > m_children;
-
-    static ShadowContentSelector* s_currentInstance;
-};
-
-ShadowContentSelector* ShadowContentSelector::s_currentInstance = 0;
-
-ShadowContentSelector::ShadowContentSelector(ShadowRoot* shadowRoot)
-    : m_parent(s_currentInstance)
-    , m_shadowRoot(shadowRoot)
-    , m_activeElement(0)
-{
-    s_currentInstance = this;
-    for (Node* node = shadowRoot->shadowHost()->firstChild(); node; node = node->nextSibling())
-        m_children.append(node);
-}
-
-ShadowContentSelector::~ShadowContentSelector()
-{
-    ASSERT(s_currentInstance == this);
-    s_currentInstance = m_parent;
-}
-
-void ShadowContentSelector::attachChildrenFor(ShadowContentElement* contentElement)
-{
-    m_activeElement = contentElement;
-
-    for (size_t i = 0; i < m_children.size(); ++i) {
-        Node* child = m_children[i].get();
-        if (!child)
-            continue;
-        if (!contentElement->shouldInclude(child))
-            continue;
-
-        forceReattach(child);
-        m_children[i] = 0;
-    }
-
-    m_activeElement = 0;
-}
-
-// FIXME: Should have its own file. https://bugs.webkit.org/show_bug.cgi?id=59117 will fix this.
-void ShadowContentElement::attach()
-{
-    ASSERT(!firstChild()); // Currently doesn't support any light child.
-    HTMLDivElement::attach();
-    if (ShadowContentSelector* selector = ShadowContentSelector::currentInstance())
-        selector->attachChildrenFor(this);
-}
-
 ShadowRoot::ShadowRoot(Document* document)
-    : TreeScope(document)
+    : DocumentFragment(document, CreateShadowRoot)
+    , TreeScope(this)
+    , m_prev(0)
+    , m_next(0)
+    , m_applyAuthorSheets(false)
+    , m_insertionPointAssignedTo(0)
 {
     ASSERT(document);
     
@@ -123,6 +63,67 @@ ShadowRoot::ShadowRoot(Document* document)
 
 ShadowRoot::~ShadowRoot()
 {
+    ASSERT(!m_prev);
+    ASSERT(!m_next);
+
+    // We must call clearRareData() here since a ShadowRoot class inherits TreeScope
+    // as well as Node. See a comment on TreeScope.h for the reason.
+    if (hasRareData())
+        clearRareData();
+}
+
+static bool allowsAuthorShadowRoot(Element* element)
+{
+    // FIXME: MEDIA recreates shadow root dynamically.
+    // https://bugs.webkit.org/show_bug.cgi?id=77936
+    if (element->hasTagName(HTMLNames::videoTag) || element->hasTagName(HTMLNames::audioTag))
+        return false;
+
+    // FIXME: ValidationMessage recreates shadow root dynamically.
+    // https://bugs.webkit.org/show_bug.cgi?id=77937
+    // Especially, INPUT recreates shadow root dynamically.
+    // https://bugs.webkit.org/show_bug.cgi?id=77930
+    if (element->isFormControlElement())
+        return false;
+
+    // FIXME: We disable multiple shadow subtrees for SVG for while, because there will be problems to support it.
+    // https://bugs.webkit.org/show_bug.cgi?id=78205
+    // Especially SVG TREF recreates shadow root dynamically.
+    // https://bugs.webkit.org/show_bug.cgi?id=77938
+    if (element->isSVGElement())
+        return false;
+
+    return true;
+}
+
+PassRefPtr<ShadowRoot> ShadowRoot::create(Element* element, ExceptionCode& ec)
+{
+    return create(element, CreatingAuthorShadowRoot, ec);
+}
+
+PassRefPtr<ShadowRoot> ShadowRoot::create(Element* element, ShadowRootCreationPurpose purpose, ExceptionCode& ec)
+{
+    if (!element) {
+        ec = HIERARCHY_REQUEST_ERR;
+        return 0;
+    }
+
+    // Since some elements recreates shadow root dynamically, multiple shadow subtrees won't work well in that element.
+    // Until they are fixed, we disable adding author shadow root for them.
+    if (purpose == CreatingAuthorShadowRoot && !allowsAuthorShadowRoot(element)) {
+        ec = HIERARCHY_REQUEST_ERR;
+        return 0;
+    }
+
+    RefPtr<ShadowRoot> shadowRoot = adoptRef(new ShadowRoot(element->document()));
+
+    ec = 0;
+    element->ensureShadowTree()->addShadowRoot(element, shadowRoot, ec);
+    if (ec)
+        return 0;
+    ASSERT(element == shadowRoot->host());
+    ASSERT(element->hasShadowRoot());
+    return shadowRoot.release();
 }
 
 String ShadowRoot::nodeName() const
@@ -130,14 +131,28 @@ String ShadowRoot::nodeName() const
     return "#shadow-root";
 }
 
-Node::NodeType ShadowRoot::nodeType() const
-{
-    return SHADOW_ROOT_NODE;
-}
-
 PassRefPtr<Node> ShadowRoot::cloneNode(bool)
 {
     // ShadowRoot should not be arbitrarily cloned.
+    return 0;
+}
+
+String ShadowRoot::innerHTML() const
+{
+    return createMarkup(this, ChildrenOnly);
+}
+
+void ShadowRoot::setInnerHTML(const String& markup, ExceptionCode& ec)
+{
+    RefPtr<DocumentFragment> fragment = createFragmentFromSource(markup, host(), ec);
+    if (fragment)
+        replaceChildrenWithFragment(this, fragment.release(), ec);
+}
+
+DOMSelection* ShadowRoot::selection()
+{
+    if (document() && document()->domWindow())
+        return document()->domWindow()->getSelection();
     return 0;
 }
 
@@ -156,41 +171,17 @@ bool ShadowRoot::childTypeAllowed(NodeType type) const
     }
 }
 
-void ShadowRoot::recalcStyle(StyleChange change)
+ShadowTree* ShadowRoot::tree() const
 {
-    if (hasContentElement())
-        forceReattach(this);
-    else {
-        for (Node* n = firstChild(); n; n = n->nextSibling())
-            n->recalcStyle(change);
-    }
-
-    clearNeedsStyleRecalc();
-    clearChildNeedsStyleRecalc();
+    if (host())
+        return host()->shadowTree();
+    return 0;
 }
 
-ContainerNode* ShadowRoot::activeContentContainer()
-{
-    ShadowContentSelector* selector = ShadowContentSelector::currentInstance();
-    if (!selector || selector->shadowRoot() != this)
-        return 0;
-    return selector->activeElement();
-}
-
-void ShadowRoot::hostChildrenChanged()
-{
-    if (!hasContentElement())
-        return;
-    // This results in forced detaching/attaching of the shadow render tree. See ShadowRoot::recalcStyle().
-    setNeedsStyleRecalc();
-}
-
-bool ShadowRoot::hasContentElement() const
+bool ShadowRoot::hasInsertionPoint() const
 {
     for (Node* n = firstChild(); n; n = n->traverseNextNode(this)) {
-        // FIXME: This should be replaced with tag-name checking once <content> is ready.
-        // See also http://webkit.org/b/56973
-        if (n->isShadowBoundary())
+        if (isInsertionPoint(n))
             return true;
     }
 
@@ -199,13 +190,20 @@ bool ShadowRoot::hasContentElement() const
 
 bool ShadowRoot::applyAuthorSheets() const
 {
-    return false;
+    return m_applyAuthorSheets;
+}
+
+void ShadowRoot::setApplyAuthorSheets(bool value)
+{
+    m_applyAuthorSheets = value;
 }
 
 void ShadowRoot::attach()
 {
-    ShadowContentSelector selector(this);
-    TreeScope::attach();
+    StyleResolver* styleResolver = document()->styleResolver();
+    styleResolver->pushParentShadowRoot(this);
+    DocumentFragment::attach();
+    styleResolver->popParentShadowRoot(this);
 }
 
 }

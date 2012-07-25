@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,8 +68,9 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 		  int index, const uint8_t * key, int key_length);
 
 boolean_t
-EAPOLSocketSetPMK(EAPOLSocketRef sock, 
-		  const uint8_t * key, int key_length);
+EAPOLSocketSetWPAKey(EAPOLSocketRef sock, 
+		     const uint8_t * session_key, int session_key_length,
+		     const uint8_t * server_key, int server_key_length);
 
 void
 EAPOLSocketClearPMKCache(EAPOLSocketRef sock);
@@ -104,6 +105,12 @@ EAPOLSocketGetMode(EAPOLSocketRef sock);
 
 void
 EAPOLSocketStopClient(EAPOLSocketRef sock);
+
+boolean_t
+EAPOLSocketReassociate(EAPOLSocketRef sock);
+
+int
+get_plist_int(CFDictionaryRef plist, CFStringRef key, int def);
 
 #endif /* _S_EAPOLSOCKET_H */
 

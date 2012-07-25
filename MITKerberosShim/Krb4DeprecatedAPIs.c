@@ -642,7 +642,8 @@ OSStatus KClientGetUserNameDeprecated (char *outUserName)
 
 void KClientGetErrorTextDeprecated (OSErr inError, char *outBuffer)
 {
-    strcpy (outBuffer, DeprecatedFunctionStringReturn);
+    char *p = DeprecatedFunctionStringReturn;
+    memcpy(outBuffer, p, strlen(p) + 1); /* avoid strcpy warning, api is broken */
 }
 
 OSStatus K5ClientGetTicketForServiceDeprecated (char *inService, void *outBuffer, UInt32 *outBufferLength)

@@ -49,19 +49,19 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual ~FrameLoaderClientEfl() { }
     virtual void frameLoaderDestroyed();
 
-    void         setWebFrame(Evas_Object *frame) { m_frame = frame; }
+    void setWebFrame(Evas_Object *frame) { m_frame = frame; }
     Evas_Object* webFrame() const { return m_frame; }
     Evas_Object* webView() const { return m_view; }
 
-    void setCustomUserAgent(const String &agent);
+    void setCustomUserAgent(const String&);
     const String& customUserAgent() const;
 
     virtual bool hasWebView() const;
     virtual bool hasFrameView() const;
 
-    void callPolicyFunction(FramePolicyFunction function, PolicyAction action);
+    void callPolicyFunction(FramePolicyFunction, PolicyAction);
 
-    virtual void makeRepresentation(DocumentLoader*);
+    virtual void makeRepresentation(DocumentLoader*) { }
     virtual void forceLayout();
     virtual void forceLayoutForNonHTML();
 
@@ -81,9 +81,6 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void dispatchDidPushStateWithinPage();
     virtual void dispatchDidPopStateWithinPage();
     virtual void dispatchDidReplaceStateWithinPage();
-    virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
-    virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
-    virtual void dispatchDidChangeBackForwardIndex() const;
     virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
 
     virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long  identifier, const AuthenticationChallenge&);
@@ -122,27 +119,23 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual void dispatchUnableToImplementPolicy(const ResourceError&);
 
-    virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
+    virtual void dispatchWillSendSubmitEvent(WTF::PassRefPtr<FormState>) { }
     virtual void dispatchWillSubmitForm(FramePolicyFunction, WTF::PassRefPtr<FormState>);
 
-    virtual void dispatchDidLoadMainResource(DocumentLoader*);
-    virtual void revertToProvisionalState(DocumentLoader*);
+    virtual void revertToProvisionalState(DocumentLoader*) { }
     virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
 
     virtual void postProgressStartedNotification();
     virtual void postProgressEstimateChangedNotification();
     virtual void postProgressFinishedNotification();
 
-    virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
+    virtual PassRefPtr<Frame> createFrame(const KURL&, const String& name, HTMLFrameOwnerElement*,
                                const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument(Page*);
-    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const ResourceRequest&, WebCore::Page*);
 
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool);
     virtual void redirectDataToPlugin(Widget* pluginWidget);
     virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const WTF::Vector<String>& paramNames, const WTF::Vector<String>& paramValues);
     virtual String overrideMediaType() const;
-    virtual void windowObjectCleared();
     virtual void documentElementAvailable();
 
     virtual void didPerformFirstNavigation() const;
@@ -153,7 +146,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual void setMainFrameDocumentReady(bool);
 
-    virtual void startDownload(const ResourceRequest&);
+    virtual void startDownload(const ResourceRequest&, const String& suggestedName = String());
 
     virtual void willChangeTitle(DocumentLoader*);
     virtual void didChangeTitle(DocumentLoader*);
@@ -167,11 +160,12 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
     virtual void didDisplayInsecureContent();
     virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
+    virtual void didDetectXSS(const KURL&, bool didBlockEntirePage);
 
     virtual ResourceError cancelledError(const ResourceRequest&);
     virtual ResourceError blockedError(const ResourceRequest&);
     virtual ResourceError cannotShowURLError(const ResourceRequest&);
-    virtual ResourceError interruptForPolicyChangeError(const ResourceRequest&);
+    virtual ResourceError interruptedForPolicyChangeError(const ResourceRequest&);
 
     virtual ResourceError cannotShowMIMETypeError(const ResourceResponse&);
     virtual ResourceError fileDoesNotExistError(const ResourceResponse&);
@@ -207,7 +201,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void dispatchDidBecomeFrameset(bool);
 
     virtual bool canCachePage() const;
-    virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
+    virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceResponse&);
 
     virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
  private:

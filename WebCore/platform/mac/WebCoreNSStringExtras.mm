@@ -41,6 +41,11 @@ BOOL hasCaseInsensitiveSuffix(NSString *string, NSString *suffix)
     return [string rangeOfString:suffix options:(NSCaseInsensitiveSearch | NSBackwardsSearch | NSAnchoredSearch)].location != NSNotFound;
 }
 
+BOOL hasCaseInsensitivePrefix(NSString *string, NSString *prefix)
+{
+    return [string rangeOfString:prefix options:(NSCaseInsensitiveSearch | NSAnchoredSearch)].location != NSNotFound;
+}
+
 BOOL hasCaseInsensitiveSubstring(NSString *string, NSString *substring)
 {
     return [string rangeOfString:substring options:NSCaseInsensitiveSearch].location != NSNotFound;
@@ -67,6 +72,13 @@ NSString *filenameByFixingIllegalCharacters(NSString *string)
     
     return filename;
 }
+
+#if !PLATFORM(IOS)
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 CFStringEncoding stringEncodingForResource(Handle resource)
 {
@@ -110,3 +122,8 @@ CFStringEncoding stringEncodingForResource(Handle resource)
     return encoding;
 }
 
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+
+#endif // !PLATFORM(IOS)

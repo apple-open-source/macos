@@ -26,7 +26,11 @@
 
 module svg {
 
-    interface [Conditional=SVG, ObjCProtocol, OmitConstructor] SVGFitToViewBox {
+    interface [
+        Conditional=SVG,
+        ObjCProtocol,
+        OmitConstructor
+    ] SVGFitToViewBox {
         readonly attribute SVGAnimatedRect                viewBox;
         readonly attribute SVGAnimatedPreserveAspectRatio preserveAspectRatio;
     };

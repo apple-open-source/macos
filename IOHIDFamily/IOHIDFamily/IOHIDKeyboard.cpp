@@ -117,8 +117,8 @@ IOHIDKeyboard::start(IOService *provider)
     productIDVal    = _provider->getProductID();
     vendorIDVal     = _provider->getVendorID();
 
-    xml_swap_CTRL_CAPSLOCK = OSDynamicCast( OSNumber, provider->getProperty("Swap control and capslock"));
-    if (xml_swap_CTRL_CAPSLOCK)
+    xml_swap_CTRL_CAPSLOCK = (OSNumber*)provider->copyProperty("Swap control and capslock");
+    if (OSDynamicCast( OSNumber, xml_swap_CTRL_CAPSLOCK ))
     {
         if ( xml_swap_CTRL_CAPSLOCK->unsigned32BitValue())
         {
@@ -129,9 +129,10 @@ IOHIDKeyboard::start(IOService *provider)
                 _usb_2_adb_keymap[0xe0] = temp;
         }
     }
+    OSSafeReleaseNULL(xml_swap_CTRL_CAPSLOCK);
 
-    xml_swap_CMD_ALT = OSDynamicCast( OSNumber, provider->getProperty("Swap command and alt"));
-    if (xml_swap_CMD_ALT)
+    xml_swap_CMD_ALT = (OSNumber*)provider->copyProperty("Swap command and alt");
+    if (OSDynamicCast( OSNumber, xml_swap_CMD_ALT ))
     {
         if ( xml_swap_CMD_ALT->unsigned32BitValue())
         {
@@ -147,9 +148,10 @@ IOHIDKeyboard::start(IOService *provider)
     
         }
     }
+    OSSafeReleaseNULL(xml_swap_CMD_ALT);
 
-	xml_use_pc_keyboard = OSDynamicCast( OSNumber, provider->getProperty("Use PC keyboard"));
-	if (xml_use_pc_keyboard)
+	xml_use_pc_keyboard = (OSNumber*)provider->copyProperty("Use PC keyboard");
+	if (OSDynamicCast( OSNumber, xml_use_pc_keyboard ))
 	{
         if ( xml_use_pc_keyboard->unsigned32BitValue())
         {
@@ -165,6 +167,7 @@ IOHIDKeyboard::start(IOService *provider)
             _usb_2_adb_keymap[0xe4] = temp;                      // Right control becomes right alt
         }
 	}
+    OSSafeReleaseNULL(xml_use_pc_keyboard);
 
     // Need separate thread to handle LED
     _asyncLEDThread = thread_call_allocate((thread_call_func_t)_asyncLED, (thread_call_param_t)this);
@@ -369,13 +372,15 @@ IOHIDKeyboard::deviceType ( void )
         id = _deviceType;
     }
     //Info.plist key is <integer>, not <string>
-    else if ( ( xml_handlerID = OSDynamicCast(OSNumber, _provider->getProperty("alt_handler_id")) ) )
-    {
+    else {
+        xml_handlerID = (OSNumber*)_provider->copyProperty("alt_handler_id");
+        if ( OSDynamicCast(OSNumber, xml_handlerID) ) {
         id = xml_handlerID->unsigned32BitValue();
     }
-    else
-    {
+        else {
         id = handlerID();
+    }
+        OSSafeReleaseNULL(xml_handlerID);
     }
     
     // ISO specific mappign to match ADB keyboards

@@ -22,12 +22,12 @@
 #define SVGLangSpace_h
 
 #if ENABLE(SVG)
-#include <wtf/text/AtomicString.h>
+#include "QualifiedName.h"
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 
 class Attribute;
-class QualifiedName;
 
 class SVGLangSpace {
 public:
@@ -37,8 +37,9 @@ public:
     const AtomicString& xmlspace() const;
     void setXmlspace(const AtomicString& xmlSpace);
 
-    bool parseMappedAttribute(Attribute*);
+    bool parseAttribute(Attribute*);
     bool isKnownAttribute(const QualifiedName&);
+    void addSupportedAttributes(HashSet<QualifiedName>&);
 
 private:
     AtomicString m_lang;

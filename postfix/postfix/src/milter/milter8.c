@@ -1255,11 +1255,13 @@ static const char *milter8_event(MILTER8 *milter, int event,
 				  MILTER8_DATA_BUFFER, milter->buf,
 				  MILTER8_DATA_END) != 0)
 		MILTER8_EVENT_BREAK(milter->def_reply);
+	    /* XXX Enforce this for each line of a multi-line reply. */
 	    if ((STR(milter->buf)[0] != '4' && STR(milter->buf)[0] != '5')
 		|| !ISDIGIT(STR(milter->buf)[1])
 		|| !ISDIGIT(STR(milter->buf)[2])
 		|| (STR(milter->buf)[3] != ' ' && STR(milter->buf)[3] != '-')
-		|| STR(milter->buf)[4] != STR(milter->buf)[0]) {
+		|| (ISDIGIT(STR(milter->buf)[4])
+		    && (STR(milter->buf)[4] != STR(milter->buf)[0]))) {
 		msg_warn("milter %s: malformed reply: %s",
 			 milter->m.name, STR(milter->buf));
 		milter8_conf_error(milter);
@@ -2500,6 +2502,7 @@ static const char *milter8_message(MILTER *m, VSTREAM *qfile,
     int     mime_errs = 0;
     MILTER_MSG_CONTEXT msg_ctx;
     VSTRING *buf;
+    int     saved_errno;
 
     switch (milter->state) {
     case MILTER8_STAT_ERROR:
@@ -2513,8 +2516,12 @@ static const char *milter8_message(MILTER *m, VSTREAM *qfile,
 	if (msg_verbose)
 	    msg_info("%s: message to milter %s", myname, milter->m.name);
 	if (vstream_fseek(qfile, data_offset, SEEK_SET) < 0) {
+	    saved_errno = errno;
 	    msg_warn("%s: vstream_fseek %s: %m", myname, VSTREAM_PATH(qfile));
-	    return ("450 4.3.0 Queue file write error");
+	    /* XXX This should be available from cleanup_strerror.c. */
+	    return (saved_errno == EFBIG ?
+		    "552 5.3.4 Message file too big" :
+		    "451 4.3.0 Queue file write error");
 	}
 	msg_ctx.milter = milter;
 	msg_ctx.eoh_macros = eoh_macros;

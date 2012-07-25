@@ -96,7 +96,12 @@ bool AccessibilityMenuListOption::canSetSelectedAttribute() const
     return isEnabled();
 }
 
-IntRect AccessibilityMenuListOption::elementRect() const
+bool AccessibilityMenuListOption::accessibilityIsIgnored() const
+{
+    return accessibilityPlatformIncludesObject() != IgnoreObject;
+}
+
+LayoutRect AccessibilityMenuListOption::elementRect() const
 {
     AccessibilityObject* parent = parentObject();
     ASSERT(parent->isMenuListPopup());

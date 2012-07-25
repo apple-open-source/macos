@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2006, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,19 +47,6 @@ SCDynamicStoreCopyLocation(SCDynamicStoreRef store)
 	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
 	CFStringRef		location	= NULL;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyLocation"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
-			return NULL;
-		}
-		tempSession = TRUE;
-	}
 
 	key  = SCDynamicStoreKeyCreateLocation(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -70,7 +57,8 @@ SCDynamicStoreCopyLocation(SCDynamicStoreRef store)
 	}
 
 	location = CFDictionaryGetValue(dict, kSCDynamicStorePropSetupCurrentSet);
-	if (!isA_CFString(location)) {
+	location = isA_CFString(location);
+	if (location == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		goto done;
 	}
@@ -80,7 +68,6 @@ SCDynamicStoreCopyLocation(SCDynamicStoreRef store)
     done :
 
 
-	if (tempSession)	CFRelease(store);
 	if (dict)		CFRelease(dict);
 
 	return location;

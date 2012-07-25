@@ -301,7 +301,8 @@ static TLS_SESS_STATE *imap_starttls(VSTREAM *stream,
 	TLS_CLIENT_INIT_PROPS init_props;
 
 	tls_ctx = TLS_CLIENT_INIT(&init_props,
-				  log_level = 0,
+				  log_param = VAR_SMTPD_TLS_LOGLEVEL,
+				  log_level = var_smtpd_tls_loglevel,
 				  verifydepth = DEF_SMTP_TLS_SCERT_VD,
 						/* XXX TLS_MGR_SCACHE_IMAP? */
 				  cache_type = TLS_MGR_SCACHE_SMTPD,
@@ -323,7 +324,6 @@ static TLS_SESS_STATE *imap_starttls(VSTREAM *stream,
     sess_ctx = TLS_CLIENT_START(&start_props,
 				ctx = tls_ctx,
 				stream = stream,
-				log_level = 0,
 				timeout = 30,
 				tls_level = TLS_LEV_ENCRYPT,
 				nexthop = "",
@@ -363,7 +363,7 @@ static bool imap_capable_of(VSTREAM *stream, const struct imap_server *is,
 	vstring_sprintf(request, "C CAPABILITY");
 	smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
 
-	while (smtp_get(response, stream, 0) == '\n') {
+	while (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) == '\n') {
 	    if (VSTRING_LEN(response) >= 13 &&
 		strncasecmp(vstring_str(response), "* CAPABILITY ", 13) == 0)
 		capabilities = mystrdup(vstring_str(response) + 13);
@@ -494,7 +494,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
     }
 
     /* read server greeting */
-    if (smtp_get(response, stream, 0) != '\n' || VSTRING_LEN(response) < 4 ||
+    if (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) != '\n' || VSTRING_LEN(response) < 4 ||
 	strncasecmp(vstring_str(response), "* OK", 4) != 0) {
 	msg_warn("bad greeting from IMAP server %s: %s", is->hostport,
 		 vstring_str(response));
@@ -511,7 +511,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
 	vstring_sprintf(request, "S STARTTLS");
 	smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
 
-	while (smtp_get(response, stream, 0) == '\n') {
+	while (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) == '\n') {
 	    if (VSTRING_LEN(response) >= 2 &&
 		strncasecmp(vstring_str(response), "S ", 2) == 0)
 		break;
@@ -554,7 +554,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
 		    plain ? "PLAIN" : "X-PLAIN-SUBMIT");
     smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
 
-    while (smtp_get(response, stream, 0) == '\n') {
+    while (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) == '\n') {
 	if (VSTRING_LEN(response) >= 1 &&
 	    strncmp(vstring_str(response), "+", 1) == 0)
 	    break;
@@ -582,7 +582,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
     base64_encode(request, vstring_str(response), VSTRING_LEN(response));
     smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
 
-    while (smtp_get(response, stream, 0) == '\n') {
+    while (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) == '\n') {
 	if (VSTRING_LEN(response) >= 2 &&
 	    strncasecmp(vstring_str(response), "A ", 2) == 0)
 	    break;
@@ -605,7 +605,7 @@ VSTREAM *imap_open(SMTPD_STATE *state, const char *url)
     vstring_sprintf(request, "U URLFETCH \"%s\"", url);
     smtp_fputs(vstring_str(request), VSTRING_LEN(request), stream);
 
-    while (smtp_get(response, stream, 0) == '\n') {
+    while (smtp_get(response, stream, 0, SMTP_GET_FLAG_NONE) == '\n') {
 	if (VSTRING_LEN(response) >= 11 &&
 	    strncasecmp(vstring_str(response), "* URLFETCH ", 11) == 0)
 	    break;

@@ -30,6 +30,12 @@ import <IOKit/pwr_mgt/powermanagement_mig.h>;
 subsystem powermanagement 73000; 
 serverprefix _;
 
+routine io_pm_get_value_int(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+        in  selector    : int;
+        out value       : int);
+
 // PM Settings
 routine io_pm_force_active_settings(
             server      : mach_port_t;
@@ -181,3 +187,22 @@ routine io_pm_hid_event_copy_history(
             out eventArray : pointer_t, dealloc;
             out return_val : int);
 
+routine io_pm_set_debug_flags(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in  newFlags   : uint32_t;
+            out oldFlags   : uint32_t;
+            out return_val : int);
+
+routine io_pm_set_bt_wake_interval(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in  newInterval   : uint32_t;
+            out oldInterval   : uint32_t;
+            out return_val    : int);
+
+routine io_pm_set_sleepservice_wake_time_cap(
+            server      : mach_port_t;
+ServerAuditToken token  : audit_token_t;
+            in  cap_time   : int;
+            out return_val : int);

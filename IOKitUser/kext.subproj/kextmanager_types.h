@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,4 +50,4 @@ typedef char posix_path_t[MAXPATHLEN];
 typedef char * xmlDataOut_t;
 typedef char * xmlDataIn_t;
 
-#endif __KEXT_TYPES_H__
+#endif /* __KEXT_TYPES_H__ */

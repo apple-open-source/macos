@@ -34,13 +34,23 @@ namespace WebCore {
 DrawingBuffer::DrawingBuffer(GraphicsContext3D* context,
                              const IntSize& size,
                              bool multisampleExtensionSupported,
-                             bool packedDepthStencilExtensionSupported)
-    : m_context(context)
+                             bool packedDepthStencilExtensionSupported,
+                             PreserveDrawingBuffer preserveDrawingBuffer,
+                             AlphaRequirement alpha)
+    : m_preserveDrawingBuffer(preserveDrawingBuffer)
+    , m_alpha(alpha)
+    , m_scissorEnabled(false)
+    , m_texture2DBinding(0)
+    , m_framebufferBinding(0)
+    , m_activeTextureUnit(GraphicsContext3D::TEXTURE0)
+    , m_context(context)
     , m_size(-1, -1)
     , m_multisampleExtensionSupported(multisampleExtensionSupported)
     , m_packedDepthStencilExtensionSupported(packedDepthStencilExtensionSupported)
     , m_fbo(context->createFramebuffer())
     , m_colorBuffer(0)
+    , m_frontColorBuffer(0)
+    , m_separateFrontTexture(false)
     , m_depthStencilBuffer(0)
     , m_depthBuffer(0)
     , m_stencilBuffer(0)
@@ -71,21 +81,30 @@ DrawingBuffer::~DrawingBuffer()
     clear();
 }
 
-void DrawingBuffer::didReset()
-{
-}
-
 #if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* DrawingBuffer::platformLayer()
 {
     return 0;
 }
-#endif
 
-Platform3DObject DrawingBuffer::platformColorBuffer() const
+void DrawingBuffer::prepareBackBuffer()
 {
-    return m_colorBuffer;
 }
+
+bool DrawingBuffer::requiresCopyFromBackToFrontBuffer() const
+{
+    return false;
+}
+
+unsigned DrawingBuffer::frontColorBuffer() const
+{
+    return colorBuffer();
+}
+
+void DrawingBuffer::paintCompositedResultsToCanvas(CanvasRenderingContext* context)
+{
+}
+#endif
 
 }
 

@@ -91,6 +91,9 @@ public:
 
     virtual bool start( IOService * provider );
     virtual IOReturn setProperties( OSObject * properties );
+
+private:
+    virtual IOReturn extPostEvent(void*,void*,void*,void*,void*,void*);
 };
 
 class IOHIDStackShotUserClient : public IOUserClient

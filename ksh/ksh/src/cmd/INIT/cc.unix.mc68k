@@ -2,8 +2,8 @@
 
 HOSTTYPE=unix.mc68k
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 # /bin/cc predates ANSI C; use gcc

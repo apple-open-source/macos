@@ -41,7 +41,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <zlib.h>
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
+#else
 #include <openssl/evp.h>
+#endif
 
 #include "xar.h"
 #include "hash.h"
@@ -50,10 +55,63 @@
 #include "asprintf.h"
 #endif
 
+#ifdef __APPLE__
+
+// The following value is of coure tweakable but this should serve for now.
+#define MAX_HASH_NAME_LENGTH 32 
+
+CCDigestRef digestRef_from_name(const char* name, unsigned int *outHashSize)
+{
+    CCDigestRef result = NULL;
+    
+    if (NULL != outHashSize)
+    {
+        *outHashSize = 0;
+    }
+    
+    if (!strcasecmp(name, "sha") || !strcasecmp(name, "sha1"))
+    {
+        result = CCDigestCreate(kCCDigestSHA1);
+        if (NULL != outHashSize)
+        {
+            *outHashSize = CC_SHA1_DIGEST_LENGTH;
+        }
+    }
+    else if (!strcasecmp(name, "md5"))
+    {
+        result = CCDigestCreate(kCCDigestMD5);
+        if (NULL != outHashSize)
+        {
+            *outHashSize = CC_MD5_DIGEST_LENGTH;
+        }
+    }
+    else if (!strcasecmp(name, "md2"))
+    {
+        result = CCDigestCreate(kCCDigestMD2); 
+        if (NULL != outHashSize)
+        {
+            *outHashSize = CC_MD2_DIGEST_LENGTH;
+        }
+    }
+    
+    return result;
+                
+}
+#endif // __APPLE__
+
 
 struct _hash_context{
+#ifdef __APPLE__
+    CCDigestRef unarchived_cts;
+    const char unarchived_ctx_name[MAX_HASH_NAME_LENGTH];
+    unsigned int unarchived_digest_size;
+    CCDigestRef archived_cts;
+    const char archived_ctx_name[MAX_HASH_NAME_LENGTH];
+    unsigned int archived_digest_size;
+#else
 	EVP_MD_CTX unarchived_cts;
 	EVP_MD_CTX archived_cts;
+#endif // !__APPLE__
 	uint8_t	unarchived;
 	uint8_t archived;
 	uint64_t count;
@@ -69,7 +127,10 @@ int32_t xar_hash_unarchived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size
 
 int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context) {
 	const char *opt;
-	const EVP_MD *md;
+#ifndef __APPLE__
+ 	const EVP_MD *md;
+#endif // !__APPLE__
+    
 	xar_prop_t tmpp;
 
 	opt = NULL;
@@ -85,21 +146,35 @@ int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, s
 	
 	if(!CONTEXT(context)){
 		*context = calloc(1,sizeof(struct _hash_context));
+#ifndef __APPLE__
 		OpenSSL_add_all_digests();
+#endif // !__APPLE__
 	}
 	
 	if( !CONTEXT(context)->unarchived ){
+
+#ifdef __APPLE__
+        CONTEXT(context)->unarchived_cts = digestRef_from_name(opt, &CONTEXT(context)->unarchived_digest_size);
+        if (NULL == CONTEXT(context)->unarchived_cts)  return -1;
+        strncpy((char *)(CONTEXT(context)->unarchived_ctx_name), opt, MAX_HASH_NAME_LENGTH);
+#else
 		md = EVP_get_digestbyname(opt);
 		if( md == NULL ) return -1;
 		EVP_DigestInit(&(CONTEXT(context)->unarchived_cts), md);
-		CONTEXT(context)->unarchived = 1;		
+#endif // __APPLE__
+		CONTEXT(context)->unarchived = 1;	
+
 	}
 		
 	if( inlen == 0 )
 		return 0;
 	
 	CONTEXT(context)->count += inlen;
+#ifdef __APPLE__
+    CCDigestUpdate(CONTEXT(context)->unarchived_cts, in, inlen);
+#else
 	EVP_DigestUpdate(&(CONTEXT(context)->unarchived_cts), in, inlen);
+#endif // __APPLE__
 	return 0;
 }
 
@@ -110,7 +185,9 @@ int32_t xar_hash_archived(xar_t x, xar_file_t f, xar_prop_t p, void **in, size_t
 
 int32_t xar_hash_archived_in(xar_t x, xar_file_t f, xar_prop_t p, void *in, size_t inlen, void **context) {
 	const char *opt;
+#ifndef __APPLE__
 	const EVP_MD *md;
+#endif
 	xar_prop_t tmpp;
 	
 	opt = NULL;
@@ -126,13 +203,21 @@ int32_t xar_hash_archived_in(xar_t x, xar_file_t f, xar_prop_t p, void *in, size
 		
 	if(!CONTEXT(context)){
 		*context = calloc(1,sizeof(struct _hash_context));
+#ifndef __APPLE__
 		OpenSSL_add_all_digests();
+#endif // !__APPLE__
 	}
 	
 	if ( !CONTEXT(context)->archived ){
+#ifdef __APPLE__
+        CONTEXT(context)->archived_cts = digestRef_from_name(opt, &CONTEXT(context)->archived_digest_size);
+        if (NULL == CONTEXT(context)->archived_cts) return -1;
+        strncpy((char *)(CONTEXT(context)->archived_ctx_name), opt, MAX_HASH_NAME_LENGTH);
+#else
 		md = EVP_get_digestbyname(opt);
 		if( md == NULL ) return -1;
-		EVP_DigestInit(&(CONTEXT(context)->archived_cts), md);		
+		EVP_DigestInit(&(CONTEXT(context)->archived_cts), md);	
+#endif
 		CONTEXT(context)->archived = 1;		
 	}
 
@@ -140,12 +225,20 @@ int32_t xar_hash_archived_in(xar_t x, xar_file_t f, xar_prop_t p, void *in, size
 		return 0;
 
 	CONTEXT(context)->count += inlen;
+#ifdef __APPLE__
+    CCDigestUpdate(CONTEXT(context)->archived_cts, in, inlen);
+#else
 	EVP_DigestUpdate(&(CONTEXT(context)->archived_cts), in, inlen);
+#endif // __APPLE__
 	return 0;
 }
 
 int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
+#ifdef __APPLE__
+    unsigned char hashstr[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
+#else
 	unsigned char hashstr[EVP_MAX_MD_SIZE];
+#endif // __APPLE__
 	char *str;
 	unsigned int len;
 	xar_prop_t tmpp;
@@ -157,12 +250,26 @@ int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
 		goto DONE;
 
 	if( CONTEXT(context)->unarchived ){
+#ifdef __APPLE__
+        CCDigestRef ctx  = CONTEXT(context)->unarchived_cts;
+        const char *type  = CONTEXT(context)->unarchived_ctx_name;
+#else
 		EVP_MD_CTX		*ctx = &CONTEXT(context)->unarchived_cts;
 		const EVP_MD			*md = EVP_MD_CTX_md(ctx);
-		const char *type = EVP_MD_name(md);
+        const char *type = EVP_MD_name(md);
+#endif // __APPLE__
+ 
+		
 
 		memset(hashstr, 0, sizeof(hashstr));
+#ifdef __APPLE__
+        CCDigestFinal(CONTEXT(context)->unarchived_cts, hashstr);
+        CCDigestDestroy(CONTEXT(context)->unarchived_cts);
+        CONTEXT(context)->unarchived_cts = NULL;
+        len = CONTEXT(context)->unarchived_digest_size;
+#else
 		EVP_DigestFinal(&(CONTEXT(context)->unarchived_cts), hashstr, &len);
+#endif
 		str = xar_format_hash(hashstr,len);
 		if( f ) {
 			tmpp = xar_prop_pset(f, p, "extracted-checksum", str);
@@ -173,12 +280,24 @@ int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
 	}
 
 	if( CONTEXT(context)->archived ){
+#ifdef __APPLE__
+        const char		*type = CONTEXT(context)->archived_ctx_name;
+#else
 		EVP_MD_CTX				*ctx = &CONTEXT(context)->archived_cts;
 		const EVP_MD			*md = EVP_MD_CTX_md(ctx);
 		const char		*type = EVP_MD_name(md);
+#endif // __APPLE__
 		
 		memset(hashstr, 0, sizeof(hashstr));
+#ifdef __APPLE__
+        CCDigestFinal(CONTEXT(context)->archived_cts, hashstr);
+        CCDigestDestroy(CONTEXT(context)->archived_cts);
+        CONTEXT(context)->archived_cts = NULL;
+        len = CONTEXT(context)->archived_digest_size;
+#else
 		EVP_DigestFinal(&(CONTEXT(context)->archived_cts), hashstr, &len);
+#endif
+        
 		str = xar_format_hash(hashstr,len);
 		if( f ) {
 			tmpp = xar_prop_pset(f, p, "archived-checksum", str);
@@ -213,11 +332,19 @@ static char* xar_format_hash(const unsigned char* m,unsigned int len) {
 }
 
 int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
+    
 	const char *uncomp = NULL, *uncompstyle = NULL;
+#ifdef __APPLE__
+    unsigned char hashstr[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
+#else
 	unsigned char hashstr[EVP_MAX_MD_SIZE];
+#endif // __APPLE__
+    
 	unsigned int len;
 	char *tmpstr;
+#ifndef __APPLE__
 	const EVP_MD *md;
+#endif
 	int32_t err = 0;
 	xar_prop_t tmpp;
 
@@ -230,13 +357,24 @@ int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
 			uncompstyle = xar_attr_pget(f, tmpp, "style");
 			uncomp = xar_prop_getvalue(tmpp);
 		}
-		
-		md = EVP_get_digestbyname(uncompstyle);
 
+#ifdef __APPLE__        
+        if (uncomp && uncompstyle && CONTEXT(context)->archived ) {
+#else        
+		md = EVP_get_digestbyname(uncompstyle);
 		if( uncomp && uncompstyle && md && CONTEXT(context)->archived ) {
+#endif // __APPLE__
+
 			char *str;
 			memset(hashstr, 0, sizeof(hashstr));
+#ifdef __APPLE__
+            CCDigestFinal(CONTEXT(context)->archived_cts, hashstr);
+            CCDigestDestroy(CONTEXT(context)->archived_cts);
+            CONTEXT(context)->archived_cts = NULL;
+            len = CONTEXT(context)->archived_digest_size;
+#else
 			EVP_DigestFinal(&(CONTEXT(context)->archived_cts), hashstr, &len);
+#endif // __APPLE__
 			str = xar_format_hash(hashstr,len);
 			if(strcmp(uncomp, str) != 0) {
 				xar_err_new(x);
@@ -251,7 +389,14 @@ int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context) {
 	}
 	
 	if( CONTEXT(context)->unarchived )
+#ifdef __APPLE__
+        CCDigestFinal(CONTEXT(context)->unarchived_cts, hashstr);
+        CCDigestDestroy(CONTEXT(context)->unarchived_cts);
+        CONTEXT(context)->unarchived_cts = NULL;
+		len = CONTEXT(context)->unarchived_digest_size;
+#else
 	    EVP_DigestFinal(&(CONTEXT(context)->unarchived_cts), hashstr, &len);
+#endif // __APPLE__
 
 	if(*context){
 		free(*context);

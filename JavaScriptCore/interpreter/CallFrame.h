@@ -104,11 +104,39 @@ namespace JSC  {
         CallFrame* callerFrame() const { return this[RegisterFile::CallerFrame].callFrame(); }
 #if ENABLE(JIT)
         ReturnAddressPtr returnPC() const { return ReturnAddressPtr(this[RegisterFile::ReturnPC].vPC()); }
+        bool hasReturnPC() const { return !!this[RegisterFile::ReturnPC].vPC(); }
+        void clearReturnPC() { registers()[RegisterFile::ReturnPC] = static_cast<Instruction*>(0); }
 #endif
         AbstractPC abstractReturnPC(JSGlobalData& globalData) { return AbstractPC(globalData, this); }
+#if USE(JSVALUE32_64)
+        unsigned bytecodeOffsetForNonDFGCode() const;
+        void setBytecodeOffsetForNonDFGCode(unsigned offset);
+#else
+        unsigned bytecodeOffsetForNonDFGCode() const
+        {
+            ASSERT(codeBlock());
+            return this[RegisterFile::ArgumentCount].tag();
+        }
+        
+        void setBytecodeOffsetForNonDFGCode(unsigned offset)
+        {
+            ASSERT(codeBlock());
+            this[RegisterFile::ArgumentCount].tag() = static_cast<int32_t>(offset);
+        }
+#endif
+
+        Register* frameExtent()
+        {
+            if (!codeBlock())
+                return registers();
+            return frameExtentInternal();
+        }
+    
+        Register* frameExtentInternal();
+    
 #if ENABLE(DFG_JIT)
         InlineCallFrame* inlineCallFrame() const { return this[RegisterFile::ReturnPC].asInlineCallFrame(); }
-        unsigned codeOriginIndexForDFGWithInlining() const { return this[RegisterFile::ArgumentCount].tag(); }
+        unsigned codeOriginIndexForDFG() const { return this[RegisterFile::ArgumentCount].tag(); }
 #else
         // This will never be called if !ENABLE(DFG_JIT) since all calls should be guarded by
         // isInlineCallFrame(). But to make it easier to write code without having a bunch of
@@ -119,8 +147,21 @@ namespace JSC  {
             return 0;
         }
 #endif
-#if ENABLE(INTERPRETER)
+#if ENABLE(CLASSIC_INTERPRETER)
         Instruction* returnVPC() const { return this[RegisterFile::ReturnPC].vPC(); }
+#endif
+#if USE(JSVALUE32_64)
+        Instruction* currentVPC() const
+        {
+            return bitwise_cast<Instruction*>(this[RegisterFile::ArgumentCount].tag());
+        }
+        void setCurrentVPC(Instruction* vpc)
+        {
+            this[RegisterFile::ArgumentCount].tag() = bitwise_cast<int32_t>(vpc);
+        }
+#else
+        Instruction* currentVPC() const;
+        void setCurrentVPC(Instruction* vpc);
 #endif
 
         void setCallerFrame(CallFrame* callerFrame) { static_cast<Register*>(this)[RegisterFile::CallerFrame] = callerFrame; }

@@ -35,8 +35,9 @@ namespace WebKit {
 
 enum WebPopupType {
     WebPopupTypeNone, // Not a popup.
-    WebPopupTypeSelect, // A HTML select (combo-box) popup.
+    WebPopupTypeSelect, // An HTML select (combo-box) popup.
     WebPopupTypeSuggestion, // An autofill/autocomplete popup.
+    WebPopupTypePage, // An HTML-capable popup.
 };
 
 } // namespace WebKit

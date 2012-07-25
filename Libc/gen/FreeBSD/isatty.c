@@ -35,14 +35,22 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/isatty.c,v 1.6 2007/01/09 00:27:54 imp Exp 
 
 #include <termios.h>
 #include <unistd.h>
+#include <sys/filio.h>
+#include <sys/conf.h>
+#include <sys/ioctl.h>
+#include <errno.h>
 
 int
 isatty(fd)
 	int fd;
 {
-	int retval;
+	int retval, type;
 	struct termios t;
 
-	retval = (tcgetattr(fd, &t) != -1);
+	if(ioctl(fd, FIODTYPE, &type) != -1) {
+	    if((retval = (type == D_TTY)) == 0)
+		errno = ENOTTY;
+	} else
+	    retval = (tcgetattr(fd, &t) != -1);
 	return(retval);
 }

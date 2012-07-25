@@ -42,15 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/exit.c,v 1.9 2007/01/09 00:28:09 imp Exp
 #include "libc_private.h"
 
 void (*__cleanup)(void);
-
-/*
- * This variable is zero until a process has created a thread.
- * It is used to avoid calling locking functions in libc when they
- * are not required. By default, libc is intended to be(come)
- * thread-safe, but without a (significant) penalty to non-threaded
- * processes.
- */
-int	__isthreaded	= 0;
+extern void __exit(int);
 
 /*
  * Exit, flushing stdio buffers if necessary.
@@ -59,13 +51,8 @@ void
 exit(status)
 	int status;
 {
-	/* Ensure that the auto-initialization routine is linked in: */
-	extern int _thread_autoinit_dummy_decl;
-
-	_thread_autoinit_dummy_decl = 1;
-
 	__cxa_finalize(NULL);
 	if (__cleanup)
 		(*__cleanup)();
-	_exit(status);
+	__exit(status);
 }

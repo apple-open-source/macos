@@ -62,6 +62,11 @@ krb5_kdc_pk_initialize (
 	char **/*pool*/,
 	char **/*revoke_list*/);
 
+krb5_error_code
+krb5_kdc_pkinit_config (
+	krb5_context /*context*/,
+	krb5_kdc_configuration */*config*/);
+
 int
 krb5_kdc_process_krb5_request (
 	krb5_context /*context*/,

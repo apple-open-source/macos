@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2009, International Business Machines
+*   Copyright (C) 1999-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -22,6 +22,7 @@
 #include "cstring.h"
 #include "filestrm.h"
 #include "unicode/udata.h"
+#include "unicode/utf16.h"
 #include "utrie.h"
 #include "unewdata.h"
 #include "gensprep.h"
@@ -196,8 +197,7 @@ static UNewTrie *sprepTrie;
 extern void
 init() {
 
-    sprepTrie = (UNewTrie *)uprv_malloc(sizeof(UNewTrie));
-    uprv_memset(sprepTrie, 0, sizeof(UNewTrie));
+    sprepTrie = (UNewTrie *)uprv_calloc(1, sizeof(UNewTrie));
 
     /* initialize the two tries */
     if(NULL==utrie_open(sprepTrie, NULL, MAX_DATA_LENGTH, 0, 0, FALSE)) {
@@ -253,9 +253,7 @@ storeMappingData(){
     elementCount = uhash_count(hashTable);
 
 	/*initialize the mapping data */
-    mappingData = (uint16_t*) uprv_malloc(U_SIZEOF_UCHAR * (mappingDataCapacity));
-
-    uprv_memset(mappingData,0,U_SIZEOF_UCHAR * mappingDataCapacity);
+    mappingData = (uint16_t*) uprv_calloc(mappingDataCapacity, U_SIZEOF_UCHAR);
 
     while(writtenElementCount < elementCount){
 
@@ -458,17 +456,15 @@ storeMapping(uint32_t codepoint, uint32_t* mapping,int32_t length,
          */
     }
 
-    map = (UChar*) uprv_malloc(U_SIZEOF_UCHAR * (adjustedLen+1));
-    uprv_memset(map,0,U_SIZEOF_UCHAR * (adjustedLen+1));
-
+    map = (UChar*) uprv_calloc(adjustedLen + 1, U_SIZEOF_UCHAR);
     i=0;
     
     while(i<length){
         if(mapping[i] <= 0xFFFF){
             map[i] = (uint16_t)mapping[i];
         }else{
-            map[i]   = UTF16_LEAD(mapping[i]);
-            map[i+1] = UTF16_TRAIL(mapping[i]);
+            map[i]   = U16_LEAD(mapping[i]);
+            map[i+1] = U16_TRAIL(mapping[i]);
         }
         i++;
     }
@@ -555,11 +551,9 @@ storeRange(uint32_t start, uint32_t end, UStringPrepType type,UErrorCode* status
 /* folding value: just store the offset (16 bits) if there is any non-0 entry */
 static uint32_t U_CALLCONV
 getFoldedValue(UNewTrie *trie, UChar32 start, int32_t offset) {
-    uint32_t foldedValue, value;
+    uint32_t value;
     UChar32 limit=0;
     UBool inBlockZero;
-
-    foldedValue=0;
 
     limit=start+0x400;
     while(start<limit) {

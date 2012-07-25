@@ -165,7 +165,7 @@ void    smtp_chat_reset(SMTP_SESSION *session)
 /* smtp_chat_append - append record to SMTP transaction log */
 
 static void smtp_chat_append(SMTP_SESSION *session, const char *direction,
-			     const char *data)
+			             const char *data)
 {
     char   *line;
 
@@ -255,10 +255,15 @@ SMTP_RESP *smtp_chat_resp(SMTP_SESSION *session)
      * Censor out non-printable characters in server responses. Concatenate
      * multi-line server responses. Separate the status code from the text.
      * Leave further parsing up to the application.
+     * 
+     * We can't parse or store input that exceeds var_line_limit, so we just
+     * skip over it to simplify the remainder of the code below.
      */
     VSTRING_RESET(rdata.str_buf);
     for (;;) {
-	last_char = smtp_get(session->buffer, session->stream, var_line_limit);
+	last_char = smtp_get(session->buffer, session->stream, var_line_limit,
+			     SMTP_GET_FLAG_SKIP);
+	/* XXX Update the per-line time limit. */
 	printable(STR(session->buffer), '?');
 	if (last_char != '\n')
 	    msg_warn("%s: response longer than %d: %.30s...",
@@ -295,6 +300,13 @@ SMTP_RESP *smtp_chat_resp(SMTP_SESSION *session)
 		    smtp_chat_append(session, "Replaced-by: ", "");
 		    smtp_chat_append(session, "     ", new_reply);
 		}
+	    } else if (smtp_chat_resp_filter->error != 0) {
+		msg_warn("%s: table %s:%s lookup error for %s",
+			 session->state->request->queue_id,
+			 smtp_chat_resp_filter->type,
+			 smtp_chat_resp_filter->name,
+			 printable(STR(session->buffer), '?'));
+		vstream_longjmp(session->stream, SMTP_ERR_DATA);
 	    }
 	}
 	if (chat_append_flag) {

@@ -24,7 +24,10 @@
  */
 
 module html {
-    interface [CustomNativeConverter, OmitConstructor] VoidCallback {
+    interface [
+        JSCustomToNativeObject,
+        OmitConstructor
+    ] VoidCallback {
         void handleEvent();
     };
 }

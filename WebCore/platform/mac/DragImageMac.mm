@@ -27,8 +27,10 @@
 #import "DragImage.h"
 
 #if ENABLE(DRAG_SUPPORT)
+#import "BitmapImage.h"
 #import "CachedImage.h"
 #import "Font.h"
+#import "FontCache.h"
 #import "FontDescription.h"
 #import "FontSelector.h"
 #import "GraphicsContext.h"
@@ -83,10 +85,40 @@ RetainPtr<NSImage> dissolveDragImageToFraction(RetainPtr<NSImage> image, float d
     return image;
 }
         
-RetainPtr<NSImage> createDragImageFromImage(Image* image)
+RetainPtr<NSImage> createDragImageFromImage(Image* image, RespectImageOrientationEnum shouldRespectImageOrientation)
 {
+    IntSize size = image->size();
+
+    if (image->isBitmapImage()) {
+        ImageOrientation orientation = DefaultImageOrientation;
+        BitmapImage* bitmapImage = static_cast<BitmapImage *>(image);
+        IntSize sizeRespectingOrientation = bitmapImage->sizeRespectingOrientation();
+
+        if (shouldRespectImageOrientation == RespectImageOrientation)
+            orientation = bitmapImage->currentFrameOrientation();
+
+        if (orientation != DefaultImageOrientation) {
+            // Construct a correctly-rotated copy of the image to use as the drag image.
+            RetainPtr<NSAffineTransform> cocoaTransform(AdoptNS, [[NSAffineTransform alloc] init]);
+            CGAffineTransform transform = orientation.transformFromDefault(sizeRespectingOrientation);
+            [cocoaTransform.get() setTransformStruct:*(NSAffineTransformStruct*)&transform];
+
+            FloatRect destRect(FloatPoint(), sizeRespectingOrientation);
+
+            RetainPtr<NSImage> rotatedDragImage(AdoptNS, [[NSImage alloc] initWithSize:(NSSize)(sizeRespectingOrientation)]);
+            [rotatedDragImage.get() lockFocus];
+            [cocoaTransform.get() concat];
+            if (orientation.usesWidthAsHeight())
+                destRect = FloatRect(destRect.x(), destRect.y(), destRect.height(), destRect.width());
+            [image->getNSImage() drawInRect:destRect fromRect:NSMakeRect(0, 0, size.width(), size.height()) operation:NSCompositeSourceOver fraction:1.0];
+            [rotatedDragImage.get() unlockFocus];
+
+            return rotatedDragImage;
+        }
+    }
+
     RetainPtr<NSImage> dragImage(AdoptNS, [image->getNSImage() copy]);
-    [dragImage.get() setSize:(NSSize)(image->size())];
+    [dragImage.get() setSize:(NSSize)size];
     return dragImage;
 }
     
@@ -156,8 +188,11 @@ static float widthWithFont(NSString *string, NSFont *font)
     [string getCharacters:buffer.data()];
     
     if (canUseFastRenderer(buffer.data(), length)) {
+        FontCachePurgePreventer fontCachePurgePreventer;
+
         Font webCoreFont(FontPlatformData(font, [font pointSize]), ![[NSGraphicsContext currentContext] isDrawingToScreen]);
         TextRun run(buffer.data(), length);
+        run.disableRoundingHacks();
         return webCoreFont.width(run);
     }
     
@@ -179,6 +214,8 @@ static void drawAtPoint(NSString *string, NSPoint point, NSFont *font, NSColor *
     [string getCharacters:buffer.data()];
     
     if (canUseFastRenderer(buffer.data(), length)) {
+        FontCachePurgePreventer fontCachePurgePreventer;
+
         // The following is a half-assed attempt to match AppKit's rounding rules for drawAtPoint.
         // It's probably incorrect for high DPI.
         // If you change this, be sure to test all the text drawn this way in Safari, including
@@ -196,6 +233,7 @@ static void drawAtPoint(NSString *string, NSPoint point, NSFont *font, NSColor *
             
         Font webCoreFont(FontPlatformData(font, [font pointSize]), ![nsContext isDrawingToScreen], Antialiased);
         TextRun run(buffer.data(), length);
+        run.disableRoundingHacks();
 
         CGFloat red;
         CGFloat green;

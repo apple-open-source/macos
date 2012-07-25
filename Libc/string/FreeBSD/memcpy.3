@@ -37,29 +37,45 @@
 .Os
 .Sh NAME
 .Nm memcpy
-.Nd copy byte string
+.Nd copy memory area
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In string.h
 .Ft void *
-.Fn memcpy "void *dst" "const void *src" "size_t len"
+.Fo memcpy
+.Fa "void *restrict s1"
+.Fa "const void *restrict s2"
+.Fa "size_t n"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn memcpy
 function
 copies
-.Fa len
-bytes from string
-.Fa src
-to string
-.Fa dst .
+.Fa n
+bytes from memory area
+.Fa s2
+to memory area
+.Fa s1 .
+If 
+.Fa s1
+and 
+.Fa s2
+overlap, behavior is undefined.
+Applications in which
+.Fa s1
+and 
+.Fa s2 
+might overlap should use
+.Xr memmove 3
+instead.
 .Sh RETURN VALUES
 The
 .Fn memcpy
 function
 returns the original value of
-.Fa dst .
+.Fa s1 .
 .Sh SEE ALSO
 .Xr bcopy 3 ,
 .Xr memccpy 3 ,
@@ -72,17 +88,3 @@ The
 function
 conforms to
 .St -isoC .
-.Sh BUGS
-In this implementation
-.Fn memcpy
-is implemented using
-.Xr bcopy 3 ,
-and therefore the strings may overlap.
-On other systems, copying overlapping strings may produce surprises.
-Programs intended to be portable should use
-.Xr memmove 3
-when
-.Fa src
-and
-.Fa dst
-may overlap.

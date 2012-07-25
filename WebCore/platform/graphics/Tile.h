@@ -20,57 +20,33 @@
 #ifndef Tile_h
 #define Tile_h
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 
 #include "IntPoint.h"
 #include "IntPointHash.h"
 #include "IntRect.h"
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-#if PLATFORM(QT)
-QT_BEGIN_NAMESPACE
-class QPixmap;
-class QRegion;
-QT_END_NAMESPACE
-#endif
-
 namespace WebCore {
-    
+
 class GraphicsContext;
-class TiledBackingStore;
 
 class Tile : public RefCounted<Tile> {
 public:
     typedef IntPoint Coordinate;
 
-    static PassRefPtr<Tile> create(TiledBackingStore* backingStore, const Coordinate& tileCoordinate) { return adoptRef(new Tile(backingStore, tileCoordinate)); }
-    ~Tile();
-    
-    bool isDirty() const;
-    void invalidate(const IntRect&);
-    Vector<IntRect> updateBackBuffer();
-    void swapBackBufferToFront();
-    bool isReadyToPaint() const;
-    void paint(GraphicsContext*, const IntRect&);
+    virtual ~Tile() { }
 
-    const Tile::Coordinate& coordinate() const { return m_coordinate; }
-    const IntRect& rect() const { return m_rect; }
-    
-    static void paintCheckerPattern(GraphicsContext*, const FloatRect&);
+    virtual bool isDirty() const = 0;
+    virtual void invalidate(const IntRect&) = 0;
+    virtual Vector<IntRect> updateBackBuffer() = 0;
+    virtual void swapBackBufferToFront() = 0;
+    virtual bool isReadyToPaint() const = 0;
+    virtual void paint(GraphicsContext*, const IntRect&) = 0;
 
-private:
-    Tile(TiledBackingStore*, const Coordinate&);
-    
-    TiledBackingStore* m_backingStore;
-    Coordinate m_coordinate;
-    IntRect m_rect;
-
-#if PLATFORM(QT)
-    QPixmap* m_buffer;
-    QPixmap* m_backBuffer;
-    QRegion* m_dirtyRegion;
-#endif
+    virtual const Tile::Coordinate& coordinate() const = 0;
+    virtual const IntRect& rect() const = 0;
+    virtual void resize(const WebCore::IntSize&) = 0;
 };
 
 }

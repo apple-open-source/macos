@@ -76,9 +76,7 @@ struct Expected {
 #define _UA_CLEANUP_PHASE_HANDLER_FRAME (_Unwind_Action)(_UA_CLEANUP_PHASE|_UA_HANDLER_FRAME)
 
 const Expected shouldBe[] = {
-	{ false, false, false, _UA_SEARCH_PHASE,					_URC_CONTINUE_UNWIND },
 	{ false, false, false, _UA_SEARCH_PHASE,					_URC_HANDLER_FOUND   },
-	{ false, false, false, _UA_CLEANUP_PHASE,					_URC_CONTINUE_UNWIND },
 	{ false, false, false, _UA_CLEANUP_PHASE_HANDLER_FRAME,		_URC_INSTALL_CONTEXT },
 	{ true,  false, false, _UA_SEARCH_PHASE,					_URC_CONTINUE_UNWIND },
 	{ true,  false, false, _UA_SEARCH_PHASE,					_URC_HANDLER_FOUND   },
@@ -163,7 +161,7 @@ int main()
 	catch (...) {
 		mainOuterCaught = true;
 	}
-	if ( count != 11 ) {
+	if ( count != 9 ) {
 		fprintf(stderr, "count=%d\n", count);
 		abort();
 	}

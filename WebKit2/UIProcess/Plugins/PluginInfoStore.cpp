@@ -26,6 +26,7 @@
 #include "config.h"
 #include "PluginInfoStore.h"
 
+#include "PluginModuleInfo.h"
 #include <WebCore/KURL.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <algorithm>
@@ -68,6 +69,16 @@ typedef ListHashSet<String, 32, CaseFoldingHash> PathHashSet;
 typedef ListHashSet<String, 32> PathHashSet;
 #endif
 
+static inline Vector<PluginModuleInfo> deepIsolatedCopyPluginInfoVector(const Vector<PluginModuleInfo>& vector)
+{
+    // Let the copy begin!
+    Vector<PluginModuleInfo> copy;
+    copy.reserveCapacity(vector.size());
+    for (unsigned i = 0; i < vector.size(); ++i)
+        copy.append(vector[i].isolatedCopy());
+    return copy;
+}
+
 void PluginInfoStore::loadPluginsIfNecessary()
 {
     if (m_pluginListIsUpToDate)
@@ -87,19 +98,20 @@ void PluginInfoStore::loadPluginsIfNecessary()
     // Then load plug-ins that are not in the standard plug-ins directories.
     addFromVector(uniquePluginPaths, individualPluginPaths());
 
-    Vector<Plugin> plugins;
+    Vector<PluginModuleInfo> plugins;
 
     PathHashSet::const_iterator end = uniquePluginPaths.end();
     for (PathHashSet::const_iterator it = uniquePluginPaths.begin(); it != end; ++it)
         loadPlugin(plugins, *it);
 
-    m_plugins.swap(plugins);
+    m_plugins = deepIsolatedCopyPluginInfoVector(plugins);
+
     m_pluginListIsUpToDate = true;
 }
 
-void PluginInfoStore::loadPlugin(Vector<Plugin>& plugins, const String& pluginPath)
+void PluginInfoStore::loadPlugin(Vector<PluginModuleInfo>& plugins, const String& pluginPath)
 {
-    Plugin plugin;
+    PluginModuleInfo plugin;
     
     if (!getPluginInfo(pluginPath, plugin))
         return;
@@ -110,21 +122,21 @@ void PluginInfoStore::loadPlugin(Vector<Plugin>& plugins, const String& pluginPa
     plugins.append(plugin);
 }
 
-Vector<PluginInfoStore::Plugin> PluginInfoStore::plugins()
+Vector<PluginModuleInfo> PluginInfoStore::plugins()
 {
+    MutexLocker locker(m_pluginsLock);
     loadPluginsIfNecessary();
-
-    Vector<Plugin> plugins(m_plugins);
-
-    return plugins;
+    return deepIsolatedCopyPluginInfoVector(m_plugins);
 }
 
-PluginInfoStore::Plugin PluginInfoStore::findPluginForMIMEType(const String& mimeType)
+PluginModuleInfo PluginInfoStore::findPluginForMIMEType(const String& mimeType) const
 {
+    MutexLocker locker(m_pluginsLock);
+
     ASSERT(!mimeType.isNull());
     
     for (size_t i = 0; i < m_plugins.size(); ++i) {
-        const Plugin& plugin = m_plugins[i];
+        const PluginModuleInfo& plugin = m_plugins[i];
         
         for (size_t j = 0; j < plugin.info.mimes.size(); ++j) {
             const MimeClassInfo& mimeClassInfo = plugin.info.mimes[j];
@@ -133,15 +145,17 @@ PluginInfoStore::Plugin PluginInfoStore::findPluginForMIMEType(const String& mim
         }
     }
     
-    return Plugin();
+    return PluginModuleInfo();
 }
 
-PluginInfoStore::Plugin PluginInfoStore::findPluginForExtension(const String& extension, String& mimeType)
+PluginModuleInfo PluginInfoStore::findPluginForExtension(const String& extension, String& mimeType) const
 {
+    MutexLocker locker(m_pluginsLock);
+
     ASSERT(!extension.isNull());
     
     for (size_t i = 0; i < m_plugins.size(); ++i) {
-        const Plugin& plugin = m_plugins[i];
+        const PluginModuleInfo& plugin = m_plugins[i];
         
         for (size_t j = 0; j < plugin.info.mimes.size(); ++j) {
             const MimeClassInfo& mimeClassInfo = plugin.info.mimes[j];
@@ -156,14 +170,14 @@ PluginInfoStore::Plugin PluginInfoStore::findPluginForExtension(const String& ex
         }
     }
     
-    return Plugin();
+    return PluginModuleInfo();
 }
 
 static inline String pathExtension(const KURL& url)
 {
     String extension;
     String filename = url.lastPathComponent();
-    if (!filename.endsWith("/")) {
+    if (!filename.endsWith('/')) {
         int extensionPos = filename.reverseFind('.');
         if (extensionPos != -1)
             extension = filename.substring(extensionPos + 1);
@@ -173,19 +187,27 @@ static inline String pathExtension(const KURL& url)
 }
 
 #if !PLATFORM(MAC)
+bool PluginInfoStore::shouldBlockPlugin(const PluginModuleInfo&) const
+{
+    return false;
+}
+
 String PluginInfoStore::getMIMETypeForExtension(const String& extension)
 {
     return MIMETypeRegistry::getMIMETypeForExtension(extension);
 }
 #endif
 
-PluginInfoStore::Plugin PluginInfoStore::findPlugin(String& mimeType, const KURL& url)
+PluginModuleInfo PluginInfoStore::findPlugin(String& mimeType, const KURL& url)
 {
-    loadPluginsIfNecessary();
+    {
+        MutexLocker locker(m_pluginsLock);
+        loadPluginsIfNecessary();
+    }
     
     // First, check if we can get the plug-in based on its MIME type.
     if (!mimeType.isNull()) {
-        Plugin plugin = findPluginForMIMEType(mimeType);
+        PluginModuleInfo plugin = findPluginForMIMEType(mimeType);
         if (!plugin.path.isNull())
             return plugin;
     }
@@ -193,14 +215,14 @@ PluginInfoStore::Plugin PluginInfoStore::findPlugin(String& mimeType, const KURL
     // Next, check if any plug-ins claim to support the URL extension.
     String extension = pathExtension(url).lower();
     if (!extension.isNull() && mimeType.isEmpty()) {
-        Plugin plugin = findPluginForExtension(extension, mimeType);
+        PluginModuleInfo plugin = findPluginForExtension(extension, mimeType);
         if (!plugin.path.isNull())
             return plugin;
         
         // Finally, try to get the MIME type from the extension in a platform specific manner and use that.
         String extensionMimeType = getMIMETypeForExtension(extension);
         if (!extensionMimeType.isNull()) {
-            Plugin plugin = findPluginForMIMEType(extensionMimeType);
+            PluginModuleInfo plugin = findPluginForMIMEType(extensionMimeType);
             if (!plugin.path.isNull()) {
                 mimeType = extensionMimeType;
                 return plugin;
@@ -208,18 +230,20 @@ PluginInfoStore::Plugin PluginInfoStore::findPlugin(String& mimeType, const KURL
         }
     }
     
-    return Plugin();
+    return PluginModuleInfo();
 }
 
-PluginInfoStore::Plugin PluginInfoStore::infoForPluginWithPath(const String& pluginPath)
+PluginModuleInfo PluginInfoStore::infoForPluginWithPath(const String& pluginPath) const
 {
+    MutexLocker locker(m_pluginsLock);
+
     for (size_t i = 0; i < m_plugins.size(); ++i) {
         if (m_plugins[i].path == pluginPath)
             return m_plugins[i];
     }
     
     ASSERT_NOT_REACHED();
-    return Plugin();
+    return PluginModuleInfo();
 }
 
 } // namespace WebKit

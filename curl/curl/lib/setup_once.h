@@ -42,7 +42,10 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -240,7 +243,6 @@ struct timeval {
 #  define sclose(x)  close((x))
 #endif
 
-
 /*
  * Uppercase macro versions of ANSI/ISO is*() functions/macros which
  * avoid negative number inputs with argument byte codes > 127.
@@ -255,9 +257,12 @@ struct timeval {
 #define ISPRINT(x)  (isprint((int)  ((unsigned char)x)))
 #define ISUPPER(x)  (isupper((int)  ((unsigned char)x)))
 #define ISLOWER(x)  (islower((int)  ((unsigned char)x)))
+#define ISASCII(x)  (isascii((int)  ((unsigned char)x)))
 
 #define ISBLANK(x)  (int)((((unsigned char)x) == ' ') || \
                           (((unsigned char)x) == '\t'))
+
+#define TOLOWER(x)  (tolower((int)  ((unsigned char)x)))
 
 
 /*
@@ -301,6 +306,27 @@ struct timeval {
 
 
 /*
+ * Macro WHILE_FALSE may be used to build single-iteration do-while loops,
+ * avoiding compiler warnings. Mostly intended for other macro definitions.
+ */
+
+#define WHILE_FALSE  while(0)
+
+#if defined(_MSC_VER) && !defined(__POCC__)
+#  undef WHILE_FALSE
+#  if (_MSC_VER < 1500)
+#    define WHILE_FALSE  while(1, 0)
+#  else
+#    define WHILE_FALSE \
+__pragma(warning(push)) \
+__pragma(warning(disable:4127)) \
+while(0) \
+__pragma(warning(pop))
+#  endif
+#endif
+
+
+/*
  * Typedef to 'int' if sig_atomic_t is not an available 'typedefed' type.
  */
 
@@ -337,7 +363,7 @@ typedef int sig_atomic_t;
 #ifdef DEBUGBUILD
 #define DEBUGF(x) x
 #else
-#define DEBUGF(x) do { } while (0)
+#define DEBUGF(x) do { } WHILE_FALSE
 #endif
 
 
@@ -348,7 +374,7 @@ typedef int sig_atomic_t;
 #if defined(DEBUGBUILD) && defined(HAVE_ASSERT_H)
 #define DEBUGASSERT(x) assert(x)
 #else
-#define DEBUGASSERT(x) do { } while (0)
+#define DEBUGASSERT(x) do { } WHILE_FALSE
 #endif
 
 
@@ -488,5 +514,5 @@ typedef int sig_atomic_t;
 
 #define ZERO_NULL 0
 
-#endif /* __SETUP_ONCE_H */
 
+#endif /* __SETUP_ONCE_H */

@@ -45,12 +45,15 @@
  * protected from any bad consequences of any resource leaks.
  */
 
+#include <bsm/audit.h>
+#include <bsm/libbsm.h>
 #include <libkern/OSAtomic.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <uuid/uuid.h>
 
 #include <bootstrap_priv.h>
 #include <asl.h>
@@ -70,7 +73,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <vproc.h>
-
 #ifdef VDEBUG
 #include <time.h>
 #include "/usr/local/include/vproc_priv.h"
@@ -102,7 +104,6 @@ union MaxMsgSize {
 
 #define	APPLE_PREFIX  "com.apple." /* Bootstrap name prefix */
 #define	MAXLABEL	256	/* Max bootstrap name */
-
 #define	MAXTHREADS 64		/* Max number of service threads */
 #define	NOBODY (uint32_t)-2	/* Default nobody user/group id */
 #define	TIMEOUT	30		/* 30 seconds and then bye. */
@@ -131,9 +132,9 @@ static char *	canonicalize_host(const char *, char **);
 static uint32_t str_to_svc_names(uint32_t *, const char *, gss_name_t *, uint32_t *);
 static void	gssd_init(void);
 static void *	receive_message(void *);
-static void 	new_worker_thread(void);
-static void 	end_worker_thread(void);
-static void 	compute_new_timeout(struct timespec *);
+static void	new_worker_thread(void);
+static void	end_worker_thread(void);
+static void	compute_new_timeout(struct timespec *);
 static void *	shutdown_thread(void *);
 static void	disable_timeout(int);
 static void *	timeout_thread(void *);
@@ -181,6 +182,7 @@ static gss_OID  mechtab[] = {
 	NULL, /* Place holder for GSS_KRB5_MECHANISM */
 	NULL, /* Place holder for GSS_SPNEGO_MECHANISM */
 	NULL, /* Place holder for GSS_NTLM_MECHANISM */
+	NULL, /* Place holder for GSS_IAKERB_MECHANISM */
 	NULL
 };
 
@@ -266,7 +268,7 @@ spnego_win2k_hack(gss_buffer_t token)
 	uint8_t *ptr, *eptr, *response, *start, *end;
 	size_t len, rlen, seqlen, seqlenbytes, negresplen, negresplenbytes, tlen;
 
-	ptr = 	token->value;
+	ptr = token->value;
 	eptr = ptr + token->length;
 
 	DEBUG(3, "token value\n");
@@ -418,6 +420,142 @@ checkin_or_register(char *service, mach_port_t *server_port)
 	return (kr);
 }
 
+static int
+uuidstr2sessioninfo(const char *uuid_str, uid_t *uid, au_asid_t *asid)
+{
+	union {
+		uuid_t uuid;
+		struct {
+			uid_t uid;
+			au_asid_t asid;
+		} info;
+	} u;
+
+	if (uuid_parse(uuid_str, u.uuid))
+		return (-1);
+
+	*uid = u.info.uid;
+	*asid = u.info.asid;
+
+	return (0);
+}
+
+static void
+sessioninfo2uuid(uid_t uid, au_asid_t asid, uuid_t uuid)
+{
+	union {
+		uuid_t uuid;
+		struct {
+			uid_t uid;
+			au_asid_t asid;
+		} info;
+	} u;
+
+	uuid_clear(u.uuid);
+	u.info.uid = uid;
+	u.info.asid = asid;
+	uuid_copy(uuid, u.uuid);
+}
+
+static int
+join_session(au_asid_t asid, __unused const char *instance)
+{
+	int err;
+	au_asid_t asid2;
+	mach_port_name_t session_port;
+
+	err = audit_session_port(asid, &session_port);
+	if (err) {
+		Log("Could not get audit session port for %d: %s", asid, strerror(errno));
+		/* %%% we should see if we can unregister the sub-job? */
+		return (-1);
+	}
+
+	asid2 = audit_session_join(session_port);
+	mach_port_deallocate(current_task(), session_port);
+
+	if (asid2 != asid) {
+		Log("Joined session %d but wound up in session %d", asid, asid2);
+		return (-1);
+	}
+	return (0);
+}
+
+/*
+ * Return TRUE if the audit session id is valid, FALSE otherwise
+ */
+static int
+check_session(au_asid_t asid)
+{
+	int err;
+	mach_port_name_t session_port;
+
+	if (asid == AU_DEFAUDITSID || asid == AU_ASSIGN_ASID) {
+		Info("Received special audit session id of %d", asid);
+		return (FALSE);
+	}
+
+	err = audit_session_port(asid, &session_port);
+	if (err) {
+		Log("Audit session id %d is in invalid: %s", asid, strerror(errno));
+		return (FALSE);
+	}
+
+	mach_port_deallocate(current_task(), session_port);
+	return (TRUE);
+}
+
+au_asid_t my_asid = AU_DEFAUDITSID;
+
+static void
+set_identity(void)
+{
+	const char *instance = getenv("LaunchInstanceID");
+	auditinfo_t ai;
+
+	Debug("euid = %d, instance = %s", geteuid(), instance);
+	if (instance && geteuid() == 0) {
+		uid_t uid;
+		au_asid_t asid;
+		if (uuidstr2sessioninfo(instance, &uid, &asid))
+			Log("Could not parse  LaunchInstanceID: %s", instance);
+		else {
+			if (join_session(asid, instance) == 0)
+				setuid(uid);
+		}
+	}
+
+	/* Get my actual audit session id for checkout */
+	if (getaudit(&ai))
+		Log("getaudit failed: %s", strerror(errno));
+	else
+		my_asid = ai.ai_asid;
+	Debug("My identity is asid = %d auid = %d", ai.ai_asid, ai.ai_auid);
+}
+
+static int
+check_audit(audit_token_t atok, int kernonly)
+{
+	uid_t uid, euid, ruid;
+	gid_t egid, rgid;
+	pid_t pid;
+	au_asid_t asid;
+	int ok;
+	static audit_token_t kern_audit_token = KERNEL_AUDIT_TOKEN_VALUE;
+
+	audit_token_to_au32(atok, &uid, &euid, &egid, &ruid, &rgid, &pid, &asid, NULL);
+	Debug("Received audit token: uid = %d, euid = %d, egid = %d, ruid = %d rgid = %d, pid = %d, asid = %d atid = %d",
+	     uid, euid, egid, ruid, rgid, pid, asid, atok.val[7]);
+
+	ok = (memcmp(&atok, &kern_audit_token, sizeof (audit_token_t)) == 0);
+	if (!ok && !kernonly)
+		ok = (asid == my_asid || (euid && euid == getuid()));
+	if (!ok)
+		Log("Process %d in session %d as user %d was denied by gssd[%d] for session %d as user %d", pid, asid, euid, getpid(), my_asid, getuid());
+
+	return (ok);
+}
+
 /*
  * This daemon is to be started by launchd, as such it follows the following
  * launchd rules:
@@ -427,7 +565,7 @@ checkin_or_register(char *service, mach_port_t *server_port)
  *		change uids or gids.
  *		set up the current working directory or chroot.
  *		set the session id
- * 		change stdio to /dev/null.
+ *		change stdio to /dev/null.
  *		call setrusage(2)
  *		call setpriority(2)
  *		Ignore SIGTERM.
@@ -439,10 +577,11 @@ checkin_or_register(char *service, mach_port_t *server_port)
  * by the rules, its even easier to boot.
  */
 
+char label_buf[MAXLABEL];
+char *bname = label_buf;
+
 int main(int argc, char *argv[])
 {
-	char label_buf[MAXLABEL];
-	char *bname = label_buf;
 	kern_return_t kr;
 	int error;
 	int ch;
@@ -452,6 +591,9 @@ int main(int argc, char *argv[])
 	/* buffered. Probably not what you want. */
 	setlinebuf(stdout);
 	setlinebuf(stderr);
+
+	/* Set our session and uid if needed */
+	set_identity();
 
 	/* Figure out our bootstrap name based on what we are called. */
 	setprogname(argv[0]);
@@ -1034,9 +1176,9 @@ construct_hostbased_service_name(uint32_t *minor, const char *service, const cha
  * array coming in and the number of gss names found coming out.
  * if name_count is one, no canonicalization is done
  * if name_count is two, return the lowercase of the forward canonicalization
- * 	followed by the non canonicalized host name
+ *	followed by the non canonicalized host name
  * if name_count is three, the two elements above followed by the lowercase of
- * 	the reverse lookup.
+ *	the reverse lookup.
  *
  * We return GSS_S_COMPLETE if we can produce at least one service name.
  */
@@ -1216,6 +1358,10 @@ blob_to_name(uint32_t *min, gssd_nametype nt, gssd_byte_buffer name, uint32_t si
 			name_type = GSS_KRB5_NT_PRINCIPAL_NAME;
 			*mech = GSSD_KRB5_MECH;
 			break;
+		case GSSD_UUID:
+			name_type = GSS_C_NT_UUID;
+			*mech = GSSD_IAKERB_MECH;
+			break;
 		case GSSD_KRB5_REFERRAL:
 			name_type = GSS_KRB5_NT_PRINCIPAL_NAME_REFERRAL;
 			*mech = GSSD_KRB5_MECH;
@@ -1312,6 +1458,7 @@ gssd_init(void)
 	mechtab[GSSD_KRB5_MECH] = GSS_KRB5_MECHANISM;
 	mechtab[GSSD_SPNEGO_MECH] = GSS_SPNEGO_MECHANISM;
 	mechtab[GSSD_NTLM_MECH] = GSS_NTLM_MECHANISM;
+	mechtab[GSSD_IAKERB_MECH] = GSS_IAKERB_MECHANISM;
 
 	/*
 	 * Turn off home directory access during startup.
@@ -1400,18 +1547,18 @@ receive_message(void *arg __attribute__((unused)))
 static void
 new_worker_thread(void)
 {
-        pthread_t thread;
+	pthread_t thread;
 	char thread_name[MAXTHREADNAME];
-        int error;
+	int error;
 
-        (void) pthread_mutex_lock(numthreads_lock);
+	(void) pthread_mutex_lock(numthreads_lock);
 
-        while (bye == 0 && numthreads >= maxthreads) {
-                (void) pthread_cond_wait(numthreads_cv, numthreads_lock);
-        }
+	while (bye == 0 && numthreads >= maxthreads) {
+		(void) pthread_cond_wait(numthreads_cv, numthreads_lock);
+	}
 	if (bye)
 		goto out;
-        numthreads++;
+	numthreads++;
 	error = pthread_create(&thread, attr, receive_message, NULL);
 	if (error) {
 		Info("unable to create worker thread: %s", strerror(error));
@@ -1425,7 +1572,7 @@ out:
 	pthread_setname_np(thread_name);
 	DEBUG(3, "Starting %s\n", thread_name);
 
-        (void) pthread_mutex_unlock(numthreads_lock);
+	(void) pthread_mutex_unlock(numthreads_lock);
 }
 
 /*
@@ -1438,10 +1585,10 @@ out:
 static void
 end_worker_thread(void)
 {
-        (void) pthread_mutex_lock(numthreads_lock);
-        numthreads--;
-        if (numthreads < maxthreads)
-                pthread_cond_signal(numthreads_cv);
+	(void) pthread_mutex_lock(numthreads_lock);
+	numthreads--;
+	if (numthreads < maxthreads)
+		pthread_cond_signal(numthreads_cv);
 
 	if (get_debug_level() > 2) {
 		char thread_name[MAXTHREADNAME];
@@ -1449,7 +1596,7 @@ end_worker_thread(void)
 		DEBUG(3, "Ending %s. Number of worker threads running is %d\n", thread_name, numthreads);
 	}
 
-        (void) pthread_mutex_unlock(numthreads_lock);
+	(void) pthread_mutex_unlock(numthreads_lock);
 }
 
 
@@ -1544,7 +1691,7 @@ shutdown_thread(void *arg __attribute__((unused)))
 	pthread_mutex_lock(numthreads_lock);
 	bye = 1;
 	/*
- 	 * Wait a little bit for dispatch threads to complete.
+	 * Wait a little bit for dispatch threads to complete.
 	 */
 	timeout = SHUTDOWN_TIMEOUT;
 	/*
@@ -1797,7 +1944,6 @@ gss_name_to_kprinc(uint32_t *minor, gss_name_t name, krb5_principal *princ, krb5
 	strname = buf_to_str(&dname);
 	if (strname == NULL) {
 		return (GSS_S_FAILURE);
-
 	}
 
 	DEBUG(3, "parsing %s\n", strname);
@@ -2309,6 +2455,7 @@ svc_mach_gss_init_sec_context(
 	uint32_t gssd_flags,
 	gssd_ctx *gss_context,
 	gssd_cred *cred_handle,
+	audit_token_t atok,
 	uint32_t *ret_flags,
 	gssd_byte_buffer *skey, mach_msg_type_number_t *skeyCnt,
 	gssd_byte_buffer *otoken, mach_msg_type_number_t *otokenCnt,
@@ -2332,6 +2479,7 @@ svc_mach_gss_init_sec_context(
 						 &gssd_flags,
 						 gss_context,
 						 cred_handle,
+						 atok,
 						 ret_flags,
 						 skey,
 						 skeyCnt,
@@ -2345,29 +2493,30 @@ svc_mach_gss_init_sec_context(
 
 kern_return_t
 svc_mach_gss_init_sec_context_v2(
-        mach_port_t server __attribute__((unused)),
-        gssd_mechtype mech,
-        gssd_byte_buffer itoken,
-        mach_msg_type_number_t itokenCnt,
-        uint32_t uid,
-        gssd_nametype clnt_nt,
-        gssd_byte_buffer clnt_princ,
-        mach_msg_type_number_t clnt_princCnt,
-        gssd_nametype svc_nt,
-        gssd_byte_buffer svc_princ,
-        mach_msg_type_number_t svc_princCnt,
-        uint32_t flags,
-        uint32_t *gssd_flags,
-        gssd_ctx *gss_context,
-        gssd_cred *cred_handle,
-        uint32_t *ret_flags,
-        gssd_byte_buffer *skey,
-        mach_msg_type_number_t *skeyCnt,
-        gssd_byte_buffer *otoken,
-        mach_msg_type_number_t *otokenCnt,
+	mach_port_t server __attribute__((unused)),
+	gssd_mechtype mech,
+	gssd_byte_buffer itoken,
+	mach_msg_type_number_t itokenCnt,
+	uint32_t uid,
+	gssd_nametype clnt_nt,
+	gssd_byte_buffer clnt_princ,
+	mach_msg_type_number_t clnt_princCnt,
+	gssd_nametype svc_nt,
+	gssd_byte_buffer svc_princ,
+	mach_msg_type_number_t svc_princCnt,
+	uint32_t flags,
+	uint32_t *gssd_flags,
+	gssd_ctx *gss_context,
+	gssd_cred *cred_handle,
+	audit_token_t atok,
+	uint32_t *ret_flags,
+	gssd_byte_buffer *skey,
+	mach_msg_type_number_t *skeyCnt,
+	gssd_byte_buffer *otoken,
+	mach_msg_type_number_t *otokenCnt,
 	 gssd_dstring displayname,
-        uint32_t *major_stat,
-        uint32_t *minor_stat)
+	uint32_t *major_stat,
+	uint32_t *minor_stat)
 {
 	gss_name_t svc_gss_name[MAX_SVC_NAMES];
 	gss_ctx_id_t g_cntx = GSS_C_NO_CONTEXT;
@@ -2375,11 +2524,17 @@ svc_mach_gss_init_sec_context_v2(
 	uint32_t mstat;   /* Minor status for cleaning up. */
 	vproc_transaction_t gssd_vproc_handle;
 	uint32_t only_1des = ((*gssd_flags & GSSD_NFS_1DES) != 0);
+	kern_return_t kr = KERN_SUCCESS;
 
 	DEBUG(2, "Enter");
 
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	if (!check_audit(atok, FALSE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
 
 	krb5_set_home_dir_access(NULL, (*gssd_flags & GSSD_HOME_ACCESS_OK) ? 1 : 0);
 
@@ -2393,10 +2548,8 @@ svc_mach_gss_init_sec_context_v2(
 				      skey, skeyCnt,
 				      otoken, otokenCnt);
 
-		end_worker_thread();
-		vproc_transaction_end(NULL, gssd_vproc_handle);
-
-		return KERN_SUCCESS;
+		kr = KERN_SUCCESS;
+		goto out;
 	}
 
 	if (*gss_context == CAST(gssd_ctx, GSS_C_NO_CONTEXT)) {
@@ -2415,16 +2568,16 @@ svc_mach_gss_init_sec_context_v2(
 			Info("Trying the following server principal names:");
 		for (i = 0; i < gnames; i++) {
 			char *dname;
-			gss_buffer_desc bname;
+			gss_buffer_desc bufname;
 			uint32_t maj, min;
 			gss_OID oid;
 			char *oname;
 
-			maj = gss_display_name(&min, svc_gss_name[i], &bname, &oid);
+			maj = gss_display_name(&min, svc_gss_name[i], &bufname, &oid);
 			if (maj != GSS_S_COMPLETE)
 				Info("Cannot determine target name: %K", maj);
 			else {
-				dname = buf_to_str(&bname);
+				dname = buf_to_str(&bufname);
 				oname = oid_name(oid);
 				Info("%s %s as %s", (gnames > 1)? "\t" : "Server principal name", dname, oname);
 				free(dname);
@@ -2522,12 +2675,13 @@ done:
 			(void)gss_release_name(&mstat, &svc_gss_name[name_index]);
 	}
 
+out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 
 	DEBUG(2, "Exit");
 
-	return (KERN_SUCCESS);
+	return (kr);
 
 }
 
@@ -2542,6 +2696,7 @@ svc_mach_gss_accept_sec_context(
 	uint32_t gssd_flags,
 	gssd_ctx *gss_context,
 	gssd_cred *cred_handle,
+	audit_token_t atok,
 	uint32_t *ret_flags,
 	uint32_t *uid,
 	gssd_gid_list gids, mach_msg_type_number_t *gidsCnt,
@@ -2561,6 +2716,7 @@ svc_mach_gss_accept_sec_context(
 						&gssd_flags,
 						gss_context,
 						cred_handle,
+						atok,
 						ret_flags,
 						uid,
 						gids,
@@ -2576,25 +2732,26 @@ svc_mach_gss_accept_sec_context(
 
 kern_return_t
 svc_mach_gss_accept_sec_context_v2(
-        mach_port_t server __attribute__((unused)),
-        gssd_byte_buffer itoken,
-        mach_msg_type_number_t itokenCnt,
+	mach_port_t server __attribute__((unused)),
+	gssd_byte_buffer itoken,
+	mach_msg_type_number_t itokenCnt,
 	gssd_nametype svc_nt __attribute__((unused)),
 	gssd_byte_buffer svc_princ __attribute__((unused)),
 	mach_msg_type_number_t svc_princCnt __attribute__((unused)),
-        uint32_t *inout_gssd_flags __attribute__((unused)),
-        gssd_ctx *gss_context,
-        gssd_cred *cred_handle,
-        uint32_t *ret_flags,
-        uint32_t *uid,
-        gssd_gid_list gids,
-        mach_msg_type_number_t *gidsCnt,
-        gssd_byte_buffer *skey,
-        mach_msg_type_number_t *skeyCnt,
-        gssd_byte_buffer *otoken,
-        mach_msg_type_number_t *otokenCnt,
-        uint32_t *major_stat,
-        uint32_t *minor_stat)
+	uint32_t *inout_gssd_flags __attribute__((unused)),
+	gssd_ctx *gss_context,
+	gssd_cred *cred_handle,
+	audit_token_t atok,
+	uint32_t *ret_flags,
+	uint32_t *uid,
+	gssd_gid_list gids,
+	mach_msg_type_number_t *gidsCnt,
+	gssd_byte_buffer *skey,
+	mach_msg_type_number_t *skeyCnt,
+	gssd_byte_buffer *otoken,
+	mach_msg_type_number_t *otokenCnt,
+	uint32_t *major_stat,
+	uint32_t *minor_stat)
 {
 	gss_ctx_id_t g_cntx = GSS_C_NO_CONTEXT;
 	gss_name_t princ;
@@ -2606,6 +2763,11 @@ svc_mach_gss_accept_sec_context_v2(
 	DEBUG(2, "Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	if (!check_audit(atok, FALSE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
 
 	krb5_set_home_dir_access(NULL, ((*inout_gssd_flags) & GSSD_HOME_ACCESS_OK) ? 1 : 0);
 
@@ -2706,6 +2868,7 @@ done:
 	DEBUG(3, "Returning from accept %d erros of of %d total calls\n", acceptErr, acceptCnt);
 
 	Info("gss_accept_sec_context %K; %#k", *major_stat, oid, *minor_stat);
+out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 
@@ -2735,7 +2898,8 @@ svc_mach_gss_log_error(
 	uint32_t uid,
 	gssd_string source,
 	uint32_t major,
-	uint32_t minor)
+	uint32_t minor,
+	audit_token_t atok)
 {
 	OM_uint32 msg_context = 0;
 	OM_uint32 min_stat = 0;
@@ -2744,8 +2908,17 @@ svc_mach_gss_log_error(
 	char msgbuf[1024];
 	char *errStr;
 	int full = 0;
+	vproc_transaction_t gssd_vproc_handle;
+	kern_return_t kr = KERN_SUCCESS;
 
+	DEBUG(2, "Enter");
+	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	if (!check_audit(atok, FALSE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
 
 	(void) snprintf(msgbuf, sizeof(msgbuf), "nfs %s Kerberos: %s, uid=%d",
 		source, mnt, uid);
@@ -2791,10 +2964,11 @@ svc_mach_gss_log_error(
 done:
 	MSG((major == GSS_S_NO_CRED), "%s", msgbuf);
 
-
+out:
 	end_worker_thread();
+	vproc_transaction_end(NULL, gssd_vproc_handle);
 
-	return (KERN_SUCCESS);
+	return (kr);
 }
 
 kern_return_t
@@ -2803,16 +2977,23 @@ svc_mach_gss_hold_cred(mach_port_t server __unused,
 		       gssd_nametype nt,
 		       gssd_byte_buffer princ,
 		       mach_msg_type_number_t princCnt,
+		       audit_token_t atok,
 		       uint32_t *major_stat,
 		       uint32_t *minor_stat)
 {
 	gss_cred_id_t cred;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
+	kern_return_t kr = KERN_SUCCESS;
 
 	DEBUG(2, "Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	if (!check_audit(atok, FALSE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
 
 	*major_stat = do_acquire_cred(minor_stat, nt, princ, princCnt, mech, &cred);
 	if (*major_stat != GSS_S_COMPLETE)
@@ -2824,7 +3005,7 @@ out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
 
-	return (KERN_SUCCESS);
+	return (kr);
 }
 
 kern_return_t
@@ -2833,16 +3014,23 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 			 gssd_nametype nt,
 			 gssd_byte_buffer princ,
 			 mach_msg_type_number_t princCnt,
+			 audit_token_t atok,
 			 uint32_t *major_stat,
 			 uint32_t *minor_stat)
 {
 	gss_cred_id_t cred;
 	uint32_t m;
 	vproc_transaction_t gssd_vproc_handle;
+	kern_return_t kr = KERN_SUCCESS;
 
 	DEBUG(2, "Enter");
 	gssd_vproc_handle = vproc_transaction_begin(NULL);
 	new_worker_thread();
+
+	if (!check_audit(atok, FALSE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
 
 	*major_stat = do_acquire_cred(minor_stat, nt, princ, princCnt, mech, &cred);
 	if (*major_stat != GSS_S_COMPLETE)
@@ -2853,5 +3041,46 @@ svc_mach_gss_unhold_cred(mach_port_t server __unused,
 out:
 	end_worker_thread();
 	vproc_transaction_end(NULL, gssd_vproc_handle);
-	return (KERN_SUCCESS);
+	return (kr);
+}
+
+kern_return_t
+svc_mach_gss_lookup(mach_port_t server,
+		    uint32_t uid,
+		    int32_t asid,
+		    audit_token_t atok,
+		    mach_port_t *gssd_port)
+{
+	kern_return_t kr = KERN_SUCCESS;
+	uuid_t uuid;
+	uuid_string_t uuidstr;
+	vproc_transaction_t gssd_vproc_handle;
+
+	DEBUG(2, "Enter");
+	gssd_vproc_handle = vproc_transaction_begin(NULL);
+	new_worker_thread();
+
+	if (!check_audit(atok, TRUE)) {
+		kr = KERN_NO_ACCESS;
+		goto out;
+	}
+
+	*gssd_port = MACH_PORT_NULL;
+	if (!check_session(asid)) {
+		*gssd_port = server;
+	} else {
+		sessioninfo2uuid((uid_t)uid, (au_asid_t)asid, uuid);
+		uuid_unparse(uuid, uuidstr);
+		DEBUG(2, "Looking up %s for %d %d as instance %s", bname, uid, asid, uuidstr);
+
+		kr = bootstrap_look_up3(bootstrap_port, bname, gssd_port, 0, uuid, BOOTSTRAP_SPECIFIC_INSTANCE);
+		if (kr != KERN_SUCCESS)
+			Log("Could not lookup per instance port %d: %s", kr, bootstrap_strerror(kr));
+
+		DEBUG(2, "bootstap_look_up3 = %d port = %d,  server port = %d", kr, *gssd_port, server);
+	}
+out:
+	end_worker_thread();
+	vproc_transaction_end(NULL, gssd_vproc_handle);
+	return (kr);
 }

@@ -28,7 +28,28 @@
 
 #include "config.h"
 
-#if USE(SCROLLBAR_PAINTER)
+// Public APIs not available on versions of Mac on which we build
+#if (defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD))
+enum {
+    NSScrollerStyleLegacy       = 0,
+    NSScrollerStyleOverlay      = 1
+};
+typedef NSInteger NSScrollerStyle;
+
+enum {
+    NSScrollerKnobStyleDefault = 0,
+    NSScrollerKnobStyleDark = 1,
+    NSScrollerKnobStyleLight = 2
+};
+typedef NSInteger NSScrollerKnobStyle;
+#endif
+
+#if (defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD))
+@interface NSScroller(NSObject)
++ (NSScrollerStyle)preferredScrollerStyle;
+@end
+#endif
+
 @interface NSObject (ScrollbarPainter)
 + (id)scrollerImpWithStyle:(NSScrollerStyle)newScrollerStyle controlSize:(NSControlSize)newControlSize horizontal:(BOOL)horizontal replacingScrollerImp:(id)previous;
 - (CGFloat)knobAlpha;
@@ -40,8 +61,11 @@
 - (void)setDoubleValue:(double)doubleValue;
 - (void)setKnobProportion:(CGFloat)proportion;
 - (void)setKnobStyle:(NSScrollerKnobStyle)knobStyle;
+- (void)setExpanded:(BOOL)expanded;
+- (BOOL)isExpanded;
 - (void)setDelegate:(id)delegate;
 - (void)setUiStateTransitionProgress:(CGFloat)uiStateTransitionProgress;
+- (void)setExpansionTransitionProgress:(CGFloat)expansionTransitionProgress;
 - (BOOL)isHorizontal;
 - (CGFloat)trackWidth;
 - (CGFloat)trackBoxWidth;
@@ -51,6 +75,7 @@
 - (CGFloat)trackEndInset;
 - (CGFloat)knobEndInset;
 - (CGFloat)uiStateTransitionProgress;
+- (CGFloat)expansionTransitionProgress;
 - (NSRect)rectForPart:(NSScrollerPart)partCode;
 - (void)drawKnobSlotInRect:(NSRect)slotRect highlight:(BOOL)flag alpha:(CGFloat)alpha;
 - (void)drawKnob;
@@ -81,6 +106,24 @@
 - (void)beginScrollGesture;
 - (void)endScrollGesture;
 @end
+
+namespace WebCore {
+
+#if PLATFORM(CHROMIUM)
+bool isScrollbarOverlayAPIAvailable();
+#else
+static inline bool isScrollbarOverlayAPIAvailable()
+{
+#if USE(SCROLLBAR_PAINTER)
+    return true;
+#else
+    return false;
 #endif
+}
+#endif
+
+NSScrollerStyle recommendedScrollerStyle();
+
+}
 
 #endif

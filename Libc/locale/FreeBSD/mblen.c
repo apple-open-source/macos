@@ -27,24 +27,32 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/mblen.c,v 1.9 2004/07/29 06:18:40 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdlib.h>
 #include <wchar.h>
 #include "mblocal.h"
 
 int
-mblen(const char *s, size_t n)
+mblen_l(const char *s, size_t n, locale_t loc)
 {
 	static const mbstate_t initial;
-	static mbstate_t mbs;
 	size_t rval;
 
+	NORMALIZE_LOCALE(loc);
 	if (s == NULL) {
 		/* No support for state dependent encodings. */
-		mbs = initial;
+		loc->__mbs_mblen = initial;
 		return (0);
 	}
-	rval = __mbrtowc(NULL, s, n, &mbs);
+	rval = loc->__lc_ctype->__mbrtowc(NULL, s, n, &loc->__mbs_mblen, loc);
 	if (rval == (size_t)-1 || rval == (size_t)-2)
 		return (-1);
 	return ((int)rval);
+}
+
+int
+mblen(const char *s, size_t n)
+{
+	return mblen_l(s, n, __current_locale());
 }

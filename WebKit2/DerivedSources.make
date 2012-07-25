@@ -23,6 +23,7 @@
 VPATH = \
     $(WebKit2) \
     $(WebKit2)/PluginProcess \
+    $(WebKit2)/PluginProcess/mac \
     $(WebKit2)/Shared/Plugins \
     $(WebKit2)/WebProcess/ApplicationCache \
     $(WebKit2)/WebProcess/Authentication \
@@ -32,6 +33,7 @@ VPATH = \
     $(WebKit2)/WebProcess/IconDatabase \
     $(WebKit2)/WebProcess/KeyValueStorage \
     $(WebKit2)/WebProcess/MediaCache \
+    $(WebKit2)/WebProcess/Notifications \
     $(WebKit2)/WebProcess/Plugins \
     $(WebKit2)/WebProcess/ResourceCache \
     $(WebKit2)/WebProcess/WebCoreSupport \
@@ -39,6 +41,7 @@ VPATH = \
     $(WebKit2)/WebProcess \
     $(WebKit2)/UIProcess \
     $(WebKit2)/UIProcess/Downloads \
+    $(WebKit2)/UIProcess/Notifications \
     $(WebKit2)/UIProcess/Plugins \
 #
 
@@ -47,9 +50,11 @@ MESSAGE_RECEIVERS = \
     DrawingArea \
     DrawingAreaProxy \
     DownloadProxy \
+    EventDispatcher \
     NPObjectMessageReceiver \
     PluginControllerProxy \
     PluginProcess \
+    PluginProcessConnection \
     PluginProcessProxy \
     PluginProxy \
     WebApplicationCacheManager \
@@ -71,6 +76,8 @@ MESSAGE_RECEIVERS = \
     WebKeyValueStorageManagerProxy \
     WebMediaCacheManager \
     WebMediaCacheManagerProxy \
+    WebNotificationManagerProxy \
+    WebNotificationManager \
     WebPage \
     WebPageProxy \
     WebProcess \
@@ -85,6 +92,8 @@ SCRIPTS = \
     $(WebKit2)/Scripts/generate-messages-header.py \
     $(WebKit2)/Scripts/webkit2/__init__.py \
     $(WebKit2)/Scripts/webkit2/messages.py \
+    $(WebKit2)/Scripts/webkit2/model.py \
+    $(WebKit2)/Scripts/webkit2/parser.py \
 #
 
 .PHONY : all
@@ -102,6 +111,31 @@ all : \
 	@echo Generating message receiver for $*...
 	@python $(WebKit2)/Scripts/generate-messages-header.py $< > $@
 
+# Mac-specific rules
+
+ifeq ($(OS),MACOS)
+
+FRAMEWORK_FLAGS = $(shell echo $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_SEARCH_PATHS) | perl -e 'print "-F " . join(" -F ", split(" ", <>));')
+HEADER_FLAGS = $(shell echo $(BUILT_PRODUCTS_DIR) $(HEADER_SEARCH_PATHS) | perl -e 'print "-I" . join(" -I", split(" ", <>));')
+
+ifeq ($(TARGET_GCC_VERSION),LLVM_COMPILER)
+	TEXT_PREPROCESSOR_FLAGS=-E -P -x c -traditional
+else
+	TEXT_PREPROCESSOR_FLAGS=-E -P -x c -std=c89
+endif
+
+SANDBOX_PROFILES = \
+	com.apple.WebProcess.sb \
+	com.apple.WebKit.PluginProcess.sb
+
+all: $(SANDBOX_PROFILES)
+
+%.sb : %.sb.in
+	@echo Pre-processing $* sandbox profile...
+	$(CC) $(TEXT_PREPROCESSOR_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" $< > $@
+
+endif # MACOS
+
 # ------------------------
 
 # Windows-specific rules
@@ -111,6 +145,6 @@ ifeq ($(OS),Windows_NT)
 all : HeaderDetection.h
 
 HeaderDetection.h : DerivedSources.make
-	if [ -f "$(WEBKITLIBRARIESDIR)/include/WebKitQuartzCoreAdditions/WebKitQuartzCoreAdditionsBase.h" ]; then echo "#define HAVE_WKQCA 1" > $@; else echo > $@; fi
+	if [ -f "$(WEBKITLIBRARIESDIR)/include/WebKitQuartzCoreAdditions/WebKitQuartzCoreAdditionsBase.h" ] && [ ! -f "$(WEBKITLIBRARIESDIR)/include/cairo/cairo.h" ]; then echo "#define HAVE_WKQCA 1" > $@; else echo > $@; fi
 
 endif # Windows_NT

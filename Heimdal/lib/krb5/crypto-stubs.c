@@ -76,7 +76,8 @@ krb5_free_context(krb5_context context)
 }
 
 krb5_boolean
-krb5_homedir_access(krb5_context context) {
+krb5_homedir_access(krb5_context context)
+{
     return 0;
 }
 

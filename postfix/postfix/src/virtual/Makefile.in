@@ -5,6 +5,7 @@ HDRS	= virtual.h
 TESTSRC	=
 DEFS	= -I. -I$(INC_DIR) -D$(SYSTYPE)
 CFLAGS	= $(DEBUG) $(OPT) $(DEFS)
+LDFLAGS	= -framework CoreDaemon
 PROG	= virtual
 TESTPROG= 
 INC_DIR	= ../../include
@@ -13,7 +14,7 @@ LIBS	= ../../lib/libmaster.a ../../lib/libglobal.a ../../lib/libutil.a
 .c.o:;	$(CC) $(CFLAGS) -c $*.c
 
 $(PROG):	$(OBJS) $(LIBS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS) $(SYSLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) $(SYSLIBS)
 
 $(OBJS): ../../conf/makedefs.out
 
@@ -133,6 +134,7 @@ maildir.o: ../../include/sys_defs.h
 maildir.o: ../../include/vbuf.h
 maildir.o: ../../include/vstream.h
 maildir.o: ../../include/vstring.h
+maildir.o: ../../include/warn_stat.h
 maildir.o: maildir.c
 maildir.o: virtual.h
 recipient.o: ../../include/argv.h

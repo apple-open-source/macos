@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -470,8 +470,9 @@ enum {
 	kIOAudioDeviceTransportTypeBluetooth			= 'blue',
 	kIOAudioDeviceTransportTypeVirtual				= 'virt',
 	kIOAudioDeviceTransportTypeDisplayPort			= 'dprt',
-	kIOAudioDeviceTransportTypeHdmi					= 'hdmi'
-
+	kIOAudioDeviceTransportTypeHdmi					= 'hdmi',
+    kIOAudioDeviceTransportTypeAVB            		= 'eavb',			//<rdar://10874672>
+    kIOAudioDeviceTransportTypeThunderbolt    		= 'thun'			//<rdar://10874672>
 };
 
 // types that go nowhere

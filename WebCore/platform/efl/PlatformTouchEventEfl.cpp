@@ -29,41 +29,22 @@
 #include "PlatformTouchEvent.h"
 
 #include "ewk_frame.h"
+#include <wtf/CurrentTime.h>
 
 #if ENABLE(TOUCH_EVENTS)
 
 namespace WebCore {
 
-PlatformTouchEvent::PlatformTouchEvent(Eina_List* points, const IntPoint pos, TouchEventType type, int metaState)
-    : m_type(type)
-    , m_ctrlKey(false)
-    , m_altKey(false)
-    , m_shiftKey(false)
-    , m_metaKey(false)
+PlatformTouchEvent::PlatformTouchEvent(Eina_List* points, const IntPoint pos, PlatformEvent::Type type, int metaState)
+    : PlatformEvent(type, false, false, false, false, currentTime())
 {
-    void* point;
+    void* item;
 
-    EINA_LIST_FREE(points, point) {
-        Ewk_Touch_Point* p = static_cast<Ewk_Touch_Point*>(point);
-        IntPoint pnt = IntPoint(p->x - pos.x(), p->y - pos.y());
+    EINA_LIST_FREE(points, item) {
+        Ewk_Touch_Point* point = static_cast<Ewk_Touch_Point*>(item);
+        IntPoint pnt = IntPoint(point->x - pos.x(), point->y - pos.y());
 
-        PlatformTouchPoint::State state = PlatformTouchPoint::TouchPressed;
-        switch (p->state) {
-        case EWK_TOUCH_POINT_PRESSED:
-            state = PlatformTouchPoint::TouchPressed;
-            break;
-        case EWK_TOUCH_POINT_RELEASED:
-            state = PlatformTouchPoint::TouchReleased;
-            break;
-        case EWK_TOUCH_POINT_MOVED:
-            state = PlatformTouchPoint::TouchMoved;
-            break;
-        case EWK_TOUCH_POINT_CANCELLED:
-            state = PlatformTouchPoint::TouchCancelled;
-            break;
-        }
-
-        m_touchPoints.append(PlatformTouchPoint(p->id, pnt, state));
+        m_touchPoints.append(PlatformTouchPoint(point->id, pnt, static_cast<PlatformTouchPoint::State>(point->state)));
     }
 
     // FIXME: We don't support metaState for now.

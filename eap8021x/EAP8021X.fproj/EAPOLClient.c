@@ -71,7 +71,7 @@ EAPOLClientInvalidate(EAPOLClientRef client, boolean_t remove_send_right)
 	my_CFRelease(&client->rls);
     }
     if (client->session_port != MACH_PORT_NULL) {
-	(void)mach_port_destroy(mach_task_self(), client->session_port);
+	(void)mach_port_deallocate(mach_task_self(), client->session_port);
 	client->session_port = MACH_PORT_NULL;
     }
     return;
@@ -118,7 +118,8 @@ _EAPOLClientCFMachPortCreate(CFMachPortCallBack callout, CFMachPortContext * con
     }
  failed:
     if (port != MACH_PORT_NULL) {
-	mach_port_destroy(mach_task_self(), port);
+	mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
+	mach_port_deallocate(mach_task_self(), port);
     }
     return NULL;
 

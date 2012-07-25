@@ -25,6 +25,7 @@
  */
 
 #include "config.h"
+#if USE(ICU_UNICODE)
 #include "TextCodecICU.h"
 
 #include "ThreadGlobalData.h"
@@ -34,6 +35,7 @@
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
 using std::min;
@@ -307,7 +309,7 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush, bool s
     
     ErrorCallbackSetter callbackSetter(m_converterICU, stopOnError);
 
-    Vector<UChar> result;
+    StringBuilder result;
 
     UChar buffer[ConversionBufferSize];
     UChar* bufferLimit = buffer + ConversionBufferSize;
@@ -329,7 +331,7 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush, bool s
         sawError = true;
     }
 
-    String resultString = String::adopt(result);
+    String resultString = result.toString();
 
     // <http://bugs.webkit.org/show_bug.cgi?id=17014>
     // Simplified Chinese pages use the code A3A0 to mean "full-width space", but ICU decodes it as U+E5E5.
@@ -471,3 +473,5 @@ CString TextCodecICU::encode(const UChar* characters, size_t length, Unencodable
 }
 
 } // namespace WebCore
+#endif
+

@@ -37,7 +37,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/mount.h>		/* for fsid_t */
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <netinet/in.h>		/* needed for sockaddr_in declaration */
 
 #include <mach/mach.h>
@@ -54,7 +54,6 @@ extern "C" {
 
 #ifndef _REENTRANT
 #define	fork1			vfork
-#define	rpc_control(a, b)	1
 #endif
 
 
@@ -135,7 +134,7 @@ struct mnttab {
  */
 struct mapfs {
 	struct mapfs *mfs_next;	/* next in entry */
-	int 	mfs_ignore;	/* ignore this entry */
+	int	mfs_ignore;	/* ignore this entry */
 	char	*mfs_host;	/* host name */
 	char	*mfs_dir;	/* dir to mount */
 	int	mfs_penalty;	/* mount penalty for this host */
@@ -180,7 +179,7 @@ struct autodir {
 	char	*dir_name;		/* mount point */
 	char	*dir_map;		/* name of map for dir */
 	char	*dir_opts;		/* default mount options */
-	int 	dir_direct;		/* direct mountpoint ? */
+	int	dir_direct;		/* direct mountpoint ? */
 	char	*dir_realpath;		/* realpath() of mount point - not always set */
 	struct autodir *dir_next;	/* next entry */
 	struct autodir *dir_prev;	/* prev entry */
@@ -272,7 +271,7 @@ extern pthread_cond_t cleanup_done_cv;
  */
 #define CHECK_STRCPY(a, b, size) \
 	assert(strlcpy(a, b, (size)) < (size))
-                   
+
 #define CHECK_STRCAT(a, b, size) \
 	assert(strlcat((a), (b), (size)) < (size))
 
@@ -318,7 +317,7 @@ extern void flush_host_name_cache(void);
 extern int we_are_a_server(void);
 extern int do_mount1(const autofs_pathname, const char *,
 	const autofs_pathname, const autofs_opts, const autofs_pathname,
-	boolean_t, boolean_t, fsid_t, uid_t, mach_port_t, fsid_t *,
+	boolean_t, boolean_t, fsid_t, uid_t, au_asid_t, fsid_t *,
 	uint32_t *, byte_buffer *, mach_msg_type_number_t *);
 extern int do_lookup1(const autofs_pathname, const char *,
 	const autofs_pathname, const autofs_opts, boolean_t, uid_t, int *);
@@ -332,12 +331,12 @@ extern int do_readsubdir(autofs_pathname, char *, autofs_pathname,
 extern int nfsunmount(fsid_t *, struct mnttab *);
 extern int loopbackmount(char *, char *, char *);
 extern int mount_nfs(struct mapent *, char *, char *, boolean_t,
-	fsid_t, mach_port_t, fsid_t *, uint32_t *);
+	fsid_t, au_asid_t, fsid_t *, uint32_t *);
 extern int mount_autofs(const char *, struct mapent *, const char *, fsid_t,
 	action_list **, const char *, const char *, const char *, fsid_t *,
 	uint32_t *);
 extern int mount_generic(char *, char *, char *, int, char *, boolean_t,
-	boolean_t, fsid_t, uid_t, mach_port_t, fsid_t *, uint32_t *);
+	boolean_t, fsid_t, uid_t, au_asid_t, fsid_t *, uint32_t *);
 extern int get_triggered_mount_info(const char *, fsid_t, fsid_t *,
 	uint32_t *);
 extern enum clnt_stat nfs_cast(struct mapfs *, struct mapfs **, int);

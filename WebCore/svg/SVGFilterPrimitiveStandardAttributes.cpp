@@ -27,6 +27,7 @@
 #include "Attribute.h"
 #include "FilterEffect.h"
 #include "RenderSVGResourceFilterPrimitive.h"
+#include "SVGElementInstance.h"
 #include "SVGFilterBuilder.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -42,6 +43,15 @@ DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::widthAttr
 DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::heightAttr, Height, height)
 DEFINE_ANIMATED_STRING(SVGFilterPrimitiveStandardAttributes, SVGNames::resultAttr, Result, result)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(width)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(height)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(result)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
     , m_x(LengthModeWidth, "0%")
@@ -51,23 +61,43 @@ SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const
 {
     // Spec: If the x/y attribute is not specified, the effect is as if a value of "0%" were specified.
     // Spec: If the width/height attribute is not specified, the effect is as if a value of "100%" were specified.
+    registerAnimatedPropertiesForSVGFilterPrimitiveStandardAttributes();
 }
 
-void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(Attribute* attr)
+bool SVGFilterPrimitiveStandardAttributes::isSupportedAttribute(const QualifiedName& attrName)
 {
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        supportedAttributes.add(SVGNames::xAttr);
+        supportedAttributes.add(SVGNames::yAttr);
+        supportedAttributes.add(SVGNames::widthAttr);
+        supportedAttributes.add(SVGNames::heightAttr);
+        supportedAttributes.add(SVGNames::resultAttr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGFilterPrimitiveStandardAttributes::parseAttribute(Attribute* attr)
+{
+    SVGParsingError parseError = NoError;
     const AtomicString& value = attr->value();
-    if (attr->name() == SVGNames::xAttr)
-        setXBaseValue(SVGLength(LengthModeWidth, value));
+
+    if (!isSupportedAttribute(attr->name()))
+        SVGStyledElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::xAttr)
+        setXBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (attr->name() == SVGNames::yAttr)
-        setYBaseValue(SVGLength(LengthModeHeight, value));
+        setYBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
     else if (attr->name() == SVGNames::widthAttr)
-        setWidthBaseValue(SVGLength(LengthModeWidth, value));
+        setWidthBaseValue(SVGLength::construct(LengthModeWidth, value, parseError));
     else if (attr->name() == SVGNames::heightAttr)
-        setHeightBaseValue(SVGLength(LengthModeHeight, value));
+        setHeightBaseValue(SVGLength::construct(LengthModeHeight, value, parseError));
     else if (attr->name() == SVGNames::resultAttr)
         setResultBaseValue(value);
     else
-        return SVGStyledElement::parseMappedAttribute(attr);
+        ASSERT_NOT_REACHED();
+
+    reportAttributeParsingError(parseError, attr);
 }
 
 bool SVGFilterPrimitiveStandardAttributes::setFilterEffectAttribute(FilterEffect*, const QualifiedName&)
@@ -79,39 +109,13 @@ bool SVGFilterPrimitiveStandardAttributes::setFilterEffectAttribute(FilterEffect
 
 void SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledElement::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::xAttr
-        || attrName == SVGNames::yAttr
-        || attrName == SVGNames::widthAttr
-        || attrName == SVGNames::heightAttr
-        || attrName == SVGNames::resultAttr)
-        invalidate();
-}
-
-void SVGFilterPrimitiveStandardAttributes::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeX();
-        synchronizeY();
-        synchronizeWidth();
-        synchronizeHeight();
-        synchronizeResult();
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::xAttr)
-        synchronizeX();
-    else if (attrName == SVGNames::yAttr)
-        synchronizeY();
-    else if (attrName == SVGNames::widthAttr)
-        synchronizeWidth();
-    else if (attrName == SVGNames::heightAttr)
-        synchronizeHeight();
-    else if (attrName == SVGNames::resultAttr)
-        synchronizeResult();
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);    
+    invalidate();
 }
 
 void SVGFilterPrimitiveStandardAttributes::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -122,45 +126,20 @@ void SVGFilterPrimitiveStandardAttributes::childrenChanged(bool changedByParser,
         invalidate();
 }
 
-void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(bool primitiveBoundingBoxMode, FilterEffect* filterEffect) const
+void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(FilterEffect* filterEffect) const
 {
     ASSERT(filterEffect);
     if (!filterEffect)
         return;
 
-    if (this->hasAttribute(SVGNames::xAttr))
+    if (hasAttribute(SVGNames::xAttr))
         filterEffect->setHasX(true);
-    if (this->hasAttribute(SVGNames::yAttr))
+    if (hasAttribute(SVGNames::yAttr))
         filterEffect->setHasY(true);
-    if (this->hasAttribute(SVGNames::widthAttr))
+    if (hasAttribute(SVGNames::widthAttr))
         filterEffect->setHasWidth(true);
-    if (this->hasAttribute(SVGNames::heightAttr))
+    if (hasAttribute(SVGNames::heightAttr))
         filterEffect->setHasHeight(true);
-
-    FloatRect effectBBox;
-    if (primitiveBoundingBoxMode)
-        effectBBox = FloatRect(x().valueAsPercentage(),
-                               y().valueAsPercentage(),
-                               width().valueAsPercentage(),
-                               height().valueAsPercentage());
-    else
-        effectBBox = FloatRect(x().value(this),
-                               y().value(this),
-                               width().value(this),
-                               height().value(this));
-
-    filterEffect->setEffectBoundaries(effectBBox);
-}
-
-void SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
-{
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    
-    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::resultAttr, AnimatedString);
 }
 
 RenderObject* SVGFilterPrimitiveStandardAttributes::createRenderer(RenderArena* arena, RenderStyle*)
@@ -168,12 +147,29 @@ RenderObject* SVGFilterPrimitiveStandardAttributes::createRenderer(RenderArena* 
     return new (arena) RenderSVGResourceFilterPrimitive(this);
 }
 
-bool SVGFilterPrimitiveStandardAttributes::rendererIsNeeded(RenderStyle* style)
+bool SVGFilterPrimitiveStandardAttributes::rendererIsNeeded(const NodeRenderingContext& context)
 {
     if (parentNode() && (parentNode()->hasTagName(SVGNames::filterTag)))
-        return SVGStyledElement::rendererIsNeeded(style);
+        return SVGStyledElement::rendererIsNeeded(context);
 
     return false;
+}
+
+void invalidateFilterPrimitiveParent(SVGElement* element)
+{
+    if (!element)
+        return;
+
+    ContainerNode* parent = element->parentNode();
+
+    if (!parent)
+        return;
+
+    RenderObject* renderer = parent->renderer();
+    if (!renderer || !renderer->isSVGResourceFilterPrimitive())
+        return;
+
+    RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer, false);
 }
 
 }

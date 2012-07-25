@@ -28,7 +28,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_import_sec_context(OM_uint32 *minor_status,
     const gss_buffer_t interprocess_token,
     gss_ctx_id_t *context_handle)
@@ -58,7 +58,7 @@ gss_import_sec_context(OM_uint32 *minor_status,
 	mech_oid.elements = p + 2;
 	buf.length = len - 2 - mech_oid.length;
 	buf.value = p + 2 + mech_oid.length;
-	
+
 	m = __gss_get_mechanism(&mech_oid);
 	if (!m)
 		return (GSS_S_DEFECTIVE_TOKEN);

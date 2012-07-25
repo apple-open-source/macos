@@ -55,14 +55,12 @@ main(int argc, char **argv)
 	errx(1, "argc != 2");
 
     user = argv[1];
-    password = malloc(strlen(argv[2])+1);
-    memset(password, '\0', strlen(argv[2])+1);
-    strcpy(password, argv[2]);
+    password = strdup(argv[2]);
 
     printf("test NULL argument\n");
     ret = KLCreatePrincipalFromString(NULL, kerberosVersion_V5, &princ);
     if (ret == 0)
-	errx(1, "KLCreatePrincipalFromString", ret);
+	errx(1, "KLCreatePrincipalFromString: %d", ret);
 
     printf("create principal\n");
     ret = KLCreatePrincipalFromString(user,

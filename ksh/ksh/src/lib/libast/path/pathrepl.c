@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,19 +28,35 @@
  * end of path returned
  */
 
+#define _AST_API_H	1
+
 #include <ast.h>
 
 char*
-pathrepl(register char* path, const char* match, register const char* replace)
+pathrepl(char* path, const char* match, const char* replace)
+{
+	return pathrepl_20100601(path, PATH_MAX, match, replace);
+}
+
+#undef	_AST_API_H
+
+#include <ast_api.h>
+
+char*
+pathrepl_20100601(register char* path, size_t size, const char* match, register const char* replace)
 {
 	register const char*	m = match;
 	register const char*	r;
 	char*			t;
 
-	if (!match) match = "";
-	if (!replace) replace = "";
+	if (!match)
+		match = "";
+	if (!replace)
+		replace = "";
 	if (streq(match, replace))
 		return(path + strlen(path));
+	if (!size)
+		size = strlen(path) + 1;
 	for (;;)
 	{
 		while (*path && *path++ != '/');

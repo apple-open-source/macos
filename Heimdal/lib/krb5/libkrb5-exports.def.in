@@ -1,12 +1,4 @@
 EXPORTS
-	krb524_convert_creds_kdc
-	krb524_convert_creds_kdc_ccache
-#ifdef KRB4
-	krb5_425_conv_principal
-	krb5_425_conv_principal_ext2
-	krb5_425_conv_principal_ext
-	krb5_524_conv_principal
-#endif
 	krb5_abort
 	krb5_abortx
 	krb5_acl_match_file
@@ -41,6 +33,7 @@ EXPORTS
 	krb5_auth_con_getlocalseqnumber
 	krb5_auth_con_getlocalsubkey
 	krb5_auth_con_getrcache
+	krb5_auth_con_getremoteseqnumber
 	krb5_auth_con_getremotesubkey
 	krb5_auth_con_init
 	krb5_auth_con_removeflags
@@ -76,6 +69,7 @@ EXPORTS
 	krb5_c_make_random_key
 	krb5_c_prf
 	krb5_c_prf_length
+        krb5_c_random_make_octets       ;!
 	krb5_c_set_checksum
 	krb5_c_valid_cksumtype
 	krb5_c_valid_enctype
@@ -87,6 +81,7 @@ EXPORTS
 	krb5_cc_clear_mcred
 	krb5_cc_close
 	krb5_cc_copy_cache
+	krb5_cc_copy_creds      ;!
 	krb5_cc_copy_match_f
 	krb5_cc_default
 	krb5_cc_default_name
@@ -105,10 +100,11 @@ EXPORTS
 	krb5_cc_get_type
 	krb5_cc_get_version
 	krb5_cc_initialize
+        krb5_cc_last_change_time
 	krb5_cc_move
 	krb5_cc_new_unique
 	krb5_cc_next_cred
-;	krb5_cc_next_cred_match
+;!	krb5_cc_next_cred_match
 	krb5_cc_register
 	krb5_cc_remove_cred
 	krb5_cc_resolve
@@ -138,13 +134,13 @@ EXPORTS
 	krb5_compare_creds
 	krb5_config_file_free
 	krb5_config_free_strings
-        _krb5_config_get
+;       _krb5_config_get
 	krb5_config_get_bool
 	krb5_config_get_bool_default
 	krb5_config_get_int
 	krb5_config_get_int_default
 	krb5_config_get_list
-	_krb5_config_get_next
+;	_krb5_config_get_next
 	krb5_config_get_string
 	krb5_config_get_string_default
 	krb5_config_get_strings
@@ -153,13 +149,13 @@ EXPORTS
 	krb5_config_parse_file
 	krb5_config_parse_file_multi
 	krb5_config_parse_string_multi
-	_krb5_config_vget
+;	_krb5_config_vget
 	krb5_config_vget_bool
 	krb5_config_vget_bool_default
 	krb5_config_vget_int
 	krb5_config_vget_int_default
 	krb5_config_vget_list
-	_krb5_config_vget_next
+;	_krb5_config_vget_next
 	krb5_config_vget_string
 	krb5_config_vget_string_default
 	krb5_config_vget_strings
@@ -168,6 +164,7 @@ EXPORTS
 	krb5_copy_address
 	krb5_copy_addresses
 	krb5_copy_checksum
+        krb5_copy_context
 	krb5_copy_creds
 	krb5_copy_creds_contents
 	krb5_copy_data
@@ -196,6 +193,7 @@ EXPORTS
 	krb5_data_alloc
 	krb5_data_cmp
 	krb5_data_copy
+        krb5_data_ct_cmp
 	krb5_data_free
 	krb5_data_realloc
 	krb5_data_zero
@@ -265,6 +263,7 @@ EXPORTS
 	krb5_enctype_to_string
 	krb5_enctype_valid
 	krb5_enctypes_compatible_keys
+        krb5_enomem
 	krb5_err
 	krb5_error_from_rd_error
 	krb5_errx
@@ -285,6 +284,7 @@ EXPORTS
 	krb5_free_creds_contents
 	krb5_free_data
 	krb5_free_data_contents
+        krb5_free_default_realm
 	krb5_free_error
 	krb5_free_error_contents
 	krb5_free_error_string
@@ -333,12 +333,12 @@ EXPORTS
 	krb5_get_host_realm
 	krb5_get_ignore_addresses
 	krb5_get_in_cred
-	krb5_cccol_last_change_time
+;	krb5_cccol_last_change_time
 	krb5_get_in_tkt
 	krb5_get_in_tkt_with_keytab
 	krb5_get_in_tkt_with_password
 	krb5_get_in_tkt_with_skey
-;	krb5_get_init_creds
+;!	krb5_get_init_creds
 	krb5_get_init_creds_keyblock
 	krb5_get_init_creds_keytab
 	krb5_get_init_creds_opt_alloc
@@ -374,6 +374,7 @@ EXPORTS
 	krb5_get_renewed_creds
 	krb5_get_server_rcache
 	krb5_get_use_admin_kdc
+        krb5_get_validated_creds        ;!
 	krb5_get_warn_dest
 	krb5_get_wrapped_length
 	krb5_getportbyname
@@ -384,10 +385,14 @@ EXPORTS
 	krb5_hmac
 	krb5_init_context
 	krb5_init_ets
-	krb5_init_etype
 	krb5_initlog
 	krb5_is_config_principal
+	krb5_is_enctype_weak
 	krb5_is_thread_safe
+#ifdef HAVE_KCM
+	krb5_kcm_call
+	krb5_kcm_storage_request
+#endif
 	krb5_kerberos_enctypes
 	krb5_keyblock_get_enctype
 	krb5_keyblock_init
@@ -419,6 +424,7 @@ EXPORTS
 	krb5_kt_get_full_name
 	krb5_kt_get_name
 	krb5_kt_get_type
+        krb5_kt_have_content
 	krb5_kt_next_entry
 	krb5_kt_read_service_key
 	krb5_kt_register
@@ -474,6 +480,7 @@ EXPORTS
 	krb5_parse_nametype
 	krb5_passwd_result_to_string
 	krb5_password_key_proc
+        krb5_get_permitted_enctypes
 	krb5_plugin_register
 	krb5_prepend_config_files
 	krb5_prepend_config_files_default
@@ -483,8 +490,10 @@ EXPORTS
 	krb5_principal_compare
 	krb5_principal_compare_any_realm
 	krb5_principal_get_comp_string
+	krb5_principal_get_num_comp
 	krb5_principal_get_realm
 	krb5_principal_get_type
+	krb5_principal_is_krbtgt
 	krb5_principal_match
 	krb5_principal_set_realm
 	krb5_principal_set_type
@@ -600,6 +609,7 @@ EXPORTS
 	krb5_storage_set_byteorder
 	krb5_storage_set_eof_code
 	krb5_storage_set_flags
+        krb5_storage_set_max_alloc
 	krb5_storage_to_data
 	krb5_storage_truncate
 	krb5_storage_write
@@ -705,9 +715,6 @@ EXPORTS
 #ifdef HAVE_KCM
 	krb5_kcm_ops            DATA
 #endif
-#ifdef HAVE_KRB4
-	krb4_fkt_ops            DATA
-#endif
 	krb5_wrfkt_ops          DATA
 	krb5_mkt_ops            DATA
 	krb5_akf_ops            DATA
@@ -728,20 +735,6 @@ EXPORTS
 	_krb5_get_krbtgt
 	_krb5_build_authenticator
 
-        ; V4 compat glue
-	_krb5_krb_tf_setup
-	_krb5_krb_dest_tkt
-	_krb5_krb_life_to_time
-	_krb5_krb_decomp_ticket
-	_krb5_krb_decomp_ticket
-	_krb5_krb_create_ticket
-	_krb5_krb_create_ciph
-	_krb5_krb_create_auth_reply
-	_krb5_krb_rd_req
-	_krb5_krb_free_auth_data
-	_krb5_krb_time_to_life
-	_krb5_krb_cr_err_reply
-
 	; Shared with libkdc
 	_krb5_AES_string_to_default_iterator
 	_krb5_dh_group_ok
@@ -761,13 +754,13 @@ EXPORTS
 	_krb5_principalname2krb5_principal
 	_krb5_put_int
 	_krb5_s4u2self_to_checksumdata
-	_krb5_expand_path_tokens
+	_krb5_expand_path_tokens	;!
 
         ; kinit helper
-	_krb5_get_init_creds_opt_set_pkinit_user_certs
-	_krb5_pk_enterprise_cert
+	krb5_get_init_creds_opt_set_pkinit_user_cert
+	krb5_pk_enterprise_cert
 
 	; testing
-;	_krb5_aes_cts_encrypt
+;!	_krb5_aes_cts_encrypt
 	_krb5_n_fold
 	_krb5_expand_default_cc_name

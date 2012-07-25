@@ -125,7 +125,7 @@ static BSDPClients_t	S_clients;
 static AFPUserList	S_afp_users;
 static uint32_t		S_afp_users_max = AFP_USERS_MAX;
 static NBSPListRef	S_sharepoints = NULL;
-static char *		S_machine_name_format = DEFAULT_MACHINE_NAME_FORMAT;
+static char *		S_machine_name_format;
 
 #define AFP_UID_START	100
 static uint32_t		S_afp_uid_start = AFP_UID_START;
@@ -333,11 +333,10 @@ S_read_config(CFDictionaryRef plist)
     S_afp_users_max = AFP_USERS_MAX;
     S_afp_uid_start = AFP_UID_START;
     S_age_time_seconds = AGE_TIME_SECONDS;
-    if (S_machine_name_format != (char *)DEFAULT_MACHINE_NAME_FORMAT) {
+    if (S_machine_name_format != NULL) {
 	free(S_machine_name_format);
+	S_machine_name_format = NULL;
     }
-    S_machine_name_format = DEFAULT_MACHINE_NAME_FORMAT;
-
     if (plist != NULL) {
 	set_number_from_plist(plist, CFSTR(CFGPROP_SHADOW_SIZE_MEG),
 			      CFGPROP_SHADOW_SIZE_MEG, 
@@ -361,11 +360,15 @@ S_read_config(CFDictionaryRef plist)
 		S_machine_name_format = strdup(host_format);
 	    }
 	    else {
-		my_log(LOG_INFO, "Invalid '%s' property",
+		my_log(LOG_NOTICE, "Invalid '%s' property",
 		       CFGPROP_MACHINE_NAME_FORMAT);
 	    }
 	}
     }
+    if (S_machine_name_format == NULL) {
+	S_machine_name_format = strdup(DEFAULT_MACHINE_NAME_FORMAT);
+    }
+
     my_log(LOG_INFO, 
 	   "bsdpd: shadow file size will be set to %d megabytes",
 	   G_shadow_size_meg);
@@ -2247,4 +2250,4 @@ main(int argc, char * argv[])
     return (0);
 }
 
-#endif TEST_BSDPD
+#endif /* TEST_BSDPD */

@@ -54,9 +54,9 @@ static const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 #ifdef BUILD_KRB5_LIB
 #ifndef KRB5_LIB
 #ifdef _WIN32
-#define KRB5_LIB_FUNCTION __declspec(dllexport)
+#define KRB5_LIB_FUNCTION
 #define KRB5_LIB_CALL     __stdcall
-#define KRB5_LIB_VARIABLE __declspec(dllexport)
+#define KRB5_LIB_VARIABLE
 #else
 #define KRB5_LIB_FUNCTION
 #define KRB5_LIB_CALL
@@ -84,9 +84,9 @@ static const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 #ifdef BUILD_GSSAPI_LIB
 #ifndef GSSAPI_LIB
 #ifdef _WIN32
-#define GSSAPI_LIB_FUNCTION __declspec(dllexport)
+#define GSSAPI_LIB_FUNCTION
 #define GSSAPI_LIB_CALL     __stdcall
-#define GSSAPI_LIB_VARIABLE __declspec(dllexport)
+#define GSSAPI_LIB_VARIABLE
 #else
 #define GSSAPI_LIB_FUNCTION
 #define GSSAPI_LIB_CALL
@@ -99,8 +99,11 @@ static const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 
 @FEATURE_DEFS@
 
-/* Define is backslashes act as path delimiters */
+/* Define is backslashes act as path name delimiters */
 #define BACKSLASH_PATH_DELIM 1
+
+/* Path separator character */
+#define PATH_SEP ";"
 
 /* Define if you want to use DES encryption in telnet. */
 #define DES_ENCRYPTION 1
@@ -1356,10 +1359,14 @@ static const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 /* Define if you don't want to use mmap. */
 #define NO_MMAP 1
 
+/* Define if EGD rand method is not defined */
 #define NO_RAND_EGD_METHOD 1
 
 /* Define if the Unix rand method is not defined */
 #define NO_RAND_UNIX_METHOD 1
+
+/* Define if the Fortuna rand method is not defined */
+#define NO_RAND_FORTUNA_METHOD 1
 
 /* Define if PID files should not be used. */
 #define NO_PIDFILES 1
@@ -1454,32 +1461,6 @@ static const char *const rcsid[] = { (const char *)rcsid, "@(#)" msg }
 #include "roken_rename.h"
 #endif
 
-#define RETSIGTYPE void
-
-#define VOID_RETSIGTYPE 1
-
-#ifdef VOID_RETSIGTYPE
-#define SIGRETURN(x) return
-#else
-#define SIGRETURN(x) return (RETSIGTYPE)(x)
-#endif
-
-#ifndef CPP_ONLY
-
-typedef int pid_t;
-
-typedef unsigned int gid_t;
-
-typedef unsigned int uid_t;
-
-typedef unsigned short mode_t;
-
-#endif
-
-#ifndef __cplusplus
-#define inline __inline
-#endif
-
 #if defined(ENCRYPTION) && !defined(AUTHENTICATION)
 #define AUTHENTICATION 1
 #endif
@@ -1491,18 +1472,6 @@ typedef unsigned short mode_t;
 #define SYSCONFDIR "%{COMMONCONFIG}"
 
 #define LIBDIR "%{LIBDIR}"
-
-#if 0
-
-#define LIBEXECDIR "%{LIBEXECDIR}"
-
-#define LOCALSTATEDIR "%{COMMONCONFIG}"
-
-#define SBINDIR "%{SBINDIR}"
-
-#define BINDIR "%{BINDIR}"
-
-#endif
 
 #endif	/* RC_INVOKED */
 

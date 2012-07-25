@@ -26,45 +26,29 @@
 
 namespace WebCore {
 
-class VisibleSelection;
-class TextControlInnerElement;
-class TextControlInnerTextElement;
+class HTMLTextFormControlElement;
 
 class RenderTextControl : public RenderBlock {
 public:
     virtual ~RenderTextControl();
 
-    HTMLElement* innerTextElement() const;
-
-    bool lastChangeWasUserEdit() const { return m_lastChangeWasUserEdit; }
-    void setLastChangeWasUserEdit(bool lastChangeWasUserEdit);
-
-    int selectionStart() const;
-    int selectionEnd() const;
-    PassRefPtr<Range> selection(int start, int end) const;
-
-    virtual void subtreeHasChanged();
-    String text();
-    String textWithHardLineBreaks();
-    void selectionChanged(bool userTriggered);
+    HTMLTextFormControlElement* textFormControlElement() const;
+    virtual PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle) const = 0;
 
     VisiblePosition visiblePositionForIndex(int index) const;
-    static int indexForVisiblePosition(HTMLElement*, const VisiblePosition&);
-
-    void updatePlaceholderVisibility(bool, bool);
 
 protected:
-    RenderTextControl(Node*, bool);
+    RenderTextControl(Node*);
+
+    // This convenience function should not be made public because innerTextElement may outlive the render tree.
+    HTMLElement* innerTextElement() const;
 
     int scrollbarThickness() const;
     void adjustInnerTextStyle(const RenderStyle* startStyle, RenderStyle* textBlockStyle) const;
-    void setInnerTextValue(const String&);
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
-    void createSubtreeIfNeeded(TextControlInnerElement* innerBlock);
-    void hitInnerTextElement(HitTestResult&, int x, int y, int tx, int ty);
-    void forwardEvent(Event*);
+    void hitInnerTextElement(HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset);
 
     int textBlockWidth() const;
     int textBlockHeight() const;
@@ -73,50 +57,29 @@ protected:
 
     static bool hasValidAvgCharWidth(AtomicString family);
     virtual float getAvgCharWidth(AtomicString family);
-    virtual int preferredContentWidth(float charWidth) const = 0;
-    virtual void adjustControlHeightBasedOnLineHeight(int lineHeight) = 0;
-    virtual void cacheSelection(int start, int end) = 0;
-    virtual PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle) const = 0;
+    virtual LayoutUnit preferredContentWidth(float charWidth) const = 0;
+    virtual LayoutUnit computeControlHeight(LayoutUnit lineHeight, LayoutUnit nonContentHeight) const = 0;
     virtual RenderStyle* textBaseStyle() const = 0;
 
     virtual void updateFromElement();
     virtual void computeLogicalHeight();
-
-    bool m_placeholderVisible;
+    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren);
 
 private:
     virtual const char* renderName() const { return "RenderTextControl"; }
     virtual bool isTextControl() const { return true; }
     virtual void computePreferredLogicalWidths();
     virtual void removeLeftoverAnonymousBlock(RenderBlock*) { }
-    virtual bool canHaveChildren() const { return false; }
     virtual bool avoidsFloats() const { return true; }
-    void setInnerTextStyle(PassRefPtr<RenderStyle>);
-    virtual void paintObject(PaintInfo&, int tx, int ty);
     
-    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
+    virtual void addFocusRingRects(Vector<IntRect>&, const LayoutPoint&);
 
-    virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
+    virtual bool canBeProgramaticallyScrolled() const { return true; }
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
 
-    String finishText(Vector<UChar>&) const;
-
-    bool hasVisibleTextArea() const;
-    friend void setSelectionRange(Node*, int start, int end);
     static bool isSelectableElement(HTMLElement*, Node*);
-    
-    virtual int textBlockInsetLeft() const = 0;
-    virtual int textBlockInsetRight() const = 0;
-    virtual int textBlockInsetTop() const = 0;
-
-    void paintPlaceholder(PaintInfo&, int tx, int ty);
-
-    bool m_lastChangeWasUserEdit;
-    RefPtr<TextControlInnerTextElement> m_innerText;
 };
-
-void setSelectionRange(Node*, int start, int end);
 
 inline RenderTextControl* toRenderTextControl(RenderObject* object)
 { 

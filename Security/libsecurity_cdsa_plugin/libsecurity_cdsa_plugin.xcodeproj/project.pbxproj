@@ -1,0 +1,450 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		182BB5DB1470664C000BF1F3 /* CSPabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */; };
+		1865FC2C1472485800FD79DF /* ACsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8455E052CA23100F4D742 /* ACsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC2D1472485800FD79DF /* c++plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8455F052CA23100F4D742 /* c++plugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC2E1472485800FD79DF /* CLsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84560052CA23100F4D742 /* CLsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC2F1472485800FD79DF /* CSPsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84562052CA23100F4D742 /* CSPsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC301472485800FD79DF /* cssmplugin.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84565052CA23100F4D742 /* cssmplugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC311472485800FD79DF /* Database.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C34408C0534CC81005148B6 /* Database.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC321472485800FD79DF /* DatabaseSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C34408E0534CC81005148B6 /* DatabaseSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC331472485800FD79DF /* DbContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C3440900534CC82005148B6 /* DbContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC341472485800FD79DF /* DLsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84567052CA23100F4D742 /* DLsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC351472485800FD79DF /* pluginsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456C052CA23100F4D742 /* pluginsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC361472485800FD79DF /* pluginspi.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456D052CA23100F4D742 /* pluginspi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC371472485800FD79DF /* TPsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456E052CA23100F4D742 /* TPsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC381472485800FD79DF /* ACabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC740540B25100536F78 /* ACabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC391472485800FD79DF /* CLabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC750540B25100536F78 /* CLabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC3A1472485800FD79DF /* CSPabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC760540B25100536F78 /* CSPabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC3B1472485800FD79DF /* DLabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC770540B25100536F78 /* DLabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1865FC3C1472485800FD79DF /* TPabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC780540B25100536F78 /* TPabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C3440910534CC82005148B6 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408B0534CC81005148B6 /* Database.cpp */; };
+		4C3440930534CC82005148B6 /* DatabaseSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408D0534CC81005148B6 /* DatabaseSession.cpp */; };
+		4C3440950534CC82005148B6 /* DbContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408F0534CC82005148B6 /* DbContext.cpp */; };
+		C2196BE0053B6036005808D4 /* ACabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDB053B6036005808D4 /* ACabstractsession.cpp */; };
+		C2196BE1053B6036005808D4 /* CLabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDC053B6036005808D4 /* CLabstractsession.cpp */; };
+		C2196BE3053B6036005808D4 /* DLabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDE053B6036005808D4 /* DLabstractsession.cpp */; };
+		C2196BE4053B6036005808D4 /* TPabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDF053B6036005808D4 /* TPabstractsession.cpp */; };
+		C2F84572052CA23100F4D742 /* CSPsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84561052CA23100F4D742 /* CSPsession.cpp */; };
+		C2F84574052CA23100F4D742 /* csputilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84563052CA23100F4D742 /* csputilities.cpp */; };
+		C2F84575052CA23100F4D742 /* cssmplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84564052CA23100F4D742 /* cssmplugin.cpp */; };
+		C2F84577052CA23100F4D742 /* DLsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84566052CA23100F4D742 /* DLsession.cpp */; };
+		C2F84579052CA23100F4D742 /* pluginsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F8456B052CA23100F4D742 /* pluginsession.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB36B146F126A000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
+			remoteInfo = libsecurity_utilitiesDTrace;
+		};
+		18446071146DEEE300B12992 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = generate;
+		};
+		1844607C146DF45600B12992 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
+			remoteInfo = libsecurity_utilities;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1844606D146DEE4400B12992 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		1844606E146DEE4400B12992 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		1844606F146DEE4400B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		18446070146DEE4400B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		4C34408B0534CC81005148B6 /* Database.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Database.cpp; sourceTree = "<group>"; };
+		4C34408C0534CC81005148B6 /* Database.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Database.h; sourceTree = "<group>"; };
+		4C34408D0534CC81005148B6 /* DatabaseSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DatabaseSession.cpp; sourceTree = "<group>"; };
+		4C34408E0534CC81005148B6 /* DatabaseSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DatabaseSession.h; sourceTree = "<group>"; };
+		4C34408F0534CC82005148B6 /* DbContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbContext.cpp; sourceTree = "<group>"; };
+		4C3440900534CC82005148B6 /* DbContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbContext.h; sourceTree = "<group>"; };
+		4C52AC740540B25100536F78 /* ACabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ACabstractsession.h; path = derived_src/security_cdsa_plugin/ACabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AC750540B25100536F78 /* CLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CLabstractsession.h; path = derived_src/security_cdsa_plugin/CLabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AC760540B25100536F78 /* CSPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CSPabstractsession.h; path = derived_src/security_cdsa_plugin/CSPabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AC770540B25100536F78 /* DLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DLabstractsession.h; path = derived_src/security_cdsa_plugin/DLabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AC780540B25100536F78 /* TPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TPabstractsession.h; path = derived_src/security_cdsa_plugin/TPabstractsession.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_cdsa_plugin.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_cdsa_plugin.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDB053B6036005808D4 /* ACabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ACabstractsession.cpp; path = derived_src/security_cdsa_plugin/ACabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDC053B6036005808D4 /* CLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CLabstractsession.cpp; path = derived_src/security_cdsa_plugin/CLabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CSPabstractsession.cpp; path = derived_src/security_cdsa_plugin/CSPabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDE053B6036005808D4 /* DLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = DLabstractsession.cpp; path = derived_src/security_cdsa_plugin/DLabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDF053B6036005808D4 /* TPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = TPabstractsession.cpp; path = derived_src/security_cdsa_plugin/TPabstractsession.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2F8455E052CA23100F4D742 /* ACsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACsession.h; sourceTree = "<group>"; };
+		C2F8455F052CA23100F4D742 /* c++plugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "c++plugin.h"; sourceTree = "<group>"; };
+		C2F84560052CA23100F4D742 /* CLsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLsession.h; sourceTree = "<group>"; };
+		C2F84561052CA23100F4D742 /* CSPsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CSPsession.cpp; sourceTree = "<group>"; };
+		C2F84562052CA23100F4D742 /* CSPsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPsession.h; sourceTree = "<group>"; };
+		C2F84563052CA23100F4D742 /* csputilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csputilities.cpp; sourceTree = "<group>"; };
+		C2F84564052CA23100F4D742 /* cssmplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmplugin.cpp; sourceTree = "<group>"; };
+		C2F84565052CA23100F4D742 /* cssmplugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmplugin.h; sourceTree = "<group>"; };
+		C2F84566052CA23100F4D742 /* DLsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DLsession.cpp; sourceTree = "<group>"; };
+		C2F84567052CA23100F4D742 /* DLsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DLsession.h; sourceTree = "<group>"; };
+		C2F84568052CA23100F4D742 /* generator.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = generator.cfg; sourceTree = "<group>"; };
+		C2F84569052CA23100F4D742 /* generator.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = generator.mk; sourceTree = "<group>"; };
+		C2F8456A052CA23100F4D742 /* generator.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = generator.pl; sourceTree = "<group>"; };
+		C2F8456B052CA23100F4D742 /* pluginsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pluginsession.cpp; sourceTree = "<group>"; };
+		C2F8456C052CA23100F4D742 /* pluginsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pluginsession.h; sourceTree = "<group>"; };
+		C2F8456D052CA23100F4D742 /* pluginspi.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pluginspi.h; sourceTree = "<group>"; };
+		C2F8456E052CA23100F4D742 /* TPsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPsession.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1844606C146DEE4400B12992 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				1844606D146DEE4400B12992 /* base.xcconfig */,
+				1844606E146DEE4400B12992 /* debug.xcconfig */,
+				1844606F146DEE4400B12992 /* lib.xcconfig */,
+				18446070146DEE4400B12992 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		18446078146DF45600B12992 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1844607D146DF45600B12992 /* libsecurity_utilities.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */,
+				C2F8455D052CA23100F4D742 /* lib */,
+				1844606C146DEE4400B12992 /* config */,
+				C2196BD8053B5FFE005808D4 /* derived_src */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_cdsa_plugin.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C2196BD8053B5FFE005808D4 /* derived_src */ = {
+			isa = PBXGroup;
+			children = (
+				C2196BDB053B6036005808D4 /* ACabstractsession.cpp */,
+				C2196BDC053B6036005808D4 /* CLabstractsession.cpp */,
+				C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */,
+				C2196BDE053B6036005808D4 /* DLabstractsession.cpp */,
+				C2196BDF053B6036005808D4 /* TPabstractsession.cpp */,
+				4C52AC740540B25100536F78 /* ACabstractsession.h */,
+				4C52AC750540B25100536F78 /* CLabstractsession.h */,
+				4C52AC760540B25100536F78 /* CSPabstractsession.h */,
+				4C52AC770540B25100536F78 /* DLabstractsession.h */,
+				4C52AC780540B25100536F78 /* TPabstractsession.h */,
+			);
+			path = derived_src;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C2F8455D052CA23100F4D742 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C2F8455E052CA23100F4D742 /* ACsession.h */,
+				C2F8455F052CA23100F4D742 /* c++plugin.h */,
+				C2F84560052CA23100F4D742 /* CLsession.h */,
+				C2F84561052CA23100F4D742 /* CSPsession.cpp */,
+				C2F84562052CA23100F4D742 /* CSPsession.h */,
+				C2F84563052CA23100F4D742 /* csputilities.cpp */,
+				C2F84564052CA23100F4D742 /* cssmplugin.cpp */,
+				C2F84565052CA23100F4D742 /* cssmplugin.h */,
+				4C34408B0534CC81005148B6 /* Database.cpp */,
+				4C34408C0534CC81005148B6 /* Database.h */,
+				4C34408D0534CC81005148B6 /* DatabaseSession.cpp */,
+				4C34408E0534CC81005148B6 /* DatabaseSession.h */,
+				4C34408F0534CC82005148B6 /* DbContext.cpp */,
+				4C3440900534CC82005148B6 /* DbContext.h */,
+				C2F84566052CA23100F4D742 /* DLsession.cpp */,
+				C2F84567052CA23100F4D742 /* DLsession.h */,
+				C2F84568052CA23100F4D742 /* generator.cfg */,
+				C2F84569052CA23100F4D742 /* generator.mk */,
+				C2F8456A052CA23100F4D742 /* generator.pl */,
+				C2F8456B052CA23100F4D742 /* pluginsession.cpp */,
+				C2F8456C052CA23100F4D742 /* pluginsession.h */,
+				C2F8456D052CA23100F4D742 /* pluginspi.h */,
+				C2F8456E052CA23100F4D742 /* TPsession.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C22DE5A055340D40032D046 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1865FC2C1472485800FD79DF /* ACsession.h in Headers */,
+				1865FC2D1472485800FD79DF /* c++plugin.h in Headers */,
+				1865FC2E1472485800FD79DF /* CLsession.h in Headers */,
+				1865FC2F1472485800FD79DF /* CSPsession.h in Headers */,
+				1865FC301472485800FD79DF /* cssmplugin.h in Headers */,
+				1865FC311472485800FD79DF /* Database.h in Headers */,
+				1865FC321472485800FD79DF /* DatabaseSession.h in Headers */,
+				1865FC331472485800FD79DF /* DbContext.h in Headers */,
+				1865FC341472485800FD79DF /* DLsession.h in Headers */,
+				1865FC351472485800FD79DF /* pluginsession.h in Headers */,
+				1865FC361472485800FD79DF /* pluginspi.h in Headers */,
+				1865FC371472485800FD79DF /* TPsession.h in Headers */,
+				1865FC381472485800FD79DF /* ACabstractsession.h in Headers */,
+				1865FC391472485800FD79DF /* CLabstractsession.h in Headers */,
+				1865FC3A1472485800FD79DF /* CSPabstractsession.h in Headers */,
+				1865FC3B1472485800FD79DF /* DLabstractsession.h in Headers */,
+				1865FC3C1472485800FD79DF /* TPabstractsession.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f $(PROJECT_DIR)/lib/generator.mk $ACTION";
+			buildConfigurationList = C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "libsecurity_cdsa_plugin_generate" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = "";
+			dependencies = (
+				182BB36C146F126A000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_cdsa_plugin_generate;
+			passBuildSettingsInEnvironment = 1;
+			productName = Generate;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD2E40987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_cdsa_plugin" */;
+			buildPhases = (
+				4C22DE5A055340D40032D046 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				18B96AFC14743E18005A4D2E /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				18446072146DEEE300B12992 /* PBXTargetDependency */,
+			);
+			name = libsecurity_cdsa_plugin;
+			productName = libsecurity_cdsa_plugin;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_cdsa_plugin.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD2E80987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_plugin" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 18446078146DF45600B12992 /* Products */;
+					ProjectRef = 18446077146DF45600B12992 /* libsecurity_utilities.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */,
+				C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		1844607D146DF45600B12992 /* libsecurity_utilities.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_utilities.a;
+			remoteRef = 1844607C146DF45600B12992 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		18B96AFC14743E18005A4D2E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2F84572052CA23100F4D742 /* CSPsession.cpp in Sources */,
+				C2F84574052CA23100F4D742 /* csputilities.cpp in Sources */,
+				C2F84575052CA23100F4D742 /* cssmplugin.cpp in Sources */,
+				4C3440910534CC82005148B6 /* Database.cpp in Sources */,
+				4C3440930534CC82005148B6 /* DatabaseSession.cpp in Sources */,
+				4C3440950534CC82005148B6 /* DbContext.cpp in Sources */,
+				C2F84577052CA23100F4D742 /* DLsession.cpp in Sources */,
+				C2F84579052CA23100F4D742 /* pluginsession.cpp in Sources */,
+				C2196BE0053B6036005808D4 /* ACabstractsession.cpp in Sources */,
+				C2196BE1053B6036005808D4 /* CLabstractsession.cpp in Sources */,
+				182BB5DB1470664C000BF1F3 /* CSPabstractsession.cpp in Sources */,
+				C2196BE3053B6036005808D4 /* DLabstractsession.cpp in Sources */,
+				C2196BE4053B6036005808D4 /* TPabstractsession.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB36C146F126A000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_utilitiesDTrace;
+			targetProxy = 182BB36B146F126A000BF1F3 /* PBXContainerItemProxy */;
+		};
+		18446072146DEEE300B12992 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C2C38A530535EDE600D7421F /* libsecurity_cdsa_plugin_generate */;
+			targetProxy = 18446071146DEEE300B12992 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2DD0987FCDD001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CSSM_HEADERS = "$(PROJECT_DIR)/../libsecurity_cssm/lib";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+			};
+			name = Debug;
+		};
+		C27AD2DF0987FCDD001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CSSM_HEADERS = "$(PROJECT_DIR)/../libsecurity_cssm/lib";
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+			};
+			name = Release;
+		};
+		C27AD2E50987FCDD001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1844606E146DEE4400B12992 /* debug.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_plugin;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C27AD2E70987FCDD001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18446070146DEE4400B12992 /* release.xcconfig */;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_cdsa_plugin;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C27AD2E90987FCDD001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1844606F146DEE4400B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD2EB0987FCDD001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1844606F146DEE4400B12992 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "libsecurity_cdsa_plugin_generate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2DD0987FCDD001272E0 /* Debug */,
+				C27AD2DF0987FCDD001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD2E40987FCDD001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_cdsa_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2E50987FCDD001272E0 /* Debug */,
+				C27AD2E70987FCDD001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD2E80987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2E90987FCDD001272E0 /* Debug */,
+				C27AD2EB0987FCDD001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

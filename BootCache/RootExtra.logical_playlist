@@ -1,3 +1,4 @@
+/private/var/log/asl/StoreData
 /private/var/db/launchd.db/com.apple.launchd/overrides.plist
 /private/var/db/dhcpclient/leases/
 /private/var/root/Library/Preferences/blued.plist

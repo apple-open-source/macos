@@ -402,6 +402,7 @@ get_line_from_file(FILE *f)
 
 	memcpy(s, out, len);
 
+	if (s[len - 1] != '\n') len++;
 	s[len - 1] = '\0';
 	return s;
 }

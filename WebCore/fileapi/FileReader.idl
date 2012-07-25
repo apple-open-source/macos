@@ -33,11 +33,10 @@ module html {
     interface [
         Conditional=BLOB,
         ActiveDOMObject,
-        CanBeConstructed,
+        Constructor,
         CallWith=ScriptExecutionContext,
         EventTarget,
-        NoStaticTables,
-        V8CustomConstructor
+        JSNoStaticTables
     ] FileReader {
         // ready states
         const unsigned short EMPTY = 0;
@@ -46,10 +45,14 @@ module html {
         readonly attribute unsigned short readyState;
 
         // async read methods
-        void readAsArrayBuffer(in Blob blob);
-        void readAsBinaryString(in Blob blob);
-        void readAsText(in Blob blob, in [Optional] DOMString encoding);
-        void readAsDataURL(in Blob blob);
+        void readAsArrayBuffer(in Blob blob)
+            raises(OperationNotAllowedException);
+        void readAsBinaryString(in Blob blob)
+            raises(OperationNotAllowedException);
+        void readAsText(in Blob blob, in [Optional] DOMString encoding)
+            raises(OperationNotAllowedException);
+        void readAsDataURL(in Blob blob)
+            raises(OperationNotAllowedException);
 
         void abort();
 
@@ -57,6 +60,16 @@ module html {
         readonly attribute [Custom] DOMObject result;
 
         readonly attribute FileError error;
+
+        // EventTarget interface
+        void addEventListener(in DOMString type,
+                              in EventListener listener,
+                              in [Optional] boolean useCapture);
+        void removeEventListener(in DOMString type,
+                                 in EventListener listener,
+                                 in [Optional] boolean useCapture);
+        boolean dispatchEvent(in Event evt)
+            raises(EventException);
 
         attribute EventListener onloadstart;
         attribute EventListener onprogress;

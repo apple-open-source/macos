@@ -36,12 +36,6 @@ using namespace std;
 
 namespace WebCore {
 
-#if USE(QT_ICU_TEXT_BREAKING)
-const char* currentTextBreakLocaleID()
-{
-    return QLocale::system().name().toLatin1();
-}
-#else
     class TextBreakIterator : public QTextBoundaryFinder {
     public:
         TextBreakIterator(QTextBoundaryFinder::BoundaryType type, const QString& string)
@@ -85,7 +79,7 @@ const char* currentTextBreakLocaleID()
 
     static TextBreakIterator* staticLineBreakIterator;
 
-    TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length)
+    TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length, const AtomicString&)
     {
         TextBreakIterator* lineBreakIterator = 0;
         if (staticLineBreakIterator) {
@@ -155,6 +149,10 @@ const char* currentTextBreakLocaleID()
     {
         return true;
     }
-#endif
+
+    bool isWordTextBreak(TextBreakIterator*)
+    {
+        return true;
+    }
 
 }

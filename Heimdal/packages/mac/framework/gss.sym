@@ -12,7 +12,7 @@
 &__gss_c_nt_user_name_oid_desc
 &__gss_c_ntlm_guest_oid_desc
 &__gss_c_peer_has_updated_spnego_oid_desc
-&__gss_c_nt_uuid_desc
+&__gss_c_nt_uuid_oid_desc
 &__gss_iakerb_mechanism_oid_desc
 &__gss_krb5_ccache_name_x_oid_desc
 &__gss_krb5_compat_des3_mic_x_oid_desc
@@ -44,8 +44,17 @@
 &__gss_netlogon_nt_netbios_dns_name_oid_desc
 &__gss_netlogon_set_session_key_x_oid_desc
 &__gss_netlogon_set_sign_algorithm_x_oid_desc
+&__gss_appl_lkdc_supported_oid_desc
+&__gss_c_nt_uuid_desc
 &__gss_appl_lkdc_supported_desc
+&__gss_c_cred_diag_oid_desc
 %ifdef ENABLE_NTLM
+&__gss_c_ntlm_v1_oid_desc
+&__gss_c_ntlm_force_v1_oid_desc
+&__gss_c_ntlm_v2_oid_desc
+&__gss_c_ntlm_session_key_oid_desc
+&__gss_c_ntlm_support_channelbindings_oid_desc
+&__gss_c_ntlm_support_lm2_oid_desc
 &__gss_ntlm_get_session_key_x_oid_desc
 &__gss_ntlm_mechanism_oid_desc
 &__gss_c_ntlm_v1
@@ -54,6 +63,7 @@
 &__gss_c_ntlm_session_key
 &__gss_c_ntlm_support_channelbindings
 &__gss_c_ntlm_support_lm2
+&__gss_ntlm_is_digest_service
 %endif
 %ifdef ENABLE_SCRAM
 &__gss_scram_mechanism_oid_desc
@@ -67,7 +77,9 @@ gss_accept_sec_context
 gss_acquire_cred
 gss_acquire_cred_ex				,private
 gss_acquire_cred_ex_f				,private
+gss_acquire_cred_ext				,private
 gss_aapl_initial_cred
+gss_aapl_change_password
 gss_add_buffer_set_member
 gss_add_cred
 gss_add_oid_set_member
@@ -158,6 +170,9 @@ gss_oid_to_name					,private
 gss_name_to_oid					,private
 gss_cred_label_get				,private
 gss_cred_label_set				,private
+gss_inquire_attrs_for_mech
+gss_display_mech_attr
+gss_acquire_cred_with_password
 #
 # Symbols for KerberosHelper
 #
@@ -165,3 +180,48 @@ free_NegotiationToken
 free_NegotiationTokenWin
 decode_NegotiationToken
 decode_NegotiationTokenWin
+#
+#
+#
+&kGSSAttrClass
+&kGSSAttrClassKerberos
+&kGSSAttrClassNTLM
+&kGSSAttrClassIAKerb
+&kGSSAttrSupportGSSCredential
+&kGSSAttrNameType
+&kGSSAttrNameTypeGSSExportedName
+&kGSSAttrNameTypeGSSUsername
+&kGSSAttrNameTypeGSSHostBasedService
+&kGSSAttrName
+&kGSSAttrNameDisplay
+&kGSSAttrUUID
+&kGSSAttrTransientExpire
+&kGSSAttrCredentialPassword
+&kGSSAttrCredentialStore
+&kGSSAttrCredentialSecIdentity
+&kGSSAttrCredentialExists
+&kGSSAttrStatusPersistant
+&kGSSAttrStatusAutoAcquire
+&kGSSAttrStatusTransient
+&kGSSAttrStatusAutoAcquireStatus
+&kGSSAttrTransientDefaultInClass
+#
+&__kGSSOperationAcquire
+&__kGSSOperationGetGSSCredential
+&__kGSSOperationCredentialDiagnostics
+&__kGSSOperationDestoryTransient
+&__kGSSOperationChangePassword
+&__kGSSOperationSetDefault
+&__kGSSOperationRenewCredential
+&__kGSSOperationRemoveBackingCredential
+&kGSSOperationChangePasswordOldPassword
+&kGSSOperationChangePasswordNewPassword
+#
+GSSItemAdd
+GSSItemCopyMatching
+GSSItemDelete
+GSSItemDeleteItem
+GSSItemUpdate
+GSSItemOperation
+GSSItemGetValue
+GSSItemGetTypeID

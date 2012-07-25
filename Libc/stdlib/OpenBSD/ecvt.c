@@ -20,6 +20,7 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
+#include <sys/cdefs.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,7 @@ extern void  __freedtoa(char *);
 static char *__cvt(double, int, int *, int *, int, int);
 
 static char *
-__cvt(double value, int ndigit, int *decpt, int *sign, int fmode, int pad)
+__cvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign, int fmode, int pad)
 {
 	static char *s;
 	char *p, *rve, c;
@@ -95,13 +96,13 @@ __cvt(double value, int ndigit, int *decpt, int *sign, int fmode, int pad)
 }
 
 char *
-ecvt(double value, int ndigit, int *decpt, int *sign)
+ecvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign)
 {
 	return(__cvt(value, ndigit, decpt, sign, 0, 1));
 }
 
 char *
-fcvt(double value, int ndigit, int *decpt, int *sign)
+fcvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign)
 {
 	return(__cvt(value, ndigit, decpt, sign, 1, 1));
 }

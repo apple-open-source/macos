@@ -38,7 +38,7 @@ Configure_Flags = --prefix=/usr \
                   --enable-disk-cache
 
 Post_Install_Targets = module-setup module-disable recopy-httpd-conf \
-                       post-install strip-modules webpromotion
+                       post-install strip-modules
 
 # Extract the source.
 install_source::
@@ -50,45 +50,24 @@ install_source::
 	done
 
 build::
-	cd WebSharing && xcodebuild
+	$(MKDIR) $(OBJROOT)
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
 	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2"
 
 install::
-	cd WebSharing && xcodebuild install DSTROOT=$(DSTROOT)
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
 	$(_v) $(MAKE) $(Post_Install_Targets)
 	$(_v) $(MAKE) compress_man_pages
 
 APXS = perl $(OBJROOT)/support/apxs
-SYSCONFDIR = $(shell $(APXS) -q SYSCONFDIR)
+SYSCONFDIR = /private/etc/apache2
 SYSCONFDIR_OTHER = $(SYSCONFDIR)/other
-
-Modules = +bonjour:mod_bonjour \
-          -php5:libphp5 \
-          -fastcgi:mod_fastcgi
 
 ## XXX: external modules should install their own config files
 module-setup:
 	$(MKDIR) $(DSTROOT)$(SYSCONFDIR_OTHER)
 	$(INSTALL_FILE) $(SRCROOT)/conf/*.conf $(DSTROOT)$(SYSCONFDIR_OTHER)
-	@for mod in $(Modules); do \
-		module=$${mod%:*}; \
-		module=$${module:1}; \
-		file=$${mod#*:}; \
-		activate="-A"; \
-		if test $${mod:0:1} = "+"; then activate="-a"; fi; \
-		$(APXS) -S SYSCONFDIR="$(DSTROOT)$(SYSCONFDIR)" -e -n $${module} $${activate} $${file}.so; \
-	done
 	$(RM) $(DSTROOT)$(SYSCONFDIR)/httpd.conf.bak
-
-webpromotion:
-	cp webpromotion.rb $(SYMROOT)
-	cd $(SYMROOT); macrubyc --arch i386 --arch x86_64 webpromotion.rb -o webpromotion
-	cd $(SYMROOT); /usr/bin/dsymutil -o webpromotion.dSYM webpromotion
-	mkdir -p $(DSTROOT)/usr/sbin
-	cd $(SYMROOT); strip -S webpromotion -o $(DSTROOT)/usr/sbin/webpromotion
-	chmod 755 $(DSTROOT)/usr/sbin/webpromotion
 
 # 4831254
 module-disable:
@@ -109,12 +88,10 @@ post-install:
 	$(CHOWN) -R $(Install_User):$(Install_Group) \
 		$(DSTROOT)/usr/share/httpd \
 		$(DSTROOT)/usr/share/man
-	$(RM) $(DSTROOT)/private/etc/apache2/httpd.conf
-	$(INSTALL_FILE) $(SRCROOT)/httpd.conf $(DSTROOT)/private/etc/apache2/httpd.conf
-	$(INSTALL_FILE) $(SRCROOT)/httpd.conf $(DSTROOT)/private/etc/apache2/httpd.conf.default
 	$(MV) $(DSTROOT)/Library/WebServer/Documents/index.html $(DSTROOT)/Library/WebServer/Documents/index.html.en
 	$(INSTALL_FILE) $(SRCROOT)/PoweredByMacOSX*.gif $(DSTROOT)/Library/WebServer/Documents
 	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL_SCRIPT) $(SRCROOT)/webpromotion.rb $(DSTROOT)/usr/sbin/webpromotion
 	$(INSTALL_FILE) $(SRCROOT)/org.apache.httpd.plist $(DSTROOT)/System/Library/LaunchDaemons
 	$(MKDIR) $(DSTROOT)/usr/local/OpenSourceVersions $(DSTROOT)/usr/local/OpenSourceLicenses
 	$(INSTALL_FILE) $(SRCROOT)/apache.plist $(DSTROOT)/usr/local/OpenSourceVersions/apache.plist

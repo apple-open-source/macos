@@ -25,6 +25,7 @@
 
 #include "Attribute.h"
 #include "CSSPropertyNames.h"
+#include "CSSValueKeywords.h"
 #include "HTMLNames.h"
 #include "RenderBR.h"
 
@@ -48,35 +49,31 @@ PassRefPtr<HTMLBRElement> HTMLBRElement::create(const QualifiedName& tagName, Do
     return adoptRef(new HTMLBRElement(tagName, document));
 }
 
-bool HTMLBRElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
+bool HTMLBRElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attrName == clearAttr) {
-        result = eUniversal;
-        return false;
-    }
-    
-    return HTMLElement::mapToEntry(attrName, result);
+    if (name == clearAttr)
+        return true;
+    return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLBRElement::parseMappedAttribute(Attribute* attr)
+void HTMLBRElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == clearAttr) {
-        // If the string is empty, then don't add the clear property. 
+        // If the string is empty, then don't add the clear property.
         // <br clear> and <br clear=""> are just treated like <br> by Gecko, Mac IE, etc. -dwh
-        const AtomicString& str = attr->value();
-        if (!str.isEmpty()) {
-            if (equalIgnoringCase(str, "all"))
-                addCSSProperty(attr, CSSPropertyClear, "both");
+        if (!attr->isEmpty()) {
+            if (equalIgnoringCase(attr->value(), "all"))
+                addPropertyToAttributeStyle(style, CSSPropertyClear, CSSValueBoth);
             else
-                addCSSProperty(attr, CSSPropertyClear, str);
+                addPropertyToAttributeStyle(style, CSSPropertyClear, attr->value());
         }
     } else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::collectStyleForAttribute(attr, style);
 }
 
 RenderObject* HTMLBRElement::createRenderer(RenderArena* arena, RenderStyle* style)
 {
-     if (style->contentData())
+     if (style->hasContent())
         return RenderObject::createObject(this, style);
 
      return new (arena) RenderBR(this);

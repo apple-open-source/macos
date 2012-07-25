@@ -42,13 +42,14 @@ bool Module::load()
     if (!CFBundleLoadExecutable(bundle.get()))
         return false;
 
-    m_bundle.adoptCF(bundle.releaseRef());
+    m_bundle.adoptCF(bundle.leakRef());
     return true;
 }
 
 void Module::unload()
 {
-    ASSERT(m_bundle);
+    if (!m_bundle)
+        return;
 
 #if !defined(__LP64__)
     if (m_bundleResourceMap != -1)
@@ -56,8 +57,8 @@ void Module::unload()
 #endif
 
     // See the comment in Module.h for why we leak the bundle here.
-    void* scratch = m_bundle.leakRef();
-    (void)scratch;
+    CFBundleRef unused = m_bundle.leakRef();
+    (void)unused;
 }
 
 void* Module::platformFunctionPointer(const char* functionName) const
@@ -66,6 +67,11 @@ void* Module::platformFunctionPointer(const char* functionName) const
         return 0;
     RetainPtr<CFStringRef> functionNameString(AdoptCF, CFStringCreateWithCStringNoCopy(kCFAllocatorDefault, functionName, kCFStringEncodingASCII, kCFAllocatorNull));
     return CFBundleGetFunctionPointerForName(m_bundle.get(), functionNameString.get());
+}
+
+String Module::bundleIdentifier() const
+{
+    return CFBundleGetIdentifier(m_bundle.get());
 }
 
 #if !defined(__LP64__)

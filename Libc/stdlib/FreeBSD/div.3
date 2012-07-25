@@ -41,21 +41,23 @@
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft div_t
-.Fn div "int num" "int denom"
+.Fn div "int numer" "int denom"
 .Sh DESCRIPTION
 The
 .Fn div
 function
 computes the value
-.Fa num/denom
-and returns the quotient and remainder in a structure named
+.Fa numer/denom
+(numerator/denominator).
+It returns a structure named
 .Fa div_t
 that contains two
 .Vt int
 members named
 .Va quot
-and
-.Va rem .
+(quotient) and
+.Va rem
+(remainder).
 .Sh SEE ALSO
 .Xr imaxdiv 3 ,
 .Xr ldiv 3 ,

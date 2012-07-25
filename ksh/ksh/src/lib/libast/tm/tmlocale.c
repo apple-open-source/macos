@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -32,6 +32,7 @@
 #include <iconv.h>
 #include <mc.h>
 #include <tm.h>
+#include <ast_nl_types.h>
 
 #include "lclib.h"
 
@@ -75,12 +76,28 @@ fixup(Lc_info_t* li, register char** b)
 					TM_TIME,
 					TM_DATE,
 					TM_DEFAULT,
+					TM_MERIDIAN,
+					TM_UT,
+					TM_DT,
+					TM_SUFFIXES,
+					TM_PARTS,
+					TM_HOURS,
+					TM_DAYS,
+					TM_LAST,
+					TM_THIS,
+					TM_NEXT,
+					TM_EXACT,
+					TM_NOISE,
+					TM_ORDINAL,
 					TM_CTIME,
 					TM_DATE_1,
 					TM_INTERNATIONAL,
 					TM_RECENT,
 					TM_DISTANT,
 					TM_MERIDIAN_TIME,
+					TM_ORDINALS,
+					TM_FINAL,
+					TM_WORK,
 	};
 
 	standardized(li, b);
@@ -474,7 +491,11 @@ static const Map_t map[] =
 	MON_10,				(TM_MONTH+9),
 	MON_11,				(TM_MONTH+10),
 	MON_12,				(TM_MONTH+11),
+#ifdef _DATE_FMT
+	_DATE_FMT,			TM_DEFAULT,
+#else
 	D_T_FMT,			TM_DEFAULT,
+#endif
 	D_FMT,				TM_DATE,
 	T_FMT,				TM_TIME,
 #ifdef ERA
@@ -495,19 +516,23 @@ native_lc_time(Lc_info_t* li)
 	register char*	t;
 	register char**	b;
 	register int	n;
-	register int	m;
 	register int	i;
 
 	n = 0;
 	for (i = 0; i < elementsof(map); i++)
-		n += strlen(nl_langinfo(map[i].native)) + 1;
+	{
+		if (!(t = nl_langinfo(map[i].native)))
+			t = tm_data.format[map[i].local];
+		n += strlen(t) + 1;
+	}
 	if (!(b = newof(0, char*, TM_NFORM, n)))
 		return;
 	s = (char*)(b + TM_NFORM);
 	for (i = 0; i < elementsof(map); i++)
 	{
 		b[map[i].local] = s;
-		t = nl_langinfo(map[i].native);
+		if (!(t = nl_langinfo(map[i].native)))
+			t = tm_data.format[map[i].local];
 		while (*s++ = *t++);
 	}
 	fixup(li, b);
@@ -549,7 +574,7 @@ load(Lc_info_t* li)
 	tm_info.format = tm_data.format;
 	if (!(tm_info.deformat = state.format))
 		tm_info.deformat = tm_info.format[TM_DEFAULT];
-	if (mcfind(path, NiL, NiL, LC_TIME, 0) && (sp = sfopen(NiL, path, "r")))
+	if (mcfind(NiL, NiL, LC_TIME, 0, path, sizeof(path)) && (sp = sfopen(NiL, path, "r")))
 	{
 		n = sfsize(sp);
 		tp = 0;

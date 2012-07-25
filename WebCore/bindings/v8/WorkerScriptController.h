@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,6 +33,10 @@
 
 #if ENABLE(WORKERS)
 
+#include "ScopedDOMDataStore.h"
+#include "V8Binding.h"
+
+#include <v8.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Threading.h>
 
@@ -51,8 +55,8 @@ namespace WebCore {
         WorkerContextExecutionProxy* proxy() { return m_proxy.get(); }
         WorkerContext* workerContext() { return m_workerContext; }
 
-        ScriptValue evaluate(const ScriptSourceCode&);
-        ScriptValue evaluate(const ScriptSourceCode&, ScriptValue* exception);
+        void evaluate(const ScriptSourceCode&);
+        void evaluate(const ScriptSourceCode&, ScriptValue* exception);
 
         void setException(ScriptValue);
 
@@ -62,11 +66,14 @@ namespace WebCore {
         // forbidExecution()/isExecutionForbidden() to guard against reentry into JS.
         // Can be called from any thread.
         void scheduleExecutionTermination();
+        bool isExecutionTerminating() const;
 
         // Called on Worker thread when JS exits with termination exception caused by forbidExecution() request,
         // or by Worker thread termination code to prevent future entry into JS.
         void forbidExecution();
         bool isExecutionForbidden() const;
+
+        void disableEval();
 
         // Returns WorkerScriptController for the currently executing context. 0 will be returned if the current executing context is not the worker context.
         static WorkerScriptController* controllerForContext();
@@ -74,7 +81,11 @@ namespace WebCore {
     private:
         WorkerContext* m_workerContext;
         OwnPtr<WorkerContextExecutionProxy> m_proxy;
+        v8::Isolate* m_isolate;
+        ScopedDOMDataStore m_DOMDataStore;
         bool m_executionForbidden;
+        bool m_executionScheduledToTerminate;
+        mutable Mutex m_scheduledTerminationMutex;
     };
 
 } // namespace WebCore

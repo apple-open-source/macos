@@ -49,46 +49,82 @@
 
 const char * kSCNetworkSignatureActiveChangedNotifyName = NETWORK_ID_KEY ".active";
 
+#pragma mark SCNetworkSignature Supporting APIs
 
-#pragma mark SCNetworkSignature support routines
-
-static __inline__ SCDynamicStoreRef
-store_create(CFAllocatorRef alloc)
+static CFStringRef
+create_global_state_v4_key(void)
 {
-	return (SCDynamicStoreCreate(alloc, CFSTR("SCNetworkSignature"),
-				     NULL, NULL));
+	return SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, 
+							  kSCDynamicStoreDomainState,
+							  kSCEntNetIPv4);
+	
+}
+
+static CFStringRef
+create_global_setup_v4_key(void)
+{
+	return SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
+							  kSCDynamicStoreDomainSetup,
+							  kSCEntNetIPv4);
+}
+
+static CFStringRef
+create_ipv4_services_pattern(void)
+{
+	return SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							   kSCDynamicStoreDomainState,
+							   kSCCompAnyRegex,
+							   kSCEntNetIPv4);
+}
+
+static CFStringRef
+create_ipv6_services_pattern(void)
+{
+	return SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							   kSCDynamicStoreDomainState,
+							   kSCCompAnyRegex,
+							   kSCEntNetIPv6);
 }
 
 static CFDictionaryRef
-store_copy_id_dict(CFAllocatorRef alloc, SCDynamicStoreRef store)
+copy_services_for_address_family(CFAllocatorRef alloc,
+                                 int af)
 {
-	CFDictionaryRef	id_dict = NULL;
-	Boolean		release_store = FALSE;
-
-	if (store == NULL) {
-		store = store_create(alloc);
-		if (store == NULL) {
-			goto done;
-		}
-		release_store = TRUE;
-	}
-	id_dict = SCDynamicStoreCopyValue(store,
-					  kSCNetworkIdentificationStoreKey);
-	if (isA_CFDictionary(id_dict) == NULL) {
-		if (id_dict != NULL) {
-			CFRelease(id_dict);
-			id_dict = NULL;
-		}
-		goto done;
-	}
- done:
-	if (release_store) {
-		CFRelease(store);
-	}
-	return (id_dict);
+        CFDictionaryRef info;
+        CFArrayRef      patterns;
+        CFStringRef     pattern;
+        CFStringRef     prop;
+	
+        prop = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
+        pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+                                                              kSCDynamicStoreDomainState,
+                                                              kSCCompAnyRegex,
+                                                              prop);
+        patterns = CFArrayCreate(NULL,
+                                 (const void * *)&pattern, 1,
+                                 &kCFTypeArrayCallBacks);
+        CFRelease(pattern);
+        info = SCDynamicStoreCopyMultiple(NULL, NULL, patterns);
+        CFRelease(patterns);
+	
+        return (info);
 }
 
-#pragma -
+
+static CF_RETURNS_RETAINED CFStringRef
+my_IPAddressToCFString(int af, const void * src_p)
+{
+	char		ntopbuf[INET6_ADDRSTRLEN];
+	
+	if (inet_ntop(af, src_p, ntopbuf, sizeof(ntopbuf)) != NULL) {
+		return (CFStringCreateWithCString(NULL, ntopbuf,
+						  kCFStringEncodingASCII));
+	}
+	return (NULL);
+}
+
+#pragma mark -
+
 
 #pragma mark SCNetworkSignature APIs
 
@@ -96,35 +132,100 @@ CFStringRef
 SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 						 const struct sockaddr * addr)
 {
-	CFDictionaryRef		id_dict = NULL;
-	CFStringRef		ident = NULL;
+	CFStringRef		ident	= NULL;
+	CFDictionaryRef		info = NULL;
+	CFStringRef		global_state_v4_key = NULL;
+	CFDictionaryRef		global_v4_state_dict = NULL;
+	CFArrayRef		keys = NULL;
+	CFArrayRef		patterns = NULL;
+	in_addr_t 		s_addr; 
+	CFStringRef		service = NULL;
+	CFDictionaryRef		service_dict = NULL;
+	CFStringRef		service_id = NULL;
 	struct sockaddr_in *	sin_p;
-
+	CFStringRef		v4_service_pattern = NULL;
 
 	/* only accept 0.0.0.0 (i.e. default) for now */
-	sin_p = (struct sockaddr_in *)addr;
 	if (addr == NULL
 	    || addr->sa_family != AF_INET
-	    || addr->sa_len != sizeof(struct sockaddr_in)
-	    || sin_p->sin_addr.s_addr != 0) {
+	    || addr->sa_len != sizeof(struct sockaddr_in)){
 		_SCErrorSet(kSCStatusInvalidArgument);
 		goto done;
 	}
-	id_dict = store_copy_id_dict(alloc, NULL);
-	if (id_dict == NULL) {
-		_SCErrorSet(kSCStatusFailed);
+
+	/* ALIGN: force alignment */
+	sin_p = (struct sockaddr_in *)(void *)addr;
+	bcopy(&sin_p->sin_addr.s_addr, &s_addr, sizeof(s_addr));
+	if (s_addr != 0) {
+		_SCErrorSet(kSCStatusInvalidArgument);
 		goto done;
 	}
-	ident = CFDictionaryGetValue(id_dict, kStoreKeyPrimaryIPv4Identifier);
-	if (isA_CFString(ident) != NULL) {
-		CFRetain(ident);
+	
+	global_state_v4_key = create_global_state_v4_key();
+	keys = CFArrayCreate(NULL, (const void * *)&global_state_v4_key, 
+			     1, &kCFTypeArrayCallBacks);
+	
+	v4_service_pattern = create_ipv4_services_pattern();
+	patterns = CFArrayCreate(NULL,  (const void * *)&v4_service_pattern, 1,
+				 &kCFTypeArrayCallBacks);
+
+	info = SCDynamicStoreCopyMultiple(NULL, keys, patterns);
+	
+	if (info == NULL 
+	    || CFDictionaryGetCount(info) == 0) {
+		goto done;
 	}
-	else {
+
+	global_v4_state_dict = CFDictionaryGetValue(info, global_state_v4_key);
+
+	if (isA_CFDictionary(global_v4_state_dict) == NULL) {
+		goto done;
+	}
+	
+	service_id = CFDictionaryGetValue(global_v4_state_dict,
+					   kSCDynamicStorePropNetPrimaryService);
+
+	if (isA_CFString(service_id) == NULL) {
+		goto done;
+	}
+	
+	service = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      service_id, kSCEntNetIPv4);
+	
+	service_dict = CFDictionaryGetValue(info, service);
+
+	
+	if (isA_CFDictionary(service_dict) == NULL 
+	    || CFDictionaryGetCount(service_dict) == 0) {
+		goto done;
+	}
+
+	ident = CFDictionaryGetValue(service_dict, kStoreKeyNetworkSignature);
+	ident = isA_CFString(ident);
+done:
+	if (ident != NULL) {
+		CFRetain(ident);
+	} else {
 		_SCErrorSet(kSCStatusFailed);
 	}
- done:
-	if (id_dict != NULL) {
-		CFRelease(id_dict);
+	if (info != NULL) {
+		CFRelease(info);
+	}
+	if (global_state_v4_key != NULL) {
+		CFRelease(global_state_v4_key);
+	}
+	if (service != NULL) {
+		CFRelease(service);
+	}
+	if (keys != NULL) {
+		CFRelease(keys);
+	}
+	if (patterns != NULL) {
+		CFRelease(patterns);
+	}
+	if (v4_service_pattern != NULL) {
+		CFRelease(v4_service_pattern);
 	}
 	return (ident);
 }
@@ -132,36 +233,157 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 CFArrayRef /* of CFStringRef's */
 SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 {
-	CFArrayRef		active = NULL;
-	int			i;
+	CFMutableArrayRef	active = NULL;
 	int			count = 0;
-	CFDictionaryRef		id_dict = NULL;
+	CFStringRef		global_setup_v4_key = NULL;
+	CFDictionaryRef		global_v4_dict;
+	int			i;
+	CFDictionaryRef		info = NULL;
+	CFArrayRef		keys = NULL;
+	CFMutableArrayRef	patterns = NULL;
+	CFRange			range;
+	CFMutableDictionaryRef	services_dict = NULL;
+	CFArrayRef		service_order;
+	CFStringRef		v4_service_pattern = NULL;
+	CFStringRef		v6_service_pattern = NULL;
+	const void * *		values = NULL;
+#define KEYS_STATIC_COUNT	10
+	const void *		values_static[KEYS_STATIC_COUNT];
 
-	id_dict = store_copy_id_dict(alloc, NULL);
-	if (id_dict == NULL) {
+	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	global_setup_v4_key = create_global_setup_v4_key();
+	keys = CFArrayCreate(NULL, (const void * *)&global_setup_v4_key, 1,
+			     &kCFTypeArrayCallBacks);
+	
+	v4_service_pattern = create_ipv4_services_pattern();
+	CFArrayAppendValue(patterns, v4_service_pattern);
+	
+	v6_service_pattern = create_ipv6_services_pattern();
+	CFArrayAppendValue(patterns, v6_service_pattern);
+	
+	info = SCDynamicStoreCopyMultiple(NULL, keys, patterns);
+	
+	if (info == NULL 
+	    || CFDictionaryGetCount(info) == 0) {
 		goto done;
 	}
-	active = CFDictionaryGetValue(id_dict, kStoreKeyActiveIdentifiers);
-	if (isA_CFArray(active) != NULL) {
-		count = CFArrayGetCount(active);
-	}
-	if (count == 0) {
-		active = NULL;
-		goto done;
-	}
-	for (i = 0; i < count; i++) {
-		CFStringRef	ident = CFArrayGetValueAtIndex(active, i);
 
-		if (isA_CFString(ident) == NULL) {
-			active = NULL;
-			goto done;
+	services_dict = CFDictionaryCreateMutableCopy(NULL, 0, info);
+	/*
+	 * The service_dict should only contain services and once each
+	 * service has been visited, it will be removed from the dictionary.	
+	 */
+	CFDictionaryRemoveValue(services_dict, global_setup_v4_key);
+
+	global_v4_dict = CFDictionaryGetValue(info, global_setup_v4_key);
+
+	if (isA_CFDictionary(global_v4_dict) == NULL) {
+		service_order = CFDictionaryGetValue(global_v4_dict, 
+						     kSCPropNetServiceOrder);
+		if (isA_CFArray(service_order) != NULL) {
+			count = CFArrayGetCount(service_order);
 		}
 	}
-	CFRetain(active);
+	
+	active = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	
+	range = CFRangeMake(0, 0);
 
+	for (i = 0; i < count ; i++) {
+		int			j;
+		CFStringRef		network_sig;
+		CFStringRef		service;
+		CFStringRef		service_id; 
+		CFDictionaryRef		service_info;
+		CFStringRef		afs[2] = {kSCEntNetIPv4, kSCEntNetIPv6};
+		
+		service_id = CFArrayGetValueAtIndex(service_order, i);
+
+		if (isA_CFString(service_id) == NULL) {
+			continue;
+		}
+
+		for (j = 0; j < 2; j++) {
+			service = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+						kSCDynamicStoreDomainState,
+						service_id, afs[j]);
+		
+			service_info = CFDictionaryGetValue(services_dict, service);
+
+			/* Does this service have a signature? */
+			if (isA_CFDictionary(service_info) != NULL) {
+				network_sig = CFDictionaryGetValue(service_info, kStoreKeyNetworkSignature);
+				if (isA_CFString(network_sig) != NULL
+				    && CFArrayContainsValue(active, range, network_sig) == FALSE) {
+					CFArrayAppendValue(active, network_sig);
+					network_sig = NULL;
+					range.length++;
+				}
+				CFDictionaryRemoveValue(services_dict, service);
+			}
+			CFRelease(service);
+		}
+	}
+
+	count = CFDictionaryGetCount(services_dict);
+
+	if (count != 0) {
+		if (count > KEYS_STATIC_COUNT) {
+			values = (const void * *)malloc(sizeof(*values) * count);
+		} else {
+			values = values_static;
+		}
+		CFDictionaryGetKeysAndValues(services_dict, NULL,
+					     (const void * *)values);
+	}
+	
+	for (i = 0; i < count; i++) {
+		CFStringRef 		network_sig;
+		CFDictionaryRef 	service_dict = (CFDictionaryRef)values[i];
+
+		if (isA_CFDictionary(service_dict) == NULL) {
+			continue;
+		}
+
+		network_sig = CFDictionaryGetValue(service_dict,
+						   kStoreKeyNetworkSignature);
+		/* Does this service have a signature? */
+		if (isA_CFString(network_sig) != NULL 
+		    && CFArrayContainsValue(active, range, network_sig) == FALSE) {
+			CFArrayAppendValue(active, network_sig);
+			range.length++;
+			network_sig = NULL;
+		}
+	}		
  done:
-	if (id_dict != NULL) {
-		CFRelease(id_dict);
+	if (info != NULL) {
+		CFRelease(info);
+	}
+	if (services_dict != NULL) {
+		CFRelease(services_dict);
+	}
+	if (global_setup_v4_key != NULL) {
+		CFRelease(global_setup_v4_key);
+	}
+	if (v4_service_pattern != NULL) {
+		CFRelease(v4_service_pattern);
+	}
+	if (v6_service_pattern != NULL) {
+		CFRelease(v6_service_pattern);
+	}
+	if (values != NULL && values != values_static) {
+		free(values);
+	}
+	if (keys != NULL) {
+		CFRelease(keys);
+	}
+	if (patterns != NULL) {
+		CFRelease(patterns);
+	}
+	if (active != NULL && CFArrayGetCount(active) == 0) {
+		CFRelease(active);
+		active = NULL;
 	}
 	if (active == NULL) {
 		_SCErrorSet(kSCStatusFailed);
@@ -169,51 +391,6 @@ SCNetworkSignatureCopyActiveIdentifiers(CFAllocatorRef alloc)
 	return (active);
 }
 
-static CFDictionaryRef
-copy_services_for_address_family(CFAllocatorRef alloc,
-				 SCDynamicStoreRef store, int af)
-{
-	CFDictionaryRef	info;
-	CFArrayRef	patterns;
-	CFStringRef	pattern;
-	CFStringRef	prop;
-	Boolean		release_store = FALSE;
-
-	if (store == NULL) {
-		store = store_create(alloc);
-		if (store == NULL) {
-			return (NULL);
-		}
-		release_store = TRUE;
-	}
-	prop = (af == AF_INET) ? kSCEntNetIPv4 : kSCEntNetIPv6;
-	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-							      kSCDynamicStoreDomainState,
-							      kSCCompAnyRegex,
-							      prop);
-	patterns = CFArrayCreate(NULL,
-				 (const void * *)&pattern, 1,
-				 &kCFTypeArrayCallBacks);
-	CFRelease(pattern);
-	info = SCDynamicStoreCopyMultiple(store, NULL, patterns);
-	CFRelease(patterns);
-	if (release_store) {
-		CFRelease(store);
-	}
-	return (info);
-}
-
-static CFStringRef
-my_IPAddressToCFString(int af, const void * src_p)
-{
-	char		ntopbuf[INET6_ADDRSTRLEN];
-
-	if (inet_ntop(af, src_p, ntopbuf, sizeof(ntopbuf)) != NULL) {
-		return (CFStringCreateWithCString(NULL, ntopbuf,
-						  kCFStringEncodingASCII));
-	}
-	return (NULL);
-}
 
 CFStringRef
 SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
@@ -226,7 +403,7 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	const void * *		keys = NULL;
 #define KEYS_STATIC_COUNT	10
 	const void *		keys_static[KEYS_STATIC_COUNT];
-	static const void *	local_ip_p;
+	const void *		local_ip_p;
 	CFStringRef		local_ip_str = NULL;
 	CFStringRef		ret_signature = NULL;
 	CFDictionaryRef		service_info = NULL;
@@ -258,7 +435,7 @@ SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 	}
 
 	/* find a service matching the local IP and get its network signature */
-	service_info = copy_services_for_address_family(alloc, NULL, af);
+	service_info = copy_services_for_address_family(alloc, af);
 	if (service_info == NULL) {
 		goto done;
 	}

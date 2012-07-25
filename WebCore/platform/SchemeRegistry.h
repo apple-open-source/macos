@@ -59,10 +59,18 @@ public:
     static void registerURLSchemeAsEmptyDocument(const String&);
     static bool shouldLoadURLSchemeAsEmptyDocument(const String&);
 
+    static void setDomainRelaxationForbiddenForURLScheme(bool forbidden, const String&);
+    static bool isDomainRelaxationForbiddenForURLScheme(const String&);
+
     // Such schemes should delegate to SecurityOrigin::canRequest for any URL
     // passed to SecurityOrigin::canDisplay.
     static bool canDisplayOnlyIfCanRequest(const String& scheme);
     static void registerAsCanDisplayOnlyIfCanRequest(const String& scheme);
+
+    // Schemes against which javascript: URLs should not be allowed to run (stop
+    // bookmarklets from running on sensitive pages). 
+    static void registerURLSchemeAsNotAllowingJavascriptURLs(const String& scheme);
+    static bool shouldTreatURLSchemeAsNotAllowingJavascriptURLs(const String& scheme);
 
     // Let some schemes opt-out of Private Browsing's default behavior of prohibiting read/write
     // access to Local Storage and Databases.
@@ -70,6 +78,10 @@ public:
     static bool allowsLocalStorageAccessInPrivateBrowsing(const String& scheme);
     static void registerURLSchemeAsAllowingDatabaseAccessInPrivateBrowsing(const String& scheme);
     static bool allowsDatabaseAccessInPrivateBrowsing(const String& scheme);
+
+    // Allow non-HTTP schemes to be registered to allow CORS requests.
+    static void registerURLSchemeAsCORSEnabled(const String& scheme);
+    static bool shouldTreatURLSchemeAsCORSEnabled(const String& scheme);
 };
 
 } // namespace WebCore

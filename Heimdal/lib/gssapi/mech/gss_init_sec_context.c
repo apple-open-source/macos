@@ -41,7 +41,7 @@ _gss_mech_cred_find(gss_cred_id_t cred_handle, gss_OID mech_type)
 	if (cred == NULL)
 		return GSS_C_NO_CREDENTIAL;
 
-	SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+	HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 		if (gss_oid_equal(mech_type, mc->gmc_mech_oid))
 			return mc->gmc_cred;
 	}
@@ -85,6 +85,7 @@ replace_cred_fun(krb5_context context,
 
     return 0;
 }
+
 static gss_cred_id_t
 check_replace_cred(OM_uint32 *minor_status,
 		   gss_name_t target,
@@ -115,10 +116,10 @@ check_replace_cred(OM_uint32 *minor_status,
     if (ret)
 	return NULL;
 
-    _krb5_plugin_run_f(context, "gss",
-		       GSSAPI_PLUGIN,
-		       GSSAPI_PLUGIN_VERSION_1,
-		       0, &ctx, replace_cred_fun);
+    krb5_plugin_run_f(context, "gss",
+		      GSSAPI_PLUGIN,
+		      GSSAPI_PLUGIN_VERSION_1,
+		      0, &ctx, replace_cred_fun);
     krb5_free_context(context);
     return ctx.found;
 }
@@ -212,13 +213,13 @@ log_init_sec_context(struct _gss_context *ctx,
  *
  * @returns a gss_error code, see gss_display_status() about printing
  *          the error code.
- *	  
+ *
  * @ingroup gssapi
  */
 
 
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_init_sec_context(OM_uint32 * minor_status,
     const gss_cred_id_t initiator_cred_handle,
     gss_ctx_id_t * context_handle,

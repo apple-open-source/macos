@@ -280,16 +280,16 @@ principal_opflags(int argc, char **argv, void (^op)(ODNodeRef node, ODRecordRef 
 int
 principal_clearflags(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODClearKerberosFlags(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODClearKerberosFlags(lnode, record, flag, NULL);
 	});
 }
 
 int
 principal_setflags(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODSetKerberosFlags(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODSetKerberosFlags(lnode, record, flag, NULL);
 	});
 }
 
@@ -373,8 +373,8 @@ out:
 int
 principal_setacl(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODSetACL(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODSetACL(lnode, record, flag, NULL);
 	});
 }
 
@@ -418,56 +418,56 @@ principal_getacl(void *opt, int argc, char **argv)
 int
 principal_clearacl(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODClearACL(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODClearACL(lnode, record, flag, NULL);
 	});
 }
 
 int
 alias_add(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODAddServerAlias(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODAddServerAlias(lnode, record, flag, NULL);
 	});
 }
 
 int
 alias_remove(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODRemoveServerAlias(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODRemoveServerAlias(lnode, record, flag, NULL);
 	});
 }
 
 int
 appleid_alias_add(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODAddAppleIDAlias(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODAddAppleIDAlias(lnode, record, flag, NULL);
 	});
 }
 
 int
 appleid_alias_remove(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODRemoveAppleIDAlias(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODRemoveAppleIDAlias(lnode, record, flag, NULL);
 	});
 }
 
 int
 appleid_cert_add(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODAddCertificateSubjectAndTrustAnchor(node, record, flag, CFSTR("CN=Apple Root CA,OU=Apple Certification Authority,O=Apple Inc.,C=US"), NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODAddCertificateSubjectAndTrustAnchor(lnode, record, flag, CFSTR("CN=Apple Root CA,OU=Apple Certification Authority,O=Apple Inc.,C=US"), NULL);
 	});
 }
 
 int
 appleid_cert_remove(void *opt, int argc, char **argv)
 {
-    return principal_opflags(argc, argv, ^(ODNodeRef node, ODRecordRef record, CFStringRef flag) {
-	    HeimODRemoveAppleIDAlias(node, record, flag, NULL);
+    return principal_opflags(argc, argv, ^(ODNodeRef lnode, ODRecordRef record, CFStringRef flag) {
+	    HeimODRemoveAppleIDAlias(lnode, record, flag, NULL);
 	});
 }
 

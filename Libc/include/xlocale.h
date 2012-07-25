@@ -91,6 +91,9 @@ __END_DECLS
 #ifdef _MONETARY_H_
 #include <xlocale/_monetary.h>
 #endif /* _MONETARY_H_ */
+#ifdef _REGEX_H_
+#include <xlocale/_regex.h>
+#endif /* _REGEX_H_ */
 #ifdef _STDIO_H_
 #include <xlocale/_stdio.h>
 #endif /* _STDIO_H_ */

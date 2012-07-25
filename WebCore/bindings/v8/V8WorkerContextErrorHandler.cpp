@@ -34,8 +34,10 @@
 
 #include "V8WorkerContextErrorHandler.h"
 
+#include "EventNames.h"
 #include "ErrorEvent.h"
 #include "V8Binding.h"
+#include "V8RecursionScope.h"
 
 namespace WebCore {
 
@@ -46,7 +48,7 @@ V8WorkerContextErrorHandler::V8WorkerContextErrorHandler(v8::Local<v8::Object> l
 
 v8::Local<v8::Value> V8WorkerContextErrorHandler::callListenerFunction(ScriptExecutionContext* context, v8::Handle<v8::Value> jsEvent, Event* event)
 {
-    ASSERT(event->isErrorEvent());
+    ASSERT(event->hasInterface(eventNames().interfaceForErrorEvent));
     v8::Local<v8::Object> listener = getListenerObject(context);
     v8::Local<v8::Value> returnValue;
     if (!listener.IsEmpty() && listener->IsFunction()) {
@@ -54,11 +56,15 @@ v8::Local<v8::Value> V8WorkerContextErrorHandler::callListenerFunction(ScriptExe
         v8::Local<v8::Function> callFunction = v8::Local<v8::Function>::Cast(listener);
         v8::Local<v8::Object> thisValue = v8::Context::GetCurrent()->Global();
         v8::Handle<v8::Value> parameters[3] = { v8String(errorEvent->message()), v8String(errorEvent->filename()), v8::Integer::New(errorEvent->lineno()) };
+        V8RecursionScope recursionScope(context);
         returnValue = callFunction->Call(thisValue, 3, parameters);
-        if (!returnValue.IsEmpty() && returnValue->IsBoolean() && !returnValue->BooleanValue())
-            event->preventDefault();
     }
     return returnValue;
+}
+
+bool V8WorkerContextErrorHandler::shouldPreventDefault(v8::Local<v8::Value> returnValue)
+{
+    return returnValue->IsBoolean() && returnValue->BooleanValue();
 }
 
 } // namespace WebCore

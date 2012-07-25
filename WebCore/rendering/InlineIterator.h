@@ -31,6 +31,9 @@
 
 namespace WebCore {
 
+// This class is used to RenderInline subtrees, stepping by character within the
+// text children. InlineIterator will use bidiNext to find the next RenderText
+// optionally notifying a BidiResolver every time it steps into/out of a RenderInline.
 class InlineIterator {
 public:
     InlineIterator()
@@ -63,6 +66,8 @@ public:
         m_nextBreakablePosition = nextBreak;
     }
 
+    RenderObject* object() const { return m_obj; }
+    unsigned offset() const { return m_pos; }
     RenderObject* root() const { return m_root; }
 
     void fastIncrementInTextNode();
@@ -112,25 +117,48 @@ static inline WTF::Unicode::Direction embedCharFromDirection(TextDirection dir, 
     return dir == RTL ? RightToLeftOverride : LeftToRightOverride;
 }
 
-static inline void notifyResolverEnteredObject(InlineBidiResolver* resolver, RenderObject* object)
+template <class Observer>
+static inline void notifyObserverEnteredObject(Observer* observer, RenderObject* object)
 {
-    if (!resolver || !object || !object->isRenderInline())
+    if (!observer || !object || !object->isRenderInline())
         return;
 
     RenderStyle* style = object->style();
     EUnicodeBidi unicodeBidi = style->unicodeBidi();
-    if (unicodeBidi == UBNormal)
+    if (unicodeBidi == UBNormal) {
+        // http://dev.w3.org/csswg/css3-writing-modes/#unicode-bidi
+        // "The element does not open an additional level of embedding with respect to the bidirectional algorithm."
+        // Thus we ignore any possible dir= attribute on the span.
         return;
-    resolver->embed(embedCharFromDirection(style->direction(), unicodeBidi), FromStyleOrDOM);
+    }
+    if (isIsolated(unicodeBidi)) {
+        observer->enterIsolate();
+        // Embedding/Override characters implied by dir= are handled when
+        // we process the isolated span, not when laying out the "parent" run.
+        return;
+    }
+
+    if (!observer->inIsolate())
+        observer->embed(embedCharFromDirection(style->direction(), unicodeBidi), FromStyleOrDOM);
 }
 
-static inline void notifyResolverWillExitObject(InlineBidiResolver* resolver, RenderObject* object)
+template <class Observer>
+static inline void notifyObserverWillExitObject(Observer* observer, RenderObject* object)
 {
-    if (!resolver || !object || !object->isRenderInline())
+    if (!observer || !object || !object->isRenderInline())
         return;
-    if (object->style()->unicodeBidi() == UBNormal)
+
+    EUnicodeBidi unicodeBidi = object->style()->unicodeBidi();
+    if (unicodeBidi == UBNormal)
+        return; // Nothing to do for unicode-bidi: normal
+    if (isIsolated(unicodeBidi)) {
+        observer->exitIsolate();
         return;
-    resolver->embed(WTF::Unicode::PopDirectionalFormat, FromStyleOrDOM);
+    }
+
+    // Otherwise we pop any embed/override character we added when we opened this tag.
+    if (!observer->inIsolate())
+        observer->embed(WTF::Unicode::PopDirectionalFormat, FromStyleOrDOM);
 }
 
 static inline bool isIteratorTarget(RenderObject* object)
@@ -139,10 +167,17 @@ static inline bool isIteratorTarget(RenderObject* object)
     return object->isText() || object->isFloating() || object->isPositioned() || object->isReplaced();
 }
 
+// This enum is only used for bidiNextShared()
+enum EmptyInlineBehavior {
+    SkipEmptyInlines,
+    IncludeEmptyInlines,
+};
+
 // FIXME: This function is misleadingly named. It has little to do with bidi.
 // This function will iterate over inlines within a block, optionally notifying
 // a bidi resolver as it enters/exits inlines (so it can push/pop embedding levels).
-static inline RenderObject* bidiNext(RenderObject* root, RenderObject* current, InlineBidiResolver* resolver = 0, bool skipInlines = true, bool* endOfInlinePtr = 0)
+template <class Observer>
+static inline RenderObject* bidiNextShared(RenderObject* root, RenderObject* current, Observer* observer = 0, EmptyInlineBehavior emptyInlineBehavior = SkipEmptyInlines, bool* endOfInlinePtr = 0)
 {
     RenderObject* next = 0;
     // oldEndOfInline denotes if when we last stopped iterating if we were at the end of an inline.
@@ -153,29 +188,29 @@ static inline RenderObject* bidiNext(RenderObject* root, RenderObject* current, 
         next = 0;
         if (!oldEndOfInline && !isIteratorTarget(current)) {
             next = current->firstChild();
-            notifyResolverEnteredObject(resolver, next);
+            notifyObserverEnteredObject(observer, next);
         }
 
         // We hit this when either current has no children, or when current is not a renderer we care about.
         if (!next) {
             // If it is a renderer we care about, and we're doing our inline-walk, return it.
-            if (!skipInlines && !oldEndOfInline && current->isRenderInline()) {
+            if (emptyInlineBehavior == IncludeEmptyInlines && !oldEndOfInline && current->isRenderInline()) {
                 next = current;
                 endOfInline = true;
                 break;
             }
 
             while (current && current != root) {
-                notifyResolverWillExitObject(resolver, current);
+                notifyObserverWillExitObject(observer, current);
 
                 next = current->nextSibling();
                 if (next) {
-                    notifyResolverEnteredObject(resolver, next);
+                    notifyObserverEnteredObject(observer, next);
                     break;
                 }
 
                 current = current->parent();
-                if (!skipInlines && current && current != root && current->isRenderInline()) {
+                if (emptyInlineBehavior == IncludeEmptyInlines && current && current != root && current->isRenderInline()) {
                     next = current;
                     endOfInline = true;
                     break;
@@ -187,7 +222,7 @@ static inline RenderObject* bidiNext(RenderObject* root, RenderObject* current, 
             break;
 
         if (isIteratorTarget(next)
-            || ((!skipInlines || !next->firstChild()) // Always return EMPTY inlines.
+            || ((emptyInlineBehavior == IncludeEmptyInlines || !next->firstChild()) // Always return EMPTY inlines.
                 && next->isRenderInline()))
             break;
         current = next;
@@ -199,17 +234,36 @@ static inline RenderObject* bidiNext(RenderObject* root, RenderObject* current, 
     return next;
 }
 
-static inline RenderObject* bidiFirstSkippingInlines(RenderObject* root, InlineBidiResolver* resolver)
+template <class Observer>
+static inline RenderObject* bidiNextSkippingEmptyInlines(RenderObject* root, RenderObject* current, Observer* observer)
 {
-    ASSERT(resolver);
+    // The SkipEmptyInlines callers never care about endOfInlinePtr.
+    return bidiNextShared(root, current, observer, SkipEmptyInlines);
+}
+
+// This makes callers cleaner as they don't have to specify a type for the observer when not providing one.
+static inline RenderObject* bidiNextSkippingEmptyInlines(RenderObject* root, RenderObject* current)
+{
+    InlineBidiResolver* observer = 0;
+    return bidiNextSkippingEmptyInlines(root, current, observer);
+}
+
+static inline RenderObject* bidiNextIncludingEmptyInlines(RenderObject* root, RenderObject* current, bool* endOfInlinePtr = 0)
+{
+    InlineBidiResolver* observer = 0; // Callers who include empty inlines, never use an observer.
+    return bidiNextShared(root, current, observer, IncludeEmptyInlines, endOfInlinePtr);
+}
+
+static inline RenderObject* bidiFirstSkippingEmptyInlines(RenderObject* root, InlineBidiResolver* resolver = 0)
+{
     RenderObject* o = root->firstChild();
     if (!o)
         return 0;
 
     if (o->isRenderInline()) {
-        notifyResolverEnteredObject(resolver, o);
+        notifyObserverEnteredObject(resolver, o);
         if (o->firstChild())
-            o = bidiNext(root, o, resolver, true);
+            o = bidiNextSkippingEmptyInlines(root, o, resolver);
         else {
             // Never skip empty inlines.
             if (resolver)
@@ -220,14 +274,15 @@ static inline RenderObject* bidiFirstSkippingInlines(RenderObject* root, InlineB
 
     // FIXME: Unify this with the bidiNext call above.
     if (o && !isIteratorTarget(o))
-        o = bidiNext(root, o, resolver, true);
+        o = bidiNextSkippingEmptyInlines(root, o, resolver);
 
-    resolver->commitExplicitEmbedding();
+    if (resolver)
+        resolver->commitExplicitEmbedding();
     return o;
 }
 
 // FIXME: This method needs to be renamed when bidiNext finds a good name.
-static inline RenderObject* bidiFirstNotSkippingInlines(RenderObject* root)
+static inline RenderObject* bidiFirstIncludingEmptyInlines(RenderObject* root)
 {
     RenderObject* o = root->firstChild();
     // If either there are no children to walk, or the first one is correct
@@ -235,7 +290,7 @@ static inline RenderObject* bidiFirstNotSkippingInlines(RenderObject* root)
     if (!o || o->isRenderInline() || isIteratorTarget(o))
         return o;
 
-    return bidiNext(root, o, 0, false);
+    return bidiNextIncludingEmptyInlines(root, o);
 }
 
 inline void InlineIterator::fastIncrementInTextNode()
@@ -245,6 +300,37 @@ inline void InlineIterator::fastIncrementInTextNode()
     ASSERT(m_pos <= toRenderText(m_obj)->textLength());
     m_pos++;
 }
+
+// FIXME: This is used by RenderBlock for simplified layout, and has nothing to do with bidi
+// it shouldn't use functions called bidiFirst and bidiNext.
+class InlineWalker {
+public:
+    InlineWalker(RenderObject* root)
+        : m_root(root)
+        , m_current(0)
+        , m_atEndOfInline(false)
+    {
+        // FIXME: This class should be taught how to do the SkipEmptyInlines codepath as well.
+        m_current = bidiFirstIncludingEmptyInlines(m_root);
+    }
+
+    RenderObject* root() { return m_root; }
+    RenderObject* current() { return m_current; }
+
+    bool atEndOfInline() { return m_atEndOfInline; }
+    bool atEnd() const { return !m_current; }
+
+    RenderObject* advance()
+    {
+        // FIXME: Support SkipEmptyInlines and observer parameters.
+        m_current = bidiNextIncludingEmptyInlines(m_root, m_current, &m_atEndOfInline);
+        return m_current;
+    }
+private:
+    RenderObject* m_root;
+    RenderObject* m_current;
+    bool m_atEndOfInline;
+};
 
 inline void InlineIterator::increment(InlineBidiResolver* resolver)
 {
@@ -256,7 +342,7 @@ inline void InlineIterator::increment(InlineBidiResolver* resolver)
             return;
     }
     // bidiNext can return 0, so use moveTo instead of moveToStartOf
-    moveTo(bidiNext(m_root, m_obj, resolver), 0);
+    moveTo(bidiNextSkippingEmptyInlines(m_root, m_obj, resolver), 0);
 }
 
 inline bool InlineIterator::atEnd() const
@@ -302,16 +388,106 @@ inline void InlineBidiResolver::increment()
     m_current.increment(this);
 }
 
+static inline bool isIsolatedInline(RenderObject* object)
+{
+    ASSERT(object);
+    return object->isRenderInline() && isIsolated(object->style()->unicodeBidi());
+}
+
+static inline RenderObject* containingIsolate(RenderObject* object, RenderObject* root)
+{
+    ASSERT(object);
+    while (object && object != root) {
+        if (isIsolatedInline(object))
+            return object;
+        object = object->parent();
+    }
+    return 0;
+}
+
+static inline unsigned numberOfIsolateAncestors(const InlineIterator& iter)
+{
+    RenderObject* object = iter.object();
+    if (!object)
+        return 0;
+    unsigned count = 0;
+    while (object && object != iter.root()) {
+        if (isIsolatedInline(object))
+            count++;
+        object = object->parent();
+    }
+    return count;
+}
+
+// FIXME: This belongs on InlineBidiResolver, except it's a template specialization
+// of BidiResolver which knows nothing about RenderObjects.
+static inline void addPlaceholderRunForIsolatedInline(InlineBidiResolver& resolver, RenderObject* obj, unsigned pos)
+{
+    ASSERT(obj);
+    BidiRun* isolatedRun = new (obj->renderArena()) BidiRun(pos, 0, obj, resolver.context(), resolver.dir());
+    resolver.runs().addRun(isolatedRun);
+    // FIXME: isolatedRuns() could be a hash of object->run and then we could cheaply
+    // ASSERT here that we didn't create multiple objects for the same inline.
+    resolver.isolatedRuns().append(isolatedRun);
+}
+
+class IsolateTracker {
+public:
+    explicit IsolateTracker(unsigned nestedIsolateCount)
+        : m_nestedIsolateCount(nestedIsolateCount)
+        , m_haveAddedFakeRunForRootIsolate(false)
+    {
+    }
+
+    void enterIsolate() { m_nestedIsolateCount++; }
+    void exitIsolate()
+    {
+        ASSERT(m_nestedIsolateCount >= 1);
+        m_nestedIsolateCount--;
+        if (!inIsolate())
+            m_haveAddedFakeRunForRootIsolate = false;
+    }
+    bool inIsolate() const { return m_nestedIsolateCount; }
+
+    // We don't care if we encounter bidi directional overrides.
+    void embed(WTF::Unicode::Direction, BidiEmbeddingSource) { }
+
+    void addFakeRunIfNecessary(RenderObject* obj, unsigned pos, InlineBidiResolver& resolver)
+    {
+        // We only need to add a fake run for a given isolated span once during each call to createBidiRunsForLine.
+        // We'll be called for every span inside the isolated span so we just ignore subsequent calls.
+        if (m_haveAddedFakeRunForRootIsolate)
+            return;
+        m_haveAddedFakeRunForRootIsolate = true;
+        // obj and pos together denote a single position in the inline, from which the parsing of the isolate will start.
+        // We don't need to mark the end of the run because this is implicit: it is either endOfLine or the end of the
+        // isolate, when we call createBidiRunsForLine it will stop at whichever comes first.
+        addPlaceholderRunForIsolatedInline(resolver, obj, pos);
+    }
+
+private:
+    unsigned m_nestedIsolateCount;
+    bool m_haveAddedFakeRunForRootIsolate;
+};
+
 template <>
 inline void InlineBidiResolver::appendRun()
 {
     if (!m_emptyRun && !m_eor.atEnd() && !m_reachedEndOfLine) {
+        // Keep track of when we enter/leave "unicode-bidi: isolate" inlines.
+        // Initialize our state depending on if we're starting in the middle of such an inline.
+        // FIXME: Could this initialize from this->inIsolate() instead of walking up the render tree?
+        IsolateTracker isolateTracker(numberOfIsolateAncestors(m_sor));
         int start = m_sor.m_pos;
         RenderObject* obj = m_sor.m_obj;
         while (obj && obj != m_eor.m_obj && obj != endOfLine.m_obj) {
-            RenderBlock::appendRunsForObject(m_runs, start, obj->length(), obj, *this);
+            if (isolateTracker.inIsolate())
+                isolateTracker.addFakeRunIfNecessary(obj, start, *this);
+            else
+                RenderBlock::appendRunsForObject(m_runs, start, obj->length(), obj, *this);
+            // FIXME: start/obj should be an InlineIterator instead of two separate variables.
             start = 0;
-            obj = bidiNext(m_sor.root(), obj);
+            obj = bidiNextSkippingEmptyInlines(m_sor.root(), obj, &isolateTracker);
         }
         if (obj) {
             unsigned pos = obj == m_eor.m_obj ? m_eor.m_pos : UINT_MAX;
@@ -321,7 +497,10 @@ inline void InlineBidiResolver::appendRun()
             }
             // It's OK to add runs for zero-length RenderObjects, just don't make the run larger than it should be
             int end = obj->length() ? pos + 1 : 0;
-            RenderBlock::appendRunsForObject(m_runs, start, end, obj, *this);
+            if (isolateTracker.inIsolate())
+                isolateTracker.addFakeRunIfNecessary(obj, start, *this);
+            else
+                RenderBlock::appendRunsForObject(m_runs, start, end, obj, *this);
         }
 
         m_eor.increment();

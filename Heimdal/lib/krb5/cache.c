@@ -3,7 +3,7 @@
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
  *
- * Portions Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2009 - 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,7 +38,7 @@
 /**
  * @page krb5_ccache_intro The credential cache functions
  * @section section_krb5_ccache Kerberos credential caches
- * 
+ *
  * krb5_ccache structure holds a Kerberos credential cache.
  *
  * Heimdal support the follow types of credential caches:
@@ -83,7 +83,7 @@ main (int argc, char **argv)
     while ((ret = krb5_cc_next_cred(context, id, &cursor, &creds)) == 0){
         char *principal;
 
-	krb5_unparse_name_short(context, creds.server, &principal);
+	krb5_unparse_name(context, creds.server, &principal);
 	printf("principal: %s\\n", principal);
 	free(principal);
 	krb5_free_cred_contents (context, &creds);
@@ -134,7 +134,7 @@ krb5_cc_register(krb5_context context,
 	}
     }
     if(i == context->num_cc_ops) {
-	const krb5_cc_ops **o = realloc(context->cc_ops,
+	const krb5_cc_ops **o = realloc(rk_UNCONST(context->cc_ops),
 					(context->num_cc_ops + 1) *
 					sizeof(context->cc_ops[0]));
 	if(o == NULL) {
@@ -206,8 +206,10 @@ allocate_ccache (krb5_context context,
     }
 
     ret = (*id)->ops->resolve(context, id, residual);
-    if(ret)
+    if(ret) {
 	free(*id);
+        *id = NULL;
+    }
 
 #ifdef KRB5_USE_PATH_TOKENS
     if (exp_residual)
@@ -215,6 +217,25 @@ allocate_ccache (krb5_context context,
 #endif
 
     return ret;
+}
+
+static int
+is_possible_path_name(const char * name)
+{
+    const char * colon;
+
+    if ((colon = strchr(name, ':')) == NULL)
+        return TRUE;
+
+#ifdef _WIN32
+    /* <drive letter>:\path\to\cache ? */
+
+    if (colon == name + 1 &&
+        strchr(colon + 1, ':') == NULL)
+        return TRUE;
+#endif
+
+    return FALSE;
 }
 
 /**
@@ -251,7 +272,7 @@ krb5_cc_resolve(krb5_context context,
 				    id);
 	}
     }
-    if (strchr (name, ':') == NULL)
+    if (is_possible_path_name(name))
 	return allocate_ccache (context, &krb5_fcc_ops, name, id);
     else {
 	krb5_set_error_message(context, KRB5_CC_UNKNOWN_TYPE,
@@ -376,7 +397,7 @@ krb5_cc_get_full_name(krb5_context context,
  */
 
 
-const krb5_cc_ops *
+KRB5_LIB_FUNCTION const krb5_cc_ops * KRB5_LIB_CALL
 krb5_cc_get_ops(krb5_context context, krb5_ccache id)
 {
     return id->ops;
@@ -441,9 +462,12 @@ environment_changed(krb5_context context)
  * @ingroup krb5_ccache
  */
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_switch(krb5_context context, krb5_ccache id)
 {
+#ifdef _WIN32
+    _krb5_set_default_cc_name_to_registry(context, id);
+#endif
 
     if (id->ops->set_default == NULL)
 	return 0;
@@ -457,7 +481,7 @@ krb5_cc_switch(krb5_context context, krb5_ccache id)
  * @ingroup krb5_ccache
  */
 
-krb5_boolean KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_cc_support_switch(krb5_context context, const char *type)
 {
     const krb5_cc_ops *ops;
@@ -515,6 +539,12 @@ krb5_cc_set_default_name(krb5_context context, const char *name)
 	        context->default_cc_name_env = strdup(p);
 	    }
 	}
+
+#ifdef _WIN32
+        if (e == NULL) {
+            e = p = _krb5_get_default_cc_name_from_registry(context);
+        }
+#endif
 	if (e == NULL) {
 	    e = krb5_config_get_string(context, NULL, "libdefaults",
 				       "default_cc_name", NULL);
@@ -872,7 +902,7 @@ krb5_cc_set_flags(krb5_context context,
 {
     return (*id->ops->set_flags)(context, id, flags);
 }
-		
+
 /**
  * Get the flags of `id', store them in `flags'.
  *
@@ -1008,7 +1038,7 @@ krb5_cc_clear_mcred(krb5_creds *mcred)
  */
 
 
-const krb5_cc_ops *
+KRB5_LIB_FUNCTION const krb5_cc_ops * KRB5_LIB_CALL
 krb5_cc_get_prefix_ops(krb5_context context, const char *prefix)
 {
     char *p, *p1;
@@ -1179,7 +1209,7 @@ krb5_cc_cache_match (krb5_context context,
 	ret = krb5_cc_get_principal(context, cache, &principal);
 	if (ret == 0) {
 	    krb5_boolean match;
-	
+
 	    match = krb5_principal_compare(context, principal, client);
 	    krb5_free_principal(context, principal);
 	    if (match)
@@ -1224,7 +1254,7 @@ krb5_cc_cache_match (krb5_context context,
  * @ingroup krb5_ccache
  */
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 {
     krb5_error_code ret;
@@ -1280,7 +1310,7 @@ build_conf_principals(krb5_context context, krb5_ccache id,
     krb5_free_principal(context, client);
     return ret;
 }
-		
+
 /**
  * Return TRUE (non zero) if the principal is a configuration
  * principal (generated part of krb5_cc_set_config()). Returns FALSE
@@ -1302,7 +1332,7 @@ krb5_is_config_principal(krb5_context context,
     if (principal->name.name_string.len == 0 ||
 	strcmp(principal->name.name_string.val[0], KRB5_CONF_NAME) != 0)
 	return FALSE;
-	
+
     return TRUE;
 }
 
@@ -1341,11 +1371,11 @@ krb5_cc_set_config(krb5_context context, krb5_ccache id,
 	/* not that anyone care when this expire */
 	cred.times.authtime = time(NULL);
 	cred.times.endtime = cred.times.authtime + 3600 * 24 * 30;
-	
+
 	ret = krb5_data_copy(&cred.ticket, data->data, data->length);
 	if (ret)
 	    goto out;
-	
+
 	ret = krb5_cc_store_cred(context, id, &cred);
     }
 
@@ -1431,7 +1461,7 @@ krb5_cccol_cursor_new(krb5_context context, krb5_cccol_cursor *cursor)
 }
 
 /**
- * Get next credential cache from the iteration. 
+ * Get next credential cache from the iteration.
  *
  * @param context A Kerberos 5 context
  * @param cursor the iteration cursor
@@ -1453,7 +1483,7 @@ krb5_cccol_cursor_next(krb5_context context, krb5_cccol_cursor cursor,
 		       krb5_ccache *cache)
 {
     krb5_error_code ret;
-    
+
     *cache = NULL;
 
     if (cursor->idx == -1) {
@@ -1470,7 +1500,7 @@ krb5_cccol_cursor_next(krb5_context context, krb5_cccol_cursor cursor,
     while (cursor->idx < context->num_cc_ops) {
 
 	if (cursor->cursor == NULL) {
-	    ret = krb5_cc_cache_get_first (context, 
+	    ret = krb5_cc_cache_get_first (context,
 					   context->cc_ops[cursor->idx]->prefix,
 					   &cursor->cursor);
 	    if (ret) {
@@ -1497,7 +1527,7 @@ krb5_cccol_cursor_next(krb5_context context, krb5_cccol_cursor cursor,
 	cursor->cursor = NULL;
 	if (ret != KRB5_CC_END)
 	    break;
-	
+
 	cursor->idx++;
     }
     if (cursor->idx >= context->num_cc_ops) {
@@ -1552,7 +1582,7 @@ krb5_cccol_cursor_free(krb5_context context, krb5_cccol_cursor *cursor)
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_last_change_time(krb5_context context,
-			 krb5_ccache id, 
+			 krb5_ccache id,
 			 krb5_timestamp *mtime)
 {
     *mtime = 0;
@@ -1665,14 +1695,11 @@ krb5_cc_set_friendly_name(krb5_context context,
 }
 
 /**
- * Get the lifetime of the initial ticket in the cache
- *
- * Get the lifetime of the initial ticket in the cache, if the initial
- * ticket was not found, the error code KRB5_CC_END is returned.
+ * Get the aproximate lifetime of credential cache
  *
  * @param context A Kerberos 5 context.
- * @param id a credential cache
- * @param t the relative lifetime of the initial ticket
+ * @param id a credential cache.
+ * @param t the relative lifetime of cache.
  *
  * @return Return an error code or 0, see krb5_get_error_message().
  *
@@ -1685,23 +1712,39 @@ krb5_cc_get_lifetime(krb5_context context, krb5_ccache id, time_t *t)
     krb5_cc_cursor cursor;
     krb5_error_code ret;
     krb5_creds cred;
-    time_t now;
+    time_t now, endtime = 0;
 
     *t = 0;
     now = time(NULL);
-    
+
     ret = krb5_cc_start_seq_get(context, id, &cursor);
     if (ret)
 	return ret;
 
     while ((ret = krb5_cc_next_cred(context, id, &cursor, &cred)) == 0) {
-	if (cred.flags.b.initial) {
+	/**
+	 * If we find a krbtgt in the cache, use that as the lifespan.
+	 */
+	if (krb5_principal_is_root_krbtgt(context, cred.client)) {
 	    if (now < cred.times.endtime)
-		*t = cred.times.endtime - now;
+		endtime = cred.times.endtime;
 	    krb5_free_cred_contents(context, &cred);
 	    break;
 	}
+	/**
+	 * If there was no krbtgt, use the shortest lifetime of
+	 * service tickets that have yet to expire.  If all
+	 * credentials are expired, krb5_cc_get_lifetime() will fail.
+	 */
+	if ((endtime == 0 || cred.times.endtime < endtime) && now < cred.times.endtime)
+	    endtime = cred.times.endtime;
 	krb5_free_cred_contents(context, &cred);
+    }
+
+    /* if we found an endtime use that */
+    if (endtime) {
+	*t = endtime - now;
+	ret = 0;
     }
     
     krb5_cc_end_seq_get(context, id, &cursor);
@@ -1723,7 +1766,7 @@ krb5_cc_get_lifetime(krb5_context context, krb5_ccache id, time_t *t)
  * @ingroup krb5_ccache
  */
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_set_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat offset)
 {
     if (id->ops->set_kdc_offset == NULL) {
@@ -1748,7 +1791,7 @@ krb5_cc_set_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat offset)
  * @ingroup krb5_ccache
  */
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_get_kdc_offset(krb5_context context, krb5_ccache id, krb5_deltat *offset)
 {
     if (id->ops->get_kdc_offset == NULL) {
@@ -1821,3 +1864,62 @@ krb5_cc_resolve_by_uuid(krb5_context context, const char *type,
     }
     return ret;
 }
+
+#ifdef _WIN32
+
+#define REGPATH_MIT_KRB5 "SOFTWARE\\MIT\\Kerberos5"
+char *
+_krb5_get_default_cc_name_from_registry(krb5_context context)
+{
+    HKEY hk_k5 = 0;
+    LONG code;
+    char * ccname = NULL;
+
+    code = RegOpenKeyEx(HKEY_CURRENT_USER,
+                        REGPATH_MIT_KRB5,
+                        0, KEY_READ, &hk_k5);
+
+    if (code != ERROR_SUCCESS)
+        return NULL;
+
+    ccname = _krb5_parse_reg_value_as_string(context, hk_k5, "ccname",
+                                             REG_NONE, 0);
+
+    RegCloseKey(hk_k5);
+
+    return ccname;
+}
+
+int
+_krb5_set_default_cc_name_to_registry(krb5_context context, krb5_ccache id)
+{
+    HKEY hk_k5 = 0;
+    LONG code;
+    int ret = -1;
+    char * ccname = NULL;
+
+    code = RegOpenKeyEx(HKEY_CURRENT_USER,
+                        REGPATH_MIT_KRB5,
+                        0, KEY_READ|KEY_WRITE, &hk_k5);
+
+    if (code != ERROR_SUCCESS)
+        return -1;
+
+    ret = asprintf(&ccname, "%s:%s", krb5_cc_get_type(context, id), krb5_cc_get_name(context, id));
+    if (ret < 0)
+        goto cleanup;
+
+    ret = _krb5_store_string_to_reg_value(context, hk_k5, "ccname",
+                                          REG_SZ, ccname, -1, 0);
+
+  cleanup:
+
+    if (ccname)
+        free(ccname);
+
+    RegCloseKey(hk_k5);
+
+    return ret;
+}
+
+#endif

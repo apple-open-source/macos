@@ -204,6 +204,13 @@ extern size_t PyObjC_methodlist_magic(Class cls);
 
 #define class_addMethodList	PyObjC_class_addMethodList
 
+#if __OBJC2__
+@interface Object
+{
+}
+- (id)self;
+@end
+#endif // __OBJC2__
 
 #endif
 

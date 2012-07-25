@@ -1,3 +1,1539 @@
+2012-05-03  Jer Noble  <jer.noble@apple.com>
+
+        Move WebKitFullScreenListener into its own file.
+        https://bugs.webkit.org/show_bug.cgi?id=85640
+
+        Reviewed by Maciej Stachowiak .
+
+        Pull WebKitFullScreenListener into its own file.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-05-03  Raphael Kubo da Costa  <rakuco@webkit.org>
+
+        [CMake] Rewrite FindCairo.cmake.
+        https://bugs.webkit.org/show_bug.cgi?id=84895
+
+        Reviewed by Daniel Bates.
+
+        The old approach relied on pkg-config for finding Cairo (which
+        introduced a dependency on pkg-config that could be avoided), used
+        the LibFindMacros code that we should probably remove in the
+        future and did not use the FindPackageHandleStandardArguments
+        module.
+
+        Change all that by rewriting the module.
+        - Use the pkg-config output optionally instead of requiring it
+        like LibFindMacros did.
+        - Remove the implicit dependency on FreeType which often found it
+        the wrong way via pkg-config and without considering
+        CMAKE_PREFIX_PATH.
+        - Retrieve the Cairo version by looking at cairo-version.h instead
+        of relying on pkg-config. It requires some additional code for
+        checking if the desired version has been found, but that will not
+        be needed once we start depending on CMake 2.8.3 or later.
+
+        The only downside is that FPHSA sets <UPPERCASED_NAME>_FOUND
+        instead of <Name>_FOUND, and to keep things consistent
+        Cairo_LIBRARIES and Cairo_INCLUDE_DIRS have become CAIRO_LIBRARIES
+        and CAIRO_INCLUDE_DIRS.
+
+        * PlatformEfl.cmake: Use CAIRO_FOO instead of Cairo_FOO.
+
+2012-04-26  Christophe Dumez  <christophe.dumez@intel.com>
+
+        [EFL] Enable VIDEO_TRACK feature
+        https://bugs.webkit.org/show_bug.cgi?id=84830
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Enable VIDEO_TRACK feature by default for EFL port.
+
+        * PlatformEfl.cmake:
+
+2012-04-20  Mike Lattanzio  <mlattanzio@rim.com>
+
+        [BlackBerry] Expose WebViewportArguments to WebPageClient
+        https://bugs.webkit.org/show_bug.cgi?id=84471
+
+        Reviewed by Antonio Gomes.
+
+        * PlatformBlackBerry.cmake:
+
+2012-04-20  Thiago Marcos P. Santos  <thiago.santos@intel.com>
+
+        [EFL] Add Security Origin API
+        https://bugs.webkit.org/show_bug.cgi?id=84023
+
+        Reviewed by Antonio Gomes.
+
+        * PlatformEfl.cmake:
+
+2012-04-10  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Enable USE_FOLDERS property
+        https://bugs.webkit.org/show_bug.cgi?id=83571
+
+        Reviewed by Daniel Bates.
+
+        Setting the FOLDER property on targets gives more structure 
+        to the generated Visual Studio solutions.
+        This does not affect other CMake generators.
+
+        * CMakeLists.txt:
+
+2012-04-07  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Cleanup WTF include directories
+        https://bugs.webkit.org/show_bug.cgi?id=82716
+
+        Reviewed by Eric Seidel.
+
+        * CMakeLists.txt:
+
+2012-04-07  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Add Battery Status API support
+        https://bugs.webkit.org/show_bug.cgi?id=82615
+
+        Reviewed by George Staikos.
+
+        Add BatteryClientBlackBerry.cpp to the build.
+
+        * PlatformBlackBerry.cmake:
+
+2012-04-06  Charles Wei  <charles.wei@torchmobile.com.cn>
+
+        [BlackBerry] Build fix to match the latest WebCore change
+        https://bugs.webkit.org/show_bug.cgi?id=83358
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake:
+
+2012-04-05  George Staikos  <staikos@webkit.org>
+
+        Add the vibration client for BlackBerry.
+        https://bugs.webkit.org/show_bug.cgi?id=83340
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake:
+
+2012-04-05  Jia Pu  <jpu@apple.com>
+
+        Move correction panel related functions from EditorClient into separated AlternativeTextClient class.
+        https://bugs.webkit.org/show_bug.cgi?id=82970
+
+        Reviewed by Enrica Casucci.
+
+        See WebCore/ChangeLog for details.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-04-01  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Support the Network Information API
+        https://bugs.webkit.org/show_bug.cgi?id=73528
+
+        Reviewed by Adam Barth.
+
+        * PlatformEfl.cmake: Add dummy NetworkInfoClientEfl.cpp files in order to support network information API.
+
+2012-03-30  Eli Fidler  <efidler@rim.com>
+
+        Enable OpenType Sanitizer for BlackBerry port.
+        https://bugs.webkit.org/show_bug.cgi?id=82782
+
+        Reviewed by Eric Seidel.
+
+        * PlatformBlackBerry.cmake: add libots to link
+
+2012-03-22  Raphael Kubo da Costa  <rakuco@FreeBSD.org>
+
+        [CMake] Unreviewed build fix after r111778.
+
+        * CMakeLists.txt: Replace ${JAVASCRIPTCORE_DIR}/wtf includes with
+        ${WTF_DIR}/wtf ones.
+
+2012-03-22  Hyowon Kim  <hw1008.kim@samsung.com>
+
+        [EFL] Add PageClientEfl to WebCoreSupport.
+        https://bugs.webkit.org/show_bug.cgi?id=80748
+
+        Reviewed by Noam Rosenthal.
+
+        * PlatformEfl.cmake: Add WebCore/platform/graphics/efl to the include path
+        and PageClientEfl.cpp to the source list.
+
+2012-03-20  Eric Seidel  <eric@webkit.org>
+
+        Move wtf/Platform.h from JavaScriptCore to Source/WTF/wtf
+        https://bugs.webkit.org/show_bug.cgi?id=80911
+
+        Reviewed by Adam Barth.
+
+        * CMakeLists.txt: Look for headers in Source/WTF.
+
+2012-03-20  Charles Wei  <charles.wei@torchmobile.com.cn>
+
+        [BlackBerry] Remove OutOfMemoryHandler from the build system
+        https://bugs.webkit.org/show_bug.cgi?id=81649
+
+        Remove OutOfMemoryHandler, and change GLES2Context to WebKitSupport,
+        in the build system for BlackBerry porting.
+
+        Reviewed by Rob Buis.
+
+        * PlatformBlackBerry.cmake:
+
+2012-03-16  Kihong Kwon  <kihong.kwon@samsung.com>
+
+        Support for Battery Status API
+        https://bugs.webkit.org/show_bug.cgi?id=62698
+
+        Add include directory and file.
+        http://www.w3.org/TR/battery-status/
+
+        Reviewed by Adam Barth.
+
+        * PlatformEfl.cmake:
+
+2012-03-11  Timothy Hatcher  <timothy@apple.com>
+
+        Update how the Web Inspector resources are loaded.
+
+        https://bugs.webkit.org/show_bug.cgi?id=80798
+        rdar://problem/10359959
+
+        Reviewed by Brian Weinstein.
+
+        * WebKit.xcodeproj/project.pbxproj: Add a framework.
+
+2012-03-06  Raphael Kubo da Costa  <kubo@profusion.mobi>
+
+        [CMake] Make the removal of transitive library dependencies work with CMake < 2.8.7.
+        https://bugs.webkit.org/show_bug.cgi?id=80469
+
+        Reviewed by Antonio Gomes.
+
+        * CMakeLists.txt: Manually set the LINK_INTERFACE_LIBRARIES target
+        property on the library being created.
+
+2012-03-06  Raphael Kubo da Costa  <kubo@profusion.mobi>
+
+        [EFL] Unreviewed; fix the build after r109877.
+
+        * CMakeLists.txt: Add WebCore/Modules/webdatabase to the list of
+        include directories so that #include'ing DatabaseDetails.h and
+        friends still works.
+
+2012-03-04  Jonathan Dong  <jonathan.dong@torchmobile.com.cn>
+
+        [BlackBerry] upstream CredentialManager and CredentialTransformData implementation
+        https://bugs.webkit.org/show_bug.cgi?id=80107
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream of CredentialManager.[h|cpp] and
+        CredentialTransformData.[h|cpp].
+        No new test.
+
+        * PlatformBlackBerry.cmake:
+
+2012-03-04  Raphael Kubo da Costa  <kubo@profusion.mobi>
+
+        [CMake] Libraries are installed to /usr/lib and not /usr/lib64 on x86_64
+        https://bugs.webkit.org/show_bug.cgi?id=71507
+
+        Reviewed by Antonio Gomes.
+
+        * CMakeLists.txt: Use ${LIB_INSTALL_DIR} instead of hardcoding "lib".
+
+2012-02-24  Grzegorz Czajkowski  <g.czajkowski@samsung.com>
+
+        [EFL][DRT] Implement setValueForUser and setAutofilled.
+        https://bugs.webkit.org/show_bug.cgi?id=79237
+
+        Reviewed by Andreas Kling.
+
+        Adds the main directory of WebKit's source to find headers of JavaScriptCore.
+
+        * PlatformEfl.cmake:
+
+2012-02-23  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Add WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS macro
+        https://bugs.webkit.org/show_bug.cgi?id=79371
+
+        Reviewed by Daniel Bates.
+
+        * CMakeLists.txt:
+        * PlatformBlackBerry.cmake: Renamed from Source/WebKit/blackberry/CMakeListsBlackBerry.txt.
+        * PlatformEfl.cmake: Renamed from Source/WebKit/efl/CMakeListsEfl.txt.
+        * PlatformWinCE.cmake: Renamed from Source/WebKit/wince/CMakeListsWinCE.txt.
+
+2012-02-20  Filip Pizlo  <fpizlo@apple.com>
+
+        JSC should be a triple-tier VM
+        https://bugs.webkit.org/show_bug.cgi?id=75812
+        <rdar://problem/10079694>
+
+        Reviewed by Gavin Barraclough.
+
+        Changed EFL's build system to include a new directory in JavaScriptCore.
+        
+        * CMakeLists.txt:
+
+2012-02-21  Jon Lee  <jonlee@apple.com>
+
+        Bring notifications support to WK1 mac: showing, canceling, removing notifications
+        https://bugs.webkit.org/show_bug.cgi?id=78783
+        <rdar://problem/10610578>
+
+        Reviewed by Anders Carlsson.
+
+        * WebKit.xcodeproj/project.pbxproj: Added new files.
+
+2012-02-21  Adam Roben  <aroben@apple.com>
+
+        Roll out r108309, r108323, and r108326
+
+        They broke the 32-bit Lion build.
+
+        Original bugs is <http://webkit.org/b/75812> <rdar://problem/10079694>.
+
+        * CMakeLists.txt:
+
+2012-02-16  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Adapt to the removal of WebStringIml.h
+        https://bugs.webkit.org/show_bug.cgi?id=78784
+
+        Reviewed by Antonio Gomes.
+
+        blackberry/WebCoreSupport/WebStringImpl.h which hasn't been upstreamed
+        has been removed internally. We should adapt to this removal for the
+        upstreamed part of the BlackBerry port. Actually WebStringImpl is not necessary
+        because it just inherits from WTF::StringImpl but adding nothing.
+
+        * blackberry/Api/WebString.cpp:
+        (BlackBerry::WebKit::WebString::WebString):
+        (BlackBerry::WebKit::WebString::equalIgnoringCase):
+        * blackberry/Api/WebString.h:
+        (WTF):
+
+2012-02-16  Nima Ghanavatian  <nghanavatian@rim.com>
+
+        [BlackBerry] Style clean-up in WebPageCompositor
+        https://bugs.webkit.org/show_bug.cgi?id=78738
+
+        Reviewed by Rob Buis.
+
+        No new functionality, no new tests.
+
+        * blackberry/WebKitSupport/WebPageCompositor.cpp:
+        (BlackBerry::WebKit::WebPageCompositor::drawLayers):
+        * blackberry/WebKitSupport/WebPageCompositor.h:
+        (WebKit):
+
+2012-02-16  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Add missing include directories.
+
+        * CMakeLists.txt:
+
+2012-02-15  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Remove ResourceHolderImpl.cpp from build system
+        https://bugs.webkit.org/show_bug.cgi?id=78779
+
+        Reviewed by George Staikos.
+
+        blackberry/Api/ResourceHolderImpl.cpp which hasn't been upstreamed
+        has been removed internally. So remove it from the build system.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+
+2012-02-15  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Upstream WebPageGroupLoadDeferrer.{h, cpp}
+        https://bugs.webkit.org/show_bug.cgi?id=78770
+
+        Reviewed by Rob Buis.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/Api/WebPageGroupLoadDeferrer.cpp: Added.
+        * blackberry/Api/WebPageGroupLoadDeferrer.h: Added.
+
+2012-02-15  Konrad Piascik  <kpiascik@rim.com>
+
+        [BlackBerry] Upstream BlackBerry specific Web Inspector resources
+        https://bugs.webkit.org/show_bug.cgi?id=78727
+
+        Reviewed by Rob Buis.
+
+        * blackberry/WebCoreSupport/inspectorBB.html: Added.
+        * blackberry/WebCoreSupport/inspectorBB.js: Added.
+        ():
+        (InspectorFrontendHost.copyText):
+
+2012-02-15  Mike Fenton  <mifenton@rim.com>
+
+        Initial upstreaming of EditorClientBlackBerry
+        https://bugs.webkit.org/show_bug.cgi?id=78730
+
+        Reviewed by Rob Buis.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/WebCoreSupport/EditorClientBlackBerry.cpp: Added.
+        (WebCore):
+        (WebCore::EditorClientBlackBerry::EditorClientBlackBerry):
+        (WebCore::EditorClientBlackBerry::pageDestroyed):
+        (WebCore::EditorClientBlackBerry::shouldDeleteRange):
+        (WebCore::EditorClientBlackBerry::shouldShowDeleteInterface):
+        (WebCore::EditorClientBlackBerry::smartInsertDeleteEnabled):
+        (WebCore::EditorClientBlackBerry::isSelectTrailingWhitespaceEnabled):
+        (WebCore::EditorClientBlackBerry::enableSpellChecking):
+        (WebCore::EditorClientBlackBerry::shouldSpellCheckFocusedField):
+        (WebCore::EditorClientBlackBerry::isContinuousSpellCheckingEnabled):
+        (WebCore::EditorClientBlackBerry::toggleContinuousSpellChecking):
+        (WebCore::EditorClientBlackBerry::isGrammarCheckingEnabled):
+        (WebCore::EditorClientBlackBerry::toggleGrammarChecking):
+        (WebCore::EditorClientBlackBerry::spellCheckerDocumentTag):
+        (WebCore::EditorClientBlackBerry::shouldBeginEditing):
+        (WebCore::EditorClientBlackBerry::shouldEndEditing):
+        (WebCore::EditorClientBlackBerry::shouldInsertNode):
+        (WebCore::EditorClientBlackBerry::shouldInsertText):
+        (WebCore::EditorClientBlackBerry::shouldChangeSelectedRange):
+        (WebCore::EditorClientBlackBerry::shouldApplyStyle):
+        (WebCore::EditorClientBlackBerry::shouldMoveRangeAfterDelete):
+        (WebCore::EditorClientBlackBerry::didBeginEditing):
+        (WebCore::EditorClientBlackBerry::respondToChangedContents):
+        (WebCore::EditorClientBlackBerry::respondToChangedSelection):
+        (WebCore::EditorClientBlackBerry::didEndEditing):
+        (WebCore::EditorClientBlackBerry::respondToSelectionAppearanceChange):
+        (WebCore::EditorClientBlackBerry::didWriteSelectionToPasteboard):
+        (WebCore::EditorClientBlackBerry::didSetSelectionTypesForPasteboard):
+        (WebCore::EditorClientBlackBerry::registerCommandForUndo):
+        (WebCore::EditorClientBlackBerry::registerCommandForRedo):
+        (WebCore::EditorClientBlackBerry::clearUndoRedoOperations):
+        (WebCore::EditorClientBlackBerry::canUndo):
+        (WebCore::EditorClientBlackBerry::canRedo):
+        (WebCore::EditorClientBlackBerry::canCopyCut):
+        (WebCore::EditorClientBlackBerry::canPaste):
+        (WebCore::EditorClientBlackBerry::undo):
+        (WebCore::EditorClientBlackBerry::redo):
+        (KeyDownEntry):
+        (KeyPressEntry):
+        (WebCore::EditorClientBlackBerry::interpretKeyEvent):
+        (WebCore::EditorClientBlackBerry::handleKeyboardEvent):
+        (WebCore::EditorClientBlackBerry::handleInputMethodKeydown):
+        (WebCore::EditorClientBlackBerry::textFieldDidBeginEditing):
+        (WebCore::EditorClientBlackBerry::textFieldDidEndEditing):
+        (WebCore::EditorClientBlackBerry::textDidChangeInTextField):
+        (WebCore::EditorClientBlackBerry::doTextFieldCommandFromEvent):
+        (WebCore::EditorClientBlackBerry::textWillBeDeletedInTextField):
+        (WebCore::EditorClientBlackBerry::textDidChangeInTextArea):
+        (WebCore::EditorClientBlackBerry::ignoreWordInSpellDocument):
+        (WebCore::EditorClientBlackBerry::learnWord):
+        (WebCore::EditorClientBlackBerry::checkSpellingOfString):
+        (WebCore::EditorClientBlackBerry::getAutoCorrectSuggestionForMisspelledWord):
+        (WebCore::EditorClientBlackBerry::checkGrammarOfString):
+        (WebCore::EditorClientBlackBerry::requestCheckingOfString):
+        (WebCore::EditorClientBlackBerry::textChecker):
+        (WebCore::EditorClientBlackBerry::updateSpellingUIWithGrammarString):
+        (WebCore::EditorClientBlackBerry::updateSpellingUIWithMisspelledWord):
+        (WebCore::EditorClientBlackBerry::showSpellingUI):
+        (WebCore::EditorClientBlackBerry::spellingUIIsShowing):
+        (WebCore::EditorClientBlackBerry::getGuessesForWord):
+        (WebCore::EditorClientBlackBerry::willSetInputMethodState):
+        (WebCore::EditorClientBlackBerry::setInputMethodState):
+        * blackberry/WebCoreSupport/EditorClientBlackBerry.h: Added.
+        (WebKit):
+        (WebCore):
+        (EditorClientBlackBerry):
+
+2012-02-15  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Upstream WebPageClient.h
+        https://bugs.webkit.org/show_bug.cgi?id=78660
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/Api/BackingStore.cpp: Add #include <BlackBerryPlatformWindow.h> because this inclusion
+        is being removed from WebPageClient.h.
+        * blackberry/Api/WebPageClient.h: Added.
+        * blackberry/WebCoreSupport/ChromeClientBlackBerry.cpp: Add #include <BlackBerryPlatformWindow.h>
+        because this inclusion is being removed from WebPageClient.h.
+
+2012-02-15  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream remaining classes in Api
+        https://bugs.webkit.org/show_bug.cgi?id=78644
+
+        Reviewed by Antonio Gomes.
+
+        No functionalities changed, no new tests.
+
+        * blackberry/Api/ActiveNodeContext.h: Renamed from Source/WebKit/blackberry/Api/BlackBerryContext.h.
+
+2012-02-14  Nima Ghanavatian  <nghanavatian@rim.com>
+
+        [BlackBerry] Upstreaming WebSettings code
+        https://bugs.webkit.org/show_bug.cgi?id=78633
+
+        Reviewed by Rob Buis.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/Api/WebSettings.cpp: Added.
+        * blackberry/Api/WebSettings.h: Added.
+        * blackberry/Api/WebSettings_p.h: Added.
+
+2012-02-14  Nima Ghanavatian  <nghanavatian@rim.com>
+
+        [BlackBerry] Upstreaming DOMSupport files
+        https://bugs.webkit.org/show_bug.cgi?id=78607
+
+        Reviewed by Rob Buis.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/WebKitSupport/DOMSupport.cpp: Added.
+        * blackberry/WebKitSupport/DOMSupport.h: Added.
+
+2012-02-14  Jeff Rogers  <jrogers@rim.com>
+
+        [BlackBerry] Remove OpenVG references
+        https://bugs.webkit.org/show_bug.cgi?id=78623
+
+        Reviewed by Rob Buis.
+
+        Removed references to USE(OPENVG) and the related code.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::BackingStorePrivate):
+        (BlackBerry::WebKit::BackingStorePrivate::repaint):
+        (BlackBerry::WebKit::BackingStorePrivate::renderContents):
+        (BlackBerry::WebKit::BackingStore::createSurface):
+        * blackberry/Api/BackingStore_p.h:
+
+2012-02-14  Andy Chen  <andchen@rim.com>
+
+        Initial upstreaming for find-in-page for BlackBerry port
+        https://bugs.webkit.org/show_bug.cgi?id=78615
+
+        Create a new class InPageSearchManager for find-in-page and
+        remove the functions in SelectionHandler
+
+        Reviewed by Rob Buis.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+        * blackberry/WebKitSupport/InPageSearchManager.cpp: Added.
+        (BlackBerry::WebKit::InPageSearchManager::InPageSearchManager):
+        (BlackBerry::WebKit::InPageSearchManager::~InPageSearchManager):
+        (BlackBerry::WebKit::InPageSearchManager::findNextString):
+        (BlackBerry::WebKit::InPageSearchManager::clearTextMatches):
+        (BlackBerry::WebKit::InPageSearchManager::setMarkerActive):
+        * blackberry/WebKitSupport/InPageSearchManager.h: Added.
+        * blackberry/WebKitSupport/SelectionHandler.cpp:
+        * blackberry/WebKitSupport/SelectionHandler.h:
+
+2012-02-14  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport FrameLoaderClientBlackBerry class
+        https://bugs.webkit.org/show_bug.cgi?id=78275
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/FrameLoaderClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/FrameLoaderClientBlackBerry.h: Added.
+
+2012-02-14  Lianghui Chen  <liachen@rim.com>
+
+        Separate mimetype and file extension mapping API from WebKit/blackberry/Api/WebKitTextCodec and complete it.
+        https://bugs.webkit.org/show_bug.cgi?id=78605
+
+        Reviewed by Rob Buis.
+
+        Now the MIME type and file extension mapping API are in WebKitMIMETypeConverter.
+
+        * blackberry/Api/WebKitMIMETypeConverter.cpp: Added.
+        (WebKit):
+        (BlackBerry::WebKit::getExtensionForMimeType):
+        (BlackBerry::WebKit::getMimeTypeForExtension):
+        * blackberry/Api/WebKitMIMETypeConverter.h: Added.
+        (WebKit):
+        * blackberry/Api/WebKitTextCodec.cpp:
+        * blackberry/Api/WebKitTextCodec.h:
+        * blackberry/CMakeListsBlackBerry.txt:
+
+2012-02-14  Ed Baker  <edbaker@rim.com>
+
+        [BlackBerry] Dragging a selection handle outside of the content bounding box does not update the selection range correctly
+        https://bugs.webkit.org/show_bug.cgi?id=78608
+
+        Ensure that when selection handles leave the content bounding box that
+        the handle not being dragged remains fixed. Do not applying padding to
+        a direction that would cause the selection to shrink when performing
+        the handle direction detection.
+
+        Reviewed by Rob Buis.
+
+        * blackberry/WebKitSupport/SelectionHandler.cpp:
+        (BlackBerry::WebKit::directionOfPointRelativeToRect):
+        (BlackBerry::WebKit::SelectionHandler::extendSelectionToFieldBoundary):
+        (BlackBerry::WebKit::SelectionHandler::clipPointToFocusNode):
+        (BlackBerry::WebKit::SelectionHandler::setSelection):
+        * blackberry/WebKitSupport/SelectionHandler.h:
+
+2012-02-14  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream remaining classes in Api
+        https://bugs.webkit.org/show_bug.cgi?id=78644
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/Api/BlackBerryContext.h: Added.
+        * blackberry/Api/BlackBerryGlobal.cpp: Added.
+        * blackberry/Api/BlackBerryGlobal.h: Added.
+        * blackberry/Api/Version.cpp: Added.
+        * blackberry/Api/Version.h: Added.
+
+2012-02-14  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream backing store related classes
+        https://bugs.webkit.org/show_bug.cgi?id=78517
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebKitSupport/BackingStoreClient.cpp: Added.
+        * blackberry/WebKitSupport/BackingStoreClient.h: Added.
+        * blackberry/WebKitSupport/BackingStoreCompositingSurface.cpp: Added.
+        * blackberry/WebKitSupport/BackingStoreCompositingSurface.h: Added.
+        * blackberry/WebKitSupport/BackingStoreTile.cpp: Added.
+        * blackberry/WebKitSupport/BackingStoreTile.h: Added.
+
+2012-02-13  Nima Ghanavatian  <nghanavatian@rim.com>
+
+        Initial upstreaming of selection handling code for BlackBerry port
+        https://bugs.webkit.org/show_bug.cgi?id=78136
+
+        Reviewed by Rob Buis.
+
+        Initial upstreaming, no new tests.
+
+        * blackberry/WebKitSupport/SelectionHandler.cpp: Added.
+        * blackberry/WebKitSupport/SelectionHandler.h: Added.
+
+2012-02-10  Mike Fenton  <mifenton@rim.com>
+
+        BlackBerry Port - Input focus is suppressed during XHR loads
+        https://bugs.webkit.org/show_bug.cgi?id=78368
+
+        Allow JS to trigger the VKB and input focus when XHR scripting
+        is active.
+
+        This switching the loaded state to checking the webpages loaded state
+        which is only updated after initial load.   When additional loading
+        events happen for XHR, it remains false and focus events function.
+
+        Also add detailed FocusLog's to shouldAcceptInputFocus.
+
+        Reviewed by Rob Buis.
+
+        * blackberry/WebKitSupport/InputHandler.cpp:
+        (BlackBerry::WebKit::InputHandler::shouldAcceptInputFocus):
+
+2012-02-10  Mike Fenton  <mifenton@rim.com>
+
+        BlackBerry Port - JS focus on blur can cause recursion
+        https://bugs.webkit.org/show_bug.cgi?id=78368
+
+        Prevent JS recursion of blur/focus by allowing focus
+        if we are already trying to prevent focus.
+
+        Reviewed by Rob Buis.
+
+        * blackberry/WebKitSupport/InputHandler.cpp:
+        (BlackBerry::WebKit::InputHandler::InputHandler):
+        (BlackBerry::WebKit::InputHandler::shouldAcceptInputFocus):
+        (BlackBerry::WebKit::InputHandler::setElementFocused):
+        * blackberry/WebKitSupport/InputHandler.h:
+        (InputHandler):
+
+2012-02-10  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream graphics helper classes in WebKitSupport
+        https://bugs.webkit.org/show_bug.cgi?id=78278
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebKitSupport/RenderQueue.cpp: Added.
+        * blackberry/WebKitSupport/RenderQueue.h: Added.
+
+2012-02-10  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream graphics helper classes in WebKitSupport
+        https://bugs.webkit.org/show_bug.cgi?id=78278
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebKitSupport/SurfacePool.cpp: Added.
+        * blackberry/WebKitSupport/SurfacePool.h: Added.
+        * blackberry/WebKitSupport/TileIndex.h: Added.
+        * blackberry/WebKitSupport/TileIndexHash.h: Added.
+
+2012-02-09  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Upstream JavaScriptDebuggerBlackBerry.{h, cpp}
+        https://bugs.webkit.org/show_bug.cgi?id=78203
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/JavaScriptDebuggerBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/JavaScriptDebuggerBlackBerry.h: Added.
+
+2012-02-09  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebKitSupport WebPageCompositor class
+        https://bugs.webkit.org/show_bug.cgi?id=78276
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebKitSupport/WebPageCompositor.cpp: Added.
+        * blackberry/WebKitSupport/WebPageCompositor.h: Added.
+
+2012-02-08  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport FrameNetworkingContextBlackBerry and IconDatabaseClientBlackBerry classes
+        https://bugs.webkit.org/show_bug.cgi?id=78049
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/FrameNetworkingContextBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/FrameNetworkingContextBlackBerry.h: Added.
+        * blackberry/WebCoreSupport/IconDatabaseClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/IconDatabaseClientBlackBerry.h: Added.
+
+2012-02-08  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Upstream InspectorClientBlackBerry.{h, cpp}
+        https://bugs.webkit.org/show_bug.cgi?id=78082
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/InspectorClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/InspectorClientBlackBerry.h: Added.
+
+2012-02-08  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Remove EditCommandBlackBerry.cpp from build system
+        https://bugs.webkit.org/show_bug.cgi?id=78078
+
+        Reviewed by Rob Buis.
+
+        WebKit/blackberry/WebCoreSupport/EditCommandBlackBerry.cpp which hasn't
+        been upstreamed has been removed from the BlackBerry porting internally.
+        So we should remove it from the build system.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+
+2012-02-08  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream DumpRenderTreeBlackBerry
+        https://bugs.webkit.org/show_bug.cgi?id=78042
+
+        Reviewed by Antonio Gomes.
+
+        Add abstract interface for our DumpRenderTree solution.
+
+        * blackberry/Api/DumpRenderTreeClient.h: Added.
+
+2012-02-08  Nima Ghanavatian  <nghanavatian@rim.com>
+
+        Initial upstreaming of input handling for BlackBerry port
+        https://bugs.webkit.org/show_bug.cgi?id=77992
+
+        Reviewed by Rob Buis.
+
+        * blackberry/WebKitSupport/InputHandler.cpp: Added.
+        * blackberry/WebKitSupport/InputHandler.h: Added.
+
+2012-02-07  Robert Kroeger  <rjkroege@chromium.org>
+
+        [chromium] Remove no longer necessary Chromium gesture recognizer code.
+        https://bugs.webkit.org/show_bug.cgi?id=77492
+
+        Reviewed by Adam Barth.
+
+        * blackberry/WebCoreSupport/AboutDataEnableFeatures.in:
+
+2012-02-07  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Upstream ChromeClientBlackBerry.{h, cpp}
+        https://bugs.webkit.org/show_bug.cgi?id=77843
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/ChromeClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/ChromeClientBlackBerry.h: Added.
+
+2012-02-07  Rob Buis  <rbuis@rim.com>
+
+        [BlackBerry] Upstream DumpRenderTreeSupport
+        https://bugs.webkit.org/show_bug.cgi?id=77991
+
+        Reviewed by Antonio Gomes.
+
+        No functionalities changed, no new tests.
+
+        * blackberry/WebKitSupport/DumpRenderTreeSupport.cpp: Added.
+        (toGeolocationClientMock):
+        (DumpRenderTreeSupport::DumpRenderTreeSupport):
+        (DumpRenderTreeSupport::~DumpRenderTreeSupport):
+        (DumpRenderTreeSupport::javaScriptObjectsCount):
+        (DumpRenderTreeSupport::garbageCollectorCollect):
+        (DumpRenderTreeSupport::garbageCollectorCollectOnAlternateThread):
+        (DumpRenderTreeSupport::setLinksIncludedInFocusChain):
+        (DumpRenderTreeSupport::linksIncludedInFocusChain):
+        (DumpRenderTreeSupport::dumpConfigurationForViewport):
+        (DumpRenderTreeSupport::numberOfPendingGeolocationPermissionRequests):
+        (DumpRenderTreeSupport::resetGeolocationMock):
+        (DumpRenderTreeSupport::setMockGeolocationError):
+        (DumpRenderTreeSupport::setMockGeolocationPermission):
+        (DumpRenderTreeSupport::setMockGeolocationPosition):
+        (DumpRenderTreeSupport::scalePageBy):
+        (DumpRenderTreeSupport::computedStyleIncludingVisitedInfo):
+        * blackberry/WebKitSupport/DumpRenderTreeSupport.h: Added.
+        (WebKit):
+        (WebCore):
+        (WTF):
+        (DumpRenderTreeSupport):
+
+2012-02-07  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport DeviceOrientationClientBlackBerry and DeviceMotionClientBlackBerry classes
+        https://bugs.webkit.org/show_bug.cgi?id=77993
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/DeviceMotionClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/DeviceMotionClientBlackBerry.h: Added.
+        * blackberry/WebCoreSupport/DeviceOrientationClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/DeviceOrientationClientBlackBerry.h: Added.
+
+2012-02-06  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        [BlackBerry] Use WebPagePrivate instead of WebPage in GeolocationControllerClientBlackBerry
+        https://bugs.webkit.org/show_bug.cgi?id=77927
+
+        Reviewed by Antonio Gomes.
+
+        WebKit/blackberry/Api/WebPage which has a d pointer is designed for public API.
+        GeolocationControllerClientBlackBerry in WebKit/blackberry/WebCoreSupport should
+        use the d pointer directly because the client is internal implementation.
+
+        No functionalities changed, no new tests.
+
+        * blackberry/WebCoreSupport/GeolocationControllerClientBlackBerry.cpp:
+        (GeolocationControllerClientBlackBerry::GeolocationControllerClientBlackBerry):
+        (GeolocationControllerClientBlackBerry::requestPermission):
+        (GeolocationControllerClientBlackBerry::cancelPermissionRequest):
+        (GeolocationControllerClientBlackBerry::onLocationUpdate):
+        (GeolocationControllerClientBlackBerry::onLocationError):
+        * blackberry/WebCoreSupport/GeolocationControllerClientBlackBerry.h:
+        (WebKit):
+        (GeolocationControllerClientBlackBerry):
+
+2012-02-06  Robin Cao  <robin.cao@torchmobile.com.cn>
+
+        [BlackBerry] Remove unused variable in BackingStore
+        https://bugs.webkit.org/show_bug.cgi?id=77851
+
+        Reviewed by Kentaro Hara.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::blitContents):
+
+2012-02-04  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport ClientExtension and GeolocationControllerClientBlackBerry classes
+        https://bugs.webkit.org/show_bug.cgi?id=77751
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/ClientExtension.cpp: Added.
+        * blackberry/WebCoreSupport/ClientExtension.h: Added.
+        * blackberry/WebCoreSupport/GeolocationControllerClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/GeolocationControllerClientBlackBerry.h: Added.
+
+2012-01-11  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] ASSERT failure in BackingStorePrivate::blitVisibleContents()
+        https://bugs.webkit.org/show_bug.cgi?id=76096
+
+        Reviewed by Rob Buis.
+
+        We shouldn't blit visible contents for direct rendering. Guard it from
+        call sites.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::repaint):
+        (BlackBerry::WebKit::BackingStorePrivate::slowScroll):
+
+2012-01-11  Rafael Brandao  <rafael.lobo@openbossa.org>
+
+        [Qt][WK2] Fix the build for newer Qt5
+        https://bugs.webkit.org/show_bug.cgi?id=75964
+
+        Reviewed by Simon Hausmann.
+
+        * WebKit.pri: Added the new files to the buildsystem.
+
+2012-01-10  Mike Lattanzio  <mlattanzio@rim.com>
+
+        [BlackBerry] Fix assertion failure in BackingStore::blitContents
+        https://bugs.webkit.org/show_bug.cgi?id=75976
+
+        Prevent an assertion failure in BackingStore::blitContents by
+        checking that the srcRect of the transformation matrix is non empty.
+
+        Reviewed by Adam Treat.
+
+        Upstream BlackBerry port is not yet building and testable.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::blitContents):
+
+2012-01-06  Benjamin Poulain  <bpoulain@apple.com>
+
+        [Mac] Sort the resources of WebKit.xcodeproj
+        https://bugs.webkit.org/show_bug.cgi?id=75634
+
+        Reviewed by Andreas Kling.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2012-01-06  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport cache client
+        https://bugs.webkit.org/show_bug.cgi?id=75649
+
+        Reviewed by Antonio Gomes.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/CacheClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/CacheClientBlackBerry.h: Added.
+
+2012-01-03  Jon Lee  <jonlee@apple.com>
+
+        Leak of WebNotificationClient when page is destroyed
+        https://bugs.webkit.org/show_bug.cgi?id=74980
+        <rdar://problem/10611231>
+
+        Reviewed by Mark Rowe.
+
+        * blackberry/WebCoreSupport/NotificationPresenterImpl.cpp:
+        (WebKit::NotificationPresenterImpl::notificationControllerDestroyed): Empty implementation, because ownership
+        model differs.
+        * blackberry/WebCoreSupport/NotificationPresenterImpl.h:
+
+2011-12-15  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Upstream BlackBerry WebCoreSupport drag client and context menu client
+        https://bugs.webkit.org/show_bug.cgi?id=74643
+
+        Reviewed by Rob Buis.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/ContextMenuClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/ContextMenuClientBlackBerry.h: Added.
+        * blackberry/WebCoreSupport/DragClientBlackBerry.cpp: Added.
+        * blackberry/WebCoreSupport/DragClientBlackBerry.h: Added.
+
+2011-12-15  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Regression: lots of checkerboarding
+        https://bugs.webkit.org/show_bug.cgi?id=74611
+
+        Reviewed by Daniel Bates.
+
+        Fix a regression caused by r102843 which introduced a lot of unnecessary
+        checkerboarding. R102843 changed behavior by removing a check for blit
+        based on whether the render actually took place and whether the
+        backingstore was in the midst of suspended updates.
+        The initial anthor is Adam Treat <atreat@rim.com>.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::repaint):
+        (BlackBerry::WebKit::BackingStorePrivate::slowScroll):
+        (BlackBerry::WebKit::BackingStorePrivate::renderVisibleContents):
+        (BlackBerry::WebKit::BackingStorePrivate::renderBackingStore):
+        * blackberry/Api/BackingStore_p.h:
+        (BlackBerry::WebKit::BackingStorePrivate::isSuspended):
+
+2011-12-15  Adam Treat  <atreat@rim.com>
+
+        Reviewed by Rob Buis.
+
+        https://bugs.webkit.org/show_bug.cgi?id=74609
+        PR 122703
+
+        For certain configurations of webpage content and zoom level we were
+        failing to produce a valid backingstore matrix by being to strict on
+        whether a given matrix fits the preferred matrix orientation.
+        This patch fixes this by insisting on storing a candidate divisor
+        whether or not it agrees with the preferred matrix orientation and then
+        comparing all subsequent divisors.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::divisorIsPerfectWidth):
+        (BlackBerry::WebKit::divisorIsPerfectHeight):
+        (BlackBerry::WebKit::divisorIsPreferredDirection):
+        (BlackBerry::WebKit::bestDivisor):
+
+2011-12-14  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Refactor code and add some debug messages in backing store
+        https://bugs.webkit.org/show_bug.cgi?id=74539
+
+        Reviewed by Antonio Gomes.
+
+        Refactor and get rid of the confusing and unnecessary
+        'renderContentOnly' flag from the family of render methods in the
+        backing store.
+        Remove the overload of the render method that takes a list of rects from
+        the backing store since it is just a for loop and only one place calls it.
+        Add a debug message to illustrate when we start showing checkerboard and
+        when we stop.
+        Fix the debug messages in the DEBUG_BACKINGSTORE so that they actually compile
+        and add a new message for debugging WebCore invalidation requests.
+        The original author is Adam Treat <atreat@rim.com>
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::resumeScreenAndBackingStoreUpdates):
+        (BlackBerry::WebKit::BackingStorePrivate::repaint):
+        (BlackBerry::WebKit::BackingStorePrivate::slowScroll):
+        (BlackBerry::WebKit::BackingStorePrivate::renderDirectToWindow):
+        (BlackBerry::WebKit::BackingStorePrivate::render):
+        (BlackBerry::WebKit::BackingStorePrivate::renderVisibleContents):
+        (BlackBerry::WebKit::BackingStorePrivate::renderBackingStore):
+        (BlackBerry::WebKit::BackingStorePrivate::blitVisibleContents):
+        (BlackBerry::WebKit::BackingStorePrivate::blitContents):
+        (BlackBerry::WebKit::BackingStorePrivate::updateTile):
+        (BlackBerry::WebKit::BackingStorePrivate::invalidateWindow):
+        * blackberry/Api/BackingStore_p.h:
+
+2011-12-14  Robin Qiu  <robin.qiu@torchmobile.com.cn>
+
+        [BlackBerry] Add notification support for the BlackBerry port
+        https://bugs.webkit.org/show_bug.cgi?id=73194
+
+        Reviewed by Nikolas Zimmermann.
+
+        Contributed by Torch team, the main contributor is Robin Qiu
+        <robin.qiu@torchmobile.com.cn>.
+
+        Initial upstream, no new tests.
+
+        * blackberry/WebCoreSupport/NotificationPresenterImpl.cpp: Added.
+        (WebKit::NotificationPresenterImpl::instance):
+        (WebKit::NotificationPresenterImpl::NotificationPresenterImpl):
+        (WebKit::NotificationPresenterImpl::~NotificationPresenterImpl):
+        (WebKit::NotificationPresenterImpl::show):
+        (WebKit::NotificationPresenterImpl::cancel):
+        (WebKit::NotificationPresenterImpl::notificationObjectDestroyed):
+        (WebKit::NotificationPresenterImpl::requestPermission):
+        (WebKit::NotificationPresenterImpl::onPermission):
+        (WebKit::NotificationPresenterImpl::cancelRequestsForPermission):
+        (WebKit::NotificationPresenterImpl::checkPermission):
+        (WebKit::NotificationPresenterImpl::notificationClicked):
+        * blackberry/WebCoreSupport/NotificationPresenterImpl.h: Added.
+        There is already a header file: Source/WebCore/notifications/NotificationPresenter.h.
+        To avoid conflicting with the it, I name my header file to NotificationPresenterImpl.
+
+2011-12-14  Jacky Jiang  <zhajiang@rim.com>
+
+        [BlackBerry] Switch to libjpeg for decoding
+        https://bugs.webkit.org/show_bug.cgi?id=74475
+
+        Reviewed by Daniel Bates.
+
+        Append libjpeg instead of libimg.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+
+2011-12-14  Jacky Jiang  <zhajiang@rim.com>
+
+        Upstream text codec and web string files of BlackBerry API
+        https://bugs.webkit.org/show_bug.cgi?id=73586
+
+        Reviewed by Daniel Bates.
+
+        Initial upstream, no new tests.
+
+        * blackberry/Api/WebKitTextCodec.cpp: Added.
+        (BlackBerry::WebKit::isSameEncoding):
+        (BlackBerry::WebKit::isASCIICompatibleEncoding):
+        (BlackBerry::WebKit::transcode):
+        (BlackBerry::WebKit::base64DecodePolicyForWebCore):
+        (BlackBerry::WebKit::base64Decode):
+        (BlackBerry::WebKit::base64Encode):
+        (BlackBerry::WebKit::unescapeURL):
+        (BlackBerry::WebKit::escapeURL):
+        (BlackBerry::WebKit::getExtensionForMimeType):
+        * blackberry/Api/WebKitTextCodec.h: Added.
+        * blackberry/Api/WebString.cpp: Added.
+        (BlackBerry::WebKit::WebString::WebString):
+        (BlackBerry::WebKit::WebString::~WebString):
+        (BlackBerry::WebKit::WebString::fromUtf8):
+        (BlackBerry::WebKit::WebString::operator=):
+        (BlackBerry::WebKit::WebString::utf8):
+        (BlackBerry::WebKit::WebString::characters):
+        (BlackBerry::WebKit::WebString::length):
+        (BlackBerry::WebKit::WebString::isEmpty):
+        (BlackBerry::WebKit::WebString::equal):
+        (BlackBerry::WebKit::WebString::equalIgnoringCase):
+        * blackberry/Api/WebString.h: Added.
+
+2011-12-13  Arvid Nilsson  <anilsson@rim.com>
+
+        [Blackberry] Fix a leak in BackingStore class
+
+        Don't leak the blit generation condvar and mutex.
+
+        https://bugs.webkit.org/show_bug.cgi?id=74444
+
+        Reviewed by Antonio Gomes.
+
+        * blackberry/Api/BackingStore.cpp:
+        (BlackBerry::WebKit::BackingStorePrivate::~BackingStorePrivate):
+
+2011-12-09  Jacky Jiang  <zhajiang@rim.com>
+
+        Upstream BlackBerry API backing store files
+        https://bugs.webkit.org/show_bug.cgi?id=73668
+
+        Reviewed by Daniel Bates.
+
+        Contributed by Torch team, the main contributor is Adam Treat
+        <atreat@rim.com>.
+
+        Initial upstream, no new tests.
+
+        * blackberry/Api/BackingStore.cpp: Added.
+        * blackberry/Api/BackingStore.h: Added.
+        * blackberry/Api/BackingStore_p.h: Added.
+
+2011-12-06  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        Upstream about: feature in WebKit/blackberry/WebCoreSupport/
+        https://bugs.webkit.org/show_bug.cgi?id=73612
+
+        Reviewed by Antonio Gomes.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+        * blackberry/WebCoreSupport/AboutData.cpp: Added.
+        (WebCore::numberToHTMLTr):
+        (WebCore::configPage):
+        (WebCore::cacheTypeStatisticToHTMLTr):
+        (WebCore::memoryPage):
+        * blackberry/WebCoreSupport/AboutData.h: Added.
+        * blackberry/WebCoreSupport/AboutDataEnableFeatures.in: Added.
+        * blackberry/WebCoreSupport/AboutDataHaveFeatures.in: Added.
+        * blackberry/WebCoreSupport/AboutDataUseFeatures.in: Added.
+        * blackberry/WebCoreSupport/generateAboutDataFeatures.pl: Added.
+
+2011-12-01  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        [EFL] Cleanup includes to reduce code complexity.
+        https://bugs.webkit.org/show_bug.cgi?id=73540
+
+        Reviewed by Gustavo Noronha Silva.
+
+        * CMakeLists.txt: Add loader/appcache to WebKit_INCLUDE_DIRECTORIES.
+
+2011-11-28  Jon Lee  <jonlee@apple.com>
+
+        Create skeleton framework for notifications support in WK2
+        https://bugs.webkit.org/show_bug.cgi?id=73253
+        <rdar://problem/10356943>
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj: Add WebNotificationClient class.
+
+2011-11-26  Jonathan Dong  <jonathan.dong@torchmobile.com.cn>
+
+        [CMake] Clean up Web Inspector target in Source/WebKit/blackberry/CMakeListsBlackBerry.txt
+        https://bugs.webkit.org/show_bug.cgi?id=72784
+
+        Reviewed by Nikolas Zimmermann.
+
+        Abstracted the JavaScript file names from inspector/front-end/inspector.html
+        to keep them in-sync with the changes of inspector.html.
+
+        * blackberry/CMakeListsBlackBerry.txt:
+
+2011-11-23  Raphael Kubo da Costa  <kubo@profusion.mobi>
+
+        [CMake] Move the top-level logic to the top-level directory.
+        https://bugs.webkit.org/show_bug.cgi?id=72685
+
+        Reviewed by Brent Fulgham.
+
+        * blackberry/CMakeListsBlackBerry.txt: Adjust the Source/ directory.
+
+2011-11-20  Mark Rowe  <mrowe@apple.com>
+
+        <http://webkit.org/b/72661> Switch to a more modern approach to retrieving the startup volume name
+
+        Use the DiskArbitration framework to retrieve the name of the startup volume rather than using Carbon
+        File Manager APIs.
+
+        Reviewed by Dan Bernstein.
+
+        * WebKit.xcodeproj/project.pbxproj: Link against DiskArbitration.framework. It lives in the shared cache
+        so it should add only negligible launch time overhead.
+
+2011-11-18  Daniel Bates  <dbates@rim.com>
+
+        Add CMake build infrastructure for the BlackBerry port
+        https://bugs.webkit.org/show_bug.cgi?id=72768
+
+        Reviewed by Antonio Gomes.
+
+        * blackberry: Added.
+        * blackberry/CMakeListsBlackBerry.txt: Added.
+
+2011-11-18  Patrick Gansterer  <paroga@webkit.org>
+
+        [CMake] Add possibility to overwrite WEBKIT_PORT_DIR in platform specific files
+        https://bugs.webkit.org/show_bug.cgi?id=72710
+
+        Reviewed by Brent Fulgham.
+
+        * CMakeLists.txt:
+
+2011-11-17  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Layer violation: qt_runtime.cpp accesses QWebElement and QTDRTNode
+        https://bugs.webkit.org/show_bug.cgi?id=72595
+
+        Reviewed by Noam Rosenthal.
+
+        * WebKit.pri: Add qwebelement_p.h to HEADERS.
+
+2011-11-11  Darin Adler  <darin@apple.com>
+
+        * WebKit.xcodeproj/project.pbxproj: Let a newer Xcode update this file.
+        If an older Xcode downgrades this file and we have a risk of some kind of
+        oscillating commit situation, please contact me so I know not to do this again.
+
+2011-11-08  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Switch SVGImage cache to store ImageBuffers instead of whole SVGImages, including a DOM/Render tree
+        https://bugs.webkit.org/show_bug.cgi?id=71368
+
+        Reviewed by Antti Koivisto.
+
+        * CMakeLists.txt: Add svg/graphics include, for SVGImageCache.h.
+
+2011-11-04  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        [Qt] Refactor and clean up the qmake build system
+
+        The qmake build system has accumulated a bit of cruft and redundancy
+        over time. There's also a fairly tight coupling between how to build
+        the various targets, and _what_ to build, making it harder to add new
+        rules or sources. This patch aims to elevate these issues somewhat.
+
+        This is a short-list of the changes:
+
+          * The rules for how to build targets are now mostly contained as
+            prf-files in Tools/qmake/mkspecs/features. Using mkspecs also
+            allows us to do pre- and post-processing of each project file,
+            which helps to clean up the actual project files.
+
+          * Derived sources are no longer generated as a separate make-step
+            but is part of each target's project file as a subdir. Makefile
+            rules are used to ensure that we run make on the derived sources
+            before running qmake on the actual target makefile. This makes
+            it easier to keep a proper dependency between derived sources
+            and the target.
+
+          * We use GNU make and the compiler to generate dependencies on
+            UNIX-based systems running Qt 5. This allows us to lessen the
+            need to run qmake, which should reduce compile time.
+
+          * WebKit2 is now build by default if building with Qt 5. It can
+            be disabled by passing --no-webkit2 to build-webkit.
+
+        The result of these changes are hopefully a cleaner and easier
+        build system to modify, and faster build times due to no longer
+        running qmake on every single build. It's also a first step
+        towards possibly generating the list of sources using another
+        build system.
+
+        https://bugs.webkit.org/show_bug.cgi?id=71222
+
+        Reviewed by Simon Hausmann.
+
+        * WebKit.pri: Added.
+
+2011-10-10  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Extract WebOpenPanelResultListener out into its own file
+        https://bugs.webkit.org/show_bug.cgi?id=69575
+
+        Reviewed by David Kilzer.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-10-06  Anders Carlsson  <andersca@apple.com>
+
+        When building with clang, enable -Wglobal-constructors and -Wexit-time-destructors
+        https://bugs.webkit.org/show_bug.cgi?id=69586
+
+        Reviewed by Darin Adler.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        When building with clang, we don't need to run the check-for-global-initializers and
+        check-for-exit-time-destructors anymore.
+
+2011-09-27  Andy Estes  <aestes@apple.com>
+
+        WebKitLinkedOnOrAfter() check is ineffective for Solar Walk app-specific hack.
+        https://bugs.webkit.org/show_bug.cgi?id=68863
+
+        Reviewed by Darin Adler.
+
+        The SolarWalk binary does not link against WebKit.framework directly,
+        so calling NSVersionOfLinkTimeLibrary() will not return the version of
+        WebKit against which SolarWalk was linked. Since Solar Walk has
+        released an update that addresses the issue for which this app-specific
+        hack was originally added, we should just remove the hack.
+
+        * WebKit.xcodeproj/project.pbxproj: Remove SolarWalkQuirksUserScript.js.
+
+2011-09-25  Adam Barth  <abarth@webkit.org>
+
+        Remove PLATFORM(HAIKU) and associated code
+        https://bugs.webkit.org/show_bug.cgi?id=68774
+
+        Reviewed by Sam Weinig.
+
+        * haiku: Removed.
+        * haiku/WebCoreSupport: Removed.
+        * haiku/WebCoreSupport/ChromeClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/ChromeClientHaiku.h: Removed.
+        * haiku/WebCoreSupport/ContextMenuClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/ContextMenuClientHaiku.h: Removed.
+        * haiku/WebCoreSupport/DragClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/DragClientHaiku.h: Removed.
+        * haiku/WebCoreSupport/EditorClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/EditorClientHaiku.h: Removed.
+        * haiku/WebCoreSupport/FrameLoaderClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/FrameLoaderClientHaiku.h: Removed.
+        * haiku/WebCoreSupport/InspectorClientHaiku.cpp: Removed.
+        * haiku/WebCoreSupport/InspectorClientHaiku.h: Removed.
+
+2011-09-23  Anders Carlsson  <andersca@apple.com>
+
+        Axe WebImageRendererFactory
+        https://bugs.webkit.org/show_bug.cgi?id=68715
+
+        Reviewed by Darin Adler.
+
+        Remove WebImageRendererFactory.m from the Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-09-23  Anders Carlsson  <andersca@apple.com>
+
+        Add OVERRIDE to a bunch of virtual member functions on clients
+        https://bugs.webkit.org/show_bug.cgi?id=68712
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-09-21  Dan Bernstein  <mitz@apple.com>
+
+        WebKit part of: Prevent the WebKit frameworks from defining inappropriately-named Objective-C classes
+        https://bugs.webkit.org/show_bug.cgi?id=68451
+
+        Reviewed by Darin Adler.
+
+        * WebKit.xcodeproj/project.pbxproj: Added a script build phase that invokes
+        check-for-inappropriate-objc-class-names, allowing only class names prefixed with "Web" or "_Web".
+
+2011-09-19  Anders Carlsson  <andersca@apple.com>
+
+        Remove WebViewEventHandling.mm
+        https://bugs.webkit.org/show_bug.cgi?id=68387
+
+        Reviewed by Adam Roben.
+
+        Remove WebViewEventHandling.mm from the Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-09-19  Dan Bernstein  <mitz@apple.com>
+
+        WebKit part of [mac] WebKit contains Objective-C classes that are not prefixed with its standard prefixes
+        https://bugs.webkit.org/show_bug.cgi?id=68323
+
+        Reviewed by Sam Weinig.
+
+        Updated for the renaming of NonBlockingPanel to WebNonBlockingPanel.
+
+        * English.lproj/WebJavaScriptTextInputPanel.nib/classes.nib: Removed.
+        * English.lproj/WebJavaScriptTextInputPanel.nib/designable.nib: Added.
+        * English.lproj/WebJavaScriptTextInputPanel.nib/info.nib: Removed.
+        * English.lproj/WebJavaScriptTextInputPanel.nib/keyedobjects.nib:
+
+2011-09-16  Filip Pizlo  <fpizlo@apple.com>
+
+        DFG JIT should inline Math.abs
+        https://bugs.webkit.org/show_bug.cgi?id=68227
+
+        Reviewed by Oliver Hunt.
+
+        Added JavaScriptCore/dfg to include path path.
+
+        * CMakeLists.txt:
+
+2011-09-14  Anders Carlsson  <andersca@apple.com>
+
+        Get rid of WebCoreViewFactory and its WebViewFactory subclass
+        https://bugs.webkit.org/show_bug.cgi?id=68124
+
+        Reviewed by Sam Weinig.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-08-23  Jonas M. Gastal <jgastal@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Exporting JavaScript objects for EFL port
+        https://bugs.webkit.org/show_bug.cgi?id=43446
+
+        This patch allows to export objects to JavaScript API,
+        just like qt does, but it uses the netscape api
+        to do the convertion to javascript object.
+
+        * CMakeLists.txt:
+        Adding necessary files for the patch.
+
+2011-08-05  Anders Carlsson  <andersca@apple.com>
+
+        Remove PluginHalter
+        https://bugs.webkit.org/show_bug.cgi?id=65729
+
+        Reviewed by Darin Adler.
+
+        Remove deleted files from Xcode project.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-07-28  Tony Chang  <tony@chromium.org>
+
+        Add sql to svn:ignore and remove app.
+
+        * chromium: Modified property svn:ignore.
+
+2011-07-08  David Reveman  <reveman@chromium.org>
+
+        Reviewed by Stephen White.
+
+        [Chromium] Edge anti-aliasing for composited layers.
+        https://bugs.webkit.org/show_bug.cgi?id=61388
+
+        Track changes to TilingData class which now uses an outer border.
+
+        * chromium/tests/TilingDataTest.cpp:
+
+2011-06-30  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Simon Hausmann.
+
+        generate-webkitversion.pl should not "use Switch"
+        https://bugs.webkit.org/show_bug.cgi?id=63628
+
+        Switch got deprecated on recent Perl versions and the script wasn't
+        using the switch statement.
+        
+        * scripts/generate-webkitversion.pl: Remove "use Switch;" line.
+
+2011-06-01  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Move Full Screen Controllers into WebCore.
+
+        Remove dependency on QTKit from wekitExitFullscreen()
+        https://bugs.webkit.org/show_bug.cgi?id=61843
+
+        WebVideoFullscreenController, WebVideoFullscreenHUDController, and WebWindowAnimation
+        have been moved into WebCore.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2011-06-15  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/62745> Convert WebNSFileManagerExtras.m to Objective-C++
+
+        Reviewed by Joseph Pecoraro.
+
+        * WebKit.xcodeproj/project.pbxproj:
+        (WebNSFileManagerExtras.m): Rename to WebNSFileManagerExtras.mm
+        and change file type to Objective-C++.
+
+2011-06-02  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Ryosuke Niwa.
+
+        Update svn:ignore property on Source/WebKit/chromium
+        https://bugs.webkit.org/show_bug.cgi?id=61952
+
+        Add some more generated files and directories mapped in using DEPS to svn:ignore.
+
+        * chromium: Modified property svn:ignore.
+
 2011-05-20  Andy Estes  <aestes@apple.com>
 
         Reviewed by Darin Adler.

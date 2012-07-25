@@ -87,7 +87,7 @@ static void __DAQueueRequest( _DARequestKind kind, DADiskRef argument0, CFIndex 
     }
     else
 ///w:stop
-    request = DARequestCreate( kCFAllocatorDefault, kind, argument0, argument1, argument2, argument3, ___UID_ROOT, ___GID_ADMIN, callback );
+    request = DARequestCreate( kCFAllocatorDefault, kind, argument0, argument1, argument2, argument3, ___UID_ROOT, ___GID_WHEEL, callback );
 
     if ( request )
     {

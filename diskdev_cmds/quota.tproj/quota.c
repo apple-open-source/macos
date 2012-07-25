@@ -121,8 +121,6 @@ main(argc, argv)
 	gid_t gidset[NGROUPS];
 	int i, gflag = 0, uflag = 0;
 	char ch;
-	extern char *optarg;
-	extern int optind, errno;
 
 #if 0
 	if (quotactl("/", 0, 0, (caddr_t)0) < 0 && errno == ENOTSUP) {

@@ -475,6 +475,7 @@ void tst_QWebElement::style()
     p.setStyleProperty("cursor", "auto");
 
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("red"));
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("yellow"));
     QCOMPARE(p.styleProperty("cursor", QWebElement::InlineStyle), QLatin1String("auto"));
 
@@ -483,6 +484,7 @@ void tst_QWebElement::style()
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
     p.setStyleProperty("color", "blue");
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=60372", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("green"));
 
@@ -539,6 +541,7 @@ void tst_QWebElement::style()
     p = m_mainFrame->documentElement().findAll("p").at(0);
 
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String(""));
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("red"));
 
     QString html6 = "<head>"
@@ -559,6 +562,7 @@ void tst_QWebElement::style()
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
     QCOMPARE(p.styleProperty("color", QWebElement::InlineStyle), QLatin1String("blue"));
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html7 = "<head>"
@@ -576,6 +580,7 @@ void tst_QWebElement::style()
     waitForSignal(m_page, SIGNAL(loadFinished(bool)), 200);
 
     p = m_mainFrame->documentElement().findAll("p").at(0);
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65244", Continue);
     QCOMPARE(p.styleProperty("color", QWebElement::CascadedStyle), QLatin1String("black"));
 
     QString html8 = "<body><p>some text</p></body>";
@@ -641,6 +646,26 @@ void tst_QWebElement::appendAndPrepend()
     body.findFirst("div").prependInside("<code>yepp</code>");
     QCOMPARE(body.findAll("p div code").count(), 1);
     QCOMPARE(body.findFirst("p div code").toPlainText(), QString("yepp"));
+
+    // Inserting HTML into an img tag is not allowed, but appending/prepending outside is.
+    body.findFirst("div").appendInside("<img src=\"test.png\">");
+    QCOMPARE(body.findAll("p div img").count(), 1);
+
+    QWebElement img = body.findFirst("img");
+    QVERIFY(!img.isNull());
+    img.appendInside("<p id=\"fail1\"></p>");
+    QCOMPARE(body.findAll("p#fail1").count(), 0);
+
+    img.appendOutside("<p id=\"success1\"></p>");
+    QCOMPARE(body.findAll("p#success1").count(), 1);
+
+    img.prependInside("<p id=\"fail2\"></p>");
+    QCOMPARE(body.findAll("p#fail2").count(), 0);
+
+    img.prependOutside("<p id=\"success2\"></p>");
+    QCOMPARE(body.findAll("p#success2").count(), 1);
+
+
 }
 
 void tst_QWebElement::insertBeforeAndAfter()
@@ -876,6 +901,19 @@ void tst_QWebElement::encloseWith()
 
     body.findFirst("em").encloseWith(snippet);
     QCOMPARE(body.findFirst("table tbody tr td em").toPlainText(), QString("hey"));
+
+    // Enclosing the contents of an img tag is not allowed, but enclosing the img tag itself is.
+    body.findFirst("td").appendInside("<img src=\"test.png\">");
+    QCOMPARE(body.findAll("img").count(), 1);
+
+    QWebElement img = body.findFirst("img");
+    QVERIFY(!img.isNull());
+    img.encloseWith("<p id=\"success\"></p>");
+    QCOMPARE(body.findAll("p#success").count(), 1);
+
+    img.encloseContentsWith("<p id=\"fail\"></p>");
+    QCOMPARE(body.findAll("p#fail").count(), 0);
+
 }
 
 void tst_QWebElement::nullSelect()
@@ -984,6 +1022,7 @@ void tst_QWebElement::render()
     imgs[0].render(&painter1);
     painter1.end();
 
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65243", Continue);
     QVERIFY(image1 == testImage);
 
     // render image 2nd time to make sure that cached rendering works fine
@@ -993,6 +1032,7 @@ void tst_QWebElement::render()
     imgs[0].render(&painter2);
     painter2.end();
 
+    QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65243", Continue);
     QVERIFY(image2 == testImage);
 
     // compare table rendered through QWebElement::render to whole page table rendering
@@ -1022,9 +1062,16 @@ void tst_QWebElement::render()
         QPainter painter(&chunk);
         painter.fillRect(chunkRect, Qt::white);
         QRect chunkPaintRect(x, 0, chunkWidth, chunkHeight);
+#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
         tables[0].render(&painter, chunkPaintRect);
+#else
+        tables[0].render(&painter);
+#endif
         painter.end();
 
+        // The first chunk in this test is passing, but the others are failing
+        if (x > 0)
+            QEXPECT_FAIL("", "https://bugs.webkit.org/show_bug.cgi?id=65243", Continue);
         QVERIFY(chunk == image4.copy(chunkPaintRect));
     }
 }

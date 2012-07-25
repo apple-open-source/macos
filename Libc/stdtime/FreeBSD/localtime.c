@@ -22,8 +22,22 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/localtime.c,v 1.43 2008/04/01 06:56:11 
 #include "namespace.h"
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <errno.h>
+#ifdef NOTIFY_TZ
+//#define NOTIFY_TZ_DEBUG
+//#define NOTIFY_TZ_DEBUG_FILE	"/var/log/localtime.debug"
+//#define NOTIFY_TZ_LOG	"/var/log/localtime.log"
+/* force ALL_STATE if NOTIFY_TZ is set */
+#ifndef ALL_STATE
+#define ALL_STATE
+#endif /* ALL_STATE */
+#include <mach/mach_init.h>
+#include <notify.h>
+#include <alloca.h>
+#endif /* NOTIFY_TZ */
 #include "private.h"
 #include "un-namespace.h"
 
@@ -150,40 +164,94 @@ struct rule {
 #define DAY_OF_YEAR		1	/* n - day of year */
 #define MONTH_NTH_DAY_OF_WEEK	2	/* Mm.n.d - month, week, day of week */
 
+#ifdef NOTIFY_TZ
+typedef struct {
+	int token;
+	int notify_was_off;
+	int is_set;
+} notify_tz_t;
+
+#define NOTIFY_TZ_NAME		"com.apple.system.timezone"
+#endif /* NOTIFY_TZ */
+
 /*
 ** Prototypes for static functions.
 */
+#define	localsub	_st_localsub
+#define	time1		_st_time1
+#define	tzset_basic	_st_tzset_basic
+__private_extern__
+#ifdef __LP64__
+struct tm *		localsub(const time_t * timep, long offset,
+				struct tm * tmp);
+#else /* !__LP64__ */
+void			localsub(const time_t * timep, long offset,
+				struct tm * tmp);
+#endif /* __LP64__ */
+__private_extern__
+time_t			time1(struct tm * tmp,
+#ifdef __LP64__
+				struct tm *(*funcp) (const time_t *,
+				long, struct tm *),
+#else /* !__LP64__ */
+				void(*funcp) (const time_t *,
+				long, struct tm *),
+#endif /* __LP64__ */
+				long offset,
+			        int unix03);
+__private_extern__
+void			tzset_basic(int);
 
+#if !BUILDING_VARIANT
 static long		detzcode(const char * codep);
-static const char *	getzname(const char * strp);
+static const char *	getzname(const char * strp, char **name, size_t *len);
 static const char *	getnum(const char * strp, int * nump, int min,
 				int max);
 static const char *	getsecs(const char * strp, long * secsp);
 static const char *	getoffset(const char * strp, long * offsetp);
 static const char *	getrule(const char * strp, struct rule * rulep);
 static void		gmtload(struct state * sp);
+#ifdef __LP64__
+static struct tm *	gmtsub(const time_t * timep, long offset,
+				struct tm * tmp);
+#else /* !__LP64__ */
 static void		gmtsub(const time_t * timep, long offset,
 				struct tm * tmp);
-static void		localsub(const time_t * timep, long offset,
-				struct tm * tmp);
+#endif /* __LP64__ */
 static int		increment_overflow(int * number, int delta);
 static int		normalize_overflow(int * tensptr, int * unitsptr,
 				int base);
+#ifdef NOTIFY_TZ
+static void		notify_check_tz(notify_tz_t *p);
+static void		notify_register_tz(char *file, notify_tz_t *p);
+#endif /* NOTIFY_TZ */
 static void		settzname(void);
-static time_t		time1(struct tm * tmp,
-				void(*funcp) (const time_t *,
-				long, struct tm *),
-				long offset);
 static time_t		time2(struct tm *tmp,
+#ifdef __LP64__
+				struct tm *(*funcp) (const time_t *,
+				long, struct tm*),
+#else /* !__LP64__ */
 				void(*funcp) (const time_t *,
 				long, struct tm*),
-				long offset, int * okayp);
+#endif /* __LP64__ */
+				long offset, int * okayp, int unix03);
 static time_t		time2sub(struct tm *tmp,
+#ifdef __LP64__
+				struct tm *(*funcp) (const time_t *,
+				long, struct tm*),
+#else /* !__LP64__ */
 				void(*funcp) (const time_t *,
 				long, struct tm*),
-				long offset, int * okayp, int do_norm_secs);
+#endif /* __LP64__ */
+				long offset, int * okayp, int do_norm_secs,
+				int unix03);
+#ifdef __LP64__
+static struct tm *	timesub(const time_t * timep, long offset,
+				const struct state * sp, struct tm * tmp);
+#else /* !__LP64__ */
 static void		timesub(const time_t * timep, long offset,
 				const struct state * sp, struct tm * tmp);
+#endif /* __LP64__ */
 static int		tmcomp(const struct tm * atmp,
 				const struct tm * btmp);
 static time_t		transtime(time_t janfirst, int year,
@@ -209,9 +277,14 @@ static struct state	gmtmem;
 #endif /* !defined TZ_STRLEN_MAX */
 
 static char		lcl_TZname[TZ_STRLEN_MAX + 1];
+#ifdef NOTIFY_TZ
+#define lcl_is_set    (lcl_notify.is_set)
+#define gmt_is_set    (gmt_notify.is_set)
+#else /* ! NOTIFY_TZ */
 static int		lcl_is_set;
 static int		gmt_is_set;
-static pthread_rwlock_t	lcl_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+#endif /* NOTIFY_TZ */
+__private_extern__ pthread_rwlock_t	lcl_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *			tzname[2] = {
@@ -229,14 +302,61 @@ char *			tzname[2] = {
 
 static struct tm	tm;
 
+#define USG_COMPAT
+#define ALTZONE
 #ifdef USG_COMPAT
-time_t			timezone = 0;
 int			daylight = 0;
+__private_extern__ void _st_set_timezone(long);
 #endif /* defined USG_COMPAT */
 
 #ifdef ALTZONE
-time_t			altzone = 0;
+__private_extern__ long		__darwin_altzone = 0;
+#define altzone __darwin_altzone
 #endif /* defined ALTZONE */
+
+#ifdef NOTIFY_TZ
+#ifdef NOTIFY_TZ_DEBUG
+#ifdef NOTIFY_TZ_DEBUG_FILE
+#define NOTIFY_TZ_PRINTF(fmt, args...)	\
+{ \
+	FILE *_notify_tz_fp_; \
+	if((_notify_tz_fp_ = fopen(NOTIFY_TZ_DEBUG_FILE, "a")) != NULL) { \
+		fprintf(_notify_tz_fp_, "%d: " fmt, getpid(), ## args); \
+		fclose(_notify_tz_fp_); \
+	} \
+}
+#else /* ! NOTIFY_TZ_DEBUG_FILE */
+#define NOTIFY_TZ_PRINTF(args...)	fprintf(stdout, ## args)
+#endif /* NOTIFY_TZ_DEBUG_FILE */
+#endif /* NOTIFY_TZ_DEBUG */
+#ifdef NOTIFY_TZ_LOG
+#define NOTIFY_LOG(fmt, args...)	\
+{ \
+	FILE *_notify_log_fp_; \
+	if((_notify_log_fp_ = fopen(NOTIFY_TZ_LOG, "a")) != NULL) { \
+		fprintf(_notify_log_fp_, "%d: " fmt, getpid(), ## args); \
+		fclose(_notify_log_fp_); \
+	} \
+}
+#endif /* NOTIFY_TZ_LOG */
+/*--------------------------------------------------------------------
+ * __notify_78945668_info__ is a global variable (defined in Libnotify)
+ * that can be used to disable the notify mechanism.  Set to a negative
+ * value to disable.  It can then be set back to zero to re-enable.
+ *-------------------------------------------------------------------- */
+extern int		__notify_78945668_info__;
+
+/*--------------------------------------------------------------------
+ * fullname is used to pass the actual path of the timezone file to the
+ * notify routines.  If it is a nil string, that means no timezone file
+ * is being used.
+ *-------------------------------------------------------------------- */
+static char *		fullname = NULL;
+
+static notify_tz_t	gmt_notify = {-1, 0, 0};
+static notify_tz_t	lcl_notify = {-1, 0, 0};
+static char		notify_tz_name[] = NOTIFY_TZ_NAME;
+#endif /* NOTIFY_TZ */
 
 static long
 detzcode(codep)
@@ -255,51 +375,203 @@ static void
 settzname(void)
 {
 	struct state * 	sp = lclptr;
-	int			i;
+	int			i, need;
+	unsigned char * types;
+#define NEED_STD	1
+#define NEED_DST	2
+#define NEED_DAYLIGHT	4
+#define NEED_ALL	(NEED_STD | NEED_DST | NEED_DAYLIGHT)
 
 	tzname[0] = wildabbr;
 	tzname[1] = wildabbr;
 #ifdef USG_COMPAT
 	daylight = 0;
-	timezone = 0;
+	_st_set_timezone(0);
 #endif /* defined USG_COMPAT */
 #ifdef ALTZONE
 	altzone = 0;
 #endif /* defined ALTZONE */
 #ifdef ALL_STATE
 	if (sp == NULL) {
-		tzname[0] = tzname[1] = gmt;
+		tzname[0] = tzname[1] = (char *)gmt;
 		return;
 	}
 #endif /* defined ALL_STATE */
-	for (i = 0; i < sp->typecnt; ++i) {
-		const struct ttinfo * const	ttisp = &sp->ttis[i];
-
-		tzname[ttisp->tt_isdst] =
-			&sp->chars[ttisp->tt_abbrind];
-#ifdef USG_COMPAT
-		if (ttisp->tt_isdst)
-			daylight = 1;
-		if (i == 0 || !ttisp->tt_isdst)
-			timezone = -(ttisp->tt_gmtoff);
-#endif /* defined USG_COMPAT */
-#ifdef ALTZONE
-		if (i == 0 || ttisp->tt_isdst)
-			altzone = -(ttisp->tt_gmtoff);
-#endif /* defined ALTZONE */
-	}
 	/*
-	** And to get the latest zone names into tzname. . .
-	*/
-	for (i = 0; i < sp->timecnt; ++i) {
-		const struct ttinfo * const	ttisp =
-							&sp->ttis[
-								sp->types[i]];
+	 * PR-3765457: The original settzname went sequentially through the ttis
+	 * array, rather than correctly indexing via the types array, to get
+	 * the real order of the timezone changes.  In addition, as a speed up,
+	 * we start at the end of the changes, and work back, so that most of
+	 * the time, we don't have to look through the entire array.
+	 */
+	if (sp->timecnt == 0 && sp->typecnt == 1) {
+		/*
+		 * Unfortunately, there is an edge case when typecnt == 1 and
+		 * timecnt == 0, which would cause the loop to never run.  So
+		 * in that case, we fudge things up so that it is as if
+		 * timecnt == 1.
+		 */
+		i = 0;
+		types = (unsigned char *)""; /* we use the null as index */
+	} else {
+		/* the usual case */
+		i = sp->timecnt - 1;
+		types = sp->types;
+	}
+	need = NEED_ALL;
+	for (; i >= 0 && need; --i) {
+		const struct ttinfo * const	ttisp = &sp->ttis[types[i]];
 
-		tzname[ttisp->tt_isdst] =
-			&sp->chars[ttisp->tt_abbrind];
+#ifdef USG_COMPAT
+		if ((need & NEED_DAYLIGHT) && ttisp->tt_isdst) {
+			need &= ~NEED_DAYLIGHT;
+			daylight = 1;
+		}
+#endif /* defined USG_COMPAT */
+		if (ttisp->tt_isdst) {
+			if (need & NEED_DST) {
+				need &= ~NEED_DST;
+				tzname[1] = &sp->chars[ttisp->tt_abbrind];
+#ifdef ALTZONE
+				altzone = -(ttisp->tt_gmtoff);
+#endif /* defined ALTZONE */
+			}
+		} else if (need & NEED_STD) {
+			need &= ~NEED_STD;
+			tzname[0] = &sp->chars[ttisp->tt_abbrind];
+#ifdef USG_COMPAT
+			_st_set_timezone(-(ttisp->tt_gmtoff));
+#endif /* defined USG_COMPAT */
+		}
+#if defined(ALTZONE) || defined(USG_COMPAT)
+		if (i == 0) {
+#endif /* defined(ALTZONE) || defined(USG_COMPAT) */
+#ifdef ALTZONE
+			if (need & NEED_DST)
+				altzone = -(ttisp->tt_gmtoff);
+#endif /* defined ALTZONE */
+#ifdef USG_COMPAT
+			if (need & NEED_STD)
+				_st_set_timezone(-(ttisp->tt_gmtoff));
+#endif /* defined USG_COMPAT */
+#if defined(ALTZONE) || defined(USG_COMPAT)
+		}
+#endif /* defined(ALTZONE) || defined(USG_COMPAT) */
 	}
 }
+
+#ifdef NOTIFY_TZ
+static void
+notify_check_tz(notify_tz_t *p)
+{
+	unsigned int nstat;
+	int ncheck;
+
+	if (__notify_78945668_info__ < 0) {
+#ifdef NOTIFY_TZ_DEBUG
+		if(!p->notify_was_off) NOTIFY_TZ_PRINTF("notify_check_tz: setting %s_notify->notify_was_off\n", (p == &lcl_notify ? "lcl" : "gmt"));
+#endif /* NOTIFY_TZ_DEBUG */
+		p->notify_was_off = 1;
+		return;
+	}
+	/* force rereading the timezone file if notify was off */
+	if (p->notify_was_off) {
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("notify_check_tz: saw %s_notify->notify_was_off\n", (p == &lcl_notify ? "lcl" : "gmt"));
+#endif /* NOTIFY_TZ_DEBUG */
+		p->is_set = 0;
+		p->notify_was_off = 0;
+		return;
+	}
+	if (p->token < 0)
+		return;
+	nstat = notify_check(p->token, &ncheck);
+	if (nstat || ncheck) {
+		p->is_set = 0;
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("notify_check_tz: %s changed\n", (p == &lcl_notify) ? "lcl" : "gmt");
+#endif /* NOTIFY_TZ_DEBUG */
+	}
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("notify_check_tz: %s unchanged\n", (p == &lcl_notify) ? "lcl" : "gmt");
+#endif /* NOTIFY_TZ_DEBUG */
+}
+
+extern uint32_t notify_monitor_file(int token, char *path, int flags);
+
+static void
+notify_register_tz(char *file, notify_tz_t *p)
+{
+	char *name;
+	unsigned int nstat;
+	int ncheck;
+
+	if (__notify_78945668_info__ < 0)
+		return;
+	/*----------------------------------------------------------------
+	 * Since we don't record the last time zone filename, just cancel
+	 * (which should remove the file monitor) and setup from scratch
+	 *----------------------------------------------------------------*/
+	if (p->token >= 0)
+		notify_cancel(p->token);
+	if (!file || *file == 0) {
+		/* no time zone file to monitor */
+		p->token = -1;
+		return;
+	}
+	/*----------------------------------------------------------------
+	 * Just use com.apple.system.timezone if the path is /etc/localtime.
+	 * Otherwise use com.apple.system.timezone.<fullpath>
+	 *----------------------------------------------------------------*/
+	if (TZDEFAULT && strcmp(file, TZDEFAULT) == 0)
+		name = notify_tz_name;
+	else {
+		name = alloca(sizeof(notify_tz_name) + strlen(file) + 1);
+		if (name == NULL) {
+			p->token = -1;
+			return;
+		}
+		strcpy(name, notify_tz_name);
+		strcat(name, ".");
+		strcat(name, file);
+	}
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("notify_register_tz: file=%s name=%s\n", file, name);
+#endif /* NOTIFY_TZ_DEBUG */
+	nstat = notify_register_check(name, &p->token);
+	if (nstat != 0) {
+		p->token = -1;
+		p->is_set = 0;
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("***notify_register_tz: notify_register_check failed: %u\n", nstat);
+#endif /* NOTIFY_TZ_DEBUG */
+#ifdef NOTIFY_TZ_LOG
+		NOTIFY_LOG("notify_register_check(%s) failed: %u\n", name, nstat);
+#endif /* NOTIFY_TZ_LOG */
+		return;
+	}
+	/* don't need to request monitoring /etc/localtime */
+	if (name != notify_tz_name) {
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("notify_register_tz: monitor %s\n", file);
+#endif /* NOTIFY_TZ_DEBUG */
+		nstat = notify_monitor_file(p->token, file, 0);
+		if (nstat != 0) {
+			notify_cancel(p->token);
+			p->token = -1;
+			p->is_set = 0;
+#ifdef NOTIFY_TZ_DEBUG
+			NOTIFY_TZ_PRINTF("***notify_register_tz: notify_monitor_file failed: %u\n", nstat);
+#endif /* NOTIFY_TZ_DEBUG */
+#ifdef NOTIFY_TZ_LOG
+			NOTIFY_LOG("notify_monitor_file(%s) failed: %u\n", file, nstat);
+#endif /* NOTIFY_TZ_LOG */
+			return;
+		}
+	}
+	notify_check(p->token, &ncheck);	/* this always returns true */
+}
+#endif /* NOTIFY_TZ */
 
 static int
 tzload(name, sp)
@@ -310,6 +582,9 @@ struct state * const	sp;
 	int		i;
 	int		fid;
 
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("tzload: name=%s\n", name);
+#endif /* NOTIFY_TZ_DEBUG */
 	/* XXX The following is from OpenBSD, and I'm not sure it is correct */
 	if (name != NULL && issetugid() != 0)
 		if ((name[0] == ':' && name[1] == '/') || 
@@ -327,7 +602,15 @@ struct state * const	sp;
 		** to hold the longest file name string that the implementation
 		** guarantees can be opened."
 		*/
+#ifdef NOTIFY_TZ
+		if (!fullname) {
+			fullname = malloc(FILENAME_MAX + 1);
+			if (!fullname)
+				return -1;
+		}
+#else /* ! NOTIFY_TZ */
 		char		fullname[FILENAME_MAX + 1];
+#endif /* NOTIFY_TZ */
 
 		if (name[0] == ':')
 			++name;
@@ -335,7 +618,11 @@ struct state * const	sp;
 		if (!doaccess) {
 			if ((p = TZDIR) == NULL)
 				return -1;
+#ifdef NOTIFY_TZ
+			if ((strlen(p) + 1 + strlen(name) + 1) >= (FILENAME_MAX + 1))
+#else /* ! NOTIFY_TZ */
 			if ((strlen(p) + 1 + strlen(name) + 1) >= sizeof fullname)
+#endif /* NOTIFY_TZ */
 				return -1;
 			(void) strcpy(fullname, p);
 			(void) strcat(fullname, "/");
@@ -347,6 +634,10 @@ struct state * const	sp;
 				doaccess = TRUE;
 			name = fullname;
 		}
+#ifdef NOTIFY_TZ
+		else
+			strcpy(fullname, name);
+#endif /* NOTIFY_TZ */
 		if (doaccess && access(name, R_OK) != 0)
 		     	return -1;
 		if ((fid = _open(name, OPEN_MODE)) == -1)
@@ -365,6 +656,9 @@ struct state * const	sp;
 		int		ttisstdcnt;
 		int		ttisgmtcnt;
 
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("tzload: reading %s\n", name);
+#endif /* NOTIFY_TZ_DEBUG */
 		i = _read(fid, u.buf, sizeof u.buf);
 		if (_close(fid) != 0)
 			return -1;
@@ -471,14 +765,24 @@ static const int	year_lengths[2] = {
 */
 
 static const char *
-getzname(strp)
+getzname(strp, name, len)
 const char *	strp;
+char **		name;
+size_t *	len;
 {
 	char	c;
+	char *	ket;
 
+	if (*strp == '<' && (ket = strchr(strp, '>')) != NULL) {
+		*name = (char *)(strp + 1);
+		*len = ket - strp - 1;
+		return ket + 1;
+	}
+	*name = (char *)strp;
 	while ((c = *strp) != '\0' && !is_digit(c) && c != ',' && c != '-' &&
 		c != '+')
 			++strp;
+	*len = strp - *name;
 	return strp;
 }
 
@@ -758,16 +1062,15 @@ const int			lastditch;
 	int			load_result;
 
 	INITIALIZE(dstname);
-	stdname = name;
 	if (lastditch) {
+		stdname = name;
 		stdlen = strlen(name);	/* length of standard zone name */
 		name += stdlen;
 		if (stdlen >= sizeof sp->chars)
 			stdlen = (sizeof sp->chars) - 1;
 		stdoffset = 0;
 	} else {
-		name = getzname(name);
-		stdlen = name - stdname;
+		name = getzname(name, (char **)&stdname, &stdlen);
 		if (stdlen < 3)
 			return -1;
 		if (*name == '\0')
@@ -779,12 +1082,14 @@ const int			lastditch;
 		}
 	}
 	load_result = tzload(TZDEFRULES, sp);
+#ifdef NOTIFY_TZ
+	*fullname = 0;				/* mark fullname as invalid */
+#endif /* NOTIFY_TZ */
 	if (load_result != 0)
 		sp->leapcnt = 0;		/* so, we're off a little */
 	if (*name != '\0') {
 		dstname = name;
-		name = getzname(name);
-		dstlen = name - dstname;	/* length of DST zone name */
+		name = getzname(name, (char **)&dstname, &dstlen);
 		if (dstlen < 3)
 			return -1;
 		if (*name != '\0' && *name != ',' && *name != ';') {
@@ -966,13 +1271,37 @@ struct state * const	sp;
 static void
 tzsetwall_basic(int rdlocked)
 {
+#ifdef NOTIFY_TZ
+	notify_check_tz(&lcl_notify);
+#else
+    if (TZDEFAULT) {
+        static struct timespec last_mtimespec = {0, 0};
+        struct stat statbuf;
+
+        if (lstat(TZDEFAULT, &statbuf) == 0) {
+            if (statbuf.st_mtimespec.tv_sec > last_mtimespec.tv_sec ||
+                (statbuf.st_mtimespec.tv_sec == last_mtimespec.tv_sec &&
+                 statbuf.st_mtimespec.tv_nsec > last_mtimespec.tv_nsec)) {
+               /* Trigger resetting the local TZ */
+                    lcl_is_set = 0;
+            }
+            last_mtimespec = statbuf.st_mtimespec;
+        }
+    }
+#endif /* NOTIFY_TZ */
 	if (!rdlocked)
 		_RWLOCK_RDLOCK(&lcl_rwlock);
 	if (lcl_is_set < 0) {
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("tzsetwall_basic lcl_is_set < 0\n");
+#endif
 		if (!rdlocked)
 			_RWLOCK_UNLOCK(&lcl_rwlock);
 		return;
 	}
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("tzsetwall_basic not set\n");
+#endif
 	_RWLOCK_UNLOCK(&lcl_rwlock);
 
 	_RWLOCK_WRLOCK(&lcl_rwlock);
@@ -992,6 +1321,9 @@ tzsetwall_basic(int rdlocked)
 #endif /* defined ALL_STATE */
 	if (tzload((char *) NULL, lclptr) != 0)
 		gmtload(lclptr);
+#ifdef NOTIFY_TZ
+	notify_register_tz(fullname, &lcl_notify);
+#endif /* NOTIFY_TZ */
 	settzname();
 	_RWLOCK_UNLOCK(&lcl_rwlock);
 
@@ -1002,10 +1334,13 @@ tzsetwall_basic(int rdlocked)
 void
 tzsetwall(void)
 {
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("tzsetwall called\n");
+#endif /* NOTIFY_TZ_DEBUG */
 	tzsetwall_basic(0);
 }
 
-static void
+__private_extern__ void
 tzset_basic(int rdlocked)
 {
 	const char *	name;
@@ -1016,11 +1351,17 @@ tzset_basic(int rdlocked)
 		return;
 	}
 
+#ifdef NOTIFY_TZ
+	notify_check_tz(&lcl_notify);
+#endif /* NOTIFY_TZ */
 	if (!rdlocked)
 		_RWLOCK_RDLOCK(&lcl_rwlock);
 	if (lcl_is_set > 0 && strcmp(lcl_TZname, name) == 0) {
 		if (!rdlocked)
 			_RWLOCK_UNLOCK(&lcl_rwlock);
+#ifdef NOTIFY_TZ_DEBUG
+		NOTIFY_TZ_PRINTF("tzset_basic matched %s\n", lcl_TZname);
+#endif
 		return;
 	}
 	_RWLOCK_UNLOCK(&lcl_rwlock);
@@ -1053,9 +1394,16 @@ tzset_basic(int rdlocked)
 		lclptr->ttis[0].tt_gmtoff = 0;
 		lclptr->ttis[0].tt_abbrind = 0;
 		(void) strcpy(lclptr->chars, gmt);
+#ifdef NOTIFY_TZ
+		if (fullname)
+			*fullname = 0;
+#endif /* NOTIFY_TZ */
 	} else if (tzload(name, lclptr) != 0)
 		if (name[0] == ':' || tzparse(name, lclptr, FALSE) != 0)
 			(void) gmtload(lclptr);
+#ifdef NOTIFY_TZ
+	notify_register_tz(fullname, &lcl_notify);
+#endif /* NOTIFY_TZ */
 	settzname();
 	_RWLOCK_UNLOCK(&lcl_rwlock);
 
@@ -1066,6 +1414,9 @@ tzset_basic(int rdlocked)
 void
 tzset(void)
 {
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("tzset called TZ=%s\n", getenv("TZ"));
+#endif /* NOTIFY_TZ_DEBUG */
 	tzset_basic(0);
 }
 
@@ -1079,7 +1430,11 @@ tzset(void)
 */
 
 /*ARGSUSED*/
-static void
+#ifdef __LP64__
+__private_extern__ struct tm *
+#else /* !__LP64__ */
+__private_extern__ void
+#endif /* __LP64__ */
 localsub(timep, offset, tmp)
 const time_t * const	timep;
 const long		offset;
@@ -1090,11 +1445,18 @@ struct tm * const	tmp;
 	int			i;
 	const time_t			t = *timep;
 
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("localsub called\n");
+#endif /* NOTIFY_TZ_DEBUG */
 	sp = lclptr;
 #ifdef ALL_STATE
 	if (sp == NULL) {
+#ifdef __LP64__
+		return gmtsub(timep, offset, tmp);
+#else /* !__LP64__ */
 		gmtsub(timep, offset, tmp);
 		return;
+#endif /* __LP64__ */
 	}
 #endif /* defined ALL_STATE */
 	if (sp->timecnt == 0 || t < sp->ats[0]) {
@@ -1117,12 +1479,20 @@ struct tm * const	tmp;
 	**	t += ttisp->tt_gmtoff;
 	**	timesub(&t, 0L, sp, tmp);
 	*/
+#ifdef __LP64__
+	if (timesub(&t, ttisp->tt_gmtoff, sp, tmp) == NULL)
+		return NULL;
+#else /* !__LP64__ */
 	timesub(&t, ttisp->tt_gmtoff, sp, tmp);
+#endif /* __LP64__ */
 	tmp->tm_isdst = ttisp->tt_isdst;
 	tzname[tmp->tm_isdst] = &sp->chars[ttisp->tt_abbrind];
 #ifdef TM_ZONE
 	tmp->TM_ZONE = &sp->chars[ttisp->tt_abbrind];
 #endif /* defined TM_ZONE */
+#ifdef __LP64__
+	return tmp;
+#endif /* __LP64__ */
 }
 
 struct tm *
@@ -1134,10 +1504,11 @@ const time_t * const	timep;
 	struct tm *p_tm;
 
 	if (__isthreaded != 0) {
-		if (localtime_key < 0) {
+		if (localtime_key == (pthread_key_t)-1) {
 			_pthread_mutex_lock(&localtime_mutex);
-			if (localtime_key < 0) {
-				if (_pthread_key_create(&localtime_key, free) < 0) {
+			if (localtime_key == (pthread_key_t)-1) {
+				localtime_key = __LIBC_PTHREAD_KEY_LOCALTIME;
+				if (pthread_key_init_np(localtime_key, free) < 0) {
 					_pthread_mutex_unlock(&localtime_mutex);
 					return(NULL);
 				}
@@ -1153,13 +1524,21 @@ const time_t * const	timep;
 		}
 		_RWLOCK_RDLOCK(&lcl_rwlock);
 		tzset_basic(1);
+#ifdef __LP64__
+		p_tm = localsub(timep, 0L, p_tm);
+#else /* !__LP64__ */
 		localsub(timep, 0L, p_tm);
+#endif /* __LP64__ */
 		_RWLOCK_UNLOCK(&lcl_rwlock);
 		return(p_tm);
 	} else {
 		tzset_basic(0);
+#ifdef __LP64__
+		return localsub(timep, 0L, &tm);
+#else /* !__LP64__ */
 		localsub(timep, 0L, &tm);
 		return(&tm);
+#endif /* __LP64__ */
 	}
 }
 
@@ -1168,13 +1547,15 @@ const time_t * const	timep;
 */
 
 struct tm *
-localtime_r(timep, tm)
-const time_t * const	timep;
-struct tm *		tm;
+localtime_r(const time_t * const __restrict timep, struct tm * __restrict tm)
 {
 	_RWLOCK_RDLOCK(&lcl_rwlock);
 	tzset_basic(1);
+#ifdef __LP64__
+	tm = localsub(timep, 0L, tm);
+#else /* !__LP64__ */
 	localsub(timep, 0L, tm);
+#endif /* __LP64__ */
 	_RWLOCK_UNLOCK(&lcl_rwlock);
 	return tm;
 }
@@ -1183,25 +1564,52 @@ struct tm *		tm;
 ** gmtsub is to gmtime as localsub is to localtime.
 */
 
+#ifdef __LP64__
+static struct tm *
+#else /* !__LP64__ */
 static void
+#endif /* __LP64__ */
 gmtsub(timep, offset, tmp)
 const time_t * const	timep;
 const long		offset;
 struct tm * const	tmp;
 {
+#ifdef NOTIFY_TZ_DEBUG
+	NOTIFY_TZ_PRINTF("gmtsub called\n");
+#endif /* NOTIFY_TZ_DEBUG */
+#ifdef NOTIFY_TZ
+	notify_check_tz(&gmt_notify);
+#endif /* NOTIFY_TZ */
 	if (!gmt_is_set) {
 		_MUTEX_LOCK(&gmt_mutex);
 		if (!gmt_is_set) {
 #ifdef ALL_STATE
-			gmtptr = (struct state *) malloc(sizeof *gmtptr);
+#ifdef NOTIFY_TZ
+			if (gmtptr == NULL)
+#endif /* NOTIFY_TZ */
+				gmtptr = (struct state *) malloc(sizeof *gmtptr);
 			if (gmtptr != NULL)
+#ifdef NOTIFY_TZ
+			{
+#endif /* NOTIFY_TZ */
 #endif /* defined ALL_STATE */
 				gmtload(gmtptr);
+#ifdef NOTIFY_TZ
+				notify_register_tz(fullname, &gmt_notify);
+#ifdef ALL_STATE
+			}
+#endif
+#endif /* NOTIFY_TZ */
 			gmt_is_set = TRUE;
 		}
 		_MUTEX_UNLOCK(&gmt_mutex);
 	}
+#ifdef __LP64__
+	if(timesub(timep, offset, gmtptr, tmp) == NULL)
+		return NULL;
+#else /* !__LP64__ */
 	timesub(timep, offset, gmtptr, tmp);
+#endif /* __LP64__ */
 #ifdef TM_ZONE
 	/*
 	** Could get fancy here and deliver something such as
@@ -1213,7 +1621,7 @@ struct tm * const	tmp;
 	else {
 #ifdef ALL_STATE
 		if (gmtptr == NULL)
-			tmp->TM_ZONE = gmt;
+			tmp->TM_ZONE = (char *)gmt;
 		else	tmp->TM_ZONE = gmtptr->chars;
 #endif /* defined ALL_STATE */
 #ifndef ALL_STATE
@@ -1221,6 +1629,9 @@ struct tm * const	tmp;
 #endif /* State Farm */
 	}
 #endif /* defined TM_ZONE */
+#ifdef __LP64__
+	return tmp;
+#endif /* __LP64__ */
 }
 
 struct tm *
@@ -1232,10 +1643,11 @@ const time_t * const	timep;
 	struct tm *p_tm;
 
 	if (__isthreaded != 0) {
-		if (gmtime_key < 0) {
+		if (gmtime_key == (pthread_key_t)-1) {
 			_pthread_mutex_lock(&gmtime_mutex);
-			if (gmtime_key < 0) {
-				if (_pthread_key_create(&gmtime_key, free) < 0) {
+			if (gmtime_key == (pthread_key_t)-1) {
+				gmtime_key = __LIBC_PTHREAD_KEY_GMTIME;
+				if (pthread_key_init_np(gmtime_key, free) < 0) {
 					_pthread_mutex_unlock(&gmtime_mutex);
 					return(NULL);
 				}
@@ -1253,12 +1665,20 @@ const time_t * const	timep;
 			}
 			_pthread_setspecific(gmtime_key, p_tm);
 		}
+#ifdef __LP64__
+		return gmtsub(timep, 0L, p_tm);
+#else /* !__LP64__ */
 		gmtsub(timep, 0L, p_tm);
 		return(p_tm);
+#endif /* __LP64__ */
 	}
 	else {
+#ifdef __LP64__
+		return gmtsub(timep, 0L, &tm);
+#else /* !__LP64__ */
 		gmtsub(timep, 0L, &tm);
 		return(&tm);
+#endif /* __LP64__ */
 	}
 }
 
@@ -1271,8 +1691,13 @@ gmtime_r(timep, tm)
 const time_t * const	timep;
 struct tm *		tm;
 {
+
+#ifdef __LP64__
+	return gmtsub(timep, 0L, tm);
+#else /* !__LP64__ */
 	gmtsub(timep, 0L, tm);
 	return tm;
+#endif /* __LP64__ */
 }
 
 #ifdef STD_INSPIRED
@@ -1282,13 +1707,21 @@ offtime(timep, offset)
 const time_t * const	timep;
 const long		offset;
 {
+#ifdef __LP64__
+	return gmtsub(timep, offset, &tm);
+#else /* !__LP64__ */
 	gmtsub(timep, offset, &tm);
 	return &tm;
+#endif /* __LP64__ */
 }
 
 #endif /* defined STD_INSPIRED */
 
+#ifdef __LP64__
+static struct tm *
+#else /* !__LP64__ */
 static void
+#endif /* __LP64__ */
 timesub(timep, offset, sp, tmp)
 const time_t * const			timep;
 const long				offset;
@@ -1365,7 +1798,12 @@ struct tm * const		tmp;
 	if (tmp->tm_wday < 0)
 		tmp->tm_wday += DAYSPERWEEK;
 	y = EPOCH_YEAR;
-#define LEAPS_THRU_END_OF(y)	((y) / 4 - (y) / 100 + (y) / 400)
+#define _LEAPS_THRU_END_OF(y)	((y) / 4 - (y) / 100 + (y) / 400)
+#ifdef __LP64__
+#define LEAPS_THRU_END_OF(y)	((y) >= 0 ? _LEAPS_THRU_END_OF(y) : _LEAPS_THRU_END_OF((y) + 1) - 1)
+#else /* !__LP64__ */
+#define LEAPS_THRU_END_OF(y)	_LEAPS_THRU_END_OF(y)
+#endif /* __LP64__ */
 	while (days < 0 || days >= (long) year_lengths[yleap = isleap(y)]) {
 		long	newy;
 
@@ -1377,7 +1815,16 @@ struct tm * const		tmp;
 			LEAPS_THRU_END_OF(y - 1);
 		y = newy;
 	}
+#ifdef __LP64__
+	y -= TM_YEAR_BASE;
+	if (y < INT_MIN || y > INT_MAX) {
+		errno = EOVERFLOW;
+		return NULL;
+	}
+	tmp->tm_year = y;
+#else /* !__LP64__ */
 	tmp->tm_year = y - TM_YEAR_BASE;
+#endif /* __LP64__ */
 	tmp->tm_yday = (int) days;
 	ip = mon_lengths[yleap];
 	for (tmp->tm_mon = 0; days >= (long) ip[tmp->tm_mon]; ++(tmp->tm_mon))
@@ -1387,6 +1834,9 @@ struct tm * const		tmp;
 #ifdef TM_GMTOFF
 	tmp->TM_GMTOFF = offset;
 #endif /* defined TM_GMTOFF */
+#ifdef __LP64__
+	return tmp;
+#endif /* __LP64__ */
 }
 
 char *
@@ -1399,7 +1849,20 @@ const time_t * const	timep;
 **	to local time in the form of a string.  It is equivalent to
 **		asctime(localtime(timer))
 */
+#ifdef __LP64__
+	/*
+	 * In 64-bit, the timep value may produce a time value with a year
+	 * that exceeds 32-bits in size (won't fit in struct tm), so localtime
+	 * will return NULL.
+	 */
+	struct tm *tm = localtime(timep);
+
+	if (tm == NULL)
+		return NULL;
+	return asctime(tm);
+#else /* !__LP64__ */
 	return asctime(localtime(timep));
+#endif /* __LP64__ */
 }
 
 char *
@@ -1409,7 +1872,18 @@ char *			buf;
 {
 	struct tm	tm;
 
+#ifdef __LP64__
+	/*
+	 * In 64-bit, the timep value may produce a time value with a year
+	 * that exceeds 32-bits in size (won't fit in struct tm), so localtime_r
+	 * will return NULL.
+	 */
+	if (localtime_r(timep, &tm) == NULL)
+		return NULL;
+	return asctime_r(&tm, buf);
+#else /* !__LP64__ */
 	return asctime_r(localtime_r(timep, &tm), buf);
+#endif /* __LP64__ */
 }
 
 /*
@@ -1464,8 +1938,14 @@ const struct tm * const btmp;
 {
 	int	result;
 
-	if ((result = (atmp->tm_year - btmp->tm_year)) == 0 &&
-		(result = (atmp->tm_mon - btmp->tm_mon)) == 0 &&
+	/*
+	 * Assume that atmp and btmp point to normalized tm strutures.
+	 * So only arithmetic with tm_year could overflow in 64-bit.
+	 */
+	if (atmp->tm_year != btmp->tm_year) {
+		return (atmp->tm_year > btmp->tm_year ? 1 : -1);
+	}
+	if ((result = (atmp->tm_mon - btmp->tm_mon)) == 0 &&
 		(result = (atmp->tm_mday - btmp->tm_mday)) == 0 &&
 		(result = (atmp->tm_hour - btmp->tm_hour)) == 0 &&
 		(result = (atmp->tm_min - btmp->tm_min)) == 0)
@@ -1474,12 +1954,17 @@ const struct tm * const btmp;
 }
 
 static time_t
-time2sub(tmp, funcp, offset, okayp, do_norm_secs)
+time2sub(tmp, funcp, offset, okayp, do_norm_secs, unix03)
 struct tm * const	tmp;
+#ifdef __LP64__
+struct tm *(* const	funcp)(const time_t*, long, struct tm*);
+#else /* !__LP64__ */
 void (* const		funcp)(const time_t*, long, struct tm*);
+#endif /* __LP64__ */
 const long		offset;
 int * const		okayp;
 const int		do_norm_secs;
+int			unix03;
 {
 	const struct state *	sp;
 	int			dir;
@@ -1489,6 +1974,9 @@ const int		do_norm_secs;
 	time_t				newt;
 	time_t				t;
 	struct tm			yourtm, mytm;
+#ifdef __LP64__
+	long				year, il;
+#endif /* __LP64__ */
 
 	*okayp = FALSE;
 	yourtm = *tmp;
@@ -1507,33 +1995,64 @@ const int		do_norm_secs;
 	** Turn yourtm.tm_year into an actual year number for now.
 	** It is converted back to an offset from TM_YEAR_BASE later.
 	*/
+#ifdef __LP64__
+	year = (long)yourtm.tm_year + TM_YEAR_BASE;
+#else /* !__LP64__ */
 	if (increment_overflow(&yourtm.tm_year, TM_YEAR_BASE))
 		return WRONG;
+#endif /* __LP64__ */
 	while (yourtm.tm_mday <= 0) {
+#ifdef __LP64__
+		year--;
+		il = year + (1 < yourtm.tm_mon);
+		yourtm.tm_mday += year_lengths[isleap(il)];
+#else /* !__LP64__ */
 		if (increment_overflow(&yourtm.tm_year, -1))
 			return WRONG;
 		i = yourtm.tm_year + (1 < yourtm.tm_mon);
 		yourtm.tm_mday += year_lengths[isleap(i)];
+#endif /* __LP64__ */
 	}
 	while (yourtm.tm_mday > DAYSPERLYEAR) {
+#ifdef __LP64__
+		il = year + (1 < yourtm.tm_mon);
+		yourtm.tm_mday -= year_lengths[isleap(il)];
+		year++;
+#else /* !__LP64__ */
 		i = yourtm.tm_year + (1 < yourtm.tm_mon);
 		yourtm.tm_mday -= year_lengths[isleap(i)];
 		if (increment_overflow(&yourtm.tm_year, 1))
 			return WRONG;
+#endif /* __LP64__ */
 	}
 	for ( ; ; ) {
+#ifdef __LP64__
+		i = mon_lengths[isleap(year)][yourtm.tm_mon];
+#else /* !__LP64__ */
 		i = mon_lengths[isleap(yourtm.tm_year)][yourtm.tm_mon];
+#endif /* __LP64__ */
 		if (yourtm.tm_mday <= i)
 			break;
 		yourtm.tm_mday -= i;
 		if (++yourtm.tm_mon >= MONSPERYEAR) {
 			yourtm.tm_mon = 0;
+#ifdef __LP64__
+			year++;
+#else /* !__LP64__ */
 			if (increment_overflow(&yourtm.tm_year, 1))
 				return WRONG;
+#endif /* __LP64__ */
 		}
 	}
+#ifdef __LP64__
+	year -= TM_YEAR_BASE;
+	if (year > INT_MAX || year < INT_MIN)
+		return WRONG;
+	yourtm.tm_year = year;
+#else /* !__LP64__ */
 	if (increment_overflow(&yourtm.tm_year, -TM_YEAR_BASE))
 		return WRONG;
+#endif /* __LP64__ */
 	/* Don't go below 1900 for POLA */
 	if (yourtm.tm_year < 0)
 		return WRONG;
@@ -1560,13 +2079,21 @@ const int		do_norm_secs;
 	** Divide the search space in half
 	** (this works whether time_t is signed or unsigned).
 	*/
+#ifdef __LP64__
+	/* optimization: see if the value is 31-bit (signed) */
+	t = (((time_t) 1) << (TYPE_BIT(int) - 1)) - 1;
+	bits = ((*funcp)(&t, offset, &mytm) == NULL || tmcomp(&mytm, &yourtm) < 0) ? TYPE_BIT(time_t) - 1 : TYPE_BIT(int) - 1;
+#else /* !__LP64__ */
 	bits = TYPE_BIT(time_t) - 1;
+#endif /* __LP64__ */
 	/*
-	** If we have more than this, we will overflow tm_year for tmcomp().
-	** We should really return an error if we cannot represent it.
+	** In 64-bit, we now return an error if we cannot represent the
+	** struct tm value in a time_t.  And tmcomp() is fixed to avoid
+	** overflow in tm_year.  So we only put a cap on bits because time_t
+	** can't be larger that 56 bit (when tm_year == INT_MAX).
 	*/
-	if (bits > 48)
-		bits = 48;
+	if (bits > 56)
+		bits = 56;
 	/*
 	** If time_t is signed, then 0 is just above the median,
 	** assuming two's complement arithmetic.
@@ -1574,8 +2101,19 @@ const int		do_norm_secs;
 	*/
 	t = TYPE_SIGNED(time_t) ? 0 : (((time_t) 1) << bits);
 	for ( ; ; ) {
+#ifdef __LP64__
+		if ((*funcp)(&t, offset, &mytm) == NULL) {
+		    /* we overflowed, so t is too big */
+		    dir = 1;
+		    goto skip_tmcomp;
+		}
+#else /* !__LP64__ */
 		(*funcp)(&t, offset, &mytm);
+#endif /* __LP64__ */
 		dir = tmcomp(&mytm, &yourtm);
+#ifdef __LP64__
+skip_tmcomp:
+#endif /* __LP64__ */
 		if (dir != 0) {
 			if (bits-- < 0)
 				return WRONG;
@@ -1586,6 +2124,9 @@ const int		do_norm_secs;
 			else	t += ((time_t) 1) << bits;
 			continue;
 		}
+		sp = (funcp == localsub) ? lclptr : gmtptr;
+		if (unix03 && sp->typecnt == 1 && yourtm.tm_isdst > 0) 
+			yourtm.tm_isdst = 0; /* alternative time does not apply */
 		if (yourtm.tm_isdst < 0 || mytm.tm_isdst == yourtm.tm_isdst)
 			break;
 		/*
@@ -1594,7 +2135,6 @@ const int		do_norm_secs;
 		** It's okay to guess wrong since the guess
 		** gets checked.
 		*/
-		sp = (funcp == localsub) ? lclptr : gmtptr;
 #ifdef ALL_STATE
 		if (sp == NULL)
 			return WRONG;
@@ -1607,7 +2147,12 @@ const int		do_norm_secs;
 					continue;
 				newt = t + sp->ttis[j].tt_gmtoff -
 					sp->ttis[i].tt_gmtoff;
+#ifdef __LP64__
+				if ((*funcp)(&newt, offset, &mytm) == NULL)
+					return WRONG;
+#else /* !__LP64__ */
 				(*funcp)(&newt, offset, &mytm);
+#endif /* __LP64__ */
 				if (tmcomp(&mytm, &yourtm) != 0)
 					continue;
 				if (mytm.tm_isdst != yourtm.tm_isdst)
@@ -1626,17 +2171,27 @@ label:
 	if ((newt < t) != (saved_seconds < 0))
 		return WRONG;
 	t = newt;
+#ifdef __LP64__
+	if ((*funcp)(&t, offset, tmp) == NULL)
+		return WRONG;
+#else /* !__LP64__ */
 	(*funcp)(&t, offset, tmp);
+#endif /* __LP64__ */
 	*okayp = TRUE;
 	return t;
 }
 
 static time_t
-time2(tmp, funcp, offset, okayp)
+time2(tmp, funcp, offset, okayp, unix03)
 struct tm * const	tmp;
+#ifdef __LP64__
+struct tm *(* const	funcp)(const time_t*, long, struct tm*);
+#else /* !__LP64__ */
 void (* const		funcp)(const time_t*, long, struct tm*);
+#endif /* __LP64__ */
 const long		offset;
 int * const		okayp;
+int			unix03;
 {
 	time_t	t;
 
@@ -1645,15 +2200,20 @@ int * const		okayp;
 	** (in case tm_sec contains a value associated with a leap second).
 	** If that fails, try with normalization of seconds.
 	*/
-	t = time2sub(tmp, funcp, offset, okayp, FALSE);
-	return *okayp ? t : time2sub(tmp, funcp, offset, okayp, TRUE);
+	t = time2sub(tmp, funcp, offset, okayp, FALSE, unix03);
+	return *okayp ? t : time2sub(tmp, funcp, offset, okayp, TRUE, unix03);
 }
 
-static time_t
-time1(tmp, funcp, offset)
+__private_extern__ time_t
+time1(tmp, funcp, offset, unix03)
 struct tm * const	tmp;
+#ifdef __LP64__
+struct tm *(* const	funcp)(const time_t *, long, struct tm *);
+#else /* !__LP64__ */
 void (* const		funcp)(const time_t *, long, struct tm *);
+#endif /* __LP64__ */
 const long		offset;
+int			unix03;
 {
 	time_t			t;
 	const struct state *	sp;
@@ -1667,7 +2227,7 @@ const long		offset;
 
 	if (tmp->tm_isdst > 1)
 		tmp->tm_isdst = 1;
-	t = time2(tmp, funcp, offset, &okay);
+	t = time2(tmp, funcp, offset, &okay, unix03);
 #ifdef PCTS
 	/*
 	** PCTS code courtesy Grant Sullivan (grant@osf.org).
@@ -1711,7 +2271,7 @@ const long		offset;
 			tmp->tm_sec += sp->ttis[otheri].tt_gmtoff -
 					sp->ttis[samei].tt_gmtoff;
 			tmp->tm_isdst = !tmp->tm_isdst;
-			t = time2(tmp, funcp, offset, &okay);
+			t = time2(tmp, funcp, offset, &okay, unix03);
 			if (okay)
 				return t;
 			tmp->tm_sec -= sp->ttis[otheri].tt_gmtoff -
@@ -1721,19 +2281,25 @@ const long		offset;
 	}
 	return WRONG;
 }
+#else  /* BUILDING_VARIANT */
+__private_extern__ pthread_rwlock_t	lcl_rwlock;
+#endif /* BUILDING_VARIANT */
 
 time_t
 mktime(tmp)
 struct tm * const	tmp;
 {
 	time_t mktime_return_value;
+	int serrno = errno;
 	_RWLOCK_RDLOCK(&lcl_rwlock);
 	tzset_basic(1);
-	mktime_return_value = time1(tmp, localsub, 0L);
+	mktime_return_value = time1(tmp, localsub, 0L, __DARWIN_UNIX03);
 	_RWLOCK_UNLOCK(&lcl_rwlock);
+	errno = serrno;
 	return(mktime_return_value);
 }
 
+#if !BUILDING_VARIANT
 #ifdef STD_INSPIRED
 
 time_t
@@ -1749,7 +2315,7 @@ timegm(tmp)
 struct tm * const	tmp;
 {
 	tmp->tm_isdst = 0;
-	return time1(tmp, gmtsub, 0L);
+	return time1(tmp, gmtsub, 0L, __DARWIN_UNIX03);
 }
 
 time_t
@@ -1758,7 +2324,7 @@ struct tm * const	tmp;
 const long		offset;
 {
 	tmp->tm_isdst = 0;
-	return time1(tmp, gmtsub, offset);
+	return time1(tmp, gmtsub, offset, __DARWIN_UNIX03);
 }
 
 #endif /* defined STD_INSPIRED */
@@ -1858,3 +2424,4 @@ time_t	t;
 }
 
 #endif /* defined STD_INSPIRED */
+#endif /* !BUILDING_VARIANT */

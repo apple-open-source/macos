@@ -229,7 +229,7 @@ struct Scope {
     bool declareParameter(const Identifier* ident)
     {
         bool isArguments = m_globalData->propertyNames->arguments == *ident;
-        bool isValidStrictMode = m_declaredVariables.add(ident->ustring().impl()).second && m_globalData->propertyNames->eval != *ident && !isArguments;
+        bool isValidStrictMode = m_declaredVariables.add(ident->ustring().impl()).isNewEntry && m_globalData->propertyNames->eval != *ident && !isArguments;
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
         if (isArguments)
             m_shadowsArguments = true;
@@ -568,7 +568,7 @@ private:
         case CASE: 
             return "case";
         case DEFAULT: 
-            return "defualt";
+            return "default";
         case FOR: 
             return "for";
         case NEW: 
@@ -1025,7 +1025,7 @@ PassRefPtr<ParsedNode> Parser<LexerType>::parse(JSGlobalObject* lexicalGlobalObj
         else if (isEvalNode<ParsedNode>())
             *exception = createSyntaxError(lexicalGlobalObject, errMsg);
         else
-            *exception = addErrorInfo(&lexicalGlobalObject->globalData(), createSyntaxError(lexicalGlobalObject, errMsg), errLine, *m_source);
+            *exception = addErrorInfo(lexicalGlobalObject->globalExec(), createSyntaxError(lexicalGlobalObject, errMsg), errLine, *m_source);
     }
 
     if (debugger && !ParsedNode::scopeIsFunction)

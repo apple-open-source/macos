@@ -46,14 +46,13 @@ public:
 private:
     SVGGlyphElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
+    // FIXME: svgAttributeChanged missing.
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 
-    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) { return false; }
 
     void invalidateGlyphCache();
 };

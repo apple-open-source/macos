@@ -32,8 +32,6 @@ interactusers:*:51:
 netusers:*:52:
 consoleusers:*:53:
 _mcxalr:*:54:
-_pcastagent:*:55:
-_pcastserver:*:56:
 _serialnumberd:*:58:
 _devdocs:*:59:
 _sandbox:*:60:
@@ -58,8 +56,6 @@ _appserveradm:*:81:
 _clamav:*:82:
 _amavisd:*:83:
 _jabber:*:84:
-_xgridcontroller:*:85:
-_xgridagent:*:86:
 _appowner:*:87:
 _windowserver:*:88:
 _spotlight:*:89:

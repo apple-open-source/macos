@@ -37,10 +37,13 @@
 #include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "NodeRenderingContext.h"
 #include "PlatformMouseEvent.h"
 #include "RenderSVGInline.h"
+#include "RenderSVGText.h"
 #include "RenderSVGTransformableContainer.h"
 #include "ResourceRequest.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGSMILElement.h"
 #include "XLinkNames.h"
@@ -52,10 +55,19 @@ DEFINE_ANIMATED_STRING(SVGAElement, SVGNames::targetAttr, SVGTarget, svgTarget)
 DEFINE_ANIMATED_STRING(SVGAElement, XLinkNames::hrefAttr, Href, href)
 DEFINE_ANIMATED_BOOLEAN(SVGAElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGAElement)
+     REGISTER_LOCAL_ANIMATED_PROPERTY(svgTarget)
+     REGISTER_LOCAL_ANIMATED_PROPERTY(href)
+     REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+     REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+     REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGAElement::SVGAElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
 {
     ASSERT(hasTagName(SVGNames::aTag));
+    registerAnimatedPropertiesForSVGAElement();
 }
 
 PassRefPtr<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Document* document)
@@ -66,7 +78,7 @@ PassRefPtr<SVGAElement> SVGAElement::create(const QualifiedName& tagName, Docume
 String SVGAElement::title() const
 {
     // If the xlink:title is set (non-empty string), use it.
-    const AtomicString& title = getAttribute(XLinkNames::titleAttr);
+    const AtomicString& title = fastGetAttribute(XLinkNames::titleAttr);
     if (!title.isEmpty())
         return title;
 
@@ -74,26 +86,51 @@ String SVGAElement::title() const
     return SVGStyledElement::title();
 }
 
-void SVGAElement::parseMappedAttribute(Attribute* attr)
+bool SVGAElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::targetAttr)
-        setSVGTargetBaseValue(attr->value());
-    else {
-        if (SVGURIReference::parseMappedAttribute(attr))
-            return;
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        SVGStyledTransformableElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGURIReference::addSupportedAttributes(supportedAttributes);
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::targetAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGAElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledTransformableElement::parseAttribute(attr);
+        return;
+    }
+
+    if (attr->name() == SVGNames::targetAttr) {
+        setSVGTargetBaseValue(attr->value());
+        return;
+    }
+
+    if (SVGURIReference::parseAttribute(attr))
+        return;
+    if (SVGTests::parseAttribute(attr))
+        return;
+    if (SVGLangSpace::parseAttribute(attr))
+        return;
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
+
+    ASSERT_NOT_REACHED();
 }
 
 void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
+        return;
+    }
+
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
     // Unlike other SVG*Element classes, SVGAElement only listens to SVGURIReference changes
     // as none of the other properties changes the linking behaviour for our <a> element.
@@ -106,46 +143,9 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
     }
 }
 
-AttributeToPropertyTypeMap& SVGAElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGAElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::targetAttr, AnimatedString);
-    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
-}
-
-void SVGAElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeSVGTarget();
-        synchronizeHref();
-        synchronizeExternalResourcesRequired();
-        SVGTests::synchronizeProperties(this, attrName);
-        return;
-    }
-
-    if (attrName == SVGNames::targetAttr)
-        synchronizeSVGTarget();
-    else if (SVGURIReference::isKnownAttribute(attrName))
-        synchronizeHref();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
-}
-
 RenderObject* SVGAElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    if (static_cast<SVGElement*>(parentNode())->isTextContent())
+    if (parentNode() && parentNode()->isSVGElement() && static_cast<SVGElement*>(parentNode())->isTextContent())
         return new (arena) RenderSVGInline(this);
 
     return new (arena) RenderSVGTransformableContainer(this);
@@ -163,7 +163,6 @@ void SVGAElement::defaultEventHandler(Event* event)
         if (isLinkClick(event)) {
             String url = stripLeadingAndTrailingHTMLSpaces(href());
 
-#if ENABLE(SVG_ANIMATION)
             if (url[0] == '#') {
                 Element* targetElement = treeScope()->getElementById(url.substring(1));
                 if (SVGSMILElement::isSMILElement(targetElement)) {
@@ -171,8 +170,10 @@ void SVGAElement::defaultEventHandler(Event* event)
                     event->setDefaultHandled();
                     return;
                 }
+                // Only allow navigation to internal <view> anchors.
+                if (targetElement && !targetElement->hasTagName(SVGNames::viewTag))
+                    return;
             }
-#endif
 
             // FIXME: Why does the SVG anchor element have this special logic
             // for middle click that the HTML anchor element does not have?
@@ -184,7 +185,7 @@ void SVGAElement::defaultEventHandler(Event* event)
             // FIXME: It's not clear why setting target to "_self" is ever
             // helpful.
             if (target.isEmpty())
-                target = (getAttribute(XLinkNames::showAttr) == "new") ? "_blank" : "_self";
+                target = (fastGetAttribute(XLinkNames::showAttr) == "new") ? "_blank" : "_self";
 
             handleLinkClick(event, document(), url, target);
             return;
@@ -225,16 +226,29 @@ bool SVGAElement::isKeyboardFocusable(KeyboardEvent* event) const
     return document()->frame()->eventHandler()->tabsToLinks(event);
 }
 
-bool SVGAElement::childShouldCreateRenderer(Node* child) const
+bool SVGAElement::childShouldCreateRenderer(const NodeRenderingContext& childContext) const
 {
     // http://www.w3.org/2003/01/REC-SVG11-20030114-errata#linking-text-environment
     // The 'a' element may contain any element that its parent may contain, except itself.
-    if (child->hasTagName(SVGNames::aTag))
+    if (childContext.node()->hasTagName(SVGNames::aTag))
         return false;
     if (parentNode() && parentNode()->isSVGElement())
-        return parentNode()->childShouldCreateRenderer(child);
+        return parentNode()->childShouldCreateRenderer(childContext);
 
-    return SVGElement::childShouldCreateRenderer(child);
+    return SVGElement::childShouldCreateRenderer(childContext);
+}
+
+void SVGAElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+{
+    SVGStyledTransformableElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+
+    if (changedByParser || !renderer())
+        return;
+
+    // Invalidate the TextPosition cache in SVGTextLayoutAttributesBuilder as it may now point
+    // to no-longer existing SVGTextPositioningElements and thus needs to be rebuilt.
+    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(renderer()))
+        textRenderer->invalidateTextPositioningElements();
 }
 
 } // namespace WebCore

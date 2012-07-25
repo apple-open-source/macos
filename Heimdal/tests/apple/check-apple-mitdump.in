@@ -57,7 +57,13 @@ ${kadmin} --local \
 #
 # check we got flags right
 #
-num="$(/usr/libexec/PlistBuddy -c 'print KerberosFlags:[0]' ${testdir}/dump-files/snow1\@${r}.plist)"
+num=0
+for a in ${testdir}/dump-files/*.plist; do
+	if /usr/libexec/PlistBuddy -c 'print KerberosPrincipal' $a 2>&1 | grep 'snow1@' > /dev/null 2>&1 ; then
+		num="$(/usr/libexec/PlistBuddy -c 'print KerberosFlags:0' $a)"
+	fi
+done
+
 [ X350 = X"$num" ] || { echo "flags for snow1"; exit 1; }
 
 rm -r ${testdir}/dump-files

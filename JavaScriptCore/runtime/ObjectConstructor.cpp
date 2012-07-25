@@ -55,6 +55,8 @@ static EncodedJSValue JSC_HOST_CALL objectConstructorIsExtensible(ExecState*);
 
 namespace JSC {
 
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(ObjectConstructor);
+
 const ClassInfo ObjectConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::objectConstructorTable, CREATE_METHOD_TABLE(ObjectConstructor) };
 
 /* Source for ObjectConstructor.lut.h
@@ -136,18 +138,17 @@ EncodedJSValue JSC_HOST_CALL objectConstructorGetPrototypeOf(ExecState* exec)
 {
     if (!exec->argument(0).isObject())
         return throwVMError(exec, createTypeError(exec, "Requested prototype of a value that is not an object."));
-        
-    // This uses JSValue::get() instead of directly accessing the prototype from the object
-    // (using JSObject::prototype()) in order to allow objects to override the behavior, such
-    // as returning jsUndefined() for cross-origin access.
-    return JSValue::encode(exec->argument(0).get(exec, exec->propertyNames().underscoreProto));
+    JSObject* object = asObject(exec->argument(0));
+    if (!object->allowsAccessFrom(exec->trueCallerFrame()))
+        return JSValue::encode(jsUndefined());
+    return JSValue::encode(object->prototype());
 }
 
 EncodedJSValue JSC_HOST_CALL objectConstructorGetOwnPropertyDescriptor(ExecState* exec)
 {
     if (!exec->argument(0).isObject())
         return throwVMError(exec, createTypeError(exec, "Requested property descriptor of a value that is not an object."));
-    UString propertyName = exec->argument(1).toString(exec);
+    UString propertyName = exec->argument(1).toString(exec)->value(exec);
     if (exec->hadException())
         return JSValue::encode(jsNull());
     JSObject* object = asObject(exec->argument(0));
@@ -162,8 +163,10 @@ EncodedJSValue JSC_HOST_CALL objectConstructorGetOwnPropertyDescriptor(ExecState
         description->putDirect(exec->globalData(), exec->propertyNames().value, descriptor.value() ? descriptor.value() : jsUndefined(), 0);
         description->putDirect(exec->globalData(), exec->propertyNames().writable, jsBoolean(descriptor.writable()), 0);
     } else {
-        description->putDirect(exec->globalData(), exec->propertyNames().get, descriptor.getter() ? descriptor.getter() : jsUndefined(), 0);
-        description->putDirect(exec->globalData(), exec->propertyNames().set, descriptor.setter() ? descriptor.setter() : jsUndefined(), 0);
+        ASSERT(descriptor.getter());
+        ASSERT(descriptor.setter());
+        description->putDirect(exec->globalData(), exec->propertyNames().get, descriptor.getter(), 0);
+        description->putDirect(exec->globalData(), exec->propertyNames().set, descriptor.setter(), 0);
     }
     
     description->putDirect(exec->globalData(), exec->propertyNames().enumerable, jsBoolean(descriptor.enumerable()), 0);
@@ -249,8 +252,7 @@ static bool toPropertyDescriptor(ExecState* exec, JSValue in, PropertyDescriptor
                 throwError(exec, createTypeError(exec, "Getter must be a function."));
                 return false;
             }
-        } else
-            get = JSValue();
+        }
         desc.setGetter(get);
     }
 
@@ -265,9 +267,7 @@ static bool toPropertyDescriptor(ExecState* exec, JSValue in, PropertyDescriptor
                 throwError(exec, createTypeError(exec, "Setter must be a function."));
                 return false;
             }
-        } else
-            set = JSValue();
-
+        }
         desc.setSetter(set);
     }
 
@@ -291,13 +291,13 @@ EncodedJSValue JSC_HOST_CALL objectConstructorDefineProperty(ExecState* exec)
     if (!exec->argument(0).isObject())
         return throwVMError(exec, createTypeError(exec, "Properties can only be defined on Objects."));
     JSObject* O = asObject(exec->argument(0));
-    UString propertyName = exec->argument(1).toString(exec);
+    UString propertyName = exec->argument(1).toString(exec)->value(exec);
     if (exec->hadException())
         return JSValue::encode(jsNull());
     PropertyDescriptor descriptor;
     if (!toPropertyDescriptor(exec, exec->argument(2), descriptor))
         return JSValue::encode(jsNull());
-    ASSERT((descriptor.attributes() & (Getter | Setter)) || (!descriptor.isAccessorDescriptor()));
+    ASSERT((descriptor.attributes() & Accessor) || (!descriptor.isAccessorDescriptor()));
     ASSERT(!exec->hadException());
     O->methodTable()->defineOwnProperty(O, exec, Identifier(exec, propertyName), descriptor, true);
     return JSValue::encode(O);
@@ -341,9 +341,7 @@ EncodedJSValue JSC_HOST_CALL objectConstructorDefineProperties(ExecState* exec)
 {
     if (!exec->argument(0).isObject())
         return throwVMError(exec, createTypeError(exec, "Properties can only be defined on Objects."));
-    if (!exec->argument(1).isObject())
-        return throwVMError(exec, createTypeError(exec, "Property descriptor list must be an Object."));
-    return JSValue::encode(defineProperties(exec, asObject(exec->argument(0)), asObject(exec->argument(1))));
+    return JSValue::encode(defineProperties(exec, asObject(exec->argument(0)), exec->argument(1).toObject(exec)));
 }
 
 EncodedJSValue JSC_HOST_CALL objectConstructorCreate(ExecState* exec)
@@ -361,19 +359,79 @@ EncodedJSValue JSC_HOST_CALL objectConstructorCreate(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL objectConstructorSeal(ExecState* exec)
 {
+    // 1. If Type(O) is not Object throw a TypeError exception.
     JSValue obj = exec->argument(0);
     if (!obj.isObject())
         return throwVMError(exec, createTypeError(exec, "Object.seal can only be called on Objects."));
-    asObject(obj)->seal(exec->globalData());
+    JSObject* object = asObject(obj);
+
+    if (isJSFinalObject(object)) {
+        object->seal(exec->globalData());
+        return JSValue::encode(obj);
+    }
+
+    // 2. For each named own property name P of O,
+    PropertyNameArray properties(exec);
+    object->methodTable()->getOwnPropertyNames(object, exec, properties, IncludeDontEnumProperties);
+    PropertyNameArray::const_iterator end = properties.end();
+    for (PropertyNameArray::const_iterator iter = properties.begin(); iter != end; ++iter) {
+        // a. Let desc be the result of calling the [[GetOwnProperty]] internal method of O with P.
+        PropertyDescriptor desc;
+        if (!object->methodTable()->getOwnPropertyDescriptor(object, exec, *iter, desc))
+            continue;
+        // b. If desc.[[Configurable]] is true, set desc.[[Configurable]] to false.
+        desc.setConfigurable(false);
+        // c. Call the [[DefineOwnProperty]] internal method of O with P, desc, and true as arguments.
+        object->methodTable()->defineOwnProperty(object, exec, *iter, desc, true);
+        if (exec->hadException())
+            return JSValue::encode(obj);
+    }
+
+    // 3. Set the [[Extensible]] internal property of O to false.
+    object->preventExtensions(exec->globalData());
+
+    // 4. Return O.
     return JSValue::encode(obj);
 }
 
 EncodedJSValue JSC_HOST_CALL objectConstructorFreeze(ExecState* exec)
 {
+    // 1. If Type(O) is not Object throw a TypeError exception.
     JSValue obj = exec->argument(0);
     if (!obj.isObject())
         return throwVMError(exec, createTypeError(exec, "Object.freeze can only be called on Objects."));
-    asObject(obj)->freeze(exec->globalData());
+    JSObject* object = asObject(obj);
+
+    if (isJSFinalObject(object)) {
+        object->freeze(exec->globalData());
+        return JSValue::encode(obj);
+    }
+
+    // 2. For each named own property name P of O,
+    PropertyNameArray properties(exec);
+    object->methodTable()->getOwnPropertyNames(object, exec, properties, IncludeDontEnumProperties);
+    PropertyNameArray::const_iterator end = properties.end();
+    for (PropertyNameArray::const_iterator iter = properties.begin(); iter != end; ++iter) {
+        // a. Let desc be the result of calling the [[GetOwnProperty]] internal method of O with P.
+        PropertyDescriptor desc;
+        if (!object->methodTable()->getOwnPropertyDescriptor(object, exec, *iter, desc))
+            continue;
+        // b. If IsDataDescriptor(desc) is true, then
+        // i. If desc.[[Writable]] is true, set desc.[[Writable]] to false.
+        if (desc.isDataDescriptor())
+            desc.setWritable(false);
+        // c. If desc.[[Configurable]] is true, set desc.[[Configurable]] to false.
+        desc.setConfigurable(false);
+        // d. Call the [[DefineOwnProperty]] internal method of O with P, desc, and true as arguments.
+        object->methodTable()->defineOwnProperty(object, exec, *iter, desc, true);
+        if (exec->hadException())
+            return JSValue::encode(obj);
+    }
+
+    // 3. Set the [[Extensible]] internal property of O to false.
+    object->preventExtensions(exec->globalData());
+
+    // 4. Return O.
     return JSValue::encode(obj);
 }
 
@@ -388,18 +446,63 @@ EncodedJSValue JSC_HOST_CALL objectConstructorPreventExtensions(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL objectConstructorIsSealed(ExecState* exec)
 {
+    // 1. If Type(O) is not Object throw a TypeError exception.
     JSValue obj = exec->argument(0);
     if (!obj.isObject())
         return throwVMError(exec, createTypeError(exec, "Object.isSealed can only be called on Objects."));
-    return JSValue::encode(jsBoolean(asObject(obj)->isSealed(exec->globalData())));
+    JSObject* object = asObject(obj);
+
+    if (isJSFinalObject(object))
+        return JSValue::encode(jsBoolean(object->isSealed(exec->globalData())));
+
+    // 2. For each named own property name P of O,
+    PropertyNameArray properties(exec);
+    object->methodTable()->getOwnPropertyNames(object, exec, properties, IncludeDontEnumProperties);
+    PropertyNameArray::const_iterator end = properties.end();
+    for (PropertyNameArray::const_iterator iter = properties.begin(); iter != end; ++iter) {
+        // a. Let desc be the result of calling the [[GetOwnProperty]] internal method of O with P.
+        PropertyDescriptor desc;
+        if (!object->methodTable()->getOwnPropertyDescriptor(object, exec, *iter, desc))
+            continue;
+        // b. If desc.[[Configurable]] is true, then return false.
+        if (desc.configurable())
+            return JSValue::encode(jsBoolean(false));
+    }
+
+    // 3. If the [[Extensible]] internal property of O is false, then return true.
+    // 4. Otherwise, return false.
+    return JSValue::encode(jsBoolean(!object->isExtensible()));
 }
 
 EncodedJSValue JSC_HOST_CALL objectConstructorIsFrozen(ExecState* exec)
 {
+    // 1. If Type(O) is not Object throw a TypeError exception.
     JSValue obj = exec->argument(0);
     if (!obj.isObject())
         return throwVMError(exec, createTypeError(exec, "Object.isFrozen can only be called on Objects."));
-    return JSValue::encode(jsBoolean(asObject(obj)->isFrozen(exec->globalData())));
+    JSObject* object = asObject(obj);
+
+    if (isJSFinalObject(object))
+        return JSValue::encode(jsBoolean(object->isFrozen(exec->globalData())));
+
+    // 2. For each named own property name P of O,
+    PropertyNameArray properties(exec);
+    object->methodTable()->getOwnPropertyNames(object, exec, properties, IncludeDontEnumProperties);
+    PropertyNameArray::const_iterator end = properties.end();
+    for (PropertyNameArray::const_iterator iter = properties.begin(); iter != end; ++iter) {
+        // a. Let desc be the result of calling the [[GetOwnProperty]] internal method of O with P.
+        PropertyDescriptor desc;
+        if (!object->methodTable()->getOwnPropertyDescriptor(object, exec, *iter, desc))
+            continue;
+        // b. If IsDataDescriptor(desc) is true then
+        // i. If desc.[[Writable]] is true, return false. c. If desc.[[Configurable]] is true, then return false.
+        if ((desc.isDataDescriptor() && desc.writable()) || desc.configurable())
+            return JSValue::encode(jsBoolean(false));
+    }
+
+    // 3. If the [[Extensible]] internal property of O is false, then return true.
+    // 4. Otherwise, return false.
+    return JSValue::encode(jsBoolean(!object->isExtensible()));
 }
 
 EncodedJSValue JSC_HOST_CALL objectConstructorIsExtensible(ExecState* exec)

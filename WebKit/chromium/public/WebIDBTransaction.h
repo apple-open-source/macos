@@ -27,7 +27,7 @@
 #define WebIDBTransaction_h
 
 #include "WebExceptionCode.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 
 namespace WebCore { class IDBTransactionBackendInterface; }
 
@@ -60,6 +60,8 @@ public:
     {
         return 0;
     }
+
+    virtual void addPendingEvents(int) { WEBKIT_ASSERT_NOT_REACHED(); }
 
 protected:
     WebIDBTransaction() {}

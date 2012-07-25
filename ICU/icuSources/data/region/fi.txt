@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/fi.xml
@@ -33,7 +33,6 @@ fi{
         054{"Melanesia"}
         057{"Mikronesia"}
         061{"Polynesia"}
-        062{"Etelä- ja Keski-Aasia"}
         142{"Aasia"}
         143{"Keski-Aasia"}
         145{"Länsi-Aasia"}
@@ -41,9 +40,7 @@ fi{
         151{"Itä-Eurooppa"}
         154{"Pohjois-Eurooppa"}
         155{"Länsi-Eurooppa"}
-        172{"Itsenäisten valtioiden yhteisö"}
-        419{"Latinalainen Amerikka ja Karibia"}
-        830{"Kanaalisaaret"}
+        419{"Latinalainen Amerikka"}
         AC{"Ascension-saari"}
         AD{"Andorra"}
         AE{"Arabiemiirikunnat"}
@@ -99,6 +96,7 @@ fi{
         CS{"Serbia ja Montenegro"}
         CU{"Kuuba"}
         CV{"Kap Verde"}
+        CW{"Curaçao"}
         CX{"Joulusaari"}
         CY{"Kypros"}
         CZ{"Tšekki"}
@@ -117,7 +115,6 @@ fi{
         ER{"Eritrea"}
         ES{"Espanja"}
         ET{"Etiopia"}
-        EU{"EU"}
         FI{"Suomi"}
         FJ{"Fidži"}
         FK{"Falklandinsaaret"}
@@ -195,7 +192,7 @@ fi{
         MH{"Marshallinsaaret"}
         MK{"Makedonia"}
         ML{"Mali"}
-        MM{"Myanmar"}
+        MM{"Myanmar [Burma]"}
         MN{"Mongolia"}
         MO{"Macao – Kiinan e.h.a."}
         MP{"Pohjois-Mariaanit"}
@@ -301,5 +298,5 @@ fi{
         ZW{"Zimbabwe"}
         ZZ{"tuntematon tai virheellinen alue"}
     }
-    Version{"2.0.51.9"}
+    Version{"2.0.65.46"}
 }

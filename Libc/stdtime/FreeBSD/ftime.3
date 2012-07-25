@@ -38,13 +38,12 @@
 .Sh NAME
 .Nm ftime
 .Nd get date and time
-.Sh LIBRARY
-.Lb libcompat
 .Sh SYNOPSIS
-.In sys/types.h
 .In sys/timeb.h
 .Ft int
-.Fn ftime "struct timeb *tp"
+.Fo ftime
+.Fa "struct timeb *tp"
+.Fc
 .Sh DESCRIPTION
 .Bf -symbolic
 This interface is obsoleted by
@@ -69,16 +68,24 @@ struct timeb
 };
 .Ed
 .Pp
-The structure contains the time since the epoch in seconds,
-up to 1000 milliseconds of more-precise interval,
-the local time zone (measured in minutes of time westward from Greenwich),
+The structure contains the time since the epoch, in seconds;
+up to 1000 milliseconds of more-precise interval;
+the local time zone (measured in minutes of time westward from Greenwich);
 and a flag that, if nonzero, indicates that
 Daylight Saving time applies locally during the appropriate part of the year.
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <sys/timeb.h>
+.Pp
+The include file
+.In sys/types.h
+is necessary.
 .Sh SEE ALSO
 .Xr gettimeofday 2 ,
 .Xr settimeofday 2 ,
 .Xr ctime 3 ,
-.Xr time 3
+.Xr time 3 ,
+.Xr compat 5
 .Sh HISTORY
 The
 .Nm

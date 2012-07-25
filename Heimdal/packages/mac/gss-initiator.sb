@@ -12,15 +12,14 @@
 (version 1)
 
 (import "com.apple.corefoundation.sb")
+(import "opendirectory.sb")
 
 (corefoundation)
 
 (allow mach-lookup
        (global-name "org.h5l.kcm")
-       (global-name "com.apple.DirectoryService")
        (global-name "com.apple.SecurityServer")
-       (global-name "com.apple.system.DirectoryService.libinfo_v1")
-       (global-name "com.apple.system.DirectoryService.membership_v1")
+       (global-name "com.apple.SystemConfiguration.SCNetworkReachability")
        (global-name "com.apple.system.logger")
        (global-name "com.apple.system.notification_center"))
 
@@ -33,6 +32,9 @@
        (literal "/usr/local/heimdal/libexec/kdc"))
 
 (allow file-read*
+       (subpath "/System/Library/KerberosPlugins")
+       (subpath "/Library/KerberosPlugins")
+       (subpath "/Library/Frameworks")
        (literal "/etc/krb5.conf")
        (subpath "/Library/Preferences")
        (literal "/dev/random")

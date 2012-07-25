@@ -30,17 +30,43 @@
 			name = OpenSource;
 			productName = OpenSource;
 		};
-		B41FC12F09F6BF5900006FAE /* All */ = {
+		B41FC12F09F6BF5900006FAE /* All libraries */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = B41FC13709F6BF7900006FAE /* Build configuration list for PBXAggregateTarget "All" */;
+			buildConfigurationList = B41FC13709F6BF7900006FAE /* Build configuration list for PBXAggregateTarget "All libraries" */;
 			buildPhases = (
 			);
 			dependencies = (
-				EEEFF4070EFB70EF00DBC955 /* PBXTargetDependency */,
 				B41FC13109F6BF6300006FAE /* PBXTargetDependency */,
 				B41FC13509F6BF6300006FAE /* PBXTargetDependency */,
-				B41FC13309F6BF6300006FAE /* PBXTargetDependency */,
 				B401A30309F6D71800B5C762 /* PBXTargetDependency */,
+			);
+			name = "All libraries";
+			productName = All;
+		};
+		E9D659A31486FD650089C4DA /* All tools */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E9D659A41486FD650089C4DA /* Build configuration list for PBXAggregateTarget "All tools" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E91435421497E100001AA5EF /* PBXTargetDependency */,
+				E9D659AA1486FD6D0089C4DA /* PBXTargetDependency */,
+				E9D659A81486FD6A0089C4DA /* PBXTargetDependency */,
+			);
+			name = "All tools";
+			productName = "All tools";
+		};
+		E9D659AB1486FFD10089C4DA /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = E9D659AC1486FFD10089C4DA /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				E9D659B01486FFED0089C4DA /* PBXTargetDependency */,
+				E9D659B21486FFED0089C4DA /* PBXTargetDependency */,
+				E9D659B41486FFED0089C4DA /* PBXTargetDependency */,
+				E9D659B61486FFED0089C4DA /* PBXTargetDependency */,
+				E9D659B81486FFED0089C4DA /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -71,7 +97,6 @@
 		B41FC0C109F6BC2C00006FAE /* zxar.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC09909F6BC2C00006FAE /* zxar.c */; };
 		B41FC0C809F6BC7A00006FAE /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C409F6BC7A00006FAE /* libz.dylib */; };
 		B41FC0C909F6BC7A00006FAE /* libbz2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C509F6BC7A00006FAE /* libbz2.dylib */; };
-		B41FC0CA09F6BC7A00006FAE /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C609F6BC7A00006FAE /* libcrypto.dylib */; };
 		B41FC0CB09F6BC7A00006FAE /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C709F6BC7A00006FAE /* libxml2.dylib */; };
 		B41FC0E909F6BDAF00006FAE /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC05F09F6B7C200006FAE /* libxar.1.dylib */; };
 		B41FC0EC09F6BDD900006FAE /* xar.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC0EB09F6BDD900006FAE /* xar.c */; };
@@ -97,13 +122,13 @@
 		B41FC10A09F6BE9100006FAE /* zxar.c in Sources */ = {isa = PBXBuildFile; fileRef = B41FC09909F6BC2C00006FAE /* zxar.c */; };
 		B41FC10B09F6BE9B00006FAE /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C409F6BC7A00006FAE /* libz.dylib */; };
 		B41FC10C09F6BE9B00006FAE /* libbz2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C509F6BC7A00006FAE /* libbz2.dylib */; };
-		B41FC10D09F6BE9B00006FAE /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C609F6BC7A00006FAE /* libcrypto.dylib */; };
 		B41FC10E09F6BE9B00006FAE /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC0C709F6BC7A00006FAE /* libxml2.dylib */; };
 		B41FC12A09F6BF3700006FAE /* xar.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = B41FC12509F6BF3300006FAE /* xar.plist */; };
 		B41FC12B09F6BF3C00006FAE /* xar.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = B41FC12609F6BF3300006FAE /* xar.txt */; };
 		B476FACD0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B476FACF0A49E68600BCD61F /* signature.c in Sources */ = {isa = PBXBuildFile; fileRef = B476FACC0A49E68600BCD61F /* signature.c */; };
 		B4772CA30A003F7300E4205C /* xar.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B4772CA20A003F6E00E4205C /* xar.h */; };
+		E9C0E6741497DDAB00BF8F0F /* ea.h in Headers */ = {isa = PBXBuildFile; fileRef = E9C0E6731497DDAB00BF8F0F /* ea.h */; };
 		EEEFF3E60EFB700A00DBC955 /* xar-sig.c in Sources */ = {isa = PBXBuildFile; fileRef = EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */; };
 		EEEFF40E0EFB715100DBC955 /* libxar.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = B41FC05F09F6B7C200006FAE /* libxar.1.dylib */; };
 /* End PBXBuildFile section */
@@ -123,13 +148,6 @@
 			remoteGlobalIDString = B41FC04F09F6B76200006FAE;
 			remoteInfo = configure;
 		};
-		B41FC0E409F6BD6D00006FAE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B41FC05E09F6B7C200006FAE;
-			remoteInfo = xarLib;
-		};
 		B41FC11E09F6BEDE00006FAE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
@@ -144,13 +162,6 @@
 			remoteGlobalIDString = B41FC05E09F6B7C200006FAE;
 			remoteInfo = xarLib;
 		};
-		B41FC13209F6BF6300006FAE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B41FC0E109F6BD6800006FAE;
-			remoteInfo = xarTool;
-		};
 		B41FC13409F6BF6300006FAE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
@@ -158,19 +169,75 @@
 			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
 			remoteInfo = xarStatic;
 		};
-		EEEFF4060EFB70EF00DBC955 /* PBXContainerItemProxy */ = {
+		E914353F1497E0F6001AA5EF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC04F09F6B76200006FAE;
+			remoteInfo = configure;
+		};
+		E91435411497E100001AA5EF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC04F09F6B76200006FAE;
+			remoteInfo = configure;
+		};
+		E9C0E6761497DE6000BF8F0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC04F09F6B76200006FAE;
+			remoteInfo = configure;
+		};
+		E9D659A71486FD6A0089C4DA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC0E109F6BD6800006FAE;
+			remoteInfo = xarTool;
+		};
+		E9D659A91486FD6D0089C4DA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = EEEFF3DF0EFB6FD500DBC955;
 			remoteInfo = xarsig;
 		};
-		EEEFF40A0EFB710500DBC955 /* PBXContainerItemProxy */ = {
+		E9D659AF1486FFED0089C4DA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = B41FC05E09F6B7C200006FAE;
 			remoteInfo = xarLib;
+		};
+		E9D659B11486FFED0089C4DA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC0E109F6BD6800006FAE;
+			remoteInfo = xarTool;
+		};
+		E9D659B31486FFED0089C4DA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC0F309F6BE2F00006FAE;
+			remoteInfo = xarStatic;
+		};
+		E9D659B51486FFED0089C4DA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41FC12109F6BEF900006FAE;
+			remoteInfo = OpenSource;
+		};
+		E9D659B71486FFED0089C4DA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B41FC04109F6B74500006FAE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EEEFF3DF0EFB6FD500DBC955;
+			remoteInfo = xarsig;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -262,7 +329,6 @@
 		B41FC09A09F6BC2C00006FAE /* zxar.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = zxar.h; path = xar/lib/zxar.h; sourceTree = "<group>"; };
 		B41FC0C409F6BC7A00006FAE /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 		B41FC0C509F6BC7A00006FAE /* libbz2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbz2.dylib; path = /usr/lib/libbz2.dylib; sourceTree = "<absolute>"; };
-		B41FC0C609F6BC7A00006FAE /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = /usr/lib/libcrypto.dylib; sourceTree = "<absolute>"; };
 		B41FC0C709F6BC7A00006FAE /* libxml2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.dylib; path = /usr/lib/libxml2.dylib; sourceTree = "<absolute>"; };
 		B41FC0E209F6BD6800006FAE /* xar */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xar; sourceTree = BUILT_PRODUCTS_DIR; };
 		B41FC0EA09F6BDD900006FAE /* xar.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; name = xar.1; path = xar/src/xar.1; sourceTree = "<group>"; };
@@ -276,6 +342,7 @@
 		B4657F1E0A49E6150074E45D /* signature.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = signature.h; path = xar/lib/signature.h; sourceTree = "<group>"; };
 		B476FACC0A49E68600BCD61F /* signature.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = signature.c; path = xar/lib/signature.c; sourceTree = "<group>"; };
 		B4772CA20A003F6E00E4205C /* xar.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xar.h; path = include/xar.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9C0E6731497DDAB00BF8F0F /* ea.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ea.h; path = xar/lib/ea.h; sourceTree = "<group>"; };
 		EEEFF3DC0EFB6FC500DBC955 /* xar-sig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "xar-sig.c"; path = "xarsig/xar-sig.c"; sourceTree = "<group>"; };
 		EEEFF3E00EFB6FD500DBC955 /* xarsig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xarsig; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -287,7 +354,6 @@
 			files = (
 				B41FC0C809F6BC7A00006FAE /* libz.dylib in Frameworks */,
 				B41FC0C909F6BC7A00006FAE /* libbz2.dylib in Frameworks */,
-				B41FC0CA09F6BC7A00006FAE /* libcrypto.dylib in Frameworks */,
 				B41FC0CB09F6BC7A00006FAE /* libxml2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -306,7 +372,6 @@
 			files = (
 				B41FC10B09F6BE9B00006FAE /* libz.dylib in Frameworks */,
 				B41FC10C09F6BE9B00006FAE /* libbz2.dylib in Frameworks */,
-				B41FC10D09F6BE9B00006FAE /* libcrypto.dylib in Frameworks */,
 				B41FC10E09F6BE9B00006FAE /* libxml2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -351,6 +416,7 @@
 		B41FC07109F6BBBD00006FAE /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				E9C0E6731497DDAB00BF8F0F /* ea.h */,
 				98665C700EA83E44008193F1 /* lzmaxar.c */,
 				98665C6E0EA83E36008193F1 /* ea.c */,
 				B41FC16309F6C56600006FAE /* config.h.in */,
@@ -414,7 +480,6 @@
 			children = (
 				B41FC0C409F6BC7A00006FAE /* libz.dylib */,
 				B41FC0C509F6BC7A00006FAE /* libbz2.dylib */,
-				B41FC0C609F6BC7A00006FAE /* libcrypto.dylib */,
 				B41FC0C709F6BC7A00006FAE /* libxml2.dylib */,
 			);
 			name = libraries;
@@ -443,6 +508,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E9C0E6741497DDAB00BF8F0F /* ea.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -487,7 +553,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				B41FC0E509F6BD6D00006FAE /* PBXTargetDependency */,
+				E9C0E6771497DE6000BF8F0F /* PBXTargetDependency */,
 			);
 			name = xarTool;
 			productName = xarTool;
@@ -522,7 +588,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				EEEFF40B0EFB710500DBC955 /* PBXTargetDependency */,
+				E91435401497E0F6001AA5EF /* PBXTargetDependency */,
 			);
 			name = xarsig;
 			productName = xarsig;
@@ -549,7 +615,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				B41FC12F09F6BF5900006FAE /* All */,
+				E9D659AB1486FFD10089C4DA /* All */,
+				E9D659A31486FD650089C4DA /* All tools */,
+				B41FC12F09F6BF5900006FAE /* All libraries */,
 				B41FC04F09F6B76200006FAE /* configure */,
 				B41FC05E09F6B7C200006FAE /* xarLib */,
 				B41FC0E109F6BD6800006FAE /* xarTool */,
@@ -596,7 +664,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# shell script goes here\n\nif [ ! -e \"$BUILT_PRODUCTS_DIR\" ]; then\n\tmkdir \"$BUILT_PRODUCTS_DIR\"\nfi\n\ncd \"$BUILT_PRODUCTS_DIR\"\n\n$SRCROOT/xar/configure\n\n\nexit 0";
+			shellScript = "# shell script goes here\n\nif [ ! -e \"$BUILT_PRODUCTS_DIR\" ]; then\n\tmkdir -p \"$BUILT_PRODUCTS_DIR\"\nfi\n\ncd \"$BUILT_PRODUCTS_DIR\"\n\n$SRCROOT/xar/configure\n\n\nexit 0";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -686,11 +754,6 @@
 			target = B41FC04F09F6B76200006FAE /* configure */;
 			targetProxy = B41FC0D609F6BD0300006FAE /* PBXContainerItemProxy */;
 		};
-		B41FC0E509F6BD6D00006FAE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B41FC05E09F6B7C200006FAE /* xarLib */;
-			targetProxy = B41FC0E409F6BD6D00006FAE /* PBXContainerItemProxy */;
-		};
 		B41FC11F09F6BEDE00006FAE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B41FC04F09F6B76200006FAE /* configure */;
@@ -701,25 +764,60 @@
 			target = B41FC05E09F6B7C200006FAE /* xarLib */;
 			targetProxy = B41FC13009F6BF6300006FAE /* PBXContainerItemProxy */;
 		};
-		B41FC13309F6BF6300006FAE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B41FC0E109F6BD6800006FAE /* xarTool */;
-			targetProxy = B41FC13209F6BF6300006FAE /* PBXContainerItemProxy */;
-		};
 		B41FC13509F6BF6300006FAE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
 			targetProxy = B41FC13409F6BF6300006FAE /* PBXContainerItemProxy */;
 		};
-		EEEFF4070EFB70EF00DBC955 /* PBXTargetDependency */ = {
+		E91435401497E0F6001AA5EF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC04F09F6B76200006FAE /* configure */;
+			targetProxy = E914353F1497E0F6001AA5EF /* PBXContainerItemProxy */;
+		};
+		E91435421497E100001AA5EF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC04F09F6B76200006FAE /* configure */;
+			targetProxy = E91435411497E100001AA5EF /* PBXContainerItemProxy */;
+		};
+		E9C0E6771497DE6000BF8F0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC04F09F6B76200006FAE /* configure */;
+			targetProxy = E9C0E6761497DE6000BF8F0F /* PBXContainerItemProxy */;
+		};
+		E9D659A81486FD6A0089C4DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC0E109F6BD6800006FAE /* xarTool */;
+			targetProxy = E9D659A71486FD6A0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D659AA1486FD6D0089C4DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EEEFF3DF0EFB6FD500DBC955 /* xarsig */;
-			targetProxy = EEEFF4060EFB70EF00DBC955 /* PBXContainerItemProxy */;
+			targetProxy = E9D659A91486FD6D0089C4DA /* PBXContainerItemProxy */;
 		};
-		EEEFF40B0EFB710500DBC955 /* PBXTargetDependency */ = {
+		E9D659B01486FFED0089C4DA /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B41FC05E09F6B7C200006FAE /* xarLib */;
-			targetProxy = EEEFF40A0EFB710500DBC955 /* PBXContainerItemProxy */;
+			targetProxy = E9D659AF1486FFED0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D659B21486FFED0089C4DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC0E109F6BD6800006FAE /* xarTool */;
+			targetProxy = E9D659B11486FFED0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D659B41486FFED0089C4DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC0F309F6BE2F00006FAE /* xarStatic */;
+			targetProxy = E9D659B31486FFED0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D659B61486FFED0089C4DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41FC12109F6BEF900006FAE /* OpenSource */;
+			targetProxy = E9D659B51486FFED0089C4DA /* PBXContainerItemProxy */;
+		};
+		E9D659B81486FFED0089C4DA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EEEFF3DF0EFB6FD500DBC955 /* xarsig */;
+			targetProxy = E9D659B71486FFED0089C4DA /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -730,7 +828,7 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 105;
 				STRIP_STYLE = debugging;
 				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -796,7 +894,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 105;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -880,7 +978,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 105;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -938,6 +1036,36 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = All;
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		E9D659A51486FD650089C4DA /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = x86_64;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		E9D659A61486FD650089C4DA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = x86_64;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		E9D659AD1486FFD10089C4DA /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		E9D659AE1486FFD10089C4DA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -1030,11 +1158,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		B41FC13709F6BF7900006FAE /* Build configuration list for PBXAggregateTarget "All" */ = {
+		B41FC13709F6BF7900006FAE /* Build configuration list for PBXAggregateTarget "All libraries" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				B41FC13809F6BF7900006FAE /* Development */,
 				B41FC13909F6BF7900006FAE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E9D659A41486FD650089C4DA /* Build configuration list for PBXAggregateTarget "All tools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9D659A51486FD650089C4DA /* Development */,
+				E9D659A61486FD650089C4DA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E9D659AC1486FFD10089C4DA /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E9D659AD1486FFD10089C4DA /* Development */,
+				E9D659AE1486FFD10089C4DA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

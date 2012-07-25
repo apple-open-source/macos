@@ -59,7 +59,7 @@ namespace JSC {
 
         static Arguments* create(JSGlobalData& globalData, CallFrame* callFrame)
         {
-            Arguments* arguments = new (allocateCell<Arguments>(globalData.heap)) Arguments(callFrame);
+            Arguments* arguments = new (NotNull, allocateCell<Arguments>(globalData.heap)) Arguments(callFrame);
             arguments->finishCreation(callFrame);
             return arguments;
         }
@@ -114,9 +114,10 @@ namespace JSC {
         static bool getOwnPropertyDescriptor(JSObject*, ExecState*, const Identifier&, PropertyDescriptor&);
         static void getOwnPropertyNames(JSObject*, ExecState*, PropertyNameArray&, EnumerationMode);
         static void put(JSCell*, ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
-        static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue);
+        static void putByIndex(JSCell*, ExecState*, unsigned propertyName, JSValue, bool shouldThrow);
         static bool deleteProperty(JSCell*, ExecState*, const Identifier& propertyName);
         static bool deletePropertyByIndex(JSCell*, ExecState*, unsigned propertyName);
+        static bool defineOwnProperty(JSObject*, ExecState*, const Identifier& propertyName, PropertyDescriptor&, bool shouldThrow);
         void createStrictModeCallerIfNecessary(ExecState*);
         void createStrictModeCalleeIfNecessary(ExecState*);
 
@@ -157,7 +158,7 @@ namespace JSC {
         Base::finishCreation(callFrame->globalData());
         ASSERT(inherits(&s_info));
 
-        JSFunction* callee = asFunction(callFrame->callee());
+        JSFunction* callee = jsCast<JSFunction*>(callFrame->callee());
         d->numArguments = callFrame->argumentCount();
         d->registers = reinterpret_cast<WriteBarrier<Unknown>*>(callFrame->registers());
         d->callee.set(callFrame->globalData(), this, callee);

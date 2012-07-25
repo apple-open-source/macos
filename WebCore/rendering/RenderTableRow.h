@@ -29,6 +29,9 @@
 
 namespace WebCore {
 
+static const unsigned unsetRowIndex = 0x7FFFFFFF;
+static const unsigned maxRowIndex = 0x7FFFFFFE; // 2,147,483,646
+
 class RenderTableRow : public RenderBox {
 public:
     explicit RenderTableRow(Node*);
@@ -40,6 +43,28 @@ public:
     RenderTable* table() const { return toRenderTable(parent()->parent()); }
 
     void updateBeforeAndAfterContent();
+    void paintOutlineForRowIfNeeded(PaintInfo&, const LayoutPoint&);
+
+    static RenderTableRow* createAnonymousWithParentRenderer(const RenderObject*);
+    virtual RenderBox* createAnonymousBoxWithSameTypeAs(const RenderObject* parent) const OVERRIDE
+    {
+        return createAnonymousWithParentRenderer(parent);
+    }
+
+    void setRowIndex(unsigned rowIndex)
+    {
+        if (UNLIKELY(rowIndex > maxRowIndex))
+            CRASH();
+
+        m_rowIndex = rowIndex;
+    }
+
+    bool rowIndexWasSet() const { return m_rowIndex != unsetRowIndex; }
+    unsigned rowIndex() const
+    {
+        ASSERT(rowIndexWasSet());
+        return m_rowIndex;
+    }
 
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
@@ -49,24 +74,23 @@ private:
 
     virtual bool isTableRow() const { return true; }
 
-    virtual void destroy();
+    virtual void willBeDestroyed();
 
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
     virtual void layout();
-    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual LayoutRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const;
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
-    // The only time rows get a layer is when they have transparency.
-    virtual bool requiresLayer() const { return isTransparent() || hasOverflowClip() || hasTransform() || hasMask(); }
+    virtual bool requiresLayer() const OVERRIDE { return isTransparent() || hasOverflowClip() || hasTransform() || hasHiddenBackface() || hasMask() || hasFilter(); }
 
-    virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
 
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
     RenderObjectChildList m_children;
+    unsigned m_rowIndex : 31;
 };
 
 inline RenderTableRow* toRenderTableRow(RenderObject* object)

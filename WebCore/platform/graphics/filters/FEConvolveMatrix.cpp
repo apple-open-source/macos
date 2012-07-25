@@ -30,7 +30,8 @@
 #include "RenderTreeAsText.h"
 #include "TextStream.h"
 
-#include <wtf/ByteArray.h>
+#include <wtf/ParallelJobs.h>
+#include <wtf/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -47,6 +48,8 @@ FEConvolveMatrix::FEConvolveMatrix(Filter* filter, const IntSize& kernelSize,
     , m_preserveAlpha(preserveAlpha)
     , m_kernelMatrix(kernelMatrix)
 {
+    ASSERT(m_kernelSize.width() > 0);
+    ASSERT(m_kernelSize.height() > 0);
 }
 
 PassRefPtr<FEConvolveMatrix> FEConvolveMatrix::create(Filter* filter, const IntSize& kernelSize,
@@ -65,7 +68,9 @@ IntSize FEConvolveMatrix::kernelSize() const
 
 void FEConvolveMatrix::setKernelSize(const IntSize& kernelSize)
 {
-    m_kernelSize = kernelSize; 
+    ASSERT(kernelSize.width() > 0);
+    ASSERT(kernelSize.height() > 0);
+    m_kernelSize = kernelSize;
 }
 
 const Vector<float>& FEConvolveMatrix::kernel() const
@@ -85,6 +90,7 @@ float FEConvolveMatrix::divisor() const
 
 bool FEConvolveMatrix::setDivisor(float divisor)
 {
+    ASSERT(divisor);
     if (m_divisor == divisor)
         return false;
     m_divisor = divisor;
@@ -137,6 +143,8 @@ FloatPoint FEConvolveMatrix::kernelUnitLength() const
 
 bool FEConvolveMatrix::setKernelUnitLength(const FloatPoint& kernelUnitLength)
 {
+    ASSERT(kernelUnitLength.x() > 0);
+    ASSERT(kernelUnitLength.y() > 0);
     if (m_kernelUnitLength == kernelUnitLength)
         return false;
     m_kernelUnitLength = kernelUnitLength;
@@ -222,14 +230,14 @@ static ALWAYS_INLINE unsigned char clampRGBAValue(float channel, unsigned char m
 }
 
 template<bool preserveAlphaValues>
-ALWAYS_INLINE void setDestinationPixels(ByteArray* image, int& pixel, float* totals, float divisor, float bias, ByteArray* src)
+ALWAYS_INLINE void setDestinationPixels(Uint8ClampedArray* image, int& pixel, float* totals, float divisor, float bias, Uint8ClampedArray* src)
 {
     unsigned char maxAlpha = preserveAlphaValues ? 255 : clampRGBAValue(totals[3] / divisor + bias);
     for (int i = 0; i < 3; ++i)
         image->set(pixel++, clampRGBAValue(totals[i] / divisor + bias, maxAlpha));
 
     if (preserveAlphaValues) {
-        image->set(pixel, src->get(pixel));
+        image->set(pixel, src->item(pixel));
         ++pixel;
     } else
         image->set(pixel++, maxAlpha);
@@ -237,11 +245,10 @@ ALWAYS_INLINE void setDestinationPixels(ByteArray* image, int& pixel, float* tot
 
 // Only for region C
 template<bool preserveAlphaValues>
-ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintingData, int clipRight, int clipBottom)
+ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintingData, int clipRight, int clipBottom, int yStart, int yEnd)
 {
     // edge mode does not affect these pixels
     int pixel = (m_targetOffset.y() * paintingData.width + m_targetOffset.x()) * 4;
-    int startKernelPixel = 0;
     int kernelIncrease = clipRight * 4;
     int xIncrease = (m_kernelSize.width() - 1) * 4;
     // Contains the sum of rgb(a) components
@@ -250,7 +257,11 @@ ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintin
     // m_divisor cannot be 0, SVGFEConvolveMatrixElement ensures this
     ASSERT(m_divisor);
 
-    for (int y = clipBottom + 1; y > 0; --y) {
+    // Skip the first '(clipBottom - yEnd)' lines
+    pixel += (clipBottom - yEnd) * (xIncrease + (clipRight + 1) * 4);
+    int startKernelPixel = (clipBottom - yEnd) * (xIncrease + (clipRight + 1) * 4);
+
+    for (int y = yEnd + 1; y > yStart; --y) {
         for (int x = clipRight + 1; x > 0; --x) {
             int kernelValue = m_kernelMatrix.size() - 1;
             int kernelPixel = startKernelPixel;
@@ -263,11 +274,11 @@ ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintin
                 totals[3] = 0;
 
             while (kernelValue >= 0) {
-                totals[0] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(kernelPixel++));
-                totals[1] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(kernelPixel++));
-                totals[2] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(kernelPixel++));
+                totals[0] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
+                totals[1] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
+                totals[2] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
                 if (!preserveAlphaValues)
-                    totals[3] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(kernelPixel));
+                    totals[3] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel));
                 ++kernelPixel;
                 --kernelValue;
                 if (!--width) {
@@ -286,7 +297,7 @@ ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintin
 
 ALWAYS_INLINE int FEConvolveMatrix::getPixelValue(PaintingData& paintingData, int x, int y)
 {
-    if (x >= 0 && x < paintingData.width && x >= 0 && y < paintingData.height)
+    if (x >= 0 && x < paintingData.width && y >= 0 && y < paintingData.height)
         return (y * paintingData.width + x) << 2;
 
     switch (m_edgeMode) {
@@ -346,12 +357,12 @@ void FEConvolveMatrix::fastSetOuterPixels(PaintingData& paintingData, int x1, in
             while (kernelValue >= 0) {
                 int pixelIndex = getPixelValue(paintingData, kernelPixelX, kernelPixelY);
                 if (pixelIndex >= 0) {
-                    totals[0] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(pixelIndex));
-                    totals[1] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(pixelIndex + 1));
-                    totals[2] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(pixelIndex + 2));
+                    totals[0] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex));
+                    totals[1] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 1));
+                    totals[2] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 2));
                 }
                 if (!preserveAlphaValues && pixelIndex >= 0)
-                    totals[3] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->get(pixelIndex + 3));
+                    totals[3] += m_kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 3));
                 ++kernelPixelX;
                 --kernelValue;
                 if (!--width) {
@@ -370,14 +381,14 @@ void FEConvolveMatrix::fastSetOuterPixels(PaintingData& paintingData, int x1, in
     }
 }
 
-ALWAYS_INLINE void FEConvolveMatrix::setInteriorPixels(PaintingData& paintingData, int clipRight, int clipBottom)
+ALWAYS_INLINE void FEConvolveMatrix::setInteriorPixels(PaintingData& paintingData, int clipRight, int clipBottom, int yStart, int yEnd)
 {
     // Must be implemented here, since it refers another ALWAYS_INLINE
     // function, which defined in this C++ source file as well
     if (m_preserveAlpha)
-        fastSetInteriorPixels<true>(paintingData, clipRight, clipBottom);
+        fastSetInteriorPixels<true>(paintingData, clipRight, clipBottom, yStart, yEnd);
     else
-        fastSetInteriorPixels<false>(paintingData, clipRight, clipBottom);
+        fastSetInteriorPixels<false>(paintingData, clipRight, clipBottom, yStart, yEnd);
 }
 
 ALWAYS_INLINE void FEConvolveMatrix::setOuterPixels(PaintingData& paintingData, int x1, int y1, int x2, int y2)
@@ -390,16 +401,16 @@ ALWAYS_INLINE void FEConvolveMatrix::setOuterPixels(PaintingData& paintingData, 
         fastSetOuterPixels<false>(paintingData, x1, y1, x2, y2);
 }
 
-void FEConvolveMatrix::apply()
+void FEConvolveMatrix::setInteriorPixelsWorker(InteriorPixelParameters* param)
 {
-    if (hasResult())
-        return;
-    FilterEffect* in = inputEffect(0);
-    in->apply();
-    if (!in->hasResult())
-        return;
+    param->filter->setInteriorPixels(*param->paintingData, param->clipRight, param->clipBottom, param->yStart, param->yEnd);
+}
 
-    ByteArray* resultImage;
+void FEConvolveMatrix::platformApplySoftware()
+{
+    FilterEffect* in = inputEffect(0);
+
+    Uint8ClampedArray* resultImage;
     if (m_preserveAlpha)
         resultImage = createUnmultipliedImageResult();
     else
@@ -409,7 +420,7 @@ void FEConvolveMatrix::apply()
 
     IntRect effectDrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
 
-    RefPtr<ByteArray> srcPixelArray;
+    RefPtr<Uint8ClampedArray> srcPixelArray;
     if (m_preserveAlpha)
         srcPixelArray = in->asUnmultipliedImage(effectDrawingRect);
     else
@@ -428,7 +439,33 @@ void FEConvolveMatrix::apply()
     int clipBottom = paintSize.height() - m_kernelSize.height();
 
     if (clipRight >= 0 && clipBottom >= 0) {
-        setInteriorPixels(paintingData, clipRight, clipBottom);
+
+        int optimalThreadNumber = (absolutePaintRect().width() * absolutePaintRect().height()) / s_minimalRectDimension;
+        if (optimalThreadNumber > 1) {
+            WTF::ParallelJobs<InteriorPixelParameters> parallelJobs(&WebCore::FEConvolveMatrix::setInteriorPixelsWorker, optimalThreadNumber);
+            const int numOfThreads = parallelJobs.numberOfJobs();
+            const int heightPerThread = clipBottom / numOfThreads;
+            int startY = 0;
+
+            for (int job = 0; job < numOfThreads; ++job) {
+                InteriorPixelParameters& param = parallelJobs.parameter(job);
+                param.filter = this;
+                param.paintingData = &paintingData;
+                param.clipRight = clipRight;
+                param.clipBottom = clipBottom;
+                param.yStart = startY;
+                if (job < numOfThreads - 1) {
+                    startY += heightPerThread;
+                    param.yEnd = startY - 1;
+                } else
+                    param.yEnd = clipBottom;
+            }
+
+            parallelJobs.execute();
+        } else {
+            // Fallback to single threaded mode.
+            setInteriorPixels(paintingData, clipRight, clipBottom, 0, clipBottom);
+        }
 
         clipRight += m_targetOffset.x() + 1;
         clipBottom += m_targetOffset.y() + 1;

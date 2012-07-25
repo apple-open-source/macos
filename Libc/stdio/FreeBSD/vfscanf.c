@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das Exp $");
 
+#include "xlocale_private.h"
+
 #include "namespace.h"
 #include <ctype.h>
 #include <inttypes.h>
@@ -46,6 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das 
 #include <string.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <pthread.h>
 #include "un-namespace.h"
 
 #include "collate.h"
@@ -93,9 +96,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das 
 #define	CT_INT		3	/* %[dioupxX] conversion */
 #define	CT_FLOAT	4	/* %[efgEFG] conversion */
 
-static const u_char *__sccl(char *, const u_char *);
+static const u_char *__sccl(char *, const u_char *, locale_t);
 #ifndef NO_FLOATING_POINT
-static int parsefloat(FILE *, char *, char *);
+static int parsefloat(FILE *, char **, size_t, locale_t);
 #endif
 
 __weak_reference(__vfscanf, vfscanf);
@@ -104,12 +107,24 @@ __weak_reference(__vfscanf, vfscanf);
  * __vfscanf - MT-safe version
  */
 int
-__vfscanf(FILE *fp, char const *fmt0, va_list ap)
+__vfscanf(FILE * __restrict fp, char const * __restrict fmt0, va_list ap)
 {
 	int ret;
 
 	FLOCKFILE(fp);
-	ret = __svfscanf(fp, fmt0, ap);
+	ret = __svfscanf_l(fp, __current_locale(), fmt0, ap);
+	FUNLOCKFILE(fp);
+	return (ret);
+}
+
+int
+vfscanf_l(FILE * __restrict fp, locale_t loc, char const * __restrict fmt0, va_list ap)
+{
+	int ret;
+
+	NORMALIZE_LOCALE(loc);
+	FLOCKFILE(fp);
+	ret = __svfscanf_l(fp, loc, fmt0, ap);
 	FUNLOCKFILE(fp);
 	return (ret);
 }
@@ -117,8 +132,8 @@ __vfscanf(FILE *fp, char const *fmt0, va_list ap)
 /*
  * __svfscanf - non-MT-safe version of __vfscanf
  */
-int
-__svfscanf(FILE *fp, const char *fmt0, va_list ap)
+__private_extern__ int
+__svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, va_list ap)
 {
 	const u_char *fmt = (const u_char *)fmt0;
 	int c;			/* character from format, or conversion */
@@ -128,36 +143,43 @@ __svfscanf(FILE *fp, const char *fmt0, va_list ap)
 	int flags;		/* flags as defined above */
 	char *p0;		/* saves original value of p when necessary */
 	int nassigned;		/* number of fields assigned */
-	int nconversions;	/* number of conversions */
 	int nread;		/* number of characters consumed from fp */
 	int base;		/* base argument to conversion function */
 	char ccltab[256];	/* character class table for %[...] */
 	char buf[BUF];		/* buffer for numeric and mb conversions */
 	wchar_t *wcp;		/* handy wide character pointer */
 	size_t nconv;		/* length of multibyte sequence converted */
+	int index;		/* %index$, zero if unset */
+	va_list ap_orig;	/* to reset ap to first argument */
 	static const mbstate_t initial;
 	mbstate_t mbs;
+	int mb_cur_max;
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
 	static short basefix[17] =
 		{ 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
+	NORMALIZE_LOCALE(loc);
+	mb_cur_max = MB_CUR_MAX_L(loc);
 	ORIENT(fp, -1);
 
 	nassigned = 0;
-	nconversions = 0;
 	nread = 0;
+	va_copy(ap_orig, ap);
 	for (;;) {
 		c = *fmt++;
 		if (c == 0)
 			return (nassigned);
-		if (isspace(c)) {
-			while ((fp->_r > 0 || __srefill(fp) == 0) && isspace(*fp->_p))
+		if (isspace_l(c, loc)) {
+			while ((fp->_r > 0 || __srefill(fp) == 0) && isspace_l(*fp->_p, loc))
 				nread++, fp->_r--, fp->_p++;
 			continue;
 		}
-		if (c != '%')
+		if (c != '%') {
+			if (fp->_r <= 0 && __srefill(fp))
+				goto input_failure;
 			goto literal;
+		}
 		width = 0;
 		flags = 0;
 		/*
@@ -167,15 +189,35 @@ __svfscanf(FILE *fp, const char *fmt0, va_list ap)
 again:		c = *fmt++;
 		switch (c) {
 		case '%':
+			/* Consume leading white space */
+			for(;;) {
+				if (fp->_r <= 0 && __srefill(fp))
+					goto input_failure;
+				if (!isspace_l(*fp->_p, loc))
+					break;
+				nread++;
+				fp->_r--;
+				fp->_p++;
+			}
 literal:
-			if (fp->_r <= 0 && __srefill(fp))
-				goto input_failure;
 			if (*fp->_p != c)
 				goto match_failure;
 			fp->_r--, fp->_p++;
 			nread++;
 			continue;
 
+		case '$':
+			index = width;
+			if (index < 1 || index > NL_ARGMAX || fmt[-3] != '%') {
+				goto input_failure;
+			}
+			width = 0;
+			va_end(ap);
+			va_copy(ap, ap_orig); /* reset to %1$ */
+			for (; index > 1; index--) {
+				va_arg(ap, void*);
+			}
+			goto again;
 		case '*':
 			flags |= SUPPRESS;
 			goto again;
@@ -262,7 +304,7 @@ literal:
 			break;
 
 		case '[':
-			fmt = __sccl(ccltab, fmt);
+			fmt = __sccl(ccltab, fmt, loc);
 			flags |= NOSKIP;
 			c = CT_CCL;
 			break;
@@ -283,27 +325,28 @@ literal:
 			break;
 
 		case 'n':
-			nconversions++;
-			if (flags & SUPPRESS)	/* ??? */
+		{
+			void *ptr = va_arg(ap, void *);
+			if ((ptr == NULL) || (flags & SUPPRESS))	/* ??? */
 				continue;
-			if (flags & SHORTSHORT)
-				*va_arg(ap, char *) = nread;
+			else if (flags & SHORTSHORT)
+				*(char *)ptr = nread;
 			else if (flags & SHORT)
-				*va_arg(ap, short *) = nread;
+				*(short *)ptr = nread;
 			else if (flags & LONG)
-				*va_arg(ap, long *) = nread;
+				*(long *)ptr = nread;
 			else if (flags & LONGLONG)
-				*va_arg(ap, long long *) = nread;
+				*(long long *)ptr = nread;
 			else if (flags & INTMAXT)
-				*va_arg(ap, intmax_t *) = nread;
+				*(intmax_t *)ptr = nread;
 			else if (flags & SIZET)
-				*va_arg(ap, size_t *) = nread;
+				*(size_t *)ptr = nread;
 			else if (flags & PTRDIFFT)
-				*va_arg(ap, ptrdiff_t *) = nread;
+				*(ptrdiff_t *)ptr = nread;
 			else
-				*va_arg(ap, int *) = nread;
+				*(int *)ptr = nread;
 			continue;
-
+		}
 		default:
 			goto match_failure;
 
@@ -325,7 +368,7 @@ literal:
 		 * that suppress this.
 		 */
 		if ((flags & NOSKIP) == 0) {
-			while (isspace(*fp->_p)) {
+			while (isspace_l(*fp->_p, loc)) {
 				nread++;
 				if (--fp->_r > 0)
 					fp->_p++;
@@ -355,7 +398,7 @@ literal:
 					wcp = NULL;
 				n = 0;
 				while (width != 0) {
-					if (n == MB_CUR_MAX) {
+					if (n == mb_cur_max) {
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
@@ -363,7 +406,7 @@ literal:
 					fp->_p++;
 					fp->_r--;
 					mbs = initial;
-					nconv = mbrtowc(wcp, buf, n, &mbs);
+					nconv = mbrtowc_l(wcp, buf, n, &mbs, loc);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
 						goto input_failure;
@@ -416,7 +459,6 @@ literal:
 				nread += r;
 				nassigned++;
 			}
-			nconversions++;
 			break;
 
 		case CT_CCL:
@@ -435,7 +477,7 @@ literal:
 				n = 0;
 				nchars = 0;
 				while (width != 0) {
-					if (n == MB_CUR_MAX) {
+					if (n == mb_cur_max) {
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
@@ -443,7 +485,7 @@ literal:
 					fp->_p++;
 					fp->_r--;
 					mbs = initial;
-					nconv = mbrtowc(wcp, buf, n, &mbs);
+					nconv = mbrtowc_l(wcp, buf, n, &mbs, loc);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
 						goto input_failure;
@@ -451,8 +493,8 @@ literal:
 					if (nconv == 0)
 						*wcp = L'\0';
 					if (nconv != (size_t)-2) {
-						if (wctob(*wcp) != EOF &&
-						    !ccltab[wctob(*wcp)]) {
+						if (wctob_l(*wcp, loc) != EOF &&
+						    !ccltab[wctob_l(*wcp, loc)]) {
 							while (n != 0) {
 								n--;
 								__ungetc(buf[n],
@@ -520,7 +562,6 @@ literal:
 				nassigned++;
 			}
 			nread += n;
-			nconversions++;
 			break;
 
 		case CT_STRING:
@@ -535,8 +576,8 @@ literal:
 				else
 					wcp = &twc;
 				n = 0;
-				while (!isspace(*fp->_p) && width != 0) {
-					if (n == MB_CUR_MAX) {
+				while (width != 0) {
+					if (n == mb_cur_max) {
 						fp->_flags |= __SERR;
 						goto input_failure;
 					}
@@ -544,7 +585,7 @@ literal:
 					fp->_p++;
 					fp->_r--;
 					mbs = initial;
-					nconv = mbrtowc(wcp, buf, n, &mbs);
+					nconv = mbrtowc_l(wcp, buf, n, &mbs, loc);
 					if (nconv == (size_t)-1) {
 						fp->_flags |= __SERR;
 						goto input_failure;
@@ -552,7 +593,7 @@ literal:
 					if (nconv == 0)
 						*wcp = L'\0';
 					if (nconv != (size_t)-2) {
-						if (iswspace(*wcp)) {
+						if (iswspace_l(*wcp, loc)) {
 							while (n != 0) {
 								n--;
 								__ungetc(buf[n],
@@ -580,7 +621,7 @@ literal:
 				}
 			} else if (flags & SUPPRESS) {
 				n = 0;
-				while (!isspace(*fp->_p)) {
+				while (!isspace_l(*fp->_p, loc)) {
 					n++, fp->_r--, fp->_p++;
 					if (--width == 0)
 						break;
@@ -590,7 +631,7 @@ literal:
 				nread += n;
 			} else {
 				p0 = p = va_arg(ap, char *);
-				while (!isspace(*fp->_p)) {
+				while (!isspace_l(*fp->_p, loc)) {
 					fp->_r--;
 					*p++ = *fp->_p++;
 					if (--width == 0)
@@ -602,7 +643,6 @@ literal:
 				nread += p - p0;
 				nassigned++;
 			}
-			nconversions++;
 			continue;
 
 		case CT_INT:
@@ -733,9 +773,9 @@ literal:
 
 				*p = 0;
 				if ((flags & UNSIGNED) == 0)
-				    res = strtoimax(buf, (char **)NULL, base);
+				    res = strtoimax_l(buf, (char **)NULL, base, loc);
 				else
-				    res = strtoumax(buf, (char **)NULL, base);
+				    res = strtoumax_l(buf, (char **)NULL, base, loc);
 				if (flags & POINTER)
 					*va_arg(ap, void **) =
 							(void *)(uintptr_t)res;
@@ -758,39 +798,44 @@ literal:
 				nassigned++;
 			}
 			nread += p - buf;
-			nconversions++;
 			break;
 
 #ifndef NO_FLOATING_POINT
 		case CT_FLOAT:
+		{
+			char *pbuf;
 			/* scan a floating point number as if by strtod */
-			if (width == 0 || width > sizeof(buf) - 1)
-				width = sizeof(buf) - 1;
-			if ((width = parsefloat(fp, buf, buf + width)) == 0)
+			if ((width = parsefloat(fp, &pbuf, width, loc)) == 0)
 				goto match_failure;
 			if ((flags & SUPPRESS) == 0) {
 				if (flags & LONGDBL) {
-					long double res = strtold(buf, &p);
+					long double res = strtold_l(pbuf, &p, loc);
 					*va_arg(ap, long double *) = res;
 				} else if (flags & LONG) {
-					double res = strtod(buf, &p);
+					double res = strtod_l(pbuf, &p, loc);
 					*va_arg(ap, double *) = res;
 				} else {
-					float res = strtof(buf, &p);
+					float res = strtof_l(pbuf, &p, loc);
 					*va_arg(ap, float *) = res;
 				}
 				nassigned++;
 			}
 			nread += width;
-			nconversions++;
 			break;
+		}
 #endif /* !NO_FLOATING_POINT */
 		}
 	}
 input_failure:
-	return (nconversions != 0 ? nassigned : EOF);
+	return (nassigned ? nassigned : EOF);
 match_failure:
 	return (nassigned);
+}
+
+int
+__svfscanf(FILE * __restrict fp, const char * __restrict fmt0, va_list ap)
+{
+	return __svfscanf_l(fp, __current_locale(), fmt0, ap);
 }
 
 /*
@@ -800,9 +845,10 @@ match_failure:
  * considered part of the scanset.
  */
 static const u_char *
-__sccl(tab, fmt)
+__sccl(tab, fmt, loc)
 	char *tab;
 	const u_char *fmt;
+	locale_t loc;
 {
 	int c, n, v, i;
 
@@ -838,6 +884,7 @@ doswitch:
 			return (fmt - 1);
 
 		case '-':
+		{
 			/*
 			 * A scanset of the form
 			 *	[01+-]
@@ -858,8 +905,8 @@ doswitch:
 			 */
 			n = *fmt;
 			if (n == ']'
-			    || (__collate_load_error ? n < c :
-				__collate_range_cmp (n, c) < 0
+			    || (loc->__collate_load_error ? n < c :
+				__collate_range_cmp (n, c, loc) < 0
 			       )
 			   ) {
 				c = '-';
@@ -867,14 +914,14 @@ doswitch:
 			}
 			fmt++;
 			/* fill in the range */
-			if (__collate_load_error) {
+			if (loc->__collate_load_error) {
 				do {
 					tab[++c] = v;
 				} while (c < n);
 			} else {
 				for (i = 0; i < 256; i ++)
-					if (   __collate_range_cmp (c, i) < 0
-					    && __collate_range_cmp (i, n) <= 0
+					if (   __collate_range_cmp (c, i, loc) < 0
+					    && __collate_range_cmp (i, n, loc) <= 0
 					   )
 						tab[i] = v;
 			}
@@ -894,7 +941,7 @@ doswitch:
 				return (fmt);
 #endif
 			break;
-
+		}
 		case ']':		/* end of scanset */
 			return (fmt);
 
@@ -907,8 +954,54 @@ doswitch:
 }
 
 #ifndef NO_FLOATING_POINT
+/*
+ * Maintain a per-thread parsefloat buffer, shared by __svfscanf_l and
+ * __vfwscanf.
+ */
+#ifdef BUILDING_VARIANT
+extern char *__parsefloat_buf(size_t s);
+#else /* !BUILDING_VARIANT */
+__private_extern__ char *
+__parsefloat_buf(size_t s)
+{
+	char *b;
+	static pthread_key_t    parsefloat_tsd_key = (pthread_key_t)-1;
+	static pthread_mutex_t  parsefloat_tsd_lock = PTHREAD_MUTEX_INITIALIZER;
+	static size_t bsiz = 0;
+
+	if (parsefloat_tsd_key == (pthread_key_t)-1) {
+		pthread_mutex_lock(&parsefloat_tsd_lock);
+		if (parsefloat_tsd_key == (pthread_key_t)-1) {
+			parsefloat_tsd_key = __LIBC_PTHREAD_KEY_PARSEFLOAT;
+			pthread_key_init_np(parsefloat_tsd_key, free);
+		}
+		pthread_mutex_unlock(&parsefloat_tsd_lock);
+	}
+	if ((b = (char *)pthread_getspecific(parsefloat_tsd_key)) == NULL) {
+		bsiz = s > BUF ? s : BUF;
+		b = (char *)malloc(bsiz);
+		if (b == NULL) {
+			bsiz = 0;
+			return NULL;
+		}
+		pthread_setspecific(parsefloat_tsd_key, b);
+		return b;
+	}
+	if (s > bsiz) {
+		b = (char *)reallocf(b, s);
+		pthread_setspecific(parsefloat_tsd_key, b);
+		if (b == NULL) {
+			bsiz = 0;
+			return NULL;
+		}
+		bsiz = s;
+	}
+	return b;
+}
+#endif /* BUILDING_VARIANT */
+
 static int
-parsefloat(FILE *fp, char *buf, char *end)
+parsefloat(FILE *fp, char **buf, size_t width, locale_t loc)
 {
 	char *commit, *p;
 	int infnanpos = 0, decptpos = 0;
@@ -917,9 +1010,18 @@ parsefloat(FILE *fp, char *buf, char *end)
 		S_DIGITS, S_DECPT, S_FRAC, S_EXP, S_EXPDIGITS
 	} state = S_START;
 	unsigned char c;
-	const char *decpt = localeconv()->decimal_point;
+	const char *decpt = localeconv_l(loc)->decimal_point;
 	_Bool gotmantdig = 0, ishex = 0;
+	char *b;
+	char *e;
+	size_t s;
 
+	s = (width == 0 ? BUF : (width + 1));
+	if ((b = __parsefloat_buf(s)) == NULL) {
+		*buf = NULL;
+		return 0;
+	}
+	e = b + (s - 1);
 	/*
 	 * We set commit = p whenever the string we have read so far
 	 * constitutes a valid representation of a floating point
@@ -929,8 +1031,8 @@ parsefloat(FILE *fp, char *buf, char *end)
 	 * always necessary to read at least one character that doesn't
 	 * match; thus, we can't short-circuit "infinity" or "nan(...)".
 	 */
-	commit = buf - 1;
-	for (p = buf; p < end; ) {
+	commit = b - 1;
+	for (p = b; width == 0 || p < e; ) {
 		c = *fp->_p;
 reswitch:
 		switch (state) {
@@ -988,7 +1090,7 @@ reswitch:
 				if (c == ')') {
 					commit = p;
 					state = S_DONE;
-				} else if (!isalnum(c) && c != '_')
+				} else if (!isalnum_l(c, loc) && c != '_')
 					goto parsedone;
 				break;
 			}
@@ -1006,7 +1108,7 @@ reswitch:
 				goto reswitch;
 			}
 		case S_DIGITS:
-			if ((ishex && isxdigit(c)) || isdigit(c)) {
+			if ((ishex && isxdigit_l(c, loc)) || isdigit_l(c, loc)) {
 				gotmantdig = 1;
 				commit = p;
 				break;
@@ -1041,7 +1143,7 @@ reswitch:
 					goto parsedone;
 				else
 					state = S_EXP;
-			} else if ((ishex && isxdigit(c)) || isdigit(c)) {
+			} else if ((ishex && isxdigit_l(c, loc)) || isdigit_l(c, loc)) {
 				commit = p;
 				gotmantdig = 1;
 			} else
@@ -1054,13 +1156,26 @@ reswitch:
 			else
 				goto reswitch;
 		case S_EXPDIGITS:
-			if (isdigit(c))
+			if (isdigit_l(c, loc))
 				commit = p;
 			else
 				goto parsedone;
 			break;
 		default:
-			abort();
+			LIBC_ABORT("unknown state %d", state);
+		}
+		if (p >= e) {
+			ssize_t diff = (p - b);
+			ssize_t com = (commit - b);
+			s += BUF;
+			b = __parsefloat_buf(s);
+			if (b == NULL) {
+				*buf = NULL;
+				return 0;
+			}
+			e = b + (s - 1);
+			p = b + diff;
+			commit = b + com;
 		}
 		*p++ = c;
 		if (--fp->_r > 0)
@@ -1073,6 +1188,7 @@ parsedone:
 	while (commit < --p)
 		__ungetc(*(u_char *)p, fp);
 	*++commit = '\0';
-	return (commit - buf);
+	*buf = b;
+	return (commit - b);
 }
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,14 +71,9 @@ routine configopen	(	server		: mach_port_t;
 			 out	status		: int;
 	    ServerAuditToken	audit_token	: audit_token_t);
 
-routine configclose	(	server		: mach_port_t;
-			 out	status		: int);
-
-routine configlock	(	server		: mach_port_t;
-			 out	status		: int);
-
-routine configunlock	(	server		: mach_port_t;
-			 out	status		: int);
+	skip;	/* was configclose */
+	skip;	/* was configlock */
+	skip;	/* was configunlock */
 
 	skip;	/* reserved for future use */
 	skip;	/* reserved for future use */
@@ -93,34 +88,37 @@ routine configlist	(	server		: mach_port_t;
 				xmlData		: xmlData;
 				isRegex		: int;
 			 out	list		: xmlDataOut, dealloc;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configadd	(	server		: mach_port_t;
 				key		: xmlData;
 				data		: xmlData;
 			 out	newInstance	: int;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configget	(	server		: mach_port_t;
 				key		: xmlData;
 			 out	data		: xmlDataOut, dealloc;
 			 out	newInstance	: int;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configset	(	server		: mach_port_t;
 				key		: xmlData;
 				data		: xmlData;
 				instance	: int;
 			 out	newInstance	: int;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configremove	(	server		: mach_port_t;
 				key		: xmlData;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
-routine configtouch	(	server		: mach_port_t;
-				key		: xmlData;
-			 out	status		: int);
+	skip;	/* was configtouch */
 
 routine configadd_s	(	server		: mach_port_t;
 				key		: xmlData;
@@ -130,19 +128,22 @@ routine configadd_s	(	server		: mach_port_t;
 
 routine confignotify	(	server		: mach_port_t;
 				key		: xmlData;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configget_m	(	server		: mach_port_t;
 				keys		: xmlData;
 				patterns	: xmlData;
 			 out	data		: xmlDataOut, dealloc;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 routine configset_m	(	server		: mach_port_t;
 				data		: xmlData;
 				remove		: xmlData;
 				notify		: xmlData;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);
 
 /*
  * Notification API's
@@ -194,4 +195,5 @@ routine notifyset	(	server		: mach_port_t;
  */
 
 routine snapshot	(	server		: mach_port_t;
-			 out	status		: int);
+			 out	status		: int;
+	    ServerAuditToken	audit_token	: audit_token_t);

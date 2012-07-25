@@ -218,20 +218,20 @@ error_exit:
 
 /*****************************************************************************/
 
-static void Substitute_Physical_Entity(CFXMLNodeRef node, UInt8 *text_ptr, CFIndex *size)
+static void Substitute_Physical_Entity(CFXMLNodeRef node, UInt8 *text_ptr, size_t text_ptr_len, CFIndex *size)
 {
 	if (CFXMLNodeGetTypeCode(node) == kCFXMLNodeTypeEntityReference)
 	{
 		if (!strcmp((const char *)text_ptr, "amp"))
-			strcpy((char *)text_ptr, "&");
+			strlcpy((char *)text_ptr, "&", text_ptr_len);
 		else if (!strcmp((const char *)text_ptr, "lt"))
-			strcpy((char *)text_ptr, "<");
+			strlcpy((char *)text_ptr, "<", text_ptr_len);
 		else if (!strcmp((const char *)text_ptr, "gt"))
-			strcpy((char *)text_ptr, ">");
+			strlcpy((char *)text_ptr, ">", text_ptr_len);
 		else if (!strcmp((const char *)text_ptr, "apos"))
-			strcpy((char *)text_ptr, "'");
+			strlcpy((char *)text_ptr, "'", text_ptr_len);
 		else if (!strcmp((const char *)text_ptr, "quot"))
-			strcpy((char *)text_ptr, """");
+			strlcpy((char *)text_ptr, """", text_ptr_len);
 		*size = 1;
 	}
 }
@@ -563,7 +563,7 @@ static void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, voi
 			text_ptr->name[text_ptr->size] = '\0';
 
 			/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-			Substitute_Physical_Entity(node, text_ptr->name, &text_ptr->size);
+			Substitute_Physical_Entity(node, text_ptr->name, sizeof(text_ptr->name), &text_ptr->size);
 
 			return_ptr->id = WEBDAV_OPENDIR_TEXT;
 			return_ptr->data_ptr = text_ptr;
@@ -689,7 +689,7 @@ static void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *
 			text_ptr[string_size] = '\0';
 
 			/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-			Substitute_Physical_Entity(node, text_ptr, &string_size);
+			Substitute_Physical_Entity(node, text_ptr, nodeStringLength + 1, &string_size);
 
 			return_val = (void *)text_ptr;
 			break;
@@ -768,7 +768,7 @@ static void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void
 			text_ptr[string_size] = '\0';
 
 			/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-			Substitute_Physical_Entity(node, text_ptr, &string_size);
+			Substitute_Physical_Entity(node, text_ptr, nodeStringLength + 1, &string_size);
 
 			return_val = (void *)text_ptr;
 			break;
@@ -853,7 +853,7 @@ static void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *
 				text_ptr[string_size] = '\0';
 
 				/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-				Substitute_Physical_Entity(node, text_ptr, &string_size);
+				Substitute_Physical_Entity(node, text_ptr, nodeStringLength + 1, &string_size);
 				
 				// Trim trailing whitespace
 				ch = &text_ptr[string_size - 1];
@@ -934,7 +934,7 @@ static void *parser_cachevalidators_create(CFXMLParserRef parser, CFXMLNodeRef n
 			text_ptr[string_size] = '\0';
 
 			/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-			Substitute_Physical_Entity(node, text_ptr, &string_size);
+			Substitute_Physical_Entity(node, text_ptr, nodeStringLength + 1, &string_size);
 
 			return_val = (void *)text_ptr;
 			break;
@@ -1084,7 +1084,7 @@ static void *parser_multistatus_create(CFXMLParserRef parser, CFXMLNodeRef node,
 			text_ptr->name[text_ptr->size] = '\0';
 			
 			/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
-			Substitute_Physical_Entity(node, text_ptr->name, &text_ptr->size);
+			Substitute_Physical_Entity(node, text_ptr->name, sizeof(text_ptr->name), &text_ptr->size);
 			
 			return_ptr->id = WEBDAV_MULTISTATUS_TEXT;
 			return_ptr->data_ptr = text_ptr;
@@ -1436,10 +1436,12 @@ static void parser_cachevalidators_add(CFXMLParserRef parser, void *parent, void
 			/* the text pointer is the etag so copy it into last_modified */
 			if (text_ptr && (text_ptr != (UInt8 *)WEBDAV_CACHEVALIDATORS_IGNORE))
 			{
-				cachevalidators_struct->entity_tag = malloc(strlen((const char *)text_ptr) + 1);
+				size_t	len = strlen((const char *)text_ptr) + 1;
+
+				cachevalidators_struct->entity_tag = malloc(len);
 				if ( cachevalidators_struct->entity_tag != NULL )
 				{
-					strcpy(cachevalidators_struct->entity_tag, (const char *)text_ptr);
+					strlcpy(cachevalidators_struct->entity_tag, (const char *)text_ptr, len);
 				}
 				free(text_ptr);
 			}

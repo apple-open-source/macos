@@ -33,7 +33,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 RenderButton::RenderButton(Node* node)
-    : RenderFlexibleBox(node)
+    : RenderDeprecatedFlexibleBox(node)
     , m_buttonText(0)
     , m_inner(0)
     , m_default(false)
@@ -49,10 +49,9 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
     if (!m_inner) {
         // Create an anonymous block.
         ASSERT(!firstChild());
-        bool isFlexibleBox = style()->display() == BOX || style()->display() == INLINE_BOX;
-        m_inner = createAnonymousBlock(isFlexibleBox);
+        m_inner = createAnonymousBlock(style()->display());
         setupInnerStyle(m_inner->style());
-        RenderFlexibleBox::addChild(m_inner);
+        RenderDeprecatedFlexibleBox::addChild(m_inner);
     }
     
     m_inner->addChild(newChild, beforeChild);
@@ -61,7 +60,7 @@ void RenderButton::addChild(RenderObject* newChild, RenderObject* beforeChild)
 void RenderButton::removeChild(RenderObject* oldChild)
 {
     if (oldChild == m_inner || !m_inner) {
-        RenderFlexibleBox::removeChild(oldChild);
+        RenderDeprecatedFlexibleBox::removeChild(oldChild);
         m_inner = 0;
     } else
         m_inner->removeChild(oldChild);
@@ -118,14 +117,6 @@ void RenderButton::updateFromElement()
     }
 }
 
-bool RenderButton::canHaveChildren() const
-{
-    // Input elements can't have children, but button elements can.  We'll
-    // write the code assuming any other button types that might emerge in the future
-    // can also have children.
-    return !node()->hasTagName(inputTag);
-}
-
 void RenderButton::setText(const String& str)
 {
     if (str.isEmpty()) {
@@ -149,6 +140,14 @@ String RenderButton::text() const
     return m_buttonText ? m_buttonText->text() : 0;
 }
 
+bool RenderButton::canHaveGeneratedChildren() const
+{
+    // Input elements can't have generated children, but button elements can. We'll
+    // write the code assuming any other button types that might emerge in the future
+    // can also have children.
+    return !node()->hasTagName(inputTag);
+}
+
 void RenderButton::updateBeforeAfterContent(PseudoId type)
 {
     if (m_inner)
@@ -157,10 +156,10 @@ void RenderButton::updateBeforeAfterContent(PseudoId type)
         children()->updateBeforeAfterContent(this, type);
 }
 
-IntRect RenderButton::controlClipRect(int tx, int ty) const
+LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) const
 {
     // Clip to the padding box to at least give content the extra padding space.
-    return IntRect(tx + borderLeft(), ty + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
+    return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), width() - borderLeft() - borderRight(), height() - borderTop() - borderBottom());
 }
 
 void RenderButton::timerFired(Timer<RenderButton>*)

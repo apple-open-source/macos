@@ -26,7 +26,14 @@
 #include "config.h"
 #include "ScrollbarThemeWx.h"
 
+// see http://trac.wxwidgets.org/ticket/11482
+// we need to include this before LocalDC as it includes wx headers
+#ifdef __WXMSW__
+#   include "wx/msw/winundef.h"
+#endif
+
 #include "HostWindow.h"
+#include "LocalDC.h"
 #include "NotImplemented.h"
 #include "PlatformMouseEvent.h"
 #include "ScrollableArea.h"
@@ -64,19 +71,19 @@ int ScrollbarThemeWx::scrollbarThickness(ScrollbarControlSize size)
     return thickness;
 }
 
-bool ScrollbarThemeWx::hasThumb(Scrollbar* scrollbar)
+bool ScrollbarThemeWx::hasThumb(ScrollbarThemeClient* scrollbar)
 {
     // This method is just called as a paint-time optimization to see if
     // painting the thumb can be skipped.  We don't have to be exact here.
     return thumbLength(scrollbar) > 0;
 }
 
-int ScrollbarThemeWx::minimumThumbLength(Scrollbar* scrollbar)
+int ScrollbarThemeWx::minimumThumbLength(ScrollbarThemeClient* scrollbar)
 {
     return 20;
 }
 
-IntSize ScrollbarThemeWx::buttonSize(Scrollbar*) 
+IntSize ScrollbarThemeWx::buttonSize(ScrollbarThemeClient*) 
 {
 #ifdef __WXMAC__
     return IntSize(20,20);
@@ -85,7 +92,7 @@ IntSize ScrollbarThemeWx::buttonSize(Scrollbar*)
 #endif
 }
 
-void ScrollbarThemeWx::splitTrack(Scrollbar* scrollbar, const IntRect& unconstrainedTrackRect, IntRect& beforeThumbRect, IntRect& thumbRect, IntRect& afterThumbRect)
+void ScrollbarThemeWx::splitTrack(ScrollbarThemeClient* scrollbar, const IntRect& unconstrainedTrackRect, IntRect& beforeThumbRect, IntRect& thumbRect, IntRect& afterThumbRect)
 {
     ScrollbarThemeComposite::splitTrack(scrollbar, unconstrainedTrackRect, beforeThumbRect, thumbRect, afterThumbRect);
 #ifdef __WXMAC__
@@ -102,7 +109,7 @@ void ScrollbarThemeWx::splitTrack(Scrollbar* scrollbar, const IntRect& unconstra
 #endif
 }
 
-IntRect ScrollbarThemeWx::backButtonRect(Scrollbar* scrollbar, ScrollbarPart part, bool)
+IntRect ScrollbarThemeWx::backButtonRect(ScrollbarThemeClient* scrollbar, ScrollbarPart part, bool)
 {
     // FIXME: Handling this case is needed when there are two sets of arrow buttons
     // on Mac, one at the top and one at the bottom.
@@ -123,7 +130,7 @@ IntRect ScrollbarThemeWx::backButtonRect(Scrollbar* scrollbar, ScrollbarPart par
     return IntRect(x, y, size.width(), size.height());
 }
 
-IntRect ScrollbarThemeWx::forwardButtonRect(Scrollbar* scrollbar, ScrollbarPart part, bool)
+IntRect ScrollbarThemeWx::forwardButtonRect(ScrollbarThemeClient* scrollbar, ScrollbarPart part, bool)
 {
     // FIXME: Handling this case is needed when there are two sets of arrow buttons
     // on Mac, one at the top and one at the bottom.
@@ -148,7 +155,7 @@ IntRect ScrollbarThemeWx::forwardButtonRect(Scrollbar* scrollbar, ScrollbarPart 
     return IntRect(x, y, size.width(), size.height());
 }
 
-IntRect ScrollbarThemeWx::trackRect(Scrollbar* scrollbar, bool)
+IntRect ScrollbarThemeWx::trackRect(ScrollbarThemeClient* scrollbar, bool)
 {
     IntSize bs = buttonSize(scrollbar);
     int trackStart = 0;
@@ -172,11 +179,11 @@ IntRect ScrollbarThemeWx::trackRect(Scrollbar* scrollbar, bool)
     return IntRect(scrollbar->x(), scrollbar->y() + trackStart, thickness, scrollbar->height() - 2 * bs.height());
 }
 
-bool ScrollbarThemeWx::paint(Scrollbar* scrollbar, GraphicsContext* context, const IntRect& rect)
+bool ScrollbarThemeWx::paint(ScrollbarThemeClient* scrollbar, GraphicsContext* context, const IntRect& rect)
 {
     wxOrientation orientation = (scrollbar->orientation() == HorizontalScrollbar) ? wxHORIZONTAL : wxVERTICAL;
     int flags = 0;
-    if (scrollbar->scrollableArea()->isActive())
+    if (scrollbar->isScrollableAreaActive())
         flags |= wxCONTROL_FOCUSED;
     
     if (!scrollbar->enabled())
@@ -184,18 +191,17 @@ bool ScrollbarThemeWx::paint(Scrollbar* scrollbar, GraphicsContext* context, con
     
     wxDC* dc = static_cast<wxDC*>(context->platformContext());
     
-    context->save();
     ScrollView* root = scrollbar->root();
     ASSERT(root);
     if (!root)
         return false;
     
-    wxWindow* webview = root->hostWindow()->platformPageClient(); 
+    wxWindow* webview = root->hostWindow()->platformPageClient();
+    LocalDC localDC(dc, scrollbar->frameRect());
     
-    wxRenderer_DrawScrollbar(webview, *dc, scrollbar->frameRect(), orientation, scrollbar->currentPos(), static_cast<wxScrollbarPart>(scrollbar->pressedPart()),    
+    wxRenderer_DrawScrollbar(webview, *localDC.context(), scrollbar->frameRect(), orientation, scrollbar->currentPos(), static_cast<wxScrollbarPart>(scrollbar->pressedPart()),    
                      static_cast<wxScrollbarPart>(scrollbar->hoveredPart()), scrollbar->maximum(), scrollbar->pageStep(), flags);
 
-    context->restore();
     return true;
 }
 

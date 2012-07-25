@@ -24,6 +24,8 @@
  */
 
 module html {
-    interface [Conditional=WEBGL] WebGLFramebuffer {
+    interface [
+        Conditional=WEBGL
+    ] WebGLFramebuffer {
     };
 }

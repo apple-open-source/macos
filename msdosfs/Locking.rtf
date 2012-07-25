@@ -1,8 +1,7 @@
-{\rtf1\mac\ansicpg10000\cocoartf872
-{\fonttbl\f0\froman\fcharset77 Times-Roman;\f1\fswiss\fcharset77 Helvetica;\f2\fnil\fcharset77 Monaco;
+{\rtf1\ansi\ansicpg1252\cocoartf949\cocoasubrtf270
+{\fonttbl\f0\froman\fcharset0 Times-Roman;\f1\fswiss\fcharset0 Helvetica;\f2\fnil\fcharset0 Monaco;
 }
 {\colortbl;\red255\green255\blue255;}
-\vieww13300\viewh15120\viewkind0
 \pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\qc\pardirnatural
 
 \f0\b\fs36 \cf0 msdosfs Locking Model\
@@ -12,12 +11,12 @@
 This document describes the locking model used by the msdosfs KEXT.\
 \
 There are five different kinds of locks used by msdosfs.  To avoid deadlock, msdosfs always acquires multiple locks in a specific, consistent order.  The different types of locks are acquired in this order:\
-	\'a5 vnodes (denodes)\
-	\'a5 denode hash\
-	\'a5 rename\
-	\'a5 cluster extent cache (de_cluster_lock)\
-	\'a5 FAT\
-	\'a5 buffer cache\
+	\'95 vnodes (denodes)\
+	\'95 denode hash\
+	\'95 rename\
+	\'95 cluster extent cache (de_cluster_lock)\
+	\'95 FAT\
+	\'95 buffer cache\
 \
 No lock of a particular type may be acquired if any locks of types further down in the list have been acquired.  For example, if the FAT lock is acquired, no vnode locks may be acquired until the FAT lock (and denode hash, rename, or buffer cache locks) are released.  Specific details about each of the above lock types is provided below.\
 \
@@ -84,9 +83,7 @@ This lock is used to protect the "cluster extent cache," which keeps track of th
 \b0 \
 The 
 \f2\fs18 \CocoaLigature0 pm_fat_lock
-\f1\fs24 \CocoaLigature1  is a per-volume lock which protects that volume's File Allocation Table on disk, and the in-memory use map (
-\f2\fs18 \CocoaLigature0 pm_inusemap
-\f1\fs24 \CocoaLigature1 ) which is just a summary of which clusters in the File Allocation Table are in use and which are free.\
+\f1\fs24 \CocoaLigature1  is a per-volume lock which protects that volume's File Allocation Table on disk.\
 \
 
 \b buffer cache

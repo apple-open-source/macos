@@ -49,7 +49,11 @@ struct trigger_callargs {
 	trigger_info_t	*tc_ti;		/* trigger information */
 	thread_t	tc_origin;	/* thread that fired up this thread */
 					/* used for debugging purposes */
-	mach_port_t	tc_gssd_port;	/* mach port for gssd */
+	uid_t		tc_uid;         /* Calling threads uid */
+	au_asid_t	tc_asid;	/* and audit session id. */
+					/* The two above fields are so that we can set a worker */
+					/* processes to have the same uid and audit session */
+					/* and thus be in the right security session for authentication */
 	fsid_t		tc_mounted_fsid;/* fsid of newly-mounted file system */
 	uint32_t	tc_retflags;	/* assorted MOUNT_RETF_ flags */
 };
@@ -60,7 +64,6 @@ struct trigger_callargs {
  */
 struct mount_url_callargs {
 	struct trigger_callargs muc_t;	/* common args */
-	uid_t		muc_uid;	/* UID for which to do the mount */
 	char		*muc_url;	/* URL to mount */
 	char		*muc_mountpoint; /* where to mount it */
 	char		*muc_opts;	/* mount options to use; null string if none */
@@ -68,7 +71,8 @@ struct mount_url_callargs {
 
 #define muc_this_fsid		muc_t.tc_this_fsid
 #define muc_origin		muc_t.tc_origin
-#define muc_gssd_port		muc_t.tc_gssd_port
+#define muc_uid			muc_t.tc_uid
+#define muc_asid		muc_t.tc_asid
 #define muc_mounted_fsid	muc_t.tc_mounted_fsid
 #define muc_retflags		muc_t.tc_retflags
 
@@ -76,4 +80,4 @@ struct mount_url_callargs {
  * Make an upcall to automountd to call SMBRemountServer() from the
  * SMB client framework.
  */
-extern int SMBRemountServer(const void *ptr, size_t len, mach_port_t gssd_port);
+extern int SMBRemountServer(const void *ptr, size_t len, au_asid_t asid);

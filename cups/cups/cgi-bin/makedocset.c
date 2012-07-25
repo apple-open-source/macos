@@ -1,9 +1,9 @@
 /*
- * "$Id: makedocset.c 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: makedocset.c 3835 2012-05-23 22:57:19Z msweet $"
  *
  *   Xcode documentation set generator.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,7 +31,7 @@
  * Include necessary headers...
  */
 
-#include "cgi.h"
+#include "cgi-private.h"
 #include <errno.h>
 
 
@@ -482,5 +482,5 @@ write_nodes(const char   *path,		/* I - File to write */
 
 
 /*
- * End of "$Id: makedocset.c 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: makedocset.c 3835 2012-05-23 22:57:19Z msweet $".
  */

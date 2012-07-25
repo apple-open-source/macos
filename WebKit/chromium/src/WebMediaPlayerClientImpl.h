@@ -33,32 +33,36 @@
 
 #if ENABLE(VIDEO)
 
+#include "AudioSourceProvider.h"
 #include "MediaPlayerPrivate.h"
-#include "VideoFrameChromium.h"
-#include "VideoFrameProvider.h"
-#include "VideoLayerChromium.h"
+#include "WebAudioSourceProviderClient.h"
 #include "WebMediaPlayerClient.h"
+#include "WebStreamTextureClient.h"
+#include <public/WebVideoFrameProvider.h>
+#include <public/WebVideoLayer.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
+
+namespace WebCore { class AudioSourceProviderClient; }
 
 namespace WebKit {
 
-class WebMediaElement;
+class WebAudioSourceProvider;
 class WebMediaPlayer;
 
 // This class serves as a bridge between WebCore::MediaPlayer and
 // WebKit::WebMediaPlayer.
 class WebMediaPlayerClientImpl : public WebCore::MediaPlayerPrivateInterface
 #if USE(ACCELERATED_COMPOSITING)
-                               , public WebCore::VideoFrameProvider
+                               , public WebVideoFrameProvider
 #endif
-                               , public WebMediaPlayerClient {
+                               , public WebMediaPlayerClient
+                               , public WebStreamTextureClient {
 
 public:
     static bool isEnabled();
     static void setIsEnabled(bool);
     static void registerSelf(WebCore::MediaEngineRegistrar);
-
-    static WebMediaPlayerClientImpl* fromMediaElement(const WebMediaElement* element);
 
     // Returns the encapsulated WebKit::WebMediaPlayer.
     WebMediaPlayer* mediaPlayer() const;
@@ -74,10 +78,18 @@ public:
     virtual void durationChanged();
     virtual void rateChanged();
     virtual void sizeChanged();
+    virtual void setOpaque(bool);
     virtual void sawUnsupportedTracks();
     virtual float volume() const;
     virtual void playbackStateChanged();
     virtual WebMediaPlayer::Preload preload() const;
+    virtual void sourceOpened();
+    virtual WebKit::WebURL sourceURL() const;
+    virtual void keyAdded(const WebString& keySystem, const WebString& sessionId);
+    virtual void keyError(const WebString& keySystem, const WebString& sessionId, MediaKeyErrorCode, unsigned short systemCode);
+    virtual void keyMessage(const WebString& keySystem, const WebString& sessionId, const unsigned char* message, unsigned messageLength);
+    virtual void keyNeeded(const WebString& keySystem, const WebString& sessionId, const unsigned char* initData, unsigned initDataLength);
+    virtual void disableAcceleratedCompositing();
 
     // MediaPlayerPrivateInterface methods:
     virtual void load(const WTF::String& url);
@@ -117,17 +129,45 @@ public:
     virtual void setPreload(WebCore::MediaPlayer::Preload);
     virtual bool hasSingleSecurityOrigin() const;
     virtual WebCore::MediaPlayer::MovieLoadType movieLoadType() const;
+    virtual float mediaTimeForTimeValue(float timeValue) const;
     virtual unsigned decodedFrameCount() const;
     virtual unsigned droppedFrameCount() const;
     virtual unsigned audioDecodedByteCount() const;
     virtual unsigned videoDecodedByteCount() const;
+#if USE(NATIVE_FULLSCREEN_VIDEO)
+    virtual bool enterFullscreen() const;
+    virtual void exitFullscreen();
+#endif
+
+#if ENABLE(WEB_AUDIO)
+    virtual WebCore::AudioSourceProvider* audioSourceProvider();
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
     virtual bool supportsAcceleratedRendering() const;
 
-    // VideoFrameProvider methods:
-    virtual WebCore::VideoFrameChromium* getCurrentFrame();
-    virtual void putCurrentFrame(WebCore::VideoFrameChromium*);
+    // WebVideoFrameProvider methods:
+    virtual void setVideoFrameProviderClient(WebVideoFrameProvider::Client*);
+    virtual WebVideoFrame* getCurrentFrame();
+    virtual void putCurrentFrame(WebVideoFrame*);
 #endif
+
+#if ENABLE(MEDIA_SOURCE)
+    virtual WebCore::MediaPlayer::AddIdStatus sourceAddId(const String& id, const String& type);
+    virtual bool sourceRemoveId(const String&);
+    virtual bool sourceAppend(const unsigned char* data, unsigned length);
+    virtual void sourceEndOfStream(WebCore::MediaPlayer::EndOfStreamStatus);
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    virtual WebCore::MediaPlayer::MediaKeyException generateKeyRequest(const String& keySystem, const unsigned char* initData, unsigned initDataLength) OVERRIDE;
+    virtual WebCore::MediaPlayer::MediaKeyException addKey(const String& keySystem, const unsigned char* key, unsigned keyLength, const unsigned char* initData, unsigned initDataLength, const String& sessionId) OVERRIDE;
+    virtual WebCore::MediaPlayer::MediaKeyException cancelKeyRequest(const String& keySystem, const String& sessionId) OVERRIDE;
+#endif
+
+    // WebStreamTextureClient methods:
+    virtual void didReceiveFrame();
+    virtual void didUpdateMatrix(const float*);
 
 private:
     WebMediaPlayerClientImpl();
@@ -136,22 +176,78 @@ private:
 
     static PassOwnPtr<WebCore::MediaPlayerPrivateInterface> create(WebCore::MediaPlayer*);
     static void getSupportedTypes(WTF::HashSet<WTF::String>&);
+#if ENABLE(ENCRYPTED_MEDIA)
+    static WebCore::MediaPlayer::SupportsType supportsType(
+        const WTF::String& type, const WTF::String& codecs, const String& keySystem);
+#else
     static WebCore::MediaPlayer::SupportsType supportsType(
         const WTF::String& type, const WTF::String& codecs);
+#endif
 #if USE(ACCELERATED_COMPOSITING)
     bool acceleratedRenderingInUse();
 #endif
 
+    Mutex m_compositingMutex; // Guards m_currentVideoFrame and m_videoFrameProviderClient.
     WebCore::MediaPlayer* m_mediaPlayer;
     OwnPtr<WebMediaPlayer> m_webMediaPlayer;
+    WebVideoFrame* m_currentVideoFrame;
     String m_url;
     bool m_delayingLoad;
     WebCore::MediaPlayer::Preload m_preload;
 #if USE(ACCELERATED_COMPOSITING)
-    RefPtr<WebCore::VideoLayerChromium> m_videoLayer;
+    WebVideoLayer m_videoLayer;
     bool m_supportsAcceleratedCompositing;
+    bool m_opaque;
+    WebVideoFrameProvider::Client* m_videoFrameProviderClient;
 #endif
     static bool m_isEnabled;
+
+#if ENABLE(WEB_AUDIO)
+    // AudioClientImpl wraps an AudioSourceProviderClient.
+    // When the audio format is known, Chromium calls setFormat() which then dispatches into WebCore.
+
+    class AudioClientImpl : public WebKit::WebAudioSourceProviderClient {
+    public:
+        AudioClientImpl(WebCore::AudioSourceProviderClient* client)
+            : m_client(client)
+        {
+        }
+
+        virtual ~AudioClientImpl() { }
+
+        // WebAudioSourceProviderClient
+        virtual void setFormat(size_t numberOfChannels, float sampleRate);
+
+    private:
+        WebCore::AudioSourceProviderClient* m_client;
+    };
+
+    // AudioSourceProviderImpl wraps a WebAudioSourceProvider.
+    // provideInput() calls into Chromium to get a rendered audio stream.
+
+    class AudioSourceProviderImpl : public WebCore::AudioSourceProvider {
+    public:
+        AudioSourceProviderImpl()
+            : m_webAudioSourceProvider(0)
+        {
+        }
+
+        virtual ~AudioSourceProviderImpl() { }
+
+        // Wraps the given WebAudioSourceProvider.
+        void wrap(WebAudioSourceProvider*);
+
+        // WebCore::AudioSourceProvider
+        virtual void setClient(WebCore::AudioSourceProviderClient*);
+        virtual void provideInput(WebCore::AudioBus*, size_t framesToProcess);
+
+    private:
+        WebAudioSourceProvider* m_webAudioSourceProvider;
+        OwnPtr<AudioClientImpl> m_client;
+    };
+
+    AudioSourceProviderImpl m_audioSourceProvider;
+#endif
 };
 
 } // namespace WebKit

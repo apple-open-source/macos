@@ -273,7 +273,7 @@ smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *dp, vfs_context_t
 	} else
 		dp->ioc_rdatacnt = 0;
 bad:
-	SMB_STRFREE(t2p->t_name);
+	SMB_FREE(t2p->t_name, M_SMBSTR);
 	smb_t2_done(t2p);
 	return error;
 }
@@ -292,8 +292,9 @@ int smb_usr_convert_path_to_network(struct smb_vc *vc, struct smbioc_path_conver
 	int error;
 
 	utf8str = smb_memdupin(dp->ioc_kern_src, dp->ioc_src_len);
-	if (utf8str)
-		network = malloc(ntwrk_len, M_SMBSTR, M_NOWAIT | M_ZERO);
+	if (utf8str) {
+        SMB_MALLOC(network, char *, ntwrk_len, M_SMBSTR, M_WAITOK | M_ZERO);
+    }
 		
 	if ((utf8str == NULL) || (network == NULL)) {
 		error = ENOMEM;
@@ -319,9 +320,9 @@ int smb_usr_convert_path_to_network(struct smb_vc *vc, struct smbioc_path_conver
 	
 done:	
 	if (utf8str)
-		free(utf8str, M_SMBSTR);
+		SMB_FREE(utf8str, M_SMBSTR);
 	if (network)
-		free(network, M_SMBSTR);
+		SMB_FREE(network, M_SMBSTR);
 	return error;
 }
 
@@ -340,7 +341,7 @@ int smb_usr_convert_network_to_path(struct smb_vc *vc, struct smbioc_path_conver
 	
 	network = smb_memdupin(dp->ioc_kern_src, dp->ioc_src_len);
 	if (network) {
-		utf8str = malloc(utf8str_len, M_SMBSTR, M_NOWAIT | M_ZERO);
+        SMB_MALLOC(utf8str, char *, utf8str_len, M_SMBSTR, M_WAITOK | M_ZERO);
 	}
 	
 	if ((utf8str == NULL) || (network == NULL)) {
@@ -368,9 +369,9 @@ int smb_usr_convert_network_to_path(struct smb_vc *vc, struct smbioc_path_conver
 	
 done:
 	if (utf8str)
-		free(utf8str, M_SMBSTR);
+		SMB_FREE(utf8str, M_SMBSTR);
 	if (network)
-		free(network, M_SMBSTR);
+		SMB_FREE(network, M_SMBSTR);
 	return error;
 }
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,22 +28,46 @@
 #define WebPopupMenuProxyQt_h
 
 #include "WebPopupMenuProxy.h"
+#include <QtCore/QObject>
+#include <wtf/OwnPtr.h>
+
+class QDeclarativeComponent;
+class QDeclarativeContext;
+class QQuickWebView;
+class QQuickItem;
 
 namespace WebKit {
 
-class WebPopupMenuProxyQt : public WebPopupMenuProxy {
+class WebPopupMenuProxyQt : public QObject, public WebPopupMenuProxy {
+    Q_OBJECT
+
 public:
-    static PassRefPtr<WebPopupMenuProxyQt> create()
+    static PassRefPtr<WebPopupMenuProxyQt> create(WebPopupMenuProxy::Client* client, QQuickWebView* webView)
     {
-        return adoptRef(new WebPopupMenuProxyQt());
+        return adoptRef(new WebPopupMenuProxyQt(client, webView));
     }
     ~WebPopupMenuProxyQt();
 
     virtual void showPopupMenu(const WebCore::IntRect&, WebCore::TextDirection, double pageScaleFactor, const Vector<WebPopupItem>&, const PlatformPopupMenuData&, int32_t selectedIndex);
+
+public Q_SLOTS:
     virtual void hidePopupMenu();
 
+private Q_SLOTS:
+    void selectIndex(int);
+
 private:
-    WebPopupMenuProxyQt();
+    WebPopupMenuProxyQt(WebPopupMenuProxy::Client*, QQuickWebView*);
+    void createItem(QObject*);
+    void createContext(QDeclarativeComponent*, QObject*);
+
+    void notifyValueChanged();
+
+    OwnPtr<QDeclarativeContext> m_context;
+    OwnPtr<QQuickItem> m_itemSelector;
+
+    QQuickWebView* m_webView;
+    int32_t m_selectedIndex;
 };
 
 } // namespace WebKit

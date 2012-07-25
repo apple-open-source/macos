@@ -39,7 +39,7 @@ class SVGFilterBuilder;
 
 class SVGFilterPrimitiveStandardAttributes : public SVGStyledElement {
 public:
-    void setStandardAttributes(bool, FilterEffect*) const;
+    void setStandardAttributes(FilterEffect*) const;
 
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter* filter) = 0;
     // Returns true, if the new value is different from the old one.
@@ -48,10 +48,9 @@ public:
 protected:
     SVGFilterPrimitiveStandardAttributes(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    void fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap&);
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     inline void invalidate()
@@ -70,15 +69,18 @@ private:
     virtual bool isFilterEffect() const { return true; }
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual bool rendererIsNeeded(RenderStyle*);
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(X, x)
-    DECLARE_ANIMATED_LENGTH(Y, y)
-    DECLARE_ANIMATED_LENGTH(Width, width)
-    DECLARE_ANIMATED_LENGTH(Height, height)
-    DECLARE_ANIMATED_STRING(Result, result)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
+        DECLARE_ANIMATED_LENGTH(X, x)
+        DECLARE_ANIMATED_LENGTH(Y, y)
+        DECLARE_ANIMATED_LENGTH(Width, width)
+        DECLARE_ANIMATED_LENGTH(Height, height)
+        DECLARE_ANIMATED_STRING(Result, result)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
+
+void invalidateFilterPrimitiveParent(SVGElement*);
 
 } // namespace WebCore
 

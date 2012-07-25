@@ -6,7 +6,7 @@
     <dict>
         <key>DiskLabel</key>    <!-- to be tweaked for the picker -->
         <string>/System/Library/CoreServices/.disk_label</string>
-        <!-- implied .disk_label.contentDetails, also modified -->
+        <!-- implied .disk_label helper files -->
         <key>AdditionalPaths</key>  <!-- optional stuff at the root -->
         <array>
             <string>/.VolumeIcon.icns</string>
@@ -29,6 +29,9 @@
         <dict>
             <key>EncryptedPropertyCache</key>
             <string>/System/Library/Caches/com.apple.corestorage/EncryptedRoot.plist.wipekey</string>
+            <!-- OS doesn't require content in the root volume's ER.pl.wk -->
+            <key>RootVolumePropertyCache</key>
+            <false/>
             <key>DefaultResourcesDir</key>
             <string>/usr/standalone/i386/EfiLoginUI/</string>
             <!-- localized resources are optional but are all or nothing -->
@@ -39,7 +42,7 @@
             <key>LocalizedResourcesCache</key>
             <string>/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations</string>
         </dict>
-        <key>Kernelcache v1.1</key>
+        <key>Kernelcache v1.2</key>
         <dict>
             <key>ExtensionsDir</key>
             <string>/System/Library/Extensions</string>
@@ -49,7 +52,6 @@
             <string>/mach_kernel</string>
             <key>Archs</key>
             <array>
-                <string>i386</string> 
                 <string>x86_64</string>
             </array>
         </dict>

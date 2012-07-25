@@ -36,6 +36,8 @@ void WebDragClient::willPerformDragDestinationAction(DragDestinationAction actio
 {
     if (action == DragDestinationActionLoad)
         m_page->willPerformLoadDragDestinationAction();
+    else
+        m_page->mayPerformUploadDragDestinationAction(); // Upload can happen from a drop event handler, so we should prepare early.
 }
 
 void WebDragClient::willPerformDragSourceAction(DragSourceAction, const IntPoint&, Clipboard*)
@@ -52,14 +54,8 @@ DragSourceAction WebDragClient::dragSourceActionMaskForPoint(const IntPoint& win
     return DragSourceActionAny;
 }
 
-#if !PLATFORM(MAC) && !PLATFORM(WIN)
+#if !PLATFORM(MAC) && !PLATFORM(WIN) && !PLATFORM(QT) && !PLATFORM(GTK)
 void WebDragClient::startDrag(DragImageRef, const IntPoint&, const IntPoint&, Clipboard*, Frame*, bool)
-{
-}
-#endif
-
-#if !PLATFORM(MAC)
-void WebDragClient::dragEnded()
 {
 }
 #endif

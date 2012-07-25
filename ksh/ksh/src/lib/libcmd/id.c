@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -422,33 +422,37 @@ b_id(int argc, char *argv[], void* context)
 	register int	n;
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
-	while (n = optget(argv, usage)) switch (n)
+	for (;;)
 	{
-	case 'a':
-		break;
-	case 'G':
-		flags |= GG_FLAG;
-		break;
-	case 'g':
-		flags |= G_FLAG;
-		break;
-	case 'n':
-		flags |= N_FLAG;
-		break;
-	case 'r':
-		flags |= R_FLAG;
-		break;
-	case 's':
-		flags |= S_FLAG;
-		break;
-	case 'u':
-		flags |= U_FLAG;
-		break;
-	case ':':
-		error(2, "%s", opt_info.arg);
-		break;
-	case '?':
-		error(ERROR_usage(2), "%s", opt_info.arg);
+		switch (optget(argv, usage))
+		{
+		case 'a':
+			continue;
+		case 'G':
+			flags |= GG_FLAG;
+			continue;
+		case 'g':
+			flags |= G_FLAG;
+			continue;
+		case 'n':
+			flags |= N_FLAG;
+			continue;
+		case 'r':
+			flags |= R_FLAG;
+			continue;
+		case 's':
+			flags |= S_FLAG;
+			continue;
+		case 'u':
+			flags |= U_FLAG;
+			continue;
+		case ':':
+			error(2, "%s", opt_info.arg);
+			break;
+		case '?':
+			error(ERROR_usage(2), "%s", opt_info.arg);
+			break;
+		}
 		break;
 	}
 	argv += opt_info.index;

@@ -87,6 +87,9 @@ struct netdissect_options {
   int ndo_bflag;		/* print 4 byte ASes in ASDOT notation */
   int ndo_eflag;		/* print ethernet header */
   int ndo_fflag;		/* don't translate "foreign" IP address */
+#ifdef __APPLE__
+  int ndo_kflag;		/* don't print the libpcap comment field */
+#endif
   int ndo_Kflag;		/* don't check TCP checksums */
   int ndo_nflag;		/* leave addresses as numbers */
   int ndo_Nflag;		/* remove domains from printed host names */
@@ -107,6 +110,9 @@ struct netdissect_options {
   int ndo_Iflag;		/* rfmon (monitor) mode */
   int ndo_Oflag;                /* run filter code optimizer */
   int ndo_dlt;                  /* if != -1, ask libpcap for the DLT it names*/
+#ifdef __APPLE__
+  int ndo_Pflag;		/* pcap-ng file format */
+#endif
   int ndo_pflag;                /* don't go promiscuous */
 
   int ndo_Cflag;                /* rotate dump files after this many bytes */ 

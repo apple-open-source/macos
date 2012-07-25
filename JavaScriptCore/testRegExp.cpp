@@ -21,7 +21,7 @@
 #include "config.h"
 #include "RegExp.h"
 
-#include "CurrentTime.h"
+#include <wtf/CurrentTime.h>
 #include "InitializeThreading.h"
 #include "JSGlobalObject.h"
 #include "UStringBuilder.h"
@@ -53,8 +53,6 @@ const int MaxLineLength = 100 * 1024;
 
 using namespace JSC;
 using namespace WTF;
-
-static void cleanupGlobalData(JSGlobalData*);
 
 struct CommandLine {
     CommandLine()
@@ -117,7 +115,7 @@ public:
 
     static GlobalObject* create(JSGlobalData& globalData, Structure* structure, const Vector<UString>& arguments)
     {
-        return new (allocateCell<GlobalObject>(globalData.heap)) GlobalObject(globalData, structure, arguments);
+        return new (NotNull, allocateCell<GlobalObject>(globalData.heap)) GlobalObject(globalData, structure, arguments);
     }
 
     static const ClassInfo s_info;
@@ -159,7 +157,7 @@ GlobalObject::GlobalObject(JSGlobalData& globalData, Structure* structure, const
 #define EXCEPT(x)
 #endif
 
-int realMain(int argc, char** argv, JSGlobalData*);
+int realMain(int argc, char** argv);
 
 int main(int argc, char** argv)
 {
@@ -193,21 +191,10 @@ int main(int argc, char** argv)
     // We can't use destructors in the following code because it uses Windows
     // Structured Exception Handling
     int res = 0;
-    JSGlobalData* globalData = JSGlobalData::create(ThreadStackTypeLarge, LargeHeap).leakRef();
     TRY
-        res = realMain(argc, argv, globalData);
+        res = realMain(argc, argv);
     EXCEPT(res = 3)
-
-    cleanupGlobalData(globalData);
     return res;
-}
-
-static void cleanupGlobalData(JSGlobalData* globalData)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    globalData->clearBuiltinStructures();
-    globalData->heap.destroy();
-    globalData->deref();
 }
 
 static bool testOneRegExp(JSGlobalData& globalData, RegExp* regexp, RegExpTest* regExpTest, bool verbose, unsigned int lineNumber)
@@ -215,7 +202,7 @@ static bool testOneRegExp(JSGlobalData& globalData, RegExp* regexp, RegExpTest* 
     bool result = true;
     Vector<int, 32> outVector;
     outVector.resize(regExpTest->expectVector.size());
-    int matchResult = regexp->match(globalData, regExpTest->subject, regExpTest->offset, &outVector);
+    int matchResult = regexp->match(globalData, regExpTest->subject, regExpTest->offset, outVector);
 
     if (matchResult != regExpTest->result) {
         result = false;
@@ -480,23 +467,22 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<UString>& file
 
 #define RUNNING_FROM_XCODE 0
 
-static NO_RETURN void printUsageStatement(JSGlobalData* globalData, bool help = false)
+static NO_RETURN void printUsageStatement(bool help = false)
 {
     fprintf(stderr, "Usage: regexp_test [options] file\n");
     fprintf(stderr, "  -h|--help  Prints this help message\n");
     fprintf(stderr, "  -v|--verbose  Verbose output\n");
 
-    cleanupGlobalData(globalData);
     exit(help ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
-static void parseArguments(int argc, char** argv, CommandLine& options, JSGlobalData* globalData)
+static void parseArguments(int argc, char** argv, CommandLine& options)
 {
     int i = 1;
     for (; i < argc; ++i) {
         const char* arg = argv[i];
         if (!strcmp(arg, "-h") || !strcmp(arg, "--help"))
-            printUsageStatement(globalData, true);
+            printUsageStatement(true);
         if (!strcmp(arg, "-v") || !strcmp(arg, "--verbose"))
             options.verbose = true;
         else
@@ -507,12 +493,14 @@ static void parseArguments(int argc, char** argv, CommandLine& options, JSGlobal
         options.arguments.append(argv[i]);
 }
 
-int realMain(int argc, char** argv, JSGlobalData* globalData)
+int realMain(int argc, char** argv)
 {
     JSLock lock(SilenceAssertionsOnly);
 
+    RefPtr<JSGlobalData> globalData = JSGlobalData::create(ThreadStackTypeLarge, LargeHeap);
+
     CommandLine options;
-    parseArguments(argc, argv, options, globalData);
+    parseArguments(argc, argv, options);
 
     GlobalObject* globalObject = GlobalObject::create(*globalData, GlobalObject::createStructure(*globalData, jsNull()), options.arguments);
     bool success = runFromFiles(globalObject, options.files, options.verbose);

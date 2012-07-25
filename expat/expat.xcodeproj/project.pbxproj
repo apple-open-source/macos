@@ -1,0 +1,341 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FD18B1BD1485AC5F00BBAEF9 /* expat_libs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FD18B1C01485AC5F00BBAEF9 /* Build configuration list for PBXAggregateTarget "expat_libs" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FD18B1D71485AD8C00BBAEF9 /* PBXTargetDependency */,
+			);
+			name = expat_libs;
+			productName = expat_libs;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D01485AD7300BBAEF9 /* xmlparse.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
+		FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D11485AD7300BBAEF9 /* xmlrole.c */; settings = {COMPILER_FLAGS = "-Wno-unused-parameter"; }; };
+		FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */ = {isa = PBXBuildFile; fileRef = FD18B1D21485AD7300BBAEF9 /* xmltok.c */; settings = {COMPILER_FLAGS = "-Wno-missing-field-initializers -Wno-unused-parameter"; }; };
+		FD18B1DC1485B02B00BBAEF9 /* ascii.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1DA1485B02B00BBAEF9 /* ascii.h */; };
+		FD18B1DD1485B02B00BBAEF9 /* expat.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1DB1485B02B00BBAEF9 /* expat.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD18B1E11485B04300BBAEF9 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1DE1485B04300BBAEF9 /* internal.h */; };
+		FD18B1E21485B04300BBAEF9 /* xmlrole.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1DF1485B04300BBAEF9 /* xmlrole.h */; };
+		FD18B1E31485B04300BBAEF9 /* xmltok.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1E01485B04300BBAEF9 /* xmltok.h */; };
+		FD18B1E51485B07E00BBAEF9 /* expat_external.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1E41485B07E00BBAEF9 /* expat_external.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD18B1E71485B09C00BBAEF9 /* nametab.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1E61485B09C00BBAEF9 /* nametab.h */; };
+		FD18B1E91485B0B000BBAEF9 /* xmltok_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1E81485B0B000BBAEF9 /* xmltok_impl.h */; };
+		FD18B1ED1485B0C700BBAEF9 /* asciitab.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1EC1485B0C700BBAEF9 /* asciitab.h */; };
+		FD18B1EF1485B0CB00BBAEF9 /* utf8tab.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1EE1485B0CB00BBAEF9 /* utf8tab.h */; };
+		FD18B1F11485B0D900BBAEF9 /* iasciitab.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1F01485B0D900BBAEF9 /* iasciitab.h */; };
+		FD18B1F31485B0E000BBAEF9 /* latin1tab.h in Headers */ = {isa = PBXBuildFile; fileRef = FD18B1F21485B0E000BBAEF9 /* latin1tab.h */; };
+		FD18B1FE1485B45D00BBAEF9 /* expat.plist in Install OpenSourceVersions */ = {isa = PBXBuildFile; fileRef = FD18B1FB1485B42F00BBAEF9 /* expat.plist */; };
+		FD18B2001485B48E00BBAEF9 /* expat.txt in Install OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = FD18B1FF1485B48B00BBAEF9 /* expat.txt */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FD18B1D61485AD8C00BBAEF9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FD18B1B31485AC2600BBAEF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FD18B1C51485AC7200BBAEF9;
+			remoteInfo = expat;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FD18B1F91485B3F800BBAEF9 /* Install OpenSourceLicenses */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceLicenses;
+			dstSubfolderSpec = 0;
+			files = (
+				FD18B2001485B48E00BBAEF9 /* expat.txt in Install OpenSourceLicenses */,
+			);
+			name = "Install OpenSourceLicenses";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FD18B1FA1485B3FC00BBAEF9 /* Install OpenSourceVersions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				FD18B1FE1485B45D00BBAEF9 /* expat.plist in Install OpenSourceVersions */,
+			);
+			name = "Install OpenSourceVersions";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libexpat.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD18B1D01485AD7300BBAEF9 /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = expat/lib/xmlparse.c; sourceTree = "<group>"; };
+		FD18B1D11485AD7300BBAEF9 /* xmlrole.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmlrole.c; path = expat/lib/xmlrole.c; sourceTree = "<group>"; };
+		FD18B1D21485AD7300BBAEF9 /* xmltok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok.c; path = expat/lib/xmltok.c; sourceTree = "<group>"; };
+		FD18B1DA1485B02B00BBAEF9 /* ascii.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ascii.h; path = expat/lib/ascii.h; sourceTree = "<group>"; };
+		FD18B1DB1485B02B00BBAEF9 /* expat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expat.h; path = expat/lib/expat.h; sourceTree = "<group>"; };
+		FD18B1DE1485B04300BBAEF9 /* internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = internal.h; path = expat/lib/internal.h; sourceTree = "<group>"; };
+		FD18B1DF1485B04300BBAEF9 /* xmlrole.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmlrole.h; path = expat/lib/xmlrole.h; sourceTree = "<group>"; };
+		FD18B1E01485B04300BBAEF9 /* xmltok.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmltok.h; path = expat/lib/xmltok.h; sourceTree = "<group>"; };
+		FD18B1E41485B07E00BBAEF9 /* expat_external.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = expat_external.h; path = expat/lib/expat_external.h; sourceTree = "<group>"; };
+		FD18B1E61485B09C00BBAEF9 /* nametab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = nametab.h; path = expat/lib/nametab.h; sourceTree = "<group>"; };
+		FD18B1E81485B0B000BBAEF9 /* xmltok_impl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xmltok_impl.h; path = expat/lib/xmltok_impl.h; sourceTree = "<group>"; };
+		FD18B1EA1485B0B900BBAEF9 /* xmltok_impl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xmltok_impl.c; path = expat/lib/xmltok_impl.c; sourceTree = "<group>"; };
+		FD18B1EC1485B0C700BBAEF9 /* asciitab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = asciitab.h; path = expat/lib/asciitab.h; sourceTree = "<group>"; };
+		FD18B1EE1485B0CB00BBAEF9 /* utf8tab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utf8tab.h; path = expat/lib/utf8tab.h; sourceTree = "<group>"; };
+		FD18B1F01485B0D900BBAEF9 /* iasciitab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = iasciitab.h; path = expat/lib/iasciitab.h; sourceTree = "<group>"; };
+		FD18B1F21485B0E000BBAEF9 /* latin1tab.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = latin1tab.h; path = expat/lib/latin1tab.h; sourceTree = "<group>"; };
+		FD18B1F41485B11E00BBAEF9 /* xmltok_ns.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = xmltok_ns.c; path = expat/lib/xmltok_ns.c; sourceTree = "<group>"; };
+		FD18B1FB1485B42F00BBAEF9 /* expat.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = expat.plist; sourceTree = "<group>"; };
+		FD18B1FC1485B43D00BBAEF9 /* expat_config.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = expat_config.h; sourceTree = "<group>"; };
+		FD18B1FF1485B48B00BBAEF9 /* expat.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = expat.txt; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FD18B1C31485AC7200BBAEF9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FD18B1B11485AC2600BBAEF9 = {
+			isa = PBXGroup;
+			children = (
+				FD18B1FB1485B42F00BBAEF9 /* expat.plist */,
+				FD18B1FF1485B48B00BBAEF9 /* expat.txt */,
+				FD18B1FC1485B43D00BBAEF9 /* expat_config.h */,
+				FD18B1D81485AD9E00BBAEF9 /* Source */,
+				FD18B1C71485AC7200BBAEF9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FD18B1C71485AC7200BBAEF9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FD18B1D81485AD9E00BBAEF9 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				FD18B1D91485ADA500BBAEF9 /* lib */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		FD18B1D91485ADA500BBAEF9 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				FD18B1DA1485B02B00BBAEF9 /* ascii.h */,
+				FD18B1EC1485B0C700BBAEF9 /* asciitab.h */,
+				FD18B1DB1485B02B00BBAEF9 /* expat.h */,
+				FD18B1E41485B07E00BBAEF9 /* expat_external.h */,
+				FD18B1F01485B0D900BBAEF9 /* iasciitab.h */,
+				FD18B1DE1485B04300BBAEF9 /* internal.h */,
+				FD18B1F21485B0E000BBAEF9 /* latin1tab.h */,
+				FD18B1E61485B09C00BBAEF9 /* nametab.h */,
+				FD18B1EE1485B0CB00BBAEF9 /* utf8tab.h */,
+				FD18B1D01485AD7300BBAEF9 /* xmlparse.c */,
+				FD18B1D11485AD7300BBAEF9 /* xmlrole.c */,
+				FD18B1DF1485B04300BBAEF9 /* xmlrole.h */,
+				FD18B1D21485AD7300BBAEF9 /* xmltok.c */,
+				FD18B1E01485B04300BBAEF9 /* xmltok.h */,
+				FD18B1EA1485B0B900BBAEF9 /* xmltok_impl.c */,
+				FD18B1E81485B0B000BBAEF9 /* xmltok_impl.h */,
+				FD18B1F41485B11E00BBAEF9 /* xmltok_ns.c */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FD18B1C41485AC7200BBAEF9 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD18B1DD1485B02B00BBAEF9 /* expat.h in Headers */,
+				FD18B1E51485B07E00BBAEF9 /* expat_external.h in Headers */,
+				FD18B1DC1485B02B00BBAEF9 /* ascii.h in Headers */,
+				FD18B1ED1485B0C700BBAEF9 /* asciitab.h in Headers */,
+				FD18B1F11485B0D900BBAEF9 /* iasciitab.h in Headers */,
+				FD18B1E11485B04300BBAEF9 /* internal.h in Headers */,
+				FD18B1F31485B0E000BBAEF9 /* latin1tab.h in Headers */,
+				FD18B1E71485B09C00BBAEF9 /* nametab.h in Headers */,
+				FD18B1EF1485B0CB00BBAEF9 /* utf8tab.h in Headers */,
+				FD18B1E21485B04300BBAEF9 /* xmlrole.h in Headers */,
+				FD18B1E31485B04300BBAEF9 /* xmltok.h in Headers */,
+				FD18B1E91485B0B000BBAEF9 /* xmltok_impl.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FD18B1C51485AC7200BBAEF9 /* expat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FD18B1C81485AC7200BBAEF9 /* Build configuration list for PBXNativeTarget "expat" */;
+			buildPhases = (
+				FD18B1C21485AC7200BBAEF9 /* Sources */,
+				FD18B1C31485AC7200BBAEF9 /* Frameworks */,
+				FD18B1C41485AC7200BBAEF9 /* Headers */,
+				FD18B1F91485B3F800BBAEF9 /* Install OpenSourceLicenses */,
+				FD18B1FA1485B3FC00BBAEF9 /* Install OpenSourceVersions */,
+				FD18B2011485B7BB00BBAEF9 /* Create Library Symlinks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = expat;
+			productName = expat;
+			productReference = FD18B1C61485AC7200BBAEF9 /* libexpat.1.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FD18B1B31485AC2600BBAEF9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = FD18B1B61485AC2600BBAEF9 /* Build configuration list for PBXProject "expat" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FD18B1B11485AC2600BBAEF9;
+			productRefGroup = FD18B1C71485AC7200BBAEF9 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FD18B1BD1485AC5F00BBAEF9 /* expat_libs */,
+				FD18B1C51485AC7200BBAEF9 /* expat */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FD18B2011485B7BB00BBAEF9 /* Create Library Symlinks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Create Library Symlinks";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". ${SRCROOT}/xcodescripts/lib_symlinks.sh";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FD18B1C21485AC7200BBAEF9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD18B1D31485AD7300BBAEF9 /* xmlparse.c in Sources */,
+				FD18B1D41485AD7300BBAEF9 /* xmlrole.c in Sources */,
+				FD18B1D51485AD7300BBAEF9 /* xmltok.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FD18B1D71485AD8C00BBAEF9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FD18B1C51485AC7200BBAEF9 /* expat */;
+			targetProxy = FD18B1D61485AD8C00BBAEF9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FD18B1B91485AC2700BBAEF9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PROVISIONING_PROFILE = "";
+				RUN_CLANG_STATIC_ANALYZER = YES;
+			};
+			name = Release;
+		};
+		FD18B1BF1485AC5F00BBAEF9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FD18B1CA1485AC7200BBAEF9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 7;
+				DYLIB_CURRENT_VERSION = 7.2;
+				EXECUTABLE_PREFIX = lib;
+				GCC_PREPROCESSOR_DEFINITIONS = HAVE_EXPAT_CONFIG_H;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				INSTALL_PATH = /usr/lib;
+				PRODUCT_NAME = "$(TARGET_NAME).1";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+					"-Werror",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FD18B1B61485AC2600BBAEF9 /* Build configuration list for PBXProject "expat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD18B1B91485AC2700BBAEF9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD18B1C01485AC5F00BBAEF9 /* Build configuration list for PBXAggregateTarget "expat_libs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD18B1BF1485AC5F00BBAEF9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FD18B1C81485AC7200BBAEF9 /* Build configuration list for PBXNativeTarget "expat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FD18B1CA1485AC7200BBAEF9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FD18B1B31485AC2600BBAEF9 /* Project object */;
+}

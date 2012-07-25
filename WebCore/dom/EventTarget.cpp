@@ -34,6 +34,8 @@
 
 #include "Event.h"
 #include "EventException.h"
+#include "InspectorInstrumentation.h"
+#include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
 
@@ -73,16 +75,10 @@ EventTargetData::EventTargetData()
 
 EventTargetData::~EventTargetData()
 {
-    deleteAllValues(eventListenerMap);
 }
 
 EventTarget::~EventTarget()
 {
-}
-
-EventSource* EventTarget::toEventSource()
-{
-    return 0;
 }
 
 Node* EventTarget::toNode()
@@ -95,134 +91,10 @@ DOMWindow* EventTarget::toDOMWindow()
     return 0;
 }
 
-XMLHttpRequest* EventTarget::toXMLHttpRequest()
-{
-    return 0;
-}
-
-XMLHttpRequestUpload* EventTarget::toXMLHttpRequestUpload()
-{
-    return 0;
-}
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-DOMApplicationCache* EventTarget::toDOMApplicationCache()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(SVG)
-SVGElementInstance* EventTarget::toSVGElementInstance()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(WEB_AUDIO)
-AudioContext* EventTarget::toAudioContext()
-{
-    return 0;
-}
-
-JavaScriptAudioNode* EventTarget::toJavaScriptAudioNode()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(WEB_SOCKETS)
-WebSocket* EventTarget::toWebSocket()
-{
-    return 0;
-}
-#endif
-
-MessagePort* EventTarget::toMessagePort()
-{
-    return 0;
-}
-
-#if ENABLE(WORKERS)
-Worker* EventTarget::toWorker()
-{
-    return 0;
-}
-
-DedicatedWorkerContext* EventTarget::toDedicatedWorkerContext()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(SHARED_WORKERS)
-SharedWorker* EventTarget::toSharedWorker()
-{
-    return 0;
-}
-SharedWorkerContext* EventTarget::toSharedWorkerContext()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-Notification* EventTarget::toNotification()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(BLOB)
-FileReader* EventTarget::toFileReader()
-{
-    return 0;
-}
-#endif
-#if ENABLE(FILE_SYSTEM)
-FileWriter* EventTarget::toFileWriter()
-{
-    return 0;
-}
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-IDBDatabase* EventTarget::toIDBDatabase()
-{
-    return 0;
-}
-IDBRequest* EventTarget::toIDBRequest()
-{
-    return 0;
-}
-IDBTransaction* EventTarget::toIDBTransaction()
-{
-    return 0;
-}
-IDBVersionChangeRequest* EventTarget::toIDBVersionChangeRequest()
-{
-    return 0;
-}
-#endif
-
 bool EventTarget::addEventListener(const AtomicString& eventType, PassRefPtr<EventListener> listener, bool useCapture)
 {
     EventTargetData* d = ensureEventTargetData();
-
-    pair<EventListenerMap::iterator, bool> result = d->eventListenerMap.add(eventType, 0);
-    EventListenerVector*& entry = result.first->second;
-    const bool isNewEntry = result.second;
-    if (isNewEntry)
-        entry = new EventListenerVector();
-
-    RegisteredEventListener registeredListener(listener, useCapture);
-    if (!isNewEntry) {
-        if (entry->find(registeredListener) != notFound) // duplicate listener
-            return false;
-    }
-
-    entry->append(registeredListener);
-    return true;
+    return d->eventListenerMap.add(eventType, listener, useCapture);
 }
 
 bool EventTarget::removeEventListener(const AtomicString& eventType, EventListener* listener, bool useCapture)
@@ -231,21 +103,10 @@ bool EventTarget::removeEventListener(const AtomicString& eventType, EventListen
     if (!d)
         return false;
 
-    EventListenerMap::iterator result = d->eventListenerMap.find(eventType);
-    if (result == d->eventListenerMap.end())
-        return false;
-    EventListenerVector* entry = result->second;
+    size_t indexOfRemovedListener;
 
-    RegisteredEventListener registeredListener(listener, useCapture);
-    size_t index = entry->find(registeredListener);
-    if (index == notFound)
+    if (!d->eventListenerMap.remove(eventType, listener, useCapture, indexOfRemovedListener))
         return false;
-
-    entry->remove(index);
-    if (entry->isEmpty()) {
-        delete entry;
-        d->eventListenerMap.remove(result);
-    }
 
     // Notify firing events planning to invoke the listener at 'index' that
     // they have one less listener to invoke.
@@ -253,11 +114,11 @@ bool EventTarget::removeEventListener(const AtomicString& eventType, EventListen
         if (eventType != d->firingEventIterators[i].eventType)
             continue;
 
-        if (index >= d->firingEventIterators[i].end)
+        if (indexOfRemovedListener >= d->firingEventIterators[i].end)
             continue;
 
         --d->firingEventIterators[i].end;
-        if (index <= d->firingEventIterators[i].iterator)
+        if (indexOfRemovedListener <= d->firingEventIterators[i].iterator)
             --d->firingEventIterators[i].iterator;
     }
 
@@ -297,6 +158,11 @@ bool EventTarget::dispatchEvent(PassRefPtr<Event> event, ExceptionCode& ec)
         return false;
     }
 
+    if (event->isBeingDispatched()) {
+        ec = EventException::DISPATCH_REQUEST_ERR;
+        return false;
+    }
+
     if (!scriptExecutionContext())
         return false;
 
@@ -308,7 +174,9 @@ bool EventTarget::dispatchEvent(PassRefPtr<Event> event)
     event->setTarget(this);
     event->setCurrentTarget(this);
     event->setEventPhase(Event::AT_TARGET);
-    return fireEventListeners(event.get());
+    bool defaultPrevented = fireEventListeners(event.get());
+    event->setEventPhase(0);
+    return defaultPrevented;
 }
 
 void EventTarget::uncaughtExceptionInEventHandler()
@@ -324,9 +192,10 @@ bool EventTarget::fireEventListeners(Event* event)
     if (!d)
         return true;
 
-    EventListenerMap::iterator result = d->eventListenerMap.find(event->type());
-    if (result != d->eventListenerMap.end())
-        fireEventListeners(event, d, *result->second);
+    EventListenerVector* listenerVector = d->eventListenerMap.find(event->type());
+
+    if (listenerVector)
+        fireEventListeners(event, d, *listenerVector);
     
     return !event->defaultPrevented();
 }
@@ -355,9 +224,12 @@ void EventTarget::fireEventListeners(Event* event, EventTargetData* d, EventList
         if (event->immediatePropagationStopped())
             break;
 
+        ScriptExecutionContext* context = scriptExecutionContext();
+        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willHandleEvent(context, event);
         // To match Mozilla, the AT_TARGET phase fires both capturing and bubbling
         // event listeners, even though that violates some versions of the DOM spec.
-        registeredListener.listener->handleEvent(scriptExecutionContext(), event);
+        registeredListener.listener->handleEvent(context, event);
+        InspectorInstrumentation::didHandleEvent(cookie);
     }
     d->firingEventIterators.removeLast();
 }
@@ -369,10 +241,12 @@ const EventListenerVector& EventTarget::getEventListeners(const AtomicString& ev
     EventTargetData* d = eventTargetData();
     if (!d)
         return emptyVector;
-    EventListenerMap::iterator it = d->eventListenerMap.find(eventType);
-    if (it == d->eventListenerMap.end())
+
+    EventListenerVector* listenerVector = d->eventListenerMap.find(eventType);
+    if (!listenerVector)
         return emptyVector;
-    return *it->second;
+
+    return *listenerVector;
 }
 
 void EventTarget::removeAllEventListeners()
@@ -380,7 +254,6 @@ void EventTarget::removeAllEventListeners()
     EventTargetData* d = eventTargetData();
     if (!d)
         return;
-    deleteAllValues(d->eventListenerMap);
     d->eventListenerMap.clear();
 
     // Notify firing events planning to invoke the listener at 'index' that
@@ -389,32 +262,6 @@ void EventTarget::removeAllEventListeners()
         d->firingEventIterators[i].iterator = 0;
         d->firingEventIterators[i].end = 0;
     }
-}
-
-EventListenerIterator::EventListenerIterator()
-    : m_index(0)
-{
-}
-
-EventListenerIterator::EventListenerIterator(EventTarget* target)
-    : m_index(0)
-{
-    EventTargetData* data = target->eventTargetData();
-    if (!data)
-        return;
-    m_mapIterator = data->eventListenerMap.begin();
-    m_mapEnd = data->eventListenerMap.end();
-}
-
-EventListener* EventListenerIterator::nextListener()
-{
-    for (; m_mapIterator != m_mapEnd; ++m_mapIterator) {
-        EventListenerVector& listeners = *m_mapIterator->second;
-        if (m_index < listeners.size())
-            return listeners[m_index++].listener.get();
-        m_index = 0;
-    }
-    return 0;
 }
 
 } // namespace WebCore

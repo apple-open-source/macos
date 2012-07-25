@@ -167,8 +167,6 @@ void setup_epd_line(char* inbuff);
 
 int see(int color, int square, int from);
 
-void init_egtb(void);
-int probe_egtb(void);
 void gen_all_tables(void);
 int egtb(int s);
 

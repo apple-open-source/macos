@@ -31,7 +31,7 @@
 #ifndef WebInputEventFactory_h
 #define WebInputEventFactory_h
 
-#include "../WebCommon.h"
+#include "../platform/WebCommon.h"
 
 #ifdef __OBJC__
 @class NSEvent;
@@ -46,13 +46,15 @@ namespace WebKit {
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebMouseWheelEvent;
+class WebGestureEvent;
 
 class WebInputEventFactory {
 public:
-    WEBKIT_API static WebKeyboardEvent keyboardEvent(NSEvent*);
-    WEBKIT_API static WebKeyboardEvent keyboardEvent(wchar_t character, int modifiers, double timeStampSeconds);
-    WEBKIT_API static WebMouseEvent mouseEvent(NSEvent*, NSView*);
-    WEBKIT_API static WebMouseWheelEvent mouseWheelEvent(NSEvent*, NSView*);
+    WEBKIT_EXPORT static WebKeyboardEvent keyboardEvent(NSEvent*);
+    WEBKIT_EXPORT static WebKeyboardEvent keyboardEvent(wchar_t character, int modifiers, double timeStampSeconds);
+    WEBKIT_EXPORT static WebMouseEvent mouseEvent(NSEvent*, NSView*);
+    WEBKIT_EXPORT static WebMouseWheelEvent mouseWheelEvent(NSEvent*, NSView*);
+    WEBKIT_EXPORT static WebGestureEvent gestureEvent(NSEvent *, NSView *);
 };
 
 } // namespace WebKit

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -102,6 +102,7 @@
 #include "denode.h"
 #include "msdosfsmount.h"
 #include "fat.h"
+#include "msdosfs_kdebug.h"
 
 /*
  * By default, don't try to auto unload the KEXT on embedded systems, since
@@ -124,10 +125,10 @@ extern u_int16_t dos2unicode[32];
 
 extern int32_t msdos_secondsWest;	/* In msdosfs_conv.c */
 
-lck_grp_attr_t *msdosfs_lck_grp_attr = NULL;
-lck_grp_t *msdosfs_lck_grp = NULL;
-lck_attr_t *msdosfs_lck_attr = NULL;
-OSMallocTag msdosfs_malloc_tag = NULL;
+__private_extern__ lck_grp_attr_t *msdosfs_lck_grp_attr = NULL;
+__private_extern__ lck_grp_t *msdosfs_lck_grp = NULL;
+__private_extern__ lck_attr_t *msdosfs_lck_attr = NULL;
+__private_extern__ OSMallocTag msdosfs_malloc_tag = NULL;
 
 #if DEBUG
 SYSCTL_DECL(_vfs_generic);
@@ -220,6 +221,7 @@ int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_con
 	struct msdosfsmount *pmp = NULL;
 	int error, flags;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_MOUNT|DBG_FUNC_START, 0, 0, 0, 0, 0);
 #if MSDOSFS_AUTO_UNLOAD
 	OSKextRetainKextWithLoadTag(OSKextGetCurrentLoadTag());
 #endif
@@ -279,12 +281,14 @@ int msdosfs_vfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_con
 	if (error)
 		msdosfs_vfs_unmount(mp, MNT_FORCE, context);	/* NOTE: calls OSKextReleaseKextWithLoadTag */
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_MOUNT|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 
 error_exit:
 #if MSDOSFS_AUTO_UNLOAD
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
 #endif
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_MOUNT|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -294,9 +298,9 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 	struct buf *bp;
 	dev_t dev = vnode_specrdev(devvp);
 	union bootsector *bsp;
-	struct byte_bpb33 *b33;
 	struct byte_bpb50 *b50;
 	struct byte_bpb710 *b710;
+	uint32_t total_sectors;
 	uint32_t fat_sectors;
 	uint32_t clusters;
 	uint32_t fsinfo = 0;
@@ -339,7 +343,6 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		goto error_exit;
 	buf_markaged(bp);
 	bsp = (union bootsector *)buf_dataptr(bp);
-	b33 = (struct byte_bpb33 *)bsp->bs33.bsBPB;
 	b50 = (struct byte_bpb50 *)bsp->bs50.bsBPB;
 	b710 = (struct byte_bpb710 *)bsp->bs710.bsBPB;
 
@@ -377,16 +380,52 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 	 */
 	SecPerClust = b50->bpbSecPerClust;
 	pmp->pm_BytesPerSec = getuint16(b50->bpbBytesPerSec);
+	pmp->pm_bpcluster = (u_int32_t) SecPerClust * (u_int32_t) pmp->pm_BytesPerSec;
 	pmp->pm_ResSectors = getuint16(b50->bpbResSectors);
 	pmp->pm_FATs = b50->bpbFATs;
 	pmp->pm_RootDirEnts = getuint16(b50->bpbRootDirEnts);
-	pmp->pm_Sectors = getuint16(b50->bpbSectors);
+	total_sectors = getuint16(b50->bpbSectors);
+	if (total_sectors == 0)
+		total_sectors = getuint32(b50->bpbHugeSectors);
 	fat_sectors = getuint16(b50->bpbFATsecs);
-	pmp->pm_SecPerTrack = getuint16(b50->bpbSecPerTrack);
-	pmp->pm_Heads = getuint16(b50->bpbHeads);
-	pmp->pm_Media = b50->bpbMedia;
+	if (fat_sectors == 0)
+		fat_sectors = getuint32(b710->bpbBigFATsecs);
 	pmp->pm_label_cluster = CLUST_EOFE;	/* Assume there is no label in the root */
 
+	/*
+	 * Check a few values (could do some more):
+	 * - logical sector size: power of 2, >= block size
+	 * - sectors per cluster: power of 2, >= 1
+	 * - number of sectors:   >= 1, <= size of partition
+	 * - number of FAT sectors > 0 (too large values handled later)
+	 */
+	if (total_sectors == 0)
+	{
+		printf("msdosfs_mount: invalid total sectors (%u)\n", total_sectors);
+		error = EINVAL;
+		goto error_exit;
+	}
+	if (fat_sectors == 0)
+	{
+		printf("msdosfs_mount: invalid sectors per FAT (%u)\n", fat_sectors);
+		error = EINVAL;
+		goto error_exit;
+	}
+	if (SecPerClust == 0 || (SecPerClust & (SecPerClust - 1)))
+	{
+		printf("msdosfs_mount: invalid sectors per cluster (%u)\n", SecPerClust);
+		error = EINVAL;
+		goto error_exit;
+	}
+	if ((pmp->pm_BytesPerSec < DEV_BSIZE) ||
+		(pmp->pm_BytesPerSec > 4096) ||
+		(pmp->pm_BytesPerSec & (pmp->pm_BytesPerSec - 1)))
+	{
+		printf("msdosfs_mount: invalid bytes per sector (%u)\n", pmp->pm_BytesPerSec);
+		error = EINVAL;
+		goto error_exit;
+	}
+	
 	/* calculate the ratio of sector size to device block size */
 	error = VNOP_IOCTL(devvp, DKIOCGETBLOCKSIZE, (caddr_t) &pmp->pm_BlockSize, 0, context);
 	if (error) {
@@ -394,145 +433,204 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		goto error_exit;
 	}
 	pmp->pm_BlocksPerSec = pmp->pm_BytesPerSec / pmp->pm_BlockSize;
-
+	pmp->pm_bnshift = ffs(pmp->pm_BlockSize) - 1;
+	
 	/* Get the device's physical sector size */
 	error = VNOP_IOCTL(devvp, DKIOCGETPHYSICALBLOCKSIZE, (caddr_t) &pmp->pm_PhysBlockSize, 0, context);
 	if (error)
 		pmp->pm_PhysBlockSize = pmp->pm_BlockSize;
 	
-	if (pmp->pm_Sectors == 0) {
-		pmp->pm_HugeSectors = getuint32(b50->bpbHugeSectors);
-	} else {
-		pmp->pm_HugeSectors = pmp->pm_Sectors;
+	/*
+	 * For now, assume a FAT12 or FAT16 volume with a dedicated root directory.
+	 * We need these values before we can figure out how many clusters (and
+	 * thus whether the volume is FAT32 or not).  Start by calculating sectors.
+	 */
+	pmp->pm_rootdirblk = (pmp->pm_ResSectors + (pmp->pm_FATs * fat_sectors));
+	pmp->pm_rootdirsize = (pmp->pm_RootDirEnts * sizeof(struct dosdirentry) + pmp->pm_BytesPerSec - 1) / pmp->pm_BytesPerSec;
+	pmp->pm_firstcluster = pmp->pm_rootdirblk + pmp->pm_rootdirsize;
+	
+	/* Change the root directory values to physical (device) blocks */
+	pmp->pm_rootdirblk *= pmp->pm_BlocksPerSec;
+	pmp->pm_rootdirsize *= pmp->pm_BlocksPerSec;
+	
+	if (fat_sectors > total_sectors ||
+		pmp->pm_rootdirblk < fat_sectors ||		/* Catch numeric overflow! */
+		pmp->pm_firstcluster + SecPerClust > total_sectors)
+	{
+		/* We think there isn't room for even a single cluster. */
+		printf("msdosfs_mount: invalid configuration; no room for clusters\n");
+		error = EINVAL;
+		goto error_exit;
 	}
-
-	if (pmp->pm_RootDirEnts == 0) {
-		if (pmp->pm_Sectors != 0
-		    || fat_sectors != 0
-		    || getuint16(b710->bpbFSVers) != 0) {
-			error = EINVAL;
-			printf("msdosfs_mount(): bad FAT32 filesystem\n");
-			goto error_exit;
-		}
+	
+	/*
+	 * Usable clusters are numbered starting at 2, so the maximum usable cluster
+	 * is (number of clusters) + 1.  Convert the pm_firstcluster to device blocks.
+	 */
+	pmp->pm_maxcluster = (total_sectors - pmp->pm_firstcluster) / SecPerClust + 1;
+	pmp->pm_firstcluster *= pmp->pm_BlocksPerSec;
+	
+	/*
+	 * Figure out the FAT type based on the number of clusters.
+	 */
+	if (pmp->pm_maxcluster < (CLUST_RSRVD & FAT12_MASK))
+	{
+		pmp->pm_fatmask = FAT12_MASK;
+		pmp->pm_fatmult = 3;
+		pmp->pm_fatdiv = 2;
+	}
+	else if (pmp->pm_maxcluster < (CLUST_RSRVD & FAT16_MASK))
+	{
+		pmp->pm_fatmask = FAT16_MASK;
+		pmp->pm_fatmult = 2;
+		pmp->pm_fatdiv = 1;
+	}
+	else if (pmp->pm_maxcluster < (CLUST_RSRVD & FAT32_MASK))
+	{
 		pmp->pm_fatmask = FAT32_MASK;
 		pmp->pm_fatmult = 4;
 		pmp->pm_fatdiv = 1;
-		fat_sectors = getuint32(b710->bpbBigFATsecs);
-		if (getuint16(b710->bpbExtFlags) & FATMIRROR)
-			pmp->pm_curfat = getuint16(b710->bpbExtFlags) & FATNUM;
-		else
-			pmp->pm_flags |= MSDOSFS_FATMIRROR;
-	} else
-		pmp->pm_flags |= MSDOSFS_FATMIRROR;
-
-	/*
-	 * Check a few values (could do some more):
-	 * - logical sector size: power of 2, >= block size
-	 * - sectors per cluster: power of 2, >= 1
-	 * - number of sectors:   >= 1, <= size of partition
-	 */
-	if ( (SecPerClust == 0)
-	  || (SecPerClust & (SecPerClust - 1))
-	  || (pmp->pm_BytesPerSec < DEV_BSIZE)
-	  || (pmp->pm_BytesPerSec & (pmp->pm_BytesPerSec - 1))
-	  || (pmp->pm_HugeSectors == 0)
-	) {
-		error = EINVAL;
-		goto error_exit;
 	}
-
-	if (FAT32(pmp)) {
-		pmp->pm_rootdirblk = getuint32(b710->bpbRootClust);
-		pmp->pm_firstcluster = pmp->pm_ResSectors
-			+ (pmp->pm_FATs * fat_sectors);
-		fsinfo = getuint16(b710->bpbFSInfo);
-	} else {
-                /*
-                 * Compute the root directory and first cluster as sectors
-                 * so that pm_maxcluster will be correct, below.
-                 */
-		pmp->pm_rootdirblk = (pmp->pm_ResSectors + (pmp->pm_FATs * fat_sectors));
-		pmp->pm_rootdirsize = (pmp->pm_RootDirEnts * sizeof(struct dosdirentry)
-				       + pmp->pm_BytesPerSec - 1)
-			/ pmp->pm_BytesPerSec; /* in sectors */
-		pmp->pm_firstcluster = pmp->pm_rootdirblk + pmp->pm_rootdirsize;
-                
-                /* Change the root directory values to physical (device) blocks */
-                pmp->pm_rootdirblk *= pmp->pm_BlocksPerSec;
-                pmp->pm_rootdirsize *= pmp->pm_BlocksPerSec;
-	}
-
-	pmp->pm_maxcluster = (pmp->pm_HugeSectors - pmp->pm_firstcluster) /
-	    SecPerClust + 1;
-
-	if (FAT32(pmp) && (pmp->pm_rootdirblk < CLUST_FIRST ||
-		pmp->pm_rootdirblk > pmp->pm_maxcluster))
+	else
 	{
-		printf("msdosfs_mount: root starting cluster (%u) out of range\n",
-			pmp->pm_rootdirblk);
+		printf("msdosfs_mount: number of clusters (0x%x) is too large\n", pmp->pm_maxcluster + 1);
 		error = EINVAL;
 		goto error_exit;
 	}
-
-	pmp->pm_firstcluster *= pmp->pm_BlocksPerSec;	/* Convert to physical (device) blocks */
-
-	if (pmp->pm_fatmask == 0) {
-		/*
-		 * pm_maxcluster - 1 == number of clusters on the volume
-		 */
-		if ((pmp->pm_maxcluster - 1)
-		    <= ((CLUST_RSRVD - CLUST_FIRST) & FAT12_MASK)) {
-			/*
-			 * This will usually be a floppy disk. This size makes
-			 * sure that one fat entry will not be split across
-			 * multiple blocks.
-			 */
-			pmp->pm_fatmask = FAT12_MASK;
-			pmp->pm_fatmult = 3;
-			pmp->pm_fatdiv = 2;
-		} else {
-			pmp->pm_fatmask = FAT16_MASK;
-			pmp->pm_fatmult = 2;
-			pmp->pm_fatdiv = 1;
+	
+	/* See if FAT32 has its FAT mirrored or not. */
+	if (FAT32(pmp) && (getuint16(b710->bpbExtFlags) & FATMIRROR))
+	{
+		pmp->pm_curfat = getuint16(b710->bpbExtFlags) & FATNUM;
+	}
+	else
+	{
+		pmp->pm_flags |= MSDOSFS_FATMIRROR;
+	}
+	
+	/*
+	 * Sanity check some differences between FAT32 and FAT12/16.
+	 * Also set up FAT32's root directory and FSInfo sector.
+	 */
+	if (FAT32(pmp))
+	{
+		fsinfo = getuint16(b710->bpbFSInfo);
+		pmp->pm_rootdirblk = getuint32(b710->bpbRootClust);
+		if (pmp->pm_rootdirblk < CLUST_FIRST || pmp->pm_rootdirblk > pmp->pm_maxcluster)
+		{
+			printf("msdosfs_mount: FAT32 root starting cluster (%u) out of range (%u..%u)\n",
+				   pmp->pm_rootdirblk, CLUST_FIRST, pmp->pm_maxcluster);
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (pmp->pm_RootDirEnts)
+		{
+			printf("msdosfs_mount: FAT32 has non-zero root directory count\n");
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (getuint16(b710->bpbFSVers) != 0)
+		{
+			printf("msdosfs_mount: FAT32 has non-zero version\n");
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (getuint16(b50->bpbSectors) != 0)
+		{
+			printf("msdosfs_mount: FAT32 has 16-bit total sectors\n");
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (getuint16(b50->bpbFATsecs) != 0)
+		{
+			printf("msdosfs_mount: FAT32 has 16-bit FAT sectors\n");
+			error = EINVAL;
+			goto error_exit;
 		}
 	}
-
-	/* Compute number of clusters this FAT could hold based on its total size */
+	else
+	{
+		if (pmp->pm_RootDirEnts == 0)
+		{
+			printf("msdosfs_mount: FAT12/16 has zero-length root directory\n");
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (total_sectors < 0x10000 && getuint16(b50->bpbSectors) == 0)
+		{
+			printf("msdosfs_mount: FAT12/16 total sectors (%u) fit in 16 bits, but stored in 32 bits\n", total_sectors);
+			error = EINVAL;
+			goto error_exit;
+		}
+		if (getuint16(b50->bpbFATsecs) == 0)
+		{
+			printf("msdosfs_mount: FAT12/16 has 32-bit FAT sectors\n");
+			error = EINVAL;
+			goto error_exit;
+		}
+	}
+	
+	/*
+	 * Compute number of clusters this FAT could hold based on its total size.
+	 * Pin the maximum cluster number to the size of the FAT.
+	 * NOTE: We have to do this AFTER determining the FAT type.  If we did this
+	 * before, we could end up deducing a different FAT type than what's actually
+	 * on disk, and that would be very bad.
+	 */
 	clusters = fat_sectors * pmp->pm_BytesPerSec;	/* Size of FAT in bytes */
 	clusters *= pmp->pm_fatdiv;
 	clusters /= pmp->pm_fatmult;				/* Max number of clusters, rounded down */
-        
 	if (pmp->pm_maxcluster >= clusters) {
-		printf("Warning: number of clusters (%d) exceeds FAT "
+		printf("msdosfs_mount: Warning: number of clusters (%d) exceeds FAT "
 		    "capacity (%d)\n", pmp->pm_maxcluster + 1, clusters);
 		pmp->pm_maxcluster = clusters - 1;
 	}
 
-
+	/*
+	 * Pin the maximum cluster number based on the number of sectors the device
+	 * is reporting (in case that is smaller than the total sectors field(s)
+	 * in the boot sector).
+	 */
+	uint64_t block_count;
+	error = VNOP_IOCTL(devvp, DKIOCGETBLOCKCOUNT, (caddr_t) &block_count, 0, context);
+	if (error == 0 && block_count < total_sectors)
+	{
+		if (pmp->pm_firstcluster + SecPerClust > block_count)
+		{
+			printf("msdosfs_mount: device sector count (%llu) too small; no room for clusters\n", block_count);
+			error = EINVAL;
+			goto error_exit;
+		}
+		
+		uint32_t maxcluster = (block_count - pmp->pm_firstcluster) / SecPerClust + 1;
+		if (maxcluster < pmp->pm_maxcluster)
+		{
+			printf("msdosfs_mount: device sector count (%llu) is less than volume sector count (%u); limiting maximum cluster to %u (was %u)\n",
+				   block_count, total_sectors, maxcluster, pmp->pm_maxcluster);
+			pmp->pm_maxcluster = maxcluster;
+		}
+		else
+		{
+			printf("msdosfs_mount: device sector count (%llu) is less than volume sector count (%u)\n",
+				   block_count, total_sectors);
+		}
+	}
+	
+	/*
+	 * Set up values for accessing the FAT.
+	 */
 	if (FAT12(pmp))
 		pmp->pm_fatblocksize = 3 * pmp->pm_BytesPerSec;
 	else
 		pmp->pm_fatblocksize = PAGE_SIZE;
-
 	pmp->pm_fat_bytes = fat_sectors * pmp->pm_BytesPerSec;
-	pmp->pm_bnshift = ffs(pmp->pm_BlockSize) - 1;
 
 	/*
 	 * Compute mask and shift value for isolating cluster relative byte
 	 * offsets and cluster numbers from a file offset.
 	 */
-	pmp->pm_bpcluster = (u_int32_t) SecPerClust * (u_int32_t) pmp->pm_BytesPerSec;
 	pmp->pm_crbomask = pmp->pm_bpcluster - 1;
 	pmp->pm_cnshift = ffs(pmp->pm_bpcluster) - 1;
-
-	/*
-	 * Check for valid cluster size
-	 * must be a power of 2
-	 */
-	if (pmp->pm_bpcluster ^ (1 << pmp->pm_cnshift)) {
-		error = EINVAL;
-		goto error_exit;
-	}
 
 	/*
 	 * Compute an "optimal" I/O size based on the largest I/O that both
@@ -607,6 +705,22 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 	bp = NULL;
 
 	/*
+	 * We always reset the "next allocation" pointer to the start of the volume
+	 * on mount.  FAT12 and FAT16 don't have a way to persistently store it, and
+	 * we need a valid value in all cases.
+	 *
+	 * For FAT32, we ignore the value in the FSInfo sector so that we'll tend
+	 * to put allocations toward the start of the volume.  This is a trade
+	 * off.  The benefits are that reads and writes to sectors near the start
+	 * of the volume are often faster, and some broken devices report more
+	 * sectors than they can actually access.  The cost is large volumes with
+	 * all clusters near the start of the volume already allocated; we'll
+	 * have to read through that part of the FAT once, which we could have
+	 * skipped if we didn't ignore the "next free cluster" in the FSInfo sector.
+	 */
+	pmp->pm_nxtfree = CLUST_FIRST;
+
+	/*
 	 * Check FSInfo.
 	 */
 	if (fsinfo) {
@@ -645,8 +759,10 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		fp = (struct fsinfo *)(buf_dataptr(bp) + pmp->pm_fsinfo_offset);
 		if (!bcmp(fp->fsisig1, "RRaA", 4)
 		    && !bcmp(fp->fsisig2, "rrAa", 4)
-		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4)) {
+		    && !bcmp(fp->fsisig3, "\0\0\125\252", 4))
+		{
 			pmp->pm_nxtfree = getuint32(fp->fsinxtfree);
+			pmp->pm_freeclustercount = getuint32(fp->fsinfree);
 		} else {
 			printf("msdosfs_mount: FSInfo has bad signature\n");
 			pmp->pm_fsinfo_size = 0;
@@ -790,6 +906,8 @@ int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 
 	pmp = VFSTOMSDOSFS(mp);
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_UNMOUNT|DBG_FUNC_START, pmp, 0, 0, 0, 0);
+	
 	flags = SKIPSYSTEM;
 	force = 0;
 	if (mntflags & MNT_FORCE) {
@@ -866,6 +984,7 @@ int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	error = 0;
 
 error_exit:
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_UNMOUNT|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
 
@@ -875,11 +994,15 @@ int msdosfs_vfs_root(struct mount *mp, vnode_t *vpp, vfs_context_t context)
 	struct denode *ndep;
 	int error;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_ROOT|DBG_FUNC_START, pmp, 0, 0, 0, 0);
+
 	error = msdosfs_deget(pmp, MSDOSFSROOT, MSDOSFSROOT_OFS, NULLVP, NULL, &ndep, context);
 	if (error)
 		return (error);
 	*vpp = DETOV(ndep);
-	return (0);
+	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_ROOT|DBG_FUNC_END, 0, ndep, 0, 0, 0);
+	return 0;
 }
 
 
@@ -889,6 +1012,9 @@ int msdosfs_vfs_statfs(struct mount *mp, struct vfsstatfs *sbp, vfs_context_t co
 	struct msdosfsmount *pmp;
 
 	pmp = VFSTOMSDOSFS(mp);
+
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_STATFS|DBG_FUNC_START, pmp, 0, 0, 0, 0);
+
 	/*
 	 * ¥ VFS fills in everything from a cached copy.
 	 * We only need to fill in fields that can change.
@@ -913,19 +1039,20 @@ int msdosfs_vfs_statfs(struct mount *mp, struct vfsstatfs *sbp, vfs_context_t co
 		sbp->f_fssubtype = 2;	/* FAT32 */
 	}
 
-	return (0);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_STATFS|DBG_FUNC_END, 0, sbp->f_blocks, sbp->f_bfree, sbp->f_fssubtype, 0);
+	return 0;
 }
 
 
 int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 {
 #pragma unused (context)
-	struct vfsstatfs *stats;
 	struct msdosfsmount *pmp;
 
-	stats = vfs_statfs(mp);
 	pmp = VFSTOMSDOSFS(mp);
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_GETATTR|DBG_FUNC_START, pmp, attr->f_active, 0, 0, 0);
+	
 	/* FAT doesn't track the object counts */
 	
 	VFSATTR_RETURN(attr, f_bsize,  pmp->pm_bpcluster);
@@ -1140,6 +1267,7 @@ int msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 		VFSATTR_SET_SUPPORTED(attr, f_vol_name);
 	}
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_GETATTR|DBG_FUNC_END, pmp, attr->f_supported, 0, 0, 0);
 	return 0;
 }
 
@@ -1148,6 +1276,8 @@ int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 {
     int error = 0;
 	struct msdosfsmount *pmp = VFSTOMSDOSFS(mp);
+
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_SETATTR|DBG_FUNC_START, pmp, attr->f_active, 0, 0, 0);
 
 	if (VFSATTR_IS_ACTIVE(attr, f_vol_name))
 	{
@@ -1174,8 +1304,8 @@ int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
 
         /*
          * Convert from UTF-16 to local encoding (like a short name).
-         * We can't call msdosfs_unicode2dosfn here because it assumes a dot
-         * between the first 8 and last 3 characters.
+         * We can't call msdosfs_unicode_to_dos_name here because it
+		 * assumes a dot between the first 8 and last 3 characters.
          *
          * The specification doesn't say what syntax limitations exist
          * for volume labels.  By experimentation, they appear to be
@@ -1237,6 +1367,7 @@ int msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context
         	VFSATTR_SET_SUPPORTED(attr, f_vol_name);
 	}
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_SETATTR|DBG_FUNC_END, pmp, attr->f_supported, 0, 0, 0);
 	return error;
 }
 
@@ -1295,6 +1426,8 @@ int msdosfs_vfs_sync(mp, waitfor, context)
 	int error, allerror = 0;
 	struct msdosfs_sync_cargs args;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_SYNC|DBG_FUNC_START, pmp, 0, 0, 0, 0);
+	
 	/*
 	 * Flush the FSInfo sector and all copies of the FAT.
 	 */
@@ -1333,7 +1466,8 @@ int msdosfs_vfs_sync(mp, waitfor, context)
 	if (error)
 		allerror = error;
 
-	return (allerror);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VFS_SYNC|DBG_FUNC_END, allerror, 0, 0, 0, 0);
+	return allerror;
 }
 
 

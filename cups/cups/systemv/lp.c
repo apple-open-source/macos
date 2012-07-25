@@ -1,5 +1,5 @@
 /*
- * "$Id: lp.c 9636 2011-03-21 22:02:00Z mike $"
+ * "$Id: lp.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "lp" command for CUPS.
  *
@@ -629,8 +629,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if (cupsFinishDocument(CUPS_HTTP_DEFAULT, printer) != IPP_OK)
     {
+      _cupsLangPrintf(stderr, "%s: %s", argv[0], cupsLastErrorString());
       cupsCancelJob2(CUPS_HTTP_DEFAULT, printer, job_id, 0);
-      job_id = 0;
+      return (1);
     }
   }
 
@@ -723,5 +724,5 @@ set_job_attrs(const char    *command,	/* I - Command name */
 
 
 /*
- * End of "$Id: lp.c 9636 2011-03-21 22:02:00Z mike $".
+ * End of "$Id: lp.c 9042 2010-03-24 00:45:34Z mike $".
  */

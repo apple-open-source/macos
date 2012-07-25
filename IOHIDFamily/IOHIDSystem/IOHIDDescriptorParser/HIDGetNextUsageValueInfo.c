@@ -97,8 +97,7 @@ OSStatus HIDGetNextUsageValueInfo
 	// The Collection must be in range
 
 	iCollection = *collection;
-	// Umm... an unsigned number can never be less than 0!
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 
 	// HIDGetNextUsageValueInfo is different from HIDGetUsageValue in how it treats

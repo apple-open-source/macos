@@ -195,7 +195,7 @@ void IOHIDUPSClass::storeUPSElement(CFStringRef psKey, UPSHIDElement * newElemen
         }
         // The previous element has the same usage.  If the current
         // element is better, replace the old one.
-        else if ( added = replaced = ShouldReplaceElement(oldElementRef, newElementRef) )
+        else if ( (added = replaced = ShouldReplaceElement(oldElementRef, newElementRef)) )
             CFDictionarySetValue(_upsElements, psKey, newData);
 
     }
@@ -223,7 +223,7 @@ void IOHIDUPSClass::storeUPSElement(CFStringRef psKey, UPSHIDElement * newElemen
         // If the current element is better, replace the old one.
         if ( found )
         {
-            if ( added = replaced = ShouldReplaceElement(oldElementRef, newElementRef) )
+            if ( (added = replaced = ShouldReplaceElement(oldElementRef, newElementRef)) )
                 CFArraySetValueAtIndex(upsElementArray, index, newData);
         }
         // Otherwise, just add it
@@ -410,9 +410,9 @@ HRESULT IOHIDUPSClass::queryInterface(REFIID iid, void **ppv)
 // probe
 //---------------------------------------------------------------------------
 IOReturn IOHIDUPSClass::probe(
-                            CFDictionaryRef 		propertyTable,
-                            io_service_t 		service, 
-                            SInt32 *			order)
+                            CFDictionaryRef     propertyTable __unused,
+                            io_service_t        service, 
+                            SInt32              *order __unused)
 {
     if (!service || !IOObjectConformsTo(service, "IOHIDDevice"))
         return kIOReturnBadArgument;
@@ -424,8 +424,8 @@ IOReturn IOHIDUPSClass::probe(
 // start
 //---------------------------------------------------------------------------
 IOReturn IOHIDUPSClass::start(
-                            CFDictionaryRef 		propertyTable,
-                            io_service_t 		service)
+                            CFDictionaryRef     propertyTable __unused,
+                            io_service_t        service)
 {
     IOCFPlugInInterface **	cfPlugInterface = NULL;
     IOReturn			ret 		= kIOReturnSuccess;
@@ -607,7 +607,9 @@ IOReturn IOHIDUPSClass::getCapabilities(CFSetRef * capabilities)
 //---------------------------------------------------------------------------
 // getEventProcess
 //---------------------------------------------------------------------------
-void IOHIDUPSClass::getEventProcess(UPSHIDElement * elementRef, CFStringRef psKey, bool * changed)
+void IOHIDUPSClass::getEventProcess(UPSHIDElement       *elementRef, 
+                                    CFStringRef         psKey __unused, 
+                                    bool                *changed)
 {
     IOReturn err;
     bool ret = false;
@@ -1095,10 +1097,10 @@ SETUP_QUEUE_CLEANUP:
 // _queueCallbackFunction
 //---------------------------------------------------------------------------
 void IOHIDUPSClass::_queueCallbackFunction(
-                            void * 			target, 
-                            IOReturn 			result, 
-                            void * 			refcon, 
-                            void * 			sender)
+                            void            *target, 
+                            IOReturn        result, 
+                            void            *refcon __unused, 
+                            void            *sender)
 {
     IOHIDUPSClass * 	self 		= (IOHIDUPSClass *)target;
     AbsoluteTime 	zeroTime 	= {0,0};
@@ -1158,8 +1160,8 @@ void IOHIDUPSClass::_queueCallbackFunction(
 // _timerCallbackFunction
 //---------------------------------------------------------------------------
 void IOHIDUPSClass::_timerCallbackFunction(
-                                CFRunLoopTimerRef 	timer, 
-                                void *			refCon)
+                                CFRunLoopTimerRef   timer __unused, 
+                                void                *refCon)
 {
     IOHIDUPSClass * 	self 		= (IOHIDUPSClass *)refCon;
     bool		changed		= false;

@@ -33,18 +33,40 @@
 
 namespace WebCore {
 
+static PassOwnPtr<BlobData> createBlobDataForFileWithType(const String& path, const String& contentType)
+{
+    OwnPtr<BlobData> blobData = BlobData::create();
+    blobData->setContentType(contentType);
+    blobData->appendFile(path);
+    return blobData.release();
+}
+
 static PassOwnPtr<BlobData> createBlobDataForFile(const String& path)
 {
     String type;
     int index = path.reverseFind('.');
     if (index != -1)
         type = MIMETypeRegistry::getMIMETypeForExtension(path.substring(index + 1));
-
-    OwnPtr<BlobData> blobData = BlobData::create();
-    blobData->setContentType(type);
-    blobData->appendFile(path);
-    return blobData.release();
+    return createBlobDataForFileWithType(path, type);
 }
+
+static PassOwnPtr<BlobData> createBlobDataForFileWithName(const String& path, const String& fileSystemName)
+{
+    String type;
+    int index = fileSystemName.reverseFind('.');
+    if (index != -1)
+        type = MIMETypeRegistry::getWellKnownMIMETypeForExtension(fileSystemName.substring(index + 1));
+    return createBlobDataForFileWithType(path, type);
+}
+
+#if ENABLE(DIRECTORY_UPLOAD)
+PassRefPtr<File> File::createWithRelativePath(const String& path, const String& relativePath)
+{
+    RefPtr<File> file = adoptRef(new File(path));
+    file->m_relativePath = relativePath;
+    return file.release();
+}
+#endif
 
 File::File(const String& path)
     : Blob(createBlobDataForFile(path), -1)
@@ -58,17 +80,17 @@ File::File(const String& path, const KURL& url, const String& type)
     , m_path(path)
 {
     m_name = pathGetFileName(path);
+    // FIXME: File object serialization/deserialization does not include
+    // newer file object data members: m_name and m_relativePath.
+    // See SerializedScriptValue.cpp for js and v8.
 }
 
-#if ENABLE(DIRECTORY_UPLOAD)
-File::File(const String& relativePath, const String& path)
-    : Blob(createBlobDataForFile(path), -1)
+File::File(const String& path, const String& name)
+    : Blob(createBlobDataForFileWithName(path, name), -1)
     , m_path(path)
-    , m_relativePath(relativePath)
+    , m_name(name)
 {
-    m_name = pathGetFileName(path);
 }
-#endif
 
 double File::lastModifiedDate() const
 {

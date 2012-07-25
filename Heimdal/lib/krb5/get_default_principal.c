@@ -76,7 +76,7 @@ _krb5_get_default_principal_local (krb5_context context,
 	else
 	    ret = krb5_make_principal(context, princ, NULL, "root", NULL);
     } else {
-	struct passwd *pw = getpwuid(uid);	
+	struct passwd *pw = getpwuid(uid);
 	if(pw != NULL)
 	    user = pw->pw_name;
 	else {
@@ -104,8 +104,6 @@ krb5_error_code
 _krb5_get_default_principal_local(krb5_context context,
 				  krb5_principal *princ)
 {
-    krb5_error_code ret = 0;
-
     /* See if we can get the principal first.  We only expect this to
        work if logged into a domain. */
     {

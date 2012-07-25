@@ -41,32 +41,22 @@
 namespace WebCore {
 
 class Blob;
+class File;
 class StringCallback;
 class ScriptExecutionContext;
 
 class DataTransferItem : public RefCounted<DataTransferItem> {
 public:
-    ~DataTransferItem() {}
-
-    static PassRefPtr<DataTransferItem> create(PassRefPtr<Clipboard> owner, ScriptExecutionContext*, const String& data, const String& type);
+    virtual ~DataTransferItem() { }
 
     static const char kindString[];
     static const char kindFile[];
 
-    String kind() const;
-    String type() const;
+    virtual String kind() const = 0;
+    virtual String type() const = 0;
 
-    virtual void getAsString(PassRefPtr<StringCallback>) = 0;
-    virtual PassRefPtr<Blob> getAsFile() = 0;
-
-protected:
-    DataTransferItem(RefPtr<Clipboard> owner, const String& kind, const String& type);
-    Clipboard* owner();
-
-private:
-    const RefPtr<Clipboard> m_owner;
-    const String m_kind;
-    const String m_type;
+    virtual void getAsString(PassRefPtr<StringCallback>) const = 0;
+    virtual PassRefPtr<Blob> getAsFile() const = 0;
 };
 
 } // namespace WebCore

@@ -33,17 +33,28 @@
 
 namespace JSC { namespace DFG {
 
-OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, ValueProfile* valueProfile, MacroAssembler::Jump check, SpeculativeJIT* jit, unsigned recoveryIndex)
+static unsigned computeNumVariablesForCodeOrigin(
+    CodeBlock* codeBlock, const CodeOrigin& codeOrigin)
+{
+    if (!codeOrigin.inlineCallFrame)
+        return codeBlock->m_numCalleeRegisters;
+    return
+        codeOrigin.inlineCallFrame->stackOffset +
+        baselineCodeBlockForInlineCallFrame(codeOrigin.inlineCallFrame)->m_numCalleeRegisters;
+}
+
+OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, MethodOfGettingAValueProfile valueProfile, MacroAssembler::Jump check, SpeculativeJIT* jit, unsigned recoveryIndex)
     : m_jsValueSource(jsValueSource)
     , m_valueProfile(valueProfile)
     , m_check(check)
     , m_nodeIndex(jit->m_compileIndex)
     , m_codeOrigin(jit->m_codeOriginForOSR)
+    , m_codeOriginForExitProfile(m_codeOrigin)
     , m_recoveryIndex(recoveryIndex)
     , m_kind(kind)
     , m_count(0)
     , m_arguments(jit->m_arguments.size())
-    , m_variables(jit->m_variables.size())
+    , m_variables(computeNumVariablesForCodeOrigin(jit->m_jit.graph().m_profiledBlock, jit->m_codeOriginForOSR))
     , m_lastSetOperand(jit->m_lastSetOperand)
 {
     ASSERT(m_codeOrigin.isSet());
@@ -53,7 +64,6 @@ OSRExit::OSRExit(ExitKind kind, JSValueSource jsValueSource, ValueProfile* value
         m_variables[variable] = jit->computeValueRecoveryFor(jit->m_variables[variable]);
 }
 
-#ifndef NDEBUG
 void OSRExit::dump(FILE* out) const
 {
     for (unsigned argument = 0; argument < m_arguments.size(); ++argument)
@@ -62,14 +72,13 @@ void OSRExit::dump(FILE* out) const
     for (unsigned variable = 0; variable < m_variables.size(); ++variable)
         m_variables[variable].dump(out);
 }
-#endif
 
 bool OSRExit::considerAddingAsFrequentExitSiteSlow(CodeBlock* dfgCodeBlock, CodeBlock* profiledCodeBlock)
 {
     if (static_cast<double>(m_count) / dfgCodeBlock->speculativeFailCounter() <= Options::osrExitProminenceForFrequentExitSite)
         return false;
     
-    return AssemblyHelpers::baselineCodeBlockForOriginAndBaselineCodeBlock(m_codeOrigin, profiledCodeBlock)->addFrequentExitSite(FrequentExitSite(m_codeOrigin.bytecodeIndex, m_kind));
+    return baselineCodeBlockForOriginAndBaselineCodeBlock(m_codeOriginForExitProfile, profiledCodeBlock)->addFrequentExitSite(FrequentExitSite(m_codeOriginForExitProfile.bytecodeIndex, m_kind));
 }
 
 } } // namespace JSC::DFG

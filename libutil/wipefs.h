@@ -34,6 +34,7 @@ typedef struct __wipefs_ctx *wipefs_ctx;
 
 __BEGIN_DECLS
 extern int wipefs_alloc(int fd, size_t block_size, wipefs_ctx *handle);
+extern int wipefs_include_blocks(wipefs_ctx handle, off_t block_offset, off_t nblocks);
 extern int wipefs_except_blocks(wipefs_ctx handle, off_t block_offset, off_t nblocks);
 extern int wipefs_wipe(wipefs_ctx handle);
 extern void wipefs_free(wipefs_ctx *handle);

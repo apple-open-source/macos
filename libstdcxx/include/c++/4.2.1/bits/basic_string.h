@@ -2408,11 +2408,15 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __os,
 	       const basic_string<_CharT, _Traits, _Alloc>& __str)
+#if __TARGETING_4_0_DYLIB
+    ; // __ostream_insert() not exported from libstdc++.6.0.4 dylib
+#else
     {
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // 586. string inserter not a formatted function
       return __ostream_insert(__os, __str.data(), __str.size());
     }
+#endif
 
   /**
    *  @brief  Read a line from stream into a string.

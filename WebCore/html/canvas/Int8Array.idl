@@ -26,20 +26,20 @@
 
 module html {
     interface [
-        CanBeConstructed,
-        CustomConstructFunction,
-        V8CustomConstructor,
-        HasNumericIndexGetter,
-        HasCustomIndexSetter,
-        GenerateNativeConverter,
-        NoStaticTables,
-        CustomToJS,
-        DontCheckEnums
+        CustomConstructor,
+        ConstructorParameters=1,
+        NumericIndexedGetter,
+        CustomIndexedSetter,
+        JSGenerateToNativeObject,
+        JSNoStaticTables,
+        CustomToJSObject,
+        DoNotCheckConstants
     ] Int8Array : ArrayBufferView {
-        const unsigned int BYTES_PER_ELEMENT = 1;
+        const unsigned long BYTES_PER_ELEMENT = 1;
 
         readonly attribute unsigned long length;
-        Int8Array subarray(in long start, in [Optional] long end);
+        Int8Array subarray(in [Optional=DefaultIsUndefined] long start, 
+                           in [Optional] long end);
 
         // void set(in Int8Array array, [Optional] in unsigned long offset);
         // void set(in sequence<long> array, [Optional] in unsigned long offset);

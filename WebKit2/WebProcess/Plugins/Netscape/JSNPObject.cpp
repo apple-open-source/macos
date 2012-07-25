@@ -35,6 +35,7 @@
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/ObjectPrototype.h>
 #include <WebCore/IdentifierRep.h>
+#include <wtf/Assertions.h>
 #include <wtf/text/WTFString.h>
 
 using namespace JSC;
@@ -71,6 +72,11 @@ void JSNPObject::finishCreation(JSGlobalObject* globalObject)
 JSNPObject::~JSNPObject()
 {
     ASSERT(!m_npObject);
+}
+
+void JSNPObject::destroy(JSCell* cell)
+{
+    jsCast<JSNPObject*>(cell)->JSNPObject::~JSNPObject();
 }
 
 void JSNPObject::invalidate()

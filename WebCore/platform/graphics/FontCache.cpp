@@ -35,6 +35,7 @@
 #include "FontPlatformData.h"
 #include "FontSelector.h"
 #include "GlyphPageTreeNode.h"
+#include "WebKitFontFamilyNames.h"
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/StdLibExtras.h>
@@ -239,7 +240,7 @@ struct FontDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformData> {
     }
     static void constructDeletedValue(FontPlatformData& slot)
     {
-        new (&slot) FontPlatformData(HashTableDeletedValue);
+        new (NotNull, &slot) FontPlatformData(HashTableDeletedValue);
     }
     static bool isDeletedValue(const FontPlatformData& value)
     {
@@ -251,8 +252,13 @@ typedef HashMap<FontPlatformData, pair<SimpleFontData*, unsigned>, FontDataCache
 
 static FontDataCache* gFontDataCache = 0;
 
+#if PLATFORM(CHROMIUM) && !OS(ANDROID)
+const int cMaxInactiveFontData = 250;
+const int cTargetInactiveFontData = 200;
+#else
 const int cMaxInactiveFontData = 50; // Pretty Low Threshold
 const int cTargetInactiveFontData = 30;
+#endif
 static ListHashSet<const SimpleFontData*>* gInactiveFontData = 0;
 
 SimpleFontData* FontCache::getCachedFontData(const FontDescription& fontDescription, const AtomicString& family, bool checkingAlternateName, ShouldRetain shouldRetain)
@@ -304,6 +310,11 @@ SimpleFontData* FontCache::getCachedFontData(const FontPlatformData* platformDat
     return result.get()->second.first;
 }
 
+SimpleFontData* FontCache::getNonRetainedLastResortFallbackFont(const FontDescription& fontDescription)
+{
+    return getLastResortFallbackFont(fontDescription, DoNotRetain);
+}
+
 void FontCache::releaseFontData(const SimpleFontData* fontData)
 {
     ASSERT(gFontDataCache);
@@ -340,6 +351,7 @@ void FontCache::purgeInactiveFontData(int count)
     for (int i = 0; i < count && it != end; ++it, ++i) {
         const SimpleFontData* fontData = *it.get();
         gFontDataCache->remove(fontData->platformData());
+        // We should not delete SimpleFontData here because deletion can modify gInactiveFontData. See http://trac.webkit.org/changeset/44011
         fontDataToDelete.append(fontData);
     }
 
@@ -388,7 +400,7 @@ size_t FontCache::inactiveFontDataCount()
 
 const FontData* FontCache::getFontData(const Font& font, int& familyIndex, FontSelector* fontSelector)
 {
-    SimpleFontData* result = 0;
+    FontData* result = 0;
 
     int startIndex = familyIndex;
     const FontFamily* startFamily = &font.fontDescription().family();
@@ -398,12 +410,11 @@ const FontData* FontCache::getFontData(const Font& font, int& familyIndex, FontS
     while (currFamily && !result) {
         familyIndex++;
         if (currFamily->family().length()) {
-            if (fontSelector) {
-                FontData* data = fontSelector->getFontData(font.fontDescription(), currFamily->family());
-                if (data)
-                    return data;
-            }
-            result = getCachedFontData(font.fontDescription(), currFamily->family());
+            if (fontSelector)
+                result = fontSelector->getFontData(font.fontDescription(), currFamily->family());
+
+            if (!result)
+                result = getCachedFontData(font.fontDescription(), currFamily->family());
         }
         currFamily = currFamily->next();
     }
@@ -423,7 +434,7 @@ const FontData* FontCache::getFontData(const Font& font, int& familyIndex, FontS
 
         if (fontSelector) {
             // Try the user's preferred standard font.
-            if (FontData* data = fontSelector->getFontData(font.fontDescription(), "-webkit-standard"))
+            if (FontData* data = fontSelector->getFontData(font.fontDescription(), standardFamily))
                 return data;
         }
 
@@ -452,9 +463,9 @@ void FontCache::removeClient(FontSelector* client)
     gClients->remove(client);
 }
 
-static unsigned gGeneration = 0;
+static unsigned short gGeneration = 0;
 
-unsigned FontCache::generation()
+unsigned short FontCache::generation()
 {
     return gGeneration;
 }

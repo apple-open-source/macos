@@ -66,68 +66,91 @@ int
 main(int argc, char **argv)
 {
 	int error = 0, class = 0, do_set = 0, fd = 0;
-	DIR *dp = NULL;
 	struct stat buf = {0};
 
 	if ((argc < 2) || (argc > 3))
 		usage();
-	
-	error = stat(argv[1], &buf);
-	if (error) {
-		printf("Error - could not stat path %s\n", argv[1]);
-		exit(0);		
-	}
-	
-	if (S_ISDIR(buf.st_mode)) {
-		if((dp = opendir(argv[1])) == NULL) {
-			printf("Error - could not open directory %s\n", argv[1]);
-			exit(0);
-		}
-		
-		fd = dirfd(dp);		
-	} else if (S_ISREG(buf.st_mode)) {
-		fd = open(argv[1], O_RDWR);
-		if (fd < 0) {
-			printf("Error - could not open file %s\n", argv[1]);
-			exit(0);
-		}		
-	} else {
-		printf("Error - path is not a regular file or directory %s\n", argv[1]);
-		exit(0);
-	}
-		
+
 	if (argv[2]) {
 		do_set = 1;
 		class = chartoclass(*argv[2]);
 	}
 
+	error = stat(argv[1], &buf);
+	if (error) {
+		printf("Error - could not stat path %s\n", argv[1]);
+		exit(0);		
+	}
+
+	/*
+	 * If we're trying to set the protection class, go through normal open(2).
+	 * This will deny opens on protected files if the device is locked.
+	 */
 	if (do_set) {
+		fd = open (argv[1], O_RDONLY);
 
+		if (fd < 0) {
+			if (S_ISDIR(buf.st_mode)) {
+				printf("Error - could not open directory %s\n", argv[1]);
+			}
+			else if (S_ISREG(buf.st_mode)){
+				printf("Error - could not open file %s\n", argv[1]);
+			}
+			else {
+				printf("Error - path is not a regular file or directory %s\n", argv[1]);
+			}
+			exit(0);
+		}
+	}
+	else {
+		/*
+		 * The open_dprotected_np syscall allows us to acquire an FD to query the
+		 * protection class even if the device is locked.
+		 */
+		fd = open_dprotected_np (argv[1], O_RDONLY, 0, O_DP_GETRAWENCRYPTED);
+
+		if (fd < 0) {
+			if (S_ISDIR(buf.st_mode)) {
+				printf("Error - could not open directory %s\n", argv[1]);
+			}
+			else if (S_ISREG(buf.st_mode)){
+				printf("Error - could not open file %s\n", argv[1]);
+			}
+			else {
+				printf("Error - path is not a regular file or directory %s\n", argv[1]);
+			}
+			exit(0);
+		}
+	}
+
+	/* Now make the fcntl call */
+	if (do_set) {
 		error = fcntl(fd, F_SETPROTECTIONCLASS, class);
-		if (error)
+		if (error) {
 			printf("could not set protection class %c: %s\n", classtochar(class), strerror(errno));
+		}
 
-	} else {
-
+	} 
+	else {
 		class = fcntl(fd, F_GETPROTECTIONCLASS);
 		if (class < 0) {
-			if (dp != NULL && errno == EFAULT) {
+			if ((errno == EFAULT) && (S_ISDIR(buf.st_mode))) {
+				/* Directories are allowed to not have a class set. */
 				printf("%s has no protection class set\n", argv[1]);
-			} else {
+			} 
+			else {
 				printf("could not get protection class: %s\n", strerror(errno));
 				error = class;
 			}
-		} else {
+		} 
+		else {
 			printf("%s is in protection class %c\n", argv[1], classtochar(class));
 		}
-
 	}
 	
-	if(dp)
-		closedir(dp);
-
-	if(fd)
+	if (fd >= 0) {
 		close(fd);
+	}
 
 	return error;
 }

@@ -1,8 +1,8 @@
 /* bind.c - bdb backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/bind.c,v 1.45.2.7 2010/04/13 20:23:23 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,6 +22,9 @@
 
 #include "back-bdb.h"
 #include "psauth.h"
+#define __COREFOUNDATION_CFFILESECURITY__
+#include <CoreFoundation/CoreFoundation.h>
+#include "applehelpers.h"
 
 int
 bdb_bind( Operation *op, SlapReply *rs )
@@ -45,10 +48,10 @@ bdb_bind( Operation *op, SlapReply *rs )
 	switch ( be_rootdn_bind( op, NULL ) ) {
 	case LDAP_SUCCESS:
 		/* frontend will send result */
-		return rs->sr_err;
+		return rs->sr_err = LDAP_SUCCESS;
 
 	default:
-		/* give the database a chanche */
+		/* give the database a chance */
 		/* NOTE: this behavior departs from that of other backends,
 		 * since the others, in case of password checking failure
 		 * do not give the database a chance.  If an entry with
@@ -138,7 +141,42 @@ dn2entry_retry:
  			/* check authentication authority */
 			if ( a->a_vals[0].bv_val != NULL ) {
  				if ( CheckAuthType(a->a_vals[0].bv_val, PASSWORD_SERVER_AUTH_TYPE) ) {
- 					rs->sr_err = (DoPSAuth(NULL, op->oq_bind.rb_cred.bv_val, a->a_vals[0].bv_val) == kAuthNoError) ? 0 : LDAP_INVALID_CREDENTIALS;
+					Attribute *a2;
+					AttributeDescription *uid = slap_schema.si_ad_uid;
+
+					a2 = attr_find(e->e_attrs, uid);
+					if(!a2 || !a2->a_vals) {
+						rs->sr_text = "Could not locate uid attribute";
+						rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+						goto done;
+					}
+					op->o_conn->c_sasl_bindop = op;
+ 					rs->sr_err = (DoPSAuth(a2->a_vals[0].bv_val, op->oq_bind.rb_cred.bv_val, a->a_vals[0].bv_val, op->o_conn, op->o_req_ndn.bv_val) == kAuthNoError) ? 0 : LDAP_INVALID_CREDENTIALS;
+					op->o_conn->c_sasl_bindop = NULL;
+					if(!rs->sr_err) {
+						CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_req_ndn);
+						if(!poldict) {
+							Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+							rs->sr_text = "Could not verify policy";
+							rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+							goto done;
+						}
+
+						if(odusers_isdisabled(poldict)) {
+							Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+							CFRelease(poldict);
+							rs->sr_text = "Policy violation";
+							rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+							goto done;
+						}
+
+						odusers_successful_auth(&op->o_req_ndn, poldict);
+						CFRelease(poldict);
+					} else {
+						if(odusers_increment_failedlogin(&op->o_req_ndn) != 0) {
+							Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, op->o_req_ndn.bv_val, 0);
+						}
+					}
  
  					goto done;
  				}

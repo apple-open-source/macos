@@ -30,6 +30,8 @@
 #include "GraphicsLayer.h"
 
 #include "FloatPoint.h"
+#include "GraphicsContext.h"
+#include "LayoutTypes.h"
 #include "RotateTransformOperation.h"
 #include "TextStream.h"
 #include <wtf/text/CString.h>
@@ -73,6 +75,7 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient* client)
     , m_usingTiledLayer(false)
     , m_masksToBounds(false)
     , m_drawsContent(false)
+    , m_contentsVisible(true)
     , m_acceleratesDrawing(false)
     , m_maintainsPixelAlignment(false)
     , m_appliesPageScale(false)
@@ -84,12 +87,38 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient* client)
     , m_replicatedLayer(0)
     , m_repaintCount(0)
 {
+#ifndef NDEBUG
+    if (m_client)
+        m_client->verifyNotPainting();
+#endif
 }
 
 GraphicsLayer::~GraphicsLayer()
 {
+    ASSERT(!m_parent); // willBeDestroyed should have been called already.
+}
+
+void GraphicsLayer::willBeDestroyed()
+{
+#ifndef NDEBUG
+    if (m_client)
+        m_client->verifyNotPainting();
+#endif
+
+    if (m_replicaLayer)
+        m_replicaLayer->setReplicatedLayer(0);
+
+    if (m_replicatedLayer)
+        m_replicatedLayer->setReplicatedByLayer(0);
+
     removeAllChildren();
     removeFromParent();
+}
+
+void GraphicsLayer::setParent(GraphicsLayer* layer)
+{
+    ASSERT(!layer || !layer->hasAncestor(this));
+    m_parent = layer;
 }
 
 bool GraphicsLayer::hasAncestor(GraphicsLayer* ancestor) const
@@ -242,10 +271,27 @@ void GraphicsLayer::noteDeviceOrPageScaleFactorChangedIncludingDescendants()
 
 void GraphicsLayer::setReplicatedByLayer(GraphicsLayer* layer)
 {
+    if (m_replicaLayer == layer)
+        return;
+
+    if (m_replicaLayer)
+        m_replicaLayer->setReplicatedLayer(0);
+
     if (layer)
         layer->setReplicatedLayer(this);
 
     m_replicaLayer = layer;
+}
+
+void GraphicsLayer::setOffsetFromRenderer(const IntSize& offset)
+{
+    if (offset == m_offsetFromRenderer)
+        return;
+
+    m_offsetFromRenderer = offset;
+
+    // If the compositing layer offset changes, we need to repaint.
+    setNeedsDisplay();
 }
 
 void GraphicsLayer::setBackgroundColor(const Color& color)
@@ -262,8 +308,15 @@ void GraphicsLayer::clearBackgroundColor()
 
 void GraphicsLayer::paintGraphicsLayerContents(GraphicsContext& context, const IntRect& clip)
 {
-    if (m_client)
-        m_client->paintContents(this, context, m_paintingPhase, clip);
+    if (m_client) {
+        LayoutSize offset = offsetFromRenderer();
+        context.translate(-offset);
+
+        LayoutRect clipRect(clip);
+        clipRect.move(offset);
+
+        m_client->paintContents(this, context, m_paintingPhase, pixelSnappedIntRect(clipRect));
+    }
 }
 
 String GraphicsLayer::animationNameForTransition(AnimatedPropertyID property)
@@ -287,16 +340,18 @@ void GraphicsLayer::updateDebugIndicators()
 {
     if (GraphicsLayer::showDebugBorders()) {
         if (drawsContent()) {
-            if (m_usingTiledLayer)
-                setDebugBorder(Color(0, 255, 0, 204), 2.0f);    // tiled layer: green
+            // FIXME: It's weird to ask the client if this layer is a tile cache layer.
+            // Maybe we should just cache that information inside GraphicsLayer?
+            if (m_client->shouldUseTileCache(this)) // tile cache layer: dark blue
+                setDebugBorder(Color(0, 0, 128, 128), 0.5);
+            else if (m_usingTiledLayer)
+                setDebugBorder(Color(255, 128, 0, 128), 2); // tiled layer: orange
             else
-                setDebugBorder(Color(255, 0, 0, 204), 2.0f);    // normal layer: red
+                setDebugBorder(Color(0, 128, 32, 128), 2); // normal layer: green
         } else if (masksToBounds()) {
-            setDebugBorder(Color(128, 255, 255, 178), 2.0f);    // masking layer: pale blue
-            if (GraphicsLayer::showDebugBorders())
-                setDebugBackgroundColor(Color(128, 255, 255, 52));
+            setDebugBorder(Color(128, 255, 255, 48), 20); // masking layer: pale blue
         } else
-            setDebugBorder(Color(255, 255, 0, 204), 2.0f);      // container: yellow
+            setDebugBorder(Color(255, 255, 0, 192), 2); // container: yellow
     }
 }
 
@@ -330,6 +385,55 @@ void GraphicsLayer::distributeOpacity(float accumulatedOpacity)
     }
 }
 
+#if PLATFORM(QT) || PLATFORM(GTK)
+GraphicsLayer::GraphicsLayerFactory* GraphicsLayer::s_graphicsLayerFactory = 0;
+
+void GraphicsLayer::setGraphicsLayerFactory(GraphicsLayer::GraphicsLayerFactory factory)
+{
+    s_graphicsLayerFactory = factory;
+}
+#endif
+
+#if ENABLE(CSS_FILTERS)
+static inline const FilterOperations* filterOperationsAt(const KeyframeValueList& valueList, size_t index)
+{
+    return static_cast<const FilterAnimationValue*>(valueList.at(index))->value();
+}
+
+int GraphicsLayer::validateFilterOperations(const KeyframeValueList& valueList)
+{
+    ASSERT(valueList.property() == AnimatedPropertyWebkitFilter);
+
+    if (valueList.size() < 2)
+        return -1;
+
+    // Empty filters match anything, so find the first non-empty entry as the reference
+    size_t firstIndex = 0;
+    for ( ; firstIndex < valueList.size(); ++firstIndex) {
+        if (filterOperationsAt(valueList, firstIndex)->operations().size() > 0)
+            break;
+    }
+
+    if (firstIndex >= valueList.size())
+        return -1;
+
+    const FilterOperations* firstVal = filterOperationsAt(valueList, firstIndex);
+    
+    for (size_t i = firstIndex + 1; i < valueList.size(); ++i) {
+        const FilterOperations* val = filterOperationsAt(valueList, i);
+        
+        // An emtpy filter list matches anything.
+        if (val->operations().isEmpty())
+            continue;
+        
+        if (!firstVal->operationsMatch(*val))
+            return -1;
+    }
+    
+    return firstIndex;
+}
+#endif
+
 // An "invalid" list is one whose functions don't match, and therefore has to be animated as a Matrix
 // The hasBigRotation flag will always return false if isValid is false. Otherwise hasBigRotation is 
 // true if the rotation between any two keyframes is >= 180 degrees.
@@ -339,16 +443,14 @@ static inline const TransformOperations* operationsAt(const KeyframeValueList& v
     return static_cast<const TransformAnimationValue*>(valueList.at(index))->value();
 }
 
-void GraphicsLayer::fetchTransformOperationList(const KeyframeValueList& valueList, TransformOperationList& list, bool& isValid, bool& hasBigRotation)
+int GraphicsLayer::validateTransformOperations(const KeyframeValueList& valueList, bool& hasBigRotation)
 {
     ASSERT(valueList.property() == AnimatedPropertyWebkitTransform);
 
-    list.clear();
-    isValid = false;
     hasBigRotation = false;
     
     if (valueList.size() < 2)
-        return;
+        return -1;
     
     // Empty transforms match anything, so find the first non-empty entry as the reference.
     size_t firstIndex = 0;
@@ -358,7 +460,7 @@ void GraphicsLayer::fetchTransformOperationList(const KeyframeValueList& valueLi
     }
     
     if (firstIndex >= valueList.size())
-        return;
+        return -1;
         
     const TransformOperations* firstVal = operationsAt(valueList, firstIndex);
     
@@ -366,29 +468,20 @@ void GraphicsLayer::fetchTransformOperationList(const KeyframeValueList& valueLi
     for (size_t i = firstIndex + 1; i < valueList.size(); ++i) {
         const TransformOperations* val = operationsAt(valueList, i);
         
-        // a null transform matches anything
+        // An emtpy transform list matches anything.
         if (val->operations().isEmpty())
             continue;
             
-        if (firstVal->operations().size() != val->operations().size())
-            return;
-            
-        for (size_t j = 0; j < firstVal->operations().size(); ++j) {
-            if (!firstVal->operations().at(j)->isSameType(*val->operations().at(j)))
-                return;
-        }
+        if (!firstVal->operationsMatch(*val))
+            return -1;
     }
 
-    // Keyframes are valid, fill in the list.
-    isValid = true;
-    
+    // Keyframes are valid, check for big rotations.    
     double lastRotAngle = 0.0;
     double maxRotAngle = -1.0;
         
-    list.resize(firstVal->operations().size());
     for (size_t j = 0; j < firstVal->operations().size(); ++j) {
         TransformOperation::OperationType type = firstVal->operations().at(j)->getOperationType();
-        list[j] = type;
         
         // if this is a rotation entry, we need to see if any angle differences are >= 180 deg
         if (type == TransformOperation::ROTATE_X ||
@@ -412,8 +505,18 @@ void GraphicsLayer::fetchTransformOperationList(const KeyframeValueList& valueLi
     }
     
     hasBigRotation = maxRotAngle >= 180.0;
+    
+    return firstIndex;
 }
 
+double GraphicsLayer::backingStoreArea() const
+{
+    if (!drawsContent())
+        return 0;
+    
+    // Effects of page and device scale are ignored; subclasses should override to take these into account.
+    return static_cast<double>(size().width()) * size().height();
+}
 
 static void writeIndent(TextStream& ts, int indent)
 {
@@ -444,6 +547,11 @@ void GraphicsLayer::dumpProperties(TextStream& ts, int indent, LayerTreeAsTextBe
         ts << "(position " << m_position.x() << " " << m_position.y() << ")\n";
     }
 
+    if (m_boundsOrigin != FloatPoint()) {
+        writeIndent(ts, indent + 1);
+        ts << "(bounds origin " << m_boundsOrigin.x() << " " << m_boundsOrigin.y() << ")\n";
+    }
+
     if (m_anchorPoint != FloatPoint3D(0.5f, 0.5f, 0)) {
         writeIndent(ts, indent + 1);
         ts << "(anchor " << m_anchorPoint.x() << " " << m_anchorPoint.y() << ")\n";
@@ -472,6 +580,11 @@ void GraphicsLayer::dumpProperties(TextStream& ts, int indent, LayerTreeAsTextBe
     if (m_drawsContent) {
         writeIndent(ts, indent + 1);
         ts << "(drawsContent " << m_drawsContent << ")\n";
+    }
+
+    if (!m_contentsVisible) {
+        writeIndent(ts, indent + 1);
+        ts << "(contentsVisible " << m_contentsVisible << ")\n";
     }
 
     if (!m_backfaceVisibility) {

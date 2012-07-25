@@ -26,8 +26,6 @@
 #include "config.h"
 #include "StorageNamespaceImpl.h"
 
-#if ENABLE(DOM_STORAGE)
-
 #include "SecurityOriginHash.h"
 #include "StorageAreaImpl.h"
 #include "StorageMap.h"
@@ -141,11 +139,6 @@ void StorageNamespaceImpl::close()
     m_isShutdown = true;
 }
 
-void StorageNamespaceImpl::unlock()
-{
-    // Because there's a single event loop per-process, this is a no-op.
-}
-
 void StorageNamespaceImpl::clearOriginForDeletion(SecurityOrigin* origin)
 {
     ASSERT(isMainThread());
@@ -173,5 +166,3 @@ void StorageNamespaceImpl::sync()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)

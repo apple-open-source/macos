@@ -43,6 +43,11 @@ namespace WebCore {
 
 class Blob : public RefCounted<Blob> {
 public:
+    static PassRefPtr<Blob> create()
+    {
+        return adoptRef(new Blob);
+    }
+
     static PassRefPtr<Blob> create(PassOwnPtr<BlobData> blobData, long long size)
     {
         return adoptRef(new Blob(blobData, size));
@@ -63,10 +68,11 @@ public:
     virtual bool isFile() const { return false; }
 
 #if ENABLE(BLOB)
-    PassRefPtr<Blob> webkitSlice(long long start, long long end = std::numeric_limits<long long>::max(), const String& contentType = String()) const;
+    PassRefPtr<Blob> webkitSlice(long long start = 0, long long end = std::numeric_limits<long long>::max(), const String& contentType = String()) const;
 #endif
 
 protected:
+    Blob();
     Blob(PassOwnPtr<BlobData>, long long size);
 
     // For deserialization.

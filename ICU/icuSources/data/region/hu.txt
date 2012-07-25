@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/hu.xml
@@ -33,7 +33,6 @@ hu{
         054{"Melanézia"}
         057{"Mikronéziai régió"}
         061{"Polinézia"}
-        062{"Délközép-Ázsia"}
         142{"Ázsia"}
         143{"Közép-Ázsia"}
         145{"Nyugat-Ázsia"}
@@ -41,9 +40,7 @@ hu{
         151{"Kelet-Európa"}
         154{"Észak-Európa"}
         155{"Nyugat-Európa"}
-        172{"Független Államok Közössége"}
-        419{"Latin-Amerika és a Karib-térség"}
-        830{"Csatorna-szigetek"}
+        419{"Latin-Amerika"}
         AC{"Ascension-sziget"}
         AD{"Andorra"}
         AE{"Egyesült Arab Emirátus"}
@@ -99,6 +96,7 @@ hu{
         CS{"Szerbia és Montenegró"}
         CU{"Kuba"}
         CV{"Zöld-foki Köztársaság"}
+        CW{"Curaçao"}
         CX{"Karácsony-szigetek"}
         CY{"Ciprus"}
         CZ{"Csehország"}
@@ -260,6 +258,7 @@ hu{
         SR{"Suriname"}
         ST{"Sao Tomé és Príncipe"}
         SV{"Salvador"}
+        SX{"Sint Maarten"}
         SY{"Szíria"}
         SZ{"Szváziföld"}
         TA{"Tristan da Cunha"}
@@ -301,5 +300,5 @@ hu{
         ZW{"Zimbabwe"}
         ZZ{"Ismeretlen vagy érvénytelen körzet"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
 }

@@ -1,6 +1,6 @@
 *PPD-Adobe: "4.3"
 *%
-*% "$Id: testhp.ppd 9563 2011-02-22 20:21:24Z mike $"
+*% "$Id: testhp.ppd 6649 2007-07-11 21:46:42Z mike $"
 *%
 *%   Test HP PPD file for CUPS.
 *%
@@ -183,5 +183,5 @@
 *Font ZapfChancery-MediumItalic: Standard "(001.007S)" Standard ROM
 *Font ZapfDingbats: Special "(001.004S)" Standard ROM
 *%
-*% End of "$Id: testhp.ppd 9563 2011-02-22 20:21:24Z mike $".
+*% End of "$Id: testhp.ppd 6649 2007-07-11 21:46:42Z mike $".
 *%

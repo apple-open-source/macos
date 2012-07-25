@@ -1,4 +1,4 @@
-/* $Id: resconf.h,v 1.1 2003/06/04 00:25:41 marka Exp $ */
+/* $Id: resconf.h,v 1.1.1.1 2003-06-04 00:25:41 marka Exp $ */
 /*
  * Copyright (c) 2000 Japan Network Information Center.  All rights reserved.
  *  

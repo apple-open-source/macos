@@ -82,7 +82,6 @@ static void printzone(mach_zone_name_t *, task_zone_info_t *);
 static void colprintzone(mach_zone_name_t *, task_zone_info_t *);
 static int  find_deltas(mach_zone_name_t *, task_zone_info_t *, task_zone_info_t *, char *, int, int);
 static void colprintzoneheader(void);
-static void printk(const char *, int);
 static boolean_t substr(const char *a, int alen, const char *b, int blen);
 
 static char *program;
@@ -407,12 +406,8 @@ printzone(mach_zone_name_t *name, task_zone_info_t *info)
 	}
 }
 
-static void
-printk(const char *fmt, int i)
-{
-	printf(fmt, i / 1024);
-	putchar('K');
-}
+#define	PRINTK(fmt, value)	\
+	printf(fmt "K", (value) / 1024 )	/* ick */
 
 static void
 colprintzone(mach_zone_name_t *zone_name, task_zone_info_t *info)
@@ -443,22 +438,22 @@ colprintzone(mach_zone_name_t *zone_name, task_zone_info_t *info)
 			putchar(' ');
 		}
 	}
-	printf("%5llu", info->tzi_elem_size);
-	printk("%8llu", info->tzi_cur_size);
+	printf(" %6llu", info->tzi_elem_size);
+	PRINTK(" %10llu", info->tzi_cur_size);
 	if (info->tzi_max_size / 1024 > 9999999) {
-		printf("   ------");
+		printf("    --------");
 	} else {
-		printk("%8llu", info->tzi_max_size);
+		PRINTK(" %10llu", info->tzi_max_size);
 	}
-	printf("%10llu", info->tzi_cur_size / info->tzi_elem_size);
+	printf(" %10llu", info->tzi_cur_size / info->tzi_elem_size);
 	if (info->tzi_max_size / 1024 >= 999999999) {
-		printf(" ---------");
+		printf("  ----------");
 	} else {
-		printf("%10llu", info->tzi_max_size / info->tzi_elem_size);
+		printf(" %11llu", info->tzi_max_size / info->tzi_elem_size);
 	}
-	printf("%10llu", info->tzi_count);
-	printk("%5llu", info->tzi_alloc_size);
-	printf("%6llu", info->tzi_alloc_size / info->tzi_elem_size);
+	printf(" %11llu", info->tzi_count);
+	PRINTK(" %5llu", info->tzi_alloc_size);
+	printf(" %6llu", info->tzi_alloc_size / info->tzi_elem_size);
 
 	totalused += used = info->tzi_elem_size * info->tzi_count;
 	totalsize += size = info->tzi_cur_size;
@@ -469,16 +464,16 @@ colprintzone(mach_zone_name_t *zone_name, task_zone_info_t *info)
 	       (info->tzi_caller_acct ? 'A' : ' '),
 	       (info->tzi_collectable ? 'C' : ' '));
 	if (ShowWasted) {
-		printk("%8llu", size - used);
+		PRINTK(" %8llu", size - used);
 	}
 	if (ShowPid) {
 		printf("%8dK", (int)((info->tzi_task_alloc - info->tzi_task_free)/1024));
 	}
 	if (ShowTotal) {
 		if (info->tzi_sum_size < 1024)
-			printf("%16lluB", info->tzi_sum_size);
+			printf(" %16lluB", info->tzi_sum_size);
 		else
-			printf("%16lluK", info->tzi_sum_size/1024);
+			PRINTK(" %16llu", info->tzi_sum_size);
 	}
 	printf("\n");
 }
@@ -489,26 +484,28 @@ colprintzoneheader(void)
 	if (! PrintHeader) {
 		return;
 	}
-	printf("%s                   elem      cur      max       cur       max"
-	       "       cur alloc alloc          %s\n", 
-	       (ShowWasted||ShowTotal)? "" : "       ", (ShowPid) ? "PID" : "" );
-	printf("zone name%s          size     size     size     #elts     #elts"
-	       "     inuse  size count   ", (ShowWasted||ShowTotal)? "" : "       " );
+	printf("%s                     elem         cur         max        cur         max"
+	       "         cur  alloc  alloc    %s%s\n", 
+	       (ShowWasted||ShowTotal)? "" : "       ",
+	       (ShowWasted)? "          ":"",
+	       (ShowPid) ? "      PID" : "" );
+	printf("zone name%s           size        size        size      #elts       #elts"
+	       "       inuse   size  count    ", (ShowWasted||ShowTotal)? " " : "        " );
 	if (ShowWasted)
-		printf("   wasted");
+		printf("    wasted");
 	if (ShowPid)
-		printf("    Allocs");
+		printf("   Allocs");
 	if (ShowTotal)
-		printf("     Total Allocs");
-	printf("\n%s------------------------------------------"
-	       "--------------------------------------------",
+		printf("      Total Allocs");
+	printf("\n%s-------------------------------------------------------"
+	       "-----------------------------------------------",
 	       (ShowWasted||ShowTotal)? "" : "-------");
 	if (ShowWasted)
-		printf("---------");
-	if (ShowPid)
 		printf("----------");
+	if (ShowPid)
+		printf("---------");
 	if (ShowTotal)
-		printf("-----------------");
+		printf("------------------");
 	printf("\n");
 }
 

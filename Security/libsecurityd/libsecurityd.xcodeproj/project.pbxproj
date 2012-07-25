@@ -1,0 +1,766 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		4C31C2D9055341AA006D00BD /* world */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C27AD42F0987FCDF001272E0 /* Build configuration list for PBXAggregateTarget "world" */;
+			buildPhases = (
+			);
+			dependencies = (
+				4C31C2DA055341B2006D00BD /* PBXTargetDependency */,
+				4C31C2DB055341B4006D00BD /* PBXTargetDependency */,
+				C2A788760B7AA6A900CFF85C /* PBXTargetDependency */,
+			);
+			name = world;
+			productName = world;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		18B965A014730132005A4D2E /* ss_types.defs in Headers */ = {isa = PBXBuildFile; fileRef = C226118F06B72038008DD0C6 /* ss_types.defs */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA381472F1B4006B86EC /* SharedMemoryCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = D6E144FA0A6323E6008AA7E8 /* SharedMemoryCommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA391472F1B4006B86EC /* handletypes.h in Headers */ = {isa = PBXBuildFile; fileRef = B6304AAF0E16C414006C13E3 /* handletypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3A1472F1B4006B86EC /* sscommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C22AB9A406B6DE670025E6A9 /* sscommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3B1472F1B4006B86EC /* ssblob.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A594F9052E4FC200AF1EE3 /* ssblob.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3C1472F1B4006B86EC /* dictionary.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C92640C05347DF3004B0E72 /* dictionary.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3D1472F1B4006B86EC /* sec_xdr.h in Headers */ = {isa = PBXBuildFile; fileRef = 40302BAE09C0B8D600EF5C72 /* sec_xdr.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3E1472F1B4006B86EC /* xdr_auth.h in Headers */ = {isa = PBXBuildFile; fileRef = 79EDA1BA092021D600205D34 /* xdr_auth.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA3F1472F1B4006B86EC /* xdr_cssm.h in Headers */ = {isa = PBXBuildFile; fileRef = 40302BB309C0B8D600EF5C72 /* xdr_cssm.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA401472F1B4006B86EC /* xdr_dldb.h in Headers */ = {isa = PBXBuildFile; fileRef = 40302BB509C0B8D600EF5C72 /* xdr_dldb.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA411472F1B4006B86EC /* eventlistener.h in Headers */ = {isa = PBXBuildFile; fileRef = D6942E280A642276000E7E2F /* eventlistener.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA421472F1B4006B86EC /* ssnotify.h in Headers */ = {isa = PBXBuildFile; fileRef = C252A4600662631900C0383D /* ssnotify.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA431472F1B4006B86EC /* sstransit.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A59416052E3F0800AF1EE3 /* sstransit.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA441472F1B4006B86EC /* ss_types.h in Headers */ = {isa = PBXBuildFile; fileRef = C22611CB06B72147008DD0C6 /* ss_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA451472F1B4006B86EC /* ucsp_types.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A59508052E506A00AF1EE3 /* ucsp_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA461472F1B4006B86EC /* ucsp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AD640540BDD400536F78 /* ucsp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA471472F1B4006B86EC /* ucspNotify.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AD650540BDD400536F78 /* ucspNotify.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA481472F1B4006B86EC /* cshosting.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BD60C50AC849180057FD3D /* cshosting.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18BFBA491472F20F006B86EC /* ssclient.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A59414052E3F0800AF1EE3 /* ssclient.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		40302BB709C0B8D600EF5C72 /* sec_xdr.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BAD09C0B8D600EF5C72 /* sec_xdr.c */; };
+		40302BB809C0B8D600EF5C72 /* sec_xdr_array.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BAF09C0B8D600EF5C72 /* sec_xdr_array.c */; };
+		40302BB909C0B8D600EF5C72 /* sec_xdr_reference.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BB009C0B8D600EF5C72 /* sec_xdr_reference.c */; };
+		40302BBA09C0B8D600EF5C72 /* sec_xdrmem.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BB109C0B8D600EF5C72 /* sec_xdrmem.c */; };
+		40302BBB09C0B8D600EF5C72 /* xdr_cssm.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BB209C0B8D600EF5C72 /* xdr_cssm.c */; };
+		40302BBC09C0B8D600EF5C72 /* xdr_dldb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 40302BB409C0B8D600EF5C72 /* xdr_dldb.cpp */; };
+		40302BBD09C0B8D600EF5C72 /* sec_xdr_sizeof.c in Sources */ = {isa = PBXBuildFile; fileRef = 40302BB609C0B8D600EF5C72 /* sec_xdr_sizeof.c */; };
+		40D4B1D6053236AE00A4FD03 /* sstransit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A59415052E3F0800AF1EE3 /* sstransit.cpp */; };
+		40D4B1D8053236B900A4FD03 /* ssblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */; };
+		4C47FCAD05364616005AC196 /* ssclient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A59413052E3F0800AF1EE3 /* ssclient.cpp */; };
+		4C92640F05347DF3004B0E72 /* dictionary.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C92640B05347DF3004B0E72 /* dictionary.cpp */; };
+		4CAF73520536405300D9DA7C /* ucspNotifySender.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF734E0536405300D9DA7C /* ucspNotifySender.cpp */; };
+		4CAF73540536405300D9DA7C /* ucspClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF73500536405300D9DA7C /* ucspClient.cpp */; };
+		4CAF73550536406300D9DA7C /* ucspNotifyReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF734D0536405300D9DA7C /* ucspNotifyReceiver.cpp */; };
+		4CAF73560536406400D9DA7C /* ucspServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF734F0536405300D9DA7C /* ucspServer.cpp */; };
+		79EDA1BD092021D600205D34 /* xdr_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = 79EDA1BB092021D600205D34 /* xdr_auth.c */; };
+		C22E54CA06E02FED00923E45 /* transition.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22E54C906E02FED00923E45 /* transition.cpp */; };
+		C2A788740B7AA69100CFF85C /* ucspClientC.c in Sources */ = {isa = PBXBuildFile; fileRef = C2A788430B7AA33400CFF85C /* ucspClientC.c */; };
+		C2BD60C80AC849180057FD3D /* cshostingClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD60C60AC849180057FD3D /* cshostingClient.cpp */; };
+		C2BD60C90AC849180057FD3D /* cshostingServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD60C70AC849180057FD3D /* cshostingServer.cpp */; };
+		D6942E330A6423BC000E7E2F /* SharedMemoryClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6942E310A6423BC000E7E2F /* SharedMemoryClient.cpp */; };
+		D6942E410A644E1A000E7E2F /* eventlistener.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D6942E270A642276000E7E2F /* eventlistener.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB16E146E9FAE000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C09A2920557240300FED7A3;
+			remoteInfo = "generate mig";
+		};
+		182BB17B146EA388000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB176146EA388000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA2A53A0523D32800978A7B;
+			remoteInfo = libsecurity_utilities;
+		};
+		182BB512146F295E000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB176146EA388000BF1F3 /* libsecurity_utilities.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C9C69D0CECBE8400B3FE07;
+			remoteInfo = libsecurity_utilitiesDTrace;
+		};
+		4C09A2950557242A00FED7A3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C09A2920557240300FED7A3;
+			remoteInfo = "generate mig";
+		};
+		4C3CC171055341CC007753DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurityd_client;
+		};
+		4C3CC173055341CC007753DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEC8052A44A100F22E42;
+			remoteInfo = libsecurityd_server;
+		};
+		C2A788750B7AA6A900CFF85C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C2A788530B7AA65B00CFF85C;
+			remoteInfo = ucspc;
+		};
+		C2A788B10B7AA9A100CFF85C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C09A2920557240300FED7A3;
+			remoteInfo = "generate mig";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		182BB172146EA1D6000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB173146EA1D6000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB174146EA1D6000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB175146EA1D6000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB176146EA388000BF1F3 /* libsecurity_utilities.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_utilities.xcodeproj; path = ../libsecurity_utilities/libsecurity_utilities.xcodeproj; sourceTree = "<group>"; };
+		40302BAD09C0B8D600EF5C72 /* sec_xdr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sec_xdr.c; path = lib/sec_xdr.c; sourceTree = "<group>"; };
+		40302BAE09C0B8D600EF5C72 /* sec_xdr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sec_xdr.h; path = lib/sec_xdr.h; sourceTree = "<group>"; };
+		40302BAF09C0B8D600EF5C72 /* sec_xdr_array.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sec_xdr_array.c; path = lib/sec_xdr_array.c; sourceTree = "<group>"; };
+		40302BB009C0B8D600EF5C72 /* sec_xdr_reference.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sec_xdr_reference.c; path = lib/sec_xdr_reference.c; sourceTree = "<group>"; };
+		40302BB109C0B8D600EF5C72 /* sec_xdrmem.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sec_xdrmem.c; path = lib/sec_xdrmem.c; sourceTree = "<group>"; };
+		40302BB209C0B8D600EF5C72 /* xdr_cssm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xdr_cssm.c; path = lib/xdr_cssm.c; sourceTree = "<group>"; };
+		40302BB309C0B8D600EF5C72 /* xdr_cssm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xdr_cssm.h; path = lib/xdr_cssm.h; sourceTree = "<group>"; };
+		40302BB409C0B8D600EF5C72 /* xdr_dldb.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = xdr_dldb.cpp; path = lib/xdr_dldb.cpp; sourceTree = "<group>"; };
+		40302BB509C0B8D600EF5C72 /* xdr_dldb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xdr_dldb.h; path = lib/xdr_dldb.h; sourceTree = "<group>"; };
+		40302BB609C0B8D600EF5C72 /* sec_xdr_sizeof.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sec_xdr_sizeof.c; path = lib/sec_xdr_sizeof.c; sourceTree = "<group>"; };
+		4C24BEF7055724C300C95CD3 /* mig.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mig.mk; sourceTree = "<group>"; };
+		4C52AD640540BDD400536F78 /* ucsp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ucsp.h; path = derived_src/securityd_client/ucsp.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C52AD650540BDD400536F78 /* ucspNotify.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ucspNotify.h; path = derived_src/securityd_client/ucspNotify.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C92640B05347DF3004B0E72 /* dictionary.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = dictionary.cpp; path = lib/dictionary.cpp; sourceTree = "<group>"; };
+		4C92640C05347DF3004B0E72 /* dictionary.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dictionary.h; path = lib/dictionary.h; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurityd_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurityd_client.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FECD052A44A100F22E42 /* libsecurityd_server.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurityd_server.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAF734D0536405300D9DA7C /* ucspNotifyReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ucspNotifyReceiver.cpp; path = derived_src/securityd_client/ucspNotifyReceiver.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAF734E0536405300D9DA7C /* ucspNotifySender.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ucspNotifySender.cpp; path = derived_src/securityd_client/ucspNotifySender.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAF734F0536405300D9DA7C /* ucspServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ucspServer.cpp; path = derived_src/securityd_client/ucspServer.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAF73500536405300D9DA7C /* ucspClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ucspClient.cpp; path = derived_src/securityd_client/ucspClient.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		79EDA1BA092021D600205D34 /* xdr_auth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xdr_auth.h; path = lib/xdr_auth.h; sourceTree = "<group>"; };
+		79EDA1BB092021D600205D34 /* xdr_auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = xdr_auth.c; path = lib/xdr_auth.c; sourceTree = "<group>"; };
+		B6304AAF0E16C414006C13E3 /* handletypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = handletypes.h; path = lib/handletypes.h; sourceTree = "<group>"; };
+		C226118F06B72038008DD0C6 /* ss_types.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ss_types.defs; sourceTree = "<group>"; };
+		C22611CB06B72147008DD0C6 /* ss_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ss_types.h; path = lib/ss_types.h; sourceTree = "<group>"; };
+		C22AB9A406B6DE670025E6A9 /* sscommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sscommon.h; path = lib/sscommon.h; sourceTree = "<group>"; };
+		C22E54C906E02FED00923E45 /* transition.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = transition.cpp; path = lib/transition.cpp; sourceTree = "<group>"; };
+		C252A4600662631900C0383D /* ssnotify.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssnotify.h; path = lib/ssnotify.h; sourceTree = "<group>"; };
+		C2A59413052E3F0800AF1EE3 /* ssclient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ssclient.cpp; path = lib/ssclient.cpp; sourceTree = "<group>"; };
+		C2A59414052E3F0800AF1EE3 /* ssclient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssclient.h; path = lib/ssclient.h; sourceTree = "<group>"; };
+		C2A59415052E3F0800AF1EE3 /* sstransit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = sstransit.cpp; path = lib/sstransit.cpp; sourceTree = "<group>"; };
+		C2A59416052E3F0800AF1EE3 /* sstransit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sstransit.h; path = lib/sstransit.h; sourceTree = "<group>"; };
+		C2A59420052E3F2100AF1EE3 /* ucsp.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = ucsp.defs; sourceTree = "<group>"; };
+		C2A59421052E3F2100AF1EE3 /* ucspNotify.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = ucspNotify.defs; path = mig/ucspNotify.defs; sourceTree = SOURCE_ROOT; };
+		C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ssblob.cpp; path = lib/ssblob.cpp; sourceTree = "<group>"; };
+		C2A594F9052E4FC200AF1EE3 /* ssblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssblob.h; path = lib/ssblob.h; sourceTree = "<group>"; };
+		C2A59508052E506A00AF1EE3 /* ucsp_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ucsp_types.h; path = lib/ucsp_types.h; sourceTree = "<group>"; };
+		C2A788430B7AA33400CFF85C /* ucspClientC.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ucspClientC.c; path = derived_src/securityd_client/ucspClientC.c; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2A788730B7AA65B00CFF85C /* ucspc.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = ucspc.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BD60C50AC849180057FD3D /* cshosting.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = cshosting.h; path = derived_src/securityd_client/cshosting.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BD60C60AC849180057FD3D /* cshostingClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = cshostingClient.cpp; path = derived_src/securityd_client/cshostingClient.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BD60C70AC849180057FD3D /* cshostingServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = cshostingServer.cpp; path = derived_src/securityd_client/cshostingServer.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BF13F20ABF086900908B48 /* cshosting.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = cshosting.defs; sourceTree = "<group>"; };
+		D6942E270A642276000E7E2F /* eventlistener.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = eventlistener.cpp; path = lib/eventlistener.cpp; sourceTree = "<group>"; };
+		D6942E280A642276000E7E2F /* eventlistener.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = eventlistener.h; path = lib/eventlistener.h; sourceTree = "<group>"; };
+		D6942E310A6423BC000E7E2F /* SharedMemoryClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SharedMemoryClient.cpp; path = lib/SharedMemoryClient.cpp; sourceTree = "<group>"; };
+		D6942E320A6423BC000E7E2F /* SharedMemoryClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SharedMemoryClient.h; path = lib/SharedMemoryClient.h; sourceTree = "<group>"; };
+		D6E144FA0A6323E6008AA7E8 /* SharedMemoryCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = SharedMemoryCommon.h; path = lib/SharedMemoryCommon.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FECB052A44A100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2A7886C0B7AA65B00CFF85C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		182BB171146EA1D6000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB172146EA1D6000BF1F3 /* base.xcconfig */,
+				182BB173146EA1D6000BF1F3 /* debug.xcconfig */,
+				182BB174146EA1D6000BF1F3 /* lib.xcconfig */,
+				182BB175146EA1D6000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB177146EA388000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB17C146EA388000BF1F3 /* libsecurity_utilities.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		40302BA109C0B87000EF5C72 /* secxdr */ = {
+			isa = PBXGroup;
+			children = (
+				40302BAE09C0B8D600EF5C72 /* sec_xdr.h */,
+				40302BAD09C0B8D600EF5C72 /* sec_xdr.c */,
+				40302BAF09C0B8D600EF5C72 /* sec_xdr_array.c */,
+				40302BB009C0B8D600EF5C72 /* sec_xdr_reference.c */,
+				40302BB109C0B8D600EF5C72 /* sec_xdrmem.c */,
+				40302BB609C0B8D600EF5C72 /* sec_xdr_sizeof.c */,
+				79EDA1BA092021D600205D34 /* xdr_auth.h */,
+				79EDA1BB092021D600205D34 /* xdr_auth.c */,
+				40302BB309C0B8D600EF5C72 /* xdr_cssm.h */,
+				40302BB209C0B8D600EF5C72 /* xdr_cssm.c */,
+				40302BB509C0B8D600EF5C72 /* xdr_dldb.h */,
+				40302BB409C0B8D600EF5C72 /* xdr_dldb.cpp */,
+			);
+			name = secxdr;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				182BB176146EA388000BF1F3 /* libsecurity_utilities.xcodeproj */,
+				C2A593CE052E3A8400AF1EE3 /* lib */,
+				182BB171146EA1D6000BF1F3 /* config */,
+				C2A5941F052E3F2100AF1EE3 /* mig */,
+				4CAF734405363FE000D9DA7C /* derived_src */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurityd_client.a */,
+				4CA1FECD052A44A100F22E42 /* libsecurityd_server.a */,
+				C2A788730B7AA65B00CFF85C /* ucspc.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CAF734405363FE000D9DA7C /* derived_src */ = {
+			isa = PBXGroup;
+			children = (
+				4C52AD640540BDD400536F78 /* ucsp.h */,
+				4C52AD650540BDD400536F78 /* ucspNotify.h */,
+				4CAF73500536405300D9DA7C /* ucspClient.cpp */,
+				C2A788430B7AA33400CFF85C /* ucspClientC.c */,
+				4CAF734F0536405300D9DA7C /* ucspServer.cpp */,
+				4CAF734E0536405300D9DA7C /* ucspNotifySender.cpp */,
+				4CAF734D0536405300D9DA7C /* ucspNotifyReceiver.cpp */,
+				C2BD60C50AC849180057FD3D /* cshosting.h */,
+				C2BD60C60AC849180057FD3D /* cshostingClient.cpp */,
+				C2BD60C70AC849180057FD3D /* cshostingServer.cpp */,
+			);
+			path = derived_src;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C2A593CE052E3A8400AF1EE3 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C2DB7A4606D6E7EC003053EE /* Common */,
+				C2DB7A3E06D6E79A003053EE /* Client */,
+				C2DB7A4106D6E7C4003053EE /* MIG Support */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+		C2A5941F052E3F2100AF1EE3 /* mig */ = {
+			isa = PBXGroup;
+			children = (
+				C226118F06B72038008DD0C6 /* ss_types.defs */,
+				C2A59420052E3F2100AF1EE3 /* ucsp.defs */,
+				C2A59421052E3F2100AF1EE3 /* ucspNotify.defs */,
+				C2BF13F20ABF086900908B48 /* cshosting.defs */,
+				4C24BEF7055724C300C95CD3 /* mig.mk */,
+			);
+			path = mig;
+			sourceTree = "<group>";
+		};
+		C2DB7A3E06D6E79A003053EE /* Client */ = {
+			isa = PBXGroup;
+			children = (
+				D6942E310A6423BC000E7E2F /* SharedMemoryClient.cpp */,
+				D6942E320A6423BC000E7E2F /* SharedMemoryClient.h */,
+				D6942E270A642276000E7E2F /* eventlistener.cpp */,
+				D6942E280A642276000E7E2F /* eventlistener.h */,
+				C2A59414052E3F0800AF1EE3 /* ssclient.h */,
+				C252A4600662631900C0383D /* ssnotify.h */,
+				C2A59413052E3F0800AF1EE3 /* ssclient.cpp */,
+				C2A59416052E3F0800AF1EE3 /* sstransit.h */,
+				C2A59415052E3F0800AF1EE3 /* sstransit.cpp */,
+				C22E54C906E02FED00923E45 /* transition.cpp */,
+			);
+			name = Client;
+			sourceTree = "<group>";
+		};
+		C2DB7A4106D6E7C4003053EE /* MIG Support */ = {
+			isa = PBXGroup;
+			children = (
+				C22611CB06B72147008DD0C6 /* ss_types.h */,
+				C2A59508052E506A00AF1EE3 /* ucsp_types.h */,
+			);
+			name = "MIG Support";
+			sourceTree = "<group>";
+		};
+		C2DB7A4606D6E7EC003053EE /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				D6E144FA0A6323E6008AA7E8 /* SharedMemoryCommon.h */,
+				B6304AAF0E16C414006C13E3 /* handletypes.h */,
+				C22AB9A406B6DE670025E6A9 /* sscommon.h */,
+				C2A594F9052E4FC200AF1EE3 /* ssblob.h */,
+				C2A594F8052E4FC200AF1EE3 /* ssblob.cpp */,
+				4C92640C05347DF3004B0E72 /* dictionary.h */,
+				4C92640B05347DF3004B0E72 /* dictionary.cpp */,
+				40302BA109C0B87000EF5C72 /* secxdr */,
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		18BFBA351472EFF8006B86EC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18BFBA491472F20F006B86EC /* ssclient.h in Headers */,
+				18BFBA381472F1B4006B86EC /* SharedMemoryCommon.h in Headers */,
+				18BFBA391472F1B4006B86EC /* handletypes.h in Headers */,
+				18BFBA3A1472F1B4006B86EC /* sscommon.h in Headers */,
+				18BFBA3B1472F1B4006B86EC /* ssblob.h in Headers */,
+				18BFBA3C1472F1B4006B86EC /* dictionary.h in Headers */,
+				18BFBA3D1472F1B4006B86EC /* sec_xdr.h in Headers */,
+				18BFBA3E1472F1B4006B86EC /* xdr_auth.h in Headers */,
+				18BFBA3F1472F1B4006B86EC /* xdr_cssm.h in Headers */,
+				18BFBA401472F1B4006B86EC /* xdr_dldb.h in Headers */,
+				18BFBA411472F1B4006B86EC /* eventlistener.h in Headers */,
+				18BFBA421472F1B4006B86EC /* ssnotify.h in Headers */,
+				18BFBA431472F1B4006B86EC /* sstransit.h in Headers */,
+				18BFBA441472F1B4006B86EC /* ss_types.h in Headers */,
+				18BFBA451472F1B4006B86EC /* ucsp_types.h in Headers */,
+				18BFBA461472F1B4006B86EC /* ucsp.h in Headers */,
+				18BFBA471472F1B4006B86EC /* ucspNotify.h in Headers */,
+				18BFBA481472F1B4006B86EC /* cshosting.h in Headers */,
+				18B965A014730132005A4D2E /* ss_types.defs in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		4C09A2920557240300FED7A3 /* libsecurityd_generate */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f mig/mig.mk $(ACTION)";
+			buildConfigurationList = C27AD41B0987FCDF001272E0 /* Build configuration list for PBXLegacyTarget "libsecurityd_generate" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = "";
+			dependencies = (
+				182BB513146F295E000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurityd_generate;
+			passBuildSettingsInEnvironment = 1;
+			productName = "generate mig";
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurityd_client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD4230987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_client" */;
+			buildPhases = (
+				18BFBA351472EFF8006B86EC /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				18B96B0F14743FC5005A4D2E /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB16F146E9FAE000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurityd_client;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurityd;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurityd_client.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		4CA1FEC8052A44A100F22E42 /* libsecurityd_server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD42B0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_server" */;
+			buildPhases = (
+				4CA1FECA052A44A100F22E42 /* Sources */,
+				4CA1FECB052A44A100F22E42 /* Frameworks */,
+				18B96B1214743FCF005A4D2E /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C09A2960557242A00FED7A3 /* PBXTargetDependency */,
+			);
+			name = libsecurityd_server;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurityd;
+			productReference = 4CA1FECD052A44A100F22E42 /* libsecurityd_server.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		C2A788530B7AA65B00CFF85C /* ucspc */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXNativeTarget "ucspc" */;
+			buildPhases = (
+				C2A788560B7AA65B00CFF85C /* Sources */,
+				C2A7886C0B7AA65B00CFF85C /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C2A788B20B7AA9A100CFF85C /* PBXTargetDependency */,
+			);
+			name = ucspc;
+			productInstallPath = /usr/local/lib;
+			productName = libsecurityd;
+			productReference = C2A788730B7AA65B00CFF85C /* ucspc.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD4330987FCDF001272E0 /* Build configuration list for PBXProject "libsecurityd" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB177146EA388000BF1F3 /* Products */;
+					ProjectRef = 182BB176146EA388000BF1F3 /* libsecurity_utilities.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4C31C2D9055341AA006D00BD /* world */,
+				4CA1FEBD052A3C8100F22E42 /* libsecurityd_client */,
+				4CA1FEC8052A44A100F22E42 /* libsecurityd_server */,
+				C2A788530B7AA65B00CFF85C /* ucspc */,
+				4C09A2920557240300FED7A3 /* libsecurityd_generate */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB17C146EA388000BF1F3 /* libsecurity_utilities.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_utilities.a;
+			remoteRef = 182BB17B146EA388000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		18B96B0F14743FC5005A4D2E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+		};
+		18B96B1214743FCF005A4D2E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6942E330A6423BC000E7E2F /* SharedMemoryClient.cpp in Sources */,
+				D6942E410A644E1A000E7E2F /* eventlistener.cpp in Sources */,
+				4CAF73520536405300D9DA7C /* ucspNotifySender.cpp in Sources */,
+				4CAF73540536405300D9DA7C /* ucspClient.cpp in Sources */,
+				4C92640F05347DF3004B0E72 /* dictionary.cpp in Sources */,
+				40D4B1D8053236B900A4FD03 /* ssblob.cpp in Sources */,
+				4C47FCAD05364616005AC196 /* ssclient.cpp in Sources */,
+				40D4B1D6053236AE00A4FD03 /* sstransit.cpp in Sources */,
+				C22E54CA06E02FED00923E45 /* transition.cpp in Sources */,
+				79EDA1BD092021D600205D34 /* xdr_auth.c in Sources */,
+				40302BB709C0B8D600EF5C72 /* sec_xdr.c in Sources */,
+				40302BB809C0B8D600EF5C72 /* sec_xdr_array.c in Sources */,
+				40302BB909C0B8D600EF5C72 /* sec_xdr_reference.c in Sources */,
+				40302BBA09C0B8D600EF5C72 /* sec_xdrmem.c in Sources */,
+				40302BBB09C0B8D600EF5C72 /* xdr_cssm.c in Sources */,
+				40302BBC09C0B8D600EF5C72 /* xdr_dldb.cpp in Sources */,
+				40302BBD09C0B8D600EF5C72 /* sec_xdr_sizeof.c in Sources */,
+				C2BD60C80AC849180057FD3D /* cshostingClient.cpp in Sources */,
+				C2BD60C90AC849180057FD3D /* cshostingServer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FECA052A44A100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4CAF73550536406300D9DA7C /* ucspNotifyReceiver.cpp in Sources */,
+				4CAF73560536406400D9DA7C /* ucspServer.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2A788560B7AA65B00CFF85C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2A788740B7AA69100CFF85C /* ucspClientC.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB16F146E9FAE000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C09A2920557240300FED7A3 /* libsecurityd_generate */;
+			targetProxy = 182BB16E146E9FAE000BF1F3 /* PBXContainerItemProxy */;
+		};
+		182BB513146F295E000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurity_utilitiesDTrace;
+			targetProxy = 182BB512146F295E000BF1F3 /* PBXContainerItemProxy */;
+		};
+		4C09A2960557242A00FED7A3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C09A2920557240300FED7A3 /* libsecurityd_generate */;
+			targetProxy = 4C09A2950557242A00FED7A3 /* PBXContainerItemProxy */;
+		};
+		4C31C2DA055341B2006D00BD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurityd_client */;
+			targetProxy = 4C3CC171055341CC007753DF /* PBXContainerItemProxy */;
+		};
+		4C31C2DB055341B4006D00BD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEC8052A44A100F22E42 /* libsecurityd_server */;
+			targetProxy = 4C3CC173055341CC007753DF /* PBXContainerItemProxy */;
+		};
+		C2A788760B7AA6A900CFF85C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C2A788530B7AA65B00CFF85C /* ucspc */;
+			targetProxy = C2A788750B7AA6A900CFF85C /* PBXContainerItemProxy */;
+		};
+		C2A788B20B7AA9A100CFF85C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C09A2920557240300FED7A3 /* libsecurityd_generate */;
+			targetProxy = C2A788B10B7AA9A100CFF85C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD41C0987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD41E0987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD4240987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB173146EA1D6000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/securityd_client;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C27AD4260987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB175146EA1D6000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/securityd_client;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C27AD42C0987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB173146EA1D6000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C27AD42E0987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB175146EA1D6000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C27AD4300987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4320987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD4340987FCDF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB174146EA1D6000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4360987FCDF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB174146EA1D6000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C2A788700B7AA65B00CFF85C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB173146EA1D6000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C2A788720B7AA65B00CFF85C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB175146EA1D6000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD41B0987FCDF001272E0 /* Build configuration list for PBXLegacyTarget "libsecurityd_generate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD41C0987FCDF001272E0 /* Debug */,
+				C27AD41E0987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4230987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_client" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4240987FCDF001272E0 /* Debug */,
+				C27AD4260987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD42B0987FCDF001272E0 /* Build configuration list for PBXNativeTarget "libsecurityd_server" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD42C0987FCDF001272E0 /* Debug */,
+				C27AD42E0987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD42F0987FCDF001272E0 /* Build configuration list for PBXAggregateTarget "world" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4300987FCDF001272E0 /* Debug */,
+				C27AD4320987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD4330987FCDF001272E0 /* Build configuration list for PBXProject "libsecurityd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD4340987FCDF001272E0 /* Debug */,
+				C27AD4360987FCDF001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2A7886F0B7AA65B00CFF85C /* Build configuration list for PBXNativeTarget "ucspc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2A788700B7AA65B00CFF85C /* Debug */,
+				C2A788720B7AA65B00CFF85C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

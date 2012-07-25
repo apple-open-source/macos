@@ -236,6 +236,7 @@ struct isakmp_gen;
 extern int oakley_savecert __P((struct ph1handle *, struct isakmp_gen *));
 extern int oakley_savecr __P((struct ph1handle *, struct isakmp_gen *));
 
+extern vchar_t * oakley_getpskall __P((struct ph1handle *));
 extern int oakley_skeyid __P((struct ph1handle *));
 extern int oakley_skeyid_dae __P((struct ph1handle *));
 

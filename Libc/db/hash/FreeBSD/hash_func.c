@@ -41,7 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/hash_func.c,v 1.6 2007/01/09 00:27:50 i
 #include <db.h>
 #include "hash.h"
 #include "page.h"
-#include "extern.h"
+#include "hash_extern.h"
 
 static u_int32_t hash1(const void *, size_t) __unused;
 static u_int32_t hash2(const void *, size_t) __unused;

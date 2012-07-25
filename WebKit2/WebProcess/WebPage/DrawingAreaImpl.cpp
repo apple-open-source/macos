@@ -56,7 +56,7 @@ DrawingAreaImpl::~DrawingAreaImpl()
 DrawingAreaImpl::DrawingAreaImpl(WebPage* webPage, const WebPageCreationParameters& parameters)
     : DrawingArea(DrawingAreaTypeImpl, webPage)
     , m_backingStoreStateID(0)
-    , m_isPaintingEnabled(true) 
+    , m_isPaintingEnabled(true)
     , m_inUpdateBackingStoreState(false)
     , m_shouldSendDidUpdateBackingStoreState(false)
     , m_isWaitingForDidUpdate(false)
@@ -65,12 +65,10 @@ DrawingAreaImpl::DrawingAreaImpl(WebPage* webPage, const WebPageCreationParamete
     , m_wantsToExitAcceleratedCompositingMode(false)
     , m_isPaintingSuspended(!parameters.isVisible)
     , m_alwaysUseCompositing(false)
-    , m_shouldThrottleDisplay(true)
-    , m_lastDisplayTime(0)
     , m_displayTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::displayTimerFired)
     , m_exitCompositingTimer(WebProcess::shared().runLoop(), this, &DrawingAreaImpl::exitAcceleratedCompositingMode)
 {
-    if (webPage->corePage()->settings()->acceleratedDrawingEnabled())
+    if (webPage->corePage()->settings()->acceleratedDrawingEnabled() || webPage->corePage()->settings()->forceCompositingMode())
         m_alwaysUseCompositing = true;
         
     if (m_alwaysUseCompositing)
@@ -81,7 +79,7 @@ void DrawingAreaImpl::setNeedsDisplay(const IntRect& rect)
 {
     if (!m_isPaintingEnabled)
         return;
-            
+
     IntRect dirtyRect = rect;
     dirtyRect.intersect(m_webPage->bounds());
 
@@ -104,9 +102,9 @@ void DrawingAreaImpl::setNeedsDisplay(const IntRect& rect)
 
 void DrawingAreaImpl::scroll(const IntRect& scrollRect, const IntSize& scrollOffset)
 {
-    if (!m_isPaintingEnabled) 
+    if (!m_isPaintingEnabled)
         return;
- 
+
     if (m_layerTreeHost) {
         ASSERT(m_scrollRect.isEmpty());
         ASSERT(m_scrollOffset.isEmpty());
@@ -194,22 +192,11 @@ void DrawingAreaImpl::forceRepaint()
             m_layerTreeHost->setShouldNotifyAfterNextScheduledLayerFlush(false);
             layerHostDidFlushLayers();
         }
-        if (!m_layerTreeHost->participatesInDisplay())
-            return;
+        return;
     }
 
     m_isWaitingForDidUpdate = false;
     display();
-}
-
-void DrawingAreaImpl::enableDisplayThrottling()
-{
-    m_shouldThrottleDisplay = true;
-}
-
-void DrawingAreaImpl::disableDisplayThrottling()
-{
-    m_shouldThrottleDisplay = false;
 }
 
 void DrawingAreaImpl::didInstallPageOverlay()
@@ -234,18 +221,37 @@ void DrawingAreaImpl::setPageOverlayNeedsDisplay(const IntRect& rect)
     }
 
     setNeedsDisplay(rect);
-} 
-
-void DrawingAreaImpl::setPaintingEnabled(bool paintingEnabled) 
-{ 
-    m_isPaintingEnabled = paintingEnabled;
 }
 
-void DrawingAreaImpl::setLayerHostNeedsDisplay()
+void DrawingAreaImpl::setPageOverlayOpacity(float value)
 {
-    ASSERT(m_layerTreeHost);
-    ASSERT(m_layerTreeHost->participatesInDisplay());
-    scheduleDisplay();
+    if (m_layerTreeHost)
+        m_layerTreeHost->setPageOverlayOpacity(value);
+}
+
+bool DrawingAreaImpl::pageOverlayShouldApplyFadeWhenPainting() const
+{
+    if (m_layerTreeHost && !m_layerTreeHost->pageOverlayShouldApplyFadeWhenPainting())
+        return false;
+
+    return true;
+}
+
+void DrawingAreaImpl::pageCustomRepresentationChanged()
+{
+    if (!m_alwaysUseCompositing)
+        return;
+
+    if (m_webPage->mainFrameHasCustomRepresentation()) {
+        if (m_layerTreeHost)
+            exitAcceleratedCompositingMode();
+    } else if (!m_layerTreeHost)
+        enterAcceleratedCompositingMode(0);
+}
+
+void DrawingAreaImpl::setPaintingEnabled(bool paintingEnabled)
+{
+    m_isPaintingEnabled = paintingEnabled;
 }
 
 void DrawingAreaImpl::layerHostDidFlushLayers()
@@ -259,12 +265,8 @@ void DrawingAreaImpl::layerHostDidFlushLayers()
         return;
     }
 
-    if (!m_layerTreeHost || m_layerTreeHost->participatesInDisplay()) {
-        // When the layer tree host participates in display, we never tell the UI process about
-        // accelerated compositing. From the UI process's point of view, we're still just sending
-        // it a series of bitmaps in Update messages.
+    if (!m_layerTreeHost)
         return;
-    }
 
 #if USE(ACCELERATED_COMPOSITING)
     ASSERT(!m_compositingAccordingToProxyMessages);
@@ -322,15 +324,7 @@ void DrawingAreaImpl::scheduleCompositingLayerSync()
     m_layerTreeHost->scheduleLayerFlush();
 }
 
-void DrawingAreaImpl::syncCompositingLayers()
-{
-}
-
-void DrawingAreaImpl::didReceiveMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*)
-{
-}
-
-void DrawingAreaImpl::updateBackingStoreState(uint64_t stateID, bool respondImmediately, float deviceScaleFactor, const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset) 
+void DrawingAreaImpl::updateBackingStoreState(uint64_t stateID, bool respondImmediately, float deviceScaleFactor, const WebCore::IntSize& size, const WebCore::IntSize& scrollOffset)
 {
     ASSERT(!m_inUpdateBackingStoreState);
     m_inUpdateBackingStoreState = true;
@@ -340,14 +334,16 @@ void DrawingAreaImpl::updateBackingStoreState(uint64_t stateID, bool respondImme
         m_backingStoreStateID = stateID;
         m_shouldSendDidUpdateBackingStoreState = true;
 
-        m_webPage->setDeviceScaleFactor(deviceScaleFactor); 
+        m_webPage->setDeviceScaleFactor(deviceScaleFactor);
         m_webPage->setSize(size);
         m_webPage->layoutIfNeeded();
         m_webPage->scrollMainFrameIfNotAtMaxScrollPosition(scrollOffset);
 
         if (m_layerTreeHost) {
             m_layerTreeHost->deviceScaleFactorDidChange();
-            m_layerTreeHost->sizeDidChange(size);
+            // Use the previously set page size instead of the argument.
+            // It gets adjusted properly when using the fixed layout mode.
+            m_layerTreeHost->sizeDidChange(m_webPage->size());
         } else
             m_dirtyRegion = m_webPage->bounds();
     } else {
@@ -387,12 +383,12 @@ void DrawingAreaImpl::sendDidUpdateBackingStoreState()
 
     UpdateInfo updateInfo;
 
-    if (!m_isPaintingSuspended && (!m_layerTreeHost || m_layerTreeHost->participatesInDisplay()))
+    if (!m_isPaintingSuspended && !m_layerTreeHost)
         display(updateInfo);
 
     LayerTreeContext layerTreeContext;
 
-    if (m_isPaintingSuspended || (m_layerTreeHost && !m_layerTreeHost->participatesInDisplay())) {
+    if (m_isPaintingSuspended || m_layerTreeHost) {
         updateInfo.viewSize = m_webPage->size();
         updateInfo.deviceScaleFactor = m_webPage->corePage()->deviceScaleFactor();
 
@@ -416,7 +412,7 @@ void DrawingAreaImpl::didUpdate()
 {
     // We might get didUpdate messages from the UI process even after we've
     // entered accelerated compositing mode. Ignore them.
-    if (m_layerTreeHost && !m_layerTreeHost->participatesInDisplay())
+    if (m_layerTreeHost)
         return;
 
     m_isWaitingForDidUpdate = false;
@@ -434,6 +430,8 @@ void DrawingAreaImpl::suspendPainting()
 
     m_isPaintingSuspended = true;
     m_displayTimer.stop();
+
+    m_webPage->corePage()->suspendScriptedAnimations();
 }
 
 void DrawingAreaImpl::resumePainting()
@@ -451,6 +449,13 @@ void DrawingAreaImpl::resumePainting()
 
     // FIXME: We shouldn't always repaint everything here.
     setNeedsDisplay(m_webPage->bounds());
+
+#if PLATFORM(MAC)
+    if (m_webPage->windowIsVisible())
+        m_webPage->corePage()->resumeScriptedAnimations();
+#else
+    m_webPage->corePage()->resumeScriptedAnimations();
+#endif
 }
 
 void DrawingAreaImpl::enterAcceleratedCompositingMode(GraphicsLayer* graphicsLayer)
@@ -470,16 +475,13 @@ void DrawingAreaImpl::enterAcceleratedCompositingMode(GraphicsLayer* graphicsLay
     m_dirtyRegion = Region();
     m_scrollRect = IntRect();
     m_scrollOffset = IntSize();
-
-    if (!m_layerTreeHost->participatesInDisplay()) {
-        m_displayTimer.stop();
-        m_isWaitingForDidUpdate = false;
-    }
+    m_displayTimer.stop();
+    m_isWaitingForDidUpdate = false;
 }
 
 void DrawingAreaImpl::exitAcceleratedCompositingMode()
 {
-    if (m_alwaysUseCompositing)
+    if (m_alwaysUseCompositing && !m_webPage->mainFrameHasCustomRepresentation())
         return;
 
     ASSERT(!m_layerTreeStateIsFrozen);
@@ -488,8 +490,6 @@ void DrawingAreaImpl::exitAcceleratedCompositingMode()
     m_wantsToExitAcceleratedCompositingMode = false;
 
     ASSERT(m_layerTreeHost);
-
-    bool wasParticipatingInDisplay = m_layerTreeHost->participatesInDisplay();
 
     m_layerTreeHost->invalidate();
     m_layerTreeHost = nullptr;
@@ -511,22 +511,15 @@ void DrawingAreaImpl::exitAcceleratedCompositingMode()
         display(updateInfo);
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (wasParticipatingInDisplay) {
-        // When the layer tree host participates in display, we never tell the UI process about
-        // accelerated compositing. From the UI process's point of view, we're still just sending
-        // it a series of bitmaps in Update messages.
-        m_webPage->send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, updateInfo));
+    // Send along a complete update of the page so we can paint the contents right after we exit the
+    // accelerated compositing mode, eliminiating flicker.
+    if (m_compositingAccordingToProxyMessages) {
+        m_webPage->send(Messages::DrawingAreaProxy::ExitAcceleratedCompositingMode(m_backingStoreStateID, updateInfo));
+        m_compositingAccordingToProxyMessages = false;
     } else {
-        // Send along a complete update of the page so we can paint the contents right after we exit the
-        // accelerated compositing mode, eliminiating flicker.
-        if (m_compositingAccordingToProxyMessages) {
-            m_webPage->send(Messages::DrawingAreaProxy::ExitAcceleratedCompositingMode(m_backingStoreStateID, updateInfo));
-            m_compositingAccordingToProxyMessages = false;
-        } else {
-            // If we left accelerated compositing mode before we sent an EnterAcceleratedCompositingMode message to the
-            // UI process, we still need to let it know about the new contents, so send an Update message.
-            m_webPage->send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, updateInfo));
-        }
+        // If we left accelerated compositing mode before we sent an EnterAcceleratedCompositingMode message to the
+        // UI process, we still need to let it know about the new contents, so send an Update message.
+        m_webPage->send(Messages::DrawingAreaProxy::Update(m_backingStoreStateID, updateInfo));
     }
 #endif
 }
@@ -546,7 +539,7 @@ void DrawingAreaImpl::exitAcceleratedCompositingModeSoon()
 
 void DrawingAreaImpl::scheduleDisplay()
 {
-    ASSERT(!m_layerTreeHost || m_layerTreeHost->participatesInDisplay());
+    ASSERT(!m_layerTreeHost);
 
     if (m_isWaitingForDidUpdate)
         return;
@@ -554,11 +547,8 @@ void DrawingAreaImpl::scheduleDisplay()
     if (m_isPaintingSuspended)
         return;
 
-    if (m_layerTreeHost) {
-        if (!m_layerTreeHost->needsDisplay())
-            return;
-    } else if (m_dirtyRegion.isEmpty())
-            return;
+    if (m_dirtyRegion.isEmpty())
+        return;
 
     if (m_displayTimer.isActive())
         return;
@@ -568,40 +558,19 @@ void DrawingAreaImpl::scheduleDisplay()
 
 void DrawingAreaImpl::displayTimerFired()
 {
-#if PLATFORM(WIN)
-    // For now we'll cap painting on Windows to 30fps because painting is much slower there for some reason.
-    static const double minimumFrameInterval = 1.0 / 30.0;
-#else
-    static const double minimumFrameInterval = 1.0 / 60.0;
-#endif
-
-    if (m_shouldThrottleDisplay) {
-        double timeSinceLastDisplay = currentTime() - m_lastDisplayTime;
-        double timeUntilLayerTreeHostNeedsDisplay = m_layerTreeHost && m_layerTreeHost->participatesInDisplay() ? m_layerTreeHost->timeUntilNextDisplay() : 0;
-        double timeUntilNextDisplay = max(minimumFrameInterval - timeSinceLastDisplay, timeUntilLayerTreeHostNeedsDisplay);
-
-        if (timeUntilNextDisplay > 0) {
-            m_displayTimer.startOneShot(timeUntilNextDisplay);
-            return;
-        }
-    }
-
     display();
 }
 
 void DrawingAreaImpl::display()
 {
-    ASSERT(!m_layerTreeHost || m_layerTreeHost->participatesInDisplay());
+    ASSERT(!m_layerTreeHost);
     ASSERT(!m_isWaitingForDidUpdate);
     ASSERT(!m_inUpdateBackingStoreState);
 
     if (m_isPaintingSuspended)
         return;
 
-    if (m_layerTreeHost) {
-        if (!m_layerTreeHost->needsDisplay())
-            return;
-    } else if (m_dirtyRegion.isEmpty())
+    if (m_dirtyRegion.isEmpty())
         return;
 
     if (m_shouldSendDidUpdateBackingStoreState) {
@@ -612,7 +581,7 @@ void DrawingAreaImpl::display()
     UpdateInfo updateInfo;
     display(updateInfo);
 
-    if (m_layerTreeHost && !m_layerTreeHost->participatesInDisplay()) {
+    if (m_layerTreeHost) {
         // The call to update caused layout which turned on accelerated compositing.
         // Don't send an Update message in this case.
         return;
@@ -648,12 +617,12 @@ PassOwnPtr<GraphicsContext> DrawingAreaImpl::createGraphicsContext(ShareableBitm
 {
     return bitmap->createGraphicsContext();
 }
-#endif 
+#endif
 
 void DrawingAreaImpl::display(UpdateInfo& updateInfo)
 {
     ASSERT(!m_isPaintingSuspended);
-    ASSERT(!m_layerTreeHost || m_layerTreeHost->participatesInDisplay());
+    ASSERT(!m_layerTreeHost);
     ASSERT(!m_webPage->size().isEmpty());
 
     // FIXME: It would be better if we could avoid painting altogether when there is a custom representation.
@@ -667,17 +636,14 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
 
     // The layout may have put the page into accelerated compositing mode. If the LayerTreeHost is
     // in charge of displaying, we have nothing more to do.
-    if (m_layerTreeHost && !m_layerTreeHost->participatesInDisplay())
+    if (m_layerTreeHost)
         return;
 
     updateInfo.viewSize = m_webPage->size();
     updateInfo.deviceScaleFactor = m_webPage->corePage()->deviceScaleFactor();
 
-    if (m_layerTreeHost)
-        m_layerTreeHost->display(updateInfo);
-    else {
-        IntRect bounds = m_dirtyRegion.bounds();
-        ASSERT(m_webPage->bounds().contains(bounds));
+    IntRect bounds = m_dirtyRegion.bounds();
+    ASSERT(m_webPage->bounds().contains(bounds));
 
     IntSize bitmapSize = bounds.size();
     float deviceScaleFactor = m_webPage->corePage()->deviceScaleFactor();
@@ -686,44 +652,65 @@ void DrawingAreaImpl::display(UpdateInfo& updateInfo)
     if (!bitmap)
         return;
 
-        if (!bitmap->createHandle(updateInfo.bitmapHandle))
-            return;
+    if (!bitmap->createHandle(updateInfo.bitmapHandle))
+        return;
 
-        Vector<IntRect> rects = m_dirtyRegion.rects();
+    Vector<IntRect> rects = m_dirtyRegion.rects();
 
-        if (shouldPaintBoundsRect(bounds, rects)) {
-            rects.clear();
-            rects.append(bounds);
-        }
+    if (shouldPaintBoundsRect(bounds, rects)) {
+        rects.clear();
+        rects.append(bounds);
+    }
 
-        updateInfo.scrollRect = m_scrollRect;
-        updateInfo.scrollOffset = m_scrollOffset;
+    updateInfo.scrollRect = m_scrollRect;
+    updateInfo.scrollOffset = m_scrollOffset;
 
-        m_dirtyRegion = Region();
-        m_scrollRect = IntRect();
-        m_scrollOffset = IntSize();
+    m_dirtyRegion = Region();
+    m_scrollRect = IntRect();
+    m_scrollOffset = IntSize();
 
-        OwnPtr<GraphicsContext> graphicsContext = createGraphicsContext(bitmap.get());
-        
-        updateInfo.updateRectBounds = bounds;
+    OwnPtr<GraphicsContext> graphicsContext = createGraphicsContext(bitmap.get());
     graphicsContext->applyDeviceScaleFactor(deviceScaleFactor);
     
-        graphicsContext->translate(-bounds.x(), -bounds.y());
+    updateInfo.updateRectBounds = bounds;
 
-        for (size_t i = 0; i < rects.size(); ++i) {
-            m_webPage->drawRect(*graphicsContext, rects[i]);
-            if (m_webPage->hasPageOverlay())
-                m_webPage->drawPageOverlay(*graphicsContext, rects[i]);
-            updateInfo.updateRects.append(rects[i]);
-        }
+    graphicsContext->translate(-bounds.x(), -bounds.y());
+
+    for (size_t i = 0; i < rects.size(); ++i) {
+        m_webPage->drawRect(*graphicsContext, rects[i]);
+        if (m_webPage->hasPageOverlay())
+            m_webPage->drawPageOverlay(*graphicsContext, rects[i]);
+        updateInfo.updateRects.append(rects[i]);
     }
 
     // Layout can trigger more calls to setNeedsDisplay and we don't want to process them
     // until the UI process has painted the update, so we stop the timer here.
     m_displayTimer.stop();
-
-    m_lastDisplayTime = currentTime();
 }
 
+#if USE(UI_SIDE_COMPOSITING)
+void DrawingAreaImpl::didReceiveLayerTreeHostMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
+{
+    if (m_layerTreeHost)
+        m_layerTreeHost->didReceiveLayerTreeHostMessage(connection, messageID, arguments);
+}
+#endif
+
+#if PLATFORM(MAC)
+void DrawingAreaImpl::setLayerHostingMode(uint32_t opaqueLayerHostingMode)
+{
+    LayerHostingMode layerHostingMode = static_cast<LayerHostingMode>(opaqueLayerHostingMode);
+    m_webPage->setLayerHostingMode(layerHostingMode);
+
+    if (!m_layerTreeHost)
+        return;
+
+    LayerTreeContext oldLayerTreeContext = m_layerTreeHost->layerTreeContext();
+    m_layerTreeHost->setLayerHostingMode(layerHostingMode);
+
+    if (m_layerTreeHost->layerTreeContext() != oldLayerTreeContext)
+        m_webPage->send(Messages::DrawingAreaProxy::UpdateAcceleratedCompositingMode(m_backingStoreStateID, m_layerTreeHost->layerTreeContext()));
+}
+#endif
 
 } // namespace WebKit

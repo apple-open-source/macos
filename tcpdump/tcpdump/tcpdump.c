@@ -60,6 +60,9 @@ extern int SIZE_BUF;
 #include <smi.h>
 #endif
 
+#ifdef __APPLE__
+#define __APPLE_PCAP_NG_API
+#endif
 #include <pcap.h>
 #include <signal.h>
 #include <stdio.h>
@@ -577,6 +580,9 @@ main(int argc, char **argv)
 #ifdef WIN32
 	if(wsockinit() != 0) return 1;
 #endif /* WIN32 */
+#ifdef __APPLE__
+	int on = 1;
+#endif
 
         gndo->ndo_Oflag=1;
 	gndo->ndo_Rflag=1;
@@ -606,7 +612,7 @@ main(int argc, char **argv)
 
 	opterr = 0;
 	while (
-	    (op = getopt(argc, argv, "aAb" B_FLAG "c:C:d" D_FLAG "eE:fF:" G_FLAG "G:i:" I_FLAG "KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
+	    (op = getopt(argc, argv, "aAb" B_FLAG "c:C:d" D_FLAG "eE:fF:" G_FLAG "G:i:" I_FLAG "kKlLm:M:nNOPpqr:Rs:StT:u" U_FLAG "vw:W:xXy:Yz:Z:")) != -1)
 		switch (op) {
 
 		case 'a':
@@ -772,7 +778,11 @@ main(int argc, char **argv)
 #endif
 #endif /* WIN32 */
 			break;
-
+#ifdef __APPLE__
+		case 'k':
+			++kflag;
+			break;
+#endif
 		case 'K':
 			++Kflag;
 			break;
@@ -809,6 +819,11 @@ main(int argc, char **argv)
 		case 'O':
 			Oflag = 0;
 			break;
+
+#ifdef __APPLE__
+		case 'P':
+			++Pflag;
+#endif
 
 		case 'p':
 			++pflag;
@@ -1115,6 +1130,11 @@ main(int argc, char **argv)
 		else if (*ebuf)
 			warning("%s", ebuf);
 #endif /* HAVE_PCAP_CREATE */
+		
+#ifdef __APPLE__
+		if ((kflag || Pflag) && pcap_apple_set_exthdr(pd, on) == -1)
+			warn("%s", pcap_geterr(pd));
+#endif
 		/*
 		 * Let user own process after socket has been opened.
 		 */
@@ -1204,7 +1224,10 @@ main(int argc, char **argv)
 		else
 		  MakeFilename(dumpinfo.CurrentFileName, WFileName, 0, 0);
 
-		p = pcap_dump_open(pd, dumpinfo.CurrentFileName);
+		if (Pflag)
+			p = pcap_ng_dump_open(pd, dumpinfo.CurrentFileName);
+		else
+			p = pcap_dump_open(pd, dumpinfo.CurrentFileName);
 		if (p == NULL)
 			error("%s", pcap_geterr(pd));
 		if (Cflag != 0 || Gflag != 0) {
@@ -1494,7 +1517,10 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			/*
 			 * Close the current file and open a new one.
 			 */
-			pcap_dump_close(dump_info->p);
+			if (Pflag)
+				pcap_ng_dump_close(dump_info->p);
+			else
+				pcap_dump_close(dump_info->p);
 
 			/*
 			 * Compress the file we just closed, if the user asked for it
@@ -1529,7 +1555,10 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 			else
 				MakeFilename(dump_info->CurrentFileName, dump_info->WFileName, 0, 0);
 
-			dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+			if (Pflag)
+				dump_info->p = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
+			else
+				dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 			if (dump_info->p == NULL)
 				error("%s", pcap_geterr(pd));
 		}
@@ -1544,7 +1573,10 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 		/*
 		 * Close the current file and open a new one.
 		 */
-		pcap_dump_close(dump_info->p);
+		if (Pflag)
+			pcap_ng_dump_close(dump_info->p);
+		else
+			pcap_dump_close(dump_info->p);
 
 		/*
 		 * Compress the file we just closed, if the user asked for it
@@ -1563,12 +1595,18 @@ dump_packet_and_trunc(u_char *user, const struct pcap_pkthdr *h, const u_char *s
 		if (dump_info->CurrentFileName == NULL)
 			error("dump_packet_and_trunc: malloc");
 		MakeFilename(dump_info->CurrentFileName, dump_info->WFileName, Cflag_count, WflagChars);
-		dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
+		if (Pflag)
+			dump_info->p = pcap_ng_dump_open(dump_info->pd, dump_info->CurrentFileName);
+		else
+			dump_info->p = pcap_dump_open(dump_info->pd, dump_info->CurrentFileName);
 		if (dump_info->p == NULL)
 			error("%s", pcap_geterr(pd));
 	}
 
-	pcap_dump((u_char *)dump_info->p, h, sp);
+	if (Pflag)
+		pcap_ng_dump((u_char *)dump_info->p, h, sp);
+	else
+		pcap_dump((u_char *)dump_info->p, h, sp);
 #ifdef HAVE_PCAP_DUMP_FLUSH
 	if (Uflag)
 		pcap_dump_flush(dump_info->p);
@@ -1586,7 +1624,10 @@ dump_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	++infodelay;
 
-	pcap_dump(user, h, sp);
+	if (Pflag)
+		pcap_ng_dump(user, h, sp);
+	else
+		pcap_dump(user, h, sp);
 #ifdef HAVE_PCAP_DUMP_FLUSH
 	if (Uflag)
 		pcap_dump_flush((pcap_dumper_t *)user);
@@ -1607,6 +1648,10 @@ print_packet(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 
 	++infodelay;
 	ts_print(&h->ts);
+#ifdef __APPLE__
+	if (kflag && h->comment[0])
+		printf("%s ", h->comment);
+#endif
 
 	print_info = (struct print_info *)user;
 

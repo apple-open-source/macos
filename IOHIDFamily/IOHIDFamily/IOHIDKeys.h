@@ -78,6 +78,7 @@ __BEGIN_DECLS
 #define kIOHIDSerialNumberKey               "SerialNumber"
 #define kIOHIDCountryCodeKey                "CountryCode"
 #define kIOHIDStandardTypeKey               "StandardType"
+#define kIOHIDDeviceKeyboardStandardTypeKey "DeviceKeyboardStandardType"
 #define kIOHIDLocationIDKey                 "LocationID"
 #define kIOHIDDeviceUsageKey                "DeviceUsage"
 #define kIOHIDDeviceUsagePageKey            "DeviceUsagePage"
@@ -85,11 +86,12 @@ __BEGIN_DECLS
 #define kIOHIDPrimaryUsageKey               "PrimaryUsage"
 #define kIOHIDPrimaryUsagePageKey           "PrimaryUsagePage"
 #define kIOHIDMaxInputReportSizeKey         "MaxInputReportSize"
-#define kIOHIDMaxOutputReportSizeKey	    "MaxOutputReportSize"
-#define kIOHIDMaxFeatureReportSizeKey	    "MaxFeatureReportSize"
+#define kIOHIDMaxOutputReportSizeKey        "MaxOutputReportSize"
+#define kIOHIDMaxFeatureReportSizeKey       "MaxFeatureReportSize"
 #define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
 #define kIOHIDResetKey                      "Reset"
+#define kIOHIDDeviceKeyboardLanguageKey     "DeviceKeyboardLanguage"
 
 /*!
     @define kIOHIDElementKey

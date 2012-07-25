@@ -42,11 +42,15 @@ class WorkerContext;
 class WorkerScriptDebugServer : public ScriptDebugServer {
     WTF_MAKE_NONCOPYABLE(WorkerScriptDebugServer);
 public:
-    WorkerScriptDebugServer();
+    explicit WorkerScriptDebugServer(WorkerContext*);
     ~WorkerScriptDebugServer() { }
 
-    void addListener(ScriptDebugListener*, WorkerContext*);
-    void removeListener(ScriptDebugListener*, WorkerContext*);
+    void addListener(ScriptDebugListener*);
+    void removeListener(ScriptDebugListener*);
+
+    static const char* debuggerTaskMode;
+
+    void interruptAndRunTask(PassOwnPtr<ScriptDebugServer::Task>);
 
 private:
     virtual void recompileAllJSFunctions(Timer<ScriptDebugServer>*) { }

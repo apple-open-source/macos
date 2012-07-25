@@ -21,12 +21,13 @@
 module html {
 
     interface [
-        HasOverridingNameGetter
+        CustomNamedGetter,
+        V8CustomToJSObject
     ] HTMLDocument : Document {
-        [Custom, NoCPPCustom] void open();
+        [JSCustom, V8Custom] void open();
         void close();
-        [Custom] void write(in DOMString text);
-        [Custom] void writeln(in DOMString text);
+        [Custom] void write(in [Optional=DefaultIsUndefined] DOMString text);
+        [Custom] void writeln(in [Optional=DefaultIsUndefined] DOMString text);
 
         readonly attribute HTMLCollection embeds;
         readonly attribute HTMLCollection plugins;
@@ -46,19 +47,19 @@ module html {
 
         readonly attribute long width;
         readonly attribute long height;
-                 attribute [ConvertNullToNullString] DOMString dir;
-                 attribute [ConvertNullToNullString] DOMString designMode;
+                 attribute [TreatNullAs=NullString] DOMString dir;
+                 attribute [TreatNullAs=NullString] DOMString designMode;
         readonly attribute DOMString compatMode;
 
         readonly attribute Element activeElement;
         boolean hasFocus();
 
         // Deprecated attributes
-                 attribute [ConvertNullToNullString] DOMString bgColor;
-                 attribute [ConvertNullToNullString] DOMString fgColor;
-                 attribute [ConvertNullToNullString] DOMString alinkColor;
-                 attribute [ConvertNullToNullString] DOMString linkColor;
-                 attribute [ConvertNullToNullString] DOMString vlinkColor;
+                 attribute [TreatNullAs=NullString] DOMString bgColor;
+                 attribute [TreatNullAs=NullString] DOMString fgColor;
+                 attribute [TreatNullAs=NullString] DOMString alinkColor;
+                 attribute [TreatNullAs=NullString] DOMString linkColor;
+                 attribute [TreatNullAs=NullString] DOMString vlinkColor;
     };
 
 }

@@ -1,5 +1,5 @@
 /*
- * "$Id: ppd-private.h 3648 2012-02-13 17:37:38Z msweet $"
+ * "$Id: ppd-private.h 3675 2012-02-15 23:13:23Z msweet $"
  *
  *   Private PPD definitions for CUPS.
  *
@@ -49,12 +49,20 @@ extern "C" {
  * Constants...
  */
 
-#  define _PPD_CACHE_VERSION	2	/* Version number in cache file */
+#  define _PPD_CACHE_VERSION	3	/* Version number in cache file */
 
 
 /*
  * Types and structures...
  */
+
+typedef enum _ppd_localization_e	/**** Selector for _ppdOpen ****/
+{
+  _PPD_LOCALIZATION_DEFAULT,		/* Load only the default localization */
+  _PPD_LOCALIZATION_ICC_PROFILES,	/* Load only the color profile localization */
+  _PPD_LOCALIZATION_NONE,		/* Load no localizations */
+  _PPD_LOCALIZATION_ALL			/* Load all localizations */
+} _ppd_localization_t;
 
 typedef enum _ppd_parse_e		/**** Selector for _ppdParseOptions ****/
 {
@@ -133,6 +141,7 @@ struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
 		*prefilters;		/* cupsPreFilter values */
   int		single_file;		/* cupsSingleFile value */
   cups_array_t	*finishings;		/* cupsIPPFinishings values */
+  int		max_copies;		/* cupsMaxCopies value */
 };
 
 
@@ -177,6 +186,10 @@ extern ppd_attr_t	*_ppdLocalizedAttr(ppd_file_t *ppd, const char *keyword,
 extern char		*_ppdNormalizeMakeAndModel(const char *make_and_model,
 			                           char *buffer,
 						   size_t bufsize);
+extern ppd_file_t	*_ppdOpen(cups_file_t *fp,
+				  _ppd_localization_t localization);
+extern ppd_file_t	*_ppdOpenFile(const char *filename,
+				      _ppd_localization_t localization);
 extern int		_ppdParseOptions(const char *s, int num_options,
 			                 cups_option_t **options,
 					 _ppd_parse_t which);
@@ -198,5 +211,5 @@ extern const char	*_pwgPageSizeForMedia(_pwg_media_t *media,
 #endif /* !_CUPS_PPD_PRIVATE_H_ */
 
 /*
- * End of "$Id: ppd-private.h 3648 2012-02-13 17:37:38Z msweet $".
+ * End of "$Id: ppd-private.h 3675 2012-02-15 23:13:23Z msweet $".
  */

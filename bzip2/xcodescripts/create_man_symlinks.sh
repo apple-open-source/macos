@@ -15,8 +15,5 @@ ln -s bzip2.1 ${DSTROOT}/usr/share/man/man1/bzip2recover.1
 
 ln -s bzdiff.1 ${DSTROOT}/usr/share/man/man1/bzcmp.1
 
-ln -s bzgrep.1 ${DSTROOT}/usr/share/man/man1/bzegrep.1
-ln -s bzgrep.1 ${DSTROOT}/usr/share/man/man1/bzfgrep.1
-
 ln -s bzmore.1 ${DSTROOT}/usr/share/man/man1/bzless.1
 

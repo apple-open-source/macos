@@ -1,32 +1,35 @@
 /*
- * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
- *           (C) 2000 Antti Koivisto (koivisto@kde.org)
- *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
- * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
+ * Copyright (C) 2011 Google Inc. All Rights Reserved.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * along with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ *  THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS'' AND ANY
+ *  EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *  DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ *  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ *  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ *  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
 #ifndef StyleFlexibleBoxData_h
 #define StyleFlexibleBoxData_h
 
-#include <wtf/RefCounted.h>
+#include "Length.h"
+
 #include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -34,22 +37,26 @@ class StyleFlexibleBoxData : public RefCounted<StyleFlexibleBoxData> {
 public:
     static PassRefPtr<StyleFlexibleBoxData> create() { return adoptRef(new StyleFlexibleBoxData); }
     PassRefPtr<StyleFlexibleBoxData> copy() const { return adoptRef(new StyleFlexibleBoxData(*this)); }
-    
-    bool operator==(const StyleFlexibleBoxData& o) const;
+
+    bool operator==(const StyleFlexibleBoxData&) const;
     bool operator!=(const StyleFlexibleBoxData& o) const
     {
         return !(*this == o);
     }
 
-    float flex;
-    unsigned int flex_group;
-    unsigned int ordinal_group;
+    float m_positiveFlex;
+    float m_negativeFlex;
+    Length m_preferredSize;
 
-    unsigned align : 3; // EBoxAlignment
-    unsigned pack: 3; // EBoxAlignment
-    unsigned orient: 1; // EBoxOrient
-    unsigned lines : 1; // EBoxLines
-    
+    int m_flexOrder;
+
+    unsigned m_flexPack : 3; // EFlexPack
+    unsigned m_flexAlign : 3; // EFlexAlign
+    unsigned m_flexItemAlign : 3; // EFlexAlign
+    unsigned m_flexDirection : 2; // EFlexDirection
+    unsigned m_flexWrap : 2; // EFlexWrap
+    unsigned m_flexLinePack : 3; // EFlexLinePack
+
 private:
     StyleFlexibleBoxData();
     StyleFlexibleBoxData(const StyleFlexibleBoxData&);

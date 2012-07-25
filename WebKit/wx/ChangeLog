@@ -1,8 +1,708 @@
-2011-11-16  Lucas Forschler  <lforschler@apple.com>
+2012-05-04  Nate Chapin  <japhet@chromium.org>
 
-    Merge 93303
+        Don't require FrameLoaderClient to manufacture a commitData() call for empty documents.
+        https://bugs.webkit.org/show_bug.cgi?id=85533
 
-    2011-08-17  Adam Roben  <aroben@apple.com>
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::finishedLoading):
+        (WebCore::FrameLoaderClientWx::setMainDocumentError):
+        (WebCore::FrameLoaderClientWx::dispatchDidReceiveResponse):
+        (WebCore::FrameLoaderClientWx::dispatchDidFailLoading):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (FrameLoaderClientWx):
+
+2012-04-18  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        FrameLoaderClient::dispatchWillSendSubmitEvent() should be given more
+        information about the form being submitted
+        https://bugs.webkit.org/show_bug.cgi?id=84297
+
+        Reviewed by Andy Estes.
+
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (WebCore::FrameLoaderClientWx::dispatchWillSendSubmitEvent):
+        Updated method declaration.
+
+2012-03-30  Malcolm MacLeod  <malcolm.macleod@tshwanedje.com>
+
+        [wx] Move wxWebKit API into WebKit namespace.
+        https://bugs.webkit.org/show_bug.cgi?id=82740
+
+        Reviewed by Kevin Ollivier.
+
+        * WebBrowserShell.cpp:
+        (WebKit):
+        (WebKit::PageSourceViewFrame::PageSourceViewFrame):
+        (WebKit::WebBrowserShell::WebBrowserShell):
+        (WebKit::WebBrowserShell::~WebBrowserShell):
+        (WebKit::WebBrowserShell::ShowDebugMenu):
+        (WebKit::WebBrowserShell::OnQuit):
+        (WebKit::WebBrowserShell::OnAbout):
+        (WebKit::WebBrowserShell::OnLoadFile):
+        (WebKit::WebBrowserShell::OnLoadEvent):
+        (WebKit::WebBrowserShell::OnBeforeLoad):
+        (WebKit::WebBrowserShell::OnAddressBarEnter):
+        (WebKit::WebBrowserShell::OnSearchCtrlEnter):
+        (WebKit::WebBrowserShell::OnCut):
+        (WebKit::WebBrowserShell::OnCopy):
+        (WebKit::WebBrowserShell::OnPaste):
+        (WebKit::WebBrowserShell::OnBack):
+        (WebKit::WebBrowserShell::OnForward):
+        (WebKit::WebBrowserShell::OnStop):
+        (WebKit::WebBrowserShell::OnReload):
+        (WebKit::WebBrowserShell::OnMakeTextLarger):
+        (WebKit::WebBrowserShell::OnMakeTextSmaller):
+        (WebKit::WebBrowserShell::OnGetSource):
+        (WebKit::WebBrowserShell::OnSetSource):
+        (WebKit::WebBrowserShell::OnBrowse):
+        (WebKit::WebBrowserShell::OnEdit):
+        (WebKit::WebBrowserShell::OnRunScript):
+        (WebKit::WebBrowserShell::OnEditCommand):
+        (WebKit::WebBrowserShell::OnGetEditCommandState):
+        (WebKit::WebBrowserShell::OnPrint):
+        * WebBrowserShell.h:
+        (WebKit):
+        * WebDOMSelection.cpp:
+        (WebKit):
+        (WebKit::WebKitSelection::WebKitSelection):
+        (WebKit::WebKitSelection::GetRootEditableElement):
+        (WebKit::WebKitSelection::GetAsRange):
+        * WebDOMSelection.h:
+        (WebKit):
+        * WebEdit.cpp:
+        (WebKit):
+        (WebKit::WebEditCommand::WebEditCommand):
+        (WebKit::WebEditCommand::~WebEditCommand):
+        (WebKit::WebEditCommand::SetNodeAttribute):
+        (WebKit::WebEditCommand::Apply):
+        * WebEdit.h:
+        (WebKit):
+        * WebFrame.cpp:
+        (WebKit):
+        (WebKit::kit):
+        (WebKit::WebFrame::WebFrame):
+        (WebKit::WebFrame::~WebFrame):
+        (WebKit::WebFrame::GetName):
+        (WebKit::WebFrame::GetFrame):
+        (WebKit::WebFrame::Stop):
+        (WebKit::WebFrame::Reload):
+        (WebKit::WebFrame::GetPageSource):
+        (WebKit::WebFrame::SetPageSource):
+        (WebKit::WebFrame::GetInnerText):
+        (WebKit::WebFrame::GetAsMarkup):
+        (WebKit::WebFrame::GetExternalRepresentation):
+        (WebKit::WebFrame::GetSelectionAsHTML):
+        (WebKit::WebFrame::GetSelectionAsText):
+        (WebKit::WebFrame::GetSelection):
+        (WebKit::WebFrame::RunScript):
+        (WebKit::WebFrame::ExecuteEditCommand):
+        (WebKit::WebFrame::GetEditCommandState):
+        (WebKit::WebFrame::GetEditCommandValue):
+        (WebKit::WebFrame::FindString):
+        (WebKit::WebFrame::LoadURL):
+        (WebKit::WebFrame::GetURL):
+        (WebKit::WebFrame::GoBack):
+        (WebKit::WebFrame::GoForward):
+        (WebKit::WebFrame::CanGoBack):
+        (WebKit::WebFrame::CanGoForward):
+        (WebKit::WebFrame::Undo):
+        (WebKit::WebFrame::Redo):
+        (WebKit::WebFrame::CanUndo):
+        (WebKit::WebFrame::CanRedo):
+        (WebKit::WebFrame::CanIncreaseTextSize):
+        (WebKit::WebFrame::IncreaseTextSize):
+        (WebKit::WebFrame::CanDecreaseTextSize):
+        (WebKit::WebFrame::DecreaseTextSize):
+        (WebKit::WebFrame::ResetTextSize):
+        (WebKit::WebFrame::MakeEditable):
+        (WebKit::WebFrame::IsEditable):
+        (WebKit::WebFrame::CanCopy):
+        (WebKit::WebFrame::Copy):
+        (WebKit::WebFrame::CanCut):
+        (WebKit::WebFrame::Cut):
+        (WebKit::WebFrame::CanPaste):
+        (WebKit::WebFrame::Paste):
+        (WebKit::WebFrame::Print):
+        (WebKit::WebFrame::HitTest):
+        (WebKit::WebFrame::ShouldClose):
+        (WebKit::WebFrame::GetCompatibilityMode):
+        (WebKit::WebFrame::GrantUniversalAccess):
+        * WebFrame.h:
+        (WebKit):
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::wkFeaturesforWindowFeatures):
+        (WebCore::ChromeClientWx::ChromeClientWx):
+        (WebCore::ChromeClientWx::createWindow):
+        (WebCore::ChromeClientWx::addMessageToConsole):
+        (WebCore::ChromeClientWx::runJavaScriptAlert):
+        (WebCore::ChromeClientWx::runJavaScriptConfirm):
+        (WebCore::ChromeClientWx::runJavaScriptPrompt):
+        (WebCore::ChromeClientWx::print):
+        (WebCore::ChromeClientWx::exceededDatabaseQuota):
+        * WebKitSupport/ChromeClientWx.h:
+        (ChromeClientWx):
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::respondToChangedContents):
+        (WebCore::EditorClientWx::registerUndoStep):
+        (WebCore::EditorClientWx::registerRedoStep):
+        (WebCore::EditorClientWx::clearUndoRedoOperations):
+        (WebCore::EditorClientWx::canUndo):
+        (WebCore::EditorClientWx::canRedo):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+        (WebCore::EditorClientWx::respondToChangedSelection):
+        * WebKitSupport/EditorClientWx.h:
+        (EditorClientWx):
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::wxNavTypeFromWebNavType):
+        (WebCore::FrameLoaderClientWx::setFrame):
+        (WebCore::FrameLoaderClientWx::setWebView):
+        (WebCore::FrameLoaderClientWx::dispatchDidHandleOnloadEvents):
+        (WebCore::FrameLoaderClientWx::dispatchDidStartProvisionalLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientWx::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidFinishDocumentLoad):
+        (WebCore::FrameLoaderClientWx::postProgressFinishedNotification):
+        (WebCore::FrameLoaderClientWx::dispatchDidFailLoading):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+        (WebCore::FrameLoaderClientWx::createFrame):
+        (WebCore::FrameLoaderClientWx::dispatchDidClearWindowObjectInWorld):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (WebKit):
+        (WebCore::FrameLoaderClientWx::webFrame):
+        (FrameLoaderClientWx):
+        (WebCore::FrameLoaderClientWx::webView):
+        * WebSettings.cpp:
+        (WebKit):
+        (WebKit::WebSettings::SetDefaultFixedFontSize):
+        (WebKit::WebSettings::GetDefaultFixedFontSize):
+        (WebKit::WebSettings::SetDefaultFontSize):
+        (WebKit::WebSettings::GetDefaultFontSize):
+        (WebKit::WebSettings::SetMinimumFontSize):
+        (WebKit::WebSettings::GetMinimumFontSize):
+        (WebKit::WebSettings::SetLoadsImagesAutomatically):
+        (WebKit::WebSettings::LoadsImagesAutomatically):
+        (WebKit::WebSettings::SetJavaScriptEnabled):
+        (WebKit::WebSettings::IsJavaScriptEnabled):
+        (WebKit::WebSettings::SetLocalStoragePath):
+        (WebKit::WebSettings::GetLocalStoragePath):
+        (WebKit::WebSettings::SetEditableLinkBehavior):
+        (WebKit::WebSettings::GetEditableLinkBehavior):
+        (WebKit::WebSettings::SetPluginsEnabled):
+        (WebKit::WebSettings::ArePluginsEnabled):
+        (WebKit::WebSettings::SetPrivateBrowsingEnabled):
+        (WebKit::WebSettings::PrivateBrowsingEnabled):
+        (WebKit::WebSettings::SetUsesPageCache):
+        (WebKit::WebSettings::UsesPageCache):
+        (WebKit::WebSettings::SetOfflineWebApplicationCacheEnabled):
+        (WebKit::WebSettings::OfflineWebApplicationCacheEnabled):
+        * WebSettings.h:
+        (WebKit):
+        * WebView.cpp:
+        (WebKit):
+        (WebKit::WebViewLoadEvent::WebViewLoadEvent):
+        (WebKit::WebViewBeforeLoadEvent::WebViewBeforeLoadEvent):
+        (WebKit::WebViewNewWindowEvent::WebViewNewWindowEvent):
+        (WebKit::WebViewRightClickEvent::WebViewRightClickEvent):
+        (WebKit::WebViewConsoleMessageEvent::WebViewConsoleMessageEvent):
+        (WebKit::WebViewAlertEvent::WebViewAlertEvent):
+        (WebKit::WebViewConfirmEvent::WebViewConfirmEvent):
+        (WebKit::WebViewPromptEvent::WebViewPromptEvent):
+        (WebKit::WebViewReceivedTitleEvent::WebViewReceivedTitleEvent):
+        (WebKit::WebViewWindowObjectClearedEvent::WebViewWindowObjectClearedEvent):
+        (WebKit::WebViewContentsChangedEvent::WebViewContentsChangedEvent):
+        (WebKit::WebViewSelectionChangedEvent::WebViewSelectionChangedEvent):
+        (WebKit::WebViewPrintFrameEvent::WebViewPrintFrameEvent):
+        (WebKit::WebViewDOMElementInfo::WebViewDOMElementInfo):
+        (WebKit::WebView::SetCachePolicy):
+        (WebKit::WebView::GetCachePolicy):
+        (WebKit::WebViewDOMElementInfo::~WebViewDOMElementInfo):
+        (WebKit::WebView::WebView):
+        (WebKit::WebView::Create):
+        (WebKit::WebView::~WebView):
+        (WebKit::WebView::OnTLWActivated):
+        (WebKit::WebView::Stop):
+        (WebKit::WebView::Reload):
+        (WebKit::WebView::GetPageSource):
+        (WebKit::WebView::SetPageSource):
+        (WebKit::WebView::GetInnerText):
+        (WebKit::WebView::GetAsMarkup):
+        (WebKit::WebView::GetExternalRepresentation):
+        (WebKit::WebView::GetSelection):
+        (WebKit::WebView::GetSelectionAsHTML):
+        (WebKit::WebView::GetSelectionAsText):
+        (WebKit::WebView::SetTransparent):
+        (WebKit::WebView::IsTransparent):
+        (WebKit::WebView::RunScript):
+        (WebKit::WebView::ExecuteEditCommand):
+        (WebKit::WebView::GetEditCommandState):
+        (WebKit::WebView::GetEditCommandValue):
+        (WebKit::WebView::LoadURL):
+        (WebKit::WebView::GetMainFrameURL):
+        (WebKit::WebView::GoBack):
+        (WebKit::WebView::GoForward):
+        (WebKit::WebView::CanGoBack):
+        (WebKit::WebView::CanGoForward):
+        (WebKit::WebView::CanIncreaseTextSize):
+        (WebKit::WebView::IncreaseTextSize):
+        (WebKit::WebView::CanDecreaseTextSize):
+        (WebKit::WebView::DecreaseTextSize):
+        (WebKit::WebView::ResetTextSize):
+        (WebKit::WebView::MakeEditable):
+        (WebKit::WebView::IsEditable):
+        (WebKit::WebView::OnPaint):
+        (WebKit::WebView::FindString):
+        (WebKit::WebView::OnSize):
+        (WebKit::WebView::OnMouseEvents):
+        (WebKit::WebView::OnContextMenuEvents):
+        (WebKit::WebView::OnMenuSelectEvents):
+        (WebKit::WebView::OnMouseCaptureLost):
+        (WebKit::WebView::CanCopy):
+        (WebKit::WebView::Copy):
+        (WebKit::WebView::CanCut):
+        (WebKit::WebView::Cut):
+        (WebKit::WebView::CanPaste):
+        (WebKit::WebView::Paste):
+        (WebKit::WebView::OnKeyEvents):
+        (WebKit::WebView::OnSetFocus):
+        (WebKit::WebView::OnKillFocus):
+        (WebKit::WebView::HitTest):
+        (WebKit::WebView::ShouldClose):
+        (WebKit::WebView::SetDatabaseDirectory):
+        (WebKit::WebView::GetDatabaseDirectory):
+        (WebKit::WebView::SetDatabasesEnabled):
+        (WebKit::WebView::AreDatabasesEnabled):
+        (WebKit::WebView::SetProxyInfo):
+        (WebKit::WebView::GetWebSettings):
+        (WebKit::WebView::GetCompatibilityMode):
+        (WebKit::WebView::GrantUniversalAccess):
+        * WebView.h:
+        (WebKit):
+        * bindings/python/webview.i:
+
+2012-03-28  Nate Chapin  <japhet@chromium.org>
+
+        Remove dispatchDidLoadMainResource callback, since no
+        port implements it.
+        https://bugs.webkit.org/show_bug.cgi?id=82539
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (FrameLoaderClientWx):
+
+2012-03-25  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed build fix. Add header needed for Unix builds.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+
+2012-03-19  Adam Barth  <abarth@webkit.org>
+
+        Remove support for "magic" iframe
+        https://bugs.webkit.org/show_bug.cgi?id=81590
+
+        Reviewed by Eric Seidel.
+
+        Remove FrameLoaderClient methods that no longer exist.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (FrameLoaderClientWx):
+
+2012-03-15  Kevin Ollivier  <kevino@theolliviers.com>
+
+        Move wx port to using export macros
+        https://bugs.webkit.org/show_bug.cgi?id=77279
+
+        Reviewed by Hajime Morita.
+
+        * wscript:
+
+2012-03-13  Adam Barth  <abarth@webkit.org> && Benjamin Poulain  <bpoulain@apple.com>
+
+        Always enable ENABLE(CLIENT_BASED_GEOLOCATION)
+        https://bugs.webkit.org/show_bug.cgi?id=78853
+
+        Reviewed by Adam Barth.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        * WebKitSupport/ChromeClientWx.h:
+
+2012-02-26  Hajime Morrita  <morrita@chromium.org>
+
+        Move ChromeClient::showContextMenu() to ContextMenuClient
+        https://bugs.webkit.org/show_bug.cgi?id=79427
+
+        Reviewed by Adam Barth.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (ChromeClientWx):
+
+2012-02-24  Shinya Kawanaka  <shinyak@chromium.org>
+
+        SpellCheckRequest needs to know the context where the spellcheck happened.
+        https://bugs.webkit.org/show_bug.cgi?id=79320
+
+        Reviewed by Hajime Morita.
+
+        * WebKitSupport/EditorClientWx.h:
+        (WebCore::EditorClientWx::requestCheckingOfString):
+
+2012-02-21  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Remove the remaining uses of CSSStyleDeclaration in Editor
+        https://bugs.webkit.org/show_bug.cgi?id=78939
+
+        Reviewed by Enrica Casucci.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::shouldApplyStyle):
+        * WebKitSupport/EditorClientWx.h:
+        (EditorClientWx):
+
+2012-02-22  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Remove the remaining uses of CSSStyleDeclaration in Editor
+        https://bugs.webkit.org/show_bug.cgi?id=78939
+
+        Reviewed by Enrica Casucci.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::shouldApplyStyle):
+        * WebKitSupport/EditorClientWx.h:
+        (EditorClientWx):
+
+2012-02-15  Sadrul Habib Chowdhury  <sadrul@chromium.org>
+
+        Notify ChromeClient when touch-event handlers are installed/removed.
+        https://bugs.webkit.org/show_bug.cgi?id=77440
+
+        Reviewed by Darin Fisher and Ryosuke Niwa.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::numTouchEventHandlersChanged):
+
+2012-01-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed. Build fix, add JavaScriptCore/runtime
+        to include dirs.
+
+        * bindings/python/wscript:
+
+2012-01-26  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed. 
+        Build fixes after UndoStep and ChromeClient changes.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore):
+        (WebCore::ChromeClientWx::hasOpenedPopup):
+        * WebKitSupport/ChromeClientWx.h:
+        (ChromeClientWx):
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::registerUndoStep):
+        (WebCore::EditorClientWx::registerRedoStep):
+        (WebCore::EditorClientWx::undo):
+        (WebCore::EditorClientWx::redo):
+        * WebKitSupport/EditorClientWx.h:
+        (EditorClientWx):
+        * WebViewPrivate.h:
+        (WebViewPrivate):
+
+2011-12-16  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Rename registerCommandFor(Undo|Redo) to register(Undo|Redo)Step
+        https://bugs.webkit.org/show_bug.cgi?id=74748
+
+        Reviewed by Eric Seidel.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::registerUndoStep):
+        (WebCore::EditorClientWx::registerRedoStep):
+        * WebKitSupport/EditorClientWx.h:
+
+2011-12-16  Sam Weinig  <sam@webkit.org>
+
+        Give PlatformEvents a base class
+        https://bugs.webkit.org/show_bug.cgi?id=74685
+
+        Reviewed by Anders Carlsson.
+
+        Add a base class for PlatformMouseEvent, PlatformKeyboardEvent, PlatformWheelEvent
+        and PlatformGestureEvent and move Type enumeration and modifiers down to it.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::handleEditingKeyboardEvent):
+        (WebCore::EditorClientWx::interpretKeyEvent):
+
+2011-12-11  Robin Dunn  <robin@alldunn.com>
+
+        Add a URL argument to the wxWebView constructor,
+        and fix page calculations and margins on Windows and Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=74316
+
+        Reviewed by Kevin Ollivier.
+
+        * WebBrowserShell.cpp:
+        (wxWebBrowserShell::wxWebBrowserShell):
+        * WebBrowserShell.h:
+        * WebFrame.cpp:
+        (wxWebFramePrintout::wxWebFramePrintout):
+        (wxWebFramePrintout::~wxWebFramePrintout):
+        (wxWebFramePrintout::InitializeWithPageSize):
+        (wxWebFramePrintout::OnPreparePrinting):
+        (wxWebFramePrintout::OnPrintPage):
+        (wxWebFramePrintout::OnEndPrinting):
+        (wxWebFrame::Print):
+        * WebView.cpp:
+        (wxWebView::wxWebView):
+        (wxWebView::Create):
+        * WebView.h:
+        * bindings/python/samples/simple.py:
+        (TestPanel.__init__):
+
+2011-12-07  Mary Wu  <mary.wu@torchmobile.com.cn>
+
+        Change function name InitializeLoggingChannelsIfNecessary to follow coding style guideline
+        https://bugs.webkit.org/show_bug.cgi?id=73986
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2011-12-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed build fixes for Windows build.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+
+2011-11-30  Alexey Proskuryakov  <ap@apple.com>
+
+        Remove an unneeded argument from FrameLoaderClient::download
+        https://bugs.webkit.org/show_bug.cgi?id=73486
+
+        Reviewed by Andreas Kling.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::download):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        Updated for the change.
+
+2011-11-30  Robin Dunn  <robin@alldunn.com>
+
+        Generate a more robust user agent string.
+        https://bugs.webkit.org/show_bug.cgi?id=73465
+        
+        Reviewed by Kevin Ollivier.
+        
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::agentOS):
+        (WebCore::composeUserAgent):
+        (WebCore::FrameLoaderClientWx::userAgent):
+
+2011-11-30  Robin Dunn  <robin@alldunn.com>
+
+        Use the wxGCDC(wxGraphicsContext) constructor on Mac as well
+        to avoid issues with the wxGCDC(wxPrinterDC) constructor.
+        https://bugs.webkit.org/show_bug.cgi?id=73463
+        
+        Reviewed by Kevin Ollivier.
+
+        * WebFrame.cpp:
+        (wxWebFramePrintout::OnPrintPage):
+
+2011-11-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r101193.
+        http://trac.webkit.org/changeset/101193
+        https://bugs.webkit.org/show_bug.cgi?id=73158
+
+        Breaks Windows and Qt minimal. (Requested by pfeldman on
+        #webkit).
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        * WebKitSupport/InspectorClientWx.h:
+
+2011-11-22  Pavel Feldman  <pfeldman@google.com>
+
+        Web Inspector: remove Inspector::bringToFront from the protocol.
+        https://bugs.webkit.org/show_bug.cgi?id=72937
+
+        Reviewed by Yury Semikhatsky.
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::bringFrontendToFront):
+        * WebKitSupport/InspectorClientWx.h:
+
+2011-11-21  Robin Dunn  <robin@alldunn.com>
+
+        Add wxWebKit APIs for controlling WebKit caching behavior.
+        https://bugs.webkit.org/show_bug.cgi?id=72891
+
+        Reviewed by Kevin Ollivier.
+
+        * WebSettings.cpp:
+        (wxWebSettings::SetPrivateBrowsingEnabled):
+        (wxWebSettings::PrivateBrowsingEnabled):
+        (wxWebSettings::SetUsesPageCache):
+        (wxWebSettings::UsesPageCache):
+        (wxWebSettings::SetOfflineWebApplicationCacheEnabled):
+        (wxWebSettings::OfflineWebApplicationCacheEnabled):
+        * WebSettings.h:
+
+2011-11-21  Robin Dunn  <robin@alldunn.com>
+
+        Add wxWebKit API for retrieving frame and page URLs.
+        https://bugs.webkit.org/show_bug.cgi?id=72890
+
+        Reviewed by Kevin Ollivier.
+
+        * WebBrowserShell.cpp:
+        (wxWebBrowserShell::wxWebBrowserShell):
+        * WebFrame.cpp:
+        (wxWebFrame::GetURL):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::GetMainFrameURL):
+        * WebView.h:
+
+2011-10-17  Antonio Gomes  <agomes@rim.com>
+
+        Pass a Frame* parameter in EditorClient::respondToChangedSelection
+        https://bugs.webkit.org/show_bug.cgi?id=70248
+
+        Reviewed by Ryosuke Niwa.
+
+        * WebKitSupport/EditorClientWx.cpp: Make use of the newly added Frame* parameter.
+        (WebCore::EditorClientWx::respondToChangedSelection):
+        * WebKitSupport/EditorClientWx.h:
+
+2011-11-15  Anders Carlsson  <andersca@apple.com>
+
+        HostWindow screenToWindow/windowToScreen should be screenToRootView/rootViewToScreen
+        https://bugs.webkit.org/show_bug.cgi?id=72397
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::rootViewToScreen):
+        (WebCore::ChromeClientWx::screenToRootView):
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-11-14  Anders Carlsson  <andersca@apple.com>
+
+        HostWindow invalidation functions should use root view coordinates
+        https://bugs.webkit.org/show_bug.cgi?id=72338
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::invalidateRootView):
+        (WebCore::ChromeClientWx::invalidateContentsForSlowScroll):
+        (WebCore::ChromeClientWx::invalidateContentsAndRootView):
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-11-02  Tom Sepez  <tsepez@chromium.org>
+
+        XSSAuditor is silent
+        https://bugs.webkit.org/show_bug.cgi?id=70973
+
+        Reviewed by Adam Barth.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::didDetectXSS):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-10-28  Jochen Eisinger  <jochen@chromium.org>
+
+        Rename a number of methods mentioning JavaScript to just Script instead
+        https://bugs.webkit.org/show_bug.cgi?id=71105
+
+        Reviewed by Adam Barth.
+
+        * WebSettings.cpp:
+        (wxWebSettings::SetJavaScriptEnabled):
+        (wxWebSettings::IsJavaScriptEnabled):
+        * WebView.cpp:
+        (wxWebView::Create):
+
+2011-09-24  Adam Barth  <abarth@webkit.org>
+
+        Always enable ENABLE(OFFLINE_WEB_APPLICATIONS)
+        https://bugs.webkit.org/show_bug.cgi?id=68767
+
+        Reviewed by Eric Seidel.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::reachedApplicationCacheOriginQuota):
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-09-17  Mihai Parparita  <mihaip@chromium.org>
+
+        FrameLoaderClient BackForwardList-related methods are unsued
+        https://bugs.webkit.org/show_bug.cgi?id=68293
+
+        Reviewed by Darin Adler.
+
+        Remove FrameLoaderClient methods that were added by r51629, since only        
+        the old (since-deleted) Android port needed them.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-09-15  Adam Barth  <abarth@webkit.org>
+
+        Rename ENABLE(DATABASE) to ENABLE(SQL_DATABASE)
+        https://bugs.webkit.org/show_bug.cgi?id=68205
+
+        Reviewed by Eric Seidel.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        * WebKitSupport/ChromeClientWx.h:
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::SetDatabaseDirectory):
+        (wxWebView::GetDatabaseDirectory):
+        (wxWebView::SetDatabasesEnabled):
+        (wxWebView::AreDatabasesEnabled):
+
+2011-09-04  Robin Dunn  <robin@alldunn.com>
+
+        [wx] Enable wxWebKit to run using the wxGC Cairo backend on platforms other than GTK.
+        https://bugs.webkit.org/show_bug.cgi?id=67577
+
+        Reviewed by Kevin Ollivier.
+
+        * WebFrame.cpp:
+        (wxWebFramePrintout::InitializeWithPageSize):
+        (wxWebFramePrintout::OnBeginPrinting):
+        (wxWebFramePrintout::OnPrintPage):
+        (wxWebFrame::Print):
+        * WebView.cpp:
+        (wxWebView::OnPaint):
+
+2011-08-30  Kaustubh Atrawalkar  <kaustubh@motorola.com>
+
+        The unused ScrollView* argument can and should be removed from
+        scrollRectIntoView.
+        https://bugs.webkit.org/show_bug.cgi?id=67117
+
+        Reviewed by Darin Adler.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::scrollRectIntoView):
+
+2011-08-17  Adam Roben  <aroben@apple.com>
 
         Make WebCore keep track of the current device scale factor
 
@@ -15,40 +715,234 @@
         * WebKitSupport/ChromeClientWx.h:
         Removed deviceScaleFactor.
 
-2011-11-15  Lucas Forschler  <lforschler@apple.com>
+2011-08-15  Dmitry Titov  <dimich@chromium.org>
 
-    Merge 93040
+        FrameLoaderClient::transferLoadingResourceFromPage does not have enough parameters
+        https://bugs.webkit.org/show_bug.cgi?id=66165
 
-    2011-08-10  Adam Roben  <aroben@apple.com>
+        Reviewed by Darin Fisher.
 
-            Clear up scale factor terminology
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::transferLoadingResourceFromPage):
+        * WebKitSupport/FrameLoaderClientWx.h:
 
-            WebKit by and large deals with two scale factors: one intrinsic to the device on which the
-            software is running, and one that is per-Page and can be controlled via API calls. This
-            patch names the former "deviceScaleFactor" and the latter "pageScaleFactor", and makes the
-            code use those names. It should introduce no behavior changes.
+2011-08-10  Adam Roben  <aroben@apple.com>
 
-            Fixes <http://webkit.org/b/55787> WebKit uses multiple conflicting names to refer to the
-            device scale factor
+        Clear up scale factor terminology
 
-            Reviewed by Simon Fraser.
+        WebKit by and large deals with two scale factors: one intrinsic to the device on which the
+        software is running, and one that is per-Page and can be controlled via API calls. This
+        patch names the former "deviceScaleFactor" and the latter "pageScaleFactor", and makes the
+        code use those names. It should introduce no behavior changes.
 
-            * WebKitSupport/ChromeClientWx.cpp:
-            * WebKitSupport/ChromeClientWx.h:
+        Fixes <http://webkit.org/b/55787> WebKit uses multiple conflicting names to refer to the
+        device scale factor
 
-2011-08-11  Lucas Forschler  <lforschler@apple.com>
+        Reviewed by Simon Fraser.
 
-    Merged 91097
+        * WebKitSupport/ChromeClientWx.cpp:
+        * WebKitSupport/ChromeClientWx.h:
 
-    2011-07-15  Dan Bernstein  <mitz@apple.com>
+2011-08-05  Anders Carlsson  <andersca@apple.com>
 
-            REGRESSION: Mouse cursor doesn’t hide when full screen video HUD hides
-            https://bugs.webkit.org/show_bug.cgi?id=64615
+        Remove PluginHalter
+        https://bugs.webkit.org/show_bug.cgi?id=65729
 
-            Reviewed by Anders Carlsson.
+        Reviewed by Darin Adler.
 
-            * WebKitSupport/ChromeClientWx.h:
-            (WebCore::ChromeClientWx::setCursorHiddenUntilMouseMoves): Added this stub.
+        Don't include PluginHalterClient.h, it's been removed.
+
+        * WebView.cpp:
+
+2011-08-03  Pavel Feldman  <pfeldman@chromium.org>
+
+        Web Inspector: remove Node parameter from the InspectorClient::highlight
+        https://bugs.webkit.org/show_bug.cgi?id=65549
+
+        Reviewed by Yury Semikhatsky.
+
+        * WebKitSupport/InspectorClientWx.cpp:
+        (WebCore::InspectorClientWx::highlight):
+        * WebKitSupport/InspectorClientWx.h:
+
+2011-07-30  Patrick Gansterer  <paroga@webkit.org>
+
+        Remove inclusion of MainThread.h from Threading.h
+        https://bugs.webkit.org/show_bug.cgi?id=65081
+
+        Reviewed by Darin Adler.
+
+        Add missing include statements for MainThread.
+
+        * WebView.cpp:
+
+2011-07-26  Sadrul Habib Chowdhury  <sadrul@chromium.org>
+
+        Add support for download='filename' attribute in anchors.
+        https://bugs.webkit.org/show_bug.cgi?id=64580
+
+        Reviewed by Adam Barth.
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::startDownload):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-07-15  Dan Bernstein  <mitz@apple.com>
+
+        REGRESSION: Mouse cursor doesn’t hide when full screen video HUD hides
+        https://bugs.webkit.org/show_bug.cgi?id=64615
+
+        Reviewed by Anders Carlsson.
+
+        * WebKitSupport/ChromeClientWx.h:
+        (WebCore::ChromeClientWx::setCursorHiddenUntilMouseMoves): Added this stub.
+
+2011-07-12  Joseph Pecoraro  <joepeck@webkit.org>
+
+        ApplicationCache update should not immediately fail when reaching per-origin quota
+        https://bugs.webkit.org/show_bug.cgi?id=64177
+
+        Reviewed by Alexey Proskuryakov.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::reachedApplicationCacheOriginQuota):
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-07-09  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] In load events, specify the wxWebFrame that sent them.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=64233
+
+        * WebBrowserShell.cpp:
+        (wxWebBrowserShell::OnLoadEvent):
+        * WebFrame.cpp:
+        (wxWebFrame::GetName):
+        * WebFrame.h:
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::dispatchDidHandleOnloadEvents):
+        (WebCore::FrameLoaderClientWx::dispatchDidStartProvisionalLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidReceiveTitle):
+        (WebCore::FrameLoaderClientWx::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientWx::dispatchDidFinishDocumentLoad):
+        (WebCore::FrameLoaderClientWx::postProgressFinishedNotification):
+        (WebCore::FrameLoaderClientWx::dispatchDidFailLoading):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNewWindowAction):
+        (WebCore::FrameLoaderClientWx::dispatchDecidePolicyForNavigationAction):
+        * WebView.h:
+        * bindings/python/webview.i:
+
+2011-07-09  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Make sure wxPrintData grabs the default print settings to calculate page width, 
+        and readjusts settings after the print dialog is displayed.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=64232
+
+        * WebFrame.cpp:
+        (wxWebFramePrintout::InitializeWithPageSize):
+        (wxWebFramePrintout::OnBeginPrinting):
+        (wxWebFrame::Print):
+
+2011-07-06  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed build fix. Don't expose the kit function to the swig wrappers.
+
+        * WebFrame.h:
+
+2011-06-20  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Make showing the dialog optional, and add handling for Javascript print() calls.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=63008
+
+        * WebFrame.cpp:
+        (kit):
+        (wxWebFrame::Print):
+        * WebFrame.h:
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::print):
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (WebCore::FrameLoaderClientWx::webFrame):
+        (WebCore::FrameLoaderClientWx::webView):
+        * WebView.cpp:
+        (wxWebViewPrintFrameEvent::wxWebViewPrintFrameEvent):
+        * WebView.h:
+        * bindings/python/webview.i:
+
+2011-06-20  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Unreviewed build fix after method rename.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::loadIconForFiles):
+
+2011-06-18  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Separate concerns of loading file icons and choosing files.
+        https://bugs.webkit.org/show_bug.cgi?id=62931
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::chooseIconForFiles): Renamed.
+        * WebKitSupport/ChromeClientWx.h:
+
+2011-06-18  Holger Hans Peter Freyther  <holger@moiji-mobile.com>
+
+        Reviewed by Brent Fulgham.
+
+        [misc] JSC/wtf/text/*.h should not be included via #include ""
+        https://bugs.webkit.org/show_bug.cgi?id=60836
+
+        Adam Barth pointed out that one should not include files from
+        JavaScriptCore/wtf/text using #include "File.h". This change
+        is addressing it.
+
+        * WebEdit.cpp: Include file via <wtf/text/File.h>.
+
+2011-06-12  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Rename FrameLoaderClient::interruptForPolicyChangeError to use the past tense
+        https://bugs.webkit.org/show_bug.cgi?id=62516
+
+        * WebKitSupport/FrameLoaderClientWx.cpp:
+        (WebCore::FrameLoaderClientWx::interruptedForPolicyChangeError):
+        * WebKitSupport/FrameLoaderClientWx.h:
+
+2011-05-31  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Implement printing support for wxWidgets 2.9.x and above.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=61796
+
+        * WebBrowserShell.cpp:
+        (wxWebBrowserShell::wxWebBrowserShell):
+        (wxWebBrowserShell::OnPrint):
+        * WebBrowserShell.h:
+        * WebFrame.cpp:
+        (wxWebFramePrintout::wxWebFramePrintout):
+        (wxWebFramePrintout::GetPageCount):
+        (wxWebFramePrintout::SetFirstPage):
+        (wxWebFramePrintout::SetLastPage):
+        (wxWebFramePrintout::InitializeWithPageSize):
+        (wxWebFramePrintout::OnBeginPrinting):
+        (wxWebFramePrintout::GetPageInfo):
+        (wxWebFramePrintout::HasPage):
+        (wxWebFramePrintout::OnPrintPage):
+        (wxWebFramePrintout::OnEndPrinting):
+        (wxWebFrame::Print):
+        * WebFrame.h:
 
 2011-05-13  Jon Lee  <jonlee@apple.com>
 

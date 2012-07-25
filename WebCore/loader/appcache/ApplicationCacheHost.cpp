@@ -26,8 +26,6 @@
 #include "config.h"
 #include "ApplicationCacheHost.h"
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "ApplicationCache.h"
 #include "ApplicationCacheGroup.h"
 #include "ApplicationCacheResource.h"
@@ -36,6 +34,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "InspectorInstrumentation.h"
 #include "MainResourceLoader.h"
 #include "ProgressEvent.h"
 #include "ResourceLoader.h"
@@ -229,7 +228,7 @@ void ApplicationCacheHost::maybeLoadFallbackSynchronously(const ResourceRequest&
     }
 }
 
-bool ApplicationCacheHost::canCacheInPageCache() const 
+bool ApplicationCacheHost::canCacheInPageCache()
 {
     return !applicationCache() && !candidateApplicationCacheGroup();
 }
@@ -242,6 +241,9 @@ void ApplicationCacheHost::setDOMApplicationCache(DOMApplicationCache* domApplic
 
 void ApplicationCacheHost::notifyDOMApplicationCache(EventID id, int total, int done)
 {
+    if (id != PROGRESS_EVENT)
+        InspectorInstrumentation::updateApplicationCacheStatus(m_documentLoader->frame());
+
     if (m_defersEvents) {
         // Event dispatching is deferred until document.onload has fired.
         m_deferredEvents.append(DeferredEvent(id, total, done));
@@ -453,8 +455,20 @@ bool ApplicationCacheHost::swapCache()
     
     ASSERT(cache->group() == newestCache->group());
     setApplicationCache(newestCache);
-    
+    InspectorInstrumentation::updateApplicationCacheStatus(m_documentLoader->frame());
     return true;
+}
+
+void ApplicationCacheHost::abort()
+{
+    ApplicationCacheGroup* cacheGroup = candidateApplicationCacheGroup();
+    if (cacheGroup)
+        cacheGroup->abort(m_documentLoader->frame());
+    else {
+        ApplicationCache* cache = applicationCache();
+        if (cache)
+            cache->group()->abort(m_documentLoader->frame());
+    }
 }
 
 bool ApplicationCacheHost::isApplicationCacheEnabled()
@@ -464,5 +478,3 @@ bool ApplicationCacheHost::isApplicationCacheEnabled()
 }
 
 }  // namespace WebCore
-
-#endif  // ENABLE(OFFLINE_WEB_APPLICATIONS)

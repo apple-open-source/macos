@@ -31,8 +31,6 @@
 #include "config.h"
 #include "StorageEventDispatcherImpl.h"
 
-#if ENABLE(DOM_STORAGE)
-
 #include "DOMWindow.h"
 #include "Document.h"
 #include "EventNames.h"
@@ -42,6 +40,8 @@
 #include "PageGroup.h"
 #include "SecurityOrigin.h"
 #include "StorageEvent.h"
+
+// FIXME: delete this almost obsolete file soon
 
 namespace WebCore {
 
@@ -81,5 +81,3 @@ void StorageEventDispatcherImpl::dispatchStorageEvent(const String& key, const S
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)

@@ -128,7 +128,7 @@ get_cell_and_realm (krb5_context context, struct akf_data *d)
  * init and get filename
  */
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_resolve(krb5_context context, const char *name, krb5_keytab id)
 {
     int ret;
@@ -164,7 +164,7 @@ akf_resolve(krb5_context context, const char *name, krb5_keytab id)
  * cleanup
  */
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_close(krb5_context context, krb5_keytab id)
 {
     struct akf_data *d = id->data;
@@ -179,7 +179,7 @@ akf_close(krb5_context context, krb5_keytab id)
  * Return filename
  */
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_get_name(krb5_context context,
 	     krb5_keytab id,
 	     char *name,
@@ -195,7 +195,7 @@ akf_get_name(krb5_context context,
  * Init
  */
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_start_seq_get(krb5_context context,
 		  krb5_keytab id,
 		  krb5_kt_cursor *c)
@@ -212,9 +212,17 @@ akf_start_seq_get(krb5_context context,
 	return ret;
     }
 
+    c->data = NULL;
     c->sp = krb5_storage_from_fd(c->fd);
+    if (c->sp == NULL) {
+	close(c->fd);
+	krb5_clear_error_message (context);
+	return KRB5_KT_NOTFOUND;
+    }
+    krb5_storage_set_eof_code(c->sp, KRB5_KT_END);
+
     ret = krb5_ret_uint32(c->sp, &d->num_entries);
-    if(ret) {
+    if(ret || d->num_entries > INT_MAX / 8) {
 	krb5_storage_free(c->sp);
 	close(c->fd);
 	krb5_clear_error_message (context);
@@ -226,7 +234,7 @@ akf_start_seq_get(krb5_context context,
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_next_entry(krb5_context context,
 	       krb5_keytab id,
 	       krb5_keytab_entry *entry,
@@ -255,7 +263,10 @@ akf_next_entry(krb5_context context,
 
     entry->vno = kvno;
 
-    entry->keyblock.keytype         = ETYPE_DES_CBC_MD5;
+    if (cursor->data)
+	entry->keyblock.keytype         = ETYPE_DES_CBC_MD5;
+    else
+	entry->keyblock.keytype         = ETYPE_DES_CBC_CRC;
     entry->keyblock.keyvalue.length = 8;
     entry->keyblock.keyvalue.data   = malloc (8);
     if (entry->keyblock.keyvalue.data == NULL) {
@@ -277,21 +288,26 @@ akf_next_entry(krb5_context context,
     entry->aliases = NULL;
 
  out:
-    krb5_storage_seek(cursor->sp, pos + 4 + 8, SEEK_SET);
+    if (cursor->data) {
+	krb5_storage_seek(cursor->sp, pos + 4 + 8, SEEK_SET);
+	cursor->data = NULL;
+    } else
+	cursor->data = cursor;
     return ret;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_end_seq_get(krb5_context context,
 		krb5_keytab id,
 		krb5_kt_cursor *cursor)
 {
     krb5_storage_free(cursor->sp);
     close(cursor->fd);
+    cursor->data = NULL;
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 akf_add_entry(krb5_context context,
 	      krb5_keytab id,
 	      krb5_keytab_entry *entry)
@@ -348,7 +364,7 @@ akf_add_entry(krb5_context context,
 				   strerror(ret));
 	    return ret;
 	}
-	
+
 	ret = krb5_ret_int32(sp, &len);
 	if(ret) {
 	    krb5_storage_free(sp);
@@ -387,7 +403,7 @@ akf_add_entry(krb5_context context,
     }
 
     len++;
-	
+
     if(krb5_storage_seek(sp, 0, SEEK_SET) < 0) {
 	ret = errno;
 	krb5_set_error_message (context, ret,
@@ -395,7 +411,7 @@ akf_add_entry(krb5_context context,
 				strerror(ret));
 	goto out;
     }
-	
+
     ret = krb5_store_int32(sp, len);
     if(ret) {
 	ret = errno;
@@ -410,7 +426,7 @@ akf_add_entry(krb5_context context,
 				N_("seek to end: %s", ""), strerror(ret));
 	goto out;
     }
-	
+
     ret = krb5_store_int32(sp, entry->vno);
     if(ret) {
 	krb5_set_error_message(context, ret,

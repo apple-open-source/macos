@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -64,11 +64,12 @@ Void_t*	data;	/* associated data	*/
 {
 	reg Sfdisc_t	*disc, *next, *d;
 	reg int		local, rv;
+	SFMTXDECL(f);
 
 	if(!f)
 		return _sfraiseall(type,data);
 
-	SFMTXSTART(f, -1);
+	SFMTXENTER(f, -1);
 
 	GETLOCAL(f,local);
 	if(!SFKILLED(f) &&

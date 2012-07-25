@@ -1060,7 +1060,7 @@ print_option(opt, mainopt, printer, arg)
 		} else {
 			p = (char *) opt->addr;
 			if ((opt->flags & OPT_STATIC) == 0)
-				p = *(char **)p;
+				p = *ALIGNED_CAST(char **)p;
 		}
 		printer(arg, "%s %q", opt->name, p);
 		break;
@@ -1086,7 +1086,7 @@ print_option(opt, mainopt, printer, arg)
 		} else if (opt->flags & OPT_A2STRVAL) {
 			p = (char *) opt->addr2;
 			if ((opt->flags & OPT_STATIC) == 0)
-				p = *(char **)p;
+				p = *ALIGNED_CAST(char **)p;
 			printer("%q", p);
 		} else if (opt->flags & OPT_A2LIST) {
 			struct option_value *ovp;

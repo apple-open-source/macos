@@ -26,21 +26,28 @@
 #ifndef TreeScope_h
 #define TreeScope_h
 
-#include "ContainerNode.h"
 #include "DocumentOrderedMap.h"
+#include <wtf/Forward.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
+class ContainerNode;
 class Element;
 class HTMLMapElement;
+class Node;
 
-class TreeScope : public ContainerNode {
+// A class which inherits both Node and TreeScope must call clearRareData() in its destructor
+// so that the Node destructor no longer does problematic NodeList cache manipulation in
+// the destructor.
+class TreeScope {
     friend class Document;
 
 public:
     TreeScope* parentTreeScope() const { return m_parentTreeScope; }
     void setParentTreeScope(TreeScope*);
 
+    Node* focusedNode();
     Element* getElementById(const AtomicString&) const;
     bool hasElementWithId(AtomicStringImpl* id) const;
     bool containsMultipleElementsWithId(const AtomicString& id) const;
@@ -64,13 +71,19 @@ public:
 
     virtual bool applyAuthorSheets() const;
 
+    // Used by the basic DOM mutation methods (e.g., appendChild()).
+    void adoptIfNeeded(Node*);
+
+    ContainerNode* rootNode() const { return m_rootNode; }
+
 protected:
-    TreeScope(Document*);
+    TreeScope(ContainerNode*);
     virtual ~TreeScope();
 
     void destroyTreeScopeData();
 
 private:
+    ContainerNode* m_rootNode;
     TreeScope* m_parentTreeScope;
 
     DocumentOrderedMap m_elementsById;
@@ -93,4 +106,3 @@ inline bool TreeScope::containsMultipleElementsWithId(const AtomicString& id) co
 } // namespace WebCore
 
 #endif // TreeScope_h
-

@@ -101,7 +101,7 @@ HIDPutData				   (void *					report,
 /*
  *	Check the parameters
 */
-	if ((start < 0) || (size <= 0) || (iLastByte >= reportLength))
+	if ((size == 0) || (iLastByte >= reportLength))
 		return kHIDBadParameterErr;
 	iLastBit = (start + size - 1)&7;
 	iLastMask = ~((1<<(iLastBit+1)) - 1);

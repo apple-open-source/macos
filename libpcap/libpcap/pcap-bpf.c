@@ -1,4 +1,26 @@
 /*
+ * Copyright (c) 2012 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright (c) 1993, 1994, 1995, 1996, 1998
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -765,6 +787,38 @@ pcap_stats_bpf(pcap_t *p, struct pcap_stat *ps)
 	return (0);
 }
 
+static char *
+pcap_svc2str(uint32_t svc)
+{
+	static char svcstr[10];
+
+	switch (svc) {
+	case SO_TC_BK_SYS:
+		return "BK_SYS";
+	case SO_TC_BK:
+		return "BK";
+	case SO_TC_BE:
+		return "BE";
+	case SO_TC_RD:
+		return "RD";
+	case SO_TC_OAM:
+		return "OAM";
+	case SO_TC_AV:
+		return "AV";
+	case SO_TC_RV:
+		return "RV";
+	case SO_TC_VI:
+		return "VI";
+	case SO_TC_VO:
+		return "VO";
+	case SO_TC_CTL:
+		return "CTL";
+	default:
+		snprintf(svcstr, sizeof(svcstr), "%u", svc);
+		return svcstr;
+	}
+}
+
 static int
 pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 {
@@ -892,13 +946,16 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 	/*
 	 * Loop through each packet.
 	 */
+#ifdef BIOCSEXTHDR
+#define bhep ((struct bpf_hdr_ext *)bp)
+#endif
 #define bhp ((struct bpf_hdr *)bp)
 	ep = bp + cc;
 #ifdef PCAP_FDDIPAD
 	pad = p->fddipad;
 #endif
 	while (bp < ep) {
-		register int caplen, hdrlen;
+		register int caplen, hdrlen, datalen;
 
 		/*
 		 * Has "pcap_breakloop()" been called?
@@ -937,9 +994,18 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 				return (n);
 			}
 		}
-
-		caplen = bhp->bh_caplen;
-		hdrlen = bhp->bh_hdrlen;
+#ifdef BIOCSEXTHDR
+		if (p->extendedhdr) {
+			caplen = bhep->bh_caplen;
+			hdrlen = bhep->bh_hdrlen;
+			datalen = bhep->bh_datalen;
+		} else
+#endif
+		{
+			caplen = bhp->bh_caplen;
+			hdrlen = bhp->bh_hdrlen;
+			datalen = bhp->bh_datalen;
+		}
 		datap = bp + hdrlen;
 		/*
 		 * Short-circuit evaluation: if using BPF filter
@@ -955,10 +1021,14 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 #endif
 		 */
 		if (p->md.use_bpf ||
-		    bpf_filter(p->fcode.bf_insns, datap, bhp->bh_datalen, caplen)) {
+		    bpf_filter(p->fcode.bf_insns, datap, datalen, caplen)) {
 			struct pcap_pkthdr pkthdr;
-
-			pkthdr.ts.tv_sec = bhp->bh_tstamp.tv_sec;
+#ifdef BIOCSEXTHDR
+			if (p->extendedhdr)
+				pkthdr.ts.tv_sec = bhep->bh_tstamp.tv_sec;
+			else
+#endif
+				pkthdr.ts.tv_sec = bhp->bh_tstamp.tv_sec;
 #ifdef _AIX
 			/*
 			 * AIX's BPF returns seconds/nanoseconds time
@@ -966,21 +1036,34 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 			 */
 			pkthdr.ts.tv_usec = bhp->bh_tstamp.tv_usec/1000;
 #else
-			pkthdr.ts.tv_usec = bhp->bh_tstamp.tv_usec;
-#endif
+#ifdef BIOCSEXTHDR
+			if (p->extendedhdr)
+				pkthdr.ts.tv_usec = bhep->bh_tstamp.tv_usec;
+#endif /* BIOCSEXTHDR */
+				pkthdr.ts.tv_usec = bhp->bh_tstamp.tv_usec;
+#endif /* _AIX */
 #ifdef PCAP_FDDIPAD
 			if (caplen > pad)
 				pkthdr.caplen = caplen - pad;
 			else
 				pkthdr.caplen = 0;
-			if (bhp->bh_datalen > pad)
-				pkthdr.len = bhp->bh_datalen - pad;
+			if (datalen > pad)
+				pkthdr.len = datalen - pad;
 			else
 				pkthdr.len = 0;
 			datap += pad;
 #else
 			pkthdr.caplen = caplen;
-			pkthdr.len = bhp->bh_datalen;
+			pkthdr.len = datalen;
+#endif
+#ifdef BIOCSEXTHDR
+			if (p->extendedhdr && bhep->bh_comm[0])
+				snprintf(pkthdr.comment, sizeof(pkthdr.comment),
+				    "pid %s.%d svc %s", bhep->bh_comm,
+				    bhep->bh_pid, pcap_svc2str(bhep->bh_svc));
+			else
+				memset(pkthdr.comment, 0,
+				    sizeof(pkthdr.comment));
 #endif
 			(*callback)(user, &pkthdr, datap);
 			bp += BPF_WORDALIGN(caplen + hdrlen);
@@ -1001,6 +1084,9 @@ pcap_read_bpf(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 			bp += BPF_WORDALIGN(caplen + hdrlen);
 		}
 	}
+#ifdef BIOCSEXTHDR
+#undef bhep
+#endif
 #undef bhp
 	p->cc = 0;
 	return (n);
@@ -1401,6 +1487,27 @@ check_setif_failure(pcap_t *p, int error)
 		return (PCAP_ERROR);
 	}
 }
+
+#ifdef __APPLE__
+int
+pcap_apple_set_exthdr(pcap_t *p, int v)
+{
+	int status = -1;
+	
+#ifdef BIOCSEXTHDR
+	if (ioctl(p->fd, BIOCSEXTHDR, (caddr_t)&v) < 0) {
+		snprintf(p->errbuf, PCAP_ERRBUF_SIZE, "BIOCSEXTHDR: %s",
+				 pcap_strerror(errno));
+		status = PCAP_ERROR;
+	} else {
+		p->extendedhdr = !!v;
+		status = 0;
+	}
+#endif
+
+	return (status);
+}
+#endif /* __APPLE__ */
 
 /*
  * Default capture buffer size.

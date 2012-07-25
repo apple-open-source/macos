@@ -1,0 +1,22 @@
+diff --git a/metaconfig b/metaconfig
+index 6ab4136..00002b0 100644
+--- metaconfig
++++ metaconfig
+@@ -48,7 +48,7 @@ if File.exist?('/Developer/Applications/Project Builder.app') then
+     'path to the directory for "Project Bulder Extras"'
+ end 
+ 
+-if File.exist?('/Developer/Applications/Xcode.app') then
++#if File.exist?('/Developer/Applications/Xcode.app') then
+   if RubyCocoaConfig.system_version.to_f >= 10.5
+     xcode_templates_dir = '/Library/Application Support/Developer/Shared/Xcode/'
+   else
+@@ -59,7 +59,7 @@ if File.exist?('/Developer/Applications/Xcode.app') then
+   add_path_config 'xcode-extras', 
+     xcode_templates_dir,
+     'path to the directory for "Xcode Extras"'
+-end 
++#end
+ 
+ add_path_config 'examples', '/Developer/Examples',
+   'path to the directory for Examples'

@@ -38,12 +38,12 @@ Vector<BytecodeAndMachineOffset>& AssemblyHelpers::decodedCodeMapFor(CodeBlock* 
     ASSERT(codeBlock->getJITType() == JITCode::BaselineJIT);
     ASSERT(codeBlock->jitCodeMap());
     
-    std::pair<HashMap<CodeBlock*, Vector<BytecodeAndMachineOffset> >::iterator, bool> result = m_decodedCodeMaps.add(codeBlock, Vector<BytecodeAndMachineOffset>());
+    HashMap<CodeBlock*, Vector<BytecodeAndMachineOffset> >::AddResult result = m_decodedCodeMaps.add(codeBlock, Vector<BytecodeAndMachineOffset>());
     
-    if (result.second)
-        codeBlock->jitCodeMap()->decode(result.first->second);
+    if (result.isNewEntry)
+        codeBlock->jitCodeMap()->decode(result.iterator->second);
     
-    return result.first->second;
+    return result.iterator->second;
 }
 
 #if ENABLE(SAMPLING_FLAGS)
@@ -140,6 +140,13 @@ void AssemblyHelpers::jitAssertIsCell(GPRReg gpr)
     checkCell.link(this);
 }
 #endif // USE(JSVALUE32_64)
+
+void AssemblyHelpers::jitAssertHasValidCallFrame()
+{
+    Jump checkCFR = branchTestPtr(Zero, GPRInfo::callFrameRegister, TrustedImm32(7));
+    breakpoint();
+    checkCFR.link(this);
+}
 #endif // DFG_ENABLE(JIT_ASSERT)
 
 } } // namespace JSC::DFG

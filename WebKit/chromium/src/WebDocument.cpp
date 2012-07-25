@@ -32,23 +32,29 @@
 #include "WebDocument.h"
 
 #include "AXObjectCache.h"
+#include "CSSParserMode.h"
+#include "CSSStyleSheet.h"
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "DocumentType.h"
 #include "Element.h"
 #include "HTMLAllCollection.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCollection.h"
 #include "HTMLElement.h"
+#include "HTMLFormElement.h"
 #include "HTMLHeadElement.h"
 #include "NodeList.h"
-
+#include "SecurityOrigin.h"
 #include "WebAccessibilityObject.h"
+#include "WebDOMEvent.h"
 #include "WebDocumentType.h"
 #include "WebElement.h"
+#include "WebFormElement.h"
 #include "WebFrameImpl.h"
 #include "WebNodeCollection.h"
 #include "WebNodeList.h"
-#include "WebURL.h"
+#include "platform/WebURL.h"
 
 #include <wtf/PassRefPtr.h>
 
@@ -56,13 +62,35 @@ using namespace WebCore;
 
 namespace WebKit {
 
+WebURL WebDocument::url() const
+{
+    return constUnwrap<Document>()->url();
+}
+
+WebSecurityOrigin WebDocument::securityOrigin() const
+{
+    if (!constUnwrap<Document>())
+        return WebSecurityOrigin();
+    return WebSecurityOrigin(constUnwrap<Document>()->securityOrigin());
+}
+
+WebString WebDocument::encoding() const
+{
+    return constUnwrap<Document>()->encoding();
+}
+
+WebURL WebDocument::openSearchDescriptionURL() const
+{
+    return const_cast<Document*>(constUnwrap<Document>())->openSearchDescriptionURL();
+}
+
 WebFrame* WebDocument::frame() const
 {
     return WebFrameImpl::fromFrame(constUnwrap<Document>()->frame());
 }
 
 bool WebDocument::isHTMLDocument() const
-{  
+{
     return constUnwrap<Document>()->isHTMLDocument();
 }
 
@@ -72,7 +100,7 @@ bool WebDocument::isXHTMLDocument() const
 }
 
 bool WebDocument::isPluginDocument() const
-{  
+{
     return constUnwrap<Document>()->isPluginDocument();
 }
 
@@ -111,6 +139,21 @@ WebNodeCollection WebDocument::all()
     return WebNodeCollection(unwrap<Document>()->all());
 }
 
+void WebDocument::forms(WebVector<WebFormElement>& results) const
+{
+    RefPtr<HTMLCollection> forms = const_cast<Document*>(constUnwrap<Document>())->forms();
+    size_t sourceLength = forms->length();
+    Vector<WebFormElement> temp;
+    temp.reserveCapacity(sourceLength);
+    for (size_t i = 0; i < sourceLength; ++i) {
+        Node* node = forms->item(i);
+        // Strange but true, sometimes node can be 0.
+        if (node && node->isHTMLElement())
+            temp.append(WebFormElement(static_cast<HTMLFormElement*>(node)));
+    }
+    results.assign(temp);
+}
+
 WebURL WebDocument::completeURL(const WebString& partialURL) const
 {
     return constUnwrap<Document>()->completeURL(partialURL);
@@ -131,11 +174,58 @@ WebDocumentType WebDocument::doctype() const
     return WebDocumentType(constUnwrap<Document>()->doctype());
 }
 
+void WebDocument::insertUserStyleSheet(const WebString& sourceCode, UserStyleLevel level)
+{
+    RefPtr<Document> document = unwrap<Document>();
+
+    RefPtr<StyleSheetInternal> parsedSheet = StyleSheetInternal::create(document.get());
+    parsedSheet->setIsUserStyleSheet(level == UserStyleUserLevel);
+    parsedSheet->parseString(sourceCode);
+    document->addUserSheet(parsedSheet.release());
+}
+
+void WebDocument::cancelFullScreen()
+{
+#if ENABLE(FULLSCREEN_API)
+    unwrap<Document>()->webkitCancelFullScreen();
+#endif
+}
+
+WebElement WebDocument::fullScreenElement() const
+{
+    Element* fullScreenElement = 0;
+#if ENABLE(FULLSCREEN_API)
+    fullScreenElement = constUnwrap<Document>()->webkitCurrentFullScreenElement();
+#endif
+    return WebElement(fullScreenElement);
+}
+
+WebDOMEvent WebDocument::createEvent(const WebString& eventType)
+{
+    ExceptionCode ec = 0;
+    WebDOMEvent event(unwrap<Document>()->createEvent(eventType, ec));
+    if (ec)
+        return WebDOMEvent();
+    return event;
+}
+
+WebReferrerPolicy WebDocument::referrerPolicy() const
+{
+    return static_cast<WebReferrerPolicy>(constUnwrap<Document>()->referrerPolicy());
+}
+
 WebAccessibilityObject WebDocument::accessibilityObject() const
 {
     const Document* document = constUnwrap<Document>();
     return WebAccessibilityObject(
         document->axObjectCache()->getOrCreate(document->renderer()));
+}
+
+WebAccessibilityObject WebDocument::accessibilityObjectFromID(int axID) const
+{
+    const Document* document = constUnwrap<Document>();
+    return WebAccessibilityObject(
+        document->axObjectCache()->objectFromAXID(axID));
 }
 
 WebDocument::WebDocument(const PassRefPtr<Document>& elem)

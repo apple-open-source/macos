@@ -90,6 +90,7 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 #include <sys/sysctl.h>
 #include <sys/select.h>
 #include <libutil.h>
+#include <util.h>
 #include <launch.h>
 
 #include <oncrpc/rpc.h>
@@ -111,6 +112,7 @@ const struct nfs_conf_lockd config_defaults =
 	60,		/* host_monitor_cache_timeout */
 	0,		/* port */
 	0,		/* send_using_tcp */
+	0,		/* send_using_mnt_transport */
 	180,		/* shutdown_delay_client */
 	180,		/* shutdown_delay_server */
 	1,		/* tcp */
@@ -812,6 +814,8 @@ config_read(struct nfs_conf_lockd *conf)
 				conf->port = val;
 		} else if (!strcmp(key, "nfs.lockd.send_using_tcp")) {
 			conf->send_using_tcp = val;
+		} else if (!strcmp(key, "nfs.lockd.send_using_mnt_transport")) {
+			conf->send_using_mnt_transport = val;
 		} else if (!strcmp(key, "nfs.lockd.shutdown_delay_client")) {
 			if (value && val)
 				conf->shutdown_delay_client = val;

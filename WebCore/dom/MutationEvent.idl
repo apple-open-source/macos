@@ -33,14 +33,14 @@ module events {
         readonly attribute DOMString      attrName;
         readonly attribute unsigned short attrChange;
 
-        [OldStyleObjC] void initMutationEvent(in DOMString type, 
-                                              in boolean canBubble, 
-                                              in boolean cancelable, 
-                                              in Node relatedNode, 
-                                              in DOMString prevValue, 
-                                              in DOMString newValue, 
-                                              in DOMString attrName, 
-                                              in unsigned short attrChange);
+        [ObjCLegacyUnnamedParameters] void initMutationEvent(in [Optional=DefaultIsUndefined] DOMString type, 
+                                              in [Optional=DefaultIsUndefined] boolean canBubble, 
+                                              in [Optional=DefaultIsUndefined] boolean cancelable, 
+                                              in [Optional=DefaultIsUndefined] Node relatedNode, 
+                                              in [Optional=DefaultIsUndefined] DOMString prevValue, 
+                                              in [Optional=DefaultIsUndefined] DOMString newValue, 
+                                              in [Optional=DefaultIsUndefined] DOMString attrName, 
+                                              in [Optional=DefaultIsUndefined] unsigned short attrChange);
 
     };
 

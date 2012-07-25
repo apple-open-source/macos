@@ -46,9 +46,8 @@ int main(int argc, char **argv)
         CFTypeRef           vals[10];
         int                 val = 0;
         
-        val =           kIOPMAssertionLevelOn;
-        keys[0] =       kIOPMAssertionTypePreventUserIdleSystemSleep;
-        vals[0] =       CFNumberCreate(0, kCFNumberIntType, &val);
+        keys[0] =       kIOPMAssertionTypeKey;
+        vals[0] =       kIOPMAssertionTypePreventUserIdleSystemSleep;
 
         keys[1] =       kIOPMAssertionHumanReadableReasonKey;
         vals[1] =       CFSTR("I did this because I had to.");

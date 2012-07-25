@@ -39,20 +39,20 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "KURL.h"
+#include "MHTMLArchive.h"
 #include "PageSerializer.h"
-#include "Vector.h"
-
-#include "WebCString.h"
+#include "platform/WebCString.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
+#include "platform/WebVector.h"
 #include "WebFrame.h"
 #include "WebFrameImpl.h"
 #include "WebPageSerializerClient.h"
 #include "WebPageSerializerImpl.h"
-#include "WebString.h"
-#include "WebURL.h"
-#include "WebVector.h"
 #include "WebView.h"
 #include "WebViewImpl.h"
 
+#include <wtf/Vector.h>
 #include <wtf/text/StringConcatenate.h>
 
 using namespace WebCore;
@@ -126,7 +126,7 @@ void retrieveResourcesForElement(Element* element,
 
     // Ignore URLs that have a non-standard protocols. Since the FTP protocol
     // does no have a cache mechanism, we skip it as well.
-    if (!url.protocolInHTTPFamily() && !url.isLocalFile())
+    if (!url.protocolIsInHTTPFamily() && !url.isLocalFile())
         return;
 
     if (!resourceURLs->contains(url))
@@ -198,6 +198,20 @@ void WebPageSerializer::serialize(WebView* view, WebVector<WebPageSerializer::Re
     }
 
     *resourcesParam = result;         
+}
+
+WebCString WebPageSerializer::serializeToMHTML(WebView* view)
+{
+    RefPtr<SharedBuffer> mhtml = MHTMLArchive::generateMHTMLData(static_cast<WebViewImpl*>(view)->page());
+    // FIXME: we are copying all the data here. Idealy we would have a WebSharedData().
+    return WebCString(mhtml->data(), mhtml->size());
+}
+
+WebCString WebPageSerializer::serializeToMHTMLUsingBinaryEncoding(WebView* view)
+{
+    RefPtr<SharedBuffer> mhtml = MHTMLArchive::generateMHTMLDataUsingBinaryEncoding(static_cast<WebViewImpl*>(view)->page());
+    // FIXME: we are copying all the data here. Idealy we would have a WebSharedData().
+    return WebCString(mhtml->data(), mhtml->size());
 }
 
 bool WebPageSerializer::serialize(WebFrame* frame,

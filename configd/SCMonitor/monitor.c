@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,9 +61,10 @@
  *   "Configure"  Automatically configure this interface without any
  *                intervention.
  *
- *   Note: automatic configuration may require authorization if the logged
- *         in user is NOT "root" (eUID==0) or if the "system.preferences"
- *         administrator right is not currently available.
+ *   Note: automatic configuration may not be possible if the logged in user
+ *         is NOT "root" (eUID==0) or if the authorization right that governs
+ *         SCHelper write operations (kSCPreferencesWriteAuthorizationRight)
+ *         is not currently available.
  *
  * An [older] "User Intervention" key is also supported.  That CFBoolean
  * key, if present and TRUE, implies "Configure" configuration of the
@@ -144,7 +145,7 @@ hasAuthorization(MyType *myInstance)
 		AuthorizationRights	rights;
 		OSStatus		status;
 
-		items[0].name        = "system.preferences";
+		items[0].name        = kSCPreferencesWriteAuthorizationRight;
 		items[0].value       = NULL;
 		items[0].valueLength = 0;
 		items[0].flags       = 0;
@@ -606,7 +607,8 @@ updateInterfaceList(MyType *myInstance)
 					}
 					CFArrayAppendValue(myInstance->interfaces_configure, interface);
 				} else if (hasAuthorization(myInstance)) {
-					// if we already have the "admin" (system.preferences) right, configure automatically (without user intervention)
+					// if we already have the "admin" (kSCPreferencesWriteAuthorizationRight)
+					// right, configure automatically (without user intervention)
 					if (myInstance->interfaces_configure == NULL) {
 						myInstance->interfaces_configure = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 					}
@@ -797,7 +799,8 @@ update_node(void *refCon, io_service_t service, natural_t messageType, void *mes
 	MyType		*myInstance;
 	MyNode		*myNode;
 
-	myNode     = (MyNode *)CFDataGetBytePtr(myData);
+	/* ALIGN: CF aligns to at least >8 bytes */
+	myNode     = (MyNode *)(void *)CFDataGetBytePtr(myData);
 	myInstance = myNode->myInstance;
 
 	switch (messageType) {
@@ -871,7 +874,10 @@ add_node_watcher(MyType *myInstance, io_registry_entry_t node, io_registry_entry
 	// wait for initialization to complete
 	myData = CFDataCreateMutable(NULL, sizeof(MyNode));
 	CFDataSetLength(myData, sizeof(MyNode));
-	myNode = (MyNode *)CFDataGetBytePtr(myData);
+
+	/* ALIGN: CF aligns to at least >8 bytes */
+	myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
+
 	bzero(myNode, sizeof(MyNode));
 	if (interface != MACH_PORT_NULL) {
 		IOObjectRetain(interface);
@@ -1034,7 +1040,10 @@ watcher_remove_serial(MyType *myInstance)
 			MyNode		*myNode;
 
 			myData = CFArrayGetValueAtIndex(myInstance->notifyNodes, i);
-			myNode = (MyNode *)CFDataGetBytePtr(myData);
+
+			/* ALIGN: CF aligns to at least >8 bytes */
+			myNode = (MyNode *)(void *)CFDataGetBytePtr(myData);
+
 			if (myNode->interface != MACH_PORT_NULL) {
 				IOObjectRelease(myNode->interface);
 			}

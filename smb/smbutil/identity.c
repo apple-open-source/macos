@@ -34,7 +34,6 @@
 #include <membership.h>
 
 #include <smbclient/smbclient.h>
-#include <smbclient/smbclient_internal.h>
 #include <smbclient/ntstatus.h>
 
 #include "common.h"
@@ -140,10 +139,8 @@ cmd_identity(int argc, char *argv[])
 		err(EX_UNAVAILABLE, "internal error");
 	}
 	/* Only use RPC if the server supports DCE/RPC and UNICODE */
-	if ((properties.capabilities & SMB_CAP_RPC_REMOTE_APIS) && 
-		(properties.capabilities & SMB_CAP_UNICODE)) {
-		status = GetNetworkAccountSID(properties.serverName, &AccountName, &DomainName, &sid, 
-									  (properties.internalFlags & kWorkAroundEMCPanic) ? TRUE : FALSE);
+	if (properties.capabilities & SMB_CAP_RPC_REMOTE_APIS) {
+		status = GetNetworkAccountSID(properties.serverName, &AccountName, &DomainName, &sid);
 	} else {
 		status = STATUS_NOT_SUPPORTED;
 	}

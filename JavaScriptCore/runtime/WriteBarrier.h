@@ -26,10 +26,11 @@
 #ifndef WriteBarrier_h
 #define WriteBarrier_h
 
+#include "GCAssertions.h"
 #include "HandleTypes.h"
 #include "Heap.h"
 #include "SamplingCounter.h"
-#include "TypeTraits.h"
+#include <wtf/TypeTraits.h>
 
 namespace JSC {
 
@@ -40,8 +41,8 @@ class JSGlobalObject;
 template<class T> class WriteBarrierBase;
 template<> class WriteBarrierBase<JSValue>;
 
-void slowValidateCell(JSCell*);
-void slowValidateCell(JSGlobalObject*);
+JS_EXPORT_PRIVATE void slowValidateCell(JSCell*);
+JS_EXPORT_PRIVATE void slowValidateCell(JSGlobalObject*);
     
 #if ENABLE(GC_VALIDATION)
 template<class T> inline void validateCell(T cell)
@@ -73,6 +74,13 @@ public:
         validateCell(value);
         setEarlyValue(globalData, owner, value);
     }
+    
+    // This is meant to be used like operator=, but is called copyFrom instead, in
+    // order to kindly inform the C++ compiler that its advice is not appreciated.
+    void copyFrom(const WriteBarrierBase<T>& other)
+    {
+        m_cell = other.m_cell;
+    }
 
     void setMayBeNull(JSGlobalData& globalData, const JSCell* owner, T* value)
     {
@@ -93,7 +101,7 @@ public:
     {
         if (m_cell)
             validateCell(m_cell);
-        return reinterpret_cast<T*>(m_cell);
+        return reinterpret_cast<T*>(static_cast<void*>(m_cell));
     }
 
     T* operator*() const
@@ -128,7 +136,7 @@ public:
     }
 
 #if ENABLE(GC_VALIDATION)
-    T* unvalidatedGet() const { return reinterpret_cast<T*>(m_cell); }
+    T* unvalidatedGet() const { return reinterpret_cast<T*>(static_cast<void*>(m_cell)); }
 #endif
 
 private:

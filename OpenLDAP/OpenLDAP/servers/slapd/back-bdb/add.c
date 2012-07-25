@@ -1,8 +1,8 @@
 /* add.c - ldap BerkeleyDB back-end add routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/add.c,v 1.152.2.18 2010/04/13 20:23:23 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@ bdb_add(Operation *op, SlapReply *rs )
 	size_t textlen = sizeof textbuf;
 	AttributeDescription *children = slap_schema.si_ad_children;
 	AttributeDescription *entry = slap_schema.si_ad_entry;
-	DB_TXN		*ltid = NULL, *lt2, *rtxn;
+	DB_TXN		*ltid = NULL, *lt2;
 	ID eid = NOID;
 	struct bdb_op_info opinfo = {{{ 0 }}};
 	int subentry;
@@ -120,9 +120,6 @@ txnReturn:
 	}
 
 	subentry = is_entry_subentry( op->ora_e );
-
-	/* Get our reader TXN */
-	rs->sr_err = bdb_reader_get( op, bdb->bi_dbenv, &rtxn );
 
 	if( 0 ) {
 retry:	/* transaction retry */
@@ -293,6 +290,27 @@ retry:	/* transaction retry */
 
 	/* free parent and reader lock */
 	if ( p != (Entry *)&slap_entry_root ) {
+		if ( p->e_nname.bv_len ) {
+			struct berval ppdn;
+
+			/* ITS#5326: use parent's DN if differs from provided one */
+			dnParent( &op->ora_e->e_name, &ppdn );
+			if ( !dn_match( &p->e_name, &ppdn ) ) {
+				struct berval rdn;
+				struct berval newdn;
+
+				dnRdn( &op->ora_e->e_name, &rdn );
+
+				build_new_dn( &newdn, &p->e_name, &rdn, NULL ); 
+				if ( op->ora_e->e_name.bv_val != op->o_req_dn.bv_val )
+					ber_memfree( op->ora_e->e_name.bv_val );
+				op->ora_e->e_name = newdn;
+
+				/* FIXME: should check whether
+				 * dnNormalize(newdn) == e->e_nname ... */
+			}
+		}
+
 		bdb_unlocked_cache_return_entry_r( bdb, p );
 	}
 	p = NULL;
@@ -459,8 +477,7 @@ retry:	/* transaction retry */
 			nrdn = op->ora_e->e_nname;
 		}
 
-		/* Use the reader txn here, outside the add txn */
-		bdb_cache_add( bdb, ei, op->ora_e, &nrdn, rtxn, &lock );
+		bdb_cache_add( bdb, ei, op->ora_e, &nrdn, ltid, &lock );
 
 		if(( rs->sr_err=TXN_COMMIT( ltid, 0 )) != 0 ) {
 			rs->sr_text = "txn_commit failed";
@@ -492,7 +509,6 @@ retry:	/* transaction retry */
 return_results:
 	success = rs->sr_err;
 	send_ldap_result( op, rs );
-	slap_graduate_commit_csn( op );
 
 	if( ltid != NULL ) {
 		TXN_ABORT( ltid );
@@ -507,7 +523,7 @@ return_results:
 		 * Possibly a callback may have mucked with it, although
 		 * in general callbacks should treat the entry as read-only.
 		 */
-		bdb_cache_return_entry_r( bdb, oe, &lock );
+		bdb_cache_deref( oe->e_private );
 		if ( op->ora_e == oe )
 			op->ora_e = NULL;
 
@@ -517,10 +533,11 @@ return_results:
 		}
 	}
 
+	slap_graduate_commit_csn( op );
+
 	if( postread_ctrl != NULL && (*postread_ctrl) != NULL ) {
 		slap_sl_free( (*postread_ctrl)->ldctl_value.bv_val, op->o_tmpmemctx );
 		slap_sl_free( *postread_ctrl, op->o_tmpmemctx );
 	}
-
 	return rs->sr_err;
 }

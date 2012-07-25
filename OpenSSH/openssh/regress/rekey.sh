@@ -22,7 +22,7 @@ for s in 16 1k 128k 256k; do
 		fail "ssh failed"
 	fi
 	cmp $DATA ${COPY}		|| fail "corrupted copy"
-	n=`grep 'NEWKEYS sent' ${LOG} | wc -l`
+	n=`grep -a 'NEWKEYS sent' ${LOG} | wc -l`
 	n=`expr $n - 1`
 	trace "$n rekeying(s)"
 	if [ $n -lt 1 ]; then

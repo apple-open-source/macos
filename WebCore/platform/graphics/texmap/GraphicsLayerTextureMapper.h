@@ -24,7 +24,7 @@
 #include "GraphicsLayer.h"
 #include "GraphicsLayerClient.h"
 #include "Image.h"
-#include "TextureMapperNode.h"
+#include "TextureMapperLayer.h"
 
 #if ENABLE(WEBGL)
 #include "GraphicsContext3D.h"
@@ -32,12 +32,12 @@
 
 namespace WebCore {
 
-class TextureMapperNode;
+class TextureMapperLayer;
 class BitmapTexture;
 class TextureMapper;
 
 class GraphicsLayerTextureMapper : public GraphicsLayer {
-    friend class TextureMapperNode;
+    friend class TextureMapperLayer;
 
 public:
     GraphicsLayerTextureMapper(GraphicsLayerClient*);
@@ -45,7 +45,7 @@ public:
 
     // reimps from GraphicsLayer.h
     virtual void setNeedsDisplay();
-    virtual void setContentsNeedsDisplay() { setNeedsDisplay(); };
+    virtual void setContentsNeedsDisplay();
     virtual void setNeedsDisplayInRect(const FloatRect&);
     virtual void setParent(GraphicsLayer* layer);
     virtual bool setChildren(const Vector<GraphicsLayer*>&);
@@ -64,8 +64,6 @@ public:
     virtual void setPreserves3D(bool b);
     virtual void setMasksToBounds(bool b);
     virtual void setDrawsContent(bool b);
-    virtual void setBackgroundColor(const Color&);
-    virtual void clearBackgroundColor();
     virtual void setContentsOpaque(bool b);
     virtual void setBackfaceVisibility(bool b);
     virtual void setOpacity(float opacity);
@@ -74,13 +72,12 @@ public:
     virtual void setContentsToImage(Image*);
     virtual void setContentsToMedia(PlatformLayer*);
     virtual void setContentsToCanvas(PlatformLayer* canvas) { setContentsToMedia(canvas); }
-    virtual void syncCompositingState();
+    virtual void syncCompositingState(const FloatRect&);
     virtual void syncCompositingStateForThisLayerOnly();
     virtual void setName(const String& name);
-    virtual PlatformLayer* platformLayer() const;
+    virtual PlatformLayer* platformLayer() const { return 0; }
 
-    void notifyChange(TextureMapperNode::ChangeMask changeMask);
-    inline TextureMapperNode::ContentData& pendingContent() { return m_pendingContent; }
+    void notifyChange(TextureMapperLayer::ChangeMask);
     inline int changeMask() const { return m_changeMask; }
     void didSynchronize();
 
@@ -88,14 +85,31 @@ public:
     virtual void pauseAnimation(const String&, double);
     virtual void removeAnimation(const String&);
 
-    TextureMapperNode* node() const { return m_node.get(); }
+    TextureMapperLayer* layer() const { return m_layer.get(); }
+    TextureMapperPlatformLayer* contentsLayer() const { return m_contentsLayer; }
+    bool needsDisplay() const { return m_needsDisplay; }
+    IntRect needsDisplayRect() const { return enclosingIntRect(m_needsDisplayRect); }
+
+#if ENABLE(CSS_FILTERS)
+    virtual bool setFilters(const FilterOperations&);
+#endif
+
+    void setFixedToViewport(bool fixed) { m_fixedToViewport = fixed; }
+    bool fixedToViewport() const { return m_fixedToViewport; }
 
 private:
-    OwnPtr<TextureMapperNode> m_node;
+    virtual void willBeDestroyed();
+
+    OwnPtr<TextureMapperLayer> m_layer;
+    RefPtr<TextureMapperBackingStore> m_compositedImage;
+    RefPtr<Image> m_image;
     bool m_syncQueued;
     int m_changeMask;
-    TextureMapperNode::ContentData m_pendingContent;
-    Vector<RefPtr<TextureMapperAnimation> > m_animations;
+    bool m_needsDisplay;
+    bool m_fixedToViewport;
+    TextureMapperPlatformLayer* m_contentsLayer;
+    FloatRect m_needsDisplayRect;
+    TextureMapperAnimations m_animations;
     void animationStartedTimerFired(Timer<GraphicsLayerTextureMapper>*);
     Timer<GraphicsLayerTextureMapper> m_animationStartedTimer;
 };

@@ -35,24 +35,35 @@ RELDIR=lib\ntlm
 
 INCFILES= \
 	$(INCDIR)\heimntlm.h \
-	$(INCDIR)\heimntlm-protos.h
+	$(INCDIR)\heimntlm-protos.h	\
+	$(INCDIR)\ntlm_err.h
 
 libheimntlm_la_SOURCES	= ntlm.c heimntlm.h
 
 $(OBJ)\heimntlm-protos.h: $(libheimntlm_la_SOURCES)
 	$(PERL) ../../cf/make-proto.pl -q -P remove -o $(OBJ)\heimntlm-protos.h $(libheimntlm_la_SOURCES)
 
+$(OBJ)\ntlm_err.c $(OBJ)\ntlm_err.h: ntlm_err.et
+	cd $(OBJ)
+	$(BINDIR)\compile_et.exe $(SRCDIR)\ntlm_err.et
+	cd $(SRCDIR)
+
 !ifndef STATICLIBS
 
-$(LIBHEIMNTLM): $(BINDIR)\libheimntlm.dll
+RES=$(OBJ)\libheimntlm-version.res
 
-$(BINDIR)\libheimntlm.dll: $(OBJ)\ntlm.obj $(LIBKRB5) $(LIBHCRYPTO)
+$(LIBHEIMNTLM): $(BINDIR)\heimntlm.dll
+
+$(BINDIR)\heimntlm.dll: $(OBJ)\ntlm.obj $(OBJ)\ntlm_err.obj $(LIBHEIMDAL) $(LIBROKEN) $(LIBCOMERR) $(RES)
 	$(DLLGUILINK) -def:libheimntlm-exports.def -implib:$(LIBHEIMNTLM)
-	$(DLLPREP)
+	$(DLLPREP_NODIST)
+
+clean::
+	-$(RM) $(BINDIR)\heimntlm.*
 
 !else
 
-$(LIBHEIMNTLM): $(OBJ)\ntlm.obj
+$(LIBHEIMNTLM): $(OBJ)\ntlm.obj $(OBJ)\ntlm_err.obj
 	$(LIBCON)
 
 !endif
@@ -67,9 +78,13 @@ test-run:
 	test_ntlm.exe
 	cd $(SRCDIR)
 
-$(OBJ)\test_ntlm.exe: $(OBJ)\test_ntlm.obj $(LIBHEIMNTLM) $(LIBKRB5) $(LIBVERS) $(LIBROKEN) $(LIBHCRYPTO) $(LIBASN1)
+$(OBJ)\test_ntlm.exe: $(OBJ)\test_ntlm.obj $(LIBHEIMNTLM) $(LIBHEIMDAL) $(LIBVERS) $(LIBROKEN)
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
+	$(EXEPREP_NODIST)
 
 test:: test-binaries test-run
+
+test-exports:
+	$(PERL) ..\..\cf\w32-check-exported-symbols.pl --vs version-script.map --def libheimntlm-exports.def
+
+test:: test-exports

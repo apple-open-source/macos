@@ -195,9 +195,9 @@ LASFDE1:
 	   Only integer registers are described at present.    */
 
 	loc_expr_for_reg (0, MCONTEXT_SS_RAX)
-	loc_expr_for_reg (1, MCONTEXT_SS_RBX)
+	loc_expr_for_reg (1, MCONTEXT_SS_RDX)
 	loc_expr_for_reg (2, MCONTEXT_SS_RCX)
-	loc_expr_for_reg (3, MCONTEXT_SS_RDX)
+	loc_expr_for_reg (3, MCONTEXT_SS_RBX)
 	loc_expr_for_reg (4, MCONTEXT_SS_RSI)
 	loc_expr_for_reg (5, MCONTEXT_SS_RDI)
 	loc_expr_for_reg (6, MCONTEXT_SS_RBP)

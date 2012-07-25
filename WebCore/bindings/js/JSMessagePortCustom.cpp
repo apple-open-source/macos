@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2011 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +30,7 @@
 #include "Event.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "JSArrayBuffer.h"
 #include "JSDOMGlobalObject.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
@@ -61,12 +63,18 @@ JSC::JSValue JSMessagePort::postMessage(JSC::ExecState* exec)
     return handlePostMessage(exec, impl());
 }
 
-void fillMessagePortArray(JSC::ExecState* exec, JSC::JSValue value, MessagePortArray& portArray)
+JSC::JSValue JSMessagePort::webkitPostMessage(JSC::ExecState* exec)
+{
+    return handlePostMessage(exec, impl());
+}
+
+void fillMessagePortArray(JSC::ExecState* exec, JSC::JSValue value, MessagePortArray& portArray, ArrayBufferArray& arrayBuffers)
 {
     // Convert from the passed-in JS array-like object to a MessagePortArray.
     // Also validates the elements per sections 4.1.13 and 4.1.15 of the WebIDL spec and section 8.3.3 of the HTML5 spec.
     if (value.isUndefinedOrNull()) {
         portArray.resize(0);
+        arrayBuffers.resize(0);
         return;
     }
 
@@ -76,24 +84,29 @@ void fillMessagePortArray(JSC::ExecState* exec, JSC::JSValue value, MessagePortA
     if (exec->hadException())
         return;
 
-    portArray.resize(length);
     for (unsigned i = 0 ; i < length; ++i) {
         JSValue value = object->get(exec, i);
         if (exec->hadException())
             return;
-        // Validation of non-null objects, per HTML5 spec 8.3.3.
+        // Validation of non-null objects, per HTML5 spec 10.3.3.
         if (value.isUndefinedOrNull()) {
-            setDOMException(exec, INVALID_STATE_ERR);
+            setDOMException(exec, DATA_CLONE_ERR);
             return;
         }
 
         // Validation of Objects implementing an interface, per WebIDL spec 4.1.15.
         RefPtr<MessagePort> port = toMessagePort(value);
-        if (!port) {
-            throwTypeError(exec);
-            return;
+        if (port)
+            portArray.append(port.release());
+        else {
+            RefPtr<ArrayBuffer> arrayBuffer = toArrayBuffer(value);
+            if (arrayBuffer)
+                arrayBuffers.append(arrayBuffer);
+            else {
+                throwTypeError(exec);
+                return;
+            }
         }
-        portArray[i] = port.release();
     }
 }
 

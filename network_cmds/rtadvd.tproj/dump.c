@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-/*	$KAME: dump.c,v 1.16 2001/03/21 17:41:13 jinmei Exp $	*/
+/*	$KAME: dump.c,v 1.32 2003/05/19 09:46:50 keiichi Exp $	*/
 
 /*
  * Copyright (C) 2000 WIDE Project.
@@ -55,17 +55,13 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/usr.sbin/rtadvd/dump.c,v 1.1.2.2 2001/07/03 11:02:14 ume Exp $
  */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/queue.h>
 
 #include <net/if.h>
-#if defined(__FreeBSD__) && __FreeBSD__ >= 3
 #include <net/if_var.h>
-#endif /* __FreeBSD__ >= 3 */
 #include <net/if_dl.h>
 
 #include <netinet/in.h>
@@ -92,14 +88,8 @@ static FILE *fp;
 
 extern struct rainfo *ralist;
 
-static char *ether_str __P((struct sockaddr_dl *));
-static void if_dump __P((void));
-
-#ifdef __FreeBSD__		/* XXX: see PORTABILITY */
-#define LONGLONG "%qu"
-#else
-#define LONGLONG "%llu"
-#endif
+static char *ether_str(struct sockaddr_dl *);
+static void if_dump(void);
 
 static char *rtpref_str[] = {
 	"medium",		/* 00 */
@@ -112,19 +102,17 @@ static char *
 ether_str(sdl)
 	struct sockaddr_dl *sdl;
 {
-	static char ebuf[32];
+	static char hbuf[32];
 	u_char *cp;
 
 	if (sdl->sdl_alen && sdl->sdl_alen > 5) {
 		cp = (u_char *)LLADDR(sdl);
-		snprintf(ebuf, sizeof(ebuf), "%x:%x:%x:%x:%x:%x",
+		snprintf(hbuf, sizeof(hbuf), "%x:%x:%x:%x:%x:%x",
 			cp[0], cp[1], cp[2], cp[3], cp[4], cp[5]);
-	}
-	else {
-		snprintf(ebuf, sizeof(ebuf), "NONE");
-	}
+	} else
+		snprintf(hbuf, sizeof(hbuf), "NONE");
 
-	return(ebuf);
+	return(hbuf);
 }
 
 static void
@@ -132,6 +120,9 @@ if_dump()
 {
 	struct rainfo *rai;
 	struct prefix *pfx;
+#ifdef ROUTEINFO
+	struct rtinfo *rti;
+#endif
 	char prefixbuf[INET6_ADDRSTRLEN];
 	int first;
 	struct timeval now;
@@ -148,11 +139,11 @@ if_dump()
 		if (rai->lastsent.tv_sec) {
 			/* note that ctime() appends CR by itself */
 			fprintf(fp, "  Last RA sent: %s",
-				ctime((time_t *)&rai->lastsent.tv_sec));
+			    ctime((time_t *)&rai->lastsent.tv_sec));
 		}
 		if (rai->timer) {
 			fprintf(fp, "  Next RA will be sent: %s",
-				ctime((time_t *)&rai->timer->tm.tv_sec));
+			    ctime((time_t *)&rai->timer->tm.tv_sec));
 		}
 		else
 			fprintf(fp, "  RA timer is stopped");
@@ -160,46 +151,35 @@ if_dump()
 			rai->waiting, rai->initcounter);
 
 		/* statistics */
-		fprintf(fp,
-			"  statistics: RA(out/in/inconsistent): "
-			LONGLONG "/" LONGLONG "/" LONGLONG ", ",
-			(unsigned long long)rai->raoutput,
-			(unsigned long long)rai->rainput,
-			(unsigned long long)rai->rainconsistent);
-		fprintf(fp, "RS(input): " LONGLONG "\n",
-			(unsigned long long)rai->rsinput);
+		fprintf(fp, "  statistics: RA(out/in/inconsistent): "
+		    "%llu/%llu/%llu, ",
+		    (unsigned long long)rai->raoutput,
+		    (unsigned long long)rai->rainput,
+		    (unsigned long long)rai->rainconsistent);
+		fprintf(fp, "RS(input): %llu\n",
+		    (unsigned long long)rai->rsinput);
 
 		/* interface information */
 		if (rai->advlinkopt)
 			fprintf(fp, "  Link-layer address: %s\n",
-				ether_str(rai->sdl));
+			    ether_str(rai->sdl));
 		fprintf(fp, "  MTU: %d\n", rai->phymtu);
 
 		/* Router configuration variables */
-		fprintf(fp,
-			"  DefaultLifetime: %d, MaxAdvInterval: %d, "
-			"MinAdvInterval: %d\n",
-			rai->lifetime, rai->maxinterval, rai->mininterval);
+		fprintf(fp, "  DefaultLifetime: %d, MaxAdvInterval: %d, "
+		    "MinAdvInterval: %d\n", rai->lifetime, rai->maxinterval,
+		    rai->mininterval);
 		fprintf(fp, "  Flags: %s%s%s, ",
-			rai->managedflg ? "M" : "", rai->otherflg ? "O" : "",
-#ifdef MIP6
-			rai->haflg ? "H" :
-#endif
-			"");
+		    rai->managedflg ? "M" : "", rai->otherflg ? "O" : "", "");
 		fprintf(fp, "Preference: %s, ",
 			rtpref_str[(rai->rtpref >> 3) & 0xff]);
 		fprintf(fp, "MTU: %d\n", rai->linkmtu);
 		fprintf(fp, "  ReachableTime: %d, RetransTimer: %d, "
 			"CurHopLimit: %d\n", rai->reachabletime,
 			rai->retranstimer, rai->hoplimit);
-#ifdef MIP6
-		fprintf(fp, "  HAPreference: %d, HALifetime: %d\n",
-			rai->hapref, rai->hatime);
-#endif 
-
 		if (rai->clockskew)
 			fprintf(fp, "  Clock skew: %ldsec\n",
-				rai->clockskew);  
+			    rai->clockskew);
 		for (first = 1, pfx = rai->prefix.next; pfx != &rai->prefix;
 		     pfx = pfx->next) {
 			if (first) {
@@ -207,10 +187,9 @@ if_dump()
 				first = 0;
 			}
 			fprintf(fp, "    %s/%d(",
-				inet_ntop(AF_INET6, &pfx->prefix,
-					  prefixbuf, sizeof(prefixbuf)),
-				pfx->prefixlen);
-			switch(pfx->origin) {
+			    inet_ntop(AF_INET6, &pfx->prefix, prefixbuf,
+			    sizeof(prefixbuf)), pfx->prefixlen);
+			switch (pfx->origin) {
 			case PREFIX_FROM_KERNEL:
 				fprintf(fp, "KERNEL, ");
 				break;
@@ -246,12 +225,38 @@ if_dump()
 			fprintf(fp, "flags: %s%s%s",
 				pfx->onlinkflg ? "L" : "",
 				pfx->autoconfflg ? "A" : "",
-#ifdef MIP6
-				pfx->routeraddr ? "R" :
-#endif
 				"");
+			if (pfx->timer) {
+				struct timeval *rest;
+
+				rest = rtadvd_timer_rest(pfx->timer);
+				if (rest) { /* XXX: what if not? */
+					fprintf(fp, ", expire in: %ld",
+					    (long)rest->tv_sec);
+				}
+			}
 			fprintf(fp, ")\n");
 		}
+#ifdef ROUTEINFO
+		for (first = 1, rti = rai->route.next; rti != &rai->route;
+		     rti = rti->next) {
+			if (first) {
+				fprintf(fp, "  Route Information:\n");
+				first = 0;
+			}
+			fprintf(fp, "    %s/%d (",
+				inet_ntop(AF_INET6, &rti->prefix,
+					  prefixbuf, sizeof(prefixbuf)),
+				rti->prefixlen);
+			fprintf(fp, "preference: %s, ",
+				rtpref_str[0xff & (rti->rtpref >> 3)]);
+			if (rti->ltime == ND6_INFINITE_LIFETIME)
+				fprintf(fp, "lifetime: infinity");
+			else
+				fprintf(fp, "lifetime: %ld", (long)rti->ltime);
+			fprintf(fp, ")\n");
+		}
+#endif
 	}
 }
 
@@ -259,9 +264,12 @@ void
 rtadvd_dump_file(dumpfile)
 	char *dumpfile;
 {
+	syslog(LOG_DEBUG, "<%s> dump current status to %s", __func__,
+	    dumpfile);
+
 	if ((fp = fopen(dumpfile, "w")) == NULL) {
 		syslog(LOG_WARNING, "<%s> open a dump file(%s)",
-		       __FUNCTION__, dumpfile);
+		    __func__, dumpfile);
 		return;
 	}
 

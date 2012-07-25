@@ -26,7 +26,7 @@
 			buildPhases = (
 				FD93088410A913E1007DD96A /* Magic */,
 				FD9308BA10A918D3007DD96A /* Man Pages */,
-				FD9308C910A91A17007DD96A /* ShellScript */,
+				FD9308C910A91A17007DD96A /* Open Source */,
 			);
 			dependencies = (
 				FD93088A10A913EC007DD96A /* PBXTargetDependency */,
@@ -239,7 +239,11 @@
 			isa = PBXProject;
 			buildConfigurationList = FD9307F310A8FD99007DD96A /* Build configuration list for PBXProject "file" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
 			mainGroup = FD9307EE10A8FD99007DD96A;
 			productRefGroup = FD9307FE10A8FDBC007DD96A /* Products */;
 			projectDirPath = "";
@@ -266,7 +270,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n\n# Note using builder version of file until it's easy to be self-hosting <rdar://problem/7140945>\ncd \"${TEMP_DIR}\" && ${DSTROOT}/usr/bin/file -C -m ${SRCROOT}/file/magic/Magdir\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/file\ninstall -m 0644 \"${TEMP_DIR}/Magdir.mgc\" ${DSTROOT}/usr/share/file/magic.mgc\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/file/magic\ninstall -m 0644 ${SRCROOT}/file/magic/Magdir/* ${DSTROOT}/usr/share/file/magic";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/magic.sh";
 			showEnvVarsInLog = 0;
 		};
 		FD9308BA10A918D3007DD96A /* Man Pages */ = {
@@ -281,20 +285,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n\nCOMMAND=\"sed -e s@__CSECTION__@1@g -e s@__FSECTION__@5@g -e s@__VERSION__@5.04@g -e s@__MAGIC__@/usr/share/file/magic@g\"\n\ninstall -d -m 0755 ${DSTROOT}/usr/share/man/man1 ${DSTROOT}/usr/share/man/man5 ${DSTROOT}/usr/local/share/man/man3\n\n${COMMAND} ${SRCROOT}/file/doc/file.man > ${DSTROOT}/usr/share/man/man1/file.1\n${COMMAND} ${SRCROOT}/file/doc/magic.man > ${DSTROOT}/usr/share/man/man5/magic.5\n${COMMAND} ${SRCROOT}/file/doc/libmagic.man > ${DSTROOT}/usr/local/share/man/man3/libmagic.3";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/man-pages.sh";
+			showEnvVarsInLog = 0;
 		};
-		FD9308C910A91A17007DD96A /* ShellScript */ = {
+		FD9308C910A91A17007DD96A /* Open Source */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
 			);
+			name = "Open Source";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -ex\n\ninstall -d -m 0755 ${DSTROOT}/usr/local/OpenSourceLicenses ${DSTROOT}/usr/local/OpenSourceVersions\ninstall -m 0644 ${SRCROOT}/file/COPYING ${DSTROOT}/usr/local/OpenSourceLicenses/file.txt\ninstall -m 0644 ${SRCROOT}/file.plist ${DSTROOT}/usr/local/OpenSourceVersions/file.plist";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/opensource.sh";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

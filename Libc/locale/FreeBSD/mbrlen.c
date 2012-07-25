@@ -27,15 +27,23 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/mbrlen.c,v 1.4 2004/05/12 14:26:54 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <wchar.h>
 #include "mblocal.h"
 
 size_t
+mbrlen_l(const char * __restrict s, size_t n, mbstate_t * __restrict ps,
+    locale_t loc)
+{
+	NORMALIZE_LOCALE(loc);
+	if (ps == NULL)
+		ps = &loc->__mbs_mbrlen;
+	return (loc->__lc_ctype->__mbrtowc(NULL, s, n, ps, loc));
+}
+
+size_t
 mbrlen(const char * __restrict s, size_t n, mbstate_t * __restrict ps)
 {
-	static mbstate_t mbs;
-
-	if (ps == NULL)
-		ps = &mbs;
-	return (__mbrtowc(NULL, s, n, ps));
+	return mbrlen_l(s, n, ps, __current_locale());
 }

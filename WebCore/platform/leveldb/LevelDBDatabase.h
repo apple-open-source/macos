@@ -26,7 +26,7 @@
 #ifndef LevelDBDatabase_h
 #define LevelDBDatabase_h
 
-#if ENABLE(LEVELDB)
+#if USE(LEVELDB)
 
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -36,6 +36,7 @@
 namespace leveldb {
 class Comparator;
 class DB;
+class Env;
 }
 
 namespace WebCore {
@@ -43,22 +44,29 @@ namespace WebCore {
 class LevelDBComparator;
 class LevelDBIterator;
 class LevelDBSlice;
+class LevelDBWriteBatch;
 
 class LevelDBDatabase {
 public:
     static PassOwnPtr<LevelDBDatabase> open(const String& fileName, const LevelDBComparator*);
+    static PassOwnPtr<LevelDBDatabase> openInMemory(const LevelDBComparator*);
+    static bool destroy(const String& fileName);
     ~LevelDBDatabase();
 
     bool put(const LevelDBSlice& key, const Vector<char>& value);
     bool remove(const LevelDBSlice& key);
     bool get(const LevelDBSlice& key, Vector<char>& value);
+    bool write(LevelDBWriteBatch&);
     PassOwnPtr<LevelDBIterator> createIterator();
+    const LevelDBComparator* comparator() const;
 
 private:
     LevelDBDatabase();
 
-    OwnPtr<leveldb::DB> m_db;
+    OwnPtr<leveldb::Env> m_env;
     OwnPtr<leveldb::Comparator> m_comparatorAdapter;
+    OwnPtr<leveldb::DB> m_db;
+    const LevelDBComparator* m_comparator;
 };
 
 }

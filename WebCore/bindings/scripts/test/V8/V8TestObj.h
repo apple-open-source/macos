@@ -24,53 +24,55 @@
 #include "TestObj.h"
 #include "V8DOMWrapper.h"
 #include "WrapperTypeInfo.h"
-#include <wtf/text/StringHash.h>
 #include <v8.h>
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 class V8TestObj {
-
 public:
-    static bool HasInstance(v8::Handle<v8::Value> value);
+    static const bool hasDependentLifetime = false;
+    static bool HasInstance(v8::Handle<v8::Value>);
     static v8::Persistent<v8::FunctionTemplate> GetRawTemplate();
     static v8::Persistent<v8::FunctionTemplate> GetTemplate();
     static TestObj* toNative(v8::Handle<v8::Object> object)
     {
         return reinterpret_cast<TestObj*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
-    inline static v8::Handle<v8::Object> wrap(TestObj*);
+    inline static v8::Handle<v8::Object> wrap(TestObj*, v8::Isolate* = 0);
     static void derefObject(void*);
     static WrapperTypeInfo info;
     static v8::Handle<v8::Value> customMethodCallback(const v8::Arguments&);
     static v8::Handle<v8::Value> customMethodWithArgsCallback(const v8::Arguments&);
-    static v8::Handle<v8::Value> customAttrAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
-    static void customAttrAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Value> classMethod2Callback(const v8::Arguments&);
+    static v8::Handle<v8::Value> constructorCallback(const v8::Arguments&);
+    static v8::Handle<v8::Value> customAttrAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo&);
+    static void customAttrAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value>, const v8::AccessorInfo&);
     static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + 0;
 private:
-    static v8::Handle<v8::Object> wrapSlow(TestObj*);
+    static v8::Handle<v8::Object> wrapSlow(PassRefPtr<TestObj>, v8::Isolate*);
 };
 
-
-v8::Handle<v8::Object> V8TestObj::wrap(TestObj* impl)
+v8::Handle<v8::Object> V8TestObj::wrap(TestObj* impl, v8::Isolate* isolate)
 {
         v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
         if (!wrapper.IsEmpty())
             return wrapper;
-    return V8TestObj::wrapSlow(impl);
+    return V8TestObj::wrapSlow(impl, isolate);
 }
 
-inline v8::Handle<v8::Value> toV8(TestObj* impl)
+inline v8::Handle<v8::Value> toV8(TestObj* impl, v8::Isolate* isolate = 0)
 {
     if (!impl)
         return v8::Null();
-    return V8TestObj::wrap(impl);
+    return V8TestObj::wrap(impl, isolate);
 }
-inline v8::Handle<v8::Value> toV8(PassRefPtr< TestObj > impl)
+inline v8::Handle<v8::Value> toV8(PassRefPtr< TestObj > impl, v8::Isolate* isolate = 0)
 {
-    return toV8(impl.get());
+    return toV8(impl.get(), isolate);
 }
+
 }
 
 #endif // V8TestObj_h

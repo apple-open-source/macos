@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/modify.c,v 1.276.2.15 2010/04/19 16:53:02 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,12 +82,14 @@ do_modify(
 	if ( rs->sr_err != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_ANY, "%s do_modify: slap_parse_modlist failed err=%d msg=%s\n",
 			op->o_log_prefix, rs->sr_err, rs->sr_text );
+		send_ldap_result( op, rs );
 		goto cleanup;
 	}
 
 	if( get_ctrls( op, rs, 1 ) != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_ANY, "%s do_modify: get_ctrls failed\n",
 			op->o_log_prefix, 0, 0 );
+		/* get_ctrls has sent results.	Now clean up. */
 		goto cleanup;
 	}
 
@@ -682,7 +684,7 @@ slap_sort_vals(
 	AttributeDescription *ad;
 	MatchingRule *mr;
 	int istack[sizeof(int)*16];
-	int i, j, k, l, ir, jstack, match, *ix, itmp, nvals, rc;
+	int i, j, k, l, ir, jstack, match, *ix, itmp, nvals, rc = LDAP_SUCCESS;
 	int is_norm;
 	struct berval a, *cv;
 
@@ -703,6 +705,8 @@ slap_sort_vals(
 
 	ad = ml->sml_desc;
 	nvals = ml->sml_numvals;
+	if ( nvals <= 1 )
+		goto ret;
 
 	/* For Modifications, sml_nvalues is NULL if normalization wasn't needed.
 	 * For Attributes, sml_nvalues == sml_values when normalization isn't needed.
@@ -832,15 +836,14 @@ slap_sort_vals(
 
 	slap_sl_free( ix, ctx );
 
-	if ( rc != LDAP_SUCCESS ) {
-		return rc;
-	} else if ( match == 0 ) {
+	if ( rc == LDAP_SUCCESS && match == 0 ) {
 		/* value exists already */
 		assert( i >= 0 );
 		assert( i < nvals );
-		return LDAP_TYPE_OR_VALUE_EXISTS;
+		rc = LDAP_TYPE_OR_VALUE_EXISTS;
 	}
-	return LDAP_SUCCESS;
+ ret:
+	return rc;
 }
 
 /* Enter with bv->bv_len = sizeof buffer, returns with
@@ -876,6 +879,7 @@ void slap_mods_opattrs(
 		for ( modtail = modsp; *modtail; modtail = &(*modtail)->sml_next ) {
 			if ( (*modtail)->sml_op != LDAP_MOD_ADD &&
 				(*modtail)->sml_op != SLAP_MOD_SOFTADD &&
+				(*modtail)->sml_op != SLAP_MOD_ADD_IF_NOT_PRESENT &&
 				(*modtail)->sml_op != LDAP_MOD_REPLACE )
 			{
 				continue;

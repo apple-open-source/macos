@@ -94,7 +94,7 @@ trigger_set_mount_to(int newval)
 static int
 unmount_triggered_mount(fsid_t *fsidp, int flags, vfs_context_t ctx)
 {
-	return (vfs_unmountbyfsid(fsidp, flags, ctx));
+	return (vfs_unmountbyfsid(fsidp, flags | MNT_NOBLOCK, ctx));
 }
 
 /*
@@ -163,18 +163,12 @@ trigger_do_mount_url(void *arg)
 	kern_return_t ret;
 
 	error = auto_get_automountd_port(&automount_port);
-	if (error) {
-		/*
-		 * Release the GSSD port send right, if it's valid,
-		 * as we won't be using it.
-		 */
-		if (IPC_PORT_VALID(argsp->muc_gssd_port))
-			auto_release_port(argsp->muc_gssd_port);
+	if (error)
 		goto done;
-	}
+
 	ret = autofs_mount_url(automount_port, argsp->muc_url,
 	    argsp->muc_mountpoint, argsp->muc_opts, argsp->muc_this_fsid,
-	    argsp->muc_uid, argsp->muc_gssd_port,
+	    argsp->muc_uid, argsp->muc_asid,
 	    &argsp->muc_mounted_fsid, &argsp->muc_retflags, &error);
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
@@ -354,8 +348,6 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 	 * (If it's not the last component, we'll be doing a lookup
 	 * in it, so it must always trigger a mount, so we can do the
 	 * lookup in the directory mounted on it.)
-	 *
-	 * XXX - what about OP_LOOKUP?
 	 */
 	if (cnp->cn_flags & ISLASTCN) {
 		switch (pop) {
@@ -377,6 +369,13 @@ trigger_resolve(vnode_t vp, const struct componentname *cnp,
 		case OP_UNMOUNT:
 			/*
 			 * We don't care.
+			 */
+			return (vfs_resolver_result(ti->ti_seq,
+			    RESOLVER_NOCHANGE, 0));
+
+		case OP_LOOKUP:
+			/*
+			 * Inappropriate on last component
 			 */
 			return (vfs_resolver_result(ti->ti_seq,
 			    RESOLVER_NOCHANGE, 0));
@@ -640,21 +639,15 @@ top:
 		argsp->tc_this_fsid = vfs_statfs(vnode_mount(vp))->f_fsid;
 		argsp->tc_ti = ti;
 		argsp->tc_origin = current_thread();
+
+#define kauth_cred_getasid(cred) ((cred)->cr_audit.as_aia_p->ai_asid)
+
+		argsp->tc_uid = kauth_cred_getuid(vfs_context_ucred(ctx));
+		argsp->tc_asid = kauth_cred_getasid(vfs_context_ucred(ctx));
+
 		/* These are "out" arguments; just initialize them */
 		memset(&argsp->tc_mounted_fsid, 0, sizeof (argsp->tc_mounted_fsid));
 		argsp->tc_retflags = 0;	/* until shown otherwise */
-
-		/*
-		 * Try to get the gssd special port for our context.
-		 */
-		ret = vfs_context_get_special_port(ctx, TASK_GSSD_PORT,
-		    &argsp->tc_gssd_port);
-		if (ret != KERN_SUCCESS) {
-			IOLog("trigger_resolve: can't get gssd port for process %d, status 0x%08x\n",
-			    vfs_context_pid(ctx), ret);
-			error = EIO;
-			goto fail_thread;
-		}
 
 		/*
 		 * Now attempt to create a new thread which calls
@@ -665,12 +658,6 @@ top:
 		 */
 		ret = auto_new_thread(trigger_mount_thread, argsp);
 		if (ret != KERN_SUCCESS) {
-			/*
-			 * Release the GSSD port send right, if it's valid,
-			 * as we won't be using it.
-			 */
-			if (IPC_PORT_VALID(argsp->tc_gssd_port))
-				auto_release_port(argsp->tc_gssd_port);
 			IOLog("trigger_resolve: can't start new mounter thread, status 0x%08x",
 			    ret);
 			error = EIO;
@@ -941,7 +928,7 @@ trigger_free(trigger_info_t *ti)
 }
 
 int
-SMBRemountServer(const void *ptr, size_t len, mach_port_t gssd_port)
+SMBRemountServer(const void *ptr, size_t len, au_asid_t asid)
 {
 	mach_port_t automount_port;
 	int error;
@@ -962,7 +949,7 @@ SMBRemountServer(const void *ptr, size_t len, mach_port_t gssd_port)
 	 * (received from the client) into it.  The VM buffer is
 	 * marked with a src_destroy flag so that the upcall will
 	 * automatically de-allocate the buffer when the upcall is
-	 * complete.	 
+	 * complete.
 	 */
 	tbuflen = round_page(len);
 	ret = vm_allocate(ipc_kernel_map, &kmem_buf, tbuflen,
@@ -1009,7 +996,7 @@ SMBRemountServer(const void *ptr, size_t len, mach_port_t gssd_port)
 	 * make mistakes.
 	 */
 	ret = autofs_smb_remount_server(automount_port, (byte_buffer) copy,
-	    (mach_msg_type_number_t)len, gssd_port);
+	    (mach_msg_type_number_t)len, asid);
 	auto_release_port(automount_port);
 	if (ret != KERN_SUCCESS) {
 		IOLog("autofs: autofs_smb_remount_server failed, status 0x%08x\n",
@@ -1044,7 +1031,7 @@ void
 auto_release_port(mach_port_t port)
 {
 	extern void ipc_port_release_send(ipc_port_t);
-	
+
 	ipc_port_release_send(port);
 }
 

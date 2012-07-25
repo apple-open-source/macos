@@ -1511,8 +1511,6 @@ Aerror(const res_state statp, FILE *file, const char *string, int error, const s
 	char hbuf[NI_MAXHOST];
 	char sbuf[NI_MAXSERV];
 
-	alen = alen;
-
 	if ((statp->options & RES_DEBUG) != 0)
 	{
 		if (getnameinfo(address, alen, hbuf, sizeof(hbuf), sbuf, sizeof(sbuf), niflags))

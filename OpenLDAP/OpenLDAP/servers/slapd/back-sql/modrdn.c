@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/modrdn.c,v 1.39.2.8 2010/04/13 20:23:43 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -107,13 +107,9 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 		goto done;
 	}
 
-#ifdef BACKSQL_ARBITRARY_KEY
-	Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): entry id=%s\n",
-		e_id.eid_id.bv_val, 0, 0 );
-#else /* ! BACKSQL_ARBITRARY_KEY */
-	Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): entry id=%ld\n",
-		e_id.eid_id, 0, 0 );
-#endif /* ! BACKSQL_ARBITRARY_KEY */
+	Debug( LDAP_DEBUG_TRACE,
+		"   backsql_modrdn(): entry id=" BACKSQL_IDFMT "\n",
+		BACKSQL_IDARG(e_id.eid_id), 0, 0 );
 
 	if ( get_assert( op ) &&
 			( test_filter( op, &r, get_assertion( op ) )
@@ -171,15 +167,9 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 			slap_anlist_all_attributes,
 			BACKSQL_ISF_GET_ENTRY );
 
-#ifdef BACKSQL_ARBITRARY_KEY
-	Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): "
-		"old parent entry id is %s\n",
-		bsi.bsi_base_id.eid_id.bv_val, 0, 0 );
-#else /* ! BACKSQL_ARBITRARY_KEY */
-	Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): "
-		"old parent entry id is %ld\n",
-		bsi.bsi_base_id.eid_id, 0, 0 );
-#endif /* ! BACKSQL_ARBITRARY_KEY */
+	Debug( LDAP_DEBUG_TRACE,
+		"   backsql_modrdn(): old parent entry id is " BACKSQL_IDFMT "\n",
+		BACKSQL_IDARG(bsi.bsi_base_id.eid_id), 0, 0 );
 
 	if ( rs->sr_err != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE, "backsql_modrdn(): "
@@ -234,15 +224,9 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 
 		n_id = bsi.bsi_base_id;
 
-#ifdef BACKSQL_ARBITRARY_KEY
-		Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): "
-			"new parent entry id=%s\n",
-			n_id.eid_id.bv_val, 0, 0 );
-#else /* ! BACKSQL_ARBITRARY_KEY */
-		Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(): "
-			"new parent entry id=%ld\n",
-			n_id.eid_id, 0, 0 );
-#endif /* ! BACKSQL_ARBITRARY_KEY */
+		Debug( LDAP_DEBUG_TRACE,
+			"   backsql_modrdn(): new parent entry id=" BACKSQL_IDFMT "\n",
+			BACKSQL_IDARG(n_id.eid_id), 0, 0 );
 
 		if ( !access_allowed( op, &n, slap_schema.si_ad_children, 
 					NULL, ACL_WADD, NULL ) ) {
@@ -320,7 +304,7 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 	rc = backsql_BindParamBerVal( sth, 1, SQL_PARAM_INPUT, &realnew_dn );
 	if ( rc != SQL_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE,
-			"   backsql_add_attr(): "
+			"   backsql_modrdn(): "
 			"error binding DN parameter for objectClass %s\n",
 			oc->bom_oc->soc_cname.bv_val, 0, 0 );
 		backsql_PrintErrors( bi->sql_db_env, dbh, 
@@ -336,7 +320,7 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 	rc = backsql_BindParamID( sth, 2, SQL_PARAM_INPUT, &n_id.eid_id );
 	if ( rc != SQL_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE,
-			"   backsql_add_attr(): "
+			"   backsql_modrdn(): "
 			"error binding parent ID parameter for objectClass %s\n",
 			oc->bom_oc->soc_cname.bv_val, 0, 0 );
 		backsql_PrintErrors( bi->sql_db_env, dbh, 
@@ -352,7 +336,7 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 	rc = backsql_BindParamID( sth, 3, SQL_PARAM_INPUT, &e_id.eid_keyval );
 	if ( rc != SQL_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE,
-			"   backsql_add_attr(): "
+			"   backsql_modrdn(): "
 			"error binding entry ID parameter for objectClass %s\n",
 			oc->bom_oc->soc_cname.bv_val, 0, 0 );
 		backsql_PrintErrors( bi->sql_db_env, dbh, 
@@ -368,7 +352,7 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 	rc = backsql_BindParamID( sth, 4, SQL_PARAM_INPUT, &e_id.eid_id );
 	if ( rc != SQL_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE,
-			"   backsql_add_attr(): "
+			"   backsql_modrdn(): "
 			"error binding ID parameter for objectClass %s\n",
 			oc->bom_oc->soc_cname.bv_val, 0, 0 );
 		backsql_PrintErrors( bi->sql_db_env, dbh, 

@@ -25,11 +25,15 @@
 
 #if ENABLE(FULLSCREEN_API)
 
+#import <wtf/OwnPtr.h>
 #import <wtf/RefPtr.h>
+#import <wtf/RetainPtr.h>
 
 @class WebWindowFadeAnimation;
+@class WebWindowScaleAnimation;
 @class WebView;
 namespace WebCore {
+    class DisplaySleepDisabler;
     class Element;
     class RenderBox;
     class EventListener;
@@ -38,41 +42,31 @@ namespace WebCore {
 @interface WebFullScreenController : NSWindowController {
 @private
     RefPtr<WebCore::Element> _element;
-    WebCore::RenderBox* _renderer; // (set)
-    RefPtr<WebCore::Element> _replacementElement; 
-    NSWindow *_backgroundFullscreenWindow; // (retain)
-    WebWindowFadeAnimation *_fadeAnimation; // (retain)
     WebView *_webView;
-    NSView* _placeholderView;
-    CALayer* _rendererLayer;
-    CALayer* _backgroundLayer;
-    RefPtr<WebCore::EventListener> _mediaEventListener; 
+    RetainPtr<NSView> _webViewPlaceholder;
+    RetainPtr<WebWindowScaleAnimation> _scaleAnimation;
+    RetainPtr<WebWindowFadeAnimation> _fadeAnimation;
+    RetainPtr<NSWindow> _backgroundWindow;
+    NSRect _initialFrame;
+    NSRect _finalFrame;
 
-    BOOL _isAnimating;
-    BOOL _isFullscreen;
-    BOOL _isWindowLoaded;
-    BOOL _forceDisableAnimation;
+    BOOL _isEnteringFullScreen;
+    BOOL _isExitingFullScreen;
+    BOOL _isFullScreen;
     BOOL _isPlaying;
-    uint32_t _idleDisplaySleepAssertion;
-    uint32_t _idleSystemSleepAssertion;
-    NSTimer *_tickleTimer;
-    SystemUIMode _savedUIMode;
-    SystemUIOptions _savedUIOptions;
-    CGRect _initialFrame;
 }
 
 - (WebView*)webView;
 - (void)setWebView:(WebView*)webView;
 
+- (BOOL)isFullScreen;
+
 - (void)setElement:(PassRefPtr<WebCore::Element>)element;
 - (WebCore::Element*)element;
 
-- (void)setRenderer:(WebCore::RenderBox*)renderer;
-- (WebCore::RenderBox*)renderer;
-
-- (void)enterFullscreen:(NSScreen *)screen;
-- (void)exitFullscreen;
-
+- (void)enterFullScreen:(NSScreen *)screen;
+- (void)exitFullScreen;
+- (void)close;
 @end
 
 #endif // ENABLE(FULLSCREEN_API)

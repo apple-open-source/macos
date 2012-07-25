@@ -45,6 +45,8 @@ The
 .Fn daemon
 function is for programs wishing to detach themselves from the
 controlling terminal and run in the background as system daemons.
+On Mac OS X, the use of this API is discouraged in favor of using
+.Xr launchd 8 .
 .Pp
 Unless the argument
 .Fa nochdir

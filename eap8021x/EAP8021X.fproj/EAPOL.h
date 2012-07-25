@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +36,7 @@
  * - 802.1X EAPOL protocol definitions
  */
 #include <stdint.h>
+#include <string.h>
 
 #define EAPOL_802_1_X_ETHERTYPE		0x888e
 #define IEEE80211_PREAUTH_ETHERTYPE	0x88c7
@@ -50,18 +50,11 @@ typedef struct {
     uint8_t	body[0];
 } EAPOLPacket, * EAPOLPacketRef;
 
-static __inline__ void
-EAPOLPacketSetLength(EAPOLPacketRef pkt, uint16_t length)
-{
-    *((unsigned short *)pkt->body_length) = htons(length);
-    return;
-}
+void
+EAPOLPacketSetLength(EAPOLPacketRef pkt, uint16_t length);
 
-static __inline__ uint16_t
-EAPOLPacketGetLength(const EAPOLPacketRef pkt)
-{
-    return (ntohs(*((unsigned short *)pkt->body_length)));
-}
+uint16_t
+EAPOLPacketGetLength(const EAPOLPacketRef pkt);
 
 enum {
     kEAPOLPacketTypeEAPPacket = 0,
@@ -90,31 +83,18 @@ typedef struct {
 
 typedef EAPOLRC4KeyDescriptor EAPOLKeyDescriptor, * EAPOLKeyDescriptorRef;
 
-static __inline__ void
-EAPOLRC4KeyDescriptorSetLength(EAPOLRC4KeyDescriptorRef pkt, uint16_t length)
-{
-    *((unsigned short *)pkt->key_length) = htons(length);
-    return;
-}
+void
+EAPOLRC4KeyDescriptorSetLength(EAPOLRC4KeyDescriptorRef pkt, uint16_t length);
 
-static __inline__ void
-EAPOLKeyDescriptorSetLength(EAPOLKeyDescriptorRef pkt, uint16_t length)
-{
-    EAPOLRC4KeyDescriptorSetLength(pkt, length);
-    return;
-}
+void
+EAPOLKeyDescriptorSetLength(EAPOLKeyDescriptorRef pkt, uint16_t length);
 
-static __inline__ uint16_t
-EAPOLRC4KeyDescriptorGetLength(const EAPOLRC4KeyDescriptorRef pkt)
-{
-    return (ntohs(*((unsigned short *)pkt->key_length)));
-}
+uint16_t
+EAPOLRC4KeyDescriptorGetLength(const EAPOLRC4KeyDescriptorRef pkt);
 
-static __inline__ uint16_t
-EAPOLKeyDescriptorGetLength(const EAPOLKeyDescriptorRef pkt)
-{
-    return (EAPOLRC4KeyDescriptorGetLength(pkt));
-}
+uint16_t
+EAPOLKeyDescriptorGetLength(const EAPOLKeyDescriptorRef pkt);
+
 enum {
     kEAPOLKeyDescriptorIndexUnicastFlag = 0x80,
     kEAPOLKeyDescriptorIndexMask = 0x7f
@@ -135,23 +115,14 @@ typedef struct {
     uint8_t		key_data[0];
 } EAPOLIEEE80211KeyDescriptor, * EAPOLIEEE80211KeyDescriptorRef;
 
-static __inline__ uint16_t
-EAPOLIEEE80211KeyDescriptorGetLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
-{
-    return (ntohs(*((unsigned short *)pkt->key_length)));
-}
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetLength(const EAPOLIEEE80211KeyDescriptorRef pkt);
 
-static __inline__ uint16_t
-EAPOLIEEE80211KeyDescriptorGetInformation(const EAPOLIEEE80211KeyDescriptorRef pkt)
-{
-    return (ntohs(*((unsigned short *)pkt->key_information)));
-}
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetInformation(const EAPOLIEEE80211KeyDescriptorRef pkt);
 
-static __inline__ uint16_t
-EAPOLIEEE80211KeyDescriptorGetKeyDataLength(const EAPOLIEEE80211KeyDescriptorRef pkt)
-{
-    return (ntohs(*((unsigned short *)pkt->key_data_length)));
-}
+uint16_t
+EAPOLIEEE80211KeyDescriptorGetKeyDataLength(const EAPOLIEEE80211KeyDescriptorRef pkt);
 
 #endif /* _EAP8021X_EAPOL_H */
 

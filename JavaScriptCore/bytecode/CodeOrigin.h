@@ -38,28 +38,36 @@ class ExecutableBase;
 class JSFunction;
 
 struct CodeOrigin {
-    uint32_t bytecodeIndex;
+    // Bytecode offset that you'd use to re-execute this instruction.
+    unsigned bytecodeIndex : 29;
+    // Bytecode offset corresponding to the opcode that gives the result (needed to handle
+    // op_call/op_call_put_result and op_method_check/op_get_by_id).
+    unsigned valueProfileOffset : 3;
+    
     InlineCallFrame* inlineCallFrame;
     
     CodeOrigin()
         : bytecodeIndex(std::numeric_limits<uint32_t>::max())
+        , valueProfileOffset(0)
         , inlineCallFrame(0)
     {
     }
     
-    explicit CodeOrigin(uint32_t bytecodeIndex)
+    explicit CodeOrigin(unsigned bytecodeIndex, InlineCallFrame* inlineCallFrame = 0, unsigned valueProfileOffset = 0)
         : bytecodeIndex(bytecodeIndex)
-        , inlineCallFrame(0)
-    {
-    }
-    
-    explicit CodeOrigin(uint32_t bytecodeIndex, InlineCallFrame* inlineCallFrame)
-        : bytecodeIndex(bytecodeIndex)
+        , valueProfileOffset(valueProfileOffset)
         , inlineCallFrame(inlineCallFrame)
     {
+        ASSERT(bytecodeIndex < (1u << 29));
+        ASSERT(valueProfileOffset < (1u << 3));
     }
     
     bool isSet() const { return bytecodeIndex != std::numeric_limits<uint32_t>::max(); }
+    
+    unsigned bytecodeIndexForValueProfile() const
+    {
+        return bytecodeIndex + valueProfileOffset;
+    }
     
     // The inline depth is the depth of the inline stack, so 1 = not inlined,
     // 2 = inlined one deep, etc.
@@ -75,10 +83,8 @@ struct CodeOrigin {
     
     bool operator!=(const CodeOrigin& other) const { return !(*this == other); }
     
-#ifndef NDEBUG
     // Get the inline stack. This is slow, and is intended for debugging only.
     Vector<CodeOrigin> inlineStack() const;
-#endif
 };
 
 struct InlineCallFrame {
@@ -114,7 +120,6 @@ inline bool CodeOrigin::operator==(const CodeOrigin& other) const
         && inlineCallFrame == other.inlineCallFrame;
 }
     
-#ifndef NDEBUG
 // Get the inline stack. This is slow, and is intended for debugging only.
 inline Vector<CodeOrigin> CodeOrigin::inlineStack() const
 {
@@ -125,7 +130,6 @@ inline Vector<CodeOrigin> CodeOrigin::inlineStack() const
         result[index--] = current->caller;
     return result;
 }
-#endif
 
 inline unsigned getCallReturnOffsetForCodeOrigin(CodeOriginAtCallReturnOffset* data)
 {

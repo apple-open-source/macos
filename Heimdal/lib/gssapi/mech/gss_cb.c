@@ -93,9 +93,13 @@ gss_mg_gen_cb(OM_uint32 *minor_status,
 	goto out;
     }
 
-    if (b->application_data.length)
-	ret = krb5_storage_write(sp, b->application_data.value,
-				 b->application_data.length);
+    ret = krb5_store_uint32(sp, b->application_data.length);
+    if (ret) {
+	*minor_status = ret;
+	goto out;
+    }
+    ret = krb5_storage_write(sp, b->application_data.value,
+			     b->application_data.length);
     if (ret != b->application_data.length) {
 	*minor_status = ENOMEM;
 	goto out;

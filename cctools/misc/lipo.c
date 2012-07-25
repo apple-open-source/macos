@@ -61,6 +61,7 @@
 #include "stuff/arch.h"
 #include "stuff/errors.h"
 #include "stuff/allocate.h"
+#include "stuff/lto.h"
 
 /* The maximum section alignment allowed to be specified, as a power of two */
 #define MAXSECTALIGN		15 /* 2**15 or 0x8000 */
@@ -210,6 +211,10 @@ static void usage(
     void);
 static struct thin_file *new_blank_dylib(
     struct arch_flag *arch);
+
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
 
 int
 main(
@@ -1190,8 +1195,23 @@ struct input_file *input)
 		thin->fat_arch.align = 0;
 	    }
 	    else{
-		fatal("can't figure out the architecture type of: %s",
-		      input->name);
+#ifdef LTO_SUPPORT
+		if(is_llvm_bitcode_from_memory(addr, size, &input->arch_flag,
+					       NULL) != 0){
+		    /* create a thin file struct for it */
+		    thin = new_thin();
+		    thin->name = input->name;
+		    thin->addr = addr;
+		    thin->fat_arch.cputype = input->arch_flag.cputype;
+		    thin->fat_arch.cpusubtype = input->arch_flag.cpusubtype;
+		    thin->fat_arch.offset = 0;
+		    thin->fat_arch.size = size;
+		    thin->fat_arch.align = 0;
+		}
+		else
+#endif /* LTO_SUPPORT */
+		    fatal("can't figure out the architecture type of: %s",
+			  input->name);
 	    }
 	}
 }
@@ -1344,11 +1364,12 @@ uint32_t size,
 cpu_type_t *cputype,
 cpu_subtype_t *cpusubtype)
 {
-    uint32_t offset, magic, i, ar_name_size;
+    uint32_t offset, magic, i, ar_name_size, ar_size;
     struct mach_header mh;
     struct mach_header_64 mh64;
     struct ar_hdr *ar_hdr;
-    char *ar_name;
+    char *ar_name, *ar_addr;
+    struct arch_flag arch_flag;
 
 	/*
 	 * Check this archive out to make sure that it does not contain
@@ -1425,7 +1446,32 @@ cpu_subtype_t *cpusubtype)
 			      ~CPU_SUBTYPE_MASK);
 		    }
 		}
-	    }
+		else{
+		    if(strncmp(ar_name, SYMDEF, sizeof(SYMDEF) - 1) != 0){
+			ar_addr = addr + offset + ar_name_size;
+			ar_size = strtoul(ar_hdr->ar_size, NULL, 10);
+#ifdef LTO_SUPPORT
+			if(is_llvm_bitcode_from_memory(ar_addr, ar_size,
+						       &arch_flag, NULL) != 0){
+			    if(*cputype == 0){
+				*cputype = arch_flag.cputype;
+				*cpusubtype = arch_flag.cpusubtype;
+			    }
+			    else if(*cputype != arch_flag.cputype){
+				fatal("archive member %s(%.*s) cputype (%d) "
+				      "and cpusubtype (%d) does not match "
+				      "previous archive members cputype (%d) "
+				      "and cpusubtype (%d) (all members must "
+				      "match)", name, (int)i, ar_name,
+				      arch_flag.cputype, arch_flag.cpusubtype &
+				      ~CPU_SUBTYPE_MASK, *cputype,
+				      (*cpusubtype) & ~CPU_SUBTYPE_MASK);
+			    }
+			}
+#endif /* LTO_SUPPORT */
+		    }
+		}
+	    } 
 	    offset += rnd(strtoul(ar_hdr->ar_size, NULL, 10),
 			    sizeof(short));
 	}
@@ -1868,6 +1914,12 @@ struct fat_arch *fat_arch)
 		break;
 	    case CPU_SUBTYPE_ARM_V7:
 		printf("armv7");
+		break;
+	    case CPU_SUBTYPE_ARM_V7F:
+		printf("armv7f");
+		break;
+	    case CPU_SUBTYPE_ARM_V7K:
+		printf("armv7k");
 		break;
 	    default:
 		goto print_arch_unknown;

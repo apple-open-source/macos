@@ -35,17 +35,16 @@ public:
 private:
     SVGFEOffsetElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_NUMBER(Dx, dx)
-    DECLARE_ANIMATED_NUMBER(Dy, dy)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEOffsetElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_NUMBER(Dx, dx)
+        DECLARE_ANIMATED_NUMBER(Dy, dy)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

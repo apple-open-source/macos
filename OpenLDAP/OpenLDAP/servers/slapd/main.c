@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/main.c,v 1.239.2.21 2010/04/13 20:23:16 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -104,6 +104,9 @@ static struct {
 const char Versionstr[] =
 	OPENLDAP_PACKAGE " " OPENLDAP_VERSION " Standalone LDAP Server (slapd)";
 #endif
+
+extern OverlayInit slap_oinfo[];
+extern BackendInfo slap_binfo[];
 
 #define	CHECK_NONE	0x00
 #define	CHECK_CONFIG	0x01
@@ -346,7 +349,8 @@ usage( char *name )
 #if defined(HAVE_SETUID) && defined(HAVE_SETGID)
 		"\t-u user\t\tUser (id or name) to run as\n"
 #endif
-		"\t-V\t\tprint version info (-VV only)\n"
+		"\t-V\t\tprint version info (-VV exit afterwards, -VVV print\n"
+		"\t\t\tinfo about static overlays and backends)\n"
     );
 }
 
@@ -370,6 +374,9 @@ int main( int argc, char **argv )
 	int syslogUser = SLAP_DEFAULT_SYSLOG_USER;
 #endif
 	
+#ifndef HAVE_WINSOCK
+	int pid, waitfds[2];
+#endif
 	int g_argc = argc;
 	char **g_argv = argv;
 
@@ -445,13 +452,13 @@ int main( int argc, char **argv )
 
 		newConfigFile = (char*)lutil_getRegParam( regService, "ConfigFile" );
 		if ( newConfigFile != NULL ) {
-			configfile = newConfigFile;
+			configfile = ch_strdup(newConfigFile);
 			Debug ( LDAP_DEBUG_ANY, "new config file from registry is: %s\n", configfile, 0, 0 );
 		}
 
 		newConfigDir = (char*)lutil_getRegParam( regService, "ConfigDir" );
 		if ( newConfigDir != NULL ) {
-			configdir = newConfigDir;
+			configdir = ch_strdup(newConfigDir);
 			Debug ( LDAP_DEBUG_ANY, "new config dir from registry is: %s\n", configdir, 0, 0 );
 		}
 	}
@@ -684,17 +691,30 @@ unhandled_option:;
 		}
 	}
 
+	if ( optind != argc )
+		goto unhandled_option;
+
 	ber_set_option(NULL, LBER_OPT_DEBUG_LEVEL, &slap_debug);
 	ldap_set_option(NULL, LDAP_OPT_DEBUG_LEVEL, &slap_debug);
-#ifdef __APPLE__
-	//set global tls require cert to never
-	int tls__require_client_option = LDAP_OPT_X_TLS_NEVER;
-	(void) ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_REQUIRE_CERT, &tls__require_client_option );
-#endif	
 	ldif_debug = slap_debug;
 
 	if ( version ) {
 		fprintf( stderr, "%s\n", Versionstr );
+		if ( version > 2 ) {
+			if ( slap_oinfo[0].ov_type ) {
+				fprintf( stderr, "Included static overlays:\n");
+				for ( i= 0 ; slap_oinfo[i].ov_type; i++ ) {
+					fprintf( stderr, "    %s\n", slap_oinfo[i].ov_type );
+				}
+			}
+			if ( slap_binfo[0].bi_type ) {
+				fprintf( stderr, "Included static backends:\n");
+				for ( i= 0 ; slap_binfo[i].bi_type; i++ ) {
+					fprintf( stderr, "    %s\n", slap_binfo[i].bi_type );
+				}
+			}
+		}
+
 		if ( version > 1 ) goto stop;
 	}
 
@@ -723,9 +743,13 @@ unhandled_option:;
 	
 #ifdef __APPLE__
 	global_host = ldap_pvt_get_fqdn_from_sys_conf();
-	if(global_host == NULL)
+	if(global_host == NULL) {
 #endif
 		global_host = ldap_pvt_get_fqdn( NULL );
+#ifdef __APPLE__
+	}
+#endif
+
 	ber_str2bv( global_host, 0, 0, &global_host_bv );
 
 	if( check == CHECK_NONE && slapd_daemon_init( urls ) != 0 ) {
@@ -837,34 +861,94 @@ unhandled_option:;
 	}
 
 #ifdef HAVE_TLS
-	rc = ldap_pvt_tls_init();
-	if( rc != 0) {
-		Debug( LDAP_DEBUG_ANY,
-		    "main: TLS init failed: %d\n",
-		    0, 0, 0 );
-		rc = 1;
-		SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
-		goto destroy;
-	}
 
+#ifdef __APPLE__    
+    char *error_string;
+    rc = ldap_pvt_test_tls_settings(slap_tls_ld);
+    if( rc != 0)
+    {
+        switch(rc) {
+            case (-30): 
+                error_string = "CA certificate file not found";
+                break;
+            case (-31):
+                error_string = "Certificate file not found";
+                break;
+            case (-32):
+                error_string = "Certificate keyfile not found";      
+                break;
+            case (-33):
+                error_string = "Passphrase not found in System keychain";
+                break;
+            default:
+                error_string = "Unknown error";
+        }
+
+        Debug( LDAP_DEBUG_ANY,
+              "main: Enabling TLS settings failed: %d - %s\n",
+              rc, error_string, 0 );
+        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTFILE, NULL );
+        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_DHFILE, NULL );        
+        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTDIR, NULL );
+        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_KEYFILE, NULL );
+        ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_CERTFILE, NULL );
+        ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_RANDOM_FILE, NULL );        
+        ldap_pvt_tls_set_option( NULL, LDAP_OPT_X_TLS_PASSPHRASE, NULL );
+    }
+    else {
+#endif
+     
+        rc = ldap_pvt_tls_init();
+        if( rc != 0) {
+            Debug( LDAP_DEBUG_ANY,
+                "main: TLS init failed: %d\n",
+                rc, 0, 0 );
+            rc = 1;
+            SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
+            goto destroy;
+        }
+
+        {
+            int opt = 1;
+
+        
+            /* Force new ctx to be created */
+            rc = ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_NEWCTX, &opt );
+            if( rc == 0 ) {
+                /* The ctx's refcount is bumped up here */
+                ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
+                load_extop( &slap_EXOP_START_TLS, 0, starttls_extop );
+            } else if ( rc != LDAP_NOT_SUPPORTED ) {
+                Debug( LDAP_DEBUG_ANY,
+                    "main: TLS init def ctx failed: %d\n",
+                    rc, 0, 0 );
+                rc = 1;
+                SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
+                goto destroy;
+            }
+        }
+#ifdef __APPLE__        
+	}
+#ifdef __APPLE__
 	{
-		int opt = 1;
-
-		/* Force new ctx to be created */
-		rc = ldap_pvt_tls_set_option( slap_tls_ld, LDAP_OPT_X_TLS_NEWCTX, &opt );
-		if( rc == 0 ) {
-			/* The ctx's refcount is bumped up here */
-			ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CTX, &slap_tls_ctx );
-			load_extop( &slap_EXOP_START_TLS, 0, starttls_extop );
-		} else if ( rc != LDAP_NOT_SUPPORTED ) {
-			Debug( LDAP_DEBUG_ANY,
-			    "main: TLS init def ctx failed: %d\n",
-			    rc, 0, 0 );
-			rc = 1;
-			SERVICE_EXIT( ERROR_SERVICE_SPECIFIC_ERROR, 20 );
-			goto destroy;
-		}
+	    /* If TLS is configured try to add a new listener for ldaps:/// to
+	     * support legacy clients.	If this doesn't succeed, it's not fatal
+	     * since clients really should be running start_tls on ldap:///
+	     */
+	    char* tls_certfile = NULL;
+	    char* tls_cacertfile = NULL;
+	    char* tls_keyfile = NULL;
+	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CERTFILE, &tls_certfile );
+	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_CACERTFILE, &tls_cacertfile );
+	    ldap_pvt_tls_get_option( slap_tls_ld, LDAP_OPT_X_TLS_KEYFILE, &tls_keyfile );
+	    if ( (tls_certfile || tls_cacertfile) && tls_keyfile ) {
+		    if ( slap_add_listener("ldaps:///") != 0 ) {
+			    Debug( LDAP_DEBUG_ANY, "main: unable to add 'ldaps:///' listener\n", 0, 0, 0);
+		    }
+	    }
 	}
+#endif /* __APPLE__ */
+#endif
 #endif
 
 #ifdef HAVE_CYRUS_SASL
@@ -896,7 +980,26 @@ unhandled_option:;
 #endif
 
 #ifndef HAVE_WINSOCK
-	lutil_detach( no_detach, 0 );
+	if ( !no_detach ) {
+		if ( lutil_pair( waitfds ) < 0 ) {
+			Debug( LDAP_DEBUG_ANY,
+				"main: lutil_pair failed: %d\n",
+				0, 0, 0 );
+			rc = 1;
+			goto destroy;
+		}
+		pid = lutil_detach( no_detach, 0 );
+		if ( pid ) {
+			char buf[4];
+			rc = EXIT_SUCCESS;
+			close( waitfds[1] );
+			if ( read( waitfds[0], buf, 1 ) != 1 )
+				rc = EXIT_FAILURE;
+			_exit( rc );
+		} else {
+			close( waitfds[0] );
+		}
+	}
 #endif /* HAVE_WINSOCK */
 
 #ifdef CSRIMALLOC
@@ -966,6 +1069,13 @@ unhandled_option:;
 	}
 
 	Debug( LDAP_DEBUG_ANY, "slapd starting\n", 0, 0, 0 );
+
+#ifndef HAVE_WINSOCK
+	if ( !no_detach ) {
+		write( waitfds[1], "1", 1 );
+		close( waitfds[1] );
+	}
+#endif
 
 #ifdef HAVE_NT_EVENT_LOG
 	if (is_NT_Service)
@@ -1070,7 +1180,6 @@ stop:
 
 	MAIN_RETURN(rc);
 }
-
 
 #ifdef LDAP_SIGCHLD
 

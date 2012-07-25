@@ -1,11 +1,50 @@
 /*
 	File:		MBCController.h
 	Contains:	Managing the entire user interface
-	Version:	1.0
-	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import <Cocoa/Cocoa.h>
+#import <GameKit/GameKit.h>
 
 #import "MBCBoard.h"
 
@@ -14,110 +53,33 @@
 @class MBCEngine;
 @class MBCInteractivePlayer;
 @class NSSpeechSynthesizer;
+@class MBCDocument;
 
-@interface MBCController : NSObject
+@interface MBCController : NSObject <GKTurnBasedEventHandlerDelegate>
 {
-	IBOutlet id		fMainWindow;
-	IBOutlet id		fNewGamePane;
-    IBOutlet id 	fGameVariant;
-    IBOutlet id 	fPlayers;
-	IBOutlet id		fPlayersSimple;
-    IBOutlet id 	fSpeakMoves;
-	IBOutlet id		fSpeakHumanMoves;
-    IBOutlet id 	fListenForMoves;
-	IBOutlet id		fSearchTime;
-	IBOutlet id		fBoardStyle;
-	IBOutlet id		fPieceStyle;
-	IBOutlet id		fTakebackMenuItem;
-	IBOutlet id		fLicense;
-	IBOutlet id		fGameInfo;
-	IBOutlet id		fGameInfoWindow;
-	IBOutlet id 	fOpaqueView;
-	IBOutlet id		fComputerVoice;
-	IBOutlet id		fAlternateVoice;
-#if HAS_FLOATING_BOARD
-	IBOutlet id 	fFloatingView;
-	IBOutlet id		fFloatingMenuItem;
-#endif
-
-	MBCBoard *				fBoard;
-	MBCBoardView *			fView;
-	MBCEngine *				fEngine;
-	MBCInteractivePlayer *	fInteractive;
-	NSMutableString *		fEngineBuffer;
-	NSFileHandle *			fEngineLogFile;
-	bool					fIsLogging;
-	MBCVariant				fVariant;
-	NSString *				fWhiteType;
-	NSString *				fBlackType;
-	NSDictionary *			fLastLoad;
-	NSMutableDictionary * 	fStyleLocMap;
-	NSSpeechSynthesizer *	fDefaultSynth;
-	NSSpeechSynthesizer *	fAlternateSynth;
-	NSDictionary *			fDefaultLocalization;
-	NSDictionary *			fAlternateLocalization;
-	NSDocument *			fDocument;
+    IBOutlet NSObjectController *   fCurrentDocument;
+    
+    NSMutableArray *                fMatchesToLoad;
+    NSArray *                       fExistingMatches;
+    NSMutableDictionary *           fAchievements;
 }
 
-+ (MBCController *)controller;
+@property (nonatomic, assign)   GKLocalPlayer * localPlayer;
+@property (nonatomic)           BOOL            logMouse;
+@property (nonatomic)           BOOL            dumpLanguageModels;
+
 - (id) init;
 - (void) awakeFromNib;
-- (IBAction) updateOptions:(id)sender;
-- (IBAction) updateGraphicsOptions:(id)sender;
-- (IBAction) updateSearchTime:(id)sender;
-- (IBAction) updateStyles:(id)sender;
 - (IBAction) newGame:(id)sender;
-- (IBAction) startNewGame:(id)sender;
-- (IBAction) cancelNewGame:(id)sender;
+- (void)startNewOnlineGame:(GKTurnBasedMatch *)match withDocument:(MBCDocument *)doc;
 - (IBAction) profileDraw:(id)sender;
-- (IBAction) takeback:(id)sender;
-- (IBAction) toggleLogging:(id)sender;
-- (IBAction) showHint:(id)sender;
-- (IBAction) showLastMove:(id)sender;
-- (IBAction) openGame:(id)sender;
-- (IBAction) saveGame:(id)sender;
-- (IBAction) saveGameAs:(id)sender;
-- (IBAction) updateVoices:(id)sender;
+- (void) loadMatch:(NSString *)matchID;
+- (void) setValue:(float)value forAchievement:(NSString *)ident;
+- (void) updateApplicationBadge;
 
 #if HAS_FLOATING_BOARD
 - (IBAction) toggleFloating:(id)sender;
 #endif
-
-- (void) startNewGame;
-
-- (MBCBoard *)				board;
-- (MBCBoardView *)			view;
-- (MBCInteractivePlayer *)	interactive;
-- (MBCEngine *)				engine;
-- (NSWindow *)				gameInfoWindow;
-
-- (void) logToEngine:(NSString *)text;
-- (void) logFromEngine:(NSString *)text;
-
-- (BOOL)	speakMoves;
-- (BOOL)	speakHumanMoves;
-- (BOOL)	listenForMoves;
-
-- (BOOL) loadGame:(NSDictionary *)dict;
-- (NSDictionary *) saveGameToDict;
-- (BOOL) saveMovesTo:(NSString *)fileName;
-
-- (NSString *) localizedStyleName:(NSString *)name;
-
-- (NSSpeechSynthesizer *) defaultSynth;
-- (NSSpeechSynthesizer *) alternateSynth;
-- (NSDictionary *) defaultLocalization;
-- (NSDictionary *) alternateLocalization;
-- (void)loadVoiceMenu:(id)menu withSelectedVoice:(NSString *)voiceIdentifierToSelect;
-
-- (void)setDocument:(NSDocument *)doc;
-
-@end
-
-@interface MBCDocumentController : NSDocumentController {
-}
-
-- (void) addDocument:(NSDocument *)doc;
 
 @end
 

@@ -43,11 +43,11 @@ OSDefineMetaClassAndStructors( IOHIDInterface, IOService )
 
 void IOHIDInterface::free()
 {
-	if ( _elementArray )
-	{
-		_elementArray->release();
-		_elementArray = 0;
-	}
+    OSSafeReleaseNULL(_transportString);
+    OSSafeReleaseNULL(_elementArray);
+    OSSafeReleaseNULL(_manufacturerString);
+    OSSafeReleaseNULL(_productString);
+    OSSafeReleaseNULL(_serialNumberString);
 
     if ( _reserved )
     {        
@@ -110,40 +110,59 @@ bool IOHIDInterface::start( IOService * provider )
 	if ( !_owner )
 		return false;
             
-    _transportString    = OSDynamicCast(OSString, getProperty(kIOHIDTransportKey));
-    _manufacturerString = OSDynamicCast(OSString, getProperty(kIOHIDManufacturerKey));
-    _productString        = OSDynamicCast(OSString, getProperty(kIOHIDProductKey));
-    _serialNumberString = OSDynamicCast(OSString, getProperty(kIOHIDSerialNumberKey));
     
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDLocationIDKey));
-    if ( number ) _locationID = number->unsigned32BitValue();
+    _transportString    = (OSString*)copyProperty(kIOHIDTransportKey);
+    _manufacturerString = (OSString*)copyProperty(kIOHIDManufacturerKey);
+    _productString      = (OSString*)copyProperty(kIOHIDProductKey);
+    _serialNumberString = (OSString*)copyProperty(kIOHIDSerialNumberKey);
+    if (_transportString && !OSDynamicCast(OSString, _transportString))
+        OSSafeReleaseNULL(_transportString);
+    if (_manufacturerString && !OSDynamicCast(OSString, _manufacturerString))
+        OSSafeReleaseNULL(_manufacturerString);
+    if (_productString && !OSDynamicCast(OSString, _productString))
+        OSSafeReleaseNULL(_productString);
+    if (_serialNumberString && !OSDynamicCast(OSString, _serialNumberString))
+        OSSafeReleaseNULL(_serialNumberString);
     
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDVendorIDKey));
-    if ( number ) _vendorID = number->unsigned32BitValue();
+    number = (OSNumber*)copyProperty(kIOHIDLocationIDKey);
+    if ( OSDynamicCast(OSNumber, number) ) _locationID = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
+    
+    number = (OSNumber*)copyProperty(kIOHIDVendorIDKey);
+    if ( OSDynamicCast(OSNumber, number) ) _vendorID = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDVendorIDSourceKey));
-    if ( number ) _vendorIDSource = number->unsigned32BitValue();
+    number = (OSNumber*)copyProperty(kIOHIDVendorIDSourceKey);
+    if ( OSDynamicCast(OSNumber, number) ) _vendorIDSource = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDProductIDKey));
-    if ( number ) _productID = number->unsigned32BitValue();
+    number = (OSNumber*)copyProperty(kIOHIDProductIDKey);
+    if ( OSDynamicCast(OSNumber, number) ) _productID = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDVersionNumberKey));
-    if ( number ) _version = number->unsigned32BitValue();
+    number = (OSNumber*)copyProperty(kIOHIDVersionNumberKey);
+    if ( OSDynamicCast(OSNumber, number) ) _version = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, getProperty(kIOHIDCountryCodeKey));
+    number = (OSNumber*)copyProperty(kIOHIDCountryCodeKey);
     if ( number ) _countryCode = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDMaxInputReportSizeKey));
-    if ( number ) _maxReportSize[kIOHIDReportTypeInput] = number->unsigned32BitValue();
+    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxInputReportSizeKey);
+    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeInput] = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDMaxOutputReportSizeKey));
-    if ( number ) _maxReportSize[kIOHIDReportTypeOutput] = number->unsigned32BitValue();
+    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxOutputReportSizeKey);
+    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeOutput] = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
 
-    number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDMaxFeatureReportSizeKey));
-    if ( number ) _maxReportSize[kIOHIDReportTypeFeature] = number->unsigned32BitValue();
+    number = (OSNumber*)_owner->copyProperty(kIOHIDMaxFeatureReportSizeKey);
+    if ( OSDynamicCast(OSNumber, number) ) _maxReportSize[kIOHIDReportTypeFeature] = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
     
-    number = OSDynamicCast(OSNumber, _owner->getProperty(kIOHIDReportIntervalKey));
-    if ( number ) _reportInterval = number->unsigned32BitValue();
+    number = (OSNumber*)_owner->copyProperty(kIOHIDReportIntervalKey);
+    if ( OSDynamicCast(OSNumber, number) ) _reportInterval = number->unsigned32BitValue();
+    OSSafeReleaseNULL(number);
     
     registerService();
     
@@ -279,7 +298,7 @@ IOByteCount IOHIDInterface::getMaxReportSize (IOHIDReportType type)
 
 OSArray * IOHIDInterface::createMatchingElements (
                                 OSDictionary *              matching, 
-                                IOOptionBits                options)
+                                IOOptionBits                options __unused)
 {
     UInt32                    count        = _elementArray->getCount();
     IOHIDElementPrivate *   element        = NULL;
@@ -313,7 +332,7 @@ void IOHIDInterface::handleReport (
                                 IOMemoryDescriptor *        report,
                                 IOHIDReportType             reportType,
                                 UInt32                      reportID,
-                                IOOptionBits                options)
+                                IOOptionBits                options __unused)
 {
     if ( !_interruptAction )
         return;
@@ -342,24 +361,24 @@ IOReturn IOHIDInterface::getReport (
 
 
 IOReturn IOHIDInterface::setReport ( 
-                                IOMemoryDescriptor *        report,
-                                IOHIDReportType             reportType,
-                                UInt32                      reportID,
-                                IOOptionBits                options,
-                                UInt32                      completionTimeout,
-                                CompletionAction *          completion)
+                                IOMemoryDescriptor *        report __unused,
+                                IOHIDReportType             reportType __unused,
+                                UInt32                      reportID __unused,
+                                IOOptionBits                options __unused,
+                                UInt32                      completionTimeout __unused,
+                                CompletionAction *          completion __unused)
 {
     return kIOReturnUnsupported;
 }
     
 
 IOReturn IOHIDInterface::getReport ( 
-                                IOMemoryDescriptor *        report,
-                                IOHIDReportType             reportType,
-                                UInt32                      reportID,
-                                IOOptionBits                options,
-                                UInt32                      completionTimeout,
-                                CompletionAction *          completion)
+                                IOMemoryDescriptor *        report __unused,
+                                IOHIDReportType             reportType __unused,
+                                UInt32                      reportID __unused,
+                                IOOptionBits                options __unused,
+                                UInt32                      completionTimeout __unused,
+                                CompletionAction *          completion __unused)
 {
     return kIOReturnUnsupported;
 }

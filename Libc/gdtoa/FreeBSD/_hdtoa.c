@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gdtoa/_hdtoa.c,v 1.3 2005/01/18 18:44:07 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gdtoa/_hdtoa.c,v 1.5 2007/05/08 02:59:37 das Exp $");
 
 #include <float.h>
 #include <limits.h>
@@ -55,7 +55,7 @@ roundup(char *s0, int ndigits)
 			*s = 1;
 			return (1);
 		}
-		++*s;
+		*s = 0;
 	}
 	++*s;
 	return (0);
@@ -78,7 +78,7 @@ dorounding(char *s0, int ndigits, int sign, int *decpt)
 		break;
 	case 1:		/* to nearest, halfway rounds to even */
 		if ((s0[ndigits] > 8) ||
-		    (s0[ndigits] == 8 && s0[ndigits - 1] & 1))
+		    (s0[ndigits] == 8 && s0[ndigits + 1] & 1))
 			adjust = roundup(s0, ndigits);
 		break;
 	case 2:		/* toward +inf */
@@ -126,19 +126,25 @@ __hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 	static const int sigfigs = (DBL_MANT_DIG + 3) / 4;
 	union IEEEd2bits u;
 	char *s, *s0;
-	int bufsize;
+	int bufsize, f;
 
 	u.d = d;
 	*sign = u.bits.sign;
 
-	switch (fpclassify(d)) {
+	switch (f = fpclassify(d)) {
 	case FP_NORMAL:
 		*decpt = u.bits.exp - DBL_ADJ;
 		break;
 	case FP_ZERO:
+return_zero:
 		*decpt = 1;
 		return (nrv_alloc("0", rve, 1));
 	case FP_SUBNORMAL:
+		/*
+		 * For processors that treat subnormals as zero, comparison
+		 * with zero will be equal, so we jump to the FP_ZERO case.
+		 */
+		if(u.d == 0.0) goto return_zero;
 		u.d *= 0x1p514;
 		*decpt = u.bits.exp - (514 + DBL_ADJ);
 		break;
@@ -149,7 +155,7 @@ __hdtoa(double d, const char *xdigs, int ndigits, int *decpt, int *sign,
 		*decpt = INT_MAX;
 		return (nrv_alloc(NANSTR, rve, sizeof(NANSTR) - 1));
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", f);
 	}
 
 	/* FP_NORMAL or FP_SUBNORMAL */
@@ -222,13 +228,14 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 	static const int sigfigs = (LDBL_MANT_DIG + 3) / 4;
 	union IEEEl2bits u;
 	char *s, *s0;
-	int bufsize;
+	int bufsize, f;
 
 	u.e = e;
 	*sign = u.bits.sign;
 
-	switch (fpclassify(e)) {
+	switch (f = fpclassify(e)) {
 	case FP_NORMAL:
+	case FP_SUPERNORMAL:
 		*decpt = u.bits.exp - LDBL_ADJ;
 		break;
 	case FP_ZERO:
@@ -245,7 +252,7 @@ __hldtoa(long double e, const char *xdigs, int ndigits, int *decpt, int *sign,
 		*decpt = INT_MAX;
 		return (nrv_alloc(NANSTR, rve, sizeof(NANSTR) - 1));
 	default:
-		abort();
+		LIBC_ABORT("fpclassify returned %d", f);
 	}
 
 	/* FP_NORMAL or FP_SUBNORMAL */

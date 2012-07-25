@@ -37,6 +37,36 @@
 
 namespace WebCore {
 
+#if USE(CFNETWORK)
+
+ResourceError::ResourceError(NSError *error)
+    : m_dataIsUpToDate(false)
+    , m_platformError(reinterpret_cast<CFErrorRef>(error))
+{
+    m_isNull = !error;
+}
+
+NSError *ResourceError::nsError() const
+{
+    if (m_isNull) {
+        ASSERT(!m_platformError);
+        return nil;
+    }
+    if (!m_platformNSError) {
+        CFErrorRef error = m_platformError.get();
+        RetainPtr<NSDictionary> userInfo(AdoptCF, (NSDictionary *) CFErrorCopyUserInfo(error));
+        m_platformNSError.adoptNS([[NSError alloc] initWithDomain:(NSString *)CFErrorGetDomain(error) code:CFErrorGetCode(error) userInfo:userInfo.get()]);
+    }
+    return m_platformNSError.get();
+}
+
+ResourceError::operator NSError *() const
+{
+    return nsError();
+}
+
+#else
+
 ResourceError::ResourceError(NSError *nsError)
     : m_dataIsUpToDate(false)
     , m_platformError(nsError)
@@ -91,9 +121,9 @@ NSError *ResourceError::nsError() const
             [userInfo.get() setValue:m_localizedDescription forKey:NSLocalizedDescriptionKey];
 
         if (!m_failingURL.isEmpty()) {
-            NSURL *cocoaURL = KURL(ParsedURLString, m_failingURL);
+            RetainPtr<NSURL> cocoaURL = adoptNS([[NSURL alloc] initWithString:m_failingURL]);
             [userInfo.get() setValue:m_failingURL forKey:@"NSErrorFailingURLStringKey"];
-            [userInfo.get() setValue:cocoaURL forKey:@"NSErrorFailingURLKey"];
+            [userInfo.get() setValue:cocoaURL.get() forKey:@"NSErrorFailingURLKey"];
         }
 
         m_platformError.adoptNS([[NSError alloc] initWithDomain:m_domain code:m_errorCode userInfo:userInfo.get()]);
@@ -116,5 +146,7 @@ ResourceError::operator CFErrorRef() const
 {
     return cfError();
 }
+
+#endif // USE(CFNETWORK)
 
 } // namespace WebCore

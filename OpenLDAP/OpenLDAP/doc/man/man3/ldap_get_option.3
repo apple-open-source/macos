@@ -1,6 +1,6 @@
 .TH LDAP_GET_OPTION 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_get_option.3,v 1.3.2.8 2009/08/27 20:30:49 quanah Exp $
-.\" Copyright 1998-2009 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP$
+.\" Copyright 1998-2011 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_get_option, ldap_set_option \- LDAP option handling routines
@@ -321,6 +321,15 @@ must be
 .BR "LDAPControl *const *" ;
 the library duplicates the controls passed via
 .BR invalue .
+.TP
+.B LDAP_OPT_SESSION_REFCNT
+Returns the reference count associated with the LDAP handle passed in as
+.BR ld ;
+.BR outvalue
+must be a
+.BR "int *" .
+This is a read-only, handle-specific option.
+This option is OpenLDAP specific.
 .TP
 .B LDAP_OPT_SIZELIMIT
 Sets/gets the value that defines the maximum number of entries
@@ -677,7 +686,7 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
-Ignored by GnuTLS.
+Ignored by GnuTLS and Mozilla NSS.
 .TP
 .B LDAP_OPT_X_TLS_KEYFILE
 Sets/gets the full-path of the certificate key file.
@@ -722,7 +731,7 @@ must be
 .BR "char **" ,
 and its contents need to be freed by the caller using
 .BR ldap_memfree (3).
-Ignored by GnuTLS older than version 2.2.
+Ignored by GnuTLS older than version 2.2.  Ignored by Mozilla NSS.
 .TP
 .B LDAP_OPT_X_TLS_REQUIRE_CERT
 Sets/gets the peer certificate checking strategy,

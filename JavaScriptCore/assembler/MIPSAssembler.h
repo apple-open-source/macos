@@ -32,6 +32,7 @@
 #if ENABLE(ASSEMBLER) && CPU(MIPS)
 
 #include "AssemblerBuffer.h"
+#include "JITCompilationEffort.h"
 #include <wtf/Assertions.h>
 #include <wtf/SegmentedVector.h>
 
@@ -645,9 +646,9 @@ public:
         return m_buffer.codeSize();
     }
 
-    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData)
+    PassRefPtr<ExecutableMemoryHandle> executableCopy(JSGlobalData& globalData, void* ownerUID, JITCompilationEffort effort)
     {
-        RefPtr<ExecutableMemoryHandle> result = m_buffer.executableCopy(globalData);
+        RefPtr<ExecutableMemoryHandle> result = m_buffer.executableCopy(globalData, ownerUID, effort);
         if (!result)
             return 0;
 
@@ -655,9 +656,7 @@ public:
         return result.release();
     }
 
-#ifndef NDEBUG
     unsigned debugOffset() { return m_buffer.debugOffset(); }
-#endif
 
     static unsigned getCallReturnOffset(AssemblerLabel call)
     {

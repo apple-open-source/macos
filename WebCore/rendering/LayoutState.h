@@ -26,25 +26,29 @@
 #ifndef LayoutState_h
 #define LayoutState_h
 
-#include "IntRect.h"
-#include "IntSize.h"
+#include "ColumnInfo.h"
+#include "LayoutTypes.h"
+#include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
-class ColumnInfo;
 class RenderArena;
+class RenderBlock;
 class RenderBox;
 class RenderObject;
+class RenderFlowThread;
 
 class LayoutState {
     WTF_MAKE_NONCOPYABLE(LayoutState);
 public:
     LayoutState()
         : m_clipped(false)
+        , m_isPaginated(false)
         , m_pageLogicalHeight(0)
         , m_pageLogicalHeightChanged(false)
         , m_columnInfo(0)
+        , m_lineGrid(0)
         , m_next(0)
 #ifndef NDEBUG
         , m_renderer(0)
@@ -52,47 +56,75 @@ public:
     {
     }
 
-    LayoutState(LayoutState*, RenderBox*, const IntSize& offset, int pageHeight, bool pageHeightChanged, ColumnInfo*);
+    LayoutState(LayoutState*, RenderBox*, const LayoutSize& offset, LayoutUnit pageHeight, bool pageHeightChanged, ColumnInfo*);
+    LayoutState(LayoutState*, RenderFlowThread*, bool regionsChanged);
     LayoutState(RenderObject*);
 
     void destroy(RenderArena*);
 
     // Overloaded new operator.
-    void* operator new(size_t, RenderArena*) throw();
+    void* operator new(size_t, RenderArena*);
 
     // Overridden to prevent the normal delete from being called.
     void operator delete(void*, size_t);
 
     void clearPaginationInformation();
-    bool isPaginatingColumns() const { return m_columnInfo; }
-    bool isPaginated() const { return m_pageLogicalHeight || m_columnInfo; }
+    bool isPaginatingColumns() const { return m_columnInfo && m_columnInfo->paginationUnit() == ColumnInfo::Column; }
+    bool isPaginated() const { return m_isPaginated; }
     
     // The page logical offset is the object's offset from the top of the page in the page progression
     // direction (so an x-offset in vertical text and a y-offset for horizontal text).
-    int pageLogicalOffset(int childLogicalOffset) const;
+    LayoutUnit pageLogicalOffset(LayoutUnit childLogicalOffset) const;
 
-    void addForcedColumnBreak(int childLogicalOffset);
+    void addForcedColumnBreak(LayoutUnit childLogicalOffset);
     
-    bool pageLogicalHeight() const { return m_pageLogicalHeight; }
+    LayoutUnit pageLogicalHeight() const { return m_pageLogicalHeight; }
     bool pageLogicalHeightChanged() const { return m_pageLogicalHeightChanged; }
+
+    RenderBlock* lineGrid() const { return m_lineGrid; }
+    LayoutSize lineGridOffset() const { return m_lineGridOffset; }
+    LayoutSize lineGridPaginationOrigin() const { return m_lineGridPaginationOrigin; }
+
+    LayoutSize layoutOffset() const { return m_layoutOffset; }
+
+    bool needsBlockDirectionLocationSetBeforeLayout() const { return m_lineGrid || (m_isPaginated && m_pageLogicalHeight); }
 
 private:
     // The normal operator new is disallowed.
     void* operator new(size_t) throw();
 
+    void propagateLineGridInfo(RenderBox*);
+    void establishLineGrid(RenderBlock*);
+
+    void computeLineGridPaginationOrigin(RenderBox*);
+
 public:
     bool m_clipped;
-    IntRect m_clipRect;
-    IntSize m_paintOffset; // x/y offset from container.  Includes relative positioning and scroll offsets.
-    IntSize m_layoutOffset; // x/y offset from container.  Does not include relative positioning or scroll offsets.
-    IntSize m_layoutDelta; // Transient offset from the final position of the object
-                           // used to ensure that repaints happen in the correct place.
-                           // This is a total delta accumulated from the root.
+    bool m_isPaginated;
+    LayoutRect m_clipRect;
+    
+    // x/y offset from container. Includes relative positioning and scroll offsets.
+    LayoutSize m_paintOffset;
+    // x/y offset from container. Does not include relative positioning or scroll offsets.
+    LayoutSize m_layoutOffset;
+    // Transient offset from the final position of the object
+    // used to ensure that repaints happen in the correct place.
+    // This is a total delta accumulated from the root. 
+    LayoutSize m_layoutDelta;
 
-    int m_pageLogicalHeight; // The current page height for the pagination model that encloses us.
-    bool m_pageLogicalHeightChanged; // If our page height has changed, this will force all blocks to relayout.
-    IntSize m_pageOffset; // The offset of the start of the first page in the nearest enclosing pagination model.
-    ColumnInfo* m_columnInfo; // If the enclosing pagination model is a column model, then this will store column information for easy retrieval/manipulation.
+    // The current page height for the pagination model that encloses us.
+    LayoutUnit m_pageLogicalHeight;
+    // If our page height has changed, this will force all blocks to relayout.
+    bool m_pageLogicalHeightChanged;
+    // The offset of the start of the first page in the nearest enclosing pagination model.
+    LayoutSize m_pageOffset;
+    // If the enclosing pagination model is a column model, then this will store column information for easy retrieval/manipulation.
+    ColumnInfo* m_columnInfo;
+
+    // The current line grid that we're snapping to and the offset of the start of the grid.
+    RenderBlock* m_lineGrid;
+    LayoutSize m_lineGridOffset;
+    LayoutSize m_lineGridPaginationOrigin;
 
     LayoutState* m_next;
 #ifndef NDEBUG

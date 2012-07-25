@@ -28,42 +28,70 @@
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
 #include "DOMTimeStamp.h"
-#include <wtf/Noncopyable.h>
-#include <wtf/PassOwnPtr.h>
+#if USE(REQUEST_ANIMATION_FRAME_TIMER)
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+#include "DisplayRefreshMonitor.h"
+#endif
+#include "Timer.h"
+#endif
+#include "PlatformScreen.h"
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class Document;
-class Element;
 class RequestAnimationFrameCallback;
 
-class ScriptedAnimationController {
-WTF_MAKE_NONCOPYABLE(ScriptedAnimationController);
+class ScriptedAnimationController : public RefCounted<ScriptedAnimationController>
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    , public DisplayRefreshMonitorClient
+#endif
+{
 public:
-    static PassOwnPtr<ScriptedAnimationController> create(Document* document)
+    static PassRefPtr<ScriptedAnimationController> create(Document* document, PlatformDisplayID displayID)
     {
-        return adoptPtr(new ScriptedAnimationController(document));
+        return adoptRef(new ScriptedAnimationController(document, displayID));
     }
+    ~ScriptedAnimationController();
+    void clearDocumentPointer() { m_document = 0; }
 
     typedef int CallbackId;
 
-    CallbackId registerCallback(PassRefPtr<RequestAnimationFrameCallback>, Element*);
+    CallbackId registerCallback(PassRefPtr<RequestAnimationFrameCallback>);
     void cancelCallback(CallbackId);
     void serviceScriptedAnimations(DOMTimeStamp);
 
     void suspend();
     void resume();
 
+    void windowScreenDidChange(PlatformDisplayID);
+
 private:
-    explicit ScriptedAnimationController(Document*);
+    ScriptedAnimationController(Document*, PlatformDisplayID);
+    
     typedef Vector<RefPtr<RequestAnimationFrameCallback> > CallbackList;
     CallbackList m_callbacks;
 
     Document* m_document;
     CallbackId m_nextCallbackId;
     int m_suspendCount;
+
+    void scheduleAnimation();
+
+#if USE(REQUEST_ANIMATION_FRAME_TIMER)
+    void animationTimerFired(Timer<ScriptedAnimationController>*);
+    Timer<ScriptedAnimationController> m_animationTimer;
+    double m_lastAnimationFrameTime;
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    // Override for DisplayRefreshMonitorClient
+    virtual void displayRefreshFired(double timestamp) { serviceScriptedAnimations(convertSecondsToDOMTimeStamp(timestamp)); }
+
+    bool m_useTimer;
+#endif
+#endif
 };
 
 }

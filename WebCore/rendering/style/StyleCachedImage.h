@@ -24,41 +24,39 @@
 #ifndef StyleCachedImage_h
 #define StyleCachedImage_h
 
+#include "CachedImage.h"
 #include "CachedResourceHandle.h"
 #include "StyleImage.h"
 
 namespace WebCore {
 
-class CachedImage;
-
-class StyleCachedImage : public StyleImage {
+class StyleCachedImage : public StyleImage, private CachedImageClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassRefPtr<StyleCachedImage> create(CachedImage* image) { return adoptRef(new StyleCachedImage(image)); }
+    virtual ~StyleCachedImage();
+
     virtual WrappedImagePtr data() const { return m_image.get(); }
 
-    virtual bool isCachedImage() const { return true; }
-    
     virtual PassRefPtr<CSSValue> cssValue() const;
     
     CachedImage* cachedImage() const { return m_image.get(); }
 
-    virtual bool canRender(float multiplier) const;
+    virtual bool canRender(const RenderObject*, float multiplier) const;
     virtual bool isLoaded() const;
     virtual bool errorOccurred() const;
     virtual IntSize imageSize(const RenderObject*, float multiplier) const;
     virtual bool imageHasRelativeWidth() const;
     virtual bool imageHasRelativeHeight() const;
+    virtual void computeIntrinsicDimensions(const RenderObject*, Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio);
     virtual bool usesImageContainerSize() const;
-    virtual void setImageContainerSize(const IntSize&);
+    virtual void setContainerSizeForRenderer(const RenderObject*, const IntSize&, float);
     virtual void addClient(RenderObject*);
     virtual void removeClient(RenderObject*);
     virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) const;
     
 private:
-    StyleCachedImage(CachedImage* image)
-        : m_image(image)
-    {
-    }
+    explicit StyleCachedImage(CachedImage*);
     
     CachedResourceHandle<CachedImage> m_image;
 };

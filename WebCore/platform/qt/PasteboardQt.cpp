@@ -28,6 +28,7 @@
 #include "config.h"
 #include "Pasteboard.h"
 
+#include "ClipboardQt.h"
 #include "DocumentFragment.h"
 #include "Editor.h"
 #include "Frame.h"
@@ -64,7 +65,7 @@ void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete,
     text.replace(QChar(0xa0), QLatin1Char(' '));
     md->setText(text);
 
-    QString markup = createMarkup(selectedRange, 0, AnnotateForInterchange, false, AbsoluteURLs);
+    QString markup = createMarkup(selectedRange, 0, AnnotateForInterchange, false, ResolveNonLocalURLs);
 #ifdef Q_OS_MAC
     markup.prepend(QLatin1String("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /></head><body>"));
     markup.append(QLatin1String("</body></html>"));
@@ -152,20 +153,30 @@ void Pasteboard::writeURL(const KURL& url, const String&, Frame*)
 
 void Pasteboard::writeImage(Node* node, const KURL&, const String&)
 {
-    ASSERT(node && node->renderer() && node->renderer()->isImage());
+    ASSERT(node);
+
+    if (!(node->renderer() && node->renderer()->isImage()))
+        return;
 
 #ifndef QT_NO_CLIPBOARD
     CachedImage* cachedImage = toRenderImage(node->renderer())->cachedImage();
     if (!cachedImage || cachedImage->errorOccurred())
         return;
 
-    Image* image = cachedImage->image();
+    Image* image = cachedImage->imageForRenderer(node->renderer());
     ASSERT(image);
 
     QPixmap* pixmap = image->nativeImageForCurrentFrame();
     if (!pixmap)
         return;
     QGuiApplication::clipboard()->setPixmap(*pixmap, QClipboard::Clipboard);
+#endif
+}
+
+void Pasteboard::writeClipboard(Clipboard* clipboard)
+{
+#ifndef QT_NO_CLIPBOARD
+    QGuiApplication::clipboard()->setMimeData(static_cast<ClipboardQt*>(clipboard)->clipboardData());
 #endif
 }
 

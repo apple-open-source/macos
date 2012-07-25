@@ -61,7 +61,9 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 			    CFStringRef serviceID,
 			    CFStringRef * entities,
 			    CFDictionaryRef * values,
-			    int count);
+			    int count,
+			    boolean_t alternate_location);
+
 /*
  * Function: my_SCDynamicStorePublish
  * Purpose:

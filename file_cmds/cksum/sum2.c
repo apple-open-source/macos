@@ -50,7 +50,7 @@ int
 csum2(int fd, uint32_t *cval, off_t *clen)
 {
 	uint32_t lcrc;
-	int nr;
+	ssize_t nr;
 	off_t total;
 	u_char *p;
 	u_char buf[8192];
@@ -62,7 +62,8 @@ csum2(int fd, uint32_t *cval, off_t *clen)
 	 *   r = s % 2^16 + (s % 2^32) / 2^16
 	 * lcrc = (r % 2^16) + r / 2^16
 	 */
-	lcrc = total = 0;
+	lcrc = 0;
+	total = 0;
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 		for (total += nr, p = buf; nr--; ++p)
 			lcrc += *p;

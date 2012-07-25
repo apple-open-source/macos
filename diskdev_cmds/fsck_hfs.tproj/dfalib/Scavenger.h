@@ -1101,7 +1101,7 @@ extern	int		CmpVBM( SGlobPtr GPtr );
 
 extern	OSErr	CmpBlock( void *block1P, void *block2P, size_t length ); /* same as 'memcmp', but EQ/NEQ only */
 	
-extern	OSErr	ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentIndex);
+extern	OSErr	ChkExtRec ( SGlobPtr GPtr, UInt32 fileID, const void *extents , unsigned int *lastExtentIndex);
 
 extern	int		BTCheckUnusedNodes(SGlobPtr GPtr, short fileRefNum, UInt16 *btStat);
 

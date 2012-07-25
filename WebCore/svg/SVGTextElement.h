@@ -36,29 +36,30 @@ public:
     virtual SVGElement* nearestViewportElement() const;
     virtual SVGElement* farthestViewportElement() const;
 
-    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) const;
-    virtual AffineTransform getCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
-    virtual AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
+    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate);
+    virtual AffineTransform getCTM(StyleUpdateStrategy = AllowStyleUpdate);
+    virtual AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate);
     virtual AffineTransform animatedLocalTransform() const;
 
 private:
     SVGTextElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual bool supportsFocus() const { return true; }
+
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
     virtual AffineTransform* supplementalTransform();
     virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope mode) const { return SVGTransformable::localCoordinateSpaceTransform(mode); }
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual bool childShouldCreateRenderer(Node*) const;
+    virtual bool childShouldCreateRenderer(const NodeRenderingContext&) const;
             
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_TRANSFORM_LIST(Transform, transform)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGTextElement)
+        DECLARE_ANIMATED_TRANSFORM_LIST(Transform, transform)
+    END_DECLARE_ANIMATED_PROPERTIES
 
     // Used by <animateMotion>
     OwnPtr<AffineTransform> m_supplementalTransform;

@@ -113,7 +113,7 @@ pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 	}
 
 	/* get the server_URL, path and homedir from OD */
-	if (PAM_SUCCESS != (retval = od_extract_home(username, &server_URL, &path, &homedir))) {		
+	if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {		
 		openpam_log(PAM_LOG_ERROR, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 		goto fin;
 	}
@@ -292,7 +292,7 @@ pam_sm_close_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 
 	/* get the homedir and path or devicepath if needed */
 	if ((NULL == homedir || NULL == path) && NULL == devicepath) {
-		if (PAM_SUCCESS != (retval = od_extract_home(username, &server_URL, &path, &homedir))) {
+		if (PAM_SUCCESS != (retval = od_extract_home(pamh, username, &server_URL, &path, &homedir))) {
 			openpam_log(PAM_LOG_ERROR, "Error retrieve data from OpenDirectory: %s", pam_strerror(pamh, retval));
 			goto fin;
 		}

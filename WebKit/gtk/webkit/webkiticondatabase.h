@@ -55,7 +55,8 @@ struct _WebKitIconDatabaseClass {
 WEBKIT_API GType
 webkit_icon_database_get_type            (void);
 
-WEBKIT_API G_CONST_RETURN gchar*
+#if !defined(WEBKIT_DISABLE_DEPRECATED)
+WEBKIT_API const gchar*
 webkit_icon_database_get_path            (WebKitIconDatabase* database);
 
 WEBKIT_API void
@@ -72,6 +73,7 @@ webkit_icon_database_get_icon_pixbuf     (WebKitIconDatabase* database,
 
 WEBKIT_API void
 webkit_icon_database_clear               (WebKitIconDatabase* database);
+#endif
 
 G_END_DECLS
 

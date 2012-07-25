@@ -43,6 +43,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#ifndef __APPLE__
 #ifdef ENABLE_MD5
 #include <md5.h>
 #endif
@@ -55,6 +56,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 #ifdef ENABLE_SHA256
 #include <sha256.h>
 #endif
+#endif /* !__APPLE__ */
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -63,6 +65,10 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 
 #include "mtree.h"
 #include "extern.h"
+
+#ifdef __APPLE__
+#include "commoncrypto.h"
+#endif /* __APPLE__ */
 
 #define	INDENTNAMELEN	8
 #define	LABEL \
@@ -234,7 +240,7 @@ typeerr:		LABEL;
 		free(fflags);
 
 		if (uflag)
-			if (chflags(p->fts_accpath, s->st_flags))
+			if (chflags(p->fts_accpath, (u_int)s->st_flags))
 				(void)printf(" not modified: %s\n",
 				    strerror(errno));
 			else
@@ -377,7 +383,7 @@ char *
 rlink(char *name)
 {
 	static char lbuf[MAXPATHLEN * 4];
-	int len;
+	ssize_t len;
 	char tbuf[MAXPATHLEN];
 
 	if ((len = readlink(name, tbuf, sizeof(tbuf) - 1)) == -1)

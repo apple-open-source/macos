@@ -172,14 +172,6 @@ PassRefPtr<Frame> FrameLoaderClientWinCE::createFrame(const KURL& url, const Str
     return m_webView->createFrame(url, name, ownerElement, referrer, allowsScrolling, marginWidth, marginHeight);
 }
 
-void FrameLoaderClientWinCE::didTransferChildFrameToNewDocument(Page*)
-{
-}
-
-void FrameLoaderClientWinCE::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const WebCore::ResourceRequest&, Page*)
-{
-}
-
 void FrameLoaderClientWinCE::redirectDataToPlugin(Widget* pluginWidget)
 {
     ASSERT(!m_pluginView);
@@ -264,24 +256,17 @@ bool FrameLoaderClientWinCE::shouldStopLoadingForHistoryItem(HistoryItem* item) 
     return true;
 }
 
-void FrameLoaderClientWinCE::dispatchDidAddBackForwardItem(HistoryItem*) const
-{
-}
-
-void FrameLoaderClientWinCE::dispatchDidRemoveBackForwardItem(HistoryItem*) const
-{
-}
-
-void FrameLoaderClientWinCE::dispatchDidChangeBackForwardIndex() const
-{
-}
-
 void FrameLoaderClientWinCE::didDisplayInsecureContent()
 {
     notImplemented();
 }
 
 void FrameLoaderClientWinCE::didRunInsecureContent(SecurityOrigin*, const KURL&)
+{
+    notImplemented();
+}
+
+void FrameLoaderClientWinCE::didDetectXSS(const KURL&, bool)
 {
     notImplemented();
 }
@@ -411,11 +396,6 @@ void FrameLoaderClientWinCE::cancelPolicyCheck()
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::dispatchDidLoadMainResource(DocumentLoader*)
-{
-    notImplemented();
-}
-
 void FrameLoaderClientWinCE::revertToProvisionalState(DocumentLoader*)
 {
     notImplemented();
@@ -463,12 +443,10 @@ String FrameLoaderClientWinCE::generatedMIMETypeForURLScheme(const String&) cons
     return String();
 }
 
-void FrameLoaderClientWinCE::finishedLoading(DocumentLoader* documentLoader)
+void FrameLoaderClientWinCE::finishedLoading(DocumentLoader*)
 {
-    if (!m_pluginView) {
-        documentLoader->writer()->setEncoding(m_response.textEncodingName(), false);
+    if (!m_pluginView)
         return;
-    }
 
     m_pluginView->didFinishLoading();
     m_pluginView = 0;
@@ -526,7 +504,7 @@ void FrameLoaderClientWinCE::dispatchDidFailLoad(const ResourceError&)
     notImplemented();
 }
 
-void FrameLoaderClientWinCE::download(ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&)
+void FrameLoaderClientWinCE::download(ResourceHandle*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&)
 {
     notImplemented();
 }
@@ -546,7 +524,7 @@ ResourceError FrameLoaderClientWinCE::cannotShowURLError(const WebCore::Resource
     return ResourceError();
 }
 
-ResourceError FrameLoaderClientWinCE::interruptForPolicyChangeError(const WebCore::ResourceRequest&)
+ResourceError FrameLoaderClientWinCE::interruptedForPolicyChangeError(const WebCore::ResourceRequest&)
 {
     return ResourceError();
 }
@@ -597,7 +575,7 @@ void FrameLoaderClientWinCE::setMainDocumentError(DocumentLoader*, const Resourc
     m_hasSentResponseToPlugin = false;
 }
 
-void FrameLoaderClientWinCE::startDownload(const WebCore::ResourceRequest&)
+void FrameLoaderClientWinCE::startDownload(const WebCore::ResourceRequest&, const String& /* suggestedName */)
 {
     notImplemented();
 }

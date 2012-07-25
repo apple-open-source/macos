@@ -39,7 +39,7 @@ WKTypeID WKViewGetTypeID()
 WKViewRef WKViewCreate(RECT rect, WKContextRef contextRef, WKPageGroupRef pageGroupRef, HWND parentWindow)
 {
     RefPtr<WebView> view = WebView::create(rect, toImpl(contextRef), toImpl(pageGroupRef), parentWindow);
-    return toAPI(view.release().releaseRef());
+    return toAPI(view.release().leakRef());
 }
 
 HWND WKViewGetWindow(WKViewRef viewRef)
@@ -69,7 +69,8 @@ void WKViewSetIsInWindow(WKViewRef viewRef, bool isInWindow)
 
 void WKViewSetInitialFocus(WKViewRef viewRef, bool forward)
 {
-    toImpl(viewRef)->setInitialFocus(forward);
+    bool isKeyboardEventValid = false;
+    toImpl(viewRef)->setInitialFocus(forward, isKeyboardEventValid, WebKeyboardEvent());
 }
 
 void WKViewSetScrollOffsetOnNextResize(WKViewRef viewRef, WKSize scrollOffset)

@@ -47,6 +47,7 @@
 #include "RenderEmbeddedObject.h"
 #include "RenderView.h"
 #include "SecurityOrigin.h"
+#include "SecurityPolicy.h"
 #include "Settings.h"
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
@@ -103,16 +104,24 @@ bool SubframeLoader::resourceWillUsePlugin(const String& url, const String& mime
 bool SubframeLoader::requestPlugin(HTMLPlugInImageElement* ownerElement, const KURL& url, const String& mimeType, const Vector<String>& paramNames, const Vector<String>& paramValues, bool useFallback)
 {
     Settings* settings = m_frame->settings();
-    if ((!allowPlugins(AboutToInstantiatePlugin)
-         // Application plug-ins are plug-ins implemented by the user agent, for example Qt plug-ins,
-         // as opposed to third-party code such as Flash. The user agent decides whether or not they are
-         // permitted, rather than WebKit.
-         && !MIMETypeRegistry::isApplicationPluginMIMEType(mimeType))
-        || (!settings->isJavaEnabled() && MIMETypeRegistry::isJavaAppletMIMEType(mimeType)))
+    if (!settings)
         return false;
 
+    // Application plug-ins are plug-ins implemented by the user agent, for example Qt plug-ins,
+    // as opposed to third-party code such as Flash. The user agent decides whether or not they are
+    // permitted, rather than WebKit.
+    if ((!allowPlugins(AboutToInstantiatePlugin) && !MIMETypeRegistry::isApplicationPluginMIMEType(mimeType)))
+        return false;
+
+    if (MIMETypeRegistry::isJavaAppletMIMEType(mimeType)) {
+        if (!settings->isJavaEnabled())
+            return false;
+        if (m_frame->document() && m_frame->document()->securityOrigin()->isLocal() && !settings->isJavaEnabledForLocalFiles())
+            return false;
+    }
+
     if (m_frame->document()) {
-        if (m_frame->document()->securityOrigin()->isSandboxed(SandboxPlugins))
+        if (m_frame->document()->isSandboxed(SandboxPlugins))
             return false;
         if (!m_frame->document()->contentSecurityPolicy()->allowObjectFromSource(url))
             return false;
@@ -170,7 +179,7 @@ PassRefPtr<Widget> SubframeLoader::loadMediaPlayerProxyPlugin(Node* node, const 
     IntSize size;
 
     if (renderer)
-        size = IntSize(renderer->contentWidth(), renderer->contentHeight());
+        size = roundedIntSize(LayoutSize(renderer->contentWidth(), renderer->contentHeight()));
     else if (mediaElement->isVideo())
         size = RenderVideo::defaultSize();
 
@@ -190,7 +199,7 @@ PassRefPtr<Widget> SubframeLoader::loadMediaPlayerProxyPlugin(Node* node, const 
 }
 #endif // ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 
-PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, HTMLAppletElement* element, const HashMap<String, String>& args)
+PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const LayoutSize& size, HTMLAppletElement* element, const HashMap<String, String>& args)
 {
     String baseURLString;
     String codeBaseURLString;
@@ -223,7 +232,7 @@ PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, H
 
     RefPtr<Widget> widget;
     if (allowPlugins(AboutToInstantiatePlugin))
-        widget = m_frame->loader()->client()->createJavaAppletWidget(size, element, baseURL, paramNames, paramValues);
+        widget = m_frame->loader()->client()->createJavaAppletWidget(roundedIntSize(size), element, baseURL, paramNames, paramValues);
     if (!widget)
         return 0;
 
@@ -238,11 +247,15 @@ Frame* SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement* ownerElemen
         frame->navigationScheduler()->scheduleLocationChange(m_frame->document()->securityOrigin(), url.string(), m_frame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList);
     else
         frame = loadSubframe(ownerElement, url, frameName, m_frame->loader()->outgoingReferrer());
-    return frame;
+
+    ASSERT(ownerElement->contentFrame() == frame || !ownerElement->contentFrame());
+    return ownerElement->contentFrame();
 }
 
 Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement* ownerElement, const KURL& url, const String& name, const String& referrer)
 {
+    RefPtr<Frame> protect(m_frame);
+
     bool allowsScrolling = true;
     int marginWidth = -1;
     int marginHeight = -1;
@@ -261,8 +274,8 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement* ownerElement, const K
     if (!ownerElement->document()->contentSecurityPolicy()->allowChildFrameFromSource(url))
         return 0;
 
-    bool hideReferrer = SecurityOrigin::shouldHideReferrer(url, referrer);
-    RefPtr<Frame> frame = m_frame->loader()->client()->createFrame(url, name, ownerElement, hideReferrer ? String() : referrer, allowsScrolling, marginWidth, marginHeight);
+    String referrerToUse = SecurityPolicy::generateReferrerHeader(ownerElement->document()->referrerPolicy(), url, referrer);
+    RefPtr<Frame> frame = m_frame->loader()->client()->createFrame(url, name, ownerElement, referrerToUse, allowsScrolling, marginWidth, marginHeight);
 
     if (!frame)  {
         m_frame->loader()->checkCallImplicitClose();
@@ -357,13 +370,14 @@ bool SubframeLoader::loadPlugin(HTMLPlugInImageElement* pluginElement, const KUR
     if (!frameLoader->checkIfRunInsecureContent(document()->securityOrigin(), url))
         return false;
 
-    IntSize contentSize(renderer->contentWidth(), renderer->contentHeight());
+    IntSize contentSize = roundedIntSize(LayoutSize(renderer->contentWidth(), renderer->contentHeight()));
     bool loadManually = document()->isPluginDocument() && !m_containsPlugins && toPluginDocument(document())->shouldLoadPluginManually();
     RefPtr<Widget> widget = frameLoader->client()->createPlugin(contentSize,
         pluginElement, url, paramNames, paramValues, mimeType, loadManually);
 
     if (!widget) {
-        renderer->setShowsMissingPluginIndicator();
+        if (!renderer->showsUnavailablePluginIndicator())
+            renderer->setPluginUnavailabilityReason(RenderEmbeddedObject::PluginMissing);
         return false;
     }
 

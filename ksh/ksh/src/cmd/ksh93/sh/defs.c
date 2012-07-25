@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -29,9 +29,10 @@
 #include	"edit.h"
 #include	"timeout.h"
 
-struct sh_static	sh = {0};
+Shell_t			sh = {0};
+struct	shared		*shgd;
 #ifdef	__IMPORT__
-    struct sh_static	*_imp__sh = &sh;
+    Shell_t		*_imp__sh = &sh;
 #endif
 
 Dtdisc_t	_Nvdisc =

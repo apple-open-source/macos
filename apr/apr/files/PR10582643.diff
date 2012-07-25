@@ -1,0 +1,38 @@
+--- configure.orig	2011-12-14 16:04:39.000000000 -0800
++++ configure	2011-12-14 16:05:47.000000000 -0800
+@@ -25199,7 +25199,7 @@
+ #include <stdio.h>
+ #include <unistd.h>
+ 
+-void main(void)
++int main(void)
+ {
+     int fd, ret = 0;
+     struct stat64 st;
+@@ -34316,7 +34316,7 @@
+ #include <sys/socket.h>
+ #endif
+ 
+-void main(void) {
++int main(void) {
+     struct addrinfo hints, *ai;
+     int error;
+ 
+@@ -34379,7 +34379,7 @@
+ #include <netdb.h>
+ #endif
+ 
+-void main(void) {
++int main(void) {
+     if (EAI_ADDRFAMILY < 0) {
+         exit(0);
+     }
+@@ -34440,7 +34440,7 @@
+ #include <netinet/in.h>
+ #endif
+ 
+-void main(void) {
++int main(void) {
+     struct sockaddr_in sa;
+     char hbuf[256];
+     int error;

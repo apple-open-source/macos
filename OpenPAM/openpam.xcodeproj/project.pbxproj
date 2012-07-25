@@ -45,7 +45,6 @@
 			buildPhases = (
 				1C3D9E6A101FC76A007934F5 /* Copy to man3 */,
 				1C3D9E70101FC7E8007934F5 /* Copy to man5 */,
-				1C3D9E6E101FC783007934F5 /* Compress */,
 			);
 			dependencies = (
 			);
@@ -924,20 +923,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/bash;
 			shellScript = "usr_lc=\"$DSTROOT/usr/local/OpenSourceLicenses\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/openpam/LICENSE\" \"$usr_lc/OpenPAM.txt\"\n\nusr_lv=\"$DSTROOT/usr/local/OpenSourceVersions\"\nplist=\"OpenPAM.plist\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lv\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/$plist\" \"$usr_lv/$plist\"\n";
-		};
-		1C3D9E6E101FC783007934F5 /* Compress */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = Compress;
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
 		};
 		1C3D9F19101FCF61007934F5 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

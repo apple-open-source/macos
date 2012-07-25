@@ -221,7 +221,7 @@ extern "C" {
 
 BOOL INSTAPI 
 SQLGetConfigMode (
-    UWORD* pwConfigMode);
+    UWORD* pwConfigMode) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLInstallDriverEx (
@@ -231,7 +231,7 @@ SQLInstallDriverEx (
     WORD cbPathOutMax,
     WORD* pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLInstallDriverExW (
@@ -241,7 +241,7 @@ SQLInstallDriverExW (
     WORD cbPathOutMax,
     WORD* pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 RETCODE INSTAPI
 SQLInstallerError (
@@ -249,7 +249,7 @@ SQLInstallerError (
     DWORD* pfErrorCode,
     LPSTR lpszErrorMsg,
     WORD cbErrorMsgMax,
-    WORD* pcbErrorMsg);
+    WORD* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 RETCODE INSTAPI
 SQLInstallerErrorW (
@@ -257,17 +257,17 @@ SQLInstallerErrorW (
     DWORD* pfErrorCode,
     LPWSTR lpszErrorMsg,
     WORD cbErrorMsgMax,
-    WORD* pcbErrorMsg);
+    WORD* pcbErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 RETCODE INSTAPI
 SQLPostInstallerError (
     DWORD fErrorCode,
-    LPSTR szErrorMsg);
+    LPSTR szErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 RETCODE INSTAPI
 SQLPostInstallerErrorW (
     DWORD fErrorCode,
-    LPWSTR szErrorMsg);
+    LPWSTR szErrorMsg) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLInstallTranslatorEx (
@@ -277,7 +277,7 @@ SQLInstallTranslatorEx (
     WORD cbPathOutMax,
     WORD* pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLInstallTranslatorExW (
@@ -287,7 +287,7 @@ SQLInstallTranslatorExW (
     WORD cbPathOutMax,
     WORD* pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLReadFileDSN (
@@ -296,7 +296,7 @@ SQLReadFileDSN (
     LPCSTR lpszKeyName,
     LPSTR lpszString,
     WORD cbString,
-    WORD* pcbString);
+    WORD* pcbString) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLReadFileDSNW (
@@ -305,47 +305,47 @@ SQLReadFileDSNW (
     LPCWSTR lpszKeyName,
     LPWSTR lpszString,
     WORD cbString,
-    WORD* pcbString);
+    WORD* pcbString) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLWriteFileDSN (
     LPCSTR lpszFileName,
     LPCSTR lpszAppName,
     LPCSTR lpszKeyName,
-    LPSTR lpszString);
+    LPSTR lpszString) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLWriteFileDSNW (
     LPCWSTR lpszFileName,
     LPCWSTR lpszAppName,
     LPCWSTR lpszKeyName,
-    LPWSTR lpszString);
+    LPWSTR lpszString) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI
 SQLSetConfigMode (
-    UWORD wConfigMode);
+    UWORD wConfigMode) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallODBC (
     HWND hwndParent,
     LPCSTR lpszInfFile,
     LPCSTR lpszSrcPath,
-    LPCSTR lpszDrivers);
+    LPCSTR lpszDrivers) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallODBCW (
     HWND hwndParent,
     LPCWSTR lpszInfFile,
     LPCWSTR lpszSrcPath,
-    LPCWSTR lpszDrivers);
+    LPCWSTR lpszDrivers) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLManageDataSources (HWND hwndParent);
+BOOL INSTAPI SQLManageDataSources (HWND hwndParent) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLCreateDataSource (
     HWND hwndParent,
-    LPCSTR lpszDSN);
+    LPCSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLCreateDataSourceW (
     HWND hwndParent,
-    LPCWSTR lpszDSN);
+    LPCWSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetTranslator (
     HWND hwnd,
@@ -355,7 +355,7 @@ BOOL INSTAPI SQLGetTranslator (
     LPSTR lpszPath,
     WORD cbPathMax,
     WORD * pcbPathOut,
-    DWORD * pvOption);
+    DWORD * pvOption) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetTranslatorW (
     HWND hwnd,
@@ -365,7 +365,7 @@ BOOL INSTAPI SQLGetTranslatorW (
     LPWSTR lpszPath,
     WORD cbPathMax,
     WORD * pcbPathOut,
-    DWORD * pvOption);
+    DWORD * pvOption) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 /*  Low level APIs
  *  NOTE: The high-level APIs should always be used. These APIs
@@ -376,88 +376,88 @@ BOOL INSTAPI SQLInstallDriver (
     LPCSTR lpszDriver,
     LPSTR lpszPath,
     WORD cbPathMax,
-    WORD * pcbPathOut);
+    WORD * pcbPathOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallDriverW (
     LPCWSTR lpszInfFile,
     LPCWSTR lpszDriver,
     LPWSTR lpszPath,
     WORD cbPathMax,
-    WORD * pcbPathOut);
+    WORD * pcbPathOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallDriverManager (
     LPSTR lpszPath,
     WORD cbPathMax,
-    WORD * pcbPathOut);
+    WORD * pcbPathOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallDriverManagerW (
     LPWSTR lpszPath,
     WORD cbPathMax,
-    WORD * pcbPathOut);
+    WORD * pcbPathOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetInstalledDrivers (
     LPSTR lpszBuf,
     WORD cbBufMax,
-    WORD * pcbBufOut);
+    WORD * pcbBufOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetInstalledDriversW (
     LPWSTR lpszBuf,
     WORD cbBufMax,
-    WORD * pcbBufOut);
+    WORD * pcbBufOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetAvailableDrivers (
     LPCSTR lpszInfFile,
     LPSTR lpszBuf,
     WORD cbBufMax,
-    WORD * pcbBufOut);
+    WORD * pcbBufOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLGetAvailableDriversW (
     LPCWSTR lpszInfFile,
     LPWSTR lpszBuf,
     WORD cbBufMax,
-    WORD * pcbBufOut);
+    WORD * pcbBufOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLConfigDataSource (
     HWND hwndParent,
     WORD fRequest,
     LPCSTR lpszDriver,
-    LPCSTR lpszAttributes);
+    LPCSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLConfigDataSourceW (
     HWND hwndParent,
     WORD fRequest,
     LPCWSTR lpszDriver,
-    LPCWSTR lpszAttributes);
+    LPCWSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLRemoveDefaultDataSource (void);
+BOOL INSTAPI SQLRemoveDefaultDataSource (void) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLWriteDSNToIni (
     LPCSTR lpszDSN,
-    LPCSTR lpszDriver);
+    LPCSTR lpszDriver) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLWriteDSNToIniW (
     LPCWSTR lpszDSN,
-    LPCWSTR lpszDriver);
+    LPCWSTR lpszDriver) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLRemoveDSNFromIni (LPCSTR lpszDSN);
+BOOL INSTAPI SQLRemoveDSNFromIni (LPCSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLRemoveDSNFromIniW (LPCWSTR lpszDSN);
+BOOL INSTAPI SQLRemoveDSNFromIniW (LPCWSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLValidDSN (LPCSTR lpszDSN);
+BOOL INSTAPI SQLValidDSN (LPCSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLValidDSNW (LPCWSTR lpszDSN);
+BOOL INSTAPI SQLValidDSNW (LPCWSTR lpszDSN) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLWritePrivateProfileString (
     LPCSTR lpszSection,
     LPCSTR lpszEntry,
     LPCSTR lpszString,
-    LPCSTR lpszFilename);
+    LPCSTR lpszFilename) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLWritePrivateProfileStringW (
     LPCWSTR lpszSection,
     LPCWSTR lpszEntry,
     LPCWSTR lpszString,
-    LPCWSTR lpszFilename);
+    LPCWSTR lpszFilename) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 int INSTAPI SQLGetPrivateProfileString (
     LPCSTR lpszSection,
@@ -465,7 +465,7 @@ int INSTAPI SQLGetPrivateProfileString (
     LPCSTR lpszDefault,
     LPSTR lpszRetBuffer,
     int cbRetBuffer,
-    LPCSTR lpszFilename);
+    LPCSTR lpszFilename) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 int INSTAPI SQLGetPrivateProfileStringW (
     LPCWSTR lpszSection,
@@ -473,9 +473,9 @@ int INSTAPI SQLGetPrivateProfileStringW (
     LPCWSTR lpszDefault,
     LPWSTR lpszRetBuffer,
     int cbRetBuffer,
-    LPCWSTR lpszFilename);
+    LPCWSTR lpszFilename) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
-BOOL INSTAPI SQLRemoveDriverManager (LPDWORD lpdwUsageCount);
+BOOL INSTAPI SQLRemoveDriverManager (LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallTranslator (
     LPCSTR lpszInfFile,
@@ -485,7 +485,7 @@ BOOL INSTAPI SQLInstallTranslator (
     WORD cbPathOutMax,
     WORD * pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLInstallTranslatorW (
     LPCWSTR lpszInfFile,
@@ -495,25 +495,25 @@ BOOL INSTAPI SQLInstallTranslatorW (
     WORD cbPathOutMax,
     WORD * pcbPathOut,
     WORD fRequest,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLRemoveTranslator (
     LPCSTR lpszTranslator,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLRemoveTranslatorW (
     LPCWSTR lpszTranslator,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLRemoveDriver (
     LPCSTR lpszDriver,
     BOOL fRemoveDSN,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLRemoveDriverW (
     LPCWSTR lpszDriver,
     BOOL fRemoveDSN,
-    LPDWORD lpdwUsageCount);
+    LPDWORD lpdwUsageCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLConfigDriver (
     HWND hwndParent,
@@ -522,7 +522,7 @@ BOOL INSTAPI SQLConfigDriver (
     LPCSTR lpszArgs,
     LPSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI SQLConfigDriverW (
     HWND hwndParent,
@@ -531,7 +531,7 @@ BOOL INSTAPI SQLConfigDriverW (
     LPCWSTR lpszArgs,
     LPWSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 /* Driver specific Setup APIs called by installer */
 
@@ -539,13 +539,13 @@ typedef BOOL INSTAPI (*pConfigDSNFunc) (
     HWND hwndParent,
     WORD fRequest,
     LPCSTR lpszDriver,
-    LPCSTR lpszAttributes);
+    LPCSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 typedef BOOL INSTAPI (*pConfigDSNWFunc) (
     HWND hwndParent,
     WORD fRequest,
     LPCWSTR lpszDriver,
-    LPCWSTR lpszAttributes);
+    LPCWSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 typedef BOOL INSTAPI (*pConfigDriverFunc) (
     HWND hwndParent,
@@ -554,7 +554,7 @@ typedef BOOL INSTAPI (*pConfigDriverFunc) (
     LPCSTR lpszArgs,
     LPSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 typedef BOOL INSTAPI (*pConfigDriverWFunc) (
     HWND hwndParent,
@@ -563,26 +563,26 @@ typedef BOOL INSTAPI (*pConfigDriverWFunc) (
     LPCWSTR lpszArgs,
     LPWSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 typedef BOOL INSTAPI (*pConfigTranslatorFunc) (
     HWND hwndParent,
-    DWORD *pvOption);
+    DWORD *pvOption) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI ConfigDSN (
     HWND hwndParent,
     WORD fRequest,
     LPCSTR lpszDriver,
-    LPCSTR lpszAttributes);
+    LPCSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI ConfigDSNW (
     HWND hwndParent,
     WORD fRequest,
     LPCWSTR lpszDriver,
-    LPCWSTR lpszAttributes);
+    LPCWSTR lpszAttributes) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI ConfigTranslator (HWND hwndParent,
-    DWORD * pvOption);
+    DWORD * pvOption) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI ConfigDriver (
     HWND hwndParent,
@@ -591,7 +591,7 @@ BOOL INSTAPI ConfigDriver (
     LPCSTR lpszArgs,
     LPSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 BOOL INSTAPI ConfigDriverW (
     HWND hwndParent,
@@ -600,7 +600,7 @@ BOOL INSTAPI ConfigDriverW (
     LPCWSTR lpszArgs,
     LPWSTR lpszMsg,
     WORD cbMsgMax,
-    WORD * pcbMsgOut);
+    WORD * pcbMsgOut) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #ifndef	SQL_NOUNICODEMAP
 #ifdef 	UNICODE

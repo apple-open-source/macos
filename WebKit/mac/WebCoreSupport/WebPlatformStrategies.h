@@ -27,11 +27,12 @@
 #define WebPlatformStrategies_h
 
 #include <WebCore/CookiesStrategy.h>
+#include <WebCore/PasteboardStrategy.h>
 #include <WebCore/PlatformStrategies.h>
 #include <WebCore/PluginStrategy.h>
 #include <WebCore/VisitedLinkStrategy.h>
 
-class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PluginStrategy, private WebCore::VisitedLinkStrategy {
+class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::CookiesStrategy, private WebCore::PluginStrategy, private WebCore::VisitedLinkStrategy, private WebCore::PasteboardStrategy {
 public:
     static void initialize();
     
@@ -39,20 +40,39 @@ private:
     WebPlatformStrategies();
     
     // WebCore::PlatformStrategies
-    virtual WebCore::CookiesStrategy* createCookiesStrategy();
-    virtual WebCore::PluginStrategy* createPluginStrategy();
-    virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy();
+    virtual WebCore::CookiesStrategy* createCookiesStrategy() OVERRIDE;
+    virtual WebCore::PluginStrategy* createPluginStrategy() OVERRIDE;
+    virtual WebCore::VisitedLinkStrategy* createVisitedLinkStrategy() OVERRIDE;
+    virtual WebCore::PasteboardStrategy* createPasteboardStrategy() OVERRIDE;
 
     // WebCore::CookiesStrategy
-    virtual void notifyCookiesChanged();
+    virtual void notifyCookiesChanged() OVERRIDE;
 
     // WebCore::PluginStrategy
-    virtual void refreshPlugins();
-    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&);
+    virtual void refreshPlugins() OVERRIDE;
+    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&) OVERRIDE;
 
     // WebCore::VisitedLinkStrategy
-    virtual bool isLinkVisited(WebCore::Page*, WebCore::LinkHash);
-    virtual void addVisitedLink(WebCore::Page*, WebCore::LinkHash);
+    virtual bool isLinkVisited(WebCore::Page*, WebCore::LinkHash, const WebCore::KURL& baseURL, const WTF::AtomicString& attributeURL) OVERRIDE;
+    virtual void addVisitedLink(WebCore::Page*, WebCore::LinkHash) OVERRIDE;
+    
+    // WebCore::PasteboardStrategy
+    virtual void getTypes(Vector<String>& types, const String& pasteboardName) OVERRIDE;
+    virtual PassRefPtr<WebCore::SharedBuffer> bufferForType(const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual void getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual String stringForType(const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual int changeCount(const String& pasteboardName) OVERRIDE;
+    virtual String uniqueName() OVERRIDE;
+    virtual WebCore::Color color(const String& pasteboardName) OVERRIDE;
+    virtual WebCore::KURL url(const String& pasteboardName) OVERRIDE;
+
+    virtual void copy(const String& fromPasteboard, const String& toPasteboard) OVERRIDE;
+    virtual void addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) OVERRIDE;
+    virtual void setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName) OVERRIDE;
+    virtual void setBufferForType(PassRefPtr<WebCore::SharedBuffer>, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual void setPathnamesForType(const Vector<String>&, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    virtual void setStringForType(const String&, const String& pasteboardType, const String& pasteboardName) OVERRIDE;
+    
 };
 
 #endif // WebPlatformStrategies_h

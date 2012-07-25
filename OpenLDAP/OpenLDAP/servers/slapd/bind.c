@@ -1,8 +1,8 @@
 /* bind.c - decode an ldap bind operation and pass it to a backend db */
-/* $OpenLDAP: pkg/ldap/servers/slapd/bind.c,v 1.201.2.6 2010/04/13 20:23:12 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -418,7 +418,8 @@ fe_op_bind_success( Operation *op, SlapReply *rs )
 
 	ber_dupbv( &op->o_conn->c_ndn, &op->o_req_ndn );
 
-	if( !BER_BVISEMPTY( &op->o_conn->c_dn ) ) {
+	/* op->o_conn->c_sb may be 0 for internal operations */
+	if( !BER_BVISEMPTY( &op->o_conn->c_dn ) && op->o_conn->c_sb != 0 ) {
 		ber_len_t max = sockbuf_max_incoming_auth;
 		ber_sockbuf_ctrl( op->o_conn->c_sb,
 			LBER_SB_OPT_SET_MAX_INCOMING, &max );

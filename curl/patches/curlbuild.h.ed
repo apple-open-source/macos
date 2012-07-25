@@ -1,8 +1,0 @@
-/define CURL_SIZEOF_LONG/c
-#ifdef __LP64__
-#define CURL_SIZEOF_LONG 8
-#else /* !__LP64__ */
-#define CURL_SIZEOF_LONG 4
-#endif /* __LP64__ */
-.
-w

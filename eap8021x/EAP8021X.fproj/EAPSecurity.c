@@ -34,12 +34,18 @@ EAPSecurityErrorString(OSStatus err)
     switch(err) {
     case noErr:
 	return "noErr";
+#if ! TARGET_OS_EMBEDDED
     case memFullErr:
 	return "memFullErr";
     case paramErr:
 	return "paramErr";
     case unimpErr:
 	return "unimpErr";
+    case ioErr:
+	return "ioErr";
+    case badReqErr:
+	return "badReqErr";
+#endif /* ! TARGET_OS_EMBEDDED */
 
 	/* SecureTransport.h: */
     case errSSLProtocol:
@@ -50,8 +56,6 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSSLFatalAlert";
     case errSSLWouldBlock:
 	return "errSSLWouldBlock";
-    case ioErr:
-	return "ioErr";
     case errSSLSessionNotFound:
 	return "errSSLSessionNotFound";
     case errSSLClosedGraceful:
@@ -76,8 +80,6 @@ EAPSecurityErrorString(OSStatus err)
 	return "errSSLCertExpired";
     case errSSLCertNotYetValid:
 	return "errSSLCertNotYetValid";
-    case badReqErr:
-	return "badReqErr";
     case errSSLClosedNoNotify:
 	return "errSSLClosedNoNotify";
     case errSSLBufferOverflow:

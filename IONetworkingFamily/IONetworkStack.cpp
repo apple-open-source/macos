@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * IONetworkStack.cpp - An IOKit proxy for the BSD network stack.
+ * IONetworkStack.cpp - An IOKit proxy for the BSD networking stack.
  *
  * HISTORY
  *
@@ -39,120 +39,106 @@
  */
 
 extern "C" {
-#include <sys/param.h>
-#include <sys/systm.h>
-#include <sys/socket.h>
-#include <net/bpf.h>
 #include <net/if.h>
-#include <net/dlil.h>
 #include <sys/sockio.h>
 }
 
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
-#include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IOEthernetController.h>  // for setAggressiveness()
 #include "IONetworkStack.h"
-#include <libkern/c++/OSDictionary.h>
+#include "IONetworkDebug.h"
 
 #define super IOService
-OSDefineMetaClassAndStructors( IONetworkStack, IOService )
-OSMetaClassDefineReservedUnused( IONetworkStack,  0);
-OSMetaClassDefineReservedUnused( IONetworkStack,  1);
-OSMetaClassDefineReservedUnused( IONetworkStack,  2);
-OSMetaClassDefineReservedUnused( IONetworkStack,  3);
+OSDefineMetaClassAndFinalStructors( IONetworkStack, IOService )
 
-#ifdef  DEBUG
-#define __LOG(class, fn, fmt, args...)   IOLog(class "::%s " fmt, fn, ## args)
-#define DLOG(fmt, args...) __LOG("IONetworkStack", __FUNCTION__, fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
+#define NIF_VAR(n)          ((n)->_clientVar[0])
+#define NIF_SET(n, x)       (NIF_VAR(n) |= (x))
+#define NIF_CLR(n, x)       (NIF_VAR(n) &= ~(x))
+#define NIF_TEST(n, x)      (NIF_VAR(n) & (x))
 
-#define LOG(args...)             IOLog(args)
+#define NIF_CAST(x)         ((IONetworkInterface *) x)
+#define NIF_SAFECAST(x)     (OSDynamicCast(IONetworkInterface, x))
 
-#define NETIF_FLAGS(n)           ((n)->_clientVar[0])
-#define SET_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) |= (x))
-#define CLR_NETIF_FLAGS(n, x)    (NETIF_FLAGS(n) &= ~(x))
+#define LOCK()              IOLockLock(_stateLock)
+#define UNLOCK()            IOLockUnlock(_stateLock)
 
 static IONetworkStack * gIONetworkStack = 0;
 
 // Flags encoded on the interface object.
 //
 enum {
-    kInterfaceFlagActive      = 0x01,  // Interface is awaiting registration
-    kInterfaceFlagRegistered  = 0x02,  // Interface has registered with DLIL
-    kInterfaceFlagRegistering = 0x04   // Interface is registering with DLIL
+    kInterfaceStateInactive     = 0x01, // terminated
+    kInterfaceStatePublished    = 0x02, // waiting to attach
+    kInterfaceStateAttaching    = 0x04, // attaching to BSD
+    kInterfaceStateAttached     = 0x08  // attached to BSD
 };
 
-// IONetworkStackUserClient definition.
+// IONetworkStackUserClient definition
 //
 #include <IOKit/IOUserClient.h>
 
 class IONetworkStackUserClient : public IOUserClient
 {
-    OSDeclareDefaultStructors( IONetworkStackUserClient )
+    OSDeclareFinalStructors( IONetworkStackUserClient )
 
 protected:
     IONetworkStack * _provider;
 
 public:
-    static  IONetworkStackUserClient * withTask( task_t owningTask );
+    virtual bool initWithTask(	task_t			owningTask,
+                                void *			securityID,
+                                UInt32			type,
+                                OSDictionary *	properties );
     virtual bool start( IOService * provider );
-    virtual IOReturn clientClose();
-    virtual IOReturn clientDied();
+    virtual IOReturn clientClose( void );
+    virtual IOReturn clientDied( void );
     virtual IOReturn setProperties( OSObject * properties );
 };
 
-//---------------------------------------------------------------------------
-// Initialize the IONetworkStack object.
-
-bool IONetworkStack::init( OSDictionary * properties )
-{
-    // Init our superclass first.
-//	PE_enter_debugger("KPI Stack");
-
-    if ( super::init(properties) == false )
-        return false;
-
-    return true;
-}
-
-//---------------------------------------------------------------------------
-// IONetworkStack was matched to its provider (IOResources), now start it up.
+//------------------------------------------------------------------------------
 
 bool IONetworkStack::start( IOService * provider )
 {
-    DLOG("%p\n", provider);
+    OSDictionary *      matching;
+    IOService *         rootDomain;
+    const OSSymbol *    ucClassName;
 
-    if ( super::start(provider) == false )
-        return false;
+    DLOG("IONetworkStack::start(%p) %p\n", provider, this);
 
     // Only a single IONetworkStack object is created, and a reference
     // to this object is stored in a global variable.
-
     // When the boot process is VERY VERY slow for some unknown reason
     // we get two instances of IONetworkStack and theassert below fires.
     // so I am commenting the assert and replacing it with an if statement.
     // assert( gIONetworkStack == 0 );
 
-    if ( gIONetworkStack != 0 )
-        return false;
+    if (gIONetworkStack)
+        goto fail;
 
-    gIONetworkStack = this;
+    if (super::start(provider) == false)
+        goto fail;
 
-    // Create containers to store interface objects.
+    _stateLock = IOLockAlloc();
+    if (!_stateLock)
+        goto fail;
 
-    _ifSet = OSOrderedSet::withCapacity(10);
-    if ( _ifSet == 0 )
-        return false;
+    _ifListNaming = OSSet::withCapacity(8);
+    if (!_ifListNaming)
+        goto fail;
 
-    _ifDict = OSDictionary::withCapacity(4);
-    if ( _ifDict == 0 )
-        return false;
+    _ifPrefixDict = OSDictionary::withCapacity(4);
+    if (!_ifPrefixDict)
+        goto fail;
+
+    _asyncThread = thread_call_allocate(
+        OSMemberFunctionCast(thread_call_func_t, this,
+            &IONetworkStack::asyncWork), this);
+    if (!_asyncThread)
+        goto fail;
 
     // Call the IOPMrootDomain object, which sits at the root of the
     // power management hierarchy, to set the default Ethernet WOL
@@ -161,262 +147,193 @@ bool IONetworkStack::start( IOService * provider )
     // IOPMSetAggressiveness() call from loginwindow since it will
     // simply override the default value set here.
 
-    IOService * root = (IOService *) getPMRootDomain();
-    if ( root )
+    if ((rootDomain = (IOService *) getPMRootDomain()))
     {
-        UInt32 filters = kIOEthernetWakeOnMagicPacket |
-                         kIOEthernetWakeOnPacketAddressMatch;
-
-        root->IOService::setAggressiveness( kPMEthernetWakeOnLANSettings,
-                                            filters );
+        rootDomain->IOService::setAggressiveness(kPMEthernetWakeOnLANSettings,
+            kIOEthernetWakeOnMagicPacket | kIOEthernetWakeOnPacketAddressMatch);
     }
 
-    // Create a notification object to call a 'C' function, every time an
-    // interface object is first published.
+    // Sign up for a notification when a network interface is first published.
 
-    _interfaceNotifier = addNotification(
-                         /* type   */    gIOFirstPublishNotification,
-                         /* match  */    serviceMatching("IONetworkInterface"),
-                         /* action */    interfacePublished,
-                         /* param  */    this );
+    matching = serviceMatching("IONetworkInterface");
+    if (!matching)
+        goto fail;
 
-    if ( _interfaceNotifier == 0 ) return false;
+    gIONetworkStack = this;
 
-    // Register the IONetworkStack object.
+    _ifNotifier = addMatchingNotification(
+            /* type     */ gIOFirstPublishNotification,
+            /* match    */ matching,
+            /* action   */ OSMemberFunctionCast(
+                                    IOServiceMatchingNotificationHandler,
+                                    this, &IONetworkStack::interfacePublished),
+            /* target   */ this,
+            /* refCon   */ this,
+            /* priority */ 1000 );
+
+    matching->release();
+    if (!_ifNotifier)
+        goto fail;
+
+    ucClassName = OSSymbol::withCStringNoCopy("IONetworkStackUserClient");
+    if (ucClassName)
+    {
+        setProperty(gIOUserClientClassKey, (OSObject *) ucClassName);
+        ucClassName->release();
+    }
 
     registerService();
-
-    // Success.
-
-    DLOG("success\n");
-
     return true;
+
+fail:
+    LOG("IONetworkStack::start(%p) %p failed\n", provider, this);
+    return false;
 }
 
-//---------------------------------------------------------------------------
-// Stop is called by a terminated provider, after being closed, but before
-// this client object is detached from it.
+//------------------------------------------------------------------------------
 
-void IONetworkStack::stop( IOService * provider )
+void IONetworkStack::free( void )
 {
-    DLOG("%p\n", provider);
-    super::stop(provider);
-}
+    LOG("IONetworkStack::free() %p\n", this);
+    
+    if (this == gIONetworkStack)
+        gIONetworkStack = 0;
 
-//---------------------------------------------------------------------------
-// Release allocated resources.
-
-void IONetworkStack::free()
-{
-    DLOG("\n");
-
-    // IONotifier::remove() will remove the notification request
-    // and release the object.
-
-    if ( _interfaceNotifier )
+    if ( _ifNotifier )
     {
-        _interfaceNotifier->remove();
-        _interfaceNotifier = 0;
+        _ifNotifier->remove();
+        _ifNotifier = 0;
     }
 
-    // Free interface containers.
-
-    if ( _ifDict )
+    if (_ifPrefixDict)
     {
-        _ifDict->release();
-        _ifDict = 0;
+        _ifPrefixDict->release();
+        _ifPrefixDict = 0;
     }
 
-    if ( _ifSet )
+    if (_ifListNaming)
     {
-        _ifSet->release();
-        _ifSet = 0;
+        _ifListNaming->release();
+        _ifListNaming = 0;
     }
 
-    gIONetworkStack = 0;
+    if (_ifListDetach)
+    {
+        _ifListDetach->release();
+        _ifListDetach = 0;
+    }
 
-    // Propagate the free to superclass.
+    if (_asyncThread)
+    {
+        thread_call_free(_asyncThread);
+        _asyncThread = 0;
+    }
+
+    if (_stateLock)
+    {
+        IOLockFree(_stateLock);
+        _stateLock = 0;
+    }
 
     super::free();
 }
 
-//---------------------------------------------------------------------------
-// A static method to get the global network stack object.
+//------------------------------------------------------------------------------
 
-IONetworkStack * IONetworkStack::getNetworkStack()
+bool IONetworkStack::insertNetworkInterface( IONetworkInterface * netif )
 {
-    return (IONetworkStack *) IOService::waitForService(
-                              IOService::serviceMatching("IONetworkStack") );
-}
-
-
-//===========================================================================
-//
-// Interface object container helpers.
-//
-//===========================================================================
-
-//---------------------------------------------------------------------------
-// Add the new interface object to an OSOrderedSet.
-
-bool IONetworkStack::addInterface( IONetworkInterface * netif )
-{
-    return _ifSet->setObject(netif);
-}
-
-//---------------------------------------------------------------------------
-// Remove an interface object from an OSOrderedSet.
-
-void IONetworkStack::removeInterface( IONetworkInterface * netif )
-{
-    _ifSet->removeObject(netif);
-    DLOG("count = %d\n", _ifSet->getCount());
-}
-
-//---------------------------------------------------------------------------
-// Get an interface object at a given index.
-
-IONetworkInterface * IONetworkStack::getInterface( UInt32 index )
-{
-    return (IONetworkInterface *) _ifSet->getObject(index);
-}
-
-//---------------------------------------------------------------------------
-// Query whether the specified interface object is a member of the Set.
-
-bool IONetworkStack::containsInterface( IONetworkInterface * netif )
-{
-    return _ifSet->containsObject(netif);
-}
-
-//---------------------------------------------------------------------------
-// Add an interface object to the set of registered interfaces.
-
-bool IONetworkStack::addRegisteredInterface( IONetworkInterface * netif )
-{
-    bool           success = true;
-    OSOrderedSet * set;
     const char *   prefix = netif->getNamePrefix();
+    OSOrderedSet * set;
+    bool           ok = true;
 
-    if (prefix == 0) return false;
+    if (prefix == 0)
+        return false;
 
-    // Look for a Set object in the dictionary.
+    // Look for a Set object associated with the name prefix.
 
-    set = (OSOrderedSet *) _ifDict->getObject(prefix);
+    set = (OSOrderedSet *) _ifPrefixDict->getObject(prefix);
 
     // If not found, then create one and add it to the dictionary.
 
-    if ( (set == 0) &&
-         ((set = OSOrderedSet::withCapacity(10, orderRegisteredInterfaces))) )
+    if (!set && ((set = OSOrderedSet::withCapacity(8, orderNetworkInterfaces))))
     {
-        success = _ifDict->setObject(prefix, set);
+        ok = _ifPrefixDict->setObject(prefix, set);
         set->release();
     }
 
-    // Add the interface object to its corresponding set.
+    // Add the interface object to the named set.
     // All objects in a set will have the same name prefix.
 
-    success = (set && success) ? set->setObject(netif) : false;
+    ok = (set && ok) ? set->setObject(netif) : false;
 
-    return success;
+    if (set && (set->getCount() == 0))
+    {
+        _ifPrefixDict->removeObject(prefix);
+    }
+
+    return ok;
 }
 
-//---------------------------------------------------------------------------
-// Remove an interface object from the set of registered interfaces.
-
-void IONetworkStack::removeRegisteredInterface( IONetworkInterface * netif )
+void IONetworkStack::removeNetworkInterface( IONetworkInterface * netif )
 {
-    OSOrderedSet * set;
     const char *   prefix = netif->getNamePrefix();
+    OSOrderedSet * set;
 
     if ( prefix )
     {
-        set = (OSOrderedSet *) _ifDict->getObject(prefix);
-
+        set = (OSOrderedSet *) _ifPrefixDict->getObject(prefix);
         if ( set )
         {
-            // Remove interface from set.
+            // Remove interface from set
 
             set->removeObject(netif);
-            DLOG("set:%s count = %d\n", prefix, set->getCount());
+            DLOG("IONetworkStack::removeNetworkInterface %s count = %d\n",
+                prefix, set->getCount());
 
-            // Remove (also release) the set from the dictionary.
+            // Remove the empty set from the dictionary
 
-            if ( set->getCount() == 0 ) _ifDict->removeObject(prefix);
+            if (set->getCount() == 0)
+                _ifPrefixDict->removeObject(prefix);
         }
     }
 }
 
-//---------------------------------------------------------------------------
-// Get an registered interface with the given prefix and unit number.
-
-IONetworkInterface *
-IONetworkStack::getRegisteredInterface( const char * prefix,
-                                        UInt32       unit )
-{
-    OSOrderedSet *       set;
-    IONetworkInterface * netif = 0;
-
-    set = (OSOrderedSet *) _ifDict->getObject(prefix);
-
-    for ( UInt32 index = 0;
-          ( set && (netif = (IONetworkInterface *) set->getObject(index)) );
-          index++ )
-    {
-        if ( netif->getUnitNumber() == unit )
-            break;
-    }
-
-    return netif;
-}
-
-//---------------------------------------------------------------------------
-// Get the last object (with largest index) in the set of registered
-// interfaces with the specified prefix.
-
-IONetworkInterface *
-IONetworkStack::getLastRegisteredInterface( const char * prefix )
-{
-    OSOrderedSet * set;
-
-    set = (OSOrderedSet *) _ifDict->getObject(prefix);
-
-    return ( set ) ? (IONetworkInterface *) set->getLastObject() : 0;
-}
-
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Get the next available unit number in the set of registered interfaces
 // with the specified prefix.
 
-UInt32
-IONetworkStack::getNextAvailableUnitNumber( const char * prefix,
-                                            UInt32       startingUnit )
+uint32_t IONetworkStack::getNextAvailableUnitNumber(
+    const char *    prefix,
+    uint32_t        startingUnit )
 {
-    IONetworkInterface * netif = getLastRegisteredInterface(prefix);
+    IONetworkInterface * netif;
+    OSOrderedSet *       set;
 
-    if ( ( netif == 0 ) || ( netif->getUnitNumber() < startingUnit ) )
+    assert(prefix);
+
+    set = (OSOrderedSet *) _ifPrefixDict->getObject(prefix);
+    netif = set ? NIF_CAST(set->getLastObject()) : 0;
+
+    if (!netif || (netif->getUnitNumber() < startingUnit))
     {
         // The unit number provided is acceptable.
     }
-    else if ( netif->getUnitNumber() == startingUnit )
+    else if (netif->getUnitNumber() == startingUnit)
     {
         // Conflict, bump proposed unit number by one.
         startingUnit++;
     }
-    else
+    else if (set)
     {
-        OSOrderedSet * set = (OSOrderedSet *) _ifDict->getObject(prefix);
-
-        for ( UInt32 index = 0; set; index++ )
+        for ( uint32_t index = 0; ; index++ )
         {
-            netif = (IONetworkInterface *) set->getObject(index);
+            netif = NIF_CAST(set->getObject(index));
 
-            if ( ( netif == 0 ) ||
-                 ( netif->getUnitNumber() > startingUnit ) )
+            if (!netif || (netif->getUnitNumber() > startingUnit))
                 break;
-            else if ( netif->getUnitNumber() < startingUnit )
+            else if (netif->getUnitNumber() < startingUnit)
                 continue;
-            else
+            else /* == */
                 startingUnit = netif->getUnitNumber() + 1;
         }
     }
@@ -424,265 +341,194 @@ IONetworkStack::getNextAvailableUnitNumber( const char * prefix,
     return startingUnit;
 }
 
+//------------------------------------------------------------------------------
 
-//===========================================================================
-//
-// Interface Management.
-//
-//===========================================================================
-
-
-//---------------------------------------------------------------------------
-// A static member function that is called by a notification object when an 
-// interface is published. This function is called with arbitration lock of
-// the interface object held.
-
-bool IONetworkStack::interfacePublished( void *      /* target */,
-                                         void *      /* param  */,
-                                         IOService * service )
+bool IONetworkStack::interfacePublished(
+    void *          refCon __unused,
+    IOService *     service,
+    IONotifier *    notifier __unused )
 {
-    IONetworkInterface * netif   = OSDynamicCast(IONetworkInterface, service);
-    bool                 success = false;
+    IONetworkInterface * netif = NIF_SAFECAST(service);
+    bool ok = false;
 
-    DLOG("%p\n", netif);
+    DLOG("IONetworkStack::interfacePublished(%p)\n", netif);
 
-    if ( gIONetworkStack == 0 )
+    if (!netif || !attach(netif))
         return false;
 
-    gIONetworkStack->lockForArbitration();
+    LOCK();
 
     do {
-        if ( netif == 0 ) break;
+        // Must be a new network interface
+        if (NIF_VAR(netif) != 0)
+            break;
 
-        // Early exit from redundant notifications.
-
-        if ( gIONetworkStack->containsInterface(netif) == true )
+        // Stop if interface is already published
+        if (_ifListNaming->containsObject(netif))
         {
-            success = true;
+            ok = true;
             break;
         }
 
-        // Add the interface to a collection.
+        _ifListNaming->setObject(netif);
 
-        if ( gIONetworkStack->addInterface(netif) == false )
-            break;
+        // Initialize private interface state
+        NIF_VAR(netif) = kInterfaceStatePublished;
+        ok = true;
+    }
+    while (false);
 
-        // Attach the stack object to the interface object as its client.
+    UNLOCK();
 
-        if ( gIONetworkStack->attach(netif) == false )
-            break;
+    if (!ok)
+        detach(netif);
 
-        // Initialize the interface flags. These flags are used only
-        // by IONetworkStack.
+    return ok;
+}
 
-        NETIF_FLAGS(netif) = kInterfaceFlagActive;
+//------------------------------------------------------------------------------
 
-        // No outside intervention is required for the primary interface
-        // to be registered at unit 0. This is to assure that we have 'en0'
-        // even if something is really fouled up. Ideally, this should be
-        // removed in the future and have a single entity manage the
-        // naming responsibility. And on Intel, there is no concept of a
-        // "built-in" interface, so this will do nothing for Intel.
+void IONetworkStack::asyncWork( void )
+{
+    IONetworkInterface * netif;
 
-        if ( gIONetworkStack->_registerPrimaryInterface &&
-             netif->isPrimaryInterface() )
+    while (1)
+    {
+        LOCK();
+        if (_ifListDetach)
         {
-            const char * prefix = netif->getNamePrefix();
-            const UInt32 unit   = 0;
-
-            // If another interface already took unit 0, do nothing.
-
-            if ( gIONetworkStack->getRegisteredInterface(prefix, unit) == 0 )
+            netif = NIF_CAST(_ifListDetach->getObject(0));
+            if (netif)
             {
-                OSArray * array = OSArray::withCapacity(1);
-                if ( array )
-                {
-                    gIONetworkStack->preRegisterInterface( netif,
-                                                           prefix,
-                                                           unit,
-                                                           array );
-
-                    completeRegistration( array, false );   // Async
-                }
+                netif->retain();
+                _ifListDetach->removeObject(0);
             }
         }
+        else
+            netif = 0;
+        UNLOCK();
+        if (!netif)
+            break;
 
-        success = true;
+        DLOG("IONetworkStack::asyncWork detach %s %p\n",
+            netif->getName(), netif);
+
+        // Interface is about to detach from DLIL
+        netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
+
+        // detachFromDataLinkLayer will block until BSD detach is complete
+        netif->detachFromDataLinkLayer(0, 0);
+
+        LOCK();
+
+        assert(NIF_TEST(netif, kInterfaceStateAttached));
+        assert(NIF_TEST(netif, kInterfaceStateInactive));
+
+        NIF_CLR(netif, kInterfaceStateAttached | kInterfaceStateAttaching);
+
+        // Drop interface from list of attached interfaces.
+        // Unit number assigned to interface is up for grabs.
+
+        removeNetworkInterface(netif);
+
+        UNLOCK();
+
+        // Close interface and allow it to proceed with termination
+        netif->close( this );
+        netif->release();
+    }
+}
+
+//------------------------------------------------------------------------------
+
+bool IONetworkStack::didTerminate(
+        IOService * provider, IOOptionBits options, bool * defer )
+{
+    IONetworkInterface * netif = NIF_SAFECAST(provider);
+    bool wakeThread = false;
+
+    DLOG("IONetworkStack::didTerminate(%s %p, 0x%x)\n",
+        provider->getName(), provider, (uint32_t) options);
+
+    if (!netif)
+        return true;
+
+    LOCK();
+
+    do {
+        // Interface has become inactive, it is no longer possible
+        // to open or to attach to the interface object.
+        // Mark the interface as unfit for naming / BSD attach.
+
+        NIF_SET(netif, kInterfaceStateInactive);
+        _ifListNaming->removeObject(netif);
+
+        // Interface is attaching to BSD. Postpone termination until
+        // the attachment is complete.
+
+        if (NIF_TEST(netif, kInterfaceStateAttaching))
+            break;
+
+        // If interface was never attached to BSD, we are done since
+        // we don't have an open on the interface.
+
+        if (NIF_TEST(netif, kInterfaceStateAttached))
+        {
+            // Detach interface from BSD asynchronously.
+            // The interface termination will be waiting for our close.
+
+            if (!_ifListDetach)
+                _ifListDetach = OSArray::withCapacity(8);
+            if (_ifListDetach)
+            {
+                _ifListDetach->setObject(netif);
+                wakeThread = true;
+            }
+        }
     }
     while ( false );
 
-    // Remove interface on failure.
+    UNLOCK();
 
-    if (success == false) gIONetworkStack->removeInterface(netif);
+    if (wakeThread)
+        thread_call_enter(_asyncThread);
 
-    gIONetworkStack->unlockForArbitration();
-
-    return success;
+    return true;
 }
 
-//---------------------------------------------------------------------------
-// Handle termination messages sent from the interface object (provider).
+//------------------------------------------------------------------------------
 
-IOReturn IONetworkStack::message( UInt32      type,
-                                  IOService * provider,
-                                  void *      /* argument */ )
+bool IONetworkStack::reserveInterfaceUnitNumber(
+    IONetworkInterface *    netif,
+    uint32_t                unit,
+    bool                    isUnitFixed )
 {
-    IONetworkInterface * netif = (IONetworkInterface *) provider;
-    IOReturn             ret   = kIOReturnBadArgument;
+    const char *    prefix  = netif->getNamePrefix();
+    uint32_t        inUnit  = unit;
+    bool            opened  = false;
+    bool            ok      = false;
 
-    DLOG("%lx %p\n", type, provider);
+    DLOG("IONetworkStack::reserveInterfaceUnitNumber(%p, %s, %u)\n",
+        netif, prefix ? prefix : "", unit);
 
-    if ( type == kIOMessageServiceIsTerminated )
-    {
-        lockForArbitration();
+    LOCK();
 
-        do {
-            // Verify that the provider object given is known.
-
-            if ( containsInterface(netif) == false )
-                break;
-
-            ret = kIOReturnSuccess;
-
-            // Interface has become inactive, it is no longer possible
-            // to open or to attach to the interface object.
-            // Mark the interface as Inactive.
-
-            CLR_NETIF_FLAGS( netif, kInterfaceFlagActive );
-
-            // Interface is registering with DLIL. Postpone termination until
-            // the interface has completed the registration.
-
-            if ( NETIF_FLAGS(netif) & kInterfaceFlagRegistering )
-                break;
-
-            // Remove the interface object. Don't worry, it is still retained.
-
-            removeInterface(netif);
-
-            // If interface was never registered with BSD, no additional
-            // action is required.
-
-            if ( (NETIF_FLAGS(netif) & kInterfaceFlagRegistered) == 0 )
-                break;
-
-            // Need to unregister the interface. Do this asynchronously.
-            // The interface will be waiting for a close before advancing
-            // to the next stage in the termination process.
-            //
-            // This message is called from IOService::actionDidTerminate()
-            // which will close the gate on the provider's work loop. 
-			thread_call_t unregisterThread = thread_call_allocate( (thread_call_func_t) unregisterBSDInterface, netif);
-			if(!unregisterThread) //bad news- do it syncronously but system's probably going down in flames anyway.
-			{
-				IOLog("IONetworkStack: can't allocate a thread call\n");
-				unregisterBSDInterface(netif, NULL);
-			}
-			else
-				thread_call_enter1(unregisterThread, unregisterThread );
-        }
-        while ( false );
-
-        unlockForArbitration();
-    }
-
-    return ret;
-}
-
-//---------------------------------------------------------------------------
-// Detach an inactive interface that is currently registered with BSD.
-
-void IONetworkStack::unregisterBSDInterface( IONetworkInterface * netif, thread_call_t threadedcall ) 
-{
-
-    assert( netif );
-
-    // Interface is about to detach from DLIL.
-
-    netif->setInterfaceState( 0, kIONetworkInterfaceRegisteredState );
-
-    DLOG("%p\n", netif);
-	// with kpi, detachFromDataLinkLayer will ensure complete ifnet teardown,
-	// sleeping until dlil invokes the detach handler if necessary.
-    netif->detachFromDataLinkLayer( 0, 0 );
-
-    // An interface was detached from DLIL. It is now safe to close the 
-    // interface object.
-
-    gIONetworkStack->lockForArbitration();
-
-    assert( NETIF_FLAGS(netif) == kInterfaceFlagRegistered );
-
-    // Update state.
-
-    CLR_NETIF_FLAGS( netif, kInterfaceFlagRegistered );
-
-    // Drop interface from list of registered interfaces,
-    // and decrement interface retain count.
-
-    gIONetworkStack->removeRegisteredInterface(netif);
-
-    gIONetworkStack->unlockForArbitration();
-
-#if 0
-    // Do not bring the interface down after detaching from DLIL.
-    // If the interface was up before detaching, then it shall stay up.
-    // Is it up to each interface object to disable the controller prior
-    // to termination, without relying on the ifnet flag change.
-
-    // Make sure the interface is brought down before it is closed.
-
-    netif->setFlags( 0, IFF_UP );  // clear IFF_UP flag.
-    (*ifp->if_ioctl)(ifp, SIOCSIFFLAGS, 0);
-#endif
-
-    // Close interface and allow it to proceed with termination.
-
-    netif->close( gIONetworkStack );
-	if(threadedcall)
-		thread_call_free(threadedcall);
-
-}
-
-//---------------------------------------------------------------------------
-// Pre-register a network interface. This function assumes that the
-// caller is holding the arbitration lock.
-
-bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
-                                           const char *         prefix,
-                                           UInt32               unit,
-                                           OSArray *            array,
-                                           bool                 fixedUnit )
-{
-    bool   success = false;
-    UInt32 inUnit  = unit;
-
-    DLOG("%p %s %ld\n", netif, prefix ? prefix : "", unit);
-
-    assert( netif && array );
+    // netif retained by caller
+    _ifListNaming->removeObject(netif);
 
     do {
-        if ( prefix == 0 )
+        if (!prefix)
         {
-            LOG("missing interface name prefix\n");
+            LOG("interface name prefix is null\n");
             break;
         }
 
-        // Verify that the interface object given is known.
+        // Interface must be in the published state.
 
-        if ( containsInterface(netif) == false )
+        if (NIF_VAR(netif) != kInterfaceStatePublished )
         {
-            LOG("unable to register unknown interface as %s%u\n",
-                prefix, (uint32_t) inUnit);
-            break;
-        }
-
-        // Interface must be in Active state.
-
-        if ( NETIF_FLAGS(netif) != kInterfaceFlagActive )
-        {
-            LOG("unable to register interface in state 0x%x as %s%u\n",
-                (uint32_t) NETIF_FLAGS(netif), prefix, (uint32_t) inUnit);
+            LOG("unable to name interface in state 0x%x as %s%u\n",
+                (uint32_t) NIF_VAR(netif), prefix, inUnit);
             break;
         }
 
@@ -692,380 +538,218 @@ bool IONetworkStack::preRegisterInterface( IONetworkInterface * netif,
         // taken.
 
         unit = getNextAvailableUnitNumber(prefix, unit);
-        if ( (fixedUnit == true) && (unit != inUnit) )
+        if ((isUnitFixed == true) && (unit != inUnit))
         {
-            LOG("interface name %s%u is unavailable\n",
-                prefix, (uint32_t) inUnit);
+            LOG("interface name %s%u is unavailable\n", prefix, inUnit);
             break;
         }
 
         // Open the interface object. This will fail if the interface
-        // object has become inactive. Beware of reverse lock acquisition
-        // sequence, which is interface then stack arbitration lock.
-        // Must avoid taking locks in that order to avoid deadlocks.
-        // The only exception is when handling the "First Publish"
-        // notification, which is safe since the stack object does not
-        // yet have a reference to the new interface.
+        // object has become inactive.
 
-        if ( netif->open(this) == false )
+        UNLOCK();
+        ok = netif->open(this);
+        LOCK();
+
+        if (!ok)
         {
-            LOG("interface %s%u open failed\n",
-                prefix, (uint32_t) inUnit);
+            LOG("interface %s%u open failed\n", prefix, inUnit);
+            break;
+        }
+        opened = true;
+        ok = false;
+
+        // Check if preempted by interface termination
+        if (NIF_TEST(netif, kInterfaceStateInactive))
+        {
+            LOG("interface %s%u became inactive\n", prefix, inUnit);
             break;
         }
 
-        // Update interface name properties and add the interface object
-        // to a collection of registered interfaces. The chosen name will
-        // be reserved until the interface is removed from the collection
-        // of registered interfaces.
+        // Update interface unit and add the interface to the named
+        // collection to reserve its assigned unit number.
 
-        if ( ( netif->setUnitNumber(unit) == false    ) ||
-             ( addRegisteredInterface(netif) == false ) )
+        if ((netif->setUnitNumber(unit)    == false) ||
+            (insertNetworkInterface(netif) == false))
         {
-            netif->close(this);
-            LOG("interface %s%u registration failed\n",
-                prefix, (uint32_t) inUnit);
+            LOG("interface %s%u name assigment failed\n", prefix, inUnit);
             break;
         }
 
-        success = true;
+        ok = true;
     }
     while ( false );
 
-    if ( success )
+    if (ok)
+        NIF_SET(netif, kInterfaceStateAttaching);
+
+    UNLOCK();
+
+    if (!ok && opened)
     {
-        // Mark the interface as in the process of registering.
-
-        SET_NETIF_FLAGS( netif, kInterfaceFlagRegistering );
-
-        // Add interface to pre-registration array.
-        // We assume the array has enough storage space for the new entry.
-
-        success = array->setObject( netif );
-        assert( success );
+        netif->close(this);
     }
 
-    return success;
+    return ok;
 }
 
-//---------------------------------------------------------------------------
-// Complete the registration of interface objects stored in the array provided.
-// The arbitration lock should not be held when the 'isSync' flag is true.
+//------------------------------------------------------------------------------
 
-void
-IONetworkStack::completeRegistration( OSArray * array, bool isSync )
+IOReturn IONetworkStack::attachNetworkInterfaceToBSD( IONetworkInterface * netif )
 {
-    if ( isSync )
-    {
-        completeRegistrationUsingArray( array, NULL );
-    }
-    else
-    {
-		thread_call_t regCompleteThread;
-		
-		regCompleteThread = thread_call_allocate((thread_call_func_t) completeRegistrationUsingArray, array);
-		if(regCompleteThread == 0) //what the!? system must be hurting.
-		{
-			IOLog("IONetworkStack: couldn't allocate a thread call\n");
-			completeRegistrationUsingArray(array, NULL); //do it synchronously
-		}
-		else
-			thread_call_enter1( regCompleteThread, regCompleteThread);
-    }
-}
-
-void
-IONetworkStack::completeRegistrationUsingArray( OSArray * array, thread_call_t threadedcall )
-{
-    IONetworkInterface * netif;
-
-    assert( array );
-
-    for ( UInt32 i = 0; i < array->getCount(); i++ )
-    {
-        netif = (IONetworkInterface *) array->getObject(i);
-        assert( netif );
-
-        registerBSDInterface( netif );
-    }
-
-    array->release();   // consumes a ref count
-	if(threadedcall)
-		thread_call_free(threadedcall);
-}
-
-//---------------------------------------------------------------------------
-// Call DLIL functions to register the BSD interface.
-
-void IONetworkStack::registerBSDInterface( IONetworkInterface * netif )
-{
-    bool      doTermination = false;
-    char      ifname[20];
+    bool        attachOK     = false;
+    bool        detachWakeup = false;
+    bool        pingMatching = false;
+    char        ifname[32];
+    IOReturn    result;
 
     assert( netif );
-    if ( netif->attachToDataLinkLayer( 0, 0 ) != kIOReturnSuccess )
+    if ((result = netif->attachToDataLinkLayer(0, 0)) == kIOReturnSuccess)
     {
-        return;  // interface attach failed
+        // Hack to sync up the interface flags. The UP flag may already
+        // be set, and this will issue an SIOCSIFFLAGS to the interface.
+
+        ifnet_ioctl(netif->getIfnet(), 0, SIOCSIFFLAGS, 0);
+
+        // Interface is now attached to BSD.
+        netif->setInterfaceState( kIONetworkInterfaceRegisteredState );
+
+        // Add a kIOBSDNameKey property to the interface AFTER the interface
+        // has attached to BSD. The order is very important to avoid rooting
+        // from an interface which is not yet known by BSD.
+
+        snprintf(ifname, sizeof(ifname), "%s%u",
+            netif->getNamePrefix(), netif->getUnitNumber());
+        netif->setProperty(kIOBSDNameKey, ifname);
+        attachOK = true;
     }
-
-    // Hack to sync up the interface flags. The UP flag may already
-    // be set, and this will issue an SIOCSIFFLAGS to the interface.
-
-    ifnet_ioctl(netif->getIfnet(), 0, SIOCSIFFLAGS, 0 );
-
-    // Interface is now registered with DLIL.
-
-    netif->setInterfaceState( kIONetworkInterfaceRegisteredState );
-
-    // Add a kIOBSDNameKey property to the interface AFTER the interface
-    // has registered with DLIL. The order is very important to avoid
-    // rooting from an interface which is not yet known by BSD.
-    snprintf(ifname, sizeof(ifname), "%s%d", netif->getNamePrefix(), netif->getUnitNumber());
-    netif->setProperty(kIOBSDNameKey, ifname);
 
     // Update state bits and detect for untimely interface termination.
 
-    gIONetworkStack->lockForArbitration();
+    LOCK();
+    assert(( NIF_VAR(netif) &
+           ( kInterfaceStateAttaching | kInterfaceStateAttached )) ==
+             kInterfaceStateAttaching );
+    NIF_CLR( netif, kInterfaceStateAttaching );
 
-    assert( ( NETIF_FLAGS(netif) &
-            ( kInterfaceFlagRegistering | kInterfaceFlagRegistered ) ) ==
-              kInterfaceFlagRegistering );
-
-    CLR_NETIF_FLAGS( netif, kInterfaceFlagRegistering );
-    SET_NETIF_FLAGS( netif, kInterfaceFlagRegistered  );
-
-    if ( ( NETIF_FLAGS(netif) & kInterfaceFlagActive ) == 0 )
+    if (attachOK)
     {
-        doTermination = true;
+        NIF_SET( netif, kInterfaceStateAttached  );
+        pingMatching = true;
+
+        if (NIF_TEST(netif, kInterfaceStateInactive))
+        {
+            if (!_ifListDetach)
+                _ifListDetach = OSArray::withCapacity(8);
+            if (_ifListDetach)
+            {
+                _ifListDetach->setObject(netif);
+                detachWakeup = true;
+            }
+            pingMatching = false;
+        }
     }
     else
     {
-        // Re-register interface after the interface has registered with BSD.
-        // Is there a danger in calling registerService while holding the
-        // gIONetworkStack's arbitration lock?
+        // BSD attach failed, drop from list of attached interfaces
+        removeNetworkInterface(netif);
+    }
 
+    UNLOCK();
+
+    if (!attachOK)
+    {
+        netif->close( this );
+        detach(netif);
+    }
+
+    if (detachWakeup)
+    {
+        // In the event that an interface was terminated while attaching
+        // to BSD, re-schedule the BSD detach and interface close.
+        thread_call_enter(_asyncThread);
+    }
+
+    if (pingMatching)
+    {
+        // Re-register interface after the interface has attached to BSD.
         netif->registerService();
     }
 
-    gIONetworkStack->unlockForArbitration();
-
-    // In the unlikely event that an interface was terminated before
-    // being registered, re-issue the termination message and tear it
-    // all down.
-
-    if ( doTermination )
-    {
-        gIONetworkStack->message(kIOMessageServiceIsTerminated, netif);
-    }
+    return result;
 }
 
-//---------------------------------------------------------------------------
-// External/Public API - Register all interfaces.
+//------------------------------------------------------------------------------
 
-IOReturn
-IONetworkStack::registerAllInterfaces()
+IOReturn IONetworkStack::registerAllNetworkInterfaces( void )
 {
-    IONetworkInterface * netif;
-    const UInt32         unit = 0;
-    OSArray *            array;
+    IONetworkInterface *    netif;
+    OSSet *                 list;
 
-    lockForArbitration();
+    LOCK();
 
-    // Allocate array to hold pre-registered interface objects.
-
-    array = OSArray::withCapacity( _ifSet->getCount() );
-    if ( array == 0 )
+    if (!_ifListNaming || (_ifListNaming->getCount() == 0))
     {
-        unlockForArbitration();
-        return kIOReturnNoMemory;
-    }
-
-    // Iterate through all interface objects.
-
-    for ( UInt32 index = 0; ( netif = getInterface(index) ); index++ )
-    {
-        // Interface must be Active and not yet registered.
-
-        if ( NETIF_FLAGS(netif) != kInterfaceFlagActive )
-        {
-            continue;
-        }
-
-        // Pre-register the interface.
-
-        preRegisterInterface( netif,
-                              netif->getNamePrefix(),
-                              unit,
-                              array );
-    }
-
-    unlockForArbitration();
-
-    // Complete registration without holding the arbitration lock.
-
-    completeRegistration( array, true );
-
-    return kIOReturnSuccess;
-}
-
-//---------------------------------------------------------------------------
-// External/Public API - Register primary interface.
-
-IOReturn IONetworkStack::registerPrimaryInterface( bool enable )
-{
-    IONetworkInterface * netif;
-    const UInt32         unit = 0;
-    OSArray *            array;
-
-    lockForArbitration();
-
-    _registerPrimaryInterface = enable;
-
-    if ( _registerPrimaryInterface == false )
-    {
-        unlockForArbitration();
+        UNLOCK();
         return kIOReturnSuccess;
     }
 
-    // Allocate array to hold pre-registered interface objects.
+    list = OSSet::withSet( _ifListNaming );
 
-    array = OSArray::withCapacity( _ifSet->getCount() );
-    if ( array == 0 )
+    UNLOCK();
+
+    if (list == 0)
     {
-        unlockForArbitration();
         return kIOReturnNoMemory;
     }
 
-    // Iterate through all interface objects.
-
-    for ( UInt32 index = 0; ( netif = getInterface(index) ); index++ )
+    while ((netif = NIF_CAST(list->getAnyObject())))
     {
-        const char * prefix = netif->getNamePrefix();
-    
-        // Interface must be Active and not yet registered.
+        if (reserveInterfaceUnitNumber( netif, 0, false ))
+            attachNetworkInterfaceToBSD( netif );
 
-        if ( NETIF_FLAGS(netif) != kInterfaceFlagActive )
-        {
-            continue;
-        }
-
-        // Primary only.
-
-        if ( netif->isPrimaryInterface() != true )
-        {
-            continue;
-        }
-
-        // If the unit slot is already taken, forget it.
-
-        if ( getRegisteredInterface( prefix, unit ) )
-        {
-            continue;
-        }
-
-        // Pre-register the interface.
-
-        preRegisterInterface( netif, prefix, unit, array );
+        list->removeObject(netif);
     }
 
-    unlockForArbitration();
-
-    // Complete registration without holding the arbitration lock.
-
-    completeRegistration( array, true );
+    list->release();   
 
     return kIOReturnSuccess;
 }
 
-//---------------------------------------------------------------------------
-// External/Public API - Register a single interface.
+//------------------------------------------------------------------------------
 
-IOReturn IONetworkStack::registerInterface( IONetworkInterface * netif,
-                                            const char *         prefix,
-                                            UInt32               unit,
-                                            bool                 isSync,
-                                            bool                 fixedUnit )
+IOReturn IONetworkStack::registerNetworkInterface(
+    IONetworkInterface * netif,
+    uint32_t             unit,
+    bool                 isUnitFixed )
 {
-    bool       ret;
-    OSArray *  array;
+    IOReturn result = kIOReturnNoSpace;
 
-    // Create pre-registration array.
+    if (reserveInterfaceUnitNumber( netif, unit, isUnitFixed ))
+        result = attachNetworkInterfaceToBSD( netif );
 
-    array = OSArray::withCapacity( 1 );
-    if ( array == 0 )
-    {
-        return kIOReturnNoMemory;
-    }
-
-    // Pre-registration has to be serialized, but the registration can
-    // (and should) be completed without holding a lock. If the interface
-    // has already been registered, or cannot be registered, then the
-    // return value will be false.
-
-    lockForArbitration();
-    ret = preRegisterInterface( netif, prefix, unit, array, fixedUnit );
-    unlockForArbitration();
-
-    // Complete the registration synchronously or asynchronously.
-    // If synchronous, then this call will return after the interface
-    // object in the array has registered with DLIL.
-
-    completeRegistration( array, isSync );
-
-    return ret ? kIOReturnSuccess : kIOReturnError;
+    return result;
 }
 
-//---------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 // Registered interfaces are ordered by their assigned unit number. Those with
 // larger unit numbers will be placed behind those with smaller unit numbers.
 // This ordering makes it easier to hunt for an available unit number slot for
 // a new interface.
 
-SInt32 IONetworkStack::
-orderRegisteredInterfaces( const OSMetaClassBase * obj1,
-                           const OSMetaClassBase * obj2,
-                           void *     ref )
+SInt32 IONetworkStack::orderNetworkInterfaces(
+    const OSMetaClassBase * obj1,
+    const OSMetaClassBase * obj2,
+    void *                  ref )
 {
     const IONetworkInterface * netif1 = (const IONetworkInterface *) obj1;
     const IONetworkInterface * netif2 = (const IONetworkInterface *) obj2;
 
     assert( netif1 && netif2 );
-
-    return ( netif2->getUnitNumber() - netif1->getUnitNumber() );
+    return (netif2->getUnitNumber() - netif1->getUnitNumber());
 }
 
-//---------------------------------------------------------------------------
-// Create a user-client object to manage user space access.
-
-IOReturn IONetworkStack::newUserClient( task_t           owningTask,
-                                        void *           /* security_id */,
-                                        UInt32           /* type */,
-                                        IOUserClient **  handler )
-{
-    IOReturn       err = kIOReturnSuccess;
-    IOUserClient * client;
-
-    client = IONetworkStackUserClient::withTask(owningTask);
-
-    if (!client || !client->attach(this) || !client->start(this))
-    {
-        if (client)
-        {
-            client->detach(this);
-            client->release();
-            client = 0;
-            err = kIOReturnExclusiveAccess;
-        }
-        else
-        {
-            err = kIOReturnNoMemory;
-        }
-    }
-
-    *handler = client;
-
-    return err;
-}
+//------------------------------------------------------------------------------
 
 IOReturn IONetworkStack::setProperties( OSObject * properties )
 {
@@ -1094,7 +778,7 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
 
         if (kIONetworkStackRegisterInterfaceAll == cmdType)
         {
-            error = registerAllInterfaces();
+            error = registerAllNetworkInterfaces();
             break;
         }
 
@@ -1163,19 +847,17 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
         switch ( cmdType )
         {
             case kIONetworkStackRegisterInterfaceWithUnit:
-                error = registerInterface( netif,
-                                           netif->getNamePrefix(),
-                                           unit->unsigned32BitValue(),
-                                           true, /* synchronous */
-                                           true  /* fixedUnit   */ );
+                error = registerNetworkInterface(
+                            netif,
+                            unit->unsigned32BitValue(),
+                            true  /* fixedUnit   */ );
                 break;
 
             case kIONetworkStackRegisterInterfaceWithLowestUnit:
-                error = registerInterface( netif,
-                                           netif->getNamePrefix(),
-                                           unit->unsigned32BitValue(),
-                                           true, /* synchronous */
-                                           false /* fixedUnit   */ );
+                error = registerNetworkInterface(
+                            netif,
+                            unit->unsigned32BitValue(),
+                            false /* fixedUnit   */ );
                 break;
 
             default:
@@ -1190,23 +872,26 @@ IOReturn IONetworkStack::setProperties( OSObject * properties )
     return error;
 }
 
-//---------------------------------------------------------------------------
-// IONetworkStackUserClient implementation.
+//------------------------------------------------------------------------------
+// IONetworkStackUserClient
 
 #undef  super
 #define super IOUserClient
-OSDefineMetaClassAndStructors( IONetworkStackUserClient, IOUserClient )
+OSDefineMetaClassAndFinalStructors( IONetworkStackUserClient, IOUserClient )
 
-IONetworkStackUserClient * IONetworkStackUserClient::withTask( task_t task )
+bool IONetworkStackUserClient::initWithTask(	task_t			owningTask,
+                                                void *			securityID,
+                                                UInt32			type,
+                                                OSDictionary *	properties )
 {
-    IONetworkStackUserClient * me = new IONetworkStackUserClient;
+	if (!super::initWithTask(owningTask, securityID, type, properties))
+		return false;
 
-    if ( me && me->init() == false )
-    {
-        me->release();
-        return 0;
-    }
-    return me;
+	if (IOUserClient::clientHasPrivilege(
+		securityID, kIOClientPrivilegeAdministrator) != kIOReturnSuccess)
+		return false;
+
+    return true;
 }
 
 bool IONetworkStackUserClient::start( IOService * provider )
@@ -1217,12 +902,17 @@ bool IONetworkStackUserClient::start( IOService * provider )
     if ( provider->open(this) == false )
         return false;
 
-    _provider = (IONetworkStack *) provider;
+    _provider = OSDynamicCast(IONetworkStack, provider);
+    if (!_provider)
+    {
+        provider->close(this);
+        return false;
+    }
 
     return true;
 }
 
-IOReturn IONetworkStackUserClient::clientClose()
+IOReturn IONetworkStackUserClient::clientClose( void )
 {
     if (_provider)
     {
@@ -1232,7 +922,7 @@ IOReturn IONetworkStackUserClient::clientClose()
     return kIOReturnSuccess;
 }
 
-IOReturn IONetworkStackUserClient::clientDied()
+IOReturn IONetworkStackUserClient::clientDied( void )
 {
     return clientClose();
 }
@@ -1245,6 +935,7 @@ IOReturn IONetworkStackUserClient::setProperties( OSObject * properties )
         return kIOReturnNotPrivileged;
     }
 
-    return ( _provider ) ? _provider->setProperties( properties )
-                         : kIOReturnNotReady;
+    return ( _provider ) ?
+        _provider->setProperties( properties ) :
+        kIOReturnNotReady;
 }

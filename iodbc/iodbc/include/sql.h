@@ -787,21 +787,21 @@ extern "C" {
  */
 SQLRETURN SQL_API SQLAllocConnect (
     SQLHENV		  EnvironmentHandle,
-    SQLHDBC		* ConnectionHandle);
+    SQLHDBC		* ConnectionHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLAllocEnv (
-    SQLHENV		* EnvironmentHandle);
+    SQLHENV		* EnvironmentHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLAllocHandle (
     SQLSMALLINT		  HandleType,
     SQLHANDLE		  InputHandle,
-    SQLHANDLE		* OutputHandle);
+    SQLHANDLE		* OutputHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif	/* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLAllocStmt (
     SQLHDBC		  ConnectionHandle,
-    SQLHSTMT		* StatementHandle);
+    SQLHSTMT		* StatementHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLBindCol (
     SQLHSTMT		  StatementHandle,
@@ -809,7 +809,7 @@ SQLRETURN SQL_API SQLBindCol (
     SQLSMALLINT		  TargetType,
     SQLPOINTER		  TargetValue,
     SQLLEN		  BufferLength,
-    SQLLEN		* StrLen_or_Ind);
+    SQLLEN		* StrLen_or_Ind) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLBindParam (
@@ -820,15 +820,15 @@ SQLRETURN SQL_API SQLBindParam (
     SQLULEN		  LengthPrecision,
     SQLSMALLINT		  ParameterScale,
     SQLPOINTER		  ParameterValue,
-    SQLLEN		* StrLen_or_Ind);
+    SQLLEN		* StrLen_or_Ind) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLCancel (
-    SQLHSTMT		  StatementHandle);
+    SQLHSTMT		  StatementHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLCloseCursor (
-    SQLHSTMT		  StatementHandle);
+    SQLHSTMT		  StatementHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 /*
  *  Using SQLLEN * instead of SQLPOINTER for NumericAttribute,
@@ -842,7 +842,7 @@ SQLRETURN SQL_API SQLColAttribute (
     SQLPOINTER		  CharacterAttribute,
     SQLSMALLINT		  BufferLength,
     SQLSMALLINT		* StringLength,
-    SQLLEN		* NumericAttribute);
+    SQLLEN		* NumericAttribute) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLColumns (
@@ -854,7 +854,7 @@ SQLRETURN SQL_API SQLColumns (
     SQLCHAR		* TableName,
     SQLSMALLINT		  NameLength3,
     SQLCHAR		* ColumnName,
-    SQLSMALLINT		  NameLength4);
+    SQLSMALLINT		  NameLength4) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLConnect (
     SQLHDBC		  ConnectionHandle,
@@ -863,12 +863,12 @@ SQLRETURN SQL_API SQLConnect (
     SQLCHAR		* UserName,
     SQLSMALLINT		  NameLength2,
     SQLCHAR		* Authentication,
-    SQLSMALLINT		  NameLength3);
+    SQLSMALLINT		  NameLength3) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLCopyDesc (
     SQLHDESC		  SourceDescHandle,
-    SQLHDESC		  TargetDescHandle);
+    SQLHDESC		  TargetDescHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLDataSources (
@@ -879,7 +879,7 @@ SQLRETURN SQL_API SQLDataSources (
     SQLSMALLINT		* NameLength1,
     SQLCHAR		* Description,
     SQLSMALLINT		  BufferLength2,
-    SQLSMALLINT		* NameLength2);
+    SQLSMALLINT		* NameLength2) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDescribeCol (
     SQLHSTMT		  StatementHandle,
@@ -890,16 +890,16 @@ SQLRETURN SQL_API SQLDescribeCol (
     SQLSMALLINT		* DataType,
     SQLULEN		* ColumnSize,
     SQLSMALLINT		* DecimalDigits,
-    SQLSMALLINT		* Nullable);
+    SQLSMALLINT		* Nullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLDisconnect (
-    SQLHDBC		  ConnectionHandle);
+    SQLHDBC		  ConnectionHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLEndTran (
     SQLSMALLINT		  HandleType,
     SQLHANDLE		  Handle,
-    SQLSMALLINT		  CompletionType);
+    SQLSMALLINT		  CompletionType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLError (
@@ -910,41 +910,41 @@ SQLRETURN SQL_API SQLError (
     SQLINTEGER		* NativeError,
     SQLCHAR		* MessageText,
     SQLSMALLINT		  BufferLength,
-    SQLSMALLINT		* TextLength);
+    SQLSMALLINT		* TextLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLExecDirect (
     SQLHSTMT		  StatementHandle,
     SQLCHAR		* StatementText,
-    SQLINTEGER		  TextLength);
+    SQLINTEGER		  TextLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLExecute (
-    SQLHSTMT		  StatementHandle);
+    SQLHSTMT		  StatementHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLFetch (
-    SQLHSTMT		  StatementHandle);
+    SQLHSTMT		  StatementHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLFetchScroll (
     SQLHSTMT		  StatementHandle,
     SQLSMALLINT		  FetchOrientation,
-    SQLLEN		  FetchOffset);
+    SQLLEN		  FetchOffset) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLFreeConnect (
-    SQLHDBC		  ConnectionHandle);
+    SQLHDBC		  ConnectionHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLFreeEnv (
-    SQLHENV		  EnvironmentHandle);
+    SQLHENV		  EnvironmentHandle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLFreeHandle (
     SQLSMALLINT		  HandleType,
-    SQLHANDLE		  Handle);
+    SQLHANDLE		  Handle) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLFreeStmt (
     SQLHSTMT		  StatementHandle,
-    SQLUSMALLINT	  Option);
+    SQLUSMALLINT	  Option) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLGetConnectAttr (
@@ -952,19 +952,19 @@ SQLRETURN SQL_API SQLGetConnectAttr (
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
     SQLINTEGER		  BufferLength,
-    SQLINTEGER		* StringLength);
+    SQLINTEGER		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLGetConnectOption (
     SQLHDBC		  ConnectionHandle,
     SQLUSMALLINT	  Option,
-    SQLPOINTER		  Value);
+    SQLPOINTER		  Value) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetCursorName (
     SQLHSTMT		  StatementHandle,
     SQLCHAR		* CursorName,
     SQLSMALLINT		  BufferLength,
-    SQLSMALLINT		* NameLength);
+    SQLSMALLINT		* NameLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetData (
     SQLHSTMT		  StatementHandle,
@@ -972,7 +972,7 @@ SQLRETURN SQL_API SQLGetData (
     SQLSMALLINT		  TargetType,
     SQLPOINTER		  TargetValue,
     SQLLEN		  BufferLength,
-    SQLLEN		* StrLen_or_Ind);
+    SQLLEN		* StrLen_or_Ind) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLGetDescField (
@@ -981,7 +981,7 @@ SQLRETURN SQL_API SQLGetDescField (
     SQLSMALLINT		  FieldIdentifier,
     SQLPOINTER		  Value,
     SQLINTEGER		  BufferLength,
-    SQLINTEGER		* StringLength);
+    SQLINTEGER		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDescRec (
     SQLHDESC		  DescriptorHandle,
@@ -994,7 +994,7 @@ SQLRETURN SQL_API SQLGetDescRec (
     SQLLEN		* Length,
     SQLSMALLINT		* Precision,
     SQLSMALLINT		* Scale,
-    SQLSMALLINT		* Nullable);
+    SQLSMALLINT		* Nullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagField (
     SQLSMALLINT		  HandleType,
@@ -1003,7 +1003,7 @@ SQLRETURN SQL_API SQLGetDiagField (
     SQLSMALLINT		  DiagIdentifier,
     SQLPOINTER		  DiagInfo,
     SQLSMALLINT		  BufferLength,
-    SQLSMALLINT		* StringLength);
+    SQLSMALLINT		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetDiagRec (
     SQLSMALLINT		  HandleType,
@@ -1013,27 +1013,27 @@ SQLRETURN SQL_API SQLGetDiagRec (
     SQLINTEGER		* NativeError,
     SQLCHAR		* MessageText,
     SQLSMALLINT		  BufferLength,
-    SQLSMALLINT		* TextLength);
+    SQLSMALLINT		* TextLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetEnvAttr (
     SQLHENV		  EnvironmentHandle,
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
     SQLINTEGER		  BufferLength,
-    SQLINTEGER		* StringLength);
+    SQLINTEGER		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif /* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLGetFunctions (
     SQLHDBC		ConnectionHandle,
     SQLUSMALLINT	FunctionId,
-    SQLUSMALLINT *	Supported);
+    SQLUSMALLINT *	Supported) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetInfo (
     SQLHDBC		  ConnectionHandle,
     SQLUSMALLINT	  InfoType,
     SQLPOINTER		  InfoValue,
     SQLSMALLINT		  BufferLength,
-    SQLSMALLINT		* StringLength);
+    SQLSMALLINT		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLGetStmtAttr (
@@ -1041,57 +1041,57 @@ SQLRETURN SQL_API SQLGetStmtAttr (
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
     SQLINTEGER		  BufferLength,
-    SQLINTEGER		* StringLength);
+    SQLINTEGER		* StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif /* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLGetStmtOption (
     SQLHSTMT		  StatementHandle,
     SQLUSMALLINT	  Option,
-    SQLPOINTER		  Value);
+    SQLPOINTER		  Value) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLGetTypeInfo (
     SQLHSTMT		  StatementHandle,
-    SQLSMALLINT		  DataType);
+    SQLSMALLINT		  DataType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLNumResultCols (
     SQLHSTMT		  StatementHandle,
-    SQLSMALLINT		* ColumnCount);
+    SQLSMALLINT		* ColumnCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLParamData (
     SQLHSTMT		  StatementHandle,
-    SQLPOINTER		* Value);
+    SQLPOINTER		* Value) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLPrepare (
     SQLHSTMT		  StatementHandle,
     SQLCHAR		* StatementText,
-    SQLINTEGER		  TextLength);
+    SQLINTEGER		  TextLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLPutData (
     SQLHSTMT		  StatementHandle,
     SQLPOINTER		  Data,
-    SQLLEN		  StrLen_or_Ind);
+    SQLLEN		  StrLen_or_Ind) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLRowCount (
     SQLHSTMT		  StatementHandle,
-    SQLLEN		* RowCount);
+    SQLLEN		* RowCount) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLSetConnectAttr (
     SQLHDBC		  ConnectionHandle,
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
-    SQLINTEGER		  StringLength);
+    SQLINTEGER		  StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif /* ODBCVER >= 0x0300 */
 
 SQLRETURN SQL_API SQLSetConnectOption (
     SQLHDBC		  ConnectionHandle,
     SQLUSMALLINT	  Option,
-    SQLULEN		  Value);
+    SQLULEN		  Value) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetCursorName (
     SQLHSTMT		  StatementHandle,
     SQLCHAR		* CursorName,
-    SQLSMALLINT		  NameLength);
+    SQLSMALLINT		  NameLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #if (ODBCVER >= 0x0300)
 SQLRETURN SQL_API SQLSetDescField (
@@ -1099,7 +1099,7 @@ SQLRETURN SQL_API SQLSetDescField (
     SQLSMALLINT		  RecNumber,
     SQLSMALLINT		  FieldIdentifier,
     SQLPOINTER		  Value,
-    SQLINTEGER		  BufferLength);
+    SQLINTEGER		  BufferLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetDescRec (
     SQLHDESC		  DescriptorHandle,
@@ -1111,13 +1111,13 @@ SQLRETURN SQL_API SQLSetDescRec (
     SQLSMALLINT		  Scale,
     SQLPOINTER		  Data,
     SQLLEN		* StringLength,
-    SQLLEN		* Indicator);
+    SQLLEN		* Indicator) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSetEnvAttr (
     SQLHENV		  EnvironmentHandle,
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
-    SQLINTEGER		  StringLength);
+    SQLINTEGER		  StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif /* ODBCVER >= 0x0300 */
 
 
@@ -1126,13 +1126,13 @@ SQLRETURN SQL_API SQLSetStmtAttr (
     SQLHSTMT		  StatementHandle,
     SQLINTEGER		  Attribute,
     SQLPOINTER		  Value,
-    SQLINTEGER		  StringLength);
+    SQLINTEGER		  StringLength) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 #endif
 
 SQLRETURN SQL_API SQLSetStmtOption (
     SQLHSTMT		  StatementHandle,
     SQLUSMALLINT	  Option,
-    SQLULEN		  Value);
+    SQLULEN		  Value) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLSpecialColumns (
     SQLHSTMT		  StatementHandle,
@@ -1144,7 +1144,7 @@ SQLRETURN SQL_API SQLSpecialColumns (
     SQLCHAR		* TableName,
     SQLSMALLINT		  NameLength3,
     SQLUSMALLINT	  Scope,
-    SQLUSMALLINT	  Nullable);
+    SQLUSMALLINT	  Nullable) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLStatistics (
     SQLHSTMT		  StatementHandle,
@@ -1155,7 +1155,7 @@ SQLRETURN SQL_API SQLStatistics (
     SQLCHAR		* TableName,
     SQLSMALLINT		  NameLength3,
     SQLUSMALLINT	  Unique,
-    SQLUSMALLINT	  Reserved);
+    SQLUSMALLINT	  Reserved) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTables (
     SQLHSTMT		  StatementHandle,
@@ -1166,12 +1166,12 @@ SQLRETURN SQL_API SQLTables (
     SQLCHAR		* TableName,
     SQLSMALLINT		  NameLength3,
     SQLCHAR		* TableType,
-    SQLSMALLINT		  NameLength4);
+    SQLSMALLINT		  NameLength4) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 SQLRETURN SQL_API SQLTransact (
     SQLHENV		  EnvironmentHandle,
     SQLHDBC		  ConnectionHandle,
-    SQLUSMALLINT	  CompletionType);
+    SQLUSMALLINT	  CompletionType) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 
 /*
@@ -1185,7 +1185,7 @@ SQLRETURN SQL_API SQLSetParam (
     SQLULEN		  LengthPrecision,
     SQLSMALLINT		  ParameterScale,
     SQLPOINTER		  ParameterValue,
-    SQLLEN		* StrLen_or_Ind);
+    SQLLEN		* StrLen_or_Ind) DEPRECATED_IN_MAC_OS_X_VERSION_10_8_AND_LATER;
 
 #ifdef __cplusplus
 }

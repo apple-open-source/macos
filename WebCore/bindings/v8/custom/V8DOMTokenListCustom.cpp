@@ -38,17 +38,17 @@
 
 namespace WebCore {
 
-v8::Handle<v8::Value> toV8(DOMTokenList* impl)
+v8::Handle<v8::Value> toV8(DOMTokenList* impl, v8::Isolate* isolate)
 {
     if (!impl)
         return v8::Null();
-    v8::Handle<v8::Object> wrapper = V8DOMTokenList::wrap(impl);
+    v8::Handle<v8::Object> wrapper = V8DOMTokenList::wrap(impl, isolate);
     // Add a hidden reference from the element to the DOMTokenList.
     Element* element = impl->element();
     if (!wrapper.IsEmpty() && element) {
-        v8::Handle<v8::Value> elementValue = toV8(element);
+        v8::Handle<v8::Value> elementValue = toV8(element, isolate);
         if (!elementValue.IsEmpty() && elementValue->IsObject())
-            V8DOMWrapper::setHiddenReference(elementValue.As<v8::Object>(), wrapper);
+            elementValue.As<v8::Object>()->SetHiddenValue(V8HiddenPropertyName::domTokenList(), wrapper);
     }
     return wrapper;
 }

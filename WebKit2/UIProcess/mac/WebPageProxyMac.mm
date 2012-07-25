@@ -31,16 +31,24 @@
 #import "DictionaryPopupInfo.h"
 #import "EditorState.h"
 #import "NativeWebKeyboardEvent.h"
+#import "PluginComplexTextInputState.h"
 #import "PageClient.h"
 #import "PageClientImpl.h"
+#import "StringUtilities.h"
 #import "TextChecker.h"
 #import "WebPageMessages.h"
 #import "WebProcessProxy.h"
+#import <WebCore/DictationAlternative.h>
+#import <WebCore/SharedBuffer.h>
+#import <WebCore/TextAlternativeWithRange.h>
+#import <WebKitSystemInterface.h>
 #import <wtf/text/StringConcatenate.h>
 
 @interface NSApplication (Details)
 - (void)speakString:(NSString *)string;
 @end
+
+#define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process()->connection())
 
 using namespace WebCore;
 
@@ -53,6 +61,18 @@ namespace WebKit {
 #else
 #error Unknown architecture
 #endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+
+static String macOSXVersionString()
+{
+    // Use underscores instead of dots because when we first added the Mac OS X version to the user agent string
+    // we were concerned about old DHTML libraries interpreting "4." as Netscape 4. That's no longer a concern for us
+    // but we're sticking with the underscores for compatibility with the format used by older versions of Safari.
+    return [WKGetMacOSXVersionString() stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+}
+
+#else
 
 static inline int callGestalt(OSType selector)
 {
@@ -76,6 +96,8 @@ static String macOSXVersionString()
         return String::format("%d_%d", major, minor);
     return String::format("%d", major);
 }
+
+#endif // !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
 
 static String userVisibleWebKitVersionString()
 {
@@ -160,12 +182,12 @@ void WebPageProxy::confirmComposition()
     process()->sendSync(Messages::WebPage::ConfirmComposition(), Messages::WebPage::ConfirmComposition::Reply(m_editorState), m_pageID);
 }
 
-void WebPageProxy::confirmCompositionWithoutDisturbingSelection()
+void WebPageProxy::cancelComposition()
 {
     if (!isValid())
         return;
 
-    process()->sendSync(Messages::WebPage::ConfirmCompositionWithoutDisturbingSelection(), Messages::WebPage::ConfirmComposition::Reply(m_editorState), m_pageID);
+    process()->sendSync(Messages::WebPage::CancelComposition(), Messages::WebPage::ConfirmComposition::Reply(m_editorState), m_pageID);
 }
 
 bool WebPageProxy::insertText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
@@ -176,6 +198,35 @@ bool WebPageProxy::insertText(const String& text, uint64_t replacementRangeStart
     bool handled = true;
     process()->sendSync(Messages::WebPage::InsertText(text, replacementRangeStart, replacementRangeEnd), Messages::WebPage::InsertText::Reply(handled, m_editorState), m_pageID);
     return handled;
+}
+
+bool WebPageProxy::insertDictatedText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd, const Vector<TextAlternativeWithRange>& dictationAlternativesWithRange)
+{
+#if USE(DICTATION_ALTERNATIVES)
+    if (dictationAlternativesWithRange.isEmpty())
+        return insertText(text, replacementRangeStart, replacementRangeEnd);
+
+    if (!isValid())
+        return true;
+
+    Vector<DictationAlternative> dictationAlternatives;
+
+    for (size_t i = 0; i < dictationAlternativesWithRange.size(); ++i) {
+        const TextAlternativeWithRange& alternativeWithRange = dictationAlternativesWithRange[i];
+        uint64_t dictationContext = m_pageClient->addDictationAlternatives(alternativeWithRange.alternatives);
+        if (dictationContext)
+            dictationAlternatives.append(DictationAlternative(alternativeWithRange.range.location, alternativeWithRange.range.length, dictationContext));
+    }
+
+    if (dictationAlternatives.isEmpty())
+        return insertText(text, replacementRangeStart, replacementRangeEnd);
+
+    bool handled = true;
+    process()->sendSync(Messages::WebPage::InsertDictatedText(text, replacementRangeStart, replacementRangeEnd, dictationAlternatives), Messages::WebPage::InsertDictatedText::Reply(handled, m_editorState), m_pageID);
+    return handled;
+#else
+    return insertText(text, replacementRangeStart, replacementRangeEnd);
+#endif
 }
 
 void WebPageProxy::getMarkedRange(uint64_t& location, uint64_t& length)
@@ -237,15 +288,30 @@ bool WebPageProxy::executeKeypressCommands(const Vector<WebCore::KeypressCommand
     return result;
 }
 
-bool WebPageProxy::writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes)
+String WebPageProxy::stringSelectionForPasteboard()
+{
+    String value;
+    if (!isValid())
+        return value;
+    
+    const double messageTimeout = 20;
+    process()->sendSync(Messages::WebPage::GetStringSelectionForPasteboard(), Messages::WebPage::GetStringSelectionForPasteboard::Reply(value), m_pageID, messageTimeout);
+    return value;
+}
+
+PassRefPtr<WebCore::SharedBuffer> WebPageProxy::dataSelectionForPasteboard(const String& pasteboardType)
 {
     if (!isValid())
-        return false;
-
-    bool result = false;
+        return 0;
+    SharedMemory::Handle handle;
+    uint64_t size = 0;
     const double messageTimeout = 20;
-    process()->sendSync(Messages::WebPage::WriteSelectionToPasteboard(pasteboardName, pasteboardTypes), Messages::WebPage::WriteSelectionToPasteboard::Reply(result), m_pageID, messageTimeout);
-    return result;
+    process()->sendSync(Messages::WebPage::GetDataSelectionForPasteboard(pasteboardType),
+                                                Messages::WebPage::GetDataSelectionForPasteboard::Reply(handle, size), m_pageID, messageTimeout);
+    if (handle.isNull())
+        return 0;
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(handle, SharedMemory::ReadOnly);
+    return SharedBuffer::create(static_cast<unsigned char *>(sharedMemoryBuffer->data()), size);
 }
 
 bool WebPageProxy::readSelectionFromPasteboard(const String& pasteboardName)
@@ -266,6 +332,20 @@ void WebPageProxy::setDragImage(const WebCore::IntPoint& clientPosition, const S
         return;
     
     m_pageClient->setDragImage(clientPosition, dragImage.release(), isLinkDrag);
+}
+
+void WebPageProxy::setPromisedData(const String& pasteboardName, const SharedMemory::Handle& imageHandle, uint64_t imageSize, const String& filename, const String& extension,
+                                   const String& title, const String& url, const String& visibleURL, const SharedMemory::Handle& archiveHandle, uint64_t archiveSize)
+{
+    RefPtr<SharedMemory> sharedMemoryImage = SharedMemory::create(imageHandle, SharedMemory::ReadOnly);
+    RefPtr<SharedBuffer> imageBuffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryImage->data()), imageSize);
+    RefPtr<SharedBuffer> archiveBuffer;
+    
+    if (!archiveHandle.isNull()) {
+        RefPtr<SharedMemory> sharedMemoryArchive = SharedMemory::create(archiveHandle, SharedMemory::ReadOnly);;
+        archiveBuffer = SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryArchive->data()), archiveSize);
+    }
+    m_pageClient->setPromisedData(pasteboardName, imageBuffer, filename, extension, title, url, visibleURL, archiveBuffer);
 }
 
 void WebPageProxy::performDictionaryLookupAtLocation(const WebCore::FloatPoint& point)
@@ -339,13 +419,22 @@ void WebPageProxy::registerUIProcessAccessibilityTokens(const CoreIPC::DataRefer
     process()->send(Messages::WebPage::RegisterUIProcessAccessibilityTokens(elementToken, windowToken), m_pageID);
 }
 
-void WebPageProxy::setComplexTextInputEnabled(uint64_t pluginComplexTextInputIdentifier, bool complexTextInputEnabled)
+void WebPageProxy::pluginFocusOrWindowFocusChanged(uint64_t pluginComplexTextInputIdentifier, bool pluginHasFocusAndWindowHasFocus)
 {
-    m_pageClient->setComplexTextInputEnabled(pluginComplexTextInputIdentifier, complexTextInputEnabled);
+    m_pageClient->pluginFocusOrWindowFocusChanged(pluginComplexTextInputIdentifier, pluginHasFocusAndWindowHasFocus);
+}
+
+void WebPageProxy::setPluginComplexTextInputState(uint64_t pluginComplexTextInputIdentifier, uint64_t pluginComplexTextInputState)
+{
+    MESSAGE_CHECK(isValidPluginComplexTextInputState(pluginComplexTextInputState));
+
+    m_pageClient->setPluginComplexTextInputState(pluginComplexTextInputIdentifier, static_cast<PluginComplexTextInputState>(pluginComplexTextInputState));
 }
 
 void WebPageProxy::executeSavedCommandBySelector(const String& selector, bool& handled)
 {
+    MESSAGE_CHECK(isValidKeypressCommandName(selector));
+
     handled = m_pageClient->executeSavedCommandBySelector(selector);
 }
 

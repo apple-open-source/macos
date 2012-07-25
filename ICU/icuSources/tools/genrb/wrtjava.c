@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2009, International Business Machines
+*   Copyright (C) 2000-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -27,7 +27,6 @@
 #include "unicode/ucnv.h"
 #include "genrb.h"
 #include "rle.h"
-#include "ucol_tok.h"
 #include "uhash.h"
 #include "uresimp.h"
 #include "unicode/ustring.h"
@@ -326,8 +325,6 @@ array_write_java( struct SResource *res, UErrorCode *status) {
     uint32_t  i         = 0;
     const char* arr ="new String[] { \n";
     struct SResource *current = NULL;
-    struct SResource *first =NULL;
-    UBool decrementTabs = FALSE;
     UBool allStrings    = TRUE;
 
     if (U_FAILURE(*status)) {
@@ -352,13 +349,11 @@ array_write_java( struct SResource *res, UErrorCode *status) {
             write_tabs(out);
             T_FileStream_write(out, object, (int32_t)uprv_strlen(object));
             tabCount++;
-            decrementTabs = TRUE;
         }else{
             write_tabs(out);
             T_FileStream_write(out, arr, (int32_t)uprv_strlen(arr));
             tabCount++;
         }
-        first=current;
         while (current != NULL) {
             /*if(current->fType==URES_STRING){
                 write_tabs(out);
@@ -511,9 +506,7 @@ static UBool start = TRUE;
 static void
 table_write_java(struct SResource *res, UErrorCode *status) {
     uint32_t  i         = 0;
-    UBool allStrings =TRUE;
     struct SResource *current = NULL;
-    struct SResource *save = NULL;
     const char* obj = "new Object[][]{\n";
 
     if (U_FAILURE(*status)) {
@@ -527,7 +520,7 @@ table_write_java(struct SResource *res, UErrorCode *status) {
             tabCount++;
         }
         start = FALSE;
-        save = current = res->u.fTable.fFirst;
+        current = res->u.fTable.fFirst;
         i       = 0;
 
 
@@ -542,7 +535,6 @@ table_write_java(struct SResource *res, UErrorCode *status) {
 
 
             tabCount++;
-            allStrings=FALSE;
 
             write_tabs(out);
             if(currentKeyString != NULL) {

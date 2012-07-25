@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.44.2.7 2010/04/13 20:23:37 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -79,7 +79,7 @@ perl_back_initialize(
 	ldap_pvt_thread_mutex_init( &perl_interpreter_mutex );
 
 #ifdef PERL_SYS_INIT3
-	PERL_SYS_INIT3(&argc, &embedding, (char **)NULL);
+	PERL_SYS_INIT3(&argc, &embedding, (char ***)NULL);
 #endif
 	PERL_INTERPRETER = perl_alloc();
 	perl_construct(PERL_INTERPRETER);
@@ -88,7 +88,7 @@ perl_back_initialize(
 #endif
 	perl_parse(PERL_INTERPRETER, perl_back_xs_init, argc, embedding, (char **)NULL);
 	perl_run(PERL_INTERPRETER);
-	return 0;
+	return perl_back_init_cf( bi );
 }
 
 int
@@ -103,6 +103,8 @@ perl_back_db_init(
 	((PerlBackend *)be->be_private)->pb_filter_search_results = 0;
 
 	Debug( LDAP_DEBUG_TRACE, "perl backend db init\n", 0, 0, 0 );
+
+	be->be_cf_ocs = be->bd_info->bi_cf_ocs;
 
 	return 0;
 }
@@ -128,11 +130,7 @@ perl_back_db_open(
 
 		PUTBACK;
 
-#ifdef PERL_IS_5_6
 		count = call_method("init", G_SCALAR);
-#else
-		count = perl_call_method("init", G_SCALAR);
-#endif
 
 		SPAGAIN;
 

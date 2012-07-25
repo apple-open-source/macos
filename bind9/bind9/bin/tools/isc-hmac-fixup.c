@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2010  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: isc-hmac-fixup.c,v 1.4 2010-03-10 02:17:52 marka Exp $ */
 
 #include <config.h>
 

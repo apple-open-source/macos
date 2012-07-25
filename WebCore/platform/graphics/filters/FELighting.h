@@ -34,20 +34,24 @@
 #include "LightSource.h"
 #include "PointLightSource.h"
 #include "SpotLightSource.h"
-#include <wtf/ByteArray.h>
 #include <wtf/Platform.h>
+#include <wtf/Uint8ClampedArray.h>
 
 // Common base class for FEDiffuseLighting and FESpecularLighting
 
 namespace WebCore {
 
+struct FELightingPaintingDataForNeon;
+
 class FELighting : public FilterEffect {
 public:
-    virtual void apply();
+    virtual void platformApplySoftware();
 
     virtual void determineAbsolutePaintRect() { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
 protected:
+    static const int s_minimalRectDimension = 100 * 100; // Empirical data limit for parallel jobs
+
     enum LightingType {
         DiffuseLighting,
         SpecularLighting
@@ -55,7 +59,7 @@ protected:
 
     struct LightingData {
         // This structure contains only read-only (SMP safe) data
-        ByteArray* pixels;
+        Uint8ClampedArray* pixels;
         float surfaceScale;
         int widthMultipliedByPixelSize;
         int widthDecreasedByOne;
@@ -72,9 +76,23 @@ protected:
         inline void bottomRight(int offset, IntPoint& normalVector);
     };
 
+    template<typename Type>
+    friend class ParallelJobs;
+
+    struct PlatformApplyGenericParameters {
+        FELighting* filter;
+        LightingData data;
+        LightSource::PaintingData paintingData;
+        int yStart;
+        int yEnd;
+    };
+
+    static void platformApplyGenericWorker(PlatformApplyGenericParameters*);
+    static void platformApplyNeonWorker(FELightingPaintingDataForNeon*);
+
     FELighting(Filter*, LightingType, const Color&, float, float, float, float, float, float, PassRefPtr<LightSource>);
 
-    bool drawLighting(ByteArray*, int, int);
+    bool drawLighting(Uint8ClampedArray*, int, int);
     inline void inlineSetPixel(int offset, LightingData&, LightSource::PaintingData&,
                                int lightX, int lightY, float factorX, float factorY, IntPoint& normalVector);
 
@@ -84,7 +102,9 @@ protected:
 
     inline void platformApply(LightingData&, LightSource::PaintingData&);
 
+    inline void platformApplyGenericPaint(LightingData&, LightSource::PaintingData&, int startX, int startY);
     inline void platformApplyGeneric(LightingData&, LightSource::PaintingData&);
+
     static int getPowerCoefficients(float exponent);
     inline void platformApplyNeon(LightingData&, LightSource::PaintingData&);
 

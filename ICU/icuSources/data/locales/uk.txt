@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/uk.xml
@@ -39,7 +39,7 @@ uk{
             }
         }
     }
-    Version{"2.0.50.96"}
+    Version{"2.0.65.46"}
     calendar{
         coptic{
             monthNames{
@@ -104,9 +104,9 @@ uk{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"MM.yyyy"}
-                yMEd{"EEE, dd.MM.yyyy"}
+                yMEd{"E, dd.MM.yyyy"}
                 yMMM{"LLL y"}
-                yMMMEd{"EEE, d MMM y"}
+                yMMMEd{"E, d MMM y"}
                 yMMMM{"LLLL y"}
                 yMMMd{"d MMM y"}
                 yMd{"dd.MM.yy"}
@@ -166,11 +166,9 @@ uk{
                     relative{
                         "-1"{"Вчора"}
                         "-2"{"Позавчора"}
-                        "-3"{"Три дні тому"}
                         "0"{"Сьогодні"}
                         "1"{"Завтра"}
                         "2"{"Післязавтра"}
-                        "3"{"Через три дні з цього моменту"}
                     }
                 }
                 dayperiod{
@@ -476,6 +474,28 @@ uk{
             }
         }
     }
+    contextTransforms{
+        day-format-except-narrow:intvector{
+            1,
+            1,
+        }
+        day-standalone-except-narrow:intvector{
+            1,
+            1,
+        }
+        languages:intvector{
+            1,
+            1,
+        }
+        month-format-except-narrow:intvector{
+            1,
+            1,
+        }
+        month-standalone-except-narrow:intvector{
+            1,
+            1,
+        }
+    }
     delimiters{
         alternateQuotationEnd{"“"}
         alternateQuotationStart{"„"}
@@ -500,11 +520,43 @@ uk{
             one{"{0} день"}
             other{"{0} дня"}
         }
+        day-future{
+            0{"Через 0 днів"}
+            1{"Через 1 день"}
+            few{"Через {0} дні"}
+            many{"Через {0} днів"}
+            one{"Через {0} день"}
+            other{"Через {0} дня"}
+        }
+        day-past{
+            0{"0 днів тому"}
+            1{"1 день тому"}
+            few{"{0} дні тому"}
+            many{"{0} днів тому"}
+            one{"{0} день тому"}
+            other{"{0} дня тому"}
+        }
         hour{
             few{"{0} години"}
             many{"{0} годин"}
             one{"{0} година"}
             other{"{0} години"}
+        }
+        hour-future{
+            0{"Через 0 годин"}
+            1{"Через 1 годину"}
+            few{"Через {0} години"}
+            many{"Через {0} годин"}
+            one{"Через {0} годину"}
+            other{"Через {0} години"}
+        }
+        hour-past{
+            0{"0 годин тому"}
+            1{"1 годину тому"}
+            few{"{0} години тому"}
+            many{"{0} годин тому"}
+            one{"{0} годину тому"}
+            other{"{0} години тому"}
         }
         minute{
             few{"{0} хвилини"}
@@ -512,11 +564,43 @@ uk{
             one{"{0} хвилина"}
             other{"{0} хвилини"}
         }
+        minute-future{
+            0{"Через 0 хвилин"}
+            1{"Через 1 хвилину"}
+            few{"Через {0} хвилини"}
+            many{"Через {0} хвилин"}
+            one{"Через {0} хвилину"}
+            other{"Через {0} хвилини"}
+        }
+        minute-past{
+            0{"0 хвилин тому"}
+            1{"1 хвилину тому"}
+            few{"{0} хвилини тому"}
+            many{"{0} хвилин тому"}
+            one{"{0} хвилину тому"}
+            other{"{0} хвилини тому"}
+        }
         month{
             few{"{0} місяці"}
             many{"{0} місяців"}
             one{"{0} місяць"}
             other{"{0} місяця"}
+        }
+        month-future{
+            0{"Через 0 місяців"}
+            1{"Через 1 місяць"}
+            few{"Через {0} місяці"}
+            many{"Через {0} місяців"}
+            one{"Через {0} місяць"}
+            other{"Через {0} місяця"}
+        }
+        month-past{
+            0{"0 місяців тому"}
+            1{"1 місяць тому"}
+            few{"{0} місяці тому"}
+            many{"{0} місяців тому"}
+            one{"{0} місяць тому"}
+            other{"{0} місяця тому"}
         }
         second{
             few{"{0} секунди"}
@@ -524,17 +608,65 @@ uk{
             one{"{0} секунда"}
             other{"{0} секунди"}
         }
+        second-future{
+            0{"Через 0 секунд"}
+            1{"Через 1 секунду"}
+            few{"Через {0} секунди"}
+            many{"Через {0} секунд"}
+            one{"Через {0} секунду"}
+            other{"Через {0} секунди"}
+        }
+        second-past{
+            0{"0 секунд тому"}
+            1{"1 секунду тому"}
+            few{"{0} секунди тому"}
+            many{"{0} секунд тому"}
+            one{"{0} секунду тому"}
+            other{"{0} секунди тому"}
+        }
         week{
             few{"{0} тижні"}
             many{"{0} тижнів"}
             one{"{0} тиждень"}
             other{"{0} тижня"}
         }
+        week-future{
+            0{"Через 0 тижнів"}
+            1{"Через 1 тиждень"}
+            few{"Через {0} тижні"}
+            many{"Через {0} тижнів"}
+            one{"Через {0} тиждень"}
+            other{"Через {0} тижня"}
+        }
+        week-past{
+            0{"0 тижнів тому"}
+            1{"1 тиждень тому"}
+            few{"{0} тижні тому"}
+            many{"{0} тижнів тому"}
+            one{"{0} тиждень тому"}
+            other{"{0} тижня тому"}
+        }
         year{
             few{"{0} роки"}
             many{"{0} років"}
             one{"{0} рік"}
             other{"{0} року"}
+        }
+        year-future{
+            0{"Через 0 років"}
+            1{"Через 1 рік"}
+            few{"Через {0} роки"}
+            many{"Через {0} років"}
+            one{"Через {0} рік"}
+            other{"Через {0} року"}
+        }
+        year-past{
+            0{"0 років тому"}
+            1{"1 рік тому"}
+            few{"{0} роки тому"}
+            many{"{0} років тому"}
+            one{"{0} рік тому"}
+            other{"{0} року тому"}
         }
     }
     unitsShort{

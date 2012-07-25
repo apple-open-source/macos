@@ -1,5 +1,5 @@
 NAME = py2app
-VERSIONORIG = 0.5.2
+VERSIONORIG = 0.6.3
 VERSION = $(VERSIONORIG)-noprebuilt
 
 include ../Makefile.inc
@@ -8,6 +8,7 @@ afterinstallsrc::
 	gnutar xozf $(NAME)-$(VERSIONORIG).tar.gz
 	@set -x && \
 	cd $(NAME)-$(VERSIONORIG) && \
+	rm -rf examples/PyObjC/TinyTinyEdit/dist* && \
 	rm -f py2app/apptemplate/prebuilt/* && \
 	rm -f py2app/bundletemplate/prebuilt/*
 	mv $(NAME)-$(VERSIONORIG) $(NAME)-$(VERSION)
@@ -28,5 +29,5 @@ custompatching:
 postinstall:
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSIONORIG).txt
 	cp -f $(NAME).partial $(OSV)/$(NAME)-$(VERSIONORIG).partial
-	ditto $(DIR)/py2app/apptemplate/prebuilt $(DSTROOT)$(EXTRASPYTHON)/py2app/apptemplate/prebuilt
-	ditto $(DIR)/py2app/bundletemplate/prebuilt $(DSTROOT)$(EXTRASPYTHON)/py2app/bundletemplate/prebuilt
+	ditto $(DIR)/py2app/apptemplate/prebuilt/main $(DSTROOT)$(EXTRASPYTHON)/py2app/apptemplate/prebuilt
+	ditto $(DIR)/py2app/bundletemplate/prebuilt/main $(DSTROOT)$(EXTRASPYTHON)/py2app/bundletemplate/prebuilt

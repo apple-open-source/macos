@@ -1,9 +1,0 @@
-OTHER_LDFLAGS += -undefined dynamic_lookup
-PUBLIC_HEADER_DIR=/usr/include
-PUBLIC_HEADER_DIR_SUFFIX = 
-ARPA_HEADER_DIR_SUFFIX = /arpa
-ARPA_SYMLINKED_HEADERS = nameser.h
-AFTER_INSTALLHDRS += arpa_headers
-
-PRIVATE_HEADER_DIR=/usr/local/include
-OTHER_PRIVATE_HEADERS += dns_private.h

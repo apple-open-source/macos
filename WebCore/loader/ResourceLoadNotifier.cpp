@@ -79,7 +79,7 @@ void ResourceLoadNotifier::didReceiveData(ResourceLoader* loader, const char* da
     if (Page* page = m_frame->page())
         page->progress()->incrementProgress(loader->identifier(), data, dataLength);
 
-    dispatchDidReceiveContentLength(loader->documentLoader(), loader->identifier(), dataLength, encodedDataLength);
+    dispatchDidReceiveData(loader->documentLoader(), loader->identifier(), data, dataLength, encodedDataLength);
 }
 
 void ResourceLoadNotifier::didFinishLoad(ResourceLoader* loader, double finishTime)
@@ -97,7 +97,7 @@ void ResourceLoadNotifier::didFailToLoad(ResourceLoader* loader, const ResourceE
     if (!error.isNull())
         m_frame->loader()->client()->dispatchDidFailLoading(loader->documentLoader(), loader->identifier(), error);
 
-    InspectorInstrumentation::didFailLoading(m_frame, loader->identifier(), error);
+    InspectorInstrumentation::didFailLoading(m_frame, loader->documentLoader(), loader->identifier(), error);
 }
 
 void ResourceLoadNotifier::assignIdentifierToInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -107,13 +107,13 @@ void ResourceLoadNotifier::assignIdentifierToInitialRequest(unsigned long identi
 
 void ResourceLoadNotifier::dispatchWillSendRequest(DocumentLoader* loader, unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
-    StringImpl* oldRequestURL = request.url().string().impl();
+    String oldRequestURL = request.url().string();
     m_frame->loader()->documentLoader()->didTellClientAboutLoad(request.url());
 
     m_frame->loader()->client()->dispatchWillSendRequest(loader, identifier, request, redirectResponse);
 
     // If the URL changed, then we want to put that new URL in the "did tell client" set too.
-    if (!request.isNull() && oldRequestURL != request.url().string().impl())
+    if (!request.isNull() && oldRequestURL != request.url().string())
         m_frame->loader()->documentLoader()->didTellClientAboutLoad(request.url());
 
     InspectorInstrumentation::willSendRequest(m_frame, identifier, loader, request, redirectResponse);
@@ -130,35 +130,27 @@ void ResourceLoadNotifier::dispatchDidReceiveResponse(DocumentLoader* loader, un
     InspectorInstrumentation::didReceiveResourceResponse(cookie, identifier, loader, r);
 }
 
-void ResourceLoadNotifier::dispatchDidReceiveContentLength(DocumentLoader* loader, unsigned long identifier, int dataLength, int encodedDataLength)
+void ResourceLoadNotifier::dispatchDidReceiveData(DocumentLoader* loader, unsigned long identifier, const char* data, int dataLength, int encodedDataLength)
 {
     m_frame->loader()->client()->dispatchDidReceiveContentLength(loader, identifier, dataLength);
 
-    InspectorInstrumentation::didReceiveContentLength(m_frame, identifier, dataLength, encodedDataLength);
+    InspectorInstrumentation::didReceiveData(m_frame, identifier, data, dataLength, encodedDataLength);
 }
 
 void ResourceLoadNotifier::dispatchDidFinishLoading(DocumentLoader* loader, unsigned long identifier, double finishTime)
 {
     m_frame->loader()->client()->dispatchDidFinishLoading(loader, identifier);
 
-    InspectorInstrumentation::didFinishLoading(m_frame, identifier, finishTime);
+    InspectorInstrumentation::didFinishLoading(m_frame, loader, identifier, finishTime);
 }
 
-void ResourceLoadNotifier::dispatchTransferLoadingResourceFromPage(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request, Page* oldPage)
-{
-    ASSERT(oldPage != m_frame->page());
-    m_frame->loader()->client()->transferLoadingResourceFromPage(identifier, loader, request, oldPage);
-
-    oldPage->progress()->completeProgress(identifier);
-}
-
-void ResourceLoadNotifier::sendRemainingDelegateMessages(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& response, int dataLength, int encodedDataLength, const ResourceError& error)
+void ResourceLoadNotifier::sendRemainingDelegateMessages(DocumentLoader* loader, unsigned long identifier, const ResourceResponse& response, const char* data, int dataLength, int encodedDataLength, const ResourceError& error)
 {
     if (!response.isNull())
         dispatchDidReceiveResponse(loader, identifier, response);
 
     if (dataLength > 0)
-        dispatchDidReceiveContentLength(loader, identifier, dataLength, encodedDataLength);
+        dispatchDidReceiveData(loader, identifier, data, dataLength, encodedDataLength);
 
     if (error.isNull())
         dispatchDidFinishLoading(loader, identifier, 0);

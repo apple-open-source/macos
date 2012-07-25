@@ -198,7 +198,7 @@ static void __DAQueueResponse( DASessionRef    session,
     if ( _response )  CFRelease( _response );
 }
 
-__private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, const char * right )
+__private_extern__ DAReturn _DAAuthorize( DASessionRef session, _DAAuthorizeOptions options, DADiskRef disk, const char * right )
 {
     DAReturn status;
 
@@ -206,27 +206,11 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, 
 
     if ( status )
     {
-        if ( geteuid( ) == ___UID_ROOT )
-        {
-            status = kDAReturnSuccess;
-        }
-    }
-
-    if ( status )
-    {
-        if ( ___isadmin( geteuid( ) ) )
-        {
-            status = kDAReturnSuccess;
-        }
-    }
-
-    if ( status )
-    {
-        if ( disk )
+        if ( ( options & _kDAAuthorizeOptionIsOwner ) )
         {
             uid_t diskUID;
 
-            status = _DAServerDiskGetUserRUID( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), &diskUID );
+            status = _DAServerDiskGetUserUID( _DADiskGetSessionID( disk ), _DADiskGetID( disk ), &diskUID );
 
             if ( status )
             {
@@ -236,11 +220,6 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, 
             status = kDAReturnNotPrivileged;
 
             if ( diskUID == geteuid( ) )
-            {
-                status = kDAReturnSuccess;
-            }
-
-            if ( diskUID == ___UID_UNKNOWN )
             {
                 status = kDAReturnSuccess;
             }
@@ -255,25 +234,56 @@ __private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, 
 
         if ( authorization )
         {
-            AuthorizationFlags  flags;
-            AuthorizationItem   item;
-            AuthorizationRights rights;
+            CFDictionaryRef description;
 
-            flags = kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagPreAuthorize;
+            description = DADiskCopyDescription( disk );
 
-            item.flags       = 0;
-            item.name        = right;
-            item.value       = NULL;
-            item.valueLength = 0;
-
-            rights.count = 1;
-            rights.items = &item;
-
-            status = AuthorizationCopyRights( authorization, &rights, NULL, flags, NULL ); 
-
-            if ( status )
+            if ( description )
             {
-                status = kDAReturnNotPrivileged;
+                AuthorizationFlags  flags;
+                AuthorizationItem   item;
+                char *              name;
+                AuthorizationRights rights;
+
+                flags = kAuthorizationFlagExtendRights | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagPreAuthorize;
+
+                if ( CFDictionaryGetValue( description, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanTrue )
+                {
+                    asprintf( &name, "system.volume.removable.%s", right );
+                }
+                else
+                {
+                    if ( CFDictionaryGetValue( description, kDADiskDescriptionDeviceInternalKey ) == kCFBooleanTrue )
+                    {
+                        asprintf( &name, "system.volume.internal.%s", right );
+                    }
+                    else
+                    {
+                        asprintf( &name, "system.volume.external.%s", right );
+                    }
+                }
+
+                if ( name )
+                {
+                    item.flags       = 0;
+                    item.name        = name;
+                    item.value       = NULL;
+                    item.valueLength = 0;
+
+                    rights.count = 1;
+                    rights.items = &item;
+
+                    status = AuthorizationCopyRights( authorization, &rights, NULL, flags, NULL ); 
+
+                    if ( status )
+                    {
+                        status = kDAReturnNotPrivileged;
+                    }
+
+                    free( name );
+                }
+
+                CFRelease( description );
             }
         }
     }
@@ -514,7 +524,7 @@ void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DADiskEjectCallbac
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightUnmount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount );
 
         if ( status == kDAReturnSuccess )
         {
@@ -639,7 +649,7 @@ void DADiskMountWithArguments( DADiskRef           disk,
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightMount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightMount );
 
         if ( status == kDAReturnSuccess )
         {
@@ -684,7 +694,7 @@ void DADiskRename( DADiskRef disk, CFStringRef name, DADiskRenameOptions options
         {
             if ( CFGetTypeID( name ) == CFStringGetTypeID( ) )
             {
-                status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightRename );
+                status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightRename );
 
                 if ( status == kDAReturnSuccess )
                 {
@@ -731,7 +741,7 @@ void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DADiskUnmountC
 
     if ( disk )
     {
-        status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightUnmount );
+        status = _DAAuthorize( _DADiskGetSession( disk ), _kDAAuthorizeOptionIsOwner, disk, _kDAAuthorizeRightUnmount );
 
         if ( status == kDAReturnSuccess )
         {

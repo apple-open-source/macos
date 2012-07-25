@@ -31,9 +31,9 @@
 #ifndef WebDataSource_h
 #define WebDataSource_h
 
-#include "WebCommon.h"
 #include "WebNavigationType.h"
 #include "WebTextDirection.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -102,6 +102,14 @@ public:
     // Set deferMainResourceDataLoad flag on the loader.  This is used for
     // testing.
     virtual void setDeferMainResourceDataLoad(bool) = 0;
+
+    // Sets the navigation start time for this datasource. Ordinarily,
+    // navigation start is determined in WebCore. But, in some situations,
+    // the embedder might have a better value and can override it here. This
+    // should be called before WebFrameClient::didCommitProvisionalLoad.
+    // Calling it later may confuse users, because JavaScript may have run and
+    // the user may have already recorded the original value.
+    virtual void setNavigationStartTime(double) = 0;
 
 protected:
     ~WebDataSource() { }

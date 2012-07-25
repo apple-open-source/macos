@@ -1,0 +1,5 @@
+#!/usr/bin/env ruby -i
+ARGF.each_line do |e|
+  e.gsub!(/-((un)?set)/, '\1')
+  puts e
+end

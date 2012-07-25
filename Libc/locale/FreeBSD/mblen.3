@@ -37,33 +37,53 @@
 .Dt MBLEN 3
 .Os
 .Sh NAME
-.Nm mblen
+.Nm mblen ,
+.Nm mblen_l
 .Nd get number of bytes in a character
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft int
-.Fn mblen "const char *mbchar" "size_t nbytes"
+.Fo mblen
+.Fa "const char *s"
+.Fa "size_t n"
+.Fc
+.In stdlib.h
+.In xlocale.h
+.Ft int
+.Fo mblen_l
+.Fa "const char *s"
+.Fa "size_t n"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn mblen
-function computes the length in bytes
+function computes the length, in bytes,
 of a multibyte character
-.Fa mbchar
+.Fa s ,
 according to the current conversion state.
 Up to
-.Fa nbytes
+.Fa n
 bytes are examined.
 .Pp
 A call with a null
-.Fa mbchar
+.Fa s
 pointer returns nonzero if the current locale requires shift states,
-zero otherwise;
-if shift states are required, the shift state is reset to the initial state.
+zero otherwise.
+If shift states are required, the shift state is reset to the initial state.
+.Pp
+Although the
+.Fn mblen
+function uses the current locale, the
+.Fn mblen_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 If
-.Fa mbchar
+.Fa s
 is
 .Dv NULL ,
 the
@@ -72,14 +92,14 @@ function returns nonzero if shift states are supported,
 zero otherwise.
 .Pp
 Otherwise, if
-.Fa mbchar
+.Fa s
 is not a null pointer,
 .Fn mblen
 either returns 0 if
-.Fa mbchar
+.Fa s
 represents the null wide character, or returns
 the number of bytes processed in
-.Fa mbchar ,
+.Fa s ,
 or returns \-1 if no multibyte character
 could be recognized or converted.
 In this case,
@@ -98,7 +118,8 @@ The internal conversion state is not valid.
 .Sh SEE ALSO
 .Xr mbrlen 3 ,
 .Xr mbtowc 3 ,
-.Xr multibyte 3
+.Xr multibyte 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn mblen

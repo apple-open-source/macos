@@ -28,7 +28,5 @@ include Libxml2xslt.make
 TclExtDir             = Tclxslt
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/README.html "$(DSTROOT)/$(TclExtHtmlDir)"/ReadMe-$(ProjectName).html
-	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).html "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).n "$(DSTROOT)/$(TclExtManDir)"

@@ -40,7 +40,6 @@
 #include "V8EntryCallback.h"
 #include "V8ErrorCallback.h"
 #include "V8FileEntrySync.h"
-#include "V8WebKitFlags.h"
 #include "V8Proxy.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -67,8 +66,6 @@ static PassRefPtr<WebKitFlags> getFlags(const v8::Local<v8::Value>& arg, Excepti
     ec = 0;
     if (isUndefinedOrNull(arg) || !arg->IsObject())
         return 0;
-    if (V8WebKitFlags::HasInstance(arg))
-        return V8WebKitFlags::toNative(v8::Handle<v8::Object>::Cast(arg));
 
     v8::Handle<v8::Object> object;
     {
@@ -102,15 +99,15 @@ v8::Handle<v8::Value> V8DirectoryEntrySync::getDirectoryCallback(const v8::Argum
     STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, path, args[0]);
     RefPtr<WebKitFlags> flags = getFlags(args[1], ec);
     if (UNLIKELY(ec)) {
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, args.GetIsolate());
         return v8::Handle<v8::Value>();
     }
     RefPtr<DirectoryEntrySync> result = imp->getDirectory(path, flags, ec);
     if (UNLIKELY(ec)) {
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, args.GetIsolate());
         return v8::Handle<v8::Value>();
     }
-    return toV8(result.release());
+    return toV8(result.release(), args.GetIsolate());
 }
 
 v8::Handle<v8::Value> V8DirectoryEntrySync::getFileCallback(const v8::Arguments& args)
@@ -121,15 +118,15 @@ v8::Handle<v8::Value> V8DirectoryEntrySync::getFileCallback(const v8::Arguments&
     STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, path, args[0]);
     RefPtr<WebKitFlags> flags = getFlags(args[1], ec);
     if (UNLIKELY(ec)) {
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, args.GetIsolate());
         return v8::Handle<v8::Value>();
     }
     RefPtr<FileEntrySync> result = imp->getFile(path, flags, ec);
     if (UNLIKELY(ec)) {
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, args.GetIsolate());
         return v8::Handle<v8::Value>();
     }
-    return toV8(result.release());
+    return toV8(result.release(), args.GetIsolate());
 }
 
 

@@ -88,8 +88,8 @@ pam_sm_acct_mgmt(pam_handle_t *pamh, int flags __unused,
 
 	/* get applicant */
 	if (openpam_get_option(pamh, "ruser") &&
-		(pam_get_item(pamh, PAM_RUSER, &ruser) != PAM_SUCCESS ||
-		 ruser == NULL || getpwnam_r(ruser, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0) || pwd == NULL) {
+		(pam_get_item(pamh, PAM_RUSER, &ruser) != PAM_SUCCESS || ruser == NULL || 
+		 getpwnam_r(ruser, &pwdbuf, pwbuffer, sizeof(pwbuffer), &pwd) != 0 || pwd == NULL)) {
 		openpam_log(PAM_LOG_ERROR, "Unable to obtain the remote username.");
 		return (PAM_AUTH_ERR);
 	}

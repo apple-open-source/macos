@@ -2,10 +2,10 @@
 #define HDB_DB_DIR "/var/db/krb5kdc"
 
 #define __APPLE_PRIVATE__ 1
+#define __GSS_ITER_CRED_USES_CONST_OID 1
 
 #define __APPLE_USE_RFC_3542 1
 
-#define COMMONCRYPTO_SUPPORTS_RC2 1
 #define HEIMDAL_SMALLER 1
 #define NO_NTLM 1
 #define NO_AFS 1
@@ -16,6 +16,7 @@
 #define NO_RAND_EGD_METHOD 1
 
 #define HAVE_COMMONCRYPTO_COMMONKEYDERIVATION_H 1
+#define HAVE_COMMONCRYPTO_COMMONCRYPTOR_H 1
 
 #define KRB5_FALLBACK_DEFAULT FALSE
 
@@ -24,6 +25,8 @@
 /* IP_RECVPKTINFO */
 #define HAVE_NOTIFY_H 1
 #define KRB5_CONFIGURATION_CHANGE_NOTIFY_NAME "com.apple.Kerberos.configuration-changed"
+
+#define DEFAULT_KDC_LOG_DEST "SYSLOG:AUTHPRIV:NOTICE"
 
 #ifdef __APPLE_TARGET_EMBEDDED__
 
@@ -37,6 +40,9 @@
 #define HEIM_HC_SF 1
 
 #undef PKINIT
+
+#define HAVE_CCDESISWEAKKEY 1
+#define HAVE_CCDIGESTCREATE 1
 
 #else
 

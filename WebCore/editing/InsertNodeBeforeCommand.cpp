@@ -55,7 +55,7 @@ void InsertNodeBeforeCommand::doApply()
     parent->insertBefore(m_insertChild.get(), m_refChild.get(), ec);
 
     if (AXObjectCache::accessibilityEnabled())
-        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextInserted, 0, m_insertChild->nodeValue().length());
+        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextInserted, 0, m_insertChild->nodeValue());
 }
 
 void InsertNodeBeforeCommand::doUnapply()
@@ -65,10 +65,18 @@ void InsertNodeBeforeCommand::doUnapply()
         
     // Need to notify this before actually deleting the text
     if (AXObjectCache::accessibilityEnabled())
-        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextDeleted, 0, m_insertChild->nodeValue().length());
+        document()->axObjectCache()->nodeTextChangeNotification(m_insertChild->renderer(), AXObjectCache::AXTextDeleted, 0, m_insertChild->nodeValue());
 
     ExceptionCode ec;
     m_insertChild->remove(ec);
 }
+
+#ifndef NDEBUG
+void InsertNodeBeforeCommand::getNodesInCommand(HashSet<Node*>& nodes)
+{
+    addNodeAndDescendants(m_insertChild.get(), nodes);
+    addNodeAndDescendants(m_refChild.get(), nodes);
+}
+#endif
 
 }

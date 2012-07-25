@@ -30,8 +30,6 @@
 
 namespace WebCore {
 
-class SVGFontData;
-
 class SVGVKernElement : public SVGElement {
 public:
     static PassRefPtr<SVGVKernElement> create(const QualifiedName&, Document*);
@@ -41,10 +39,10 @@ public:
 private:
     SVGVKernElement(const QualifiedName&, Document*);
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 
-    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) { return false; }
 };
 
 } // namespace WebCore

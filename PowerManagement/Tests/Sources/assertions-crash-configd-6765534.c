@@ -36,16 +36,20 @@ These tests elicit crashes in PM configd plugin as seen in:
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#if !TARGET_OS_EMBEDDED
 #include <SystemConfiguration/SCPrivate.h> 
-
+#endif
 #include "PMTestLib.h"
 
-#define	MAXPASS			1000
+#define	MAXPASS			    50
 #define	MAXPASS_FORK		50
 #define	MAXPASS_NOTIFY		20
 
 void check_IOPMAssertionCreate_and_Release(bool doFork, int *didTests);
+
+#ifndef TARGET_OS_EMBEDDED
 void check_IOPMConnectionCreate_and_Release(bool doFork, int *didTests);
+#endif
 
 #define kMainDoLoops    5
 
@@ -59,10 +63,11 @@ int main(int argc, char **argv)
 
     while (i++ < kMainDoLoops)
     {
+#ifndef TARGET_OS_EMBEDDED
         PMTestLog("MainLoop=%d Executing check_IOPMConnectionCreate_and_Release", i);
         check_IOPMConnectionCreate_and_Release(FALSE, &didTests);
         PMTestPass("IOPMConnection create and release loops SUCCESS: did %d", didTests);
-
+#endif
         PMTestLog("MainLoop=%d Executing check_IOPMAssertionCreate_and_Release", i);
         check_IOPMAssertionCreate_and_Release(FALSE, &didTests);
         PMTestPass("IOPMConnection Assertion create and release loops SUCCESS: did %d", didTests);
@@ -138,7 +143,7 @@ void check_IOPMAssertionCreate_and_Release(bool doFork, int *didTests)
 	return;
 }
 
-
+#ifndef TARGET_OS_EMBEDDED
 void myDummyPMConnectionHandler(
     void *param, 
     IOPMConnection connection, 
@@ -218,4 +223,5 @@ check_IOPMConnectionCreate_and_Release(bool doFork, int *didTests)
 
 	return;
 }
+#endif
 

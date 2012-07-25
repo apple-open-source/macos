@@ -101,6 +101,8 @@ _ftello(fp, offset)
 	 * Find offset of underlying I/O object, then
 	 * adjust for buffered bytes.
 	 */
+	if (__sflush(fp))		/* may adjust seek offset on append stream */
+		return (1);
 	if (fp->_flags & __SOFF)
 		pos = fp->_offset;
 	else {

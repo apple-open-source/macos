@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2006, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -145,26 +145,21 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 			       0,
 			       (int *)&sc_status);
 
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreNotifyWait notifyviaport()")) {
+		goto retry;
+	}
+
 	if (status != KERN_SUCCESS) {
 		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyWait notifyviaport(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
 			/* remove the send right that we tried (but failed) to pass to the server */
 			(void) mach_port_deallocate(mach_task_self(), port);
 		}
 
 		/* remove our receive right  */
 		(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-		sc_status = status;
 	}
 
 	if (sc_status != kSCStatusOK) {
@@ -203,21 +198,11 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	status = notifycancel(storePrivate->server,
 			      (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyWait notifycancel(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if (((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) &&
-		    __SCDynamicStoreReconnect(store)) {
-			sc_status = kSCStatusOK;
-		} else {
-			sc_status = status;
-		}
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreNotifyWait notifycancel()")) {
+		sc_status = kSCStatusOK;
 	}
 
 	/* remove our receive right  */

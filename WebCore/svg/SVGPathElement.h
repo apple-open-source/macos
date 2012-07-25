@@ -24,10 +24,10 @@
 #if ENABLE(SVG)
 #include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedNumber.h"
-#include "SVGAnimatedPathSegListPropertyTearOff.h"
 #include "SVGExternalResourcesRequired.h"
 #include "SVGLangSpace.h"
 #include "SVGPathByteStream.h"
+#include "SVGPathSegList.h"
 #include "SVGStyledTransformableElement.h"
 #include "SVGTests.h"
 
@@ -52,6 +52,7 @@ class SVGPathSegCurvetoCubicSmoothAbs;
 class SVGPathSegCurvetoCubicSmoothRel;
 class SVGPathSegCurvetoQuadraticSmoothAbs;
 class SVGPathSegCurvetoQuadraticSmoothRel;
+class SVGPathSegListPropertyTearOff;
 
 class SVGPathElement : public SVGStyledTransformableElement,
                        public SVGTests,
@@ -62,7 +63,7 @@ public:
     
     float getTotalLength();
     FloatPoint getPointAtLength(float distance);
-    unsigned long getPathSegAtLength(float distance);
+    unsigned getPathSegAtLength(float distance);
 
     PassRefPtr<SVGPathSegClosePath> createSVGPathSegClosePath(SVGPathSegRole role = PathSegUndefinedRole);
     PassRefPtr<SVGPathSegMovetoAbs> createSVGPathSegMovetoAbs(float x, float y, SVGPathSegRole role = PathSegUndefinedRole);
@@ -90,36 +91,49 @@ public:
     SVGPathSegListPropertyTearOff* normalizedPathSegList();
     SVGPathSegListPropertyTearOff* animatedNormalizedPathSegList();
 
-    SVGPathByteStream* pathByteStream() const { return m_pathByteStream.get(); }
-    SVGAnimatedProperty* animatablePathSegList() const { return m_animatablePathSegList.get(); }
+    SVGPathByteStream* pathByteStream() const;
 
-    virtual void toPathData(Path&) const;
     void pathSegListChanged(SVGPathSegRole);
+
+    static const SVGPropertyInfo* dPropertyInfo();
+
+    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate);
+
+    bool isAnimValObserved() const { return m_isAnimValObserved; }
 
 private:
     SVGPathElement(const QualifiedName&, Document*);
 
     virtual bool isValid() const { return SVGTests::isValid(); }
+    virtual bool supportsFocus() const { return true; }
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void synchronizeProperty(const QualifiedName&);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual bool supportsMarkers() const { return true; }
 
-    // Animated property declarations
-    DECLARE_ANIMATED_NUMBER(PathLength, pathLength)
+    // Custom 'd' property
+    static void synchronizeD(void* contextElement);
+    static PassRefPtr<SVGAnimatedProperty> lookupOrCreateDWrapper(void* contextElement);
 
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGPathElement)
+        DECLARE_ANIMATED_NUMBER(PathLength, pathLength)
+        DECLARE_ANIMATED_BOOLEAN(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
 
-    void synchronizeD();
+    // SVGTests
+    virtual void synchronizeRequiredFeatures() { SVGTests::synchronizeRequiredFeatures(this); }
+    virtual void synchronizeRequiredExtensions() { SVGTests::synchronizeRequiredExtensions(this); }
+    virtual void synchronizeSystemLanguage() { SVGTests::synchronizeSystemLanguage(this); }
 
-protected:
+    RenderObject* createRenderer(RenderArena*, RenderStyle*);
+
+private:
     OwnPtr<SVGPathByteStream> m_pathByteStream;
     mutable SVGSynchronizableAnimatedProperty<SVGPathSegList> m_pathSegList;
-    RefPtr<SVGAnimatedPathSegListPropertyTearOff> m_animatablePathSegList;
+    FloatRect m_cachedBBoxRect;
+    bool m_cachedBBoxRectIsValid;                       
+    bool m_isAnimValObserved;
 };
 
 } // namespace WebCore

@@ -1,0 +1,8 @@
+[HKEY_THIS_MACHINE\Services]
+
+[HKEY_THIS_MACHINE\Services\dcerpc]
+"Description"="Likewise DCE/RPC Endpoint Mapper"
+"Path"="/usr/local/sbin/dcerpcd"
+"Arguments"="/usr/local/sbin/dcerpcd -f"
+"Dependencies"=""
+"Type"=dword:00000001

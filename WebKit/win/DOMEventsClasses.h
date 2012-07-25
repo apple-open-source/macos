@@ -28,6 +28,7 @@
 
 #include "WebKit.h"
 #include "DOMCoreClasses.h"
+#include <WebCore/EventListener.h>
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -40,6 +41,17 @@ namespace WebCore {
 }
 
 class DOMUIEvent;
+
+class WebEventListener : public WebCore::EventListener {
+public:
+    WebEventListener(IDOMEventListener*);
+    ~WebEventListener();
+    virtual bool operator==(const EventListener&);
+    virtual void handleEvent(WebCore::ScriptExecutionContext*, WebCore::Event*);
+    static PassRefPtr<WebEventListener> create(IDOMEventListener*);
+private:
+    IDOMEventListener* m_iDOMEventListener;
+};
 
 class DOMEventListener : public DOMObject, public IDOMEventListener
 {
@@ -263,10 +275,10 @@ public:
     virtual HRESULT STDMETHODCALLTYPE charCode( 
         /* [retval][out] */ long* result);
     
-    virtual HRESULT STDMETHODCALLTYPE layerX( 
+    virtual HRESULT STDMETHODCALLTYPE unused1(
         /* [retval][out] */ long* result);
     
-    virtual HRESULT STDMETHODCALLTYPE layerY( 
+    virtual HRESULT STDMETHODCALLTYPE unused2(
         /* [retval][out] */ long* result);
     
     virtual HRESULT STDMETHODCALLTYPE pageX( 
@@ -372,11 +384,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE charCode( 
         /* [retval][out] */ long* result) { return DOMUIEvent::charCode(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerX( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerX(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused1(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused1(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerY( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerY(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused2(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused2(result); }
     
     virtual HRESULT STDMETHODCALLTYPE pageX( 
         /* [retval][out] */ long* result) { return DOMUIEvent::pageX(result); }
@@ -520,11 +532,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE charCode( 
         /* [retval][out] */ long* result) { return DOMUIEvent::charCode(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerX( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerX(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused1(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused1(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerY( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerY(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused2(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused2(result); }
     
     virtual HRESULT STDMETHODCALLTYPE pageX( 
         /* [retval][out] */ long* result) { return DOMUIEvent::pageX(result); }
@@ -879,11 +891,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE charCode( 
         /* [retval][out] */ long* result) { return DOMUIEvent::charCode(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerX( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerX(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused1(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused1(result); }
     
-    virtual HRESULT STDMETHODCALLTYPE layerY( 
-        /* [retval][out] */ long* result) { return DOMUIEvent::layerY(result); }
+    virtual HRESULT STDMETHODCALLTYPE unused2(
+        /* [retval][out] */ long* result) { return DOMUIEvent::unused2(result); }
     
     virtual HRESULT STDMETHODCALLTYPE pageX( 
         /* [retval][out] */ long* result) { return DOMUIEvent::pageX(result); }

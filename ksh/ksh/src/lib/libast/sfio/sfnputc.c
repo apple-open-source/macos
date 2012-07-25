@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,20 +27,21 @@
 */
 
 #if __STD_C
-ssize_t sfnputc(reg Sfio_t* f, reg int c, reg size_t n)
+ssize_t sfnputc(Sfio_t* f, int c, size_t n)
 #else
 ssize_t sfnputc(f,c,n)
-reg Sfio_t*	f;	/* file to write */
-reg int		c;	/* char to be written */
-reg size_t	n;	/* number of time to repeat */
+Sfio_t*		f;	/* file to write */
+int		c;	/* char to be written */
+size_t		n;	/* number of time to repeat */
 #endif
 {
 	reg uchar*	ps;
 	reg ssize_t	p, w;
 	uchar		buf[128];
 	reg int		local;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,-1);
+	SFMTXENTER(f,-1);
 
 	GETLOCAL(f,local);
 	if(SFMODE(f,local) != SF_WRITE && _sfmode(f,SF_WRITE,local) < 0)

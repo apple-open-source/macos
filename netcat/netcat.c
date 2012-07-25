@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/un.h>
+#include <sys/event.h>
 
 #include <net/if.h>
 #include <netinet/in.h>
@@ -65,6 +66,7 @@
 #define PORT_MAX_LEN	6
 
 /* Command Line Options */
+int	cflag;					/* CRLF line-ending */
 int	dflag;					/* detached, no stdin */
 int	iflag;					/* Interval Flag */
 #ifndef __APPLE__
@@ -87,11 +89,16 @@ int	Sflag;					/* TCP MD5 signature option */
 #endif /* !__APPLE__ */
 
 #ifdef __APPLE__
+int	Aflag;					/* Set SO_RECV_ANYIF on socket */
 char	*boundif;				/* interface to bind to */
 int	ifscope;				/* idx of bound to interface */
-int Cflag;					/* cellular connection OFF option */
+int	Cflag;					/* cellular connection OFF option */
+int	tclass = SO_TC_BE;			/* traffic class value */
+int	Kflag;					/* traffic class option */
+int	Fflag;					/* disable flow advisory for UDP if set */
 #endif /* __APPLE__ */
 
+int use_flowadv = 1;
 int timeout = -1;
 int family = AF_UNSPEC;
 char *portlist[PORT_MAX+1];
@@ -132,13 +139,16 @@ main(int argc, char *argv[])
 	sv = NULL;
 
 	while ((ch = getopt(argc, argv,
-	    "46DCb:dhi:jklnp:rSs:tUuvw:X:x:z")) != -1) {
+	    "46AcDCb:dhi:jFK:klnp:rSs:tUuvw:X:x:z")) != -1) {
 		switch (ch) {
 		case '4':
 			family = AF_INET;
 			break;
 		case '6':
 			family = AF_INET6;
+			break;
+		case 'A':
+			Aflag = 1;
 			break;
 		case 'U':
 			family = AF_UNIX;
@@ -152,6 +162,9 @@ main(int argc, char *argv[])
 				socksv = 5; /* SOCKS v.5 */
 			else
 				errx(1, "unsupported proxy protocol");
+			break;
+		case 'c':
+			cflag = 1;
 			break;
 #ifdef __APPLE__
 		case 'C':
@@ -182,6 +195,18 @@ main(int argc, char *argv[])
 		case 'k':
 			kflag = 1;
 			break;
+#ifdef __APPLE__
+		case 'K':
+			Kflag = 1;
+			tclass = (int)strtoul(optarg, &endp, 10);
+			if (tclass < 0 || *endp != '\0')
+				errx(1, "invalid traffic class");
+			break;
+		case 'F':
+			Fflag = 1;
+			use_flowadv = 0;
+			break;
+#endif /* __APPLE__ */
 		case 'l':
 			lflag = 1;
 			break;
@@ -708,8 +733,15 @@ readwrite(int nfd)
 				pfd[1].events = 0;
 #endif
 			} else {
-				if (atomicio(vwrite, nfd, buf, n) != n)
-					return;
+				if ((cflag) && (buf[n - 1] == '\n')) {
+					if (atomicio(vwrite, nfd, buf, n - 1) != (n - 1))
+						return;
+					if (atomicio(vwrite, nfd, "\r\n", 2) != 2)
+						return;
+				} else {
+					if (atomicio(vwrite, nfd, buf, n) != n)
+						return;
+				}
 			}
 		}
 	}
@@ -807,7 +839,7 @@ build_ports(char *p)
 		portlist[0] = calloc(1, PORT_MAX_LEN);
 		if (portlist[0] == NULL)
 			err(1, NULL);
-		portlist[0] = p;
+		strlcpy(portlist[0], p, PORT_MAX_LEN);
 	}
 }
 
@@ -856,6 +888,12 @@ set_common_sockopts(int s)
 	}
 #endif /* !__APPLE__ */
 #ifdef __APPLE__
+	if (Aflag) {
+		if (setsockopt(s, SOL_SOCKET, SO_RECV_ANYIF,
+			&x, sizeof(x)) == -1)
+			err(1, NULL);
+	}
+
 	if (boundif) {
 		/* Socket family could be AF_UNSPEC, so try both */
 		if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF, &ifscope,
@@ -864,13 +902,19 @@ set_common_sockopts(int s)
 		    sizeof (ifscope)) == -1)
 			err(1, NULL);
 	}
-	
+
 	if (Cflag) {
 		/* Socket family could be AF_UNSPEC, so try both */
 		if (setsockopt(s, IPPROTO_IP, IP_NO_IFT_CELLULAR, &x,
 					   sizeof (x)) == -1 &&
 		    setsockopt(s, IPPROTO_IPV6, IPV6_NO_IFT_CELLULAR, &x,
 					   sizeof (x)) == -1)
+			err(1, NULL);
+	}
+
+	if (Kflag) {
+		if (setsockopt(s, SOL_SOCKET, SO_TRAFFIC_CLASS,
+		    &tclass, sizeof (tclass)) == -1)
 			err(1, NULL);
 	}
 #endif /* __APPLE__ */
@@ -885,6 +929,8 @@ help(void)
 	\t-6		Use IPv6\n\
 %s\
 %s\
+%s\
+	\t-c		Send CRLF as line-ending\n\
 	\t-D		Enable the debug socket option\n\
 	\t-d		Detach from stdin\n\
 	\t-h		This help text\n\
@@ -894,6 +940,7 @@ help(void)
 	\t-n		Suppress name/port resolutions\n\
 	\t-p port\t	Specify local port for remote connects\n\
 	\t-r		Randomize remote ports\n\
+%s\
 %s\
 	\t-s addr\t	Local source address\n\
 	\t-t		Answer TELNET negotiation\n\
@@ -908,11 +955,15 @@ help(void)
 #ifndef __APPLE__
 	"",
 	"",
-	"	\t-S		Enable the TCP MD5 signature option\n"
+	"",
+	"	\t-S		Enable the TCP MD5 signature option\n",
+	""
 #else /* __APPLE__ */
+	"	\t-A		Set SO_RECV_ANYIF on socket\n",
 	"	\t-C		Don't use cellular connection\n",
 	"	\t-b ifbound	Bind socket to interface\n",
-	""
+	"	\t-K tclass	Specify traffic class\n",
+	"	\t-F		Do not use flow advisory (flow adv enabled by default)\n"
 #endif /* !__APPLE__ */
 	);
 	exit(1);
@@ -922,12 +973,52 @@ void
 usage(int ret)
 {
 #ifndef __APPLE__
-	fprintf(stderr, "usage: nc [-46DdhklnrStUuvz] [-i interval] [-p source_port]\n");
+	fprintf(stderr, "usage: nc [-46cDdhklnrStUuvz] [-i interval] [-p source_port]\n");
 #else /* __APPLE__ */
-	fprintf(stderr, "usage: nc [-46CDdhklnrtUuvz] [-b boundif] [-i interval] [-p source_port]\n");
+	fprintf(stderr, "usage: nc [-46AcCDdFhklnrtUuvz] [-K tc] [-b boundif] [-i interval] [-p source_port]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");
 	if (ret)
 		exit(1);
+}
+
+int
+wait_for_flowadv(int fd)
+{
+	static int kq = -1;
+	int rc;
+	struct kevent kev[2];
+	bzero(kev, sizeof(kev));
+
+	/* Got ENOBUFS.
+	 * Now wait for flow advisory only if UDP is set and flow adv is enabled. */
+	if (!uflag || !use_flowadv) {
+		return (1);
+	}
+
+	if (kq < 0) {
+		kq = kqueue();
+		if (kq < 0) {
+			errx(1, "failed to create kqueue for flow advisory");
+			return (1);
+		}
+	}
+
+	EV_SET(&kev[0], fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, 0);
+	rc = kevent(kq, &kev[0], 1, NULL, 0, NULL);
+	if (rc < 0) {
+		return (1);
+	}
+
+	rc = kevent(kq, NULL, 0, &kev[1], 1, NULL);
+	if (rc < 0) {
+		return (1);
+	}
+
+	if (kev[1].flags & EV_EOF) {
+		return (2);
+	}
+
+	return (0);
 }

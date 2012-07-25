@@ -303,6 +303,7 @@ main(int argc, char * argv[1])
 		    "start pid %d uid %d gid %d log_flags 0x%x\n",
 		    getpid(), uid, gid, log_flags);
     EAPOLSocketSetGlobals(prefs);
+    Supplicant_set_globals(prefs);
     my_CFRelease(&prefs);
     source = EAPOLSocketSourceCreate(if_name,
 				     (const struct ether_addr *)

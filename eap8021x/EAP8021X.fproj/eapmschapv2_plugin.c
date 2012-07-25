@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,6 +47,7 @@
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/mschap.h>
 #include "myCFUtil.h"
+#include "nbo.h"
 #include "printdata.h"
 
 /*
@@ -213,14 +214,14 @@ typedef struct EAPMSCHAPv2ChangePasswordPacket_s {
 static __inline__ void
 EAPMSCHAPv2PacketSetMSLength(EAPMSCHAPv2PacketRef pkt, uint16_t length)
 {
-    *((u_short *)pkt->ms_length) = htons(length);
+    net_uint16_set(pkt->ms_length, length);
     return;
 }
 
 static __inline__ uint16_t
 EAPMSCHAPv2PacketGetMSLength(const EAPMSCHAPv2PacketRef pkt)
 {
-    return (ntohs(*((u_short *)pkt->ms_length)));
+    return (net_uint16_get(pkt->ms_length));
 }
 
 typedef enum {

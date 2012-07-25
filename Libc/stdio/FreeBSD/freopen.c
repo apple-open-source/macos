@@ -98,7 +98,7 @@ freopen(file, mode, fp)
 		    (oflags & O_ACCMODE)) {
 			fclose(fp);
 			FUNLOCKFILE(fp);
-			errno = EINVAL;
+			errno = EBADF;
 			return (NULL);
 		}
 		if (fp->_flags & __SWR)
@@ -131,6 +131,8 @@ freopen(file, mode, fp)
 	 * descriptor (if any) was associated with it.  If it was attached to
 	 * a descriptor, defer closing it; freopen("/dev/stdin", "r", stdin)
 	 * should work.  This is unnecessary if it was not a Unix file.
+	 *
+	 * For UNIX03, we always close if it was open.
 	 */
 	if (fp->_flags == 0) {
 		fp->_flags = __SEOF;	/* hold on to it */
@@ -141,11 +143,18 @@ freopen(file, mode, fp)
 		if (fp->_flags & __SWR)
 			(void) __sflush(fp);
 		/* if close is NULL, closing is a no-op, hence pointless */
+#if __DARWIN_UNIX03
+		if (fp->_close)
+			(void) (*fp->_close)(fp->_cookie);
+		isopen = 0;
+		wantfd = -1;
+#else /* !__DARWIN_UNIX03 */
 		isopen = fp->_close != NULL;
 		if ((wantfd = fp->_file) < 0 && isopen) {
 			(void) (*fp->_close)(fp->_cookie);
 			isopen = 0;
 		}
+#endif /* __DARWIN_UNIX03 */
 	}
 
 	/* Get a new descriptor to refer to the new file. */
@@ -186,7 +195,7 @@ finish:
 	memset(&fp->_mbstate, 0, sizeof(mbstate_t));
 
 	if (f < 0) {			/* did not get it after all */
-		fp->_flags = 0;		/* set it free */
+		__sfprelease(fp);	/* set it free */
 		FUNLOCKFILE(fp);
 		errno = sverrno;	/* restore in case _close clobbered */
 		return (NULL);
@@ -212,7 +221,7 @@ finish:
 	 * open.
 	 */
 	if (f > SHRT_MAX) {
-		fp->_flags = 0;		/* set it free */
+		__sfprelease(fp);	/* set it free */
 		FUNLOCKFILE(fp);
 		errno = EMFILE;
 		return (NULL);

@@ -39,6 +39,7 @@ namespace WebCore {
     
 AccessibilityScrollView::AccessibilityScrollView(ScrollView* view)
     : m_scrollView(view)
+    , m_childrenDirty(false)
 {
 }
 
@@ -47,8 +48,10 @@ PassRefPtr<AccessibilityScrollView> AccessibilityScrollView::create(ScrollView* 
     return adoptRef(new AccessibilityScrollView(view));
 }
     
-AccessibilityObject* AccessibilityScrollView::scrollBar(AccessibilityOrientation orientation) const
+AccessibilityObject* AccessibilityScrollView::scrollBar(AccessibilityOrientation orientation)
 {
+    updateScrollbars();
+    
     switch (orientation) {
     case AccessibilityOrientationVertical:
         return m_verticalScrollbar ? m_verticalScrollbar.get() : 0;
@@ -57,13 +60,6 @@ AccessibilityObject* AccessibilityScrollView::scrollBar(AccessibilityOrientation
     }
     
     return 0;
-}
-
-const AccessibilityObject::AccessibilityChildrenVector& AccessibilityScrollView::children()
-{
-    if (!m_haveChildren)
-        addChildren();
-    return m_children;
 }
 
 // If this is WebKit1 then the native scroll view needs to return the
@@ -80,6 +76,17 @@ Widget* AccessibilityScrollView::widgetForAttachmentView() const
 }
     
 void AccessibilityScrollView::updateChildrenIfNecessary()
+{
+    if (m_childrenDirty)
+        clearChildren();
+
+    if (!m_haveChildren)
+        addChildren();
+    
+    updateScrollbars();
+}
+
+void AccessibilityScrollView::updateScrollbars()
 {
     if (m_scrollView->horizontalScrollbar() && !m_horizontalScrollbar)
         m_horizontalScrollbar = addChildScrollbar(m_scrollView->horizontalScrollbar());
@@ -116,16 +123,32 @@ AccessibilityScrollbar* AccessibilityScrollView::addChildScrollbar(Scrollbar* sc
     return scrollBarObject;
 }
         
+void AccessibilityScrollView::clearChildren()
+{
+    AccessibilityObject::clearChildren();
+    m_verticalScrollbar = 0;
+    m_horizontalScrollbar = 0;
+}
+
+bool AccessibilityScrollView::accessibilityIsIgnored() const
+{
+    AccessibilityObject* webArea = webAreaObject();
+    if (!webArea)
+        return true;
+    
+    return webArea->accessibilityIsIgnored();
+}
+
 void AccessibilityScrollView::addChildren()
 {
     ASSERT(!m_haveChildren);
     m_haveChildren = true;
     
     AccessibilityObject* webArea = webAreaObject();
-    if (webArea)
+    if (webArea && !webArea->accessibilityIsIgnored())
         m_children.append(webArea);
     
-    updateChildrenIfNecessary();
+    updateScrollbars();
 }
 
 AccessibilityObject* AccessibilityScrollView::webAreaObject() const
@@ -154,7 +177,7 @@ AccessibilityObject* AccessibilityScrollView::accessibilityHitTest(const IntPoin
     return webArea->accessibilityHitTest(point);
 }
 
-IntRect AccessibilityScrollView::elementRect() const
+LayoutRect AccessibilityScrollView::elementRect() const
 {
     return m_scrollView->frameRect();
 }
@@ -173,10 +196,32 @@ AccessibilityObject* AccessibilityScrollView::parentObject() const
         return 0;
     
     HTMLFrameOwnerElement* owner = static_cast<FrameView*>(m_scrollView.get())->frame()->ownerElement();
-    if (owner && owner->renderPart())
-        return axObjectCache()->getOrCreate(owner->renderPart()->parent());
-    
+    if (owner && owner->renderer())
+        return axObjectCache()->getOrCreate(owner->renderer());
+
     return 0;
 }
     
+AccessibilityObject* AccessibilityScrollView::parentObjectIfExists() const
+{
+    if (!m_scrollView->isFrameView())
+        return 0;
+    
+    HTMLFrameOwnerElement* owner = static_cast<FrameView*>(m_scrollView.get())->frame()->ownerElement();
+    if (owner && owner->renderer())
+        return axObjectCache()->get(owner->renderer());
+    
+    return 0;
+}
+
+ScrollableArea* AccessibilityScrollView::getScrollableAreaIfScrollable() const
+{
+    return m_scrollView.get();
+}
+
+void AccessibilityScrollView::scrollTo(const IntPoint& point) const
+{
+    m_scrollView->setScrollPosition(point);
+}
+
 } // namespace WebCore    

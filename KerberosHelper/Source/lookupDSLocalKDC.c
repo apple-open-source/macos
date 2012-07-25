@@ -26,6 +26,9 @@
  */
 
 
+#include "KerberosHelper.h"
+#include "KerberosHelperContext.h"
+
 #include "lookupDSLocalKDC.h"
 #include <CoreFoundation/CoreFoundation.h>
 

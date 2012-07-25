@@ -29,6 +29,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/dtoa.h>
 #include <wtf/text/AtomicString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -67,11 +68,11 @@ String serializeForNumberType(double number)
 
 bool parseToDoubleForNumberType(const String& string, double* result)
 {
-    // See HTML5 2.4.4.3 `Real numbers.'
+    // See HTML5 2.5.4.3 `Real numbers.'
 
     // String::toDouble() accepts leading + and whitespace characters, which are not valid here.
     UChar firstCharacter = string[0];
-    if (firstCharacter != '-' && !isASCIIDigit(firstCharacter))
+    if (firstCharacter != '-' && firstCharacter != '.' && !isASCIIDigit(firstCharacter))
         return false;
 
     bool valid = false;
@@ -84,7 +85,7 @@ bool parseToDoubleForNumberType(const String& string, double* result)
         return false;
 
     // Numbers are considered finite IEEE 754 single-precision floating point values.
-    // See HTML5 2.4.4.3 `Real numbers.'
+    // See HTML5 2.5.4.3 `Real numbers.'
     if (-std::numeric_limits<float>::max() > value || value > std::numeric_limits<float>::max())
         return false;
 
@@ -206,7 +207,7 @@ bool parseHTMLInteger(const String& input, int& value)
         return false;
 
     // Step 8
-    Vector<UChar, 16> digits;
+    StringBuilder digits;
     while (position < end) {
         if (!isASCIIDigit(*position))
             break;
@@ -214,8 +215,56 @@ bool parseHTMLInteger(const String& input, int& value)
     }
 
     // Step 9
-    value = sign * charactersToIntStrict(digits.data(), digits.size());
-    return true;
+    bool ok;
+    value = sign * charactersToIntStrict(digits.characters(), digits.length(), &ok);
+    return ok;
+}
+
+// http://www.whatwg.org/specs/web-apps/current-work/#rules-for-parsing-non-negative-integers
+bool parseHTMLNonNegativeInteger(const String& input, unsigned int& value)
+{
+    // Step 1
+    // Step 2
+    const UChar* position = input.characters();
+    const UChar* end = position + input.length();
+
+    // Step 3
+    while (position < end) {
+        if (!isHTMLSpace(*position))
+            break;
+        ++position;
+    }
+
+    // Step 4
+    if (position == end)
+        return false;
+    ASSERT(position < end);
+
+    // Step 5
+    if (*position == '+')
+        ++position;
+
+    // Step 6
+    if (position == end)
+        return false;
+    ASSERT(position < end);
+
+    // Step 7
+    if (!isASCIIDigit(*position))
+        return false;
+
+    // Step 8
+    StringBuilder digits;
+    while (position < end) {
+        if (!isASCIIDigit(*position))
+            break;
+        digits.append(*position++);
+    }
+
+    // Step 9
+    bool ok;
+    value = charactersToUIntStrict(digits.characters(), digits.length(), &ok);
+    return ok;
 }
 
 }

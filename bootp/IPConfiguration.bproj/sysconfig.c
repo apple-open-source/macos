@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,7 @@
 #include "symbol_scope.h"
 #include "dhcp_thread.h"
 #include "DHCPv6Client.h"
+#include "IPConfigurationServiceInternal.h"
 
 STATIC CFDictionaryRef
 DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p);
@@ -122,7 +123,8 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 			    CFStringRef serviceID,
 			    CFStringRef entities[],
 			    CFDictionaryRef values[],
-			    int count)
+			    int count,
+			    boolean_t alternate_location)
 {
     int				i;
 
@@ -142,15 +144,39 @@ my_SCDynamicStoreSetService(SCDynamicStoreRef store,
 	S_keys_to_remove_range.location = 0;
 	S_keys_to_remove_range.length = 0;
     }
-    for (i = 0; i < count; i++) {
-	CFStringRef	key;
+    if (alternate_location) {
+	CFMutableDictionaryRef	dict = NULL;
+	CFStringRef		key;
 
-	key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-							  kSCDynamicStoreDomainState,
-							  serviceID, 
-							  entities[i]);
-	update_key(store, key, values[i]);
+	for (i = 0; i < count; i++) {
+	    if (values[i] == NULL) {
+		continue;
+	    }
+	    if (dict == NULL) {
+		dict = CFDictionaryCreateMutable(NULL, 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
+	    }
+	    CFDictionarySetValue(dict, entities[i], values[i]);
+	}
+	key = IPConfigurationServiceKey(serviceID);
+	update_key(store, key, dict);
 	CFRelease(key);
+	if (dict != NULL) {
+	    CFRelease(dict);
+	}
+    }
+    else {
+	for (i = 0; i < count; i++) {
+	    CFStringRef	key;
+	    
+	    key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+							      kSCDynamicStoreDomainState,
+							      serviceID, 
+							      entities[i]);
+	    update_key(store, key, values[i]);
+	    CFRelease(key);
+	}
     }
     return;
 }
@@ -209,7 +235,8 @@ DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
 	int		len;
 	void * 		option;
 
-	if (tag == dhcptag_host_name_e && ipconfig_method_bootp_e) {
+	if (tag == dhcptag_host_name_e 
+	    && method == ipconfig_method_bootp_e) {
 	}
 	else if (dhcp_parameter_is_ok(tag) == FALSE) {
 	    continue;
@@ -488,7 +515,7 @@ DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
 
 STATIC void
 add_ipv6_addresses_to_array(CFMutableArrayRef array, 
-			    const struct in6_addr * servers, int servers_count)
+			    const void * servers, int servers_count)
 {
     int			i;
     CFRange		r;
@@ -498,7 +525,8 @@ add_ipv6_addresses_to_array(CFMutableArrayRef array,
     for (i = 0; i < servers_count; i++) {
 	CFStringRef		ip;
 	    
-	ip = my_CFStringCreateWithIPv6Address(servers + i);
+	ip = my_CFStringCreateWithIPv6Address(servers + 
+			i * sizeof(struct in6_addr));
 	if (CFArrayContainsValue(array, r, ip) == FALSE) {
 	    CFArrayAppendValue(array, ip);
 	    r.length++;
@@ -555,7 +583,7 @@ DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
     }
     array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     if (servers != NULL) {
-	add_ipv6_addresses_to_array(array, (struct in6_addr *)servers,
+	add_ipv6_addresses_to_array(array, servers,
 				    servers_count);
     }
     if (info_p->dns_servers != NULL) {

@@ -29,6 +29,7 @@
 
 #include "WebGLProgram.h"
 
+#include "WebGLContextGroup.h"
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -39,68 +40,72 @@ PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 }
 
 WebGLProgram::WebGLProgram(WebGLRenderingContext* ctx)
-    : WebGLObject(ctx)
+    : WebGLSharedObject(ctx)
     , m_linkStatus(false)
     , m_linkCount(0)
+    , m_infoValid(true)
 {
-    setObject(context()->graphicsContext3D()->createProgram());
+    setObject(ctx->graphicsContext3D()->createProgram());
 }
 
-void WebGLProgram::deleteObjectImpl(Platform3DObject obj)
+WebGLProgram::~WebGLProgram()
 {
-    context()->graphicsContext3D()->deleteProgram(obj);
+    deleteObject(0);
+}
+
+void WebGLProgram::deleteObjectImpl(GraphicsContext3D* context3d, Platform3DObject obj)
+{
+    context3d->deleteProgram(obj);
     if (m_vertexShader) {
-        m_vertexShader->onDetached();
+        m_vertexShader->onDetached(context3d);
         m_vertexShader = 0;
     }
     if (m_fragmentShader) {
-        m_fragmentShader->onDetached();
+        m_fragmentShader->onDetached(context3d);
         m_fragmentShader = 0;
     }
 }
 
-bool WebGLProgram::cacheActiveAttribLocations()
+unsigned WebGLProgram::numActiveAttribLocations()
 {
-    m_activeAttribLocations.clear();
-    if (!object())
-        return false;
-    GraphicsContext3D* context3d = context()->graphicsContext3D();
-
-    // Assume link status has already been cached.
-    if (!m_linkStatus)
-        return false;
-
-    GC3Dint numAttribs = 0;
-    context3d->getProgramiv(object(), GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
-    m_activeAttribLocations.resize(static_cast<size_t>(numAttribs));
-    for (int i = 0; i < numAttribs; ++i) {
-        ActiveInfo info;
-        context3d->getActiveAttrib(object(), i, info);
-        m_activeAttribLocations[i] = context3d->getAttribLocation(object(), info.name.charactersWithNullTermination());
-    }
-
-    return true;
-}
-
-unsigned WebGLProgram::numActiveAttribLocations() const
-{
+    cacheInfoIfNeeded();
     return m_activeAttribLocations.size();
 }
 
-GC3Dint WebGLProgram::getActiveAttribLocation(GC3Duint index) const
+GC3Dint WebGLProgram::getActiveAttribLocation(GC3Duint index)
 {
+    cacheInfoIfNeeded();
     if (index >= numActiveAttribLocations())
         return -1;
     return m_activeAttribLocations[index];
 }
 
-bool WebGLProgram::isUsingVertexAttrib0() const
+bool WebGLProgram::isUsingVertexAttrib0()
 {
+    cacheInfoIfNeeded();
     for (unsigned ii = 0; ii < numActiveAttribLocations(); ++ii) {
         if (!getActiveAttribLocation(ii))
             return true;
     }
     return false;
+}
+
+bool WebGLProgram::getLinkStatus()
+{
+    cacheInfoIfNeeded();
+    return m_linkStatus;
+}
+
+void WebGLProgram::setLinkStatus(bool status)
+{
+    cacheInfoIfNeeded();
+    m_linkStatus = status;
+}
+
+void WebGLProgram::increaseLinkCount()
+{
+    ++m_linkCount;
+    m_infoValid = false;
 }
 
 WebGLShader* WebGLProgram::getAttachedShader(GC3Denum type)
@@ -153,6 +158,39 @@ bool WebGLProgram::detachShader(WebGLShader* shader)
     default:
         return false;
     }
+}
+
+void WebGLProgram::cacheActiveAttribLocations(GraphicsContext3D* context3d)
+{
+    m_activeAttribLocations.clear();
+
+    GC3Dint numAttribs = 0;
+    context3d->getProgramiv(object(), GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
+    m_activeAttribLocations.resize(static_cast<size_t>(numAttribs));
+    for (int i = 0; i < numAttribs; ++i) {
+        ActiveInfo info;
+        context3d->getActiveAttrib(object(), i, info);
+        m_activeAttribLocations[i] = context3d->getAttribLocation(object(), info.name.charactersWithNullTermination());
+    }
+}
+
+void WebGLProgram::cacheInfoIfNeeded()
+{
+    if (m_infoValid)
+        return;
+
+    if (!object())
+        return;
+
+    GraphicsContext3D* context = getAGraphicsContext3D();
+    if (!context)
+        return;
+    GC3Dint linkStatus = 0;
+    context->getProgramiv(object(), GraphicsContext3D::LINK_STATUS, &linkStatus);
+    m_linkStatus = linkStatus;
+    if (m_linkStatus)
+        cacheActiveAttribLocations(context);
+    m_infoValid = true;
 }
 
 }

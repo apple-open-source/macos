@@ -2,7 +2,7 @@
 # Glenn Fowler
 # AT&T Research
 #
-# @(#)make.probe (AT&T Research) 2007-04-11
+# @(#)make.probe (AT&T Research) 2011-02-02
 #
 # C probe for make
 #
@@ -11,11 +11,12 @@
 
 cc_dll_def=-D_BLD_DLL
 
+probe_ar_arflags="-Xany"
 probe_arflags="-xar"
 probe_ccs="strip size nm ld ar" # longest to shortest
 probe_debug="-g"
 probe_dll="'-G 0' -Wc,dll,exportall,longname,rent -Wc,exportall -dynamic $cc_dll_def"
-probe_export_dynamic="-rdynamic -export-dynamic -Wl,-export-dynamic -Wl,-E -bexpall"
+probe_export_dynamic="-rdynamic -export-dynamic -Wl,-export-dynamic -Wl,-E -bexpall -force_flat_namespace"
 probe_include_local="'-ignore-source-dir -iquote' -iquote -I-"
 probe_ldlazy='-zlazyload -znolazyload -Wl,-zlazyload -Wl,-znolazyload'
 probe_ldlib="LD_LIBRARY_PATH LIBPATH LPATH"
@@ -32,8 +33,10 @@ probe_libdir="shlib lib"
 probe_nmflags="'' -p -B"
 probe_optimize="-O"
 probe_pic="-Kpic -KPIC -fpic -fPIC -pic -PIC +z +Z"
+probe_no_protect="'-fno-stack-protector -fno-stack-protector-all' -GS-"
 probe_readonly="-R -Krodata -xMerge -Wa,-r"
 probe_shared="'' -G -b -c -shared -Wl,dll"
+probe_shared_name="-Wl,-soname= -h"
 probe_shared_nostart="-nostartfiles"
 probe_shared_registry='"-update_registry $probe_shared_registry_file"'
 probe_shared_registry_file='registry.ld'
@@ -96,14 +99,17 @@ echo '#if defined(__STDC__) || defined(__cplusplus)
 extern type call(int);
 #endif
 int main() {call(0);return(0);}' > tstlib.$src
-echo 'int f(){return 0;}' > warn.$src
-echo 'int f(){}' > warn1.$src
-echo 'int f(){int i; return 0;}' > warn2.$src
-echo 'int f(){int i; return i;}' > warn3.$src
-echo 'int f(){return g();}' > warn4.$src
-warn_enum="1 2 3 4"
+echo 'int main(){return 0;}' > warn.$src
+echo 'int f(){return 0;}' > warn1.$src
+echo 'int f(){}' > warn2.$src
+echo 'int f(){int i; return 0;}' > warn3.$src
+echo 'int f(){int i; return i;}' > warn4.$src
+echo 'int f(){return g();}' > warn5.$src
+warn_enum="1 2 3 4 5"
+
 chmod -w *.$src
 
+ar_arflags=
 arflags=
 cc_dll=
 cc_pic=
@@ -139,6 +145,7 @@ libpp=
 makeoptions=
 nmedit=
 nmflags=
+no_protect=
 optimize=
 plusplus=
 prefix_archive=lib
@@ -150,7 +157,9 @@ ptrmkdir=
 readonly=
 repository=
 require=
+runpath=
 shared=
+shared_name=
 shared_registry=
 shellmagic=
 soversion=
@@ -689,7 +698,7 @@ case $cc_dll:$cc_pic:$so:$dynamic:$static in
 			[012])	continue ;;
 			esac
 			;;
-		*archive*not*stripped*)
+		*archive*not*stripped*|*data*dynamic*not*stripped*)
 			$executable xxx$dll || continue
 			;;
 		*)	continue
@@ -903,7 +912,21 @@ case $cc_dll:$cc_pic:$so:$dynamic:$static in
 		done
 	fi
 	case $so in
-	?*)	if	$cc -c require.$src
+	?*)	rm -f xxx*
+		if	$dld $shared -g -o xxx shared.$obj 2>e
+		then	set x $probe_sdb
+			while	:
+			do	shift
+				case $1 in
+				0)	break ;;
+				esac
+				if	test -f xxx$1
+				then	sdb=$1
+					break
+				fi
+			done
+		fi
+		if	$cc -c require.$src
 		then	p='
 /usr/proberun/lib:/local/runprobe/lib
 '
@@ -924,9 +947,11 @@ case $cc_dll:$cc_pic:$so:$dynamic:$static in
 						case $# in
 						0)	break ;;
 						esac
-						rm -f require.exe
-						if	$cc -o require.exe $1 $ldrunpath"$p" require.$obj
-						then	ldorigin="$1 $ldrunpath"'\$ORIGIN/$(BINDIR:P=R=$(DLLDIR))'
+						rm -f origin.exe
+						if	$cc -o origin.exe $1 $ldrunpath'$ORIGIN' require.$obj
+						then	if	./origin.exe > /dev/null 2>&1
+							then	ldorigin="$1 $ldrunpath"'\$ORIGIN/$(BINDIR:P=R=$(DLLDIR))'
+							fi
 							break
 						fi
 					done
@@ -945,6 +970,26 @@ case $cc_dll:$cc_pic:$so:$dynamic:$static in
 			then	soversion=1
 			fi
 		fi
+		rm -f doti.$obj
+		std64=/lib64
+		lcl64=/usr/local/lib64
+		if	test -d $std64 -a -d $lcl64 && $cc -c doti.$src
+		then	for i in `cd $lcl64; ls *$so 2>/dev/null | sed 's/lib\([^.]*\).*/\1/'`
+			do	if	$cc -o runpath.$exe doti.$obj -l$i >/dev/null 2>&1
+				then	LD_LIBRARY_PATH= ./runpath.$exe >/dev/null 2>&1 && continue
+					if	LD_LIBRARY_PATH=$lcl64 ./runpath.$exe >/dev/null 2>&1
+					then	runpath=$lcl64
+						break
+					elif	LD_LIBRARY_PATH=$std64 ./runpath.$exe >/dev/null 2>&1
+					then	runpath=$std64
+						break
+					elif	LD_LIBRARY_PATH=$lcl64:$std64 ./runpath.$exe >/dev/null 2>&1
+					then	runpath=$lcl64:$std64
+						break
+					fi
+				fi
+			done
+		fi
 		;;
 	esac
 	;;
@@ -952,7 +997,19 @@ esac
 
 rm -f shared.$obj
 if	$cc -c shared.$src
-then	eval set x $probe_arflags
+then	eval set x $probe_ar_arflags
+	while	:
+	do	shift
+		case $# in
+		0)	break ;;
+		esac
+		rm -f libxxx.$lib
+		if	$ar $1 r libxxx.$lib shared.$obj && $ar $1 t libxxx.$lib 2>&1 | grep shared.$obj >/dev/null
+		then	ar_arflags=$1
+			break
+		fi
+	done
+	eval set x $probe_arflags
 	while	:
 	do	shift
 		case $# in
@@ -995,6 +1052,23 @@ case $shared in
 		fi
 		;;
 	esac
+	;;
+esac
+case $shared in
+?*)	if	$cc -c $cc_dll $cc_pic shared.$src
+	then	eval set x $probe_shared_name
+		while	:
+		do	shift
+			case $# in
+			0)	break ;;
+			esac
+			rm -f xxx$dll
+			if	$dld $shared ${1}libfoo.1.2 -o xxx$dll shared.$obj 2>e && test -r xxx$dll
+			then	shared_name=$1
+				break
+			fi
+		done
+	fi
 	;;
 esac
 case " $cc_dll " in
@@ -1074,14 +1148,35 @@ main()
 	;;
 esac
 
-stdlib=`$cc -v doti.$src 2>&1 |
-	sed 's/  */\n/g' |
-	sed -e '/^-L/!d' -e 's/^-L//' |
-	while read dir
-	do	if	test -d "$dir"
-		then	(cd "$dir"; pwd)
+stdlib=
+a=`$cc -print-multi-directory 2>/dev/null`
+case $a in
+.)	;;
+*)	for d in `$cc -print-search-dirs 2>/dev/null | sed -e '/^libraries:/!d' -e 's/.*=//' | tr : '\n' | grep /lib/`
+	do	if	[ -d ${d}${a} ]
+		then	stdlib="$stdlib ${d}${a}"
+		else	case $d in
+			*/lib/)	d=`echo '' $d | sed -e 's,/$,,'`
+				if	[ -d ${d}${a} ]
+				then	stdlib="$stdlib ${d}${a}"
+				fi
+				;;
+			esac
 		fi
-	done`
+	done
+	;;
+esac
+case $stdlib in
+'')	stdlib=`$cc -v doti.$src 2>&1 |
+		sed 's/  */\n/g' |
+		sed -e '/^-L/!d' -e 's/^-L//' |
+		while read dir
+		do	if	test -d "$dir"
+			then	(cd "$dir"; pwd)
+			fi
+		done`
+	;;
+esac
 case $stdlib in
 ?*)	keepstdlib=1
 	o=$stdlib
@@ -1127,6 +1222,26 @@ case $stdlib in
 			esac
 		fi
 	done
+	case $hosted in
+	1)	case " $stdlib " in
+		*" /usr/lib "*)
+			;;
+		*)	case " $stdlib " in
+			*" /usr/local/lib "*)
+				;;
+			*)	stdlib="$stdlib /usr/local/lib"
+				;;
+			esac
+			stdlib="$stdlib /usr/lib"
+			;;
+		esac
+		case " $stdlib " in
+		*" /lib "*)
+			;;
+		*)	stdlib="$stdlib /lib"
+			;;
+		esac
+	esac
 	;;
 *)	keepstdlib=0
 	case $dir in
@@ -1407,6 +1522,19 @@ then	e=`wc -c < e`
 		esac
 	done
 
+	eval set x $probe_no_protect
+	while	:
+	do	shift
+		case $# in
+		0)	break ;;
+		esac
+		rm -f warn.$obj
+		$cc $1 -c warn.$src 2>e && test -f warn.$obj || continue
+		case `wc -c < e` in
+		$e)	no_protect=$1; break ;;
+		esac
+	done
+
 	eval set x $probe_optimize
 	while	:
 	do	shift
@@ -1435,7 +1563,7 @@ then	e=`wc -c < e`
 		fi
 	done
 
-	$cc -c warn.$src 2>e
+	$cc -c warn1.$src 2>e
 	o=`wc -c < e`
 	eval set x $probe_warn
 	while	:
@@ -1443,17 +1571,14 @@ then	e=`wc -c < e`
 		case $# in
 		0)	break ;;
 		esac
-		rm -f warn.$obj
-		$cc $1 -c warn.$src 2>e && test -f warn.$obj || continue
+		rm -f warn.$obj warn.$exe
+		$cc -o warn.$exe $1 warn.$src 2>e && test -f warn.$exe || continue
 		n=`wc -c < e`
-		if	test $n -gt $o
-		then	continue
-		fi
-		for n in $warn_enum
-		do	rm -f warn$n.$obj
-			$cc $1 -c warn$n.$src 2>e && test -f warn$n.$obj || continue
+		for i in $warn_enum
+		do	rm -f warn$i.$obj
+			$cc -c $1 warn$i.$src 2>e && test -f warn$i.$obj || continue
 			n=`wc -c < e`
-			if	test $n -gt $e
+			if	test $n -gt $o
 			then	warn=$1
 				break 2
 			fi
@@ -1464,7 +1589,7 @@ fi
 
 while	:
 do	case $hosted in
-	?*)	rm -f readonly.$exe
+	1)	rm -f readonly.$exe
 		eval set x '""' $probe_readonly
 		while	:
 		do	shift
@@ -1637,7 +1762,7 @@ sgi.mips4)	dll_variants='sgi.mips2:o32:-mips2 sgi.mips3:n32:-mips3' ;;
 esac
 
 case $hosted in
-'')	ccnative=`echo $cc | sed -e 's,.*/,,'`
+"")	ccnative=`echo $cc | sed -e 's,.*/,,'`
 	ccs=$ccnative
 	for c in cc gcc
 	do	case " $ccs " in
@@ -1900,6 +2025,7 @@ CC_HOSTTYPE=$hosttype
 CC_ALTPP_FLAGS=$ppopt
 CC_ALTPP_ENV=$ppenv
 CC_AR=$ar
+CC_AR_ARFLAGS=$ar_arflags
 CC_ARFLAGS=$arflags
 CC_DEBUG=$debug
 CC_DIALECT=$dialect
@@ -1940,12 +2066,15 @@ CC_MAKE_OPTIONS=$makeoptions
 CC_NM=$nm
 CC_NMEDIT=$nmedit
 CC_NMFLAGS=$nmflags
+CC_NOPROTECT=$no_protect
 CC_OPTIMIZE=$optimize
 CC_READONLY=$readonly
 CC_REPOSITORY=$repository
 CC_REQUIRE=$require
+CC_RUNPATH=$runpath
 CC_SHARED=$shared
 CC_SHARED_LD=$dld
+CC_SHARED_NAME=$shared_name
 CC_SHARED_REGISTRY=$shared_registry
 CC_SHARED_REGISTRY_PATH=$probe_shared_registry_path
 CC_SHELLMAGIC=$shellmagic
@@ -1962,6 +2091,7 @@ CC_PREFIX_SHARED=$prefix_shared
 CC_PREFIX_SYMBOL=$symprefix
 CC_SUFFIX_ARCHIVE=.$lib
 CC_SUFFIX_COMMAND=$suffix_command
+CC_SUFFIX_DEBUG=$sdb
 CC_SUFFIX_DYNAMIC=$sd
 CC_SUFFIX_LD=$ldscript
 CC_SUFFIX_OBJECT=.$obj
@@ -1998,6 +2128,7 @@ echo CC.HOSTTYPE = $CC_HOSTTYPE
 echo CC.ALTPP.FLAGS = $CC_ALTPP_FLAGS
 echo CC.ALTPP.ENV = $CC_ALTPP_ENV
 echo CC.AR = $CC_AR
+echo CC.AR.ARFLAGS = $CC_AR_ARFLAGS
 echo CC.ARFLAGS = $CC_ARFLAGS
 echo CC.DEBUG = $CC_DEBUG
 echo CC.DIALECT = $CC_DIALECT
@@ -2043,6 +2174,7 @@ case $CC_NMEDIT in
 esac
 echo CC.NMEDIT ="$CC_NMEDIT"
 echo CC.NMFLAGS = $CC_NMFLAGS
+echo CC.NOPROTECT = $CC_NOPROTECT
 echo CC.OPTIMIZE = $CC_OPTIMIZE
 echo CC.PICBIG = $CC_PICBIG
 echo CC.PICSMALL = $CC_PICSMALL
@@ -2052,8 +2184,10 @@ echo CC.REPOSITORY = $CC_REPOSITORY
 for f in $CC_REQUIRE
 do	echo CC.REQUIRE.$f =`cat req.$f`
 done
+echo CC.RUNPATH = $CC_RUNPATH
 echo CC.SHARED = $CC_SHARED
 echo CC.SHARED.LD = $CC_SHARED_LD
+echo CC.SHARED.NAME = $CC_SHARED_NAME
 echo CC.SHARED.REGISTRY = $CC_SHARED_REGISTRY
 echo CC.SHARED.REGISTRY.PATH = $CC_SHARED_REGISTRY_PATH
 echo CC.SHELLMAGIC = $CC_SHELLMAGIC
@@ -2070,6 +2204,7 @@ echo CC.PREFIX.SHARED = $CC_PREFIX_SHARED
 echo CC.PREFIX.SYMBOL = $CC_PREFIX_SYMBOL
 echo CC.SUFFIX.ARCHIVE = $CC_SUFFIX_ARCHIVE
 echo CC.SUFFIX.COMMAND = $CC_SUFFIX_COMMAND
+echo CC.SUFFIX.DEBUG = $CC_SUFFIX_DEBUG
 echo CC.SUFFIX.DYNAMIC = $CC_SUFFIX_DYNAMIC
 echo CC.SUFFIX.LD = $CC_SUFFIX_LD
 echo CC.SUFFIX.OBJECT = $CC_SUFFIX_OBJECT
@@ -2077,7 +2212,14 @@ echo CC.SUFFIX.SHARED = $CC_SUFFIX_SHARED
 echo CC.SUFFIX.SOURCE = $CC_SUFFIX_SOURCE
 echo CC.SUFFIX.STATIC = $CC_SUFFIX_STATIC
 echo CC.VERSION = $CC_VERSION
-echo CC.VERSION.STRING = $version_string
+case $CC_VERSION_STRING in
+*\"*)	i=`echo " $CC_VERSION_STRING" | sed -e 's,",\\\\",g' -e 's,^ ,,' -e 's,.*,"&",'` ;;
+*\'*)	i=\"$CC_VERSION_STRING\" ;;
+*)	i=$CC_VERSION_STRING ;;
+esac
+cat <<!
+CC.VERSION.STRING = $i
+!
 echo CC.WARN = $CC_WARN
 
 for i in $CC_ATTRIBUTES

@@ -63,7 +63,7 @@ void JSHTMLOptionsCollection::setLength(ExecState* exec, JSValue value)
 void JSHTMLOptionsCollection::indexSetter(ExecState* exec, unsigned index, JSValue value)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
-    HTMLSelectElement* base = static_cast<HTMLSelectElement*>(imp->base());
+    HTMLSelectElement* base = toHTMLSelectElement(imp->base());
     selectIndexSetter(base, exec, index, value);
 }
 
@@ -91,7 +91,7 @@ JSValue JSHTMLOptionsCollection::add(ExecState* exec)
 JSValue JSHTMLOptionsCollection::remove(ExecState* exec)
 {
     HTMLOptionsCollection* imp = static_cast<HTMLOptionsCollection*>(impl());
-    JSHTMLSelectElement* base = static_cast<JSHTMLSelectElement*>(asObject(toJS(exec, globalObject(), imp->base())));
+    JSHTMLSelectElement* base = jsCast<JSHTMLSelectElement*>(asObject(toJS(exec, globalObject(), imp->base())));
     return base->remove(exec);
 }
 

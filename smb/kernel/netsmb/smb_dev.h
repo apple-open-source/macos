@@ -66,9 +66,8 @@
  */
 #define SMB_MAX_IOC_SIZE 4 * 1024
 
-#define SMB_KERN_NTLMSSP		1	/* The kernel is doing NTLMSSP */
-#define SMB_SHARING_VC			2	/* We are sharing this Virtual Circuit */
-#define SMB_FORCE_NEW_SESSION	4	/* Use a new Virtual Circuit */
+#define SMB_SHARING_VC			1	/* We are sharing this Virtual Circuit */
+#define SMB_FORCE_NEW_SESSION	2	/* Use a new Virtual Circuit */
 
 #define SMB_IOC_SPI_INIT_SIZE	8 * 1024 /* Inital buffer size for server provided init token */
 
@@ -136,7 +135,6 @@ struct smbioc_setup {
 	uint32_t	ioc_gss_target_size;/* Size of GSS target name */
 	user_addr_t	ioc_gss_target_name;/* Target name */
 	char		ioc_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
-	char		ioc_uppercase_user[SMB_MAXUSERNAMELEN + 1] __attribute((aligned(8)));
 	char		ioc_password[SMB_MAXPASSWORDLEN + 1] __attribute((aligned(8)));
 	char		ioc_domain[SMB_MAXNetBIOSNAMELEN + 1] __attribute((aligned(8)));
 	uint64_t	ioc_reserved __attribute((aligned(8))); /* Force correct size always */

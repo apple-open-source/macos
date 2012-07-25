@@ -3,7 +3,7 @@
  *  kext_tools
  *
  *  Created by Nik Gervae on 2010 10 04.
- *  Copyright 2010 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2010, 2012 Apple Computer, Inc. All rights reserved.
  *
  */
 #ifndef _KERNELCACHE_H_
@@ -15,13 +15,15 @@
 #define PLATFORM_NAME_LEN  (64)
 #define ROOT_PATH_LEN     (256)
 
+// prelinkVersion value >= 1 means KASLR supported
 typedef struct prelinked_kernel_header {
     uint32_t  signature;
     uint32_t  compressType;
     uint32_t  adler32;
     uint32_t  uncompressedSize;
     uint32_t  compressedSize;
-    uint32_t  reserved[11];
+    uint32_t  prelinkVersion;
+    uint32_t  reserved[10];
     char      platformName[PLATFORM_NAME_LEN]; // unused
     char      rootPath[ROOT_PATH_LEN];         // unused
     char      data[0];
@@ -93,7 +95,8 @@ int verifyMachOIsArch(
 CFDataRef uncompressPrelinkedSlice(
     CFDataRef prelinkImage);
 CFDataRef compressPrelinkedSlice(
-    CFDataRef prelinkImage);
+    CFDataRef prelinkImage,
+    Boolean   hasRelocs);
 ExitStatus writePrelinkedSymbols(
     CFURLRef    symbolDirURL,
     CFArrayRef  prelinkSymbols,

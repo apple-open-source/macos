@@ -24,6 +24,9 @@
  */
 
 #include "config.h"
+
+#if ENABLE(CONTEXT_MENUS)
+
 #include "WebPageContextMenuClient.h"
 
 #include "Logging.h"
@@ -34,11 +37,14 @@
 
 namespace WebKit {
 
-bool WebPageContextMenuClient::getContextMenuFromProposedMenu(WebPageProxy* page, const Vector<WebContextMenuItemData>& proposedMenuVector, Vector<WebContextMenuItemData>& customMenu, APIObject* userData)
+bool WebPageContextMenuClient::getContextMenuFromProposedMenu(WebPageProxy* page, const Vector<WebContextMenuItemData>& proposedMenuVector, Vector<WebContextMenuItemData>& customMenu, const WebHitTestResult::Data& hitTestResultData, APIObject* userData)
 {
-    if (!m_client.getContextMenuFromProposedMenu)
+    if (!m_client.getContextMenuFromProposedMenu && !m_client.getContextMenuFromProposedMenu_deprecatedForUseWithV0)
         return false;
-        
+
+    if (m_client.version == kWKPageContextMenuClientCurrentVersion && !m_client.getContextMenuFromProposedMenu)
+        return false;
+
     unsigned size = proposedMenuVector.size();
     RefPtr<MutableArray> proposedMenu = MutableArray::create();
     proposedMenu->reserveCapacity(size);
@@ -46,7 +52,12 @@ bool WebPageContextMenuClient::getContextMenuFromProposedMenu(WebPageProxy* page
         proposedMenu->append(WebContextMenuItem::create(proposedMenuVector[i]).get());
         
     WKArrayRef newMenu = 0;
-    m_client.getContextMenuFromProposedMenu(toAPI(page), toAPI(proposedMenu.get()), &newMenu, toAPI(userData), m_client.clientInfo);
+    if (m_client.version == kWKPageContextMenuClientCurrentVersion) {
+        RefPtr<WebHitTestResult> webHitTestResult = WebHitTestResult::create(hitTestResultData);
+        m_client.getContextMenuFromProposedMenu(toAPI(page), toAPI(proposedMenu.get()), &newMenu, toAPI(webHitTestResult.get()), toAPI(userData), m_client.clientInfo);
+    } else
+        m_client.getContextMenuFromProposedMenu_deprecatedForUseWithV0(toAPI(page), toAPI(proposedMenu.get()), &newMenu, toAPI(userData), m_client.clientInfo);
+
     RefPtr<ImmutableArray> array = adoptRef(toImpl(newMenu));
     
     customMenu.clear();
@@ -74,4 +85,13 @@ void WebPageContextMenuClient::customContextMenuItemSelected(WebPageProxy* page,
     m_client.customContextMenuItemSelected(toAPI(page), toAPI(item.get()), m_client.clientInfo);
 }
 
+void WebPageContextMenuClient::contextMenuDismissed(WebPageProxy* page)
+{
+    if (!m_client.contextMenuDismissed)
+        return;
+    
+    m_client.contextMenuDismissed(toAPI(page), m_client.clientInfo);
+}
+
 } // namespace WebKit
+#endif // ENABLE(CONTEXT_MENUS)

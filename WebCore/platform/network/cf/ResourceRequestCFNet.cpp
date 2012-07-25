@@ -29,14 +29,18 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 
-#if PLATFORM(MAC)
-#include "ResourceLoadPriority.h"
-#include "WebCoreSystemInterface.h"
-#endif
-
 #if USE(CFNETWORK)
 #include "FormDataStreamCFNet.h"
 #include <CFNetwork/CFURLRequestPriv.h>
+#endif
+
+#if PLATFORM(MAC)
+#include "ResourceLoadPriority.h"
+#include "WebCoreSystemInterface.h"
+#include <dlfcn.h>
+#endif
+
+#if PLATFORM(WIN)
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
 
@@ -49,6 +53,7 @@ bool ResourceRequest::s_httpPipeliningEnabled = false;
 typedef void (*CFURLRequestSetContentDispositionEncodingFallbackArrayFunction)(CFMutableURLRequestRef, CFArrayRef);
 typedef CFArrayRef (*CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction)(CFURLRequestRef);
 
+#if PLATFORM(WIN)
 static HMODULE findCFNetworkModule()
 {
 #ifndef DEBUG_ALL
@@ -67,6 +72,17 @@ static CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction findCFURL
 {
     return reinterpret_cast<CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction>(GetProcAddress(findCFNetworkModule(), "_CFURLRequestCopyContentDispositionEncodingFallbackArray"));
 }
+#elif PLATFORM(MAC)
+static CFURLRequestSetContentDispositionEncodingFallbackArrayFunction findCFURLRequestSetContentDispositionEncodingFallbackArrayFunction()
+{
+    return reinterpret_cast<CFURLRequestSetContentDispositionEncodingFallbackArrayFunction>(dlsym(RTLD_DEFAULT, "_CFURLRequestSetContentDispositionEncodingFallbackArray"));
+}
+
+static CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction findCFURLRequestCopyContentDispositionEncodingFallbackArrayFunction()
+{
+    return reinterpret_cast<CFURLRequestCopyContentDispositionEncodingFallbackArrayFunction>(dlsym(RTLD_DEFAULT, "_CFURLRequestCopyContentDispositionEncodingFallbackArray"));
+}
+#endif
 
 static void setContentDispositionEncodingFallbackArray(CFMutableURLRequestRef request, CFArrayRef fallbackArray)
 {
@@ -135,9 +151,14 @@ void ResourceRequest::doUpdatePlatformRequest()
 
     if (httpPipeliningEnabled())
         wkSetHTTPPipeliningPriority(cfRequest, toHTTPPipeliningPriority(m_priority));
+#if !PLATFORM(WIN)
+    wkCFURLRequestAllowAllPostCaching(cfRequest);
+#endif
 
     setHeaderFields(cfRequest, httpHeaderFields());
-    WebCore::setHTTPBody(cfRequest, httpBody());
+    RefPtr<FormData> formData = httpBody();
+    if (formData && !formData->isEmpty())
+        WebCore::setHTTPBody(cfRequest, formData);
     CFURLRequestSetShouldHandleHTTPCookies(cfRequest, allowCookies());
 
     unsigned fallbackCount = m_responseContentDispositionEncodingFallbackArray.size();
@@ -159,6 +180,9 @@ void ResourceRequest::doUpdatePlatformRequest()
     }
 
     m_cfRequest.adoptCF(cfRequest);
+#if PLATFORM(MAC)
+    updateNSURLRequest();
+#endif
 }
 
 void ResourceRequest::doUpdateResourceRequest()
@@ -214,8 +238,19 @@ void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
     CFMutableURLRequestRef cfRequest = CFURLRequestCreateMutableCopy(0, m_cfRequest.get());
     wkSetRequestStorageSession(storageSession, cfRequest);
     m_cfRequest.adoptCF(cfRequest);
+#if PLATFORM(MAC)
+    updateNSURLRequest();
+#endif
 }
 
+#endif
+
+#if PLATFORM(MAC)
+void ResourceRequest::applyWebArchiveHackForMail()
+{
+    // Hack because Mail checks for this property to detect data / archive loads
+    _CFURLRequestSetProtocolProperty(cfURLRequest(), CFSTR("WebDataRequest"), CFSTR(""));
+}
 #endif
 
 #endif // USE(CFNETWORK)
@@ -253,10 +288,10 @@ unsigned initializeMaximumHTTPConnectionCountPerHost()
         ResourceRequest::setHTTPPipeliningEnabled(true);
 
     if (ResourceRequest::httpPipeliningEnabled()) {
-        wkSetHTTPPipeliningMaximumPriority(ResourceLoadPriorityHighest);
+        wkSetHTTPPipeliningMaximumPriority(toHTTPPipeliningPriority(ResourceLoadPriorityHighest));
 #if !PLATFORM(WIN)
         // FIXME: <rdar://problem/9375609> Implement minimum fast lane priority setting on Windows
-        wkSetHTTPPipeliningMinimumFastLanePriority(ResourceLoadPriorityMedium);
+        wkSetHTTPPipeliningMinimumFastLanePriority(toHTTPPipeliningPriority(ResourceLoadPriorityMedium));
 #endif
         // When pipelining do not rate-limit requests sent from WebCore since CFNetwork handles that.
         return unlimitedConnectionCount;

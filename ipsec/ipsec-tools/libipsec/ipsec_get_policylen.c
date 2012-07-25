@@ -36,6 +36,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <string.h>
 
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
@@ -53,8 +54,13 @@
 #include "ipsec_strerror.h"
 
 int
-ipsec_get_policylen(policy)
-	ipsec_policy_t policy;
+ipsec_get_policylen(ipsec_policy_t policy)
 {
-	return policy ? PFKEY_EXTLEN(policy) : -1;
+    u_int16_t aligned_len;
+    
+    if (policy) {
+        memcpy(&aligned_len, policy, sizeof(u_int16_t));
+        return PFKEY_UNUNIT64(aligned_len);
+    } else
+        return -1;
 }

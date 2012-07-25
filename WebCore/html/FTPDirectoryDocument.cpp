@@ -222,8 +222,7 @@ static String processFileDateString(const FTPTime& fileTime)
 
     // If it was today or yesterday, lets just do that - but we have to compare to the current time
     struct tm now;
-    time_t now_t = time(NULL);
-    getLocalTime(&now_t, &now);
+    getCurrentLocalTime(&now);
 
     // localtime does "year = current year - 1900", compensate for that for readability and comparison purposes
     now.tm_year += 1900;
@@ -253,9 +252,9 @@ static String processFileDateString(const FTPTime& fileTime)
     String dateString;
 
     if (fileTime.tm_year > -1)
-        dateString = months[month] + ' ' + String::number(fileTime.tm_mday) + ", " + String::number(fileTime.tm_year);
+        dateString = String(months[month]) + " " + String::number(fileTime.tm_mday) + ", " + String::number(fileTime.tm_year);
     else
-        dateString = months[month] + ' ' + String::number(fileTime.tm_mday) + ", " + String::number(now.tm_year);
+        dateString = String(months[month]) + " " + String::number(fileTime.tm_mday) + ", " + String::number(now.tm_year);
 
     return dateString + timeOfDay;
 }

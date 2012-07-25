@@ -25,6 +25,9 @@
  * HISTORY
  *
  *	$Log: IOFWDCLProgram.cpp,v $
+ *	Revision 1.33  2012/06/06 01:51:16  collin
+ *	DCL program changes for vt-d
+ *
  *	Revision 1.32  2008/05/06 03:26:57  collin
  *	more K64
  *
@@ -131,6 +134,7 @@ getDCLDataBuffer(
 void
 IODCLProgram::generateBufferMap( DCLCommand * program )
 {
+    
 	IOVirtualAddress lowAddress = (IOVirtualAddress)-1 ;
 	IOVirtualAddress highAddress = 0 ;
 	
@@ -157,7 +161,8 @@ IODCLProgram::generateBufferMap( DCLCommand * program )
 		return ;
 	}
 	
-	IOMemoryDescriptor * desc = IOMemoryDescriptor::withAddress( (void*)lowAddress, highAddress - lowAddress, kIODirectionOutIn ) ;
+    IOByteCount length = highAddress - lowAddress;
+	IOMemoryDescriptor * desc = IOMemoryDescriptor::withAddress( (void*)lowAddress, length, kIODirectionOutIn ) ;
 
 	DebugLogCond(!desc, "couldn't make memory descriptor!\n") ;
 
@@ -168,9 +173,47 @@ IODCLProgram::generateBufferMap( DCLCommand * program )
 		desc->release() ;
 		desc = NULL ;
 	}
+    
+    IODMACommand * dma_command = NULL;
+    if ( desc )
+	{
+        IOReturn status = kIOReturnSuccess;
 
+        dma_command =  IODMACommand::withSpecification( kIODMACommandOutputHost32,  // segment function
+                                                        32,                         // max address bits
+                                                        length,                     // max segment size
+                                                        (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly), // IO mapped & don't bounce buffer
+                                                        length,                     // max transfer size
+                                                        0,                          // page alignment
+                                                        NULL,                       // mapper
+                                                        NULL );                     // refcon
+        if( dma_command == NULL )
+        {
+            status = kIOReturnError;
+        }
+        
+        if( status == kIOReturnSuccess )
+        {
+            status = dma_command->setMemoryDescriptor( desc ); 
+        }
+        
+        if( status != kIOReturnSuccess )
+        {
+            ErrorLog("couldn't prepare memory DMA command\n") ;
+            
+            if( dma_command )
+            {
+                dma_command->release();
+            }
+            
+            desc->release() ;
+            desc = NULL ; 
+        }
+    }
+    
 	if ( desc )
 	{
+        fExpansionData->fDMACommand = dma_command;
 		fBufferMem = desc->map() ;
 		desc->release() ;
 		
@@ -286,10 +329,17 @@ void IODCLProgram::free()
 {
 	if ( fExpansionData )
 	{
+        if( fExpansionData->fDMACommand )
+        {
+            fExpansionData->fDMACommand->complete();
+            fExpansionData->fDMACommand->release();
+            fExpansionData->fDMACommand = NULL;
+        }
+        
 		delete fExpansionData ;
 		fExpansionData = NULL ;
 	}
-	
+    
 	if ( fBufferMem )
 	{
 		fBufferMem->release() ;

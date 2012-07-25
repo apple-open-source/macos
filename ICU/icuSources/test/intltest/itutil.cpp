@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -29,7 +29,9 @@
 #include "aliastst.h"
 #include "usettest.h"
 
+extern IntlTest *createBytesTrieTest();
 static IntlTest *createLocalPointerTest();
+extern IntlTest *createUCharsTrieTest();
 
 #define CASE(id, test) case id:                               \
                           name = #test;                       \
@@ -65,6 +67,22 @@ void IntlTestUtilities::runIndexedTest( int32_t index, UBool exec, const char* &
             if (exec) {
                 logln("TestSuite LocalPointerTest---"); logln();
                 LocalPointer<IntlTest> test(createLocalPointerTest());
+                callTest(*test, par);
+            }
+            break;
+        case 17:
+            name = "BytesTrieTest";
+            if (exec) {
+                logln("TestSuite BytesTrieTest---"); logln();
+                LocalPointer<IntlTest> test(createBytesTrieTest());
+                callTest(*test, par);
+            }
+            break;
+        case 18:
+            name = "UCharsTrieTest";
+            if (exec) {
+                logln("TestSuite UCharsTrieTest---"); logln();
+                LocalPointer<IntlTest> test(createUCharsTrieTest());
                 callTest(*test, par);
             }
             break;
@@ -304,7 +322,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
     }
 
     LocalUDateTimePatternGeneratorPointer patgen(udatpg_open("root", errorCode));
-    if(errorCode.logIfFailureAndReset("udatpg_open()")) {
+    if(errorCode.logDataIfFailureAndReset("udatpg_open()")) {
         return;
     }
     if(patgen.isNull()) {
@@ -334,7 +352,7 @@ void LocalPointerTest::TestLocalXyzPointer() {
 #endif  /* UCONFIG_NO_FORMATTING  */
 
 #if !UCONFIG_NO_NORMALIZATION
-    const UNormalizer2 *nfc=unorm2_getInstance(NULL, "nfc", UNORM2_COMPOSE, errorCode);
+    const UNormalizer2 *nfc=unorm2_getNFCInstance(errorCode);
     UnicodeSet emptySet;
     LocalUNormalizer2Pointer fn2(unorm2_openFiltered(nfc, emptySet.toUSet(), errorCode));
     if(errorCode.logIfFailureAndReset("unorm2_openFiltered()")) {

@@ -286,16 +286,31 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setCacheModel(
      /* [in] */ WebCacheModel cacheModel);
 
-    virtual HRESULT STDMETHODCALLTYPE setShouldPaintCustomScrollbars( 
-    /* [in] */ BOOL shouldPaint);
-
-    virtual HRESULT STDMETHODCALLTYPE shouldPaintCustomScrollbars( 
-    /* [retval][out] */ BOOL *shouldPaint);
+    virtual HRESULT STDMETHODCALLTYPE unused3();
+    virtual HRESULT STDMETHODCALLTYPE unused4();
 
     virtual HRESULT STDMETHODCALLTYPE setAVFoundationEnabled(
     /* [in] */ BOOL);
 
     virtual HRESULT STDMETHODCALLTYPE avFoundationEnabled(
+    /* [retval][out] */ BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setShouldDisplaySubtitles(
+    /* [in] */ BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldDisplaySubtitles(
+    /* [retval][out] */ BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setShouldDisplayCaptions(
+    /* [in] */ BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldDisplayCaptions(
+    /* [retval][out] */ BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setShouldDisplayTextDescriptions(
+    /* [in] */ BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldDisplayTextDescriptions(
     /* [retval][out] */ BOOL*);
 
     // IWebPreferencesPrivate
@@ -404,12 +419,6 @@ public:
     virtual HRESULT STDMETHODCALLTYPE shouldUseHighResolutionTimers(
     /* [retval][out] */ BOOL* useHighResolutionTimers);
 
-    virtual HRESULT STDMETHODCALLTYPE setPluginAllowedRunTime(
-    /* [in] */ UINT allowedRunTime);
-
-    virtual HRESULT STDMETHODCALLTYPE pluginAllowedRunTime(
-    /* [retval][out] */ UINT* allowedRunTime);
-
     virtual HRESULT STDMETHODCALLTYPE isFrameFlatteningEnabled(
     /* [retval][out] */ BOOL* enabled);
 
@@ -446,6 +455,21 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setFullScreenEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE isFullScreenEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE hixie76WebSocketProtocolEnabled(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setHixie76WebSocketProtocolEnabled(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE mediaPlaybackRequiresUserGesture(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setMediaPlaybackRequiresUserGesture(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE mediaPlaybackAllowsInline(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setMediaPlaybackAllowsInline(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE showsToolTipOverTruncatedText(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setShowsToolTipOverTruncatedText(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE shouldInvertColors(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setShouldInvertColors(BOOL);
 
     // WebPreferences
 

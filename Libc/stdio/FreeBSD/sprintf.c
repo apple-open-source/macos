@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)sprintf.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/sprintf.c,v 1.16 2008/04/17 22:17:54 jhb Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>
@@ -46,17 +48,21 @@ sprintf(char * __restrict str, char const * __restrict fmt, ...)
 {
 	int ret;
 	va_list ap;
-	FILE f;
 
-	f._file = -1;
-	f._flags = __SWR | __SSTR;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._w = INT_MAX;
-	f._orientation = 0;
-	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	va_start(ap, fmt);
-	ret = __vfprintf(&f, fmt, ap);
+	ret = vsprintf_l(str, __current_locale(), fmt, ap);
 	va_end(ap);
-	*f._p = 0;
+	return (ret);
+}
+
+int
+sprintf_l(char * __restrict str, locale_t loc, char const * __restrict fmt, ...)
+{
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vsprintf_l(str, loc, fmt, ap);
+	va_end(ap);
 	return (ret);
 }

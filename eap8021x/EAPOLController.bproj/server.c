@@ -502,11 +502,16 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
     mach_msg_return_t 	r;
     mach_msg_header_t *	request = (mach_msg_header_t *)msg;
     mach_msg_header_t *	reply;
-    char		reply_s[eapolcontroller_subsystem.maxsize];
+#define REPLY_SIZE_AS_UINT64 \
+	((eapolcontroller_subsystem.maxsize + sizeof(uint64_t) - 1) / sizeof(uint64_t))
+    uint64_t		reply_s[REPLY_SIZE_AS_UINT64];
 
     if (process_notification(request) == FALSE) {
 	read_trailer(request);
-	reply = (mach_msg_header_t *)reply_s;
+        
+	/* ALIGN: reply is aligned to at least sizeof(uint64) bytes */
+	reply = (mach_msg_header_t *)(void *)reply_s;
+        
 	if (eapolcontroller_server(request, reply) == FALSE) {
 	    syslog(LOG_NOTICE,
 		   "EAPOLController: unknown message ID (%d)",

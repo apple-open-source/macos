@@ -37,54 +37,58 @@
 class WorkQueue::WorkItemQt : public QObject {
     Q_OBJECT
 public:
-    WorkItemQt(WorkQueue* workQueue, WorkItem* workItem)
+    WorkItemQt(WorkQueue* workQueue, const Function<void()>& function)
         : m_queue(workQueue)
         , m_source(0)
         , m_signal(0)
-        , m_workItem(workItem)
+        , m_function(function)
     {
     }
 
-    WorkItemQt(WorkQueue* workQueue, QObject* source, const char* signal, WorkItem* workItem)
+    WorkItemQt(WorkQueue* workQueue, QObject* source, const char* signal, const Function<void()>& function)
         : m_queue(workQueue)
         , m_source(source)
         , m_signal(signal)
-        , m_workItem(workItem)
+        , m_function(function)
     {
         connect(m_source, m_signal, SLOT(execute()), Qt::QueuedConnection);
     }
 
     ~WorkItemQt()
     {
-        delete m_workItem;
     }
 
     Q_SLOT void execute() 
     { 
         if (m_queue->m_isValid)
-            m_workItem->execute();
+            m_function();
+    }
+
+    Q_SLOT void executeAndDelete()
+    {
+        execute();
+        delete this;
     }
 
     virtual void timerEvent(QTimerEvent*)
     {
-        execute(); 
-        delete this;
+        executeAndDelete();
     }
 
     WorkQueue* m_queue;
     QObject* m_source;
     const char* m_signal;
-    WorkItem* m_workItem;
+    Function<void()> m_function;
 };
 
-QSocketNotifier* WorkQueue::registerSocketEventHandler(int socketDescriptor, QSocketNotifier::Type type, PassOwnPtr<WorkItem> workItem)
+QSocketNotifier* WorkQueue::registerSocketEventHandler(int socketDescriptor, QSocketNotifier::Type type, const Function<void()>& function)
 {
     ASSERT(m_workThread);
 
     QSocketNotifier* notifier = new QSocketNotifier(socketDescriptor, type, 0);
     notifier->setEnabled(false);
     notifier->moveToThread(m_workThread);
-    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, notifier, SIGNAL(activated(int)), workItem.leakPtr());
+    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, notifier, SIGNAL(activated(int)), function);
     itemQt->moveToThread(m_workThread);
     notifier->setEnabled(true);
     return notifier;
@@ -101,26 +105,25 @@ void WorkQueue::platformInvalidate()
     m_workThread->exit();
     m_workThread->wait();
     delete m_workThread;
-    deleteAllValues(m_signalListeners);
 }
 
-void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
+void WorkQueue::dispatch(const Function<void()>& function)
 {
-    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, item.leakPtr());
-    itemQt->startTimer(0);
+    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, function);
     itemQt->moveToThread(m_workThread);
+    QMetaObject::invokeMethod(itemQt, "executeAndDelete", Qt::QueuedConnection);
 }
 
-void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem> item, double delayInSecond)
+void WorkQueue::dispatchAfterDelay(const Function<void()>& function, double delayInSecond)
 {
-    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, item.leakPtr());
+    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, function);
     itemQt->startTimer(static_cast<int>(delayInSecond * 1000));
     itemQt->moveToThread(m_workThread);
 }
 
-void WorkQueue::scheduleWorkOnTermination(WebKit::PlatformProcessIdentifier process, PassOwnPtr<WorkItem> workItem)
+void WorkQueue::dispatchOnTermination(WebKit::PlatformProcessIdentifier process, const Function<void()>& function)
 {
-    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, process, SIGNAL(finished(int, QProcess::ExitStatus)), workItem.leakPtr());
+    WorkQueue::WorkItemQt* itemQt = new WorkQueue::WorkItemQt(this, process, SIGNAL(finished(int, QProcess::ExitStatus)), function);
     itemQt->moveToThread(m_workThread);
 }
 

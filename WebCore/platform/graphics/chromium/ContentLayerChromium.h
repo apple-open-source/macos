@@ -34,54 +34,45 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "LayerChromium.h"
-#include "LayerTilerChromium.h"
-#include "TextureManager.h"
+#include "TiledLayerChromium.h"
+#include "cc/CCTiledLayerImpl.h"
 
 namespace WebCore {
 
-class LayerTexture;
+class LayerTilerChromium;
+class LayerTextureUpdater;
+
+class ContentLayerDelegate {
+public:
+    virtual ~ContentLayerDelegate() { }
+    virtual void paintContents(GraphicsContext&, const IntRect& clip) = 0;
+};
 
 // A Layer that requires a GraphicsContext to render its contents.
-class ContentLayerChromium : public LayerChromium {
-    friend class LayerRendererChromium;
+class ContentLayerChromium : public TiledLayerChromium {
 public:
-    enum TilingOption { AlwaysTile, NeverTile, AutoTile };
-
-    static PassRefPtr<ContentLayerChromium> create(GraphicsLayerChromium* owner = 0);
+    static PassRefPtr<ContentLayerChromium> create(ContentLayerDelegate*);
 
     virtual ~ContentLayerChromium();
 
-    virtual void paintContentsIfDirty(const IntRect& targetSurfaceRect);
-    virtual void updateCompositorResources();
-    virtual void setIsMask(bool);
-    virtual void bindContentsTexture();
+    void clearDelegate() { m_delegate = 0; }
 
-    virtual void draw(const IntRect& targetSurfaceRect);
-    virtual bool drawsContent() const { return m_owner && m_owner->drawsContent() && (!m_tiler || !m_tiler->skipsDraw()); }
+    virtual bool drawsContent() const OVERRIDE;
+    virtual void update(CCTextureUpdater&, const CCOcclusionTracker*) OVERRIDE;
+    virtual void idleUpdate(CCTextureUpdater&, const CCOcclusionTracker*) OVERRIDE;
+
+    virtual void setOpaque(bool) OVERRIDE;
 
 protected:
-    explicit ContentLayerChromium(GraphicsLayerChromium* owner);
+    explicit ContentLayerChromium(ContentLayerDelegate*);
 
-    virtual const char* layerTypeAsString() const { return "ContentLayer"; }
-    virtual void dumpLayerProperties(TextStream&, int indent) const;
 
-    virtual void setLayerRenderer(LayerRendererChromium*);
+private:
+    virtual LayerTextureUpdater* textureUpdater() const OVERRIDE { return m_textureUpdater.get(); }
+    virtual void createTextureUpdaterIfNeeded() OVERRIDE;
 
-    virtual IntRect layerBounds() const;
-
-    virtual TransformationMatrix tilingTransform();
-
-    // For a given render surface rect that this layer will be transformed and
-    // drawn into, return the layer space rect that is visible in that surface.
-    IntRect visibleLayerRect(const IntRect&);
-
-    void updateLayerSize(const IntSize&);
-    void createTilerIfNeeded();
-    void setTilingOption(TilingOption);
-
-    OwnPtr<LayerTilerChromium> m_tiler;
-    TilingOption m_tilingOption;
+    ContentLayerDelegate* m_delegate;
+    RefPtr<LayerTextureUpdater> m_textureUpdater;
 };
 
 }

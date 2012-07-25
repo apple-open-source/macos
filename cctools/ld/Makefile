@@ -307,16 +307,16 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
 
-ld.NEW:	$(OBJS) ld_vers.o
+ld.NEW:	$(OBJS)
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
-		$(OBJS) ld_vers.o $(LIBSTUFF) \
+		$(OBJS) $(LIBSTUFF) \
 		-o $(SYMROOT)/ld.private.o
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/ld.NEW \
 		$(SYMROOT)/ld.private.o
 
-ld_g.NEW: $(OBJS) ld_vers.o
+ld_g.NEW: $(OBJS)
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
-		$(OBJS) ld_vers.o $(LIBSTUFF) \
+		$(OBJS) $(LIBSTUFF) \
 		-o $(SYMROOT)/ld_g.private.o
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/ld_g.NEW \
 		$(SYMROOT)/ld_g.private.o
@@ -345,26 +345,6 @@ libkld.dylib: $(OBJS)
 	nmedit -p $(SYMROOT)/dynamic_libkld.o
 	libtool -o $(SYMROOT)/libkld.dylib $(SYMROOT)/dynamic_libkld.o
 
-ld_vers.c:
-	echo "const char apple_version[]= " \"`vers_string $(VERS_STRING_FLAGS) -f cctools`\" ";" > \
-                $(OFILE_DIR)/$@
-
-ld_vers.o: ld_vers.c
-ifeq "mwccppc" "$(notdir $(CC))"
-	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
-		-Dstatic="__declspec(private_extern)"
-else
-ifeq "NO" "$(USE_DEPENDENCY_FILE)"
-	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c \
-		-Dstatic=__private_extern__ -o $(OFILE_DIR)/$*.o $<
-else
-	$(CC) $(COPTS) $(CFLAGS) $(OFLAG) $(RC_CFLAGS) -c -MD \
-		-Dstatic=__private_extern__ \
-		-dependency-file $(OFILE_DIR)/$*.d -o $(OFILE_DIR)/$*.o $<
-	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
-endif
-endif
-
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(COPTS) $(OFLAG) $(RC_CFLAGS) -c \
@@ -382,8 +362,7 @@ clean:
 shlib_clean:
 	-rm -r -f $(OBJROOT)/ld_dir $(OBJROOT)/ptmp_obj $(OBJROOT)/otmp_obj \
 		$(OBJROOT)/dtmp_obj $(OBJROOT)/sarld_dir ld_g_dir ld_p_dir
-	-cd $(OBJROOT)/shlib_obj; rm -f $(OBJS) \
-		Makedep ld_vers.c ld_vers.o
+	-cd $(OBJROOT)/shlib_obj; rm -f $(OBJS) Makedep 
 
 
 install: $(OFILE_DIRS) $(SYMROOT) ld_build $(RC_OS)_lib_ofiles $(RC_OS)_install

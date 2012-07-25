@@ -33,8 +33,6 @@ install::
 	chgrp mail $(DSTROOT)/usr/bin/lockfile
 	chmod g+s $(DSTROOT)/usr/bin/lockfile
 	$(INSTALL_FILE) $(SRCROOT)/mailstat.1 $(DSTROOT)/usr/share/man/man1
-# COMPRESSMANPAGES use DSTROOT automatically
-	$(COMPRESSMANPAGES) /usr/share/man
 # Install plist
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

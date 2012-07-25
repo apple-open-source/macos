@@ -37,6 +37,16 @@ __FBSDID("$FreeBSD: src/lib/libc/compat-43/killpg.c,v 1.5 2007/01/09 00:27:49 im
 #include <signal.h>
 #include <errno.h>
 
+int __kill(pid_t pid, int sig, int posix);
+
+#if __DARWIN_UNIX03
+#define	_PID1ERR	EPERM
+#define	_POSIXKILL	1
+#else	/* !__DARWIN_UNIX03 */
+#define	_PID1ERR	ESRCH
+#define	_POSIXKILL	0
+#endif	/* !__DARWIN_UNIX03 */
+
 /*
  * Backwards-compatible killpg().
  */
@@ -44,8 +54,8 @@ int
 killpg(pid_t pgid, int sig)
 {
 	if (pgid == 1) {
-		errno = ESRCH;
+		errno = _PID1ERR;
 		return (-1);
 	}
-	return (kill(-pgid, sig));
+	return (__kill(-pgid, sig, _POSIXKILL));
 }

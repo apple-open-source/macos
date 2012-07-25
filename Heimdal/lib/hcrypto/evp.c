@@ -356,7 +356,38 @@ EVP_Digest(const void *data, size_t dsize, void *hash, unsigned int *hsize,
 const EVP_MD *
 EVP_sha256(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, sha256);
+}
+
+/**
+ * The message digest SHA384
+ *
+ * @return the message digest type.
+ *
+ * @ingroup hcrypto_evp
+ */
+
+const EVP_MD *
+EVP_sha384(void)
+{
+    hcrypto_validate();
+    return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, sha384);
+}
+
+/**
+ * The message digest SHA512
+ *
+ * @return the message digest type.
+ *
+ * @ingroup hcrypto_evp
+ */
+
+const EVP_MD *
+EVP_sha512(void)
+{
+    hcrypto_validate();
+    return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, sha512);
 }
 
 /**
@@ -370,6 +401,7 @@ EVP_sha256(void)
 const EVP_MD *
 EVP_sha1(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, sha1);
 }
 
@@ -383,8 +415,9 @@ EVP_sha1(void)
 
 const EVP_MD *
 EVP_sha(void) HC_DEPRECATED
-    
+
 {
+    hcrypto_validate();
     return EVP_sha1();
 }
 
@@ -399,6 +432,7 @@ EVP_sha(void) HC_DEPRECATED
 const EVP_MD *
 EVP_md5(void) HC_DEPRECATED_CRYPTO
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, md5);
 }
 
@@ -413,6 +447,7 @@ EVP_md5(void) HC_DEPRECATED_CRYPTO
 const EVP_MD *
 EVP_md4(void) HC_DEPRECATED_CRYPTO
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, md4);
 }
 
@@ -427,6 +462,7 @@ EVP_md4(void) HC_DEPRECATED_CRYPTO
 const EVP_MD *
 EVP_md2(void) HC_DEPRECATED_CRYPTO
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, md2);
 }
 
@@ -558,6 +594,7 @@ EVP_CIPHER_CTX_cleanup(EVP_CIPHER_CTX *c)
 	    free(cipher_data);
 	    c->cipher_data = NULL;
 	}
+	EVP_CIPHER_CTX_init(c);
     }
     return 1;
 }
@@ -844,7 +881,7 @@ EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, void *out, int *outlen,
 	    ctx->buf_len += inlen;
 	    return 1;
 	}
-	
+
 	/* fill in local buffer and encrypt */
 	memcpy(ctx->buf + ctx->buf_len, in, left);
 	ret = (*ctx->cipher->do_cipher)(ctx, out, ctx->buf, blocksize);
@@ -862,7 +899,7 @@ EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, void *out, int *outlen,
     if (inlen) {
 	ctx->buf_len = (inlen & ctx->block_mask);
 	inlen &= ~ctx->block_mask;
-	
+
 	ret = (*ctx->cipher->do_cipher)(ctx, out, in, inlen);
 	if (ret != 1)
 	    return ret;
@@ -1005,6 +1042,7 @@ EVP_enc_null(void)
 const EVP_CIPHER *
 EVP_rc2_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, rc2_cbc);
 }
 
@@ -1019,6 +1057,7 @@ EVP_rc2_cbc(void)
 const EVP_CIPHER *
 EVP_rc2_40_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, rc2_40_cbc);
 }
 
@@ -1033,6 +1072,7 @@ EVP_rc2_40_cbc(void)
 const EVP_CIPHER *
 EVP_rc2_64_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, rc2_64_cbc);
 }
 
@@ -1047,6 +1087,7 @@ EVP_rc2_64_cbc(void)
 const EVP_CIPHER *
 EVP_rc4(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, rc4);
 }
 
@@ -1061,6 +1102,7 @@ EVP_rc4(void)
 const EVP_CIPHER *
 EVP_rc4_40(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, rc4_40);
 }
 
@@ -1075,6 +1117,7 @@ EVP_rc4_40(void)
 const EVP_CIPHER *
 EVP_des_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, des_cbc);
 }
 
@@ -1089,6 +1132,7 @@ EVP_des_cbc(void)
 const EVP_CIPHER *
 EVP_des_ede3_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, des_ede3_cbc);
 }
 
@@ -1103,6 +1147,7 @@ EVP_des_ede3_cbc(void)
 const EVP_CIPHER *
 EVP_aes_128_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_128_cbc);
 }
 
@@ -1117,6 +1162,7 @@ EVP_aes_128_cbc(void)
 const EVP_CIPHER *
 EVP_aes_192_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_192_cbc);
 }
 
@@ -1131,6 +1177,7 @@ EVP_aes_192_cbc(void)
 const EVP_CIPHER *
 EVP_aes_256_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_256_cbc);
 }
 
@@ -1146,6 +1193,7 @@ const EVP_CIPHER *
 EVP_aes_128_cfb8(void)
 {
 #ifndef __APPLE_TARGET_EMBEDDED__
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_128_cfb8);
 #else
     return NULL;
@@ -1164,6 +1212,7 @@ const EVP_CIPHER *
 EVP_aes_192_cfb8(void)
 {
 #ifndef __APPLE_TARGET_EMBEDDED__
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_192_cfb8);
 #else
     return NULL;
@@ -1182,6 +1231,7 @@ const EVP_CIPHER *
 EVP_aes_256_cfb8(void)
 {
 #ifndef __APPLE_TARGET_EMBEDDED__
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, aes_256_cfb8);
 #else
     return NULL;
@@ -1199,6 +1249,7 @@ EVP_aes_256_cfb8(void)
 const EVP_CIPHER *
 EVP_camellia_128_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, camellia_128_cbc);
 }
 
@@ -1213,6 +1264,7 @@ EVP_camellia_128_cbc(void)
 const EVP_CIPHER *
 EVP_camellia_192_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, camellia_192_cbc);
 }
 
@@ -1227,6 +1279,7 @@ EVP_camellia_192_cbc(void)
 const EVP_CIPHER *
 EVP_camellia_256_cbc(void)
 {
+    hcrypto_validate();
     return EVP_DEF_OP(HCRYPTO_DEF_PROVIDER, camellia_256_cbc);
 }
 
@@ -1309,7 +1362,8 @@ EVP_BytesToKey(const EVP_CIPHER *type,
 	       void *keydata,
 	       void *ivdata)
 {
-    int ivlen, keylen, first = 0;
+    unsigned int ivlen, keylen;
+    int first = 0;
     unsigned int mds = 0, i;
     unsigned char *key = keydata;
     unsigned char *iv = ivdata;

@@ -157,7 +157,7 @@ static struct hp_pa_integer_thread_state hppa_integer_state = { 0 };
 /* cputype == CPU_TYPE_SPARC, all subtypes */
 static struct sparc_thread_state_regs sparc_state = { {0} };
 /* cputype == CPU_TYPE_ARM, all subtypes */
-static struct arm_thread_state arm_state = { 0 };
+static arm_thread_state_t arm_state = { {0} };
 
 static void layout_segments(void);
 static unsigned long next_vmaddr(
@@ -1283,8 +1283,8 @@ layout_segments(void)
 	    else if (arch_flag.cputype == CPU_TYPE_ARM) {
 	      output_thread_info.flavor = ARM_THREAD_STATE;
 	      output_thread_info.count = ARM_THREAD_STATE_COUNT;
-	      output_thread_info.entry_point = (int *)&(arm_state.r15);
-	      output_thread_info.stack_pointer = (int *)&(arm_state.r13);
+	      output_thread_info.entry_point = (int *)&(arm_state.__pc);
+	      output_thread_info.stack_pointer = (int *)&(arm_state.__sp);
 	      output_thread_info.state = &arm_state;
 	      output_thread_info.thread_command.cmdsize += sizeof(long) *
 		ARM_THREAD_STATE_COUNT;

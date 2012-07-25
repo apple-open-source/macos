@@ -67,7 +67,6 @@
 static int log_flush (struct log *p, int newbytes)
 {
 	struct stat st;
-	int good = 0;
 
 	if (!p || !p->fp) {
 		return -1;

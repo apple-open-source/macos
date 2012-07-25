@@ -120,14 +120,6 @@ void PluginView::updatePluginWidget()
 {
 }
 
-void PluginView::halt()
-{
-}
-
-void PluginView::restart()
-{
-}
-
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::handleFocusInEvent()
 {
@@ -143,7 +135,7 @@ void PluginView::handleFocusOutEvent()
 // ports using PluginView, but until then, if new functions like this are 
 // added, please make sure they have the proper platform #ifs so that changes
 // do not break ports who compile both this file and PluginView.cpp.   
-#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL) || (OS(WINCE) && !PLATFORM(QT)) || (PLATFORM(QT) && !OS(WINCE)) || PLATFORM(BREWMP)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL) || (OS(WINCE) && !PLATFORM(QT)) || (PLATFORM(QT) && !OS(WINCE))
 #if ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::keepAlive(NPP)
 {

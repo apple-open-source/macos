@@ -60,14 +60,30 @@ else
     testFile=$SCRIPT_INPUT_FILE_1
 fi
 
+ARCHS32=""
+ARCHS64=""
+for a in $ARCHS; do
+    case $a in
+	*64)
+	    ARCHS64="$ARCHS64 $a"
+	    ;;
+	*)
+	    ARCHS32="$ARCHS32 $a"
+	    ;;
+    esac
+done
+
+echo "Inferred 32-bit architectures: $ARCHS32"
+echo "Inferred 64-bit architectures: $ARCHS64"
+
 if [ $testFile -nt $SCRIPT_OUTPUT_FILE_0 -o $testFile -nt $SCRIPT_OUTPUT_FILE_1 \
   -o $testFile -nt $SCRIPT_OUTPUT_FILE_2 -o $testFile -nt $SCRIPT_OUTPUT_FILE_3 ]
 then
-	ARCHS=${ARCHS_STANDARD_32_BIT}
+	ARCHS=${ARCHS32}
     runMig $SCRIPT_INPUT_FILE_0 $SCRIPT_OUTPUT_FILE_0 $SCRIPT_OUTPUT_FILE_1 $OTHER_CFLAGS
-	if [ "${ARCHS_STANDARD_64_BIT}" ]
+	if [ -n "${ARCHS64}" ]
 	then
-		ARCHS=${ARCHS_STANDARD_64_BIT}
+		ARCHS=${ARCHS64}
 		OTHER_CFLAGS="$OTHER_CFLAGS -D__LP64__"
 		runMig $SCRIPT_INPUT_FILE_0 $SCRIPT_OUTPUT_FILE_2 $SCRIPT_OUTPUT_FILE_3 $OTHER_CFLAGS
 	fi

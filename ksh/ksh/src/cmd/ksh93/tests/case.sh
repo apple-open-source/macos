@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -78,4 +78,5 @@ esac') != b ]] && err_exit 'bug in ;& at end of script'
 		esac
 	done
 ') == foo.h ]] || err_exit "optimizer bug"
-exit $((Errors))
+
+exit $((Errors<125?Errors:125))

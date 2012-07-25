@@ -29,6 +29,8 @@
 #ifndef _LMESSAGES_H_
 #define	_LMESSAGES_H_
 
+#include <xlocale.h>
+
 struct	lc_messages_T {
 	const char	*yesexpr;
 	const char	*noexpr;
@@ -36,7 +38,7 @@ struct	lc_messages_T {
 	const char	*nostr;
 };
 
-struct lc_messages_T *__get_current_messages_locale(void);
-int	__messages_load_locale(const char *);
+struct lc_messages_T *__get_current_messages_locale(locale_t);
+int	__messages_load_locale(const char *, locale_t);
 
 #endif /* !_LMESSAGES_H_ */

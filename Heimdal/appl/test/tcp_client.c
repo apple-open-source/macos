@@ -128,5 +128,5 @@ int
 main(int argc, char **argv)
 {
     int port = client_setup(&context, &argc, argv);
-    return client_doit (argv[argc], port, service, proto);
+    return client_doit (argv[argc], port, service_str, proto);
 }

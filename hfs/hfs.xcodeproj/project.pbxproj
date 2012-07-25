@@ -1,0 +1,394 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FDD9FA3714A132E40043D4A9 /* hfs */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FDD9FA3814A132E40043D4A9 /* Build configuration list for PBXAggregateTarget "hfs" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FDD9FA3C14A132F10043D4A9 /* PBXTargetDependency */,
+				FDD9FA3E14A132F20043D4A9 /* PBXTargetDependency */,
+			);
+			name = hfs;
+			productName = hfs;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */; };
+		C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */ = {isa = PBXBuildFile; fileRef = C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */; };
+		C1B6FA3010CC0B9500778D48 /* hfs.util.8 in Copy man8 */ = {isa = PBXBuildFile; fileRef = C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */; };
+		FDD9FA4214A133F00043D4A9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
+		FDD9FA5214A1343D0043D4A9 /* DeviceWrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4814A1343D0043D4A9 /* DeviceWrapper.c */; };
+		FDD9FA5314A1343D0043D4A9 /* dump.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4914A1343D0043D4A9 /* dump.c */; };
+		FDD9FA5414A1343D0043D4A9 /* Gather.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4A14A1343D0043D4A9 /* Gather.c */; };
+		FDD9FA5514A1343D0043D4A9 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4C14A1343D0043D4A9 /* main.c */; };
+		FDD9FA5714A1343D0043D4A9 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4E14A1343D0043D4A9 /* misc.c */; };
+		FDD9FA5814A1343D0043D4A9 /* ScanExtents.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA4F14A1343D0043D4A9 /* ScanExtents.c */; };
+		FDD9FA5914A1343D0043D4A9 /* SparseBundle.c in Sources */ = {isa = PBXBuildFile; fileRef = FDD9FA5114A1343D0043D4A9 /* SparseBundle.c */; };
+		FDD9FA5A14A135290043D4A9 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */; };
+		FDD9FA5C14A135840043D4A9 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FDD9FA5B14A135840043D4A9 /* libz.dylib */; };
+		FDD9FA6814A138D80043D4A9 /* Info.plist in Copy Contents */ = {isa = PBXBuildFile; fileRef = FDD9FA6214A138960043D4A9 /* Info.plist */; };
+		FDD9FA6914A138DA0043D4A9 /* PkgInfo in Copy Contents */ = {isa = PBXBuildFile; fileRef = FDD9FA6414A138960043D4A9 /* PkgInfo */; };
+		FDD9FA6B14A138EC0043D4A9 /* version.plist in Copy Contents */ = {isa = PBXBuildFile; fileRef = FDD9FA6514A138960043D4A9 /* version.plist */; };
+		FDD9FA6C14A138EF0043D4A9 /* InfoPlist.strings in Copy InfoPlist.strings */ = {isa = PBXBuildFile; fileRef = FDD9FA6314A138960043D4A9 /* InfoPlist.strings */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FDD9FA3B14A132F10043D4A9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76FA90486AB0100D96B5E;
+			remoteInfo = hfs.util;
+		};
+		FDD9FA3D14A132F20043D4A9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FDD9FA2B14A132BF0043D4A9;
+			remoteInfo = CopyHFSMeta;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8DD76FAF0486AB0100D96B5E /* Copy man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				C1B6FA3010CC0B9500778D48 /* hfs.util.8 in Copy man8 */,
+			);
+			name = "Copy man8";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDD9FA6714A138AB0043D4A9 /* Copy Contents */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = Contents;
+			dstSubfolderSpec = 1;
+			files = (
+				FDD9FA6814A138D80043D4A9 /* Info.plist in Copy Contents */,
+				FDD9FA6914A138DA0043D4A9 /* PkgInfo in Copy Contents */,
+				FDD9FA6B14A138EC0043D4A9 /* version.plist in Copy Contents */,
+			);
+			name = "Copy Contents";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FDD9FA6A14A138DC0043D4A9 /* Copy InfoPlist.strings */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = Contents/Resources/English.lproj;
+			dstSubfolderSpec = 1;
+			files = (
+				FDD9FA6C14A138EF0043D4A9 /* InfoPlist.strings in Copy InfoPlist.strings */,
+			);
+			name = "Copy InfoPlist.strings";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_jnl.c; sourceTree = "<group>"; };
+		C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = hfsutil_main.c; sourceTree = "<group>"; };
+		C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = hfs.util.8; sourceTree = "<group>"; };
+		C1B6FD2B10CC0DB200778D48 /* hfs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = hfs.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDD9FA2C14A132BF0043D4A9 /* CopyHFSMeta */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CopyHFSMeta; sourceTree = BUILT_PRODUCTS_DIR; };
+		FDD9FA4714A1343D0043D4A9 /* Data.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Data.h; sourceTree = "<group>"; };
+		FDD9FA4814A1343D0043D4A9 /* DeviceWrapper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DeviceWrapper.c; sourceTree = "<group>"; };
+		FDD9FA4914A1343D0043D4A9 /* dump.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dump.c; sourceTree = "<group>"; };
+		FDD9FA4A14A1343D0043D4A9 /* Gather.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Gather.c; sourceTree = "<group>"; };
+		FDD9FA4B14A1343D0043D4A9 /* hfsmeta.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = hfsmeta.h; sourceTree = "<group>"; };
+		FDD9FA4C14A1343D0043D4A9 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		FDD9FA4E14A1343D0043D4A9 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
+		FDD9FA4F14A1343D0043D4A9 /* ScanExtents.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ScanExtents.c; sourceTree = "<group>"; };
+		FDD9FA5014A1343D0043D4A9 /* Sparse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Sparse.h; sourceTree = "<group>"; };
+		FDD9FA5114A1343D0043D4A9 /* SparseBundle.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SparseBundle.c; sourceTree = "<group>"; };
+		FDD9FA5B14A135840043D4A9 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		FDD9FA6214A138960043D4A9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		FDD9FA6314A138960043D4A9 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; path = InfoPlist.strings; sourceTree = "<group>"; };
+		FDD9FA6414A138960043D4A9 /* PkgInfo */ = {isa = PBXFileReference; lastKnownFileType = text; path = PkgInfo; sourceTree = "<group>"; };
+		FDD9FA6514A138960043D4A9 /* version.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = version.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDD9FA4214A133F00043D4A9 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDD9FA2914A132BF0043D4A9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDD9FA5C14A135840043D4A9 /* libz.dylib in Frameworks */,
+				FDD9FA5A14A135290043D4A9 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* hfs */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				FDD9FA4014A133A50043D4A9 /* Frameworks */,
+				C1B6FD2C10CC0DB200778D48 /* Products */,
+			);
+			name = hfs;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				FDD9FA4614A1343D0043D4A9 /* CopyHFSMeta */,
+				FDD9FA3F14A1335D0043D4A9 /* hfs_util */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		C1B6FD2C10CC0DB200778D48 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C1B6FD2B10CC0DB200778D48 /* hfs.util */,
+				FDD9FA2C14A132BF0043D4A9 /* CopyHFSMeta */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FDD9FA3F14A1335D0043D4A9 /* hfs_util */ = {
+			isa = PBXGroup;
+			children = (
+				FDD9FA6214A138960043D4A9 /* Info.plist */,
+				FDD9FA6314A138960043D4A9 /* InfoPlist.strings */,
+				FDD9FA6414A138960043D4A9 /* PkgInfo */,
+				C1B6FA2F10CC0B8A00778D48 /* hfs.util.8 */,
+				C1B6FA0610CC0A0A00778D48 /* hfsutil_jnl.c */,
+				C1B6FA0710CC0A0A00778D48 /* hfsutil_main.c */,
+				FDD9FA6514A138960043D4A9 /* version.plist */,
+			);
+			path = hfs_util;
+			sourceTree = "<group>";
+		};
+		FDD9FA4014A133A50043D4A9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C1B6FA2210CC0AF400778D48 /* CoreFoundation.framework */,
+				FDD9FA5B14A135840043D4A9 /* libz.dylib */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		FDD9FA4614A1343D0043D4A9 /* CopyHFSMeta */ = {
+			isa = PBXGroup;
+			children = (
+				FDD9FA4714A1343D0043D4A9 /* Data.h */,
+				FDD9FA4814A1343D0043D4A9 /* DeviceWrapper.c */,
+				FDD9FA4914A1343D0043D4A9 /* dump.c */,
+				FDD9FA4A14A1343D0043D4A9 /* Gather.c */,
+				FDD9FA4B14A1343D0043D4A9 /* hfsmeta.h */,
+				FDD9FA4C14A1343D0043D4A9 /* main.c */,
+				FDD9FA4E14A1343D0043D4A9 /* misc.c */,
+				FDD9FA4F14A1343D0043D4A9 /* ScanExtents.c */,
+				FDD9FA5014A1343D0043D4A9 /* Sparse.h */,
+				FDD9FA5114A1343D0043D4A9 /* SparseBundle.c */,
+			);
+			path = CopyHFSMeta;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* hfs_util */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "hfs_util" */;
+			buildPhases = (
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				8DD76FAF0486AB0100D96B5E /* Copy man8 */,
+				FDD9FA6714A138AB0043D4A9 /* Copy Contents */,
+				FDD9FA6A14A138DC0043D4A9 /* Copy InfoPlist.strings */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = hfs_util;
+			productInstallPath = "$(HOME)/bin";
+			productName = hfs;
+			productReference = C1B6FD2B10CC0DB200778D48 /* hfs.util */;
+			productType = "com.apple.product-type.tool";
+		};
+		FDD9FA2B14A132BF0043D4A9 /* CopyHFSMeta */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FDD9FA3514A132BF0043D4A9 /* Build configuration list for PBXNativeTarget "CopyHFSMeta" */;
+			buildPhases = (
+				FDD9FA2814A132BF0043D4A9 /* Sources */,
+				FDD9FA2914A132BF0043D4A9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CopyHFSMeta;
+			productName = CopyHFSMeta;
+			productReference = FDD9FA2C14A132BF0043D4A9 /* CopyHFSMeta */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "hfs" */;
+			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* hfs */;
+			productRefGroup = C1B6FD2C10CC0DB200778D48 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FDD9FA3714A132E40043D4A9 /* hfs */,
+				8DD76FA90486AB0100D96B5E /* hfs_util */,
+				FDD9FA2B14A132BF0043D4A9 /* CopyHFSMeta */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1B6FA0910CC0A0A00778D48 /* hfsutil_main.c in Sources */,
+				C1B6FA0810CC0A0A00778D48 /* hfsutil_jnl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FDD9FA2814A132BF0043D4A9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDD9FA5514A1343D0043D4A9 /* main.c in Sources */,
+				FDD9FA5714A1343D0043D4A9 /* misc.c in Sources */,
+				FDD9FA5814A1343D0043D4A9 /* ScanExtents.c in Sources */,
+				FDD9FA5314A1343D0043D4A9 /* dump.c in Sources */,
+				FDD9FA5914A1343D0043D4A9 /* SparseBundle.c in Sources */,
+				FDD9FA5214A1343D0043D4A9 /* DeviceWrapper.c in Sources */,
+				FDD9FA5414A1343D0043D4A9 /* Gather.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FDD9FA3C14A132F10043D4A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DD76FA90486AB0100D96B5E /* hfs_util */;
+			targetProxy = FDD9FA3B14A132F10043D4A9 /* PBXContainerItemProxy */;
+		};
+		FDD9FA3E14A132F20043D4A9 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FDD9FA2B14A132BF0043D4A9 /* CopyHFSMeta */;
+			targetProxy = FDD9FA3D14A132F20043D4A9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB928708733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /System/Library/Filesystems/hfs.fs;
+				PRODUCT_NAME = hfs.util;
+			};
+			name = Release;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				PROVISIONING_PROFILE = "";
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+				);
+			};
+			name = Release;
+		};
+		FDD9FA3414A132BF0043D4A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /System/Library/Filesystems/hfs.fs/Contents/Resources;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FDD9FA3A14A132E40043D4A9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "hfs_util" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928708733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "hfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDD9FA3514A132BF0043D4A9 /* Build configuration list for PBXNativeTarget "CopyHFSMeta" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDD9FA3414A132BF0043D4A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FDD9FA3814A132E40043D4A9 /* Build configuration list for PBXAggregateTarget "hfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FDD9FA3A14A132E40043D4A9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Computer, Inc.
+ * Copyright (C) 2006, 2011, 2012 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -27,14 +27,14 @@
 
 namespace WebCore {
 
-HTMLOptionsCollection::HTMLOptionsCollection(PassRefPtr<HTMLSelectElement> select)
-    : HTMLCollection(select.get(), SelectOptions, select->collectionInfo())
+HTMLOptionsCollection::HTMLOptionsCollection(HTMLSelectElement* select)
+    : HTMLCollection(select, SelectOptions)
 {
 }
 
-PassRefPtr<HTMLOptionsCollection> HTMLOptionsCollection::create(PassRefPtr<HTMLSelectElement> select)
+PassOwnPtr<HTMLOptionsCollection> HTMLOptionsCollection::create(HTMLSelectElement* select)
 {
-    return adoptRef(new HTMLOptionsCollection(select));
+    return adoptPtr(new HTMLOptionsCollection(select));
 }
 
 void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, ExceptionCode &ec)
@@ -57,7 +57,7 @@ void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, int index
     }
 
     ec = 0;
-    HTMLSelectElement* select = static_cast<HTMLSelectElement*>(base());
+    HTMLSelectElement* select = toHTMLSelectElement(base());
 
     if (index == -1 || unsigned(index) >= length())
         select->add(newOption, 0, ec);
@@ -69,22 +69,22 @@ void HTMLOptionsCollection::add(PassRefPtr<HTMLOptionElement> element, int index
 
 void HTMLOptionsCollection::remove(int index)
 {
-    static_cast<HTMLSelectElement*>(base())->remove(index);
+    toHTMLSelectElement(base())->remove(index);
 }
 
 int HTMLOptionsCollection::selectedIndex() const
 {
-    return static_cast<HTMLSelectElement*>(base())->selectedIndex();
+    return toHTMLSelectElement(base())->selectedIndex();
 }
 
 void HTMLOptionsCollection::setSelectedIndex(int index)
 {
-    static_cast<HTMLSelectElement*>(base())->setSelectedIndex(index);
+    toHTMLSelectElement(base())->setSelectedIndex(index);
 }
 
 void HTMLOptionsCollection::setLength(unsigned length, ExceptionCode& ec)
 {
-    static_cast<HTMLSelectElement*>(base())->setLength(length, ec);
+    toHTMLSelectElement(base())->setLength(length, ec);
 }
 
 } //namespace

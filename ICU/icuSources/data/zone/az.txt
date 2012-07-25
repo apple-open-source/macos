@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/az.xml
@@ -10,7 +10,7 @@
  *  ICU <specials> source: <path>/xml/main/az.xml
  */
 az{
-    Version{"2.0.47.53"}
+    Version{"2.0.65.46"}
     zoneStrings{
         "Africa:Ceuta"{
             ec{"Seuta"}
@@ -476,38 +476,37 @@ az{
         }
         "meta:Europe_Central"{
             ld{"Orta Avropa/yay"}
+            lg{"Orta Avropa"}
             ls{"Orta Avropa"}
-            sd{"Orta Avropa/yaz"}
-            ss{"Orta Avropa/standart"}
         }
         "meta:Europe_Eastern"{
-            cu:int{1}
             ld{"Şərq Avropa/yay"}
+            lg{"Şərq Avropa"}
             ls{"Şərq Avropa"}
-            sd{"Şərq Avropa/yaz"}
-            ss{"Şərq Avropa/standart"}
         }
         "meta:Kuybyshev"{
             ld{"Kuybuşev/yay"}
+            lg{"Kuybuşev"}
             ls{"Kuybuşev"}
         }
         "meta:Moscow"{
-            cu:int{1}
             ld{"Moskva/yay"}
             lg{"Moskva"}
             ls{"Moskva/standart"}
         }
         "meta:Samara"{
             ld{"Samara/yay"}
+            lg{"Samara"}
             ls{"Samara"}
         }
         "meta:Turkey"{
-            cu:int{1}
             ld{"Türkiya/yay"}
+            lg{"Türkiya"}
             ls{"Türkiya"}
         }
         "meta:Volgograd"{
             ld{"Volqoqrad/yay"}
+            lg{"Volqoqrad"}
             ls{"Volqoqrad"}
         }
     }

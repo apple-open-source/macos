@@ -1,5 +1,5 @@
 /*
- * "$Id: testnotify.c 9499 2011-01-19 21:38:13Z mike $"
+ * "$Id: testnotify.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Test notifier for CUPS.
  *
@@ -113,7 +113,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
       fprintf(stderr, "DEBUG: %*s%s:\n\n", indent - 4, "", ippTagString(group));
     }
 
-    _ippAttrString(attr, buffer, sizeof(buffer));
+    ippAttributeString(attr, buffer, sizeof(buffer));
 
     fprintf(stderr, "DEBUG: %*s%s (%s%s) %s", indent, "", attr->name,
             attr->num_values > 1 ? "1setOf " : "",
@@ -123,5 +123,5 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
 
 
 /*
- * End of "$Id: testnotify.c 9499 2011-01-19 21:38:13Z mike $".
+ * End of "$Id: testnotify.c 9042 2010-03-24 00:45:34Z mike $".
  */

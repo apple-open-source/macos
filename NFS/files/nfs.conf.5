@@ -122,6 +122,21 @@ The maximum number of times per second that an NFS client will send a
 system information.  Requests for this information that occur faster
 than this rate will receive cached values.  The default value is 10
 times per second.  A value of zero means no limit.
+.It Cm nfs.client.is_mobile
+This option specifies if an NFS client is on a mobile machine. On a mobile machine, hard mounted file systems can be automatically forcibly unmounted if the following is met:
+.Bl -bullet -compact
+.It
+The mount was automounted. 
+.It
+The server is not responding.
+.It
+No files are open for writing.
+.It
+No files are memory mapped.
+.It
+There are no dirty pages associated with the mount.
+.El
+The default for this option is to let the system detect this. A non-zero value for this option treats this machine as a laptop with respect to NFS behavior and allows automatic forcible unmounting of unresponsive volumes described above. Conversely, a zero value treats the machine as a desktop for traditional NFS behavior, where hard mounts never time out. Setting a zero value is useful for laptops that are being used as desktops.
 .It Cm nfs.lockd.grace_period
 This option specifies the grace period (in seconds) during which lockd
 will only accept requests from hosts which are reclaiming locks which
@@ -139,6 +154,13 @@ which means that any available port will be used.
 .It Cm nfs.lockd.send_using_tcp
 This option tells lockd to use TCP sockets when contacting other
 hosts.  The default value is 0, which means lockd will use UDP.
+.It Cm nfs.lockd.send_using_mnt_transport
+This option tells lockd to use the socket type of the corresponding
+nfs mount. Locking a file on a udp mount will use udp and locking
+a file on a nfs mount mounted with tcp will use tcp. Note that
+\fBnfs.lockd.send_using_tcp\fP will override this option. The default
+value is 0, which means lockd will use UDP provided \fBnfs.lockd.send_using_tcp\fP
+is not set or set to 0.
 .It Cm nfs.lockd.shutdown_delay_client
 This option species how long (in seconds) the lockd daemon should
 remain running after the unmounting of the last NFS file system for

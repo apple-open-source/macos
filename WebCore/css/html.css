@@ -314,7 +314,8 @@ ol {
 }
 
 li {
-    display: list-item
+    display: list-item;
+    text-align: -webkit-match-parent;
 }
 
 ul ul, ol ul {
@@ -418,52 +419,63 @@ input[type="search"] {
     -webkit-box-sizing: border-box;
 }
 
+input::-webkit-textfield-decoration-container {
+    display: -webkit-box;
+    -webkit-box-align: center;
+}
+
+input[type="search"]::-webkit-textfield-decoration-container {
+    direction: ltr;
+}
+
 input[type="search"]::-webkit-search-cancel-button {
     -webkit-appearance: searchfield-cancel-button;
-    display: inline-block;
+    display: block;
+    -webkit-box-flex: 0;
 }
 
 input[type="search"]::-webkit-search-decoration {
     -webkit-appearance: searchfield-decoration;
-    display: inline-block;
+    display: block;
+    -webkit-box-flex: 0;
 }
 
 input[type="search"]::-webkit-search-results-decoration {
     -webkit-appearance: searchfield-results-decoration;
-    display: inline-block;
+    display: block;
+    -webkit-box-flex: 0;
 }
 
 input[type="search"]::-webkit-search-results-button {
     -webkit-appearance: searchfield-results-button;
-    display: inline-block;
+    display: block;
+    -webkit-box-flex: 0;
 }
 
-input::-webkit-input-list-button {
-    -webkit-appearance: list-button;
-    display: inline-block;
+#if defined(ENABLE_DATALIST) && ENABLE_DATALIST
+datalist {
+    display: none;
 }
+#endif
 
 input::-webkit-inner-spin-button {
     -webkit-appearance: inner-spin-button;
-    display: inline-block;
+    display: block;
     position: relative;
     cursor: default;
+    vertical-align: top;
+    -webkit-box-flex: 0;
     -webkit-user-select: none;
 }
 
-input::-webkit-outer-spin-button {
-    -webkit-appearance: outer-spin-button;
-    display: inline-block;
-    position: relative;
-    cursor: default;
-    margin-left: 2px;
-    -webkit-user-select: none;
-}
-
+#if defined(ENABLE_INPUT_SPEECH) && ENABLE_INPUT_SPEECH
 input::-webkit-input-speech-button {
     -webkit-appearance: -webkit-input-speech-button;
-    display: inline-block;
+    display: block;
+    vertical-align: top;
+    -webkit-box-flex: 0;
 }
+#endif
 
 keygen, select {
     -webkit-border-radius: 5px;
@@ -487,8 +499,19 @@ textarea {
     word-wrap: break-word;
 }
 
-input::-webkit-input-placeholder, isindex::-webkit-input-placeholder, textarea::-webkit-input-placeholder {
+::-webkit-input-placeholder {
+    -webkit-text-security: none;
     color: darkGray;
+    display: block !important;
+    pointer-events: none !important;
+}
+
+input::-webkit-input-placeholder, isindex::-webkit-input-placeholder {
+    white-space: pre;
+    word-wrap: normal;
+    overflow: hidden;
+    padding-left: 1px;
+    padding-right: 1px;
 }
 
 input[type="password"] {
@@ -504,6 +527,7 @@ input[type="hidden"], input[type="image"], input[type="file"] {
 
 input[type="file"] {
     -webkit-box-align: baseline;
+    color: inherit;
     text-align: start !important;
 }
 
@@ -520,9 +544,16 @@ input[type="radio"], input[type="checkbox"] {
     border: initial;
 }
 
-input[type="button"], input[type="submit"], input[type="reset"], input[type="file"]::-webkit-file-upload-button {
+input[type="button"], input[type="submit"], input[type="reset"] {
     -webkit-appearance: push-button;
     white-space: pre
+}
+
+input[type="file"]::-webkit-file-upload-button {
+    -webkit-appearance: push-button;
+    white-space: nowrap;
+    margin: 0;
+    font-size: inherit;
 }
 
 input[type="button"], input[type="submit"], input[type="reset"], input[type="file"]::-webkit-file-upload-button, button {
@@ -543,9 +574,26 @@ input[type="range"] {
     margin: 2px;
 }
 
+input[type="range"]::-webkit-slider-container {
+    -webkit-box-align: center;
+    -webkit-box-orient: horizontal; /* This property is updated by C++ code. */
+    -webkit-box-sizing: border-box;
+    display: -webkit-box;
+    height: 100%;
+    width: 100%;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+    -webkit-box-flex: 1;
+    -webkit-box-sizing: border-box;
+    display: block;
+}
+
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: sliderthumb-horizontal;
+    -webkit-box-sizing: border-box;
     display: block;
+    position: relative;
 }
 
 input[type="button"]:disabled, input[type="submit"]:disabled, input[type="reset"]:disabled,
@@ -575,6 +623,61 @@ input[type="radio"] {
     -webkit-appearance: radio;
     -webkit-box-sizing: border-box;
 }
+
+#if defined(ENABLE_INPUT_TYPE_COLOR) && ENABLE_INPUT_TYPE_COLOR
+
+input[type="color"] {
+    -webkit-appearance: square-button;
+    width: 44px;
+    height: 23px;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+    display:-webkit-box;
+    padding: 4px 2px;
+    -webkit-box-sizing: border-box;
+    width: 100%;
+    height: 100%
+}
+
+input[type="color"]::-webkit-color-swatch {
+    background-color: #000000;
+    border: 1px solid #777777;
+    -webkit-box-flex: 1;
+}
+
+#if defined(ENABLE_DATALIST) && ENABLE_DATALIST
+
+input[type="color"][list] {
+    -webkit-appearance: menulist;
+    width: 88px;
+    height: 23px;
+}
+
+input[type="color"][list]::-webkit-color-swatch-wrapper {
+    padding-left: 8px;
+    padding-right: 24px;
+}
+
+input[type="color"][list]::-webkit-color-swatch {
+    border-color: #000000;
+}
+
+#endif // defined(ENABLE_DATALIST) && ENABLE_DATALIST
+
+#endif // defined(ENABLE_INPUT_TYPE_COLOR) && ENABLE_INPUT_TYPE_COLOR
+
+#if defined(ENABLE_CALENDAR_PICKER) && ENABLE_CALENDAR_PICKER
+input::-webkit-calendar-picker-indicator {
+    width: 0.66em;
+    height: 0.66em;
+    padding: 0.17em 0.34em;
+}
+
+input::-webkit-calendar-picker-indicator:hover {
+    background-color: #eee;
+}
+#endif // ENABLE_CALENDAR_PICKER
 
 select {
     -webkit-appearance: menulist;
@@ -633,7 +736,7 @@ output {
 }
 
 ::-webkit-validation-bubble-message {
-    display: block;
+    display: -webkit-box;
     position: relative;
     top: -4px;
     font: message-box;
@@ -650,6 +753,14 @@ output {
     line-height: normal;
     white-space: normal;
     z-index: 2147483644;
+}
+
+::-webkit-validation-bubble-text-block {
+    -webkit-box-flex: 1;
+}
+
+::-webkit-validation-bubble-heading {
+    font-weight: bold;
 }
 
 ::-webkit-validation-bubble-arrow {
@@ -674,6 +785,7 @@ output {
     height: 16px;
 }
 
+#if defined(ENABLE_METER_TAG) && ENABLE_METER_TAG
 /* meter */
 
 meter {
@@ -709,7 +821,9 @@ meter::-webkit-meter-even-less-good-value {
     height: 100%;
     -webkit-box-sizing: border-box;
 }
+#endif
 
+#if defined(ENABLE_PROGRESS_TAG) && ENABLE_PROGRESS_TAG
 /* progress */
 
 progress {
@@ -734,6 +848,7 @@ progress::-webkit-progress-value {
     width: 50%; /* should be removed later */
     -webkit-box-sizing: border-box;
 }
+#endif
 
 /* inline elements */
 
@@ -742,10 +857,10 @@ u, ins {
 }
 
 strong, b {
-    font-weight: bolder
+    font-weight: bold
 }
 
-i, cite, em, var, address {
+i, cite, em, var, address, dfn {
     font-style: italic
 }
 
@@ -799,6 +914,10 @@ nobr {
 
 /* Read-only text fields do not show a focus ring but do still receive focus */
 html:focus, body:focus, input[readonly]:focus { 
+    outline: none
+}
+
+applet:focus, embed:focus, iframe:focus, object:focus {
     outline: none
 }
   
@@ -864,8 +983,12 @@ frameset {
     border-color: inherit
 }
 
-iframe {
+iframe:not([seamless]) {
     border: 2px inset
+}
+
+iframe[seamless] {
+    display: block
 }
 
 details {
@@ -883,6 +1006,14 @@ summary::-webkit-details-marker {
     margin-right: 0.4em;
 }
 
+bdi, output {
+    unicode-bidi: -webkit-isolate;
+}
+
+bdo {
+    unicode-bidi: bidi-override;
+}
+
 /* page */
 
 @page {
@@ -893,4 +1024,5 @@ summary::-webkit-details-marker {
     border-width: 0px;
 }
 
-/* noscript is handled internally, as it depends on settings */
+/* noscript is handled internally, as it depends on settings. */
+

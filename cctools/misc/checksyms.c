@@ -98,6 +98,10 @@ static enum bool seg_addr_table_specified = FALSE;
  */
 static char *seg_addr_table_filename = NULL;
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 int
 main(
 int argc,
@@ -386,7 +390,7 @@ void *cookie)
 	    else{
 		if(symbols64[i].n_un.n_strx == 0)
 		    syms[i].name = "";
-		else if(symbols64[i].n_un.n_strx < 0 ||
+		else if((int)symbols64[i].n_un.n_strx < 0 ||
 			(uint32_t)symbols64[i].n_un.n_strx > st->strsize)
 		    syms[i].name = "bad string index";
 		else

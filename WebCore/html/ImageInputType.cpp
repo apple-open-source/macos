@@ -130,7 +130,7 @@ void ImageInputType::attach()
     if (!renderer)
         return;
 
-    if (!m_imageLoader->haveFiredBeforeLoadEvent())
+    if (m_imageLoader->hasPendingBeforeLoadEvent())
         return;
 
     RenderImageResource* imageResource = renderer->imageResource();
@@ -146,7 +146,7 @@ void ImageInputType::willMoveToNewOwnerDocument()
 {
     BaseButtonInputType::willMoveToNewOwnerDocument();
     if (m_imageLoader)
-        m_imageLoader->elementWillMoveToNewOwnerDocument();
+        m_imageLoader->elementDidMoveToNewDocument();
 }
 
 bool ImageInputType::shouldRespectAlignAttribute()

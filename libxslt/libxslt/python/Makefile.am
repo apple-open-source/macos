@@ -24,7 +24,7 @@ EXTRA_DIST = 			\
 	libxslt-python-api.xml	\
 	$(DOCS)
 
-libxsltmod_la_LDFLAGS = -module -avoid-version
+libxsltmod_la_LDFLAGS =  $(WIN32_EXTRA_LDFLAGS) -module -avoid-version
 
 if WITH_PYTHON
 mylibs = \
@@ -36,7 +36,7 @@ all-local: libxslt.py
 python_LTLIBRARIES = libxsltmod.la
 
 libxsltmod_la_SOURCES = libxslt.c types.c libxslt-py.c
-libxsltmod_la_LIBADD = $(mylibs) 
+libxsltmod_la_LIBADD = $(mylibs) @PYTHON_LIBS@
 
 libxslt.py: $(srcdir)/libxsl.py $(srcdir)/libxsltclass.py
 	cat $(srcdir)/libxsl.py $(srcdir)/libxsltclass.py > libxslt.py

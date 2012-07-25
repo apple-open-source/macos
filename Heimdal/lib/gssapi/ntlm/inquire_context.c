@@ -62,8 +62,15 @@ OM_uint32 _gss_ntlm_inquire_context (
 	if (ms != GSS_S_COMPLETE)
 	    return ms;
     }
-    if (targ_name)
-	*targ_name = GSS_C_NO_NAME;
+    if (targ_name) {
+	if (ctx->targetname) {
+	    ms = _gss_ntlm_duplicate_name(minor_status, ctx->targetname, targ_name);
+	    if (ms != GSS_S_COMPLETE)
+		return ms;
+	} else {
+	    *targ_name = GSS_C_NO_NAME;
+	}
+    }
     if (lifetime_rec)
 	*lifetime_rec = GSS_C_INDEFINITE;
     if (mech_type)

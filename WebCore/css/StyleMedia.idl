@@ -26,9 +26,9 @@
 
 module view {
     interface [
-        GenerateIsReachable=ImplFrame
+        JSGenerateIsReachable=ImplFrame
     ] StyleMedia {
         readonly attribute DOMString type;
-        boolean matchMedium(in DOMString mediaquery);
+        boolean matchMedium(in [Optional=DefaultIsUndefined] DOMString mediaquery);
     };
 }

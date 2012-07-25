@@ -29,8 +29,12 @@
 #include <stdint.h>
 
 #include <string.h>
+#ifdef KERNEL
+#include <machine/limits.h>
+#else
 #include <limits.h>
 #include <stdlib.h>
+#endif /* KERNEL */
 #include <Availability.h>
 
 #ifdef __cplusplus
@@ -43,45 +47,48 @@ extern "C" {
 */
 
 /*
-	Cipher Modes
-*/
+ 	Private Ciphers
+ */
+
+/* Lion SPI name for no padding.  Defining for compatibility.  Is now
+   ccNoPadding in CommonCryptor.h
+ */
+    
+enum {
+    ccDefaultPadding			= 0,
+};
+
 
 enum {
-	kCCModeECB		= 1,
-	kCCModeCBC		= 2,
-	kCCModeCFB		= 3,
-	kCCModeCTR		= 4,
-	kCCModeF8		= 5, // Unimplemented for now (not included)
-	kCCModeLRW		= 6, // Unimplemented for now (not included)
-	kCCModeOFB		= 7,
-	kCCModeXTS		= 8,
-	kCCModeRC4		= 9, // RC4 as a streaming cipher is handled internally as a mode.
-	kCCModeCFB8		= 10,
+	kCCAlgorithmAES128NoHardware = 20,
+	kCCAlgorithmAES128WithHardware = 21
 };
-typedef uint32_t CCMode;
 
 /*
-	Padding for block ciphers
-*/
-
+ 	Private Modes
+ */
 enum {
-	ccDefaultPadding	= 0,
-	ccPKCS7Padding		= 1,
-	ccANSIx923Padding	= 2, // Unimplemented for now (not included)
-	ccISO10126Padding	= 3, // Unimplemented for now (not included)
+	kCCModeGCM		= 11,
 };
-typedef uint32_t CCPadding;
 
 /*
-	Mode options - so far only used for CTR mode
-*/
-
+ 	Private Paddings
+ */
 enum {
-	kCCModeOptionCTR_LE	= 0x0001, // CTR Mode Little Endian
-	kCCModeOptionCTR_BE = 0x0002  // CTR Mode Big Endian
+    ccCBCCTS1			= 10,
+    ccCBCCTS2			= 11,
+    ccCBCCTS3			= 12,
 };
 
-typedef uint32_t CCModeOptions;
+/*
+    Private Cryptor direction (op)
+ */
+enum {
+    kCCBoth		= 3,
+};
+
+
+
 
 /*
 	Supports a mode call of 
@@ -107,24 +114,8 @@ CCCryptorStatus CCCryptorCreateFromDataWithMode(
 	size_t			dataLength,		/* length of data in bytes */
 	CCCryptorRef	*cryptorRef,	/* RETURNED */
 	size_t			*dataUsed)		/* optional, RETURNED */
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
-/* This version mallocs the CCCryptorRef */
-
-CCCryptorStatus CCCryptorCreateWithMode(
-	CCOperation 	op,				/* kCCEncrypt, kCCEncrypt, kCCBoth (default for BlockMode) */
-	CCMode			mode,
-	CCAlgorithm		alg,
-	CCPadding		padding,		
-	const void 		*iv,			/* optional initialization vector */
-	const void 		*key,			/* raw key material */
-	size_t 			keyLength,	
-	const void 		*tweak,			/* raw tweak material */
-	size_t 			tweakLength,	
-	int				numRounds,		/* 0 == default */
-	CCModeOptions 	options,
-	CCCryptorRef	*cryptorRef)	/* RETURNED */
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 
 /*
 	Assuming we can use existing CCCryptorCreateFromData for all modes serviced by these:
@@ -145,7 +136,7 @@ CCCryptorStatus CCCryptorEncryptDataBlock(
 	const void *dataIn,
 	size_t dataInLength,
 	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 
 CCCryptorStatus CCCryptorDecryptDataBlock(
@@ -154,7 +145,7 @@ CCCryptorStatus CCCryptorDecryptDataBlock(
 	const void *dataIn,
 	size_t dataInLength,
 	void *dataOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 /*
 	Assuming we can use the existing CCCryptorRelease() interface for 
@@ -175,19 +166,147 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 CCCryptorStatus CCDesIsWeakKey(
                                void *key,
                                size_t Length)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 void CCDesSetOddParity(
                        void *key,
                        size_t Length)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
 
 uint32_t CCDesCBCCksum(void *input, void *output,
                        size_t length, void *key, size_t keylen,
                        void *ivec)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
     
+
+/*
+ * returns a cipher blocksize length iv in the provided iv buffer.
+ */
     
+CCCryptorStatus
+CCCryptorGetIV(CCCryptorRef cryptorRef, void *iv)
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_5_0);
+
+/*
+    GCM Support Interfaces
+
+	Use CCCryptorCreateWithMode() with the kCCModeGCM selector to initialize 
+    a CryptoRef.  Only kCCAlgorithmAES128 can be used with GCM and these
+    functions.  IV Setting etc will be ignored from CCCryptorCreateWithMode().
+    Use the CCCryptorGCMAddIV() routine below for IV setup.
+*/
+
+/*
+	This adds the initial vector octets from iv of length ivLen to the GCM
+	CCCryptorRef. You can call this function as many times as required to
+	process the entire IV.
+*/
+    
+CCCryptorStatus
+CCCryptorGCMAddIV(CCCryptorRef cryptorRef,
+                	const void 		*iv,
+                    size_t ivLen)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+/*
+	Additional Authentication Data
+	After the entire IV has been processed, the additional authentication 
+    data can be processed. Unlike the IV, a packet/session does not require 
+    additional authentication data (AAD) for security. The AAD is meant to 
+    be used as side–channel data you want to be authenticated with the packet. 
+    Note: once you begin adding AAD to the GCM CCCryptorRef you cannot return 
+    to adding IV data until the state has been reset.
+*/
+
+CCCryptorStatus
+CCCryptorGCMAddAAD(CCCryptorRef cryptorRef,
+                   const void 		*aData,
+                   size_t aDataLen)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+// Maintain the old symbol with incorrect camel-case for now.
+CCCryptorStatus
+CCCryptorGCMaddAAD(CCCryptorRef cryptorRef,
+                	const void 		*aData,
+                    size_t aDataLen)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+// This is for old iOS5 clients
+CCCryptorStatus
+CCCryptorGCMAddADD(CCCryptorRef cryptorRef,
+                   const void 		*aData,
+                   size_t aDataLen)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+
+CCCryptorStatus CCCryptorGCMEncrypt(
+	CCCryptorRef cryptorRef,
+	const void *dataIn,
+	size_t dataInLength,
+	void *dataOut)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+
+CCCryptorStatus CCCryptorGCMDecrypt(
+	CCCryptorRef cryptorRef,
+	const void *dataIn,
+	size_t dataInLength,
+	void *dataOut)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+/*
+	This terminates the GCM state gcm and stores the tag in tag of length
+    taglen octets.
+*/
+
+CCCryptorStatus CCCryptorGCMFinal(
+	CCCryptorRef cryptorRef,
+	const void *tag,
+	size_t *tagLength)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+/*
+	This will reset the GCM CCCryptorRef to the state that CCCryptorCreateWithMode() 
+    left it. The user would then call CCCryptorGCMAddIV(), CCCryptorGCMaddAAD(), etc.
+*/
+
+CCCryptorStatus CCCryptorGCMReset(
+	CCCryptorRef cryptorRef)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+
+/*
+	This will initialize the GCM state with the given key, IV and AAD value 
+    then proceed to encrypt or decrypt the message text and store the final 
+    message tag. The definition of the variables is the same as it is for all 
+    the manual functions. If you are processing many packets under the same 
+    key you shouldn’t use this function as it invokes the pre–computation 
+    with each call.
+*/
+
+CCCryptorStatus CCCryptorGCM(
+	CCOperation 	op,				/* kCCEncrypt, kCCDecrypt */
+	CCAlgorithm		alg,
+	const void 		*key,			/* raw key material */
+	size_t 			keyLength,	
+	const void 		*iv,
+	size_t 			ivLen,
+	const void 		*aData,
+	size_t 			aDataLen,
+	const void 		*dataIn,
+	size_t 			dataInLength,
+  	void 			*dataOut,
+	const void 		*tag,
+	size_t 			*tagLength)
+__OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_5_0);
+    
+
+void CC_RC4_set_key(void *ctx, int len, const unsigned char *data)
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
+
+void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata,
+                unsigned char *outdata)
+__OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_5_0);
+
 
 #ifdef __cplusplus
 }

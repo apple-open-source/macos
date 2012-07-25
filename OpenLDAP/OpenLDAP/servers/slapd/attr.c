@@ -1,8 +1,8 @@
 /* attr.c - routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.112.2.12 2010/04/13 20:23:10 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,6 +88,8 @@ attr_alloc( AttributeDescription *ad )
 	ldap_pvt_thread_mutex_unlock( &attr_mutex );
 	
 	a->a_desc = ad;
+	if ( ad && ( ad->ad_type->sat_flags & SLAP_AT_SORTED_VAL ))
+		a->a_flags |= SLAP_ATTR_SORTED_VALS;
 
 	return a;
 }
@@ -293,7 +295,7 @@ attr_valfind(
 	MatchingRule *mr;
 	const char *text;
 	int match = -1, rc;
-	unsigned i;
+	unsigned i, n;
 
 	if ( flags & SLAP_MR_ORDERING )
 		mr = a->a_desc->ad_type->sat_ordering;
@@ -316,11 +318,12 @@ attr_valfind(
 		cval = val;
 	}
 
-	if ( a->a_flags & SLAP_ATTR_SORTED_VALS ) {
+	n = a->a_numvals;
+	if ( (a->a_flags & SLAP_ATTR_SORTED_VALS) && n ) {
 		/* Binary search */
-		unsigned base = 0, n = a->a_numvals;
+		unsigned base = 0;
 
-		while ( 0 < n ) {
+		do {
 			unsigned pivot = n >> 1;
 			i = base + pivot;
 			rc = value_match( &match, a->a_desc, mr, flags,
@@ -333,12 +336,12 @@ attr_valfind(
 			} else {
 				n = pivot;
 			}
-		}
+		} while ( n );
 		if ( match < 0 )
 			i++;
 	} else {
 	/* Linear search */
-		for ( i = 0; i < a->a_numvals; i++ ) {
+		for ( i = 0; i < n; i++ ) {
 			const char *text;
 
 			rc = ordered_value_match( &match, a->a_desc, mr, flags,
@@ -347,10 +350,10 @@ attr_valfind(
 				break;
 		}
 	}
-	if ( slot )
-		*slot = i;
 	if ( match )
 		rc = LDAP_NO_SUCH_ATTRIBUTE;
+	if ( slot )
+		*slot = i;
 	if ( nval.bv_val )
 		slap_sl_free( nval.bv_val, ctx );
 

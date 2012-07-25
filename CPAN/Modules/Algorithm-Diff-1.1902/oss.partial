@@ -1,6 +1,4 @@
 <dict>
-        <key>OpenSourceImportDate</key>
-        <string>2009-01-30</string>
         <key>OpenSourceProject</key>
         <string>Algorithm-Diff</string>
         <key>OpenSourceVersion</key>
@@ -8,7 +6,9 @@
         <key>OpenSourceWebsiteURL</key>
         <string>http://search.cpan.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://search.cpan.org/CPAN/authors/id/N/NE/NEDKONZ/Algorithm-Diff-1.1902.tar.gz</string>
+        <string>http://search.cpan.org/CPAN/authors/id/T/TY/TYEMQ/Algorithm-Diff-1.1902.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-11-07</string>
         <key>OpenSourceLicense</key>
         <string>Perl</string>
         <key>OpenSourceLicenseFile</key>

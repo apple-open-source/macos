@@ -34,36 +34,18 @@
 
 #include "CanvasLayerChromium.h"
 
-#include "cc/CCLayerImpl.h"
-#include "GraphicsContext3D.h"
-#include "LayerRendererChromium.h"
+#include "cc/CCTextureLayerImpl.h"
 
 namespace WebCore {
 
-CanvasLayerChromium::CanvasLayerChromium(GraphicsLayerChromium* owner)
-    : LayerChromium(owner)
-    , m_textureChanged(true)
-    , m_textureId(0)
-    , m_premultipliedAlpha(true)
+CanvasLayerChromium::CanvasLayerChromium()
+    : LayerChromium()
 {
 }
 
-CanvasLayerChromium::~CanvasLayerChromium()
+PassOwnPtr<CCLayerImpl> CanvasLayerChromium::createCCLayerImpl()
 {
-}
-
-PassRefPtr<CCLayerImpl> CanvasLayerChromium::createCCLayerImpl()
-{
-    return CCCanvasLayerImpl::create(this, m_layerId);
-}
-
-void CanvasLayerChromium::pushPropertiesTo(CCLayerImpl* layer)
-{
-    LayerChromium::pushPropertiesTo(layer);
-
-    CCCanvasLayerImpl* canvasLayer = static_cast<CCCanvasLayerImpl*>(layer);
-    canvasLayer->setTextureId(m_textureId);
-    canvasLayer->setPremultipliedAlpha(m_premultipliedAlpha);
+    return CCTextureLayerImpl::create(m_layerId);
 }
 
 }

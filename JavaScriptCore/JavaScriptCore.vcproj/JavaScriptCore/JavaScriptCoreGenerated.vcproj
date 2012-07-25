@@ -98,10 +98,6 @@
 			RelativePath=".\JavaScriptCoreGenerated.make"
 			>
 		</File>
-		<File
-			RelativePath=".\work-around-vs-dependency-tracking-bugs.py"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

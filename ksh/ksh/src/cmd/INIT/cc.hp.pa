@@ -2,8 +2,8 @@
 
 HOSTTYPE=hp.pa
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 _AST_CC_hp_pa_DEFAULT=${_AST_CC_hp_pa_DEFAULT-"+DAportable"}

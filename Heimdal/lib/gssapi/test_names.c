@@ -37,6 +37,7 @@
 #include <config.h>
 #endif
 
+#include <roken.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -47,7 +48,6 @@
 #include <gssapi_ntlm.h>
 #include <gssapi_spi.h>
 #include <err.h>
-#include <roken.h>
 #include <getarg.h>
 
 static void

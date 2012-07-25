@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/bs.xml
@@ -11,7 +11,7 @@
  */
 bs{
     AuxExemplarCharacters{"[q w x y]"}
-    ExemplarCharacters{"[a b c ć č d đ {dž} e f g h i j k l {lj} m n {nj} o p r s š t u v z ž]"}
+    ExemplarCharacters{"[a b c č ć d {dž} đ e f g h i j k l {lj} m n {nj} o p r s š t u v z ž]"}
     LocaleScript{
         "Latn",
     }
@@ -23,9 +23,13 @@ bs{
             }
         }
     }
-    Version{"2.0.52.13"}
+    Version{"2.0.64.72"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "pre podne",
+                "popodne",
+            }
             DateTimePatterns{
                 "HH:mm:ss zzzz",
                 "HH:mm:ss z",
@@ -86,8 +90,76 @@ bs{
                         "subota",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "n",
+                        "p",
+                        "u",
+                        "s",
+                        "č",
+                        "p",
+                        "s",
+                    }
+                }
             }
-            fields:alias{"sr_Latn"}
+            eras{
+                abbreviated{
+                    "p. n. e.",
+                    "n. e",
+                }
+                wide{
+                    "Pre nove ere",
+                    "Nove ere",
+                }
+            }
+            fields{
+                day{
+                    dn{"dan"}
+                    relative{
+                        "-1"{"juče"}
+                        "-2"{"prekjuče"}
+                        "0"{"danas"}
+                        "1"{"sutra"}
+                        "2"{"prekosutra"}
+                    }
+                }
+                dayperiod{
+                    dn{"pre podne/ popodne"}
+                }
+                era{
+                    dn{"era"}
+                }
+                hour{
+                    dn{"čas"}
+                }
+                minute{
+                    dn{"minut"}
+                }
+                month{
+                    dn{"mesec"}
+                }
+                second{
+                    dn{"sekund"}
+                }
+                week{
+                    dn{"nedelja"}
+                }
+                weekday{
+                    dn{"dan u nedelji"}
+                }
+                year{
+                    dn{"godina"}
+                }
+                zone{
+                    dn{"zona"}
+                }
+            }
+            intervalFormats{
+                yM{
+                    M{"M.yy - M.yy"}
+                    y{"M.yy - M.yy"}
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
@@ -200,8 +272,102 @@ bs{
             }
         }
     }
-    listPattern:alias{"sr_Latn"}
-    measurementSystemNames:alias{"sr_Latn"}
-    units:alias{"sr_Latn"}
-    unitsShort:alias{"sr_Latn"}
+    listPattern{
+        standard{
+            2{"{0} i {1}"}
+            end{"{0} i {1}"}
+        }
+    }
+    measurementSystemNames{
+        US{"SAD"}
+        metric{"Metrički"}
+    }
+    units{
+        day{
+            few{"{0} dana"}
+            many{"{0} dana"}
+            one{"{0} dan"}
+            other{"{0} dana"}
+        }
+        hour{
+            few{"{0} sata"}
+            many{"{0} sati"}
+            one{"{0} sat"}
+            other{"{0} sati"}
+        }
+        minute{
+            few{"{0} minute"}
+            many{"{0} minuta"}
+            one{"{0} minut"}
+            other{"{0} minuta"}
+        }
+        month{
+            few{"{0} meseca"}
+            many{"{0} meseci"}
+            one{"{0} mesec"}
+            other{"{0} meseci"}
+        }
+        second{
+            few{"{0} sekunde"}
+            many{"{0} sekundi"}
+            one{"{0} sekunda"}
+            other{"{0} sekundi"}
+        }
+        week{
+            few{"{0} nedelje"}
+            many{"{0} nedelja"}
+            one{"{0} nedelja"}
+            other{"{0} nedelja"}
+        }
+        year{
+            few{"{0} godine"}
+            many{"{0} godina"}
+            one{"{0} godina"}
+            other{"{0} godina"}
+        }
+    }
+    unitsShort{
+        day{
+            few{"{0} dana"}
+            many{"{0} dana"}
+            one{"{0} dan"}
+            other{"{0} dan"}
+        }
+        hour{
+            few{"{0} sata"}
+            many{"{0} sati"}
+            one{"{0} sat"}
+            other{"{0} sat"}
+        }
+        minute{
+            few{"{0} min"}
+            many{"{0} min"}
+            one{"{0} min"}
+            other{"{0} min"}
+        }
+        month{
+            few{"{0} mes"}
+            many{"{0} mes"}
+            one{"{0} mes"}
+            other{"{0} mes"}
+        }
+        second{
+            few{"{0} sek"}
+            many{"{0} sek"}
+            one{"{0} sek"}
+            other{"{0} sek"}
+        }
+        week{
+            few{"{0} ned"}
+            many{"{0} ned"}
+            one{"{0} ned"}
+            other{"{0} ned"}
+        }
+        year{
+            few{"{0} god"}
+            many{"{0} god"}
+            one{"{0} god"}
+            other{"{0} god"}
+        }
+    }
 }

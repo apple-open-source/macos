@@ -76,6 +76,10 @@ public:
 
     FloatPoint mapPoint(const FloatPoint&) const;
 
+    IntSize mapSize(const IntSize&) const;
+
+    FloatSize mapSize(const FloatSize&) const;
+
     // Rounds the resulting mapped rectangle out. This is helpful for bounding
     // box computations but may not be what is wanted in other contexts.
     IntRect mapRect(const IntRect&) const;
@@ -184,6 +188,17 @@ public:
     {
         return AffineTransform(1, 0, 0, 1, x, y);
     }
+    
+    // decompose the matrix into its component parts
+    typedef struct {
+        double scaleX, scaleY;
+        double angle;
+        double remainderA, remainderB, remainderC, remainderD;
+        double translateX, translateY;
+    } DecomposedType;
+    
+    bool decompose(DecomposedType&) const;
+    void recompose(const DecomposedType&);
 
 private:
     void setMatrix(const Transform m)

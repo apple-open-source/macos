@@ -52,7 +52,7 @@ type if_name = array[32] of char
 	ctype : if_name_t;
 
 /* 
- * routines called by UI/control to start/stop/update an 802.1x client process
+ * routines called by UI/control to start/stop/update an 802.1X client process
  */
 routine eapolcontroller_get_state (	server		: mach_port_t;
 					if_name		: if_name;

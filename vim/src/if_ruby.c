@@ -65,7 +65,7 @@
 # define rb_int2big rb_int2big_stub
 #endif
 
-#include <ruby.h>
+#include <Ruby/ruby.h>
 #ifdef RUBY19_OR_LATER
 # include <ruby/encoding.h>
 #endif
@@ -128,6 +128,19 @@ static void ruby_vim_init(void);
 #if defined(DYNAMIC_RUBY) || defined(PROTO)
 #ifdef PROTO
 # define HINSTANCE int		/* for generating prototypes */
+#endif
+
+#if defined(__APPLE__)
+# include <dlfcn.h>
+# define FARPROC void*
+# define HINSTANCE void*
+# define LoadLibrary(n) dlopen((n), RTLD_LAZY|RTLD_GLOBAL)
+# define GetProcAddress dlsym
+# define FreeLibrary dlclose
+
+# define rb_num2uint dll_rb_num2uint
+# define rb_num2int dll_rb_num2int
+# define rb_fix2int dll_rb_fix2int
 #endif
 
 /*
@@ -286,6 +299,12 @@ static VALUE (*dll_rb_sprintf) (const char*, ...);
 static void (*ruby_init_stack)(VALUE*);
 #endif
 
+#ifdef __APPLE__
+static unsigned long (*dll_rb_num2uint)(VALUE);
+static long (*dll_rb_num2int)(VALUE);
+static long (*dll_rb_fix2int)(VALUE);
+#endif
+
 #ifdef RUBY19_OR_LATER
 SIGNED_VALUE rb_num2long_stub(VALUE x)
 {
@@ -363,6 +382,7 @@ static struct
 #endif
     {"ruby_init", (RUBY_PROC*)&dll_ruby_init},
     {"ruby_init_loadpath", (RUBY_PROC*)&dll_ruby_init_loadpath},
+#if defined(_WIN32)
     {
 #if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER < 19
     "NtInitialize",
@@ -372,6 +392,7 @@ static struct
 			(RUBY_PROC*)&dll_NtInitialize},
 #if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
     {"rb_w32_snprintf", (RUBY_PROC*)&dll_rb_w32_snprintf},
+#endif
 #endif
 #if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
     {"rb_string_value_ptr", (RUBY_PROC*)&dll_rb_string_value_ptr},
@@ -387,6 +408,11 @@ static struct
     {"rb_enc_str_new", (RUBY_PROC*)&dll_rb_enc_str_new},
     {"rb_sprintf", (RUBY_PROC*)&dll_rb_sprintf},
     {"ruby_init_stack", (RUBY_PROC*)&dll_ruby_init_stack},
+#endif
+#ifdef __APPLE__
+    {"rb_num2uint", (RUBY_PROC*)&dll_rb_num2uint},
+    {"rb_num2int", (RUBY_PROC*)&dll_rb_num2int},
+    {"rb_fix2int", (RUBY_PROC*)&dll_rb_fix2int},
 #endif
     {"", NULL},
 };

@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 9517 2011-02-10 23:19:21Z mike $"
+# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
 #   IPP test makefile for CUPS.
 #
-#   Copyright 2007-2010 by Apple Inc.
+#   Copyright 2007-2012 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -32,6 +32,7 @@ DATAFILES	=	\
 			onepage-letter.pdf \
 			onepage-letter.ps \
 			testfile.jpg \
+			testfile.pcl \
 			testfile.pdf \
 			testfile.ps \
 			testfile.txt
@@ -46,7 +47,8 @@ TESTFILES	=	\
 			ipp-2.2.test
 OBJS		=	\
 			ippserver.o \
-			ipptool.o
+			ipptool.o \
+			xmltotest.o
 TARGETS		=	\
 			ippserver \
 			ipptool \
@@ -87,7 +89,7 @@ clean:
 #
 
 depend:
-	makedepend -Y -I.. -fDependencies $(OBJS:.o=.c) >/dev/null 2>&1
+	$(CC) -MM $(ALL_CFLAGS) $(OBJS:.o=.c) >Dependencies
 
 
 #
@@ -194,6 +196,17 @@ ipptool-static:	ipptool.o ../cups/$(LIBCUPSSTATIC)
 
 
 #
+# xmltotest
+#
+
+xmltotest: xmltotest.o ../cups/$(LIBUPSSTATIC)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ xmltotest.o  ../cups/$(LIBCUPSSTATIC) \
+		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ) \
+		$(LIBMXML)
+
+
+#
 # Dependencies...
 #
 
@@ -201,5 +214,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile 9517 2011-02-10 23:19:21Z mike $".
+# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
 #

@@ -41,6 +41,8 @@
 /* -----------------------------------------------------------------------------
 Definitions
 ----------------------------------------------------------------------------- */
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
 
 #define PPTP_VER 	1
 #define PPTP_TYPE	1
@@ -366,9 +368,9 @@ u_int16_t pptp_rfc_output(void *data, mbuf_t m)
 {
     struct pptp_rfc 	*rfc = (struct pptp_rfc *)data;
     u_int8_t 		*d;
-    struct pptp_gre	*p;
+    struct pptp_gre	p;
     mbuf_t m0;
-    u_int16_t 		len, size, i;
+    u_int16_t 		len, i;
 
     if (rfc->state & PPTP_STATE_FREEING) {
         mbuf_freem(m);
@@ -383,7 +385,7 @@ u_int16_t pptp_rfc_output(void *data, mbuf_t m)
 		
 		if (i > 32) {
 			struct socket 	*so = (struct socket *)rfc->host;
-			struct ppp_link *link = (struct ppp_link *)so->so_tpcb;
+			struct ppp_link *link = ALIGNED_CAST(struct ppp_link *)so->so_tpcb;
 
 			IOLog("PPTP output packet contains too many mbufs, circular route suspected for %s%d\n", ifnet_name(link->lk_ifnet), ifnet_unit(link->lk_ifnet));
 			
@@ -396,30 +398,28 @@ u_int16_t pptp_rfc_output(void *data, mbuf_t m)
     //d = mtod(m, u_int8_t *);
     //IOLog("PPTP write, data = %x %x %x %x %x %x \n", d[0], d[1], d[2], d[3], d[4], d[5]);
 
-    size = 8 + 4 + 4; // always include ACK
-
-    if (mbuf_prepend(&m, size, MBUF_WAITOK) != 0)
+    if (mbuf_prepend(&m, sizeof(struct pptp_gre), MBUF_WAITOK) != 0)		// always include ACK
         return ENOBUFS;
     d = mbuf_data(m);
 
     mbuf_setflags(m, mbuf_flags(m) | MBUF_PKTHDR);
-    mbuf_pkthdr_setlen(m, len + size);
+    mbuf_pkthdr_setlen(m, len + sizeof(struct pptp_gre));
 
-    p = (struct pptp_gre *)d;
-    bzero(p, size);
+    bzero(&p, sizeof(struct pptp_gre));
     
     // probably some of it should move to pptp_ip when we implement 
     // a more modular GRE handler
     rfc->our_last_seq++;
-    p->flags = PPTP_GRE_FLAGS_K + PPTP_GRE_FLAGS_S;
-    p->flags_vers = PPTP_GRE_VER;
-    p->proto_type = htons(PPTP_GRE_TYPE);
-    p->payload_len = htons(len); 
-    p->call_id = htons(rfc->peer_call_id);
-    p->seq_num = htonl(rfc->our_last_seq);
-    p->flags_vers |= PPTP_GRE_FLAGS_A; // always include ack
-    p->ack_num = htonl(rfc->peer_last_seq);
+    p.flags = PPTP_GRE_FLAGS_K + PPTP_GRE_FLAGS_S;
+    p.flags_vers = PPTP_GRE_VER;
+    p.proto_type = htons(PPTP_GRE_TYPE);
+    p.payload_len = htons(len); 
+    p.call_id = htons(rfc->peer_call_id);
+    p.seq_num = htonl(rfc->our_last_seq);
+    p.flags_vers |= PPTP_GRE_FLAGS_A; // always include ack
+    p.ack_num = htonl(rfc->peer_last_seq);
     rfc->state &= ~PPTP_STATE_NEW_SEQUENCE;
+    memcpy(d, &p, sizeof(struct pptp_gre));     // Wcast-align fix - memcpy for unaligned access
 
     if (ROUND32DIFF(rfc->our_last_seq, rfc->our_last_seq_acked) >= rfc->send_window) {
         //IOLog("pptp_rfc_output PPTP_STATE_XMIT_FULL\n");

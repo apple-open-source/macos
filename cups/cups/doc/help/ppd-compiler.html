@@ -341,11 +341,11 @@ div.contents ul.subcontents li {
 <body>
 <div class='body'>
 <!--
-  "$Id: ppd-compiler.html 9740 2011-05-04 06:26:22Z mike $"
+  "$Id$"
 
   PPD compiler documentation for CUPS.
 
-  Copyright 2007-2010 by Apple Inc.
+  Copyright 2007-2012 by Apple Inc.
   Copyright 1997-2007 by Easy Software Products.
 
   These coded instructions, statements, and computer programs are the
@@ -360,6 +360,12 @@ div.contents ul.subcontents li {
 <P>This document describes how to use the CUPS PostScript Printer Description
 (PPD) file compiler. The PPD compiler generates PPD files from simple text files
 that describe the features and capabilities of one or more printers.</P>
+
+<BLOCKQUOTE><B>Note:</B>
+
+<P>The PPD compiler and related tools are deprecated and will be removed in a future release of CUPS.</P>
+
+</BLOCKQUOTE>
 
 <div class='summary'><table summary='General Information'>
 <tbody>
@@ -598,7 +604,7 @@ follows:</P>
 
 	<LI>Bits per color. In the example file, we define 8 bits per color, for
 	a continuous-tone grayscale output. All versions of CUPS support 1 and
-	8 bits per color.  CUPS 1.2 and higher (Mac OS X 10.5 and higher) also
+	8 bits per color.  CUPS 1.2 and higher (OS X 10.5 and higher) also
 	supports 16 bits per color.</LI>
 
 	<LI>Rows per band. In the example file, we define 0 rows per band to

@@ -41,7 +41,9 @@ class CpuProfile;
 
 namespace WebCore {
 
+#if ENABLE(INSPECTOR)
 class InspectorObject;
+#endif
 
 class ScriptProfile : public RefCounted<ScriptProfile> {
 public:
@@ -54,8 +56,12 @@ public:
     String title() const;
     unsigned int uid() const;
     PassRefPtr<ScriptProfileNode> head() const;
+    PassRefPtr<ScriptProfileNode> bottomUpHead() const;
 
+#if ENABLE(INSPECTOR)
     PassRefPtr<InspectorObject> buildInspectorObjectForHead() const;
+    PassRefPtr<InspectorObject> buildInspectorObjectForBottomUpHead() const;
+#endif
 
 private:
     ScriptProfile(const v8::CpuProfile* profile)

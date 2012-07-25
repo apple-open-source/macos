@@ -39,6 +39,147 @@ See remaining rules for examples.
 			<key>rule</key>
 			<string>default</string>
 		</dict>
+		<key>com.apple.AOSNotification.FindMyMac.modify</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>rule</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>السماح</string>
+				<key>ca</key>
+				<string>Permetre</string>
+				<key>cs</key>
+				<string>Povolit</string>
+				<key>da</key>
+				<string>Tillad</string>
+				<key>de</key>
+				<string>Erlauben</string>
+				<key>el</key>
+				<string>Να επιτρέπεται</string>
+				<key>en</key>
+				<string>Allow</string>
+				<key>es</key>
+				<string>Permitir</string>
+				<key>fi</key>
+				<string>Salli</string>
+				<key>fr</key>
+				<string>Autoriser</string>
+				<key>he</key>
+				<string>אפשר</string>
+				<key>hr</key>
+				<string>Dozvoli</string>
+				<key>hu</key>
+				<string>Engedélyezés</string>
+				<key>it</key>
+				<string>Consenti</string>
+				<key>ja</key>
+				<string>許可</string>
+				<key>ko</key>
+				<string>허용</string>
+				<key>nb</key>
+				<string>Tillat</string>
+				<key>nl</key>
+				<string>Sta toe</string>
+				<key>pl</key>
+				<string>Pozwól</string>
+				<key>pt</key>
+				<string>Permitir</string>
+				<key>pt-PT</key>
+				<string>Permitir</string>
+				<key>ro</key>
+				<string>Permite</string>
+				<key>ru</key>
+				<string>Разрешить</string>
+				<key>sk</key>
+				<string>Povoliť</string>
+				<key>sv</key>
+				<string>Tillåt</string>
+				<key>th</key>
+				<string>อนุญาต</string>
+				<key>tr</key>
+				<string>İzin Ver</string>
+				<key>uk</key>
+				<string>Дозволити</string>
+				<key>zh-Hans</key>
+				<string>允许</string>
+				<key>zh-Hant</key>
+				<string>允許</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يرغب __APPNAME__ بعمل تغييرات للعثور على الـ Mac الخاص بي.</string>
+				<key>ca</key>
+				<string>__APPNAME__ vol efectuar canvis a “Buscar el meu Mac”.</string>
+				<key>cs</key>
+				<string>__APPNAME__ žádá o povolení k provedení změn ve službě Hledat můj Mac.</string>
+				<key>da</key>
+				<string>__APPNAME__ vil foretage ændringer i Find min Mac.</string>
+				<key>de</key>
+				<string>__APPNAME__ möchte Änderungen an „Meinen Mac suchen“ vornehmen.</string>
+				<key>el</key>
+				<string>Η εφαρμογή «__APPNAME__» θέλει να κάνει αλλαγές στην Εύρεση Mac μου.</string>
+				<key>en</key>
+				<string>__APPNAME__ wants to make changes to Find My Mac.</string>
+				<key>es</key>
+				<string>__APPNAME__ desea realizar cambios en “Buscar mi Mac”.</string>
+				<key>fi</key>
+				<string>__APPNAME__ haluaa tehdä muutoksia ohjelmaan Etsi Macini.</string>
+				<key>fr</key>
+				<string>__APPNAME__ veut apporter des modifications à Localiser mon Mac.</string>
+				<key>he</key>
+				<string>__APPNAME__ מעוניין לערוך שינויים ב״מצא את ה-Mac שלי״.</string>
+				<key>hr</key>
+				<string>__APPNAME__ želi promijeniti značajku Nađi moj Mac.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ módisításokat akar végezni a Mac keresésében.</string>
+				<key>it</key>
+				<string>__APPNAME__ desidera apportare modifiche a “Trova il mio Mac”.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、“Mac を探す”に変更を加えようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 나의 Mac 찾기를 변경하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ vil gjøre endringer i Finn Mac.</string>
+				<key>nl</key>
+				<string>__APPNAME__ wil wijzigingen aanbrengen in 'Zoek mijn Mac'.</string>
+				<key>pl</key>
+				<string>__APPNAME__ chce dokonać zmian w programie Znajdź mój Mac.</string>
+				<key>pt</key>
+				<string>__APPNAME__ deseja fazer alterações em “Buscar Meu Mac”.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ pretende fazer alterações a Encontrar o meu Mac.</string>
+				<key>ro</key>
+				<string>__APPNAME__ dorește să modifice Găsire Mac propriu.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается внести изменения в функцию «Найти Mac».</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ chce vykonať zmeny v Nájsť môj Mac.</string>
+				<key>sv</key>
+				<string>__APPNAME__ vill göra ändringar i Hitta min Mac.</string>
+				<key>th</key>
+				<string>__APPNAME__ ต้องการทำการเปลี่ยนแปลงไปยัง ค้นหา Mac ของฉัน</string>
+				<key>tr</key>
+				<string>__APPNAME__, Mac’imi Bul’da değişiklik yapmak istiyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ хоче внести зміни до функції «Знайти мій Mac».</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”想要对“查找我的 Mac”进行一些修改。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__”想要更改“尋找我的 Mac”。</string>
+			</dict>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
+		</dict>
 		<key>com.apple.DiskManagement.</key>
 		<dict>
 			<key>class</key>
@@ -177,10 +318,150 @@ See remaining rules for examples.
 			<array>
 				<string>is-root</string>
 				<string>is-admin</string>
+				<string>on-console</string>
 				<string>default</string>
 			</array>
-			<key>shared</key>
-			<true/>
+		</dict>
+		<key>com.apple.DiskManagement.internal.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Used by diskmanagementd to allow access to its privileged functions</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>تعديل القرص</string>
+				<key>ca</key>
+				<string>Modificar el disc</string>
+				<key>cs</key>
+				<string>Změnit Disk</string>
+				<key>da</key>
+				<string>Juster disk</string>
+				<key>de</key>
+				<string>Volume ändern</string>
+				<key>el</key>
+				<string>Τροποποίηση δίσκου</string>
+				<key>en</key>
+				<string>Modify Disk</string>
+				<key>es</key>
+				<string>Modificar disco</string>
+				<key>fi</key>
+				<string>Muokkaa levyä</string>
+				<key>fr</key>
+				<string>Modifier le disque</string>
+				<key>he</key>
+				<string>ערוך/י שינויים בכונן</string>
+				<key>hr</key>
+				<string>Preinači disk</string>
+				<key>hu</key>
+				<string>Lemez módosítása</string>
+				<key>it</key>
+				<string>Modifica disco</string>
+				<key>ja</key>
+				<string>ディスクを変更</string>
+				<key>ko</key>
+				<string>디스크 수정</string>
+				<key>nb</key>
+				<string>Endre disk</string>
+				<key>nl</key>
+				<string>Wijzig schijf</string>
+				<key>pl</key>
+				<string>Modyfikuj dysk</string>
+				<key>pt</key>
+				<string>Modificar Disco</string>
+				<key>pt-PT</key>
+				<string>Modificar o disco</string>
+				<key>ro</key>
+				<string>Modifică discul</string>
+				<key>ru</key>
+				<string>Модифицировать диск</string>
+				<key>sk</key>
+				<string>Upraviť disk</string>
+				<key>sv</key>
+				<string>Ändra skiva</string>
+				<key>th</key>
+				<string>แก้ไขดิสก์</string>
+				<key>tr</key>
+				<string>Diski Değiştir</string>
+				<key>uk</key>
+				<string>Змінити диск</string>
+				<key>zh-Hans</key>
+				<string>修改磁盘</string>
+				<key>zh-Hant</key>
+				<string>修改磁碟</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ تعديل القرص المحدد.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està intentant modificar el disc seleccionat.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší změnit vybraný disk.</string>
+				<key>da</key>
+				<string>__APPNAME__ forsøger at ændre den valgte disk.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, das ausgewählte Volume zu ändern.</string>
+				<key>el</key>
+				<string>Η εφαρμογή __APPNAME__ προσπαθεί να τροποποιήσει τον επιλεγμένο δίσκο.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to modify the selected disk.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando modificar el disco seleccionado.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää muokata valittua levyä.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaye de modifier le disque sélectionné.</string>
+				<key>he</key>
+				<string>״ __APPNAME__״ מבקש לערוך שינויים בכונן הנבחר.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava preinačiti odabrani disk.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ megpróbálja módosítani a kijelölt lemezt.</string>
+				<key>it</key>
+				<string>__APPNAME__ sta cercando di modificare il disco selezionato.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、選択中のディスクを変更しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 선택한 디스크를 변경하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å endre den markerte disken.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert de geselecteerde schijf te wijzigen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje zmodyfikować zaznaczony dysk.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando modificar o disco selecionado.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ está a tentar modificar o disco seleccionado.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să modifice discul selectat.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается модифицировать выбранный диск.</string>
+				<key>sk</key>
+				<string>__APPNAME__ sa pokúša upraviť vybraný disk.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker ändra den markerade skivan.</string>
+				<key>th</key>
+				<string>__APPNAME__ กำลังพยายามแก้ไขดิสก์ที่เลือก</string>
+				<key>tr</key>
+				<string>__APPNAME__, seçilen diski değiştirmeye çalışıyor.</string>
+				<key>uk</key>
+				<string>Програма «__APPNAME__» намагається змінити вибраний диск.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”正试图修改所选磁盘。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__”正在嘗試修改所選磁碟。</string>
+			</dict>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>default</string>
+			</array>
 		</dict>
 		<key>com.apple.DiskManagement.reserveKEK</key>
 		<dict>
@@ -971,6 +1252,141 @@ See remaining rules for examples.
 				<string>is-root</string>
 				<string>entitled-admin-or-authenticate-admin</string>
 			</array>
+		</dict>
+		<key>com.apple.SoftwareUpdate.modify-settings</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>Checked by the Admin framework when making changes to the Software Update preference pane.</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>فتح القفل</string>
+				<key>ca</key>
+				<string>Desbloquejar</string>
+				<key>cs</key>
+				<string>Odemknout</string>
+				<key>da</key>
+				<string>Lås op</string>
+				<key>de</key>
+				<string>Entsperren</string>
+				<key>el</key>
+				<string>Ξεκλείδωμα</string>
+				<key>en</key>
+				<string>Unlock</string>
+				<key>es</key>
+				<string>Desbloquear</string>
+				<key>fi</key>
+				<string>Avaa</string>
+				<key>fr</key>
+				<string>Déverrouiller</string>
+				<key>he</key>
+				<string>בטל/י את הנעילה</string>
+				<key>hr</key>
+				<string>Otključaj</string>
+				<key>hu</key>
+				<string>Feloldás</string>
+				<key>it</key>
+				<string>Sblocca</string>
+				<key>ja</key>
+				<string>ロック解除</string>
+				<key>ko</key>
+				<string>잠금 해제</string>
+				<key>nb</key>
+				<string>Lås opp</string>
+				<key>nl</key>
+				<string>Ontgrendel</string>
+				<key>pl</key>
+				<string>Odblokuj</string>
+				<key>pt</key>
+				<string>Desbloquear</string>
+				<key>pt-PT</key>
+				<string>Desproteger</string>
+				<key>ro</key>
+				<string>Deblochează</string>
+				<key>ru</key>
+				<string>Снять защиту</string>
+				<key>sk</key>
+				<string>Odomknúť</string>
+				<key>sv</key>
+				<string>Lås upp</string>
+				<key>th</key>
+				<string>ปลดล็อก</string>
+				<key>tr</key>
+				<string>Kilidi Aç</string>
+				<key>uk</key>
+				<string>Відімкнути</string>
+				<key>zh-Hans</key>
+				<string>解锁</string>
+				<key>zh-Hant</key>
+				<string>解鎖</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ فتح قفل تفضيلات محدث البرامج.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està intentant desbloquejar el tauler de preferències Actualització de Programari.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší odemknout předvolby Aktualizace softwaru.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at låse vinduet Softwareopdatering op.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, die Systemeinstellung „Softwareaktualisierung“ zu entsperren.</string>
+				<key>el</key>
+				<string>Η εφαρμογή __APPNAME__ προσπαθεί να ξεκλειδώσει τις προτιμήσεις ενημέρωσης λογισμικού.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to unlock the Software Update preferences.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando desbloquear el panel de preferencias Actualización de Software.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää avata Ohjelmiston päivitys -asetuksia.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaie de déverrouiller les préférences Mise à jour de logiciels.</string>
+				<key>he</key>
+				<string>״ __APPNAME__״ מבקש לבטל את הנעילה של העדפות ״עדכוני תוכנה״.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava otključati postavke Ažuriranje softvera.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ megpróbálja feloldani a szoftverfrissítés beállításait.</string>
+				<key>it</key>
+				<string>__APPNAME__ sta tentando di sbloccare le preferenze di Aggiornamento Software.</string>
+				<key>ja</key>
+				<string>__APPNAME__ が“ソフトウェア・アップデート”環境設定のロックを解除しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 소프트웨어 업데이트 환경설정을 잠금 해제하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å låse opp Programvareoppdatering-valgpanelet.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert het voorkeurenpaneel 'Software-update' te ontgrendelen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje odblokować preferencje uaktualnień programów.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando desbloquear as preferências Atualização de Software.</string>
+				<key>pt-PT</key>
+				<string>__APPNAME__ está a tentar desproteger as preferências de Actualização de Software.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să deblocheze preferințele Actualizare software.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается снять защиту с настроек панели «Обновление программ».</string>
+				<key>sk</key>
+				<string>__APPNAME__ sa pokúša odomknúť nastavenia aktualizácie softvéru.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker låsa upp inställningarna för Programuppdatering.</string>
+				<key>th</key>
+				<string>__APPNAME__ กำลังพยายามปลดล็อกค่าปรับแต่งการอัปเดตซอฟต์แวร์</string>
+				<key>tr</key>
+				<string>__APPNAME__, Yazılım Güncelleme tercihlerinin kilidini açmaya çalışıyor.</string>
+				<key>uk</key>
+				<string>Програма «__APPNAME__» намагається відімкнути параметри Оновлення системи.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”正试图解锁“软件更新”偏好设置。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__”正在嘗試解鎖“軟體更新”偏好設定。</string>
+			</dict>
+			<key>rule</key>
+			<string>root-or-entitled-admin-or-app-specific-admin</string>
 		</dict>
 		<key>com.apple.SoftwareUpdate.scan</key>
 		<dict>
@@ -2330,144 +2746,145 @@ See remaining rules for examples.
 			<key>group</key>
 			<string>admin</string>
 		</dict>
-		<key>com.apple.pcastagentconfigd.</key>
+		<key>com.apple.lldb.LaunchUsingXPC</key>
 		<dict>
-			<key>allow-root</key>
-			<true/>
 			<key>class</key>
 			<string>user</string>
-			<key>comment</key>
-			<string>Wildcard for rights checked by Podcast Producer when making changes to your camera binding.</string>
-			<key>default-button</key>
-			<dict>
-				<key>ar</key>
-				<string>تعديل الإعدادات</string>
-				<key>ca</key>
-				<string>Modificar la configuració</string>
-				<key>cs</key>
-				<string>Změnit nastavení</string>
-				<key>da</key>
-				<string>Juster indstillinger</string>
-				<key>de</key>
-				<string>Einstellungen ändern</string>
-				<key>el</key>
-				<string>Τροποποίηση ρυθμίσεων</string>
-				<key>en</key>
-				<string>Modify Settings</string>
-				<key>es</key>
-				<string>Modificar ajustes</string>
-				<key>fi</key>
-				<string>Muokkaa asetuksia</string>
-				<key>fr</key>
-				<string>Modifer les réglages</string>
-				<key>he</key>
-				<string>ערוך/י הגדרות</string>
-				<key>hr</key>
-				<string>Preinači postavke</string>
-				<key>hu</key>
-				<string>Beállítások módosítása</string>
-				<key>it</key>
-				<string>Modifica impostazioni</string>
-				<key>ja</key>
-				<string>設定を変更</string>
-				<key>ko</key>
-				<string>설정 수정</string>
-				<key>nb</key>
-				<string>Endre innstillinger</string>
-				<key>nl</key>
-				<string>Wijzig instellingen</string>
-				<key>pl</key>
-				<string>Zmień ustawienia</string>
-				<key>pt</key>
-				<string>Modificar Ajustes</string>
-				<key>pt-PT</key>
-				<string>Modificar definições</string>
-				<key>ro</key>
-				<string>Schimbă configurările</string>
-				<key>ru</key>
-				<string>Модифицировать настройки</string>
-				<key>sk</key>
-				<string>Upraviť nastavenia</string>
-				<key>sv</key>
-				<string>Ändra inställningar</string>
-				<key>th</key>
-				<string>แก้ไขค่าติดตั้ง</string>
-				<key>tr</key>
-				<string>Ayarları Değiştir</string>
-				<key>uk</key>
-				<string>Змінити параметри</string>
-				<key>zh-Hans</key>
-				<string>修改设置</string>
-				<key>zh-Hant</key>
-				<string>修改設定</string>
-			</dict>
 			<key>default-prompt</key>
 			<dict>
 				<key>ar</key>
-				<string>يحاول __APPNAME__ تعديل إعدادات منتج البودكاست.</string>
+				<string>يحاول __APPNAME__ التحكم بعملية الجذر.</string>
 				<key>ca</key>
-				<string>__APPNAME__ està intentant modificar la configuració de Podcast Producer.</string>
+				<string>__APPNAME__ està provant de controlar un procés arrel.</string>
 				<key>cs</key>
-				<string>__APPNAME__ se pokouší změnit nastavení aplikace Podcast Producer.</string>
+				<string>__APPNAME__ se pokouší o převzetí řízení procesu typu „root“.</string>
 				<key>da</key>
-				<string>__APPNAME__ forsøger at ændre indstillingerne til Podcast Producer.</string>
+				<string>__APPNAME__ forsøger at overtage kontrollen med root-processen.</string>
 				<key>de</key>
-				<string>__APPNAME__ versucht, die Einstellungen für Podcast-Produzent zu ändern.</string>
+				<string>__APPNAME__ versucht, die Steuerung eines Root-Prozesses zu übernehmen.</string>
 				<key>el</key>
-				<string>Η εφαρμογή __APPNAME__ προσπαθεί να τροποποιήσει τις ρυθμίσεις του Podcast Producer.</string>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να αποκτήσει τον έλεγχο μιας ριζικής διεργασίας.</string>
 				<key>en</key>
-				<string>__APPNAME__ is trying to modify the Podcast Producer settings.</string>
+				<string>__APPNAME__ is trying to take control of a root process.</string>
 				<key>es</key>
-				<string>__APPNAME__ está intentando modificar los ajustes de Podcast Producer.</string>
+				<string>__APPNAME__ está intentando controlar un proceso raíz.</string>
 				<key>fi</key>
-				<string>__APPNAME__ yrittää muokata Podcast Producer -asetuksia.</string>
+				<string>__APPNAME__ yrittää saada pääprosessin hallintaansa.</string>
 				<key>fr</key>
-				<string>__APPNAME__ essaye de modifier les réglages de Podcast Producer.</string>
+				<string>__APPNAME__ essaye de prendre le contrôle d’un processus racine.</string>
 				<key>he</key>
-				<string>״ __APPNAME__״ מבקש לערוך שינויים ההגדרות של ״Podcast Producer״.</string>
+				<string>__APPNAME__ מנסה לקבל שליטה על תהליך בסיס.</string>
 				<key>hr</key>
-				<string>__APPNAME__ pokušava preinačiti postavke Podcast Producera.</string>
+				<string>__APPNAME__ želi preuzeti kontrolu nad korijenskim procesom.</string>
 				<key>hu</key>
-				<string>A(z) __APPNAME__ megpróbálja módosítani a Podcast Producer beállításait.</string>
+				<string>A(z) __APPNAME__ megpróbálja átvenni egy gyökérfolyamat vezérlését.</string>
 				<key>it</key>
-				<string>__APPNAME__ sta cercando di modificare le impostazioni Podcast Producer.</string>
+				<string>__APPNAME__ tenta di avere il controllo  di un processo root.</string>
 				<key>ja</key>
-				<string>__APPNAME__ は、Podcast Producer の設定を変更しようとしています。</string>
+				<string>__APPNAME__ は、ルートプロセスを制御しようとしてます。</string>
 				<key>ko</key>
-				<string>__APPNAME__이(가) Podcast Producer 설정을 수정하려고 합니다.</string>
+				<string>__APPNAME__이(가) root 프로세스를 제어하려고 합니다.</string>
 				<key>nb</key>
-				<string>__APPNAME__ prøver å endre Podcast Producer-innstillingene.</string>
+				<string>__APPNAME__ prøver å ta kontroll over en prosess på rotnivå.</string>
 				<key>nl</key>
-				<string>__APPNAME__ probeert de Podcast Producer-instellingen te wijzigen.</string>
+				<string>__APPNAME__ probeert de besturing van een rootproces over te nemen.</string>
 				<key>pl</key>
-				<string>__APPNAME__ próbuje zmienić ustawienia programu Podcast Producer.</string>
+				<string>__APPNAME__ próbuje przejąć kontrolę nad procesem użytkownika root.</string>
 				<key>pt</key>
-				<string>__APPNAME__ está tentando modificar os ajustes do Podcast Producer.</string>
+				<string>__APPNAME__ está tentando assumir o controle de um processo raiz.</string>
 				<key>pt-PT</key>
-				<string>O __APPNAME__ está a tentar modificar as definições do Podcast Producer.</string>
+				<string>O __APPNAME__ está a tentar controlar um processo em root.</string>
 				<key>ro</key>
-				<string>__APPNAME__ încearcă să schimbe configurările Podcast Producer.</string>
+				<string>__APPNAME__ încearcă să preia controlul unui proces root.</string>
 				<key>ru</key>
-				<string>Программа «__APPNAME__» пытается модифицировать настройки Podcast Producer.</string>
+				<string>Программа «__APPNAME__» пытается взять под контроль корневой процесс.</string>
 				<key>sk</key>
-				<string>__APPNAME__ sa pokúša upraviť nastavenia Podcast Producera.</string>
+				<string>Aplikácia __APPNAME__ sa pokúša prevziať kontrolu nad koreňovým procesom.</string>
 				<key>sv</key>
-				<string>__APPNAME__ försöker ändra inställningarna i Podcast Producer.</string>
+				<string>__APPNAME__ försöker ta kontroll över en rotprocess.</string>
 				<key>th</key>
-				<string>__APPNAME__ กำลังพยายามแก้ไขค่าติดตั้ง Podcast Producer</string>
+				<string>__APPNAME__ กำลังพยายามเข้าควบคุมกระบวนการรูท</string>
 				<key>tr</key>
-				<string>__APPNAME__, Podcast Üretici ayarlarını değiştirmeye çalışıyor.</string>
+				<string>__APPNAME__ kök işlemin denetimini ele geçirmeye çalışıyor.</string>
 				<key>uk</key>
-				<string>Програма «__APPNAME__» намагається змінити параметри Podcast Producer.</string>
+				<string>__APPNAME__ намагається перебрати на себе керування кореневим процесом.</string>
 				<key>zh-Hans</key>
-				<string>“__APPNAME__”正试图修改 Podcast Producer 的设置。</string>
+				<string>“__APPNAME__”正在尝试控制 root 进程。</string>
 				<key>zh-Hant</key>
-				<string>“__APPNAME__”正在嘗試修改 Podcast Producer 設定。</string>
+				<string>“__APPNAME__”正在嘗試控制 root 程序。</string>
 			</dict>
 			<key>group</key>
 			<string>admin</string>
-			<key>shared</key>
-			<false/>
+		</dict>
+		<key>com.apple.opendirectoryd.linkidentity</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>يحاول __APPNAME__ تعديل حساب المُستخدم الخاص بك.</string>
+				<key>ca</key>
+				<string>__APPNAME__ està intentant modificar el vostre compte d’usuari.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší změnit váš uživatelský účet.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at ændre din brugerkonto.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, Ihren Benutzeraccount zu verändern.</string>
+				<key>el</key>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να τροποποιήσει τον λογαριασμό χρήστη σας.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to modify your user account.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando modificar su cuenta de usuario.</string>
+				<key>fi</key>
+				<string>__APPNAME__ yrittää muokata käyttäjätunnustasi.</string>
+				<key>fr</key>
+				<string>__APPNAME__ essaye de modifier votre compte utilisateur.</string>
+				<key>he</key>
+				<string>__APPNAME__ מנסה לשנות את חשבון המשתמש/ת שלך.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava promijeniti vaš korisnički račun.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ módosítani próbálja az Ön felhasználói fiókját.</string>
+				<key>it</key>
+				<string>__APPNAME__ sta provando a modificare il tuo account utente.</string>
+				<key>ja</key>
+				<string>“__APPNAME__”で、ユーザアカウントが変更されようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 사용자 계정을 수정하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å endre brukerkontoen din.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert uw gebruikersaccount te wijzigen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje zmodyfikować Twoje konto użytkownika.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando modificar a sua conta de usuário.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ está a tentar modificar a sua conta de utilizador.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să vă modifice contul de utilizator.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается модифицировать Вашу учетную запись пользователя.</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ sa pokúša upraviť váš užívateľský účet.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker ändra ditt användarkonto.</string>
+				<key>th</key>
+				<string>__APPNAME__กำลังพยายามแก้ไขบัญชีผู้ใช้ของคุณ</string>
+				<key>tr</key>
+				<string>__APPNAME__, kullanıcı hesabınızı değiştirmeye çalışıyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ намагається змінити ваш обліковий запис користувача.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”正试图修改您的用户帐户。</string>
+				<key>zh-Hant</key>
+				<string>__APPNAME__ 正在嘗試修改您的使用者帳號。</string>
+			</dict>
+			<key>rule</key>
+			<string>entitled-session-owner-or-authenticate-session-owner</string>
 		</dict>
 		<key>com.apple.security.assessment.update</key>
 		<dict>
@@ -2576,10 +2993,10 @@ See remaining rules for examples.
 				<string>__APPNAME__ probeert een onderdeel toe te staan dat het altijd wordt uitgevoerd.</string>
 				<key>pl</key>
 				<string>__APPNAME__ próbuje zezwolić, aby rzecz była zawsze uruchamiana.</string>
-				<key>pt-PT</key>
-				<string>O __APPNAME__ está a tentar dar autorização a um elemento para permanecer constantemente aberto.</string>
 				<key>pt</key>
 				<string>O __APPNAME__ está tentando autorizar um item a ser executado permanentemente.</string>
+				<key>pt-PT</key>
+				<string>O __APPNAME__ está a tentar dar autorização a um elemento para permanecer constantemente aberto.</string>
 				<key>ro</key>
 				<string>__APPNAME__ încearcă să-i permită unui articol să ruleze întotdeauna.</string>
 				<key>ru</key>
@@ -4542,7 +4959,7 @@ See remaining rules for examples.
 				<key>fr</key>
 				<string>__APPNAME__ essaie d’installer un logiciel.</string>
 				<key>he</key>
-				<string>״ __APPNAME__״ מבקש להתקין תוכנות.</string>
+				<string>‏__APPNAME__ מנסה להתקין תוכנה.</string>
 				<key>hr</key>
 				<string>__APPNAME__ pokušava instalirati softver.</string>
 				<key>hu</key>
@@ -4584,6 +5001,15 @@ See remaining rules for examples.
 			</dict>
 			<key>rule</key>
 			<string>entitled-appstore-or-entitled-authenticate-appstore</string>
+		</dict>
+		<key>system.install.apple-config-data</key>
+		<dict>
+			<key>allow-root</key>
+			<true/>
+			<key>class</key>
+			<string>rule</string>
+			<key>rule</key>
+			<string>entitled</string>
 		</dict>
 		<key>system.install.apple-software</key>
 		<dict>
@@ -5282,63 +5708,63 @@ See remaining rules for examples.
 			<key>default-prompt</key>
 			<dict>
 				<key>ar</key>
-				<string>يحاول __APPNAME__ فتح قفل تفضيلات الاحتياجات الخاصة.</string>
+				<string>يحاول __APPNAME__ إلغاء قفل تفضيلات إمكانية الوصول.</string>
 				<key>ca</key>
-				<string>__APPNAME__ està intentant desbloquejar el tauler de preferències Accés Universal.</string>
+				<string>__APPNAME__ està provant de desbloquejar les preferències d’Accessibilitat.</string>
 				<key>cs</key>
-				<string>__APPNAME__ se pokouší odemknout předvolby Univerzální přístup.</string>
+				<string>__APPNAME__ se pokouší odemknout předvolby Zpřístupnění.</string>
 				<key>da</key>
-				<string>__APPNAME__ forsøger at låse Universel adgang op.</string>
+				<string>__APPNAME__ prøver at låse indstillingerne i Tilgængelighed op.</string>
 				<key>de</key>
-				<string>__APPNAME__ versucht, die Systemeinstellung „Bedienungshilfen“ zu entsperren.</string>
+				<string>__APPNAME__ versucht, den Schutz der Systemeinstellung „Bedienungshilfen“ aufzuheben.</string>
 				<key>el</key>
-				<string>Η εφαρμογή __APPNAME__ προσπαθεί να ξεκλειδώσει τις προτιμήσεις καθολικής πρόσβασης.</string>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να ξεκλειδώσει τις προτιμήσεις για την Προσβασιμότητα.</string>
 				<key>en</key>
-				<string>__APPNAME__ is trying to unlock Universal Access preferences.</string>
+				<string>__APPNAME__ is trying to unlock Accessibility preferences.</string>
 				<key>es</key>
-				<string>__APPNAME__ está intentando desbloquear el panel de preferencias Acceso Universal.</string>
+				<string>__APPNAME__ está intentando desbloquear las preferencias del panel Accesibilidad.</string>
 				<key>fi</key>
-				<string>__APPNAME__ yrittää avata Käyttöapu-asetuksia.</string>
+				<string>__APPNAME__ yrittää avata Käyttöapu-asetukset.</string>
 				<key>fr</key>
-				<string>__APPNAME__ essaye de déverrouiller les préférences Accès universel.</string>
+				<string>__APPNAME__ essaye de déverrouiller les préférences Accessibilité.</string>
 				<key>he</key>
-				<string>״ __APPNAME__״ מבקש לבטל את הנעילה של העדפות ״גישה אוניברסלית״.</string>
+				<string>__APPNAME__ מנסה לבטל את הנעילה של העדפות ״נגישות״.</string>
 				<key>hr</key>
-				<string>__APPNAME__ pokušava otključati postavke Univerzalni pristup.</string>
+				<string>__APPNAME__ pokušava otključati postavke pristupačnosti.</string>
 				<key>hu</key>
-				<string>A(z) __APPNAME__ megpróbálja feloldani az Univerzális hozzáférés beállításait.</string>
+				<string>A(z) __APPNAME__ megpróbálja feloldani a Kisegítő lehetőségek beállításainak zárolását.</string>
 				<key>it</key>
-				<string>__APPNAME__ sta cercando di sbloccare le preferenze Accesso Universale.</string>
+				<string>__APPNAME__ tenta di sbloccare le preferenze Accessibilità.</string>
 				<key>ja</key>
-				<string>__APPNAME__ は、“ユニバーサルアクセス”環境設定のロックを解除しようとしています。</string>
+				<string>__APPNAME__ は、“アクセシビリティ”環境設定のロックを解除しようとしています。</string>
 				<key>ko</key>
 				<string>__APPNAME__이(가) 손쉬운 사용 환경설정을 잠금 해제하려고 합니다.</string>
 				<key>nb</key>
-				<string>__APPNAME__ prøver å låse opp Særlige behov-valgpanelet.</string>
+				<string>__APPNAME__ prøver å låse opp Tilgjengelighet-valg.</string>
 				<key>nl</key>
-				<string>__APPNAME__ probeert het voorkeurenpaneel 'Universele toegang' te ontgrendelen.</string>
+				<string>__APPNAME__ probeert de Toegankelijkheid-voorkeuren te ontgrendelen.</string>
 				<key>pl</key>
-				<string>__APPNAME__ próbuje odblokować preferencje Uniwersalny dostęp.</string>
+				<string>__APPNAME__ próbuje odblokować panel preferencji Dostępność.</string>
 				<key>pt</key>
-				<string>__APPNAME__ está tentando desbloquear as preferências de Acesso Universal.</string>
+				<string>__APPNAME__ está tentando desbloquear as preferências Acessibilidade.</string>
 				<key>pt-PT</key>
-				<string>O __APPNAME__ está a tentar desproteger as preferências do Acesso Universal.</string>
+				<string>O __APPNAME__ está a tentar desproteger as preferências da Acessibilidade.</string>
 				<key>ro</key>
-				<string>__APPNAME__ încearcă să deblocheze preferințele Acces universal.</string>
+				<string>__APPNAME__ încearcă să deblocheze preferințele Accesibilitate.</string>
 				<key>ru</key>
 				<string>Программа «__APPNAME__» пытается снять защиту с настроек Универсального доступа.</string>
 				<key>sk</key>
-				<string>__APPNAME__ sa pokúša odomknúť nastavenia univerzálneho prístupu.</string>
+				<string>Aplikácia __APPNAME__ sa pokúša odomknúť nastavenia Prístupnosti.</string>
 				<key>sv</key>
-				<string>__APPNAME__ försöker låsa upp Hjälpmedelsinställningarna.</string>
+				<string>__APPNAME__ försöker låsa upp inställningarna för Hjälpmedel.</string>
 				<key>th</key>
-				<string>__APPNAME__ กำลังพยายามปลอดล็อกการค่าปรับแต่งการเข้าถึงส่วนกลาง</string>
+				<string>__APPNAME__ กำลังพยายามปลดล็อกการตั้งค่าผู้พิการ</string>
 				<key>tr</key>
-				<string>__APPNAME__, Evrensel Erişim tercihlerinin kilidini açmaya çalışıyor.</string>
+				<string>__APPNAME__, Erişilebilirlik tercihlerinin kilidini açmaya çalışıyor.</string>
 				<key>uk</key>
-				<string>Програма «__APPNAME__» намагається відімкнути параметри Універсального доступу.</string>
+				<string>__APPNAME__ намагається відімкнути параметри Спеціальних можливостей.</string>
 				<key>zh-Hans</key>
-				<string>“__APPNAME__”正试图解锁“万能辅助”的偏好设置。</string>
+				<string>“__APPNAME__”正在尝试解锁“辅助功能”偏好设置。</string>
 				<key>zh-Hant</key>
 				<string>“__APPNAME__”正在嘗試解鎖“輔助使用”偏好設定。</string>
 			</dict>
@@ -5919,6 +6345,18 @@ See remaining rules for examples.
 			<string>admin</string>
 			<key>shared</key>
 			<true/>
+		</dict>
+		<key>system.preferences.nvram</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>entitled</string>
+				<string>admin</string>
+			</array>
 		</dict>
 		<key>system.preferences.parental-controls</key>
 		<dict>
@@ -8023,8 +8461,10 @@ See remaining rules for examples.
 		</dict>
 		<key>system.services.directory.configure</key>
 		<dict>
+			<key>allow-root</key>
+			<true/>
 			<key>class</key>
-			<string>rule</string>
+			<string>user</string>
 			<key>comment</key>
 			<string>For making Directory Services changes.</string>
 			<key>default-button</key>
@@ -8143,7 +8583,7 @@ See remaining rules for examples.
 				<key>sv</key>
 				<string>__APPNAME__ försöker ändra konfigurationen för Katalogtjänster.</string>
 				<key>th</key>
-				<string>__APPNAME__ กำลังพยายามแก้ไขการกำหนดค่าบริการ Dictionary</string>
+				<string>__APPNAME__ กำลังพยายามแก้ไขการกำหนดค่าบริการไดเร็กเทอรี่</string>
 				<key>tr</key>
 				<string>__APPNAME__, Dizin Servisleri konfigürasyonunu değiştirmeye çalışıyor.</string>
 				<key>uk</key>
@@ -8153,8 +8593,145 @@ See remaining rules for examples.
 				<key>zh-Hant</key>
 				<string>“__APPNAME__”正在嘗試修改“目錄服務”設定。</string>
 			</dict>
+			<key>group</key>
+			<string>admin</string>
+			<key>shared</key>
+			<false/>
+		</dict>
+		<key>system.services.systemconfiguration.network</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>For making change to network configuration via System Configuration.</string>
+			<key>default-button</key>
+			<dict>
+				<key>ar</key>
+				<string>تعديل التكوين</string>
+				<key>ca</key>
+				<string>Modificar la configuració</string>
+				<key>cs</key>
+				<string>Změna konfigurace</string>
+				<key>da</key>
+				<string>Rediger konfiguration</string>
+				<key>de</key>
+				<string>Konfiguration ändern</string>
+				<key>el</key>
+				<string>Τροποποίηση ρύθμισης παραμέτρων</string>
+				<key>en</key>
+				<string>Modify Configuration</string>
+				<key>es</key>
+				<string>Modificar configuración</string>
+				<key>fi</key>
+				<string>Muokkaa määritystä</string>
+				<key>fr</key>
+				<string>Modifier la configuration</string>
+				<key>he</key>
+				<string>שינוי תצורה</string>
+				<key>hr</key>
+				<string>Promijeni konfiguraciju</string>
+				<key>hu</key>
+				<string>Konfiguráció módosítása</string>
+				<key>it</key>
+				<string>Modifica configurazione</string>
+				<key>ja</key>
+				<string>構成を変更</string>
+				<key>ko</key>
+				<string>구성 수정</string>
+				<key>nb</key>
+				<string>Endre konfigurasjon</string>
+				<key>nl</key>
+				<string>Configuratiewijziging</string>
+				<key>pl</key>
+				<string>Modifikuj konfigurację</string>
+				<key>pt</key>
+				<string>Modificação de Configuração</string>
+				<key>pt-PT</key>
+				<string>Modificação de configuração</string>
+				<key>ro</key>
+				<string>Modificare configurație</string>
+				<key>ru</key>
+				<string>Модифицировать конфигурацию</string>
+				<key>sk</key>
+				<string>Upraviť nastavenie</string>
+				<key>sv</key>
+				<string>Ändra konfiguration</string>
+				<key>th</key>
+				<string>การกำหนดค่าการแก้ไข</string>
+				<key>tr</key>
+				<string>Konfigürasyonu Değiştir</string>
+				<key>uk</key>
+				<string>Змінити конфігурацію</string>
+				<key>zh-Hans</key>
+				<string>修改配置</string>
+				<key>zh-Hant</key>
+				<string>修改設定</string>
+			</dict>
+			<key>default-prompt</key>
+			<dict>
+				<key>ar</key>
+				<string>__APPNAME__ يحاول تعديل تكوين شبكة النظام‫.‬</string>
+				<key>ca</key>
+				<string>__APPNAME__ està provant de modificar la configuració de xarxa del sistema.</string>
+				<key>cs</key>
+				<string>__APPNAME__ se pokouší změnit síťovou konfiguraci systému.</string>
+				<key>da</key>
+				<string>__APPNAME__ prøver at ændre systemets netværkskonfiguration.</string>
+				<key>de</key>
+				<string>__APPNAME__ versucht, die Netzwerkkonfiguration des Systems zu ändern.</string>
+				<key>el</key>
+				<string>Η εφαρμογή «__APPNAME__» προσπαθεί να τροποποιήσει τη ρύθμιση παραμέτρων του δικτύου συστήματος.</string>
+				<key>en</key>
+				<string>__APPNAME__ is trying to modify the system network configuration.</string>
+				<key>es</key>
+				<string>__APPNAME__ está intentando modificar la configuración de red del sistema.</string>
+				<key>fi</key>
+				<string>__APPNAME__yrittää muokata järjestelmän verkkomääritysta.</string>
+				<key>fr</key>
+				<string>__APPNAME__ souhaite modifier la configuration réseau de votre ordinateur.</string>
+				<key>he</key>
+				<string>__APPNAME__ מנסה לשנות את תצורת הרשת של המערכת.</string>
+				<key>hr</key>
+				<string>__APPNAME__ pokušava promijeniti mrežnu konfiguraciju sustava.</string>
+				<key>hu</key>
+				<string>A(z) __APPNAME__ módosítani próbálja a rendszer hálózati konfigurációját.</string>
+				<key>it</key>
+				<string>__APPNAME__ sta tentando di modificare la configurazione network del sistema.</string>
+				<key>ja</key>
+				<string>__APPNAME__ は、システムネットワークの構成を変更しようとしています。</string>
+				<key>ko</key>
+				<string>__APPNAME__이(가) 시스템 네트워크 구성을 수정하려고 합니다.</string>
+				<key>nb</key>
+				<string>__APPNAME__ prøver å endre systemets nettverkskonfigurasjon.</string>
+				<key>nl</key>
+				<string>__APPNAME__ probeert de netwerkconfiguratie van het systeem te wijzigen.</string>
+				<key>pl</key>
+				<string>__APPNAME__ próbuje zmodyfikować systemową konfigurację sieci.</string>
+				<key>pt</key>
+				<string>__APPNAME__ está tentando modificar a configuração de rede do sistema.</string>
+				<key>pt-PT</key>
+				<string>__APPNAME__ está a tentar modificar a configuração de rede do sistema.</string>
+				<key>ro</key>
+				<string>__APPNAME__ încearcă să modifice configurația de rețea a sistemului.</string>
+				<key>ru</key>
+				<string>Программа «__APPNAME__» пытается модифицировать сетевую конфигурацию системы.</string>
+				<key>sk</key>
+				<string>Aplikácia __APPNAME__ sa pokúša upraviť systémové nastavenie siete.</string>
+				<key>sv</key>
+				<string>__APPNAME__ försöker ändra systemets nätverksinställning.</string>
+				<key>th</key>
+				<string>__APPNAME__ กำลังพยายามแก้ไขการกำหนดค่าเครือข่ายระบบ</string>
+				<key>tr</key>
+				<string>__APPNAME__, sistemin ağ konfigürasyonunu değiştirmeye çalışıyor.</string>
+				<key>uk</key>
+				<string>__APPNAME__ намагається змінити мережеву конфігурацію системи.</string>
+				<key>zh-Hans</key>
+				<string>“__APPNAME__”正试图修改系统的网络配置。</string>
+				<key>zh-Hant</key>
+				<string>“__APPNAME__”正在嘗試修改系統網路設定。</string>
+			</dict>
 			<key>rule</key>
-			<string>root-or-admin-or-authenticate-admin</string>
+			<string>root-or-entitled-admin-or-app-specific-admin</string>
 		</dict>
 		<key>system.sharepoints.</key>
 		<dict>
@@ -8308,6 +8885,83 @@ See remaining rules for examples.
 				<string>RestartAuthorization:success</string>
 			</array>
 		</dict>
+		<key>system.volume.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>system.volume.(external|internal|removable).(adopt|encode|mount|rename|unmount)</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+		<key>system.volume.external.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>system.volume.(external|internal|removable).(adopt|encode|mount|rename|unmount)</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>on-console</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+		<key>system.volume.external.adopt</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>system.volume.(external|internal|removable).(adopt|encode|mount|rename|unmount)</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+		<key>system.volume.removable.</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>system.volume.(external|internal|removable).(adopt|encode|mount|rename|unmount)</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>on-console</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
+		<key>system.volume.removable.adopt</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>comment</key>
+			<string>system.volume.(external|internal|removable).(adopt|encode|mount|rename|unmount)</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>is-admin</string>
+				<string>authenticate-admin-30</string>
+			</array>
+		</dict>
 	</dict>
 	<key>rules</key>
 	<dict>
@@ -8326,6 +8980,13 @@ See remaining rules for examples.
 			<string>allow</string>
 			<key>comment</key>
 			<string>Allow anyone.</string>
+		</dict>
+		<key>app-specific-admin</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>group</key>
+			<string>admin</string>
 		</dict>
 		<key>appserver-admin</key>
 		<dict>
@@ -8573,7 +9234,7 @@ See remaining rules for examples.
 			<key>group</key>
 			<string>admin</string>
 			<key>shared</key>
-			<string>true</string>
+			<true/>
 		</dict>
 		<key>is-appstore</key>
 		<dict>
@@ -8584,7 +9245,7 @@ See remaining rules for examples.
 			<key>group</key>
 			<string>_appstore</string>
 			<key>shared</key>
-			<string>true</string>
+			<true/>
 		</dict>
 		<key>is-developer</key>
 		<dict>
@@ -8650,19 +9311,6 @@ See remaining rules for examples.
 			<key>tries</key>
 			<integer>1</integer>
 		</dict>
-		<key>root-or-admin-or-authenticate-admin</key>
-		<dict>
-			<key>class</key>
-			<string>rule</string>
-			<key>k-of-n</key>
-			<integer>1</integer>
-			<key>rule</key>
-			<array>
-				<string>is-root</string>
-				<string>is-admin</string>
-				<string>authenticate-admin-30</string>
-			</array>
-		</dict>
 		<key>root-or-entitled-admin-or-admin</key>
 		<dict>
 			<key>class</key>
@@ -8674,6 +9322,19 @@ See remaining rules for examples.
 				<string>is-root</string>
 				<string>entitled-admin</string>
 				<string>admin</string>
+			</array>
+		</dict>
+		<key>root-or-entitled-admin-or-app-specific-admin</key>
+		<dict>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>is-root</string>
+				<string>entitled-admin</string>
+				<string>app-specific-admin</string>
 			</array>
 		</dict>
 		<key>root-or-entitled-admin-or-authenticate-admin</key>

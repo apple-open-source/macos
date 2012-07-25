@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,11 +32,13 @@ namespace WebCore {
 
 class HTMLAllCollection : public HTMLCollection {
 public:
-    static PassRefPtr<HTMLAllCollection> create(PassRefPtr<Node>);
+    static PassOwnPtr<HTMLAllCollection> create(Document*);
     virtual ~HTMLAllCollection();
 
+    Node* namedItemWithIndex(const AtomicString& name, unsigned index) const;
+
 private:
-    HTMLAllCollection(PassRefPtr<Node>);
+    HTMLAllCollection(Document*);
 };
 
 } // namespace WebCore

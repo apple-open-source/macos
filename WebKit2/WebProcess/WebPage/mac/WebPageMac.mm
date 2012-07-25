@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010, 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,22 @@
 #import "config.h"
 #import "WebPage.h"
 
-#import "AccessibilityWebPageObject.h"
 #import "AttributedString.h"
 #import "DataReference.h"
 #import "EditorState.h"
+#import "PDFKitImports.h"
 #import "PluginView.h"
+#import "PrintInfo.h"
+#import "WKAccessibilityWebPageObject.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebEvent.h"
 #import "WebEventConversion.h"
 #import "WebFrame.h"
+#import "WebInspector.h"
 #import "WebPageProxyMessages.h"
+#import "WebPreferencesStore.h"
 #import "WebProcess.h"
+#import <PDFKit/PDFKit.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/Frame.h>
@@ -56,6 +61,7 @@
 #import <WebKitSystemInterface.h>
 
 using namespace WebCore;
+using namespace std;
 
 namespace WebKit {
 
@@ -69,7 +75,7 @@ void WebPage::platformInitialize()
     m_page->addSchedulePair(SchedulePair::create([NSRunLoop currentRunLoop], kCFRunLoopCommonModes));
 #endif
 
-    AccessibilityWebPageObject* mockAccessibilityElement = [[[AccessibilityWebPageObject alloc] init] autorelease];
+    WKAccessibilityWebPageObject* mockAccessibilityElement = [[[WKAccessibilityWebPageObject alloc] init] autorelease];
 
     // Get the pid for the starting process.
     pid_t pid = WebProcess::shared().presenterApplicationPid();    
@@ -83,8 +89,10 @@ void WebPage::platformInitialize()
     m_mockAccessibilityElement = mockAccessibilityElement;
 }
 
-void WebPage::platformPreferencesDidChange(const WebPreferencesStore&)
+void WebPage::platformPreferencesDidChange(const WebPreferencesStore& store)
 {
+    if (WebInspector* inspector = this->inspector())
+        inspector->setInspectorUsesWebKitUserInterface(store.getBoolValueForKey(WebPreferencesKey::inspectorUsesWebKitUserInterfaceKey()));
 }
 
 typedef HashMap<String, String> SelectorNameMap;
@@ -153,7 +161,7 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
                 bool commandExecutedByEditor = command.execute(event);
                 eventWasHandled |= commandExecutedByEditor;
                 if (!commandExecutedByEditor) {
-                    bool performedNonEditingBehavior = event->keyEvent()->type() == PlatformKeyboardEvent::RawKeyDown && performNonEditingBehaviorForSelector(commands[i].commandName);
+                    bool performedNonEditingBehavior = event->keyEvent()->type() == PlatformEvent::RawKeyDown && performNonEditingBehaviorForSelector(commands[i].commandName);
                     eventWasHandled |= performedNonEditingBehavior;
                 }
             } else {
@@ -209,7 +217,7 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent* event, bool saveCommands
         }
         // If there are no text insertion commands, default keydown handler is the right time to execute the commands.
         // Keypress (Char event) handler is the latest opportunity to execute.
-        if (!haveTextInsertionCommands || platformEvent->type() == PlatformKeyboardEvent::Char) {
+        if (!haveTextInsertionCommands || platformEvent->type() == PlatformEvent::Char) {
             eventWasHandled = executeKeypressCommandsInternal(event->keypressCommands(), event);
             event->keypressCommands().clear();
         }
@@ -251,11 +259,11 @@ void WebPage::confirmComposition(EditorState& newState)
     newState = editorState();
 }
 
-void WebPage::confirmCompositionWithoutDisturbingSelection(EditorState& newState)
+void WebPage::cancelComposition(EditorState& newState)
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
-    frame->editor()->confirmCompositionWithoutDisturbingSelection();
+    frame->editor()->cancelComposition();
 
     newState = editorState();
 }
@@ -264,10 +272,10 @@ void WebPage::insertText(const String& text, uint64_t replacementRangeStart, uin
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
-    RefPtr<Range> replacementRange;
     if (replacementRangeStart != NSNotFound) {
-        replacementRange = convertToRange(frame, NSMakeRange(replacementRangeStart, replacementRangeEnd - replacementRangeStart));
-        frame->selection()->setSelection(VisibleSelection(replacementRange.get(), SEL_DEFAULT_AFFINITY));
+        RefPtr<Range> replacementRange = convertToRange(frame, NSMakeRange(replacementRangeStart, replacementRangeEnd - replacementRangeStart));
+        if (replacementRange)
+            frame->selection()->setSelection(VisibleSelection(replacementRange.get(), SEL_DEFAULT_AFFINITY));
     }
 
     if (!frame->editor()->hasComposition()) {
@@ -282,6 +290,21 @@ void WebPage::insertText(const String& text, uint64_t replacementRangeStart, uin
     newState = editorState();
 }
 
+void WebPage::insertDictatedText(const String& text, uint64_t replacementRangeStart, uint64_t replacementRangeEnd, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool& handled, EditorState& newState)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+
+    if (replacementRangeStart != NSNotFound) {
+        RefPtr<Range> replacementRange = convertToRange(frame, NSMakeRange(replacementRangeStart, replacementRangeEnd - replacementRangeStart));
+        if (replacementRange)
+            frame->selection()->setSelection(VisibleSelection(replacementRange.get(), SEL_DEFAULT_AFFINITY));
+    }
+
+    ASSERT(!frame->editor()->hasComposition());
+    handled = frame->editor()->insertDictatedText(text, dictationAlternativeLocations, m_keyboardEventBeingInterpreted);
+    newState = editorState();
+}
+
 void WebPage::getMarkedRange(uint64_t& location, uint64_t& length)
 {
     location = NSNotFound;
@@ -293,7 +316,7 @@ void WebPage::getMarkedRange(uint64_t& location, uint64_t& length)
     RefPtr<Range> range = frame->editor()->compositionRange();
     size_t locationSize;
     size_t lengthSize;
-    if (range && TextIterator::locationAndLengthFromRange(range.get(), locationSize, lengthSize)) {
+    if (range && TextIterator::getLocationAndLengthFromRange(frame->selection()->rootEditableElementOrDocumentElement(), range.get(), locationSize, lengthSize)) {
         location = static_cast<uint64_t>(locationSize);
         length = static_cast<uint64_t>(lengthSize);
     }
@@ -310,7 +333,7 @@ void WebPage::getSelectedRange(uint64_t& location, uint64_t& length)
     size_t locationSize;
     size_t lengthSize;
     RefPtr<Range> range = frame->selection()->toNormalizedRange();
-    if (range && TextIterator::locationAndLengthFromRange(range.get(), locationSize, lengthSize)) {
+    if (range && TextIterator::getLocationAndLengthFromRange(frame->selection()->rootEditableElementOrDocumentElement(), range.get(), locationSize, lengthSize)) {
         location = static_cast<uint64_t>(locationSize);
         length = static_cast<uint64_t>(lengthSize);
     }
@@ -354,13 +377,13 @@ void WebPage::characterIndexForPoint(IntPoint point, uint64_t& index)
     HitTestResult result = frame->eventHandler()->hitTestResultAtPoint(point, false);
     frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document()->frame() : m_page->focusController()->focusedOrMainFrame();
     
-    RefPtr<Range> range = frame->rangeForPoint(result.point());
+    RefPtr<Range> range = frame->rangeForPoint(result.roundedPoint());
     if (!range)
         return;
 
     size_t location;
     size_t length;
-    if (TextIterator::locationAndLengthFromRange(range.get(), location, length))
+    if (TextIterator::getLocationAndLengthFromRange(frame->selection()->rootEditableElementOrDocumentElement(), range.get(), location, length))
         index = static_cast<uint64_t>(location);
 }
 
@@ -377,9 +400,7 @@ PassRefPtr<Range> convertToRange(Frame* frame, NSRange nsrange)
     // directly in the document DOM, so serialization is problematic. Our solution is
     // to use the root editable element of the selection start as the positional base.
     // That fits with AppKit's idea of an input context.
-    Element* selectionRoot = frame->selection()->rootEditableElement();
-    Element* scope = selectionRoot ? selectionRoot : frame->document()->documentElement();
-    return TextIterator::rangeFromLocationAndLength(scope, nsrange.location, nsrange.length);
+    return TextIterator::rangeFromLocationAndLength(frame->selection()->rootEditableElementOrDocumentElement(), nsrange.location, nsrange.length);
 }
     
 void WebPage::firstRectForCharacterRange(uint64_t location, uint64_t length, WebCore::IntRect& resultRect)
@@ -442,7 +463,7 @@ void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 
     // Find the frame the point is over.
     IntPoint point = roundedIntPoint(floatPoint);
-    HitTestResult result = frame->eventHandler()->hitTestResultAtPoint(point, false);
+    HitTestResult result = frame->eventHandler()->hitTestResultAtPoint(frame->view()->windowToContents(point), false);
     frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document()->frame() : m_page->focusController()->focusedOrMainFrame();
 
     IntPoint translatedPoint = frame->view()->windowToContents(point);
@@ -522,9 +543,12 @@ void WebPage::performDictionaryLookupForRange(DictionaryPopupInfo::Type type, Fr
     RenderObject* renderer = range->startContainer()->renderer();
     RenderStyle* style = renderer->style();
     NSFont *font = style->font().primaryFont()->getNSFont();
-    if (!font)
-        return;
     
+    // We won't be able to get an NSFont in the case that a Web Font is being used, so use
+    // the default system font at the same size instead.
+    if (!font)
+        font = [NSFont systemFontOfSize:style->font().primaryFont()->platformData().size()];
+
     CFDictionaryRef fontDescriptorAttributes = (CFDictionaryRef)[[font fontDescriptor] fontAttributes];
     if (!fontDescriptorAttributes)
         return;
@@ -538,7 +562,7 @@ void WebPage::performDictionaryLookupForRange(DictionaryPopupInfo::Type type, Fr
     
     DictionaryPopupInfo dictionaryPopupInfo;
     dictionaryPopupInfo.type = type;
-    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y());
+    dictionaryPopupInfo.origin = FloatPoint(rangeRect.x(), rangeRect.y() + (style->fontMetrics().ascent() * pageScaleFactor()));
     dictionaryPopupInfo.fontInfo.fontAttributeDictionary = fontDescriptorAttributes;
 #if !defined(BUILDING_ON_SNOW_LEOPARD)
     dictionaryPopupInfo.options = (CFDictionaryRef)options;
@@ -599,17 +623,6 @@ void WebPage::registerUIProcessAccessibilityTokens(const CoreIPC::DataReference&
     [accessibilityRemoteObject() setRemoteParent:remoteElement];
 }
 
-void WebPage::writeSelectionToPasteboard(const String& pasteboardName, const Vector<String>& pasteboardTypes, bool& result)
-{
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
-    if (!frame || frame->selection()->isNone()) {
-        result = false;
-        return;
-    }
-    frame->editor()->writeSelectionToPasteboard(pasteboardName, pasteboardTypes);
-    result = true;
-}
-
 void WebPage::readSelectionFromPasteboard(const String& pasteboardName, bool& result)
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
@@ -620,8 +633,34 @@ void WebPage::readSelectionFromPasteboard(const String& pasteboardName, bool& re
     frame->editor()->readSelectionFromPasteboard(pasteboardName);
     result = true;
 }
-    
-AccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
+
+void WebPage::getStringSelectionForPasteboard(String& stringValue)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || frame->selection()->isNone())
+        return;
+
+    stringValue = frame->editor()->stringSelectionForPasteboard();
+}
+
+void WebPage::getDataSelectionForPasteboard(const String pasteboardType, SharedMemory::Handle& handle, uint64_t& size)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || frame->selection()->isNone())
+        return;
+
+    RefPtr<SharedBuffer> buffer = frame->editor()->dataSelectionForPasteboard(pasteboardType);
+    if (!buffer) {
+        size = 0;
+        return;
+    }
+    size = buffer->size();
+    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::create(size);
+    memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
+    sharedMemoryBuffer->createHandle(handle, SharedMemory::ReadOnly);
+}
+
+WKAccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
 {
     return m_mockAccessibilityElement.get();
 }
@@ -632,7 +671,7 @@ bool WebPage::platformHasLocalDataForURL(const WebCore::KURL& url)
     [request setValue:(NSString*)userAgent() forHTTPHeaderField:@"User-Agent"];
     NSCachedURLResponse *cachedResponse;
 #if USE(CFURLSTORAGESESSIONS)
-    if (CFURLStorageSessionRef storageSession = ResourceHandle::privateBrowsingStorageSession())
+    if (CFURLStorageSessionRef storageSession = ResourceHandle::currentStorageSession())
         cachedResponse = WKCachedResponseForRequest(storageSession, request);
     else
 #endif
@@ -648,7 +687,7 @@ static NSCachedURLResponse *cachedResponseForURL(WebPage* webPage, const KURL& u
     [request.get() setValue:(NSString *)webPage->userAgent() forHTTPHeaderField:@"User-Agent"];
 
 #if USE(CFURLSTORAGESESSIONS)
-    if (CFURLStorageSessionRef storageSession = ResourceHandle::privateBrowsingStorageSession())
+    if (CFURLStorageSessionRef storageSession = ResourceHandle::currentStorageSession())
         return WKCachedResponseForRequest(storageSession, request.get());
 #endif
 
@@ -686,7 +725,7 @@ void WebPage::shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent& event,
     if (!frame)
         return;
 
-    HitTestResult hitResult = frame->eventHandler()->hitTestResultAtPoint(event.position(), true);
+    HitTestResult hitResult = frame->eventHandler()->hitTestResultAtPoint(frame->view()->windowToContents(event.position()), true);
     if (hitResult.isSelected())
         result = frame->eventHandler()->eventMayStartDrag(platform(event));
 }
@@ -698,12 +737,128 @@ void WebPage::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent& ev
     if (!frame)
         return;
     
-    HitTestResult hitResult = frame->eventHandler()->hitTestResultAtPoint(event.position(), true);
+    HitTestResult hitResult = frame->eventHandler()->hitTestResultAtPoint(frame->view()->windowToContents(event.position()), true);
     frame->eventHandler()->setActivationEventNumber(eventNumber);
     if (hitResult.isSelected())
         result = frame->eventHandler()->eventMayStartDrag(platform(event));
     else 
         result = !!hitResult.scrollbar();
+}
+
+void WebPage::setLayerHostingMode(LayerHostingMode layerHostingMode)
+{
+    m_layerHostingMode = layerHostingMode;
+
+    for (HashSet<PluginView*>::const_iterator it = m_pluginViews.begin(), end = m_pluginViews.end(); it != end; ++it)
+        (*it)->setLayerHostingMode(layerHostingMode);
+}
+
+void WebPage::computePagesForPrintingPDFDocument(uint64_t frameID, const PrintInfo& printInfo, Vector<IntRect>& resultPageRects)
+{
+    ASSERT(resultPageRects.isEmpty());
+    WebFrame* frame = WebProcess::shared().webFrame(frameID);
+    Frame* coreFrame = frame ? frame->coreFrame() : 0;
+    RetainPtr<PDFDocument> pdfDocument = coreFrame ? pdfDocumentForPrintingFrame(coreFrame) : 0;
+    if ([pdfDocument.get() allowsPrinting]) {
+        NSUInteger pageCount = [pdfDocument.get() pageCount];
+        IntRect pageRect(0, 0, ceilf(printInfo.availablePaperWidth), ceilf(printInfo.availablePaperHeight));
+        for (NSUInteger i = 1; i <= pageCount; ++i) {
+            resultPageRects.append(pageRect);
+            pageRect.move(0, pageRect.height());
+        }
+    }
+}
+
+static inline CGFloat roundCGFloat(CGFloat f)
+{
+    if (sizeof(CGFloat) == sizeof(float))
+        return roundf(static_cast<float>(f));
+    return static_cast<CGFloat>(round(f));
+}
+
+static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRef context, CGFloat pageSetupScaleFactor, CGSize paperSize)
+{
+    CGContextSaveGState(context);
+
+    CGContextScaleCTM(context, pageSetupScaleFactor, pageSetupScaleFactor);
+
+    PDFPage *pdfPage = [pdfDocument pageAtIndex:pageIndex];
+    NSRect cropBox = [pdfPage boundsForBox:kPDFDisplayBoxCropBox];
+    if (NSIsEmptyRect(cropBox))
+        cropBox = [pdfPage boundsForBox:kPDFDisplayBoxMediaBox];
+    else
+        cropBox = NSIntersectionRect(cropBox, [pdfPage boundsForBox:kPDFDisplayBoxMediaBox]);
+
+    bool shouldRotate = (paperSize.width < paperSize.height) != (cropBox.size.width < cropBox.size.height);
+    if (shouldRotate)
+        swap(cropBox.size.width, cropBox.size.height);
+
+    // Center.
+    CGFloat widthDifference = paperSize.width / pageSetupScaleFactor - cropBox.size.width;
+    CGFloat heightDifference = paperSize.height / pageSetupScaleFactor - cropBox.size.height;
+    if (widthDifference || heightDifference)
+        CGContextTranslateCTM(context, roundCGFloat(widthDifference / 2), roundCGFloat(heightDifference / 2));
+
+    if (shouldRotate) {
+        CGContextRotateCTM(context, static_cast<CGFloat>(piOverTwoDouble));
+        CGContextTranslateCTM(context, 0, -cropBox.size.width);
+    }
+
+    [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:NO]];
+    [pdfPage drawWithBox:kPDFDisplayBoxCropBox];
+    [NSGraphicsContext restoreGraphicsState];
+
+    CGAffineTransform transform = CGContextGetCTM(context);
+
+    for (PDFAnnotation *annotation in [pdfPage annotations]) {
+        if (![annotation isKindOfClass:pdfAnnotationLinkClass()])
+            continue;
+
+        PDFAnnotationLink *linkAnnotation = (PDFAnnotationLink *)annotation;
+        NSURL *url = [linkAnnotation URL];
+        if (!url)
+            continue;
+
+        CGRect urlRect = NSRectToCGRect([linkAnnotation bounds]);
+        CGRect transformedRect = CGRectApplyAffineTransform(urlRect, transform);
+        CGPDFContextSetURLForRect(context, (CFURLRef)url, transformedRect);
+    }
+
+    CGContextRestoreGState(context);
+}
+
+void WebPage::drawRectToPDFFromPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, const WebCore::IntRect& rect)
+{
+    NSUInteger pageCount = [pdfDocument pageCount];
+    IntSize paperSize(ceilf(printInfo.availablePaperWidth), ceilf(printInfo.availablePaperHeight));
+    IntRect pageRect(IntPoint(), paperSize);
+    for (NSUInteger i = 0; i < pageCount; ++i) {
+        if (pageRect.intersects(rect)) {
+            CGContextSaveGState(context);
+
+            CGContextTranslateCTM(context, pageRect.x() - rect.x(), pageRect.y() - rect.y());
+            drawPDFPage(pdfDocument, i, context, printInfo.pageSetupScaleFactor, paperSize);
+
+            CGContextRestoreGState(context);
+        }
+        pageRect.move(0, pageRect.height());
+    }
+}
+
+void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *pdfDocument, const PrintInfo& printInfo, uint32_t first, uint32_t count)
+{
+    NSUInteger pageCount = [pdfDocument pageCount];
+    for (uint32_t page = first; page < first + count; ++page) {
+        if (page >= pageCount)
+            break;
+
+        RetainPtr<CFDictionaryRef> pageInfo(AdoptCF, CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+
+        CGPDFContextBeginPage(context, pageInfo.get());
+        drawPDFPage(pdfDocument, page, context, printInfo.pageSetupScaleFactor, CGSizeMake(printInfo.availablePaperWidth, printInfo.availablePaperHeight));
+        CGPDFContextEndPage(context);
+    }
 }
 
 } // namespace WebKit

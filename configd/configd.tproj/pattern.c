@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -199,7 +199,7 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 }
 
 
-static CFMutableArrayRef
+static CF_RETURNS_RETAINED CFMutableArrayRef
 patternCopy(CFStringRef	pattern)
 {
 	CFArrayRef	pInfo;
@@ -209,7 +209,7 @@ patternCopy(CFStringRef	pattern)
 }
 
 
-static CFMutableArrayRef
+static CF_RETURNS_RETAINED CFMutableArrayRef
 patternNew(CFStringRef pattern)
 {
 	addContext		context;
@@ -224,7 +224,8 @@ patternNew(CFStringRef pattern)
 	/* compile the regular expression from the pattern string. */
 	pRegex = CFDataCreateMutable(NULL, sizeof(regex_t));
 	CFDataSetLength(pRegex, sizeof(regex_t));
-	if (!patternCompile(pattern, (regex_t *)CFDataGetBytePtr(pRegex), &err)) {
+	/* ALIGN: CF aligns to >8 byte boundries */
+	if (!patternCompile(pattern, (regex_t *)(void *)CFDataGetBytePtr(pRegex), &err)) {
 		CFRelease(err);
 		CFRelease(pRegex);
 		CFRelease(pInfo);
@@ -241,7 +242,8 @@ patternNew(CFStringRef pattern)
 
 	/* identify/add all existing keys that match the specified pattern */
 	context.pInfo = pInfo;
-	context.preg  = (regex_t *)CFDataGetBytePtr(pRegex);
+	/* ALIGN: CF aligns to >8 byte boundries */
+	context.preg  = (regex_t *)(void *)CFDataGetBytePtr(pRegex);
 	my_CFDictionaryApplyFunction(storeData,
 				     (CFDictionaryApplierFunction)identifyKeyForPattern,
 				     &context);
@@ -275,7 +277,8 @@ patternCopyMatches(CFStringRef pattern)
 		CFDataRef	pRegex;
 
 		pRegex = CFArrayGetValueAtIndex(pInfo, 0);
-		regfree((regex_t *)CFDataGetBytePtr(pRegex));
+		/* ALIGN: CF aligns to >8 byte boundries */
+		regfree((regex_t *)(void *)CFDataGetBytePtr(pRegex));
 	}
 
 	CFArrayReplaceValues(pInfo, CFRangeMake(0, 2), NULL, 0);
@@ -368,7 +371,8 @@ patternRemoveSession(CFStringRef pattern, CFNumberRef sessionNum)
 		/* if no other sessions are watching this pattern */
 
 		pRegex = CFArrayGetValueAtIndex(pInfo, 0);
-		regfree((regex_t *)CFDataGetBytePtr(pRegex));
+		/* ALIGN: CF aligns to >8 byte boundries */
+		regfree((regex_t *)(void *)CFDataGetBytePtr(pRegex));
 		CFDictionaryRemoveValue(patternData, pattern);
 	}
 
@@ -400,7 +404,8 @@ addKeyForPattern(const void *key, void *val, void *context)
 	}
 
 	/* compare new store key to regular expression pattern */
-	preg = (regex_t *)CFDataGetBytePtr(CFArrayGetValueAtIndex(pInfo, 0));
+	/* ALIGN: CF aligns to >8 byte boundries */
+	preg = (regex_t *)(void *)CFDataGetBytePtr(CFArrayGetValueAtIndex(pInfo, 0));
 	reError = regexec(preg, str, 0, NULL, 0);
 	switch (reError) {
 		case 0 : {

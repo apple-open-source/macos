@@ -96,16 +96,27 @@
 #include <cn.h>
 
 #if HAVE_GSS_FRAMEWORK
-/* GSS framework has gss_wrap/unwrap_iov in gssapi.h */
 #include <GSS/gssapi.h>
+#include <GSS/gssapi_spi.h>
+#include <GSS/gssapi_krb5.h>
 #else
+#if HAVE_GSSAPI_GSSAPI_H
+#include <gssapi/gssapi.h>
+#endif
+#if HAVE_GSSAPI_GSSAPI_KRB5_H
+#include <gssapi/gssapi_krb5.h>
+#endif
+#if HAVE_GSSAPI_GSSAPI_EXT_H
 #include <gssapi/gssapi_ext.h>
+#endif
 #endif
 
 #if HAVE_KERBEROS_FRAMEWORK
 #include <Kerberos/krb5.h>
 #else
+#if HAVE_KRB5_H
 #include <krb5.h>
+#endif
 #endif
 
 typedef struct

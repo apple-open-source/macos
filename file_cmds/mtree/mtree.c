@@ -132,7 +132,7 @@ main(int argc, char *argv[])
 			break;
 		case 's':
 			sflag = 1;
-			crc_total = ~strtoul(optarg, &p, 0);
+			crc_total = (uint32_t)~strtoul(optarg, &p, 0);
 			if (*p)
 				errx(1, "illegal seed value -- %s", optarg);
 			break;
@@ -157,7 +157,7 @@ main(int argc, char *argv[])
 			usage();
 		}
 	argc -= optind;
-	argv += optind;
+//	argv += optind;
 
 	if (argc)
 		usage();

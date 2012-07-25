@@ -30,6 +30,10 @@ _asn1_copy_top (
 	const void */*from*/,
 	void */*to*/);
 
+void
+_asn1_free_top(const struct asn1_template *t,
+	       void *data);
+
 int
 _asn1_decode (
 	const struct asn1_template */*t*/,

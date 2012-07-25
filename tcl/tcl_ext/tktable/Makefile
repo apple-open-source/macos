@@ -31,6 +31,5 @@ build::
 	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/doc/tkTable.html" "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)/doc/tkTable.n" "$(DSTROOT)/$(TclExtManDir)"

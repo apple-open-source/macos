@@ -14,6 +14,6 @@
 # OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
-# $Id: clean.sh,v 1.1.4.2 2011/05/07 05:52:58 each Exp $
+# $Id: clean.sh,v 1.1.6.2 2011-05-07 05:53:23 each Exp $
 
 rm -f good.conf.in good.conf.out

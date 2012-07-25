@@ -28,10 +28,10 @@
 
 #include "NetscapePluginModule.h"
 #include "Plugin.h"
-#include "RunLoop.h"
 #include <WebCore/AffineTransform.h>
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/RunLoop.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
@@ -59,19 +59,26 @@ public:
     NPError popUpContextMenu(NPMenu*);
 
     void setPluginReturnsNonretainedLayer(bool pluginReturnsNonretainedLayer) { m_pluginReturnsNonretainedLayer = pluginReturnsNonretainedLayer; }
+    void setPluginWantsLegacyCocoaTextInput(bool pluginWantsLegacyCocoaTextInput) { m_pluginWantsLegacyCocoaTextInput = pluginWantsLegacyCocoaTextInput; }
+
+    bool hasHandledAKeyDownEvent() const { return m_hasHandledAKeyDownEvent; }
 
     mach_port_t compositingRenderServerPort();
+
+    // Computes an affine transform from the given coordinate space to the screen coordinate space.
+    bool getScreenTransform(NPCoordinateSpace sourceSpace, WebCore::AffineTransform&);
 
 #ifndef NP_NO_CARBON
     WindowRef windowRef() const;
     bool isWindowActive() const { return m_windowHasFocus; }
+    void updateFakeWindowBounds();
 
     static NetscapePlugin* netscapePluginFromWindow(WindowRef);
     static unsigned buttonState();
 #endif
 
 #elif PLATFORM(WIN)
-    HWND containingWindow() const;
+    HWND containingWindow();
 #endif
 
     PluginQuirks quirks() const { return m_pluginModule->pluginQuirks(); }
@@ -88,11 +95,11 @@ public:
     bool evaluate(NPObject*, const String&scriptString, NPVariant* result);
     bool isPrivateBrowsingEnabled();
 
+    static void setSetExceptionFunction(void (*)(const String&));
+
     // These return retained objects.
     NPObject* windowScriptNPObject();
     NPObject* pluginElementNPObject();
-
-    bool tryToShortCircuitInvoke(NPObject*, NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, bool& returnValue, NPVariant& result);
 
     void cancelStreamLoad(NetscapePluginStream*);
     void removePluginStream(NetscapePluginStream*);
@@ -101,6 +108,14 @@ public:
 
     void pushPopupsEnabledState(bool enabled);
     void popPopupsEnabledState();
+
+    void pluginThreadAsyncCall(void (*function)(void*), void* userData);
+
+    // Called on the plug-in run loop (which is currently the main thread run loop).
+    void handlePluginThreadAsyncCall(void (*function)(void*), void* userData);
+
+    unsigned scheduleTimer(unsigned interval, bool repeat, void (*timerFunc)(NPP, unsigned timerID));
+    void unscheduleTimer(unsigned timerID);
 
     double contentsScaleFactor();
     String proxiesForURL(const String& urlString);
@@ -147,8 +162,10 @@ private:
     bool platformHandleKeyboardEvent(const WebKeyboardEvent&);
     void platformSetFocus(bool);
 
+    static bool wantsPluginRelativeNPWindowCoordinates();
+
     // Plugin
-    virtual bool initialize(PluginController*, const Parameters&);
+    virtual bool initialize(const Parameters&);
     virtual void destroy();
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect& dirtyRect);
     virtual PassRefPtr<ShareableBitmap> snapshot();
@@ -156,7 +173,7 @@ private:
     virtual PlatformLayer* pluginLayer();
 #endif
     virtual bool isTransparent();
-    virtual void deprecatedGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect);
+    virtual bool wantsWheelEvents() OVERRIDE;
     virtual void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::IntRect& clipRect, const WebCore::AffineTransform& pluginToRootViewTransform);
     virtual void visibilityDidChange();
     virtual void frameDidFinishLoading(uint64_t requestID);
@@ -189,25 +206,40 @@ private:
 
     virtual uint64_t pluginComplexTextInputIdentifier() const;
     virtual void sendComplexTextInput(const String& textInput);
+    virtual void setLayerHostingMode(LayerHostingMode) OVERRIDE;
+
+    void pluginFocusOrWindowFocusChanged();
+    void setComplexTextInputEnabled(bool);
+
+    void updatePluginLayer();
 #endif
 
     virtual void contentsScaleFactorChanged(float);
     virtual void privateBrowsingStateChanged(bool);
+    virtual bool getFormValue(String& formValue);
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity);
-    virtual bool wantsWindowRelativeCoordinates();
     virtual WebCore::Scrollbar* horizontalScrollbar();
     virtual WebCore::Scrollbar* verticalScrollbar();
 
     bool supportsSnapshotting() const;
 
-    virtual PluginController* controller();
+    // Convert the given point from plug-in coordinates to root view coordinates.
+    WebCore::IntPoint convertToRootView(const WebCore::IntPoint&) const;
+
+    // Convert the given point from root view coordinates to plug-in coordinates. Returns false if the point can't be
+    // converted (if the transformation matrix isn't invertible).
+    bool convertFromRootView(const WebCore::IntPoint& pointInRootViewCoordinates, WebCore::IntPoint& pointInPluginCoordinates);
 
 #if PLUGIN_ARCHITECTURE(WIN)
     static BOOL WINAPI hookedTrackPopupMenu(HMENU, UINT uFlags, int x, int y, int nReserved, HWND, const RECT*);
     void scheduleWindowedGeometryUpdate();
 #endif
 
-    PluginController* m_pluginController;
+#if PLUGIN_ARCHITECTURE(X11)
+    bool platformPostInitializeWindowed(bool needsXEmbed, uint64_t windowID);
+    bool platformPostInitializeWindowless();
+#endif
+
     uint64_t m_nextRequestID;
 
     typedef HashMap<uint64_t, std::pair<String, void*> > PendingURLNotifyMap;
@@ -230,7 +262,6 @@ private:
 
     // FIXME: Get rid of these.
     WebCore::IntRect m_frameRectInWindowCoordinates;
-    WebCore::IntRect m_clipRectInWindowCoordinates;
 
     CString m_userAgent;
 
@@ -238,9 +269,42 @@ private:
     bool m_isWindowed;
     bool m_isTransparent;
     bool m_inNPPNew;
-    bool m_loadManually;
+    bool m_shouldUseManualLoader;
+    bool m_hasCalledSetWindow;
+
     RefPtr<NetscapePluginStream> m_manualStream;
     Vector<bool, 8> m_popupEnabledStates;
+
+    class Timer {
+        WTF_MAKE_NONCOPYABLE(Timer);
+
+    public:
+        typedef void (*TimerFunc)(NPP, uint32_t timerID);
+
+        static PassOwnPtr<Timer> create(NetscapePlugin*, unsigned timerID, unsigned interval, bool repeat, TimerFunc);
+        ~Timer();
+
+        void start();
+        void stop();
+
+    private:
+        Timer(NetscapePlugin*, unsigned timerID, unsigned interval, bool repeat, TimerFunc);
+
+        void timerFired();
+
+        // This is a weak pointer since Timer objects are destroyed before the NetscapePlugin object itself is destroyed.
+        NetscapePlugin* m_netscapePlugin;
+
+        unsigned m_timerID;
+        unsigned m_interval;
+        bool m_repeat;
+        TimerFunc m_timerFunc;
+
+        WebCore::RunLoop::Timer<Timer> m_timer;
+    };
+    typedef HashMap<unsigned, Timer*> TimerMap;
+    TimerMap m_timers;
+    unsigned m_nextTimerID;
 
 #if PLUGIN_ARCHITECTURE(MAC)
     NPDrawingModel m_drawingModel;
@@ -248,11 +312,27 @@ private:
 
     RetainPtr<PlatformLayer> m_pluginLayer;
     bool m_pluginReturnsNonretainedLayer;
+    LayerHostingMode m_layerHostingMode;
 
     NPCocoaEvent* m_currentMouseEvent;
 
     bool m_pluginHasFocus;
     bool m_windowHasFocus;
+
+    // Whether the plug-in wants to use the legacy Cocoa text input handling that
+    // existed in WebKit1, or the updated Cocoa text input handling specified on
+    // https://wiki.mozilla.org/NPAPI:CocoaEventModel#Text_Input
+    bool m_pluginWantsLegacyCocoaTextInput;
+
+    // Whether complex text input is enabled.
+    bool m_isComplexTextInputEnabled;
+
+    // Whether the plug-in has handled a keydown event. This is used to determine
+    // if we can tell the plug-in that we support the updated Cocoa text input specification.
+    bool m_hasHandledAKeyDownEvent;
+
+    // The number of NPCocoaEventKeyUp events that  should be ignored.
+    unsigned m_ignoreNextKeyUpEventCounter;
 
     WebCore::IntRect m_windowFrameInScreenCoordinates;
     WebCore::IntRect m_viewFrameInWindowCoordinates;
@@ -262,7 +342,7 @@ private:
 
     // FIXME: It's a bit wasteful to have one null event timer per plug-in.
     // We should investigate having one per window.
-    RunLoop::Timer<NetscapePlugin> m_nullEventTimer;
+    WebCore::RunLoop::Timer<NetscapePlugin> m_nullEventTimer;
     NP_CGContext m_npCGContext;
 #endif
 #elif PLUGIN_ARCHITECTURE(WIN)
@@ -271,6 +351,12 @@ private:
 #elif PLUGIN_ARCHITECTURE(X11)
     Pixmap m_drawable;
     Display* m_pluginDisplay;
+#if PLATFORM(GTK)
+    GtkWidget* m_platformPluginWidget;
+#endif
+
+public: // Need to call it in the NPN_GetValue browser callback.
+    static Display* x11HostDisplay();
 #endif
 };
 

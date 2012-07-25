@@ -32,13 +32,23 @@
 
 namespace WebCore {
     
+// Render base^(1/index), using radical notation.
 class RenderMathMLRoot : public RenderMathMLBlock {
 public:
-    RenderMathMLRoot(Node* fraction);
-    virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
-    virtual void paint(PaintInfo&, int tx, int ty);
+    RenderMathMLRoot(Element*);
+    
 protected:
-    virtual void layout();
+    virtual void layout() OVERRIDE;
+    
+    virtual void paint(PaintInfo&, const LayoutPoint&) OVERRIDE;
+
+private:
+    virtual const char* renderName() const { return "RenderMathMLRoot"; }
+    
+    // This may return 0 for a non-MathML index (which won't occur in valid MathML).
+    RenderBoxModelObject* index() const;
+    
+    int m_overbarLeftPointShift;
 };
     
 }

@@ -245,7 +245,7 @@ extern int cthread_stack_mask;
 
 extern ur_cthread_t ur_cthread_self(void);
 #define cthread_thread(c)	(c->real_thread)
-extern void cthread_set_errno_self(int e);
+extern void cthread_set_errno_self(int e, int nocancel);
 extern int cthread_errno(void);
 #define	cthread_assoc(id, t)	(((ur_cthread_t) (id))->incarnation = (t))
 #define	cthread_self()		(ur_cthread_self()->incarnation)

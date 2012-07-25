@@ -52,7 +52,7 @@ static const char rcsid[] =
 
 int signaled;
 
-void usage()
+static void usage(void)
 {
 	fprintf(stderr, "%s\n%s\n",
 		"usage: ipcrm [-q msqid] [-m shmid] [-s semid]",
@@ -60,9 +60,7 @@ void usage()
 	exit(1);
 }
 
-int msgrm(key, id)
-    key_t key;
-    int id;
+static int msgrm(key_t key, int id)
 {
     if (key) {
 	id = msgget(key, 0);
@@ -72,9 +70,7 @@ int msgrm(key, id)
     return msgctl(id, IPC_RMID, NULL);
 }
 
-int shmrm(key, id)
-    key_t key;
-    int id;
+static int shmrm(key_t key, int id)
 {
     if (key) {
 	id = shmget(key, 0, 0);
@@ -84,9 +80,7 @@ int shmrm(key, id)
     return shmctl(id, IPC_RMID, NULL);
 }
 
-int semrm(key, id)
-    key_t key;
-    int id;
+static int semrm(key_t key, int id)
 {
     union semun arg;
 
@@ -98,7 +92,7 @@ int semrm(key, id)
     return semctl(id, 0, IPC_RMID, arg);
 }
 
-void not_configured()
+static void not_configured(__unused int unused)
 {
     signaled++;
 }
@@ -121,7 +115,7 @@ int main(argc, argv)
 	case 'q':
 	case 'm':
 	case 's':
-	    target_id = strtol(optarg, &en, 0);
+	    target_id = (int)strtol(optarg, &en, 0);
 	    if (*en) {
 		warnx("%s: '%s' is not a number",
 		    IPC_TO_STRING(toupper(c)), optarg);
@@ -145,7 +139,7 @@ int main(argc, argv)
 	case 'Q':
 	case 'M':
 	case 'S':
-	    target_key = strtol(optarg, &en, 0);
+	    target_key = (key_t)strtol(optarg, &en, 0);
 	    if (*en) {
 		warnx("%s: '%s' is not a number", IPC_TO_STRING(c), optarg);
 		continue;

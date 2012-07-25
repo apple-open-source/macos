@@ -25,58 +25,74 @@
 #define DynamicNodeList_h
 
 #include "NodeList.h"
-#include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-    class Element;
-    class Node;
+class Element;
+class Node;
 
-    class DynamicNodeList : public NodeList {
-    public:
-        struct Caches : RefCounted<Caches> {
-            static PassRefPtr<Caches> create();
-            void reset();
+class DynamicNodeList : public NodeList {
+public:
+    DynamicNodeList(PassRefPtr<Node> node)
+        : m_node(node)
+    { }
+    virtual ~DynamicNodeList() { }
 
-            unsigned cachedLength;
-            Node* lastItem;
-            unsigned lastItemOffset;
-            bool isLengthCacheValid : 1;
-            bool isItemCacheValid : 1;
-        protected:
-            Caches();
-        };
+    // DOM methods & attributes for NodeList
+    virtual unsigned length() const = 0;
+    virtual Node* item(unsigned index) const = 0;
+    virtual Node* itemWithName(const AtomicString&) const;
 
-        virtual ~DynamicNodeList();
+    // Other methods (not part of DOM)
+    Node* node() const { return m_node.get(); }
 
-        bool hasOwnCaches() const { return m_ownsCaches; }
+    void invalidateCache() { m_caches.reset(); }
 
-        // DOM methods & attributes for NodeList
-        virtual unsigned length() const;
-        virtual Node* item(unsigned index) const;
-        virtual Node* itemWithName(const AtomicString&) const;
+protected:
+    virtual bool nodeMatches(Element*) const = 0;
 
-        // Other methods (not part of DOM)
-        void invalidateCache();
-        Node* rootNode() const { return m_rootNode.get(); }
+    struct Caches {
+        Caches() { reset(); }
+        void reset()
+        {
+            lastItem = 0;
+            isLengthCacheValid = false;
+            isItemCacheValid = false;
+        }
 
-    protected:
-        DynamicNodeList(PassRefPtr<Node> rootNode);
-        DynamicNodeList(PassRefPtr<Node> rootNode, Caches*);
-
-        virtual bool nodeMatches(Element*) const = 0;
-
-        RefPtr<Node> m_rootNode;
-        mutable RefPtr<Caches> m_caches;
-        bool m_ownsCaches;
-
-    private:
-        virtual bool isDynamicNodeList() const;
-        Node* itemForwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
-        Node* itemBackwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
+        Node* lastItem;
+        unsigned cachedLength;
+        unsigned lastItemOffset;
+        bool isLengthCacheValid : 1;
+        bool isItemCacheValid : 1;
     };
+
+    mutable Caches m_caches;
+    RefPtr<Node> m_node;
+
+private:
+    virtual bool isDynamicNodeList() const OVERRIDE { return true; }
+};
+
+class DynamicSubtreeNodeList : public DynamicNodeList {
+public:
+    virtual ~DynamicSubtreeNodeList();
+    virtual unsigned length() const OVERRIDE;
+    virtual Node* item(unsigned index) const OVERRIDE;
+    Node* rootNode() const { return node(); }
+
+protected:
+    DynamicSubtreeNodeList(PassRefPtr<Node> rootNode);
+
+private:
+    using DynamicNodeList::invalidateCache;
+    friend struct NodeListsNodeData;
+
+    Node* itemForwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
+    Node* itemBackwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
+};
 
 } // namespace WebCore
 

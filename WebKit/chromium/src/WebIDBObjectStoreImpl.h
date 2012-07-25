@@ -28,7 +28,7 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 #include "WebIDBObjectStore.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
@@ -46,19 +46,27 @@ public:
     ~WebIDBObjectStoreImpl();
 
     WebString name() const;
-    WebString keyPath() const;
+    WebIDBKeyPath keyPath() const;
+    // FIXME: Remove this method once callers are updated.
+    // http://webkit.org/b/84207
+    WebString keyPathString() const;
     WebDOMStringList indexNames() const;
 
-    void get(const WebIDBKey& key, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void get(const WebIDBKeyRange&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
     void put(const WebSerializedScriptValue&, const WebIDBKey&, PutMode, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
-    void deleteFunction(const WebIDBKey& key, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void deleteFunction(const WebIDBKey&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void deleteFunction(const WebIDBKeyRange&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
     void clear(WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
 
-    WebIDBIndex* createIndex(const WebString& name, const WebString& keyPath, bool unique, const WebIDBTransaction&, WebExceptionCode&);
+    // FIXME: Remove WebString keyPath overload once callers are updated.
+    // http://webkit.org/b/84207
+    WebIDBIndex* createIndex(const WebString&, const WebString&, bool, bool, const WebIDBTransaction&, WebExceptionCode&);
+    WebIDBIndex* createIndex(const WebString& name, const WebIDBKeyPath& keyPath, bool unique, bool multiEntry, const WebIDBTransaction& transaction, WebExceptionCode& ec) { return createIndex(name, keyPath.string(), unique, multiEntry, transaction, ec); }
     WebIDBIndex* index(const WebString& name, WebExceptionCode&);
     void deleteIndex(const WebString& name, const WebIDBTransaction&, WebExceptionCode&);
 
     void openCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void count(const WebIDBKeyRange&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
 
  private:
     WTF::RefPtr<WebCore::IDBObjectStoreBackendInterface> m_objectStore;

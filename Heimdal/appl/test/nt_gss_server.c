@@ -240,5 +240,5 @@ main(int argc, char **argv)
 {
     krb5_context context = NULL; /* XXX */
     int port = setup(&context, argc, argv);
-    return doit (port, service);
+    return doit (port, service_str);
 }

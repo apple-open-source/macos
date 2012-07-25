@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2010-2012. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,7 +23,8 @@
 #include "SVGTextMetrics.h"
 
 #include "RenderSVGInlineText.h"
-#include "TextRun.h"
+#include "SVGTextRunRenderingContext.h"
+#include "WidthIterator.h"
 
 namespace WebCore {
 
@@ -34,7 +35,14 @@ SVGTextMetrics::SVGTextMetrics()
 {
 }
 
-SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun& run, unsigned position, unsigned textLength)
+SVGTextMetrics::SVGTextMetrics(SVGTextMetrics::MetricsType)
+    : m_width(0)
+    , m_height(0)
+    , m_length(1)
+{
+}
+
+SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun& run)
 {
     ASSERT(textRenderer);
 
@@ -42,12 +50,10 @@ SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun&
     ASSERT(scalingFactor);
 
     const Font& scaledFont = textRenderer->scaledFont();
-
-    int extraCharsAvailable = textLength - (position + run.length());
     int length = 0;
 
     // Calculate width/height using the scaled font, divide this result by the scalingFactor afterwards.
-    m_width = scaledFont.width(run, extraCharsAvailable, length, m_glyph.name) / scalingFactor;
+    m_width = scaledFont.width(run, length, m_glyph.name) / scalingFactor;
     m_height = scaledFont.fontMetrics().floatHeight() / scalingFactor;
 
     m_glyph.unicodeString = String(run.characters(), length);
@@ -57,22 +63,7 @@ SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* textRenderer, const TextRun&
     m_length = static_cast<unsigned>(length);
 }
 
-bool SVGTextMetrics::operator==(const SVGTextMetrics& other)
-{
-    return m_width == other.m_width
-        && m_height == other.m_height
-        && m_length == other.m_length
-        && m_glyph == other.m_glyph;
-}
-
-SVGTextMetrics SVGTextMetrics::emptyMetrics()
-{
-    DEFINE_STATIC_LOCAL(SVGTextMetrics, s_emptyMetrics, ());
-    s_emptyMetrics.m_length = 1;
-    return s_emptyMetrics;
-}
-
-static TextRun constructTextRun(RenderSVGInlineText* text, const UChar* characters, unsigned position, unsigned length)
+TextRun SVGTextMetrics::constructTextRun(RenderSVGInlineText* text, const UChar* characters, unsigned position, unsigned length)
 {
     RenderStyle* style = text->style();
     ASSERT(style);
@@ -84,22 +75,45 @@ static TextRun constructTextRun(RenderSVGInlineText* text, const UChar* characte
                 , 0 /* padding, only relevant for justified text, not relevant for SVG */
                 , TextRun::AllowTrailingExpansion
                 , style->direction()
-                , style->unicodeBidi() == Override /* directionalOverride */);
+                , isOverride(style->unicodeBidi()) /* directionalOverride */);
 
-#if ENABLE(SVG_FONTS)
-    run.setReferencingRenderObject(text);
-#endif
+    if (textRunNeedsRenderingContext(style->font()))
+        run.setRenderingContext(SVGTextRunRenderingContext::create(text));
+
+    run.disableRoundingHacks();
 
     // We handle letter & word spacing ourselves.
     run.disableSpacing();
+
+    // Propagate the maximum length of the characters buffer to the TextRun, even when we're only processing a substring.
+    run.setCharactersLength(text->textLength() - position);
+    ASSERT(run.charactersLength() >= run.length());
     return run;
 }
 
 SVGTextMetrics SVGTextMetrics::measureCharacterRange(RenderSVGInlineText* text, unsigned position, unsigned length)
 {
     ASSERT(text);
-    TextRun run(constructTextRun(text, text->characters(), position, length));
-    return SVGTextMetrics(text, run, position, text->textLength());
+    return SVGTextMetrics(text, constructTextRun(text, text->characters(), position, length));
+}
+
+SVGTextMetrics::SVGTextMetrics(RenderSVGInlineText* text, unsigned position, unsigned length, float width, const String& glyphName)
+{
+    ASSERT(text);
+
+    bool needsContext = textRunNeedsRenderingContext(text->style()->font());
+    float scalingFactor = text->scalingFactor();
+    ASSERT(scalingFactor);
+
+    m_width = width / scalingFactor;
+    m_height = text->scaledFont().fontMetrics().floatHeight() / scalingFactor;
+    if (needsContext) {
+        m_glyph.isValid = true;
+        m_glyph.unicodeString = String(text->characters() + position, length);
+        m_glyph.name = glyphName;
+    }
+
+    m_length = length;
 }
 
 }

@@ -1,4 +1,3 @@
-isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../../..
 include(../tests.pri)
 TARGET = MIMESniffing
 CONFIG += console
@@ -10,10 +9,8 @@ HEADERS += \
 
 INCLUDEPATH += \
     ../../../../WebCore/platform/network \
-    ../../../../JavaScriptCore
-
-debug {
-    SOURCES += ../../../../JavaScriptCore/wtf/Assertions.cpp
-}
+    ../../../../JavaScriptCore \
+    ../../../../JavaScriptCore/runtime \
+    ../../../../WTF
 
 RESOURCES += resources.qrc

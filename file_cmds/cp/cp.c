@@ -303,20 +303,29 @@ copy(char *argv[], enum op type, int fts_options)
 		case FTS_ERR:
 			warnx("%s: %s",
 			    curr->fts_path, strerror(curr->fts_errno));
-			badcp = rval = 1;
+			rval = 1;
 			continue;
 		case FTS_DC:			/* Warn, continue. */
 			warnx("%s: directory causes a cycle", curr->fts_path);
-			badcp = rval = 1;
+			rval = 1;
 			continue;
 		default:
 			;
 		}
 #ifdef __APPLE__
+
+#ifdef __clang__
+#pragma clang diagnostic push
+/* clang doesn't like fts_name[1], but we know better... */
+#pragma clang diagnostic ignored "-Warray-bounds"
+#endif
 		/* Skip ._<file> when using copyfile and <file> exists */
 		if ((pflag || !Xflag) && (curr->fts_level != FTS_ROOTLEVEL) &&
 		    (curr->fts_namelen > 2) && /* ._\0 is not AppleDouble */
 		    (curr->fts_name[0] == '.') && (curr->fts_name[1] == '_')) {
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
 			struct stat statbuf;
 			char path[PATH_MAX];
 			char *p = strrchr(curr->fts_path, '/');
@@ -379,7 +388,7 @@ copy(char *argv[], enum op type, int fts_options)
 			if (target_mid - to.p_path + nlen >= PATH_MAX) {
 				warnx("%s%s: name too long (not copied)",
 				    to.p_path, p);
-				badcp = rval = 1;
+				rval = 1;
 				continue;
 			}
 			(void)strncat(target_mid, p, nlen);
@@ -437,7 +446,7 @@ copy(char *argv[], enum op type, int fts_options)
 			    to_stat.st_ino == curr->fts_statp->st_ino) {
 				warnx("%s and %s are identical (not copied).",
 				    to.p_path, curr->fts_path);
-				badcp = rval = 1;
+				rval = 1;
 				if (S_ISDIR(curr->fts_statp->st_mode))
 					(void)fts_set(ftsp, curr, FTS_SKIP);
 				continue;
@@ -447,7 +456,7 @@ copy(char *argv[], enum op type, int fts_options)
 				warnx("cannot overwrite directory %s with "
 				    "non-directory %s",
 				    to.p_path, curr->fts_path);
-				badcp = rval = 1;
+				rval = 1;
 				continue;
 			}
 			dne = 0;

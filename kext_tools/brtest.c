@@ -14,51 +14,47 @@
 #include <err.h>
 #include <stdio.h>
 #include <strings.h>
+#include <sys/param.h>      // MIN()
 #include <sys/stat.h>
 #include <sysexits.h>
 
-
 #include <CoreFoundation/CoreFoundation.h>
 
+
+// #define VERBOSE
+
+void usage(int exval) __attribute__((noreturn));
 void usage(int exval)
 {
     fprintf(stderr,
-            "Usage: brtest update <vol> -f\n"
+            "Usage: brtest update <vol> [-f]\n"
             "       brtest listboots <vol>\n"
-            "       brtest copyfiles <srcVol> <initRoot> <bootDev> /<rootDMG>\n"
-            "              (/<rootDMG> is relative to <initRoot>)\n"
-            "       brtest copyfiles <srcVol> <bootDev>\n"
-            "       brtest erasefiles <srcVol> <bootDev>\n"
+            "       brtest erasefiles <srcVol> <bootDev> [-f]\n"
+            "       brtest copyfiles <src> <bootDev>[/<dir>] [<BlessStyle>]\n"
+            "       brtest copyfiles <src> <root> /<dmg> <tgt>[/<dir>] [<BS>]\n"
+            "              (/<dmg> is relative to <root>)\n"
 
-        //  how to prep for installation to a blank Boot!=Root volume?
+        //  hopefully disable will be implicit when "stealing" an Apple_Boot
         //  "       brtest disableHelperUpdates <[src]Vol> [<tgtVol>]\n"
             );
     
     exit(exval);
 }
 
-#define STR2URL(str)   CFURLCreateFromFileSystemRepresentation(nil, \
-                                            (UInt8*)str, strlen(str, true);
-
-
 int
 update(CFURLRef volURL, int argc, char *argv[])
 {
-    int result;
     Boolean force = false;
     
     if (argc == 2) {
         if (argv[1][0] == '-' && argv[1][1] == 'f') {
             force = true;
-            argv++;
         } else {
             return EINVAL;
         }
     }
     
-    result = BRUpdateBootFiles(volURL, force);
-    
-    return result;
+    return BRUpdateBootFiles(volURL, force);
 }
 
 #define DEVMAXPATHSIZE  128
@@ -77,7 +73,7 @@ listboots(char *volpath, CFURLRef volURL)
         goto finish;
     }
 
-    printf("boot%s for %s:\n", CFArrayGetCount(boots)==1 ? "":"s", volpath);
+    printf("boot support for %s:\n", volpath);
     bcount = CFArrayGetCount(boots);
     for (i = 0; i < bcount; i++) {
         CFShow(CFArrayGetValueAtIndex(boots, i));  // sufficient?
@@ -92,10 +88,12 @@ finish:
 }
 
 int
-copyfilesdmg(CFURLRef srcVol, char *argv[])
+copyfiles(CFURLRef srcVol, int argc, char *argv[])
 {
-    int result;
-    char *hostpath, *helperName, *dmgpath, path[PATH_MAX];
+    int result = ELAST + 1;
+    char *targetSpec, *tdir, *blessarg = NULL;
+    char *hostpath, *dmgpath, helperName[DEVMAXPATHSIZE];
+    char path[PATH_MAX];
     struct stat sb;
     CFArrayRef helpers = NULL;
     CFURLRef hostVol = NULL;
@@ -104,68 +102,144 @@ copyfilesdmg(CFURLRef srcVol, char *argv[])
     CFStringRef rootDMGURLStr;     // no need to release?
     CFStringRef bootArgs = NULL;
     CFMutableDictionaryRef plistOverrides = NULL;
+    CFURLRef targetDir = NULL;
+    BRBlessStyle blessSpec = kBRBlessFSDefault;
 
-    // could check to make sure hostVol/rootDMG was correct
-    hostpath = argv[1];
-    helperName = argv[2];
-    dmgpath = argv[3];
-    strlcpy(path, hostpath, PATH_MAX);
-    strlcat(path, dmgpath, PATH_MAX);
-    if (stat(path, &sb)) {
-        err(EX_NOINPUT, "%s", path);
+    // argv[1-2] processed by main()
+    switch (argc) {
+        char path[PATH_MAX];
+    case 4:
+    case 5:
+        // brtest copyfiles <src> <bootDev>[/<dir>] [<BlessStyle>]
+        hostVol = srcVol;
+        (void)CFURLGetFileSystemRepresentation(hostVol, true,
+                                               (UInt8*)path, PATH_MAX);
+        hostpath = path;
+        targetSpec = argv[3];
+        blessarg = argv[4];
+        break;
+
+    case 6:
+    case 7:
+        // brtest copyfiles <src> <root> /<dmg> <tgt>[/<dir>] [<BS>]
+        hostpath = argv[3];
+        dmgpath = argv[4];
+        targetSpec = argv[5];
+        blessarg = argv[6];
+
+        // make sure the dmg actually exists (at the right path)
+        (void)strlcpy(path, hostpath, PATH_MAX);
+        (void)strlcat(path, argv[4], PATH_MAX);
+        if (stat(path, &sb)) {
+            err(EX_NOINPUT, "%s", path);
+        }
+
+        hostVol = CFURLCreateFromFileSystemRepresentation(nil,(UInt8*)hostpath,
+                                                      strlen(hostpath), true);
+        if (!hostVol)           goto finish;
+
+    /* !! from CFURL.h !!
+     * Note that, strictly speaking any leading '/' is not considered part
+     * of the URL's path, although its presence or absence determines
+     * whether the path is absolute. */
+        // an absolute URL appears a critical to get root-dmg=file:///foo.dmg
+        if (dmgpath[0] != '/')      usage(EX_USAGE);
+        rootDMG = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)dmgpath,
+                                                  strlen(dmgpath), false);
+        if (!rootDMG)           goto finish;
+
+        // Soren does not understand CFRURL.  An absolute URL isn't enough,
+        // it also has to have CFURLGetString() called on it.   Awesome(?)ly,
+        // this value could be ignored as it apparently changes the
+        // description of rootDMG(!?).  To keep the code clear, we use
+        // rootDMGURLStr when creating bootArgs.
+        rootDMGURLStr = CFURLGetString(rootDMG);
+        if (!rootDMGURLStr)    goto finish;
+
+        // pass arguments to the kernel so it roots off the specified DMG
+        // root-dmg must be a URL, not a path, with or w/o /localhost/
+        bootArgs = CFStringCreateWithFormat(nil, nil, CFSTR("root-dmg=%@"),
+                                            rootDMGURLStr);
+        // fputc('\t', stderr); CFShow(bootArgs);
+        // container-dmg=%@ allows another layer of disk image :P
+        if (!bootArgs)          goto finish;
+        plistOverrides = CFDictionaryCreateMutable(nil, 1,
+                                         &kCFTypeDictionaryKeyCallBacks,
+                                         &kCFTypeDictionaryValueCallBacks);
+        if (!plistOverrides)    goto finish;
+        CFDictionarySetValue(plistOverrides, CFSTR(kKernelFlagsKey), bootArgs);
+        break;
+
+    default:
+        usage(EX_USAGE);
     }
     
-    // build non-URL args
-    hostVol = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)hostpath,
-                                                      strlen(hostpath), true);
-    if (!hostVol)           goto finish;
-    bootDev = CFStringCreateWithFileSystemRepresentation(nil, helperName);
-    if (!bootDev)           goto finish;
+    // extract any target directory from argument (e.g. disk0s3/mydir)
+    if ((tdir = strchr(targetSpec, '/'))) {
+        size_t tlen = tdir-targetSpec;
+        if (*(tdir + 1) == '\0')    usage(EX_USAGE);
+        strlcpy(helperName, targetSpec, MIN(tlen + 1, DEVMAXPATHSIZE));
+        bootDev = CFStringCreateWithBytes(nil, (UInt8*)targetSpec,
+                  tlen, kCFStringEncodingUTF8, false);
+        targetDir = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)tdir,
+                    strlen(tdir), true);
+    } else {
+        bootDev = CFStringCreateWithFileSystemRepresentation(nil, targetSpec);
+        (void)strlcpy(helperName, targetSpec, DEVMAXPATHSIZE);
+    }
 
-    if ((helpers = BRCopyActiveBootPartitions(hostVol))) {
+    // warn if hostVol requires Boot!=Root but bootDev isn't one of its helpers
+    if (hostVol && (helpers = BRCopyActiveBootPartitions(hostVol))
+        && CFArrayGetCount(helpers) > 0) {
         CFRange searchRange = { 0, CFArrayGetCount(helpers) }; 
         if (!CFArrayContainsValue(helpers, searchRange, bootDev)) {
-            fprintf(stderr,"!!: %s doesn't support %s; CSFDE will fail !!\n",
-                  helperName, hostpath);
+            fprintf(stderr,"%s doesn't 'belong to' %s; CSFDE might not work\n",
+                    helperName, hostpath);
         }
         CFRelease(helpers);
     }
 
-/* !! from CFURL.h !!
- * Note that, strictly speaking any leading '/' is not considered part
- * of the URL's path, although its presence or absence determines
- * whether the path is absolute. */
-    // an absolute URL appears a critical to get root-dmg=file:///foo.dmg
-    if (argv[3][0] != '/')      usage(EX_USAGE);
-    rootDMG = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)dmgpath,
-                                                      strlen(dmgpath), false);
-    if (!rootDMG)           goto finish;
+    // evaluate any bless style argument
+    if (blessarg) {
+        if (strcasestr(blessarg, "none")) {
+            blessSpec = kBRBlessNone;
+        } else if (strcasestr(blessarg, "default") ||
+                   strcasestr(blessarg, "fsdefault")) {
+            blessSpec = kBRBlessFull;
+        } else if (strcasestr(blessarg, "full")) {
+            blessSpec = kBRBlessFSDefault;
+        } else if (strcasestr(blessarg, "once")) {
+            blessSpec = kBRBlessOnce;
+        } else {
+            usage(EX_USAGE);
+        }
+    }
 
-    // Soren does not understand CFRURL.  An absolute URL isn't enough,
-    // it also has to have CFURLGetString() called on it.   Awesome(?)ly,
-    // this value could be ignored as it apparently changes the
-    // description of rootDMG(!?).  To keep the code clear, we use
-    // rootDMGURLStr when creating bootArgs.
-    rootDMGURLStr = CFURLGetString(rootDMG);
-    if (!rootDMGURLStr)    goto finish;
-
-    // pass arguments to the kernel so it roots off the specified DMG
-    // root-dmg must be a URL, not a path, with or w/o /localhost/
-    bootArgs = CFStringCreateWithFormat(nil, nil, CFSTR("root-dmg=%@"),
-                                        rootDMGURLStr);
-    fputc('\t', stderr); CFShow(bootArgs);
-    // container-dmg=%@ allows another layer of disk image :P
-    if (!bootArgs)          goto finish;
-    plistOverrides = CFDictionaryCreateMutable(nil, 1,
-                                     &kCFTypeDictionaryKeyCallBacks,
-                                     &kCFTypeDictionaryValueCallBacks);
-    if (!plistOverrides)    goto finish;
-    CFDictionarySetValue(plistOverrides, CFSTR(kKernelFlagsKey), bootArgs);
-
-    
-    result = BRCopyBootFiles(srcVol, hostVol, bootDev, plistOverrides);
+    // use the fancier function depending on how custom we are
+    if (targetDir || blessarg) {
+        CFStringRef pickerLabel = NULL;
+        if (targetDir) {
+            pickerLabel = CFURLCopyLastPathComponent(targetDir);
+        }
+#if LOG_ARGS
+CFShow(CFSTR("ToDir() args ..."));
+CFShow(srcVol);
+CFShow(hostVol);
+CFShow(plistOverrides);
+CFShow(bootDev);
+CFShow(targetDir);
+fprintf(stderr, "blessSpec: %d\n", blessSpec);
+CFShow(CFURLCopyLastPathComponent(targetDir));
+#endif
+        result = BRCopyBootFilesToDir(srcVol, hostVol, plistOverrides,
+                              bootDev, targetDir, blessSpec, pickerLabel);
+        if (pickerLabel)   CFRelease(pickerLabel);
+    } else {
+        result = BRCopyBootFiles(srcVol, hostVol, bootDev, plistOverrides);
+    }
     
 finish:
+    if (targetDir)      CFRelease(targetDir);
     if (plistOverrides) CFRelease(plistOverrides);
     if (bootArgs)       CFRelease(bootArgs);
     if (rootDMG)        CFRelease(rootDMG);
@@ -176,26 +250,40 @@ finish:
 }
 
 int
-erasefiles(char *volpath, CFURLRef srcVol, char *devname)
+erasefiles(char *volpath, CFURLRef srcVol, char *devname, char *forceArg)
 {
     int result;
     CFStringRef bsdName = NULL;
     CFArrayRef helpers = NULL;
+    Boolean force = false;
     
+    if (forceArg) {
+        if (forceArg[0] == '-' && forceArg[1] == 'f') {
+            force = true;
+        } else {
+            result = EINVAL; goto finish;
+        }
+    }
+
+
     // build args
+    if (!strstr(devname, "disk")) {
+        usage(EX_USAGE);
+    }
     bsdName = CFStringCreateWithFileSystemRepresentation(nil, devname);
     
-    // BREraseBootFiles() allows erasing an active boot partition
-    // because a boot partition can look active even though the on-
-    // disk partition type has been reverted to Apple_HFS.
-    helpers = BRCopyActiveBootPartitions(srcVol);
-    if (helpers) {
-        CFRange searchRange = { 0, CFArrayGetCount(helpers) };
-        if (CFArrayContainsValue(helpers, searchRange, bsdName)) {
-            fprintf(stderr, "%s currently required to boot %s!\n",
-                devname, volpath);
-            result = /* kPOSIXErrorBase +*/ EBUSY;
-            goto finish;
+    // prevent user from erasing srcVol's Apple_Boot(s) (-f overrides)
+    // X: doesn't prevent user from whacking another volume's Apple_Boot
+    if (!force) {
+        helpers = BRCopyActiveBootPartitions(srcVol);
+        if (helpers) {
+            CFRange searchRange = { 0, CFArrayGetCount(helpers) };
+            if (CFArrayContainsValue(helpers, searchRange, bsdName)) {
+                fprintf(stderr, "%s currently required to boot '%s'! (-f?)\n",
+                    devname, volpath);
+                result = /* kPOSIXErrorBase +*/ EBUSY;
+                goto finish;
+            }
         }
     }
 
@@ -209,38 +297,40 @@ finish:
 }
 
 int
-prepBoot(CFURLRef srcVol, char *devname)
-{
-    int result;
-    CFStringRef bsdName = NULL;
-    
-    // build args
-    bsdName = CFStringCreateWithFileSystemRepresentation(nil, devname);
-    
-    result = BRCopyBootFiles(srcVol, srcVol, bsdName, NULL);
-    
-finish:
-    if (bsdName)        CFRelease(bsdName);
-
-    return result;
-}
-
-int
 main(int argc, char *argv[])
 {
     int result, exval;
     char *verb, *volpath;
-    CFURLRef volURL;       // we don't release this
+    struct stat sb;
+    CFURLRef volURL = NULL;
     
     if (2 == argc && argv[1][0] == '-' && argv[1][1] == 'h')
         usage(EX_OK);
     if (argc < 3)
         usage(EX_USAGE);
+
+#ifdef USE_ASL  // example code for daemon clients
+    // OSKextSetLogOutputFunction(&tool_log);
+    // tool_openlog(getprogname());
+    // tool_openlog("brtest/libBootRoot");
+#endif // USE_ASL
+#ifdef VERBOSE
+    OSKextSetLogFilter(kOSKextLogDetailLevel |
+                       kOSKextLogVerboseFlagsMask |
+                       kOSKextLogKextOrGlobalMask,
+                       false);
+#endif
     
     verb = argv[1];
     volpath = argv[2];
+    if (stat(volpath, &sb) != 0) {
+        err(EX_NOINPUT, "%s", volpath);
+    }
     volURL = CFURLCreateFromFileSystemRepresentation(nil, (UInt8*)volpath,
                                                      strlen(volpath), true);
+    if (!volURL) {
+        usage(EX_OSERR);
+    }
 
     if (strcasecmp(verb, "update") == 0) {
         if (argc < 3 || argc > 4)
@@ -251,29 +341,27 @@ main(int argc, char *argv[])
             usage(EX_USAGE);
         result = listboots(volpath, volURL);
     } else if (strcasecmp(verb, "copyfiles") == 0) {
-        if (argc == 6) {
-            result = copyfilesdmg(volURL, argv+2);
-        } else if (argc == 4) {
-            result = prepBoot(volURL, argv[3]);
-        } else {
-             usage(EX_USAGE);
-        }
+        result = copyfiles(volURL, argc, argv);
     } else if (strcasecmp(verb, "erasefiles") == 0) {
-        if (argc != 4)
+        if (argc != 4 && argc != 5)
             usage(EX_USAGE);
-        result = erasefiles(argv[2], volURL, argv[3]);
+        result = erasefiles(argv[2], volURL, argv[3], argv[4]);
     /* ... other verbs ... */
     } else {
         usage(EX_USAGE);
     }
 
-    printf("brtest function result = %d", result);
-    if (result == -1) {
-        printf(": errno %d -> %s", errno, strerror(errno));
-    } else if (result && result <= ELAST) {
-        printf(": %s", strerror(result));
+    if (result < 0) {
+        printf("brtest function result = %#x\n", result);
+    } else {
+        printf("brtest function result = %d", result);
+        if (result == -1) {
+            printf(": errno %d -> %s", errno, strerror(errno));
+        } else if (result && result <= ELAST) {
+            printf(": %s", strerror(result));
+        }
+        printf("\n");
     }
-    printf("\n");
 
     if (result == -1) {
         exval = EX_OSERR;
@@ -287,5 +375,7 @@ main(int argc, char *argv[])
 
 // fprintf(stderr, "check for leaks now\n");
 // pause()
+    if (volURL)     CFRelease(volURL);
+    
     return exval;
 }

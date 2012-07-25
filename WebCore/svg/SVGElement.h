@@ -24,46 +24,29 @@
 
 #if ENABLE(SVG)
 #include "SVGLocatable.h"
+#include "SVGParsingError.h"
+#include "SVGPropertyInfo.h"
 #include "StyledElement.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
-enum AnimatedAttributeType {
-    AnimatedAngle,
-    AnimatedBoolean,
-    AnimatedColor,
-    AnimatedEnumeration,
-    AnimatedInteger,
-    AnimatedLength,
-    AnimatedLengthList,
-    AnimatedNumber,
-    AnimatedNumberList,
-    AnimatedNumberOptionalNumber,
-    AnimatedPath,
-    AnimatedPoints,
-    AnimatedPreserveAspectRatio,
-    AnimatedRect,
-    AnimatedString,
-    AnimatedTransformList,
-    AnimatedUnknown
-};
-
-typedef HashMap<QualifiedName, AnimatedAttributeType> AttributeToPropertyTypeMap;
-
+class AffineTransform;
 class CSSCursorImageValue;
 class Document;
+class SVGAttributeToPropertyMap;
 class SVGCursorElement;
 class SVGDocumentExtensions;
 class SVGElementInstance;
 class SVGElementRareData;
 class SVGSVGElement;
-class AffineTransform;
 
 class SVGElement : public StyledElement {
 public:
     static PassRefPtr<SVGElement> create(const QualifiedName&, Document*);
     virtual ~SVGElement();
+
+    bool isOutermostSVGSVGElement() const;
 
     String xmlbase() const;
     void setXmlbase(const String&, ExceptionCode&);
@@ -71,7 +54,7 @@ public:
     SVGSVGElement* ownerSVGElement() const;
     SVGElement* viewportElement() const;
 
-    SVGDocumentExtensions* accessDocumentSVGExtensions() const;
+    SVGDocumentExtensions* accessDocumentSVGExtensions();
 
     virtual bool isStyled() const { return false; }
     virtual bool isStyledTransformable() const { return false; }
@@ -85,12 +68,8 @@ public:
     virtual bool isValid() const { return true; }
 
     virtual void svgAttributeChanged(const QualifiedName&) { }
-    virtual void synchronizeProperty(const QualifiedName&) { }
 
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
-    AnimatedAttributeType animatedPropertyTypeForAttribute(const QualifiedName&);
-
-    virtual void fillAttributeToPropertyTypeMap() { }
+    virtual void animatedPropertyTypeForAttribute(const QualifiedName&, Vector<AnimatedPropertyType>&);
 
     void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
 
@@ -100,41 +79,86 @@ public:
 
     const HashSet<SVGElementInstance*>& instancesForElement() const;
 
-    bool boundingBox(FloatRect&, SVGLocatable::StyleUpdateStrategy = SVGLocatable::AllowStyleUpdate) const;
+    bool boundingBox(FloatRect&, SVGLocatable::StyleUpdateStrategy = SVGLocatable::AllowStyleUpdate);
 
     void setCursorElement(SVGCursorElement*);
     void cursorElementRemoved();
     void setCursorImageValue(CSSCursorImageValue*);
     void cursorImageValueRemoved();
 
+    SVGElement* correspondingElement();
+    void setCorrespondingElement(SVGElement*);
+
     virtual void updateAnimatedSVGAttribute(const QualifiedName&) const;
+ 
+    virtual PassRefPtr<RenderStyle> customStyleForRenderer();
+
+    static void synchronizeRequiredFeatures(void* contextElement);
+    static void synchronizeRequiredExtensions(void* contextElement);
+    static void synchronizeSystemLanguage(void* contextElement);
+
+    virtual void synchronizeRequiredFeatures() { }
+    virtual void synchronizeRequiredExtensions() { }
+    virtual void synchronizeSystemLanguage() { }
+
+    virtual SVGAttributeToPropertyMap& localAttributeToPropertyMap();
+
+#ifndef NDEBUG
+    static bool isAnimatableAttribute(const QualifiedName&);
+#endif
+
+    StylePropertySet* animatedSMILStyleProperties() const;
+    StylePropertySet* ensureAnimatedSMILStyleProperties();
+    void setUseOverrideComputedStyle(bool);
+
+    virtual bool haveLoadedRequiredResources();
 
 protected:
-    SVGElement(const QualifiedName&, Document*);
+    SVGElement(const QualifiedName&, Document*, ConstructionType = CreateSVGElement);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
     virtual void finishParsingChildren();
-    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
-    virtual bool childShouldCreateRenderer(Node*) const;
+    virtual void attributeChanged(Attribute*) OVERRIDE;
+    virtual bool childShouldCreateRenderer(const NodeRenderingContext&) const;
     
-    virtual void removedFromDocument();
+    virtual void removedFrom(Node*) OVERRIDE;
 
     SVGElementRareData* rareSVGData() const;
     SVGElementRareData* ensureRareSVGData();
 
+    void reportAttributeParsingError(SVGParsingError, Attribute*);
+
 private:
     friend class SVGElementInstance;
 
-    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+    RenderStyle* computedStyle(PseudoId = NOPSEUDO);
+    virtual RenderStyle* virtualComputedStyle(PseudoId pseudoElementSpecifier = NOPSEUDO) { return computedStyle(pseudoElementSpecifier); }
+    virtual bool willRecalcStyle(StyleChange);
+
+    virtual bool rendererIsNeeded(const NodeRenderingContext&) { return false; }
 
     virtual bool isSupported(StringImpl* feature, StringImpl* version) const;
 
     void mapInstanceToElement(SVGElementInstance*);
     void removeInstanceMapping(SVGElementInstance*);
 
-    virtual bool haveLoadedRequiredResources();
 };
+
+struct SVGAttributeHashTranslator {
+    static unsigned hash(QualifiedName key)
+    {
+        key.setPrefix(nullAtom);
+        return DefaultHash<QualifiedName>::Hash::hash(key);
+    }
+    static bool equal(QualifiedName a, QualifiedName b) { return a.matches(b); }
+};
+
+inline SVGElement* toSVGElement(Element* element)
+{
+    ASSERT(!element || element->isSVGElement());
+    return static_cast<SVGElement*>(element);
+}
 
 }
 

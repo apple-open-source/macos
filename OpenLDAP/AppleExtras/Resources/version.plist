@@ -5,7 +5,7 @@
 	<key>BuildVersion</key>
 	<string>133</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0</string>
+	<string>2.4.28</string>
 	<key>CFBundleVersion</key>
 	<string>10</string>
 	<key>ProjectName</key>
@@ -13,6 +13,6 @@
 	<key>ReleaseStatus</key>
 	<string>GM</string>
 	<key>SourceVersion</key>
-	<string>120.1</string>
+	<string>194.5</string>
 </dict>
 </plist>

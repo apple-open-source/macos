@@ -44,7 +44,6 @@ struct PatternData {
 class RenderSVGResourcePattern : public RenderSVGResourceContainer {
 public:
     RenderSVGResourcePattern(SVGPatternElement*);
-    virtual ~RenderSVGResourcePattern();
 
     virtual const char* renderName() const { return "RenderSVGResourcePattern"; }
 
@@ -52,7 +51,7 @@ public:
     virtual void removeClientFromCache(RenderObject*, bool markForInvalidation = true);
 
     virtual bool applyResource(RenderObject*, RenderStyle*, GraphicsContext*&, unsigned short resourceMode);
-    virtual void postApplyResource(RenderObject*, GraphicsContext*&, unsigned short resourceMode, const Path*);
+    virtual void postApplyResource(RenderObject*, GraphicsContext*&, unsigned short resourceMode, const Path*, const RenderSVGShape*);
     virtual FloatRect resourceBoundingBox(RenderObject*) { return FloatRect(); }
 
     virtual RenderSVGResourceType resourceType() const { return s_resourceType; }
@@ -61,12 +60,13 @@ public:
 private:
     bool buildTileImageTransform(RenderObject*, const PatternAttributes&, const SVGPatternElement*, FloatRect& patternBoundaries, AffineTransform& tileImageTransform) const;
 
-    PassOwnPtr<ImageBuffer> createTileImage(RenderObject*, const PatternAttributes&, const FloatRect& tileBoundaries,
-                                            const FloatRect& absoluteTileBoundaries, const AffineTransform& tileImageTransform) const;
+    PassOwnPtr<ImageBuffer> createTileImage(const PatternAttributes&, const FloatRect& tileBoundaries,
+                                            const FloatRect& absoluteTileBoundaries, const AffineTransform& tileImageTransform,
+                                            FloatRect& clampedAbsoluteTileBoundaries) const;
 
     bool m_shouldCollectPatternAttributes : 1;
     PatternAttributes m_attributes;
-    HashMap<RenderObject*, PatternData*> m_pattern;
+    HashMap<RenderObject*, OwnPtr<PatternData> > m_patternMap;
 };
 
 }

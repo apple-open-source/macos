@@ -252,8 +252,8 @@ quick_i1send(iph2, msg)
 	 * - id payload suggests to encrypt all the traffic (no specific
 	 *   protocol type)
 	 */
-	id = (struct ipsecdoi_id_b *)iph2->id->v;
-	id_p = (struct ipsecdoi_id_b *)iph2->id_p->v;
+	id = ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id->v;
+	id_p = ALIGNED_CAST(struct ipsecdoi_id_b *)iph2->id_p->v;
 	if (id->proto_id == 0
 	 && id_p->proto_id == 0
 	 && iph2->ph1->rmconf->support_proxy == 0
@@ -411,8 +411,8 @@ quick_i2recv(iph2, msg0)
 	char *p;
 	int tlen;
 	int error = ISAKMP_INTERNAL_ERROR;
-	struct sockaddr *natoa_i = NULL;
-	struct sockaddr *natoa_r = NULL;
+	struct sockaddr_storage *natoa_i = NULL;
+	struct sockaddr_storage *natoa_r = NULL;
 
 	/* validity check */
 	if (iph2->status != PHASE2ST_MSG1SENT) {
@@ -447,7 +447,7 @@ quick_i2recv(iph2, msg0)
 			 "failed to parse msg");
 		goto end;
 	}
-	pa = (struct isakmp_parse_t *)pbuf->v;
+	pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 
 	/* HASH payload is fixed postion */
 	if (pa->type != ISAKMP_NPTYPE_HASH) {
@@ -551,7 +551,7 @@ quick_i2recv(iph2, msg0)
 				 * RFC 2407 says that the protocol and port fields should be ignored
 				 * if they are zero, therefore they need to be checked individually.
 				 */
-				struct ipsecdoi_id_b *id_ptr = (struct ipsecdoi_id_b *)vp->v;
+				struct ipsecdoi_id_b *id_ptr = ALIGNED_CAST(struct ipsecdoi_id_b *)vp->v;
 				struct ipsecdoi_pl_id *idp_ptr = (struct ipsecdoi_pl_id *)pa->ptr;
 				
 				if (id_ptr->type != idp_ptr->b.type
@@ -621,7 +621,7 @@ quick_i2recv(iph2, msg0)
 		case ISAKMP_NPTYPE_NATOA_RFC:
 		    {
 				vchar_t         *vp = NULL;
-				struct sockaddr *daddr;
+				struct sockaddr_storage *daddr;
 
 				isakmp_p2ph(&vp, pa->ptr);
 
@@ -631,11 +631,11 @@ quick_i2recv(iph2, msg0)
 						if (natoa_i == NULL) {
 							natoa_i = daddr;
 							plog(LLV_DEBUG, LOCATION, NULL, "initiaor rcvd NAT-OA i: %s\n",
-								 saddr2str(natoa_i));
+								 saddr2str((struct sockaddr *)natoa_i));
 						} else if (natoa_r == NULL) {
 							natoa_r = daddr;
 							plog(LLV_DEBUG, LOCATION, NULL, "initiator rcvd NAT-OA r: %s\n",
-								 saddr2str(natoa_r));
+								 saddr2str((struct sockaddr *)natoa_r));
 						} else {
 							racoon_free(daddr);
 						}
@@ -974,7 +974,7 @@ quick_i3recv(iph2, msg0)
 		goto end;
 	}
 
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 
@@ -1113,8 +1113,8 @@ quick_r1recv(iph2, msg0)
 	int tlen;
 	int f_id_order;	/* for ID payload detection */
 	int error = ISAKMP_INTERNAL_ERROR;
-	struct sockaddr *natoa_i = NULL;
-	struct sockaddr *natoa_r = NULL;
+	struct sockaddr_storage *natoa_i = NULL;
+	struct sockaddr_storage *natoa_r = NULL;
 
 	/* validity check */
 	if (iph2->status != PHASE2ST_START) {
@@ -1151,7 +1151,7 @@ quick_r1recv(iph2, msg0)
 			 "failed to parse msg\n");
 		goto end;
 	}
-	pa = (struct isakmp_parse_t *)pbuf->v;
+	pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 
 	/* HASH payload is fixed postion */
 	if (pa->type != ISAKMP_NPTYPE_HASH) {
@@ -1296,7 +1296,7 @@ quick_r1recv(iph2, msg0)
 		case ISAKMP_NPTYPE_NATOA_RFC:
 		    {
 				vchar_t         *vp = NULL;
-				struct sockaddr *daddr;
+				struct sockaddr_storage *daddr;
 				
 				isakmp_p2ph(&vp, pa->ptr);
 				
@@ -1306,11 +1306,11 @@ quick_r1recv(iph2, msg0)
 						if (natoa_i == NULL) {
 							natoa_i = daddr;
 							plog(LLV_DEBUG, LOCATION, NULL, "responder rcvd NAT-OA i: %s\n",
-								 saddr2str(natoa_i));
+								 saddr2str((struct sockaddr *)natoa_i));
 						} else if (natoa_r == NULL) {
 							natoa_r = daddr;
 							plog(LLV_DEBUG, LOCATION, NULL, "responder rcvd NAT-OA r: %s\n",
-								 saddr2str(natoa_r));
+								 saddr2str((struct sockaddr *)natoa_r));
 						} else {
 							racoon_free(daddr);
 						}
@@ -1856,7 +1856,7 @@ quick_r3recv(iph2, msg0)
 		goto end;
 	}
 
-	for (pa = (struct isakmp_parse_t *)pbuf->v;
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v;
 	     pa->type != ISAKMP_NPTYPE_NONE;
 	     pa++) {
 
@@ -2142,8 +2142,8 @@ quick_r3prep(iph2, msg0)
 		struct policyindex *spidx;
 		struct sockaddr_storage addr;
 		u_int8_t pref;
-		struct sockaddr *src = iph2->src;
-		struct sockaddr *dst = iph2->dst;
+		struct sockaddr_storage *src = iph2->src;
+		struct sockaddr_storage *dst = iph2->dst;
 
 		/* make inbound policy */
 		iph2->src = dst;
@@ -2156,7 +2156,7 @@ quick_r3prep(iph2, msg0)
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"pfkey spdupdate2(inbound) sent.\n");
 
-		spidx = (struct policyindex *)iph2->spidx_gen;
+		spidx = iph2->spidx_gen;
 #ifdef HAVE_POLICY_FWD
 		/* make forward policy if required */
 		if (tunnel_mode_prop(iph2->approval)) {
@@ -2191,7 +2191,7 @@ quick_r3prep(iph2, msg0)
 			"pfkey spdupdate2(outbound) sent.\n");
 
 		/* spidx_gen is unnecessary any more */
-		delsp_bothdir((struct policyindex *)iph2->spidx_gen);
+		delsp_bothdir(iph2->spidx_gen);
 		racoon_free(iph2->spidx_gen);
 		iph2->spidx_gen = NULL;
 		iph2->generated_spidx=1;
@@ -2291,7 +2291,7 @@ get_sainfo_r(iph2)
 	struct sainfo *anonymous = NULL;
 
 	if (iph2->id == NULL) {
-		switch (iph2->src->sa_family) {
+		switch (iph2->src->ss_family) {
 		case AF_INET:
 			prefixlen = sizeof(struct in_addr) << 3;
 			break;
@@ -2300,7 +2300,7 @@ get_sainfo_r(iph2)
 			break;
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid family: %d\n", iph2->src->sa_family);
+				"invalid family: %d\n", iph2->src->ss_family);
 			goto end;
 		}
 		idsrc = ipsecdoi_sockaddr2id(iph2->src, prefixlen,
@@ -2315,7 +2315,7 @@ get_sainfo_r(iph2)
 	}
 
 	if (iph2->id_p == NULL) {
-		switch (iph2->dst->sa_family) {
+		switch (iph2->dst->ss_family) {
 		case AF_INET:
 			prefixlen = sizeof(struct in_addr) << 3;
 			break;
@@ -2324,7 +2324,7 @@ get_sainfo_r(iph2)
 			break;
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
-				"invalid family: %d\n", iph2->dst->sa_family);
+				"invalid family: %d\n", iph2->dst->ss_family);
 			goto end;
 		}
 		iddst = ipsecdoi_sockaddr2id(iph2->dst, prefixlen,
@@ -2468,8 +2468,7 @@ get_proposal_r_remote(iph2, ignore_id)
 
 	memset(&spidx, 0, sizeof(spidx));
 
-#define _XIDT(d) ((struct ipsecdoi_id_b *)(d)->v)->type
-
+#define _XIDT(d) (ALIGNED_CAST(struct ipsecdoi_id_b *)((d)->v))->type
 	/* make a spidx; a key to search SPD */
 	spidx.dir = IPSEC_DIR_INBOUND;
 	spidx.ul_proto = 0;
@@ -2487,8 +2486,7 @@ get_proposal_r_remote(iph2, ignore_id)
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV4_ADDR_SUBNET
 	  || _XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR_SUBNET)) {
 		/* get a destination address of a policy */
-		error = ipsecdoi_id2sockaddr(iph2->id,
-				(struct sockaddr *)&spidx.dst,
+		error = ipsecdoi_id2sockaddr(iph2->id, &spidx.dst,
 				&spidx.prefd, &spidx.ul_proto);
 		if (error)
 			return error;
@@ -2501,8 +2499,7 @@ get_proposal_r_remote(iph2, ignore_id)
 		 * because rcoon is responder.
 		 */
 		if (_XIDT(iph2->id) == IPSECDOI_ID_IPV6_ADDR) {
-			error = setscopeid((struct sockaddr *)&spidx.dst,
-			                    iph2->src);
+			error = setscopeid(&spidx.dst, iph2->src);
 			if (error)
 				return error;
 		}
@@ -2525,7 +2522,7 @@ get_proposal_r_remote(iph2, ignore_id)
 		 * of the key to search the SPD because the direction of policy
 		 * is inbound.
 		 */
-		memcpy(&spidx.dst, iph2->src, sysdep_sa_len(iph2->src));
+		memcpy(&spidx.dst, iph2->src, sysdep_sa_len((struct sockaddr *)iph2->src));
 		switch (spidx.dst.ss_family) {
 		case AF_INET:
 			{
@@ -2553,8 +2550,7 @@ get_proposal_r_remote(iph2, ignore_id)
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV4_ADDR_SUBNET
 	  || _XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR_SUBNET)) {
 		/* get a source address of inbound SA */
-		error = ipsecdoi_id2sockaddr(iph2->id_p,
-				(struct sockaddr *)&spidx.src,
+		error = ipsecdoi_id2sockaddr(iph2->id_p, &spidx.src,
 				&spidx.prefs, &spidx.ul_proto);
 		if (error)
 			return error;
@@ -2565,8 +2561,7 @@ get_proposal_r_remote(iph2, ignore_id)
 		 * for more detail, see above of this function.
 		 */
 		if (_XIDT(iph2->id_p) == IPSECDOI_ID_IPV6_ADDR) {
-			error = setscopeid((struct sockaddr *)&spidx.src,
-			                    iph2->dst);
+			error = setscopeid(&spidx.src, iph2->dst);
 			if (error)
 				return error;
 		}
@@ -2597,7 +2592,7 @@ get_proposal_r_remote(iph2, ignore_id)
 			"OR because ID type is not address.\n");
 
 		/* see above comment. */
-		memcpy(&spidx.src, iph2->dst, sysdep_sa_len(iph2->dst));
+		memcpy(&spidx.src, iph2->dst, sysdep_sa_len((struct sockaddr *)iph2->dst));
 		switch (spidx.src.ss_family) {
 		case AF_INET:
 			{
@@ -2650,7 +2645,7 @@ get_proposal_r_remote(iph2, ignore_id)
 				        "no policy found, "
 				        "try to generate the policy : %s\n",
 				        spidx2str(&spidx));
-			iph2->spidx_gen = racoon_malloc(sizeof(spidx));
+			iph2->spidx_gen = (struct policyindex *)racoon_malloc(sizeof(spidx));
 			if (!iph2->spidx_gen) {
 			        plog(LLV_ERROR, LOCATION, NULL,
 				        "buffer allocation failed.\n");

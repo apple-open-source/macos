@@ -6,6 +6,10 @@ AM_CPPFLAGS += -I../asn1 -I$(srcdir)/../asn1 $(INCLUDE_hcrypto)
 AM_CPPFLAGS += $(INCLUDE_openldap) -DHDB_DB_DIR=\"$(DIR_hdbdir)\"
 AM_CPPFLAGS += -I$(srcdir)/../krb5
 AM_CPPFLAGS += $(INCLUDE_sqlite3)
+AM_CPPFLAGS += $(INCLUDE_libintl)
+if HAVE_DBHEADER
+AM_CPPFLAGS += -I$(DBHEADER)
+endif
 
 BUILT_SOURCES = \
 	$(gen_files_hdb:.x=.c)	\
@@ -25,17 +29,20 @@ gen_files_hdb = \
 	asn1_HDB_Ext_Lan_Manager_OWF.x \
 	asn1_HDB_Ext_Password.x \
 	asn1_HDB_Ext_Aliases.x \
+	asn1_HDB_Ext_KeySet.x \
 	asn1_HDB_extension.x \
 	asn1_HDB_extensions.x \
 	asn1_hdb_entry.x \
 	asn1_hdb_entry_alias.x \
-	asn1_hdb_keyset.x
+	asn1_hdb_keyset.x \
+	asn1_Keys.x
 
 CLEANFILES = $(BUILT_SOURCES) $(gen_files_hdb) \
 	hdb_asn1{,-priv}.h* hdb_asn1_files hdb_asn1-template.c*
 
 LDADD = libhdb.la \
 	$(LIB_openldap) \
+	$(LIB_libintl) \
 	../krb5/libkrb5.la \
 	../asn1/libasn1.la \
 	$(LIB_hcrypto) \
@@ -90,6 +97,8 @@ dist_libhdb_la_SOURCES =			\
 
 nodist_libhdb_la_SOURCES = $(BUILT_SOURCES)
 
+libhdb_la_DEPENDENCIES = version-script.map
+
 include_HEADERS = hdb.h hdb-protos.h
 nodist_include_HEADERS =  hdb_err.h hdb_asn1.h
 
@@ -116,7 +125,7 @@ $(srcdir)/hdb-private.h:
 $(gen_files_hdb) hdb_asn1.hx hdb_asn1-priv.hx: hdb_asn1_files
 
 hdb_asn1_files: $(ASN1_COMPILE_DEP) $(srcdir)/hdb.asn1
-	$(ASN1_COMPILE) $(srcdir)/hdb.asn1 hdb_asn1
+	$(ASN1_COMPILE) --sequence=HDB-Ext-KeySet --sequence=Keys $(srcdir)/hdb.asn1 hdb_asn1
 
 test_dbinfo_LIBS = libhdb.la
 
@@ -128,6 +137,9 @@ test_mkey_LIBS = $(test_hdbkeys_LIBS)
 hdb_err.h: hdb_err.et
 
 EXTRA_DIST = \
+	NTMakefile \
+	libhdb-version.rc \
+	libhdb-exports.def \
 	hdb.asn1 \
 	hdb_err.et \
 	hdb.schema \

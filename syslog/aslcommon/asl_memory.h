@@ -76,4 +76,4 @@ uint32_t asl_memory_fetch(asl_memory_t *s, uint64_t mid, aslmsg *msg, int32_t ru
 
 uint32_t asl_memory_match(asl_memory_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction, int32_t ruid, int32_t rgid);
 
-#endif __ASL_MEMORY_H__
+#endif /* __ASL_MEMORY_H__ */

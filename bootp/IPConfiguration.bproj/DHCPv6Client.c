@@ -1413,7 +1413,8 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 
     switch (event_id) {
     case IFEventID_start_e: {
-	const struct in6_addr *	our_ip;
+	struct in6_addr *	our_ip;
+	struct in6_addr         our_ip_aligned;
 	uint32_t		preferred_lifetime;
 	int			prefix_length;
 	int			s;
@@ -1421,7 +1422,10 @@ DHCPv6Client_Bound(DHCPv6ClientRef client, IFEventID_t event_id,
 	CFTimeInterval		time_since_start = 0;
 	uint32_t		valid_lifetime;
 
-	our_ip = DHCPv6OptionIAADDRGetAddress(client->ia_addr);
+	our_ip = &our_ip_aligned;
+	bcopy((void *)DHCPv6OptionIAADDRGetAddress(client->ia_addr),
+	      our_ip, sizeof(our_ip_aligned));
+
 	DHCPv6ClientSetState(client, kDHCPv6ClientStateBound);
 	client->lease.valid = TRUE;
 	client->saved_verified = TRUE;

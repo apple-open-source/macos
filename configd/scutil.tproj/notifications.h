@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,7 +48,6 @@ void	do_notify_remove	(int argc, char **argv);
 void	do_notify_changes	(int argc, char **argv);
 void	do_notify_watch		(int argc, char **argv);
 void	do_notify_wait		(int argc, char **argv);
-void	do_notify_callback	(int argc, char **argv);
 void	do_notify_signal	(int argc, char **argv);
 void	do_notify_file		(int argc, char **argv);
 void	do_notify_cancel	(int argc, char **argv);

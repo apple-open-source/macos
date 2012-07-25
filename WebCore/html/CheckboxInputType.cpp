@@ -51,7 +51,7 @@ const AtomicString& CheckboxInputType::formControlType() const
 
 bool CheckboxInputType::valueMissing(const String&) const
 {
-    return !element()->checked();
+    return element()->required() && !element()->checked();
 }
 
 String CheckboxInputType::valueMissingText() const
@@ -79,8 +79,8 @@ PassOwnPtr<ClickHandlingState> CheckboxInputType::willDispatchClick()
 
     if (state->indeterminate)
         element()->setIndeterminate(false);
-    else
-        element()->setChecked(!state->checked, true);
+
+    element()->setChecked(!state->checked, DispatchChangeEvent);
 
     return state.release();
 }
@@ -97,6 +97,11 @@ void CheckboxInputType::didDispatchClick(Event* event, const ClickHandlingState&
 }
 
 bool CheckboxInputType::isCheckbox() const
+{
+    return true;
+}
+
+bool CheckboxInputType::supportsIndeterminateAppearance() const
 {
     return true;
 }

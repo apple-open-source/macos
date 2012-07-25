@@ -10,6 +10,7 @@
 #include <removefile.h>
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <System/sys/fsctl.h> 
 
 #include "hfsmeta.h"
 #include "Sparse.h"
@@ -58,6 +59,21 @@ static const char *bundlePrototype =
                 "\t<integer>%llu</integer>\n"
 "</dict>\n"
 	"</plist>\n";
+
+/*
+ * Do a per-volume sync.  We use this just before updating the progress file, so
+ * that any changes -- data and metadata -- will have made it to disk, without
+ * causing a sync of every mounted volume.
+ *
+ */
+
+static void
+sync_volume(const char *path) {
+        int full_sync = FSCTL_SYNC_FULLSYNC | FSCTL_SYNC_WAIT;
+
+        (void)fsctl(path, FSCTL_SYNC_VOLUME, &full_sync, 0);
+        return;
+}
 
 /*
  * Read from a sparse bundle.  If the band file doesn't exist, or is shorter than
@@ -156,7 +172,6 @@ doSparseWrite(IOWrapper_t *context, off_t offset, void *buffer, size_t len)
 			retval = -1;
 			goto done;
 		}
-		(void)fcntl(fd, F_FULLFSYNC, 0);
 		written += nwritten;
 	}
 	retval = written;
@@ -326,6 +341,7 @@ SetProgress(struct IOWrapper *context, off_t prog)
 	} else {
 		fp = fopen(progFile, "w");
 		if (fp) {
+			sync_volume(ctx->pathname);
 			(void)fprintf(fp, "%llu\n", prog);
 			fclose(fp);
 		}

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -186,8 +186,6 @@ b_fold(int argc, char *argv[], void* context)
 	{
 		switch (optget(argv, usage))
 		{
-		case 0:
-			break;
 		case 'b':
 			cols['\r'] = cols['\b'] = 0;
 			cols['\t'] = cols[' '];

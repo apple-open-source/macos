@@ -42,6 +42,12 @@ enum {
     kPMPreventDisplaySleep          = (1<<3)
 };
 
+enum {
+    kPMSROverrideNotSet   = 0,
+    kPMSROverrideEnable   = 1,
+    kPMSROverrideDisable  = 2
+};
+
 __private_extern__ void PMSettings_prime(void);
  
 __private_extern__ void PMSettingsSleepWakeNotification(natural_t);
@@ -51,6 +57,8 @@ __private_extern__ void PMSettingsSupportedPrefsListHasChanged(void);
 __private_extern__ void PMSettingsPrefsHaveChanged(void);
 
 __private_extern__ void PMSettingsPSChange(CFTypeRef);
+
+__private_extern__ bool GetPMSettingBool(CFStringRef);
 
 // For UPS shutdown/restart code in PSLowPower.c
 __private_extern__ CFDictionaryRef  PMSettings_CopyActivePMSettings(void);
@@ -63,4 +71,11 @@ __private_extern__ void activateSettingOverrides(void);
 
 __private_extern__ IOReturn getDisplaySleepTimer(uint32_t *displaySleepTimer);
 
-#endif _PMSettings_h_
+__private_extern__ void _Set_SR_override(int f);
+__private_extern__ int _get_SR_Override();
+
+__private_extern__ bool _DWBT_allowed(void);
+
+__private_extern__ bool _SS_allowed(void);
+
+#endif //_PMSettings_h_

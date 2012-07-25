@@ -28,16 +28,18 @@
 
 #include "CachedImage.h"
 #include "Font.h"
+#include "FontCache.h"
 #include "FontDescription.h"
 #include "FontSelector.h"
 #include "Frame.h"
 #include "GraphicsContext.h"
+#include "HWndDC.h"
 #include "Image.h"
-#include "RetainPtr.h"
 #include "Settings.h"
 #include "StringTruncator.h"
 #include "TextRun.h"
 #include "WebCoreTextRenderer.h"
+#include <wtf/RetainPtr.h>
 
 #include <windows.h>
 
@@ -130,6 +132,7 @@ DragImageRef createDragImageForLink(KURL& url, const String& inLabel, Frame* fra
 
     const Font* labelFont;
     const Font* urlFont;
+    FontCachePurgePreventer fontCachePurgePreventer;
 
     if (frame->settings() && frame->settings()->fontRenderingMode() == AlternateRenderingMode) {
         static const Font alternateRenderingModeLabelFont = dragLabelFont(DragLinkLabelFontsize, true, AlternateRenderingMode);
@@ -181,18 +184,15 @@ DragImageRef createDragImageForLink(KURL& url, const String& inLabel, Frame* fra
     // We now know how big the image needs to be, so we create and
     // fill the background
     HBITMAP image = 0;
-    HDC dc = GetDC(0);
+    HWndDC dc(0);
     HDC workingDC = CreateCompatibleDC(dc);
-    if (!workingDC) {
-        ReleaseDC(0, dc);
+    if (!workingDC)
         return 0;
-    }
 
     PlatformGraphicsContext* contextRef;
     image = allocImage(workingDC, imageSize, &contextRef);
     if (!image) {
         DeleteDC(workingDC);
-        ReleaseDC(0, dc);
         return 0;
     }
         
@@ -210,20 +210,19 @@ DragImageRef createDragImageForLink(KURL& url, const String& inLabel, Frame* fra
     static const Color bottomColor(255, 255, 255, 127); // original alpha = 0.5
     if (drawURLString) {
         if (clipURLString)
-            urlString = StringTruncator::rightTruncate(urlString, imageSize.width() - (DragLabelBorderX * 2.0f), *urlFont);
+            urlString = StringTruncator::rightTruncate(urlString, imageSize.width() - (DragLabelBorderX * 2.0f), *urlFont, StringTruncator::EnableRoundingHacks);
         IntPoint textPos(DragLabelBorderX, imageSize.height() - (LabelBorderYOffset + urlFont->fontMetrics().descent()));
         WebCoreDrawDoubledTextAtPoint(context, urlString, textPos, *urlFont, topColor, bottomColor);
     }
     
     if (clipLabelString)
-        label = StringTruncator::rightTruncate(label, imageSize.width() - (DragLabelBorderX * 2.0f), *labelFont);
+        label = StringTruncator::rightTruncate(label, imageSize.width() - (DragLabelBorderX * 2.0f), *labelFont, StringTruncator::EnableRoundingHacks);
 
     IntPoint textPos(DragLabelBorderX, DragLabelBorderY + labelFont->pixelSize());
     WebCoreDrawDoubledTextAtPoint(context, label, textPos, *labelFont, topColor, bottomColor);
 
     deallocContext(contextRef);
     DeleteDC(workingDC);
-    ReleaseDC(0, dc);
     return image;
 }
 

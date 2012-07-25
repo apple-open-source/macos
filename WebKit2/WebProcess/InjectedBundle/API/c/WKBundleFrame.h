@@ -38,6 +38,7 @@ extern "C" {
 WK_EXPORT WKTypeID WKBundleFrameGetTypeID();
 
 WK_EXPORT bool WKBundleFrameIsMainFrame(WKBundleFrameRef frame);
+WK_EXPORT WKBundleFrameRef WKBundleFrameGetParentFrame(WKBundleFrameRef frame);
 WK_EXPORT WKArrayRef WKBundleFrameCopyChildFrames(WKBundleFrameRef frame);
 
 WK_EXPORT WKStringRef WKBundleFrameCopyName(WKBundleFrameRef frame);
@@ -70,6 +71,11 @@ WK_EXPORT bool WKBundleFrameGetDocumentBackgroundColor(WKBundleFrameRef frame, d
 
 WK_EXPORT WKStringRef WKBundleFrameCopySuggestedFilenameForResourceWithURL(WKBundleFrameRef frame, WKURLRef url);
 WK_EXPORT WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frame, WKURLRef url);
+
+WK_EXPORT WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frame);
+
+typedef bool (*WKBundleFrameFrameFilterCallback)(WKBundleFrameRef frame, WKBundleFrameRef subframe, void* context);
+WK_EXPORT WKDataRef WKBundleFrameCopyWebArchiveFilteringSubframes(WKBundleFrameRef frame, WKBundleFrameFrameFilterCallback frameFilterCallback, void* context);
 
 #ifdef __cplusplus
 }

@@ -212,7 +212,7 @@ set(char *t, NODE *ip)
 				errx(1, "line %d: invalid flag %s",lineno, val);
  			break;
 		case F_GID:
-			ip->st_gid = strtoul(val, &ep, 10);
+			ip->st_gid = (gid_t)strtoul(val, &ep, 10);
 			if (*ep)
 				errx(1, "line %d: invalid gid %s", lineno, val);
 			break;
@@ -295,7 +295,7 @@ set(char *t, NODE *ip)
 			}
 			break;
 		case F_UID:
-			ip->st_uid = strtoul(val, &ep, 10);
+			ip->st_uid = (uid_t)strtoul(val, &ep, 10);
 			if (*ep)
 				errx(1, "line %d: invalid uid %s", lineno, val);
 			break;

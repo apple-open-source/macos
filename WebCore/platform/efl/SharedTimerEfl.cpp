@@ -47,10 +47,9 @@ void setSharedTimerFiredFunction(void (*func)())
 
 static Eina_Bool timerEvent(void*)
 {
+    _sharedTimer = 0;
     if (_timerFunction)
         _timerFunction();
-
-    _sharedTimer = 0;
 
     return ECORE_CALLBACK_CANCEL;
 }
@@ -63,17 +62,16 @@ void stopSharedTimer()
     }
 }
 
-void addNewTimer(double fireTime)
+void addNewTimer(double interval)
 {
-    double interval = fireTime - currentTime();
     stopSharedTimer();
 
     _sharedTimer = ecore_timer_loop_add(interval, timerEvent, 0);
 }
 
-void setSharedTimerFireTime(double fireTime)
+void setSharedTimerFireInterval(double interval)
 {
-    addNewTimer(fireTime);
+    addNewTimer(interval);
 }
 
 }

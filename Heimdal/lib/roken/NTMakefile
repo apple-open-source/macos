@@ -60,14 +60,14 @@ libroken_la_OBJS =			\
 	$(OBJ)\getarg.obj		\
 	$(OBJ)\getifaddrs_w32.obj	\
 	$(OBJ)\getnameinfo_verified.obj	\
+	$(OBJ)\getopt.obj		\
 	$(OBJ)\getprogname.obj		\
 	$(OBJ)\gettimeofday.obj		\
 	$(OBJ)\hex.obj			\
 	$(OBJ)\hostent_find_fqdn.obj	\
 	$(OBJ)\inet_aton.obj		\
-	$(OBJ)\inet_ntop.obj		\
-	$(OBJ)\inet_pton.obj		\
 	$(OBJ)\issuid.obj		\
+	$(OBJ)\localtime_r.obj		\
 	$(OBJ)\lstat.obj		\
 	$(OBJ)\mini_inetd.obj		\
 	$(OBJ)\mkstemp.obj		\
@@ -77,7 +77,9 @@ libroken_la_OBJS =			\
 	$(OBJ)\parse_time.obj		\
 	$(OBJ)\parse_units.obj		\
 	$(OBJ)\realloc.obj		\
+	$(OBJ)\rename.obj		\
 	$(OBJ)\resolve.obj		\
+	$(OBJ)\rand.obj			\
 	$(OBJ)\roken_gethostby.obj	\
 	$(OBJ)\rtbl.obj			\
 	$(OBJ)\sendmsg.obj		\
@@ -101,6 +103,7 @@ libroken_la_OBJS =			\
 	$(OBJ)\timegm.obj		\
 	$(OBJ)\timeval.obj		\
 	$(OBJ)\tm2time.obj		\
+	$(OBJ)\tsearch.obj		\
 	$(OBJ)\unvis.obj		\
 	$(OBJ)\verr.obj			\
 	$(OBJ)\verrx.obj		\
@@ -112,8 +115,14 @@ libroken_la_OBJS =			\
 	$(OBJ)\warnx.obj		\
 	$(OBJ)\xfree.obj
 
-{}.c{$(OBJ)}.obj:
-	$(C2OBJ) -DBUILD_ROKEN_LIB
+!if $(NMAKE_WINVER) < 0x0600
+libroken_la_OBJS=$(libroken_la_OBJS) \
+	$(OBJ)\inet_ntop.obj		\
+	$(OBJ)\inet_pton.obj
+!endif
+
+{}.c{$(OBJ)}.obj::
+	$(C2OBJ_P) -DBUILD_ROKEN_LIB
 
 $(LIBROKEN): $(libroken_la_OBJS)
 	$(LIBCON_C) -out:$@ @<<
@@ -130,7 +139,7 @@ $(OBJ)\make-roken.c: roken.h.in roken.awk $(INCDIR)\config.h
 $(INCDIR)\roken.h: $(OBJ)\make-roken.exe
 	$(OBJ)\make-roken.exe > $@ || $(RM) $@
 
-INCFILES = 				\
+INCFILES = 			\
 	$(INCDIR)\base64.h	\
 	$(INCDIR)\dirent.h	\
 	$(INCDIR)\dlfcn.h	\
@@ -147,6 +156,8 @@ INCFILES = 				\
 	$(INCDIR)\roken.h	\
 	$(INCDIR)\roken-common.h	\
 	$(INCDIR)\rtbl.h	\
+	$(INCDIR)\search.h	\
+	$(INCDIR)\stdbool.h	\
 	$(INCDIR)\syslog.h	\
 	$(INCDIR)\vis.h		\
 	$(INCDIR)\xdbm.h
@@ -196,7 +207,7 @@ $(OBJ)\resolve_test.obj: resolve.c
 	$(C2OBJ) -DTEST_RESOLVE -DBUILD_ROKEN_LIB
 
 $(OBJ)\parse_reply-test.exe: $(OBJ)\parse_reply-test.obj $(OBJ)\resolve_test.obj $(LIBROKEN)
-	$(EXECONLINK)
+	$(EXECONLINK) DnsAPI.lib
 
 $(OBJ)\test-readenv.exe: $(OBJ)\test-readenv.obj $(OBJ)\test-mem.obj $(LIBROKEN)
 	$(EXECONLINK)
@@ -217,7 +228,7 @@ $(OBJ)\snprintf-test.exe: $(OBJ)\snprintf-test.obj $(OBJ)\libtest.lib $(LIBROKEN
 	$(EXECONLINK)
 
 $(OBJ)\resolve-test.exe: $(OBJ)\resolve-test.obj $(LIBROKEN)
-	$(EXECONLINK)
+	$(EXECONLINK) DnsAPI.lib
 
 $(OBJ)\base64-test.exe: $(OBJ)\base64-test.obj $(OBJ)\base64.obj
 	$(EXECONLINK)

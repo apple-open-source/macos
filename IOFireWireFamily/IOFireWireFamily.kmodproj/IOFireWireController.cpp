@@ -3109,7 +3109,7 @@ void IOFireWireController::updateDevice(IOFWNodeScan *scan )
 			newDevice->adjustBusy( 1 ); // device
 			adjustBusy( 1 );  // controller
 			
-			FWKLOG(( "IOFireWireController@0x%08lx::updateDevice adjustBusy(1)\n", (UInt32)this ));
+			FWKLOG(( "IOFireWireController@%p::updateDevice adjustBusy(1)\n", this ));
 			
 			// hook this device into the device tree now
 			
@@ -3122,7 +3122,7 @@ void IOFireWireController::updateDevice(IOFWNodeScan *scan )
 				// if we failed to attach, I guess we're not busy anymore
 				newDevice->adjustBusy( -1 );  // device
 				adjustBusy( -1 );  // controller
-				FWKLOG(( "IOFireWireController@0x%08lx::updateDevice adjustBusy(-1)\n", (UInt32)this ));
+				FWKLOG(( "IOFireWireController@%p::updateDevice adjustBusy(-1)\n", this ));
 				continue;
 			}
 			

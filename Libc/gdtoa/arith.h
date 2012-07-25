@@ -25,28 +25,23 @@
  * and spliced together for the different architectures.
  */
 
-#if defined(__ppc__)
-#define IEEE_MC68k
-#define Arith_Kind_ASL 2
-#define Double_Align
-#elif defined(__ppc64__)
-#define IEEE_MC68k
-#define Arith_Kind_ASL 2
-#define Double_Align
-#define Long int
-#elif defined(__i386__)
+#if defined(__i386__)
 #define IEEE_8087
 #define Arith_Kind_ASL 1
 #elif defined(__x86_64__)
 #define IEEE_8087
 #define Arith_Kind_ASL 1
 #define Long int
+#define Intcast (int)(long)
+#define Double_Align
+#define X64_bit_pointers
 #elif defined(__arm__)
 #if __VFP_FP__
 #define IEEE_8087
 #else
 #define IEEE_MC68k
 #endif
+#define Arith_Kind_ASL 1
 #else
 #error Unsupported architecture
 #endif

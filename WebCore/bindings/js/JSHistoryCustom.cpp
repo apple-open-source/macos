@@ -61,7 +61,7 @@ bool JSHistory::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& pr
     // Our custom code is only needed to implement the Window cross-domain scheme, so if access is
     // allowed, return false so the normal lookup will take place.
     String message;
-    if (allowsAccessFromFrame(exec, impl()->frame(), message))
+    if (shouldAllowAccessToFrame(exec, impl()->frame(), message))
         return false;
 
     // Check for the few functions that we allow, even when called cross-domain.
@@ -101,7 +101,7 @@ bool JSHistory::getOwnPropertyDescriptorDelegate(ExecState* exec, const Identifi
     }
 
     // Throw out all cross domain access
-    if (!allowsAccessFromFrame(exec, impl()->frame()))
+    if (!shouldAllowAccessToFrame(exec, impl()->frame()))
         return true;
 
     // Check for the few functions that we allow, even when called cross-domain.
@@ -141,7 +141,7 @@ bool JSHistory::getOwnPropertyDescriptorDelegate(ExecState* exec, const Identifi
 bool JSHistory::putDelegate(ExecState* exec, const Identifier&, JSValue, PutPropertySlot&)
 {
     // Only allow putting by frames in the same origin.
-    if (!allowsAccessFromFrame(exec, impl()->frame()))
+    if (!shouldAllowAccessToFrame(exec, impl()->frame()))
         return true;
     return false;
 }
@@ -150,7 +150,7 @@ bool JSHistory::deleteProperty(JSCell* cell, ExecState* exec, const Identifier& 
 {
     JSHistory* thisObject = jsCast<JSHistory*>(cell);
     // Only allow deleting by frames in the same origin.
-    if (!allowsAccessFromFrame(exec, thisObject->impl()->frame()))
+    if (!shouldAllowAccessToFrame(exec, thisObject->impl()->frame()))
         return false;
     return Base::deleteProperty(thisObject, exec, propertyName);
 }
@@ -159,14 +159,28 @@ void JSHistory::getOwnPropertyNames(JSObject* object, ExecState* exec, PropertyN
 {
     JSHistory* thisObject = jsCast<JSHistory*>(object);
     // Only allow the history object to enumerated by frames in the same origin.
-    if (!allowsAccessFromFrame(exec, thisObject->impl()->frame()))
+    if (!shouldAllowAccessToFrame(exec, thisObject->impl()->frame()))
         return;
     Base::getOwnPropertyNames(thisObject, exec, propertyNames, mode);
 }
 
+JSValue JSHistory::state(ExecState *exec) const
+{
+    History* history = static_cast<History*>(impl());
+
+    JSValue cachedValue = m_state.get();
+    if (!cachedValue.isEmpty() && !history->stateChanged())
+        return cachedValue;
+
+    SerializedScriptValue* serialized = history->state();
+    JSValue result = serialized ? serialized->deserialize(exec, globalObject(), 0) : jsNull();
+    const_cast<JSHistory*>(this)->m_state.set(exec->globalData(), this, result);
+    return result;
+}
+
 JSValue JSHistory::pushState(ExecState* exec)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0), 0, 0);
     if (exec->hadException())
         return jsUndefined();
 
@@ -185,12 +199,14 @@ JSValue JSHistory::pushState(ExecState* exec)
     impl()->stateObjectAdded(historyState.release(), title, url, History::StateObjectPush, ec);
     setDOMException(exec, ec);
 
+    m_state.clear();
+
     return jsUndefined();
 }
 
 JSValue JSHistory::replaceState(ExecState* exec)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0), 0, 0);
     if (exec->hadException())
         return jsUndefined();
 
@@ -208,6 +224,8 @@ JSValue JSHistory::replaceState(ExecState* exec)
     ExceptionCode ec = 0;
     impl()->stateObjectAdded(historyState.release(), title, url, History::StateObjectReplace, ec);
     setDOMException(exec, ec);
+
+    m_state.clear();
 
     return jsUndefined();
 }

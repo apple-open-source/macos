@@ -26,10 +26,11 @@
 #ifndef CorrectionPanel_h
 #define CorrectionPanel_h
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
 #import <AppKit/NSSpellChecker.h>
-#import <WebCore/SpellingCorrectionController.h>
+#import <WebCore/AlternativeTextClient.h>
 #import <wtf/RetainPtr.h>
+
+#if USE(AUTOCORRECTION_PANEL)
 
 @class WebView;
 
@@ -38,21 +39,21 @@ class CorrectionPanel {
 public:
     CorrectionPanel();
     ~CorrectionPanel();
-    void show(WebView*, WebCore::CorrectionPanelInfo::PanelType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
-    String dismiss(WebCore::ReasonForDismissingCorrectionPanel);
+    void show(WebView*, WebCore::AlternativeTextType, const WebCore::FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings);
+    String dismiss(WebCore::ReasonForDismissingAlternativeText);
     static void recordAutocorrectionResponse(WebView*, NSCorrectionResponse, const String& replacedString, const String& replacementString);
 
 private:
     bool isShowing() const { return m_view; }
-    String dismissInternal(WebCore::ReasonForDismissingCorrectionPanel, bool dismissingExternally);
+    String dismissInternal(WebCore::ReasonForDismissingAlternativeText, bool dismissingExternally);
     void handleAcceptedReplacement(NSString* acceptedReplacement, NSString* replaced, NSString* proposedReplacement, NSCorrectionIndicatorType);
 
     bool m_wasDismissedExternally;
-    WebCore::ReasonForDismissingCorrectionPanel m_reasonForDismissing;
+    WebCore::ReasonForDismissingAlternativeText m_reasonForDismissing;
     RetainPtr<WebView> m_view;
     RetainPtr<NSString> m_resultForDismissal;
 };
 
-#endif // !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#endif // USE(AUTOCORRECTION_PANEL)
 
 #endif // CorrectionPanel_h

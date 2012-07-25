@@ -60,6 +60,7 @@ static const char *ticket_life = NULL;
 
 int launchd_flag = 0;
 int disallow_getting_krbtgt = 0;
+int use_uid_matching = 0;
 int name_constraints = -1;
 int max_num_requests = 100000;
 int kcm_timeout = -1;
@@ -117,6 +118,10 @@ static struct getargs args[] = {
     {
 	"disallow-getting-krbtgt", 0, arg_flag, &disallow_getting_krbtgt,
 	"disable fetching krbtgt from the cache"
+    },
+    {
+	"use-uid-matching", 0, arg_flag, &use_uid_matching,
+	"only use UID when matching allowed credentials or not"
     },
     {
 	"renewable-life",	'r', arg_string, &renew_life,
@@ -292,11 +297,11 @@ void
 kcm_configure(int argc, char **argv)
 {
     krb5_error_code ret;
-    int optind = 0;
+    int optidx = 0;
     const char *p;
 
-    while(getarg(args, num_args, argc, argv, &optind))
-	warnx("error at argument `%s'", argv[optind]);
+    while(getarg(args, num_args, argc, argv, &optidx))
+	warnx("error at argument `%s'", argv[optidx]);
 
     if(help_flag)
 	usage (0);
@@ -306,7 +311,7 @@ kcm_configure(int argc, char **argv)
 	exit(0);
     }
 
-    argc -= optind;
+    argc -= optidx;
 
     if (argc != 0)
 	usage(1);
@@ -320,7 +325,7 @@ kcm_configure(int argc, char **argv)
 	ret = krb5_prepend_config_files_default(config_file, &files);
 	if (ret)
 	    krb5_err(kcm_context, 1, ret, "getting configuration files");
-	
+
 	ret = krb5_set_config_files(kcm_context, files);
 	krb5_free_config_files(files);
 	if(ret)

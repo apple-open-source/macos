@@ -41,11 +41,7 @@ static unsigned long long cacheMaxSize = UINT_MAX;
  **/
 unsigned long long webkit_application_cache_get_maximum_size()
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     return (cacheMaxSize = WebCore::cacheStorage().maximumSize());
-#else
-    return 0;
-#endif
 }
 
 /**
@@ -60,36 +56,28 @@ unsigned long long webkit_application_cache_get_maximum_size()
  **/
 void webkit_application_cache_set_maximum_size(unsigned long long size)
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (size != cacheMaxSize) {
         WebCore::cacheStorage().empty();
         WebCore::cacheStorage().vacuumDatabaseFile();
         WebCore::cacheStorage().setMaximumSize(size);
         cacheMaxSize = size;
     }
-#else
-    UNUSED_PARAM(size);
-#endif
 }
 
 /**
- * webkit_spplication_cache_get_database_directory_path:
+ * webkit_application_cache_get_database_directory_path:
  *
- * Returns the current path to the directory WebKit will write web application
- * cache databases. By default this path is set to $XDG_DATA_HOME/webkit/databases
- * with webkit_application_cache_set_database_directory_path
+ * Returns the path to the directory WebKit will write web application
+ * cache databases to. By default this path is set to
+ * $XDG_CACHE_HOME/webkitgtk/applications and cannot be modified.
  *
- * Returns: the current application cache database directory path
+ * Returns: the application cache database directory path
  *
  * Since: 1.3.13
  **/
-G_CONST_RETURN gchar* webkit_application_cache_get_database_directory_path()
+const gchar* webkit_application_cache_get_database_directory_path()
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     CString path = WebCore::fileSystemRepresentation(WebCore::cacheStorage().cacheDirectory());
     return path.data();
-#else
-    return "";
-#endif
 }
 

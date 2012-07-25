@@ -320,7 +320,8 @@ protected:
 
     virtual bool handleIsOpen( const IOService * forClient ) const;
 
-	static bool interfacePublished( void *target, void *param, IOService *service );
+	static bool interfacePublished(
+        void *target, void *param, IOService *service, IONotifier *notifier );
 
 public:
 

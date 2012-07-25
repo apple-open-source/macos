@@ -37,11 +37,11 @@ class RuntimeMethod : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
-    virtual void vtableAnchor();
+    static void destroy(JSCell*);
 
     static RuntimeMethod* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, const Identifier& name, Bindings::MethodList& methodList)
     {
-        RuntimeMethod* method = new (allocateCell<RuntimeMethod>(*exec->heap())) RuntimeMethod(globalObject, structure, methodList);
+        RuntimeMethod* method = new (NotNull, allocateCell<RuntimeMethod>(*exec->heap())) RuntimeMethod(globalObject, structure, methodList);
         method->finishCreation(exec->globalData(), name);
         return method;
     }

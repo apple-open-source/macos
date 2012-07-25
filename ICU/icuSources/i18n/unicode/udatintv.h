@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 2010 Apple Inc. All Rights Reserved.
+* Copyright (C) 2010-2011 Apple Inc. All Rights Reserved.
 ******************************************************************************
 */
 
@@ -8,18 +8,16 @@
 #define UDATINTV_H
 
 #include "unicode/utypes.h"
-#include "unicode/umisc.h"
 
 #if !UCONFIG_NO_FORMATTING
 
-struct UDateIntervalFormat;
-/**
- * A UDateIntervalFormat object for use in C programs.
- * @internal
- */
-typedef struct UDateIntervalFormat UDateIntervalFormat;
+#include "unicode/umisc.h"
+#include "unicode/udateintervalformat.h"
 
 /**
+ * NOTE - THE TEMPORARY APPLE INTERFACES DECLARED HERE ARE OBSOLETE, PLEASE USE
+ * THE REAL ICU EQUIVALENTS IN udateintervalformat.h
+ *
  * A UDateIntervalFormat is used to format the range between two UDate values
  * in a locale-sensitive way, using a skeleton that specifies the precision and
  * completeness of the information to show. If the range smaller than the resolution
@@ -71,6 +69,11 @@ typedef struct UDateIntervalFormat UDateIntervalFormat;
  */
 
 /**
+ * A UDateIntervalFormat object for use in C programs.
+ * struct UDateIntervalFormat; defined in udateintervalformat.h
+ */
+
+/**
  * Open a new UDateIntervalFormat object using the predefined rules for a
  * given locale plus a specified skeleton.
  * @param locale
@@ -86,7 +89,7 @@ typedef struct UDateIntervalFormat UDateIntervalFormat;
  * @return
  *            A UDateIntervalFormat object for the specified locale, or NULL
  *            if an error occurred.
- * @internal
+ * @internal/obsolete, use udtitvfmt_open in udateintervalformat.h
  */
 U_INTERNAL UDateIntervalFormat* U_EXPORT2
 udatintv_open(const char*  locale,
@@ -98,7 +101,7 @@ udatintv_open(const char*  locale,
  * Close a UDateIntervalFormat object. Once closed it may no longer be used.
  * @param datintv
  *            The UDateIntervalFormat object to close.
- * @internal
+ * @internal/obsolete, use udtitvfmt_close in udateintervalformat.h
  */
 U_INTERNAL void U_EXPORT2
 udatintv_close(UDateIntervalFormat *datintv);
@@ -127,7 +130,7 @@ udatintv_close(UDateIntervalFormat *datintv);
  * @return
  *            The total buffer size needed; if greater than resultLength, the
  *            output was truncated.
- * @internal
+ * @internal/obsolete, use udtitvfmt_format in udateintervalformat.h
  */
 U_INTERNAL int32_t U_EXPORT2
 udatintv_format(const UDateIntervalFormat* datintv,

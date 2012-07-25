@@ -4,6 +4,16 @@ sys	filio,ioctl
 lib	qfrexp,qldexp
 key	signed
 
+tst	- note{ number of bits in pointer }end output{
+	#include <stdio.h>
+	int
+	main()
+	{
+		printf("#define _ptr_bits	%d\n", sizeof(char*) * 8);
+		return 0;
+	}
+}end
+
 tst	tmp_rmfail note{ open files cannot be removed }end execute{
 	#include <string.h>
 	#include <time.h>

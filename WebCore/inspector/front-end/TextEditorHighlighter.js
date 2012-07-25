@@ -29,6 +29,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.TextEditorHighlighter = function(textModel, damageCallback)
 {
     this._textModel = textModel;
@@ -36,6 +39,8 @@ WebInspector.TextEditorHighlighter = function(textModel, damageCallback)
     this._damageCallback = damageCallback;
     this._highlightChunkLimit = 1000;
 }
+
+WebInspector.TextEditorHighlighter._MaxLineCount = 10000;
 
 WebInspector.TextEditorHighlighter.prototype = {
     set mimeType(mimeType)
@@ -50,8 +55,14 @@ WebInspector.TextEditorHighlighter.prototype = {
         this._highlightChunkLimit = highlightChunkLimit;
     },
 
-    highlight: function(endLine, opt_forceRun)
+    /**
+     * @param {boolean=} forceRun
+     */
+    highlight: function(endLine, forceRun)
     {
+        if (this._textModel.linesCount > WebInspector.TextEditorHighlighter._MaxLineCount)
+            return;
+
         // First check if we have work to do.
         var state = this._textModel.getAttribute(endLine - 1, "highlight");
         if (state && state.postConditionStringified) {
@@ -61,7 +72,7 @@ WebInspector.TextEditorHighlighter.prototype = {
 
         this._requestedEndLine = endLine;
 
-        if (this._highlightTimer && !opt_forceRun) {
+        if (this._highlightTimer && !forceRun) {
             // There is a timer scheduled, it will catch the new job based on the new endLine set.
             return;
         }
@@ -69,7 +80,7 @@ WebInspector.TextEditorHighlighter.prototype = {
         // We will be highlighting. First rewind to the last highlighted line to gain proper highlighter context.
         var startLine = endLine;
         while (startLine > 0) {
-            var state = this._textModel.getAttribute(startLine - 1, "highlight");
+            state = this._textModel.getAttribute(startLine - 1, "highlight");
             if (state && state.postConditionStringified)
                 break;
             startLine--;
@@ -81,6 +92,9 @@ WebInspector.TextEditorHighlighter.prototype = {
 
     updateHighlight: function(startLine, endLine)
     {
+        if (this._textModel.linesCount > WebInspector.TextEditorHighlighter._MaxLineCount)
+            return;
+
         // Start line was edited, we should highlight everything until endLine.
         this._clearHighlightState(startLine);
 
@@ -145,7 +159,7 @@ WebInspector.TextEditorHighlighter.prototype = {
 
         var tokensCount = 0;
         for (var lineNumber = startLine; lineNumber < endLine; ++lineNumber) {
-            var state = this._selectHighlightState(lineNumber, postConditionStringified);
+            state = this._selectHighlightState(lineNumber, postConditionStringified);
             if (state.postConditionStringified) {
                 // This line is already highlighted.
                 postConditionStringified = state.postConditionStringified;
@@ -193,7 +207,7 @@ WebInspector.TextEditorHighlighter.prototype = {
 
                 // Advance the "pointer" to the last highlighted line within the given chunk.
                 for (; lineNumber < endLine; ++lineNumber) {
-                    var state = this._textModel.getAttribute(lineNumber, "highlight");
+                    state = this._textModel.getAttribute(lineNumber, "highlight");
                     if (!state || !state.postConditionStringified)
                         break;
                 }

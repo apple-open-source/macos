@@ -2,6 +2,7 @@
  * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,71 +23,53 @@
 #ifndef SVGAnimateElement_h
 #define SVGAnimateElement_h
 
-#if ENABLE(SVG) && ENABLE(SVG_ANIMATION)
-
-#include "Color.h"
+#if ENABLE(SVG)
+#include "SVGAnimatedType.h"
+#include "SVGAnimatedTypeAnimator.h"
 #include "SVGAnimationElement.h"
-#include "SVGPathByteStream.h"
-#include "SVGPointList.h"
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
-
-class SVGPathSegList;
+    
+class SVGAnimatedProperty;
 
 class SVGAnimateElement : public SVGAnimationElement {
 public:
     static PassRefPtr<SVGAnimateElement> create(const QualifiedName&, Document*);
-
     virtual ~SVGAnimateElement();
 
+    AnimatedPropertyType determineAnimatedPropertyType(SVGElement*) const;
+    
 protected:
     SVGAnimateElement(const QualifiedName&, Document*);
 
-    virtual void resetToBaseValue(const String&);
+    virtual void resetToBaseValue();
+    virtual bool calculateToAtEndOfDurationValue(const String& toAtEndOfDurationString);
     virtual bool calculateFromAndToValues(const String& fromString, const String& toString);
     virtual bool calculateFromAndByValues(const String& fromString, const String& byString);
-    virtual void calculateAnimatedValue(float percentage, unsigned repeat, SVGSMILElement* resultElement);
+    virtual void calculateAnimatedValue(float percentage, unsigned repeatCount, SVGSMILElement* resultElement);
     virtual void applyResultsToTarget();
     virtual float calculateDistance(const String& fromString, const String& toString);
+    virtual bool isAdditive() const OVERRIDE;
+
+    virtual void targetElementWillChange(SVGElement* currentTarget, SVGElement* oldTarget) OVERRIDE;
 
 private:
-    // If we have 'currentColor' or 'inherit' as animation value, we need to grab the value during the animation
-    // since the value can be animated itself.
-    enum AnimatedPropertyValueType {
-        RegularPropertyValue,
-        CurrentColorValue,
-        InheritValue
-    };
-    
-    virtual bool hasValidAttributeType() const;
-    AnimatedAttributeType determineAnimatedAttributeType(SVGElement*) const;
-    AnimatedAttributeType m_animatedAttributeType;
+    SVGAnimatedTypeAnimator* ensureAnimator();
 
-    AnimatedPropertyValueType m_fromPropertyValueType;
-    AnimatedPropertyValueType m_toPropertyValueType;
-    double m_fromNumber;
-    double m_toNumber;
-    double m_animatedNumber;
-    String m_numberUnit;
-    Color m_fromColor;
-    Color m_toColor;
-    Color m_animatedColor;
-    String m_fromString;
-    String m_toString;
-    String m_animatedString;
-    OwnPtr<SVGPathByteStream> m_fromPath;
-    OwnPtr<SVGPathByteStream> m_toPath;
-    OwnPtr<SVGPathByteStream> m_animatedPath;
-    SVGPathByteStream* m_animatedPathPointer;
-    SVGPointList m_fromPoints;
-    SVGPointList m_toPoints;
-    SVGPointList m_animatedPoints;
+    virtual bool hasValidAttributeType();
+    AnimatedPropertyType m_animatedPropertyType;
+
+    OwnPtr<SVGAnimatedType> m_fromType;
+    OwnPtr<SVGAnimatedType> m_toType;
+    OwnPtr<SVGAnimatedType> m_toAtEndOfDurationType;
+    OwnPtr<SVGAnimatedType> m_animatedType;
+
+    SVGElementAnimatedPropertyList m_animatedProperties;
+    OwnPtr<SVGAnimatedTypeAnimator> m_animator;
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif // SVGAnimateElement_h
-
-// vim:ts=4:noet

@@ -53,8 +53,34 @@ sysctl(name, namelen, oldp, oldlenp, newp, newlen)
 	void *oldp, *newp;
 	size_t *oldlenp, newlen;
 {
-	if (name[0] != CTL_USER)
+	if (name[0] != CTL_USER) {
+		if (namelen == 2 && name[0] == CTL_KERN && name[1] == KERN_EXEC) {
+			/*
+			 * 7723306: intercept kern.exec and fake a return of
+			 * a dummy string ("/" in this case)
+			 */
+			if (newp != NULL) {
+				errno = EPERM;
+				return -1;
+			}
+			if (oldp == NULL) {
+				if (oldlenp != NULL) *oldlenp = 2;
+				return 0;
+			}
+			if (oldlenp == NULL) {
+				errno = EFAULT;
+				return -1;
+			}
+			if (*oldlenp < 2) {
+				errno = ENOMEM;
+				return -1;
+			}
+			memmove(oldp, "/", 2);
+			*oldlenp = 2;
+			return 0;
+		}
 		return (__sysctl(name, namelen, oldp, oldlenp, newp, newlen));
+	}
 
 	if (newp != NULL) {
 		errno = EPERM;

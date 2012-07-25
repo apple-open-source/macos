@@ -278,15 +278,15 @@ static void disableLigatures(const SimpleFontData* fontData, ATSUStyle atsuStyle
 static ATSUStyle initializeATSUStyle(const SimpleFontData* fontData, TypesettingFeatures typesettingFeatures)
 {
     unsigned key = typesettingFeatures + 1;
-    pair<HashMap<unsigned, ATSUStyle>::iterator, bool> addResult = fontData->m_ATSUStyleMap.add(key, 0);
-    ATSUStyle& atsuStyle = addResult.first->second;
-    if (!addResult.second)
+    HashMap<unsigned, ATSUStyle>::AddResult addResult = fontData->m_ATSUStyleMap.add(key, 0);
+    ATSUStyle& atsuStyle = addResult.iterator->second;
+    if (!addResult.isNewEntry)
         return atsuStyle;
 
     ATSUFontID fontID = fontData->platformData().ctFont() ? CTFontGetPlatformFont(fontData->platformData().ctFont(), 0) : 0;
     if (!fontID) {
         LOG_ERROR("unable to get ATSUFontID for %p", fontData->platformData().font());
-        fontData->m_ATSUStyleMap.remove(addResult.first);
+        fontData->m_ATSUStyleMap.remove(addResult.isNewEntry);
         return 0;
     }
 
@@ -315,11 +315,10 @@ static ATSUStyle initializeATSUStyle(const SimpleFontData* fontData, Typesetting
 
 void ComplexTextController::collectComplexTextRunsForCharactersATSUI(const UChar* cp, unsigned length, unsigned stringLocation, const SimpleFontData* fontData)
 {
-    if (!fontData) {
-        // Create a run of missing glyphs from the primary font.
-        m_complexTextRuns.append(ComplexTextRun::create(m_font.primaryFont(), cp, stringLocation, length, m_run.ltr()));
-        return;
-    }
+    ASSERT_ARG(fontData, fontData);
+
+    if (fontData == systemFallbackFontData())
+        fontData = m_font.primaryFont();
 
     if (m_fallbackFonts && fontData != m_font.primaryFont())
         m_fallbackFonts->add(fontData);

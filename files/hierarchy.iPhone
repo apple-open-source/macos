@@ -16,6 +16,7 @@
 0750	501	501	private/var/mobile/Media/PhotoData
 0750	501	501	private/var/mobile/Media/Photos
 0777	root	wheel	private/var/logs
+0755	501	501	private/var/logs/mediaserverd
 0755	root	wheel	private/var/Managed Preferences
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences

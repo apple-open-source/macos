@@ -15,17 +15,12 @@ TEApotProject         = Iwidgets
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = install-doc fix-link fix-perms -f Makefile.$(Project)
+GnuAfterInstall       = fix-link fix-perms -f Makefile.$(Project)
 
 # include TEA Tcl extension build support
 include ../TEA.make
 
 Install_Target        = install-libraries install-doc
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)/demos/html"/*.html \
-	        "$(DSTROOT)/$(TclExtHtmlDir)"
 
 fix-link:
 	cd $(DSTROOT)/$(TclExtLibDir) && $(LN) -fsh $(Project)?* $(Project)

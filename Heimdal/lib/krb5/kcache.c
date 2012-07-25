@@ -189,7 +189,7 @@ delete_type(krb5_context context, krb5_kcache *k)
 }
 
 static CFDictionaryRef
-find_cache(krb5_kcache *k)
+CreateSecItemFromCache(krb5_kcache *k)
 {
     CFDictionaryRef result = NULL, query = NULL;
     OSStatus ret;
@@ -355,13 +355,13 @@ kcc_initialize(krb5_context context,
 	
     principal = CFStringCreateFromPrincipal(NULL, context, primary_principal);
     if (principal == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 
     label = CFStringCreateWithFormat(NULL, NULL, CFSTR("Kerberos credentials for %@"), principal);
     if (label == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 
@@ -382,7 +382,7 @@ kcc_initialize(krb5_context context,
     const void *add_values[] = {
 	kGSSCreator,
 #ifdef __APPLE_TARGET_EMBEDDED__
-	kSecAttrAccessibleAfterFirstUnlock,
+	kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
 #else
 	kGSSAnyAccess,
 #endif
@@ -465,7 +465,7 @@ kcc_store_cred(krb5_context context,
 
     sp = krb5_storage_emem();
     if (sp == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 
@@ -477,19 +477,19 @@ kcc_store_cred(krb5_context context,
 	
     dref = CFDataCreateWithBytesNoCopy(NULL, data.data, data.length, kCFAllocatorNull);
     if (dref == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 	
     principal = CFStringCreateFromPrincipal(NULL, context, creds->server);
     if (principal == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 
     label = CFStringCreateWithFormat(NULL, NULL, CFSTR("kerberos credentials for %@"), principal);
     if (label == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 
@@ -521,7 +521,7 @@ kcc_store_cred(krb5_context context,
     const void *add_values[] = {
 	kGSSCreator,
 #ifdef __APPLE_TARGET_EMBEDDED__
-	kSecAttrAccessibleAfterFirstUnlock,
+	kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
 #else
 	kGSSAnyAccess,
 #endif
@@ -582,7 +582,7 @@ kcc_get_principal(krb5_context context,
     */
 	
 	
-    result = find_cache(k);
+    result = CreateSecItemFromCache(k);
     if (result == NULL) {
 	krb5_set_error_message(context, KRB5_CC_END,
 			       "failed finding cache: %s", k->name);
@@ -598,7 +598,7 @@ kcc_get_principal(krb5_context context,
 	
     char *str = rk_cfstring2cstring(p);
     if (str == NULL) {
-	ret = ENOMEM;
+	ret = krb5_enomem(context);
 	goto out;
     }
 	
@@ -634,10 +634,8 @@ kcc_get_first (krb5_context context,
     create_constants();
 	
     c = calloc(1, sizeof(*c));
-    if (c == NULL) {
-        krb5_set_error_message(context, ENOMEM, N_("malloc: out of memory", ""));
-	return ENOMEM;
-    }
+    if (c == NULL)
+	return krb5_enomem(context);
 
     /*
       lookup:
@@ -772,9 +770,8 @@ kcc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
     create_constants();
 
     c = calloc(1, sizeof(*c));
-    if (c == NULL) {
-	return ENOMEM;
-    }
+    if (c == NULL)
+	return krb5_enomem(context);
 
     const void *keys[] = {
 	kSecClass,
@@ -860,7 +857,13 @@ kcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 {
     krb5_kcache *kfrom = KCACHE(from), *kto = KCACHE(to);
     CFDictionaryRef query = NULL, update = NULL;
+    krb5_error_code ret = 0;
+    OSStatus osret;
 	
+    /* if we are ask to overwrite ourself, we are done */
+    if (strcmp(kfrom->name, kto->name) == 0)
+	return 0;
+
     create_constants();
 	
     delete_type(context, kto);
@@ -900,12 +903,14 @@ kcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 				&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     heim_assert(query != NULL, "out of memory");
 
-    (void)SecItemUpdate(query, update);
+    osret = SecItemUpdate(query, update);
+    if (osret)
+	krb5_set_error_message(context, (ret = KRB5_CC_END), "Failed to rename credential: %s with error %d", kfrom->name, (int)osret);
 
     CFRelease(query);
     CFRelease(update);
 
-    return 0;
+    return ret;
 }
 
 static void
@@ -938,7 +943,7 @@ set_default(CFStringRef name, bool clear_first)
 	kSecMatchLimitAll,
 	kGSSCreator,
 #ifdef __APPLE_TARGET_EMBEDDED__
-	kSecAttrAccessibleAfterFirstUnlock,
+	kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
 #endif
 	kGSSiTGT,
 	name
@@ -1015,7 +1020,7 @@ kcc_get_default_name(krb5_context context, char **str)
 	kSecClassInternetPassword,
 	kCFBooleanTrue,
 #ifdef __APPLE_TARGET_EMBEDDED__
-	kSecAttrAccessibleAfterFirstUnlock,
+	kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
 #endif
 	kGSSiTGT,
 	kCFBooleanTrue
@@ -1057,7 +1062,7 @@ kcc_get_default_name(krb5_context context, char **str)
 	char *n;
 	
 	if (name == NULL)
-	    return ENOMEM;
+	    return krb5_enomem(context);
 
 	n = rk_cfstring2cstring(name);
 	if (n == NULL)
@@ -1066,13 +1071,13 @@ kcc_get_default_name(krb5_context context, char **str)
 	asprintf(str, "KCC:%s", n);
 	free(n);
 	if (*str == NULL)
-	    return ENOMEM;
+	    return krb5_enomem(context);
 	return 0;
     } else {
 
 	*str = strdup("KCC:default-kcache");
 	if (*str == NULL)
-	    return ENOMEM;
+	    return krb5_enomem(context);
     }
     return 0;
 }

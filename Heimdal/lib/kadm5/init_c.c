@@ -45,6 +45,18 @@
 
 RCSID("$Id$");
 
+static kadm5_ret_t
+kadm5_c_lock(void *server_handle)
+{
+    return ENOTSUP;
+}
+
+static kadm5_ret_t
+kadm5_c_unlock(void *server_handle)
+{
+    return ENOTSUP;
+}
+
 static void
 set_funcs(kadm5_client_context *c)
 {
@@ -61,6 +73,8 @@ set_funcs(kadm5_client_context *c)
     SET(c, modify_principal);
     SET(c, randkey_principal);
     SET(c, rename_principal);
+    SET(c, lock);
+    SET(c, unlock);
 }
 
 kadm5_ret_t
@@ -412,7 +426,7 @@ kadm_connect(kadm5_client_context *ctx)
     kadm5_ret_t ret;
     krb5_principal server;
     krb5_ccache cc;
-    int s;
+    rk_socket_t s = rk_INVALID_SOCKET;
     struct addrinfo *ai, *a;
     struct addrinfo hints;
     int error;
@@ -445,7 +459,7 @@ kadm_connect(kadm5_client_context *ctx)
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
 	    krb5_clear_error_message(context);
 	    krb5_warn (context, errno, "connect(%s)", hostname);
-	    close (s);
+	    rk_closesocket (s);
 	    continue;
 	}
 	break;
@@ -464,7 +478,7 @@ kadm_connect(kadm5_client_context *ctx)
 
     if(ret) {
 	freeaddrinfo (ai);
-	close(s);
+	rk_closesocket(s);
 	return ret;
     }
 
@@ -475,7 +489,7 @@ kadm_connect(kadm5_client_context *ctx)
 
     if (service_name == NULL) {
 	freeaddrinfo (ai);
-	close(s);
+	rk_closesocket(s);
 	krb5_clear_error_message(context);
 	return ENOMEM;
     }
@@ -486,7 +500,7 @@ kadm_connect(kadm5_client_context *ctx)
 	freeaddrinfo (ai);
 	if(ctx->ccache == NULL)
 	    krb5_cc_close(context, cc);
-	close(s);
+	rk_closesocket(s);
 	return ret;
     }
     ctx->ac = NULL;
@@ -509,13 +523,13 @@ kadm_connect(kadm5_client_context *ctx)
 	krb5_data_free(&params);
 	if(ret) {
 	    freeaddrinfo (ai);
-	    close(s);
+	    rk_closesocket(s);
 	    if(ctx->ccache == NULL)
 		krb5_cc_close(context, cc);
 	    return ret;
 	}
     } else if(ret == KRB5_SENDAUTH_BADAPPLVERS) {
-	close(s);
+	rk_closesocket(s);
 
 	s = socket (a->ai_family, a->ai_socktype, a->ai_protocol);
 	if (s < 0) {
@@ -524,7 +538,7 @@ kadm_connect(kadm5_client_context *ctx)
 	    return errno;
 	}
 	if (connect (s, a->ai_addr, a->ai_addrlen) < 0) {
-	    close (s);
+	    rk_closesocket (s);
 	    freeaddrinfo (ai);
 	    krb5_clear_error_message(context);
 	    return errno;
@@ -536,7 +550,7 @@ kadm_connect(kadm5_client_context *ctx)
     }
     freeaddrinfo (ai);
     if(ret) {
-	close(s);
+	rk_closesocket(s);
 	return ret;
     }
 

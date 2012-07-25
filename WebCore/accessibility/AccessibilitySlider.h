@@ -53,8 +53,8 @@ private:
     virtual AccessibilityRole roleValue() const { return SliderRole; }    
     virtual bool isSlider() const { return true; }
     virtual bool isInputSlider() const { return true; }
+    virtual bool isControl() const { return true; }
     
-    virtual const AccessibilityChildrenVector& children();
     virtual void addChildren();
     
     virtual bool canSetValueAttribute() const { return true; }
@@ -75,8 +75,7 @@ public:
 
     virtual AccessibilityRole roleValue() const { return SliderThumbRole; }
 
-    virtual IntSize size() const;
-    virtual IntRect elementRect() const;
+    virtual LayoutRect elementRect() const;
 
     virtual bool accessibilityIsIgnored() const;
 

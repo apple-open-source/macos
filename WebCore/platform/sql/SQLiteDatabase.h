@@ -28,6 +28,7 @@
 #define SQLiteDatabase_h
 
 #include "PlatformString.h"
+#include <wtf/text/CString.h>
 #include <wtf/Threading.h>
 
 #if COMPILER(MSVC)
@@ -68,8 +69,8 @@ public:
     
     bool tableExists(const String&);
     void clearAllTables();
-    void runVacuumCommand();
-    void runIncrementalVacuumCommand();
+    int runVacuumCommand();
+    int runIncrementalVacuumCommand();
     
     bool transactionInProgress() const { return m_transactionInProgress; }
     
@@ -103,7 +104,7 @@ public:
     const char* lastErrorMsg();
     
     sqlite3* sqlite3Handle() const {
-        ASSERT(m_sharable || currentThread() == m_openingThread);
+        ASSERT(m_sharable || currentThread() == m_openingThread || !m_db);
         return m_db;
     }
     
@@ -153,7 +154,10 @@ private:
 
     Mutex m_databaseClosingMutex;
     bool m_interrupted;
-}; // class SQLiteDatabase
+
+    int m_openError;
+    CString m_openErrorMessage;
+};
 
 } // namespace WebCore
 

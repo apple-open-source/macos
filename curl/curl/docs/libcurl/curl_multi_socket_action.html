@@ -1,6 +1,8 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+ "http://www.w3.org/TR/html4/loose.dtd">
 <html><head>
 <title>curl_multi_socket_action man page</title>
-<meta name="generator" content="roffit 0.7">
+<meta name="generator" content="roffit">
 <STYLE type="text/css">
 P.level0 {
  padding-left: 2em;
@@ -45,27 +47,19 @@ p.roffit {
 
 <p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
 <p class="level0">curl_multi_socket_action - reads/writes available data given an action <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
-<p class="level0"><pre>
-<p class="level0">#include &lt;curl/curl.h&gt;
- <p class="level0">CURLMcode curl_multi_socket_action(CURLM * multi_handle,
- &nbsp;                                  curl_socket_t sockfd, int ev_bitmask,
- &nbsp;                                  int *running_handles);
- </pre>
-
+<p class="level0">
+<p class="level0">#include &lt;curl/curl.h&gt; 
+<p class="level0">CURLMcode curl_multi_socket_action(CURLM * multi_handle, &nbsp;                                  curl_socket_t sockfd, int ev_bitmask, &nbsp;                                  int *running_handles); 
 <p class="level0"><a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
 <p class="level0">When the application has detected action on a socket handled by libcurl, it should call <a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> with the <span Class="bold">sockfd</span> argument set to the socket with the action. When the events on a socket are known, they can be passed as an events bitmask <span Class="bold">ev_bitmask</span> by first setting <span Class="bold">ev_bitmask</span> to 0, and then adding using bitwise OR (|) any combination of events to be chosen from CURL_CSELECT_IN, CURL_CSELECT_OUT or CURL_CSELECT_ERR. When the events on a socket are unknown, pass 0 instead, and libcurl will test the descriptor internally. 
 <p class="level0">At return, the integer <span Class="bold">running_handles</span> points to will contain the number of running easy handles within the multi handle. When this number reaches zero, all transfers are complete/done. When you call <a class="emphasis" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> on a specific socket and the counter decreases by one, it DOES NOT necessarily mean that this exact socket/transfer is the one that completed. Use <a class="emphasis" href="./curl_multi_info_read.html">curl_multi_info_read(3)</a> to figure out which easy handle that completed. 
 <p class="level0">The <a class="bold" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> functions inform the application about updates in the socket (file descriptor) status by doing none, one, or multiple calls to the socket callback function set with the CURLMOPT_SOCKETFUNCTION option to <a class="emphasis" href="./curl_multi_setopt.html">curl_multi_setopt(3)</a>. They update the status with changes since the previous time the callback was called. 
 <p class="level0">Get the timeout time by setting the <span Class="emphasis">CURLMOPT_TIMERFUNCTION</span> option with <a class="emphasis" href="./curl_multi_setopt.html">curl_multi_setopt(3)</a>. Your application will then get called with information on how long to wait for socket actions at most before doing the timeout action: call the <a class="bold" href="./curl_multi_socket_action.html">curl_multi_socket_action(3)</a> function with the <span Class="bold">sockfd</span> argument set to CURL_SOCKET_TIMEOUT. You can also use the <a class="emphasis" href="./curl_multi_timeout.html">curl_multi_timeout(3)</a> function to poll the value at any given time, but for an event-based system using the callback is far better than relying on polling the timeout value. <a name="CALLBACK"></a><h2 class="nroffsh">CALLBACK DETAILS</h2>
 <p class="level0">
-<p class="level0">The socket <span Class="bold">callback</span> function uses a prototype like this <pre>
-<p class="level0"><p class="level0">&nbsp; int curl_socket_callback(CURL *easy,      /* easy handle */
- &nbsp;                          curl_socket_t s, /* socket */
- &nbsp;                          int action,      /* see values below */
- &nbsp;                          void *userp,    /* private callback pointer */
- &nbsp;                          void *socketp); /* private socket pointer */
- <p class="level0"></pre>
-
+<p class="level0">The socket <span Class="bold">callback</span> function uses a prototype like this 
+<p class="level0">
+<p class="level0">&nbsp; int curl_socket_callback(CURL *easy,      /* easy handle */ &nbsp;                          curl_socket_t s, /* socket */ &nbsp;                          int action,      /* see values below */ &nbsp;                          void *userp,    /* private callback pointer */ &nbsp;                          void *socketp); /* private socket pointer */ 
+<p class="level0">
 <p class="level0">The callback MUST return 0. 
 <p class="level0">The <span Class="emphasis">easy</span> argument is a pointer to the easy handle that deals with this particular socket. Note that a single handle may work with several sockets simultaneously. 
 <p class="level0">The <span Class="emphasis">s</span> argument is the actual socket value as you use it within your system. 

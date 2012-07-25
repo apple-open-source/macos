@@ -338,11 +338,13 @@ IOReturn IOFWIsochChannel::setTalker( IOFWIsochPort *talker )
 				error = kIOReturnNoMemory;
 			}
 		}
-		
+
+#if 0
 		if( error == kIOReturnSuccess )
 		{
 			error = checkMemoryInRange( memory );
 		}
+#endif
 		
 		if( error == kIOReturnSuccess )
 		{

@@ -618,7 +618,6 @@ display(FTSENT *p, FTSENT *list)
 		return;
 
 	needstats = f_inode || f_longform || f_size;
-	flen = 0;
 	btotal = 0;
 	initmax = getenv("LS_COLWIDTHS");
 	/* Fields match -lios order.  New ones should be added at the end. */

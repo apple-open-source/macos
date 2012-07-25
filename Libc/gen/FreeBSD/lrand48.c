@@ -16,11 +16,9 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/lrand48.c,v 1.2 2002/03/22 21:52:05 obrien 
 
 #include "rand48.h"
 
-extern unsigned short _rand48_seed[3];
-
 long
 lrand48(void)
 {
-	_dorand48(_rand48_seed);
-	return ((long) _rand48_seed[2] << 15) + ((long) _rand48_seed[1] >> 1);
+	_DORAND48(_rand48_seed);
+	return (_rand48_seed >> 17) & 0x7fffffff;
 }

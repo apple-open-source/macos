@@ -47,6 +47,7 @@ _NAHSelectionGetInfoForKey
 _NAHCopyReferenceKey
 _NAHCredAddReference
 _NAHCredRemoveReference
+_NAHCopyMMeUserNameFromCertificate
 _kGSSAPIMechNTLM
 _kGSSAPIMechKerberos
 _kGSSAPIMechKerberosU2U
@@ -57,3 +58,6 @@ _kGSSAPIMechSPNEGO
 _kNAHCredentialType
 _kNAHInferredLabel
 _kNAHErrorDomain
+_NAHAuthenticationInfoCopyClientCredential
+_NAHAuthenticationInfoCopyServerName
+_NAHAuthenticationInfoGetGSSMechanism

@@ -3,6 +3,7 @@
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  *           (C) 2000 Stefan Schimanski (1Stein@gmx.de)
  * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,7 +29,10 @@
 #include "FrameView.h"
 #include "HTMLFrameElementBase.h"
 #include "PluginViewBase.h"
+#include "RenderSVGRoot.h"
 #include "RenderView.h"
+
+using namespace std;
 
 namespace WebCore {
 
@@ -89,5 +93,19 @@ bool RenderPart::requiresAcceleratedCompositing() const
     return false;
 }
 #endif
+
+bool RenderPart::needsPreferredWidthsRecalculation() const
+{
+    if (RenderWidget::needsPreferredWidthsRecalculation())
+        return true;
+    return embeddedContentBox();
+}
+
+RenderBox* RenderPart::embeddedContentBox() const
+{
+    if (!node() || !widget() || !widget()->isFrameView())
+        return 0;
+    return static_cast<FrameView*>(widget())->embeddedContentBox();
+}
 
 }

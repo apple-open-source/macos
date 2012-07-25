@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007-2009, 2011  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: db_test.c,v 1.68.104.2 2011/08/29 23:45:33 tbox Exp $ */
+/* $Id: db_test.c,v 1.68 2009-09-02 23:48:01 tbox Exp $ */
 
 /*! \file
  * \author
@@ -70,10 +70,14 @@ static isc_boolean_t		ascending = ISC_TRUE;
 
 static void
 print_result(const char *message, isc_result_t result) {
+	size_t len;
 
-	if (message == NULL)
+	if (message == NULL) {
+		len = 0;
 		message = "";
-	printf("%s%sresult %08x: %s\n", message, (*message == '\0') ? "" : " ",
+	}
+	len = strlen(message);
+	printf("%s%sresult %08x: %s\n", message, (len == 0U) ? "" : " ",
 	       result, isc_result_totext(result));
 }
 
@@ -445,7 +449,6 @@ main(int argc, char *argv[]) {
 
 	argc -= isc_commandline_index;
 	argv += isc_commandline_index;
-	POST(argv);
 
 	if (argc != 0)
 		printf("ignoring trailing arguments\n");

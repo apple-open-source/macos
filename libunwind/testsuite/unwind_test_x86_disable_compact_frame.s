@@ -353,29 +353,29 @@ LEFDE9:
 .globl _test_edi.eh
 _test_edi.eh:
 LSFDE10:
-	.set L$set$15,LEFDE10-LASFDE10
-	.long L$set$15	# FDE Length
+	.set L$set$15a,LEFDE10-LASFDE10
+	.long L$set$15a	# FDE Length
 LASFDE10:
 	.long	LASFDE10-EH_frame1	# FDE CIE offset
 	.long	LFB11-.	# FDE initial location
-	.set L$set$16,LFE11-LFB11
-	.long L$set$16	# FDE address range
+	.set L$set$16a,LFE11-LFB11
+	.long L$set$16a	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$17,LCFI9-LFB11
-	.long L$set$17
+	.set L$set$17a,LCFI9-LFB11
+	.long L$set$17a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x8	# uleb128 0x8
 	.byte	0x84	# DW_CFA_offset, column 0x4
 	.byte	0x2	# uleb128 0x2
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$18,LCFI10-LCFI9
-	.long L$set$18
+	.set L$set$18a,LCFI10-LCFI9
+	.long L$set$18a
 	.byte	0xd	# DW_CFA_def_cfa_register
 	.byte	0x4	# uleb128 0x4
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$19,LCFI12-LCFI10
-	.long L$set$19
+	.set L$set$19a,LCFI12-LCFI10
+	.long L$set$19a
 	.byte	0x87	# DW_CFA_offset, column 0x7
 	.byte	0x3	# uleb128 0x3
 	.align 2
@@ -450,29 +450,29 @@ LEFDE13:
 .globl _test_ebx_edi.eh
 _test_ebx_edi.eh:
 LSFDE111:
-	.set L$set$20,LEFDE11-LASFDE11
-	.long L$set$20	# FDE Length
+	.set L$set$20a,LEFDE11-LASFDE11
+	.long L$set$20a	# FDE Length
 LASFDE111:
 	.long	LASFDE111-EH_frame1	# FDE CIE offset
 	.long	LFB91-.	# FDE initial location
-	.set L$set$21,LFE91-LFB91
-	.long L$set$21	# FDE address range
+	.set L$set$21a,LFE91-LFB91
+	.long L$set$21a	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$22,LCFI171-LFB91
-	.long L$set$22
+	.set L$set$22a,LCFI171-LFB91
+	.long L$set$22a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x8	# uleb128 0x8
 	.byte	0x84	# DW_CFA_offset, column 0x4
 	.byte	0x2	# uleb128 0x2
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$23,LCFI181-LCFI171
-	.long L$set$23
+	.set L$set$23a,LCFI181-LCFI171
+	.long L$set$23a
 	.byte	0xd	# DW_CFA_def_cfa_register
 	.byte	0x4	# uleb128 0x4
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$24,LCFI211-LCFI181
-	.long L$set$24
+	.set L$set$24a,LCFI211-LCFI181
+	.long L$set$24a
 	.byte	0x87	# DW_CFA_offset, column 0x7
 	.byte	0x3	# uleb128 0x3
 	.byte	0x83	# DW_CFA_offset, column 0x3
@@ -519,29 +519,29 @@ LEFDE15:
 .globl _test_edi_esi_ebx.eh
 _test_edi_esi_ebx.eh:
 LSFDE15a:
-	.set L$set$30,LEFDE15a-LASFDE15a
-	.long L$set$30	# FDE Length
+	.set L$set$30a,LEFDE15a-LASFDE15a
+	.long L$set$30a	# FDE Length
 LASFDE15a:
 	.long	LASFDE15a-EH_frame1	# FDE CIE offset
 	.long	LFB7a-.	# FDE initial location
-	.set L$set$31,LFE7a-LFB7a
-	.long L$set$31	# FDE address range
+	.set L$set$31a,LFE7a-LFB7a
+	.long L$set$31a	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$32,LCFI27a-LFB7a
-	.long L$set$32
+	.set L$set$32a,LCFI27a-LFB7a
+	.long L$set$32a
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x8	# uleb128 0x8
 	.byte	0x84	# DW_CFA_offset, column 0x4
 	.byte	0x2	# uleb128 0x2
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$33,LCFI28a-LCFI27a
-	.long L$set$33
+	.set L$set$33a,LCFI28a-LCFI27a
+	.long L$set$33a
 	.byte	0xd	# DW_CFA_def_cfa_register
 	.byte	0x4	# uleb128 0x4
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$34,LCFI32a-LCFI28a
-	.long L$set$34
+	.set L$set$34a,LCFI32a-LCFI28a
+	.long L$set$34a
 	.byte	0x83	# DW_CFA_offset, column 0x3
 	.byte	0x3	# uleb128 0x3
 	.byte	0x86	# DW_CFA_offset, column 0x6
@@ -555,29 +555,29 @@ LEFDE15a:
 .globl _test_pad_ebx_edi.eh
 _test_pad_ebx_edi.eh:
 LSFDE111a:
-	.set L$set$20,LEFDE111a-LASFDE111a
-	.long L$set$20	# FDE Length
+	.set L$set$20b,LEFDE111a-LASFDE111a
+	.long L$set$20b	# FDE Length
 LASFDE111a:
 	.long	LASFDE111a-EH_frame1	# FDE CIE offset
 	.long	LFB91a-.	# FDE initial location
-	.set L$set$21,LFE91a-LFB91a
-	.long L$set$21	# FDE address range
+	.set L$set$21b,LFE91a-LFB91a
+	.long L$set$21b	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$22,LCFI171a-LFB91a
-	.long L$set$22
+	.set L$set$22b,LCFI171a-LFB91a
+	.long L$set$22b
 	.byte	0xe	# DW_CFA_def_cfa_offset
 	.byte	0x8	# uleb128 0x8
 	.byte	0x84	# DW_CFA_offset, column 0x4
 	.byte	0x2	# uleb128 0x2
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$23,LCFI181a-LCFI171a
-	.long L$set$23
+	.set L$set$23b,LCFI181a-LCFI171a
+	.long L$set$23b
 	.byte	0xd	# DW_CFA_def_cfa_register
 	.byte	0x4	# uleb128 0x4
 	.byte	0x4	# DW_CFA_advance_loc4
-	.set L$set$24,LCFI211a-LCFI181a
-	.long L$set$24
+	.set L$set$24b,LCFI211a-LCFI181a
+	.long L$set$24b
 	.byte	0x87	# DW_CFA_offset, column 0x7
 	.byte	0x13	# uleb128 0x13
 	.byte	0x83	# DW_CFA_offset, column 0x3

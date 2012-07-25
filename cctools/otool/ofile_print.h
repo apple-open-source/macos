@@ -47,7 +47,9 @@ extern void print_ar_hdr(
     struct ar_hdr *ar_hdr,
     char *member_name,
     uint32_t member_name_size,
-    enum bool verbose);
+    uint32_t member_offset,
+    enum bool verbose,
+    enum bool print_offset);
 
 extern void print_library_toc(
     struct ar_hdr *toc_ar_hdr,
@@ -58,7 +60,7 @@ extern void print_library_toc(
     enum byte_sex toc_byte_sex,
     char *library_name,
     char *library_addr,
-    uint32_t library_size,
+    uint64_t library_size,
     char *arch_name,
     enum bool verbose);
 
@@ -287,8 +289,13 @@ extern void print_linkedit_data_command(
     uint32_t object_size);
 
 extern void print_version_min_command(
-    struct version_min_command *vd,
-    uint32_t object_size);
+    struct version_min_command *vd);
+
+extern void print_source_version_command(
+    struct source_version_command *sv);
+
+extern void print_entry_point_command(
+    struct entry_point_command *ep);
 
 extern void print_rpath_command(
     struct rpath_command *rpath,
@@ -309,9 +316,10 @@ extern void print_thread_states(
     enum byte_sex thread_states_byte_sex);
 
 extern void print_cstring_section(
+    cpu_type_t cputype,
     char *sect,
     uint32_t sect_size,
-    uint32_t sect_addr,
+    uint64_t sect_addr,
     enum bool print_addresses);
 
 extern void print_literal4_section(
@@ -336,6 +344,7 @@ extern void print_literal16_section(
     enum bool print_addresses);
 
 extern void print_literal_pointer_section(
+    cpu_type_t cputype,
     struct load_command *lc,
     uint32_t ncmds,
     uint32_t sizeofcmds,
@@ -344,7 +353,7 @@ extern void print_literal_pointer_section(
     uint32_t size,
     char *sect,
     uint32_t sect_size,
-    uint32_t sect_addr,
+    uint64_t sect_addr,
     struct nlist *symbols,
     struct nlist_64 *symbols64,
     uint32_t nsymbols,

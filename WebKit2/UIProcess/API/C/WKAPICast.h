@@ -31,6 +31,7 @@
 #include "FontSmoothingLevel.h"
 #include "HTTPCookieAcceptPolicy.h"
 #include "ResourceCachesToClear.h"
+#include "WebGrammarDetail.h"
 #include "WKContext.h"
 #include "WKCookieManager.h"
 #include "WKCredentialTypes.h"
@@ -51,6 +52,7 @@ class AuthenticationChallengeProxy;
 class AuthenticationDecisionListener;
 class DownloadProxy;
 class GeolocationPermissionRequestProxy;
+class NotificationPermissionRequest;
 class WebApplicationCacheManagerProxy;
 class WebBackForwardList;
 class WebBackForwardListItem;
@@ -64,11 +66,16 @@ class WebFramePolicyListenerProxy;
 class WebFrameProxy;
 class WebGeolocationManagerProxy;
 class WebGeolocationPosition;
+class WebGrammarDetail;
+class WebHitTestResult;
 class WebIconDatabase;
 class WebInspectorProxy;
 class WebKeyValueStorageManagerProxy;
 class WebMediaCacheManagerProxy;
 class WebNavigationData;
+class WebNotification;
+class WebNotificationProvider;
+class WebNotificationManagerProxy;
 class WebOpenPanelParameters;
 class WebOpenPanelResultListenerProxy;
 class WebPageGroup;
@@ -76,6 +83,9 @@ class WebPageProxy;
 class WebPluginSiteDataManager;
 class WebPreferences;
 class WebProtectionSpace;
+class WebRenderLayer;
+class WebRenderObject;
+class WebTextChecker;
 
 WK_ADD_API_MAPPING(WKApplicationCacheManagerRef, WebApplicationCacheManagerProxy)
 WK_ADD_API_MAPPING(WKAuthenticationChallengeRef, AuthenticationChallengeProxy)
@@ -94,10 +104,16 @@ WK_ADD_API_MAPPING(WKFrameRef, WebFrameProxy)
 WK_ADD_API_MAPPING(WKGeolocationManagerRef, WebGeolocationManagerProxy)
 WK_ADD_API_MAPPING(WKGeolocationPermissionRequestRef, GeolocationPermissionRequestProxy)
 WK_ADD_API_MAPPING(WKGeolocationPositionRef, WebGeolocationPosition)
+WK_ADD_API_MAPPING(WKGrammarDetailRef, WebGrammarDetail)
+WK_ADD_API_MAPPING(WKHitTestResultRef, WebHitTestResult)
 WK_ADD_API_MAPPING(WKIconDatabaseRef, WebIconDatabase)
 WK_ADD_API_MAPPING(WKKeyValueStorageManagerRef, WebKeyValueStorageManagerProxy)
 WK_ADD_API_MAPPING(WKMediaCacheManagerRef, WebMediaCacheManagerProxy)
 WK_ADD_API_MAPPING(WKNavigationDataRef, WebNavigationData)
+WK_ADD_API_MAPPING(WKNotificationManagerRef, WebNotificationManagerProxy)
+WK_ADD_API_MAPPING(WKNotificationPermissionRequestRef, NotificationPermissionRequest)
+WK_ADD_API_MAPPING(WKNotificationProviderRef, WebNotificationProvider)
+WK_ADD_API_MAPPING(WKNotificationRef, WebNotification)
 WK_ADD_API_MAPPING(WKOpenPanelParametersRef, WebOpenPanelParameters)
 WK_ADD_API_MAPPING(WKOpenPanelResultListenerRef, WebOpenPanelResultListenerProxy)
 WK_ADD_API_MAPPING(WKPageGroupRef, WebPageGroup)
@@ -105,6 +121,9 @@ WK_ADD_API_MAPPING(WKPageRef, WebPageProxy)
 WK_ADD_API_MAPPING(WKPluginSiteDataManagerRef, WebPluginSiteDataManager)
 WK_ADD_API_MAPPING(WKPreferencesRef, WebPreferences)
 WK_ADD_API_MAPPING(WKProtectionSpaceRef, WebProtectionSpace)
+WK_ADD_API_MAPPING(WKRenderLayerRef, WebRenderLayer)
+WK_ADD_API_MAPPING(WKRenderObjectRef, WebRenderObject)
+WK_ADD_API_MAPPING(WKTextCheckerRef, WebTextChecker)
 
 #if ENABLE(INSPECTOR)
 WK_ADD_API_MAPPING(WKInspectorRef, WebInspectorProxy)
@@ -326,6 +345,11 @@ inline WKHTTPCookieAcceptPolicy toAPI(HTTPCookieAcceptPolicy policy)
     return kWKHTTPCookieAcceptPolicyAlways;
 }
 
+inline ProxyingRefPtr<WebGrammarDetail> toAPI(const WebCore::GrammarDetail& grammarDetail)
+{
+    return ProxyingRefPtr<WebGrammarDetail>(WebGrammarDetail::create(grammarDetail));
+}
+
 } // namespace WebKit
 
 #if defined(WIN32) || defined(_WIN32)
@@ -335,4 +359,9 @@ inline WKHTTPCookieAcceptPolicy toAPI(HTTPCookieAcceptPolicy policy)
 #if defined(BUILDING_GTK__)
 #include "WKAPICastGtk.h"
 #endif
+
+#if USE(SOUP)
+#include "WKAPICastSoup.h"
+#endif
+
 #endif // WKAPICast_h

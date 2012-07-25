@@ -15,15 +15,16 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.11.3</string>
+	<string>1.12</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.11</string>
+	<string>1.12</string>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.IPConfiguration</string>
 		<string>com.apple.SystemConfiguration.PreferencesMonitor</string>
+		<string>com.apple.SystemConfiguration.SCNetworkReachability</string>
 	</array>
 	<key>Builtin</key>
 	<true/>

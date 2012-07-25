@@ -24,9 +24,10 @@
  */
 
 #include "config.h"
-#include "JSJavaScriptCallFrame.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+
+#include "JSJavaScriptCallFrame.h"
 
 #include "JavaScriptCallFrame.h"
 #include <runtime/ArrayPrototype.h>
@@ -39,7 +40,7 @@ namespace WebCore {
 JSValue JSJavaScriptCallFrame::evaluate(ExecState* exec)
 {
     JSValue exception;
-    JSValue result = impl()->evaluate(exec->argument(0).toString(exec), exception);
+    JSValue result = impl()->evaluate(exec->argument(0).toString(exec)->value(exec), exception);
 
     if (exception)
         throwError(exec, exception);

@@ -33,6 +33,8 @@
 #if ENABLE(SVG)
 #include "V8SVGLength.h"
 
+#include "ExceptionCode.h"
+#include "SVGLengthContext.h"
 #include "SVGPropertyTearOff.h"
 #include "V8Binding.h"
 #include "V8BindingMacros.h"
@@ -45,9 +47,10 @@ v8::Handle<v8::Value> V8SVGLength::valueAccessorGetter(v8::Local<v8::String> nam
     SVGPropertyTearOff<SVGLength>* wrapper = V8SVGLength::toNative(info.Holder());
     SVGLength& imp = wrapper->propertyReference();
     ExceptionCode ec = 0;
-    float value = imp.value(wrapper->contextElement(), ec);
+    SVGLengthContext lengthContext(wrapper->contextElement());
+    float value = imp.value(lengthContext, ec);
     if (UNLIKELY(ec)) {
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, info.GetIsolate());
         return v8::Handle<v8::Value>();
     }
     return v8::Number::New(value);
@@ -58,7 +61,7 @@ void V8SVGLength::valueAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::
     INC_STATS("DOM.SVGLength.value._set");
     SVGPropertyTearOff<SVGLength>* wrapper = V8SVGLength::toNative(info.Holder());
     if (wrapper->role() == AnimValRole) {
-        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR);
+        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR, info.GetIsolate());
         return;
     }
 
@@ -69,9 +72,10 @@ void V8SVGLength::valueAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::
 
     SVGLength& imp = wrapper->propertyReference();
     ExceptionCode ec = 0;
-    imp.setValue(static_cast<float>(value->NumberValue()), wrapper->contextElement(), ec);
+    SVGLengthContext lengthContext(wrapper->contextElement());
+    imp.setValue(static_cast<float>(value->NumberValue()), lengthContext, ec);
     if (UNLIKELY(ec))
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, info.GetIsolate());
     else
         wrapper->commitChange();
 }
@@ -81,19 +85,20 @@ v8::Handle<v8::Value> V8SVGLength::convertToSpecifiedUnitsCallback(const v8::Arg
     INC_STATS("DOM.SVGLength.convertToSpecifiedUnits");
     SVGPropertyTearOff<SVGLength>* wrapper = V8SVGLength::toNative(args.Holder());
     if (wrapper->role() == AnimValRole) {
-        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR);
+        V8Proxy::setDOMException(NO_MODIFICATION_ALLOWED_ERR, args.GetIsolate());
         return v8::Handle<v8::Value>();
     }
 
     if (args.Length() < 1)
-        return throwError("Not enough arguments", V8Proxy::SyntaxError);
+        return V8Proxy::throwNotEnoughArgumentsError();
 
     SVGLength& imp = wrapper->propertyReference();
     ExceptionCode ec = 0;
     EXCEPTION_BLOCK(int, unitType, toUInt32(args[0]));
-    imp.convertToSpecifiedUnits(unitType, wrapper->contextElement(), ec);
+    SVGLengthContext lengthContext(wrapper->contextElement());
+    imp.convertToSpecifiedUnits(unitType, lengthContext, ec);
     if (UNLIKELY(ec))
-        V8Proxy::setDOMException(ec);
+        V8Proxy::setDOMException(ec, args.GetIsolate());
     else
         wrapper->commitChange();
     return v8::Handle<v8::Value>();

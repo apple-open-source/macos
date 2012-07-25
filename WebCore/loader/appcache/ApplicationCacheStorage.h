@@ -26,8 +26,6 @@
 #ifndef ApplicationCacheStorage_h
 #define ApplicationCacheStorage_h
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "PlatformString.h"
 #include "SecurityOriginHash.h"
 #include "SQLiteDatabase.h"
@@ -65,10 +63,11 @@ public:
 
     int64_t defaultOriginQuota() const { return m_defaultOriginQuota; }
     void setDefaultOriginQuota(int64_t quota);
-    bool usageForOrigin(const SecurityOrigin*, int64_t& usage);
-    bool quotaForOrigin(const SecurityOrigin*, int64_t& quota);
-    bool remainingSizeForOriginExcludingCache(const SecurityOrigin*, ApplicationCache*, int64_t& remainingSize);
+    bool calculateUsageForOrigin(const SecurityOrigin*, int64_t& usage);
+    bool calculateQuotaForOrigin(const SecurityOrigin*, int64_t& quota);
+    bool calculateRemainingSizeForOriginExcludingCache(const SecurityOrigin*, ApplicationCache*, int64_t& remainingSize);
     bool storeUpdatedQuotaForOrigin(const SecurityOrigin*, int64_t quota);
+    bool checkOriginQuota(ApplicationCacheGroup*, ApplicationCache* oldCache, ApplicationCache* newCache, int64_t& totalSpaceNeeded);
 
     ApplicationCacheGroup* cacheGroupForURL(const KURL&); // Cache to load a main resource from.
     ApplicationCacheGroup* fallbackCacheGroupForURL(const KURL&); // Cache that has a fallback entry to load a main resource from if normal loading fails.
@@ -153,7 +152,5 @@ private:
 ApplicationCacheStorage& cacheStorage();
     
 } // namespace WebCore
-
-#endif // ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #endif // ApplicationCacheStorage_h

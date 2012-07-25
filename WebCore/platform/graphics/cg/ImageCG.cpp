@@ -54,6 +54,8 @@ bool FrameData::clear(bool clearMetadata)
     if (clearMetadata)
         m_haveMetadata = false;
 
+    m_orientation = DefaultImageOrientation;
+
     if (m_frame) {
         CGImageRelease(m_frame);
         m_frame = 0;
@@ -74,15 +76,15 @@ BitmapImage::BitmapImage(CGImageRef cgImage, ImageObserver* observer)
     , m_repetitionCount(cAnimationNone)
     , m_repetitionCountStatus(Unknown)
     , m_repetitionsComplete(0)
+    , m_decodedSize(0)
+    , m_frameCount(1)
     , m_isSolidColor(false)
     , m_checkedForSolidColor(false)
     , m_animationFinished(true)
     , m_allDataReceived(true)
     , m_haveSize(true)
     , m_sizeAvailable(true)
-    , m_decodedSize(0)
     , m_haveFrameCount(true)
-    , m_frameCount(1)
 {
     initPlatformData();
     
@@ -95,6 +97,7 @@ BitmapImage::BitmapImage(CGImageRef cgImage, ImageObserver* observer)
     m_frames[0].m_frame = cgImage;
     m_frames[0].m_hasAlpha = true;
     m_frames[0].m_haveMetadata = true;
+
     checkForSolidColor();
 }
 
@@ -128,7 +131,7 @@ void BitmapImage::checkForSolidColor()
     }
 }
 
-static RetainPtr<CGImageRef> imageWithColorSpace(CGImageRef originalImage, ColorSpace colorSpace)
+RetainPtr<CGImageRef> Image::imageWithColorSpace(CGImageRef originalImage, ColorSpace colorSpace)
 {
     CGColorSpaceRef originalColorSpace = CGImageGetColorSpace(originalImage);
 
@@ -182,7 +185,12 @@ RetainPtr<CFArrayRef> BitmapImage::getCGImageArray()
     return RetainPtr<CFArrayRef>(AdoptCF, array);
 }
 
-void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator compositeOp)
+void BitmapImage::draw(GraphicsContext* ctx, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator op)
+{
+    draw(ctx, dstRect, srcRect, styleColorSpace, op, DoNotRespectImageOrientation);
+}
+
+void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator compositeOp, RespectImageOrientationEnum shouldRespectImageOrientation)
 {
     startAnimation();
 
@@ -195,72 +203,13 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         return;
     }
 
-    float currHeight = CGImageGetHeight(image.get());
-    if (currHeight <= srcRect.y())
-        return;
-
-    CGContextRef context = ctxt->platformContext();
-    GraphicsContextStateSaver stateSaver(*ctxt);
-
-    bool shouldUseSubimage = false;
-
-    // If the source rect is a subportion of the image, then we compute an inflated destination rect that will hold the entire image
-    // and then set a clip to the portion that we want to display.
-    FloatRect adjustedDestRect = destRect;
     FloatSize selfSize = currentFrameSize();
-    if (srcRect.size() != selfSize) {
-        CGInterpolationQuality interpolationQuality = CGContextGetInterpolationQuality(context);
-        // When the image is scaled using high-quality interpolation, we create a temporary CGImage
-        // containing only the portion we want to display. We need to do this because high-quality
-        // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
-        // into the destination rect. See <rdar://problem/6112909>.
-        shouldUseSubimage = (interpolationQuality != kCGInterpolationNone) && (srcRect.size() != destRect.size() || !ctxt->getCTM().isIdentityOrTranslationOrFlipped());
-        float xScale = srcRect.width() / destRect.width();
-        float yScale = srcRect.height() / destRect.height();
-        if (shouldUseSubimage) {
-            FloatRect subimageRect = srcRect;
-            float leftPadding = srcRect.x() - floorf(srcRect.x());
-            float topPadding = srcRect.y() - floorf(srcRect.y());
+    ImageOrientation orientation = DefaultImageOrientation;
 
-            subimageRect.move(-leftPadding, -topPadding);
-            adjustedDestRect.move(-leftPadding / xScale, -topPadding / yScale);
+    if (shouldRespectImageOrientation == RespectImageOrientation)
+        orientation = frameOrientationAtIndex(m_currentFrame);
 
-            subimageRect.setWidth(ceilf(subimageRect.width() + leftPadding));
-            adjustedDestRect.setWidth(subimageRect.width() / xScale);
-
-            subimageRect.setHeight(ceilf(subimageRect.height() + topPadding));
-            adjustedDestRect.setHeight(subimageRect.height() / yScale);
-
-            image.adoptCF(CGImageCreateWithImageInRect(image.get(), subimageRect));
-            if (currHeight < srcRect.maxY()) {
-                ASSERT(CGImageGetHeight(image.get()) == currHeight - CGRectIntegral(srcRect).origin.y);
-                adjustedDestRect.setHeight(CGImageGetHeight(image.get()) / yScale);
-            }
-        } else {
-            adjustedDestRect.setLocation(FloatPoint(destRect.x() - srcRect.x() / xScale, destRect.y() - srcRect.y() / yScale));
-            adjustedDestRect.setSize(FloatSize(selfSize.width() / xScale, selfSize.height() / yScale));
-        }
-
-        CGContextClipToRect(context, destRect);
-    }
-
-    // If the image is only partially loaded, then shrink the destination rect that we're drawing into accordingly.
-    if (!shouldUseSubimage && currHeight < selfSize.height())
-        adjustedDestRect.setHeight(adjustedDestRect.height() * currHeight / selfSize.height());
-
-    ctxt->setCompositeOperation(compositeOp);
-
-    // Flip the coords.
-    CGContextScaleCTM(context, 1, -1);
-    adjustedDestRect.setY(-adjustedDestRect.maxY());
-
-    // Adjust the color space.
-    image = imageWithColorSpace(image.get(), styleColorSpace);
-
-    // Draw the image.
-    CGContextDrawImage(context, adjustedDestRect, image.get());
-
-    stateSaver.restore();
+    ctxt->drawNativeImage(image.get(), selfSize, styleColorSpace, destRect, srcRect, compositeOp, orientation);
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -312,7 +261,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     }
 
     // Adjust the color space.
-    subImage = imageWithColorSpace(subImage.get(), styleColorSpace);
+    subImage = Image::imageWithColorSpace(subImage.get(), styleColorSpace);
     
     // Leopard has an optimized call for the tiling of image patterns, but we can only use it if the image has been decoded enough that
     // its buffer is the same size as the overall image.  Because a partially decoded CGImageRef with a smaller width or height than the

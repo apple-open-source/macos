@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2002, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -184,7 +184,7 @@ my_CFStringToCStringAndLengthExt(CFStringRef cfstr, char * str, int len,
 }
 
 PRIVATE_EXTERN Boolean
-my_CFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
+my_CFStringArrayToCStringArray(CFArrayRef arr, void * buffer, int * buffer_size,
 			       int * ret_count)
 {
     int		count = CFArrayGetCount(arr);
@@ -430,7 +430,7 @@ my_CFStringCreateWithIPAddress(const struct in_addr ip)
 }
 
 CFStringRef
-my_CFStringCreateWithIPv6Address(const struct in6_addr * ip6_addr)
+my_CFStringCreateWithIPv6Address(const void * ip6_addr)
 {
     char 		ntopbuf[INET6_ADDRSTRLEN];
     const char *	c_str;

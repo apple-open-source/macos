@@ -44,9 +44,6 @@
 #include <Security/SecAccess.h>
 
 PRIVATE_EXTERN OSStatus
-EAPSecAccessCreateWithUid(uid_t uid, SecAccessRef * ret_access);
-
-PRIVATE_EXTERN OSStatus
 EAPSecKeychainItemSetAccessForTrustedApplications(SecKeychainItemRef item,
 						  CFArrayRef trusted_apps);
 #endif /* TARGET_OS_EMBEDDED */

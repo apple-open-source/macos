@@ -164,7 +164,14 @@ public:
     @result A number object. The caller must decrement the retain count
     on the object returned. */
     virtual OSNumber * newReportIntervalNumber() const;
-    
+
+    /*! @function newLocationIDNumber
+     @abstract Returns a number object that describes the location
+     of the HID device.  
+     @result A number object. The caller must decrement the retain count
+     on the object returned. */
+    virtual OSNumber *newLocationIDNumber() const;
+
 /*! @function getReport
     @abstract Get a report from the HID device.
     @discussion A completion parameter may be added in the future.

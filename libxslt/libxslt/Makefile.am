@@ -47,12 +47,14 @@ dummy:
 tests: dummy
 	@echo '## Running the regression test suite'
 	@(cd tests ; $(MAKE) MAKEFLAGS+=--silent tests)
+	@(cd xsltproc ; $(MAKE) MAKEFLAGS+=--silent tests)
 	@(if [ "@PYTHON_SUBDIR@" != "" ] ; then cd python ; $(MAKE) MAKEFLAGS+=--silent tests ; fi)
 
 valgrind:
 	@echo '## Running the regression tests under Valgrind'
 	@echo '## Go get a cup of coffee it is gonna take a while ...'
 	@(cd tests ; $(MAKE) CHECKER='valgrind -q' tests)
+	@(cd xsltproc ; $(MAKE) CHECKER='valgrind -q' tests)
 
 cleanup:
 	-@(find . -name .\#\* -exec rm {} \;)

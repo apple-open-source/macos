@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sk.xml
@@ -363,6 +363,10 @@ sk{
         Zyyy{"Obecný"}
         Zzzz{"Neznáme písmo"}
     }
+    Scripts%stand-alone{
+        Hans{"Han (zjednodušené)"}
+        Hant{"Han (tradičné)"}
+    }
     Types{
         calendar{
             buddhist{"Buddhistický kalendár"}
@@ -382,10 +386,10 @@ sk{
         collation{
             big5han{"Tradičný čínsky Big5"}
             dictionary{"Usporiadanie slovníka"}
-            direct{"Priame triedenie"}
             ducet{"Predvolené usporiadanie unicode"}
             gb2312han{"Zjednodušený čínsky GB2312"}
             phonebook{"Lexikografické triedenie"}
+            phonetic{"Fonetické radenie"}
             pinyin{"Triedenie pinyin"}
             reformed{"Reformované usporiadanie"}
             search{"Všeobecné vyhľadávanie"}
@@ -431,7 +435,10 @@ sk{
             tibt{"Tibetské číslice"}
         }
     }
-    Version{"2.0.58.59"}
+    Variants{
+        SCOTLAND{"Štandardná škótska angličtina"}
+    }
+    Version{"2.0.65.46"}
     codePatterns{
         language{"Jazyk: {0}"}
         script{"Písmo: {0}"}

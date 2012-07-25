@@ -103,8 +103,8 @@ send a PPTP control request or reply
 ----------------------------------------------------------------------------- */
 int pptp_send(int fd, u_int16_t msg, void *req, u_int16_t reqlen, char *text)
 {
-    u_char              buf[256]; /* buffer large enough to send pptp control packets */
-    struct pptp_header	*hdr = (struct pptp_header *)buf;
+    u_char              buf[256] __attribute__ ((aligned(4))); /* buffer large enough to send pptp control packets */
+    struct pptp_header	*hdr = ALIGNED_CAST(struct pptp_header *)buf;
     int                 n, sent;
 
     if ((sizeof(*hdr) + reqlen) > sizeof(buf)) {

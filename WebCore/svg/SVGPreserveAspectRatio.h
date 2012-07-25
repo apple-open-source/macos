@@ -22,13 +22,14 @@
 #define SVGPreserveAspectRatio_h
 
 #if ENABLE(SVG)
-#include "ExceptionCode.h"
 #include "SVGPropertyTraits.h"
 
 namespace WebCore {
 
 class AffineTransform;
 class FloatRect;
+
+typedef int ExceptionCode;
 
 class SVGPreserveAspectRatio {
 public:
@@ -66,18 +67,8 @@ public:
                            float logicWidth, float logicHeight,
                            float physWidth, float physHeight) const;
 
-    template<class Consumer>
-    static bool parsePreserveAspectRatio(Consumer* consumer, const String& value, bool validate = true)
-    {
-        bool result = false;
-        const UChar* begin = value.characters();
-        const UChar* end = begin + value.length();
-        consumer->setPreserveAspectRatioBaseValue(parsePreserveAspectRatio(begin, end, validate, result));
-        return result;
-    }
-
-    // It's recommended to use the method above, only SVGViewSpec needs this parsing method
-    static SVGPreserveAspectRatio parsePreserveAspectRatio(const UChar*& currParam, const UChar* end, bool validate, bool& result);
+    void parse(const String&);
+    bool parse(const UChar*& currParam, const UChar* end, bool validate);
 
     String valueAsString() const;
 

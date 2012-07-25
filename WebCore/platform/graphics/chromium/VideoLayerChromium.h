@@ -35,64 +35,29 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "LayerChromium.h"
-#include "VideoFrameProvider.h"
+
+namespace WebKit {
+class WebVideoFrameProvider;
+}
 
 namespace WebCore {
+
+class CCVideoLayerImpl;
 
 // A Layer that contains a Video element.
 class VideoLayerChromium : public LayerChromium {
 public:
-    struct Texture {
-        unsigned id;
-        IntSize size;
-        IntSize visibleSize;
-        bool ownedByLayerRenderer;
-        bool isEmpty;
-    };
 
-    static PassRefPtr<VideoLayerChromium> create(GraphicsLayerChromium* owner = 0,
-                                                 VideoFrameProvider* = 0);
+    static PassRefPtr<VideoLayerChromium> create(WebKit::WebVideoFrameProvider*);
     virtual ~VideoLayerChromium();
 
-    virtual PassRefPtr<CCLayerImpl> createCCLayerImpl();
-
-    virtual void updateCompositorResources();
-    virtual bool drawsContent() const { return true; }
-
-    // This function is called by VideoFrameProvider. When this method is called
-    // putCurrentFrame() must be called to return the frame currently held.
-    void releaseCurrentFrame();
-
-    virtual void pushPropertiesTo(CCLayerImpl*);
-
-protected:
-    virtual void cleanupResources();
-    virtual const char* layerTypeAsString() const { return "VideoLayer"; }
+    virtual PassOwnPtr<CCLayerImpl> createCCLayerImpl() OVERRIDE;
 
 private:
-    VideoLayerChromium(GraphicsLayerChromium* owner, VideoFrameProvider*);
+    explicit VideoLayerChromium(WebKit::WebVideoFrameProvider*);
 
-    static unsigned determineTextureFormat(const VideoFrameChromium*);
-    static IntSize computeVisibleSize(const VideoFrameChromium*, unsigned plane);
-    void deleteTexturesInUse();
-
-    bool allocateTexturesIfNeeded(GraphicsContext3D*, const VideoFrameChromium*, unsigned textureFormat);
-    void allocateTexture(GraphicsContext3D*, unsigned textureId, const IntSize& dimensions, unsigned textureFormat) const;
-
-    void updateTexture(GraphicsContext3D*, unsigned textureId, const IntSize& dimensions, unsigned textureFormat, const void* data) const;
-
-    void resetFrameParameters();
-    void saveCurrentFrame(VideoFrameChromium*);
-
-    bool m_skipsDraw;
-    VideoFrameChromium::Format m_frameFormat;
-    VideoFrameProvider* m_provider;
-
-    Texture m_textures[3];
-
-    // This will be null for the entire duration of video playback if hardware
-    // decoding is not being used.
-    VideoFrameChromium* m_currentFrame;
+    // This pointer is only for passing to CCVideoLayerImpl's constructor. It should never be dereferenced by this class.
+    WebKit::WebVideoFrameProvider* m_provider;
 };
 
 }

@@ -20,7 +20,6 @@
 #include "config.h"
 #include "MediaQueryMatcher.h"
 
-#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "Element.h"
 #include "Frame.h"
@@ -29,6 +28,7 @@
 #include "MediaQueryEvaluator.h"
 #include "MediaQueryList.h"
 #include "MediaQueryListListener.h"
+#include "StyleResolver.h"
 
 namespace WebCore {
 
@@ -84,16 +84,16 @@ PassOwnPtr<MediaQueryEvaluator> MediaQueryMatcher::prepareEvaluator() const
     if (!documentElement)
         return nullptr;
 
-    CSSStyleSelector* styleSelector = m_document->styleSelector();
-    if (!styleSelector)
+    StyleResolver* styleResolver = m_document->styleResolver();
+    if (!styleResolver)
         return nullptr;
 
-    RefPtr<RenderStyle> rootStyle = styleSelector->styleForElement(documentElement, 0 /*defaultParent*/, false /*allowSharing*/, true /*resolveForRootDefault*/);
+    RefPtr<RenderStyle> rootStyle = styleResolver->styleForElement(documentElement, 0 /*defaultParent*/, DisallowStyleSharing, MatchOnlyUserAgentRules);
 
     return adoptPtr(new MediaQueryEvaluator(mediaType(), m_document->frame(), rootStyle.get()));
 }
 
-bool MediaQueryMatcher::evaluate(MediaList* media)
+bool MediaQueryMatcher::evaluate(const MediaQuerySet* media)
 {
     if (!media)
         return false;
@@ -107,7 +107,7 @@ PassRefPtr<MediaQueryList> MediaQueryMatcher::matchMedia(const String& query)
     if (!m_document)
         return 0;
 
-    RefPtr<MediaList> media = MediaList::create(query, false);
+    RefPtr<MediaQuerySet> media = MediaQuerySet::create(query);
     return MediaQueryList::create(this, media, evaluate(media.get()));
 }
 
@@ -137,7 +137,7 @@ void MediaQueryMatcher::removeListener(MediaQueryListListener* listener, MediaQu
     }
 }
 
-void MediaQueryMatcher::styleSelectorChanged()
+void MediaQueryMatcher::styleResolverChanged()
 {
     ASSERT(m_document);
 

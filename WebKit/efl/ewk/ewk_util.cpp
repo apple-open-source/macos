@@ -21,12 +21,9 @@
 #include "config.h"
 #include "ewk_util.h"
 
+#include "ewk_logging.h"
 #include "ewk_private.h"
 #include <eina_safety_checks.h>
-
-#ifdef HAVE_ECORE_X
-#include <Ecore_X.h>
-#endif
 
 /**
  * Converts an image from cairo_surface to the Evas_Object.
@@ -99,7 +96,7 @@ Evas_Object* ewk_util_image_from_cairo_surface_add(Evas* canvas, cairo_surface_t
         return 0;
     }
 
-    dst = evas_object_image_data_get(image, EINA_TRUE);
+    dst = evas_object_image_data_get(image, true);
     memcpy(dst, src, h * stride);
     evas_object_image_data_set(image, dst);
 
@@ -107,19 +104,3 @@ Evas_Object* ewk_util_image_from_cairo_surface_add(Evas* canvas, cairo_surface_t
 
     return image;
 }
-
-/**
- * @internal
- * Gets dpi value.
- *
- * @return device's dpi value.
- */
-int ewk_util_dpi_get(void)
-{
-#ifdef HAVE_ECORE_X
-     return ecore_x_dpi_get();
-#else
-     return 160;
-#endif
-}
-

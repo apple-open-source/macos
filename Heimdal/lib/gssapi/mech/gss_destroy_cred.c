@@ -56,12 +56,13 @@ gss_destroy_cred(OM_uint32 *min_stat,
 	return GSS_S_CALL_INACCESSIBLE_READ;
     if (*cred_handle == GSS_C_NO_CREDENTIAL)
 	return GSS_S_COMPLETE;
-    
+
     cred = (struct _gss_cred *)*cred_handle;
-    
-    while (SLIST_FIRST(&cred->gc_mc)) {
-	mc = SLIST_FIRST(&cred->gc_mc);
-	SLIST_REMOVE_HEAD(&cred->gc_mc, gmc_link);
+
+    while (HEIM_SLIST_FIRST(&cred->gc_mc)) {
+	mc = HEIM_SLIST_FIRST(&cred->gc_mc);
+	HEIM_SLIST_REMOVE_HEAD(&cred->gc_mc, gmc_link);
+
 	if (mc->gmc_mech->gm_destroy_cred)
 	    mc->gmc_mech->gm_destroy_cred(&junk, &mc->gmc_cred);
 	else

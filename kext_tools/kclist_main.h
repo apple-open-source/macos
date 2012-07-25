@@ -36,13 +36,14 @@ enum {
 
 #define kOptArch   'a'
 
-#define kOptChars  "a:h"
+#define kOptChars  "a:hv"
 
 int longopt = 0;
 
 struct option sOptInfo[] = {
     { kOptNameHelp,                  no_argument,        NULL,     kOptHelp },
     { kOptNameArch,                  required_argument,  NULL,     kOptArch },
+    { kOptNameVerbose,               no_argument,        NULL,     kOptVerbose },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
@@ -51,6 +52,7 @@ typedef struct {
     char             * kernelcachePath;
     CFMutableSetRef    kextIDs;
     const NXArchInfo * archInfo;
+    Boolean            verbose;
 } KclistArgs;
 
 #pragma mark Function Prototypes
@@ -66,7 +68,7 @@ ExitStatus addBundleIdentifier(
     char * ident);
 ExitStatus checkArgs(KclistArgs * toolArgs);
 void listPrelinkedKexts(KclistArgs * toolArgs, CFPropertyListRef kcInfoPlist);
-void printKextInfo(CFDictionaryRef kextPlist);
+void printKextInfo(CFDictionaryRef kextPlist, Boolean beVerbose);
 
 void usage(UsageLevel usageLevel);
 

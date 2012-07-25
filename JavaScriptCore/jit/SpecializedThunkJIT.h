@@ -42,7 +42,7 @@ namespace JSC {
             , m_globalData(globalData)
         {
             // Check that we have the expected number of arguments
-            m_failures.append(branch32(NotEqual, Address(callFrameRegister, RegisterFile::ArgumentCount * (int)sizeof(Register)), TrustedImm32(expectedArgCount + 1)));
+            m_failures.append(branch32(NotEqual, payloadFor(RegisterFile::ArgumentCount), TrustedImm32(expectedArgCount + 1)));
         }
         
         void loadDoubleArgument(int argument, FPRegisterID dst, RegisterID scratch)
@@ -60,7 +60,7 @@ namespace JSC {
         void loadJSStringArgument(int argument, RegisterID dst)
         {
             loadCellArgument(argument, dst);
-            m_failures.append(branchPtr(NotEqual, Address(dst, 0), TrustedImmPtr(m_globalData->jsStringVPtr)));
+            m_failures.append(branchPtr(NotEqual, Address(dst, JSCell::classInfoOffset()), TrustedImmPtr(&JSString::s_info)));
         }
         
         void loadInt32Argument(int argument, RegisterID dst, Jump& failTarget)
@@ -134,7 +134,7 @@ namespace JSC {
         
         MacroAssemblerCodeRef finalize(JSGlobalData& globalData, MacroAssemblerCodePtr fallback)
         {
-            LinkBuffer patchBuffer(globalData, this);
+            LinkBuffer patchBuffer(globalData, this, GLOBAL_THUNK_ID);
             patchBuffer.link(m_failures, CodeLocationLabel(fallback));
             for (unsigned i = 0; i < m_calls.size(); i++)
                 patchBuffer.link(m_calls[i].first, m_calls[i].second);

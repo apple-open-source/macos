@@ -2,7 +2,7 @@
 
 include $(top_srcdir)/Makefile.am.common
 
-AM_CPPFLAGS += $(INCLUDE_krb4) $(INCLUDE_hcrypto)
+AM_CPPFLAGS += $(INCLUDE_hcrypto)
 
 bin_PROGRAMS = su
 bin_SUIDS = su
@@ -15,4 +15,4 @@ LDADD = $(LIB_kafs) \
 	$(top_builddir)/lib/asn1/libasn1.la \
 	$(LIB_roken)
 
-EXTRA_DIST = $(man_MANS)
+EXTRA_DIST = NTMakefile $(man_MANS)

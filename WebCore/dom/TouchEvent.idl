@@ -36,18 +36,18 @@ module events {
         readonly attribute boolean altKey;
         readonly attribute boolean metaKey;
 
-        void initTouchEvent(in TouchList touches,
-                            in TouchList targetTouches,
-                            in TouchList changedTouches,
-                            in DOMString type,
-                            in DOMWindow view,
-                            in long screenX, 
-                            in long screenY, 
-                            in long clientX, 
-                            in long clientY,
-                            in boolean ctrlKey,
-                            in boolean altKey,
-                            in boolean shiftKey,
-                            in boolean metaKey);
+        void initTouchEvent(in [Optional=DefaultIsUndefined] TouchList touches,
+                            in [Optional=DefaultIsUndefined] TouchList targetTouches,
+                            in [Optional=DefaultIsUndefined] TouchList changedTouches,
+                            in [Optional=DefaultIsUndefined] DOMString type,
+                            in [Optional=DefaultIsUndefined] DOMWindow view,
+                            in [Optional=DefaultIsUndefined] long screenX, 
+                            in [Optional=DefaultIsUndefined] long screenY, 
+                            in [Optional=DefaultIsUndefined] long clientX, 
+                            in [Optional=DefaultIsUndefined] long clientY,
+                            in [Optional=DefaultIsUndefined] boolean ctrlKey,
+                            in [Optional=DefaultIsUndefined] boolean altKey,
+                            in [Optional=DefaultIsUndefined] boolean shiftKey,
+                            in [Optional=DefaultIsUndefined] boolean metaKey);
     };
 }

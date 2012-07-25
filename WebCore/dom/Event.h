@@ -34,9 +34,17 @@ namespace WebCore {
     class EventTarget;
     class EventDispatcher;
 
+    struct EventInit {
+        EventInit();
+        
+        bool bubbles;
+        bool cancelable;
+    };
+
     class Event : public RefCounted<Event> {
     public:
         enum PhaseType { 
+            NONE                = 0,
             CAPTURING_PHASE     = 1, 
             AT_TARGET           = 2,
             BUBBLING_PHASE      = 3 
@@ -69,6 +77,12 @@ namespace WebCore {
         {
             return adoptRef(new Event(type, canBubble, cancelable));
         }
+
+        static PassRefPtr<Event> create(const AtomicString& type, const EventInit& initializer)
+        {
+            return adoptRef(new Event(type, initializer));
+        }
+
         virtual ~Event();
 
         void initEvent(const AtomicString& type, bool canBubble, bool cancelable);
@@ -99,56 +113,21 @@ namespace WebCore {
 
         Clipboard* clipboardData() const { return isClipboardEvent() ? clipboard() : 0; }
 
-        virtual bool isCustomEvent() const;
+        virtual const AtomicString& interfaceName() const;
+        bool hasInterface(const AtomicString&) const;
+
+        // These events are general classes of events.
         virtual bool isUIEvent() const;
         virtual bool isMouseEvent() const;
-        virtual bool isMutationEvent() const;
         virtual bool isKeyboardEvent() const;
-        virtual bool isTextEvent() const;
-        virtual bool isCompositionEvent() const;
-        virtual bool isDragEvent() const; // a subset of mouse events
+
+        // Drag events are a subset of mouse events.
+        virtual bool isDragEvent() const;
+
+        // These events lack a DOM interface.
         virtual bool isClipboardEvent() const;
-        virtual bool isMessageEvent() const;
-        virtual bool isWheelEvent() const;
         virtual bool isBeforeTextInsertedEvent() const;
-        virtual bool isOverflowEvent() const;
-        virtual bool isPageTransitionEvent() const;
-        virtual bool isPopStateEvent() const;
-        virtual bool isProgressEvent() const;
-        virtual bool isXMLHttpRequestProgressEvent() const;
-        virtual bool isWebKitAnimationEvent() const;
-        virtual bool isWebKitTransitionEvent() const;
-        virtual bool isBeforeLoadEvent() const;
-        virtual bool isHashChangeEvent() const;
-#if ENABLE(SVG)
-        virtual bool isSVGZoomEvent() const;
-#endif
-#if ENABLE(DOM_STORAGE)
-        virtual bool isStorageEvent() const;
-#endif
-#if ENABLE(INDEXED_DATABASE)
-        virtual bool isIDBVersionChangeEvent() const;
-#endif
-#if ENABLE(WEB_AUDIO)
-        virtual bool isAudioProcessingEvent() const;
-        virtual bool isOfflineAudioCompletionEvent() const;
-#endif
-        virtual bool isErrorEvent() const;
-#if ENABLE(TOUCH_EVENTS)
-        virtual bool isTouchEvent() const;
-#endif
-#if ENABLE(DEVICE_ORIENTATION)
-        virtual bool isDeviceMotionEvent() const;
-        virtual bool isDeviceOrientationEvent() const;
-#endif
-#if ENABLE(INPUT_SPEECH)
-        virtual bool isSpeechInputEvent() const;
-#endif
-#if ENABLE(WEB_SOCKETS)
-        virtual bool isCloseEvent() const;
-#endif
-        bool fromUserGesture();
-        
+
         bool propagationStopped() const { return m_propagationStopped || m_immediatePropagationStopped; }
         bool immediatePropagationStopped() const { return m_immediatePropagationStopped; }
 
@@ -170,10 +149,12 @@ namespace WebCore {
 
         virtual Clipboard* clipboard() const { return 0; }
 
+        bool isBeingDispatched() const { return eventPhase(); }
 
     protected:
         Event();
         Event(const AtomicString& type, bool canBubble, bool cancelable);
+        Event(const AtomicString& type, const EventInit&);
 
         virtual void receivedTarget();
         bool dispatched() const { return m_target; }
@@ -196,37 +177,6 @@ namespace WebCore {
 
         RefPtr<Event> m_underlyingEvent;
     };
-
-class EventDispatchMediator {
-public:
-    explicit EventDispatchMediator(PassRefPtr<Event>);
-    virtual ~EventDispatchMediator();
-
-    virtual bool dispatchEvent(EventDispatcher*) const;
-
-protected:
-    EventDispatchMediator();
-
-    Event* event() const;
-    void setEvent(PassRefPtr<Event>);
-
-private:
-    RefPtr<Event> m_event;
-};
-
-inline EventDispatchMediator::EventDispatchMediator()
-{
-}
-
-inline Event* EventDispatchMediator::event() const
-{
-    return m_event.get();
-}
-
-inline void EventDispatchMediator::setEvent(PassRefPtr<Event> event)
-{
-    m_event = event;
-}
 
 } // namespace WebCore
 

@@ -58,13 +58,21 @@ void ScrollbarThemeGtk::updateThemeProperties()
                                 "stepper-size", &m_stepperSize,
                                 "stepper-spacing", &m_stepperSpacing,
                                 "trough-under-steppers", &m_troughUnderSteppers,
+                                "has-backward-stepper", &m_hasBackButtonStartPart,
+                                "has-forward-stepper", &m_hasForwardButtonEndPart,
                                 "has-secondary-backward-stepper", &m_hasBackButtonEndPart,
                                 "has-secondary-forward-stepper", &m_hasForwardButtonStartPart,
                                 NULL);
     updateScrollbarsFrameThickness();
 }
 
-void ScrollbarThemeGtk::paintTrackBackground(GraphicsContext* context, Scrollbar* scrollbar, const IntRect& rect)
+static void applyScrollbarStyleContextClasses(GtkStyleContext* context, ScrollbarOrientation orientation)
+{
+    gtk_style_context_add_class(context, GTK_STYLE_CLASS_SCROLLBAR);
+    gtk_style_context_add_class(context, orientation == VerticalScrollbar ?  GTK_STYLE_CLASS_VERTICAL : GTK_STYLE_CLASS_HORIZONTAL);
+}
+
+void ScrollbarThemeGtk::paintTrackBackground(GraphicsContext* context, ScrollbarThemeClient* scrollbar, const IntRect& rect)
 {
     // Paint the track background. If the trough-under-steppers property is true, this
     // should be the full size of the scrollbar, but if is false, it should only be the
@@ -75,7 +83,7 @@ void ScrollbarThemeGtk::paintTrackBackground(GraphicsContext* context, Scrollbar
 
     gtk_style_context_save(m_context);
 
-    gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_SCROLLBAR);
+    applyScrollbarStyleContextClasses(m_context, scrollbar->orientation());
     gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_TROUGH);
 
     gtk_render_background(m_context, context->platformContext()->cr(),
@@ -86,22 +94,23 @@ void ScrollbarThemeGtk::paintTrackBackground(GraphicsContext* context, Scrollbar
     gtk_style_context_restore(m_context);
 }
 
-void ScrollbarThemeGtk::paintScrollbarBackground(GraphicsContext* context, Scrollbar* scrollbar)
+void ScrollbarThemeGtk::paintScrollbarBackground(GraphicsContext* context, ScrollbarThemeClient* scrollbar)
 {
     gtk_style_context_save(m_context);
 
-    gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_SCROLLBAR);
+    applyScrollbarStyleContextClasses(m_context, scrollbar->orientation());
     gtk_style_context_add_class(m_context, "scrolled-window");
     gtk_render_frame(m_context, context->platformContext()->cr(), scrollbar->x(), scrollbar->y(), scrollbar->width(), scrollbar->height());
 
     gtk_style_context_restore(m_context);
 }
 
-void ScrollbarThemeGtk::paintThumb(GraphicsContext* context, Scrollbar* scrollbar, const IntRect& rect)
+void ScrollbarThemeGtk::paintThumb(GraphicsContext* context, ScrollbarThemeClient* scrollbar, const IntRect& rect)
 {
     gtk_style_context_save(m_context);
 
-    gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_SCROLLBAR);
+    ScrollbarOrientation orientation = scrollbar->orientation();
+    applyScrollbarStyleContextClasses(m_context, orientation);
     gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_SLIDER);
 
     guint flags = 0;
@@ -112,16 +121,17 @@ void ScrollbarThemeGtk::paintThumb(GraphicsContext* context, Scrollbar* scrollba
     gtk_style_context_set_state(m_context, static_cast<GtkStateFlags>(flags));
 
     gtk_render_slider(m_context, context->platformContext()->cr(), rect.x(), rect.y(), rect.width(), rect.height(),
-                      scrollbar->orientation() == VerticalScrollbar ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
+                      orientation == VerticalScrollbar ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL);
 
     gtk_style_context_restore(m_context);
 }
 
-void ScrollbarThemeGtk::paintButton(GraphicsContext* context, Scrollbar* scrollbar, const IntRect& rect, ScrollbarPart part)
+void ScrollbarThemeGtk::paintButton(GraphicsContext* context, ScrollbarThemeClient* scrollbar, const IntRect& rect, ScrollbarPart part)
 {
     gtk_style_context_save(m_context);
 
-    gtk_style_context_add_class(m_context, GTK_STYLE_CLASS_SCROLLBAR);
+    ScrollbarOrientation orientation = scrollbar->orientation();
+    applyScrollbarStyleContextClasses(m_context, orientation);
 
     guint flags = 0;
     if ((BackButtonStartPart == part && scrollbar->currentPos())
@@ -157,7 +167,7 @@ void ScrollbarThemeGtk::paintButton(GraphicsContext* context, Scrollbar* scrollb
     }
 
     gdouble angle;
-    if (scrollbar->orientation() == VerticalScrollbar) {
+    if (orientation == VerticalScrollbar) {
         angle = (part == ForwardButtonEndPart || part == ForwardButtonStartPart) ? G_PI : 0;
     } else {
         angle = (part == ForwardButtonEndPart || part == ForwardButtonStartPart) ? G_PI / 2 : 3 * (G_PI / 2);

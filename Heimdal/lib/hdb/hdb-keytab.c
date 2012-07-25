@@ -117,12 +117,17 @@ hkt_open(krb5_context context, HDB * db, int flags, mode_t mode)
 }
 
 static krb5_error_code
-hkt_fetch(krb5_context context, HDB * db, krb5_const_principal principal,
-	  unsigned flags, hdb_entry_ex * entry)
+hkt_fetch_kvno(krb5_context context, HDB * db, krb5_const_principal principal,
+	       unsigned flags, krb5_kvno kvno, hdb_entry_ex * entry)
 {
     hdb_keytab k = (hdb_keytab)db->hdb_db;
     krb5_error_code ret;
     krb5_keytab_entry ktentry;
+
+    if (!(flags & HDB_F_KVNO_SPECIFIED)) {
+	    /* Preserve previous behaviour if no kvno specified */
+	    kvno = 0;
+    }
 
     memset(&ktentry, 0, sizeof(ktentry));
 
@@ -143,7 +148,7 @@ hkt_fetch(krb5_context context, HDB * db, krb5_const_principal principal,
      * enctypes should work.
      */
 
-    ret = krb5_kt_get_entry(context, k->keytab, principal, 0, 0, &ktentry);
+    ret = krb5_kt_get_entry(context, k->keytab, principal, kvno, 0, &ktentry);
     if (ret) {
 	ret = HDB_ERR_NOENTRY;
 	goto out;
@@ -201,7 +206,7 @@ hdb_keytab_create(krb5_context context, HDB ** db, const char *arg)
 	krb5_set_error_message(context, ENOMEM, "malloc: out of memory");
 	return ENOMEM;
     }
-	
+
 
     (*db)->hdb_db = k;
 
@@ -209,7 +214,7 @@ hdb_keytab_create(krb5_context context, HDB ** db, const char *arg)
     (*db)->hdb_openp = 0;
     (*db)->hdb_open = hkt_open;
     (*db)->hdb_close = hkt_close;
-    (*db)->hdb_fetch = hkt_fetch;
+    (*db)->hdb_fetch_kvno = hkt_fetch_kvno;
     (*db)->hdb_store = hkt_store;
     (*db)->hdb_remove = NULL;
     (*db)->hdb_firstkey = hkt_firstkey;

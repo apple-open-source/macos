@@ -28,29 +28,43 @@
 #define InspectorClient_h
 
 #include "InspectorFrontendChannel.h"
+#include "InspectorStateClient.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
 class InspectorController;
-class Node;
+class Frame;
 class Page;
 
-class InspectorClient : public InspectorFrontendChannel {
+class InspectorClient : public InspectorFrontendChannel, public InspectorStateClient {
 public:
     virtual ~InspectorClient() { }
 
     virtual void inspectorDestroyed() = 0;
 
     virtual void openInspectorFrontend(InspectorController*) = 0;
+    virtual void closeInspectorFrontend() = 0;
+    virtual void bringFrontendToFront() = 0;
+    virtual void didResizeMainFrame(Frame*) { }
 
-    virtual void highlight(Node*) = 0;
+    virtual void highlight() = 0;
     virtual void hideHighlight() = 0;
 
-    // Navigation can cause some WebKit implementations to change the view / page / inspector controller instance.
-    // However, there are some inspector controller states that should survive navigation (such as tracking resources
-    // or recording timeline). Following callbacks allow embedders to track these states.
-    virtual void updateInspectorStateCookie(const String&) { };
+    virtual bool canClearBrowserCache() { return false; }
+    virtual void clearBrowserCache() { }
+    virtual bool canClearBrowserCookies() { return false; }
+    virtual void clearBrowserCookies() { }
+
+    virtual bool canOverrideDeviceMetrics() { return false; }
+    virtual void overrideDeviceMetrics(int /*width*/, int /*height*/, float /*fontScaleFactor*/, bool /*fitWindow*/)
+    {
+        // FIXME: Platforms may want to implement this (see https://bugs.webkit.org/show_bug.cgi?id=82886).
+    }
+    virtual void autoZoomPageToFitWidth()
+    {
+        // FIXME: Platforms may want to implement this (see https://bugs.webkit.org/show_bug.cgi?id=82886).
+    }
 
     bool doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
 };

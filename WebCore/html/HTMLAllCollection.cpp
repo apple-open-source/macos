@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,22 +26,41 @@
 #include "config.h"
 #include "HTMLAllCollection.h"
 
-#include "Node.h"
+#include "Element.h"
 
 namespace WebCore {
 
-PassRefPtr<HTMLAllCollection> HTMLAllCollection::create(PassRefPtr<Node> base)
+PassOwnPtr<HTMLAllCollection> HTMLAllCollection::create(Document* document)
 {
-    return adoptRef(new HTMLAllCollection(base));
+    return adoptPtr(new HTMLAllCollection(document));
 }
 
-HTMLAllCollection::HTMLAllCollection(PassRefPtr<Node> base)
-    : HTMLCollection(base, DocAll)
+HTMLAllCollection::HTMLAllCollection(Document* document)
+    : HTMLCollection(document, DocAll)
 {
 }
 
 HTMLAllCollection::~HTMLAllCollection()
 {
+}
+
+Node* HTMLAllCollection::namedItemWithIndex(const AtomicString& name, unsigned index) const
+{
+    invalidateCacheIfNeeded();
+    updateNameCache();
+
+    if (Vector<Element*>* idCache = m_cache.idCache.get(name.impl())) {
+        if (index < idCache->size())
+            return idCache->at(index);
+        index -= idCache->size();
+    }
+
+    if (Vector<Element*>* nameCache = m_cache.nameCache.get(name.impl())) {
+        if (index < nameCache->size())
+            return nameCache->at(index);
+    }
+
+    return 0;
 }
 
 } // namespace WebCore

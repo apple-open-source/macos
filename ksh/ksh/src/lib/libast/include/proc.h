@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -40,6 +40,7 @@
 #define PROC_GID	(1<<5)	/* setgid(getgid())			*/
 #define PROC_IGNORE	(1<<6)	/* ignore parent pipe errors		*/
 #define PROC_IGNOREPATH	(1<<16)	/* procrun() intercept to ignore path	*/
+#define PROC_ORPHAN	(1<<18)	/* create orphaned process		*/
 #define PROC_OVERLAY	(1<<7)	/* overlay current process if possible	*/
 #define PROC_PARANOID	(1<<8)	/* restrict everything			*/
 #define PROC_PRIVELEGED	(1<<9)	/* setuid(0), setgid(getegid())		*/
@@ -64,10 +65,13 @@
 #define PROC_sys_pgrp	0xa
 #define PROC_sys_umask	0xb
 
+#define PROC_fd_ctty	0xc
+
 #define PROC_op1(o,a)	(((o)<<(2*PROC_ARG_BIT))|((a)&((PROC_ARG_NULL<<PROC_ARG_BIT)|PROC_ARG_NULL)))
 #define PROC_op2(o,a,b)	(((o)<<(2*PROC_ARG_BIT))|(((b)&PROC_ARG_NULL)<<PROC_ARG_BIT)|((a)&PROC_ARG_NULL))
 
 #define PROC_FD_CLOSE(p,f)	PROC_op2(PROC_fd_dup|(f),p,PROC_ARG_NULL)
+#define PROC_FD_CTTY(f)		PROC_op1(PROC_fd_ctty,f)
 #define PROC_FD_DUP(p,c,f)	PROC_op2(PROC_fd_dup|(f),p,c)
 #define PROC_SIG_DFL(s)		PROC_op1(PROC_sig_dfl,s,0)
 #define PROC_SIG_IGN(s)		PROC_op1(PROC_sig_ign,s,0)

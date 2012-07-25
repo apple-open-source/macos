@@ -33,25 +33,21 @@
 
 namespace WebCore {
 
-ScopedDOMDataStore::ScopedDOMDataStore(DOMData* domData)
-    : DOMDataStore(domData)
+ScopedDOMDataStore::ScopedDOMDataStore()
+    : DOMDataStore()
 {
     m_domNodeMap = new DOMWrapperMap<Node>(&DOMDataStore::weakNodeCallback);
+    m_activeDomNodeMap = new DOMWrapperMap<Node>(&DOMDataStore::weakNodeCallback);
     m_domObjectMap = new DOMWrapperMap<void>(&DOMDataStore::weakDOMObjectCallback);
     m_activeDomObjectMap = new DOMWrapperMap<void>(&DOMDataStore::weakActiveDOMObjectCallback);
-#if ENABLE(SVG)
-    m_domSvgElementInstanceMap = new DOMWrapperMap<SVGElementInstance>(&DOMDataStore::weakSVGElementInstanceCallback);
-#endif
 }
 
 ScopedDOMDataStore::~ScopedDOMDataStore()
 {
     delete m_domNodeMap;
+    delete m_activeDomNodeMap;
     delete m_domObjectMap;
     delete m_activeDomObjectMap;
-#if ENABLE(SVG)
-    delete m_domSvgElementInstanceMap;
-#endif
 }
 
 } // namespace WebCore

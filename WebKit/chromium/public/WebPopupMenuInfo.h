@@ -32,7 +32,7 @@
 #define WebPopupMenuInfo_h
 
 #include "WebMenuItemInfo.h"
-#include "WebVector.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
@@ -43,8 +43,9 @@ struct WebPopupMenuInfo {
     int selectedIndex;
     WebVector<WebMenuItemInfo> items;
     bool rightAligned;
+    bool allowMultipleSelection;
 };
 
-} // namespace WebKit
+}
 
 #endif

@@ -33,6 +33,12 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
+#if PLATFORM(MAC)
+#include "LayerHostingContext.h"
+
+OBJC_CLASS PDFDocument;
+#endif
+
 struct NPObject;
 
 namespace CoreIPC {
@@ -44,6 +50,7 @@ namespace WebCore {
     class AffineTransform;
     class GraphicsContext;
     class IntRect;
+    class IntSize;
     class Scrollbar;
 }
 
@@ -56,33 +63,45 @@ class WebWheelEvent;
     
 class PluginController;
 
-class Plugin : public RefCounted<Plugin> {
+class Plugin : public ThreadSafeRefCounted<Plugin> {
 public:
     struct Parameters {
         WebCore::KURL url;
         Vector<String> names;
         Vector<String> values;
         String mimeType;
-        bool loadManually;
-
-        // The URL of the document that the plug-in is in.
-        String documentURL;
-
-        // The URL of the document in the main frame. Will be null if the document the plug-in
-        // doesn't have access to the main frame document.
-        String toplevelDocumentURL;
+        bool isFullFramePlugin;
+        bool shouldUseManualLoader;
+#if PLATFORM(MAC)
+        LayerHostingMode layerHostingMode;
+#endif
 
         void encode(CoreIPC::ArgumentEncoder*) const;
         static bool decode(CoreIPC::ArgumentDecoder*, Parameters&);
     };
 
+    // Sets the active plug-in controller and initializes the plug-in.
+    bool initialize(PluginController*, const Parameters&);
+
+    // Destroys the plug-in.
+    void destroyPlugin();
+
+    // Returns the plug-in controller for this plug-in.
+    PluginController* controller() { return m_pluginController; }
+    const PluginController* controller() const { return m_pluginController; }
+
     virtual ~Plugin();
-    
+
+private:
+
     // Initializes the plug-in. If the plug-in fails to initialize this should return false.
-    virtual bool initialize(PluginController*, const Parameters&) = 0;
+    // This is only called by the other initialize overload so it can be made private.
+    virtual bool initialize(const Parameters&) = 0;
 
     // Destroys the plug-in.
     virtual void destroy() = 0;
+
+public:
 
     // Tells the plug-in to paint itself into the given graphics context. The passed-in context and
     // dirty rect are in window coordinates. The context is saved/restored by the caller.
@@ -102,8 +121,8 @@ public:
     // Returns whether the plug-in is transparent or not.
     virtual bool isTransparent() = 0;
 
-    // Tells the plug-in that either the plug-ins frame rect or its clip rect has changed. Both rects are in window coordinates.
-    virtual void deprecatedGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect) = 0;
+    // Returns whether we should send wheel events to this plug-in.
+    virtual bool wantsWheelEvents() = 0;
 
     // Tells the plug-in that its geometry has changed. The clip rect is in plug-in coordinates, and the affine transform can be used
     // to convert from root view coordinates to plug-in coordinates.
@@ -187,6 +206,9 @@ public:
 
     // Send the complex text input to the plug-in.
     virtual void sendComplexTextInput(const String& textInput) = 0;
+
+    // Tells the plug-in about changes to the layer hosting mode.
+    virtual void setLayerHostingMode(LayerHostingMode) = 0;
 #endif
 
     // Tells the plug-in about scale factor changes.
@@ -195,28 +217,26 @@ public:
     // Called when the private browsing state for this plug-in changes.
     virtual void privateBrowsingStateChanged(bool) = 0;
 
-    // Returns the plug-in controller for this plug-in.
-    // FIXME: We could just have the controller be a member variable of Plugin.
-    virtual PluginController* controller() = 0;
+    // Gets the form value representation for the plug-in, letting plug-ins participate in form submission.
+    virtual bool getFormValue(String& formValue) = 0;
 
     // Tells the plug-in that it should scroll. The plug-in should return true if it did scroll.
     virtual bool handleScroll(WebCore::ScrollDirection, WebCore::ScrollGranularity) = 0;
-
-    // Whether the plug-in wants its coordinates to be relative to the window.
-    // FIXME: No plug-ins should want window relative coordinates, so we should get rid of this.
-    virtual bool wantsWindowRelativeCoordinates() = 0;
 
     // A plug-in can use WebCore scroll bars. Make them known, so that hit testing can find them.
     // FIXME: This code should be in PluginView or its base class, not in individual plug-ins.
     virtual WebCore::Scrollbar* horizontalScrollbar() = 0;
     virtual WebCore::Scrollbar* verticalScrollbar() = 0;
 
-#if USE(CG)
-    virtual RetainPtr<CGPDFDocumentRef> pdfDocumentForPrinting() const { return 0; }
+#if PLATFORM(MAC)
+    virtual RetainPtr<PDFDocument> pdfDocumentForPrinting() const { return 0; }
 #endif
 
 protected:
     Plugin();
+
+private:
+    PluginController* m_pluginController;
 };
     
 } // namespace WebKit

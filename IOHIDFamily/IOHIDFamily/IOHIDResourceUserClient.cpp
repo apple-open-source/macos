@@ -131,7 +131,7 @@ void IOHIDResourceDeviceUserClient::free()
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::registerNotificationPort
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon)
+IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t port, UInt32 type __unused, io_user_reference_t refCon __unused)
 {
     if ( isInactive() )
         return kIOReturnNoDevice;
@@ -144,7 +144,7 @@ IOReturn IOHIDResourceDeviceUserClient::registerNotificationPort(mach_port_t por
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::clientMemoryForType
 //----------------------------------------------------------------------------------------------------
-IOReturn IOHIDResourceDeviceUserClient::clientMemoryForType(UInt32 type, IOOptionBits * options, IOMemoryDescriptor ** memory )
+IOReturn IOHIDResourceDeviceUserClient::clientMemoryForType(UInt32 type __unused, IOOptionBits * options, IOMemoryDescriptor ** memory )
 {
     IOReturn ret = kIOReturnNoMemory;
            
@@ -156,13 +156,15 @@ IOReturn IOHIDResourceDeviceUserClient::clientMemoryForType(UInt32 type, IOOptio
         UInt32 maxFeatureReportSize = 0;
         OSNumber * number;
         
-        number = OSDynamicCast(OSNumber, _device->getProperty(kIOHIDMaxOutputReportSizeKey));
-        if ( number )
+        number = (OSNumber*)_device->copyProperty(kIOHIDMaxOutputReportSizeKey);
+        if ( OSDynamicCast(OSNumber, number) )
             maxOutputReportSize = number->unsigned32BitValue();
+        OSSafeReleaseNULL(number);
 
-        number = OSDynamicCast(OSNumber, _device->getProperty(kIOHIDMaxFeatureReportSizeKey));
-        if ( number )
+        number = (OSNumber*)_device->copyProperty(kIOHIDMaxFeatureReportSizeKey);
+        if ( OSDynamicCast(OSNumber, number) )
             maxFeatureReportSize = number->unsigned32BitValue();
+        OSSafeReleaseNULL(number);
         
         _queue = IOHIDResourceQueue::withEntries(4, max(maxFeatureReportSize, maxOutputReportSize)+sizeof(IOHIDResourceDataQueueHeader));
     }
@@ -254,8 +256,8 @@ IOReturn IOHIDResourceDeviceUserClient::clientClose(void)
 // IOHIDResourceDeviceUserClient::createDevice
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::createDevice(
-                                        IOHIDResourceDeviceUserClient * target, 
-                                        void *                          reference, 
+                                        IOHIDResourceDeviceUserClient * target __unused, 
+                                        void *                          reference __unused, 
                                         IOExternalMethodArguments *     arguments)
 {
 	if (_device == NULL)  { // Report descriptor is static and thus can only be set on creation
@@ -287,9 +289,11 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(
                     propertiesDesc->readBytes(0, propertiesData, propertiesLength);
 
                     object = OSUnserializeXML((const char *)propertiesData);
-                    properties = OSDynamicCast(OSDictionary, object);
-                    if( !properties )
-                        object->release();
+                    if (object) {
+                        properties = OSDynamicCast(OSDictionary, object);
+                        if( !properties )
+                            object->release();
+                    }
                     
                     IOFree(propertiesData, propertiesLength);
                 }
@@ -348,12 +352,31 @@ IOReturn IOHIDResourceDeviceUserClient::_createDevice(
 	return target->createDevice(target, reference, arguments);
 }
 
+struct IOHIDResourceDeviceUserClientAsyncParamBlock {
+    OSAsyncReference64                  fAsyncRef;
+    uint32_t                            fAsyncCount;
+};
+
+void IOHIDResourceDeviceUserClient::ReportComplete(void *param, IOReturn res, UInt32 remaining __unused)
+{
+    IOHIDResourceDeviceUserClientAsyncParamBlock *pb = (IOHIDResourceDeviceUserClientAsyncParamBlock *)param;
+    
+    io_user_reference_t args[1];
+    args[0] = 0;
+    
+    sendAsyncResult64(pb->fAsyncRef, res, args, 0);
+    IOFree(pb, sizeof(*pb));
+    
+    release();
+}
+
+
 //----------------------------------------------------------------------------------------------------
 // IOHIDResourceDeviceUserClient::handleReport
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::handleReport(
                                         IOHIDResourceDeviceUserClient * target, 
-                                        void *                          reference, 
+                                        void *                          reference __unused, 
                                         IOExternalMethodArguments *     arguments)
 {
 	if (_device == NULL) {
@@ -375,14 +398,52 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(
 		return kIOReturnNoMemory;
 	}
 
-    ret = report->prepare();
-    if ( ret == kIOReturnSuccess ) {
-        ret = _device->handleReport(report);
-        report->complete();
+    if ( !arguments->asyncWakePort ) {
+        ret = report->prepare();
+        if ( ret == kIOReturnSuccess ) {
+            ret = _device->handleReport(report);
+            report->complete();
+        }
+        
+        report->release();
+    } else {
+        IOHIDCompletion tap;
+        
+        IOHIDResourceDeviceUserClientAsyncParamBlock *pb =
+        (IOHIDResourceDeviceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOHIDResourceDeviceUserClientAsyncParamBlock));
+        
+        if (!pb) {
+            report->release();
+            return kIOReturnNoMemory;   // need to release report
+        }
+        
+        target->retain();
+        
+        bcopy(arguments->asyncReference, pb->fAsyncRef, sizeof(OSAsyncReference64));
+        pb->fAsyncCount = arguments->asyncReferenceCount;
+        
+        tap.target = target;
+        tap.action = OSMemberFunctionCast(IOHIDCompletionAction, target, &IOHIDResourceDeviceUserClient::ReportComplete);
+        tap.parameter = pb;
+        
+        AbsoluteTime   currentTime;
+        
+        clock_get_uptime( &currentTime );
+        
+        ret = report->prepare();
+        if ( ret == kIOReturnSuccess ) {
+            ret = _device->handleReportWithTimeAsync(currentTime, report, kIOHIDReportTypeInput, 0, 0, &tap);
+            report->complete();
+        }
+        
+        report->release();
+        
+        if (ret != kIOReturnSuccess) {
+            IOFree(pb, sizeof(*pb));
+            target->release();
+        }
     }
     
-    report->release();
-
     return ret;
 }
 
@@ -428,7 +489,7 @@ IOReturn IOHIDResourceDeviceUserClient::getReport(IOMemoryDescriptor *report, IO
         retData->release();
                 
         // if we successfully enqueue, let's sleep till we get a result from postReportResult
-        if ( _queue->enqueueReport(&header) ){
+        if ( _queue && _queue->enqueueReport(&header) ){
             AbsoluteTime ts;
             clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
             switch ( IOLockSleepDeadline(_lock, (void *)retData, ts, THREAD_ABORTSAFE) ) {
@@ -478,7 +539,7 @@ IOReturn IOHIDResourceDeviceUserClient::setReport(IOMemoryDescriptor *report, IO
         retData->release();
                 
         // if we successfully enqueue, let's sleep till we get a result from postReportResult
-        if ( _queue->enqueueReport(&header, report) ) {   
+        if ( _queue && _queue->enqueueReport(&header, report) ) {   
             AbsoluteTime ts;
             clock_interval_to_deadline(1, kHIDRTimeoutNS, &ts);
             
@@ -507,8 +568,8 @@ IOReturn IOHIDResourceDeviceUserClient::setReport(IOMemoryDescriptor *report, IO
 // IOHIDResourceDeviceUserClient::postReportResult
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::postReportResult(
-                                        IOHIDResourceDeviceUserClient * target, 
-                                        void *                          reference, 
+                                        IOHIDResourceDeviceUserClient * target __unused, 
+                                        void *                          reference __unused, 
                                         IOExternalMethodArguments *     arguments)
 {
     OSObject * tokenObj = (OSObject*)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexToken];
@@ -580,8 +641,8 @@ IOReturn IOHIDResourceDeviceUserClient::terminateDevice()
 //----------------------------------------------------------------------------------------------------
 IOReturn IOHIDResourceDeviceUserClient::_terminateDevice(
                                         IOHIDResourceDeviceUserClient	*target, 
-                                        void                            *reference, 
-                                        IOExternalMethodArguments       *arguments)
+                                        void                            *reference __unused, 
+                                        IOExternalMethodArguments       *arguments __unused)
 {
 	return target->terminateDevice();
 }
@@ -629,9 +690,6 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     const UInt32        tail        = dataQueue->tail;
     const UInt32        entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IODataQueueEntry *  entry;
-
-    UInt8 value = 0x69;
-    report->readBytes(0, &value, 1);
 
     if ( tail >= head )
     {

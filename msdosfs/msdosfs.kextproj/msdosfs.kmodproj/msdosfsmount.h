@@ -114,7 +114,6 @@ struct msdosfsmount {
 	u_int pm_fatmult;	/* these 2 values are used in fat */
 	u_int pm_fatdiv;	/*	offset computation */
 	u_int pm_curfat;	/* current fat for FAT32 (0 otherwise) */
-	u_int *pm_inusemap;	/* ptr to bitmap of in-use clusters */
 	u_int pm_flags;		/* see below */
 	u_int8_t pm_label[64];	/* Volume name/label */
 	uint32_t pm_label_cluster; /* logical cluster within root that contains the label */
@@ -123,11 +122,13 @@ struct msdosfsmount {
 	lck_mtx_t	*pm_rename_lock;
 	vnode_t pm_fat_active_vp;	/* vnode for accessing the active FAT */
 	vnode_t pm_fat_mirror_vp;	/* vnode for accessing FAT mirrors */
+	void *pm_free_extents;		/* PAGE_SIZE bytes; holds known free extents. */
 	void *pm_fat_cache;	/* most recently used block of the FAT */
 	u_int32_t pm_fat_bytes;	/* size of one copy of the FAT, in bytes */
 	u_int32_t pm_fat_cache_offset;	/* which block is being cached; relative to start of active FAT */
 	int pm_fat_flags;	/* Flags about state of the FAT; see constants below */
-	
+	uint32_t pm_free_extent_count;	/* Number of extents in *pm_free_extents. */
+
 	/*
 	 * About the sync counters:
 	 * pm_sync_scheduled  keeps track whether a timer was scheduled but we
@@ -161,9 +162,6 @@ enum {
 
 #define	VFSTOMSDOSFS(mp)	((struct msdosfsmount *)vfs_fsprivate((mp)))
 
-/* Number of bits in one pm_inusemap item: */
-#define	N_INUSEBITS	(8 * sizeof(u_int))
-
 /*
  * Shorthand for fields in the bpb contained in the msdosfsmount structure.
  */
@@ -171,11 +169,6 @@ enum {
 #define	pm_ResSectors	pm_bpb.bpbResSectors
 #define	pm_FATs		pm_bpb.bpbFATs
 #define	pm_RootDirEnts	pm_bpb.bpbRootDirEnts
-#define	pm_Sectors	pm_bpb.bpbSectors
-#define	pm_Media	pm_bpb.bpbMedia
-#define	pm_SecPerTrack	pm_bpb.bpbSecPerTrack
-#define	pm_Heads	pm_bpb.bpbHeads
-#define	pm_HugeSectors	pm_bpb.bpbHugeSectors
 
 /*
  * Convert pointer to buffer -> pointer to dosdirentry
@@ -248,11 +241,11 @@ enum {
 int msdosfs_mountroot(mount_t mp, vnode_t devvp, vfs_context_t context);
 uid_t get_pmuid(struct msdosfsmount *pmp, uid_t current_user);
 
-__private_extern__ lck_grp_attr_t *msdosfs_lck_grp_attr;
-__private_extern__ lck_grp_t *msdosfs_lck_grp;
-__private_extern__ lck_attr_t *msdosfs_lck_attr;
+extern lck_grp_attr_t *msdosfs_lck_grp_attr;
+extern lck_grp_t *msdosfs_lck_grp;
+extern lck_attr_t *msdosfs_lck_attr;
 
-__private_extern__ OSMallocTag msdosfs_malloc_tag;
+extern OSMallocTag msdosfs_malloc_tag;
 
 #endif /* KERNEL */
 

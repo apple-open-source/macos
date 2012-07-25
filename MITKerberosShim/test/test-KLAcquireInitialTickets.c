@@ -8,6 +8,8 @@
 
 #include <err.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 static KLStatus
 AcquireTGT(char *inusername)
@@ -50,3 +52,5 @@ main(int argc, char **argv)
 		errx(1, "argc != 2");
 	AcquireTGT(argv[1]);
 }
+
+#pragma clang diagnostic pop

@@ -108,6 +108,10 @@ static void find(
 static enum bool dirt(
     int c);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 int
 main(
 int argc,

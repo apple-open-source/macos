@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2010, International Business Machines Corporation and         *
-* others. All Rights Reserved.                                                *
+* Copyright (C) 2007-2012, International Business Machines Corporation and
+* others. All Rights Reserved.
 *******************************************************************************
 */
 #ifndef VTZONE_H
@@ -94,7 +94,7 @@ public:
      * @param basicTZ The basic time zone instance
      * @param status Output param to filled in with a success or an error.
      * @return A <code>VTimeZone</code> object initialized by the basic time zone.
-     * @draft ICU 4.6
+     * @stable ICU 4.6
      */
     static VTimeZone* createVTimeZoneFromBasicTimeZone(const BasicTimeZone& basicTZ,
                                                        UErrorCode &status);

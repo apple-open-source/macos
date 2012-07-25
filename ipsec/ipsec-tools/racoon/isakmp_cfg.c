@@ -904,7 +904,6 @@ isakmp_cfg_net(iph1, attr)
 {
 	int type;
 	int confsource;
-	in_addr_t addr4;
 
 	type = ntohs(attr->type);
 
@@ -1271,14 +1270,14 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 		goto end;
 	}
 
-	iph2->dst = dupsaddr(iph1->remote);
+	iph2->dst = dupsaddr((struct sockaddr *)iph1->remote);
 	if (iph2->dst == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to duplicate remote address");
 		delph2(iph2);
 		goto end;
 	}
-	iph2->src = dupsaddr(iph1->local);
+	iph2->src = dupsaddr((struct sockaddr *)iph1->local);
 	if (iph2->src == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to duplicate local address");
@@ -1286,7 +1285,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 		goto end;
 	}
 
-	switch (iph1->remote->sa_family) {
+	switch (iph1->remote->ss_family) {
 	case AF_INET:
 #if (!defined(ENABLE_NATT)) || (defined(BROKEN_NATT))
 		((struct sockaddr_in *)iph2->dst)->sin_port = 0;
@@ -1303,7 +1302,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph1->remote->sa_family);
+			"invalid family: %d\n", iph1->remote->ss_family);
 		delph2(iph2);
 		goto end;
 	}
@@ -1840,11 +1839,10 @@ isakmp_cfg_radius_common(radius_state, port)
 int
 isakmp_cfg_accounting_system(port, raddr, usr, inout)
 	int port;
-	struct sockaddr *raddr;
+	struct sockaddr_storage *raddr;
 	char *usr;
 	int inout;
 {
-	int error = 0;
 	struct utmpx ut;
 	char term[_UTX_LINESIZE];
 	char addr[NI_MAXHOST];
@@ -1863,7 +1861,7 @@ isakmp_cfg_accounting_system(port, raddr, usr, inout)
 
 		strlcpy(ut.ut_line, term, sizeof(ut.ut_line));
 
-		GETNAMEINFO_NULL(raddr, addr);
+		GETNAMEINFO_NULL((struct sockaddr *)raddr, addr);
 		strlcpy(ut.ut_host, addr, sizeof(ut.ut_host));
 
 		ut.ut_pid = getpid();
@@ -1932,7 +1930,7 @@ isakmp_cfg_getconfig(iph1)
 	len = sizeof(*attrpl) + sizeof(*attr) * attrcount;
 	
 	if (iph1->started_by_api) {
-		if (iph1->remote->sa_family == AF_INET) {
+		if (iph1->remote->ss_family == AF_INET) {
 			struct vpnctl_socket_elem *sock_elem;
 			struct bound_addr *bound_addr;
 			u_int32_t address;
@@ -2006,7 +2004,7 @@ isakmp_cfg_getaddr4(attr, ip)
 		return;
 	}
 
-	addr = (in_addr_t *)(attr + 1);
+	addr = ALIGNED_CAST(in_addr_t *)(attr + 1);     // Wcast-align fix (void*) - attr comes from packet data in a vchar_t
 	ip->s_addr = *addr;
 
 	return;
@@ -2031,7 +2029,7 @@ isakmp_cfg_appendaddr4(attr, ip, num, max)
 		return;
 	}
 
-	addr = (in_addr_t *)(attr + 1);
+	addr = ALIGNED_CAST(in_addr_t *)(attr + 1);      // Wcast-align fix (void*) - attr comes from packet data in a vchar_t
 	ip->s_addr = *addr;
 	(*num)++;
 
@@ -2104,8 +2102,6 @@ isakmp_cfg_setenv(iph1, envp, envc)
 	char defdom[MAXPATHLEN + 1];
 	int cidr, tmp;
 	char cidrstr[4];
-	int i, p;
-	int test;
 
 	plog(LLV_DEBUG, LOCATION, NULL, "Starting a script.\n");
 
@@ -2334,7 +2330,9 @@ isakmp_cfg_init(cold)
 	int cold;
 {
 	int i;
+#if 0
 	int error;
+#endif
 
 	isakmp_cfg_config.network4 = (in_addr_t)0x00000000;
 	isakmp_cfg_config.netmask4 = (in_addr_t)0x00000000;

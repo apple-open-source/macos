@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -36,8 +36,9 @@ Sfio_t*	f;
 	reg uchar	*s, *ends, c;
 	reg int		p, sign, exp;
 	Sfdouble_t	v;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,-1.);
+	SFMTXENTER(f,-1.);
 
 	if((sign = sfgetc(f)) < 0 || (exp = (int)sfgetu(f)) < 0)
 		SFMTXRETURN(f, -1.);

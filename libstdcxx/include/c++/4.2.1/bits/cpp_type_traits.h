@@ -341,6 +341,41 @@ namespace __detail
     : public __traitor<__is_arithmetic<_Tp>, __is_pointer<_Tp> >
     { };
 
+#if defined(__has_feature) 
+#if __has_feature(objc_arc) && !defined(_GLIBCXX_PREDEFINED_OBJC_ARC_IS_SCALAR)
+  /// Objective-C++ Automatic Reference Counting uses qualified pointers
+  /// that are pointer types but are *not* scalar types because they are not
+  /// POD types. When _GLIBCXX_PREDEFINED_OBJC_ARC_IS_SCALAR is defined,
+  /// the compiler itself is providing these definitions. Otherwise, we 
+  /// provide them.
+  template<typename _Tp>
+  struct __is_scalar<__strong _Tp> {
+    enum { __value = 0 };
+    typedef __false_type __type;
+  };
+
+  #if __has_feature(objc_arc_weak)
+  template<typename _Tp>
+  struct __is_scalar<__weak _Tp> {
+    enum { __value = 0 };
+    typedef __false_type __type;
+  };
+  #endif
+
+  template<typename _Tp>
+  struct __is_scalar<__autoreleasing _Tp> {
+    enum { __value = 0 };
+    typedef __false_type __type;
+  };
+
+  template<typename _Tp>
+  struct __is_scalar<__unsafe_unretained _Tp> {
+    enum { __value = 0 };
+    typedef __false_type __type;
+  };
+#endif
+#endif
+
   // For the immediate use, the following is a good approximation.
   template<typename _Tp>
     struct __is_pod

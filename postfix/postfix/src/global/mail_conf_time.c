@@ -179,6 +179,7 @@ void    set_mail_conf_time_int(const char *name, int value)
 {
     char    buf[BUFSIZ];		/* yeah! crappy code! */
 
+    /* APPLE */
     snprintf(buf, sizeof buf, "%ds", value);		        /* yeah! more crappy code! */
     mail_conf_update(name, buf);
 }

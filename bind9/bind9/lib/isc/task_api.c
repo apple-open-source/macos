@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2009, 2010  Internet Systems Consortium, Inc. ("ISC")
  *
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: task_api.c,v 1.7 2010-12-22 23:46:59 tbox Exp $ */
 
 #include <config.h>
 
@@ -186,6 +186,21 @@ isc_task_purge(isc_task_t *task, void *sender, isc_eventtype_t type, void *tag)
 
 	return (task->methods->purgeevents(task, sender, type, tag));
 }
+
+isc_result_t
+isc_task_beginexclusive(isc_task_t *task) {
+	REQUIRE(ISCAPI_TASK_VALID(task));
+
+	return (task->methods->beginexclusive(task));
+}
+
+void
+isc_task_endexclusive(isc_task_t *task) {
+	REQUIRE(ISCAPI_TASK_VALID(task));
+
+	task->methods->endexclusive(task);
+}
+
 
 /*%
  * This is necessary for libisc's internal timer implementation.  Other

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -35,6 +35,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+
+#define FMT_EXP_CHAR	0x020		/* expand single byte chars	*/
+#define FMT_EXP_LINE	0x040		/* expand \n and \r		*/
+#define FMT_EXP_WIDE	0x080		/* expand \u \U \x wide chars	*/
+#define FMT_EXP_NOCR	0x100		/* skip \r			*/
+#define FMT_EXP_NONL	0x200		/* skip \n			*/
 
 #define STR_MAXIMAL	01		/* maximal match		*/
 #define STR_LEFT	02		/* implicit left anchor		*/
@@ -84,6 +90,7 @@ typedef struct
 #define elementsof(x)	(sizeof(x)/sizeof(x[0]))
 #define integralof(x)	(((char*)(x))-((char*)0))
 #define newof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)calloc(1,sizeof(t)*(n)+(x)))
+#define oldof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)malloc(sizeof(t)*(n)+(x)))
 #define pointerof(x)	((void*)((char*)0+(x)))
 #define roundof(x,y)	(((x)+(y)-1)&~((y)-1))
 
@@ -99,6 +106,7 @@ typedef struct
 #define NoP(x)			(&x,1)
 #endif
 
+#define conformance(a,b)	"ast"
 #define fmtident(s)		((char*)(s)+10)
 #define mbchar(s)		(*s++)
 #define setlocale(a,b)
@@ -141,6 +149,7 @@ extern int		astwinsize(int, int*, int*);
 extern char*		fmtbuf(size_t);
 extern char*		fmtip4(uint32_t, int);
 extern char*		sfgetr(Sfio_t*, int, int);
+extern char*		strcopy(char*, const char*);
 extern int		strmatch(const char*, const char*);
 extern int		strtoip4(const char*, char**, uint32_t*, unsigned char*);
 

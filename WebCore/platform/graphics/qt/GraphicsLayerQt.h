@@ -76,14 +76,16 @@ public:
     virtual void setContentsNeedsDisplay();
     virtual void setContentsToMedia(PlatformLayer*);
     virtual void setContentsToCanvas(PlatformLayer*);
-    virtual void setContentsBackgroundColor(const Color&);
+    virtual void setContentsToBackgroundColor(const Color&);
     virtual void setContentsOrientation(CompositingCoordinatesOrientation orientation);
     virtual void distributeOpacity(float);
     virtual float accumulatedOpacity() const;
-    virtual void syncCompositingState();
+    virtual void syncCompositingState(const FloatRect&);
     virtual void syncCompositingStateForThisLayerOnly();
 
 private:
+    virtual void willBeDestroyed();
+
     OwnPtr<GraphicsLayerQtImpl> m_impl;
 };
 

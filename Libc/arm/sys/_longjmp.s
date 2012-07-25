@@ -36,9 +36,7 @@
             
 ENTRY_POINT(__longjmp)
 	ldmia	r0!, { r4-r8, r10-r11, sp, lr }
-#ifdef _ARM_ARCH_6
-	fldmiax	r0, { d8-d15 }
-#endif
+	vldmia	r0, { d8-d15 }
 	movs	r0, r1
 	moveq	r0, #1
 	bx		lr

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -200,7 +200,8 @@ static inetroute_list_t *	S_inetroutes = NULL;
 static u_short			S_ipport_client = IPPORT_BOOTPC;
 static u_short			S_ipport_server = IPPORT_BOOTPS;
 static struct timeval		S_lastmsgtime;
-static u_char 			S_rxpkt[2048];/* receive packet buffer */
+/* ALIGN: S_rxpkt is aligned to at least sizeof(uint32_t) bytes */
+static uint32_t 		S_rxpkt[2048/(sizeof(uint32_t))];/* receive packet buffer */
 static boolean_t		S_sighup = TRUE; /* fake the 1st sighup */
 static u_int32_t		S_which_services = 0;
 static struct ether_addr *	S_allow = NULL;
@@ -1994,7 +1995,8 @@ S_dispatch_packet(struct bootp * bp, int n, interface_t * if_p,
     }
 
     if (S_relay_ip_list != NULL && relay_enabled(if_p)) {
-	S_relay_packet((struct bootp *)S_rxpkt, n, if_p);
+	/* ALIGN: S_rxpkt is aligned to uint32, cast safe */
+	S_relay_packet((struct bootp *)(void *)S_rxpkt, n, if_p);
     }
 
     if (verbose || debug) {
@@ -2088,7 +2090,8 @@ S_server_loop()
     interface_t *	if_p = NULL;
     int 		mask;
     int			n;
-    struct dhcp *	request = (struct dhcp *)S_rxpkt;
+    /* ALIGN: S_rxpkt is aligned to uint32, hence cast safe */
+    struct dhcp *	request = (struct dhcp *)(void *)S_rxpkt;
 
     for (;;) {
 	S_init_msg();
@@ -2142,13 +2145,14 @@ S_server_loop()
 	if (if_p == NULL) {
 	    continue;
 	}
-#else 
+#else
 	if_p = if_first_broadcast_inet(S_interfaces);
 #endif
 
 	gettimeofday(&S_lastmsgtime, 0);
         mask = sigblock(sigmask(SIGALRM));
-	S_dispatch_packet((struct bootp *)S_rxpkt, n, if_p, dstaddr_p);
+	/* ALIGN: S_rxpkt is aligned, cast ok. */
+	S_dispatch_packet((struct bootp *)(void *)S_rxpkt, n, if_p, dstaddr_p);
 	sigsetmask(mask);
     }
     return;

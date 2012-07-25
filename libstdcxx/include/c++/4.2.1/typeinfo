@@ -149,8 +149,12 @@ namespace std
     // http://gcc.gnu.org/onlinedocs/gcc-3.0.2/gcc_6.html#SEC118
     virtual ~bad_cast() throw();
 
+#if __TARGETING_4_0_DYLIB
+	// bad_cast::what() not exported from libstdc++.6.0.4 dylib
+#else
     // See comment in eh_exception.cc.
     virtual const char* what() const throw();
+#endif
   };
   
   /** If you use a NULL pointer in a @c typeid expression, this is thrown.  */
@@ -163,8 +167,12 @@ namespace std
     // http://gcc.gnu.org/onlinedocs/gcc-3.0.2/gcc_6.html#SEC118
     virtual ~bad_typeid() throw();
 
+#if __TARGETING_4_0_DYLIB
+	// bad_typeid::what() not exported from libstdc++.6.0.4 dylib
+#else
     // See comment in eh_exception.cc.
     virtual const char* what() const throw();
+#endif
   };
 } // namespace std
 

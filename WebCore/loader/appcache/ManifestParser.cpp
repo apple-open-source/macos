@@ -26,8 +26,6 @@
 #include "config.h"
 #include "ManifestParser.h"
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "KURL.h"
 #include "TextResourceDecoder.h"
 #include <wtf/unicode/CharacterNames.h>
@@ -98,7 +96,7 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
             mode = Fallback;
         else if (line == "NETWORK:")
             mode = OnlineWhitelist;
-        else if (line.endsWith(":"))
+        else if (line.endsWith(':'))
             mode = Unknown;
         else if (mode == Unknown)
             continue;
@@ -182,7 +180,5 @@ bool parseManifest(const KURL& manifestURL, const char* data, int length, Manife
 
     return true;
 }
-    
-}
 
-#endif // ENABLE(OFFLINE_WEB_APPLICATIONS)
+}

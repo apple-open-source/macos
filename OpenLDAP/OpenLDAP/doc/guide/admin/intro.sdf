@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/openldap-guide/admin/intro.sdf,v 1.45.2.8 2009/01/22 00:00:47 kurt Exp $
-# Copyright 1999-2009 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP$
+# Copyright 1999-2011 The OpenLDAP Foundation, All Rights Reserved.
 # COPYING RESTRICTIONS APPLY, see COPYRIGHT.
 H1: Introduction to OpenLDAP Directory Services
 
@@ -384,7 +384,8 @@ SASL}} software which supports a number of mechanisms including
 {{B:{{TERM[expand]TLS}}}}: {{slapd}} supports certificate-based
 authentication and data security (integrity and confidentiality)
 services through the use of TLS (or SSL).  {{slapd}}'s TLS
-implementation can utilize either {{PRD:OpenSSL}} or {{PRD:GnuTLS}} software.
+implementation can utilize {{PRD:OpenSSL}}, {{PRD:GnuTLS}},
+or {{PRD:MozNSS}} software.
 
 {{B:Topology control}}: {{slapd}} can be configured to restrict
 access at the socket layer based upon network topology information.

@@ -2944,7 +2944,7 @@ report_event(
 			    " %s", str);
 		}
 		NLOG(NLOG_SYSEVENT)
-		    msyslog(LOG_INFO, statstr);
+		    msyslog(LOG_INFO, "%s", statstr);
 	} else {
 
 		/*
@@ -2976,7 +2976,7 @@ report_event(
 			    " %s", str);
 		}
 		NLOG(NLOG_PEEREVENT)
-		    msyslog(LOG_INFO, statstr);
+		    msyslog(LOG_INFO, "%s", statstr);
 	}
 	record_proto_stats(statstr);
 #if DEBUG

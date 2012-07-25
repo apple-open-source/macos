@@ -41,7 +41,7 @@ extern int isakmp_info_recv __P((struct ph1handle *, vchar_t *));
 extern int isakmp_info_send_d1 __P((struct ph1handle *));
 extern int isakmp_info_send_d2 __P((struct ph2handle *));
 extern int isakmp_info_send_nx __P((struct isakmp *,
-	struct sockaddr *, struct sockaddr *, int, vchar_t *));
+	struct sockaddr_storage *, struct sockaddr_storage *, int, vchar_t *));
 extern int isakmp_info_send_n1 __P((struct ph1handle *, int, vchar_t *));
 extern int isakmp_info_send_n2 __P((struct ph2handle *, int, vchar_t *));
 extern int isakmp_info_send_common __P((struct ph1handle *,
@@ -60,7 +60,7 @@ extern void isakmp_reschedule_info_monitor_if_pending __P((struct ph1handle *, c
 extern void isakmp_info_send_r_u __P((void *));
 #endif
 
-extern void purge_ipsec_spi __P((struct sockaddr *, int,	u_int32_t *, size_t));
+extern void purge_ipsec_spi __P((struct sockaddr_storage *, int,	u_int32_t *, size_t));
 extern int tunnel_mode_prop __P((struct saprop *));
 
 #endif /* _ISAKMP_INF_H */

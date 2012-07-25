@@ -360,6 +360,7 @@ is possible that the dynamically estimated timeout interval is too short.
 .Pp
 .It Cm timeo Ns = Ns Aq Ar timeout
 Set the initial retransmit timeout to the specified value.
+The default is 1 second.
 May be useful for fine tuning UDP mounts over internetworks
 with high packet loss rates or an overloaded server.
 Try increasing the interval if
@@ -373,6 +374,7 @@ tune the timeout interval.)
 .Pp
 .It Cm retrans Ns = Ns Aq Ar count
 Set the retransmit timeout count for soft mounts to the specified value.
+The default value is 10.
 .Pp
 .It Cm deadtimeout Ns = Ns Aq Ar timeout
 If the mount is still unresponsive

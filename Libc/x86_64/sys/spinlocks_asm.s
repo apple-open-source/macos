@@ -28,8 +28,8 @@
 
 #include <sys/appleapiopts.h>
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
 #include <mach/i386/syscall_sw.h>
+#include "platfunc.h"
 
 PLATFUNC_FUNCTION_START(OSSpinLockTry, up, 64, 4)
 PLATFUNC_FUNCTION_START(_spin_lock_try, up, 64, 4)

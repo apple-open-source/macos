@@ -36,15 +36,16 @@
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
+#include <wtf/text/WTFString.h>
+
 #ifdef __OBJC__ 
 #import <Foundation/Foundation.h>
 #import <AppKit/NSDragging.h>
 typedef id <NSDraggingInfo> DragDataRef;
-@class NSPasteboard;
 #else
 typedef void* DragDataRef;
-class NSPasteboard;
 #endif
+
 #elif PLATFORM(QT)
 QT_BEGIN_NAMESPACE
 class QMimeData;
@@ -62,10 +63,7 @@ class DataObjectGtk;
 typedef WebCore::DataObjectGtk* DragDataRef;
 #elif PLATFORM(CHROMIUM)
 #include "DragDataRef.h"
-#elif PLATFORM(HAIKU)
-class BMessage;
-typedef class BMessage* DragDataRef;
-#elif PLATFORM(EFL) || PLATFORM(BREWMP)
+#elif PLATFORM(EFL) || PLATFORM(BLACKBERRY)
 typedef void* DragDataRef;
 #endif
 
@@ -104,7 +102,7 @@ public:
 #endif
     const IntPoint& clientPosition() const { return m_clientPosition; }
     const IntPoint& globalPosition() const { return m_globalPosition; }
-    DragApplicationFlags flags() { return m_applicationFlags; }
+    DragApplicationFlags flags() const { return m_applicationFlags; }
     DragDataRef platformData() const { return m_platformDragData; }
     DragOperation draggingSourceOperationMask() const { return m_draggingSourceOperationMask; }
     bool containsURL(Frame*, FilenameConversionPolicy filenamePolicy = ConvertFilenames) const;
@@ -119,9 +117,27 @@ public:
     bool canSmartReplace() const;
     bool containsColor() const;
     bool containsFiles() const;
+    unsigned numberOfFiles() const;
 #if PLATFORM(MAC)
-    NSPasteboard *pasteboard() { return m_pasteboard.get(); }
+    const String& pasteboardName() { return m_pasteboardName; }
 #endif
+
+#if PLATFORM(QT) || PLATFORM(GTK)
+    // This constructor should used only by WebKit2 IPC because DragData
+    // is initialized by the decoder and not in the constructor.
+    DragData() { }
+
+    DragData& operator =(const DragData& data)
+    {
+        m_clientPosition = data.m_clientPosition;
+        m_globalPosition = data.m_globalPosition;
+        m_platformDragData = data.m_platformDragData;
+        m_draggingSourceOperationMask = data.m_draggingSourceOperationMask;
+        m_applicationFlags = data.m_applicationFlags;
+        return *this;
+    }
+#endif
+
 private:
     IntPoint m_clientPosition;
     IntPoint m_globalPosition;
@@ -129,7 +145,7 @@ private:
     DragOperation m_draggingSourceOperationMask;
     DragApplicationFlags m_applicationFlags;
 #if PLATFORM(MAC)
-    RetainPtr<NSPasteboard> m_pasteboard;
+    String m_pasteboardName;
 #endif
 #if PLATFORM(WIN)
     DragDataMap m_dragDataMap;

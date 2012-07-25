@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <asl.h>
+#include <dispatch/dispatch.h>
+#include <dispatch/private.h> 
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
@@ -347,19 +349,48 @@ IOIteratorIsValid(
 
 io_service_t
 IOServiceGetMatchingService(
-	mach_port_t	masterPort,
+	mach_port_t	_masterPort,
 	CFDictionaryRef	matching )
 {
-    io_iterator_t       iter = MACH_PORT_NULL;
+    kern_return_t	kr;
+    CFDataRef		data;
+    CFIndex		dataLen;
+    mach_port_t		masterPort;
     io_service_t        service = MACH_PORT_NULL;
+    
+    if( !matching)
+	return( MACH_PORT_NULL);
 
-    IOServiceGetMatchingServices( masterPort, matching, &iter );
+    data = IOCFSerialize( matching, kNilOptions );
+    CFRelease( matching );
+    if( !data)
+	return( MACH_PORT_NULL );
 
-    if( iter) {
+    dataLen = CFDataGetLength(data);
 
-        service = IOIteratorNext( iter );
-        IOObjectRelease( iter );
+    if (MACH_PORT_NULL == _masterPort)
+	masterPort = __IOGetDefaultMasterPort();
+    else
+	masterPort = _masterPort;
+
+    if ((size_t) dataLen < sizeof(io_string_t))
+	kr = io_service_get_matching_service( masterPort,
+		    (char *) CFDataGetBytePtr(data), &service );
+    else {
+	kern_return_t result;
+
+	kr = io_service_get_matching_service_ool( masterPort,
+		    (char *) CFDataGetBytePtr(data), dataLen, &result, &service );
+	if (KERN_SUCCESS == kr)
+	    kr = result;
     }
+
+    CFRelease( data );
+    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
+	mach_port_deallocate(mach_task_self(), masterPort);
+
+   if (KERN_SUCCESS != kr)
+	service = MACH_PORT_NULL;
 
     return( service );
 }
@@ -726,42 +757,6 @@ IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_
  * Matching creation helpers
  */
 
-CFMutableDictionaryRef
-IOMakeMatching(
-        mach_port_t	_masterPort,
-	uint32_t	type,
-	uint32_t	options,
-	void *		args,
-	uint32_t	argsSize )
-{
-    IOReturn			err;
-    CFMutableDictionaryRef	result = 0;
-    char * 			matching;
-    mach_port_t 		masterPort;
-
-    if (MACH_PORT_NULL == _masterPort)
-	masterPort = __IOGetDefaultMasterPort();
-    else
-	masterPort = _masterPort;
-
-    matching = (char *) malloc( sizeof( io_string_t));
-
-    if( matching) {
-        err = io_make_matching( masterPort, type, options,
-                    (char *)args, argsSize, matching );
-        if( KERN_SUCCESS == err) {
-	    result = (CFMutableDictionaryRef) IOCFUnserialize( matching,
-				kCFAllocatorDefault, kNilOptions, 0 );
-	}
-        free( matching );
-    }
-
-    if ((masterPort != MACH_PORT_NULL) && (masterPort != _masterPort))
-	mach_port_deallocate(mach_task_self(), masterPort);
-
-    return( result );
-}
-
 static CFMutableDictionaryRef
 MakeOneStringProp(
 	CFStringRef	key,
@@ -842,25 +837,50 @@ IORegistryEntryIDMatching(
 
 CFMutableDictionaryRef
 IOBSDNameMatching(
-        mach_port_t	masterPort,
-	uint32_t	options,
+    mach_port_t		masterPort	__unused,
+	uint32_t		options 	__unused,
 	const char *	name )
 {
-    if (name == NULL) { return 0; }
-    else { 
-        return( IOMakeMatching( masterPort, kIOBSDNameMatching, options,
-				(void *)name, strlen( name) + 1));
-    }
+    if( !name)
+	return( 0 );
+
+    return( MakeOneStringProp( CFSTR(kIOBSDNameKey), name ));
 }
 
 CFMutableDictionaryRef
 IOOpenFirmwarePathMatching(
-        mach_port_t	masterPort,
-	uint32_t	options,
+	mach_port_t	masterPort __unused,
+	uint32_t	options 	__unused,
 	const char *	path )
 {
-    return( IOMakeMatching( masterPort, kIOOFPathMatching, options,
-				(void *)path, strlen( path) + 1));
+    io_string_t	buf;
+    int		maxLen;
+    char *	comp;
+    int		len;
+
+    maxLen = sizeof( io_string_t);
+
+    do {
+
+	len = strlen( kIODeviceTreePlane ":" );
+	maxLen -= len;
+	if( maxLen <= 0)
+	    continue;
+
+	strlcpy( buf, kIODeviceTreePlane ":", len + 1 );
+	comp = buf + len;
+
+	len = strlen( path );
+	maxLen -= len;
+	if( maxLen <= 0)
+	    continue;
+	strlcpy( comp, path, len + 1 );
+
+	return( MakeOneStringProp( CFSTR(kIOPathMatchKey), buf ));
+
+    } while( false );
+
+    return( 0 );
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

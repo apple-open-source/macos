@@ -108,9 +108,8 @@
 #define SMBV_SECURITY_MODE_MASK		0x000000ff		/* Lower byte reserved for the security modes */
 #define	SMBV_NT4					0x00000100		/* Tells us the server is a NT4 */
 #define	SMBV_WIN2K_XP				0x00000200		/* Tells us the server is Windows 2000 or XP */
-#define	SMBV_WIN98					0x00000400		/* The server is a Windows 95, 98 or Me OS */
-#define SMBV_DARWIN					0x00000800		/* Mac OS X Server */
-#define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is resvered for special server types */
+#define SMBV_DARWIN					0x00000400		/* Mac OS X Server */
+#define SMBV_SERVER_MODE_MASK		0x0000ff00		/* This nible is reserved for special server types */
 #define SMBV_NETWORK_SID			0x00010000		/* The user's sid has been set on the vc */
 #define	SMBV_AUTH_DONE				0x00080000		/* Security compeleted successfully */
 #define SMBV_PRIV_GUEST_ACCESS		0x00100000		/* Guest access is private */
@@ -137,8 +136,8 @@
  */
 struct smb_sopt {
 	uint32_t	sv_maxtx;	/* maximum transmit buf size */
-	uint16_t	sv_maxmux;	/* max number of outstanding rq's */
-	uint16_t 	sv_maxvcs;	/* max number of VCs */
+	uint16_t	sv_maxmux;	/* SMB1 - max number of outstanding rq's */
+	uint16_t 	sv_maxvcs;	/* SMB1 - max number of VCs */
 	uint32_t	sv_skey;	/* session key */
 	uint32_t	sv_caps;	/* capabilites SMB_CAP_ */
 };
@@ -231,6 +230,7 @@ for((var) = SMBLIST_FIRST(head, var);                  \
  */
 struct smb_gss {
 	mach_port_t	gss_mp;			/* Mach port to gssd */
+	au_asid_t	gss_asid;		/* Audit session id to find gss_mp */
 	gssd_nametype	gss_target_nt;		/* Service's principal's name type */
 	uint32_t	gss_spn_len;		/* Service's principal's length */
 	uint8_t *	gss_spn;		/* Service's principal name */
@@ -247,8 +247,7 @@ struct smb_gss {
 	uint32_t	gss_minor;		/* GSS minor (mech) error code */
 	uint32_t	gss_smb_error;		/* Last error returned by smb SetUpAndX */
 };
-extern int smbfs_kern_ntlmssp;    /* sysctl to control whether ntlmssp is done in kernel */
-extern int smbfs_deprecatePreXPServers;  /* sysctl to control whether preXP server are supported */
+
 /*
  * Virtual Circuit (session) to a server.
  * This is the most (over)complicated part of SMB protocol.
@@ -275,7 +274,6 @@ struct smb_vc {
 	struct sockaddr		*vc_saddr;			/* server addr */
 	struct sockaddr		*vc_laddr;			/* local addr, if any, only used for port 139 */
 	char				*vc_username;
-	char				*vc_uppercase_username;	/* Used by NTLMSSP code */
 	char				*vc_pass;			/* password for usl case */
 	char				*vc_domain;			/* workgroup/primary domain */
 	int32_t				vc_volume_cnt;
@@ -342,7 +340,7 @@ struct smb_share {
 	lck_mtx_t		ss_shlock;	/* used to protect ss_mount */ 
 	uint32_t		ss_dead_timer;	/* Time to wait before this share should be marked dead, zero means never */
 	uint32_t		ss_soft_timer;	/* Time to wait before this share should return time out errors, zero means never */
-	u_short			ss_tid;		/* TID */
+	u_short			ss_tid;         /* Tree ID for SMB1 */
 	uint64_t		ss_unix_caps;	/* unix capabilites are per share not VC */
 	enum smb_fs_types ss_fstype;	/* file system type of the  share */
 	uint32_t		ss_attributes;	/* File System Attributes */
@@ -398,15 +396,20 @@ const char * smb_share_getpass(struct smb_share *share);
 /*
  * SMB protocol level functions
  */
-int  smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context, vfs_context_t user_context, int inReconnect);
+int  smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t user_context, 
+                       int inReconnect, vfs_context_t context);
 int  smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context);
 int  smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context);
 int  smb_smb_treeconnect(struct smb_share *share, vfs_context_t context);
 int  smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context);
-int  smb_read(struct smb_share *share, uint16_t fid, uio_t uio, vfs_context_t context);
-int  smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag, vfs_context_t context);
-int  smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo, uint32_t EchoCount);
-int  smb_checkdir(struct smb_share *share, struct smbnode *dnp, const char *name, size_t nmlen, vfs_context_t context);
+int  smb_read(struct smb_share *share, uint16_t fid, uio_t uio, 
+              vfs_context_t context);
+int  smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag, 
+               vfs_context_t context);
+int  smb_echo(struct smb_vc *vcp, int timo, uint32_t EchoCount, 
+              vfs_context_t context);
+int  smb_checkdir(struct smb_share *share, struct smbnode *dnp, 
+                  const char *name, size_t nmlen, vfs_context_t context);
 
 #define SMBIOD_INTR_TIMO		2       
 #define SMBIOD_SLEEP_TIMO       2       

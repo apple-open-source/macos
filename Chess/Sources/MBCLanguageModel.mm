@@ -1,12 +1,51 @@
 /*
 	File:		MBCLanguageModel.mm
 	Contains:	Build and interpret speech recognition language model
-	Version:	1.0
-	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCLanguageModel.h"
 #import "MBCEngineCommands.h"
+#import "MBCDebug.h"
 
 static const char sTakeback[] = "take back move";
 static const char sUndo[]     = "undo";
@@ -30,9 +69,6 @@ inline SRefCon SR(MBCCompactMove move)
 
 - (id) initWithRecognitionSystem:(SRRecognitionSystem)system
 {
-	int debug 	= getenv("MBC_DEBUG") ? atoi(getenv("MBC_DEBUG")) : 0;
-	fDumpModels	= debug & 8;
-
 	fSystem	= system;
 
 	SRNewLanguageModel(fSystem, &fToModel, "to", 2);
@@ -75,7 +111,7 @@ inline SRefCon SR(MBCCompactMove move)
 	NSString *		pieceDest = [NSString stringWithFormat:@"%s to", move];
 	SRNewLanguageModel(fSystem, &destinations, 
 					   [pieceDest UTF8String], [pieceDest length]);
-	if (fDumpModels) {
+	if (MBCDebug::DumpLanguageModels()) {
 		const char * seenDest = "";
 		fprintf(stderr, "<%c%dmoves> =", Col(from), Row(from));
 		for (MBCSquare to = Square("a1"); to<=Square("h8"); ++to)
@@ -119,7 +155,7 @@ inline SRefCon SR(MBCCompactMove move)
 					   [pieceOrigins UTF8String], [pieceOrigins length]);
 
 	MBCPieceMoves *	moves	= fMoves->fMoves+piece;
-	if (fDumpModels) {
+	if (MBCDebug::DumpLanguageModels()) {
 		fprintf(stderr, "<%smoves> = \n", sPieceName[piece]);
 		for (int i = 0; i<moves->fNumInstances; ++i)
 			fprintf(stderr, " %c %c%d <to> <%c%dmoves>\n", 
@@ -145,7 +181,7 @@ inline SRefCon SR(MBCCompactMove move)
 	move[3] = '0'+Row(king);
 	move[4] = 0;
 	
-	if (fDumpModels) {
+	if (MBCDebug::DumpLanguageModels()) {
 		fprintf(stderr, "<castles> = castle <castlesides> side ;\n");
 		fprintf(stderr, "<castlesides> =%s%s ;\n",
 				fMoves->fCastleKingside ? " king" : "",
@@ -181,7 +217,7 @@ inline SRefCon SR(MBCCompactMove move)
 	drop[1] = '@';
 	drop[4] = 0;
 	
-	if (fDumpModels) {	
+	if (MBCDebug::DumpLanguageModels()) {	
 		const char *	seenDest = "";
 		fprintf(stderr, "<pawndrops> = drop pawn at <pawnat> ;\n");
 		fprintf(stderr, "<pawnat> =");
@@ -217,7 +253,7 @@ inline SRefCon SR(MBCCompactMove move)
 	int				color 		= fMoves->fWhiteMoves ? 0 : 8;
 	char drop[5];
 	
-	if (fDumpModels) {	
+	if (MBCDebug::DumpLanguageModels()) {	
 		const char *	seenPiece= "";
 		const char *	seenDest = "";
 		fprintf(stderr, "<piecedrops> = drop <droppiece> at <pieceat> ;\n");
@@ -273,7 +309,7 @@ inline SRefCon SR(MBCCompactMove move)
 				  fromMoves:(MBCMoveCollection *)moves
 				   takeback:(BOOL)takeback
 {
-	if (fDumpModels) {
+	if (MBCDebug::DumpLanguageModels()) {
 		fprintf(stderr, "<to> = to | takes;\n");
 		fprintf(stderr, "<promotion> = promoting to <promoPiece>;\n");
 		fprintf(stderr, "<promoPiece> = queen | bishop | knight | rook | king;\n"); 
@@ -282,7 +318,7 @@ inline SRefCon SR(MBCCompactMove move)
 	fMoves		= moves;
 	SREmptyLanguageObject(model);
 	
-	if (fDumpModels) {
+	if (MBCDebug::DumpLanguageModels()) {
 		bool	seenPiece = false;
 
 		fprintf(stderr, "\n<moves> = \n");

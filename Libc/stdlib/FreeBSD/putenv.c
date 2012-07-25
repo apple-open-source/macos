@@ -35,22 +35,66 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/putenv.c,v 1.6 2007/05/01 16:02:41 ache 
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <db.h>
+#include <crt_externs.h>
+#include <errno.h> 
+
+extern struct owned_ptr *__env_owned;
+
+#ifdef LEGACY_CRT1_ENVIRON
+extern char **_saved_environ;
+#endif /* LEGACY_CRT1_ENVIRON */
+
+__private_extern__ int __init__env_owned(int);
+__private_extern__ int __setenv(const char *, const char *, int, int, char ***, struct owned_ptr *);
+
+#ifndef BUILDING_VARIANT
+/*
+ * _putenvp -- SPI using an arbitrary pointer to string array (the array must
+ * have been created with malloc) and an env state, created by _allocenvstate().
+ *	Returns ptr to value associated with name, if any, else NULL.
+ */
+int
+_putenvp(char *str, char ***envp, void *state)
+{
+	if (__init__env_owned(1)) return (-1);
+	return (__setenv(str, NULL, 1, 0, envp, (state ? (struct owned_ptr *)state : __env_owned)));
+}
+#endif /* BUILDING_VARIANT */
 
 int
 putenv(str)
-	const char *str;
+	char *str;
 {
-	char *p, *equal;
-	int rval;
+#ifdef LEGACY_CRT1_ENVIRON
+	int ret;
+#endif /* LEGACY_CRT1_ENVIRON */
 
-	if ((p = strdup(str)) == NULL)
-		return (-1);
-	if ((equal = index(p, '=')) == NULL) {
-		(void)free(p);
+#if __DARWIN_UNIX03
+	if (str == NULL || *str == 0 || index(str, '=') == NULL) {
+		errno = EINVAL;
 		return (-1);
 	}
-	*equal = '\0';
-	rval = setenv(p, equal + 1, 1);
-	(void)free(p);
-	return (rval);
+#else /* !__DARWIN_UNIX03 */
+	if (index(str, '=') == NULL)
+		return (-1);
+#endif /* __DARWIN_UNIX03 */
+	if (__init__env_owned(1)) return (-1);
+#ifdef LEGACY_CRT1_ENVIRON
+	ret =
+#else /* !LEGACY_CRT1_ENVIRON */
+	return
+#endif /* !LEGACY_CRT1_ENVIRON */
+	    __setenv(str, NULL, 1,
+#if __DARWIN_UNIX03
+		0,
+#else /* !__DARWIN_UNIX03 */
+		-1,
+#endif /* __DARWIN_UNIX03 */
+		_NSGetEnviron(), __env_owned);
+#ifdef LEGACY_CRT1_ENVIRON
+	_saved_environ = *_NSGetEnviron();
+	return ret;
+#endif /* LEGACY_CRT1_ENVIRON */
 }

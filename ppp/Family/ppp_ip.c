@@ -231,6 +231,7 @@ errno_t ppp_ip_preoutput(ifnet_t ifp, protocol_family_t protocol,
 {
     errno_t				err;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
+    u_int16_t           ftype = PPP_IP;
 
     LOGMBUF("ppp_ip_preoutput", *packet);
 	
@@ -247,14 +248,14 @@ errno_t ppp_ip_preoutput(ifnet_t ifp, protocol_family_t protocol,
 #endif
 
     if ((wan->sc_flags & SC_LOOP_LOCAL)
-        && (((struct sockaddr_in *)dest)->sin_addr.s_addr == wan->ip_src.s_addr)
+        && (!memcmp(&((struct sockaddr_in *)(void*)dest)->sin_addr.s_addr, &wan->ip_src.s_addr, sizeof(struct in_addr)))    // Wcast-align fix - memcmp for unaligned compare
 		&& wan->lo_ifp) {
         err = ifnet_output(wan->lo_ifp, PF_INET, *packet, 0, (struct sockaddr *)dest);
 		lck_mtx_unlock(ppp_domain_mutex);
         return (err ? err : EJUSTRETURN);
     }
 	lck_mtx_unlock(ppp_domain_mutex);
-    *(u_int16_t *)frame_type = PPP_IP;
+    memcpy(frame_type, &ftype, sizeof(u_int16_t));     // Wcast-align fix - memcpy for unaligned move
     return 0;
 }
 
@@ -266,8 +267,9 @@ int ppp_ip_af_src_out(ifnet_t ifp, char *pkt)
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
         
-    ip = (struct ip *)pkt;
-    return (ip->ip_src.s_addr != wan->ip_src.s_addr);
+    // Wcast-align fixes - use memcmp for unaligned move
+    ip = (struct ip *)(void*)pkt;
+    return (memcmp(&ip->ip_src.s_addr, &wan->ip_src.s_addr, sizeof(struct in_addr)) == 0 ? 0 : 1);
 }
 
 /* -----------------------------------------------------------------------------
@@ -278,8 +280,9 @@ int ppp_ip_af_src_in(ifnet_t ifp, char *pkt)
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
         
-    ip = (struct ip *)pkt;
-    return (ip->ip_src.s_addr != wan->ip_dst.s_addr);
+    // Wcast-align fixes - use memcmp for unaligned accesses
+    ip = (struct ip *)(void*)pkt;
+    return (memcmp(&ip->ip_src.s_addr, &wan->ip_dst.s_addr, sizeof(struct in_addr)) == 0 ? 0 : 1);
 }
 
 /* -----------------------------------------------------------------------------
@@ -289,13 +292,14 @@ int ppp_ip_bootp_client_in(ifnet_t ifp, char *pkt)
 {
     struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
-	struct udphdr	*udp;
+	struct udphdr	udp;
 	
-    ip = (struct ip *)pkt;
-    if (ip->ip_dst.s_addr == wan->ip_src.s_addr && ip->ip_p == IPPROTO_UDP) {
+    // Wcast-align fixes - use memcmp and memcpy for unaligned accesses
+    ip = (struct ip *)(void*)pkt;
+    if (!memcmp(&ip->ip_dst.s_addr, &wan->ip_src.s_addr, sizeof(struct in_addr)) && ip->ip_p == IPPROTO_UDP) {
 	
-		udp = (struct udphdr *)(pkt + sizeof(struct ip));
-		if (udp->uh_sport == htons(IPPORT_BOOTPS) && udp->uh_dport == htons(IPPORT_BOOTPC)) {
+		memcpy(&udp, pkt + sizeof(struct ip), sizeof(struct udphdr));
+		if (udp.uh_sport == htons(IPPORT_BOOTPS) && udp.uh_dport == htons(IPPORT_BOOTPC)) {
 				return 1;
 		}
 	}
@@ -310,13 +314,16 @@ int ppp_ip_bootp_server_in(ifnet_t ifp, char *pkt)
 {
     //struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
-	struct udphdr	*udp;
+	struct udphdr	udp;
+    u_int32_t       val4;
+    
+	// Wcast-align fixes - use memcmp and memcpy for unaligned accesses
+    ip = (struct ip *)(void*)pkt;
+    val4 = htonl(INADDR_BROADCAST);
+    if (!memcmp(&ip->ip_dst.s_addr, &val4, sizeof(struct in_addr)) && ip->ip_p == IPPROTO_UDP) {
 	
-    ip = (struct ip *)pkt;
-    if (ip->ip_dst.s_addr == htonl(INADDR_BROADCAST) && ip->ip_p == IPPROTO_UDP) {
-	
-		udp = (struct udphdr *)(pkt + sizeof(struct ip));
-		if (udp->uh_sport == htons(IPPORT_BOOTPC) && udp->uh_dport == htons(IPPORT_BOOTPS)) {
+		memcpy(&udp, pkt + sizeof(struct ip), sizeof(struct udphdr));
+		if (udp.uh_sport == htons(IPPORT_BOOTPC) && udp.uh_dport == htons(IPPORT_BOOTPS)) {
 				return 1;
 		}
 	}

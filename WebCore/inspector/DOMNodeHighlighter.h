@@ -29,22 +29,57 @@
 #ifndef DOMNodeHighlighter_h
 #define DOMNodeHighlighter_h
 
+#include "Color.h"
+#include "FloatQuad.h"
+#include "LayoutTypes.h"
+
+#include <wtf/OwnPtr.h>
+#include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
+
 namespace WebCore {
 
+class Color;
+class Document;
+class FrameView;
 class GraphicsContext;
 class Node;
 
-namespace DOMNodeHighlighter {
+struct HighlightData {
+    Color content;
+    Color contentOutline;
+    Color padding;
+    Color border;
+    Color margin;
+    bool showInfo;
 
-enum HighlightMode {
-    HighlightAll,
-    HighlightContent,
-    HighlightPadding,
-    HighlightBorder,
-    HighlightMargin
+    // Either of these must be 0.
+    RefPtr<Node> node;
+    OwnPtr<IntRect> rect;
 };
 
-void DrawNodeHighlight(GraphicsContext&, Node*, HighlightMode);
+enum HighlightType {
+    HighlightTypeNode,
+    HighlightTypeRects,
+};
+
+struct Highlight {
+    Color contentColor;
+    Color paddingColor;
+    Color borderColor;
+    Color marginColor;
+
+    // When the type is Node, there are 4 quads (margin, border, padding, content).
+    // When the type is Rects, this is just a list of quads.
+    HighlightType type;
+    Vector<FloatQuad> quads;
+};
+
+namespace DOMNodeHighlighter {
+
+void drawHighlight(GraphicsContext&, Document*, HighlightData*);
+void getHighlight(Document*, HighlightData*, Highlight*);
+void drawOutline(GraphicsContext&, const LayoutRect&, const Color&);
 
 } // namespace DOMNodeHighlighter
 

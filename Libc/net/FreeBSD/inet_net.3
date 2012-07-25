@@ -42,9 +42,6 @@
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.In sys/types.h
-.In sys/socket.h
-.In netinet/in.h
 .In arpa/inet.h
 .Ft char *
 .Fn inet_net_ntop "int af" "const void *src" "int bits" "char *dst" "size_t size"
@@ -151,6 +148,13 @@ otherwise, the number is interpreted as decimal).
 .\" .Sh NETWORK NUMBERS (IP VERSION 6)
 .\" XXX - document this!
 .\"
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <sys/socket.h>
+.Fd #include <netinet/in.h>
+.Fd #include <arpa/inet.h>
+.Pp
+These include files were necessary for all functions.
 .Sh SEE ALSO
 .Xr byteorder 3 ,
 .Xr inet 3 ,

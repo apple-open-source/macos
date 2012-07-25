@@ -1677,31 +1677,6 @@ _krb5_free_error_message:
 	movq    (%r11), %r11
 	jmp	*%r11
 
-	.globl _krb5_get_error_message
-_krb5_get_error_message:
-	pushq	%rbp
-	movq	%rsp, %rbp
-	subq	$208, %rsp
-	pushq %rdi
-	pushq %rsi
-	pushq %rdx
-	pushq %rcx
-	pushq %r8
-	pushq %r9
-	call	_heim_load_functions
-	popq %r9
-	popq %r8
-	popq %rcx
-	popq %rdx
-	popq %rsi
-	popq %rdi
-	addq	$208, %rsp
-	movq	%rbp, %rsp
-	popq   %rbp
-	movq    _fun_krb5_get_error_message@GOTPCREL(%rip), %r11
-	movq    (%r11), %r11
-	jmp	*%r11
-
 	.globl _krb5_set_default_realm
 _krb5_set_default_realm:
 	pushq	%rbp
@@ -1944,7 +1919,6 @@ _set_com_err_hook:
 .comm _fun_krb5_auth_con_getflags,8,3
 .comm _fun_krb5_clear_error_message,8,3
 .comm _fun_krb5_free_error_message,8,3
-.comm _fun_krb5_get_error_message,8,3
 .comm _fun_krb5_set_default_realm,8,3
 .comm _fun_krb5_set_error_message,8,3
 .comm _fun_krb5_vset_error_message,8,3

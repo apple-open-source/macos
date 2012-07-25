@@ -46,7 +46,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <sys/signal.h>
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
@@ -95,7 +95,7 @@ static struct cache_entry *cache_head = NULL;
 pthread_rwlock_t cache_lock;	/* protect the cache chain */
 
 static int nfsmount(struct mapfs *, char *, char *, boolean_t, fsid_t ,
-    mach_port_t, fsid_t *, uint32_t *);
+		    au_asid_t, fsid_t *, uint32_t *);
 #ifdef HAVE_LOFS
 static int is_nfs_port(char *);
 #endif
@@ -142,8 +142,8 @@ static rpcvers_t vers_min_default = NFS_VER2;
 
 int
 mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
-    fsid_t mntpnt_fsid, mach_port_t gssd_port, fsid_t *fsidp,
-    uint32_t *retflags)
+	  fsid_t mntpnt_fsid, au_asid_t asid, fsid_t *fsidp,
+	  uint32_t *retflags)
 {
 #ifdef HAVE_LOFS
 	struct mapfs *mfs, *mp;
@@ -177,7 +177,7 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 #endif
 	if (err) {
 		err = nfsmount(mfs, mntpnt, me->map_mntopts, isdirect,
-		    mntpnt_fsid, gssd_port, fsidp, retflags);
+			       mntpnt_fsid, asid, fsidp, retflags);
 		if (err && trace > 1) {
 			trace_prt(1, "	Couldn't mount %s:%s, err=%d\n",
 				mfs->mfs_host, mfs->mfs_dir, err);
@@ -272,7 +272,7 @@ masked_eq(char *a, char *b, char *mask, int len)
 	}
 	return (mask == masklim);
 }
-	
+
 static int
 subnet_test(int af, int len, char *addr)
 {
@@ -521,7 +521,7 @@ enum_servers(struct mapent *me, char *preferred)
 	/*
 	 * look for entries on this subnet
 	 */
-	dump_mfs(m1, "	enum_servers: input of get_mysubnet_servers: ", 2);
+	dump_mfs(me->map_fs, "	enum_servers: input of get_mysubnet_servers: ", 2);
 	m1 = get_mysubnet_servers(me->map_fs);
 	dump_mfs(m1, "	enum_servers: output of get_mysubnet_servers: ", 3);
 	if (m1 && m1->mfs_next) {
@@ -567,8 +567,8 @@ static const struct mntopt mopts_nfs[] = {
 
 static int
 nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
-    fsid_t mntpnt_fsid, mach_port_t gssd_port, fsid_t *fsidp,
-    uint32_t *retflags)
+	 fsid_t mntpnt_fsid, au_asid_t asid, fsid_t *fsidp,
+	 uint32_t *retflags)
 {
 	mntoptparse_t mp;
 	int flags, altflags;
@@ -589,6 +589,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	int v2cnt = 0, v3cnt = 0, v4cnt = 0;
 	int v2near = 0, v3near = 0, v4near = 0;
 	char *mount_resource = NULL;
+	int mrlen = 0;
 	ushort_t thisport;
 
 	dump_mfs(mfs_in, "  nfsmount: input: ", 2);
@@ -721,6 +722,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 
 			if (mfs->mfs_flags & MFS_URL) {
 				char *path;
+				int pathlen;
 
 				if (nfs_port != 0 && mfs->mfs_port != 0 &&
 				    (uint_t)nfs_port != mfs->mfs_port) {
@@ -743,7 +745,8 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 				 * URL's can contain escape characters. Get
 				 * rid of them.
 				 */
-				path = malloc(strlen(dir) + 2);
+				pathlen = (int) strlen(dir) + 2;
+				path = malloc(pathlen);
 
 				if (path == NULL) {
 					syslog(LOG_ERR, "nfsmount: no memory");
@@ -751,7 +754,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 					goto out;
 				}
 
-				strcpy(path, dir);
+				strlcpy(path, dir, pathlen);
 				URLparse(path);
 				mfs->mfs_dir = path;
 				mfs->mfs_flags |= MFS_ALLOC_DIR;
@@ -874,16 +877,21 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	 * program; that way, we don't have to know the same
 	 * stuff about mounting NFS that mount_nfs does.
 	 */
-	mount_resource = malloc(strlen(mfs->mfs_host) + strlen(mfs->mfs_dir) + 2);
+	mrlen = (int) (strlen(mfs->mfs_host) + strlen(mfs->mfs_dir)) + 2;
+	mount_resource = malloc(mrlen);
 	if (mount_resource == NULL) {
 		last_error = errno;
 		goto out;
 	}
-	strcpy(mount_resource, mfs->mfs_host);
-	strcat(mount_resource, ":");
-	strcat(mount_resource, mfs->mfs_dir);
+	strlcpy(mount_resource, mfs->mfs_host, mrlen);
+	strlcat(mount_resource, ":", mrlen);
+	strlcat(mount_resource, mfs->mfs_dir, mrlen);
+	/*
+	 * Note we must mount as root for NFS because hierarchical mounts
+	 * will almost certainly not work.
+	 */
 	last_error = mount_generic(mount_resource, "nfs", opts, nfsvers,
-	    mntpnt, isdirect, FALSE, mntpnt_fsid, 0, gssd_port, fsidp,
+	    mntpnt, isdirect, FALSE, mntpnt_fsid, 0, asid, fsidp,
 	    retflags);
 
 	free(mount_resource);
@@ -952,7 +960,7 @@ get_nfs_vers(mntoptparse_t mp, int altflags)
 static CLIENT *
 clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
     rpcvers_t *vers_out, const rpcvers_t vers_low, const rpcvers_t vers_high,
-    const char *proto, const struct timeval *tp)
+    const char *proto, struct timeval *tp)
 {
 	CLIENT *clnt;
 	struct timeval to;
@@ -960,12 +968,7 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 	struct rpc_err rpcerr;
 	rpcvers_t v_low, v_high;
 
-#if 0
-	/* Once we get clnt_create_timed() */
-	clnt = clnt_create_timed(hostname, prog, vers_high, proto, tp);
-#else
-	clnt = clnt_create((char *)hostname, prog, vers_high, (char *)proto);
-#endif
+	clnt = clnt_create_timeout(hostname, prog, vers_high, proto, tp);
 	if (clnt == NULL)
 		return (NULL);
 	if (tp == NULL) {
@@ -998,12 +1001,7 @@ clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
 			goto error;
 		}
 		clnt_destroy(clnt);
-#if 0
-		/* Once we get clnt_create_timed() */
-		clnt = clnt_create_timed(hostname, prog, v_high, proto, tp);
-#else
-		clnt = clnt_create((char *)hostname, prog, v_high, (char *)proto);
-#endif
+		clnt = clnt_create_timeout(hostname, prog, v_high, proto, tp);
 		if (clnt == NULL)
 			return (NULL);
 		rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
@@ -1165,6 +1163,7 @@ pingnfs(
 	const char *hostname = hostpart;
 	char *hostcopy = NULL;
 	char *pathcopy;
+	struct timeval tv = {10, 0};
 
 	if (path != NULL && strcmp(hostname, "nfs") == 0 &&
 	    strncmp(path, "//", 2) == 0) {
@@ -1278,7 +1277,7 @@ pingnfs(
 							    NFS_PROG,
 							    vers_to_try,
 							    port, "tcp",
-							    NULL))
+							    &tv))
 			    != NULL) {
 				outvers = vers_to_try;
 				break;
@@ -1292,7 +1291,7 @@ pingnfs(
 		} else {
 			if ((cl = clnt_create_vers_timed(hostname, NFS_PROG,
 				&outvers, versmin, vers_to_try,
-				"udp", NULL))
+				"udp", &tv))
 				!= NULL)
 				break;
 			if (trace > 4) {
@@ -1311,7 +1310,7 @@ pingnfs(
 				if ((cl = clnt_create_vers_timed(hostname,
 					NFS_PROG, &outvers,
 					versmin, vers_to_try,
-					"tcp", NULL)) != NULL)
+					"tcp", &tv)) != NULL)
 					break;
 				if (trace > 4) {
 					trace_prt(1, "  pingnfs: Can't ping "

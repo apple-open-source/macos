@@ -29,20 +29,19 @@
 #include "RenderVideo.h"
 
 #include "Document.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLNames.h"
 #include "HTMLVideoElement.h"
 #include "MediaPlayer.h"
+#include "Page.h"
 #include "PaintInfo.h"
 #include "RenderView.h"
 
-#if USE(ACCELERATED_COMPOSITING)
-#include "RenderLayer.h"
-#include "RenderLayerBacking.h"
+#if ENABLE(FULLSCREEN_API)
+#include "RenderFullScreen.h"
 #endif
-
-using namespace std;
 
 namespace WebCore {
 
@@ -109,8 +108,11 @@ IntSize RenderVideo::calculateIntrinsicSize()
     // of the video resource, if that is available; otherwise it is the intrinsic 
     // height of the poster frame, if that is available; otherwise it is 150 CSS pixels.
     MediaPlayer* player = mediaElement()->player();
-    if (player && video->readyState() >= HTMLVideoElement::HAVE_METADATA)
-        return player->naturalSize();
+    if (player && video->readyState() >= HTMLVideoElement::HAVE_METADATA) {
+        IntSize size = player->naturalSize();
+        if (!size.isEmpty())
+            return size;
+    }
 
     if (video->shouldDisplayPosterImage() && !m_cachedImageSize.isEmpty() && !imageResource()->errorOccurred())
         return m_cachedImageSize;
@@ -157,7 +159,7 @@ IntRect RenderVideo::videoBox() const
     else
         elementSize = intrinsicSize();
 
-    IntRect contentRect = contentBoxRect();
+    IntRect contentRect = pixelSnappedIntRect(contentBoxRect());
     if (elementSize.isEmpty() || contentRect.isEmpty())
         return IntRect();
 
@@ -184,28 +186,41 @@ bool RenderVideo::shouldDisplayVideo() const
     return !videoElement()->shouldDisplayPosterImage();
 }
 
-void RenderVideo::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
+void RenderVideo::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     MediaPlayer* mediaPlayer = mediaElement()->player();
     bool displayingPoster = videoElement()->shouldDisplayPosterImage();
 
+    Page* page = 0;
+    if (Frame* frame = this->frame())
+        page = frame->page();
+
     if (!displayingPoster) {
-        if (!mediaPlayer)
+        if (!mediaPlayer) {
+            if (page && paintInfo.phase == PaintPhaseForeground)
+                page->addRelevantUnpaintedObject(this, visualOverflowRect());
             return;
+        }
         updatePlayer();
     }
 
-    IntRect rect = videoBox();
-    if (rect.isEmpty())
+    LayoutRect rect = videoBox();
+    if (rect.isEmpty()) {
+        if (page && paintInfo.phase == PaintPhaseForeground)
+            page->addRelevantUnpaintedObject(this, visualOverflowRect());
         return;
-    rect.move(tx, ty);
+    }
+    rect.moveBy(paintOffset);
+
+    if (page && paintInfo.phase == PaintPhaseForeground)
+        page->addRelevantRepaintedObject(this, rect);
 
     if (displayingPoster)
         paintIntoRect(paintInfo.context, rect);
     else if (document()->view() && document()->view()->paintBehavior() & PaintBehaviorFlattenCompositingLayers)
-        mediaPlayer->paintCurrentFrameInContext(paintInfo.context, rect);
+        mediaPlayer->paintCurrentFrameInContext(paintInfo.context, pixelSnappedIntRect(rect));
     else
-        mediaPlayer->paint(paintInfo.context, rect);
+        mediaPlayer->paint(paintInfo.context, pixelSnappedIntRect(rect));
 }
 
 void RenderVideo::layout()
@@ -240,7 +255,7 @@ void RenderVideo::updatePlayer()
     }
 
 #if USE(ACCELERATED_COMPOSITING)
-    layer()->contentChanged(RenderLayer::VideoChanged);
+    contentChanged(VideoChanged);
 #endif
     
     IntRect videoBounds = videoBox(); 
@@ -249,12 +264,12 @@ void RenderVideo::updatePlayer()
     mediaPlayer->setVisible(true);
 }
 
-int RenderVideo::computeReplacedLogicalWidth(bool includeMaxWidth) const
+LayoutUnit RenderVideo::computeReplacedLogicalWidth(bool includeMaxWidth) const
 {
     return RenderReplaced::computeReplacedLogicalWidth(includeMaxWidth);
 }
 
-int RenderVideo::computeReplacedLogicalHeight() const
+LayoutUnit RenderVideo::computeReplacedLogicalHeight() const
 {
     return RenderReplaced::computeReplacedLogicalHeight();
 }
@@ -281,6 +296,49 @@ void RenderVideo::acceleratedRenderingStateChanged()
         p->acceleratedRenderingStateChanged();
 }
 #endif  // USE(ACCELERATED_COMPOSITING)
+
+#if ENABLE(FULLSCREEN_API)
+static const RenderBlock* rendererPlaceholder(const RenderObject* renderer)
+{
+    RenderObject* parent = renderer->parent();
+    if (!parent)
+        return 0;
+    
+    RenderFullScreen* fullScreen = parent->isRenderFullScreen() ? toRenderFullScreen(parent) : 0;
+    if (!fullScreen)
+        return 0;
+    
+    return fullScreen->placeholder();
+}
+
+LayoutUnit RenderVideo::offsetLeft() const
+{
+    if (const RenderBlock* block = rendererPlaceholder(this))
+        return block->offsetLeft();
+    return RenderMedia::offsetLeft();
+}
+
+LayoutUnit RenderVideo::offsetTop() const
+{
+    if (const RenderBlock* block = rendererPlaceholder(this))
+        return block->offsetTop();
+    return RenderMedia::offsetTop();
+}
+
+LayoutUnit RenderVideo::offsetWidth() const
+{
+    if (const RenderBlock* block = rendererPlaceholder(this))
+        return block->offsetWidth();
+    return RenderMedia::offsetWidth();
+}
+
+LayoutUnit RenderVideo::offsetHeight() const
+{
+    if (const RenderBlock* block = rendererPlaceholder(this))
+        return block->offsetHeight();
+    return RenderMedia::offsetHeight();
+}
+#endif
 
 } // namespace WebCore
 

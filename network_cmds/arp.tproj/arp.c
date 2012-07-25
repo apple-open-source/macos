@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -135,6 +135,7 @@ static int valid_type(int type);
 static char *sec2str(time_t);
 
 static int nflag;	/* no reverse dns lookups */
+static int xflag;	/* extended link-layer reachability information */
 static char *rifname;
 
 static int	expire_time, flags, doing_proxy, proxy_only;
@@ -168,7 +169,7 @@ main(int argc, char *argv[])
 	int lflag = 0;
 	uint32_t ifindex = 0;
 
-	while ((ch = getopt(argc, argv, "andflsSi:")) != -1)
+	while ((ch = getopt(argc, argv, "andflsSi:x")) != -1)
 		switch((char)ch) {
 		case 'a':
 			aflag = 1;
@@ -193,6 +194,10 @@ main(int argc, char *argv[])
 			break;
 		case 'i':
 			rifname = optarg;
+			break;
+		case 'x':
+			xflag = 1;
+			lflag = 1;
 			break;
 		case '?':
 		default:
@@ -220,9 +225,13 @@ main(int argc, char *argv[])
 				usage();
 			if (lflag) {
 				printf("%-23s %-17s %-9.9s %-9.9s %8.8s %4s "
-				    "%4s\n", "Neighbor", "Linklayer Address",
-			           "Expire(O)", "Expire(I)", "Netif", "Refs",
-				   "Prbs");
+				    "%4s", "Neighbor",
+				    "Linklayer Address", "Expire(O)",
+				    "Expire(I)", "Netif", "Refs", "Prbs");
+				if (xflag)
+					printf(" %-7.7s %-7.7s %-7.7s",
+					    "RSSI", "LQM", "NPM");
+				printf("\n");
 				search_ext(0, print_entry_ext);
 			} else {
 				search(0, print_entry);
@@ -1107,6 +1116,54 @@ print_entry_ext(struct sockaddr_dl *sdl, struct sockaddr_inarp *addr,
 		printf(" %4d", ertm->rtm_ri.ri_refcnt);
 		if (ertm->rtm_ri.ri_probes)
 			printf(" %4d", ertm->rtm_ri.ri_probes);
+
+		if (xflag) {
+			if (!ertm->rtm_ri.ri_probes)
+				printf(" %-4.4s", "none");
+
+			if (ertm->rtm_ri.ri_rssi != IFNET_RSSI_UNKNOWN)
+				printf(" %7d", ertm->rtm_ri.ri_rssi);
+			else
+				printf(" %-7.7s", "unknown");
+
+			switch (ertm->rtm_ri.ri_lqm)
+			{
+			case IFNET_LQM_THRESH_OFF:
+				printf(" %-7.7s", "off");
+				break;
+			case IFNET_LQM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_LQM_THRESH_POOR:
+				printf(" %-7.7s", "poor");
+				break;
+			case IFNET_LQM_THRESH_GOOD:
+				printf(" %-7.7s", "good");
+				break;
+			default:
+				printf(" %7d", ertm->rtm_ri.ri_lqm);
+				break;
+			}
+
+			switch (ertm->rtm_ri.ri_npm)
+			{
+			case IFNET_NPM_THRESH_UNKNOWN:
+				printf(" %-7.7s", "unknown");
+				break;
+			case IFNET_NPM_THRESH_NEAR:
+				printf(" %-7.7s", "near");
+				break;
+			case IFNET_NPM_THRESH_GENERAL:
+				printf(" %-7.7s", "general");
+				break;
+			case IFNET_NPM_THRESH_FAR:
+				printf(" %-7.7s", "far");
+				break;
+			default:
+				printf(" %7d", ertm->rtm_ri.ri_npm);
+				break;
+			}
+		}
 	}
 	printf("\n");
 }

@@ -1,5 +1,5 @@
 NAME = altgraph
-VERSION = 0.7.1
+VERSION = 0.9
 
 include ../Makefile.inc
 

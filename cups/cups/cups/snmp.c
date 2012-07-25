@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp.c 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: snmp.c 3796 2012-04-23 22:54:48Z msweet $"
  *
  *   SNMP functions for CUPS.
  *
@@ -61,7 +61,7 @@
 #include "cups-private.h"
 #include "snmp-private.h"
 #ifdef HAVE_POLL
-#  include <sys/poll.h>
+#  include <poll.h>
 #endif /* HAVE_POLL */
 
 
@@ -1085,7 +1085,7 @@ asn1_decode_snmp(unsigned char *buffer,	/* I - Buffer */
 		    packet->object_value.string.num_bytes = length;
 		    asn1_get_string(&bufptr, bufend, length,
 		                    (char *)packet->object_value.string.bytes,
-				    CUPS_SNMP_MAX_STRING);
+				    sizeof(packet->object_value.string.bytes));
 	            break;
 
 	        case CUPS_ASN1_OID :
@@ -1733,5 +1733,5 @@ snmp_set_error(cups_snmp_t *packet,	/* I - Packet */
 
 
 /*
- * End of "$Id: snmp.c 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: snmp.c 3796 2012-04-23 22:54:48Z msweet $".
  */

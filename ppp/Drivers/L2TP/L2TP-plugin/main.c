@@ -419,12 +419,13 @@ void l2tp_wait_input()
 
     if (eventsockfd != -1 && is_ready_fd(eventsockfd)) {
     
-        char                 	buf[256], ev_if[32];
+		char                 	buf[256] __attribute__ ((aligned(4)));		// Wcast-align fix - force alignment           
+        char ev_if[32];
         struct kern_event_msg	*ev_msg;
         struct kev_in_data     	*inetdata;
 
         if (recv(eventsockfd, &buf, sizeof(buf), 0) != -1) {
-            ev_msg = (struct kern_event_msg *) &buf;
+            ev_msg = ALIGNED_CAST(struct kern_event_msg *)&buf;
             inetdata = (struct kev_in_data *) &ev_msg->event_data[0];
 			log_vpn_interface_address_event(__FUNCTION__, ev_msg, opt_wait_if_timeout, interface, &our_address.sin_addr);
             switch (ev_msg->event_code) {
@@ -449,7 +450,7 @@ void l2tp_wait_input()
                                             && ifa->ifa_addr
                                             && !strncmp(ifa->ifa_name, (char*)interface, sizeof(interface))
                                             && ifa->ifa_addr->sa_family == AF_INET
-                                            && ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == our_address.sin_addr.s_addr);
+                                            && (ALIGNED_CAST(struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == our_address.sin_addr.s_addr);
                                 }
                                 freeifaddrs(ifap);
                             }
@@ -582,7 +583,7 @@ void *l2tp_resolver_thread(void *arg)
 
 			bzero(&peer_address.sin_addr, sizeof(peer_address.sin_addr));
 			if ( count )
-				peer_address.sin_addr = *(struct in_addr *)host->h_addr_list[rd8 % count];
+                memcpy(&peer_address.sin_addr, host->h_addr_list[rd8 % count], sizeof(struct in_addr));    // Wcast-align fix - using memcpy for unknown alignment
             bzero(alt_peer_address, sizeof(alt_peer_address));
             num_alt_peer_address = 0;
             if (count > 1) {
@@ -591,7 +592,9 @@ void *l2tp_resolver_thread(void *arg)
                     alt_peer_address[num_alt_peer_address].sin_len = sizeof(alt_peer_address[num_alt_peer_address]);
                     alt_peer_address[num_alt_peer_address].sin_family = AF_INET;
                     alt_peer_address[num_alt_peer_address].sin_port = htons(L2TP_UDP_PORT);
-                    alt_peer_address[num_alt_peer_address].sin_addr = *(struct in_addr*)host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count];
+                    
+                    // Wcast-align fix - using memcpy for unknown alignment
+                    memcpy(&alt_peer_address[num_alt_peer_address].sin_addr, host->h_addr_list[(rd8 + num_alt_peer_address + 1)% count], sizeof(struct in_addr));
                     num_alt_peer_address++;
                 }
             }
@@ -709,10 +712,10 @@ int l2tp_trigger_ipsec(int listenmode,
     struct sockaddr		from;
 	u_int16_t			reliable;
 	struct sockaddr_in	redirect_addr;
-	u_int8_t					data[256]; 
-	struct vpnctl_hdr			*hdr = (struct vpnctl_hdr *)data;
-	struct vpnctl_cmd_bind		*cmd_bind = (struct vpnctl_cmd_bind *)data;
-	struct vpnctl_status_failed *failed_status = (struct vpnctl_status_failed *)data;
+	u_int8_t					data[256] __attribute__ ((aligned(4))); 		// Wcast-align fix - force alignment 
+	struct vpnctl_hdr			*hdr = ALIGNED_CAST(struct vpnctl_hdr *)data;
+	struct vpnctl_cmd_bind		*cmd_bind = ALIGNED_CAST(struct vpnctl_cmd_bind *)data;
+	struct vpnctl_status_failed *failed_status = ALIGNED_CAST(struct vpnctl_status_failed *)data;
 	int                          num_ipsec_triggers = 0;
 
 	/* open and connect to the racoon control socket */
@@ -803,7 +806,7 @@ start:
 					case VPNCTL_NTYPE_LOAD_BALANCE:		
 
 						redirect_addr = peer_address;
-						redirect_addr.sin_addr.s_addr = *(u_int32_t*)failed_status->data;
+						redirect_addr.sin_addr.s_addr = *ALIGNED_CAST(u_int32_t*)failed_status->data;
 						notice("IPSec connection redirected to server '%s'...\n", inet_ntoa(redirect_addr.sin_addr));
 				
 						err = l2tp_change_peeraddress(ctrlsockfd, (struct sockaddr *)&redirect_addr);
@@ -1335,8 +1338,7 @@ int l2tp_connect(int *errorcode)
 				ipsec_dict = NULL;
 			}
 			
-			ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
-				(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
+			ipsec_dict = IPSecCreateL2TPDefaultConfiguration(&our_address, &peer_address, 
 				(host_name_specified ? remoteaddress : NULL),
 				auth_method, 1, 0, verify_id); 
 	
@@ -1485,8 +1487,7 @@ int l2tp_connect(int *errorcode)
 				if (ipsec_dict) 
 					CFRelease(ipsec_dict);
 
-				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
-					(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
+				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(&our_address, &peer_address, 
 					(host_name_specified ? remoteaddress : NULL),
 					kRASValIPSecAuthenticationMethodSharedSecret, 0, 0, 0); 
 
@@ -1719,7 +1720,8 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
             if (!strcmp(opt_mode, MODE_CONNECT)) {
                 IPSecRemoveConfiguration(ipsec_dict, &errstr);
                 // security associations are base on IP addresses only
-                if (((struct sockaddr_in *)peer)->sin_addr.s_addr != ((struct sockaddr_in *)&peer_address)->sin_addr.s_addr)
+                // Wcast-align fix - use memcmp for unaligned compare
+                if (memcmp(&((struct sockaddr_in *)(void*)peer)->sin_addr.s_addr, &((struct sockaddr_in *)(void*)&peer_address)->sin_addr.s_addr, sizeof(struct in_addr)))
                     IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
                 IPSecRemovePolicies(ipsec_dict, -1, &errstr);
             }

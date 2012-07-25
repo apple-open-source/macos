@@ -816,7 +816,7 @@ void sys_notify(u_int32_t message, uintptr_t code1, uintptr_t code2)
     
     p  = msg;
     bzero(p, totlen);
-    hdr = (struct ppp_msg_hdr *)p;
+    hdr = ALIGNED_CAST(struct ppp_msg_hdr *)p;
     hdr->m_type = message;
     hdr->m_len = 8;
     hdr->m_flags |= USE_SERVICEID;
@@ -1942,7 +1942,7 @@ Config the interface IP addresses and netmask
 ----------------------------------------------------------------------------- */
 int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
 {
-    struct ifaliasreq ifra;
+    struct ifaliasreq ifra __attribute__ ((aligned (4)));		// Wcast-align fix - force alignment
     struct ifreq ifr;
 
 // XXX from sys/sockio.h
@@ -1961,18 +1961,18 @@ int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
     
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
     SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     if (m != 0) {
-	SET_SA_FAMILY(ifra.ifra_mask, AF_INET);
-	((struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
+        SET_SA_FAMILY(ifra.ifra_mask, AF_INET);
+        (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
     } else
-	BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
-    BZERO(&ifr, sizeof(ifr));
-    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
-    if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
-	if (errno != EADDRNOTAVAIL)
+        BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
+        BZERO(&ifr, sizeof(ifr));
+        strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+        if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifr) < 0) {
+            if (errno != EADDRNOTAVAIL)
 	    warning("Couldn't remove interface address: %m");
     }
     if (ioctl(ip_sockfd, SIOCAIFADDR, (caddr_t) &ifra) < 0) {
@@ -2008,11 +2008,11 @@ int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
  ----------------------------------------------------------------------------- */
 int uifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
 {
-    struct ifaliasreq ifra;
+    struct ifaliasreq ifra __attribute__ ((aligned (4)));	// Wcast-align fix - force alignment
     struct ifreq ifr;
+    
+    cifroute();
 	
-	cifroute();
-
 	// XXX from sys/sockio.h
 #define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
 #define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
@@ -2025,12 +2025,12 @@ int uifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
     
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
     SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     if (m != 0) {
 		SET_SA_FAMILY(ifra.ifra_mask, AF_INET);
-		((struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
+		(ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_mask)->sin_addr.s_addr = m;
     } else
 		BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
     BZERO(&ifr, sizeof(ifr));
@@ -2063,7 +2063,7 @@ Clear the interface IP addresses, and delete routes
 int cifaddr(int u, u_int32_t o, u_int32_t h)
 {
     //struct ifreq ifr;
-    struct ifaliasreq ifra;
+    struct ifaliasreq ifra __attribute__ ((aligned (4)));		// Wcast-align fix - force alignment
 
 // XXX from sys/sockio.h
 #define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
@@ -2074,9 +2074,9 @@ int cifaddr(int u, u_int32_t o, u_int32_t h)
     ifaddrs[0] = 0;
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
     SET_SA_FAMILY(ifra.ifra_broadaddr, AF_INET);
-    ((struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
+    (ALIGNED_CAST(struct sockaddr_in *) &ifra.ifra_broadaddr)->sin_addr.s_addr = h;
     BZERO(&ifra.ifra_mask, sizeof(ifra.ifra_mask));
     if (ioctl(ip_sockfd, SIOCDIFADDR, (caddr_t) &ifra) < 0) {
 	if (errno != EADDRNOTAVAIL)
@@ -2106,7 +2106,7 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
 {
     int ifindex, s;
     struct in6_ifreq ifr6;
-    struct in6_aliasreq addreq6;
+    struct in6_aliasreq addreq6 __attribute__ ((aligned (4)));		// Wcast-align fix - force alignment
 
 // XXX from sys/sockio.h
 #define SIOCPROTOATTACH_IN6 _IOWR('i', 110, struct in6_aliasreq)    /* attach proto to interface */
@@ -2147,8 +2147,8 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
     memcpy(&addreq6.ifra_addr.sin6_addr.s6_addr[8], &our_eui64,
 	sizeof(our_eui64));
     /* KAME ifindex hack */
-    *(u_int16_t *)&addreq6.ifra_addr.sin6_addr.s6_addr[2] = htons(ifindex);
-
+    *ALIGNED_CAST(u_int16_t *)&addreq6.ifra_addr.sin6_addr.s6_addr[2] = htons(ifindex);
+    
     /* his addr */
     addreq6.ifra_dstaddr.sin6_family = AF_INET6;
     addreq6.ifra_dstaddr.sin6_len = sizeof(struct sockaddr_in6);
@@ -2157,8 +2157,8 @@ int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
     memcpy(&addreq6.ifra_dstaddr.sin6_addr.s6_addr[8], &his_eui64,
 	sizeof(our_eui64));
     /* KAME ifindex hack */
-    *(u_int16_t *)&addreq6.ifra_dstaddr.sin6_addr.s6_addr[2] = htons(ifindex);
-
+    *ALIGNED_CAST(u_int16_t *)&addreq6.ifra_dstaddr.sin6_addr.s6_addr[2] = htons(ifindex);
+    
     /* prefix mask: 128bit */
     addreq6.ifra_prefixmask.sin6_family = AF_INET6;
     addreq6.ifra_prefixmask.sin6_len = sizeof(struct sockaddr_in6);
@@ -2699,6 +2699,11 @@ int sifdns(u_int32_t dns1, u_int32_t dns2)
 		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns2));
 		
 	result = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSServerAddresses, str1, str2, kSCPropNetDNSSupplementalMatchDomains, strname, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+#ifndef kSCPropNetProxiesSupplementalMatchDomains			
+#define kSCPropNetProxiesSupplementalMatchDomains kSCPropNetDNSSupplementalMatchDomains
+#define kSCPropNetProxiesSupplementalMatchOrders kSCPropNetDNSSupplementalMatchOrders
+#endif
+	if (result) publish_dns_wins_entry(kSCEntNetProxies, kSCPropNetProxiesSupplementalMatchDomains, strname, 0, kSCPropNetProxiesSupplementalMatchOrders, num, 0, 0, clean);
 
 done:
 	if (num)
@@ -2743,27 +2748,6 @@ done:
 	return 0;
 #endif
 }
-
-/* -----------------------------------------------------------------------------
-clear dns information
------------------------------------------------------------------------------ */
-int cifdns(u_int32_t dns1, u_int32_t dns2)
-{
-    return unpublish_dict(kSCEntNetDNS);
-}
-
-/* -----------------------------------------------------------------------------
-clear wins information
------------------------------------------------------------------------------ */
-int cifwins(u_int32_t wins1, u_int32_t wins2)
-{
-#if !TARGET_OS_EMBEDDED
-    return unpublish_dict(kSCEntNetSMB);
-#else
-	return 0;
-#endif
-}
-
 
 static struct {
     struct rt_msghdr		hdr;
@@ -2877,11 +2861,11 @@ static int get_ether_addr(u_int32_t ipaddr, struct sockaddr_dl *hwaddr)
      * Scan through looking for an interface with an Internet
      * address on the same subnet as `ipaddr'.
      */
-    ifend = (struct ifreq *) (ifc.ifc_buf + ifc.ifc_len);
-    for (ifr = ifc.ifc_req; ifr < ifend; ifr = (struct ifreq *)
+    ifend = ALIGNED_CAST(struct ifreq *) (ifc.ifc_buf + ifc.ifc_len);
+    for (ifr = ifc.ifc_req; ifr < ifend; ifr = ALIGNED_CAST(struct ifreq *)
 	 	((char *)&ifr->ifr_addr + ifr->ifr_addr.sa_len)) {
 	if (ifr->ifr_addr.sa_family == AF_INET) {
-	    ina = ((struct sockaddr_in *) &ifr->ifr_addr)->sin_addr.s_addr;
+	    ina = (ALIGNED_CAST(struct sockaddr_in *) &ifr->ifr_addr)->sin_addr.s_addr;
 	    strlcpy(ifreq.ifr_name, ifr->ifr_name, sizeof(ifreq.ifr_name));
 	    /*
 	     * Check that the interface is up, and not point-to-point
@@ -2898,7 +2882,7 @@ static int get_ether_addr(u_int32_t ipaddr, struct sockaddr_dl *hwaddr)
 	     */
 	    if (ioctl(ip_sockfd, SIOCGIFNETMASK, &ifreq) < 0)
 		continue;
-	    mask = ((struct sockaddr_in *) &ifreq.ifr_addr)->sin_addr.s_addr;
+	    mask = (ALIGNED_CAST(struct sockaddr_in *) &ifreq.ifr_addr)->sin_addr.s_addr;
 	    if ((ipaddr & mask) != (ina & mask))
 		continue;
 
@@ -2921,11 +2905,11 @@ static int get_ether_addr(u_int32_t ipaddr, struct sockaddr_dl *hwaddr)
 	    /*
 	     * Found the link-level address - copy it out
 	     */
-	    dla = (struct sockaddr_dl *) &ifr->ifr_addr;
+	    dla = ALIGNED_CAST(struct sockaddr_dl *) &ifr->ifr_addr;
 	    BCOPY(dla, hwaddr, dla->sdl_len);
 	    return 1;
 	}
-	ifr = (struct ifreq *) ((char *)&ifr->ifr_addr + ifr->ifr_addr.sa_len);
+	ifr = ALIGNED_CAST(struct ifreq *) ((char *)&ifr->ifr_addr + ifr->ifr_addr.sa_len);
     }
 
     return 0;
@@ -2965,15 +2949,15 @@ u_int32_t GetMask(u_int32_t addr)
 	warning("ioctl(SIOCGIFCONF): %m");
 	return mask;
     }
-    ifend = (struct ifreq *) (ifc.ifc_buf + ifc.ifc_len);
-    for (ifr = ifc.ifc_req; ifr < ifend; ifr = (struct ifreq *)
+    ifend = ALIGNED_CAST(struct ifreq *) (ifc.ifc_buf + ifc.ifc_len);
+    for (ifr = ifc.ifc_req; ifr < ifend; ifr = ALIGNED_CAST(struct ifreq *)
 	 	((char *)&ifr->ifr_addr + ifr->ifr_addr.sa_len)) {
 	/*
 	 * Check the interface's internet address.
 	 */
 	if (ifr->ifr_addr.sa_family != AF_INET)
 	    continue;
-	ina = ((struct sockaddr_in *) &ifr->ifr_addr)->sin_addr.s_addr;
+	ina = (ALIGNED_CAST(struct sockaddr_in *) &ifr->ifr_addr)->sin_addr.s_addr;
 	if ((ntohl(ina) & nmask) != (addr & nmask))
 	    continue;
 	/*
@@ -2990,7 +2974,7 @@ u_int32_t GetMask(u_int32_t addr)
 	 */
 	if (ioctl(ip_sockfd, SIOCGIFNETMASK, &ifreq) < 0)
 	    continue;
-	mask |= ((struct sockaddr_in *)&ifreq.ifr_addr)->sin_addr.s_addr;
+	mask |= (ALIGNED_CAST(struct sockaddr_in *)&ifreq.ifr_addr)->sin_addr.s_addr;
     }
 
     return mask;
@@ -3519,6 +3503,7 @@ void sys_exitnotify(void *arg, uintptr_t exitcode)
     // unpublish the various info about the connection
     unpublish_dict(kSCEntNetPPP);
     unpublish_dict(kSCEntNetDNS);
+    unpublish_dict(kSCEntNetProxies);
 #if !TARGET_OS_EMBEDDED
     unpublish_dict(kSCEntNetSMB);
 #endif
@@ -3594,7 +3579,8 @@ route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char ift
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		error("route_interface: write routing socket failed, %m. (address %s, mask %s, interface %s, host %d).",
+		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "route_interface: write routing socket failed, %s. (address %s, mask %s, interface %s, host %d).",
+			   strerror(errno),
 			  addr2ascii(AF_INET, &host, sizeof(host), host_str),
 			  addr2ascii(AF_INET, &addr_mask, sizeof(addr_mask), mask_str),
 			  ifname,
@@ -3659,7 +3645,7 @@ route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr 
     len = sizeof(rtmsg);
     rtmsg.hdr.rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
-		syslog(LOG_ERR, "host_gateway: write routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
+		syslog((cmd == RTM_DELETE)? LOG_DEBUG : LOG_ERR, "host_gateway: write routing socket failed, %s. (address %s, mask %s, gateway %s, use-gateway %d).",
 			   strerror(errno),
 			   addr2ascii(AF_INET, &dest, sizeof(dest), dest_str),
 			   addr2ascii(AF_INET, &mask, sizeof(mask), mask_str),
@@ -3715,8 +3701,8 @@ ppp_scoped_ping (int                 s,
 	int          hold;
 	struct icmp *icp;
 	u_char      *packet;
-	u_char       outpack[IP_MAXPACKET];
-	
+	u_char       outpack[IP_MAXPACKET] __attribute__ ((aligned(4)));		// Wcast-align fix - force alignment
+
 	if (s < 0) {
 		s = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP);
 		if (s < 0) {
@@ -3734,7 +3720,7 @@ ppp_scoped_ping (int                 s,
 	}
 	
 	packet = outpack;
-	icp = (struct icmp *)outpack;
+	icp = ALIGNED_CAST(struct icmp *)outpack;
 	icp->icmp_type = ICMP_ECHO;
 	icp->icmp_code = 0;
 	icp->icmp_cksum = 0;

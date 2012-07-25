@@ -116,7 +116,7 @@ calc (SHA256_CTX *m, uint32_t *in)
 
 	T1 = HH + Sigma1(EE) + Ch(EE, FF, GG) + constant_256[i] + data[i];
 	T2 = Sigma0(AA) + Maj(AA,BB,CC);
-			
+
 	HH = GG;
 	GG = FF;
 	FF = EE;
@@ -183,10 +183,10 @@ SHA256_Update (SHA256_CTX *m, const void *v, size_t len)
 #if !defined(WORDS_BIGENDIAN) || defined(_CRAY)
 	    int i;
 	    uint32_t current[16];
-	    struct x32 *u = (struct x32*)m->save;
+	    struct x32 *us = (struct x32*)m->save;
 	    for(i = 0; i < 8; i++){
-		current[2*i+0] = swap_uint32_t(u[i].a);
-		current[2*i+1] = swap_uint32_t(u[i].b);
+		current[2*i+0] = swap_uint32_t(us[i].a);
+		current[2*i+1] = swap_uint32_t(us[i].b);
 	    }
 	    calc(m, current);
 #else

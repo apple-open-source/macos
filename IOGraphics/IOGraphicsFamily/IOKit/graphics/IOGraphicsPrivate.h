@@ -149,6 +149,7 @@ extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result );
 
 extern bool                   gIOGraphicsSystemPower;
 extern bool                   gIOFBSystemPower;
+extern IOOptionBits           gIOFBCurrentClamshellState;
 extern const class OSSymbol * gIOFramebufferKey;
 extern class OSData *         gIOFBZero32Data;
 extern int32_t                gIOFBHaveBacklight;

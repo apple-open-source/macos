@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -61,22 +61,18 @@ public:
     virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
 
-    // A frame's V8 context was created or destroyed.
-    virtual void didCreateScriptContextForFrame();
-    virtual void didDestroyScriptContextForFrame();
-
-    // A context untied to a frame was created (through evaluateInIsolatedWorld).
-    // This context is not tied to the lifetime of its frame, and is destroyed
-    // in garbage collection.
-    virtual void didCreateIsolatedScriptContext();
+#if USE(V8)
+    virtual void didCreateScriptContext(v8::Handle<v8::Context>, int extensionGroup, int worldId);
+    virtual void willReleaseScriptContext(v8::Handle<v8::Context>, int worldId);
+#endif
 
     // Returns true if we should allow the given V8 extension to be added to
     // the script context at the currently loading page and given extension group.
-    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup);
+    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup, int worldId);
 
     virtual bool hasWebView() const;
     virtual bool hasFrameView() const;
-    virtual void makeRepresentation(WebCore::DocumentLoader*);
+    virtual void makeRepresentation(WebCore::DocumentLoader*) { }
     virtual void forceLayout();
     virtual void forceLayoutForNonHTML();
     virtual void setCopiesOnScroll();
@@ -120,10 +116,9 @@ public:
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction function, const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, PassRefPtr<WebCore::FormState> form_state);
     virtual void cancelPolicyCheck();
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
-    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*);
+    virtual void dispatchWillSendSubmitEvent(PassRefPtr<WebCore::FormState>);
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
-    virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
-    virtual void revertToProvisionalState(WebCore::DocumentLoader*);
+    virtual void revertToProvisionalState(WebCore::DocumentLoader*) { }
     virtual void setMainDocumentError(WebCore::DocumentLoader*, const WebCore::ResourceError&);
     virtual void willChangeEstimatedProgress() { }
     virtual void didChangeEstimatedProgress() { }
@@ -131,7 +126,7 @@ public:
     virtual void postProgressEstimateChangedNotification();
     virtual void postProgressFinishedNotification();
     virtual void setMainFrameDocumentReady(bool);
-    virtual void startDownload(const WebCore::ResourceRequest&);
+    virtual void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = String());
     virtual void willChangeTitle(WebCore::DocumentLoader*);
     virtual void didChangeTitle(WebCore::DocumentLoader*);
     virtual void committedLoad(WebCore::DocumentLoader*, const char*, int);
@@ -140,15 +135,13 @@ public:
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
     virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
-    virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
-    virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
-    virtual void dispatchDidChangeBackForwardIndex() const;
     virtual void didDisplayInsecureContent();
     virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL& insecureURL);
+    virtual void didDetectXSS(const WebCore::KURL&, bool didBlockEntirePage);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&);
-    virtual WebCore::ResourceError interruptForPolicyChangeError(const WebCore::ResourceRequest&);
+    virtual WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&);
     virtual WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&);
@@ -177,15 +170,12 @@ public:
     virtual bool canCachePage() const;
     virtual void download(
         WebCore::ResourceHandle*, const WebCore::ResourceRequest&,
-        const WebCore::ResourceRequest& initialRequest,
         const WebCore::ResourceResponse&);
     virtual PassRefPtr<WebCore::Frame> createFrame(
         const WebCore::KURL& url, const WTF::String& name,
         WebCore::HTMLFrameOwnerElement* ownerElement,
         const WTF::String& referrer, bool allowsScrolling,
         int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
-    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
     virtual PassRefPtr<WebCore::Widget> createPlugin(
         const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&,
         const Vector<WTF::String>&, const Vector<WTF::String>&,
@@ -203,13 +193,23 @@ public:
     virtual void didPerformFirstNavigation() const;
     virtual void registerForIconNotification(bool listen = true);
     virtual void didChangeScrollOffset();
-    virtual bool allowJavaScript(bool enabledPerSettings);
+    virtual bool allowScript(bool enabledPerSettings);
+    virtual bool allowScriptFromSource(bool enabledPerSettings, const WebCore::KURL& scriptURL);
     virtual bool allowPlugins(bool enabledPerSettings);
-    virtual bool allowImages(bool enabledPerSettings);
+    virtual bool allowImage(bool enabledPerSettings, const WebCore::KURL& imageURL);
+    virtual bool allowDisplayingInsecureContent(bool enabledPerSettings, WebCore::SecurityOrigin*, const WebCore::KURL&);
+    virtual bool allowRunningInsecureContent(bool enabledPerSettings, WebCore::SecurityOrigin*, const WebCore::KURL&);
     virtual void didNotAllowScript();
     virtual void didNotAllowPlugins();
 
     virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
+    virtual bool willCheckAndDispatchMessageEvent(WebCore::SecurityOrigin* target, WebCore::MessageEvent*) const;
+
+#if ENABLE(WEB_INTENTS)
+    virtual void dispatchIntent(PassRefPtr<WebCore::IntentRequest>) OVERRIDE;
+#endif
+
+    virtual void dispatchWillOpenSocketStream(WebCore::SocketStreamHandle*) OVERRIDE;
 
 private:
     void makeDocumentView();
@@ -224,11 +224,6 @@ private:
     // The WebFrame that owns this object and manages its lifetime. Therefore,
     // the web frame object is guaranteed to exist.
     WebFrameImpl* m_webFrame;
-
-    // True if makeRepresentation was called.  We don't actually have a concept
-    // of a "representation", but we need to know when we're expected to have one.
-    // See finishedLoading().
-    bool m_hasRepresentation;
 
     // Used to help track client redirects. When a provisional load starts, it
     // has no redirects in its chain. But in the case of client redirects, we want

@@ -7,6 +7,7 @@ SRC_PASSWD=
 SRC_GROUP=
 SRC_TTYS=ttys
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 Product=$(shell tconf --product)
 ifeq "$(Product)" "iPhone"
 SRC_PASSWD=master.passwd.iPhone
@@ -25,10 +26,12 @@ validate-all:
 install-files:
 	@echo "Installing $(Destination) for $(Product)"
 	$(_v) $(INSTALL_FILE) -m 0644 -c afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
-	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf	 "$(Destination)/asl.conf"
 ifeq "$(Product)" "MacOSX"
+	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf "$(Destination)/asl.conf"
 	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf "$(Destination)/asl.conf.install"
 	$(_v) cat asl.conf.install >> "$(Destination)/asl.conf.install"
+else
+	$(_v) $(INSTALL_FILE) -m 0644 -c asl.conf.ios "$(Destination)/asl.conf"
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -m 0644 -c ftpusers	 "$(Destination)/ftpusers"

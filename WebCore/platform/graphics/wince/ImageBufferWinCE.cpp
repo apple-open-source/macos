@@ -27,7 +27,6 @@
 #include "ImageData.h"
 #include "NotImplemented.h"
 #include "SharedBitmap.h"
-#include "UnusedParam.h"
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
@@ -72,10 +71,13 @@ ImageBufferData::ImageBufferData(const IntSize& size)
     m_bitmap->setHasAlpha(true);
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace colorSpace, RenderingMode, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, float resolutionScale, ColorSpace colorSpace, RenderingMode, DeferralMode, bool& success)
     : m_data(size)
     , m_size(size)
+    , m_logicalSize(size)
 {
+    // FIXME: Respect resoutionScale to support high-DPI canvas.
+    UNUSED_PARAM(resolutionScale);
     // FIXME: colorSpace is not used
     UNUSED_PARAM(colorSpace);
 
@@ -88,23 +90,14 @@ ImageBuffer::~ImageBuffer()
 {
 }
 
-size_t ImageBuffer::dataSize() const
-{
-    return m_size.width() * m_size.height() * 4;
-}
-
 GraphicsContext* ImageBuffer::context() const
 {
     return m_context.get();
 }
 
-bool ImageBuffer::drawsUsingCopy() const
+PassRefPtr<Image> ImageBuffer::copyImage(BackingStoreCopy copyBehavior) const
 {
-    return true;
-}
-
-PassRefPtr<Image> ImageBuffer::copyImage() const
-{
+    ASSERT(copyBehavior == CopyBackingStore);
     return adoptRef(new BufferedImage(&m_data));
 }
 
@@ -116,21 +109,21 @@ void ImageBuffer::clip(GraphicsContext*, const FloatRect&) const
 void ImageBuffer::draw(GraphicsContext* context, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect,
                        CompositeOperator op , bool useLowQualityScale)
 {
-    RefPtr<Image> imageCopy = copyImage();
-    context->drawImage(imageCopy.get(), styleColorSpace, destRect, srcRect, op, useLowQualityScale);
+    RefPtr<Image> imageCopy = copyImage(CopyBackingStore);
+    context->drawImage(imageCopy.get(), styleColorSpace, destRect, srcRect, op, DoNotRespectImageOrientation, useLowQualityScale);
 }
 
 void ImageBuffer::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform,
                               const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator op, const FloatRect& destRect)
 {
-    RefPtr<Image> imageCopy = copyImage();
+    RefPtr<Image> imageCopy = copyImage(CopyBackingStore);
     imageCopy->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, op, destRect);
 }
 
 template <bool premultiplied>
-static PassRefPtr<ByteArray> getImageData(const IntRect& rect, const SharedBitmap* bitmap)
+static PassRefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const SharedBitmap* bitmap)
 {
-    RefPtr<ByteArray> imageData = ByteArray::create(rect.width() * rect.height() * 4);
+    RefPtr<Uint8ClampedArray> imageData = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
 
     const unsigned char* src = static_cast<const unsigned char*>(bitmap->bytes());
     if (!src)
@@ -142,7 +135,7 @@ static PassRefPtr<ByteArray> getImageData(const IntRect& rect, const SharedBitma
         return imageData.release();
 
     unsigned char* dst = imageData->data();
-    memset(dst, 0, imageData->length());
+    imageData->zeroFill();
     src += (sourceRect.y() * bitmap->width() + sourceRect.x()) * 4;
     dst += ((sourceRect.y() - rect.y()) * rect.width() + sourceRect.x() - rect.x()) * 4;
     int bytesToCopy = sourceRect.width() * 4;
@@ -177,19 +170,19 @@ static PassRefPtr<ByteArray> getImageData(const IntRect& rect, const SharedBitma
     return imageData.release();
 }
 
-PassRefPtr<ByteArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
+PassRefPtr<Uint8ClampedArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect, CoordinateSystem) const
 {
     return getImageData<false>(rect, m_data.m_bitmap.get());
 }
 
-PassRefPtr<ByteArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect) const
+PassRefPtr<Uint8ClampedArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect, CoordinateSystem) const
 {
     return getImageData<true>(rect, m_data.m_bitmap.get());
 }
 
-template <bool premultiplied>
-static void putImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, SharedBitmap* bitmap)
+void ImageBuffer::putByteArray(Multiply multiplied, Uint8ClampedArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, CoordinateSystem)
 {
+    SharedBitmap* bitmap = m_data.m_bitmap.get();
     unsigned char* dst = (unsigned char*)bitmap->bytes();
     if (!dst)
         return;
@@ -215,7 +208,7 @@ static void putImageData(ByteArray* source, const IntSize& sourceSize, const Int
             int green = *src++;
             int blue = *src++;
             int alpha = *src++;
-            if (premultiplied) {
+            if (multiplied == Premultiplied) {
                 *dst++ = static_cast<unsigned char>(blue * 255 / alpha);
                 *dst++ = static_cast<unsigned char>(green * 255 / alpha);
                 *dst++ = static_cast<unsigned char>(red * 255 / alpha);
@@ -232,23 +225,13 @@ static void putImageData(ByteArray* source, const IntSize& sourceSize, const Int
     }
 }
 
-void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<false>(source, sourceSize, sourceRect, destPoint, m_data.m_bitmap.get());
-}
-
-void ImageBuffer::putPremultipliedImageData(ByteArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint)
-{
-    putImageData<true>(source, sourceSize, sourceRect, destPoint, m_data.m_bitmap.get());
-}
-
 void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookUpTable)
 {
     UNUSED_PARAM(lookUpTable);
     notImplemented();
 }
 
-String ImageBuffer::toDataURL(const String& mimeType, const double*) const
+String ImageBuffer::toDataURL(const String& mimeType, const double*, CoordinateSystem) const
 {
     if (!m_data.m_bitmap->bytes())
         return "data:,";

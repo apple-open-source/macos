@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: zone.h,v 1.182.16.2 2011-07-08 23:47:16 tbox Exp $ */
 
 #ifndef DNS_ZONE_H
 #define DNS_ZONE_H 1
@@ -41,7 +41,9 @@ typedef enum {
 	dns_zone_master,
 	dns_zone_slave,
 	dns_zone_stub,
-	dns_zone_key
+	dns_zone_staticstub,
+	dns_zone_key,
+	dns_zone_dlz
 } dns_zonetype_t;
 
 #define DNS_ZONEOPT_SERVERS	  0x00000001U	/*%< perform server checks */
@@ -378,6 +380,22 @@ dns_zone_getdb(dns_zone_t *zone, dns_db_t **dbp);
  * Returns:
  *\li	#ISC_R_SUCCESS
  *\li	DNS_R_NOTLOADED
+ */
+
+void
+dns_zone_setdb(dns_zone_t *zone, dns_db_t *db);
+/*%<
+ *	Sets the zone database to 'db'.
+ *
+ *	This function is expected to be used to configure a zone with a
+ *	database which is not loaded from a file or zone transfer.
+ *	It can be used for a general purpose zone, but right now its use
+ *	is limited to static-stub zones to avoid possible undiscovered
+ *	problems in the general cases.
+ *
+ * Require:
+ *\li	'zone' to be a valid zone of static-stub.
+ *\li	zone doesn't have a database.
  */
 
 isc_result_t
@@ -1552,32 +1570,6 @@ dns_zonemgr_unreachableadd(dns_zonemgr_t *zmgr, isc_sockaddr_t *remote,
  *\li	'local' to be a valid sockaddr.
  */
 
-isc_boolean_t
-dns_zonemgr_unreachable(dns_zonemgr_t *zmgr, isc_sockaddr_t *remote,
-			isc_sockaddr_t *local, isc_time_t *now);
-/*%<
- *	Returns ISC_TRUE if the given local/remote address pair
- *	is found in the zone maanger's unreachable cache.
- *
- * Requires:
- *\li	'zmgr' to be a valid zone manager.
- *\li	'remote' to be a valid sockaddr.
- *\li	'local' to be a valid sockaddr.
- *\li	'now' != NULL
- */
-
-void
-dns_zonemgr_unreachabledel(dns_zonemgr_t *zmgr, isc_sockaddr_t *remote,
-			   isc_sockaddr_t *local);
-/*%<
- *	Remove the pair of addresses from the unreachable cache.
- *
- * Requires:
- *\li	'zmgr' to be a valid zone manager.
- *\li	'remote' to be a valid sockaddr.
- *\li	'local' to be a valid sockaddr.
- */
-
 void
 dns_zone_forcereload(dns_zone_t *zone);
 /*%<
@@ -1868,10 +1860,9 @@ dns_zone_getadded(dns_zone_t *zone);
  */
 
 isc_result_t
-dns_zone_synckeyzone(dns_zone_t *zone);
+dns_zone_dlzpostload(dns_zone_t *zone, dns_db_t *db);
 /*%
- * Force the managed key zone to synchronize, and start the key
- * maintenance timer.
+ * Load the origin names for a writeable DLZ database.
  */
 
 ISC_LANG_ENDDECLS

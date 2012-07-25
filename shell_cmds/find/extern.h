@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,7 +27,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/16/94
- *	$FreeBSD: src/usr.bin/find/extern.h,v 1.24 2008/02/23 16:29:04 imp Exp $
+ *	$FreeBSD: src/usr.bin/find/extern.h,v 1.26 2010/12/11 08:32:16 joel Exp $
  */
 
 #include <sys/cdefs.h>
@@ -43,8 +39,7 @@ PLAN	*find_formplan(char **);
 PLAN	*not_squish(PLAN *);
 PLAN	*or_squish(PLAN *);
 PLAN	*paren_squish(PLAN *);
-struct timeb;
-time_t	 get_date(char *, struct timeb *);
+time_t	 get_date(char *);
 struct stat;
 void	 printlong(char *, char *, struct stat *);
 int	 queryuser(char **);
@@ -126,3 +121,4 @@ extern int regexp_flags;
 extern time_t now;
 extern int dotfd;
 extern FTS *tree;
+extern int execplus_error;

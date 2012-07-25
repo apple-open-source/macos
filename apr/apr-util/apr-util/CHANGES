@@ -1,4 +1,25 @@
                                                      -*- coding: utf-8 -*-
+Changes with APR-util 1.3.12
+
+  *) apr_ldap: Fix crash because of NULL cleanup registered by
+     apr_ldap_rebind_init().  [Rainer Jung]
+
+Changes with APR-util 1.3.11
+
+  *) apr_dbd_oracle: fix endianness issue in prepared statements.
+     PR 50690.  [Stefan Ruppert <sr myarm.com>]
+
+  *) apr_ldap: resolve possible hangs or crashes when the pool passed
+     to apr_ldap_rebind_init() is cleaned up and apr_ldap_rebind
+     is re-initted and re-used. PR50918. [Eric Covener]
+
+  *) DBD ODBC support: Fix stack buffer overwrite when an unexpected
+     number of parameters is passed to open.  Fix range checking of the
+     APR DBD type enum passed to some of the APIs.  [Jeff Trawick]
+
+  *) Add support for Berkeley DB 5.1.
+     [Rainer Jung]
+
 Changes with APR-util 1.3.10
 
   *) SECURITY: CVE-2010-1623 (cve.mitre.org)

@@ -90,7 +90,7 @@ krb5_free_data(krb5_context context,
 /**
  * Allocate data of and krb5_data.
  *
- * @param p krb5_data to free.
+ * @param p krb5_data to allocate.
  * @param len size to allocate.
  *
  * @return Returns 0 to indicate success. Otherwise an kerberos et
@@ -238,4 +238,23 @@ krb5_data_format(krb5_data *data, const char *fmt, ...)
     data->data = str;
 
     return 0;
+}
+
+/**
+ * Compare to data not exposing timing information from the checksum data
+ *
+ * @param data1 krb5_data to compare
+ * @param data2 krb5_data to compare
+ *
+ * @return returns zero for same data, otherwise non zero.
+ *
+ * @ingroup krb5
+ */
+
+KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+krb5_data_ct_cmp(const krb5_data *data1, const krb5_data *data2)
+{
+    if (data1->length != data2->length)
+	return data1->length - data2->length;
+    return ct_memcmp(data1->data, data2->data, data1->length);
 }

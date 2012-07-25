@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Data-Compare</string>
+        <key>OpenSourceVersion</key>
+        <string>1.22</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/D/DC/DCANTRELL/Data-Compare-1.22.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-11-02</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

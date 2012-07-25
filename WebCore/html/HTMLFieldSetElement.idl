@@ -20,12 +20,16 @@
 module html {
 
     interface HTMLFieldSetElement : HTMLElement {
+        attribute [Reflect] boolean disabled;
         readonly attribute HTMLFormElement form;
-        readonly attribute ValidityState   validity;
+        attribute [Reflect] DOMString name;
+
+        readonly attribute DOMString type;
+
         readonly attribute boolean         willValidate;
+        readonly attribute ValidityState   validity;
         readonly attribute DOMString       validationMessage;
         boolean  checkValidity();
-        void     setCustomValidity(in [ConvertUndefinedOrNullToNullString] DOMString error);
+        void     setCustomValidity(in [TreatNullAs=NullString, TreatUndefinedAs=NullString] DOMString error);
     };
-
 }

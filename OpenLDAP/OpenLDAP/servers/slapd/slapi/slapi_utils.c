@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_utils.c,v 1.189.2.15 2010/04/13 20:23:51 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2010 The OpenLDAP Foundation.
+ * Copyright 2002-2011 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -2108,12 +2108,7 @@ int slapi_attr_add_value( Slapi_Attr *a, const Slapi_Value *v )
 		nvalp = NULL;
 	}
 
-	rc = value_add_one( &a->a_vals, (Slapi_Value *)v );
-	if ( rc == 0 && nvalp != NULL ) {
-		rc = value_add_one( &a->a_nvals, nvalp );
-	} else {
-		a->a_nvals = a->a_vals;
-	}
+	rc = attr_valadd( a, (Slapi_Value *)v, nvalp, 1 );
 
 	if ( nvalp != NULL ) {
 		slapi_ch_free_string( &nval.bv_val );

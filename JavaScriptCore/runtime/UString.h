@@ -33,18 +33,18 @@ public:
     UString() { }
 
     // Construct a string with UTF-16 data.
-    UString(const UChar* characters, unsigned length);
+    JS_EXPORT_PRIVATE UString(const UChar* characters, unsigned length);
 
     // Construct a string with UTF-16 data, from a null-terminated source.
-    UString(const UChar*);
+    JS_EXPORT_PRIVATE UString(const UChar*);
 
     // Construct a string with latin1 data.
     UString(const LChar* characters, unsigned length);
-    UString(const char* characters, unsigned length);
+    JS_EXPORT_PRIVATE UString(const char* characters, unsigned length);
 
     // Construct a string with latin1 data, from a null-terminated source.
     UString(const LChar* characters);
-    UString(const char* characters);
+    JS_EXPORT_PRIVATE UString(const char* characters);
 
     // Construct a string referencing an existing StringImpl.
     UString(StringImpl* impl) : m_impl(impl) { }
@@ -99,9 +99,9 @@ public:
 
     bool is8Bit() const { return m_impl->is8Bit(); }
 
-    CString ascii() const;
+    JS_EXPORT_PRIVATE CString ascii() const;
     CString latin1() const;
-    CString utf8(bool strict = false) const;
+    JS_EXPORT_PRIVATE CString utf8(bool strict = false) const;
 
     UChar operator[](unsigned index) const
     {
@@ -112,17 +112,21 @@ public:
         return m_impl->characters16()[index];
     }
 
-    static UString number(int);
-    static UString number(unsigned);
-    static UString number(long);
+    JS_EXPORT_PRIVATE static UString number(int);
+    JS_EXPORT_PRIVATE static UString number(unsigned);
+    JS_EXPORT_PRIVATE static UString number(long);
     static UString number(long long);
-    static UString number(double);
+    JS_EXPORT_PRIVATE static UString number(double);
 
     // Find a single character or string, also with match function & latin1 forms.
     size_t find(UChar c, unsigned start = 0) const
         { return m_impl ? m_impl->find(c, start) : notFound; }
-    size_t find(const UString& str, unsigned start = 0) const
+
+    size_t find(const UString& str) const
+        { return m_impl ? m_impl->find(str.impl()) : notFound; }
+    size_t find(const UString& str, unsigned start) const
         { return m_impl ? m_impl->find(str.impl(), start) : notFound; }
+
     size_t find(const LChar* str, unsigned start = 0) const
         { return m_impl ? m_impl->find(str, start) : notFound; }
 
@@ -132,25 +136,17 @@ public:
     size_t reverseFind(const UString& str, unsigned start = UINT_MAX) const
         { return m_impl ? m_impl->reverseFind(str.impl(), start) : notFound; }
 
-    UString substringSharingImpl(unsigned pos, unsigned len = UINT_MAX) const;
+    JS_EXPORT_PRIVATE UString substringSharingImpl(unsigned pos, unsigned len = UINT_MAX) const;
 
 private:
     RefPtr<StringImpl> m_impl;
 };
 
 template<>
-inline const LChar* UString::getCharacters<LChar>() const
-{
-    ASSERT(is8Bit());
-    return characters8();
-}
+inline const LChar* UString::getCharacters<LChar>() const { return characters8(); }
 
 template<>
-inline const UChar* UString::getCharacters<UChar>() const
-{
-    ASSERT(!is8Bit());
-    return characters16();
-}
+inline const UChar* UString::getCharacters<UChar>() const { return characters(); }
 
 NEVER_INLINE bool equalSlowCase(const UString& s1, const UString& s2);
 
@@ -189,10 +185,10 @@ inline bool operator!=(const UString& s1, const UString& s2)
     return !JSC::operator==(s1, s2);
 }
 
-bool operator<(const UString& s1, const UString& s2);
-bool operator>(const UString& s1, const UString& s2);
+JS_EXPORT_PRIVATE bool operator<(const UString& s1, const UString& s2);
+JS_EXPORT_PRIVATE bool operator>(const UString& s1, const UString& s2);
 
-bool operator==(const UString& s1, const char* s2);
+JS_EXPORT_PRIVATE bool operator==(const UString& s1, const char* s2);
 
 inline bool operator!=(const UString& s1, const char* s2)
 {

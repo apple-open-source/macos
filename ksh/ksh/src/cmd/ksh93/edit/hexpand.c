@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -40,8 +40,6 @@
 NoN(hexpand)
 
 #else
-
-#include <ctype.h>
 
 static char *modifiers = "htrepqxs&";
 static int mod_flags[] = { 0, 0, 0, 0, HIST_PRINT, HIST_QUOTE, HIST_QUOTE|HIST_QUOTE_BR, 0, 0 };
@@ -303,8 +301,8 @@ getline:
 		{
 
 			/* search history for string */
-			hl = hist_find(sh.hist_ptr, str,
-				       sh.hist_ptr->histind,
+			hl = hist_find(shgd->hist_ptr, str,
+				       shgd->hist_ptr->histind,
 				       flag&HIST_QUESTION, -1);
 			if((n = hl.hist_command) == -1)
 				n = 0;	/* not found */
@@ -312,10 +310,10 @@ getline:
 		if(n)
 		{
 			if(n < 0) /* determine index for backref */
-				n = sh.hist_ptr->histind + n;
+				n = shgd->hist_ptr->histind + n;
 			/* search and use history file if found */
-			if(n > 0 && hist_seek(sh.hist_ptr, n) != -1)
-				ref = sh.hist_ptr->histfp;
+			if(n > 0 && hist_seek(shgd->hist_ptr, n) != -1)
+				ref = shgd->hist_ptr->histfp;
 
 		}
 		if(!ref)

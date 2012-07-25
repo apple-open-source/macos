@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -191,7 +191,7 @@ cache_group_all(si_mod_t *si)
 }
 
 static si_item_t *
-cache_grouplist(si_mod_t *si, const char *name)
+cache_grouplist(si_mod_t *si, const char *name, uint32_t count)
 {
 	return cache_fetch_item(si, CATEGORY_GROUPLIST, name, 0, SEL_NAME);
 }
@@ -409,10 +409,12 @@ si_module_static_cache(void)
 
 		.sim_user_byname = &cache_user_byname,
 		.sim_user_byuid = &cache_user_byuid,
+		.sim_user_byuuid = NULL,
 		.sim_user_all = &cache_user_all,
 
 		.sim_group_byname = &cache_group_byname,
 		.sim_group_bygid = &cache_group_bygid,
+		.sim_group_byuuid = NULL,
 		.sim_group_all = &cache_group_all,
 
 		.sim_grouplist = &cache_grouplist,

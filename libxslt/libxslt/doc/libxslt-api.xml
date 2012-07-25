@@ -39,7 +39,7 @@
      <exports symbol='xsltGetExtData' type='function'/>
      <exports symbol='xsltStyleGetExtData' type='function'/>
      <exports symbol='xsltStyleExtInitFunction' type='function'/>
-     <exports symbol='xsltExtFunctionLookup' type='function'/>
+     <exports symbol='xsltInitGlobals' type='function'/>
      <exports symbol='xsltShutdownExts' type='function'/>
      <exports symbol='xsltExtModuleElementPreComputeLookup' type='function'/>
      <exports symbol='xsltRegisterTestModule' type='function'/>
@@ -239,6 +239,7 @@
      <exports symbol='xsltChoose' type='function'/>
      <exports symbol='xsltCopyTextString' type='function'/>
      <exports symbol='xsltText' type='function'/>
+     <exports symbol='xsltProcessOneNode' type='function'/>
      <exports symbol='xsltLocalVariablePop' type='function'/>
      <exports symbol='xsltNumber' type='function'/>
      <exports symbol='xsltRunStylesheetUser' type='function'/>
@@ -299,10 +300,8 @@
      <author>Daniel Veillard </author>
      <exports symbol='CHECK_STOPPED0' type='macro'/>
      <exports symbol='XSLT_PAT_NO_PRIORITY' type='macro'/>
-     <exports symbol='XSLT_ELEMENT_CATEGORY_XSLT' type='macro'/>
      <exports symbol='XSLT_ITEM_NSINSCOPE_FIELDS' type='macro'/>
      <exports symbol='XSLT_IS_TEXT_NODE' type='macro'/>
-     <exports symbol='XSLT_VAR_GLOBAL' type='macro'/>
      <exports symbol='IS_XSLT_ELEM_FAST' type='macro'/>
      <exports symbol='XSLT_REFACTORED_VARS' type='macro'/>
      <exports symbol='XSLT_RUNTIME_EXTRA_LST' type='macro'/>
@@ -314,20 +313,16 @@
      <exports symbol='XSLT_GET_INTERNAL_NSMAP' type='macro'/>
      <exports symbol='XSLT_REFACTORED_KEYCOMP' type='macro'/>
      <exports symbol='XSLT_REFACTORED_XPATHCOMP' type='macro'/>
-     <exports symbol='XSLT_TCTXT_VARIABLE' type='macro'/>
-     <exports symbol='XSLT_ELEMENT_CATEGORY_LRE' type='macro'/>
      <exports symbol='XSLT_ITEM_NAVIGATION_FIELDS' type='macro'/>
      <exports symbol='XSLT_MAX_SORT' type='macro'/>
      <exports symbol='XSLT_RUNTIME_EXTRA' type='macro'/>
      <exports symbol='XSLT_IS_RES_TREE_FRAG' type='macro'/>
      <exports symbol='XML_CAST_FPTR' type='macro'/>
-     <exports symbol='XSLT_ELEMENT_CATEGORY_EXTENSION' type='macro'/>
      <exports symbol='XSLT_ITEM_COMMON_FIELDS' type='macro'/>
      <exports symbol='CHECK_STOPPED' type='macro'/>
      <exports symbol='XSLT_RUNTIME_EXTRA_FREE' type='macro'/>
      <exports symbol='XSLT_CCTXT' type='macro'/>
      <exports symbol='CHECK_STOPPEDE' type='macro'/>
-     <exports symbol='XSLT_VAR_IN_SELECT' type='macro'/>
      <exports symbol='XSLT_ERROR_SEVERITY_ERROR' type='enum'/>
      <exports symbol='XSLT_FUNC_ELEMENT' type='enum'/>
      <exports symbol='XSLT_FUNC_VALUEOF' type='enum'/>
@@ -575,6 +570,18 @@
      <exports symbol='_REENTRANT' type='macro'/>
      <exports symbol='XSLTCALL' type='macro'/>
     </file>
+    <file name='xsltlocale'>
+     <summary>Locale handling</summary>
+     <description>Interfaces for locale handling. Needed for language dependent sorting. </description>
+     <author>Nick Wellnhofer </author>
+     <exports symbol='XSLT_LOCALE_NONE' type='macro'/>
+     <exports symbol='xsltLocale' type='typedef'/>
+     <exports symbol='xsltLocaleChar' type='typedef'/>
+     <exports symbol='xsltNewLocale' type='function'/>
+     <exports symbol='xsltLocaleStrcmp' type='function'/>
+     <exports symbol='xsltFreeLocale' type='function'/>
+     <exports symbol='xsltStrxfrm' type='function'/>
+    </file>
     <file name='xsltutils'>
      <summary>set of utilities for the XSLT engine</summary>
      <description>interfaces for the utilities module of the XSLT engine. things like message handling, profiling, and other generally useful routines. </description>
@@ -718,12 +725,6 @@
     <macro name='XSLT_DEFAULT_VERSION' file='xslt'>
       <info>The default version of XSLT supported.</info>
     </macro>
-    <macro name='XSLT_ELEMENT_CATEGORY_EXTENSION' file='xsltInternals'>
-    </macro>
-    <macro name='XSLT_ELEMENT_CATEGORY_LRE' file='xsltInternals'>
-    </macro>
-    <macro name='XSLT_ELEMENT_CATEGORY_XSLT' file='xsltInternals'>
-    </macro>
     <macro name='XSLT_FAST_IF' file='xsltInternals'>
       <info>Internal define to enable usage of xmlXPathCompiledEvalToBoolean() for XSLT &quot;tests&quot;; e.g. in &lt;xsl:if test=&quot;/foo/bar&quot;&gt;</info>
     </macro>
@@ -759,6 +760,9 @@
     </macro>
     <macro name='XSLT_LIBXSLT_NAMESPACE' file='extra'>
       <info>This is the libxslt namespace for specific extensions.</info>
+    </macro>
+    <macro name='XSLT_LOCALE_NONE' file='xsltlocale'>
+      <info>Macro indicating that locale are not supported</info>
     </macro>
     <macro name='XSLT_MARK_RES_TREE_FRAG' file='xsltInternals'>
       <info>internal macro to set up tree fragments</info>
@@ -814,8 +818,6 @@
     <macro name='XSLT_STRANGE' file='xsltutils'>
       <info>Macro to flag that a problem was detected internally.</info>
     </macro>
-    <macro name='XSLT_TCTXT_VARIABLE' file='xsltInternals'>
-    </macro>
     <macro name='XSLT_TIMESTAMP_TICS_PER_SEC' file='xsltutils'>
       <info>Sampling precision for profiling</info>
     </macro>
@@ -824,10 +826,6 @@
     </macro>
     <macro name='XSLT_TRACE' file='xsltutils'>
       <info>Control the type of xsl debugtrace messages emitted.</info>
-    </macro>
-    <macro name='XSLT_VAR_GLOBAL' file='xsltInternals'>
-    </macro>
-    <macro name='XSLT_VAR_IN_SELECT' file='xsltInternals'>
     </macro>
     <macro name='XSLT_XALAN_NAMESPACE' file='extra'>
       <info>This is the Apache project XALAN processor namespace for extensions.</info>
@@ -1056,6 +1054,8 @@ corresponding to this item end of common part'/>
     </struct>
     <typedef name='xsltKeyTablePtr' file='xsltInternals' type='xsltKeyTable *'/>
     <typedef name='xsltLoadType' file='documents' type='enum'/>
+    <typedef name='xsltLocale' file='xsltlocale' type='void *'/>
+    <typedef name='xsltLocaleChar' file='xsltlocale' type='xmlChar'/>
     <struct name='xsltNsAlias' file='xsltInternals' type='struct _xsltNsAlias'>
       <field name='next' type='xsltNsAliasPtr' info=' next in the list'/>
       <field name='literalNs' type='xmlNsPtr' info=''/>
@@ -1271,6 +1271,7 @@ TODO: Check if we need.'/>
       <field name='descending' type='int' info=' sort'/>
       <field name='lang' type='const xmlChar *' info=' sort'/>
       <field name='has_lang' type='int' info=' sort'/>
+      <field name='locale' type='xsltLocale' info=' sort'/>
       <field name='case_order' type='const xmlChar *' info=' sort'/>
       <field name='lower_first' type='int' info=' sort'/>
       <field name='use' type='const xmlChar *' info=''/>
@@ -1315,6 +1316,7 @@ TODO: Check if we need.'/>
       <field name='descending' type='int' info=' sort'/>
       <field name='lang' type='const xmlChar *' info=' sort'/>
       <field name='has_lang' type='int' info=' sort'/>
+      <field name='locale' type='xsltLocale' info=' sort'/>
       <field name='case_order' type='const xmlChar *' info=' sort'/>
       <field name='lower_first' type='int' info=' sort'/>
       <field name='use' type='const xmlChar *' info=' copy, element'/>
@@ -1534,6 +1536,7 @@ the instruction which created the fragment
 exits'/>
       <field name='localRVTBase' type='xmlDocPtr' info=''/>
       <field name='keyInitLevel' type='int' info=' Needed to catch recursive keys issues'/>
+      <field name='funcLevel' type='int' info=' Needed to catch recursive functions issues'/>
     </struct>
     <typedef name='xsltTransformContextPtr' file='xsltInternals' type='xsltTransformContext *'/>
     <typedef name='xsltTransformState' file='xsltInternals' type='enum'/>
@@ -2013,13 +2016,6 @@ exits'/>
       <arg name='name' type='const xmlChar *' info='the element name'/>
       <arg name='URI' type='const xmlChar *' info='the element namespace URI'/>
     </function>
-    <function name='xsltExtFunctionLookup' file='extensions'>
-      <info></info>
-      <return type='xmlXPathFunction' info=''/>
-      <arg name='ctxt' type='xsltTransformContextPtr' info=''/>
-      <arg name='name' type='const xmlChar *' info=''/>
-      <arg name='URI' type='const xmlChar *' info=''/>
-    </function>
     <functype name='xsltExtInitFunction' file='extensions'>
       <info>A function called at initialization time of an XSLT extension module.</info>
       <return type='void *' info='a pointer to the module specific data for this transformation.'/>
@@ -2153,6 +2149,11 @@ exits'/>
       <info>Free up the memory used by XSLT keys in a stylesheet</info>
       <return type='void'/>
       <arg name='style' type='xsltStylesheetPtr' info='an XSLT stylesheet'/>
+    </function>
+    <function name='xsltFreeLocale' file='xsltlocale'>
+      <info>Frees a locale created with xsltNewLocale</info>
+      <return type='void'/>
+      <arg name='locale' type='xsltLocale' info='the locale to free'/>
     </function>
     <function name='xsltFreeNamespaceAliasHashes' file='namespaces'>
       <info>Free up the memory used by namespaces aliases</info>
@@ -2348,8 +2349,8 @@ exits'/>
     </function>
     <function name='xsltInitAllDocKeys' file='xsltInternals'>
       <info>INTERNAL ROUTINE ONLY  Check if any keys on the current document need to be computed</info>
-      <return type='int' info=''/>
-      <arg name='ctxt' type='xsltTransformContextPtr' info=''/>
+      <return type='int' info='0 in case of success, -1 in case of failure'/>
+      <arg name='ctxt' type='xsltTransformContextPtr' info='transformation context'/>
     </function>
     <function name='xsltInitCtxtExts' file='extensions'>
       <info>Initialize the set of modules with registered stylesheet data</info>
@@ -2377,6 +2378,10 @@ exits'/>
       <arg name='inst' type='xmlNodePtr' info='the element node'/>
       <arg name='function' type='xsltTransformFunction' info='the transform function'/>
       <arg name='freeFunc' type='xsltElemPreCompDeallocator' info='the @comp deallocator'/>
+    </function>
+    <function name='xsltInitGlobals' file='extensions'>
+      <info>Initialize the global variables for extensions</info>
+      <return type='void'/>
     </function>
     <function name='xsltIsBlank' file='xsltInternals'>
       <info>Check if a string is ignorable</info>
@@ -2420,6 +2425,13 @@ exits'/>
       <arg name='variable' type='xsltStackElemPtr' info='variable to be pushed to the variable stack'/>
       <arg name='level' type='int' info='new value for variable&apos;s level'/>
     </function>
+    <function name='xsltLocaleStrcmp' file='xsltlocale'>
+      <info>Compares two strings transformed with xsltStrxfrm</info>
+      <return type='int' info='a value &lt; 0 if str1 sorts before str2, a value &gt; 0 if str1 sorts after str2, 0 if str1 and str2 are equal wrt sorting'/>
+      <arg name='locale' type='xsltLocale' info='a locale identifier'/>
+      <arg name='str1' type='const xsltLocaleChar *' info='a string transformed with xsltStrxfrm'/>
+      <arg name='str2' type='const xsltLocaleChar *' info='a string transformed with xsltStrxfrm'/>
+    </function>
     <function name='xsltMatchPattern' file='pattern'>
       <info></info>
       <return type='int' info=''/>
@@ -2459,6 +2471,11 @@ exits'/>
       <arg name='style' type='xsltStylesheetPtr' info='the XSLT stylesheet'/>
       <arg name='inst' type='xmlNodePtr' info='the element node'/>
       <arg name='function' type='xsltTransformFunction' info='the transform function'/>
+    </function>
+    <function name='xsltNewLocale' file='xsltlocale'>
+      <info>Creates a new locale of an opaque system dependent type based on the language tag.</info>
+      <return type='xsltLocale' info='the locale or NULL on error or if no matching locale was found'/>
+      <arg name='languageTag' type='const xmlChar *' info='RFC 3066 language tag'/>
     </function>
     <function name='xsltNewSecurityPrefs' file='security'>
       <info>Create a new security preference block</info>
@@ -2584,10 +2601,10 @@ exits'/>
       <arg name='cur' type='xmlNodePtr' info='the XSLT &apos;param&apos; element'/>
     </function>
     <function name='xsltParseStylesheetProcess' file='xsltInternals'>
-      <info></info>
-      <return type='xsltStylesheetPtr' info=''/>
-      <arg name='ret' type='xsltStylesheetPtr' info=''/>
-      <arg name='doc' type='xmlDocPtr' info=''/>
+      <info>Parses an XSLT stylesheet, adding the associated structures. Called by: xsltParseStylesheetImportedDoc() (xslt.c) xsltParseStylesheetInclude() (imports.c)</info>
+      <return type='xsltStylesheetPtr' info='the value of the @style parameter if everything went right, NULL if something went amiss.'/>
+      <arg name='ret' type='xsltStylesheetPtr' info='the XSLT stylesheet (the current stylesheet-level)'/>
+      <arg name='doc' type='xmlDocPtr' info='and xmlDoc parsed XML'/>
     </function>
     <function name='xsltParseStylesheetVariable' file='variables'>
       <info>Registers a local XSLT &apos;variable&apos; instruction at transformation time and evaluates its value.</info>
@@ -2642,6 +2659,13 @@ exits'/>
       <arg name='ctxt' type='xsltTransformContextPtr' info='the transformation context'/>
       <arg name='style' type='xsltStylesheetPtr' info='the stylesheet'/>
       <arg name='node' type='xmlNodePtr' info='the current node being processed'/>
+    </function>
+    <function name='xsltProcessOneNode' file='transform'>
+      <info>Process the source node.</info>
+      <return type='void'/>
+      <arg name='ctxt' type='xsltTransformContextPtr' info='a XSLT process context'/>
+      <arg name='contextNode' type='xmlNodePtr' info='the &quot;current node&quot; in the source tree'/>
+      <arg name='withParams' type='xsltStackElemPtr' info='extra parameters (e.g. xsl:with-param) passed to the template if any'/>
     </function>
     <function name='xsltProcessingInstruction' file='transform'>
       <info>Process the xslt processing-instruction node on the source node</info>
@@ -2786,10 +2810,10 @@ exits'/>
       <arg name='style' type='xsltStylesheetPtr' info='the XSLT stylesheet'/>
     </function>
     <function name='xsltRestoreDocumentNamespaces' file='xsltInternals'>
-      <info></info>
-      <return type='int' info=''/>
-      <arg name='ns' type='xsltNsMapPtr' info=''/>
-      <arg name='doc' type='xmlDocPtr' info=''/>
+      <info>Restore the namespaces for the document</info>
+      <return type='int' info='0 in case of success, -1 in case of failure'/>
+      <arg name='ns' type='xsltNsMapPtr' info='map of namespaces'/>
+      <arg name='doc' type='xmlDocPtr' info='the document'/>
     </function>
     <function name='xsltRunStylesheet' file='transform'>
       <info>Apply the stylesheet to the document and generate the output according to @output @SAX and @IObuf. It&apos;s an error to specify both @SAX and @IObuf.  NOTE: This may lead to a non-wellformed output XML wise ! NOTE: This may also result in multiple files being generated NOTE: using IObuf, the result encoding used will be the one used for creating the output buffer, use the following macro to read it from the stylesheet XSLT_GET_IMPORT_PTR(encoding, style, encoding) NOTE: using SAX, any encoding specified in the stylesheet will be lost since the interface uses only UTF8</info>
@@ -2983,6 +3007,12 @@ exits'/>
       <arg name='dict' type='xmlDictPtr' info='a dictionary'/>
       <arg name='name' type='const xmlChar *' info='the full QName'/>
       <arg name='prefix' type='const xmlChar **' info='the return value'/>
+    </function>
+    <function name='xsltStrxfrm' file='xsltlocale'>
+      <info>Transforms a string according to locale. The transformed string must then be compared with xsltLocaleStrcmp and freed with xmlFree.</info>
+      <return type='xsltLocaleChar *' info='the transformed string or NULL on error'/>
+      <arg name='locale' type='xsltLocale' info='locale created with xsltNewLocale'/>
+      <arg name='string' type='const xmlChar *' info='UTF-8 string to transform'/>
     </function>
     <functype name='xsltStyleExtInitFunction' file='extensions'>
       <info>A function called at initialization time of an XSLT extension module.</info>

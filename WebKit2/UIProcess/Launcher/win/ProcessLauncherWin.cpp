@@ -27,7 +27,7 @@
 #include "ProcessLauncher.h"
 
 #include "Connection.h"
-#include "RunLoop.h"
+#include <WebCore/RunLoop.h>
 #include <shlwapi.h>
 #include <wtf/text/WTFString.h>
 
@@ -42,6 +42,8 @@ const LPCWSTR webKitDLLName = L"WebKit_debug.dll";
 #else
 const LPCWSTR webKitDLLName = L"WebKit.dll";
 #endif
+
+using namespace WebCore;
 
 namespace WebKit {
 
@@ -102,7 +104,7 @@ void ProcessLauncher::launchProcess()
     ::CloseHandle(processInformation.hThread);
 
     // We've finished launching the process, message back to the run loop.
-    RunLoop::main()->scheduleWork(WorkItem::create(this, &ProcessLauncher::didFinishLaunchingProcess, processInformation.hProcess, serverIdentifier));
+    RunLoop::main()->dispatch(bind(&ProcessLauncher::didFinishLaunchingProcess, this, processInformation.hProcess, serverIdentifier));
 }
 
 void ProcessLauncher::terminateProcess()

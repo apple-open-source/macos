@@ -25,9 +25,11 @@
  */
 
 #include "config.h"
-#include "ScriptProfile.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+
+#include "ScriptProfile.h"
+
 #include "InspectorValues.h"
 #include "JSDOMBinding.h"
 #include <profiler/Profile.h>
@@ -66,6 +68,13 @@ ScriptProfileNode* ScriptProfile::head() const
     return m_profile->head();
 }
 
+PassRefPtr<ScriptProfileNode> ScriptProfile::bottomUpHead() const
+{
+    // FIXME: implement building bottom-up profiles in C++ code,
+    // but consider https://bugs.webkit.org/show_bug.cgi?id=24604
+    return 0;
+}
+
 #if ENABLE(INSPECTOR)
 static PassRefPtr<InspectorObject> buildInspectorObjectFor(const JSC::ProfileNode* node)
 {
@@ -94,6 +103,11 @@ static PassRefPtr<InspectorObject> buildInspectorObjectFor(const JSC::ProfileNod
 PassRefPtr<InspectorObject> ScriptProfile::buildInspectorObjectForHead() const
 {
     return buildInspectorObjectFor(m_profile->head());
+}
+
+PassRefPtr<InspectorObject> ScriptProfile::buildInspectorObjectForBottomUpHead() const
+{
+    return 0;
 }
 #endif
 

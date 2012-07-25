@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -16,6 +16,7 @@
 /*tests for u_normalization*/
 #include "unicode/utypes.h"
 #include "unicode/unorm.h"
+#include "unicode/utf16.h"
 #include "cintltst.h"
 
 #if UCONFIG_NO_NORMALIZATION
@@ -63,6 +64,12 @@ TestFCD(void);
 
 static void
 TestGetDecomposition(void);
+
+static void
+TestGetRawDecomposition(void);
+
+static void TestAppendRestoreMiddle(void);
+static void TestGetEasyToUseInstance(void);
 
 static const char* const canonTests[][3] = {
     /* Input*/                    /*Decomposed*/                /*Composed*/
@@ -151,6 +158,9 @@ void addNormTest(TestNode** root)
     addTest(root, &TestFCNFKCClosure, "tsnorm/cnormtst/TestFCNFKCClosure");
     addTest(root, &TestComposition, "tsnorm/cnormtst/TestComposition");
     addTest(root, &TestGetDecomposition, "tsnorm/cnormtst/TestGetDecomposition");
+    addTest(root, &TestGetRawDecomposition, "tsnorm/cnormtst/TestGetRawDecomposition");
+    addTest(root, &TestAppendRestoreMiddle, "tsnorm/cnormtst/TestAppendRestoreMiddle");
+    addTest(root, &TestGetEasyToUseInstance, "tsnorm/cnormtst/TestGetEasyToUseInstance");
 }
 
 static const char* const modeStrings[]={
@@ -808,13 +818,13 @@ TestNormCoverage() {
 
     hangulPrefixLength=inLength;
 
-    input[inLength++]=UTF16_LEAD(MUSICAL_HALF_NOTE);
-    input[inLength++]=UTF16_TRAIL(MUSICAL_HALF_NOTE);
+    input[inLength++]=U16_LEAD(MUSICAL_HALF_NOTE);
+    input[inLength++]=U16_TRAIL(MUSICAL_HALF_NOTE);
     for(i=0; i<200; ++i) {
-        input[inLength++]=UTF16_LEAD(MUSICAL_STACCATO);
-        input[inLength++]=UTF16_TRAIL(MUSICAL_STACCATO);
-        input[inLength++]=UTF16_LEAD(MUSICAL_STEM);
-        input[inLength++]=UTF16_TRAIL(MUSICAL_STEM);
+        input[inLength++]=U16_LEAD(MUSICAL_STACCATO);
+        input[inLength++]=U16_TRAIL(MUSICAL_STACCATO);
+        input[inLength++]=U16_LEAD(MUSICAL_STEM);
+        input[inLength++]=U16_TRAIL(MUSICAL_STEM);
     }
 
     /* (compatibility) Jamo L, T do not compose */
@@ -867,17 +877,17 @@ TestNormCoverage() {
 
     expect[expectLength++]=HANGUL_AC00+14*28;
 
-    expect[expectLength++]=UTF16_LEAD(MUSICAL_VOID_NOTEHEAD);
-    expect[expectLength++]=UTF16_TRAIL(MUSICAL_VOID_NOTEHEAD);
-    expect[expectLength++]=UTF16_LEAD(MUSICAL_STEM);
-    expect[expectLength++]=UTF16_TRAIL(MUSICAL_STEM);
+    expect[expectLength++]=U16_LEAD(MUSICAL_VOID_NOTEHEAD);
+    expect[expectLength++]=U16_TRAIL(MUSICAL_VOID_NOTEHEAD);
+    expect[expectLength++]=U16_LEAD(MUSICAL_STEM);
+    expect[expectLength++]=U16_TRAIL(MUSICAL_STEM);
     for(i=0; i<200; ++i) {
-        expect[expectLength++]=UTF16_LEAD(MUSICAL_STEM);
-        expect[expectLength++]=UTF16_TRAIL(MUSICAL_STEM);
+        expect[expectLength++]=U16_LEAD(MUSICAL_STEM);
+        expect[expectLength++]=U16_TRAIL(MUSICAL_STEM);
     }
     for(i=0; i<200; ++i) {
-        expect[expectLength++]=UTF16_LEAD(MUSICAL_STACCATO);
-        expect[expectLength++]=UTF16_TRAIL(MUSICAL_STACCATO);
+        expect[expectLength++]=U16_LEAD(MUSICAL_STACCATO);
+        expect[expectLength++]=U16_TRAIL(MUSICAL_STACCATO);
     }
 
     expect[expectLength++]=HANGUL_KIYEOK;
@@ -918,17 +928,17 @@ TestNormCoverage() {
     u_memcpy(expect, input, hangulPrefixLength);
     expectLength=hangulPrefixLength;
 
-    expect[expectLength++]=UTF16_LEAD(MUSICAL_VOID_NOTEHEAD);
-    expect[expectLength++]=UTF16_TRAIL(MUSICAL_VOID_NOTEHEAD);
-    expect[expectLength++]=UTF16_LEAD(MUSICAL_STEM);
-    expect[expectLength++]=UTF16_TRAIL(MUSICAL_STEM);
+    expect[expectLength++]=U16_LEAD(MUSICAL_VOID_NOTEHEAD);
+    expect[expectLength++]=U16_TRAIL(MUSICAL_VOID_NOTEHEAD);
+    expect[expectLength++]=U16_LEAD(MUSICAL_STEM);
+    expect[expectLength++]=U16_TRAIL(MUSICAL_STEM);
     for(i=0; i<200; ++i) {
-        expect[expectLength++]=UTF16_LEAD(MUSICAL_STEM);
-        expect[expectLength++]=UTF16_TRAIL(MUSICAL_STEM);
+        expect[expectLength++]=U16_LEAD(MUSICAL_STEM);
+        expect[expectLength++]=U16_TRAIL(MUSICAL_STEM);
     }
     for(i=0; i<200; ++i) {
-        expect[expectLength++]=UTF16_LEAD(MUSICAL_STACCATO);
-        expect[expectLength++]=UTF16_TRAIL(MUSICAL_STACCATO);
+        expect[expectLength++]=U16_LEAD(MUSICAL_STACCATO);
+        expect[expectLength++]=U16_TRAIL(MUSICAL_STACCATO);
     }
 
     expect[expectLength++]=HANGUL_K_KIYEOK;
@@ -1482,32 +1492,204 @@ TestGetDecomposition() {
 
     length=unorm2_getDecomposition(n2, 0x20, decomp, LENGTHOF(decomp), &errorCode);
     if(U_FAILURE(errorCode) || length>=0) {
-        log_err("unorm2_getDecomposition(space) failed\n");
+        log_err("unorm2_getDecomposition(fcc, space) failed\n");
     }
     errorCode=U_ZERO_ERROR;
     length=unorm2_getDecomposition(n2, 0xe4, decomp, LENGTHOF(decomp), &errorCode);
     if(U_FAILURE(errorCode) || length!=2 || decomp[0]!=0x61 || decomp[1]!=0x308 || decomp[2]!=0) {
-        log_err("unorm2_getDecomposition(a-umlaut) failed\n");
+        log_err("unorm2_getDecomposition(fcc, a-umlaut) failed\n");
     }
     errorCode=U_ZERO_ERROR;
     length=unorm2_getDecomposition(n2, 0xac01, decomp, LENGTHOF(decomp), &errorCode);
     if(U_FAILURE(errorCode) || length!=3 || decomp[0]!=0x1100 || decomp[1]!=0x1161 || decomp[2]!=0x11a8 || decomp[3]!=0) {
-        log_err("unorm2_getDecomposition(Hangul syllable U+AC01) failed\n");
+        log_err("unorm2_getDecomposition(fcc, Hangul syllable U+AC01) failed\n");
     }
     errorCode=U_ZERO_ERROR;
     length=unorm2_getDecomposition(n2, 0xac01, NULL, 0, &errorCode);
     if(errorCode!=U_BUFFER_OVERFLOW_ERROR || length!=3) {
-        log_err("unorm2_getDecomposition(Hangul syllable U+AC01) overflow failed\n");
+        log_err("unorm2_getDecomposition(fcc, Hangul syllable U+AC01) overflow failed\n");
     }
     errorCode=U_ZERO_ERROR;
     length=unorm2_getDecomposition(n2, 0xac01, decomp, -1, &errorCode);
     if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("unorm2_getDecomposition(capacity<0) failed\n");
+        log_err("unorm2_getDecomposition(fcc, capacity<0) failed\n");
     }
     errorCode=U_ZERO_ERROR;
     length=unorm2_getDecomposition(n2, 0xac01, NULL, 4, &errorCode);
     if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("unorm2_getDecomposition(decomposition=NULL) failed\n");
+        log_err("unorm2_getDecomposition(fcc, decomposition=NULL) failed\n");
+    }
+}
+
+static void
+TestGetRawDecomposition() {
+    UChar decomp[32];
+    int32_t length;
+
+    UErrorCode errorCode=U_ZERO_ERROR;
+    const UNormalizer2 *n2=unorm2_getNFKCInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFKCInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    /*
+     * Raw decompositions from NFKC data are the Unicode Decomposition_Mapping values,
+     * without recursive decomposition.
+     */
+
+    length=unorm2_getRawDecomposition(n2, 0x20, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length>=0) {
+        log_err("unorm2_getDecomposition(nfkc, space) failed\n");
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xe4, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || decomp[0]!=0x61 || decomp[1]!=0x308 || decomp[2]!=0) {
+        log_err("unorm2_getDecomposition(nfkc, a-umlaut) failed\n");
+    }
+    /* U+1E08 LATIN CAPITAL LETTER C WITH CEDILLA AND ACUTE */
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0x1e08, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || decomp[0]!=0xc7 || decomp[1]!=0x301 || decomp[2]!=0) {
+        log_err("unorm2_getDecomposition(nfkc, c-cedilla-acute) failed\n");
+    }
+    /* U+212B ANGSTROM SIGN */
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0x212b, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length!=1 || decomp[0]!=0xc5 || decomp[1]!=0) {
+        log_err("unorm2_getDecomposition(nfkc, angstrom sign) failed\n");
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xac00, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || decomp[0]!=0x1100 || decomp[1]!=0x1161 || decomp[2]!=0) {
+        log_err("unorm2_getDecomposition(nfkc, Hangul syllable U+AC00) failed\n");
+    }
+    /* A Hangul LVT syllable has a raw decomposition of an LV syllable + T. */
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xac01, decomp, LENGTHOF(decomp), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || decomp[0]!=0xac00 || decomp[1]!=0x11a8 || decomp[2]!=0) {
+        log_err("unorm2_getDecomposition(nfkc, Hangul syllable U+AC01) failed\n");
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xac01, NULL, 0, &errorCode);
+    if(errorCode!=U_BUFFER_OVERFLOW_ERROR || length!=2) {
+        log_err("unorm2_getDecomposition(nfkc, Hangul syllable U+AC01) overflow failed\n");
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xac01, decomp, -1, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR) {
+        log_err("unorm2_getDecomposition(nfkc, capacity<0) failed\n");
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_getRawDecomposition(n2, 0xac01, NULL, 4, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR) {
+        log_err("unorm2_getDecomposition(nfkc, decomposition=NULL) failed\n");
+    }
+}
+
+static void
+TestAppendRestoreMiddle() {
+    UChar a[20]={ 0x61, 0x62, 0x63, 0x41, 0x327, 0 };  /* last chars are 'A' and 'cedilla' NFC */
+    static const UChar b[]={ 0x30A, 0x64, 0x65, 0x66, 0 };  /* first char is 'ring above' NFC */
+    /* NFC: C5 is 'A with ring above' */
+    static const UChar expected[]={ 0x61, 0x62, 0x63, 0xC5, 0x327, 0x64, 0x65, 0x66 };
+    int32_t length;
+    UErrorCode errorCode=U_ZERO_ERROR;
+    const UNormalizer2 *n2=unorm2_getNFCInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFCInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    /*
+     * Use length=-1 to fool the estimate of the ReorderingBuffer capacity.
+     * Use a capacity of 6 or 7 so that the middle sequence <41 327 30A>
+     * still fits into a[] but the full result still overflows this capacity.
+     * (Let it modify the destination buffer before reallocating internally.)
+     */
+    length=unorm2_append(n2, a, -1, 6, b, -1, &errorCode);
+    if(errorCode!=U_BUFFER_OVERFLOW_ERROR || length!=LENGTHOF(expected)) {
+        log_err("unorm2_append(preflight) returned wrong length of %d\n", (int)length);
+        return;
+    }
+    /* Verify that the middle is unchanged or restored. (ICU ticket #7848) */
+    if(a[0]!=0x61 || a[1]!=0x62 || a[2]!=0x63 || a[3]!=0x41 || a[4]!=0x327 || a[5]!=0) {
+        log_err("unorm2_append(overflow) modified the first string\n");
+        return;
+    }
+    errorCode=U_ZERO_ERROR;
+    length=unorm2_append(n2, a, -1, LENGTHOF(a), b, -1, &errorCode);
+    if(U_FAILURE(errorCode) || length!=LENGTHOF(expected) || 0!=u_memcmp(a, expected, length)) {
+        log_err("unorm2_append(real) failed - %s, length %d\n", u_errorName(errorCode), (int)length);
+        return;
+    }
+}
+
+static void
+TestGetEasyToUseInstance() {
+    static const UChar in[]={
+        0xA0,  /* -> <noBreak> 0020 */
+        0xC7, 0x301  /* = 1E08 = 0043 0327 0301 */
+    };
+    UChar out[32];
+    int32_t length;
+
+    UErrorCode errorCode=U_ZERO_ERROR;
+    const UNormalizer2 *n2=unorm2_getNFCInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFCInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    length=unorm2_normalize(n2, in, LENGTHOF(in), out, LENGTHOF(out), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || out[0]!=0xa0 || out[1]!=0x1e08) {
+        log_err("unorm2_getNFCInstance() did not return an NFC instance (normalized length=%d; %s)\n",
+                (int)length, u_errorName(errorCode));
+    }
+
+    errorCode=U_ZERO_ERROR;
+    n2=unorm2_getNFDInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFDInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    length=unorm2_normalize(n2, in, LENGTHOF(in), out, LENGTHOF(out), &errorCode);
+    if(U_FAILURE(errorCode) || length!=4 || out[0]!=0xa0 || out[1]!=0x43 || out[2]!=0x327 || out[3]!=0x301) {
+        log_err("unorm2_getNFDInstance() did not return an NFD instance (normalized length=%d; %s)\n",
+                (int)length, u_errorName(errorCode));
+    }
+
+    errorCode=U_ZERO_ERROR;
+    n2=unorm2_getNFKCInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFKCInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    length=unorm2_normalize(n2, in, LENGTHOF(in), out, LENGTHOF(out), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || out[0]!=0x20 || out[1]!=0x1e08) {
+        log_err("unorm2_getNFKCInstance() did not return an NFKC instance (normalized length=%d; %s)\n",
+                (int)length, u_errorName(errorCode));
+    }
+
+    errorCode=U_ZERO_ERROR;
+    n2=unorm2_getNFKDInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFKDInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    length=unorm2_normalize(n2, in, LENGTHOF(in), out, LENGTHOF(out), &errorCode);
+    if(U_FAILURE(errorCode) || length!=4 || out[0]!=0x20 || out[1]!=0x43 || out[2]!=0x327 || out[3]!=0x301) {
+        log_err("unorm2_getNFKDInstance() did not return an NFKD instance (normalized length=%d; %s)\n",
+                (int)length, u_errorName(errorCode));
+    }
+
+    errorCode=U_ZERO_ERROR;
+    n2=unorm2_getNFKCCasefoldInstance(&errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err_status(errorCode, "unorm2_getNFKCCasefoldInstance() failed: %s\n", u_errorName(errorCode));
+        return;
+    }
+    length=unorm2_normalize(n2, in, LENGTHOF(in), out, LENGTHOF(out), &errorCode);
+    if(U_FAILURE(errorCode) || length!=2 || out[0]!=0x20 || out[1]!=0x1e09) {
+        log_err("unorm2_getNFKCCasefoldInstance() did not return an NFKC_Casefold instance (normalized length=%d; %s)\n",
+                (int)length, u_errorName(errorCode));
     }
 }
 

@@ -24,6 +24,7 @@ doing so.  It will make life easier for you and everyone else.
 * Slave Servers::
 * Incremental propagation::
 * Encryption types and salting::
+* Credential cache server - KCM::
 * Cross realm::
 * Transit policy::
 * Setting up DNS::
@@ -107,6 +108,14 @@ If you use a realm name equal to your domain name, you can omit the
 @samp{libdefaults}, and @samp{domain_realm}, sections. If you have a DNS
 SRV-record for your realm, or your Kerberos server has DNS CNAME
 @samp{kerberos.my.realm}, you can omit the @samp{realms} section too.
+
+@cindex KRB5_CONFIG
+If you want to use a different configuration file then the default you
+can point a file with the enviroment variable @samp{KRB5_CONFIG}.
+
+@example
+env KRB5_CONFIG=$HOME/etc/krb5.conf kinit user@@REALM
+@end example
 
 @node Creating the database, Modifying the database, Configuration file, Setting up a realm
 @section Creating the database
@@ -408,7 +417,17 @@ To allow users to change their passwords, you should run @command{kpasswdd}.
 It is not run from @command{inetd}.
 
 You might need to add @samp{kpasswd} to your @file{/etc/services} as
-@samp{464/udp}.
+@samp{464/udp}.  If your realm is not setup to use DNS, you might also
+need to add a @samp{kpasswd_server} entry to the realm configuration
+in @file{/etc/krb5.conf} on client machines:
+
+@example
+[realms]
+        MY.REALM = @{
+                kdc = my.kdc my.slave.kdc
+                kpasswd_server = my.kdc
+        @}
+@end example
 
 @subsection Password quality assurance
 
@@ -632,7 +651,7 @@ slave#  /usr/heimdal/libexec/ipropd-slave master &
 To manage the iprop log file you should use the @command{iprop-log}
 command. With it you can dump, truncate and replay the logfile.
 
-@node Encryption types and salting, Cross realm, Incremental propagation, Setting up a realm
+@node Encryption types and salting, Credential cache server - KCM, Incremental propagation, Setting up a realm
 @section Encryption types and salting
 @cindex Salting
 @cindex Encryption types
@@ -693,7 +712,76 @@ the cell name appended to the password.
 
 @end itemize
 
-@node Cross realm, Transit policy, Encryption types and salting, Setting up a realm
+@node Credential cache server - KCM, Cross realm, Encryption types and salting, Setting up a realm
+@section Credential cache server - KCM
+@cindex KCM
+@cindex Credential cache server
+
+When KCM running is easy for users to switch between different
+kerberos principals using @file{kswitch} or built in support in
+application, like OpenSSH's GSSAPIClientIdentity.
+
+Other advantages are that there is the long term credentials are not
+written to disk and on reboot the credential is removed when kcm
+process stopps running.
+
+Configure the system startup script to start the kcm process,
+@file{/usr/heimdal/libexec/kcm} and then configure the system to use kcm in @file{krb5.conf}.
+
+@example
+[libdefaults]
+	default_cc_type = KCM
+@end example
+
+Now when you run @command{kinit} it doesn't overwrite your existing
+credentials but rather just add them to the set of
+credentials. @command{klist -l} lists the credentials and the star
+marks the default credential.
+
+@example
+$ kinit lha@@KTH.SE
+lha@@KTH.SE's Password: 
+$ klist -l
+  Name         Cache name               Expires         
+lha@@KTH.SE   0                        Nov 22 23:09:40   *
+lha@@SU.SE    Initial default ccache   Nov 22 14:14:24   
+@end example
+
+When switching between credentials you can use @command{kswitch}.
+
+@example
+$ kswitch -i
+     Principal
+1    lha@@KTH.SE
+2    lha@@SU.SE
+Select number: 2
+@end example
+
+After switching, a new set of credentials are used as default.
+
+@example
+$ klist -l
+  Name         Cache name               Expires         
+lha@@SU.SE    Initial default ccache   Nov 22 14:14:24   *
+lha@@KTH.SE   0                        Nov 22 23:09:40   
+@end example
+
+Som applications, like openssh with Simon Wilkinsons patch applied,
+support specifiying that credential to use.  The example below will
+login to the host computer.kth.se using lha@@KTH.SE (not the current
+default credential).
+
+@example
+$ ssh \
+   -o GSSAPIAuthentication=yes \
+   -o GSSAPIKeyExchange=yes \
+   -o GSSAPIClientIdentity=lha@@KTH.SE \
+   computer.kth.se
+@end example
+
+
+
+@node Cross realm, Transit policy, Credential cache server - KCM, Setting up a realm
 @section Cross realm
 @cindex Cross realm
 

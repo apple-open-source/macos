@@ -1,1 +1,0 @@
-.so man__appmansuffix__/bitmap.__appmansuffix__

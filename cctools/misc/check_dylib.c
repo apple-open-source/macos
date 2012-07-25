@@ -50,6 +50,10 @@ static void check_for_addresses(
     char *arch_name,
     void *cookie);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The check_dylib program.  It takes a dynamic library file, an -install_name
  * argument, a -seg_addr_table argument and a -seg_addr_table_filename argument.

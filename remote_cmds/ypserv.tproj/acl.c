@@ -561,7 +561,7 @@ char *file;
       }
     }
     
-    if ((state == ACLS_ALLOW_NET_MASK)) {
+    if (state == ACLS_ALLOW_NET_MASK) {
       state = ACLE_UEOL;
     }
 
@@ -581,7 +581,7 @@ char *file;
       }
     }
       
-    if ((state == ACLS_ALLOW_NET)) {
+    if (state == ACLS_ALLOW_NET) {
       state = ACLE_UEOL;
     }
 

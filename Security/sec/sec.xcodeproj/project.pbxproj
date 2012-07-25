@@ -1,0 +1,731 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		18270F5914CF654400B05E7F /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD560614CB6E7A008233F2 /* client.c */; };
+		18270F5A14CF654400B05E7F /* securityd_rep.defs in Sources */ = {isa = PBXBuildFile; fileRef = 18AD560A14CB6E7A008233F2 /* securityd_rep.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		18270F5B14CF654400B05E7F /* securityd_req.defs in Sources */ = {isa = PBXBuildFile; fileRef = 18AD560B14CB6E7A008233F2 /* securityd_req.defs */; };
+		18AD560F14CB6E7A008233F2 /* securityd_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 18AD560814CB6E7A008233F2 /* securityd_client.h */; };
+		18AD561014CB6E7A008233F2 /* securityd_ipc_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 18AD560914CB6E7A008233F2 /* securityd_ipc_types.h */; };
+		18AD561314CB6E7A008233F2 /* securityd_server.h in Headers */ = {isa = PBXBuildFile; fileRef = 18AD560C14CB6E7A008233F2 /* securityd_server.h */; };
+		18AD566714CB70A8008233F2 /* SecItem.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563714CB6EB9008233F2 /* SecItem.c */; };
+		18D4043914CE1FE400A2BE4E /* p12import.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD561614CB6EB9008233F2 /* p12import.c */; };
+		18D4043A14CE1FE400A2BE4E /* p12pbegen.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD561814CB6EB9008233F2 /* p12pbegen.c */; };
+		18D4043B14CE1FE400A2BE4E /* pbkdf2.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD561A14CB6EB9008233F2 /* pbkdf2.c */; };
+		18D4043C14CE1FE400A2BE4E /* SecBase64.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD561D14CB6EB9008233F2 /* SecBase64.c */; };
+		18D4043D14CE1FE400A2BE4E /* SecCertificate.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562014CB6EB9008233F2 /* SecCertificate.c */; };
+		18D4043E14CE1FE400A2BE4E /* SecCertificatePath.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562314CB6EB9008233F2 /* SecCertificatePath.c */; };
+		18D4043F14CE1FE400A2BE4E /* SecCertificateRequest.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562614CB6EB9008233F2 /* SecCertificateRequest.c */; };
+		18D4044014CE1FE400A2BE4E /* SecCMS.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562814CB6EB9008233F2 /* SecCMS.c */; };
+		18D4044114CE1FE400A2BE4E /* SecDH.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562A14CB6EB9008233F2 /* SecDH.c */; };
+		18D4044214CE1FE400A2BE4E /* SecECKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562C14CB6EB9008233F2 /* SecECKey.c */; };
+		18D4044314CE1FE400A2BE4E /* SecFramework.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562E14CB6EB9008233F2 /* SecFramework.c */; };
+		18D4044414CE1FE400A2BE4E /* SecIdentity.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563114CB6EB9008233F2 /* SecIdentity.c */; };
+		18D4044514CE1FE400A2BE4E /* SecImportExport.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563414CB6EB9008233F2 /* SecImportExport.c */; };
+		18D4044614CE1FE400A2BE4E /* SecItem.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563714CB6EB9008233F2 /* SecItem.c */; };
+		18D4044714CE1FE400A2BE4E /* SecItemConstants.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563914CB6EB9008233F2 /* SecItemConstants.c */; };
+		18D4044814CE1FE400A2BE4E /* SecKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD563C14CB6EB9008233F2 /* SecKey.c */; };
+		18D4044914CE1FE400A2BE4E /* SecPBKDF.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564014CB6EB9008233F2 /* SecPBKDF.c */; };
+		18D4044A14CE1FE400A2BE4E /* SecPolicy.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564214CB6EB9008233F2 /* SecPolicy.c */; };
+		18D4044B14CE1FE400A2BE4E /* SecRSAKey.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564714CB6EB9008233F2 /* SecRSAKey.c */; };
+		18D4044C14CE1FE400A2BE4E /* SecSCEP.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564A14CB6EB9008233F2 /* SecSCEP.c */; };
+		18D4044D14CE1FE400A2BE4E /* SecTrust.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564C14CB6EB9008233F2 /* SecTrust.c */; };
+		18D4044E14CE1FE400A2BE4E /* SecTrustSettings.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD564F14CB6EB9008233F2 /* SecTrustSettings.c */; };
+		18D4044F14CE1FE400A2BE4E /* SecTrustStore.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565214CB6EB9008233F2 /* SecTrustStore.c */; };
+		18D4045014CE1FE400A2BE4E /* vmdh.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565514CB6EB9008233F2 /* vmdh.c */; };
+		18D4055C14CE51FC00A2BE4E /* debugging.h in Headers */ = {isa = PBXBuildFile; fileRef = 18D4055914CE51FC00A2BE4E /* debugging.h */; };
+		18D4055D14CE51FC00A2BE4E /* sqlutils.h in Headers */ = {isa = PBXBuildFile; fileRef = 18D4055A14CE51FC00A2BE4E /* sqlutils.h */; };
+		18D4056614CE53DD00A2BE4E /* asynchttp.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD567D14CB865E008233F2 /* asynchttp.c */; };
+		18D4056714CE53DD00A2BE4E /* keystore.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD568014CB865E008233F2 /* keystore.c */; };
+		18D4056814CE53DD00A2BE4E /* policytree.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD568214CB865E008233F2 /* policytree.c */; };
+		18D4056914CE53DD00A2BE4E /* SecCAIssuerCache.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD568414CB865E008233F2 /* SecCAIssuerCache.c */; };
+		18D4056A14CE53DD00A2BE4E /* SecCAIssuerRequest.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD568614CB865E008233F2 /* SecCAIssuerRequest.c */; };
+		18D4056B14CE53DD00A2BE4E /* SecItemServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD568814CB865E008233F2 /* SecItemServer.c */; };
+		18D4056C14CE53DD00A2BE4E /* SecOCSPCache.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565914CB6F79008233F2 /* SecOCSPCache.c */; };
+		18D4056D14CE53DD00A2BE4E /* SecOCSPRequest.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565B14CB6F79008233F2 /* SecOCSPRequest.c */; };
+		18D4056E14CE53DD00A2BE4E /* SecOCSPResponse.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565D14CB6F79008233F2 /* SecOCSPResponse.c */; };
+		18D4056F14CE53DD00A2BE4E /* SecPolicyServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD565F14CB6F79008233F2 /* SecPolicyServer.c */; };
+		18D4057014CE53DD00A2BE4E /* SecTrustServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD566114CB6F79008233F2 /* SecTrustServer.c */; };
+		18D4057114CE53DD00A2BE4E /* SecTrustStoreServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD566314CB6F79008233F2 /* SecTrustStoreServer.c */; };
+		18D4057214CE547400A2BE4E /* spi.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD566514CB6F79008233F2 /* spi.c */; };
+		BEFE994E14F2E17200356A97 /* SecDH.c in Sources */ = {isa = PBXBuildFile; fileRef = 18AD562A14CB6EB9008233F2 /* SecDH.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		18270C9714CF1AAD00B05E7F /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		18270C9814CF1AAD00B05E7F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18270C9914CF1AAD00B05E7F /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		18270C9A14CF1AAD00B05E7F /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18270F5514CF651900B05E7F /* libsecipc_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecipc_client.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		186CDD0F14CA116C00AF9171 /* libSecItemShimOSX.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libSecItemShimOSX.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		18AD560614CB6E7A008233F2 /* client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = client.c; sourceTree = "<group>"; };
+		18AD560714CB6E7A008233F2 /* com.apple.securityd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.securityd.plist; sourceTree = "<group>"; };
+		18AD560814CB6E7A008233F2 /* securityd_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = securityd_client.h; sourceTree = "<group>"; };
+		18AD560914CB6E7A008233F2 /* securityd_ipc_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = securityd_ipc_types.h; sourceTree = "<group>"; };
+		18AD560A14CB6E7A008233F2 /* securityd_rep.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = securityd_rep.defs; sourceTree = "<group>"; };
+		18AD560B14CB6E7A008233F2 /* securityd_req.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = securityd_req.defs; sourceTree = "<group>"; };
+		18AD560C14CB6E7A008233F2 /* securityd_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = securityd_server.h; sourceTree = "<group>"; };
+		18AD560D14CB6E7A008233F2 /* server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = server.c; sourceTree = "<group>"; };
+		18AD561514CB6EB9008233F2 /* certextensions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = certextensions.h; sourceTree = "<group>"; };
+		18AD561614CB6EB9008233F2 /* p12import.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = p12import.c; sourceTree = "<group>"; };
+		18AD561714CB6EB9008233F2 /* p12import.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = p12import.h; sourceTree = "<group>"; };
+		18AD561814CB6EB9008233F2 /* p12pbegen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = p12pbegen.c; sourceTree = "<group>"; };
+		18AD561914CB6EB9008233F2 /* p12pbegen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = p12pbegen.h; sourceTree = "<group>"; };
+		18AD561A14CB6EB9008233F2 /* pbkdf2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pbkdf2.c; sourceTree = "<group>"; };
+		18AD561B14CB6EB9008233F2 /* pbkdf2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pbkdf2.h; sourceTree = "<group>"; };
+		18AD561C14CB6EB9008233F2 /* SecBase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecBase.h; sourceTree = "<group>"; };
+		18AD561D14CB6EB9008233F2 /* SecBase64.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecBase64.c; sourceTree = "<group>"; };
+		18AD561E14CB6EB9008233F2 /* SecBase64.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecBase64.h; sourceTree = "<group>"; };
+		18AD561F14CB6EB9008233F2 /* SecBasePriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecBasePriv.h; sourceTree = "<group>"; };
+		18AD562014CB6EB9008233F2 /* SecCertificate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificate.c; sourceTree = "<group>"; };
+		18AD562114CB6EB9008233F2 /* SecCertificate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificate.h; sourceTree = "<group>"; };
+		18AD562214CB6EB9008233F2 /* SecCertificateInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternal.h; sourceTree = "<group>"; };
+		18AD562314CB6EB9008233F2 /* SecCertificatePath.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificatePath.c; sourceTree = "<group>"; };
+		18AD562414CB6EB9008233F2 /* SecCertificatePath.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificatePath.h; sourceTree = "<group>"; };
+		18AD562514CB6EB9008233F2 /* SecCertificatePriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificatePriv.h; sourceTree = "<group>"; };
+		18AD562614CB6EB9008233F2 /* SecCertificateRequest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCertificateRequest.c; sourceTree = "<group>"; };
+		18AD562714CB6EB9008233F2 /* SecCertificateRequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCertificateRequest.h; sourceTree = "<group>"; };
+		18AD562814CB6EB9008233F2 /* SecCMS.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCMS.c; sourceTree = "<group>"; };
+		18AD562914CB6EB9008233F2 /* SecCMS.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCMS.h; sourceTree = "<group>"; };
+		18AD562A14CB6EB9008233F2 /* SecDH.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecDH.c; sourceTree = "<group>"; };
+		18AD562B14CB6EB9008233F2 /* SecDH.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecDH.h; sourceTree = "<group>"; };
+		18AD562C14CB6EB9008233F2 /* SecECKey.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecECKey.c; sourceTree = "<group>"; };
+		18AD562D14CB6EB9008233F2 /* SecECKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecECKey.h; sourceTree = "<group>"; };
+		18AD562E14CB6EB9008233F2 /* SecFramework.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecFramework.c; sourceTree = "<group>"; };
+		18AD562F14CB6EB9008233F2 /* SecFramework.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecFramework.h; sourceTree = "<group>"; };
+		18AD563014CB6EB9008233F2 /* SecFrameworkStrings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecFrameworkStrings.h; sourceTree = "<group>"; };
+		18AD563114CB6EB9008233F2 /* SecIdentity.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecIdentity.c; sourceTree = "<group>"; };
+		18AD563214CB6EB9008233F2 /* SecIdentity.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecIdentity.h; sourceTree = "<group>"; };
+		18AD563314CB6EB9008233F2 /* SecIdentityPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecIdentityPriv.h; sourceTree = "<group>"; };
+		18AD563414CB6EB9008233F2 /* SecImportExport.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecImportExport.c; sourceTree = "<group>"; };
+		18AD563514CB6EB9008233F2 /* SecImportExport.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecImportExport.h; sourceTree = "<group>"; };
+		18AD563614CB6EB9008233F2 /* SecInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecInternal.h; sourceTree = "<group>"; };
+		18AD563714CB6EB9008233F2 /* SecItem.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecItem.c; sourceTree = "<group>"; };
+		18AD563814CB6EB9008233F2 /* SecItem.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
+		18AD563914CB6EB9008233F2 /* SecItemConstants.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecItemConstants.c; sourceTree = "<group>"; };
+		18AD563A14CB6EB9008233F2 /* SecItemInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecItemInternal.h; sourceTree = "<group>"; };
+		18AD563B14CB6EB9008233F2 /* SecItemPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
+		18AD563C14CB6EB9008233F2 /* SecKey.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecKey.c; sourceTree = "<group>"; };
+		18AD563D14CB6EB9008233F2 /* SecKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecKey.h; sourceTree = "<group>"; };
+		18AD563E14CB6EB9008233F2 /* SecKeyInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecKeyInternal.h; sourceTree = "<group>"; };
+		18AD563F14CB6EB9008233F2 /* SecKeyPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecKeyPriv.h; sourceTree = "<group>"; };
+		18AD564014CB6EB9008233F2 /* SecPBKDF.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecPBKDF.c; sourceTree = "<group>"; };
+		18AD564114CB6EB9008233F2 /* SecPBKDF.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPBKDF.h; sourceTree = "<group>"; };
+		18AD564214CB6EB9008233F2 /* SecPolicy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecPolicy.c; sourceTree = "<group>"; };
+		18AD564314CB6EB9008233F2 /* SecPolicy.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicy.h; sourceTree = "<group>"; };
+		18AD564414CB6EB9008233F2 /* SecPolicyInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicyInternal.h; sourceTree = "<group>"; };
+		18AD564514CB6EB9008233F2 /* SecPolicyPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicyPriv.h; sourceTree = "<group>"; };
+		18AD564614CB6EB9008233F2 /* SecRandom.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecRandom.h; sourceTree = "<group>"; };
+		18AD564714CB6EB9008233F2 /* SecRSAKey.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecRSAKey.c; sourceTree = "<group>"; };
+		18AD564814CB6EB9008233F2 /* SecRSAKey.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecRSAKey.h; sourceTree = "<group>"; };
+		18AD564914CB6EB9008233F2 /* SecRSAKeyPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecRSAKeyPriv.h; sourceTree = "<group>"; };
+		18AD564A14CB6EB9008233F2 /* SecSCEP.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecSCEP.c; sourceTree = "<group>"; };
+		18AD564B14CB6EB9008233F2 /* SecSCEP.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecSCEP.h; sourceTree = "<group>"; };
+		18AD564C14CB6EB9008233F2 /* SecTrust.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecTrust.c; sourceTree = "<group>"; };
+		18AD564D14CB6EB9008233F2 /* SecTrust.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrust.h; sourceTree = "<group>"; };
+		18AD564E14CB6EB9008233F2 /* SecTrustPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustPriv.h; sourceTree = "<group>"; };
+		18AD564F14CB6EB9008233F2 /* SecTrustSettings.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecTrustSettings.c; sourceTree = "<group>"; };
+		18AD565014CB6EB9008233F2 /* SecTrustSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustSettings.h; sourceTree = "<group>"; };
+		18AD565114CB6EB9008233F2 /* SecTrustSettingsPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustSettingsPriv.h; sourceTree = "<group>"; };
+		18AD565214CB6EB9008233F2 /* SecTrustStore.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecTrustStore.c; sourceTree = "<group>"; };
+		18AD565314CB6EB9008233F2 /* SecTrustStore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustStore.h; sourceTree = "<group>"; };
+		18AD565414CB6EB9008233F2 /* Security.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Security.h; sourceTree = "<group>"; };
+		18AD565514CB6EB9008233F2 /* vmdh.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vmdh.c; sourceTree = "<group>"; };
+		18AD565614CB6EB9008233F2 /* vmdh.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vmdh.h; sourceTree = "<group>"; };
+		18AD565814CB6F79008233F2 /* SecItemServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecItemServer.h; sourceTree = "<group>"; };
+		18AD565914CB6F79008233F2 /* SecOCSPCache.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecOCSPCache.c; sourceTree = "<group>"; };
+		18AD565A14CB6F79008233F2 /* SecOCSPCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecOCSPCache.h; sourceTree = "<group>"; };
+		18AD565B14CB6F79008233F2 /* SecOCSPRequest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecOCSPRequest.c; sourceTree = "<group>"; };
+		18AD565C14CB6F79008233F2 /* SecOCSPRequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecOCSPRequest.h; sourceTree = "<group>"; };
+		18AD565D14CB6F79008233F2 /* SecOCSPResponse.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecOCSPResponse.c; sourceTree = "<group>"; };
+		18AD565E14CB6F79008233F2 /* SecOCSPResponse.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecOCSPResponse.h; sourceTree = "<group>"; };
+		18AD565F14CB6F79008233F2 /* SecPolicyServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecPolicyServer.c; sourceTree = "<group>"; };
+		18AD566014CB6F79008233F2 /* SecPolicyServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecPolicyServer.h; sourceTree = "<group>"; };
+		18AD566114CB6F79008233F2 /* SecTrustServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecTrustServer.c; sourceTree = "<group>"; };
+		18AD566214CB6F79008233F2 /* SecTrustServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustServer.h; sourceTree = "<group>"; };
+		18AD566314CB6F79008233F2 /* SecTrustStoreServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecTrustStoreServer.c; sourceTree = "<group>"; };
+		18AD566414CB6F79008233F2 /* SecTrustStoreServer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecTrustStoreServer.h; sourceTree = "<group>"; };
+		18AD566514CB6F79008233F2 /* spi.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = spi.c; sourceTree = "<group>"; };
+		18AD566614CB6F79008233F2 /* spi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = spi.h; sourceTree = "<group>"; };
+		18AD567D14CB865E008233F2 /* asynchttp.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = asynchttp.c; sourceTree = "<group>"; };
+		18AD567E14CB865E008233F2 /* asynchttp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = asynchttp.h; sourceTree = "<group>"; };
+		18AD567F14CB865E008233F2 /* entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
+		18AD568014CB865E008233F2 /* keystore.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = keystore.c; sourceTree = "<group>"; };
+		18AD568114CB865E008233F2 /* keystore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = keystore.h; sourceTree = "<group>"; };
+		18AD568214CB865E008233F2 /* policytree.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = policytree.c; sourceTree = "<group>"; };
+		18AD568314CB865E008233F2 /* policytree.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = policytree.h; sourceTree = "<group>"; };
+		18AD568414CB865E008233F2 /* SecCAIssuerCache.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCAIssuerCache.c; sourceTree = "<group>"; };
+		18AD568514CB865E008233F2 /* SecCAIssuerCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCAIssuerCache.h; sourceTree = "<group>"; };
+		18AD568614CB865E008233F2 /* SecCAIssuerRequest.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecCAIssuerRequest.c; sourceTree = "<group>"; };
+		18AD568714CB865E008233F2 /* SecCAIssuerRequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SecCAIssuerRequest.h; sourceTree = "<group>"; };
+		18AD568814CB865E008233F2 /* SecItemServer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = SecItemServer.c; sourceTree = "<group>"; };
+		18D4043514CE0CF300A2BE4E /* libsecurity.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		18D4055914CE51FC00A2BE4E /* debugging.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = debugging.h; sourceTree = "<group>"; };
+		18D4055A14CE51FC00A2BE4E /* sqlutils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sqlutils.h; sourceTree = "<group>"; };
+		18D4056214CE53C200A2BE4E /* libsecurityd.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurityd.a; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		18270F5214CF651900B05E7F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		186CDD0C14CA116C00AF9171 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4043214CE0CF300A2BE4E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4055F14CE53C200A2BE4E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		18270C9614CF1AAD00B05E7F /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18270C9714CF1AAD00B05E7F /* base.xcconfig */,
+				18270C9814CF1AAD00B05E7F /* debug.xcconfig */,
+				18270C9914CF1AAD00B05E7F /* lib.xcconfig */,
+				18270C9A14CF1AAD00B05E7F /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		186CDD0414CA116C00AF9171 = {
+			isa = PBXGroup;
+			children = (
+				18270C9614CF1AAD00B05E7F /* config */,
+				18D4055714CE51CD00A2BE4E /* security_utilities */,
+				18AD565714CB6ECD008233F2 /* securityd */,
+				186CDD1F14CA126D00AF9171 /* ipc */,
+				186CDD3014CA159600AF9171 /* Security */,
+				186CDD1014CA116C00AF9171 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		186CDD1014CA116C00AF9171 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				186CDD0F14CA116C00AF9171 /* libSecItemShimOSX.a */,
+				18D4043514CE0CF300A2BE4E /* libsecurity.a */,
+				18D4056214CE53C200A2BE4E /* libsecurityd.a */,
+				18270F5514CF651900B05E7F /* libsecipc_client.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		186CDD1F14CA126D00AF9171 /* ipc */ = {
+			isa = PBXGroup;
+			children = (
+				18AD560614CB6E7A008233F2 /* client.c */,
+				18AD560714CB6E7A008233F2 /* com.apple.securityd.plist */,
+				18AD560814CB6E7A008233F2 /* securityd_client.h */,
+				18AD560914CB6E7A008233F2 /* securityd_ipc_types.h */,
+				18AD560A14CB6E7A008233F2 /* securityd_rep.defs */,
+				18AD560B14CB6E7A008233F2 /* securityd_req.defs */,
+				18AD560C14CB6E7A008233F2 /* securityd_server.h */,
+				18AD560D14CB6E7A008233F2 /* server.c */,
+			);
+			path = ipc;
+			sourceTree = "<group>";
+		};
+		186CDD3014CA159600AF9171 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				18AD561514CB6EB9008233F2 /* certextensions.h */,
+				18AD561614CB6EB9008233F2 /* p12import.c */,
+				18AD561714CB6EB9008233F2 /* p12import.h */,
+				18AD561814CB6EB9008233F2 /* p12pbegen.c */,
+				18AD561914CB6EB9008233F2 /* p12pbegen.h */,
+				18AD561A14CB6EB9008233F2 /* pbkdf2.c */,
+				18AD561B14CB6EB9008233F2 /* pbkdf2.h */,
+				18AD561C14CB6EB9008233F2 /* SecBase.h */,
+				18AD561D14CB6EB9008233F2 /* SecBase64.c */,
+				18AD561E14CB6EB9008233F2 /* SecBase64.h */,
+				18AD561F14CB6EB9008233F2 /* SecBasePriv.h */,
+				18AD562014CB6EB9008233F2 /* SecCertificate.c */,
+				18AD562114CB6EB9008233F2 /* SecCertificate.h */,
+				18AD562214CB6EB9008233F2 /* SecCertificateInternal.h */,
+				18AD562314CB6EB9008233F2 /* SecCertificatePath.c */,
+				18AD562414CB6EB9008233F2 /* SecCertificatePath.h */,
+				18AD562514CB6EB9008233F2 /* SecCertificatePriv.h */,
+				18AD562614CB6EB9008233F2 /* SecCertificateRequest.c */,
+				18AD562714CB6EB9008233F2 /* SecCertificateRequest.h */,
+				18AD562814CB6EB9008233F2 /* SecCMS.c */,
+				18AD562914CB6EB9008233F2 /* SecCMS.h */,
+				18AD562A14CB6EB9008233F2 /* SecDH.c */,
+				18AD562B14CB6EB9008233F2 /* SecDH.h */,
+				18AD562C14CB6EB9008233F2 /* SecECKey.c */,
+				18AD562D14CB6EB9008233F2 /* SecECKey.h */,
+				18AD562E14CB6EB9008233F2 /* SecFramework.c */,
+				18AD562F14CB6EB9008233F2 /* SecFramework.h */,
+				18AD563014CB6EB9008233F2 /* SecFrameworkStrings.h */,
+				18AD563114CB6EB9008233F2 /* SecIdentity.c */,
+				18AD563214CB6EB9008233F2 /* SecIdentity.h */,
+				18AD563314CB6EB9008233F2 /* SecIdentityPriv.h */,
+				18AD563414CB6EB9008233F2 /* SecImportExport.c */,
+				18AD563514CB6EB9008233F2 /* SecImportExport.h */,
+				18AD563614CB6EB9008233F2 /* SecInternal.h */,
+				18AD563714CB6EB9008233F2 /* SecItem.c */,
+				18AD563814CB6EB9008233F2 /* SecItem.h */,
+				18AD563914CB6EB9008233F2 /* SecItemConstants.c */,
+				18AD563A14CB6EB9008233F2 /* SecItemInternal.h */,
+				18AD563B14CB6EB9008233F2 /* SecItemPriv.h */,
+				18AD563C14CB6EB9008233F2 /* SecKey.c */,
+				18AD563D14CB6EB9008233F2 /* SecKey.h */,
+				18AD563E14CB6EB9008233F2 /* SecKeyInternal.h */,
+				18AD563F14CB6EB9008233F2 /* SecKeyPriv.h */,
+				18AD564014CB6EB9008233F2 /* SecPBKDF.c */,
+				18AD564114CB6EB9008233F2 /* SecPBKDF.h */,
+				18AD564214CB6EB9008233F2 /* SecPolicy.c */,
+				18AD564314CB6EB9008233F2 /* SecPolicy.h */,
+				18AD564414CB6EB9008233F2 /* SecPolicyInternal.h */,
+				18AD564514CB6EB9008233F2 /* SecPolicyPriv.h */,
+				18AD564614CB6EB9008233F2 /* SecRandom.h */,
+				18AD564714CB6EB9008233F2 /* SecRSAKey.c */,
+				18AD564814CB6EB9008233F2 /* SecRSAKey.h */,
+				18AD564914CB6EB9008233F2 /* SecRSAKeyPriv.h */,
+				18AD564A14CB6EB9008233F2 /* SecSCEP.c */,
+				18AD564B14CB6EB9008233F2 /* SecSCEP.h */,
+				18AD564C14CB6EB9008233F2 /* SecTrust.c */,
+				18AD564D14CB6EB9008233F2 /* SecTrust.h */,
+				18AD564E14CB6EB9008233F2 /* SecTrustPriv.h */,
+				18AD564F14CB6EB9008233F2 /* SecTrustSettings.c */,
+				18AD565014CB6EB9008233F2 /* SecTrustSettings.h */,
+				18AD565114CB6EB9008233F2 /* SecTrustSettingsPriv.h */,
+				18AD565214CB6EB9008233F2 /* SecTrustStore.c */,
+				18AD565314CB6EB9008233F2 /* SecTrustStore.h */,
+				18AD565414CB6EB9008233F2 /* Security.h */,
+				18AD565514CB6EB9008233F2 /* vmdh.c */,
+				18AD565614CB6EB9008233F2 /* vmdh.h */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		18AD565714CB6ECD008233F2 /* securityd */ = {
+			isa = PBXGroup;
+			children = (
+				18AD567D14CB865E008233F2 /* asynchttp.c */,
+				18AD567E14CB865E008233F2 /* asynchttp.h */,
+				18AD567F14CB865E008233F2 /* entitlements.plist */,
+				18AD568014CB865E008233F2 /* keystore.c */,
+				18AD568114CB865E008233F2 /* keystore.h */,
+				18AD568214CB865E008233F2 /* policytree.c */,
+				18AD568314CB865E008233F2 /* policytree.h */,
+				18AD568414CB865E008233F2 /* SecCAIssuerCache.c */,
+				18AD568514CB865E008233F2 /* SecCAIssuerCache.h */,
+				18AD568614CB865E008233F2 /* SecCAIssuerRequest.c */,
+				18AD568714CB865E008233F2 /* SecCAIssuerRequest.h */,
+				18AD568814CB865E008233F2 /* SecItemServer.c */,
+				18AD565814CB6F79008233F2 /* SecItemServer.h */,
+				18AD565914CB6F79008233F2 /* SecOCSPCache.c */,
+				18AD565A14CB6F79008233F2 /* SecOCSPCache.h */,
+				18AD565B14CB6F79008233F2 /* SecOCSPRequest.c */,
+				18AD565C14CB6F79008233F2 /* SecOCSPRequest.h */,
+				18AD565D14CB6F79008233F2 /* SecOCSPResponse.c */,
+				18AD565E14CB6F79008233F2 /* SecOCSPResponse.h */,
+				18AD565F14CB6F79008233F2 /* SecPolicyServer.c */,
+				18AD566014CB6F79008233F2 /* SecPolicyServer.h */,
+				18AD566114CB6F79008233F2 /* SecTrustServer.c */,
+				18AD566214CB6F79008233F2 /* SecTrustServer.h */,
+				18AD566314CB6F79008233F2 /* SecTrustStoreServer.c */,
+				18AD566414CB6F79008233F2 /* SecTrustStoreServer.h */,
+				18AD566514CB6F79008233F2 /* spi.c */,
+				18AD566614CB6F79008233F2 /* spi.h */,
+			);
+			path = securityd;
+			sourceTree = "<group>";
+		};
+		18D4055714CE51CD00A2BE4E /* security_utilities */ = {
+			isa = PBXGroup;
+			children = (
+				18D4055914CE51FC00A2BE4E /* debugging.h */,
+				18D4055A14CE51FC00A2BE4E /* sqlutils.h */,
+			);
+			name = security_utilities;
+			path = ../security_utilities;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		18270F5314CF651900B05E7F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		186CDD0D14CA116C00AF9171 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18AD560F14CB6E7A008233F2 /* securityd_client.h in Headers */,
+				18AD561014CB6E7A008233F2 /* securityd_ipc_types.h in Headers */,
+				18AD561314CB6E7A008233F2 /* securityd_server.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4043314CE0CF300A2BE4E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18D4055C14CE51FC00A2BE4E /* debugging.h in Headers */,
+				18D4055D14CE51FC00A2BE4E /* sqlutils.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4056014CE53C200A2BE4E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		18270F5414CF651900B05E7F /* libsecipc_client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18270F5614CF651900B05E7F /* Build configuration list for PBXNativeTarget "libsecipc_client" */;
+			buildPhases = (
+				18270F5114CF651900B05E7F /* Sources */,
+				18270F5214CF651900B05E7F /* Frameworks */,
+				18270F5314CF651900B05E7F /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecipc_client;
+			productName = libsecipc_client;
+			productReference = 18270F5514CF651900B05E7F /* libsecipc_client.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		186CDD0E14CA116C00AF9171 /* libSecItemShimOSX */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 186CDD1314CA116C00AF9171 /* Build configuration list for PBXNativeTarget "libSecItemShimOSX" */;
+			buildPhases = (
+				186CDD0B14CA116C00AF9171 /* Sources */,
+				186CDD0C14CA116C00AF9171 /* Frameworks */,
+				186CDD0D14CA116C00AF9171 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libSecItemShimOSX;
+			productName = sec;
+			productReference = 186CDD0F14CA116C00AF9171 /* libSecItemShimOSX.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		18D4043414CE0CF300A2BE4E /* libsecurity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18D4043614CE0CF300A2BE4E /* Build configuration list for PBXNativeTarget "libsecurity" */;
+			buildPhases = (
+				18D4043114CE0CF300A2BE4E /* Sources */,
+				18D4043214CE0CF300A2BE4E /* Frameworks */,
+				18D4043314CE0CF300A2BE4E /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity;
+			productName = security;
+			productReference = 18D4043514CE0CF300A2BE4E /* libsecurity.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		18D4056114CE53C200A2BE4E /* libsecurityd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18D4056314CE53C200A2BE4E /* Build configuration list for PBXNativeTarget "libsecurityd" */;
+			buildPhases = (
+				18D4055E14CE53C200A2BE4E /* Sources */,
+				18D4055F14CE53C200A2BE4E /* Frameworks */,
+				18D4056014CE53C200A2BE4E /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurityd;
+			productName = securityd;
+			productReference = 18D4056214CE53C200A2BE4E /* libsecurityd.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		186CDD0614CA116C00AF9171 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
+			buildConfigurationList = 186CDD0914CA116C00AF9171 /* Build configuration list for PBXProject "sec" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 186CDD0414CA116C00AF9171;
+			productRefGroup = 186CDD1014CA116C00AF9171 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				18D4043414CE0CF300A2BE4E /* libsecurity */,
+				18D4056114CE53C200A2BE4E /* libsecurityd */,
+				186CDD0E14CA116C00AF9171 /* libSecItemShimOSX */,
+				18270F5414CF651900B05E7F /* libsecipc_client */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		18270F5114CF651900B05E7F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18270F5914CF654400B05E7F /* client.c in Sources */,
+				18270F5A14CF654400B05E7F /* securityd_rep.defs in Sources */,
+				18270F5B14CF654400B05E7F /* securityd_req.defs in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		186CDD0B14CA116C00AF9171 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18AD566714CB70A8008233F2 /* SecItem.c in Sources */,
+				BEFE994E14F2E17200356A97 /* SecDH.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4043114CE0CF300A2BE4E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18D4043914CE1FE400A2BE4E /* p12import.c in Sources */,
+				18D4043A14CE1FE400A2BE4E /* p12pbegen.c in Sources */,
+				18D4043B14CE1FE400A2BE4E /* pbkdf2.c in Sources */,
+				18D4043C14CE1FE400A2BE4E /* SecBase64.c in Sources */,
+				18D4043D14CE1FE400A2BE4E /* SecCertificate.c in Sources */,
+				18D4043E14CE1FE400A2BE4E /* SecCertificatePath.c in Sources */,
+				18D4043F14CE1FE400A2BE4E /* SecCertificateRequest.c in Sources */,
+				18D4044014CE1FE400A2BE4E /* SecCMS.c in Sources */,
+				18D4044114CE1FE400A2BE4E /* SecDH.c in Sources */,
+				18D4044214CE1FE400A2BE4E /* SecECKey.c in Sources */,
+				18D4044314CE1FE400A2BE4E /* SecFramework.c in Sources */,
+				18D4044414CE1FE400A2BE4E /* SecIdentity.c in Sources */,
+				18D4044514CE1FE400A2BE4E /* SecImportExport.c in Sources */,
+				18D4044614CE1FE400A2BE4E /* SecItem.c in Sources */,
+				18D4044714CE1FE400A2BE4E /* SecItemConstants.c in Sources */,
+				18D4044814CE1FE400A2BE4E /* SecKey.c in Sources */,
+				18D4044914CE1FE400A2BE4E /* SecPBKDF.c in Sources */,
+				18D4044A14CE1FE400A2BE4E /* SecPolicy.c in Sources */,
+				18D4044B14CE1FE400A2BE4E /* SecRSAKey.c in Sources */,
+				18D4044C14CE1FE400A2BE4E /* SecSCEP.c in Sources */,
+				18D4044D14CE1FE400A2BE4E /* SecTrust.c in Sources */,
+				18D4044E14CE1FE400A2BE4E /* SecTrustSettings.c in Sources */,
+				18D4044F14CE1FE400A2BE4E /* SecTrustStore.c in Sources */,
+				18D4045014CE1FE400A2BE4E /* vmdh.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18D4055E14CE53C200A2BE4E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18D4056614CE53DD00A2BE4E /* asynchttp.c in Sources */,
+				18D4056714CE53DD00A2BE4E /* keystore.c in Sources */,
+				18D4056814CE53DD00A2BE4E /* policytree.c in Sources */,
+				18D4056914CE53DD00A2BE4E /* SecCAIssuerCache.c in Sources */,
+				18D4056A14CE53DD00A2BE4E /* SecCAIssuerRequest.c in Sources */,
+				18D4056B14CE53DD00A2BE4E /* SecItemServer.c in Sources */,
+				18D4056C14CE53DD00A2BE4E /* SecOCSPCache.c in Sources */,
+				18D4056D14CE53DD00A2BE4E /* SecOCSPRequest.c in Sources */,
+				18D4056E14CE53DD00A2BE4E /* SecOCSPResponse.c in Sources */,
+				18D4056F14CE53DD00A2BE4E /* SecPolicyServer.c in Sources */,
+				18D4057014CE53DD00A2BE4E /* SecTrustServer.c in Sources */,
+				18D4057114CE53DD00A2BE4E /* SecTrustStoreServer.c in Sources */,
+				18D4057214CE547400A2BE4E /* spi.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		18270F5714CF651900B05E7F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9814CF1AAD00B05E7F /* debug.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+			};
+			name = Debug;
+		};
+		18270F5814CF651900B05E7F /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9A14CF1AAD00B05E7F /* release.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+			};
+			name = Release;
+		};
+		186CDD1114CA116C00AF9171 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9914CF1AAD00B05E7F /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		186CDD1214CA116C00AF9171 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9914CF1AAD00B05E7F /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		186CDD1414CA116C00AF9171 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9814CF1AAD00B05E7F /* debug.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+				SECITEM_SHIM_OSX = 1;
+			};
+			name = Debug;
+		};
+		186CDD1514CA116C00AF9171 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9A14CF1AAD00B05E7F /* release.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+				SECITEM_SHIM_OSX = 1;
+			};
+			name = Release;
+		};
+		18D4043714CE0CF300A2BE4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9814CF1AAD00B05E7F /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		18D4043814CE0CF300A2BE4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9A14CF1AAD00B05E7F /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		18D4056414CE53C200A2BE4E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9814CF1AAD00B05E7F /* debug.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+			};
+			name = Debug;
+		};
+		18D4056514CE53C200A2BE4E /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18270C9A14CF1AAD00B05E7F /* release.xcconfig */;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = "$(inherited)";
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
+					"$(inherited)",
+					"SECITEM_SHIM_OSX=1",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		18270F5614CF651900B05E7F /* Build configuration list for PBXNativeTarget "libsecipc_client" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18270F5714CF651900B05E7F /* Debug */,
+				18270F5814CF651900B05E7F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		186CDD0914CA116C00AF9171 /* Build configuration list for PBXProject "sec" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				186CDD1114CA116C00AF9171 /* Debug */,
+				186CDD1214CA116C00AF9171 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		186CDD1314CA116C00AF9171 /* Build configuration list for PBXNativeTarget "libSecItemShimOSX" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				186CDD1414CA116C00AF9171 /* Debug */,
+				186CDD1514CA116C00AF9171 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18D4043614CE0CF300A2BE4E /* Build configuration list for PBXNativeTarget "libsecurity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18D4043714CE0CF300A2BE4E /* Debug */,
+				18D4043814CE0CF300A2BE4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18D4056314CE53C200A2BE4E /* Build configuration list for PBXNativeTarget "libsecurityd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18D4056414CE53C200A2BE4E /* Debug */,
+				18D4056514CE53C200A2BE4E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 186CDD0614CA116C00AF9171 /* Project object */;
+}

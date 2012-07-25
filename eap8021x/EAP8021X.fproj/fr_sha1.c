@@ -44,10 +44,10 @@ void fr_SHA1Transform(fr_SHA1_CTX * context, const uint8_t buffer[64])
     uint32_t l[16];
   } CHAR64LONG16;
   CHAR64LONG16 *block;
-  uint8_t workspace[64];
+  CHAR64LONG16 workspace;
   uint32_t * state = context->state;
 
-    block = (CHAR64LONG16*)workspace;
+    block = &workspace;
     memcpy(block, buffer, 64);
     /* Copy context->state[] to working vars */
     a = state[0];

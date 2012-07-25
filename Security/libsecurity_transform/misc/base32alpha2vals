@@ -1,0 +1,29 @@
+#!/usr/bin/perl
+
+# Quick & dirty, gennerate the Base32XVals for a given alphabet
+
+use strict qw(vars);
+
+if (1 != @ARGV) {
+	die "usage: $0 base32alphabet\n";
+}
+my $alphabet = $ARGV[0];
+if (32 != length($alphabet)) {
+	die "alphabet needs exactly 32 charactors";
+}
+
+my @vals = (0xff) x 256;
+$vals[ord('=')] = 0xee;
+
+for(my $i = 0; $i < length($alphabet); $i++) {
+	my $ch = substr($alphabet, $i, 1);
+	my $v = ord($ch);
+	print "$i: $ch $v\n";
+
+	$vals[$v] = $i;
+}
+
+for(my $i = 0; $i < @vals; $i++) {
+	printf "0x%02x, ", $vals[$i];
+	print "\n" unless (($i-2) % 11);
+}

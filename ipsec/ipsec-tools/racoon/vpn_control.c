@@ -79,6 +79,8 @@
 #include <unistd.h>
 #endif
 #include <launch.h>
+#include <launch_priv.h>
+#include <fcntl.h>
 
 #include "var.h"
 #include "misc.h"
@@ -104,6 +106,7 @@
 #include "session.h"
 #include "gcmalloc.h"
 #include "isakmp_cfg.h"
+#include "sainfo.h"
 
 #ifdef ENABLE_VPNCONTROL_PORT
 char *vpncontrolsock_path = VPNCONTROLSOCK_PATH;
@@ -124,7 +127,6 @@ int
 checklaunchd()                  
 {               
 	launch_data_t checkin_response = NULL; 
-	launch_data_t checkin_request = NULL;
 	launch_data_t sockets_dict, listening_fd_array;
 	launch_data_t listening_fd;
 	struct sockaddr_storage fdsockaddr;
@@ -136,14 +138,9 @@ checklaunchd()
 	int fd;
 	
 	/* check in with launchd */
-	if ((checkin_request = launch_data_new_string(LAUNCH_KEY_CHECKIN)) == NULL) {
+	if ((checkin_response = launch_socket_service_check_in()) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to launch_data_new_string.\n");
-		goto done;
-	}
-	if ((checkin_response = launch_msg(checkin_request)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "failed to launch_msg.\n");
+			 "failed to launch_socket_service_check_in.\n");
 		goto done;
 	}
 	if (LAUNCH_DATA_ERRNO == launch_data_get_type(checkin_response)) {
@@ -172,12 +169,12 @@ checklaunchd()
 	for (i = 0; i < listenerct; i++) {
 		listening_fd = launch_data_array_get_index(listening_fd_array, i);
 		fd = launch_data_get_fd( listening_fd );
-		if ( getsockname( fd , (struct sockaddr*)&fdsockaddr, &fdsockaddrlen)){
+		if ( getsockname( fd , (struct sockaddr *)&fdsockaddr, &fdsockaddrlen)){
 			continue;
 		}
 		
 		/* Is this the VPN control socket? */ 
-		if ( (((struct sockaddr*)&fdsockaddr)->sa_family) == AF_UNIX && 
+		if ( fdsockaddr.ss_family == AF_UNIX && 
 				(!(strcmp(vpncontrolsock_path, ((struct sockaddr_un *)&fdsockaddr)->sun_path))))
 		{       
 			plog(LLV_INFO, LOCATION, NULL,
@@ -194,8 +191,6 @@ checklaunchd()
 	}
 	
 done:   
-	if (checkin_request)
-		launch_data_free(checkin_request);
 	if (checkin_response)
 		launch_data_free(checkin_response);
 	return(returnval);
@@ -239,7 +234,7 @@ vpncontrol_comm_handler(struct vpnctl_socket_elem *elem)
 {
 	struct vpnctl_hdr hdr;
 	char *combuf = NULL;
-	int len;
+	ssize_t len;
 
 	/* get buffer length */
 	while ((len = recv(elem->sock, (char *)&hdr, sizeof(hdr), MSG_PEEK)) < 0) {
@@ -252,6 +247,8 @@ vpncontrol_comm_handler(struct vpnctl_socket_elem *elem)
 	if (len == 0) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"vpn_control socket closed by peer.\n");
+        /* kill all related connections */
+        vpncontrol_disconnect_all(elem, ike_session_stopped_by_controller_comm_lost);
 		vpncontrol_close_comm(elem);
 		return -1;
 	}
@@ -292,13 +289,13 @@ static int
 vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 {
 	u_int16_t	error = 0;
-	struct vpnctl_hdr *hdr = (struct vpnctl_hdr *)combuf;
+	struct vpnctl_hdr *hdr = ALIGNED_CAST(struct vpnctl_hdr *)combuf;
 
 	switch (ntohs(hdr->msg_type)) {
 	
 		case VPNCTL_CMD_BIND:
 			{
-				struct vpnctl_cmd_bind *pkt = (struct vpnctl_cmd_bind *)combuf;
+				struct vpnctl_cmd_bind *pkt = ALIGNED_CAST(struct vpnctl_cmd_bind *)combuf;
 				struct bound_addr *addr;
 			
 				plog(LLV_DEBUG, LOCATION, NULL,
@@ -328,7 +325,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_UNBIND:
 			{
-				struct vpnctl_cmd_unbind *pkt = (struct vpnctl_cmd_unbind *)combuf;
+				struct vpnctl_cmd_unbind *pkt = ALIGNED_CAST(struct vpnctl_cmd_unbind *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
@@ -349,7 +346,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_REDIRECT:
 			{
-				struct vpnctl_cmd_redirect *redirect_msg = (struct vpnctl_cmd_redirect *)combuf;
+				struct vpnctl_cmd_redirect *redirect_msg = ALIGNED_CAST(struct vpnctl_cmd_redirect *)combuf;
 				struct redirect *raddr;
 				struct redirect *t_raddr;
 				int found = 0;
@@ -392,7 +389,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_XAUTH_INFO:
 			{
-				struct vpnctl_cmd_xauth_info *pkt = (struct vpnctl_cmd_xauth_info *)combuf;
+				struct vpnctl_cmd_xauth_info *pkt = ALIGNED_CAST(struct vpnctl_cmd_xauth_info *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 				void *attr_list;
@@ -412,7 +409,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 				
 		case VPNCTL_CMD_CONNECT:
 			{
-				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
@@ -430,7 +427,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_DISCONNECT:
 			{
-				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
@@ -439,7 +436,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 				LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
 					if (pkt->address == addr->address) {
 						/* stop the connection */
-						error = vpn_disconnect(addr);
+						error = vpn_disconnect(addr, ike_session_stopped_by_vpn_disconnect);
 						break;
 					}
 				}
@@ -448,7 +445,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 			
 		case VPNCTL_CMD_START_PH2:
 			{
-				struct vpnctl_cmd_start_ph2 *pkt = (struct vpnctl_cmd_start_ph2 *)combuf;
+				struct vpnctl_cmd_start_ph2 *pkt = ALIGNED_CAST(struct vpnctl_cmd_start_ph2 *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
@@ -467,7 +464,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_START_DPD:
             {
-                struct vpnctl_cmd_start_dpd *pkt = (struct vpnctl_cmd_start_dpd *)combuf;
+                struct vpnctl_cmd_start_dpd *pkt = ALIGNED_CAST(struct vpnctl_cmd_start_dpd *)combuf;
                 struct bound_addr *srv;
                 struct bound_addr *t_addr;
 
@@ -475,16 +472,19 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
                      "received start_dpd command on vpn control socket.\n");
                 LIST_FOREACH_SAFE(srv, &elem->bound_addresses, chain, t_addr) {
                     if (pkt->address == srv->address) {
-                        struct sockaddr_in	daddr;
+                        union {                             // Wcast-align fix - force alignment
+                            struct sockaddr_storage ss;
+                            struct sockaddr_in	addr_in;
+                        } daddr;
 
-                        bzero(&daddr, sizeof(daddr));
-                        daddr.sin_len = sizeof(daddr);
-                        daddr.sin_addr.s_addr = srv->address;
-                        daddr.sin_port = 0;
-                        daddr.sin_family = AF_INET;
+                        bzero(&daddr, sizeof(struct sockaddr_in));
+                        daddr.addr_in.sin_len = sizeof(struct sockaddr_in);
+                        daddr.addr_in.sin_addr.s_addr = srv->address;
+                        daddr.addr_in.sin_port = 0;
+                        daddr.addr_in.sin_family = AF_INET;
 
                         /* start the dpd */
-                        error = ph1_force_dpd(&daddr);
+                        error = ph1_force_dpd(&daddr.ss);
                         break;
                     }
                 }
@@ -493,7 +493,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_ASSERT:
 			{
-				struct vpnctl_cmd_assert *pkt = (struct vpnctl_cmd_assert *)combuf;
+				struct vpnctl_cmd_assert *pkt = ALIGNED_CAST(struct vpnctl_cmd_assert *)combuf;
 //				struct bound_addr *addr;
 //				struct bound_addr *t_addr;
 				struct sockaddr_in saddr;
@@ -515,7 +515,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 						daddr.sin_port = 0;
 						daddr.sin_family = AF_INET;
 
-						error = vpn_assert((struct sockaddr *)&saddr, (struct sockaddr *)&daddr);
+						error = vpn_assert((struct sockaddr_storage *)&saddr, (struct sockaddr_storage *)&daddr);
 						break;
 //					}
 //				}
@@ -524,7 +524,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 
 		case VPNCTL_CMD_RECONNECT:
 			{
-				struct vpnctl_cmd_connect *pkt = (struct vpnctl_cmd_connect *)combuf;
+				struct vpnctl_cmd_connect *pkt = ALIGNED_CAST(struct vpnctl_cmd_connect *)combuf;
 				struct bound_addr *addr;
 				struct bound_addr *t_addr;
 
@@ -559,7 +559,7 @@ vpncontrol_process(struct vpnctl_socket_elem *elem, char *combuf)
 static int
 vpncontrol_reply(int so, char *combuf)
 {
-	size_t tlen;
+	ssize_t tlen;
 
 	tlen = send(so, combuf, sizeof(struct vpnctl_hdr), 0);
 	if (tlen < 0) {
@@ -577,7 +577,8 @@ vpncontrol_notify_need_authinfo(struct ph1handle *iph1, void* attr_list, size_t 
 	struct vpnctl_status_need_authinfo *msg = NULL; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
-	size_t tlen, msg_size;	
+	size_t msg_size;
+	ssize_t tlen;
 	u_int32_t address;
 	void *ptr;
 	
@@ -595,7 +596,7 @@ vpncontrol_notify_need_authinfo(struct ph1handle *iph1, void* attr_list, size_t 
 	}
 	msg->hdr.flags = 0;
 				
-	if (iph1->remote->sa_family == AF_INET)
+	if (iph1->remote->ss_family == AF_INET)
 		address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
 	else
 		goto end;		// for now		
@@ -640,7 +641,8 @@ vpncontrol_notify_ike_failed(u_int16_t notify_code, u_int16_t from, u_int32_t ad
 	struct vpnctl_status_failed *msg = NULL; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
-	size_t tlen, len;
+	size_t len;
+    ssize_t tlen;
 	
 	len = sizeof(struct vpnctl_status_failed) + data_len;
 	
@@ -689,7 +691,8 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1
 	struct vpnctl_status_phase_change *msg; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
-	size_t tlen, msg_size;	
+	ssize_t tlen;
+	size_t msg_size;	
 	u_int32_t address;
 	
 	plog(LLV_DEBUG, LOCATION, NULL,
@@ -709,7 +712,7 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1
 		return -1;
 	}
 	if (iph1) {
-		if (iph1->remote->sa_family == AF_INET)
+		if (iph1->remote->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
 		else
 			goto end;		// for now		
@@ -717,7 +720,7 @@ vpncontrol_notify_phase_change(int start, u_int16_t from, struct ph1handle *iph1
 			(from == FROM_LOCAL ? VPNCTL_STATUS_PH1_START_US : VPNCTL_STATUS_PH1_START_PEER) 
 			: VPNCTL_STATUS_PH1_ESTABLISHED);
 	} else {
-		if (iph2->dst->sa_family == AF_INET)
+		if (iph2->dst->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
 		else
 			goto end;		// for now
@@ -756,7 +759,7 @@ vpncontrol_notify_peer_resp (u_int16_t notify_code, u_int32_t address)
 	struct vpnctl_status_peer_resp msg; 
 	struct vpnctl_socket_elem *sock_elem;
 	struct bound_addr *bound_addr;
-	size_t tlen;
+	ssize_t tlen;
 	int    rc = -1;
 
 	bzero(&msg, sizeof(msg));
@@ -794,7 +797,7 @@ vpncontrol_notify_peer_resp_ph1 (u_int16_t notify_code, struct ph1handle *iph1)
 	int       rc;
 
 	if (iph1 && iph1->parent_session && iph1->parent_session->controller_awaiting_peer_resp) {
-		if (iph1->remote->sa_family == AF_INET)
+		if (iph1->remote->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
 		else
 			address = 0;
@@ -815,7 +818,7 @@ vpncontrol_notify_peer_resp_ph2 (u_int16_t notify_code, struct ph2handle *iph2)
 	int       rc;
 
 	if (iph2 && iph2->parent_session && iph2->parent_session->controller_awaiting_peer_resp) {
-		if (iph2->dst->sa_family == AF_INET)
+		if (iph2->dst->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)iph2->dst)->sin_addr.s_addr;
 		else
 			address = 0;
@@ -852,6 +855,11 @@ vpncontrol_init()
 			plog(LLV_ERROR, LOCATION, NULL,
 				"socket: %s\n", strerror(errno));
 			return -1;
+		}
+
+		if (fcntl(lcconf->sock_vpncontrol, F_SETFL, O_NONBLOCK) == -1) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to put VPN-Control socket in non-blocking mode\n");
 		}
 
 		unlink(sunaddr.sun_path);
@@ -893,6 +901,21 @@ vpncontrol_init()
 
 		return 0;
 	}
+}
+
+void
+vpncontrol_disconnect_all(struct vpnctl_socket_elem *elem, const char *reason)
+{
+    struct bound_addr *addr;
+    struct bound_addr *t_addr;
+    
+    plog(LLV_DEBUG, LOCATION, NULL,
+         "received disconnect all command.\n");
+    
+    LIST_FOREACH_SAFE(addr, &elem->bound_addresses, chain, t_addr) {
+        /* stop any connections */
+        vpn_disconnect(addr, reason);
+    }
 }
 
 

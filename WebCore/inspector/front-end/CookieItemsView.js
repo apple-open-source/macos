@@ -27,6 +27,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.View}
+ */
 WebInspector.CookieItemsView = function(treeElement, cookieDomain)
 {
     WebInspector.View.call(this);
@@ -35,18 +39,18 @@ WebInspector.CookieItemsView = function(treeElement, cookieDomain)
 
     this._deleteButton = new WebInspector.StatusBarButton(WebInspector.UIString("Delete"), "delete-storage-status-bar-item");
     this._deleteButton.visible = false;
-    this._deleteButton.addEventListener("click", this._deleteButtonClicked.bind(this), false);
+    this._deleteButton.addEventListener("click", this._deleteButtonClicked, this);
 
     this._refreshButton = new WebInspector.StatusBarButton(WebInspector.UIString("Refresh"), "refresh-storage-status-bar-item");
-    this._refreshButton.addEventListener("click", this._refreshButtonClicked.bind(this), false);
+    this._refreshButton.addEventListener("click", this._refreshButtonClicked, this);
 
     this._treeElement = treeElement;
     this._cookieDomain = cookieDomain;
 
-    this._emptyMsgElement = document.createElement("div");
-    this._emptyMsgElement.className = "storage-empty-view";
-    this._emptyMsgElement.textContent = WebInspector.UIString("This site has no cookies.");
-    this.element.appendChild(this._emptyMsgElement);
+    this._emptyView = new WebInspector.EmptyView(WebInspector.UIString("This site has no cookies."));
+    this._emptyView.show(this.element);
+
+    this.element.addEventListener("contextmenu", this._contextMenu.bind(this), true);
 }
 
 WebInspector.CookieItemsView.prototype = {
@@ -55,22 +59,14 @@ WebInspector.CookieItemsView.prototype = {
         return [this._refreshButton.element, this._deleteButton.element];
     },
 
-    show: function(parentElement)
+    wasShown: function()
     {
-        WebInspector.View.prototype.show.call(this, parentElement);
         this._update();
     },
 
-    hide: function()
+    willHide: function()
     {
-        WebInspector.View.prototype.hide.call(this);
         this._deleteButton.visible = false;
-    },
-
-    resize: function()
-    {
-        if (this._cookiesTable)
-            this._cookiesTable.updateWidths();
     },
 
     _update: function()
@@ -84,27 +80,24 @@ WebInspector.CookieItemsView.prototype = {
 
         if (!this._cookies.length) {
             // Nothing to show.
-            this._emptyMsgElement.removeStyleClass("hidden");
+            this._emptyView.show(this.element);
             this._deleteButton.visible = false;
             if (this._cookiesTable)
-                this._cookiesTable.element.addStyleClass("hidden");
+                this._cookiesTable.detach();
             return;
         }
 
-        if (!this._cookiesTable) {
-            this._cookiesTable = isAdvanced ? new WebInspector.CookiesTable(this._cookieDomain, false, this._deleteCookie.bind(this)) : new WebInspector.SimpleCookiesTable();
-            this.element.appendChild(this._cookiesTable.element);
-        }
+        if (!this._cookiesTable)
+            this._cookiesTable = isAdvanced ? new WebInspector.CookiesTable(this._cookieDomain, false, this._deleteCookie.bind(this), this._update.bind(this)) : new WebInspector.SimpleCookiesTable();
 
         this._cookiesTable.setCookies(this._cookies);
-        this._cookiesTable.element.removeStyleClass("hidden");
-        this._emptyMsgElement.addStyleClass("hidden");
+        this._emptyView.detach();
+        this._cookiesTable.show(this.element);
         if (isAdvanced) {
             this._treeElement.subtitle = String.sprintf(WebInspector.UIString("%d cookies (%s)"), this._cookies.length,
                 Number.bytesToString(this._totalSize));
             this._deleteButton.visible = true;
         }
-        this._cookiesTable.updateWidths();
     },
 
     _filterCookiesForDomain: function(allCookies)
@@ -153,14 +146,28 @@ WebInspector.CookieItemsView.prototype = {
     _refreshButtonClicked: function(event)
     {
         this._update();
+    },
+
+    _contextMenu: function(event)
+    {
+        if (!this._cookies.length) {
+            var contextMenu = new WebInspector.ContextMenu();
+            contextMenu.appendItem(WebInspector.UIString("Refresh"), this._update.bind(this));
+            contextMenu.show(event);
+        }
     }
 }
 
 WebInspector.CookieItemsView.prototype.__proto__ = WebInspector.View.prototype;
 
+/**
+ * @constructor
+ * @extends {WebInspector.View}
+ */
 WebInspector.SimpleCookiesTable = function()
 {
-    this.element = document.createElement("div");
+    WebInspector.View.call(this);
+
     var columns = {};
     columns[0] = {};
     columns[1] = {};
@@ -169,14 +176,13 @@ WebInspector.SimpleCookiesTable = function()
 
     this._dataGrid = new WebInspector.DataGrid(columns);
     this._dataGrid.autoSizeColumns(20, 80);
-    this.element.appendChild(this._dataGrid.element);
-    this._dataGrid.updateWidths();
+    this._dataGrid.show(this.element);
 }
 
 WebInspector.SimpleCookiesTable.prototype = {
     setCookies: function(cookies)
     {
-        this._dataGrid.removeChildren();
+        this._dataGrid.rootNode().removeChildren();
         var addedCookies = {};
         for (var i = 0; i < cookies.length; ++i) {
             if (addedCookies[cookies[i].name])
@@ -188,18 +194,13 @@ WebInspector.SimpleCookiesTable.prototype = {
 
             var node = new WebInspector.DataGridNode(data, false);
             node.selectable = true;
-            this._dataGrid.appendChild(node);
+            this._dataGrid.rootNode().appendChild(node);
         }
-        this._dataGrid.children[0].selected = true;
-    },
-
-    resize: function()
-    {
-        if (this._dataGrid)
-            this._dataGrid.updateWidths();
+        this._dataGrid.rootNode().children[0].selected = true;
     }
 }
 
+WebInspector.SimpleCookiesTable.prototype.__proto__ = WebInspector.View.prototype;
 
 WebInspector.Cookies = {}
 
@@ -240,9 +241,9 @@ WebInspector.Cookies.buildCookiesFromString = function(rawCookieString)
 WebInspector.Cookies.cookieMatchesResourceURL = function(cookie, resourceURL)
 {
     var url = resourceURL.asParsedURL();
-    if (!url || !this.cookieDomainMatchesResourceDomain(cookie.domain, url.host))
+    if (!url || !WebInspector.Cookies.cookieDomainMatchesResourceDomain(cookie.domain, url.host))
         return false;
-    return (url.path.indexOf(cookie.path) === 0
+    return (url.path.startsWith(cookie.path)
         && (!cookie.port || url.port == cookie.port)
         && (!cookie.secure || url.scheme === "https"));
 }

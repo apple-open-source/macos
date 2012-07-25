@@ -1,0 +1,13 @@
+//
+//  CC_kernel_development.xcconfig
+//  CommonCrypto
+//
+//  Created by Stacey Son on 10/20/10.
+//  Copyright 2010 Apple. All rights reserved.
+//
+
+// This XCCONFIG file is for the development version of the kernel CommonCrypto kext.
+
+#include "CC_development.xcconfig"
+
+#include "CC_kernel.xcconfig"

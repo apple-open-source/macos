@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/compare.c,v 1.136.2.10 2010/04/13 20:23:12 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,11 +30,6 @@
 #include <ac/string.h>
 
 #include "slap.h"
-
-static int compare_entry(
-	Operation *op,
-	Entry *e,
-	AttributeAssertion *ava );
 
 int
 do_compare(
@@ -176,7 +171,7 @@ fe_op_compare( Operation *op, SlapReply *rs )
 	}
 
 	if( entry ) {
-		rs->sr_err = compare_entry( op, entry, ava );
+		rs->sr_err = slap_compare_entry( op, entry, ava );
 		entry_free( entry );
 
 		send_ldap_result( op, rs );
@@ -352,7 +347,7 @@ cleanup:;
 	return rs->sr_err;
 }
 
-static int compare_entry(
+int slap_compare_entry(
 	Operation *op,
 	Entry *e,
 	AttributeAssertion *ava )
@@ -367,13 +362,20 @@ static int compare_entry(
 		goto done;
 	}
 
+	if ( get_assert( op ) &&
+		( test_filter( op, e, get_assertion( op )) != LDAP_COMPARE_TRUE ))
+	{
+		rc = LDAP_ASSERTION_FAILED;
+		goto done;
+	}
+
 	a = attrs_find( e->e_attrs, ava->aa_desc );
 	if( a == NULL ) {
 		rc = LDAP_NO_SUCH_ATTRIBUTE;
 		goto done;
 	}
 
-	for(a = attrs_find( e->e_attrs, ava->aa_desc );
+	for(;
 		a != NULL;
 		a = attrs_find( a->a_next, ava->aa_desc ))
 	{

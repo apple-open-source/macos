@@ -50,7 +50,7 @@ __FBSDID("$FreeBSD: src/usr.bin/cksum/sum1.c,v 1.8 2003/03/13 23:32:28 robert Ex
 int
 csum1(int fd, uint32_t *cval, off_t *clen)
 {
-	int nr;
+	ssize_t nr;
 	u_int lcrc;
 	off_t total;
 	u_char *p;
@@ -60,7 +60,8 @@ csum1(int fd, uint32_t *cval, off_t *clen)
 	 * 16-bit checksum, rotating right before each addition;
 	 * overflow is discarded.
 	 */
-	lcrc = total = 0;
+	lcrc = 0;
+	total = 0;
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 		for (total += nr, p = buf; nr--; ++p) {
 			if (lcrc & 1)

@@ -29,6 +29,7 @@
 
 #if ENABLE(WORKERS)
 
+#include "ContentSecurityPolicy.h"
 #include "WorkerRunLoop.h"
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
@@ -38,11 +39,13 @@
 namespace WebCore {
 
     class KURL;
-    class NotificationPresenter;
+    class NotificationClient;
     class WorkerContext;
     class WorkerLoaderProxy;
     class WorkerReportingProxy;
     struct WorkerThreadStartupData;
+
+    enum WorkerThreadStartMode { DontPauseWorkerContextOnStart, PauseWorkerContextOnStart };
 
     class WorkerThread : public RefCounted<WorkerThread> {
     public:
@@ -59,16 +62,16 @@ namespace WebCore {
         // Number of active worker threads.
         static unsigned workerThreadCount();
 
-#if ENABLE(NOTIFICATIONS)
-        NotificationPresenter* getNotificationPresenter() { return m_notificationPresenter; }
-        void setNotificationPresenter(NotificationPresenter* presenter) { m_notificationPresenter = presenter; }
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+        NotificationClient* getNotificationClient() { return m_notificationClient; }
+        void setNotificationClient(NotificationClient* client) { m_notificationClient = client; }
 #endif
 
     protected:
-        WorkerThread(const KURL&, const String& userAgent, const String& sourceCode, WorkerLoaderProxy&, WorkerReportingProxy&);
+        WorkerThread(const KURL&, const String& userAgent, const String& sourceCode, WorkerLoaderProxy&, WorkerReportingProxy&, WorkerThreadStartMode, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType);
 
         // Factory method for creating a new worker context for the thread.
-        virtual PassRefPtr<WorkerContext> createWorkerContext(const KURL& url, const String& userAgent) = 0;
+        virtual PassRefPtr<WorkerContext> createWorkerContext(const KURL&, const String& userAgent, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType) = 0;
 
         // Executes the event loop for the worker thread. Derived classes can override to perform actions before/after entering the event loop.
         virtual void runEventLoop();
@@ -77,8 +80,8 @@ namespace WebCore {
 
     private:
         // Static function executed as the core routine on the new thread. Passed a pointer to a WorkerThread object.
-        static void* workerThreadStart(void*);
-        void* workerThread();
+        static void workerThreadStart(void*);
+        void workerThread();
 
         ThreadIdentifier m_threadID;
         WorkerRunLoop m_runLoop;
@@ -90,8 +93,8 @@ namespace WebCore {
 
         OwnPtr<WorkerThreadStartupData> m_startupData;
 
-#if ENABLE(NOTIFICATIONS)
-        NotificationPresenter* m_notificationPresenter;
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+        NotificationClient* m_notificationClient;
 #endif
 
         // Track the number of WorkerThread instances for use in layout tests.

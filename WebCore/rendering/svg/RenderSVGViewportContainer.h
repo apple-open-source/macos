@@ -33,28 +33,44 @@ namespace WebCore {
 class RenderSVGViewportContainer : public RenderSVGContainer {
 public:
     explicit RenderSVGViewportContainer(SVGStyledElement*);
+    FloatRect viewport() const { return m_viewport; }
+
+    bool isLayoutSizeChanged() const { return m_isLayoutSizeChanged; }
+    virtual bool didTransformToRootUpdate() { return m_didTransformToRootUpdate; }
+
+    virtual void determineIfLayoutSizeChanged();
+    virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
 
 private:
-    virtual bool isSVGContainer() const { return true; }
     virtual bool isSVGViewportContainer() const { return true; }
     virtual const char* renderName() const { return "RenderSVGViewportContainer"; }
 
     AffineTransform viewportTransform() const;
-    virtual const AffineTransform& localToParentTransform() const;
+    virtual const AffineTransform& localToParentTransform() const { return m_localToParentTransform; }
 
     virtual void calcViewport();
+    virtual bool calculateLocalTransform();
 
     virtual void applyViewportClip(PaintInfo&);
     virtual bool pointIsInsideViewportClip(const FloatPoint& pointInParent);
 
     FloatRect m_viewport;
     mutable AffineTransform m_localToParentTransform;
+    bool m_didTransformToRootUpdate : 1;
+    bool m_isLayoutSizeChanged : 1;
+    bool m_needsTransformUpdate : 1;
 };
   
 inline RenderSVGViewportContainer* toRenderSVGViewportContainer(RenderObject* object)
 {
     ASSERT(!object || !strcmp(object->renderName(), "RenderSVGViewportContainer"));
     return static_cast<RenderSVGViewportContainer*>(object);
+}
+
+inline const RenderSVGViewportContainer* toRenderSVGViewportContainer(const RenderObject* object)
+{
+    ASSERT(!object || !strcmp(object->renderName(), "RenderSVGViewportContainer"));
+    return static_cast<const RenderSVGViewportContainer*>(object);
 }
 
 // This will catch anyone doing an unnecessary cast.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -111,21 +111,9 @@ CFStringRef
 SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 			       CFStringEncoding		*nameEncoding)
 {
-	CFDictionaryRef		dict;
+	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyComputerName"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			return NULL;
-		}
-		tempSession = TRUE;
-	}
 
 	key  = SCDynamicStoreKeyCreateComputerName(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -166,7 +154,6 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 
     done :
 
-	if (tempSession)	CFRelease(store);
 	if (dict != NULL)	CFRelease(dict);
 	return name;
 }
@@ -404,21 +391,9 @@ SCDynamicStoreKeyCreateHostNames(CFAllocatorRef allocator)
 CFStringRef
 SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 {
-	CFDictionaryRef		dict;
+	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyLocalHostName"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			return NULL;
-		}
-		tempSession = TRUE;
-	}
 
 	key  = SCDynamicStoreKeyCreateHostNames(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -447,7 +422,6 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 
     done :
 
-	if (tempSession)	CFRelease(store);
 	if (dict != NULL)	CFRelease(dict);
 	return name;
 }

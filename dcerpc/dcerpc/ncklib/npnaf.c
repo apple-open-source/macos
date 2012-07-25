@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -104,7 +104,6 @@
 #include <comsoc_bsd.h>
 #include <ctype.h>
 #include <sys/param.h>
-#include <syslog.h>
 #include <stddef.h>
 
 
@@ -1030,7 +1029,8 @@ INTERNAL void addr_set_netaddr
         return;
     }
 
-    strncpy((char*) &np_addr->remote_host, (char*) netaddr, sizeof(np_addr->remote_host));
+    strncpy((char*) &np_addr->remote_host, (char*) netaddr, sizeof(np_addr->remote_host) - 1);
+    np_addr->remote_host[sizeof(np_addr->remote_host) - 1] = '\0';
 
     *status = rpc_s_ok;
 }

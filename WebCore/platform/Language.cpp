@@ -56,24 +56,91 @@ void languageDidChange()
         iter->second(iter->first);
 }
 
-static String& languageOverride()
+String defaultLanguage()
 {
-    DEFINE_STATIC_LOCAL(String, override, ());
+    Vector<String> languages = userPreferredLanguages();
+    if (languages.size())
+        return languages[0];
+
+    return emptyString();
+}
+
+static Vector<String>& preferredLanguagesOverride()
+{
+    DEFINE_STATIC_LOCAL(Vector<String>, override, ());
     return override;
 }
 
-String defaultLanguage()
+void overrideUserPreferredLanguages(const Vector<String>& override)
 {
-    const String& override = languageOverride();
-    if (!override.isNull())
+    preferredLanguagesOverride() = override;
+}
+    
+Vector<String> userPreferredLanguages()
+{
+    Vector<String>& override = preferredLanguagesOverride();
+    if (!override.isEmpty())
         return override;
-
-    return platformDefaultLanguage();
+    
+    return platformUserPreferredLanguages();
 }
 
-void overrideDefaultLanguage(const String& override)
+static String canonicalLanguageIdentifier(const String& languageCode)
 {
-    languageOverride() = override;
+    String lowercaseLanguageCode = languageCode.lower();
+    
+    if (lowercaseLanguageCode.length() >= 3 && lowercaseLanguageCode[2] == '_')
+        lowercaseLanguageCode.replace(2, 1, "-");
+
+    return lowercaseLanguageCode;
 }
 
+static String bestMatchingLanguage(const String& language, const Vector<String>& languageList)
+{
+    bool canMatchLanguageOnly = (language.length() == 2 || (language.length() >= 3 && language[2] == '-'));
+    String languageWithoutLocaleMatch;
+    String languageMatchButNotLocale;
+
+    for (size_t i = 0; i < languageList.size(); ++i) {
+        String canonicalizedLanguageFromList = canonicalLanguageIdentifier(languageList[i]);
+
+        if (language == canonicalizedLanguageFromList)
+            return languageList[i];
+
+        if (canMatchLanguageOnly && canonicalizedLanguageFromList.length() >= 2) {
+            if (language[0] == canonicalizedLanguageFromList[0] && language[1] == canonicalizedLanguageFromList[1]) {
+                if (!languageWithoutLocaleMatch.length() && canonicalizedLanguageFromList.length() == 2)
+                    languageWithoutLocaleMatch = languageList[i];
+                if (!languageMatchButNotLocale.length() && canonicalizedLanguageFromList.length() >= 3)
+                    languageMatchButNotLocale = languageList[i];
+            }
+        }
+    }
+
+    // If we have both a language-only match and a languge-but-not-locale match, return the 
+    // languge-only match as is considered a "better" match. For example, if the list
+    // provided has both "en-GB" and "en" and the user prefers "en-US" we will return "en".
+    if (languageWithoutLocaleMatch.length())
+        return languageWithoutLocaleMatch;
+
+    if (languageMatchButNotLocale.length())
+        return languageMatchButNotLocale;
+    
+    return emptyString();
+}
+
+String preferredLanguageFromList(const Vector<String>& languageList)
+{
+    Vector<String> preferredLanguages = userPreferredLanguages();
+
+    for (size_t i = 0; i < preferredLanguages.size(); ++i) {
+        String bestMatch = bestMatchingLanguage(canonicalLanguageIdentifier(preferredLanguages[i]), languageList);
+
+        if (bestMatch.length())
+            return bestMatch;
+    }
+
+    return emptyString();
+}
+    
 }

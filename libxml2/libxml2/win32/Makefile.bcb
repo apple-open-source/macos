@@ -43,14 +43,14 @@ UTILS_INTDIR = int.utils.bcb
 
 # The preprocessor and its options.
 CPP = cpp32.exe -P- -DWIN32
-CPPFLAGS = -I"$(XML_SRCDIR)\include"
+CPPFLAGS = -I"$(XML_SRCDIR)\include" -DNOLIBTOOL 
 !if "$(WITH_THREADS)" != "no"
 CPPFLAGS = $(CPPFLAGS) -D_REENTRANT -D__MT__
 !endif
 
 # The compiler and its options.
 CC = bcc32.exe
-CFLAGS = -q -DWIN32 -D_NO_VCL -D_WINDOWS -D_MBCS -DEILSEQ=2 -w-
+CFLAGS = -q -DWIN32 -D_NO_VCL -D_WINDOWS -D_MBCS -DEILSEQ=2 -DNOLIBTOOL -w-
 CFLAGS = $(CFLAGS) -I"$(XML_SRCDIR)" -I"$(XML_SRCDIR)\include" -I"$(INCPREFIX)" -I"$(INCLUDE)"
 !if "$(WITH_THREADS)" != "no"
 CFLAGS = $(CFLAGS) -D_REENTRANT -tWM
@@ -72,7 +72,7 @@ CFLAGS = $(CFLAGS) -DHAVE_ZLIB_H
 # The linker and its options.
 LD = ilink32.exe
 LDFLAGS = -q -U$(LIBXML_MAJOR_VERSION).$(LIBXML_MINOR_VERSION)
-LDFLAGS = $(LDFLAGS) -L"$(BINDIR);$(LIBPREFIX);$(LIB);$(BCB)\lib\PSdk"
+LDFLAGS = $(LDFLAGS) -L"$(BINDIR);$(LIBPREFIX);$(LIB);$(BCB)\lib;$(BCB)\lib\PSdk"
 LIBS = import32.lib
 !if "$(WITH_THREADS)" != "no" && "$(DYNRUNTIME)" == "1"
 LIBS = $(LIBS) cw32mti.lib
@@ -84,7 +84,7 @@ LIBS = $(LIBS) cw32i.lib
 LIBS = $(LIBS) cw32.lib
 !endif
 !if "$(WITH_FTP)" == "1" || "$(WITH_HTTP)" == "1"
-LIBS = $(LIBS) wsock32.lib
+LIBS = $(LIBS) wsock32.lib ws2_32.lib
 !endif 
 !if "$(WITH_ICONV)" == "1"
 LIBS = $(LIBS) iconvomf.lib

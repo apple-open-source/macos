@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, Google Inc. All rights reserved.
+ * Copyright (c) 2011, Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,12 +29,16 @@
  */
 
 #include "config.h"
+#if ENABLE(INSPECTOR)
 #include "ScriptProfiler.h"
 
-#include "InspectorValues.h"
+#include "DOMWrapperVisitor.h"
 #include "RetainedDOMInfo.h"
+#include "ScriptObject.h"
 #include "V8Binding.h"
+#include "V8DOMMap.h"
 #include "V8Node.h"
+#include "WrapperTypeInfo.h"
 
 #include <v8-profiler.h>
 
@@ -46,6 +50,18 @@ void ScriptProfiler::start(ScriptState* state, const String& title)
     v8::CpuProfiler::StartProfiling(v8String(title));
 }
 
+void ScriptProfiler::startForPage(Page*, const String& title)
+{
+    return start(0, title);
+}
+
+#if ENABLE(WORKERS)
+void ScriptProfiler::startForWorkerContext(WorkerContext*, const String& title)
+{
+    return start(0, title);
+}
+#endif
+
 PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String& title)
 {
     v8::HandleScope hs;
@@ -55,12 +71,54 @@ PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String&
     return profile ? ScriptProfile::create(profile) : 0;
 }
 
+PassRefPtr<ScriptProfile> ScriptProfiler::stopForPage(Page*, const String& title)
+{
+    // Use null script state to avoid filtering by context security token.
+    // All functions from all iframes should be visible from Inspector UI.
+    return stop(0, title);
+}
+
+#if ENABLE(WORKERS)
+PassRefPtr<ScriptProfile> ScriptProfiler::stopForWorkerContext(WorkerContext*, const String& title)
+{
+    return stop(0, title);
+}
+#endif
+
 void ScriptProfiler::collectGarbage()
 {
-    // NOTE : There is currently no direct way to collect memory from the v8 C++ API
-    // but notifying low-memory forces a mark-compact, which is exactly what we want
-    // in this case.
     v8::V8::LowMemoryNotification();
+}
+
+ScriptObject ScriptProfiler::objectByHeapObjectId(unsigned id)
+{
+    // As ids are unique, it doesn't matter which HeapSnapshot owns HeapGraphNode.
+    // We need to find first HeapSnapshot containing a node with the specified id.
+    const v8::HeapGraphNode* node = 0;
+    for (int i = 0, l = v8::HeapProfiler::GetSnapshotsCount(); i < l; ++i) {
+        const v8::HeapSnapshot* snapshot = v8::HeapProfiler::GetSnapshot(i);
+        node = snapshot->GetNodeById(id);
+        if (node)
+            break;
+    }
+    if (!node)
+        return ScriptObject();
+
+    v8::HandleScope scope;
+    v8::Handle<v8::Value> value = node->GetHeapValue();
+    if (!value->IsObject())
+        return ScriptObject();
+
+    v8::Handle<v8::Object> object = value.As<v8::Object>();
+    if (object->InternalFieldCount() >= v8DefaultWrapperInternalFieldCount) {
+        v8::Handle<v8::Value> wrapper = object->GetInternalField(v8DOMWrapperObjectIndex);
+        // Skip wrapper boilerplates which are like regular wrappers but don't have
+        // native object.
+        if (!wrapper.IsEmpty() && wrapper->IsUndefined())
+            return ScriptObject();
+    }
+    ScriptState* scriptState = ScriptState::forContext(object->CreationContext());
+    return ScriptObject(scriptState, object);
 }
 
 namespace {
@@ -91,12 +149,9 @@ private:
 PassRefPtr<ScriptHeapSnapshot> ScriptProfiler::takeHeapSnapshot(const String& title, HeapSnapshotProgress* control)
 {
     v8::HandleScope hs;
-    const v8::HeapSnapshot* snapshot = 0;
-    if (control) {
-        ActivityControlAdapter adapter(control);
-        snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kFull, &adapter);
-    } else
-        snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kAggregated);
+    ASSERT(control);
+    ActivityControlAdapter adapter(control);
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kFull, &adapter);
     return snapshot ? ScriptHeapSnapshot::create(snapshot) : 0;
 }
 
@@ -114,5 +169,27 @@ void ScriptProfiler::initialize()
     v8::HeapProfiler::DefineWrapperClass(v8DOMSubtreeClassId, &retainedDOMInfo);
 }
 
+void ScriptProfiler::visitJSDOMWrappers(DOMWrapperVisitor* visitor)
+{
+    class VisitorAdapter : public DOMWrapperMap<Node>::Visitor {
+    public:
+        VisitorAdapter(DOMWrapperVisitor* visitor) : m_visitor(visitor) { }
+
+        virtual void visitDOMWrapper(DOMDataStore*, Node* node, v8::Persistent<v8::Object>)
+        {
+            m_visitor->visitNode(node);
+        }
+    private:
+        DOMWrapperVisitor* m_visitor;
+    } adapter(visitor);
+    visitDOMNodes(&adapter);
+}
+
+void ScriptProfiler::visitExternalJSStrings(DOMWrapperVisitor* visitor)
+{
+    V8BindingPerIsolateData::current()->visitJSExternalStrings(visitor);
+}
 
 } // namespace WebCore
+
+#endif // ENABLE(INSPECTOR)

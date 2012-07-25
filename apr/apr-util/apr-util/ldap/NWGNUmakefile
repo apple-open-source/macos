@@ -10,7 +10,7 @@ SUBDIRS = \
 # paths to tools
 #
 
-include $(APR_WORK)\build\NWGNUhead.inc
+include $(APR_WORK)/build/NWGNUhead.inc
 
 #
 # build this level's files
@@ -26,8 +26,8 @@ include $(APR_WORK)\build\NWGNUhead.inc
 XINCDIRS	+= \
 			$(APR)/include \
 			$(APR)/include/arch/NetWare \
-			$(APRUTIL)/include \
-			$(APRUTIL)/include/private \
+			$(APU)/include \
+			$(APU)/include/private \
 			$(LDAPSDK)/inc \
 			$(EOLIST)
 
@@ -123,7 +123,7 @@ NLM_DESCRIPTION	=
 NLM_THREAD_NAME	= 
 #
 # If this is specified, it will override VERSION value in 
-# $(APR_WORK)\build\NWGNUenvironment.inc
+# $(APR_WORK)/build/NWGNUenvironment.inc
 #
 NLM_VERSION		=
 
@@ -135,12 +135,12 @@ NLM_STACK_SIZE	=
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= 
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= 
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -246,7 +246,7 @@ nlms :: libs $(TARGET_nlm)
 
 #
 # Updated this target to create necessary directories and copy files to the 
-# correct place.  (See $(APR_WORK)\build\NWGNUhead.inc for examples)
+# correct place.  (See $(APR_WORK)/build/NWGNUhead.inc for examples)
 #
 install :: nlms FORCE
 
@@ -259,5 +259,5 @@ install :: nlms FORCE
 # in this makefile
 #
 
-include $(APR_WORK)\build\NWGNUtail.inc
+include $(APRBUILD)/NWGNUtail.inc
 

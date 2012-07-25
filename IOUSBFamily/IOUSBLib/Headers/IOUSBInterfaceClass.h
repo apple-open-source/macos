@@ -30,7 +30,16 @@
 
 #include <AvailabilityMacros.h>
 
-#define SUPPORTS_SS_USB 1
+// Set the following to 1 when you don't want to support SSpeed in Zin, previous to a seed:
+#if 0
+	#if defined(MAC_OS_X_VERSION_10_8)
+		#undef SUPPORTS_SS_USB
+	#else
+		#define SUPPORTS_SS_USB 1
+	#endif
+#else
+	#define SUPPORTS_SS_USB 1
+#endif
 
 #ifndef IOUSBLIBDEBUG
 #define IOUSBLIBDEBUG		0

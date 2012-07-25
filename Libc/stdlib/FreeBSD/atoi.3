@@ -36,7 +36,8 @@
 .Dt ATOI 3
 .Os
 .Sh NAME
-.Nm atoi
+.Nm atoi ,
+.Nm atoi_l
 .Nd convert
 .Tn ASCII
 string to integer
@@ -45,25 +46,46 @@ string to integer
 .Sh SYNOPSIS
 .In stdlib.h
 .Ft int
-.Fn atoi "const char *nptr"
+.Fn atoi "const char *str"
+.In xlocale.h
+.Ft int
+.Fn atoi_l "const char *str" "locale_t loc"
 .Sh DESCRIPTION
 The
 .Fn atoi
 function converts the initial portion of the string pointed to by
-.Fa nptr
+.Fa str
 to
 .Vt int
 representation.
 .Pp
 It is equivalent to:
 .Bd -literal -offset indent
-(int)strtol(nptr, (char **)NULL, 10);
+(int)strtol(str, (char **)NULL, 10);
 .Ed
+.Pp
+While the
+.Fn atoi
+function uses the current locale, the
+.Fn atoi_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
+.Sh IMPLEMENTATION NOTES
+The
+.Fn atoi
+and
+.Fn atoi_l
+functions are thread-safe and async-cancel-safe.
 .Pp
 The
 .Fn atoi
-function has been deprecated by
+and
+.Fn atoi_l
+functions have been deprecated by
 .Fn strtol
+and
+.Fn strtol_l
 and should not be used in new code.
 .Sh ERRORS
 The function
@@ -76,7 +98,8 @@ on an error.
 .Xr atol 3 ,
 .Xr strtod 3 ,
 .Xr strtol 3 ,
-.Xr strtoul 3
+.Xr strtoul 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn atoi

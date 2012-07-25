@@ -29,16 +29,20 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # 
 
-RELDIR=kuser 
+RELDIR=kuser
+
+intcflags=-I$(OBJ)
 
 !include ../windows/NTMakefile.w32 
 
 BINPROGRAMS=\
 	$(BINDIR)\kinit.exe	\
-	$(BINDIR)\klist.exe	\
+	$(BINDIR)\kcc.exe	\
 	$(BINDIR)\kdestroy.exe	\
 	$(BINDIR)\kgetcred.exe	\
-	$(BINDIR)\kswitch.exe
+	$(BINDIR)\kvno.exe	\
+	$(BINDIR)\kcpytkt.exe	\
+	$(BINDIR)\kdeltkt.exe
 
 LIBEXECPROGRAMS=\
 	$(LIBEXECDIR)\kdigest.exe	\
@@ -47,62 +51,57 @@ LIBEXECPROGRAMS=\
 NOINSTPROGRAMS=\
 	$(OBJ)\kverify.exe	\
 	$(OBJ)\kdecode_ticket.exe	\
-	$(OBJ)\generate-requests.exe	\
-	$(OBJ)\copy_cred_cache.exe
+	$(OBJ)\generate-requests.exe
+
 
 BINLIBS=\
-	$(LIBKRB5)	\
+	$(LIBHEIMDAL)	\
 	$(LIBHEIMNTLM)	\
-	$(LIBHCRYPTO)	\
-	$(LIBASN1)	\
+!if !defined(NO_AFS)
+        $(LIBKAFS)      \
+!endif
 	$(LIBROKEN)	\
 	$(LIBVERS)
-
 
 all:: $(BINPROGRAMS) $(LIBEXECPROGRAMS)
 
 clean::
-	-$(RM) $(BINPROGRAMS) $(LIBEXECPROGRAMS)
+	-$(RM) $(BINPROGRAMS:.exe=.*) $(LIBEXECPROGRAMS:.exe=.*)
 
-$(BINDIR)\kinit.exe: $(OBJ)\kinit.obj $(BINLIBS)
+
+$(BINDIR)\kinit.exe: $(OBJ)\kinit.obj $(BINLIBS) $(OBJ)\kinit-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
-$(BINDIR)\klist.exe: $(OBJ)\klist.obj $(BINLIBS)
+KCC_OBJS =				\
+	$(OBJ)\kcc-commands.obj		\
+	$(OBJ)\kcc.obj			\
+	$(OBJ)\kswitch.obj		\
+	$(OBJ)\klist.obj		\
+	$(OBJ)\copy_cred_cache.obj
+
+KCCLIBS=\
+	$(BINLIBS)	\
+	$(LIBSL)
+
+$(BINDIR)\kcc.exe: $(KCC_OBJS) $(KCCLIBS) $(OBJ)\kcc-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
 
-$(BINDIR)\kdestroy.exe: $(OBJ)\kdestroy.obj $(BINLIBS)
+$(BINDIR)\kdestroy.exe: $(OBJ)\kdestroy.obj $(BINLIBS) $(OBJ)\kdestroy-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
 
-$(BINDIR)\kgetcred.exe: $(OBJ)\kgetcred.obj $(BINLIBS)
+$(BINDIR)\kgetcred.exe: $(OBJ)\kgetcred.obj $(BINLIBS) $(OBJ)\kgetcred-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
 
-$(BINDIR)\kswitch.exe: $(OBJ)\kswitch.obj $(BINLIBS)
+$(LIBEXECDIR)\kdigest.exe: $(OBJ)\kdigest-commands.obj $(OBJ)\kdigest.obj $(BINLIBS) $(LIBSL) $(OBJ)\kdigest-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
-
-
-$(LIBEXECDIR)\kdigest.exe: $(OBJ)\kdigest-commands.obj $(OBJ)\kdigest.obj $(BINLIBS) $(LIBSL)
-	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
 $(OBJ)\kdigest.obj: kdigest.c
 	$(C2OBJ) -I$(OBJ)
@@ -113,10 +112,24 @@ $(OBJ)\kdigest-commands.c $(OBJ)\kdigest-commands.h: kdigest-commands.in
 	$(BINDIR)\slc.exe kdigest-commands.in
 	cd $(SRCDIR)
 
+$(OBJ)\kcc-commands.c $(OBJ)\kcc-commands.h: kcc-commands.in
+	cd $(OBJ)
+	$(CP) $(SRCDIR)\kcc-commands.in $(OBJ)
+	$(BINDIR)\slc.exe kcc-commands.in
+	cd $(SRCDIR)
 
-$(LIBEXECDIR)\kimpersonate.exe: $(OBJ)\kimpersonate.obj $(BINLIBS)
+$(LIBEXECDIR)\kimpersonate.exe: $(OBJ)\kimpersonate.obj $(BINLIBS) $(OBJ)\kimpersonate-version.res
 	$(EXECONLINK)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
-	$(_CODESIGN)
+	$(EXEPREP)
 
+$(BINDIR)\kvno.exe: $(OBJ)\kvno.obj $(BINLIBS)
+	$(EXECONLINK)
+	$(EXEPREP)
+
+$(BINDIR)\kcpytkt.exe: $(OBJ)\kcpytkt.obj $(BINLIBS)
+	$(EXECONLINK)
+	$(EXEPREP)
+
+$(BINDIR)\kdeltkt.exe: $(OBJ)\kdeltkt.obj $(BINLIBS)
+	$(EXECONLINK)
+	$(EXEPREP)

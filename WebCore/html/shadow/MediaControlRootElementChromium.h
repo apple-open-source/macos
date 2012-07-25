@@ -34,8 +34,8 @@
 
 namespace WebCore {
 
+class Document;
 class HTMLInputElement;
-class HTMLMediaElement;
 class Event;
 class MediaControlPanelMuteButtonElement;
 class MediaControlPlayButtonElement;
@@ -49,16 +49,24 @@ class MediaControlMuteButtonElement;
 class MediaControlVolumeSliderElement;
 class MediaControlVolumeSliderContainerElement;
 class MediaControlPanelElement;
+class MediaControllerInterface;
 class MediaPlayer;
 
 class RenderBox;
 class RenderMedia;
 
+#if ENABLE(VIDEO_TRACK)
+class MediaControlTextTrackContainerElement;
+class MediaControlTextTrackDisplayElement;
+#endif
+
 class MediaControlRootElementChromium : public MediaControls {
 public:
-    static PassRefPtr<MediaControlRootElementChromium> create(HTMLMediaElement*);
+    static PassRefPtr<MediaControlRootElementChromium> create(Document*);
 
     // MediaControls implementation.
+    void setMediaController(MediaControllerInterface*);
+
     void show();
     void hide();
     void makeOpaque();
@@ -84,12 +92,27 @@ public:
     void updateTimeDisplay();
     void updateStatusDisplay();
 
+#if ENABLE(VIDEO_TRACK)
+    void createTextTrackDisplay();
+    void showTextTrackDisplay();
+    void hideTextTrackDisplay();
+    void updateTextTrackDisplay();
+#endif
+
+    void bufferingProgressed();
+
+    virtual bool shouldHideControls();
+
 private:
-    MediaControlRootElementChromium(HTMLMediaElement*);
+    MediaControlRootElementChromium(Document*);
+
+    virtual void defaultEventHandler(Event*);
 
     virtual const AtomicString& shadowPseudoId() const;
 
-    HTMLMediaElement* m_mediaElement;
+    bool containsRelatedTarget(Event*);
+
+    MediaControllerInterface* m_mediaController;
 
     MediaControlPlayButtonElement* m_playButton;
     MediaControlCurrentTimeDisplayElement* m_currentTimeDisplay;
@@ -99,8 +122,13 @@ private:
     MediaControlVolumeSliderElement* m_volumeSlider;
     MediaControlVolumeSliderContainerElement* m_volumeSliderContainer;
     MediaControlPanelElement* m_panel;
+#if ENABLE(VIDEO_TRACK)
+    MediaControlTextTrackContainerElement* m_textDisplayContainer;
+    MediaControlTextTrackDisplayElement* m_textTrackDisplay;
+#endif
 
     bool m_opaque;
+    bool m_isMouseOverControls;
 };
 
 }

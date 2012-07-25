@@ -63,6 +63,7 @@ KRB5_CONFIG="${1-${confdir}/krb5.conf}"
 export KRB5_CONFIG
 
 logfile=${testdir}/messages.log
+tempfile=${testdir}/tempfile
 cache="FILE:${testdir}/cache.krb5"
 
 testfailed="echo test failed; cat ${logfile}; exit 1"
@@ -112,6 +113,29 @@ toggle_launchd() {
     launchctl load $kcm
 }
 
+toogle_ntlm () {
+    if [ $1 = "disable" ] ; then
+	op=write
+	arg="-bool false"
+    elif [ $1 = "enable" ] ; then
+	op=delete
+	arg=""
+    else
+	exit 1
+    fi
+    defaults $op /Library/Preferences/com.apple.GSS.NTLM NTLMv1 $arg
+    defaults $op /Library/Preferences/com.apple.GSS.NTLM NTLMv2 $arg
+
+    killall -9 digest-service
+    killall -9 kcm
+}
+
+echo "Checking if UserEventAgent and smbplugin have done their job"
+if ! echo 'show com.apple.smb' | scutil | grep NetBIOSName > /dev/null ; then
+    echo "they have not"
+    echo 'show com.apple.smb' | scutil | sed 's/^/     /'
+    exit 1
+fi
 
 echo "Creating lkdc user"
 
@@ -178,6 +202,8 @@ if [ "X${foundlines}" = "X" -o "X${foundlines}" = X0 ] ; then
     echo "dumpfile contained nothing"
     exit 1
 fi
+
+toogle_ntlm enable
 
 echo Starting kdc
 env MallocStackLoggingNoCompact=1 MallocErrorAbort=1 MallocLogFile=${testdir}/malloc-log \
@@ -286,32 +312,114 @@ echo "test_gssntlm"
 
 toggle_launchd malloc-set
 
-domain=$(/usr/libexec/PlistBuddy -c 'print NetBIOSName' /Library/Preferences/SystemConfiguration/com.apple.smb.server.plist)
+domain=$(echo 'show com.apple.smb ' | scutil   | grep NetBIOSName | sed 's/  NetBIOSName : //')
 
 ${test_gssntlm} --user=$u --domain='' --password=$pw || { ec=1 ; eval "${testfailed}"; }
 ${test_gssntlm} --user=$u --domain=FOO --password=$pw || { ec=1 ; eval "${testfailed}"; }
 ${test_gssntlm} --user=$u --domain=$domain --password=$pw || { ec=1 ; eval "${testfailed}"; }
 
-echo "NTLM GSS mech"
-${test_context} \
+defaults delete /Library/Preferences/com.apple.GSS.NTLM AllowedHosts
+
+defaults write /Library/Preferences/com.apple.GSS.NTLM AllowedHosts -array host.local
+
+for a in \
+    "0 host@host.local host.local" \
+    "0 host@host.local" \
+    "0 host@host.local *.local" \
+    "1 host@host.local host2.local" \
+    "1 host@host.local 2host.local" \
+    "1 host@host.local *.local2" \
+    "1 host@host.local *.2local"
+do
+    echo "---running test $a"
+    set -- $a
+    eres=$1
+    host=$2
+    shift 2
+    if test $# -ne 0 ; then
+	defaults write \
+	    /Library/Preferences/com.apple.GSS.NTLM AllowedHosts -array "$@"
+    else
+	defaults delete \
+	    /Library/Preferences/com.apple.GSS.NTLM AllowedHosts
+    fi
+
+    echo "   NTLM GSS mech"
+    ${test_context} \
 	--client-name=$u \
 	--password=$pw \
 	--mech-type=ntlm \
 	--mutual \
         --ret-mech-type=ntlm \
-        host@host.local || \
-        { echo "test failed"; exit 1; }
+        ${host} > /dev/null 2>&1
+    res=$?
+    test "$res" = "$eres" || { echo "test failed"; exit 1; }
 
-echo "NTLM GSS mech channel bindings"
-${test_context} \
+    echo "   NTLM GSS mech channel bindings"
+    ${test_context} \
 	--client-name=$u \
 	--password=$pw \
 	--mech-type=ntlm \
 	--mutual \
         --channel-binding="0123456789abcdef" \
         --ret-mech-type=ntlm \
-        host@host.local || \
+        ${host} > /dev/null 2>&1
+    res=$?
+    test "$res" = "$eres" || { echo "test failed"; exit 1; }
+
+done
+
+defaults delete /Library/Preferences/com.apple.GSS.NTLM AllowedHosts
+
+echo "check NTLM GUEST account"; > ${logfile}
+${test_context} \
+	--client-name=GUEST \
+	--password="" \
+	--mech-type=ntlm \
+	--mutual \
+        --ret-mech-type=ntlm \
+    	cifs@localhost || { echo "test failed"; exit 1; }
+
+echo "check that NTLM can be disabled"; > ${logfile}
+toogle_ntlm disable
+${test_context} \
+    --client-name=$u \
+    --password=$pw \
+    --mech-type=ntlm \
+    --mutual \
+    --ret-mech-type=ntlm \
+       cifs@localhost > /dev/null 2>&1 && \
         { echo "test failed"; exit 1; }
+
+echo "check that NTLM can be enabled again"; > ${logfile}
+toogle_ntlm enable
+
+${test_context} \
+    --client-name=$u \
+    --password=$pw \
+    --mech-type=ntlm \
+    --mutual \
+    --ret-mech-type=ntlm \
+       cifs@localhost > /dev/null 2>&1 || \
+        { echo "test failed"; exit 1; }
+
+
+echo "check NTLM GUEST@domain account"; > ${logfile}
+${test_context} \
+	--client-name=GUEST@domain \
+	--password="" \
+	--mech-type=ntlm \
+	--mutual \
+        --ret-mech-type=ntlm \
+        --verbose \
+    	cifs@localhost > ${tempfile} || { echo "test failed"; exit 1; }
+
+grep -e "^source.server.: GUEST@${domain}" ${tempfile} > /dev/null || \
+	{ echo "failed to find guest@DOMAIN"; exit 1; }
+
+rm "${tempfile}"
+
+
 
 echo "Getting tickets (leaks check)"; > ${logfile}
 ${kinit} --kdc-hostname=localhost --canon --password-file=${testdir}/foopassword ${u}@${r} || \

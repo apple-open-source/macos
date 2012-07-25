@@ -308,6 +308,7 @@ int do_od_mschap(REQUEST*    request,
                 status = od_nt_auth(request, response, challenge, searchNode, rec, recName, username_string, &error);
             }
         }
+        if (vals) CFRelease(vals);
         CFRelease(rec);
     }
 
@@ -340,6 +341,7 @@ int do_od_mschap(REQUEST*    request,
                             desc_str = NULL;
                         }
                     }
+                    CFRelease(desc);
                 }
                 CFRelease(userInfo);
             }

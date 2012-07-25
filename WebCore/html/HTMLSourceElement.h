@@ -49,11 +49,16 @@ public:
 private:
     HTMLSourceElement(const QualifiedName&, Document*);
     
-    virtual void insertedIntoTree(bool);
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
     virtual void willRemove();
     virtual bool isURLAttribute(Attribute*) const;
 
     void errorEventTimerFired(Timer<HTMLSourceElement>*);
+
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const OVERRIDE;
+    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
+#endif
 
     Timer<HTMLSourceElement> m_errorEventTimer;
 };

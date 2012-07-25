@@ -22,10 +22,12 @@
 #include "qwebframe.h"
 
 #if USE(JSC)
+#include "APICast.h"
 #include "BridgeJSC.h"
 #include "CallFrame.h"
 #elif USE(V8)
 #include "V8Binding.h"
+#include <QJSEngine>
 #endif
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -49,10 +51,13 @@
 #include "IconDatabase.h"
 #include "InspectorController.h"
 #if USE(JSC)
+#include "JavaScript.h"
 #include "JSDOMBinding.h"
 #include "JSDOMWindowBase.h"
 #include "JSLock.h"
 #include "JSObject.h"
+#include "JSRetainPtr.h"
+#include "OpaqueJSString.h"
 #elif USE(V8)
 #include "V8DOMWrapper.h"
 #include "V8DOMWindowShell.h"
@@ -64,6 +69,7 @@
 #include "PlatformWheelEvent.h"
 #include "PrintContext.h"
 #if USE(JSC)
+#include "PropertyDescriptor.h"
 #include "PutPropertySlot.h"
 #endif
 #include "RenderLayer.h"
@@ -98,7 +104,7 @@
 #endif
 #if USE(TEXTURE_MAPPER)
 #include "texmap/TextureMapper.h"
-#include "texmap/TextureMapperNode.h"
+#include "texmap/TextureMapperLayer.h"
 #endif
 #include "wtf/HashMap.h"
 #include <QMultiMap>
@@ -109,6 +115,10 @@
 #include <qprinter.h>
 #include <qregion.h>
 #include <qnetworkrequest.h>
+
+#if ENABLE(ORIENTATION_EVENTS) && QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+QTM_USE_NAMESPACE
+#endif
 
 using namespace WebCore;
 
@@ -278,7 +288,7 @@ WebCore::Scrollbar* QWebFramePrivate::verticalScrollBar() const
     return frame->view()->verticalScrollbar();
 }
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
 void QWebFramePrivate::renderFromTiledBackingStore(GraphicsContext* context, const QRegion& clip)
 {
     ASSERT(frame->tiledBackingStore());
@@ -321,13 +331,12 @@ void QWebFramePrivate::renderFromTiledBackingStore(GraphicsContext* context, con
 #if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
 void QWebFramePrivate::renderCompositedLayers(GraphicsContext* context, const IntRect& clip)
 {
-    if (!rootTextureMapperNode || !textureMapper)
+    if (!rootTextureMapperLayer || !textureMapper)
         return;
 
     textureMapper->setGraphicsContext(context);
     textureMapper->setImageInterpolationQuality(context->imageInterpolationQuality());
     textureMapper->setTextDrawingMode(context->textDrawingMode());
-    textureMapper->setViewportSize(frame->view()->frameRect().size());
     QPainter* painter = context->platformContext();
     const QTransform transform = painter->worldTransform();
     const TransformationMatrix matrix(
@@ -336,11 +345,11 @@ void QWebFramePrivate::renderCompositedLayers(GraphicsContext* context, const In
                 0, 0, 1, 0,
                 transform.m31(), transform.m32(), 0, transform.m33()
                 );
-    rootTextureMapperNode->setTransform(matrix);
-    rootTextureMapperNode->setOpacity(painter->opacity());
+    rootTextureMapperLayer->setTransform(matrix);
+    rootTextureMapperLayer->setOpacity(painter->opacity());
     textureMapper->beginPainting();
     textureMapper->beginClip(matrix, clip);
-    rootTextureMapperNode->paint();
+    rootTextureMapperLayer->paint();
     textureMapper->endClip();
     textureMapper->endPainting();
 }
@@ -393,7 +402,7 @@ void QWebFramePrivate::renderRelativeCoords(GraphicsContext* context, QFlags<QWe
 #if ENABLE(INSPECTOR)
     if (frame->page()->inspectorController()->highlightedNode()) {
         context->save();
-        frame->page()->inspectorController()->drawNodeHighlight(*context);
+        frame->page()->inspectorController()->drawHighlight(*context);
         context->restore();
     }
 #endif
@@ -445,25 +454,25 @@ void QWebFramePrivate::emitUrlChanged()
 
 void QWebFramePrivate::_q_orientationChanged()
 {
-#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+#if ENABLE(ORIENTATION_EVENTS)
     int orientation;
     WebCore::Frame* frame = core(q);
 
     switch (m_orientation.reading()->orientation()) {
-    case QtMobility::QOrientationReading::TopUp:
+    case QOrientationReading::TopUp:
         orientation = 0;
         break;
-    case QtMobility::QOrientationReading::TopDown:
+    case QOrientationReading::TopDown:
         orientation = 180;
         break;
-    case QtMobility::QOrientationReading::LeftUp:
+    case QOrientationReading::LeftUp:
         orientation = -90;
         break;
-    case QtMobility::QOrientationReading::RightUp:
+    case QOrientationReading::RightUp:
         orientation = 90;
         break;
-    case QtMobility::QOrientationReading::FaceUp:
-    case QtMobility::QOrientationReading::FaceDown:
+    case QOrientationReading::FaceUp:
+    case QOrientationReading::FaceDown:
         // WebCore unable to handle it
     default:
         return;
@@ -471,6 +480,53 @@ void QWebFramePrivate::_q_orientationChanged()
     frame->sendOrientationChangeEvent(orientation);
 #endif
 }
+
+void QWebFramePrivate::didClearWindowObject()
+{
+#if USE(JSC)
+    if (page->settings()->testAttribute(QWebSettings::JavascriptEnabled))
+        addQtSenderToGlobalObject();
+#endif
+    emit q->javaScriptWindowObjectCleared();
+}
+
+#if USE(JSC)
+static JSValueRef qtSenderCallback(JSContextRef context, JSObjectRef, JSObjectRef, size_t, const JSValueRef[], JSValueRef*)
+{
+    QObject* sender = JSC::Bindings::QtInstance::qtSenderStack()->top();
+    if (!sender)
+        return JSValueMakeUndefined(context);
+
+    JSC::ExecState* exec = ::toJS(context);
+    RefPtr<JSC::Bindings::RootObject> rootObject = JSC::Bindings::findRootObject(exec->dynamicGlobalObject());
+    JSC::JSObject* jsSender = JSC::Bindings::QtInstance::getQtInstance(sender, rootObject, QScriptEngine::QtOwnership)->createRuntimeObject(exec);
+    return ::toRef(jsSender);
+}
+
+void QWebFramePrivate::addQtSenderToGlobalObject()
+{
+    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
+
+    JSDOMWindow* window = toJSDOMWindow(frame, mainThreadNormalWorld());
+    Q_ASSERT(window);
+
+    JSC::ExecState* exec = window->globalExec();
+    Q_ASSERT(exec);
+
+    JSContextRef context = ::toRef(exec);
+    JSRetainPtr<JSStringRef> propertyName(Adopt, JSStringCreateWithUTF8CString("__qt_sender__"));
+    JSObjectRef function = JSObjectMakeFunctionWithCallback(context, propertyName.get(), qtSenderCallback);
+
+    // JSC public API doesn't support setting a Getter for a property of a given object, https://bugs.webkit.org/show_bug.cgi?id=61374.
+    JSC::PropertyDescriptor descriptor;
+    descriptor.setGetter(::toJS(function));
+    descriptor.setSetter(JSC::jsUndefined());
+    descriptor.setEnumerable(false);
+    descriptor.setConfigurable(false);
+    window->methodTable()->defineOwnProperty(window, exec, propertyName.get()->identifier(&exec->globalData()), descriptor, false);
+}
+#endif
+
 /*!
     \class QWebFrame
     \since 4.4
@@ -545,7 +601,7 @@ QWebFrame::QWebFrame(QWebPage *parent, QWebFrameData *frameData)
         WebCore::ResourceRequest request(frameData->url, frameData->referrer);
         d->frame->loader()->load(request, frameData->name, false);
     }
-#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+#if ENABLE(ORIENTATION_EVENTS)
     connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(_q_orientationChanged()));
     d->m_orientation.start();
 #endif
@@ -557,7 +613,7 @@ QWebFrame::QWebFrame(QWebFrame *parent, QWebFrameData *frameData)
 {
     d->page = parent->d->page;
     d->init(this, frameData);
-#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+#if ENABLE(ORIENTATION_EVENTS)
     connect(&d->m_orientation, SIGNAL(readingChanged()), this, SLOT(_q_orientationChanged()));
     d->m_orientation.start();
 #endif
@@ -641,13 +697,13 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
             JSC::Bindings::QtInstance::getQtInstance(object, root, ownership)->createRuntimeObject(exec);
 
     JSC::PutPropertySlot slot;
-    window->put(exec, JSC::Identifier(exec, reinterpret_cast_ptr<const UChar*>(name.constData()), name.length()), runtimeObject, slot);
+    window->methodTable()->put(window, exec, JSC::Identifier(&exec->globalData(), reinterpret_cast_ptr<const UChar*>(name.constData()), name.length()), runtimeObject, slot);
 #elif USE(V8)
-    QScriptEngine* engine = d->frame->script()->qtScriptEngine();
+    QJSEngine* engine = d->frame->script()->qtScriptEngine();
     if (!engine)
         return;
-    QScriptValue v = engine->newQObject(object, ownership);
-    engine->globalObject().property("window").setProperty(name, v);
+    QJSValue v = engine->newQObject(object); // FIXME: Ownership not propagated yet.
+    engine->globalObject().property(QLatin1String("window")).setProperty(name, v);
 #endif
 }
 
@@ -727,12 +783,12 @@ QString QWebFrame::title() const
 
     Given the above HTML code the metaData() function will return a map with two entries:
     \table
-    \header \o Key
-            \o Value
-    \row    \o "description"
-            \o "This document is a tutorial about Qt development"
-    \row    \o "keywords"
-            \o "Qt, WebKit, Programming"
+    \header \li Key
+            \li Value
+    \row    \li "description"
+            \li "This document is a tutorial about Qt development"
+    \row    \li "keywords"
+            \li "Qt, WebKit, Programming"
     \endtable
 
     This function returns a multi map to support multiple meta tags with the same attribute name.
@@ -755,8 +811,10 @@ QMultiMap<QString, QString> QWebFrame::metaData() const
 
 static inline void clearCoreFrame(WebCore::Frame* frame)
 {
-    frame->loader()->activeDocumentLoader()->writer()->begin();
-    frame->loader()->activeDocumentLoader()->writer()->end();
+    WebCore::DocumentLoader* documentLoader = frame->loader()->activeDocumentLoader();
+    Q_ASSERT(documentLoader);
+    documentLoader->writer()->begin();
+    documentLoader->writer()->end();
 }
 
 static inline bool isCoreFrameClear(WebCore::Frame* frame)
@@ -1451,7 +1509,7 @@ void QWebFrame::print(QPrinter *printer) const
                      int(qprinterRect.width() / zoomFactorX),
                      int(qprinterRect.height() / zoomFactorY));
 
-    printContext.begin(pageRect.width());
+    printContext.begin(pageRect.width(), pageRect.height());
 
     printContext.computePageRects(pageRect, /* headerHeight */ 0, /* footerHeight */ 0, /* userScaleFactor */ 1.0, pageHeight);
 
@@ -1542,7 +1600,7 @@ QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
 
         rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject(mainThreadNormalWorld())->globalExec(), v, QMetaType::Void, &distance);
 #elif USE(V8)
-        QScriptEngine* engine = d->frame->script()->qtScriptEngine();
+        QJSEngine* engine = d->frame->script()->qtScriptEngine();
         if (!engine)
             return rc;
         rc = engine->evaluate(scriptSource).toVariant();
@@ -1692,7 +1750,7 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
 {
     if (!hitTest.innerNode())
         return;
-    pos = hitTest.point();
+    pos = hitTest.roundedPoint();
     WebCore::TextDirection dir;
     title = hitTest.title(dir);
     linkText = hitTest.textContent();
@@ -1702,7 +1760,7 @@ QWebHitTestResultPrivate::QWebHitTestResultPrivate(const WebCore::HitTestResult 
     imageUrl = hitTest.absoluteImageURL();
     innerNode = hitTest.innerNode();
     innerNonSharedNode = hitTest.innerNonSharedNode();
-    boundingRect = innerNonSharedNode ? innerNonSharedNode->renderer()->absoluteBoundingBoxRect(true) : IntRect();
+    boundingRect = innerNonSharedNode ? innerNonSharedNode->renderer()->absoluteBoundingBoxRect() : IntRect();
     WebCore::Image *img = hitTest.image();
     if (img) {
         QPixmap *pix = img->nativeImageForCurrentFrame();
@@ -1875,7 +1933,7 @@ QWebFrame *QWebHitTestResult::linkTargetFrame() const
 {
     if (!d)
         return 0;
-    return d->linkTargetFrame;
+    return d->linkTargetFrame.data();
 }
 
 /*!
@@ -1948,7 +2006,7 @@ QWebFrame *QWebHitTestResult::frame() const
 {
     if (!d)
         return 0;
-    return d->frame;
+    return d->frame.data();
 }
 
 #include "moc_qwebframe.cpp"

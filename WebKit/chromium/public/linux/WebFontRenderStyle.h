@@ -31,13 +31,13 @@
 #ifndef WebFontRenderStyle_h
 #define WebFontRenderStyle_h
 
-#include "../WebCommon.h"
+#include "../platform/WebCommon.h"
 
 namespace WebCore { struct FontRenderStyle; }
 
 namespace WebKit {
 
-struct WEBKIT_API WebFontRenderStyle {
+struct WEBKIT_EXPORT WebFontRenderStyle {
     // Each of the use* members below can take one of three values:
     //   0: off
     //   1: on

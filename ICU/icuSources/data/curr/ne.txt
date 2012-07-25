@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ne.xml
@@ -12,11 +12,11 @@
 ne{
     Currencies{
         AFA{
-            "AFA" /** ===  */,
+            "AFA",
             "अफ्गानी(१९२७-२००२)",
         }
         AFN{
-            "Af",
+            "AFN",
             "अफ्गानी",
         }
         ALL{
@@ -44,7 +44,7 @@ ne{
             "बेलायती पाउण्ड स्टर्लिङ",
         }
         INR{
-            "Rs",
+            "₹",
             "भारती रूपिँया",
         }
         JPY{
@@ -52,7 +52,7 @@ ne{
             "जापानी येन",
         }
         NOK{
-            "Nkr",
+            "NOK",
             "नर्वेजियाली क्रोन",
         }
         NPR{
@@ -60,7 +60,7 @@ ne{
             "NPR",
         }
         PHP{
-            "₱",
+            "PHP",
             "फिलिपिनी पेसो",
         }
         RUB{
@@ -76,5 +76,5 @@ ne{
             "अपरिचित वा अवैध मुद्रा",
         }
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.64.72"}
 }

@@ -22,7 +22,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 #define	RESOLVER_UP_MP(symbol)	\
 	PLATFUNC_DESCRIPTOR_PROTOTYPE(symbol, up); \

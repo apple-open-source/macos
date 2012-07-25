@@ -9,6 +9,133 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.31 release (the cctools-827 release):
+- Added #ifdef guards for LTO_SUPPORT in lipo.c . Radar bug #11296366.
+
+Changes for the 5.31 release (the cctools-825 release):
+- Fixed the full strip case with -no_uuid that was not stripping the LC_UUID
+  load command.  A call to strip_LC_UUID_commands() was added to strip_object()
+  in strip.c for the full strip case.  Radar bug #11136733.
+
+Changes for the 5.31 release (the cctools-824 release):
+- Removed the creation of the link to /usr/local/bin/nmedit from
+  $(DSTROOT)$(LOCBINDIR)/nmedit in the Makefile.  Radar bug #10688477.
+- Fixed a bunch of places in libtool(1) that was using 32-bit variables to hold
+  offsets and sizes.  Radar bug #10645295.
+
+Changes for the 5.30 release (the cctools-822 release):
+- The "low risk fix to strip(1)" below in cctools-821 for Radar bug #10718585
+  breaks striping .o files with dwarf debug info.  Because the input file has
+  an "ld -r" run on it so it is not the original input file.  That change has
+  been backed out.
+- The correct fix for strip(1) in dealing with code signed binaries is to
+  added up the sizes of the output and input parts in the right order.  So the
+  code in strip_object() has been updated to do this.  Radar bug #10709632.
+
+Changes for the 5.30 release (the cctools-821 release):
+- Made a low risk fix to strip(1) to fix bugs when stripping objects with
+  code signature data.  The problem is that the code in strip_object() that is
+  calculating object->input_sym_info_size is incorrect as it is not adding the
+  elements up in their order and rounding the size for elements that are aligned
+  like the code signature info. So as a low risk fix code was added in
+  dyld_order() in checkout.c in libstuff that records the size of the symbolic
+  information. Then in strip_object() it simply overwrites the previously
+  incorrectly calculated value for object->input_sym_info_size with that.
+  Radar bug #10718585.
+- Fixed a bug in codesign_allocate(1) that was incorrectly using the value of
+  sizeof(struct mach_header) for a 64-bit binary when testing if there was 
+  enough room to add the load command.  Radar bug #10652697.
+- Updated the code in pagestuff(1) to have parts for the dyld info and correctly
+  handle dylib stubs who's section contents do not appear in the binary.
+
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+  - Updated libtool.c to print "Apple Inc." not "Apple Computer, Inc." and the
+    comment where apple_version[] comes from.
+  - Added a reference to apple_version[] in checksyms.c, cmpdylib.c, lipo.c,
+    size.c, strings.c, nm.c, redo_prebinding.c, seg_addr_table.c, check_dylib.c 
+    codesign_allocate.c, ctf_insert.c, seg_hack.c, install_name_tool.c, indr.c,
+    strip.c and pagestuff.c.
+
+Changes for the 5.30 release (the cctools-818 release):
+- Fixed strip(1) to account for the size of the function starts data when the
+  binary does not have a dynamic symbol table command.  It should have
+  conditionalized on having a dynamic symbol table command but just the load
+  command that has the data.  Radar bug #10506809.
+
+Changes for the 5.30 release (the cctools-816 release):
+- Changed ctf_insert(1) to allow a static binary with a dynamic symbol table
+  load command that has local relocation entries.  Radar bug #10405248.
+
+Changes for the 5.30 release (the cctools-815 release):
+- Added the os_tools_install target in the Makefile that only builds lipo(1)
+  and strings(1).  Radar bug #10391158.
+
+Changes for the 5.30 release (the cctools-814 release):
+- Changed strip(1) to use "ld -r" on 32-bit objects now that the blocking
+  bug in ld(1) is fixed.  Radar bug #7076828.
+- Added support for new load commands LC_MAIN, LC_DATA_IN_CODE,
+  LC_SOURCE_VERSION and LC_DYLIB_CODE_SIGN_DRS.
+  - Updated install_name_tool.c, pagestuff.c, redo_prebinding.c, strip.c,
+    codesign_allocate.c, ctf_insert.c, indr.c and inout.c .
+  Radar bug #10290817.
+- Fixed ctf_insert(1) to correctly handle the LC_FUNCTION_STARTS load command
+  and update it and move its data.  Radar bug #10171548.
+
+Changes for the 5.30 release (the cctools-811 release):
+- Changed the Makefile setting CXX to use c++ not g++.  Radar bug #10057952.
+
+Changes for the 5.30 release (the cctools-809 release):
+- Changed lipo(1) to determine the architecture of bitcode files, including
+  as archive members.  Radar bug #9087924.
+
+Changes for the 5.30 release (the cctools-808 release):
+- Fixed a bug in create_library() in the loop that adjusted the ranlib structs
+  ran_off was using the incorrect index value for:
+    archs[0].toc_ranlibs[i].ran_off = archs[0].members[i].input_member_offset;
+  which should have been:
+    archs[0].toc_ranlibs[i].ran_off = archs[0].members[j].input_member_offset;
+  Radar bug #9830754.
+
+Changes for the 5.29 release (the cctools-805 release):
+- Changed create_library() in libtool.c to check the new ofile bad_toc field
+  and cause it to create a new library when this happens.  Radar bug #9475790.
+
+Changes for the 5.29 release (the cctools-803 release):
+- Changed libtool.c when running as ranlib(1) to attempt to update the table
+  of contents in place for the common case for thin archives.  And removed the
+  the time stamp checking for the "nop" ranlib case, which now ends up with just
+  "touching" the file and adjusting the timestamps.  Radar bug #9354605.
+  - Factored out existing code into new routines get_target_byte_sex() and
+    put_toc_member().
+  - Changed process() and removed the time stamp checking for the "nop" ranlib
+    case.
+  - Added the input_member_offset field to the struct member and added code to
+    set its value in add_member().
+  - Changed create_library() to take an ofile which is non-NULL if run as
+    ranlib(1) and a thin archive.
+  - Added code in create_library() to update the table of contents in place.
+    And code to only "touch", write the SARMAG, if the table of contents is
+    the same.  This code has to use the input_member_offset in cases that the
+    thin input archive would not be same as produced by libtool(1) but still
+    has member offsets at acceptable alignments.
+
+Changes for the 5.29 release (the cctools-802 release):
+- Fixed a problem with the change to libtool(1) for Radar bug #9354501.  It was
+  not setting toc_uptodate to TRUE and was not doing this only when
+  cmd_flags.ranlib == TRUE.  Radar bug #9418154.
+
+Changes for the 5.29 release (the cctools-801 release):
+- Changed process() in libtool.c to check that the table of contents was up to
+  date based on the file's time stamp and the table of contents time stamp for
+  archive files.  Then if it ranlib(1) being run do nothing if it is up to date.
+  Radar bug #9354501.
+- Fixed a bug in the error handling of pagestuff(1) when used with the -arch
+  argument but missing an argument for which page.  Radar bug #8979851.
+
+Changes for the 5.29 release (the cctools-800.3 release):
+- Added support for armv7[fk] to print_arch() in lipo.c .  Radar bug #8987684.
+
 Changes for the 5.28 release (the cctools-798 release):
 - Added this line to the Makefile:
     CXX = $(shell xcrun -find -sdk $(SDKROOT) g++)

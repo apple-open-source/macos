@@ -1069,8 +1069,10 @@ VALUE_PAIR *pairparsevalue(VALUE_PAIR *vp, const char *value)
 			}
 
 		  	if (ascend_parse_filter(vp) < 0 ) {
-				fr_strerror_printf("failed to parse Ascend binary attribute: %s",
-					   fr_strerror());
+				char buffer[256];
+
+				snprintf(buffer, sizeof(buffer), "failed to parse Ascend binary attribute: %s", fr_strerror());
+				fr_strerror_printf("%s", buffer);
 				return NULL;
 			}
 			break;
@@ -1287,7 +1289,7 @@ static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 	 *	Unknown attributes MUST be of type 'octets'
 	 */
 	if (value && (strncasecmp(value, "0x", 2) != 0)) {
-		fr_strerror_printf("Invalid octet string \"%s\" for attribute name \"%s\"", value, attribute);
+		fr_strerror_printf("Unknown attribute \"%s\" requires a hex string, not \"%s\"", attribute, value);
 		return NULL;
 	}
 
@@ -1418,10 +1420,20 @@ static VALUE_PAIR *pairmake_any(const char *attribute, const char *value,
 		vp->type = PW_TYPE_OCTETS;
 		/* FALL-THROUGH */
 		
-	case PW_TYPE_STRING:
 	case PW_TYPE_OCTETS:
 	case PW_TYPE_ABINARY:
 		vp->length = size >> 1;
+		if (vp->length > sizeof(vp->vp_octets)) {
+			vp->length = sizeof(vp->vp_octets);
+		}
+		break;
+
+	case PW_TYPE_STRING:
+		vp->length = size >> 1;
+		memset(&vp->vp_strvalue, 0, sizeof(vp->vp_strvalue));
+		if (vp->length >= sizeof(vp->vp_strvalue)) {
+			vp->length = sizeof(vp->vp_strvalue) - 1;
+		}
 		break;
 	}
 

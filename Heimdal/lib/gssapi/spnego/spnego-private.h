@@ -101,7 +101,7 @@ OM_uint32
 _gss_spnego_import_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*name_buffer*/,
-	const gss_OID /*name_type*/,
+	gss_const_OID /*name_type*/,
 	gss_name_t * output_name );
 
 OM_uint32
@@ -158,7 +158,7 @@ _gss_spnego_inquire_mechs_for_name (
 OM_uint32
 _gss_spnego_inquire_names_for_mech (
 	 OM_uint32 * /*minor_status*/,
-	const gss_OID /*mechanism*/,
+	gss_const_OID /*mechanism*/,
 	gss_OID_set * name_types );
 
 OM_uint32
@@ -268,5 +268,14 @@ _gss_spnego_wrap_size_limit (
 	gss_qop_t /*qop_req*/,
 	OM_uint32 /*req_output_size*/,
 	OM_uint32 * max_input_size );
+
+OM_uint32
+_gss_spnego_verify_mechtypes_mic(OM_uint32 *minor_status,
+				 gssspnego_ctx ctx,
+				 heim_octet_string *mic);
+
+void
+_gss_spnego_fixup_ntlm(gssspnego_ctx ctx);
+
 
 #endif /* __spnego_private_h__ */

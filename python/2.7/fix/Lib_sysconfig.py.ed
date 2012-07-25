@@ -1,9 +1,4 @@
 /return joinuser("~", "Library", framework/s/return/return env_base if env_base else/
-/# MACOSX_DEPLOYMENT_TARGET:/a
-.
-?^$?,/^$/c
-
-.
 /^def get_config_vars/a
 .
 /arch = os.environ\['ARCHFLAGS']/a

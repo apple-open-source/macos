@@ -23,37 +23,245 @@
 
 #if ENABLE(Condition1) || ENABLE(Condition2)
 
+#include "ExceptionCode.h"
 #include "RuntimeEnabledFeatures.h"
+#include "TestSupplemental.h"
 #include "V8Binding.h"
+#include "V8BindingMacros.h"
 #include "V8BindingState.h"
 #include "V8DOMWrapper.h"
 #include "V8IsolatedContext.h"
+#include "V8Node.h"
 #include "V8Proxy.h"
+#include "V8TestObj.h"
+#include <wtf/GetPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
-WrapperTypeInfo V8TestInterface::info = { V8TestInterface::GetTemplate, V8TestInterface::derefObject, 0, 0 };
+WrapperTypeInfo V8TestInterface::info = { V8TestInterface::GetTemplate, V8TestInterface::derefObject, V8TestInterface::toActiveDOMObject, 0 };
 
-namespace TestInterfaceInternal {
+namespace TestInterfaceV8Internal {
 
 template <typename T> void V8_USE(T) { }
 
-} // namespace TestInterfaceInternal
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalStr1AttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestInterface.supplementalStr1._get");
+    TestInterface* imp = V8TestInterface::toNative(info.Holder());
+    return v8String(TestSupplemental::supplementalStr1(imp), info.GetIsolate());
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalStr2AttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestInterface.supplementalStr2._get");
+    TestInterface* imp = V8TestInterface::toNative(info.Holder());
+    return v8String(TestSupplemental::supplementalStr2(imp), info.GetIsolate());
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static void supplementalStr2AttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestInterface.supplementalStr2._set");
+    TestInterface* imp = V8TestInterface::toNative(info.Holder());
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<>, v, value);
+    TestSupplemental::setSupplementalStr2(imp, v);
+    return;
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalNodeAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestInterface.supplementalNode._get");
+    TestInterface* imp = V8TestInterface::toNative(info.Holder());
+    return toV8(TestSupplemental::supplementalNode(imp));
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static void supplementalNodeAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestInterface.supplementalNode._set");
+    TestInterface* imp = V8TestInterface::toNative(info.Holder());
+    Node* v = V8Node::HasInstance(value) ? V8Node::toNative(v8::Handle<v8::Object>::Cast(value)) : 0;
+    TestSupplemental::setSupplementalNode(imp, WTF::getPtr(v));
+    return;
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalMethod1Callback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestInterface.supplementalMethod1");
+    TestInterface* imp = V8TestInterface::toNative(args.Holder());
+    TestSupplemental::supplementalMethod1(imp);
+    return v8::Handle<v8::Value>();
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalMethod2Callback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestInterface.supplementalMethod2");
+    if (args.Length() < 2)
+        return V8Proxy::throwNotEnoughArgumentsError();
+    TestInterface* imp = V8TestInterface::toNative(args.Holder());
+    ExceptionCode ec = 0;
+    {
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, strArg, MAYBE_MISSING_PARAMETER(args, 0, DefaultIsUndefined));
+    EXCEPTION_BLOCK(TestObj*, objArg, V8TestObj::HasInstance(MAYBE_MISSING_PARAMETER(args, 1, DefaultIsUndefined)) ? V8TestObj::toNative(v8::Handle<v8::Object>::Cast(MAYBE_MISSING_PARAMETER(args, 1, DefaultIsUndefined))) : 0);
+    ScriptExecutionContext* scriptContext = getScriptExecutionContext();
+    if (!scriptContext)
+        return v8::Undefined();
+    RefPtr<TestObj> result = TestSupplemental::supplementalMethod2(imp, scriptContext, strArg, objArg, ec);
+    if (UNLIKELY(ec))
+        goto fail;
+    return toV8(result.release(), args.GetIsolate());
+    }
+    fail:
+    V8Proxy::setDOMException(ec, args.GetIsolate());
+    return v8::Handle<v8::Value>();
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+
+static v8::Handle<v8::Value> supplementalMethod4Callback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestInterface.supplementalMethod4");
+    TestSupplemental::supplementalMethod4();
+    return v8::Handle<v8::Value>();
+}
+
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+
+} // namespace TestInterfaceV8Internal
+
+static const BatchedAttribute TestInterfaceAttrs[] = {
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    // Attribute 'supplementalStr1' (Type: 'readonly attribute' ExtAttr: 'Conditional ImplementedBy')
+    {"supplementalStr1", TestInterfaceV8Internal::supplementalStr1AttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    // Attribute 'supplementalStr2' (Type: 'attribute' ExtAttr: 'Conditional ImplementedBy')
+    {"supplementalStr2", TestInterfaceV8Internal::supplementalStr2AttrGetter, TestInterfaceV8Internal::supplementalStr2AttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    // Attribute 'supplementalStr3' (Type: 'attribute' ExtAttr: 'CustomSetter CustomGetter Conditional ImplementedBy')
+    {"supplementalStr3", V8TestInterface::supplementalStr3AccessorGetter, V8TestInterface::supplementalStr3AccessorSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    // Attribute 'supplementalNode' (Type: 'attribute' ExtAttr: 'Conditional ImplementedBy')
+    {"supplementalNode", TestInterfaceV8Internal::supplementalNodeAttrGetter, TestInterfaceV8Internal::supplementalNodeAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+};
+
+static const BatchedCallback TestInterfaceCallbacks[] = {
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    {"supplementalMethod1", TestInterfaceV8Internal::supplementalMethod1Callback},
+#endif
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    {"supplementalMethod3", V8TestInterface::supplementalMethod3Callback},
+#endif
+};
+
+static const BatchedConstant TestInterfaceConsts[] = {
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    {"SUPPLEMENTALCONSTANT1", static_cast<signed int>(1)},
+#endif
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    {"SUPPLEMENTALCONSTANT2", static_cast<signed int>(2)},
+#endif
+};
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+COMPILE_ASSERT(1 == TestSupplemental::SUPPLEMENTALCONSTANT1, TestInterfaceEnumSUPPLEMENTALCONSTANT1IsWrongUseDoNotCheckConstants);
+#endif
+#if ENABLE(Condition11) || ENABLE(Condition12)
+COMPILE_ASSERT(2 == TestSupplemental::CONST_IMPL, TestInterfaceEnumCONST_IMPLIsWrongUseDoNotCheckConstants);
+#endif
 
 v8::Handle<v8::Value> V8TestInterface::constructorCallback(const v8::Arguments& args)
 {
-    INC_STATS("DOM.TestInterface.Contructor");
-    return V8Proxy::constructDOMObjectWithScriptExecutionContext<TestInterface>(args, &info);
+    INC_STATS("DOM.TestInterface.Constructor");
+
+    if (!args.IsConstructCall())
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
+    if (args.Length() < 1)
+        return V8Proxy::throwNotEnoughArgumentsError();
+
+    ExceptionCode ec = 0;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, str1, MAYBE_MISSING_PARAMETER(args, 0, DefaultIsUndefined));
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, str2, MAYBE_MISSING_PARAMETER(args, 1, DefaultIsUndefined));
+
+    ScriptExecutionContext* context = getScriptExecutionContext();
+    if (!context)
+        return throwError("TestInterface constructor's associated context is not available", V8Proxy::ReferenceError);
+
+    RefPtr<TestInterface> impl = TestInterface::create(context, str1, str2, ec);
+    v8::Handle<v8::Object> wrapper = args.Holder();
+    if (ec)
+        goto fail;
+
+    V8DOMWrapper::setDOMWrapper(wrapper, &info, impl.get());
+    V8DOMWrapper::setJSWrapperForActiveDOMObject(impl.release(), v8::Persistent<v8::Object>::New(wrapper), args.GetIsolate());
+    return args.Holder();
+  fail:
+    return throwError(ec);
 }
+
 static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestInterfaceTemplate(v8::Persistent<v8::FunctionTemplate> desc)
 {
-    v8::Local<v8::Signature> defaultSignature = configureTemplate(desc, "TestInterface", v8::Persistent<v8::FunctionTemplate>(), V8TestInterface::internalFieldCount,
-        0, 0,
-        0, 0);
+    desc->ReadOnlyPrototype();
+
+    v8::Local<v8::Signature> defaultSignature;
+    defaultSignature = configureTemplate(desc, "TestInterface", v8::Persistent<v8::FunctionTemplate>(), V8TestInterface::internalFieldCount,
+        TestInterfaceAttrs, WTF_ARRAY_LENGTH(TestInterfaceAttrs),
+        TestInterfaceCallbacks, WTF_ARRAY_LENGTH(TestInterfaceCallbacks));
     UNUSED_PARAM(defaultSignature); // In some cases, it will not be used.
-        desc->SetCallHandler(V8TestInterface::constructorCallback);
+    desc->SetCallHandler(V8TestInterface::constructorCallback);
+    v8::Local<v8::ObjectTemplate> instance = desc->InstanceTemplate();
+    v8::Local<v8::ObjectTemplate> proto = desc->PrototypeTemplate();
+    UNUSED_PARAM(instance); // In some cases, it will not be used.
+    UNUSED_PARAM(proto); // In some cases, it will not be used.
     
+
+    // Custom Signature 'supplementalMethod2'
+    const int supplementalMethod2Argc = 2;
+    v8::Handle<v8::FunctionTemplate> supplementalMethod2Argv[supplementalMethod2Argc] = { v8::Handle<v8::FunctionTemplate>(), V8TestObj::GetRawTemplate() };
+    v8::Handle<v8::Signature> supplementalMethod2Signature = v8::Signature::New(desc, supplementalMethod2Argc, supplementalMethod2Argv);
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    proto->Set(v8::String::New("supplementalMethod2"), v8::FunctionTemplate::New(TestInterfaceV8Internal::supplementalMethod2Callback, v8::Handle<v8::Value>(), supplementalMethod2Signature));
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+#if ENABLE(Condition11) || ENABLE(Condition12)
+    desc->Set(v8::String::New("supplementalMethod4"), v8::FunctionTemplate::New(TestInterfaceV8Internal::supplementalMethod4Callback, v8::Handle<v8::Value>(), v8::Local<v8::Signature>()));
+#endif // ENABLE(Condition11) || ENABLE(Condition12)
+    batchConfigureConstants(desc, proto, TestInterfaceConsts, WTF_ARRAY_LENGTH(TestInterfaceConsts));
 
     // Custom toString template
     desc->Set(getToStringName(), getToStringTemplate());
@@ -62,14 +270,29 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestInterfaceTemplate(v8:
 
 v8::Persistent<v8::FunctionTemplate> V8TestInterface::GetRawTemplate()
 {
-    static v8::Persistent<v8::FunctionTemplate> V8TestInterfaceRawCache = createRawTemplate();
-    return V8TestInterfaceRawCache;
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    V8BindingPerIsolateData::TemplateMap::iterator result = data->rawTemplateMap().find(&info);
+    if (result != data->rawTemplateMap().end())
+        return result->second;
+
+    v8::HandleScope handleScope;
+    v8::Persistent<v8::FunctionTemplate> templ = createRawTemplate();
+    data->rawTemplateMap().add(&info, templ);
+    return templ;
 }
 
 v8::Persistent<v8::FunctionTemplate> V8TestInterface::GetTemplate()
 {
-    static v8::Persistent<v8::FunctionTemplate> V8TestInterfaceCache = ConfigureV8TestInterfaceTemplate(GetRawTemplate());
-    return V8TestInterfaceCache;
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    V8BindingPerIsolateData::TemplateMap::iterator result = data->templateMap().find(&info);
+    if (result != data->templateMap().end())
+        return result->second;
+
+    v8::HandleScope handleScope;
+    v8::Persistent<v8::FunctionTemplate> templ =
+        ConfigureV8TestInterfaceTemplate(GetRawTemplate());
+    data->templateMap().add(&info, templ);
+    return templ;
 }
 
 bool V8TestInterface::HasInstance(v8::Handle<v8::Value> value)
@@ -77,18 +300,24 @@ bool V8TestInterface::HasInstance(v8::Handle<v8::Value> value)
     return GetRawTemplate()->HasInstance(value);
 }
 
+ActiveDOMObject* V8TestInterface::toActiveDOMObject(v8::Handle<v8::Object> object)
+{
+    return toNative(object);
+}      
 
-v8::Handle<v8::Object> V8TestInterface::wrapSlow(TestInterface* impl)
+v8::Handle<v8::Object> V8TestInterface::wrapSlow(PassRefPtr<TestInterface> impl, v8::Isolate* isolate)
 {
     v8::Handle<v8::Object> wrapper;
     V8Proxy* proxy = 0;
-    wrapper = V8DOMWrapper::instantiateV8Object(proxy, &info, impl);
-    if (wrapper.IsEmpty())
+    wrapper = V8DOMWrapper::instantiateV8Object(proxy, &info, impl.get());
+    if (UNLIKELY(wrapper.IsEmpty()))
         return wrapper;
 
-    impl->ref();
     v8::Persistent<v8::Object> wrapperHandle = v8::Persistent<v8::Object>::New(wrapper);
-    getDOMObjectMap().set(impl, wrapperHandle);
+
+    if (!hasDependentLifetime)
+        wrapperHandle.MarkIndependent();
+    V8DOMWrapper::setJSWrapperForActiveDOMObject(impl, wrapperHandle, isolate);
     return wrapper;
 }
 

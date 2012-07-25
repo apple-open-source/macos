@@ -28,7 +28,6 @@
 #include "HTMLProgressElement.h"
 #include "PaintInfo.h"
 #include "RenderTheme.h"
-#include "ShadowElement.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/RefPtr.h>
 
@@ -89,6 +88,7 @@ void RenderProgress::updateAnimationState()
     if (animating == m_animating)
         return;
 
+    repaint();
     m_animating = animating;
     if (m_animating) {
         m_animationStartTime = currentTime();

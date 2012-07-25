@@ -1,0 +1,200 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		7264323500A8AD987F000001 /* comcryption.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264322D00A8AD987F000001 /* comcryption.c */; };
+		7264323600A8AD987F000001 /* comcryptPriv.c in Sources */ = {isa = PBXBuildFile; fileRef = 7264322E00A8AD987F000001 /* comcryptPriv.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		182BB1F2146EF7C1000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB1F3146EF7C1000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB1F4146EF7C1000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB1F5146EF7C1000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		7264321400A8AD0A7F000001 /* libsecurity_comcryption.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_comcryption.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		7264322D00A8AD987F000001 /* comcryption.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = comcryption.c; sourceTree = "<group>"; };
+		7264322E00A8AD987F000001 /* comcryptPriv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = comcryptPriv.c; sourceTree = "<group>"; };
+		7264322F00A8AD987F000001 /* comcryption.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = comcryption.h; sourceTree = "<group>"; };
+		7264323000A8AD987F000001 /* comcryptPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = comcryptPriv.h; sourceTree = "<group>"; };
+		7264323100A8AD987F000001 /* comDebug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = comDebug.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7264322000A8AD0A7F000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0FD07C9EFE8A174411CD283A = {
+			isa = PBXGroup;
+			children = (
+				7264321200A8ACCB7F000001 /* lib */,
+				182BB1F1146EF7C1000BF1F3 /* config */,
+				31DBE9B3FEEEE8F611CD283A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		182BB1F1146EF7C1000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB1F2146EF7C1000BF1F3 /* base.xcconfig */,
+				182BB1F3146EF7C1000BF1F3 /* debug.xcconfig */,
+				182BB1F4146EF7C1000BF1F3 /* lib.xcconfig */,
+				182BB1F5146EF7C1000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		31DBE9B3FEEEE8F611CD283A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7264321400A8AD0A7F000001 /* libsecurity_comcryption.a */,
+			);
+			name = Products;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		7264321200A8ACCB7F000001 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				7264322D00A8AD987F000001 /* comcryption.c */,
+				7264322F00A8AD987F000001 /* comcryption.h */,
+				7264322E00A8AD987F000001 /* comcryptPriv.c */,
+				7264323000A8AD987F000001 /* comcryptPriv.h */,
+				7264323100A8AD987F000001 /* comDebug.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		7264321E00A8AD0A7F000001 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		7264321D00A8AD0A7F000001 /* libsecurity_comcryption */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD3200987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_comcryption" */;
+			buildPhases = (
+				7264321E00A8AD0A7F000001 /* Headers */,
+				7264321F00A8AD0A7F000001 /* Sources */,
+				7264322000A8AD0A7F000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libsecurity_comcryption;
+			productInstallPath = /usr/local/lib;
+			productName = ComCryption;
+			productReference = 7264321400A8AD0A7F000001 /* libsecurity_comcryption.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0FD07C9DFE8A174411CD283A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD3240987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_comcryption" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 0FD07C9EFE8A174411CD283A;
+			productRefGroup = 0FD07C9EFE8A174411CD283A;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				7264321D00A8AD0A7F000001 /* libsecurity_comcryption */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		7264321F00A8AD0A7F000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7264323500A8AD987F000001 /* comcryption.c in Sources */,
+				7264323600A8AD987F000001 /* comcryptPriv.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD3210987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F3146EF7C1000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3230987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F5146EF7C1000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD3250987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F4146EF7C1000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3270987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB1F4146EF7C1000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD3200987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_comcryption" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3210987FCDE001272E0 /* Debug */,
+				C27AD3230987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3240987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_comcryption" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3250987FCDE001272E0 /* Debug */,
+				C27AD3270987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0FD07C9DFE8A174411CD283A /* Project object */;
+}

@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/da.xml
@@ -33,7 +33,6 @@ da{
         054{"Melanesien"}
         057{"Mikronesien"}
         061{"Polynesien"}
-        062{"Sydcentralasien"}
         142{"Asien"}
         143{"Centralasien"}
         145{"Vestasien"}
@@ -41,8 +40,7 @@ da{
         151{"Østeuropa"}
         154{"Nordeuropa"}
         155{"Vesteuropa"}
-        172{"Sammenslutningen af uafhængige stater"}
-        419{"Latinamerika og Caribien"}
+        419{"Latinamerika"}
         AC{"Ascensionøen"}
         AD{"Andorra"}
         AE{"Forenede Arabiske Emirater"}
@@ -85,7 +83,7 @@ da{
         CC{"Cocosøerne"}
         CD{"Congo-Kinshasa"}
         CF{"Centralafrikanske Republik"}
-        CG{"Congo"}
+        CG{"Congo – Brazzaville"}
         CH{"Schweiz"}
         CI{"Elfenbenskysten"}
         CK{"Cook-øerne"}
@@ -98,6 +96,7 @@ da{
         CS{"Serbien og Montenegro"}
         CU{"Cuba"}
         CV{"Kap Verde"}
+        CW{"Curacao"}
         CX{"Juleøen"}
         CY{"Cypern"}
         CZ{"Tjekkiet"}
@@ -116,7 +115,6 @@ da{
         ER{"Eritrea"}
         ES{"Spanien"}
         ET{"Etiopien"}
-        EU{"EU"}
         FI{"Finland"}
         FJ{"Fiji-øerne"}
         FK{"Falklandsøerne"}
@@ -259,6 +257,7 @@ da{
         SR{"Surinam"}
         ST{"Sao Tome og Principe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Syrien"}
         SZ{"Swaziland"}
         TA{"Tristan da Cunha"}
@@ -280,7 +279,7 @@ da{
         TZ{"Tanzania"}
         UA{"Ukraine"}
         UG{"Uganda"}
-        UM{"De Mindre Amerikanske Oversøiske Øer"}
+        UM{"Mindre amerikanske oversøiske øer"}
         US{"USA"}
         UY{"Uruguay"}
         UZ{"Usbekistan"}
@@ -298,7 +297,7 @@ da{
         ZA{"Sydafrika"}
         ZM{"Zambia"}
         ZW{"Zimbabwe"}
-        ZZ{"Ukendt eller ugyldigt område"}
+        ZZ{"Ukendt område"}
     }
-    Version{"2.0.50.96"}
+    Version{"2.0.65.46"}
 }

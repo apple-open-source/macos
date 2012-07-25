@@ -1,0 +1,11 @@
+g/^long bzfile_clear_totals/s//void bzfile_clear_totals/
+g/strm.state is %p, in state %p/s//strm.state is %p, in state %d/
+/^int bzfile_close( bzFile\* obj, int abandon ) {/i
+int bzfile_closeread( bzFile* obj, int abandon );
+int bzfile_closewrite( bzFile* obj, int abandon );
+.
+/^int bzfile_readline( bzFile\* obj, char \*lineOfUncompress, int maxLineLength ) {/i
+int bzfile_read( bzFile* obj, char *bufferOfUncompress, int nUncompress );
+.
+/invalid buffer (too short %d/s//invalid buffer (too short %lu/
+w

@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -80,6 +80,7 @@ x=$(print -r -- "\"$HOME\"")
 if	[[ $x != '"'$HOME'"' ]]
 then	err_exit "nested double quotes failed"
 fi
+unset z
 : ${z="a{b}c"}
 if	[[ $z != 'a{b}c' ]]
 then	err_exit '${z="a{b}c"} not correct'
@@ -197,4 +198,18 @@ foo=foo
 [[ "$" == '$' ]] || err_exit '"$" != $'
 [[ "${foo}$" == 'foo$' ]] || err_exit 'foo=foo;"${foo}$" != foo$'
 [[ "${foo}${foo}$" == 'foofoo$' ]] || err_exit 'foo=foo;"${foo}${foo}$" != foofoo$'
-exit $((Errors))
+foo='$ '
+[[ "$foo" == ~(Elr)(\\\$|#)\  ]] || err_exit $'\'$ \' not matching RE \\\\\\$|#\''
+[[ "$foo" == ~(Elr)('\$'|#)\  ]] || err_exit $'\'$ \' not matching RE \'\\$\'|#\''
+foo='# '
+[[ "$foo" == ~(Elr)(\\\$|#)\  ]] || err_exit $'\'# \' not matching RE \\'\$|#\''
+[[ "$foo" == ~(Elr)('\$'|#)\  ]] || err_exit $'\'# \' not matching RE \'\\$\'|#\''
+[[ '\$' == '\$'* ]] ||   err_exit $'\'\\$\' not matching \'\\$\'*'
+[[ a+a == ~(E)a\+a ]] || err_exit '~(E)a\+a not matching a+a'
+[[ a+a =~ a\+a ]] || err_exit 'RE a\+a not matching a+a'
+
+exp='ac'
+got=$'a\0b'c
+[[ $got == "$exp" ]] || err_exit "\$'a\\0b'c expansion failed -- expected '$exp', got '$got'"
+
+exit $((Errors<125?Errors:125))

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2010 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2010, 2012 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,7 @@
 - (NSString *)host;
 
 - (NSString *)databaseIdentifier;
+- (NSString *)stringValue;
 
 // Returns zero if the port is the default port for the protocol, non-zero otherwise.
 - (unsigned short)port;

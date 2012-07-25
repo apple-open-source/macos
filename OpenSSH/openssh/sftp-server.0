@@ -51,7 +51,7 @@ DESCRIPTION
 SEE ALSO
      sftp(1), ssh(1), sshd_config(5), sshd(8)
 
-     T. Ylonen, S. Lehtinen, SSH File Transfer Protocol,
+     T. Ylonen and S. Lehtinen, SSH File Transfer Protocol,
      draft-ietf-secsh-filexfer-00.txt, January 2001, work in progress
      material.
 
@@ -61,4 +61,4 @@ HISTORY
 AUTHORS
      Markus Friedl <markus@openbsd.org>
 
-OpenBSD 4.8                     January 9, 2010                    OpenBSD 4.8
+OpenBSD 5.0                     January 9, 2010                    OpenBSD 5.0

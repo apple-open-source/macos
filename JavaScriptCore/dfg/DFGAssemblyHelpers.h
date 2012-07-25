@@ -39,9 +39,7 @@
 
 namespace JSC { namespace DFG {
 
-#ifndef NDEBUG
 typedef void (*V_DFGDebugOperation_EP)(ExecState*, void*);
-#endif
 
 class AssemblyHelpers : public MacroAssembler {
 public:
@@ -75,11 +73,6 @@ public:
     {
         push(address);
     }
-
-    void getPCAfterCall(GPRReg gpr)
-    {
-          peek(gpr, -1);
-    }
 #endif // CPU(X86_64) || CPU(X86)
 
 #if CPU(ARM)
@@ -96,11 +89,6 @@ public:
     ALWAYS_INLINE void restoreReturnAddressBeforeReturn(Address address)
     {
         loadPtr(address, linkRegister);
-    }
-
-    ALWAYS_INLINE void getPCAfterCall(GPRReg gpr)
-    {
-        move(ARMRegisters::lr, gpr);
     }
 #endif
 
@@ -162,29 +150,58 @@ public:
         return branch8(Below, Address(structureReg, Structure::typeInfoTypeOffset()), TrustedImm32(ObjectType));
     }
 
-#ifndef NDEBUG
+    static GPRReg selectScratchGPR(GPRReg preserve1 = InvalidGPRReg, GPRReg preserve2 = InvalidGPRReg, GPRReg preserve3 = InvalidGPRReg, GPRReg preserve4 = InvalidGPRReg)
+    {
+        if (preserve1 != GPRInfo::regT0 && preserve2 != GPRInfo::regT0 && preserve3 != GPRInfo::regT0 && preserve4 != GPRInfo::regT0)
+            return GPRInfo::regT0;
+
+        if (preserve1 != GPRInfo::regT1 && preserve2 != GPRInfo::regT1 && preserve3 != GPRInfo::regT1 && preserve4 != GPRInfo::regT1)
+            return GPRInfo::regT1;
+
+        if (preserve1 != GPRInfo::regT2 && preserve2 != GPRInfo::regT2 && preserve3 != GPRInfo::regT2 && preserve4 != GPRInfo::regT2)
+            return GPRInfo::regT2;
+
+        if (preserve1 != GPRInfo::regT3 && preserve2 != GPRInfo::regT3 && preserve3 != GPRInfo::regT3 && preserve4 != GPRInfo::regT3)
+            return GPRInfo::regT3;
+
+        return GPRInfo::regT4;
+    }
+
     // Add a debug call. This call has no effect on JIT code execution state.
     void debugCall(V_DFGDebugOperation_EP function, void* argument)
     {
-        EncodedJSValue* buffer = static_cast<EncodedJSValue*>(m_globalData->scratchBufferForSize(sizeof(EncodedJSValue) * (GPRInfo::numberOfRegisters + FPRInfo::numberOfRegisters)));
-        
+        size_t scratchSize = sizeof(EncodedJSValue) * (GPRInfo::numberOfRegisters + FPRInfo::numberOfRegisters);
+        ScratchBuffer* scratchBuffer = m_globalData->scratchBufferForSize(scratchSize);
+        EncodedJSValue* buffer = static_cast<EncodedJSValue*>(scratchBuffer->dataBuffer());
+
         for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i)
             storePtr(GPRInfo::toRegister(i), buffer + i);
         for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
             move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
             storeDouble(FPRInfo::toRegister(i), GPRInfo::regT0);
         }
+
+        // Tell GC mark phase how much of the scratch buffer is active during call.
+        move(TrustedImmPtr(scratchBuffer->activeLengthPtr()), GPRInfo::regT0);
+        storePtr(TrustedImmPtr(scratchSize), GPRInfo::regT0);
+
 #if CPU(X86_64) || CPU(ARM_THUMB2)
         move(TrustedImmPtr(argument), GPRInfo::argumentGPR1);
         move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR0);
+        GPRReg scratch = selectScratchGPR(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
 #elif CPU(X86)
         poke(GPRInfo::callFrameRegister, 0);
         poke(TrustedImmPtr(argument), 1);
+        GPRReg scratch = GPRInfo::regT0;
 #else
 #error "DFG JIT not supported on this platform."
 #endif
-        move(TrustedImmPtr(reinterpret_cast<void*>(function)), GPRInfo::regT0);
-        call(GPRInfo::regT0);
+        move(TrustedImmPtr(reinterpret_cast<void*>(function)), scratch);
+        call(scratch);
+
+        move(TrustedImmPtr(scratchBuffer->activeLengthPtr()), GPRInfo::regT0);
+        storePtr(TrustedImmPtr(0), GPRInfo::regT0);
+
         for (unsigned i = 0; i < FPRInfo::numberOfRegisters; ++i) {
             move(TrustedImmPtr(buffer + GPRInfo::numberOfRegisters + i), GPRInfo::regT0);
             loadDouble(GPRInfo::regT0, FPRInfo::toRegister(i));
@@ -192,7 +209,6 @@ public:
         for (unsigned i = 0; i < GPRInfo::numberOfRegisters; ++i)
             loadPtr(buffer + i, GPRInfo::toRegister(i));
     }
-#endif
 
     // These methods JIT generate dynamic, debug-only checks - akin to ASSERTs.
 #if DFG_ENABLE(JIT_ASSERT)
@@ -201,12 +217,14 @@ public:
     void jitAssertIsJSNumber(GPRReg);
     void jitAssertIsJSDouble(GPRReg);
     void jitAssertIsCell(GPRReg);
+    void jitAssertHasValidCallFrame();
 #else
     void jitAssertIsInt32(GPRReg) { }
     void jitAssertIsJSInt32(GPRReg) { }
     void jitAssertIsJSNumber(GPRReg) { }
     void jitAssertIsJSDouble(GPRReg) { }
     void jitAssertIsCell(GPRReg) { }
+    void jitAssertHasValidCallFrame() { }
 #endif
 
     // These methods convert between doubles, and doubles boxed and JSValues.
@@ -215,6 +233,7 @@ public:
     {
         moveDoubleToPtr(fpr, gpr);
         subPtr(GPRInfo::tagTypeNumberRegister, gpr);
+        jitAssertIsJSDouble(gpr);
         return gpr;
     }
     FPRReg unboxDouble(GPRReg gpr, FPRReg fpr)
@@ -298,16 +317,6 @@ public:
         if (!codeOrigin.inlineCallFrame)
             return codeBlock()->isStrictMode();
         return codeOrigin.inlineCallFrame->callee->jsExecutable()->isStrictMode();
-    }
-    
-    static CodeBlock* baselineCodeBlockForOriginAndBaselineCodeBlock(const CodeOrigin& codeOrigin, CodeBlock* baselineCodeBlock)
-    {
-        if (codeOrigin.inlineCallFrame) {
-            ExecutableBase* executable = codeOrigin.inlineCallFrame->executable.get();
-            ASSERT(executable->structure()->classInfo() == &FunctionExecutable::s_info);
-            return static_cast<FunctionExecutable*>(executable)->baselineCodeBlockFor(codeOrigin.inlineCallFrame->isCall ? CodeForCall : CodeForConstruct);
-        }
-        return baselineCodeBlock;
     }
     
     CodeBlock* baselineCodeBlockFor(const CodeOrigin& codeOrigin)

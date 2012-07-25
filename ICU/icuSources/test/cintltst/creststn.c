@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -250,7 +250,6 @@ static void checkStatus(int32_t line, UErrorCode expected, UErrorCode status) {
 }
 
 static void TestErrorCodes(void) {
-  static const UVersionInfo icu47 = { 4, 7, 0, 0 };
   UErrorCode status = U_USING_DEFAULT_WARNING;
 
   UResourceBundle *r = NULL, *r2 = NULL;
@@ -282,7 +281,7 @@ static void TestErrorCodes(void) {
 
   /* we look up the resource which is aliased and at our level */
   /* TODO: restore the following test when cldrbug 3058: is fixed */
-  if(U_SUCCESS(status) && r != NULL && isICUVersionAtLeast(icu47)) {
+  if(U_SUCCESS(status) && r != NULL && isICUVersionAtLeast(50, 0, 0)) {
     status = U_USING_DEFAULT_WARNING;
     r2 = ures_getByKey(r, "Countries", r2, &status);
     checkStatus(__LINE__, U_USING_DEFAULT_WARNING, status);
@@ -2585,10 +2584,7 @@ static void TestGetFunctionalEquivalent(void) {
         "t",    "zh_Hans_CN@collation=gb2312han", "zh@collation=gb2312han",
         "t",    "zh@collation=big5han",           "zh@collation=big5han",
         "t",    "zh@collation=gb2312han",         "zh@collation=gb2312han",
-        "t",    "hi_IN@collation=direct",         "hi@collation=direct",
         "t",    "hi@collation=standard",          "hi",
-        "t",    "hi@collation=direct",            "hi@collation=direct",
-        "f",    "hi_AU@collation=direct;currency=CHF;calendar=buddhist",      "hi@collation=direct",
         "f",    "hi_AU@collation=standard;currency=CHF;calendar=buddhist",    "hi",
         "t",    "de_DE@collation=pinyin",         "de", /* bug 4582 tests */
         "f",    "de_DE_BONN@collation=pinyin",    "de",
@@ -2603,8 +2599,8 @@ static void TestGetFunctionalEquivalent(void) {
 
     static const char *calCases[] = {
         /*   avail   locale                       equiv   */
-        "t",    "en_US_POSIX",                   "en_US@calendar=gregorian",
-        "f",    "ja_JP_TOKYO",                   "ja_JP@calendar=gregorian",
+        "t",    "en_US_POSIX",                   "en@calendar=gregorian",
+        "f",    "ja_JP_TOKYO",                   "ja@calendar=gregorian",
         "f",    "ja_JP_TOKYO@calendar=japanese", "ja@calendar=japanese",
         "t",    "sr@calendar=gregorian", "sr@calendar=gregorian",
         "t",    "en", "en@calendar=gregorian",

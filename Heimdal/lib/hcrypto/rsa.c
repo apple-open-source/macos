@@ -55,15 +55,18 @@
  *
  * Speed for RSA in seconds
  *   no key blinding
- *   1000 iteration, 
- *   same rsa key
+ *   1000 iteration,
+ *   same rsa keys (1024 and 2048)
  *   operation performed each eteration sign, verify, encrypt, decrypt on a random bit pattern
  *
- * gmp: 	 0.733615
- * tfm: 	 2.450173
- * ltm:		 2.452774 (default in hcrypto)
- * openssl:	 4.046564
- * imath: 	22.975163
+ * name		1024	2048	4098
+ * =================================
+ * gmp: 	 0.73	  6.60	 44.80
+ * tfm: 	 2.45	    --	    --
+ * ltm:		 3.79	 20.74	105.41	(default in hcrypto)
+ * openssl:	 4.04	 11.90	 82.59
+ * cdsa:	15.89	102.89	721.40
+ * imath: 	40.62	    --	    --
  *
  * See the library functions here: @ref hcrypto_rsa
  */
@@ -330,6 +333,14 @@ static const unsigned sha256_oid_tree[] = { 2, 16, 840, 1, 101, 3, 4, 2, 1 };
 static const AlgorithmIdentifier _signature_sha256_data = {
     { 9, rk_UNCONST(sha256_oid_tree) }, rk_UNCONST(&null_entry_oid)
 };
+static const unsigned sha384_oid_tree[] = { 2, 16, 840, 1, 101, 3, 4, 2, 2 };
+const AlgorithmIdentifier _signature_sha384_data = {
+    { 9, rk_UNCONST(sha384_oid_tree) }, rk_UNCONST(&null_entry_oid)
+};
+static const unsigned sha512_oid_tree[] = { 2, 16, 840, 1, 101, 3, 4, 2, 3 };
+const AlgorithmIdentifier _signature_sha512_data = {
+    { 9, rk_UNCONST(sha512_oid_tree) }, rk_UNCONST(&null_entry_oid)
+};
 static const unsigned md5_oid_tree[] = { 1, 2, 840, 113549, 2, 5 };
 static const AlgorithmIdentifier _signature_md5_data = {
     { 6, rk_UNCONST(md5_oid_tree) }, rk_UNCONST(&null_entry_oid)
@@ -357,6 +368,10 @@ RSA_sign(int type, const unsigned char *from, unsigned int flen,
 	    di.digestAlgorithm = _signature_md5_data;
 	} else if (type == NID_sha256) {
 	    di.digestAlgorithm = _signature_sha256_data;
+	} else if (type == NID_sha384) {
+	    di.digestAlgorithm = _signature_sha384_data;
+	} else if (type == NID_sha512) {
+	    di.digestAlgorithm = _signature_sha512_data;
 	} else
 	    return -1;
 
@@ -583,7 +598,7 @@ d2i_RSAPrivateKey(RSA *rsa, const unsigned char **pp, size_t len)
 	RSA_free(k);
 	return NULL;
     }
-	
+
     return k;
 }
 
@@ -707,6 +722,6 @@ d2i_RSAPublicKey(RSA *rsa, const unsigned char **pp, size_t len)
 	RSA_free(k);
 	return NULL;
     }
-	
+
     return k;
 }

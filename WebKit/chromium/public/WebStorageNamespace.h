@@ -31,7 +31,7 @@
 #ifndef WebStorageNamespace_h
 #define WebStorageNamespace_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -43,23 +43,6 @@ class WebString;
 // StorageNamespace to represent LocalStorage for the entire browser.
 class WebStorageNamespace {
 public:
-    // Create a new WebStorageNamespace. LocalStorageNamespaces require a path to specify
-    // where the SQLite databases that make LocalStorage data persistent are located.
-    // If path is empty, data will not persist. You should call delete on the returned
-    // object when you're finished.
-    WEBKIT_API static WebStorageNamespace* createLocalStorageNamespace(const WebString& backingDirectoryPath, unsigned quota);
-    WEBKIT_API static WebStorageNamespace* createSessionStorageNamespace(unsigned quota);
-
-    // The quota for each storage area.  Suggested by the spec.
-    static const unsigned m_localStorageQuota = 5 * 1024 * 1024;
-
-    // Since SessionStorage memory is allocated in the browser process, we place a
-    // per-origin quota on it.  Like LocalStorage there are known attacks against
-    // this, so it's more of a sanity check than a real security measure.
-    static const unsigned m_sessionStorageQuota = 5 * 1024 * 1024;
-
-    static const unsigned noQuota = UINT_MAX;
-
     virtual ~WebStorageNamespace() { }
 
     // Create a new WebStorageArea object. Two subsequent calls with the same origin
@@ -70,9 +53,11 @@ public:
     // Copy a StorageNamespace. This only makes sense in the case of SessionStorage.
     virtual WebStorageNamespace* copy() = 0;
 
-    // Shutdown the StorageNamespace. Write all StorageArea's to disk and disallow new
-    // write activity.
-    virtual void close() = 0;
+    // Returns true of the two instances represent the same storage namespace.
+    virtual bool isSameNamespace(const WebStorageNamespace&) const { return false; }
+
+    // DEPRECATED
+    virtual void close() { }
 };
 
 } // namespace WebKit

@@ -36,9 +36,9 @@
 #include "SerializedScriptValue.h"
 
 #include "WebKit.h"
-#include "WebKitClient.h"
+#include "platform/WebKitPlatformSupport.h"
 #include "WebMessagePortChannel.h"
-#include "WebString.h"
+#include "platform/WebString.h"
 
 using namespace WebKit;
 
@@ -122,7 +122,7 @@ PassRefPtr<PlatformMessagePortChannel> PlatformMessagePortChannel::create(
 PlatformMessagePortChannel::PlatformMessagePortChannel()
     : m_localPort(0)
 {
-    m_webChannel = webKitClient()->createMessagePortChannel();
+    m_webChannel = webKitPlatformSupport()->createMessagePortChannel();
     if (m_webChannel)
         m_webChannel->setClient(this);
 }
@@ -182,7 +182,7 @@ void PlatformMessagePortChannel::postMessageToRemote(PassOwnPtr<MessagePortChann
     WebString messageString = message->message()->toWireString();
     OwnPtr<WebCore::MessagePortChannelArray> channels = message->channels();
     WebMessagePortChannelArray* webChannels = 0;
-    if (channels.get() && channels->size()) {
+    if (channels && channels->size()) {
         webChannels = new WebMessagePortChannelArray(channels->size());
         for (size_t i = 0; i < channels->size(); ++i) {
             WebCore::PlatformMessagePortChannel* platformChannel = (*channels)[i]->channel();

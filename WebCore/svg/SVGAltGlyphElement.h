@@ -25,6 +25,7 @@
 #if ENABLE(SVG_FONTS)
 #include "SVGTextPositioningElement.h"
 #include "SVGURIReference.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -40,23 +41,17 @@ public:
     const AtomicString& format() const;
     void setFormat(const AtomicString&, ExceptionCode&);
 
-    SVGGlyphElement* glyphElement() const;
+    bool hasValidGlyphElements(Vector<String>& glyphNames) const;
 
 private:
     SVGAltGlyphElement(const QualifiedName&, Document*);
 
-    virtual void synchronizeProperty(const QualifiedName&);
-
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
-
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual bool childShouldCreateRenderer(Node*) const;
+    virtual bool childShouldCreateRenderer(const NodeRenderingContext&) const;
 
-    // Animated property declarations
-
-    // SVGURIReference
-    DECLARE_ANIMATED_STRING(Href, href)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGAltGlyphElement)
+        DECLARE_ANIMATED_STRING(Href, href)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

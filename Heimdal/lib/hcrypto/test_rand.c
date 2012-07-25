@@ -131,10 +131,14 @@ main(int argc, char **argv)
 	else if (strcasecmp(rand_method, "egd") == 0)
 	    RAND_set_rand_method(RAND_egd_method());
 #endif
+#ifdef WIN32
+	else if (strcasecmp(rand_method, "w32crypto") == 0)
+	    RAND_set_rand_method(RAND_w32crypto_method());
+#endif
 	else
 	    errx(1, "unknown method %s", rand_method);
     }
-	
+
     if (RAND_file_name(path, sizeof(path)) == NULL)
 	errx(1, "RAND_file_name failed");
 
@@ -161,7 +165,7 @@ main(int argc, char **argv)
 		c = c >> 1;
 	    }
 	}
-	
+
 	for (bit = 0; bit < 8; bit++) {
 
 	    res = ((double)abs(len - bits[bit] * 2)) / (double)len;

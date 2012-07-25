@@ -23,8 +23,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
  
-#if ENABLE(DOM_STORAGE)
-
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/StorageTrackerClient.h>
 
@@ -38,8 +36,10 @@ public:
     virtual ~WebStorageTrackerClient();
     virtual void dispatchDidModifyOrigin(const String& originIdentifier);
     virtual void dispatchDidModifyOrigin(PassRefPtr<SecurityOrigin>);
+
 private:
     WebStorageTrackerClient();
-};
 
-#endif
+    // WebCore::StorageTrackerClient
+    virtual void didFinishLoadingOrigins() OVERRIDE;
+};

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -22,7 +22,6 @@
 #include	<stak.h>
 #include	<ls.h>
 #include	<error.h>
-#include	<ctype.h>
 #include	"variables.h"
 #include	"io.h"
 #include	"name.h"
@@ -45,7 +44,7 @@ int	b_hist(int argc,char *argv[], void *extra)
 	register History_t *hp;
 	register char *arg;
 	register int flag,fdo;
-	register Shell_t *shp = (Shell_t*)extra;
+	register Shell_t *shp = ((Shbltin_t*)extra)->shp;
 	Sfio_t *outfile;
 	char *fname;
 	int range[2], incr, index2, indx= -1;
@@ -57,9 +56,9 @@ int	b_hist(int argc,char *argv[], void *extra)
 #endif
 	Histloc_t location;
 	NOT_USED(argc);
-	if(!sh_histinit())
+	if(!sh_histinit((void*)shp))
 		errormsg(SH_DICT,ERROR_system(1),e_histopen);
-	hp = shp->hist_ptr;
+	hp = shp->gd->hist_ptr;
 	while((flag = optget(argv,sh_opthist))) switch(flag)
 	{
 	    case 'e':
@@ -169,7 +168,7 @@ int	b_hist(int argc,char *argv[], void *extra)
 		range[0] = index2;
 	if(flag==0)
 		/* set default termination range */
-		range[1] = (lflag?hist_max(hp)-1:range[0]);
+		range[1] = ((lflag && !edit)?hist_max(hp)-1:range[0]);
 	if(range[1]>=(flag=(hist_max(hp) - !lflag)))
 		range[1] = flag;
 	/* check for valid ranges */
@@ -203,9 +202,9 @@ int	b_hist(int argc,char *argv[], void *extra)
 			sfprintf(outfile,"%d\t",range[flag]);
 		else if(lflag)
 			sfputc(outfile,'\t');
-		hist_list(shp->hist_ptr,outfile,hist_tell(shp->hist_ptr,range[flag]),0,arg);
+		hist_list(shp->gd->hist_ptr,outfile,hist_tell(shp->gd->hist_ptr,range[flag]),0,arg);
 		if(lflag)
-			sh_sigcheck();
+			sh_sigcheck(shp);
 		if(range[flag] == range[1-flag])
 			break;
 		range[flag] += incr;
@@ -215,7 +214,7 @@ int	b_hist(int argc,char *argv[], void *extra)
 	sfclose(outfile);
 	hist_eof(hp);
 	arg = edit;
-	if(!arg && !(arg=nv_getval(nv_scoped(HISTEDIT))) && !(arg=nv_getval(nv_scoped(FCEDNOD))))
+	if(!arg && !(arg=nv_getval(sh_scoped(shp,HISTEDIT))) && !(arg=nv_getval(sh_scoped(shp,FCEDNOD))))
 		arg = (char*)e_defedit;
 #ifdef apollo
 	/*

@@ -307,7 +307,7 @@ sendOptionsRequest(CFURLRef a_url, struct callback_ctx *ctx, int *err)
 				}
 			}
 		}
-		else if (ctx->status = CheckAuthCallbackStreamError) {
+		else if (ctx->status == CheckAuthCallbackStreamError) {
 			*err = handleStreamError(ctx, &tryAgain);
 			
 			if ((tryAgain == FALSE) || (++ctx->againCount > WEBDAVLIB_MAX_AGAIN_COUNT)) {
@@ -642,7 +642,7 @@ sendOptionsRequestAuthenticated(CFURLRef a_url, struct callback_ctx *ctx, CFDict
 				}
 			}
 		}
-		else if (ctx->status = CheckAuthCallbackStreamError) {
+		else if (ctx->status == CheckAuthCallbackStreamError) {
 			*err = handleStreamError(ctx, &tryAgain);
 				
 			if ((tryAgain == FALSE) || (++ctx->againCount > WEBDAVLIB_MAX_AGAIN_COUNT)) {

@@ -52,10 +52,8 @@ void SourceAlpha::determineAbsolutePaintRect()
     setAbsolutePaintRect(enclosingIntRect(paintRect));
 }
 
-void SourceAlpha::apply()
+void SourceAlpha::platformApplySoftware()
 {
-    if (hasResult())
-        return;
     ImageBuffer* resultImage = createImageBufferResult();
     Filter* filter = this->filter();
     if (!resultImage || !filter->sourceImage())
@@ -65,9 +63,8 @@ void SourceAlpha::apply()
 
     FloatRect imageRect(FloatPoint(), absolutePaintRect().size());
     GraphicsContext* filterContext = resultImage->context();
-    GraphicsContextStateSaver stateSaver(*filterContext);
-    filterContext->clipToImageBuffer(filter->sourceImage(), imageRect);
     filterContext->fillRect(imageRect, Color::black, ColorSpaceDeviceRGB);
+    filterContext->drawImageBuffer(filter->sourceImage(), ColorSpaceDeviceRGB, IntPoint(), CompositeDestinationIn);
 }
 
 void SourceAlpha::dump()

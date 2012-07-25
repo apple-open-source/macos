@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2005, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,7 +72,7 @@ appendAddress(CFMutableDictionaryRef dict, CFStringRef key, struct in_addr *addr
 
 
 static CFMutableDictionaryRef
-getIF(CFStringRef key, CFMutableDictionaryRef oldIFs, CFMutableDictionaryRef newIFs)
+copyIF(CFStringRef key, CFMutableDictionaryRef oldIFs, CFMutableDictionaryRef newIFs)
 {
 	CFDictionaryRef		dict		= NULL;
 	CFMutableDictionaryRef	newDict		= NULL;
@@ -180,23 +180,28 @@ interface_update_ipv4(struct ifaddrs *ifap, const char *if_name)
 									  kSCEntNetIPv4);
 		CFRelease(interface);
 
-		newDict = getIF(key, oldIFs, newIFs);
+		newDict = copyIF(key, oldIFs, newIFs);
 
-		sin = (struct sockaddr_in *)ifa->ifa_addr;
+		/* ALIGN: cast ok, this should be aligned (getifaddrs). */
+		sin = (struct sockaddr_in *)(void *)ifa->ifa_addr;
 		appendAddress(newDict, kSCPropNetIPv4Addresses, &sin->sin_addr);
 
 		if (ifa->ifa_flags & IFF_POINTOPOINT) {
 			struct sockaddr_in	*dst;
 
-			dst = (struct sockaddr_in *)ifa->ifa_dstaddr;
+			/* ALIGN: cast ok, this should be aligned (getifaddrs). */
+			dst = (struct sockaddr_in *)(void *)ifa->ifa_dstaddr;
 			appendAddress(newDict, kSCPropNetIPv4DestAddresses, &dst->sin_addr);
 		} else {
 			struct sockaddr_in	*brd;
 			struct sockaddr_in	*msk;
 
-			brd = (struct sockaddr_in *)ifa->ifa_broadaddr;
-			appendAddress(newDict, kSCPropNetIPv4BroadcastAddresses, &brd->sin_addr);
-			msk = (struct sockaddr_in *)ifa->ifa_netmask;
+			/* ALIGN: cast ok, this should be aligned (getifaddrs). */
+			brd = (struct sockaddr_in *)(void *)ifa->ifa_broadaddr;
+			appendAddress(newDict, kSCPropNetIPv4BroadcastAddresses,&brd->sin_addr);
+
+			/* ALIGN: cast ok, this should be aligned (getifaddrs). */
+			msk = (struct sockaddr_in *)(void *)ifa->ifa_netmask;
 			appendAddress(newDict, kSCPropNetIPv4SubnetMasks, &msk->sin_addr);
 		}
 
@@ -214,7 +219,7 @@ interface_update_ipv4(struct ifaddrs *ifap, const char *if_name)
 									  kSCEntNetIPv4);
 		CFRelease(interface);
 
-		newDict = getIF(key, oldIFs, newIFs);
+		newDict = copyIF(key, oldIFs, newIFs);
 
 		CFDictionarySetValue(newIFs, key, newDict);
 		CFRelease(newDict);

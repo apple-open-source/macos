@@ -1,5 +1,5 @@
 /*
- * "$Id: string-private.h 3277 2011-05-20 07:30:39Z msweet $"
+ * "$Id: string-private.h 3413 2011-09-07 22:48:34Z msweet $"
  *
  *   Private string definitions for CUPS.
  *
@@ -155,10 +155,7 @@ extern size_t _cups_strlcpy(char *, const char *, size_t);
 
 #  ifndef HAVE_SNPRINTF
 extern int	_cups_snprintf(char *, size_t, const char *, ...)
-#    ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 3, 4)))
-#    endif /* __GNUC__ */
-;
+		__attribute__ ((__format__ (__printf__, 3, 4)));
 #    define snprintf _cups_snprintf
 #  endif /* !HAVE_SNPRINTF */
 
@@ -199,5 +196,5 @@ extern double	_cupsStrScand(const char *buf, char **bufptr,
 #endif /* !_CUPS_STRING_H_ */
 
 /*
- * End of "$Id: string-private.h 3277 2011-05-20 07:30:39Z msweet $".
+ * End of "$Id: string-private.h 3413 2011-09-07 22:48:34Z msweet $".
  */

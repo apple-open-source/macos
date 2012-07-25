@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/gl.xml
@@ -33,7 +33,6 @@ gl{
         054{"Melanesia"}
         057{"Rexión da Micronesia"}
         061{"Polinesia"}
-        062{"Asia do Sul-Centro"}
         142{"Asia"}
         143{"Asia Central"}
         145{"Asia Occidental"}
@@ -41,8 +40,8 @@ gl{
         151{"Europa do Leste"}
         154{"Europa Septentrional"}
         155{"Europa Occidental"}
-        172{"Comunidade de Estados Independentes"}
-        419{"América Latina e o Caribe"}
+        419{"América Latina"}
+        AC{"Illa de Ascensión"}
         AD{"Andorra"}
         AE{"Emiratos Árabes Unidos"}
         AF{"Afganistán"}
@@ -92,6 +91,7 @@ gl{
         CM{"Camerún"}
         CN{"China"}
         CO{"Colombia"}
+        CP{"Illa Clipperton"}
         CR{"Costa Rica"}
         CS{"Serbia e Montenegro"}
         CU{"Cuba"}
@@ -100,11 +100,13 @@ gl{
         CY{"Chipre"}
         CZ{"República Checa"}
         DE{"Alemaña"}
+        DG{"Diego García"}
         DJ{"Xibuti"}
         DK{"Dinamarca"}
         DM{"Dominica"}
         DO{"República Dominicana"}
         DZ{"Arxelia"}
+        EA{"Ceuta e Melilla"}
         EC{"Ecuador"}
         EE{"Estonia"}
         EG{"Exipto"}
@@ -144,6 +146,7 @@ gl{
         HR{"Croacia"}
         HT{"Haití"}
         HU{"Hungría"}
+        IC{"Illas Canarias"}
         ID{"Indonesia"}
         IE{"Irlanda"}
         IL{"Israel"}
@@ -239,6 +242,7 @@ gl{
         RW{"Ruanda"}
         SA{"Arabia Saudita"}
         SB{"Illas Salomón"}
+        SC{"Seixeles"}
         SD{"Sudán"}
         SE{"Suecia"}
         SG{"Singapur"}
@@ -255,7 +259,9 @@ gl{
         SV{"El Salvador"}
         SY{"Siria"}
         SZ{"Suacilandia"}
+        TA{"Tristán da Cunha"}
         TC{"Illas Turks e Caicos"}
+        TD{"Chad"}
         TF{"Territorios Franceses do Sul"}
         TG{"Togo"}
         TH{"Tailandia"}
@@ -290,7 +296,7 @@ gl{
         ZA{"Sudáfrica"}
         ZM{"Zambia"}
         ZW{"Cimbabue"}
-        ZZ{"rexión descoñecida ou non válida"}
+        ZZ{"rexión descoñecida"}
     }
-    Version{"2.0.47.53"}
+    Version{"2.0.65.46"}
 }

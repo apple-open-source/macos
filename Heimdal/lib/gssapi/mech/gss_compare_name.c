@@ -30,7 +30,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_compare_name(OM_uint32 *minor_status,
     const gss_name_t name1_arg,
     const gss_name_t name2_arg,
@@ -57,7 +57,7 @@ gss_compare_name(OM_uint32 *minor_status,
 		struct _gss_mechanism_name *mn1;
 		struct _gss_mechanism_name *mn2;
 
-		SLIST_FOREACH(mn1, &name1->gn_mn, gmn_link) {
+		HEIM_SLIST_FOREACH(mn1, &name1->gn_mn, gmn_link) {
 			OM_uint32 major_status;
 
 			major_status = _gss_find_mn(minor_status, name2,

@@ -38,11 +38,11 @@
 
 namespace WebCore {
 
-v8::Handle<v8::Value> toV8(SVGDocument* impl, bool forceNewObject)
+v8::Handle<v8::Value> toV8(SVGDocument* impl, v8::Isolate* isolate, bool forceNewObject)
 {
     if (!impl)
         return v8::Null();
-    v8::Handle<v8::Object> wrapper = V8SVGDocument::wrap(impl, forceNewObject);
+    v8::Handle<v8::Object> wrapper = V8SVGDocument::wrap(impl, isolate, forceNewObject);
     if (wrapper.IsEmpty())
         return wrapper;
     if (!V8IsolatedContext::getEntered()) {

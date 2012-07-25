@@ -26,24 +26,25 @@
 #include <WebDOMArrayBufferView.h>
 #include <WebDOMString.h>
 
-namespace WebCore {
+namespace WTF {
 class Float64Array;
 };
 
 class WebDOMFloat32Array;
+class WebDOMInt32Array;
 
 class WebDOMFloat64Array : public WebDOMArrayBufferView {
 public:
     WebDOMFloat64Array();
-    explicit WebDOMFloat64Array(WebCore::Float64Array*);
+    explicit WebDOMFloat64Array(WTF::Float64Array*);
     virtual ~WebDOMFloat64Array() { }
 
-    void foo(const WebDOMFloat32Array& array);
+    WebDOMInt32Array foo(const WebDOMFloat32Array& array);
 
-    WebCore::Float64Array* impl() const;
+    WTF::Float64Array* impl() const;
 };
 
-WebCore::Float64Array* toWebCore(const WebDOMFloat64Array&);
-WebDOMFloat64Array toWebKit(WebCore::Float64Array*);
+WTF::Float64Array* toWebCore(const WebDOMFloat64Array&);
+WebDOMFloat64Array toWebKit(WTF::Float64Array*);
 
 #endif

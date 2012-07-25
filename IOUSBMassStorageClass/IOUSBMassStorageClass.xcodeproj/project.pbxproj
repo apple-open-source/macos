@@ -109,11 +109,12 @@
 		2A77099A0D4FE006004E6380 /* IOUSBMassStorageClassTimestamps.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOUSBMassStorageClassTimestamps.h; sourceTree = "<group>"; };
 		44BA14D1013F496804CE15B4 /* IOUFIStorageServices.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOUFIStorageServices.cpp; sourceTree = "<group>"; };
 		44BA14D2013F496804CE15B4 /* IOUFIStorageServices.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOUFIStorageServices.h; sourceTree = "<group>"; };
+		528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOUSBMassStorageClass_Embedded.xcconfig; sourceTree = "<group>"; };
+		528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOUSBMassStorageClass.xcconfig; sourceTree = "<group>"; };
 		52C567FF0EBA328600A6A1AA /* UMCLogger.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = UMCLogger.xcodeproj; path = UMCLogger/UMCLogger.xcodeproj; sourceTree = "<group>"; };
 		52DEDA790D57A5B800F6FF83 /* Info-IOUSBMassStorageClass.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOUSBMassStorageClass.plist"; sourceTree = "<group>"; };
 		52DEDA7A0D57A5B800F6FF83 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		F3476D6C0F54778B00C7C673 /* IOUSBMassStorageClass.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOUSBMassStorageClass.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
 		F5C72C5902B5B8E201CE155F /* Debugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Debugging.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -138,7 +139,8 @@
 		089C166AFE841209C02AAC07 /* IOUSBMassStorageClass */ = {
 			isa = PBXGroup;
 			children = (
-				F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */,
+				528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */,
+				528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */,
 				F5C72C5902B5B8E201CE155F /* Debugging.h */,
 				247142CAFF3F8F9811CA285C /* Source */,
 				52C567E90EBA31B600A6A1AA /* UMCLogger */,
@@ -414,6 +416,7 @@
 		};
 		52B3F8D50EF05AF300AC4FDC /* Logging */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -433,7 +436,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -460,6 +463,7 @@
 		};
 		52B3F8D70EF05AFC00AC4FDC /* kprintf */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -478,7 +482,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -499,6 +503,7 @@
 		};
 		52DEDA770D57A5B800F6FF83 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -513,7 +518,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -534,6 +539,7 @@
 		};
 		52DEDA780D57A5B800F6FF83 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -546,7 +552,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -567,6 +573,7 @@
 		};
 		F3476D680F54778B00C7C673 /* Deployment */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -580,7 +587,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -600,6 +607,7 @@
 		};
 		F3476D690F54778B00C7C673 /* kprintf */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -618,7 +626,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -639,6 +647,7 @@
 		};
 		F3476D6A0F54778B00C7C673 /* Logging */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -658,7 +667,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -679,6 +688,7 @@
 		};
 		F3476D6B0F54778B00C7C673 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -691,7 +701,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -718,6 +728,7 @@
 		};
 		F3476D6F0F5477AE00C7C673 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -732,7 +743,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -752,7 +763,7 @@
 		};
 		F3476D700F5477AE00C7C673 /* Deployment-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -766,7 +777,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -792,6 +803,7 @@
 		};
 		F3476D720F5477B400C7C673 /* Logging-Embedded */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 528E2F0714329126008DDFD1 /* IOUSBMassStorageClass.xcconfig */;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
 				COPY_PHASE_STRIP = YES;
@@ -810,7 +822,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = "";
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -830,7 +842,7 @@
 		};
 		F3476D730F5477B400C7C673 /* Logging-Embedded */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = F3CC5ABF0F5C47DD002C23BE /* AspenSDK.xcconfig */;
+			baseConfigurationReference = 528E2F0614329117008DDFD1 /* IOUSBMassStorageClass_Embedded.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
@@ -848,7 +860,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBMassStorageClass;
-				MODULE_VERSION = 3.0.3;
+				MODULE_VERSION = 3.0.1;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

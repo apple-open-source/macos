@@ -29,6 +29,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.Toolbar = function()
 {
     this.element = document.getElementById("toolbar");
@@ -42,9 +45,9 @@ WebInspector.Toolbar = function()
 }
 
 WebInspector.Toolbar.prototype = {
-    set attached(attached)
+    set compact(compact)
     {
-        if (attached)
+        if (compact)
             this.element.addStyleClass("toolbar-small");
         else
             this.element.removeStyleClass("toolbar-small");
@@ -64,7 +67,7 @@ WebInspector.Toolbar.prototype = {
 
     _toolbarDragStart: function(event)
     {
-        if ((!WebInspector.attached && WebInspector.platformFlavor !== WebInspector.PlatformFlavor.MacLeopard && WebInspector.platformFlavor !== WebInspector.PlatformFlavor.MacSnowLeopard) || WebInspector.port == "qt")
+        if ((!WebInspector.isCompactMode() && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacLeopard && WebInspector.platformFlavor() !== WebInspector.PlatformFlavor.MacSnowLeopard) || WebInspector.port() == "qt")
             return;
 
         var target = event.target;
@@ -77,7 +80,7 @@ WebInspector.Toolbar.prototype = {
         this.element.lastScreenX = event.screenX;
         this.element.lastScreenY = event.screenY;
 
-        WebInspector.elementDragStart(this.element, this._toolbarDrag.bind(this), this._toolbarDragEnd.bind(this), event, (WebInspector.attached ? "row-resize" : "default"));
+        WebInspector.elementDragStart(this.element, this._toolbarDrag.bind(this), this._toolbarDragEnd.bind(this), event, (WebInspector.isCompactMode() ? "row-resize" : "default"));
     },
 
     _toolbarDragEnd: function(event)
@@ -90,7 +93,7 @@ WebInspector.Toolbar.prototype = {
 
     _toolbarDrag: function(event)
     {
-        if (WebInspector.attached) {
+        if (WebInspector.isCompactMode()) {
             var height = window.innerHeight - (event.screenY - this.element.lastScreenY);
 
             InspectorFrontendHost.setAttachedWindowHeight(height);
@@ -142,7 +145,7 @@ WebInspector.Toolbar.prototype = {
         else
             this._dropdownButton.addStyleClass("hidden");
     }
-};
+}
 
 WebInspector.Toolbar.createPanelToolbarItem = function(panel)
 {
@@ -153,21 +156,24 @@ WebInspector.Toolbar.createPanelToolbarItem = function(panel)
     function onToolbarItemClicked()
     {
         WebInspector.toolbar._updateDropdownButtonAndHideDropdown();
-        WebInspector.currentPanel = panel;
+        WebInspector.inspectorView.setCurrentPanel(panel);
     }
-    toolbarItem.addEventListener("click", onToolbarItemClicked);
+    toolbarItem.addEventListener("click", onToolbarItemClicked, false);
 
     var iconElement = toolbarItem.createChild("div", "toolbar-icon");
 
     if ("toolbarItemLabel" in panel)
         toolbarItem.createChild("div", "toolbar-label").textContent = panel.toolbarItemLabel;
 
-    if (panel === WebInspector.currentPanel)
+    if (panel === WebInspector.inspectorView.currentPanel())
         toolbarItem.addStyleClass("toggled-on");
 
     return toolbarItem;
 }
 
+/**
+ * @constructor
+ */
 WebInspector.ToolbarDropdown = function()
 {
     this._toolbar = document.getElementById("toolbar");
@@ -187,13 +193,12 @@ WebInspector.ToolbarDropdown.prototype = {
             return;
         var style = this.element.style;
         this._populate();
-        var top = this._arrow.totalOffsetTop + this._arrow.clientHeight;
+        var top = this._arrow.totalOffsetTop() + this._arrow.clientHeight;
         this._arrow.addStyleClass("dropdown-visible");
         this.element.style.top = top + "px";
-        this.element.style.left = this._arrow.totalOffsetLeft + "px";
+        this.element.style.left = this._arrow.totalOffsetLeft() + "px";
         this._contentElement.style.maxHeight = window.innerHeight - top - 20 + "px";
         this._toolbar.appendChild(this.element);
-        WebInspector.currentFocusElement = this.contentElement;
     },
 
     hide: function()
@@ -224,7 +229,12 @@ WebInspector.ToolbarDropdown.prototype = {
     {
         if (event.keyCode !== WebInspector.KeyboardShortcut.Keys.Esc.code)
             return;
-        event.stopPropagation();
+        event.consume();
         this.hide();
     }
-};
+}
+
+/**
+ * @type {?WebInspector.Toolbar}
+ */
+WebInspector.toolbar = null;

@@ -26,17 +26,25 @@
 #include "RenderSVGHiddenContainer.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGTransformableContainer.h"
+#include "SVGElementInstance.h"
 #include "SVGNames.h"
 
 namespace WebCore {
 
-// Animated property declarations
+// Animated property definitions
 DEFINE_ANIMATED_BOOLEAN(SVGGElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
-SVGGElement::SVGGElement(const QualifiedName& tagName, Document* document)
-    : SVGStyledTransformableElement(tagName, document)
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGGElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
+SVGGElement::SVGGElement(const QualifiedName& tagName, Document* document, ConstructionType constructionType)
+    : SVGStyledTransformableElement(tagName, document, constructionType)
 {
     ASSERT(hasTagName(SVGNames::gTag));
+    registerAnimatedPropertiesForSVGGElement();
 }
 
 PassRefPtr<SVGGElement> SVGGElement::create(const QualifiedName& tagName, Document* document)
@@ -44,59 +52,48 @@ PassRefPtr<SVGGElement> SVGGElement::create(const QualifiedName& tagName, Docume
     return adoptRef(new SVGGElement(tagName, document));
 }
 
-void SVGGElement::parseMappedAttribute(Attribute* attr)
+bool SVGGElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (SVGTests::parseMappedAttribute(attr))
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGGElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledTransformableElement::parseAttribute(attr);
         return;
-    if (SVGLangSpace::parseMappedAttribute(attr))
+    }
+
+    if (SVGTests::parseAttribute(attr))
         return;
-    if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
+    if (SVGLangSpace::parseAttribute(attr))
+        return;
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
         return;
 
-    SVGStyledTransformableElement::parseMappedAttribute(attr);
+    ASSERT_NOT_REACHED();
 }
 
 void SVGGElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
-
-    if (SVGTests::handleAttributeChange(this, attrName))
-        return;
-
-    RenderObject* renderer = this->renderer();
-    if (!renderer)
-        return;
-
-    if (SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-}
-
-void SVGGElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeExternalResourcesRequired();
-        SVGTests::synchronizeProperties(this, attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
+    if (SVGTests::handleAttributeChange(this, attrName))
+        return;
 
-AttributeToPropertyTypeMap& SVGGElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGGElement::fillAttributeToPropertyTypeMap()
-{
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap());
+    if (RenderObject* renderer = this->renderer())
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
 RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle* style)
@@ -111,9 +108,11 @@ RenderObject* SVGGElement::createRenderer(RenderArena* arena, RenderStyle* style
     return new (arena) RenderSVGTransformableContainer(this);
 }
 
-bool SVGGElement::rendererIsNeeded(RenderStyle*)
+bool SVGGElement::rendererIsNeeded(const NodeRenderingContext&)
 {
-    return parentNode() && parentNode()->isSVGElement(); 
+    // Unlike SVGStyledElement::rendererIsNeeded(), we still create renderers, even if
+    // display is set to 'none' - which is special to SVG <g> container elements.
+    return parentOrHostElement() && parentOrHostElement()->isSVGElement();
 }
 
 }

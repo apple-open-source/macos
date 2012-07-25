@@ -25,9 +25,11 @@
 #include "FrameView.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "Document.h"
 #include <stdarg.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
 
 using std::swap;
 
@@ -101,7 +103,7 @@ void FrameTree::actuallyAppendChild(PassRefPtr<Frame> child)
     } else
         m_firstChild = child;
 
-    m_childCount++;
+    m_scopedChildCount = invalidCount;
 
     ASSERT(!m_lastChild->tree()->m_nextSibling);
 }
@@ -123,7 +125,7 @@ void FrameTree::removeChild(Frame* child)
     child->tree()->m_previousSibling = 0;
     child->tree()->m_nextSibling = 0;
 
-    m_childCount--;
+    m_scopedChildCount = invalidCount;
 }
 
 AtomicString FrameTree::uniqueChildName(const AtomicString& requestedName) const
@@ -173,6 +175,64 @@ AtomicString FrameTree::uniqueChildName(const AtomicString& requestedName) const
     name += suffix;
 
     return AtomicString(name);
+}
+
+inline Frame* FrameTree::scopedChild(unsigned index, TreeScope* scope) const
+{
+    unsigned scopedIndex = 0;
+    for (Frame* result = firstChild(); result; result = result->tree()->nextSibling()) {
+        if (result->inScope(scope)) {
+            if (scopedIndex == index)
+                return result;
+            scopedIndex++;
+        }
+    }
+
+    return 0;
+}
+
+inline Frame* FrameTree::scopedChild(const AtomicString& name, TreeScope* scope) const
+{
+    for (Frame* child = firstChild(); child; child = child->tree()->nextSibling())
+        if (child->tree()->uniqueName() == name && child->inScope(scope))
+            return child;
+    return 0;
+}
+
+inline unsigned FrameTree::scopedChildCount(TreeScope* scope) const
+{
+    unsigned scopedCount = 0;
+    for (Frame* result = firstChild(); result; result = result->tree()->nextSibling()) {
+        if (result->inScope(scope))
+            scopedCount++;
+    }
+
+    return scopedCount;
+}
+
+Frame* FrameTree::scopedChild(unsigned index) const
+{
+    return scopedChild(index, m_thisFrame->document());
+}
+
+Frame* FrameTree::scopedChild(const AtomicString& name) const
+{
+    return scopedChild(name, m_thisFrame->document());
+}
+
+unsigned FrameTree::scopedChildCount() const
+{
+    if (m_scopedChildCount == invalidCount)
+        m_scopedChildCount = scopedChildCount(m_thisFrame->document());
+    return m_scopedChildCount;
+}
+
+unsigned FrameTree::childCount() const
+{
+    unsigned count = 0;
+    for (Frame* result = firstChild(); result; result = result->tree()->nextSibling())
+        ++count;
+    return count;
 }
 
 Frame* FrameTree::child(unsigned index) const
@@ -335,3 +395,46 @@ Frame* FrameTree::top(bool checkForDisconnectedFrame) const
 }
 
 } // namespace WebCore
+
+#ifndef NDEBUG
+
+static void printIndent(int indent)
+{
+    for (int i = 0; i < indent; ++i)
+        printf("    ");
+}
+
+static void printFrames(const WebCore::Frame* frame, const WebCore::Frame* targetFrame, int indent)
+{
+    if (frame == targetFrame) {
+        printf("--> ");
+        printIndent(indent - 1);
+    } else
+        printIndent(indent);
+
+    WebCore::FrameView* view = frame->view();
+    printf("Frame %p %dx%d\n", frame, view ? view->width() : 0, view ? view->height() : 0);
+    printIndent(indent);
+    printf("  ownerElement=%p\n", frame->ownerElement());
+    printIndent(indent);
+    printf("  frameView=%p\n", view);
+    printIndent(indent);
+    printf("  document=%p\n", frame->document());
+    printIndent(indent);
+    printf("  uri=%s\n\n", frame->document()->documentURI().utf8().data());
+
+    for (WebCore::Frame* child = frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
+        printFrames(child, targetFrame, indent + 1);
+}
+
+void showFrameTree(const WebCore::Frame* frame)
+{
+    if (!frame) {
+        printf("Null input frame\n");
+        return;
+    }
+
+    printFrames(frame->tree()->top(), frame, 0);
+}
+
+#endif

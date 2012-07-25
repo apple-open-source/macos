@@ -2,8 +2,8 @@
 
 HOSTTYPE=sco.i386
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 /bin/cc -b elf -D_SVID3 "$@"

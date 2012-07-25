@@ -24,20 +24,23 @@
  */
 #import "CorrectionPanel.h"
 
-#import "WebViewPrivate.h"
+#import "WebViewInternal.h"
 
-#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#if USE(AUTOCORRECTION_PANEL)
 using namespace WebCore;
 
-static inline NSCorrectionIndicatorType correctionIndicatorType(CorrectionPanelInfo::PanelType panelType)
+static inline NSCorrectionIndicatorType correctionIndicatorType(AlternativeTextType alternativeTextType)
 {
-    switch (panelType) {
-    case CorrectionPanelInfo::PanelTypeCorrection:
+    switch (alternativeTextType) {
+    case AlternativeTextTypeCorrection:
         return NSCorrectionIndicatorTypeDefault;
-    case CorrectionPanelInfo::PanelTypeReversion:
+    case AlternativeTextTypeReversion:
         return NSCorrectionIndicatorTypeReversion;
-    case CorrectionPanelInfo::PanelTypeSpellingSuggestions:
+    case AlternativeTextTypeSpellingSuggestions:
         return NSCorrectionIndicatorTypeGuesses;
+    case AlternativeTextTypeDictationAlternatives:
+        ASSERT_NOT_REACHED();
+        break;
     }
     ASSERT_NOT_REACHED();
     return NSCorrectionIndicatorTypeDefault;
@@ -45,18 +48,18 @@ static inline NSCorrectionIndicatorType correctionIndicatorType(CorrectionPanelI
 
 CorrectionPanel::CorrectionPanel()
     : m_wasDismissedExternally(false)
-    , m_reasonForDismissing(ReasonForDismissingCorrectionPanelIgnored)
+    , m_reasonForDismissing(ReasonForDismissingAlternativeTextIgnored)
 {
 }
 
 CorrectionPanel::~CorrectionPanel()
 {
-    dismissInternal(ReasonForDismissingCorrectionPanelIgnored, false);
+    dismissInternal(ReasonForDismissingAlternativeTextIgnored, false);
 }
 
-void CorrectionPanel::show(WebView* view, CorrectionPanelInfo::PanelType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
+void CorrectionPanel::show(WebView* view, AlternativeTextType type, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacementString, const Vector<String>& alternativeReplacementStrings)
 {
-    dismissInternal(ReasonForDismissingCorrectionPanelIgnored, false);
+    dismissInternal(ReasonForDismissingAlternativeTextIgnored, false);
     
     if (!view)
         return;
@@ -74,17 +77,17 @@ void CorrectionPanel::show(WebView* view, CorrectionPanelInfo::PanelType type, c
             [alternativeStrings addObject:(NSString*)alternativeReplacementStrings[i]];
     }
 
-    [[NSSpellChecker sharedSpellChecker] showCorrectionIndicatorOfType:indicatorType primaryString:replacementStringAsNSString alternativeStrings:alternativeStrings forStringInRect:[view convertRect:boundingBoxOfReplacedString fromView:nil] view:m_view.get() completionHandler:^(NSString* acceptedString) {
+    [[NSSpellChecker sharedSpellChecker] showCorrectionIndicatorOfType:indicatorType primaryString:replacementStringAsNSString alternativeStrings:alternativeStrings forStringInRect:[view _convertRectFromRootView:boundingBoxOfReplacedString] view:m_view.get() completionHandler:^(NSString* acceptedString) {
         handleAcceptedReplacement(acceptedString, replacedStringAsNSString, replacementStringAsNSString, indicatorType);
     }];
 }
 
-String CorrectionPanel::dismiss(ReasonForDismissingCorrectionPanel reason)
+String CorrectionPanel::dismiss(ReasonForDismissingAlternativeText reason)
 {
     return dismissInternal(reason, true);
 }
 
-String CorrectionPanel::dismissInternal(ReasonForDismissingCorrectionPanel reason, bool dismissingExternally)
+String CorrectionPanel::dismissInternal(ReasonForDismissingAlternativeText reason, bool dismissingExternally)
 {
     if (!isShowing())
         return String();
@@ -114,7 +117,7 @@ void CorrectionPanel::handleAcceptedReplacement(NSString* acceptedReplacement, N
         if (acceptedReplacement)
             [spellChecker recordResponse:NSCorrectionResponseAccepted toCorrection:acceptedReplacement forWord:replaced language:nil inSpellDocumentWithTag:documentTag];
         else {
-            if (!m_wasDismissedExternally || m_reasonForDismissing == ReasonForDismissingCorrectionPanelCancelled)
+            if (!m_wasDismissedExternally || m_reasonForDismissing == ReasonForDismissingAlternativeTextCancelled)
                 [spellChecker recordResponse:NSCorrectionResponseRejected toCorrection:proposedReplacement forWord:replaced language:nil inSpellDocumentWithTag:documentTag];
             else
                 [spellChecker recordResponse:NSCorrectionResponseIgnored toCorrection:proposedReplacement forWord:replaced language:nil inSpellDocumentWithTag:documentTag];
@@ -130,11 +133,11 @@ void CorrectionPanel::handleAcceptedReplacement(NSString* acceptedReplacement, N
         break;
     }
     
-    [m_view.get() handleCorrectionPanelResult:acceptedReplacement];
+    [m_view.get() handleAcceptedAlternativeText:acceptedReplacement];
     m_view.clear();
     if (acceptedReplacement)
         m_resultForDismissal.adoptNS([acceptedReplacement copy]);
 }
 
-#endif // !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#endif //USE(AUTOCORRECTION_PANEL)
 

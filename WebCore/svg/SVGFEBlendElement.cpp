@@ -25,6 +25,7 @@
 
 #include "Attribute.h"
 #include "FilterEffect.h"
+#include "SVGElementInstance.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
 
@@ -33,13 +34,21 @@ namespace WebCore {
 // Animated property definitions
 DEFINE_ANIMATED_STRING(SVGFEBlendElement, SVGNames::inAttr, In1, in1)
 DEFINE_ANIMATED_STRING(SVGFEBlendElement, SVGNames::in2Attr, In2, in2)
-DEFINE_ANIMATED_ENUMERATION(SVGFEBlendElement, SVGNames::modeAttr, Mode, mode)
+DEFINE_ANIMATED_ENUMERATION(SVGFEBlendElement, SVGNames::modeAttr, Mode, mode, BlendModeType)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEBlendElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in2)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(mode)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGFEBlendElement::SVGFEBlendElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_mode(FEBLEND_MODE_NORMAL)
 {
     ASSERT(hasTagName(SVGNames::feBlendTag));
+    registerAnimatedPropertiesForSVGFEBlendElement();
 }
 
 PassRefPtr<SVGFEBlendElement> SVGFEBlendElement::create(const QualifiedName& tagName, Document* document)
@@ -47,33 +56,50 @@ PassRefPtr<SVGFEBlendElement> SVGFEBlendElement::create(const QualifiedName& tag
     return adoptRef(new SVGFEBlendElement(tagName, document));
 }
 
-void SVGFEBlendElement::parseMappedAttribute(Attribute* attr)
+bool SVGFEBlendElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    const String& value = attr->value();
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        supportedAttributes.add(SVGNames::modeAttr);
+        supportedAttributes.add(SVGNames::inAttr);
+        supportedAttributes.add(SVGNames::in2Attr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGFEBlendElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGFilterPrimitiveStandardAttributes::parseAttribute(attr);
+        return;
+    }
+
+    const AtomicString& value = attr->value();
     if (attr->name() == SVGNames::modeAttr) {
-        if (value == "normal")
-            setModeBaseValue(FEBLEND_MODE_NORMAL);
-        else if (value == "multiply")
-            setModeBaseValue(FEBLEND_MODE_MULTIPLY);
-        else if (value == "screen")
-            setModeBaseValue(FEBLEND_MODE_SCREEN);
-        else if (value == "darken")
-            setModeBaseValue(FEBLEND_MODE_DARKEN);
-        else if (value == "lighten")
-            setModeBaseValue(FEBLEND_MODE_LIGHTEN);
-    } else if (attr->name() == SVGNames::inAttr)
+        BlendModeType propertyValue = SVGPropertyTraits<BlendModeType>::fromString(value);
+        if (propertyValue > 0)
+            setModeBaseValue(propertyValue);
+        return;
+    }
+
+    if (attr->name() == SVGNames::inAttr) {
         setIn1BaseValue(value);
-    else if (attr->name() == SVGNames::in2Attr)
+        return;
+    }
+
+    if (attr->name() == SVGNames::in2Attr) {
         setIn2BaseValue(value);
-    else
-        SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
+        return;
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 bool SVGFEBlendElement::setFilterEffectAttribute(FilterEffect* effect, const QualifiedName& attrName)
 {
     FEBlend* blend = static_cast<FEBlend*>(effect);
     if (attrName == SVGNames::modeAttr)
-        return blend->setBlendMode(static_cast<BlendModeType>(mode()));
+        return blend->setBlendMode(mode());
 
     ASSERT_NOT_REACHED();
     return false;
@@ -81,49 +107,24 @@ bool SVGFEBlendElement::setFilterEffectAttribute(FilterEffect* effect, const Qua
 
 void SVGFEBlendElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::modeAttr)
-        primitiveAttributeChanged(attrName);
-
-    if (attrName == SVGNames::inAttr
-        || attrName == SVGNames::in2Attr)
-        invalidate();
-}
-
-void SVGFEBlendElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGFilterPrimitiveStandardAttributes::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeMode();
-        synchronizeIn1();
-        synchronizeIn2();
+    if (!isSupportedAttribute(attrName)) {
+        SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::modeAttr)
-        synchronizeMode();
-    else if (attrName == SVGNames::inAttr)
-        synchronizeIn1();
-    else if (attrName == SVGNames::in2Attr)
-        synchronizeIn2();
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
-AttributeToPropertyTypeMap& SVGFEBlendElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
+    if (attrName == SVGNames::modeAttr) {
+        primitiveAttributeChanged(attrName);
+        return;
+    }
 
-void SVGFEBlendElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+    if (attrName == SVGNames::inAttr || attrName == SVGNames::in2Attr) {
+        invalidate();
+        return;
+    }
 
-    SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);    
-    attributeToPropertyTypeMap.set(SVGNames::inAttr, AnimatedString);
-    attributeToPropertyTypeMap.set(SVGNames::in2Attr, AnimatedString);
-    attributeToPropertyTypeMap.set(SVGNames::modeAttr, AnimatedEnumeration);
+    ASSERT_NOT_REACHED();
 }
 
 PassRefPtr<FilterEffect> SVGFEBlendElement::build(SVGFilterBuilder* filterBuilder, Filter* filter)
@@ -134,7 +135,7 @@ PassRefPtr<FilterEffect> SVGFEBlendElement::build(SVGFilterBuilder* filterBuilde
     if (!input1 || !input2)
         return 0;
 
-    RefPtr<FilterEffect> effect = FEBlend::create(filter, static_cast<BlendModeType>(mode()));
+    RefPtr<FilterEffect> effect = FEBlend::create(filter, mode());
     FilterEffectVector& inputEffects = effect->inputEffects();
     inputEffects.reserveCapacity(2);
     inputEffects.append(input1);
@@ -145,5 +146,3 @@ PassRefPtr<FilterEffect> SVGFEBlendElement::build(SVGFilterBuilder* filterBuilde
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -58,6 +58,7 @@ class IODCLProgram : public OSObject
 		struct ExpansionData 
 		{
 			IOFWIsochResourceFlags		resourceFlags ;
+            IODMACommand *              fDMACommand;
 		};
 		
 	/*! @var reserved

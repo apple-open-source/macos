@@ -26,6 +26,8 @@ messages -> WebInspector {
     Show()
     Close()
     ShowConsole()
+    ShowResources()
+    ShowMainResourceForFrame(uint64_t frameID)
     StartJavaScriptDebugging()
     StopJavaScriptDebugging()
     StartJavaScriptProfiling()
@@ -33,7 +35,11 @@ messages -> WebInspector {
     StartPageProfiling()
     StopPageProfiling()
 
-    RequestAttachWindow()
+#if ENABLE(INSPECTOR_SERVER)
+    DispatchMessageFromRemoteFrontend(WTF::String message)
+    RemoteFrontendConnected()
+    RemoteFrontendDisconnected()
+#endif
 }
 
 #endif

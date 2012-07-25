@@ -1,0 +1,20 @@
+--- Makefile.in.orig	2010-03-19 03:23:35.000000000 -0700
++++ Makefile.in	2011-11-28 18:42:49.000000000 -0800
+@@ -1325,7 +1323,7 @@
+ 	$(MAKE) $(AM_MAKEFLAGS) $(check_SCRIPTS)
+ 	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
+ check: check-am
+-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(SCRIPTS) $(MANS) $(DATA) \
++all-am: Makefile $(LTLIBRARIES) $(SCRIPTS) $(MANS) $(DATA) \
+ 		$(HEADERS) config.h
+ install-binPROGRAMS: install-libLTLIBRARIES
+ 
+@@ -1391,7 +1389,7 @@
+ 
+ install-dvi-am:
+ 
+-install-exec-am: install-binPROGRAMS install-binSCRIPTS \
++install-exec-am: install-binSCRIPTS \
+ 	install-libLTLIBRARIES
+ 
+ install-html: install-html-am

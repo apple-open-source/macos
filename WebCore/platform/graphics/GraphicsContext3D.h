@@ -26,14 +26,14 @@
 #ifndef GraphicsContext3D_h
 #define GraphicsContext3D_h
 
-#include "IntSize.h"
+#include "IntRect.h"
 #include "GraphicsLayer.h"
 #include "GraphicsTypes3D.h"
 #include "PlatformString.h"
-
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/RefCounted.h>
 
 // FIXME: Find a better way to avoid the name confliction for NO_ERROR.
 #if ((PLATFORM(CHROMIUM) && OS(WINDOWS)) || PLATFORM(WIN) || (PLATFORM(QT) && OS(WINDOWS)))
@@ -43,33 +43,44 @@
 #undef VERSION
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(GTK)
+#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
 #include "ANGLEWebKitBridge.h"
 #endif
 
 #if PLATFORM(MAC)
 #include <OpenGL/OpenGL.h>
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class CALayer;
-@class WebGLLayer;
-#else
-class CALayer;
-class WebGLLayer;
-#endif
+OBJC_CLASS CALayer;
+OBJC_CLASS WebGLLayer;
 #elif PLATFORM(QT)
 QT_BEGIN_NAMESPACE
 class QPainter;
 class QRect;
+class QGLWidget;
+class QGLContext;
+class QOpenGLContext;
+class QSurface;
 QT_END_NAMESPACE
-#elif PLATFORM(GTK)
+#elif PLATFORM(GTK) || PLATFORM(EFL)
 typedef unsigned int GLuint;
 #endif
 
 #if PLATFORM(MAC)
 typedef CGLContextObj PlatformGraphicsContext3D;
+#elif PLATFORM(QT)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+typedef QOpenGLContext* PlatformGraphicsContext3D;
+typedef QSurface* PlatformGraphicsSurface3D;
+#else
+typedef QGLContext* PlatformGraphicsContext3D;
+typedef QGLWidget* PlatformGraphicsSurface3D;
+#endif
 #else
 typedef void* PlatformGraphicsContext3D;
+#endif
+
+#if PLATFORM(CHROMIUM) && USE(SKIA)
+class GrContext;
 #endif
 
 // These are currently the same among all implementations.
@@ -84,12 +95,18 @@ namespace WebCore {
 class CanvasRenderingContext;
 class DrawingBuffer;
 class Extensions3D;
-#if PLATFORM(MAC) || PLATFORM(GTK)
+#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
 class Extensions3DOpenGL;
+#endif
+#if PLATFORM(QT)
+class Extensions3DQt;
 #endif
 class HostWindow;
 class Image;
+class ImageBuffer;
 class ImageData;
+class IntRect;
+class IntSize;
 #if USE(CAIRO)
 class PlatformContextCairo;
 #endif
@@ -100,10 +117,7 @@ struct ActiveInfo {
     GC3Dint size;
 };
 
-// FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
-class GraphicsContext3DInternal;
-#endif
+class GraphicsContext3DPrivate;
 
 class GraphicsContext3D : public RefCounted<GraphicsContext3D> {
 public:
@@ -425,8 +439,10 @@ public:
             , stencil(false)
             , antialias(true)
             , premultipliedAlpha(true)
-            , canRecoverFromContextLoss(true)
             , preserveDrawingBuffer(false)
+            , noExtensions(false)
+            , shareResources(true)
+            , preferDiscreteGPU(false)
         {
         }
 
@@ -435,8 +451,10 @@ public:
         bool stencil;
         bool antialias;
         bool premultipliedAlpha;
-        bool canRecoverFromContextLoss;
         bool preserveDrawingBuffer;
+        bool noExtensions;
+        bool shareResources;
+        bool preferDiscreteGPU;
     };
 
     enum RenderStyle {
@@ -450,7 +468,14 @@ public:
         virtual ~ContextLostCallback() {}
     };
 
+    class ErrorMessageCallback {
+    public:
+        virtual void onErrorMessage(const String& message, GC3Dint id) = 0;
+        virtual ~ErrorMessageCallback() { }
+    };
+
     void setContextLostCallback(PassOwnPtr<ContextLostCallback>);
+    void setErrorMessageCallback(PassOwnPtr<ErrorMessageCallback>);
 
     static PassRefPtr<GraphicsContext3D> create(Attributes, HostWindow*, RenderStyle = RenderOffscreen);
     ~GraphicsContext3D();
@@ -462,6 +487,9 @@ public:
 #elif PLATFORM(CHROMIUM)
     PlatformGraphicsContext3D platformGraphicsContext3D() const;
     Platform3DObject platformTexture() const;
+#if USE(SKIA)
+    GrContext* grContext();
+#endif
 #if USE(ACCELERATED_COMPOSITING)
     PlatformLayer* platformLayer() const;
 #endif
@@ -474,6 +502,15 @@ public:
 #elif PLATFORM(GTK)
     PlatformGraphicsContext3D platformGraphicsContext3D();
     Platform3DObject platformTexture() const { return m_texture; }
+#if USE(ACCELERATED_COMPOSITING)
+    PlatformLayer* platformLayer() const;
+#endif
+#elif PLATFORM(EFL)
+    PlatformGraphicsContext3D platformGraphicsContext3D() const;
+    Platform3DObject platformTexture() const { return m_texture; }
+#if USE(ACCELERATED_COMPOSITING)
+    PlatformLayer* platformLayer() const;
+#endif
 #else
     PlatformGraphicsContext3D platformGraphicsContext3D() const { return NullPlatformGraphicsContext3D; }
     Platform3DObject platformTexture() const { return NullPlatform3DObject; }
@@ -481,11 +518,9 @@ public:
     PlatformLayer* platformLayer() const { return 0; }
 #endif
 #endif
-    void makeContextCurrent();
+    bool makeContextCurrent();
 
-    PassRefPtr<DrawingBuffer> createDrawingBuffer(const IntSize& = IntSize());
-    
-#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(GTK)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
     // With multisampling on, blit from multisampleFBO to regular FBO.
     void prepareTexture();
 #endif
@@ -504,10 +539,10 @@ public:
     // Computes the components per pixel and bytes per component
     // for the given format and type combination. Returns false if
     // either was an invalid enum.
-    bool computeFormatAndTypeParameters(GC3Denum format,
-                                        GC3Denum type,
-                                        unsigned int* componentsPerPixel,
-                                        unsigned int* bytesPerComponent);
+    static bool computeFormatAndTypeParameters(GC3Denum format,
+                                               GC3Denum type,
+                                               unsigned int* componentsPerPixel,
+                                               unsigned int* bytesPerComponent);
 
     // Computes the image size in bytes. If paddingInBytes is not null, padding
     // is also calculated in return. Returns NO_ERROR if succeed, otherwise
@@ -635,9 +670,8 @@ public:
     void colorMask(GC3Dboolean red, GC3Dboolean green, GC3Dboolean blue, GC3Dboolean alpha);
     void compileShader(Platform3DObject);
 
-    // void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Dsizei imageSize, const void* data);
-    // void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Dsizei imageSize, const void* data);
-
+    void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Dsizei imageSize, const void* data);
+    void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Dsizei imageSize, const void* data);
     void copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border);
     void copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
     void cullFace(GC3Denum mode);
@@ -675,10 +709,7 @@ public:
     void getRenderbufferParameteriv(GC3Denum target, GC3Denum pname, GC3Dint* value);
     void getShaderiv(Platform3DObject, GC3Denum pname, GC3Dint* value);
     String getShaderInfoLog(Platform3DObject);
-
-    // TBD
-    // void glGetShaderPrecisionFormat (GC3Denum shadertype, GC3Denum precisiontype, GC3Dint* range, GC3Dint* precision);
-
+    void getShaderPrecisionFormat(GC3Denum shaderType, GC3Denum precisionType, GC3Dint* range, GC3Dint* precision);
     String getShaderSource(Platform3DObject);
     String getString(GC3Denum name);
     void getTexParameterfv(GC3Denum target, GC3Denum pname, GC3Dfloat* value);
@@ -723,26 +754,25 @@ public:
     void texParameteri(GC3Denum target, GC3Denum pname, GC3Dint param);
     void texSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, const void* pixels);
 
-    // FIXME: change the argument orders to match OpenGL's.
     void uniform1f(GC3Dint location, GC3Dfloat x);
-    void uniform1fv(GC3Dint location, GC3Dfloat* v, GC3Dsizei size);
+    void uniform1fv(GC3Dint location, GC3Dsizei, GC3Dfloat* v);
     void uniform1i(GC3Dint location, GC3Dint x);
-    void uniform1iv(GC3Dint location, GC3Dint* v, GC3Dsizei size);
-    void uniform2f(GC3Dint location, GC3Dfloat x, float y);
-    void uniform2fv(GC3Dint location, GC3Dfloat* v, GC3Dsizei size);
+    void uniform1iv(GC3Dint location, GC3Dsizei, GC3Dint* v);
+    void uniform2f(GC3Dint location, GC3Dfloat x, GC3Dfloat y);
+    void uniform2fv(GC3Dint location, GC3Dsizei, GC3Dfloat* v);
     void uniform2i(GC3Dint location, GC3Dint x, GC3Dint y);
-    void uniform2iv(GC3Dint location, GC3Dint* v, GC3Dsizei size);
+    void uniform2iv(GC3Dint location, GC3Dsizei, GC3Dint* v);
     void uniform3f(GC3Dint location, GC3Dfloat x, GC3Dfloat y, GC3Dfloat z);
-    void uniform3fv(GC3Dint location, GC3Dfloat* v, GC3Dsizei size);
+    void uniform3fv(GC3Dint location, GC3Dsizei, GC3Dfloat* v);
     void uniform3i(GC3Dint location, GC3Dint x, GC3Dint y, GC3Dint z);
-    void uniform3iv(GC3Dint location, GC3Dint* v, GC3Dsizei size);
+    void uniform3iv(GC3Dint location, GC3Dsizei, GC3Dint* v);
     void uniform4f(GC3Dint location, GC3Dfloat x, GC3Dfloat y, GC3Dfloat z, GC3Dfloat w);
-    void uniform4fv(GC3Dint location, GC3Dfloat* v, GC3Dsizei size);
+    void uniform4fv(GC3Dint location, GC3Dsizei, GC3Dfloat* v);
     void uniform4i(GC3Dint location, GC3Dint x, GC3Dint y, GC3Dint z, GC3Dint w);
-    void uniform4iv(GC3Dint location, GC3Dint* v, GC3Dsizei size);
-    void uniformMatrix2fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size);
-    void uniformMatrix3fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size);
-    void uniformMatrix4fv(GC3Dint location, GC3Dboolean transpose, GC3Dfloat* value, GC3Dsizei size);
+    void uniform4iv(GC3Dint location, GC3Dsizei, GC3Dint* v);
+    void uniformMatrix2fv(GC3Dint location, GC3Dsizei, GC3Dboolean transpose, GC3Dfloat* value);
+    void uniformMatrix3fv(GC3Dint location, GC3Dsizei, GC3Dboolean transpose, GC3Dfloat* value);
+    void uniformMatrix4fv(GC3Dint location, GC3Dsizei, GC3Dboolean transpose, GC3Dfloat* value);
 
     void useProgram(Platform3DObject);
     void validateProgram(Platform3DObject);
@@ -763,29 +793,23 @@ public:
     void reshape(int width, int height);
 
 #if USE(CG)
-    void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
-                       int canvasWidth, int canvasHeight, CGContextRef context);
-#elif PLATFORM(GTK)
+    static void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
+                              int canvasWidth, int canvasHeight, CGContextRef);
+#elif PLATFORM(GTK) || PLATFORM(EFL)
     void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
                        int canvasWidth, int canvasHeight, PlatformContextCairo* context);
+#elif PLATFORM(QT)
+    void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
+                       int canvasWidth, int canvasHeight, QPainter* context);
 #endif
 
     void markContextChanged();
     void markLayerComposited();
     bool layerComposited() const;
 
-    void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
-    PassRefPtr<ImageData> paintRenderingResultsToImageData();
-
-#if PLATFORM(QT)
-    bool paintsIntoCanvasBuffer() const { return true; }
-#elif PLATFORM(CHROMIUM)
-    bool paintsIntoCanvasBuffer() const;
-#elif PLATFORM(GTK)
-    bool paintsIntoCanvasBuffer() const { return true; }
-#else
-    bool paintsIntoCanvasBuffer() const { return false; }
-#endif
+    void paintRenderingResultsToCanvas(CanvasRenderingContext*, DrawingBuffer*);
+    PassRefPtr<ImageData> paintRenderingResultsToImageData(DrawingBuffer*);
+    bool paintCompositedResultsToCanvas(CanvasRenderingContext*);
 
     // Support for buffer creation and deletion
     Platform3DObject createBuffer();
@@ -818,7 +842,7 @@ public:
     // determine this.
     Extensions3D* getExtensions();
 
-    IntSize getInternalFramebufferSize();
+    IntSize getInternalFramebufferSize() const;
 
   private:
     GraphicsContext3D(Attributes attrs, HostWindow* hostWindow, bool renderDirectlyToHostWindow);
@@ -873,7 +897,7 @@ public:
                     AlphaOp alphaOp,
                     void* destinationData);
 
-#if PLATFORM(MAC) || PLATFORM(GTK)
+#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
     // Take into account the user's requested context creation attributes,
     // in particular stencil and antialias, and determine which could or
     // could not be honored based on the capabilities of the OpenGL
@@ -883,17 +907,21 @@ public:
     // Read rendering results into a pixel array with the same format as the
     // backbuffer.
     void readRenderingResults(unsigned char* pixels, int pixelsSize);
+    void readPixelsAndConvertToBGRAIfNecessary(int x, int y, int width, int height, unsigned char* pixels);
 #endif
 
+    bool reshapeFBOs(const IntSize&);
+    void resolveMultisamplingIfNecessary(const IntRect& = IntRect());
+
     int m_currentWidth, m_currentHeight;
-    bool m_isResourceSafe;
+    bool isResourceSafe();
 
 #if PLATFORM(MAC)
     CGLContextObj m_contextObj;
     RetainPtr<WebGLLayer> m_webGLLayer;
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(GTK)
+#if PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(QT) || PLATFORM(EFL)
     typedef struct {
         String source;
         String log;
@@ -901,17 +929,30 @@ public:
     } ShaderSourceEntry;
     HashMap<Platform3DObject, ShaderSourceEntry> m_shaderSourceMap;
 
-    friend class Extensions3DOpenGL;
     ANGLEWebKitBridge m_compiler;
-
+#if PLATFORM(QT) && defined(QT_OPENGL_ES_2)
+    friend class Extensions3DQt;
+    OwnPtr<Extensions3DQt> m_extensions;
+#else
+    friend class Extensions3DOpenGL;
     OwnPtr<Extensions3DOpenGL> m_extensions;
+#endif
 
     Attributes m_attrs;
     Vector<Vector<float> > m_vertexArray;
 
     GC3Duint m_texture, m_compositorTexture;
     GC3Duint m_fbo;
+#if PLATFORM(QT) && defined(QT_OPENGL_ES_2)
+    GC3Duint m_depthBuffer;
+    GC3Duint m_stencilBuffer;
+#else
+#if USE(OPENGL_ES_2)
+    GC3Duint m_depthBuffer;
+    GC3Duint m_stencilBuffer;
+#endif
     GC3Duint m_depthStencilBuffer;
+#endif
     bool m_layerComposited;
     GC3Duint m_internalColorFormat;
 
@@ -929,11 +970,8 @@ public:
     ListHashSet<GC3Denum> m_syntheticErrors;
 #endif
 
-    // FIXME: ideally this would be used on all platforms.
-#if PLATFORM(CHROMIUM) || PLATFORM(QT) || PLATFORM(GTK)
-    friend class GraphicsContext3DInternal;
-    OwnPtr<GraphicsContext3DInternal> m_internal;
-#endif
+    friend class GraphicsContext3DPrivate;
+    OwnPtr<GraphicsContext3DPrivate> m_private;
 };
 
 } // namespace WebCore

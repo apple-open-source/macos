@@ -22,16 +22,12 @@
 #include "config.h"
 #include "ShadowData.h"
 
-#include "FloatRect.h"
-#include "IntRect.h"
-
 using namespace std;
 
 namespace WebCore {
 
 ShadowData::ShadowData(const ShadowData& o)
-    : m_x(o.m_x)
-    , m_y(o.m_y)
+    : m_location(o.m_location)
     , m_blur(o.m_blur)
     , m_spread(o.m_spread)
     , m_color(o.m_color)
@@ -47,8 +43,7 @@ bool ShadowData::operator==(const ShadowData& o) const
         || (m_next && o.m_next && *m_next != *o.m_next))
         return false;
     
-    return m_x == o.m_x
-        && m_y == o.m_y
+    return m_location == o.m_location
         && m_blur == o.m_blur
         && m_spread == o.m_spread
         && m_style == o.m_style
@@ -71,7 +66,7 @@ static inline void calculateShadowExtent(const ShadowData* shadow, int additiona
     } while (shadow);
 }
 
-void ShadowData::adjustRectForShadow(IntRect& rect, int additionalOutlineSize) const
+void ShadowData::adjustRectForShadow(LayoutRect& rect, int additionalOutlineSize) const
 {
     int shadowLeft = 0;
     int shadowRight = 0;

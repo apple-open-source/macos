@@ -14,7 +14,7 @@
 
 // test non-GC -retain and -release
 
-// TEST_CONFIG GC=0
+// TEST_CONFIG MEM=mrc
 // TEST_CFLAGS -framework Foundation
 
 #import <stdio.h>
@@ -57,7 +57,7 @@ void releaseit2() {
     [super retain];
     return self;
 }
-- (void)release {
+- (oneway void)release {
     --Retained;
     [super retain];
 }

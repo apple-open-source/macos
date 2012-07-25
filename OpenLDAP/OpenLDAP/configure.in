@@ -1,7 +1,7 @@
-dnl $OpenLDAP: pkg/ldap/configure.in,v 1.631.2.29 2010/04/19 16:53:00 quanah Exp $
+dnl $OpenLDAP$
 dnl This work is part of OpenLDAP Software <http://www.openldap.org/>.
 dnl
-dnl Copyright 1998-2010 The OpenLDAP Foundation.
+dnl Copyright 1998-2011 The OpenLDAP Foundation.
 dnl All rights reserved.
 dnl
 dnl Redistribution and use in source and binary forms, with or without
@@ -23,9 +23,9 @@ define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl
 define([AC_LIBTOOL_LANG_GCJ_CONFIG], [:])dnl
 dnl ================================================================
 dnl Configure.in for OpenLDAP
-AC_COPYRIGHT([[Copyright 1998-2010 The OpenLDAP Foundation. All rights reserved.
+AC_COPYRIGHT([[Copyright 1998-2011 The OpenLDAP Foundation. All rights reserved.
 Restrictions apply, see COPYRIGHT and LICENSE files.]])
-AC_REVISION([$OpenLDAP: pkg/ldap/configure.in,v 1.631.2.29 2010/04/19 16:53:00 quanah Exp $])
+AC_REVISION([$Id: e7e5a7e17ae6655fc0779de0ad978202c3a73699 $])
 AC_INIT([OpenLDAP],,[http://www.openldap.org/its/])
 m4_define([AC_PACKAGE_BUGREPORT],[<http://www.openldap.org/its/>])
 AC_CONFIG_SRCDIR(build/version.sh)dnl
@@ -56,12 +56,14 @@ if test -t 1; then
 	TN="`$SHTOOL echo -e '%b' 2>/dev/null`"
 fi
 
-OPENLDAP_CVS=""
-if test -d $ac_aux_dir/CVS; then
-	OPENLDAP_CVS="(from CVS sources) "
+OPENLDAP_REPO=""
+if test -d $ac_aux_dir/../.git; then
+	OPENLDAP_REPO="(from Git clone) "
+elif test -d $ac_aux_dir/CVS; then
+	OPENLDAP_REPO="(from CVS checkout) "
 fi
 
-echo "Configuring ${TB}${OL_STRING}${TN} ${OPENLDAP_CVS}..."
+echo "Configuring ${TB}${OL_STRING}${TN} ${OPENLDAP_REPO}..."
 
 dnl Determine host platform
 dnl		we try not to use this for much
@@ -96,7 +98,7 @@ AH_TOP([
 /* begin of portable.h.pre */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation
+ * Copyright 1998-2011 The OpenLDAP Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -244,8 +246,8 @@ OL_ARG_WITH(fetch,[  --with-fetch		  with fetch(3) URL support],
 	auto, [auto yes no] )
 OL_ARG_WITH(threads,[  --with-threads	  with threads],
 	auto, [auto nt posix mach pth lwp yes no manual] )
-OL_ARG_WITH(tls,[  --with-tls		  with TLS/SSL support auto|openssl|gnutls],
-	auto, [auto openssl gnutls yes no] )
+OL_ARG_WITH(tls,[  --with-tls		  with TLS/SSL support auto|openssl|gnutls|moznss],
+	auto, [auto openssl gnutls moznss yes no] )
 OL_ARG_WITH(yielding_select,
 	[  --with-yielding-select  with implicitly yielding select],
 	auto, [auto yes no manual] )
@@ -330,6 +332,7 @@ dnl SLAPD Overlay Options
 Overlays="accesslog \
 	dynid \
 	odlocales \
+	odusers \
 	auditlog \
 	constraint \
 	dds \
@@ -358,6 +361,8 @@ OL_ARG_ENABLE(accesslog,[    --enable-accesslog	  In-Directory Access Logging ov
 OL_ARG_ENABLE(dynid,[    --enable-dynid	  Dynamic ID overlay],
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(odlocales,[    --enable-odlocales	  enable LDAP ping for Locales],
+	no, [no yes mod], ol_enable_overlays)
+OL_ARG_ENABLE(odusers,[    --enable-odusers	  enable OD User management],
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(constraint,[    --enable-constraint	  Attribute Constraint overlay],
 	no, [no yes mod], ol_enable_overlays)
@@ -535,6 +540,7 @@ BUILD_SQL=no
 BUILD_ACCESSLOG=no
 BUILD_DYNID=no
 BUILD_ODLOCALES=no
+BUILD_ODUSERS=no
 BUILD_AUDITLOG=no
 BUILD_CONSTRAINT=no
 BUILD_DDS=no
@@ -923,7 +929,7 @@ dnl		-linet
 AC_CHECK_FUNC(socket, :, [	
 dnl hopefully we won't include too many libraries
 	AC_CHECK_LIB(socket, main)
-	AC_CHECK_LIB(net, main)
+	AC_CHECK_LIB(net, socket)
 	AC_CHECK_LIB(nsl_s, main)
 	AC_CHECK_LIB(nsl, main)
 	AC_CHECK_LIB(inet, socket)
@@ -1690,23 +1696,6 @@ case $ol_with_threads in auto | yes | lwp)
 			)
 		fi
 	fi
-
-	dnl check for SunOS4 LWP
-	AC_CHECK_HEADERS(lwp/lwp.h)
-	if test $ac_cv_header_lwp_lwp_h = yes ; then
-		AC_CHECK_LIB(lwp, lwp_create, [have_lwp=yes], [have_lwp=no])
-
-		if test $have_lwp = yes ; then
-			AC_DEFINE(HAVE_LWP,1,
-				[if you have SunOS LWP package])
-			LTHREAD_LIBS="$LTHREAD_LIBS -llwp"
-			ol_link_threads=lwp
-
-			if test $ol_with_yielding_select = auto ; then
-				ol_with_yielding_select=no
-			fi
-		fi
-	fi
 	;;
 esac
 
@@ -1726,7 +1715,6 @@ if test $ol_with_threads = manual ; then
 	OL_HEADER_LINUX_THREADS
 
 	AC_CHECK_HEADERS(mach/cthreads.h)
-	AC_CHECK_HEADERS(lwp/lwp.h)
 	AC_CHECK_HEADERS(thread.h synch.h)
 fi
 
@@ -2109,7 +2097,7 @@ if test $ol_with_fetch != no ; then
 	OL_LIB_FETCH
 
 	if test $ol_cv_lib_fetch != no ; then
-		LUTIL_LIBS="$LUTIL_LIBS $ol_link_fetch"
+		LIBS="$LIBS $ol_link_fetch"
 		ol_link_fetch=freebsd
 
 	elif test $ol_with_fetch != auto ; then
@@ -2402,6 +2390,7 @@ AC_CHECK_FUNCS(			\
 	strtoq			\
 	strtouq			\
 	strtoll			\
+	strtoull		\
 	strspn			\
 	sysconf			\
 	waitpid			\
@@ -2753,6 +2742,18 @@ if test "$ol_enable_odlocales" != no ; then
 	AC_DEFINE_UNQUOTED(SLAPD_OVER_ODLOCALES,$MFLAG,[define for od locales overlay])
 fi
 
+if test "$ol_enable_odusers" != no ; then
+	BUILD_ODUSERS=$ol_enable_odusers
+	if test "$ol_enable_odusers" = mod ; then
+		MFLAG=SLAPD_MOD_DYNAMIC
+		SLAPD_DYNAMIC_OVERLAYS="$SLAPD_DYNAMIC_OVERLAYS odusers.la"
+	else
+		MFLAG=SLAPD_MOD_STATIC
+		SLAPD_STATIC_OVERLAYS="$SLAPD_STATIC_OVERLAYS odusers.o"
+	fi
+	AC_DEFINE_UNQUOTED(SLAPD_OVER_ODUSERS,$MFLAG,[define for od users overlay])
+fi
+
 if test "$ol_enable_auditlog" != no ; then
 	BUILD_AUDITLOG=$ol_enable_auditlog
 	if test "$ol_enable_auditlog" = mod ; then
@@ -3012,6 +3013,7 @@ dnl overlays
   AC_SUBST(BUILD_ACCESSLOG)
   AC_SUBST(BUILD_DYNID)
   AC_SUBST(BUILD_ODLOCALES)
+  AC_SUBST(BUILD_ODUSERS)
   AC_SUBST(BUILD_AUDITLOG)
   AC_SUBST(BUILD_CONSTRAINT)
   AC_SUBST(BUILD_DDS)
@@ -3127,7 +3129,7 @@ rm -f $BACKENDSC
 cat > $BACKENDSC << ENDX
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -3178,7 +3180,7 @@ rm -f $OVERLAYSC
 cat > $OVERLAYSC << ENDX
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

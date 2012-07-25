@@ -589,28 +589,28 @@ SOURCE=..\libaprutil.rc
 
 
 "$(INTDIR)\apr_ldap-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_ldap" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_ldap" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_ldap - Win32 Debug"
 
 
 "$(INTDIR)\apr_ldap-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_ldap" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_ldap" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_ldap - x64 Release"
 
 
 "$(INTDIR)\apr_ldap-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_ldap" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_ldap" /d "NDEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ELSEIF  "$(CFG)" == "apr_ldap - x64 Debug"
 
 
 "$(INTDIR)\apr_ldap-1.res" : $(SOURCE) "$(INTDIR)"
-	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".." /d DLL_NAME="apr_ldap" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
+	$(RSC) /l 0x409 /fo"$(INTDIR)\apr_ldap-1.res" /i "../include" /i "../../apr/include" /i ".\.." /d DLL_NAME="apr_ldap" /d "_DEBUG" /d "APU_VERSION_ONLY" $(SOURCE)
 
 
 !ENDIF 

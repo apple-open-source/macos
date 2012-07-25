@@ -44,7 +44,7 @@
 #ifdef __BLOCKS__
 #include <Block.h>
 #include <notify.h>
-#include <dispatch/source_private.h>
+#include <dispatch/private.h>
 #endif
 
 #define USE_INTERPOSING 0
@@ -176,6 +176,8 @@ static void auto_collect_internal(Zone *zone, boolean_t generational) {
 // old external entry point for collection
 //
 void auto_collect(auto_zone_t *zone, auto_collection_mode_t mode, void *collection_context) {
+    Zone *azone = (Zone *)zone;
+    if (!azone->_collection_queue) return;
     auto_collection_mode_t heap_mode = mode & 0x3;
     if ((mode & AUTO_COLLECT_IF_NEEDED) || (mode == 0)) {
         auto_zone_collect(zone, AUTO_ZONE_COLLECT_NO_OPTIONS);
@@ -325,7 +327,7 @@ void auto_zone_collect(auto_zone_t *zone, auto_zone_options_t options)
                     malloc_printf("%s: Unknown mode %d passed to auto_zone_collect() ignored.\n", auto_prelude(), global_mode);
                     break;
             }
-            if (collect_func) {
+            if (collect_func && azone->_collection_queue) {
                 dispatch_async(azone->_collection_queue, collect_func);
             }
         }
@@ -343,7 +345,7 @@ extern void auto_zone_reap_all_local_blocks(auto_zone_t *zone)
 void auto_zone_collect_and_notify(auto_zone_t *zone, auto_zone_options_t options, dispatch_queue_t callback_queue, dispatch_block_t completion_callback) {
     Zone *azone = (Zone *)zone;
     auto_zone_collect(zone, options);
-    if (callback_queue && completion_callback) {
+    if (callback_queue && completion_callback && azone->_collection_queue) {
         // ensure the proper lifetimes of the callback queue/block.
         dispatch_retain(callback_queue);
         completion_callback = Block_copy(completion_callback);
@@ -357,7 +359,7 @@ void auto_zone_collect_and_notify(auto_zone_t *zone, auto_zone_options_t options
 
 void auto_zone_compact(auto_zone_t *zone, auto_zone_compact_options_t options, dispatch_queue_t callback_queue, dispatch_block_t completion_callback) {
     Zone *azone = (Zone *)zone;
-    if (!azone->compaction_disabled()) {
+    if (!azone->compaction_disabled() && azone->_collection_queue) {
         switch (options) {
         case AUTO_ZONE_COMPACT_ANALYZE: {
             if (callback_queue && completion_callback) {
@@ -748,112 +750,7 @@ auto_zone_t *auto_zone_create(const char *name) {
     // register our calling thread so that the zone is ready to go
     azone->register_thread();
     
-    // In general libdispatch limits the number of concurrent jobs based on various factors (# cpus).
-    // But we don't want the collector to be kept waiting while long running jobs generate garbage.
-    // We avoid collection latency using a special attribute which tells dispatch this queue should 
-    // service jobs immediately even if that requires exceeding the usual concurrent limit.
-    azone->_collection_queue = dispatch_queue_create("Garbage Collection Work Queue", NULL);
-    dispatch_queue_t target_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, DISPATCH_QUEUE_OVERCOMMIT);
-    dispatch_set_target_queue(azone->_collection_queue, target_queue);
-    dispatch_set_context(azone->_collection_queue, azone);
-    const char *notify_name;
-
-#if COMPACTION_ENABLED
-    // compaction trigger:  a call to notify_post() with $AUTO_COMPACT_NOTIFICATION
-    notify_name = Environment::get("AUTO_COMPACT_NOTIFICATION");
-    if (notify_name != NULL) {
-        int compact_token_unused = 0;
-        notify_register_dispatch(notify_name, &compact_token_unused, azone->_collection_queue, ^(int token) {
-            Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
-            auto_date_t start = auto_date_now();
-            zone->compact_heap();
-            auto_date_t end = auto_date_now();
-            if (Environment::log_compactions) malloc_printf("compaction took %lld microseconds.\n", (end - start));
-        });
-    } else {
-        // compaction timer:  prime it to run forever in the future.
-        azone->_compaction_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-        dispatch_source_set_timer(azone->_compaction_timer, DISPATCH_TIME_FOREVER, 0, 0);
-        dispatch_source_set_event_handler(azone->_compaction_timer, ^{
-            if (!azone->compaction_disabled()) {
-                azone->_compaction_next_time = DISPATCH_TIME_FOREVER;
-                dispatch_source_set_timer(azone->_compaction_timer, DISPATCH_TIME_FOREVER, 0, 0);
-                dispatch_async(azone->_collection_queue, ^{
-                    auto_date_t start = auto_date_now();
-                    azone->compact_heap();
-                    auto_date_t end = auto_date_now();
-                    malloc_printf("compaction took %lld microseconds.\n", (end - start));
-                    // compute the next allowed time to start a compaction; must wait at least 30 seconds.
-                    azone->_compaction_next_time = dispatch_time(0, 30 * NSEC_PER_SEC);
-                    azone->_compaction_pending = false;
-                });
-            }
-        });
-        dispatch_resume(azone->_compaction_timer);
-    }
-    
-    // analysis trigger:  a call to notify_post() with $AUTO_ANALYZE_NOTIFICATION
-    // currently used by HeapVisualizer to generate an analyis file in /tmp/AppName.analyze.
-    notify_name = Environment::get("AUTO_ANALYZE_NOTIFICATION");
-    if (notify_name != NULL) {
-        int analyze_token_unused = 0;
-        notify_register_dispatch(notify_name, &analyze_token_unused, azone->_collection_queue, ^(int token) {
-            Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
-            static const char *analyze_name = Environment::get("AUTO_ANALYZE_NOTIFICATION");
-            zone->analyze_heap(analyze_name);
-            static const char *reply_name = Environment::get("AUTO_ANALYZE_REPLY");
-            if (reply_name) notify_post(reply_name);
-        });
-    }
-#endif /* COMPACTION_ENABLED */
-
-    // simulated memory pressure notification.
-    notify_name = Environment::get("AUTO_MEMORY_PRESSURE_NOTIFICATION");
-    if (notify_name != NULL) {
-        int pressure_token_unused = 0;
-        notify_register_dispatch(notify_name, &pressure_token_unused, azone->_collection_queue, ^(int token) {
-            Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
-            usword_t size = zone->purge_free_space();
-            printf("purged %ld bytes.\n", size);
-        });
-    } else {
-        // If not simulated, then field memory pressure triggers directly from the kernel.
-        // TODO:  consider using a concurrent queue to allow purging to happen concurrently with collection/compaction.
-#if TARGET_OS_IPHONE
-#       warning no memory pressure dispatch source on iOS
-#else
-        azone->_pressure_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, azone->_collection_queue);
-        if (azone->_pressure_source != NULL) {
-            dispatch_source_set_event_handler(azone->_pressure_source, ^{
-                Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
-                zone->purge_free_space();
-            });
-            dispatch_resume(azone->_pressure_source);
-        }
-#endif
-    }
-    
-    // exhaustive collection notification.
-    notify_name = Environment::get("AUTO_COLLECT_NOTIFICATION");
-    if (notify_name != NULL) {
-        int collect_token_unused = 0;
-        notify_register_dispatch(notify_name, &collect_token_unused, dispatch_get_main_queue(), ^(int token) {
-            malloc_printf("collecting on demand.\n");
-            auto_zone_collect((auto_zone_t *)azone, AUTO_ZONE_COLLECT_LOCAL_COLLECTION | AUTO_ZONE_COLLECT_EXHAUSTIVE_COLLECTION);
-            const char *reply_name = Environment::get("AUTO_COLLECT_REPLY");
-            if (reply_name) notify_post(reply_name);
-        });
-    }
-    
     if (!gc_zone) gc_zone = (auto_zone_t *)azone;   // cache first one for debugging, monitoring
-    
-    // Work around an idiosynchrocy with leaks. These dispatch objects will be reported as leaks because the
-    // zone structure is not (and cannot be) scanned by leaks. Since we only support a small number of zones
-    // just store these objects in global memory where leaks will find them to suppress the leak report.
-    // In practice these are never deallocated anyway, as we don't support freeing an auto zone.
-    queues[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_collection_queue;
-    pressure_sources[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_pressure_source;
-    compaction_timers[key-__PTK_FRAMEWORK_GC_KEY0] = azone->_compaction_timer;
 
     return (auto_zone_t*)azone;
 }
@@ -1362,6 +1259,113 @@ boolean_t auto_zone_is_collecting(auto_zone_t *zone) {
 }
 
 void auto_collect_multithreaded(auto_zone_t *zone) {
+    Zone *azone = (Zone *)zone;
+    dispatch_once(&azone->_zone_init_predicate, ^{
+        // In general libdispatch limits the number of concurrent jobs based on various factors (# cpus).
+        // But we don't want the collector to be kept waiting while long running jobs generate garbage.
+        // We avoid collection latency using a special attribute which tells dispatch this queue should 
+        // service jobs immediately even if that requires exceeding the usual concurrent limit.
+        azone->_collection_queue = dispatch_queue_create("Garbage Collection Work Queue", NULL);
+        dispatch_queue_t target_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, DISPATCH_QUEUE_OVERCOMMIT);
+        dispatch_set_target_queue(azone->_collection_queue, target_queue);
+        dispatch_set_context(azone->_collection_queue, azone);
+        const char *notify_name;
+        
+#if COMPACTION_ENABLED
+        // compaction trigger:  a call to notify_post() with $AUTO_COMPACT_NOTIFICATION
+        notify_name = Environment::get("AUTO_COMPACT_NOTIFICATION");
+        if (notify_name != NULL) {
+            int compact_token_unused = 0;
+            notify_register_dispatch(notify_name, &compact_token_unused, azone->_collection_queue, ^(int token) {
+                Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
+                auto_date_t start = auto_date_now();
+                zone->compact_heap();
+                auto_date_t end = auto_date_now();
+                if (Environment::log_compactions) malloc_printf("compaction took %lld microseconds.\n", (end - start));
+            });
+        } else {
+            // compaction timer:  prime it to run forever in the future.
+            azone->_compaction_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+            dispatch_source_set_timer(azone->_compaction_timer, DISPATCH_TIME_FOREVER, 0, 0);
+            dispatch_source_set_event_handler(azone->_compaction_timer, ^{
+                if (!azone->compaction_disabled()) {
+                    azone->_compaction_next_time = DISPATCH_TIME_FOREVER;
+                    dispatch_source_set_timer(azone->_compaction_timer, DISPATCH_TIME_FOREVER, 0, 0);
+                    dispatch_async(azone->_collection_queue, ^{
+                        auto_date_t start = auto_date_now();
+                        azone->compact_heap();
+                        auto_date_t end = auto_date_now();
+                        malloc_printf("compaction took %lld microseconds.\n", (end - start));
+                        // compute the next allowed time to start a compaction; must wait at least 30 seconds.
+                        azone->_compaction_next_time = dispatch_time(0, 30 * NSEC_PER_SEC);
+                        azone->_compaction_pending = false;
+                    });
+                }
+            });
+            dispatch_resume(azone->_compaction_timer);
+        }
+        
+        // analysis trigger:  a call to notify_post() with $AUTO_ANALYZE_NOTIFICATION
+        // currently used by HeapVisualizer to generate an analyis file in /tmp/AppName.analyze.
+        notify_name = Environment::get("AUTO_ANALYZE_NOTIFICATION");
+        if (notify_name != NULL) {
+            int analyze_token_unused = 0;
+            notify_register_dispatch(notify_name, &analyze_token_unused, azone->_collection_queue, ^(int token) {
+                Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
+                static const char *analyze_name = Environment::get("AUTO_ANALYZE_NOTIFICATION");
+                zone->analyze_heap(analyze_name);
+                static const char *reply_name = Environment::get("AUTO_ANALYZE_REPLY");
+                if (reply_name) notify_post(reply_name);
+            });
+        }
+#endif /* COMPACTION_ENABLED */
+        
+        // simulated memory pressure notification.
+        notify_name = Environment::get("AUTO_MEMORY_PRESSURE_NOTIFICATION");
+        if (notify_name != NULL) {
+            int pressure_token_unused = 0;
+            notify_register_dispatch(notify_name, &pressure_token_unused, azone->_collection_queue, ^(int token) {
+                Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
+                usword_t size = zone->purge_free_space();
+                printf("purged %ld bytes.\n", size);
+            });
+        } else {
+            // If not simulated, then field memory pressure triggers directly from the kernel.
+            // TODO:  consider using a concurrent queue to allow purging to happen concurrently with collection/compaction.
+#if TARGET_OS_IPHONE
+#       warning no memory pressure dispatch source on iOS
+#else
+            azone->_pressure_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_VM, 0, DISPATCH_VM_PRESSURE, azone->_collection_queue);
+            if (azone->_pressure_source != NULL) {
+                dispatch_source_set_event_handler(azone->_pressure_source, ^{
+                    Zone *zone = (Zone *)dispatch_get_context(dispatch_get_current_queue());
+                    zone->purge_free_space();
+                });
+                dispatch_resume(azone->_pressure_source);
+            }
+#endif
+        }
+        
+        // exhaustive collection notification.
+        notify_name = Environment::get("AUTO_COLLECT_NOTIFICATION");
+        if (notify_name != NULL) {
+            int collect_token_unused = 0;
+            notify_register_dispatch(notify_name, &collect_token_unused, dispatch_get_main_queue(), ^(int token) {
+                malloc_printf("collecting on demand.\n");
+                auto_zone_collect((auto_zone_t *)azone, AUTO_ZONE_COLLECT_LOCAL_COLLECTION | AUTO_ZONE_COLLECT_EXHAUSTIVE_COLLECTION);
+                const char *reply_name = Environment::get("AUTO_COLLECT_REPLY");
+                if (reply_name) notify_post(reply_name);
+            });
+        }
+        
+        // Work around an idiosynchrocy with leaks. These dispatch objects will be reported as leaks because the
+        // zone structure is not (and cannot be) scanned by leaks. Since we only support a small number of zones
+        // just store these objects in global memory where leaks will find them to suppress the leak report.
+        // In practice these are never deallocated anyway, as we don't support freeing an auto zone.
+        queues[azone->thread_key()-__PTK_FRAMEWORK_GC_KEY0] = azone->_collection_queue;
+        pressure_sources[azone->thread_key()-__PTK_FRAMEWORK_GC_KEY0] = azone->_pressure_source;
+        compaction_timers[azone->thread_key()-__PTK_FRAMEWORK_GC_KEY0] = azone->_compaction_timer;
+    });
 }
 
 

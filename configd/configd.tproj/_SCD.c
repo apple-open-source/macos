@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,53 +42,16 @@
 __private_extern__ CFMutableDictionaryRef	sessionData		= NULL;
 
 __private_extern__ CFMutableDictionaryRef	storeData		= NULL;
-__private_extern__ CFMutableDictionaryRef	storeData_s		= NULL;
 
 __private_extern__ CFMutableDictionaryRef	patternData		= NULL;
-__private_extern__ CFMutableDictionaryRef	patternData_s		= NULL;
 
 __private_extern__ CFMutableSetRef		changedKeys		= NULL;
-__private_extern__ CFMutableSetRef		changedKeys_s		= NULL;
 
 __private_extern__ CFMutableSetRef		deferredRemovals	= NULL;
-__private_extern__ CFMutableSetRef		deferredRemovals_s	= NULL;
 
 __private_extern__ CFMutableSetRef		removedSessionKeys	= NULL;
-__private_extern__ CFMutableSetRef		removedSessionKeys_s	= NULL;
 
 __private_extern__ CFMutableSetRef		needsNotification	= NULL;
-
-__private_extern__ int				storeLocked		= 0;		/* > 0 if dynamic store locked */
-
-
-__private_extern__
-void
-_swapLockedStoreData()
-{
-	void	*temp;
-
-	temp                 = storeData;
-	storeData            = storeData_s;
-	storeData_s          = temp;
-
-	temp                 = patternData;
-	patternData          = patternData_s;
-	patternData_s        = temp;
-
-	temp                 = changedKeys;
-	changedKeys          = changedKeys_s;
-	changedKeys_s        = temp;
-
-	temp                 = deferredRemovals;
-	deferredRemovals     = deferredRemovals_s;
-	deferredRemovals_s   = temp;
-
-	temp                 = removedSessionKeys;
-	removedSessionKeys   = removedSessionKeys_s;
-	removedSessionKeys_s = temp;
-
-	return;
-}
 
 
 __private_extern__

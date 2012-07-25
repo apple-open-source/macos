@@ -29,7 +29,6 @@
 #import "AXObjectCache.h"
 #import "Frame.h"
 #import "RenderView.h"
-#import "WebCoreViewFactory.h"
 
 namespace WebCore {
 
@@ -65,7 +64,7 @@ void FrameSelection::notifyAccessibilityForSelectionChange()
         return;
 
     IntRect selectionRect = absoluteCaretBounds();
-    IntRect viewRect = renderView->viewRect();
+    IntRect viewRect = pixelSnappedIntRect(renderView->viewRect());
 
     selectionRect = frameView->contentsToScreen(selectionRect);
     viewRect = frameView->contentsToScreen(viewRect);

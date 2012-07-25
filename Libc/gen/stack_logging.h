@@ -41,6 +41,8 @@
 
 extern int stack_logging_enable_logging; /* when clear, no logging takes place */
 extern int stack_logging_dontcompact; /* default is to compact; when set does not compact alloc/free logs; useful for tracing history */
+extern int stack_logging_finished_init; /* set after we've returned from the Libsystem initialiser */
+extern int stack_logging_postponed; /* set if we needed to postpone logging till after initialisation */
 
 
 extern void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsigned arg3, unsigned result, unsigned num_hot_to_skip);

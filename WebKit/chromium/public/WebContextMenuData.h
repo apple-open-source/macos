@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,10 +34,11 @@
 #include "WebHistoryItem.h"
 #include "WebMenuItemInfo.h"
 #include "WebNode.h"
-#include "WebPoint.h"
-#include "WebString.h"
-#include "WebURL.h"
-#include "WebVector.h"
+#include "platform/WebPoint.h"
+#include "platform/WebReferrerPolicy.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
+#include "platform/WebVector.h"
 
 #define WEBCONTEXT_MEDIATYPEFILE_DEFINED
 
@@ -77,6 +78,10 @@ struct WebContextMenuData {
     // The absolute URL of the page in context.
     WebURL pageURL;
 
+    // The absolute keyword search URL including the %s search tag when the
+    // "Add as search engine..." option is clicked (left empty if not used).
+    WebURL keywordURL;
+
     // The absolute URL of the subframe in context.
     WebURL frameURL;
 
@@ -97,6 +102,7 @@ struct WebContextMenuData {
         MediaHasVideo = 0x40,
         MediaControlRootElement = 0x80,
         MediaCanPrint = 0x100,
+        MediaCanRotate = 0x200,
     };
 
     // Extra attributes describing media elements.
@@ -104,6 +110,9 @@ struct WebContextMenuData {
 
     // The raw text of the selection in context.
     WebString selectedText;
+
+    // Whether speech input is enabled.
+    bool isSpeechInputEnabled;
 
     // Whether spell checking is enabled.
     bool isSpellCheckingEnabled;
@@ -148,6 +157,9 @@ struct WebContextMenuData {
     // Security information for the context.
     WebCString securityInfo;
 
+    // The referrer policy applicable to this context.
+    WebReferrerPolicy referrerPolicy;
+
     // Custom context menu items provided by the WebCore internals.
     WebVector<WebMenuItemInfo> customItems;
 
@@ -158,6 +170,7 @@ struct WebContextMenuData {
         : mediaType(MediaTypeNone)
         , isImageBlocked(false)
         , mediaFlags(MediaNone)
+        , isSpeechInputEnabled(false)
         , isSpellCheckingEnabled(false)
         , isEditable(false)
         , writingDirectionDefault(CheckableMenuItemDisabled)

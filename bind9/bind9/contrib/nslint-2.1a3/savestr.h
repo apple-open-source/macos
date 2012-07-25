@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /u0/home/explorer/proj/ISC/git-conversion/cvsroot/bind9/contrib/nslint-2.1a3/savestr.h,v 1.1 2001/12/21 04:12:05 marka Exp $ (LBL)
+ * @(#) $Header: /proj/cvs/prod/bind9/contrib/nslint-2.1a3/savestr.h,v 1.1 2001-12-21 04:12:05 marka Exp $ (LBL)
  */
 
 extern char *savestr(const char *);

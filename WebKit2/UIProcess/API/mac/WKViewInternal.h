@@ -23,6 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#import "PluginComplexTextInputState.h"
 #import "WKView.h"
 #import "WebFindOptions.h"
 #import <wtf/Forward.h>
@@ -34,6 +35,8 @@ namespace CoreIPC {
 
 namespace WebCore {
     struct KeypressCommand;
+    class Image;
+    class SharedBuffer;
 }
 
 namespace WebKit {
@@ -55,7 +58,7 @@ namespace WebKit {
 - (void)_setCursor:(NSCursor *)cursor;
 - (void)_setUserInterfaceItemState:(NSString *)commandName enabled:(BOOL)isEnabled state:(int)newState;
 - (BOOL)_interpretKeyEvent:(NSEvent *)theEvent savingCommandsTo:(Vector<WebCore::KeypressCommand>&)commands;
-- (void)_resendKeyDownEvent:(NSEvent *)event;
+- (void)_doneWithKeyEvent:(NSEvent *)event eventWasHandled:(BOOL)eventWasHandled;
 - (bool)_executeSavedCommandBySelector:(SEL)selector;
 - (NSRect)_convertToDeviceSpace:(NSRect)rect;
 - (NSRect)_convertToUserSpace:(NSRect)rect;
@@ -63,9 +66,12 @@ namespace WebKit {
 
 - (void)_enterAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
 - (void)_exitAcceleratedCompositingMode;
+- (void)_updateAcceleratedCompositingMode:(const WebKit::LayerTreeContext&)layerTreeContext;
 
 - (void)_setAccessibilityWebProcessToken:(NSData *)data;
-- (void)_setComplexTextInputEnabled:(BOOL)complexTextInputEnabled pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
+
+- (void)_pluginFocusOrWindowFocusChanged:(BOOL)pluginHasFocusAndWindowHasFocus pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
+- (void)_setPluginComplexTextInputState:(WebKit::PluginComplexTextInputState)pluginComplexTextInputState pluginComplexTextInputIdentifier:(uint64_t)pluginComplexTextInputIdentifier;
 
 - (void)_setPageHasCustomRepresentation:(BOOL)pageHasCustomRepresentation;
 - (void)_didFinishLoadingDataForCustomRepresentationWithSuggestedFilename:(const String&)suggestedFilename dataReference:(const CoreIPC::DataReference&)dataReference;
@@ -74,18 +80,25 @@ namespace WebKit {
 - (void)_findStringInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
 - (void)_countStringMatchesInCustomRepresentation:(NSString *)string withFindOptions:(WebKit::FindOptions)options maxMatchCount:(NSUInteger)count;
 - (void)_setDragImage:(NSImage *)image at:(NSPoint)clientPoint linkDrag:(BOOL)linkDrag;
+- (void)_setPromisedData:(WebCore::Image *)image withFileName:(NSString *)filename withExtension:(NSString *)extension withTitle:(NSString *)title withURL:(NSString *)url withVisibleURL:(NSString *)visibleUrl withArchive:(WebCore::SharedBuffer*) archiveBuffer forPasteboard:(NSString *)pasteboardName;
 - (void)_updateSecureInputState;
 - (void)_updateTextInputStateIncludingSecureInputState:(BOOL)updateSecureInputState;
 - (void)_resetTextInputState;
 
-- (void)_setDrawingAreaSize:(NSSize)size;
-
 - (void)_didChangeScrollbarsForMainFrame;
 
 #if ENABLE(FULLSCREEN_API)
+- (BOOL)hasFullScreenWindowController;
 - (WKFullScreenWindowController*)fullScreenWindowController;
 - (void)closeFullScreenWindowController;
 #endif
 
 - (void)_cacheWindowBottomCornerRect;
+
+- (NSInteger)spellCheckerDocumentTag;
+- (void)handleAcceptedAlternativeText:(NSString*)text;
+
+- (void)_setSuppressVisibilityUpdates:(BOOL)suppressVisibilityUpdates;
+- (BOOL)_suppressVisibilityUpdates;
+
 @end

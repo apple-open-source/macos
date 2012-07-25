@@ -102,14 +102,6 @@
 #include <comp.h>
 #include <gssauthcn.h>
 
-#if HAVE_GSS_FRAMEWORK
-#include <GSS/gssapi.h>
-#include <GSS/gssapi_krb5.h>
-#else
-#include <gssapi/gssapi.h>
-#include <gssapi/gssapi_krb5.h>
-#endif
-
 /*
  * State block containing all the state of one end of an authenticated
  * connection.

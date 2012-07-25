@@ -31,22 +31,21 @@
 
 #include "FrameNetworkingContext.h"
 
+typedef struct _Evas_Object Evas_Object;
+
 namespace WebCore {
 
 class FrameNetworkingContextEfl : public WebCore::FrameNetworkingContext {
 public:
-    static PassRefPtr<FrameNetworkingContextEfl> create(WebCore::Frame* frame)
-    {
-        return adoptRef(new FrameNetworkingContextEfl(frame));
-    }
+    static PassRefPtr<FrameNetworkingContextEfl> create(Frame*, Evas_Object*);
 
     WebCore::Frame* coreFrame() const { return frame(); }
+    virtual SoupSession* soupSession() const;
 
 private:
-    FrameNetworkingContextEfl(WebCore::Frame* frame)
-        : WebCore::FrameNetworkingContext(frame)
-    {
-    }
+    FrameNetworkingContextEfl(Frame*, Evas_Object*);
+
+    Evas_Object* m_ewkFrame;
 };
 
 }

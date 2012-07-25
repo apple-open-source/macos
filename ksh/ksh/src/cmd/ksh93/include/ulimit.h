@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -69,27 +69,11 @@
 #endif /* RLIM_INFINITY */
 
 #if defined(_lib_getrlimit) || defined(_lib_vlimit) || defined(_lib_ulimit)
-#   ifndef RLIMIT_CPU
-#	define RLIMIT_CPU	0
-#   endif /* !RLIMIT_CPU */
-#   ifndef RLIMIT_DATA
-#	define RLIMIT_DATA	0
-#   endif /* !RLIMIT_DATA */
-#   ifndef RLIMIT_RSS
-#	define RLIMIT_RSS	0
-#   endif /* !RLIMIT_RSS */
-#   ifndef RLIMIT_STACK
-#	define RLIMIT_STACK	0
-#   endif /* !RLIMIT_STACK */
-#   ifndef RLIMIT_CORE
-#	define RLIMIT_CORE	0
-#   endif /* !RLIMIT_CORE */
 #   ifndef RLIMIT_VMEM
-#	define RLIMIT_VMEM	0
+#	ifdef RLIMIT_AS
+#	    define RLIMIT_VMEM RLIMIT_AS
+#	endif
 #   endif /* !RLIMIT_VMEM */
-#   ifndef RLIMIT_NOFILE
-#	define RLIMIT_NOFILE	0
-#   endif /* !RLIMIT_NOFILE */
 #else
 #   define _no_ulimit
 #endif
@@ -125,8 +109,14 @@
 #ifndef RLIMIT_MEMLOCK
 #define RLIMIT_MEMLOCK	RLIMIT_UNKNOWN
 #endif
+#ifndef RLIMIT_MSGQUEUE
+#define RLIMIT_MSGQUEUE	RLIMIT_UNKNOWN
+#endif
 #ifndef RLIMIT_NOFILE
 #define RLIMIT_NOFILE	RLIMIT_UNKNOWN
+#endif
+#ifndef RLIMIT_NICE
+#define RLIMIT_NICE	RLIMIT_UNKNOWN
 #endif
 #ifndef RLIMIT_NPROC
 #define RLIMIT_NPROC	RLIMIT_UNKNOWN
@@ -134,17 +124,26 @@
 #ifndef RLIMIT_PIPE
 #define RLIMIT_PIPE	RLIMIT_UNKNOWN
 #endif
+#ifndef RLIMIT_PTHREAD
+#define RLIMIT_PTHREAD	RLIMIT_UNKNOWN
+#endif
 #ifndef RLIMIT_RSS
 #define RLIMIT_RSS	RLIMIT_UNKNOWN
+#endif
+#ifndef RLIMIT_RTPRIO
+#define RLIMIT_RTPRIO	RLIMIT_UNKNOWN
 #endif
 #ifndef RLIMIT_SBSIZE
 #define RLIMIT_SBSIZE	RLIMIT_UNKNOWN
 #endif
+#ifndef RLIMIT_SIGPENDING
+#define RLIMIT_SIGPENDING	RLIMIT_UNKNOWN
+#endif
 #ifndef RLIMIT_STACK
 #define RLIMIT_STACK	RLIMIT_UNKNOWN
 #endif
-#ifndef RLIMIT_PTHREAD
-#define RLIMIT_PTHREAD	RLIMIT_UNKNOWN
+#ifndef RLIMIT_SWAP
+#define RLIMIT_SWAP	RLIMIT_UNKNOWN
 #endif
 #ifndef RLIMIT_VMEM
 #define RLIMIT_VMEM	RLIMIT_UNKNOWN

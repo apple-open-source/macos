@@ -31,7 +31,7 @@ class EllipsisBox : public InlineBox {
 public:
     EllipsisBox(RenderObject* obj, const AtomicString& ellipsisStr, InlineFlowBox* parent,
                 int width, int height, int y, bool firstLine, bool isVertical, InlineBox* markupBox)
-        : InlineBox(obj, 0, y, width, firstLine, true, false, false, isVertical, 0, 0, parent)
+        : InlineBox(obj, FloatPoint(0, y), width, firstLine, true, false, false, isVertical, 0, 0, parent)
         , m_height(height)
         , m_str(ellipsisStr)
         , m_markupBox(markupBox)
@@ -39,15 +39,15 @@ public:
     {
     }
 
-    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
+    virtual void paint(PaintInfo&, const LayoutPoint&, LayoutUnit lineTop, LayoutUnit lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom);
     void setSelectionState(RenderObject::SelectionState s) { m_selectionState = s; }
-    IntRect selectionRect(int tx, int ty);
+    IntRect selectionRect();
 
 private:
     virtual int height() const { return m_height; }
     virtual RenderObject::SelectionState selectionState() { return m_selectionState; }
-    void paintSelection(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&);
+    void paintSelection(GraphicsContext*, const LayoutPoint&, RenderStyle*, const Font&);
 
     int m_height;
     AtomicString m_str;

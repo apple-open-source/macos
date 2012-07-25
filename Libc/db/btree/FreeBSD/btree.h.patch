@@ -1,8 +1,0 @@
---- btree.h.orig	2009-11-06 12:39:34.000000000 -0800
-+++ btree.h	2009-11-06 12:40:06.000000000 -0800
-@@ -377,4 +377,4 @@ typedef struct _btree {
- 	u_int32_t flags;
- } BTREE;
- 
--#include "extern.h"
-+#include "bt_extern.h"

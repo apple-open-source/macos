@@ -43,10 +43,5 @@ _gss_mg_error(gssapi_mech_interface, OM_uint32);
 OM_uint32
 _gss_mg_get_error(const gss_OID, OM_uint32, gss_buffer_t);
 
-#ifdef __APPLE__
-CFTypeRef
-_gss_mg_get_key(CFStringRef domain, CFStringRef key);
-#endif
-
 void
 _gss_load_plugins(void);

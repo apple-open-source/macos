@@ -57,7 +57,8 @@ enum ofile_type {
 struct ofile {
     char *file_name;		    /* pointer to name malloc'ed by ofile_map */
     char *file_addr;		    /* pointer to vm_allocate'ed memory       */
-    uint32_t file_size;	    	    /* size of vm_allocate'ed memory	      */
+    uint64_t file_size;	    	    /* size of vm_allocate'ed memory	      */
+    uint64_t file_mtime;	    /* stat(2)'s mtime                        */
     enum ofile_type file_type;	    /* type of the file			      */
 
     struct fat_header *fat_header;  /* If a fat file these are filled in and */
@@ -69,6 +70,19 @@ struct ofile {
     struct arch_flag arch_flag;     /* the arch_flag for this arch, the name */
 				    /*  field is pointing at space malloc'ed */
 				    /*  by ofile_map. */
+
+    /* If this structure is currently referencing a thin archive and it has a
+       table of contents then these are valid and filled in */
+    char *toc_addr;		    /* pointer to the toc contents */
+    uint32_t toc_size;		    /* total size of the toc */
+    struct ar_hdr *toc_ar_hdr;	    /* the archive header for the toc */
+    char *toc_name;		    /* name of toc member */
+    uint32_t toc_name_size;	    /* size of name of toc member */
+    struct ranlib *toc_ranlibs;     /* ranlib structs */
+    uint32_t       toc_nranlibs;    /* number of ranlib structs */
+    char          *toc_strings;     /* strings of symbol names (for above) */
+    uint32_t       toc_strsize;     /* number of bytes for the strings above */
+    enum bool	   toc_bad;	    /* the toc needs to be rebuilt */
 
     /* If this structure is currently referencing an archive member or an object
        file that is an archive member these are valid and filled in. */
@@ -145,8 +159,9 @@ __private_extern__ NSObjectFileImageReturnCode ofile_map_from_memory(
 __private_extern__ enum bool ofile_map_from_memory(
 #endif
     char *addr,
-    uint32_t size,
+    uint64_t size,
     const char *file_name,
+    uint64_t mtime,
     const struct arch_flag *arch_flag,	/* can be NULL */
     const char *object_name,		/* can be NULL */
     struct ofile *ofile,
@@ -200,5 +215,12 @@ __private_extern__ void Mach_O_error(
     __attribute__ ((format (printf, 2, 3)))
 #endif
     ;
+
+#ifdef LTO_SUPPORT
+__private_extern__ int is_llvm_bitcode(
+    struct ofile *ofile,
+    char *addr,
+    size_t size);
+#endif /* LTO_SUPPORT */
 
 #endif /* _STUFF_OFILE_H_ */

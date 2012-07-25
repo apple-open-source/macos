@@ -11,6 +11,7 @@ HDRS	= local.h
 TESTSRC	=
 DEFS	= -I. -I$(INC_DIR) -D$(SYSTYPE)
 CFLAGS	= $(DEBUG) $(OPT) $(DEFS)
+LDFLAGS	= -framework CoreDaemon
 PROG	= local
 TESTPROG= 
 INC_DIR	= ../../include
@@ -19,7 +20,7 @@ LIBS	= ../../lib/libmaster.a ../../lib/libglobal.a ../../lib/libutil.a
 .c.o:;	$(CC) $(CFLAGS) -c $*.c
 
 $(PROG):	$(OBJS) $(LIBS)
-	$(CC) $(CFLAGS) -o $@ $(OBJS) $(LIBS) $(SYSLIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS) $(SYSLIBS)
 
 $(OBJS): ../../conf/makedefs.out
 
@@ -106,6 +107,7 @@ bounce_workaround.o: ../../include/attr.h
 bounce_workaround.o: ../../include/been_here.h
 bounce_workaround.o: ../../include/bounce.h
 bounce_workaround.o: ../../include/canon_addr.h
+bounce_workaround.o: ../../include/defer.h
 bounce_workaround.o: ../../include/deliver_request.h
 bounce_workaround.o: ../../include/delivered_hdr.h
 bounce_workaround.o: ../../include/dict.h
@@ -190,6 +192,7 @@ dotforward.o: ../../include/argv.h
 dotforward.o: ../../include/attr.h
 dotforward.o: ../../include/been_here.h
 dotforward.o: ../../include/bounce.h
+dotforward.o: ../../include/defer.h
 dotforward.o: ../../include/deliver_request.h
 dotforward.o: ../../include/delivered_hdr.h
 dotforward.o: ../../include/dict.h
@@ -451,6 +454,7 @@ mailbox.o: ../../include/tok822.h
 mailbox.o: ../../include/vbuf.h
 mailbox.o: ../../include/vstream.h
 mailbox.o: ../../include/vstring.h
+mailbox.o: ../../include/warn_stat.h
 mailbox.o: biff_notify.h
 mailbox.o: local.h
 mailbox.o: mailbox.c
@@ -489,6 +493,7 @@ maildir.o: ../../include/tok822.h
 maildir.o: ../../include/vbuf.h
 maildir.o: ../../include/vstream.h
 maildir.o: ../../include/vstring.h
+maildir.o: ../../include/warn_stat.h
 maildir.o: local.h
 maildir.o: maildir.c
 recipient.o: ../../include/argv.h
@@ -589,6 +594,7 @@ unknown.o: ../../include/argv.h
 unknown.o: ../../include/attr.h
 unknown.o: ../../include/been_here.h
 unknown.o: ../../include/bounce.h
+unknown.o: ../../include/defer.h
 unknown.o: ../../include/deliver_pass.h
 unknown.o: ../../include/deliver_request.h
 unknown.o: ../../include/delivered_hdr.h

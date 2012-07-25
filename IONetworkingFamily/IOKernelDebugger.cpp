@@ -124,13 +124,13 @@ IOService *IOKDP::probe(IOService *provider, SInt32 *score)
 	IOService *controller = provider->getProvider();
 	
 //	IOLog("_kdp_ probing...\n");
-	if(controller)
+	if (controller)
 	{
 		OSIterator *clients = controller->getClientIterator();
 		//try to find a network interface on the provider
-		while(client = clients->getNextObject())
+		while ((client = clients->getNextObject()))
 		{
-			if(interface = OSDynamicCast(IONetworkInterface, client))
+			if ((interface = OSDynamicCast(IONetworkInterface, client)))
 				break;
 		}
 		clients->release();
@@ -324,7 +324,8 @@ enum {
 static void handleActivationChange( IOKernelDebugger * debugger,
                                     void *             change );
 
-bool IOKernelDebugger::interfacePublished( void * target, void *param, IOService * service )
+bool IOKernelDebugger::interfacePublished(
+    void * target, void *param, IOService * service, IONotifier * notifier )
 {
 	IOService *debugger = (IOService *)target;
     IONetworkInterface *interface = OSDynamicCast(IONetworkInterface, service);
@@ -515,15 +516,19 @@ bool IOKernelDebugger::init( IOService *                 target,
 	// reregisters the interface service when it gets named, so we can add a notifier
 	// and reregister ourselves at that time in order to try matching IOKDP again.
 	char textBuffer[64];
-	if(PE_parse_boot_argn( kMatchNameArg, textBuffer, sizeof(textBuffer)))
+	if (PE_parse_boot_argn( kMatchNameArg, textBuffer, sizeof(textBuffer)))
 	{
-		
-		_interfaceNotifier = addNotification(
+        OSDictionary * matching = serviceMatching(kIONetworkInterfaceClass);
+        if (matching)
+        {
+            _interfaceNotifier = addMatchingNotification(
 									   /* type   */    gIOPublishNotification,
-									   /* match  */    serviceMatching("IONetworkInterface"),
+									   /* match  */    matching,
 									   /* action */    interfacePublished,
 									   /* param  */    this );
-	}
+            matching->release();
+        }
+    }
 	else _interfaceNotifier = 0;
 
     if ( !_activationChangeThreadCall )
@@ -630,9 +635,9 @@ void IOKernelDebugger::registerHandler( IOService *                 target,
 		IONetworkInterface *interface = 0;
 		OSIterator *clients = target->getClientIterator();
 		//try to find a network interface on the target
-		while(OSObject *client = clients->getNextObject())
+		while (OSObject *client = clients->getNextObject())
 		{
-			if(interface = OSDynamicCast(IONetworkInterface, client))
+			if ((interface = OSDynamicCast(IONetworkInterface, client)))
 				break;
 		}
 		clients->release();

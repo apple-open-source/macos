@@ -48,7 +48,8 @@
     uint64_t            timestamp;  \
     uint32_t            options;    \
     uint8_t             depth;      \
-    uint8_t				reserved[3];
+    uint8_t             reserved[3];\
+    uint64_t            deviceID;
 
 /*!
     @typedef    IOHIDEventData
@@ -58,6 +59,7 @@
                             particular event
     @field      type        Type of this particular event
     @field      options     Event specific options
+    @field      deviceID    ID of the sending device
 */
 
 struct IOHIDEventData{
@@ -125,10 +127,6 @@ typedef struct _IOHIDGyroEventData {
     IOHIDAXISEVENT_BASE;
 	uint32_t        gyroType;
 	uint32_t		gyroSubType;
-	IOFixed		quaternionx;
-	IOFixed		quaterniony;
-	IOFixed		quaternionz;
-	IOFixed		quaternionw;
 } IOHIDGyroEventData;
 
 typedef struct _IOHIDCompassEventData {
@@ -226,13 +224,38 @@ typedef struct _IOHIDDigitizerEventData {
 
 typedef struct _IOHIDSwipeEventData {
     IOHIDEVENT_BASE;                            
-    IOHIDSwipeMask swipeMask; // legacy
-    IOHIDGestureMotion gestureMotion; // horizontal, vertical, scale, rotate, tap, etc
-    IOFixed progress; // progress of gesture, as a fraction (1.0 = 100%)
-    IOFixed positionX; // delta in position of gesture on Horizontal axis. Espressed as a fraction (1.0 = 100%)
-    IOFixed positionY; // delta in position of gesture on Vertical axis. Espressed as a fraction (1.0 = 100%)
-} IOHIDSwipeEventData, IOHIDNavagationSwipeEventData, IOHIDDockSwipeEventData;
+    IOHIDSwipeMask      swipeMask;      // legacy
+    IOHIDGestureMotion  gestureMotion;  // horizontal, vertical, scale, rotate, tap, etc
+    IOHIDGestureFlavor  flavor;         // event flavor for routing purposes
+    IOFixed             progress;       // progress of gesture, as a fraction (1.0 = 100%)
+    IOFixed             positionX;      // delta in position of gesture on Horizontal axis. Espressed as a fraction (1.0 = 100%)
+    IOFixed             positionY;      // delta in position of gesture on Vertical axis. Espressed as a fraction (1.0 = 100%)
+}   IOHIDSwipeEventData, 
+    IOHIDNavagationSwipeEventData, 
+    IOHIDDockSwipeEventData, 
+    IOHIDFluidTouchGestureData,
+    IOHIDBoundaryScrollData;
 
+typedef struct _IOHIDSymbolicHotKeyEventData {
+    IOHIDEVENT_BASE;
+    uint32_t    hotKey;
+} IOHIDSymbolicHotKeyEventData;
+
+enum {
+    kIOHIDSymbolicHotKeyOptionIsCGSHotKey = 0x00010000,
+};
+
+typedef struct _IOHIDPowerEventData {
+    IOHIDEVENT_BASE;
+    IOFixed         measurement;
+    uint32_t        powerType;
+    uint32_t        powerSubType;
+} IOHIDPowerEventData;
+
+typedef struct _IOHIDBrightnessEventData {
+    IOHIDEVENT_BASE;                            
+    IOFixed         level;      // 0..1 value, S space
+} IOHIDBrightnessEventData;
 
 /*!
     @typedef    IOHIDSystemQueueElement
@@ -244,7 +267,6 @@ typedef struct _IOHIDSwipeEventData {
     @field      version     Version of the event queue element
     @field      size        Size, in bytes, of this particular event queue element
     @field      timeStamp   Time at which event was dispatched
-    @field      deviceID    ID of the sending device
     @field      options     Options for further developement
     @field      eventCount  The number of events contained in this transaction
     @field      events      Begining offset of contiguous mememory that contains the
@@ -252,21 +274,10 @@ typedef struct _IOHIDSwipeEventData {
 */
 typedef struct _IOHIDSystemQueueElement {
     uint64_t        timeStamp;
-    uint64_t        deviceID;
     uint32_t        options;
     uint32_t        eventCount;
     IOHIDEventData  events[];
 } IOHIDSystemQueueElement; 
-
-typedef struct _IOHIDSymbolicHotKeyEventData {
-    IOHIDEVENT_BASE;
-    uint32_t    hotKey;
-} IOHIDSymbolicHotKeyEventData;
-
-enum {
-    kIOHIDSymbolicHotKeyOptionIsCGSHotKey = 0x00010000,
-};
-
 
 //******************************************************************************
 // MACROS
@@ -278,6 +289,7 @@ enum {
 {                                       \
     switch ( type ) {                   \
         case kIOHIDEventTypeNULL:       \
+        case kIOHIDEventTypeReset:      \
             size = sizeof(IOHIDEventData);\
             break;                      \
         case kIOHIDEventTypeVendorDefined:\
@@ -320,6 +332,8 @@ enum {
             break;                      \
         case kIOHIDEventTypeNavigationSwipe:\
         case kIOHIDEventTypeDockSwipe:\
+        case kIOHIDEventTypeFluidTouchGesture:\
+        case kIOHIDEventTypeBoundaryScroll:\
             size = sizeof(IOHIDSwipeEventData);\
             break;                      \
         case kIOHIDEventTypeMouse:\
@@ -334,6 +348,12 @@ enum {
         case kIOHIDEventTypeSymbolicHotKey:\
             size = sizeof(IOHIDSymbolicHotKeyEventData);\
             break;                      \
+        case kIOHIDEventTypePower:\
+            size = sizeof(IOHIDPowerEventData);\
+            break;                      \
+        case kIOHIDEventTypeBrightness:\
+            size = sizeof(IOHIDBrightnessEventData);\
+            break;                      \
         default:                        \
             size = 0;                   \
             break;                      \
@@ -346,25 +366,20 @@ enum {
 }
 
 #ifdef KERNEL
-    #ifdef HIDEVENTFIXED        
-        #define IOHIDEventValueFloat(value) (value)
-        #define IOHIDEventValueFixed(value) (value)
-    #else
-        #define IOHIDEventValueFloat(value) (value >> 16)
-        #define IOHIDEventValueFixed(value) (value << 16)
-    #endif
+    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : value>>16)
+    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : value<<16)
     #define IOHIDEventGetEventWithOptions(event, type, options) event->getEvent(type, options)
-    #define GET_EVENTDATA(event) event->_data
+    #define GET_EVENTDATA(event)                                event->_data
 #else
-    #define IOHIDEventValueFloat(value) (value / 65536.0)
-    #define IOHIDEventValueFixed(value) (value * 65536)
-    #define GET_EVENTDATA(event) event->eventData
+    #define IOHIDEventValueFloat(value, isFixed)                (isFixed ? value : value / 65536.0)
+    #define IOHIDEventValueFixed(value, isFixed)                (isFixed ? value : value * 65536)
+    #define GET_EVENTDATA(event)                                event->eventData
 #endif
 
 //==============================================================================
 // IOHIDEventGetValue MACRO
 //==============================================================================
-#define GET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value)\
+#define GET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed)\
 {                                                       \
     switch ( fieldEvType ) {                            \
         case kIOHIDEventTypeNULL:                       \
@@ -407,7 +422,17 @@ enum {
                         value = progress->eventType;    \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldProgressLevel): \
-                        value = IOHIDEventValueFloat(progress->level); \
+                        value = IOHIDEventValueFloat(progress->level, isFixed); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeBrightness:                  \
+            {                                           \
+                IOHIDBrightnessEventData * brightness = (IOHIDBrightnessEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBrightnessLevel): \
+                        value = IOHIDEventValueFloat(brightness->level, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
@@ -426,7 +451,7 @@ enum {
                         value = button->button.clickState;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        value = IOHIDEventValueFloat(button->button.pressure); \
+                        value = IOHIDEventValueFloat(button->button.pressure, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
@@ -436,13 +461,13 @@ enum {
                 IOHIDAccelerometerEventData * accl = (IOHIDAccelerometerEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX): \
-                        value = IOHIDEventValueFloat(accl->position.x); \
+                        value = IOHIDEventValueFloat(accl->position.x, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY): \
-                        value = IOHIDEventValueFloat(accl->position.y); \
+                        value = IOHIDEventValueFloat(accl->position.y, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ): \
-                        value = IOHIDEventValueFloat(accl->position.z); \
+                        value = IOHIDEventValueFloat(accl->position.z, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
                         value = accl->acclType;     \
@@ -458,31 +483,19 @@ enum {
 				IOHIDGyroEventData * gyro = (IOHIDGyroEventData*)eventData; \
 				switch ( fieldOffset ) {                \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroX): \
-						value = IOHIDEventValueFloat(gyro->position.x); \
+						value = IOHIDEventValueFloat(gyro->position.x, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroY): \
-						value = IOHIDEventValueFloat(gyro->position.y); \
+						value = IOHIDEventValueFloat(gyro->position.y, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroZ): \
-						value = IOHIDEventValueFloat(gyro->position.z); \
+						value = IOHIDEventValueFloat(gyro->position.z, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroType): \
 						value = gyro->gyroType;     \
 						break;                          \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
 						value = gyro->gyroSubType;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionX): \
-						value = gyro->quaternionx;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionY): \
-						value = gyro->quaterniony;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionZ): \
-						value = gyro->quaternionz;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionW): \
-						value = gyro->quaternionw;     \
 						break;                          \
 				};                                      \
 			}                                           \
@@ -492,13 +505,13 @@ enum {
                 IOHIDCompassEventData * compass = (IOHIDCompassEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldCompassX): \
-                        value = IOHIDEventValueFloat(compass->position.x); \
+                        value = IOHIDEventValueFloat(compass->position.x, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldCompassY): \
-                        value = IOHIDEventValueFloat(compass->position.y); \
+                        value = IOHIDEventValueFloat(compass->position.y, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldCompassZ): \
-                        value = IOHIDEventValueFloat(compass->position.z); \
+                        value = IOHIDEventValueFloat(compass->position.z, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldCompassType): \
                         value = compass->compassType;     \
@@ -511,13 +524,13 @@ enum {
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseX): \
-                        value = IOHIDEventValueFloat(mouse->position.x); \
+                        value = IOHIDEventValueFloat(mouse->position.x, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseY): \
-                        value = IOHIDEventValueFloat(mouse->position.y); \
+                        value = IOHIDEventValueFloat(mouse->position.y, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseZ): \
-                        value = IOHIDEventValueFloat(mouse->position.z); \
+                        value = IOHIDEventValueFloat(mouse->position.z, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseButtonMask): \
                         value = mouse->button.buttonMask;     \
@@ -529,13 +542,15 @@ enum {
                         value = mouse->button.clickState;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMousePressure): \
-                        value = IOHIDEventValueFloat(mouse->button.pressure); \
+                        value = IOHIDEventValueFloat(mouse->button.pressure, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
             break;                                      \
         case kIOHIDEventTypeNavigationSwipe:            \
         case kIOHIDEventTypeDockSwipe:                  \
+        case kIOHIDEventTypeFluidTouchGesture:          \
+        case kIOHIDEventTypeBoundaryScroll:             \
             {                                           \
                 IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
                 switch ( fieldOffset ) {                \
@@ -543,6 +558,8 @@ enum {
                     /*  
                     case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMask):    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollMask):    \
                     */                                  \
                         value = swipe->swipeMask;       \
                         break;                          \
@@ -550,6 +567,8 @@ enum {
                     /*  
                     case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMotion):    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollMotion):    \
                     */                                  \
                         value = swipe->gestureMotion;   \
                         break;                          \
@@ -557,22 +576,37 @@ enum {
                     /*  
                     case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeProgress):    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollProgress):    \
                     */                                  \
-                        value = IOHIDEventValueFloat(swipe->progress);       \
+                        value = IOHIDEventValueFloat(swipe->progress, isFixed);       \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionX):       \
                     /*  
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeX):    \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGesturePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollPositionX):    \
                     */                                  \
-                        value = IOHIDEventValueFloat(swipe->positionX);       \
+                        value = IOHIDEventValueFloat(swipe->positionX, isFixed);       \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionY):       \
                     /*  
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeY):    \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGesturePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollPositionY):    \
                     */                                  \
-                        value = IOHIDEventValueFloat(swipe->positionY);       \
+                        value = IOHIDEventValueFloat(swipe->positionY, isFixed);       \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeFlavor):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollFlavor):    \
+                    */                                  \
+                        value = swipe->flavor;          \
                         break;                          \
                 };                                      \
             }                                           \
@@ -582,7 +616,7 @@ enum {
                 IOHIDTemperatureEventData * temp = (IOHIDTemperatureEventData *)eventData; \
                 switch ( fieldOffset ) {                    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTemperatureLevel):       \
-                        value = IOHIDEventValueFloat(temp->level);\
+                        value = IOHIDEventValueFloat(temp->level, isFixed);\
                         break;                          \
                 };                                      \
             }                                           \
@@ -606,7 +640,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationRadius):  \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX): \
                     */                                                              \
-                        value = IOHIDEventValueFloat(axis->position.x); \
+                        value = IOHIDEventValueFloat(axis->position.x, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTranslationY):       \
                     /*                                                              \
@@ -618,7 +652,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAzimuth): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY): \
                     */                                                              \
-                        value = IOHIDEventValueFloat(axis->position.y); \
+                        value = IOHIDEventValueFloat(axis->position.y, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTranslationZ):       \
                     /*                                                              \
@@ -630,7 +664,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAltitude):\
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ): \
                     */                                                              \
-                        value = IOHIDEventValueFloat(axis->position.z); \
+                        value = IOHIDEventValueFloat(axis->position.z, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScrollIsPixels):         \
                         value = ((axis->options & kIOHIDEventOptionPixelUnits) != 0);\
@@ -700,13 +734,13 @@ enum {
                 IOHIDDigitizerEventData * digEvent = (IOHIDDigitizerEventData *)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerX): \
-                        value = IOHIDEventValueFloat(digEvent->position.x);   \
+                        value = IOHIDEventValueFloat(digEvent->position.x, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerY): \
-                        value = IOHIDEventValueFloat(digEvent->position.y);   \
+                        value = IOHIDEventValueFloat(digEvent->position.y, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerZ): \
-                        value = IOHIDEventValueFloat(digEvent->position.z);   \
+                        value = IOHIDEventValueFloat(digEvent->position.z, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerButtonMask): \
                         value = digEvent->buttonMask;   \
@@ -733,13 +767,13 @@ enum {
                         value = (digEvent->options & kIOHIDEventOptionIsCollection) != 0;\
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerPressure): \
-                        value = IOHIDEventValueFloat(digEvent->tipPressure); \
+                        value = IOHIDEventValueFloat(digEvent->tipPressure, isFixed); \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerBarrelPressure): \
-                        value = IOHIDEventValueFloat(digEvent->barrelPressure);   \
+                        value = IOHIDEventValueFloat(digEvent->barrelPressure, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTwist): \
-                        value = IOHIDEventValueFloat(digEvent->twist);        \
+                        value = IOHIDEventValueFloat(digEvent->twist, isFixed);        \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltX): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltY): \
@@ -752,39 +786,39 @@ enum {
                             case kIOHIDDigitizerOrientationTypeTilt:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltX): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.tilt.x); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.tilt.x, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltY): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.tilt.y); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.tilt.y, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypePolar:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAltitude): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.altitude); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.altitude, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAzimuth): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.azimuth); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.polar.azimuth, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypeQuality:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQuality): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.quality); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.quality, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDensity): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.density); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.density, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerIrregularity): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.irregularity); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.irregularity, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.majorRadius); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.majorRadius, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
-                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.minorRadius); \
+                                        value = IOHIDEventValueFloat(digEvent->orientation.quality.minorRadius, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
@@ -813,6 +847,29 @@ enum {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypePower:                      \
+            {\
+                IOHIDPowerEventData * pwrEvent = (IOHIDPowerEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerMeasurement): \
+                        value = IOHIDEventValueFloat(pwrEvent->measurement, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerType): \
+                        value = pwrEvent->powerType;  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerSubType): \
+                        value = pwrEvent->powerSubType; \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeReset:                      \
+            {                                           \
+            /*  IOHIDEventResetEventData * reset = (IOHIDEventResetEventData *)eventData; */\
+                switch ( fieldOffset ) {                \
+                };                                      \
+            }                                           \
+            break;                                      \
     };                                                  \
 }
 
@@ -821,14 +878,23 @@ enum {
     uint32_t        fieldOffset = IOHIDEventFieldOffset(field);     \
     IOHIDEventRef   ev          = NULL;                             \
     if ( (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {\
-        GET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value);\
+        GET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value, false);\
+    }                                                               \
+}
+
+#define GET_EVENT_VALUE_FIXED(event, field, value, options) \
+{   IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);  \
+    uint32_t        fieldOffset = IOHIDEventFieldOffset(field);     \
+    IOHIDEventRef   ev          = NULL;                             \
+    if ( (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {\
+        GET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value, true);\
     }                                                               \
 }
 
 //==============================================================================
 // IOHIDEventSetValue MACRO
 //==============================================================================
-#define SET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value) \
+#define SET_EVENTDATA_VALUE(eventData, fieldEvType, fieldOffset, value, isFixed) \
 {   switch ( fieldEvType ) {                            \
         case kIOHIDEventTypeNULL:                       \
             switch ( fieldOffset ) {                    \
@@ -873,7 +939,17 @@ enum {
                         progress->eventType = value;    \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldProgressLevel): \
-                        progress->level = IOHIDEventValueFixed(value); \
+                        progress->level = IOHIDEventValueFixed(value, isFixed); \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeBrightness:                  \
+            {                                           \
+                IOHIDBrightnessEventData * brightness = (IOHIDBrightnessEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBrightnessLevel): \
+                        brightness->level = IOHIDEventValueFixed(value, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
@@ -892,7 +968,7 @@ enum {
                         button->button.clickState = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldButtonPressure): \
-                        button->button.pressure = IOHIDEventValueFixed(value); \
+                        button->button.pressure = IOHIDEventValueFixed(value, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
@@ -902,13 +978,13 @@ enum {
                 IOHIDAccelerometerEventData * accl = (IOHIDAccelerometerEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX): \
-                        accl->position.x = IOHIDEventValueFixed(value); \
+                        accl->position.x = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY): \
-                        accl->position.y = IOHIDEventValueFixed(value); \
+                        accl->position.y = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ): \
-                        accl->position.z = IOHIDEventValueFixed(value); \
+                        accl->position.z = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerType): \
                         accl->acclType = value;     \
@@ -919,18 +995,18 @@ enum {
 				};                                      \
             }                                           \
             break;                                      \
-			case kIOHIDEventTypeGyro:              \
+        case kIOHIDEventTypeGyro:              \
 			{                                           \
 				IOHIDGyroEventData * gyro = (IOHIDGyroEventData*)eventData; \
 				switch ( fieldOffset ) {                \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroX): \
-						gyro->position.x = IOHIDEventValueFixed(value); \
+						gyro->position.x = IOHIDEventValueFixed(value, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroY): \
-						gyro->position.y = IOHIDEventValueFixed(value); \
+						gyro->position.y = IOHIDEventValueFixed(value, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroZ): \
-						gyro->position.z = IOHIDEventValueFixed(value); \
+						gyro->position.z = IOHIDEventValueFixed(value, isFixed); \
 						break;                              \
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroType): \
 						gyro->gyroType = value;     \
@@ -938,52 +1014,40 @@ enum {
 					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroSubType): \
 						gyro->gyroSubType = value;     \
 						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionX): \
-						gyro->quaternionx = value;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionY): \
-						gyro->quaterniony = value;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionZ): \
-						gyro->quaternionz = value;     \
-						break;                          \
-					case IOHIDEventFieldOffset(kIOHIDEventFieldGyroQuaternionW): \
-						gyro->quaternionw = value;     \
-						break;                          \
 				};                                      \
 			}                                           \
 			break;                                      \
         case kIOHIDEventTypeCompass:                     \
-        {                                           \
-            IOHIDCompassEventData * compass = (IOHIDCompassEventData*)eventData; \
-            switch ( fieldOffset ) {                \
-                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassX): \
-                    value = IOHIDEventValueFloat(compass->position.x); \
-                    break;                              \
-                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassY): \
-                    value = IOHIDEventValueFloat(compass->position.y); \
-                    break;                              \
-                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassZ): \
-                    value = IOHIDEventValueFloat(compass->position.z); \
-                    break;                              \
-                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassType): \
-                    value = compass->compassType;     \
-                    break;                          \
-            };                                      \
-        }                                           \
-        break;                                      \
+            {                                           \
+                IOHIDCompassEventData * compass = (IOHIDCompassEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassX): \
+                        compass->position.x = IOHIDEventValueFixed(value, isFixed); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassY): \
+                        compass->position.y = IOHIDEventValueFixed(value, isFixed); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassZ): \
+                        compass->position.z = IOHIDEventValueFixed(value, isFixed); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassType): \
+                        value = compass->compassType;     \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
         case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseX): \
-                        mouse->position.x = IOHIDEventValueFixed(value); \
+                        mouse->position.x = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseY): \
-                        mouse->position.y = IOHIDEventValueFixed(value); \
+                        mouse->position.y = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseZ): \
-                        mouse->position.z = IOHIDEventValueFixed(value); \
+                        mouse->position.z = IOHIDEventValueFixed(value, isFixed); \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMouseButtonMask): \
                         mouse->button.buttonMask = value;     \
@@ -995,50 +1059,71 @@ enum {
                         mouse->button.clickState = value;     \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldMousePressure): \
-                        mouse->button.pressure = IOHIDEventValueFixed(value); \
+                        mouse->button.pressure = IOHIDEventValueFixed(value, isFixed); \
                         break;                          \
                 };                                      \
             }                                           \
             break;                                      \
         case kIOHIDEventTypeNavigationSwipe:            \
         case kIOHIDEventTypeDockSwipe:                  \
+        case kIOHIDEventTypeFluidTouchGesture:          \
+        case kIOHIDEventTypeBoundaryScroll:             \
             {                                           \
                 IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
                 switch ( fieldOffset ) {                    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMask):       \
                     /*                                  \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMask):       \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMask):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollMask):    \
                     */                                  \
                         swipe->swipeMask = value;\
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMotion):       \
                     /*                                  \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMotion):       \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMotion):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollMotion):    \
                     */                                  \
                         swipe->gestureMotion = value;\
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeProgress):       \
                     /*                                  \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeProgress):       \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeProgress):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollProgress):    \
                     */                                  \
-                        swipe->progress = IOHIDEventValueFixed(value);\
+                        swipe->progress = IOHIDEventValueFixed(value, isFixed);\
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionX):       \
                     /*                                  \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionX):       \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionX):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGesturePositionX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollPositionX):    \
                     */                                  \
-                        swipe->positionX = IOHIDEventValueFixed(value);\
+                        swipe->positionX = IOHIDEventValueFixed(value, isFixed);\
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionY):       \
                     /*                                  \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionY):       \
-                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionY):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGesturePositionY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollPositionY):    \
                     */                                  \
-                        swipe->positionY = IOHIDEventValueFixed(value);\
+                        swipe->positionY = IOHIDEventValueFixed(value, isFixed);\
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeFlavor):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldFluidTouchGestureFlavor):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldBoundaryScrollFlavor):    \
+                    */                                  \
+                        swipe->flavor = value;          \
                         break;                          \
                 };                                      \
             }                                           \
@@ -1048,7 +1133,7 @@ enum {
                 IOHIDTemperatureEventData * temp = (IOHIDTemperatureEventData *)eventData; \
                 switch ( fieldOffset ) {                    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTemperatureLevel):       \
-                        temp->level = IOHIDEventValueFixed(value);\
+                        temp->level = IOHIDEventValueFixed(value, isFixed);\
                         break;                          \
                 };                                      \
             }                                           \
@@ -1072,7 +1157,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationRadius):  \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerX):     \
                     */                                                              \
-                        axis->position.x = IOHIDEventValueFixed(value);             \
+                        axis->position.x = IOHIDEventValueFixed(value, isFixed);             \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTranslationY):       \
                     /*                                                              \
@@ -1084,7 +1169,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAzimuth): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerY):     \
                     */                                                              \
-                        axis->position.y = IOHIDEventValueFixed(value);             \
+                        axis->position.y = IOHIDEventValueFixed(value, isFixed);             \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldTranslationZ):       \
                     /*                                                              \
@@ -1096,7 +1181,7 @@ enum {
                     case IOHIDEventFieldOffset(kIOHIDEventFieldOrientationAltitude):\
                     case IOHIDEventFieldOffset(kIOHIDEventFieldAccelerometerZ):     \
                     */                                                              \
-                        axis->position.z = IOHIDEventValueFixed(value);             \
+                        axis->position.z = IOHIDEventValueFixed(value, isFixed);             \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldScrollIsPixels):         \
                         if ( value )                        \
@@ -1172,13 +1257,13 @@ enum {
                 IOHIDDigitizerEventData * digEvent = (IOHIDDigitizerEventData *)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerX): \
-                        digEvent->position.x = IOHIDEventValueFixed(value);   \
+                        digEvent->position.x = IOHIDEventValueFixed(value, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerY): \
-                        digEvent->position.y = IOHIDEventValueFixed(value);   \
+                        digEvent->position.y = IOHIDEventValueFixed(value, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerZ): \
-                        digEvent->position.z = IOHIDEventValueFixed(value);   \
+                        digEvent->position.z = IOHIDEventValueFixed(value, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerButtonMask): \
                         digEvent->buttonMask = value;   \
@@ -1214,13 +1299,13 @@ enum {
                             digEvent->options &= ~kIOHIDEventOptionIsCollection;        \
                         break;                              \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerPressure): \
-                        digEvent->tipPressure = IOHIDEventValueFixed(value);  \
+                        digEvent->tipPressure = IOHIDEventValueFixed(value, isFixed);  \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerBarrelPressure): \
-                        digEvent->barrelPressure = IOHIDEventValueFixed(value);   \
+                        digEvent->barrelPressure = IOHIDEventValueFixed(value, isFixed);   \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTwist): \
-                        digEvent->twist = IOHIDEventValueFixed(value);        \
+                        digEvent->twist = IOHIDEventValueFixed(value, isFixed);        \
                         break;                          \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltX): \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltY): \
@@ -1233,39 +1318,39 @@ enum {
                             case kIOHIDDigitizerOrientationTypeTilt:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltX): \
-                                        digEvent->orientation.tilt.x = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.tilt.x = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerTiltY): \
-                                        digEvent->orientation.tilt.y = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.tilt.y = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypePolar:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAltitude): \
-                                        digEvent->orientation.polar.altitude = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.polar.altitude = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerAzimuth): \
-                                        digEvent->orientation.polar.azimuth = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.polar.azimuth = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
                             case kIOHIDDigitizerOrientationTypeQuality:\
                                 switch ( fieldOffset ) {\
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerQuality): \
-                                        digEvent->orientation.quality.quality = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.quality.quality = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerDensity): \
-                                        digEvent->orientation.quality.density = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.quality.density = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerIrregularity): \
-                                        digEvent->orientation.quality.irregularity = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.quality.irregularity = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMajorRadius): \
-                                        digEvent->orientation.quality.majorRadius = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.quality.majorRadius = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                     case IOHIDEventFieldOffset(kIOHIDEventFieldDigitizerMinorRadius): \
-                                        digEvent->orientation.quality.minorRadius = IOHIDEventValueFixed(value); \
+                                        digEvent->orientation.quality.minorRadius = IOHIDEventValueFixed(value, isFixed); \
                                         break;          \
                                 };                      \
                                 break;                  \
@@ -1297,6 +1382,29 @@ enum {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypePower:                      \
+            {                                           \
+                IOHIDPowerEventData * pwrEvent = (IOHIDPowerEventData *)eventData; \
+                switch ( fieldOffset ) {\
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerMeasurement): \
+                        pwrEvent->measurement = IOHIDEventValueFixed(value, isFixed); \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerType): \
+                        pwrEvent->powerType = value;  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldPowerSubType): \
+                        pwrEvent->powerSubType = value; \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeReset:                      \
+            {                                           \
+            /*  IOHIDEventResetEventData * reset = (IOHIDEventResetEventData *)eventData; */\
+                switch ( fieldOffset ) {                \
+                };                                      \
+            }                                           \
+            break;                                      \
     };                                                  \
 }
 
@@ -1305,7 +1413,16 @@ enum {
     uint32_t        fieldOffset = IOHIDEventFieldOffset(field);     \
     IOHIDEventRef   ev          = NULL;                             \
     if ( (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {\
-        SET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value);\
+        SET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value, false);\
+    }                                                               \
+}
+
+#define SET_EVENT_VALUE_FIXED(event, field, value, options)               \
+{   IOHIDEventType  fieldEvType = IOHIDEventFieldEventType(field);  \
+    uint32_t        fieldOffset = IOHIDEventFieldOffset(field);     \
+    IOHIDEventRef   ev          = NULL;                             \
+    if ( (ev = IOHIDEventGetEventWithOptions(event, fieldEvType, options)) ) {\
+        SET_EVENTDATA_VALUE(GET_EVENTDATA(ev),fieldEvType,fieldOffset,value, true);\
     }                                                               \
 }
 

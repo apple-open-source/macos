@@ -23,7 +23,9 @@
  *
  */
 
-#ifdef __APPLE__
+#include "kdc_locl.h"
+
+#if defined(__APPLE__) && defined(HAVE_GCD)
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCDynamicStore.h>
@@ -81,7 +83,7 @@ CFString2utf8(CFStringRef string)
     str = malloc(size);
     if (str == NULL)
 	return NULL;
-		
+
     if (CFStringGetCString(string, str, size, kCFStringEncodingUTF8) == false) {
 	free(str);
 	return NULL;
@@ -98,12 +100,12 @@ retry_timer(void)
 {
     dispatch_source_t s;
     dispatch_time_t t;
-    
+
     s = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,
 			       0, 0, g_queue);
     t = dispatch_time(DISPATCH_TIME_NOW, 5ull * NSEC_PER_SEC);
     dispatch_source_set_timer(s, t, 0, NSEC_PER_SEC);
-    dispatch_source_set_event_handler(s, ^{ 
+    dispatch_source_set_event_handler(s, ^{
 	    create_dns_sd();
 	    dispatch_release(s);
 	});
@@ -145,7 +147,7 @@ create_dns_sd(void)
 	    retry_timer();
 	    dispatch_release(source);
 	});
-    
+
     /* Do the first update ourself */
     update_all(g_store, NULL, NULL);
     dispatch_resume(g_queue);
@@ -203,8 +205,8 @@ domains_add(const void *key, const void *value, void *context)
 
 static void
 dnsCallback(DNSServiceRef sdRef __attribute__((unused)),
-	    DNSRecordRef RecordRef __attribute__((unused)), 
-	    DNSServiceFlags flags __attribute__((unused)), 
+	    DNSRecordRef RecordRef __attribute__((unused)),
+	    DNSServiceFlags flags __attribute__((unused)),
 	    DNSServiceErrorType errorCode __attribute__((unused)),
 	    void *context __attribute__((unused)))
 {
@@ -366,11 +368,11 @@ update_dns(void)
 	    asprintf(&name, "_kerberos.%s.%s", hostname, update->domain);
 	    if (name == NULL)
 		errx(1, "malloc");
-	    
+
 	    if (update->recordRef)
 		DNSServiceRemoveRecord(g_dnsRef, update->recordRef, 0);
-	    
-	    error = DNSServiceRegisterRecord(g_dnsRef, 
+
+	    error = DNSServiceRegisterRecord(g_dnsRef,
 					     &update->recordRef,
 					     kDNSServiceFlagsShared | kDNSServiceFlagsAllowRemoteQuery,
 					     0,
@@ -385,7 +387,7 @@ update_dns(void)
 	    free(name);
 	    free(dnsdata);
 	    if (error)
-		errx(1, "failure to update entry for %s/%s", 
+		errx(1, "failure to update entry for %s/%s",
 		     update->domain, update->realm);
 	}
 	e = &(*e)->next;
@@ -479,7 +481,7 @@ destroy_dns_sd(void)
 #ifdef REGISTER_SRV_RR
     unregister_srv_realms();
 #endif
-    
+
     DNSServiceRefDeallocate(g_dnsRef);
     g_dnsRef = NULL;
 }
@@ -504,7 +506,7 @@ register_notification(void)
 	errx(1, "CFArrayCreateMutable");
 
     CFArrayAppendValue(keys, computerNameKey);
-    CFArrayAppendValue(keys, NetworkChangedKey_BackToMyMac); 
+    CFArrayAppendValue(keys, NetworkChangedKey_BackToMyMac);
 
     if (SCDynamicStoreSetNotificationKeys(store, keys, NULL) == false)
 	errx(1, "SCDynamicStoreSetNotificationKeys");
@@ -517,14 +519,16 @@ register_notification(void)
 
     return store;
 }
+#endif
 
 void
 bonjour_announce(heim_array_t (*get_realms)(void))
 {
+#if defined(__APPLE__) && defined(HAVE_GCD)
     g_queue = dispatch_queue_create("com.apple.kdc_announce", NULL);
     if (!g_queue)
 	errx(1, "dispatch_queue_create");
-    
+
     g_store = register_notification();
     announce_get_realms = get_realms;
 	
@@ -541,6 +545,5 @@ bonjour_announce(heim_array_t (*get_realms)(void))
 #endif
 
     create_dns_sd();
+#endif
 }
-
-#endif /* __APPLE__ */

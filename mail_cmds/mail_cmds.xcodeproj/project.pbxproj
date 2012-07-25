@@ -1,0 +1,834 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		FC5B093D1497CF20007519B8 /* executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = FC5B093E1497CF20007519B8 /* Build configuration list for PBXAggregateTarget "executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				FC5B09411497CF3B007519B8 /* PBXTargetDependency */,
+				FC5B09431497CF3B007519B8 /* PBXTargetDependency */,
+				FC5B09451497CF3B007519B8 /* PBXTargetDependency */,
+				FC5B09471497CF3B007519B8 /* PBXTargetDependency */,
+				FCD73C7F149803550043B232 /* PBXTargetDependency */,
+				FC5B09491497CF3B007519B8 /* PBXTargetDependency */,
+			);
+			name = executables;
+			productName = executables;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		FC00B2431497D36800B005A5 /* mail.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08FA1497CF01007519B8 /* mail.1 */; };
+		FC00B2441497D36800B005A5 /* mailx.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08FB1497CF01007519B8 /* mailx.1 */; };
+		FC5B08DB1497CEEC007519B8 /* biff.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08D91497CEEC007519B8 /* biff.c */; };
+		FC5B08E21497CEF5007519B8 /* comsat.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08E01497CEF5007519B8 /* comsat.c */; };
+		FC5B08E81497CEFC007519B8 /* from.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08E61497CEFC007519B8 /* from.c */; };
+		FC5B091C1497CF02007519B8 /* aux.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EB1497CF01007519B8 /* aux.c */; };
+		FC5B091D1497CF02007519B8 /* cmd1.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EC1497CF01007519B8 /* cmd1.c */; };
+		FC5B091E1497CF02007519B8 /* cmd2.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08ED1497CF01007519B8 /* cmd2.c */; };
+		FC5B091F1497CF02007519B8 /* cmd3.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EE1497CF01007519B8 /* cmd3.c */; };
+		FC5B09201497CF02007519B8 /* cmdtab.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08EF1497CF01007519B8 /* cmdtab.c */; };
+		FC5B09211497CF02007519B8 /* collect.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F01497CF01007519B8 /* collect.c */; };
+		FC5B09221497CF02007519B8 /* edit.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F21497CF01007519B8 /* edit.c */; };
+		FC5B09231497CF02007519B8 /* fio.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F41497CF01007519B8 /* fio.c */; };
+		FC5B09241497CF02007519B8 /* getname.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F51497CF01007519B8 /* getname.c */; };
+		FC5B09251497CF02007519B8 /* head.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F71497CF01007519B8 /* head.c */; };
+		FC5B09261497CF02007519B8 /* lex.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F81497CF01007519B8 /* lex.c */; };
+		FC5B09271497CF02007519B8 /* list.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08F91497CF01007519B8 /* list.c */; };
+		FC5B09281497CF02007519B8 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B08FC1497CF01007519B8 /* main.c */; };
+		FC5B092A1497CF02007519B8 /* names.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09021497CF02007519B8 /* names.c */; };
+		FC5B092B1497CF02007519B8 /* popen.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09041497CF02007519B8 /* popen.c */; };
+		FC5B092C1497CF02007519B8 /* quit.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09051497CF02007519B8 /* quit.c */; };
+		FC5B092D1497CF02007519B8 /* send.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09071497CF02007519B8 /* send.c */; };
+		FC5B092E1497CF02007519B8 /* strings.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09081497CF02007519B8 /* strings.c */; };
+		FC5B092F1497CF02007519B8 /* strlcpy.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09091497CF02007519B8 /* strlcpy.c */; };
+		FC5B09301497CF02007519B8 /* temp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B090A1497CF02007519B8 /* temp.c */; };
+		FC5B09311497CF02007519B8 /* tty.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B090B1497CF02007519B8 /* tty.c */; };
+		FC5B09331497CF02007519B8 /* v7.local.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09191497CF02007519B8 /* v7.local.c */; };
+		FC5B09341497CF02007519B8 /* vars.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B091A1497CF02007519B8 /* vars.c */; };
+		FC5B09351497CF02007519B8 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B091B1497CF02007519B8 /* version.c */; };
+		FC5B093C1497CF0B007519B8 /* msgs.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5B09391497CF0B007519B8 /* msgs.c */; };
+		FC5B094B1497D198007519B8 /* libcurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC5B094A1497D198007519B8 /* libcurses.dylib */; };
+		FC5B094C1497D200007519B8 /* biff.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08D81497CEEC007519B8 /* biff.1 */; };
+		FC5B094D1497D207007519B8 /* comsat.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08DF1497CEF5007519B8 /* comsat.8 */; };
+		FC5B094F1497D23F007519B8 /* com.apple.comsat.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08DE1497CEF5007519B8 /* com.apple.comsat.plist */; };
+		FC5B09501497D249007519B8 /* from.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B08E51497CEFC007519B8 /* from.1 */; };
+		FC5B09511497D251007519B8 /* msgs.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC5B09381497CF0B007519B8 /* msgs.1 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FC5B09401497CF3B007519B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B089A1497CE0C007519B8;
+			remoteInfo = biff;
+		};
+		FC5B09421497CF3B007519B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B08B71497CEC7007519B8;
+			remoteInfo = comsat;
+		};
+		FC5B09441497CF3B007519B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B08BF1497CECA007519B8;
+			remoteInfo = from;
+		};
+		FC5B09461497CF3B007519B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B08C71497CECE007519B8;
+			remoteInfo = mail;
+		};
+		FC5B09481497CF3B007519B8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B08CF1497CED1007519B8;
+			remoteInfo = msgs;
+		};
+		FCD73C7E149803550043B232 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FCD73C731497F6A00043B232;
+			remoteInfo = mailx;
+		};
+		FCD73C801498038D0043B232 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FC74594B1497CC7F00E98ADB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC5B08C71497CECE007519B8;
+			remoteInfo = mail;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FC5B08991497CE0C007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				FC5B094C1497D200007519B8 /* biff.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FC5B08BA1497CEC7007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				FC5B094D1497D207007519B8 /* comsat.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FC5B08C21497CECA007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				FC5B09501497D249007519B8 /* from.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FC5B08CA1497CECE007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				FC00B2431497D36800B005A5 /* mail.1 in CopyFiles */,
+				FC00B2441497D36800B005A5 /* mailx.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FC5B08D21497CED1007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				FC5B09511497D251007519B8 /* msgs.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FC5B094E1497D227007519B8 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				FC5B094F1497D23F007519B8 /* com.apple.comsat.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FCD73C721497F6A00043B232 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FC5B089B1497CE0D007519B8 /* biff */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = biff; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC5B08BD1497CEC7007519B8 /* comsat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = comsat; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC5B08C51497CECA007519B8 /* from */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = from; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC5B08CD1497CECE007519B8 /* mail */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mail; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC5B08D51497CED1007519B8 /* msgs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = msgs; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC5B08D81497CEEC007519B8 /* biff.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = biff.1; sourceTree = "<group>"; };
+		FC5B08D91497CEEC007519B8 /* biff.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = biff.c; sourceTree = "<group>"; };
+		FC5B08DE1497CEF5007519B8 /* com.apple.comsat.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.comsat.plist; sourceTree = "<group>"; };
+		FC5B08DF1497CEF5007519B8 /* comsat.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = comsat.8; sourceTree = "<group>"; };
+		FC5B08E01497CEF5007519B8 /* comsat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = comsat.c; sourceTree = "<group>"; };
+		FC5B08E51497CEFC007519B8 /* from.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = from.1; sourceTree = "<group>"; };
+		FC5B08E61497CEFC007519B8 /* from.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = from.c; sourceTree = "<group>"; };
+		FC5B08EB1497CF01007519B8 /* aux.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = aux.c; sourceTree = "<group>"; };
+		FC5B08EC1497CF01007519B8 /* cmd1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd1.c; sourceTree = "<group>"; };
+		FC5B08ED1497CF01007519B8 /* cmd2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd2.c; sourceTree = "<group>"; };
+		FC5B08EE1497CF01007519B8 /* cmd3.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmd3.c; sourceTree = "<group>"; };
+		FC5B08EF1497CF01007519B8 /* cmdtab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cmdtab.c; sourceTree = "<group>"; };
+		FC5B08F01497CF01007519B8 /* collect.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = collect.c; sourceTree = "<group>"; };
+		FC5B08F11497CF01007519B8 /* def.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = def.h; sourceTree = "<group>"; };
+		FC5B08F21497CF01007519B8 /* edit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = edit.c; sourceTree = "<group>"; };
+		FC5B08F31497CF01007519B8 /* extern.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
+		FC5B08F41497CF01007519B8 /* fio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fio.c; sourceTree = "<group>"; };
+		FC5B08F51497CF01007519B8 /* getname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getname.c; sourceTree = "<group>"; };
+		FC5B08F61497CF01007519B8 /* glob.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = glob.h; sourceTree = "<group>"; };
+		FC5B08F71497CF01007519B8 /* head.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = head.c; sourceTree = "<group>"; };
+		FC5B08F81497CF01007519B8 /* lex.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lex.c; sourceTree = "<group>"; };
+		FC5B08F91497CF01007519B8 /* list.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = list.c; sourceTree = "<group>"; };
+		FC5B08FA1497CF01007519B8 /* mail.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mail.1; sourceTree = "<group>"; };
+		FC5B08FB1497CF01007519B8 /* mailx.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mailx.1; sourceTree = "<group>"; };
+		FC5B08FC1497CF01007519B8 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		FC5B08FF1497CF02007519B8 /* mail.help */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mail.help; sourceTree = "<group>"; };
+		FC5B09001497CF02007519B8 /* mail.rc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mail.rc; sourceTree = "<group>"; };
+		FC5B09011497CF02007519B8 /* mail.tildehelp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = mail.tildehelp; sourceTree = "<group>"; };
+		FC5B09021497CF02007519B8 /* names.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = names.c; sourceTree = "<group>"; };
+		FC5B09031497CF02007519B8 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		FC5B09041497CF02007519B8 /* popen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = popen.c; sourceTree = "<group>"; };
+		FC5B09051497CF02007519B8 /* quit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = quit.c; sourceTree = "<group>"; };
+		FC5B09061497CF02007519B8 /* rcv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = rcv.h; sourceTree = "<group>"; };
+		FC5B09071497CF02007519B8 /* send.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = send.c; sourceTree = "<group>"; };
+		FC5B09081497CF02007519B8 /* strings.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strings.c; sourceTree = "<group>"; };
+		FC5B09091497CF02007519B8 /* strlcpy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = strlcpy.c; sourceTree = "<group>"; };
+		FC5B090A1497CF02007519B8 /* temp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = temp.c; sourceTree = "<group>"; };
+		FC5B090B1497CF02007519B8 /* tty.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tty.c; sourceTree = "<group>"; };
+		FC5B09191497CF02007519B8 /* v7.local.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = v7.local.c; sourceTree = "<group>"; };
+		FC5B091A1497CF02007519B8 /* vars.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vars.c; sourceTree = "<group>"; };
+		FC5B091B1497CF02007519B8 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = version.c; sourceTree = "<group>"; };
+		FC5B09381497CF0B007519B8 /* msgs.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = msgs.1; sourceTree = "<group>"; };
+		FC5B09391497CF0B007519B8 /* msgs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = msgs.c; sourceTree = "<group>"; };
+		FC5B093A1497CF0B007519B8 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		FC5B094A1497D198007519B8 /* libcurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurses.dylib; path = /usr/lib/libcurses.dylib; sourceTree = "<absolute>"; };
+		FCD73C741497F6A00043B232 /* mailx */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mailx; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FC5B08981497CE0C007519B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08B91497CEC7007519B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08C11497CECA007519B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08C91497CECE007519B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08D11497CED1007519B8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B094B1497D198007519B8 /* libcurses.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCD73C711497F6A00043B232 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FC5B08D71497CEEC007519B8 /* biff */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B08D81497CEEC007519B8 /* biff.1 */,
+				FC5B08D91497CEEC007519B8 /* biff.c */,
+			);
+			path = biff;
+			sourceTree = "<group>";
+		};
+		FC5B08DD1497CEF5007519B8 /* comsat */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B08DE1497CEF5007519B8 /* com.apple.comsat.plist */,
+				FC5B08DF1497CEF5007519B8 /* comsat.8 */,
+				FC5B08E01497CEF5007519B8 /* comsat.c */,
+			);
+			path = comsat;
+			sourceTree = "<group>";
+		};
+		FC5B08E41497CEFC007519B8 /* from */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B08E51497CEFC007519B8 /* from.1 */,
+				FC5B08E61497CEFC007519B8 /* from.c */,
+			);
+			path = from;
+			sourceTree = "<group>";
+		};
+		FC5B08EA1497CF01007519B8 /* mail */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B08EB1497CF01007519B8 /* aux.c */,
+				FC5B08EC1497CF01007519B8 /* cmd1.c */,
+				FC5B08ED1497CF01007519B8 /* cmd2.c */,
+				FC5B08EE1497CF01007519B8 /* cmd3.c */,
+				FC5B08EF1497CF01007519B8 /* cmdtab.c */,
+				FC5B08F01497CF01007519B8 /* collect.c */,
+				FC5B08F11497CF01007519B8 /* def.h */,
+				FC5B08F21497CF01007519B8 /* edit.c */,
+				FC5B08F31497CF01007519B8 /* extern.h */,
+				FC5B08F41497CF01007519B8 /* fio.c */,
+				FC5B08F51497CF01007519B8 /* getname.c */,
+				FC5B08F61497CF01007519B8 /* glob.h */,
+				FC5B08F71497CF01007519B8 /* head.c */,
+				FC5B08F81497CF01007519B8 /* lex.c */,
+				FC5B08F91497CF01007519B8 /* list.c */,
+				FC5B08FA1497CF01007519B8 /* mail.1 */,
+				FC5B08FB1497CF01007519B8 /* mailx.1 */,
+				FC5B08FC1497CF01007519B8 /* main.c */,
+				FC5B08FE1497CF01007519B8 /* misc */,
+				FC5B09021497CF02007519B8 /* names.c */,
+				FC5B09031497CF02007519B8 /* pathnames.h */,
+				FC5B09041497CF02007519B8 /* popen.c */,
+				FC5B09051497CF02007519B8 /* quit.c */,
+				FC5B09061497CF02007519B8 /* rcv.h */,
+				FC5B09071497CF02007519B8 /* send.c */,
+				FC5B09081497CF02007519B8 /* strings.c */,
+				FC5B09091497CF02007519B8 /* strlcpy.c */,
+				FC5B090A1497CF02007519B8 /* temp.c */,
+				FC5B090B1497CF02007519B8 /* tty.c */,
+				FC5B09191497CF02007519B8 /* v7.local.c */,
+				FC5B091A1497CF02007519B8 /* vars.c */,
+				FC5B091B1497CF02007519B8 /* version.c */,
+			);
+			path = mail;
+			sourceTree = "<group>";
+		};
+		FC5B08FE1497CF01007519B8 /* misc */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B08FF1497CF02007519B8 /* mail.help */,
+				FC5B09001497CF02007519B8 /* mail.rc */,
+				FC5B09011497CF02007519B8 /* mail.tildehelp */,
+			);
+			path = misc;
+			sourceTree = "<group>";
+		};
+		FC5B09361497CF0B007519B8 /* msgs */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B09381497CF0B007519B8 /* msgs.1 */,
+				FC5B09391497CF0B007519B8 /* msgs.c */,
+				FC5B093A1497CF0B007519B8 /* pathnames.h */,
+				FC5B094A1497D198007519B8 /* libcurses.dylib */,
+			);
+			path = msgs;
+			sourceTree = "<group>";
+		};
+		FC7459491497CC7F00E98ADB = {
+			isa = PBXGroup;
+			children = (
+				FC5B08D71497CEEC007519B8 /* biff */,
+				FC5B08DD1497CEF5007519B8 /* comsat */,
+				FC5B08E41497CEFC007519B8 /* from */,
+				FC5B08EA1497CF01007519B8 /* mail */,
+				FC5B09361497CF0B007519B8 /* msgs */,
+				FC7459551497CC7F00E98ADB /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FC7459551497CC7F00E98ADB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FC5B089B1497CE0D007519B8 /* biff */,
+				FC5B08BD1497CEC7007519B8 /* comsat */,
+				FC5B08C51497CECA007519B8 /* from */,
+				FC5B08CD1497CECE007519B8 /* mail */,
+				FC5B08D51497CED1007519B8 /* msgs */,
+				FCD73C741497F6A00043B232 /* mailx */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FC5B089A1497CE0C007519B8 /* biff */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC5B08A21497CE0D007519B8 /* Build configuration list for PBXNativeTarget "biff" */;
+			buildPhases = (
+				FC5B08971497CE0C007519B8 /* Sources */,
+				FC5B08981497CE0C007519B8 /* Frameworks */,
+				FC5B08991497CE0C007519B8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = biff;
+			productName = target;
+			productReference = FC5B089B1497CE0D007519B8 /* biff */;
+			productType = "com.apple.product-type.tool";
+		};
+		FC5B08B71497CEC7007519B8 /* comsat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC5B08BB1497CEC7007519B8 /* Build configuration list for PBXNativeTarget "comsat" */;
+			buildPhases = (
+				FC5B08B81497CEC7007519B8 /* Sources */,
+				FC5B08B91497CEC7007519B8 /* Frameworks */,
+				FC5B08BA1497CEC7007519B8 /* CopyFiles */,
+				FC5B094E1497D227007519B8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = comsat;
+			productName = target;
+			productReference = FC5B08BD1497CEC7007519B8 /* comsat */;
+			productType = "com.apple.product-type.tool";
+		};
+		FC5B08BF1497CECA007519B8 /* from */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC5B08C31497CECA007519B8 /* Build configuration list for PBXNativeTarget "from" */;
+			buildPhases = (
+				FC5B08C01497CECA007519B8 /* Sources */,
+				FC5B08C11497CECA007519B8 /* Frameworks */,
+				FC5B08C21497CECA007519B8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = from;
+			productName = target;
+			productReference = FC5B08C51497CECA007519B8 /* from */;
+			productType = "com.apple.product-type.tool";
+		};
+		FC5B08C71497CECE007519B8 /* mail */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC5B08CB1497CECE007519B8 /* Build configuration list for PBXNativeTarget "mail" */;
+			buildPhases = (
+				FC5B08C81497CECE007519B8 /* Sources */,
+				FC5B08C91497CECE007519B8 /* Frameworks */,
+				FC5B08CA1497CECE007519B8 /* CopyFiles */,
+				FC00B2461497D46200B005A5 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mail;
+			productName = target;
+			productReference = FC5B08CD1497CECE007519B8 /* mail */;
+			productType = "com.apple.product-type.tool";
+		};
+		FC5B08CF1497CED1007519B8 /* msgs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC5B08D31497CED1007519B8 /* Build configuration list for PBXNativeTarget "msgs" */;
+			buildPhases = (
+				FC5B08D01497CED1007519B8 /* Sources */,
+				FC5B08D11497CED1007519B8 /* Frameworks */,
+				FC5B08D21497CED1007519B8 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = msgs;
+			productName = target;
+			productReference = FC5B08D51497CED1007519B8 /* msgs */;
+			productType = "com.apple.product-type.tool";
+		};
+		FCD73C731497F6A00043B232 /* mailx */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCD73C7B1497F6A00043B232 /* Build configuration list for PBXNativeTarget "mailx" */;
+			buildPhases = (
+				FCD73C701497F6A00043B232 /* Sources */,
+				FCD73C711497F6A00043B232 /* Frameworks */,
+				FCD73C721497F6A00043B232 /* CopyFiles */,
+				FCD73C7D149803190043B232 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FCD73C811498038D0043B232 /* PBXTargetDependency */,
+			);
+			name = mailx;
+			productName = mailx;
+			productReference = FCD73C741497F6A00043B232 /* mailx */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FC74594B1497CC7F00E98ADB /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+				ORGANIZATIONNAME = "Apple Inc.";
+			};
+			buildConfigurationList = FC74594E1497CC7F00E98ADB /* Build configuration list for PBXProject "mail_cmds" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FC7459491497CC7F00E98ADB;
+			productRefGroup = FC7459551497CC7F00E98ADB /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FC5B093D1497CF20007519B8 /* executables */,
+				FC5B089A1497CE0C007519B8 /* biff */,
+				FC5B08B71497CEC7007519B8 /* comsat */,
+				FC5B08BF1497CECA007519B8 /* from */,
+				FC5B08C71497CECE007519B8 /* mail */,
+				FC5B08CF1497CED1007519B8 /* msgs */,
+				FCD73C731497F6A00043B232 /* mailx */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FC00B2461497D46200B005A5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$SRCROOT\"/mail/install-misc.sh";
+			showEnvVarsInLog = 0;
+		};
+		FCD73C7D149803190043B232 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "ln -f \"$DSTROOT\"/usr/bin/mail \"$DSTROOT\"/usr/bin/\"$PRODUCT_NAME\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FC5B08971497CE0C007519B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B08DB1497CEEC007519B8 /* biff.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08B81497CEC7007519B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B08E21497CEF5007519B8 /* comsat.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08C01497CECA007519B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B08E81497CEFC007519B8 /* from.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08C81497CECE007519B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B091C1497CF02007519B8 /* aux.c in Sources */,
+				FC5B091D1497CF02007519B8 /* cmd1.c in Sources */,
+				FC5B091E1497CF02007519B8 /* cmd2.c in Sources */,
+				FC5B091F1497CF02007519B8 /* cmd3.c in Sources */,
+				FC5B09201497CF02007519B8 /* cmdtab.c in Sources */,
+				FC5B09211497CF02007519B8 /* collect.c in Sources */,
+				FC5B09221497CF02007519B8 /* edit.c in Sources */,
+				FC5B09231497CF02007519B8 /* fio.c in Sources */,
+				FC5B09241497CF02007519B8 /* getname.c in Sources */,
+				FC5B09251497CF02007519B8 /* head.c in Sources */,
+				FC5B09261497CF02007519B8 /* lex.c in Sources */,
+				FC5B09271497CF02007519B8 /* list.c in Sources */,
+				FC5B09281497CF02007519B8 /* main.c in Sources */,
+				FC5B092A1497CF02007519B8 /* names.c in Sources */,
+				FC5B092B1497CF02007519B8 /* popen.c in Sources */,
+				FC5B092C1497CF02007519B8 /* quit.c in Sources */,
+				FC5B092D1497CF02007519B8 /* send.c in Sources */,
+				FC5B092E1497CF02007519B8 /* strings.c in Sources */,
+				FC5B092F1497CF02007519B8 /* strlcpy.c in Sources */,
+				FC5B09301497CF02007519B8 /* temp.c in Sources */,
+				FC5B09311497CF02007519B8 /* tty.c in Sources */,
+				FC5B09331497CF02007519B8 /* v7.local.c in Sources */,
+				FC5B09341497CF02007519B8 /* vars.c in Sources */,
+				FC5B09351497CF02007519B8 /* version.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FC5B08D01497CED1007519B8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5B093C1497CF0B007519B8 /* msgs.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FCD73C701497F6A00043B232 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FC5B09411497CF3B007519B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B089A1497CE0C007519B8 /* biff */;
+			targetProxy = FC5B09401497CF3B007519B8 /* PBXContainerItemProxy */;
+		};
+		FC5B09431497CF3B007519B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B08B71497CEC7007519B8 /* comsat */;
+			targetProxy = FC5B09421497CF3B007519B8 /* PBXContainerItemProxy */;
+		};
+		FC5B09451497CF3B007519B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B08BF1497CECA007519B8 /* from */;
+			targetProxy = FC5B09441497CF3B007519B8 /* PBXContainerItemProxy */;
+		};
+		FC5B09471497CF3B007519B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B08C71497CECE007519B8 /* mail */;
+			targetProxy = FC5B09461497CF3B007519B8 /* PBXContainerItemProxy */;
+		};
+		FC5B09491497CF3B007519B8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B08CF1497CED1007519B8 /* msgs */;
+			targetProxy = FC5B09481497CF3B007519B8 /* PBXContainerItemProxy */;
+		};
+		FCD73C7F149803550043B232 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FCD73C731497F6A00043B232 /* mailx */;
+			targetProxy = FCD73C7E149803550043B232 /* PBXContainerItemProxy */;
+		};
+		FCD73C811498038D0043B232 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC5B08C71497CECE007519B8 /* mail */;
+			targetProxy = FCD73C801498038D0043B232 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FC5B08A41497CE0D007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FC5B08BC1497CEC7007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				INSTALL_PATH = /usr/libexec;
+				PRODUCT_NAME = comsat;
+			};
+			name = Release;
+		};
+		FC5B08C41497CECA007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = from;
+			};
+			name = Release;
+		};
+		FC5B08CC1497CECE007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				PRODUCT_NAME = mail;
+			};
+			name = Release;
+		};
+		FC5B08D41497CED1007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = msgs;
+			};
+			name = Release;
+		};
+		FC5B093F1497CF20007519B8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		FC74595D1497CC7F00E98ADB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/bin;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		FCD73C7C1497F6A00043B232 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				VERSIONING_SYSTEM = "";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FC5B08A21497CE0D007519B8 /* Build configuration list for PBXNativeTarget "biff" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B08A41497CE0D007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC5B08BB1497CEC7007519B8 /* Build configuration list for PBXNativeTarget "comsat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B08BC1497CEC7007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC5B08C31497CECA007519B8 /* Build configuration list for PBXNativeTarget "from" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B08C41497CECA007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC5B08CB1497CECE007519B8 /* Build configuration list for PBXNativeTarget "mail" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B08CC1497CECE007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC5B08D31497CED1007519B8 /* Build configuration list for PBXNativeTarget "msgs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B08D41497CED1007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC5B093E1497CF20007519B8 /* Build configuration list for PBXAggregateTarget "executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC5B093F1497CF20007519B8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FC74594E1497CC7F00E98ADB /* Build configuration list for PBXProject "mail_cmds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FC74595D1497CC7F00E98ADB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCD73C7B1497F6A00043B232 /* Build configuration list for PBXNativeTarget "mailx" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCD73C7C1497F6A00043B232 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FC74594B1497CC7F00E98ADB /* Project object */;
+}

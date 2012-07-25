@@ -94,7 +94,7 @@ public:
         operator AuthorizationToken &() const	{ return *mAuth; }
         
     private:
-        AuthorizationToken *mAuth;
+        RefPointer<AuthorizationToken> mAuth;
         StLock<Mutex> lock;
     };
 

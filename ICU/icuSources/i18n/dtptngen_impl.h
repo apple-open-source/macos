@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2009, International Business Machines Corporation and
+* Copyright (C) 2007-2012, International Business Machines Corporation and
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -51,6 +51,7 @@
 #define CAP_Q             ((UChar)0x0051)
 #define CAP_S             ((UChar)0x0053)
 #define CAP_T             ((UChar)0x0054)
+#define CAP_U             ((UChar)0x0055)
 #define CAP_V             ((UChar)0x0056)
 #define CAP_W             ((UChar)0x0057)
 #define CAP_Y             ((UChar)0x0059)
@@ -143,7 +144,7 @@ public:
     void set(const UnicodeString& patternString);
     UBool isQuoteLiteral(const UnicodeString& s) const;
     void getQuoteLiteral(UnicodeString& quote, int32_t *itemIndex);
-    int32_t getCanonicalIndex(const UnicodeString& s) { return getCanonicalIndex(s, TRUE); };
+    int32_t getCanonicalIndex(const UnicodeString& s) { return getCanonicalIndex(s, TRUE); }
     int32_t getCanonicalIndex(const UnicodeString& s, UBool strict);
     UBool isPatternSeparator(UnicodeString& field);
     void setFilter(UErrorCode &status);
@@ -165,12 +166,12 @@ public:
     int32_t missingFieldMask;
     int32_t extraFieldMask;
 
-    DistanceInfo() {};
-    virtual ~DistanceInfo() {};
-    void clear() { missingFieldMask = extraFieldMask = 0; };
+    DistanceInfo() {}
+    virtual ~DistanceInfo();
+    void clear() { missingFieldMask = extraFieldMask = 0; }
     void setTo(DistanceInfo& other);
-    void addMissing(int32_t field) { missingFieldMask |= (1<<field); };
-    void addExtra(int32_t field) { extraFieldMask |= (1<<field); };
+    void addMissing(int32_t field) { missingFieldMask |= (1<<field); }
+    void addExtra(int32_t field) { extraFieldMask |= (1<<field); }
 };
 
 class DateTimeMatcher: public UMemory {
@@ -188,7 +189,7 @@ public:
     int32_t getDistance(const DateTimeMatcher& other, int32_t includeMask, DistanceInfo& distanceInfo);
     DateTimeMatcher();
     DateTimeMatcher(const DateTimeMatcher& other);
-    virtual ~DateTimeMatcher() {};
+    virtual ~DateTimeMatcher();
     int32_t getFieldMask();
 };
 

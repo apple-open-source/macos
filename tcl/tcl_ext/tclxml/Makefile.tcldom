@@ -25,9 +25,7 @@ include ../TEA.make
 TclExtDir             = Tcldom
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/README.html "$(DSTROOT)/$(TclExtHtmlDir)"/ReadMe-$(ProjectName).html
-	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).html "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).n "$(DSTROOT)/$(TclExtManDir)"
 
 # the tcldomxml subproject is built by a separate Makefile
@@ -35,5 +33,4 @@ build install clean almostclean::
 	$(_v) $(MAKE) -f Makefile.tcldomxml $@ \
 	    Extra_TEA_Configure_Flags="--with-Tcldom=$(OBJROOT)" \
 	    AM_CPPFLAGS=-I$(Sources) \
-	    TclExtHtmlDir="$(TclExtHtmlDir)" \
 	    OBJROOT="$(OBJROOT)/src-libxml2" DSTROOT="$(DSTROOT)"

@@ -32,6 +32,7 @@
 #define InjectedScript_h
 
 #include "InjectedScriptManager.h"
+#include "InspectorTypeBuilder.h"
 #include "ScriptObject.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
@@ -48,6 +49,8 @@ class ScriptFunctionCall;
 
 typedef String ErrorString;
 
+#if ENABLE(INSPECTOR)
+
 class InjectedScript {
 public:
     InjectedScript();
@@ -55,20 +58,41 @@ public:
 
     bool hasNoValue() const { return m_injectedScriptObject.hasNoValue(); }
 
-    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result, bool* wasThrown);
-    void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result, bool* wasThrown);
-    void evaluateOnCallFrame(ErrorString*, const ScriptValue& callFrames, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result, bool* wasThrown);
-    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* result);
+    void evaluate(ErrorString*,
+                  const String& expression,
+                  const String& objectGroup,
+                  bool includeCommandLineAPI,
+                  bool returnByValue,
+                  RefPtr<TypeBuilder::Runtime::RemoteObject>* result,
+                  TypeBuilder::OptOutput<bool>* wasThrown);
+    void callFunctionOn(ErrorString*,
+                        const String& objectId,
+                        const String& expression,
+                        const String& arguments,
+                        bool returnByValue,
+                        RefPtr<TypeBuilder::Runtime::RemoteObject>* result,
+                        TypeBuilder::OptOutput<bool>* wasThrown);
+    void evaluateOnCallFrame(ErrorString*,
+                             const ScriptValue& callFrames,
+                             const String& callFrameId,
+                             const String& expression,
+                             const String& objectGroup,
+                             bool includeCommandLineAPI,
+                             bool returnByValue,
+                             RefPtr<TypeBuilder::Runtime::RemoteObject>* result,
+                             TypeBuilder::OptOutput<bool>* wasThrown);
+    void getFunctionDetails(ErrorString*, const String& functionId, RefPtr<TypeBuilder::Debugger::FunctionDetails>* result);
+    void getProperties(ErrorString*, const String& objectId, bool ownProperties, RefPtr<TypeBuilder::Array<TypeBuilder::Runtime::PropertyDescriptor> >* result);
     Node* nodeForObjectId(const String& objectId);
-    void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
     void releaseObject(const String& objectId);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    PassRefPtr<InspectorArray> wrapCallFrames(const ScriptValue&);
+    PassRefPtr<TypeBuilder::Array<TypeBuilder::Debugger::CallFrame> > wrapCallFrames(const ScriptValue&);
 #endif
 
-    PassRefPtr<InspectorObject> wrapObject(ScriptValue, const String& groupName);
-    PassRefPtr<InspectorObject> wrapNode(Node*);
+    PassRefPtr<TypeBuilder::Runtime::RemoteObject> wrapObject(ScriptValue, const String& groupName) const;
+    PassRefPtr<TypeBuilder::Runtime::RemoteObject> wrapNode(Node*, const String& groupName);
+    PassRefPtr<TypeBuilder::Runtime::RemoteObject> wrapSerializedObject(SerializedScriptValue*, const String& groupName) const;
     void inspectNode(Node*);
     void releaseObjectGroup(const String&);
     ScriptState* scriptState() const { return m_injectedScriptObject.scriptState(); }
@@ -78,14 +102,17 @@ private:
     typedef bool (*InspectedStateAccessCheck)(ScriptState*);
     InjectedScript(ScriptObject, InspectedStateAccessCheck);
 
-    bool canAccessInspectedWindow();
+    bool canAccessInspectedWindow() const;
+    ScriptValue callFunctionWithEvalEnabled(ScriptFunctionCall&, bool& hadException) const;
     void makeCall(ScriptFunctionCall&, RefPtr<InspectorValue>* result);
-    void makeEvalCall(ErrorString*, ScriptFunctionCall&, RefPtr<InspectorObject>* result, bool* wasThrown);
+    void makeEvalCall(ErrorString*, ScriptFunctionCall&, RefPtr<TypeBuilder::Runtime::RemoteObject>* result, TypeBuilder::OptOutput<bool>* wasThrown);
     ScriptValue nodeAsScriptValue(Node*);
 
     ScriptObject m_injectedScriptObject;
     InspectedStateAccessCheck m_inspectedStateAccessCheck;
 };
+
+#endif
 
 } // namespace WebCore
 

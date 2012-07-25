@@ -3,27 +3,28 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2011-10-18</string>
+	<string>2012-06-08</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>PostgreSQL.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>6a4cf43ec2ce96bb1558ac2b1ed88216</string>
+	<string>07c5e02e0b5e9b4c82a6d40443a3102f</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Support for building on Mac OS X</string>
 		<string>Patch to use POSIX shmem instead of SysV</string>
 		<string>Patch contrib/intarray extension to fix crasher</string>
+		<string>Patch to replace GPLv3 Bison parsers with GPLv2 parsers</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>PostgreSQL</string>
 	<key>OpenSourceSHA1</key>
-	<string>65c719049f36de50b24dc84364b7129f112a489e</string>
+	<string>ecfd22463234956075d32dff0cbc28cb01766890</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp9.us.postgresql.org/pub/mirrors/postgresql/source/v9.0.5/postgresql-9.0.5.tar.gz</string>
+	<string>http://ftp.postgresql.org/pub/source/v9.1.4/postgresql-9.1.4.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>9.0.5</string>
+	<string>9.1.4</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://postgresql.org/</string>
 	</dict>

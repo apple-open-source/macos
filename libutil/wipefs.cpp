@@ -25,6 +25,7 @@
 //
 
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/uio.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
@@ -203,6 +204,22 @@ wipefs_alloc(int fd, size_t block_size, wipefs_ctx *handle)
 } // wipefs_alloc
 
 extern "C" int
+wipefs_include_blocks(wipefs_ctx handle, off_t block_offset, off_t nblocks)
+{
+	int err = 0;
+	try {
+		handle->extMan.AddBlockRangeExtent(block_offset, nblocks);
+	}
+	catch (bad_alloc &e) {
+		err = ENOMEM;
+	}
+	catch (...) { // currently only ENOMEM is possible
+		err = ENOMEM;
+	}
+	return err;
+}
+
+extern "C" int
 wipefs_except_blocks(wipefs_ctx handle, off_t block_offset, off_t nblocks)
 {
 	int err = 0;
@@ -242,7 +259,7 @@ wipefs_wipe(wipefs_ctx handle)
 	ioctl(handle->fd, DKIOCUNMAP, (caddr_t)&unmap);
 	
 
-	bufSize = 256 * 1024; // issue large I/O to get better performance
+	bufSize = 128 * 1024; // issue large I/O to get better performance
 	bufZero = new uint8_t[bufSize];
 	bzero(bufZero, bufSize);
 

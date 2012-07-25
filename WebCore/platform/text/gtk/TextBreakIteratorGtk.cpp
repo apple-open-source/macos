@@ -26,7 +26,7 @@
 
 #include "TextBreakIterator.h"
 
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
 #include <pango/pango.h>
 using namespace std;
 
@@ -242,7 +242,7 @@ TextBreakIterator* wordBreakIterator(const UChar* string, int length)
 static bool createdLineBreakIterator = false;
 static TextBreakIterator* staticLineBreakIterator;
 
-TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length)
+TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length, const AtomicString&)
 {
     TextBreakIterator* lineBreakIterator = 0;
     if (!createdLineBreakIterator || staticLineBreakIterator) {
@@ -383,6 +383,11 @@ bool isTextBreak(TextBreakIterator* iterator, int offset)
     iterator->m_charIterator.previous();
     textBreakNext(iterator);
     return iterator->m_charIterator.getIndex() == index;
+}
+
+bool isWordTextBreak(TextBreakIterator*)
+{
+    return true;
 }
 
 }

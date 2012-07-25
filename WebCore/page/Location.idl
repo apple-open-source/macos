@@ -30,25 +30,26 @@ module window {
 
     interface [
 #if defined(V8_BINDING) && V8_BINDING
-        CheckDomainSecurity,
+        CheckSecurity,
 #endif
-        DelegatingGetOwnPropertySlot,
-        DelegatingPutFunction,
-        GenerateIsReachable=ImplFrame,
+        JSCustomGetOwnPropertySlotAndDescriptor,
+        CustomNamedSetter,
+        JSGenerateIsReachable=ImplFrame,
         CustomDeleteProperty,
-        CustomGetPropertyNames,
-        CustomDefineGetter,
-        DelegatingPrototypePutFunction,
-        CustomPrototypeDefineGetter,
-        OmitConstructor
+        CustomEnumerateProperty,
+        JSCustomDefineOwnProperty,
+        JSCustomNamedGetterOnPrototype,
+        JSCustomDefineOwnPropertyOnPrototype,
+        OmitConstructor,
+        V8CustomToJSObject
     ] Location {
 #if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
-                 attribute [DoNotCheckDomainSecurityOnSet, CustomSetter, V8DisallowShadowing] DOMString href;
+                 attribute [DoNotCheckSecurityOnSetter, CustomSetter, V8Unforgeable] DOMString href;
 #endif
 
-        [Custom, V8OnInstance] void assign(in DOMString url);
-        [Custom, V8OnInstance] void replace(in DOMString url);
-        [Custom, V8OnInstance] void reload();
+        [Custom, V8Unforgeable] void assign(in [Optional=DefaultIsUndefined] DOMString url);
+        [Custom, V8Unforgeable] void replace(in [Optional=DefaultIsUndefined] DOMString url);
+        [Custom, V8Unforgeable] void reload();
 
         // URI decomposition attributes
 #if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
@@ -63,13 +64,13 @@ module window {
                  readonly attribute DOMString origin;
 #endif
 
-        DOMString getParameter(in DOMString name);
+        readonly attribute DOMStringList ancestorOrigins;
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [DontEnum, Custom, V8OnInstance, V8ReadOnly, ImplementationFunction=toStringFunction] DOMString toString();
+        [NotEnumerable, Custom, V8Unforgeable, V8ReadOnly, ImplementedAs=toStringFunction] DOMString toString();
 #endif
 #if defined(V8_BINDING) && V8_BINDING
-        [DontEnum, Custom, V8OnInstance, V8ReadOnly] DOMObject valueOf();
+        [NotEnumerable, Custom, V8Unforgeable, V8ReadOnly] DOMObject valueOf();
 #endif
     };
 

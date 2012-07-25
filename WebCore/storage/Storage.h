@@ -26,8 +26,7 @@
 #ifndef Storage_h
 #define Storage_h
 
-#if ENABLE(DOM_STORAGE)
-
+#include "DOMWindowProperty.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -38,7 +37,7 @@ namespace WebCore {
     class StorageArea;
     typedef int ExceptionCode;
 
-    class Storage : public RefCounted<Storage> {
+    class Storage : public RefCounted<Storage>, public DOMWindowProperty {
     public:
         static PassRefPtr<Storage> create(Frame*, PassRefPtr<StorageArea>);
         ~Storage();
@@ -52,18 +51,14 @@ namespace WebCore {
 
         bool contains(const String& key) const;
 
-        Frame* frame() { return m_frame; }
-        void disconnectFrame() { m_frame = 0; }
+        StorageArea* area() const { return m_storageArea.get(); }
 
     private:
         Storage(Frame*, PassRefPtr<StorageArea>);
 
-        Frame* m_frame;
         RefPtr<StorageArea> m_storageArea;
     };
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)
 
 #endif // Storage_h

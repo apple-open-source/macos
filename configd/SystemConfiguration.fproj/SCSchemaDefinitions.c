@@ -62,6 +62,7 @@ const CFStringRef kSCEntNet6to4                                    = CFSTR("6to4
 
 
 const CFStringRef kSCEntNetEAPOL                                   = CFSTR("EAPOL");
+const CFStringRef kSCEntNetLinkQuality                             = CFSTR("LinkQuality");
 const CFStringRef kSCEntNetLoopback                                = CFSTR("Loopback");
 const CFStringRef kSCEntNetOnDemand                                = CFSTR("OnDemand");
 const CFStringRef kSCEntNetService                                 = CFSTR("__SERVICE__");
@@ -187,6 +188,8 @@ const CFStringRef kSCValNetIPv4ConfigMethodFailover                = CFSTR("Fail
 const CFStringRef kSCPropNetIPv4RouteDestinationAddress            = CFSTR("DestinationAddress");
 const CFStringRef kSCPropNetIPv4RouteSubnetMask                    = CFSTR("SubnetMask");
 const CFStringRef kSCPropNetIPv4RouteGatewayAddress                = CFSTR("GatewayAddress");
+const CFStringRef kSCPropNetIPv4ARPResolvedHardwareAddress         = CFSTR("ARPResolvedHardwareAddress");
+const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress               = CFSTR("ARPResolvedIPAddress");
 const CFStringRef kSCPropNetIPv6Addresses                          = CFSTR("Addresses");
 const CFStringRef kSCPropNetIPv6ConfigMethod                       = CFSTR("ConfigMethod");
 const CFStringRef kSCPropNetIPv6DestAddresses                      = CFSTR("DestAddresses");
@@ -206,6 +209,7 @@ const CFStringRef kSCPropNetIPv6RouteGatewayAddress                = CFSTR("Gate
 const CFStringRef kSCPropNet6to4Relay                              = CFSTR("Relay");
 const CFStringRef kSCPropNetLinkActive                             = CFSTR("Active");
 const CFStringRef kSCPropNetLinkDetaching                          = CFSTR("Detaching");
+const CFStringRef kSCPropNetLinkQuality                            = CFSTR("LinkQuality");
 const CFStringRef kSCPropNetModemAccessPointName                   = CFSTR("AccessPointName");
 const CFStringRef kSCPropNetModemConnectionPersonality             = CFSTR("ConnectionPersonality");
 const CFStringRef kSCPropNetModemConnectionScript                  = CFSTR("ConnectionScript");

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -183,7 +183,7 @@ _serv_cache_getservbyport(int port, char *proto)
 	return &s;
 }
 
-#endif SRVCACHE
+#endif /* SRVCACHE */
 	
 /*
  * Print a summary of connections related to an Internet
@@ -191,7 +191,6 @@ _serv_cache_getservbyport(int port, char *proto)
  * Listening processes (aflag) are suppressed unless the
  * -a (all) flag is specified.
  */
-#if !TARGET_OS_EMBEDDED
 
 struct xgen_n {
 	u_int32_t	xgn_len;			/* length of this structure */
@@ -354,12 +353,14 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 				printf(
 					   "Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
-			if (Aflag)
+			if (Aflag) {
 #if !TARGET_OS_EMBEDDED
 				printf("%-16.16s ", "Socket");
 #else
-			printf("%-8.8s ", "Socket");
+				printf("%-8.8s ", "Socket");
 #endif
+				printf("%-9.9s", "Flowhash");
+			}
 			if (Lflag)
 				printf("%-14.14s %-22.22s\n",
 					   "Listen", "Local Address");
@@ -392,6 +393,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 #else
 			printf("%8lx ", (u_long)so->so_pcb);
 #endif
+			printf("%8x ", inp->inp_flowhash);
 		}
 		if (Lflag) {
 			char buf[15];
@@ -520,258 +522,6 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	free(buf);
 }
 
-#else /* TARGET_OS_EMBEDDED */
-
-void
-protopr(uint32_t proto,		/* for sysctl version we pass proto # */
-	char *name, int af)
-{
-	int istcp;
-	static int first = 1;
-	char *buf;
-	const char *mibvar;
-	struct xinpgen *xig, *oxig;
-	struct tcpcb *tp = NULL;
-	struct inpcb *inp;
-	struct xsocket *so;
-	size_t len;
-
-	istcp = 0;
-	switch (proto) {
-	case IPPROTO_TCP:
-#ifdef INET6
-		if (tcp_done != 0)
-			return;
-		else
-			tcp_done = 1;
-#endif
-		istcp = 1;
-		mibvar = "net.inet.tcp.pcblist";
-			break;
-	case IPPROTO_UDP:
-#ifdef INET6
-		if (udp_done != 0)
-			return;
-		else
-			udp_done = 1;
-#endif
-		mibvar = "net.inet.udp.pcblist";
-			break;
-	case IPPROTO_DIVERT:
-		mibvar = "net.inet.divert.pcblist";
-			break;
-	default:
-		mibvar = "net.inet.raw.pcblist";
-			break;
-	}
-	len = 0;
-	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
-		if (errno != ENOENT)
-			warn("sysctl: %s", mibvar);
-		return;
-	}        
-	if ((buf = malloc(len)) == 0) {
-		warn("malloc %lu bytes", (u_long)len);
-		return;
-	}
-	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
-		warn("sysctl: %s", mibvar);
-		free(buf);
-		return;
-	}
-        
-	/*
-	 * Bail-out to avoid logic error in the loop below when
-	 * there is in fact no more control block to process
-	 */
-	if (len <= sizeof(struct xinpgen)) {
-		free(buf);
-		return;
-	}
-		
-	oxig = xig = (struct xinpgen *)buf;
-	for (xig = (struct xinpgen *)((char *)xig + xig->xig_len);
-	     xig->xig_len > sizeof(struct xinpgen);
-	     xig = (struct xinpgen *)((char *)xig + xig->xig_len)) {
-		if (istcp) {
-			tp = &((struct xtcpcb *)xig)->xt_tp;
-			inp = &((struct xtcpcb *)xig)->xt_inp;
-			so = &((struct xtcpcb *)xig)->xt_socket;
-		} else {
-			inp = &((struct xinpcb *)xig)->xi_inp;
-			so = &((struct xinpcb *)xig)->xi_socket;
-		}
-
-		/* Ignore sockets for protocols other than the desired one. */
-		if (so->xso_protocol != (int)proto)
-			continue;
-
-		/* Ignore PCBs which were freed during copyout. */
-		if (inp->inp_gencnt > oxig->xig_gen)
-			continue;
-
-		if ((af == AF_INET && (inp->inp_vflag & INP_IPV4) == 0)
-#ifdef INET6
-		    || (af == AF_INET6 && (inp->inp_vflag & INP_IPV6) == 0)
-#endif /* INET6 */
-		    || (af == AF_UNSPEC && ((inp->inp_vflag & INP_IPV4) == 0
-#ifdef INET6
-					    && (inp->inp_vflag &
-						INP_IPV6) == 0
-#endif /* INET6 */
-			))
-		    )
-			continue;
-
-                /*
-                 * Local address is not an indication of listening socket or
-                 * server sockey but just rather the socket has been bound.
-                 * That why many UDP sockets were not displayed in the original code.
-                 */
-                if (!aflag && istcp && tp->t_state <= TCPS_LISTEN)
-                    continue;
-
-                if (Lflag && !so->so_qlimit)
-                    continue;
-
-                if (first) {
-			if (!Lflag) {
-				printf("Active Internet connections");
-				if (aflag)
-					printf(" (including servers)");
-			} else
-				printf(
-	"Current listen queue sizes (qlen/incqlen/maxqlen)");
-			putchar('\n');
-			if (Aflag)
-				printf("%-8.8s ", "Socket");
-			if (Lflag)
-				printf("%-14.14s %-22.22s\n",
-					"Listen", "Local Address");
-			else
-				printf((Aflag && !Wflag) ?
-		"%-5.5s %-6.6s %-6.6s  %-18.18s %-18.18s %s\n" :
-		"%-5.5s %-6.6s %-6.6s  %-22.22s %-22.22s %s\n",
-					"Proto", "Recv-Q", "Send-Q",
-					"Local Address", "Foreign Address",
-					"(state)");
-			first = 0;
-		}
-                if (Aflag) {
-                        if (istcp)
-                                printf("%8lx ", (u_long)inp->inp_ppcb);
-                        else
-                                printf("%8lx ", (u_long)so->so_pcb);
-                }
-		if (Lflag) {
-				char buf[15];
-
-				snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
-					 so->so_incqlen, so->so_qlimit);
-				printf("%-14.14s ", buf);
-                }
-		else {
-			const char *vchar;
-
-#ifdef INET6
-			if ((inp->inp_vflag & INP_IPV6) != 0)
-				vchar = ((inp->inp_vflag & INP_IPV4) != 0)
-					? "46" : "6 ";
-			else
-#endif
-			vchar = ((inp->inp_vflag & INP_IPV4) != 0)
-					? "4 " : "  ";
-
-			printf("%-3.3s%-2.2s %6u %6u  ", name, vchar,
-			       so->so_rcv.sb_cc,
-			       so->so_snd.sb_cc);
-		}
-		if (nflag) {
-			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-					  name, 1);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
-						  (int)inp->inp_fport, name, 1);
-			}
-#ifdef INET6
-			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
-					   (int)inp->inp_lport, name, 1);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
-						   (int)inp->inp_fport, name, 1);
-			} /* else nothing printed now */
-#endif /* INET6 */
-		} else if (inp->inp_flags & INP_ANONPORT) {
-			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-					  name, 1);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
-						  (int)inp->inp_fport, name, 0);
-			}
-#ifdef INET6
-			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
-					   (int)inp->inp_lport, name, 1);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
-						   (int)inp->inp_fport, name, 0);
-			} /* else nothing printed now */
-#endif /* INET6 */
-		} else {
-			if (inp->inp_vflag & INP_IPV4) {
-				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
-					  name, 0);
-				if (!Lflag)
-					inetprint(&inp->inp_faddr,
-						  (int)inp->inp_fport, name,
-						  inp->inp_lport !=
-							inp->inp_fport);
-			}
-#ifdef INET6
-			else if (inp->inp_vflag & INP_IPV6) {
-				inet6print(&inp->in6p_laddr,
-					   (int)inp->inp_lport, name, 0);
-				if (!Lflag)
-					inet6print(&inp->in6p_faddr,
-						   (int)inp->inp_fport, name,
-						   inp->inp_lport !=
-							inp->inp_fport);
-			} /* else nothing printed now */
-#endif /* INET6 */
-		}
-		if (istcp && !Lflag) {
-			if (tp->t_state < 0 || tp->t_state >= TCP_NSTATES)
-				printf("%d", tp->t_state);
-                      else {
-				printf("%s", tcpstates[tp->t_state]);
-#if defined(TF_NEEDSYN) && defined(TF_NEEDFIN)
-                              /* Show T/TCP `hidden state' */
-                              if (tp->t_flags & (TF_NEEDSYN|TF_NEEDFIN))
-                                      putchar('*');
-#endif /* defined(TF_NEEDSYN) && defined(TF_NEEDFIN) */
-                      }
-		}
-		putchar('\n');
-	}
-	if (xig != oxig && xig->xig_gen != oxig->xig_gen) {
-		if (oxig->xig_count > xig->xig_count) {
-			printf("Some %s sockets may have been deleted.\n",
-			       name);
-		} else if (oxig->xig_count < xig->xig_count) {
-			printf("Some %s sockets may have been created.\n",
-			       name);
-		} else {
-			printf("Some %s sockets may have been created or deleted",
-			       name);
-		}
-	}
-	free(buf);
-}
-#endif /* TARGET_OS_EMBEDDED */
-
 /*
  * Dump TCP statistics structure.
  */
@@ -820,6 +570,7 @@ tcp_stats(uint32_t off , char *name, int af )
 	p(tcps_sndprobe, "\t\t%u window probe packet%s\n");
 	p(tcps_sndwinup, "\t\t%u window update packet%s\n");
 	p(tcps_sndctrl, "\t\t%u control packet%s\n");
+	p(tcps_fcholdpacket, "\t\t%u data packet%s sent after flow control\n");
 	p(tcps_rcvtotal, "\t%u packet%s received\n");
 	p2(tcps_rcvackpack, tcps_rcvackbyte, "\t\t%u ack%s (for %u byte%s)\n");
 	p(tcps_rcvdupack, "\t\t%u duplicate ack%s\n");

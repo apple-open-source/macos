@@ -1,11 +1,11 @@
 /*
- * "$Id: usb-unix.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: usb-unix.c 7810 2008-07-29 01:11:15Z mike $"
  *
  *   USB port backend for CUPS.
  *
  *   This file is included from "usb.c" when compiled on UNIX/Linux.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -128,16 +128,12 @@ print_device(const char *uri,		/* I - Device URI */
 
       if (errno == EBUSY)
       {
-        _cupsLangPrintFilter(stderr, "INFO",
-			     _("Printer busy, will retry in 10 seconds."));
+        _cupsLangPrintFilter(stderr, "INFO", _("The printer is in use."));
 	sleep(10);
       }
       else if (errno == ENXIO || errno == EIO || errno == ENOENT ||
                errno == ENODEV)
       {
-        _cupsLangPrintFilter(stderr, "INFO",
-			     _("Printer not connected, will retry in 30 "
-			       "seconds."));
 	sleep(30);
       }
       else
@@ -425,8 +421,7 @@ open_device(const char *uri,		/* I - Device URI */
       */
 
       if (busy)
-	_cupsLangPrintFilter(stderr, "INFO",
-			     _("Printer is busy, will retry in 5 seconds."));
+	_cupsLangPrintFilter(stderr, "INFO", _("The printer is in use."));
 
       sleep(5);
     }
@@ -509,8 +504,7 @@ open_device(const char *uri,		/* I - Device URI */
 
       if (busy)
       {
-	_cupsLangPrintFilter(stderr, "INFO",
-			     _("Printer is busy, will retry in 5 seconds."));
+	_cupsLangPrintFilter(stderr, "INFO", _("The printer is in use."));
 	sleep(5);
       }
     }
@@ -619,5 +613,5 @@ side_cb(int         print_fd,		/* I - Print file */
 
 
 /*
- * End of "$Id: usb-unix.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: usb-unix.c 7810 2008-07-29 01:11:15Z mike $".
  */

@@ -26,7 +26,7 @@
 #ifndef ResponsivenessTimer_h
 #define ResponsivenessTimer_h
 
-#include "RunLoop.h"
+#include <WebCore/RunLoop.h>
 
 namespace WebKit {
 
@@ -36,6 +36,7 @@ public:
     public:
         virtual ~Client() { }
         virtual void didBecomeUnresponsive(ResponsivenessTimer*) = 0;
+        virtual void interactionOccurredWhileUnresponsive(ResponsivenessTimer*) = 0;
         virtual void didBecomeResponsive(ResponsivenessTimer*) = 0;
     };
 
@@ -55,7 +56,7 @@ private:
     ResponsivenessTimer::Client* m_client;
     bool m_isResponsive;
 
-    RunLoop::Timer<ResponsivenessTimer> m_timer;
+    WebCore::RunLoop::Timer<ResponsivenessTimer> m_timer;
 };
 
 } // namespace WebKit

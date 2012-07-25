@@ -29,6 +29,51 @@
 
 namespace WebCore {
 
+template<>
+struct SVGPropertyTraits<CompositeOperationType> {
+    static unsigned highestEnumValue() { return FECOMPOSITE_OPERATOR_ARITHMETIC; }
+
+    static String toString(CompositeOperationType type)
+    {
+        switch (type) {
+        case FECOMPOSITE_OPERATOR_UNKNOWN:
+            return emptyString();
+        case FECOMPOSITE_OPERATOR_OVER:
+            return "over";
+        case FECOMPOSITE_OPERATOR_IN:
+            return "in";
+        case FECOMPOSITE_OPERATOR_OUT:
+            return "out";
+        case FECOMPOSITE_OPERATOR_ATOP:
+            return "atop";
+        case FECOMPOSITE_OPERATOR_XOR:
+            return "xor";
+        case FECOMPOSITE_OPERATOR_ARITHMETIC:
+            return "arithmetic";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static CompositeOperationType fromString(const String& value)
+    {
+        if (value == "over")
+            return FECOMPOSITE_OPERATOR_OVER;
+        if (value == "in")
+            return FECOMPOSITE_OPERATOR_IN;
+        if (value == "out")
+            return FECOMPOSITE_OPERATOR_OUT;
+        if (value == "atop")
+            return FECOMPOSITE_OPERATOR_ATOP;
+        if (value == "xor")
+            return FECOMPOSITE_OPERATOR_XOR;
+        if (value == "arithmetic")
+            return FECOMPOSITE_OPERATOR_ARITHMETIC;
+        return FECOMPOSITE_OPERATOR_UNKNOWN;
+    }
+};
+
 class SVGFECompositeElement : public SVGFilterPrimitiveStandardAttributes {
 public:
     static PassRefPtr<SVGFECompositeElement> create(const QualifiedName&, Document*);
@@ -36,22 +81,21 @@ public:
 private:
     SVGFECompositeElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName&);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
-    DECLARE_ANIMATED_STRING(In2, in2)
-    DECLARE_ANIMATED_ENUMERATION(_operator, _operator)
-    DECLARE_ANIMATED_NUMBER(K1, k1)
-    DECLARE_ANIMATED_NUMBER(K2, k2)
-    DECLARE_ANIMATED_NUMBER(K3, k3)
-    DECLARE_ANIMATED_NUMBER(K4, k4)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFECompositeElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_STRING(In2, in2)
+        DECLARE_ANIMATED_ENUMERATION(_operator, _operator, CompositeOperationType)
+        DECLARE_ANIMATED_NUMBER(K1, k1)
+        DECLARE_ANIMATED_NUMBER(K2, k2)
+        DECLARE_ANIMATED_NUMBER(K3, k3)
+        DECLARE_ANIMATED_NUMBER(K4, k4)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

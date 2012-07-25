@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING IOHIDDevice
+
 #include <pthread.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFBase.h>
@@ -371,6 +373,10 @@ IOReturn IOHIDDeviceClose(
                                 IOHIDDeviceRef                  device, 
                                 IOOptionBits                    options)
 {
+    CFRELEASE_IF_NOT_NULL(device->removalCallbackArray);
+    CFRELEASE_IF_NOT_NULL(device->inputCallbackArray);
+    CFRELEASE_IF_NOT_NULL(device->reportCallbackArray);
+
     return (*device->deviceInterface)->close(device->deviceInterface, options);
 }
 
@@ -394,14 +400,17 @@ Boolean IOHIDDeviceConformsTo(
         value   = kIOHIDElementTypeCollection;
         number  = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
         CFDictionarySetValue(matching, CFSTR(kIOHIDElementTypeKey), number);
+        CFRelease(number);
         
         value   = usagePage;
         number  = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
         CFDictionarySetValue(matching, CFSTR(kIOHIDElementUsagePageKey), number);
+        CFRelease(number);
 
         value   = usage;
         number  = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &value);
         CFDictionarySetValue(matching, CFSTR(kIOHIDElementUsageKey), number);
+        CFRelease(number);
         
         elements = IOHIDDeviceCopyMatchingElements(device, matching, 0);
         if ( elements ) {
@@ -638,21 +647,26 @@ void IOHIDDeviceRegisterRemovalCallback(
         CFArrayAppendValue(device->removalCallbackArray, infoRef);
         
         if ( !device->notificationPort ) {
+            kern_return_t kret = 0;
             device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+            require(device->notificationPort, cleanup);
+            require(device->service, cleanup);
             
             if ( device->runLoop ) {
-                CFRunLoopAddSource(device->runLoop, 
-                                   IONotificationPortGetRunLoopSource(device->notificationPort), 
-                                   device->runLoopMode);
+                CFRunLoopSourceRef source = IONotificationPortGetRunLoopSource(device->notificationPort);
+                if (source) {
+                    CFRunLoopAddSource(device->runLoop, source, device->runLoopMode);
+                }
             }
             
-            IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
-                                             device->service,            // service
-                                             kIOGeneralInterest,         // interestType
-                                             (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
-                                             device,                     // refCon
-                                             &(device->notification)     // notification
-                                             );
+            kret = IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
+                                                    device->service,            // service
+                                                    kIOGeneralInterest,         // interestType
+                                                    (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
+                                                    device,                     // refCon
+                                                    &(device->notification)     // notification
+                                                    );
+            require_noerr(kret, cleanup);
         }
     }
     else {

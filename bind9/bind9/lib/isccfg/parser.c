@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: parser.c,v 1.139.14.2 2011-03-11 06:47:09 marka Exp $ */
 
 /*! \file */
 
@@ -893,8 +893,8 @@ cfg_obj_asboolean(const cfg_obj_t *obj) {
 	return (obj->value.boolean);
 }
 
-static isc_result_t
-parse_boolean(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret)
+isc_result_t
+cfg_parse_boolean(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret)
 {
 	isc_result_t result;
 	isc_boolean_t value;
@@ -933,8 +933,8 @@ parse_boolean(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret)
 	return (result);
 }
 
-static void
-print_boolean(cfg_printer_t *pctx, const cfg_obj_t *obj) {
+void
+cfg_print_boolean(cfg_printer_t *pctx, const cfg_obj_t *obj) {
 	if (obj->value.boolean)
 		cfg_print_chars(pctx, "yes", 3);
 	else
@@ -942,7 +942,7 @@ print_boolean(cfg_printer_t *pctx, const cfg_obj_t *obj) {
 }
 
 cfg_type_t cfg_type_boolean = {
-	"boolean", parse_boolean, print_boolean, cfg_doc_terminal,
+	"boolean", cfg_parse_boolean, cfg_print_boolean, cfg_doc_terminal,
 	&cfg_rep_boolean, NULL
 };
 
@@ -2403,30 +2403,16 @@ cfg_parser_warning(cfg_parser_t *pctx, unsigned int flags, const char *fmt, ...)
 
 #define MAX_LOG_TOKEN 30 /* How much of a token to quote in log messages. */
 
-static isc_boolean_t
-have_current_file(cfg_parser_t *pctx) {
-	cfg_listelt_t *elt;
-	if (pctx->open_files == NULL)
-		return (ISC_FALSE);
-
-	elt = ISC_LIST_TAIL(pctx->open_files->value.list);
-	if (elt == NULL)
-	      return (ISC_FALSE);
-
-	return (ISC_TRUE);
-}
-
 static char *
 current_file(cfg_parser_t *pctx) {
 	static char none[] = "none";
 	cfg_listelt_t *elt;
 	cfg_obj_t *fileobj;
 
-	if (!have_current_file(pctx))
+	if (pctx->open_files == NULL)
 		return (none);
-
 	elt = ISC_LIST_TAIL(pctx->open_files->value.list);
-	if (elt == NULL)	/* shouldn't be possible, but... */
+	if (elt == NULL)
 	      return (none);
 
 	fileobj = elt->obj;
@@ -2449,10 +2435,8 @@ parser_complain(cfg_parser_t *pctx, isc_boolean_t is_warning,
 	if (is_warning)
 		level = ISC_LOG_WARNING;
 
-	where[0] = '\0';
-	if (have_current_file(pctx))
-		snprintf(where, sizeof(where), "%s:%u: ",
-			 current_file(pctx), pctx->line);
+	snprintf(where, sizeof(where), "%s:%u: ",
+		 current_file(pctx), pctx->line);
 
 	len = vsnprintf(message, sizeof(message), format, args);
 	if (len >= sizeof(message))

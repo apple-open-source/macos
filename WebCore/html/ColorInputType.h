@@ -31,22 +31,45 @@
 #ifndef ColorInputType_h
 #define ColorInputType_h
 
-#include "TextFieldInputType.h"
+#include "BaseClickableWithKeyInputType.h"
+#include "ColorChooserClient.h"
+
+#if ENABLE(INPUT_TYPE_COLOR)
 
 namespace WebCore {
 
-class ColorInputType : public TextFieldInputType {
+class ColorInputType : public BaseClickableWithKeyInputType, public ColorChooserClient {
 public:
     static PassOwnPtr<InputType> create(HTMLInputElement*);
+    virtual ~ColorInputType();
+
+    // ColorChooserClient implementation.
+    virtual void didChooseColor(const Color&) OVERRIDE;
+    virtual void didEndChooser() OVERRIDE;
 
 private:
-    ColorInputType(HTMLInputElement* element) : TextFieldInputType(element) { }
-    virtual const AtomicString& formControlType() const;
-    virtual bool typeMismatchFor(const String&) const;
-    virtual bool typeMismatch() const;
-    virtual bool supportsRequired() const;
+    ColorInputType(HTMLInputElement* element) : BaseClickableWithKeyInputType(element) { }
+    virtual bool isColorControl() const OVERRIDE;
+    virtual const AtomicString& formControlType() const OVERRIDE;
+    virtual bool supportsRequired() const OVERRIDE;
+    virtual String fallbackValue() const OVERRIDE;
+    virtual String sanitizeValue(const String&) const OVERRIDE;
+    virtual void createShadowSubtree() OVERRIDE;
+    virtual void setValue(const String&, bool valueChanged, TextFieldEventBehavior) OVERRIDE;
+    virtual void handleDOMActivateEvent(Event*) OVERRIDE;
+    virtual void detach() OVERRIDE;
+    virtual bool shouldRespectListAttribute() OVERRIDE;
+
+    Color valueAsColor() const;
+    void endColorChooser();
+    void updateColorSwatch();
+    HTMLElement* shadowColorSwatch() const;
+
+    OwnPtr<ColorChooser> m_chooser;
 };
 
 } // namespace WebCore
 
-#endif // ButtonInputType_h
+#endif // ENABLE(INPUT_TYPE_COLOR)
+
+#endif // ColorInputType_h

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: zone_test.c,v 1.35 2009/09/02 23:48:01 tbox Exp $ */
+/* $Id: zone_test.c,v 1.35 2009-09-02 23:48:01 tbox Exp $ */
 
 #include <config.h>
 

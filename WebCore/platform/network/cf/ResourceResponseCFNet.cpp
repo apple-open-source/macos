@@ -72,7 +72,7 @@ static time_t toTimeT(CFAbsoluteTime time)
 {
     static const double maxTimeAsDouble = std::numeric_limits<time_t>::max();
     static const double minTimeAsDouble = std::numeric_limits<time_t>::min();
-    return min(max(minTimeAsDouble, time + kCFAbsoluteTimeIntervalSince1970), maxTimeAsDouble);
+    return static_cast<time_t>(min(max(minTimeAsDouble, time + kCFAbsoluteTimeIntervalSince1970), maxTimeAsDouble));
 }
 
 void ResourceResponse::platformLazyInit(InitLevel initLevel)
@@ -137,6 +137,9 @@ void ResourceResponse::platformLazyInit(InitLevel initLevel)
     
 bool ResourceResponse::platformCompare(const ResourceResponse& a, const ResourceResponse& b)
 {
+    // CFEqual crashes if you pass it 0 so do an early check before calling it.
+    if (!a.cfURLResponse() || !b.cfURLResponse())
+        return a.cfURLResponse() == b.cfURLResponse();
     return CFEqual(a.cfURLResponse(), b.cfURLResponse());
 }
 

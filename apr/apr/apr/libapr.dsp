@@ -468,6 +468,10 @@ SOURCE=.\passwd\apr_getpass.c
 # PROP Default_Filter ""
 # Begin Source File
 
+SOURCE=.\poll\unix\poll.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\poll\unix\pollcb.c
 # End Source File
 # Begin Source File
@@ -566,10 +570,6 @@ SOURCE=.\threadproc\win32\threadpriv.c
 # Begin Group "time"
 
 # PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\time\win32\access.c
-# End Source File
 # Begin Source File
 
 SOURCE=.\time\win32\time.c

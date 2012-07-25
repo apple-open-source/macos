@@ -27,7 +27,6 @@
 #include <IOKit/IOTypes.h>
 
 #include <sys/kdebug.h>
-#include <IOKit/IOTimeStamp.h>
 #include <IOKit/scsi/IOSCSIArchitectureModelFamilyTimestamps.h>
 
 #ifdef __cplusplus

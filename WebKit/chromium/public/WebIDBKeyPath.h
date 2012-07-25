@@ -26,40 +26,57 @@
 #ifndef WebIDBKeyPath_h
 #define WebIDBKeyPath_h
 
-#include "WebCommon.h"
-#include "WebPrivateOwnPtr.h"
-#include "WebVector.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivateOwnPtr.h"
+#include "platform/WebString.h"
+#include "platform/WebVector.h"
 
-namespace WebCore { struct IDBKeyPathElement; }
-
-namespace WTF { template<typename T, size_t inlineCapacity> class Vector; }
+namespace WTF {
+template<typename T, size_t inlineCapacity> class Vector;
+class String;
+}
 
 namespace WebKit {
 
-class WebString;
-
 class WebIDBKeyPath {
 public:
-    WEBKIT_API static WebIDBKeyPath create(const WebString&);
-    WebIDBKeyPath(const WebIDBKeyPath& keyPath) { assign(keyPath); }
+    WEBKIT_EXPORT static WebIDBKeyPath create(const WebString&);
+    WEBKIT_EXPORT static WebIDBKeyPath create(const WebVector<WebString>&);
+    WEBKIT_EXPORT static WebIDBKeyPath createNull();
+    WEBKIT_EXPORT WebIDBKeyPath(const WebIDBKeyPath&);
     ~WebIDBKeyPath() { reset(); }
 
-    WEBKIT_API int parseError() const;
-    WEBKIT_API void assign(const WebIDBKeyPath&);
-    WEBKIT_API void reset();
+    enum Type {
+        NullType = 0,
+        StringType,
+        ArrayType,
+    };
+
+    WEBKIT_EXPORT bool isValid() const;
+    WEBKIT_EXPORT Type type() const;
+    // FIXME: Array-type key paths not yet supported. http://webkit.org/b/84207
+    WebVector<WebString> array() const { WEBKIT_ASSERT_NOT_REACHED(); return WebVector<WebString>(); }
+    WEBKIT_EXPORT WebString string() const;
+
+    // FIXME: Remove these once callers are updated. http://webkit.org/b/84207
+    WEBKIT_EXPORT WebIDBKeyPath(const WebString&);
+    operator const WebString () const { return string(); }
+    WEBKIT_EXPORT int parseError() const;
+    WEBKIT_EXPORT void assign(const WebIDBKeyPath&);
+    WEBKIT_EXPORT void reset();
 
 #if WEBKIT_IMPLEMENTATION
-    operator const WTF::Vector<WebCore::IDBKeyPathElement, 0>& () const;
+    operator const WTF::Vector<WTF::String, 0>& () const;
 #endif
 
 private:
     WebIDBKeyPath();
 
 #if WEBKIT_IMPLEMENTATION
-    WebIDBKeyPath(const WTF::Vector<WebCore::IDBKeyPathElement, 0>&, int parseError);
+    WebIDBKeyPath(const WTF::Vector<WTF::String, 0>&, int parseError);
 #endif
 
-    WebPrivateOwnPtr<WTF::Vector<WebCore::IDBKeyPathElement, 0> > m_private;
+    WebPrivateOwnPtr<WTF::Vector<WTF::String, 0> > m_private;
     int m_parseError;
 };
 

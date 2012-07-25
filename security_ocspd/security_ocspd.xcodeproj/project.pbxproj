@@ -6,20 +6,6 @@
 	objectVersion = 45;
 	objects = {
 
-/* Begin PBXAggregateTarget section */
-		051BDB79069B377A00F9D07E /* World */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = C27AD47B0987FCE9001272E0 /* Build configuration list for PBXAggregateTarget "World" */;
-			buildPhases = (
-			);
-			dependencies = (
-				056FCCF9069B396200F710C4 /* PBXTargetDependency */,
-			);
-			name = World;
-			productName = World;
-		};
-/* End PBXAggregateTarget section */
-
 /* Begin PBXBuildFile section */
 		050CCC050A115CD5004DFCA9 /* trustSettings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 050CCC030A115CD5004DFCA9 /* trustSettings.cpp */; };
 		051BDB89069B37F800F9D07E /* ocspdServer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 051BDB88069B37F800F9D07E /* ocspdServer.cpp */; };
@@ -27,30 +13,23 @@
 		0537EEC7069B74E500EFFADD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0537EEC6069B74E500EFFADD /* CoreFoundation.framework */; };
 		056980E4069B75B500E1A3BB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 056980E3069B75B500E1A3BB /* IOKit.framework */; };
 		056FCEBE069B4E3600F710C4 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 056FCEBD069B4E3600F710C4 /* main.cpp */; };
-		056FCEEB069B569900F710C4 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 056FCEEA069B569900F710C4 /* security_utilities.framework */; };
-		0586E65A069CB9A500F6FAAA /* security_cdsa_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0586E659069CB9A500F6FAAA /* security_cdsa_utilities.framework */; };
 		0586E65E069CB9C300F6FAAA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0586E65D069CB9C300F6FAAA /* Security.framework */; };
 		05A7264F09EFFA1900C4F2CB /* ocspd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05A7264D09EFFA1000C4F2CB /* ocspd.1 */; };
 		05B8158B070C46F400F15E01 /* crlRefresh.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05B8158A070C46F400F15E01 /* crlRefresh.cpp */; };
 		05B852A50A71666800CD4F68 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05B852A40A71666800CD4F68 /* SystemConfiguration.framework */; };
 		05B904E606A05DD7008F547D /* ocspdDb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05B904E406A05DC3008F547D /* ocspdDb.cpp */; };
 		05BCD7E4069F322C00A79292 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05BCD7E3069F322C00A79292 /* CoreServices.framework */; };
-		05DB0AA6070B560000D9000A /* security_cdsa_client.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05DB0AA5070B560000D9000A /* security_cdsa_client.framework */; };
 		05DC26330A49A303008EAB6F /* com.apple.ocspd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 05DC26320A49A303008EAB6F /* com.apple.ocspd.plist */; };
 		05E6693A070B38730079A61A /* LDAP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 05E66939070B38730079A61A /* LDAP.framework */; };
 		05E66997070B49580079A61A /* crlDb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05E66996070B49580079A61A /* crlDb.cpp */; };
 		05E669A9070B4C6A0079A61A /* attachCommon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 05E669A7070B4C6A0079A61A /* attachCommon.cpp */; };
+		185A91751475A19C002595F6 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965721472FACF005A4D2E /* libsecurity_utilities.a */; };
+		185A91761475A1EE002595F6 /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965741472FAEA005A4D2E /* libsecurity_cdsa_utilities.a */; };
+		185A91771475A1F1002595F6 /* libsecurity_cdsa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965771472FB0D005A4D2E /* libsecurity_cdsa_client.a */; };
+		18A25C4C14753CC3004F59F8 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18A25C4B14753CC3004F59F8 /* libbsm.dylib */; };
+		18B9656F1472FA93005A4D2E /* libsecurity_ocspd.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B9656E1472FA93005A4D2E /* libsecurity_ocspd.a */; };
+		18B965711472FAA2005A4D2E /* libsecurity_cdsa_utils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965701472FAA2005A4D2E /* libsecurity_cdsa_utils.a */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		056FCCF8069B396200F710C4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 051BDB7E069B379F00F9D07E;
-			remoteInfo = ocspd;
-		};
-/* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		05090A5D06A894F500D276A7 /* CopyFiles */ = {
@@ -85,11 +64,8 @@
 		056980E3069B75B500E1A3BB /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		056FCEBD069B4E3600F710C4 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		056FCEBF069B4E8B00F710C4 /* ocspdServer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ocspdServer.h; sourceTree = "<group>"; };
-		056FCEEA069B569900F710C4 /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
 		056FCF71069B5C1000F710C4 /* ocspd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ocspd; sourceTree = BUILT_PRODUCTS_DIR; };
-		0586E659069CB9A500F6FAAA /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utilities.framework; sourceTree = "<absolute>"; };
 		0586E65D069CB9C300F6FAAA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
-		0586E76E069CD2CD00F6FAAA /* security_cdsa_utils.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_utils.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utils.framework; sourceTree = "<absolute>"; };
 		05A7264D09EFFA1000C4F2CB /* ocspd.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; path = ocspd.1; sourceTree = "<group>"; };
 		05B8158A070C46F400F15E01 /* crlRefresh.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = crlRefresh.cpp; sourceTree = "<group>"; };
 		05B815C9070C52AB00F15E01 /* crlRefresh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crlRefresh.h; sourceTree = "<group>"; };
@@ -97,13 +73,20 @@
 		05B904E406A05DC3008F547D /* ocspdDb.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ocspdDb.cpp; sourceTree = "<group>"; };
 		05B904E506A05DC3008F547D /* ocspdDb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ocspdDb.h; sourceTree = "<group>"; };
 		05BCD7E3069F322C00A79292 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
-		05DB0AA5070B560000D9000A /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_client.framework; path = /usr/local/SecurityPieces/Frameworks/security_cdsa_client.framework; sourceTree = "<absolute>"; };
 		05DC26320A49A303008EAB6F /* com.apple.ocspd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.ocspd.plist; sourceTree = "<group>"; };
-		05E4ADE006A83EF100546A37 /* security_ocspd.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_ocspd.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		05E66939070B38730079A61A /* LDAP.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LDAP.framework; path = /System/Library/Frameworks/LDAP.framework; sourceTree = "<absolute>"; };
 		05E66972070B445B0079A61A /* crlDb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crlDb.h; sourceTree = "<group>"; };
 		05E66996070B49580079A61A /* crlDb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = crlDb.cpp; sourceTree = "<group>"; };
 		05E669A7070B4C6A0079A61A /* attachCommon.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = attachCommon.cpp; sourceTree = "<group>"; };
+		18A25C4714753C51004F59F8 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18A25C4814753C51004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		18A25C4914753C51004F59F8 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18A25C4B14753CC3004F59F8 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
+		18B9656E1472FA93005A4D2E /* libsecurity_ocspd.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_ocspd.a; path = /usr/local/lib/libsecurity_ocspd.a; sourceTree = "<absolute>"; };
+		18B965701472FAA2005A4D2E /* libsecurity_cdsa_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utils.a; path = /usr/local/lib/libsecurity_cdsa_utils.a; sourceTree = "<absolute>"; };
+		18B965721472FACF005A4D2E /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		18B965741472FAEA005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
+		18B965771472FB0D005A4D2E /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,14 +94,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				056FCEEB069B569900F710C4 /* security_utilities.framework in Frameworks */,
+				18A25C4C14753CC3004F59F8 /* libbsm.dylib in Frameworks */,
+				185A91771475A1F1002595F6 /* libsecurity_cdsa_client.a in Frameworks */,
+				185A91761475A1EE002595F6 /* libsecurity_cdsa_utilities.a in Frameworks */,
+				18B965711472FAA2005A4D2E /* libsecurity_cdsa_utils.a in Frameworks */,
+				185A91751475A19C002595F6 /* libsecurity_utilities.a in Frameworks */,
+				18B9656F1472FA93005A4D2E /* libsecurity_ocspd.a in Frameworks */,
 				0537EEC7069B74E500EFFADD /* CoreFoundation.framework in Frameworks */,
 				056980E4069B75B500E1A3BB /* IOKit.framework in Frameworks */,
-				0586E65A069CB9A500F6FAAA /* security_cdsa_utilities.framework in Frameworks */,
 				0586E65E069CB9C300F6FAAA /* Security.framework in Frameworks */,
 				05BCD7E4069F322C00A79292 /* CoreServices.framework in Frameworks */,
 				05E6693A070B38730079A61A /* LDAP.framework in Frameworks */,
-				05DB0AA6070B560000D9000A /* security_cdsa_client.framework in Frameworks */,
 				05B852A50A71666800CD4F68 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -150,17 +136,18 @@
 		056FCEE7069B566900F710C4 /* Libs & Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				18A25C4B14753CC3004F59F8 /* libbsm.dylib */,
+				18B965771472FB0D005A4D2E /* libsecurity_cdsa_client.a */,
+				18B965741472FAEA005A4D2E /* libsecurity_cdsa_utilities.a */,
+				18B965701472FAA2005A4D2E /* libsecurity_cdsa_utils.a */,
+				18B965721472FACF005A4D2E /* libsecurity_utilities.a */,
+				18B9656E1472FA93005A4D2E /* libsecurity_ocspd.a */,
 				05B852A40A71666800CD4F68 /* SystemConfiguration.framework */,
 				05E66939070B38730079A61A /* LDAP.framework */,
 				05BCD7E3069F322C00A79292 /* CoreServices.framework */,
 				056980E3069B75B500E1A3BB /* IOKit.framework */,
 				0537EEC6069B74E500EFFADD /* CoreFoundation.framework */,
-				056FCEEA069B569900F710C4 /* security_utilities.framework */,
 				0586E65D069CB9C300F6FAAA /* Security.framework */,
-				05E4ADE006A83EF100546A37 /* security_ocspd.framework */,
-				0586E659069CB9A500F6FAAA /* security_cdsa_utilities.framework */,
-				05DB0AA5070B560000D9000A /* security_cdsa_client.framework */,
-				0586E76E069CD2CD00F6FAAA /* security_cdsa_utils.framework */,
 			);
 			name = "Libs & Frameworks";
 			sourceTree = "<group>";
@@ -181,9 +168,20 @@
 			path = LaunchDaemons;
 			sourceTree = "<group>";
 		};
+		18A25C4614753C51004F59F8 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18A25C4714753C51004F59F8 /* debug.xcconfig */,
+				18A25C4814753C51004F59F8 /* project.xcconfig */,
+				18A25C4914753C51004F59F8 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				18A25C4614753C51004F59F8 /* config */,
 				051BDB83069B37AA00F9D07E /* server */,
 				05DC26310A49A2DF008EAB6F /* LaunchDaemons */,
 				056FCEE7069B566900F710C4 /* Libs & Frameworks */,
@@ -228,13 +226,16 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD47F0987FCE9001272E0 /* Build configuration list for PBXProject "security_ocspd" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				051BDB79069B377A00F9D07E /* World */,
 				051BDB7E069B379F00F9D07E /* ocspd */,
 			);
 		};
@@ -258,208 +259,46 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		056FCCF9069B396200F710C4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 051BDB7E069B379F00F9D07E /* ocspd */;
-			targetProxy = 056FCCF8069B396200F710C4 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
-		C27AD4780987FCE9001272E0 /* Development */ = {
+		C27AD4780987FCE9001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C4714753C51004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55106.1;
-				DYLIB_CURRENT_VERSION = 55106.1;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)",
-					/usr/local/SecurityPieces/Frameworks/,
-					/usr/local/SecurityPieces/Frameworks,
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/common",
 				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					"security_ocspd,_debug",
-					"-lbsm",
-					"-framework",
-					"security_cdsa_utils,_debug",
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ocspd;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27AD4790987FCE9001272E0 /* Deployment */ = {
+		C27AD47A0987FCE9001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C4914753C51004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55106.1;
-				DYLIB_CURRENT_VERSION = 55106.1;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)",
-					/usr/local/SecurityPieces/Frameworks/,
-					/usr/local/SecurityPieces/Frameworks,
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/common",
 				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					security_ocspd,
-					"-lbsm",
-					"-framework",
-					security_cdsa_utils,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ocspd;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C27AD47A0987FCE9001272E0 /* Default */ = {
+		C27AD4800987FCE9001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C4814753C51004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55106.1;
-				DYLIB_CURRENT_VERSION = 55106.1;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)",
-					/usr/local/SecurityPieces/Frameworks/,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
-				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					security_ocspd,
-					"-lbsm",
-					"-framework",
-					security_cdsa_utils,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = ocspd;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = Default;
+			name = Debug;
 		};
-		C27AD47C0987FCE9001272E0 /* Development */ = {
+		C27AD4820987FCE9001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C4814753C51004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					"security_ocspd,_debug",
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Development;
-		};
-		C27AD47D0987FCE9001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-framework",
-					security_ocspd,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD47E0987FCE9001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		C27AD4800987FCE9001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_OPTIMIZATION_LEVEL = 0;
-			};
-			name = Development;
-		};
-		C27AD4810987FCE9001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				VALID_ARCHS = "i386 ppc x86_64";
-			};
-			name = Deployment;
-		};
-		C27AD4820987FCE9001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -467,32 +306,20 @@
 		C27AD4770987FCE9001272E0 /* Build configuration list for PBXNativeTarget "ocspd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4780987FCE9001272E0 /* Development */,
-				C27AD4790987FCE9001272E0 /* Deployment */,
-				C27AD47A0987FCE9001272E0 /* Default */,
+				C27AD4780987FCE9001272E0 /* Debug */,
+				C27AD47A0987FCE9001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD47B0987FCE9001272E0 /* Build configuration list for PBXAggregateTarget "World" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD47C0987FCE9001272E0 /* Development */,
-				C27AD47D0987FCE9001272E0 /* Deployment */,
-				C27AD47E0987FCE9001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD47F0987FCE9001272E0 /* Build configuration list for PBXProject "security_ocspd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4800987FCE9001272E0 /* Development */,
-				C27AD4810987FCE9001272E0 /* Deployment */,
-				C27AD4820987FCE9001272E0 /* Default */,
+				C27AD4800987FCE9001272E0 /* Debug */,
+				C27AD4820987FCE9001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -1,5 +1,5 @@
-This is the source code for Apple's Chess.app Version 2.1, as shipped
-in MacOS X 10.4 "Tiger". This project consists of two components:
+This is the source code for Apple's Chess.app Version 3.0, as shipped
+in MacOS X 10.8. This project consists of two components:
 The Chess engine, "sjeng", and the graphical frontend.
 
 "sjeng", contained in the "sjeng" subdirectory, is distributed under the

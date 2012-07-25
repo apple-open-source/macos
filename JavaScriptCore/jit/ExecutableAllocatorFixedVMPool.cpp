@@ -29,8 +29,8 @@
 
 #if ENABLE(EXECUTABLE_ALLOCATOR_FIXED)
 
+#include "CodeProfiling.h"
 #include <errno.h>
-
 #include <sys/mman.h>
 #include <unistd.h>
 #include <wtf/MetaAllocator.h>
@@ -59,7 +59,7 @@ public:
         : MetaAllocator(32) // round up all allocations to 32 bytes
     {
         m_reservation = PageReservation::reserveWithGuardPages(fixedPoolSize, OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
-#if !ENABLE(INTERPRETER)
+#if !(ENABLE(CLASSIC_INTERPRETER) || ENABLE(LLINT))
         if (!m_reservation)
             CRASH();
 #endif
@@ -78,12 +78,29 @@ protected:
     
     virtual void notifyNeedPage(void* page)
     {
+#if OS(DARWIN)
+        UNUSED_PARAM(page);
+#else
         m_reservation.commit(page, pageSize());
+#endif
     }
     
     virtual void notifyPageIsFree(void* page)
     {
+#if OS(DARWIN)
+        for (;;) {
+            int result = madvise(page, pageSize(), MADV_FREE);
+            if (!result)
+                return;
+            ASSERT(result == -1);
+            if (errno != EAGAIN) {
+                ASSERT_NOT_REACHED(); // In debug mode, this should be a hard failure.
+                break; // In release mode, we should just ignore the error - not returning memory to the OS is better than crashing, especially since we _will_ be able to reuse the memory internally anyway.
+            }
+        }
+#else
         m_reservation.decommit(page, pageSize());
+#endif
     }
 
 private:
@@ -96,11 +113,16 @@ void ExecutableAllocator::initializeAllocator()
 {
     ASSERT(!allocator);
     allocator = new FixedVMPoolExecutableAllocator();
+    CodeProfiling::notifyAllocator(allocator);
 }
 
 ExecutableAllocator::ExecutableAllocator(JSGlobalData&)
 {
     ASSERT(allocator);
+}
+
+ExecutableAllocator::~ExecutableAllocator()
+{
 }
 
 bool ExecutableAllocator::isValid() const
@@ -114,12 +136,30 @@ bool ExecutableAllocator::underMemoryPressure()
     return statistics.bytesAllocated > statistics.bytesReserved / 2;
 }
 
-PassRefPtr<ExecutableMemoryHandle> ExecutableAllocator::allocate(JSGlobalData& globalData, size_t sizeInBytes)
+double ExecutableAllocator::memoryPressureMultiplier(size_t addedMemoryUsage)
 {
-    RefPtr<ExecutableMemoryHandle> result = allocator->allocate(sizeInBytes);
+    MetaAllocator::Statistics statistics = allocator->currentStatistics();
+    ASSERT(statistics.bytesAllocated <= statistics.bytesReserved);
+    size_t bytesAllocated = statistics.bytesAllocated + addedMemoryUsage;
+    if (bytesAllocated >= statistics.bytesReserved)
+        bytesAllocated = statistics.bytesReserved;
+    double result = 1.0;
+    size_t divisor = statistics.bytesReserved - bytesAllocated;
+    if (divisor)
+        result = static_cast<double>(statistics.bytesReserved) / divisor;
+    if (result < 1.0)
+        result = 1.0;
+    return result;
+}
+
+PassRefPtr<ExecutableMemoryHandle> ExecutableAllocator::allocate(JSGlobalData& globalData, size_t sizeInBytes, void* ownerUID, JITCompilationEffort effort)
+{
+    RefPtr<ExecutableMemoryHandle> result = allocator->allocate(sizeInBytes, ownerUID);
     if (!result) {
+        if (effort == JITCompilationCanFail)
+            return result;
         releaseExecutableMemory(globalData);
-        result = allocator->allocate(sizeInBytes);
+        result = allocator->allocate(sizeInBytes, ownerUID);
         if (!result)
             CRASH();
     }

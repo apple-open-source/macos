@@ -77,11 +77,22 @@
 		F9D77F88120B40A600C57046 /* libc++abi.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D77F87120B40A600C57046 /* libc++abi.dylib */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXBuildRule section */
+		F9AA45971295B93E00CB8390 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.llvm.clang.1_0;
+			fileType = sourcecode.cpp;
+			isEditable = 1;
+			outputFiles = (
+			);
+		};
+/* End PBXBuildRule section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		F91B4152114712E80052EBA1 /* OpenSourceLicenses */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceLicenses;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceLicenses";
 			dstSubfolderSpec = 0;
 			files = (
 				F91B43BC114713660052EBA1 /* libstdcxx.txt in OpenSourceLicenses */,
@@ -92,7 +103,7 @@
 		F91B43C1114713B20052EBA1 /* OpenSourceVersions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/OpenSourceVersions;
+			dstPath = "$(INSTALL_PATH_PREFIX)/usr/local/OpenSourceVersions";
 			dstSubfolderSpec = 0;
 			files = (
 				F91B43C0114713940052EBA1 /* libstdcxx.plist in OpenSourceVersions */,
@@ -726,6 +737,7 @@
 		F998CE3B114047FB00B6DD5F /* wlocale-inst.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "wlocale-inst.cc"; sourceTree = "<group>"; };
 		F998CE3C114047FB00B6DD5F /* wstring-inst.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "wstring-inst.cc"; sourceTree = "<group>"; };
 		F9D77F87120B40A600C57046 /* libc++abi.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libc++abi.dylib"; path = "/usr/lib/libc++abi.dylib"; sourceTree = "<absolute>"; };
+		F9F70BA312FCACF40015274C /* libstdcxx-armv7.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = "libstdcxx-armv7.exp"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -765,6 +777,7 @@
 			isa = PBXGroup;
 			children = (
 				F91B454811473A1A0052EBA1 /* libstdcxx-armv6.exp */,
+				F9F70BA312FCACF40015274C /* libstdcxx-armv7.exp */,
 				F91B4156114713280052EBA1 /* libstdcxx-i386.exp */,
 				F91B4157114713280052EBA1 /* libstdcxx-ppc.exp */,
 				F91B4158114713280052EBA1 /* libstdcxx-x86_64.exp */,
@@ -1681,6 +1694,7 @@
 				F91B43C1114713B20052EBA1 /* OpenSourceVersions */,
 			);
 			buildRules = (
+				F9AA45971295B93E00CB8390 /* PBXBuildRule */,
 			);
 			dependencies = (
 			);
@@ -1726,7 +1740,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [ -e  ${DSTROOT}/usr/lib/libstdc++.6.0.9.dylib ]; then\n\tcd ${DSTROOT}/usr/lib\n\tln -sf  libstdc++.6.0.9.dylib  libstdc++.6.dylib\n\tln -sf  libstdc++.6.dylib  libstdc++.dylib\nfi\n";
+			shellScript = "if [ -e  ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/lib/libstdc++.6.0.9.dylib ]; then\n\tcd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/lib\n\tln -sf  libstdc++.6.0.9.dylib  libstdc++.6.dylib\n\tln -sf  libstdc++.6.dylib  libstdc++.dylib\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		F91B4536114720F70052EBA1 /* install headers */ = {
@@ -1741,7 +1755,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${DSTROOT}/usr/include/c++/4.2.1\ncp -r ${SRCROOT}/include/c++/4.2.1/* ${DSTROOT}/usr/include/c++/4.2.1\ncd ${DSTROOT}/usr/include/c++/4.2.1\nfind . -name '.svn'\n# rm -rf `find . -name '.svn'`\n";
+			shellScript = "mkdir -p ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncp -r ${SRCROOT}/include/c++/4.2.1/* ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\ncd ${DSTROOT}/${INSTALL_PATH_PREFIX}/usr/include/c++/4.2.1\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -1830,10 +1844,18 @@
 					armv6,
 					"$(ARCHS_STANDARD_32_64_BIT)",
 				);
-				DEAD_CODE_STRIPPING = YES;
+				BASE_ARCH_armv6 = iOS;
+				BASE_ARCH_armv7 = iOS;
+				BASE_ARCH_armv7f = iOS;
+				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_armv7s = iOS;
+				BASE_ARCH_i386 = i386;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DYLIB_COMPATIBILITY_VERSION = 7;
 				EXECUTABLE_PREFIX = lib;
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libstdcxx-$(CURRENT_ARCH).exp";
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libstdcxx-$(BASE_ARCH_$(CURRENT_ARCH)).exp";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = BUILDING_LIBSTDCXX;
@@ -1842,17 +1864,25 @@
 					"$(SRCROOT)/include/c++/4.2.1/backward",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /usr/lib;
+				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib";
+				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
+				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				LD_DYLIB_INSTALL_NAME = "/usr/lib/libstdc++.6.dylib";
+				LIB_iphoneos = "";
+				LIB_iphonesimulator = "-Wl,-reexport-lc++abi";
+				LIB_macosx = "";
+				"OTHER_CFLAGS[arch=armv6]" = "-mno-thumb";
 				OTHER_CPLUSPLUSFLAGS = (
 					"-fno-implicit-templates",
 					"-nostdinc++",
 					"$(OTHER_CFLAGS)",
 				);
 				OTHER_LDFLAGS = (
-					"-Wl,-reexport_library,/usr/lib/libc++abi.dylib",
-					"-nodefaultlibs",
+					"-nostdlib",
+					"$(LIB_$(PLATFORM_NAME))",
+					"-Wl,-force_symbols_not_weak_list,$(SRCROOT)/exports/notweak.exp",
+					"-Wl,-force_symbols_weak_list,$(SRCROOT)/exports/weak.exp",
 					"-lSystem",
-					"'-Wl,-exported_symbol,$ld$*'",
 				);
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
 				PRODUCT_NAME = "stdc++.6.0.9";
@@ -1865,12 +1895,18 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				BASE_ARCH_armv6 = iOS;
+				BASE_ARCH_armv7 = iOS;
+				BASE_ARCH_armv7f = iOS;
+				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_armv7s = iOS;
+				BASE_ARCH_i386 = i386;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_COMPATIBILITY_VERSION = 7;
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libstdcxx-$(CURRENT_ARCH).exp";
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libstdcxx-$(BASE_ARCH_$(CURRENT_ARCH)).exp";
 				GCC_INLINES_ARE_PRIVATE_EXTERN = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = BUILDING_LIBSTDCXX;
 				HEADER_SEARCH_PATHS = (
@@ -1878,16 +1914,25 @@
 					"$(SRCROOT)/include/c++/4.2.1/backward",
 				);
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /usr/lib;
-				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/libstdc++.6.dylib";
+				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib";
+				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
+				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
+				LD_DYLIB_INSTALL_NAME = "/usr/lib/libstdc++.6.dylib";
+				LD_GENERATE_MAP_FILE = NO;
+				LIB_iphoneos = "";
+				LIB_iphonesimulator = "-Wl,-reexport-lc++abi";
+				LIB_macosx = "";
+				"OTHER_CFLAGS[arch=armv6]" = "-mno-thumb";
 				OTHER_CPLUSPLUSFLAGS = (
 					"-nostdinc++",
 					"$(OTHER_CFLAGS)",
 				);
 				OTHER_LDFLAGS = (
-					"-nodefaultlibs",
-					"-lSystem",
+					"-nostdlib",
+					"$(LIB_$(PLATFORM_NAME))",
 					"-Wl,-force_symbols_not_weak_list,$(SRCROOT)/exports/notweak.exp",
+					"-Wl,-force_symbols_weak_list,$(SRCROOT)/exports/weak.exp",
+					"-lSystem",
 				);
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
 				PRODUCT_NAME = "stdc++.6.0.9";

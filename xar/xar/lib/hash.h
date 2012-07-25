@@ -49,4 +49,8 @@ int32_t xar_hash_unarchived_out(xar_t x, xar_file_t f, xar_prop_t p, void *in, s
 int32_t xar_hash_done(xar_t x, xar_file_t f, xar_prop_t p, void **context);
 int32_t xar_hash_out_done(xar_t x, xar_file_t f, xar_prop_t p, void **context);
 
+#ifdef __APPLE__
+CCDigestRef digestRef_from_name(const char* name, unsigned int *outHashSize);
+#endif
+
 #endif /* _XAR_HASH_H_ */

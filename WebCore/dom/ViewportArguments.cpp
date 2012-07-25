@@ -50,6 +50,17 @@ ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktop
 
     ASSERT(availableWidth > 0 && availableHeight > 0);
 
+    float autoDPI = deviceDPI;
+
+    switch (args.type) {
+    case ViewportArguments::Implicit:
+        autoDPI = deviceDPI;
+        break;
+    case ViewportArguments::ViewportMeta:
+        autoDPI = 160;
+        break;
+    }
+
     switch (int(args.targetDensityDpi)) {
     case ViewportArguments::ValueDeviceDPI:
         args.targetDensityDpi = deviceDPI;
@@ -58,6 +69,8 @@ ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktop
         args.targetDensityDpi = 120;
         break;
     case ViewportArguments::ValueAuto:
+        args.targetDensityDpi = autoDPI;
+        break;
     case ViewportArguments::ValueMediumDPI:
         args.targetDensityDpi = 160;
         break;
@@ -134,7 +147,7 @@ ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktop
             result.initialScale = availableWidth / args.width;
         if (args.height != ViewportArguments::ValueAuto) {
             // if 'auto', the initial-scale will be negative here and thus ignored.
-            result.initialScale = max(result.initialScale, availableHeight / args.height);
+            result.initialScale = max<float>(result.initialScale, availableHeight / args.height);
         }
     }
 
@@ -162,40 +175,53 @@ ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktop
         height = width * availableHeight / availableWidth;
 
     // Extend width and height to fill the visual viewport for the resolved initial-scale.
-    width = max(width, availableWidth / result.initialScale);
-    height = max(height, availableHeight / result.initialScale);
+    width = max<float>(width, availableWidth / result.initialScale);
+    height = max<float>(height, availableHeight / result.initialScale);
     result.layoutSize.setWidth(width);
     result.layoutSize.setHeight(height);
 
-    // Update minimum scale factor, to never allow zooming out more than viewport
-    result.minimumScale = max(result.minimumScale, max(availableWidth / width, availableHeight / height));
-
     result.userScalable = args.userScalable;
-    // Make maximum and minimum scale equal to the initial scale if user is not allowed to zoom in/out.
-    if (!args.userScalable)
-        result.maximumScale = result.minimumScale = result.initialScale;
 
     return result;
 }
 
-static float numericPrefix(const String& keyString, const String& valueString, Document* document, bool* ok)
+void restrictMinimumScaleFactorToViewportSize(ViewportAttributes& result, IntSize visibleViewport)
 {
-    // If a prefix of property-value can be converted to a number using strtod,
-    // the value will be that number. The remainder of the string is ignored.
-    // So when String::toFloat says there is an error, it may be a false positive,
-    // and we should check if the valueString prefix was a number.
+    float availableWidth = visibleViewport.width();
+    float availableHeight = visibleViewport.height();
 
-    bool didReadNumber;
-    float value = valueString.toFloat(ok, &didReadNumber);
-    if (!*ok) {
-        if (!didReadNumber) {
-            ASSERT(!value);
-            reportViewportWarning(document, UnrecognizedViewportArgumentValueError, valueString, keyString);
-            return value;
-        }
-        *ok = true;
-        reportViewportWarning(document, TruncatedViewportArgumentValueError, valueString, keyString);
+    if (result.devicePixelRatio != 1.0) {
+        availableWidth /= result.devicePixelRatio;
+        availableHeight /= result.devicePixelRatio;
     }
+
+    result.minimumScale = max<float>(result.minimumScale, max(availableWidth / result.layoutSize.width(), availableHeight / result.layoutSize.height()));
+}
+
+void restrictScaleFactorToInitialScaleIfNotUserScalable(ViewportAttributes& result)
+{
+    if (!result.userScalable)
+        result.maximumScale = result.minimumScale = result.initialScale;
+}
+
+static float numericPrefix(const String& keyString, const String& valueString, Document* document, bool* ok = 0)
+{
+    size_t parsedLength;
+    float value;
+    if (valueString.is8Bit())
+        value = charactersToFloat(valueString.characters8(), valueString.length(), parsedLength);
+    else
+        value = charactersToFloat(valueString.characters16(), valueString.length(), parsedLength);
+    if (!parsedLength) {
+        reportViewportWarning(document, UnrecognizedViewportArgumentValueError, valueString, keyString);
+        if (ok)
+            *ok = false;
+        return 0;
+    }
+    if (parsedLength < valueString.length())
+        reportViewportWarning(document, TruncatedViewportArgumentValueError, valueString, keyString);
+    if (ok)
+        *ok = true;
     return value;
 }
 
@@ -213,10 +239,7 @@ static float findSizeValue(const String& keyString, const String& valueString, D
     if (equalIgnoringCase(valueString, "device-height"))
         return ViewportArguments::ValueDeviceHeight;
 
-    bool ok;
-    float value = numericPrefix(keyString, valueString, document, &ok);
-    if (!ok)
-        return float(0.0);
+    float value = numericPrefix(keyString, valueString, document);
 
     if (value < 0)
         return ViewportArguments::ValueAuto;
@@ -233,20 +256,17 @@ static float findScaleValue(const String& keyString, const String& valueString, 
     // 5) no and unknown values are translated to 0.0
 
     if (equalIgnoringCase(valueString, "yes"))
-        return float(1.0);
+        return 1;
     if (equalIgnoringCase(valueString, "no"))
-        return float(0.0);
+        return 0;
     if (equalIgnoringCase(valueString, "desktop-width"))
-        return float(10.0);
+        return 10;
     if (equalIgnoringCase(valueString, "device-width"))
-        return float(10.0);
+        return 10;
     if (equalIgnoringCase(valueString, "device-height"))
-        return float(10.0);
+        return 10;
 
-    bool ok;
-    float value = numericPrefix(keyString, valueString, document, &ok);
-    if (!ok)
-        return float(0.0);
+    float value = numericPrefix(keyString, valueString, document);
 
     if (value < 0)
         return ViewportArguments::ValueAuto;
@@ -274,10 +294,7 @@ static float findUserScalableValue(const String& keyString, const String& valueS
     if (equalIgnoringCase(valueString, "device-height"))
         return 1;
 
-    bool ok;
-    float value = numericPrefix(keyString, valueString, document, &ok);
-    if (!ok)
-        return 0;
+    float value = numericPrefix(keyString, valueString, document);
 
     if (fabs(value) < 1)
         return 0;
@@ -301,7 +318,7 @@ static float findTargetDensityDPIValue(const String& keyString, const String& va
     if (!ok)
         return ViewportArguments::ValueAuto;
 
-     if (value < 70 || value > 400) {
+    if (value < 70 || value > 400) {
         reportViewportWarning(document, TargetDensityDpiTooSmallOrLargeError, String(), String());
         return ViewportArguments::ValueAuto;
     }
@@ -369,7 +386,7 @@ static int parserLineNumber(Document* document)
     ScriptableDocumentParser* parser = document->scriptableDocumentParser();
     if (!parser)
         return 0;
-    return parser->lineNumber() + 1;
+    return parser->lineNumber().oneBasedInt();
 }
 
 void reportViewportWarning(Document* document, ViewportErrorCode errorCode, const String& replacement1, const String& replacement2)
@@ -384,7 +401,7 @@ void reportViewportWarning(Document* document, ViewportErrorCode errorCode, cons
     if (!replacement2.isNull())
         message.replace("%replacement2", replacement2);
 
-    frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, viewportErrorMessageLevel(errorCode), message, parserLineNumber(document), document->url().string());
+    frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, viewportErrorMessageLevel(errorCode), message, document->url().string(), parserLineNumber(document));
 }
 
 } // namespace WebCore

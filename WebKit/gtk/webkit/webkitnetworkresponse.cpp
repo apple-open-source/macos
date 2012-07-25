@@ -22,10 +22,10 @@
 #include "config.h"
 #include "webkitnetworkresponse.h"
 
-#include "GRefPtr.h"
 #include "ResourceResponse.h"
 #include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/gobject/GRefPtr.h>
 #include <wtf/text/CString.h>
 
 /**
@@ -212,11 +212,11 @@ void webkit_network_response_set_uri(WebKitNetworkResponse* response, const gcha
  * webkit_network_response_get_uri:
  * @response: a #WebKitNetworkResponse
  *
- * Returns: the uri of the #WebKitNetworkResponse
+ * Returns: the URI of the #WebKitNetworkResponse
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_network_response_get_uri(WebKitNetworkResponse* response)
+const gchar* webkit_network_response_get_uri(WebKitNetworkResponse* response)
 {
     g_return_val_if_fail(WEBKIT_IS_NETWORK_RESPONSE(response), NULL);
 

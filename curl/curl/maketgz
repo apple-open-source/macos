@@ -43,7 +43,7 @@ patch=`echo $libversion |cut -d. -f3 | cut -d- -f1 | sed -e "s/[^0-9]//g"`
 numeric=`perl -e 'printf("%02x%02x%02x\n", '"$major, $minor, $patch);"`
 
 HEADER=include/curl/curlver.h
-CHEADER=src/version.h
+CHEADER=src/tool_version.h
 
 # requires a date command that knows -u for UTC time zone
 datestamp=`date -u`
@@ -93,6 +93,9 @@ findprog()
 
 echo "maketgz: cp lib/curl_config.h.in src/curl_config.h.in"
 cp lib/curl_config.h.in src/curl_config.h.in
+
+echo "maketgz: cp lib/config-win32.h src/config-win32.h"
+cp lib/config-win32.h src/config-win32.h
 
 ############################################################################
 #

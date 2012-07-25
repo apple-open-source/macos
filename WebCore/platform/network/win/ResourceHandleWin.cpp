@@ -30,15 +30,17 @@
 #include "DataURL.h"
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
-#include "MainThread.h"
 #include "NotImplemented.h"
 #include "ResourceError.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "SharedBuffer.h"
 #include "Timer.h"
-#include "UnusedParam.h"
+
+#include <wtf/MainThread.h>
+#include <wtf/UnusedParam.h>
 #include <wtf/text/CString.h>
+
 #include <windows.h>
 #include <wininet.h>
 
@@ -437,17 +439,6 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
 void prefetchDNS(const String&)
 {
     notImplemented();
-}
-
-PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-bool ResourceHandle::supportsBufferedData()
-{
-    return false;
 }
 
 bool ResourceHandle::loadsBlocked()

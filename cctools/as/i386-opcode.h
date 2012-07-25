@@ -1523,9 +1523,9 @@ static const template i386_optab[] =
 {"pcmpistri",   3, 0x660f3a63,  X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ Imm8, RegXMM|LLongMem, RegXMM } },
 {"pcmpistrm",   3, 0x660f3a62,  X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ Imm8, RegXMM|LLongMem, RegXMM } },
 {"pcmpgtq",   2, 0x660f3837, X, CpuSSE4,NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
-{"popcnt", 2, 0xf30fb8, X, 0, NoSuf|Size16|Modrm, { Reg16|WordMem, Reg16, 0 } },
-{"popcnt", 2, 0xf30fb8, X, 0, NoSuf|Size32|Modrm, { Reg32|LongMem, Reg32, 0 } },
-{"popcnt", 2, 0xf30fb8, X, Cpu64, NoSuf|Size64|Modrm, { Reg64|LLongMem, Reg64, 0 } },
+{"popcnt", 2, 0xf30fb8, X, 0, Size16|Modrm, { Reg16|WordMem, Reg16, 0 } },
+{"popcnt", 2, 0xf30fb8, X, 0, Size32|Modrm, { Reg32|LongMem, Reg32, 0 } },
+{"popcnt", 2, 0xf30fb8, X, Cpu64, Size64|Modrm, { Reg64|LLongMem, Reg64, 0 } },
 
 /* ASE instructions */
 {"aesimc",      2, 0x660f38db, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },

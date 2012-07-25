@@ -31,20 +31,21 @@
 #include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLInputElement.h"
 #include "NotImplemented.h"
-#include "PaintInfo.h"
 #include "Page.h"
+#include "PaintInfo.h"
 #include "PlatformContextCairo.h"
 #include "RenderBox.h"
 #include "RenderObject.h"
 #include "RenderProgress.h"
 #include "RenderSlider.h"
 #include "UserAgentStyleSheets.h"
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
 
 #include <Ecore_Evas.h>
 #include <Edje.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 #if ENABLE(VIDEO)
 #include "HTMLMediaElement.h"
@@ -60,6 +61,22 @@ using namespace HTMLNames;
 // TODO: change from object count to ecore_evas size (bytes)
 // TODO: as objects are webpage/user defined and they can be very large.
 #define RENDER_THEME_EFL_PART_CACHE_MAX 32
+
+// Initialize default font size.
+float RenderThemeEfl::defaultFontSize = 16.0f;
+
+// Constants for progress tag animation.
+// These values have been copied from RenderThemeGtk.cpp
+static const int progressAnimationFrames = 10;
+static const double progressAnimationInterval = 0.125;
+
+static const int sliderThumbWidth = 12;
+static const int sliderThumbHeight = 12;
+#if ENABLE(VIDEO)
+static const int mediaSliderHeight = 14;
+static const int mediaSliderThumbWidth = 12;
+static const int mediaSliderThumbHeight = 12;
+#endif
 
 void RenderThemeEfl::adjustSizeConstraints(RenderStyle* style, FormType type) const
 {
@@ -126,11 +143,25 @@ bool RenderThemeEfl::themePartCacheEntrySurfaceCreate(struct ThemePartCacheEntry
     return true;
 }
 
+bool RenderThemeEfl::isFormElementTooLargeToDisplay(const IntSize& elementSize)
+{
+    // This limit of 20000 pixels is hardcoded inside edje -- anything above this size
+    // will be clipped. This value seems to be reasonable enough so that hardcoding it
+    // here won't be a problem.
+    static const int maxEdjeDimension = 20000;
+
+    return elementSize.width() > maxEdjeDimension || elementSize.height() > maxEdjeDimension;
+}
+
 // allocate a new entry and fill it with edje group
 struct RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::cacheThemePartNew(FormType type, const IntSize& size)
 {
-    struct ThemePartCacheEntry *entry = new struct ThemePartCacheEntry;
+    if (isFormElementTooLargeToDisplay(size)) {
+        EINA_LOG_ERR("cannot render an element of size %dx%d", size.width(), size.height());
+        return 0;
+    }
 
+    ThemePartCacheEntry* entry = new ThemePartCacheEntry;
     if (!entry) {
         EINA_LOG_ERR("could not allocate ThemePartCacheEntry.");
         return 0;
@@ -143,6 +174,9 @@ struct RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::cacheThemePartNew(Fo
         delete entry;
         return 0;
     }
+
+    // By default EFL creates buffers without alpha.
+    ecore_evas_alpha_set(entry->ee, EINA_TRUE);
 
     entry->o = edje_object_add(ecore_evas_get(entry->ee));
     ASSERT(entry->o);
@@ -187,6 +221,8 @@ struct RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::cacheThemePartReset(
 struct RenderThemeEfl::ThemePartCacheEntry* RenderThemeEfl::cacheThemePartResizeAndReset(FormType type, const IntSize& size, struct RenderThemeEfl::ThemePartCacheEntry* entry)
 {
     cairo_surface_finish(entry->surface);
+
+    entry->size = size;
     ecore_evas_resize(entry->ee, size.width(), size.height());
     evas_object_resize(entry->o, size.width(), size.height());
 
@@ -280,7 +316,6 @@ bool RenderThemeEfl::paintThemePart(RenderObject* object, FormType type, const P
     ASSERT(m_edje);
 
     entry = cacheThemePartGet(type, rect.size());
-    ASSERT(entry);
     if (!entry)
         return false;
 
@@ -293,21 +328,16 @@ bool RenderThemeEfl::paintThemePart(RenderObject* object, FormType type, const P
     // treatment, move them to special functions.
     if (type == SliderVertical || type == SliderHorizontal) {
         RenderSlider* renderSlider = toRenderSlider(object);
+        HTMLInputElement* input = renderSlider->node()->toInputElement();
         Edje_Message_Float_Set* msg;
-        int max, value;
-
-        if (type == SliderVertical) {
-            max = rect.height() - renderSlider->thumbRect().height();
-            value = renderSlider->thumbRect().y();
-        } else {
-            max = rect.width() - renderSlider->thumbRect().width();
-            value = renderSlider->thumbRect().x();
-        }
+        double valueRange = input->maximum() - input->minimum();
 
         msg = static_cast<Edje_Message_Float_Set*>(alloca(sizeof(Edje_Message_Float_Set) + sizeof(float)));
-
         msg->count = 2;
-        msg->val[0] = static_cast<float>(value) / static_cast<float>(max);
+        if (valueRange > 0)
+            msg->val[0] = static_cast<float>((input->valueAsNumber() - input->minimum()) / valueRange);
+        else
+            msg->val[0] = 0;
         msg->val[1] = 0.1;
         edje_object_message_send(entry->o, EDJE_MESSAGE_FLOAT_SET, 0, msg);
 #if ENABLE(PROGRESS_TAG)
@@ -354,7 +384,7 @@ PassRefPtr<RenderTheme> RenderTheme::themeForPage(Page* page)
     if (page)
         return RenderThemeEfl::create(page);
 
-    static RenderTheme* fallback = RenderThemeEfl::create(0).releaseRef();
+    static RenderTheme* fallback = RenderThemeEfl::create(0).leakRef();
     return fallback;
 }
 
@@ -610,6 +640,7 @@ const char* RenderThemeEfl::edjeGroupFromFormType(FormType type) const
         W("mediacontrol/mute_button"),
         W("mediacontrol/seekforward_button"),
         W("mediacontrol/seekbackward_button"),
+        W("mediacontrol/fullscreen_button"),
 #endif
 #undef W
         0
@@ -674,28 +705,26 @@ void RenderThemeEfl::themeChanged()
     applyPartDescriptions();
 }
 
-float RenderThemeEfl::defaultFontSize = 16.0f;
-
 RenderThemeEfl::RenderThemeEfl(Page* page)
     : RenderTheme()
     , m_page(page)
     , m_activeSelectionBackgroundColor(0, 0, 255)
-    , m_activeSelectionForegroundColor(255, 255, 255)
+    , m_activeSelectionForegroundColor(Color::white)
     , m_inactiveSelectionBackgroundColor(0, 0, 128)
     , m_inactiveSelectionForegroundColor(200, 200, 200)
     , m_focusRingColor(32, 32, 224, 224)
     , m_buttonTextBackgroundColor(0, 0, 0, 0)
-    , m_buttonTextForegroundColor(0, 0, 0)
+    , m_buttonTextForegroundColor(Color::black)
     , m_comboTextBackgroundColor(0, 0, 0, 0)
-    , m_comboTextForegroundColor(0, 0, 0)
+    , m_comboTextForegroundColor(Color::black)
     , m_entryTextBackgroundColor(0, 0, 0, 0)
-    , m_entryTextForegroundColor(0, 0, 0)
+    , m_entryTextForegroundColor(Color::black)
     , m_searchTextBackgroundColor(0, 0, 0, 0)
-    , m_searchTextForegroundColor(0, 0, 0)
+    , m_searchTextForegroundColor(Color::black)
+    , m_sliderThumbColor(Color::darkGray)
 #if ENABLE(VIDEO)
-    , m_panelColor(220, 220, 195) // light tannish color.
-    , m_sliderColor(Color::white)
-    , m_mediaSliderHeight(14)
+    , m_mediaPanelColor(220, 220, 195) // light tannish color.
+    , m_mediaSliderColor(Color::white)
 #endif
     , m_canvas(0)
     , m_edje(0)
@@ -796,7 +825,7 @@ bool RenderThemeEfl::controlSupportsTints(const RenderObject* object) const
     return isEnabled(object);
 }
 
-int RenderThemeEfl::baselinePosition(const RenderObject* object) const
+LayoutUnit RenderThemeEfl::baselinePosition(const RenderObject* object) const
 {
     if (!object->isBox())
         return 0;
@@ -815,10 +844,10 @@ bool RenderThemeEfl::paintSliderTrack(RenderObject* object, const PaintInfo& inf
     return paintThemePart(object, SliderVertical, info, rect);
 }
 
-void RenderThemeEfl::adjustSliderTrackStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSliderTrackStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSliderTrackStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSliderTrackStyle(styleResolver, style, element);
         return;
     }
 
@@ -832,20 +861,37 @@ void RenderThemeEfl::adjustSliderTrackStyle(CSSStyleSelector* selector, RenderSt
         style->setHeight(desc->min.height());
 }
 
-void RenderThemeEfl::adjustSliderThumbStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSliderThumbStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
-    adjustSliderTrackStyle(selector, style, element);
+    RenderTheme::adjustSliderThumbStyle(styleResolver, style, element);
+    adjustSliderTrackStyle(styleResolver, style, element);
+}
+
+void RenderThemeEfl::adjustSliderThumbSize(RenderStyle* style) const
+{
+    ControlPart part = style->appearance();
+    if (part == SliderThumbVerticalPart || part == SliderThumbHorizontalPart) {
+        style->setWidth(Length(sliderThumbHeight, Fixed));
+        style->setHeight(Length(sliderThumbWidth, Fixed));
+    }
+#if ENABLE(VIDEO)
+    else if (part == MediaSliderThumbPart) {
+        style->setWidth(Length(mediaSliderThumbWidth, Fixed));
+        style->setHeight(Length(mediaSliderThumbHeight, Fixed));
+    }
+#endif
 }
 
 bool RenderThemeEfl::paintSliderThumb(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
-    return paintSliderTrack(object, info, rect);
+    // We've already painted it in paintSliderTrack(), no need to do anything here.
+    return false;
 }
 
-void RenderThemeEfl::adjustCheckboxStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustCheckboxStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustCheckboxStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustCheckboxStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, CheckBox);
@@ -863,10 +909,10 @@ bool RenderThemeEfl::paintCheckbox(RenderObject* object, const PaintInfo& info, 
     return paintThemePart(object, CheckBox, info, rect);
 }
 
-void RenderThemeEfl::adjustRadioStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustRadioStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustRadioStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustRadioStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, RadioButton);
@@ -884,10 +930,10 @@ bool RenderThemeEfl::paintRadio(RenderObject* object, const PaintInfo& info, con
     return paintThemePart(object, RadioButton, info, rect);
 }
 
-void RenderThemeEfl::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustButtonStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustButtonStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustButtonStyle(styleResolver, style, element);
         return;
     }
 
@@ -907,10 +953,10 @@ bool RenderThemeEfl::paintButton(RenderObject* object, const PaintInfo& info, co
     return paintThemePart(object, Button, info, rect);
 }
 
-void RenderThemeEfl::adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustMenuListStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustMenuListStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustMenuListStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, ComboBox);
@@ -925,10 +971,20 @@ bool RenderThemeEfl::paintMenuList(RenderObject* object, const PaintInfo& info, 
     return paintThemePart(object, ComboBox, info, rect);
 }
 
-void RenderThemeEfl::adjustTextFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustMenuListButtonStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
+{
+    adjustMenuListStyle(styleResolver, style, element);
+}
+
+bool RenderThemeEfl::paintMenuListButton(RenderObject* object, const PaintInfo& info, const IntRect& rect)
+{
+    return paintMenuList(object, info, rect);
+}
+
+void RenderThemeEfl::adjustTextFieldStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustTextFieldStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustTextFieldStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, TextField);
@@ -943,9 +999,9 @@ bool RenderThemeEfl::paintTextField(RenderObject* object, const PaintInfo& info,
     return paintThemePart(object, TextField, info, rect);
 }
 
-void RenderThemeEfl::adjustTextAreaStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustTextAreaStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
-    adjustTextFieldStyle(selector, style, element);
+    adjustTextFieldStyle(styleResolver, style, element);
 }
 
 bool RenderThemeEfl::paintTextArea(RenderObject* object, const PaintInfo& info, const IntRect& rect)
@@ -953,10 +1009,10 @@ bool RenderThemeEfl::paintTextArea(RenderObject* object, const PaintInfo& info, 
     return paintTextField(object, info, rect);
 }
 
-void RenderThemeEfl::adjustSearchFieldDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSearchFieldDecorationStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldDecorationStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldDecorationStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, SearchFieldDecoration);
@@ -969,10 +1025,10 @@ bool RenderThemeEfl::paintSearchFieldDecoration(RenderObject* object, const Pain
     return paintThemePart(object, SearchFieldDecoration, info, rect);
 }
 
-void RenderThemeEfl::adjustSearchFieldResultsButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSearchFieldResultsButtonStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldResultsButtonStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldResultsButtonStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, SearchFieldResultsButton);
@@ -985,10 +1041,10 @@ bool RenderThemeEfl::paintSearchFieldResultsButton(RenderObject* object, const P
     return paintThemePart(object, SearchFieldResultsButton, info, rect);
 }
 
-void RenderThemeEfl::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSearchFieldResultsDecorationStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldResultsDecorationStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldResultsDecorationStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, SearchFieldResultsDecoration);
@@ -1001,10 +1057,10 @@ bool RenderThemeEfl::paintSearchFieldResultsDecoration(RenderObject* object, con
     return paintThemePart(object, SearchFieldResultsDecoration, info, rect);
 }
 
-void RenderThemeEfl::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSearchFieldCancelButtonStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldCancelButtonStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldCancelButtonStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, SearchFieldCancelButton);
@@ -1017,10 +1073,10 @@ bool RenderThemeEfl::paintSearchFieldCancelButton(RenderObject* object, const Pa
     return paintThemePart(object, SearchFieldCancelButton, info, rect);
 }
 
-void RenderThemeEfl::adjustSearchFieldStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustSearchFieldStyle(StyleResolver* styleResolver, RenderStyle* style, Element* element) const
 {
     if (!m_page && element && element->document()->page()) {
-        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldStyle(selector, style, element);
+        static_cast<RenderThemeEfl*>(element->document()->page()->theme())->adjustSearchFieldStyle(styleResolver, style, element);
         return;
     }
     adjustSizeConstraints(style, SearchField);
@@ -1056,9 +1112,19 @@ void RenderThemeEfl::systemFont(int propId, FontDescription& fontDescription) co
 }
 
 #if ENABLE(PROGRESS_TAG)
-void RenderThemeEfl::adjustProgressBarStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+void RenderThemeEfl::adjustProgressBarStyle(StyleResolver*, RenderStyle* style, Element*) const
 {
-    style->setBoxShadow(0);
+    style->setBoxShadow(nullptr);
+}
+
+double RenderThemeEfl::animationRepeatIntervalForProgressBar(RenderProgress*) const
+{
+    return progressAnimationInterval;
+}
+
+double RenderThemeEfl::animationDurationForProgressBar(RenderProgress*) const
+{
+    return progressAnimationInterval * progressAnimationFrames * 2; // "2" for back and forth;
 }
 
 bool RenderThemeEfl::paintProgressBar(RenderObject* object, const PaintInfo& info, const IntRect& rect)
@@ -1089,6 +1155,8 @@ bool RenderThemeEfl::emitMediaButtonSignal(FormType formType, MediaControlElemen
         edje_object_signal_emit(entry->o, "seekforward", "");
     else if (mediaElementType == MediaSeekBackButton)
         edje_object_signal_emit(entry->o, "seekbackward", "");
+    else if (mediaElementType == MediaEnterFullscreenButton)
+        edje_object_signal_emit(entry->o, "fullscreen", "");
     else
         return false;
 
@@ -1107,8 +1175,14 @@ String RenderThemeEfl::formatMediaControlsCurrentTime(float currentTime, float d
 
 bool RenderThemeEfl::paintMediaFullscreenButton(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
-    notImplemented();
-    return false;
+    Node* mediaNode = object->node() ? object->node()->shadowAncestorNode() : 0;
+    if (!mediaNode || (!mediaNode->hasTagName(videoTag)))
+        return false;
+
+    if (!emitMediaButtonSignal(FullScreenButton, MediaEnterFullscreenButton, rect))
+        return false;
+
+    return paintThemePart(object, FullScreenButton, info, rect);
 }
 
 bool RenderThemeEfl::paintMediaMuteButton(RenderObject* object, const PaintInfo& info, const IntRect& rect)
@@ -1165,9 +1239,9 @@ bool RenderThemeEfl::paintMediaSliderTrack(RenderObject* object, const PaintInfo
 {
     GraphicsContext* context = info.context;
 
-    context->fillRect(FloatRect(rect), m_panelColor, ColorSpaceDeviceRGB);
-    context->fillRect(FloatRect(IntRect(rect.x(), rect.y() + (rect.height() - m_mediaSliderHeight) / 2,
-                                        rect.width(), m_mediaSliderHeight)), m_sliderColor, ColorSpaceDeviceRGB);
+    context->fillRect(FloatRect(rect), m_mediaPanelColor, ColorSpaceDeviceRGB);
+    context->fillRect(FloatRect(IntRect(rect.x(), rect.y() + (rect.height() - mediaSliderHeight) / 2,
+                                        rect.width(), mediaSliderHeight)), m_mediaSliderColor, ColorSpaceDeviceRGB);
 
     RenderStyle* style = object->style();
     HTMLMediaElement* mediaElement = toParentMediaElement(object);
@@ -1208,7 +1282,7 @@ bool RenderThemeEfl::paintMediaSliderTrack(RenderObject* object, const PaintInfo
         IntPoint sliderTopRight = sliderTopLeft;
         sliderTopRight.move(0, rangeRect.height());
 
-        context->fillRect(FloatRect(rect), m_panelColor, ColorSpaceDeviceRGB);
+        context->fillRect(FloatRect(rect), m_mediaPanelColor, ColorSpaceDeviceRGB);
     }
     context->restore();
     return true;
@@ -1216,8 +1290,9 @@ bool RenderThemeEfl::paintMediaSliderTrack(RenderObject* object, const PaintInfo
 
 bool RenderThemeEfl::paintMediaSliderThumb(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
-    notImplemented();
-    return false;
+    IntSize thumbRect(3, 3);
+    info.context->fillRoundedRect(rect, thumbRect, thumbRect, thumbRect, thumbRect, m_sliderThumbColor, ColorSpaceDeviceRGB);
+    return true;
 }
 
 bool RenderThemeEfl::paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo& info, const IntRect& rect)
@@ -1240,7 +1315,7 @@ bool RenderThemeEfl::paintMediaVolumeSliderThumb(RenderObject* object, const Pai
 
 bool RenderThemeEfl::paintMediaCurrentTime(RenderObject* object, const PaintInfo& info, const IntRect& rect)
 {
-    info.context->fillRect(FloatRect(rect), m_panelColor, ColorSpaceDeviceRGB);
+    info.context->fillRect(FloatRect(rect), m_mediaPanelColor, ColorSpaceDeviceRGB);
     return true;
 }
 #endif

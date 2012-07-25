@@ -30,6 +30,17 @@
 
 namespace WebCore {
 
+class DocumentMarkerController;
+class Text;
+
+class TextInsertionMarkerSupplier : public RefCounted<TextInsertionMarkerSupplier> {
+public:
+    virtual ~TextInsertionMarkerSupplier() { }
+    virtual void addMarkersToTextNode(Text*, unsigned offsetOfInsertion, const String& textInserted) = 0;
+protected:
+    TextInsertionMarkerSupplier() { }
+};
+
 class InsertTextCommand : public CompositeEditCommand {
 public:
     enum RebalanceType {
@@ -37,21 +48,25 @@ public:
         RebalanceAllWhitespaces
     };
 
-    static PassRefPtr<InsertTextCommand> create(Document* document)
+    static PassRefPtr<InsertTextCommand> create(Document* document, const String& text, bool selectInsertedText = false,
+        RebalanceType rebalanceType = RebalanceLeadingAndTrailingWhitespaces)
     {
-        return adoptRef(new InsertTextCommand(document));
+        return adoptRef(new InsertTextCommand(document, text, selectInsertedText, rebalanceType));
     }
 
-    void input(const String& text, bool selectInsertedText = false, RebalanceType = RebalanceLeadingAndTrailingWhitespaces);
+    static PassRefPtr<InsertTextCommand> createWithMarkerSupplier(Document* document, const String& text, PassRefPtr<TextInsertionMarkerSupplier> markerSupplier)
+    {
+        return adoptRef(new InsertTextCommand(document, text, markerSupplier));
+    }
 
 private:
 
-    InsertTextCommand(Document*);
+    InsertTextCommand(Document*, const String& text, bool selectInsertedText, RebalanceType);
+    InsertTextCommand(Document*, const String& text, PassRefPtr<TextInsertionMarkerSupplier>);
 
     void deleteCharacter();
-    
+
     virtual void doApply();
-    virtual bool isInsertTextCommand() const;
 
     Position positionInsideTextNode(const Position&);
     Position insertTab(const Position&);
@@ -59,6 +74,11 @@ private:
     bool performTrivialReplace(const String&, bool selectInsertedText);
 
     friend class TypingCommand;
+
+    String m_text;
+    bool m_selectInsertedText;
+    RebalanceType m_rebalanceType;
+    RefPtr<TextInsertionMarkerSupplier> m_markerSupplier;
 };
 
 } // namespace WebCore

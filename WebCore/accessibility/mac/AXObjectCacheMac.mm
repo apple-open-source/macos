@@ -29,8 +29,8 @@
 #if HAVE(ACCESSIBILITY)
 
 #import "AccessibilityObject.h"
-#import "AccessibilityObjectWrapper.h"
 #import "RenderObject.h"
+#import "WebAccessibilityObjectWrapper.h"
 #import "WebCoreSystemInterface.h"
 
 #import <wtf/PassRefPtr.h>
@@ -51,7 +51,7 @@ void AXObjectCache::detachWrapper(AccessibilityObject* obj)
 
 void AXObjectCache::attachWrapper(AccessibilityObject* obj)
 {
-    RetainPtr<AccessibilityObjectWrapper> wrapper(AdoptNS, [[AccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
+    RetainPtr<WebAccessibilityObjectWrapper> wrapper(AdoptNS, [[WebAccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
     obj->setWrapper(wrapper.get());
 }
 
@@ -90,7 +90,10 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
             macNotification = "AXInvalidStatusChanged";
             break;
         case AXSelectedChildrenChanged:
-            macNotification = NSAccessibilitySelectedChildrenChangedNotification;
+            if (obj->isAccessibilityTable())
+                macNotification = NSAccessibilitySelectedRowsChangedNotification;
+            else
+                macNotification = NSAccessibilitySelectedChildrenChangedNotification;
             break;
         case AXSelectedTextChanged:
             macNotification = NSAccessibilitySelectedTextChangedNotification;
@@ -128,7 +131,11 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     [obj->wrapper() accessibilityPostedNotification:macNotification];
 }
 
-void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, unsigned)
+void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&)
+{
+}
+
+void AXObjectCache::frameLoadingEventPlatformNotification(AccessibilityObject*, AXLoadingEvent)
 {
 }
 

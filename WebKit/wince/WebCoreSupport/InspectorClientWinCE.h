@@ -39,8 +39,10 @@ public:
     virtual void inspectorDestroyed();
 
     virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void closeInspectorFrontend();
+    virtual void bringFrontendToFront();
 
-    virtual void highlight(WebCore::Node*);
+    virtual void highlight();
     virtual void hideHighlight();
 
     virtual void populateSetting(const WTF::String& key, WTF::String* value);

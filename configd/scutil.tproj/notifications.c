@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,7 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -43,6 +44,39 @@
 
 static int			osig;
 static struct sigaction		*oact	= NULL;
+
+
+static char *
+elapsed()
+{
+	int			n;
+	static char		str[128];
+	struct tm		tm_diff;
+	struct tm		tm_now;
+	struct timeval		tv_diff;
+	struct timeval		tv_now;
+	static struct timeval	tv_then	= { 0, 0 };
+
+	(void)gettimeofday(&tv_now, NULL);
+
+	(void)localtime_r(&tv_now.tv_sec, &tm_now);
+
+	timersub(&tv_now, &tv_then, &tv_diff);
+	(void)localtime_r(&tv_diff.tv_sec, &tm_diff);
+	n = snprintf(str, sizeof(str), "%2d:%02d:%02d.%03d",
+		     tm_now.tm_hour,
+		     tm_now.tm_min,
+		     tm_now.tm_sec,
+		     tv_now.tv_usec / 1000);
+	if (((tv_then.tv_sec != 0) || (tv_then.tv_usec != 0)) && (n < sizeof(str))) {
+		snprintf(&str[n], sizeof(str) - n, " (+%ld.%03d)",
+			 tv_diff.tv_sec,
+			 tv_diff.tv_usec / 1000);
+	}
+
+	tv_then = tv_now;
+	return str;
+}
 
 
 static CFComparisonResult
@@ -67,7 +101,8 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 		for (i = 0; i < n; i++) {
 			SCPrint(TRUE,
 				stdout,
-				CFSTR("  changed key [%d] = %@\n"),
+				CFSTR("  %s changedKey [%d] = %@\n"),
+				elapsed(),
 				i,
 				CFArrayGetValueAtIndex(changedKeys, i));
 		}
@@ -227,7 +262,8 @@ do_notify_changes(int argc, char **argv)
 		for (i = 0; i < listCnt; i++) {
 			SCPrint(TRUE,
 				stdout,
-				CFSTR("  changedKey [%d] = %@\n"),
+				CFSTR("  %s changedKey [%d] = %@\n"),
+				elapsed(),
 				i,
 				CFArrayGetValueAtIndex(list, i));
 		}
@@ -303,77 +339,6 @@ do_notify_wait(int argc, char **argv)
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 		return;
 	}
-
-	return;
-}
-
-
-static boolean_t
-notificationWatcher(SCDynamicStoreRef store, void *arg)
-{
-	SCPrint(TRUE, stdout, CFSTR("notification callback (store address = %p).\n"), store);
-	SCPrint(TRUE, stdout, CFSTR("  arg = %s.\n"), (char *)arg);
-	return TRUE;
-}
-
-
-static boolean_t
-notificationWatcherVerbose(SCDynamicStoreRef store, void *arg)
-{
-	SCPrint(TRUE, stdout, CFSTR("notification callback (store address = %p).\n"), store);
-	SCPrint(TRUE, stdout, CFSTR("  arg = %s.\n"), (char *)arg);
-	do_notify_changes(0, NULL);	/* report the keys that changed */
-	return TRUE;
-}
-
-
-static void *
-_callback(void *arg)
-{
-	SCDynamicStoreCallBack_v1	func  = (SCDynamicStoreCallBack_v1)arg;
-
-	notifyRl = CFRunLoopGetCurrent();
-	if (notifyRl == NULL) {
-		SCPrint(TRUE, stdout, CFSTR("  CFRunLoopGetCurrent() failed\n"));
-		return NULL;
-	}
-
-	if (!SCDynamicStoreNotifyCallback(store, notifyRl, func, "Changed detected by callback handler!")) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		notifyRl = NULL;
-		return NULL;
-	}
-
-	pthread_setname_np("n.callback");
-	CFRunLoopRun();
-	notifyRl = NULL;
-	return NULL;
-}
-
-
-__private_extern__
-void
-do_notify_callback(int argc, char **argv)
-{
-	SCDynamicStoreCallBack_v1	func  = notificationWatcher;
-	pthread_attr_t			tattr;
-	pthread_t			tid;
-
-	if (notifyRl != NULL) {
-		SCPrint(TRUE, stdout, CFSTR("already active\n"));
-		return;
-	}
-
-	if ((argc == 1) && (strcmp(argv[0], "verbose") == 0)) {
-		func = notificationWatcherVerbose;
-	}
-
-	pthread_attr_init(&tattr);
-	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
-	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-//      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
-	pthread_create(&tid, &tattr, _callback, (void *)func);
-	pthread_attr_destroy(&tattr);
 
 	return;
 }

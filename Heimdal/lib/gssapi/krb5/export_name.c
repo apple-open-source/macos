@@ -34,8 +34,10 @@
 #include "gsskrb5_locl.h"
 
 static OM_uint32
-export_name_common(OM_uint32 *minor_status, gss_OID oid, 
-		   const gss_name_t input_name, gss_buffer_t exported_name)
+export_name_common(OM_uint32  *minor_status,
+		   gss_const_OID oid,
+		   const gss_name_t input_name,
+		   gss_buffer_t exported_name)
 {
     krb5_const_principal princ = (krb5_const_principal)input_name;
     krb5_error_code ret;

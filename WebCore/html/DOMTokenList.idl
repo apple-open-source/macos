@@ -25,19 +25,19 @@
 module core {
 
     interface [
-        GenerateIsReachable=ImplElementRoot,
-        GenerateConstructor,
-        HasIndexGetter
+        JSGenerateIsReachable=ImplElementRoot,
+        IndexedGetter,
+        V8CustomToJSObject
     ] DOMTokenList {
         readonly attribute unsigned long length;
-        [ConvertNullStringTo=Null] DOMString item(in unsigned long index);
+        [TreatReturnedNullStringAs=Null] DOMString item(in unsigned long index);
         boolean contains(in DOMString token) raises(DOMException);
         void add(in DOMString token) raises(DOMException);
         void remove(in DOMString token) raises(DOMException);
         boolean toggle(in DOMString token) raises(DOMException);
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
     };
 

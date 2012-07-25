@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2011 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -10,7 +10,7 @@
  *  ICU <specials> source: <path>/xml/main/ca.xml
  */
 ca{
-    Version{"2.0.58.79"}
+    Version{"2.0.65.46"}
     zoneStrings{
         "Africa:Algiers"{
             ec{"Alger"}
@@ -289,22 +289,18 @@ ca{
             ec{"Tahití"}
         }
         "meta:Africa_Central"{
-            cu:int{0}
             ls{"Hora d'Àfrica Central"}
         }
         "meta:Africa_Eastern"{
-            cu:int{0}
             ls{"Hora d'Àfrica Oriental"}
         }
         "meta:Africa_Southern"{
-            cu:int{0}
-            lg{"Hora d'Àfrica Austral"}
             ls{"Hora d'Àfrica Austral"}
         }
         "meta:Africa_Western"{
-            cu:int{0}
             ld{"Hora d'estiu d'Àfrica Occidental"}
-            ls{"Hora d'Àfrica Occidental"}
+            lg{"Hora d'Àfrica Occidental"}
+            ls{"Hora estàndard d'Àfrica Occidental"}
         }
         "meta:Alaska"{
             ld{"Horari d'estiu d'Alaska"}
@@ -312,7 +308,9 @@ ca{
             ls{"Horari estàndard d'Alaska"}
         }
         "meta:Amazon"{
+            ld{"Hora d'estiu de l'Amazones"}
             lg{"Hora de l'Amazones"}
+            ls{"Hora estàndard de l'Amazones"}
         }
         "meta:America_Central"{
             ld{"Hora d'estiu central"}
@@ -337,25 +335,22 @@ ca{
         "meta:Anadyr"{
             ld{"Horari d'estiu d'Anadyr"}
             lg{"Hora d'Anadyr"}
-            ls{"Hora d'Anadyr"}
+            ls{"Hora estàndard d'Anadyr"}
         }
         "meta:Arabian"{
             ld{"Hora d'estiu d'Aràbia"}
             lg{"Hora d'Aràbia"}
             ls{"Hora estàndard d'Aràbia"}
-            sd{"ADT (Aràbia)"}
-            sg{"AT (Aràbia)"}
-            ss{"AST (Aràbia)"}
         }
         "meta:Argentina"{
             ld{"Horari d'estiu de l'Argentina"}
             lg{"Hora de l'Argentina"}
-            ls{"Hora de l'Argentina"}
+            ls{"Hora estàndard de l'Argentina"}
         }
         "meta:Argentina_Western"{
             ld{"Horari d'estiu de l'oest de l'Argentina"}
             lg{"Hora de l'oest de l'Argentina"}
-            ls{"Hora de l'oest de l'Argentina"}
+            ls{"Hora estàndard de l'oest de l'Argentina"}
         }
         "meta:Atlantic"{
             ld{"Hora d'estiu de l'Atlàntic"}
@@ -363,25 +358,21 @@ ca{
             ls{"Hora estàndard de l'Atlàntic"}
         }
         "meta:Australia_Central"{
-            cu:int{0}
             ld{"Hora d'estiu d'Austràlia Central"}
             lg{"Hora d'Austràlia Central"}
             ls{"Hora estàndard d'Austràlia Central"}
         }
         "meta:Australia_CentralWestern"{
-            cu:int{0}
             ld{"Hora d'estiu d'Austràlia centre-occidental"}
             lg{"Hora d'Austràlia centre-occidental"}
             ls{"Hora estàndard d'Austràlia centre-occidental"}
         }
         "meta:Australia_Eastern"{
-            cu:int{0}
             ld{"Hora d'estiu d'Austràlia Oriental"}
             lg{"Hora d'Austràlia Oriental"}
             ls{"Hora estàndard d'Austràlia Oriental"}
         }
         "meta:Australia_Western"{
-            cu:int{0}
             ld{"Hora d'estiu d'Austràlia Occidental"}
             lg{"Hora d'Austràlia Occidental"}
             ls{"Hora estàndard d'Austràlia Occidental"}
@@ -392,41 +383,42 @@ ca{
             ls{"Hora de Brasília"}
         }
         "meta:China"{
+            ld{"Hora d'estiu de la Xina"}
+            lg{"Hora de la Xina"}
             ls{"Hora estàndard de la Xina"}
-            sd{"CDT (Xina)"}
-            sg{"CT (Xina)"}
-            ss{"CST (Xina)"}
         }
         "meta:Choibalsan"{
             ld{"Horari d'estiu de Choibalsan"}
             lg{"Hora de Choibalsan"}
-            ls{"Hora de Choibalsan"}
+            ls{"Hora estàndard de Choibalsan"}
         }
         "meta:Europe_Central"{
-            cu:int{0}
             ld{"Hora Central Europea de l'estiu"}
-            ls{"Hora Central Europea"}
+            lg{"Hora Central Europea"}
+            ls{"Hora estàndard Central Europea"}
         }
         "meta:Europe_Eastern"{
-            cu:int{0}
             ld{"Hora d'estiu d'Europa de l'Est"}
-            ls{"Hora d'Europa de l'Est"}
+            lg{"Hora d'Europa de l'Est"}
+            ls{"Hora estàndard d'Europa de l'Est"}
         }
         "meta:Europe_Western"{
-            cu:int{0}
             ld{"Hora d'estiu d'Europa Occidental"}
-            ls{"Hora d'Europa Occidental"}
+            lg{"Hora d'Europa Occidental"}
+            ls{"Hora estàndard d'Europa Occidental"}
         }
         "meta:GMT"{
             ls{"Hora mitjana de Greenwich"}
         }
         "meta:Hawaii_Aleutian"{
+            ld{"Hora d'estiu de Hawaii Aleutian"}
             lg{"Hora de Hawaii Aleutian"}
+            ls{"Hora estàndard de Hawaii Aleutian"}
         }
         "meta:Hovd"{
             ld{"Horari d'estiu de Hovd"}
             lg{"Hora de Hovd"}
-            ls{"Hora de Hovd"}
+            ls{"Hora estàndard de Hovd"}
         }
         "meta:India"{
             ls{"Hora estàndard de l'Índia"}
@@ -443,42 +435,43 @@ ca{
         "meta:Irkutsk"{
             ld{"Horari d'estiu d'Irkutsk"}
             lg{"Hora d'Irkutsk"}
-            ls{"Hora d'Irkutsk"}
+            ls{"Hora estàndard d'Irkutsk"}
         }
         "meta:Israel"{
             ld{"Hora d'estiu d'Israel"}
+            lg{"Hora d'Israel"}
             ls{"Hora estàndard d'Israel"}
-            ss{"IST (Israel)"}
         }
         "meta:Japan"{
+            ld{"Hora d'estiu del Japó"}
+            lg{"Hora del Japó"}
             ls{"Hora estàndard del Japó"}
         }
         "meta:Kamchatka"{
             ld{"Horari d'estiu de Petropavlovsk de Kamtxatka"}
             lg{"Hora de Kamtxatka"}
-            ls{"Hora de Petropavlovsk de Kamtxatka"}
+            ls{"Hora estàndard de Petropavlovsk de Kamtxatka"}
         }
         "meta:Kazakhstan_Eastern"{
-            ld{"Horari d'estiu de l'est del Kazakhstan"}
-            lg{"Hora de l'est del Kazakhstan"}
-            ls{"Hora estàndard de l'est del Kazakhstan"}
+            ls{"Hora de l'est del Kazakhstan"}
         }
         "meta:Kazakhstan_Western"{
-            ld{"Horari d'estiu de l'oest del Kazakhstan"}
-            lg{"Hora de l'oest del Kazakhstan"}
-            ls{"Hora estàndard de l'oest del Kazakhstan"}
+            ls{"Hora de l'oest del Kazakhstan"}
         }
         "meta:Korea"{
+            ld{"Hora d'estiu de Corea"}
+            lg{"Hora de Corea"}
             ls{"Hora estàndard de Corea"}
         }
         "meta:Krasnoyarsk"{
             ld{"Horari d'estiu de Krasnoiarsk"}
             lg{"Hora de Krasnoiarsk"}
-            ls{"Hora de Krasnoiarsk"}
+            ls{"Hora estàndard de Krasnoiarsk"}
         }
         "meta:Kuybyshev"{
             ld{"Hora d'estiu de Kujbysev"}
-            ls{"Hora de Kujbysev"}
+            lg{"Hora de Kujbysev"}
+            ls{"Hora estàndard de Kujbysev"}
         }
         "meta:Lord_Howe"{
             ld{"Horari d'estiu de Lord Howe"}
@@ -491,17 +484,17 @@ ca{
         "meta:Magadan"{
             ld{"Horari d'estiu de Magadan"}
             lg{"Hora de Magadan"}
-            ls{"Hora de Magadan"}
+            ls{"Hora estàndard de Magadan"}
         }
         "meta:Mongolia"{
             ld{"Horari d'estiu d'Ulan Bator"}
-            lg{"Hora de Mongòlia"}
-            ls{"Hora d'Ulan Bator"}
+            lg{"Hora d'Ulan Bator"}
+            ls{"Hora estàndard d'Ulan Bator"}
         }
         "meta:Moscow"{
             ld{"Hora d'estiu de Moscou"}
             lg{"Hora de Moscou"}
-            ls{"Hora de Moscou"}
+            ls{"Hora estàndard de Moscou"}
         }
         "meta:Newfoundland"{
             ld{"Horari d'estiu de Terranova"}
@@ -510,52 +503,53 @@ ca{
         }
         "meta:Noronha"{
             ld{"Horari d'estiu de Fernando de Noronha"}
-            lg{"Hora de Noronha"}
-            ls{"Hora de Fernando de Noronha"}
+            lg{"Hora de Fernando de Noronha"}
+            ls{"Hora estàndard de Fernando de Noronha"}
         }
         "meta:Novosibirsk"{
             ld{"Horari d'estiu de Novosibirsk"}
             lg{"Hora de Novosibirsk"}
-            ls{"Hora de Novosibirsk"}
+            ls{"Hora estàndard de Novosibirsk"}
         }
         "meta:Omsk"{
             ld{"Horari d'estiu d'Omsk"}
             lg{"Hora d'Omsk"}
-            ls{"Hora d'Omsk"}
+            ls{"Hora estàndard d'Omsk"}
         }
         "meta:Sakhalin"{
             ld{"Horari d'estiu de Sakhalin"}
             lg{"Hora de Sakhalin"}
-            ls{"Hora de Sakhalin"}
+            ls{"Hora estàndard de Sakhalin"}
         }
         "meta:Samara"{
             ld{"Hora d'estiu de Samara"}
             lg{"Hora de Samara"}
-            ls{"Hora de Samara"}
+            ls{"Hora estàndard de Samara"}
         }
         "meta:Turkey"{
             ld{"Hora d'estiu de Turquia"}
-            ls{"Hora de Turquia"}
+            lg{"Hora de Turquia"}
+            ls{"Hora estàndard de Turquia"}
         }
         "meta:Vladivostok"{
             ld{"Horari d'estiu de Vladivostok"}
             lg{"Hora de Vladivostok"}
-            ls{"Hora de Vladivostok"}
+            ls{"Hora estàndard de Vladivostok"}
         }
         "meta:Volgograd"{
             ld{"Hora d'estiu de Volgograd"}
             lg{"Hora de Volgograd"}
-            ls{"Hora de Volgograd"}
+            ls{"Hora estàndard de Volgograd"}
         }
         "meta:Yakutsk"{
             ld{"Horari d'estiu de Iakutsk"}
             lg{"Hora de Iakutsk"}
-            ls{"Hora de Iakutsk"}
+            ls{"Hora estàndard de Iakutsk"}
         }
         "meta:Yekaterinburg"{
             ld{"Horari d'estiu d'Ekaterinburg"}
             lg{"Hora d'Ekaterinburg"}
-            ls{"Hora d'Ekaterinburg"}
+            ls{"Hora estàndard d'Ekaterinburg"}
         }
         fallbackFormat{"{1} ({0})"}
         fallbackRegionFormat{"Hora de: {1} ({0})"}

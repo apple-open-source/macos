@@ -97,8 +97,8 @@ typedef enum {
 	#define Panic( message )					DebugStr( (ConstStr255Param) message )
 	#define PanicIf( condition, message )		if ( (condition) != 0 )	DebugStr( message )
 #else
-	#define Panic( message )
-	#define PanicIf( condition, message )
+	#define Panic( message )	do { ; } while (0)
+	#define PanicIf( condition, message )	do { ; } while (0)
 #endif
 
 ///////////////////////////////////// Types /////////////////////////////////////
@@ -218,8 +218,8 @@ typedef BTreeKeyPtr			 KeyPtr;
 	#define Panic( message )					DebugStr( (ConstStr255Param) message )
 	#define PanicIf( condition, message )		if ( (condition) != 0 )	DebugStr( message )
 #else
-	#define Panic( message )
-	#define PanicIf( condition, message )
+	#define Panic( message )	do { ; } while (0)
+	#define PanicIf( condition, message )	do { ; } while (0)
 #endif
 
 //////////////////////////////// Key Operations /////////////////////////////////

@@ -419,7 +419,12 @@ hfs_swap_BTNode (
         srcDesc->numRecords	= SWAP_BE16 (srcDesc->numRecords);
     }
 
-fail:	
+fail:
+	if (error && (cur_debug_level & d_dump_node))
+	{
+		plog("Node %u:\n", src->blockNum);
+		HexDump(src->buffer, src->blockSize, TRUE);
+	}
     return (error);
 }
 
@@ -560,9 +565,19 @@ hfs_swap_HFSPlusBTInternalNode (
             /* Make sure name length is consistent with key length */
             if (keyLength < sizeof(srcKey->parentID) + sizeof(srcKey->nodeName.length) +
                 srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0])) {
-				if (debug) plog("hfs_swap_HFSPlusBTInternalNode: catalog record #%d keyLength=%d expected=%lu\n",
-					srcDesc->numRecords-i, keyLength, sizeof(srcKey->parentID) + sizeof(srcKey->nodeName.length) +
-                    srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0]));
+				if (debug){
+					uintptr_t keyOffset = (uintptr_t)srcKey - (uintptr_t)src->buffer;
+					uintptr_t recordSize = (uintptr_t)nextRecord - (uintptr_t)srcKey;
+					unsigned recordIndex = srcDesc->numRecords - i;
+					
+					plog("hfs_swap_HFSPlusBTInternalNode: catalog record #%d (0-based, offset 0x%lX) keyLength=%d expected=%lu\n",
+						recordIndex, keyOffset, keyLength, sizeof(srcKey->parentID) + sizeof(srcKey->nodeName.length) +
+                    	srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0]));
+                    if (cur_debug_level & d_dump_record) {
+                    	plog("Record %u (offset 0x%04X):\n", recordIndex, keyOffset);
+                    	HexDump(srcKey, recordSize, FALSE);
+                    }
+                }
 				WriteError(fcb->fcbVolume->vcbGPtr, E_KeyLen, fcb->fcbFileID, src->blockNum);
 				return E_KeyLen;
             }

@@ -651,6 +651,7 @@ struct webdavmount
 	uid_t		pm_uid;						/* effective uid of the mounting user */
 	gid_t		pm_gid;						/* effective gid of the mounting user */	
 	lck_mtx_t pm_mutex;							/* Protects pm_status adn pm_open_connections fields */
+	lck_mtx_t pm_renamelock;                    			/* Mount rename lock */
 };
 
 struct webdavnode

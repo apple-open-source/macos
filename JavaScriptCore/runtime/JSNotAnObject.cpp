@@ -35,6 +35,7 @@
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSNotAnObject);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSNotAnObject);
 
 const ClassInfo JSNotAnObject::s_info = { "Object", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSNotAnObject) };
 
@@ -69,7 +70,7 @@ void JSNotAnObject::put(JSCell*, ExecState* exec, const Identifier& , JSValue, P
     ASSERT_UNUSED(exec, exec->hadException());
 }
 
-void JSNotAnObject::putByIndex(JSCell*, ExecState* exec, unsigned, JSValue)
+void JSNotAnObject::putByIndex(JSCell*, ExecState* exec, unsigned, JSValue, bool)
 {
     ASSERT_UNUSED(exec, exec->hadException());
 }

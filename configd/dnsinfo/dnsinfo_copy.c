@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,12 +37,19 @@
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
 #include "shared_dns_info.h"
+#include "network_information_priv.h"
 
 
 static pthread_once_t	_dns_initialized	= PTHREAD_ONCE_INIT;
 static pthread_mutex_t	_dns_lock		= PTHREAD_MUTEX_INITIALIZER;
 static mach_port_t	_dns_server		= MACH_PORT_NULL;
 
+enum {
+	get_dns_info	= 1,
+	get_nwi_state	= 2,
+};
+
+typedef uint32_t getflags;
 
 static void
 __dns_fork_handler()
@@ -83,14 +90,10 @@ add_list(void **padding, uint32_t *n_padding, int32_t count, int32_t size, void 
 #define	DNS_CONFIG_BUF_MAX	1024*1024
 
 
-static _dns_config_buf_t *
-copy_dns_info()
-{
-	uint8_t			*buf	= NULL;
-	dnsDataOut_t		dataRef	= NULL;
-	mach_msg_type_number_t	dataLen	= 0;
-	mach_port_t		server;
-	kern_return_t		status;
+static kern_return_t
+_dns_server_copy(void* dataRef, mach_msg_type_number_t* dataLen, getflags flags){
+	mach_port_t	server;
+	kern_return_t	status	= KERN_FAILURE;
 
 	// initialize runtime
 	pthread_once(&_dns_initialized, __dns_initialize);
@@ -99,7 +102,11 @@ copy_dns_info()
 	server = _dns_server;
 	while (TRUE) {
 		if (server != MACH_PORT_NULL) {
-			status = shared_dns_infoGet(server, &dataRef, &dataLen);
+			if (flags == get_dns_info) {
+				status = shared_dns_infoGet(server, dataRef, dataLen);
+			} else {
+				status = shared_nwi_stateGet(server, dataRef, dataLen);
+			}
 			if (status == KERN_SUCCESS) {
 				break;
 			}
@@ -135,10 +142,62 @@ copy_dns_info()
 		}
 	}
 
+	return status;
+}
+
+
+__private_extern__
+nwi_state*
+_nwi_state_copy() {
+	dnsDataOut_t		dataRef		= NULL;
+	mach_msg_type_number_t	dataLen		= 0;
+	kern_return_t		status;
+	nwi_state*		state		= NULL;
+
+	status = _dns_server_copy(&dataRef, &dataLen, get_nwi_state);
+	if (status != KERN_SUCCESS) {
+		return NULL;
+	}
+
+	if (dataRef != NULL) {
+		state = malloc(dataLen);
+		if (state == NULL) {
+			vm_deallocate(mach_task_self(), (vm_address_t)dataRef,
+				      dataLen);
+			return NULL;
+		}
+		memcpy((void*) state, (void*) dataRef, dataLen);
+		state->ref = 0;
+		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
+		if (status != KERN_SUCCESS) {
+			mach_error("vm_deallocate():", status);
+			free(state);
+			return NULL;
+		}
+	}
+
+	return state;
+}
+
+
+static _dns_config_buf_t *
+copy_dns_info()
+{
+	uint8_t			*buf	= NULL;
+	dnsDataOut_t		dataRef	= NULL;
+	mach_msg_type_number_t	dataLen	= 0;
+	kern_return_t		status;
+
+	status = _dns_server_copy(&dataRef, &dataLen, get_dns_info);
+	if (status != KERN_SUCCESS) {
+		return NULL;
+	}
+
 	if (dataRef != NULL) {
 		if ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX)) {
-			_dns_config_buf_t	*config		= (_dns_config_buf_t *)dataRef;
-			uint32_t		n_padding       = ntohl(config->n_padding);
+			/* ALIGN: cast okay since _dns_config_buf_t is int aligned */
+			_dns_config_buf_t	*config		= (_dns_config_buf_t *)(void *)dataRef;
+			uint32_t		n_padding	= ntohl(config->n_padding);
 
 			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
 				uint32_t	len;
@@ -158,7 +217,8 @@ copy_dns_info()
 		}
 	}
 
-	return (_dns_config_buf_t *)buf;
+	/* ALIGN: buf malloc'ed, should be aligned >8 bytes */
+	return (_dns_config_buf_t *)(void *)buf;
 }
 
 
@@ -237,10 +297,15 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 
 	resolver->flags = ntohl(resolver->flags);
 
+	// initialize SCNetworkReachability flags
+
+	resolver->reach_flags = ntohl(resolver->reach_flags);
+
 	// process resolver buffer "attribute" data
 
 	n_attribute = n_buf - sizeof(_dns_resolver_buf_t);
-	attribute   = (dns_attribute_t *)&buf->attribute[0];
+	/* ALIGN: alignment not assumed, using accessors */
+	attribute = (dns_attribute_t *)(void *)&buf->attribute[0];
 	if (n_attribute != ntohl(buf->n_attribute)) {
 		goto error;
 	}
@@ -262,7 +327,7 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 				break;
 
 			case RESOLVER_ATTRIBUTE_SORTADDR :
-				resolver->sortaddr[n_sortaddr++] = (dns_sortaddr_t *)&attribute->attribute[0];
+				resolver->sortaddr[n_sortaddr++] = (dns_sortaddr_t *)(void *)&attribute->attribute[0];
 				break;
 
 			case RESOLVER_ATTRIBUTE_OPTIONS :
@@ -330,7 +395,7 @@ expand_config(_dns_config_buf_t *buf)
 	// process configuration buffer "attribute" data
 
 	n_attribute = ntohl(buf->n_attribute);
-	attribute   = (dns_attribute_t *)&buf->attribute[0];
+	attribute   = (dns_attribute_t *)(void *)&buf->attribute[0];
 
 	while (n_attribute >= sizeof(dns_attribute_t)) {
 		uint32_t	attribute_length	= ntohl(attribute->length);
@@ -343,7 +408,7 @@ expand_config(_dns_config_buf_t *buf)
 
 				// expand resolver buffer
 
-				resolver = expand_resolver((_dns_resolver_buf_t *)&attribute->attribute[0],
+				resolver = expand_resolver((_dns_resolver_buf_t *)(void *)&attribute->attribute[0],
 							   attribute_length - sizeof(dns_attribute_t),
 							   &padding,
 							   &n_padding);
@@ -428,6 +493,13 @@ dns_configuration_free(dns_config_t *config)
 	}
 
 	free((void *)config);
+	return;
+}
+
+
+void
+_dns_configuration_ack(dns_config_t *config, const char *bundle_id)
+{
 	return;
 }
 

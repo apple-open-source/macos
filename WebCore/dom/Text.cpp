@@ -23,6 +23,7 @@
 #include "Text.h"
 
 #include "ExceptionCode.h"
+#include "NodeRenderingContext.h"
 #include "RenderCombineText.h"
 #include "RenderText.h"
 
@@ -30,6 +31,9 @@
 #include "RenderSVGInlineText.h"
 #include "SVGNames.h"
 #endif
+
+#include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 using namespace std;
 
@@ -51,11 +55,11 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
         return 0;
     }
 
-    RefPtr<StringImpl> oldStr = dataImpl();
-    RefPtr<Text> newText = virtualCreate(oldStr->substring(offset));
-    setDataImpl(oldStr->substring(0, offset));
+    String oldStr = data();
+    RefPtr<Text> newText = virtualCreate(oldStr.substring(offset));
+    setDataWithoutUpdate(oldStr.substring(0, offset));
 
-    dispatchModifiedEvent(oldStr.get());
+    dispatchModifiedEvent(oldStr);
 
     if (parentNode())
         parentNode()->insertBefore(newText.get(), nextSibling(), ec);
@@ -66,7 +70,7 @@ PassRefPtr<Text> Text::splitText(unsigned offset, ExceptionCode& ec)
         document()->textNodeSplit(this);
 
     if (renderer())
-        toRenderText(renderer())->setTextWithOffset(dataImpl(), 0, oldStr->length());
+        toRenderText(renderer())->setTextWithOffset(dataImpl(), 0, oldStr.length());
 
     return newText.release();
 }
@@ -121,21 +125,17 @@ String Text::wholeText() const
             CRASH();
         resultLength += data.length();
     }
-    UChar* resultData;
-    String result = String::createUninitialized(resultLength, resultData);
-    UChar* p = resultData;
+    StringBuilder result;
+    result.reserveCapacity(resultLength);
     for (const Node* n = startText; n != onePastEndText; n = n->nextSibling()) {
         if (!n->isTextNode())
             continue;
         const Text* t = static_cast<const Text*>(n);
-        const String& data = t->data();
-        unsigned dataLength = data.length();
-        memcpy(p, data.characters(), dataLength * sizeof(UChar));
-        p += dataLength;
+        result.append(t->data());
     }
-    ASSERT(p == resultData + resultLength);
+    ASSERT(result.length() == resultLength);
 
-    return result;
+    return result.toString();
 }
 
 PassRefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
@@ -147,7 +147,7 @@ PassRefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
     RefPtr<Text> endText = const_cast<Text*>(latestLogicallyAdjacentTextNode(this));
 
     RefPtr<Text> protectedThis(this); // Mutation event handlers could cause our last ref to go away
-    ContainerNode* parent = parentNode(); // Protect against mutation handlers moving this node during traversal
+    RefPtr<ContainerNode> parent = parentNode(); // Protect against mutation handlers moving this node during traversal
     ExceptionCode ignored = 0;
     for (RefPtr<Node> n = startText; n && n != this && n->isTextNode() && n->parentNode() == parent;) {
         RefPtr<Node> nodeToRemove(n.release());
@@ -189,24 +189,23 @@ PassRefPtr<Node> Text::cloneNode(bool /*deep*/)
     return create(document(), data());
 }
 
-bool Text::rendererIsNeeded(RenderStyle *style)
+bool Text::rendererIsNeeded(const NodeRenderingContext& context)
 {
-    if (!CharacterData::rendererIsNeeded(style))
+    if (!CharacterData::rendererIsNeeded(context))
         return false;
 
     bool onlyWS = containsOnlyWhitespace();
     if (!onlyWS)
         return true;
 
-    RenderObject *par = parentNode()->renderer();
-    
+    RenderObject* par = context.parentRenderer();
     if (par->isTable() || par->isTableRow() || par->isTableSection() || par->isTableCol() || par->isFrameSet())
         return false;
     
-    if (style->preserveNewline()) // pre/pre-wrap/pre-line always make renderers.
+    if (context.style()->preserveNewline()) // pre/pre-wrap/pre-line always make renderers.
         return true;
     
-    RenderObject *prev = previousRenderer();
+    RenderObject* prev = context.previousRenderer();
     if (prev && prev->isBR()) // <span><br/> <br/></span>
         return false;
         
@@ -218,10 +217,10 @@ bool Text::rendererIsNeeded(RenderStyle *style)
         if (par->isRenderBlock() && !par->childrenInline() && (!prev || !prev->isInline()))
             return false;
         
-        RenderObject *first = par->firstChild();
+        RenderObject* first = par->firstChild();
         while (first && first->isFloatingOrPositioned())
             first = first->nextSibling();
-        RenderObject *next = nextRenderer();
+        RenderObject* next = context.nextRenderer();
         if (!first || next == first)
             // Whitespace at the start of a block just goes away.  Don't even
             // make a render object for this text.
@@ -235,11 +234,7 @@ RenderObject* Text::createRenderer(RenderArena* arena, RenderStyle* style)
 {
 #if ENABLE(SVG)
     Node* parentOrHost = parentOrHostNode();
-    if (parentOrHost->isSVGElement()
-#if ENABLE(SVG_FOREIGN_OBJECT)
-        && !parentOrHost->hasTagName(SVGNames::foreignObjectTag)
-#endif
-    )
+    if (parentOrHost->isSVGElement() && !parentOrHost->hasTagName(SVGNames::foreignObjectTag))
         return new (arena) RenderSVGInlineText(this, dataImpl());
 #endif
 
@@ -255,9 +250,12 @@ void Text::attach()
     CharacterData::attach();
 }
 
-void Text::recalcStyle(StyleChange change)
+void Text::recalcTextStyle(StyleChange change)
 {
-    if (change != NoChange && parentNode()) {
+    if (hasCustomWillOrDidRecalcStyle())
+        willRecalcTextStyle(change);
+
+    if (change != NoChange && parentNode() && parentNode()->renderer()) {
         if (renderer())
             renderer()->setStyle(parentNode()->renderer()->style());
     }
@@ -265,11 +263,8 @@ void Text::recalcStyle(StyleChange change)
         if (renderer()) {
             if (renderer()->isText())
                 toRenderText(renderer())->setText(dataImpl());
-        } else {
-            if (attached())
-                detach();
-            attach();
-        }
+        } else
+            reattach();
     }
     clearNeedsStyleRecalc();
 }

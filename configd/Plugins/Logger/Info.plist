@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.11.3</string>
+	<string>1.12</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.11</string>
+	<string>1.12</string>
 	<key>Enabled</key>
 	<false/>
 	<key>Verbose</key>
@@ -31,6 +31,8 @@
 	<key>LOG_IO_WAKEUUID_EVENTS</key>
 	<false/>
 	<key>LOG_NETWORK_KERNEL_EVENTS</key>
+	<true/>
+	<key>LOG_NETWORK_INFORMATION</key>
 	<true/>
 	<key>LOG_NOTIFY_DNS_CONFIGURATION</key>
 	<true/>
@@ -55,6 +57,10 @@
 	<key>LOG_SC_REACHABILITY_HOSTS</key>
 	<array>
 		<string>mail.me.com</string>
+	</array>
+	<key>Requires</key>
+	<array>
+		<string>com.apple.SystemConfiguration.SCNetworkReachability</string>
 	</array>
 </dict>
 </plist>

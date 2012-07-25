@@ -23,8 +23,10 @@ InstallHeaders /usr/include \
 	gen.subproj/ifaddrs.h \
 	lookup.subproj/aliasdb.h \
 	lookup.subproj/bootparams.h \
+	lookup.subproj/grp.h \
 	lookup.subproj/netdb.h \
 	lookup.subproj/printerdb.h \
+	lookup.subproj/pwd.h \
 	membership.subproj/membership.h \
 	membership.subproj/ntsid.h
 
@@ -205,6 +207,9 @@ LinkManPages getpwent.3 \
 LinkManPages mbr_uid_to_uuid.3 \
 	mbr_gid_to_uuid.3 mbr_sid_to_uuid.3 mbr_uuid_to_id.3 mbr_uuid_to_sid.3 \
 	mbr_sid_to_string.3 mbr_string_to_sid.3
+
+LinkManPages mbr_check_membership.3 \
+	mbr_check_service_membership.3
 
 LinkManPages getrpcent.3 \
 	getrpcbyname.3 getrpcbynumber.3 endrpcent.3 setrpcent.3

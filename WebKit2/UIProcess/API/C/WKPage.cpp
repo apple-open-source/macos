@@ -31,14 +31,15 @@
 #include "WKAPICast.h"
 #include "WebBackForwardList.h"
 #include "WebData.h"
-#include "WebImage.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
+#include <WebCore/Page.h>
 
 #ifdef __BLOCKS__
 #include <Block.h>
 #endif
 
+using namespace WebCore;
 using namespace WebKit;
 
 WKTypeID WKPageGetTypeID()
@@ -79,6 +80,11 @@ void WKPageLoadAlternateHTMLString(WKPageRef pageRef, WKStringRef htmlStringRef,
 void WKPageLoadPlainTextString(WKPageRef pageRef, WKStringRef plainTextStringRef)
 {
     toImpl(pageRef)->loadPlainTextString(toWTFString(plainTextStringRef));    
+}
+
+void WKPageLoadWebArchiveData(WKPageRef pageRef, WKDataRef webArchiveDataRef)
+{
+    toImpl(pageRef)->loadWebArchiveData(toImpl(webArchiveDataRef));
 }
 
 void WKPageStopLoading(WKPageRef pageRef)
@@ -240,13 +246,13 @@ void WKPageTerminate(WKPageRef pageRef)
 
 WKStringRef WKPageGetSessionHistoryURLValueType()
 {
-    static WebString* sessionHistoryURLValueType = WebString::create("SessionHistoryURL").releaseRef();
+    static WebString* sessionHistoryURLValueType = WebString::create("SessionHistoryURL").leakRef();
     return toAPI(sessionHistoryURLValueType);
 }
 
 WKDataRef WKPageCopySessionState(WKPageRef pageRef, void *context, WKPageSessionStateFilterCallback filter)
 {
-    return toAPI(toImpl(pageRef)->sessionStateData(filter, context).releaseRef());
+    return toAPI(toImpl(pageRef)->sessionStateData(filter, context).leakRef());
 }
 
 void WKPageRestoreFromSessionState(WKPageRef pageRef, WKDataRef sessionStateData)
@@ -344,6 +350,75 @@ bool WKPageIsPinnedToRightSide(WKPageRef pageRef)
     return toImpl(pageRef)->isPinnedToRightSide();
 }
 
+void WKPageSetPaginationMode(WKPageRef pageRef, WKPaginationMode paginationMode)
+{
+    Page::Pagination::Mode mode;
+    switch (paginationMode) {
+    case kWKPaginationModeUnpaginated:
+        mode = Page::Pagination::Unpaginated;
+        break;
+    case kWKPaginationModeHorizontal:
+        mode = Page::Pagination::HorizontallyPaginated;
+        break;
+    case kWKPaginationModeVertical:
+        mode = Page::Pagination::VerticallyPaginated;
+        break;
+    default:
+        return;
+    }
+    toImpl(pageRef)->setPaginationMode(mode);
+}
+
+WKPaginationMode WKPageGetPaginationMode(WKPageRef pageRef)
+{
+    switch (toImpl(pageRef)->paginationMode()) {
+    case Page::Pagination::Unpaginated:
+        return kWKPaginationModeUnpaginated;
+    case Page::Pagination::HorizontallyPaginated:
+        return kWKPaginationModeHorizontal;
+    case Page::Pagination::VerticallyPaginated:
+        return kWKPaginationModeVertical;
+    }
+
+    ASSERT_NOT_REACHED();
+    return kWKPaginationModeUnpaginated;
+}
+
+void WKPageSetPaginationBehavesLikeColumns(WKPageRef pageRef, bool behavesLikeColumns)
+{
+    toImpl(pageRef)->setPaginationBehavesLikeColumns(behavesLikeColumns);
+}
+
+bool WKPageGetPaginationBehavesLikeColumns(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->paginationBehavesLikeColumns();
+}
+
+void WKPageSetPageLength(WKPageRef pageRef, double pageLength)
+{
+    toImpl(pageRef)->setPageLength(pageLength);
+}
+
+double WKPageGetPageLength(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->pageLength();
+}
+
+void WKPageSetGapBetweenPages(WKPageRef pageRef, double gap)
+{
+    toImpl(pageRef)->setGapBetweenPages(gap);
+}
+
+double WKPageGetGapBetweenPages(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->gapBetweenPages();
+}
+
+unsigned WKPageGetPageCount(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->pageCount();
+}
+
 bool WKPageCanDelete(WKPageRef pageRef)
 {
     return toImpl(pageRef)->canDelete();
@@ -364,6 +439,11 @@ void WKPageSetMaintainsInactiveSelection(WKPageRef pageRef, bool newValue)
     return toImpl(pageRef)->setMaintainsInactiveSelection(newValue);
 }
 
+void WKPageCenterSelectionInVisibleArea(WKPageRef pageRef)
+{
+    return toImpl(pageRef)->centerSelectionInVisibleArea();
+}
+
 void WKPageFindString(WKPageRef pageRef, WKStringRef string, WKFindOptions options, unsigned maxMatchCount)
 {
     toImpl(pageRef)->findString(toImpl(string)->string(), toFindOptions(options), maxMatchCount);
@@ -381,50 +461,38 @@ void WKPageCountStringMatches(WKPageRef pageRef, WKStringRef string, WKFindOptio
 
 void WKPageSetPageContextMenuClient(WKPageRef pageRef, const WKPageContextMenuClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
+#if ENABLE(CONTEXT_MENUS)
     toImpl(pageRef)->initializeContextMenuClient(wkClient);
+#endif
 }
 
 void WKPageSetPageFindClient(WKPageRef pageRef, const WKPageFindClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeFindClient(wkClient);
 }
 
 void WKPageSetPageFormClient(WKPageRef pageRef, const WKPageFormClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeFormClient(wkClient);
 }
 
 void WKPageSetPageLoaderClient(WKPageRef pageRef, const WKPageLoaderClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeLoaderClient(wkClient);
 }
 
 void WKPageSetPagePolicyClient(WKPageRef pageRef, const WKPagePolicyClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializePolicyClient(wkClient);
 }
 
 void WKPageSetPageResourceLoadClient(WKPageRef pageRef, const WKPageResourceLoadClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeResourceLoadClient(wkClient);
 }
 
 void WKPageSetPageUIClient(WKPageRef pageRef, const WKPageUIClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(pageRef)->initializeUIClient(wkClient);
 }
 
@@ -516,6 +584,21 @@ WK_EXPORT WKURLRef WKPageCopyPendingAPIRequestURL(WKPageRef pageRef)
     return toCopiedURLAPI(toImpl(pageRef)->pendingAPIRequestURL());
 }
 
+WKURLRef WKPageCopyActiveURL(WKPageRef pageRef)
+{
+    return toCopiedURLAPI(toImpl(pageRef)->activeURL());
+}
+
+WKURLRef WKPageCopyProvisionalURL(WKPageRef pageRef)
+{
+    return toCopiedURLAPI(toImpl(pageRef)->provisionalURL());
+}
+
+WKURLRef WKPageCopyCommittedURL(WKPageRef pageRef)
+{
+    return toCopiedURLAPI(toImpl(pageRef)->committedURL());
+}
+
 void WKPageSetDebugPaintFlags(WKPageDebugPaintFlags flags)
 {
     WebPageProxy::setDebugPaintFlags(flags);
@@ -524,6 +607,11 @@ void WKPageSetDebugPaintFlags(WKPageDebugPaintFlags flags)
 WKPageDebugPaintFlags WKPageGetDebugPaintFlags()
 {
     return WebPageProxy::debugPaintFlags();
+}
+
+WKStringRef WKPageCopyStandardUserAgentWithApplicationName(WKStringRef applicationName)
+{
+    return toCopiedAPI(WebPageProxy::standardUserAgent(toImpl(applicationName)->string()));
 }
 
 void WKPageValidateCommand(WKPageRef pageRef, WKStringRef command, void* context, WKPageValidateCommandCallback callback)
@@ -579,11 +667,24 @@ void WKPageDrawPagesToPDF(WKPageRef page, WKFrameRef frame, WKPrintInfo printInf
 {
     toImpl(page)->drawPagesToPDF(toImpl(frame), printInfoFromWKPrintInfo(printInfo), first, count, DataCallback::create(context, callback));
 }
+
+void WKPageEndPrinting(WKPageRef page)
+{
+    toImpl(page)->endPrinting();
+}
 #endif
 
-WKImageRef WKPageCreateSnapshotOfVisibleContent(WKPageRef page)
+WKImageRef WKPageCreateSnapshotOfVisibleContent(WKPageRef)
 {
-    RefPtr<WebImage> webImage = toImpl(page)->createSnapshotOfVisibleContent();
-    return toAPI(webImage.release().leakRef());
+    return 0;
 }
 
+void WKPageSetShouldSendEventsSynchronously(WKPageRef page, bool sync)
+{
+    toImpl(page)->setShouldSendEventsSynchronously(sync);
+}
+
+void WKPageSetMediaVolume(WKPageRef page, float volume)
+{
+    toImpl(page)->setMediaVolume(volume);    
+}

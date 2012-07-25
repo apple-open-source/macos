@@ -30,7 +30,6 @@
 
 #include "GraphicsContext.h"
 
-#include "ContextShadow.h"
 #include "PlatformContextCairo.h"
 #include "RefPtrCairo.h"
 #include <cairo.h>
@@ -56,7 +55,6 @@ public:
 #elif PLATFORM(WIN)
         // NOTE:  These may note be needed: review and remove once Cairo implementation is complete
         , m_hdc(0)
-        , m_transparencyCount(0)
         , m_shouldIncludeChildWindows(false)
 #endif
     {
@@ -78,8 +76,6 @@ public:
     void translate(float, float);
     void concatCTM(const AffineTransform&);
     void setCTM(const AffineTransform&);
-    void beginTransparencyLayer() { m_transparencyCount++; }
-    void endTransparencyLayer() { m_transparencyCount--; }
     void syncContext(cairo_t* cr);
 #else
     // On everything else, we do nothing.
@@ -93,21 +89,17 @@ public:
     void translate(float, float) {}
     void concatCTM(const AffineTransform&) {}
     void setCTM(const AffineTransform&) {}
-    void beginTransparencyLayer() {}
-    void endTransparencyLayer() {}
     void syncContext(cairo_t* cr) {}
 #endif
 
     PlatformContextCairo* platformContext;
     Vector<float> layers;
-    ContextShadow shadow;
-    Vector<ContextShadow> shadowStack;
+    InterpolationQuality imageInterpolationQuality;
 
 #if PLATFORM(GTK)
     GdkEventExpose* expose;
 #elif PLATFORM(WIN)
     HDC m_hdc;
-    unsigned m_transparencyCount;
     bool m_shouldIncludeChildWindows;
 #endif
 };

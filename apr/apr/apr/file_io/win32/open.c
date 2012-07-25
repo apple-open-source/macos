@@ -86,7 +86,7 @@ apr_status_t utf8_to_unicode_path(apr_wchar_t* retstr, apr_size_t retlen,
         }
     }
 
-    if (rv = apr_conv_utf8_to_ucs2(srcstr, &srcremains, t, &retlen)) {
+    if ((rv = apr_conv_utf8_to_ucs2(srcstr, &srcremains, t, &retlen))) {
         return (rv == APR_INCOMPLETE) ? APR_EINVAL : rv;
     }
     if (srcremains) {
@@ -127,7 +127,7 @@ apr_status_t unicode_to_utf8_path(char* retstr, apr_size_t retlen,
         }
     }
         
-    if (rv = apr_conv_ucs2_to_utf8(srcstr, &srcremains, t, &retlen)) {
+    if ((rv = apr_conv_ucs2_to_utf8(srcstr, &srcremains, t, &retlen))) {
         return rv;
     }
     if (srcremains) {
@@ -169,7 +169,7 @@ void *res_name_from_filename(const char *file, int global, apr_pool_t *pool)
         wfile = apr_palloc(pool, (r + n) * sizeof(apr_wchar_t));
         wcscpy(wfile, wpre);
         d = n;
-        if (rv = apr_conv_utf8_to_ucs2(file, &n, wfile + r, &d)) {
+        if ((rv = apr_conv_utf8_to_ucs2(file, &n, wfile + r, &d))) {
             return NULL;
         }
         for (ch = wfile + r; *ch; ++ch) {
@@ -331,10 +331,10 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
     DWORD sharemode = FILE_SHARE_READ | FILE_SHARE_WRITE;
     apr_status_t rv;
 
-    if (flag & APR_READ) {
+    if (flag & APR_FOPEN_READ) {
         oflags |= GENERIC_READ;
     }
-    if (flag & APR_WRITE) {
+    if (flag & APR_FOPEN_WRITE) {
         oflags |= GENERIC_WRITE;
     }
     if (flag & APR_WRITEATTRS) {
@@ -344,18 +344,18 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
     if (apr_os_level >= APR_WIN_NT) 
         sharemode |= FILE_SHARE_DELETE;
 
-    if (flag & APR_CREATE) {
-        if (flag & APR_EXCL) {
+    if (flag & APR_FOPEN_CREATE) {
+        if (flag & APR_FOPEN_EXCL) {
             /* only create new if file does not already exist */
             createflags = CREATE_NEW;
-        } else if (flag & APR_TRUNCATE) {
+        } else if (flag & APR_FOPEN_TRUNCATE) {
             /* truncate existing file or create new */
             createflags = CREATE_ALWAYS;
         } else {
             /* open existing but create if necessary */
             createflags = OPEN_ALWAYS;
         }
-    } else if (flag & APR_TRUNCATE) {
+    } else if (flag & APR_FOPEN_TRUNCATE) {
         /* only truncate if file already exists */
         createflags = TRUNCATE_EXISTING;
     } else {
@@ -363,11 +363,11 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
         createflags = OPEN_EXISTING;
     }
 
-    if ((flag & APR_EXCL) && !(flag & APR_CREATE)) {
+    if ((flag & APR_FOPEN_EXCL) && !(flag & APR_FOPEN_CREATE)) {
         return APR_EACCES;
     }   
     
-    if (flag & APR_DELONCLOSE) {
+    if (flag & APR_FOPEN_DELONCLOSE) {
         attributes |= FILE_FLAG_DELETE_ON_CLOSE;
     }
 
@@ -382,7 +382,7 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
      * FILE_FLAG_BACKUP_SEMANTICS to allow us to open directories.
      * See the static resolve_ident() fn in file_io/win32/filestat.c
      */
-    if (!(flag & (APR_READ | APR_WRITE))) {
+    if (!(flag & (APR_FOPEN_READ | APR_FOPEN_WRITE))) {
         if (flag & APR_OPENINFO) {
             if (apr_os_level >= APR_WIN_NT) {
                 attributes |= FILE_FLAG_BACKUP_SEMANTICS;
@@ -395,7 +395,7 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
             oflags |= READ_CONTROL;
     }
 
-    if (flag & APR_XTHREAD) {
+    if (flag & APR_FOPEN_XTHREAD) {
         /* This win32 specific feature is required 
          * to allow multiple threads to work with the file.
          */
@@ -407,16 +407,16 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
     {
         apr_wchar_t wfname[APR_PATH_MAX];
 
-        if (flag & APR_SENDFILE_ENABLED) {    
+        if (flag & APR_FOPEN_SENDFILE_ENABLED) {
             /* This feature is required to enable sendfile operations
-             * against the file on Win32. Also implies APR_XTHREAD.
+             * against the file on Win32. Also implies APR_FOPEN_XTHREAD.
              */
-            flag |= APR_XTHREAD;
+            flag |= APR_FOPEN_XTHREAD;
             attributes |= FILE_FLAG_SEQUENTIAL_SCAN | FILE_FLAG_OVERLAPPED;
         }
 
-        if (rv = utf8_to_unicode_path(wfname, sizeof(wfname) 
-                                               / sizeof(apr_wchar_t), fname))
+        if ((rv = utf8_to_unicode_path(wfname, sizeof(wfname) 
+                                             / sizeof(apr_wchar_t), fname)))
             return rv;
         handle = CreateFileW(wfname, oflags, sharemode,
                              NULL, createflags, attributes, 0);
@@ -427,7 +427,7 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
         handle = CreateFileA(fname, oflags, sharemode,
                              NULL, createflags, attributes, 0);
         /* This feature is not supported on this platform. */
-        flag &= ~APR_SENDFILE_ENABLED;
+        flag &= ~APR_FOPEN_SENDFILE_ENABLED;
     }
 #endif
     if (handle == INVALID_HANDLE_VALUE) {
@@ -442,11 +442,11 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
     (*new)->timeout = -1;
     (*new)->ungetchar = -1;
 
-    if (flag & APR_APPEND) {
+    if (flag & APR_FOPEN_APPEND) {
         (*new)->append = 1;
         SetFilePointer((*new)->filehand, 0, NULL, FILE_END);
     }
-    if (flag & APR_BUFFERED) {
+    if (flag & APR_FOPEN_BUFFERED) {
         (*new)->buffered = 1;
         (*new)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
         (*new)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
@@ -481,7 +481,7 @@ APR_DECLARE(apr_status_t) apr_file_open(apr_file_t **new, const char *fname,
     /* ### check return codes */
     (void) apr_pollset_create(&(*new)->pollset, 1, pool, 0);
 
-    if (!(flag & APR_FILE_NOCLEANUP)) {
+    if (!(flag & APR_FOPEN_NOCLEANUP)) {
         apr_pool_cleanup_register((*new)->pool, (void *)(*new), file_cleanup,
                                   apr_pool_cleanup_null);
     }
@@ -510,8 +510,8 @@ APR_DECLARE(apr_status_t) apr_file_remove(const char *path, apr_pool_t *pool)
     {
         apr_wchar_t wpath[APR_PATH_MAX];
         apr_status_t rv;
-        if (rv = utf8_to_unicode_path(wpath, sizeof(wpath) 
-                                              / sizeof(apr_wchar_t), path)) {
+        if ((rv = utf8_to_unicode_path(wpath, sizeof(wpath) 
+                                            / sizeof(apr_wchar_t), path))) {
             return rv;
         }
         if (DeleteFileW(wpath))
@@ -535,12 +535,14 @@ APR_DECLARE(apr_status_t) apr_file_rename(const char *frompath,
 #if APR_HAS_UNICODE_FS
         apr_wchar_t wfrompath[APR_PATH_MAX], wtopath[APR_PATH_MAX];
         apr_status_t rv;
-        if (rv = utf8_to_unicode_path(wfrompath, sizeof(wfrompath) 
-                                           / sizeof(apr_wchar_t), frompath)) {
+        if ((rv = utf8_to_unicode_path(wfrompath,
+                                       sizeof(wfrompath) / sizeof(apr_wchar_t),
+                                       frompath))) {
             return rv;
         }
-        if (rv = utf8_to_unicode_path(wtopath, sizeof(wtopath) 
-                                             / sizeof(apr_wchar_t), topath)) {
+        if ((rv = utf8_to_unicode_path(wtopath,
+                                       sizeof(wtopath) / sizeof(apr_wchar_t),
+                                       topath))) {
             return rv;
         }
 #ifndef _WIN32_WCE
@@ -592,11 +594,13 @@ APR_DECLARE(apr_status_t) apr_file_link(const char *from_path,
         apr_wchar_t wfrom_path[APR_PATH_MAX];
         apr_wchar_t wto_path[APR_PATH_MAX];
 
-        if (rv = utf8_to_unicode_path(wfrom_path, sizeof(wfrom_path) 
-                                               / sizeof(apr_wchar_t), from_path))
+        if ((rv = utf8_to_unicode_path(wfrom_path,
+                                       sizeof(wfrom_path) / sizeof(apr_wchar_t),
+                                       from_path)))
             return rv;
-        if (rv = utf8_to_unicode_path(wto_path, sizeof(wto_path) 
-                                               / sizeof(apr_wchar_t), to_path))
+        if ((rv = utf8_to_unicode_path(wto_path,
+                                       sizeof(wto_path) / sizeof(apr_wchar_t),
+                                       to_path)))
             return rv;
 
         if (!CreateHardLinkW(wto_path, wfrom_path, NULL))
@@ -605,8 +609,8 @@ APR_DECLARE(apr_status_t) apr_file_link(const char *from_path,
 #endif
 #if APR_HAS_ANSI_FS
     ELSE_WIN_OS_IS_ANSI {
-        if (!CreateHardLinkA(wto_path, wfrom_path))
-                return apr_get_os_error()
+        if (!CreateHardLinkA(to_path, from_path, NULL))
+                return apr_get_os_error();
     }
 #endif
     return rv;
@@ -631,10 +635,10 @@ APR_DECLARE(apr_status_t) apr_os_file_put(apr_file_t **file,
     (*file)->timeout = -1;
     (*file)->flags = flags;
 
-    if (flags & APR_APPEND) {
+    if (flags & APR_FOPEN_APPEND) {
         (*file)->append = 1;
     }
-    if (flags & APR_BUFFERED) {
+    if (flags & APR_FOPEN_BUFFERED) {
         (*file)->buffered = 1;
         (*file)->buffer = apr_palloc(pool, APR_FILE_DEFAULT_BUFSIZE);
         (*file)->bufsize = APR_FILE_DEFAULT_BUFSIZE;
@@ -687,7 +691,7 @@ APR_DECLARE(apr_status_t) apr_file_open_flags_stderr(apr_file_t **thefile,
         file_handle = INVALID_HANDLE_VALUE;
 
     return apr_os_file_put(thefile, &file_handle,
-                           flags | APR_WRITE | APR_STDERR_FLAG, pool);
+                           flags | APR_FOPEN_WRITE | APR_STDERR_FLAG, pool);
 #endif
 }
 
@@ -706,7 +710,7 @@ APR_DECLARE(apr_status_t) apr_file_open_flags_stdout(apr_file_t **thefile,
         file_handle = INVALID_HANDLE_VALUE;
 
     return apr_os_file_put(thefile, &file_handle,
-                           flags | APR_WRITE | APR_STDOUT_FLAG, pool);
+                           flags | APR_FOPEN_WRITE | APR_STDOUT_FLAG, pool);
 #endif
 }
 
@@ -725,7 +729,7 @@ APR_DECLARE(apr_status_t) apr_file_open_flags_stdin(apr_file_t **thefile,
         file_handle = INVALID_HANDLE_VALUE;
 
     return apr_os_file_put(thefile, &file_handle,
-                           flags | APR_READ | APR_STDIN_FLAG, pool);
+                           flags | APR_FOPEN_READ | APR_STDIN_FLAG, pool);
 #endif
 }
 

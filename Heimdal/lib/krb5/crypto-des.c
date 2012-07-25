@@ -64,12 +64,12 @@ krb5_DES_random_to_key(krb5_context context,
     memcpy(key->keyvalue.data, data, key->keyvalue.length);
     CCDesSetOddParity(key->keyvalue.data, key->keyvalue.length);
     if(CCDesIsWeakKey(key->keyvalue.data, key->keyvalue.length))
-	_krb5_xor(key->keyvalue.data, (const unsigned char*)"\0\0\0\0\0\0\0\xf0");
+	_krb5_xor((void *)key->keyvalue.data, (const unsigned char*)"\0\0\0\0\0\0\0\xf0");
 }
 
 #ifndef __APPLE_PRIVATE__
-static struct key_type keytype_des_old = {
-    KEYTYPE_DES,
+static struct _krb5_key_type keytype_des_old = {
+    ETYPE_DES_CBC_CRC,
     "des-old",
     56,
     8,
@@ -77,16 +77,18 @@ static struct key_type keytype_des_old = {
     krb5_DES_random_key,
     krb5_DES_schedule_old,
     _krb5_des_salt,
-    krb5_DES_random_to_key
+    krb5_DES_random_to_key,
+    NULL,
+    NULL
 };
 #endif
 
-static struct key_type keytype_des = {
-    KEYTYPE_DES,
+static struct _krb5_key_type keytype_des = {
+    ETYPE_DES_CBC_CRC,
     "des",
     56,
     8,
-    sizeof(struct evp_schedule),
+    sizeof(struct _krb5_evp_schedule),
     krb5_DES_random_key,
     _krb5_evp_schedule,
     _krb5_des_salt,
@@ -97,7 +99,7 @@ static struct key_type keytype_des = {
 
 static krb5_error_code
 CRC32_checksum(krb5_context context,
-	       struct key_data *key,
+	       struct _krb5_key_data *key,
 	       const void *data,
 	       size_t len,
 	       unsigned usage,
@@ -116,20 +118,20 @@ CRC32_checksum(krb5_context context,
 
 static krb5_error_code
 RSA_MD4_checksum(krb5_context context,
-		 struct key_data *key,
+		 struct _krb5_key_data *key,
 		 const void *data,
 		 size_t len,
 		 unsigned usage,
 		 Checksum *C)
 {
-	if (CCDigest(kCCDigestMD4, data, len, C->checksum.data) != 0)
+    if (CCDigest(kCCDigestMD4, data, len, C->checksum.data) != 0)
 	krb5_abortx(context, "md4 checksum failed");
     return 0;
 }
 
 static krb5_error_code
 RSA_MD4_DES_checksum(krb5_context context,
-		     struct key_data *key,
+		     struct _krb5_key_data *key,
 		     const void *data,
 		     size_t len,
 		     unsigned usage,
@@ -140,7 +142,7 @@ RSA_MD4_DES_checksum(krb5_context context,
 
 static krb5_error_code
 RSA_MD4_DES_verify(krb5_context context,
-		   struct key_data *key,
+		   struct _krb5_key_data *key,
 		   const void *data,
 		   size_t len,
 		   unsigned usage,
@@ -151,7 +153,7 @@ RSA_MD4_DES_verify(krb5_context context,
 
 static krb5_error_code
 RSA_MD5_DES_checksum(krb5_context context,
-		     struct key_data *key,
+		     struct _krb5_key_data *key,
 		     const void *data,
 		     size_t len,
 		     unsigned usage,
@@ -162,7 +164,7 @@ RSA_MD5_DES_checksum(krb5_context context,
 
 static krb5_error_code
 RSA_MD5_DES_verify(krb5_context context,
-		   struct key_data *key,
+		   struct _krb5_key_data *key,
 		   const void *data,
 		   size_t len,
 		   unsigned usage,
@@ -171,7 +173,7 @@ RSA_MD5_DES_verify(krb5_context context,
     return _krb5_des_verify(context, kCCDigestMD5, key, data, len, C);
 }
 
-struct checksum_type _krb5_checksum_crc32 = {
+struct _krb5_checksum_type _krb5_checksum_crc32 = {
     CKSUMTYPE_CRC32,
     "crc32",
     1,
@@ -181,7 +183,7 @@ struct checksum_type _krb5_checksum_crc32 = {
     NULL
 };
 
-struct checksum_type _krb5_checksum_rsa_md4 = {
+struct _krb5_checksum_type _krb5_checksum_rsa_md4 = {
     CKSUMTYPE_RSA_MD4,
     "rsa-md4",
     64,
@@ -191,7 +193,7 @@ struct checksum_type _krb5_checksum_rsa_md4 = {
     NULL
 };
 
-struct checksum_type _krb5_checksum_rsa_md4_des = {
+struct _krb5_checksum_type _krb5_checksum_rsa_md4_des = {
     CKSUMTYPE_RSA_MD4_DES,
     "rsa-md4-des",
     64,
@@ -201,7 +203,7 @@ struct checksum_type _krb5_checksum_rsa_md4_des = {
     RSA_MD4_DES_verify
 };
 
-struct checksum_type _krb5_checksum_rsa_md5_des = {
+struct _krb5_checksum_type _krb5_checksum_rsa_md5_des = {
     CKSUMTYPE_RSA_MD5_DES,
     "rsa-md5-des",
     64,
@@ -213,14 +215,14 @@ struct checksum_type _krb5_checksum_rsa_md5_des = {
 
 static krb5_error_code
 evp_des_encrypt_null_ivec(krb5_context context,
-			  struct key_data *key,
+			  struct _krb5_key_data *key,
 			  void *data,
 			  size_t len,
 			  krb5_boolean encryptp,
 			  int usage,
 			  void *ignore_ivec)
 {
-    struct evp_schedule *ctx = key->schedule->data;
+    struct _krb5_evp_schedule *ctx = key->schedule->data;
     EVP_CIPHER_CTX *c;
     DES_cblock ivec;
     memset(&ivec, 0, sizeof(ivec));
@@ -232,14 +234,14 @@ evp_des_encrypt_null_ivec(krb5_context context,
 
 static krb5_error_code
 evp_des_encrypt_key_ivec(krb5_context context,
-			 struct key_data *key,
+			 struct _krb5_key_data *key,
 			 void *data,
 			 size_t len,
 			 krb5_boolean encryptp,
 			 int usage,
 			 void *ignore_ivec)
 {
-    struct evp_schedule *ctx = key->schedule->data;
+    struct _krb5_evp_schedule *ctx = key->schedule->data;
     EVP_CIPHER_CTX *c;
     DES_cblock ivec;
     memcpy(&ivec, key->key->keyvalue.data, sizeof(ivec));
@@ -249,7 +251,7 @@ evp_des_encrypt_key_ivec(krb5_context context,
     return 0;
 }
 
-struct encryption_type _krb5_enctype_des_cbc_crc = {
+struct _krb5_encryption_type _krb5_enctype_des_cbc_crc = {
     ETYPE_DES_CBC_CRC,
     "des-cbc-crc",
     8,
@@ -264,7 +266,7 @@ struct encryption_type _krb5_enctype_des_cbc_crc = {
     NULL
 };
 
-struct encryption_type _krb5_enctype_des_cbc_md4 = {
+struct _krb5_encryption_type _krb5_enctype_des_cbc_md4 = {
     ETYPE_DES_CBC_MD4,
     "des-cbc-md4",
     8,
@@ -279,7 +281,7 @@ struct encryption_type _krb5_enctype_des_cbc_md4 = {
     NULL
 };
 
-struct encryption_type _krb5_enctype_des_cbc_md5 = {
+struct _krb5_encryption_type _krb5_enctype_des_cbc_md5 = {
     ETYPE_DES_CBC_MD5,
     "des-cbc-md5",
     8,
@@ -294,7 +296,7 @@ struct encryption_type _krb5_enctype_des_cbc_md5 = {
     NULL
 };
 
-struct encryption_type _krb5_enctype_des_cbc_none = {
+struct _krb5_encryption_type _krb5_enctype_des_cbc_none = {
     ETYPE_DES_CBC_NONE,
     "des-cbc-none",
     8,
@@ -312,12 +314,12 @@ struct encryption_type _krb5_enctype_des_cbc_none = {
 #ifndef __APPLE_PRIVATE__
 static krb5_error_code
 DES_CFB64_encrypt_null_ivec(krb5_context context,
-							struct key_data *key,
-							void *data,
-							size_t len,
-							krb5_boolean encryptp,
-							int usage,
-							void *ignore_ivec)
+			    struct key_data *key,
+			    void *data,
+			    size_t len,
+			    krb5_boolean encryptp,
+			    int usage,
+			    void *ignore_ivec)
 {
     DES_cblock ivec;
     int num = 0;
@@ -328,7 +330,7 @@ DES_CFB64_encrypt_null_ivec(krb5_context context,
     return 0;
 }
 
-struct encryption_type _krb5_enctype_des_cfb64_none = {
+struct _krb5_encryption_type _krb5_enctype_des_cfb64_none = {
     ETYPE_DES_CFB64_NONE,
     "des-cfb64-none",
     1,
@@ -345,12 +347,12 @@ struct encryption_type _krb5_enctype_des_cfb64_none = {
 
 static krb5_error_code
 DES_PCBC_encrypt_key_ivec(krb5_context context,
-						  struct key_data *key,
-						  void *data,
-						  size_t len,
-						  krb5_boolean encryptp,
-						  int usage,
-						  void *ignore_ivec)
+			  struct key_data *key,
+			  void *data,
+			  size_t len,
+			  krb5_boolean encryptp,
+			  int usage,
+			  void *ignore_ivec)
 {
     DES_cblock ivec;
     DES_key_schedule *s = key->schedule->data;
@@ -360,7 +362,7 @@ DES_PCBC_encrypt_key_ivec(krb5_context context,
     return 0;
 }
 
-struct encryption_type _krb5_enctype_des_pcbc_none = {
+struct _krb5_encryption_type _krb5_enctype_des_pcbc_none = {
     ETYPE_DES_PCBC_NONE,
     "des-pcbc-none",
     8,
@@ -374,6 +376,7 @@ struct encryption_type _krb5_enctype_des_pcbc_none = {
     0,
     NULL
 };
+
 #endif /* __APPLE_PRIVATE__ */
 
 #endif /* HEIM_KRB5_DES */

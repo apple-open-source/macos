@@ -109,6 +109,7 @@ extern char *strcpy __P((char *, const char *));
 /* Definitions used in subst.c and by the `read' builtin for field
    splitting. */
 #define spctabnl(c)	((c) == ' ' || (c) == '\t' || (c) == '\n')
+#define posix_whitespace(c)   (spctabnl(c) || (c) == '\r' || (c) == '\f' || (c) == '\v')
 
 /* All structs which contain a `next' field should have that field
    as the first field in the struct.  This means that functions

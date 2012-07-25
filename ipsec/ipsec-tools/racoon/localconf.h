@@ -173,7 +173,7 @@ extern struct localconf *lcconf;
 extern void initlcconf __P((void));
 extern void flushlcconf __P((void));
 extern vchar_t *getpskbyname __P((vchar_t *));
-extern vchar_t *getpskbyaddr __P((struct sockaddr *));
+extern vchar_t *getpskbyaddr __P((struct sockaddr_storage *));
 #if HAVE_KEYCHAIN
 extern vchar_t *getpskfromkeychain __P((const char *, u_int8_t, int, vchar_t *));
 #endif

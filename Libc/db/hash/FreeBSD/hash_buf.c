@@ -66,7 +66,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash/hash_buf.c,v 1.12 2009/03/28 06:40:48 d
 #include <db.h>
 #include "hash.h"
 #include "page.h"
-#include "extern.h"
+#include "hash_extern.h"
 
 static BUFHEAD *newbuf(HTAB *, u_int32_t, BUFHEAD *);
 
@@ -293,7 +293,7 @@ newbuf(HTAB *hashp, u_int32_t addr, BUFHEAD *prev_bp)
 	return (bp);
 }
 
-void
+__private_extern__ void
 __buf_init(HTAB *hashp, int nbytes)
 {
 	BUFHEAD *bfp;

@@ -57,12 +57,16 @@ void JSDOMWindowShell::finishCreation(JSGlobalData& globalData, PassRefPtr<DOMWi
     setWindow(window);
 }
 
-JSDOMWindowShell::~JSDOMWindowShell()
+void JSDOMWindowShell::destroy(JSCell* cell)
 {
+    jsCast<JSDOMWindowShell*>(cell)->JSDOMWindowShell::~JSDOMWindowShell();
 }
 
 void JSDOMWindowShell::setWindow(PassRefPtr<DOMWindow> domWindow)
 {
+    // Replacing JSDOMWindow via telling JSDOMWindowShell to use the same DOMWindow it already uses makes no sense,
+    // so we'd better never try to.
+    ASSERT(!window() || domWindow.get() != window()->impl());
     // Explicitly protect the global object's prototype so it isn't collected
     // when we allocate the global object. (Once the global object is fully
     // constructed, it can mark its own prototype.)
@@ -105,10 +109,10 @@ void JSDOMWindowShell::put(JSCell* cell, ExecState* exec, const Identifier& prop
     thisObject->window()->methodTable()->put(thisObject->window(), exec, propertyName, value, slot);
 }
 
-void JSDOMWindowShell::putWithAttributes(JSObject* object, ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
+void JSDOMWindowShell::putDirectVirtual(JSObject* object, ExecState* exec, const Identifier& propertyName, JSValue value, unsigned attributes)
 {
     JSDOMWindowShell* thisObject = jsCast<JSDOMWindowShell*>(object);
-    thisObject->window()->putWithAttributes(thisObject->window(), exec, propertyName, value, attributes);
+    thisObject->window()->putDirectVirtual(thisObject->window(), exec, propertyName, value, attributes);
 }
 
 bool JSDOMWindowShell::defineOwnProperty(JSC::JSObject* object, JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertyDescriptor& descriptor, bool shouldThrow)
@@ -135,18 +139,6 @@ void JSDOMWindowShell::getOwnPropertyNames(JSObject* object, ExecState* exec, Pr
     thisObject->window()->methodTable()->getOwnPropertyNames(thisObject->window(), exec, propertyNames, mode);
 }
 
-void JSDOMWindowShell::defineGetter(JSObject* object, ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
-{
-    JSDOMWindowShell* thisObject = jsCast<JSDOMWindowShell*>(object);
-    thisObject->window()->methodTable()->defineGetter(thisObject->window(), exec, propertyName, getterFunction, attributes);
-}
-
-void JSDOMWindowShell::defineSetter(JSObject* object, ExecState* exec, const Identifier& propertyName, JSObject* setterFunction, unsigned attributes)
-{
-    JSDOMWindowShell* thisObject = jsCast<JSDOMWindowShell*>(object);
-    thisObject->window()->methodTable()->defineSetter(thisObject->window(), exec, propertyName, setterFunction, attributes);
-}
-
 
 // ----
 // JSDOMWindow methods
@@ -155,16 +147,6 @@ void JSDOMWindowShell::defineSetter(JSObject* object, ExecState* exec, const Ide
 DOMWindow* JSDOMWindowShell::impl() const
 {
     return window()->impl();
-}
-
-void* JSDOMWindowShell::operator new(size_t size)
-{
-    Heap& heap = JSDOMWindow::commonJSGlobalData()->heap;
-#if ENABLE(GC_VALIDATION)
-    ASSERT(!heap.globalData()->isInitializingObject());
-    heap.globalData()->setInitializingObject(true);
-#endif
-    return heap.allocate(size);
 }
 
 // ----

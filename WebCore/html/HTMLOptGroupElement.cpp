@@ -25,27 +25,28 @@
 #include "config.h"
 #include "HTMLOptGroupElement.h"
 
-#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
 #include "RenderMenuList.h"
 #include "NodeRenderStyle.h"
+#include "NodeRenderingContext.h"
+#include "StyleResolver.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLOptGroupElement::HTMLOptGroupElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
-    : HTMLFormControlElement(tagName, document, form)
+inline HTMLOptGroupElement::HTMLOptGroupElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(optgroupTag));
 }
 
-PassRefPtr<HTMLOptGroupElement> HTMLOptGroupElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+PassRefPtr<HTMLOptGroupElement> HTMLOptGroupElement::create(const QualifiedName& tagName, Document* document)
 {
-    return adoptRef(new HTMLOptGroupElement(tagName, document, form));
+    return adoptRef(new HTMLOptGroupElement(tagName, document));
 }
 
 bool HTMLOptGroupElement::supportsFocus() const
@@ -68,12 +69,12 @@ const AtomicString& HTMLOptGroupElement::formControlType() const
 void HTMLOptGroupElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     recalcSelectOptions();
-    HTMLFormControlElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
-void HTMLOptGroupElement::parseMappedAttribute(Attribute* attr)
+void HTMLOptGroupElement::parseAttribute(Attribute* attr)
 {
-    HTMLFormControlElement::parseMappedAttribute(attr);
+    HTMLElement::parseAttribute(attr);
     recalcSelectOptions();
 }
 
@@ -83,20 +84,20 @@ void HTMLOptGroupElement::recalcSelectOptions()
     while (select && !select->hasTagName(selectTag))
         select = select->parentNode();
     if (select)
-        static_cast<HTMLSelectElement*>(select)->setRecalcListItems();
+        toHTMLSelectElement(select)->setRecalcListItems();
 }
 
 void HTMLOptGroupElement::attach()
 {
     if (parentNode()->renderStyle())
         setRenderStyle(styleForRenderer());
-    HTMLFormControlElement::attach();
+    HTMLElement::attach();
 }
 
 void HTMLOptGroupElement::detach()
 {
     m_style.clear();
-    HTMLFormControlElement::detach();
+    HTMLElement::detach();
 }
 
 void HTMLOptGroupElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
@@ -130,7 +131,7 @@ HTMLSelectElement* HTMLOptGroupElement::ownerSelectElement() const
     if (!select)
        return 0;
     
-    return static_cast<HTMLSelectElement*>(select);
+    return toHTMLSelectElement(select);
 }
 
 void HTMLOptGroupElement::accessKeyAction(bool)
@@ -140,5 +141,5 @@ void HTMLOptGroupElement::accessKeyAction(bool)
     if (select && !select->focused())
         select->accessKeyAction(false);
 }
-    
+
 } // namespace

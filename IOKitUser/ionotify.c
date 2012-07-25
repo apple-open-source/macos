@@ -94,7 +94,6 @@ void notifyTest( char * arg )
     assert( KERN_SUCCESS == (
     kr = IOServiceAddNotification( masterPort, type,
                                     IOServiceMatching( arg ),
-//                                    IOOpenFirmwarePathMatching( masterPort, 0, arg ),
 //                                    IOBSDNameMatching( masterPort, 0, arg ),
                                     port, (unsigned int) type, &iter2 )
     ));

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -37,6 +37,7 @@
  *	S2I_number	the signed number type
  *	S2I_unumber	the unsigned number type
  *	S2I_unsigned	1 for unsigned, 0 for signed
+ *	S2I_qualifier	1 for optional qualifier suffix, 0 otherwise
  *	S2I_multiplier	1 for optional multiplier suffix, 0 otherwise
  *	S2I_size	the second argument is the input string size
  *
@@ -74,9 +75,12 @@
  *	multiplier:	.		pseudo-float if m>1
  *			[bB]		block (512)
  *			[cC]		char (1)
- *			[gG]		giga (1024*1024*1024)
- *			[kK]		kilo (1024)
- *			[mM]		mega (1024*1024)
+ *			[gG]		giga (1000*1000*1000)
+ *			[gG]i		gibi (1024*1024*1024)
+ *			[kK]		kilo (1000)
+ *			[kK]i		kibi (1024)
+ *			[mM]		mega (1000*1000)
+ *			[mM]i		mibi (1024*1024)
  */
 
 #include <ast.h>
@@ -357,7 +361,7 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 				c = 0;
 				break;
 			}
-			else if (c != thousand || !S2I_valid(s))
+			else if (!S2I_valid(s) || c != thousand)
 				break;
 			else if (!p && (s - b) > 4)
 			{
@@ -425,6 +429,8 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 		c = *(s - 1);
 	}
 
+#if S2I_qualifier
+
 	/*
 	 * optional qualifier suffix
 	 */
@@ -461,6 +467,7 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 				break;
 		}
 	}
+#endif
 	if (S2I_valid(s))
 	{
 #if S2I_multiplier
@@ -472,11 +479,13 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 			s--;
 		else
 		{
+			x = m != 1;
 			switch (c)
 			{
 			case 'b':
 			case 'B':
 				shift = 9;
+				x = 0;
 				break;
 			case 'k':
 			case 'K':
@@ -529,13 +538,34 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 				if (S2I_valid(s))
 					switch (*s)
 					{
-					case 'b':
-					case 'B':
 					case 'i':
 					case 'I':
 						s++;
+						x = 0;
 						break;
 					}
+				if (S2I_valid(s))
+					switch (*s)
+					{
+					case 'b':
+					case 'B':
+						s++;
+						break;
+					}
+				if (x)
+				{
+					v = 1;
+					for (shift /= 10; shift; shift--)
+					{
+						if (v >= (S2I_max/1000))
+						{
+							v = 0;
+							overflow = 1;
+						}
+						v *= 1000;
+					}
+				}
+				else
 #if S2I_unsigned
 				if (shift >= (sizeof(S2I_type) * CHAR_BIT))
 #else

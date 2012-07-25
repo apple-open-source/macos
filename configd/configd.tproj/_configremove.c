@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,15 +38,11 @@ __private_extern__
 int
 __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean internal)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	int				sc_status = kSCStatusOK;
 	CFDictionaryRef			dict;
 	CFMutableDictionaryRef		newDict;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
 	CFStringRef			sessionKey;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
@@ -57,15 +53,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	}
 
 	/*
-	 * 1. Ensure that we hold the lock.
-	 */
-	sc_status = __SCDynamicStoreLock(store, TRUE);
-	if (sc_status != kSCStatusOK) {
-		return sc_status;
-	}
-
-	/*
-	 * 2. Ensure that this key exists.
+	 * Ensure that this key exists.
 	 */
 	dict = CFDictionaryGetValue(storeData, key);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDData) == FALSE)) {
@@ -76,21 +64,21 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
 
 	/*
-	 * 3. Mark this key as "changed". Any "watchers" will be
-	 *    notified as soon as the lock is released.
+	 * Mark this key as "changed". Any "watchers" will be
+	 * notified as soon as the lock is released.
 	 */
 	CFSetAddValue(changedKeys, key);
 
 	/*
-	 * 4. Add this key to a deferred cleanup list so that, after
-	 *    the change notifications are posted, any associated
-	 *    regex keys can be removed.
+	 * Add this key to a deferred cleanup list so that, after
+	 * the change notifications are posted, any associated
+	 * regex keys can be removed.
 	 */
 	CFSetAddValue(deferredRemovals, key);
 
 	/*
-	 * 5. Check if this is a session key and, if so, add it
-	 *    to the (session) removal list
+	 * Check if this is a session key and, if so, add it
+	 * to the (session) removal list
 	 */
 	sessionKey = CFDictionaryGetValue(newDict, kSCDSession);
 	if (sessionKey) {
@@ -106,7 +94,7 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	}
 
 	/*
-	 * 6. Remove data and update/remove the dictionary store entry.
+	 * Remove data and update/remove the dictionary store entry.
 	 */
 	CFDictionaryRemoveValue(newDict, kSCDData);
 	if (CFDictionaryGetCount(newDict) > 0) {
@@ -118,11 +106,12 @@ __SCDynamicStoreRemoveValue(SCDynamicStoreRef store, CFStringRef key, Boolean in
 	}
 	CFRelease(newDict);
 
-	/*
-	 * 7. Release our lock.
-	 */
+	if (!internal) {
+		/* push changes */
+		__SCDynamicStorePush();
+	}
+
     done:
-	__SCDynamicStoreUnlock(store, TRUE);
 
 	return sc_status;
 }
@@ -133,8 +122,8 @@ kern_return_t
 _configremove(mach_port_t		server,
 	      xmlData_t			keyRef,		/* raw XML bytes */
 	      mach_msg_type_number_t	keyLen,
-	      int			*sc_status
-)
+	      int			*sc_status,
+	      audit_token_t		audit_token)
 {
 	CFStringRef		key		= NULL;		/* key  (un-serialized) */
 	serverSessionRef	mySession;
@@ -152,7 +141,16 @@ _configremove(mach_port_t		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		mySession = tempSession(server, CFSTR("SCDynamicStoreRemoveValue"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
+	}
+
+	if (!hasWriteAccess(mySession)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 

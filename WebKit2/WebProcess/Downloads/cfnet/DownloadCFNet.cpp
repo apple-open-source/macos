@@ -100,13 +100,15 @@ void Download::start(WebPage*)
     // FIXME: Allow this to be changed by the client.
     CFURLDownloadSetDeletesUponFailure(m_download.get(), false);
 
+#if OS(WINDOWS)
     CFURLDownloadScheduleWithCurrentMessageQueue(m_download.get());
+#endif
     CFURLDownloadScheduleDownloadWithRunLoop(m_download.get(), loaderRunLoop(), kCFRunLoopDefaultMode);
 
     CFURLDownloadStart(m_download.get());
 }
 
-void Download::startWithHandle(WebPage*, ResourceHandle* handle, const ResourceRequest& initialRequest, const ResourceResponse& response)
+void Download::startWithHandle(WebPage*, ResourceHandle* handle, const ResourceResponse& response)
 {
     ASSERT(!m_download);
 
@@ -118,7 +120,7 @@ void Download::startWithHandle(WebPage*, ResourceHandle* handle, const ResourceR
                                   didReceiveResponseCallback, willResumeWithResponseCallback, didReceiveDataCallback, shouldDecodeDataOfMIMETypeCallback,
                                   decideDestinationWithSuggestedObjectNameCallback, didCreateDestinationCallback, didFinishCallback, didFailCallback};
 
-    m_download.adoptCF(CFURLDownloadCreateAndStartWithLoadingConnection(0, connection, initialRequest.cfURLRequest(), response.cfURLResponse(), &client));
+    m_download.adoptCF(CFURLDownloadCreateAndStartWithLoadingConnection(0, connection, handle->firstRequest().cfURLRequest(), response.cfURLResponse(), &client));
 
     // It is possible for CFURLDownloadCreateAndStartWithLoadingConnection() to fail if the passed in CFURLConnection is not in a "downloadable state"
     // However, we should never hit that case

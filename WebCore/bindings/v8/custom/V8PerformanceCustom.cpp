@@ -32,6 +32,8 @@
 
 #include "V8Performance.h"
 
+#if ENABLE(WEB_TIMING)
+
 #include "Performance.h"
 #include "V8Binding.h"
 #include "V8BindingMacros.h"
@@ -43,7 +45,9 @@ v8::Handle<v8::Value> V8Performance::memoryAccessorGetter(v8::Local<v8::String> 
 {
     INC_STATS("DOM.Performance.memoryAccessorGetter");
     Performance* imp = V8Performance::toNative(info.Holder());
-    return toV8(imp->memory());
+    return toV8(imp->memory(), info.GetIsolate());
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

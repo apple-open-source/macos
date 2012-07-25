@@ -29,15 +29,19 @@
 #include "Editor.h"
 #include "Element.h"
 #include "EventHandler.h"
+#include "FloatRect.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClientWx.h"
 #include "FrameView.h"
+#include "GraphicsContext.h"
 #include "HitTestResult.h"
 #include "HostWindow.h"
 #include "HTMLFrameOwnerElement.h"
 #include "markup.h"
 #include "Page.h"
 #include "PlatformString.h"
+#include "PrintContext.h"
 #include "RenderTreeAsText.h"
 #include "RenderObject.h"
 #include "RenderView.h"
@@ -67,15 +71,159 @@
 #include "WebFramePrivate.h"
 #include "WebViewPrivate.h"
 
+#include <algorithm>
+
 #include <wx/defs.h>
+#include <wx/dc.h>
 #include <wx/dcbuffer.h>
+#include <wx/dcgraph.h>
+#include <wx/graphics.h>
+#include <wx/print.h>
+#include <wx/printdlg.h>
 
 // Match Safari's min/max zoom sizes by default
 #define MinimumTextSizeMultiplier       0.5f
 #define MaximumTextSizeMultiplier       3.0f
 #define TextSizeMultiplierRatio         1.2f
 
-wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameData* data) :
+namespace WebKit {
+
+using namespace std;
+
+// we need wxGraphicsContext and wxPrinterDC to work together, 
+// which requires wx 2.9.x.
+#if wxCHECK_VERSION(2, 9, 1)
+class wxWebFramePrintout : public wxPrintout {
+public:
+    wxWebFramePrintout(WebCore::Frame* frame) :
+        m_frame(frame),
+        m_printContext(frame),
+        m_pageWidth(0.0),
+        m_fromPage(1),
+        m_toPage(1),
+        m_isPrinting(false)
+    {
+    }
+
+    ~wxWebFramePrintout() 
+    {
+        if (m_isPrinting)
+            m_printContext.end();
+    }
+  
+    int GetPageCount() { return m_printContext.pageCount(); }
+    void SetFirstPage(int page) { m_fromPage = page; }
+    void SetLastPage(int page) { m_toPage = page; }
+
+    void InitializeWithPageSize(wxRect pageRect, bool isMM = true)
+    {
+        if (isMM) {
+            double mmToPoints = 2.8346;
+            // convert mm to points
+            pageRect.x = pageRect.x * mmToPoints;
+            pageRect.y = pageRect.y * mmToPoints;
+            pageRect.width = pageRect.width * mmToPoints;
+            pageRect.height = pageRect.height * mmToPoints;
+        }
+        m_pageWidth = pageRect.width;
+        m_printContext.begin(m_pageWidth);
+        // isPrinting is from the perspective of the PrintContext, so we need this when we call begin.
+        m_isPrinting = true;
+
+        float pageHeight = pageRect.height;
+        m_printContext.computePageRects(WebCore::FloatRect(pageRect), /* headerHeight */ 0, /* footerHeight */ 0, /* userScaleFactor */ 1.0, pageHeight);
+    }
+    
+    void OnPreparePrinting()
+    {
+        wxPrinterDC* pdc = dynamic_cast<wxPrinterDC*>(GetDC());
+        pdc->SetMapMode(wxMM_POINTS);
+        int pixelsW = 0;
+        int pixelsH = 0;
+        pdc->GetSize(&pixelsW, &pixelsH);
+        pixelsW = pdc->DeviceToLogicalXRel(pixelsW);
+        pixelsH = pdc->DeviceToLogicalYRel(pixelsH);
+#if __WXMSW__
+        // on Windows, the context has no margins, so add them ourselves.
+        pixelsW -= 30;
+        pixelsH -= 30;
+#endif
+        InitializeWithPageSize(wxRect(0, 0, pixelsW, pixelsH), false);
+    }
+    
+    void GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pageTo)
+    {
+        if (minPage)
+            *minPage = 1;
+        if (maxPage)
+            *maxPage = m_printContext.pageCount();
+        if (pageFrom)
+            *pageFrom = m_fromPage;
+        if (pageTo)
+            *pageTo = m_toPage;
+    }
+    
+    bool HasPage(int pageNum)
+    {
+        return pageNum <= m_printContext.pageCount() && pageNum >= m_fromPage && pageNum <= m_toPage;
+    }
+    
+    bool OnPrintPage(int pageNum)
+    {
+        wxPrinterDC* pdc = dynamic_cast<wxPrinterDC*>(GetDC());
+        wxGraphicsRenderer* renderer = 0;
+#if wxCHECK_VERSION(2, 9, 2) && defined(wxUSE_CAIRO) && wxUSE_CAIRO
+        renderer = wxGraphicsRenderer::GetCairoRenderer();
+#endif
+        if (!renderer)
+            renderer = wxGraphicsRenderer::GetDefaultRenderer();
+        ASSERT(renderer);
+        wxGraphicsContext* context = renderer->CreateContext(*pdc);
+        wxGCDC gcdc(context);
+#if __WXMSW__
+        // see comment above about Windows contexts not having margins set.
+        gcdc.SetDeviceOrigin(15, 15);
+#endif
+        if (!gcdc.IsOk())
+            return false;
+
+        WebCore::GraphicsContext ctx(&gcdc);
+        m_printContext.spoolPage(ctx, pageNum - 1, m_pageWidth);
+        
+        return true;
+    }
+    
+    void OnEndPrinting()
+    {
+        m_printContext.end();
+        m_isPrinting = false;
+    }
+    
+private:
+    float m_pageWidth;
+    int m_fromPage;
+    int m_toPage;
+    bool m_isPrinting;
+    WebCore::Frame *m_frame;
+    WebCore::PrintContext m_printContext;
+};
+#endif
+
+WebFrame* kit(WebCore::Frame* frame)
+{
+    if (!frame)
+        return 0;
+    if (!frame->loader())
+        return 0;
+    
+    WebCore::FrameLoaderClientWx* loaderClient = dynamic_cast<WebCore::FrameLoaderClientWx*>(frame->loader()->client());
+    if (loaderClient)
+        return loaderClient->webFrame();
+    
+    return 0;
+}
+
+WebFrame::WebFrame(WebView* container, WebFrame* parent, WebViewFrameData* data) :
     m_textMagnifier(1.0),
     m_isInitialized(false),
     m_beingDestroyed(false)
@@ -112,13 +260,20 @@ wxWebFrame::wxWebFrame(wxWebView* container, wxWebFrame* parent, WebViewFrameDat
     m_isInitialized = true;
 }
 
-wxWebFrame::~wxWebFrame()
+WebFrame::~WebFrame()
 {
     if (m_impl)
         delete m_impl;
 }
 
-WebCore::Frame* wxWebFrame::GetFrame()
+wxString WebFrame::GetName()
+{
+    if (m_impl && m_impl->frame && m_impl->frame->tree())
+        return m_impl->frame->tree()->name().string();
+    return wxEmptyString;
+}
+
+WebCore::Frame* WebFrame::GetFrame()
 {
     if (m_impl)
         return m_impl->frame;
@@ -126,19 +281,19 @@ WebCore::Frame* wxWebFrame::GetFrame()
     return 0;
 }
 
-void wxWebFrame::Stop()
+void WebFrame::Stop()
 {
     if (m_impl->frame && m_impl->frame->loader())
         m_impl->frame->loader()->stop();
 }
 
-void wxWebFrame::Reload()
+void WebFrame::Reload()
 {
     if (m_impl->frame && m_impl->frame->loader())
         m_impl->frame->loader()->reload();
 }
 
-wxString wxWebFrame::GetPageSource()
+wxString WebFrame::GetPageSource()
 {
     if (m_impl->frame) {
         if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
@@ -154,7 +309,7 @@ wxString wxWebFrame::GetPageSource()
     return wxEmptyString;
 }
 
-void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl, const wxString& mimetype)
+void WebFrame::SetPageSource(const wxString& source, const wxString& baseUrl, const wxString& mimetype)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
         WebCore::KURL url(WebCore::KURL(), baseUrl);
@@ -170,7 +325,7 @@ void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl, 
     }
 }
 
-wxString wxWebFrame::GetInnerText()
+wxString WebFrame::GetInnerText()
 {
     if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
         m_impl->frame->view()->layout();
@@ -179,7 +334,7 @@ wxString wxWebFrame::GetInnerText()
     return documentElement->innerText();
 }
 
-wxString wxWebFrame::GetAsMarkup()
+wxString WebFrame::GetAsMarkup()
 {
     if (!m_impl->frame || !m_impl->frame->document())
         return wxEmptyString;
@@ -187,7 +342,7 @@ wxString wxWebFrame::GetAsMarkup()
     return createMarkup(m_impl->frame->document());
 }
 
-wxString wxWebFrame::GetExternalRepresentation()
+wxString WebFrame::GetExternalRepresentation()
 {
     if (m_impl->frame->view() && m_impl->frame->view()->layoutPending())
         m_impl->frame->view()->layout();
@@ -195,7 +350,7 @@ wxString wxWebFrame::GetExternalRepresentation()
     return externalRepresentation(m_impl->frame);
 }
 
-wxString wxWebFrame::GetSelectionAsHTML()
+wxString WebFrame::GetSelectionAsHTML()
 {
     if (m_impl->frame)
         return m_impl->frame->selection()->toNormalizedRange()->toHTML();
@@ -203,7 +358,7 @@ wxString wxWebFrame::GetSelectionAsHTML()
     return wxEmptyString;
 }
 
-wxString wxWebFrame::GetSelectionAsText()
+wxString WebFrame::GetSelectionAsText()
 {
     if (m_impl->frame)
         return m_impl->frame->selection()->toNormalizedRange()->text();
@@ -211,15 +366,15 @@ wxString wxWebFrame::GetSelectionAsText()
     return wxEmptyString;
 }
 
-wxWebKitSelection wxWebFrame::GetSelection()
+WebKitSelection WebFrame::GetSelection()
 {
     if (m_impl->frame)
-        return wxWebKitSelection(m_impl->frame->selection());
+        return WebKitSelection(m_impl->frame->selection());
         
     return 0;
 }
 
-wxString wxWebFrame::RunScript(const wxString& javascript)
+wxString WebFrame::RunScript(const wxString& javascript)
 {
     wxString returnValue = wxEmptyString;
     if (m_impl->frame && m_impl->frame->loader()) {
@@ -231,21 +386,23 @@ wxString wxWebFrame::RunScript(const wxString& javascript)
             wxASSERT_MSG(jsEnabled, wxT("RunScript requires JavaScript to be enabled."));
             if (jsEnabled) {
                 JSC::JSValue result = controller->executeScript(javascript, true).jsValue();
-                if (result)
-                    returnValue = wxString(result.toString(m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec()).utf8().data(), wxConvUTF8);        
+                if (result) {
+                    JSC::ExecState* exec = m_impl->frame->script()->globalObject(WebCore::mainThreadNormalWorld())->globalExec();
+                    returnValue = wxString(result.toString(exec)->value(exec).utf8().data(), wxConvUTF8);
+                }
             }
         }
     }
     return returnValue;
 }
 
-bool wxWebFrame::ExecuteEditCommand(const wxString& command, const wxString& parameter)
+bool WebFrame::ExecuteEditCommand(const wxString& command, const wxString& parameter)
 {
     if (m_impl->frame && IsEditable())
         return m_impl->frame->editor()->command(command).execute(parameter);
 }
 
-EditState wxWebFrame::GetEditCommandState(const wxString& command) const
+EditState WebFrame::GetEditCommandState(const wxString& command) const
 {
     if (m_impl->frame && IsEditable()) { 
         WebCore::TriState state = m_impl->frame->editor()->command(command).state();
@@ -260,7 +417,7 @@ EditState wxWebFrame::GetEditCommandState(const wxString& command) const
     return EditStateFalse;
 }
 
-wxString wxWebFrame::GetEditCommandValue(const wxString& command) const
+wxString WebFrame::GetEditCommandValue(const wxString& command) const
 {
     if (m_impl->frame && IsEditable())
         return m_impl->frame->editor()->command(command).value();
@@ -269,7 +426,7 @@ wxString wxWebFrame::GetEditCommandValue(const wxString& command) const
 }
 
 
-bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensitive, bool wrapSelection, bool startInSelection)
+bool WebFrame::FindString(const wxString& string, bool forward, bool caseSensitive, bool wrapSelection, bool startInSelection)
 {
     if (m_impl->frame)
         return m_impl->frame->editor()->findString(string, forward, caseSensitive, wrapSelection, startInSelection);
@@ -277,7 +434,7 @@ bool wxWebFrame::FindString(const wxString& string, bool forward, bool caseSensi
     return false;
 }
 
-void wxWebFrame::LoadURL(const wxString& url)
+void WebFrame::LoadURL(const wxString& url)
 {
     if (m_impl->frame && m_impl->frame->loader()) {
         WebCore::KURL kurl = WebCore::KURL(WebCore::KURL(), url, WebCore::UTF8Encoding());
@@ -299,7 +456,16 @@ void wxWebFrame::LoadURL(const wxString& url)
     }
 }
 
-bool wxWebFrame::GoBack()
+wxString WebFrame::GetURL() const
+{
+    if (m_impl->frame && m_impl->frame->document())
+        return m_impl->frame->document()->url().string();
+    
+    return wxEmptyString;
+}
+
+
+bool WebFrame::GoBack()
 {
     if (m_impl->frame && m_impl->frame->page())
         return m_impl->frame->page()->goBack();
@@ -307,7 +473,7 @@ bool wxWebFrame::GoBack()
     return false;
 }
 
-bool wxWebFrame::GoForward()
+bool WebFrame::GoForward()
 {
     if (m_impl->frame && m_impl->frame->page())
         return m_impl->frame->page()->goForward();
@@ -315,7 +481,7 @@ bool wxWebFrame::GoForward()
     return false;
 }
 
-bool wxWebFrame::CanGoBack()
+bool WebFrame::CanGoBack()
 {
     if (m_impl->frame && m_impl->frame->page())
         return m_impl->frame->page()->canGoBackOrForward(-1);
@@ -323,7 +489,7 @@ bool wxWebFrame::CanGoBack()
     return false;
 }
 
-bool wxWebFrame::CanGoForward()
+bool WebFrame::CanGoForward()
 {
     if (m_impl->frame && m_impl->frame->page())
         return m_impl->frame->page()->canGoBackOrForward(1);
@@ -331,19 +497,19 @@ bool wxWebFrame::CanGoForward()
     return false;
 }
 
-void wxWebFrame::Undo()
+void WebFrame::Undo()
 {
     if (m_impl->frame && m_impl->frame->editor() && CanUndo())
         return m_impl->frame->editor()->undo();
 }
 
-void wxWebFrame::Redo()
+void WebFrame::Redo()
 {
     if (m_impl->frame && m_impl->frame->editor() && CanRedo())
         return m_impl->frame->editor()->redo();
 }
 
-bool wxWebFrame::CanUndo()
+bool WebFrame::CanUndo()
 {
     if (m_impl->frame && m_impl->frame->editor())
         return m_impl->frame->editor()->canUndo();
@@ -351,7 +517,7 @@ bool wxWebFrame::CanUndo()
     return false;
 }
 
-bool wxWebFrame::CanRedo()
+bool WebFrame::CanRedo()
 {
     if (m_impl->frame && m_impl->frame->editor())
         return m_impl->frame->editor()->canRedo();
@@ -359,7 +525,7 @@ bool wxWebFrame::CanRedo()
     return false;
 }
 
-bool wxWebFrame::CanIncreaseTextSize() const
+bool WebFrame::CanIncreaseTextSize() const
 {
     if (m_impl->frame && m_impl->frame->view()) {
         if (m_textMagnifier*TextSizeMultiplierRatio <= MaximumTextSizeMultiplier)
@@ -368,7 +534,7 @@ bool wxWebFrame::CanIncreaseTextSize() const
     return false;
 }
 
-void wxWebFrame::IncreaseTextSize()
+void WebFrame::IncreaseTextSize()
 {
     if (CanIncreaseTextSize()) {
         m_textMagnifier = m_textMagnifier*TextSizeMultiplierRatio;
@@ -376,7 +542,7 @@ void wxWebFrame::IncreaseTextSize()
     }
 }
 
-bool wxWebFrame::CanDecreaseTextSize() const
+bool WebFrame::CanDecreaseTextSize() const
 {
     if (m_impl->frame && m_impl->frame->view()) {
         if (m_textMagnifier/TextSizeMultiplierRatio >= MinimumTextSizeMultiplier)
@@ -385,7 +551,7 @@ bool wxWebFrame::CanDecreaseTextSize() const
     return false;
 }
 
-void wxWebFrame::DecreaseTextSize()
+void WebFrame::DecreaseTextSize()
 {        
     if (CanDecreaseTextSize()) {
         m_textMagnifier = m_textMagnifier/TextSizeMultiplierRatio;
@@ -393,27 +559,27 @@ void wxWebFrame::DecreaseTextSize()
     }
 }
 
-void wxWebFrame::ResetTextSize()
+void WebFrame::ResetTextSize()
 {
     m_textMagnifier = 1.0;
     if (m_impl->frame)
         m_impl->frame->setTextZoomFactor(m_textMagnifier);
 }
 
-void wxWebFrame::MakeEditable(bool enable)
+void WebFrame::MakeEditable(bool enable)
 {
     if (enable != IsEditable() && m_impl->frame && m_impl->frame->page())
         m_impl->frame->page()->setEditable(enable);
 }
 
-bool wxWebFrame::IsEditable() const
+bool WebFrame::IsEditable() const
 {
     if (m_impl->frame && m_impl->frame->page())
         return m_impl->frame->page()->isEditable();
     return false;
 }
 
-bool wxWebFrame::CanCopy()
+bool WebFrame::CanCopy()
 {
     if (m_impl->frame && m_impl->frame->view())
         return (m_impl->frame->editor()->canCopy() || m_impl->frame->editor()->canDHTMLCopy());
@@ -421,13 +587,13 @@ bool wxWebFrame::CanCopy()
     return false;
 }
 
-void wxWebFrame::Copy()
+void WebFrame::Copy()
 {
     if (CanCopy())
         m_impl->frame->editor()->copy();
 }
 
-bool wxWebFrame::CanCut()
+bool WebFrame::CanCut()
 {
     if (m_impl->frame && m_impl->frame->view())
         return (m_impl->frame->editor()->canCut() || m_impl->frame->editor()->canDHTMLCut());
@@ -435,13 +601,13 @@ bool wxWebFrame::CanCut()
     return false;
 }
 
-void wxWebFrame::Cut()
+void WebFrame::Cut()
 {
     if (CanCut())
         m_impl->frame->editor()->cut();
 }
 
-bool wxWebFrame::CanPaste()
+bool WebFrame::CanPaste()
 {
     if (m_impl->frame && m_impl->frame->view())
         return (m_impl->frame->editor()->canPaste() || m_impl->frame->editor()->canDHTMLPaste());
@@ -449,16 +615,77 @@ bool wxWebFrame::CanPaste()
     return false;
 }
 
-void wxWebFrame::Paste()
+void WebFrame::Paste()
 {
     if (CanPaste())
         m_impl->frame->editor()->paste();
 
 }
 
-wxWebViewDOMElementInfo wxWebFrame::HitTest(const wxPoint& pos) const
+void WebFrame::Print(bool showDialog)
 {
-    wxWebViewDOMElementInfo domInfo;
+#if wxCHECK_VERSION(2, 9, 1)
+    if (!m_impl->frame)
+        return;
+    
+    wxPrintDialogData printdata;
+    printdata.GetPrintData().SetPrintMode(wxPRINT_MODE_PRINTER);
+    printdata.GetPrintData().SetNoCopies(1);
+#if wxCHECK_VERSION(2, 9, 2)
+    printdata.GetPrintData().ConvertFromNative();
+#endif
+
+    // make sure we have a valid paper type, if we don't, the to / from pages will both be 0
+    // and the dialog won't show.
+    if (printdata.GetPrintData().GetPaperId() == wxPAPER_NONE)
+        printdata.GetPrintData().SetPaperId(wxPAPER_LETTER);
+
+    wxPageSetupDialogData pageSetup(printdata.GetPrintData());
+
+    wxRect paperSize = pageSetup.GetPaperSize();
+    // The paper size includes the non-printable areas of the page.
+    // Guesstimate the printable page margins until we find a way to precisely
+    // calculate the margins used by the device context on Mac.
+    paperSize.Deflate(15, 15);
+
+    wxWebFramePrintout* printout = new wxWebFramePrintout(m_impl->frame);
+    printout->InitializeWithPageSize(paperSize);
+    
+    int pages = printout->GetPageCount();
+    ASSERT(pages > 0);
+
+    printdata.SetMinPage(1);
+    printdata.SetMaxPage(pages);
+    printdata.SetFromPage(1);
+    printdata.SetToPage(pages);
+
+    bool shouldPrint = true;
+    if (showDialog) {
+        wxPrintDialog dialog(0, &printdata);
+        shouldPrint = (dialog.ShowModal() == wxID_OK);
+        if (shouldPrint) {
+            printdata = dialog.GetPrintDialogData();            
+            printout->SetFirstPage(printdata.GetFromPage());
+            printout->SetLastPage(printdata.GetToPage());
+        }
+    }
+    
+    if (shouldPrint) {
+        wxPrinter printer(&printdata);
+        printer.Print(0, printout, false);
+    }
+    
+    if (printout)
+        delete printout;
+        
+#else
+    wxFAIL_MSG(wxT("Printing is only supported in wxWidgets 2.9.1 and above."));
+#endif
+}
+
+WebViewDOMElementInfo WebFrame::HitTest(const wxPoint& pos) const
+{
+    WebViewDOMElementInfo domInfo;
 
     if (m_impl->frame->view()) {
         WebCore::HitTestResult result = m_impl->frame->eventHandler()->hitTestResultAtPoint(m_impl->frame->view()->windowToContents(pos), false);
@@ -473,7 +700,7 @@ wxWebViewDOMElementInfo wxWebFrame::HitTest(const wxPoint& pos) const
     return domInfo;
 }
 
-bool wxWebFrame::ShouldClose() const
+bool WebFrame::ShouldClose() const
 {
     if (m_impl->frame)
         return m_impl->frame->loader()->shouldClose();
@@ -481,16 +708,18 @@ bool wxWebFrame::ShouldClose() const
     return true;
 }
 
-wxWebKitCompatibilityMode wxWebFrame::GetCompatibilityMode() const
+WebKitCompatibilityMode WebFrame::GetCompatibilityMode() const
 {
     if (m_impl->frame && m_impl->frame->document())
-        return (wxWebKitCompatibilityMode)m_impl->frame->document()->compatibilityMode();
+        return (WebKitCompatibilityMode)m_impl->frame->document()->compatibilityMode();
 
     return QuirksMode;
 }
 
-void wxWebFrame::GrantUniversalAccess()
+void WebFrame::GrantUniversalAccess()
 {
     if (m_impl->frame && m_impl->frame->document())
         m_impl->frame->document()->securityOrigin()->grantUniversalAccess();
+}
+
 }

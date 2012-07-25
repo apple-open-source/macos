@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,7 +27,7 @@
 **	Written by Kiem-Phong Vo, kpv@research.att.com, 01/16/94.
 */
 
-#define VMALLOC_VERSION	20070911L
+#define VMALLOC_VERSION	20100101L
 
 #if _PACKAGE_ast
 #include	<ast_std.h>
@@ -39,6 +39,7 @@ typedef struct _vmalloc_s	Vmalloc_t;
 typedef struct _vmstat_s	Vmstat_t;
 typedef struct _vmdisc_s	Vmdisc_t;
 typedef struct _vmethod_s	Vmethod_t;
+typedef struct _vmdata_s	Vmdata_t;
 typedef Void_t*	(*Vmemory_f)_ARG_((Vmalloc_t*, Void_t*, size_t, size_t, Vmdisc_t*));
 typedef int	(*Vmexcept_f)_ARG_((Vmalloc_t*, int, Void_t*, Vmdisc_t*));
 
@@ -51,6 +52,7 @@ struct _vmstat_s
 	size_t	m_free;			/* largest free piece		*/
 	int	n_seg;			/* number of segments		*/
 	size_t	extent;			/* total size of region		*/
+	int	mode;			/* region mode bits		*/
 };
 
 struct _vmdisc_s
@@ -75,6 +77,9 @@ struct _vmalloc_s
 	char*		file;		/* file name			*/
 	int		line;		/* line number			*/
 	Void_t*		func;		/* calling function		*/
+	Vmdisc_t*	disc;		/* discipline to get space	*/
+	Vmdata_t*	data;		/* the real region data		*/
+	Vmalloc_t*	next;		/* linked list of regions	*/
 #ifdef _VM_PRIVATE_
 	_VM_PRIVATE_
 #endif
@@ -172,7 +177,8 @@ extern int		vmtrbusy _ARG_((Vmalloc_t*));
 extern int		vmstat _ARG_((Vmalloc_t*, Vmstat_t*));
 
 extern int		vmwalk _ARG_((Vmalloc_t*,
-					int(*)(Vmalloc_t*,Void_t*,size_t,Vmdisc_t*)));
+					int(*)(Vmalloc_t*,Void_t*,size_t,Vmdisc_t*,Void_t*),
+					Void_t*));
 extern char*		vmstrdup _ARG_((Vmalloc_t*, const char*));
 
 #if !defined(_BLD_vmalloc) && !defined(_AST_STD_H) && \
@@ -221,6 +227,8 @@ _END_EXTERNS_
 #define vmresize(vm,d,sz,type)	(_VMFL_(vm), \
 				 (*(_VM_(vm)->meth.resizef))\
 					((vm),(Void_t*)(d),(sz),(type)) )
+#define vmstrdup(vm,s)		(_VMFL_(vm), \
+				 vmstrdup(vm,s))
 #define vmfree(vm,d)		(_VMFL_(vm), \
 				 (*(_VM_(vm)->meth.freef))((vm),(Void_t*)(d)) )
 #define vmalign(vm,sz,align)	(_VMFL_(vm), \
@@ -311,5 +319,6 @@ _END_EXTERNS_
 					(VM_RSMOVE) )
 #define vmnewof(v,p,t,n,x)	(t*)vmresize((v), (p), sizeof(t)*(n)+(x), \
 					(VM_RSMOVE|VM_RSCOPY|VM_RSZERO) )
+#define vmdata(vm)		((Void_t*)(_VM_(vm)->data))
 
 #endif /* _VMALLOC_H */

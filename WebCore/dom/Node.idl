@@ -21,16 +21,17 @@
 module core {
 
     interface [
-        CustomHeader,
-        CustomMarkFunction,
-        CustomPushEventHandlerScope,
-        CustomIsReachable,
-        CustomFinalize,
-        CustomToJS,
+        JSCustomHeader,
+        JSCustomMarkFunction,
+        JSCustomPushEventHandlerScope,
+        JSCustomIsReachable,
+        JSCustomFinalize,
+        CustomToJSObject,
         EventTarget,
-        GenerateNativeConverter,
-        InlineGetOwnPropertySlot,
-        Polymorphic
+        JSGenerateToNativeObject,
+        JSInlineGetOwnPropertySlot,
+        ObjCPolymorphic,
+        V8DependentLifetime
     ] Node
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         : Object, EventTarget
@@ -50,10 +51,10 @@ module core {
         const unsigned short      DOCUMENT_FRAGMENT_NODE         = 11;
         const unsigned short      NOTATION_NODE                  = 12;
 
-        readonly attribute [ConvertNullStringTo=Null] DOMString        nodeName;
+        readonly attribute [TreatReturnedNullStringAs=Null] DOMString        nodeName;
 
                  // FIXME: the spec says this can also raise on retrieval.
-                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        nodeValue
+                 attribute [TreatReturnedNullStringAs=Null, TreatNullAs=NullString] DOMString        nodeValue
                      setter raises(DOMException);
 
         readonly attribute unsigned short   nodeType;
@@ -66,46 +67,46 @@ module core {
         readonly attribute NamedNodeMap     attributes;
         readonly attribute Document         ownerDocument;
 
-        [OldStyleObjC, Custom] Node insertBefore(in [Return] Node newChild,
-                                                 in Node refChild)
+        [ObjCLegacyUnnamedParameters, Custom] Node insertBefore(in [CustomReturn] Node newChild,
+                                                                in Node refChild)
             raises(DOMException);
-        [OldStyleObjC, Custom] Node replaceChild(in Node newChild,
-                                                 in [Return] Node oldChild)
-            raises(DOMExceptionJSC);
-        [Custom] Node               removeChild(in [Return] Node oldChild)
+        [ObjCLegacyUnnamedParameters, Custom] Node replaceChild(in Node newChild,
+                                                                in [CustomReturn] Node oldChild)
             raises(DOMException);
-        [Custom] Node               appendChild(in [Return] Node newChild)
+        [Custom] Node               removeChild(in [CustomReturn] Node oldChild)
+            raises(DOMException);
+        [Custom] Node               appendChild(in [CustomReturn] Node newChild)
             raises(DOMException);
 
         boolean            hasChildNodes();
-        Node               cloneNode(in boolean deep);
+        Node               cloneNode(in [Optional=DefaultIsUndefined] boolean deep);
         void               normalize();
 
         // Introduced in DOM Level 2:
 
-        [OldStyleObjC] boolean isSupported(in DOMString feature, 
-                                           in [ConvertNullToNullString] DOMString version);
+        [ObjCLegacyUnnamedParameters] boolean isSupported(in [Optional=DefaultIsUndefined] DOMString feature, 
+                                           in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString version);
 
-        readonly attribute [ConvertNullStringTo=Null] DOMString        namespaceURI;
-                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        prefix
+        readonly attribute [TreatReturnedNullStringAs=Null] DOMString        namespaceURI;
+                 attribute [TreatReturnedNullStringAs=Null, TreatNullAs=NullString] DOMString        prefix
                      setter raises(DOMException);
-        readonly attribute [ConvertNullStringTo=Null] DOMString        localName;
+        readonly attribute [TreatReturnedNullStringAs=Null] DOMString        localName;
 
         boolean            hasAttributes();
 
         // Introduced in DOM Level 3:
 
-        readonly attribute [ConvertNullStringTo=Null] DOMString       baseURI;
+        readonly attribute [TreatReturnedNullStringAs=Null] DOMString       baseURI;
 
                  // FIXME: the spec says this can also raise on retrieval.
-                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString       textContent
+                 attribute [TreatReturnedNullStringAs=Null, TreatNullAs=NullString] DOMString       textContent
                      setter raises(DOMException);
 
-        boolean            isSameNode(in Node other);
-        boolean            isEqualNode(in Node other);
-        [ConvertNullStringTo=Null] DOMString          lookupPrefix(in [ConvertNullToNullString] DOMString namespaceURI);
-        boolean            isDefaultNamespace(in [ConvertNullToNullString] DOMString namespaceURI);
-        [ConvertNullStringTo=Null] DOMString          lookupNamespaceURI(in [ConvertNullToNullString] DOMString prefix);
+        boolean            isSameNode(in [Optional=DefaultIsUndefined] Node other);
+        boolean            isEqualNode(in [Optional=DefaultIsUndefined] Node other);
+        [TreatReturnedNullStringAs=Null] DOMString          lookupPrefix(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI);
+        boolean            isDefaultNamespace(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString namespaceURI);
+        [TreatReturnedNullStringAs=Null] DOMString          lookupNamespaceURI(in [TreatNullAs=NullString,Optional=DefaultIsUndefined] DOMString prefix);
 
         // DocumentPosition
         const unsigned short      DOCUMENT_POSITION_DISCONNECTED = 0x01;
@@ -115,7 +116,10 @@ module core {
         const unsigned short      DOCUMENT_POSITION_CONTAINED_BY = 0x10;
         const unsigned short      DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
 
-        unsigned short     compareDocumentPosition(in Node other);
+        unsigned short     compareDocumentPosition(in [Optional=DefaultIsUndefined] Node other);
+
+        // Introduced in DOM4
+        boolean contains(in [Optional=DefaultIsUndefined] Node other);
 
 #if 0
         DOMObject          getFeature(in DOMString feature, 
@@ -132,16 +136,18 @@ module core {
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         // Objective-C extensions
         readonly attribute boolean          isContentEditable;
+
+        void inspect();
 #endif /* defined(LANGUAGE_OBJECTIVE_C) */
 
 #if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
         void addEventListener(in DOMString type, 
                               in EventListener listener, 
-                              in boolean useCapture);
+                              in [Optional] boolean useCapture);
         void removeEventListener(in DOMString type, 
                                  in EventListener listener, 
-                                 in boolean useCapture);
+                                 in [Optional] boolean useCapture);
         boolean dispatchEvent(in Event event)
             raises(EventException);
 #endif

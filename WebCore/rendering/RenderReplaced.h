@@ -32,15 +32,20 @@ public:
     RenderReplaced(Node*, const IntSize& intrinsicSize);
     virtual ~RenderReplaced();
 
-    virtual void destroy();
+    virtual LayoutUnit computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual LayoutUnit computeReplacedLogicalHeight() const;
+
+    bool hasReplacedLogicalWidth() const;
+    bool hasReplacedLogicalHeight() const;
 
 protected:
+    virtual void willBeDestroyed();
+
     virtual void layout();
 
-    virtual IntSize intrinsicSize() const;
+    virtual IntSize intrinsicSize() const { return m_intrinsicSize; }
+    virtual void computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio, bool& isPercentageIntrinsicSize) const;
 
-    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
-    virtual int computeReplacedLogicalHeight() const;
     virtual int minimumReplacedHeight() const { return 0; }
 
     virtual void setSelectionState(SelectionState);
@@ -49,37 +54,32 @@ protected:
 
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
-    void setIntrinsicSize(const IntSize&);
+    void setIntrinsicSize(const IntSize& intrinsicSize) { m_intrinsicSize = intrinsicSize; }
     virtual void intrinsicSizeChanged();
-    void setHasIntrinsicSize() { m_hasIntrinsicSize = true; }
 
-    virtual void paint(PaintInfo&, int tx, int ty);
-    bool shouldPaint(PaintInfo&, int& tx, int& ty);
-    IntRect localSelectionRect(bool checkWhetherSelected = true) const; // This is in local coordinates, but it's a physical rect (so the top left corner is physical top left).
+    virtual void paint(PaintInfo&, const LayoutPoint&);
+    bool shouldPaint(PaintInfo&, const LayoutPoint&);
+    LayoutRect localSelectionRect(bool checkWhetherSelected = true) const; // This is in local coordinates, but it's a physical rect (so the top left corner is physical top left).
 
 private:
+    virtual RenderBox* embeddedContentBox() const { return 0; }
     virtual const char* renderName() const { return "RenderReplaced"; }
 
     virtual bool canHaveChildren() const { return false; }
 
     virtual void computePreferredLogicalWidths();
+    virtual void paintReplaced(PaintInfo&, const LayoutPoint&) { }
 
-    int calcAspectRatioLogicalWidth() const;
-    int calcAspectRatioLogicalHeight() const;
+    virtual LayoutRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const;
 
-    virtual void paintReplaced(PaintInfo&, int /*tx*/, int /*ty*/) { }
-
-    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
-
-    virtual unsigned caretMaxRenderedOffset() const;
-    virtual VisiblePosition positionForPoint(const IntPoint&);
+    virtual VisiblePosition positionForPoint(const LayoutPoint&);
     
     virtual bool canBeSelectionLeaf() const { return true; }
 
-    virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
+    virtual LayoutRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
+    void computeIntrinsicRatioInformationForRenderBox(RenderBox*, FloatSize& intrinsicSize, double& intrinsicRatio, bool& isPercentageIntrinsicSize) const;
 
     IntSize m_intrinsicSize;
-    bool m_hasIntrinsicSize;
 };
 
 }

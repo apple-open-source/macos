@@ -379,7 +379,7 @@ main(argc, argv)
 	if (S_ISWHT(mode))
 		dev = 0;
 	else if (argc == 1)
-		dev = numbers[0];
+		dev = (dev_t)numbers[0];
 	else
 		dev = (*pack)(argc, numbers);
 

@@ -116,7 +116,6 @@ PluginPackage::PluginPackage(const String& path, const time_t& lastModified)
     m_parentDirectory = m_path.left(m_path.length() - m_fileName.length() - 1);
 }
 
-#if !OS(SYMBIAN)
 void PluginPackage::unload()
 {
     if (!m_isLoaded)
@@ -129,7 +128,6 @@ void PluginPackage::unload()
 
     unloadWithoutShutdown();
 }
-#endif // !OS(SYMBIAN)
 
 void PluginPackage::unloadWithoutShutdown()
 {
@@ -209,11 +207,11 @@ void PluginPackage::determineQuirks(const String& mimeType)
 #if PLATFORM(QT)
         // Flash will crash on repeated calls to SetWindow in windowed mode
         m_quirks.add(PluginQuirkDontCallSetWindowMoreThanOnce);
+#endif
 
 #if CPU(X86_64)
         // 64-bit Flash freezes if right-click is sent in windowless mode
         m_quirks.add(PluginQuirkIgnoreRightClickInWindowlessMode);
-#endif
 #endif
 
         m_quirks.add(PluginQuirkRequiresDefaultScreenDepth);
@@ -221,13 +219,6 @@ void PluginPackage::determineQuirks(const String& mimeType)
         m_quirks.add(PluginQuirkThrottleWMUserPlusOneMessages);
         m_quirks.add(PluginQuirkFlashURLNotifyBug);
     }
-
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6)
-    // Passing a 32-bit depth pixmap to NPAPI plugins is too inefficient. Instead, pass a X Pixmap
-    // that has same depth as the screen depth since graphics operations are optimized
-    // for this depth.
-    m_quirks.add(PluginQuirkRequiresDefaultScreenDepth);
-#endif
 }
 #endif
 

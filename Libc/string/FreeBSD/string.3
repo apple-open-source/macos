@@ -34,77 +34,143 @@
 .Dt STRING 3
 .Os
 .Sh NAME
+.Nm index ,
+.Nm rindex ,
 .Nm stpcpy ,
-.Nm strcat ,
-.Nm strncat ,
-.Nm strchr ,
-.Nm strrchr ,
-.Nm strcmp ,
-.Nm strncmp ,
 .Nm strcasecmp ,
-.Nm strncasecmp ,
+.Nm strcat ,
+.Nm strchr ,
+.Nm strcmp ,
 .Nm strcpy ,
-.Nm strncpy ,
+.Nm strcspn ,
 .Nm strerror ,
 .Nm strlen ,
+.Nm strncasecmp ,
+.Nm strncat ,
+.Nm strncmp ,
+.Nm strncpy ,
 .Nm strpbrk ,
+.Nm strrchr ,
 .Nm strsep ,
 .Nm strspn ,
-.Nm strcspn ,
 .Nm strstr ,
-.Nm strtok ,
-.Nm index ,
-.Nm rindex
+.Nm strtok
 .Nd string specific functions
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
+.In strings.h
+.Ft char *
+.Fo index
+.Fa "const char *s"
+.Fa "int c"
+.Fc
+.Ft char *
+.Fo rindex
+.Fa "const char *s"
+.Fa "int c"
+.Fc
+.Ft int
+.Fo strcasecmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
+.Ft int
+.Fo strncasecmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fa "size_t n"
+.Fc
 .In string.h
 .Ft char *
-.Fn stpcpy "char *dst" "const char *src"
+.Fo stpcpy
+.Fa "char *dst"
+.Fa "const char *src"
+.Fc
 .Ft char *
-.Fn strcat "char *s" "const char * append"
+.Fo strcat
+.Fa "char *restrict s1"
+.Fa "const char *restrict s2"
+.Fc
 .Ft char *
-.Fn strncat "char *s" "const char *append" "size_t count"
-.Ft char *
-.Fn strchr "const char *s" "int c"
-.Ft char *
-.Fn strrchr "const char *s" "int c"
+.Fo strchr
+.Fa "const char *s"
+.Fa "int c"
+.Fc
 .Ft int
-.Fn strcmp "const char *s1" "const char *s2"
-.Ft int
-.Fn strncmp "const char *s1" "const char *s2" "size_t count"
-.Ft int
-.Fn strcasecmp "const char *s1" "const char *s2"
-.Ft int
-.Fn strncasecmp "const char *s1" "const char *s2" "size_t count"
+.Fo strcmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Ft char *
-.Fn strcpy "char *dst" "const char *src"
-.Ft char *
-.Fn strncpy "char *dst" "const char *src" "size_t count"
-.Ft char *
-.Fn strerror "int errno"
+.Fo strcpy
+.Fa "char *restrict s1"
+.Fa "const char *restrict s2"
+.Fc
 .Ft size_t
-.Fn strlen "const char *s"
+.Fo strcspn
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Ft char *
-.Fn strpbrk "const char *s" "const char *charset"
-.Ft char *
-.Fn strsep "char **stringp" "const char *delim"
+.Fo strerror
+.Fa "int errnum"
+.Fc
 .Ft size_t
-.Fn strspn "const char *s" "const char *charset"
+.Fo strlen
+.Fa "const char *s"
+.Fc
+.Ft char *
+.Fo strncat
+.Fa "char *restrict s1"
+.Fa "const char *restrict s2"
+.Fa "size_t n"
+.Fc
+.Ft int
+.Fo strncmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fa "size_t n"
+.Fc
+.Ft char *
+.Fo strncpy
+.Fa "char *restrict s1"
+.Fa "const char *restrict s2"
+.Fa "size_t n"
+.Fc
+.Ft char *
+.Fo strpbrk
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
+.Ft char *
+.Fo strrchr
+.Fa "const char *s"
+.Fa "int c"
+.Fc
+.Ft char *
+.Fo strsep
+.Fa "char **stringp"
+.Fa "const char *delim"
+.Fc
 .Ft size_t
-.Fn strcspn "const char *s" "const char *charset"
+.Fo strspn
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Ft char *
-.Fn strstr "const char *big" "const char *little"
+.Fo strstr
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Ft char *
-.Fn strtok "char *s" "const char *delim"
-.Ft char *
-.Fn index "const char *s" "int c"
-.Ft char *
-.Fn rindex "const char *s" "int c"
+.Fo strtok
+.Fa "char *restrict s1"
+.Fa "const char *restrict s2"
+.Fc
 .Sh DESCRIPTION
 The string
-functions manipulate strings terminated by a
+functions manipulate strings that are terminated by a
 null byte.
 .Pp
 See the specific manual pages for more information.

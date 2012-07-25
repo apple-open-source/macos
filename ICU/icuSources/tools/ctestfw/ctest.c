@@ -1,7 +1,7 @@
 /*
 ********************************************************************************
 *
-*   Copyright (C) 1996-2010, International Business Machines
+*   Copyright (C) 1996-2012, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ********************************************************************************
@@ -766,27 +766,28 @@ log_err_status(UErrorCode status, const char* pattern, ...)
     va_list ap;
     va_start(ap, pattern);
     
-    first_line_err();
     if ((status == U_FILE_ACCESS_ERROR || status == U_MISSING_RESOURCE_ERROR)) {
         ++DATA_ERROR_COUNT; /* for informational message at the end */
         
         if (WARN_ON_MISSING_DATA == 0) {
+            first_line_err();
             /* Fatal error. */
             if (strchr(pattern, '\n') != NULL) {
                 ++ERROR_COUNT;
             } else {
-				++ONE_ERROR;
+                ++ONE_ERROR;
             }
             vlog_err(NULL, pattern, ap); /* no need for prefix in default case */
         } else {
             vlog_info("[DATA] ", pattern, ap); 
         }
     } else {
+        first_line_err();
         /* Fatal error. */
         if(strchr(pattern, '\n') != NULL) {
             ++ERROR_COUNT;
         } else {
-			++ONE_ERROR;
+            ++ONE_ERROR;
         }
         vlog_err(NULL, pattern, ap); /* no need for prefix in default case */
     }
@@ -901,8 +902,7 @@ int T_CTEST_EXPORT2
 initArgs( int argc, const char* const argv[], ArgHandlerPtr argHandler, void *context)
 {
     int                i;
-    int                doList = FALSE;
-	int                argSkip = 0;
+    int                argSkip = 0;
 
     VERBOSITY = FALSE;
     ERR_MSG = TRUE;
@@ -927,7 +927,7 @@ initArgs( int argc, const char* const argv[], ArgHandlerPtr argHandler, void *co
         }
         else if (strcmp( argv[i], "-l" )==0 )
         {
-            doList = TRUE;
+            /* doList = TRUE; */
         }
         else if (strcmp( argv[i], "-e1") == 0)
         {
@@ -1212,13 +1212,13 @@ ctest_xml_init(const char *rootName) {
     fprintf(stderr," Error: couldn't open XML output file %s\n", XML_FILE_NAME);
     return 1;
   }
-  while(*rootName&&!isalnum(*rootName)) {
+  while(*rootName&&!isalnum((int)*rootName)) {
     rootName++;
   }
   strcpy(XML_PREFIX,rootName);
   {
     char *p = XML_PREFIX+strlen(XML_PREFIX);
-    for(p--;*p&&p>XML_PREFIX&&!isalnum(*p);p--) {
+    for(p--;*p&&p>XML_PREFIX&&!isalnum((int)*p);p--) {
       *p=0;
     }
   }

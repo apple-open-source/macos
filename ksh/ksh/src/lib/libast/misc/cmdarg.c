@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -34,6 +34,9 @@
 
 #include "cmdarg.h"
 
+#ifndef ARG_MAX
+#define ARG_MAX		(64*1024)
+#endif
 #ifndef EXIT_QUIT
 #define EXIT_QUIT	255
 #endif
@@ -120,7 +123,7 @@ cmdopen(char** argv, int argmax, int size, const char* argpat, int flags)
 	}
 	else if (!(flags & CMD_CHECKED))
 	{
-		if (!pathpath(s, argv[0], NiL, PATH_REGULAR|PATH_EXECUTE))
+		if (!pathpath(argv[0], NiL, PATH_REGULAR|PATH_EXECUTE, s, n + m))
 		{
 			if (!(flags & CMD_SILENT))
 			{

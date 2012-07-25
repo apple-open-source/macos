@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/swprintf.c,v 1.1 2002/09/21 13:00:30 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -38,7 +40,22 @@ swprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	ret = vswprintf(s, n, fmt, ap);
+	ret = vswprintf_l(s, n, __current_locale(), fmt, ap);
+	va_end(ap);
+
+	return (ret);
+}
+
+int
+swprintf_l(wchar_t * __restrict s, size_t n, locale_t loc,
+    const wchar_t * __restrict fmt, ...)
+{
+	int ret;
+	va_list ap;
+
+	/* no need to call NORMALIZE_LOCALE(loc) because vswprintf_l will */
+	va_start(ap, fmt);
+	ret = vswprintf_l(s, n, loc, fmt, ap);
 	va_end(ap);
 
 	return (ret);

@@ -24,6 +24,7 @@
 #ifndef NinePieceImage_h
 #define NinePieceImage_h
 
+#include "LayoutTypes.h"
 #include "LengthBox.h"
 #include "StyleImage.h"
 
@@ -46,7 +47,7 @@ public:
     {
     }
 
-    NinePieceImage(StyleImage* image, LengthBox imageSlices, bool fill, LengthBox borderSlices, LengthBox outset, ENinePieceImageRule h, ENinePieceImageRule v) 
+    NinePieceImage(PassRefPtr<StyleImage> image, LengthBox imageSlices, bool fill, LengthBox borderSlices, LengthBox outset, ENinePieceImageRule h, ENinePieceImageRule v) 
       : m_image(image)
       , m_imageSlices(imageSlices)
       , m_borderSlices(borderSlices)
@@ -76,7 +77,7 @@ public:
     const LengthBox& outset() const { return m_outset; }
     void setOutset(const LengthBox& outset) { m_outset = outset; }
     
-    static int computeOutset(Length outsetSide, int borderSide)
+    static LayoutUnit computeOutset(Length outsetSide, LayoutUnit borderSide)
     {
         if (outsetSide.isRelative())
             return outsetSide.value() * borderSide;

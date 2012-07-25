@@ -43,7 +43,11 @@ Instead they should run
 on the
 .Pa /System/Library/Extensions/
 directory of the installation target volume after they have finished,
-which causes the system to update all necessary kext caches.
+which invalidates the existing caches and causes the system to
+update all necessary kext caches.
+.Nm
+.Fl update-volume
+can be used to wait for this process to complete.
 See
 .Dq "Apple Developer Technical Q&A QA1319: Installing an I/O Kit Kext Without Rebooting"
 for information on updating kext caches on prior releases of Mac OS X.
@@ -130,8 +134,9 @@ cannot find or make sense of
 .Ar os_volume Ns Pa /usr/standalone/bootcaches.plist
 the volume is treated as if no caches need updating: success is returned.
 .It Fl U Ar os_volume
-Used by the system to update volumes during startup.
-Not for use otherwise.
+A special exit code is returned if any updates were needed.
+.Fl U
+should only be used by the system during startup.
 .It Fl m Ar filename , Fl mkext Ar filename
 Create an mkext of the latest supported format.
 .It Fl mkext1 Ar filename
@@ -199,18 +204,6 @@ if so, the specified bundle identifiers select
 a subset from all named repositories and kexts,
 to which the remaining filters
 described in this section are then applied.
-.It Fl caches-only
-With
-.Fl update-volume ,
-skips updating any helper partitions even if they appear out of to date.
-.It Fl force
-With
-.Fl update-volume ,
-rebuilds any helper partitions even if they appear up to date.
-.It Fl Installer
-Currently used with
-.Fl update-volume
-to trigger "best effort" behaviors for Apple's Installer.
 .It Fl l , Fl local-root
 Specifies that for directory arguments,
 only extensions required for local disk boot
@@ -273,17 +266,31 @@ The filtering options described under
 select the individual kexts to be included in the archive.
 If no filtering options are specified, then all kexts
 named as arguments are included (this is probably not what you want).
+.It Fl caches-only
+With
+.Fl update-volume ,
+skips updating any helper partitions even if they appear out of to date.
+.It Fl f , Fl force
+With
+.Fl update-volume ,
+rebuilds any helper partitions even if they appear up to date.  If this
+version of
+.Nm
+does not understand
+.Pa bootcaches.plist
+well enough to be able to update the helpers, exit with EX_OSFILE (72).
+.It Fl Installer
+With
+.Fl update-volume ,
+implies
+.Fl force
+while making helper partition updates optional.
 .It Fl F
 Run in low-priority mode, as when forked and executed by
 .Xr kextd 8 .
 (This used to actually fork, but no longer does, as
 .Xr kextd 8
 handles the forking.)
-.It Fl f , Fl force
-Used with
-.Fl update-volume
-to specify that all caches on a helper partition should be updated
-regardless of cached timestamp information.
 .It Fl h , Fl help
 Print a help message describing each option flag and exit with a success result,
 regardless of any other options on the command line.

@@ -41,3 +41,11 @@ strtold(const char * __restrict s, char ** __restrict sp)
 
 	return strtod(s, sp);
 }
+
+long double
+strtold_l(const char * __restrict s, char ** __restrict sp, locale_t loc)
+{
+
+	return strtod_l(s, sp, loc);
+}
+

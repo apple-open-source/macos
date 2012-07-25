@@ -25,4 +25,12 @@ messages -> DrawingArea {
     DidUpdate()
     SuspendPainting()
     ResumePainting()
+    PageCustomRepresentationChanged()
+    SetLayerHostingMode(uint32_t layerHostingMode)
+
+#if PLATFORM(MAC)
+    // Used by TiledCoreAnimationDrawingArea.
+    UpdateGeometry(WebCore::IntSize viewSize)
+    SetDeviceScaleFactor(float deviceScaleFactor)
+#endif
 }

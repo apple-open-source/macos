@@ -95,6 +95,7 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB923508733DC60010E9CD /* Build configuration list for PBXProject "UMCLogger" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -144,16 +145,14 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = UMCLogger;
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -171,16 +170,14 @@
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_PARAMETER = YES;
 				GCC_WARN_UNUSED_VALUE = YES;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",
 					"-D__APPLE_PRIVATE",
 				);
 				PRODUCT_NAME = UMCLogger;
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
 			};
 			name = Release;
 		};
@@ -190,7 +187,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				VALID_ARCHS = "ppc7400 ppc970 i386 x86_64 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
 			};
 			name = Debug;
 		};
@@ -200,7 +197,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
-				VALID_ARCHS = "ppc7400 ppc970 i386 x86_64 ppc";
+				VALID_ARCHS = "ppc7400 ppc970 i386 ppc";
 			};
 			name = Release;
 		};

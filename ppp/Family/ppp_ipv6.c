@@ -206,10 +206,11 @@ errno_t ppp_ipv6_preoutput(ifnet_t ifp, protocol_family_t protocol,
 									mbuf_t *packet, const struct sockaddr *dest, 
 									void *route, char *frame_type, char *link_layer_dest)
 {
-
+    u_int16_t ftype = PPP_IPV6;
+    
     LOGMBUF("ppp_ipv6_preoutput", *packet);
 
-    *(u_int16_t *)frame_type = PPP_IPV6;
+    memcpy(frame_type, &ftype, sizeof(u_int16_t));
     return 0;
 }
 

@@ -46,6 +46,7 @@ public:
 
     bool inheritedNotEqual(const SVGRenderStyle*) const;
     void inheritFrom(const SVGRenderStyle*);
+    void copyNonInheritedFrom(const SVGRenderStyle*);
 
     StyleDifference diff(const SVGRenderStyle*) const;
 
@@ -63,7 +64,6 @@ public:
     static EColorInterpolation initialColorInterpolationFilters() { return CI_LINEARRGB; }
     static EColorRendering initialColorRendering() { return CR_AUTO; }
     static WindRule initialFillRule() { return RULE_NONZERO; }
-    static EImageRendering initialImageRendering() { return IR_AUTO; }
     static LineJoin initialJoinStyle() { return MiterJoin; }
     static EShapeRendering initialShapeRendering() { return SR_AUTO; }
     static ETextAnchor initialTextAnchor() { return TA_START; }
@@ -140,7 +140,6 @@ public:
     void setColorInterpolationFilters(EColorInterpolation val) { svg_inherited_flags._colorInterpolationFilters = val; }
     void setColorRendering(EColorRendering val) { svg_inherited_flags._colorRendering = val; }
     void setFillRule(WindRule val) { svg_inherited_flags._fillRule = val; }
-    void setImageRendering(EImageRendering val) { svg_inherited_flags._imageRendering = val; }
     void setJoinStyle(LineJoin val) { svg_inherited_flags._joinStyle = val; }
     void setShapeRendering(EShapeRendering val) { svg_inherited_flags._shapeRendering = val; }
     void setTextAnchor(ETextAnchor val) { svg_inherited_flags._textAnchor = val; }
@@ -154,14 +153,24 @@ public:
             fill.access()->opacity = obj;
     }
 
-    void setFillPaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    void setFillPaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
     {
-        if (!(fill->paintType == type))
-            fill.access()->paintType = type;
-        if (!(fill->paintColor == color))
-            fill.access()->paintColor = color;
-        if (!(fill->paintUri == uri))
-            fill.access()->paintUri = uri;
+        if (applyToRegularStyle) {
+            if (!(fill->paintType == type))
+                fill.access()->paintType = type;
+            if (!(fill->paintColor == color))
+                fill.access()->paintColor = color;
+            if (!(fill->paintUri == uri))
+                fill.access()->paintUri = uri;
+        }
+        if (applyToVisitedLinkStyle) {
+            if (!(fill->visitedLinkPaintType == type))
+                fill.access()->visitedLinkPaintType = type;
+            if (!(fill->visitedLinkPaintColor == color))
+                fill.access()->visitedLinkPaintColor = color;
+            if (!(fill->visitedLinkPaintUri == uri))
+                fill.access()->visitedLinkPaintUri = uri;
+        }
     }
 
     void setStrokeOpacity(float obj)
@@ -170,14 +179,24 @@ public:
             stroke.access()->opacity = obj;
     }
 
-    void setStrokePaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    void setStrokePaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri, bool applyToRegularStyle = true, bool applyToVisitedLinkStyle = false)
     {
-        if (!(stroke->paintType == type))
-            stroke.access()->paintType = type;
-        if (!(stroke->paintColor == color))
-            stroke.access()->paintColor = color;
-        if (!(stroke->paintUri == uri))
-            stroke.access()->paintUri = uri;
+        if (applyToRegularStyle) {
+            if (!(stroke->paintType == type))
+                stroke.access()->paintType = type;
+            if (!(stroke->paintColor == color))
+                stroke.access()->paintColor = color;
+            if (!(stroke->paintUri == uri))
+                stroke.access()->paintUri = uri;
+        }
+        if (applyToVisitedLinkStyle) {
+            if (!(stroke->visitedLinkPaintType == type))
+                stroke.access()->visitedLinkPaintType = type;
+            if (!(stroke->visitedLinkPaintColor == color))
+                stroke.access()->visitedLinkPaintColor = color;
+            if (!(stroke->visitedLinkPaintUri == uri))
+                stroke.access()->visitedLinkPaintUri = uri;
+        }
     }
 
     void setStrokeDashArray(const Vector<SVGLength>& obj)
@@ -297,7 +316,6 @@ public:
     EColorInterpolation colorInterpolationFilters() const { return (EColorInterpolation) svg_inherited_flags._colorInterpolationFilters; }
     EColorRendering colorRendering() const { return (EColorRendering) svg_inherited_flags._colorRendering; }
     WindRule fillRule() const { return (WindRule) svg_inherited_flags._fillRule; }
-    EImageRendering imageRendering() const { return (EImageRendering) svg_inherited_flags._imageRendering; }
     LineJoin joinStyle() const { return (LineJoin) svg_inherited_flags._joinStyle; }
     EShapeRendering shapeRendering() const { return (EShapeRendering) svg_inherited_flags._shapeRendering; }
     ETextAnchor textAnchor() const { return (ETextAnchor) svg_inherited_flags._textAnchor; }
@@ -318,10 +336,10 @@ public:
     SVGLength strokeDashOffset() const { return stroke->dashOffset; }
     SVGLength kerning() const { return text->kerning; }
     float stopOpacity() const { return stops->opacity; }
-    Color stopColor() const { return stops->color; }
+    const Color& stopColor() const { return stops->color; }
     float floodOpacity() const { return misc->floodOpacity; }
-    Color floodColor() const { return misc->floodColor; }
-    Color lightingColor() const { return misc->lightingColor; }
+    const Color& floodColor() const { return misc->floodColor; }
+    const Color& lightingColor() const { return misc->lightingColor; }
     SVGLength baselineShiftValue() const { return misc->baselineShiftValue; }
     ShadowData* shadow() const { return shadowSVG->shadow.get(); }
     String clipperResource() const { return resources->clipper; }
@@ -330,6 +348,13 @@ public:
     String markerStartResource() const { return inheritedResources->markerStart; }
     String markerMidResource() const { return inheritedResources->markerMid; }
     String markerEndResource() const { return inheritedResources->markerEnd; }
+    
+    const SVGPaint::SVGPaintType& visitedLinkFillPaintType() const { return fill->visitedLinkPaintType; }
+    const Color& visitedLinkFillPaintColor() const { return fill->visitedLinkPaintColor; }
+    const String& visitedLinkFillPaintUri() const { return fill->visitedLinkPaintUri; }
+    const SVGPaint::SVGPaintType& visitedLinkStrokePaintType() const { return stroke->visitedLinkPaintType; }
+    const Color& visitedLinkStrokePaintColor() const { return stroke->visitedLinkPaintColor; }
+    const String& visitedLinkStrokePaintUri() const { return stroke->visitedLinkPaintUri; }
 
     // convenience
     bool hasClipper() const { return !clipperResource().isEmpty(); }
@@ -337,6 +362,7 @@ public:
     bool hasFilter() const { return !filterResource().isEmpty(); }
     bool hasMarkers() const { return !markerStartResource().isEmpty() || !markerMidResource().isEmpty() || !markerEndResource().isEmpty(); }
     bool hasStroke() const { return strokePaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool hasVisibleStroke() const { return hasStroke() && !strokeWidth().isZero(); }
     bool hasFill() const { return fillPaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
     bool isVerticalWritingMode() const { return writingMode() == WM_TBRL || writingMode() == WM_TB; }
 
@@ -346,7 +372,6 @@ protected:
         bool operator==(const InheritedFlags& other) const
         {
             return (_colorRendering == other._colorRendering)
-                && (_imageRendering == other._imageRendering)
                 && (_shapeRendering == other._shapeRendering)
                 && (_clipRule == other._clipRule)
                 && (_fillRule == other._fillRule)
@@ -366,7 +391,6 @@ protected:
         }
 
         unsigned _colorRendering : 2; // EColorRendering
-        unsigned _imageRendering : 2; // EImageRendering 
         unsigned _shapeRendering : 2; // EShapeRendering 
         unsigned _clipRule : 1; // WindRule
         unsigned _fillRule : 1; // WindRule
@@ -422,7 +446,6 @@ private:
         svg_inherited_flags._clipRule = initialClipRule();
         svg_inherited_flags._colorRendering = initialColorRendering();
         svg_inherited_flags._fillRule = initialFillRule();
-        svg_inherited_flags._imageRendering = initialImageRendering();
         svg_inherited_flags._shapeRendering = initialShapeRendering();
         svg_inherited_flags._textAnchor = initialTextAnchor();
         svg_inherited_flags._capStyle = initialCapStyle();

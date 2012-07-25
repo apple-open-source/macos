@@ -101,7 +101,8 @@ public:
     virtual bool init(OSObject *     target,
                       IOOutputAction action,
                       IOWorkLoop *   workloop,
-                      UInt32         capacity = 0);
+                      UInt32         capacity = 0,
+                      UInt32         priorities = 1);
 
 /*! @function withTarget
     @abstract Factory method that constructs and initializes an
@@ -118,6 +119,23 @@ public:
                                            IOWorkLoop *          workloop,
                                            UInt32                capacity = 0);
 
+    /*! @function withTarget
+     @abstract Factory method that constructs and initializes an
+     IOGatedOutputQueue object.
+     @param target An IONetworkController object that will handle packets
+     removed from the queue.
+     @param workloop A workloop object. An IOCommandGate object is created
+     and added to this workloop as an event source.
+     @param capacity The initial capacity of the output queue.
+     @param priorities The number of traffic priorities supported
+     @result Returns an IOGatedOutputQueue object on success, or 0 otherwise. 
+     */
+    
+    static IOGatedOutputQueue * withTarget(IONetworkController * target,
+                                           IOWorkLoop *          workloop,
+                                           UInt32                capacity,
+                                           UInt32                priorities);
+    
 /*! @function withTarget
     @abstract Factory method that constructs and initializes an
     IOGatedOutputQueue object.
@@ -135,6 +153,26 @@ public:
                                            IOOutputAction action,
                                            IOWorkLoop *   workloop,
                                            UInt32         capacity = 0);
+    
+    /*! @function withTarget
+     @abstract Factory method that constructs and initializes an
+     IOGatedOutputQueue object.
+     @param target The object that will handle packets removed from the
+     queue.
+     @param action The function that will handle packets removed from the
+     queue.
+     @param workloop A workloop object. An IOCommandGate object is created
+     and added to this workloop as an event source.
+     @param capacity The initial capacity of the output queue.
+     @param priorities The number of traffic priorities supported
+     @result Returns an IOGatedOutputQueue object on success, or 0 otherwise. 
+     */
+    
+    static IOGatedOutputQueue * withTarget(OSObject *     target,
+                                           IOOutputAction action,
+                                           IOWorkLoop *   workloop,
+                                           UInt32         capacity,
+                                           UInt32         priorities);
 };
 
 #endif /* !_IOGATEDOUTPUTQUEUE_H */

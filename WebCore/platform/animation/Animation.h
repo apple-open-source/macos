@@ -25,6 +25,7 @@
 #ifndef Animation_h
 #define Animation_h
 
+#include "CSSPropertyNames.h"
 #include "PlatformString.h"
 #include "RenderStyleConstants.h"
 #include "TimingFunction.h"
@@ -33,16 +34,13 @@
 
 namespace WebCore {
 
-const int cAnimateNone = 0;
-const int cAnimateAll = -2;
-
 class Animation : public RefCounted<Animation> {
 public:
     ~Animation();
 
     static PassRefPtr<Animation> create() { return adoptRef(new Animation); }
     static PassRefPtr<Animation> create(const Animation* o) { return adoptRef(new Animation(*o)); }
-    
+
     bool isDelaySet() const { return m_delaySet; }
     bool isDirectionSet() const { return m_directionSet; }
     bool isDurationSet() const { return m_durationSet; }
@@ -81,31 +79,58 @@ public:
     void clearProperty() { m_propertySet = false; }
     void clearTimingFunction() { m_timingFunctionSet = false; }
 
+    void clearAll()
+    {
+        clearDelay();
+        clearDirection();
+        clearDuration();
+        clearFillMode();
+        clearIterationCount();
+        clearName();
+        clearPlayState();
+        clearProperty();
+        clearTimingFunction();
+    }
+
     double delay() const { return m_delay; }
 
-    enum AnimationDirection { AnimationDirectionNormal, AnimationDirectionAlternate };
+    enum AnimationMode {
+        AnimateAll,
+        AnimateNone,
+        AnimateSingleProperty
+    };
+
+    enum AnimationDirection {
+        AnimationDirectionNormal,
+        AnimationDirectionAlternate,
+        AnimationDirectionReverse,
+        AnimationDirectionAlternateReverse
+    };
     AnimationDirection direction() const { return static_cast<AnimationDirection>(m_direction); }
+    bool directionIsForwards() const { return m_direction == AnimationDirectionNormal || m_direction == AnimationDirectionAlternate; }
 
     unsigned fillMode() const { return m_fillMode; }
 
     double duration() const { return m_duration; }
 
     enum { IterationCountInfinite = -1 };
-    int iterationCount() const { return m_iterationCount; }
+    double iterationCount() const { return m_iterationCount; }
     const String& name() const { return m_name; }
     EAnimPlayState playState() const { return static_cast<EAnimPlayState>(m_playState); }
-    int property() const { return m_property; }
+    CSSPropertyID property() const { return m_property; }
     const PassRefPtr<TimingFunction> timingFunction() const { return m_timingFunction; }
+    AnimationMode animationMode() const { return m_mode; }
 
     void setDelay(double c) { m_delay = c; m_delaySet = true; }
     void setDirection(AnimationDirection d) { m_direction = d; m_directionSet = true; }
     void setDuration(double d) { ASSERT(d >= 0); m_duration = d; m_durationSet = true; }
     void setFillMode(unsigned f) { m_fillMode = f; m_fillModeSet = true; }
-    void setIterationCount(int c) { m_iterationCount = c; m_iterationCountSet = true; }
+    void setIterationCount(double c) { m_iterationCount = c; m_iterationCountSet = true; }
     void setName(const String& n) { m_name = n; m_nameSet = true; }
     void setPlayState(EAnimPlayState d) { m_playState = d; m_playStateSet = true; }
-    void setProperty(int t) { m_property = t; m_propertySet = true; }
+    void setProperty(CSSPropertyID t) { m_property = t; m_propertySet = true; }
     void setTimingFunction(PassRefPtr<TimingFunction> f) { m_timingFunction = f; m_timingFunctionSet = true; }
+    void setAnimationMode(AnimationMode mode) { m_mode = mode; }
 
     void setIsNoneAnimation(bool n) { m_isNone = n; }
 
@@ -126,12 +151,13 @@ private:
     Animation(const Animation& o);
     
     String m_name;
-    int m_property;
-    int m_iterationCount;
+    CSSPropertyID m_property;
+    AnimationMode m_mode;
+    double m_iterationCount;
     double m_delay;
     double m_duration;
     RefPtr<TimingFunction> m_timingFunction;
-    unsigned m_direction : 1; // AnimationDirection
+    unsigned m_direction : 2; // AnimationDirection
     unsigned m_fillMode : 2;
 
     unsigned m_playState     : 2;
@@ -149,15 +175,15 @@ private:
     bool m_isNone            : 1;
 
 public:
-    static float initialAnimationDelay() { return 0; }
+    static double initialAnimationDelay() { return 0; }
     static AnimationDirection initialAnimationDirection() { return AnimationDirectionNormal; }
     static double initialAnimationDuration() { return 0; }
     static unsigned initialAnimationFillMode() { return AnimationFillModeNone; }
-    static int initialAnimationIterationCount() { return 1; }
-    static String initialAnimationName() { return String("none"); }
+    static double initialAnimationIterationCount() { return 1.0; }
+    static const String& initialAnimationName();
     static EAnimPlayState initialAnimationPlayState() { return AnimPlayStatePlaying; }
-    static int initialAnimationProperty() { return cAnimateAll; }
-    static PassRefPtr<TimingFunction> initialAnimationTimingFunction() { return CubicBezierTimingFunction::create(); }
+    static CSSPropertyID initialAnimationProperty() { return CSSPropertyInvalid; }
+    static const PassRefPtr<TimingFunction> initialAnimationTimingFunction() { return CubicBezierTimingFunction::create(); }
 };
 
 } // namespace WebCore

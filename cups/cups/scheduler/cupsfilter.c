@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsfilter.c 9862 2011-08-03 02:44:09Z mike $"
+ * "$Id: cupsfilter.c 9046 2010-03-24 07:58:11Z mike $"
  *
  *   Filtering program for CUPS.
  *
- *   Copyright 2007-2011 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -102,7 +102,7 @@ static int		open_pipe(int *fds);
 static int		read_cupsd_conf(const char *filename);
 static void		set_string(char **s, const char *val);
 static void		sighandler(int sig);
-static void		usage(const char *command, const char *opt);
+static void		usage(const char *opt) __attribute__((noreturn));
 
 
 /*
@@ -192,7 +192,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc && !infile)
 	        infile = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'a' : /* Specify option... */
@@ -200,7 +200,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	        num_options = cupsParseOptions(argv[i], num_options, &options);
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'c' : /* Specify cupsd.conf file location... */
@@ -214,7 +214,7 @@ main(int  argc,				/* I - Number of command-line args */
 		  strlcpy(cupsdconf, argv[i], sizeof(cupsdconf));
 	      }
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'd' : /* Specify the real printer name */
@@ -222,7 +222,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	        printer = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
 	  case 'D' : /* Delete input file after conversion */
@@ -238,7 +238,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc && !infile)
 	        infile = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'i' : /* Specify source MIME type... */
@@ -246,12 +246,12 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	      {
 	        if (sscanf(argv[i], "%15[^/]/%255s", super, type) != 2)
-		  usage(command, opt);
+		  usage(opt);
 
                 srctype = argv[i];
 	      }
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'j' : /* Get job file or specify destination MIME type... */
@@ -264,7 +264,7 @@ main(int  argc,				/* I - Number of command-line args */
 		  infile = TempFile;
 		}
 		else
-		  usage(command, opt);
+		  usage(opt);
 
                 break;
 	      }
@@ -274,12 +274,12 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	      {
 	        if (sscanf(argv[i], "%15[^/]/%255s", super, type) != 2)
-		  usage(command, opt);
+		  usage(opt);
 
                 dsttype = argv[i];
 	      }
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'n' : /* Specify number of copies... */
@@ -288,7 +288,7 @@ main(int  argc,				/* I - Number of command-line args */
 	        num_options = cupsAddOption("copies", argv[i], num_options,
 		                            &options);
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'o' : /* Specify option(s) or output filename */
@@ -298,7 +298,7 @@ main(int  argc,				/* I - Number of command-line args */
 	        if (!strcmp(command, "convert"))
 		{
 		  if (outfile)
-		    usage(command, NULL);
+		    usage(NULL);
 		  else
 		    outfile = argv[i];
 		}
@@ -307,7 +307,7 @@ main(int  argc,				/* I - Number of command-line args */
 		                                 &options);
 	      }
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 'p' : /* Specify PPD file... */
@@ -316,7 +316,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	        ppdfile = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
           case 't' : /* Specify title... */
@@ -325,7 +325,7 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	        title = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
 	  case 'u' : /* Delete PPD file after conversion */
@@ -337,11 +337,11 @@ main(int  argc,				/* I - Number of command-line args */
 	      if (i < argc)
 	        user = argv[i];
 	      else
-	        usage(command, opt);
+	        usage(opt);
 	      break;
 
 	  default : /* Something we don't understand... */
-	      usage(command, opt);
+	      usage(opt);
 	      break;
 	}
     }
@@ -350,22 +350,17 @@ main(int  argc,				/* I - Number of command-line args */
       if (strcmp(command, "convert"))
 	infile = argv[i];
       else
-      {
-	_cupsLangPuts(stderr,
-		      _("convert: Use the -f option to specify a file to "
-		        "convert."));
-	usage(command, NULL);
-      }
+	usage(NULL);
     }
     else
     {
       _cupsLangPuts(stderr,
                     _("cupsfilter: Only one filename can be specified."));
-      usage(command, NULL);
+      usage(NULL);
     }
 
   if (!infile && !srctype)
-    usage(command, NULL);
+    usage(NULL);
 
   if (!title)
   {
@@ -658,7 +653,7 @@ add_printer_filters(
   mime_type_t	*printer_type;		/* Printer filter type */
 
 
-  if ((ppd = ppdOpenFile(ppdfile)) == NULL)
+  if ((ppd = _ppdOpenFile(ppdfile, _PPD_LOCALIZATION_NONE)) == NULL)
   {
     ppd_status_t	status;		/* PPD load status */
     int			linenum;	/* Line number */
@@ -1425,70 +1420,41 @@ sighandler(int s)			/* I - Signal number */
  */
 
 static void
-usage(const char *command,		/* I - Command name */
-      const char *opt)			/* I - Incorrect option, if any */
+usage(const char *opt)			/* I - Incorrect option, if any */
 {
   if (opt)
-    _cupsLangPrintf(stderr, _("%s: Unknown option \"%c\"."), command, *opt);
+    _cupsLangPrintf(stderr, _("%s: Unknown option \"%c\"."), "cupsfilter",
+                    *opt);
 
-  if (!strcmp(command, "cupsfilter"))
-  {
-    _cupsLangPuts(stdout, _("Usage: cupsfilter [ options ] filename"));
-    _cupsLangPuts(stdout, _("Options:"));
-    _cupsLangPuts(stdout, _("  -D                      Remove the input file "
-                            "when finished."));
-    _cupsLangPuts(stdout, _("  -P filename.ppd         Set PPD file."));
-    _cupsLangPuts(stdout, _("  -U username             Set username for job."));
-    _cupsLangPuts(stdout, _("  -c cupsd.conf           Set cupsd.conf file to "
-                            "use."));
-    _cupsLangPuts(stdout, _("  -d printer              Use the named "
-                            "printer."));
-    _cupsLangPuts(stdout, _("  -e                      Use every filter from "
-                            "the PPD file."));
-    _cupsLangPuts(stdout, _("  -i mime/type            Set input MIME type "
-                            "(otherwise auto-typed)."));
-    _cupsLangPuts(stdout, _("  -j job-id[,N]           Filter file N from the "
-                            "specified job (default is file 1)."));
-    _cupsLangPuts(stdout, _("  -m mime/type            Set output MIME type "
-			    "(otherwise application/pdf)."));
-    _cupsLangPuts(stdout, _("  -n copies               Set number of copies."));
-    _cupsLangPuts(stdout, _("  -o name=value           Set option(s)."));
-    _cupsLangPuts(stdout, _("  -p filename.ppd         Set PPD file."));
-    _cupsLangPuts(stdout, _("  -t title                Set title."));
-    _cupsLangPuts(stdout, _("  -u                      Remove the PPD file "
-                            "when finished."));
-  }
-  else
-  {
-    _cupsLangPuts(stdout, _("Usage: convert [ options ]"));
-    _cupsLangPuts(stdout, _("Options:"));
-    _cupsLangPuts(stdout, _("  -D                      Remove the input file "
-                            "when finished."));
-    _cupsLangPuts(stdout, _("  -J title                Set title."));
-    _cupsLangPuts(stdout, _("  -P filename.ppd         Set PPD file."));
-    _cupsLangPuts(stdout, _("  -U username             Set username for job."));
-    _cupsLangPuts(stdout, _("  -a 'name=value ...'     Set option(s)."));
-    _cupsLangPuts(stdout, _("  -c copies               Set number of copies."));
-    _cupsLangPuts(stdout, _("  -d printer              Use the named "
-                            "printer."));
-    _cupsLangPuts(stdout, _("  -e                      Use every filter from "
-                            "the PPD file."));
-    _cupsLangPuts(stdout, _("  -f filename             Set file to be "
-                            "converted (otherwise stdin)."));
-    _cupsLangPuts(stdout, _("  -i mime/type            Set input MIME type "
-                            "(otherwise auto-typed)."));
-    _cupsLangPuts(stdout, _("  -j mime/type            Set output MIME type "
-			    "(otherwise application/pdf)."));
-    _cupsLangPuts(stdout, _("  -o filename             Set file to be "
-                            "generated (otherwise stdout)."));
-    _cupsLangPuts(stdout, _("  -u                      Remove the PPD file "
-                            "when finished."));
-  }
+  _cupsLangPuts(stdout, _("Usage: cupsfilter [ options ] filename"));
+  _cupsLangPuts(stdout, _("Options:"));
+  _cupsLangPuts(stdout, _("  -D                      Remove the input file "
+			  "when finished."));
+  _cupsLangPuts(stdout, _("  -P filename.ppd         Set PPD file."));
+  _cupsLangPuts(stdout, _("  -U username             Specify username."));
+  _cupsLangPuts(stdout, _("  -c cupsd.conf           Set cupsd.conf file to "
+			  "use."));
+  _cupsLangPuts(stdout, _("  -d printer              Use the named "
+			  "printer."));
+  _cupsLangPuts(stdout, _("  -e                      Use every filter from "
+			  "the PPD file."));
+  _cupsLangPuts(stdout, _("  -i mime/type            Set input MIME type "
+			  "(otherwise auto-typed)."));
+  _cupsLangPuts(stdout, _("  -j job-id[,N]           Filter file N from the "
+			  "specified job (default is file 1)."));
+  _cupsLangPuts(stdout, _("  -m mime/type            Set output MIME type "
+			  "(otherwise application/pdf)."));
+  _cupsLangPuts(stdout, _("  -n copies               Set number of copies."));
+  _cupsLangPuts(stdout, _("  -o name=value           Set option(s)."));
+  _cupsLangPuts(stdout, _("  -p filename.ppd         Set PPD file."));
+  _cupsLangPuts(stdout, _("  -t title                Set title."));
+  _cupsLangPuts(stdout, _("  -u                      Remove the PPD file "
+			  "when finished."));
 
   exit(1);
 }
 
 
 /*
- * End of "$Id: cupsfilter.c 9862 2011-08-03 02:44:09Z mike $".
+ * End of "$Id: cupsfilter.c 9046 2010-03-24 07:58:11Z mike $".
  */

@@ -48,17 +48,33 @@
 .Sh SYNOPSIS
 .In stdio.h
 .Ft int
-.Fn fputc "int c" "FILE *stream"
+.Fo fputc
+.Fa "int c"
+.Fa "FILE *stream"
+.Fc
 .Ft int
-.Fn putc "int c" "FILE *stream"
+.Fo putc
+.Fa "int c"
+.Fa "FILE *stream"
+.Fc
 .Ft int
-.Fn putc_unlocked "int c" "FILE *stream"
+.Fo putc_unlocked
+.Fa "int c"
+.Fa "FILE *stream"
+.Fc
 .Ft int
-.Fn putchar "int c"
+.Fo putchar
+.Fa "int c"
+.Fc
 .Ft int
-.Fn putchar_unlocked "int c"
+.Fo putchar_unlocked
+.Fa "int c"
+.Fc
 .Ft int
-.Fn putw "int w" "FILE *stream"
+.Fo putw
+.Fa "int w"
+.Fa "FILE *stream"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fputc
@@ -117,7 +133,7 @@ The functions,
 .Fn fputc ,
 .Fn putc ,
 .Fn putchar ,
-.Fn putc_unlocked
+.Fn putc_unlocked ,
 and
 .Fn putchar_unlocked
 return the character written.

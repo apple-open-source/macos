@@ -34,8 +34,43 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
+
+struct HTMLConstructionSiteTask {
+    HTMLConstructionSiteTask()
+        : selfClosing(false)
+    {
+    }
+
+    void take(HTMLConstructionSiteTask& other)
+    {
+        parent = other.parent.release();
+        nextChild = other.nextChild.release();
+        child = other.child.release();
+        selfClosing = other.selfClosing;
+    }
+
+    RefPtr<ContainerNode> parent;
+    RefPtr<Node> nextChild;
+    RefPtr<Node> child;
+    bool selfClosing;
+};
+
+} // namespace WebCore
+
+namespace WTF {
+template<> struct VectorTraits<WebCore::HTMLConstructionSiteTask> : SimpleClassVectorTraits { };
+} // namespace WTF
+
+namespace WebCore {
+
+enum WhitespaceMode {
+    AllWhitespace,
+    NotAllWhitespace,
+    WhitespaceUnknown
+};
 
 class AtomicHTMLToken;
 class Document;
@@ -44,11 +79,12 @@ class Element;
 class HTMLConstructionSite {
     WTF_MAKE_NONCOPYABLE(HTMLConstructionSite);
 public:
-    HTMLConstructionSite(Document*);
-    HTMLConstructionSite(DocumentFragment*, FragmentScriptingPermission);
+    HTMLConstructionSite(Document*, unsigned maximumDOMTreeDepth);
+    HTMLConstructionSite(DocumentFragment*, FragmentScriptingPermission, unsigned maximumDOMTreeDepth);
     ~HTMLConstructionSite();
 
     void detach();
+    void executeQueuedTasks();
 
     void insertDoctype(AtomicHTMLToken&);
     void insertComment(AtomicHTMLToken&);
@@ -61,7 +97,7 @@ public:
     void insertHTMLBodyElement(AtomicHTMLToken&);
     void insertHTMLFormElement(AtomicHTMLToken&, bool isDemoted = false);
     void insertScriptElement(AtomicHTMLToken&);
-    void insertTextNode(const String&);
+    void insertTextNode(const String&, WhitespaceMode = WhitespaceUnknown);
     void insertForeignElement(AtomicHTMLToken&, const AtomicString& namespaceURI);
 
     void insertHTMLHtmlStartTagBeforeHTML(AtomicHTMLToken&);
@@ -72,7 +108,7 @@ public:
     PassRefPtr<Element> createHTMLElementFromElementRecord(HTMLElementStack::ElementRecord*);
 
     bool shouldFosterParent() const;
-    void fosterParent(Node*);
+    void fosterParent(PassRefPtr<Node>);
 
     bool indexOfFirstUnopenFormattingElement(unsigned& firstUnopenElementIndex) const;
     void reconstructTheActiveFormattingElements();
@@ -80,6 +116,7 @@ public:
     void generateImpliedEndTags();
     void generateImpliedEndTagsWithExclusion(const AtomicString& tagName);
 
+    bool isEmpty() const { return !m_openElements.stackDepth(); }
     Element* currentElement() const { return m_openElements.top(); }
     ContainerNode* currentNode() const { return m_openElements.topNode(); }
     Element* oneBelowTop() const { return m_openElements.oneBelowTop(); }
@@ -114,17 +151,13 @@ public:
     };
 
 private:
-    struct AttachmentSite {
-        ContainerNode* parent;
-        Node* nextChild;
-    };
+    // In the common case, this queue will have only one task because most
+    // tokens produce only one DOM mutation.
+    typedef Vector<HTMLConstructionSiteTask, 1> AttachmentQueue;
 
-    template<typename ChildType>
-    PassRefPtr<ChildType> attach(ContainerNode* parent, PassRefPtr<ChildType> child);
-    PassRefPtr<Element> attachToCurrent(PassRefPtr<Element>);
+    void attachLater(ContainerNode* parent, PassRefPtr<Node> child);
 
-    void attachAtSite(const AttachmentSite&, PassRefPtr<Node> child);
-    void findFosterSite(AttachmentSite&);
+    void findFosterSite(HTMLConstructionSiteTask&);
 
     PassRefPtr<Element> createHTMLElementFromSavedElement(Element*);
     PassRefPtr<Element> createElement(AtomicHTMLToken&, const AtomicString& namespaceURI);
@@ -144,6 +177,8 @@ private:
     mutable HTMLElementStack m_openElements;
     mutable HTMLFormattingElementList m_activeFormattingElements;
 
+    AttachmentQueue m_attachmentQueue;
+
     FragmentScriptingPermission m_fragmentScriptingPermission;
     bool m_isParsingFragment;
 
@@ -152,8 +187,10 @@ private:
     // "whenever a node would be inserted into the current node, it must instead
     // be foster parented."  This flag tracks whether we're in that state.
     bool m_redirectAttachToFosterParent;
+
+    unsigned m_maximumDOMTreeDepth;
 };
 
-}
+} // namespace WebCore
 
 #endif

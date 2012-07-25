@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -96,6 +96,7 @@ Boolean		_process_options(optionsRef		options,
 				 char			**argv,
 				 CFMutableDictionaryRef	newConfiguration);
 
+CF_RETURNS_RETAINED
 CFNumberRef	_copy_number	(const char *arg);
 
 CFIndex		_find_option	(const char	*option,
@@ -108,24 +109,24 @@ CFIndex		_find_selection	(CFStringRef 	choice,
 
 void		_show_entity	(CFDictionaryRef entity, CFStringRef prefix);
 
-void	do_net_init		(void);
-void	do_net_quit		(int argc, char **argv);
+void		do_net_init	(void);
+void		do_net_quit	(int argc, char **argv);
 
-void	do_net_open		(int argc, char **argv);
-void	do_net_commit		(int argc, char **argv);
-void	do_net_apply		(int argc, char **argv);
-void	do_net_close		(int argc, char **argv);
+void		do_net_open	(int argc, char **argv);
+void		do_net_commit	(int argc, char **argv);
+void		do_net_apply	(int argc, char **argv);
+void		do_net_close	(int argc, char **argv);
 
-void	do_net_create		(int argc, char **argv);
-void	do_net_disable		(int argc, char **argv);
-void	do_net_enable		(int argc, char **argv);
-void	do_net_remove		(int argc, char **argv);
-void	do_net_select		(int argc, char **argv);
-void	do_net_set		(int argc, char **argv);
-void	do_net_show		(int argc, char **argv);
-void	do_net_update		(int argc, char **argv);
+void		do_net_create	(int argc, char **argv);
+void		do_net_disable	(int argc, char **argv);
+void		do_net_enable	(int argc, char **argv);
+void		do_net_remove	(int argc, char **argv);
+void		do_net_select	(int argc, char **argv);
+void		do_net_set	(int argc, char **argv);
+void		do_net_show	(int argc, char **argv);
+void		do_net_update	(int argc, char **argv);
 
-void	do_net_snapshot		(int argc, char **argv);
+void		do_net_snapshot	(int argc, char **argv);
 
 __END_DECLS
 

@@ -37,7 +37,7 @@ public:
         return adoptRef(new FontValue);
     }
 
-    virtual String cssText() const;
+    String customCssText() const;
 
     RefPtr<CSSPrimitiveValue> style;
     RefPtr<CSSPrimitiveValue> variant;
@@ -47,9 +47,10 @@ public:
     RefPtr<CSSValueList> family;
 
 private:
-    FontValue() { }
-
-    virtual bool isFontValue() const { return true; }
+    FontValue()
+        : CSSValue(FontClass)
+    {
+    }
 };
 
 } // namespace

@@ -32,14 +32,15 @@
 
 #include "CallData.h"
 #include "Intrinsic.h"
+#include "LowLevelInterpreter.h"
 #include "MacroAssemblerCodeRef.h"
 #include "Register.h"
 #include "ThunkGenerators.h"
 #include <wtf/HashMap.h>
 
-#if ENABLE(JIT)
-
 namespace JSC {
+
+#if ENABLE(JIT)
 
     struct StructureStubInfo;
 
@@ -59,6 +60,7 @@ namespace JSC {
     class PutPropertySlot;
     class RegisterFile;
     class RegExp;
+    class Structure;
 
     template <typename T> class Weak;
 
@@ -78,6 +80,7 @@ namespace JSC {
         JSPropertyNameIterator* propertyNameIterator() { return static_cast<JSPropertyNameIterator*>(asPointer); }
         JSGlobalObject* globalObject() { return static_cast<JSGlobalObject*>(asPointer); }
         JSString* jsString() { return static_cast<JSString*>(asPointer); }
+        Structure* structure() { return static_cast<Structure*>(asPointer); }
         ReturnAddressPtr returnAddress() { return ReturnAddressPtr(asPointer); }
     };
     
@@ -89,7 +92,6 @@ namespace JSC {
         MacroAssemblerCodePtr ctiVirtualConstruct;
         MacroAssemblerCodePtr ctiNativeCall;
         MacroAssemblerCodePtr ctiNativeConstruct;
-        MacroAssemblerCodePtr ctiSoftModulo;
     };
 
 #if CPU(X86_64)
@@ -269,6 +271,8 @@ namespace JSC {
     #define JIT_STUB __fastcall
     #elif COMPILER(GCC)
     #define JIT_STUB  __attribute__ ((fastcall))
+    #elif COMPILER(SUNCC)
+    #define JIT_STUB
     #else
     #error "JIT_STUB function calls require fastcall conventions on x86, add appropriate directive/attribute here for your compiler!"
     #endif
@@ -302,9 +306,22 @@ namespace JSC {
         MacroAssemblerCodePtr ctiVirtualConstructLink() { return m_trampolineStructure.ctiVirtualConstructLink; }
         MacroAssemblerCodePtr ctiVirtualCall() { return m_trampolineStructure.ctiVirtualCall; }
         MacroAssemblerCodePtr ctiVirtualConstruct() { return m_trampolineStructure.ctiVirtualConstruct; }
-        MacroAssemblerCodePtr ctiNativeCall() { return m_trampolineStructure.ctiNativeCall; }
-        MacroAssemblerCodePtr ctiNativeConstruct() { return m_trampolineStructure.ctiNativeConstruct; }
-        MacroAssemblerCodePtr ctiSoftModulo() { return m_trampolineStructure.ctiSoftModulo; }
+        MacroAssemblerCodePtr ctiNativeCall()
+        {
+#if ENABLE(LLINT)
+            if (!m_executableMemory)
+                return MacroAssemblerCodePtr::createLLIntCodePtr(llint_native_call_trampoline);
+#endif
+            return m_trampolineStructure.ctiNativeCall;
+        }
+        MacroAssemblerCodePtr ctiNativeConstruct()
+        {
+#if ENABLE(LLINT)
+            if (!m_executableMemory)
+                return MacroAssemblerCodePtr::createLLIntCodePtr(llint_native_construct_trampoline);
+#endif
+            return m_trampolineStructure.ctiNativeConstruct;
+        }
 
         MacroAssemblerCodeRef ctiStub(JSGlobalData*, ThunkGenerator);
 
@@ -326,7 +343,6 @@ namespace JSC {
 extern "C" {
     EncodedJSValue JIT_STUB cti_op_add(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_bitand(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_op_bitnot(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_bitor(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_bitxor(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_call_NotJSFunction(STUB_ARGS_DECLARATION);
@@ -351,7 +367,6 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_get_by_id_self_fail(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_string_fail(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_val(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_op_get_by_val_byte_array(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_val_string(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_in(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_instanceof(STUB_ARGS_DECLARATION);
@@ -429,9 +444,7 @@ extern "C" {
     void JIT_STUB cti_op_put_by_id_direct_generic(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_by_index(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_put_by_val(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_put_by_val_byte_array(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_put_getter(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_put_setter(STUB_ARGS_DECLARATION);
+    void JIT_STUB cti_op_put_getter_setter(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_tear_off_activation(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_tear_off_arguments(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_throw_reference_error(STUB_ARGS_DECLARATION);
@@ -453,8 +466,8 @@ extern "C" {
     void* JIT_STUB cti_vm_throw(STUB_ARGS_DECLARATION);
 } // extern "C"
 
-} // namespace JSC
-
 #endif // ENABLE(JIT)
+
+} // namespace JSC
 
 #endif // JITStubs_h

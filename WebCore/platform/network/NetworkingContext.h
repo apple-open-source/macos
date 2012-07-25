@@ -27,18 +27,20 @@
 #endif
 
 #if PLATFORM(QT)
+#include <qglobal.h>
 QT_BEGIN_NAMESPACE
 class QObject;
 class QNetworkAccessManager;
+class QUrl;
 QT_END_NAMESPACE
+#endif
+
+#if USE(SOUP)
+typedef struct _SoupSession SoupSession;
 #endif
 
 namespace WebCore {
 
-#if PLATFORM(ANDROID)
-class FrameLoaderClient;
-class MainResourceLoader;
-#endif
 class ResourceError;
 class ResourceRequest;
 
@@ -59,6 +61,7 @@ public:
     virtual QObject* originatingObject() const = 0;
     virtual QNetworkAccessManager* networkAccessManager() const = 0;
     virtual bool mimeSniffingEnabled() const = 0;
+    virtual bool thirdPartyCookiePolicyPermission(const QUrl&) const = 0;
 #endif
 
 #if PLATFORM(WIN)
@@ -67,9 +70,8 @@ public:
     virtual ResourceError blockedError(const ResourceRequest&) const = 0;
 #endif
 
-#if PLATFORM(ANDROID)
-    virtual MainResourceLoader* mainResourceLoader() const = 0;
-    virtual FrameLoaderClient* frameLoaderClient() const = 0;
+#if USE(SOUP)
+    virtual SoupSession* soupSession() const = 0;
 #endif
 
 protected:

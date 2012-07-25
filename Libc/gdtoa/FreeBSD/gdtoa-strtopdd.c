@@ -29,13 +29,25 @@ THIS SOFTWARE.
 /* Please send bug reports to David M. Gay (dmg at acm dot org,
  * with " at " changed at "@" and " dot " changed to ".").	*/
 
+#include "xlocale_private.h"
+
 #include "gdtoaimp.h"
+
+#ifdef __APPLE__
+/*
+ * IEEE specifies that the most significant (head) double is required to
+ * be equal to the long double rounded to the nearest double, so that means
+ * the tail double might be the opposite sign as the head.  We can do this
+ * adding (long double)0 to the number, which will fix it up.
+ */
+#define	fixLDBL(x)	((x) += 0.L)
+#endif /* __APPLE__ */
 
  int
 #ifdef KR_headers
-strtopdd(s, sp, dd) CONST char *s; char **sp; double *dd;
+strtopdd(s, sp, dd, loc) CONST char *s; char **sp; double *dd; locale_t loc;
 #else
-strtopdd(CONST char *s, char **sp, double *dd)
+strtopdd(CONST char *s, char **sp, double *dd, locale_t loc)
 #endif
 {
 #ifdef Sudden_Underflow
@@ -49,6 +61,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 	typedef union {
 		double d[2];
 		ULong L[4];
+#ifdef __APPLE__
+		long double ld;
+#endif /* __APPLE__ */
 		} U;
 	U *u;
 #ifdef Honor_FLT_ROUNDS
@@ -57,10 +72,13 @@ strtopdd(CONST char *s, char **sp, double *dd)
 #define fpi &fpi0
 #endif
 
-	rv = strtodg(s, sp, fpi, &exp, bits);
+	rv = strtodg(s, sp, fpi, &exp, bits, loc);
 	u = (U*)dd;
 	switch(rv & STRTOG_Retmask) {
 	  case STRTOG_NoNumber:
+		u->d[0] = u->d[1] = 0.;
+		return rv; // avoid setting sign
+
 	  case STRTOG_Zero:
 		u->d[0] = u->d[1] = 0.;
 		break;
@@ -106,6 +124,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 			}
 		u->L[2+_1] = bits[0];
 		u->L[2+_0] = (bits[1] & 0xfffff) | (exp << 20);
+#ifdef __APPLE__
+		fixLDBL(u->ld);
+#endif /* __APPLE__ */
 		break;
 
 	  case STRTOG_Denormal:
@@ -129,6 +150,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 		u->L[_1] = (bits[2] << i | bits[1] >> j) & 0xffffffffL;
 		u->L[2+_0] = bits[1] & ((1L << j) - 1);
 		u->L[2+_1] = bits[0];
+#ifdef __APPLE__
+		fixLDBL(u->ld);
+#endif /* __APPLE__ */
 		break;
 
 	  partly_normal:
@@ -140,6 +164,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 			u->L[_1] = ((bits[2] << i) | (bits[1] >> j)) & 0xffffffffL;
 			u->L[2+_0] = bits[1] & ((1L << j) - 1);
 			u->L[2+_1] = bits[0];
+#ifdef __APPLE__
+			fixLDBL(u->ld);
+#endif /* __APPLE__ */
 			break;
 			}
 		if (i == 0) {
@@ -147,6 +174,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 			u->L[_1] = bits[1];
 			u->L[2+_0] = 0;
 			u->L[2+_1] = bits[0];
+#ifdef __APPLE__
+			fixLDBL(u->ld);
+#endif /* __APPLE__ */
 			break;
 			}
 		j = 32 - i;
@@ -155,6 +185,9 @@ strtopdd(CONST char *s, char **sp, double *dd)
 		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
 		u->L[2+_0] = 0;
 		u->L[2+_1] = bits[0] & ((1L << j) - 1);
+#ifdef __APPLE__
+		fixLDBL(u->ld);
+#endif /* __APPLE__ */
 		break;
 
 	  hardly_normal:
@@ -164,20 +197,45 @@ strtopdd(CONST char *s, char **sp, double *dd)
 		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
 		u->L[2+_0] = 0;
 		u->L[2+_1] = bits[0] & ((1L << j) - 1);
+#ifdef __APPLE__
+		fixLDBL(u->ld);
+#endif /* __APPLE__ */
 		break;
 
 	  case STRTOG_Infinite:
+#ifdef __APPLE__
+		u->L[_0] = 0x7ff00000;
+		u->L[_1] = u->L[2+_0] = u->L[2+_1] = 0;
+#else /* __APPLE__ */
 		u->L[_0] = u->L[2+_0] = 0x7ff00000;
 		u->L[_1] = u->L[2+_1] = 0;
+#endif /* __APPLE__ */
 		break;
 
 	  case STRTOG_NaN:
+#ifdef __APPLE__
+		u->L[0] = d_QNAN0;
+		u->L[1] = d_QNAN1;
+		u->L[2] = u->L[3] = 0;
+#else /* __APPLE__ */
 		u->L[0] = u->L[2] = d_QNAN0;
 		u->L[1] = u->L[3] = d_QNAN1;
+#endif /* __APPLE__ */
+		break;
+#ifdef __APPLE__
+	 case STRTOG_NaNbits:
+		u->L[0] = d_QNAN0 | ((bits[2] >> 20 | bits[3] << 12) & 0xfffff);
+		u->L[1] = d_QNAN1 | bits[1] >> 20 | bits[2] << 12;
+		u->L[2] = u->L[3] = 0;
+#endif /* __APPLE__ */
 	  }
 	if (rv & STRTOG_Neg) {
 		u->L[  _0] |= 0x80000000L;
+#ifdef __APPLE__
+		u->L[2+_0] ^= 0x80000000L;
+#else /* __APPLE__ */
 		u->L[2+_0] |= 0x80000000L;
+#endif /* __APPLE__ */
 		}
 	return rv;
 	}

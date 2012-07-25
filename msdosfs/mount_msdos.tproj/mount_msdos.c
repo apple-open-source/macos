@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007, 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2007, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -242,7 +242,7 @@ main(argc, argv)
 	 * for MNT_ASYNC, before we parse the normal options (so MNT_ASYNC can
 	 * be overridden either way via the command line).
 	 */
-	while ((c = getopt(argc, argv, options)) != -1) {
+	while (getopt(argc, argv, options) != -1) {
 	}
 	
 	if (optind + 2 != argc)

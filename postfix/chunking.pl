@@ -22,6 +22,7 @@ Options:
 	--buftag	tag output buffer flushes
 	--debug
 	--deliveries n	number of messages to deliver and check
+	--light		don't test with random binary gibberish
 	--test		test message generation
 	--quiet
 	--verbose
@@ -35,6 +36,7 @@ GetOptions(\%opts,
     'debug',
     'deliveries=i',
     'host=s',
+    'light',
     'password=s',
     'quiet',
     'test',
@@ -58,6 +60,7 @@ local $SIG{__DIE__} = sub {
 	kill(9, $smtppid) if defined $smtppid;
 	kill(9, $imappid) if defined $imappid;
 };
+local $SIG{INT} = $SIG{__DIE__};
 
 my $reply;
 
@@ -68,6 +71,9 @@ my %typefuncs = (
     "application/octet-stream"	=> [\&header_gibberish,	\&body_gibberish],
     "multipart/mixed"		=> [\&header_mixed,	\&body_mixed],
 );
+if ($opts{light}) {
+	$typefuncs{"application/octet-stream"} = $typefuncs{"text/plain"};
+}
 my @types = keys %typefuncs;
 
 my @encodings_top = ("", "7bit", "8bit", "binary");
@@ -686,7 +692,7 @@ sub deliver
 				$remaining = substr($remaining, $cut);
 				$consumed .= $fragment;
 				push @fragments, $fragment;
-				$stuck = 0;
+				$stuck = 0 if length($fragment) > 0;
 			} else {
 				print "NOT cutting: |$linestart|<-HERE->|$linecont|\n...".substr($consumed,-20)."|<-HERE->|".substr($remaining,0,20)."...\n" if $opts{debug};
 				if (++$stuck >= 1000) {

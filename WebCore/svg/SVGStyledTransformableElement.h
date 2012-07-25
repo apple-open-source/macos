@@ -36,8 +36,8 @@ class SVGStyledTransformableElement : public SVGStyledLocatableElement,
 public:
     virtual ~SVGStyledTransformableElement();
 
-    virtual AffineTransform getCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
-    virtual AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate) const;
+    virtual AffineTransform getCTM(StyleUpdateStrategy = AllowStyleUpdate);
+    virtual AffineTransform getScreenCTM(StyleUpdateStrategy = AllowStyleUpdate);
     virtual SVGElement* nearestViewportElement() const;
     virtual SVGElement* farthestViewportElement() const;
 
@@ -45,25 +45,22 @@ public:
     virtual AffineTransform animatedLocalTransform() const;
     virtual AffineTransform* supplementalTransform();
 
-    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) const;
-
-    bool isKnownAttribute(const QualifiedName&);
+    virtual FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate);
 
     // "base class" methods for all the elements which render as paths
-    virtual void toPathData(Path&) const { }
-    virtual void toClipPath(Path&) const;
+    virtual void toClipPath(Path&);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
 protected:
-    SVGStyledTransformableElement(const QualifiedName&, Document*);
+    SVGStyledTransformableElement(const QualifiedName&, Document*, ConstructionType = CreateSVGElement);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    void fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap&);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_TRANSFORM_LIST(Transform, transform)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+        DECLARE_ANIMATED_TRANSFORM_LIST(Transform, transform)
+    END_DECLARE_ANIMATED_PROPERTIES
 
 private:
     virtual bool isStyledTransformable() const { return true; }

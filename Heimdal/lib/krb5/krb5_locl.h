@@ -127,6 +127,8 @@ struct sockaddr_dl;
 
 #include <com_err.h>
 
+#include <heimbase.h>
+
 #define HEIMDAL_TEXTDOMAIN "heimdal_krb5"
 
 #ifdef LIBINTL
@@ -166,6 +168,7 @@ struct send_to_kdc;
 /* XXX glue for pkinit */
 struct hx509_certs_data;
 struct hx509_cert_data;
+struct hx509_query_data;
 struct krb5_pk_identity;
 struct krb5_pk_cert;
 struct key_data;
@@ -187,16 +190,25 @@ struct _krb5_krb_auth_data;
 #include <hx509.h>
 #endif
 
+#include "heim_threads.h"
 #include "crypto.h"
 
 #include <krb5-private.h>
-
-#include "heim_threads.h"
 
 extern const char _krb5_wellknown_lkdc[];
 
 #define ALLOC(X, N) (X) = calloc((N), sizeof(*(X)))
 #define ALLOC_SEQ(X, N) do { (X)->len = (N); ALLOC((X)->val, (N)); } while(0)
+
+#ifndef __func__
+#define __func__ "unknown-function"
+#endif
+
+#define krb5_einval(context, argnum) _krb5_einval((context), __func__, (argnum))
+
+#ifndef PATH_SEP
+#define PATH_SEP ":"
+#endif
 
 /* should this be public? */
 #define KEYTAB_DEFAULT "FILE:" SYSCONFDIR "/krb5.keytab"
@@ -218,7 +230,7 @@ extern const char _krb5_wellknown_lkdc[];
 #endif
 
 
-#define KRB5_BUFSIZ 1024
+#define KRB5_BUFSIZ 2048
 
 typedef enum {
     KRB5_INIT_CREDS_TRISTATE_UNSET = 0,
@@ -248,9 +260,14 @@ struct _krb5_get_init_creds_opt_private {
     } lr;
 };
 
+typedef uint32_t krb5_enctype_set;
+
 typedef struct krb5_context_data {
     krb5_enctype *etypes;
-    krb5_enctype *etypes_des;
+    krb5_enctype *etypes_des;/* deprecated */
+    krb5_enctype *as_etypes;
+    krb5_enctype *tgs_etypes;
+    krb5_enctype *permitted_enctypes;
     heim_array_t default_realms;
     time_t max_skew;
     time_t kdc_timeout;
@@ -286,7 +303,7 @@ typedef struct krb5_context_data {
     char *default_cc_name;
     char *default_cc_name_env;
     int default_cc_name_set;
-    void *mutex;			/* protects error_string/error_buf */
+    void *mutex;			/* protects error_string */
     int large_msg_size;
     int max_msg_size;
     int tgs_negative_timeout;		/* timeout for TGS negative cache */
@@ -295,6 +312,7 @@ typedef struct krb5_context_data {
 #define KRB5_CTX_F_CHECK_PAC			2
 #define KRB5_CTX_F_HOMEDIR_ACCESS		4
 #define KRB5_CTX_F_SOCKETS_INITIALIZED          8
+#define KRB5_CTX_F_RD_REQ_IGNORE		16
     struct send_to_kdc *send_to_kdc;
 #ifdef PKINIT
     hx509_context hx509ctx;

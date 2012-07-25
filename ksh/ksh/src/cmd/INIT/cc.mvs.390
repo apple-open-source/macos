@@ -1,9 +1,9 @@
-: mvs.390 cc wrapper for unix message and exit code semantics : 2003-06-11 :
+: mvs.390 cc wrapper for unix message and exit code semantics : 2009-01-30 :
 
 HOSTTYPE=mvs.390
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 ar=ar
@@ -11,6 +11,8 @@ cc=/bin/c89
 CC=/bin/c++
 ccflags="-D_ALL_SOURCE -Wc,dll"
 objmax=60
+tmpfiles=
+unbotch=
 
 # -n as *first* arg shows but does not do
 # -Wc,exportall => -Wl,dll
@@ -25,7 +27,7 @@ objmax=60
 #	-1	-O (default level 1 optimization)
 #	-2	-2 (maximal level 2 optimization)
 
-let argc=0 cmp=0 dll=0 libc=0 dynamic=1 dynamic_objc=0 static_objc=0 relc=0
+let argc=0 cmp=0 dll=0 libc=0 dynamic=1 dynamic_objc=0 static_objc=0 relc=0 botched=0
 case $1 in
 -n)	exec=print
 	shift
@@ -71,6 +73,13 @@ do	case $# in
 	-D_ALL_SOURCE|-D_ALL_SOURCE=*)
 		arg=
 		;;
+	-D*[\ \(\)]*)
+		arg=${arg#-D}
+		botch_macro[botched]=${arg%%=*}
+		botch_value[botched]=${arg#*=}
+		let botched=botched+1
+		arg=
+		;;
 	-o)	argv[argc]=$arg
 		let argc=argc+1
 		shift
@@ -87,6 +96,21 @@ do	case $# in
 		;;
 	-Wl,dll)arg=
 		let dll=1
+		;;
+	*.c)	if	[[ $botched != 0 ]]
+		then	src=$arg
+			arg=${arg##*/}
+			unbotch="$unbotch ${arg%.c}.o"
+			arg=__$arg
+			tmpfiles="$tmpfiles $arg"
+			{
+				while	[[ $botched != 0 ]]
+				do	let botched=botched-1
+					print -r -- "#define ${botch_macro[botched]} ${botch_value[botched]}"
+				done
+				cat $src
+			} > $arg
+		fi
 		;;
 	*.o)	if	test 0 != $dynamic
 		then	let dynamic_objc=dynamic_objc+1
@@ -115,7 +139,7 @@ do	case $# in
 done
 
 tmp=/tmp/cc$$.err
-tmpfiles="$tmp"
+tmpfiles="$tmp $tmpfiles"
 
 # if any dll .o's are in .a then a .x gets generated
 # but the native cc doesn't jcl for the .x
@@ -203,6 +227,9 @@ fi
 trap 'rm -f $tmpfiles' 0 1 2 15
 $exec $cc $ccflags "$@" 2> $tmp
 code=$?
+for i in $unbotch
+do	test -f __$i && mv __$i $i
+done
 typeset -l lc
 while	:
 do	if	read line

@@ -1,5 +1,7 @@
 ksh :PACKAGE:
 
+:LICENSE: *.open
+
 :CATEGORY: shells
 
 :INDEX: standalone AT&T ksh executable

@@ -3,20 +3,55 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
-		EB6FCA8910A6602200D80A61 /* Test files */ = {
+		EB1E273114C8D48E001F3238 /* MITKerberosShim_executables */ = {
 			isa = PBXAggregateTarget;
-			buildConfigurationList = EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Test files" */;
+			buildConfigurationList = EB1E273214C8D48E001F3238 /* Build configuration list for PBXAggregateTarget "MITKerberosShim_executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				EB1E273614C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E273814C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E273A14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E273C14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E273E14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274014C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274214C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274414C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274614C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274814C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274A14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274C14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E274E14C8D4AC001F3238 /* PBXTargetDependency */,
+				EB1E275014C8D4AC001F3238 /* PBXTargetDependency */,
+			);
+			name = MITKerberosShim_executables;
+			productName = MITKerberosShim_executables;
+		};
+		EB1E275114C8D4B6001F3238 /* MITKerberosShim */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB1E275214C8D4B6001F3238 /* Build configuration list for PBXAggregateTarget "MITKerberosShim" */;
+			buildPhases = (
+			);
+			dependencies = (
+				EB1E275A14C8D4D7001F3238 /* PBXTargetDependency */,
+			);
+			name = MITKerberosShim;
+			productName = MITKerberosShim;
+		};
+		EB6FCA8910A6602200D80A61 /* Tests */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Tests" */;
 			buildPhases = (
 				EB6FCA9110A6608D00D80A61 /* KLLAcquireCredUI raft */,
 				EB6FCA9810A660BF00D80A61 /* Copy Test Files */,
 			);
 			dependencies = (
 			);
-			name = "Test files";
+			name = Tests;
 			productName = "Raft files";
 		};
 		EBA0D034100AA379002C4826 /* All */ = {
@@ -25,21 +60,8 @@
 			buildPhases = (
 			);
 			dependencies = (
-				EB238E4E13D78124006C979E /* PBXTargetDependency */,
-				EB6FCA8F10A6606000D80A61 /* PBXTargetDependency */,
-				EB17B66A106304FA0015DEB4 /* PBXTargetDependency */,
-				1C20F27A10F284E300C456B4 /* PBXTargetDependency */,
-				1C20F27810F284E300C456B4 /* PBXTargetDependency */,
-				1C20F27610F284E300C456B4 /* PBXTargetDependency */,
-				1C20F27410F284E300C456B4 /* PBXTargetDependency */,
-				1C20F27210F284E300C456B4 /* PBXTargetDependency */,
-				1C20F27010F284E300C456B4 /* PBXTargetDependency */,
-				1C20F26E10F284E300C456B4 /* PBXTargetDependency */,
-				1C20F26C10F284E300C456B4 /* PBXTargetDependency */,
-				1C20F26A10F284E300C456B4 /* PBXTargetDependency */,
-				1C20F26810F284E300C456B4 /* PBXTargetDependency */,
-				1C20F26610F284E300C456B4 /* PBXTargetDependency */,
-				EB7CE7CC1297557E0059CD86 /* PBXTargetDependency */,
+				EB1E275614C8D4CD001F3238 /* PBXTargetDependency */,
+				EB1E275814C8D4CD001F3238 /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -71,16 +93,16 @@
 		1CF9E7CA10605843009E3024 /* Krb4DeprecatedAPIs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */; };
 		EB029EBE109FC50000B1217A /* gss-glue.c in Sources */ = {isa = PBXBuildFile; fileRef = EB029EBD109FC50000B1217A /* gss-glue.c */; };
 		EB0F29C41000162300224B2D /* dummy.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F299D1000153400224B2D /* dummy.c */; };
-		EB0F29D01000164100224B2D /* mit-com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C61000164100224B2D /* mit-com_err.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EB0F29D11000164100224B2D /* mit-CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C71000164100224B2D /* mit-CredentialsCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		EB0F29D21000164100224B2D /* mit-CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C81000164100224B2D /* mit-CredentialsCache2.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D31000164100224B2D /* mit-gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C91000164100224B2D /* mit-gssapi.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D41000164100224B2D /* mit-gssapi_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CA1000164100224B2D /* mit-gssapi_generic.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D51000164100224B2D /* mit-gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CB1000164100224B2D /* mit-gssapi_krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D61000164100224B2D /* mit-Kerberos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CC1000164100224B2D /* mit-Kerberos.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D71000164100224B2D /* mit-KerberosLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CD1000164100224B2D /* mit-KerberosLogin.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D81000164100224B2D /* mit-krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CE1000164100224B2D /* mit-krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		EB0F29D91000164100224B2D /* mit-profile.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CF1000164100224B2D /* mit-profile.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D01000164100224B2D /* mit-com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C61000164100224B2D /* mit-com_err.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D11000164100224B2D /* mit-CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C71000164100224B2D /* mit-CredentialsCache.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D21000164100224B2D /* mit-CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C81000164100224B2D /* mit-CredentialsCache2.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D31000164100224B2D /* mit-gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C91000164100224B2D /* mit-gssapi.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D41000164100224B2D /* mit-gssapi_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CA1000164100224B2D /* mit-gssapi_generic.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D51000164100224B2D /* mit-gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CB1000164100224B2D /* mit-gssapi_krb5.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D61000164100224B2D /* mit-Kerberos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CC1000164100224B2D /* mit-Kerberos.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D71000164100224B2D /* mit-KerberosLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CD1000164100224B2D /* mit-KerberosLogin.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D81000164100224B2D /* mit-krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CE1000164100224B2D /* mit-krb5.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F29D91000164100224B2D /* mit-profile.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CF1000164100224B2D /* mit-profile.h */; settings = {ATTRIBUTES = (); }; };
 		EB0F29FC10001D0000224B2D /* gss-symbols.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F29FB10001D0000224B2D /* gss-symbols.c */; };
 		EB0F2A101000221800224B2D /* ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2A0F1000221800224B2D /* ccache.c */; };
 		EB0F2A401000310300224B2D /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F2A3F1000310300224B2D /* Heimdal.framework */; };
@@ -199,196 +221,119 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		1C1A4FAA10DC3D1B001883EA /* PBXContainerItemProxy */ = {
+		EB1E273514C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB6FCA8910A6602200D80A61;
+			remoteInfo = Tests;
 		};
-		1C20F26510F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EB274749108819F500AAB294;
-			remoteInfo = "test-sd";
-		};
-		1C20F26710F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EB1F5D3810A905D200B69A08;
-			remoteInfo = "test-principal";
-		};
-		1C20F26910F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C82A7D210C5CA3900115F67;
-			remoteInfo = "test-krb5";
-		};
-		1C20F26B10F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C620D5B1062FE9800209602;
-			remoteInfo = "test-krb4";
-		};
-		1C20F26D10F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C82A7BB10C5CA1900115F67;
-			remoteInfo = "test-krb";
-		};
-		1C20F26F10F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EB77819E10AB9EB000CF02BC;
-			remoteInfo = "test-kll2";
-		};
-		1C20F27110F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EBA0D028100AA2AB002C4826;
-			remoteInfo = "test-kll";
-		};
-		1C20F27310F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C82A7A410C5C9FE00115F67;
-			remoteInfo = "test-kClient";
-		};
-		1C20F27510F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C1A4FA810DC3D1B001883EA;
-			remoteInfo = "test-gss-server";
-		};
-		1C20F27710F284E300C456B4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1C82A78D10C5C9E400115F67;
-			remoteInfo = "test-gss-client";
-		};
-		1C20F27910F284E300C456B4 /* PBXContainerItemProxy */ = {
+		EB1E273714C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = EBC0CFBB1083CEA800B5BAAD;
 			remoteInfo = "test-cc";
 		};
-		1C82A78F10C5C9E400115F67 /* PBXContainerItemProxy */ = {
+		EB1E273914C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = 1C82A78D10C5C9E400115F67;
+			remoteInfo = "test-gss-client";
 		};
-		1C82A7A610C5C9FE00115F67 /* PBXContainerItemProxy */ = {
+		EB1E273B14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = 1C1A4FA810DC3D1B001883EA;
+			remoteInfo = "test-gss-server";
 		};
-		1C82A7BD10C5CA1900115F67 /* PBXContainerItemProxy */ = {
+		EB1E273D14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = 1C82A7A410C5C9FE00115F67;
+			remoteInfo = "test-kClient";
 		};
-		1C82A7D410C5CA3900115F67 /* PBXContainerItemProxy */ = {
+		EB1E273F14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EBA0D028100AA2AB002C4826;
+			remoteInfo = "test-kll";
 		};
-		1CEDD24E106303EB008A482B /* PBXContainerItemProxy */ = {
+		EB1E274114C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB77819E10AB9EB000CF02BC;
+			remoteInfo = "test-kll2";
 		};
-		EB17B669106304FA0015DEB4 /* PBXContainerItemProxy */ = {
+		EB1E274314C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = 1C82A7BB10C5CA1900115F67;
+			remoteInfo = "test-krb";
 		};
-		EB238E4813D780CB006C979E /* PBXContainerItemProxy */ = {
+		EB1E274514C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = 1C620D5B1062FE9800209602;
+			remoteInfo = "test-krb4";
 		};
-		EB238E4D13D78124006C979E /* PBXContainerItemProxy */ = {
+		EB1E274714C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB238E3D13D78035006C979E;
-			remoteInfo = "test-password";
+			remoteGlobalIDString = 1C82A7D210C5CA3900115F67;
+			remoteInfo = "test-krb5";
 		};
-		EB27475810881A4C00AAB294 /* PBXContainerItemProxy */ = {
+		EB1E274914C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB1F5D3810A905D200B69A08;
+			remoteInfo = "test-principal";
 		};
-		EB5C490610A9277F001CD7E3 /* PBXContainerItemProxy */ = {
+		EB1E274B14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB274749108819F500AAB294;
+			remoteInfo = "test-sd";
 		};
-		EB6FCA8E10A6606000D80A61 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EB6FCA8910A6602200D80A61;
-			remoteInfo = "Raft files";
-		};
-		EB7781A310AB9EB700CF02BC /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
-		};
-		EB7CE7CB1297557E0059CD86 /* PBXContainerItemProxy */ = {
+		EB1E274D14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = EBED4E4C12958B720029A1B4;
 			remoteInfo = "test-KLAcquireInitialTickets";
 		};
-		EBA0D03B100AA382002C4826 /* PBXContainerItemProxy */ = {
+		EB1E274F14C8D4AC001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB238E3D13D78035006C979E;
+			remoteInfo = "test-password";
 		};
-		EBC0D0341083E48100B5BAAD /* PBXContainerItemProxy */ = {
+		EB1E275514C8D4CD001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = EB0F29BE1000160500224B2D;
-			remoteInfo = Kerberos;
+			remoteGlobalIDString = EB1E275114C8D4B6001F3238;
+			remoteInfo = MITKerberosShim;
 		};
-		EBED4E5112958B790029A1B4 /* PBXContainerItemProxy */ = {
+		EB1E275714C8D4CD001F3238 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB1E273114C8D48E001F3238;
+			remoteInfo = MITKerberosShim_executables;
+		};
+		EB1E275914C8D4D7001F3238 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
@@ -1321,7 +1266,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1C1A4FA910DC3D1B001883EA /* PBXTargetDependency */,
 			);
 			name = "test-gss-server";
 			productName = "test-kll";
@@ -1338,7 +1282,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1CEDD24F106303EB008A482B /* PBXTargetDependency */,
 			);
 			name = "test-krb4";
 			productName = "test-krb4";
@@ -1356,7 +1299,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1C82A78E10C5C9E400115F67 /* PBXTargetDependency */,
 			);
 			name = "test-gss-client";
 			productName = "test-kll";
@@ -1374,7 +1316,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1C82A7A510C5C9FE00115F67 /* PBXTargetDependency */,
 			);
 			name = "test-kClient";
 			productName = "test-kll";
@@ -1392,7 +1333,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1C82A7BC10C5CA1900115F67 /* PBXTargetDependency */,
 			);
 			name = "test-krb";
 			productName = "test-kll";
@@ -1410,7 +1350,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				1C82A7D310C5CA3900115F67 /* PBXTargetDependency */,
 			);
 			name = "test-krb5";
 			productName = "test-kll";
@@ -1453,7 +1392,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EB5C490710A9277F001CD7E3 /* PBXTargetDependency */,
 			);
 			name = "test-principal";
 			productName = "test-principal";
@@ -1471,7 +1409,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EB238E4913D780CB006C979E /* PBXTargetDependency */,
 			);
 			name = "test-password";
 			productName = "test-password";
@@ -1488,7 +1425,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EB27475910881A4C00AAB294 /* PBXTargetDependency */,
 			);
 			name = "test-sd";
 			productName = "test-sd";
@@ -1506,7 +1442,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EB7781A410AB9EB700CF02BC /* PBXTargetDependency */,
 			);
 			name = "test-kll2";
 			productName = "test-kll2";
@@ -1524,7 +1459,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EBA0D03C100AA382002C4826 /* PBXTargetDependency */,
 			);
 			name = "test-kll";
 			productName = "test-kll";
@@ -1542,7 +1476,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EBC0D0351083E48100B5BAAD /* PBXTargetDependency */,
 			);
 			name = "test-cc";
 			productName = "test-cc";
@@ -1559,7 +1492,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				EBED4E5212958B790029A1B4 /* PBXTargetDependency */,
 			);
 			name = "test-KLAcquireInitialTickets";
 			productName = "test-KLAcquireInitialTickets";
@@ -1571,8 +1503,11 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = 1DEB911E08733D790010E9CD /* Build configuration list for PBXProject "MITKerberosShim" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -1585,9 +1520,11 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				EB1E275114C8D4B6001F3238 /* MITKerberosShim */,
+				EB1E273114C8D48E001F3238 /* MITKerberosShim_executables */,
 				EBA0D034100AA379002C4826 /* All */,
 				EB0F29BE1000160500224B2D /* Kerberos */,
-				EB6FCA8910A6602200D80A61 /* Test files */,
+				EB6FCA8910A6602200D80A61 /* Tests */,
 				EBC0CFBB1083CEA800B5BAAD /* test-cc */,
 				1C82A78D10C5C9E400115F67 /* test-gss-client */,
 				1C1A4FA810DC3D1B001883EA /* test-gss-server */,
@@ -1783,145 +1720,90 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		1C1A4FA910DC3D1B001883EA /* PBXTargetDependency */ = {
+		EB1E273614C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1C1A4FAA10DC3D1B001883EA /* PBXContainerItemProxy */;
+			target = EB6FCA8910A6602200D80A61 /* Tests */;
+			targetProxy = EB1E273514C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1C20F26610F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB274749108819F500AAB294 /* test-sd */;
-			targetProxy = 1C20F26510F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F26810F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB1F5D3810A905D200B69A08 /* test-principal */;
-			targetProxy = 1C20F26710F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F26A10F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C82A7D210C5CA3900115F67 /* test-krb5 */;
-			targetProxy = 1C20F26910F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F26C10F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C620D5B1062FE9800209602 /* test-krb4 */;
-			targetProxy = 1C20F26B10F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F26E10F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C82A7BB10C5CA1900115F67 /* test-krb */;
-			targetProxy = 1C20F26D10F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27010F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB77819E10AB9EB000CF02BC /* test-kll2 */;
-			targetProxy = 1C20F26F10F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27210F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EBA0D028100AA2AB002C4826 /* test-kll */;
-			targetProxy = 1C20F27110F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27410F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C82A7A410C5C9FE00115F67 /* test-kClient */;
-			targetProxy = 1C20F27310F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27610F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C1A4FA810DC3D1B001883EA /* test-gss-server */;
-			targetProxy = 1C20F27510F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27810F284E300C456B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1C82A78D10C5C9E400115F67 /* test-gss-client */;
-			targetProxy = 1C20F27710F284E300C456B4 /* PBXContainerItemProxy */;
-		};
-		1C20F27A10F284E300C456B4 /* PBXTargetDependency */ = {
+		EB1E273814C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EBC0CFBB1083CEA800B5BAAD /* test-cc */;
-			targetProxy = 1C20F27910F284E300C456B4 /* PBXContainerItemProxy */;
+			targetProxy = EB1E273714C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1C82A78E10C5C9E400115F67 /* PBXTargetDependency */ = {
+		EB1E273A14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1C82A78F10C5C9E400115F67 /* PBXContainerItemProxy */;
+			target = 1C82A78D10C5C9E400115F67 /* test-gss-client */;
+			targetProxy = EB1E273914C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1C82A7A510C5C9FE00115F67 /* PBXTargetDependency */ = {
+		EB1E273C14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1C82A7A610C5C9FE00115F67 /* PBXContainerItemProxy */;
+			target = 1C1A4FA810DC3D1B001883EA /* test-gss-server */;
+			targetProxy = EB1E273B14C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1C82A7BC10C5CA1900115F67 /* PBXTargetDependency */ = {
+		EB1E273E14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1C82A7BD10C5CA1900115F67 /* PBXContainerItemProxy */;
+			target = 1C82A7A410C5C9FE00115F67 /* test-kClient */;
+			targetProxy = EB1E273D14C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1C82A7D310C5CA3900115F67 /* PBXTargetDependency */ = {
+		EB1E274014C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1C82A7D410C5CA3900115F67 /* PBXContainerItemProxy */;
+			target = EBA0D028100AA2AB002C4826 /* test-kll */;
+			targetProxy = EB1E273F14C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		1CEDD24F106303EB008A482B /* PBXTargetDependency */ = {
+		EB1E274214C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = 1CEDD24E106303EB008A482B /* PBXContainerItemProxy */;
+			target = EB77819E10AB9EB000CF02BC /* test-kll2 */;
+			targetProxy = EB1E274114C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB17B66A106304FA0015DEB4 /* PBXTargetDependency */ = {
+		EB1E274414C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EB17B669106304FA0015DEB4 /* PBXContainerItemProxy */;
+			target = 1C82A7BB10C5CA1900115F67 /* test-krb */;
+			targetProxy = EB1E274314C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB238E4913D780CB006C979E /* PBXTargetDependency */ = {
+		EB1E274614C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EB238E4813D780CB006C979E /* PBXContainerItemProxy */;
+			target = 1C620D5B1062FE9800209602 /* test-krb4 */;
+			targetProxy = EB1E274514C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB238E4E13D78124006C979E /* PBXTargetDependency */ = {
+		EB1E274814C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB238E3D13D78035006C979E /* test-password */;
-			targetProxy = EB238E4D13D78124006C979E /* PBXContainerItemProxy */;
+			target = 1C82A7D210C5CA3900115F67 /* test-krb5 */;
+			targetProxy = EB1E274714C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB27475910881A4C00AAB294 /* PBXTargetDependency */ = {
+		EB1E274A14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EB27475810881A4C00AAB294 /* PBXContainerItemProxy */;
+			target = EB1F5D3810A905D200B69A08 /* test-principal */;
+			targetProxy = EB1E274914C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB5C490710A9277F001CD7E3 /* PBXTargetDependency */ = {
+		EB1E274C14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EB5C490610A9277F001CD7E3 /* PBXContainerItemProxy */;
+			target = EB274749108819F500AAB294 /* test-sd */;
+			targetProxy = EB1E274B14C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EB6FCA8F10A6606000D80A61 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB6FCA8910A6602200D80A61 /* Test files */;
-			targetProxy = EB6FCA8E10A6606000D80A61 /* PBXContainerItemProxy */;
-		};
-		EB7781A410AB9EB700CF02BC /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EB7781A310AB9EB700CF02BC /* PBXContainerItemProxy */;
-		};
-		EB7CE7CC1297557E0059CD86 /* PBXTargetDependency */ = {
+		EB1E274E14C8D4AC001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */;
-			targetProxy = EB7CE7CB1297557E0059CD86 /* PBXContainerItemProxy */;
+			targetProxy = EB1E274D14C8D4AC001F3238 /* PBXContainerItemProxy */;
 		};
-		EBA0D03C100AA382002C4826 /* PBXTargetDependency */ = {
+		EB1E275014C8D4AC001F3238 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB238E3D13D78035006C979E /* test-password */;
+			targetProxy = EB1E274F14C8D4AC001F3238 /* PBXContainerItemProxy */;
+		};
+		EB1E275614C8D4CD001F3238 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB1E275114C8D4B6001F3238 /* MITKerberosShim */;
+			targetProxy = EB1E275514C8D4CD001F3238 /* PBXContainerItemProxy */;
+		};
+		EB1E275814C8D4CD001F3238 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB1E273114C8D48E001F3238 /* MITKerberosShim_executables */;
+			targetProxy = EB1E275714C8D4CD001F3238 /* PBXContainerItemProxy */;
+		};
+		EB1E275A14C8D4D7001F3238 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EBA0D03B100AA382002C4826 /* PBXContainerItemProxy */;
-		};
-		EBC0D0351083E48100B5BAAD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EBC0D0341083E48100B5BAAD /* PBXContainerItemProxy */;
-		};
-		EBED4E5212958B790029A1B4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = EB0F29BE1000160500224B2D /* Kerberos */;
-			targetProxy = EBED4E5112958B790029A1B4 /* PBXContainerItemProxy */;
+			targetProxy = EB1E275914C8D4D7001F3238 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1960,11 +1842,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-krb4";
 				SKIP_INSTALL = NO;
 			};
@@ -1976,10 +1856,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-krb4";
 				SKIP_INSTALL = NO;
 				ZERO_LINK = NO;
@@ -2065,11 +1943,11 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEIMDAL_ROOT = "";
 				ONLY_ACTIVE_ARCH = YES;
-				PREBINDING = NO;
 				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Debug;
@@ -2085,10 +1963,10 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEIMDAL_ROOT = "";
-				PREBINDING = NO;
 			};
 			name = Release;
 		};
@@ -2111,7 +1989,6 @@
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = Kerberos;
 				SDKROOT = "";
 			};
@@ -2135,10 +2012,37 @@
 				INFOPLIST_FILE = "Kerberos-Info.plist";
 				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = Kerberos;
 				SDKROOT = "";
 				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB1E273314C8D48E001F3238 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB1E273414C8D48E001F3238 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		EB1E275314C8D4B6001F3238 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		EB1E275414C8D4B6001F3238 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -2148,11 +2052,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-principal";
 			};
 			name = Debug;
@@ -2163,10 +2065,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-principal";
 				ZERO_LINK = NO;
 			};
@@ -2215,11 +2115,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-sd";
 			};
 			name = Debug;
@@ -2230,10 +2128,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-sd";
 				ZERO_LINK = NO;
 			};
@@ -2254,7 +2150,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "Raft files";
 				ZERO_LINK = NO;
 			};
@@ -2266,11 +2161,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-kll2";
 			};
 			name = Debug;
@@ -2281,10 +2174,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-kll2";
 				ZERO_LINK = NO;
 			};
@@ -2322,7 +2213,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = All;
 				ZERO_LINK = NO;
 			};
@@ -2334,12 +2224,10 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-cc";
 			};
 			name = Debug;
@@ -2350,11 +2238,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-cc";
 				ZERO_LINK = NO;
 			};
@@ -2366,11 +2252,9 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-KLAcquireInitialTickets";
 			};
 			name = Debug;
@@ -2381,10 +2265,8 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "test-KLAcquireInitialTickets";
 				ZERO_LINK = NO;
 			};
@@ -2465,6 +2347,24 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		EB1E273214C8D48E001F3238 /* Build configuration list for PBXAggregateTarget "MITKerberosShim_executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB1E273314C8D48E001F3238 /* Debug */,
+				EB1E273414C8D48E001F3238 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB1E275214C8D4B6001F3238 /* Build configuration list for PBXAggregateTarget "MITKerberosShim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB1E275314C8D4B6001F3238 /* Debug */,
+				EB1E275414C8D4B6001F3238 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EB1F5D3F10A905E800B69A08 /* Build configuration list for PBXNativeTarget "test-principal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -2481,6 +2381,7 @@
 				EB238E4713D78036006C979E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		EB27475010881A3200AAB294 /* Build configuration list for PBXNativeTarget "test-sd" */ = {
 			isa = XCConfigurationList;
@@ -2491,7 +2392,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Test files" */ = {
+		EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB6FCA8A10A6602200D80A61 /* Debug */,

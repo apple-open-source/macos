@@ -33,6 +33,8 @@
 #include <IOEthernetInterface.h>
 #include <IOEthernetController.h>
 #include "IONetworkUserClient.h"
+#include "IONetworkDebug.h"
+
 #include <IOKit/pwr_mgt/RootDomain.h>	// publishFeature()
 
 extern "C" {
@@ -81,10 +83,10 @@ OSMetaClassDefineReservedUnused( IOEthernetInterface, 15);
 
 // Options used for enableFilter(), disableFilter().
 enum {
-    kFilterOptionDeferIO          = 0x0001,
-    kFilterOptionNotInsideGate    = 0x0002,
+    //kFilterOptionDeferIO          = 0x0001,
+    //kFilterOptionNotInsideGate    = 0x0002,
     kFilterOptionNoStateChange    = 0x0004,
-    kFilterOptionDisableZeroBits  = 0x0008,
+    //kFilterOptionDisableZeroBits  = 0x0008,
     kFilterOptionSyncPendingIO    = 0x0010
 };
 
@@ -97,12 +99,6 @@ enum {
 #define _disabledWakeFilters    _reserved->disabledWakeFilters
 
 #define kWOMPFeatureKey         "WakeOnMagicPacket"
-
-#ifdef  DEBUG
-#define DLOG(fmt, args...)  IOLog(fmt, ## args)
-#else
-#define DLOG(fmt, args...)
-#endif
 
 UInt32
 IOEthernetInterface::getFilters(
@@ -456,8 +452,6 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
 {
     SInt32  ret;
 
-    assert( arg0 == _arpcom );
-
     if ( ctr == 0 ) return EINVAL;
 
     switch ( cmd )
@@ -606,7 +600,7 @@ IOReturn IOEthernetInterface::enableController(IONetworkController * ctr)
         
         // Publish WOL support flags after interface is marked enabled.
 
-        reportInterfaceWakeFlags();
+        reportInterfaceWakeFlags(ctr);
 
     } while (false);
 
@@ -903,27 +897,6 @@ IOEthernetInterface::enableFilter(IONetworkController * ctr,
 {
     IOReturn ret = kIOReturnSuccess;
 
-    if ( options & kFilterOptionNotInsideGate )
-    {
-        options &= ~kFilterOptionNotInsideGate;
-
-    	return ctr->executeCommand(
-                           this,               /* client */
-                           (IONetworkController::Action)
-                               &IOEthernetInterface::enableFilter_Wrapper,
-                           this,               /* target */
-                           (void *) ctr,       /* param0 */
-                           (void *) group,     /* param1 */
-                           (void *) filters,   /* param2 */
-                           (void *) options ); /* param3 */
-    }
-
-	if ( options & kFilterOptionDisableZeroBits )
-    {
-        ret = disableFilter(ctr, group, ~filters, options);
-        if ( ret != kIOReturnSuccess) return ret;
-    }
-
     // If the controller does not support the packet filter,
     // there's no need to proceed.
 
@@ -943,7 +916,7 @@ IOEthernetInterface::enableFilter(IONetworkController * ctr,
             resFilters &= filters;
         }
 
-        while ( resFilters && ((options & kFilterOptionDeferIO) == 0) )
+        while ( resFilters )
         {
             UInt32 oneFilter = getOneFilter(resFilters);
 
@@ -977,23 +950,6 @@ IOEthernetInterface::disableFilter(IONetworkController * ctr,
 {
     IOReturn ret = kIOReturnSuccess;
 
-#if NOT_NEEDED  // disableFilter is always called from gated context
-    if ( options & kFilterOptionNotInsideGate )
-    {
-        options &= ~kFilterOptionNotInsideGate;
-    
-    	return ctr->executeCommand(
-                           this,               /* client */
-                           (IONetworkController::Action)
-                               &IOEthernetInterface::disableFilter,
-                           this,               /* target */
-                           (void *) ctr,       /* param0 */
-                           (void *) group,     /* param1 */
-                           (void *) filters,   /* param2 */
-                           (void *) options ); /* param3 */
-    }
-#endif
-
     do {
         // Remove specified filter from the set of required filters.
 
@@ -1001,7 +957,7 @@ IOEthernetInterface::disableFilter(IONetworkController * ctr,
         UInt32 actFilters = GET_ACTIVE_FILTERS(group);
         UInt32 resFilters = ( actFilters ^ reqFilters ) & filters;
 
-        while ( resFilters && ((options & kFilterOptionDeferIO) == 0) )
+        while ( resFilters )
         {
             UInt32 oneFilter = getOneFilter(resFilters);
 
@@ -1211,56 +1167,6 @@ IOEthernetInterface::controllerDidChangePowerState(
 }
 
 //---------------------------------------------------------------------------
-// Handle a request to set properties from kernel or non-kernel clients.
-// For non-kernel clients, the preferred mechanism is through an user
-// client.
-
-IOReturn IOEthernetInterface::setProperties( OSObject * properties )
-{
-#ifndef __LP64__
-#define kIONetworkInterfaceProperties   "IONetworkInterfaceProperties"
-
-    IOReturn       ret;
-    OSDictionary * dict = (OSDictionary *) properties;
-    OSNumber *     num;
-
-    // Call IONetworkInterface::setProperties() first.
-
-    ret = super::setProperties(properties);
-
-    if ( (ret == kIOReturnSuccess) || (ret == kIOReturnUnsupported) )
-    {
-        dict = OSDynamicCast( OSDictionary,
-                 dict->getObject(kIONetworkInterfaceProperties) );
-        if ( dict )
-        {
-            dict = OSDynamicCast( OSDictionary,
-                     dict->getObject(kIORequiredPacketFilters) );
-            if ( dict )
-            {
-                num = OSDynamicCast( OSNumber,
-                        dict->getObject(kIOEthernetWakeOnLANFilterGroup) );
-
-                if ( num )
-                {
-                    ret = enableFilter( getController(),
-                                        gIOEthernetWakeOnLANFilterGroup,
-                                        num->unsigned32BitValue(),
-                                        kFilterOptionDeferIO       |
-                                        kFilterOptionNotInsideGate |
-                                        kFilterOptionDisableZeroBits );
-                }
-            }
-        }
-    }
-
-    return ret;
-#else /* __LP64__ */
-    return super::setProperties(properties);
-#endif
-}
-
-//---------------------------------------------------------------------------
 // willTerminate
 
 bool IOEthernetInterface::willTerminate( IOService *  provider,
@@ -1268,13 +1174,10 @@ bool IOEthernetInterface::willTerminate( IOService *  provider,
 {
     bool ret = super::willTerminate( provider, options );
 
-    // We assume that willTerminate() is always called from the
-    // provider's work loop context.
+    // willTerminate() is always called from the provider's work loop context.
+    // But might be a different work loop than provider->getWorkLoop()
 
-    // Once the gated ioctl path has been blocked, disable the controller.
-    // The hardware may have already been removed from the system.
-
-    if ( _ctrEnabled && getController() )
+    if (_ctrEnabled && (getController() == provider))
     {
         DLOG("IOEthernetInterface::willTerminate disabling controller\n");
         getController()->doDisable( this );
@@ -1292,10 +1195,10 @@ IOReturn IOEthernetInterface::attachToDataLinkLayer( IOOptionBits options,
     IOReturn ret = super::attachToDataLinkLayer( options, parameter );
     if ( ret == kIOReturnSuccess )
     {
-		// after successful attach, the interface is backed by an actual BSD ifnet_t.
+		// on success, the interface is backed by an actual BSD ifnet_t.
 		// now we can set a few important ethernet specific values on it.
 		// Set defaults suitable for Ethernet interfaces.
-		ifnet_set_baudrate( getIfnet(), 10000000); //FIXME maybe IONetworkInterface should provide accessor
+		ifnet_set_baudrate(getIfnet(), 0);
 		bpfattach( getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
    }
     return ret;
@@ -1440,8 +1343,9 @@ void IOEthernetInterface::handleEthernetInputEvent(
             OSMemberFunctionCast(
                 IONetworkController::Action, me,
                 &IOEthernetInterface::reportInterfaceWakeFlags),
-            me );   /* target */
-
+            me,     /* target */
+            ctr );  /* param0 */
+            
             ctr->release();
         }
         me->release();
@@ -1450,17 +1354,15 @@ void IOEthernetInterface::handleEthernetInputEvent(
 
 //---------------------------------------------------------------------------
 
-void IOEthernetInterface::reportInterfaceWakeFlags( void )
+void IOEthernetInterface::reportInterfaceWakeFlags( IONetworkController * ctr )
 {
     ifnet_t                 ifnet;
-    IONetworkController *   ctr;
     OSNumber *              number;
     unsigned long           wakeSetting = 0;
     uint32_t                disabled    = 0;
     uint32_t                filters     = 0;
     uint32_t                linkStatus  = 0;
 
-    ctr   = getController();
     ifnet = getIfnet();
 
     if (!ifnet || !ctr)

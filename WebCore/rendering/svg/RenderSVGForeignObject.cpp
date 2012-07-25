@@ -21,14 +21,17 @@
 
 #include "config.h"
 
-#if ENABLE(SVG) && ENABLE(SVG_FOREIGN_OBJECT)
+#if ENABLE(SVG)
 #include "RenderSVGForeignObject.h"
 
 #include "GraphicsContext.h"
+#include "LayoutRepainter.h"
+#include "RenderObject.h"
 #include "RenderSVGResource.h"
 #include "RenderView.h"
 #include "SVGForeignObjectElement.h"
-#include "SVGRenderSupport.h"
+#include "SVGRenderingContext.h"
+#include "SVGResourcesCache.h"
 #include "SVGSVGElement.h"
 #include "TransformState.h"
 
@@ -44,9 +47,10 @@ RenderSVGForeignObject::~RenderSVGForeignObject()
 {
 }
 
-void RenderSVGForeignObject::paint(PaintInfo& paintInfo, int, int)
+void RenderSVGForeignObject::paint(PaintInfo& paintInfo, const LayoutPoint&)
 {
-    if (paintInfo.context->paintingDisabled())
+    if (paintInfo.context->paintingDisabled()
+        || (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection))
         return;
 
     PaintInfo childPaintInfo(paintInfo);
@@ -56,24 +60,41 @@ void RenderSVGForeignObject::paint(PaintInfo& paintInfo, int, int)
     if (SVGRenderSupport::isOverflowHidden(this))
         childPaintInfo.context->clip(m_viewport);
 
-    float opacity = style()->opacity();
-    if (opacity < 1.0f)
-        childPaintInfo.context->beginTransparencyLayer(opacity);
+    SVGRenderingContext renderingContext;
+    bool continueRendering = true;
+    if (paintInfo.phase == PaintPhaseForeground) {
+        renderingContext.prepareToRenderSVGContent(this, childPaintInfo);
+        continueRendering = renderingContext.isRenderingPrepared();
+    }
 
-    RenderBlock::paint(childPaintInfo, 0, 0);
-
-    if (opacity < 1.0f)
-        childPaintInfo.context->endTransparencyLayer();
+    if (continueRendering) {
+        // Paint all phases of FO elements atomically, as though the FO element established its
+        // own stacking context.
+        bool preservePhase = paintInfo.phase == PaintPhaseSelection || paintInfo.phase == PaintPhaseTextClip;
+        LayoutPoint childPoint = IntPoint();
+        childPaintInfo.phase = preservePhase ? paintInfo.phase : PaintPhaseBlockBackground;
+        RenderBlock::paint(childPaintInfo, IntPoint());
+        if (!preservePhase) {
+            childPaintInfo.phase = PaintPhaseChildBlockBackgrounds;
+            RenderBlock::paint(childPaintInfo, childPoint);
+            childPaintInfo.phase = PaintPhaseFloat;
+            RenderBlock::paint(childPaintInfo, childPoint);
+            childPaintInfo.phase = PaintPhaseForeground;
+            RenderBlock::paint(childPaintInfo, childPoint);
+            childPaintInfo.phase = PaintPhaseOutline;
+            RenderBlock::paint(childPaintInfo, childPoint);
+        }
+    }
 }
 
-IntRect RenderSVGForeignObject::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
+LayoutRect RenderSVGForeignObject::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const
 {
     return SVGRenderSupport::clippedOverflowRectForRepaint(this, repaintContainer);
 }
 
-void RenderSVGForeignObject::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
+void RenderSVGForeignObject::computeFloatRectForRepaint(RenderBoxModelObject* repaintContainer, FloatRect& repaintRect, bool fixed) const
 {
-    SVGRenderSupport::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
+    SVGRenderSupport::computeFloatRectForRepaint(this, repaintContainer, repaintRect, fixed);
 }
 
 const AffineTransform& RenderSVGForeignObject::localToParentTransform() const
@@ -86,12 +107,14 @@ const AffineTransform& RenderSVGForeignObject::localToParentTransform() const
 void RenderSVGForeignObject::computeLogicalWidth()
 {
     // FIXME: Investigate in size rounding issues
+    // FIXME: Remove unnecessary rounding when layout is off ints: webkit.org/b/63656
     setWidth(static_cast<int>(roundf(m_viewport.width())));
 }
 
 void RenderSVGForeignObject::computeLogicalHeight()
 {
     // FIXME: Investigate in size rounding issues
+    // FIXME: Remove unnecessary rounding when layout is off ints: webkit.org/b/63656
     setHeight(static_cast<int>(roundf(m_viewport.height())));
 }
 
@@ -113,8 +136,9 @@ void RenderSVGForeignObject::layout()
     FloatRect oldViewport = m_viewport;
 
     // Cache viewport boundaries
-    FloatPoint viewportLocation(foreign->x().value(foreign), foreign->y().value(foreign));
-    m_viewport = FloatRect(viewportLocation, FloatSize(foreign->width().value(foreign), foreign->height().value(foreign)));
+    SVGLengthContext lengthContext(foreign);
+    FloatPoint viewportLocation(foreign->x().value(lengthContext), foreign->y().value(lengthContext));
+    m_viewport = FloatRect(viewportLocation, FloatSize(foreign->width().value(lengthContext), foreign->height().value(lengthContext)));
     if (!updateCachedBoundariesInParents)
         updateCachedBoundariesInParents = oldViewport != m_viewport;
 
@@ -125,7 +149,7 @@ void RenderSVGForeignObject::layout()
     // FIXME: Investigate in location rounding issues - only affects RenderSVGForeignObject & RenderSVGText
     setLocation(roundedIntPoint(viewportLocation));
 
-    bool layoutChanged = m_everHadLayout && selfNeedsLayout();
+    bool layoutChanged = everHadLayout() && selfNeedsLayout();
     RenderBlock::layout();
     ASSERT(!needsLayout());
 
@@ -142,28 +166,31 @@ void RenderSVGForeignObject::layout()
 
 bool RenderSVGForeignObject::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
+    // Embedded content is drawn in the foreground phase.
+    if (hitTestAction != HitTestForeground)
+        return false;
+
     FloatPoint localPoint = localTransform().inverse().mapPoint(pointInParent);
 
     // Early exit if local point is not contained in clipped viewport area
     if (SVGRenderSupport::isOverflowHidden(this) && !m_viewport.contains(localPoint))
         return false;
 
-    IntPoint roundedLocalPoint = roundedIntPoint(localPoint);
-    return RenderBlock::nodeAtPoint(request, result, roundedLocalPoint, 0, 0, hitTestAction);
+    // FOs establish a stacking context, so we need to hit-test all layers.
+    return RenderBlock::nodeAtPoint(request, result, roundedLayoutPoint(localPoint), LayoutPoint(), HitTestForeground)
+        || RenderBlock::nodeAtPoint(request, result, roundedLayoutPoint(localPoint), LayoutPoint(), HitTestFloat)
+        || RenderBlock::nodeAtPoint(request, result, roundedLayoutPoint(localPoint), LayoutPoint(), HitTestChildBlockBackgrounds);
 }
 
-bool RenderSVGForeignObject::nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint&, int, int, HitTestAction)
+bool RenderSVGForeignObject::nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint&, const LayoutPoint&, HitTestAction)
 {
     ASSERT_NOT_REACHED();
     return false;
 }
 
-void RenderSVGForeignObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState& transformState) const
+void RenderSVGForeignObject::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool /* fixed */, bool /* useTransforms */, TransformState& transformState, ApplyContainerFlipOrNot, bool* wasFixed) const
 {
-    // When crawling up the hierachy starting from foreignObject child content, useTransforms may not be set to true.
-    if (!useTransforms)
-        useTransforms = true;
-    SVGRenderSupport::mapLocalToContainer(this, repaintContainer, fixed, useTransforms, transformState);
+    SVGRenderSupport::mapLocalToContainer(this, repaintContainer, transformState, wasFixed);
 }
 
 }

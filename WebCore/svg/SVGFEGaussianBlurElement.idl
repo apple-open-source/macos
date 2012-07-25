@@ -25,13 +25,16 @@
 
 module svg {
 
-    interface [Conditional=SVG&FILTERS] SVGFEGaussianBlurElement : SVGElement,
+    interface [
+        Conditional=SVG&FILTERS
+    ] SVGFEGaussianBlurElement : SVGElement,
                                                            SVGFilterPrimitiveStandardAttributes { 
         readonly attribute SVGAnimatedString in1;
         readonly attribute SVGAnimatedNumber stdDeviationX;
         readonly attribute SVGAnimatedNumber stdDeviationY;
 
-        void setStdDeviation(in float stdDeviationX, in float stdDeviationY);
+        void setStdDeviation(in [Optional=DefaultIsUndefined] float stdDeviationX, 
+                             in [Optional=DefaultIsUndefined] float stdDeviationY);
     };
 
 }

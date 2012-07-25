@@ -51,26 +51,23 @@ public:
     // ref'ed).
     static PassRefPtr<BitmapImageSingleFrameSkia> create(const SkBitmap&, bool copyPixels);
 
-    virtual bool isBitmapImage() const { return true; }
+    virtual bool isBitmapImage() const;
 
-    virtual IntSize size() const
-    {
-        return IntSize(m_nativeImage.width(), m_nativeImage.height());
-    }
+    virtual bool currentFrameHasAlpha();
+
+    virtual IntSize size() const;
 
     // Do nothing, as we only have the one representation of data (decoded).
-    virtual void destroyDecodedData(bool destroyAll = true) { }
+    virtual void destroyDecodedData(bool destroyAll = true);
 
-    virtual unsigned decodedSize() const
-    {
-        return m_nativeImage.decodedSize();
-    }
+    virtual unsigned decodedSize() const;
 
     // We only have a single frame.
-    virtual NativeImagePtr nativeImageForCurrentFrame()
-    {
-        return &m_nativeImage;
-    }
+    virtual NativeImagePtr nativeImageForCurrentFrame();
+
+#if !ASSERT_DISABLED
+    virtual bool notSolidColor();
+#endif
 
 protected:
     virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator);

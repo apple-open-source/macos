@@ -312,9 +312,9 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
 
                             if ( mkdir( path, 0111 ) == 0 )
                             {
-                                if ( DADiskGetUserEUID( disk ) )
+                                if ( DADiskGetUserUID( disk ) )
                                 {
-                                    chown( path, DADiskGetUserEUID( disk ), -1 );
+                                    chown( path, DADiskGetUserUID( disk ), -1 );
                                 }
 
                                 mountpoint = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) path, strlen( path ), TRUE );
@@ -824,7 +824,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
         if ( automatic == NULL )
         {
-            if ( gDAConsoleUser == NULL )
+            if ( gDAConsoleUserList == NULL )
             {
                 if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
@@ -873,18 +873,18 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     {
         ___CFStringInsertFormat( options, 0, CFSTR( "-m=%o," ), 0755 );
 
-        if ( DADiskGetUserRGID( disk ) )
+        if ( DADiskGetUserGID( disk ) )
         {
-            ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), DADiskGetUserRGID( disk ) );
+            ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), DADiskGetUserGID( disk ) );
         }
         else
         {
             ___CFStringInsertFormat( options, 0, CFSTR( "-g=%d," ), ___GID_UNKNOWN );
         }
 
-        if ( DADiskGetUserRUID( disk ) )
+        if ( DADiskGetUserUID( disk ) )
         {
-            ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserRUID( disk ) );
+            ___CFStringInsertFormat( options, 0, CFSTR( "-u=%d," ), DADiskGetUserUID( disk ) );
         }
         else
         {
@@ -923,26 +923,11 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     context->mountpoint      = mountpoint;
     context->options         = options;
 
-///w:start
-    if ( CFEqual( DAFileSystemGetKind( filesystem ), CFSTR( "hfs" ) ) == FALSE )
-    {
-        DAFileSystemMountWithArguments( DADiskGetFileSystem( disk ),
-                                        DADiskGetDevice( disk ),
-                                        mountpoint,
-                                        ___UID_ROOT,
-                                        ___GID_ADMIN,
-                                        __DAMountWithArgumentsCallbackStage1,
-                                        context,
-                                        options,
-                                        NULL );
-    }
-    else
-///w:stop
     DAFileSystemMountWithArguments( DADiskGetFileSystem( disk ),
                                     DADiskGetDevice( disk ),
                                     mountpoint,
-                                    DADiskGetUserEUID( disk ),
-                                    DADiskGetUserEGID( disk ),
+                                    DADiskGetUserUID( disk ),
+                                    DADiskGetUserGID( disk ),
                                     __DAMountWithArgumentsCallbackStage1,
                                     context,
                                     options,

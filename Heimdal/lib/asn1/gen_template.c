@@ -58,8 +58,10 @@ integer_symbol(const char *basename, const Type *t)
 	return "unsigned";
     else if (t->range->min == 0 && t->range->max == INT_MAX)
 	return "unsigned";
-    else
+    else {
 	abort();
+        UNREACHABLE(return NULL);
+    }
 }
 
 static const char *
@@ -348,7 +350,7 @@ tlist_cmp(const struct tlist *tl, const struct tlist *ql)
 
     ret = strcmp(tl->header, ql->header);
     if (ret) return ret;
-	
+
     q = ASN1_TAILQ_FIRST(&ql->template);
     ASN1_TAILQ_FOREACH(t, &tl->template, members) {
 	if (q == NULL) return 1;
@@ -359,7 +361,7 @@ tlist_cmp(const struct tlist *tl, const struct tlist *ql)
 	} else {
 	    ret = strcmp(t->tt, q->tt);
 	    if (ret) return ret;
-	    
+
 	    ret = strcmp(t->offset, q->offset);
 	    if (ret) return ret;
 
@@ -485,12 +487,12 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 		     optional ? "|A1_FLAG_OPTIONAL" : "",
 		     poffset, t->symbol->gen_name);
 	} else {
-	    add_line_pointer(temp, t->symbol->gen_name, poffset, 
+	    add_line_pointer(temp, t->symbol->gen_name, poffset,
 			     "A1_OP_TYPE %s", optional ? "|A1_FLAG_OPTIONAL" : "");
 	}
 	break;
     case TInteger: {
-	char *itype;
+	char *itype = NULL;
 
 	if (t->members)
 	    itype = "IMEMBER";
@@ -505,7 +507,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	else
 	    errx(1, "%s: unsupported range %d -> %d",
 		 name, t->range->min, t->range->max);
-	   
+
 	add_line(temp, "{ A1_PARSE_T(A1T_%s), %s, NULL }", itype, poffset);
 	break;
     }
@@ -598,7 +600,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 
 	ASN1_TAILQ_FOREACH(m, t->members, members) {
 	    char *newbasename = NULL;
-	    
+
 	    if (m->ellipsis)
 		continue;
 
@@ -652,7 +654,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
     }
     case TSetOf:
     case TSequenceOf: {
-	const char *type, *tname, *dupname;
+	const char *type = NULL, *tname, *dupname;
 	char *sename = NULL, *elname = NULL;
 	int subtype_is_struct = is_struct(t->subtype, 0);
 	static unsigned long seof_counter = 0;
@@ -709,7 +711,7 @@ template_members(struct templatehead *temp, const char *basetype, const char *na
 	    char *elname = NULL;
 	    char *newbasename = NULL;
 	    int subtype_is_struct;
-	    
+
 	    if (m->ellipsis) {
 		ellipsis = 1;
 		continue;
@@ -865,30 +867,6 @@ generate_template(const Symbol *s)
 
     fprintf(f,
 	    "\n"
-	    "%s *\n"
-	    "alloc_%s(void)\n"
-	    "{\n"
-	    "    %s *data;\n"
-	    "#ifdef ASN1_OBJECTS_ARE_HEIMBASE_OBJECTS\n"
-	    "    %s *data = _heim_alloc_object(&asn1_heim_type, sizeof(*data))\n"
-	    "    if (data)\n"
-	    "        heim_set_object(data, asn1_%s);\n"
-	    "#else\n"
-	    "    data = calloc(1, sizeof(*data));\n"
-	    "#endif\n"
-	    "    return data;\n"
-	    "}\n"
-	    "\n",
-	    s->gen_name,
-	    s->gen_name,
-	    s->gen_name,
-	    s->gen_name,
-	    s->gen_name);
-	    
-
-
-    fprintf(f,
-	    "\n"
 	    "int\n"
 	    "decode_%s(const unsigned char *p, size_t len, %s *data, size_t *size)\n"
 	    "{\n"
@@ -935,7 +913,7 @@ generate_template(const Symbol *s)
 	    "#ifdef ASN1_OBJECTS_ARE_HEIMBASE_OBJECTS\n"
 	    "    heim_release(data);\n"
 	    "#else\n"
-	    "    _asn1_free(asn1_%s, data);\n"
+	    "    _asn1_free_top(asn1_%s, data);\n"
 	    "#endif\n"
 	    "}\n"
 	    "\n",

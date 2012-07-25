@@ -61,9 +61,9 @@ typedef cairo_pattern_t* PlatformGradient;
 class SkShader;
 typedef class SkShader* PlatformGradient;
 typedef class SkShader* PlatformPattern;
-#elif PLATFORM(HAIKU)
-class BGradient;
-typedef BGradient* PlatformGradient;
+#elif PLATFORM(WX)
+class wxGraphicsBrush;
+typedef wxGraphicsBrush* PlatformGradient;
 #else
 typedef void* PlatformGradient;
 #endif
@@ -141,6 +141,8 @@ namespace WebCore {
 #if USE(CG)
         void paint(CGContextRef);
         void paint(GraphicsContext*);
+#elif USE(CAIRO)
+        PlatformGradient platformGradient(float globalAlpha);
 #endif
 
     private:
@@ -166,6 +168,11 @@ namespace WebCore {
         AffineTransform m_gradientSpaceTransformation;
 
         PlatformGradient m_gradient;
+
+#if USE(CAIRO)
+        float m_platformGradientAlpha;
+#endif
+
     };
 
 } //namespace

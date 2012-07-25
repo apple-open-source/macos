@@ -59,10 +59,10 @@
 
 #ifdef NICACHE_TEST
 #define TIMESTAMPS
-#endif NICACHE_TEST
+#endif /* NICACHE_TEST */
 #ifdef READ_TEST
 #define TIMESTAMPS
-#endif READ_TEST
+#endif /* READ_TEST */
 
 #ifdef TIMESTAMPS
 static void
@@ -90,12 +90,12 @@ S_timestamp(char * msg)
 {
     timestamp_printf(msg);
 }
-#else NICACHE_TEST
+#else /* NICACHE_TEST */
 static __inline__ void
 S_timestamp(char * msg)
 {
 }
-#endif TIMESTAMPS
+#endif /* TIMESTAMPS */
 
 /**
  ** Module: PLCacheEntry
@@ -647,4 +647,4 @@ main(int argc, char * argv[])
     exit(0);
 }
 
-#endif READ_TEST
+#endif /* READ_TEST */

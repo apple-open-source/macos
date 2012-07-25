@@ -136,10 +136,6 @@ void m_dumpm(mbuf_t m);
 
 #include <sys/lock.h>
 
-#define SMB_STRFREE(p)	do { if (p) free(p, M_SMBSTR);  p = NULL; } while(0)
-
-#define SMB_FREE(addr, type)	do { if (addr) FREE(addr, type); addr = NULL; } while(0);
-
 typedef uint16_t	smb_unichar;
 typedef	smb_unichar	*smb_uniptr;
 
@@ -158,20 +154,9 @@ void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);
 
 void smb_reset_sig(struct smb_vc *vcp);
-void smb_calcmackey(struct smb_vc *vcp, void *ntlm, size_t resplen);
-void smb_calcv2mackey(struct smb_vc *vcp, void *v2hash, void *ntlmv2, void *resp, 
-					  size_t resplen);
 int  smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN);
-int  smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN);
-void smb_ntlmv2hash(uint8_t *ntlmv2Hash, const void * domain, const void * user, 
-					const void * password);
-void *smb_lmv2_response(void *ntlmv2Hash, uint64_t server_nonce, 
-						uint64_t client_nonce, size_t *lmv2_len);
-void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, 
-						 uint64_t server_nonce);
+void  smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN);
 void *make_target_info(struct smb_vc *vcp, uint16_t *target_len);
-uint8_t *make_ntlmv2_blob(uint64_t client_nonce, void *target_info, 
-						  uint16_t target_len, size_t *blob_len);
 uint32_t smb_errClassCodes_to_ntstatus(uint8_t errClass, uint16_t errCode);
 uint32_t smb_ntstatus_to_errno(uint32_t ntstatus);
 int smb_put_dmem(struct mbchain *mbp, const char *src, size_t srcSize, 

@@ -176,7 +176,7 @@ static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, Share
     WCHAR filePath[MAX_PATH];
 
     if (url.isLocalFile()) {
-        String localPath = url.path();
+        String localPath = decodeURLEscapeSequences(url.path());
         // windows does not enjoy a leading slash on paths
         if (localPath[0] == '/')
             localPath = localPath.substring(1);
@@ -435,22 +435,21 @@ void ClipboardWin::clearAllData()
     m_dataObject = m_writableDataObject;
 }
 
-String ClipboardWin::getData(const String& type, bool& success) const
+String ClipboardWin::getData(const String& type) const
 {     
-    success = false;
     if (policy() != ClipboardReadable || (!m_dataObject && m_dragDataMap.isEmpty()))
         return "";
 
     ClipboardDataType dataType = clipboardTypeFromMIMEType(type);
     if (dataType == ClipboardDataTypeText)
-        return m_dataObject ? getPlainText(m_dataObject.get(), success) : getPlainText(&m_dragDataMap);
+        return m_dataObject ? getPlainText(m_dataObject.get()) : getPlainText(&m_dragDataMap);
     if (dataType == ClipboardDataTypeURL)
-        return m_dataObject ? getURL(m_dataObject.get(), DragData::DoNotConvertFilenames, success) : getURL(&m_dragDataMap, DragData::DoNotConvertFilenames);
+        return m_dataObject ? getURL(m_dataObject.get(), DragData::DoNotConvertFilenames) : getURL(&m_dragDataMap, DragData::DoNotConvertFilenames);
     else if (dataType == ClipboardDataTypeTextHTML) {
-        String data = m_dataObject ? getTextHTML(m_dataObject.get(), success) : getTextHTML(&m_dragDataMap);
-        if (success)
+        String data = m_dataObject ? getTextHTML(m_dataObject.get()) : getTextHTML(&m_dragDataMap);
+        if (!data.isEmpty())
             return data;
-        return m_dataObject ? getCFHTML(m_dataObject.get(), success) : getCFHTML(&m_dragDataMap);
+        return m_dataObject ? getCFHTML(m_dataObject.get()) : getCFHTML(&m_dragDataMap);
     }
     
     return "";
@@ -635,10 +634,10 @@ static void writeImageToDataObject(IDataObject* dataObject, Element* element, co
 {
     // Shove image data into a DataObject for use as a file
     CachedImage* cachedImage = getCachedImage(element);
-    if (!cachedImage || !cachedImage->image() || !cachedImage->isLoaded())
+    if (!cachedImage || !cachedImage->imageForRenderer(element->renderer()) || !cachedImage->isLoaded())
         return;
 
-    SharedBuffer* imageBuffer = cachedImage->image()->data();
+    SharedBuffer* imageBuffer = cachedImage->imageForRenderer(element->renderer())->data();
     if (!imageBuffer || !imageBuffer->size())
         return;
 
@@ -683,7 +682,7 @@ void ClipboardWin::declareAndWriteDragImage(Element* element, const KURL& url, c
 
     // Put img tag on the clipboard referencing the image
     Vector<char> data;
-    markupToCFHTML(imageToMarkup(fullURL, element), "", data);
+    markupToCFHTML(createMarkup(element, IncludeNode, 0, ResolveAllURLs), "", data);
     medium.hGlobal = createGlobalData(data);
     if (medium.hGlobal && FAILED(m_writableDataObject->SetData(htmlFormat(), &medium, TRUE)))
         ::GlobalFree(medium.hGlobal);

@@ -41,13 +41,13 @@ public:
 
     virtual ~HTMLImageElement();
 
-    int width(bool ignorePendingStylesheets = false) const;
-    int height(bool ignorePendingStylesheets = false) const;
+    int width(bool ignorePendingStylesheets = false);
+    int height(bool ignorePendingStylesheets = false);
 
     int naturalWidth() const;
     int naturalHeight() const;
 
-    bool isServerMap() const { return ismap && usemap.isEmpty(); }
+    bool isServerMap() const;
 
     String altText() const;
 
@@ -72,19 +72,21 @@ public:
 
     bool complete() const;
 
-    bool haveFiredLoadEvent() const { return m_imageLoader.haveFiredLoadEvent(); }
-    bool hasPendingActivity() const { return !m_imageLoader.haveFiredLoadEvent(); }
+    // FIXME: Why do we have two names for the same thing?
+    bool hasPendingLoadEvent() const { return m_imageLoader.hasPendingLoadEvent(); }
+    bool hasPendingActivity() const { return m_imageLoader.hasPendingLoadEvent(); }
 
     virtual bool canContainRangeEndPoint() const { return false; }
 
 protected:
     HTMLImageElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
-    virtual void willMoveToNewOwnerDocument();
+    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
 
 private:
-    virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
     virtual void attach();
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -97,17 +99,18 @@ private:
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
-    virtual void insertedIntoTree(bool deep);
-    virtual void removedFromTree(bool deep);
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
+    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return true; }
+    virtual bool shouldRegisterAsExtraNamedItem() const OVERRIDE { return true; }
+
+#if ENABLE(MICRODATA)
+    virtual String itemValueText() const OVERRIDE;
+    virtual void setItemValueText(const String&, ExceptionCode&) OVERRIDE;
+#endif
 
     HTMLImageLoader m_imageLoader;
-    String usemap;
-    bool ismap;
     HTMLFormElement* m_form;
-    AtomicString m_name;
-    AtomicString m_id;
     CompositeOperator m_compositeOperator;
 };
 

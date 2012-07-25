@@ -54,6 +54,11 @@ public:
         return adoptRef(new WebPreferences(identifier));
     }
 
+    static PassRefPtr<WebPreferences> create(const WebPreferences& other)
+    {
+        return adoptRef(new WebPreferences(other));
+    }
+
     virtual ~WebPreferences();
 
     void addPageGroup(WebPageGroup*);
@@ -69,9 +74,13 @@ public:
 
 #undef DECLARE_PREFERENCE_GETTER_AND_SETTERS
 
+    // Exposed for WebKitTestRunner use only.
+    void forceUpdate() { update(); }
+
 private:
     WebPreferences();
     WebPreferences(const String& identifier);
+    WebPreferences(const WebPreferences&);
 
     void platformInitializeStore();
 

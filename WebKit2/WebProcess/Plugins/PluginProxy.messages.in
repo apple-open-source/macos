@@ -26,7 +26,7 @@ messages -> PluginProxy {
     # Asks the web process to load a URL.
     LoadURL(uint64_t requestID, WTF::String method, WTF::String urlString, WTF::String target, WebCore::HTTPHeaderMap headerFields, Vector<uint8_t> httpBody, bool allowPopups);
 
-    # Called when the plug-in has painted into its backing store.
+    # Called when the plug-in has painted into its backing store. The painted rect is in plug-in coordinates.
     Update(WebCore::IntRect paintedRect)
 
     # Returns a PAC style string with proxies for the given URL.
@@ -57,8 +57,22 @@ messages -> PluginProxy {
     SetStatusbarText(WTF::String statusbarText)
 
 #if PLATFORM(MAC)
-    # Change whether complext text input is enabled for this plug-in.
-    SetComplexTextInputEnabled(bool complexTextInputEnabled)
+    # Called when the plug-in's focus or its containing window focus changes.
+    PluginFocusOrWindowFocusChanged(bool pluginHasFocusAndWindowHasFocus)
+
+    # Change whether complex text input is enabled for this plug-in.
+    SetComplexTextInputState(uint64_t complexTextInputState)
+
+    # Update the layer hosting context ID. Called whenever the layer hosting state changes.
+    SetLayerHostingContextID(uint32_t layerHostingContextID)
+#endif
+
+#if PLUGIN_ARCHITECTURE(X11)
+    # Create the plugin container for windowed plugins
+    CreatePluginContainer() -> (uint64_t windowID)
+
+    # Update geometry of windowed plugin widget
+    WindowedPluginGeometryDidChange(WebCore::IntRect frameRect, WebCore::IntRect clipRect, uint64_t windowID)
 #endif
 }
 

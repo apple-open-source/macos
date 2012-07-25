@@ -35,6 +35,8 @@
 #include <WebCore/HTTPHeaderMap.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/KURL.h>
+#include <runtime/JSObject.h>
+#include <runtime/ScopeChain.h>
 #include <utility>
 #include <wtf/text/CString.h>
 
@@ -55,8 +57,7 @@ PassRefPtr<NetscapePlugin> NetscapePlugin::create(PassRefPtr<NetscapePluginModul
 }
     
 NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
-    : m_pluginController(0)
-    , m_nextRequestID(0)
+    : m_nextRequestID(0)
     , m_pluginModule(pluginModule)
     , m_npWindow()
     , m_isStarted(false)
@@ -67,14 +68,21 @@ NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
 #endif
     , m_isTransparent(false)
     , m_inNPPNew(false)
-    , m_loadManually(false)
+    , m_shouldUseManualLoader(false)
+    , m_hasCalledSetWindow(false)
+    , m_nextTimerID(0)
 #if PLATFORM(MAC)
     , m_drawingModel(static_cast<NPDrawingModel>(-1))
     , m_eventModel(static_cast<NPEventModel>(-1))
     , m_pluginReturnsNonretainedLayer(!m_pluginModule->pluginQuirks().contains(PluginQuirks::ReturnsRetainedCoreAnimationLayer))
+    , m_layerHostingMode(LayerHostingModeDefault)
     , m_currentMouseEvent(0)
     , m_pluginHasFocus(false)
     , m_windowHasFocus(false)
+    , m_pluginWantsLegacyCocoaTextInput(true)
+    , m_isComplexTextInputEnabled(false)
+    , m_hasHandledAKeyDownEvent(false)
+    , m_ignoreNextKeyUpEventCounter(0)
 #ifndef NP_NO_CARBON
     , m_nullEventTimer(RunLoop::main(), this, &NetscapePlugin::nullEventTimerFired)
     , m_npCGContext()
@@ -82,6 +90,9 @@ NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
 #elif PLUGIN_ARCHITECTURE(X11)
     , m_drawable(0)
     , m_pluginDisplay(0)
+#if PLATFORM(GTK)
+    , m_platformPluginWidget(0)
+#endif
 #endif
 {
     m_npp.ndata = this;
@@ -93,6 +104,7 @@ NetscapePlugin::NetscapePlugin(PassRefPtr<NetscapePluginModule> pluginModule)
 NetscapePlugin::~NetscapePlugin()
 {
     ASSERT(!m_isStarted);
+    ASSERT(m_timers.isEmpty());
 
     m_pluginModule->decrementLoadCount();
 }
@@ -112,15 +124,14 @@ void NetscapePlugin::invalidate(const NPRect* invalidRect)
     IntRect rect;
     
     if (!invalidRect)
-        rect = IntRect(0, 0, m_frameRectInWindowCoordinates.width(), m_frameRectInWindowCoordinates.height());
+        rect = IntRect(0, 0, m_pluginSize.width(), m_pluginSize.height());
     else
-        rect = IntRect(invalidRect->left, invalidRect->top,
-                       invalidRect->right - invalidRect->left, invalidRect->bottom - invalidRect->top);
+        rect = IntRect(invalidRect->left, invalidRect->top, invalidRect->right - invalidRect->left, invalidRect->bottom - invalidRect->top);
     
     if (platformInvalidate(rect))
         return;
 
-    m_pluginController->invalidate(rect);
+    controller()->invalidate(rect);
 }
 
 const char* NetscapePlugin::userAgent(NPP npp)
@@ -162,7 +173,7 @@ void NetscapePlugin::loadURL(const String& method, const String& urlString, cons
 {
     uint64_t requestID = ++m_nextRequestID;
     
-    m_pluginController->loadURL(requestID, method, urlString, target, headerFields, httpBody, allowPopups());
+    controller()->loadURL(requestID, method, urlString, target, headerFields, httpBody, allowPopups());
 
     if (target.isNull()) {
         // The browser is going to send the data in a stream, create a plug-in stream.
@@ -216,50 +227,52 @@ void NetscapePlugin::setIsTransparent(bool isTransparent)
 
 void NetscapePlugin::setStatusbarText(const String& statusbarText)
 {
-    m_pluginController->setStatusbarText(statusbarText);
+    controller()->setStatusbarText(statusbarText);
+}
+
+static void (*setExceptionFunction)(const String&);
+
+void NetscapePlugin::setSetExceptionFunction(void (*function)(const String&))
+{
+    ASSERT(!setExceptionFunction || setExceptionFunction == function);
+    setExceptionFunction = function;
 }
 
 void NetscapePlugin::setException(const String& exceptionString)
 {
-    // FIXME: If the plug-in is running in its own process, this needs to send a CoreIPC message instead of
-    // calling the runtime object map directly.
-    NPRuntimeObjectMap::setGlobalException(exceptionString);
+    ASSERT(setExceptionFunction);
+    setExceptionFunction(exceptionString);
 }
 
 bool NetscapePlugin::evaluate(NPObject* npObject, const String& scriptString, NPVariant* result)
 {
-    return m_pluginController->evaluate(npObject, scriptString, result, allowPopups());
+    return controller()->evaluate(npObject, scriptString, result, allowPopups());
 }
 
 bool NetscapePlugin::isPrivateBrowsingEnabled()
 {
-    return m_pluginController->isPrivateBrowsingEnabled();
+    return controller()->isPrivateBrowsingEnabled();
 }
 
 NPObject* NetscapePlugin::windowScriptNPObject()
 {
-    return m_pluginController->windowScriptNPObject();
+    return controller()->windowScriptNPObject();
 }
 
 NPObject* NetscapePlugin::pluginElementNPObject()
 {
-    return m_pluginController->pluginElementNPObject();
-}
-
-bool NetscapePlugin::tryToShortCircuitInvoke(NPObject* npObject, NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, bool& returnValue, NPVariant& result)
-{
-    return m_pluginController->tryToShortCircuitInvoke(npObject, methodName, arguments, argumentCount, returnValue, result);
+    return controller()->pluginElementNPObject();
 }
 
 void NetscapePlugin::cancelStreamLoad(NetscapePluginStream* pluginStream)
 {
     if (pluginStream == m_manualStream) {
-        m_pluginController->cancelManualStreamLoad();
+        controller()->cancelManualStreamLoad();
         return;
     }
 
     // Ask the plug-in controller to cancel this stream load.
-    m_pluginController->cancelStreamLoad(pluginStream->streamID());
+    controller()->cancelStreamLoad(pluginStream->streamID());
 }
 
 void NetscapePlugin::removePluginStream(NetscapePluginStream* pluginStream)
@@ -276,7 +289,7 @@ void NetscapePlugin::removePluginStream(NetscapePluginStream* pluginStream)
 bool NetscapePlugin::isAcceleratedCompositingEnabled()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    return m_pluginController->isAcceleratedCompositingEnabled();
+    return controller()->isAcceleratedCompositingEnabled();
 #else
     return false;
 #endif
@@ -294,6 +307,90 @@ void NetscapePlugin::popPopupsEnabledState()
     m_popupEnabledStates.removeLast();
 }
 
+void NetscapePlugin::pluginThreadAsyncCall(void (*function)(void*), void* userData)
+{
+    RunLoop::main()->dispatch(bind(&NetscapePlugin::handlePluginThreadAsyncCall, this, function, userData));
+}
+    
+void NetscapePlugin::handlePluginThreadAsyncCall(void (*function)(void*), void* userData)
+{
+    if (!m_isStarted)
+        return;
+
+    function(userData);
+}
+
+PassOwnPtr<NetscapePlugin::Timer> NetscapePlugin::Timer::create(NetscapePlugin* netscapePlugin, unsigned timerID, unsigned interval, bool repeat, TimerFunc timerFunc)
+{
+    return adoptPtr(new Timer(netscapePlugin, timerID, interval, repeat, timerFunc));
+}
+
+NetscapePlugin::Timer::Timer(NetscapePlugin* netscapePlugin, unsigned timerID, unsigned interval, bool repeat, TimerFunc timerFunc)
+    : m_netscapePlugin(netscapePlugin)
+    , m_timerID(timerID)
+    , m_interval(interval)
+    , m_repeat(repeat)
+    , m_timerFunc(timerFunc)
+    , m_timer(RunLoop::main(), this, &Timer::timerFired)
+{
+}
+
+NetscapePlugin::Timer::~Timer()
+{
+}
+
+void NetscapePlugin::Timer::start()
+{
+    double timeInterval = m_interval / 1000.0;
+
+    if (m_repeat)
+        m_timer.startRepeating(timeInterval);
+    else
+        m_timer.startOneShot(timeInterval);
+}
+
+void NetscapePlugin::Timer::stop()
+{
+    m_timer.stop();
+}
+
+void NetscapePlugin::Timer::timerFired()
+{
+    m_timerFunc(&m_netscapePlugin->m_npp, m_timerID);
+
+    if (!m_repeat)
+        m_netscapePlugin->unscheduleTimer(m_timerID);
+}
+
+uint32_t NetscapePlugin::scheduleTimer(unsigned interval, bool repeat, void (*timerFunc)(NPP, unsigned timerID))
+{
+    if (!timerFunc)
+        return 0;
+
+    // FIXME: Handle wrapping around.
+    unsigned timerID = ++m_nextTimerID;
+
+    OwnPtr<Timer> timer = Timer::create(this, timerID, interval, repeat, timerFunc);
+    
+    // FIXME: Based on the plug-in visibility, figure out if we should throttle the timer, or if we should start it at all.
+    timer->start();
+    m_timers.set(timerID, timer.leakPtr());
+
+    return timerID;
+}
+
+void NetscapePlugin::unscheduleTimer(unsigned timerID)
+{
+    TimerMap::iterator it = m_timers.find(timerID);
+    if (it == m_timers.end())
+        return;
+
+    OwnPtr<Timer> timer = adoptPtr(it->second);
+    m_timers.remove(it);
+
+    timer->stop();
+}
+
 double NetscapePlugin::contentsScaleFactor()
 {
     return controller()->contentsScaleFactor();
@@ -301,23 +398,23 @@ double NetscapePlugin::contentsScaleFactor()
 
 String NetscapePlugin::proxiesForURL(const String& urlString)
 {
-    return m_pluginController->proxiesForURL(urlString);
+    return controller()->proxiesForURL(urlString);
 }
     
 String NetscapePlugin::cookiesForURL(const String& urlString)
 {
-    return m_pluginController->cookiesForURL(urlString);
+    return controller()->cookiesForURL(urlString);
 }
 
 void NetscapePlugin::setCookiesForURL(const String& urlString, const String& cookieString)
 {
-    m_pluginController->setCookiesForURL(urlString, cookieString);
+    controller()->setCookiesForURL(urlString, cookieString);
 }
 
 bool NetscapePlugin::getAuthenticationInfo(const ProtectionSpace& protectionSpace, String& username, String& password)
 {
-    return m_pluginController->getAuthenticationInfo(protectionSpace, username, password);
-}
+    return controller()->getAuthenticationInfo(protectionSpace, username, password);
+}    
 
 NPError NetscapePlugin::NPP_New(NPMIMEType pluginType, uint16_t mode, int16_t argc, char* argn[], char* argv[], NPSavedData* savedData)
 {
@@ -387,22 +484,28 @@ NPError NetscapePlugin::NPP_SetValue(NPNVariable variable, void *value)
 
 void NetscapePlugin::callSetWindow()
 {
-#if PLUGIN_ARCHITECTURE(X11)
-    // We use a backing store as the painting area for the plugin.
-    m_npWindow.x = 0;
-    m_npWindow.y = 0;
-#else
-    m_npWindow.x = m_frameRectInWindowCoordinates.x();
-    m_npWindow.y = m_frameRectInWindowCoordinates.y();
-#endif
-    m_npWindow.width = m_frameRectInWindowCoordinates.width();
-    m_npWindow.height = m_frameRectInWindowCoordinates.height();
-    m_npWindow.clipRect.top = m_clipRectInWindowCoordinates.y();
-    m_npWindow.clipRect.left = m_clipRectInWindowCoordinates.x();
-    m_npWindow.clipRect.bottom = m_clipRectInWindowCoordinates.maxY();
-    m_npWindow.clipRect.right = m_clipRectInWindowCoordinates.maxX();
+    if (wantsPluginRelativeNPWindowCoordinates()) {
+        m_npWindow.x = 0;
+        m_npWindow.y = 0;
+        m_npWindow.clipRect.top = m_clipRect.y();
+        m_npWindow.clipRect.left = m_clipRect.x();
+    } else {
+        IntPoint pluginLocationInRootViewCoordinates = convertToRootView(IntPoint());
+        IntPoint clipRectInRootViewCoordinates = convertToRootView(m_clipRect.location());
+
+        m_npWindow.x = pluginLocationInRootViewCoordinates.x();
+        m_npWindow.y = pluginLocationInRootViewCoordinates.y();
+        m_npWindow.clipRect.top = clipRectInRootViewCoordinates.y();
+        m_npWindow.clipRect.left = clipRectInRootViewCoordinates.x();
+    }
+
+    m_npWindow.width = m_pluginSize.width();
+    m_npWindow.height = m_pluginSize.height();
+    m_npWindow.clipRect.right = m_npWindow.clipRect.left + m_clipRect.width();
+    m_npWindow.clipRect.bottom = m_npWindow.clipRect.top + m_clipRect.height();
 
     NPP_SetWindow(&m_npWindow);
+    m_hasCalledSetWindow = true;
 }
 
 bool NetscapePlugin::shouldLoadSrcURL()
@@ -443,16 +546,11 @@ bool NetscapePlugin::allowPopups() const
     return false;
 }
 
-bool NetscapePlugin::initialize(PluginController* pluginController, const Parameters& parameters)
+bool NetscapePlugin::initialize(const Parameters& parameters)
 {
-    ASSERT(!m_pluginController);
-    ASSERT(pluginController);
-
-    m_pluginController = pluginController;
+    uint16_t mode = parameters.isFullFramePlugin ? NP_FULL : NP_EMBED;
     
-    uint16_t mode = parameters.loadManually ? NP_FULL : NP_EMBED;
-    
-    m_loadManually = parameters.loadManually;
+    m_shouldUseManualLoader = parameters.shouldUseManualLoader;
 
     CString mimeTypeCString = parameters.mimeType.utf8();
 
@@ -461,7 +559,14 @@ bool NetscapePlugin::initialize(PluginController* pluginController, const Parame
     Vector<CString> paramNames;
     Vector<CString> paramValues;
     for (size_t i = 0; i < parameters.names.size(); ++i) {
-        paramNames.append(parameters.names[i].utf8());
+        String parameterName = parameters.names[i];
+
+#if PLUGIN_ARCHITECTURE(MAC)
+        if (m_pluginModule->pluginQuirks().contains(PluginQuirks::WantsLowercaseParameterNames))
+            parameterName = parameterName.lower();
+#endif
+
+        paramNames.append(parameterName.utf8());
         paramValues.append(parameters.values[i].utf8());
     }
 
@@ -473,7 +578,7 @@ bool NetscapePlugin::initialize(PluginController* pluginController, const Parame
         values.append(paramValues[i].data());
     }
 
-#if PLATFORM(MAC)
+#if PLUGIN_ARCHITECTURE(MAC)
     if (m_pluginModule->pluginQuirks().contains(PluginQuirks::MakeTransparentIfBackgroundAttributeExists)) {
         for (size_t i = 0; i < parameters.names.size(); ++i) {
             if (equalIgnoringCase(parameters.names[i], "background")) {
@@ -482,6 +587,8 @@ bool NetscapePlugin::initialize(PluginController* pluginController, const Parame
             }
         }
     }
+
+    m_layerHostingMode = parameters.layerHostingMode;
 #endif
 
     NetscapePlugin* previousNPPNewPlugin = currentNPPNewPlugin;
@@ -509,7 +616,7 @@ bool NetscapePlugin::initialize(PluginController* pluginController, const Parame
     }
 
     // Load the src URL if needed.
-    if (!parameters.loadManually && !parameters.url.isEmpty() && shouldLoadSrcURL())
+    if (!parameters.shouldUseManualLoader && !parameters.url.isEmpty() && shouldLoadSrcURL())
         loadURL("GET", parameters.url.string(), String(), HTTPHeaderMap(), Vector<uint8_t>(), false, 0);
     
     return true;
@@ -522,7 +629,7 @@ void NetscapePlugin::destroy()
     // Stop all streams.
     stopAllStreams();
 
-#if !PLUGIN_ARCHITECTURE(MAC)
+#if !PLUGIN_ARCHITECTURE(MAC) && !PLUGIN_ARCHITECTURE(X11)
     m_npWindow.window = 0;
     callSetWindow();
 #endif
@@ -530,9 +637,11 @@ void NetscapePlugin::destroy()
     NPP_Destroy(0);
 
     m_isStarted = false;
-    m_pluginController = 0;
 
     platformDestroy();
+
+    deleteAllValues(m_timers);
+    m_timers.clear();
 }
     
 void NetscapePlugin::paint(GraphicsContext* context, const IntRect& dirtyRect)
@@ -544,12 +653,12 @@ void NetscapePlugin::paint(GraphicsContext* context, const IntRect& dirtyRect)
 
 PassRefPtr<ShareableBitmap> NetscapePlugin::snapshot()
 {
-    if (!supportsSnapshotting() || m_frameRectInWindowCoordinates.isEmpty())
+    if (!supportsSnapshotting() || m_pluginSize.isEmpty())
         return 0;
 
     ASSERT(m_isStarted);
 
-    IntSize backingStoreSize = m_frameRectInWindowCoordinates.size();
+    IntSize backingStoreSize = m_pluginSize;
     backingStoreSize.scale(contentsScaleFactor());
 
     RefPtr<ShareableBitmap> bitmap = ShareableBitmap::createShareable(backingStoreSize, ShareableBitmap::SupportsAlpha);
@@ -559,9 +668,8 @@ PassRefPtr<ShareableBitmap> NetscapePlugin::snapshot()
     // which we currently don't have initiated in the plug-in process.
     context->scale(FloatSize(contentsScaleFactor(), contentsScaleFactor()));
 
-    context->translate(-m_frameRectInWindowCoordinates.x(), -m_frameRectInWindowCoordinates.y());
-    platformPaint(context.get(), m_frameRectInWindowCoordinates, true);
-    
+    platformPaint(context.get(), IntRect(IntPoint(), m_pluginSize), true);
+
     return bitmap.release();
 }
 
@@ -570,20 +678,9 @@ bool NetscapePlugin::isTransparent()
     return m_isTransparent;
 }
 
-void NetscapePlugin::deprecatedGeometryDidChange(const IntRect& frameRectInWindowCoordinates, const IntRect& clipRectInWindowCoordinates)
+bool NetscapePlugin::wantsWheelEvents()
 {
-    ASSERT(m_isStarted);
-
-    if (m_frameRectInWindowCoordinates == frameRectInWindowCoordinates && m_clipRectInWindowCoordinates == clipRectInWindowCoordinates) {
-        // Nothing to do.
-        return;
-    }
-
-    m_frameRectInWindowCoordinates = frameRectInWindowCoordinates;
-    m_clipRectInWindowCoordinates = clipRectInWindowCoordinates;
-
-    platformGeometryDidChange();
-    callSetWindow();
+    return m_pluginModule->pluginQuirks().contains(PluginQuirks::WantsWheelEvents);
 }
 
 void NetscapePlugin::geometryDidChange(const IntSize& pluginSize, const IntRect& clipRect, const AffineTransform& pluginToRootViewTransform)
@@ -595,6 +692,12 @@ void NetscapePlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&
         return;
     }
 
+    bool shouldCallSetWindow = true;
+
+    // If the plug-in doesn't want window relative coordinates, we don't need to call setWindow unless its size or clip rect changes.
+    if (m_hasCalledSetWindow && wantsPluginRelativeNPWindowCoordinates() && m_pluginSize == pluginSize && m_clipRect == clipRect)
+        shouldCallSetWindow = false;
+
     m_pluginSize = pluginSize;
     m_clipRect = clipRect;
     m_pluginToRootViewTransform = pluginToRootViewTransform;
@@ -602,10 +705,11 @@ void NetscapePlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&
     IntPoint frameRectLocationInWindowCoordinates = m_pluginToRootViewTransform.mapPoint(IntPoint());
     m_frameRectInWindowCoordinates = IntRect(frameRectLocationInWindowCoordinates, m_pluginSize);
 
-    IntPoint clipRectLocationInWindowCoordinates = m_pluginToRootViewTransform.mapPoint(clipRect.location());
-    m_clipRectInWindowCoordinates = IntRect(clipRectLocationInWindowCoordinates, m_clipRect.size());
-
     platformGeometryDidChange();
+
+    if (!shouldCallSetWindow)
+        return;
+
     callSetWindow();
 }
 
@@ -693,7 +797,7 @@ void NetscapePlugin::manualStreamDidReceiveResponse(const KURL& responseURL, uin
                                                     const String& mimeType, const String& headers, const String& /* suggestedFileName */)
 {
     ASSERT(m_isStarted);
-    ASSERT(m_loadManually);
+    ASSERT(m_shouldUseManualLoader);
     ASSERT(!m_manualStream);
     
     m_manualStream = NetscapePluginStream::create(this, 0, responseURL.string(), false, 0);
@@ -703,7 +807,7 @@ void NetscapePlugin::manualStreamDidReceiveResponse(const KURL& responseURL, uin
 void NetscapePlugin::manualStreamDidReceiveData(const char* bytes, int length)
 {
     ASSERT(m_isStarted);
-    ASSERT(m_loadManually);
+    ASSERT(m_shouldUseManualLoader);
     ASSERT(m_manualStream);
 
     m_manualStream->didReceiveData(bytes, length);
@@ -712,7 +816,7 @@ void NetscapePlugin::manualStreamDidReceiveData(const char* bytes, int length)
 void NetscapePlugin::manualStreamDidFinishLoading()
 {
     ASSERT(m_isStarted);
-    ASSERT(m_loadManually);
+    ASSERT(m_shouldUseManualLoader);
     ASSERT(m_manualStream);
 
     m_manualStream->didFinishLoading();
@@ -721,9 +825,10 @@ void NetscapePlugin::manualStreamDidFinishLoading()
 void NetscapePlugin::manualStreamDidFail(bool wasCancelled)
 {
     ASSERT(m_isStarted);
-    ASSERT(m_loadManually);
-    ASSERT(m_manualStream);
+    ASSERT(m_shouldUseManualLoader);
 
+    if (!m_manualStream)
+        return;
     m_manualStream->didFail(wasCancelled);
 }
 
@@ -793,11 +898,11 @@ NPObject* NetscapePlugin::pluginScriptableNPObject()
 
 void NetscapePlugin::contentsScaleFactorChanged(float scaleFactor)
 {
-     ASSERT(m_isStarted);
-     
+    ASSERT(m_isStarted);
+
 #if PLUGIN_ARCHITECTURE(MAC)
-     double contentsScaleFactor = scaleFactor; 
-     NPP_SetValue(NPNVcontentsScaleFactor, &contentsScaleFactor); 
+    double contentsScaleFactor = scaleFactor;
+    NPP_SetValue(NPNVcontentsScaleFactor, &contentsScaleFactor);
 #endif
 }
 
@@ -814,14 +919,24 @@ void NetscapePlugin::privateBrowsingStateChanged(bool privateBrowsingEnabled)
     NPP_SetValue(NPNVprivateModeBool, &value);
 }
 
+bool NetscapePlugin::getFormValue(String& formValue)
+{
+    ASSERT(m_isStarted);
+
+    char* formValueString = 0;
+    if (NPP_GetValue(NPPVformValue, &formValueString) != NPERR_NO_ERROR)
+        return false;
+
+    formValue = String::fromUTF8(formValueString);
+
+    // The plug-in allocates the form value string with NPN_MemAlloc so it needs to be freed with NPN_MemFree.
+    npnMemFree(formValueString);
+    return true;
+}
+
 bool NetscapePlugin::handleScroll(ScrollDirection, ScrollGranularity)
 {
     return false;
-}
-
-bool NetscapePlugin::wantsWindowRelativeCoordinates()
-{
-    return true;
 }
 
 Scrollbar* NetscapePlugin::horizontalScrollbar()
@@ -842,9 +957,18 @@ bool NetscapePlugin::supportsSnapshotting() const
     return false;
 }
 
-PluginController* NetscapePlugin::controller()
+IntPoint NetscapePlugin::convertToRootView(const IntPoint& pointInPluginCoordinates) const
 {
-    return m_pluginController;
+    return m_pluginToRootViewTransform.mapPoint(pointInPluginCoordinates);
+}
+
+bool NetscapePlugin::convertFromRootView(const IntPoint& pointInRootViewCoordinates, IntPoint& pointInPluginCoordinates)
+{
+    if (!m_pluginToRootViewTransform.isInvertible())
+        return false;
+
+    pointInPluginCoordinates = m_pluginToRootViewTransform.inverse().mapPoint(pointInRootViewCoordinates);
+    return true;
 }
 
 } // namespace WebKit

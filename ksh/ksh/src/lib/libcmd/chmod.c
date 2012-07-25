@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -28,7 +28,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: chmod (AT&T Research) 2007-09-10 $\n]"
+"[-?\n@(#)$Id: chmod (AT&T Research) 2010-07-28 $\n]"
 USAGE_LICENSE
 "[+NAME?chmod - change the access permissions of files]"
 "[+DESCRIPTION?\bchmod\b changes the permission of each file "
@@ -135,7 +135,7 @@ __STDPP__directive pragma pp:hide lchmod
 
 #include <cmd.h>
 #include <ls.h>
-#include <fts.h>
+#include <fts_fix.h>
 
 #include "FEATURE/symlink"
 
@@ -158,6 +158,7 @@ b_chmod(int argc, char** argv, void* context)
 	register FTSENT*ent;
 	char*		last;
 	int		(*chmodf)(const char*, mode_t);
+	int		logical = 1;
 	int		notify = 0;
 	int		ignore = 0;
 	int		show = 0;
@@ -206,16 +207,20 @@ b_chmod(int argc, char** argv, void* context)
 			continue;
 		case 'H':
 			flags |= FTS_META|FTS_PHYSICAL;
+			logical = 0;
 			continue;
 		case 'L':
 			flags &= ~(FTS_META|FTS_PHYSICAL);
+			logical = 0;
 			continue;
 		case 'P':
 			flags &= ~FTS_META;
 			flags |= FTS_PHYSICAL;
+			logical = 0;
 			continue;
 		case 'R':
 			flags &= ~FTS_TOP;
+			logical = 0;
 			continue;
 		case '?':
 			error(ERROR_usage(2), "%s", opt_info.arg);
@@ -226,6 +231,8 @@ b_chmod(int argc, char** argv, void* context)
 	argv += opt_info.index;
 	if (error_info.errors || !*argv || !amode && !*(argv + 1))
 		error(ERROR_usage(2), "%s", optusage(NiL));
+	if (logical)
+		flags &= ~(FTS_META|FTS_PHYSICAL);
 	if (ignore)
 		ignore = umask(0);
 	if (amode)
@@ -275,23 +282,23 @@ b_chmod(int argc, char** argv, void* context)
 					sfprintf(sfstdout, "%s: mode changed to %0.4o (%s)\n", ent->fts_path, mode, fmtmode(mode, 1)+1);
 			}
 			else if (!force)
-				error(ERROR_system(0), "%s: cannot change mode", ent->fts_accpath);
+				error(ERROR_system(0), "%s: cannot change mode", ent->fts_path);
 			break;
 		case FTS_DC:
 			if (!force)
-				error(ERROR_warn(0), "%s: directory causes cycle", ent->fts_accpath);
+				error(ERROR_warn(0), "%s: directory causes cycle", ent->fts_path);
 			break;
 		case FTS_DNR:
 			if (!force)
-				error(ERROR_system(0), "%s: cannot read directory", ent->fts_accpath);
+				error(ERROR_system(0), "%s: cannot read directory", ent->fts_path);
 			goto anyway;
 		case FTS_DNX:
 			if (!force)
-				error(ERROR_system(0), "%s: cannot search directory", ent->fts_accpath);
+				error(ERROR_system(0), "%s: cannot search directory", ent->fts_path);
 			goto anyway;
 		case FTS_NS:
 			if (!force)
-				error(ERROR_system(0), "%s: not found", ent->fts_accpath);
+				error(ERROR_system(0), "%s: not found", ent->fts_path);
 			break;
 		}
 	fts_close(fts);

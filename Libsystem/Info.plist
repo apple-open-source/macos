@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
@@ -18,13 +18,5 @@
 	<string>11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CarbonLazyValues</key>
-	<dict>
-		<key>CodeFragmentManager</key>
-		<dict>
-			<key>System</key>
-			<string>CFMPriv_System</string>
-		</dict>
-	</dict>
 </dict>
 </plist>

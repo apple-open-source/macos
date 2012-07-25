@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#                     Copyright (c) 1994-2007 AT&T                     #
+#                     Copyright (c) 1994-2011 AT&T                     #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                               by AT&T                                #
@@ -29,7 +29,7 @@ case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	ARGV0="-a $command"
 	USAGE=$'
 [-?
-@(#)$Id: rt (AT&T Research) 2006-08-11 $
+@(#)$Id: rt (AT&T Research) 2010-07-27 $
 ]
 '$USAGE_LICENSE$'
 [+NAME?rt - run "nmake test" and filter output]
@@ -65,8 +65,8 @@ function usage
 
 while	getopts $ARGV0 "$USAGE" OPT
 do	case $OPT in
-	f)	failed=$OPTARG ;;
-	h)	heading=$OPTARG ;;
+	f)	failed=1 ;;
+	h)	heading=0 ;;
 	v)	(( verbose=$OPTARG )) && flags="$flags REGRESSFLAGS=-v" ;;
 	esac
 done
@@ -78,11 +78,12 @@ component=
 dots='............................................'
 bad=' ***'
 style=unknown
-integer tests errors lineno=0 skip=0
+integer tests errors signals lineno=0 skip=0
 typeset -l lower
 
-function results # tests errors
+function results # tests errors signals
 {
+	integer t=$1 e=$2 s=$3
 	typeset label note
 	if	[[ $style != unknown ]] && (( errors >= 0 ))
 	then	style=unknown
@@ -90,25 +91,29 @@ function results # tests errors
 		then	if	(( failed ))
 			then	print -r -n -- "$unit"
 			fi
-			if	(( $1 >= 0 ))
-			then	if	(( $1 == 1))
+			if	(( t >= 0 ))
+			then	if	(( t == 1))
 				then	label="test "
 				else	label=tests
 				fi
-				printf $'%s%5d %s' "$prefix" "$1" "$label"
+				printf $'%s%5d %s' "$prefix" "$t" "$label"
 				prefix=
 			else	prefix="$prefix..........."
 			fi
-			if	(( $2 == 1))
-			then	label=error
-			else	label=errors
+			if	(( s ))
+			then	label=signal
+				(( e=s ))
+			else	label=error
 			fi
-			if	(( $2 == 1 ))
+			if	(( e != 1))
+			then	label=${label}s
+			fi
+			if	(( e == 1 ))
 			then	note=" $bad"
-			elif	(( $2 > 1 ))
+			elif	(( e > 1 ))
 			then	note=$bad
 			fi
-			printf $'%s%5d %s%s\n' "$prefix" "$2" "$label" "$note"
+			printf $'%s%5d %s%s\n' "$prefix" "$e" "$label" "$note"
 		fi
 	fi
 }
@@ -146,7 +151,11 @@ then	shift
 		done
 	else	cat "$@"
 	fi
-else	(( $# )) || set test
+else	if	[[ $1 == *=* ]]
+	then	set test "$@"
+	elif	(( ! $# ))
+	then	set test
+	fi
 	nmake "$@" $flags 2>&1
 fi |
 while	read -r line
@@ -188,17 +197,19 @@ do	set '' $line
 		unit
 		prefix=
 		errors=0
+		signals=0
 		style=regress
 		continue
 		;;
 	'pathname and options of item under test')
 		read -r line || break
-		results $tests $errors
+		results $tests $errors $signals
 		set '' $line
 		unit=${2##*/}
 		unit
 		tests=0
 		errors=0
+		signals=0
 		style=script
 		continue
 		;;
@@ -215,13 +226,14 @@ do	set '' $line
 		continue
 		;;
 	'test '*' begins at '????-??-??+??:??:??|'test '*' begins at '*' '*' '*' '*' '*)
-		results $tests $errors
+		results $tests $errors $signals
 		unit=${2##*/}
 		unit=${unit%.sh}
 		unit
 		prefix=
 		tests=-1
 		errors=0
+		signals=0
 		style=shell
 		continue
 		;;
@@ -232,6 +244,23 @@ do	set '' $line
 			do	case $1 in
 				'[')	tests=$2
 					errors=$4
+					if	(( errors > 256 ))
+					then	(( signals++ ))
+					fi
+					break
+					;;
+				esac
+				shift
+			done
+			;;
+		*' [ '*test*signal*' ]')
+			while	:
+			do	case $1 in
+				'[')	tests=$2
+					signals=$4
+					if	(( signals ))
+					then	(( errors++ ))
+					fi
 					break
 					;;
 				esac
@@ -243,7 +272,7 @@ do	set '' $line
 			fi
 			;;
 		esac
-		results $tests $errors
+		results $tests $errors $signals
 		continue
 		;;
 	'## ---'*(-)'--- ##')
@@ -253,7 +282,7 @@ do	set '' $line
 		set '' $lower
 		case $lower in
 		'##'*'test suite:'*'##')
-			results $tests $errors
+			results $tests $errors $signals
 			set -- ${lower//*suite:}
 			set -- ${*//[.#]/}
 			unit=$*
@@ -264,6 +293,7 @@ do	set '' $line
 			prefix=
 			tests=0
 			errors=0
+			signals=0
 			category=
 			style=autotest
 			(( skip = lineno + 1 ))
@@ -280,7 +310,7 @@ do	set '' $line
 		set '' $line
 		case $line in
 		'Running tests for '*)
-			results $tests $errors
+			results $tests $errors $signals
 			shift 4
 			unit=
 			while	(( $# ))
@@ -302,13 +332,14 @@ do	set '' $line
 			(( skip = lineno + 1 ))
 			continue
 			;;
-		*' : '*)results $tests $errors
+		*' : '*)results $tests $errors $signals
 			unit=${2##*/}
 			unit=${unit%.sh}
 			unit
 			prefix=
 			tests=0
 			errors=0
+			signals=0
 			style=timing
 			(( skip = lineno + 1 ))
 			continue
@@ -331,7 +362,7 @@ do	set '' $line
 		case $line in
 		*': warning:'*|*'making test'*|*'action'?(s)' failed'*|*': *** '*)
 			;;
-		*)	results $tests $errors
+		*)	results $tests $errors $signals
 			print -r -u2 -- "$line"
 			;;
 		esac
@@ -368,13 +399,14 @@ do	set '' $line
 			if	[[ $1 == */* ]]
 			then	cat=${1%%/*}
 				if	[[ $cat != $category ]]
-				then	results $tests $errors
+				then	results $tests $errors $signals
 					category=$cat
 					unit="$main $category"
 					unit
 					prefix=
 					tests=0
 					errors=0
+					signals=0
 				fi
 				(( tests++ ))
 				case $line in
@@ -389,7 +421,7 @@ do	set '' $line
 					fi
 					;;
 				esac
-			else	results $tests $errors
+			else	results $tests $errors $signals
 				case $line in
 				*' ok')	errors=0 ;;
 				*)	errors=1 ;;
@@ -403,7 +435,7 @@ do	set '' $line
 					print -r -- "$@"
 				else	prefix=
 				fi
-				results $tests $errors
+				results $tests $errors $signals
 				tests=-1
 				errors=-1
 				category=
@@ -444,4 +476,4 @@ do	set '' $line
 		print -r -- "$line"
 	fi
 done
-results $tests $errors
+results $tests $errors $signals

@@ -17,7 +17,7 @@
 				C21CFB6D0A24CBDF006CD5B1 /* PBXTargetDependency */,
 				C2B94BCF0AAE8F5600724E98 /* PBXTargetDependency */,
 				C27360DA1436960100A9A5FF /* PBXTargetDependency */,
-				C20B4B8B1475BE13006E88D1 /* PBXTargetDependency */,
+				C23B129414BB863B00A1ED50 /* PBXTargetDependency */,
 				5280E5EA0B2E278E000C5D98 /* PBXTargetDependency */,
 			);
 			name = World;
@@ -26,10 +26,19 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1865FD1B1472746900FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		1865FD1C147274A700FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		1865FD1E147274B800FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1D147274B800FD79DF /* libsecurity_cdsa_utilities.a */; };
+		1865FD1F147274D400FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1D147274B800FD79DF /* libsecurity_cdsa_utilities.a */; };
+		1865FD20147274D800FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		1865FD211472760600FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		1865FD221472762600FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		18B9658E1472FD2F005A4D2E /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
+		18B9658F1472FD4C005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1D147274B800FD79DF /* libsecurity_cdsa_utilities.a */; };
+		18B965911472FD62005A4D2E /* libsecurity_cdsa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965901472FD62005A4D2E /* libsecurity_cdsa_client.a */; };
+		18B965931472FD77005A4D2E /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965921472FD77005A4D2E /* libsecurityd_client.a */; };
 		4E670EA60BFCCDBF00F573A6 /* tokenadmin.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4E670EA40BFCCD6E00F573A6 /* tokenadmin.8 */; };
 		522F1F130B6A96EE006F700F /* TokenIDHelper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52558DDF0B27827A00CD7E39 /* TokenIDHelper.cpp */; };
-		522F1F180B6A9799006F700F /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 522F1F170B6A9799006F700F /* security_utilities.framework */; };
-		522F1F1F0B6A9859006F700F /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 522F1F170B6A9799006F700F /* security_utilities.framework */; };
 		52558D3D0B274DC100CD7E39 /* Admin.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558D3C0B274DC100CD7E39 /* Admin.framework */; };
 		52558D440B2753D300CD7E39 /* tokenadmin.m in Sources */ = {isa = PBXBuildFile; fileRef = 52558D420B2753D300CD7E39 /* tokenadmin.m */; };
 		52558DCB0B27812300CD7E39 /* create_fv_user.m in Sources */ = {isa = PBXBuildFile; fileRef = 52558DC90B27812300CD7E39 /* create_fv_user.m */; };
@@ -40,30 +49,25 @@
 		52558EAE0B28D61C00CD7E39 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		52558EFA0B28D66F00CD7E39 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558EF90B28D66F00CD7E39 /* Foundation.framework */; };
 		52558EFD0B28D6FD00CD7E39 /* SecurityFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */; };
-		C2093B740BB0992300EB8599 /* security_cdsa_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2E173F50B013F83002EE2F2 /* security_cdsa_utilities.framework */; };
-		C20B4B891475B40F006E88D1 /* spctl.8 in Copy Files */ = {isa = PBXBuildFile; fileRef = C20B4B881475B3E9006E88D1 /* spctl.8 */; };
-		C20C00171469F58D004C8E27 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
-		C20C00191469F590004C8E27 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
-		C20C001A1469F598004C8E27 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 522F1F170B6A9799006F700F /* security_utilities.framework */; };
-		C20CFFB914685F11004C8E27 /* spctl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C20CFFB814685F11004C8E27 /* spctl.cpp */; };
-		C20CFFD11469F33C004C8E27 /* cs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26159150A9F619800771C4D /* cs_utils.cpp */; };
 		C21CFB790A24CC43006CD5B1 /* codesign.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21CFB780A24CC43006CD5B1 /* codesign.cpp */; };
 		C21CFB7A0A24CC77006CD5B1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		C21CFC780A250F95006CD5B1 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
+		C23B128F14BB85DD00A1ED50 /* spctl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C20CFFB814685F11004C8E27 /* spctl.cpp */; };
+		C23B129014BB861100A1ED50 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
+		C23B129114BB861300A1ED50 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
+		C23B129214BB861800A1ED50 /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD1A1472746900FD79DF /* libsecurity_utilities.a */; };
+		C23B129514BB86D300A1ED50 /* cs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26159150A9F619800771C4D /* cs_utils.cpp */; };
 		C26158B40AAF497C00877DF4 /* csreq.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C26158B30AAF497C00877DF4 /* csreq.1 */; };
 		C26159100A9F60D400771C4D /* cs_sign.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C261590F0A9F60D400771C4D /* cs_sign.cpp */; };
 		C26159160A9F619800771C4D /* cs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26159150A9F619800771C4D /* cs_utils.cpp */; };
 		C264033F0589582F00E95F9A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
 		C27360C914366F5E00A9A5FF /* syspolicyd.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360C814366F5E00A9A5FF /* syspolicyd.cpp */; };
-		C27360CB14366F5E00A9A5FF /* syspolicyd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C27360CA14366F5E00A9A5FF /* syspolicyd.8 */; };
+		C27360CB14366F5E00A9A5FF /* syspolicyd.8 in Install manpages */ = {isa = PBXBuildFile; fileRef = C27360CA14366F5E00A9A5FF /* syspolicyd.8 */; };
 		C273D1BB0A2FA8C300823A76 /* systemkeychain.8 in Install Manpage */ = {isa = PBXBuildFile; fileRef = C273D1BA0A2FA8C300823A76 /* systemkeychain.8 */; };
 		C273D1C80A2FA92100823A76 /* codesign.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C273D1C10A2FA8F000823A76 /* codesign.1 */; };
-		C28C2FCA1436B5A000935B02 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 522F1F170B6A9799006F700F /* security_utilities.framework */; };
 		C28C2FCC1436B5A600935B02 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
 		C28C2FCD1436B5AA00935B02 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
-		C28C2FEE143A5E9A00935B02 /* com.apple.security.syspolicy.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C28C2FED143A5E8C00935B02 /* com.apple.security.syspolicy.plist */; };
-		C2970D3B0AAE8E6700084FFC /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2970D3A0AAE8E6700084FFC /* security_utilities.framework */; };
-		C2970D3C0AAE8E6700084FFC /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2970D3A0AAE8E6700084FFC /* security_utilities.framework */; };
+		C28C2FEE143A5E9A00935B02 /* com.apple.security.syspolicy.plist in Install launchd plist */ = {isa = PBXBuildFile; fileRef = C28C2FED143A5E8C00935B02 /* com.apple.security.syspolicy.plist */; };
 		C297EE610AAE899B00084FFC /* csreq.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C297EE600AAE899B00084FFC /* csreq.cpp */; };
 		C297EE800AAE8D4C00084FFC /* cs_utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26159150A9F619800771C4D /* cs_utils.cpp */; };
 		C297EF520AAE8D9400084FFC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C264033E0589582F00E95F9A /* CoreFoundation.framework */; };
@@ -75,8 +79,18 @@
 		C2DAEF270CA1BFB500420945 /* com.apple.systemkeychain.plist in Install Check Runner */ = {isa = PBXBuildFile; fileRef = C2DAEF1F0CA1BF6E00420945 /* com.apple.systemkeychain.plist */; };
 		C2DAEF280CA1BFB900420945 /* security-checksystem in Install Check Script */ = {isa = PBXBuildFile; fileRef = C2DAEF200CA1BF6E00420945 /* security-checksystem */; };
 		C2DB432F0AA6096F00E70131 /* cs_dump.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2DB432E0AA6096F00E70131 /* cs_dump.cpp */; };
-		C2E173F30B013F5A002EE2F2 /* securityd_client.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2E173EE0B013F34002EE2F2 /* securityd_client.framework */; };
-		C2E173F60B013F83002EE2F2 /* security_cdsa_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C2E173F50B013F83002EE2F2 /* security_cdsa_utilities.framework */; };
+		C2F24E1A14BE390800309FCD /* spctl.8 in Install manpages */ = {isa = PBXBuildFile; fileRef = C20B4B881475B3E9006E88D1 /* spctl.8 */; };
+		EB149A85151C204C0042E8ED /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB149A84151C204C0042E8ED /* Cocoa.framework */; };
+		EB149A8F151C204C0042E8ED /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = EB149A8D151C204C0042E8ED /* InfoPlist.strings */; };
+		EB149A91151C204C0042E8ED /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = EB149A90151C204C0042E8ED /* main.m */; };
+		EB149A95151C204C0042E8ED /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = EB149A93151C204C0042E8ED /* Credits.rtf */; };
+		EB149A98151C204C0042E8ED /* GKAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = EB149A97151C204C0042E8ED /* GKAppDelegate.m */; };
+		EB149A9B151C204D0042E8ED /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = EB149A99151C204D0042E8ED /* MainMenu.xib */; };
+		EB149AA2151C22480042E8ED /* RuleViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = EB149AA1151C22480042E8ED /* RuleViewController.m */; };
+		EB149AA8151C27AE0042E8ED /* Authority.m in Sources */ = {isa = PBXBuildFile; fileRef = EB149AA7151C27AE0042E8ED /* Authority.m */; };
+		EB1EC7AA151D6199007B8618 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB1EC7A9151D6199007B8618 /* CoreServices.framework */; };
+		EBE88F55151C2CDD0050180C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C21CFC770A250F95006CD5B1 /* Security.framework */; };
+		EBE88F59151C373B0050180C /* AuthorityTableView.m in Sources */ = {isa = PBXBuildFile; fileRef = EBE88F58151C373B0050180C /* AuthorityTableView.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,13 +100,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 52558D310B274C4400CD7E39;
 			remoteInfo = tokenadmin;
-		};
-		C20B4B8A1475BE13006E88D1 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEB0052A3C5800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = C20CFFAB14685E6E004C8E27;
-			remoteInfo = spctl;
 		};
 		C21CFB650A24CBCD006CD5B1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -107,6 +114,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = C21CFB690A24CBDB006CD5B1;
 			remoteInfo = codesign;
+		};
+		C23B129314BB863B00A1ED50 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEB0052A3C5800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C23B128414BB85BA00A1ED50;
+			remoteInfo = spctl;
 		};
 		C27360D91436960100A9A5FF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -135,15 +149,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		C20CFFAA14685E6E004C8E27 /* Copy Files */ = {
+		C23B128314BB85BA00A1ED50 /* Install manpages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
-				C20B4B891475B40F006E88D1 /* spctl.8 in Copy Files */,
+				C2F24E1A14BE390800309FCD /* spctl.8 in Install manpages */,
 			);
-			name = "Copy Files";
+			name = "Install manpages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		C26158B50AAF497C00877DF4 /* CopyFiles */ = {
@@ -156,14 +170,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		C27360C314366F5E00A9A5FF /* CopyFiles */ = {
+		C27360C314366F5E00A9A5FF /* Install manpages */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man8/;
 			dstSubfolderSpec = 0;
 			files = (
-				C27360CB14366F5E00A9A5FF /* syspolicyd.8 in CopyFiles */,
+				C27360CB14366F5E00A9A5FF /* syspolicyd.8 in Install manpages */,
 			);
+			name = "Install manpages";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		C273D1B40A2FA85E00823A76 /* Install Manpage */ = {
@@ -187,14 +202,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		C28C2FE9143A5D3400935B02 /* CopyFiles */ = {
+		C28C2FE9143A5D3400935B02 /* Install launchd plist */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /System/Library/LaunchDaemons;
 			dstSubfolderSpec = 0;
 			files = (
-				C28C2FEE143A5E9A00935B02 /* com.apple.security.syspolicy.plist in CopyFiles */,
+				C28C2FEE143A5E9A00935B02 /* com.apple.security.syspolicy.plist in Install launchd plist */,
 			);
+			name = "Install launchd plist";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		C2DAEF290CA1BFFE00420945 /* Install Check Script */ = {
@@ -222,9 +238,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1865FD1A1472746900FD79DF /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		1865FD1D147274B800FD79DF /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
+		18A25C5614753D14004F59F8 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18A25C5714753D14004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		18A25C5814753D14004F59F8 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18B965901472FD62005A4D2E /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
+		18B965921472FD77005A4D2E /* libsecurityd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_client.a; path = /usr/local/lib/libsecurityd_client.a; sourceTree = "<absolute>"; };
 		4CA1FEB6052A3C6D00F22E42 /* systemkeychain */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = systemkeychain; sourceTree = BUILT_PRODUCTS_DIR; };
 		4E670EA40BFCCD6E00F573A6 /* tokenadmin.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = tokenadmin.8; sourceTree = "<group>"; };
-		522F1F170B6A9799006F700F /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
 		52558D320B274C4400CD7E39 /* tokenadmin */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tokenadmin; sourceTree = BUILT_PRODUCTS_DIR; };
 		52558D340B274C4400CD7E39 /* Info-tokenadmin.plist */ = {isa = PBXFileReference; explicitFileType = sourcecode; name = "Info-tokenadmin.plist"; path = "src/Info-tokenadmin.plist"; sourceTree = "<group>"; };
 		52558D3C0B274DC100CD7E39 /* Admin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Admin.framework; path = /System/Library/PrivateFrameworks/Admin.framework; sourceTree = "<absolute>"; };
@@ -239,9 +261,7 @@
 		52558E320B28B4A900CD7E39 /* readline.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = readline.h; path = src/readline.h; sourceTree = "<group>"; };
 		52558EF90B28D66F00CD7E39 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SecurityFoundation.framework; path = /System/Library/Frameworks/SecurityFoundation.framework; sourceTree = "<absolute>"; };
-		52558F110B28DACB00CD7E39 /* security_asn1.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_asn1.framework; path = /usr/local/SecurityPieces/Components/Security/security_asn1.framework; sourceTree = "<absolute>"; };
 		C20B4B881475B3E9006E88D1 /* spctl.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = spctl.8; sourceTree = "<group>"; };
-		C20CFFAC14685E6E004C8E27 /* spctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = spctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		C20CFFB814685F11004C8E27 /* spctl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = spctl.cpp; sourceTree = "<group>"; };
 		C20CFFBA14685F1D004C8E27 /* spctl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = spctl.h; sourceTree = "<group>"; };
 		C21CFB6A0A24CBDB006CD5B1 /* codesign */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = codesign; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -249,6 +269,7 @@
 		C21CFC770A250F95006CD5B1 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = "<group>"; };
 		C21CFCF00A25104A006CD5B1 /* security_codesigning.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_codesigning.framework; sourceTree = "<group>"; };
 		C2254FDA0A25113B007D3358 /* libantlr2c++.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libantlr2c++.a"; path = "/usr/local/lib/libantlr2c++.a"; sourceTree = "<absolute>"; };
+		C23B128514BB85BA00A1ED50 /* spctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = spctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		C26158B30AAF497C00877DF4 /* csreq.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; path = csreq.1; sourceTree = "<group>"; };
 		C261590F0A9F60D400771C4D /* cs_sign.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cs_sign.cpp; sourceTree = "<group>"; };
 		C26159110A9F60E800771C4D /* codesign.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = codesign.h; sourceTree = "<group>"; };
@@ -256,7 +277,7 @@
 		C264033E0589582F00E95F9A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CoreFoundation.framework; sourceTree = "<group>"; };
 		C27360C514366F5E00A9A5FF /* syspolicyd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = syspolicyd; sourceTree = BUILT_PRODUCTS_DIR; };
 		C27360C814366F5E00A9A5FF /* syspolicyd.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = syspolicyd.cpp; sourceTree = "<group>"; };
-		C27360CA14366F5E00A9A5FF /* syspolicyd.8 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = syspolicyd.8; sourceTree = "<group>"; };
+		C27360CA14366F5E00A9A5FF /* syspolicyd.8 */ = {isa = PBXFileReference; lastKnownFileType = text; name = syspolicyd.8; path = ../syspolicyd/syspolicyd.8; sourceTree = "<group>"; };
 		C273D1BA0A2FA8C300823A76 /* systemkeychain.8 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = systemkeychain.8; sourceTree = "<group>"; };
 		C273D1C10A2FA8F000823A76 /* codesign.1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.man; path = codesign.1; sourceTree = "<group>"; };
 		C28C2FED143A5E8C00935B02 /* com.apple.security.syspolicy.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.security.syspolicy.plist; sourceTree = "<group>"; };
@@ -273,7 +294,26 @@
 		C2DAEF200CA1BF6E00420945 /* security-checksystem */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "security-checksystem"; sourceTree = "<group>"; };
 		C2DB432E0AA6096F00E70131 /* cs_dump.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cs_dump.cpp; sourceTree = "<group>"; };
 		C2E173EE0B013F34002EE2F2 /* securityd_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = securityd_client.framework; path = ../build/securityd_client.framework; sourceTree = SOURCE_ROOT; };
-		C2E173F50B013F83002EE2F2 /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_cdsa_utilities.framework; path = ../build/security_cdsa_utilities.framework; sourceTree = SOURCE_ROOT; };
+		EB149A82151C204C0042E8ED /* Gatekeeper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Gatekeeper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB149A84151C204C0042E8ED /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		EB149A87151C204C0042E8ED /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		EB149A88151C204C0042E8ED /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		EB149A89151C204C0042E8ED /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		EB149A8C151C204C0042E8ED /* Gatekeeper-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Gatekeeper-Info.plist"; sourceTree = "<group>"; };
+		EB149A8E151C204C0042E8ED /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		EB149A90151C204C0042E8ED /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		EB149A92151C204C0042E8ED /* Gatekeeper-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Gatekeeper-Prefix.pch"; sourceTree = "<group>"; };
+		EB149A94151C204C0042E8ED /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
+		EB149A96151C204C0042E8ED /* GKAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GKAppDelegate.h; sourceTree = "<group>"; };
+		EB149A97151C204C0042E8ED /* GKAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GKAppDelegate.m; sourceTree = "<group>"; };
+		EB149A9A151C204D0042E8ED /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/MainMenu.xib; sourceTree = "<group>"; };
+		EB149AA0151C22480042E8ED /* RuleViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RuleViewController.h; sourceTree = "<group>"; };
+		EB149AA1151C22480042E8ED /* RuleViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RuleViewController.m; sourceTree = "<group>"; };
+		EB149AA6151C27AE0042E8ED /* Authority.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Authority.h; sourceTree = "<group>"; };
+		EB149AA7151C27AE0042E8ED /* Authority.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Authority.m; sourceTree = "<group>"; };
+		EB1EC7A9151D6199007B8618 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = ../../../../../../System/Library/Frameworks/CoreServices.framework; sourceTree = "<group>"; };
+		EBE88F57151C373B0050180C /* AuthorityTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AuthorityTableView.h; sourceTree = "<group>"; };
+		EBE88F58151C373B0050180C /* AuthorityTableView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AuthorityTableView.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -281,8 +321,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18B965931472FD77005A4D2E /* libsecurityd_client.a in Frameworks */,
+				18B965911472FD62005A4D2E /* libsecurity_cdsa_client.a in Frameworks */,
+				18B9658F1472FD4C005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
+				18B9658E1472FD2F005A4D2E /* Security.framework in Frameworks */,
+				1865FD1B1472746900FD79DF /* libsecurity_utilities.a in Frameworks */,
 				C264033F0589582F00E95F9A /* CoreFoundation.framework in Frameworks */,
-				522F1F180B6A9799006F700F /* security_utilities.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,23 +334,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				522F1F1F0B6A9859006F700F /* security_utilities.framework in Frameworks */,
 				52558EAE0B28D61C00CD7E39 /* CoreFoundation.framework in Frameworks */,
 				52558EA90B28D5AE00CD7E39 /* Security.framework in Frameworks */,
 				52558D3D0B274DC100CD7E39 /* Admin.framework in Frameworks */,
 				52558DDE0B27821D00CD7E39 /* DiskImages.framework in Frameworks */,
 				52558EFA0B28D66F00CD7E39 /* Foundation.framework in Frameworks */,
 				52558EFD0B28D6FD00CD7E39 /* SecurityFoundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		C20CFFA914685E6E004C8E27 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C20C00171469F58D004C8E27 /* Security.framework in Frameworks */,
-				C20C00191469F590004C8E27 /* CoreFoundation.framework in Frameworks */,
-				C20C001A1469F598004C8E27 /* security_utilities.framework in Frameworks */,
+				1865FD221472762600FD79DF /* libsecurity_utilities.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -314,11 +348,20 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1865FD20147274D800FD79DF /* libsecurity_utilities.a in Frameworks */,
+				1865FD1F147274D400FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */,
 				C21CFB7A0A24CC77006CD5B1 /* CoreFoundation.framework in Frameworks */,
 				C21CFC780A250F95006CD5B1 /* Security.framework in Frameworks */,
-				C2E173F30B013F5A002EE2F2 /* securityd_client.framework in Frameworks */,
-				C2E173F60B013F83002EE2F2 /* security_cdsa_utilities.framework in Frameworks */,
-				C2970D3C0AAE8E6700084FFC /* security_utilities.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C23B128214BB85BA00A1ED50 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C23B129014BB861100A1ED50 /* CoreFoundation.framework in Frameworks */,
+				C23B129114BB861300A1ED50 /* Security.framework in Frameworks */,
+				C23B129214BB861800A1ED50 /* libsecurity_utilities.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -326,9 +369,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C28C2FCA1436B5A000935B02 /* security_utilities.framework in Frameworks */,
 				C28C2FCC1436B5A600935B02 /* Security.framework in Frameworks */,
 				C28C2FCD1436B5AA00935B02 /* CoreFoundation.framework in Frameworks */,
+				1865FD211472760600FD79DF /* libsecurity_utilities.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -339,17 +382,39 @@
 				C297EF520AAE8D9400084FFC /* CoreFoundation.framework in Frameworks */,
 				C297EF530AAE8D9400084FFC /* Security.framework in Frameworks */,
 				C297EF550AAE8D9400084FFC /* libantlr2c++.a in Frameworks */,
-				C2093B740BB0992300EB8599 /* security_cdsa_utilities.framework in Frameworks */,
-				C2970D3B0AAE8E6700084FFC /* security_utilities.framework in Frameworks */,
+				1865FD1C147274A700FD79DF /* libsecurity_utilities.a in Frameworks */,
+				1865FD1E147274B800FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB149A7F151C204C0042E8ED /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB1EC7AA151D6199007B8618 /* CoreServices.framework in Frameworks */,
+				EBE88F55151C2CDD0050180C /* Security.framework in Frameworks */,
+				EB149A85151C204C0042E8ED /* Cocoa.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		18A25C5514753D14004F59F8 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18A25C5614753D14004F59F8 /* debug.xcconfig */,
+				18A25C5714753D14004F59F8 /* project.xcconfig */,
+				18A25C5814753D14004F59F8 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				EB1EC7A9151D6199007B8618 /* CoreServices.framework */,
+				18A25C5514753D14004F59F8 /* config */,
 				52558D3B0B274CB900CD7E39 /* tokenadmin */,
 				C2B3635A05894DAF00DA394D /* systemkeychain */,
 				C26159140A9F60F300771C4D /* codesign */,
@@ -358,8 +423,8 @@
 				C297EE790AAE8B0800084FFC /* Shared Utilities */,
 				C273D1BD0A2FA8C800823A76 /* man */,
 				C20CFFAE14685E6E004C8E27 /* spctl */,
+				EB149A8A151C204C0042E8ED /* Gatekeeper */,
 				C26403820589583400E95F9A /* Frameworks */,
-				C2254FDA0A25113B007D3358 /* libantlr2c++.a */,
 				C21CFD0D0A251050006CD5B1 /* Components */,
 				4CA1FEB7052A3C6D00F22E42 /* Products */,
 			);
@@ -373,7 +438,8 @@
 				C297EE4F0AAE898700084FFC /* csreq */,
 				52558D320B274C4400CD7E39 /* tokenadmin */,
 				C27360C514366F5E00A9A5FF /* syspolicyd */,
-				C20CFFAC14685E6E004C8E27 /* spctl */,
+				C23B128514BB85BA00A1ED50 /* spctl */,
+				EB149A82151C204C0042E8ED /* Gatekeeper.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -433,15 +499,19 @@
 		C26403820589583400E95F9A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				522F1F170B6A9799006F700F /* security_utilities.framework */,
-				C2E173F50B013F83002EE2F2 /* security_cdsa_utilities.framework */,
-				52558F110B28DACB00CD7E39 /* security_asn1.framework */,
+				C2254FDA0A25113B007D3358 /* libantlr2c++.a */,
+				18B965921472FD77005A4D2E /* libsecurityd_client.a */,
+				18B965901472FD62005A4D2E /* libsecurity_cdsa_client.a */,
+				1865FD1D147274B800FD79DF /* libsecurity_cdsa_utilities.a */,
+				1865FD1A1472746900FD79DF /* libsecurity_utilities.a */,
 				52558EFC0B28D6FD00CD7E39 /* SecurityFoundation.framework */,
 				52558EF90B28D66F00CD7E39 /* Foundation.framework */,
 				52558DDD0B27821D00CD7E39 /* DiskImages.framework */,
 				52558D3C0B274DC100CD7E39 /* Admin.framework */,
 				C264033E0589582F00E95F9A /* CoreFoundation.framework */,
 				C21CFC770A250F95006CD5B1 /* Security.framework */,
+				EB149A84151C204C0042E8ED /* Cocoa.framework */,
+				EB149A86151C204C0042E8ED /* Other Frameworks */,
 			);
 			name = Frameworks;
 			path = /System/Library/Frameworks;
@@ -452,7 +522,6 @@
 			children = (
 				C27360C814366F5E00A9A5FF /* syspolicyd.cpp */,
 				C28C2FED143A5E8C00935B02 /* com.apple.security.syspolicy.plist */,
-				C27360CA14366F5E00A9A5FF /* syspolicyd.8 */,
 			);
 			path = syspolicyd;
 			sourceTree = "<group>";
@@ -464,6 +533,7 @@
 				C273D1C10A2FA8F000823A76 /* codesign.1 */,
 				C26158B30AAF497C00877DF4 /* csreq.1 */,
 				C20B4B881475B3E9006E88D1 /* spctl.8 */,
+				C27360CA14366F5E00A9A5FF /* syspolicyd.8 */,
 				4E670EA40BFCCD6E00F573A6 /* tokenadmin.8 */,
 			);
 			name = man;
@@ -501,6 +571,45 @@
 			path = src;
 			sourceTree = "<group>";
 		};
+		EB149A86151C204C0042E8ED /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EB149A87151C204C0042E8ED /* AppKit.framework */,
+				EB149A88151C204C0042E8ED /* CoreData.framework */,
+				EB149A89151C204C0042E8ED /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		EB149A8A151C204C0042E8ED /* Gatekeeper */ = {
+			isa = PBXGroup;
+			children = (
+				EB149A96151C204C0042E8ED /* GKAppDelegate.h */,
+				EB149A97151C204C0042E8ED /* GKAppDelegate.m */,
+				EB149AA0151C22480042E8ED /* RuleViewController.h */,
+				EB149AA1151C22480042E8ED /* RuleViewController.m */,
+				EB149AA6151C27AE0042E8ED /* Authority.h */,
+				EB149AA7151C27AE0042E8ED /* Authority.m */,
+				EBE88F57151C373B0050180C /* AuthorityTableView.h */,
+				EBE88F58151C373B0050180C /* AuthorityTableView.m */,
+				EB149A99151C204D0042E8ED /* MainMenu.xib */,
+				EB149A8B151C204C0042E8ED /* Supporting Files */,
+			);
+			path = Gatekeeper;
+			sourceTree = "<group>";
+		};
+		EB149A8B151C204C0042E8ED /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				EB149A8C151C204C0042E8ED /* Gatekeeper-Info.plist */,
+				EB149A8D151C204C0042E8ED /* InfoPlist.strings */,
+				EB149A90151C204C0042E8ED /* main.m */,
+				EB149A92151C204C0042E8ED /* Gatekeeper-Prefix.pch */,
+				EB149A93151C204C0042E8ED /* Credits.rtf */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -514,9 +623,9 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		4CA1FEB5052A3C6D00F22E42 /* security_systemkeychain */ = {
+		4CA1FEB5052A3C6D00F22E42 /* systemkeychain */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C27AD48F0987FCEF001272E0 /* Build configuration list for PBXNativeTarget "security_systemkeychain" */;
+			buildConfigurationList = C27AD48F0987FCEF001272E0 /* Build configuration list for PBXNativeTarget "systemkeychain" */;
 			buildPhases = (
 				4CA1FEB1052A3C6D00F22E42 /* Headers */,
 				4CA1FEB2052A3C6D00F22E42 /* Sources */,
@@ -529,7 +638,7 @@
 			);
 			dependencies = (
 			);
-			name = security_systemkeychain;
+			name = systemkeychain;
 			productInstallPath = /usr/sbin;
 			productName = security_systemkeychain;
 			productReference = 4CA1FEB6052A3C6D00F22E42 /* systemkeychain */;
@@ -552,23 +661,6 @@
 			productReference = 52558D320B274C4400CD7E39 /* tokenadmin */;
 			productType = "com.apple.product-type.tool";
 		};
-		C20CFFAB14685E6E004C8E27 /* spctl */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C20CFFB614685E6E004C8E27 /* Build configuration list for PBXNativeTarget "spctl" */;
-			buildPhases = (
-				C20CFFA814685E6E004C8E27 /* Sources */,
-				C20CFFA914685E6E004C8E27 /* Frameworks */,
-				C20CFFAA14685E6E004C8E27 /* Copy Files */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = spctl;
-			productName = spctl;
-			productReference = C20CFFAC14685E6E004C8E27 /* spctl */;
-			productType = "com.apple.product-type.tool";
-		};
 		C21CFB690A24CBDB006CD5B1 /* codesign */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C21CFB700A24CBEC006CD5B1 /* Build configuration list for PBXNativeTarget "codesign" */;
@@ -586,14 +678,31 @@
 			productReference = C21CFB6A0A24CBDB006CD5B1 /* codesign */;
 			productType = "com.apple.product-type.tool";
 		};
+		C23B128414BB85BA00A1ED50 /* spctl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C23B128C14BB85BA00A1ED50 /* Build configuration list for PBXNativeTarget "spctl" */;
+			buildPhases = (
+				C23B128114BB85BA00A1ED50 /* Sources */,
+				C23B128214BB85BA00A1ED50 /* Frameworks */,
+				C23B128314BB85BA00A1ED50 /* Install manpages */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = spctl;
+			productName = spctl;
+			productReference = C23B128514BB85BA00A1ED50 /* spctl */;
+			productType = "com.apple.product-type.tool";
+		};
 		C27360C414366F5E00A9A5FF /* syspolicyd */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C27360CF14366F5E00A9A5FF /* Build configuration list for PBXNativeTarget "syspolicyd" */;
 			buildPhases = (
 				C27360C114366F5E00A9A5FF /* Sources */,
 				C27360C214366F5E00A9A5FF /* Frameworks */,
-				C27360C314366F5E00A9A5FF /* CopyFiles */,
-				C28C2FE9143A5D3400935B02 /* CopyFiles */,
+				C27360C314366F5E00A9A5FF /* Install manpages */,
+				C28C2FE9143A5D3400935B02 /* Install launchd plist */,
 			);
 			buildRules = (
 			);
@@ -621,6 +730,23 @@
 			productReference = C297EE4F0AAE898700084FFC /* csreq */;
 			productType = "com.apple.product-type.tool";
 		};
+		EB149A81151C204C0042E8ED /* Gatekeeper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB149A9E151C204D0042E8ED /* Build configuration list for PBXNativeTarget "Gatekeeper" */;
+			buildPhases = (
+				EB149A7E151C204C0042E8ED /* Sources */,
+				EB149A7F151C204C0042E8ED /* Frameworks */,
+				EB149A80151C204C0042E8ED /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Gatekeeper;
+			productName = Gatekeeper;
+			productReference = EB149A82151C204C0042E8ED /* Gatekeeper.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -638,6 +764,7 @@
 				Japanese,
 				French,
 				German,
+				en,
 			);
 			mainGroup = 4CA1FEAC052A3C5800F22E42;
 			productRefGroup = 4CA1FEB7052A3C6D00F22E42 /* Products */;
@@ -645,15 +772,29 @@
 			projectRoot = "";
 			targets = (
 				C21CFB640A24CBC8006CD5B1 /* World */,
-				4CA1FEB5052A3C6D00F22E42 /* security_systemkeychain */,
+				4CA1FEB5052A3C6D00F22E42 /* systemkeychain */,
 				C21CFB690A24CBDB006CD5B1 /* codesign */,
 				C297EE4E0AAE898700084FFC /* csreq */,
 				52558D310B274C4400CD7E39 /* tokenadmin */,
 				C27360C414366F5E00A9A5FF /* syspolicyd */,
-				C20CFFAB14685E6E004C8E27 /* spctl */,
+				C23B128414BB85BA00A1ED50 /* spctl */,
+				EB149A81151C204C0042E8ED /* Gatekeeper */,
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EB149A80151C204C0042E8ED /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB149A8F151C204C0042E8ED /* InfoPlist.strings in Resources */,
+				EB149A95151C204C0042E8ED /* Credits.rtf in Resources */,
+				EB149A9B151C204D0042E8ED /* MainMenu.xib in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		4CA1FEB2052A3C6D00F22E42 /* Sources */ = {
@@ -676,15 +817,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C20CFFA814685E6E004C8E27 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C20CFFB914685F11004C8E27 /* spctl.cpp in Sources */,
-				C20CFFD11469F33C004C8E27 /* cs_utils.cpp in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		C21CFB670A24CBDB006CD5B1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -695,6 +827,15 @@
 				C2DB432F0AA6096F00E70131 /* cs_dump.cpp in Sources */,
 				C2BD5E3F0AC1E9330057FD3D /* cs_verify.cpp in Sources */,
 				C2BD5E4A0AC1E9EF0057FD3D /* cs_misc.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C23B128114BB85BA00A1ED50 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C23B128F14BB85DD00A1ED50 /* spctl.cpp in Sources */,
+				C23B129514BB86D300A1ED50 /* cs_utils.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -715,6 +856,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB149A7E151C204C0042E8ED /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB149A91151C204C0042E8ED /* main.m in Sources */,
+				EB149A98151C204C0042E8ED /* GKAppDelegate.m in Sources */,
+				EB149AA2151C22480042E8ED /* RuleViewController.m in Sources */,
+				EB149AA8151C27AE0042E8ED /* Authority.m in Sources */,
+				EBE88F59151C373B0050180C /* AuthorityTableView.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -723,20 +876,20 @@
 			target = 52558D310B274C4400CD7E39 /* tokenadmin */;
 			targetProxy = 5280E5E90B2E278E000C5D98 /* PBXContainerItemProxy */;
 		};
-		C20B4B8B1475BE13006E88D1 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = C20CFFAB14685E6E004C8E27 /* spctl */;
-			targetProxy = C20B4B8A1475BE13006E88D1 /* PBXContainerItemProxy */;
-		};
 		C21CFB660A24CBCD006CD5B1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 4CA1FEB5052A3C6D00F22E42 /* security_systemkeychain */;
+			target = 4CA1FEB5052A3C6D00F22E42 /* systemkeychain */;
 			targetProxy = C21CFB650A24CBCD006CD5B1 /* PBXContainerItemProxy */;
 		};
 		C21CFB6D0A24CBDF006CD5B1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = C21CFB690A24CBDB006CD5B1 /* codesign */;
 			targetProxy = C21CFB6C0A24CBDF006CD5B1 /* PBXContainerItemProxy */;
+		};
+		C23B129414BB863B00A1ED50 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C23B128414BB85BA00A1ED50 /* spctl */;
+			targetProxy = C23B129314BB863B00A1ED50 /* PBXContainerItemProxy */;
 		};
 		C27360DA1436960100A9A5FF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -750,82 +903,100 @@
 		};
 /* End PBXTargetDependency section */
 
-/* Begin XCBuildConfiguration section */
-		52558D360B274C4500CD7E39 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = tokenadmin;
-				ZERO_LINK = NO;
-			};
-			name = Development;
+/* Begin PBXVariantGroup section */
+		EB149A8D151C204C0042E8ED /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				EB149A8E151C204C0042E8ED /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
 		};
-		52558D370B274C4500CD7E39 /* Deployment */ = {
+		EB149A93151C204C0042E8ED /* Credits.rtf */ = {
+			isa = PBXVariantGroup;
+			children = (
+				EB149A94151C204C0042E8ED /* en */,
+			);
+			name = Credits.rtf;
+			sourceTree = "<group>";
+		};
+		EB149A99151C204D0042E8ED /* MainMenu.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				EB149A9A151C204D0042E8ED /* en */,
+			);
+			name = MainMenu.xib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		52558D360B274C4500CD7E39 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					debug,
-					normal,
-				);
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = tokenadmin;
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Debug;
 		};
 		52558D380B274C4500CD7E39 /* Default */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					debug,
-					normal,
-				);
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = tokenadmin;
 				ZERO_LINK = NO;
 			};
 			name = Default;
 		};
-		C20CFFB314685E6E004C8E27 /* Development */ = {
+		C21CFB710A24CBEC006CD5B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
+				INSTALL_PATH = /usr/bin;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
+			};
+			name = Debug;
+		};
+		C21CFB730A24CBEC006CD5B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
+				INSTALL_PATH = /usr/bin;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
+			};
+			name = Release;
+		};
+		C21CFB750A24CBEC006CD5B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C21CFB770A24CBEC006CD5B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C23B128D14BB85BA00A1ED50 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-					"$(inherited)",
-				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -840,30 +1011,20 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
-				);
 				INSTALL_PATH = /usr/sbin;
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Development;
+			name = Debug;
 		};
-		C20CFFB414685E6E004C8E27 /* Deployment */ = {
+		C23B128E14BB85BA00A1ED50 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-					"$(inherited)",
-				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -871,177 +1032,102 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
-				);
 				INSTALL_PATH = /usr/sbin;
-				MACOSX_DEPLOYMENT_TARGET = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C20CFFB514685E6E004C8E27 /* Default */ = {
+		C27360CC14366F5E00A9A5FF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec/;
+			};
+			name = Debug;
+		};
+		C27360CE14366F5E00A9A5FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec/;
+			};
+			name = Release;
+		};
+		C27AD4900987FCEF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+			};
+			name = Debug;
+		};
+		C27AD4920987FCEF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
+			buildSettings = {
+				INSTALL_PATH = /usr/sbin;
+			};
+			name = Release;
+		};
+		C27AD4940987FCEF001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD4960987FCEF001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5714753D14004F59F8 /* project.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C297EE5D0AAE898800084FFC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5614753D14004F59F8 /* debug.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
+				INSTALL_PATH = /usr/bin;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
+			};
+			name = Debug;
+		};
+		C297EE5F0AAE898800084FFC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C5814753D14004F59F8 /* release.xcconfig */;
+			buildSettings = {
+				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
+				INSTALL_PATH = /usr/bin;
+				OTHER_LDFLAGS = (
+					"-sectcreate",
+					__TEXT,
+					__info_plist,
+					"$(INFOPLIST_FILE)",
+				);
+			};
+			name = Release;
+		};
+		EB149A9C151C204D0042E8ED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-					"$(inherited)",
-				);
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
-				);
-				INSTALL_PATH = /usr/sbin;
-				MACOSX_DEPLOYMENT_TARGET = "";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Default;
-		};
-		C21CFB710A24CBEC006CD5B1 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../build\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"${inherited}",
-				);
-				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-sectcreate",
-					__TEXT,
-					__info_plist,
-					"$(INFOPLIST_FILE)",
-				);
-				PRODUCT_NAME = codesign;
-			};
-			name = Development;
-		};
-		C21CFB720A24CBEC006CD5B1 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../build\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"${inherited}",
-				);
-				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-sectcreate",
-					__TEXT,
-					__info_plist,
-					"$(INFOPLIST_FILE)",
-				);
-				PRODUCT_NAME = codesign;
-			};
-			name = Deployment;
-		};
-		C21CFB730A24CBEC006CD5B1 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../build\"";
-				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"${inherited}",
-				);
-				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-sectcreate",
-					__TEXT,
-					__info_plist,
-					"$(INFOPLIST_FILE)",
-				);
-				PRODUCT_NAME = codesign;
-			};
-			name = Default;
-		};
-		C21CFB750A24CBEC006CD5B1 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = World;
-			};
-			name = Development;
-		};
-		C21CFB760A24CBEC006CD5B1 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				PRODUCT_NAME = World;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C21CFB770A24CBEC006CD5B1 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				PRODUCT_NAME = World;
-			};
-			name = Default;
-		};
-		C27360CC14366F5E00A9A5FF /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				COPY_PHASE_STRIP = NO;
-				DSTROOT = "";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "Gatekeeper/Gatekeeper-Prefix.pch";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
 					"$(inherited)",
@@ -1049,279 +1135,45 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec/;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
+				INSTALL_PATH = /AppleInternal/Applications;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = app;
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27360CD14366F5E00A9A5FF /* Deployment */ = {
+		EB149A9D151C204D0042E8ED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DSTROOT = "";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "Gatekeeper/Gatekeeper-Prefix.pch";
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec/;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
+				INFOPLIST_FILE = "Gatekeeper/Gatekeeper-Info.plist";
+				INSTALL_PATH = /AppleInternal/Applications;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				WRAPPER_EXTENSION = app;
 			};
-			name = Deployment;
-		};
-		C27360CE14366F5E00A9A5FF /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DSTROOT = "";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/libexec/;
-				MACOSX_DEPLOYMENT_TARGET = 10.7;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Default;
-		};
-		C27AD4900987FCEF001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55119.2;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(SRCROOT)/../build",
-				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" -pg";
-				PRODUCT_NAME = systemkeychain;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Development;
-		};
-		C27AD4910987FCEF001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55119.2;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" -pg";
-				PRODUCT_NAME = systemkeychain;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C27AD4920987FCEF001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55119.2;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = (
-					/usr/local/SecurityPieces/Frameworks,
-					"$(SRCROOT)/../build",
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/sbin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"securityd_client,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"securityd_client\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"securityd_client,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" -pg";
-				PRODUCT_NAME = systemkeychain;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		C27AD4940987FCEF001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
-				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
-			};
-			name = Development;
-		};
-		C27AD4950987FCEF001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
-				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
-			};
-			name = Deployment;
-		};
-		C27AD4960987FCEF001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
-				INFOPLIST_FILE = "src/Info-$(PRODUCT_NAME).plist";
-			};
-			name = Default;
-		};
-		C297EE5D0AAE898800084FFC /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = stabs;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SRCROOT)/../build\"";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = csreq;
-				ZERO_LINK = NO;
-			};
-			name = Development;
-		};
-		C297EE5E0AAE898800084FFC /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../build\"";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = "$(HOME)/bin";
-				PRODUCT_NAME = csreq;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		C297EE5F0AAE898800084FFC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-					/usr/local/SecurityPieces/Components/Security,
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
-				);
-				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../build\"";
-				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /usr/bin;
-				OTHER_LDFLAGS = (
-					"-sectcreate",
-					__TEXT,
-					__info_plist,
-					"$(INFOPLIST_FILE)",
-				);
-				PRODUCT_NAME = csreq;
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1329,82 +1181,83 @@
 		52558D350B274C4500CD7E39 /* Build configuration list for PBXNativeTarget "tokenadmin" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				52558D360B274C4500CD7E39 /* Development */,
-				52558D370B274C4500CD7E39 /* Deployment */,
+				52558D360B274C4500CD7E39 /* Debug */,
 				52558D380B274C4500CD7E39 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C20CFFB614685E6E004C8E27 /* Build configuration list for PBXNativeTarget "spctl" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C20CFFB314685E6E004C8E27 /* Development */,
-				C20CFFB414685E6E004C8E27 /* Deployment */,
-				C20CFFB514685E6E004C8E27 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C21CFB700A24CBEC006CD5B1 /* Build configuration list for PBXNativeTarget "codesign" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C21CFB710A24CBEC006CD5B1 /* Development */,
-				C21CFB720A24CBEC006CD5B1 /* Deployment */,
-				C21CFB730A24CBEC006CD5B1 /* Default */,
+				C21CFB710A24CBEC006CD5B1 /* Debug */,
+				C21CFB730A24CBEC006CD5B1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C21CFB740A24CBEC006CD5B1 /* Build configuration list for PBXAggregateTarget "World" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C21CFB750A24CBEC006CD5B1 /* Development */,
-				C21CFB760A24CBEC006CD5B1 /* Deployment */,
-				C21CFB770A24CBEC006CD5B1 /* Default */,
+				C21CFB750A24CBEC006CD5B1 /* Debug */,
+				C21CFB770A24CBEC006CD5B1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		C23B128C14BB85BA00A1ED50 /* Build configuration list for PBXNativeTarget "spctl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C23B128D14BB85BA00A1ED50 /* Debug */,
+				C23B128E14BB85BA00A1ED50 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		C27360CF14366F5E00A9A5FF /* Build configuration list for PBXNativeTarget "syspolicyd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27360CC14366F5E00A9A5FF /* Development */,
-				C27360CD14366F5E00A9A5FF /* Deployment */,
-				C27360CE14366F5E00A9A5FF /* Default */,
+				C27360CC14366F5E00A9A5FF /* Debug */,
+				C27360CE14366F5E00A9A5FF /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
-		C27AD48F0987FCEF001272E0 /* Build configuration list for PBXNativeTarget "security_systemkeychain" */ = {
+		C27AD48F0987FCEF001272E0 /* Build configuration list for PBXNativeTarget "systemkeychain" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4900987FCEF001272E0 /* Development */,
-				C27AD4910987FCEF001272E0 /* Deployment */,
-				C27AD4920987FCEF001272E0 /* Default */,
+				C27AD4900987FCEF001272E0 /* Debug */,
+				C27AD4920987FCEF001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD4930987FCEF001272E0 /* Build configuration list for PBXProject "security_systemkeychain" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4940987FCEF001272E0 /* Development */,
-				C27AD4950987FCEF001272E0 /* Deployment */,
-				C27AD4960987FCEF001272E0 /* Default */,
+				C27AD4940987FCEF001272E0 /* Debug */,
+				C27AD4960987FCEF001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C297EE5C0AAE898800084FFC /* Build configuration list for PBXNativeTarget "csreq" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C297EE5D0AAE898800084FFC /* Development */,
-				C297EE5E0AAE898800084FFC /* Deployment */,
-				C297EE5F0AAE898800084FFC /* Default */,
+				C297EE5D0AAE898800084FFC /* Debug */,
+				C297EE5F0AAE898800084FFC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		EB149A9E151C204D0042E8ED /* Build configuration list for PBXNativeTarget "Gatekeeper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB149A9C151C204D0042E8ED /* Debug */,
+				EB149A9D151C204D0042E8ED /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

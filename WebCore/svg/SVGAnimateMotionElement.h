@@ -20,7 +20,7 @@
 
 #ifndef SVGAnimateMotionElement_h
 #define SVGAnimateMotionElement_h
-#if ENABLE(SVG_ANIMATION)
+#if ENABLE(SVG)
 #include "AffineTransform.h"
 #include "Path.h"
 #include "SVGAnimationElement.h"
@@ -34,14 +34,16 @@ public:
 private:
     SVGAnimateMotionElement(const QualifiedName&, Document*);
 
-    virtual bool hasValidAttributeType() const;
+    virtual bool hasValidAttributeType();
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
-    virtual void resetToBaseValue(const String&);
+    virtual void resetToBaseValue();
+    virtual bool calculateToAtEndOfDurationValue(const String& toAtEndOfDurationString);
     virtual bool calculateFromAndToValues(const String& fromString, const String& toString);
     virtual bool calculateFromAndByValues(const String& fromString, const String& byString);
-    virtual void calculateAnimatedValue(float percentage, unsigned repeat, SVGSMILElement* resultElement);
+    virtual void calculateAnimatedValue(float percentage, unsigned repeatCount, SVGSMILElement* resultElement);
     virtual void applyResultsToTarget();
     virtual float calculateDistance(const String& fromString, const String& toString);
     virtual Path animationPath() const;
@@ -52,24 +54,19 @@ private:
         RotateAutoReverse
     };
     RotateMode rotateMode() const;
+    void buildTransformForProgress(AffineTransform*, float percentage);
 
-    FloatSize m_animatedTranslation;
-    float m_animatedAngle;
+    bool m_hasToPointAtEndOfDuration;
 
     // Note: we do not support percentage values for to/from coords as the spec implies we should (opera doesn't either)
     FloatPoint m_fromPoint;
-    float m_fromAngle;
     FloatPoint m_toPoint;
-    float m_toAngle;
-
-    unsigned m_baseIndexInTransformList;
+    FloatPoint m_toPointAtEndOfDuration;
 
     Path m_path;
-    Vector<float> m_keyPoints;
-    float m_angle;
 };
     
 } // namespace WebCore
 
-#endif // ENABLE(SVG_ANIMATION)
+#endif // ENABLE(SVG)
 #endif // SVGAnimateMotionElement_h

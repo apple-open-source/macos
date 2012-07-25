@@ -59,7 +59,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define KRB5_DEPRECATED /* no warnings for now :`( */
+#define KRB5_DEPRECATED_FUNCTION(x) /* no warnings for now :`( */
 
 #include <Heimdal/krb5.h>
 #include <Heimdal/com_err.h>
@@ -175,7 +175,7 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags __unused,
 	if (openpam_get_option(pamh, PAM_OPT_AUTH_AS_SELF))
 		asprintf(&principal, "%s/%s", (const char *)sourceuser, user);
 	else if (NULL == openpam_get_option(pamh, PAM_OPT_DEFAULT_PRINCIPAL))
-		od_principal_for_user(user, &principal);
+		od_principal_for_user(pamh, user, &principal);
 	else
 		principal = strdup(user);
 	if (principal == NULL) {

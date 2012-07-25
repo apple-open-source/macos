@@ -23,6 +23,8 @@
 #if ENABLE(SVG)
 #include "SVGSymbolElement.h"
 
+#include "RenderSVGHiddenContainer.h"
+#include "SVGElementInstance.h"
 #include "SVGFitToViewBox.h"
 #include "SVGNames.h"
 
@@ -33,10 +35,18 @@ DEFINE_ANIMATED_BOOLEAN(SVGSymbolElement, SVGNames::externalResourcesRequiredAtt
 DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGSymbolElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio) 
 DEFINE_ANIMATED_RECT(SVGSymbolElement, SVGNames::viewBoxAttr, ViewBox, viewBox)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGSymbolElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(viewBox)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(preserveAspectRatio) 
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGSymbolElement::SVGSymbolElement(const QualifiedName& tagName, Document* document)
     : SVGStyledElement(tagName, document)
 {
     ASSERT(hasTagName(SVGNames::symbolTag));
+    registerAnimatedPropertiesForSVGSymbolElement();
 }
 
 PassRefPtr<SVGSymbolElement> SVGSymbolElement::create(const QualifiedName& tagName, Document* document)
@@ -44,69 +54,56 @@ PassRefPtr<SVGSymbolElement> SVGSymbolElement::create(const QualifiedName& tagNa
     return adoptRef(new SVGSymbolElement(tagName, document));
 }
 
-void SVGSymbolElement::parseMappedAttribute(Attribute* attr)
+bool SVGSymbolElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (SVGLangSpace::parseMappedAttribute(attr))
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        SVGFitToViewBox::addSupportedAttributes(supportedAttributes);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGSymbolElement::parseAttribute(Attribute* attr)
+{
+    if (!isSupportedAttribute(attr->name())) {
+        SVGStyledElement::parseAttribute(attr);
         return;
-    if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
+    }
+
+    if (SVGLangSpace::parseAttribute(attr))
         return;
-    if (SVGFitToViewBox::parseMappedAttribute(document(), attr))
+    if (SVGExternalResourcesRequired::parseAttribute(attr))
+        return;
+    if (SVGFitToViewBox::parseAttribute(document(), attr))
         return;
 
-    SVGStyledElement::parseMappedAttribute(attr);
+    ASSERT_NOT_REACHED();
 }
 
 void SVGSymbolElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledElement::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::viewBoxAttr)
-        updateRelativeLengthsInformation();
-}
-
-void SVGSymbolElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizePreserveAspectRatio();
-        synchronizeViewBox();
-        synchronizeExternalResourcesRequired();
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::preserveAspectRatioAttr)
-        synchronizePreserveAspectRatio();
-    else if (attrName == SVGNames::viewBoxAttr)
-        synchronizeViewBox();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGFitToViewBox::isKnownAttribute(attrName)) {
-        synchronizeViewBox();
-        synchronizePreserveAspectRatio();
-    } 
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
-AttributeToPropertyTypeMap& SVGSymbolElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGSymbolElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::viewBoxAttr, AnimatedRect);
-    attributeToPropertyTypeMap.set(SVGNames::preserveAspectRatioAttr, AnimatedPreserveAspectRatio);
+    // Every other property change is ignored.
+    if (attrName == SVGNames::viewBoxAttr)
+        updateRelativeLengthsInformation();
 }
 
 bool SVGSymbolElement::selfHasRelativeLengths() const
 {
     return hasAttribute(SVGNames::viewBoxAttr);
+}
+
+RenderObject* SVGSymbolElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderSVGHiddenContainer(this);
 }
 
 }

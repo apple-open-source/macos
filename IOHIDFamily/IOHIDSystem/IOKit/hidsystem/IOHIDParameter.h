@@ -170,14 +170,18 @@
 #define kHIDAccelTangentSpeedQuarticRootKey  "HIDAccelTangentSpeedQuarticRoot"
 #define kHIDAccelIndexKey                       "HIDAccelIndex"
 
-
-#ifdef __ppc__
-    // the following are misspelled keys present in the system
-    // they are being kept around, but will eventually be deprecated
-    #define kIOHIDSickyKeysDisabledKey		kIOHIDStickyKeysDisabledKey
-    #define kIOHIDSickyKeysOnKey			kIOHIDStickyKeysOnKey
-    #define kIOHIDSickyKeysShiftTogglesKey	kIOHIDStickyKeysShiftTogglesKey
-#endif
+// Scroll Count Keys
+#define kIOHIDScrollCountMaxTimeDeltaBetweenKey         "HIDScrollCountMaxTimeDeltaBetween"
+#define kIOHIDScrollCountMaxTimeDeltaToSustainKey       "HIDScrollCountMaxTimeDeltaToSustain"
+#define kIOHIDScrollCountMinDeltaToStartKey             "HIDScrollCountMinDeltaToStart"
+#define kIOHIDScrollCountMinDeltaToSustainKey           "HIDScrollCountMinDeltaToSustain"
+#define kIOHIDScrollCountIgnoreMomentumScrollsKey       "HIDScrollCountIgnoreMomentumScrolls"
+#define kIOHIDScrollCountMouseCanResetKey               "HIDScrollCountMouseCanReset"
+#define kIOHIDScrollCountMaxKey                         "HIDScrollCountMax"
+#define kIOHIDScrollCountAccelerationFactorKey          "HIDScrollCountAccelerationFactor"
+#define kIOHIDScrollCountZeroKey                        "HIDScrollCountZero"
+#define kIOHIDScrollCountBootDefaultKey                 "HIDScrollCountBootDefault"
+#define kIOHIDScrollCountResetKey                       "HIDScrollCountReset"
 
 // the following values are used in kIOHIDPointerButtonMode
 typedef enum {

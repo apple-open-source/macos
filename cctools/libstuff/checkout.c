@@ -141,6 +141,20 @@ struct object *object)
 		object->func_starts_info_cmd =
 			(struct linkedit_data_command *)lc;
 	    }
+	    else if(lc->cmd == LC_DATA_IN_CODE){
+		if(object->data_in_code_cmd != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_DATA_IN_CODE load command): ");
+		object->data_in_code_cmd =
+			(struct linkedit_data_command *)lc;
+	    }
+	    else if(lc->cmd == LC_DYLIB_CODE_SIGN_DRS){
+		if(object->code_sign_drs_cmd != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_DYLIB_CODE_SIGN_DRS load command): ");
+		object->code_sign_drs_cmd =
+			(struct linkedit_data_command *)lc;
+	    }
 	    else if((lc->cmd == LC_DYLD_INFO) ||(lc->cmd == LC_DYLD_INFO_ONLY)){
 		if(object->dyld_info != NULL)
 		    fatal_arch(arch, member, "malformed file (more than one "
@@ -369,6 +383,16 @@ struct object *object)
 	    if(object->func_starts_info_cmd->dataoff != offset)
 		order_error(arch, member, "function starts data out of place");
 	    offset += object->func_starts_info_cmd->datasize;
+	}
+	if(object->data_in_code_cmd != NULL){
+	    if(object->data_in_code_cmd->dataoff != offset)
+		order_error(arch, member, "data in code info out of place");
+	    offset += object->data_in_code_cmd->datasize;
+	}
+	if(object->code_sign_drs_cmd != NULL){
+	    if(object->code_sign_drs_cmd->dataoff != offset)
+		order_error(arch, member, "code signing DRs info out of place");
+	    offset += object->code_sign_drs_cmd->datasize;
 	}
 	if(object->st->nsyms != 0){
 	    if(object->st->symoff != offset)

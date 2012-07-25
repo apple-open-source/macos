@@ -35,6 +35,7 @@
 #include "FloatPoint.h"
 #include "HTMLDivElement.h"
 #include "HTMLNames.h"
+#include "RenderBlock.h"
 #include "RenderStyleConstants.h"
 #include <wtf/Forward.h>
 
@@ -49,23 +50,25 @@ class SliderThumbElement : public HTMLDivElement {
 public:
     static PassRefPtr<SliderThumbElement> create(Document*);
 
-    bool inDragMode() const { return m_inDragMode; }
     void setPositionFromValue();
 
-    void dragFrom(const IntPoint&);
+    void dragFrom(const LayoutPoint&);
     virtual void defaultEventHandler(Event*);
     virtual void detach();
     virtual const AtomicString& shadowPseudoId() const;
+    HTMLInputElement* hostInput() const;
 
 private:
     SliderThumbElement(Document*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual PassRefPtr<Element> cloneElementWithoutAttributesAndChildren();
+    virtual bool isEnabledFormControl() const;
+    virtual bool isReadOnlyFormControl() const;
+    virtual Node* focusDelegate();
     void startDragging();
     void stopDragging();
-    void setPositionFromPoint(const IntPoint&);
-    HTMLInputElement* hostInput();
+    void setPositionFromPoint(const LayoutPoint&);
 
-    FloatPoint m_offsetToThumb;
     bool m_inDragMode;
 };
 
@@ -80,11 +83,60 @@ inline PassRefPtr<SliderThumbElement> SliderThumbElement::create(Document* docum
     return adoptRef(new SliderThumbElement(document));
 }
 
+inline PassRefPtr<Element> SliderThumbElement::cloneElementWithoutAttributesAndChildren()
+{
+    return create(document());
+}
+
 inline SliderThumbElement* toSliderThumbElement(Node* node)
 {
     ASSERT(!node || node->isHTMLElement());
     return static_cast<SliderThumbElement*>(node);
 }
+
+// This always return a valid pointer.
+// An assertion fails if the specified node is not a range input.
+SliderThumbElement* sliderThumbElementOf(Node*);
+
+// --------------------------------
+
+class RenderSliderThumb : public RenderBlock {
+public:
+    RenderSliderThumb(Node*);
+    void updateAppearance(RenderStyle* parentStyle);
+
+private:
+    virtual bool isSliderThumb() const;
+    virtual void layout();
+};
+
+// --------------------------------
+
+class TrackLimiterElement : public HTMLDivElement {
+public:
+    static PassRefPtr<TrackLimiterElement> create(Document*);
+
+private:
+    TrackLimiterElement(Document*);
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual const AtomicString& shadowPseudoId() const;
+};
+
+// This always return a valid pointer.
+// An assertion fails if the specified node is not a range input.
+TrackLimiterElement* trackLimiterElementOf(Node*);
+
+// --------------------------------
+
+class SliderContainerElement : public HTMLDivElement {
+public:
+    static PassRefPtr<SliderContainerElement> create(Document*);
+
+private:
+    SliderContainerElement(Document*);
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual const AtomicString& shadowPseudoId() const;
+};
 
 }
 

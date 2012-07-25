@@ -28,6 +28,10 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Flags := $(shell echo $(Install_Flags) | sed 's/prefix=[^ ]* *//')
 Install_Target = frameworkinstall
+
+# Override the CC and CXX overrides in Common.make (9967906)
+Make_Flags += CC=$(WITH_GCC) CXX=$(WITH_GXX)
+
 FIX = '$(SRCROOT)/fix'
 
 ##---------------------------------------------------------------------
@@ -48,7 +52,6 @@ $(ConfigStamp2): $(ConfigStamp)
 APPS = /Applications
 USRBIN = /usr/bin
 PYTHONAPPNAME = Python.app
-PYTHONLAUNCHERNAME = Python Launcher.app
 FRAMEWORKS = /System/Library/Frameworks
 PYFRAMEWORK = $(FRAMEWORKS)/Python.framework
 VERSIONSVERS = $(PYFRAMEWORK)/Versions/$(VERS)
@@ -57,15 +60,11 @@ LIBPYTHONVERS = $(VERSIONSVERS)/lib/python$(VERS)
 PYTHONAPP = $(RESOURCESVERS)/$(PYTHONAPPNAME)
 PACONTENTS = $(PYTHONAPP)/Contents
 PAMACOS = $(PACONTENTS)/MacOS
-PYTHONVERS = $(APPS)/Python $(VERS)
-PYTHONLAUNCHER = $(RESOURCESVERS)/$(PYTHONLAUNCHERNAME)
-PLCONTENTS = $(PYTHONLAUNCHER)/Contents
 RUNPYTHON = DYLD_FRAMEWORK_PATH='$(OBJROOT)' '$(OBJROOT)/python.exe'
 BYTE2UTF16 = $(RUNPYTHON) $(FIX)/byte2utf16.py
 UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
 
 fixup-after-install: delete-stuff \
-		     move-things-around \
 		     strip-installed-files \
 		     fix-PInfo \
 		     fix-paths \
@@ -75,23 +74,17 @@ fixup-after-install: delete-stuff \
 		     fix-config-Makefile \
 		     additional-man-pages
 
-delete-stuff:
-	rm -rf '$(DSTROOT)/usr/local'
-
 # We leave "Build Applet.app" in $(APPS) to be deleted, because it uses
-# Carbon, and doesn't work in 64-bit.
-move-things-around:
-	mv -f '$(DSTROOT)$(PYTHONVERS)/$(PYTHONLAUNCHERNAME)' '$(DSTROOT)$(RESOURCESVERS)'
-	rm -rf '$(DSTROOT)$(APPS)'
-
-Python_Launcher = $(PLCONTENTS)/MacOS/Python Launcher
+# Carbon, and doesn't work in 64-bit.  We also leave "Python Launcher.app"
+# in $(APPS) to be deleted (10692664).
+delete-stuff:
+	rm -rf '$(DSTROOT)/usr/local' '$(DSTROOT)$(APPS)'
 
 strip-installed-files:
 	$(CP) $(OBJROOT)/python.exe '$(SYMROOT)'
 	strip -x $(DSTROOT)$(PAMACOS)/Python
 	$(CP) '$(DSTROOT)$(VERSIONSVERS)/Python' '$(SYMROOT)'
 	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
-	strip -x '$(DSTROOT)$(Python_Launcher)'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
 	cd '$(SYMROOT)/lib-dynload' && \
 	for so in *.so; do \

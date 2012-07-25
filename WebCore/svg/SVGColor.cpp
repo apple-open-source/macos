@@ -31,26 +31,20 @@
 namespace WebCore {
 
 SVGColor::SVGColor(const SVGColorType& colorType)
-    : m_colorType(colorType)
+    : CSSValue(SVGColorClass)
+    , m_colorType(colorType)
+{
+}
+
+SVGColor::SVGColor(ClassType classType, const SVGColorType& colorType)
+    : CSSValue(classType)
+    , m_colorType(colorType)
 {
 }
 
 PassRefPtr<RGBColor> SVGColor::rgbColor() const
 {
     return RGBColor::create(m_color.rgb());
-}
-
-void SVGColor::setRGBColor(const String& rgbColor, ExceptionCode& ec)
-{
-    Color color = SVGColor::colorFromRGBColorString(rgbColor);
-    if (!color.isValid()) {
-        ec = SVGException::SVG_INVALID_VALUE_ERR;
-        return;
-    }
-
-    m_color = color;
-    m_colorType = SVG_COLORTYPE_RGBCOLOR;
-    setNeedsStyleRecalc();
 }
 
 Color SVGColor::colorFromRGBColorString(const String& colorString)
@@ -62,74 +56,24 @@ Color SVGColor::colorFromRGBColorString(const String& colorString)
     return Color();
 }
 
-void SVGColor::setRGBColorICCColor(const String& rgbColor, const String& iccColor, ExceptionCode& ec)
+void SVGColor::setRGBColor(const String&, ExceptionCode& ec)
 {
-    if (rgbColor.isEmpty() || iccColor.isEmpty()) {
-        ec = SVGException::SVG_INVALID_VALUE_ERR;
-        return;
-    }
-
-    // FIXME: No support for ICC colors. We're just ignoring it.
-    setRGBColor(rgbColor, ec);
-    if (ec)
-        return;
-
-    m_colorType = SVG_COLORTYPE_RGBCOLOR_ICCCOLOR;
-    setNeedsStyleRecalc();
+    // The whole SVGColor interface is deprecated in SVG 1.1 (2nd edition).
+    // The setters are the most problematic part so we remove the support for those first.
+    ec = NO_MODIFICATION_ALLOWED_ERR;
 }
 
-void SVGColor::setColor(unsigned short colorType, const String& rgbColor, const String& iccColor, ExceptionCode& ec)
+void SVGColor::setRGBColorICCColor(const String&, const String&, ExceptionCode& ec)
 {
-    if (colorType > SVG_COLORTYPE_CURRENTCOLOR) {
-        ec = SVGException::SVG_WRONG_TYPE_ERR;
-        return;
-    }
-
-    bool requiresRGBColor = false;
-    bool requiresICCColor = false;
-
-    SVGColorType type = static_cast<SVGColorType>(colorType);
-    switch (type) {
-    case SVG_COLORTYPE_UNKNOWN:
-        // Spec: It is invalid to attempt to define a new value of this type or to attempt to switch an existing value to this type.
-        ec = SVGException::SVG_INVALID_VALUE_ERR;
-        return;
-    case SVG_COLORTYPE_RGBCOLOR_ICCCOLOR:
-        requiresICCColor = true;
-    case SVG_COLORTYPE_RGBCOLOR:
-        requiresRGBColor = true;
-        break;
-    case SVG_COLORTYPE_CURRENTCOLOR:
-        break;
-    }
-
-    // Spec: If colorType requires an RGBColor, then rgbColor must be a string that matches <color>; otherwise, rgbColor must be null.
-    if (requiresRGBColor && rgbColor.isEmpty()) {
-        ec = SVGException::SVG_INVALID_VALUE_ERR;
-        return;
-    }
-
-    // Spec: If colorType requires an SVGICCColor, then iccColor must be a string that matches <icccolor>; otherwise, iccColor must be null.
-    if (requiresICCColor && iccColor.isEmpty()) {
-        ec = SVGException::SVG_INVALID_VALUE_ERR;
-        return;
-    }
-
-    setNeedsStyleRecalc();
-    m_colorType = type;
-    if (!requiresRGBColor) {
-        ASSERT(!requiresICCColor);
-        m_color = Color();
-        return;
-    }
-
-    if (requiresICCColor)
-        setRGBColorICCColor(rgbColor, iccColor, ec);
-    else
-        setRGBColor(rgbColor, ec);
+    ec = NO_MODIFICATION_ALLOWED_ERR;
 }
 
-String SVGColor::cssText() const
+void SVGColor::setColor(unsigned short, const String&, const String&, ExceptionCode& ec)
+{
+    ec = NO_MODIFICATION_ALLOWED_ERR;
+}
+
+String SVGColor::customCssText() const
 {
     switch (m_colorType) {
     case SVG_COLORTYPE_UNKNOWN:
@@ -146,6 +90,18 @@ String SVGColor::cssText() const
 
     ASSERT_NOT_REACHED();
     return String();
+}
+
+SVGColor::SVGColor(ClassType classType, const SVGColor& cloneFrom)
+    : CSSValue(classType, /*isCSSOMSafe*/ true)
+    , m_color(cloneFrom.m_color)
+    , m_colorType(cloneFrom.m_colorType)
+{
+}
+
+PassRefPtr<SVGColor> SVGColor::cloneForCSSOM() const
+{
+    return adoptRef(new SVGColor(SVGColorClass, *this));
 }
 
 }

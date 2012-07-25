@@ -138,7 +138,7 @@ protected:
     void setElementDictIntValue(CFMutableDictionaryRef element, CFStringRef key,  uint32_t value);
     void setElementDictBoolValue(CFMutableDictionaryRef  element, CFStringRef key,  bool value);
     CFTypeRef createElement(CFDataRef data, IOHIDElementStruct * element, uint32_t index, CFTypeRef parentElement, CFMutableDictionaryRef elementCache, 
-                                bool * isElementCached = false, IOOptionBits options = 0);
+                                bool * isElementCached = NULL, IOOptionBits options = 0);
     
     IOReturn getCurrentElementValueAndGeneration(IOHIDElementRef element, IOHIDValueRef *pEvent = 0, uint32_t * pGeneration = 0);    
                                 
@@ -228,11 +228,19 @@ public:
     virtual IOReturn copyMatchingElements(CFDictionaryRef matchingDict, CFArrayRef * elements, CFTypeRef parentElement=0, CFMutableDictionaryRef elementCache=0, IOOptionBits options=0);
     virtual IOReturn setInterruptReportCallback(uint8_t * report, CFIndex reportLength, IOHIDReportCallback callback, void * refcon, IOOptionBits options = 0);
 
-    virtual IOReturn getElementValue(IOHIDElementRef element, IOHIDValueRef * pEvent, 
-                                uint32_t timeout = 0, IOHIDValueCallback callback = 0, void * refcon = 0, IOOptionBits options = 0);
+    virtual IOReturn getElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef * pEvent, 
+                                     uint32_t timeout = 0, 
+                                     IOHIDValueCallback callback = 0, 
+                                     void * refcon = 0, 
+                                     IOOptionBits options = 0);
 
-    virtual IOReturn setElementValue(IOHIDElementRef element, IOHIDValueRef event, 
-                                uint32_t timeout = 0, IOHIDValueCallback callback = 0, void * refcon = 0, IOOptionBits options = 0);
+    virtual IOReturn setElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef event, 
+                                     uint32_t timeout = 0, 
+                                     IOHIDValueCallback callback = 0, 
+                                     void * refcon = 0, 
+                                     IOOptionBits options = 0);
 };
 
 
@@ -295,11 +303,60 @@ public:
 
     virtual IOReturn createAsyncEventSource(CFRunLoopSourceRef * pSource);
     virtual IOReturn setRemovalCallback(IOHIDCallbackFunction removalCallback, void * removalTarget, void * removalRefcon);
-    virtual IOReturn setElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, uint32_t timeout = 0, IOHIDElementCallbackFunction callback = NULL, void * target = NULL, void * refcon = NULL, IOOptionBits options = 0);
-    virtual IOReturn getElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent);
+    virtual IOReturn setElementValue(IOHIDElementCookie cookie, 
+                                     IOHIDEventStruct * pEvent, 
+                                     uint32_t timeout = 0, 
+                                     IOHIDElementCallbackFunction callback = NULL, 
+                                     void * target = NULL, 
+                                     void * refcon = NULL, 
+                                     IOOptionBits options = 0);
+    virtual IOReturn setElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef event, 
+                                     uint32_t timeout = 0, 
+                                     IOHIDValueCallback callback = 0, 
+                                     void * refcon = 0, 
+                                     IOOptionBits options = 0);
+    virtual IOReturn getElementValue(IOHIDElementCookie cookie, 
+                                     IOHIDEventStruct * pEvent);
+    virtual IOReturn getElementValue(IOHIDElementRef element, 
+                                     IOHIDValueRef * pEvent, 
+                                     uint32_t timeout = 0, 
+                                     IOHIDValueCallback callback = 0, 
+                                     void * refcon = 0, 
+                                     IOOptionBits options = 0);
     virtual IOReturn queryElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, uint32_t timeout, IOHIDElementCallbackFunction callback, void * target, void * refcon);
-    virtual IOReturn setReport(IOHIDReportType type, uint32_t id, void * report, uint32_t length, uint32_t timeout, IOHIDReportCallbackFunction callback, void * target, void * refcon);
-    virtual IOReturn getReport(IOHIDReportType type, uint32_t id, void * report, uint32_t * pLength, uint32_t timeout, IOHIDReportCallbackFunction callback, void * target, void * refcon);
+    virtual IOReturn setReport(IOHIDReportType type, 
+                               uint32_t id, 
+                               void * report, 
+                               uint32_t length, 
+                               uint32_t timeout, 
+                               IOHIDReportCallbackFunction callback, 
+                               void * target, 
+                               void * refcon);
+    virtual IOReturn setReport(IOHIDReportType reportType, 
+                               uint32_t reportID, 
+                               const uint8_t * report, 
+                               CFIndex reportLength, 
+                               uint32_t timeout, 
+                               IOHIDReportCallback callback, 
+                               void * refcon, 
+                               IOOptionBits options = 0);
+    virtual IOReturn getReport(IOHIDReportType type, 
+                               uint32_t id, 
+                               void * report, 
+                               uint32_t * pLength, 
+                               uint32_t timeout, 
+                               IOHIDReportCallbackFunction callback, 
+                               void * target, 
+                               void * refcon);
+    virtual IOReturn getReport(IOHIDReportType reportType, 
+                               uint32_t reportID, 
+                               uint8_t * report, 
+                               CFIndex * pReportLength, 
+                               uint32_t timeout, 
+                               IOHIDReportCallback callback, 
+                               void * refcon, 
+                               IOOptionBits options = 0);
     virtual IOReturn setInterruptReportHandlerCallback(void * report, uint32_t length, IOHIDReportCallbackFunction callback, void * target, void * refcon);                           
     
     virtual IOHIDQueueInterface ** allocQueue();

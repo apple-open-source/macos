@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,46 +31,110 @@
 
 #include "config.h"
 
-#if ENABLE(NOTIFICATIONS)
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
 
 #include "NotificationCenter.h"
 
 #include "Document.h"
-#include "NotificationPresenter.h"
-#include "VoidCallback.h"
+#include "NotificationClient.h"
+#include "SecurityOrigin.h"
 #include "WorkerContext.h"
 
 namespace WebCore {
 
-NotificationCenter::NotificationCenter(ScriptExecutionContext* context, NotificationPresenter* presenter)
-    : ActiveDOMObject(context, this)
-    , m_notificationPresenter(presenter) {}
+PassRefPtr<NotificationCenter> NotificationCenter::create(ScriptExecutionContext* context, NotificationClient* client)
+{
+    RefPtr<NotificationCenter> notificationCenter(adoptRef(new NotificationCenter(context, client)));
+    notificationCenter->suspendIfNeeded();
+    return notificationCenter.release();
+}
 
+NotificationCenter::NotificationCenter(ScriptExecutionContext* context, NotificationClient* client)
+    : ActiveDOMObject(context, this)
+    , m_client(client)
+{
+}
+
+#if ENABLE(LEGACY_NOTIFICATIONS)
 int NotificationCenter::checkPermission()
 {
-    if (!presenter() || !scriptExecutionContext())
-        return NotificationPresenter::PermissionDenied;
-    return m_notificationPresenter->checkPermission(scriptExecutionContext());
-}
+    if (!client() || !scriptExecutionContext())
+        return NotificationClient::PermissionDenied;
 
+    switch (scriptExecutionContext()->securityOrigin()->canShowNotifications()) {
+    case SecurityOrigin::AlwaysAllow:
+        return NotificationClient::PermissionAllowed;
+    case SecurityOrigin::AlwaysDeny:
+        return NotificationClient::PermissionDenied;
+    case SecurityOrigin::Ask:
+        return m_client->checkPermission(scriptExecutionContext());
+    }
+
+    ASSERT_NOT_REACHED();
+    return m_client->checkPermission(scriptExecutionContext());
+}
+#endif
+
+#if ENABLE(LEGACY_NOTIFICATIONS)
 void NotificationCenter::requestPermission(PassRefPtr<VoidCallback> callback)
 {
-    if (!presenter() || !scriptExecutionContext())
+    if (!client() || !scriptExecutionContext())
         return;
-    m_notificationPresenter->requestPermission(scriptExecutionContext(), callback);
+
+    switch (scriptExecutionContext()->securityOrigin()->canShowNotifications()) {
+    case SecurityOrigin::AlwaysAllow:
+    case SecurityOrigin::AlwaysDeny: {
+        m_callbacks.add(NotificationRequestCallback::createAndStartTimer(this, callback));
+        return;
+    }
+    case SecurityOrigin::Ask:
+        return m_client->requestPermission(scriptExecutionContext(), callback);
+    }
+
+    ASSERT_NOT_REACHED();
+    m_client->requestPermission(scriptExecutionContext(), callback);
+}
+#endif
+
+void NotificationCenter::stop()
+{
+    if (!m_client)
+        return;
+    m_client->cancelRequestsForPermission(scriptExecutionContext());
+    m_client->clearNotifications(scriptExecutionContext());
+    m_client = 0;
 }
 
-void NotificationCenter::disconnectFrame()
+void NotificationCenter::requestTimedOut(NotificationCenter::NotificationRequestCallback* request)
 {
-    // m_notificationPresenter should never be 0. But just to be safe, we check it here.
-    // Due to the mysterious bug http://code.google.com/p/chromium/issues/detail?id=49323.
-    ASSERT(m_notificationPresenter);
-    if (!m_notificationPresenter)
-        return;
-    m_notificationPresenter->cancelRequestsForPermission(scriptExecutionContext());
-    m_notificationPresenter = 0;
+    m_callbacks.remove(request);
+}
+
+PassRefPtr<NotificationCenter::NotificationRequestCallback> NotificationCenter::NotificationRequestCallback::createAndStartTimer(NotificationCenter* center, PassRefPtr<VoidCallback> callback)
+{
+    RefPtr<NotificationCenter::NotificationRequestCallback> requestCallback = adoptRef(new NotificationCenter::NotificationRequestCallback(center, callback));
+    requestCallback->startTimer();
+    return requestCallback.release();
+}
+
+NotificationCenter::NotificationRequestCallback::NotificationRequestCallback(NotificationCenter* center, PassRefPtr<VoidCallback> callback)
+    : m_notificationCenter(center)
+    , m_timer(this, &NotificationCenter::NotificationRequestCallback::timerFired)
+    , m_callback(callback)
+{
+}
+
+void NotificationCenter::NotificationRequestCallback::startTimer()
+{
+    m_timer.startOneShot(0);
+}
+
+void NotificationCenter::NotificationRequestCallback::timerFired(Timer<NotificationCenter::NotificationRequestCallback>*)
+{
+    m_callback->handleEvent();
+    m_notificationCenter->requestTimedOut(this);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(NOTIFICATIONS)
+#endif // ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)

@@ -63,7 +63,7 @@
 #define IXSEQ_TO_IPCID(ix,perm) (((perm._seq) << 16L) | (ix & 0xffff))
 #endif
 
-char   *
+static char   *
 fmt_perm(u_short mode, char write_char)
 {
 	static char buffer[100];
@@ -83,7 +83,7 @@ fmt_perm(u_short mode, char write_char)
 	return (&buffer[0]);
 }
 
-void
+static void
 cvt_time(time_t t, char *buf)
 {
 	struct tm *tm;
@@ -92,8 +92,10 @@ cvt_time(time_t t, char *buf)
 		strcpy(buf, "no-entry");
 	} else {
 		tm = localtime(&t);
-		sprintf(buf, "%2d:%02d:%02d",
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
+		if (tm != NULL) {
+			sprintf(buf, "%2d:%02d:%02d",
+				tm->tm_hour, tm->tm_min, tm->tm_sec);
+		}
 	}
 }
 #define	SHMINFO		1
@@ -109,14 +111,14 @@ cvt_time(time_t t, char *buf)
 #define PID		8
 #define TIME		16
 
-void usage()
+static void
+usage(void)
 {
 	errx(EX_USAGE, "%s","usage: ipcs [-abcmopqstMQST]\n");
 }
 
-int safe_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, 		  
-		      size_t newlen)
-
+static int
+safe_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, size_t newlen)
 {
 	int rv, sv_errno=0;
 
@@ -197,7 +199,12 @@ main(argc, argv)
 	if (display == 0)
 		display = SHMINFO | MSGINFO | SEMINFO;
 	now = time(0);
-	if (0 == strftime(datestring, sizeof(datestring), "%a %b %e %H:%M:%S %Z %Y", localtime(&now)))
+	struct tm* tm = localtime(&now);
+	if (tm == NULL) {
+		now = 0;
+		tm = localtime(&now);
+	}
+	if (0 == strftime(datestring, sizeof(datestring), "%a %b %e %H:%M:%S %Z %Y", tm))
 	    errx(1, "strftime failed\n");
 	printf("IPC status from <running system> as of %s\n", datestring);
 	if ((display & (MSGINFO | MSGTOTAL))) {
@@ -382,7 +389,7 @@ main(argc, argv)
 			ic.ipcs_cursor = 0;	/* start */
 			ic.ipcs_datalen = sizeof(*shmptr);
 			ic.ipcs_data = shmptr;
-			memset(shmptr, 0, sizeof(shmptr));
+			memset(shmptr, 0, sizeof(*shmptr));
 
 			while(!(safe_sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
 				ic.ipcs_data = shmptr; /* xnu workaround */

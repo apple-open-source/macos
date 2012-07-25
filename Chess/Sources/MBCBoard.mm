@@ -1,15 +1,69 @@
 /*
 	File:		MBCBoard.mm
 	Contains:	Implementation of fundamental board and move classes
-	Version:	1.0
-	Copyright:	Â© 2002-2010 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 #import "MBCBoard.h"
 #import "MBCEngineCommands.h"
 #import "MBCMoveGenerator.h"
+#import "MBCPlayer.h"
+#import "MBCDocument.h"
 
 #import <string.h>
 #include <ctype.h>
+
+NSString *  gVariantName[] = {
+	@"normal", @"crazyhouse", @"suicide", @"losers", nil
+};
+
+const char  gVariantChar[]	= "nzsl";
+
+const MBCSide gHumanSide[]  = {
+    kBothSides, kWhiteSide, kBlackSide, kNeitherSide, kBothSides
+};
+
+const MBCSide gEngineSide[] = {
+    kNeitherSide, kBlackSide, kWhiteSide, kBothSides, kNeitherSide
+};
 
 MBCPiece Captured(MBCPiece victim)
 {
@@ -112,6 +166,17 @@ static const char * sPieceChar = " KQBNRP";
 	return [[MBCMove newFromEngineMove:engineMove] autorelease];
 }
 
++ (BOOL)compactMoveIsWin:(MBCCompactMove)move
+{
+    switch (move >> 24) {
+    case kCmdWhiteWins:
+    case kCmdBlackWins:
+        return YES;
+    default:
+        return NO;
+    }
+}
+
 NSString * sPieceLetters[] = {
 	@"",
 	@"king_letter",
@@ -134,8 +199,21 @@ NSString * sPieceLetters[] = {
 
 - (NSString *) localizedText
 {
-	return [NSString stringWithFormat:NSLocalizedString(@"title_move_fmt", "%@ %@ %@"),
-			[self origin], [self operation], [self destination]];
+    NSString * origin       = [self origin];
+    NSString * operation    = [self operation];
+    NSString * destination  = [self destinationForTitle:YES];
+    NSString * check        = [self check];
+    NSString * text;
+    if ([origin length] || [destination length])
+        text = [NSString localizedStringWithFormat:NSLocalizedString(@"title_move_fmt", "%@%@%@"),
+                origin, operation, destination];
+    else 
+        text = operation;
+    if ([check length])
+        text = [NSString localizedStringWithFormat:NSLocalizedString(@"title_check_fmt", @"%@%@"),
+                text, check];
+    
+    return text;
 }
 
 - (NSString *) origin
@@ -146,12 +224,12 @@ NSString * sPieceLetters[] = {
 		if (fCastling != kNoCastle)
 			return @"";
 		else 
-			return [NSString stringWithFormat:NSLocalizedString(@"move_origin_fmt", @"%@%c%c"),
+			return [NSString localizedStringWithFormat:NSLocalizedString(@"move_origin_fmt", @"%@%c%c"),
 					[self pieceLetter:fPiece forDrop:NO],
 					Col(fFromSquare), Row(fFromSquare)+'0'];
 	case kCmdDrop:
 	case kCmdPDrop:
-		return [NSString stringWithFormat:NSLocalizedString(@"drop_origin_fmt", @"%@"),
+		return [NSString localizedStringWithFormat:NSLocalizedString(@"drop_origin_fmt", @"%@"),
 				[self pieceLetter:fPiece forDrop:YES]];
 	default:
 		return @"";
@@ -181,19 +259,41 @@ NSString * sPieceLetters[] = {
 		op = ' ';
 		break;
 	}
-	return [NSString stringWithFormat:NSLocalizedString(@"operation_fmt", @"%C"), op];
+	return [NSString localizedStringWithFormat:NSLocalizedString(@"operation_fmt", @"%C"), op];
+}
+
+- (NSString *) destinationForTitle:(BOOL)forTitle
+{
+    NSString * check = [self check];
+    NSString * text;
+	if (fCastling != kNoCastle && fCastling != kUnknownCastle)
+		return check;
+	else if (fPromotion)
+		text = [NSString localizedStringWithFormat:NSLocalizedString(@"promo_dest_fmt", @"%c%c=@%"),
+                    Col(fToSquare), Row(fToSquare)+'0', [self pieceLetter:fPromotion forDrop:NO]];
+	else
+		text = [NSString localizedStringWithFormat:NSLocalizedString(@"move_dest_fmt", @"%c%c"),
+                    Col(fToSquare), Row(fToSquare)+'0']; 
+    if ([check length])
+        return [NSString localizedStringWithFormat:NSLocalizedString(@"dest_check_fmt", @"%@ %@"),
+                text, check];
+    else 
+        return text;
 }
 
 - (NSString *) destination
 {
-	if (fCastling != kNoCastle && fCastling != kUnknownCastle)
-		return @"";
-	else if (fPromotion)
-		return [NSString stringWithFormat:NSLocalizedString(@"promo_dest_fmt", @"%c%c=@%"),
-				Col(fToSquare), Row(fToSquare)+'0', [self pieceLetter:fPromotion forDrop:NO]];
-	else
-		return [NSString stringWithFormat:NSLocalizedString(@"move_dest_fmt", @"%c%c"),
-				Col(fToSquare), Row(fToSquare)+'0'];
+    return [self destinationForTitle:NO];
+}
+
+- (NSString *) check
+{
+    if (fCheckMate)
+        return NSLocalizedString(@"move_is_checkmate", @"­");
+    else if (fCheck)
+        return NSLocalizedString(@"move_is_check", @"+");
+    else
+        return @"";
 }
 
 - (NSString *) engineMove
@@ -225,18 +325,59 @@ NSString * sPieceLetters[] = {
 
 @end
 
-@implementation MBCBoard
-
-- (id) init
+bool MBCPieces::NoPieces(MBCPieceCode color)
 {
-	fMoves	= nil;
-
-	[self reset];
-        
-	return self;
+    color = (MBCPieceCode)Opposite(Color(color));
+    
+    return fInHand[color+QUEEN]  == 1
+        && fInHand[color+BISHOP] == 2
+        && fInHand[color+KNIGHT] == 2
+        && fInHand[color+ROOK]   == 2
+        && fInHand[color+PAWN]   == 8;
 }
 
-- (void) reset
+@implementation MBCBoard
+
+- (void)removeChessObservers
+{
+    if (!fHasObservers)
+        return;
+    
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
+    [notificationCenter removeObserver:self name:MBCGameLoadNotification object:self];
+    fHasObservers   = NO;
+}
+
+- (void)dealloc
+{
+    [self removeChessObservers];
+    [super dealloc];
+}
+
+- (void)setDocument:(id)doc
+{
+    fDocument   = doc;
+	fMoves      = nil;
+
+	[self resetWithVariant:[doc variant]];
+    
+    [self removeChessObservers];
+    [[NSNotificationCenter defaultCenter]
+     addObserverForName:MBCGameLoadNotification object:doc 
+     queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+         NSDictionary * dict    = [note userInfo];
+         NSString *     fen     = [dict objectForKey:@"Position"];
+         NSString *     holding = [dict objectForKey:@"Holding"];
+         NSString *     moves   = [dict objectForKey:@"Moves"];
+         fVariant               = [doc variant];
+
+         if (fen || moves)
+             [self setFen:fen holding:holding moves:moves];
+     }];
+    fHasObservers = YES;
+}
+
+- (void) resetWithVariant:(MBCVariant)variant
 {
 	memset(fCurPos.fBoard, EMPTY, 64);
 	memset(fCurPos.fInHand, 0, 16);
@@ -278,7 +419,7 @@ NSString * sPieceLetters[] = {
 	fCurPos.fBoard[Square('h',8)] = Black(ROOK);
 
 	fPrvPos		= fCurPos;
-	fVariant	= kVarNormal;
+	fVariant	= variant;
 	fMoveClock	= 0;
 
 	[fMoves release];
@@ -290,8 +431,7 @@ NSString * sPieceLetters[] = {
 
 - (void) startGame:(MBCVariant)variant
 {
-	[self reset];
-	fVariant	= variant;
+	[self resetWithVariant:variant];
 }
 
 - (MBCPiece) curContents:(MBCSquare)square
@@ -337,7 +477,8 @@ NSString * sPieceLetters[] = {
 	for (int i = 1; i < 8; ++i) {
 		inventory[i] -= fCurPos.fInHand[i]+fCurPos.fInHand[i|kBlackPiece];
 		if (inventory[i]) 
-			NSLog(@"Board consistency check: %d %d\n", i, inventory[i]);
+            MBCAbort([NSString localizedStringWithFormat:@"Board consistency check: %d %d\n", i, inventory[i]],
+                     fDocument);
 	}
 #if 0
 	MBCMoveGenerator	logMoves([MBCDebugMoveBuilder debugMoveBuilder], 
@@ -432,7 +573,11 @@ NSString * sPieceLetters[] = {
 		// to have moved yet.
 		//
 		piece	= move->fPiece;
-		--inHand[piece];
+		if (--inHand[piece] < 0)
+            MBCAbort([NSString localizedStringWithFormat:@"Dropping non-existent %c", 
+                      sPieceChar[Piece(move->fPiece)]], 
+                     fDocument);
+    
 	}
 	board[toSquare] = piece;
 
@@ -440,7 +585,16 @@ NSString * sPieceLetters[] = {
 	// Record the move made in undo buffer
 	//
 	[fMoves addObject:move];
-
+    
+    //
+    // Is the move a check?
+    //
+    if (fVariant != kVarSuicide) {
+        MBCMoveGenerator	checkChecker(nil, fVariant, 0);
+        if ((move->fCheck = checkChecker.InCheck(!([fMoves count] & 1), fCurPos)))
+            move->fCheckMate = checkChecker.InCheckMate(!([fMoves count] & 1), fCurPos);
+    }
+    
 	[self consistencyCheck];
 }
 
@@ -513,6 +667,20 @@ NSString * sPieceLetters[] = {
 			move->fPromotion = EMPTY;
 			break;
 		}
+}
+
+- (MBCSide)sideOfMove:(MBCMove *)move
+{
+    switch (move->fCommand) {
+    case kCmdWhiteWins:
+        return kWhiteSide;
+    case kCmdBlackWins:
+        return kBlackSide;
+    case kCmdDraw:
+        return ([fMoves count] & 1) ? kWhiteSide : kBlackSide;
+    default:
+        return Color(move->fPiece)==kWhitePiece ? kWhiteSide : kBlackSide;
+    }
 }
 
 - (BOOL) reachFromCol:(char)fromCol row:(unsigned)fromRow
@@ -725,7 +893,7 @@ NSString * sPieceLetters[] = {
 			*p++  = Row(move->fToSquare) == 4 ? '3' : '6';
 		}
 	}
-	snprintf(p, 32, " %d %d", fMoveClock, ([fMoves count]/2)+1);
+	snprintf(p, 32, " %d %lu", fMoveClock, ([fMoves count]/2)+1);
 
 	return [NSString stringWithUTF8String:pos+1];
 }
@@ -768,7 +936,7 @@ NSString * sPieceLetters[] = {
 		//
 		// We prefer to restore the game by replaying the moves
 		//
-		[self reset];
+		[self resetWithVariant:fVariant];
 		NSArray * 		m = [moves componentsSeparatedByString:@"\n"];
 		NSEnumerator *	e = [m objectEnumerator];
 		while (NSString * move = [e nextObject]) 
@@ -1051,7 +1219,7 @@ NSString * sPieceLetters[] = {
 
 - (MBCMove *) lastMove
 {
-	return [fMoves lastObject];
+	return [fMoves count] ? [fMoves lastObject] : nil;
 }
 
 - (int) numMoves
@@ -1077,6 +1245,221 @@ NSString * sPieceLetters[] = {
 - (void) setDefaultPromotion:(MBCPiece)piece for:(BOOL)white
 {
 	fPromotion[white] = piece;
+}
+
+- (MBCMoveCode) outcome
+{
+    if (![fMoves count])
+        return kCmdNull;
+    
+    MBCMove * lastMove = (MBCMove *)[fMoves lastObject];
+    if (lastMove->fCheckMate) {
+        if (fVariant == kVarLosers)
+            return ([fMoves count] & 1) ? kCmdBlackWins : kCmdWhiteWins;
+        else
+            return ([fMoves count] & 1) ? kCmdWhiteWins : kCmdBlackWins;
+    }
+    if (fVariant == kVarSuicide || fVariant == kVarLosers) {
+        if (!lastMove->fVictim) 
+            return kCmdNull;
+        MBCPiece color = Opposite(Color(lastMove->fVictim));
+        if (fVariant == kVarSuicide && !fCurPos.fInHand[color+KING])
+            return kCmdNull;
+        if (fCurPos.NoPieces(Color(lastMove->fVictim))) 
+            return ([fMoves count] & 1) ? kCmdBlackWins : kCmdWhiteWins;
+    }
+    if (fVariant != kVarSuicide) {
+        MBCMoveGenerator	checkChecker(nil, fVariant, 0);
+        if (checkChecker.InStaleMate(!([fMoves count] & 1), fCurPos))
+            return fVariant != kVarLosers ? kCmdDraw
+            : ([fMoves count] & 1) ? kCmdBlackWins : kCmdWhiteWins;
+        if (fCurPos.NoPieces(kWhitePiece) && fCurPos.NoPieces(kBlackPiece))
+            return kCmdDraw;
+    }
+    
+    return kCmdNull;
+}
+
+NSString * LocalizedString(NSDictionary * localization, NSString * key, NSString * fallback)
+{
+	NSString * value = [[localization valueForKey:@"strings"] valueForKey:key];
+    
+	return value ? value : fallback;
+}
+
+NSString * LocalizedStringWithFormat(NSDictionary * localization, NSString * format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    NSString * s = [[NSString alloc] initWithFormat:format locale:[localization valueForKey:@"locale"]
+                                          arguments:args];
+    va_end(args);
+    
+    return [s autorelease];
+}
+
+BOOL OldSquares(NSString * fmtString)
+{
+	/* We used to specify squares as "%c %d", now we use "%@ %@". To avoid
+     breakage during the transition, we allow both 
+     */
+	NSRange r = [fmtString rangeOfString:@"%c"];
+	if (r.length)
+		return YES;
+	r = [fmtString rangeOfString:@"$c"];
+	if (r.length)
+		return YES;	
+    
+	return NO;
+}
+
+static NSString *	sPieceName[] = {
+	@"", @"king", @"queen", @"bishop", @"knight", @"rook", @"pawn"
+};
+
+static NSString * 	sFileKey[] = {
+	@"file_a", @"file_b", @"file_c", @"file_d", @"file_e", @"file_f", @"file_g", @"file_h"
+};
+
+static NSString * 	sFileDefault[] = {
+	@"A", @"B", @"C", @"D", @"E", @"F", @"G", @"H"
+};
+
+#define LOC_FILE(f) LOC(sFileKey[(f)-'a'], sFileDefault[(f)-'a'])
+
+static NSString * 	sRankKey[] = {
+	@"rank_1", @"rank_2", @"rank_3", @"rank_4", @"rank_5", @"rank_6", @"rank_7", @"rank_8"
+};
+
+static NSString * 	sRankDefault[] = {
+	@"1", @"2", @"3", @"4", @"5", @"6", @"7", @"8"
+};
+
+#define LOC_RANK(r) LOC(sRankKey[(r)-1], sRankDefault[(r)-1])
+
+- (NSString *)stringFromMove:(MBCMove *)move withLocalization:(NSDictionary *)localization
+{
+    switch (move->fCommand) {
+    case kCmdDrop: {
+        NSString * format  	= LOC(@"drop_fmt", @"%@ %c %d.");
+        NSString * pkey 	= [NSString stringWithFormat:@"%@_d", sPieceName[Piece(move->fPiece)]];
+        NSString * pdef 	= [NSString stringWithFormat:@"drop @% at", sPieceName[Piece(move->fPiece)]];
+        NSString * ploc 	= LOC(pkey, pdef);
+        char	   col  	= Col(move->fToSquare);
+        int		   row  	= Row(move->fToSquare);
+        if (OldSquares(format)) 
+            return LocalizedStringWithFormat(localization, format, ploc, toupper(col), row);
+        else
+            return LocalizedStringWithFormat(localization, format, ploc, LOC_FILE(col), LOC_RANK(row));
+    }
+    case kCmdPMove:
+    case kCmdMove: {
+        MBCPiece	piece;
+        MBCPiece	victim;
+        MBCPiece	promo;
+
+        if (move->fCastling == kUnknownCastle)
+            move->fCastling = [self tryCastling:move];
+        switch (move->fCastling) {
+        case kCastleQueenside:
+            return LOC(@"qcastle_fmt", @"Castle [[emph +]]queen side.");
+        case kCastleKingside:
+            return LOC(@"kcastle_fmt", @"Castle [[emph +]]king side.");
+        default: 
+            if (move->fPiece) { // Move already executed
+                piece 	= move->fPiece;
+                victim	= move->fVictim;
+            } else {
+                piece = fCurPos.fBoard[move->fFromSquare];
+                victim= fCurPos.fBoard[move->fToSquare];
+            }
+            promo	= move->fPromotion;
+            NSString * pname = LOC(sPieceName[Piece(piece)], sPieceName[Piece(piece)]);
+            char	   fcol  = Col(move->fFromSquare);
+            int	   frow  = Row(move->fFromSquare);
+            char	   tcol  = Col(move->fToSquare);
+            int	   trow  = Row(move->fToSquare);
+            if (promo) {
+                NSString * format = victim
+                ? LOC(@"cpromo_fmt", @"%@ %c %d takes %c %d %@.")
+                : LOC(@"promo_fmt", @"%@ %c %d to %c %d %@.");
+                NSString * pkey  = [NSString stringWithFormat:@"%@_p", sPieceName[Piece(promo)]];
+                NSString * pdef  = [NSString stringWithFormat:@"promoting to %@", sPieceName[Piece(promo)]];
+                NSString * ploc  = LOC(pkey, pdef);
+                
+                if (OldSquares(format))
+                    return LocalizedStringWithFormat(localization, format, pname,
+                            toupper(fcol), frow, toupper(tcol), trow, 
+                            ploc);
+                else
+                    return LocalizedStringWithFormat(localization, format, pname,
+                            LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow),
+                            ploc);
+            } else {
+                NSString * format = victim
+                ? LOC(@"cmove_fmt", @"%@ %c %d takes %c %d.")
+                : LOC(@"move_fmt", @"%@ %c %d to %c %d.");
+                
+               if (OldSquares(format))
+                    return LocalizedStringWithFormat(localization, format, pname,
+                            toupper(fcol), frow, toupper(tcol), trow);
+                else
+                    return LocalizedStringWithFormat(localization, format, pname,
+                            LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow));
+            }
+        }}
+    case kCmdWhiteWins:
+        switch (fVariant) {
+        default:
+            if ([fMoves count] && ((MBCMove *)[fMoves lastObject])->fCheckMate)
+                return LOC(@"check_mate", @"[[emph +]]Check mate!");
+            //
+            // Fall through
+            //
+        case kVarSuicide:
+        case kVarLosers:
+            return LOC(@"white_win", @"White wins!");
+        }
+    case kCmdBlackWins:
+        switch (fVariant) {
+        default:
+            if ([fMoves count] && ((MBCMove *)[fMoves lastObject])->fCheckMate)
+                return LOC(@"check_mate", @"[[emph +]]Check mate!");
+            //
+            // Fall through
+            //
+        case kVarSuicide:
+        case kVarLosers:
+            return LOC(@"black_win", @"Black wins!");
+        }
+    case kCmdDraw:
+        return LOC(@"draw", @"The game is a draw!");
+    default:
+        return @"";
+	}
+}
+
+- (NSString *)extStringFromMove:(MBCMove *)move withLocalization:(NSDictionary *)localization
+{
+    NSString * basic = [self stringFromMove:move withLocalization:localization];
+    NSString * ext;
+    
+    if (move->fCheck || move->fCheckMate) {
+        NSString * fmt  = LOC(@"has_check_fmt", @"%@, %@");
+        NSString * check= move->fCheckMate ? LOC(@"check_mate", @"check mate!") : LOC(@"check", @"check!");
+        
+        ext = LocalizedStringWithFormat(localization, fmt, basic, check);
+    } else {
+        NSString * fmt  = LOC(@"no_check_fmt", @"%@.");
+        
+        ext = LocalizedStringWithFormat(localization, fmt, basic);
+    }
+    
+    static NSRegularExpression * sFilter;
+    if (!sFilter)
+        sFilter = [[NSRegularExpression alloc] initWithPattern:@"\\[\\[.*?\\]\\]" options:0 error:nil];
+    return [sFilter stringByReplacingMatchesInString:ext options:0 
+                                               range:NSMakeRange(0, [ext length]) withTemplate:@""];
 }
 
 @end

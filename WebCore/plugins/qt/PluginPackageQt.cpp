@@ -41,9 +41,8 @@ bool PluginPackage::fetchInfo()
         return false;
 
     NPP_GetValueProcPtr gv = (NPP_GetValueProcPtr)m_module->resolve("NP_GetValue");
-    typedef char *(*NPP_GetMIMEDescriptionProcPtr)();
-    NPP_GetMIMEDescriptionProcPtr gm =
-        (NPP_GetMIMEDescriptionProcPtr)m_module->resolve("NP_GetMIMEDescription");
+    NP_GetMIMEDescriptionFuncPtr gm =
+        (NP_GetMIMEDescriptionFuncPtr)m_module->resolve("NP_GetMIMEDescription");
     if (!gm || !gv)
         return false;
 
@@ -52,16 +51,15 @@ bool PluginPackage::fetchInfo()
     if (err != NPERR_NO_ERROR)
         return false;
 
-    m_name = buf;
+    m_name = String::fromUTF8(buf);
     err = gv(0, NPPVpluginDescriptionString, (void*) &buf);
     if (err != NPERR_NO_ERROR)
         return false;
 
-    m_description = buf;
+    m_description = String::fromUTF8(buf);
     determineModuleVersionFromDescription();
 
-    String mimeDescription = gm();
-    setMIMEDescription(mimeDescription);
+    setMIMEDescription(String::fromUTF8(gm()));
     m_infoIsFromCache = false;
 
     return true;
@@ -121,7 +119,7 @@ static void initializeGtk(QLibrary* module = 0)
         }
     }
 
-    QLibrary library(QLatin1String("libgtk-x11-2.0.so.0"));
+    QLibrary library(QLatin1String("libgtk-x11-2.0"), 0);
     if (library.load()) {
         typedef void *(*gtk_init_check_ptr)(int*, char***);
         gtk_init_check_ptr gtkInitCheck = (gtk_init_check_ptr)library.resolve("gtk_init_check");
@@ -162,7 +160,7 @@ bool PluginPackage::load()
 
     initializeBrowserFuncs();
 
-    if (m_path.contains("npwrapper.")) {
+    if (m_path.contains("npwrapper.") || m_path.contains("gnash")) {
         // nspluginwrapper relies on the toolkit value to know if glib is available
         // It does so in NP_Initialize with a null instance, therefore it is done this way:
         m_browserFuncs.getvalue = staticPluginQuirkRequiresGtkToolKit_NPN_GetValue;

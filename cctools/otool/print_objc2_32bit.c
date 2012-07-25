@@ -259,7 +259,7 @@ struct category_t {
     uint32_t protocols;		/* struct protocol_list_t * (32-bit pointer) */
     uint32_t instanceProperties; /* struct objc_property_list *
 				    (32-bit pointer) */
-} category_t;
+};
 
 static
 void

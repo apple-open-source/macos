@@ -72,6 +72,18 @@ int pthread_workqueue_getovercommit_np(pthread_workqueue_t workq,  unsigned int 
  * If the arg of zero, it disables kill on current thread.
  */
 int __pthread_workqueue_setkill(int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+
+/* ===================================================================================================
+ * NEW SPIs for 10.8 onwards
+ *
+ * ===================================================================================================
+ */
+
+typedef void (*pthread_workqueue_function_t)(int queue_priority, int options, void *ctxt);
+int pthread_workqueue_setdispatch_np(pthread_workqueue_function_t worker_func) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
+
+#define WORKQ_ADDTHREADS_OPTION_OVERCOMMIT 0x00000001
+int pthread_workqueue_addthreads_np(int queue_priority, int options, int numthreads) __OSX_AVAILABLE_STARTING(__MAC_10_8, __IPHONE_6_0);
 __END_DECLS
 
 #endif /* _POSIX_PTHREAD_WORKQUEUE_H */

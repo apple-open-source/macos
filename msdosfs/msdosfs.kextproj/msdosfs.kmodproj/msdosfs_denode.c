@@ -88,6 +88,7 @@
 #include "direntry.h"
 #include "denode.h"
 #include "fat.h"
+#include "msdosfs_kdebug.h"
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -867,12 +868,13 @@ int msdosfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
 
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RECLAIM|DBG_FUNC_START, dep, 0, 0, 0, 0);
 	/*
 	 * Skip everything if there was no denode.  This can happen
 	 * If the vnode was temporarily created in msdosfs_check_link.
 	 */
 	if (dep == NULL)
-		return 0;
+		goto done;
 
 	/*
 	 * Remove the denode from its hash chain.
@@ -892,6 +894,8 @@ int msdosfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	vnode_clearfsnode(vp);
 	vnode_removefsref(vp);
 	
+done:
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RECLAIM|DBG_FUNC_END, 0, 0, 0, 0, 0);
 	return 0;
 }
 
@@ -907,12 +911,14 @@ int msdosfs_vnop_inactive(struct vnop_inactive_args *ap)
 	int error = 0;
 	int needs_flush = 0;
 
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_INACTIVE|DBG_FUNC_START, dep, 0, 0, 0, 0);
+
 	/*
 	 * Skip everything if there was no denode.  This can happen
 	 * If the vnode was temporarily created in msdosfs_check_link.
 	 */
 	if (dep == NULL)
-		return 0;
+		goto done;
 
 	lck_mtx_lock(dep->de_lock);
 	
@@ -950,7 +956,9 @@ out:
 	 */
 
 	lck_mtx_unlock(dep->de_lock);
-	
+
+done:
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_INACTIVE|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return (error);
 }
 

@@ -181,12 +181,8 @@ extern char searching_move[20];
 
 extern char setcode[30];
 
-extern int cbEGTBCompBytes;
 extern int EGTBProbes;
 extern int EGTBHits;
-extern int EGTBPieces;
-extern int EGTBCacheSize;
-extern char EGTBDir[STR_BUFF];
 extern int SEGTB;
 
 

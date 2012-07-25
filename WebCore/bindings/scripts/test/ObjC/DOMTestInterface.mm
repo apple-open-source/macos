@@ -39,9 +39,14 @@
 #import "DOMNodeInternal.h"
 #import "DOMStyleSheetInternal.h"
 #import "DOMTestInterfaceInternal.h"
+#import "DOMTestObjInternal.h"
 #import "ExceptionHandlers.h"
 #import "JSMainThreadExecState.h"
+#import "KURL.h"
+#import "Node.h"
 #import "TestInterface.h"
+#import "TestObj.h"
+#import "TestSupplemental.h"
 #import "ThreadCheck.h"
 #import "WebCoreObjCExtras.h"
 #import "WebScriptObjectPrivate.h"
@@ -67,6 +72,101 @@
         IMPL->deref();
     [super finalize];
 }
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (NSString *)supplementalStr1
+{
+    WebCore::JSMainThreadNullState state;
+    return TestSupplemental::supplementalStr1(IMPL);
+}
+#endif
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (NSString *)supplementalStr2
+{
+    WebCore::JSMainThreadNullState state;
+    return TestSupplemental::supplementalStr2(IMPL);
+}
+
+- (void)setSupplementalStr2:(NSString *)newSupplementalStr2
+{
+    WebCore::JSMainThreadNullState state;
+    TestSupplemental::setSupplementalStr2(IMPL, newSupplementalStr2);
+}
+#endif
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (NSString *)supplementalStr3
+{
+    WebCore::JSMainThreadNullState state;
+    return TestSupplemental::supplementalStr3(IMPL);
+}
+
+- (void)setSupplementalStr3:(NSString *)newSupplementalStr3
+{
+    WebCore::JSMainThreadNullState state;
+    TestSupplemental::setSupplementalStr3(IMPL, newSupplementalStr3);
+}
+#endif
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (DOMNode *)supplementalNode
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(TestSupplemental::supplementalNode(IMPL)));
+}
+
+- (void)setSupplementalNode:(DOMNode *)newSupplementalNode
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newSupplementalNode);
+
+    TestSupplemental::setSupplementalNode(IMPL, core(newSupplementalNode));
+}
+#endif
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (void)supplementalMethod1
+{
+    WebCore::JSMainThreadNullState state;
+    TestSupplemental::supplementalMethod1(IMPL);
+}
+
+#endif
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (DOMTestObj *)supplementalMethod2:(NSString *)strArg objArg:(DOMTestObj *)objArg
+{
+    WebCore::JSMainThreadNullState state;
+    WebCore::ExceptionCode ec = 0;
+    DOMTestObj *result = kit(WTF::getPtr(TestSupplemental::supplementalMethod2(IMPL, strArg, core(objArg), ec)));
+    WebCore::raiseOnDOMError(ec);
+    return result;
+}
+
+#endif
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (void)supplementalMethod3
+{
+    WebCore::JSMainThreadNullState state;
+    TestSupplemental::supplementalMethod3(IMPL);
+}
+
+#endif
+
+
+#if ENABLE(Condition11) || ENABLE(Condition12)
+- (void)supplementalMethod4
+{
+    WebCore::JSMainThreadNullState state;
+    TestSupplemental::supplementalMethod4(IMPL);
+}
+
+#endif
 
 @end
 

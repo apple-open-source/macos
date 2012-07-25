@@ -18,9 +18,12 @@
  */
 
 #include "config.h"
+
+#if ENABLE(CONTEXT_MENUS)
+
 #include "ContextMenu.h"
 
-#include "NotImplemented.h"
+#include <wtf/gobject/GOwnPtr.h>
 #include <gtk/gtk.h>
 
 namespace WebCore {
@@ -28,6 +31,11 @@ namespace WebCore {
 ContextMenu::ContextMenu()
 {
     m_platformDescription = GTK_MENU(gtk_menu_new());
+}
+
+ContextMenu::ContextMenu(const PlatformMenuDescription menu)
+    : m_platformDescription(menu)
+{
 }
 
 ContextMenu::~ContextMenu()
@@ -49,6 +57,8 @@ void ContextMenu::appendItem(ContextMenuItem& item)
 void ContextMenu::setPlatformDescription(PlatformMenuDescription menu)
 {
     ASSERT(menu);
+    if (m_platformDescription == menu)
+        return;
     if (m_platformDescription)
         gtk_widget_destroy(GTK_WIDGET(m_platformDescription));
 
@@ -68,12 +78,43 @@ PlatformMenuDescription ContextMenu::releasePlatformDescription()
     return description;
 }
 
-Vector<ContextMenuItem> contextMenuItemVector(const PlatformMenuDescription)
+unsigned ContextMenu::itemCount() const
 {
-    notImplemented();
+    ASSERT(m_platformDescription);
 
+    GOwnPtr<GList> children(gtk_container_get_children(GTK_CONTAINER(m_platformDescription)));
+    return g_list_length(children.get());
+}
+
+Vector<ContextMenuItem> contextMenuItemVector(const PlatformMenuDescription menu)
+{
     Vector<ContextMenuItem> menuItemVector;
+
+    GOwnPtr<GList> children(gtk_container_get_children(GTK_CONTAINER(menu)));
+    int itemCount = g_list_length(children.get());
+    menuItemVector.reserveCapacity(itemCount);
+
+    for (GList* item = children.get(); item; item = g_list_next(item)) {
+        GtkWidget* widget = static_cast<GtkWidget*>(item->data);
+        if (!GTK_IS_MENU_ITEM(widget))
+            continue;
+        menuItemVector.append(ContextMenuItem(GTK_MENU_ITEM(widget)));
+    }
+
     return menuItemVector;
 }
 
+PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>& subMenuItems)
+{
+    GtkMenu* menu = GTK_MENU(gtk_menu_new());
+    for (size_t i = 0; i < subMenuItems.size(); i++) {
+        GtkWidget* platformItem = GTK_WIDGET(subMenuItems[i].releasePlatformDescription());
+        gtk_menu_shell_append(GTK_MENU_SHELL(menu), platformItem);
+        gtk_widget_show(platformItem);
+    }
+    return menu;
 }
+
+}
+
+#endif // ENABLE(CONTEXT_MENUS)

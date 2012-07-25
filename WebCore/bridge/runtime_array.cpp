@@ -39,6 +39,7 @@ const ClassInfo RuntimeArray::s_info = { "RuntimeArray", &JSArray::s_info, 0, 0,
 
 RuntimeArray::RuntimeArray(ExecState* exec, Structure* structure)
     : JSArray(exec->globalData(), structure)
+    , m_array(0)
 {
 }
 
@@ -46,12 +47,17 @@ void RuntimeArray::finishCreation(JSGlobalData& globalData, Bindings::Array* arr
 {
     Base::finishCreation(globalData);
     ASSERT(inherits(&s_info));
-    setSubclassData(array);
+    m_array = array;
 }
 
 RuntimeArray::~RuntimeArray()
 {
     delete getConcreteArray();
+}
+
+void RuntimeArray::destroy(JSCell* cell)
+{
+    jsCast<RuntimeArray*>(cell)->RuntimeArray::~RuntimeArray();
 }
 
 JSValue RuntimeArray::lengthGetter(ExecState*, JSValue slotBase, const Identifier&)
@@ -152,7 +158,7 @@ void RuntimeArray::put(JSCell* cell, ExecState* exec, const Identifier& property
     JSObject::put(thisObject, exec, propertyName, value, slot);
 }
 
-void RuntimeArray::putByIndex(JSCell* cell, ExecState* exec, unsigned index, JSValue value)
+void RuntimeArray::putByIndex(JSCell* cell, ExecState* exec, unsigned index, JSValue value, bool)
 {
     RuntimeArray* thisObject = jsCast<RuntimeArray*>(cell);
     if (index >= thisObject->getLength()) {

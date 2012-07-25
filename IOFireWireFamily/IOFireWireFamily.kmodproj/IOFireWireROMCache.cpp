@@ -84,7 +84,7 @@ bool IOFireWireROMCache::initWithOwnerAndBytes( IOFireWireDevice *owner, const v
 	
 	setROMState( kROMStateResumed, generation );
 	
-	FWKLOG(( "IOFireWireROMCache@0x%08lx::initWithOwnerAndBytes created ROM cache\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireROMCache@%p::initWithOwnerAndBytes created ROM cache\n", this ));
 	
     return result;
 }
@@ -95,7 +95,7 @@ bool IOFireWireROMCache::initWithOwnerAndBytes( IOFireWireDevice *owner, const v
 
 void IOFireWireROMCache::free()
 {
-	FWKLOG(( "IOFireWireROMCache@0x%08lx::free()\n", (UInt32)this ));
+	FWKLOG(( "IOFireWireROMCache@%p::free()\n", this ));
 
 	if( fROM != NULL )
 	{
@@ -241,7 +241,7 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 {
 	bool rom_changed = false;	// assume ROM has not changed
 	
-	FWKLOG(( "IOFireWireROMCache@0x%08lx::hasROMChanged - newBIB = 0x%08lx, newBIBSize = %d\n", (UInt32)this, (UInt32)newBIB, (int)newBIBSize ));
+	FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - newBIB = %p, newBIBSize = %d\n", this, newBIB, (int)newBIBSize ));
 
 	FWPANICASSERT( newBIB != NULL );
 	FWPANICASSERT( newBIBSize != 0 );
@@ -321,11 +321,11 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 #if FWLOGGING
 	if( rom_changed )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::hasROMChanged - ROM changed\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM changed\n", this ));
 	}
 	else
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::hasROMChanged - ROM unchanged\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM unchanged\n", this ));
 	}
 #endif
 
@@ -348,11 +348,11 @@ IOReturn IOFireWireROMCache::checkROMState( UInt32 &generation )
 	
 	while( fState == kROMStateSuspended )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState fROMState == kROMStateSuspended sleep thread 0x%08lx\n", 
-																	(UInt32)this, (UInt32)IOThreadSelf() ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState fROMState == kROMStateSuspended sleep thread %p\n", 
+																	this, IOThreadSelf() ));
 		IORecursiveLockSleep( fLock, &fState, THREAD_UNINT );
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState fROMState != kROMStateSuspended - wake thread 0x%08lx\n", 
-																	(UInt32)this, (UInt32)IOThreadSelf() ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState fROMState != kROMStateSuspended - wake thread %p\n", 
+																	this, IOThreadSelf() ));
 	}
 	
 	FWKLOGASSERT( fState == kROMStateInvalid || fState == kROMStateResumed );
@@ -371,11 +371,11 @@ IOReturn IOFireWireROMCache::checkROMState( UInt32 &generation )
 #if 0
 	if( status == kROMStateInvalid )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState(generation) return kIOFireWireConfigROMInvalid\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState(generation) return kIOFireWireConfigROMInvalid\n", this ));
 	}
 	else
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState(generation) return kIOReturnSuccess\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState(generation) return kIOReturnSuccess\n", this ));
 	}
 #endif
 
@@ -399,11 +399,11 @@ IOReturn IOFireWireROMCache::checkROMState( void )
 	while( fState == kROMStateSuspended )
 	{
 		//zzz THREAD_UNINT ?
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState fROMState == kROMStateSuspended sleep thread 0x%08lx\n", 
-																	(UInt32)this, (UInt32)IOThreadSelf() ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState fROMState == kROMStateSuspended sleep thread %p\n", 
+																	this, IOThreadSelf() ));
 		IORecursiveLockSleep( fLock, &fState, THREAD_UNINT );
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState fROMState != kROMStateSuspended - wake thread 0x%08lx\n", 
-																	(UInt32)this, (UInt32)IOThreadSelf() ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState fROMState != kROMStateSuspended - wake thread %p\n", 
+																	this, IOThreadSelf() ));
 
 	}
 	
@@ -421,11 +421,11 @@ IOReturn IOFireWireROMCache::checkROMState( void )
 #if 0
 	if( status == kROMStateInvalid )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState return kIOFireWireConfigROMInvalid\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState return kIOFireWireConfigROMInvalid\n", this ));
 	}
 	else
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::checkROMState return kIOReturnSuccess\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::checkROMState return kIOReturnSuccess\n", this ));
 	}
 #endif
 		
@@ -445,15 +445,15 @@ void IOFireWireROMCache::setROMState( ROMState state, UInt32 generation )
 #if 0
 	if( state == kROMStateResumed )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::setROMState - kROMStateResumed, gen = %ld\n", (UInt32)this, generation ));
+		FWKLOG(( "IOFireWireROMCache@%p::setROMState - kROMStateResumed, gen = %ld\n", this, generation ));
 	}
 	else if( state == kROMStateSuspended )
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::setROMState - kROMStateSuspended\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::setROMState - kROMStateSuspended\n", this ));
 	}
 	else
 	{
-		FWKLOG(( "IOFireWireROMCache@0x%08lx::setROMState - kROMStateInvalid\n", (UInt32)this ));
+		FWKLOG(( "IOFireWireROMCache@%p::setROMState - kROMStateInvalid\n", this ));
 	}
 #endif
 
@@ -472,7 +472,7 @@ void IOFireWireROMCache::setROMState( ROMState state, UInt32 generation )
 	{
 		unlock();
 
-//		FWKLOG(( "IOFireWireROMCache@0x%08lx::setROMState not kROMStateSuspended signal wake from thread 0x%08lx\n", (UInt32)this, (UInt32)IOThreadSelf() ));
+//		FWKLOG(( "IOFireWireROMCache@%p::setROMState not kROMStateSuspended signal wake from thread 0x%08lx\n", this, (UInt32)IOThreadSelf() ));
 
 		IORecursiveLockWakeup( fLock, &fState, false );
 	}
@@ -490,7 +490,7 @@ void IOFireWireROMCache::setROMState( ROMState state, UInt32 generation )
 IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 {
     IOReturn status = kIOReturnSuccess;
-	FWKLOG(( "IOFireWireROMCache@0x%08lx::updateROMCache entered offset = %ld, length = %ld\n", (UInt32)this, offset, length ));
+	FWKLOG(( "IOFireWireROMCache@%p::updateROMCache entered offset = %ld, length = %ld\n", this, offset, length ));
 
 	FWKLOGASSERT( fOwner->getController()->inGate() == false );
 	
@@ -577,7 +577,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 		}
 	}
 	
-	FWKLOG(( "IOFireWireROMCache@%08lx::updateROMCache exited status = 0x%08lx\n", (UInt32)this, (UInt32)status ));
+	FWKLOG(( "IOFireWireROMCache@%08lx::updateROMCache exited status = 0x%08lx\n", this, (UInt32)status ));
     
 	return status;
 }

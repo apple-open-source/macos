@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2010 International Business Machines
+*   Copyright (C) 2001-2011 International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *  FILE NAME : ustream.h
@@ -52,16 +52,6 @@ U_IO_API std::ostream & U_EXPORT2 operator<<(std::ostream& stream, const Unicode
  * @stable 3.0
  */
 U_IO_API std::istream & U_EXPORT2 operator>>(std::istream& stream, UnicodeString& s);
-U_NAMESPACE_END
-
-#elif U_IOSTREAM_SOURCE >= 198506
-/* <istream.h> and <ostream.h> don't exist. */
-#include <iostream.h>
-
-U_NAMESPACE_BEGIN
-U_IO_API ostream & U_EXPORT2 operator<<(ostream& stream, const UnicodeString& s);
-
-U_IO_API istream & U_EXPORT2 operator>>(istream& stream, UnicodeString& s);
 U_NAMESPACE_END
 
 #endif

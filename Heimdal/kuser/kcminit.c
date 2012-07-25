@@ -42,9 +42,10 @@
 struct krb5_dh_moduli;
 struct AlgorithmIdentifier;
 struct _krb5_krb_auth_data;
-struct key_data;
-struct key_type;
-struct checksum_type;
+struct _krb5_key_data;
+struct _krb5_key_type;
+struct _krb5_checksum_type;
+struct _krb5_encryption_type;
 #include <heimbase.h>
 #include <hx509.h>
 #include <krb5-private.h>
@@ -133,14 +134,19 @@ main (int argc, char **argv)
 	if (ret)
 	    goto nopassword;
 
-	osret = SecKeychainFindGenericPassword(NULL, strlen(realm), realm,
-					       strlen(name), name,
+	osret = SecKeychainFindGenericPassword(NULL, (UInt32)strlen(realm), realm,
+					       (UInt32)strlen(name), name,
 					       &length, &buffer, NULL);
 	free(name);
-	if (osret == noErr && length < sizeof(password) - 1) {
+	if (osret != noErr)
+	    goto nopassword;
+
+	if (length < sizeof(password) - 1) {
 	    memcpy(password, buffer, length);
 	    password[length] = '\0';
 	}
+	SecKeychainItemFreeContent(NULL, buffer);
+
     nopassword:
 	do { } while(0);
     }

@@ -33,6 +33,8 @@ static char sccsid[] = "from @(#)strtol.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoimax.c,v 1.12 2007/01/09 00:28:10 imp Exp $");
 
+#include "xlocale_private.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -45,7 +47,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/strtoimax.c,v 1.12 2007/01/09 00:28:10 i
  * alphabets and digits are each contiguous.
  */
 intmax_t
-strtoimax(const char * __restrict nptr, char ** __restrict endptr, int base)
+strtoimax_l(const char * __restrict nptr, char ** __restrict endptr, int base,
+    locale_t loc)
 {
 	const char *s;
 	uintmax_t acc;
@@ -53,6 +56,7 @@ strtoimax(const char * __restrict nptr, char ** __restrict endptr, int base)
 	uintmax_t cutoff;
 	int neg, any, cutlim;
 
+	NORMALIZE_LOCALE(loc);
 	/*
 	 * Skip white space and pick up leading +/- sign if any.
 	 * If base is 0, allow 0x for hex and 0 for octal, else
@@ -61,7 +65,7 @@ strtoimax(const char * __restrict nptr, char ** __restrict endptr, int base)
 	s = nptr;
 	do {
 		c = *s++;
-	} while (isspace((unsigned char)c));
+	} while (isspace_l((unsigned char)c, loc));
 	if (c == '-') {
 		neg = 1;
 		c = *s++;
@@ -137,4 +141,10 @@ noconv:
 	if (endptr != NULL)
 		*endptr = (char *)(any ? s - 1 : nptr);
 	return (acc);
+}
+
+intmax_t
+strtoimax(const char * __restrict nptr, char ** __restrict endptr, int base)
+{
+	return strtoimax_l(nptr, endptr, base, __current_locale());
 }

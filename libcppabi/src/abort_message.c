@@ -24,10 +24,14 @@ __attribute__((visibility("hidden")))
 void abort_message(const char* format, ...)
 {
 	// write message to stderr
+#if __APPLE__
+    fprintf(stderr, "libc++abi.dylib: ");
+#endif
 	va_list	list;
 	va_start(list, format);
 	vfprintf(stderr, format, list);
 	va_end(list);
+    fprintf(stderr, "\n");
 	
 #if __APPLE__ && (__MAC_OS_X_VERSION_MIN_REQUIRED > 1060)
 	// record message in crash report

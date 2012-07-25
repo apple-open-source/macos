@@ -52,7 +52,7 @@
 .Ft wint_t
 .Fn getwc "FILE *stream"
 .Ft wint_t
-.Fn getwchar void
+.Fn getwchar "void"
 .Sh DESCRIPTION
 The
 .Fn fgetwc
@@ -75,6 +75,12 @@ is equivalent to
 .Fn getwc
 with the argument
 .Dv stdin .
+.Pp
+Extended locale versions of these functions are documented in
+.Xr getwc_l 3 .
+See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 If successful, these routines return the next wide character
 from the
@@ -100,13 +106,14 @@ until the condition is cleared with
 .Xr fopen 3 ,
 .Xr fread 3 ,
 .Xr getc 3 ,
+.Xr getwc_l ,
 .Xr putwc 3 ,
 .Xr stdio 3 ,
 .Xr ungetwc 3
 .Sh STANDARDS
 The
 .Fn fgetwc ,
-.Fn getwc
+.Fn getwc ,
 and
 .Fn getwchar
 functions

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 2010, International Business Machines
+*   Copyright (C) 2010-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 *   file name:  uts46.cpp
@@ -18,10 +18,13 @@
 
 #include "unicode/idna.h"
 #include "unicode/normalizer2.h"
+#include "unicode/uscript.h"
 #include "unicode/ustring.h"
+#include "unicode/utf16.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "punycode.h"
+#include "ubidi_props.h"
 #include "ustr_imp.h"
 
 #define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
@@ -63,6 +66,8 @@ static UBool
 isASCIIOkBiDi(const char *s, int32_t length);
 
 // IDNA class default implementations -------------------------------------- ***
+
+IDNA::~IDNA() {}
 
 void
 IDNA::labelToASCII_UTF8(const StringPiece &label, ByteSink &dest,
@@ -186,6 +191,9 @@ private:
 
     UBool
     isLabelOkContextJ(const UChar *label, int32_t labelLength) const;
+
+    void
+    checkLabelContextO(const UChar *label, int32_t labelLength, IDNAInfo &info) const;
 
     const Normalizer2 &uts46Norm2;  // uts46.nrm
     uint32_t options;
@@ -821,6 +829,9 @@ UTS46::processLabel(UnicodeString &dest,
         ) {
             info.labelErrors|=UIDNA_ERROR_CONTEXTJ;
         }
+        if((options&UIDNA_CHECK_CONTEXTO)!=0 && oredChars>=0xb7) {
+            checkLabelContextO(label, labelLength, info);
+        }
         if(toASCII) {
             if(wasPunycode) {
                 // Leave a Punycode label unchanged if it has no severe errors.
@@ -1102,6 +1113,7 @@ isASCIIOkBiDi(const char *s, int32_t length) {
 
 UBool
 UTS46::isLabelOkContextJ(const UChar *label, int32_t labelLength) const {
+    const UBiDiProps *bdp=ubidi_getSingleton();
     // [IDNA2008-Tables]
     // 200C..200D  ; CONTEXTJ    # ZERO WIDTH NON-JOINER..ZERO WIDTH JOINER
     for(int32_t i=0; i<labelLength; ++i) {
@@ -1118,12 +1130,12 @@ UTS46::isLabelOkContextJ(const UChar *label, int32_t labelLength) const {
             UChar32 c;
             int32_t j=i;
             U16_PREV_UNSAFE(label, j, c);
-            if(u_getCombiningClass(c)==9) {
+            if(uts46Norm2.getCombiningClass(c)==9) {
                 continue;
             }
             // check precontext (Joining_Type:{L,D})(Joining_Type:T)*
             for(;;) {
-                UJoiningType type=(UJoiningType)u_getIntPropertyValue(c, UCHAR_JOINING_TYPE);
+                UJoiningType type=ubidi_getJoiningType(bdp, c);
                 if(type==U_JT_TRANSPARENT) {
                     if(j==0) {
                         return FALSE;
@@ -1141,7 +1153,7 @@ UTS46::isLabelOkContextJ(const UChar *label, int32_t labelLength) const {
                     return FALSE;
                 }
                 U16_NEXT_UNSAFE(label, j, c);
-                UJoiningType type=(UJoiningType)u_getIntPropertyValue(c, UCHAR_JOINING_TYPE);
+                UJoiningType type=ubidi_getJoiningType(bdp, c);
                 if(type==U_JT_TRANSPARENT) {
                     // just skip this character
                 } else if(type==U_JT_RIGHT_JOINING || type==U_JT_DUAL_JOINING) {
@@ -1161,12 +1173,115 @@ UTS46::isLabelOkContextJ(const UChar *label, int32_t labelLength) const {
             UChar32 c;
             int32_t j=i;
             U16_PREV_UNSAFE(label, j, c);
-            if(u_getCombiningClass(c)!=9) {
+            if(uts46Norm2.getCombiningClass(c)!=9) {
                 return FALSE;
             }
         }
     }
     return TRUE;
+}
+
+void
+UTS46::checkLabelContextO(const UChar *label, int32_t labelLength, IDNAInfo &info) const {
+    int32_t labelEnd=labelLength-1;  // inclusive
+    int32_t arabicDigits=0;  // -1 for 066x, +1 for 06Fx
+    for(int32_t i=0; i<=labelEnd; ++i) {
+        UChar32 c=label[i];
+        if(c<0xb7) {
+            // ASCII fastpath
+        } else if(c<=0x6f9) {
+            if(c==0xb7) {
+                // Appendix A.3. MIDDLE DOT (U+00B7)
+                // Rule Set:
+                //  False;
+                //  If Before(cp) .eq.  U+006C And
+                //     After(cp) .eq.  U+006C Then True;
+                if(!(0<i && label[i-1]==0x6c &&
+                     i<labelEnd && label[i+1]==0x6c)) {
+                    info.labelErrors|=UIDNA_ERROR_CONTEXTO_PUNCTUATION;
+                }
+            } else if(c==0x375) {
+                // Appendix A.4. GREEK LOWER NUMERAL SIGN (KERAIA) (U+0375)
+                // Rule Set:
+                //  False;
+                //  If Script(After(cp)) .eq.  Greek Then True;
+                UScriptCode script=USCRIPT_INVALID_CODE;
+                if(i<labelEnd) {
+                    UErrorCode errorCode=U_ZERO_ERROR;
+                    int32_t j=i+1;
+                    U16_NEXT(label, j, labelLength, c);
+                    script=uscript_getScript(c, &errorCode);
+                }
+                if(script!=USCRIPT_GREEK) {
+                    info.labelErrors|=UIDNA_ERROR_CONTEXTO_PUNCTUATION;
+                }
+            } else if(c==0x5f3 || c==0x5f4) {
+                // Appendix A.5. HEBREW PUNCTUATION GERESH (U+05F3)
+                // Rule Set:
+                //  False;
+                //  If Script(Before(cp)) .eq.  Hebrew Then True;
+                //
+                // Appendix A.6. HEBREW PUNCTUATION GERSHAYIM (U+05F4)
+                // Rule Set:
+                //  False;
+                //  If Script(Before(cp)) .eq.  Hebrew Then True;
+                UScriptCode script=USCRIPT_INVALID_CODE;
+                if(0<i) {
+                    UErrorCode errorCode=U_ZERO_ERROR;
+                    int32_t j=i;
+                    U16_PREV(label, 0, j, c);
+                    script=uscript_getScript(c, &errorCode);
+                }
+                if(script!=USCRIPT_HEBREW) {
+                    info.labelErrors|=UIDNA_ERROR_CONTEXTO_PUNCTUATION;
+                }
+            } else if(0x660<=c /* && c<=0x6f9 */) {
+                // Appendix A.8. ARABIC-INDIC DIGITS (0660..0669)
+                // Rule Set:
+                //  True;
+                //  For All Characters:
+                //    If cp .in. 06F0..06F9 Then False;
+                //  End For;
+                //
+                // Appendix A.9. EXTENDED ARABIC-INDIC DIGITS (06F0..06F9)
+                // Rule Set:
+                //  True;
+                //  For All Characters:
+                //    If cp .in. 0660..0669 Then False;
+                //  End For;
+                if(c<=0x669) {
+                    if(arabicDigits>0) {
+                        info.labelErrors|=UIDNA_ERROR_CONTEXTO_DIGITS;
+                    }
+                    arabicDigits=-1;
+                } else if(0x6f0<=c) {
+                    if(arabicDigits<0) {
+                        info.labelErrors|=UIDNA_ERROR_CONTEXTO_DIGITS;
+                    }
+                    arabicDigits=1;
+                }
+            }
+        } else if(c==0x30fb) {
+            // Appendix A.7. KATAKANA MIDDLE DOT (U+30FB)
+            // Rule Set:
+            //  False;
+            //  For All Characters:
+            //    If Script(cp) .in. {Hiragana, Katakana, Han} Then True;
+            //  End For;
+            UErrorCode errorCode=U_ZERO_ERROR;
+            for(int j=0;;) {
+                if(j>labelEnd) {
+                    info.labelErrors|=UIDNA_ERROR_CONTEXTO_PUNCTUATION;
+                    break;
+                }
+                U16_NEXT(label, j, labelLength, c);
+                UScriptCode script=uscript_getScript(c, &errorCode);
+                if(script==USCRIPT_HIRAGANA || script==USCRIPT_KATAKANA || script==USCRIPT_HAN) {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 U_NAMESPACE_END

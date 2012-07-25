@@ -26,43 +26,42 @@
 #include "config.h"
 #include "WorkQueue.h"
 
+#include <mach/mach_init.h>
 #include <mach/mach_port.h>
 #include <wtf/PassOwnPtr.h>
 
-#if HAVE(DISPATCH_H)
-
-void WorkQueue::executeWorkItem(void* item)
+void WorkQueue::executeFunction(void* context)
 {
     WorkQueue* queue = static_cast<WorkQueue*>(dispatch_get_context(dispatch_get_current_queue()));
-    OwnPtr<WorkItem> workItem = adoptPtr(static_cast<WorkItem*>(item));
+    OwnPtr<Function<void()> > function = adoptPtr(static_cast<Function<void()>*>(context));
     
     {
         MutexLocker locker(queue->m_isValidMutex);
         if (!queue->m_isValid)
             return;
     }
-    
-    workItem->execute();
+
+    (*function)();
 }
 
-void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
+void WorkQueue::dispatch(const Function<void()>& function)
 {
-    dispatch_async_f(m_dispatchQueue, item.leakPtr(), executeWorkItem);
+    dispatch_async_f(m_dispatchQueue, new Function<void()>(function), executeFunction);
 }
 
-void WorkQueue::scheduleWorkAfterDelay(PassOwnPtr<WorkItem> item, double delay)
+void WorkQueue::dispatchAfterDelay(const Function<void()>& function, double delay)
 {
     dispatch_time_t delayTime = dispatch_time(DISPATCH_TIME_NOW, delay * NSEC_PER_SEC);
 
-    dispatch_after_f(delayTime, m_dispatchQueue, item.leakPtr(), executeWorkItem);
+    dispatch_after_f(delayTime, m_dispatchQueue, new Function<void()>(function), executeFunction);
 }
 
 class WorkQueue::EventSource {
 public:
-    EventSource(MachPortEventType eventType, dispatch_source_t dispatchSource, PassOwnPtr<WorkItem> workItem)
+    EventSource(MachPortEventType eventType, dispatch_source_t dispatchSource, const Function<void()>& function)
         : m_eventType(eventType)
         , m_dispatchSource(dispatchSource)
-        , m_workItem(workItem)
+        , m_function(function)
     {
     }
     
@@ -72,7 +71,7 @@ public:
     {
         EventSource* eventSource = static_cast<EventSource*>(source);
         
-        eventSource->m_workItem->execute();
+        eventSource->m_function();
     }
     
     static void cancelHandler(void* source)
@@ -105,11 +104,11 @@ private:
     
     // This is a weak reference, since m_dispatchSource references the event source.
     dispatch_source_t m_dispatchSource;
-    
-    OwnPtr<WorkItem> m_workItem;
+
+    Function<void()> m_function;
 };
 
-void WorkQueue::registerMachPortEventHandler(mach_port_t machPort, MachPortEventType eventType, PassOwnPtr<WorkItem> workItem)
+void WorkQueue::registerMachPortEventHandler(mach_port_t machPort, MachPortEventType eventType, const Function<void()>& function)
 {
     dispatch_source_type_t sourceType = 0;
     switch (eventType) {
@@ -123,7 +122,7 @@ void WorkQueue::registerMachPortEventHandler(mach_port_t machPort, MachPortEvent
     
     dispatch_source_t dispatchSource = dispatch_source_create(sourceType, machPort, 0, m_dispatchQueue);
     
-    EventSource* eventSource = new EventSource(eventType, dispatchSource, workItem);
+    EventSource* eventSource = new EventSource(eventType, dispatchSource, function);
     dispatch_set_context(dispatchSource, eventSource);
     
     dispatch_source_set_event_handler_f(dispatchSource, &EventSource::eventHandler);
@@ -177,27 +176,3 @@ void WorkQueue::platformInvalidate()
 
     dispatch_release(m_dispatchQueue);
 }
-
-#else /* !HAVE(DISPATCH_H) */
-
-void WorkQueue::scheduleWork(PassOwnPtr<WorkItem> item)
-{
-}
-
-void WorkQueue::registerMachPortEventHandler(mach_port_t, MachPortEventType, PassOwnPtr<WorkItem>)
-{
-}
-
-void WorkQueue::unregisterMachPortEventHandler(mach_port_t)
-{
-}
-
-void WorkQueue::platformInitialize(const char*)
-{
-}
-
-void WorkQueue::platformInvalidate()
-{
-}
-
-#endif

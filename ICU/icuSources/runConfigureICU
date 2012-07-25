@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 1999-2010, International Business Machines Corporation and
+# Copyright (c) 1999-2011, International Business Machines Corporation and
 # others. All Rights Reserved.
 
 # runConfigureICU: This script will run the "configure" script for the appropriate platform
@@ -43,6 +43,7 @@ The following names can be supplied as the argument for platform:
     Linux/ICC           Use the Intel ICC compiler on Linux
     Linux/VA            Use the IBM Visual Age compiler on Power PC Linux
     MacOSX              Use the GNU gcc/g++ compilers on MacOS X (Darwin)
+    MinGW               Use the GNU gcc/g++ compilers on MinGW
     QNX                 Use the QNX QCC compiler on QNX/Neutrino
     Solaris             Use the Sun cc/CC compilers on Solaris
     Solaris/GCC         Use the GNU gcc/g++ compilers on Solaris
@@ -148,7 +149,7 @@ case $platform in
         THE_COMP="Sun's CC"
         CC=`which cc`; export CC
         CXX=`which CC`; export CXX
-        RELEASE_CFLAGS="-xO4 -xlibmil"
+        RELEASE_CFLAGS="-xO1 -xlibmil"
         RELEASE_CXXFLAGS="-O4 -xlibmil"
         ;;
     Solaris/GCC)
@@ -157,14 +158,14 @@ case $platform in
         CC=gcc; export CC
         CXX=g++; export CXX
         RELEASE_CFLAGS=-O1
-        RELEASE_CXXFLAGS=-O3
+        RELEASE_CXXFLAGS=-O2
         ;;
     SolarisX86)
         THE_OS="SOLARIS X86"
         THE_COMP="Sun's CC"
         CC=`which cc`; export CC
         CXX=`which CC`; export CXX
-        LDFLAGS="-L -lCrun";export LDFLAGS
+        LDFLAGS="${LDFLAGS} -lCrun";export LDFLAGS
         RELEASE_CFLAGS=-xO3
         RELEASE_CXXFLAGS=-O3
         ;;
@@ -179,10 +180,13 @@ case $platform in
     IBMi)
         THE_OS="IBM i"
         THE_COMP="the iCC C++"
-        CC=/usr/bin/icc; export CC
-        CXX=/usr/bin/icc; export CXX
+        CC=icc; export CC
+        CXX=icc; export CXX
         CPP="$CC -c -qpponly"; export CPP
-        MAKE=/usr/bin/gmake; export MAKE
+        MAKE=gmake; export MAKE
+        U_MAKE=gmake; export U_MAKE
+        # gmake is a .pgm and may not be on the path.  Don't use a full path, just use gmake.
+        ac_cv_path_U_MAKE=gmake; export ac_cv_path_U_MAKE
         RELEASE_CFLAGS='-O4'
         RELEASE_CXXFLAGS='-O4'
         ;;
@@ -275,6 +279,12 @@ case $platform in
         RELEASE_CXXFLAGS='-O2'
         DEBUG_CFLAGS='-g -O0'
         DEBUG_CXXFLAGS='-g -O0'
+        ;;
+    MinGW)
+        THE_OS="MinGW"
+        THE_COMP="the GNU C++"
+        RELEASE_CFLAGS='-O3'
+        RELEASE_CXXFLAGS='-O3'
         ;;
     *BSD)
         THE_OS="BSD"

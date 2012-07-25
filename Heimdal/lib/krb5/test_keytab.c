@@ -54,6 +54,10 @@ test_empty_keytab(krb5_context context, const char *keytab)
 
     krb5_kt_remove_entry(context, id, &entry);
 
+    ret = krb5_kt_have_content(context, id);
+    if (ret == 0)
+	krb5_errx(context, 1, "supposed to be empty keytab isn't");
+
     ret = krb5_kt_close(context, id);
     if (ret)
 	krb5_err(context, 1, ret, "krb5_kt_close");
@@ -276,9 +280,9 @@ main(int argc, char **argv)
 
 	test_empty_keytab(context, "MEMORY:foo");
 	test_empty_keytab(context, "FILE:foo");
-	
+
 	test_memory_keytab(context, "MEMORY:foo", "MEMORY:foo2");
-	
+
     }
 
     krb5_free_context(context);

@@ -30,6 +30,8 @@
 #include "InjectedBundleNodeHandle.h"
 #include "InjectedBundleRangeHandle.h"
 #include "InjectedBundleScriptWorld.h"
+#include "WKAPICast.h"
+#include "WKBundleAPICast.h"
 #include "WebChromeClient.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -56,6 +58,10 @@
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
 #include <wtf/text/StringBuilder.h>
+
+#if PLATFORM(MAC) || PLATFORM(WIN)
+#include <WebCore/LegacyWebArchive.h>
+#endif
 
 #ifndef NDEBUG
 #include <wtf/RefCountedLeakCounter.h>
@@ -222,11 +228,11 @@ void WebFrame::startDownload(const WebCore::ResourceRequest& request)
     m_policyDownloadID = 0;
 }
 
-void WebFrame::convertHandleToDownload(ResourceHandle* handle, const ResourceRequest& request, const ResourceRequest& initialRequest, const ResourceResponse& response)
+void WebFrame::convertHandleToDownload(ResourceHandle* handle, const ResourceRequest& request, const ResourceResponse& response)
 {
     ASSERT(m_policyDownloadID);
 
-    DownloadManager::shared().convertHandleToDownload(m_policyDownloadID, page(), handle, request, initialRequest, response);
+    DownloadManager::shared().convertHandleToDownload(m_policyDownloadID, page(), handle, request, response);
     m_policyDownloadID = 0;
 }
 
@@ -317,7 +323,7 @@ bool WebFrame::isFrameSet() const
 bool WebFrame::isMainFrame() const
 {
     if (WebPage* p = page())
-        return p->mainFrame() == this;
+        return p->mainWebFrame() == this;
 
     return false;
 }
@@ -353,6 +359,14 @@ String WebFrame::innerText() const
     return m_coreFrame->document()->documentElement()->innerText();
 }
 
+WebFrame* WebFrame::parentFrame() const
+{
+    if (!m_coreFrame || !m_coreFrame->ownerElement() || !m_coreFrame->ownerElement()->document())
+        return 0;
+
+    return static_cast<WebFrameLoaderClient*>(m_coreFrame->ownerElement()->document()->frame()->loader()->client())->webFrame();
+}
+
 PassRefPtr<ImmutableArray> WebFrame::childFrames()
 {
     if (!m_coreFrame)
@@ -382,7 +396,7 @@ unsigned WebFrame::numberOfActiveAnimations() const
     if (!controller)
         return 0;
 
-    return controller->numberOfActiveAnimations();
+    return controller->numberOfActiveAnimations(m_coreFrame->document());
 }
 
 bool WebFrame::pauseAnimationOnElementWithId(const String& animationName, const String& elementID, double time)
@@ -402,6 +416,25 @@ bool WebFrame::pauseAnimationOnElementWithId(const String& animationName, const 
         return false;
 
     return controller->pauseAnimationAtTime(coreNode->renderer(), animationName, time);
+}
+
+bool WebFrame::pauseTransitionOnElementWithId(const String& propertyName, const String& elementID, double time)
+{
+    if (!m_coreFrame)
+        return false;
+
+    AnimationController* controller = m_coreFrame->animation();
+    if (!controller)
+        return false;
+
+    if (!m_coreFrame->document())
+        return false;
+
+    Node* coreNode = m_coreFrame->document()->getElementById(elementID);
+    if (!coreNode || !coreNode->renderer())
+        return false;
+
+    return controller->pauseTransitionAtTime(coreNode->renderer(), propertyName, time);
 }
 
 void WebFrame::suspendAnimations()
@@ -617,7 +650,7 @@ JSValueRef WebFrame::computedStyleIncludingVisitedInfo(JSObjectRef element)
     if (!toJS(element)->inherits(&JSElement::s_info))
         return JSValueMakeUndefined(toRef(exec));
 
-    RefPtr<CSSComputedStyleDeclaration> style = computedStyle(static_cast<JSElement*>(toJS(element))->impl(), true);
+    RefPtr<CSSComputedStyleDeclaration> style = CSSComputedStyleDeclaration::create(static_cast<JSElement*>(toJS(element))->impl(), true);
 
     JSLock lock(SilenceAssertionsOnly);
     return toRef(exec, toJS(exec, globalObject, style.get()));
@@ -689,4 +722,58 @@ String WebFrame::mimeTypeForResourceWithURL(const KURL& url) const
     return page()->cachedResponseMIMETypeForURL(url);
 }
 
+void WebFrame::setTextDirection(const String& direction)
+{
+    if (!m_coreFrame || !m_coreFrame->editor())
+        return;
+
+    if (direction == "auto")
+        m_coreFrame->editor()->setBaseWritingDirection(NaturalWritingDirection);
+    else if (direction == "ltr")
+        m_coreFrame->editor()->setBaseWritingDirection(LeftToRightWritingDirection);
+    else if (direction == "rtl")
+        m_coreFrame->editor()->setBaseWritingDirection(RightToLeftWritingDirection);
+}
+
+#if PLATFORM(MAC) || PLATFORM(WIN)
+
+class WebFrameFilter : public FrameFilter {
+public:
+    WebFrameFilter(WebFrame*, WebFrame::FrameFilterFunction, void* context);
+        
+private:
+    virtual bool shouldIncludeSubframe(Frame*) const OVERRIDE;
+
+    WebFrame* m_topLevelWebFrame;
+    WebFrame::FrameFilterFunction m_callback;
+    void* m_context;
+};
+
+WebFrameFilter::WebFrameFilter(WebFrame* topLevelWebFrame, WebFrame::FrameFilterFunction callback, void* context)
+    : m_topLevelWebFrame(topLevelWebFrame)
+    , m_callback(callback)
+    , m_context(context)
+{
+}
+
+bool WebFrameFilter::shouldIncludeSubframe(Frame* frame) const
+{
+    if (!m_callback)
+        return true;
+        
+    WebFrame* webFrame = static_cast<WebFrameLoaderClient*>(frame->loader()->client())->webFrame();
+    return m_callback(toAPI(m_topLevelWebFrame), toAPI(webFrame), m_context);
+}
+
+RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context)
+{
+    WebFrameFilter filter(this, callback, context);
+
+    if (RefPtr<LegacyWebArchive> archive = LegacyWebArchive::create(coreFrame()->document(), &filter))
+        return archive->rawDataRepresentation();
+    
+    return 0;
+}
+#endif
+    
 } // namespace WebKit

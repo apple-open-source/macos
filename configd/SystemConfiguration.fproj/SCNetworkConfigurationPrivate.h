@@ -44,7 +44,7 @@ __BEGIN_DECLS
  */
 
 #pragma mark -
-#pragma mark SCNetworkInterface configuration (typedefs, consts)
+#pragma mark SCNetworkInterface configuration (typedefs, consts, enums)
 
 /*!
 	@const kSCNetworkInterfaceTypeBridge
@@ -78,6 +78,14 @@ extern const CFStringRef kSCNetworkInterfaceTypeVPN						__OSX_AVAILABLE_STARTIN
 		a bridge interface.
  */
 typedef SCNetworkInterfaceRef SCBridgeInterfaceRef;
+
+enum {
+	kSCNetworkServicePrimaryRankDefault	= 0,
+	kSCNetworkServicePrimaryRankFirst	= 1,
+	kSCNetworkServicePrimaryRankLast	= 2,
+	kSCNetworkServicePrimaryRankNever	= 3
+};
+typedef uint32_t	SCNetworkServicePrimaryRank;
 
 #pragma mark -
 #pragma mark SCNetworkInterface configuration (SPI)
@@ -163,6 +171,18 @@ _SCNetworkInterfaceCompare				(const void			*val1,
 							 void				*context)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
 
 /*!
+	@function _SCNetworkInterfaceCopyActive
+	@discussion Creates an SCNetworkInterface and associated with interface name
+		and SCDynamicStoreRef
+	@param the interface name
+	@param the SCDynamicStoreRef
+	@result the SCNetworkInterface
+ */
+SCNetworkInterfaceRef
+_SCNetworkInterfaceCopyActive				(SCDynamicStoreRef		store,
+							 CFStringRef			bsdName)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
+
+/*!
 	@function _SCNetworkInterfaceCopyAllWithPreferences
 		Returns all network capable interfaces on the system.
 	@param prefs The "preferences" session.
@@ -228,6 +248,27 @@ _SCNetworkInterfaceCreateWithEntity			(CFAllocatorRef			allocator,
  */
 SCNetworkInterfaceRef
 _SCNetworkInterfaceCreateWithIONetworkInterfaceObject	(io_object_t			if_obj)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0);
+
+/*!
+	@function SCNetworkInterfaceGetPrimaryRank
+	@discussion We allow caller to retrieve the rank on an interface.
+		The key is stored in State:/Network/Interface/<ifname>/Service
+	@param the interface to get the rank
+	@result SCNetworkServicePrimaryRank
+ */
+SCNetworkServicePrimaryRank
+SCNetworkInterfaceGetPrimaryRank			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
+
+/*!
+	@function SCNetworkInterfaceSetPrimaryRank
+	@discussion We allow caller to set an assertion on an interface.
+	@param the interface to set the rank assertion
+	@param the new rank to be set
+	@result TRUE if operation is successful; FALSE if an error was encountered.
+ */
+Boolean
+SCNetworkInterfaceSetPrimaryRank			(SCNetworkInterfaceRef		interface,
+							 SCNetworkServicePrimaryRank	newRank)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
 
 #define	kSCNetworkInterfaceConfigurationActionKey		CFSTR("New Interface Detected Action")
 #define	kSCNetworkInterfaceConfigurationActionValueNone		CFSTR("None")
@@ -307,7 +348,7 @@ _SCNetworkInterfaceGetIOPath				(SCNetworkInterfaceRef		interface)	__OSX_AVAILAB
 		Zero if no entry ID is available.
  */
 uint64_t
-_SCNetworkInterfaceGetIORegistryEntryID			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7/*FIXME*/,__IPHONE_5_0);
+_SCNetworkInterfaceGetIORegistryEntryID			(SCNetworkInterfaceRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_0);
 
 /*!
 	@function _SCNetworkInterfaceIsBluetoothPAN
@@ -671,14 +712,6 @@ isA_SCNetworkService(CFTypeRef obj)
 	return (isA_CFType(obj, SCNetworkServiceGetTypeID()));
 }
 
-enum {
-	kSCNetworkServicePrimaryRankDefault	= 0,
-	kSCNetworkServicePrimaryRankFirst	= 1,
-	kSCNetworkServicePrimaryRankLast	= 2,
-	kSCNetworkServicePrimaryRankNever	= 3
-};
-typedef uint32_t	SCNetworkServicePrimaryRank;
-
 /*!
 	@function _SCNetworkServiceCompare
 	@discussion Compares two SCNetworkService objects.
@@ -829,5 +862,4 @@ SCNetworkSetSetSelectedVPNService			(SCNetworkSetRef		set,
 							 SCNetworkServiceRef		service)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0);
 
 __END_DECLS
-
 #endif	/* _SCNETWORKCONFIGURATIONPRIVATE_H */

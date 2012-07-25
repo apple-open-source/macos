@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -107,6 +107,18 @@ struct lconv
 #define extern		__EXPORT__
 #endif
 
+#if !_UWIN /* for ast54 compatibility */
+
+#undef	getenv
+#define getenv		_ast_getenv
+
+#undef	setenviron
+#define setenviron	_ast_setenviron
+
+extern char*		getenv(const char*);
+
+#endif
+
 #undef	localeconv
 #define localeconv	_ast_localeconv
 
@@ -117,6 +129,7 @@ struct lconv
 #define strerror	_ast_strerror
 
 extern struct lconv*	localeconv(void);
+extern char*		setenviron(const char*);
 extern char*		setlocale(int, const char*);
 extern char*		strerror(int);
 
@@ -141,7 +154,11 @@ extern char*		strerror(int);
 #define AST_LC_MEASUREMENT	12
 #define AST_LC_PAPER		13
 #define AST_LC_COUNT		14
+#define AST_LC_LANG		255
 
+#define AST_LC_internal		1
+#define AST_LC_test		(1L<<26)
+#define AST_LC_setenv		(1L<<27)
 #define AST_LC_find		(1L<<28)
 #define AST_LC_debug		(1L<<29)
 #define AST_LC_setlocale	(1L<<30)
@@ -189,6 +206,9 @@ extern char*		strerror(int);
 #ifndef LC_PAPER
 #define LC_PAPER		(-AST_LC_PAPER)
 #endif
+#ifndef LC_LANG
+#define LC_LANG			(-AST_LC_LANG)
+#endif
 
 #undef	extern
 
@@ -229,8 +249,12 @@ typedef struct
 	int		(*mb_conv)(char*, wchar_t);
 
 	uint32_t	env_serial;
+	uint32_t	mb_sync;
+	uint32_t	version;
 
-	char		pad[944];
+	int		(*mb_alpha)(wchar_t);
+
+	char		pad[936 - sizeof(void*)];
 
 } _Ast_info_t;
 
@@ -312,7 +336,7 @@ extern int		_ast_getpgrp(void);
 
 /*
  * and finally, standard interfaces hijacked by ast
- * _ATS_STD_I delays headers that require <ast_map.h>
+ * _AST_STD_I delays headers that require <ast_map.h>
  */
 
 #include <ast_map.h>

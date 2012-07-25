@@ -1,8 +1,8 @@
 /* LIBLDAP url.c -- LDAP URL (RFC 4516) related routines */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/url.c,v 1.94.2.11 2010/04/13 20:23:01 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1425,6 +1425,7 @@ ldap_url_list2hosts (LDAPURLDesc *ludlist)
 	/* figure out how big the string is */
 	size = 1;	/* nul-term */
 	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
+		if ( ludp->lud_host == NULL ) continue;
 		size += strlen(ludp->lud_host) + 1;		/* host and space */
 		if (strchr(ludp->lud_host, ':'))        /* will add [ ] below */
 			size += 2;
@@ -1437,6 +1438,7 @@ ldap_url_list2hosts (LDAPURLDesc *ludlist)
 
 	p = s;
 	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
+		if ( ludp->lud_host == NULL ) continue;
 		if (strchr(ludp->lud_host, ':')) {
 			p += sprintf(p, "[%s]", ludp->lud_host);
 		} else {
@@ -1449,7 +1451,7 @@ ldap_url_list2hosts (LDAPURLDesc *ludlist)
 	}
 	if (p != s)
 		p--;	/* nuke that extra space */
-	*p = 0;
+	*p = '\0';
 	return s;
 }
 

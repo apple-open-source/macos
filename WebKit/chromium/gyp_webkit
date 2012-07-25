@@ -33,12 +33,17 @@
 import glob
 import os
 import shlex
+import subprocess
 import sys
 
 script_dir = os.path.dirname(__file__)
+chrome_src = os.path.abspath(script_dir)
 
-sys.path.append(os.path.join(script_dir, 'tools', 'gyp', 'pylib'))
+sys.path.insert(0, os.path.join(chrome_src, 'tools', 'gyp', 'pylib'))
 import gyp
+
+# Add tools/grit so that pymod_do_main(grit_info ...) can find grit_info.py.
+sys.path.insert(1, os.path.join(chrome_src, 'tools', 'grit'))
 
 def additional_include_files(args=[]):
   """
@@ -73,6 +78,17 @@ if __name__ == '__main__':
 
   args = sys.argv[1:]
 
+  # When building the WebKit Chromium port for Android, we have to cross-compile
+  # the source to ARM, check for the right Android NDK and set the appropriate
+  # GYP flags. Chromium's envsetup.sh script will handle these steps, but as it
+  # exports variables and commands we have to re-call ourselves afterwards.
+  if 'WEBKIT_ANDROID_BUILD' in os.environ:
+    if not '--no-envsetup-recursion' in args:
+      envsetup_location = os.path.join(chrome_src, 'build', 'android', 'envsetup.sh')
+      exit(subprocess.call(['bash', '-c', 'source %s && python gyp_webkit --no-envsetup-recursion %s' % (envsetup_location, ' '.join(args))]))
+    else:
+      args.remove('--no-envsetup-recursion')
+
   # Add includes.
   args.extend(['-I' + i for i in additional_include_files(args)])
 
@@ -85,8 +101,12 @@ if __name__ == '__main__':
   if sys.platform not in ('darwin',):
     args.append('--no-circular-check')
 
-  # On linux, we want gyp to output a makefile (default is scons).
-  if sys.platform == 'linux2':
+  generators = os.environ.get('GYP_GENERATORS', '')
+  if 'ninja' in generators:
+    args.extend([ '--toplevel-dir=../../..' ])
+  elif (sys.platform.startswith('linux') or
+      'WEBKIT_ANDROID_BUILD' in os.environ or
+      (sys.platform == 'darwin' and 'make' in generators)):
     args.extend(['-fmake',
                  '--suffix=.chromium',
                  '--toplevel-dir=../../..',
@@ -99,12 +119,17 @@ if __name__ == '__main__':
                '-Dinside_chromium_build=0',
                '-Dv8_use_snapshot=false',
                '-Dmsvs_use_common_release=0',
+               '-Gmsvs_error_on_missing_sources=1',
+
+               # WebKit doesn't use the chromium style checker.
+               '-Dmake_clang_dir=Source/WebKit/chromium/third_party/llvm-build/Release+Asserts',
+               '-Dclang_use_chrome_plugins=0',
 
                # gyp hack: otherwise gyp assumes its in chromium's src/ dir.
                '--depth=./',
 
                # gyp file to execute.
-               'WebKit.gyp'])
+               'All.gyp'])
 
   print 'Updating webkit projects from gyp files...'
   sys.stdout.flush()

@@ -90,6 +90,24 @@ process_it(int sock,
     gss_release_buffer (&min_stat, input_token);
     gss_release_buffer (&min_stat, output_token);
 
+    /* create mic */
+
+    input_token->length = 6;
+    input_token->value  = strdup("hejsan");
+
+    maj_stat = gss_get_mic(&min_stat,
+			   context_hdl,
+			   GSS_C_QOP_DEFAULT,
+			   input_token,
+			   output_token);
+    if (GSS_ERROR(maj_stat))
+	gss_err (1, min_stat, "gss_get_mic");
+
+    write_token (sock, input_token);
+    write_token (sock, output_token);
+
+    gss_release_buffer (&min_stat, output_token);
+
     /* gss_unwrap */
 
     read_token (sock, input_token);
@@ -127,6 +145,25 @@ process_it(int sock,
 
     gss_release_buffer (&min_stat, input_token);
     gss_release_buffer (&min_stat, output_token);
+
+    input_token->value = "hejhej";
+    input_token->length = 6;
+
+    maj_stat = gss_wrap (&min_stat,
+			 context_hdl,
+			 1,
+			 GSS_C_QOP_DEFAULT,
+			 input_token,
+			 NULL,
+			 output_token);
+
+    write_token (sock, output_token);
+    gss_release_buffer (&min_stat, output_token);
+
+    read_token (sock, input_token);
+
+    if (input_token->length != 6 && memcmp(input_token->value, "hejhej", 6) != 0)
+	errx(1, "invalid reply");
 
     return 0;
 }
@@ -300,6 +337,10 @@ doit (int port, const char *service)
     int sock, sock2;
     struct sockaddr_in my_addr;
     int one = 1;
+    int ret;
+
+    if (keytab_str)
+	gsskrb5_register_acceptor_identity(keytab_str);
 
     sock = socket (AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
@@ -317,14 +358,17 @@ doit (int port, const char *service)
     if (bind (sock, (struct sockaddr *)&my_addr, sizeof(my_addr)) < 0)
 	err (1, "bind");
 
-    if (listen (sock, 1) < 0)
-	err (1, "listen");
+    while (1) {
+        if (listen (sock, 1) < 0)
+	    err (1, "listen");
 
-    sock2 = accept (sock, NULL, NULL);
-    if (sock2 < 0)
-	err (1, "accept");
+        sock2 = accept (sock, NULL, NULL);
+        if (sock2 < 0)
+	    err (1, "accept");
 
-    return proto (sock2, service);
+        ret = proto (sock2, service);
+    }
+    return ret;
 }
 
 int
@@ -332,5 +376,5 @@ main(int argc, char **argv)
 {
     krb5_context context = NULL; /* XXX */
     int port = server_setup(&context, argc, argv);
-    return doit (port, service);
+    return doit (port, service_str);
 }

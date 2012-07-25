@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,7 @@
 #include <sys/time.h>
 #include <asl_private.h>
 #include <asl_legacy1.h>
+#include <TargetConditionals.h>
 
 extern time_t asl_parse_time(const char *str);
 extern int asl_msg_cmp(aslmsg a, aslmsg b);
@@ -266,6 +267,9 @@ asl_file_open_write_fd(int fd, asl_file_t **s)
 __private_extern__ int
 asl_file_create(const char *path, uid_t uid, gid_t gid, mode_t mode)
 {
+#if TARGET_OS_EMBEDDED
+	return open(path, O_RDWR | O_CREAT | O_EXCL, mode);
+#else
 	acl_t acl;
 	uuid_t uuid;
 	acl_entry_t entry;
@@ -273,9 +277,15 @@ asl_file_create(const char *path, uid_t uid, gid_t gid, mode_t mode)
 	int status;
 	int fd = -1;
 
+	/* -1 means don't set ACL for uid or gid */
+	if ((uid == -1) && (gid == -1))
+	{
+		return open(path, O_RDWR | O_CREAT | O_EXCL, mode);
+	}
+
 	acl = acl_init(1);
 
-	if (gid != 0)
+	if ((gid != 0) && (gid != -1))
 	{
 		status = mbr_gid_to_uuid(gid, uuid);
 		if (status != 0) goto asl_file_create_return;
@@ -296,7 +306,7 @@ asl_file_create(const char *path, uid_t uid, gid_t gid, mode_t mode)
 		if (status != 0) goto asl_file_create_return;
 	}
 	
-	if (uid != 0)
+	if ((uid != 0) && (uid != -1))
 	{
 		status = mbr_uid_to_uuid(uid, uuid);
 		if (status != 0) goto asl_file_create_return;
@@ -332,6 +342,7 @@ asl_file_create_return:
 	
 	acl_free(acl);
 	return fd;
+#endif
 }
 
 uint32_t

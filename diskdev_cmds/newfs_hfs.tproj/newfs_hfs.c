@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,6 +103,10 @@ int	gCaseSensitive = FALSE;
 int	gUserAttrSize = FALSE;
 int gContentProtect = FALSE;
 
+#ifdef DEBUG_BUILD
+uint16_t gProtectLevel = 0;
+#endif
+
 #define JOURNAL_DEFAULT_SIZE (8*1024*1024)
 int     gJournaled = FALSE;
 char    *gJournalDevice = NULL;
@@ -183,8 +187,11 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-
-	while ((ch = getopt(argc, argv, "G:J:D:M:N:PU:hsb:c:i:n:v:")) != EOF)
+#ifdef DEBUG_BUILD
+	while ((ch = getopt(argc, argv, "G:J:D:M:N:PU:hsb:c:i:n:v:p:")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "G:J:D:M:N:PU:hsb:c:i:n:v:")) != -1)
+#endif
 		switch (ch) {
 		case 'G':
 			gGroupID = a_gid(optarg);
@@ -222,6 +229,19 @@ main(argc, argv)
 		case 'P':
 			gContentProtect = TRUE;
 			break;
+
+#ifdef DEBUG_BUILD
+		case 'p':
+			if (isdigit (optarg[0])) {
+				uint64_t level = get_num (optarg);
+				gProtectLevel  = (uint16_t) level;
+			}		
+			else {
+				/* back up because no level was provided */
+				optind--;
+			}
+			break;
+#endif
 
 		case 'M':
 			gModeMask = a_mask(optarg);
@@ -282,6 +302,12 @@ main(argc, argv)
 
 	argc -= optind;
 	argv += optind;
+
+#ifdef DEBUG_BUILD
+	if ((gProtectLevel) && !(gContentProtect)) {
+		fatal ("content protection must be specified to set a protection level");
+	}
+#endif
 
 	if (gPartitionSize != 0) {
 		/*
@@ -997,6 +1023,11 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	
 	if (gContentProtect)
 		defaults->flags |= kMakeContentProtect;
+
+#ifdef DEBUG_BUILD
+	if (gProtectLevel) 
+		defaults->protectlevel = gProtectLevel;
+#endif
 	
 	if (gNoCreate) {
 		if (gPartitionSize == 0)

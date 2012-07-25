@@ -26,6 +26,25 @@
 	<string>APPLEUSBMERGENUB_VERSION</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+ 		<key>Kensington 7-in-1 card reader</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ExpressCardCantWake</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>1813</integer>
+			<key>idVendor</key>
+			<integer>1507</integer>
+		</dict>
+       #ifdef SUPPORTS_SS_USB
 		<key>HITACHI Touro MOBILE HDD</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -43,24 +62,6 @@
 			<integer>4114</integer>
 			<key>idVendor</key>
 			<integer>18801</integer>
-		</dict>
-		<key>Kensington 7-in-1 card reader</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>ExpressCardCantWake</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>1813</integer>
-			<key>idVendor</key>
-			<integer>1507</integer>
 		</dict>
 		<key>iomega drives</key>
 		<dict>
@@ -134,6 +135,7 @@
 			<key>idVendor</key>
 			<integer>18801</integer>
 		</dict>
+        #endif
 		<key>64GB ExpressCard/34 SSD</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -493,42 +495,6 @@
 			<integer>256</integer>
 			<key>idVendor</key>
 			<integer>4794</integer>
-		</dict>
-		<key>VIA810</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kVIASSHub</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>2064</integer>
-			<key>idVendor</key>
-			<integer>8457</integer>
-		</dict>
-		<key>VIA811</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMergeNub</string>
-			<key>IOClass</key>
-			<string>AppleUSBMergeNub</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>kVIASSHub</key>
-				<true/>
-			</dict>
-			<key>idProduct</key>
-			<integer>2065</integer>
-			<key>idVendor</key>
-			<integer>8457</integer>
 		</dict>
 		<key>VIA810v3.88</key>
 		<dict>

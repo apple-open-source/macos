@@ -90,10 +90,16 @@ DebuggerScript._formatScript = function(script)
     var lineCount = lineEnds.length;
     var endLine = script.line_offset + lineCount - 1;
     var endColumn;
-    if (lineCount === 1)
-        endColumn = script.source.length + script.column_offset;
-    else
-        endColumn = script.source.length - (script.line_ends[lineCount - 2] + 1);
+    // V8 will not count last line if script source ends with \n.
+    if (script.source[script.source.length - 1] === '\n') {
+        endLine += 1;
+        endColumn = 0;
+    } else {
+        if (lineCount === 1)
+            endColumn = script.source.length + script.column_offset;
+        else
+            endColumn = script.source.length - (lineEnds[lineCount - 2] + 1);
+    }
 
     return {
         id: script.id,
@@ -173,7 +179,7 @@ DebuggerScript.stepOutOfFunction = function(execState)
     execState.prepareStep(Debug.StepAction.StepOut, 1);
 }
 
-DebuggerScript.editScriptSource = function(scriptId, newSource)
+DebuggerScript.setScriptSource = function(scriptId, newSource, preview)
 {
     var scripts = Debug.scripts();
     var scriptToEdit = null;
@@ -187,8 +193,7 @@ DebuggerScript.editScriptSource = function(scriptId, newSource)
         throw("Script not found");
 
     var changeLog = [];
-    Debug.LiveEdit.SetScriptSource(scriptToEdit, newSource, false, changeLog);
-    return scriptToEdit.source;
+    return Debug.LiveEdit.SetScriptSource(scriptToEdit, newSource, preview, changeLog);
 }
 
 DebuggerScript.clearBreakpoints = function(execState, args)
@@ -265,8 +270,8 @@ DebuggerScript._frameMirrorToJSCallFrame = function(frameMirror, callerFrame)
 
     return {
         "sourceID": sourceID,
-        "line": location.line,
-        "column": location.column,
+        "line": location ? location.line : 0,
+        "column": location ? location.column : 0,
         "functionName": functionName,
         "thisObject": thisObject,
         "scopeChain": scopeChain,

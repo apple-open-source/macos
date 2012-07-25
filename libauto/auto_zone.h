@@ -663,7 +663,7 @@ typedef struct {
 typedef struct {
     uint32_t version;                    // sizeof(auto_zone_visitor_t)
     void (^visit_thread)(pthread_t thread, auto_address_range_t stack_range, auto_address_range_t registers);
-    void (^visit_node)(const void *address, size_t size, auto_memory_type_t type, uint32_t refcount, boolean_t thread_local);
+    void (^visit_node)(const void *address, size_t size, auto_memory_type_t type, uint32_t refcount, boolean_t is_thread_local);
     void (^visit_root)(const void **address);
     void (^visit_weak)(const void *value, void *const*location, auto_weak_callback_block_t *callback);
     void (^visit_association)(const void *object, const void *key, const void *value);

@@ -296,7 +296,7 @@ __SCNetworkServiceExistsForInterface(CFArrayRef services, SCNetworkInterfaceRef 
 }
 
 
-__private_extern__ CFStringRef
+__private_extern__ CF_RETURNS_RETAINED CFStringRef
 __SCNetworkServiceNextName(SCNetworkServiceRef service)
 {
 	CFArrayRef		components;
@@ -353,7 +353,7 @@ mergeDict(const void *key, const void *value, void *context)
 }
 
 
-static CFDictionaryRef
+static CF_RETURNS_RETAINED CFDictionaryRef
 _protocolTemplate(SCNetworkServiceRef service, CFStringRef protocolType)
 {
 	SCNetworkInterfaceRef		interface;
@@ -1514,29 +1514,6 @@ SCNetworkServiceSetName(SCNetworkServiceRef service, CFStringRef name)
 #pragma mark SCNetworkService SPIs
 
 
-static Boolean
-str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
-{
-	if (isA_CFString(rankStr)) {
-		if (CFEqual(rankStr, kSCValNetServicePrimaryRankFirst)) {
-			*rank = kSCNetworkServicePrimaryRankFirst;
-		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankLast)) {
-			*rank = kSCNetworkServicePrimaryRankLast;
-		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankNever)) {
-			*rank = kSCNetworkServicePrimaryRankNever;
-		} else {
-			return FALSE;
-		}
-	} else if (rankStr == NULL) {
-		*rank = kSCNetworkServicePrimaryRankDefault;
-	} else {
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
-
 SCNetworkServicePrimaryRank
 SCNetworkServiceGetPrimaryRank(SCNetworkServiceRef service)
 {
@@ -1560,7 +1537,7 @@ SCNetworkServiceGetPrimaryRank(SCNetworkServiceRef service)
 		CFRelease(path);
 		if (isA_CFDictionary(entity)) {
 			rankStr = CFDictionaryGetValue(entity, kSCPropNetServicePrimaryRank);
-			ok = str_to_rank(rankStr, &rank);
+			ok = __str_to_rank(rankStr, &rank);
 		}
 	} else if (servicePrivate->store != NULL) {
 		path = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
@@ -1572,7 +1549,7 @@ SCNetworkServiceGetPrimaryRank(SCNetworkServiceRef service)
 		if (entity != NULL) {
 			if (isA_CFDictionary(entity)) {
 				rankStr = CFDictionaryGetValue(entity, kSCPropNetServicePrimaryRank);
-				ok = str_to_rank(rankStr, &rank);
+				ok = __str_to_rank(rankStr, &rank);
 			}
 			CFRelease(entity);
 		}
@@ -1592,30 +1569,6 @@ SCNetworkServiceGetPrimaryRank(SCNetworkServiceRef service)
 }
 
 
-static Boolean
-rank_to_str(SCNetworkServicePrimaryRank rank, CFStringRef *rankStr)
-{
-	switch (rank) {
-		case kSCNetworkServicePrimaryRankDefault :
-			*rankStr = NULL;
-			break;
-		case kSCNetworkServicePrimaryRankFirst :
-			*rankStr = kSCValNetServicePrimaryRankFirst;
-			break;
-		case kSCNetworkServicePrimaryRankLast :
-			*rankStr = kSCValNetServicePrimaryRankLast;
-			break;
-		case kSCNetworkServicePrimaryRankNever :
-			*rankStr = kSCValNetServicePrimaryRankNever;
-			break;
-		default :
-			return FALSE;
-	}
-
-	return TRUE;
-}
-
-
 Boolean
 SCNetworkServiceSetPrimaryRank(SCNetworkServiceRef		service,
 			       SCNetworkServicePrimaryRank	newRank)
@@ -1632,7 +1585,7 @@ SCNetworkServiceSetPrimaryRank(SCNetworkServiceRef		service,
 		return FALSE;
 	}
 
-	ok = rank_to_str(newRank, &rankStr);
+	ok = __rank_to_str(newRank, &rankStr);
 	if (!ok) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;

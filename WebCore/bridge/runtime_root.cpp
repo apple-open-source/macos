@@ -176,12 +176,12 @@ void RootObject::updateGlobalObject(JSGlobalObject* globalObject)
     m_globalObject.set(globalObject->globalData(), globalObject);
 }
 
-void RootObject::addRuntimeObject(JSGlobalData& globalData, RuntimeObject* object)
+void RootObject::addRuntimeObject(JSGlobalData&, RuntimeObject* object)
 {
     ASSERT(m_isValid);
     ASSERT(!m_runtimeObjects.get(object));
 
-    m_runtimeObjects.set(object, JSC::Weak<RuntimeObject>(globalData, object, this));
+    m_runtimeObjects.set(object, JSC::PassWeak<RuntimeObject>(object, this));
 }
 
 void RootObject::removeRuntimeObject(RuntimeObject* object)
@@ -199,6 +199,7 @@ void RootObject::finalize(JSC::Handle<JSC::Unknown> handle, void*)
     RuntimeObject* object = static_cast<RuntimeObject*>(asObject(handle.get()));
     ASSERT(m_runtimeObjects.contains(object));
 
+    RefPtr<RootObject> protect(this);
     object->invalidate();
     m_runtimeObjects.remove(object);
 }

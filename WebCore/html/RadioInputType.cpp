@@ -48,7 +48,7 @@ const AtomicString& RadioInputType::formControlType() const
 
 bool RadioInputType::valueMissing(const String&) const
 {
-    return !element()->checkedRadioButtons().checkedButtonForGroup(element()->name());
+    return element()->isInRequiredRadioButtonGroup() && !element()->checkedRadioButtonForGroup();
 }
 
 String RadioInputType::valueMissingText() const
@@ -130,13 +130,7 @@ bool RadioInputType::isKeyboardFocusable() const
     }
 
     // Allow keyboard focus if we're checked or if nothing in the group is checked.
-    return element()->checked() || !element()->checkedRadioButtons().checkedButtonForGroup(element()->name());
-}
-
-void RadioInputType::attach()
-{
-    InputType::attach();
-    element()->updateCheckedRadioButtons();
+    return element()->checked() || !element()->checkedRadioButtonForGroup();
 }
 
 bool RadioInputType::shouldSendChangeEventAfterCheckedChanged()
@@ -158,12 +152,16 @@ PassOwnPtr<ClickHandlingState> RadioInputType::willDispatchClick()
     OwnPtr<ClickHandlingState> state = adoptPtr(new ClickHandlingState);
 
     state->checked = element()->checked();
+    state->checkedRadioButton = element()->checkedRadioButtonForGroup();
+
+#if PLATFORM(IOS)
     state->indeterminate = element()->indeterminate();
-    state->checkedRadioButton = element()->checkedRadioButtons().checkedButtonForGroup(element()->name());
 
     if (element()->indeterminate())
         element()->setIndeterminate(false);
-    element()->setChecked(true, true);
+#endif
+
+    element()->setChecked(true, DispatchChangeEvent);
 
     return state.release();
 }
@@ -180,7 +178,11 @@ void RadioInputType::didDispatchClick(Event* event, const ClickHandlingState& st
                 && checkedRadioButton->name() == element()->name()) {
             checkedRadioButton->setChecked(true);
         }
+
+#if PLATFORM(IOS)        
         element()->setIndeterminate(state.indeterminate);
+#endif
+
     }
 
     // The work we did in willDispatchClick was default handling.
@@ -190,6 +192,15 @@ void RadioInputType::didDispatchClick(Event* event, const ClickHandlingState& st
 bool RadioInputType::isRadioButton() const
 {
     return true;
+}
+
+bool RadioInputType::supportsIndeterminateAppearance() const
+{
+#if PLATFORM(IOS)
+    return true;
+#else
+    return false;
+#endif
 }
 
 } // namespace WebCore

@@ -32,11 +32,11 @@
  */
 
 #include "test_locl.h"
-#include <gssapi/gssapi.h>
-#include <gssapi/gssapi_krb5.h>
-#include <gssapi/gssapi_spnego.h>
+#include <gssapi.h>
+#include <gssapi_krb5.h>
+#include <gssapi_ntlm.h>
+#include <gssapi_spnego.h>
 #include "gss_common.h"
-RCSID("$Id$");
 
 void
 write_token (int sock, gss_buffer_t buf)
@@ -44,7 +44,7 @@ write_token (int sock, gss_buffer_t buf)
     uint32_t len, net_len;
     OM_uint32 min_stat;
 
-    len = buf->length;
+    len = (uint32_t)buf->length;
 
     net_len = htonl(len);
 
@@ -120,13 +120,15 @@ gss_err(int exitval, int status, const char *fmt, ...)
 }
 
 gss_OID
-select_mech(const char *mech)
+select_mech(const char *str)
 {
-    if (strcasecmp(mech, "krb5") == 0)
+    if (strcasecmp(str, "krb5") == 0)
 	return GSS_KRB5_MECHANISM;
-    else if (strcasecmp(mech, "spnego") == 0)
+    else if (strcasecmp(str, "spnego") == 0)
 	return GSS_SPNEGO_MECHANISM;
-    else if (strcasecmp(mech, "no-oid") == 0)
+    else if (strcasecmp(str, "ntlm") == 0)
+	return GSS_NTLM_MECHANISM;
+    else if (strcasecmp(str, "no-oid") == 0)
 	return GSS_C_NO_OID;
     else
 	errx (1, "Unknown mechanism '%s' (spnego, krb5, no-oid)", mech);

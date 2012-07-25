@@ -72,7 +72,7 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 			CFDictionaryRef		config,
 			Boolean			keepInactive)
 {
-	CFMutableDictionaryRef  newConfig	= NULL;
+	CFMutableDictionaryRef	newConfig	= NULL;
 	Boolean			ok;
 
 	if ((config != NULL) && !isA_CFDictionary(config)) {
@@ -600,4 +600,51 @@ __remove_password(SCPreferencesRef	prefs,
 	}
 
 	return ok;
+}
+
+
+__private_extern__ Boolean
+__rank_to_str(SCNetworkServicePrimaryRank rank, CFStringRef *rankStr)
+{
+	switch (rank) {
+		case kSCNetworkServicePrimaryRankDefault :
+			*rankStr = NULL;
+			break;
+		case kSCNetworkServicePrimaryRankFirst :
+			*rankStr = kSCValNetServicePrimaryRankFirst;
+			break;
+		case kSCNetworkServicePrimaryRankLast :
+			*rankStr = kSCValNetServicePrimaryRankLast;
+			break;
+		case kSCNetworkServicePrimaryRankNever :
+			*rankStr = kSCValNetServicePrimaryRankNever;
+			break;
+		default :
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+__private_extern__ Boolean
+__str_to_rank(CFStringRef rankStr, SCNetworkServicePrimaryRank *rank)
+{
+	if (isA_CFString(rankStr)) {
+		if (CFEqual(rankStr, kSCValNetServicePrimaryRankFirst)) {
+			*rank = kSCNetworkServicePrimaryRankFirst;
+		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankLast)) {
+			*rank = kSCNetworkServicePrimaryRankLast;
+		} else if (CFEqual(rankStr, kSCValNetServicePrimaryRankNever)) {
+			*rank = kSCNetworkServicePrimaryRankNever;
+		} else {
+			return FALSE;
+		}
+	} else if (rankStr == NULL) {
+		*rank = kSCNetworkServicePrimaryRankDefault;
+	} else {
+		return FALSE;
+	}
+
+	return TRUE;
 }

@@ -29,7 +29,8 @@
 .Dt NEXTWCTYPE 3
 .Os
 .Sh NAME
-.Nm nextwctype
+.Nm nextwctype ,
+.Nm nextwctype_l
 .Nd "iterate through character classes"
 .Sh LIBRARY
 .Lb libc
@@ -37,6 +38,9 @@
 .In wctype.h
 .Ft wint_t
 .Fn nextwctype "wint_t ch" "wctype_t wct"
+.In xlocale.h
+.Ft wint_t
+.Fn nextwctype_l "wint_t ch" "wctype_t wct" "locale_t loc"
 .Sh DESCRIPTION
 The
 .Fn nextwctype
@@ -48,6 +52,14 @@ If
 .Fa ch
 is \-1, the search begins at the first member of
 .Fa wct .
+.Pp
+While the
+.Fn nextwctype
+function uses the current locale, the
+ .Fn nextwctype_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn nextwctype
@@ -59,7 +71,8 @@ extension and should not be used where the standard
 .Fn iswctype
 function would suffice.
 .Sh SEE ALSO
-.Xr wctype 3
+.Xr wctype 3 ,
+.Xr xlocale 3
 .Sh HISTORY
 The
 .Fn nextwctype

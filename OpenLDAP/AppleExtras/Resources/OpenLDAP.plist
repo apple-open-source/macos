@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-11-15</string>
+		<string>2012-01-15</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -19,11 +19,11 @@
 		<key>OpenSourceProject</key>
 		<string>OpenLDAP</string>
 		<key>OpenSourceSHA1</key>
-		<string>5a7d2d8824d8d2671a781a2fc24b629a145b919d</string>
+		<string>d888beae1723002a5a2ff5509d3040df40885774</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.4.23.tgz</string>
+		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.4.28.tgz</string>
 		<key>OpenSourceVersion</key>
-		<string>2.4.23</string>
+		<string>2.4.28</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.openldap.org</string>
 	</dict>

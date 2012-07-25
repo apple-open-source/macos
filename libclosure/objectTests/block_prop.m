@@ -10,7 +10,7 @@
 */
 
 // rdar://6379842 warn: 'copy' attribute
-// TEST_CONFIG GC=1
+// TEST_CONFIG MEM=gc
 // TEST_CFLAGS -fobjc-gc-only -framework Foundation
 /*
 TEST_BUILD_OUTPUT

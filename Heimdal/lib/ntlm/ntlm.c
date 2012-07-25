@@ -108,14 +108,21 @@ struct sec_buffer {
 
 static const unsigned char ntlmsigature[8] = "NTLMSSP\x00";
 
+time_t heim_ntlm_time_skew = 300;
+
 /*
  *
  */
 
 #define CHECK(f, e)							\
     do {								\
-	ret = f ; if (ret != (e)) { ret = HNTLM_ERR_DECODE; goto out; } } \
-    while(0)
+	ret = f;							\
+	if (ret != (ssize_t)(e)) {					\
+	    ret = HNTLM_ERR_DECODE;					\
+	    goto out;							\
+	}								\
+    } while(/*CONSTCOND*/0)
+
 
 static struct units ntlm_flag_units[] = {
 #define ntlm_flag(x) { #x, NTLM_##x }
@@ -202,6 +209,13 @@ ascii2ucs2le(const char *string, int up, struct ntlm_buf *buf)
     if (ret) {
 	free(data);
 	return ret;
+    }
+    
+    if (len == 0) {
+	free(data);
+	buf->data = NULL;
+	buf->length = 0;
+	return 0;
     }
 
     /* uppercase string, only handle ascii right now */
@@ -298,7 +312,7 @@ ret_string(krb5_storage *sp, int ucs2, size_t len, char **s)
 	unsigned int flags = WIND_RW_LE;
 	size_t utf16len = len / 2;
 	size_t utf8len;
-	
+
 	data = malloc(utf16len * sizeof(data[0])); 
 	if (data == NULL) {
 	    free(*s); *s = NULL;
@@ -314,7 +328,7 @@ ret_string(krb5_storage *sp, int ucs2, size_t len, char **s)
 	CHECK(wind_ucs2utf8_length(data, utf16len, &utf8len), 0);
 
 	utf8len += 1;
-
+	
 	*s = malloc(utf8len);
 	if (s == NULL) {
 	    ret = ENOMEM;
@@ -327,6 +341,7 @@ ret_string(krb5_storage *sp, int ucs2, size_t len, char **s)
  out:
     if (data)
 	free(data);
+
     return ret;
 }
 
@@ -471,6 +486,12 @@ heim_ntlm_encode_targetinfo(const struct ntlm_targetinfo *ti,
 	CHECK(krb5_store_uint16(out, 4), 0);
 	CHECK(krb5_store_uint32(out, ti->avflags), 0);
     }
+    if (ti->timestamp) {
+	CHECK(krb5_store_uint16(out, 7), 0);
+	CHECK(krb5_store_uint16(out, 8), 0);
+	CHECK(krb5_store_uint32(out, ti->timestamp & 0xffffffff), 0);
+	CHECK(krb5_store_uint32(out, (ti->timestamp >> 32) & 0xffffffff), 0);
+    }	
     if (ti->targetname) {
 	CHECK(encode_ti_string(out, 9, ucs2, ti->targetname), 0);
     }
@@ -517,7 +538,7 @@ heim_ntlm_decode_targetinfo(const struct ntlm_buf *data,
 {
     uint16_t type, len;
     krb5_storage *in;
-    int ret, done = 0;
+    int ret = 0, done = 0;
 
     memset(ti, 0, sizeof(*ti));
 
@@ -555,6 +576,14 @@ heim_ntlm_decode_targetinfo(const struct ntlm_buf *data,
 	case 6:
 	    CHECK(krb5_ret_uint32(in, &ti->avflags), 0);
 	    break;
+	case 7: {
+	    uint32_t tmp;
+	    CHECK(krb5_ret_uint32(in, &tmp), 0);
+	    ti->timestamp = tmp;
+	    CHECK(krb5_ret_uint32(in, &tmp), 0);
+	    ti->timestamp |= ((uint64_t)tmp) << 32;
+	    break;
+	}	
 	case 9:
 	    CHECK(ret_string(in, 1, len, &ti->targetname), 0);
 	    break;
@@ -867,7 +896,7 @@ heim_ntlm_encode_type2(const struct ntlm_type2 *type2, struct ntlm_buf *data)
     CHECK(store_sec_buffer(out, &targetinfo), 0);
     /* os version */
     if (type2->flags & NTLM_NEG_VERSION) {
-	encode_os_version(out);
+	CHECK(encode_os_version(out), 0);
     }
     CHECK(put_string(out, ucs2, type2->targetname), 0);
     CHECK(krb5_storage_write(out, type2->targetinfo.data,
@@ -1123,7 +1152,7 @@ splitandenc(unsigned char *hash,
     key[7] = (hash[6] << 1);
 
     EVP_CIPHER_CTX_init(&ctx);
-    
+
     EVP_CipherInit_ex(&ctx, EVP_des_cbc(), NULL, key, NULL, 1);
     EVP_Cipher(&ctx, answer, challenge, 8);
     EVP_CIPHER_CTX_cleanup(&ctx);
@@ -1307,8 +1336,6 @@ heim_ntlm_keyex_wrap(struct ntlm_buf *base_session,
 
 }
 
-
-
 /**
  * Generates an NTLMv1 session random with assosited session master key.
  *
@@ -1379,8 +1406,7 @@ heim_ntlm_build_ntlm2_master(void *key, size_t len,
 /**
  * Given a key and encrypted session, unwrap the session key
  *
- * @param key the sessionBaseKey
- * @param len length of key
+ * @param baseKey the sessionBaseKey
  * @param encryptedSession encrypted session, type3.session field.
  * @param session generated session nonce, should be freed with heim_ntlm_free_buf().
  *
@@ -1477,19 +1503,19 @@ heim_ntlm_ntlmv2_key(const void *key, size_t len,
 
 #define NTTIME_EPOCH 0x019DB1DED53E8000LL
 
-static uint64_t
-unix2nttime(time_t unix_time)
+uint64_t
+heim_ntlm_unix2ts_time(time_t unix_time)
 {
     long long wt;
     wt = unix_time * (uint64_t)10000000 + (uint64_t)NTTIME_EPOCH;
     return wt;
 }
 
-static time_t
-nt2unixtime(uint64_t t)
+time_t
+heim_ntlm_ts2unixtime(uint64_t t)
 {
     t = ((t - (uint64_t)NTTIME_EPOCH) / (uint64_t)10000000);
-    if (t > (((time_t)(~(uint64_t)0)) >> 1))
+    if (t > (((uint64_t)(time_t)(~(uint64_t)0)) >> 1))
 	return 0;
     return (time_t)t;
 }
@@ -1577,7 +1603,7 @@ heim_ntlm_calculate_ntlm2(const void *key, size_t len,
     unsigned char clientchallenge[8];
     uint64_t t;
 
-    t = unix2nttime(time(NULL));
+    t = heim_ntlm_unix2ts_time(time(NULL));
 
     if (CCRandomCopyBytes(kCCRandomDefault, clientchallenge, sizeof(clientchallenge)))
 	return HNTLM_ERR_RAND;
@@ -1604,6 +1630,13 @@ heim_ntlm_calculate_ntlm2(const void *key, size_t len,
     CHECK(krb5_store_uint32(sp, 0), 0);  /* Z(4) */
     CHECK(krb5_storage_write(sp, infotarget->data, infotarget->length),
 	  infotarget->length);
+
+    /*
+     * These last 4 bytes(Z(4)) are not documented by MicroSoft and
+     * SnowLeopard doesn't send them, Lion expected them to be there,
+     * so we have to continue to send them. That is ok, since everyone
+     * else (except Snow) seems to do that too.
+     */
     CHECK(krb5_store_uint32(sp, 0), 0); /* Z(4) */
 
     CHECK(krb5_storage_to_data(sp, &data), 0);
@@ -1637,7 +1670,6 @@ out:
 }
 
 static const int authtimediff = 3600 * 2; /* 2 hours */
-
 
 static int
 verify_ntlm2(const void *key, size_t len,
@@ -1691,7 +1723,7 @@ verify_ntlm2(const void *key, size_t len,
     CHECK(krb5_ret_uint32(sp, &temp), 0);
     t |= ((uint64_t)temp)<< 32;
 
-    authtime = nt2unixtime(t);
+    authtime = heim_ntlm_ts2unixtime(t);
 
     if (abs((int)(authtime - now)) > authtimediff) {
 	ret = HNTLM_ERR_TIME_SKEW;
@@ -1709,7 +1741,6 @@ verify_ntlm2(const void *key, size_t len,
 	ret = HNTLM_ERR_INVALID_LENGTH;
 	goto out;
     }
-    infotarget->length -= 4;
     infotarget->data = malloc(infotarget->length);
     if (infotarget->data == NULL) {
 	ret = ENOMEM;
@@ -1717,8 +1748,6 @@ verify_ntlm2(const void *key, size_t len,
     }
     CHECK(krb5_storage_read(sp, infotarget->data, infotarget->length),
 	  infotarget->length);
-
-    CHECK(krb5_ret_uint32(sp, &temp), 0); /* Z(4) */
 
     krb5_storage_free(sp);
     sp = NULL;

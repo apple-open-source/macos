@@ -47,7 +47,7 @@ PassRefPtr<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tag
     return adoptRef(new HTMLAppletElement(tagName, document));
 }
 
-void HTMLAppletElement::parseMappedAttribute(Attribute* attr)
+void HTMLAppletElement::parseAttribute(Attribute* attr)
 {
     if (attr->name() == altAttr ||
         attr->name() == archiveAttr ||
@@ -56,56 +56,15 @@ void HTMLAppletElement::parseMappedAttribute(Attribute* attr)
         attr->name() == mayscriptAttr ||
         attr->name() == objectAttr) {
         // Do nothing.
-    } else if (attr->name() == nameAttr) {
-        const AtomicString& newName = attr->value();
-        if (inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-            document->removeNamedItem(m_name);
-            document->addNamedItem(newName);
-        }
-        m_name = newName;
-    } else if (isIdAttributeName(attr->name())) {
-        const AtomicString& newId = attr->value();
-        if (inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-            document->removeExtraNamedItem(m_id);
-            document->addExtraNamedItem(newId);
-        }
-        m_id = newId;
-        // also call superclass
-        HTMLPlugInElement::parseMappedAttribute(attr);
     } else
-        HTMLPlugInElement::parseMappedAttribute(attr);
+        HTMLPlugInElement::parseAttribute(attr);
 }
 
-void HTMLAppletElement::insertedIntoDocument()
-{
-    if (document()->isHTMLDocument()) {
-        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-        document->addNamedItem(m_name);
-        document->addExtraNamedItem(m_id);
-    }
-
-    HTMLPlugInElement::insertedIntoDocument();
-}
-
-void HTMLAppletElement::removedFromDocument()
-{
-    if (document()->isHTMLDocument()) {
-        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-        document->removeNamedItem(m_name);
-        document->removeExtraNamedItem(m_id);
-    }
-
-    HTMLPlugInElement::removedFromDocument();
-}
-
-bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLAppletElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     if (!fastHasAttribute(codeAttr))
         return false;
-
-    return HTMLPlugInElement::rendererIsNeeded(style);
+    return HTMLPlugInElement::rendererIsNeeded(context);
 }
 
 RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style)
@@ -119,7 +78,7 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
         if (!codeBase.isNull())
             args.set("codeBase", codeBase);
 
-        const AtomicString& name = document()->isHTMLDocument() ? getAttribute(nameAttr) : getIdAttribute();
+        const AtomicString& name = document()->isHTMLDocument() ? getNameAttribute() : getIdAttribute();
         if (!name.isNull())
             args.set("name", name);
         const AtomicString& archive = getAttribute(archiveAttr);
@@ -151,7 +110,7 @@ void HTMLAppletElement::defaultEventHandler(Event* event)
     widget->handleEvent(event);
 }
 
-RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
+RenderWidget* HTMLAppletElement::renderWidgetForJSBindings()
 {
     if (!canEmbedJava())
         return 0;
@@ -165,11 +124,20 @@ RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
 
 bool HTMLAppletElement::canEmbedJava() const
 {
-    if (document()->securityOrigin()->isSandboxed(SandboxPlugins))
+    if (document()->isSandboxed(SandboxPlugins))
         return false;
 
     Settings* settings = document()->settings();
-    return settings && settings->isJavaEnabled();
+    if (!settings)
+        return false;
+
+    if (!settings->isJavaEnabled())
+        return false;
+
+    if (document()->securityOrigin()->isLocal() && !settings->isJavaEnabledForLocalFiles())
+        return false;
+
+    return true;
 }
 
 void HTMLAppletElement::finishParsingChildren()

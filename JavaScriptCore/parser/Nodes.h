@@ -51,17 +51,14 @@ namespace JSC {
 
     const CodeFeatures NoFeatures = 0;
     const CodeFeatures EvalFeature = 1 << 0;
-    const CodeFeatures ClosureFeature = 1 << 1;
-    const CodeFeatures AssignFeature = 1 << 2;
-    const CodeFeatures ArgumentsFeature = 1 << 3;
-    const CodeFeatures WithFeature = 1 << 4;
-    const CodeFeatures CatchFeature = 1 << 5;
-    const CodeFeatures ThisFeature = 1 << 6;
-    const CodeFeatures StrictModeFeature = 1 << 7;
-    const CodeFeatures ShadowsArgumentsFeature = 1 << 8;
+    const CodeFeatures ArgumentsFeature = 1 << 1;
+    const CodeFeatures WithFeature = 1 << 2;
+    const CodeFeatures CatchFeature = 1 << 3;
+    const CodeFeatures ThisFeature = 1 << 4;
+    const CodeFeatures StrictModeFeature = 1 << 5;
+    const CodeFeatures ShadowsArgumentsFeature = 1 << 6;
     
-    
-    const CodeFeatures AllFeatures = EvalFeature | ClosureFeature | AssignFeature | ArgumentsFeature | WithFeature | CatchFeature | ThisFeature | StrictModeFeature | ShadowsArgumentsFeature;
+    const CodeFeatures AllFeatures = EvalFeature | ArgumentsFeature | WithFeature | CatchFeature | ThisFeature | StrictModeFeature | ShadowsArgumentsFeature;
 
     enum Operator {
         OpEqual,
@@ -181,7 +178,7 @@ namespace JSC {
         StatementNode(int);
 
     public:
-        void setLoc(int firstLine, int lastLine);
+        JS_EXPORT_PRIVATE void setLoc(int firstLine, int lastLine);
         int firstLine() const { return lineNo(); }
         int lastLine() const { return m_lastLine; }
 
@@ -796,11 +793,20 @@ namespace JSC {
         NegateNode(int, ExpressionNode*);
     };
 
-    class BitwiseNotNode : public UnaryOpNode {
+    class BitwiseNotNode : public ExpressionNode {
     public:
         BitwiseNotNode(int, ExpressionNode*);
-    };
 
+    protected:
+        ExpressionNode* expr() { return m_expr; }
+        const ExpressionNode* expr() const { return m_expr; }
+
+    private:
+        virtual RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0);
+
+        ExpressionNode* m_expr;
+    };
+ 
     class LogicalNotNode : public UnaryOpNode {
     public:
         LogicalNotNode(int, ExpressionNode*);
@@ -1348,7 +1354,7 @@ namespace JSC {
 
     class TryNode : public StatementNode {
     public:
-        TryNode(int, StatementNode* tryBlock, const Identifier& exceptionIdent, bool catchHasEval, StatementNode* catchBlock, StatementNode* finallyBlock);
+        TryNode(int, StatementNode* tryBlock, const Identifier& exceptionIdent, StatementNode* catchBlock, StatementNode* finallyBlock);
 
     private:
         virtual RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = 0);
@@ -1357,7 +1363,6 @@ namespace JSC {
         const Identifier& m_exceptionIdent;
         StatementNode* m_catchBlock;
         StatementNode* m_finallyBlock;
-        bool m_catchHasEval;
     };
 
     class ParameterNode : public ParserArenaFreeable {
@@ -1373,22 +1378,6 @@ namespace JSC {
         ParameterNode* m_next;
     };
 
-    struct ScopeNodeData {
-        WTF_MAKE_FAST_ALLOCATED;
-    public:
-        typedef DeclarationStacks::VarStack VarStack;
-        typedef DeclarationStacks::FunctionStack FunctionStack;
-
-        ScopeNodeData(ParserArena&, SourceElements*, VarStack*, FunctionStack*, IdentifierSet&, int numConstants);
-
-        ParserArena m_arena;
-        VarStack m_varStack;
-        FunctionStack m_functionStack;
-        int m_numConstants;
-        SourceElements* m_statements;
-        IdentifierSet m_capturedVariables;
-    };
-
     class ScopeNode : public StatementNode, public ParserArenaRefCounted {
     public:
         typedef DeclarationStacks::VarStack VarStack;
@@ -1399,8 +1388,14 @@ namespace JSC {
 
         using ParserArenaRefCounted::operator new;
 
-        ScopeNodeData* data() const { return m_data.get(); }
-        void destroyData() { m_data.clear(); }
+        void destroyData()
+        {
+            m_arena.reset();
+            m_varStack.clear();
+            m_functionStack.clear();
+            m_statements = 0;
+            m_capturedVariables.clear();
+        }
 
         const SourceCode& source() const { return m_source; }
         const UString& sourceURL() const { return m_source.provider()->url(); }
@@ -1414,21 +1409,20 @@ namespace JSC {
         bool isStrictMode() const { return m_features & StrictModeFeature; }
         void setUsesArguments() { m_features |= ArgumentsFeature; }
         bool usesThis() const { return m_features & ThisFeature; }
-        bool needsActivationForMoreThanVariables() const { ASSERT(m_data); return m_features & (EvalFeature | WithFeature | CatchFeature); }
-        bool needsActivation() const { ASSERT(m_data); return (hasCapturedVariables()) || (m_features & (EvalFeature | WithFeature | CatchFeature)); }
-        bool hasCapturedVariables() const { return !!m_data->m_capturedVariables.size(); }
-        size_t capturedVariableCount() const { return m_data->m_capturedVariables.size(); }
-        bool captures(const Identifier& ident) { return m_data->m_capturedVariables.contains(ident.impl()); }
+        bool needsActivationForMoreThanVariables() const { return m_features & (EvalFeature | WithFeature | CatchFeature); }
+        bool needsActivation() const { return (hasCapturedVariables()) || (m_features & (EvalFeature | WithFeature | CatchFeature)); }
+        bool hasCapturedVariables() const { return !!m_capturedVariables.size(); }
+        size_t capturedVariableCount() const { return m_capturedVariables.size(); }
+        bool captures(const Identifier& ident) { return m_capturedVariables.contains(ident.impl()); }
 
-        VarStack& varStack() { ASSERT(m_data); return m_data->m_varStack; }
-        FunctionStack& functionStack() { ASSERT(m_data); return m_data->m_functionStack; }
+        VarStack& varStack() { return m_varStack; }
+        FunctionStack& functionStack() { return m_functionStack; }
 
         int neededConstants()
         {
-            ASSERT(m_data);
             // We may need 2 more constants than the count given by the parser,
             // because of the various uses of jsUndefined() and jsNull().
-            return m_data->m_numConstants + 2;
+            return m_numConstants + 2;
         }
 
         StatementNode* singleStatement() const;
@@ -1437,11 +1431,16 @@ namespace JSC {
 
     protected:
         void setSource(const SourceCode& source) { m_source = source; }
+        ParserArena m_arena;
 
     private:
-        OwnPtr<ScopeNodeData> m_data;
         CodeFeatures m_features;
         SourceCode m_source;
+        VarStack m_varStack;
+        FunctionStack m_functionStack;
+        int m_numConstants;
+        SourceElements* m_statements;
+        IdentifierSet m_capturedVariables;
     };
 
     class ProgramNode : public ScopeNode {
@@ -1494,6 +1493,8 @@ namespace JSC {
         void finishParsing(PassRefPtr<FunctionParameters>, const Identifier&);
         
         const Identifier& ident() { return m_ident; }
+        void setInferredName(const Identifier& inferredName) { ASSERT(!inferredName.isNull()); m_inferredName = inferredName; }
+        const Identifier& inferredName() { return m_inferredName.isEmpty() ? m_ident : m_inferredName; }
 
         static const bool scopeIsFunction = true;
 
@@ -1502,6 +1503,7 @@ namespace JSC {
         FunctionBodyNode(JSGlobalData*, int, SourceElements*, VarStack*, FunctionStack*, IdentifierSet&, const SourceCode&, CodeFeatures, int numConstants);
 
         Identifier m_ident;
+        Identifier m_inferredName;
         RefPtr<FunctionParameters> m_parameters;
     };
 

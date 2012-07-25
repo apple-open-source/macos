@@ -53,7 +53,7 @@ void LogMessage(u_int32_t level, char *format, ...)
     va_list		arglist;
     int8_t		*buffer = NULL;
     int8_t		*bufPtr;
-    int8_t		tempStr[80];
+    int		len = 0;
 
 #if !DEBUG
 	if (!(level & kSysLog)) {
@@ -81,46 +81,47 @@ void LogMessage(u_int32_t level, char *format, ...)
                     case 'i':
                     case 'd':
                         intarg = va_arg(arglist, int32_t);
-                        bufPtr += sprintf((char*) bufPtr, "%d", intarg);
+                        len += snprintf((char*) bufPtr, 300 - len, "%d", intarg);
+                        bufPtr += len;
                         break;
                     case 'X':
                     case 'x':
                         uintarg = va_arg(arglist, u_int32_t);
-                        bufPtr += sprintf((char*) bufPtr, "%X", uintarg);
+                        len += snprintf((char*) bufPtr, 300 - len, "%X", uintarg);
+                        bufPtr += len;
                         break;
                     case 'p':
                         pointerarg = va_arg(arglist, void*);
-                        bufPtr += sprintf((char*) bufPtr, "%p", pointerarg);
+                        len += snprintf((char*) bufPtr, 300 - len, "%p", pointerarg);
+                        bufPtr += len;
                         break;
                     case 'f':
                         ulonglongarg = va_arg(arglist, u_int64_t);
-                        bufPtr += sprintf((char*) bufPtr, "%llx", (u_int64_t) ulonglongarg);
+                        len += snprintf((char*) bufPtr, 300 - len, "%llx", (u_int64_t) ulonglongarg);
+                        bufPtr += len;
                         break;
                     case 's':
                         strarg = va_arg(arglist, int8_t*);
-                        if (strarg != NULL) {
-                            if (strlen ((char*) strarg) > sizeof (tempStr)) {
-                                /* strarg is too long and could overrun my print buffer, so truncate it down */
-                                strncpy ((char*) tempStr, (char*) strarg, sizeof(tempStr));
-                                bufPtr += sprintf((char*) bufPtr, "%s...", tempStr);
-                            }
-                            else
-                                bufPtr += sprintf((char*) bufPtr, "%s", strarg);
-                        }
+                        if (strarg != NULL) 
+                                len += snprintf((char*) bufPtr, 300 - len, "%s", strarg);
                         else
-                                bufPtr += sprintf((char*) bufPtr, "NULLSTR");
+                                len += snprintf((char*) bufPtr, 300 - len, "NULLSTR");
+                        bufPtr += len;
                         break;
                     case 'c':
                         chararg = va_arg(arglist, int);
-                        bufPtr += sprintf((char*) bufPtr, "%c", chararg);
+                        len += snprintf((char*) bufPtr, 300 - len, "%c", chararg);
+                        bufPtr += len;
                         break;
                     default:
-                        bufPtr += sprintf((char*) bufPtr, "%c", c);
+                        len += snprintf((char*) bufPtr, 300 - len, "%c", c);
+                        bufPtr += len;
                         break;
                 }
             }
             else {
-                bufPtr += sprintf((char*) bufPtr, "%c", c);
+                len += snprintf((char*) bufPtr, 300 - len, "%c", c);
+                bufPtr += len;
             }
             ++findex;
         }

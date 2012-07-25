@@ -46,7 +46,7 @@ static const float defaultSpeechButtonSize = 16;
 static const float minSpeechButtonSize = 8;
 static const float maxSpeechButtonSize = 40;
 
-void RenderInputSpeech::adjustInputFieldSpeechButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*)
+void RenderInputSpeech::adjustInputFieldSpeechButtonStyle(StyleResolver*, RenderStyle* style, Element*)
 {
     // Scale the button size based on the font size.
     float fontScale = style->fontSize() / defaultControlFontPixelSize;
@@ -66,23 +66,23 @@ bool RenderInputSpeech::paintInputFieldSpeechButton(RenderObject* object, const 
     if (!input->renderer()->isBox())
         return false;
     RenderBox* inputRenderBox = toRenderBox(input->renderer());
-    IntRect inputContentBox = inputRenderBox->contentBoxRect();
+    LayoutRect inputContentBox = inputRenderBox->contentBoxRect();
 
     // Make sure the scaled button stays square and will fit in its parent's box.
-    int buttonSize = std::min(inputContentBox.width(), std::min(inputContentBox.height(), rect.height()));
+    LayoutUnit buttonSize = std::min(inputContentBox.width(), std::min<LayoutUnit>(inputContentBox.height(), rect.height()));
     // Calculate button's coordinates relative to the input element.
     // Center the button vertically.  Round up though, so if it has to be one pixel off-center, it will
     // be one pixel closer to the bottom of the field.  This tends to look better with the text.
-    IntRect buttonRect(object->offsetFromAncestorContainer(inputRenderBox).width(),
-                       inputContentBox.y() + (inputContentBox.height() - buttonSize + 1) / 2,
-                       buttonSize, buttonSize);
+    LayoutRect buttonRect(object->offsetFromAncestorContainer(inputRenderBox).width(),
+                          inputContentBox.y() + (inputContentBox.height() - buttonSize + 1) / 2,
+                          buttonSize, buttonSize);
 
     // Compute an offset between the part renderer and the input renderer.
-    IntSize offsetFromInputRenderer = -(object->offsetFromAncestorContainer(inputRenderBox));
+    LayoutSize offsetFromInputRenderer = -(object->offsetFromAncestorContainer(inputRenderBox));
     // Move the rect into partRenderer's coords.
     buttonRect.move(offsetFromInputRenderer);
     // Account for the local drawing offset.
-    buttonRect.move(rect.x(), rect.y());
+    buttonRect.moveBy(rect.location());
 
     DEFINE_STATIC_LOCAL(RefPtr<Image>, imageStateNormal, (Image::loadPlatformResource("inputSpeech")));
     DEFINE_STATIC_LOCAL(RefPtr<Image>, imageStateRecording, (Image::loadPlatformResource("inputSpeechRecording")));
@@ -94,7 +94,7 @@ bool RenderInputSpeech::paintInputFieldSpeechButton(RenderObject* object, const 
         image = imageStateRecording.get();
     else if (speechButton->state() == InputFieldSpeechButtonElement::Recognizing)
         image = imageStateWaiting.get();
-    paintInfo.context->drawImage(image, object->style()->colorSpace(), buttonRect);
+    paintInfo.context->drawImage(image, object->style()->colorSpace(), pixelSnappedIntRect(buttonRect));
 
     return false;
 }

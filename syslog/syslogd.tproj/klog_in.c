@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,66 +37,91 @@
 #define forever for(;;)
 
 #define MY_ID "klog_in"
-#define MAXLINE 4096
+#define BUFF_SIZE 4096
 
-static int kx = 0;
-static char kline[MAXLINE + 1];
+static char inbuf[BUFF_SIZE];
+static int bx;
+static int kfd = -1;
+static dispatch_source_t in_src;
+static dispatch_queue_t in_queue;
 
-aslmsg
-klog_in_acceptmsg(int fd)
+void
+klog_in_acceptdata(int fd)
 {
-	int n;
-	char c;
+	ssize_t len;
+	uint32_t i;
+	char *p, *q;
+	aslmsg m;
 
-	n = read(fd, &c, 1);
+	len = read(fd, inbuf + bx, BUFF_SIZE - bx);
+	if (len <= 0) return;
 
-	while ((n == 1) && (c != '\n'))
+	p = inbuf;
+	q = p + bx;
+
+	for (i = 0; i < len; i++, q++)
 	{
-		if (kx < MAXLINE) kline[kx++] = c;
-		n = read(fd, &c, 1);
+		if (*q == '\n')
+		{
+			*q = '\0';
+			m = asl_input_parse(p, q - p, NULL, SOURCE_KERN);
+			dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_KERN); });
+			p = q + 1;
+		}
 	}
 
-	if (kx == 0) return NULL;
-
-	n = kx - 1;
-	kline[kx] = '\0';
-	kx = 0;
-
-	return asl_input_parse(kline, n, NULL, SOURCE_KERN);
+	if (p != inbuf)
+	{
+		memmove(inbuf, p, BUFF_SIZE - bx - 1);
+		bx = q - p;
+	}
 }
 
 int
-klog_in_init(void)
+klog_in_init()
 {
-	asldebug("%s: init\n", MY_ID);
-	if (global.kfd >= 0) return global.kfd;
+	static dispatch_once_t once;
 
-	global.kfd = open(_PATH_KLOG, O_RDONLY, 0);
-	if (global.kfd < 0)
+	dispatch_once(&once, ^{
+		in_queue = dispatch_queue_create(MY_ID, NULL);
+	});
+
+	asldebug("%s: init\n", MY_ID);
+	if (kfd >= 0) return 0;
+
+	kfd = open(_PATH_KLOG, O_RDONLY, 0);
+	if (kfd < 0)
 	{
 		asldebug("%s: couldn't open %s: %s\n", MY_ID, _PATH_KLOG, strerror(errno));
 		return -1;
 	}
 
-	if (fcntl(global.kfd, F_SETFL, O_NONBLOCK) < 0)
+	if (fcntl(kfd, F_SETFL, O_NONBLOCK) < 0)
 	{
-		close(global.kfd);
-		global.kfd = -1;
-		asldebug("%s: couldn't set O_NONBLOCK for fd %d (%s): %s\n", MY_ID, global.kfd, _PATH_KLOG, strerror(errno));
+		close(kfd);
+		kfd = -1;
+		asldebug("%s: couldn't set O_NONBLOCK for fd %d (%s): %s\n", MY_ID, kfd, _PATH_KLOG, strerror(errno));
 		return -1;
 	}
 
-	return aslevent_addfd(SOURCE_KERN, global.kfd, ADDFD_FLAGS_LOCAL, klog_in_acceptmsg, NULL, NULL);
+	in_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)kfd, 0, in_queue);
+	dispatch_source_set_event_handler(in_src, ^{ klog_in_acceptdata(kfd); });
+
+	dispatch_resume(in_src);
+	return 0;
 }
 
 int
 klog_in_close(void)
 {
-	if (global.kfd < 0) return 1;
+	if (kfd < 0) return 1;
 
-	aslevent_removefd(global.kfd);
-	close(global.kfd);
-	global.kfd = -1;
+	dispatch_source_cancel(in_src);
+	dispatch_release(in_src);
+	in_src = NULL;
+
+	close(kfd);
+	kfd = -1;
 
 	return 0;
 }

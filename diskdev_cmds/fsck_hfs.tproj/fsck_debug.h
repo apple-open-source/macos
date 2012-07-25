@@ -33,7 +33,10 @@ enum debug_message_type {
 	/* Category of verify/repair operation */
 	d_xattr		=	0x0010,	/* Extended attributes related messages */
 	d_overlap	=	0x0020,	/* Overlap extents related messages */
-	d_trim		=	0x0040	/* TRIM (discard/unmap) related messages */
+	d_trim		=	0x0040,	/* TRIM (discard/unmap) related messages */
+	
+	d_dump_record = 0x0400,	/* Dump corrupt keys and records */
+	d_dump_node	=	0x0800	/* In hfs_swap_BTNode or BTCheck, dump out damaged nodes */
 };
 
 /* Current debug level of fsck_hfs for printing messages via DPRINTF */
@@ -68,5 +71,7 @@ extern unsigned long cur_debug_level;
  *	Nothing
  */
 extern void DPRINTF (unsigned long message_type, char *format, ...);
+
+void HexDump(const void *p_arg, unsigned length, int showOffsets);
 
 #endif /* __FSCK_DEBUG__ */

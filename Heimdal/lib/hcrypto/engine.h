@@ -73,6 +73,8 @@ typedef struct hc_engine ENGINE;
 #define NID_md5			2
 #define NID_sha1		4
 #define NID_sha256		5
+#define NID_sha384		6
+#define NID_sha512		7
 
 /*
  *

@@ -31,7 +31,7 @@
 
 #ifdef TESTING
 #define DEBUG
-#endif TESTING
+#endif /* TESTING */
 
 static __inline__ void
 ptrlist_print(ptrlist_t * list)
@@ -136,7 +136,7 @@ ptrlist_grow(ptrlist_t * list)
     else if (list->size == list->count) {
 #ifdef DEBUG
 	printf("doubling %d to %d\n", list->size, list->size * 2);
-#endif DEBUG
+#endif /* DEBUG */
 	list->size *= 2;
 	list->array = realloc(list->array,
 			      sizeof(*list->array) * list->size);

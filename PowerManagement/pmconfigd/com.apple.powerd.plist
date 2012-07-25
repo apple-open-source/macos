@@ -8,17 +8,15 @@
     <string>/System/Library/CoreServices/powerd.bundle/powerd</string>
     <key>KeepAlive</key>
     <true/>
+    <key>POSIXSpawnType</key>
+    <string>Adaptive</string>
     <key>MachServices</key>
     <dict>
         <key>com.apple.PowerManagement.control</key>
         <true/>
     </dict>
-    <key>POSIXSpawnType</key>
-    <string>Interactive</string>
     <key>JetsamProperties</key>
     <dict>
-        <key>JetsamMemoryLimit</key>
-        <integer>2500</integer>
         <key>JetsamPriority</key>
         <integer>-100</integer>
     </dict>

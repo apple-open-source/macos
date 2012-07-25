@@ -65,10 +65,10 @@ extern u_int32_t loglevel;
 extern int f_foreground;
 extern int print_location;
 
-struct sockaddr;
-extern void plog_func __P((int, const char *, struct sockaddr *, const char *, ...))
+struct sockaddr_storage;
+extern void plog_func __P((int, const char *, struct sockaddr_storage *, const char *, ...))
 	__attribute__ ((__format__ (__printf__, 4, 5)));
-extern void plogv __P((int, const char *, struct sockaddr *,
+extern void plogv __P((int, const char *, struct sockaddr_storage *,
 	const char *, va_list *));
 extern void plogdump __P((int, void *, size_t));
 extern void ploginit __P((void));

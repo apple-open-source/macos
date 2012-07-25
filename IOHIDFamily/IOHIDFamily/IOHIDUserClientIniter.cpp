@@ -44,15 +44,12 @@ OSMetaClassDefineReservedUnused(IOHIDUserClientIniter, 7);
 
 bool IOHIDUserClientIniter::start(IOService* provider)
 {
-    OSDictionary *	providerMergeProperties = NULL;
+    OSObject *      providerMergeProperties = NULL;
     bool            result = false;
 
-    providerMergeProperties = OSDynamicCast(OSDictionary, getProperty("IOProviderMergeProperties"));
-    if ( !providerMergeProperties )
-        return false;
-
-    result = mergeDictionaryIntoProvider(provider, providerMergeProperties) ;
-    
+    providerMergeProperties = copyProperty("IOProviderMergeProperties");
+    result = mergeDictionaryIntoProvider(provider, OSDynamicCast(OSDictionary, providerMergeProperties));
+    OSSafeReleaseNULL(providerMergeProperties);
     return result;
 }
 
@@ -73,29 +70,28 @@ bool IOHIDUserClientIniter::mergeDictionaryIntoProvider(IOService * provider, OS
     if ( iter != NULL ) {
         // Iterate through the dictionary until we run out of entries
         //
+        OSObject *	providerObject = NULL;
         while ( NULL != (dictionaryEntry = (const OSSymbol *)iter->getNextObject()) ) {
             OSDictionary *	sourceDictionary = NULL;
             OSDictionary *	providerDictionary = NULL;
-            OSObject *		providerProperty = NULL;
 
             // Check to see if our destination already has the same entry.
             //
-            providerProperty = provider->getProperty(dictionaryEntry);
-            if ( providerProperty )
-                providerDictionary = OSDynamicCast(OSDictionary, providerProperty);
+            OSSafeReleaseNULL(providerObject); // takes care of the one copied the previous time around
+            providerObject = provider->copyProperty(dictionaryEntry);
             
             // See if our source entry is also a dictionary
             //
             sourceDictionary = OSDynamicCast(OSDictionary, dictionaryToMerge->getObject(dictionaryEntry));
-            
+            providerDictionary = OSDynamicCast(OSDictionary, providerDictionary);
             if ( providerDictionary &&  sourceDictionary )  {
                 // Need to merge our entry into the provider's dictionary.  However, we don't have a copy of our dictionary, just
                 // a reference to it.  So, we need to make a copy of our provider's dictionary so that we don't modify our provider's
                 // dictionary using non-synchronize calls.
                 //
-                OSDictionary *		localCopyOfProvidersDictionary;
-                UInt32			providerSize;
-                UInt32			providerSizeAfterMerge;
+                OSDictionary    *localCopyOfProvidersDictionary;
+                UInt32          providerSize;
+                UInt32          providerSizeAfterMerge;
 
                 // A capacity of 0 indicates that the dictionary should have the same size as the source
                 //
@@ -135,6 +131,7 @@ bool IOHIDUserClientIniter::mergeDictionaryIntoProvider(IOService * provider, OS
                     break;
             }
         }
+        OSSafeReleaseNULL(providerObject); // takes care of the one from the last time around
         iter->release();
     }
 

@@ -906,14 +906,15 @@ dt_string2str(char *s, char *str, int nbytes)
 int
 dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 {
-	dtrace_syminfo_t dts;
-	GElf_Sym sym;
-
+        dtrace_syminfo_t dts;
+        GElf_Sym sym;
+        char aux_symbol_name[32];
+        
 	size_t n = 20; /* for 0x%llx\0 */
 	char *s;
 	int err;
 
-	if ((err = dtrace_lookup_by_addr(dtp, addr, &sym, &dts)) == 0)
+	if ((err = dtrace_lookup_by_addr(dtp, addr, aux_symbol_name, sizeof(aux_symbol_name), &sym, &dts)) == 0)
 		n += strlen(dts.dts_object) + strlen(dts.dts_name) + 2; /* +` */
 
 	s = alloca(n);
@@ -930,7 +931,7 @@ dtrace_addr2str(dtrace_hdl_t *dtp, uint64_t addr, char *str, int nbytes)
 		 * GElf_Sym -- indicating that we're only interested in the
 		 * containing module.
 		 */
-		if (dtrace_lookup_by_addr(dtp, addr, NULL, &dts) == 0) {
+		if (dtrace_lookup_by_addr(dtp, addr, NULL, 0, NULL, &dts) == 0) {
 			(void) snprintf(s, n, "%s`0x%llx", dts.dts_object,
 			    (u_longlong_t)addr);
 		} else {

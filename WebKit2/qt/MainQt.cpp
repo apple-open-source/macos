@@ -24,10 +24,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QtGlobal>
+#include <QApplication>
+
+#include <stdio.h>
 
 namespace WebKit {
-Q_DECL_IMPORT int WebProcessMainQt(int argc, char** argv);
+Q_DECL_IMPORT int WebProcessMainQt(QGuiApplication*);
+Q_DECL_IMPORT void initializeWebKit2Theme();
+}
+
+static void messageHandler(QtMsgType type, const char* message)
+{
+    if (type == QtCriticalMsg) {
+        fprintf(stderr, "%s\n", message);
+        return;
+    }
+
+    // Do nothing
 }
 
 // The framework entry point.
@@ -35,5 +48,21 @@ Q_DECL_IMPORT int WebProcessMainQt(int argc, char** argv);
 // to reimplement the handling of command line arguments from QApplication.
 int main(int argc, char** argv)
 {
-    return WebKit::WebProcessMainQt(argc, argv);
+#if !defined(NDEBUG) && defined(Q_OS_UNIX)
+    if (qgetenv("QT_WEBKIT_PAUSE_WEB_PROCESS") == "1" || qgetenv("QT_WEBKIT2_DEBUG") == "1") {
+        fprintf(stderr, "Pausing web process, please attach to PID %d and continue... ", getpid());
+        pause();
+        fprintf(stderr, " OK\n");
+    }
+#endif
+
+    WebKit::initializeWebKit2Theme();
+
+    // Has to be done before QApplication is constructed in case
+    // QApplication itself produces debug output.
+    QByteArray suppressOutput = qgetenv("QT_WEBKIT_SUPPRESS_WEB_PROCESS_OUTPUT");
+    if (!suppressOutput.isEmpty() && suppressOutput != "0")
+        qInstallMsgHandler(messageHandler);
+
+    return WebKit::WebProcessMainQt(new QApplication(argc, argv));
 }

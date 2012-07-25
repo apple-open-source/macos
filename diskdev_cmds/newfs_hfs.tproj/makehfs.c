@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -162,6 +162,16 @@ void SETOFFSET (void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOff
           ((e) == kCFStringEncodingMacFarsi ? 49 : 0)))
 #endif
 
+
+#ifdef DEBUG_BUILD
+struct cp_root_xattr {
+	u_int16_t vers;
+	u_int16_t reserved1;
+	u_int64_t reserved2;
+	u_int8_t reserved3[16];
+} __attribute__((aligned(2), packed)); 
+#endif
+
 /*
  * wipefs() in -lutil knows about multiple filesystem formats.
  * This replaces the code:
@@ -245,10 +255,14 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	sector = header->catalogFile.extents[0].startBlock * sectorsPerBlock;
 	WriteBuffer(driveInfo, sector, bytesToZero, NULL);
 	
-	/*--- Allocate a buffer for the rest of our IO:  */
+	/*
+	 * Allocate a buffer for the rest of our IO.
+	 * Note that in some cases we may need to initialize an EA, so we 
+	 * need to use the attribute B-Tree node size in this calculation. 
+	 */
 
 	temp = Largest( defaults->catalogNodeSize * 2,
-			defaults->extentsNodeSize,
+			(defaults->attributesNodeSize * 2),
 			header->blockSize,
 			(header->catalogFile.extents[0].startBlock + header->catalogFile.extents[0].blockCount + 7) / 8 );
 	/* 
@@ -716,10 +730,24 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	UInt32			nodeSize;
 	UInt32			temp;
 	SInt16			offset;
+	int	set_cp_level = 0;
 
 	*mapNodes = 0;
 	fileSize = dp->attributesClumpSize;
 	nodeSize = dp->attributesNodeSize;
+
+#ifdef DEBUG_BUILD
+	/*
+	 * If user specified content protection and a protection level,
+	 * then verify the protection level is sane.
+	 */ 	
+	if ((dp->flags & kMakeContentProtect) && (dp->protectlevel != 0)) {
+		if ((dp->protectlevel >= 2 ) && (dp->protectlevel <= 4)) {
+			set_cp_level = 1;
+		}	
+	}
+#endif
+
 
 	bzero(buffer, nodeSize);
 
@@ -735,14 +763,31 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 
 	/* FILL IN THE HEADER RECORD:  */
 	bthp = (BTHeaderRec *)((UInt8 *)buffer + offset);
-    //	bthp->treeDepth		= 0;
-    //	bthp->rootNode		= 0;
-    //	bthp->firstLeafNode	= 0;
-    //	bthp->lastLeafNode	= 0;
-    //	bthp->leafRecords	= 0;
+	if (set_cp_level) {
+		bthp->treeDepth = SWAP_BE16(1);
+		bthp->rootNode = SWAP_BE32(1);
+		bthp->firstLeafNode = SWAP_BE32(1);
+		bthp->lastLeafNode = SWAP_BE32(1);
+		bthp->leafRecords = SWAP_BE32(1);
+	}
+	else {
+		bthp->treeDepth = 0;
+		bthp->rootNode = 0;
+		bthp->firstLeafNode = 0;
+		bthp->lastLeafNode = 0;
+		bthp->leafRecords = 0;
+	}	
+
 	bthp->nodeSize		= SWAP_BE16 (nodeSize);
 	bthp->totalNodes	= SWAP_BE32 (fileSize / nodeSize);
-	bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 1);  /* header */
+	if (set_cp_level) {
+		/* Add 1 node for the first record */
+		bthp->freeNodes = SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 2); 
+	}
+	else {
+		/* Take the header into account */
+		bthp->freeNodes		= SWAP_BE32 (SWAP_BE32 (bthp->totalNodes) - 1);
+	}
 	bthp->clumpSize		= SWAP_BE32 (fileSize);
 
 	bthp->attributes |= SWAP_BE32 (kBTBigKeysMask | kBTVariableIndexKeysMask);
@@ -790,6 +835,59 @@ WriteAttributesFile(const DriveInfo *driveInfo, UInt64 startingSector,
 	offset += nodeBitsInHeader/8;
 
 	SETOFFSET(buffer, nodeSize, offset, 4);
+
+#ifdef DEBUG_BUILD
+	if (set_cp_level) {
+		/* Stuff in the EA on the root folder */
+		void *node2 = (uint8_t*)buffer + nodeSize;
+
+		struct cp_root_xattr ea;
+
+		uint8_t canonicalName[256];
+		CFStringRef cfstr;
+
+		HFSPlusAttrData *attrData;
+		HFSPlusAttrKey *attrKey;
+		bzero(node2, nodeSize);
+		ndp = (BTNodeDescriptor*)node2;
+
+		ndp->kind = kBTLeafNode;
+		ndp->numRecords = SWAP_BE16(1);
+		ndp->height = 1;
+
+		offset = sizeof(BTNodeDescriptor);
+		SETOFFSET(node2, nodeSize, offset, 1);
+
+		attrKey = (HFSPlusAttrKey*)((uint8_t*)node2 + offset);
+		attrKey->fileID = SWAP_BE32(1);
+		attrKey->startBlock = 0;
+		attrKey->keyLength = SWAP_BE16(sizeof(*attrKey) - sizeof(attrKey->keyLength));
+
+		cfstr = CFStringCreateWithCString(kCFAllocatorDefault, "com.apple.system.cprotect", kCFStringEncodingUTF8);
+		if (_CFStringGetFileSystemRepresentation(cfstr, canonicalName, sizeof(canonicalName)) &&
+				ConvertUTF8toUnicode(canonicalName,
+					sizeof(attrKey->attrName),
+					attrKey->attrName, &attrKey->attrNameLen) == 0) {
+			attrKey->attrNameLen = SWAP_BE16(attrKey->attrNameLen);
+			offset += sizeof(*attrKey);
+
+			/* If the offset is odd, move up to the next even value */
+			if (offset & 1) {
+				offset++;
+			}
+
+			attrData = (HFSPlusAttrData*)((uint8_t*)node2 + offset);
+			bzero(&ea, sizeof(ea));
+			ea.vers = OSSwapHostToLittleInt16(dp->protectlevel); //(leave in LittleEndian)
+			attrData->recordType = SWAP_BE32(kHFSPlusAttrInlineData);
+			attrData->attrSize = SWAP_BE32(sizeof(ea));
+			memcpy(attrData->attrData, &ea, sizeof(ea));
+			offset += sizeof (HFSPlusAttrData) + sizeof(ea) - sizeof(attrData->attrData);
+		}
+		SETOFFSET (node2, nodeSize, offset, 2);
+		CFRelease(cfstr);
+	}
+#endif
 
 	*bytesUsed = (SWAP_BE32 (bthp->totalNodes) - SWAP_BE32 (bthp->freeNodes) - *mapNodes) * nodeSize;
 	WriteBuffer(driveInfo, startingSector, *bytesUsed, buffer);
@@ -1445,7 +1543,7 @@ GetDefaultEncoding()
         strlcat(buffer, __kCFUserEncodingFileName, sizeof(buffer));
 
         if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
-            size_t readSize;
+            ssize_t readSize;
 
             readSize = read(fd, buffer, MAXPATHLEN);
             buffer[(readSize < 0 ? 0 : readSize)] = '\0';

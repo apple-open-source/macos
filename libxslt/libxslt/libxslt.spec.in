@@ -99,6 +99,11 @@ rm -fr %{buildroot}
 %doc doc/EXSLT/libexslt-refs.xml
 %doc %{_mandir}/man3/libxslt.3*
 %doc %{_mandir}/man3/libexslt.3*
+%doc doc/*.html doc/html doc/*.gif doc/*.png
+%doc doc/tutorial
+%doc doc/tutorial2
+%doc doc/images
+%doc doc/EXSLT
 %{_libdir}/lib*.so
 %{_libdir}/*a
 %{_libdir}/*.sh

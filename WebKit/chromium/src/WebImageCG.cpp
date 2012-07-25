@@ -29,14 +29,14 @@
  */
 
 #include "config.h"
-#include "WebImage.h"
+#include "platform/WebImage.h"
 
 #include "Image.h"
 #include "ImageSource.h"
 #include "SharedBuffer.h"
 
-#include "WebData.h"
-#include "WebSize.h"
+#include "platform/WebData.h"
+#include "platform/WebSize.h"
 
 #include <CoreGraphics/CGImage.h>
 
@@ -108,14 +108,14 @@ WebImage::WebImage(const PassRefPtr<Image>& image)
     : m_imageRef(0)
 {
     NativeImagePtr p;
-    if (image.get() && (p = image->nativeImageForCurrentFrame()))
+    if (image && (p = image->nativeImageForCurrentFrame()))
         assign(p);
 }
 
 WebImage& WebImage::operator=(const PassRefPtr<Image>& image)
 {
     NativeImagePtr p;
-    if (image.get() && (p = image->nativeImageForCurrentFrame()))
+    if (image && (p = image->nativeImageForCurrentFrame()))
         assign(p);
     else
         reset();

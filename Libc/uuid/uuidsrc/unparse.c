@@ -37,10 +37,10 @@
 #include "uuidP.h"
 
 static const char *fmt_lower = 
-	"%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x";
+	"0123456789abcdef";
 
 static const char *fmt_upper = 
-	"%08X-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X";
+	"0123456789ABCDEF";
 
 #ifdef UUID_UNPARSE_DEFAULT_UPPER
 #define FMT_DEFAULT fmt_upper
@@ -50,14 +50,24 @@ static const char *fmt_upper =
 
 static void uuid_unparse_x(const uuid_t uu, char *out, const char *fmt)
 {
-	struct uuid uuid;
-
-	uuid_unpack(uu, &uuid);
-	sprintf(out, fmt,
-		uuid.time_low, uuid.time_mid, uuid.time_hi_and_version,
-		uuid.clock_seq >> 8, uuid.clock_seq & 0xFF,
-		uuid.node[0], uuid.node[1], uuid.node[2],
-		uuid.node[3], uuid.node[4], uuid.node[5]);
+	const uint8_t *uuid_array = (const uint8_t *)uu;
+	int uuid_index;
+	
+	for ( uuid_index = 0; uuid_index < sizeof(uuid_t); ++uuid_index ) {
+		// insert '-' after the 4th, 6th, 8th, and 10th uuid byte
+		switch (uuid_index) {
+		case 4:
+		case 6:
+		case 8:
+		case 10:
+			*out++ = '-';
+			break;
+		}
+		// insert uuid byte as two hex characters
+		*out++ = fmt[*uuid_array >> 4];
+		*out++ = fmt[*uuid_array++ & 0xF];
+	}
+	*out = 0;
 }
 
 void uuid_unparse_lower(const uuid_t uu, char *out)

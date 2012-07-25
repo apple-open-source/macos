@@ -45,11 +45,14 @@
 #include <notify.h>
 extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 #endif	// !TARGET_OS_IPHONE
+#include <CommonCrypto/CommonDigest.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+
+#include "dns-configuration.h"
 
 #include <dnsinfo.h>
 #include <dnsinfo_create.h>
@@ -68,6 +71,10 @@ extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 #define	kDNSServiceCompPrivateDNS	"PrivateDNS"
 #endif
 
+#define DNS_CONFIGURATION_FLAGS_KEY	CFSTR("__FLAGS__")
+#define DNS_CONFIGURATION_IF_INDEX_KEY	CFSTR("__IF_INDEX__")
+#define DNS_CONFIGURATION_ORDER_KEY	CFSTR("__ORDER__")
+
 /* multicast DNS resolver configurations */
 static	CFNumberRef	S_mdns_timeout	= NULL;
 
@@ -79,6 +86,7 @@ static void
 add_resolver(CFMutableArrayRef resolvers, CFMutableDictionaryRef resolver)
 {
 	CFIndex		i;
+	CFStringRef	interface;
 	CFIndex		n_resolvers;
 	CFNumberRef	order;
 	uint32_t	order_val	= 0;
@@ -129,9 +137,45 @@ add_resolver(CFMutableArrayRef resolvers, CFMutableDictionaryRef resolver)
 		}
 	}
 
-	order = CFNumberCreate(NULL, kCFNumberIntType, &n_resolvers);
-	CFDictionarySetValue(resolver, CFSTR("*ORDER*"), order);
+	order = CFNumberCreate(NULL, kCFNumberCFIndexType, &n_resolvers);
+	CFDictionarySetValue(resolver, DNS_CONFIGURATION_ORDER_KEY, order);
 	CFRelease(order);
+
+	interface = CFDictionaryGetValue(resolver, kSCPropInterfaceName);
+	if (interface != NULL) {
+		uint32_t	flags;
+		unsigned int	if_index		= 0;
+		char		if_name[IF_NAMESIZE];
+		CFNumberRef	num;
+		CFBooleanRef	val;
+
+		if (_SC_cfstring_to_cstring(interface,
+					    if_name,
+					    sizeof(if_name),
+					    kCFStringEncodingASCII) != NULL) {
+			if_index = if_nametoindex(if_name);
+		}
+
+		if ((if_index != 0) &&
+		    (
+		     // check if this is a "scoped" configuration
+		     (CFDictionaryGetValueIfPresent(resolver, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) &&
+		      isA_CFNumber(num) &&
+		      CFNumberGetValue(num, kCFNumberSInt32Type, &flags) &&
+		      (flags & DNS_RESOLVER_FLAGS_SCOPED) != 0)
+		     ||
+		     // check if we should scope all queries with this configuration
+		     (CFDictionaryGetValueIfPresent(resolver, DNS_CONFIGURATION_SCOPED_QUERY_KEY, (const void **)&val) &&
+		      isA_CFBoolean(val) &&
+		      CFBooleanGetValue(val))
+		    )
+		   ) {
+			// if interface index available and it should be used
+			num = CFNumberCreate(NULL, kCFNumberIntType, &if_index);
+			CFDictionarySetValue(resolver, DNS_CONFIGURATION_IF_INDEX_KEY, num);
+			CFRelease(num);
+		}
+	}
 
 	CFArrayAppendValue(resolvers, resolver);
 	return;
@@ -384,8 +428,8 @@ compareBySearchOrder(const void *val1, const void *val2, void *context)
 
 	if (order1 == order2) {
 		// if same "SearchOrder", retain original orderring for configurations
-		if (CFDictionaryGetValueIfPresent(dns1, CFSTR("*ORDER*"), (const void **)&num1) &&
-		    CFDictionaryGetValueIfPresent(dns2, CFSTR("*ORDER*"), (const void **)&num2) &&
+		if (CFDictionaryGetValueIfPresent(dns1, DNS_CONFIGURATION_ORDER_KEY, (const void **)&num1) &&
+		    CFDictionaryGetValueIfPresent(dns2, DNS_CONFIGURATION_ORDER_KEY, (const void **)&num2) &&
 		    isA_CFNumber(num1) &&
 		    isA_CFNumber(num2) &&
 		    CFNumberGetValue(num1, kCFNumberIntType, &order1) &&
@@ -404,7 +448,7 @@ compareBySearchOrder(const void *val1, const void *val2, void *context)
 }
 
 
-static CFArrayRef
+static CF_RETURNS_RETAINED CFArrayRef
 extract_search_domains(CFMutableDictionaryRef defaultDomain, CFArrayRef supplemental)
 {
 	CFStringRef		defaultDomainName	= NULL;
@@ -663,7 +707,6 @@ add_scoped_resolvers(CFMutableArrayRef scoped, CFDictionaryRef services, CFArray
 	for (i = 0; i < n_order; i++) {
 		CFDictionaryRef		dns;
 		uint32_t		flags;
-		unsigned int		if_index;
 		char			if_name[IF_NAMESIZE];
 		CFStringRef		interface;
 		CFMutableDictionaryRef	newDNS;
@@ -700,7 +743,7 @@ add_scoped_resolvers(CFMutableArrayRef scoped, CFDictionaryRef services, CFArray
 					     if_name,
 					     sizeof(if_name),
 					     kCFStringEncodingASCII) == NULL) ||
-		    ((if_index = if_nametoindex(if_name)) == 0)) {
+		    (if_nametoindex(if_name) == 0)) {
 			// if interface index not available
 			continue;
 		}
@@ -715,15 +758,15 @@ add_scoped_resolvers(CFMutableArrayRef scoped, CFDictionaryRef services, CFArray
 			CFRelease(searchDomains);
 		}
 
-		// set if_index
-		num = CFNumberCreate(NULL, kCFNumberIntType, &if_index);
-		CFDictionarySetValue(newDNS, CFSTR("*IF_INDEX*"), num);
-		CFRelease(num);
-
-		// set "scoped" flag
-		flags = DNS_RESOLVER_FLAGS_SCOPED;
+		// set "scoped" configuration flag(s)
+		if (!CFDictionaryGetValueIfPresent(newDNS, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) ||
+		    !isA_CFNumber(num) ||
+		    !CFNumberGetValue(num, kCFNumberSInt32Type, &flags)) {
+			flags = 0;
+		}
+		flags |= DNS_RESOLVER_FLAGS_SCOPED;
 		num = CFNumberCreate(NULL, kCFNumberSInt32Type, &flags);
-		CFDictionarySetValue(newDNS, CFSTR("*FLAGS*"), num);
+		CFDictionarySetValue(newDNS, DNS_CONFIGURATION_FLAGS_KEY, num);
 		CFRelease(num);
 
 		// remove keys we don't want in a [scoped] resolver
@@ -784,6 +827,23 @@ add_default_resolver(CFMutableArrayRef	resolvers,
 }
 
 
+/*
+ * rankReachability()
+ *   Not reachable       == 0
+ *   Connection Required == 1
+ *   Reachable           == 2
+ */
+static int
+rankReachability(SCNetworkReachabilityFlags flags)
+{
+	int	rank = 0;
+
+	if (flags & kSCNetworkReachabilityFlagsReachable)		rank = 2;
+	if (flags & kSCNetworkReachabilityFlagsConnectionRequired)	rank = 1;
+	return rank;
+}
+
+
 static dns_create_resolver_t
 create_resolver(CFDictionaryRef dns)
 {
@@ -791,6 +851,9 @@ create_resolver(CFDictionaryRef dns)
 	CFNumberRef		num;
 	dns_create_resolver_t	_resolver;
 	CFStringRef		str;
+	CFMutableArrayRef	serverAddresses		= NULL;
+	CFStringRef		targetInterface		= NULL;
+	unsigned int		targetInterfaceIndex	= 0;
 
 	_resolver = _dns_resolver_create();
 
@@ -823,19 +886,42 @@ create_resolver(CFDictionaryRef dns)
 		}
 	}
 
+	// process interface index
+	num = CFDictionaryGetValue(dns, DNS_CONFIGURATION_IF_INDEX_KEY);
+	if (isA_CFNumber(num)) {
+		int	if_index;
+
+		if (CFNumberGetValue(num, kCFNumberIntType, &if_index)) {
+			char	if_name[IFNAMSIZ];
+
+			_dns_resolver_set_if_index(&_resolver, if_index);
+
+			if ((if_index != 0) &&
+			    (if_indextoname(if_index, if_name) != NULL)) {
+				targetInterface = CFStringCreateWithCString(NULL,
+									    if_name,
+									    kCFStringEncodingASCII);
+				targetInterfaceIndex = if_index;
+			}
+		}
+	}
+
 	// process nameserver addresses
 	list = CFDictionaryGetValue(dns, kSCPropNetDNSServerAddresses);
 	if (isA_CFArray(list)) {
 		CFIndex	i;
-		CFIndex n	= CFArrayGetCount(list);
+		CFIndex	n	= CFArrayGetCount(list);
+
+		serverAddresses = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
 		for (i = 0; i < n; i++) {
 			union {
-				struct sockaddr		sa;
-				struct sockaddr_in	sin;
-				struct sockaddr_in6	sin6;
+				struct sockaddr         sa;
+				struct sockaddr_in      sin;
+				struct sockaddr_in6     sin6;
 			} addr;
-			char	buf[128];
+			char				buf[64];
+			CFDataRef			serverAddress;
 
 			str = CFArrayGetValueAtIndex(list, i);
 			if (!isA_CFString(str)) {
@@ -846,27 +932,26 @@ create_resolver(CFDictionaryRef dns)
 				continue;
 			}
 
-			bzero(&addr, sizeof(addr));
-			if (inet_aton(buf, &addr.sin.sin_addr) == 1) {
-				/* if IPv4 address */
-				addr.sin.sin_len    = sizeof(addr.sin);
-				addr.sin.sin_family = AF_INET;
-				_dns_resolver_add_nameserver(&_resolver, &addr.sa);
-			} else if (inet_pton(AF_INET6, buf, &addr.sin6.sin6_addr) == 1) {
-				/* if IPv6 address */
-				char	*p;
-
-				p = strchr(buf, '%');
-				if (p != NULL) {
-					addr.sin6.sin6_scope_id = if_nametoindex(p + 1);
-				}
-
-				addr.sin6.sin6_len    = sizeof(addr.sin6);
-				addr.sin6.sin6_family = AF_INET6;
-				_dns_resolver_add_nameserver(&_resolver, &addr.sa);
-			} else {
+			if (_SC_string_to_sockaddr(buf, AF_UNSPEC, (void *)&addr, sizeof(addr)) == NULL) {
 				continue;
 			}
+
+			if ((addr.sa.sa_family == AF_INET6) &&
+			    (IN6_IS_ADDR_LINKLOCAL(&addr.sin6.sin6_addr) ||
+			     IN6_IS_ADDR_MC_LINKLOCAL(&addr.sin6.sin6_addr)) &&
+			    (addr.sin6.sin6_scope_id == 0) &&
+			    (targetInterfaceIndex != 0)) {
+				// for link local [IPv6] addresses, if the scope id is not
+				// set then we should use the interface associated with the
+				// resolver configuration
+				addr.sin6.sin6_scope_id = targetInterfaceIndex;
+			}
+
+			_dns_resolver_add_nameserver(&_resolver, &addr.sa);
+
+			serverAddress = CFDataCreate(NULL, (const void *)&addr.sa, addr.sa.sa_len);
+			CFArrayAppendValue(serverAddresses, serverAddress);
+			CFRelease(serverAddress);
 		}
 	}
 
@@ -970,18 +1055,8 @@ create_resolver(CFDictionaryRef dns)
 		}
 	}
 
-	// process interface index
-	num = CFDictionaryGetValue(dns, CFSTR("*IF_INDEX*"));
-	if (isA_CFNumber(num)) {
-		int	if_index;
-
-		if (CFNumberGetValue(num, kCFNumberIntType, &if_index)) {
-			_dns_resolver_set_if_index(&_resolver, if_index);
-		}
-	}
-
 	// process flags
-	num = CFDictionaryGetValue(dns, CFSTR("*FLAGS*"));
+	num = CFDictionaryGetValue(dns, DNS_CONFIGURATION_FLAGS_KEY);
 	if (isA_CFNumber(num)) {
 		uint32_t	flags;
 
@@ -990,18 +1065,85 @@ create_resolver(CFDictionaryRef dns)
 		}
 	}
 
+	if (serverAddresses != NULL) {
+		SCNetworkReachabilityFlags	flags		= kSCNetworkReachabilityFlagsReachable;
+		CFIndex				i;
+		CFIndex				n		= CFArrayGetCount(serverAddresses);
+		CFMutableDictionaryRef		targetOptions;
+
+		targetOptions = CFDictionaryCreateMutable(NULL,
+							  0,
+							  &kCFTypeDictionaryKeyCallBacks,
+							  &kCFTypeDictionaryValueCallBacks);
+		if (targetInterface != NULL) {
+			CFDictionarySetValue(targetOptions,
+					     kSCNetworkReachabilityOptionInterface,
+					     targetInterface);
+		}
+
+		for (i = 0; i < n; i++) {
+			SCNetworkReachabilityFlags	ns_flags;
+			Boolean				ok;
+			CFDataRef			serverAddress;
+			SCNetworkReachabilityRef	target;
+
+			serverAddress = CFArrayGetValueAtIndex(serverAddresses, i);
+			CFDictionarySetValue(targetOptions,
+					     kSCNetworkReachabilityOptionRemoteAddress,
+					     serverAddress);
+			target = SCNetworkReachabilityCreateWithOptions(NULL, targetOptions);
+			if (target == NULL) {
+				CFDictionaryRemoveValue(targetOptions, kSCNetworkReachabilityOptionInterface);
+				target = SCNetworkReachabilityCreateWithOptions(NULL, targetOptions);
+				if (target != NULL) {
+					// if interface name not (no longer) valid
+					CFRelease(target);
+					flags = 0;
+					break;
+				}
+
+				// address not valid?
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("create_resolver SCNetworkReachabilityCreateWithOptions() failed:\n  options = %@"),
+				      targetOptions);
+				break;
+			}
+
+			ok = SCNetworkReachabilityGetFlags(target, &ns_flags);
+			CFRelease(target);
+			if (!ok) {
+				break;
+			}
+
+			if ((i == 0) ||
+			    (rankReachability(ns_flags) < rankReachability(flags))) {
+				/* return the worst case result */
+				flags = ns_flags;
+			}
+		}
+
+		_dns_resolver_set_reach_flags(&_resolver, flags);
+
+		CFRelease(targetOptions);
+		CFRelease(serverAddresses);
+	}
+
+	if (targetInterface != NULL) {
+		CFRelease(targetInterface);
+	}
+
 	return _resolver;
 }
 
 
 static __inline__ Boolean
-isScopedDNS(CFDictionaryRef dns)
+isScopedConfiguration(CFDictionaryRef dns)
 {
 	uint32_t	flags;
 	CFNumberRef	num;
 
 	if ((dns != NULL) &&
-	    CFDictionaryGetValueIfPresent(dns, CFSTR("*FLAGS*"), (const void **)&num) &&
+	    CFDictionaryGetValueIfPresent(dns, DNS_CONFIGURATION_FLAGS_KEY, (const void **)&num) &&
 	    (num != NULL) &&
 	    CFNumberGetValue(num, kCFNumberSInt32Type, &flags) &&
 	    ((flags & DNS_RESOLVER_FLAGS_SCOPED) != 0)) {
@@ -1039,8 +1181,8 @@ compareDomain(const void *val1, const void *val2, void *context)
 	}
 
 	// sort non-scoped before scoped
-	scoped1 = isScopedDNS(dns1);
-	scoped2 = isScopedDNS(dns2);
+	scoped1 = isScopedConfiguration(dns1);
+	scoped2 = isScopedConfiguration(dns2);
 	if (scoped1 != scoped2) {
 		if (!scoped1) {
 			return kCFCompareLessThan;
@@ -1103,19 +1245,23 @@ compareDomain(const void *val1, const void *val2, void *context)
 
 
 __private_extern__
-void
+Boolean
 dns_configuration_set(CFDictionaryRef   defaultResolver,
 		      CFDictionaryRef   services,
 		      CFArrayRef	serviceOrder,
 		      CFArrayRef	multicastResolvers,
 		      CFArrayRef	privateResolvers)
 {
+	dns_create_config_t	_config;
+	Boolean			changed		= FALSE;
 	CFIndex			i;
 	CFMutableDictionaryRef	myDefault;
 	Boolean			myOrderAdded	= FALSE;
 	CFArrayRef		mySearchDomains	= NULL;
 	CFIndex			n_resolvers;
 	CFMutableArrayRef	resolvers;
+	unsigned char		signature[CC_SHA1_DIGEST_LENGTH];
+	static unsigned char	signature_last[CC_SHA1_DIGEST_LENGTH];
 
 	// establish list of resolvers
 
@@ -1178,9 +1324,9 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 
 		resolver = CFArrayGetValueAtIndex(resolvers, 1);
 		if (CFDictionaryContainsKey(resolver, kSCPropNetDNSDomainName) ||
-		    isScopedDNS(resolver)) {
+		    isScopedConfiguration(resolver)) {
 			// if not a supplemental "default" resolver (a domain name is
-			// present) or a if it's a scoped resolver
+			// present) or if it's a scoped configuration
 			CFDictionaryRemoveValue(myDefault, kSCPropNetDNSSearchOrder);
 		}
 	}
@@ -1193,12 +1339,8 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		/*
 		 * if no default and no supplemental/scoped resolvers
 		 */
-		if (!_dns_configuration_store(NULL)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("dns_configuration_set: could not store configuration"));
-		}
+		_config = NULL;
 	} else {
-		dns_create_config_t	_config;
-
 		/*
 		 * if default and/or supplemental/scoped resolvers are defined
 		 */
@@ -1221,18 +1363,23 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 
 		_dnsinfo_flatfile_add_resolvers(&_config);
 #endif	// !TARGET_OS_IPHONE
-
-		// save configuration
-
-		if (!_dns_configuration_store(&_config)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("dns_configuration_set: could not store configuration"));
-		}
-
-		_dns_configuration_free(&_config);
 	}
 
+	// check if the configuration changed
+	_dns_configuration_signature(&_config, signature, sizeof(signature));
+	if (bcmp(signature, signature_last, sizeof(signature)) != 0) {
+		changed = TRUE;
+	}
+	bcopy(signature, signature_last, sizeof(signature));
+
+	// save configuration
+	if (!_dns_configuration_store(&_config)) {
+		SCLog(TRUE, LOG_ERR, CFSTR("dns_configuration_set: could not store configuration"));
+	}
+	if (_config != NULL) _dns_configuration_free(&_config);
+
 	CFRelease(resolvers);
-	return;
+	return changed;
 }
 
 
@@ -1332,6 +1479,10 @@ dns_configuration_init(CFBundleRef bundle)
 
 	return;
 }
+
+
+#pragma mark -
+#pragma mark Standalone test code
 
 
 #ifdef	MAIN
@@ -1510,11 +1661,11 @@ main(int argc, char **argv)
 
 	// update DNS configuration
 	dns_configuration_init(CFBundleGetMainBundle());
-	dns_configuration_set(primaryDNS,
-			      service_state_dict,
-			      service_order,
-			      multicast_resolvers,
-			      private_resolvers);
+	(void)dns_configuration_set(primaryDNS,
+				    service_state_dict,
+				    service_order,
+				    multicast_resolvers,
+				    private_resolvers);
 
 	// cleanup
 	if (setup_global_ipv4 != NULL)	CFRelease(setup_global_ipv4);

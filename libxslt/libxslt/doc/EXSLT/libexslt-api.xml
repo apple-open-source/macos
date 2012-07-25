@@ -18,13 +18,17 @@
      <exports symbol='exsltDynRegister' type='function'/>
      <exports symbol='exsltCommonRegister' type='function'/>
      <exports symbol='exsltRegisterAll' type='function'/>
+     <exports symbol='exsltStrXpathCtxtRegister' type='function'/>
+     <exports symbol='exsltSetsXpathCtxtRegister' type='function'/>
      <exports symbol='exsltFuncRegister' type='function'/>
      <exports symbol='exsltStrRegister' type='function'/>
      <exports symbol='exsltSetsRegister' type='function'/>
      <exports symbol='exsltDateRegister' type='function'/>
      <exports symbol='exsltCryptoRegister' type='function'/>
      <exports symbol='exsltMathRegister' type='function'/>
+     <exports symbol='exsltMathXpathCtxtRegister' type='function'/>
      <exports symbol='exsltSaxonRegister' type='function'/>
+     <exports symbol='exsltDateXpathCtxtRegister' type='function'/>
     </file>
     <file name='exsltexports'>
      <exports symbol='LIBEXSLT_PUBLIC' type='macro'/>
@@ -81,12 +85,18 @@
       <return type='void'/>
     </function>
     <function name='exsltCryptoRegister' file='exslt'>
-      <info></info>
+      <info>Registers the EXSLT - Crypto module</info>
       <return type='void'/>
     </function>
     <function name='exsltDateRegister' file='exslt'>
       <info>Registers the EXSLT - Dates and Times module</info>
       <return type='void'/>
+    </function>
+    <function name='exsltDateXpathCtxtRegister' file='exslt'>
+      <info>Registers the EXSLT - Dates and Times module for use outside XSLT</info>
+      <return type='int' info=''/>
+      <arg name='ctxt' type='xmlXPathContextPtr' info=''/>
+      <arg name='prefix' type='const xmlChar *' info=''/>
     </function>
     <function name='exsltDynRegister' file='exslt'>
       <info>Registers the EXSLT - Dynamic module</info>
@@ -100,6 +110,12 @@
       <info>Registers the EXSLT - Math module</info>
       <return type='void'/>
     </function>
+    <function name='exsltMathXpathCtxtRegister' file='exslt'>
+      <info>Registers the EXSLT - Math module for use outside XSLT</info>
+      <return type='int' info=''/>
+      <arg name='ctxt' type='xmlXPathContextPtr' info=''/>
+      <arg name='prefix' type='const xmlChar *' info=''/>
+    </function>
     <function name='exsltRegisterAll' file='exslt'>
       <info>Registers all available EXSLT extensions</info>
       <return type='void'/>
@@ -112,9 +128,21 @@
       <info>Registers the EXSLT - Sets module</info>
       <return type='void'/>
     </function>
+    <function name='exsltSetsXpathCtxtRegister' file='exslt'>
+      <info>Registers the EXSLT - Sets module for use outside XSLT</info>
+      <return type='int' info=''/>
+      <arg name='ctxt' type='xmlXPathContextPtr' info=''/>
+      <arg name='prefix' type='const xmlChar *' info=''/>
+    </function>
     <function name='exsltStrRegister' file='exslt'>
       <info>Registers the EXSLT - Strings module</info>
       <return type='void'/>
+    </function>
+    <function name='exsltStrXpathCtxtRegister' file='exslt'>
+      <info>Registers the EXSLT - Strings module for use outside XSLT</info>
+      <return type='int' info=''/>
+      <arg name='ctxt' type='xmlXPathContextPtr' info=''/>
+      <arg name='prefix' type='const xmlChar *' info=''/>
     </function>
   </symbols>
 </api>

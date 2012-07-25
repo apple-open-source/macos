@@ -30,6 +30,8 @@ repeat cancel
 .Nm
 repeat type weekdays time
 .Nm
+relative wake seconds
+.Nm
 .Op touch | sleepnow | noidle | lock | boot
 .\.Nm
 .\.Op Fl a b c u
@@ -119,9 +121,6 @@ must be run as root in order to modify any settings.
 .br
 .Ar networkoversleep
 - this setting affects how OS X networking presents shared network services during system sleep. This setting is not used by all platforms; changing its value is unsupported.
-.br
-.Ar panicrestart
-- The OS X kernel will automatically restart after a kernel panic if this setting defines a timeout in seconds. The value 157680000 indicates the system will not automatically restart after a panic.
 .br
 .Ar destroyfvkeyonstandby
 - Destroy File Vault Key when going to standby mode. By default File vault keys are retained even when system goes to standby. If the keys are destroyed, user will be prompted to enter the password while coming out of standby mode.(value: 1 - Destroy, 0 - Retain)
@@ -217,7 +216,10 @@ is a debugging tool. Prints a timeline of system sleeplwake UUIDs, when enabled 
 .Fl g
 .Ar historydetailed
 Prints driver-level timings for a sleep/wake. Pass a UUID as an argument.
-
+.br
+.Fl g
+.Ar everything
+Prints output from every argument under the GETTING header. This is useful for quickly collecting all the output that pmset provides. Available in 10.8.
 .Sh SAFE SLEEP ARGUMENTS
 .Ar hibernatemode
 takes a bitfield argument defining SafeSleep behavior. Passing 0 disables SafeSleep altogether, forcing the computer into a regular sleep.
@@ -289,7 +291,9 @@ Note: None of these settings are observed on a system with support for an intern
 pmset allows you to schedule system sleep, shutdown, wakeup and/or power on. "schedule"
 is for setting up one-time power events, and "repeat" is for setting up daily/weekly 
 power on and power off events. Note that you may only have one pair of repeating events
-scheduled - a "power on" event and a "power off" event.
+scheduled - a "power on" event and a "power off" event. For sleep cycling applications,
+pmset can schedule a "relative" wakeup to occur in seconds from the end of system sleep,
+but this event cannot be cancelled and is inherently imprecise.
 .Pp
 .Ar type 
 - one of sleep, wake, poweron, shutdown, wakeorpoweron

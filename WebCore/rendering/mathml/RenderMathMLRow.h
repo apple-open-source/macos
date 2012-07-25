@@ -34,17 +34,22 @@ namespace WebCore {
     
 class RenderMathMLRow : public RenderMathMLBlock {
 public:
-    RenderMathMLRow(Node* container);
-    virtual bool isRenderMathMLRow() const { return true; }
-    virtual int nonOperatorHeight() const;
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;    
-    virtual void stretchToHeight(int) {}
-protected:
-    virtual void layout();
-};
+    RenderMathMLRow(Node*);
+    static RenderMathMLRow* createAnonymousWithParentRenderer(const RenderObject*);
     
-}
+    virtual bool isRenderMathMLRow() const { return true; }
+    
+protected:
+    // This also sets our stretchy embellished operator children to their correct sizes.
+    virtual void computePreferredLogicalWidths() OVERRIDE;
+    
+    virtual void layout();
 
+private:
+    virtual const char* renderName() const { return isAnonymous() ? "RenderMathMLRow (anonymous)" : "RenderMathMLRow"; }
+};
+
+}
 
 #endif // ENABLE(MATHML)
 #endif // RenderMathMLRow_h

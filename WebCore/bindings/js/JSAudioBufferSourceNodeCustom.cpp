@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010, Google Inc. All rights reserved.
+ * Copyright (C) 2012 Samsung Electronics
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,20 +27,28 @@
 
 #if ENABLE(WEB_AUDIO)
 
-#include "AudioBufferSourceNode.h"
+#include "JSAudioBufferSourceNode.h"
 
 #include "AudioBuffer.h"
+#include "AudioBufferSourceNode.h"
 #include "JSAudioBuffer.h"
-#include "JSAudioBufferSourceNode.h"
+#include <runtime/Error.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-void JSAudioBufferSourceNode::setBuffer(ExecState*, JSValue value)
+void JSAudioBufferSourceNode::setBuffer(ExecState* exec, JSValue value)
 {
     AudioBufferSourceNode* imp = static_cast<AudioBufferSourceNode*>(impl());
-    imp->setBuffer(toAudioBuffer(value));
+    AudioBuffer* buffer = toAudioBuffer(value);
+    if (!buffer) {
+        throwError(exec, createTypeError(exec, "Value is not of type AudioBuffer"));
+        return;
+    }
+    
+    if (!imp->setBuffer(buffer))
+        throwError(exec, createTypeError(exec, "AudioBuffer unsupported number of channels"));
 }
 
 } // namespace WebCore

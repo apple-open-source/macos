@@ -20,12 +20,13 @@
 #include "config.h"
 #include "FrameSelection.h"
 
-#include "AccessibilityObjectWrapperAtk.h"
 #include "AXObjectCache.h"
 #include "Frame.h"
-#include "RefPtr.h"
+#include "WebKitAccessibleWrapperAtk.h"
 
 #include <gtk/gtk.h>
+
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -80,20 +81,19 @@ void FrameSelection::notifyAccessibilityForSelectionChange()
     if (!AXObjectCache::accessibilityEnabled())
         return;
 
-    // Reset lastFocuseNode and return for no valid selections.
+    // Return for no valid selections.
     if (!m_selection.start().isNotNull() || !m_selection.end().isNotNull())
         return;
 
-    RenderObject* focusedNode = m_selection.end().deprecatedNode()->renderer();
+    RenderObject* focusedNode = m_selection.end().containerNode()->renderer();
     AccessibilityObject* accessibilityObject = m_frame->document()->axObjectCache()->getOrCreate(focusedNode);
 
-    // Need to check this as getOrCreate could return 0,
+    // Need to check this as getOrCreate could return 0.
     if (!accessibilityObject)
         return;
 
     int offset;
-    // Always report the events w.r.t. the non-linked unignored parent. (i.e. ignoreLinks == true).
-    RefPtr<AccessibilityObject> object = objectAndOffsetUnignored(accessibilityObject, offset, true);
+    RefPtr<AccessibilityObject> object = objectFocusedAndCaretOffsetUnignored(accessibilityObject, offset);
     if (!object)
         return;
 

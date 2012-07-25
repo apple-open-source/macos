@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -30,7 +30,14 @@
 
 #include "FEATURE/lib"
 #include "FEATURE/mmap"
+#include "FEATURE/options"
 #include "FEATURE/vmalloc"
+#include "FEATURE/eaccess"
+#include "FEATURE/api"
+
+#if _opt_map_libc && !defined(_map_libc)
+#define _map_libc	1
+#endif
 
 int
 main()
@@ -64,8 +71,10 @@ main()
 	printf("#define basename	_ast_basename\n");
 	printf("#undef	dirname\n");
 	printf("#define dirname		_ast_dirname\n");
+#if !_lib_eaccess
 	printf("#undef	eaccess\n");
 	printf("#define eaccess		_ast_eaccess\n");
+#endif
 #if !_lib_execvpe
 	printf("#undef	execvpe\n");
 	printf("#define execvpe		_ast_execvpe\n");
@@ -187,6 +196,8 @@ main()
 	printf("#define pathposix	_ast_pathposix\n");
 	printf("#undef	pathprobe\n");
 	printf("#define pathprobe	_ast_pathprobe\n");
+	printf("#undef	pathprog\n");
+	printf("#define pathprog	_ast_pathprog\n");
 	printf("#undef	pathrepl\n");
 	printf("#define pathrepl	_ast_pathrepl\n");
 	printf("#undef	pathsetlink\n");
@@ -273,7 +284,7 @@ main()
 	printf("extern int		remove(const char*);\n");
 	printf("#undef	resolvepath\n");
 	printf("#define resolvepath	_ast_resolvepath\n");
-	printf("extern char*		resolvepath(const char*, char*, size_t);\n");
+	printf("extern int		resolvepath(const char*, char*, size_t);\n");
 	printf("#undef	setenv\n");
 	printf("#define setenv		_ast_setenv\n");
 	printf("extern int		setenv(const char*, const char*, int);\n");
@@ -526,6 +537,27 @@ main()
 #if _npt_strtoull && !_map_libc && !_std_strtoul
 	printf("#endif\n");
 #endif
+#endif
+
+	/*
+	 * finally some features/api mediation
+	 */
+
+#if defined(_API_ast_MAP) && _map_libc
+	{
+		register const char*	s;
+		register const char*	t;
+
+		static const char	map[] = _API_ast_MAP;
+
+		printf("\n");
+		t = map;
+		do
+		{
+			for (s = t; *t && *t != ' '; t++);
+			printf("#define %-.*s	_ast_%-.*s\n", t - s, s, t - s, s);
+		} while (*t++);
+	}
 #endif
 	printf("\n");
 	printf("#undef	extern\n");

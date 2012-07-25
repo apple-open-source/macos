@@ -32,17 +32,16 @@
 module window {
 
     interface [
-        Conditional=EVENTSOURCE,
         ActiveDOMObject,
-        CanBeConstructed,
-        CustomConstructFunction,
-        ConstructorParameters=1,
-        V8CustomConstructor,
+        Constructor(in DOMString scriptUrl),
+        CallWith=ScriptExecutionContext,
+        ConstructorRaisesException,
         EventTarget,
-        NoStaticTables
+        JSNoStaticTables
     ] EventSource {
 
-        readonly attribute DOMString URL;
+        readonly attribute DOMString URL; // Lowercased .url is the one in the spec, but leaving .URL for compatibility reasons.
+        readonly attribute DOMString url;
 
         // ready state
         const unsigned short CONNECTING = 0;
@@ -59,10 +58,10 @@ module window {
         // EventTarget interface
         void addEventListener(in DOMString type,
                               in EventListener listener,
-                              in boolean useCapture);
+                              in [Optional] boolean useCapture);
         void removeEventListener(in DOMString type,
                                  in EventListener listener,
-                                 in boolean useCapture);
+                                 in [Optional] boolean useCapture);
         boolean dispatchEvent(in Event evt)
             raises(EventException);
 

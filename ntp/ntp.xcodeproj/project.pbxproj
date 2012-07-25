@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -70,16 +70,13 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72A3F28211B058AF00B951F0 /* Build configuration list for PBXAggregateTarget "Embedded" */;
 			buildPhases = (
-				5946B61F11BEBB7800B8FDFD /* launchd */,
 				63135D3011E6531300F27DB1 /* ntp.conf */,
 				63135D5C11E682E500F27DB1 /* chown 501:501 */,
-				5971723D11F6591600D17AD9 /* builtin ntpd.sb */,
 			);
 			dependencies = (
 				59C52D9412EE1D0E0014CEED /* PBXTargetDependency */,
 				5946B61711BEBA2300B8FDFD /* PBXTargetDependency */,
 				59E10E0811C69A7A00E65A8D /* PBXTargetDependency */,
-				72A3F27F11B0587700B951F0 /* PBXTargetDependency */,
 				111BA3EA1315CCB300CF610F /* PBXTargetDependency */,
 			);
 			name = Embedded;
@@ -137,7 +134,6 @@
 		5946B66211BEE8F800B8FDFD /* ntpd-wrapper in CopyFiles */ = {isa = PBXBuildFile; fileRef = 5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */; };
 		59E10E0111C69A5F00E65A8D /* ntp-restrict.conf in CopyFiles */ = {isa = PBXBuildFile; fileRef = 59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */; };
 		63135D3211E6532A00F27DB1 /* ntp.conf in ntp.conf */ = {isa = PBXBuildFile; fileRef = 63135D3111E6531400F27DB1 /* ntp.conf */; };
-		63135D3411E6535B00F27DB1 /* org.ntp.ntpd.K66.plist in launchd */ = {isa = PBXBuildFile; fileRef = 63135D3311E6534E00F27DB1 /* org.ntp.ntpd.K66.plist */; };
 		7278F0B811AF5F0B00E31601 /* ntp_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06711AF5F0B00E31601 /* ntp_config.c */; };
 		7278F0B911AF5F0B00E31601 /* ntp_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06811AF5F0B00E31601 /* ntp_control.c */; };
 		7278F0BA11AF5F0B00E31601 /* ntp_crypto.c in Sources */ = {isa = PBXBuildFile; fileRef = 7278F06911AF5F0B00E31601 /* ntp_crypto.c */; };
@@ -486,20 +482,6 @@
 			remoteGlobalIDString = 7278F47911AF691F00E31601;
 			remoteInfo = libntp;
 		};
-		72A3F27311B057E700B951F0 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7278F47911AF691F00E31601;
-			remoteInfo = ntp;
-		};
-		72A3F27E11B0587700B951F0 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 7278F05611AF5E9F00E31601;
-			remoteInfo = ntpd;
-		};
 		72A3F2D011B06C3600B951F0 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -541,6 +523,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 72C36A9211AF6F2A0092FF93;
 			remoteInfo = opts;
+		};
+		FCC7F2C213A95D0200321B9E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7278F47911AF691F00E31601;
+			remoteInfo = ntp;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -669,17 +658,6 @@
 			name = launchd;
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		5946B61F11BEBB7800B8FDFD /* launchd */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /System/Library/LaunchDaemons;
-			dstSubfolderSpec = 0;
-			files = (
-				63135D3411E6535B00F27DB1 /* org.ntp.ntpd.K66.plist in launchd */,
-			);
-			name = launchd;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		5946B64711BEDF0000B8FDFD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -795,7 +773,6 @@
 		5946B5EA11BDBF7D00B8FDFD /* ntp.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ntp.txt; sourceTree = "<group>"; };
 		5946B5EE11BDC0C500B8FDFD /* ntpd.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ntpd.sb; sourceTree = "<group>"; };
 		5946B61911BEBB5000B8FDFD /* org.ntp.ntpd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = org.ntp.ntpd.plist; sourceTree = "<group>"; };
-		5946B61D11BEBB7700B8FDFD /* org.ntp.ntpd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = org.ntp.ntpd.plist; path = Embedded/org.ntp.ntpd.plist; sourceTree = "<group>"; };
 		5946B65911BEDF7E00B8FDFD /* ntpd-wrapper.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "ntpd-wrapper.8"; sourceTree = "<group>"; };
 		5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "ntpd-wrapper"; sourceTree = "<group>"; };
 		59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "ntp-restrict.conf"; path = "Embedded/ntp-restrict.conf"; sourceTree = "<group>"; };
@@ -1115,7 +1092,6 @@
 				59E10E0011C69A5F00E65A8D /* ntp-restrict.conf */,
 				635C26D111C037C500D7E740 /* BSD.xcconfig */,
 				5946B66111BEE8DA00B8FDFD /* ntpd-wrapper */,
-				5946B61D11BEBB7700B8FDFD /* org.ntp.ntpd.plist */,
 				5946B61911BEBB5000B8FDFD /* org.ntp.ntpd.plist */,
 				5946B5EE11BDC0C500B8FDFD /* ntpd.sb */,
 				5946B5EA11BDBF7D00B8FDFD /* ntp.txt */,
@@ -2041,7 +2017,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				72A3F27411B057E700B951F0 /* PBXTargetDependency */,
+				FCC7F2C313A95D0200321B9E /* PBXTargetDependency */,
 			);
 			name = sntp;
 			productName = sntp;
@@ -2162,8 +2138,11 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "ntp" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -2238,21 +2217,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "set -ev\nif [[ ${UID} -eq 0 ]]; then\n\tchown -R root:wheel ${DSTROOT}/usr/local/OpenSource{Versions,Licenses}\n\tchmod u-w ${DSTROOT}/usr/local/OpenSource{Versions,Licenses}/*\nfi";
-			showEnvVarsInLog = 0;
-		};
-		5971723D11F6591600D17AD9 /* builtin ntpd.sb */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "builtin ntpd.sb";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "set -v\nmkdir -p ${DSTROOT}/usr/local/share/sandbox/profiles/embedded/builtin/\necho \";; OriginatingProject: ntp\" > ${DSTROOT}/usr/local/share/sandbox/profiles/embedded/builtin/ntpd.sb\ncat ${SRCROOT}/ntpd.sb >> ${DSTROOT}/usr/local/share/sandbox/profiles/embedded/builtin/ntpd.sb\nrm -rf ${DSTROOT}/usr/share/sandbox\n";
 			showEnvVarsInLog = 0;
 		};
 		63135D5C11E682E500F27DB1 /* chown 501:501 */ = {
@@ -2636,16 +2600,6 @@
 			target = 7278F47911AF691F00E31601 /* ntp */;
 			targetProxy = 7278F51011AF696700E31601 /* PBXContainerItemProxy */;
 		};
-		72A3F27411B057E700B951F0 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7278F47911AF691F00E31601 /* ntp */;
-			targetProxy = 72A3F27311B057E700B951F0 /* PBXContainerItemProxy */;
-		};
-		72A3F27F11B0587700B951F0 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 7278F05611AF5E9F00E31601 /* ntpd */;
-			targetProxy = 72A3F27E11B0587700B951F0 /* PBXContainerItemProxy */;
-		};
 		72A3F2D111B06C3600B951F0 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72A3F28511B060E100B951F0 /* ntp-keygen */;
@@ -2675,6 +2629,11 @@
 			isa = PBXTargetDependency;
 			target = 72C36A9211AF6F2A0092FF93 /* opts */;
 			targetProxy = 72C36ABE11AF6F900092FF93 /* PBXContainerItemProxy */;
+		};
+		FCC7F2C313A95D0200321B9E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7278F47911AF691F00E31601 /* ntp */;
+			targetProxy = FCC7F2C213A95D0200321B9E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -2721,7 +2680,6 @@
 					"$(SRCROOT)/lib/isc/unix/include",
 				);
 				ONLY_ACTIVE_ARCH = NO;
-				PREBINDING = NO;
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = YES;
 				PROVISIONING_PROFILE = "";
 				SDKROOT = "";
@@ -2734,7 +2692,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = html;
 				ZERO_LINK = NO;
 			};
@@ -2745,7 +2702,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "ntp-restrict.conf";
 				ZERO_LINK = NO;
 			};
@@ -2756,7 +2712,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = OpenSource;
 				ZERO_LINK = NO;
 			};
@@ -2767,7 +2722,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "ntpd-wrapper";
 				ZERO_LINK = NO;
 			};
@@ -2778,7 +2732,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = "ntp-restrict.conf (Embedded)";
 				ZERO_LINK = NO;
 			};
@@ -2798,7 +2751,6 @@
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ntpd;
 				ZERO_LINK = NO;
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 			};
 			name = Release;
 		};
@@ -2836,7 +2788,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = Embedded;
 				ZERO_LINK = NO;
 			};
@@ -2846,9 +2797,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = "ntp-keygen";
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 			};
 			name = Release;
 		};
@@ -2857,7 +2806,6 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = ntpq;
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 			};
 			name = Release;
 		};
@@ -2866,7 +2814,6 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ntpdate;
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 			};
 			name = Release;
 		};
@@ -2875,7 +2822,6 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ntpdc;
-				"OTHER_LDFLAGS[sdk=macosx*][arch=*]" = "-lcrypto";
 			};
 			name = Release;
 		};
@@ -2884,7 +2830,6 @@
 			buildSettings = {
 				CODE_SIGN_IDENTITY = "Don't Code Sign";
 				INSTALL_PATH = /usr/sbin;
-				PREBINDING = NO;
 				PRODUCT_NAME = ntptrace;
 			};
 			name = Release;
@@ -2894,7 +2839,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = All;
 				ZERO_LINK = NO;
 			};

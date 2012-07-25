@@ -40,11 +40,8 @@
  */
 
 static struct ntlm_server_interface * _ntlm_interfaces[] = {
-#ifdef DIGEST
-    &ntlmsspi_kdc_digest,
-#endif
-#if defined(__APPLE_PRIVATE__) && !defined(__APPLE_TARGET_EMBEDDED__)
-    &ntlmsspi_dstg_digest /* must be last */
+#if !defined(__APPLE_TARGET_EMBEDDED__)
+    &ntlmsspi_dstg_digest
 #endif
 };
 
@@ -152,6 +149,7 @@ build_type2_packet(OM_uint32 *minor_status,
 
     type2.flags |=
 	NTLM_NEG_TARGET |
+	NTLM_NEG_VERSION |
 	NTLM_TARGET_DOMAIN |
 	NTLM_ENC_128 |
 	NTLM_NEG_TARGET_INFO |
@@ -160,6 +158,9 @@ build_type2_packet(OM_uint32 *minor_status,
 	NTLM_NEG_ALWAYS_SIGN |
 	NTLM_NEG_NTLM2_SESSION |
 	NTLM_NEG_KEYEX;
+
+    type2.os[0] = 0x0601b01d;
+    type2.os[1] = 0x0000000f;
 
     /* Go over backends and find best match, if not found use empty targetinfo */
     for (i = 0; i < c->num_backends; i++) {
@@ -171,7 +172,6 @@ build_type2_packet(OM_uint32 *minor_status,
 					 hostname, domain, &negNtlmFlags);
 	/* figure out flags that the plugin doesn't support */
 	type2.flags &= ~negNtlmFlags;
-
     }
 
     if (c->ti.domainname) {
@@ -196,6 +196,10 @@ build_type2_packet(OM_uint32 *minor_status,
     type2.targetinfo = c->targetinfo;
     type2.targetname = c->ti.domainname;
 
+    /* If we can't find a targetname, provide one, not having one make heim_ntlm_encode_type2 crash */
+    if (type2.targetname == NULL)
+	type2.targetname = "BUILTIN";
+
     ret = heim_ntlm_encode_type2(&type2, &data);
     if (ret) {
 	*minor_status = ret;
@@ -212,8 +216,9 @@ build_type2_packet(OM_uint32 *minor_status,
 
 
 
-
-
+krb5_error_code
+_krb5_kcm_ntlm_challenge(krb5_context context, int op __attribute((__unused__)),
+			 uint8_t chal[8]);
 
 
 /*
@@ -279,6 +284,16 @@ _gss_ntlm_accept_sec_context
 					   HNTLM_ERR_RAND, "rand failed");
 	}
 
+	{
+	    static krb5_context context;
+	    static dispatch_once_t once;
+	    dispatch_once(&once, ^{
+		    krb5_init_context(&context);
+		});
+	    if (context)
+		_krb5_kcm_ntlm_challenge(context, 0, ctx->challenge);
+	}
+
 	data.data = input_token_buffer->value;
 	data.length = input_token_buffer->length;
 	
@@ -320,7 +335,6 @@ _gss_ntlm_accept_sec_context
 
 	output_token->value = malloc(out.length);
 	if (output_token->value == NULL && out.length != 0) {
-	    OM_uint32 junk;
 	    heim_ntlm_free_buf(&out);
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
 	    _gss_mg_log(1, "ntlm-asc-type2 failed with no packet");
@@ -346,11 +360,12 @@ _gss_ntlm_accept_sec_context
 
 	return GSS_S_CONTINUE_NEEDED;
     } else {
-	OM_uint32 maj_stat;
-	struct ntlm_type3 type3;
+	ntlm_cred acceptor_cred = (ntlm_name)acceptor_cred_handle;
 	struct ntlm_buf session, uuid, pac;
-	uint32_t aflags;
+	uint32_t ntlmflags, avflags;
+	struct ntlm_type3 type3;
 	ntlm_name name = NULL;
+	OM_uint32 maj_stat;
 	size_t i;
 
 	ctx = (ntlm_ctx)*context_handle;
@@ -387,7 +402,9 @@ _gss_ntlm_accept_sec_context
 							     ctx,
 							     ctx->backends[i].ctx,
 							     &type3,
-							     &aflags,
+							     acceptor_cred,
+							     &ntlmflags,
+							     &avflags,
 							     &session,
 							     &name,
 							     &uuid,
@@ -399,10 +416,15 @@ _gss_ntlm_accept_sec_context
 		break;
 	}
 	if (i >= ctx->num_backends) {
-	    OM_uint32 junk;
 	    heim_ntlm_free_type3(&type3);
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
 	    return maj_stat;
+	}
+
+	if ((avflags & NTLM_TI_AV_FLAG_MIC) && type3.mic_offset == 0) {
+	    _gss_mg_log(1, "ntlm-asc-type3 mic missing from reply");
+	    *minor_status = EAUTH;
+	    return GSS_S_FAILURE;
 	}
 
 	if (session.length && type3.mic_offset) {
@@ -424,12 +446,7 @@ _gss_ntlm_accept_sec_context
 	    }
 	}
 
-	if (ctx->flags & NTLM_NEG_SEAL)
-	    ctx->gssflags |= GSS_C_CONF_FLAG;
-	if (ctx->flags & (NTLM_NEG_SIGN|NTLM_NEG_ALWAYS_SIGN))
-	    ctx->gssflags |= GSS_C_INTEG_FLAG;
-
-	if (aflags & NTLM_NEG_ANONYMOUS)
+	if (ntlmflags & NTLM_NEG_ANONYMOUS)
 	    ctx->gssflags |= GSS_C_ANON_FLAG;
 
 	ctx->pac.value = pac.data;
@@ -481,29 +498,7 @@ _gss_ntlm_accept_sec_context
 	    return GSS_S_FAILURE;
 	}
 	
-	if (ctx->sessionkey.length != 0) {
-
-	    ctx->status |= STATUS_SESSIONKEY;
-
-#if 0 /* XXX this should be fixed and move to crypto.c, 8577017 */
-	    if (aflags & NTLM_NEG_NTLM2_SESSION) {
-		_gss_ntlm_set_key(&ctx->u.v2.send, 1,
-				  (ctx->flags & NTLM_NEG_KEYEX),
-				  ctx->sessionkey.data,
-				  ctx->sessionkey.length);
-		_gss_ntlm_set_key(&ctx->u.v2.recv, 0,
-				  (ctx->flags & NTLM_NEG_KEYEX),
-				  ctx->sessionkey.data,
-				  ctx->sessionkey.length);
-	    } else {
-		EVP_CIPHER_CTX_init(&ctx->u.v1.crypto_send.key);
-		EVP_CIPHER_CTX_init(&ctx->u.v1.crypto_recv.key);
-
-		EVP_CipherInit_ex(&ctx->u.v1.crypto_send.key, EVP_rc4(), NULL, ctx->sessionkey.data, NULL, 1);
-		EVP_CipherInit_ex(&ctx->u.v1.crypto_recv.key, EVP_rc4(), NULL, ctx->sessionkey.data, NULL, 1);
-	    }
-#endif
-	}
+	_gss_ntlm_set_keys(ctx);
 
 	if (mech_type)
 	    *mech_type = GSS_NTLM_MECHANISM;

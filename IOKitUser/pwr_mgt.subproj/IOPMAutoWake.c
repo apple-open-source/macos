@@ -22,13 +22,12 @@
  */
 
 #include <TargetConditionals.h>
-#include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/IOPMPrivate.h>
 #include <IOKit/pwr_mgt/IOPMLibDefs.h>
 #include "IOSystemConfiguration.h"
 #include "IOPMKeys.h"
 #include "IOPMLib.h"
 #include "IOPMLibPrivate.h"
-#include "IOPMPrivate.h"
 
 #include "powermanagement_mig.h"
 #include "powermanagement.h"

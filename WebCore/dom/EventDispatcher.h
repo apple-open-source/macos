@@ -48,8 +48,8 @@ enum EventDispatchBehavior {
 
 class EventDispatcher {
 public:
-    static bool dispatchEvent(Node*, const EventDispatchMediator&);
-    static void dispatchScopedEvent(Node*, PassRefPtr<Event>);
+    static bool dispatchEvent(Node*, PassRefPtr<EventDispatchMediator>);
+    static void dispatchScopedEvent(Node*, PassRefPtr<EventDispatchMediator>);
 
     static void dispatchSimulatedClick(Node*, PassRefPtr<Event> underlyingEvent, bool sendMouseEvents, bool showPressedLook);
 
@@ -70,6 +70,7 @@ private:
     RefPtr<EventTarget> m_originalTarget;
     RefPtr<FrameView> m_view;
     bool m_ancestorsInitialized;
+    bool m_shouldPreventDispatch;
 };
 
 inline Node* EventDispatcher::node() const

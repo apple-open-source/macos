@@ -34,7 +34,9 @@
 #include "DateExtension.h"
 #include "Document.h"
 #include "Event.h"
+#include "EventNames.h"
 #include "Frame.h"
+#include "InspectorCounters.h"
 #include "V8Binding.h"
 #include "V8Event.h"
 #include "V8EventListenerList.h"
@@ -54,10 +56,12 @@ static void weakEventListenerCallback(v8::Persistent<v8::Value>, void* parameter
 
 V8AbstractEventListener::V8AbstractEventListener(bool isAttribute, const WorldContextHandle& worldContext)
     : EventListener(JSEventListenerType)
-    , m_isWeak(true)
     , m_isAttribute(isAttribute)
     , m_worldContext(worldContext)
 {
+#if ENABLE(INSPECTOR)
+    ThreadLocalInspectorCounters::current().incrementCounter(ThreadLocalInspectorCounters::JSEventListenerCounter);
+#endif
 }
 
 V8AbstractEventListener::~V8AbstractEventListener()
@@ -68,6 +72,9 @@ V8AbstractEventListener::~V8AbstractEventListener()
         V8EventListenerList::clearWrapper(listener, m_isAttribute);
     }
     disposeListenerObject();
+#if ENABLE(INSPECTOR)
+    ThreadLocalInspectorCounters::current().decrementCounter(ThreadLocalInspectorCounters::JSEventListenerCounter);
+#endif
 }
 
 void V8AbstractEventListener::handleEvent(ScriptExecutionContext* context, Event* event)
@@ -116,8 +123,7 @@ void V8AbstractEventListener::setListenerObject(v8::Handle<v8::Object> listener)
 #ifndef NDEBUG
     V8GCController::registerGlobalHandle(EVENT_LISTENER, this, m_listener);
 #endif
-    if (m_isWeak)
-        m_listener.MakeWeak(this, &weakEventListenerCallback);
+    m_listener.MakeWeak(this, &weakEventListenerCallback);
 }
 
 void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context, Event* event, v8::Handle<v8::Value> jsEvent)
@@ -135,7 +141,7 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
     v8::Local<v8::Value> returnValue;
 
     // In beforeunload/unload handlers, we want to avoid sleeps which do tight loops of calling Date.getTime().
-    if (event->type() == "beforeunload" || event->type() == "unload")
+    if (event->type() == eventNames().beforeunloadEvent || event->type() == eventNames().unloadEvent)
         DateExtension::get()->setAllowSleep(false);
 
     {
@@ -156,8 +162,10 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
             event->target()->uncaughtExceptionInEventHandler();
 
         if (!tryCatch.CanContinue()) { // Result of TerminateExecution().
+#if ENABLE(WORKERS)
             if (context->isWorkerContext())
                 static_cast<WorkerContext*>(context)->script()->forbidExecution();
+#endif
             return;
         }
         tryCatch.Reset();
@@ -170,7 +178,7 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
         tryCatch.Reset();
     }
 
-    if (event->type() == "beforeunload" || event->type() == "unload")
+    if (event->type() == eventNames().beforeunloadEvent || event->type() == eventNames().unloadEvent)
         DateExtension::get()->setAllowSleep(true);
 
     ASSERT(!V8Proxy::handleOutOfMemory() || returnValue.IsEmpty());
@@ -181,10 +189,15 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
     if (!returnValue->IsNull() && !returnValue->IsUndefined() && event->storesResultAsString())
         event->storeResult(toWebCoreString(returnValue));
 
-    // Prevent default action if the return value is false;
-    // FIXME: Add example, and reference to bug entry.
-    if (m_isAttribute && returnValue->IsBoolean() && !returnValue->BooleanValue())
+    if (m_isAttribute && shouldPreventDefault(returnValue))
         event->preventDefault();
+}
+
+bool V8AbstractEventListener::shouldPreventDefault(v8::Local<v8::Value> returnValue)
+{
+    // Prevent default action if the return value is false in accord with the spec
+    // http://www.w3.org/TR/html5/webappapis.html#event-handler-attributes
+    return returnValue->IsBoolean() && !returnValue->BooleanValue();
 }
 
 v8::Local<v8::Object> V8AbstractEventListener::getReceiverObject(Event* event)

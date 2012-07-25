@@ -31,8 +31,10 @@
 #include "InjectedBundleMessageKinds.h"
 #include "InjectedBundleScriptWorld.h"
 #include "InjectedBundleUserMessageCoders.h"
+#include "LayerTreeHost.h"
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WebApplicationCacheManager.h"
 #include "WebContextMessageKinds.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebDatabaseManager.h"
@@ -45,11 +47,19 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/GCController.h>
+#include <WebCore/GeolocationClient.h>
+#include <WebCore/GeolocationClientMock.h>
+#include <WebCore/GeolocationController.h>
+#include <WebCore/GeolocationPosition.h>
 #include <WebCore/JSDOMWindow.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/PageVisibilityState.h>
 #include <WebCore/PrintContext.h>
+#include <WebCore/ResourceHandle.h>
+#include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/SecurityPolicy.h>
 #include <WebCore/Settings.h>
 #include <WebCore/UserGestureIndicator.h>
 #include <wtf/OwnArrayPtr.h>
@@ -94,6 +104,11 @@ void InjectedBundle::postSynchronousMessage(const String& messageName, APIObject
     returnData = returnDataTmp;
 }
 
+WebConnection* InjectedBundle::webConnectionToUIProcess() const
+{
+    return WebProcess::shared().webConnectionToUIProcess();
+}
+
 void InjectedBundle::setShouldTrackVisitedLinks(bool shouldTrackVisitedLinks)
 {
     PageGroup::setShouldTrackVisitedLinks(shouldTrackVisitedLinks);
@@ -104,10 +119,54 @@ void InjectedBundle::removeAllVisitedLinks()
     PageGroup::removeAllVisitedLinks();
 }
 
+void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* pageGroup, const String& preference, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+
+    // FIXME: Need an explicit way to set "WebKitTabToLinksPreferenceKey" directly in WebPage.
+
+    // Map the names used in LayoutTests with the names used in WebCore::Settings and WebPreferencesStore.
+#define FOR_EACH_OVERRIDE_BOOL_PREFERENCE(macro) \
+    macro(WebKitAcceleratedCompositingEnabled, AcceleratedCompositingEnabled, acceleratedCompositingEnabled) \
+    macro(WebKitCSSCustomFilterEnabled, CSSCustomFilterEnabled, cssCustomFilterEnabled) \
+    macro(WebKitCSSRegionsEnabled, CSSRegionsEnabled, cssRegionsEnabled) \
+    macro(WebKitJavaEnabled, JavaEnabled, javaEnabled) \
+    macro(WebKitJavaScriptEnabled, ScriptEnabled, javaScriptEnabled) \
+    macro(WebKitLoadSiteIconsKey, LoadsSiteIconsIgnoringImageLoadingSetting, loadsSiteIconsIgnoringImageLoadingPreference) \
+    macro(WebKitOfflineWebApplicationCacheEnabled, OfflineWebApplicationCacheEnabled, offlineWebApplicationCacheEnabled) \
+    macro(WebKitPageCacheSupportsPluginsPreferenceKey, PageCacheSupportsPlugins, pageCacheSupportsPlugins) \
+    macro(WebKitPluginsEnabled, PluginsEnabled, pluginsEnabled) \
+    macro(WebKitUsesPageCachePreferenceKey, UsesPageCache, usesPageCache) \
+    macro(WebKitWebAudioEnabled, WebAudioEnabled, webAudioEnabled) \
+    macro(WebKitWebGLEnabled, WebGLEnabled, webGLEnabled) \
+    macro(WebKitXSSAuditorEnabled, XSSAuditorEnabled, xssAuditorEnabled) \
+    macro(WebKitShouldRespectImageOrientation, ShouldRespectImageOrientation, shouldRespectImageOrientation)
+
+    if (preference == "WebKitAcceleratedCompositingEnabled")
+        enabled = enabled && LayerTreeHost::supportsAcceleratedCompositing();
+
+#define OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES(TestRunnerName, SettingsName, WebPreferencesName) \
+    if (preference == #TestRunnerName) { \
+        WebPreferencesStore::overrideBoolValueForKey(WebPreferencesKey::WebPreferencesName##Key(), enabled); \
+        for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter) \
+            (*iter)->settings()->set##SettingsName(enabled); \
+        return; \
+    }
+
+    FOR_EACH_OVERRIDE_BOOL_PREFERENCE(OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES)
+
+#if ENABLE(WEB_SOCKETS)
+    OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES(WebKitHixie76WebSocketProtocolEnabled, UseHixie76WebSocketProtocol, hixie76WebSocketProtocolEnabled)
+#endif
+
+#undef OVERRIDE_PREFERENCE_AND_SET_IN_EXISTING_PAGES
+#undef FOR_EACH_OVERRIDE_BOOL_PREFERENCE
+}
+
 void InjectedBundle::overrideXSSAuditorEnabledForTestRunner(WebPageGroupProxy* pageGroup, bool enabled)
 {
     // Override the preference for all future pages.
-    WebPreferencesStore::overrideXSSAuditorEnabledForTestRunner(enabled);
+    WebPreferencesStore::overrideBoolValueForKey(WebPreferencesKey::xssAuditorEnabledKey(), enabled);
 
     // Change the setting for existing ones.
     const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
@@ -136,19 +195,66 @@ void InjectedBundle::setFrameFlatteningEnabled(WebPageGroupProxy* pageGroup, boo
         (*iter)->settings()->setFrameFlatteningEnabled(enabled);
 }
 
+void InjectedBundle::setGeoLocationPermission(WebPageGroupProxy* pageGroup, bool enabled)
+{
+#if ENABLE(GEOLOCATION)
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        static_cast<GeolocationClientMock*>(GeolocationController::from(*iter)->client())->setPermission(enabled);
+#endif // ENABLE(GEOLOCATION)
+}
+
+void InjectedBundle::setJavaScriptCanAccessClipboard(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->settings()->setJavaScriptCanAccessClipboard(enabled);
+}
+
+void InjectedBundle::setPrivateBrowsingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->settings()->setPrivateBrowsingEnabled(enabled);
+}
+
+void InjectedBundle::setPopupBlockingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    HashSet<Page*>::const_iterator end = pages.end();
+    for (HashSet<Page*>::const_iterator iter = pages.begin(); iter != end; ++iter)
+        (*iter)->settings()->setJavaScriptCanOpenWindowsAutomatically(!enabled);
+}
+
+void InjectedBundle::switchNetworkLoaderToNewTestingSession()
+{
+#if USE(CFURLSTORAGESESSIONS)
+    // Set a private session for testing to avoid interfering with global cookies. This should be different from private browsing session.
+    RetainPtr<CFURLStorageSessionRef> session = ResourceHandle::createPrivateBrowsingStorageSession(CFSTR("Private WebKit Session"));
+    ResourceHandle::setDefaultStorageSession(session.get());
+#endif
+}
+
+void InjectedBundle::setAuthorAndUserStylesEnabled(WebPageGroupProxy* pageGroup, bool enabled)
+{
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->settings()->setAuthorAndUserStylesEnabled(enabled);
+}
+
 void InjectedBundle::addOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
-    SecurityOrigin::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    SecurityPolicy::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
 }
 
 void InjectedBundle::removeOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
-    SecurityOrigin::removeOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    SecurityPolicy::removeOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
 }
 
 void InjectedBundle::resetOriginAccessWhitelists()
 {
-    SecurityOrigin::resetOriginAccessWhitelists();
+    SecurityPolicy::resetOriginAccessWhitelists();
 }
 
 void InjectedBundle::clearAllDatabases()
@@ -159,6 +265,16 @@ void InjectedBundle::clearAllDatabases()
 void InjectedBundle::setDatabaseQuota(uint64_t quota)
 {
     WebDatabaseManager::shared().setQuotaForOrigin("file:///", quota);
+}
+
+void InjectedBundle::clearApplicationCache()
+{
+    WebApplicationCacheManager::shared().deleteAllEntries();
+}
+
+void InjectedBundle::setAppCacheMaximumSize(uint64_t size)
+{
+    WebApplicationCacheManager::shared().setAppCacheMaximumSize(size);
 }
 
 int InjectedBundle::numberOfPages(WebFrame* frame, double pageWidthInPixels, double pageHeightInPixels)
@@ -212,7 +328,7 @@ bool InjectedBundle::isPageBoxVisible(WebFrame* frame, int pageIndex)
 
 bool InjectedBundle::isProcessingUserGesture()
 {
-    return UserGestureIndicator::getUserGestureState() == DefinitelyProcessingUserGesture;
+    return ScriptController::processingUserGesture();
 }
 
 static PassOwnPtr<Vector<String> > toStringVector(ImmutableArray* patterns)
@@ -340,6 +456,15 @@ void InjectedBundle::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC:
     }
 
     ASSERT_NOT_REACHED();
+}
+
+void InjectedBundle::setPageVisibilityState(WebPageGroupProxy* pageGroup, int state, bool isInitialState)
+{
+#if ENABLE(PAGE_VISIBILITY_API)
+    const HashSet<Page*>& pages = PageGroup::pageGroup(pageGroup->identifier())->pages();
+    for (HashSet<Page*>::iterator iter = pages.begin(); iter != pages.end(); ++iter)
+        (*iter)->setVisibilityState(static_cast<PageVisibilityState>(state), isInitialState);
+#endif
 }
 
 } // namespace WebKit

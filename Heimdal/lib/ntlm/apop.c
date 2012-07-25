@@ -102,7 +102,7 @@ heim_apop_verify(const char *challenge, const char *password, const char *respon
     return 0;
 }
 
-struct heim_cram_md5 {
+struct heim_cram_md5_data {
     CC_MD5_CTX ipad;
     CC_MD5_CTX opad;
 };
@@ -114,7 +114,7 @@ heim_cram_md5_export(const char *password, heim_CRAM_MD5_STATE *state)
     size_t keylen = strlen(password);
     uint8_t key[CC_MD5_BLOCK_BYTES];
     uint8_t pad[CC_MD5_BLOCK_BYTES];
-    struct heim_cram_md5 ctx;
+    struct heim_cram_md5_data ctx;
     size_t n;
 
     memset(&ctx, 0, sizeof(ctx));

@@ -264,7 +264,8 @@ setup(list1, list2, n, size, cmp)
 	int (*cmp)(const void *, const void *);
 	u_char *list1, *list2;
 {
-	int i, length, size2, tmp, sense;
+	size_t i, size2;
+	int length, tmp, sense;
 	u_char *f1, *f2, *s, *l2, *last, *p2;
 
 	size2 = size*2;

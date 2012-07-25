@@ -44,7 +44,9 @@ rkpty="${TESTS_ENVIRONMENT} ${tt}/rkpty"
 test_commonauth="${TESTS_ENVIRONMENT} ${tt}/test_commonauth"
 test_scram="${TESTS_ENVIRONMENT} ${tt}/test_scram"
 test_sendto="${TESTS_ENVIRONMENT} ${tt}/test_sendto"
+http_client="${TESTS_ENVIRONMENT} ${tt}/http_client"
 winmount="${TESTS_ENVIRONMENT} ${tt}/heimdal-win-mount.py"
+test_gsscf="${TESTS_ENVIRONMENT} ${tt}/test_gsscf"
 
 # misc apps
 have_db="${testbase}/db/have-db"

@@ -32,32 +32,51 @@
 .Dt INET 3
 .Os
 .Sh NAME
-.Nm inet_aton ,
 .Nm inet_addr ,
+.Nm inet_aton ,
+.Nm inet_lnaof ,
+.Nm inet_makeaddr ,
+.Nm inet_netof ,
 .Nm inet_network ,
 .Nm inet_ntoa ,
 .Nm inet_ntoa_r ,
 .Nm inet_ntop ,
-.Nm inet_pton ,
-.Nm inet_makeaddr ,
-.Nm inet_lnaof ,
-.Nm inet_netof
+.Nm inet_pton
 .Nd Internet address manipulation routines
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.In sys/types.h
-.In sys/socket.h
-.In netinet/in.h
 .In arpa/inet.h
+.Ft in_addr_t
+.Fo inet_addr
+.Fa "const char *cp"
+.Fc
 .Ft int
-.Fn inet_aton "const char *cp" "struct in_addr *pin"
+.Fo inet_aton
+.Fa "const char *cp"
+.Fa "struct in_addr *pin"
+.Fc
 .Ft in_addr_t
-.Fn inet_addr "const char *cp"
+.Fo inet_lnaof
+.Fa "struct in_addr in"
+.Fc
+.Ft struct in_addr
+.Fo inet_makeaddr
+.Fa "in_addr_t net"
+.Fa "in_addr_t lna"
+.Fc
 .Ft in_addr_t
-.Fn inet_network "const char *cp"
+.Fo inet_netof
+.Fa "struct in_addr in"
+.Fc
+.Ft in_addr_t
+.Fo inet_network
+.Fa "const char *cp"
+.Fc
 .Ft char *
-.Fn inet_ntoa "struct in_addr in"
+.Fo inet_ntoa
+.Fa "struct in_addr in"
+.Fc
 .Ft char *
 .Fo inet_ntoa_r
 .Fa "struct in_addr in"
@@ -72,13 +91,11 @@
 .Fa "socklen_t size"
 .Fc
 .Ft int
-.Fn inet_pton "int af" "const char * restrict src" "void * restrict dst"
-.Ft struct in_addr
-.Fn inet_makeaddr "in_addr_t net" "in_addr_t lna"
-.Ft in_addr_t
-.Fn inet_lnaof "struct in_addr in"
-.Ft in_addr_t
-.Fn inet_netof "struct in_addr in"
+.Fo inet_pton
+.Fa "int af"
+.Fa "const char * restrict src"
+.Fa "void * restrict dst"
+.Fc
 .Sh DESCRIPTION
 The routines
 .Fn inet_aton ,
@@ -241,9 +258,6 @@ The
 .Fn inet_ntop
 call fails if:
 .Bl -tag -width Er
-.It Bq Er ENOSPC
-.Fa size
-was not large enough to store the presentation form of the address.
 .It Bq Er EAFNOSUPPORT
 .Fa *src
 was not an
@@ -251,7 +265,17 @@ was not an
 or
 .Dv AF_INET6
 family address.
+.It Bq Er ENOSPC
+.Fa size
+was not large enough to store the presentation form of the address.
 .El
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <sys/socket.h>
+.Fd #include <netinet/in.h>
+.Fd #include <arpa/inet.h>
+.Pp
+These include files are necessary for all functions.
 .Sh SEE ALSO
 .Xr byteorder 3 ,
 .Xr getaddrinfo 3 ,

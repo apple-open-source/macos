@@ -158,7 +158,7 @@ smb_add_next_entry(struct smbnode *np, uio_t uio, int flags, int32_t *numdirent)
 	np->d_offset++;
 	
 done:	
-	FREE(np->d_nextEntry, M_TEMP);
+	SMB_FREE(np->d_nextEntry, M_TEMP);
 	np->d_nextEntry = NULL;
 	np->d_nextEntryLen = 0;
 	return error;
@@ -188,7 +188,8 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 		(offset != dnp->d_offset)) {
 		SMBVDEBUG("Reopening search for %s %lld:%lld\n", dnp->n_name, offset, dnp->d_offset);
 		smbfs_closedirlookup(dnp, context);
-		error = smbfs_smb_findopen(share, dnp, "*", 1, context, &dnp->d_fctx, TRUE);
+		error = smbfs_smb_findopen(share, dnp, "*", 1, &dnp->d_fctx, TRUE, 
+                                   context);
 	}
 	/* 
 	 * The directory fctx keeps a reference on the share so we can release our 
@@ -338,7 +339,7 @@ smbfs_readvdir(vnode_t dvp, uio_t uio, vfs_context_t context, int flags,
 		} else {
 			SMBVDEBUG("%s, Saving Next Entry %s,  resid == %lld\n", dnp->n_name, 
 					  ctx->f_LocalName, uio_resid(uio));
-			MALLOC(dnp->d_nextEntry, void *, delen, M_TEMP, M_WAITOK);
+			SMB_MALLOC(dnp->d_nextEntry, void *, delen, M_TEMP, M_WAITOK);
 			if (dnp->d_nextEntry) {
 				bcopy(&de, dnp->d_nextEntry, delen);
 				dnp->d_nextEntryLen = delen;
@@ -371,8 +372,8 @@ done:
 static char smbzeroes[4096] = { 0 };
 
 static int
-smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from, u_quad_t to, 
-				int ioflag, vfs_context_t context)
+smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from, 
+                u_quad_t to, int ioflag, vfs_context_t context)
 {
 	user_size_t len;
 	int error = 0;
@@ -413,7 +414,7 @@ smbfs_zero_fill(struct smb_share *share, uint16_t fid, u_quad_t from, u_quad_t t
  */
 int 
 smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from, 
-				  u_quad_t to, int ioflag, vfs_context_t context)
+              u_quad_t to, int ioflag, vfs_context_t context)
 {
 	int error;
 
@@ -452,8 +453,8 @@ smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from,
  * The calling routine must hold a reference on the share
  */
 int 
-smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-			 vfs_context_t context, uint16_t fid)
+smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
+             uint16_t fid, vfs_context_t context)
 {
 	int error;
 	user_ssize_t requestsize;
@@ -494,7 +495,7 @@ exit:
  */
 int 
 smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-				  uint16_t fid, int ioflag, vfs_context_t context)
+              uint16_t fid, int ioflag, vfs_context_t context)
 {
 	int error = 0;
 

@@ -128,6 +128,7 @@ struct smb_open_file {
 	int32_t			openRWCnt;	/* number of rw opens */
 	int32_t			openRCnt;	/* number of r opens */
 	int32_t			openWCnt;	/* number of w opens */
+	int32_t			openTotalWriteCnt; /* nbr of w opens (shared and nonshared) */
 	int32_t			clusterCloseError;	/* Error to be return on user close */
 	uint32_t		openState;	/* Do we need to revoke or reopen the file */
 	lck_mtx_t		openStateLock;	/* Locks the openState */
@@ -171,9 +172,10 @@ struct smbnode {
 	lck_mtx_t			rfrkMetaLock;	/* Locks the resource size and resource cache timer */
 	uint64_t			n_ino;
 	uint64_t			n_nlinks;		/* Currently only supported when using the new UNIX Extensions */
+    SInt32              n_child_refcnt; /* Each child node holds a refcnt */
 	union {
 		struct smb_open_dir	dir;
-		struct smb_open_file	file;
+		struct smb_open_file file;
 	}open_type;
 	void				*acl_cache_data;
 	struct timespec		acl_cache_timer;
@@ -217,6 +219,7 @@ struct smbnode {
 #define f_openRWCnt open_type.file.openRWCnt
 #define f_openRCnt open_type.file.openRCnt
 #define f_openWCnt open_type.file.openWCnt
+#define f_openTotalWCnt open_type.file.openTotalWriteCnt
 #define f_openDenyList open_type.file.openDenyList
 #define f_smbflock open_type.file.smbflock
 #define f_openState open_type.file.openState
@@ -312,24 +315,26 @@ int FindByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset,
 void AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset, 
 							  int64_t length, int8_t unLock, uint32_t lck_pid);
 void AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, 
-					  uint32_t rights, uint16_t fid, struct fileRefEntry **fndEntry);
+                uint32_t rights, uint16_t fid, struct fileRefEntry **fndEntry);
 int32_t FindFileEntryByFID(vnode_t vp, uint16_t fid, struct fileRefEntry **fndEntry);
 int32_t FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, uint16_t *fid);
-int32_t FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags, 
-						  int64_t offset, int64_t length,  struct fileRefEntry **fndEntry, 
-						  uint16_t *fid);
+int32_t FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
+                    int64_t offset, int64_t length, 
+                    struct fileRefEntry **fndEntry, 
+                    uint16_t *fid);
 void RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry);
 
 /* smbfs_io.c prototypes */
 int smbfs_readvdir(vnode_t vp, uio_t uio, vfs_context_t context, int flags, 
 				   int32_t *numdirent);
 int smbfs_0extend(struct smb_share *share, uint16_t fid, u_quad_t from, 
-			  u_quad_t to, int ioflag, vfs_context_t context);
-int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop, 
-			 vfs_context_t context, uint16_t fid);
+                  u_quad_t to, int ioflag, vfs_context_t context);
+int smbfs_doread(struct smb_share *share, off_t endOfFile, uio_t uiop,
+                 uint16_t fid, vfs_context_t context);
 int smbfs_dowrite(struct smb_share *share, off_t endOfFile, uio_t uiop, 
 				  uint16_t fid, int ioflag, vfs_context_t context);
 void smbfs_reconnect(struct smbmount *smp);
+int32_t smbfs_IObusy(struct smbmount *smp);
 
 
 #define smb_ubc_getsize(v) (vnode_vtype(v) == VREG ? ubc_getsize(v) : (off_t)0)

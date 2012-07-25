@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "PageScriptDebugServer.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+
+#include "PageScriptDebugServer.h"
 
 #include "Frame.h"
 #include "FrameView.h"
@@ -68,6 +69,7 @@ PageScriptDebugServer& PageScriptDebugServer::shared()
 
 PageScriptDebugServer::PageScriptDebugServer()
     : ScriptDebugServer()
+    , m_pausedPage(0)
 {
 }
 
@@ -81,11 +83,11 @@ void PageScriptDebugServer::addListener(ScriptDebugListener* listener, Page* pag
     ASSERT_ARG(listener, listener);
     ASSERT_ARG(page, page);
 
-    pair<PageListenersMap::iterator, bool> result = m_pageListenersMap.add(page, 0);
-    if (result.second)
-        result.first->second = new ListenerSet;
+    PageListenersMap::AddResult result = m_pageListenersMap.add(page, 0);
+    if (result.isNewEntry)
+        result.iterator->second = new ListenerSet;
 
-    ListenerSet* listeners = result.first->second;
+    ListenerSet* listeners = result.iterator->second;
     listeners->add(listener);
 
     recompileAllJSFunctionsSoon();
@@ -130,20 +132,34 @@ ScriptDebugServer::ListenerSet* PageScriptDebugServer::getListenersForGlobalObje
 
 void PageScriptDebugServer::didPause(JSC::JSGlobalObject* globalObject)
 {
+    ASSERT(!m_pausedPage);
+
     Page* page = toPage(globalObject);
+    ASSERT(page);
+    if (!page)
+        return;
+
     m_pausedPage = page;
+
     setJavaScriptPaused(page->group(), true);
 }
 
 void PageScriptDebugServer::didContinue(JSC::JSGlobalObject* globalObject)
 {
+    // Page can be null if we are continuing because the Page closed.
     Page* page = toPage(globalObject);
+    ASSERT(!page || page == m_pausedPage);
+
     m_pausedPage = 0;
-    setJavaScriptPaused(page->group(), false);
+
+    if (page)
+        setJavaScriptPaused(page->group(), false);
 }
 
 void PageScriptDebugServer::didRemoveLastListener(Page* page)
 {
+    ASSERT(page);
+
     if (m_pausedPage == page)
         m_doneProcessingDebuggerEvents = true;
 

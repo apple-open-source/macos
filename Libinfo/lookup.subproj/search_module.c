@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -223,6 +223,37 @@ search_item_bynumber(si_mod_t *si, uint32_t number, int cat, si_item_t *(*call)(
 	return NULL;
 }
 
+static si_item_t *
+search_item_byuuid(si_mod_t *si, uuid_t uuid, int cat, si_item_t *(*call)(si_mod_t *, uuid_t))
+{
+	int i;
+	search_si_private_t *pp;
+	si_item_t *item;
+	si_mod_t *src;
+
+	if (si == NULL) return NULL;
+	if (call == NULL) return NULL;
+
+	pp = (search_si_private_t *)si->private;
+	if (pp == NULL) return NULL;
+
+	i = 0;
+
+	while (NULL != (src = search_get_module(pp, cat, &i)))
+	{
+		item = call(src, uuid);
+		if (item != NULL)
+		{
+			/*
+			 * N.B. item not added to cache, since the data does not
+			 * contain the uuid that was used to find it.
+			 */
+			return item;
+		}
+	}
+
+	return NULL;
+}
 static si_list_t *
 search_list(si_mod_t *si, int cat, si_list_t *(*call)(si_mod_t *))
 {
@@ -280,6 +311,12 @@ search_user_byuid(si_mod_t *si, uid_t uid)
 	return search_item_bynumber(si, (uint32_t)uid, CATEGORY_USER, si_user_byuid);
 }
 
+static si_item_t *
+search_user_byuuid(si_mod_t *si, uuid_t uuid)
+{
+	return search_item_byuuid(si, uuid, CATEGORY_USER, si_user_byuuid);
+}
+
 static si_list_t *
 search_user_all(si_mod_t *si)
 {
@@ -295,7 +332,13 @@ search_group_byname(si_mod_t *si, const char *name)
 static si_item_t *
 search_group_bygid(si_mod_t *si, gid_t gid)
 {
-	return search_item_bynumber(si, (uint32_t)gid, CATEGORY_USER, si_group_bygid);
+	return search_item_bynumber(si, (uint32_t)gid, CATEGORY_GROUP, si_group_bygid);
+}
+
+static si_item_t *
+search_group_byuuid(si_mod_t *si, uuid_t uuid)
+{
+	return search_item_byuuid(si, uuid, CATEGORY_GROUP, si_group_byuuid);
 }
 
 static si_list_t *
@@ -305,9 +348,30 @@ search_group_all(si_mod_t *si)
 }
 
 static si_item_t *
-search_groupist(si_mod_t *si, const char *name)
+search_groupist(si_mod_t *si, const char *name, uint32_t count)
 {
-	return search_item_byname(si, name, CATEGORY_GROUPLIST, si_grouplist);
+	int i;
+	search_si_private_t *pp;
+	si_item_t *item = NULL;
+	si_mod_t *src;
+	
+	if (si == NULL) return NULL;
+	
+	pp = (search_si_private_t *)si->private;
+	if (pp == NULL) return NULL;
+	
+	i = 0;
+	
+	while (NULL != (src = search_get_module(pp, CATEGORY_GROUPLIST, &i))) {
+		if (src == pp->cache) continue;
+		
+		if (src->vtable->sim_grouplist != NULL) {
+			item = src->vtable->sim_grouplist(si, name, count);
+			if (item != NULL) break;
+		}
+	}
+	
+	return item;
 }
 
 static si_list_t *
@@ -333,6 +397,7 @@ search_netgroup_byname(si_mod_t *si, const char *name)
 	}
 
 	i = 0;
+	null_res = 0;
 
 	all = NULL;
 	while (NULL != (src = search_get_module(pp, cat, &i)))
@@ -368,7 +433,6 @@ search_in_netgroup(si_mod_t *si, const char *group, const char *host, const char
 
 	cat = CATEGORY_NETGROUP;
 	i = 0;
-	innetgr = 0;
 
 	while (NULL != (src = search_get_module(pp, cat, &i)))
 	{
@@ -808,10 +872,12 @@ si_module_static_search(void)
 
 		.sim_user_byname = &search_user_byname,
 		.sim_user_byuid = &search_user_byuid,
+		.sim_user_byuuid = &search_user_byuuid,
 		.sim_user_all = &search_user_all,
 
 		.sim_group_byname = &search_group_byname,
 		.sim_group_bygid = &search_group_bygid,
+		.sim_group_byuuid = &search_group_byuuid,
 		.sim_group_all = &search_group_all,
 
 		.sim_grouplist = &search_groupist,
@@ -897,20 +963,24 @@ si_module_static_search(void)
 		si_module_config_modules_for_category(pp, CATEGORY_DEFAULT, count, modules);
 		pp->cache = pp->search_list[CATEGORY_DEFAULT].module[0];
 
-		FILE *conf = fopen(_PATH_SI_CONF, "r");
-		errno = 0;
-		if (conf != NULL)
+		char *check = getenv("SYSINFO_CONF_ENABLE");
+		if ((check != NULL) && (!strcmp(check, "1")))
 		{
-			forever
+			FILE *conf = fopen(_PATH_SI_CONF, "r");
+			errno = 0;
+			if (conf != NULL)
 			{
-				char *line = _fsi_get_line(conf);
-				if (line == NULL) break;
+				forever
+				{
+					char *line = _fsi_get_line(conf);
+					if (line == NULL) break;
 
-				si_module_config_parse_line(pp, line);
-				free(line);
+					si_module_config_parse_line(pp, line);
+					free(line);
+				}
+
+				fclose(conf);
 			}
-
-			fclose(conf);
 		}
 	});
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2012 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1081,6 +1081,7 @@ ExitStatus createPrelinkedKernelForArch(
 
    /* Create the prelinked kernel from the given kernel and kexts */
 
+    flags |= kOSKextKernelcacheKASLRFlag;
     flags |= kOSKextKernelcacheNeedAllFlag;
     flags |= kOSKextKernelcacheSkipAuthenticationFlag;
     flags |= kOSKextKernelcacheIncludeAllPersonalitiesFlag;
@@ -1101,7 +1102,7 @@ ExitStatus createPrelinkedKernelForArch(
    /* Compress the prelinked kernel if needed */
 
     if (toolArgs->compress) {
-        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel);
+        *prelinkedKernelOut = compressPrelinkedSlice(prelinkedKernel, true);
     } else {
         *prelinkedKernelOut = CFRetain(prelinkedKernel);
     }
@@ -1152,7 +1153,7 @@ ExitStatus compressPrelinkedKernel(
         prelinkedSlice = CFArrayGetValueAtIndex(prelinkedSlices, i);
 
         if (compress) {
-            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice);
+            prelinkedSlice = compressPrelinkedSlice(prelinkedSlice, true);
             if (!prelinkedSlice) {
                 result = EX_DATAERR;
                 goto finish;

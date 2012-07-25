@@ -29,8 +29,10 @@
  */
 
 #include "config.h"
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "V8ScriptProfileNode.h"
 
+#include "SafeAllocation.h"
 #include "ScriptProfileNode.h"
 #include "V8Binding.h"
 #include "V8Proxy.h"
@@ -39,19 +41,6 @@
 
 namespace WebCore {
 
-v8::Handle<v8::Value> V8ScriptProfileNode::childrenAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
-{
-    INC_STATS("DOM.ScriptProfileNode.childrenAccessorGetter");
-    ScriptProfileNode* imp = V8ScriptProfileNode::toNative(info.Holder());
-    const ProfileNodesList& children = imp->children();
-    v8::Handle<v8::Array> result = v8::Array::New(children.size());
-    int index = 0;
-    ProfileNodesList::const_iterator end = children.end();
-    for (ProfileNodesList::const_iterator iter = children.begin(); iter != end; ++iter)
-        result->Set(v8::Integer::New(index++), toV8(iter->get()));
-    return result;
-}
-
 v8::Handle<v8::Value> V8ScriptProfileNode::callUIDAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.ScriptProfileNode.callUIDAccessorGetter");
@@ -59,7 +48,7 @@ v8::Handle<v8::Value> V8ScriptProfileNode::callUIDAccessorGetter(v8::Local<v8::S
     return v8::Number::New(imp->callUID());
 }
 
-v8::Handle<v8::Value> toV8(ScriptProfileNode* impl)
+v8::Handle<v8::Value> toV8(ScriptProfileNode* impl, v8::Isolate* isolate)
 {
     if (!impl)
         return v8::Null();
@@ -79,3 +68,5 @@ v8::Handle<v8::Value> toV8(ScriptProfileNode* impl)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)

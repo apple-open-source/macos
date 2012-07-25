@@ -32,8 +32,6 @@
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#include <string.h>
-#include <errno.h>
 
 #include "inet_pton.h"
 
@@ -61,9 +59,9 @@ static int      inet_pton6(const char *src, unsigned char *dst);
  *      -1 if some other error occurred (`dst' is untouched in this case, too)
  * notice:
  *      On Windows we store the error in the thread errno, not
- *      in the winsock error code. This is to avoid loosing the
+ *      in the winsock error code. This is to avoid losing the
  *      actual last winsock error. So use macro ERRNO to fetch the
- *      errno this funtion sets when returning (-1), not SOCKERRNO.
+ *      errno this function sets when returning (-1), not SOCKERRNO.
  * author:
  *      Paul Vixie, 1996.
  */
@@ -223,7 +221,7 @@ inet_pton6(const char *src, unsigned char *dst)
 
     if(tp == endp)
       return (0);
-    for (i = 1; i <= n; i++) {
+    for(i = 1; i <= n; i++) {
       *(endp - i) = *(colonp + n - i);
       *(colonp + n - i) = 0;
     }

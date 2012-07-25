@@ -50,12 +50,22 @@ void InspectorClientWinCE::openInspectorFrontend(InspectorController* controller
     notImplemented();
 }
 
+void InspectorClientWinCE::closeInspectorFrontend()
+{
+    notImplemented();
+}
+
+void InspectorClientWinCE::bringFrontendToFront()
+{
+    notImplemented();
+}
+
 void InspectorClientWinCE::releaseFrontendPage()
 {
     notImplemented();
 }
 
-void InspectorClientWinCE::highlight(Node* node)
+void InspectorClientWinCE::highlight()
 {
     notImplemented();
 }

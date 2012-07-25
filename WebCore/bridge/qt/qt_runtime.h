@@ -27,10 +27,15 @@
 #include "qt_instance.h"
 #include "runtime_method.h"
 
+#include <QWeakPointer>
+
 #include <qbytearray.h>
 #include <qmetaobject.h>
-#include <qpointer.h>
 #include <qvariant.h>
+
+namespace WebCore {
+class JSDOMGlobalObject;
+}
 
 namespace JSC {
 namespace Bindings {
@@ -68,29 +73,7 @@ private:
     QtFieldType m_type;
     QByteArray m_dynamicProperty;
     QMetaProperty m_property;
-    QPointer<QObject> m_childObject;
-};
-
-
-class QtMethod : public Method
-{
-public:
-    QtMethod(const QMetaObject *mo, int i, const QByteArray &ident, int numParameters)
-        : m_metaObject(mo),
-          m_index(i),
-          m_identifier(ident),
-          m_nParams(numParameters)
-        { }
-
-    virtual const char* name() const { return m_identifier.constData(); }
-    virtual int numParameters() const { return m_nParams; }
-
-private:
-    friend class QtInstance;
-    const QMetaObject *m_metaObject;
-    int m_index;
-    QByteArray m_identifier;
-    int m_nParams;
+    QWeakPointer<QObject> m_childObject;
 };
 
 
@@ -148,7 +131,10 @@ class QtRuntimeConnectionMethodData : public QtRuntimeMethodData {
 // Common base class (doesn't really do anything interesting)
 class QtRuntimeMethod : public InternalFunction {
 public:
-    virtual ~QtRuntimeMethod();
+    typedef InternalFunction Base;
+
+    ~QtRuntimeMethod();
+    static void destroy(JSCell*);
 
     static const ClassInfo s_info;
 
@@ -167,7 +153,7 @@ protected:
     static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | InternalFunction::StructureFlags | OverridesVisitChildren;
 
     QtRuntimeMethodData *d_func() const {return d_ptr;}
-    QtRuntimeMethod(QtRuntimeMethodData *dd, ExecState *, Structure*, const Identifier &name, PassRefPtr<QtInstance>);
+    QtRuntimeMethod(QtRuntimeMethodData *dd, ExecState *, Structure*, const Identifier &name);
     QtRuntimeMethodData *d_ptr;
 };
 
@@ -211,8 +197,7 @@ private:
 };
 
 class QtConnectionObject;
-class QtRuntimeConnectionMethod : public QtRuntimeMethod
-{
+class QtRuntimeConnectionMethod : public QtRuntimeMethod {
 public:
     typedef QtRuntimeMethod Base;
 
@@ -249,29 +234,49 @@ private:
     friend class QtConnectionObject;
 };
 
-class QtConnectionObject: public QObject
+// A QtConnectionObject represents a connection created inside JS. It will connect its own execute() slot
+// with the appropriate signal of 'sender'. When execute() is called, it will call JS 'receiverFunction'.
+class QtConnectionObject : public QObject
 {
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+    Q_OBJECT_FAKE
+#endif
 public:
-    QtConnectionObject(JSGlobalData&, PassRefPtr<QtInstance> instance, int signalIndex, JSObject* thisObject, JSObject* funcObject);
+    QtConnectionObject(JSContextRef, PassRefPtr<QtInstance> senderInstance, int signalIndex, JSObjectRef receiver, JSObjectRef receiverFunction);
     ~QtConnectionObject();
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
+    // Explicitly define these because want a custom qt_metacall(), so we can't use Q_OBJECT macro.
     static const QMetaObject staticMetaObject;
     virtual const QMetaObject *metaObject() const;
     virtual void *qt_metacast(const char *);
     virtual int qt_metacall(QMetaObject::Call, int, void **argv);
+#endif
 
-    bool match(QObject *sender, int signalIndex, JSObject* thisObject, JSObject *funcObject);
-
-    // actual slot:
     void execute(void **argv);
 
+    bool match(JSContextRef, QObject* sender, int signalIndex, JSObjectRef thisObject, JSObjectRef funcObject);
+
+    // Note: for callers using JSC internals, remove once we don't need anymore.
+    static QtConnectionObject* createWithInternalJSC(ExecState*, PassRefPtr<QtInstance> senderInstance, int signalIndex, JSObject* receiver, JSObject* receiverFunction);
+
 private:
-    RefPtr<QtInstance> m_instance;
+    JSContextRef m_context;
+    RefPtr<QtInstance> m_senderInstance;
+
+    // We use this as key in active connections multimap.
+    QObject* m_originalSender;
+
     int m_signalIndex;
-    QObject* m_originalObject; // only used as a key, not dereferenced
-    Strong<JSObject> m_thisObject;
-    Strong<JSObject> m_funcObject;
+    JSObjectRef m_receiver;
+    JSObjectRef m_receiverFunction;
 };
+
+
+typedef QVariant (*ConvertToVariantFunction)(JSObject* object, int *distance, HashSet<JSObject*>* visitedObjects);
+typedef JSValue (*ConvertToJSValueFunction)(ExecState* exec, WebCore::JSDOMGlobalObject* globalObject, const QVariant& variant);
+
+void registerCustomType(int qtMetaTypeId, ConvertToVariantFunction, ConvertToJSValueFunction);
 
 QVariant convertValueToQVariant(ExecState* exec, JSValue value, QMetaType::Type hint, int *distance);
 JSValue convertQVariantToValue(ExecState* exec, PassRefPtr<RootObject> root, const QVariant& variant);

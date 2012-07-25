@@ -130,16 +130,6 @@ static void readPreferenceSection(struct rcfile *rcfile, struct smb_prefs *prefs
 				prefs->minAuthAllowed = SMB_MINAUTH;
 			}
 		}
-		/* Only get the value if it exist */
-		if (rc_getbool(rcfile, sname, "workAroundEMC", &altflags) == 0) {			
-			if (altflags) {
-				prefs->workAroundEMCPanic = TRUE;
-			} else {
-				prefs->workAroundEMCPanic = FALSE;	
-				smb_log_info("%s: Turning off the EMC Workaround!", 
-							 ASL_LEVEL_DEBUG, __FUNCTION__);
-			}
-		}
 	}
 	
 	/* global, server, user, or share preferences */
@@ -295,8 +285,6 @@ void getDefaultPreferences(struct smb_prefs *prefs)
 	prefs->altflags = SMBFS_MNT_STREAMS_ON | SMBFS_MNT_COMPOUND_ON;
 	prefs->minAuthAllowed = SMB_MINAUTH_NTLM;
 	prefs->NetBIOSResolverTimeout = DefaultNetBIOSResolverTimeout;
-	prefs->workAroundEMCPanic = TRUE;
-	
 	/* Now get any values stored in the System Configuration */
 	getSCPreferences(prefs);
 }

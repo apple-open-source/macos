@@ -29,14 +29,26 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.DOMNode = function(doc, payload) {
+/**
+ * @constructor
+ * @param {WebInspector.DOMAgent} domAgent
+ * @param {?WebInspector.DOMDocument} doc
+ * @param {boolean} isInShadowTree
+ * @param {DOMAgent.Node} payload
+ */
+WebInspector.DOMNode = function(domAgent, doc, isInShadowTree, payload) {
+    this._domAgent = domAgent;
     this.ownerDocument = doc;
+    this._isInShadowTree = isInShadowTree;
 
-    this.id = payload.id;
+    this.id = payload.nodeId;
+    domAgent._idToDOMNode[this.id] = this;
     this._nodeType = payload.nodeType;
     this._nodeName = payload.nodeName;
     this._localName = payload.localName;
     this._nodeValue = payload.nodeValue;
+
+    this._shadowRoots = [];
 
     this._attributes = [];
     this._attributesMap = {};
@@ -47,7 +59,7 @@ WebInspector.DOMNode = function(doc, payload) {
     this.children = null;
 
     this.nextSibling = null;
-    this.prevSibling = null;
+    this.previousSibling = null;
     this.firstChild = null;
     this.lastChild = null;
     this.parentNode = null;
@@ -55,97 +67,185 @@ WebInspector.DOMNode = function(doc, payload) {
     if (payload.children)
         this._setChildrenPayload(payload.children);
 
-    this._computedStyle = null;
-    this.style = null;
-    this._matchedCSSRules = [];
+    if (payload.contentDocument) {
+        this._contentDocument = new WebInspector.DOMDocument(domAgent, payload.contentDocument);
+        this.children = [this._contentDocument];
+        this._renumber();
+    }
+
+    if (payload.shadowRoots && WebInspector.experimentsSettings.showShadowDOM.isEnabled()) {
+        for (var i = 0; i < payload.shadowRoots.length; ++i) {
+            var root = payload.shadowRoots[i];
+            var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, true, root);
+            this._shadowRoots.push(node);
+        }
+    }
 
     if (this._nodeType === Node.ELEMENT_NODE) {
         // HTML and BODY from internal iframes should not overwrite top-level ones.
-        if (!this.ownerDocument.documentElement && this._nodeName === "HTML")
+        if (this.ownerDocument && !this.ownerDocument.documentElement && this._nodeName === "HTML")
             this.ownerDocument.documentElement = this;
-        if (!this.ownerDocument.body && this._nodeName === "BODY")
+        if (this.ownerDocument && !this.ownerDocument.body && this._nodeName === "BODY")
             this.ownerDocument.body = this;
-        if (payload.documentURL)
-            this.documentURL = payload.documentURL;
-        if (payload.shadowRoot)
-            this._setShadowRootPayload(payload.shadowRoot);
     } else if (this._nodeType === Node.DOCUMENT_TYPE_NODE) {
         this.publicId = payload.publicId;
         this.systemId = payload.systemId;
         this.internalSubset = payload.internalSubset;
-    } else if (this._nodeType === Node.DOCUMENT_NODE) {
-        this.documentURL = payload.documentURL;
     } else if (this._nodeType === Node.ATTRIBUTE_NODE) {
         this.name = payload.name;
         this.value = payload.value;
     }
 }
 
+/**
+ * @constructor
+ * @param {string} value
+ * @param {boolean} optimized
+ */
+WebInspector.DOMNode.XPathStep = function(value, optimized)
+{
+    this.value = value;
+    this.optimized = optimized;
+}
+
+WebInspector.DOMNode.XPathStep.prototype = {
+    toString: function()
+    {
+        return this.value;
+    }
+}
+
 WebInspector.DOMNode.prototype = {
+    /**
+     * @return {boolean}
+     */
     hasAttributes: function()
     {
         return this._attributes.length > 0;
     },
 
+    /**
+     * @return {boolean}
+     */
     hasChildNodes: function()
     {
-        return this._childNodeCount > 0;
+        return this._childNodeCount > 0 || !!this._shadowRoots.length;
     },
 
+    /**
+     * @return {number}
+     */
     nodeType: function()
     {
         return this._nodeType;
     },
 
-    inShadowTree: function()
-    {
-        return this._inShadowTree;
-    },
-
+    /**
+     * @return {string}
+     */
     nodeName: function()
     {
         return this._nodeName;
     },
 
-    setNodeName: function(name, callback)
+    /**
+     * @return {boolean}
+     */
+    isInShadowTree: function()
     {
-        DOMAgent.setNodeName(this.id, name, callback);
+        return this._isInShadowTree;
     },
 
+    /**
+     * @return {string}
+     */
+    nodeNameInCorrectCase: function()
+    {
+        return this.isXMLNode() ? this.nodeName() : this.nodeName().toLowerCase();
+    },
+
+    /**
+     * @param {string} name
+     * @param {function(?Protocol.Error)=} callback
+     */
+    setNodeName: function(name, callback)
+    {
+        DOMAgent.setNodeName(this.id, name, WebInspector.domAgent._markRevision(this, callback));
+    },
+
+    /**
+     * @return {string}
+     */
     localName: function()
     {
         return this._localName;
     },
 
+    /**
+     * @return {string}
+     */
     nodeValue: function()
     {
         return this._nodeValue;
     },
 
+    /**
+     * @param {string} value
+     * @param {function(?Protocol.Error)=} callback
+     */
     setNodeValue: function(value, callback)
     {
-        DOMAgent.setNodeValue(this.id, value, callback);
+        DOMAgent.setNodeValue(this.id, value, WebInspector.domAgent._markRevision(this, callback));
     },
 
+    /**
+     * @param {string} name
+     * @return {string}
+     */
     getAttribute: function(name)
     {
         var attr = this._attributesMap[name];
         return attr ? attr.value : undefined;
     },
 
-    setAttribute: function(name, value, callback)
+    /**
+     * @param {string} name
+     * @param {string} text
+     * @param {function(?Protocol.Error)=} callback
+     */
+    setAttribute: function(name, text, callback)
     {
-        DOMAgent.setAttribute(this.id, name, value, callback);
+        DOMAgent.setAttributesAsText(this.id, text, name, WebInspector.domAgent._markRevision(this, callback));
     },
 
+    /**
+     * @param {string} name
+     * @param {string} value
+     * @param {function(?Protocol.Error)=} callback
+     */
+    setAttributeValue: function(name, value, callback)
+    {
+        DOMAgent.setAttributeValue(this.id, name, value, WebInspector.domAgent._markRevision(this, callback));
+    },
+
+    /**
+     * @return {Object}
+     */
     attributes: function()
     {
         return this._attributes;
     },
 
+    /**
+     * @param {string} name
+     * @param {function(?Protocol.Error)=} callback
+     */
     removeAttribute: function(name, callback)
     {
-        function mycallback(error, success)
+        /**
+         *  @param {?Protocol.Error} error
+         */
+        function mycallback(error)
         {
             if (!error) {
                 delete this._attributesMap[name];
@@ -157,12 +257,14 @@ WebInspector.DOMNode.prototype = {
                 }
             }
 
-            if (callback)
-                callback();
+            WebInspector.domAgent._markRevision(this, callback)(error);
         }
         DOMAgent.removeAttribute(this.id, name, mycallback.bind(this));
     },
 
+    /**
+     * @param {function(Array.<WebInspector.DOMNode>)=} callback
+     */
     getChildNodes: function(callback)
     {
         if (this.children) {
@@ -171,38 +273,73 @@ WebInspector.DOMNode.prototype = {
             return;
         }
 
-        function mycallback(error) {
+        /**
+         * @this {WebInspector.DOMNode}
+         * @param {?Protocol.Error} error
+         */
+        function mycallback(error)
+        {
             if (!error && callback)
                 callback(this.children);
         }
-        DOMAgent.getChildNodes(this.id, mycallback.bind(this));
+
+        DOMAgent.requestChildNodes(this.id, mycallback.bind(this));
     },
 
+    /**
+     * @param {function(?Protocol.Error)=} callback
+     */
     getOuterHTML: function(callback)
     {
         DOMAgent.getOuterHTML(this.id, callback);
     },
 
+    /**
+     * @param {string} html
+     * @param {function(?Protocol.Error)=} callback
+     */
     setOuterHTML: function(html, callback)
     {
-        DOMAgent.setOuterHTML(this.id, html, callback);
+        DOMAgent.setOuterHTML(this.id, html, WebInspector.domAgent._markRevision(this, callback));
     },
 
+    /**
+     * @param {function(?Protocol.Error)=} callback
+     */
     removeNode: function(callback)
     {
-        DOMAgent.removeNode(this.id, callback);
+        DOMAgent.removeNode(this.id, WebInspector.domAgent._markRevision(this, callback));
     },
 
-    copyNode: function(callback)
+    copyNode: function()
     {
-        DOMAgent.copyNode(this.id, callback);
+        function copy(error, text)
+        {
+            if (!error)
+                InspectorFrontendHost.copyText(text);
+        }
+        DOMAgent.getOuterHTML(this.id, copy);
     },
 
+    /**
+     * @param {boolean} optimized
+     */
+    copyXPath: function(optimized)
+    {
+        InspectorFrontendHost.copyText(this.xPath(optimized));
+    },
+
+    /**
+     * @param {function(?Protocol.Error)=} callback
+     */
     eventListeners: function(callback)
     {
         DOMAgent.getEventListenersForNode(this.id, callback);
     },
 
+    /**
+     * @return {string}
+     */
     path: function()
     {
         var path = [];
@@ -215,9 +352,13 @@ WebInspector.DOMNode.prototype = {
         return path.join(",");
     },
 
+    /**
+     * @param {boolean} justSelector
+     * @return {string}
+     */
     appropriateSelectorFor: function(justSelector)
     {
-        var lowerCaseName = this.localName() || node.nodeName().toLowerCase();
+        var lowerCaseName = this.localName() || this.nodeName().toLowerCase();
 
         var id = this.getAttribute("id");
         if (id) {
@@ -227,7 +368,7 @@ WebInspector.DOMNode.prototype = {
 
         var className = this.getAttribute("class");
         if (className) {
-            var selector = "." + className.replace(/\s+/, ".");
+            var selector = "." + className.trim().replace(/\s+/g, ".");
             return (justSelector ? selector : lowerCaseName + selector);
         }
 
@@ -237,21 +378,71 @@ WebInspector.DOMNode.prototype = {
         return lowerCaseName;
     },
 
-    _setAttributesPayload: function(attrs)
+    /**
+     * @param {WebInspector.DOMNode} node
+     * @return {boolean}
+     */
+    isAncestor: function(node)
     {
-        this._attributes = [];
-        this._attributesMap = {};
-        for (var i = 0; i < attrs.length; i += 2)
-            this._addAttribute(attrs[i], attrs[i + 1]);
+        if (!node)
+            return false;
+
+        var currentNode = node.parentNode;
+        while (currentNode) {
+            if (this === currentNode)
+                return true;
+            currentNode = currentNode.parentNode;
+        }
+        return false;
     },
 
+    /**
+     * @param {WebInspector.DOMNode} descendant
+     * @return {boolean}
+     */
+    isDescendant: function(descendant)
+    {
+        return descendant !== null && descendant.isAncestor(this);
+    },
+
+    /**
+     * @param {Array.<string>} attrs
+     * @return {boolean}
+     */
+    _setAttributesPayload: function(attrs)
+    {
+        var attributesChanged = !this._attributes || attrs.length !== this._attributes.length * 2;
+        var oldAttributesMap = this._attributesMap || {};
+
+        this._attributes = [];
+        this._attributesMap = {};
+
+        for (var i = 0; i < attrs.length; i += 2) {
+            var name = attrs[i];
+            var value = attrs[i + 1];
+            this._addAttribute(name, value);
+
+            if (attributesChanged)
+                continue;
+
+            if (!oldAttributesMap[name] || oldAttributesMap[name].value !== value)
+              attributesChanged = true;
+        }
+        return attributesChanged;
+    },
+
+    /**
+     * @param {WebInspector.DOMNode} prev
+     * @param {DOMAgent.Node} payload
+     * @return {WebInspector.DOMNode}
+     */
     _insertChild: function(prev, payload)
     {
-        var node = new WebInspector.DOMNode(this.ownerDocument, payload);
+        var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, this._isInShadowTree, payload);
         if (!prev) {
             if (!this.children) {
                 // First node
-                this.children = [ node ];
+                this.children = this._shadowRoots.concat([ node ]);
             } else
                 this.children.unshift(node);
         } else
@@ -260,33 +451,32 @@ WebInspector.DOMNode.prototype = {
         return node;
     },
 
-    removeChild_: function(node)
+    /**
+     * @param {WebInspector.DOMNode} node
+     */
+    _removeChild: function(node)
     {
         this.children.splice(this.children.indexOf(node), 1);
         node.parentNode = null;
         this._renumber();
     },
 
+    /**
+     * @param {Array.<DOMAgent.Node>} payloads
+     */
     _setChildrenPayload: function(payloads)
     {
-        this.children = [];
+        // We set children in the constructor.
+        if (this._contentDocument)
+            return;
+
+        this.children = this._shadowRoots.slice();
         for (var i = 0; i < payloads.length; ++i) {
             var payload = payloads[i];
-            var node = new WebInspector.DOMNode(this.ownerDocument, payload);
+            var node = new WebInspector.DOMNode(this._domAgent, this.ownerDocument, this._isInShadowTree, payload);
             this.children.push(node);
         }
         this._renumber();
-    },
-
-    _setShadowRootPayload: function(payload)
-    {
-        if (!payload) {
-            this.shadowRoot = null;
-            return;
-        }
-        this.shadowRoot = new WebInspector.DOMNode(this.ownerDocument, payload);
-        this.shadowRoot.parentNode = this;
-        this.shadowRoot._inShadowTree = true;
     },
 
     _renumber: function()
@@ -303,60 +493,234 @@ WebInspector.DOMNode.prototype = {
             var child = this.children[i];
             child.index = i;
             child.nextSibling = i + 1 < this._childNodeCount ? this.children[i + 1] : null;
-            child.prevSibling = i - 1 >= 0 ? this.children[i - 1] : null;
+            child.previousSibling = i - 1 >= 0 ? this.children[i - 1] : null;
             child.parentNode = this;
-            child._inShadowTree = this._inShadowTree;
         }
     },
 
+    /**
+     * @param {string} name
+     * @param {string} value
+     */
     _addAttribute: function(name, value)
     {
         var attr = {
-            "name": name,
-            "value": value,
-            "_node": this
+            name: name,
+            value: value,
+            _node: this
         };
         this._attributesMap[name] = attr;
         this._attributes.push(attr);
     },
 
-    ownerDocumentElement: function()
+    /**
+     * @param {string} name
+     * @param {string} value
+     */
+    _setAttribute: function(name, value)
     {
-        // document element is the child of the document / frame owner node that has documentURL property.
-        // FIXME: return document nodes as a part of the DOM tree structure.
-        var node = this;
-        while (node.parentNode && !node.parentNode.documentURL)
-            node = node.parentNode;
-        return node;
+        var attr = this._attributesMap[name];
+        if (attr)
+            attr.value = value;
+        else
+            this._addAttribute(name, value);
+    },
+
+    /**
+     * @param {string} name
+     */
+    _removeAttribute: function(name)
+    {
+        var attr = this._attributesMap[name];
+        if (attr) {
+            this._attributes.remove(attr);
+            delete this._attributesMap[name];
+        }
+    },
+
+    /**
+     * @param {WebInspector.DOMNode} targetNode
+     * @param {?WebInspector.DOMNode} anchorNode
+     * @param {function(?Protocol.Error)=} callback
+     */
+    moveTo: function(targetNode, anchorNode, callback)
+    {
+        DOMAgent.moveTo(this.id, targetNode.id, anchorNode ? anchorNode.id : undefined, WebInspector.domAgent._markRevision(this, callback));
+    },
+
+    /**
+     * @return {boolean}
+     */
+    isXMLNode: function()
+    {
+        return !!this.ownerDocument && !!this.ownerDocument.xmlVersion;
+    },
+
+    /**
+     * @param {boolean} optimized
+     * @return {string}
+     */
+    xPath: function(optimized)
+    {
+        if (this._nodeType === Node.DOCUMENT_NODE)
+            return "/";
+
+        var steps = [];
+        var contextNode = this;
+        while (contextNode) {
+            var step = contextNode._xPathValue(optimized);
+            if (!step)
+                break; // Error - bail out early.
+            steps.push(step);
+            if (step.optimized)
+                break;
+            contextNode = contextNode.parentNode;
+        }
+
+        steps.reverse();
+        return (steps.length && steps[0].optimized ? "" : "/") + steps.join("/");
+    },
+
+    /**
+     * @param {boolean} optimized
+     * @return {WebInspector.DOMNode.XPathStep}
+     */
+    _xPathValue: function(optimized)
+    {
+        var ownValue;
+        var ownIndex = this._xPathIndex();
+        if (ownIndex === -1)
+            return null; // Error.
+
+        switch (this._nodeType) {
+        case Node.ELEMENT_NODE:
+            if (optimized && this.getAttribute("id"))
+                return new WebInspector.DOMNode.XPathStep("//*[@id=\"" + this.getAttribute("id") + "\"]", true);
+            ownValue = this._localName;
+            break;
+        case Node.ATTRIBUTE_NODE:
+            ownValue = "@" + this._nodeName;
+            break;
+        case Node.TEXT_NODE:
+        case Node.CDATA_SECTION_NODE:
+            ownValue = "text()";
+            break;
+        case Node.PROCESSING_INSTRUCTION_NODE:
+            ownValue = "processing-instruction()";
+            break;
+        case Node.COMMENT_NODE:
+            ownValue = "comment()";
+            break;
+        case Node.DOCUMENT_NODE:
+            ownValue = "";
+            break;
+        default:
+            ownValue = "";
+            break;
+        }
+
+        if (ownIndex > 0)
+            ownValue += "[" + ownIndex + "]";
+
+        return new WebInspector.DOMNode.XPathStep(ownValue, this._nodeType === Node.DOCUMENT_NODE);
+    },
+
+    /**
+     * @return {number}
+     */
+    _xPathIndex: function()
+    {
+        // Returns -1 in case of error, 0 if no siblings matching the same expression, <XPath index among the same expression-matching sibling nodes> otherwise.
+        function areNodesSimilar(left, right)
+        {
+            if (left === right)
+                return true;
+
+            if (left._nodeType === Node.ELEMENT_NODE && right._nodeType === Node.ELEMENT_NODE)
+                return left._localName === right._localName;
+
+            if (left._nodeType === right._nodeType)
+                return true;
+
+            // XPath treats CDATA as text nodes.
+            var leftType = left._nodeType === Node.CDATA_SECTION_NODE ? Node.TEXT_NODE : left._nodeType;
+            var rightType = right._nodeType === Node.CDATA_SECTION_NODE ? Node.TEXT_NODE : right._nodeType;
+            return leftType === rightType;
+        }
+
+        var siblings = this.parentNode ? this.parentNode.children : null;
+        if (!siblings)
+            return 0; // Root node - no siblings.
+        var hasSameNamedElements;
+        for (var i = 0; i < siblings.length; ++i) {
+            if (areNodesSimilar(this, siblings[i]) && siblings[i] !== this) {
+                hasSameNamedElements = true;
+                break;
+            }
+        }
+        if (!hasSameNamedElements)
+            return 0;
+        var ownIndex = 1; // XPath indices start with 1.
+        for (var i = 0; i < siblings.length; ++i) {
+            if (areNodesSimilar(this, siblings[i])) {
+                if (siblings[i] === this)
+                    return ownIndex;
+                ++ownIndex;
+            }
+        }
+        return -1; // An error occurred: |this| not found in parent's children.
     }
 }
 
+/**
+ * @extends {WebInspector.DOMNode}
+ * @constructor
+ * @param {WebInspector.DOMAgent} domAgent
+ * @param {DOMAgent.Node} payload
+ */
 WebInspector.DOMDocument = function(domAgent, payload)
 {
-    WebInspector.DOMNode.call(this, this, payload);
+    WebInspector.DOMNode.call(this, domAgent, this, false, payload);
+    this.documentURL = payload.documentURL || "";
+    this.xmlVersion = payload.xmlVersion;
     this._listeners = {};
-    this._domAgent = domAgent;
 }
 
 WebInspector.DOMDocument.prototype.__proto__ = WebInspector.DOMNode.prototype;
 
+/**
+ * @extends {WebInspector.Object}
+ * @constructor
+ */
 WebInspector.DOMAgent = function() {
-    this._idToDOMNode = null;
+    /** @type {Object|undefined} */
+    this._idToDOMNode = {};
     this._document = null;
-    InspectorBackend.registerDomainDispatcher("DOM", new WebInspector.DOMDispatcher(this));
+    this._attributeLoadNodeIds = {};
+    InspectorBackend.registerDOMDispatcher(new WebInspector.DOMDispatcher(this));
+    if (WebInspector.settings.emulateTouchEvents.get())
+        this._emulateTouchEventsChanged();
+    WebInspector.settings.emulateTouchEvents.addChangeListener(this._emulateTouchEventsChanged, this);
 }
 
 WebInspector.DOMAgent.Events = {
     AttrModified: "AttrModified",
+    AttrRemoved: "AttrRemoved",
     CharacterDataModified: "CharacterDataModified",
     NodeInserted: "NodeInserted",
     NodeRemoved: "NodeRemoved",
     DocumentUpdated: "DocumentUpdated",
     ChildNodeCountUpdated: "ChildNodeCountUpdated",
-    ShadowRootUpdated: "ShadowRootUpdated"
+    InspectElementRequested: "InspectElementRequested",
+    StyleInvalidated: "StyleInvalidated",
+    UndoRedoRequested: "UndoRedoRequested",
+    UndoRedoCompleted: "UndoRedoCompleted"
 }
 
 WebInspector.DOMAgent.prototype = {
+    /**
+     * @param {function(WebInspector.DOMDocument)=} callback
+     */
     requestDocument: function(callback)
     {
         if (this._document) {
@@ -372,6 +736,11 @@ WebInspector.DOMAgent.prototype = {
 
         this._pendingDocumentRequestCallbacks = [callback];
 
+        /**
+         * @this {WebInspector.DOMAgent}
+         * @param {?Protocol.Error} error
+         * @param {DOMAgent.Node} root
+         */
         function onDocumentAvailable(error, root)
         {
             if (!error)
@@ -388,42 +757,57 @@ WebInspector.DOMAgent.prototype = {
         DOMAgent.getDocument(onDocumentAvailable.bind(this));
     },
 
+    /**
+     * @param {RuntimeAgent.RemoteObjectId} objectId
+     * @param {function(?DOMAgent.NodeId)=} callback
+     */
     pushNodeToFrontend: function(objectId, callback)
     {
-        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeToFrontend.bind(DOMAgent), objectId, callback);
+        var callbackCast = /** @type {function(*)} */ callback;
+        this._dispatchWhenDocumentAvailable(DOMAgent.requestNode.bind(DOMAgent, objectId), callbackCast);
     },
 
+    /**
+     * @param {string} path
+     * @param {function(?WebInspector.DOMNode)=} callback
+     */
     pushNodeByPathToFrontend: function(path, callback)
     {
-        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByPathToFrontend.bind(DOMAgent), path, callback);
+        var callbackCast = /** @type {function(*)} */ callback;
+        this._dispatchWhenDocumentAvailable(DOMAgent.pushNodeByPathToFrontend.bind(DOMAgent, path), callbackCast);
     },
 
+    /**
+     * @param {function(*)=} callback
+     * @return {function(?Protocol.Error,*=)|undefined}
+     */
     _wrapClientCallback: function(callback)
     {
         if (!callback)
             return;
+        /**
+         * @param {?Protocol.Error} error
+         * @param {*=} result
+         */
         return function(error, result)
         {
-            if (error)
-                console.error("Error during DOMAgent operation: " + error);
+            // Caller is responsible for handling the actual error.
             callback(error ? null : result);
         }
     },
 
-    _dispatchWhenDocumentAvailable: function(action)
+    /**
+     * @param {function(function(?Protocol.Error, *=))} func
+     * @param {function(*)=} callback
+     */
+    _dispatchWhenDocumentAvailable: function(func, callback)
     {
-        var requestArguments = Array.prototype.slice.call(arguments, 1);
-        var callbackWrapper;
+        var callbackWrapper = /** @type {function(?Protocol.Error, *=)} */ this._wrapClientCallback(callback);
 
-        if (typeof requestArguments[requestArguments.length - 1] === "function") {
-            var callback = requestArguments.pop();
-            callbackWrapper = this._wrapClientCallback(callback);
-            requestArguments.push(callbackWrapper);
-        }
         function onDocumentAvailable()
         {
             if (this._document)
-                action.apply(null, requestArguments);
+                func(callbackWrapper);
             else {
                 if (callbackWrapper)
                     callbackWrapper("No document");
@@ -432,13 +816,85 @@ WebInspector.DOMAgent.prototype = {
         this.requestDocument(onDocumentAvailable.bind(this));
     },
 
-    _attributesUpdated: function(nodeId, attrsArray)
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} name
+     * @param {string} value
+     */
+    _attributeModified: function(nodeId, name, value)
     {
         var node = this._idToDOMNode[nodeId];
-        node._setAttributesPayload(attrsArray);
-        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrModified, node);
+        if (!node)
+            return;
+        var issueStyleInvalidated = name === "style" && value !== node.getAttribute("style");
+
+        node._setAttribute(name, value);
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrModified, { node: node, name: name });
+        if (issueStyleInvalidated)
+          this.dispatchEventToListeners(WebInspector.DOMAgent.Events.StyleInvalidated, node)
     },
 
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} name
+     */
+    _attributeRemoved: function(nodeId, name)
+    {
+        var node = this._idToDOMNode[nodeId];
+        if (!node)
+            return;
+        node._removeAttribute(name);
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrRemoved, { node: node, name: name });
+    },
+
+    /**
+     * @param {Array.<DOMAgent.NodeId>} nodeIds
+     */
+    _inlineStyleInvalidated: function(nodeIds)
+    {
+        for (var i = 0; i < nodeIds.length; ++i)
+            this._attributeLoadNodeIds[nodeIds[i]] = true;
+        if ("_loadNodeAttributesTimeout" in this)
+            return;
+        this._loadNodeAttributesTimeout = setTimeout(this._loadNodeAttributes.bind(this), 0);
+    },
+
+    _loadNodeAttributes: function()
+    {
+        /**
+         * @this {WebInspector.DOMAgent}
+         * @param {DOMAgent.NodeId} nodeId
+         * @param {?Protocol.Error} error
+         * @param {Array.<string>} attributes
+         */
+        function callback(nodeId, error, attributes)
+        {
+            if (error) {
+                // We are calling _loadNodeAttributes asynchronously, it is ok if node is not found.
+                return;
+            }
+            var node = this._idToDOMNode[nodeId];
+            if (node) {
+                if (node._setAttributesPayload(attributes)) {
+                    this.dispatchEventToListeners(WebInspector.DOMAgent.Events.AttrModified, { node: node, name: "style" });
+                    this.dispatchEventToListeners(WebInspector.DOMAgent.Events.StyleInvalidated, node);
+                }
+            }
+        }
+
+        delete this._loadNodeAttributesTimeout;
+
+        for (var nodeId in this._attributeLoadNodeIds) {
+            var nodeIdAsNumber = parseInt(nodeId, 10);
+            DOMAgent.getAttributes(nodeIdAsNumber, callback.bind(this, nodeIdAsNumber));
+        }
+        this._attributeLoadNodeIds = {};
+    },
+
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} newValue
+     */
     _characterDataModified: function(nodeId, newValue)
     {
         var node = this._idToDOMNode[nodeId];
@@ -446,6 +902,10 @@ WebInspector.DOMAgent.prototype = {
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.CharacterDataModified, node);
     },
 
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @return {WebInspector.DOMNode|undefined}
+     */
     nodeForId: function(nodeId)
     {
         return this._idToDOMNode[nodeId];
@@ -454,28 +914,36 @@ WebInspector.DOMAgent.prototype = {
     _documentUpdated: function()
     {
         this._setDocument(null);
-        this.requestDocument();
     },
 
+    /**
+     * @param {DOMAgent.Node} payload
+     */
     _setDocument: function(payload)
     {
         this._idToDOMNode = {};
-        if (payload && "id" in payload) {
+        if (payload && "nodeId" in payload)
             this._document = new WebInspector.DOMDocument(this, payload);
-            this._idToDOMNode[payload.id] = this._document;
-            if (this._document.children)
-                this._bindNodes(this._document.children);
-        } else
+        else
             this._document = null;
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.DocumentUpdated, this._document);
     },
 
+    /**
+     * @param {DOMAgent.Node} payload
+     */
     _setDetachedRoot: function(payload)
     {
-        var root = new WebInspector.DOMNode(this._document, payload);
-        this._idToDOMNode[payload.id] = root;
+        if (payload.nodeName === "#document")
+            new WebInspector.DOMDocument(this, payload);
+        else
+            new WebInspector.DOMNode(this, null, false, payload);
     },
 
+    /**
+     * @param {DOMAgent.NodeId} parentId
+     * @param {Array.<DOMAgent.Node>} payloads
+     */
     _setChildNodes: function(parentId, payloads)
     {
         if (!parentId && payloads.length) {
@@ -485,22 +953,12 @@ WebInspector.DOMAgent.prototype = {
 
         var parent = this._idToDOMNode[parentId];
         parent._setChildrenPayload(payloads);
-        this._bindNodes(parent.children);
     },
 
-    _bindNodes: function(children)
-    {
-        for (var i = 0; i < children.length; ++i) {
-            var child = children[i];
-            this._idToDOMNode[child.id] = child;
-            if (child.shadowRoot)
-                this._idToDOMNode[child.shadowRoot.id] = child.shadowRoot;
-
-            if (child.children)
-                this._bindNodes(child.children);
-        }
-    },
-
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {number} newValue
+     */
     _childNodeCountUpdated: function(nodeId, newValue)
     {
         var node = this._idToDOMNode[nodeId];
@@ -508,6 +966,11 @@ WebInspector.DOMAgent.prototype = {
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.ChildNodeCountUpdated, node);
     },
 
+    /**
+     * @param {DOMAgent.NodeId} parentId
+     * @param {DOMAgent.NodeId} prevId
+     * @param {DOMAgent.Node} payload
+     */
     _childNodeInserted: function(parentId, prevId, payload)
     {
         var parent = this._idToDOMNode[parentId];
@@ -517,53 +980,283 @@ WebInspector.DOMAgent.prototype = {
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.NodeInserted, node);
     },
 
+    /**
+     * @param {DOMAgent.NodeId} parentId
+     * @param {DOMAgent.NodeId} nodeId
+     */
     _childNodeRemoved: function(parentId, nodeId)
     {
         var parent = this._idToDOMNode[parentId];
         var node = this._idToDOMNode[nodeId];
-        parent.removeChild_(node);
+        parent._removeChild(node);
+        this._unbind(node);
         this.dispatchEventToListeners(WebInspector.DOMAgent.Events.NodeRemoved, {node:node, parent:parent});
-        delete this._idToDOMNode[nodeId];
-        if (Preferences.nativeInstrumentationEnabled)
-            WebInspector.panels.elements.sidebarPanes.domBreakpoints.nodeRemoved(node);
     },
 
-    performSearch: function(query, searchResultCollector, searchSynchronously)
+    /**
+     * @param {DOMAgent.NodeId} rootId
+     */
+    _shadowRootPopped: function(rootId)
     {
-        this._searchResultCollector = searchResultCollector;
-        DOMAgent.performSearch(query, !!searchSynchronously);
+    },
+
+    /**
+     * @param {DOMAgent.Node} node
+     */
+    _unbind: function(node)
+    {
+        delete this._idToDOMNode[node.id];
+        for (var i = 0; node.children && i < node.children.length; ++i)
+            this._unbind(node.children[i]);
+    },
+
+    /**
+     * @param {number} nodeId
+     */
+    inspectElement: function(nodeId)
+    {
+        var node = this._idToDOMNode[nodeId];
+        if (node)
+            this.dispatchEventToListeners(WebInspector.DOMAgent.Events.InspectElementRequested, node);
+    },
+
+    /**
+     * @param {string} query
+     * @param {function(number)} searchCallback
+     */
+    performSearch: function(query, searchCallback)
+    {
+        this.cancelSearch();
+
+        /**
+         * @param {?Protocol.Error} error
+         * @param {string} searchId
+         * @param {number} resultsCount
+         */
+        function callback(error, searchId, resultsCount)
+        {
+            this._searchId = searchId;
+            searchCallback(resultsCount);
+        }
+        DOMAgent.performSearch(query, callback.bind(this));
+    },
+
+    /**
+     * @param {number} index
+     * @param {?function(DOMAgent.Node)} callback
+     */
+    searchResult: function(index, callback)
+    {
+        if (this._searchId) {
+            /**
+             * @param {?Protocol.Error} error
+             * @param {Array.<number>} nodeIds
+             */
+            function mycallback(error, nodeIds)
+            {
+                if (error) {
+                    console.error(error);
+                    callback(null);
+                    return;
+                }
+                if (nodeIds.length != 1)
+                    return;
+
+                callback(this._idToDOMNode[nodeIds[0]]);
+            }
+            DOMAgent.getSearchResults(this._searchId, index, index + 1, mycallback.bind(this));
+        } else
+            callback(null);
     },
 
     cancelSearch: function()
     {
-        delete this._searchResultCollector;
-        DOMAgent.cancelSearch();
+        if (this._searchId) {
+            DOMAgent.discardSearchResults(this._searchId);
+            delete this._searchId;
+        }
     },
 
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} selectors
+     * @param {function(?DOMAgent.NodeId)=} callback
+     */
     querySelector: function(nodeId, selectors, callback)
     {
-        DOMAgent.querySelector(nodeId, selectors, this._wrapClientCallback(callback));
+        var callbackCast = /** @type {function(*)|undefined} */callback;
+        DOMAgent.querySelector(nodeId, selectors, this._wrapClientCallback(callbackCast));
     },
 
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} selectors
+     * @param {function(?Array.<DOMAgent.NodeId>)=} callback
+     */
     querySelectorAll: function(nodeId, selectors, callback)
     {
-        DOMAgent.querySelectorAll(nodeId, selectors, this._wrapClientCallback(callback));
+        var callbackCast = /** @type {function(*)|undefined} */callback;
+        DOMAgent.querySelectorAll(nodeId, selectors, this._wrapClientCallback(callbackCast));
     },
 
-    _shadowRootUpdated: function(hostId, payload)
+    /**
+     * @param {?number} nodeId
+     * @param {string=} mode
+     */
+    highlightDOMNode: function(nodeId, mode)
     {
-        var host = this._idToDOMNode[hostId];
-        if (host.shadowRoot && !payload)
-            delete this._idToDOMNode[host.shadowRoot.id];
-        host._setShadowRootPayload(payload);
-        if (host.shadowRoot)
-            this._idToDOMNode[host.shadowRoot.id] = host.shadowRoot;
-        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.ShadowRootUpdated, host);
+        if (this._hideDOMNodeHighlightTimeout) {
+            clearTimeout(this._hideDOMNodeHighlightTimeout);
+            delete this._hideDOMNodeHighlightTimeout;
+        }
+
+        this._highlightedDOMNodeId = nodeId;
+        if (nodeId)
+            DOMAgent.highlightNode(nodeId, this._buildHighlightConfig(mode));
+        else
+            DOMAgent.hideHighlight();
+    },
+
+    hideDOMNodeHighlight: function()
+    {
+        this.highlightDOMNode(0);
+    },
+
+    /**
+     * @param {?DOMAgent.NodeId} nodeId
+     */
+    highlightDOMNodeForTwoSeconds: function(nodeId)
+    {
+        this.highlightDOMNode(nodeId);
+        this._hideDOMNodeHighlightTimeout = setTimeout(this.hideDOMNodeHighlight.bind(this), 2000);
+    },
+
+    /**
+     * @param {boolean} enabled
+     * @param {function(?Protocol.Error)=} callback
+     */
+    setInspectModeEnabled: function(enabled, callback)
+    {
+        DOMAgent.setInspectModeEnabled(enabled, this._buildHighlightConfig(), callback);
+    },
+
+    /**
+     * @param {string=} mode
+     */
+    _buildHighlightConfig: function(mode)
+    {
+        mode = mode || "all";
+        var highlightConfig = { showInfo: mode === "all" };
+        if (mode === "all" || mode === "content")
+            highlightConfig.contentColor = WebInspector.Color.PageHighlight.Content.toProtocolRGBA();
+
+        if (mode === "all" || mode === "padding")
+            highlightConfig.paddingColor = WebInspector.Color.PageHighlight.Padding.toProtocolRGBA();
+
+        if (mode === "all" || mode === "border")
+            highlightConfig.borderColor = WebInspector.Color.PageHighlight.Border.toProtocolRGBA();
+
+        if (mode === "all" || mode === "margin")
+            highlightConfig.marginColor = WebInspector.Color.PageHighlight.Margin.toProtocolRGBA();
+
+        return highlightConfig;
+    },
+
+    /**
+     * @param {WebInspector.DOMNode} node
+     * @param {function(?Protocol.Error)=} callback
+     * @return {function(?Protocol.Error)}
+     */
+    _markRevision: function(node, callback)
+    {
+        function wrapperFunction(error)
+        {
+            if (!error)
+                this.markUndoableState();
+
+            if (callback)
+                callback.apply(this, arguments);
+        }
+        return wrapperFunction.bind(this);
+    },
+
+    _emulateTouchEventsChanged: function()
+    {
+        const injectedFunction = function() {
+            const touchEvents = ["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"];
+            for (var i = 0; i < touchEvents.length; ++i) {
+                if (!(touchEvents[i] in window.__proto__))
+                    Object.defineProperty(window.__proto__, touchEvents[i], { value: null, writable: true, configurable: true, enumerable: true });
+                if (!(touchEvents[i] in document.__proto__))
+                    Object.defineProperty(document.__proto__, touchEvents[i], { value: null, writable: true, configurable: true, enumerable: true });
+            }
+        }
+
+        var emulationEnabled = WebInspector.settings.emulateTouchEvents.get();
+        if (emulationEnabled && !this._addTouchEventsScriptInjecting) {
+            this._addTouchEventsScriptInjecting = true;
+            PageAgent.addScriptToEvaluateOnLoad("(" + injectedFunction.toString() + ")", scriptAddedCallback.bind(this));
+        } else {
+            if (typeof this._addTouchEventsScriptId !== "undefined") {
+                PageAgent.removeScriptToEvaluateOnLoad(this._addTouchEventsScriptId);
+                delete this._addTouchEventsScriptId;
+            }
+        }
+
+        function scriptAddedCallback(error, scriptId)
+        {
+            delete this._addTouchEventsScriptInjecting;
+            if (error)
+                return;
+            this._addTouchEventsScriptId = scriptId;
+        }
+
+        DOMAgent.setTouchEmulationEnabled(emulationEnabled);
+    },
+
+    markUndoableState: function()
+    {
+        DOMAgent.markUndoableState();
+    },
+
+    /**
+     * @param {function(?Protocol.Error)=} callback
+     */
+    undo: function(callback)
+    {
+        function mycallback(error)
+        {
+            this.dispatchEventToListeners(WebInspector.DOMAgent.Events.UndoRedoCompleted);
+            callback(error);
+        }
+
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.UndoRedoRequested);
+        DOMAgent.undo(callback);
+    },
+
+    /**
+     * @param {function(?Protocol.Error)=} callback
+     */
+    redo: function(callback)
+    {
+        function mycallback(error)
+        {
+            this.dispatchEventToListeners(WebInspector.DOMAgent.Events.UndoRedoCompleted);
+            callback(error);
+        }
+
+        this.dispatchEventToListeners(WebInspector.DOMAgent.Events.UndoRedoRequested);
+        DOMAgent.redo(callback);
     }
 }
 
 WebInspector.DOMAgent.prototype.__proto__ = WebInspector.Object.prototype;
 
+/**
+ * @constructor
+ * @implements {DOMAgent.Dispatcher}
+ * @param {WebInspector.DOMAgent} domAgent
+ */
 WebInspector.DOMDispatcher = function(domAgent)
 {
     this._domAgent = domAgent;
@@ -575,49 +1268,99 @@ WebInspector.DOMDispatcher.prototype = {
         this._domAgent._documentUpdated();
     },
 
-    attributesUpdated: function(nodeId, attrsArray)
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} name
+     * @param {string} value
+     */
+    attributeModified: function(nodeId, name, value)
     {
-        this._domAgent._attributesUpdated(nodeId, attrsArray);
+        this._domAgent._attributeModified(nodeId, name, value);
     },
 
-    characterDataModified: function(nodeId, newValue)
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} name
+     */
+    attributeRemoved: function(nodeId, name)
     {
-        this._domAgent._characterDataModified(nodeId, newValue);
+        this._domAgent._attributeRemoved(nodeId, name);
     },
 
+    /**
+     * @param {Array.<DOMAgent.NodeId>} nodeIds
+     */
+    inlineStyleInvalidated: function(nodeIds)
+    {
+        this._domAgent._inlineStyleInvalidated(nodeIds);
+    },
+
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {string} characterData
+     */
+    characterDataModified: function(nodeId, characterData)
+    {
+        this._domAgent._characterDataModified(nodeId, characterData);
+    },
+
+    /**
+     * @param {DOMAgent.NodeId} parentId
+     * @param {Array.<DOMAgent.Node>} payloads
+     */
     setChildNodes: function(parentId, payloads)
     {
         this._domAgent._setChildNodes(parentId, payloads);
     },
 
-    childNodeCountUpdated: function(nodeId, newValue)
+    /**
+     * @param {DOMAgent.NodeId} nodeId
+     * @param {number} childNodeCount
+     */
+    childNodeCountUpdated: function(nodeId, childNodeCount)
     {
-        this._domAgent._childNodeCountUpdated(nodeId, newValue);
+        this._domAgent._childNodeCountUpdated(nodeId, childNodeCount);
     },
 
-    childNodeInserted: function(parentId, prevId, payload)
+    /**
+     * @param {DOMAgent.NodeId} parentNodeId
+     * @param {DOMAgent.NodeId} previousNodeId
+     * @param {DOMAgent.Node} payload
+     */
+    childNodeInserted: function(parentNodeId, previousNodeId, payload)
     {
-        this._domAgent._childNodeInserted(parentId, prevId, payload);
+        this._domAgent._childNodeInserted(parentNodeId, previousNodeId, payload);
     },
 
-    childNodeRemoved: function(parentId, nodeId)
+    /**
+     * @param {DOMAgent.NodeId} parentNodeId
+     * @param {DOMAgent.NodeId} nodeId
+     */
+    childNodeRemoved: function(parentNodeId, nodeId)
     {
-        this._domAgent._childNodeRemoved(parentId, nodeId);
+        this._domAgent._childNodeRemoved(parentNodeId, nodeId);
     },
 
-    inspectElementRequested: function(nodeId)
+    /**
+     * @param {DOMAgent.NodeId} hostId
+     * @param {DOMAgent.Node} root
+     */
+    shadowRootPushed: function(hostId, root)
     {
-        WebInspector.updateFocusedNode(nodeId);
+        this._domAgent._childNodeInserted(hostId, 0, root);
     },
 
-    searchResults: function(nodeIds)
+    /**
+     * @param {DOMAgent.NodeId} hostId
+     * @param {DOMAgent.NodeId} rootId
+     */
+    shadowRootPopped: function(hostId, rootId)
     {
-        if (this._domAgent._searchResultCollector)
-            this._domAgent._searchResultCollector(nodeIds);
-    },
-
-    shadowRootUpdated: function(hostId, shadowRoot)
-    {
-        this._domAgent._shadowRootUpdated(hostId, shadowRoot);
+        this._domAgent._childNodeRemoved(hostId, rootId);
     }
 }
+
+/**
+ * @type {?WebInspector.DOMAgent}
+ */
+WebInspector.domAgent = null;

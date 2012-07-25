@@ -1,0 +1,11 @@
+--- pyobjc-core/Modules/objc/objc-runtime-compat.m.orig	2008-05-01 01:34:04.000000000 -0700
++++ pyobjc-core/Modules/objc/objc-runtime-compat.m	2011-10-12 09:13:03.000000000 -0700
+@@ -981,7 +981,7 @@ size_t PyObjC_methodlist_magic(Class cls
+ 
+ #endif
+ 
+-#if defined(__x86_64__)
++#if __OBJC2__
+ 
+ @implementation Protocol (NSOBjectCompat)
+ - self

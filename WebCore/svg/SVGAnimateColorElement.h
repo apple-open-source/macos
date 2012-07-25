@@ -21,24 +21,22 @@
 
 #ifndef SVGAnimateColorElement_h
 #define SVGAnimateColorElement_h
-#if ENABLE(SVG_ANIMATION)
 
+#if ENABLE(SVG)
 #include "SVGAnimateElement.h"
 
 namespace WebCore {
 
-// SVGAnimateElement implements superset of the functionality.
 class SVGAnimateColorElement : public SVGAnimateElement {
 public:
     static PassRefPtr<SVGAnimateColorElement> create(const QualifiedName&, Document*);
 
 private:
     SVGAnimateColorElement(const QualifiedName&, Document*);
+    virtual void determinePropertyValueTypes(const String& from, const String& to);
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(SVG_ANIMATION)
-#endif // KSVG_SVGAnimateColorElementImpl_H
-
-// vim:ts=4:noet
+#endif // ENABLE(SVG)
+#endif // SVGAnimateColorElement_h

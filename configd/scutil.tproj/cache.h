@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,9 +34,15 @@
 #ifndef _CACHE_H
 #define _CACHE_H
 
+#include <Availability.h>
+#include <TargetConditionals.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+
+void	cache_close		(void);
+
+void	do_block		(int argc, char **argv);
 
 void	do_list			(int argc, char **argv);
 void	do_add			(int argc, char **argv);
@@ -45,7 +51,6 @@ void	do_set			(int argc, char **argv);
 void	do_show			(int argc, char **argv);
 void	do_remove		(int argc, char **argv);
 void	do_notify		(int argc, char **argv);
-void	do_touch		(int argc, char **argv);
 
 __END_DECLS
 

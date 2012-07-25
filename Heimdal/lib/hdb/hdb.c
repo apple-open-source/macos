@@ -81,7 +81,7 @@ static struct hdb_method methods[] = {
     { HDB_INTERFACE_VERSION, "ldap:",	hdb_ldap_create},
     { HDB_INTERFACE_VERSION, "ldapi:",	hdb_ldapi_create},
 #endif
-#ifdef HAVE_SQLITE
+#ifdef HAVE_SQLITE3
     { HDB_INTERFACE_VERSION, "sqlite:", hdb_sqlite_create},
 #endif
     {0, NULL,	NULL}
@@ -171,13 +171,14 @@ hdb_unlock(int fd)
 void
 hdb_free_entry(krb5_context context, hdb_entry_ex *ent)
 {
-    int i;
+    Key *k;
+    size_t i;
 
     if (ent->free_entry)
 	(*ent->free_entry)(context, ent);
 
-    for(i = 0; i < ent->entry.keys.len; ++i) {
-	Key *k = &ent->entry.keys.val[i];
+    for(i = 0; i < ent->entry.keys.len; i++) {
+	k = &ent->entry.keys.val[i];
 
 	memset (k->key.keyvalue.data, 0, k->key.keyvalue.length);
     }
@@ -220,7 +221,7 @@ hdb_check_db_format(krb5_context context, HDB *db)
     if (ret)
 	return ret;
 
-    tag.data = HDB_DB_FORMAT_ENTRY;
+    tag.data = (void *)(intptr_t)HDB_DB_FORMAT_ENTRY;
     tag.length = strlen(tag.data);
     ret = (*db->hdb__get)(context, db, tag, &version);
     ret2 = db->hdb_unlock(context, db);
@@ -253,7 +254,7 @@ hdb_init_db(krb5_context context, HDB *db)
     if (ret)
 	return ret;
 
-    tag.data = HDB_DB_FORMAT_ENTRY;
+    tag.data = (void *)(intptr_t)HDB_DB_FORMAT_ENTRY;
     tag.length = strlen(tag.data);
     snprintf(ver, sizeof(ver), "%u", HDB_DB_FORMAT);
     version.data = ver;
@@ -322,8 +323,8 @@ find_dynamic_method (krb5_context context,
 
     if (asprintf(&symbol, "hdb_%s_interface", prefix) == -1)
 	krb5_errx(context, 1, "out of memory");
-	
-    mso = dlsym(dl, symbol);
+
+    mso = (struct hdb_so_method *) dlsym(dl, symbol);
     if (mso == NULL) {
 	krb5_warnx(context, "error finding symbol %s in %s: %s\n",
 		   symbol, path, dlerror());
@@ -437,7 +438,7 @@ _hdb_keytab2hdb_entry(krb5_context context,
 
     entry->entry.keys.val[0].mkvno = NULL;
     entry->entry.keys.val[0].salt = NULL;
-    
+
     return krb5_copy_keyblock_contents(context,
 				       &ktentry->keyblock,
 				       &entry->entry.keys.val[0].key);

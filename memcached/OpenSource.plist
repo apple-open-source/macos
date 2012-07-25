@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2010-09-10</string>
+	<string>2012-02-14</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>memcached.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>583441a25f937360624024f2881e5ea8</string>
+	<string>6d18c6d25da945442fcc1187b3b63b7f</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceProject</key>
 	<string>memcached</string>
 	<key>OpenSourceURL</key>
-	<string>http://memcached.googlecode.com/files/memcached-1.4.5.tar.gz</string>
+	<string>http://memcached.googlecode.com/files/memcached-1.4.13.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>1.4.5</string>
+	<string>1.4.13</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://memcached.org/</string>
 </dict>

@@ -62,7 +62,7 @@
 #include <smbfs/smbfs.h>
 #include <smbfs/smbfs_node.h>
 #include <smbfs/smbfs_subr.h>
-#include <smbfs/triggers.h>
+#include <Triggers/triggers.h>
 #include <smbclient/smbclient_internal.h>
 
 #define	SMBFS_NOHASH(smp, hval)	(&(smp)->sm_hash[(hval) & (smp)->sm_hashlen])
@@ -129,7 +129,7 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 	/*
 	 * Allocate the args structure
 	 */
-	MALLOC(argsp, struct mount_url_callargs *, sizeof (*argsp), M_SMBFSDATA, M_WAITOK);
+	SMB_MALLOC(argsp, struct mount_url_callargs *, sizeof (*argsp), M_SMBFSDATA, M_WAITOK);
 
 	/*
 	 * Get the UID for which the mount should be done; it's the
@@ -149,7 +149,7 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 	 * What should be the max length, for URL should it be the MAXPATHLEN
 	 * plus the scheme.
 	 */
-	MALLOC(url, char *, MAXPATHLEN, M_SMBFSDATA, M_WAITOK | M_ZERO);
+	SMB_MALLOC(url, char *, MAXPATHLEN, M_SMBFSDATA, M_WAITOK | M_ZERO);
 	strlcpy(url, "smb:", MAXPATHLEN);
 	if (strlcat(url, vfs_statfs(vnode_mount(vp))->f_mntfromname, MAXPATHLEN) >= MAXPATHLEN) {
 		error = ENAMETOOLONG;
@@ -160,14 +160,14 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 		lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
 		SMBERROR("%s: URL FAILED url = %s\n", VTOSMB(vp)->n_name, url);
 		lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
-		FREE(url, M_SMBFSDATA);
-		FREE(argsp, M_SMBFSDATA);
+		SMB_FREE(url, M_SMBFSDATA);
+		SMB_FREE(argsp, M_SMBFSDATA);
 		*errp = error;
 		return (NULL);
 	}
 	
 	/* Create the mount on path */
-	MALLOC(mountOnPath, char *, MAXPATHLEN, M_SMBFSDATA, M_WAITOK | M_ZERO);
+	SMB_MALLOC(mountOnPath, char *, MAXPATHLEN, M_SMBFSDATA, M_WAITOK | M_ZERO);
 	length = MAXPATHLEN;
 	/* This can fail sometimes, should we even bother with it? */
 	error = vn_getpath(vp, mountOnPath, &length);
@@ -185,9 +185,9 @@ smbfs_trigger_get_mount_args(vnode_t vp, __unused vfs_context_t ctx,
 		lck_rw_lock_shared(&VTOSMB(vp)->n_name_rwlock);
 		SMBERROR("%s: Mount on name FAILED url = %s\n", VTOSMB(vp)->n_name, url);
 		lck_rw_unlock_shared(&VTOSMB(vp)->n_name_rwlock);
-		FREE(mountOnPath, M_SMBFSDATA);
-		FREE(url, M_SMBFSDATA);
-		FREE(argsp, M_SMBFSDATA);
+		SMB_FREE(mountOnPath, M_SMBFSDATA);
+		SMB_FREE(url, M_SMBFSDATA);
+		SMB_FREE(argsp, M_SMBFSDATA);
 		*errp = error;
 		return (NULL);
 	}
@@ -233,21 +233,27 @@ smb_check_for_windows_symlink(struct smb_share *share, struct smbnode *np,
 	uint16_t	fid = 0;
 	int error, cerror;
 	
-	error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA, context, &fid);
-	if (error)
+	error = smbfs_tmpopen(share, np, SMB2_FILE_READ_DATA, &fid, context);
+	if (error) {
 		return error;
+    }
 	
-	MALLOC(sb, void *, (size_t)np->n_size, M_TEMP, M_WAITOK);
+	SMB_MALLOC(sb, void *, (size_t)np->n_size, M_TEMP, M_WAITOK);
 	uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 	if (uio) {
 		uio_addiov(uio, CAST_USER_ADDR_T(sb), np->n_size);
 		error = smb_read(share, fid, uio, context);
 		uio_free(uio);		
-	} else
+	} 
+    else {
 		error = ENOMEM;
+    }
+    
 	cerror = smbfs_tmpclose(share, np, fid, context);
-	if (cerror)
+	if (cerror) {
 		SMBWARNING("error %d closing fid %d file %s\n", cerror, fid, np->n_name);
+    }
+
 	if (!error && !bcmp(sb, smb_symmagic, SMB_SYMMAGICLEN)) {
 		for (cp = &sb[SMB_SYMMAGICLEN]; cp < &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN-1]; cp++) {
 			if (!isdigit(*cp))
@@ -256,6 +262,7 @@ smb_check_for_windows_symlink(struct smb_share *share, struct smbnode *np,
 			len += *cp - '0';
 		}
 		cp++; /* skip newline */
+
 		if ((cp != &sb[SMB_SYMMAGICLEN+SMB_SYMLENLEN]) || 
 			(len > (int)(np->n_size - SMB_SYMHDRLEN))) {
 			SMBWARNING("bad symlink length\n");
@@ -275,9 +282,12 @@ smb_check_for_windows_symlink(struct smb_share *share, struct smbnode *np,
 				error = 0;
 			}
 		}
-	} else
+	} 
+    else {
 		error = ENOENT; /* Not a faked up symbolic link */
-	FREE(sb, M_TEMP);
+    }
+    
+	SMB_FREE(sb, M_TEMP);
 	return error;
 }
 
@@ -597,7 +607,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp, vnode_t dvp, const char *n
 	cnp.cn_namelen = (int)nmlen;
 	cnp.cn_flags = cnflags;
 	
-	MALLOC(np, struct smbnode *, sizeof *np, M_SMBNODE, M_WAITOK | M_ZERO);
+	SMB_MALLOC(np, struct smbnode *, sizeof *np, M_SMBNODE, M_WAITOK | M_ZERO);
 	hashval = smbfs_hash(name, nmlen);
 	if ((*vpp = smb_hashget(smp, dnp, hashval, name, nmlen, 
 							share->ss_maxfilenamelen, 0, NULL)) != NULL) {
@@ -617,7 +627,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp, vnode_t dvp, const char *n
 			/* Now fall through and create the node with the correct vtype */
 			*vpp = NULL;
 		} else {
-			FREE(np, M_SMBNODE);
+			SMB_FREE(np, M_SMBNODE);
 			/* update the attr_cache info, this is never a stream node */
 			if (fap)
 				smbfs_attr_cacheenter(share, *vpp, fap, FALSE, context);
@@ -632,7 +642,7 @@ smbfs_nget(struct smb_share *share, struct mount *mp, vnode_t dvp, const char *n
 	 * for an existing vnode.
 	 */
 	if (fap == NULL) {
-		FREE(np, M_SMBNODE);
+		SMB_FREE(np, M_SMBNODE);
 		return (ENOENT);
 	}
 	lck_rw_init(&np->n_rwlock, smbfs_rwlock_group, smbfs_lock_attr);
@@ -673,10 +683,22 @@ smbfs_nget(struct smb_share *share, struct mount *mp, vnode_t dvp, const char *n
 		if (!vnode_isvroot(dvp)) {
 			/* Make sure we can get the vnode, we could have an unmount about to happen */
 			if (vnode_get(dvp) == 0) {
-				if (vnode_ref(dvp) == 0)	/* If we can get a refcnt then mark the child */
+				if (vnode_ref(dvp) == 0) {
+                    /* If we can get a refcnt then mark the child */
 					np->n_flag |= NREFPARENT;
-				vnode_put(dvp);				
-			}
+                    vnode_put(dvp);
+                    
+                    /* Increment parent node's child refcnt */
+                    OSIncrementAtomic(&dnp->n_child_refcnt);
+                } else {
+                    vnode_put(dvp);
+                    error = EINVAL;
+                    goto errout;
+                }
+			} else {
+                error = EINVAL;
+                goto errout;
+            }
 		}
 	}
 
@@ -790,6 +812,9 @@ errout:
 			vnode_put(dvp);			
 		}
 		np->n_flag &= ~NREFPARENT;
+        
+        /* Remove the child refcnt from the parent we just added above */
+        OSDecrementAtomic(&dnp->n_child_refcnt);
 	}
 	
 	smb_vhashrem(np);
@@ -800,8 +825,8 @@ errout:
 	if (ISSET(np->n_flag, NWALLOC))
 		wakeup(np);
 		
-	SMB_FREE(np->n_name, M_SMBNODENAME)
-	FREE(np, M_SMBNODE);
+	SMB_FREE(np->n_name, M_SMBNODENAME);
+	SMB_FREE(np, M_SMBNODE);
 	return error;
 }
 
@@ -861,7 +886,7 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	cnp.cn_nameiop = LOOKUP;
 	cnp.cn_flags = ISLASTCN;
 	cnp.cn_pnlen = MAXPATHLEN;
-	MALLOC (cnp.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK);
+	SMB_MALLOC (cnp.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK);
 	if (bcmp(sname, SFM_RESOURCEFORK_NAME, sizeof(SFM_RESOURCEFORK_NAME)) == 0) {
 		cnp.cn_nameptr = cnp.cn_pnbuf;
 		cnp.cn_namelen = snprintf(cnp.cn_nameptr, MAXPATHLEN, "%s%s", np->n_name, 
@@ -873,11 +898,11 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 		SMBWARNING("Creating non resource fork named stream: %s\n", cnp.cn_nameptr);
 	}
 
-	MALLOC(snp, struct smbnode *, sizeof *snp, M_SMBNODE, M_WAITOK);
+	SMB_MALLOC(snp, struct smbnode *, sizeof *snp, M_SMBNODE, M_WAITOK);
 	hashval = smbfs_hash(np->n_name, np->n_nmlen);
 	if ((*svpp = smb_hashget(smp, np, hashval, np->n_name, np->n_nmlen, 
 							 maxfilenamelen, N_ISSTREAM, sname)) != NULL) {
-		FREE(snp, M_SMBNODE);
+		SMB_FREE(snp, M_SMBNODE);
 		/* 
 		 * If this is the resource stream then the parents resource fork size 
 		 * has already been update. The calling routine aleady updated it. 
@@ -917,6 +942,31 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 		SET(snp->n_flag, N_ISRSRCFRK);
 	SET(snp->n_flag, NALLOC);
 	smb_vhashadd(snp, hashval);
+    
+#ifdef _NOT_YET_
+    /* Note: Temporarily commenting this out, see <rdar://problem/10695860> */
+    
+    /* Make sure we can get the parent vnode, we could have an unmount about to happen */
+    if (!vnode_isvroot(vp)) {
+        if (vnode_get(vp) == 0) {
+            if (vnode_ref(vp) == 0) {
+                /* If we can get a refcnt then mark the child */
+                snp->n_flag |= NREFPARENT;
+                vnode_put(vp);
+                
+                /* Increment parent node's child refcnt */
+                OSIncrementAtomic(&np->n_child_refcnt);
+            } else {
+                vnode_put(vp);
+                error = EINVAL;
+                goto errout;
+            }
+        } else {
+            error = EINVAL;
+            goto errout;
+        }
+    }
+#endif    
 	vfsp.vnfs_mp = smp->sm_mp;
 	vfsp.vnfs_vtype = VREG;
 	vfsp.vnfs_str = "smbfs";
@@ -964,6 +1014,20 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	goto done;
 	
 errout:
+#ifdef _NOT_YET_
+    /* Note: Temporarily commenting this out, see <rdar://problem/10695860> */
+	if (snp->n_flag & NREFPARENT) {
+		if (vnode_get(vp) == 0) {
+			vnode_rele(vp);
+			vnode_put(vp);			
+		}
+		snp->n_flag &= ~NREFPARENT;
+        
+        /* Remove the child refcnt from the parent we just added above */
+        OSDecrementAtomic(&np->n_child_refcnt);
+	}
+#endif
+    
 	smb_vhashrem(snp);
 	
 	if (locked == 1)
@@ -972,9 +1036,9 @@ errout:
 	if (ISSET(snp->n_flag, NWALLOC))
 		wakeup(snp);
 	
-	SMB_FREE(snp->n_name, M_SMBNODENAME)
-	SMB_FREE(snp->n_sname, M_SMBNODENAME)	
-	FREE(snp, M_SMBNODE);
+	SMB_FREE(snp->n_name, M_SMBNODENAME);
+	SMB_FREE(snp->n_sname, M_SMBNODENAME);
+	SMB_FREE(snp, M_SMBNODE);
 
 done:	
 	SMB_FREE(cnp.cn_pnbuf, M_TEMP);
@@ -1008,8 +1072,8 @@ smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t context)
 	lck_mtx_unlock(&np->rfrkMetaLock);
 	/* Cache has expired go get the resource fork size. */
 	if (rfrk_cache_timer > attrtimeo) {
-		error = smbfs_smb_qstreaminfo(share, np, context, NULL, NULL, 
-									  SFM_RESOURCEFORK_NAME, &strmsize);
+		error = smbfs_smb_qstreaminfo(share, np, NULL, NULL, 
+                                      SFM_RESOURCEFORK_NAME, &strmsize, context);
 		/* 
 		 * We got the resource stream size from the server, now update the resource
 		 * stream if we have one. Search our hash table and see if we have a stream,
@@ -1032,7 +1096,7 @@ smb_get_rsrcfrk_size(struct smb_share *share, vnode_t vp, vfs_context_t context)
 			}
 		} else {
 			/* 
-			 * Remeber that smbfs_smb_qstreaminfo will update the resource forks 
+			 * Remember that smbfs_smb_qstreaminfo will update the resource forks 
 			 * cache and size if it finds  the resource fork. We are handling the 
 			 * negative cache timer here. If we get an error then there is no 
 			 * resource fork so update the cache.
@@ -1249,6 +1313,13 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
 			if (np->n_uid == KAUTH_GID_NONE) {
 				np->n_uid = smp->sm_args.gid;
 			} 			
+		} else if (smp->sm_args.altflags & SMBFS_MNT_TIME_MACHINE) {
+			/* Remove any existing modes. */
+			np->n_mode &= ~ACCESSPERMS;
+			/* Just return what was passed into us */
+			np->n_uid = smp->sm_args.uid;
+			np->n_gid = smp->sm_args.gid;
+			np->n_mode |= (mode_t)(fap->fa_permissions & ACCESSPERMS);			
 		} else if (share->ss_attributes & FILE_PERSISTENT_ACLS) {
 			/* Remove any existing modes. */
 			np->n_mode &= ~ACCESSPERMS;
@@ -1265,7 +1336,6 @@ smbfs_attr_cacheenter(struct smb_share *share, vnode_t vp, struct smbfattr *fap,
 				np->n_uid = (uid_t)fap->fa_uid;
 				np->n_gid = (gid_t)fap->fa_gid;
 			}
-
 			np->n_mode |= (mode_t)(fap->fa_permissions & ACCESSPERMS);
 		} else if ((fap->fa_permissions & ACCESSPERMS) &&
 				   (smp->sm_args.uid == (uid_t)smp->ntwrk_uid) &&
@@ -1808,7 +1878,7 @@ AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset,
 	int32_t foundIt = 0;
 
 	if (unLock == 0) {	/* Locking, so add a new ByteRangeLockEntry */
-		MALLOC (new, struct ByteRangeLockEntry *, sizeof (struct ByteRangeLockEntry), 
+		SMB_MALLOC (new, struct ByteRangeLockEntry *, sizeof (struct ByteRangeLockEntry), 
 				M_TEMP, M_WAITOK);
 		new->offset = offset;
 		new->length = length;
@@ -1834,7 +1904,7 @@ AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset,
 		if ((curr->offset == offset) && (curr->length == length)) {
 			/* first entry is it, so remove it from the head */
 			fndEntry->lockList = curr->next;
-			FREE(curr, M_TEMP);
+			SMB_FREE(curr, M_TEMP);
 		} else {
 			/* Not the first entry, so search the rest of them */
 			prev = curr;
@@ -1844,7 +1914,7 @@ AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset,
 					foundIt = 1;
 					/* found it so remove it */
 					prev->next = curr->next;
-					FREE(curr, M_TEMP);
+					SMB_FREE(curr, M_TEMP);
 					break;
 				}
 				prev = curr;
@@ -1868,15 +1938,15 @@ AddRemoveByteRangeLockEntry(struct fileRefEntry *fndEntry, int64_t offset,
  *	fndEntry is not NULL then return the entry.
  */
 void 
-AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, 
-				 uint32_t rights, uint16_t fid, struct fileRefEntry **fndEntry)
+AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode, uint32_t rights, 
+           uint16_t fid, struct fileRefEntry **fndEntry)
 {
 	struct smbnode	*np = VTOSMB(vp);
 	struct fileRefEntry *entry = NULL;
 	struct fileRefEntry *current = NULL;
         
 	/* Create a new fileRefEntry and insert it into the hp list */
-	MALLOC(entry, struct fileRefEntry *, sizeof (struct fileRefEntry), M_TEMP, 
+	SMB_MALLOC(entry, struct fileRefEntry *, sizeof (struct fileRefEntry), M_TEMP, 
 		   M_WAITOK);
 	entry->refcnt = 0;
 	entry->mmapped = FALSE;
@@ -1890,12 +1960,15 @@ AddFileRef(vnode_t vp, struct proc *p, uint16_t accessMode,
 	if (fndEntry) *fndEntry = entry;
 
 	lck_mtx_lock(&np->f_openDenyListLock);
-	if (np->f_openDenyList == NULL) /* No other entries, so we are the first */
+	if (np->f_openDenyList == NULL) {
+        /* No other entries, so we are the first */
 		np->f_openDenyList = entry;
-	else { /* look for last entry in the list */
+    }
+	else { 
+        /* look for last entry in the list */
 		current = np->f_openDenyList;
 		while (current->next != NULL) {
-		current = current->next;
+            current = current->next;
         }
         /* put it at the end of the list */
         current->next = entry;
@@ -1917,7 +1990,7 @@ int32_t
 FindFileEntryByFID(vnode_t vp, uint16_t fid, struct fileRefEntry **fndEntry)
 {
 	struct fileRefEntry *entry = NULL;
-	struct smbnode	*np;
+	struct smbnode *np;
 	
 #ifdef SMB_DEBUG
 	if (fndEntry)
@@ -1925,16 +1998,18 @@ FindFileEntryByFID(vnode_t vp, uint16_t fid, struct fileRefEntry **fndEntry)
 #endif // SMB_DEBUG
 	
 	/* If we have not vnode then we are done. */
-	if (!vp)
+	if (!vp) {
 		return (-1);
+    }
 
 	np = VTOSMB(vp);
 	lck_mtx_lock(&np->f_openDenyListLock);
 	/* Now search the list until we find a match */
 	for (entry = np->f_openDenyList; entry; entry = entry->next) {
 		if (entry->fid == fid) {
-			if (fndEntry) 
+			if (fndEntry) {
 				*fndEntry = entry;
+            }
 			lck_mtx_unlock(&np->f_openDenyListLock);
 			return(0);
 		}
@@ -1961,17 +2036,20 @@ FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, uint16_t *fid)
 	struct smbnode	*np;
 	
 	/* If we have no vnode then we are done. */
-	if (!vp)
+	if (!vp) {
 		return (foundIt);
+    }
 	
 	np = VTOSMB(vp);
 	lck_mtx_lock(&np->f_openDenyListLock);
 	for (entry = np->f_openDenyList; entry; entry = entry->next) {
 		if (entry->mmapped) {
-			if (fid)
+			if (fid) {
 			    *fid = entry->fid;
-			if (fndEntry)
+            }
+			if (fndEntry) {
 			    *fndEntry = entry;
+            }
 			foundIt = TRUE;
 			break;
 		}
@@ -1994,8 +2072,8 @@ FindMappedFileRef(vnode_t vp, struct fileRefEntry **fndEntry, uint16_t *fid)
  */
 int32_t 
 FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags, 
-				  int64_t offset, int64_t length,  struct fileRefEntry **fndEntry, 
-				  uint16_t *fid)
+            int64_t offset, int64_t length, struct fileRefEntry **fndEntry,
+            uint16_t *fid)
 {
 	struct fileRefEntry *entry = NULL;
 	struct fileRefEntry *tempEntry = NULL;
@@ -2008,8 +2086,9 @@ FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
 		DBG_ASSERT(*fndEntry == NULL);
 #endif // SMB_DEBUG
 	/* If we have no vnode then we are done. */
-	if (!vp)
+	if (!vp) {
 		return (-1);
+    }
 
 	np = VTOSMB(vp);
 	lck_mtx_lock(&np->f_openDenyListLock);
@@ -2023,76 +2102,82 @@ FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
 		 * the whole list and match on the first pid that matches the requested
 		 * access.
 		 */
-		if ((p) && (entry->p_pid != proc_pid(p)))
+		if ((p) && (entry->p_pid != proc_pid(p))) {
+            SMBERROR("pid not matching \n");
 			continue;
+        }
 		
 		switch (flags) {
-		case kAnyMatch:
-			/* 
-			 * if any fork will do, make sure at least have accessMode 
-			 * set. This is for the old ByteRangeLocks and other misc 
-			 * functions looking for a file ref 
-			 */
-			if (entry->accessMode & accessMode)
-				foundIt = 1;
-			break;
-		case kCheckDenyOrLocks:
-			/* 
-			 * This was originally written for Classic support, but after looking
-			 *  at it some we decide it could happen in Carbon.
-			 *
-			 * Where I have the same PID on two different file, some BRL taken, 
-			 * and a read/write occurring. I have to determine which file will 
-			 * successfully read/write on due to any possible byte range locks 
-			 * already taken out.  Note that Classic keeps track of BRLs itself 
-			 * and will not block any read/writes that would fail due to a BRL.  
-			 * I just have to find the correct fork so that the read/write will 
-			 * succeed. Example:  open1 rw/DW, open2 r, lock1 0-5, read1 0-5 
-			 * should occur on fork1 and not fork2
-			*/
-			/* make sure we have correct access */
-			if (entry->accessMode & accessMode) {
-				/* 
-				 * save this entry in case we find no entry with a matching BRL.
-				 * saves me from having to search all over again for an OpenDeny match 
-				 */
-				if (tempEntry == NULL)
-					tempEntry = entry;
+            case kAnyMatch:
+                /* 
+                 * if any fork will do, make sure at least have accessMode 
+                 * set. This is for the old ByteRangeLocks and other misc 
+                 * functions looking for a file ref 
+                 */
+                if (entry->accessMode & accessMode) {
+                    foundIt = 1;
+                }
+                break;
+            case kCheckDenyOrLocks:
+                /* 
+                 * This was originally written for Classic support, but after looking
+                 *  at it some we decide it could happen in Carbon.
+                 *
+                 * Where I have the same PID on two different file, some BRL taken, 
+                 * and a read/write occurring. I have to determine which file will 
+                 * successfully read/write on due to any possible byte range locks 
+                 * already taken out.  Note that Classic keeps track of BRLs itself 
+                 * and will not block any read/writes that would fail due to a BRL.  
+                 * I just have to find the correct fork so that the read/write will 
+                 * succeed. Example:  open1 rw/DW, open2 r, lock1 0-5, read1 0-5 
+                 * should occur on fork1 and not fork2
+                */
+                /* make sure we have correct access */
+                if (entry->accessMode & accessMode) {
+                    /* 
+                     * save this entry in case we find no entry with a matching BRL.
+                     * saves me from having to search all over again for an OpenDeny match 
+                     */
+                    if (tempEntry == NULL) {
+                        tempEntry = entry;
+                    }
 
-				/* check the BRLs to see if the offset/length fall inside one of them */
-				currBRL = entry->lockList;
-				while (currBRL != NULL) {
-					/* is start of read/write inside of the BRL? */
-					if ( (offset >= currBRL->offset) && 
-						(offset <= (currBRL->offset + currBRL->length)) ) {
-						foundIt = 1;
-						break;
-					}
-					/* is end of read/write inside of the BRL? */
-					if ( ((offset + length) >= currBRL->offset) &&  
-						((offset + length) <= (currBRL->offset + currBRL->length)) ) {
-						foundIt = 1;
-						break;
-					}
-					currBRL = currBRL->next;
-				}
-			}
-			break;
-			
-		case kExactMatch:
-		default:
-			/* 
-			 * If we want an exact match, then check access mode too
-			 * This is for ByteRangeLocks and closing files 
-			 */
-			if (accessMode == entry->accessMode)
-				foundIt = 1;
-			break;
+                    /* check the BRLs to see if the offset/length fall inside one of them */
+                    currBRL = entry->lockList;
+                    while (currBRL != NULL) {
+                        /* is start of read/write inside of the BRL? */
+                        if ( (offset >= currBRL->offset) && 
+                            (offset <= (currBRL->offset + currBRL->length)) ) {
+                            foundIt = 1;
+                            break;
+                        }
+                        /* is end of read/write inside of the BRL? */
+                        if ( ((offset + length) >= currBRL->offset) &&  
+                            ((offset + length) <= (currBRL->offset + currBRL->length)) ) {
+                            foundIt = 1;
+                            break;
+                        }
+                        currBRL = currBRL->next;
+                    }
+                }
+                break;
+                
+            case kExactMatch:
+            default:
+                /* 
+                 * If we want an exact match, then check access mode too
+                 * This is for ByteRangeLocks and closing files 
+                 */
+                if (accessMode == entry->accessMode)
+                    foundIt = 1;
+                break;
 		}
         
 		if (foundIt == 1) {
 			*fid = entry->fid;
-			if (fndEntry) *fndEntry = entry;
+			if (fndEntry) {
+                *fndEntry = entry;
+            }
 			break;
 		}
 	}
@@ -2101,9 +2186,14 @@ FindFileRef(vnode_t vp, proc_t p, uint16_t accessMode, int32_t flags,
 	/* Will only happen after we add byte range locking support */
 	if (foundIt == 0) {
 		if ( (flags == kCheckDenyOrLocks) && (tempEntry != NULL) ) {
-			/* Did not find any BRL that matched, see if there was a match with an OpenDeny */
+			/* 
+             * Did not find any BRL that matched, see if there was a match 
+             * with an OpenDeny 
+             */
 			*fid = tempEntry->fid;
-			if (fndEntry) *fndEntry = entry;
+			if (fndEntry) {
+                *fndEntry = entry;
+            }
 			return (0);
 		}
 		return (-1);    /* fork not found */
@@ -2140,7 +2230,7 @@ RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry)
 			currBRL = entry->lockList;
 			while (currBRL != NULL) {
 				nextBRL = currBRL->next; /* save next in list */
-				FREE (currBRL, M_TEMP);	 /* free current entry */
+				SMB_FREE (currBRL, M_TEMP);	 /* free current entry */
 				currBRL = nextBRL;	 /* and on to the next */
 			}
 			entry->lockList = NULL;
@@ -2148,7 +2238,7 @@ RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry)
 			curr = entry;
 			entry = entry->next;
 			DBG_ASSERT(curr->refcnt == 0);
-			FREE(curr, M_TEMP);
+			SMB_FREE(curr, M_TEMP);
 		}
 		np->f_openDenyList = NULL;
 		goto out;
@@ -2159,7 +2249,7 @@ RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry)
 	currBRL = inEntry->lockList;
 	while (currBRL != NULL) {
 		nextBRL = currBRL->next;	/* save next in list */
-		FREE(currBRL, M_TEMP);		/* free current entry */
+		SMB_FREE(currBRL, M_TEMP);		/* free current entry */
 		currBRL = nextBRL;		/* and on to the next */
 	}
 	inEntry->lockList = NULL;
@@ -2175,7 +2265,7 @@ RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry)
 	if (inEntry == curr) {
 		np->f_openDenyList = inEntry->next;
 		foundIt = 1;
-		FREE(curr, M_TEMP);
+		SMB_FREE(curr, M_TEMP);
 		curr = NULL;
 	} else {
 		// its not the first, so search the rest
@@ -2185,7 +2275,7 @@ RemoveFileRef(vnode_t vp, struct fileRefEntry *inEntry)
 			if (inEntry == curr) {
 				prev->next = curr->next;
 				foundIt = 1;
-				FREE(curr, M_TEMP);
+				SMB_FREE(curr, M_TEMP);
 				curr = NULL;
 				break;
 			}
@@ -2200,11 +2290,11 @@ out:
 }
 
 /*
- * The share needs to be locked beore calling this rouitne!
+ * The share needs to be locked before calling this routine!
  *
- * Search the hash table looking for any open files. Remember we have a hash table
- * for every mount point. Not sure why but it makes this part easier. Currently we
- * do not support reopens, we just mark the file to be revoked.
+ * Search the hash table looking for any open files. Remember we have a hash 
+ * table for every mount point. Not sure why but it makes this part easier. 
+ * Currently we do not support reopens, we just mark the file to be revoked.
  */
 void 
 smbfs_reconnect(struct smbmount *smp)
@@ -2274,4 +2364,55 @@ smbfs_reconnect(struct smbmount *smp)
 	}
 	smbfs_hash_unlock(smp);
 }
+
+/*
+ * The share needs to be locked before calling this routine!
+ *
+ * Search the hash table looking for any open for write files or any files that
+ * have dirty bits in UBC. If any are found, return EBUSY, else return 0.
+ */
+int32_t
+smbfs_IObusy(struct smbmount *smp)
+{
+	struct smbnode *np;
+	uint32_t ii;
+	
+    /* lock hash table before we walk it */
+	smbfs_hash_lock(smp);
+    
+	/* We have a hash table for each mount point */
+	for (ii = 0; ii < (smp->sm_hashlen + 1); ii++) {
+		if ((&smp->sm_hash[ii])->lh_first == NULL)
+			continue;
+		
+		for (np = (&smp->sm_hash[ii])->lh_first; np; np = np->n_hash.le_next) {
+			if (ISSET(np->n_flag, NALLOC))
+				continue;
+            
+			if (ISSET(np->n_flag, NTRANSIT))
+				continue;
+
+			/* Nothing else to with directories at this point */
+			if (np->n_dosattr & SMB_EFA_DIRECTORY) {
+				continue;
+			}
+			/* We only care about open files */			
+			if (np->f_refcnt == 0) {
+				continue;
+			}
+            
+			if ((np->f_openTotalWCnt > 0) || (vnode_hasdirtyblks(SMBTOV(np)))) {
+                /* Found oen busy file so return EBUSY */
+                smbfs_hash_unlock(smp);
+				return EBUSY;
+			}
+		}
+	}
+    
+	smbfs_hash_unlock(smp);
+    
+    /* No files open for write and no files with dirty UBC data */
+    return 0;
+}
+
 

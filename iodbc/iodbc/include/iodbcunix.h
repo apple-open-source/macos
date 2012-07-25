@@ -83,6 +83,7 @@
  */
 #include <stdlib.h>
 #include <unistd.h>
+#include <objc/objc.h>
 
 #if defined(__WCHAR_TYPE__) && !defined(MACOSX102)
 #include <wchar.h>

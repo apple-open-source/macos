@@ -30,7 +30,7 @@
 
 #include "config.h"
 
-#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+#if ENABLE(BLOB)
 
 #include "FileThread.h"
 
@@ -83,13 +83,13 @@ void FileThread::unscheduleTasks(const void* instance)
     m_queue.removeIf(predicate);
 }
 
-void* FileThread::fileThreadStart(void* arg)
+void FileThread::fileThreadStart(void* arg)
 {
     FileThread* fileThread = static_cast<FileThread*>(arg);
-    return fileThread->runLoop();
+    fileThread->runLoop();
 }
 
-void* FileThread::runLoop()
+void FileThread::runLoop()
 {
     {
         // Wait for FileThread::start() to complete to have m_threadID
@@ -110,10 +110,8 @@ void* FileThread::runLoop()
 
     // Clear the self refptr, possibly resulting in deletion
     m_selfRef = 0;
-
-    return 0;
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+#endif // ENABLE(BLOB)

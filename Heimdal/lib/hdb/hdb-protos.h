@@ -9,6 +9,17 @@ extern "C" {
 #endif
 
 krb5_error_code
+hdb_add_history_key(krb5_context context, hdb_entry *entry, krb5_kvno kvno, Key *key);
+
+krb5_error_code
+hdb_change_kvno(krb5_context context, krb5_kvno new_kvno, hdb_entry *entry);
+
+krb5_error_code
+hdb_add_current_keys_to_history (
+	krb5_context /*context*/,
+	hdb_entry */*entry*/);
+
+krb5_error_code
 hdb_add_master_key (
 	krb5_context /*context*/,
 	krb5_keyblock */*key*/,
@@ -118,6 +129,16 @@ hdb_entry_check_mandatory (
 	krb5_context /*context*/,
 	const hdb_entry */*ent*/);
 
+krb5_error_code
+hdb_entry_clear_kvno_diff_clnt (
+	krb5_context /*context*/,
+	hdb_entry */*entry*/);
+
+krb5_error_code
+hdb_entry_clear_kvno_diff_svc (
+	krb5_context /*context*/,
+	hdb_entry */*entry*/);
+
 int
 hdb_entry_clear_password (
 	krb5_context /*context*/,
@@ -132,6 +153,12 @@ krb5_error_code
 hdb_entry_get_aliases (
 	const hdb_entry */*entry*/,
 	const HDB_Ext_Aliases **/*a*/);
+
+unsigned int
+hdb_entry_get_kvno_diff_clnt (const hdb_entry */*entry*/);
+
+unsigned int
+hdb_entry_get_kvno_diff_svc (const hdb_entry */*entry*/);
 
 int
 hdb_entry_get_password (
@@ -160,19 +187,24 @@ hdb_entry_get_pw_change_time (
 	const hdb_entry */*entry*/,
 	time_t */*t*/);
 
+krb5_error_code
+hdb_entry_set_kvno_diff_clnt (
+	krb5_context /*context*/,
+	hdb_entry */*entry*/,
+	unsigned int /*diff*/);
+
+krb5_error_code
+hdb_entry_set_kvno_diff_svc (
+	krb5_context /*context*/,
+	hdb_entry */*entry*/,
+	unsigned int /*diff*/);
+
 int
 hdb_entry_set_password (
 	krb5_context /*context*/,
 	HDB */*db*/,
 	hdb_entry */*entry*/,
 	const char */*p*/);
-
-krb5_error_code
-hdb_entry_set_pkinit_acl (
-	hdb_entry */*entry*/,
-	const char */*subject*/,
-	const char */*issuer*/,
-	const char */*anchor*/);
 
 krb5_error_code
 hdb_entry_set_pw_change_time (
@@ -221,7 +253,8 @@ krb5_error_code
 hdb_generate_key_set (
 	krb5_context /*context*/,
 	krb5_principal /*principal*/,
-	krb5_enctype *enctypes,
+	int /*n_ks_tuple*/,
+	krb5_key_salt_tuple */*ks_tuple*/,
 	Key **/*ret_key_set*/,
 	size_t */*nkeyset*/,
 	int /*no_salt*/);
@@ -231,7 +264,7 @@ hdb_generate_key_set_password (
 	krb5_context /*context*/,
 	krb5_principal /*principal*/,
 	const char */*password*/,
-	krb5_enctype *enctypes,
+	int n_ks_tuple, krb5_key_salt_tuple *ks_tuple,
 	Key **/*keys*/,
 	size_t */*num_keys*/);
 
@@ -297,12 +330,6 @@ hdb_next_enctype2key (
 	const hdb_entry */*e*/,
 	krb5_enctype /*enctype*/,
 	Key **/*key*/);
-
-krb5_error_code
-hdb_od_create (
-	krb5_context /*context*/,
-	HDB ** /*db*/,
-	const char */*arg*/);
 
 int
 hdb_principal2key (
@@ -401,6 +428,14 @@ hdb_unseal_keys (
 	hdb_entry */*ent*/);
 
 krb5_error_code
+hdb_unseal_keys_kvno (
+	krb5_context /*context*/,
+	HDB */*db*/,
+	krb5_kvno /*kvno*/,
+	unsigned /*flags*/,
+	hdb_entry */*ent*/);
+
+krb5_error_code
 hdb_unseal_keys_mkey (
 	krb5_context /*context*/,
 	hdb_entry */*ent*/,
@@ -423,13 +458,18 @@ hdb_write_master_key (
 	krb5_context /*context*/,
 	const char */*filename*/,
 	hdb_master_key /*mkey*/);
-	
+
 krb5_error_code
+hdb_entry_set_pkinit_acl(hdb_entry *entry,
+			 const char *subject,
+			 const char *issuer,
+			 const char *anchor);
+
+int
 hdb_mit_dump(krb5_context context,
-			 const char *file,
-			 krb5_error_code (*dump)(krb5_context, HDB *, hdb_entry_ex *, void *),
-			 void *ctx);
-	
+	     const char *file,
+	     krb5_error_code (*func)(krb5_context, HDB *, hdb_entry_ex *, void *),
+	     void *ctx);
 
 #ifdef __cplusplus
 }

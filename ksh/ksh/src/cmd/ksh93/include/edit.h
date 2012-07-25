@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -68,9 +68,23 @@ typedef struct _edit_pos
 	unsigned short col;
 } Edpos_t;
 
+#if SHOPT_EDPREDICT
+typedef struct Histmatch
+{
+	struct Histmatch	*next;
+	int			index;
+	short			len;
+	short			count;
+	char			data[1];
+} Histmatch_t;
+#endif /* SHOPT_EDPREDICT */
+
+
+
 typedef struct edit
 {
 	sigjmp_buf e_env;
+	int	e_intr;
 	int	e_kill;
 	int	e_erase;
 	int	e_werase;
@@ -78,7 +92,8 @@ typedef struct edit
 	int	e_lnext;
 	int	e_fchar;
 	int	e_plen;		/* length of prompt string */
-	int	e_crlf;		/* zero if cannot return to beginning of line */
+	char	e_crlf;		/* zero if cannot return to beginning of line */
+	char	e_nocrnl;	/* don't put a new-line with ^L */
 	int	e_llimit;	/* line length limit */
 	int	e_hline;	/* current history line number */
 	int	e_hloff;	/* line number offset for command */
@@ -151,6 +166,15 @@ typedef struct edit
 	Namval_t *e_default;	/* variable containing default value */
 	Namval_t *e_term;	/* TERM variable */
 	char 	e_termname[80];	/* terminal name */
+#if SHOPT_EDPREDICT
+	Histmatch_t	**hlist;
+	Histmatch_t	*hfirst;
+	unsigned short	nhlist;
+	unsigned short	hoff;
+	unsigned short	hmax;
+	char		*hpat;
+	char		*hstak;
+#endif /* SHOPT_EDPREDICT */
 } Edit_t;
 
 #undef MAXWINDOW
@@ -219,6 +243,10 @@ extern int	ed_setcursor(Edit_t*, genchar*, int, int, int);
 	extern int ed_genlen(const genchar*);
 	extern int ed_setwidth(const char*);
 #  endif /* SHOPT_MULTIBYTE */
+#if SHOPT_EDPREDICT
+   extern int	ed_histgen(Edit_t*, const char*);
+   extern void	ed_histlist(Edit_t*, int);
+#endif /* SHOPT_EDPREDICT */
 
 extern const char	e_runvi[];
 #if !KSHELL

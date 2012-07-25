@@ -1,0 +1,285 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AAEA4A440E9163290043771D /* ReadWriteSection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = AAEA4A430E9163290043771D /* ReadWriteSection.cpp */; };
+		C28A1D08052E14480094CEF0 /* AppleDatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */; };
+		C28A1D0A052E14480094CEF0 /* AtomicFile.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */; };
+		C28A1D14052E14480094CEF0 /* DbIndex.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CF9052E14480094CEF0 /* DbIndex.cpp */; };
+		C28A1D18052E14480094CEF0 /* DbQuery.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CFD052E14480094CEF0 /* DbQuery.cpp */; };
+		C28A1D1A052E14480094CEF0 /* DbValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1CFF052E14480094CEF0 /* DbValue.cpp */; };
+		C28A1D1C052E14480094CEF0 /* MetaAttribute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */; };
+		C28A1D1E052E14480094CEF0 /* MetaRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D03052E14480094CEF0 /* MetaRecord.cpp */; };
+		C28A1D21052E14480094CEF0 /* SelectionPredicate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB219146F0538000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB214146F0538000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurity_cdsa_plugin;
+		};
+		182BB33C146F1057000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB214146F0538000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = generate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		182BB206146F043D000BF1F3 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		182BB207146F043D000BF1F3 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		182BB208146F043D000BF1F3 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		182BB209146F043D000BF1F3 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		182BB214146F0538000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurity_cdsa_plugin.xcodeproj; path = ../libsecurity_cdsa_plugin/libsecurity_cdsa_plugin.xcodeproj; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_filedb.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_filedb.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA827A5B0C62AD0300D7A310 /* OverUnderflowCheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OverUnderflowCheck.h; sourceTree = "<group>"; };
+		AAEA4A430E9163290043771D /* ReadWriteSection.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ReadWriteSection.cpp; sourceTree = "<group>"; };
+		C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleDatabase.cpp; sourceTree = "<group>"; };
+		C28A1CEE052E14480094CEF0 /* AppleDatabase.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleDatabase.h; sourceTree = "<group>"; };
+		C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AtomicFile.cpp; sourceTree = "<group>"; };
+		C28A1CF0052E14480094CEF0 /* AtomicFile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AtomicFile.h; sourceTree = "<group>"; };
+		C28A1CF9052E14480094CEF0 /* DbIndex.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbIndex.cpp; sourceTree = "<group>"; };
+		C28A1CFA052E14480094CEF0 /* DbIndex.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbIndex.h; sourceTree = "<group>"; };
+		C28A1CFD052E14480094CEF0 /* DbQuery.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbQuery.cpp; sourceTree = "<group>"; };
+		C28A1CFE052E14480094CEF0 /* DbQuery.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbQuery.h; sourceTree = "<group>"; };
+		C28A1CFF052E14480094CEF0 /* DbValue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbValue.cpp; sourceTree = "<group>"; };
+		C28A1D00052E14480094CEF0 /* DbValue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbValue.h; sourceTree = "<group>"; };
+		C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaAttribute.cpp; sourceTree = "<group>"; };
+		C28A1D02052E14480094CEF0 /* MetaAttribute.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaAttribute.h; sourceTree = "<group>"; };
+		C28A1D03052E14480094CEF0 /* MetaRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaRecord.cpp; sourceTree = "<group>"; };
+		C28A1D04052E14480094CEF0 /* MetaRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaRecord.h; sourceTree = "<group>"; };
+		C28A1D05052E14480094CEF0 /* ReadWriteSection.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ReadWriteSection.h; sourceTree = "<group>"; };
+		C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SelectionPredicate.cpp; sourceTree = "<group>"; };
+		C28A1D07052E14480094CEF0 /* SelectionPredicate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SelectionPredicate.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		182BB205146F043D000BF1F3 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				182BB206146F043D000BF1F3 /* base.xcconfig */,
+				182BB207146F043D000BF1F3 /* debug.xcconfig */,
+				182BB208146F043D000BF1F3 /* lib.xcconfig */,
+				182BB209146F043D000BF1F3 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		182BB215146F0538000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB21A146F0538000BF1F3 /* libsecurity_cdsa_plugin.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				182BB214146F0538000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */,
+				C28A1CEC052E14480094CEF0 /* lib */,
+				182BB205146F043D000BF1F3 /* config */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_filedb.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C28A1CEC052E14480094CEF0 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				AA827A5B0C62AD0300D7A310 /* OverUnderflowCheck.h */,
+				C28A1CED052E14480094CEF0 /* AppleDatabase.cpp */,
+				C28A1CEE052E14480094CEF0 /* AppleDatabase.h */,
+				C28A1CEF052E14480094CEF0 /* AtomicFile.cpp */,
+				C28A1CF0052E14480094CEF0 /* AtomicFile.h */,
+				C28A1CF9052E14480094CEF0 /* DbIndex.cpp */,
+				C28A1CFA052E14480094CEF0 /* DbIndex.h */,
+				C28A1CFD052E14480094CEF0 /* DbQuery.cpp */,
+				C28A1CFE052E14480094CEF0 /* DbQuery.h */,
+				C28A1CFF052E14480094CEF0 /* DbValue.cpp */,
+				C28A1D00052E14480094CEF0 /* DbValue.h */,
+				C28A1D01052E14480094CEF0 /* MetaAttribute.cpp */,
+				C28A1D02052E14480094CEF0 /* MetaAttribute.h */,
+				C28A1D03052E14480094CEF0 /* MetaRecord.cpp */,
+				C28A1D04052E14480094CEF0 /* MetaRecord.h */,
+				C28A1D05052E14480094CEF0 /* ReadWriteSection.h */,
+				C28A1D06052E14480094CEF0 /* SelectionPredicate.cpp */,
+				C28A1D07052E14480094CEF0 /* SelectionPredicate.h */,
+				AAEA4A430E9163290043771D /* ReadWriteSection.cpp */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_filedb */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C27AD35C0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_filedb" */;
+			buildPhases = (
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB33D146F1057000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_filedb;
+			productName = libsecurity_filedb;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_filedb.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C27AD3600987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_filedb" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB215146F0538000BF1F3 /* Products */;
+					ProjectRef = 182BB214146F0538000BF1F3 /* libsecurity_cdsa_plugin.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_filedb */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB21A146F0538000BF1F3 /* libsecurity_cdsa_plugin.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurity_cdsa_plugin.a;
+			remoteRef = 182BB219146F0538000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C28A1D08052E14480094CEF0 /* AppleDatabase.cpp in Sources */,
+				C28A1D0A052E14480094CEF0 /* AtomicFile.cpp in Sources */,
+				C28A1D14052E14480094CEF0 /* DbIndex.cpp in Sources */,
+				C28A1D18052E14480094CEF0 /* DbQuery.cpp in Sources */,
+				C28A1D1A052E14480094CEF0 /* DbValue.cpp in Sources */,
+				C28A1D1C052E14480094CEF0 /* MetaAttribute.cpp in Sources */,
+				C28A1D1E052E14480094CEF0 /* MetaRecord.cpp in Sources */,
+				C28A1D21052E14480094CEF0 /* SelectionPredicate.cpp in Sources */,
+				AAEA4A440E9163290043771D /* ReadWriteSection.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB33D146F1057000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = generate;
+			targetProxy = 182BB33C146F1057000BF1F3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD35D0987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB207146F043D000BF1F3 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD35F0987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB209146F043D000BF1F3 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C27AD3610987FCDE001272E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB208146F043D000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C27AD3630987FCDE001272E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 182BB208146F043D000BF1F3 /* lib.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD35C0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_filedb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD35D0987FCDE001272E0 /* Debug */,
+				C27AD35F0987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C27AD3600987FCDE001272E0 /* Build configuration list for PBXProject "libsecurity_filedb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD3610987FCDE001272E0 /* Debug */,
+				C27AD3630987FCDE001272E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

@@ -136,10 +136,7 @@
 					"_GLIBCXX_DEBUG=1",
 					"_GLIBCXX_DEBUG_PEDANTIC=1",
 				);
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",
@@ -160,10 +157,7 @@
 				);
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/System.framework/PrivateHeaders,
-					/System/Library/Frameworks/Kernel.framework/PrivateHeaders,
-				);
+				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
 				INSTALL_PATH = /usr/local/bin;
 				OTHER_CFLAGS = (
 					"-DPRIVATE",

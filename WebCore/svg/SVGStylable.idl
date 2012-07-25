@@ -27,11 +27,15 @@
 
 module svg {
 
-    interface [Conditional=SVG, ObjCProtocol, OmitConstructor] SVGStylable {
+    interface [
+        Conditional=SVG,
+        ObjCProtocol,
+        OmitConstructor
+    ] SVGStylable {
         readonly attribute SVGAnimatedString className;
         readonly attribute CSSStyleDeclaration style;
 
-        CSSValue getPresentationAttribute(in DOMString name);
+        CSSValue getPresentationAttribute(in [Optional=DefaultIsUndefined] DOMString name);
     };
 
 }

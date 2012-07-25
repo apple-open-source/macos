@@ -34,11 +34,11 @@ OSDefineMetaClassAndStructors( IOHIDEventRepairDriver, IOHIDEventDriver )
 // IOHIDEventRepairDriver::dispatchKeyboardEvent
 //====================================================================================================
 void IOHIDEventRepairDriver::dispatchKeyboardEvent(
-                                AbsoluteTime                timeStamp,
-                                UInt32                      usagePage,
-                                UInt32                      usage,
-                                UInt32                      value,
-                                IOOptionBits                options)
+                                AbsoluteTime                timeStamp __unused,
+                                UInt32                      usagePage __unused,
+                                UInt32                      usage __unused,
+                                UInt32                      value __unused,
+                                IOOptionBits                options __unused)
 {
 }
 
@@ -48,8 +48,8 @@ void IOHIDEventRepairDriver::dispatchKeyboardEvent(
 void IOHIDEventRepairDriver::dispatchScrollWheelEvent(
                                 AbsoluteTime                timeStamp,
                                 SInt32                      deltaAxis1,
-                                SInt32                      deltaAxis2,
-                                SInt32                      deltaAxis3,
+                                SInt32                      deltaAxis2 __unused,
+                                SInt32                      deltaAxis3 __unused,
                                 IOOptionBits                options)
 {
     super::dispatchScrollWheelEvent(timeStamp, deltaAxis1, 0, 0, options);

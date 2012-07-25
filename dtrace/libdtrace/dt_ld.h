@@ -29,27 +29,19 @@
 
 #include <libctf.h>
 #include <dtrace.h>
-
-#ifdef	__cplusplus
-extern "C" {
-#endif
 	
-extern void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] target architecture
-				  unsigned int typeCount,     // [provided by linker] number of stability or typedef symbol names
-				  const char* typeNames[],    // [provided by linker] stability or typedef symbol names
-				  unsigned int probeCount,    // [provided by linker] number of probe or isenabled locations
-				  const char* probeNames[],   // [provided by linker] probe or isenabled symbol names
-				  const char* probeWithin[],  // [provided by linker] function name containing probe or isenabled
-				  uint64_t offsetsInDOF[],    // [allocated by linker, populated by DTrace] per-probe offset in the DOF
-				  size_t* size);               // [allocated by linker, populated by DTrace] size of the DOF)
+void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] target architecture
+                           unsigned int typeCount,     // [provided by linker] number of stability or typedef symbol names
+                           const char* typeNames[],    // [provided by linker] stability or typedef symbol names
+                           unsigned int probeCount,    // [provided by linker] number of probe or isenabled locations
+                           const char* probeNames[],   // [provided by linker] probe or isenabled symbol names
+                           const char* probeWithin[],  // [provided by linker] function name containing probe or isenabled
+                           uint64_t offsetsInDOF[],    // [allocated by linker, populated by DTrace] per-probe offset in the DOF
+                           size_t* size);               // [allocated by linker, populated by DTrace] size of the DOF)
 
-extern char* dt_ld_encode_stability(char* provider_name, dt_provider_t* provider);
-extern char* dt_ld_encode_typedefs(char* provider_name, dt_provider_t* provider);
-extern char* dt_ld_encode_probe(char* provider_name, char* probe_name, dt_probe_t* probe);
-extern char* dt_ld_encode_isenabled(char* provider_name, char* probe_name);
-
-#ifdef	__cplusplus
-}
-#endif
+char* dt_ld_encode_stability(char* provider_name, dt_provider_t* provider);
+char* dt_ld_encode_typedefs(char* provider_name, dt_provider_t* provider);
+char* dt_ld_encode_probe(char* provider_name, char* probe_name, dt_probe_t* probe);
+char* dt_ld_encode_isenabled(char* provider_name, char* probe_name);
 
 #endif	/* _DT_LD_H */

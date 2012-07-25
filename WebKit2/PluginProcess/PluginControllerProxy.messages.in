@@ -24,7 +24,7 @@
 
 messages -> PluginControllerProxy {
     # Sent when the plug-in geometry changes.
-    GeometryDidChange(WebCore::IntRect frameRect, WebCore::IntRect clipRect, float scaleFactor, WebKit::ShareableBitmap::Handle backingStoreHandle)
+    GeometryDidChange(WebCore::IntSize pluginSize, WebCore::IntRect clipRect, WebCore::AffineTransform pluginToRootViewTransform, float scaleFactor, WebKit::ShareableBitmap::Handle backingStoreHandle)
 
     # Sent when a frame has finished loading.
     FrameDidFinishLoading(uint64_t requestID)
@@ -98,6 +98,9 @@ messages -> PluginControllerProxy {
 
     # Sent when the containing NSWindow's visibility changes
     WindowVisibilityChanged(bool isVisible)
+
+    # Sent when the containing window's layer hosting mode changes
+    SetLayerHostingMode(uint32_t layerHostingMode)
 #endif
 
     # Return a snapshot of the plugin
@@ -105,6 +108,9 @@ messages -> PluginControllerProxy {
     
     # Sent when private browsing is enabled or disabled
     PrivateBrowsingStateChanged(bool isPrivateBrowsingEnabled)
+
+    # Gets the string representating the form value of the plug-in
+    GetFormValue() -> (bool returnValue, WTF::String formValue)
 }
 
 #endif

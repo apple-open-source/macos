@@ -125,8 +125,8 @@ struct ph1handle {
 	int side;			/* INITIATOR or RESPONDER */
 	int started_by_api;		/* connection started by VPNControl API */
 
-	struct sockaddr *remote;	/* remote address to negosiate ph1 */
-	struct sockaddr *local;		/* local address to negosiate ph1 */
+	struct sockaddr_storage *remote;	/* remote address to negosiate ph1 */
+	struct sockaddr_storage *local;		/* local address to negosiate ph1 */
 			/* XXX copy from rmconf due to anonymous configuration.
 			 * If anonymous will be forbidden, we do delete them. */
 
@@ -179,11 +179,6 @@ struct ph1handle {
 	cert_t *cert_p;			/* peer's CERT minus general header */
 	cert_t *crl_p;			/* peer's CRL minus general header */
 	cert_t *cr_p;			/* peer's CR not including general */
-#ifdef HAVE_OPENSSL
-	RSA *rsa;			/* my RSA key */
-	RSA *rsa_p;			/* peer's RSA key */
-	struct genlist *rsa_candidates;	/* possible candidates for peer's RSA key */
-#endif
 	vchar_t *id;			/* ID minus gen header */
 	vchar_t *id_p;			/* partner's ID minus general header */
 					/* i.e. struct ipsecdoi_id_b*. */
@@ -272,15 +267,15 @@ struct ph1handle {
 #define PHASE2ST_MAX		11
 
 struct ph2handle {
-	struct sockaddr *src;		/* my address of SA. */
-	struct sockaddr *dst;		/* peer's address of SA. */
+	struct sockaddr_storage *src;		/* my address of SA. */
+	struct sockaddr_storage *dst;		/* peer's address of SA. */
 
 		/*
 		 * copy ip address from ID payloads when ID type is ip address.
 		 * In other case, they must be null.
 		 */
-	struct sockaddr *src_id;
-	struct sockaddr *dst_id;
+	struct sockaddr_storage *src_id;
+	struct sockaddr_storage *dst_id;
 
 	u_int32_t spid;			/* policy id by kernel */
 
@@ -316,7 +311,7 @@ struct ph2handle {
 	struct sainfo *sainfo;		/* place holder of sainfo */
 	struct saprop *proposal;	/* SA(s) proposal. */
 	struct saprop *approval;	/* SA(s) approved. */
-	caddr_t spidx_gen;		/* policy from peer's proposal */
+	struct policyindex * spidx_gen;		/* policy from peer's proposal */
 
 #ifndef HAVE_OPENSSL
 	SecDHContext dhC;		/* Context for Security Framework Diffie-Hellman calculations */
@@ -364,7 +359,7 @@ struct ph2handle {
  * for handling initial contact.
  */
 struct contacted {
-	struct sockaddr *remote;	/* remote address to negotiate ph1 */
+	struct sockaddr_storage *remote;	/* remote address to negotiate ph1 */
 	LIST_ENTRY(contacted) chain;
 };
 
@@ -372,8 +367,8 @@ struct contacted {
  * for checking if a packet is retransmited.
  */
 struct recvdpkt {
-	struct sockaddr *remote;	/* the remote address */
-	struct sockaddr *local;		/* the local address */
+	struct sockaddr_storage *remote;	/* the remote address */
+	struct sockaddr_storage *local;		/* the local address */
 	vchar_t *hash;			/* hash of the received packet */
 	vchar_t *sendbuf;		/* buffer for the response */
 	int retry_counter;		/* how many times to send */
@@ -460,25 +455,25 @@ struct ph1dump {
 	int ph2cnt;
 };
 
-struct sockaddr;
+struct sockaddr_storage;
 struct ph1handle;
 struct ph2handle;
 struct policyindex;
 
 extern struct ph1handle *getph1byindex __P((isakmp_index *));
 extern struct ph1handle *getph1byindex0 __P((isakmp_index *));
-extern struct ph1handle *getph1byaddr __P((struct sockaddr *,
-	struct sockaddr *));
-extern struct ph1handle *getph1byaddrwop __P((struct sockaddr *,
-	struct sockaddr *));
-extern struct ph1handle *getph1bydstaddrwop __P((struct sockaddr *));
+extern struct ph1handle *getph1byaddr __P((struct sockaddr_storage *,
+	struct sockaddr_storage *));
+extern struct ph1handle *getph1byaddrwop __P((struct sockaddr_storage *,
+	struct sockaddr_storage *));
+extern struct ph1handle *getph1bydstaddrwop __P((struct sockaddr_storage *));
 extern int islast_ph1 __P((struct ph1handle *));
 	struct ph1handle *ph1;
 #ifdef ENABLE_HYBRID
 struct ph1handle *getph1bylogin __P((char *));
 int purgeph1bylogin __P((char *));
 #endif
-extern int purgephXbydstaddrwop __P((struct sockaddr *));
+extern int purgephXbydstaddrwop __P((struct sockaddr_storage *));
 extern void purgephXbyspid __P((u_int32_t, int));
 
 extern vchar_t *dumpph1 __P((void));
@@ -492,47 +487,47 @@ extern void initph1tree __P((void));
 extern struct ph2handle *getph2byspidx __P((struct policyindex *));
 extern struct ph2handle *getph2byspid __P((u_int32_t));
 extern struct ph2handle *getph2byseq __P((u_int32_t));
-extern struct ph2handle *getph2bysaddr __P((struct sockaddr *,
-	struct sockaddr *));
+extern struct ph2handle *getph2bysaddr __P((struct sockaddr_storage *,
+	struct sockaddr_storage *));
 extern struct ph2handle *getph2bymsgid __P((struct ph1handle *, u_int32_t));
-extern struct ph2handle *getph2byid __P((struct sockaddr *,
-	struct sockaddr *, u_int32_t));
-extern struct ph2handle *getph2bysaidx __P((struct sockaddr *,
-	struct sockaddr *, u_int, u_int32_t));
+extern struct ph2handle *getph2byid __P((struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int32_t));
+extern struct ph2handle *getph2bysaidx __P((struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int, u_int32_t));
 extern struct ph2handle *newph2 __P((void));
 extern void initph2 __P((struct ph2handle *));
 extern void delph2 __P((struct ph2handle *));
 extern int insph2 __P((struct ph2handle *));
 extern void remph2 __P((struct ph2handle *));
 extern void flushph2 __P((int));
-extern void deleteallph2 __P((struct sockaddr *, struct sockaddr *, u_int));
-extern void deleteallph1 __P((struct sockaddr *, struct sockaddr *));
+extern void deleteallph2 __P((struct sockaddr_storage *, struct sockaddr_storage *, u_int));
+extern void deleteallph1 __P((struct sockaddr_storage *, struct sockaddr_storage *));
 extern void initph2tree __P((void));
 
 extern void bindph12 __P((struct ph1handle *, struct ph2handle *));
 extern void unbindph12 __P((struct ph2handle *));
 extern void rebindph12 __P((struct ph1handle *, struct ph2handle *));
 
-extern struct contacted *getcontacted __P((struct sockaddr *));
-extern int inscontacted __P((struct sockaddr *));
+extern struct contacted *getcontacted __P((struct sockaddr_storage *));
+extern int inscontacted __P((struct sockaddr_storage *));
 extern void clear_contacted __P((void));
 extern void initctdtree __P((void));
 
 extern time_t get_exp_retx_interval __P((int num_retries, int fixed_retry_interval));
 
-extern int check_recvdpkt __P((struct sockaddr *,
-	struct sockaddr *, vchar_t *));
-extern int add_recvdpkt __P((struct sockaddr *, struct sockaddr *,
+extern int check_recvdpkt __P((struct sockaddr_storage *,
+	struct sockaddr_storage *, vchar_t *));
+extern int add_recvdpkt __P((struct sockaddr_storage *, struct sockaddr_storage *,
 	vchar_t *, vchar_t *, size_t, u_int32_t));
 extern void clear_recvdpkt __P((void));
 extern void init_recvdpkt __P((void));
 
 #ifdef ENABLE_HYBRID
-extern int exclude_cfg_addr __P((const struct sockaddr *));
+extern int exclude_cfg_addr __P((const struct sockaddr_storage *));
 #endif
 
 #ifdef ENABLE_DPD
-extern int  ph1_force_dpd __P((struct sockaddr *));
+extern int  ph1_force_dpd __P((struct sockaddr_storage *));
 #endif
 extern void sweep_sleepwake __P((void));
 

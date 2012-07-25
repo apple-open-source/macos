@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -32,10 +32,22 @@
  * path returned in path buffer
  */
 
+#define _AST_API_H	1
+
 #include <ast.h>
 
 char*
-pathaccess(register char* path, register const char* dirs, const char* a, const char* b, register int mode)
+pathaccess(char* path, const char* dirs, const char* a, const char* b, int mode)
+{
+	return pathaccess_20100601(dirs, a, b, mode, path, PATH_MAX);
+}
+
+#undef	_AST_API_H
+
+#include <ast_api.h>
+
+char*
+pathaccess_20100601(register const char* dirs, const char* a, const char* b, register int mode, register char* path, size_t size)
 {
 	int		sib = a && a[0] == '.' && a[1] == '.' && a[2] == 0;
 	int		sep = ':';
@@ -43,8 +55,8 @@ pathaccess(register char* path, register const char* dirs, const char* a, const 
 
 	do
 	{
-		dirs = pathcat(path, dirs, sep, a, b);
-		pathcanon(path, 0);
+		dirs = pathcat(dirs, sep, a, b, path, size);
+		pathcanon(path, size, 0);
 		if ((!sib || *path == '/') && pathexists(path, mode))
 		{
 			if (*path == '/' || !(mode & PATH_ABSOLUTE))

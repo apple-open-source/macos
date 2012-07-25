@@ -10,6 +10,7 @@
 #include "unicode/unorm.h"
 #include "unicode/uchar.h"
 #include "unicode/uniset.h"
+#include "unicode/utf16.h"
 #include "utrie2.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -27,7 +28,7 @@ U_NAMESPACE_BEGIN
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SpoofImpl)
 
 SpoofImpl::SpoofImpl(SpoofData *data, UErrorCode &status) :
-    fMagic(0), fSpoofData(NULL), fAllowedCharsSet(NULL) , fAllowedLocales(NULL) {
+    fMagic(0), fSpoofData(NULL), fAllowedCharsSet(NULL) , fAllowedLocales(uprv_strdup("")) {
     if (U_FAILURE(status)) {
         return;
     }
@@ -35,12 +36,12 @@ SpoofImpl::SpoofImpl(SpoofData *data, UErrorCode &status) :
     fSpoofData = data;
     fChecks = USPOOF_ALL_CHECKS;
     UnicodeSet *allowedCharsSet = new UnicodeSet(0, 0x10ffff);
-    if (allowedCharsSet == NULL) {
+    if (allowedCharsSet == NULL || fAllowedLocales == NULL) {
         status = U_MEMORY_ALLOCATION_ERROR;
+        return;
     }
     allowedCharsSet->freeze();
     fAllowedCharsSet = allowedCharsSet;
-    fAllowedLocales  = uprv_strdup("");
 }
 
 
@@ -66,7 +67,6 @@ SpoofImpl::SpoofImpl(const SpoofImpl &src, UErrorCode &status)  :
     if (src.fSpoofData != NULL) {
         fSpoofData = src.fSpoofData->addReference();
     }
-    fCheckMask = src.fCheckMask;
     fAllowedCharsSet = static_cast<const UnicodeSet *>(src.fAllowedCharsSet->clone());
     if (fAllowedCharsSet == NULL) {
         status = U_MEMORY_ALLOCATION_ERROR;
@@ -309,7 +309,7 @@ void SpoofImpl::setAllowedLocales(const char *localesList, UErrorCode &status) {
         tmpSet->freeze();
         delete fAllowedCharsSet;
         fAllowedCharsSet = tmpSet;
-        fCheckMask &= ~USPOOF_CHAR_LIMIT;
+        fChecks &= ~USPOOF_CHAR_LIMIT;
         return;
     }
 
@@ -339,7 +339,7 @@ void SpoofImpl::setAllowedLocales(const char *localesList, UErrorCode &status) {
     tmpSet->freeze();
     delete fAllowedCharsSet;
     fAllowedCharsSet = tmpSet;
-    fCheckMask |= USPOOF_CHAR_LIMIT;
+    fChecks |= USPOOF_CHAR_LIMIT;
 }
 
 
@@ -390,6 +390,16 @@ int32_t SpoofImpl::scriptScan
         if (sc == USCRIPT_COMMON || sc == USCRIPT_INHERITED || sc == USCRIPT_UNKNOWN) {
             continue;
         }
+
+        // Temporary fix: fold Japanese Hiragana and Katakana into Han.
+        //   Names are allowed to mix these scripts.
+        //   A more general solution will follow later for characters that are
+        //   used with multiple scripts.
+
+        if (sc == USCRIPT_HIRAGANA || sc == USCRIPT_KATAKANA || sc == USCRIPT_HANGUL) {
+            sc = USCRIPT_HAN;
+        }
+
         if (sc != lastScript) {
            scriptCount++;
            lastScript = sc;
@@ -952,7 +962,10 @@ uspoof_swap(const UDataSwapper *ds, const void *inData, int32_t length, void *ou
     //
     uint32_t magic = ds->readUInt32(spoofDH->fMagic);
     ds->writeUInt32((uint32_t *)&outputDH->fMagic, magic);
-    uprv_memcpy(outputDH->fFormatVersion, spoofDH->fFormatVersion, sizeof(spoofDH->fFormatVersion));
+
+    if (outputDH->fFormatVersion != spoofDH->fFormatVersion) {
+        uprv_memcpy(outputDH->fFormatVersion, spoofDH->fFormatVersion, sizeof(spoofDH->fFormatVersion));
+    }
     // swap starting at fLength
     ds->swapArray32(ds, &spoofDH->fLength, sizeof(SpoofDataHeader)-8 /* minus magic and fFormatVersion[4] */, &outputDH->fLength, status);
 

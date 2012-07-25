@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -170,6 +170,14 @@ public: // package
     void TestISOEra(void);
 
     void TestFormalChineseDate(void);
+
+    void TestStandAloneGMTParse(void);
+
+    void TestParsePosition(void);
+
+    void TestMonthPatterns(void);
+
+    void TestContext(void);
 
 public:
     /**

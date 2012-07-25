@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,4 +44,4 @@ CFArrayRef _KextManagerCreatePropertyValueArray(
 
 __END_DECLS
 
-#endif __KEXTMANAGERPRIV_H__
+#endif /* __KEXTMANAGERPRIV_H__ */

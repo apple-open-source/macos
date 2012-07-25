@@ -51,6 +51,10 @@
 #include "WebDOMRange.h"
 #include "WebDOMWebKitAnimationList.h"
 
+using namespace WebKit;
+
+static const wxString wxPyWebViewNameStr(WebViewNameStr);
+
 #ifndef __WXMSW__
 PyObject* createDOMNodeSubtype(WebDOMNode* ptr, bool setThisOwn, bool isValueObject)
 {
@@ -136,11 +140,9 @@ WebDOMString* createWebDOMString(PyObject* source)
 %typemap(out) WebDOMString&           { $result = PyUnicode_DecodeUTF8($1.utf8().data(), $1.utf8().length(), NULL); }
 #endif
 
-MAKE_CONST_WXSTRING(WebViewNameStr);
-
-MustHaveApp(wxWebBrowserShell);
-MustHaveApp(wxWebFrame);
-MustHaveApp(wxWebView);
+MustHaveApp(WebBrowserShell);
+MustHaveApp(WebFrame);
+MustHaveApp(WebView);
 
 %include WebKitDefines.h
 
@@ -162,6 +164,13 @@ MustHaveApp(wxWebView);
 %include WebSettings.h
 %include WebView.h
 
+%extend WebKit::WebFrame {
+    %pythoncode {
+        def __eq__(self, other):
+            return self.this == other.this
+    }
+}
+
 %constant wxEventType wxEVT_WEBVIEW_BEFORE_LOAD;
 %constant wxEventType wxEVT_WEBVIEW_LOAD;
 %constant wxEventType wxEVT_WEBVIEW_NEW_WINDOW;
@@ -170,6 +179,7 @@ MustHaveApp(wxWebView);
 %constant wxEventType wxEVT_WEBVIEW_RECEIVED_TITLE;
 %constant wxEventType wxEVT_WEBVIEW_CONTENTS_CHANGED;
 %constant wxEventType wxEVT_WEBVIEW_SELECTION_CHANGED;
+%constant wxEventType wxEVT_WEBVIEW_PRINT_FRAME;
 
 %pythoncode {
 EVT_WEBVIEW_BEFORE_LOAD = wx.PyEventBinder( wxEVT_WEBVIEW_BEFORE_LOAD, 1 )
@@ -180,4 +190,5 @@ EVT_WEBVIEW_CONSOLE_MESSAGE = wx.PyEventBinder( wxEVT_WEBVIEW_CONSOLE_MESSAGE, 1
 EVT_WEBVIEW_RECEIVED_TITLE = wx.PyEventBinder( wxEVT_WEBVIEW_RECEIVED_TITLE, 1 )
 EVT_WEBVIEW_CONTENTS_CHANGED = wx.PyEventBinder( wxEVT_WEBVIEW_CONTENTS_CHANGED, 1 )
 EVT_WEBVIEW_SELECTION_CHANGED = wx.PyEventBinder( wxEVT_WEBVIEW_SELECTION_CHANGED, 1 )
+EVT_WEBVIEW_PRINT_FRAME = wx.PyEventBinder( wxEVT_WEBVIEW_PRINT_FRAME, 1 )
 }

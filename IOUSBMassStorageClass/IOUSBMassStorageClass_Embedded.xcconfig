@@ -1,0 +1,2 @@
+#include "IOUSBMassStorageClass.xcconfig"
+#include "AspenSDK.xcconfig"

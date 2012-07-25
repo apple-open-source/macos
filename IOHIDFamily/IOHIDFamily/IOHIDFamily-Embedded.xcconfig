@@ -19,5 +19,5 @@
 // 
 // @APPLE_LICENSE_HEADER_END@
 
-#include "/Developer/AppleInternal/XcodeConfig/AspenSDK.xcconfig"
+#include "<DEVELOPER_DIR>/AppleInternal/XcodeConfig/AspenSDK.xcconfig"
 #include "IOHIDFamily-Version.xcconfig"

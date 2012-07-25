@@ -62,10 +62,10 @@ public:
             m_client->didSendData(bytesSent, totalBytesToBeSent);
     }
 
-    void didReceiveResponse(const ResourceResponse& response)
+    void didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
     {
         if (m_client)
-            m_client->didReceiveResponse(response);
+            m_client->didReceiveResponse(identifier, response);
     }
 
     void didReceiveData(const char* data, int dataLength)
@@ -101,11 +101,19 @@ public:
             m_client->didFailRedirectCheck();
     }
 
-    void didReceiveAuthenticationCancellation(const ResourceResponse& response)
+    void didReceiveAuthenticationCancellation(unsigned long identifier, const ResourceResponse& response)
     {
         if (m_client)
-            m_client->didReceiveResponse(response);
+            m_client->didReceiveResponse(identifier, response);
     }
+
+#if PLATFORM(CHROMIUM)
+    void didDownloadData(int dataLength)
+    {
+        if (m_client)
+            m_client->didDownloadData(dataLength);
+    }
+#endif
 
 protected:
     ThreadableLoaderClientWrapper(ThreadableLoaderClient* client)

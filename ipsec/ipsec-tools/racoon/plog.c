@@ -155,7 +155,7 @@ plogmtxinit (void)
 }
 
 void
-plog_func(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
+plog_func(int pri, const char *func, struct sockaddr_storage *sa, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -165,7 +165,7 @@ plog_func(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
 }
 
 void
-plogv(int pri, const char *func, struct sockaddr *sa,
+plogv(int pri, const char *func, struct sockaddr_storage *sa,
 	  const char *fmt, va_list *ap)
 {
 	char *newfmt;

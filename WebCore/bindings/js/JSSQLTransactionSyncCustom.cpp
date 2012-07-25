@@ -27,9 +27,10 @@
  */
 
 #include "config.h"
-#include "JSSQLTransactionSync.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
+
+#include "JSSQLTransactionSync.h"
 
 #include "ExceptionCode.h"
 #include "JSSQLResultSet.h"
@@ -48,7 +49,7 @@ JSValue JSSQLTransactionSync::executeSql(ExecState* exec)
         return jsUndefined();
     }
 
-    String sqlStatement = ustringToString(exec->argument(0).toString(exec));
+    String sqlStatement = ustringToString(exec->argument(0).toString(exec)->value(exec));
     if (exec->hadException())
         return jsUndefined();
 
@@ -79,7 +80,7 @@ JSValue JSSQLTransactionSync::executeSql(ExecState* exec)
                 sqlValues.append(value.asNumber());
             else {
                 // Convert the argument to a string and append it
-                sqlValues.append(ustringToString(value.toString(exec)));
+                sqlValues.append(ustringToString(value.toString(exec)->value(exec)));
                 if (exec->hadException())
                     return jsUndefined();
             }
@@ -93,6 +94,6 @@ JSValue JSSQLTransactionSync::executeSql(ExecState* exec)
     return result;
 }
 
-}
+} // namespace WebCore
 
-#endif // ENABLE(DATABASE)
+#endif // ENABLE(SQL_DATABASE)

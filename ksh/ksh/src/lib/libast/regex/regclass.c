@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -40,13 +40,6 @@ struct Ctype_s
 };
 
 static Ctype_t*		ctypes;
-
-#define CTYPES		12
-#if _lib_wctype
-#define WTYPES		8
-#else
-#define WTYPES		0
-#endif
 
 /*
  * this stuff gets around posix failure to define isblank,
@@ -99,6 +92,14 @@ static int Is_wc_5(int);
 static int Is_wc_6(int);
 static int Is_wc_7(int);
 static int Is_wc_8(int);
+static int Is_wc_9(int);
+static int Is_wc_10(int);
+static int Is_wc_11(int);
+static int Is_wc_12(int);
+static int Is_wc_13(int);
+static int Is_wc_14(int);
+static int Is_wc_15(int);
+static int Is_wc_16(int);
 
 #endif
 
@@ -119,6 +120,9 @@ static Ctype_t ctype[] =
 	{ SZ("upper"), Isupper },
 	{ SZ("word"),  Isword  },
 	{ SZ("xdigit"),Isxdigit},
+
+#define CTYPES		13
+
 #if _lib_wctype
 	{ 0, 0,        Is_wc_1 },
 	{ 0, 0,        Is_wc_2 },
@@ -128,6 +132,21 @@ static Ctype_t ctype[] =
 	{ 0, 0,        Is_wc_6 },
 	{ 0, 0,        Is_wc_7 },
 	{ 0, 0,        Is_wc_8 },
+	{ 0, 0,        Is_wc_9 },
+	{ 0, 0,        Is_wc_10 },
+	{ 0, 0,        Is_wc_11 },
+	{ 0, 0,        Is_wc_12 },
+	{ 0, 0,        Is_wc_13 },
+	{ 0, 0,        Is_wc_14 },
+	{ 0, 0,        Is_wc_15 },
+	{ 0, 0,        Is_wc_16 },
+
+#define WTYPES		16
+
+#else
+
+#define WTYPES		0
+
 #endif
 };
 
@@ -141,12 +160,23 @@ static int Is_wc_5(int c) { return iswctype(c, ctype[CTYPES+4].wtype); }
 static int Is_wc_6(int c) { return iswctype(c, ctype[CTYPES+5].wtype); }
 static int Is_wc_7(int c) { return iswctype(c, ctype[CTYPES+6].wtype); }
 static int Is_wc_8(int c) { return iswctype(c, ctype[CTYPES+7].wtype); }
+static int Is_wc_9(int c) { return iswctype(c, ctype[CTYPES+8].wtype); }
+static int Is_wc_10(int c) { return iswctype(c, ctype[CTYPES+9].wtype); }
+static int Is_wc_11(int c) { return iswctype(c, ctype[CTYPES+10].wtype); }
+static int Is_wc_12(int c) { return iswctype(c, ctype[CTYPES+11].wtype); }
+static int Is_wc_13(int c) { return iswctype(c, ctype[CTYPES+12].wtype); }
+static int Is_wc_14(int c) { return iswctype(c, ctype[CTYPES+13].wtype); }
+static int Is_wc_15(int c) { return iswctype(c, ctype[CTYPES+14].wtype); }
+static int Is_wc_16(int c) { return iswctype(c, ctype[CTYPES+15].wtype); }
 
 #endif
 
 /*
  * return pointer to ctype function for :class:] in s
  * s points to the first char after the initial [
+ * dynamic wctype classes are locale-specific
+ * dynamic entry locale is punned in Ctype_t.next 
+ * the search does a lazy (one entry at a time) flush on locale mismatch
  * if e!=0 it points to next char in s
  * 0 returned on error
  */
@@ -158,37 +188,62 @@ regclass(const char* s, char** e)
 	register int		c;
 	register size_t		n;
 	register const char*	t;
+	Ctype_t*		lc;
+	Ctype_t*		xp;
+	Ctype_t*		zp;
 
-	if (c = *s++)
+	if (!(c = *s++))
+		return 0;
+	for (t = s; *t && (*t != c || *(t + 1) != ']'); t++);
+	if (*t != c || !(n = t - s))
+		return 0;
+	for (cp = ctypes; cp; cp = cp->next)
+		if (n == cp->size && strneq(s, cp->name, n))
+			goto found;
+	xp = zp = 0;
+	lc = (Ctype_t*)setlocale(LC_CTYPE, NiL);
+	for (cp = ctype; cp < &ctype[elementsof(ctype)]; cp++)
 	{
-		for (t = s; *t && (*t != c || *(t + 1) != ']'); t++);
-		if (*t != c)
-			return 0;
-		n = t - s;
-		for (cp = ctypes; cp; cp = cp->next)
-			if (n == cp->size && strneq(s, cp->name, n))
-				goto found;
-		for (cp = ctype; cp < &ctype[elementsof(ctype)]; cp++)
-		{
 #if _lib_wctype
-			if (!cp->size && (cp->name = (const char*)memdup(s, n + 1)))
-			{
-				*((char*)cp->name + n) = 0;
-				/* mvs.390 needs the (char*) cast -- barf */
-				if (!(cp->wtype = wctype((char*)cp->name)))
-				{
-					free((char*)cp->name);
-					return 0;
-				}
-				cp->size = n;
-				goto found;
-			}
+		if (!zp)
+		{
+			if (!cp->size)
+				zp = cp;
+			else if (!xp && cp->next && cp->next != lc)
+				xp = cp;
+		}
 #endif
-			if (n == cp->size && strneq(s, cp->name, n))
-				goto found;
+		if (n == cp->size && strneq(s, cp->name, n) && (!cp->next || cp->next == lc))
+			goto found;
+	}
+#if _lib_wctype
+	if (!(cp = zp))
+	{
+		if (!(cp = xp))
+			return 0;
+		cp->size = 0;
+		if (!streq(cp->name, s))
+		{
+			free((char*)cp->name);
+			cp->name = 0;
 		}
 	}
-	return 0;
+	if (!cp->name)
+	{
+		if (!(cp->name = (const char*)memdup(s, n + 1)))
+			return 0;
+		*((char*)cp->name + n) = 0;
+	}
+	/* mvs.390 needs the (char*) cast -- barf */
+	if (!(cp->wtype = wctype((char*)cp->name)))
+	{
+		free((char*)cp->name);
+		cp->name = 0;
+		return 0;
+	}
+	cp->size = n;
+	cp->next = lc;
+#endif
  found:
 	if (e)
 		*e = (char*)t + 2;

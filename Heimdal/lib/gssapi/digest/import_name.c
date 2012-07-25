@@ -37,9 +37,9 @@
 
 static OM_uint32
 scram_name(OM_uint32 *minor_status,
-	   const gss_OID mech,
+	   gss_const_OID mech,
 	   const gss_buffer_t input_name_buffer,
-	   const gss_OID input_name_type,
+	   gss_const_OID input_name_type,
 	   gss_name_t *output_name)
 {
     char *n = malloc(input_name_buffer->length + 1);
@@ -65,7 +65,7 @@ static struct _gss_name_type scram_names[] = {
 OM_uint32 _gss_scram_import_name
            (OM_uint32 * minor_status,
             const gss_buffer_t input_name_buffer,
-            const gss_OID input_name_type,
+            gss_const_OID input_name_type,
             gss_name_t * output_name
            )
 {
@@ -76,7 +76,7 @@ OM_uint32 _gss_scram_import_name
 
 OM_uint32 _gss_scram_inquire_names_for_mech (
             OM_uint32 * minor_status,
-            const gss_OID mechanism,
+            gss_const_OID mechanism,
             gss_OID_set * name_types
            )
 {

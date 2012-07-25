@@ -54,6 +54,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #endif 
+#include <fcntl.h>
 
 #include "var.h"
 #include "misc.h"
@@ -131,9 +132,9 @@ find_myaddr(addr, udp_encap)
 		if (q->udp_encap && !udp_encap
 			|| !q->udp_encap && udp_encap)
 			continue;
-		if (addr->sa_family != q->addr->sa_family)
+		if (addr->sa_family != q->addr->ss_family)
 			continue;
-		if (getnameinfo(q->addr, sysdep_sa_len(q->addr), h2, sizeof(h2),
+		if (getnameinfo((struct sockaddr *)q->addr, sysdep_sa_len((struct sockaddr *)q->addr), h2, sizeof(h2),
 		    NULL, 0, NI_NUMERICHOST | niflags) != 0)
 			return NULL;
 		if (strcmp(h1, h2) == 0)
@@ -154,9 +155,6 @@ grab_myaddrs()
 #ifdef HAVE_GETIFADDRS
 	struct myaddrs *p, *q;
 	struct ifaddrs *ifa0, *ifap;
-#ifdef INET6
-	struct sockaddr_in6 *sin6;
-#endif
 
 	char addr1[NI_MAXHOST];
 
@@ -222,7 +220,7 @@ grab_myaddrs()
 			p->sock = -1;
 			p->in_use = 1;
 
-			if (getnameinfo(p->addr, p->addr->sa_len,
+			if (getnameinfo((struct sockaddr *)p->addr, p->addr->ss_len,
 					addr1, sizeof(addr1),
 					NULL, 0,
 					NI_NUMERICHOST | niflags))
@@ -303,10 +301,15 @@ suitable_ifaddr6(ifname, ifaddr)
 		return 0;
 	}
 
+	if (fcntl(s, F_SETFL, O_NONBLOCK) == -1) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to put IPv6 socket in non-blocking mode\n");
+	}
+
 	memset(&ifr6, 0, sizeof(ifr6));
 	strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
 
-	ifr6.ifr_addr = *(const struct sockaddr_in6 *)ifaddr;
+	memcpy(&ifr6.ifr_addr, ifaddr, sizeof(struct sockaddr_in6));    // Wcast-align fix - copy instread of assign with cast
 
 	if (ioctl(s, SIOCGIFAFLAG_IN6, &ifr6) < 0) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -329,32 +332,35 @@ suitable_ifaddr6(ifname, ifaddr)
 
 int
 update_myaddrs()
-{
-	char msg[BUFSIZ];
+{   
+    struct rtmessage {          // Wcast-align fix - force alignment
+        struct rt_msghdr rtm;  
+        char discard[BUFSIZ];
+    } msg;
+	
 	int len;
-	struct rt_msghdr *rtm;
 
-	len = read(lcconf->rtsock, msg, sizeof(msg));
-	if (len < 0) {
+	while((len = read(lcconf->rtsock, &msg, sizeof(msg))) < 0) {
+		if (errno == EINTR)
+			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
 			"read(PF_ROUTE) failed: %s\n",
 			strerror(errno));
 		return 0;
 	}
-	rtm = (struct rt_msghdr *)msg;
-	if (len < rtm->rtm_msglen) {
+	if (len < msg.rtm.rtm_msglen) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"read(PF_ROUTE) short read\n");
 		return 0;
 	}
-	if (rtm->rtm_version != RTM_VERSION) {
+	if (msg.rtm.rtm_version != RTM_VERSION) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"routing socket version mismatch\n");
 		close(lcconf->rtsock);
 		lcconf->rtsock = -1;
 		return 0;
 	}
-	switch (rtm->rtm_type) {
+	switch (msg.rtm.rtm_type) {
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
 	case RTM_DELETE:
@@ -364,15 +370,15 @@ update_myaddrs()
 		/* ignore this message silently */
 		return 0;
 	default:
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"msg %d not interesting\n", rtm->rtm_type);
+		//plog(LLV_DEBUG, LOCATION, NULL,
+		//	"msg %d not interesting\n", msg.rtm.rtm_type);
 		return 0;
 	}
 	/* XXX more filters here? */
 
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"caught rtm:%d, need update interface address list\n",
-		rtm->rtm_type);
+	//plog(LLV_DEBUG, LOCATION, NULL,
+	//	"caught rtm:%d, need update interface address list\n",
+	//	msg.rtm.rtm_type);
 
 	return 1;
 }
@@ -409,7 +415,7 @@ autoconf_myaddrsport()
  */
 u_short
 getmyaddrsport(local)
-	struct sockaddr *local;
+	struct sockaddr_storage *local;
 {
 	struct myaddrs *p, *bestmatch = NULL;
 	u_short bestmatch_port = PORT_ISAKMP;
@@ -424,7 +430,7 @@ getmyaddrsport(local)
 				continue;
 			}
 			
-			switch (p->addr->sa_family) {
+			switch (p->addr->ss_family) {
 			case AF_INET:
 				if (((struct sockaddr_in *)p->addr)->sin_port == PORT_ISAKMP) {
 					bestmatch = p;
@@ -443,7 +449,7 @@ getmyaddrsport(local)
 #endif
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
-				     "unsupported AF %d\n", p->addr->sa_family);
+				     "unsupported AF %d\n", p->addr->ss_family);
 				continue;
 			}
 		}
@@ -487,7 +493,7 @@ dupmyaddr(struct myaddrs *old)
 
 	/* Copy the whole structure and set the differences.  */
 	memcpy (new, old, sizeof (*new));
-	new->addr = dupsaddr (old->addr);
+	new->addr = dupsaddr ((struct sockaddr *)old->addr);
 	if (new->addr == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to allocate buffer for duplicate addr.\n");
@@ -542,6 +548,11 @@ initmyaddr()
 			strerror(errno));
 		return -1;
 	}
+    
+	if (fcntl(lcconf->rtsock, F_SETFL, O_NONBLOCK) == -1) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "failed to put PF_ROUTE socket in non-blocking mode\n");
+	}
 
 	if (lcconf->myaddrs == NULL && lcconf->autograbaddr == 1) {
 		grab_myaddrs();
@@ -564,10 +575,10 @@ getsockmyaddr(my)
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (p->addr == NULL)
 			continue;
-		if (my->sa_family == p->addr->sa_family) {
+		if (my->sa_family == p->addr->ss_family) {
 			lastresort = p;
 		} else continue;
-		if (sysdep_sa_len(my) == sysdep_sa_len(p->addr)
+		if (sysdep_sa_len(my) == sysdep_sa_len((struct sockaddr *)p->addr)
 		 && memcmp(my, p->addr, sysdep_sa_len(my)) == 0) {
 			break;
 		}

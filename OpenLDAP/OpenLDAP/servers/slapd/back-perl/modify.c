@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/modify.c,v 1.23.2.6 2010/04/13 20:23:37 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2010 The OpenLDAP Foundation.
+ * Copyright 1999-2011 The OpenLDAP Foundation.
  * Portions Copyright 1999 John C. Quillan.
  * Portions Copyright 2002 myinternet Limited.
  * All rights reserved.
@@ -27,10 +27,7 @@ perl_back_modify(
 	int count;
 	int i;
 
-#if defined(HAVE_WIN32_ASPERL) || defined(USE_ITHREADS)
 	PERL_SET_CONTEXT( PERL_INTERPRETER );
-#endif
-
 	ldap_pvt_thread_mutex_lock( &perl_interpreter_mutex );	
 
 	{
@@ -75,11 +72,7 @@ perl_back_modify(
 
 		PUTBACK;
 
-#ifdef PERL_IS_5_6
 		count = call_method("modify", G_SCALAR);
-#else
-		count = perl_call_method("modify", G_SCALAR);
-#endif
 
 		SPAGAIN;
 

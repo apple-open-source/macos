@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*-
  *
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -35,7 +35,6 @@
 #include <dlfcn.h>
 #include <mach-o/loader.h>
 #include <mach-o/getsect.h>
-#include <mach/i386/thread_status.h>
 
 #include "libunwind.h"
 #include "InternalMacros.h"
@@ -82,13 +81,33 @@ public:
 	void			setEDI(uint32_t value)	{ fRegisters.__edi = value; }
 	
 private:
-	i386_thread_state_t  fRegisters;
+	struct GPRs
+	{
+	    unsigned int	__eax;
+	    unsigned int	__ebx;
+	    unsigned int	__ecx;
+	    unsigned int	__edx;
+	    unsigned int	__edi;
+	    unsigned int	__esi;
+	    unsigned int	__ebp;
+	    unsigned int	__esp;
+	    unsigned int	__ss;
+	    unsigned int	__eflags;
+	    unsigned int	__eip;
+	    unsigned int	__cs;
+	    unsigned int	__ds;
+	    unsigned int	__es;
+	    unsigned int	__fs;
+	    unsigned int	__gs;
+	};
+
+	GPRs  fRegisters;
 };
 
 inline Registers_x86::Registers_x86(const void* registers)
 {
 	COMPILE_TIME_ASSERT( sizeof(Registers_x86) < sizeof(unw_context_t) );
-	fRegisters = *((i386_thread_state_t*)registers); 
+	fRegisters = *((GPRs*)registers); 
 }
 
 inline Registers_x86::Registers_x86()
@@ -262,13 +281,37 @@ public:
 	uint64_t		getR15() const			{ return fRegisters.__r15; }
 	void			setR15(uint64_t value)	{ fRegisters.__r15 = value; }
 private:
-	x86_thread_state64_t fRegisters;
+	struct GPRs
+	{
+		__uint64_t	__rax;
+		__uint64_t	__rbx;
+		__uint64_t	__rcx;
+		__uint64_t	__rdx;
+		__uint64_t	__rdi;
+		__uint64_t	__rsi;
+		__uint64_t	__rbp;
+		__uint64_t	__rsp;
+		__uint64_t	__r8;
+		__uint64_t	__r9;
+		__uint64_t	__r10;
+		__uint64_t	__r11;
+		__uint64_t	__r12;
+		__uint64_t	__r13;
+		__uint64_t	__r14;
+		__uint64_t	__r15;
+		__uint64_t	__rip;
+		__uint64_t	__rflags;
+		__uint64_t	__cs;
+		__uint64_t	__fs;
+		__uint64_t	__gs;
+	};
+	GPRs fRegisters;
 };
 
 inline Registers_x86_64::Registers_x86_64(const void* registers)
 {
 	COMPILE_TIME_ASSERT( sizeof(Registers_x86_64) < sizeof(unw_context_t) );
-	fRegisters = *((x86_thread_state64_t*)registers); 
+	fRegisters = *((GPRs*)registers); 
 }
 
 inline Registers_x86_64::Registers_x86_64()

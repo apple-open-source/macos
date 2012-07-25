@@ -44,7 +44,7 @@ typedef union {
 } UnsignedShortByte;
 
 class SVGPathByteStream {
-    WTF_MAKE_NONCOPYABLE(SVGPathByteStream); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<SVGPathByteStream> create()
     {
@@ -64,6 +64,10 @@ public:
     void append(unsigned char byte) { m_data.append(byte); }
     void clear() { m_data.clear(); }
     bool isEmpty() const { return !m_data.size(); }
+    unsigned size() const { return m_data.size(); }
+
+    // Only defined to let SVGAnimatedPathAnimator use the standard list code paths - this method is never called.
+    void resize(unsigned) { }
 
 private:
     SVGPathByteStream() { }

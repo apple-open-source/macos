@@ -179,15 +179,24 @@ static void smb_get_os_lanman(struct smb_ctx *ctx, CFMutableDictionaryRef mutabl
 static void create_unique_id(struct smb_ctx *ctx, char *UppercaseShareName, 
 							 unsigned char *id, int32_t *unique_id_len)
 {
-	int32_t total_len = ctx->ct_saddr->sa_len + (int32_t)strlen(UppercaseShareName) + MAXPATHLEN;
+	struct sockaddr	*ct_saddr;
+	int32_t total_len;
 	
+	/* Always just use the real sockaddr when making a unique id */
+	if (ctx->ct_saddr->sa_family == AF_NETBIOS) {
+		ct_saddr = (struct sockaddr *)((void *)&((struct sockaddr_nb *)((void *)ctx->ct_saddr))->snb_addrin);
+	} else {
+		ct_saddr = ctx->ct_saddr;
+	}
+
+	total_len = ct_saddr->sa_len + (int32_t)strlen(UppercaseShareName) + MAXPATHLEN;
 	memset(id, 0, SMB_MAX_UNIQUE_ID);
 	if (total_len > SMB_MAX_UNIQUE_ID) {
 		smb_log_info("create_unique_id '%s' too long", ASL_LEVEL_ERR, ctx->ct_sh.ioc_share);
 		return; /* program error should never happen, but just incase */
 	}
-	memcpy(id, ctx->ct_saddr, ctx->ct_saddr->sa_len);
-	id += ctx->ct_saddr->sa_len;
+	memcpy(id, ct_saddr, ct_saddr->sa_len);
+	id += ct_saddr->sa_len;
 	memcpy(id, UppercaseShareName, strlen(UppercaseShareName));
 	id += strlen(UppercaseShareName);
 	/* We have a path make it part of the unique id */
@@ -331,23 +340,11 @@ void smb_ctx_get_user_mount_info(const char *mntonname, CFMutableDictionaryRef m
  */
 int smb_ctx_setuser(struct smb_ctx *ctx, const char *name)
 {
-	CFStringRef userRef;
 	if (strlen(name) >= SMB_MAXUSERNAMELEN) {
 		smb_log_info("user name '%s' too long", ASL_LEVEL_ERR, name);
 		return ENAMETOOLONG;
 	}
 	strlcpy(ctx->ct_setup.ioc_user, name, SMB_MAXUSERNAMELEN);
-	/* Used in NTLMSSP code for NTLMv2, remove uppercasing with <rdar://problem/7016849> */
-	userRef = CFStringCreateWithCString(kCFAllocatorDefault, ctx->ct_setup.ioc_user, 
-														 kCFStringEncodingUTF8);
-	/* The uppercase username will be removed with <rdar://problem/7016849> */
-	if (userRef) {
-		str_upper(ctx->ct_setup.ioc_uppercase_user, sizeof(ctx->ct_setup.ioc_uppercase_user), userRef);
-		CFRelease(userRef);
-	} else {
-		/* Nothing else we can do here  */
-		strlcpy(ctx->ct_setup.ioc_uppercase_user, name, sizeof(ctx->ct_setup.ioc_uppercase_user));
-	}
 
 	/* We need to tell the kernel if we are trying to do guest access */
 	if (strcasecmp(ctx->ct_setup.ioc_user, kGuestAccountName) == 0)
@@ -799,37 +796,8 @@ static int smb_negotiate(struct smb_ctx *ctx, struct sockaddr *raddr,
 			CFRelease(NegotiateToken);
 		}
 	}
-	/* 
-	 * Needs to be remove as part of  <rdar://problem/7016849>. The kernel code
-	 * requires a user name and password when doing NTLMSSP, so force legacy mode
-	 * by removing any NTLMSSP OIDs.
-	 */
-	if (rq.ioc_extra_flags & SMB_KERN_NTLMSSP) {
-		CFMutableDictionaryRef mechDict = NULL;
-		
-		/* We have a mechDict remove any NTLM OIDs */
-		if (serverSupportsKerberos(ctx->mechDict)) {
-			CFMutableDictionaryRef mechListDict = (CFMutableDictionaryRef)CFDictionaryGetValue(ctx->mechDict, kSPNEGONegTokenInitMechs);
-			
-			mechListDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0,  mechListDict);
-			if (mechListDict) {
-				CFDictionaryRemoveValue(mechListDict, kGSSAPIMechNTLMOID);
-				mechDict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0,  ctx->mechDict);
-				if (mechDict) {
-					CFDictionarySetValue(mechDict, kSPNEGONegTokenInitMechs, mechListDict);
-				}
-				CFRelease(mechListDict);
-			}
-			if (!mechDict) {
-				smb_log_info("%s: SMB_KERN_NTLMSSP, removing mech dictionary due to CF failures", 
-							 ASL_LEVEL_DEBUG, __FUNCTION__);
-			}
-		}
-		if (ctx->mechDict) {
-			CFRelease(ctx->mechDict);
-		}
-		ctx->mechDict = mechDict;
-	} else if ((ctx->mechDict == NULL) &&  (ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY)) {
+    
+    if ((ctx->mechDict == NULL) &&  (ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY)) {
 		/* 
 		 * The server does extended security, but they didn't return any mech 
 		 * types. Then create a default RAW NTLMSSP mech dictionary.
@@ -1175,8 +1143,11 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
 	CFStringRef serverPrincipalRef = CFDictionaryGetValue(authInfoDict, kNAHServerPrincipal);
 	CFNumberRef clientNameTypeRef = CFDictionaryGetValue (authInfoDict, kNAHClientNameTypeGSSD);
 	CFNumberRef serverNameTypeRef = CFDictionaryGetValue (authInfoDict, kNAHServerNameTypeGSSD);
+	CFStringRef inferedUserNameRef = CFDictionaryGetValue(authInfoDict, kNAHInferredLabel);
+
 	char clientPrincipal[SMB_MAX_KERB_PN] = {0};
 	char serverPrincipal[SMB_MAX_KERB_PN] = {0};
+	char userName[SMB_MAX_KERB_PN] = {0};
 	int32_t clientNameType = 0, serverNameType = 0;
 	
 	/* We require the dictionary to contain all the information needed */
@@ -1186,6 +1157,12 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
 		return EINVAL;	/* Should we return EAUTH here? */
 	}
 	CFStringGetCString(clientPrincipalRef, clientPrincipal, SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
+    if (inferedUserNameRef) {
+        CFStringGetCString(inferedUserNameRef, userName, SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
+        smb_log_info("%s: infered User Name = %s", ASL_LEVEL_DEBUG, __FUNCTION__, userName);
+    } else {
+        CFStringGetCString(clientPrincipalRef, userName, SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
+    }
 	CFStringGetCString(serverPrincipalRef, serverPrincipal, SMB_MAX_KERB_PN, kCFStringEncodingUTF8);
 	CFNumberGetValue(clientNameTypeRef, kCFNumberSInt32Type, &clientNameType);
 	CFNumberGetValue(serverNameTypeRef, kCFNumberSInt32Type, &serverNameType);
@@ -1214,7 +1191,7 @@ static int AuthenticateWithDictionary(struct smb_ctx *ctx, CFDictionaryRef authI
 		return (error);
 	
 	/* Now see if we have a client name */
-	smb_session_set_user(ctx, clientPrincipal);
+	smb_session_set_user(ctx, userName);
 	error = smb_session_set_client(ctx, clientPrincipal, clientNameType);
 	if (error)
 		return (error);
@@ -1438,14 +1415,6 @@ static int smb_session_security(struct smb_ctx *ctx, CFDictionaryRef authInfoDic
 	if ((ctx->ct_setup.ioc_userflags & SMBV_ANONYMOUS_ACCESS) || 
 		(ctx->ct_setup.ioc_userflags & SMBV_GUEST_ACCESS)) {
 		goto skip_minauth_check;
-	}
-
-	/* Server doesn't support NTLMv2 or Kerberos, but the min auth level requires it */
-	if (((ctx->ct_vc_caps & SMB_CAP_EXT_SECURITY) != SMB_CAP_EXT_SECURITY) &&
-		((ctx->prefs.minAuthAllowed == SMB_MINAUTH_NTLMV2) ||
-		 (ctx->prefs.minAuthAllowed == SMB_MINAUTH_KERBEROS))) {
-		smb_log_info("%s: NTLMv2 required, non extended security!", ASL_LEVEL_ERR, __FUNCTION__);		
-		return ENETFSNOAUTHMECHSUPP;
 	}
 
 	if (!serverSupportsKerb && (ctx->prefs.minAuthAllowed == SMB_MINAUTH_KERBEROS)) {
@@ -1839,7 +1808,7 @@ smb_connect_one(struct smb_ctx *ctx, int forceNewSession, Boolean loopBackAllowe
 		
 	/* We found it with DNS, and we are using port 139, we need a NetBIOS socket_addr */
 	if ((conn->addr.sa_family == AF_INET) && (conn->in4.sin_port == htons(NBSS_TCP_PORT_139))) {
-		char *netbios_name = (char *)NetBIOS_SMBSERVER;;
+		char *netbios_name = (char *)NetBIOS_SMBSERVER;
 		
 		/* We need a NetBIOS name, if we don't find one use *SMBSERVER. */
 		if (smb_ctx_getnbname(ctx, &conn->addr) == 0)
@@ -2414,6 +2383,10 @@ int smb_mount(struct smb_ctx *ctx, CFStringRef mpoint,  CFDictionaryRef mOptions
 		mdata.altflags |= SMBFS_MNT_STREAMS_ON;
 	else if (! SMBGetDictBooleanValue(mOptions, kStreamstMountKey, TRUE))
 		mdata.altflags &= ~SMBFS_MNT_STREAMS_ON;
+	
+	if (SMBGetDictBooleanValue(mOptions, kTimeMachineMountKey, FALSE)) {
+		mdata.altflags |= SMBFS_MNT_TIME_MACHINE;
+	}
 	
 	/* Get the mount flags, just in case there are no flags or something is wrong we start with them set to zero. */
 	mntflags = 0;

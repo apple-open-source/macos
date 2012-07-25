@@ -1,5 +1,5 @@
 /*
- * "$Id: lpoptions.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: lpoptions.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   Printer option program for CUPS.
  *
@@ -33,7 +33,7 @@
 
 static void	list_group(ppd_file_t *ppd, ppd_group_t *group);
 static void	list_options(cups_dest_t *dest);
-static void	usage(void);
+static void	usage(void) __attribute__((noreturn));
 
 
 /*
@@ -561,5 +561,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpoptions.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: lpoptions.c 9042 2010-03-24 00:45:34Z mike $".
  */

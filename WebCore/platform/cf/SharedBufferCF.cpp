@@ -40,7 +40,7 @@ SharedBuffer::SharedBuffer(CFDataRef cfData)
 
 // Mac is a CF platform but has an even more efficient version of this method,
 // so only use this version for non-Mac
-#if !PLATFORM(MAC)
+#if !PLATFORM(MAC) && !(PLATFORM(QT) && USE(QTKIT))
 CFDataRef SharedBuffer::createCFData()
 {
     if (m_cfData) {
@@ -91,7 +91,7 @@ void SharedBuffer::clearPlatformData()
     m_cfData = 0;
 }
 
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
 void SharedBuffer::append(CFDataRef data)
 {
     ASSERT(data);
@@ -114,6 +114,23 @@ void SharedBuffer::copyDataArrayAndClear(char *destination, unsigned bytesToCopy
         bytesLeft -= dataLen;
     }
     m_dataArray.clear();
+}
+
+unsigned SharedBuffer::copySomeDataFromDataArray(const char*& someData, unsigned position) const
+{
+    Vector<RetainPtr<CFDataRef> >::const_iterator end = m_dataArray.end();
+    unsigned totalOffset = 0;
+    for (Vector<RetainPtr<CFDataRef> >::const_iterator it = m_dataArray.begin(); it != end; ++it) {
+        unsigned dataLen = static_cast<unsigned>(CFDataGetLength(it->get()));
+        ASSERT(totalOffset <= position);
+        unsigned localOffset = position - totalOffset;
+        if (localOffset < dataLen) {
+            someData = reinterpret_cast<const char *>(CFDataGetBytePtr(it->get())) + localOffset;
+            return dataLen - localOffset;
+        }
+        totalOffset += dataLen;
+    }
+    return 0;
 }
 #endif
 

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -20,7 +20,7 @@
 *                                                                      *
 ***********************************************************************/
 #include	"sfhdr.h"
-static char*	Version = "\n@(#)$Id: sfio (AT&T Research) 2006-02-07 $\0\n";
+static char*	Version = "\n@(#)$Id: sfio (AT&T Labs - Research) 2009-09-15 $\0\n";
 
 /*	Functions to set a given stream to some desired mode
 **
@@ -45,6 +45,8 @@ static char*	Version = "\n@(#)$Id: sfio (AT&T Research) 2006-02-07 $\0\n";
 **		05/31/2003 (sfsetbuf(f,f,align_size) to set alignment for data)
 **			   (%I1d is fixed to handle "signed char" correctly)
 **		01/01/2004 Porting issues to various platforms resolved.
+**		06/01/2008 Allowing notify() at entering/exiting thread-safe routines.
+**		09/15/2008 Add sfwalk().
 */
 
 /* the below is for protecting the application from SIGPIPE */
@@ -96,8 +98,9 @@ static void _sfcleanup()
 			f->mode &= ~SF_POOL;
 			if((f->flags&SF_WRITE) && !(f->mode&SF_WRITE))
 				(void)_sfmode(f,SF_WRITE,1);
-			if(((f->bits&SF_MMAP) && f->data) ||
-			   ((f->mode&SF_WRITE) && f->next == f->data) )
+			if(f->data &&
+			   ((f->bits&SF_MMAP) ||
+			    ((f->mode&SF_WRITE) && f->next == f->data) ) )
 				(void)SFSETBUF(f,NIL(Void_t*),0);
 			f->mode |= pool;
 
@@ -127,7 +130,7 @@ Sfio_t*	f;
 	if(!(p = f->pool) )
 		p = f->pool = &_Sfpool;
 
-	POOLMTXSTART(p);
+	POOLMTXENTER(p);
 
 	rv = -1;
 
@@ -581,7 +584,7 @@ reg int		local;	/* a local call */
 			errno = EBADF;
 
 		if(_Sfnotify) /* notify application of the error */
-			(*_Sfnotify)(f,wanted,f->file);
+			(*_Sfnotify)(f, wanted, (void*)((long)f->file));
 
 		rv = -1;
 		break;

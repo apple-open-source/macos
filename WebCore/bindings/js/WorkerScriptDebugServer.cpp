@@ -29,24 +29,30 @@
  */
 
 #include "config.h"
-#include "WorkerScriptDebugServer.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(WORKERS)
 
-#include "WorkerContext.h"
+#include "WorkerScriptDebugServer.h"
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-WorkerScriptDebugServer::WorkerScriptDebugServer()
+const char* WorkerScriptDebugServer::debuggerTaskMode = "debugger";
+
+WorkerScriptDebugServer::WorkerScriptDebugServer(WorkerContext*)
     : ScriptDebugServer()
 {
 }
 
-void WorkerScriptDebugServer::addListener(ScriptDebugListener*, WorkerContext*)
+void WorkerScriptDebugServer::addListener(ScriptDebugListener*)
 {
 }
 
-void WorkerScriptDebugServer::removeListener(ScriptDebugListener*, WorkerContext*)
+void WorkerScriptDebugServer::removeListener(ScriptDebugListener*)
+{
+}
+
+void WorkerScriptDebugServer::interruptAndRunTask(PassOwnPtr<ScriptDebugServer::Task>)
 {
 }
 

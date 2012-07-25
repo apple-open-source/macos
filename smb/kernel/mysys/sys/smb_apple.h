@@ -35,15 +35,6 @@
 #include <kern/thread_call.h>
 #include <string.h>
 
-/*
- * BSD malloc of 0 bytes returns at least 1 byte area.
- * NeXT malloc returns zero (ala ENOMEM).  There is no standard.
- * Beware side effects in 1st argument.
- */
-#define malloc(s, t, f) (_MALLOC((s) ? (s) : (1), (t), (f)))
-
-#define free(a, b) (FREE((a), (b)))
-
 #define M_SMBFSMNT M_TEMP /* HACK XXX CSM */
 #define M_SMBNODE M_TEMP /* HACK XXX CSM */
 #define M_SMBNODENAME M_TEMP /* HACK XXX CSM */
@@ -56,6 +47,22 @@
 #define M_SMBDATA M_TEMP /* HACK CSM XXX */
 #define M_SMBSTR M_TEMP /* HACK CSM XXX */
 #define M_SMBTEMP M_TEMP /* HACK CSM XXX */
+
+#define SMB_MALLOC(addr, cast, size, type, flags) do { MALLOC((addr), cast, (size), (type), (flags)); } while(0)
+
+#ifndef SMB_DEBUG
+#define SMB_FREE(addr, type)	do { if (addr) FREE(addr, type); addr = NULL; } while(0)
+#else   // SMB_DEBUG
+#define SMB_FREE(addr, type) do { \
+    if (addr) {\
+        FREE(addr, type); \
+    } \
+    else { \
+        SMBERROR("%s: attempt to free NULL pointer, line %d\n", __FUNCTION__, __LINE__); \
+    } \
+    addr = NULL; \
+} while(0)
+#endif  // SMB_DEBUG
 
 #undef FB_CURRENT
 

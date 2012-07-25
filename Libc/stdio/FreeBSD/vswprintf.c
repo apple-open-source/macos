@@ -33,6 +33,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdio/vasprintf.c,v 1.16 2002/08/21 16:19:57 mik
 #endif
 __FBSDID("$FreeBSD: src/lib/libc/stdio/vswprintf.c,v 1.7 2008/04/17 22:17:54 jhb Exp $");
 
+#include "xlocale_private.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,8 +42,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vswprintf.c,v 1.7 2008/04/17 22:17:54 jhb
 #include "local.h"
 
 int
-vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
-    __va_list ap)
+vswprintf_l(wchar_t * __restrict s, size_t n, locale_t loc,
+    const wchar_t * __restrict fmt, __va_list ap)
 {
 	static const mbstate_t initial;
 	mbstate_t mbs;
@@ -49,7 +51,11 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	char *mbp;
 	int ret, sverrno;
 	size_t nwc;
+	struct __sFILEX ext;
+	f._extra = &ext;
+	INITEXTRA(&f);
 
+	NORMALIZE_LOCALE(loc);
 	if (n == 0) {
 		errno = EINVAL;
 		return (-1);
@@ -65,7 +71,7 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	f._bf._size = f._w = 127;		/* Leave room for the NUL */
 	f._orientation = 0;
 	memset(&f._mbstate, 0, sizeof(mbstate_t));
-	ret = __vfwprintf(&f, fmt, ap);
+	ret = __vfwprintf(&f, loc, fmt, ap);
 	if (ret < 0) {
 		sverrno = errno;
 		free(f._bf._base);
@@ -79,7 +85,7 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	 * fputwc() did in __vfwprintf().
 	 */
 	mbs = initial;
-	nwc = mbsrtowcs(s, (const char **)&mbp, n, &mbs);
+	nwc = mbsrtowcs_l(s, (const char **)&mbp, n, &mbs, loc);
 	free(f._bf._base);
 	if (nwc == (size_t)-1) {
 		errno = EILSEQ;
@@ -92,4 +98,11 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	}
 
 	return (ret);
+}
+
+int
+vswprintf(wchar_t * __restrict s, size_t n,
+    const wchar_t * __restrict fmt, __va_list ap)
+{
+	return vswprintf_l(s, n, __current_locale(), fmt, ap);
 }

@@ -31,19 +31,22 @@
 #include "AffineTransform.h"
 #include "ColorSpace.h"
 #include "FloatRect.h"
+#include "GraphicsContext.h"
+#if USE(ACCELERATED_COMPOSITING)
+#include "GraphicsLayer.h"
+#endif
 #include "GraphicsTypes.h"
 #include "IntSize.h"
 #include "ImageBufferData.h"
-#include <wtf/ByteArray.h>
 #include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/Uint8ClampedArray.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-    class GraphicsContext;
     class Image;
     class ImageData;
     class IntPoint;
@@ -56,67 +59,85 @@ namespace WebCore {
 
     enum RenderingMode {
         Unaccelerated,
+        UnacceleratedNonPlatformBuffer, // Use plain memory allocation rather than platform API to allocate backing store.
         Accelerated
+    };
+    
+    enum BackingStoreCopy {
+        CopyBackingStore, // Guarantee subsequent draws don't affect the copy.
+        DontCopyBackingStore // Subsequent draws may affect the copy.
+    };
+
+    enum DeferralMode {
+        NonDeferred,
+        Deferred
     };
 
     class ImageBuffer {
         WTF_MAKE_NONCOPYABLE(ImageBuffer); WTF_MAKE_FAST_ALLOCATED;
     public:
         // Will return a null pointer on allocation failure.
-        static PassOwnPtr<ImageBuffer> create(const IntSize& size, ColorSpace colorSpace = ColorSpaceDeviceRGB, RenderingMode renderingMode = Unaccelerated)
+        static PassOwnPtr<ImageBuffer> create(const IntSize& size, float resolutionScale = 1, ColorSpace colorSpace = ColorSpaceDeviceRGB, RenderingMode renderingMode = Unaccelerated, DeferralMode deferralMode = NonDeferred)
         {
             bool success = false;
-            OwnPtr<ImageBuffer> buf = adoptPtr(new ImageBuffer(size, colorSpace, renderingMode, success));
-            if (success)
-                return buf.release();
-            return nullptr;
+            OwnPtr<ImageBuffer> buf = adoptPtr(new ImageBuffer(size, resolutionScale, colorSpace, renderingMode, deferralMode, success));
+            if (!success)
+                return nullptr;
+            return buf.release();
         }
 
         ~ImageBuffer();
 
-        const IntSize& size() const { return m_size; }
-        int width() const { return m_size.width(); }
-        int height() const { return m_size.height(); }
-        
-        size_t dataSize() const;
-        
+        // The actual resolution of the backing store
+        const IntSize& internalSize() const { return m_size; }
+        const IntSize& logicalSize() const { return m_logicalSize; }
+
         GraphicsContext* context() const;
 
-        bool isAccelerated() const { return m_accelerateRendering; }
-        bool drawsUsingCopy() const; // If the image buffer has to render using a copied image, it will return true.
-        PassRefPtr<Image> copyImage() const; // Return a new image that is a copy of the buffer.
+        PassRefPtr<Image> copyImage(BackingStoreCopy = CopyBackingStore) const;
 
-        PassRefPtr<ByteArray> getUnmultipliedImageData(const IntRect&) const;
-        PassRefPtr<ByteArray> getPremultipliedImageData(const IntRect&) const;
+        enum CoordinateSystem { LogicalCoordinateSystem, BackingStoreCoordinateSystem };
 
-        void putUnmultipliedImageData(ByteArray*, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint);
-        void putPremultipliedImageData(ByteArray*, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint);
+        PassRefPtr<Uint8ClampedArray> getUnmultipliedImageData(const IntRect&, CoordinateSystem = LogicalCoordinateSystem) const;
+        PassRefPtr<Uint8ClampedArray> getPremultipliedImageData(const IntRect&, CoordinateSystem = LogicalCoordinateSystem) const;
+
+        void putByteArray(Multiply multiplied, Uint8ClampedArray*, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, CoordinateSystem = LogicalCoordinateSystem);
         
-        String toDataURL(const String& mimeType, const double* quality = 0) const;
+        void convertToLuminanceMask();
+        
+        String toDataURL(const String& mimeType, const double* quality = 0, CoordinateSystem = LogicalCoordinateSystem) const;
 #if !USE(CG)
         AffineTransform baseTransform() const { return AffineTransform(); }
         void transformColorSpace(ColorSpace srcColorSpace, ColorSpace dstColorSpace);
         void platformTransformColorSpace(const Vector<int>&);
 #else
-        AffineTransform baseTransform() const { return AffineTransform(1, 0, 0, -1, 0, m_size.height()); }
+        AffineTransform baseTransform() const { return AffineTransform(1, 0, 0, -1, 0, internalSize().height()); }
+#endif
+#if USE(ACCELERATED_COMPOSITING)
+        PlatformLayer* platformLayer() const;
 #endif
 
     private:
+#if USE(CG)
+        NativeImagePtr copyNativeImage(BackingStoreCopy = CopyBackingStore) const;
+#endif
         void clip(GraphicsContext*, const FloatRect&) const;
 
-        // The draw method draws the contents of the buffer without copying it.
-        void draw(GraphicsContext*, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1),
-                             CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
-        void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
-                         const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect);
+        void draw(GraphicsContext*, ColorSpace, const FloatRect& destRect, const FloatRect& srcRect = FloatRect(0, 0, -1, -1), CompositeOperator = CompositeSourceOver, bool useLowQualityScale = false);
+        void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect);
+
+        inline void genericConvertToLuminanceMask();
+
         friend class GraphicsContext;
         friend class GeneratedImage;
+        friend class CrossfadeGeneratedImage;
+        friend class GeneratorGeneratedImage;
 
     private:
         ImageBufferData m_data;
-
         IntSize m_size;
-        bool m_accelerateRendering;
+        IntSize m_logicalSize;
+        float m_resolutionScale;
         OwnPtr<GraphicsContext> m_context;
 
 #if !USE(CG)
@@ -126,11 +147,11 @@ namespace WebCore {
 
         // This constructor will place its success into the given out-variable
         // so that create() knows when it should return failure.
-        ImageBuffer(const IntSize&, ColorSpace colorSpace, RenderingMode renderingMode, bool& success);
+        ImageBuffer(const IntSize&, float resolutionScale, ColorSpace, RenderingMode, DeferralMode, bool& success);
     };
 
 #if USE(CG) || USE(SKIA)
-    String ImageDataToDataURL(const ImageData& input, const String& mimeType, const double* quality);
+    String ImageDataToDataURL(const ImageData&, const String& mimeType, const double* quality);
 #endif
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -79,6 +79,7 @@ do_dictSetKey(int argc, char **argv)
 	CFMutableArrayRef	array		= NULL;
 	Boolean			doArray		= FALSE;
 	Boolean			doBoolean	= FALSE;
+	Boolean			doData		= FALSE;
 	Boolean			doNumeric	= FALSE;
 	CFStringRef		key;
 	CFMutableDictionaryRef	newValue;
@@ -106,6 +107,9 @@ do_dictSetKey(int argc, char **argv)
 		} else if (strcmp(argv[0], "?") == 0) {
 			/* if boolean values requested */
 			doBoolean = TRUE;
+		} else if (strcmp(argv[0], "%") == 0) {
+			/* if [hex] data values requested */
+			doData = TRUE;
 		} else if (strcmp(argv[0], "#") == 0) {
 			/* if numeric values requested */
 			doNumeric = TRUE;
@@ -148,6 +152,51 @@ do_dictSetKey(int argc, char **argv)
 				CFRelease(key);
 				return;
 			}
+		} else if (doData) {
+			uint8_t			*bytes;
+			CFMutableDataRef	data;
+			int			i;
+			int			j;
+			int			n;
+
+			n = strlen(argv[0]);
+			if ((n % 2) == 1) {
+				SCPrint(TRUE, stdout, CFSTR("d.add: not enough bytes.\n"));
+				if (doArray) CFRelease(array);
+				CFRelease(key);
+				return;
+			}
+
+			data = CFDataCreateMutable(NULL, (n / 2));
+			CFDataSetLength(data, (n / 2));
+
+			bytes = (uint8_t *)CFDataGetBytePtr(data);
+			for (i = 0, j = 0; i < n; i += 2, j++) {
+				unsigned long	byte;
+				char		*end;
+				char		str[3]	= { 0 };
+
+				str[0] = argv[0][i];
+				str[1] = argv[0][i + 1];
+				errno = 0;
+				byte = strtoul(str, &end, 16);
+				if ((*end != '\0') || (errno != 0)) {
+					CFRelease(data);
+					data = NULL;
+					break;
+				}
+
+				bytes[j] = byte;
+			}
+
+			if (data == NULL) {
+				SCPrint(TRUE, stdout, CFSTR("d.add: invalid data.\n"));
+				if (doArray) CFRelease(array);
+				CFRelease(key);
+				return;
+			}
+
+			val = data;
 		} else if (doNumeric) {
 			int	intValue;
 

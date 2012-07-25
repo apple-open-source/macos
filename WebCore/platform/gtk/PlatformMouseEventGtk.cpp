@@ -27,7 +27,7 @@
 #include "config.h"
 #include "PlatformMouseEvent.h"
 
-#include "Assertions.h"
+#include <wtf/Assertions.h>
 
 #include <gdk/gdk.h>
 
@@ -41,19 +41,25 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
     m_timestamp = event->time;
     m_position = IntPoint((int)event->x, (int)event->y);
     m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);
-    m_shiftKey = event->state & GDK_SHIFT_MASK;
-    m_ctrlKey = event->state & GDK_CONTROL_MASK;
-    m_altKey = event->state & GDK_MOD1_MASK;
-    m_metaKey = event->state & GDK_META_MASK;
+
+    m_modifiers = 0;
+    if (event->state & GDK_SHIFT_MASK)
+        m_modifiers |= ShiftKey;
+    if (event->state & GDK_CONTROL_MASK)
+        m_modifiers |= CtrlKey;
+    if (event->state & GDK_MOD1_MASK)
+        m_modifiers |= AltKey;
+    if (event->state & GDK_META_MASK)
+        m_modifiers |= MetaKey;
 
     switch (event->type) {
     case GDK_BUTTON_PRESS:
     case GDK_2BUTTON_PRESS:
     case GDK_3BUTTON_PRESS:
     case GDK_BUTTON_RELEASE:
-        m_eventType = MouseEventPressed;
+        m_type = PlatformEvent::MousePressed;
         if (event->type == GDK_BUTTON_RELEASE) {
-            m_eventType = MouseEventReleased;
+            m_type = PlatformEvent::MouseReleased;
             m_clickCount = 0;
         } else if (event->type == GDK_BUTTON_PRESS)
             m_clickCount = 1;
@@ -80,14 +86,20 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventMotion* motion)
     m_timestamp = motion->time;
     m_position = IntPoint((int)motion->x, (int)motion->y);
     m_globalPosition = IntPoint((int)motion->x_root, (int)motion->y_root);
-    m_shiftKey = motion->state & GDK_SHIFT_MASK;
-    m_ctrlKey = motion->state & GDK_CONTROL_MASK;
-    m_altKey = motion->state & GDK_MOD1_MASK;
-    m_metaKey = motion->state & GDK_MOD2_MASK;
+
+    m_modifiers = 0;
+    if (motion->state & GDK_SHIFT_MASK)
+        m_modifiers |= ShiftKey;
+    if (motion->state & GDK_CONTROL_MASK)
+        m_modifiers |= CtrlKey;
+    if (motion->state & GDK_MOD1_MASK)
+        m_modifiers |= AltKey;
+    if (motion->state & GDK_META_MASK)
+        m_modifiers |= MetaKey;
 
     switch (motion->type) {
     case GDK_MOTION_NOTIFY:
-        m_eventType = MouseEventMoved;
+        m_type = PlatformEvent::MouseMoved;
         m_button = NoButton;
         m_clickCount = 0;
         break;

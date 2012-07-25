@@ -36,11 +36,49 @@ static const char rcsid[] _U_ =
 
 #include <stdlib.h>
 
+#ifdef __APPLE__
+#include <CommonCrypto/CommonCryptor.h>
+#include <CommonCrypto/CommonCryptorSPI.h>
+
+struct CCCryptoCipherData
+{
+	CCAlgorithm	algorithm;
+	CCMode		mode;
+	CCPadding	padding;
+	size_t		keySizeInBytes;
+};
+typedef struct CCCryptoCipherData CCCryptoCipherData;
+
+/*!
+	@function	CCGetCryptoCipherDataFromName
+	@abstract	This function will use the name specified by the name parameter to fill out the outCipherData parameter
+	@param		name The name of the cipher to use.  This supports the OpenSSL naming convention
+	@param		outCipherData An out parameter that will be filled in with the cipher data for the named cipher
+	@result		returns 1 if successful 0 otherwise
+*/
+int CCGetCryptoCipherDataFromName(const char* name, CCCryptoCipherData* outCipherData);
+
+/*!
+	@function	CCCryptorCreateFromCipherData
+	@abstract	This function will create a CCCryptorRef given a valid CCCryptoCipherData , operation and an iv
+	@param		cipherData This is a pointer to a CCCryptoCipherData containing the data describing the cipher
+	@param		op This is the operation encrypt or decrypt that the new CCCryptorRef will perform
+	@param		key The key to use. Must not be NULL
+	@param		iv An optional iv parameter to be set for the cipher
+	@param		cryptorRef This is an out parameter for the CCCryptorRef
+	@result		return the status of the call
+*/
+CCCryptorStatus CCCryptorCreateFromCipherData(CCCryptoCipherData* cipherData, 
+                    CCOperation op, const void* key, const void* iv, CCCryptorRef *cryptorRef);
+
+#else /* __APPLE__ */
+
 #ifdef HAVE_LIBCRYPTO
 #ifdef HAVE_OPENSSL_EVP_H
 #include <openssl/evp.h>
 #endif
 #endif
+#endif /* __APPLE__ */
 
 #include <stdio.h>
 
@@ -53,6 +91,185 @@ static const char rcsid[] _U_ =
 #include "netdissect.h"
 #include "addrtoname.h"
 #include "extract.h"
+
+#ifdef __APPLE__
+
+// OpenSSL uses a default key size on ciphers that have vaiable key sizes
+#define gDefaultOpenSSLKeySize 16
+
+struct CipherTable
+{
+	const char*		cipherName;
+	CCCryptoCipherData	cipherData;
+};
+typedef struct CipherTable CipherTable;
+
+
+// The default for OpenSSL is that padding will be done.  That is the default
+// here as well
+static CipherTable const gCiphers[] =
+{ 
+	// Lower case strings
+	
+	{"aes-128-ecb", {kCCAlgorithmAES128, kCCModeECB, ccPKCS7Padding, kCCKeySizeAES128}},
+	{"aes-128-cbc", {kCCAlgorithmAES128, kCCModeCBC, ccPKCS7Padding, kCCKeySizeAES128}},
+	{"aes-128-ofb", {kCCAlgorithmAES128, kCCModeOFB, ccPKCS7Padding, kCCKeySizeAES128}},
+	{"aes-128-cfb", {kCCAlgorithmAES128, kCCModeCFB, ccPKCS7Padding, kCCKeySizeAES128}},
+	{"aes-128-cfb8", {kCCAlgorithmAES128, kCCModeCFB8, ccPKCS7Padding, kCCKeySizeAES128}},
+	
+	{"aes-192-ecb", {kCCAlgorithmAES128, kCCModeECB, ccPKCS7Padding, kCCKeySizeAES192}},
+	{"aes-192-cbc", {kCCAlgorithmAES128, kCCModeCBC, ccPKCS7Padding, kCCKeySizeAES192}},
+	{"aes-192-ofb", {kCCAlgorithmAES128, kCCModeOFB, ccPKCS7Padding, kCCKeySizeAES192}},
+	{"aes-192-cfb", {kCCAlgorithmAES128, kCCModeCFB, ccPKCS7Padding, kCCKeySizeAES192}},
+	{"aes-192-cfb8", {kCCAlgorithmAES128, kCCModeCFB8, ccPKCS7Padding, kCCKeySizeAES192}},
+	
+	{"aes-256-ecb", {kCCAlgorithmAES128, kCCModeECB, ccPKCS7Padding, kCCKeySizeAES256}},
+	{"aes-256-cbc", {kCCAlgorithmAES128, kCCModeCBC, ccPKCS7Padding, kCCKeySizeAES256}},
+	{"aes-256-ofb", {kCCAlgorithmAES128, kCCModeOFB, ccPKCS7Padding, kCCKeySizeAES256}},
+	{"aes-256-cfb", {kCCAlgorithmAES128, kCCModeCFB, ccPKCS7Padding, kCCKeySizeAES256}},
+	{"aes-256-cfb8", {kCCAlgorithmAES128, kCCModeCFB8, ccPKCS7Padding, kCCKeySizeAES256}},
+	
+	{"des-ecb", {kCCAlgorithmDES, kCCModeECB, ccPKCS7Padding, kCCKeySizeDES}},
+	{"des-cbc", {kCCAlgorithmDES, kCCModeCBC, ccPKCS7Padding, kCCKeySizeDES}},
+	{"des-ofb", {kCCAlgorithmDES, kCCModeOFB, ccPKCS7Padding, kCCKeySizeDES}},
+	{"des-cfb", {kCCAlgorithmDES, kCCModeCFB, ccPKCS7Padding, kCCKeySizeDES}},
+	{"des-cfb8", {kCCAlgorithmDES, kCCModeCFB8, ccPKCS7Padding, kCCKeySizeDES}},
+	
+	{"des-ede3", {kCCAlgorithm3DES, kCCModeECB, ccPKCS7Padding, kCCKeySize3DES}},
+	{"3des", {kCCAlgorithm3DES, kCCModeCBC, ccPKCS7Padding, kCCKeySize3DES}},
+	{"des-ede3-cbc", {kCCAlgorithm3DES, kCCModeCBC, ccPKCS7Padding, kCCKeySize3DES}},
+	{"des-ede-ofb", {kCCAlgorithm3DES, kCCModeOFB, ccPKCS7Padding, kCCKeySize3DES}},
+	{"des-ede3-cfb", {kCCAlgorithm3DES, kCCModeCFB, ccPKCS7Padding, kCCKeySize3DES}},
+	{"des-ede3-cfb8", {kCCAlgorithm3DES, kCCModeCFB8, ccPKCS7Padding, kCCKeySize3DES}},	
+	
+	{"rc4", {kCCAlgorithmRC4, kCCModeECB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	
+	{"rc2-ecb", {kCCAlgorithmRC2, kCCModeECB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"rc2-cbc", {kCCAlgorithmRC2, kCCModeCBC, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"rc2-ofb", {kCCAlgorithmRC2, kCCModeOFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"rc2-cfb", {kCCAlgorithmRC2, kCCModeCFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	
+	{"bf-ecb", {kCCAlgorithmBlowfish, kCCModeECB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"bf-cbc", {kCCAlgorithmBlowfish, kCCModeCBC, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"bf-ofb", {kCCAlgorithmBlowfish, kCCModeOFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"bf-cfb", {kCCAlgorithmBlowfish, kCCModeCFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	
+	{"cast5-ecb", {kCCAlgorithmCAST, kCCModeECB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"cast5-cbc", {kCCAlgorithmCAST, kCCModeCBC, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"cast5-ofb", {kCCAlgorithmCAST, kCCModeOFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}},
+	{"cast5-cfb", {kCCAlgorithmCAST, kCCModeCFB, ccPKCS7Padding, gDefaultOpenSSLKeySize}}
+};
+
+/* ==========================================================================
+	Function:	CCGetCryptoCipherDataFromName
+	Description:	Provide a way to get the information needed for creating 
+			a CommonCrypto CCCryptoRef from an OpenSSL style cipher 
+			name
+   ========================================================================== */		
+int CCGetCryptoCipherDataFromName(const char* name, CCCryptoCipherData* outCipherData)
+{
+	int result = 0;					// guilty until proven
+	int numCiphers = 0;				// Number of cipher records to check
+	int iCnt = 0;					// for loop counter
+	const CipherTable* tablePtr = gCiphers;	// pointer into the static table
+	const char* tableCipherName = NULL;
+	
+	// Parameter checking
+	if (NULL == name || NULL == outCipherData) {
+		return result;
+	}
+    
+	outCipherData->algorithm = (CCAlgorithm)-1; // guilt until proven
+		
+	numCiphers = sizeof(gCiphers) / sizeof(CipherTable);
+	for (iCnt = 0; iCnt < numCiphers; iCnt++, tablePtr++) {
+		tableCipherName = tablePtr->cipherName;
+		if (!strcmp(name, tableCipherName))
+		{
+			// Found one
+			*outCipherData = tablePtr->cipherData;
+			result = 1;
+			break;
+		}
+	}
+	
+	return result;	
+}
+
+/* ==========================================================================
+	Function:	CCCryptorCreateFromCipherData
+	Description:	Given a CCCryptoCipherData record, create a CCCryptorRef
+   ========================================================================== */
+CCCryptorStatus CCCryptorCreateFromCipherData(CCCryptoCipherData* cipherData, 
+                    CCOperation op, const void* key, const void* iv, 
+					CCCryptorRef *cryptorRef)
+{	
+	// Parameter checking
+	if (NULL == cipherData || NULL == cryptorRef || NULL == key || 
+		cipherData->algorithm == (CCAlgorithm)-1) {
+		return kCCParamError;
+	}
+	
+	// Create the CryptoRef	
+	return CCCryptorCreateWithMode(op, cipherData->mode, cipherData->algorithm,
+		cipherData->padding, iv, key, cipherData->keySizeInBytes,
+		NULL, 0, 0, 0, cryptorRef);
+}
+
+/* ==========================================================================
+	Function:	IVLengthFromCipherData
+	Description:	Given a CCCryptoCipherData record, return the correct 
+			IV length in bytes
+   ========================================================================== */
+int IVLengthFromCipherData(CCCryptoCipherData* cipherData)
+{
+    int result = -1;    // guilt until proven
+    if (NULL == cipherData || cipherData->algorithm == (CCAlgorithm)-1) {
+        return -1;
+    }
+    
+    switch(cipherData->algorithm)
+    {
+		case kCCAlgorithmAES128:
+			result = kCCBlockSizeAES128;
+			break;
+
+		case kCCAlgorithmDES:
+			result = kCCBlockSizeDES;
+			break;
+			
+		case kCCAlgorithm3DES:
+			result = kCCBlockSize3DES;
+			break;
+		
+		case kCCAlgorithmCAST:
+			result = kCCBlockSizeCAST;
+			break;
+			
+		case kCCAlgorithmRC2:
+			result = kCCBlockSizeRC2;
+			break;
+
+		case kCCAlgorithmBlowfish:
+			result = kCCBlockSizeBlowfish;
+			break;
+		
+   }
+    
+    return result;
+}
+
+/* ==========================================================================
+	Function:		BlockSizeFromCipherData
+	Description:	Given a CCCryptoCipherData record, return the correct 
+                    block size in bytes
+   ========================================================================== */
+int BlockSizeFromCipherData(CCCryptoCipherData* cipherData)
+{
+	return IVLengthFromCipherData(cipherData);
+}
+
+#endif /* __APPLE__ */
 
 #ifndef HAVE_SOCKADDR_STORAGE
 #ifdef INET6
@@ -75,7 +292,11 @@ struct sa_list {
 	int             initiator;
 	u_char          spii[8];      /* for IKEv2 */
 	u_char          spir[8];
+#ifdef __APPLE__
+	CCCryptoCipherData    cipherData;
+#else /* __APPLE__ */
 	const EVP_CIPHER *evp;
+#endif /* __APPLE__ */
 	int		ivlen;
 	int		authlen;
 	u_char          authsecret[256];
@@ -95,7 +316,12 @@ int esp_print_decrypt_buffer_by_ikev2(netdissect_options *ndo,
 	struct sa_list *sa;
 	u_char *iv;
 	int len;
+#ifdef __APPLE__
+	CCCryptorRef    ctx;
+	size_t          dataMoved = 0;
+#else /* __APPLE__ */
 	EVP_CIPHER_CTX ctx;
+#endif /* __APPLE__ */
 
 	/* initiator arg is any non-zero value */
 	if(initiator) initiator=1;
@@ -110,7 +336,11 @@ int esp_print_decrypt_buffer_by_ikev2(netdissect_options *ndo,
 	}
 
 	if(sa == NULL) return 0;
+#ifdef __APPLE__
+	if(sa->cipherData.algorithm == (CCAlgorithm)-1) return 0;
+#else /* __APPLE__ */
 	if(sa->evp == NULL) return 0;
+#endif /* __APPLE__ */
 
 	/*
 	 * remove authenticator, and see if we still have something to
@@ -123,12 +353,22 @@ int esp_print_decrypt_buffer_by_ikev2(netdissect_options *ndo,
 
 	if(end <= buf) return 0;
 
+#ifdef __APPLE__
+	ctx = NULL;
+	if (kCCSuccess != CCCryptorCreateFromCipherData(&sa->cipherData, kCCDecrypt, sa->secret, iv, &ctx))
+		(*ndo->ndo_warning)(ndo, "espkey init failed");
+	
+	(void)CCCryptorUpdate(ctx, buf, len, buf, len, &dataMoved);
+	CCCryptorRelease(ctx);
+	ctx = NULL;
+#else /* __APPLE__ */
 	memset(&ctx, 0, sizeof(ctx));
 	if (EVP_CipherInit(&ctx, sa->evp, sa->secret, NULL, 0) < 0)
 		(*ndo->ndo_warning)(ndo, "espkey init failed");
 	EVP_CipherInit(&ctx, NULL, NULL, iv, 0);
 	EVP_Cipher(&ctx, buf, buf, len);
 	EVP_CIPHER_CTX_cleanup(&ctx);
+#endif /* __APPLE__ */
 
 	ndo->ndo_packetp = buf;
 	ndo->ndo_snapend = end;
@@ -218,7 +458,11 @@ espprint_decode_encalgo(netdissect_options *ndo,
 {
 	int len;
 	size_t i;
+#ifdef __APPLE__
+	CCCryptoCipherData cipherData;
+#else /* __APPLE__ */
 	const EVP_CIPHER *evp;
+#endif /* __APPLE__	*/	
 	int authlen = 0;
 	char *colon, *p;
 	
@@ -242,6 +486,15 @@ espprint_decode_encalgo(netdissect_options *ndo,
 		p = strstr(decode, "-cbc");
 		*p = '\0';
 	}
+
+#ifdef __APPLE__
+	if (!CCGetCryptoCipherDataFromName(decode, &cipherData)) {
+		(*ndo->ndo_warning)(ndo, "failed to find cipher algo %s\n", decode);
+		sa->authlen = 0;
+		sa->ivlen = 0;
+		return 0;
+	}
+#else /* __APPLE__ */
 	evp = EVP_get_cipherbyname(decode);
 
 	if (!evp) {
@@ -251,11 +504,18 @@ espprint_decode_encalgo(netdissect_options *ndo,
 		sa->ivlen = 0;
 		return 0;
 	}
+#endif /* __APPLE__	*/
 	
+#ifdef __APPLE__
+	sa->cipherData = cipherData;
+	sa->authlen = authlen;
+	sa->ivlen =IVLengthFromCipherData(&cipherData);
+#else /* __APPLE__ */
 	sa->evp = evp;
 	sa->authlen = authlen;
 	sa->ivlen = EVP_CIPHER_iv_length(evp);
-	
+#endif /* __APPLE__	*/
+
 	colon++;
 	if (colon[0] == '0' && colon[1] == 'x') {
 		/* decode some hex! */
@@ -479,9 +739,10 @@ static void esp_print_decode_onesecret(netdissect_options *ndo, char *line,
 
 static void esp_init(netdissect_options *ndo _U_)
 {
-
+#ifndef __APPLE__
 	OpenSSL_add_all_algorithms();
 	EVP_add_cipher_alias(SN_des_ede3_cbc, "3des");
+#endif /* __APPLE__ */
 }
 
 void esp_print_decodesecret(netdissect_options *ndo)
@@ -545,8 +806,13 @@ esp_print(netdissect_options *ndo,
 	int ivlen = 0;
 	u_char *ivoff;
 	u_char *p;
+#ifdef __APPLE__
+	CCCryptorRef    ctx;
+	size_t          dataMoved = 0;
+#else /* __APPLE__ */
 	EVP_CIPHER_CTX ctx;
 	int blocksz;
+#endif /* __APPLE__ */
 #endif
 
 	esp = (struct newesp *)bp;
@@ -653,6 +919,21 @@ esp_print(netdissect_options *ndo,
 	espsecret_keylen = sa->secretlen;
 	ep = ep - sa->authlen;
 
+#ifdef __APPLE__
+	if (sa->cipherData.algorithm != (CCAlgorithm)-1) {
+		ctx = NULL;
+		p = ivoff;
+		if (kCCSuccess != CCCryptorCreateFromCipherData(&sa->cipherData, kCCDecrypt, secret, p, &ctx))
+			(*ndo->ndo_warning)(ndo, "espkey init failed");
+		len = ep - (p + ivlen);
+		CCCryptorUpdate(ctx, p + ivlen, len, p + ivlen, len, &dataMoved);
+		CCCryptorRelease(ctx);
+		ctx = NULL;
+		advance = ivoff - (u_char *)esp + ivlen;
+	}
+	else
+		advance = sizeof(struct newesp);
+#else /* __APPLE__ */
 	if (sa->evp) {
 		memset(&ctx, 0, sizeof(ctx));
 		if (EVP_CipherInit(&ctx, sa->evp, secret, NULL, 0) < 0)
@@ -667,6 +948,7 @@ esp_print(netdissect_options *ndo,
 		advance = ivoff - (u_char *)esp + ivlen;
 	} else
 		advance = sizeof(struct newesp);
+#endif /* __APPLE__ */
 
 	/* sanity check for pad length */
 	if (ep - bp < *(ep - 2))

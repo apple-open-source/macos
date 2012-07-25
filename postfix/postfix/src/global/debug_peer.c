@@ -99,7 +99,8 @@ void    debug_peer_init(void)
      */
     if (*var_debug_peer_list)
 	debug_peer_list =
-	    namadr_list_init(match_parent_style(VAR_DEBUG_PEER_LIST),
+	    namadr_list_init(MATCH_FLAG_RETURN
+			     | match_parent_style(VAR_DEBUG_PEER_LIST),
 			     var_debug_peer_list);
 }
 

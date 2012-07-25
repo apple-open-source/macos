@@ -48,7 +48,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/getlogin.c,v 1.11 2009/12/05 19:04:21 ed Ex
 #define	THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&logname_mutex)
 #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&logname_mutex)
 
-extern int		_getlogin(char *, int);
+extern int		__getlogin(char *, int);
 
 int			_logname_valid;		/* known to setlogin() */
 static pthread_mutex_t	logname_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -59,7 +59,7 @@ getlogin_basic(int *status)
 	static char logname[MAXLOGNAME];
 
 	if (_logname_valid == 0) {
-		if (_getlogin(logname, sizeof(logname)) < 0) {
+		if (__getlogin(logname, sizeof(logname)) < 0) {
 			*status = errno;
 			return (NULL);
 		}
@@ -82,7 +82,7 @@ getlogin(void)
 }
 
 int
-getlogin_r(char *logname, int namelen)
+getlogin_r(char *logname, size_t namelen)
 {
 	char	*result;
 	int	len;

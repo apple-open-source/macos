@@ -29,42 +29,40 @@
 #include "config.h"
 #include "FileChooser.h"
 
-#include "Icon.h"
-
 namespace WebCore {
-    
+
 FileChooserClient::~FileChooserClient()
 {
+    discardChooser();
 }
 
-inline FileChooser::FileChooser(FileChooserClient* client, const Vector<String>& initialFilenames)
+FileChooser* FileChooserClient::newFileChooser(const FileChooserSettings& settings)
+{
+    discardChooser();
+
+    m_chooser = FileChooser::create(this, settings);
+    return m_chooser.get();
+}
+
+void FileChooserClient::discardChooser()
+{
+    if (m_chooser)
+        m_chooser->disconnectClient();
+}
+
+inline FileChooser::FileChooser(FileChooserClient* client, const FileChooserSettings& settings)
     : m_client(client)
-    , m_isInitializing(true)
+    , m_settings(settings)
 {
-    m_filenames = initialFilenames;
 }
 
-void FileChooser::initialize()
+PassRefPtr<FileChooser> FileChooser::create(FileChooserClient* client, const FileChooserSettings& settings)
 {
-    loadIcon();
-    m_isInitializing = false;
-}
-
-PassRefPtr<FileChooser> FileChooser::create(FileChooserClient* client, const Vector<String>& initialFilenames)
-{
-    RefPtr<FileChooser> chooser(adoptRef(new FileChooser(client, initialFilenames)));
-    chooser->initialize();
-    return chooser;
+    return adoptRef(new FileChooser(client, settings));
 }
 
 FileChooser::~FileChooser()
 {
-}
-
-void FileChooser::clear()
-{
-    m_filenames.clear();
-    m_icon = 0;
 }
 
 void FileChooser::chooseFile(const String& filename)
@@ -76,25 +74,29 @@ void FileChooser::chooseFile(const String& filename)
 
 void FileChooser::chooseFiles(const Vector<String>& filenames)
 {
-    if (m_filenames == filenames)
+    // FIXME: This is inelegant. We should not be looking at settings here.
+    if (m_settings.selectedFiles == filenames)
         return;
-    m_filenames = filenames;
-    loadIcon();
+
+    if (m_client) {
+        Vector<FileChooserFileInfo> files;
+        for (unsigned i = 0; i < filenames.size(); ++i)
+            files.append(FileChooserFileInfo(filenames[i]));
+        m_client->filesChosen(files);
+    }
+}
+
+void FileChooser::chooseFiles(const Vector<FileChooserFileInfo>& files)
+{
+    // FIXME: This is inelegant. We should not be looking at settings here.
+    Vector<String> paths;
+    for (unsigned i = 0; i < files.size(); ++i)
+        paths.append(files[i].path);
+    if (m_settings.selectedFiles == paths)
+        return;
+
     if (m_client)
-        m_client->valueChanged();
-}
-
-void FileChooser::loadIcon()
-{
-    if (m_filenames.size() && m_client)
-        m_client->chooseIconForFiles(this, m_filenames);
-}
-
-void FileChooser::iconLoaded(PassRefPtr<Icon> icon)
-{
-    m_icon = icon;
-    if (!m_isInitializing && m_icon && m_client)
-        m_client->repaint();
+        m_client->filesChosen(files);
 }
 
 }

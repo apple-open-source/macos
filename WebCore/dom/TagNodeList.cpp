@@ -30,7 +30,7 @@
 namespace WebCore {
 
 TagNodeList::TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
-    : DynamicNodeList(rootNode)
+    : DynamicSubtreeNodeList(rootNode)
     , m_namespaceURI(namespaceURI)
     , m_localName(localName)
 {
@@ -40,17 +40,36 @@ TagNodeList::TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespac
 TagNodeList::~TagNodeList()
 {
     if (m_namespaceURI == starAtom)
-        m_rootNode->removeCachedTagNodeList(this, m_localName);
+        rootNode()->removeCachedTagNodeList(this, m_localName);
     else
-        m_rootNode->removeCachedTagNodeList(this, QualifiedName(nullAtom, m_localName, m_namespaceURI));
+        rootNode()->removeCachedTagNodeList(this, QualifiedName(nullAtom, m_localName, m_namespaceURI));
 }
 
 bool TagNodeList::nodeMatches(Element* testNode) const
 {
-    if (m_namespaceURI != starAtom && m_namespaceURI != testNode->namespaceURI())
+    // Implements http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#concept-getelementsbytagnamens
+    if (m_localName != starAtom && m_localName != testNode->localName())
         return false;
 
-    return m_localName == starAtom || m_localName == testNode->localName();
+    return m_namespaceURI == starAtom || m_namespaceURI == testNode->namespaceURI();
+}
+
+HTMLTagNodeList::HTMLTagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
+    : TagNodeList(rootNode, namespaceURI, localName)
+    , m_loweredLocalName(localName.lower())
+{
+}
+
+bool HTMLTagNodeList::nodeMatches(Element* testNode) const
+{
+    // Implements http://dvcs.w3.org/hg/domcore/raw-file/tip/Overview.html#concept-getelementsbytagname
+    if (m_localName != starAtom) {
+        const AtomicString& localName = testNode->isHTMLElement() ? m_loweredLocalName : m_localName;
+        if (localName != testNode->localName())
+            return false;
+    }
+
+    return m_namespaceURI == starAtom || m_namespaceURI == testNode->namespaceURI();
 }
 
 } // namespace WebCore

@@ -41,10 +41,14 @@
 #endif	/* __ASSEMBLER__ */
 
 /* Cast a register to be an unsigned */
-#define	CONTENTS(foo)	(*(unsigned *) &(foo))
-
+#if defined(__arm__)
+#define	CONTENTS(foo)	(*(unsigned*) &(foo))
 /* Stack pointer must always be a multiple of 4 */
 #define	STACK_INCR	4
+#else 
+#error Unknown architecture.
+#endif
+
 #define	ROUND_FRAME(x)	((((unsigned)(x)) + STACK_INCR - 1) & ~(STACK_INCR-1))
 
 /* STRINGIFY -- perform all possible substitutions, then stringify */

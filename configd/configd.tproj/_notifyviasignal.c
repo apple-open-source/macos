@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,10 +45,6 @@ __SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (storePrivate->notifyStatus != NotifierNotRegistered) {
 		/* sorry, you can only have one notification registered at once */

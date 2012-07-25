@@ -34,6 +34,7 @@
 #include "HTMLNames.h"
 #include "Length.h"
 #include "MouseEvent.h"
+#include "NodeRenderingContext.h"
 #include "RenderFrameSet.h"
 #include "ScriptEventListener.h"
 #include "Text.h"
@@ -54,6 +55,8 @@ HTMLFrameSetElement::HTMLFrameSetElement(const QualifiedName& tagName, Document*
     , m_noresize(false)
 {
     ASSERT(hasTagName(framesetTag));
+    
+    setHasCustomWillOrDidRecalcStyle();
 }
 
 PassRefPtr<HTMLFrameSetElement> HTMLFrameSetElement::create(const QualifiedName& tagName, Document* document)
@@ -61,17 +64,22 @@ PassRefPtr<HTMLFrameSetElement> HTMLFrameSetElement::create(const QualifiedName&
     return adoptRef(new HTMLFrameSetElement(tagName, document));
 }
 
-bool HTMLFrameSetElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
+bool HTMLFrameSetElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attrName == bordercolorAttr) {
-        result = eUniversal;
+    if (name == bordercolorAttr)
         return true;
-    }
-
-    return HTMLElement::mapToEntry(attrName, result);
+    return HTMLElement::isPresentationAttribute(name);
 }
 
-void HTMLFrameSetElement::parseMappedAttribute(Attribute* attr)
+void HTMLFrameSetElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+{
+    if (attr->name() == bordercolorAttr)
+        addHTMLColorToStyle(style, CSSPropertyBorderColor, attr->value());
+    else
+        HTMLElement::collectStyleForAttribute(attr, style);
+}
+
+void HTMLFrameSetElement::parseAttribute(Attribute* attr)
 {
     if (attr->name() == rowsAttr) {
         if (!attr->isNull()) {
@@ -105,13 +113,9 @@ void HTMLFrameSetElement::parseMappedAttribute(Attribute* attr)
             m_borderSet = true;
         } else
             m_borderSet = false;
-    } else if (attr->name() == bordercolorAttr) {
-        m_borderColorSet = attr->decl();
-        if (!attr->decl() && !attr->isEmpty()) {
-            addCSSColor(attr, CSSPropertyBorderColor, attr->value());
-            m_borderColorSet = true;
-        }
-    } else if (attr->name() == onloadAttr)
+    } else if (attr->name() == bordercolorAttr)
+        m_borderColorSet = !attr->isEmpty();
+    else if (attr->name() == onloadAttr)
         document()->setWindowAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(document()->frame(), attr));
     else if (attr->name() == onbeforeunloadAttr)
         document()->setWindowAttributeEventListener(eventNames().beforeunloadEvent, createAttributeEventListener(document()->frame(), attr));
@@ -144,19 +148,19 @@ void HTMLFrameSetElement::parseMappedAttribute(Attribute* attr)
     else if (attr->name() == onpopstateAttr)
         document()->setWindowAttributeEventListener(eventNames().popstateEvent, createAttributeEventListener(document()->frame(), attr));
     else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::parseAttribute(attr);
 }
 
-bool HTMLFrameSetElement::rendererIsNeeded(RenderStyle *style)
+bool HTMLFrameSetElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     // For compatibility, frames render even when display: none is set.
     // However, we delay creating a renderer until stylesheets have loaded. 
-    return style->isStyleAvailable();
+    return context.style()->isStyleAvailable();
 }
 
 RenderObject *HTMLFrameSetElement::createRenderer(RenderArena *arena, RenderStyle *style)
 {
-    if (style->contentData())
+    if (style->hasContent())
         return RenderObject::createObject(this, style);
     
     return new (arena) RenderFrameSet(this);
@@ -197,27 +201,33 @@ void HTMLFrameSetElement::defaultEventHandler(Event* evt)
     HTMLElement::defaultEventHandler(evt);
 }
 
-void HTMLFrameSetElement::recalcStyle(StyleChange ch)
+bool HTMLFrameSetElement::willRecalcStyle(StyleChange)
 {
     if (needsStyleRecalc() && renderer()) {
         renderer()->setNeedsLayout(true);
         clearNeedsStyleRecalc();
     }
-    HTMLElement::recalcStyle(ch);
+    return true;
 }
 
-void HTMLFrameSetElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLFrameSetElement::insertedInto(Node* insertionPoint)
 {
-    HTMLElement::insertedIntoDocument();
-    if (Frame* frame = document()->frame())
-        frame->loader()->client()->dispatchDidBecomeFrameset(document()->isFrameSet());
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint->inDocument()) {
+        if (Frame* frame = document()->frame())
+            frame->loader()->client()->dispatchDidBecomeFrameset(document()->isFrameSet());
+    }
+
+    return InsertionDone;
 }
 
-void HTMLFrameSetElement::removedFromDocument()
+void HTMLFrameSetElement::removedFrom(Node* insertionPoint)
 {
-    HTMLElement::removedFromDocument();
-    if (Frame* frame = document()->frame())
-        frame->loader()->client()->dispatchDidBecomeFrameset(document()->isFrameSet());
+    HTMLElement::removedFrom(insertionPoint);
+    if (insertionPoint->inDocument()) {
+        if (Frame* frame = document()->frame())
+            frame->loader()->client()->dispatchDidBecomeFrameset(document()->isFrameSet());
+    }
 }
 
 } // namespace WebCore

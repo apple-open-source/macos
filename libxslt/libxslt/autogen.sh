@@ -62,8 +62,9 @@ if test x$OBJ_DIR != x; then
     cd "$OBJ_DIR"
 fi
 
-echo Running configure "$@" ...
-$srcdir/configure "$@"
-
-echo 
-echo "Now type 'make' to compile libxslt."
+if test -z "$NOCONFIGURE"; then
+    echo Running configure "$@" ...
+    $srcdir/configure "$@"
+    echo 
+    echo "Now type 'make' to compile libxslt."
+fi

@@ -748,7 +748,8 @@ void
 ask(const char *prompt)
 {
 	char	inch;
-	int	n, cmsg, fd;
+	int	cmsg, fd;
+	size_t	n;
 	off_t	oldpos;
 	FILE	*cpfrom, *cpto;
 

@@ -3,6 +3,91 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.31 release (the cctools-827 release):
+- Added -DLTO_SUPPORT to the CFLAGS in the Makefile and added code in
+  to process() in main.c to print "is an LLVM bit-code file" if ofile->lto is
+  not NULL.  Radar bug #9087924.
+
+Changes for the 5.31 release (the cctools-825 release):
+- Added the -q and -Q flags to use the llvm or internal disassemblers.  And
+  removed code for the hacked llvm interface.  Radar bug #11139995.
+- Removed the unneeded category_t struct from the category_t type in both
+  print_objc2_32bit.c and print_objc2_64bit.c.  Radar bug #11136207.
+- Fixed more places that should be using 64-bit values. Radar bug #11089424.
+  - Changed the type of the local varaiable size from uint32_t to uint64_t in
+    processor() in main.c .
+  - Changed the type of the parameter library_size from uint32_t to uint64_t in
+    print_library_toc() in ofile_print.[ch] . As well as the local variable
+    toc_offset in print_library_toc().
+
+Changes for the 5.31 release (the cctools-824 release):
+- Added support for annotations of x86_64 pc relative loads to using the llvm-mc
+  disassembler.  Radar bug #10922117.
+- Changed disassembly of stub sections, section type S_SYMBOL_STUBS, for
+  binaries with CPU_TYPE_ARM have code that is always in arm mode not thumb
+  mode.  Radar bug #10539919.
+- Fixed printing of literal pointer sections for 64-bit pointers.  Radar bug
+  #10934543.
+
+Changes for the 5.31 release (the cctools-823 release):
+- Added mention of -arch in the usage message.  Radar bug #10988552.
+- Added support for the i386 and x86_64 llvm-mc disassembler with the -q flag. 
+  Radar bug #9354143.
+  - Most of the changes were in i386_disasm.[ch]
+    - Added a local struct disassemble_info .
+    - Two LLVMDisasmContextRef type parameters were added to i386_disassemble()
+      one for the i386 and one for X86_64.
+    - In i386_disassemble() if the qflag is set then dis_info struct is filled
+      in and llvm_disasm_instruction() is called.
+    - The new routines i386GetOpInfo(), x86_64GetOpInfo(), SymbolLookUp(),
+      create_i386_llvm_disassembler(), delete_i386_llvm_disassembler(),
+      create_x86_64_llvm_disassembler() and delete_x86_64_llvm_disassembler()
+      were added.
+    - Also fixed get_symbol() to handle the X86_64_RELOC_SUBTRACTOR relocation
+      entries correctly.
+  - Changed print_text() in main.c if the qflag is set to create the i386 and
+    x86_64 disassemblers and pass their contexts to i386_disassemble().
+  - Also changed GetOpInfo() in arm_disasm.c to return if no reloc found and
+    not search for a symbol with value in that case.
+
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+  - Added a reference to apple_version[] in main.c .
+
+Changes for the 5.30 release (the cctools-815 release):
+- Changed print_relocs() in ofile_print.c so that for CPU_TYPE_X86_64 there are
+  never any scattered relocation types.  Radar bug #10347403.
+
+Changes for the 5.30 release (the cctools-814 release):
+- Fixed a bug in displacement() in i386_disasm.c where it was missing a case
+  for value_size of 4 to sign extend the 32-bit value to a 64-bit value when the
+  sign bit is set.  Radar bug #10193562.
+- Added support for new load commands LC_MAIN, LC_DATA_IN_CODE,
+  LC_SOURCE_VERSION and LC_DYLIB_CODE_SIGN_DRS with code added to
+  ofile_print.[ch] .  Radar bug #10290817.
+
+Changes for the 5.30 release (the cctools-813 release):
+- Added support for annotations with the arm llvm-mc disassembler.  Radar bug
+  #10026561.
+
+Changes for the 5.30 release (the cctools-812 release):
+- Fix the encoding of the arm sev.w instruction.  Radar bug #10133308.
+
+Changes for the 5.30 release (the cctools-811 release):
+- Changed the Makefile setting CXX to use c++ not g++.  Radar bug #10057952.
+
+Changes for the 5.30 release (the cctools-810 release):
+- Fixed print_cstring_section() to print the address base on if the cputype is
+  64-bit or 32-bit.  Radar bug #9957089.
+
+Changes for the 5.29 release (the cctools-803 release):
+- Added printing archive member offsets when -aV is specified.  Radar bug
+  #9354605.
+
+Changes for the 5.29 release (the cctools-800.3 release):
+- Added support for armv7[fk] to print_arch() and print_cputype() in
+  ofile_print.c and to print_text() in main.c . Radar bug #8987684.
+
 Changes for the 5.29 release (the cctools-800 release):
 - Fixed the arm VCVT (between half-precision and single-precision) instructions
   encodings.  Had the op bit inverted in the table.  It should have been:

@@ -241,7 +241,7 @@ smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 {
 	struct sockaddr *sa2;
 
-	MALLOC(sa2, struct sockaddr *, sa->sa_len, M_SONAME,
+	SMB_MALLOC(sa2, struct sockaddr *, sa->sa_len, M_SONAME,
 	       canwait ? M_WAITOK : M_NOWAIT);
 	if (sa2)
 		bcopy(sa, sa2, sa->sa_len);
@@ -333,20 +333,19 @@ static void smb_vc_free(struct smb_connobj *cp)
 		smb_iod_destroy(vcp->vc_iod);
 	vcp->vc_iod = NULL;
 	SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
-	SMB_STRFREE(vcp->NativeOS);
-	SMB_STRFREE(vcp->NativeLANManager);
-	SMB_STRFREE(vcp->vc_username);
-	SMB_STRFREE(vcp->vc_uppercase_username);
-	SMB_STRFREE(vcp->vc_srvname);
-	SMB_STRFREE(vcp->vc_localname);
-	SMB_STRFREE(vcp->vc_pass);
-	SMB_STRFREE(vcp->vc_domain);
+	SMB_FREE(vcp->NativeOS, M_SMBSTR);
+	SMB_FREE(vcp->NativeLANManager, M_SMBSTR);
+	SMB_FREE(vcp->vc_username, M_SMBSTR);
+	SMB_FREE(vcp->vc_srvname, M_SMBSTR);
+	SMB_FREE(vcp->vc_localname, M_SMBSTR);
+	SMB_FREE(vcp->vc_pass, M_SMBSTR);
+	SMB_FREE(vcp->vc_domain, M_SMBSTR);
 	if (vcp->vc_mackey)
-		FREE(vcp->vc_mackey, M_SMBTEMP);
+		SMB_FREE(vcp->vc_mackey, M_SMBTEMP);
 	if (vcp->vc_saddr)
-		FREE(vcp->vc_saddr, M_SONAME);
+		SMB_FREE(vcp->vc_saddr, M_SONAME);
 	if (vcp->vc_laddr)
-		FREE(vcp->vc_laddr, M_SONAME);
+		SMB_FREE(vcp->vc_laddr, M_SONAME);
 	smb_gss_destroy(&vcp->vc_gss);
 	if (vcp->throttle_info)
 		throttle_info_release(vcp->throttle_info);
@@ -390,7 +389,7 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 	if (context == NULL) {
 		return ENOTSUP;
 	}
-	MALLOC(vcp, struct smb_vc *, sizeof(*vcp), M_SMBCONN, M_WAITOK | M_ZERO);
+	SMB_MALLOC(vcp, struct smb_vc *, sizeof(*vcp), M_SMBCONN, M_WAITOK | M_ZERO);
 	smb_co_init(VCTOCP(vcp), SMBL_VC, "smb_vc", vfs_context_proc(context));
 	vcp->obj.co_free = smb_vc_free;
 	vcp->obj.co_gone = smb_vc_gone;
@@ -418,6 +417,8 @@ static int smb_vc_create(struct smbioc_negotiate *vcspec,
 #endif // DEBUG_TURN_OFF_EXT_SEC
 	
 	vcp->vc_uid = vcspec->ioc_ssn.ioc_owner;
+	vcp->vc_gss.gss_asid = AU_ASSIGN_ASID;
+	
 	/* Amount of time to wait while reconnecting */
 	vcp->reconnect_wait_time = vcspec->ioc_ssn.ioc_reconnect_wait_time;	
 	
@@ -650,14 +651,14 @@ int smb_sm_negotiate(struct smbioc_negotiate *vcspec, vfs_context_t context,
 	}
 		
 	if ((error == 0) || (searchOnly)) {
-		free(saddr, M_SMBDATA);
+		SMB_FREE(saddr, M_SMBDATA);
 		vcspec->ioc_extra_flags |= SMB_SHARING_VC;
 	} else {
 		/* NetBIOS connections require a local address */
 		if (saddr->sa_family == AF_NETBIOS) {
 			laddr = smb_memdupin(vcspec->ioc_kern_laddr, vcspec->ioc_laddr_len);
 			if (laddr == NULL) {
-				free(saddr, M_SMBDATA);	
+				SMB_FREE(saddr, M_SMBDATA);	
 				return ENOMEM;
 			}
 		}
@@ -670,8 +671,6 @@ int smb_sm_negotiate(struct smbioc_negotiate *vcspec, vfs_context_t context,
 			vcp->connect_flag = NULL;
 			if (error) /* Remove the lock and reference */
 				smb_vc_put(vcp, context);
-			else if (smbfs_kern_ntlmssp)
-				vcspec->ioc_extra_flags |= SMB_KERN_NTLMSSP;
 		}		
 	}
 	if ((error == 0) && (vcp)) {
@@ -717,27 +716,22 @@ int smb_sm_ssnsetup(struct smb_vc *vcp, struct smbioc_setup *sspec,
 	 * Reset the username, password, domain, kerb client and service names. We
 	 * never want to use any values left over from any previous calls.
 	 */
-	SMB_STRFREE(vcp->vc_username);
-	SMB_STRFREE(vcp->vc_uppercase_username);
-	SMB_STRFREE(vcp->vc_pass);
-	SMB_STRFREE(vcp->vc_domain);
-	SMB_STRFREE(vcp->vc_gss.gss_cpn);
+	SMB_FREE(vcp->vc_username, M_SMBSTR);
+	SMB_FREE(vcp->vc_pass, M_SMBSTR);
+	SMB_FREE(vcp->vc_domain, M_SMBSTR);
+	SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
 	/* 
 	 * Freeing the SPN will make sure we never use the hint. Remember that the 
 	 * gss_spn contains the hint from the negotiate. We now require user
 	 * land to send us a SPN, if we are going to use one.
 	 */
-	SMB_STRFREE(vcp->vc_gss.gss_spn);
+	SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
 	vcp->vc_username = smb_strndup(sspec->ioc_user, sizeof(sspec->ioc_user));
-	vcp->vc_uppercase_username = smb_strndup(sspec->ioc_uppercase_user, sizeof(sspec->ioc_uppercase_user));
 	vcp->vc_pass = smb_strndup(sspec->ioc_password, sizeof(sspec->ioc_password));
 	vcp->vc_domain = smb_strndup(sspec->ioc_domain, sizeof(sspec->ioc_domain));
-	/*
-	 * We should see if vc_domain or vc_uppercase_username is really needed once
-	 * we remove the internal NTLM code. See <rdar://problem/7016849>
-	 */
+
 	if ((vcp->vc_pass == NULL) || (vcp->vc_domain == NULL) || 
-		(vcp->vc_username == NULL) || (vcp->vc_uppercase_username == NULL)) {
+		(vcp->vc_username == NULL)) {
 		error = ENOMEM;
 		goto done;
 	}
@@ -779,12 +773,11 @@ done:
 		 */ 
 		vcp->vc_flags &= ~(SMBV_GUEST_ACCESS | SMBV_PRIV_GUEST_ACCESS | 
 						   SMBV_KERBEROS_ACCESS | SMBV_ANONYMOUS_ACCESS);
-		SMB_STRFREE(vcp->vc_username);
-		SMB_STRFREE(vcp->vc_uppercase_username);
-		SMB_STRFREE(vcp->vc_pass);
-		SMB_STRFREE(vcp->vc_domain);
-		SMB_STRFREE(vcp->vc_gss.gss_cpn);
-		SMB_STRFREE(vcp->vc_gss.gss_spn);
+		SMB_FREE(vcp->vc_username, M_SMBSTR);
+		SMB_FREE(vcp->vc_pass, M_SMBSTR);
+		SMB_FREE(vcp->vc_domain, M_SMBSTR);
+		SMB_FREE(vcp->vc_gss.gss_cpn, M_SMBSTR);
+		SMB_FREE(vcp->vc_gss.gss_spn, M_SMBSTR);
 		vcp->vc_gss.gss_spn_len = 0;
 		vcp->vc_gss.gss_cpn_len = 0;
 	}
@@ -798,7 +791,7 @@ static void smb_share_free(struct smb_connobj *cp)
 {
 	struct smb_share *share = (struct smb_share *)cp;
 	
-	SMB_STRFREE(share->ss_name);
+	SMB_FREE(share->ss_name, M_SMBSTR);
 	lck_mtx_destroy(&share->ss_stlock, ssst_lck_group);
 	lck_mtx_destroy(&share->ss_shlock, ssst_lck_group);
 	smb_co_done(SSTOCP(share));
@@ -840,7 +833,7 @@ smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
 	if (context == NULL)
 		return ENOTSUP;
 	
-	MALLOC(share, struct smb_share *, sizeof(*share), M_SMBCONN, M_WAITOK | M_ZERO);
+	SMB_MALLOC(share, struct smb_share *, sizeof(*share), M_SMBCONN, M_WAITOK | M_ZERO);
 	if (share == NULL) {
 		return ENOMEM;
 	}
@@ -861,7 +854,8 @@ smb_share_create(struct smb_vc *vcp, struct smbioc_share *shspec,
 	share->ss_dead_timer = smbfs_deadtimer;
 	lck_mtx_unlock(&share->ss_shlock);
 	share->ss_tid = SMB_TID_UNKNOWN;
-	/* unlock the share we no longer need the lock */
+
+    /* unlock the share we no longer need the lock */
 	smb_co_unlock(SSTOCP(share));
 	smb_co_addchild(VCTOCP(vcp), SSTOCP(share));
 	*outShare = share;

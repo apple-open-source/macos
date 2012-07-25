@@ -39,8 +39,8 @@ enum {
 
 	/* Minimum allowed sizes */
 	MinCacheBlockSize		=	0x8000,		/* 32K */
-	MinCacheBlocks			=	128,
-	MinCacheSize			=	(MinCacheBlockSize * MinCacheBlocks), 	/* 4MBytes */
+	MinCacheBlocks			=	1024,
+	MinCacheSize			=	(MinCacheBlockSize * MinCacheBlocks), 	/* 32MBytes */
 
 	/* Maximum allowed sizes */
 	MaxCacheBlockSize		=	0x8000,		/* 32K */

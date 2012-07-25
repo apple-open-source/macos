@@ -61,9 +61,10 @@ fwrite(buf, size, count, fp)
 	 * ANSI and SUSv2 require a return value of 0 if size or count are 0.
 	 */
 	n = count * size;
+#if __DARWIN_UNIX03
 	if (n == 0)
 		return (0);
-
+#endif
 	iov.iov_base = (void *)buf;
 	uio.uio_resid = iov.iov_len = n;
 	uio.uio_iov = &iov;

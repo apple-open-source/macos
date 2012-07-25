@@ -43,8 +43,12 @@ void InitWebCoreSystemInterface(void)
         return;
 
     INIT(AdvanceDefaultButtonPulseAnimation);
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(CALayerEnumerateRectsBeingDrawnWithBlock);
+#endif
     INIT(CGContextGetShouldSmoothFonts);
     INIT(CGPatternCreateWithImageAndTransform);
+    INIT(CGContextResetClip);
     INIT(CopyCFLocalizationPreferredName);
     INIT(CopyCONNECTProxyResponse);
     INIT(CopyNSURLResponseStatusLine);
@@ -67,9 +71,16 @@ void InitWebCoreSystemInterface(void)
     INIT(SignedPublicKeyAndChallengeString);
     INIT(GetPreferredExtensionForMIMEType);
     INIT(GetWheelEventDeltas);
+#if PLATFORM(MAC)
+    INIT(GetNSEventKeyChar);
+#endif
     INIT(HitTestMediaUIPart);
     INIT(InitializeMaximumHTTPConnectionCountPerHost);
     INIT(MeasureMediaUIPart);
+    INIT(CreateMediaUIBackgroundView);
+    INIT(CreateMediaUIControl);
+    INIT(WindowSetAlpha);
+    INIT(WindowSetScaledFrame);
     INIT(MediaControllerThemeAvailable);
     INIT(PopupMenu);
     INIT(SetBaseCTM);
@@ -106,6 +117,7 @@ void InitWebCoreSystemInterface(void)
     INIT(QTClearMediaDownloadCache);
 
     INIT(GetGlyphsForCharacters);
+    INIT(GetVerticalGlyphsForCharacters);
 
 #if defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
     INIT(GetHyphenationLocationBeforeIndex);
@@ -123,6 +135,14 @@ void InitWebCoreSystemInterface(void)
     INIT(CopyDefaultSearchProviderDisplayName);
     INIT(AVAssetResolvedURL);
     INIT(Cursor);
+#endif
+#if USE(CFNETWORK)
+    INIT(GetDefaultHTTPCookieStorage);
+    INIT(CopyCredentialFromCFPersistentStorage);
+    INIT(SetCFURLRequestShouldContentSniff);
+    INIT(CFURLRequestCopyHTTPRequestBodyParts);
+    INIT(CFURLRequestSetHTTPRequestBodyParts);
+    INIT(SetRequestStorageSession);
 #endif
 
     INIT(GetAXTextMarkerTypeID);
@@ -149,5 +169,36 @@ void InitWebCoreSystemInterface(void)
     INIT(CopyCFURLResponseSuggestedFilename);
     INIT(SetCFURLResponseMIMEType);
 
+    INIT(SetMetadataURL);
+    
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(CreateVMPressureDispatchOnMainQueue);
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION)
+    INIT(GetMacOSXVersionString);
+    INIT(ExecutableWasLinkedOnOrBeforeLion);
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(CGPathAddRoundedRect);
+#endif
+
+#if !defined(BUILDING_ON_SNOW_LEOPARD)
+    INIT(CFURLRequestAllowAllPostCaching);
+#endif
+
+#if PLATFORM(MAC) && !defined(BUILDING_ON_SNOW_LEOPARD) && !defined(BUILDING_ON_LION) && !PLATFORM(IOS)
+    INIT(FilterIsManagedSession);
+    INIT(FilterCreateInstance);
+    INIT(FilterRelease);
+    INIT(FilterWasBlocked);
+    INIT(FilterAddData);
+    INIT(FilterDataComplete);
+
+    INIT(NSElasticDeltaForTimeDelta); 
+    INIT(NSElasticDeltaForReboundDelta); 
+    INIT(NSReboundDeltaForElasticDelta);
+#endif
     didInit = true;
 }

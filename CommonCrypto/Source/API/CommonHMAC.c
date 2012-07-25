@@ -1,5 +1,5 @@
-/* 
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+/*
+ * Copyright (c) 2012 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,16 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/*
- * CommonHMAC.h - Keyed Message Authentication Code (HMAC) functions.
- *
- * Created 3/27/2006 by Doug Mitchell.
- */
-
-#include <CommonCrypto/CommonHMAC.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <assert.h>
+// #define COMMON_HMAC_FUNCTIONS
+#include "CommonHMAC.h"
+#include "CommonHmacSPI.h"
+#include "CommonDigest.h"
+#include "CommonDigestSPI.h"
+#include "CommonDigestPriv.h"
+#include <corecrypto/cchmac.h>
+#include "ccMemory.h"
+#include "ccdebug.h"
 
 #ifndef	NDEBUG
 #define ASSERT(s)
@@ -38,177 +37,180 @@
 #define ASSERT(s)	assert(s)
 #endif
 
-/* 
- * Callouts for digest ops.
- * The void *ctx pointers are needed to accommodate different underlying
- * digest context types. 
- */
-typedef void (*ccDigestInit)(void *ctx);
-typedef void (*ccDigestUpdate)(void *ctx, const void *data, CC_LONG len);
-typedef void (*ccDigestFinal)(unsigned char *md, void *ctx);
-
-#define HMAC_MAX_BLOCK_SIZE		CC_SHA512_BLOCK_BYTES
-#define HMAC_MAX_DIGEST_SIZE	CC_SHA512_DIGEST_LENGTH
+#define	HMAC_MAX_BLOCK_SIZE     CC_SHA512_BLOCK_BYTES
+#define	HMAC_MAX_DIGEST_SIZE    CC_SHA512_DIGEST_LENGTH
 
 /* 
  * This is what a CCHmacContext actually points to.
+ * we have 384 bytes to work with
  */
+
 typedef struct {
-	uint32_t			digestLen;
-	uint32_t			blockLen;
-	union {
-		CC_MD5_CTX		md5Ctx;
-		CC_SHA1_CTX		sha1Ctx;
-		CC_SHA256_CTX 	sha256Ctx;
-		CC_SHA512_CTX 	sha512Ctx;
-	} digest;
-	uint8_t				k_opad[HMAC_MAX_BLOCK_SIZE];	/* max block size */
-	
-	ccDigestInit		digestInit;
-	ccDigestUpdate		digestUpdate;
-	ccDigestFinal		digestFinal;
-} _CCHmacContext;
+    struct ccdigest_info *di;
+    cchmac_ctx_decl(HMAC_MAX_BLOCK_SIZE, HMAC_MAX_DIGEST_SIZE, ctx);
+} _NewHmacContext;
+
+
+typedef struct {
+    CCHmacAlgorithm ccHmacValue;
+    CCDigestAlgorithm ccDigestAlg;
+    const char *ccDigestName;
+} ccHmac2DigestConversion;
+
+
+const ccHmac2DigestConversion ccconversionTable[] = {
+    { kCCHmacAlgSHA1, kCCDigestSHA1, "sha1" },
+    { kCCHmacAlgMD5, kCCDigestMD5, "md5" },
+    { kCCHmacAlgSHA224, kCCDigestSHA224, "sha224" },
+    { kCCHmacAlgSHA256, kCCDigestSHA256, "sha256" },
+    { kCCHmacAlgSHA384, kCCDigestSHA384, "sha384" },
+    { kCCHmacAlgSHA512, kCCDigestSHA512, "sha512" },
+};
+
+const static int ccHmacConversionTableLength = sizeof(ccconversionTable) / sizeof(ccHmac2DigestConversion);
+
+static struct ccdigest_info *
+convertccHmacSelector(CCHmacAlgorithm oldSelector)
+{
+    int i;
+    
+    for(i=0; i<ccHmacConversionTableLength; i++) 
+        if(oldSelector == ccconversionTable[i].ccHmacValue) {
+            return CCDigestGetDigestInfo(ccconversionTable[i].ccDigestAlg);
+        }
+    return NULL;
+}
+
 
 void CCHmacInit(
-	CCHmacContext *ctx, 
-	CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
-	const void *key,
-	size_t keyLength)			/* length of key in bytes */
+                CCHmacContext *ctx, 
+                CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
+                const void *key,
+                size_t keyLength)		/* length of key in bytes */
 {
-	_CCHmacContext	*hmacCtx = (_CCHmacContext *)ctx;
+	_NewHmacContext		*hmacCtx = (_NewHmacContext *)ctx;
 	uint8_t			tk[HMAC_MAX_DIGEST_SIZE];
-	uint8_t			*keyP;
+	const uint8_t	*keyP;
 	uint32_t		byte;
-	uint8_t			k_ipad[HMAC_MAX_BLOCK_SIZE]; 
+	uint8_t			k_ipad[HMAC_MAX_BLOCK_SIZE];
+    size_t          digestLen;
+    size_t          blockLen;
+    // CCDigestCtxPtr  digestCtx = &hmacCtx->digestCtx;
+    
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
 
-	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
-	ASSERT(sizeof(_CCHmacContext) < sizeof(CCHmacContext));
+
+	ASSERT(sizeof(_NewHmacContext) < sizeof(CCHmacContext));    
 	
 	if(hmacCtx == NULL) {
-		return;
-	}
+        CC_DEBUG_LOG(CC_DEBUG, "NULL Context passed in\n");
+        return;
+    }
 	
-	memset(hmacCtx, 0, sizeof(*hmacCtx));
+	if(key == NULL) {
+        CC_DEBUG_LOG(CC_DEBUG, "NULL Context passed in\n");
+        return;
+    }
+
+	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
 	
-	switch(algorithm) {
-		case kCCHmacAlgMD5:
-			hmacCtx->digestLen    = CC_MD5_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_MD5_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_MD5_Init;
-			hmacCtx->digestUpdate = (void *)CC_MD5_Update;
-			hmacCtx->digestFinal  = (void *)CC_MD5_Final;
-			break;
-		case kCCHmacAlgSHA1:
-			hmacCtx->digestLen    = CC_SHA1_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_SHA1_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_SHA1_Init;
-			hmacCtx->digestUpdate = (void *)CC_SHA1_Update;
-			hmacCtx->digestFinal  = (void *)CC_SHA1_Final;
-			break;
-		case kCCHmacAlgSHA224:
-			hmacCtx->digestLen    = CC_SHA224_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_SHA224_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_SHA224_Init;
-			hmacCtx->digestUpdate = (void *)CC_SHA224_Update;
-			hmacCtx->digestFinal  = (void *)CC_SHA224_Final;
-			break;
-		case kCCHmacAlgSHA256:
-			hmacCtx->digestLen    = CC_SHA256_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_SHA256_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_SHA256_Init;
-			hmacCtx->digestUpdate = (void *)CC_SHA256_Update;
-			hmacCtx->digestFinal  = (void *)CC_SHA256_Final;
-			break;
-		case kCCHmacAlgSHA384:
-			hmacCtx->digestLen    = CC_SHA384_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_SHA384_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_SHA384_Init;
-			hmacCtx->digestUpdate = (void *)CC_SHA384_Update;
-			hmacCtx->digestFinal  = (void *)CC_SHA384_Final;
-			break;
-		case kCCHmacAlgSHA512:
-			hmacCtx->digestLen    = CC_SHA512_DIGEST_LENGTH;
-			hmacCtx->blockLen     = CC_SHA512_BLOCK_BYTES;
-			hmacCtx->digestInit   = (void *)CC_SHA512_Init;
-			hmacCtx->digestUpdate = (void *)CC_SHA512_Update;
-			hmacCtx->digestFinal  = (void *)CC_SHA512_Final;
-			break;
-		default:
-			return;
+    if((hmacCtx->di = convertccHmacSelector(algorithm)) == NULL) {
+        CC_DEBUG_LOG(CC_DEBUG, "CCHMac Unknown Digest %d\n", algorithm);
+        return;
 	}
-	
-	hmacCtx->digestInit(&hmacCtx->digest);
-	
-	/* If the key is longer than block size, reset it to key=digest(key) */
-	if (keyLength <= hmacCtx->blockLen)
-		keyP = (uint8_t *)key;
-	else {
-		hmacCtx->digestUpdate(&hmacCtx->digest, key, keyLength);
-		hmacCtx->digestFinal(tk, &hmacCtx->digest);
-		keyP = tk;
-		keyLength = hmacCtx->digestLen;
-		hmacCtx->digestInit(&hmacCtx->digest);
-	}
-	
-	/* The HMAC_<DIG> transform looks like:
-	   <DIG> (K XOR opad || <DIG> (K XOR ipad || text))
-	   Where K is a n byte key
-	   ipad is the byte 0x36 repeated 64 times.
-	   opad is the byte 0x5c repeated 64 times.
-	   text is the data being protected.
-	  */
-	/* Copy the key into k_ipad and k_opad while doing the XOR. */
-	for (byte = 0; byte < keyLength; byte++)
-	{
-		k_ipad[byte] = keyP[byte] ^ 0x36;
-		hmacCtx->k_opad[byte] = keyP[byte] ^ 0x5c;
-	}
-	/* Fill the remainder of k_ipad and k_opad with 0 XORed with the appropriate value. */
-	if (keyLength < hmacCtx->blockLen)
-	{
-		memset (k_ipad + keyLength, 0x36, hmacCtx->blockLen - keyLength);
-		memset (hmacCtx->k_opad + keyLength, 0x5c, hmacCtx->blockLen - keyLength);
-	}
-	hmacCtx->digestUpdate(&hmacCtx->digest, k_ipad, hmacCtx->blockLen);
+    
+    cchmac_init(hmacCtx->di, hmacCtx->ctx, keyLength, key);
+    
+    
 }
 
 void CCHmacUpdate(
-	CCHmacContext *ctx, 
-	const void *dataIn,
-	size_t dataInLength)			/* length of data in bytes */
+                  CCHmacContext *ctx, 
+                  const void *dataIn,
+                  size_t dataInLength)	/* length of data in bytes */
 {
-	_CCHmacContext	*hmacCtx = (_CCHmacContext *)ctx;
-	hmacCtx->digestUpdate(&hmacCtx->digest, dataIn, dataInLength);
+	_NewHmacContext	*hmacCtx = (_NewHmacContext *)ctx;
+
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    cchmac_update(hmacCtx->di, hmacCtx->ctx, dataInLength, dataIn);
 }
 
 void CCHmacFinal(
-	CCHmacContext *ctx, 
-	void *macOut)
+                 CCHmacContext *ctx, 
+                 void *macOut)
 {
-	_CCHmacContext	*hmacCtx = (_CCHmacContext *)ctx;
-	hmacCtx->digestFinal(macOut, &hmacCtx->digest);
-	hmacCtx->digestInit(&hmacCtx->digest);
-	/* Perform outer digest */
-	hmacCtx->digestUpdate(&hmacCtx->digest, hmacCtx->k_opad, hmacCtx->blockLen);
-	hmacCtx->digestUpdate(&hmacCtx->digest, macOut, hmacCtx->digestLen);
-	hmacCtx->digestFinal(macOut, &hmacCtx->digest);
+	_NewHmacContext	*hmacCtx = (_NewHmacContext *)ctx;
+    
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+    cchmac_final(hmacCtx->di, hmacCtx->ctx, macOut);
 }
+
+void
+CCHmacDestroy(CCHmacContextRef ctx)
+{
+	CC_XZEROMEM(ctx, sizeof(_NewHmacContext));
+    CC_XFREE(ctx, sizeof(_NewHmacContext));
+}
+
+
+size_t
+CCHmacOutputSizeFromRef(CCHmacContextRef ctx)
+{
+	_NewHmacContext		*hmacCtx = (_NewHmacContext *)ctx;
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+	return hmacCtx->di->output_size;
+}
+
+
+size_t
+CCHmacOutputSize(CCDigestAlg alg)
+{
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+	return CCDigestGetOutputSize(alg);
+}
+
 
 /*
  * Stateless, one-shot HMAC function. 
- * Output is written to caller-spullied buffer, as in CCHmacFinal().
+ * Output is written to caller-supplied buffer, as in CCHmacFinal().
  */
 void CCHmac(
-	CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
-	const void *key,
-	size_t keyLength,			/* length of key in bytes */
-	const void *data,
-	size_t dataLength,			/* length of data in bytes */
-	void *macOut)				/* MAC written here */
+            CCHmacAlgorithm algorithm,	/* kCCHmacSHA1, kCCHmacMD5 */
+            const void *key,
+            size_t keyLength,		/* length of key in bytes */
+            const void *data,
+            size_t dataLength,		/* length of data in bytes */
+            void *macOut)			/* MAC written here */
 {
-	CCHmacContext ctx;
-	
-	CCHmacInit(&ctx, algorithm, key, keyLength);
-	CCHmacUpdate(&ctx, data, dataLength);
-	CCHmacFinal(&ctx, macOut);
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering Algorithm: %d\n", algorithm);
+    cchmac(convertccHmacSelector(algorithm), keyLength, key, dataLength, data, macOut);
 }
+
+
+
+CCHmacContextRef
+CCHmacCreate(CCDigestAlg alg, const void *key, size_t keyLength)
+{
+	_NewHmacContext		*hmacCtx;
+	uint8_t			tk[HMAC_MAX_DIGEST_SIZE];
+	const uint8_t		*keyP;
+	uint32_t		byte;
+	uint8_t			k_ipad[HMAC_MAX_BLOCK_SIZE]; 
+    size_t digestLen = CCDigestGetOutputSize(alg);
+    size_t blockLen = CCDigestGetBlockSize(alg);
+    
+    CC_DEBUG_LOG(ASL_LEVEL_ERR, "Entering\n");
+	/* if this fails, it's time to adjust CC_HMAC_CONTEXT_SIZE */
+    if((hmacCtx = CC_XMALLOC(sizeof(_NewHmacContext))) == NULL) return NULL;
+	
+	CC_XZEROMEM(hmacCtx, sizeof(_NewHmacContext));
+	
+    if((hmacCtx->di = CCDigestGetDigestInfo(alg)) == NULL) {
+        CC_DEBUG_LOG(CC_DEBUG, "CCHMac Unknown Digest %d\n");
+        return NULL;
+	}
+    
+    cchmac_init(hmacCtx->di, hmacCtx->ctx, keyLength, key);
+	return hmacCtx;
+}
+

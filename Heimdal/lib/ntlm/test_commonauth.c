@@ -371,7 +371,6 @@ test_cram_md5(void)
 	abort();
 
     heim_cram_md5_export(secret, &state);
-    
     /* here you can store the memcpy-ed version of state somewhere else */
 
     ctx = heim_cram_md5_import(&state, sizeof(state));
@@ -396,7 +395,6 @@ test_apop(void)
     const char *resp = "c4c9334bac560ecc979e58001b3e22fb";
     char *t;
 
-    
     t = heim_apop_create(chal, secret);
     if (t == NULL)
 	abort();

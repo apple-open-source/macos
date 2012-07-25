@@ -3,7 +3,10 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <security/pam_appl.h>
 #include <security/pam_modules.h>
+#include <security/openpam.h>
+
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <DirectoryService/DirectoryService.h>
@@ -110,8 +113,16 @@ cleanup:
 	return retval;
 }
 
+#ifdef OPENDIRECTORY_CACHE
+static void
+cleanup_cache(pam_handle_t *pamh, void *data, int pam_end_status)
+{
+    CFRelease((CFTypeRef)data);
+}
+#endif /* OPENDIRECTORY_CACHE */
+
 int
-od_record_create(ODRecordRef *record, CFStringRef cfUser)
+od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 {
 	int retval = PAM_SERVICE_ERR;
 	const int attr_num = 5;
@@ -126,6 +137,26 @@ od_record_create(ODRecordRef *record, CFStringRef cfUser)
 		retval = PAM_SERVICE_ERR;
 		goto cleanup;
 	}
+
+#ifdef OPENDIRECTORY_CACHE
+#define CFRECORDNAME_CACHE "CFRecordName"
+#define CFRECORDNAME_NAME CFSTR("name")
+#define CFRECORDNAME_RECORD CFSTR("record")
+
+	CFDictionaryRef cfdict;
+	CFStringRef cachedUser;
+
+	if (pam_get_data(pamh, CFRECORDNAME_CACHE, (void *)&cfdict) == PAM_SUCCESS &&
+	    (CFGetTypeID(cfdict) == CFDictionaryGetTypeID()) &&
+	    (cachedUser = CFDictionaryGetValue(cfdict, CFRECORDNAME_NAME)) != NULL &&
+	    CFGetTypeID(cachedUser) == CFStringGetTypeID() &&
+	    CFStringCompare(cfUser, cachedUser, 0) == kCFCompareEqualTo &&
+	    (*record = (ODRecordRef)CFDictionaryGetValue(cfdict, CFRECORDNAME_RECORD)) != NULL)
+	{
+		CFRetain(*record);
+		return PAM_SUCCESS;
+	}
+#endif /* OPENDIRECTORY_CACHE */
 
 	int current_iterations = 0;
 
@@ -162,18 +193,29 @@ od_record_create(ODRecordRef *record, CFStringRef cfUser)
 		}
 
 		*record = ODNodeCopyRecord(cfNode, kODRecordTypeUsers, cfUser, attrs, &cferror);
-		if (*record) {
-			retval = PAM_SUCCESS;
+		if (*record)
 			break;
-		}
-		if (0 == unreachable_count) {
-			retval = PAM_USER_UNKNOWN;
+		if (0 == unreachable_count)
 			break;
-		}
 
 		openpam_log(PAM_LOG_DEBUG, "Waiting %d seconds for nodes to become reachable", kWaitSeconds);
 		sleep(kWaitSeconds);
 		++current_iterations;
+	}
+
+	if (*record) {
+#ifdef OPENDIRECTORY_CACHE
+		const void *keys[] = { CFRECORDNAME_NAME, CFRECORDNAME_RECORD };
+		const void *values[] = { cfUser, *record };
+		CFDictionaryRef dict;
+		
+		dict = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (dict)
+			pam_set_data(pamh, CFRECORDNAME_CACHE, (void *)dict, cleanup_cache);
+#endif /* OPENDIRECTORY_CACHE */
+		retval = PAM_SUCCESS;
+	} else {
+		retval = PAM_USER_UNKNOWN;
 	}
 
 	if (current_iterations > 0) {
@@ -202,8 +244,6 @@ od_record_create(ODRecordRef *record, CFStringRef cfUser)
 		free(wt);
 	}
 
-	retval = PAM_SUCCESS;
-
 cleanup:
 	if (NULL != attrs) {
 		CFRelease(attrs);
@@ -219,8 +259,9 @@ cleanup:
 
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "failed: %d", retval);
-		if (NULL != record) {
-			CFRelease(record);
+		if (NULL != *record) {
+			CFRelease(*record);
+			*record = NULL;
 		}
 	}
 
@@ -228,7 +269,7 @@ cleanup:
 }
 
 int
-od_record_create_cstring(ODRecordRef *record, const char *user)
+od_record_create_cstring(pam_handle_t *pamh, ODRecordRef *record, const char *user)
 {
 	int retval = PAM_SUCCESS;
 	CFStringRef cfUser = NULL;
@@ -240,7 +281,7 @@ od_record_create_cstring(ODRecordRef *record, const char *user)
 	}
 
 	if (PAM_SUCCESS != (retval = cstring_to_cfstring(user, &cfUser)) ||
-	    PAM_SUCCESS != (retval = od_record_create(record, cfUser))) {
+	    PAM_SUCCESS != (retval = od_record_create(pamh, record, cfUser))) {
 		openpam_log(PAM_LOG_DEBUG, "od_record_create() failed");
 		goto cleanup;
 	}
@@ -248,8 +289,8 @@ od_record_create_cstring(ODRecordRef *record, const char *user)
 cleanup:
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_ERROR, "failed: %d", retval);
-		if (NULL != record) {
-			CFRelease(record);
+		if (NULL != *record) {
+			CFRelease(*record);
 		}
 	}
 
@@ -638,24 +679,31 @@ fin:
 }
 
 int
-od_extract_home(const char *username, char **server_URL, char **path, char **homedir)
+od_extract_home(pam_handle_t *pamh, const char *username, char **server_URL, char **path, char **homedir)
 {
 	int retval = PAM_SERVICE_ERR;
 	char *tmp = NULL;
 	ODRecordRef record = NULL;
 	
-	retval = od_record_create_cstring(&record, username);
+	retval = od_record_create_cstring(pamh, &record, username);
 	if (PAM_SUCCESS != retval) {
 		goto cleanup;
 	}
 	
 	retval = od_string_from_record(record, kODAttributeTypeHomeDirectory, &tmp);
+	if (retval) {
+		openpam_log(PAM_LOG_DEBUG, "%s - get kODAttributeTypeHomeDirectory  : %d",
+			    __func__, retval);
+		goto cleanup;
+	}
 	extract_homemount(tmp, server_URL, path);
 	openpam_log(PAM_LOG_DEBUG, "%s - Server URL   : %s", __func__, *server_URL);
 	openpam_log(PAM_LOG_DEBUG, "%s - Path to mount: %s", __func__, *path);
 	
 	retval = od_string_from_record(record, kODAttributeTypeNFSHomeDirectory, homedir);
 	openpam_log(PAM_LOG_DEBUG, "%s - Home dir     : %s", __func__, *homedir);
+	if (retval)
+		goto cleanup;
 	
 	retval = PAM_SUCCESS;
 	
@@ -670,7 +718,7 @@ cleanup:
 
 /* extract the principal from OpenDirectory */
 int
-od_principal_for_user(const char *user, char **od_principal)
+od_principal_for_user(pam_handle_t *pamh, const char *user, char **od_principal)
 {
 	int retval = PAM_SERVICE_ERR;
 	ODRecordRef record = NULL;
@@ -684,7 +732,7 @@ od_principal_for_user(const char *user, char **od_principal)
 		goto cleanup;
 	}
 
-	retval = od_record_create_cstring(&record, user);
+	retval = od_record_create_cstring(pamh, &record, user);
 	if (PAM_SUCCESS != retval) {
 		openpam_log(PAM_LOG_DEBUG, "od_record_attribute_create_cfstring() failed");
 		goto cleanup;

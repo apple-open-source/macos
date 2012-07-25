@@ -29,10 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "PlatformString.h"
-
-#if USE(SKIA)
 #include "SkColorPriv.h"
-#endif
 
 namespace WebCore {
 
@@ -42,7 +39,7 @@ class VertexShaderPosTex {
 public:
     VertexShaderPosTex();
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     String getShaderString() const;
 
     int matrixLocation() const { return m_matrixLocation; }
@@ -55,7 +52,7 @@ class VertexShaderPosTexYUVStretch {
 public:
     VertexShaderPosTexYUVStretch();
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     String getShaderString() const;
 
     int matrixLocation() const { return m_matrixLocation; }
@@ -72,7 +69,7 @@ class VertexShaderPos {
 public:
     VertexShaderPos();
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     String getShaderString() const;
 
     int matrixLocation() const { return m_matrixLocation; }
@@ -81,11 +78,17 @@ private:
     int m_matrixLocation;
 };
 
+class VertexShaderPosTexIdentity {
+public:
+    void init(GraphicsContext3D*, unsigned program) { }
+    String getShaderString() const;
+};
+
 class VertexShaderPosTexTransform {
 public:
     VertexShaderPosTexTransform();
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     String getShaderString() const;
 
     int matrixLocation() const { return m_matrixLocation; }
@@ -96,17 +99,82 @@ private:
     int m_texTransformLocation;
 };
 
+class VertexShaderQuad {
+public:
+    VertexShaderQuad();
+
+    void init(GraphicsContext3D*, unsigned program);
+    String getShaderString() const;
+
+    int matrixLocation() const { return m_matrixLocation; }
+    int pointLocation() const { return m_pointLocation; }
+
+private:
+    int m_matrixLocation;
+    int m_pointLocation;
+};
+
+class VertexShaderTile {
+public:
+    VertexShaderTile();
+
+    void init(GraphicsContext3D*, unsigned program);
+    String getShaderString() const;
+
+    int matrixLocation() const { return m_matrixLocation; }
+    int pointLocation() const { return m_pointLocation; }
+    int vertexTexTransformLocation() const { return m_vertexTexTransformLocation; }
+
+private:
+    int m_matrixLocation;
+    int m_pointLocation;
+    int m_vertexTexTransformLocation;
+};
+
+class VertexShaderVideoTransform {
+public:
+    VertexShaderVideoTransform();
+
+    bool init(GraphicsContext3D*, unsigned program);
+    String getShaderString() const;
+
+    int matrixLocation() const { return m_matrixLocation; }
+    int texTransformLocation() const { return m_texTransformLocation; }
+    int texMatrixLocation() const { return m_texMatrixLocation; }
+
+private:
+    int m_matrixLocation;
+    int m_texTransformLocation;
+    int m_texMatrixLocation;
+};
+
 class FragmentTexAlphaBinding {
 public:
     FragmentTexAlphaBinding();
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     int alphaLocation() const { return m_alphaLocation; }
+    int edgeLocation() const { return -1; }
+    int fragmentTexTransformLocation() const { return -1; }
     int samplerLocation() const { return m_samplerLocation; }
 
 private:
     int m_samplerLocation;
     int m_alphaLocation;
+};
+
+class FragmentTexOpaqueBinding {
+public:
+    FragmentTexOpaqueBinding();
+
+    void init(GraphicsContext3D*, unsigned program);
+    int alphaLocation() const { return -1; }
+    int edgeLocation() const { return -1; }
+    int fragmentTexTransformLocation() const { return -1; }
+    int samplerLocation() const { return m_samplerLocation; }
+
+private:
+    int m_samplerLocation;
 };
 
 class FragmentShaderRGBATexFlipAlpha : public FragmentTexAlphaBinding {
@@ -119,7 +187,88 @@ public:
     String getShaderString() const;
 };
 
-class FragmentShaderBGRATexAlpha : public FragmentTexAlphaBinding {
+class FragmentShaderRGBATexRectFlipAlpha : public FragmentTexAlphaBinding {
+public:
+    String getShaderString() const;
+};
+
+class FragmentShaderRGBATexRectAlpha : public FragmentTexAlphaBinding {
+public:
+    String getShaderString() const;
+};
+
+class FragmentShaderRGBATexOpaque : public FragmentTexOpaqueBinding {
+public:
+    String getShaderString() const;
+};
+
+class FragmentShaderRGBATex : public FragmentTexOpaqueBinding {
+public:
+    String getShaderString() const;
+};
+
+// Swizzles the red and blue component of sampled texel with alpha.
+class FragmentShaderRGBATexSwizzleAlpha : public FragmentTexAlphaBinding {
+public:
+    String getShaderString() const;
+};
+
+// Swizzles the red and blue component of sampled texel without alpha.
+class FragmentShaderRGBATexSwizzleOpaque : public FragmentTexOpaqueBinding {
+public:
+    String getShaderString() const;
+};
+
+// Fragment shader for external textures.
+class FragmentShaderOESImageExternal : public FragmentTexAlphaBinding {
+public:
+    String getShaderString() const;
+    bool init(GraphicsContext3D*, unsigned program);
+private:
+    int m_samplerLocation;
+};
+
+class FragmentShaderRGBATexAlphaAA {
+public:
+    FragmentShaderRGBATexAlphaAA();
+
+    void init(GraphicsContext3D*, unsigned program);
+    String getShaderString() const;
+
+    int alphaLocation() const { return m_alphaLocation; }
+    int samplerLocation() const { return m_samplerLocation; }
+    int edgeLocation() const { return m_edgeLocation; }
+
+private:
+    int m_samplerLocation;
+    int m_alphaLocation;
+    int m_edgeLocation;
+};
+
+class FragmentTexClampAlphaAABinding {
+public:
+    FragmentTexClampAlphaAABinding();
+
+    void init(GraphicsContext3D*, unsigned program);
+    int alphaLocation() const { return m_alphaLocation; }
+    int samplerLocation() const { return m_samplerLocation; }
+    int fragmentTexTransformLocation() const { return m_fragmentTexTransformLocation; }
+    int edgeLocation() const { return m_edgeLocation; }
+
+private:
+    int m_samplerLocation;
+    int m_alphaLocation;
+    int m_fragmentTexTransformLocation;
+    int m_edgeLocation;
+};
+
+class FragmentShaderRGBATexClampAlphaAA : public FragmentTexClampAlphaAABinding {
+public:
+    String getShaderString() const;
+};
+
+// Swizzles the red and blue component of sampled texel.
+class FragmentShaderRGBATexClampSwizzleAlphaAA : public FragmentTexClampAlphaAABinding {
 public:
     String getShaderString() const;
 };
@@ -129,7 +278,7 @@ public:
     FragmentShaderRGBATexAlphaMask();
     String getShaderString() const;
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     int alphaLocation() const { return m_alphaLocation; }
     int samplerLocation() const { return m_samplerLocation; }
     int maskSamplerLocation() const { return m_maskSamplerLocation; }
@@ -140,18 +289,30 @@ private:
     int m_alphaLocation;
 };
 
-#if USE(SKIA) && SK_B32_SHIFT
-typedef FragmentShaderRGBATexAlpha FragmentShaderTexAlpha;
-#else
-typedef FragmentShaderBGRATexAlpha FragmentShaderTexAlpha;
-#endif
+class FragmentShaderRGBATexAlphaMaskAA {
+public:
+    FragmentShaderRGBATexAlphaMaskAA();
+    String getShaderString() const;
+
+    void init(GraphicsContext3D*, unsigned program);
+    int alphaLocation() const { return m_alphaLocation; }
+    int samplerLocation() const { return m_samplerLocation; }
+    int maskSamplerLocation() const { return m_maskSamplerLocation; }
+    int edgeLocation() const { return m_edgeLocation; }
+
+private:
+    int m_samplerLocation;
+    int m_maskSamplerLocation;
+    int m_alphaLocation;
+    int m_edgeLocation;
+};
 
 class FragmentShaderYUVVideo {
 public:
     FragmentShaderYUVVideo();
     String getShaderString() const;
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
 
     int yTextureLocation() const { return m_yTextureLocation; }
     int uTextureLocation() const { return m_uTextureLocation; }
@@ -174,11 +335,26 @@ public:
     FragmentShaderColor();
     String getShaderString() const;
 
-    bool init(GraphicsContext3D*, unsigned program);
+    void init(GraphicsContext3D*, unsigned program);
     int colorLocation() const { return m_colorLocation; }
 
 private:
     int m_colorLocation;
+};
+
+class FragmentShaderCheckerboard {
+public:
+    FragmentShaderCheckerboard();
+    String getShaderString() const;
+
+    void init(GraphicsContext3D*, unsigned program);
+    int alphaLocation() const { return m_alphaLocation; }
+    int texTransformLocation() const { return m_texTransformLocation; }
+    int frequencyLocation() const { return m_frequencyLocation; }
+private:
+    int m_alphaLocation;
+    int m_texTransformLocation;
+    int m_frequencyLocation;
 };
 
 } // namespace WebCore

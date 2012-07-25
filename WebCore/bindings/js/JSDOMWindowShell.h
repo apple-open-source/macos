@@ -41,14 +41,13 @@ namespace WebCore {
         typedef JSC::JSGlobalThis Base;
     public:
         JSDOMWindowShell(PassRefPtr<DOMWindow>, JSC::Structure*, DOMWrapperWorld*);
-        virtual ~JSDOMWindowShell();
+        static void destroy(JSCell*);
 
-        JSDOMWindow* window() const { return static_cast<JSDOMWindow*>(m_unwrappedObject.get()); }
+        JSDOMWindow* window() const { return JSC::jsCast<JSDOMWindow*>(unwrappedObject()); }
         void setWindow(JSC::JSGlobalData& globalData, JSDOMWindow* window)
         {
             ASSERT_ARG(window, window);
-            m_unwrappedObject.set(globalData, this, window);
-            setPrototype(globalData, window->prototype());
+            setUnwrappedObject(globalData, window);
         }
         void setWindow(PassRefPtr<DOMWindow>);
 
@@ -58,7 +57,8 @@ namespace WebCore {
 
         static JSDOMWindowShell* create(PassRefPtr<DOMWindow> window, JSC::Structure* structure, DOMWrapperWorld* world) 
         {
-            JSDOMWindowShell* shell = new JSDOMWindowShell(structure, world);
+            JSC::Heap& heap = JSDOMWindow::commonJSGlobalData()->heap;
+            JSDOMWindowShell* shell = new (NotNull, JSC::allocateCell<JSDOMWindowShell>(heap)) JSDOMWindowShell(structure, world);
             shell->finishCreation(*world->globalData(), window);
             return shell; 
         }
@@ -75,19 +75,16 @@ namespace WebCore {
         void finishCreation(JSC::JSGlobalData&, PassRefPtr<DOMWindow>);
 
     private:
-        void* operator new(size_t);
         static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetPropertyNames | Base::StructureFlags;
 
         static JSC::UString className(const JSC::JSObject*);
         static bool getOwnPropertySlot(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);
         static bool getOwnPropertyDescriptor(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&);
         static void put(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, JSC::PutPropertySlot&);
-        static void putWithAttributes(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, unsigned attributes);
+        static void putDirectVirtual(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSValue, unsigned attributes);
         static bool deleteProperty(JSC::JSCell*, JSC::ExecState*, const JSC::Identifier& propertyName);
         static void getOwnPropertyNames(JSC::JSObject*, JSC::ExecState*, JSC::PropertyNameArray&, JSC::EnumerationMode);
         static void getPropertyNames(JSC::JSObject*, JSC::ExecState*, JSC::PropertyNameArray&, JSC::EnumerationMode);
-        static void defineGetter(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* getterFunction, unsigned attributes);
-        static void defineSetter(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::JSObject* setterFunction, unsigned attributes);
         static bool defineOwnProperty(JSC::JSObject*, JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&, bool shouldThrow);
 
         RefPtr<DOMWrapperWorld> m_world;

@@ -70,6 +70,9 @@
 
 #define CALLOC(size, cast) (cast)calloc(1, (size))
 
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
+
 static int findsupportedmap __P((int));
 static int setsupportedmap __P((struct sadb_supported *));
 static struct sadb_alg *findsupportedalg __P((u_int, u_int));
@@ -146,8 +149,8 @@ findsupportedalg(satype, alg_id)
 			/* invalid format */
 			break;
 		}
-		if (((struct sadb_alg *)p)->sadb_alg_id == alg_id)
-			return (struct sadb_alg *)p;
+		if ((ALIGNED_CAST(struct sadb_alg *)p)->sadb_alg_id == alg_id)
+			return ALIGNED_CAST(struct sadb_alg *)p;
 
 		tlen -= sizeof(struct sadb_alg);
 		p += sizeof(struct sadb_alg);
@@ -774,7 +777,7 @@ pfkey_set_supported(msg, tlen)
 	p += sizeof(struct sadb_msg);
 
 	while (p < ep) {
-		sup = (struct sadb_supported *)p;
+		sup = ALIGNED_CAST(struct sadb_supported *)p;
 		if (ep < p + sizeof(*sup) ||
 		    PFKEY_EXTLEN(sup) < sizeof(*sup) ||
 		    ep < p + sup->sadb_supported_len) {
@@ -1745,7 +1748,7 @@ pfkey_align(msg, mhp)
 	p += sizeof(struct sadb_msg);
 
 	while (p < ep) {
-		ext = (struct sadb_ext *)p;
+		ext = ALIGNED_CAST(struct sadb_ext *)p;
 		if (ep < p + sizeof(*ext) || PFKEY_EXTLEN(ext) < sizeof(*ext) ||
 		    ep < p + PFKEY_EXTLEN(ext)) {
 			/* invalid format */
@@ -1823,7 +1826,7 @@ pfkey_check(mhp)
 		return -1;
 	}
 
-	msg = (struct sadb_msg *)mhp[0];
+	msg = ALIGNED_CAST(struct sadb_msg *)mhp[0];
 
 	/* check version */
 	if (msg->sadb_msg_version != PF_KEY_V2) {
@@ -1885,8 +1888,8 @@ pfkey_check(mhp)
 	 && mhp[SADB_EXT_ADDRESS_DST] != NULL) {
 		struct sadb_address *src0, *dst0;
 
-		src0 = (struct sadb_address *)(mhp[SADB_EXT_ADDRESS_SRC]);
-		dst0 = (struct sadb_address *)(mhp[SADB_EXT_ADDRESS_DST]);
+		src0 = ALIGNED_CAST(struct sadb_address *)(mhp[SADB_EXT_ADDRESS_SRC]);
+		dst0 = ALIGNED_CAST(struct sadb_address *)(mhp[SADB_EXT_ADDRESS_DST]);
 
 		if (src0->sadb_address_proto != dst0->sadb_address_proto) {
 			__ipsec_errcode = EIPSEC_PROTO_MISMATCH;
@@ -1934,7 +1937,7 @@ pfkey_setsadbmsg(buf, lim, type, tlen, satype, seq, pid)
 	struct sadb_msg *p;
 	u_int len;
 
-	p = (struct sadb_msg *)buf;
+	p = ALIGNED_CAST(struct sadb_msg *)buf;
 	len = sizeof(struct sadb_msg);
 
 	if (buf + len > lim)
@@ -1967,7 +1970,7 @@ pfkey_setsadbsa(buf, lim, spi, wsize, auth, enc, flags)
 	struct sadb_sa *p;
 	u_int len;
 
-	p = (struct sadb_sa *)buf;
+	p = ALIGNED_CAST(struct sadb_sa *)buf;
 	len = sizeof(struct sadb_sa);
 
 	if (buf + len > lim)
@@ -2003,7 +2006,7 @@ pfkey_setsadbaddr(buf, lim, exttype, saddr, prefixlen, ul_proto)
 	struct sadb_address *p;
 	u_int len;
 
-	p = (struct sadb_address *)buf;
+	p = ALIGNED_CAST(struct sadb_address *)buf;
 	len = sizeof(struct sadb_address) + PFKEY_ALIGN8(saddr->sa_len);
 
 	if (buf + len > lim)
@@ -2035,7 +2038,7 @@ pfkey_setsadbkey(buf, lim, type, key, keylen)
 	struct sadb_key *p;
 	u_int len;
 
-	p = (struct sadb_key *)buf;
+	p = ALIGNED_CAST(struct sadb_key *)buf;
 	len = sizeof(struct sadb_key) + PFKEY_ALIGN8(keylen);
 
 	if (buf + len > lim)
@@ -2066,7 +2069,7 @@ pfkey_setsadblifetime(buf, lim, type, l_alloc, l_bytes, l_addtime, l_usetime)
 	struct sadb_lifetime *p;
 	u_int len;
 
-	p = (struct sadb_lifetime *)buf;
+	p = ALIGNED_CAST(struct sadb_lifetime *)buf;
 	len = sizeof(struct sadb_lifetime);
 
 	if (buf + len > lim)
@@ -2113,7 +2116,7 @@ pfkey_setsadbxsa2(buf, lim, mode0, reqid)
 	u_int8_t mode = mode0 & 0xff;
 	u_int len;
 
-	p = (struct sadb_x_sa2 *)buf;
+	p = ALIGNED_CAST(struct sadb_x_sa2 *)buf;
 	len = sizeof(struct sadb_x_sa2);
 
 	if (buf + len > lim)

@@ -31,10 +31,21 @@
 module window {
 
     // See: http://dev.w3.org/2006/webapi/WebTiming/
-    interface [Conditional=WEB_TIMING, OmitConstructor] Performance {
+    interface [
+        Conditional=WEB_TIMING,
+        OmitConstructor
+    ] Performance {
         readonly attribute PerformanceNavigation navigation;
         readonly attribute PerformanceTiming timing;
         readonly attribute [V8CustomGetter] MemoryInfo memory;
+
+#if defined(ENABLE_PERFORMANCE_TIMELINE) && ENABLE_PERFORMANCE_TIMELINE
+        PerformanceEntryList webkitGetEntries();
+        PerformanceEntryList webkitGetEntriesByType(in DOMString entryType);
+        PerformanceEntryList webkitGetEntriesByName(in DOMString name, in [Optional=DefaultIsNullString] DOMString entryType);
+#endif
+        // See http://www.w3.org/TR/hr-time/ for details.
+        double webkitNow();
     };
 
 }

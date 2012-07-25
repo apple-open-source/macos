@@ -35,17 +35,17 @@ public:
 protected:
     SVGTextPositioningElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    void fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap&);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH_LIST(X, x)
-    DECLARE_ANIMATED_LENGTH_LIST(Y, y)
-    DECLARE_ANIMATED_LENGTH_LIST(Dx, dx)
-    DECLARE_ANIMATED_LENGTH_LIST(Dy, dy)
-    DECLARE_ANIMATED_NUMBER_LIST(Rotate, rotate)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGTextPositioningElement)
+        DECLARE_ANIMATED_LENGTH_LIST(X, x)
+        DECLARE_ANIMATED_LENGTH_LIST(Y, y)
+        DECLARE_ANIMATED_LENGTH_LIST(Dx, dx)
+        DECLARE_ANIMATED_LENGTH_LIST(Dy, dy)
+        DECLARE_ANIMATED_NUMBER_LIST(Rotate, rotate)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

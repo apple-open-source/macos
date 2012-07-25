@@ -389,6 +389,21 @@ certs_iter(hx509_context context, void *ctx, hx509_cert cert)
     return func(cert);
 }
 
+/**
+ * Iterate over all certificates in a keystore and call an block
+ * for each fo them.
+ *
+ * @param context a hx509 context.
+ * @param certs certificate store to iterate over.
+ * @param func block to call for each certificate. The function
+ * should return non-zero to abort the iteration, that value is passed
+ * back to the caller of hx509_certs_iter().
+ *
+ * @return Returns an hx509 error code.
+ *
+ * @ingroup hx509_keyset
+ */
+
 int
 hx509_certs_iter(hx509_context context,
 		 hx509_certs certs,
@@ -488,8 +503,12 @@ hx509_certs_find(hx509_context context,
 
     *r = NULL;
 
-    if (certs->ops->query)
-	return (*certs->ops->query)(context, certs, certs->ops_data, q, r);
+    if (certs->ops->query) {
+	ret = (*certs->ops->query)(context, certs, certs->ops_data, q, r);
+	if (ret != HX509_UNIMPLEMENTED_OPERATION)
+	    return ret;
+    }
+
 
     ret = hx509_certs_start_seq(context, certs, &cursor);
     if (ret)
@@ -776,6 +795,6 @@ _hx509_certs_keys_free(hx509_context context,
 {
     int i;
     for (i = 0; keys[i]; i++)
-	_hx509_private_key_free(&keys[i]);
+	hx509_private_key_free(&keys[i]);
     free(keys);
 }

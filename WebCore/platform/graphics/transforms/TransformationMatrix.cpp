@@ -28,6 +28,7 @@
 #include "TransformationMatrix.h"
 
 #include "AffineTransform.h"
+#include "FractionalLayoutRect.h"
 #include "FloatPoint3D.h"
 #include "FloatRect.h"
 #include "FloatQuad.h"
@@ -35,6 +36,8 @@
 
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
+
+using namespace std;
 
 namespace WebCore {
 
@@ -395,8 +398,12 @@ static bool decompose(const TransformationMatrix::Matrix4& mat, TransformationMa
     // is -1, then negate the matrix and the scaling factors.
     v3Cross(row[1], row[2], pdum3);
     if (v3Dot(row[0], pdum3) < 0) {
+
+        result.scaleX *= -1;
+        result.scaleY *= -1;
+        result.scaleZ *= -1;
+
         for (i = 0; i < 3; i++) {
-            result.scaleX *= -1;
             row[i][0] *= -1;
             row[i][1] *= -1;
             row[i][2] *= -1;
@@ -528,7 +535,7 @@ TransformationMatrix& TransformationMatrix::flipY()
     return scaleNonUniform(1.0f, -1.0f);
 }
 
-FloatPoint TransformationMatrix::projectPoint(const FloatPoint& p) const
+FloatPoint TransformationMatrix::projectPoint(const FloatPoint& p, bool* clamped) const
 {
     // This is basically raytracing. We have a point in the destination
     // plane with z=0, and we cast a ray parallel to the z-axis from that
@@ -542,16 +549,34 @@ FloatPoint TransformationMatrix::projectPoint(const FloatPoint& p) const
     // intersection point as a distance d from R0 in units of Rd by:
     // 
     // d = -dot (Pn', R0) / dot (Pn', Rd)
+    if (clamped)
+        *clamped = false;
+
+    if (m33() == 0) {
+        // In this case, the projection plane is parallel to the ray we are trying to
+        // trace, and there is no well-defined value for the projection.
+        return FloatPoint();
+    }
     
     double x = p.x();
     double y = p.y();
     double z = -(m13() * x + m23() * y + m43()) / m33();
 
+    // FIXME: use multVecMatrix()
     double outX = x * m11() + y * m21() + z * m31() + m41();
     double outY = x * m12() + y * m22() + z * m32() + m42();
 
     double w = x * m14() + y * m24() + z * m34() + m44();
-    if (w != 1 && w != 0) {
+    if (w <= 0) {
+        // Using int max causes overflow when other code uses the projected point. To
+        // represent infinity yet reduce the risk of overflow, we use a large but
+        // not-too-large number here when clamping.
+        const int kLargeNumber = 100000000;
+        outX = copysign(kLargeNumber, outX);
+        outY = copysign(kLargeNumber, outY);
+        if (clamped)
+            *clamped = true;
+    } else if (w != 1) {
         outX /= w;
         outY /= w;
     }
@@ -562,11 +587,52 @@ FloatPoint TransformationMatrix::projectPoint(const FloatPoint& p) const
 FloatQuad TransformationMatrix::projectQuad(const FloatQuad& q) const
 {
     FloatQuad projectedQuad;
-    projectedQuad.setP1(projectPoint(q.p1()));
-    projectedQuad.setP2(projectPoint(q.p2()));
-    projectedQuad.setP3(projectPoint(q.p3()));
-    projectedQuad.setP4(projectPoint(q.p4()));
+
+    bool clamped1 = false;
+    bool clamped2 = false;
+    bool clamped3 = false;
+    bool clamped4 = false;
+
+    projectedQuad.setP1(projectPoint(q.p1(), &clamped1));
+    projectedQuad.setP2(projectPoint(q.p2(), &clamped2));
+    projectedQuad.setP3(projectPoint(q.p3(), &clamped3));
+    projectedQuad.setP4(projectPoint(q.p4(), &clamped4));
+
+    // If all points on the quad had w < 0, then the entire quad would not be visible to the projected surface.
+    bool everythingWasClipped = clamped1 && clamped2 && clamped3 && clamped4;
+    if (everythingWasClipped)
+        return FloatQuad();
+
     return projectedQuad;
+}
+
+static float clampEdgeValue(float f)
+{
+    ASSERT(!isnan(f));
+    return min<float>(max<float>(f, -MAX_LAYOUT_UNIT / 2), MAX_LAYOUT_UNIT / 2);
+}
+
+LayoutRect TransformationMatrix::clampedBoundsOfProjectedQuad(const FloatQuad& q) const
+{
+    FloatRect mappedQuadBounds = projectQuad(q).boundingBox();
+
+    float left = clampEdgeValue(floorf(mappedQuadBounds.x()));
+    float top = clampEdgeValue(floorf(mappedQuadBounds.y()));
+
+    float right;
+    if (isinf(mappedQuadBounds.x()) && isinf(mappedQuadBounds.width()))
+        right = MAX_LAYOUT_UNIT / 2;
+    else
+        right = clampEdgeValue(ceilf(mappedQuadBounds.maxX()));
+
+    float bottom;
+    if (isinf(mappedQuadBounds.y()) && isinf(mappedQuadBounds.height()))
+        bottom = MAX_LAYOUT_UNIT / 2;
+    else
+        bottom = clampEdgeValue(ceilf(mappedQuadBounds.maxY()));
+    
+    return LayoutRect(clampToLayoutUnit(left), clampToLayoutUnit(top), 
+                      clampToLayoutUnit(right - left), clampToLayoutUnit(bottom - top));
 }
 
 FloatPoint TransformationMatrix::mapPoint(const FloatPoint& p) const
@@ -594,6 +660,11 @@ FloatPoint3D TransformationMatrix::mapPoint(const FloatPoint3D& p) const
 IntRect TransformationMatrix::mapRect(const IntRect &rect) const
 {
     return enclosingIntRect(mapRect(FloatRect(rect)));
+}
+
+FractionalLayoutRect TransformationMatrix::mapRect(const FractionalLayoutRect& r) const
+{
+    return enclosingFractionalLayoutRect(mapRect(FloatRect(r)));
 }
 
 FloatRect TransformationMatrix::mapRect(const FloatRect& r) const
@@ -626,22 +697,26 @@ FloatQuad TransformationMatrix::mapQuad(const FloatQuad& q) const
 
 TransformationMatrix& TransformationMatrix::scaleNonUniform(double sx, double sy)
 {
-    TransformationMatrix mat;
-    mat.m_matrix[0][0] = sx;
-    mat.m_matrix[1][1] = sy;
-
-    multiply(mat);
+    m_matrix[0][0] *= sx;
+    m_matrix[0][1] *= sx;
+    m_matrix[0][2] *= sx;
+    m_matrix[0][3] *= sx;
+    
+    m_matrix[1][0] *= sy;
+    m_matrix[1][1] *= sy;
+    m_matrix[1][2] *= sy;
+    m_matrix[1][3] *= sy;
     return *this;
 }
 
 TransformationMatrix& TransformationMatrix::scale3d(double sx, double sy, double sz)
 {
-    TransformationMatrix mat;
-    mat.m_matrix[0][0] = sx;
-    mat.m_matrix[1][1] = sy;
-    mat.m_matrix[2][2] = sz;
-
-    multiply(mat);
+    scaleNonUniform(sx, sy);
+    
+    m_matrix[2][0] *= sz;
+    m_matrix[2][1] *= sz;
+    m_matrix[2][2] *= sz;
+    m_matrix[2][3] *= sz;
     return *this;
 }
 
@@ -1124,6 +1199,78 @@ void TransformationMatrix::recompose(const DecomposedType& decomp)
     
     // finally, apply scale
     scale3d((float) decomp.scaleX, (float) decomp.scaleY, (float) decomp.scaleZ);
+}
+
+bool TransformationMatrix::isIntegerTranslation() const
+{
+    if (!isIdentityOrTranslation())
+        return false;
+
+    // Check for translate Z.
+    if (m_matrix[3][2])
+        return false;
+
+    // Check for non-integer translate X/Y.
+    if (static_cast<int>(m_matrix[3][0]) != m_matrix[3][0] || static_cast<int>(m_matrix[3][1]) != m_matrix[3][1])
+        return false;
+
+    return true;
+}
+
+TransformationMatrix TransformationMatrix::to2dTransform() const
+{
+    return TransformationMatrix(m_matrix[0][0], m_matrix[0][1], 0, m_matrix[0][3],
+                                m_matrix[1][0], m_matrix[1][1], 0, m_matrix[1][3],
+                                0, 0, 1, 0,
+                                m_matrix[3][0], m_matrix[3][1], 0, m_matrix[3][3]);
+}
+
+void TransformationMatrix::toColumnMajorFloatArray(FloatMatrix4& result) const
+{
+    result[0] = m11();
+    result[1] = m12();
+    result[2] = m13();
+    result[3] = m14();
+    result[4] = m21();
+    result[5] = m22();
+    result[6] = m23();
+    result[7] = m24();
+    result[8] = m31();
+    result[9] = m32();
+    result[10] = m33();
+    result[11] = m34();
+    result[12] = m41();
+    result[13] = m42();
+    result[14] = m43();
+    result[15] = m44();
+}
+
+bool TransformationMatrix::isBackFaceVisible() const
+{
+    // Back-face visibility is determined by transforming the normal vector (0, 0, 1) and
+    // checking the sign of the resulting z component. However, normals cannot be
+    // transformed by the original matrix, they require being transformed by the
+    // inverse-transpose.
+    //
+    // Since we know we will be using (0, 0, 1), and we only care about the z-component of
+    // the transformed normal, then we only need the m33() element of the
+    // inverse-transpose. Therefore we do not need the transpose.
+    //
+    // Additionally, if we only need the m33() element, we do not need to compute a full
+    // inverse. Instead, knowing the inverse of a matrix is adjoint(matrix) / determinant,
+    // we can simply compute the m33() of the adjoint (adjugate) matrix, without computing
+    // the full adjoint.
+
+    double determinant = WebCore::determinant4x4(m_matrix);
+
+    // If the matrix is not invertible, then we assume its backface is not visible.
+    if (fabs(determinant) < SMALL_NUMBER)
+        return false;
+
+    double cofactor33 = determinant3x3(m11(), m12(), m14(), m21(), m22(), m24(), m41(), m42(), m44());
+    double zComponentOfTransformedNormal = cofactor33 / determinant;
+
+    return zComponentOfTransformedNormal < 0;
 }
 
 }

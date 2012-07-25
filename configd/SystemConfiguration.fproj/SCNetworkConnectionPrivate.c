@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -530,7 +530,7 @@ SCUserPreferencesRemove(SCUserPreferencesRef userPreferences)
 }
 
 
-static CFDictionaryRef
+static CF_RETURNS_RETAINED CFDictionaryRef
 setCurrentCallout(CFStringRef		serviceID,
 		  CFDictionaryRef	current,
 		  void			*context1,
@@ -644,7 +644,7 @@ SCUserPreferencesCopyName(SCUserPreferencesRef userPreferences)
 }
 
 
-static CFDictionaryRef
+static CF_RETURNS_RETAINED CFDictionaryRef
 setNameCallout(CFStringRef	serviceID,
 	       CFDictionaryRef	current,
 	       void		*context1,
@@ -790,7 +790,7 @@ SCUserPreferencesCopyInterfaceConfiguration(SCUserPreferencesRef	userPreferences
 }
 
 
-static CFDictionaryRef
+static CF_RETURNS_RETAINED CFDictionaryRef
 setInterfaceConfigurationCallout(CFStringRef		serviceID,
 				  CFDictionaryRef	current,
 				  void			*context1,

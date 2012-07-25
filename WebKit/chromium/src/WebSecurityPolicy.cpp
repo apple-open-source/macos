@@ -34,9 +34,10 @@
 #include "FrameLoader.h"
 #include "SchemeRegistry.h"
 #include "SecurityOrigin.h"
+#include "SecurityPolicy.h"
 
-#include "WebString.h"
-#include "WebURL.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
 
 using namespace WebCore;
 
@@ -62,13 +63,23 @@ void WebSecurityPolicy::registerURLSchemeAsSecure(const WebString& scheme)
     SchemeRegistry::registerURLSchemeAsSecure(scheme);
 }
 
+void WebSecurityPolicy::registerURLSchemeAsCORSEnabled(const WebString& scheme)
+{
+    SchemeRegistry::registerURLSchemeAsCORSEnabled(scheme);
+}
+
+void WebSecurityPolicy::registerURLSchemeAsEmptyDocument(const WebString& scheme)
+{
+    SchemeRegistry::registerURLSchemeAsEmptyDocument(scheme);
+}
+
 void WebSecurityPolicy::addOriginAccessWhitelistEntry(
     const WebURL& sourceOrigin,
     const WebString& destinationProtocol,
     const WebString& destinationHost,
     bool allowDestinationSubdomains)
 {
-    SecurityOrigin::addOriginAccessWhitelistEntry(
+    SecurityPolicy::addOriginAccessWhitelistEntry(
         *SecurityOrigin::create(sourceOrigin), destinationProtocol,
         destinationHost, allowDestinationSubdomains);
 }
@@ -79,19 +90,29 @@ void WebSecurityPolicy::removeOriginAccessWhitelistEntry(
     const WebString& destinationHost,
     bool allowDestinationSubdomains)
 {
-    SecurityOrigin::removeOriginAccessWhitelistEntry(
+    SecurityPolicy::removeOriginAccessWhitelistEntry(
         *SecurityOrigin::create(sourceOrigin), destinationProtocol,
         destinationHost, allowDestinationSubdomains);
 }
 
 void WebSecurityPolicy::resetOriginAccessWhitelists()
 {
-    SecurityOrigin::resetOriginAccessWhitelists();
+    SecurityPolicy::resetOriginAccessWhitelists();
 }
 
 bool WebSecurityPolicy::shouldHideReferrer(const WebURL& url, const WebString& referrer)
 {
-    return SecurityOrigin::shouldHideReferrer(url, referrer);
+    return SecurityPolicy::shouldHideReferrer(url, referrer);
+}
+
+WebString WebSecurityPolicy::generateReferrerHeader(WebReferrerPolicy referrerPolicy, const WebURL& url, const WebString& referrer)
+{
+    return SecurityPolicy::generateReferrerHeader(static_cast<ReferrerPolicy>(referrerPolicy), url, referrer);
+}
+
+void WebSecurityPolicy::registerURLSchemeAsNotAllowingJavascriptURLs(const WebString& scheme)
+{
+    SchemeRegistry::registerURLSchemeAsNotAllowingJavascriptURLs(scheme);
 }
 
 } // namespace WebKit

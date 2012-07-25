@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 132
+Submission	= 138
 
 
 #
@@ -100,21 +100,28 @@ Extra_Configure_Flags	= --sysconfdir=/etc \
 # used here to point to the project's headers instead of those already
 # installed on the system (which are out of date).
 Extra_Environment	= AR="$(SRCROOT)/ar.sh" INC="-I../../include"
-GnuAfterInstall		= install-macosx install-mibs install-compat
+GnuAfterInstall		= install-macosx install-mibs install-compat 
+#GnuAfterInstall         = install-macosx install-mibs	# do not include the compatibility libs
 
 # Temporarily set for development
 GnuNoInstallHeaders	= YES
 
 # Binaries to strip
 STRIPPED_BINS	= encode_keychange snmpbulkget snmpbulkwalk snmpdelta snmpdf \
-			snmpget snmpget snmpgetnext snmpinform snmpnetstat \
+			snmpget snmpgetnext snmpinform snmpnetstat \
 			snmpset snmpstatus snmptable snmptest snmptranslate \
 			snmptrap snmpusm snmpvacm snmpwalk agentxtrap
 STRIPPED_SBINS	= snmpd snmptrapd
 #STRIPPED_SNMPTRAPD	= snmptrapd
 STRIPPED_LIBS	= libnetsnmp libnetsnmpagent libnetsnmphelpers libnetsnmpmibs libnetsnmptrapd
+
+# Binaries to Lipo
+LIPO_BINS = $(STRIPPED_BINS)
+LIPO_SBINS = $(STRIPPED_SBINS)
+
 # Binary to patch
 CONFIGTOOL	= $(USRBINDIR)/net-snmp-config
+
 # MIB files to install
 MIBFILES	:= $(wildcard mibs/*.txt)
 MIBDIR		= $(SHAREDIR)/snmp/mibs
@@ -238,6 +245,20 @@ install-macosx:
 		$(STRIP) -x $(DSTROOT)$(USRLIBDIR)/$${file}.dylib; \
 	done
 	$(_v)- $(FIND) $(DSTROOT)$(NSLIBRARYSUBDIR)/Perl -type f -name '*.bundle' -print -exec strip -S {} \;
+	@echo "Removing 32-bit executable code from binaries..."
+	$(_v) for file in $(LIPO_BINS); \
+	do \
+		$(LIPO) -thin x86_64 $(DSTROOT)$(USRBINDIR)/$${file} -output $(DSTROOT)$(USRBINDIR)/$${file}.64; \
+		$(RM) $(DSTROOT)$(USRBINDIR)/$${file};\
+		$(MV) $(DSTROOT)$(USRBINDIR)/$${file}.64 $(DSTROOT)$(USRBINDIR)/$${file}; \
+	done
+	$(_v) for file in $(LIPO_SBINS); \
+	do \
+		$(LIPO) -thin x86_64 $(DSTROOT)$(USRSBINDIR)/$${file} -output $(DSTROOT)$(USRSBINDIR)/$${file}.64; \
+		$(RM) $(DSTROOT)$(USRSBINDIR)/$${file};\
+		$(MV) $(DSTROOT)$(USRSBINDIR)/$${file}.64 $(DSTROOT)$(USRSBINDIR)/$${file}; \
+	done
+
 	@echo "Copying sensor data"
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/SensorDat.xml $(DSTROOT)$(SHAREDIR)/snmp
 	@echo "Fixing permissions..."

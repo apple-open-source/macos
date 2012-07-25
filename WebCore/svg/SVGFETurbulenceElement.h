@@ -36,6 +36,64 @@ enum SVGStitchOptions {
     SVG_STITCHTYPE_NOSTITCH = 2
 };
 
+template<>
+struct SVGPropertyTraits<SVGStitchOptions> {
+    static unsigned highestEnumValue() { return SVG_STITCHTYPE_NOSTITCH; }
+
+    static String toString(SVGStitchOptions type)
+    {
+        switch (type) {
+        case SVG_STITCHTYPE_UNKNOWN:
+            return emptyString();
+        case SVG_STITCHTYPE_STITCH:
+            return "stitch";
+        case SVG_STITCHTYPE_NOSTITCH:
+            return "noStitch";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static SVGStitchOptions fromString(const String& value)
+    {
+        if (value == "stitch")
+            return SVG_STITCHTYPE_STITCH;
+        if (value == "noStitch")
+            return SVG_STITCHTYPE_NOSTITCH;
+        return SVG_STITCHTYPE_UNKNOWN;
+    }
+};
+
+template<>
+struct SVGPropertyTraits<TurbulenceType> {
+    static unsigned highestEnumValue() { return FETURBULENCE_TYPE_TURBULENCE; }
+
+    static String toString(TurbulenceType type)
+    {
+        switch (type) {
+        case FETURBULENCE_TYPE_UNKNOWN:
+            return emptyString();
+        case FETURBULENCE_TYPE_FRACTALNOISE:
+            return "fractalNoise";
+        case FETURBULENCE_TYPE_TURBULENCE:
+            return "turbulence";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static TurbulenceType fromString(const String& value)
+    {
+        if (value == "fractalNoise")
+            return FETURBULENCE_TYPE_FRACTALNOISE;
+        if (value == "turbulence")
+            return FETURBULENCE_TYPE_TURBULENCE;
+        return FETURBULENCE_TYPE_UNKNOWN;
+    }
+};
+
 class SVGFETurbulenceElement : public SVGFilterPrimitiveStandardAttributes {
 public:
     static PassRefPtr<SVGFETurbulenceElement> create(const QualifiedName&, Document*);
@@ -43,24 +101,23 @@ public:
 private:
     SVGFETurbulenceElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName);
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
     static const AtomicString& baseFrequencyXIdentifier();
     static const AtomicString& baseFrequencyYIdentifier();
 
-    // Animated property declarations
-    DECLARE_ANIMATED_NUMBER(BaseFrequencyX, baseFrequencyX)
-    DECLARE_ANIMATED_NUMBER(BaseFrequencyY, baseFrequencyY)
-    DECLARE_ANIMATED_INTEGER(NumOctaves, numOctaves)
-    DECLARE_ANIMATED_NUMBER(Seed, seed)
-    DECLARE_ANIMATED_ENUMERATION(StitchTiles, stitchTiles)
-    DECLARE_ANIMATED_ENUMERATION(Type, type)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFETurbulenceElement)
+        DECLARE_ANIMATED_NUMBER(BaseFrequencyX, baseFrequencyX)
+        DECLARE_ANIMATED_NUMBER(BaseFrequencyY, baseFrequencyY)
+        DECLARE_ANIMATED_INTEGER(NumOctaves, numOctaves)
+        DECLARE_ANIMATED_NUMBER(Seed, seed)
+        DECLARE_ANIMATED_ENUMERATION(StitchTiles, stitchTiles, SVGStitchOptions)
+        DECLARE_ANIMATED_ENUMERATION(Type, type, TurbulenceType)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

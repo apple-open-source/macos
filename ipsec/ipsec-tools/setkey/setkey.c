@@ -66,6 +66,7 @@
 #endif
 
 #include "config.h"
+#include "var.h"
 #include "libpfkey.h"
 //#include "package_version.h"
 #define extern /* so that variables in extern.h are not extern... */
@@ -401,7 +402,10 @@ void
 promisc()
 {
 	struct sadb_msg msg;
-	u_char rbuf[1024 * 32];	/* XXX: Enough ? Should I do MSG_PEEK ? */
+    union {                             // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        u_char rbuf[1024 * 32];	/* XXX: Enough ? Should I do MSG_PEEK ? */
+    } u_buf;
 	ssize_t l;
 
 	msg.sadb_msg_version = PF_KEY_V2;
@@ -421,7 +425,7 @@ promisc()
 	while (1) {
 		struct sadb_msg *base;
 
-		if ((l = recv(so, rbuf, sizeof(*base), MSG_PEEK)) < 0) {
+		if ((l = recv(so, u_buf.rbuf, sizeof(*base), MSG_PEEK)) < 0) {
 			err(1, "recv");
 			/*NOTREACHED*/
 		}
@@ -429,8 +433,8 @@ promisc()
 		if (l != sizeof(*base))
 			continue;
 
-		base = (struct sadb_msg *)rbuf;
-		if ((l = recv(so, rbuf, PFKEY_UNUNIT64(base->sadb_msg_len),
+		base = (struct sadb_msg *)&u_buf;
+		if ((l = recv(so, u_buf.rbuf, PFKEY_UNUNIT64(base->sadb_msg_len),
 				0)) < 0) {
 			err(1, "recv");
 			/*NOTREACHED*/
@@ -441,7 +445,7 @@ promisc()
 			for (i = 0; i < l; i++) {
 				if (i % 16 == 0)
 					printf("%08x: ", i);
-				printf("%02x ", rbuf[i] & 0xff);
+				printf("%02x ", u_buf.rbuf[i] & 0xff);
 				if (i % 16 == 15)
 					printf("\n");
 			}
@@ -468,7 +472,10 @@ sendkeymsg(buf, len)
 	char *buf;
 	size_t len;
 {
-	u_char rbuf[1024 * 32];	/* XXX: Enough ? Should I do MSG_PEEK ? */
+    union {                             // Wcast-align fix - force alignment
+        u_int64_t force_align;
+        u_char rbuf[1024 * 32];	/* XXX: Enough ? Should I do MSG_PEEK ? */
+    } u_buf;
 	ssize_t l;
 	struct sadb_msg *msg;
 
@@ -490,7 +497,7 @@ sendkeymsg(buf, len)
 		shortdump_hdr();
 again:
 	if (f_verbose) {
-		kdebug_sadb((struct sadb_msg *)buf);
+		kdebug_sadb(ALIGNED_CAST(struct sadb_msg *)buf);    // Wcast-align fix - aligned message buffer
 		printf("\n");
 	}
 	if (f_hexdump) {
@@ -511,9 +518,9 @@ again:
 		goto end;
 	}
 
-	msg = (struct sadb_msg *)rbuf;
+	msg = (struct sadb_msg *)&u_buf;
 	do {
-		if ((l = recv(so, rbuf, sizeof(rbuf), 0)) < 0) {
+		if ((l = recv(so, u_buf.rbuf, sizeof(u_buf.rbuf), 0)) < 0) {
 			perror("recv");
 			goto end;
 		}
@@ -524,7 +531,7 @@ again:
 		}
 
 		if (f_verbose) {
-			kdebug_sadb((struct sadb_msg *)rbuf);
+			kdebug_sadb((struct sadb_msg *)&u_buf);
 			printf("\n");
 		}
 		if (postproc(msg, l) < 0)
@@ -597,7 +604,7 @@ postproc(msg, len)
 			struct sadb_sa *sa;
 			pfkey_align(msg, mhp);
 			pfkey_check(mhp);
-			if ((sa = (struct sadb_sa *)mhp[SADB_EXT_SA]) != NULL) {
+			if ((sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA]) != NULL) {     // Wcast-align (void*) - buffer of pointers to aligned structs in malloc'd buffer
 				if (sa->sadb_sa_state == SADB_SASTATE_DEAD)
 					break;
 			}
@@ -611,8 +618,8 @@ postproc(msg, len)
 			else
 				pfkey_sadump(msg);
 		}
-		msg = (struct sadb_msg *)((caddr_t)msg +
-				     PFKEY_UNUNIT64(msg->sadb_msg_len));
+		msg = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg +
+				     PFKEY_UNUNIT64(msg->sadb_msg_len));           // Wcast-align fix (void*) - aligned msg buffer passed into function
 		if (f_verbose) {
 			kdebug_sadb((struct sadb_msg *)msg);
 			printf("\n");
@@ -632,7 +639,7 @@ postproc(msg, len)
 		else
 			pfkey_spdump(msg);
 		if (msg->sadb_msg_seq == 0) break;
-		msg = (struct sadb_msg *)((caddr_t)msg +
+		msg = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg +          // Wcast-align fix (void*) - aligned msg buffer passed into function
 				     PFKEY_UNUNIT64(msg->sadb_msg_len));
 		if (f_verbose) {
 			kdebug_sadb((struct sadb_msg *)msg);
@@ -723,12 +730,12 @@ fileproc(filename)
 	ep = rbuf + l;
 
 	while (p < ep) {
-		msg = (struct sadb_msg *)p;
+		msg = ALIGNED_CAST(struct sadb_msg *)p;
 		len = PFKEY_UNUNIT64(msg->sadb_msg_len);
 		postproc(msg, len);
 		p += len;
 	}
-
+    
 	return (0);
 }
 
@@ -795,15 +802,15 @@ shortdump(msg)
 
 	printf(" %-3s", STR_OR_ID(msg->sadb_msg_satype, satype));
 
-	if ((sa = (struct sadb_sa *)mhp[SADB_EXT_SA]) != NULL) {
+	if ((sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA]) != NULL) {
 		printf(" %-1s", STR_OR_ID(sa->sadb_sa_state, sastate));
 		printf(" %08x", (u_int32_t)ntohl(sa->sadb_sa_spi));
 	} else
 		printf("%-1s %-8s", "?", "?");
 
-	lts = (struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_SOFT];
-	lth = (struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_HARD];
-	ltc = (struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_CURRENT];
+	lts = ALIGNED_CAST(struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_SOFT];
+	lth = ALIGNED_CAST(struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_HARD];
+	ltc = ALIGNED_CAST(struct sadb_lifetime *)mhp[SADB_EXT_LIFETIME_CURRENT];
 	if (lts && lth && ltc) {
 		if (ltc->sadb_lifetime_addtime == 0)
 			t = (u_long)0;
@@ -826,11 +833,11 @@ shortdump(msg)
 
 	printf(" ");
 
-	if ((saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC]) != NULL) {
+	if ((saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_SRC]) != NULL) {
 		if (saddr->sadb_address_proto)
 			printf("%s ", STR_OR_ID(saddr->sadb_address_proto, ipproto));
-		s = (struct sockaddr *)(saddr + 1);
-		getnameinfo(s, sysdep_sa_len(s), buf, sizeof(buf),
+		s = (struct sockaddr *)(saddr + 1);                      
+		getnameinfo(s, sysdep_sa_len((struct sockaddr *)s), buf, sizeof(buf),
 			pbuf, sizeof(pbuf), NI_NUMERICHOST|NI_NUMERICSERV);
 		if (strcmp(pbuf, "0") != 0)
 			printf("%s[%s]", buf, pbuf);
@@ -841,7 +848,7 @@ shortdump(msg)
 
 	printf(" -> ");
 
-	if ((saddr = (struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST]) != NULL) {
+	if ((saddr = ALIGNED_CAST(struct sadb_address *)mhp[SADB_EXT_ADDRESS_DST]) != NULL) {
 		if (saddr->sadb_address_proto)
 			printf("%s ", STR_OR_ID(saddr->sadb_address_proto, ipproto));
 

@@ -70,11 +70,46 @@ public:
     static bool webkitIDBRequestEnabled() { return isIndexedDBEnabled; }
     static bool webkitIDBTransactionEnabled() { return isIndexedDBEnabled; }
 
+#if ENABLE(CSS_EXCLUSIONS)
+    static void setCSSExclusionsEnabled(bool isEnabled) { isCSSExclusionsEnabled = isEnabled; }
+    static bool cssExclusionsEnabled() { return isCSSExclusionsEnabled; }
+#else
+    static void setCSSExclusionsEnabled(bool) { }
+    static bool cssExclusionsEnabled() { return false; }
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    // Mozilla version
+    static bool webkitFullScreenAPIEnabled() { return isFullScreenAPIEnabled; }
+    static void setWebkitFullScreenAPIEnabled(bool isEnabled) { isFullScreenAPIEnabled = isEnabled; }
+    static bool webkitRequestFullScreenEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitIsFullScreenEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitFullScreenKeyboardInputAllowedEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitCurrentFullScreenElementEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitCancelFullScreenEnabled() { return isFullScreenAPIEnabled; }
+
+    // W3C version
+    static bool webkitFullscreenEnabledEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitFullscreenElementEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitExitFullscreenEnabled() { return isFullScreenAPIEnabled; }
+    static bool webkitRequestFullscreenEnabled() { return isFullScreenAPIEnabled; }
+#endif
+
+#if ENABLE(POINTER_LOCK)
+    static bool webkitPointerLockEnabled() { return isPointerLockEnabled; }
+    static void setWebkitPointerLockEnabled(bool isEnabled) { isPointerLockEnabled = isEnabled; }
+    static bool webkitPointerEnabled() { return isPointerLockEnabled; }
+    static bool webkitMovementXEnabled() { return isPointerLockEnabled; }
+    static bool webkitMovementYEnabled() { return isPointerLockEnabled; }
+#endif
+
 #if ENABLE(VIDEO)
     static bool audioEnabled();
     static bool htmlMediaElementEnabled();
     static bool htmlAudioElementEnabled();
     static bool htmlVideoElementEnabled();
+    static bool htmlSourceElementEnabled();
+    static bool mediaControllerEnabled();
     static bool mediaErrorEnabled();
     static bool timeRangesEnabled();
 #endif
@@ -87,7 +122,7 @@ public:
     static bool webSocketEnabled();
 #endif
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     static bool openDatabaseEnabled();
     static bool openDatabaseSyncEnabled();
 #endif
@@ -127,6 +162,16 @@ public:
     static bool webkitSpeechEnabled() { return isSpeechInputEnabled; }
     static bool webkitGrammarEnabled() { return isSpeechInputEnabled; }
 
+#if ENABLE(SCRIPTED_SPEECH)
+    static void setScriptedSpeechEnabled(bool isEnabled) { isScriptedSpeechEnabled = isEnabled; }
+    static bool scriptedSpeechEnabled() { return isScriptedSpeechEnabled; }
+    static bool webkitSpeechRecognitionEnabled() { return isScriptedSpeechEnabled; }
+    static bool webkitSpeechRecognitionErrorEnabled() { return isScriptedSpeechEnabled; }
+    static bool webkitSpeechRecognitionEventEnabled() { return isScriptedSpeechEnabled; }
+    static bool webkitSpeechGrammarEnabled() { return isScriptedSpeechEnabled; }
+    static bool webkitSpeechGrammarListEnabled() { return isScriptedSpeechEnabled; }
+#endif
+
 #if ENABLE(XHR_RESPONSE_BLOB)
     static bool xhrResponseBlobEnabled() { return isXHRResponseBlobEnabled; }
     static void setXHRResponseBlobEnabled(bool isEnabled) { isXHRResponseBlobEnabled = isEnabled; }
@@ -148,11 +193,52 @@ public:
     static bool mediaStreamEnabled() { return isMediaStreamEnabled; }
     static void setMediaStreamEnabled(bool isEnabled) { isMediaStreamEnabled = isEnabled; }
     static bool webkitGetUserMediaEnabled() { return isMediaStreamEnabled; }
+    static bool webkitMediaStreamEnabled() { return isMediaStreamEnabled; }
+
+    static bool peerConnectionEnabled() { return isMediaStreamEnabled && isPeerConnectionEnabled; }
+    static void setPeerConnectionEnabled(bool isEnabled) { isPeerConnectionEnabled = isEnabled; }
+    static bool webkitDeprecatedPeerConnectionEnabled() { return peerConnectionEnabled(); }
+    static bool webkitPeerConnection00Enabled() { return peerConnectionEnabled(); }
+#endif
+
+#if ENABLE(GAMEPAD)
+    static void setWebkitGamepadsEnabled(bool isEnabled) { isGamepadEnabled = isEnabled; }
+    static bool webkitGamepadsEnabled() { return isGamepadEnabled; }
 #endif
 
 #if ENABLE(QUOTA)
     static bool quotaEnabled() { return isQuotaEnabled; }
     static void setQuotaEnabled(bool isEnabled) { isQuotaEnabled = isEnabled; }
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+    static bool mediaSourceEnabled() { return isMediaSourceEnabled; }
+    static void setMediaSourceEnabled(bool isEnabled) { isMediaSourceEnabled = isEnabled; }
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    static bool encryptedMediaEnabled() { return isEncryptedMediaEnabled; }
+    static void setEncryptedMediaEnabled(bool isEnabled) { isEncryptedMediaEnabled = isEnabled; }
+#endif
+
+#if ENABLE(VIDEO_TRACK)
+    static bool webkitVideoTrackEnabled() { return isVideoTrackEnabled; }
+    static void setWebkitVideoTrackEnabled(bool isEnabled) { isVideoTrackEnabled = isEnabled; }
+#endif
+
+#if ENABLE(SHADOW_DOM)
+    static bool shadowDOMEnabled() { return isShadowDOMEnabled; }
+    static void setShadowDOMEnabled(bool isEnabled) { isShadowDOMEnabled = isEnabled; }
+#endif
+
+#if ENABLE(STYLE_SCOPED)
+    static bool styleScopedEnabled() { return isStyleScopedEnabled; }
+    static void setStyleScopedEnabled(bool isEnabled) { isStyleScopedEnabled = isEnabled; }
+#endif
+
+#if ENABLE(INPUT_TYPE_DATE)
+    static bool inputTypeDateEnabled() { return isInputTypeDateEnabled; }
+    static void setInputTypeDateEnabled(bool isEnabled) { isInputTypeDateEnabled = isEnabled; }
 #endif
 
 private:
@@ -172,6 +258,10 @@ private:
     static bool isDeviceMotionEnabled;
     static bool isDeviceOrientationEnabled;
     static bool isSpeechInputEnabled;
+    static bool isCSSExclusionsEnabled;
+#if ENABLE(SCRIPTED_SPEECH)
+    static bool isScriptedSpeechEnabled;
+#endif
 #if ENABLE(XHR_RESPONSE_BLOB)
     static bool isXHRResponseBlobEnabled;
 #endif
@@ -186,10 +276,47 @@ private:
 
 #if ENABLE(MEDIA_STREAM)
     static bool isMediaStreamEnabled;
+    static bool isPeerConnectionEnabled;
+#endif
+
+#if ENABLE(GAMEPAD)
+    static bool isGamepadEnabled;
 #endif
 
 #if ENABLE(QUOTA)
     static bool isQuotaEnabled;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    static bool isFullScreenAPIEnabled;
+#endif
+
+#if ENABLE(POINTER_LOCK)
+    static bool isPointerLockEnabled;
+#endif
+
+#if ENABLE(MEDIA_SOURCE)
+    static bool isMediaSourceEnabled;
+#endif
+
+#if ENABLE(ENCRYPTED_MEDIA)
+    static bool isEncryptedMediaEnabled;
+#endif
+
+#if ENABLE(VIDEO_TRACK)
+    static bool isVideoTrackEnabled;
+#endif
+
+#if ENABLE(SHADOW_DOM)
+    static bool isShadowDOMEnabled;
+#endif
+
+#if ENABLE(STYLE_SCOPED)
+    static bool isStyleScopedEnabled;
+#endif
+
+#if ENABLE(INPUT_TYPE_DATE)
+    static bool isInputTypeDateEnabled;
 #endif
 };
 

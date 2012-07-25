@@ -371,12 +371,8 @@ IOHIDEvent * IOHIDEvent::gyroEvent(
 											IOFixed                 x,
 											IOFixed                 y,
 											IOFixed                 z,
-											IOHIDGyroType		type,
+											IOHIDGyroType           type,
 											IOHIDGyroSubType		subType,
-											IOFixed                 qx,
-											IOFixed                 qy,												
-											IOFixed                 qz,												
-											IOFixed                 qw,												
 											IOOptionBits            options)
 {
     IOHIDEvent *                    event;
@@ -393,10 +389,6 @@ IOHIDEvent * IOHIDEvent::gyroEvent(
         data = (IOHIDGyroEventData *)event->_data;
         data->gyroType = type;
         data->gyroSubType = subType;
-        data->quaternionx = qx;
-        data->quaterniony = qy;
-        data->quaternionz = qz;
-        data->quaternionw = qw;
     }
     
     return event;
@@ -548,11 +540,11 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
                                         SInt32                      x,
                                         SInt32                      y,
                                         IOGBounds *                 bounds,
-                                        UInt32                      buttonState,
-                                        bool                        inRange,
-                                        SInt32                      tipPressure,
-                                        SInt32                      tipPressureMin,
-                                        SInt32                      tipPressureMax,
+                                        UInt32                      buttonState __unused,
+                                        bool                        inRange __unused,
+                                        SInt32                      tipPressure __unused,
+                                        SInt32                      tipPressureMin __unused,
+                                        SInt32                      tipPressureMax __unused,
                                         IOOptionBits                options)
 {
     const int kIOFixedScale = 16;
@@ -581,7 +573,7 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
     event->buttonMask = 0;      // todo:
     event->tipPressure = 0;     // todo: should be IOFixed tipPressure, scaled between min and max
     event->barrelPressure = 0;
-    event->twist = 90<<kIOFixedScale;   // hard code to 90ยบ for now, is multi-touch using this right?
+    event->twist = 90<<kIOFixedScale;   // hard code to 90ผ for now, is multi-touch using this right?
     event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
     event->orientation.quality.quality = 0;
     event->orientation.quality.density = 0;
@@ -591,6 +583,33 @@ IOHIDEvent * IOHIDEvent::absolutePointerEvent(
 
     return me;
 }
+
+//====================================================================================================
+// IOHIDEvent::powerEvent
+//====================================================================================================
+IOHIDEvent * IOHIDEvent::powerEvent(
+                                   AbsoluteTime            timeStamp,
+                                   IOFixed                 measurement,
+                                   IOHIDPowerType          powerType,
+                                   IOHIDPowerSubType       powerSubType,
+                                   IOOptionBits            options)
+{
+    IOHIDEvent *me = new IOHIDEvent;
+    
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypePower, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+    
+    IOHIDPowerEventData *event = (IOHIDPowerEventData *)me->_data;
+    
+    event->measurement = measurement;
+    event->powerType = powerType;
+    event->powerSubType = powerSubType;
+
+    return me;
+}
+
 
 //==============================================================================
 // IOHIDEvent::appendChild
@@ -627,7 +646,7 @@ void IOHIDEvent::setType(IOHIDEventType type)
 // IOHIDEvent::getEvent
 //==============================================================================
 IOHIDEvent * IOHIDEvent::getEvent(      IOHIDEventType          type, 
-                                        IOOptionBits            options)
+                                        IOOptionBits            options __unused)
 {
     return (_data->type == type) ? this : NULL;
 }
@@ -653,9 +672,7 @@ IOFixed IOHIDEvent::getFixedValue(      IOHIDEventField         key,
 {
     IOFixed value = 0;
     
-    #define HIDEVENTFIXED 1
-    GET_EVENT_VALUE(this, key, value, options);
-    #undef HIDEVENTFIXED
+    GET_EVENT_VALUE_FIXED(this, key, value, options);
     
     return value;
 }
@@ -677,9 +694,7 @@ void IOHIDEvent::setFixedValue(         IOHIDEventField         key,
                                         IOFixed                 value,
                                         IOOptionBits            options)
 {
-    #define HIDEVENTFIXED 1
-    SET_EVENT_VALUE(this, key, value, options);
-    #undef HIDEVENTFIXED
+    SET_EVENT_VALUE_FIXED(this, key, value, options);
 }
 
 
@@ -708,9 +723,11 @@ IOByteCount IOHIDEvent::getLength(UInt32 * count)
         
         childCount = _children->getCount();
         
-        for(i=0 ;i<childCount; i++)
-            if ( child = (IOHIDEvent *)_children->getObject(i) )
+        for(i=0 ;i<childCount; i++) {
+            if ( (child = (IOHIDEvent *)_children->getObject(i)) ) {
                 length += child->getLength(count) - sizeof(IOHIDSystemQueueElement);
+            }
+        }
     }
     
     if ( count )
@@ -741,8 +758,9 @@ IOByteCount IOHIDEvent::appendBytes(UInt8 * bytes, IOByteCount withLength)
         childCount = _children->getCount();
 
         for(i=0 ;i<childCount; i++) {
-            if ( child = (IOHIDEvent *)_children->getObject(i) )
+            if ( (child = (IOHIDEvent *)_children->getObject(i)) ) {
                 size += child->appendBytes(bytes + size, withLength - size);
+            }
         }
     }
     
@@ -826,4 +844,11 @@ void IOHIDEvent::setPhase(IOHIDEventPhaseBits phase)
     _data->options &= ~(kIOHIDEventEventPhaseMask << kIOHIDEventEventOptionPhaseShift);
     _data->options |= ((phase & kIOHIDEventEventPhaseMask) << kIOHIDEventEventOptionPhaseShift);
 }
-    
+
+//==============================================================================
+// IOHIDEvent::setDeviceID
+//==============================================================================
+void IOHIDEvent::setDeviceID(uint64_t deviceID)
+{
+    _data->deviceID = deviceID;
+}

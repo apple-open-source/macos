@@ -31,15 +31,15 @@
 #include "config.h"
 #include "WorkerFileWriterCallbacksBridge.h"
 
-#if ENABLE(FILE_SYSTEM)
+#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
 
 #include "AsyncFileWriterClient.h"
 #include "CrossThreadTask.h"
-#include "WebCString.h"
-#include "WebFileSystem.h"
+#include "platform/WebCString.h"
+#include "platform/WebFileSystem.h"
 #include "WebFileWriter.h"
 #include "WebKit.h"
-#include "WebKitClient.h"
+#include "platform/WebKitPlatformSupport.h"
 #include "WebWorkerBase.h"
 #include "WorkerContext.h"
 #include "WorkerLoaderProxy.h"
@@ -62,7 +62,7 @@ void WorkerFileWriterCallbacksBridge::postWriteToMainThread(long long position, 
     ASSERT(!m_operationInProgress);
     m_operationInProgress = true;
     dispatchTaskToMainThread(createCallbackTask(&writeOnMainThread, 
-                                                AllowCrossThreadAccess(this), position, data));
+                                                this, position, data));
 }
 
 void WorkerFileWriterCallbacksBridge::postTruncateToMainThread(long long length)
@@ -70,13 +70,13 @@ void WorkerFileWriterCallbacksBridge::postTruncateToMainThread(long long length)
     ASSERT(!m_operationInProgress);
     m_operationInProgress = true;
     dispatchTaskToMainThread(createCallbackTask(&truncateOnMainThread, 
-                                                AllowCrossThreadAccess(this), length));
+                                                this, length));
 }
 
 void WorkerFileWriterCallbacksBridge::postAbortToMainThread()
 {
     ASSERT(m_operationInProgress);
-    dispatchTaskToMainThread(createCallbackTask(&abortOnMainThread, AllowCrossThreadAccess(this)));
+    dispatchTaskToMainThread(createCallbackTask(&abortOnMainThread, this));
 }
 
 void WorkerFileWriterCallbacksBridge::postShutdownToMainThread(PassRefPtr<WorkerFileWriterCallbacksBridge> bridge)
@@ -101,10 +101,10 @@ void WorkerFileWriterCallbacksBridge::abortOnMainThread(ScriptExecutionContext*,
     bridge->m_writer->cancel();
 }
 
-void WorkerFileWriterCallbacksBridge::initOnMainThread(ScriptExecutionContext*, PassRefPtr<WorkerFileWriterCallbacksBridge> bridge, const String& path)
+void WorkerFileWriterCallbacksBridge::initOnMainThread(ScriptExecutionContext*, PassRefPtr<WorkerFileWriterCallbacksBridge> bridge, const KURL& path)
 {
     ASSERT(!bridge->m_writer);
-    bridge->m_writer = adoptPtr(webKitClient()->fileSystem()->createFileWriter(path, bridge.get()));
+    bridge->m_writer = adoptPtr(webKitPlatformSupport()->fileSystem()->createFileWriter(path, bridge.get()));
 }
 
 void WorkerFileWriterCallbacksBridge::shutdownOnMainThread(ScriptExecutionContext*, PassRefPtr<WorkerFileWriterCallbacksBridge> bridge)
@@ -115,22 +115,22 @@ void WorkerFileWriterCallbacksBridge::shutdownOnMainThread(ScriptExecutionContex
 
 void WorkerFileWriterCallbacksBridge::didWrite(long long bytes, bool complete)
 {
-    dispatchTaskToWorkerThread(createCallbackTask(&didWriteOnWorkerThread, AllowCrossThreadAccess(this), bytes, complete));
+    dispatchTaskToWorkerThread(createCallbackTask(&didWriteOnWorkerThread, this, bytes, complete));
 }
 
 void WorkerFileWriterCallbacksBridge::didFail(WebFileError error)
 {
-    dispatchTaskToWorkerThread(createCallbackTask(&didFailOnWorkerThread, AllowCrossThreadAccess(this), error));
+    dispatchTaskToWorkerThread(createCallbackTask(&didFailOnWorkerThread, this, error));
 }
 
 void WorkerFileWriterCallbacksBridge::didTruncate()
 {
-    dispatchTaskToWorkerThread(createCallbackTask(&didTruncateOnWorkerThread, AllowCrossThreadAccess(this)));
+    dispatchTaskToWorkerThread(createCallbackTask(&didTruncateOnWorkerThread, this));
 }
 
 static const char fileWriterOperationsMode[] = "fileWriterOperationsMode";
 
-WorkerFileWriterCallbacksBridge::WorkerFileWriterCallbacksBridge(const String& path, WorkerLoaderProxy* proxy, ScriptExecutionContext* scriptExecutionContext, AsyncFileWriterClient* client)
+WorkerFileWriterCallbacksBridge::WorkerFileWriterCallbacksBridge(const KURL& path, WorkerLoaderProxy* proxy, ScriptExecutionContext* scriptExecutionContext, AsyncFileWriterClient* client)
     : WorkerContext::Observer(static_cast<WorkerContext*>(scriptExecutionContext))
     , m_proxy(proxy)
     , m_workerContext(scriptExecutionContext)
@@ -144,10 +144,10 @@ WorkerFileWriterCallbacksBridge::WorkerFileWriterCallbacksBridge(const String& p
     postInitToMainThread(path);
 }
 
-void WorkerFileWriterCallbacksBridge::postInitToMainThread(const String& path)
+void WorkerFileWriterCallbacksBridge::postInitToMainThread(const KURL& path)
 {
     dispatchTaskToMainThread(
-        createCallbackTask(&initOnMainThread, AllowCrossThreadAccess(this), path));
+        createCallbackTask(&initOnMainThread, this, path));
 }
 
 WorkerFileWriterCallbacksBridge::~WorkerFileWriterCallbacksBridge()
@@ -200,14 +200,14 @@ void WorkerFileWriterCallbacksBridge::dispatchTaskToMainThread(PassOwnPtr<Script
 {
     ASSERT(m_workerContext->isContextThread());
     WebWorkerBase::dispatchTaskToMainThread(
-        createCallbackTask(&runTaskOnMainThread, AllowCrossThreadAccess(this), task));
+        createCallbackTask(&runTaskOnMainThread, this, task));
 }
 
 void WorkerFileWriterCallbacksBridge::dispatchTaskToWorkerThread(PassOwnPtr<ScriptExecutionContext::Task> task)
 {
     ASSERT(isMainThread());
     m_proxy->postTaskForModeToWorkerContext(
-        createCallbackTask(&runTaskOnWorkerThread, AllowCrossThreadAccess(this), task), m_mode);
+        createCallbackTask(&runTaskOnWorkerThread, this, task), m_mode);
 }
 
 bool WorkerFileWriterCallbacksBridge::waitForOperationToComplete()

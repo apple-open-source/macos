@@ -60,6 +60,10 @@ static struct linkedit_data_command *add_code_sig_load_command(
     struct arch *arch,
     char *arch_name);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The codesign_allocate(1) tool has the following usage:
  *
@@ -402,6 +406,18 @@ struct object *object)
 		object->output_func_start_info_data_size = 
 		    object->func_starts_info_cmd->datasize;
 	    }
+	    if(object->data_in_code_cmd != NULL){
+		object->output_data_in_code_info_data = 
+		(object->object_addr + object->data_in_code_cmd->dataoff);
+		object->output_data_in_code_info_data_size = 
+		    object->data_in_code_cmd->datasize;
+	    }
+	    if(object->code_sign_drs_cmd != NULL){
+		object->output_code_sign_drs_info_data = 
+		(object->object_addr + object->code_sign_drs_cmd->dataoff);
+		object->output_code_sign_drs_info_data_size = 
+		    object->code_sign_drs_cmd->datasize;
+	    }
 	    object->output_ext_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->extreloff);
 	    object->output_tocs =
@@ -448,6 +464,12 @@ struct object *object)
 	    if(object->func_starts_info_cmd != NULL)
 		object->input_sym_info_size +=
 		    object->func_starts_info_cmd->datasize;
+	    if(object->data_in_code_cmd != NULL)
+		object->input_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+	    if(object->code_sign_drs_cmd != NULL)
+		object->input_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
 	    if(object->mh != NULL){
 		object->input_sym_info_size +=
 		    object->dyst->nmodtab *
@@ -621,7 +643,7 @@ struct arch *arch,
 char *arch_name)
 {
     uint32_t i, j, low_fileoff;
-    uint32_t ncmds, sizeofcmds;
+    uint32_t ncmds, sizeofcmds, sizeof_mach_header;
     struct load_command *lc;
     struct segment_command *sg;
     struct segment_command_64 *sg64;
@@ -632,10 +654,12 @@ char *arch_name)
         if(arch->object->mh != NULL){
             ncmds = arch->object->mh->ncmds;
 	    sizeofcmds = arch->object->mh->sizeofcmds;
+	    sizeof_mach_header = sizeof(struct mach_header);
 	}
 	else{
             ncmds = arch->object->mh64->ncmds;
 	    sizeofcmds = arch->object->mh64->sizeofcmds;
+	    sizeof_mach_header = sizeof(struct mach_header_64);
 	}
 
 	/*
@@ -690,7 +714,7 @@ char *arch_name)
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 	if(sizeofcmds + sizeof(struct linkedit_data_command) +
-	   sizeof(struct mach_header) > low_fileoff)
+	   sizeof_mach_header > low_fileoff)
 	    fatal("can't allocate code signature data for: %s (for architecture"
 		  " %s) because larger updated load commands do not fit (the "
 		  "program must be relinked using a larger -headerpad value)", 

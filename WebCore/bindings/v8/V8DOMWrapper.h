@@ -31,18 +31,23 @@
 #ifndef V8DOMWrapper_h
 #define V8DOMWrapper_h
 
+#include "DOMDataStore.h"
 #include "Event.h"
 #include "IsolatedWorld.h"
 #include "Node.h"
 #include "NodeFilter.h"
 #include "PlatformString.h"
 #include "V8CustomXPathNSResolver.h"
+#include "V8DOMMap.h"
 #include "V8Event.h"
+#include "V8IsolatedContext.h"
 #include "V8Utilities.h"
 #include "V8XPathNSResolver.h"
 #include "WrapperTypeInfo.h"
 #include "XPathNSResolver.h"
 #include <v8.h>
+#include <wtf/MainThread.h>
+#include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
@@ -50,6 +55,7 @@ namespace WebCore {
     class EventTarget;
     class Frame;
     class Node;
+    class V8BindingPerContextData;
     class V8Proxy;
     class WorkerContext;
 
@@ -89,53 +95,80 @@ namespace WebCore {
 
         static PassRefPtr<EventListener> getEventListener(v8::Local<v8::Value> value, bool isAttribute, ListenerLookupType lookup);
 
-#if ENABLE(XPATH)
         // XPath-related utilities
         static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value, V8Proxy* proxy = 0);
-#endif
 
         // Wrap JS node filter in C++.
         static PassRefPtr<NodeFilter> wrapNativeNodeFilter(v8::Handle<v8::Value>);
 
-        static v8::Local<v8::Function> getConstructorForContext(WrapperTypeInfo*, v8::Handle<v8::Context>);
-        static v8::Local<v8::Function> getConstructor(WrapperTypeInfo*, v8::Handle<v8::Value> objectPrototype);
-        static v8::Local<v8::Function> getConstructor(WrapperTypeInfo*, DOMWindow*);
+        static v8::Local<v8::Function> constructorForType(WrapperTypeInfo*, DOMWindow*);
 #if ENABLE(WORKERS)
-        static v8::Local<v8::Function> getConstructor(WrapperTypeInfo*, WorkerContext*);
+        static v8::Local<v8::Function> constructorForType(WrapperTypeInfo*, WorkerContext*);
 #endif
 
-        // Set JS wrapper of a DOM object, the caller in charge of increase ref.
-        static void setJSWrapperForDOMObject(void*, v8::Persistent<v8::Object>);
-        static void setJSWrapperForActiveDOMObject(void*, v8::Persistent<v8::Object>);
-        static void setJSWrapperForDOMNode(Node*, v8::Persistent<v8::Object>);
+        template<typename T> static void setJSWrapperForDOMObject(PassRefPtr<T>, v8::Persistent<v8::Object>, v8::Isolate* = 0);
+        template<typename T> static void setJSWrapperForActiveDOMObject(PassRefPtr<T>, v8::Persistent<v8::Object>, v8::Isolate* = 0);
+        static void setJSWrapperForDOMNode(PassRefPtr<Node>, v8::Persistent<v8::Object>, v8::Isolate* = 0);
+        static void setJSWrapperForActiveDOMNode(PassRefPtr<Node>, v8::Persistent<v8::Object>, v8::Isolate* = 0);
 
         static bool isValidDOMObject(v8::Handle<v8::Value>);
 
         // Check whether a V8 value is a wrapper of type |classType|.
         static bool isWrapperOfType(v8::Handle<v8::Value>, WrapperTypeInfo*);
 
-        static void setHiddenReference(v8::Handle<v8::Object> parent, v8::Handle<v8::Value> child);
-
-        // Set hidden references in a DOMWindow object of a frame.
-        static void setHiddenWindowReference(Frame*, v8::Handle<v8::Value>);
+        // Proper object lifetime support.
+        //
+        // Helper functions to make sure the child object stays alive
+        // while the parent is alive. Using the name more than once
+        // overwrites previous references making it possible to free
+        // old children.
+        static void setNamedHiddenReference(v8::Handle<v8::Object> parent, const char* name, v8::Handle<v8::Value> child);
+        static void setNamedHiddenWindowReference(Frame*, const char*, v8::Handle<v8::Value>);
 
         static v8::Local<v8::Object> instantiateV8Object(V8Proxy* proxy, WrapperTypeInfo*, void* impl);
 
-        static v8::Handle<v8::Object> getWrapper(Node* node)
+        static v8::Handle<v8::Object> getCachedWrapper(Node* node)
         {
-            ASSERT(WTF::isMainThread());
+            ASSERT(isMainThread());
             if (LIKELY(!IsolatedWorld::count())) {
                 v8::Persistent<v8::Object>* wrapper = node->wrapper();
-                if (wrapper)
+                if (LIKELY(!!wrapper))
                     return *wrapper;
             }
-            return getWrapperSlow(node);
-        }
 
+            V8IsolatedContext* context = V8IsolatedContext::getEntered();
+            if (LIKELY(!context)) {
+                v8::Persistent<v8::Object>* wrapper = node->wrapper();
+                if (!wrapper)
+                    return v8::Handle<v8::Object>();
+                return *wrapper;
+            }
+            DOMDataStore* store = context->world()->domDataStore();
+            DOMNodeMapping& domNodeMap = node->isActiveNode() ? store->activeDomNodeMap() : store->domNodeMap();
+            return domNodeMap.get(node);
+        }
     private:
-        static v8::Handle<v8::Object> getWrapperSlow(Node*);
+        static V8BindingPerContextData* perContextData(V8Proxy*);
+#if ENABLE(WORKERS)
+        static V8BindingPerContextData* perContextData(WorkerContext*);
+#endif
     };
 
+    template<typename T>
+    void V8DOMWrapper::setJSWrapperForDOMObject(PassRefPtr<T> object, v8::Persistent<v8::Object> wrapper, v8::Isolate* isolate)
+    {
+        ASSERT(maybeDOMWrapper(wrapper));
+        ASSERT(!domWrapperType(wrapper)->toActiveDOMObjectFunction);
+        getDOMObjectMap(isolate).set(object.leakRef(), wrapper);
+    }
+
+    template<typename T>
+    void V8DOMWrapper::setJSWrapperForActiveDOMObject(PassRefPtr<T> object, v8::Persistent<v8::Object> wrapper, v8::Isolate* isolate)
+    {
+        ASSERT(maybeDOMWrapper(wrapper));
+        ASSERT(domWrapperType(wrapper)->toActiveDOMObjectFunction);
+        getActiveDOMObjectMap(isolate).set(object.leakRef(), wrapper);
+    }
 }
 
 #endif // V8DOMWrapper_h

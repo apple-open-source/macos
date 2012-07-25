@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Inc. All rights reserved.
+ * Copyright (c) 2005, 2006, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,10 +43,11 @@
 #include <string.h>
 #include <mach/boolean.h>
 #include "DNSNameList.h"
+#include "nbo.h"
 
 #ifdef TEST_DNSNAMELIST
 #include "util.h"
-#endif TEST_DNSNAMELIST
+#endif /* TEST_DNSNAMELIST */
 
 #define DNS_PTR_PATTERN_BYTE_MASK	(uint8_t)0xc0
 #define DNS_PTR_PATTERN_MASK		(uint16_t)0xc000
@@ -150,7 +151,7 @@ DNSBufAddData(DNSBufRef db, const void * data, int data_len)
 #ifdef DEBUG
     printf("Adding: ");
     print_data((void *)data, data_len);
-#endif DEBUG
+#endif /* DEBUG */
 
     if (data_len > (db->db_buf_size - db->db_buf_used)) {
 	if (db->db_buf_user_supplied) {
@@ -164,7 +165,7 @@ DNSBufAddData(DNSBufRef db, const void * data, int data_len)
 	printf("Buffer growing from %d to %d\n", db->db_buf_size,
 	       db->db_buf_size + ((data_len > DNS_BUF_INITIAL_SIZE) 
 	       ? data_len : DNS_BUF_INITIAL_SIZE));
-#endif DEBUG
+#endif /* DEBUG */
 	db->db_buf_size += (data_len > DNS_BUF_INITIAL_SIZE) 
 	    ? data_len : DNS_BUF_INITIAL_SIZE;
 	if (db->db_buf == db->db_buf_s) {
@@ -252,7 +253,7 @@ DNSNameOffsetsAdd(DNSNameOffsetsRef list, uint32_t this_offset)
     if (list->dno_size == list->dno_count) {
 #ifdef DEBUG
 	printf("Growing from %d to %d\n", list->dno_size, list->dno_size * 2);
-#endif DEBUG
+#endif /* DEBUG */
 	list->dno_size *= 2;
 	if (list->dno_list == list->dno_list_s) {
 	    list->dno_list = malloc(list->dno_size * sizeof(*list->dno_list));
@@ -323,7 +324,7 @@ DNSNameOffsetsListAdd(DNSNameOffsetsListRef nlist, DNSNameOffsetsRef this_list)
 #ifdef DEBUG
 	    printf("Namelist growing from 0 to %d\n", 
 		   DNS_NAME_OFFSETS_LIST_N_START);
-#endif DEBUG
+#endif /* DEBUG */
 	    nlist->dnl_size = DNS_NAME_OFFSETS_LIST_N_START;
 	    nlist->dnl_list 
 		= malloc(nlist->dnl_size * sizeof(*nlist->dnl_list));
@@ -332,7 +333,7 @@ DNSNameOffsetsListAdd(DNSNameOffsetsListRef nlist, DNSNameOffsetsRef this_list)
 #ifdef DEBUG
 	    printf("Namelist growing from %d to %d\n", nlist->dnl_size,
 		   nlist->dnl_size * 2);
-#endif DEBUG
+#endif /* DEBUG */
 	    nlist->dnl_size *= 2;
 	    nlist->dnl_list 
 		= reallocf(nlist->dnl_list, 
@@ -444,7 +445,7 @@ DNSNameMatch(DNSNameRef name1, DNSNameRef name2)
 	printf("Comparing %.*s to %.*s\n",
 	       nlen1, name1->dn_buf + buf_off1 + 1, 
 	       nlen1, name2->dn_buf + buf_off2 + 1);
-#endif DEBUG
+#endif /* DEBUG */
 	if (memcmp(name1->dn_buf + buf_off1 + 1, name2->dn_buf + buf_off2 + 1,
 		   nlen1)) {
 	    break;
@@ -725,8 +726,9 @@ DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 		scan += 2;
 		left -= 2;
 	    }
-	    ptr = (uint16_t)(ntohs(*((uint16_t *)(buffer + read_head)))
-			     & DNS_PTR_VALUE_MASK);
+
+	    ptr = (net_uint16_get(buffer + read_head))
+			     & DNS_PTR_VALUE_MASK;
 	    if (ptr >= read_head) {
 		fprintf(stderr,
 			"pointer points at or ahead of current position\n");
@@ -1002,4 +1004,4 @@ main(int argc, const char * * argv)
     }
     exit(0);
 }
-#endif TEST_DNSNAMELIST
+#endif /* TEST_DNSNAMELIST */

@@ -133,7 +133,7 @@ trigger_jobs(void)
 
 	    dispatch_async(timer_job_q, ^{ 
 		    e->callback(e, e->ctx); 
-		    dispatch_sync(timer_sync_q, ^{
+		    dispatch_async(timer_sync_q, ^{
 			    e->flags &= ~RUNNING;
 			    if (e->running)
 				dispatch_semaphore_signal(e->running);
@@ -251,7 +251,7 @@ heim_ipc_event_set_time(heim_event_t e, time_t t)
 void
 heim_ipc_event_cancel(heim_event_t e)
 {
-    dispatch_sync(timer_sync_q, ^{
+    dispatch_async(timer_sync_q, ^{
 	    if (e->hptr != HEAP_INVALID_PTR) {
 		heap_remove(timer_heap, e->hptr);
 		e->hptr = HEAP_INVALID_PTR;

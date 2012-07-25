@@ -140,6 +140,8 @@ private:
 
     IOMemoryDescriptor * createMemoryDescriptorFromInputArguments(IOExternalMethodArguments * arguments);
 
+    void ReportComplete(void *param, IOReturn res, UInt32 remaining);
+
 public:
 	/*! @function initWithTask
 		@abstract 

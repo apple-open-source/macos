@@ -8,6 +8,25 @@
 #define __attribute__(x)
 #endif
 
+#ifndef KRB5_DEPRECATED_FUNCTION
+#ifndef __has_extension
+#define __has_extension(x) 0
+#define KRB5_DEPRECATED_FUNCTIONhas_extension 1
+#endif
+#if __has_extension(attribute_deprecated_with_message)
+#define KRB5_DEPRECATED_FUNCTION(x) __attribute__((__deprecated__(x)))
+#elif defined(__GNUC__) && ((__GNUC__ > 3) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1 )))
+#define KRB5_DEPRECATED_FUNCTION(X) __attribute__((__deprecated__))
+#else
+#define KRB5_DEPRECATED_FUNCTION(X)
+#endif
+#ifdef KRB5_DEPRECATED_FUNCTIONhas_extension
+#undef __has_extension
+#undef KRB5_DEPRECATED_FUNCTIONhas_extension
+#endif
+#endif /* KRB5_DEPRECATED_FUNCTION */
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,51 +48,16 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb524_convert_creds_kdc (
 	krb5_context /*context*/,
 	krb5_creds */*in_cred*/,
-	struct credentials */*v4creds*/);
+	struct credentials */*v4creds*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb524_convert_creds_kdc_ccache (
 	krb5_context /*context*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*in_cred*/,
-	struct credentials */*v4creds*/);
-
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal (
-	krb5_context /*context*/,
-	const char */*name*/,
-	const char */*instance*/,
-	const char */*realm*/,
-	krb5_principal */*princ*/);
-
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal_ext (
-	krb5_context /*context*/,
-	const char */*name*/,
-	const char */*instance*/,
-	const char */*realm*/,
-	krb5_boolean (*/*func*/)(krb5_context, krb5_principal),
-	krb5_boolean /*resolve*/,
-	krb5_principal */*principal*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_425_conv_principal_ext2 (
-	krb5_context /*context*/,
-	const char */*name*/,
-	const char */*instance*/,
-	const char */*realm*/,
-	krb5_boolean (*/*func*/)(krb5_context, void *, krb5_principal),
-	void */*funcctx*/,
-	krb5_boolean /*resolve*/,
-	krb5_principal */*princ*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_524_conv_principal (
-	krb5_context /*context*/,
-	const krb5_principal /*principal*/,
-	char */*name*/,
-	char */*instance*/,
-	char */*realm*/);
+	struct credentials */*v4creds*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_abort (
@@ -303,6 +287,12 @@ krb5_auth_con_getrcache (
 	krb5_rcache */*rcache*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_getrecvsubkey (
+	krb5_context /*context*/,
+	krb5_auth_context /*auth_context*/,
+	krb5_keyblock **/*keyblock*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_con_getremoteseqnumber (
 	krb5_context /*context*/,
 	krb5_auth_context /*auth_context*/,
@@ -310,6 +300,12 @@ krb5_auth_con_getremoteseqnumber (
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_con_getremotesubkey (
+	krb5_context /*context*/,
+	krb5_auth_context /*auth_context*/,
+	krb5_keyblock **/*keyblock*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_getsendsubkey (
 	krb5_context /*context*/,
 	krb5_auth_context /*auth_context*/,
 	krb5_keyblock **/*keyblock*/);
@@ -382,6 +378,12 @@ krb5_auth_con_setrcache (
 	krb5_rcache /*rcache*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_setrecvsubkey (
+	krb5_context /*context*/,
+	krb5_auth_context /*auth_context*/,
+	krb5_keyblock */*keyblock*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_con_setremoteseqnumber (
 	krb5_context /*context*/,
 	krb5_auth_context /*auth_context*/,
@@ -394,16 +396,23 @@ krb5_auth_con_setremotesubkey (
 	krb5_keyblock */*keyblock*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_auth_con_setsendsubkey (
+	krb5_context /*context*/,
+	krb5_auth_context /*auth_context*/,
+	krb5_keyblock */*keyblock*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_con_setuserkey (
 	krb5_context /*context*/,
 	krb5_auth_context /*auth_context*/,
 	krb5_keyblock */*keyblock*/);
 
-KRB5_DEPRECATED krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_auth_getremoteseqnumber (
 	krb5_context /*context*/,
 	krb5_auth_context /*auth_context*/,
-	int32_t */*seqnumber*/);
+	int32_t */*seqnumber*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_build_ap_req (
@@ -483,12 +492,13 @@ krb5_c_encrypt_length (
 	size_t /*inputlen*/,
 	size_t */*length*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_c_enctype_compare (
 	krb5_context /*context*/,
 	krb5_enctype /*e1*/,
 	krb5_enctype /*e2*/,
-	krb5_boolean */*similar*/);
+	krb5_boolean */*similar*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_c_get_checksum (
@@ -537,6 +547,11 @@ krb5_c_prf_length (
 	krb5_context /*context*/,
 	krb5_enctype /*type*/,
 	size_t */*length*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_c_random_make_octets (
+	krb5_context /*context*/,
+	krb5_data * /*data*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_c_set_checksum (
@@ -631,11 +646,12 @@ krb5_cc_end_seq_get (
 	const krb5_ccache /*id*/,
 	krb5_cc_cursor */*cursor*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_gen_new (
 	krb5_context /*context*/,
 	const krb5_cc_ops */*ops*/,
-	krb5_ccache */*id*/);
+	krb5_ccache */*id*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_get_config (
@@ -663,7 +679,7 @@ krb5_cc_get_full_name (
 	krb5_ccache /*id*/,
 	char **/*str*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_get_kdc_offset (
 	krb5_context /*context*/,
 	krb5_ccache /*id*/,
@@ -680,12 +696,12 @@ krb5_cc_get_name (
 	krb5_context /*context*/,
 	krb5_ccache /*id*/);
 
-const krb5_cc_ops *
+KRB5_LIB_FUNCTION const krb5_cc_ops * KRB5_LIB_CALL
 krb5_cc_get_ops (
 	krb5_context /*context*/,
 	krb5_ccache /*id*/);
 
-const krb5_cc_ops *
+KRB5_LIB_FUNCTION const krb5_cc_ops * KRB5_LIB_CALL
 krb5_cc_get_prefix_ops (
 	krb5_context /*context*/,
 	const char */*prefix*/);
@@ -718,7 +734,7 @@ krb5_cc_last_change_time (
 	krb5_ccache /*id*/,
 	krb5_timestamp */*mtime*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_move (
 	krb5_context /*context*/,
 	krb5_ccache /*from*/,
@@ -790,7 +806,7 @@ krb5_cc_set_friendly_name (
 	krb5_ccache /*id*/,
 	const char */*name*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_set_kdc_offset (
 	krb5_context /*context*/,
 	krb5_ccache /*id*/,
@@ -808,12 +824,12 @@ krb5_cc_store_cred (
 	krb5_ccache /*id*/,
 	krb5_creds */*creds*/);
 
-krb5_boolean KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_cc_support_switch (
 	krb5_context /*context*/,
 	const char */*type*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cc_switch (
 	krb5_context /*context*/,
 	krb5_ccache /*id*/);
@@ -840,14 +856,15 @@ krb5_cccol_last_change_time (
 	const char */*type*/,
 	krb5_timestamp */*mtime*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_change_password (
 	krb5_context /*context*/,
 	krb5_creds */*creds*/,
 	const char */*newpw*/,
 	int */*result_code*/,
 	krb5_data */*result_code_string*/,
-	krb5_data */*result_string*/);
+	krb5_data */*result_string*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_check_transited (
@@ -895,8 +912,7 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cksumtype_to_enctype (
 	krb5_context /*context*/,
 	krb5_cksumtype /*ctype*/,
-	krb5_enctype */*etype*/)
-     KRB5_DEPRECATED;
+	krb5_enctype */*etype*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_cksumtype_valid (
@@ -906,8 +922,9 @@ krb5_cksumtype_valid (
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_clear_error_message (krb5_context /*context*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-krb5_clear_error_string (krb5_context /*context*/);
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_clear_error_string (krb5_context /*context*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_closelog (
@@ -1005,11 +1022,12 @@ krb5_config_parse_file_multi (
 	const char */*fname*/,
 	krb5_config_section **/*res*/);
 
-KRB5_DEPRECATED krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_config_parse_string_multi (
 	krb5_context /*context*/,
 	const char */*string*/,
-	krb5_config_section **/*res*/);
+	krb5_config_section **/*res*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_config_vget_bool (
@@ -1165,7 +1183,7 @@ krb5_create_checksum_iov (
 	unsigned int /*num_data*/,
 	krb5_cksumtype */*type*/);
 
-unsigned long
+KRB5_LIB_FUNCTION unsigned long KRB5_LIB_CALL
 krb5_creds_get_ticket_flags (krb5_creds */*creds*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -1234,7 +1252,7 @@ krb5_crypto_length_iov (
 	krb5_crypto_iov */*data*/,
 	unsigned int /*num_data*/);
 
-size_t
+KRB5_LIB_FUNCTION size_t KRB5_LIB_CALL
 krb5_crypto_overhead (
 	krb5_context /*context*/,
 	krb5_crypto /*crypto*/);
@@ -1268,6 +1286,11 @@ krb5_data_copy (
 	const void */*data*/,
 	size_t /*len*/);
 
+KRB5_LIB_FUNCTION int KRB5_LIB_CALL
+krb5_data_ct_cmp (
+	const krb5_data */*data1*/,
+	const krb5_data */*data2*/);
+
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_data_free (krb5_data */*p*/);
 
@@ -1279,69 +1302,77 @@ krb5_data_realloc (
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_data_zero (krb5_data */*p*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_Authenticator (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	Authenticator */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_ETYPE_INFO (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	ETYPE_INFO */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_ETYPE_INFO2 (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	ETYPE_INFO2 */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_EncAPRepPart (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	EncAPRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_EncASRepPart (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	EncASRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_EncKrbCredPart (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	EncKrbCredPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_EncTGSRepPart (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	EncTGSRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_EncTicketPart (
 	krb5_context /*context*/,
 	const void */*data*/,
 	size_t /*length*/,
 	EncTicketPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_decode_ap_req (
@@ -1402,177 +1433,177 @@ krb5_derive_key (
 	size_t /*constant_len*/,
 	krb5_keyblock **/*derived_key*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_alloc (
 	krb5_context /*context*/,
 	krb5_digest */*digest*/);
 
-void
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_digest_free (krb5_digest /*digest*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_get_client_binding (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	char **/*type*/,
 	char **/*binding*/);
 
-const char *
+KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 krb5_digest_get_identifier (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/);
 
-const char *
+KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 krb5_digest_get_opaque (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/);
 
-const char *
+KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 krb5_digest_get_rsp (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/);
 
-const char *
+KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 krb5_digest_get_server_nonce (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_get_session_key (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	krb5_data */*data*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_get_tickets (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	Ticket **/*tickets*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_init_request (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	krb5_realm /*realm*/,
 	krb5_ccache /*ccache*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_probe (
 	krb5_context /*context*/,
 	krb5_realm /*realm*/,
 	krb5_ccache /*ccache*/,
 	unsigned */*flags*/);
 
-krb5_boolean
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_digest_rep_get_status (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_request (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	krb5_realm /*realm*/,
 	krb5_ccache /*ccache*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_authentication_user (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	krb5_principal /*authentication_user*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_authid (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*authid*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_client_nonce (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*nonce*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_digest (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*dgst*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_hostname (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*hostname*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_identifier (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*id*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_method (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*method*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_nonceCount (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*nonce_count*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_opaque (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*opaque*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_qop (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*qop*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_realm (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*realm*/);
 
-int
+KRB5_LIB_FUNCTION int KRB5_LIB_CALL
 krb5_digest_set_responseData (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*response*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_server_cb (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*type*/,
 	const char */*binding*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_server_nonce (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*nonce*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_type (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*type*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_uri (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
 	const char */*uri*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_digest_set_username (
 	krb5_context /*context*/,
 	krb5_digest /*digest*/,
@@ -1598,69 +1629,77 @@ krb5_eai_to_heim_errno (
 	int /*eai_errno*/,
 	int /*system_error*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_Authenticator (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	Authenticator */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_ETYPE_INFO (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	ETYPE_INFO */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_ETYPE_INFO2 (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	ETYPE_INFO2 */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_EncAPRepPart (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	EncAPRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_EncASRepPart (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	EncASRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_EncKrbCredPart (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	EncKrbCredPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_EncTGSRepPart (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	EncTGSRepPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encode_EncTicketPart (
 	krb5_context /*context*/,
 	void */*data*/,
 	size_t /*length*/,
 	EncTicketPart */*t*/,
-	size_t */*len*/);
+	size_t */*len*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_encrypt (
@@ -1739,11 +1778,15 @@ krb5_enctype_valid (
 	krb5_context /*context*/,
 	krb5_enctype /*etype*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_enctypes_compatible_keys (
 	krb5_context /*context*/,
 	krb5_enctype /*etype1*/,
-	krb5_enctype /*etype2*/);
+	krb5_enctype /*etype2*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
+
+krb5_error_code
+krb5_enomem (krb5_context /*context*/);
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_err (
@@ -1781,7 +1824,7 @@ krb5_expand_hostname_realms (
 	char **/*new_hostname*/,
 	char ***/*realms*/);
 
-PA_DATA *
+KRB5_LIB_FUNCTION PA_DATA * KRB5_LIB_CALL
 krb5_find_padata (
 	PA_DATA */*val*/,
 	unsigned /*len*/,
@@ -1842,20 +1885,27 @@ krb5_free_creds (
 	krb5_context /*context*/,
 	krb5_creds */*c*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_free_creds_contents (
 	krb5_context /*context*/,
-	krb5_creds */*c*/);
+	krb5_creds */*c*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_data (
 	krb5_context /*context*/,
 	krb5_data */*p*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_data_contents (
 	krb5_context /*context*/,
-	krb5_data */*data*/);
+	krb5_data */*data*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_free_default_realm (
+	krb5_context /*context*/,
+	krb5_realm /*realm*/);
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_error (
@@ -1872,10 +1922,11 @@ krb5_free_error_message (
 	krb5_context /*context*/,
 	const char */*msg*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_error_string (
 	krb5_context /*context*/,
-	char */*str*/);
+	char */*str*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_free_host_realm (
@@ -1917,10 +1968,11 @@ krb5_free_ticket (
 	krb5_context /*context*/,
 	krb5_ticket */*ticket*/);
 
-KRB5_DEPRECATED void KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_free_unparsed_name (
 	krb5_context /*context*/,
-	char */*str*/);
+	char */*str*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_fwd_tgt_creds (
@@ -1950,11 +2002,12 @@ krb5_generate_seq_number (
 	const krb5_keyblock */*key*/,
 	uint32_t */*seqno*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_generate_subkey (
 	krb5_context /*context*/,
 	const krb5_keyblock */*key*/,
-	krb5_keyblock **/*subkey*/);
+	krb5_keyblock **/*subkey*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_generate_subkey_extended (
@@ -1962,11 +2015,6 @@ krb5_generate_subkey_extended (
 	const krb5_keyblock */*key*/,
 	krb5_enctype /*etype*/,
 	krb5_keyblock **/*subkey*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_get_all_any_addrs (
-	krb5_context /*context*/,
-	krb5_addresses */*res*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_all_client_addrs (
@@ -1978,22 +2026,24 @@ krb5_get_all_server_addrs (
 	krb5_context /*context*/,
 	krb5_addresses */*res*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_cred_from_kdc (
 	krb5_context /*context*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*in_creds*/,
 	krb5_creds **/*out_creds*/,
-	krb5_creds ***/*ret_tgts*/);
+	krb5_creds ***/*ret_tgts*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_cred_from_kdc_opt (
 	krb5_context /*context*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*in_creds*/,
 	krb5_creds **/*out_creds*/,
 	krb5_creds ***/*ret_tgts*/,
-	krb5_flags /*flags*/);
+	krb5_flags /*flags*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_credentials (
@@ -2066,6 +2116,7 @@ krb5_get_default_config_files (char ***/*pfilenames*/);
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_default_in_tkt_etypes (
 	krb5_context /*context*/,
+	krb5_pdu /*pdu_type*/,
 	krb5_enctype **/*etypes*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -2086,10 +2137,11 @@ krb5_get_default_realms (
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_get_dns_canonicalize_hostname (krb5_context /*context*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION const char* KRB5_LIB_CALL
+KRB5_LIB_FUNCTION const char* KRB5_LIB_CALL
 krb5_get_err_text (
 	krb5_context /*context*/,
-	krb5_error_code /*code*/);
+	krb5_error_code /*code*/)
+    KRB5_DEPRECATED_FUNCTION("Use krb5_get_error_message instead");
 
 KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 krb5_get_error_message (
@@ -2122,7 +2174,7 @@ krb5_get_forwarded_creds (
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_host_realm (
 	krb5_context /*context*/,
-	const char */*host*/,
+	const char */*targethost*/,
 	krb5_realm **/*realms*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -2130,7 +2182,7 @@ krb5_get_ignore_addresses (
 	krb5_context /*context*/,
 	krb5_addresses */*addresses*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_cred (
 	krb5_context /*context*/,
 	krb5_flags /*options*/,
@@ -2143,9 +2195,10 @@ krb5_get_in_cred (
 	krb5_decrypt_proc /*decrypt_proc*/,
 	krb5_const_pointer /*decryptarg*/,
 	krb5_creds */*creds*/,
-	krb5_kdc_rep */*ret_as_reply*/);
+	krb5_kdc_rep */*ret_as_reply*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt (
 	krb5_context /*context*/,
 	krb5_flags /*options*/,
@@ -2158,9 +2211,10 @@ krb5_get_in_tkt (
 	krb5_const_pointer /*decryptarg*/,
 	krb5_creds */*creds*/,
 	krb5_ccache /*ccache*/,
-	krb5_kdc_rep */*ret_as_reply*/);
+	krb5_kdc_rep */*ret_as_reply*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_keytab (
 	krb5_context /*context*/,
 	krb5_flags /*options*/,
@@ -2170,9 +2224,10 @@ krb5_get_in_tkt_with_keytab (
 	krb5_keytab /*keytab*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*creds*/,
-	krb5_kdc_rep */*ret_as_reply*/);
+	krb5_kdc_rep */*ret_as_reply*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_password (
 	krb5_context /*context*/,
 	krb5_flags /*options*/,
@@ -2182,9 +2237,10 @@ krb5_get_in_tkt_with_password (
 	const char */*password*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*creds*/,
-	krb5_kdc_rep */*ret_as_reply*/);
+	krb5_kdc_rep */*ret_as_reply*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_in_tkt_with_skey (
 	krb5_context /*context*/,
 	krb5_flags /*options*/,
@@ -2194,7 +2250,8 @@ krb5_get_in_tkt_with_skey (
 	const krb5_keyblock */*key*/,
 	krb5_ccache /*ccache*/,
 	krb5_creds */*creds*/,
-	krb5_kdc_rep */*ret_as_reply*/);
+	krb5_kdc_rep */*ret_as_reply*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_init_creds_keyblock (
@@ -2226,14 +2283,16 @@ krb5_get_init_creds_opt_free (
 	krb5_context /*context*/,
 	krb5_get_init_creds_opt */*opt*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_init_creds_opt_get_error (
 	krb5_context /*context*/,
 	krb5_get_init_creds_opt */*opt*/,
-	KRB_ERROR **/*error*/);
+	KRB_ERROR **/*error*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-krb5_get_init_creds_opt_init (krb5_get_init_creds_opt */*opt*/);
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_get_init_creds_opt_init (krb5_get_init_creds_opt */*opt*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_get_init_creds_opt_set_address_list (
@@ -2301,6 +2360,12 @@ krb5_get_init_creds_opt_set_pkinit (
 	krb5_prompter_fct /*prompter*/,
 	void */*prompter_data*/,
 	char */*password*/);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_get_init_creds_opt_set_pkinit_user_cert (
+	krb5_context /*context*/,
+	krb5_get_init_creds_opt */*opt*/,
+	struct hx509_cert_data */*certs*/);
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_get_init_creds_opt_set_preauth_list (
@@ -2397,6 +2462,11 @@ KRB5_LIB_FUNCTION time_t KRB5_LIB_CALL
 krb5_get_max_time_skew (krb5_context /*context*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_get_permitted_enctypes (
+	krb5_context /*context*/,
+	krb5_enctype **/*etypes*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_get_pw_salt (
 	krb5_context /*context*/,
 	krb5_const_principal /*principal*/,
@@ -2430,7 +2500,7 @@ krb5_get_validated_creds (
 KRB5_LIB_FUNCTION krb5_log_facility * KRB5_LIB_CALL
 krb5_get_warn_dest (krb5_context /*context*/);
 
-size_t
+KRB5_LIB_FUNCTION size_t KRB5_LIB_CALL
 krb5_get_wrapped_length (
 	krb5_context /*context*/,
 	krb5_crypto /*crypto*/,
@@ -2478,11 +2548,6 @@ krb5_hmac (
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_init_context (krb5_context */*context*/);
 
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_init_context_flags (
-	unsigned int /*flags*/,
-	krb5_context */*context*/);
-
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_init_creds_free (
 	krb5_context /*context*/,
@@ -2515,12 +2580,6 @@ krb5_init_creds_init (
 	krb5_get_init_creds_opt */*options*/,
 	krb5_init_creds_context */*rctx*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_init_creds_set_kdc_hostname (
-	krb5_context /*context*/,
-	krb5_init_creds_context /*ctx*/,
-	const char */*hostname*/);
-
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_init_creds_set_keyblock (
 	krb5_context /*context*/,
@@ -2539,12 +2598,6 @@ krb5_init_creds_set_password (
 	krb5_init_creds_context /*ctx*/,
 	const char */*password*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_init_creds_set_pkinit_client_cert (
-	krb5_context /*context*/,
-	krb5_init_creds_context /*ctx*/,
-	struct hx509_cert_data */*cert*/);
-
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_init_creds_set_service (
 	krb5_context /*context*/,
@@ -2561,26 +2614,8 @@ krb5_init_creds_step (
 	krb5_realm *realm,
 	unsigned int */*flags*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_init_creds_store_config (
-	krb5_context /*context*/,
-	krb5_init_creds_context /*ctx*/,
-	krb5_ccache /*id*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_init_creds_warn_user (
-	krb5_context /*context*/,
-	krb5_init_creds_context /*ctx*/);
-
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_init_ets (krb5_context /*context*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_init_etype (
-	krb5_context /*context*/,
-	unsigned */*len*/,
-	krb5_enctype **/*val*/,
-	const krb5_enctype */*etypes*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_initlog (
@@ -2596,14 +2631,14 @@ krb5_is_config_principal (
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_is_thread_safe (void);
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_kcm_call (
 	krb5_context /*context*/,
 	krb5_storage */*request*/,
 	krb5_storage **/*response_p*/,
 	krb5_data */*response_data_p*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_kcm_storage_request (
 	krb5_context /*context*/,
 	uint16_t /*opcode*/,
@@ -2612,7 +2647,7 @@ krb5_kcm_storage_request (
 KRB5_LIB_FUNCTION const krb5_enctype * KRB5_LIB_CALL
 krb5_kerberos_enctypes (krb5_context /*context*/);
 
-krb5_enctype
+KRB5_LIB_FUNCTION krb5_enctype KRB5_LIB_CALL
 krb5_keyblock_get_enctype (const krb5_keyblock */*block*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
@@ -2634,33 +2669,37 @@ krb5_keyblock_key_proc (
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_keyblock_zero (krb5_keyblock */*keyblock*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_CALLCONV
 krb5_keytab_key_proc (
 	krb5_context /*context*/,
 	krb5_enctype /*enctype*/,
 	krb5_salt /*salt*/,
 	krb5_const_pointer /*keyseed*/,
-	krb5_keyblock **/*key*/);
+	krb5_keyblock **/*key*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_keytype_to_enctypes (
 	krb5_context /*context*/,
 	krb5_keytype /*keytype*/,
 	unsigned */*len*/,
-	krb5_enctype **/*val*/);
+	krb5_enctype **/*val*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_keytype_to_enctypes_default (
 	krb5_context /*context*/,
 	krb5_keytype /*keytype*/,
 	unsigned */*len*/,
-	krb5_enctype **/*val*/);
+	krb5_enctype **/*val*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_keytype_to_string (
 	krb5_context /*context*/,
 	krb5_keytype /*keytype*/,
-	char **/*string*/);
+	char **/*string*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_krbhst_format_string (
@@ -2712,12 +2751,6 @@ KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_krbhst_reset (
 	krb5_context /*context*/,
 	krb5_krbhst_handle /*handle*/);
-
-krb5_error_code KRB5_LIB_FUNCTION
-krb5_krbhst_set_hostname (
-	krb5_context /*context*/,
-	krb5_krbhst_handle /*handle*/,
-	const char */*hostname*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_kt_add_entry (
@@ -2806,6 +2839,11 @@ krb5_kt_get_type (
 	char */*prefix*/,
 	size_t /*prefixsize*/);
 
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_kt_have_content (
+	krb5_context /*context*/,
+	krb5_keytab /*id*/);
+
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_kt_next_entry (
 	krb5_context /*context*/,
@@ -2877,7 +2915,7 @@ krb5_make_addrport (
 	const krb5_address */*addr*/,
 	int16_t /*port*/);
 
-krb5_error_code KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_make_principal (
 	krb5_context /*context*/,
 	krb5_principal */*principal*/,
@@ -2973,47 +3011,47 @@ krb5_net_write_block (
 	size_t /*len*/,
 	time_t /*timeout*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_alloc (
 	krb5_context /*context*/,
 	krb5_ntlm */*ntlm*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_free (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/);
 
-krb5_error_code
-krb5_ntlm_init_get_challenge (
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_ntlm_init_get_challange (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
-	krb5_data */*challenge*/);
+	krb5_data */*challange*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_init_get_flags (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	uint32_t */*flags*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_init_get_opaque (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	krb5_data */*opaque*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_init_get_targetinfo (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	krb5_data */*data*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_init_get_targetname (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	char **/*name*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_init_request (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
@@ -3023,63 +3061,63 @@ krb5_ntlm_init_request (
 	const char */*hostname*/,
 	const char */*domainname*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_rep_get_sessionkey (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	krb5_data */*data*/);
 
-krb5_boolean
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_ntlm_rep_get_status (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_flags (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	uint32_t /*flags*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_lm (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	void */*hash*/,
 	size_t /*len*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_ntlm (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	void */*hash*/,
 	size_t /*len*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_opaque (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	krb5_data */*opaque*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_session (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	void */*sessionkey*/,
 	size_t /*length*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_targetname (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	const char */*targetname*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_req_set_username (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
 	const char */*username*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ntlm_request (
 	krb5_context /*context*/,
 	krb5_ntlm /*ntlm*/,
@@ -3092,45 +3130,45 @@ krb5_openlog (
 	const char */*program*/,
 	krb5_log_facility **/*fac*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_add_buffer (
 	krb5_context /*context*/,
 	krb5_pac /*p*/,
 	uint32_t /*type*/,
 	const krb5_data */*data*/);
 
-void
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_pac_free (
 	krb5_context /*context*/,
 	krb5_pac /*pac*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_get_buffer (
 	krb5_context /*context*/,
 	krb5_pac /*p*/,
 	uint32_t /*type*/,
 	krb5_data */*data*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_get_types (
 	krb5_context /*context*/,
 	krb5_pac /*p*/,
 	size_t */*len*/,
 	uint32_t **/*types*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_init (
 	krb5_context /*context*/,
 	krb5_pac */*pac*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_parse (
 	krb5_context /*context*/,
 	const void */*ptr*/,
 	size_t /*len*/,
 	krb5_pac */*pac*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_pac_verify (
 	krb5_context /*context*/,
 	const krb5_pac /*pac*/,
@@ -3166,7 +3204,7 @@ krb5_parse_name_flags (
 	int /*flags*/,
 	krb5_principal */*principal*/);
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_parse_nametype (
 	krb5_context /*context*/,
 	const char */*str*/,
@@ -3177,15 +3215,24 @@ krb5_passwd_result_to_string (
 	krb5_context /*context*/,
 	int /*result*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_CALLCONV
 krb5_password_key_proc (
 	krb5_context /*context*/,
 	krb5_enctype /*type*/,
 	krb5_salt /*salt*/,
 	krb5_const_pointer /*keyseed*/,
-	krb5_keyblock **/*key*/);
+	krb5_keyblock **/*key*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-krb5_error_code
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_pk_enterprise_cert (
+	krb5_context /*context*/,
+	const char */*user_id*/,
+	krb5_const_realm /*realm*/,
+	krb5_principal */*principal*/,
+	struct hx509_cert_data **/*res*/);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_plugin_register (
 	krb5_context /*context*/,
 	enum krb5_plugin_type /*type*/,
@@ -3203,7 +3250,7 @@ krb5_prepend_config_files_default (
 	const char */*filelist*/,
 	char ***/*pfilenames*/);
 
-void KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_prepend_error_message (
 	krb5_context /*context*/,
 	krb5_error_code /*ret*/,
@@ -3211,16 +3258,18 @@ krb5_prepend_error_message (
 	...)
      __attribute__ ((format (printf, 3, 4)));
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_realm * KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_realm * KRB5_LIB_CALL
 krb5_princ_realm (
 	krb5_context /*context*/,
-	krb5_principal /*principal*/);
+	krb5_principal /*principal*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_princ_set_realm (
 	krb5_context /*context*/,
 	krb5_principal /*principal*/,
-	krb5_realm */*realm*/);
+	krb5_realm */*realm*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_principal_compare (
@@ -3255,25 +3304,10 @@ krb5_principal_get_type (
 	krb5_context /*context*/,
 	krb5_const_principal /*principal*/);
 
-krb5_boolean KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_principal_is_krbtgt (
 	krb5_context /*context*/,
 	krb5_const_principal /*p*/);
-
-krb5_boolean KRB5_LIB_FUNCTION
-krb5_principal_is_lkdc (
-	krb5_context /*context*/,
-	krb5_const_principal /*principal*/);
-
-krb5_boolean KRB5_LIB_FUNCTION
-krb5_principal_is_null (
-	krb5_context /*context*/,
-	krb5_const_principal /*principal*/);
-
-krb5_boolean KRB5_LIB_FUNCTION
-krb5_principal_is_pku2u (
-	krb5_context /*context*/,
-	krb5_const_principal /*principal*/);
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_principal_match (
@@ -3309,7 +3343,7 @@ krb5_program_setup (
 	int /*num_args*/,
 	void (KRB5_LIB_CALL *usage)(int, struct getargs*, int));
 
-KRB5_LIB_FUNCTION int
+KRB5_LIB_FUNCTION int KRB5_CALLCONV
 krb5_prompter_posix (
 	krb5_context /*context*/,
 	void */*data*/,
@@ -3497,11 +3531,6 @@ krb5_rd_req_out_get_ap_req_options (
 	krb5_rd_req_out_ctx /*out*/,
 	krb5_flags */*ap_req_options*/);
 
-int KRB5_LIB_FUNCTION
-krb5_rd_req_out_get_flags (
-	krb5_context /*context*/,
-	krb5_rd_req_out_ctx /*ctx*/);
-
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_rd_req_out_get_keyblock (
 	krb5_context /*context*/,
@@ -3564,9 +3593,6 @@ krb5_realm_compare (
 	krb5_const_principal /*princ1*/,
 	krb5_const_principal /*princ2*/);
 
-krb5_boolean KRB5_LIB_FUNCTION
-krb5_realm_is_lkdc (const char */*realm*/);
-
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_recvauth (
 	krb5_context /*context*/,
@@ -3589,12 +3615,6 @@ krb5_recvauth_match_version (
 	int32_t /*flags*/,
 	krb5_keytab /*keytab*/,
 	krb5_ticket **/*ticket*/);
-
-krb5_error_code
-krb5_reload_config (
-	krb5_context /*context*/,
-	unsigned /*flags*/,
-	krb5_boolean */*reread*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_ret_address (
@@ -3769,12 +3789,6 @@ krb5_sendto_kdc_flags (
 	int /*flags*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_sendto_set_hostname (
-	krb5_context /*context*/,
-	krb5_sendto_ctx /*ctx*/,
-	const char */*hostname*/);
-
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_set_config_files (
 	krb5_context /*context*/,
 	char **/*filenames*/);
@@ -3802,12 +3816,12 @@ krb5_set_error_message (
 	...)
      __attribute__ ((format (printf, 3, 4)));
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_set_error_string (
 	krb5_context /*context*/,
 	const char */*fmt*/,
 	...)
-     __attribute__((format (printf, 2, 3)));
+     __attribute__((format (printf, 2, 3))) KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_set_extra_addresses (
@@ -3819,7 +3833,7 @@ krb5_set_fcache_version (
 	krb5_context /*context*/,
 	int /*version*/);
 
-krb5_boolean
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_set_home_dir_access (
 	krb5_context /*context*/,
 	krb5_boolean /*allow*/);
@@ -3911,6 +3925,9 @@ krb5_sockaddr2port (
 	int16_t */*port*/);
 
 KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_sockaddr_is_loopback (const struct sockaddr */*sa*/);
+
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
 krb5_sockaddr_uninteresting (const struct sockaddr */*sa*/);
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
@@ -3938,11 +3955,6 @@ krb5_storage_from_fd (krb5_socket_t /*fd_in*/);
 
 KRB5_LIB_FUNCTION krb5_storage * KRB5_LIB_CALL
 krb5_storage_from_mem (
-	void */*buf*/,
-	size_t /*len*/);
-
-krb5_storage * KRB5_LIB_FUNCTION
-krb5_storage_from_mem_copy (
 	void */*buf*/,
 	size_t /*len*/);
 
@@ -3988,6 +4000,11 @@ KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_storage_set_flags (
 	krb5_storage */*sp*/,
 	krb5_flags /*flags*/);
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_storage_set_max_alloc (
+	krb5_storage */*sp*/,
+	size_t /*size*/);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_storage_to_data (
@@ -4164,11 +4181,12 @@ krb5_string_to_key_salt_opaque (
 	krb5_data /*opaque*/,
 	krb5_keyblock */*key*/);
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_string_to_keytype (
 	krb5_context /*context*/,
 	const char */*string*/,
-	krb5_keytype */*keytype*/);
+	krb5_keytype */*keytype*/)
+     KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_string_to_salttype (
@@ -4195,7 +4213,7 @@ krb5_ticket_get_endtime (
 	krb5_context /*context*/,
 	const krb5_ticket */*ticket*/);
 
-unsigned long
+KRB5_LIB_FUNCTION unsigned long KRB5_LIB_CALL
 krb5_ticket_get_flags (
 	krb5_context /*context*/,
 	const krb5_ticket */*ticket*/);
@@ -4399,12 +4417,6 @@ krb5_verify_user_opt (
 	const char */*password*/,
 	krb5_verify_opt */*opt*/);
 
-    KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-    krb5_verify_opt_set_prompter(krb5_verify_opt *opt,
-				 krb5_prompter_fct prompter,
-				 void *prompter_data);
-
-    
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_verr (
 	krb5_context /*context*/,
@@ -4441,7 +4453,7 @@ krb5_vlog_msg (
 	va_list /*ap*/)
      __attribute__((format (printf, 5, 0)));
 
-void KRB5_LIB_FUNCTION
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_vprepend_error_message (
 	krb5_context /*context*/,
 	krb5_error_code /*ret*/,
@@ -4457,12 +4469,12 @@ krb5_vset_error_message (
 	va_list /*args*/)
      __attribute__ ((format (printf, 3, 0)));
 
-KRB5_DEPRECATED KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vset_error_string (
 	krb5_context /*context*/,
 	const char */*fmt*/,
 	va_list /*args*/)
-     __attribute__ ((format (printf, 2, 0)));
+     __attribute__ ((format (printf, 2, 0))) KRB5_DEPRECATED_FUNCTION("Use X instead");
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_vwarn (
@@ -4517,15 +4529,14 @@ krb5_write_safe_message (
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_xfree (void */*ptr*/);
 
-KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_sendto_context2(krb5_context context,
-		     krb5_sendto_ctx ctx,
-		     const krb5_data *send_data,
-		     const krb5_realm realm,
-		     krb5_data *receive);
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_realm_is_lkdc(const char *realm);
 
-KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-krb5_verify_opt_set_server(krb5_verify_opt *opt, krb5_principal server);
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_lkdc(krb5_context context, krb5_const_principal principal);
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_pku2u(krb5_context context, krb5_const_principal principal);
 
 KRB5_LIB_FUNCTION void KRB5_LIB_CALL
 krb5_auth_con_clear(krb5_context context,
@@ -4536,74 +4547,173 @@ KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
 krb5_data_format(krb5_data *data, const char *fmt, ...)
     HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3));
 
+
 krb5_error_code
 krb5_cc_hold(krb5_context context, krb5_ccache id);
 
 krb5_error_code
 krb5_cc_unhold(krb5_context context, krb5_ccache id);
-	
+
+krb5_error_code
+krb5_cc_get_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid);
+
+krb5_error_code
+krb5_cc_resolve_by_uuid(krb5_context context, const char *type,
+			krb5_ccache *id, krb5_uuid uuid);
+
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_set_home_dir_access(krb5_context context, krb5_boolean allow);
+
+krb5_boolean
+krb5_homedir_access(krb5_context context);
+
+krb5_error_code
+krb5_reload_config(krb5_context context,
+		   unsigned flags,
+		   krb5_boolean *reread);
+
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_set_debug_dest(krb5_context context, krb5_log_facility *fac);
+krb5_init_context_flags(unsigned int flags, krb5_context *context);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_sendto_set_hostname(krb5_context context,
+			 krb5_sendto_ctx ctx,
+			 const char *hostname);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_tkt_creds_init(krb5_context context,
+		    krb5_ccache ccache,
+                    krb5_creds *in_cred,
+		    krb5_flags options,
+                    krb5_tkt_creds_context *pctx);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_tkt_creds_step(krb5_context context,
+		    krb5_tkt_creds_context ctx,
+                    krb5_data *in,
+		    krb5_data *out,
+		    krb5_realm *realm,
+                    unsigned int *flags);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_tkt_creds_get_creds(krb5_context context,
+			 krb5_tkt_creds_context ctx,
+                         krb5_creds **cred);
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_tkt_creds_free(krb5_context context,
+		    krb5_tkt_creds_context ctx);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_get_all_any_addrs(krb5_context context, krb5_addresses *res);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_init_creds_warn_user(krb5_context context,
+			  krb5_init_creds_context ctx);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_kdc_hostname(krb5_context context,
+				 krb5_init_creds_context ctx,
+				 const char *hostname);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_set_pkinit_client_cert(krb5_context context,
+				       krb5_init_creds_context ctx,
+				       struct hx509_cert_data *cert);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_init_creds_store_config(krb5_context context,
+			     krb5_init_creds_context ctx,
+			     krb5_ccache id);
+
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_hostname(krb5_context context,
+			 krb5_krbhst_handle handle,
+			 const char *hostname);
+
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_null(krb5_context context, krb5_const_principal principal);
+
+int KRB5_LIB_FUNCTION
+krb5_rd_req_out_get_flags(krb5_context context, krb5_rd_req_out_ctx ctx);
+
+krb5_error_code
+krb5_ret_uuid(krb5_storage *sp, krb5_uuid uuid);
+
+krb5_error_code
+krb5_store_uuid(krb5_storage *sp, krb5_uuid uuid);
+
+krb5_storage * KRB5_LIB_FUNCTION
+krb5_storage_from_mem_copy(void *buf, size_t len);
+
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_verify_init_creds_opt_set_service(krb5_verify_init_creds_opt *options,
+				       const char *service);
 
 KRB5_LIB_FUNCTION krb5_log_facility * KRB5_LIB_CALL
 krb5_get_debug_dest(krb5_context context);
 
 KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-krb5_tkt_creds_init(krb5_context context,
-		    krb5_ccache ccache,
-		    krb5_creds *in_cred,
-		    krb5_flags options,
-		    krb5_tkt_creds_context *pctx);
-    
-    KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-    krb5_tkt_creds_step(krb5_context context,
-			krb5_tkt_creds_context ctx,
-			krb5_data *in,
-			krb5_data *out,
-			krb5_realm *realm,
-			unsigned int *flags);
-    
-   
-    KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
-    krb5_tkt_creds_get_creds(krb5_context context,
-			     krb5_tkt_creds_context ctx,
-			     krb5_creds **cred);
-    
-    KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-    krb5_tkt_creds_free(krb5_context context,
-			krb5_tkt_creds_context ctx);
+krb5_set_debug_dest(krb5_context context, krb5_log_facility *fac);
 
-    krb5_error_code
-    krb5_cc_resolve_by_uuid(krb5_context context, const char *type,
-			    krb5_ccache *id, krb5_uuid uuid);
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_verify_opt_set_server(krb5_verify_opt *opt, krb5_principal server);
 
-    krb5_error_code
-    krb5_cc_get_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid);
-    
-    krb5_boolean
-    krb5_homedir_access (krb5_context /*context*/);
-    
-    krb5_error_code
-    krb5_store_uuid(krb5_storage *sp, krb5_uuid uuid);
-
-    krb5_error_code
-    krb5_ret_uuid(krb5_storage *sp, krb5_uuid uuid);
-    
-    krb5_error_code
-    _krb5_plugin_run_f(krb5_context, const char *, const char *, int, int, void *,
-		       krb5_error_code (*)(krb5_context, const void *,
-					   void *, void *));
-
-    void _krb5_load_plugins(krb5_context, const char *, const char **);
+KRB5_LIB_FUNCTION void KRB5_LIB_CALL
+krb5_verify_opt_set_prompter(krb5_verify_opt *opt,
+			     krb5_prompter_fct prompter,
+			     void *prompter_data);
 
 
-    KRB5_LIB_FUNCTION void KRB5_LIB_CALL
-    krb5_verify_init_creds_opt_set_service(krb5_verify_init_creds_opt *options,
-					   const char *service);
+void
+krb5_load_plugins (
+	krb5_context /*context*/,
+	const char */*name*/,
+	const char **/*paths*/);
+
+krb5_error_code
+krb5_plugin_run_f (
+	krb5_context /*context*/,
+	const char */*module*/,
+	const char */*name*/,
+	int /*min_version*/,
+	int /*flags*/,
+	void */*userctx*/,
+	krb5_error_code (*/*func*/)(krb5_context, const void *, void *, void *));
+
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_gss_hostbased_service(krb5_context context,
+					krb5_const_principal principal);
+
+
+KRB5_LIB_FUNCTION krb5_boolean KRB5_LIB_CALL
+krb5_is_enctype_weak(krb5_context context, krb5_enctype enctype);
+
+krb5_error_code
+krb5_process_last_request(krb5_context context,
+			  krb5_get_init_creds_opt *options,
+			  krb5_init_creds_context ctx);
+
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+krb5_init_creds_set_fast_ccache(krb5_context context,
+				krb5_init_creds_context ctx,
+				krb5_ccache fast_ccache);
+
+krb5_error_code
+krb5_init_creds_store(krb5_context context,
+		      krb5_init_creds_context ctx,
+		      krb5_ccache id);
+
+krb5_boolean KRB5_LIB_FUNCTION
+krb5_principal_is_root_krbtgt(krb5_context context, krb5_const_principal p);
 
 #ifdef __cplusplus
 }
 #endif
+
+#undef KRB5_DEPRECATED_FUNCTION
 
 #endif /* __krb5_protos_h__ */

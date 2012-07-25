@@ -63,10 +63,10 @@
 #define __attribute__(__x)
 #endif
 #define APR_INLINE
-#define APR_HAS_INLINE		0
+#define APR_HAS_INLINE           0
 #else
 #define APR_INLINE __inline__
-#define APR_HAS_INLINE		1
+#define APR_HAS_INLINE           1
 #endif
 
 #define APR_HAVE_ARPA_INET_H     @arpa_ineth@
@@ -83,6 +83,7 @@
 #define APR_HAVE_NETINET_SCTP_H  @netinet_sctph@
 #define APR_HAVE_NETINET_SCTP_UIO_H @netinet_sctp_uioh@
 #define APR_HAVE_NETINET_TCP_H   @netinet_tcph@
+#define APR_HAVE_PROCESS_H       @processh@
 #define APR_HAVE_PTHREAD_H       @pthreadh@
 #define APR_HAVE_SEMAPHORE_H     @semaphoreh@
 #define APR_HAVE_SIGNAL_H        @signalh@
@@ -116,12 +117,48 @@
  */
 
 #if APR_HAVE_WINDOWS_H
-#include <windows.h>
+/* If windows.h was already included, our preferences don't matter.
+ * If not, include a restricted set of windows headers to our tastes.
+ */
+#ifndef _WINDOWS_
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #endif
 
-#if APR_HAVE_WINSOCK2_H
-#include <winsock2.h>
+#ifndef _WIN32_WINNT
+/* Restrict the server to a subset of Windows XP header files by default
+ */
+#define _WIN32_WINNT 0x0501
 #endif
+
+#ifndef NOUSER
+#define NOUSER
+#endif
+#ifndef NOMCX
+#define NOMCX
+#endif
+#ifndef NOIME
+#define NOIME
+#endif
+
+#include <windows.h>
+/* 
+ * Add a _very_few_ declarations missing from the restricted set of headers
+ * (If this list becomes extensive, re-enable the required headers above!)
+ * winsock headers were excluded by WIN32_LEAN_AND_MEAN, so include them now
+ */
+#define SW_HIDE             0
+#ifndef _WIN32_WCE
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <mswsock.h>
+#else
+#include <winsock.h>
+#endif
+
+#endif /* ndef _WINDOWS_ */
+#endif /* APR_HAVE_WINDOWS_H */
 
 #if APR_HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -238,12 +275,12 @@ extern "C" {
 #define APR_HAS_SO_ACCEPTFILTER   @acceptfilter@
 #define APR_HAS_UNICODE_FS        @have_unicode_fs@
 #define APR_HAS_PROC_INVOKED      @have_proc_invoked@
-#define APR_HAS_USER              1
+#define APR_HAS_USER              @apr_has_user@
 #define APR_HAS_LARGE_FILES       @aprlfs@
-#define APR_HAS_XTHREAD_FILES     0
+#define APR_HAS_XTHREAD_FILES     @apr_has_xthread_files@
 #define APR_HAS_OS_UUID           @osuuid@
 
-#define APR_PROCATTR_USER_SET_REQUIRES_PASSWORD 0
+#define APR_PROCATTR_USER_SET_REQUIRES_PASSWORD @apr_procattr_user_set_requires_password@
 
 /* APR sets APR_FILES_AS_SOCKETS to 1 on systems where it is possible
  * to poll on files/pipes.
@@ -277,16 +314,16 @@ typedef  unsigned @short_value@  apr_uint16_t;
 typedef  @int_value@             apr_int32_t;
 typedef  unsigned @int_value@    apr_uint32_t;
 
-typedef  @long_value@            apr_int64_t;
-typedef  unsigned @long_value@   apr_uint64_t;
+#define APR_SIZEOF_VOIDP @voidp_size@
+
+ typedef  @long_value@            apr_int64_t;
+ typedef  unsigned @long_value@   apr_uint64_t;
 
 typedef  @size_t_value@          apr_size_t;
 typedef  @ssize_t_value@         apr_ssize_t;
 typedef  @off_t_value@           apr_off_t;
 typedef  @socklen_t_value@       apr_socklen_t;
 typedef  @ino_t_value@           apr_ino_t;
-
-#define APR_SIZEOF_VOIDP @voidp_size@
 
 #if APR_SIZEOF_VOIDP == 8
 typedef  apr_uint64_t            apr_uintptr_t;
@@ -380,7 +417,7 @@ typedef  apr_uint32_t            apr_uintptr_t;
  *
  * </PRE>
  */
-#define APR_THREAD_FUNC
+#define APR_THREAD_FUNC       @apr_thread_func@
 
 /**
  * The public APR functions are declared with APR_DECLARE(), so they may
@@ -442,6 +479,7 @@ typedef  apr_uint32_t            apr_uintptr_t;
  * to find the logic for this definition search for "ssize_t_fmt" in
  * configure.in.
  */
+
 @ssize_t_fmt@
 
 /* And APR_SIZE_T_FMT */

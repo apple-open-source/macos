@@ -1,21 +1,21 @@
 <HTML>
-<!--This file created 2/7/11 2:02 PM by Claris Home Page version 3.0-->
+<!--This file created 5/10/12 4:44 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=62 BOTTOM=966 LEFT=685 RIGHT=1265>
+   <X-CLARIS-WINDOW TOP=55 BOTTOM=959 LEFT=922 RIGHT=1502>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X Xcode 4.1 Developer Release Copyright
-2011 by Apple, Inc. All Rights Reserved.</FONT></P>
+<P><FONT SIZE="-1">Mac OS X Xcode 4.4 Developer Release Copyright
+2012 by Apple, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X Xcode 4.1 Developer Release:<BR>
-Compiler Tools (cctools-800)</H2>
+<H2>Private Mac OS X Xcode 4.4 Developer Release:<BR>
+Compiler Tools (cctools-829)</H2>
 
-<P>This file contains release notes for the 5.29 release of the
-Compiler Tools for the Mac OS X Xcode 4.1 Developer Release. This
+<P>This file contains release notes for the 5.30 release of the
+Compiler Tools for the Mac OS X Xcode 4.3 Developer Release. This
 file contains information about the following topics:</P>
 
 <UL>
@@ -27,8 +27,375 @@ file contains information about the following topics:</P>
    on)&nbsp;</LI>
 </UL>
 
+<H2>Notes Specific to Release 5.31 (Mac OS X Xcode 4.4 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-828 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Made a fix to the change in libtool(1), for radar bug
+   #9087924, where an archive containing a fat file with bit code
+   slices was getting an error as not an object file. As the change
+   was casuing fat objects in arcives to get an error. Radar bug
+   #11423019.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-827 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Backed out the attempt to changed the encoding the ARM
+   assembler would use for 'add sp, #-8' for unified syntax to be the
+   2 byte encoding not the 4 byte encodeing as the change was causing
+   other problems. Radar bug #11403124.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-826 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the cctools sources use of the _NSGetExecutablePath()
+   API to pass the second parameter with the correct type. Radar
+   11274640.</LI>
+   
+   <LI>Changed the encoding the ARM assembler would use for 'add sp,
+   #-8' for unified syntax to be the 2 byte encoding not the 4 byte
+   encodeing. Radar bug #11215603.</LI>
+   
+   <LI>Fixed a bug in libtool(1) where an archive containing a fat
+   file with bit code slices was getting an error as not an object
+   file. Radar bug #9087924.</LI>
+   
+   <LI>Changed the cctools source lipo.c so it will build if LTO is
+   not defined. Radar bug #11296366.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-824 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strip(1) so that the -no_uuid flag works in the
+   full strip case. Radar bug #11136733.</LI>
+   
+   <LI>Added the -q and -Q flags to the as(1) driver. The -q flag
+   runs clang and uses the integrated assembler. The -Q flag runs the
+   gas based assembler. Radar bug #11139995.</LI>
+   
+   <LI>Added the -q and -Q flags to otool(1) for use when doing
+   disassembly. The -q flag the llvm disassembler. And the -Q flag
+   uses otool(1)'s internal disassembler. Radar bug #11139995.</LI>
+   
+   <LI>Fixed the project source and added a few missing extern's on
+   some internal declreations. Radar bug #11136207.</LI>
+   
+   <LI>Fixed ranlib(1) so it would not crash when trying to create
+   the table of contents for a large archive. Radar bug
+   #11089424.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-823 for
+the 5.31 Mac OS X Xcode 4.4 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed tools like nm(1) to work with dSYM files and not give
+   errors about removed section contents offsets overlapping. Radar
+   bug #10688477.</LI>
+   
+   <LI>Fixed a bug in otool(1) not correctly print literal pointer
+   sections in 64-bit objects. Radar bug #10934543.</LI>
+   
+   <LI>Fixed some bugs in libtool(1) causing it to crash in handing
+   input files close to 4GB in size. Radar bug #10645295.</LI>
+   
+   <LI>Changed otool(1) for arm binaries to disassemble stubs
+   sections as arm code not thumb code. Radar bug #10539919.</LI>
+   
+   <LI>For the usage help in otool(1) added a mention of -arch. Radar
+   bug #10988552.</LI>
+   
+   <LI>Changed codesign_allocate(1) to not give an error about
+   section offsets for zero sized sections not being past the headers
+   of the file. Radar bug #9608550.</LI>
+   
+   <LI>Fixed libtool(1) to not give a error when using an LLVM
+   bit-code file. Radar bug #9087924.</LI>
+   
+   <LI>Added a check to the arm assembler to correctly detect an
+   error when the 64 size is used with a vld/sld other than
+   vld1/sld1. Radar bug #11024563.</LI>
+   
+   <LI>Changed the cctools project to strip(1) from the platform when
+   building. Radar bug #10801469.</LI>
+   
+   <LI>Changed the cctools project to find headers in
+   $(DT_TOOLCHAIN_DIR)/usr/local/include . Radar bug #11015395.</LI>
+   
+   <LI>Changed the cctools project to not create the symbolic links
+   $(DSTROOT)/usr/local/bin/nmedit . Radar bug #10688477.</LI>
+   
+   <LI>Changed the cctools project to not install the
+   /usr/share/man/man1/ld_classic.1 man page. Radar bug
+   #10708500.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-822 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated as(1) so that with the -q option it will use the llvm
+   assembler for intel. Radar bug #10746390.</LI>
+   
+   <LI>Updated otool(1) so that with the -q option it will use the
+   llvm disassembler for intel. Radar bug #9354143.</LI>
+   
+   <LI>Fixed a bug that could cause ar(1) to crash. Radar bug
+   #10843929.</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.30 (Mac OS X Xcode 4.3 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-821 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed bugs in strip(1) caused by the changes in cctools-821
+   and the chantes in Radar bug #10718585.</LI>
+   
+   <LI>Fixed the bug in strip(1) that caused it to trash code signed
+   binaries. Radar bug #10709632.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-820 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strip(1) when used on code signed binaries.
+   Radar bug #10718585.</LI>
+   
+   <LI>Fixed a bug in codesign_allocate(1) that corrupts the binary
+   when there is insufficient Mach-O header pad. Radar bug
+   #10652697.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-819 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>For Xcode 4.3 repackaging, changed the install location of the
+   cctools project to use $(DT_TOOLCHAIN_DIR) if it is set, if not
+   use $(INSTALL_LOCATION). Radar bug #10359182.</LI>
+   
+   <LI>Eliminated the use of the vers_string(1) in building the
+   cctools project. Radar bug #10596469.</LI>
+   
+   <LI>Fixed the dwarf debugging information generated with assembly
+   source so that it will not generate zero length TAG_subprogram
+   dwarf debug info. Radar bug #10466662.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-818 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the dwarf debugging information generated with
+   assembly source so that they are marked as laving no prototype and
+   unspecified parameters. Radar bug #10537250.</LI>
+   
+   <LI>Changed the dwarf debugging information generated with
+   assembly source so that it will not generate zero length
+   TAG_subprogram dwarf debug info. Radar bug #10466662.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-817 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in strip(1) that would cause it to crash on static
+   binaries containing function starts data. Radar bug
+   #10506809.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-816 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the type of the n_strx field in the nlist struct in
+   &lt;mach-o/nlist.h&gt; to be uint32_t and not int32_t. Radar bug
+   #10464743.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-815 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the arm assembler so that for the thumb multiply
+   instructions it will use the 16-bit T1 encoding if either either
+   source register is the same as the destination register. Radar bug
+   #10433396.</LI>
+   
+   <LI>Fixed a problem with dwarf generated for assembly source with
+   -g for arm assembly code and symbols marked with .thumb_func.
+   Radar bug #10409052.</LI>
+   
+   <LI>Changed ctf_insert(1) to allow a static binary with a dynamic
+   symbol table load command that has local relocation entries. Radar
+   bug #10405248.</LI>
+   
+   <LI>Changed the cctools project to have the lipo(1) and strings(1)
+   man pages installed with the install_os_tools make target. Radar
+   bug #10428485.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-814 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed otool(1) when printing x86_64 relocation entries where
+   the value of the r_address field is negative and not printing it
+   as a scattered relocation entry. Radar bug #10347403.</LI>
+   
+   <LI>Improved the as(1) error message when assembling with -g and
+   the input file contains dwarf .file directives. Radar bug
+   #9976587.</LI>
+   
+   <LI>Changed the intel assembler to accept the popcnt instructions
+   with a suffix. Radar bug #10385539.</LI>
+   
+   <LI>Changed the cctools project to have have the install_os_tools
+   target for OS tools lipo(1) and strings(1). Radar bug
+   #10391158.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-813 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added support for new load commands LC_MAIN, LC_DATA_IN_CODE,
+   LC_SOURCE_VERSION and LC_DYLIB_CODE_SIGN_DRS. Radar bug
+   #10290817.</LI>
+   
+   <LI>Fixed a bug in otool(1) that was showing incorrect address for
+   x86_64 call instructions when the high bit of the displacement was
+   set. Radar bug #10193562.</LI>
+   
+   <LI>Fixed a bug in ctf_insert(1) that did not correctly handle
+   binaries that contained LC_FUNCTION_STARTS load commands. Radar
+   bug #10171548.</LI>
+   
+   <LI>Changed strip(1) with the -S or -x options to remove DWARF
+   from 32-biti architectures. Radar bug #7076828.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-812 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Added printing sumbol stub names to branches as comments in
+   otool(1) when using the -q flag and the llvm-mc arm disassembler.
+   Radar bug #10026561.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-811 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the arm assembler encoding of the sev instruction. Radar
+   bug #10133308.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-810 for
+the 5.30 Mac OS X Xcode 4.3 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed the cctools Makefiles to use c++ not g++. Radar bug
+   #10057952.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-809 for
+the 5.30 Mac OS X Xcode 4.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed otool(1) to print full 64-bit address for cstring
+   sections. Radar bug #9957089.</LI>
+</UL>
+
+<H2>Notes Specific to Release 5.30 (Mac OS X Xcode 4.2 Developer
+Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-808 for
+the 5.30 Mac OS X Xcode 4.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed lipo(1) so it would recognize LLVM bit-code archives and
+   files. Radar bug #9087924.</LI>
+   
+   <LI>Changed the assembler driver to only use target assembers
+   installed under /usr/libexec/as and only install the target
+   assemblers there. Radar bug #9908131.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-807 for
+the 5.30 Mac OS X Xcode 4.2 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in ranlib(1) that caused it to crash. Radar bug
+   #9830754.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-806.2 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the assemblers to allow instructions that are being
+   assembled with things like .long to trigger debugging line
+   numbers. Radar bug #9811389.</LI>
+</UL>
+
 <H2>Notes Specific to Release 5.29 (Mac OS X Xcode 4.1 Developer
 Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-805 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed more bugs introduced in ranlib(1) causing incorrect
+   error messages about table of contents. Radar bug #9475790.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-803 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed bugs introduced in strip(1) and libtool(1) causing
+   incorrect error messages about table of contents. Radar bug
+   #9505797.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-802 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Updated ranlib(1) to update table of contents in place when
+   possible. Radar bug #9354605.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-801 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a problem with the fast 'nop' ranlib(1) in libtool(1).
+   Radar bug #9418154.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-800 for
+the 5.29 Mac OS X Xcode 4.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Implemented a fast 'nop' ranlib(1) when run right after ar(1)
+   has already run ranlib(1). Radar bug #9354501.</LI>
+</UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-799 for
 the 5.28 Mac OS X Xcode 3.2.3 Developer release)</FONT></H5>

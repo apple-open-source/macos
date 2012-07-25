@@ -1,5 +1,5 @@
 /*
- * "$Id: checkpo.c 9384 2010-11-22 07:06:39Z mike $"
+ * "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $"
  *
  *   Verify that translations in the .po file have the same number and type of
  *   printf-style format strings.
@@ -409,5 +409,5 @@ free_formats(cups_array_t *fmts)	/* I - Array of format strings */
 
 
 /*
- * End of "$Id: checkpo.c 9384 2010-11-22 07:06:39Z mike $".
+ * End of "$Id: checkpo.c 9048 2010-03-24 08:07:15Z mike $".
  */

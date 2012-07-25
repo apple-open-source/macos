@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,6 +64,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wipefs.h>
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOStorageCardCharacteristics.h>
@@ -633,7 +634,7 @@ main(int argc, char *argv[])
 		/* Start with number of reserved sectors */
 		x = bpb.res ? bpb.res : bss;
 		/* Plus number of sectors used by FAT */
-		x = howmany((RESFTE+MAXCLS12+1)*(12/BPN), bpb.bps*NPB) * bpb.nft;
+		x += howmany((RESFTE+MAXCLS12+1)*(12/BPN), bpb.bps*NPB) * bpb.nft;
 		/* Plus root directory */
 		x += howmany(bpb.rde ? bpb.rde : DEFRDE, bpb.bps / sizeof(struct de));
 		/* Plus data clusters */
@@ -803,18 +804,52 @@ main(int argc, char *argv[])
         bpb.spf = 0;
         bpb.sec = 0;
     }
+    
     print_bpb(&bpb);
-    if (!opt_N) {	
+    
+    if (!opt_N) {
+	u_int sectors_to_write;
+	
+	/*
+	 * Get the current date and time in case we need it for the volume ID.
+	 */
         gettimeofday(&tv, NULL);
         now = tv.tv_sec;
         tm = localtime(&now);
+	
+	/*
+	 * Allocate a buffer for assembling the to-be-written sectors, and
+	 * a separate buffer for the boot sector (which will be written last).
+	 */
         if (!(io_buffer = malloc(IO_BUFFER_SIZE)))
             err(1, NULL);
         if (!(bpb_buffer = malloc(bpb.bps)))
             err(1, NULL);
 	img = io_buffer;
         dir = bpb.res + (bpb.spf ? bpb.spf : bpb.bspf) * bpb.nft;
-	for (lsn = 0; lsn < dir + (fat == 32 ? bpb.spc : rds); lsn++) {
+	sectors_to_write = dir + (fat == 32 ? bpb.spc : rds);
+
+	/*
+	 * Invalidate any prior file system by overwriting their identifying
+	 * information.  NOTE: wipefs will also send a DKIOCDISCARD.
+	 */
+	wipefs_ctx wiper;
+	int error;
+	error = wipefs_alloc(fd, bpb.bps, &wiper);
+	if (error)
+	    errc(1, error, "%s: wipefs_alloc()", fname);
+	error = wipefs_except_blocks(wiper, 0, sectors_to_write);
+	if (error)
+	    errc(1, error, "%s: wipefs_except_blocks()", fname);
+	error = wipefs_wipe(wiper);
+	if (error)
+	    errc(1, error, "%s: wipefs_wipe()", fname);
+	wipefs_free(&wiper);
+	
+	/*
+	 * Now start writing the new file system to disk.
+	 */
+	for (lsn = 0; lsn < sectors_to_write; lsn++) {
 	    x = lsn;
 	    if (opt_B &&
 		fat == 32 && bpb.bkbs != MAXU16 &&
@@ -1009,7 +1044,7 @@ getdiskinfo(int fd, const char *fname, const char *dtype, int oflag,
     /*
      * If we'll need the block count or block size, get them now.
      */
-    if (!bpb->bsec)
+    if (!bpb->bsec || !bpb->hds)
     {
 	if (ioctl(fd, DKIOCGETBLOCKCOUNT, &block_count) == -1)
 	    err(1, "%s: Cannot get number of sectors", fname);
@@ -1143,8 +1178,6 @@ static enum SDCardType sd_card_type_for_path(const char *path)
 	    result = kCardTypeSDXC;
     }
     
-    if (cardType)
-	CFRelease(cardType);
     if (cardCharacteristics)
 	CFRelease(cardCharacteristics);
     if (obj)

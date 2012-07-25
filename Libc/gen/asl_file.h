@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -147,4 +147,4 @@ uint64_t asl_file_ctime(asl_file_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IP
 
 uint32_t asl_file_compact(asl_file_t *s, const char *path, mode_t mode, uid_t uid, gid_t gid) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-#endif __ASL_FILE_H__
+#endif /* __ASL_FILE_H__ */

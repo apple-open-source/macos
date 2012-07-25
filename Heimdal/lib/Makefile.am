@@ -2,8 +2,8 @@
 
 include $(top_srcdir)/Makefile.am.common
 
-if EDITLINE
-dir_editline = editline
+if LIBEDIT
+dir_editline = libedit
 endif
 if OTP
 dir_otp = otp
@@ -40,5 +40,6 @@ SUBDIRS = \
 	hdb \
 	kadm5 \
 	$(dir_otp) \
-	$(dir_dce) \
-	auth
+	$(dir_dce)
+
+EXTRA_DIST = NTMakefile heimdal

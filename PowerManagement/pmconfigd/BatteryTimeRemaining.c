@@ -578,8 +578,8 @@ static int _populateTimeRemaining(IOPMBattery **batts)
         } 
                         
 #if 0
-/* Battery time remaining estimate is provided directly by the battery.
- */
+    /* Battery time remaining estimate is provided directly by the battery.
+     */
         b->swCalculatedTR = b->hwAverageTR;
 #endif
 
@@ -964,7 +964,7 @@ typedef struct {
 static void stuffInt32(CFMutableDictionaryRef d, CFStringRef k, uint32_t n)
 {
     CFNumberRef stuffNum = NULL;
-    if (stuffNum = CFNumberCreate(0, kCFNumberSInt32Type, &n)) 
+    if ((stuffNum = CFNumberCreate(0, kCFNumberSInt32Type, &n))) 
     {
         CFDictionarySetValue(d, k, stuffNum);
         CFRelease(stuffNum);
@@ -1107,12 +1107,12 @@ exit:
 
 
 /***********************************************************************************/
-/* newKeyForType
+/* copyNewKeyForType
  * Assigns a unique string as the key for the power source type.
  * The name should reflect the power source's type, and should have a unique
  * integer appended to unique it within the system.
  */
-static CFStringRef _newKeyForType(char *type)
+static CFStringRef _copyNewKeyForType(char *type)
 {
     CFStringRef         scKey = NULL;
     CFStringRef         typeString = NULL;
@@ -1256,7 +1256,7 @@ kern_return_t _io_pm_new_pspowersource(
                 MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
                 &oldNotify);                                // previous
   
-    new_tracker->scdsKey = _newKeyForType(clienttype);
+    new_tracker->scdsKey = _copyNewKeyForType(clienttype);
     
     if (new_tracker->scdsKey) 
     {
@@ -1289,13 +1289,14 @@ kern_return_t _io_pm_update_pspowersource(
     if (!dskeyCFSTR)
         goto exit;
 
-    details = isA_CFDictionary(IOCFUnserialize((const char *)details_ptr, NULL, 0, NULL));
+    details = IOCFUnserialize((const char *)details_ptr, NULL, 0, NULL);
     if (!details)
         goto exit;
-
-    PMStoreSetValue(dskeyCFSTR, details);
     
-    *return_code = kIOReturnSuccess;
+    if (isA_CFDictionary(details)) {
+        PMStoreSetValue(dskeyCFSTR, details);    
+        *return_code = kIOReturnSuccess;
+    }
 exit:
     if (dskeyCFSTR)
         CFRelease(dskeyCFSTR);

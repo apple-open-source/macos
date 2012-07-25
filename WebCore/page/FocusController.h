@@ -27,6 +27,7 @@
 #define FocusController_h
 
 #include "FocusDirection.h"
+#include "LayoutTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
@@ -34,16 +35,33 @@
 namespace WebCore {
 
 struct FocusCandidate;
+class Document;
+class Element;
 class Frame;
+class HTMLFrameOwnerElement;
 class IntRect;
 class KeyboardEvent;
 class Node;
 class Page;
+class TreeScope;
+
+class FocusScope {
+public:
+    Node* rootNode() const;
+    Element* owner() const;
+    static FocusScope focusScopeOf(Node*);
+    static FocusScope focusScopeOwnedByShadowHost(Node*);
+    static FocusScope focusScopeOwnedByIFrame(HTMLFrameOwnerElement*);
+
+private:
+    explicit FocusScope(TreeScope*);
+    TreeScope* m_rootTreeScope;
+};
 
 class FocusController {
     WTF_MAKE_NONCOPYABLE(FocusController); WTF_MAKE_FAST_ALLOCATED;
 public:
-    FocusController(Page*);
+    static PassOwnPtr<FocusController> create(Page*);
 
     void setFocusedFrame(PassRefPtr<Frame>);
     Frame* focusedFrame() const { return m_focusedFrame.get(); }
@@ -60,18 +78,45 @@ public:
     void setFocused(bool);
     bool isFocused() const { return m_isFocused; }
 
+    void setContainingWindowIsVisible(bool);
+    bool containingWindowIsVisible() const { return m_containingWindowIsVisible; }
+
 private:
+    FocusController(Page*);
+
     bool advanceFocusDirectionally(FocusDirection, KeyboardEvent*);
     bool advanceFocusInDocumentOrder(FocusDirection, KeyboardEvent*, bool initialFocus);
 
-    bool advanceFocusDirectionallyInContainer(Node* container, const IntRect& startingRect, FocusDirection, KeyboardEvent*);
-    void findFocusCandidateInContainer(Node* container, const IntRect& startingRect, FocusDirection, KeyboardEvent*, FocusCandidate& closest);
+    Node* findFocusableNodeAcrossFocusScope(FocusDirection, FocusScope startScope, Node* start, KeyboardEvent*);
+    Node* findFocusableNodeRecursively(FocusDirection, FocusScope, Node* start, KeyboardEvent*);
+    Node* findFocusableNodeDecendingDownIntoFrameDocument(FocusDirection, Node*, KeyboardEvent*);
+
+    // Searches through the given tree scope, starting from start node, for the next/previous selectable element that comes after/before start node.
+    // The order followed is as specified in section 17.11.1 of the HTML4 spec, which is elements with tab indexes
+    // first (from lowest to highest), and then elements without tab indexes (in document order).
+    //
+    // @param start The node from which to start searching. The node after this will be focused. May be null.
+    //
+    // @return The focus node that comes after/before start node.
+    //
+    // See http://www.w3.org/TR/html4/interact/forms.html#h-17.11.1
+    inline Node* findFocusableNode(FocusDirection, FocusScope, Node* start, KeyboardEvent*);
+
+    Node* nextFocusableNode(FocusScope, Node* start, KeyboardEvent*);
+    Node* previousFocusableNode(FocusScope, Node* start, KeyboardEvent*);
+
+    Node* findNodeWithExactTabIndex(Node* start, int tabIndex, KeyboardEvent*, FocusDirection);
+
+    bool advanceFocusDirectionallyInContainer(Node* container, const LayoutRect& startingRect, FocusDirection, KeyboardEvent*);
+    void findFocusCandidateInContainer(Node* container, const LayoutRect& startingRect, FocusDirection, KeyboardEvent*, FocusCandidate& closest);
 
     Page* m_page;
     RefPtr<Frame> m_focusedFrame;
     bool m_isActive;
     bool m_isFocused;
     bool m_isChangingFocusedFrame;
+    bool m_containingWindowIsVisible;
+
 };
 
 } // namespace WebCore

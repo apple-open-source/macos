@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,7 @@
 /*
  * Modification History
  *
- * March1, 2010			Christophe Allie <callie@apple.com>
+ * March 1, 2010			Christophe Allie <callie@apple.com>
  * - initial revision
  */
 
@@ -34,6 +34,9 @@
 #include <sys/cdefs.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
+extern CFStringRef		username;
+extern CFStringRef		password;
+extern CFStringRef		sharedsecret;
 
 __BEGIN_DECLS
 

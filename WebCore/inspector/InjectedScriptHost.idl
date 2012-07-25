@@ -31,18 +31,22 @@
  */
 
 module core {
-    interface [Conditional=INSPECTOR] InjectedScriptHost {
+    interface [
+        Conditional=INSPECTOR
+    ] InjectedScriptHost {
         void clearConsoleMessages();
 
         void copyText(in DOMString text);
         [Custom] void inspect(in DOMObject objectId, in DOMObject hints);
-        [Custom] DOMObject inspectedNode(in int num);
+        [Custom] DOMObject inspectedObject(in int num);
         [Custom] DOMObject internalConstructorName(in DOMObject object);
         [Custom] boolean isHTMLAllCollection(in DOMObject object);
         [Custom] DOMString type(in DOMObject object);
+        [Custom] DOMObject functionDetails(in DOMObject object);
+        [Custom] Array getEventListeners(in Node node);
 
-        [Custom] int databaseId(in DOMObject database);
-        [Custom] int storageId(in DOMObject storage);
+        [Custom] DOMString databaseId(in DOMObject database);
+        [Custom] DOMString storageId(in DOMObject storage);
 
 #if defined(ENABLE_WORKERS) && ENABLE_WORKERS
         void didCreateWorker(in long id, in DOMString url, in boolean isFakeWorker);

@@ -851,7 +851,7 @@ ZEXTERN int ZEXPORT inflateReset OF((z_streamp strm));
 
 ZEXTERN int ZEXPORT inflateReset2 OF((z_streamp strm,
                                       int windowBits))
-                                      __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                      __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 /*
      This function is the same as inflateReset, but it also permits changing
    the wrap and window size requests.  The windowBits parameter is interpreted
@@ -884,7 +884,7 @@ ZEXTERN int ZEXPORT inflatePrime OF((z_streamp strm,
 */
 
 ZEXTERN long ZEXPORT inflateMark OF((z_streamp strm))
-                                     __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                     __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 /*
      This function returns two values, one in the lower 16 bits of the return
    value, and the other in the remaining upper bits, obtained by shifting the
@@ -1214,7 +1214,7 @@ ZEXTERN gzFile ZEXPORT gzdopen OF((int fd, const char *mode));
 */
 
 ZEXTERN int ZEXPORT gzbuffer OF((gzFile file, unsigned size))
-                                 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 /*
      Set the internal buffer size used by this library's functions.  The
    default buffer size is 8192 bytes.  This function must be called after
@@ -1431,9 +1431,9 @@ ZEXTERN int ZEXPORT    gzclose OF((gzFile file));
 */
 
 ZEXTERN int ZEXPORT gzclose_r OF((gzFile file))
-                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 ZEXTERN int ZEXPORT gzclose_w OF((gzFile file))
-                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                  __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 /*
      Same as gzclose(), but gzclose_r() is only for use when reading, and
    gzclose_w() is only for use when writing or appending.  The advantage to
@@ -1605,7 +1605,7 @@ ZEXTERN int ZEXPORT inflateBackInit_ OF((z_streamp strm, int windowBits,
    ZEXTERN z_off_t ZEXPORT gzseek OF((gzFile, z_off_t, int));
    ZEXTERN z_off_t ZEXPORT gztell OF((gzFile));
    ZEXTERN z_off_t ZEXPORT gzoffset OF((gzFile))
-                                        __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                        __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
    ZEXTERN uLong ZEXPORT adler32_combine OF((uLong, uLong, z_off_t));
    ZEXTERN uLong ZEXPORT crc32_combine OF((uLong, uLong, z_off_t));
 #endif
@@ -1620,7 +1620,7 @@ ZEXTERN const char   * ZEXPORT zError           OF((int));
 ZEXTERN int            ZEXPORT inflateSyncPoint OF((z_streamp));
 ZEXTERN const uLongf * ZEXPORT get_crc_table    OF((void));
 ZEXTERN int            ZEXPORT inflateUndermine OF((z_streamp, int))
-                                                    __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_NA);
+                                                    __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 
 #ifdef __cplusplus
 }

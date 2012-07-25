@@ -1,0 +1,10 @@
+#include "common.xcconfig"
+
+// Update these as needed.
+// Generated dylib is libcurl.$(CURL_LIBRARY_VERSION).dylib
+CURL_LIBRARY_VERSION = 4
+DYLIB_COMPATIBILITY_VERSION = 7
+DYLIB_CURRENT_VERSION = 7
+
+OTHER_LDFLAGS = -framework LDAP
+OTHER_LDFLAGS[sdk=macosx*] = -lssl -lcrypto -weak_framework LDAP -weak_framework Kerberos

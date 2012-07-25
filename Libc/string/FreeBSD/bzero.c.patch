@@ -1,8 +1,0 @@
---- bzero.c.orig	Fri Mar 22 13:53:19 2002
-+++ bzero.c	Sat May  3 14:33:50 2003
-@@ -2,4 +2,4 @@
- __FBSDID("$FreeBSD: src/lib/libc/string/bzero.c,v 1.2 2002/03/22 21:53:19 obrien Exp $");
- 
- #define	BZERO
--#include "memset.c"
-+#include "memset-fbsd.c"

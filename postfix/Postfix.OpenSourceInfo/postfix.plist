@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2011-07-07</string>
+	<string>2012-05-03</string>
 	<key>OpenSourceLicense</key>
 	<string>IBM PUBLIC LICENSE VERSION 1.0 - SECURE MAILER</string>
 	<key>OpenSourceLicenseFile</key>
@@ -18,9 +18,9 @@
 	<key>OpenSourceProject</key>
 	<string>Postfix</string>
 	<key>OpenSourceURL</key>
-	<string>http://postfix.energybeam.com/source/official/postfix-2.8.4.tar.gz</string>
+	<string>ftp://postfix.cloud9.net/official/postfix-2.9.2.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>postfix-2.8.4</string>
+	<string>postfix-2.9.2</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.postfix.org</string>
 </dict>

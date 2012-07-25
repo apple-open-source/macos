@@ -26,54 +26,111 @@
 #include "config.h"
 #include "WebCoreArgumentCoders.h"
 
-#include <WebCore/NotImplemented.h>
+#include <WebCore/ResourceError.h>
+#include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 
+using namespace WebCore;
+ 
 namespace CoreIPC {
 
-void encodeResourceRequest(ArgumentEncoder* encoder, const WebCore::ResourceRequest& resourceRequest)
+void ArgumentCoder<ResourceRequest>::encode(ArgumentEncoder* encoder, const ResourceRequest& resourceRequest)
 {
-    notImplemented();
+    encoder->encode(resourceRequest.url().string());
 }
 
-bool decodeResourceRequest(ArgumentDecoder* decoder, WebCore::ResourceRequest& resourceRequest)
+bool ArgumentCoder<ResourceRequest>::decode(ArgumentDecoder* decoder, ResourceRequest& resourceRequest)
 {
-    notImplemented();
-
-    // FIXME: Add real implementation when we want to implement something that
+    // FIXME: Add *more* coding implementation when we want to implement something that
     // depends on this like the policy client.
-    resourceRequest = WebCore::ResourceRequest();
+
+    ResourceRequest request;
+    String url;
+    if (!decoder->decode(url))
+        return false;
+    request.setURL(KURL(WebCore::ParsedURLString, url));
+
+    resourceRequest = request;
     return true;
 }
 
-void encodeResourceResponse(ArgumentEncoder* encoder, const WebCore::ResourceResponse& resourceResponse)
+
+void ArgumentCoder<ResourceResponse>::encode(ArgumentEncoder* encoder, const ResourceResponse& resourceResponse)
 {
-    notImplemented();
+    encoder->encode(resourceResponse.url().string());
+    encoder->encode(resourceResponse.mimeType());
+    encoder->encode(static_cast<int64_t>(resourceResponse.expectedContentLength()));
+    encoder->encode(resourceResponse.textEncodingName());
+    encoder->encode(resourceResponse.suggestedFilename());
 }
 
-bool decodeResourceResponse(ArgumentDecoder* decoder, WebCore::ResourceResponse& resourceResponse)
+bool ArgumentCoder<ResourceResponse>::decode(ArgumentDecoder* decoder, ResourceResponse& resourceResponse)
 {
-    notImplemented();
+    ResourceResponse response;
 
-    // FIXME: Ditto.
-    resourceResponse = WebCore::ResourceResponse();
+    String url;
+    if (!decoder->decode(url))
+        return false;
+    response.setURL(KURL(WebCore::ParsedURLString, url));
+
+    String mimeType;
+    if (!decoder->decode(mimeType))
+        return false;
+    response.setMimeType(mimeType);
+
+    int64_t contentLength;
+    if (!decoder->decode(contentLength))
+        return false;
+    response.setExpectedContentLength(contentLength);
+
+    String textEncodingName;
+    if (!decoder->decode(textEncodingName))
+        return false;
+    response.setTextEncodingName(textEncodingName);
+
+    String suggestedFilename;
+    if (!decoder->decode(suggestedFilename))
+        return false;
+    response.setSuggestedFilename(suggestedFilename);
+
+    resourceResponse = response;
     return true;
 }
 
-void encodeResourceError(ArgumentEncoder* encoder, const WebCore::ResourceError& resourceError)
+
+void ArgumentCoder<ResourceError>::encode(ArgumentEncoder* encoder, const ResourceError& resourceError)
 {
-    encoder->encode(CoreIPC::In(resourceError.domain(), resourceError.errorCode(), resourceError.failingURL(), resourceError.localizedDescription()));
+    encoder->encode(resourceError.domain());
+    encoder->encode(resourceError.errorCode());
+    encoder->encode(resourceError.failingURL());
+    encoder->encode(resourceError.localizedDescription());
+    encoder->encode(resourceError.isCancellation());
 }
 
-bool decodeResourceError(ArgumentDecoder* decoder, WebCore::ResourceError& resourceError)
+bool ArgumentCoder<ResourceError>::decode(ArgumentDecoder* decoder, ResourceError& resourceError)
 {
     String domain;
-    int errorCode;
-    String failingURL;
-    String localizedDescription;
-    if (!decoder->decode(CoreIPC::Out(domain, errorCode, failingURL, localizedDescription)))
+    if (!decoder->decode(domain))
         return false;
-    resourceError = WebCore::ResourceError(domain, errorCode, failingURL, localizedDescription);
+
+    int errorCode;
+    if (!decoder->decode(errorCode))
+        return false;
+
+    String failingURL;
+    if (!decoder->decode(failingURL))
+        return false;
+
+    String localizedDescription;
+    if (!decoder->decode(localizedDescription))
+        return false;
+
+    bool isCancellation;
+    if (!decoder->decode(isCancellation))
+        return false;
+
+    resourceError = ResourceError(domain, errorCode, failingURL, localizedDescription);
+    resourceError.setIsCancellation(isCancellation);
     return true;
 }
 

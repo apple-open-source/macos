@@ -23,7 +23,7 @@
  */
 
 // FIXME: This is temporary until all ports switch to using this file.
-#if PLATFORM(CHROMIUM) && !OS(DARWIN)
+#if (PLATFORM(CHROMIUM) && !OS(DARWIN)) || PLATFORM(BLACKBERRY)
 #include "chromium/FontPlatformData.h"
 #elif PLATFORM(QT)
 #include "qt/FontPlatformData.h"
@@ -50,16 +50,12 @@
 #endif
 
 #if USE(CAIRO)
-#include "HashFunctions.h"
+#include <wtf/HashFunctions.h>
 #include <cairo.h>
 #endif
 
 #if OS(DARWIN)
-#ifdef __OBJC__
-@class NSFont;
-#else
-class NSFont;
-#endif
+OBJC_CLASS NSFont;
 
 typedef struct CGFont* CGFontRef;
 typedef const struct __CTFont* CTFontRef;
@@ -82,7 +78,7 @@ typedef const struct __CTFont* CTFontRef;
 typedef struct HFONT__* HFONT;
 #endif
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 typedef struct CGFont* CGFontRef;
 #if OS(DARWIN)
 typedef const struct __CTFont* CTFontRef;
@@ -95,6 +91,7 @@ typedef UInt32 ATSFontRef;
 namespace WebCore {
 
 class FontDescription;
+class SharedBuffer;
 
 #if OS(DARWIN)
 inline CTFontRef toCTFontRef(NSFont *nsFont) { return reinterpret_cast<CTFontRef>(nsFont); }
@@ -120,6 +117,10 @@ public:
         , m_scaledFont(hashTableDeletedFontValue())
 #endif
         , m_isColorBitmapFont(false)
+        , m_isCompositeFontReference(false)
+#if OS(DARWIN)
+        , m_isPrinterFont(false)
+#endif
 #if PLATFORM(WIN)
         , m_useGDI(false)
 #endif
@@ -142,6 +143,10 @@ public:
         , m_scaledFont(0)
 #endif
         , m_isColorBitmapFont(false)
+        , m_isCompositeFontReference(false)
+#if OS(DARWIN)
+        , m_isPrinterFont(false)
+#endif
 #if PLATFORM(WIN)
         , m_useGDI(false)
 #endif
@@ -167,6 +172,10 @@ public:
         , m_scaledFont(0)
 #endif
         , m_isColorBitmapFont(false)
+        , m_isCompositeFontReference(false)
+#if OS(DARWIN)
+        , m_isPrinterFont(false)
+#endif
 #if PLATFORM(WIN)
         , m_useGDI(false)
 #endif
@@ -174,9 +183,9 @@ public:
     }
 
 #if OS(DARWIN)
-    FontPlatformData(NSFont*, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = Horizontal,
-                     TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth);
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+    FontPlatformData(NSFont*, float size, bool isPrinterFont = false, bool syntheticBold = false, bool syntheticOblique = false,
+                     FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth);
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
     FontPlatformData(CGFontRef cgFont, float size, bool syntheticBold, bool syntheticOblique, FontOrientation orientation,
                      TextOrientation textOrientation, FontWidthVariant widthVariant)
         : m_syntheticBold(syntheticBold)
@@ -188,6 +197,8 @@ public:
         , m_font(0)
         , m_cgFont(cgFont)
         , m_isColorBitmapFont(false)
+        , m_isCompositeFontReference(false)
+        , m_isPrinterFont(false)
     {
     }
 #endif
@@ -212,7 +223,7 @@ public:
     void setFont(NSFont*);
 #endif
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 #if OS(DARWIN)
     CGFontRef cgFont() const { return m_cgFont.get(); }
     CTFontRef ctFont() const;
@@ -230,6 +241,10 @@ public:
     bool syntheticBold() const { return m_syntheticBold; }
     bool syntheticOblique() const { return m_syntheticOblique; }
     bool isColorBitmapFont() const { return m_isColorBitmapFont; }
+    bool isCompositeFontReference() const { return m_isCompositeFontReference; }
+#if OS(DARWIN)
+    bool isPrinterFont() const { return m_isPrinterFont; }
+#endif
     FontOrientation orientation() const { return m_orientation; }
     TextOrientation textOrientation() const { return m_textOrientation; }
     FontWidthVariant widthVariant() const { return m_widthVariant; }
@@ -245,10 +260,10 @@ public:
 #if PLATFORM(WIN) && !USE(CAIRO)
         return m_font ? m_font->hash() : 0;
 #elif OS(DARWIN)
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
         ASSERT(m_font || !m_cgFont);
 #endif
-        uintptr_t hashCodes[3] = { (uintptr_t)m_font, m_widthVariant, m_textOrientation << 3 | m_orientation << 2 | m_syntheticBold << 1 | m_syntheticOblique };
+        uintptr_t hashCodes[3] = { (uintptr_t)m_font, m_widthVariant, m_isPrinterFont << 4 | m_textOrientation << 3 | m_orientation << 2 | m_syntheticBold << 1 | m_syntheticOblique };
         return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
 #elif USE(CAIRO)
         return PtrHash<cairo_scaled_font_t*>::hash(m_scaledFont);
@@ -264,6 +279,10 @@ public:
             && m_syntheticBold == other.m_syntheticBold
             && m_syntheticOblique == other.m_syntheticOblique
             && m_isColorBitmapFont == other.m_isColorBitmapFont
+            && m_isCompositeFontReference == other.m_isCompositeFontReference
+#if OS(DARWIN)
+            && m_isPrinterFont == other.m_isPrinterFont
+#endif
             && m_orientation == other.m_orientation
             && m_textOrientation == other.m_textOrientation
             && m_widthVariant == other.m_widthVariant;
@@ -280,6 +299,9 @@ public:
 #endif
     }
 
+#if PLATFORM(WIN) && (USE(CG) || USE(CAIRO))
+    PassRefPtr<SharedBuffer> openTypeTable(uint32_t table) const;
+#endif
 
 #ifndef NDEBUG
     String description() const;
@@ -321,7 +343,7 @@ private:
     RefPtr<RefCountedGDIHandle<HFONT> > m_font;
 #endif
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 #if PLATFORM(WIN)
     RetainPtr<CGFontRef> m_cgFont;
 #else
@@ -339,6 +361,10 @@ private:
 #endif
 
     bool m_isColorBitmapFont;
+    bool m_isCompositeFontReference;
+#if OS(DARWIN)
+    bool m_isPrinterFont;
+#endif
 
 #if PLATFORM(WIN)
     bool m_useGDI;

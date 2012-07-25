@@ -1,0 +1,12 @@
+//
+//  MacOSXClient.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+
+//SDKROOT = iphonesimulator5.0
+OTHER_CFLAGS = -fstack-protector-all -Wstack-protector -DSHA256_USE_ASSEMBLY=1 -DCC_iOS_SIM
+PRODUCT_NAME = commonCrypto_sim
+PRIVATE_HEADERS_FOLDER_PATH = $(SDKROOT)/usr/local/include/CommonCrypto
+PUBLIC_HEADERS_FOLDER_PATH = $(SDKROOT)/usr/include/CommonCrypto

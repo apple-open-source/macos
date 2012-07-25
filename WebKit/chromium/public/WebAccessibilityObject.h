@@ -32,16 +32,18 @@
 #define WebAccessibilityObject_h
 
 #include "WebAccessibilityRole.h"
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
+#include "platform/WebVector.h"
 
 #if WEBKIT_IMPLEMENTATION
-namespace WebCore { class AccessibilityObject; }
 namespace WTF { template <typename T> class PassRefPtr; }
 #endif
 
+namespace WebCore { class AccessibilityObject; }
+
 namespace WebKit {
 
-class WebAccessibilityObjectPrivate;
 class WebNode;
 class WebDocument;
 class WebString;
@@ -54,71 +56,120 @@ class WebAccessibilityObject {
 public:
     ~WebAccessibilityObject() { reset(); }
 
-    WebAccessibilityObject() : m_private(0) { }
-    WebAccessibilityObject(const WebAccessibilityObject& o) : m_private(0) { assign(o); }
+    WebAccessibilityObject() { }
+    WebAccessibilityObject(const WebAccessibilityObject& o) { assign(o); }
     WebAccessibilityObject& operator=(const WebAccessibilityObject& o)
     {
         assign(o);
         return *this;
     }
 
-    WEBKIT_API void reset();
-    WEBKIT_API void assign(const WebAccessibilityObject&);
-    WEBKIT_API bool equals(const WebAccessibilityObject&) const;
+    WEBKIT_EXPORT void reset();
+    WEBKIT_EXPORT void assign(const WebAccessibilityObject&);
+    WEBKIT_EXPORT bool equals(const WebAccessibilityObject&) const;
 
-    bool isNull() const { return !m_private; }
+    bool isNull() const { return m_private.isNull(); }
 
-    WEBKIT_API WebString accessibilityDescription() const;
-    WEBKIT_API WebString actionVerb() const;
-    WEBKIT_API bool canSetFocusAttribute() const;
-    WEBKIT_API bool canSetValueAttribute() const;
-    WEBKIT_API bool isValid() const;
+    // Static methods for enabling accessibility.
+    WEBKIT_EXPORT static void enableAccessibility();
+    WEBKIT_EXPORT static bool accessibilityEnabled();
 
-    WEBKIT_API unsigned childCount() const;
+    WEBKIT_EXPORT int axID() const;
 
-    WEBKIT_API WebAccessibilityObject childAt(unsigned) const;
-    WEBKIT_API WebAccessibilityObject firstChild() const;
-    WEBKIT_API WebAccessibilityObject focusedChild() const;
-    WEBKIT_API WebAccessibilityObject lastChild() const;
-    WEBKIT_API WebAccessibilityObject nextSibling() const;
-    WEBKIT_API WebAccessibilityObject parentObject() const;
-    WEBKIT_API WebAccessibilityObject previousSibling() const;
+    WEBKIT_EXPORT WebString accessibilityDescription() const;
+    WEBKIT_EXPORT WebString actionVerb() const;
+    WEBKIT_EXPORT bool canSetFocusAttribute() const;
+    WEBKIT_EXPORT bool canSetValueAttribute() const;
+    WEBKIT_EXPORT bool isValid() const;
 
-    WEBKIT_API bool canSetSelectedAttribute() const;
-    WEBKIT_API bool isAnchor() const;
-    WEBKIT_API bool isChecked() const;
-    WEBKIT_API bool isCollapsed() const;
-    WEBKIT_API bool isFocused() const;
-    WEBKIT_API bool isEnabled() const;
-    WEBKIT_API bool isHovered() const;
-    WEBKIT_API bool isIndeterminate() const;
-    WEBKIT_API bool isLinked() const;
-    WEBKIT_API bool isMultiSelectable() const;
-    WEBKIT_API bool isOffScreen() const;
-    WEBKIT_API bool isPasswordField() const;
-    WEBKIT_API bool isPressed() const;
-    WEBKIT_API bool isReadOnly() const;
-    WEBKIT_API bool isSelected() const;
-    WEBKIT_API bool isVisible() const;
-    WEBKIT_API bool isVisited() const;
+    WEBKIT_EXPORT unsigned childCount() const;
 
-    WEBKIT_API WebRect boundingBoxRect() const;
-    WEBKIT_API WebString helpText() const;
-    WEBKIT_API int headingLevel() const;
-    WEBKIT_API WebAccessibilityObject hitTest(const WebPoint&) const;
-    WEBKIT_API WebString keyboardShortcut() const;
-    WEBKIT_API bool performDefaultAction() const;
-    WEBKIT_API WebAccessibilityRole roleValue() const;
-    WEBKIT_API void setFocused(bool) const;
-    WEBKIT_API WebString stringValue() const;
-    WEBKIT_API WebString title() const;
-    WEBKIT_API WebURL url() const;
+    WEBKIT_EXPORT WebAccessibilityObject childAt(unsigned) const;
+    WEBKIT_EXPORT WebAccessibilityObject firstChild() const;
+    WEBKIT_EXPORT WebAccessibilityObject focusedChild() const;
+    WEBKIT_EXPORT WebAccessibilityObject lastChild() const;
+    WEBKIT_EXPORT WebAccessibilityObject nextSibling() const;
+    WEBKIT_EXPORT WebAccessibilityObject parentObject() const;
+    WEBKIT_EXPORT WebAccessibilityObject previousSibling() const;
 
-    WEBKIT_API WebNode node() const;
-    WEBKIT_API WebDocument document() const;
-    WEBKIT_API bool hasComputedStyle() const;
-    WEBKIT_API WebString computedStyleDisplay() const;
-    WEBKIT_API bool accessibilityIsIgnored() const;
+    WEBKIT_EXPORT bool canSetSelectedAttribute() const;
+
+    WEBKIT_EXPORT bool isAnchor() const;
+    WEBKIT_EXPORT bool isAriaReadOnly() const;
+    WEBKIT_EXPORT bool isButtonStateMixed() const;
+    WEBKIT_EXPORT bool isChecked() const;
+    WEBKIT_EXPORT bool isCollapsed() const;
+    WEBKIT_EXPORT bool isControl() const;
+    WEBKIT_EXPORT bool isEnabled() const;
+    WEBKIT_EXPORT bool isFocused() const;
+    WEBKIT_EXPORT bool isHovered() const;
+    WEBKIT_EXPORT bool isIndeterminate() const;
+    WEBKIT_EXPORT bool isLinked() const;
+    WEBKIT_EXPORT bool isLoaded() const;
+    WEBKIT_EXPORT bool isMultiSelectable() const;
+    WEBKIT_EXPORT bool isOffScreen() const;
+    WEBKIT_EXPORT bool isPasswordField() const;
+    WEBKIT_EXPORT bool isPressed() const;
+    WEBKIT_EXPORT bool isReadOnly() const;
+    WEBKIT_EXPORT bool isRequired() const;
+    WEBKIT_EXPORT bool isSelected() const;
+    WEBKIT_EXPORT bool isSelectedOptionActive() const;
+    WEBKIT_EXPORT bool isVertical() const;
+    WEBKIT_EXPORT bool isVisible() const;
+    WEBKIT_EXPORT bool isVisited() const;
+
+    WEBKIT_EXPORT WebString accessKey() const;
+    WEBKIT_EXPORT bool ariaHasPopup() const;
+    WEBKIT_EXPORT bool ariaLiveRegionAtomic() const;
+    WEBKIT_EXPORT bool ariaLiveRegionBusy() const;
+    WEBKIT_EXPORT WebString ariaLiveRegionRelevant() const;
+    WEBKIT_EXPORT WebString ariaLiveRegionStatus() const;
+    WEBKIT_EXPORT WebRect boundingBoxRect() const;
+    WEBKIT_EXPORT double estimatedLoadingProgress() const;
+    WEBKIT_EXPORT WebString helpText() const;
+    WEBKIT_EXPORT int headingLevel() const;
+    WEBKIT_EXPORT int hierarchicalLevel() const;
+    WEBKIT_EXPORT WebAccessibilityObject hitTest(const WebPoint&) const;
+    WEBKIT_EXPORT WebString keyboardShortcut() const;
+    WEBKIT_EXPORT bool performDefaultAction() const;
+    WEBKIT_EXPORT WebAccessibilityRole roleValue() const;
+    WEBKIT_EXPORT unsigned selectionEnd() const;
+    WEBKIT_EXPORT unsigned selectionStart() const;
+    WEBKIT_EXPORT void setFocused(bool) const;
+    WEBKIT_EXPORT WebString stringValue() const;
+    WEBKIT_EXPORT WebString title() const;
+    WEBKIT_EXPORT WebAccessibilityObject titleUIElement() const;
+    WEBKIT_EXPORT WebURL url() const;
+
+    WEBKIT_EXPORT WebString valueDescription() const;
+    WEBKIT_EXPORT float valueForRange() const;
+    WEBKIT_EXPORT float maxValueForRange() const;
+    WEBKIT_EXPORT float minValueForRange() const;
+
+    WEBKIT_EXPORT WebNode node() const;
+    WEBKIT_EXPORT WebDocument document() const;
+    WEBKIT_EXPORT bool hasComputedStyle() const;
+    WEBKIT_EXPORT WebString computedStyleDisplay() const;
+    WEBKIT_EXPORT bool accessibilityIsIgnored() const;
+    WEBKIT_EXPORT bool lineBreaks(WebVector<int>&) const;
+
+    // For a table
+    WEBKIT_EXPORT unsigned columnCount() const;
+    WEBKIT_EXPORT unsigned rowCount() const;
+    WEBKIT_EXPORT WebAccessibilityObject cellForColumnAndRow(unsigned column, unsigned row) const;
+
+    // For a table cell
+    WEBKIT_EXPORT unsigned cellColumnIndex() const;
+    WEBKIT_EXPORT unsigned cellColumnSpan() const;
+    WEBKIT_EXPORT unsigned cellRowIndex() const;
+    WEBKIT_EXPORT unsigned cellRowSpan() const;
+
+    // Make this object visible by scrolling as many nested scrollable views as needed.
+    WEBKIT_EXPORT void scrollToMakeVisible() const;
+    // Same, but if the whole object can't be made visible, try for this subrect, in local coordinates.
+    WEBKIT_EXPORT void scrollToMakeVisibleWithSubFocus(const WebRect&) const;
+    // Scroll this object to a given point in global coordinates of the top-level window.
+    WEBKIT_EXPORT void scrollToGlobalPoint(const WebPoint&) const;
 
 #if WEBKIT_IMPLEMENTATION
     WebAccessibilityObject(const WTF::PassRefPtr<WebCore::AccessibilityObject>&);
@@ -127,8 +178,7 @@ public:
 #endif
 
 private:
-    void assign(WebAccessibilityObjectPrivate*);
-    WebAccessibilityObjectPrivate* m_private;
+    WebPrivatePtr<WebCore::AccessibilityObject> m_private;
 };
 
 } // namespace WebKit

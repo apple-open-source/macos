@@ -189,7 +189,7 @@ hexstring	0x{hexdigit}+
 <S_INI>include		{ YYDB; return(INCLUDE); }
 
 	/* self information */
-<S_INI>identifier	{ BEGIN S_INF; YYDB; yywarn("it is obsoleted.  use \"my_identifier\" in each remote directives."); return(IDENTIFIER); }
+<S_INI>identifier	{ BEGIN S_INF; YYDB; racoon_yywarn("it is obsoleted.  use \"my_identifier\" in each remote directives."); return(IDENTIFIER); }
 <S_INF>{semi}		{ BEGIN S_INI; return(EOS); }
 
 	/* special */
@@ -203,8 +203,8 @@ hexstring	0x{hexdigit}+
 <S_LOG>info		{ YYD; yylval.num = LLV_INFO; return(LOGLEV); }
 <S_LOG>debug		{ YYD; yylval.num = LLV_DEBUG; return(LOGLEV); }
 <S_LOG>debug2		{ YYD; yylval.num = LLV_DEBUG2; return(LOGLEV); }
-<S_LOG>debug3		{ YYD; yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
-<S_LOG>debug4		{ YYD; yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
+<S_LOG>debug3		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
+<S_LOG>debug4		{ YYD; racoon_yywarn("it is obsoleted.  use \"debug2\""); yylval.num = LLV_DEBUG2; return(LOGLEV); }
 <S_LOG>{semi}		{ BEGIN S_INI; return(EOS); }
 
 	/* padding */
@@ -283,7 +283,7 @@ hexstring	0x{hexdigit}+
 <S_SAINFS>{ecl}		{ BEGIN S_INI; return(EOC); }
 <S_SAINFS>pfs_group	{ YYD; return(PFS_GROUP); }
 <S_SAINFS>remoteid	{ YYD; return(REMOTEID); }
-<S_SAINFS>identifier	{ YYD; yywarn("it is obsoleted.  use \"my_identifier\"."); return(IDENTIFIER); }
+<S_SAINFS>identifier	{ YYD; racoon_yywarn("it is obsoleted.  use \"my_identifier\"."); return(IDENTIFIER); }
 <S_SAINFS>my_identifier	{ YYD; return(MY_IDENTIFIER); }
 <S_SAINFS>lifetime	{ YYD; return(LIFETIME); }
 <S_SAINFS>time		{ YYD; return(LIFETYPE_TIME); }
@@ -311,7 +311,7 @@ hexstring	0x{hexdigit}+
 <S_RMTS>identity_only	{ YYD; yylval.num = IPSECDOI_SIT_IDENTITY_ONLY; return(SITUATIONTYPE); }
 <S_RMTS>secrecy		{ YYD; yylval.num = IPSECDOI_SIT_SECRECY; return(SITUATIONTYPE); }
 <S_RMTS>integrity	{ YYD; yylval.num = IPSECDOI_SIT_INTEGRITY; return(SITUATIONTYPE); }
-<S_RMTS>identifier	{ YYD; yywarn("it is obsoleted.  use \"my_identifier\"."); return(IDENTIFIER); }
+<S_RMTS>identifier	{ YYD; racoon_yywarn("it is obsoleted.  use \"my_identifier\"."); return(IDENTIFIER); }
 <S_RMTS>my_identifier	{ YYD; return(MY_IDENTIFIER); }
 <S_RMTS>xauth_login	{ YYD; return(XAUTH_LOGIN); /* formerly identifier type login */ }
 <S_RMTS>peers_identifier	{ YYD; return(PEERS_IDENTIFIER); }
@@ -320,18 +320,14 @@ hexstring	0x{hexdigit}+
 <S_RMTS>ca_type		{ YYD; return(CA_TYPE); }
 <S_RMTS>x509		{ YYD; yylval.num = ISAKMP_CERT_X509SIGN; return(CERT_X509); }
 <S_RMTS>plain_rsa	{
-#ifdef HAVE_OPENSSL
-	YYD; yylval.num = ISAKMP_CERT_PLAINRSA; return(CERT_PLAINRSA); 
-#else
-	yyerror("plainrsa not supported.");
-#endif
+	racoon_yyerror("plainrsa not supported.");
 }
 <S_RMTS>open_dir_auth_group	{ 
 #if HAVE_OPENDIR
 	YYD; 
 	return(OPEN_DIR_AUTH_GROUP); 
 #else
-	yyerror("Apple specific features not compiled in.");
+	racoon_yyerror("Apple specific features not compiled in.");
 #endif
 }
 <S_RMTS>shared_secret { 
@@ -354,7 +350,7 @@ hexstring	0x{hexdigit}+
 <S_RMTS>dh_group	{ YYD; return(DH_GROUP); }
 <S_RMTS>nonce_size	{ YYD; return(NONCE_SIZE); }
 <S_RMTS>generate_policy	{ YYD; return(GENERATE_POLICY); }
-<S_RMTS>support_mip6	{ YYD; yywarn("it is obsoleted.  use \"support_proxy\"."); return(SUPPORT_PROXY); }
+<S_RMTS>support_mip6	{ YYD; racoon_yywarn("it is obsoleted.  use \"support_proxy\"."); return(SUPPORT_PROXY); }
 <S_RMTS>support_proxy	{ YYD; return(SUPPORT_PROXY); }
 <S_RMTS>initial_contact	{ YYD; return(INITIAL_CONTACT); }
 <S_RMTS>nat_traversal	{ YYD; return(NAT_TRAVERSAL); }
@@ -443,7 +439,7 @@ off		{ YYD; yylval.num = FALSE; return(SWITCH); }
                         yytext++;
 			yylval.val = vmalloc(yyleng + 1);
 			if (yylval.val == NULL) {
-				yyerror("vmalloc failed");
+				racoon_yyerror("vmalloc failed");
 				return -1;
 			}
 			memcpy(yylval.val->v, yytext, yylval.val->l);
@@ -518,28 +514,28 @@ hybrid_rsa_server {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_hybrid_rsa_s; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 hybrid_dss_server {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_hybrid_dss_s; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 hybrid_rsa_client {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_hybrid_rsa_c; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 hybrid_dss_client {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_hybrid_dss_c; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 
@@ -547,35 +543,35 @@ xauth_psk_server {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_xauth_psk_s; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 xauth_psk_client {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_xauth_psk_c; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 xauth_rsa_server {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_xauth_rsa_s; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 xauth_rsa_client {
 #ifdef ENABLE_HYBRID
 	YYD; yylval.num = algtype_xauth_rsa_c; return(ALGORITHMTYPE);
 #else
-	yyerror("racoon not configured with --enable-hybrid");
+	racoon_yyerror("racoon not configured with --enable-hybrid");
 #endif
 }
 
 
 
 	/* identifier type */
-vendor_id	{ YYD; yywarn("it is obsoleted."); return(VENDORID); }
+vendor_id	{ YYD; racoon_yywarn("it is obsoleted."); return(VENDORID); }
 user_fqdn	{ YYD; yylval.num = IDTYPE_USERFQDN; return(IDENTIFIERTYPE); }
 fqdn		{ YYD; yylval.num = IDTYPE_FQDN; return(IDENTIFIERTYPE); }
 keyid		{ YYD; yylval.num = IDTYPE_KEYID; return(IDENTIFIERTYPE); }
@@ -587,7 +583,7 @@ keyid_use	{
 address		{ YYD; yylval.num = IDTYPE_ADDRESS; return(IDENTIFIERTYPE); }
 subnet		{ YYD; yylval.num = IDTYPE_SUBNET; return(IDENTIFIERTYPE); }
 asn1dn		{ YYD; yylval.num = IDTYPE_ASN1DN; return(IDENTIFIERTYPE); }
-certname	{ YYD; yywarn("certname will be obsoleted in near future."); yylval.num = IDTYPE_ASN1DN; return(IDENTIFIERTYPE); }
+certname	{ YYD; racoon_yywarn("certname will be obsoleted in near future."); yylval.num = IDTYPE_ASN1DN; return(IDENTIFIERTYPE); }
 
 	/* shared secret type */
 use		{ 
@@ -606,7 +602,7 @@ keychain	{
 	yylval.num = SECRETTYPE_KEYCHAIN; 
 	return(SECRETTYPE); 
 #else
-	yyerror("Apple specific features not compiled in.");
+	racoon_yyerror("Apple specific features not compiled in.");
 #endif
 }
 keychain_by_id	{ 
@@ -676,7 +672,7 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 			YYD; 
 			yylval.val = vmalloc(yyleng + (yyleng & 1) + 1);
 			if (yylval.val == NULL) {
-				yyerror("vmalloc failed");
+				racoon_yyerror("vmalloc failed");
 				return -1;
 			}
 
@@ -701,7 +697,7 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 
 			yylval.val = vmalloc(yyleng - 1);
 			if (yylval.val == NULL) {
-				yyerror("vmalloc failed");
+				racoon_yyerror("vmalloc failed");
 				return -1;
 			}
 			memcpy(yylval.val->v, &yytext[1], yylval.val->l);
@@ -714,7 +710,7 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 
 			yylval.val = vmalloc(yyleng + 1);
 			if (yylval.val == NULL) {
-				yyerror("vmalloc failed");
+				racoon_yyerror("vmalloc failed");
 				return -1;
 			}
 			memcpy(yylval.val->v, yytext, yylval.val->l);
@@ -758,41 +754,42 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 %%
 
 void
-yyerror(char *s, ...)
+yyerror(const char *msg)
 {
-	char fmt[512];
-
-	va_list ap;
-#ifdef HAVE_STDARG_H
-	va_start(ap, s);
-#else
-	va_start(ap);
-#endif
-	snprintf(fmt, sizeof(fmt), "%s:%d: \"%s\" %s\n",
-		incstack[incstackp].path, incstack[incstackp].lineno,
-		yytext, s);
-	plogv(LLV_ERROR, LOCATION, NULL, fmt, &ap);
-	va_end(ap);
-
+	 plog(LLV_ERROR, LOCATION, NULL, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
 	yyerrorcount++;
 }
 
 void
-yywarn(char *s, ...)
+yywarn(const char *msg)
 {
-	char fmt[512];
+	 plog(LLV_ERROR, LOCATION, NULL, "%s:%d: %s\n", incstack[incstackp].path, incstack[incstackp].lineno, msg);
+}
 
-	va_list ap;
-#ifdef HAVE_STDARG_H
-	va_start(ap, s);
-#else
-	va_start(ap);
-#endif
-	snprintf(fmt, sizeof(fmt), "%s:%d: \"%s\" %s\n",
-		incstack[incstackp].path, incstack[incstackp].lineno,
-		yytext, s);
-	plogv(LLV_WARNING, LOCATION, NULL, fmt, &ap);
-	va_end(ap);
+void
+racoon_yyerror(const char *fmt, ...)
+{
+    va_list ap;
+    char msg[512];
+	
+    va_start(ap, fmt);
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+    va_end(ap);
+    
+    yyerror(msg);
+}
+
+void
+racoon_yywarn(const char *fmt, ...)
+{
+    va_list ap;
+	char msg[512];
+
+    va_start(ap, fmt);
+    vsnprintf(msg, sizeof(msg), fmt, ap);
+    va_end(ap);
+    
+    yywarn(msg);
 }
 
 int

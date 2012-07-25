@@ -27,6 +27,7 @@
 #include "FloatPoint.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInstance.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 
@@ -39,6 +40,16 @@ DEFINE_ANIMATED_LENGTH(SVGLineElement, SVGNames::x2Attr, X2, x2)
 DEFINE_ANIMATED_LENGTH(SVGLineElement, SVGNames::y2Attr, Y2, y2)
 DEFINE_ANIMATED_BOOLEAN(SVGLineElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGLineElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x2)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y2)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGLineElement::SVGLineElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_x1(LengthModeWidth)
@@ -47,6 +58,7 @@ inline SVGLineElement::SVGLineElement(const QualifiedName& tagName, Document* do
     , m_y2(LengthModeHeight)
 {
     ASSERT(hasTagName(SVGNames::lineTag));
+    registerAnimatedPropertiesForSVGLineElement();
 }
 
 PassRefPtr<SVGLineElement> SVGLineElement::create(const QualifiedName& tagName, Document* document)
@@ -54,31 +66,53 @@ PassRefPtr<SVGLineElement> SVGLineElement::create(const QualifiedName& tagName, 
     return adoptRef(new SVGLineElement(tagName, document));
 }
 
-void SVGLineElement::parseMappedAttribute(Attribute* attr)
+bool SVGLineElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::x1Attr)
-        setX1BaseValue(SVGLength(LengthModeWidth, attr->value()));
-    else if (attr->name() == SVGNames::y1Attr)
-        setY1BaseValue(SVGLength(LengthModeHeight, attr->value()));
-    else if (attr->name() == SVGNames::x2Attr)
-        setX2BaseValue(SVGLength(LengthModeWidth, attr->value()));
-    else if (attr->name() == SVGNames::y2Attr)
-        setY2BaseValue(SVGLength(LengthModeHeight, attr->value()));
-    else {
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        SVGStyledTransformableElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::x1Attr);
+        supportedAttributes.add(SVGNames::x2Attr);
+        supportedAttributes.add(SVGNames::y1Attr);
+        supportedAttributes.add(SVGNames::y2Attr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGLineElement::parseAttribute(Attribute* attr)
+{
+    SVGParsingError parseError = NoError;
+
+    if (!isSupportedAttribute(attr->name()))
+        SVGStyledTransformableElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::x1Attr)
+        setX1BaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
+    else if (attr->name() == SVGNames::y1Attr)
+        setY1BaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
+    else if (attr->name() == SVGNames::x2Attr)
+        setX2BaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
+    else if (attr->name() == SVGNames::y2Attr)
+        setY2BaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
+    else if (SVGTests::parseAttribute(attr)
+             || SVGLangSpace::parseAttribute(attr)
+             || SVGExternalResourcesRequired::parseAttribute(attr)) {
+    } else
+        ASSERT_NOT_REACHED();
+
+    reportAttributeParsingError(parseError, attr);
 }
 
 void SVGLineElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
+        return;
+    }
 
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
     bool isLengthAttribute = attrName == SVGNames::x1Attr
                           || attrName == SVGNames::y1Attr
                           || attrName == SVGNames::x2Attr
@@ -95,67 +129,17 @@ void SVGLineElement::svgAttributeChanged(const QualifiedName& attrName)
         return;
 
     if (isLengthAttribute) {
-        renderer->setNeedsPathUpdate();
+        renderer->setNeedsShapeUpdate();
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
-    if (SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+    if (SVGLangSpace::isKnownAttribute(attrName) || SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-}
-
-void SVGLineElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeX1();
-        synchronizeY1();
-        synchronizeX2();
-        synchronizeY2();
-        synchronizeExternalResourcesRequired();
-        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
-    if (attrName == SVGNames::x1Attr)
-        synchronizeX1();
-    else if (attrName == SVGNames::y1Attr)
-        synchronizeY1();
-    else if (attrName == SVGNames::x2Attr)
-        synchronizeX2();
-    else if (attrName == SVGNames::y2Attr)
-        synchronizeY2();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
-}
-
-AttributeToPropertyTypeMap& SVGLineElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGLineElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::x1Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::y1Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::x2Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::y2Attr, AnimatedLength);
-}
-
-void SVGLineElement::toPathData(Path& path) const
-{
-    ASSERT(path.isEmpty());
-
-    path.moveTo(FloatPoint(x1().value(this), y1().value(this)));
-    path.addLineTo(FloatPoint(x2().value(this), y2().value(this)));
+    ASSERT_NOT_REACHED();
 }
 
 bool SVGLineElement::selfHasRelativeLengths() const

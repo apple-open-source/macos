@@ -30,9 +30,9 @@
 
 #if ENABLE(DFG_JIT)
 
-#include "DFGStructureSet.h"
 #include "JSCell.h"
 #include "PredictedType.h"
+#include "StructureSet.h"
 
 namespace JSC { namespace DFG {
 
@@ -287,7 +287,6 @@ public:
         return m_structure == other.m_structure;
     }
     
-#ifndef NDEBUG
     void dump(FILE* out) const
     {
         if (isTop()) {
@@ -300,7 +299,6 @@ public:
             fprintf(out, "%p", m_structure);
         fprintf(out, "]");
     }
-#endif
 
 private:
     static Structure* topValue() { return reinterpret_cast<Structure*>(1); }
@@ -444,6 +442,11 @@ struct AbstractValue {
         if (mergePredictions(m_type, predictionFromValue(value)) != m_type)
             return false;
         
+        if (value.isEmpty()) {
+            ASSERT(m_type & PredictEmpty);
+            return true;
+        }
+        
         if (m_structure.isTop())
             return true;
         
@@ -466,14 +469,12 @@ struct AbstractValue {
         // complexity of the code.
     }
     
-#ifndef NDEBUG
     void dump(FILE* out) const
     {
         fprintf(out, "(%s, ", predictionToString(m_type));
         m_structure.dump(out);
         fprintf(out, ")");
     }
-#endif
 
     StructureAbstractValue m_structure;
     PredictedType m_type;

@@ -28,7 +28,10 @@
 
 #if ENABLE(PLUGIN_PROCESS)
 
+#include <runtime/JSObject.h>
+#include <runtime/ScopeChain.h>
 #include "NPRemoteObjectMap.h"
+#include "NPRuntimeObjectMap.h"
 #include "PluginProcessConnectionManager.h"
 #include "PluginProxy.h"
 #include "WebProcess.h"
@@ -62,6 +65,9 @@ static double defaultSyncMessageTimeout(const String& pluginPath)
     // We don't want a message timeout for the BankID plug-in since it can spin a nested
     // run loop when it's waiting for a reply to an AppleEvent.
     if (pathGetFileName(pluginPath) == "PersonalPlugin.bundle")
+        return CoreIPC::Connection::NoTimeout;
+
+    if (WebProcess::shared().disablePluginProcessMessageTimeout())
         return CoreIPC::Connection::NoTimeout;
 
     return syncMessageTimeout;
@@ -115,25 +121,34 @@ void PluginProcessConnection::removePluginProxy(PluginProxy* plugin)
 
 void PluginProcessConnection::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
 {
-    if (arguments->destinationID()) {
-        if (PluginProxy* pluginProxy = m_plugins.get(arguments->destinationID()))
-            pluginProxy->didReceivePluginProxyMessage(connection, messageID, arguments);
+    ASSERT(arguments->destinationID());
+
+    PluginProxy* pluginProxy = m_plugins.get(arguments->destinationID());
+    if (!pluginProxy)
+        return;
+
+    pluginProxy->didReceivePluginProxyMessage(connection, messageID, arguments);
+}
+
+void PluginProcessConnection::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
+{
+    if (messageID.is<CoreIPC::MessageClassNPObjectMessageReceiver>()) {
+        m_npRemoteObjectMap->didReceiveSyncMessage(connection, messageID, arguments, reply);
         return;
     }
 
-    ASSERT_NOT_REACHED();
-}
+    uint64_t destinationID = arguments->destinationID();
 
-CoreIPC::SyncReplyMode PluginProcessConnection::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)
-{
-    if (messageID.is<CoreIPC::MessageClassNPObjectMessageReceiver>())
-        return m_npRemoteObjectMap->didReceiveSyncMessage(connection, messageID, arguments, reply);
+    if (!destinationID) {
+        didReceiveSyncPluginProcessConnectionMessage(connection, messageID, arguments, reply);
+        return;
+    }
 
-    if (PluginProxy* pluginProxy = m_plugins.get(arguments->destinationID()))
-        return pluginProxy->didReceiveSyncPluginProxyMessage(connection, messageID, arguments, reply);
+    PluginProxy* pluginProxy = m_plugins.get(destinationID);
+    if (!pluginProxy)
+        return;
 
-    ASSERT_NOT_REACHED();
-    return CoreIPC::AutomaticReply;
+    pluginProxy->didReceiveSyncPluginProxyMessage(connection, messageID, arguments, reply);
 }
 
 void PluginProcessConnection::didClose(CoreIPC::Connection*)
@@ -153,6 +168,11 @@ void PluginProcessConnection::didReceiveInvalidMessage(CoreIPC::Connection*, Cor
 void PluginProcessConnection::syncMessageSendTimedOut(CoreIPC::Connection*)
 {
     WebProcess::shared().connection()->send(Messages::WebProcessProxy::PluginSyncMessageSendTimedOut(m_pluginPath), 0);
+}
+
+void PluginProcessConnection::setException(const String& exceptionString)
+{
+    NPRuntimeObjectMap::setGlobalException(exceptionString);
 }
 
 } // namespace WebKit

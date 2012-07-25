@@ -2048,6 +2048,9 @@ list_string (string, separators, quoted)
   return (REVERSE_LIST (result, WORD_LIST *));
 }
 
+
+#define iswhitespace(c) (posixly_correct ? posix_whitespace(c) : spctabnl(c))
+
 /* Parse a single word from STRING, using SEPARATORS to separate fields.
    ENDPTR is set to the first character after the word.  This is used by
    the `read' builtin.  This is never called with SEPARATORS != $IFS;
@@ -2074,13 +2077,12 @@ get_word_from_string (stringp, separators, endptr)
 				 separators[2] == '\n' &&
 				 separators[3] == '\0';
 
-  slen = 0;
-
   /* Remove sequences of whitespace at the beginning of STRING, as
      long as those characters appear in IFS. */
-  if (sh_style_split || !separators || !*separators)
+    
+  if (posixly_correct || sh_style_split || !separators || !*separators)
     {
-      for (; *s && spctabnl (*s) && isifs (*s); s++);
+      for (; *s && iswhitespace (*s) && isifs (*s); s++);
 
       /* If the string is nothing but whitespace, update it and return. */
       if (!*s)
@@ -2109,7 +2111,7 @@ get_word_from_string (stringp, separators, endptr)
     *endptr = s + sindex;
 
   /* Note whether or not the separator is IFS whitespace, used later. */
-  whitesep = s[sindex] && spctabnl (s[sindex]);
+  whitesep = s[sindex] && iswhitespace (s[sindex]);
 
   /* Move past the current separator character. */
   if (s[sindex])
@@ -2120,19 +2122,19 @@ get_word_from_string (stringp, separators, endptr)
 
   /* Now skip sequences of space, tab, or newline characters if they are
      in the list of separators. */
-  while (s[sindex] && spctabnl (s[sindex]) && isifs (s[sindex]))
+  while (s[sindex] && iswhitespace (s[sindex]) && isifs (s[sindex]))
     sindex++;
 
   /* If the first separator was IFS whitespace and the current character is
      a non-whitespace IFS character, it should be part of the current field
      delimiter, not a separate delimiter that would result in an empty field.
      Look at POSIX.2, 3.6.5, (3)(b). */
-  if (s[sindex] && whitesep && isifs (s[sindex]) && !spctabnl (s[sindex]))
+  if (s[sindex] && whitesep && isifs (s[sindex]) && !iswhitespace (s[sindex]))
     {
       sindex++;
       /* An IFS character that is not IFS white space, along with any adjacent
 	 IFS white space, shall delimit a field. */
-      while (s[sindex] && spctabnl (s[sindex]) && isifs (s[sindex]))
+      while (s[sindex] && iswhitespace (s[sindex]) && isifs (s[sindex]))
 	sindex++;
     }
 
@@ -2154,8 +2156,8 @@ strip_trailing_ifs_whitespace (string, separators, saw_escape)
   char *s;
 
   s = string + STRLEN (string) - 1;
-  while (s > string && ((spctabnl (*s) && isifs (*s)) ||
-			(saw_escape && *s == CTLESC && spctabnl (s[1]))))
+  while (s > string && ((iswhitespace (*s) && isifs (*s)) ||
+			(saw_escape && *s == CTLESC && iswhitespace (s[1]))))
     s--;
   *++s = '\0';
   return string;

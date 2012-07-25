@@ -32,6 +32,7 @@
 #define DOMData_h
 
 #include "DOMDataStore.h"
+#include "StaticDOMDataStore.h"
 #include "V8DOMWrapper.h"
 
 namespace WebCore {
@@ -44,23 +45,17 @@ namespace WebCore {
     // use different subclasses.
     //
     class DOMData {
-        WTF_MAKE_NONCOPYABLE(DOMData);
     public:
-        DOMData();
-        virtual ~DOMData();
-
-        static DOMData* getCurrent();
-        virtual DOMDataStore& getStore() = 0;
-
         template<typename T>
         static void handleWeakObject(DOMDataStore::DOMWrapperMapType, v8::Persistent<v8::Object>, T* domObject);
 
         template<typename T>
         static void removeObjectsFromWrapperMap(DOMDataStore* store, AbstractWeakReferenceMap<T, v8::Object>& domMap);
 
-        ThreadIdentifier owningThread() const { return m_owningThread; }
 
+        static DOMDataStore& getCurrentStore(v8::Isolate* = 0);
     private:
+        DOMData();
         static void derefObject(WrapperTypeInfo* type, void* domObject);
 
         template<typename T>
@@ -73,8 +68,6 @@ namespace WebCore {
                 v8Object.Dispose();
             }
         };
-
-        ThreadIdentifier m_owningThread;
     };
 
     template<typename T>
@@ -85,7 +78,6 @@ namespace WebCore {
         bool found = false;
         for (size_t i = 0; i < list.size(); ++i) {
             DOMDataStore* store = list[i];
-            ASSERT(store->domData()->owningThread() == WTF::currentThread());
 
             DOMWrapperMap<T>* domMap = static_cast<DOMWrapperMap<T>*>(store->getDOMWrapperMap(mapType));
             if (domMap->removeIfPresent(domObject, v8Object)) {

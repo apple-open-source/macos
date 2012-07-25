@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
@@ -219,7 +219,7 @@ static void MessageFormatTest( void )
                         austrdup(result), austrdup(testResultStrings[i]) );
                 }
 
-#if defined (U_DARWIN)  /* add platforms here .. */
+#if U_PLATFORM_IS_DARWIN_BASED || (U_PLATFORM == U_PF_LINUX) /* add platforms here .. */
                 log_verbose("Skipping potentially crashing test for mismatched varargs.\n");
 #else
                 log_verbose("Note: the next is a platform dependent test. If it crashes, add an exclusion for your platform near %s:%d\n", __FILE__, __LINE__); 
@@ -736,8 +736,14 @@ static void TestMsgFormatChoice(void)
     str=(UChar*)malloc(sizeof(UChar) * 25);
     u_uastrcpy(str, "MyDisk");
     log_verbose("Testing message format with choice test #6\n:");
-    /*There {0,choice,0#are no files|1#is one file|1<are {0,number,integer} files}.*/
-    u_uastrcpy(pattern, "The disk {1} contains {0,choice,0#no files|1#one file|1<{0,number,integer} files}");
+    /*
+     * Before ICU 4.8, umsg_xxx() did not detect conflicting argument types,
+     * and this pattern had {0,number,integer} as the inner argument.
+     * The choice argument has kDouble type while {0,number,integer} has kLong (int32_t).
+     * ICU 4.8 and above detects this as an error.
+     * We changed this pattern to work as intended.
+     */
+    u_uastrcpy(pattern, "The disk {1} contains {0,choice,0#no files|1#one file|1<{0,number} files}");
     u_uastrcpy(expected, "The disk MyDisk contains 100 files");
     resultlength=0;
     resultLengthOut=u_formatMessage( "en_US", pattern, u_strlen(pattern), NULL, resultlength, &status, 100., str);

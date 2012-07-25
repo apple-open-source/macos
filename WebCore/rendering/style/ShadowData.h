@@ -26,13 +26,11 @@
 #define ShadowData_h
 
 #include "Color.h"
+#include "LayoutTypes.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
-
-class FloatRect;
-class IntRect;
 
 enum ShadowStyle { Normal, Inset };
 
@@ -42,18 +40,15 @@ class ShadowData {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     ShadowData()
-        : m_x(0)
-        , m_y(0)
-        , m_blur(0)
+        : m_blur(0)
         , m_spread(0)
         , m_style(Normal)
         , m_isWebkitBoxShadow(false)
     {
     }
 
-    ShadowData(int x, int y, int blur, int spread, ShadowStyle style, bool isWebkitBoxShadow, const Color& color)
-        : m_x(x)
-        , m_y(y)
+    ShadowData(const IntPoint& location, int blur, int spread, ShadowStyle style, bool isWebkitBoxShadow, const Color& color)
+        : m_location(location)
         , m_blur(blur)
         , m_spread(spread)
         , m_color(color)
@@ -70,8 +65,9 @@ public:
         return !(*this == o);
     }
     
-    int x() const { return m_x; }
-    int y() const { return m_y; }
+    int x() const { return m_location.x(); }
+    int y() const { return m_location.y(); }
+    IntPoint location() const { return m_location; }
     int blur() const { return m_blur; }
     int spread() const { return m_spread; }
     ShadowStyle style() const { return m_style; }
@@ -81,12 +77,11 @@ public:
     const ShadowData* next() const { return m_next.get(); }
     void setNext(PassOwnPtr<ShadowData> shadow) { m_next = shadow; }
 
-    void adjustRectForShadow(IntRect&, int additionalOutlineSize = 0) const;
+    void adjustRectForShadow(LayoutRect&, int additionalOutlineSize = 0) const;
     void adjustRectForShadow(FloatRect&, int additionalOutlineSize = 0) const;
 
 private:
-    int m_x;
-    int m_y;
+    IntPoint m_location;
     int m_blur;
     int m_spread;
     Color m_color;

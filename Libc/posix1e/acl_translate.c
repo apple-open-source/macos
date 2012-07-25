@@ -443,7 +443,7 @@ acl_from_text(const char *buf_p)
 	/* field 2: <uuid> */
 	if ((field = strsep(&entry, ":")) != NULL && *field)
 	{
-	    mbr_string_to_uuid(field, *uu);
+	    uuid_parse(field, *uu);
 	    need_tag = 0;
 	}
 

@@ -12,6 +12,12 @@
 /*	.nf
 
 /*
+ * System library.
+ */
+#include <stdarg.h>
+#include <time.h>
+
+/*
  * External interface.
  */
 typedef void (*MSG_CLEANUP_FN) (void);
@@ -25,9 +31,20 @@ extern NORETURN PRINTFLIKE(1, 2) msg_fatal(const char *,...);
 extern NORETURN PRINTFLIKE(2, 3) msg_fatal_status(int, const char *,...);
 extern NORETURN PRINTFLIKE(1, 2) msg_panic(const char *,...);
 
+extern void vmsg_info(const char *, va_list);
+extern void vmsg_warn(const char *, va_list);
+extern void vmsg_error(const char *, va_list);
+extern NORETURN vmsg_fatal(const char *, va_list);
+extern NORETURN vmsg_fatal_status(int, const char *, va_list);
+extern NORETURN vmsg_panic(const char *, va_list);
+
 extern int msg_error_limit(int);
 extern void msg_error_clear(void);
 extern MSG_CLEANUP_FN msg_cleanup(MSG_CLEANUP_FN);
+
+extern void PRINTFLIKE(4, 5) msg_rate_delay(time_t *, int,
+				          void (*log_fn) (const char *,...),
+					            const char *,...);
 
 /* LICENSE
 /* .ad

@@ -67,7 +67,7 @@ inline void Recompiler::operator()(JSCell* cell)
     if (!cell->inherits(&JSFunction::s_info))
         return;
 
-    JSFunction* function = asFunction(cell);
+    JSFunction* function = jsCast<JSFunction*>(cell);
     if (function->executable()->isHostFunction())
         return;
 
@@ -75,7 +75,7 @@ inline void Recompiler::operator()(JSCell* cell)
 
     // Check if the function is already in the set - if so,
     // we've already retranslated it, nothing to do here.
-    if (!m_functionExecutables.add(executable).second)
+    if (!m_functionExecutables.add(executable).isNewEntry)
         return;
 
     ExecState* exec = function->scope()->globalObject->JSGlobalObject::globalExec();

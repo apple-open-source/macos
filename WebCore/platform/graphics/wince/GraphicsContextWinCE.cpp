@@ -1032,7 +1032,7 @@ void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, boo
     setStrokeStyle(oldStyle);
 }
 
-void GraphicsContext::drawLineForTextChecking(const FloatPoint&, float width, TextCheckingLineStyle style)
+void GraphicsContext::drawLineForDocumentMarker(const FloatPoint&, float width, DocumentMarkerLineStyle style)
 {
     notImplemented();
 }
@@ -1113,15 +1113,20 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float width)
     SelectObject(dc, oldPen);
 }
 
-void GraphicsContext::beginTransparencyLayer(float opacity)
+void GraphicsContext::beginPlatformTransparencyLayer(float opacity)
 {
     m_data->save();
     m_data->m_opacity *= opacity;
 }
 
-void GraphicsContext::endTransparencyLayer()
+void GraphicsContext::endPlatformTransparencyLayer()
 {
     m_data->restore();
+}
+
+bool GraphicsContext::supportsTransparencyLayers()
+{
+    return true;
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& transform)
@@ -1489,6 +1494,9 @@ void GraphicsContext::fillRect(const FloatRect& r, const Gradient* gradient)
 
 AffineTransform GraphicsContext::getCTM() const
 {
+    if (paintingDisabled())
+        return AffineTransform();
+
     return m_data->m_transform;
 }
 

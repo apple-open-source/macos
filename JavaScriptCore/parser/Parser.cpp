@@ -30,7 +30,6 @@
 #include "Lexer.h"
 #include "NodeInfo.h"
 #include "SourceProvider.h"
-#include "SourceProviderCacheItem.h"
 #include <utility>
 #include <wtf/HashFunctions.h>
 #include <wtf/OwnPtr.h>
@@ -604,7 +603,6 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseTryStatement(
     ASSERT(match(TRY));
     TreeStatement tryBlock = 0;
     const Identifier* ident = &m_globalData->propertyNames->nullIdentifier;
-    bool catchHasEval = false;
     TreeStatement catchBlock = 0;
     TreeStatement finallyBlock = 0;
     int firstLine = tokenLine();
@@ -627,10 +625,8 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseTryStatement(
         catchScope->preventNewDecls();
         consumeOrFail(CLOSEPAREN);
         matchOrFail(OPENBRACE);
-        int initialEvalCount = context.evalCount();
         catchBlock = parseBlockStatement(context);
         failIfFalseWithMessage(catchBlock, "'try' must have a catch or finally block");
-        catchHasEval = initialEvalCount != context.evalCount();
         failIfFalse(popScope(catchScope, TreeBuilder::NeedsFreeVariableInfo));
     }
     
@@ -641,7 +637,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseTryStatement(
         failIfFalse(finallyBlock);
     }
     failIfFalse(catchBlock || finallyBlock);
-    return context.createTryStatement(m_lexer->lastLineNumber(), tryBlock, ident, catchHasEval, catchBlock, finallyBlock, firstLine, lastLine);
+    return context.createTryStatement(m_lexer->lastLineNumber(), tryBlock, ident, catchBlock, finallyBlock, firstLine, lastLine);
 }
 
 template <typename LexerType>
@@ -778,7 +774,6 @@ template <FunctionRequirements requirements, bool nameIsInContainingScope, class
     functionScope->setIsFunction();
     if (match(IDENT)) {
         name = m_token.m_data.ident;
-        failIfTrueWithMessage(*name == m_globalData->propertyNames->underscoreProto, "Cannot name a function __proto__");
         next();
         if (!nameIsInContainingScope)
             failIfFalseIfStrict(functionScope->declareVariable(name));
@@ -1209,7 +1204,6 @@ template <bool complete, class TreeBuilder> TreeProperty Parser<LexerType>::pars
             return context.template createProperty<complete>(ident, node, PropertyNode::Constant);
         }
         failIfFalse(wasIdent);
-        matchOrFail(IDENT);
         const Identifier* accessorName = 0;
         TreeFormalParameterList parameters = 0;
         TreeFunctionBody body = 0;
@@ -1223,8 +1217,19 @@ template <bool complete, class TreeBuilder> TreeProperty Parser<LexerType>::pars
             type = PropertyNode::Setter;
         else
             fail();
-        failIfFalse((parseFunctionInfo<FunctionNeedsName, false>(context, accessorName, parameters, body, openBracePos, closeBracePos, bodyStartLine)));
-        return context.template createGetterOrSetterProperty<complete>(m_lexer->lastLineNumber(), type, accessorName, parameters, body, openBracePos, closeBracePos, bodyStartLine, m_lastLine);
+        const Identifier* stringPropertyName = 0;
+        double numericPropertyName = 0;
+        if (m_token.m_type == IDENT || m_token.m_type == STRING)
+            stringPropertyName = m_token.m_data.ident;
+        else if (m_token.m_type == NUMBER)
+            numericPropertyName = m_token.m_data.doubleValue;
+        else
+            fail();
+        next();
+        failIfFalse((parseFunctionInfo<FunctionNoRequirements, false>(context, accessorName, parameters, body, openBracePos, closeBracePos, bodyStartLine)));
+        if (stringPropertyName)
+            return context.template createGetterOrSetterProperty<complete>(m_lexer->lastLineNumber(), type, stringPropertyName, parameters, body, openBracePos, closeBracePos, bodyStartLine, m_lastLine);
+        return context.template createGetterOrSetterProperty<complete>(const_cast<JSGlobalData*>(m_globalData), m_lexer->lastLineNumber(), type, numericPropertyName, parameters, body, openBracePos, closeBracePos, bodyStartLine, m_lastLine);
     }
     case NUMBER: {
         double propertyName = m_token.m_data.doubleValue;
@@ -1244,7 +1249,11 @@ template <typename LexerType>
 template <class TreeBuilder> TreeExpression Parser<LexerType>::parseObjectLiteral(TreeBuilder& context)
 {
     int startOffset = m_token.m_data.intValue;
+    unsigned oldLastLineNumber = m_lexer->lastLineNumber();
+    unsigned oldLineNumber = m_lexer->lineNumber();
     consumeOrFailWithFlags(OPENBRACE, TreeBuilder::DontBuildStrings);
+    
+    int oldNonLHSCount = m_nonLHSCount;
     
     if (match(CLOSEBRACE)) {
         next();
@@ -1256,6 +1265,8 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseObjectLitera
     if (!m_syntaxAlreadyValidated && context.getType(property) != PropertyNode::Constant) {
         m_lexer->setOffset(startOffset);
         next();
+        m_lexer->setLastLineNumber(oldLastLineNumber);
+        m_lexer->setLineNumber(oldLineNumber);
         return parseStrictObjectLiteral(context);
     }
     TreePropertyList propertyList = context.createPropertyList(m_lexer->lastLineNumber(), property);
@@ -1270,12 +1281,16 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseObjectLitera
         if (!m_syntaxAlreadyValidated && context.getType(property) != PropertyNode::Constant) {
             m_lexer->setOffset(startOffset);
             next();
+            m_lexer->setLastLineNumber(oldLastLineNumber);
+            m_lexer->setLineNumber(oldLineNumber);
             return parseStrictObjectLiteral(context);
         }
         tail = context.createPropertyList(m_lexer->lastLineNumber(), property, tail);
     }
     
     consumeOrFail(CLOSEBRACE);
+    
+    m_nonLHSCount = oldNonLHSCount;
     
     return context.createObjectLiteral(m_lexer->lastLineNumber(), propertyList);
 }
@@ -1285,6 +1300,8 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseStrictObject
 {
     consumeOrFail(OPENBRACE);
     
+    int oldNonLHSCount = m_nonLHSCount;
+
     if (match(CLOSEBRACE)) {
         next();
         return context.createObjectLiteral(m_lexer->lastLineNumber());
@@ -1309,19 +1326,21 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseStrictObject
         property = parseProperty<true>(context);
         failIfFalse(property);
         if (!m_syntaxAlreadyValidated) {
-            std::pair<ObjectValidationMap::iterator, bool> propertyEntryIter = objectValidator.add(context.getName(property).impl(), context.getType(property));
-            if (!propertyEntryIter.second) {
-                failIfTrue(propertyEntryIter.first->second == PropertyNode::Constant);
+            ObjectValidationMap::AddResult propertyEntry = objectValidator.add(context.getName(property).impl(), context.getType(property));
+            if (!propertyEntry.isNewEntry) {
+                failIfTrue(propertyEntry.iterator->second == PropertyNode::Constant);
                 failIfTrue(context.getType(property) == PropertyNode::Constant);
-                failIfTrue(context.getType(property) & propertyEntryIter.first->second);
-                propertyEntryIter.first->second |= context.getType(property);
+                failIfTrue(context.getType(property) & propertyEntry.iterator->second);
+                propertyEntry.iterator->second |= context.getType(property);
             }
         }
         tail = context.createPropertyList(m_lexer->lastLineNumber(), property, tail);
     }
     
     consumeOrFail(CLOSEBRACE);
-    
+
+    m_nonLHSCount = oldNonLHSCount;
+
     return context.createObjectLiteral(m_lexer->lastLineNumber(), propertyList);
 }
 
@@ -1329,6 +1348,8 @@ template <typename LexerType>
 template <class TreeBuilder> TreeExpression Parser<LexerType>::parseArrayLiteral(TreeBuilder& context)
 {
     consumeOrFailWithFlags(OPENBRACKET, TreeBuilder::DontBuildStrings);
+    
+    int oldNonLHSCount = m_nonLHSCount;
     
     int elisions = 0;
     while (match(COMMA)) {
@@ -1364,6 +1385,8 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseArrayLiteral
     }
     
     consumeOrFail(CLOSEBRACKET);
+    
+    m_nonLHSCount = oldNonLHSCount;
     
     return context.createArray(m_lexer->lastLineNumber(), elementList);
 }
@@ -1513,23 +1536,20 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
         }
         case OPENPAREN: {
             m_nonTrivialExpressionCount++;
+            int nonLHSCount = m_nonLHSCount;
             if (newCount) {
                 newCount--;
-                if (match(OPENPAREN)) {
-                    int exprEnd = lastTokenEnd();
-                    TreeArguments arguments = parseArguments(context);
-                    failIfFalse(arguments);
-                    base = context.createNewExpr(m_lexer->lastLineNumber(), base, arguments, start, exprEnd, lastTokenEnd());
-                } else
-                    base = context.createNewExpr(m_lexer->lastLineNumber(), base, start, lastTokenEnd());               
+                int exprEnd = lastTokenEnd();
+                TreeArguments arguments = parseArguments(context);
+                failIfFalse(arguments);
+                base = context.createNewExpr(m_lexer->lastLineNumber(), base, arguments, start, exprEnd, lastTokenEnd());           
             } else {
-                int nonLHSCount = m_nonLHSCount;
                 int expressionEnd = lastTokenEnd();
                 TreeArguments arguments = parseArguments(context);
                 failIfFalse(arguments);
                 base = context.makeFunctionCallNode(m_lexer->lastLineNumber(), base, arguments, expressionStart, expressionEnd, lastTokenEnd());
-                m_nonLHSCount = nonLHSCount;
             }
+            m_nonLHSCount = nonLHSCount;
             break;
         }
         case DOT: {

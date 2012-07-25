@@ -68,7 +68,7 @@ RenderObject* RenderFieldset::layoutSpecialExcludedChild(bool relayoutChildren)
             legend->setNeedsLayout(true);
         legend->layoutIfNeeded();
 
-        int logicalLeft;
+        LayoutUnit logicalLeft;
         if (style()->isLeftToRightDirection()) {
             switch (legend->style()->textAlign()) {
             case CENTER:
@@ -89,7 +89,7 @@ RenderObject* RenderFieldset::layoutSpecialExcludedChild(bool relayoutChildren)
             case CENTER: {
                 // Make sure that the extra pixel goes to the end side in RTL (since it went to the end side
                 // in LTR).
-                int centeredWidth = logicalWidth() - logicalWidthForChild(legend);
+                LayoutUnit centeredWidth = logicalWidth() - logicalWidthForChild(legend);
                 logicalLeft = centeredWidth - centeredWidth / 2;
                 break;
             }
@@ -101,9 +101,9 @@ RenderObject* RenderFieldset::layoutSpecialExcludedChild(bool relayoutChildren)
 
         setLogicalLeftForChild(legend, logicalLeft);
 
-        int b = borderBefore();
-        int h = logicalHeightForChild(legend);
-        setLogicalTopForChild(legend, max((b - h) / 2, 0));
+        LayoutUnit b = borderBefore();
+        LayoutUnit h = logicalHeightForChild(legend);
+        setLogicalTopForChild(legend, max<LayoutUnit>((b - h) / 2, 0));
         setLogicalHeight(max(b, h) + paddingBefore());
     }
     return legend;
@@ -118,35 +118,33 @@ RenderBox* RenderFieldset::findLegend() const
     return 0;
 }
 
-void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
+void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (!paintInfo.shouldPaintWithinRoot(this))
         return;
 
-    int w = width();
-    int h = height();
+    LayoutRect paintRect(paintOffset, size());
     RenderBox* legend = findLegend();
     if (!legend)
-        return RenderBlock::paintBoxDecorations(paintInfo, tx, ty);
+        return RenderBlock::paintBoxDecorations(paintInfo, paintOffset);
 
     // FIXME: We need to work with "rl" and "bt" block flow directions.  In those
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
     if (style()->isHorizontalWritingMode()) {
-        int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
-        h -= yOff;
-        ty += yOff;
+        LayoutUnit yOff = (legend->y() > 0) ? ZERO_LAYOUT_UNIT : (legend->height() - borderTop()) / 2;
+        paintRect.setHeight(paintRect.height() - yOff);
+        paintRect.setY(paintRect.y() + yOff);
     } else {
-        int xOff = (legend->x() > 0) ? 0 : (legend->width() - borderLeft()) / 2;
-        w -= xOff;
-        tx += xOff;
+        LayoutUnit xOff = (legend->x() > 0) ? ZERO_LAYOUT_UNIT : (legend->width() - borderLeft()) / 2;
+        paintRect.setWidth(paintRect.width() - xOff);
+        paintRect.setX(paintRect.x() + xOff);
     }
 
-    IntRect paintRect = IntRect(tx, ty, w, h);
-    
-    paintBoxShadow(paintInfo.context, paintRect, style(), Normal);
+    if (!boxShadowShouldBeAppliedToBackground(determineBackgroundBleedAvoidance(paintInfo.context)))
+        paintBoxShadow(paintInfo, paintRect, style(), Normal);
     paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), paintRect);
-    paintBoxShadow(paintInfo.context, paintRect, style(), Inset);
+    paintBoxShadow(paintInfo, paintRect, style(), Inset);
 
     if (!style()->hasBorder())
         return;
@@ -159,24 +157,24 @@ void RenderFieldset::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
     if (style()->isHorizontalWritingMode()) {
-        int clipTop = ty;
-        int clipHeight = max(static_cast<int>(style()->borderTopWidth()), legend->height());
-        graphicsContext->clipOut(IntRect(tx + legend->x(), clipTop, legend->width(), clipHeight));
+        LayoutUnit clipTop = paintRect.y();
+        LayoutUnit clipHeight = max(static_cast<LayoutUnit>(style()->borderTopWidth()), legend->height() - ((legend->height() - borderTop()) / 2));
+        graphicsContext->clipOut(pixelSnappedIntRect(paintRect.x() + legend->x(), clipTop, legend->width(), clipHeight));
     } else {
-        int clipLeft = tx;
-        int clipWidth = max(static_cast<int>(style()->borderLeftWidth()), legend->width());
-        graphicsContext->clipOut(IntRect(clipLeft, ty + legend->y(), clipWidth, legend->height()));
+        LayoutUnit clipLeft = paintRect.x();
+        LayoutUnit clipWidth = max(static_cast<LayoutUnit>(style()->borderLeftWidth()), legend->width());
+        graphicsContext->clipOut(pixelSnappedIntRect(clipLeft, paintRect.y() + legend->y(), clipWidth, legend->height()));
     }
 
-    paintBorder(paintInfo.context, paintRect, style());
+    paintBorder(paintInfo, paintRect, style());
 }
 
-void RenderFieldset::paintMask(PaintInfo& paintInfo, IntSize paintOffset)
+void RenderFieldset::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (style()->visibility() != VISIBLE || paintInfo.phase != PaintPhaseMask)
         return;
 
-    IntRect paintRect = IntRect(toPoint(paintOffset), size());
+    LayoutRect paintRect = LayoutRect(paintOffset, size());
     RenderBox* legend = findLegend();
     if (!legend)
         return RenderBlock::paintMask(paintInfo, paintOffset);
@@ -185,16 +183,25 @@ void RenderFieldset::paintMask(PaintInfo& paintInfo, IntSize paintOffset)
     // cases the legend is embedded in the right and bottom borders respectively.
     // https://bugs.webkit.org/show_bug.cgi?id=47236
     if (style()->isHorizontalWritingMode()) {
-        int yOff = (legend->y() > 0) ? 0 : (legend->height() - borderTop()) / 2;
+        LayoutUnit yOff = (legend->y() > 0) ? ZERO_LAYOUT_UNIT : (legend->height() - borderTop()) / 2;
         paintRect.expand(0, -yOff);
         paintRect.move(0, yOff);
     } else {
-        int xOff = (legend->x() > 0) ? 0 : (legend->width() - borderLeft()) / 2;
+        LayoutUnit xOff = (legend->x() > 0) ? ZERO_LAYOUT_UNIT : (legend->width() - borderLeft()) / 2;
         paintRect.expand(-xOff, 0);
         paintRect.move(xOff, 0);
     }
 
     paintMaskImages(paintInfo, paintRect);
+}
+
+bool RenderFieldset::stretchesToMinIntrinsicLogicalWidth() const
+{
+    // If width is explicitly specified then Fieldsets should not stretch
+    if (style()->width().isPercent())
+        return false;
+
+    return true;
 }
 
 } // namespace WebCore

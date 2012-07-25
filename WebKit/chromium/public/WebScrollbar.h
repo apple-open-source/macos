@@ -31,12 +31,13 @@
 #ifndef WebScrollbar_h
 #define WebScrollbar_h
 
-#include "WebCanvas.h"
-#include "WebCommon.h"
+#include "platform/WebCanvas.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
 class WebInputEvent;
+class WebPluginContainer;
 class WebScrollbarClient;
 struct WebRect;
 
@@ -59,13 +60,19 @@ public:
         ScrollByPixel
     };
 
-    // Creates a WebScrollbar.
-    WEBKIT_API static WebScrollbar* create(WebScrollbarClient*, Orientation);
+    // Creates a WebScrollbar for use by a plugin. The plugin container and
+    // client are guaranteed to outlive this object.
+    WEBKIT_EXPORT static WebScrollbar* createForPlugin(Orientation,
+                                                       WebPluginContainer*,
+                                                       WebScrollbarClient*);
 
     virtual ~WebScrollbar() {}
 
     // Gets the thickness of the scrollbar in pixels.
-    WEBKIT_API static int defaultThickness();
+    WEBKIT_EXPORT static int defaultThickness();
+
+    // Return true if this is an overlay scrollbar.
+    virtual bool isOverlay() const = 0;
 
     // Sets the rectangle of the scrollbar.
     virtual void setLocation(const WebRect&) = 0;

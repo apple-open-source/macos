@@ -31,9 +31,9 @@
 #ifndef WebFont_h
 #define WebFont_h
 
-#include "WebCanvas.h"
-#include "WebColor.h"
-#include "WebCommon.h"
+#include "platform/WebCanvas.h"
+#include "platform/WebColor.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -48,7 +48,7 @@ class WebFont {
 public:
     virtual ~WebFont() { }
 
-    WEBKIT_API static WebFont* create(const WebFontDescription&);
+    WEBKIT_EXPORT static WebFont* create(const WebFontDescription&);
 
     virtual WebFontDescription fontDescription() const = 0;
 

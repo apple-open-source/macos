@@ -3,7 +3,7 @@
  *
  *   Scheduler notification tester for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *   Copyright 2006-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,6 +28,7 @@
 #include <cups/debug-private.h>
 #include <cups/string-private.h>
 #include <signal.h>
+#include <cups/ipp-private.h>	/* TODO: Update so we don't need this */
 
 
 /*
@@ -43,7 +44,7 @@ static int	terminate = 0;
 
 static void	print_attributes(ipp_t *ipp, int indent);
 static void	sigterm_handler(int sig);
-static void	usage(void);
+static void	usage(void) __attribute__((noreturn));
 
 
 /*
@@ -302,7 +303,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
   int			i;		/* Looping var */
   ipp_tag_t		group;		/* Current group */
   ipp_attribute_t	*attr;		/* Current attribute */
-  ipp_value_t		*val;		/* Current value */
+  _ipp_value_t		*val;		/* Current value */
   static const char * const tags[] =	/* Value/group tag strings */
 			{
 			  "reserved-00",
@@ -452,7 +453,7 @@ print_attributes(ipp_t *ipp,		/* I - IPP request */
       case IPP_TAG_RESOLUTION :
           for (i = 0, val = attr->values; i < attr->num_values; i ++, val ++)
 	    printf(" %dx%d%s", val->resolution.xres, val->resolution.yres,
-	           val->resolution.units == IPP_RES_PER_INCH ? "dpi" : "dpc");
+	           val->resolution.units == IPP_RES_PER_INCH ? "dpi" : "dpcm");
           putchar('\n');
           break;
 

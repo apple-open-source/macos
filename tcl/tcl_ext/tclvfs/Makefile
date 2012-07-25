@@ -26,9 +26,8 @@ Install_Target        = install-binaries
 TclExtDir             = vfs
 
 install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtManDir)"
 	$(_v) umask $(Install_Mask); for f in "$(Sources)"/doc/*.man; do \
 	    n=$$(basename "$$f" .man) && echo "Generating $$n docs" && \
-	    $(MPEXPAND) html $$f "$(DSTROOT)/$(TclExtHtmlDir)/$$n.html" && \
 	    $(MPEXPAND) nroff $$f "$(DSTROOT)/$(TclExtManDir)/$$n.n"; \
 	done

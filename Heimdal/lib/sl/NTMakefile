@@ -40,8 +40,7 @@ $(LIBSL): $(OBJ)\sl.obj
 
 $(BINDIR)\slc.exe: $(OBJ)\slc-gram.obj $(OBJ)\slc-lex.obj
 	$(EXECONLINK) $(LIBROKEN) $(LIBVERS)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
+	$(EXEPREP_NOHEIM)
 
 $(OBJ)\slc-gram.c: slc-gram.y
 	$(YACC) -o $@ --defines=$(@R).h slc-gram.y
@@ -53,18 +52,17 @@ $(OBJ)\slc-lex.c: slc-lex.l
 	$(LEX) -o$@ slc-lex.l
 
 $(OBJ)\slc-lex.obj: $(OBJ)\slc-lex.c
-	$(C2OBJ) -I$(SRC)\$(RELDIR)
+	$(C2OBJ) -I$(SRC)\$(RELDIR) -DYY_NO_UNISTD_H
 
 $(OBJ)\test_sl.exe: $(OBJ)\test_sl.obj
 	$(EXECONLINK) $(LIBSL) $(LIBVERS) $(LIBROKEN)
-	$(_VC_MANIFEST_EMBED_EXE)
-	$(_VC_MANIFEST_CLEAN)
+	$(EXEPREP_NODIST)
 
 all:: $(INCFILES) $(LIBSL) $(BINDIR)\slc.exe
 
 clean::
 	-$(RM) $(LIBSL)
-	-$(RM) $(BINDIR)\slc.exe
+	-$(RM) $(BINDIR)\slc.*
 
 test-binaries: $(OBJ)\test_sl.exe
 

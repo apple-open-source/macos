@@ -26,9 +26,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(XPATH)
-
 #include "XPathPredicate.h"
 
 #include "Node.h"
@@ -243,7 +240,7 @@ Value Union::evaluate() const
     
     for (size_t i = 0; i < rhsNodes.size(); ++i) {
         Node* node = rhsNodes[i];
-        if (nodes.add(node).second)
+        if (nodes.add(node).isNewEntry)
             resultSet.append(node);
     }
 
@@ -278,5 +275,3 @@ bool Predicate::evaluate() const
 
 }
 }
-
-#endif // ENABLE(XPATH)

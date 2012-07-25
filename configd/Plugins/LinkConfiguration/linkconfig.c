@@ -442,7 +442,7 @@ _SCNetworkInterfaceSetMTU(SCNetworkInterfaceRef	interface,
  * 2. key = "a/b/c" prefix = "a/b/"
  *    returns "c"
  */
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 parse_component(CFStringRef key, CFStringRef prefix)
 {
 	CFMutableStringRef	comp;

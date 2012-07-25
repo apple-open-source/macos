@@ -130,7 +130,8 @@ IOReturn IOHIDTransactionClass::getAsyncEventSource(CFTypeRef *source)
     return fOwningDevice->getAsyncEventSource(source);
 }
 
-void IOHIDTransactionClass::_eventSourceCallback(CFMachPortRef *cfPort, mach_msg_header_t *msg, CFIndex size, void *info){
+void IOHIDTransactionClass::_eventSourceCallback(CFMachPortRef *cfPort __unused, mach_msg_header_t *msg __unused, CFIndex size __unused, void *info)
+{
     
     IOHIDTransactionClass *transaction = (IOHIDTransactionClass *)info;
     
@@ -157,7 +158,7 @@ IOReturn IOHIDTransactionClass::getDirection(IOHIDTransactionDirectionType * pDi
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDTransactionClass::setDirection(IOHIDTransactionDirectionType direction, IOOptionBits options)
+IOReturn IOHIDTransactionClass::setDirection(IOHIDTransactionDirectionType direction, IOOptionBits options __unused)
 {
     IOHIDTransactionElementRef *elementRefs = NULL;
     IOHIDElementRef             element = NULL;
@@ -235,7 +236,7 @@ IOReturn IOHIDTransactionClass::dispose()
     return ret;
 }
 
-IOReturn IOHIDTransactionClass::addElement (IOHIDElementRef element, IOOptionBits options)
+IOReturn IOHIDTransactionClass::addElement (IOHIDElementRef element, IOOptionBits options __unused)
 {
     IOHIDTransactionElementRef  transactionElement;
     IOHIDElementType            elementType;
@@ -268,7 +269,7 @@ IOReturn IOHIDTransactionClass::addElement (IOHIDElementRef element, IOOptionBit
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDTransactionClass::removeElement (IOHIDElementRef element, IOOptionBits options)
+IOReturn IOHIDTransactionClass::removeElement (IOHIDElementRef element, IOOptionBits options __unused)
 {    
     Boolean added;
 
@@ -285,7 +286,7 @@ IOReturn IOHIDTransactionClass::removeElement (IOHIDElementRef element, IOOption
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDTransactionClass::hasElement (IOHIDElementRef element, Boolean *pValue, IOOptionBits options)
+IOReturn IOHIDTransactionClass::hasElement (IOHIDElementRef element, Boolean *pValue, IOOptionBits options __unused)
 {
     mostChecks();
     
@@ -350,7 +351,7 @@ IOReturn IOHIDTransactionClass::getElementValue(IOHIDElementRef element, IOHIDVa
 }
 
 /* start/stop data delivery to a queue */
-IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS, IOHIDCallback callback, void * callbackRefcon, IOOptionBits options)
+IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS __unused, IOHIDCallback callback __unused, void * callbackRefcon __unused, IOOptionBits options __unused)
 {
     IOHIDTransactionElementRef *    elementRefs         = NULL;
     uint64_t *                      cookies             = NULL;
@@ -430,7 +431,7 @@ IOReturn IOHIDTransactionClass::commit(uint32_t timeoutMS, IOHIDCallback callbac
             
 }
 
-IOReturn IOHIDTransactionClass::clear (IOOptionBits options)
+IOReturn IOHIDTransactionClass::clear (IOOptionBits options __unused)
 {
     IOHIDTransactionElementRef *elementRefs = NULL;
     CFIndex                     numElements	= 0;
@@ -639,11 +640,25 @@ IOReturn IOHIDOutputTransactionClass::addElement (IOHIDElementCookie cookie)
     return IOHIDTransactionClass::addElement(element);
 }
 
+IOReturn 
+IOHIDOutputTransactionClass::addElement(IOHIDElementRef element, 
+                                        IOOptionBits options)
+{
+    return IOHIDTransactionClass::addElement(element, options);
+}
+
 IOReturn IOHIDOutputTransactionClass::removeElement (IOHIDElementCookie cookie)
 {
     IOHIDElementRef element = fOwningDevice->getElement(cookie);
 
     return IOHIDTransactionClass::removeElement(element);
+}
+
+IOReturn
+IOHIDOutputTransactionClass::removeElement(IOHIDElementRef element, 
+                                           IOOptionBits options)
+{
+    return IOHIDTransactionClass::removeElement(element, options);
 }
 
 Boolean IOHIDOutputTransactionClass::hasElement (IOHIDElementCookie cookie)
@@ -654,8 +669,19 @@ Boolean IOHIDOutputTransactionClass::hasElement (IOHIDElementCookie cookie)
     return (IOHIDTransactionClass::hasElement(element, &value) == kIOReturnSuccess) ? value : FALSE;
 }
 
+IOReturn 
+IOHIDOutputTransactionClass::hasElement(IOHIDElementRef element, 
+                                        Boolean * pValue, 
+                                        IOOptionBits options)
+{
+    return IOHIDTransactionClass::hasElement(element, pValue, options);
+}
+
 /* set the value for that element */
-IOReturn IOHIDOutputTransactionClass::setElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, IOOptionBits options)
+IOReturn 
+IOHIDOutputTransactionClass::setElementValue(IOHIDElementCookie cookie, 
+                                             IOHIDEventStruct * pEvent, 
+                                             IOOptionBits options)
 {
     IOHIDValueRef   event;
     IOHIDElementRef element;
@@ -673,9 +699,20 @@ IOReturn IOHIDOutputTransactionClass::setElementValue(IOHIDElementCookie cookie,
 
     return ret;
 }
+
+IOReturn 
+IOHIDOutputTransactionClass::setElementValue(IOHIDElementRef element, 
+                                             IOHIDValueRef event, 
+                                             IOOptionBits options)
+{
+    return IOHIDTransactionClass::setElementValue(element, event, options);
+}
                                 
 /* get the value for that element */
-IOReturn IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie cookie, IOHIDEventStruct * pEvent, IOOptionBits options)
+IOReturn 
+IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie cookie, 
+                                             IOHIDEventStruct * pEvent, 
+                                             IOOptionBits options)
 {
     IOHIDValueRef   event;
     IOReturn        ret;
@@ -709,6 +746,13 @@ IOReturn IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie cookie,
     return ret;
 }
 
+IOReturn 
+IOHIDOutputTransactionClass::getElementValue(IOHIDElementRef element, 
+                                             IOHIDValueRef * pEvent, IOOptionBits options)
+{
+    return IOHIDTransactionClass::getElementValue(element, pEvent, options);
+}
+
 IOReturn IOHIDOutputTransactionClass::commit(uint32_t timeoutMS, IOHIDCallbackFunction callback, void * target, void * refcon)
 {
     fCallback   = callback;
@@ -718,7 +762,16 @@ IOReturn IOHIDOutputTransactionClass::commit(uint32_t timeoutMS, IOHIDCallbackFu
     return IOHIDTransactionClass::commit(timeoutMS, IOHIDOutputTransactionClass::_commitCallback, this);
 }
 
-void IOHIDOutputTransactionClass::_commitCallback(void * context, IOReturn result, void * sender){
+IOReturn 
+IOHIDOutputTransactionClass::commit(uint32_t timeoutMS, 
+                                    IOHIDCallback callback, 
+                                    void * callbackRefcon, 
+                                    IOOptionBits options)
+{
+    return IOHIDTransactionClass::commit(timeoutMS, callback, callbackRefcon, options);
+}
+
+void IOHIDOutputTransactionClass::_commitCallback(void * context, IOReturn result __unused, void * sender){
     
     IOHIDOutputTransactionClass *transaction = (IOHIDOutputTransactionClass *)context;
     

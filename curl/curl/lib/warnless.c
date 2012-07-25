@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,6 +21,22 @@
  ***************************************************************************/
 
 #include "setup.h"
+
+#if defined(__INTEL_COMPILER) && defined(__unix__)
+
+#ifdef HAVE_SYS_SOCKET_H
+#  include <sys/socket.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#  include <netinet/in.h>
+#endif
+#ifdef HAVE_ARPA_INET_H
+#  include <arpa/inet.h>
+#endif
+
+#endif /* __INTEL_COMPILER && __unix__ */
+
+#define BUILDING_WARNLESS_C 1
 
 #include "warnless.h"
 
@@ -159,6 +175,24 @@ int curlx_uztosi(size_t uznum)
 }
 
 /*
+** unsigned size_t to unsigned long
+*/
+
+unsigned long curlx_uztoul(size_t uznum)
+{
+#ifdef __INTEL_COMPILER
+# pragma warning(push)
+# pragma warning(disable:810) /* conversion may lose significant bits */
+#endif
+
+  return (unsigned long)(uznum & (size_t) CURL_MASK_ULONG);
+
+#ifdef __INTEL_COMPILER
+# pragma warning(pop)
+#endif
+}
+
+/*
 ** signed long to signed int
 */
 
@@ -251,3 +285,74 @@ size_t curlx_sotouz(curl_off_t sonum)
 #  pragma warning(pop)
 #endif
 }
+
+/*
+** signed int to unsigned size_t
+*/
+
+size_t curlx_sitouz(int sinum)
+{
+#ifdef __INTEL_COMPILER
+#  pragma warning(push)
+#  pragma warning(disable:810) /* conversion may lose significant bits */
+#endif
+
+  DEBUGASSERT(sinum >= 0);
+  return (size_t) sinum;
+
+#ifdef __INTEL_COMPILER
+#  pragma warning(pop)
+#endif
+}
+
+#if defined(__INTEL_COMPILER) && defined(__unix__)
+
+int curlx_FD_ISSET(int fd, fd_set *fdset)
+{
+  #pragma warning(push)
+  #pragma warning(disable:1469) /* clobber ignored */
+  return FD_ISSET(fd, fdset);
+  #pragma warning(pop)
+}
+
+void curlx_FD_SET(int fd, fd_set *fdset)
+{
+  #pragma warning(push)
+  #pragma warning(disable:1469) /* clobber ignored */
+  FD_SET(fd, fdset);
+  #pragma warning(pop)
+}
+
+void curlx_FD_ZERO(fd_set *fdset)
+{
+  #pragma warning(push)
+  #pragma warning(disable:593) /* variable was set but never used */
+  FD_ZERO(fdset);
+  #pragma warning(pop)
+}
+
+unsigned short curlx_htons(unsigned short usnum)
+{
+#if (__INTEL_COMPILER == 910) && defined(__i386__)
+  return (unsigned short)(((usnum << 8) & 0xFF00) | ((usnum >> 8) & 0x00FF));
+#else
+  #pragma warning(push)
+  #pragma warning(disable:810) /* conversion may lose significant bits */
+  return htons(usnum);
+  #pragma warning(pop)
+#endif
+}
+
+unsigned short curlx_ntohs(unsigned short usnum)
+{
+#if (__INTEL_COMPILER == 910) && defined(__i386__)
+  return (unsigned short)(((usnum << 8) & 0xFF00) | ((usnum >> 8) & 0x00FF));
+#else
+  #pragma warning(push)
+  #pragma warning(disable:810) /* conversion may lose significant bits */
+  return ntohs(usnum);
+  #pragma warning(pop)
+#endif
+}
+
+#endif /* __INTEL_COMPILER && __unix__ */

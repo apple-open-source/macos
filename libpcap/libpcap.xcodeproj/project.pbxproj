@@ -55,6 +55,7 @@
 /* End PBXBuildRule section */
 
 /* Begin PBXFileReference section */
+		568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_ng.3; path = libpcap/pcap_ng.3; sourceTree = "<group>"; };
 		724FC91512331FCE003B8C19 /* pcap-common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-common.c"; path = "libpcap/pcap-common.c"; sourceTree = "<group>"; };
 		724FC91712331FDD003B8C19 /* pcap-common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcap-common.h"; path = "libpcap/pcap-common.h"; sourceTree = "<group>"; };
 		724FC91C1233226B003B8C19 /* sf-pcap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sf-pcap.c"; path = "libpcap/sf-pcap.c"; sourceTree = "<group>"; };
@@ -277,6 +278,7 @@
 				FCDE36C9103682D400CC3DD8 /* pcap_stats.3pcap */,
 				FCDE36CA103682D400CC3DD8 /* pcap_statustostr.3pcap */,
 				FCDE36CB103682D400CC3DD8 /* pcap_strerror.3pcap */,
+				568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */,
 			);
 			name = Documentation;
 			sourceTree = "<group>";
@@ -331,9 +333,16 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0430;
+			};
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libpcap" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* libpcap */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -355,7 +364,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# exit immediately on failure\nset -e\n\nMANDIR=/usr/share/man\n\nln -sf libpcap.A.dylib \"$DSTROOT\"/usr/lib/libpcap.dylib\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/bin\ninstall -c -o root -g wheel -m 0755 \"$PROJECT_DIR\"/libpcap/pcap-config \"$DSTROOT\"/usr/bin/pcap-config\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man3\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man5\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man7\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/pcap-config.1 \"$DSTROOT\"/\"$MANDIR\"/man1\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/*.3pcap \"$DSTROOT\"/\"$MANDIR\"/man3\n\n# Some man pages require special processing:\n# @MAN_MISC_INFO@ -> 7\n# .manmisc.in -> .7\n# @MAN_FILE_FORMATS@ -> 5\n# .manfile.in -> .5\n\nfunction FixManPages() {\n    OLD_DIR=\"$1\"\n    OLD_SUFFIX=\"$2\"\n    NEW_DIR=\"$3\"\n    NEW_SUFFIX=\"$4\"\n    for INPUT_FILE_PATH in \"$OLD_DIR\"/*\"$OLD_SUFFIX\" ; do\n        INPUT_FILE_BASE=`basename \"$INPUT_FILE_PATH\" \"$OLD_SUFFIX\"`\n        OUTPUT_FILE_PATH=\"$NEW_DIR/$INPUT_FILE_BASE$NEW_SUFFIX\"\n        cat \"$INPUT_FILE_PATH\" | sed -e 's,@MAN_MISC_INFO@,7,g' | sed -e 's,@MAN_FILE_FORMATS,5,g' > \"$OUTPUT_FILE_PATH\"\n        chmod 0644 \"$OUTPUT_FILE_PATH\"\n        chown root:wheel \"$OUTPUT_FILE_PATH\"\n    done\n}\n\nFixManPages \"$PROJECT_DIR\"/libpcap .3pcap.in \"$DSTROOT\"/\"$MANDIR\"/man3 .3pcap\nFixManPages \"$PROJECT_DIR\"/libpcap .manfile.in \"$DSTROOT\"/\"$MANDIR\"/man5 .5\nFixManPages \"$PROJECT_DIR\"/libpcap .manmisc.in \"$DSTROOT\"/\"$MANDIR\"/man7 .7\n\n# Some man pages are links\nfunction ManPageLink() {\n    TARGET=\"$1\"\n    LINK=\"$2\"\n    OUTPUT_FILE_PATH=\"$DSTROOT/\"$MANDIR\"/man3/$LINK\"\n    echo \".so man3/$TARGET\" > \"$OUTPUT_FILE_PATH\"\n    chmod 0644 \"$OUTPUT_FILE_PATH\"\n    chown root:wheel \"$OUTPUT_FILE_PATH\"\n}\n\nManPageLink pcap_datalink_val_to_name.3pcap pcap_datalink_val_to_description.3pcap\nManPageLink pcap_loop.3pcap pcap_dispatch.3pcap\nManPageLink pcap_dump_open.3pcap pcap_dump_fopen.3pcap\nManPageLink pcap_open_offline.3pcap pcap_fopen_offline.3pcap\nManPageLink pcap_setnonblock.3pcap pcap_getnonblock.3pcap\nManPageLink pcap_major_version.3pcap pcap_minor_version.3pcap\nManPageLink pcap_next_ex.3pcap pcap_next.3pcap\nManPageLink pcap_geterr.3pcap pcap_perror.3pcap\nManPageLink pcap_inject.3pcap pcap_sendpacket.3pcap\n\n# Install open source information\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceLicenses\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap/LICENSE \"$DSTROOT\"/usr/local/OpenSourceLicenses/libpcap.txt\n";
+			shellScript = "# exit immediately on failure\nset -e\n\nMANDIR=/usr/share/man\n\nln -sf libpcap.A.dylib \"$DSTROOT\"/usr/lib/libpcap.dylib\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/bin\ninstall -c -o root -g wheel -m 0755 \"$PROJECT_DIR\"/libpcap/pcap-config \"$DSTROOT\"/usr/bin/pcap-config\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man3\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man5\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man7\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/pcap-config.1 \"$DSTROOT\"/\"$MANDIR\"/man1\n\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/*.3pcap \"$DSTROOT\"/\"$MANDIR\"/man3\n\n# Some man pages require special processing:\n# @MAN_MISC_INFO@ -> 7\n# .manmisc.in -> .7\n# @MAN_FILE_FORMATS@ -> 5\n# .manfile.in -> .5\n\nfunction FixManPages() {\n    OLD_DIR=\"$1\"\n    OLD_SUFFIX=\"$2\"\n    NEW_DIR=\"$3\"\n    NEW_SUFFIX=\"$4\"\n    for INPUT_FILE_PATH in \"$OLD_DIR\"/*\"$OLD_SUFFIX\" ; do\n        INPUT_FILE_BASE=`basename \"$INPUT_FILE_PATH\" \"$OLD_SUFFIX\"`\n        OUTPUT_FILE_PATH=\"$NEW_DIR/$INPUT_FILE_BASE$NEW_SUFFIX\"\n        cat \"$INPUT_FILE_PATH\" | sed -e 's,@MAN_MISC_INFO@,7,g' | sed -e 's,@MAN_FILE_FORMATS,5,g' > \"$OUTPUT_FILE_PATH\"\n        chmod 0644 \"$OUTPUT_FILE_PATH\"\n        chown root:wheel \"$OUTPUT_FILE_PATH\"\n    done\n}\n\nFixManPages \"$PROJECT_DIR\"/libpcap .3pcap.in \"$DSTROOT\"/\"$MANDIR\"/man3 .3pcap\nFixManPages \"$PROJECT_DIR\"/libpcap .manfile.in \"$DSTROOT\"/\"$MANDIR\"/man5 .5\nFixManPages \"$PROJECT_DIR\"/libpcap .manmisc.in \"$DSTROOT\"/\"$MANDIR\"/man7 .7\n\n# Some man pages are links\nfunction ManPageLink() {\n    TARGET=\"$1\"\n    LINK=\"$2\"\n    OUTPUT_FILE_PATH=\"$DSTROOT/\"$MANDIR\"/man3/$LINK\"\n    echo \".so man3/$TARGET\" > \"$OUTPUT_FILE_PATH\"\n    chmod 0644 \"$OUTPUT_FILE_PATH\"\n    chown root:wheel \"$OUTPUT_FILE_PATH\"\n}\n\nManPageLink pcap_datalink_val_to_name.3pcap pcap_datalink_val_to_description.3pcap\nManPageLink pcap_loop.3pcap pcap_dispatch.3pcap\nManPageLink pcap_dump_open.3pcap pcap_dump_fopen.3pcap\nManPageLink pcap_open_offline.3pcap pcap_fopen_offline.3pcap\nManPageLink pcap_setnonblock.3pcap pcap_getnonblock.3pcap\nManPageLink pcap_major_version.3pcap pcap_minor_version.3pcap\nManPageLink pcap_next_ex.3pcap pcap_next.3pcap\nManPageLink pcap_geterr.3pcap pcap_perror.3pcap\nManPageLink pcap_inject.3pcap pcap_sendpacket.3pcap\n     \n# Install private man pages                                                           \nMANDIR=/usr/local/share/man\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man3\n                                                           \ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/libpcap/*.3 \"$DSTROOT\"/\"$MANDIR\"/man3\nManPageLink pcap_ng.3 pcap_ng_dump_open.3\nManPageLink pcap_ng.3 pcap_ng_dump_fopen.3\nManPageLink pcap_ng.3 pcap_ng_dump.3\nManPageLink pcap_ng.3 pcap_ng_dump_close.3\n                                                           \n# Install open source information\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/usr/local/OpenSourceLicenses\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/libpcap/LICENSE \"$DSTROOT\"/usr/local/OpenSourceLicenses/libpcap.txt\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -417,7 +426,6 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = libpcap;
-				PREBINDING = NO;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
 				VERSIONING_SYSTEM = "apple-generic";

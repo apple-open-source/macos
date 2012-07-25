@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -30,9 +30,31 @@
 
 #include "uprintf.h"
 #include "ufile.h"
+#include "ucln_io.h"
 #include "locbund.h"
 
 #include "cmemory.h"
+
+static UFILE *gStdOut = NULL;
+
+static UBool U_CALLCONV uprintf_cleanup()
+{
+    if (gStdOut != NULL) {
+        u_fclose(gStdOut);
+        gStdOut = NULL;
+    }
+    return TRUE;
+}
+
+U_CAPI UFILE * U_EXPORT2
+u_get_stdout()
+{
+    if (gStdOut == NULL) {
+        gStdOut = u_finit(stdout, NULL, NULL);
+        ucln_io_registerCleanup(UCLN_IO_PRINTF, &uprintf_cleanup);
+    }
+    return gStdOut;
+}
 
 static int32_t U_EXPORT2
 u_printf_write(void          *context,
@@ -92,6 +114,18 @@ u_fprintf(    UFILE        *f,
     return count;
 }
 
+U_CAPI int32_t U_EXPORT2
+u_printf(const char *patternSpecification,
+         ...)
+{
+    va_list ap;
+    int32_t count;
+    va_start(ap, patternSpecification);
+    count = u_vfprintf(u_get_stdout(), patternSpecification, ap);
+    va_end(ap);
+    return count;
+}
+
 U_CAPI int32_t U_EXPORT2 
 u_fprintf_u(    UFILE        *f,
             const UChar    *patternSpecification,
@@ -104,6 +138,18 @@ u_fprintf_u(    UFILE        *f,
     count = u_vfprintf_u(f, patternSpecification, ap);
     va_end(ap);
 
+    return count;
+}
+
+U_CAPI int32_t U_EXPORT2
+u_printf_u(const UChar *patternSpecification,
+           ...)
+{
+    va_list ap;
+    int32_t count;
+    va_start(ap, patternSpecification);
+    count = u_vfprintf_u(u_get_stdout(), patternSpecification, ap);
+    va_end(ap);
     return count;
 }
 

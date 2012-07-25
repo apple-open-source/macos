@@ -139,7 +139,6 @@
 		23055EDB05E1807F00EAB16F /* ppp_option.h in Headers */ = {isa = PBXBuildFile; fileRef = 7129A449FFF956F311CA2CDC /* ppp_option.h */; };
 		23055EDC05E1807F00EAB16F /* ppp_privmsg.h in Headers */ = {isa = PBXBuildFile; fileRef = 7129A44DFFF956F311CA2CDC /* ppp_privmsg.h */; };
 		23055EDD05E1807F00EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		23055EE005E1807F00EAB16F /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0D977A4500C8596D7F000001 /* NetworkConnect.icns */; };
 		23055EE305E1807F00EAB16F /* ppp_getoption.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A45CFFF956F311CA2CDC /* ppp_getoption.c */; settings = {ATTRIBUTES = (); }; };
 		23055EE405E1807F00EAB16F /* ppp_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A45DFFF956F311CA2CDC /* ppp_manager.c */; settings = {ATTRIBUTES = (); }; };
 		23055EE705E1807F00EAB16F /* scnc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A463FFF956F311CA2CDC /* scnc_main.c */; settings = {ATTRIBUTES = (); }; };
@@ -199,7 +198,6 @@
 		23055F7905E1808100EAB16F /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F540B7FD0298B01601CA2D7A /* Carbon.framework */; };
 		23055F8105E1808100EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F8305E1808100EAB16F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 071EC566009889367F000001 /* Localizable.strings */; };
-		23055F8405E1808100EAB16F /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		23055F8605E1808100EAB16F /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
 		23055F8805E1808100EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		23055F9105E1808100EAB16F /* pptp.h in Headers */ = {isa = PBXBuildFile; fileRef = FAD305DC029D629504CA2CDC /* pptp.h */; };
@@ -225,7 +223,6 @@
 		23055FBF05E1808200EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5BDED7703CE029B01CA2DE3 /* main.c */; };
 		23055FC105E1808200EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5C000D203E73F4101CA2DE3 /* CoreFoundation.framework */; };
 		23055FC805E1808200EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		23055FCA05E1808200EAB16F /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		23055FCC05E1808200EAB16F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F52C515801F3540C01CA2DE5 /* Localizable.strings */; };
 		23055FCE05E1808200EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5592B7E01E2B47B01EA6C3B /* main.c */; };
 		23055FD005E1808200EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
@@ -473,7 +470,6 @@
 		7290FEBF0D3318CC0027CEAD /* pppcontroller.h in Headers */ = {isa = PBXBuildFile; fileRef = 23022727062DA4C10033908D /* pppcontroller.h */; };
 		7290FEC00D3318CC0027CEAD /* ipsec_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC33990CD7E4BB005AB2A9 /* ipsec_manager.h */; };
 		7290FEC10D3318CC0027CEAD /* scnc_main.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC340A0CD94AFE005AB2A9 /* scnc_main.h */; };
-		7290FEC40D3318CC0027CEAD /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 0D977A4500C8596D7F000001 /* NetworkConnect.icns */; };
 		7290FEC60D3318CC0027CEAD /* pppcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
 		7290FEC70D3318CC0027CEAD /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
 		7290FEC80D3318CC0027CEAD /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = FA76575503EB2B7504CA2DDA /* pfkey.c */; };
@@ -609,9 +605,9 @@
 		72FDE4DB0D412522007C4F13 /* pptp_rfc.c in Sources */ = {isa = PBXBuildFile; fileRef = F58FB66D018A6B6A01CA2DD5 /* pptp_rfc.c */; };
 		72FDE4DC0D412522007C4F13 /* ppp_mppe.c in Sources */ = {isa = PBXBuildFile; fileRef = F582B56D018FBC5201DBB4AA /* ppp_mppe.c */; };
 		72FDE5000D41256B007C4F13 /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		72FDE5050D41256B007C4F13 /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
 		72FDE5070D41256B007C4F13 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
+		8135E2BB139967E600C0C449 /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 83F592D40F6B376D00B1E1AE /* sbslauncher */; };
 		813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81CF182E111126D500D53EB8 /* StoreServices.framework */; };
 		813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
 		81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 81953A2E0F5208CB00BC014C /* vpn_manager.c */; };
@@ -1188,6 +1184,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
+				8135E2BB139967E600C0C449 /* sbslauncher in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1229,11 +1226,9 @@
 		014A7C8400754E8E7F000001 /* pppoe_rfc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppoe_rfc.h; path = "Drivers/PPPoE/PPPoE-extension/pppoe_rfc.h"; sourceTree = SOURCE_ROOT; };
 		014A7C8500754E8E7F000001 /* pppoe_wan.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppoe_wan.h; path = "Drivers/PPPoE/PPPoE-extension/pppoe_wan.h"; sourceTree = SOURCE_ROOT; };
 		014A7C8600754E8E7F000001 /* PPPoE.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PPPoE.h; path = "Drivers/PPPoE/PPPoE-extension/PPPoE.h"; sourceTree = SOURCE_ROOT; };
-		018CF39F00BDC8447F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = NetworkConnect.icns; path = Dialogs/NetworkConnect.icns; sourceTree = SOURCE_ROOT; };
 		01A345D600C4684A7F000001 /* scnc_client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = scnc_client.c; path = Controller/scnc_client.c; sourceTree = "<group>"; };
 		071EC564009888F57F000001 /* Dialogs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = Dialogs.c; path = Dialogs/Dialogs.c; sourceTree = SOURCE_ROOT; };
 		071EC567009889367F000001 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = Dialogs/English.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
-		0D977A4500C8596D7F000001 /* NetworkConnect.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = NetworkConnect.icns; sourceTree = "<group>"; };
 		23022727062DA4C10033908D /* pppcontroller.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = pppcontroller.h; path = "ppp.build/PPPController (Bundle).build/DerivedSources/pppcontroller.h"; sourceTree = BUILT_PRODUCTS_DIR; };
 		23055EF205E1807F00EAB16F /* PPPController-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "PPPController-Info.plist"; path = "Controller/PPPController-Info.plist"; sourceTree = SOURCE_ROOT; };
 		23055EF305E1807F00EAB16F /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1355,6 +1350,16 @@
 		72047528101FE0A200E486DB /* vpnagent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent.h; path = vpnagent/vpnagent.h; sourceTree = "<group>"; };
 		723074551161275A004C0871 /* vpn_environment.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_environment.c; path = Controller/vpn_environment.c; sourceTree = "<group>"; };
 		723074561161275A004C0871 /* vpn_environment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_environment.h; sourceTree = "<group>"; };
+		7240E44B152617B2001F555F /* NetworkConnect_128x128.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_128x128.png; sourceTree = "<group>"; };
+		7240E44C152617B2001F555F /* NetworkConnect_128x128@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_128x128@2x.png"; sourceTree = "<group>"; };
+		7240E44D152617B2001F555F /* NetworkConnect_16x16.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_16x16.png; sourceTree = "<group>"; };
+		7240E44E152617B2001F555F /* NetworkConnect_16x16@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_16x16@2x.png"; sourceTree = "<group>"; };
+		7240E44F152617B2001F555F /* NetworkConnect_256x256.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_256x256.png; sourceTree = "<group>"; };
+		7240E450152617B2001F555F /* NetworkConnect_256x256@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_256x256@2x.png"; sourceTree = "<group>"; };
+		7240E451152617B2001F555F /* NetworkConnect_32x32.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_32x32.png; sourceTree = "<group>"; };
+		7240E452152617B2001F555F /* NetworkConnect_32x32@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_32x32@2x.png"; sourceTree = "<group>"; };
+		7240E453152617B2001F555F /* NetworkConnect_512x512.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_512x512.png; sourceTree = "<group>"; };
+		7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_512x512@2x.png"; sourceTree = "<group>"; };
 		7251DFEE09212AAA00B94FFF /* radius_eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = radius_eap.c; path = Authenticators/Radius/radius_eap.c; sourceTree = "<group>"; };
 		7251E01209212CF000B94FFF /* radius.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = radius.h; path = Authenticators/Radius/radius.h; sourceTree = "<group>"; };
 		725D8ABB0DA5C12400017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = EMBEDDED/English.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -1882,7 +1887,6 @@
 				071EC564009888F57F000001 /* Dialogs.c */,
 				071EC566009889367F000001 /* Localizable.strings */,
 				725D8AD00DA5C43800017E37 /* EMBEDDED */,
-				018CF39F00BDC8447F000001 /* NetworkConnect.icns */,
 			);
 			name = Dialogs;
 			path = Helpers;
@@ -2114,7 +2118,7 @@
 				7129A439FFF956F311CA2CDC /* Headers */,
 				725D8AC10DA5C14800017E37 /* Localizable.strings */,
 				725D8AB50DA5C0F200017E37 /* EMBEDDED */,
-				0D977A4500C8596D7F000001 /* NetworkConnect.icns */,
+				7240E44A152617B2001F555F /* NetworkConnectIcons */,
 			);
 			path = Controller;
 			sourceTree = "<group>";
@@ -2289,6 +2293,24 @@
 				7202B401114EF02700FD3AA2 /* vpnagent */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7240E44A152617B2001F555F /* NetworkConnectIcons */ = {
+			isa = PBXGroup;
+			children = (
+				7240E44B152617B2001F555F /* NetworkConnect_128x128.png */,
+				7240E44C152617B2001F555F /* NetworkConnect_128x128@2x.png */,
+				7240E44D152617B2001F555F /* NetworkConnect_16x16.png */,
+				7240E44E152617B2001F555F /* NetworkConnect_16x16@2x.png */,
+				7240E44F152617B2001F555F /* NetworkConnect_256x256.png */,
+				7240E450152617B2001F555F /* NetworkConnect_256x256@2x.png */,
+				7240E451152617B2001F555F /* NetworkConnect_32x32.png */,
+				7240E452152617B2001F555F /* NetworkConnect_32x32@2x.png */,
+				7240E453152617B2001F555F /* NetworkConnect_512x512.png */,
+				7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */,
+			);
+			name = NetworkConnectIcons;
+			path = ../Dialogs/NetworkConnectIcons;
 			sourceTree = "<group>";
 		};
 		725D8AB50DA5C0F200017E37 /* EMBEDDED */ = {
@@ -3061,6 +3083,7 @@
 				23055EED05E1807F00EAB16F /* Rez */,
 				23055EEE05E1807F00EAB16F /* CopyFiles */,
 				23055EF005E1807F00EAB16F /* ShellScript */,
+				722E71261526260800E7383A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3188,6 +3211,7 @@
 				23055F8505E1808100EAB16F /* Sources */,
 				23055F8705E1808100EAB16F /* Frameworks */,
 				23055F8905E1808100EAB16F /* Rez */,
+				7240E46A15261821001F555F /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3271,6 +3295,7 @@
 				23055FCD05E1808200EAB16F /* Sources */,
 				23055FCF05E1808200EAB16F /* Frameworks */,
 				23055FD205E1808200EAB16F /* Rez */,
+				72E4A3E9153CB549005662C5 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3631,6 +3656,7 @@
 				7290FED60D3318CC0027CEAD /* CopyFiles */,
 				830403500F6B4D140062C836 /* CopyFiles */,
 				7290FED80D3318CC0027CEAD /* ShellScript */,
+				722E71361526272700E7383A /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3737,6 +3763,7 @@
 				72FDE5040D41256B007C4F13 /* Sources */,
 				72FDE5060D41256B007C4F13 /* Frameworks */,
 				72FDE5080D41256B007C4F13 /* Rez */,
+				7240E46B152621A9001F555F /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -3872,7 +3899,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055EE005E1807F00EAB16F /* NetworkConnect.icns in Resources */,
 				725D8AC30DA5C14800017E37 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3919,7 +3945,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				23055F8305E1808100EAB16F /* Localizable.strings in Resources */,
-				23055F8405E1808100EAB16F /* NetworkConnect.icns in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3948,7 +3973,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055FCA05E1808200EAB16F /* NetworkConnect.icns in Resources */,
 				23055FCC05E1808200EAB16F /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4033,7 +4057,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7290FEC40D3318CC0027CEAD /* NetworkConnect.icns in Resources */,
 				725D8ABC0DA5C12400017E37 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4063,7 +4086,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */,
 				725D8AD50DA5C45700017E37 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4373,6 +4395,58 @@
 			shellPath = /bin/sh;
 			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/chat.8";
 		};
+		722E71261526260800E7383A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+		};
+		722E71361526272700E7383A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+		};
+		7240E46A15261821001F555F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+		};
+		7240E46B152621A9001F555F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+		};
 		7290FED80D3318CC0027CEAD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -4390,6 +4464,19 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/etc/ppp\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppd.8";
+		};
+		72E4A3E9153CB549005662C5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
 		};
 		72FDE4730D4124C4007C4F13 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5211,6 +5298,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /Developer/usr/libexec;
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				OTHER_CFLAGS = (
@@ -5220,6 +5308,7 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Development;
 		};
@@ -5236,6 +5325,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /Developer/usr/libexec;
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				OTHER_CFLAGS = (
@@ -5246,6 +5336,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				SDKROOT = iphoneos4.3.internal;
+				WARNING_CFLAGS = "-Wcast-align";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -5260,6 +5351,7 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /Developer/usr/libexec;
 				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				OTHER_CFLAGS = (
@@ -5270,6 +5362,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				SDKROOT = iphoneos4.0.internal;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Default;
 		};
@@ -5396,6 +5489,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -5438,6 +5532,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -5477,6 +5572,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 			};
@@ -5518,6 +5614,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -5560,6 +5657,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -5599,6 +5697,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 			};
@@ -5649,6 +5748,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -5695,6 +5795,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
@@ -5738,6 +5839,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -5969,6 +6071,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				ZERO_LINK = NO;
 			};
@@ -6029,6 +6132,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				ZERO_LINK = NO;
 			};
@@ -6086,6 +6190,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Default;
@@ -8483,7 +8588,6 @@
 					"-bundle",
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
-					"-lcrypto",
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8520,7 +8624,6 @@
 					"-bundle",
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
-					"-lcrypto",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
@@ -8553,7 +8656,6 @@
 					"-bundle",
 					"-bundle_loader",
 					"$(CONFIGURATION_BUILD_DIR)/pppd",
-					"-lcrypto",
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
@@ -9194,6 +9296,7 @@
 		72DD79E1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Development;
@@ -9201,6 +9304,7 @@
 		72DD79E2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Deployment;
@@ -9208,6 +9312,7 @@
 		72DD79E3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Default;
@@ -9249,6 +9354,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9288,6 +9394,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9324,6 +9431,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -9366,6 +9474,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9404,6 +9513,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9439,6 +9549,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -9479,6 +9590,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9516,6 +9628,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -9550,6 +9663,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -9588,6 +9702,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -9621,6 +9736,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 				ZERO_LINK = NO;
@@ -9651,6 +9767,7 @@
 					"-Wmost",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 				WRAPPER_EXTENSION = ppp;
 			};
@@ -9678,6 +9795,7 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Development;
 		};
@@ -9704,6 +9822,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				SDKROOT = iphoneos4.3.internal;
+				WARNING_CFLAGS = "-Wcast-align";
 				ZERO_LINK = NO;
 			};
 			name = Deployment;
@@ -9728,6 +9847,7 @@
 				PREBINDING = NO;
 				PRODUCT_NAME = vpnagent;
 				SDKROOT = iphoneos4.0.internal;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Default;
 		};

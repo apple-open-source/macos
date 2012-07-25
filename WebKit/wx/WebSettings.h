@@ -40,6 +40,8 @@ namespace WebCore {
 class Settings;
 }
 
+namespace WebKit {
+
 enum wxEditableLinkBehavior {
     wxEditableLinkDefaultBehavior,
     wxEditableLinkAlwaysLive,
@@ -49,25 +51,25 @@ enum wxEditableLinkBehavior {
 };
 
 /**
-    @class wxWebSettings
+    @class WebSettings
     
     This class is used to control the configurable aspects of the WebKit engine.
     
-    Do not instantiate this object directly. Instead, create a wxWebView and
-    call its wxWebView::GetWebSettings() method to get and change that WebView's settings.
+    Do not instantiate this object directly. Instead, create a WebView and
+    call its WebView::GetWebSettings() method to get and change that WebView's settings.
     
 */
 
-class WXDLLIMPEXP_WEBKIT wxWebSettings: public wxObject {
+class WXDLLIMPEXP_WEBKIT WebSettings: public wxObject {
 public:
-    wxWebSettings(WebCore::Settings* settings) :
+    WebSettings(WebCore::Settings* settings) :
         wxObject(),
         m_settings(settings)
-    {}
+    { }
     
-    wxWebSettings() : wxObject() {}
+    WebSettings() : wxObject() { }
     
-    virtual ~wxWebSettings() { }
+    virtual ~WebSettings() { }
 
     /**
         Sets the default font size for fixed fonts.
@@ -103,7 +105,7 @@ public:
         Sets whether or not images are loaded automatically. (e.g. in email 
         programs you may wish to not load images until you confirm it is not SPAM)
     */
-    void SetLoadsImagesAutomatically(bool loadAutomatically);
+    void SetLoadsImagesAutomatically(bool);
     
     /**
         Returns whether or not images are loaded automatically.
@@ -113,7 +115,7 @@ public:
     /**
         Sets whether or not the WebView runs JavaScript code.
     */
-    void SetJavaScriptEnabled(bool enabled);
+    void SetJavaScriptEnabled(bool);
 
     /**
         Returns whether or not the WebView runs JavaScript code.
@@ -131,28 +133,61 @@ public:
     wxString GetLocalStoragePath() const;
     
     /**
-        Sets how links are handled when the wxWebView is in editing mode. 
+        Sets how links are handled when the WebView is in editing mode. 
     */    
     void SetEditableLinkBehavior(wxEditableLinkBehavior behavior);
     
     /**
-        Returns how links are handled when the wxWebView is in editing mode. 
+        Returns how links are handled when the WebView is in editing mode. 
     */   
     wxEditableLinkBehavior GetEditableLinkBehavior() const;
     
     /**
         Sets whether or not web pages can load plugins.
     */
-    void SetPluginsEnabled(bool enabled);
+    void SetPluginsEnabled(bool);
     
     /**
         Returns whether or not web pages can load plugins.
     */    
     bool ArePluginsEnabled() const;
     
+    /**
+        Enables or disables private browsing mode. When on, wxWebKit will avoid storing
+        any sort of persistent data or storage on disk.
+    */
+    void SetPrivateBrowsingEnabled(bool);
+    
+    /**
+        Returns the current state of private browsing mode.
+    */
+    bool PrivateBrowsingEnabled();
+    
+    /**
+        Sets whether or not wxWebKit caches pages.
+    */
+    void SetUsesPageCache(bool);
+    
+    /**
+        Returns whether or not wxWebKit caches pages.
+    */
+    bool UsesPageCache();
+    
+    /**
+        Sets whether or not wxWebKit uses the offfline web application cache.
+    */
+    void SetOfflineWebApplicationCacheEnabled(bool);
+    
+    /**
+        Returns whether or not wxWebKit uses the offline web application cache.
+    */
+    bool OfflineWebApplicationCacheEnabled();
+    
 private:
     WebCore::Settings* m_settings;
 
 };
+
+}
 
 #endif // WebSettings_h

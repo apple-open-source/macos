@@ -209,7 +209,7 @@ IOHIDPointingDevice::newPointingDeviceAndStart(IOService *owner, UInt8 numButton
 {
     IOService * provider = owner;
     
-    while (provider = provider->getProvider())
+    while ( NULL != (provider = provider->getProvider()) )
     {
         if(OSDynamicCast(IOHIDevice, provider) || 
             (OSDynamicCast(IOHIDDevice, provider) && CheckDeviceUsage((IOHIDDevice*)provider, kHIDPage_GenericDesktop, kHIDUsage_GD_Mouse)) )
@@ -398,9 +398,9 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDPointingDevice::getReport( IOMemoryDescriptor * report,
-                                 IOHIDReportType      reportType,
-                                 IOOptionBits         options )
+IOReturn IOHIDPointingDevice::getReport(IOMemoryDescriptor  *report,
+                                        IOHIDReportType     reportType,
+                                        IOOptionBits        options __unused )
 {
     if (!report)
         return kIOReturnError;

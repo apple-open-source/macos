@@ -4,11 +4,13 @@ compiler_rt
 dispatch
 dnsinfo
 dyld
-mathCommon
+keymgr
 quarantine
 sandbox
 system_auto
 system_blocks
+system_c++
+system_c++abi
 system_dyld
 system_network
 system_objc

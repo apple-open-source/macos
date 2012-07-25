@@ -1,0 +1,10 @@
+INSTALL_PATH = /usr/local/SecurityPieces/Components/Security
+EXECUTABLE_PREFIX = 
+FRAMEWORK_VERSION = A
+INFOPLIST_FILE = Info-security_transform.plist
+PRODUCT_NAME = security_transform
+WRAPPER_EXTENSION = framework
+EXECUTABLE_SUFFIX = 
+ZERO_LINK = NO
+GCC_ENABLE_CPP_EXCEPTIONS = NO
+GCC_ENABLE_CPP_RTTI = NO

@@ -351,6 +351,7 @@
 
 /* Begin PBXFileReference section */
 		68A6B7900DE0EE5C00D48B5D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = eapolclient.tproj/entitlements.plist; sourceTree = SOURCE_ROOT; };
+		E4A35F40138C6C5C006DBAE8 /* nbo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = nbo.h; sourceTree = "<group>"; };
 		F903852212AD65990063F55C /* libadsupport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libadsupport.a; path = /usr/local/lib/opendirectory/libadsupport.a; sourceTree = "<absolute>"; };
 		F9063FC80EF17BD8003227D9 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		F9063FC90EF17BD8003227D9 /* eapsim_plugin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eapsim_plugin.c; sourceTree = "<group>"; };
@@ -715,6 +716,7 @@
 			children = (
 				F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */,
 				F9E31A1C12314FAA00181D7D /* EAPOLUtil.h */,
+				E4A35F40138C6C5C006DBAE8 /* nbo.h */,
 				F9A6A301122E0221009061FE /* eapol_socket.h */,
 				F9E0CA5F10FFA83D00CBC67D /* EAPKeychainUtilInternal.h */,
 				F925AAF410F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h */,
@@ -1054,7 +1056,7 @@
 			name = "EAPOLController(embedded)";
 			productName = EAPOLController;
 			productReference = F90FEE740CA3342D00A7B5A8 /* EAPOLController.bundle */;
-			productType = "com.apple.product-type.bundle.shallow";
+			productType = "com.apple.product-type.bundle";
 		};
 		F915472A0CD78FA7008D9897 /* EAP8021X.framework(embedded) */ = {
 			isa = PBXNativeTarget;
@@ -1072,7 +1074,7 @@
 			name = "EAP8021X.framework(embedded)";
 			productName = EAP8021X;
 			productReference = F91547640CD78FA7008D9897 /* EAP8021X.framework */;
-			productType = "com.apple.product-type.framework.shallow";
+			productType = "com.apple.product-type.framework";
 		};
 		F91F7BBA0C8F873D000EA394 /* EAP8021X.framework */ = {
 			isa = PBXNativeTarget;
@@ -1601,6 +1603,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Deployment;
@@ -1633,6 +1636,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Development;
@@ -1659,6 +1663,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Deployment;
@@ -1685,6 +1690,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Development;
@@ -1731,6 +1737,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Deployment;
@@ -1776,6 +1783,7 @@
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Development;
@@ -1960,6 +1968,7 @@
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = eapoltest;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Deployment;
 		};
@@ -1977,6 +1986,7 @@
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = eapoltest;
+				WARNING_CFLAGS = "-Wcast-align";
 			};
 			name = Development;
 		};
@@ -2147,6 +2157,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Deployment;
@@ -2162,6 +2173,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wcast-align",
 				);
 			};
 			name = Development;

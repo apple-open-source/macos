@@ -25,6 +25,8 @@
  */
 
 module html {
-    interface [Conditional=WEBGL] WebGLUniformLocation {
+    interface [
+        Conditional=WEBGL
+    ] WebGLUniformLocation {
     };
 }

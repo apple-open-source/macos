@@ -53,17 +53,26 @@ namespace WebCore {
 
         // Implementations of WorkerContextProxy.
         // (Only use these methods in the worker object thread.)
-        virtual void startWorkerContext(const KURL& scriptURL, const String& userAgent, const String& sourceCode);
+        virtual void startWorkerContext(const KURL& scriptURL, const String& userAgent, const String& sourceCode, WorkerThreadStartMode);
         virtual void terminateWorkerContext();
         virtual void postMessageToWorkerContext(PassRefPtr<SerializedScriptValue>, PassOwnPtr<MessagePortChannelArray>);
         virtual bool hasPendingActivity() const;
         virtual void workerObjectDestroyed();
+#if ENABLE(INSPECTOR)
+        virtual void connectToInspector(WorkerContextProxy::PageInspector*);
+        virtual void disconnectFromInspector();
+        virtual void sendMessageToInspector(const String&);
+#endif
 
         // Implementations of WorkerObjectProxy.
         // (Only use these methods in the worker context thread.)
         virtual void postMessageToWorkerObject(PassRefPtr<SerializedScriptValue>, PassOwnPtr<MessagePortChannelArray>);
         virtual void postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL);
         virtual void postConsoleMessageToWorkerObject(MessageSource, MessageType, MessageLevel, const String& message, int lineNumber, const String& sourceURL);
+#if ENABLE(INSPECTOR)
+        virtual void postMessageToPageInspector(const String&);
+        virtual void updateInspectorStateCookie(const String&);
+#endif
         virtual void confirmMessageFromWorkerObject(bool hasPendingActivity);
         virtual void reportPendingActivity(bool hasPendingActivity);
         virtual void workerContextClosed();
@@ -73,7 +82,7 @@ namespace WebCore {
         // These methods are called on different threads to schedule loading
         // requests and to send callbacks back to WorkerContext.
         virtual void postTaskToLoader(PassOwnPtr<ScriptExecutionContext::Task>);
-        virtual void postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutionContext::Task>, const String& mode);
+        virtual bool postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutionContext::Task>, const String& mode);
 
         void workerThreadCreated(PassRefPtr<DedicatedWorkerThread>);
 
@@ -82,6 +91,7 @@ namespace WebCore {
 
     private:
         friend class MessageWorkerTask;
+        friend class PostMessageToPageInspectorTask;
         friend class WorkerContextDestroyedTask;
         friend class WorkerExceptionTask;
         friend class WorkerThreadActivityReportTask;
@@ -102,6 +112,9 @@ namespace WebCore {
         bool m_askedToTerminate;
 
         Vector<OwnPtr<ScriptExecutionContext::Task> > m_queuedEarlyTasks; // Tasks are queued here until there's a thread object created.
+#if ENABLE(INSPECTOR)
+        WorkerContextProxy::PageInspector* m_pageInspector;
+#endif
     };
 
 } // namespace WebCore

@@ -171,14 +171,15 @@ ac_complete(void *ctx, OM_uint32 major, gss_status_id_t status,
 static int
 test_scram(const char *test_name, const char *user, const char *password)
 {
-    gss_name_t target = GSS_C_NO_NAME;
+    gss_name_t cname, target = GSS_C_NO_NAME;
     OM_uint32 maj_stat, min_stat;
     gss_ctx_id_t ctx = GSS_C_NO_CONTEXT;
-    gss_buffer_desc input, output, output2;
+    gss_buffer_desc cn, input, output, output2;
     int ret;
     heim_scram *scram = NULL;
     heim_scram_data in, out;
     gss_auth_identity_desc identity;
+
 
     memset(&identity, 0, sizeof(identity));
 
@@ -186,8 +187,15 @@ test_scram(const char *test_name, const char *user, const char *password)
     identity.realm = "";
     identity.password = rk_UNCONST(password);
 
+    cn.value = rk_UNCONST(user);
+    cn.length = strlen(user);
+
+    maj_stat = gss_import_name(&min_stat, &cn, GSS_C_NT_USER_NAME, &cname);
+    if (maj_stat)
+	errx(1, "gss_import_name: %d", (int)maj_stat);
+
     maj_stat = gss_acquire_cred_ex_f(NULL,
-				     GSS_C_NO_NAME,
+				     cname,
 				     0,
 				     GSS_C_INDEFINITE,
 				     GSS_SCRAM_MECHANISM,

@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation
+ * Copyright (c) 1997-2011, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -49,7 +49,7 @@ void CalendarLimitTest::runIndexedTest( int32_t index, UBool exec, const char* &
 
 // -------------------------------------
 void
-CalendarLimitTest::test(UDate millis, U_NAMESPACE_QUALIFIER Calendar* cal, U_NAMESPACE_QUALIFIER DateFormat* fmt)
+CalendarLimitTest::test(UDate millis, icu::Calendar* cal, icu::DateFormat* fmt)
 {
   static const UDate kDrift = 1e-10;
     UErrorCode exception = U_ZERO_ERROR;
@@ -105,7 +105,7 @@ CalendarLimitTest::TestCalendarExtremeLimit()
        return;
     }
     fmt->adoptCalendar(cal);
-    ((SimpleDateFormat*) fmt)->applyPattern("HH:mm:ss.SSS zzz, EEEE, MMMM d, yyyy G");
+    ((SimpleDateFormat*) fmt)->applyPattern("HH:mm:ss.SSS Z, EEEE, MMMM d, yyyy G");
 
 
     // This test used to test the algorithmic limits of the dates that

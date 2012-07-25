@@ -1,0 +1,377 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BA5511D0136CA8480012B9B5 /* Build configuration list for PBXAggregateTarget "Generate Linker Arguments" */;
+			buildPhases = (
+				BA5511D4136CA8680012B9B5 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "Generate Linker Arguments";
+			productName = "Generate Linker Arguments";
+		};
+		BA5511D6136D22ED0012B9B5 /* Generate Symlinks */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = BA5511D7136D22ED0012B9B5 /* Build configuration list for PBXAggregateTarget "Generate Symlinks" */;
+			buildPhases = (
+				BA5511D9136D23110012B9B5 /* ShellScript */,
+				BA2BD8FE136D271D00FF78C0 /* ShellScript */,
+				BA2BD8FF136D27FE00FF78C0 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "Generate Symlinks";
+			productName = "Generate Symlinks";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA5511B6136C9D780012B9B5 /* Info.plist */; };
+		BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */ = {isa = PBXBuildFile; fileRef = BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */; };
+		BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */; };
+		BA5511CA136C9E510012B9B5 /* init.c in Sources */ = {isa = PBXBuildFile; fileRef = BA5511B7136C9D780012B9B5 /* init.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		BA5511D2136CA8550012B9B5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511CF136CA8480012B9B5;
+			remoteInfo = "Generate Linker Arguments";
+		};
+		BA5511DA136D23EE0012B9B5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BA5511A9136C9D400012B9B5 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BA5511D6136D22ED0012B9B5;
+			remoteInfo = "Generate Symlinks";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BA2BD8FF136D27FE00FF78C0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/Frameworks/System.framework/Versions/B/Resources;
+			dstSubfolderSpec = 0;
+			files = (
+				BA2BD900136D282200FF78C0 /* Info.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = linker_arguments_changed.c; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = CompatibilityHacks.c; sourceTree = "<group>"; };
+		BA5511B6136C9D780012B9B5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		BA5511B7136C9D780012B9B5 /* init.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = init.c; sourceTree = "<group>"; };
+		BA5511B9136C9D780012B9B5 /* optionallibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = optionallibs; sourceTree = "<group>"; };
+		BA5511BA136C9D780012B9B5 /* requiredlibs */ = {isa = PBXFileReference; lastKnownFileType = text; path = requiredlibs; sourceTree = "<group>"; };
+		BA5511BC136C9D960012B9B5 /* BSD.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
+		BA5511C4136C9E2E0012B9B5 /* libSystem.B.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libSystem.B.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		C64EE1D7136F644700676C52 /* create_dylib_symlinks.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_dylib_symlinks.sh; sourceTree = "<group>"; };
+		C64EE1D8136F644700676C52 /* create_system_framework.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = create_system_framework.sh; sourceTree = "<group>"; };
+		C64EE1D9136F644700676C52 /* linker_arguments.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = linker_arguments.sh; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		BA5511C1136C9E2E0012B9B5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BA2FABC7136DBF6F004383E5 /* Generated Files */ = {
+			isa = PBXGroup;
+			children = (
+				BA2FABC4136DBF45004383E5 /* linker_arguments_changed.c */,
+			);
+			name = "Generated Files";
+			sourceTree = "<group>";
+		};
+		BA5511A7136C9D400012B9B5 = {
+			isa = PBXGroup;
+			children = (
+				BA5511BC136C9D960012B9B5 /* BSD.xcconfig */,
+				BA5511B3136C9D780012B9B5 /* APPLE_LICENSE */,
+				BA5511B4136C9D780012B9B5 /* CompatibilityHacks.c */,
+				BA5511B6136C9D780012B9B5 /* Info.plist */,
+				BA5511B7136C9D780012B9B5 /* init.c */,
+				BA5511B9136C9D780012B9B5 /* optionallibs */,
+				BA5511BA136C9D780012B9B5 /* requiredlibs */,
+				C64EE1D6136F644700676C52 /* xcodescripts */,
+				BA5511C5136C9E2E0012B9B5 /* Products */,
+				BA2FABC7136DBF6F004383E5 /* Generated Files */,
+			);
+			sourceTree = "<group>";
+		};
+		BA5511C5136C9E2E0012B9B5 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BA5511C4136C9E2E0012B9B5 /* libSystem.B.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C64EE1D6136F644700676C52 /* xcodescripts */ = {
+			isa = PBXGroup;
+			children = (
+				C64EE1D7136F644700676C52 /* create_dylib_symlinks.sh */,
+				C64EE1D8136F644700676C52 /* create_system_framework.sh */,
+				C64EE1D9136F644700676C52 /* linker_arguments.sh */,
+			);
+			path = xcodescripts;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		BA5511C2136C9E2E0012B9B5 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		BA5511C3136C9E2E0012B9B5 /* System */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BA5511C7136C9E2E0012B9B5 /* Build configuration list for PBXNativeTarget "System" */;
+			buildPhases = (
+				BA5511C0136C9E2E0012B9B5 /* Sources */,
+				BA5511C1136C9E2E0012B9B5 /* Frameworks */,
+				BA5511C2136C9E2E0012B9B5 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BA5511DB136D23EE0012B9B5 /* PBXTargetDependency */,
+				BA5511D3136CA8550012B9B5 /* PBXTargetDependency */,
+			);
+			name = System;
+			productName = System;
+			productReference = BA5511C4136C9E2E0012B9B5 /* libSystem.B.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BA5511A9136C9D400012B9B5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = BA5511AC136C9D400012B9B5 /* Build configuration list for PBXProject "Libsystem" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = BA5511A7136C9D400012B9B5;
+			productRefGroup = BA5511C5136C9E2E0012B9B5 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BA5511C3136C9E2E0012B9B5 /* System */,
+				BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */,
+				BA5511D6136D22ED0012B9B5 /* Generate Symlinks */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BA2BD8FE136D271D00FF78C0 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -x\nset -e\n\n\"${SRCROOT}/xcodescripts/create_system_framework.sh\" \"${DSTROOT}\" \"${SRCROOT}\" \"${ACTION}\" \"${ARCHS}\" \"${BUILD_VARIANTS}\"\n";
+		};
+		BA5511D4136CA8680012B9B5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/optionallibs",
+				"$(SRCROOT)/requiredlibs",
+				"$(SRCROOT)/xcodescripts/linker_arguments.sh",
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/linker_arguments_changed.c",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -x\nset -e\n\n\"${SRCROOT}/xcodescripts/linker_arguments.sh\" \"${ARCHS}\" \"${BUILD_VARIANTS}\" \"${BUILT_PRODUCTS_DIR}\" \"${SDKROOT}\" \"${SRCROOT}\"\n";
+		};
+		BA5511D9136D23110012B9B5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -x\nset -e\n\n\"${SRCROOT}/xcodescripts/create_dylib_symlinks.sh\" \"${DSTROOT}\" \"${ACTION}\" \"${BUILD_VARIANTS}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		BA5511C0136C9E2E0012B9B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BA5511C9136C9E4D0012B9B5 /* CompatibilityHacks.c in Sources */,
+				BA5511CA136C9E510012B9B5 /* init.c in Sources */,
+				BA2FABC5136DBF45004383E5 /* linker_arguments_changed.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BA5511D3136CA8550012B9B5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511CF136CA8480012B9B5 /* Generate Linker Arguments */;
+			targetProxy = BA5511D2136CA8550012B9B5 /* PBXContainerItemProxy */;
+		};
+		BA5511DB136D23EE0012B9B5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BA5511D6136D22ED0012B9B5 /* Generate Symlinks */;
+			targetProxy = BA5511DA136D23EE0012B9B5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		BA5511AF136C9D400012B9B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		BA5511C6136C9E2E0012B9B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_VERSION_STRING_ = 159;
+				CURRENT_VERSION_STRING_YES = "$(CURRENT_PROJECT_VERSION)";
+				DYLIB_CURRENT_VERSION = "$(CURRENT_VERSION_STRING_$(RC_XBS))";
+				EXECUTABLE_PREFIX = lib;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/lib;
+				LD_GENERATE_MAP_FILE = YES;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SDKROOT)/usr/lib/system",
+					"$(SDKROOT)/usr/local/lib/system",
+				);
+				ORDER_FILE = "$(SDKROOT)/$(APPLE_INTERNAL_DIR)/OrderFiles/libSystem.order";
+				"ORDER_FILE[sdk=iphonesimulator*]" = "";
+				OTHER_LDFLAGS = (
+					"-Wl,-search_paths_first",
+					"-nodefaultlibs",
+					"@$(BUILT_PRODUCTS_DIR)/linker_arguments.$(CURRENT_ARCH).$(CURRENT_VARIANT).txt",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME).B";
+			};
+			name = Release;
+		};
+		BA5511D1136CA8480012B9B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		BA5511D8136D22ED0012B9B5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BA5511BC136C9D960012B9B5 /* BSD.xcconfig */;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BA5511AC136C9D400012B9B5 /* Build configuration list for PBXProject "Libsystem" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA5511AF136C9D400012B9B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA5511C7136C9E2E0012B9B5 /* Build configuration list for PBXNativeTarget "System" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA5511C6136C9E2E0012B9B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA5511D0136CA8480012B9B5 /* Build configuration list for PBXAggregateTarget "Generate Linker Arguments" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA5511D1136CA8480012B9B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BA5511D7136D22ED0012B9B5 /* Build configuration list for PBXAggregateTarget "Generate Symlinks" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA5511D8136D22ED0012B9B5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BA5511A9136C9D400012B9B5 /* Project object */;
+}

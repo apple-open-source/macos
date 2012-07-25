@@ -1464,9 +1464,6 @@ check_symlinks(struct archive_write_disk *a)
 				 * so we can overwrite it with the
 				 * item being extracted.
 				 */
-#ifdef __APPLE__
-				break;
-#else
 				if (unlink(a->name)) {
 					archive_set_error(&a->archive, errno,
 					    "Could not remove symlink %s",
@@ -1489,7 +1486,6 @@ check_symlinks(struct archive_write_disk *a)
 				/* Symlink gone.  No more problem! */
 				pn[0] = c;
 				return (0);
-#endif
 			} else if (a->flags & ARCHIVE_EXTRACT_UNLINK) {
 				/* User asked us to remove problems. */
 				if (unlink(a->name) != 0) {

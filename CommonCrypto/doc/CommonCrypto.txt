@@ -118,16 +118,3 @@
  This software is provided 'as is' with no explicit or implied warranties
  in respect of its properties, including, but not limited to, correctness
  and/or fitness for purpose.
-
----------------------------------------------------------------------------
-License for libTomCrypt
----------------------------------------------------------------------------
-libTomCrypt is a library that provides various cryptographic
-algorithms in a highly modular and flexible manner.
-
-The library is free for all purposes without any express
-guarantee it works.
-
-Tom St Denis, tomstdenis@gmail.com, http://libtom.org
-
-

@@ -24,10 +24,13 @@
 #include "SVGURIReference.h"
 
 #include "Attribute.h"
+#include "Document.h"
+#include "Element.h"
+#include "KURL.h"
 
 namespace WebCore {
 
-bool SVGURIReference::parseMappedAttribute(Attribute* attr)
+bool SVGURIReference::parseAttribute(Attribute* attr)
 {
     if (attr->name().matches(XLinkNames::hrefAttr)) {
         setHrefBaseValue(attr->value());
@@ -42,20 +45,70 @@ bool SVGURIReference::isKnownAttribute(const QualifiedName& attrName)
     return attrName.matches(XLinkNames::hrefAttr);
 }
 
-String SVGURIReference::getTarget(const String& url)
+String SVGURIReference::fragmentIdentifierFromIRIString(const String& url, Document* document)
 {
-    if (url.startsWith("url(")) { // URI References, ie. fill:url(#target)
-        size_t start = url.find('#') + 1;
-        size_t end = url.reverseFind(')');
-        return url.substring(start, end - start);
-    }
-    if (url.find('#') != notFound) { // format is #target
-        size_t start = url.find('#') + 1;
-        return url.substring(start, url.length() - start);
+    ASSERT(document);
+    size_t start = url.find('#');
+    if (start == notFound)
+        return emptyString();
+
+    KURL base = start ? KURL(document->baseURI(), url.substring(0, start)) : document->baseURI();
+    String fragmentIdentifier = url.substring(start);
+    KURL kurl(base, fragmentIdentifier);
+    if (equalIgnoringFragmentIdentifier(kurl, document->url()))
+        return fragmentIdentifier.substring(1);
+
+    // The url doesn't have any fragment identifier.
+    return emptyString();
+}
+
+static inline KURL urlFromIRIStringWithFragmentIdentifier(const String& url, Document* document, String& fragmentIdentifier)
+{
+    ASSERT(document);
+    size_t startOfFragmentIdentifier = url.find('#');
+    if (startOfFragmentIdentifier == notFound)
+        return KURL();
+
+    // Exclude the '#' character when determining the fragmentIdentifier.
+    fragmentIdentifier = url.substring(startOfFragmentIdentifier + 1);
+    if (startOfFragmentIdentifier) {
+        KURL base(document->baseURI(), url.substring(0, startOfFragmentIdentifier));
+        return KURL(base, url.substring(startOfFragmentIdentifier));
     }
 
-    // The url doesn't have any target.
-    return String();
+    return KURL(document->baseURI(), url.substring(startOfFragmentIdentifier));
+}
+
+Element* SVGURIReference::targetElementFromIRIString(const String& iri, Document* document, String* fragmentIdentifier, Document* externalDocument)
+{
+    // If there's no fragment identifier contained within the IRI string, we can't lookup an element.
+    String id;
+    KURL url = urlFromIRIStringWithFragmentIdentifier(iri, document, id);
+    if (url == KURL())
+        return 0;
+
+    if (fragmentIdentifier)
+        *fragmentIdentifier = id;
+
+    if (id.isEmpty())
+        return 0;
+
+    if (externalDocument) {
+        // Enforce that the referenced url matches the url of the document that we've loaded for it!
+        ASSERT(equalIgnoringFragmentIdentifier(url, externalDocument->url()));
+        return externalDocument->getElementById(id);
+    }
+
+    // Exit early if the referenced url is external, and we have no externalDocument given.
+    if (isExternalURIReference(iri, document))
+        return 0;
+
+    return document->getElementById(id);
+}
+
+void SVGURIReference::addSupportedAttributes(HashSet<QualifiedName>& supportedAttributes)
+{
+    supportedAttributes.add(XLinkNames::hrefAttr);
 }
 
 }

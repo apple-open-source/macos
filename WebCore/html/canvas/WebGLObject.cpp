@@ -29,13 +29,21 @@
 
 #include "WebGLObject.h"
 
+#include "EXTTextureFilterAnisotropic.h"
+#include "OESStandardDerivatives.h"
+#include "OESTextureFloat.h"
+#include "OESVertexArrayObject.h"
+#include "WebGLCompressedTextureS3TC.h"
+#include "WebGLContextGroup.h"
+#include "WebGLDebugRendererInfo.h"
+#include "WebGLDebugShaders.h"
+#include "WebGLLoseContext.h"
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
 
-WebGLObject::WebGLObject(WebGLRenderingContext* context)
+WebGLObject::WebGLObject(WebGLRenderingContext*)
     : m_object(0)
-    , m_context(context)
     , m_attachmentCount(0)
     , m_deleted(false)
 {
@@ -43,8 +51,6 @@ WebGLObject::WebGLObject(WebGLRenderingContext* context)
 
 WebGLObject::~WebGLObject()
 {
-    if (m_context)
-        m_context->removeObject(this);
 }
 
 void WebGLObject::setObject(Platform3DObject object)
@@ -54,16 +60,38 @@ void WebGLObject::setObject(Platform3DObject object)
     m_object = object;
 }
 
-void WebGLObject::deleteObject()
+void WebGLObject::deleteObject(GraphicsContext3D* context3d)
 {
     m_deleted = true;
-    if (!m_context || !m_object)
+    if (!m_object)
         return;
+
+    if (!hasGroupOrContext())
+        return;
+
     if (!m_attachmentCount) {
-        m_context->graphicsContext3D()->makeContextCurrent();
-        deleteObjectImpl(m_object);
+        if (!context3d)
+            context3d = getAGraphicsContext3D();
+
+        if (context3d)
+            deleteObjectImpl(context3d, m_object);
+
         m_object = 0;
     }
+}
+
+void WebGLObject::detach()
+{
+    m_attachmentCount = 0; // Make sure OpenGL resource is deleted.
+    }
+
+
+void WebGLObject::onDetached(GraphicsContext3D* context3d)
+{
+    if (m_attachmentCount)
+        --m_attachmentCount;
+    if (m_deleted)
+        deleteObject(context3d);
 }
 
 }

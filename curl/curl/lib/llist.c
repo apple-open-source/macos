@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,15 +22,15 @@
 
 #include "setup.h"
 
-#include <string.h>
-#include <stdlib.h>
-
 #include "llist.h"
 #include "curl_memory.h"
 
 /* this must be the last include file */
 #include "memdebug.h"
 
+/*
+ * @unittest: 1300
+ */
 static void
 llist_init(struct curl_llist *l, curl_llist_dtor dtor)
 {
@@ -46,7 +46,7 @@ Curl_llist_alloc(curl_llist_dtor dtor)
   struct curl_llist *list;
 
   list = malloc(sizeof(struct curl_llist));
-  if(NULL == list)
+  if(!list)
     return NULL;
 
   llist_init(list, dtor);
@@ -62,6 +62,8 @@ Curl_llist_alloc(curl_llist_dtor dtor)
  * inserted first in the list.
  *
  * Returns: 1 on success and 0 on failure.
+ *
+ * @unittest: 1300
  */
 int
 Curl_llist_insert_next(struct curl_llist *list, struct curl_llist_element *e,
@@ -101,6 +103,9 @@ Curl_llist_insert_next(struct curl_llist *list, struct curl_llist_element *e,
   return 1;
 }
 
+/*
+ * @unittest: 1300
+ */
 int
 Curl_llist_remove(struct curl_llist *list, struct curl_llist_element *e,
                   void *user)
@@ -115,7 +120,8 @@ Curl_llist_remove(struct curl_llist *list, struct curl_llist_element *e,
       list->tail = NULL;
     else
       e->next->prev = NULL;
-  } else {
+  }
+  else {
     e->prev->next = e->next;
     if(!e->next)
       list->tail = e->prev;
@@ -124,6 +130,10 @@ Curl_llist_remove(struct curl_llist *list, struct curl_llist_element *e,
   }
 
   list->dtor(user, e->ptr);
+
+  e->ptr  = NULL;
+  e->prev = NULL;
+  e->next = NULL;
 
   free(e);
   --list->size;
@@ -148,8 +158,12 @@ Curl_llist_count(struct curl_llist *list)
   return list->size;
 }
 
+/*
+ * @unittest: 1300
+ */
 int Curl_llist_move(struct curl_llist *list, struct curl_llist_element *e,
-                    struct curl_llist *to_list, struct curl_llist_element *to_e)
+                    struct curl_llist *to_list,
+                    struct curl_llist_element *to_e)
 {
   /* Remove element from list */
   if(e == NULL || list->size == 0)

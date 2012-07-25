@@ -43,7 +43,7 @@ gethostid(void)
 {
 	int mib[2];
 	size_t size;
-	long value;
+	int value;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_HOSTID;

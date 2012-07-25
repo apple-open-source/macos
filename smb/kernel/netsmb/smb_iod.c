@@ -280,15 +280,15 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 	    case SMBIOD_ST_TRANACTIVE:
 	    case SMBIOD_ST_NEGOACTIVE:
 	    case SMBIOD_ST_SSNSETUP:
-		SMBERROR("smb_iod_negotiate is invalid now, state=%d\n", iod->iod_state);
-		return EINVAL;
+            SMBERROR("smb_iod_negotiate is invalid now, state=%d\n", iod->iod_state);
+            return EINVAL;
 	    case SMBIOD_ST_VCACTIVE:
-		SMBERROR("smb_iod_negotiate called when connected\n");
-		return EISCONN;
+            SMBERROR("smb_iod_negotiate called when connected\n");
+            return EISCONN;
 	    case SMBIOD_ST_DEAD:
-		return ENOTCONN;	/* XXX: last error code ? */
+            return ENOTCONN;	/* XXX: last error code ? */
 	    default:
-		break;
+            break;
 	}
 	iod->iod_state = SMBIOD_ST_CONNECT;
 	error = SMB_TRAN_CREATE(vcp);
@@ -310,7 +310,7 @@ smb_iod_negotiate(struct smbiod *iod, vfs_context_t user_context)
 	if (error == 0) {
 		iod->iod_state = SMBIOD_ST_TRANACTIVE;
 		SMBIODEBUG("tconnect\n");
-		error = smb_smb_negotiate(vcp, iod->iod_context, user_context, FALSE);
+		error = smb_smb_negotiate(vcp, user_context, FALSE, iod->iod_context);
 	}
 	if (error) {
 		goto errorOut;
@@ -334,15 +334,15 @@ smb_iod_ssnsetup(struct smbiod *iod)
 	SMBIODEBUG("%d\n", iod->iod_state);
 	switch(iod->iod_state) {
 	    case SMBIOD_ST_NEGOACTIVE:
-		break;
+            break;
 	    case SMBIOD_ST_DEAD:
-		return ENOTCONN;	/* XXX: last error code ? */
+            return ENOTCONN;	/* XXX: last error code ? */
 	    case SMBIOD_ST_VCACTIVE:
-		SMBERROR("smb_iod_ssnsetup called when connected\n");
-		return EISCONN;
+            SMBERROR("smb_iod_ssnsetup called when connected\n");
+            return EISCONN;
 	    default:
-		SMBERROR("smb_iod_ssnsetup is invalid now, state=%d\n",
-			 iod->iod_state);
+            SMBERROR("smb_iod_ssnsetup is invalid now, state=%d\n",
+                     iod->iod_state);
 		return EINVAL;
 	}
 	iod->iod_state = SMBIOD_ST_SSNSETUP;
@@ -396,24 +396,24 @@ smb_iod_sendrq(struct smbiod *iod, struct smb_rq *rqp)
 	SMBIODEBUG("iod_state = %d\n", iod->iod_state);
 	switch (iod->iod_state) {
 	    case SMBIOD_ST_NOTCONN:
-		smb_iod_rqprocessed(rqp, ENOTCONN, 0);
-		return 0;
+            smb_iod_rqprocessed(rqp, ENOTCONN, 0);
+            return 0;
 	    case SMBIOD_ST_DEAD:
-		/* This is what keeps the iod itself from sending more */
-		smb_iod_rqprocessed(rqp, ENOTCONN, 0);
-		return 0;
+            /* This is what keeps the iod itself from sending more */
+            smb_iod_rqprocessed(rqp, ENOTCONN, 0);
+            return 0;
 	    case SMBIOD_ST_CONNECT:
-		return 0;
+            return 0;
 	    case SMBIOD_ST_NEGOACTIVE:
-		SMBERROR("smb_iod_sendrq in unexpected state(%d)\n",
-			 iod->iod_state);
+            SMBERROR("smb_iod_sendrq in unexpected state(%d)\n",
+                     iod->iod_state);
 	    default:
-		break;
+            break;
 	}
 
 	/* Use to check for vc, can't have an iod without a vc */
 	*rqp->sr_rquid = htoles(vcp->vc_smbuid);
-	/* If the request has a share then it has a referene on it */
+	/* If the request has a share then it has a reference on it */
 	*rqp->sr_rqtid = htoles(rqp->sr_share ? rqp->sr_share->ss_tid : SMB_TID_UNKNOWN);
 	
 	mb_fixhdr(&rqp->sr_rq);
@@ -462,12 +462,15 @@ smb_iod_recvall(struct smbiod *iod)
 	    case SMBIOD_ST_NOTCONN:
 	    case SMBIOD_ST_DEAD:
 	    case SMBIOD_ST_CONNECT:
-		return 0;
+            return 0;
 	    default:
-		break;
+            break;
 	}
+
 	for (;;) {
 		m = NULL;
+
+        /* this reads in the entire response packet based on the NetBIOS hdr */
 		error = SMB_TRAN_RECV(vcp, &m);
 		if (error == EWOULDBLOCK)
 			break;
@@ -481,6 +484,12 @@ smb_iod_recvall(struct smbiod *iod)
 			SMBERROR("tran return NULL without error\n");
 			continue;
 		}
+
+        /* 
+         * Parse out enough of the response to be able to match it with an 
+         * existing smb_rq in the queue.
+         */
+
 		if (mbuf_pullup(&m, SMB_HDRLEN))
 			continue;	/* wait for a good packet */
 		/*
@@ -498,6 +507,10 @@ smb_iod_recvall(struct smbiod *iod)
 		pidHigh = SMB_HDRPIDHIGH(hp);
 		pidLow = SMB_HDRPIDLOW(hp);
 		SMBSDEBUG("mid %04x cmd = 0x%x\n", (unsigned)mid, cmd);
+
+        /*
+         * Search queue of smb_rq to find a match
+         */
 		SMB_IOD_RQLOCK(iod);
 		nanouptime(&iod->iod_lastrecv);
 		TAILQ_FOREACH_SAFE(rqp, &iod->iod_rqlist, sr_link, trqp) {
@@ -526,16 +539,23 @@ smb_iod_recvall(struct smbiod *iod)
 					   (rqp->sr_pidHigh != pidHigh) || (rqp->sr_pidLow != pidLow)) {
 				continue;
 			}
-			/* We received a packet on the vc clear the not responsive flag */
+
+            /*
+             * Found a matching smb_rq
+             */
+            
+            /* We received a packet on the vc, clear the not responsive flag */
 			SMB_IOD_FLAGSLOCK(iod);
 			iod->iod_flags &= ~SMBIOD_VC_NOTRESP;
 			SMB_IOD_FLAGSUNLOCK(iod);
+
 			if (rqp->sr_share) {
 				lck_mtx_lock(&rqp->sr_share->ss_shlock);
 				if (rqp->sr_share->ss_up)
 					rqp->sr_share->ss_up(rqp->sr_share, FALSE);
 				lck_mtx_unlock(&rqp->sr_share->ss_shlock);
 			}
+
 			SMBRQ_SLOCK(rqp);
 			if (rqp->sr_rp.md_top == NULL) {
 				md_initm(&rqp->sr_rp, m);
@@ -549,10 +569,13 @@ smb_iod_recvall(struct smbiod *iod)
 				}
 			}
 			SMBRQ_SUNLOCK(rqp);
+            
+            /* Wake up thread waiting for this response */
 			smb_iod_rqprocessed(rqp, 0, 0);
 			break;
 		}
 		SMB_IOD_RQUNLOCK(iod);
+
 		if (rqp == NULL) {			
 			/* Ignore ECHO and NTNotify dropped messages */
 			if ((cmd != SMB_COM_ECHO) && (cmd != SMB_COM_NT_TRANSACT))
@@ -579,7 +602,7 @@ smb_iod_request(struct smbiod *iod, int event, void *ident)
 	int error;
 
 	SMBIODEBUG("\n");
-	MALLOC(evp, struct smbiod_event *, sizeof(*evp), M_SMBIOD, M_WAITOK | M_ZERO);
+	SMB_MALLOC(evp, struct smbiod_event *, sizeof(*evp), M_SMBIOD, M_WAITOK | M_ZERO);
 	evp->ev_type = event;
 	evp->ev_ident = ident;
 	SMB_IOD_EVLOCK(iod);
@@ -888,15 +911,24 @@ retry:
 				nanouptime(&now);
 				if (rqp->sr_share) {
 					/*
-					 * If its been over SMB_RESP_WAIT_TIMO (60 seconds) since the last time we received a message 
-					 * from the server and its been over SMB_RESP_WAIT_TIMO since we sent this message break the
-					 * connection. Let the reconnect code handle breaking the connection and cleaning up.
+					 * If its been over SMB_RESP_WAIT_TIMO (60 seconds) since 
+                     * the last time we received a message from the server and 
+                     * its been over SMB_RESP_WAIT_TIMO since we sent this 
+                     * message break the connection. Let the reconnect code 
+                     * handle breaking the connection and cleaning up.
+                     *
+                     * The rqp->sr_timo field was intended to have variable time
+                     * out lengths, but never implemented. This code handles 
+                     * time outs on a share. Negotiate, SessionSetup, Logout,
+                     * etc, timeouts are handled below with the 
+                     * SMB_SEND_WAIT_TIMO check.
 					 */
 					ts = now;
 					uetimeout.tv_sec = SMB_RESP_WAIT_TIMO;
 					uetimeout.tv_nsec = 0;
 					timespecsub(&ts, &uetimeout);
-					if (timespeccmp(&ts, &iod->iod_lastrecv, >) && timespeccmp(&ts, &rqp->sr_timesent, >)) {
+					if (timespeccmp(&ts, &iod->iod_lastrecv, >) && 
+                        timespeccmp(&ts, &rqp->sr_timesent, >)) {
 						/* See if the connection went down */
 						herror = ENOTCONN;
 						break;
@@ -954,7 +986,7 @@ retry:
 		timespecsub(&ts, &uetimeout);
 		if (timespeccmp(&ts, &iod->iod_lastrecv, >) &&
 		    timespeccmp(&ts, &iod->iod_lastrqsent, >))
-			(void)smb_echo(vcp, iod->iod_context, SMBNOREPLYWAIT, 1);
+			(void)smb_echo(vcp, SMBNOREPLYWAIT, 1, iod->iod_context);
 	}
 	return 0;
 }
@@ -1155,7 +1187,7 @@ static void smb_iod_reconnect(struct smbiod *iod)
 			smb_vc_reset(vcp);
 			/* Start the virtual circuit */
 			iod->iod_state = SMBIOD_ST_TRANACTIVE;
-			error = smb_smb_negotiate(vcp, iod->iod_context, NULL, TRUE);
+			error = smb_smb_negotiate(vcp, NULL, TRUE, iod->iod_context);
 			if ((error == ENOTCONN) || (error == ETIMEDOUT)) {
 				SMBWARNING("The negotiate timed out to %s trying again: error = %d\n", 
 						   vcp->vc_srvname, error);
@@ -1365,7 +1397,7 @@ smb_iod_main(struct smbiod *iod)
 			wakeup(evp);
 			SMB_IOD_EVUNLOCK(iod);
 		} else
-			free(evp, M_SMBIOD);
+			SMB_FREE(evp, M_SMBIOD);
 	}
 	smb_iod_sendall(iod);
 	smb_iod_recvall(iod);
@@ -1436,7 +1468,7 @@ smb_iod_create(struct smb_vc *vcp)
 	kern_return_t	result;
 	thread_t		thread;
 
-	MALLOC(iod, struct smbiod *, sizeof(*iod), M_SMBIOD, M_WAITOK | M_ZERO);
+	SMB_MALLOC(iod, struct smbiod *, sizeof(*iod), M_SMBIOD, M_WAITOK | M_ZERO);
 	iod->iod_id = smb_iod_next++;
 	iod->iod_state = SMBIOD_ST_NOTCONN;
 	lck_mtx_init(&iod->iod_flagslock, iodflags_lck_group, iodflags_lck_attr);
@@ -1456,7 +1488,7 @@ smb_iod_create(struct smb_vc *vcp)
 	result = kernel_thread_start((thread_continue_t)smb_iod_thread, iod, &thread);
 	if (result != KERN_SUCCESS) {
 		SMBERROR("can't start smbiod result = %d\n", result);
-		free(iod, M_SMBIOD);
+		SMB_FREE(iod, M_SMBIOD);
 		return (ENOMEM); 
 	}
 	thread_deallocate(thread);
@@ -1490,7 +1522,7 @@ smb_iod_destroy(struct smbiod *iod)
 	lck_mtx_destroy(&iod->iod_flagslock, iodflags_lck_group);
 	lck_mtx_destroy(&iod->iod_rqlock, iodrq_lck_group);
 	lck_mtx_destroy(&iod->iod_evlock, iodev_lck_group);
-	free(iod, M_SMBIOD);
+	SMB_FREE(iod, M_SMBIOD);
 	return 0;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -185,7 +185,7 @@ appendScopeID(CFMutableDictionaryRef dict, struct sockaddr_in6 *sin6)
 
 
 static CFMutableDictionaryRef
-getIF(CFStringRef key, CFMutableDictionaryRef oldIFs, CFMutableDictionaryRef newIFs)
+copyIF(CFStringRef key, CFMutableDictionaryRef oldIFs, CFMutableDictionaryRef newIFs)
 {
 	CFDictionaryRef		dict		= NULL;
 	CFMutableDictionaryRef	newDict		= NULL;
@@ -308,12 +308,13 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 									  kSCEntNetIPv6);
 		CFRelease(interface);
 
-		newDict = getIF(key, oldIFs, newIFs);
+		newDict = copyIF(key, oldIFs, newIFs);
 
-		sin6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+		/* ALIGN: ifa->ifa_addr aligned (getifaddrs), cast ok. */
+		sin6 = (struct sockaddr_in6 *)(void *)ifa->ifa_addr;
 
 		/* XXX: embedded link local addr check */
-		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr)) {
+		if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_MC_LINKLOCAL(&sin6->sin6_addr)) {
 			u_int16_t	index;
 
 			index = sin6->sin6_addr.s6_addr16[1];
@@ -337,17 +338,20 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 #ifdef	NOTYET
 		appendScopeID  (newDict, sin6);
 #endif	/* NOTYET */
-		appendPrefixLen(newDict, (struct sockaddr_in6 *)ifa->ifa_netmask);
+		/* ALIGN: ifa should be aligned (from getifaddrs), cast ok.
+		 * appendPrefixLen expect byte alignment */
+		appendPrefixLen(newDict, (struct sockaddr_in6 *)(void *)ifa->ifa_netmask);
 		appendFlags    (newDict, flags6);
 
 
 		if (ifa->ifa_flags & IFF_POINTOPOINT) {
 			struct sockaddr_in6	*dst6;
 
-			dst6 = (struct sockaddr_in6 *)ifa->ifa_dstaddr;
+			/* ALIGN: ifa should be aligned (from getifaddrs), cast ok. */
+			dst6 = (struct sockaddr_in6 *)(void *)ifa->ifa_dstaddr;
 
 			/* XXX: embedded link local addr check */
-			if (IN6_IS_ADDR_LINKLOCAL(&dst6->sin6_addr)) {
+			if (IN6_IS_ADDR_LINKLOCAL(&dst6->sin6_addr) || IN6_IS_ADDR_MC_LINKLOCAL(&dst6->sin6_addr)) {
 				u_int16_t	index;
 
 				index = dst6->sin6_addr.s6_addr16[1];
@@ -376,7 +380,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 									  kSCEntNetIPv6);
 		CFRelease(interface);
 
-		newDict = getIF(key, oldIFs, newIFs);
+		newDict = copyIF(key, oldIFs, newIFs);
 
 		CFDictionarySetValue(newIFs, key, newDict);
 		CFRelease(newDict);

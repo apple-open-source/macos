@@ -40,6 +40,7 @@
 #include "../Drivers/PPTP/PPTP-plugin/pptp.h"
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
+#include "scnc_utils.h"
 
 const char *sessionString			   = "Controller";
 
@@ -111,197 +112,6 @@ sessionCheckStatusForFailure (struct service *serv)
     }
 }
 
-static const char *
-ppp_error_to_string (u_int32_t native_ppp_error)
-{
-    switch (native_ppp_error) {
-        case EXIT_FATAL_ERROR:
-            return CONSTSTR("Fatal Error");
-        case EXIT_OPTION_ERROR:
-            return CONSTSTR("Option Error");
-        case EXIT_NOT_ROOT:
-            return CONSTSTR("Not Root");
-        case EXIT_NO_KERNEL_SUPPORT:
-            return CONSTSTR("No Kernel Support");
-        case EXIT_USER_REQUEST:
-            return CONSTSTR("User requested");
-        case EXIT_LOCK_FAILED:
-            return CONSTSTR("Lock Failed");
-        case EXIT_OPEN_FAILED:
-            return CONSTSTR("Open Failed");
-        case EXIT_CONNECT_FAILED:
-            return CONSTSTR("Connect Failed");
-        case EXIT_PTYCMD_FAILED:
-            return CONSTSTR("Pty command Failed");
-        case EXIT_NEGOTIATION_FAILED:
-            return CONSTSTR("Negotiation Failed");
-        case EXIT_PEER_AUTH_FAILED:
-            return CONSTSTR("Peer Authentication Failed");
-        case EXIT_IDLE_TIMEOUT:
-            return CONSTSTR("Idle Timeout");
-        case EXIT_CONNECT_TIME:
-            return CONSTSTR("Session Timeout");
-        case EXIT_CALLBACK:
-            return CONSTSTR("Callback");
-        case EXIT_PEER_DEAD:
-            return CONSTSTR("Peer Dead");
-        case EXIT_HANGUP:
-            return CONSTSTR("Disconnect by Device");
-        case EXIT_LOOPBACK:
-            return CONSTSTR("Loopback Error");
-        case EXIT_INIT_FAILED:
-            return CONSTSTR("Init Failed");
-        case EXIT_AUTH_TOPEER_FAILED:
-            return CONSTSTR("Authentication to Peer Failed");
-        case EXIT_TERMINAL_FAILED:
-            return CONSTSTR("Terminal Failed");
-        case EXIT_DEVICE_ERROR:
-            return CONSTSTR("Device Error");
-        case EXIT_PEER_NOT_AUTHORIZED:
-            return CONSTSTR("Peer Not Authorized");
-        case EXIT_CNID_AUTH_FAILED:
-            return CONSTSTR("CNID Authentication Failed");
-        case EXIT_PEER_UNREACHABLE:
-            return CONSTSTR("Peer Unreachable");
-    }
-
-    return CONSTSTR(NULL);
-}
-
-static const char *
-ppp_dev_error_to_string (u_int16_t subtype, u_int32_t native_dev_error)
-{
-    // override with a more specific error
-    if (native_dev_error) {
-        switch (subtype) {
-            case PPP_TYPE_L2TP:
-                switch (native_dev_error) {
-                    case EXIT_L2TP_NOSERVER:
-                        return CONSTSTR("No Server");
-                    case EXIT_L2TP_NOANSWER:
-                        return CONSTSTR("No Answer");
-                    case EXIT_L2TP_PROTOCOLERROR:
-                        return CONSTSTR("Protocol Error");
-                    case EXIT_L2TP_NETWORKCHANGED:
-                        return CONSTSTR("Network Changed");
-                    case EXIT_L2TP_NOSHAREDSECRET:
-                        return CONSTSTR("Shared Secret");
-                    case EXIT_L2TP_NOCERTIFICATE:
-                        return CONSTSTR("No Certificate");
-                }
-                break;
-
-            case PPP_TYPE_PPTP:
-                switch (native_dev_error) {
-                    case EXIT_PPTP_NOSERVER:
-                        return CONSTSTR("No Server");
-                    case EXIT_PPTP_NOANSWER:
-                        return CONSTSTR("No Answer");
-                    case EXIT_PPTP_PROTOCOLERROR:
-                        return CONSTSTR("Protocol Error");
-                    case EXIT_PPTP_NETWORKCHANGED:
-                        return CONSTSTR("Network Changed");
-                }
-                break;
-
-            case PPP_TYPE_SERIAL:
-                switch (native_dev_error) {
-                    case EXIT_PPPSERIAL_NOCARRIER:
-                        return CONSTSTR("No Carrier");
-                    case EXIT_PPPSERIAL_NONUMBER:
-                        return CONSTSTR("No Number");
-                    case EXIT_PPPSERIAL_BADSCRIPT:
-                        return CONSTSTR("Bad Script");
-                    case EXIT_PPPSERIAL_BUSY:
-                        return CONSTSTR("Busy");
-                    case EXIT_PPPSERIAL_NODIALTONE:
-                        return CONSTSTR("No Dial Tone");
-                    case EXIT_PPPSERIAL_ERROR:
-                        return CONSTSTR("Modem Error");
-                    case EXIT_PPPSERIAL_NOANSWER:
-                        return CONSTSTR("No Answer");
-                    case EXIT_PPPSERIAL_HANGUP:
-                        return CONSTSTR("Hang-up");
-                }
-                break;
-                
-            case PPP_TYPE_PPPoE:
-                switch (native_dev_error) {
-                    case EXIT_PPPoE_NOSERVER:
-                        return CONSTSTR("No Server");
-                    case EXIT_PPPoE_NOSERVICE:
-                        return CONSTSTR("No Service");
-                    case EXIT_PPPoE_NOAC:
-                        return CONSTSTR("No AC");
-                    case EXIT_PPPoE_NOACSERVICE:
-                        return CONSTSTR("No AC Service");
-                    case EXIT_PPPoE_CONNREFUSED:
-                        return CONSTSTR("Connection Refused");
-                }
-                break;
-        }
-    }
-    
-    return CONSTSTR(NULL);
-}
-
-static const char *
-ipsec_error_to_string (int status)
-{
-    switch (status) {
-        case IPSEC_GENERIC_ERROR:
-            return CONSTSTR("Generic Error");
-        case IPSEC_NOSERVERADDRESS_ERROR:
-            return CONSTSTR("No Server Address");
-        case IPSEC_NOSHAREDSECRET_ERROR:
-            return CONSTSTR("No Shared Secret");
-        case IPSEC_NOCERTIFICATE_ERROR:
-            return CONSTSTR("No Certificate");
-        case IPSEC_RESOLVEADDRESS_ERROR:
-            return CONSTSTR("Resolve Address Error");
-        case IPSEC_NOLOCALNETWORK_ERROR:
-            return CONSTSTR("No Local Network");
-        case IPSEC_CONFIGURATION_ERROR:
-            return CONSTSTR("Configuration Error");
-        case IPSEC_RACOONCONTROL_ERROR:
-            return CONSTSTR("Racoon Control Error");
-        case IPSEC_CONNECTION_ERROR:
-            return CONSTSTR("Connection Error");
-        case IPSEC_NEGOTIATION_ERROR:
-            return CONSTSTR("Negotiation Error");
-        case IPSEC_SHAREDSECRET_ERROR:
-            return CONSTSTR("Shared Secret Error");
-        case IPSEC_SERVER_CERTIFICATE_ERROR:
-            return CONSTSTR("Server Certificate Error");
-        case IPSEC_CLIENT_CERTIFICATE_ERROR:
-            return CONSTSTR("Client Certificate Error");
-        case IPSEC_XAUTH_ERROR:
-            return CONSTSTR("Xauth Error");
-        case IPSEC_NETWORKCHANGE_ERROR:
-            return CONSTSTR("Network Change");
-        case IPSEC_PEERDISCONNECT_ERROR:
-            return CONSTSTR("Peer Disconnect");
-        case IPSEC_PEERDEADETECTION_ERROR:
-            return CONSTSTR("Peer Dead");
-        case IPSEC_EDGE_ACTIVATION_ERROR:
-            return CONSTSTR("Edge Activation Error");
-        case IPSEC_IDLETIMEOUT_ERROR:
-            return CONSTSTR("Idle Timeout");
-		case IPSEC_CLIENT_CERTIFICATE_PREMATURE:
-			return CONSTSTR("Client Certificate premature");
-		case IPSEC_CLIENT_CERTIFICATE_EXPIRED:
-			return CONSTSTR("Client Certificate expired");
-		case IPSEC_SERVER_CERTIFICATE_PREMATURE:
-			return CONSTSTR("Server Certificate premature");
-		case IPSEC_SERVER_CERTIFICATE_EXPIRED:
-			return CONSTSTR("Server Certificate expired");
-		case IPSEC_SERVER_CERTIFICATE_INVALID_ID:
-			return CONSTSTR("Server Certificate identity incorrect");
-    }
-
-    return CONSTSTR(NULL);
-}
-
 static int
 sessionGetReasonString (struct service *serv,
                         char           *reason_buf,
@@ -327,9 +137,6 @@ sessionGetReasonString (struct service *serv,
                 snprintf(tmp_buf, sizeof(tmp_buf), "%s", ppp_err);                
             } else if (serv->u.ppp.laststatus) {
                 snprintf(tmp_buf, sizeof(tmp_buf), "Error %d", serv->u.ppp.laststatus);
-            } else {
-				*tmp_buf = 0;
-                //snprintf(tmp_buf, sizeof(tmp_buf), "");
             }
             if (dev_err) {
                 snprintf(reason_buf, reason_bufsize, "%s : %s", tmp_buf, dev_err);                

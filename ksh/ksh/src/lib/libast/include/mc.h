@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -61,14 +61,14 @@
 
 #define MC_MESSAGE_SET(s)	mcindex(s,NiL,NiL,NiL)
 
-typedef struct
+typedef struct Mcset_s
 {
 	char**		msg;
 	int		num;
 	int		gen;
 } Mcset_t;
 
-typedef struct
+typedef struct Mc_s
 {
 	Mcset_t*	set;
 	int		num;
@@ -83,7 +83,7 @@ typedef struct
 #define extern		__EXPORT__
 #endif
 
-extern char*		mcfind(char*, const char*, const char*, int, int);
+extern char*		mcfind(const char*, const char*, int, int, char*, size_t);
 extern Mc_t*		mcopen(Sfio_t*);
 extern char*		mcget(Mc_t*, int, int, const char*);
 extern int		mcput(Mc_t*, int, int, const char*);

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -61,6 +61,8 @@ struct slnod 	/* struct for link list of stacks */
 	struct slnod	*slnext;
 	struct slnod	*slchild;
 	Stak_t		*slptr;
+	/* slpad aligns struct functnod = struct slnod + 1 on some architectures */
+	struct slnod	*slpad;	
 };
 
 /*
@@ -69,10 +71,10 @@ struct slnod 	/* struct for link list of stacks */
 
 struct dolnod
 {
-	short		dolrefcnt;	/* reference count */
-	short		dolmax;		/* size of dolval array */
-	short		dolnum;		/* number of elements */
-	short		dolbot;		/* current first element */
+	int		dolrefcnt;	/* reference count */
+	int		dolmax;		/* size of dolval array */
+	int		dolnum;		/* number of elements */
+	int		dolbot;		/* current first element */
 	struct dolnod	*dolnxt;	/* used when list are chained */
 	char		*dolval[1];	/* array of value pointers */
 };
@@ -125,15 +127,10 @@ struct argnod
 #define ARG_LET		0x800	/* processing let command arguments */
 #define ARG_ARRAYOK	0x1000	/* $x[sub] ==> ${x[sub]} */
 
-extern char 		**sh_argbuild(int*,const struct comnod*,int);
 extern struct dolnod	*sh_argcreate(char*[]);
-extern char 		*sh_argdolminus(void);
-extern struct dolnod	*sh_argfree(struct dolnod*,int);
-extern struct dolnod	*sh_argnew(char*[],struct dolnod**);
-extern int		sh_argopts(int,char*[]);
-extern void 		sh_argreset(struct dolnod*,struct dolnod*);
-extern void 		sh_argset(char*[]);
-extern struct dolnod	*sh_arguse(void);
+extern char 		*sh_argdolminus(void*);
+extern int		sh_argopts(int,char*[],void*);
+
 
 extern const char	e_heading[];
 extern const char	e_off[];

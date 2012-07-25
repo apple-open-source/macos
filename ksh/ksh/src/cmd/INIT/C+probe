@@ -2,7 +2,7 @@
 # Glenn Fowler
 # AT&T Research
 #
-# @(#)C probe (AT&T Research) 2007-03-08
+# @(#)C probe (AT&T Research) 2010-08-20
 #
 # probe [ -d ] c-compiler-path [ attributes ]
 #
@@ -16,7 +16,7 @@
 
 probe_binding="-dy -dn -Bdynamic -Bstatic '-Wl,-ashared -Wl,+s' -Wl,-aarchive -call_shared -non_shared -dynamic -static -bshared -bstatic '' -static"
 probe_env="CC_OPTIONS CCOPTS LD_OPTIONS LDOPTS LIBPATH LPATH"
-probe_include="stdio.h iostream.h complex.h ctype.h plot.h stdarg.h varargs.h ranlib.h hash.h sys/types.h stab.h"
+probe_include="stdio.h iostream.h complex.h ctype.h plot.h stdarg.h varargs.h ranlib.h hash.h sys/types.h stab.h cmath cstdio iostream string"
 probe_longlong="long 'long long'"
 probe_longlong_t="__int64_t _int64_t __int64 _int64 int64"
 probe_l="l yyreject m sin mopt sin"
@@ -26,10 +26,11 @@ probe_size="size"
 probe_src="cxx C cc c"
 probe_sa=".sa"
 probe_sd=".dll .lib .dll .x"
-probe_so=".so .sl .dylib"
+probe_sdb=".pdb"
+probe_so=".dylib .sl .so"
 probe_symprefix="_"
 probe_verbose="'-v -v' '-# -#' '-d -d' -dryrun '-V -V'"
-probe_version="--version -version -V -v"
+probe_version="--version -V -version -v"
 
 #
 # the following are set by the preamble for the tool specific probe
@@ -52,6 +53,7 @@ predef=
 prepred=
 sa=
 sd=
+sdb=
 so=
 sov=
 static=
@@ -63,7 +65,7 @@ then	tmpdir=$TMPDIR
 else	tmpdir=/tmp
 fi
 tmpdir=$tmpdir/probe$$
-undef="define defined elif else endif error if ifdef ifndef include line pragma undef __STDC__ __STDPP__ __ARGC__ __BASE__ __BASE_FILE__ __DATE__ __FILE__ __INCLUDE_LEVEL__ __LINE__ __PATH__ __TIME__ __VERSION__"
+undef="define defined elif else endif error if ifdef ifndef include line pragma undef __STDC__ __STDPP__ __ARGC__ __BASE__ __BASE_FILE__ __DATE__ __FILE__ __FUNCTION__ __INCLUDE_LEVEL__ __LINE__ __PATH__ __TIME__ __VERSION__"
 version_flags=
 version_stamp=
 version_string=
@@ -385,12 +387,35 @@ eval set x $probe_version
 shift
 for o in "$@"
 do	if	$cc $o > version.out 2>&1
-	then	version_flags=$o
-		version_string=`sed -e 1q -e 's/;/ /g' version.out`
-		version_stamp=";VERSION;$o;$version_string;PATH;$cc"
-		break
+	then	version_string=`sed -e '/ is /d' -e 's/;/ /g' version.out | sed -e 1q`
+		case $version_string in
+		''|*[Ee][Rr][Rr][Oo][Rr]*|*[Ff][Aa][Tt][Aa][Ll]*|*[Ww][Aa][Rr][Nn][Ii][Nn][Gg]*|*[Oo][Pp][Tt][Ii][Oo][Nn]*)
+			;;
+		*)	version_flags=$o
+			version_stamp=";VERSION;$o;$version_string;PATH;$cc"
+			break
+			;;
+		esac
 	fi
 done
+case $version_stamp in
+'')	eval set x $probe_version
+	shift
+	echo 'int main() { return 0; }' > version.i
+	for o in "$@"
+	do	if	$cc -c $o version.i > version.out 2>&1
+		then	version_string=`sed -e '/ is /d' -e 's/;/ /g' version.out | sed -e 1q`
+			case $version_string in
+			''|*[Ee][Rr][Rr][Oo][Rr]*|*[Ff][Aa][Tt][Aa][Ll]*|*[Ww][Aa][Rr][Nn][Ii][Nn][Gg]*|*[Oo][Pp][Tt][Ii][Oo][Nn]*)
+				;;
+			*)	version_flags=$o
+				break
+				;;
+			esac
+		fi
+	done
+	;;
+esac
 
 echo 'int main(){return 0;}' > hosted.$src
 $cc -o hosted.$exe hosted.$src && ./hosted.$exe && hosted=1
@@ -840,13 +865,5 @@ for f in $x
 do	case " $stdinclude $usrinclude " in
 	*" $f "*)	;;
 	*)		stdinclude="$stdinclude $f" ;;
-	esac
-done
-x=$stdlib
-stdlib=
-for f in $x
-do	case " $stdlib " in
-	*" $f "*)	;;
-	*)		stdlib="$stdlib $f" ;;
 	esac
 done

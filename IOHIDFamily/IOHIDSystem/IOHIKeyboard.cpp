@@ -314,10 +314,11 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
     {
         if (!OSDynamicCast(OSNumber, getProperty(kIOHIDOriginalSubinterfaceIDKey))) {
             // no original key
-            OSNumber *original = OSDynamicCast(OSNumber, getProperty(kIOHIDSubinterfaceIDKey));
-            if (original) {
+            OSNumber *original = (OSNumber*)copyProperty(kIOHIDSubinterfaceIDKey);
+            if (OSDynamicCast(OSNumber, original)) {
                 setProperty(kIOHIDOriginalSubinterfaceIDKey, original);
             }
+            OSSafeReleaseNULL(original);
         }
         _deviceType = number->unsigned32BitValue();
         updated = true;
@@ -845,7 +846,7 @@ UInt32 IOHIKeyboard::maxKeyCodes()
     return( NX_NUMKEYCODES );
 }
 
-bool IOHIKeyboard:: doesKeyLock ( unsigned key)
+bool IOHIKeyboard:: doesKeyLock ( unsigned key __unused)
 {
 	return false;
 }
@@ -1143,9 +1144,9 @@ IOReturn IOHIKeyboard::newUserClient(task_t          owningTask,
 
 /******************************************************************************/
 static bool IOHIKeyboard_attachSecurePromptClient_Callback(void * target,
-                                                           void * refCon,
+                                                           void * refCon __unused,
                                                            IOService * newService,
-                                                           IONotifier * notifier )
+                                                           IONotifier * notifier __unused )
 {
     IOHIDSecurePromptClient *client = (IOHIDSecurePromptClient*)target;
     IOHIKeyboard *keyboard = OSDynamicCast(IOHIKeyboard, newService);

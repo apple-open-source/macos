@@ -36,8 +36,7 @@
 extern "C" {
 #endif
 	
-NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **domain, 
-							  ntsid_t **ntsid, bool workAroundEMCPanic);
+NTSTATUS GetNetworkAccountSID(const char *ServerName, char **account, char **domain, ntsid_t **ntsid);
 	
 #ifdef __cplusplus
 } // extern "C"

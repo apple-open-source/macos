@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1996-2006, International Business Machines Corporation and    *
+* Copyright (C) 1996-2011, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -33,7 +33,8 @@
 
 #include "unicode/sortkey.h"
 #include "cmemory.h"
-#include "uhash.h"
+#include "uelement.h"
+#include "ustr_imp.h"
 
 U_NAMESPACE_BEGIN
 
@@ -96,14 +97,18 @@ CollationKey::~CollationKey()
         uprv_free(fBytes);
 }
 
-void CollationKey::adopt(uint8_t *values, int32_t count) {
+void CollationKey::adopt(uint8_t *values, int32_t capacity, int32_t count) {
     if(fBytes != NULL) {
         uprv_free(fBytes);
     }
-    fBogus = FALSE;
     fBytes = values;
-    fCount = count;
-    fCapacity = count;
+    fCapacity = capacity;
+    setLength(count);
+}
+
+void CollationKey::setLength(int32_t newLength) {
+    fBogus = FALSE;
+    fCount = newLength;
     fHashCode = kInvalidHashCode;
 }
 
@@ -357,9 +362,8 @@ CollationKey::hashCode() const
 
     if (fHashCode == kInvalidHashCode)
     {
-        UHashTok key;
-        key.pointer = fBytes;
-        ((CollationKey *)this)->fHashCode = uhash_hashChars(key);
+        const char *s = reinterpret_cast<const char *>(fBytes);
+        ((CollationKey *)this)->fHashCode = s == NULL ? 0 : ustr_hashCharsN(s, fCount);
 #if 0
         // We compute the hash by iterating sparsely over 64 (at most) characters
         // spaced evenly through the string.  For each character, we multiply the
@@ -396,7 +400,7 @@ U_CAPI int32_t U_EXPORT2
 ucol_keyHashCode(const uint8_t *key, 
                        int32_t  length)
 {
-    U_NAMESPACE_QUALIFIER CollationKey newKey(key, length);
+    icu::CollationKey newKey(key, length);
     return newKey.hashCode();
 }
 

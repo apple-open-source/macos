@@ -66,6 +66,8 @@ webkitgtk_gdom_built_sources += \
 	DerivedSources/webkit/WebKitDOMFileList.cpp \
 	DerivedSources/webkit/WebKitDOMFileListPrivate.h \
 	DerivedSources/webkit/WebKitDOMFilePrivate.h \
+	DerivedSources/webkit/WebKitDOMGeolocation.cpp \
+	DerivedSources/webkit/WebKitDOMGeolocationPrivate.h \
 	DerivedSources/webkit/WebKitDOMHistory.cpp \
 	DerivedSources/webkit/WebKitDOMHistoryPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLAnchorElement.cpp \
@@ -78,8 +80,6 @@ webkitgtk_gdom_built_sources += \
 	DerivedSources/webkit/WebKitDOMHTMLBaseElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLBaseFontElement.cpp \
 	DerivedSources/webkit/WebKitDOMHTMLBaseFontElementPrivate.h \
-	DerivedSources/webkit/WebKitDOMHTMLBlockquoteElement.cpp \
-	DerivedSources/webkit/WebKitDOMHTMLBlockquoteElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLBodyElement.cpp \
 	DerivedSources/webkit/WebKitDOMHTMLBodyElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLBRElement.cpp \
@@ -128,8 +128,6 @@ webkitgtk_gdom_built_sources += \
 	DerivedSources/webkit/WebKitDOMHTMLImageElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLInputElement.cpp \
 	DerivedSources/webkit/WebKitDOMHTMLInputElementPrivate.h \
-	DerivedSources/webkit/WebKitDOMHTMLIsIndexElement.cpp \
-	DerivedSources/webkit/WebKitDOMHTMLIsIndexElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLKeygenElement.cpp \
 	DerivedSources/webkit/WebKitDOMHTMLKeygenElementPrivate.h \
 	DerivedSources/webkit/WebKitDOMHTMLLabelElement.cpp \
@@ -248,6 +246,7 @@ webkitgtk_gdom_built_sources += \
 	DerivedSources/webkit/WebKitDOMWebKitAnimationList.cpp \
 	DerivedSources/webkit/WebKitDOMWebKitPoint.cpp \
 	DerivedSources/webkit/WebKitDOMWebKitPointPrivate.h \
+	DerivedSources/webkit/WebKitDOMWebKitNamedFlow.cpp \
 	DerivedSources/webkit/WebKitDOMXPathExpression.cpp \
 	DerivedSources/webkit/WebKitDOMXPathExpressionPrivate.h \
 	DerivedSources/webkit/WebKitDOMXPathNSResolver.cpp \
@@ -296,12 +295,12 @@ webkitgtk_built_h_api += \
 	DerivedSources/webkit/WebKitDOMBlob.h \
 	DerivedSources/webkit/WebKitDOMFile.h \
 	DerivedSources/webkit/WebKitDOMFileList.h \
+	DerivedSources/webkit/WebKitDOMGeolocation.h \
 	DerivedSources/webkit/WebKitDOMHTMLAnchorElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLAppletElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLAreaElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLBaseElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLBaseFontElement.h \
-	DerivedSources/webkit/WebKitDOMHTMLBlockquoteElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLBodyElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLBRElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLButtonElement.h \
@@ -326,7 +325,6 @@ webkitgtk_built_h_api += \
 	DerivedSources/webkit/WebKitDOMHTMLIFrameElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLImageElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLInputElement.h \
-	DerivedSources/webkit/WebKitDOMHTMLIsIndexElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLKeygenElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLLabelElement.h \
 	DerivedSources/webkit/WebKitDOMHTMLLegendElement.h \
@@ -365,6 +363,7 @@ webkitgtk_built_h_api += \
 	DerivedSources/webkit/WebKitDOMDOMApplicationCache.h \
 	DerivedSources/webkit/WebKitDOMBarInfo.h \
 	DerivedSources/webkit/WebKitDOMConsole.h \
+	DerivedSources/webkit/WebKitDOMCustom.h \
 	DerivedSources/webkit/WebKitDOMDOMWindow.h \
 	DerivedSources/webkit/WebKitDOMDOMSelection.h \
 	DerivedSources/webkit/WebKitDOMEventTarget.h \
@@ -377,6 +376,7 @@ webkitgtk_built_h_api += \
 	DerivedSources/webkit/WebKitDOMWebKitAnimation.h \
 	DerivedSources/webkit/WebKitDOMWebKitAnimationList.h \
 	DerivedSources/webkit/WebKitDOMWebKitPoint.h \
+	DerivedSources/webkit/WebKitDOMWebKitNamedFlow.h \
 	DerivedSources/webkit/WebKitDOMDOMMimeType.h \
 	DerivedSources/webkit/WebKitDOMDOMMimeTypeArray.h \
 	DerivedSources/webkit/WebKitDOMDOMPlugin.h \
@@ -389,14 +389,6 @@ webkitgtk_built_h_api += \
 	DerivedSources/webkit/webkitdom.h \
 	DerivedSources/webkit/webkitdomdefines.h
 
-if ENABLE_GEOLOCATION
-webkitgtk_built_h_api += \
-	$(top_builddir)/DerivedSources/webkit/WebKitDOMGeolocation.h
-webkitgtk_gdom_built_sources += \
-	DerivedSources/webkit/WebKitDOMGeolocation.cpp \
-	DerivedSources/webkit/WebKitDOMGeolocationPrivate.h
-endif
-
 if ENABLE_VIDEO
 webkitgtk_built_h_api += \
 	$(top_builddir)/DerivedSources/webkit/WebKitDOMHTMLAudioElement.h \
@@ -408,8 +400,51 @@ webkitgtk_gdom_built_sources += \
 	DerivedSources/webkit/WebKitDOMHTMLVideoElementPrivate.h
 endif
 
+if ENABLE_VIDEO_TRACK
+webkitgtk_built_h_api += \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMTextTrack.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMTextTrackList.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMTextTrackCue.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMTextTrackCueList.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMTrackEvent.h
+webkitgtk_gdom_built_sources += \
+	DerivedSources/webkit/WebKitDOMTextTrack.cpp \
+	DerivedSources/webkit/WebKitDOMTextTrackPrivate.h \
+	DerivedSources/webkit/WebKitDOMTextTrackList.cpp \
+	DerivedSources/webkit/WebKitDOMTextTrackListPrivate.h \
+	DerivedSources/webkit/WebKitDOMTextTrackCue.cpp \
+	DerivedSources/webkit/WebKitDOMTextTrackCuePrivate.h \
+	DerivedSources/webkit/WebKitDOMTextTrackCueList.cpp \
+	DerivedSources/webkit/WebKitDOMTextTrackCueListPrivate.h \
+	DerivedSources/webkit/WebKitDOMTrackEvent.cpp \
+	DerivedSources/webkit/WebKitDOMTrackEventPrivate.h
+endif
+
+if ENABLE_MICRODATA
+webkitgtk_built_h_api += \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMHTMLPropertiesCollection.h
+webkitgtk_gdom_built_sources += \
+	DerivedSources/webkit/WebKitDOMHTMLPropertiesCollection.cpp \
+	DerivedSources/webkit/WebKitDOMHTMLPropertiesCollectionPrivate.h
+endif
+
+
+if ENABLE_WEB_TIMING
+webkitgtk_built_h_api += \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMPerformance.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMPerformanceNavigation.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMPerformanceTiming.h
+webkitgtk_gdom_built_sources += \
+	DerivedSources/webkit/WebKitDOMPerformance.cpp \
+	DerivedSources/webkit/WebKitDOMPerformancePrivate.h \
+	DerivedSources/webkit/WebKitDOMPerformanceNavigation.cpp \
+	DerivedSources/webkit/WebKitDOMPerformanceNavigationPrivate.h \
+	DerivedSources/webkit/WebKitDOMPerformanceTiming.cpp \
+	DerivedSources/webkit/WebKitDOMPerformanceTimingPrivate.h
+endif
+
 gdom_class_list := $(subst WebKitDOM,, $(filter-out %Private, $(basename $(notdir $(webkitgtk_gdom_built_sources)))))
-gdom_class_list += Object EventTarget
+gdom_class_list += Custom EventTarget Object
 DerivedSources/webkit/webkitdom.h: $(WebCore)/bindings/scripts/gobject-generate-headers.pl $(WebCore)/bindings/gobject/GNUmakefile.am
 	$(AM_V_GEN)echo $(gdom_class_list) | $(PERL) $< gdom > $@
 
@@ -430,9 +465,10 @@ $(top_builddir)/DerivedSources/webkit/WebKitDOMEventTarget.h: $(WebCore)/binding
 $(top_builddir)/DerivedSources/webkit/WebKitDOMEventTargetPrivate.h: $(WebCore)/bindings/gobject/WebKitDOMEventTargetPrivate.h
 	$(AM_V_GEN)cp -f $< $@
 
-# Filter out SVG for now
-gdom_feature_defines := $(filter-out ENABLE_INDEXED_DATABASE=1, $(filter-out ENABLE_SVG%, $(FEATURE_DEFINES)))
-DerivedSources/webkit/WebKitDOM%.cpp DerivedSources/webkit/WebKitDOM%.h DerivedSources/webkit/WebKitDOM%Private.h:: %.idl $(SCRIPTS_BINDINGS) $(WebCore)/bindings/scripts/CodeGeneratorGObject.pm $(WebCore)/bindings/gobject/GNUmakefile.am
-	echo $(gdom_feature_defines)
-	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --include $(WebCore)/dom --include $(WebCore)/html --include $(WebCore)/css --include $(WebCore)/page --include $(WebCore)/xml --include $(WebCore)/svg --outputDir "$(GENSOURCES_WEBKIT)" --defines "LANGUAGE_GOBJECT=1 $(gdom_feature_defines)" --generator GObject $<
+$(top_builddir)/DerivedSources/webkit/WebKitDOMCustom.h: $(WebCore)/bindings/gobject/WebKitDOMCustom.h
+	$(AM_V_GEN)cp -f $< $@
 
+# Filter out SVG and IndexedDB for now
+gdom_feature_defines := $(filter-out ENABLE_INDEXED_DATABASE=1, $(filter-out ENABLE_SVG%, $(FEATURE_DEFINES)))
+DerivedSources/webkit/WebKitDOM%.cpp DerivedSources/webkit/WebKitDOM%.h DerivedSources/webkit/WebKitDOM%Private.h: %.idl $(SCRIPTS_FOR_GENERATE_BINDINGS) $(WebCore)/bindings/scripts/CodeGeneratorGObject.pm $(WebCore)/bindings/gobject/GNUmakefile.am $(supplemental_dependency_file)
+	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl --include $(WebCore)/dom --include $(WebCore)/html --include $(WebCore)/css --include $(WebCore)/page --include $(WebCore)/xml --include $(WebCore)/svg --outputDir "$(GENSOURCES_WEBKIT)" --defines "LANGUAGE_GOBJECT=1 $(gdom_feature_defines)" --generator GObject --supplementalDependencyFile $(supplemental_dependency_file) $<

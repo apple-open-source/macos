@@ -57,6 +57,7 @@
 #include "TTYKeepAwake.h"
 #include "PMAssertions.h"
 #include "PMSettings.h"
+#include "PMConnection.h"
 
 #if !TARGET_OS_EMBEDDED
 
@@ -204,7 +205,7 @@ bool  TTYKeepAwakeConsiderAssertion( void )
     time_t time_to_idle = 0;
 
     active = ttys_are_active(&time_to_idle);
-    
+
     if (active && settingTTYSPreventSleep) 
     {
         time_to_idle = MAX(time_to_idle, kMinIdleCheckTime);
@@ -222,6 +223,7 @@ bool  TTYKeepAwakeConsiderAssertion( void )
 static void read_logins(void)
 {
     struct utmpx *ent;
+    int cnt = 0;
 
     freettys();
 
@@ -236,10 +238,12 @@ static void read_logins(void)
         if (0 < strlen(ent->ut_host))
         {
             addtty(ent->ut_line);            
+            cnt++;
         }
     }
     endutxent();
 
+    if (cnt) _unclamp_silent_running();
     TTYKeepAwakeConsiderAssertion();
 }
 

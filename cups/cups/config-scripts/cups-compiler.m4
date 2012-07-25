@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-compiler.m4 9818 2011-06-10 21:16:18Z mike $"
+dnl "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $"
 dnl
 dnl   Compiler stuff for CUPS.
 dnl
-dnl   Copyright 2007-2011 by Apple Inc.
+dnl   Copyright 2007-2012 by Apple Inc.
 dnl   Copyright 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
@@ -66,8 +66,8 @@ fi
 
 if test -z "$with_ldarchflags"; then
 	if test "$uname" = Darwin; then
-		# Only create 32-bit programs by default
-		LDARCHFLAGS="`echo $ARCHFLAGS | sed -e '1,$s/-arch x86_64//' -e '1,$s/-arch ppc64//'`"
+		# Only create Intel programs by default
+		LDARCHFLAGS="`echo $ARCHFLAGS | sed -e '1,$s/-arch ppc64//'`"
 	else
 		LDARCHFLAGS="$ARCHFLAGS"
 	fi
@@ -77,15 +77,6 @@ fi
 
 AC_SUBST(ARCHFLAGS)
 AC_SUBST(LDARCHFLAGS)
-
-dnl Setup support for separate 32/64-bit library generation...
-AC_ARG_WITH(arch32flags, [  --with-arch32flags      set 32-bit architecture flags])
-ARCH32FLAGS=""
-AC_SUBST(ARCH32FLAGS)
-
-AC_ARG_WITH(arch64flags, [  --with-arch64flags      set 64-bit architecture flags])
-ARCH64FLAGS=""
-AC_SUBST(ARCH64FLAGS)
 
 dnl Read-only data/program support on Linux...
 AC_ARG_ENABLE(relro, [  --enable-relro          build with the GCC relro option])
@@ -99,9 +90,6 @@ AC_SUBST(PIEFLAGS)
 
 RELROFLAGS=""
 AC_SUBST(RELROFLAGS)
-
-PHPOPTIONS=""
-AC_SUBST(PHPOPTIONS)
 
 if test -n "$GCC"; then
 	# Add GCC-specific compiler options...
@@ -157,7 +145,6 @@ if test -n "$GCC"; then
 		# Additional warning options for development testing...
 		if test -d .svn; then
 			OPTIM="-Wshadow -Werror $OPTIM"
-			PHPOPTIONS="-Wno-shadow"
 		else
 			AC_MSG_CHECKING(if GCC supports -Wno-tautological-compare)
 			OLDCFLAGS="$CFLAGS"
@@ -180,153 +167,11 @@ if test -n "$GCC"; then
 			CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
 			;;
 
-		HP-UX*)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-milp32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-mlp64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-mlp64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-milp32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
-		IRIX)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-n32 -mips3"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-64 -mips4"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-64 -mips4"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-n32 -mips3"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
 		Linux*)
 			# The -z relro option is provided by the Linux linker command to
 			# make relocatable data read-only.
 			if test x$enable_relro = xyes; then
 				RELROFLAGS="-Wl,-z,relro"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-m32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-m64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-m64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-m32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
-		SunOS*)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-m32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-m64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-m64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-m32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 	esac
@@ -356,40 +201,6 @@ else
 			if test $PICFLAG = 1; then
 				OPTIM="+z $OPTIM"
 			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="+DD32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="+DD64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="+DD64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="+DD32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
 			;;
         	IRIX)
 			if test -z "$OPTIM"; then
@@ -402,40 +213,6 @@ else
 
 			if test "x$with_optim" = x; then
 				OPTIM="-fullwarn -woff 1183,1209,1349,1506,3201 $OPTIM"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-n32 -mips3"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-64 -mips4"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-64 -mips4"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-n32 -mips3"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 		OSF*)
@@ -460,47 +237,6 @@ else
 
 			if test $PICFLAG = 1; then
 				OPTIM="-KPIC $OPTIM"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Compiling on a Solaris system, build 64-bit
-				# binaries with separate 32-bit libraries...
-				ARCH32FLAGS="-xarch=generic"
-
-				if test "x$with_optim" = x; then
-					# Suppress all of Sun's questionable
-					# warning messages, and default to
-					# 64-bit compiles of everything else...
-					OPTIM="-w $OPTIM"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-xarch=generic64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			else
-				if test "x$enable_64bit" = xyes; then
-					# Build 64-bit libraries...
-					ARCH64FLAGS="-xarch=generic64"
-				fi
-
-				if test "x$with_optim" = x; then
-					# Suppress all of Sun's questionable
-					# warning messages, and default to
-					# 32-bit compiles of everything else...
-					OPTIM="-w $OPTIM"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-xarch=generic"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 		UNIX_SVR*)
@@ -559,5 +295,5 @@ case $uname in
 esac
 
 dnl
-dnl End of "$Id: cups-compiler.m4 9818 2011-06-10 21:16:18Z mike $".
+dnl End of "$Id: cups-compiler.m4 7871 2008-08-27 21:12:43Z mike $".
 dnl

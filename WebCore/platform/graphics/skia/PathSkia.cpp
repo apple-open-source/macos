@@ -76,7 +76,15 @@ bool Path::hasCurrentPoint() const
 
 FloatPoint Path::currentPoint() const 
 {
-    // FIXME: return current point of subpath.
+    if (m_path->countPoints() > 0) {
+        SkPoint skResult;
+        m_path->getLastPt(&skResult);
+        FloatPoint result;
+        result.setX(SkScalarToFloat(skResult.fX));
+        result.setY(SkScalarToFloat(skResult.fY));
+        return result;
+    }
+
     float quietNaN = std::numeric_limits<float>::quiet_NaN();
     return FloatPoint(quietNaN, quietNaN);
 }
@@ -189,7 +197,7 @@ static FloatPoint* convertPathPoints(FloatPoint dst[], const SkPoint src[], int 
 
 void Path::apply(void* info, PathApplierFunction function) const
 {
-    SkPath::Iter iter(*m_path, false);
+    SkPath::RawIter iter(*m_path);
     SkPoint pts[4];
     PathElement pathElement;
     FloatPoint pathPoints[3];

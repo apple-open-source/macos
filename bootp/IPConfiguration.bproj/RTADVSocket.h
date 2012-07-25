@@ -85,7 +85,6 @@ void
 RTADVSocketDisableReceive(RTADVSocketRef sock);
 
 int
-RTADVSocketSendSolicitation(RTADVSocketRef sock);
-
+RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok);
 
 #endif /* _S_RTADVSOCKET_H */

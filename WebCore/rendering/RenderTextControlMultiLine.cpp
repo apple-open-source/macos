@@ -22,17 +22,17 @@
 #include "config.h"
 #include "RenderTextControlMultiLine.h"
 
-#include "Event.h"
-#include "EventNames.h"
 #include "Frame.h"
 #include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
+#include "ShadowRoot.h"
+#include "TextControlInnerElements.h"
 
 namespace WebCore {
 
-RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node, bool placeholderVisible)
-    : RenderTextControl(node, placeholderVisible)
+RenderTextControlMultiLine::RenderTextControlMultiLine(Node* node)
+    : RenderTextControl(node)
 {
 }
 
@@ -42,35 +42,15 @@ RenderTextControlMultiLine::~RenderTextControlMultiLine()
         static_cast<HTMLTextAreaElement*>(node())->rendererWillBeDestroyed();
 }
 
-void RenderTextControlMultiLine::subtreeHasChanged()
+bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
 {
-    RenderTextControl::subtreeHasChanged();
-    HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(node());
-    textArea->setChangedSinceLastFormControlChangeEvent(true);
-    textArea->setFormControlValueMatchesRenderer(false);
-    textArea->setNeedsValidityCheck();
-
-    if (!node()->focused())
-        return;
-
-    if (Frame* frame = this->frame())
-        frame->editor()->textDidChangeInTextArea(textArea);
-}
-
-bool RenderTextControlMultiLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const IntPoint& pointInContainer, int tx, int ty, HitTestAction hitTestAction)
-{
-    if (!RenderTextControl::nodeAtPoint(request, result, pointInContainer, tx, ty, hitTestAction))
+    if (!RenderTextControl::nodeAtPoint(request, result, pointInContainer, accumulatedOffset, hitTestAction))
         return false;
 
     if (result.innerNode() == node() || result.innerNode() == innerTextElement())
-        hitInnerTextElement(result, pointInContainer.x(), pointInContainer.y(), tx, ty);
+        hitInnerTextElement(result, pointInContainer, accumulatedOffset);
 
     return true;
-}
-
-void RenderTextControlMultiLine::forwardEvent(Event* event)
-{
-    RenderTextControl::forwardEvent(event);
 }
 
 float RenderTextControlMultiLine::getAvgCharWidth(AtomicString family)
@@ -84,33 +64,20 @@ float RenderTextControlMultiLine::getAvgCharWidth(AtomicString family)
     return RenderTextControl::getAvgCharWidth(family);
 }
 
-int RenderTextControlMultiLine::preferredContentWidth(float charWidth) const
+LayoutUnit RenderTextControlMultiLine::preferredContentWidth(float charWidth) const
 {
     int factor = static_cast<HTMLTextAreaElement*>(node())->cols();
-    return static_cast<int>(ceilf(charWidth * factor)) + scrollbarThickness();
+    return static_cast<LayoutUnit>(ceilf(charWidth * factor)) + scrollbarThickness();
 }
 
-void RenderTextControlMultiLine::adjustControlHeightBasedOnLineHeight(int lineHeight)
+LayoutUnit RenderTextControlMultiLine::computeControlHeight(LayoutUnit lineHeight, LayoutUnit nonContentHeight) const
 {
-    setHeight(height() + lineHeight * static_cast<HTMLTextAreaElement*>(node())->rows());
+    return lineHeight * static_cast<HTMLTextAreaElement*>(node())->rows() + nonContentHeight;
 }
 
-int RenderTextControlMultiLine::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+LayoutUnit RenderTextControlMultiLine::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode);
-}
-
-void RenderTextControlMultiLine::updateFromElement()
-{
-    createSubtreeIfNeeded(0);
-    RenderTextControl::updateFromElement();
-
-    setInnerTextValue(static_cast<HTMLTextAreaElement*>(node())->value());
-}
-
-void RenderTextControlMultiLine::cacheSelection(int start, int end)
-{
-    static_cast<HTMLTextAreaElement*>(node())->cacheSelection(start, end);
 }
 
 PassRefPtr<RenderStyle> RenderTextControlMultiLine::createInnerTextStyle(const RenderStyle* startStyle) const
@@ -127,35 +94,20 @@ RenderStyle* RenderTextControlMultiLine::textBaseStyle() const
 {
     return style();
 }
-    
-int RenderTextControlMultiLine::textBlockInsetLeft() const
-{
-    int inset = borderLeft() + paddingLeft();
-    if (HTMLElement* innerText = innerTextElement()) {
-        if (RenderBox* innerTextRenderer = innerText->renderBox())
-            inset += innerTextRenderer->paddingLeft();
-    }
-    return inset;
-}
 
-int RenderTextControlMultiLine::textBlockInsetRight() const
+RenderObject* RenderTextControlMultiLine::layoutSpecialExcludedChild(bool relayoutChildren)
 {
-    int inset = borderRight() + paddingRight();
-    if (HTMLElement* innerText = innerTextElement()) {
-        if (RenderBox* innerTextRenderer = innerText->renderBox())
-            inset += innerTextRenderer->paddingRight();
-    }
-    return inset;
-}
-
-int RenderTextControlMultiLine::textBlockInsetTop() const
-{
-    int inset = borderTop() + paddingTop();
-    if (HTMLElement* innerText = innerTextElement()) {
-        if (RenderBox* innerTextRenderer = innerText->renderBox())
-            inset += innerTextRenderer->paddingTop();
-    }
-    return inset;
+    RenderObject* placeholderRenderer = RenderTextControl::layoutSpecialExcludedChild(relayoutChildren);
+    if (!placeholderRenderer)
+        return 0;
+    if (!placeholderRenderer->isBox())
+        return placeholderRenderer;
+    RenderBox* placeholderBox = toRenderBox(placeholderRenderer);
+    placeholderBox->style()->setWidth(Length(contentWidth() - placeholderBox->borderAndPaddingWidth(), Fixed));
+    placeholderBox->layoutIfNeeded();
+    placeholderBox->setX(borderLeft() + paddingLeft());
+    placeholderBox->setY(borderTop() + paddingTop());
+    return placeholderRenderer;
 }
     
 }

@@ -27,7 +27,6 @@
 
 namespace WebCore {
 
-class IntSize;
 class HitTestResult;
 class HTMLImageElement;
     
@@ -39,18 +38,18 @@ public:
 
     const AtomicString& getName() const { return m_name; }
 
-    bool mapMouseEvent(int x, int y, const IntSize&, HitTestResult&);
+    bool mapMouseEvent(LayoutPoint location, const LayoutSize&, HitTestResult&);
     
-    HTMLImageElement* imageElement() const;
-    PassRefPtr<HTMLCollection> areas();
+    HTMLImageElement* imageElement();
+    HTMLCollection* areas();
 
 private:
     HTMLMapElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 
     AtomicString m_name;
 };

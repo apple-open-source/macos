@@ -106,6 +106,6 @@ the 3-clause BSD license below.
     (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
     THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-[mailing-list]: http://lists.macosforge.org/mailman/listinfo/dcerpc-dev
-[trac]: https://dcerpc.org/trac/newticket
+[mailing-list]: http://lists.dcerpc.org/mailman/listinfo/dcerpc-dev
+[trac]: https://www.dcerpc.org/trac/newticket
 [libdispatch]: http://libdispatch.macosforge.org/

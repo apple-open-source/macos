@@ -67,9 +67,11 @@
 #import <WebCore/Page.h> 
 #import <WebCore/PluginMainThreadScheduler.h>
 #import <WebCore/ProxyServer.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/SoftLinking.h> 
+#import <WebCore/UserGestureIndicator.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <WebCore/npruntime_impl.h>
@@ -79,7 +81,7 @@
 #import <runtime/InitializeThreading.h>
 #import <runtime/JSLock.h>
 #import <wtf/Assertions.h>
-#import <wtf/Threading.h>
+#import <wtf/MainThread.h>
 #import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
@@ -193,6 +195,7 @@ typedef struct {
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
     WKSendUserChangeNotifications();
 }
@@ -665,16 +668,13 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     [self willCallPlugInFunction];
     // Set the pluginAllowPopup flag.
     ASSERT(_eventHandler);
-    bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
-    frame->script()->setAllowPopupsFromPlugin(_eventHandler->currentEventIsUserGesture());    
     {
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        UserGestureIndicator gestureIndicator(_eventHandler->currentEventIsUserGesture() ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
         acceptedEvent = [_pluginPackage.get() pluginFuncs]->event(plugin, event);
     }
-    // Restore the old pluginAllowPopup flag.
-    frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);     
     [self didCallPlugInFunction];
-        
+
     if (portState) {
         if ([self currentWindow])
             [self restorePortState:portState];
@@ -1102,7 +1102,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 #ifndef BUILDING_ON_LEOPARD
                 // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
                 // in order to get the coordinate system right.
-                RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.releaseRef());
+                RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.leakRef());
                 
                 _pluginLayer.adoptNS([[CALayer alloc] init]);
                 _pluginLayer.get().bounds = realPluginLayer.get().bounds;
@@ -1452,6 +1452,26 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
         return NULL;
     
     return value;
+}
+
+- (BOOL)getFormValue:(NSString **)value
+{
+    if (![_pluginPackage.get() pluginFuncs]->getvalue || !_isStarted)
+        return false;
+    // Plugins will allocate memory for the buffer by using NPN_MemAlloc().
+    char* buffer = NULL;
+    NPError error;
+    [self willCallPlugInFunction];
+    {
+        JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+        error = [_pluginPackage.get() pluginFuncs]->getvalue(plugin, NPPVformValue, &buffer);
+    }
+    [self didCallPlugInFunction];
+    if (error != NPERR_NO_ERROR || !buffer)
+        return false;
+    *value = [[NSString alloc] initWithUTF8String:buffer];
+    [_pluginPackage.get() browserFuncs]->memfree(buffer);
+    return true;
 }
 
 - (void)willCallPlugInFunction
@@ -1978,7 +1998,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 
 - (NPError)getVariable:(NPNVariable)variable value:(void *)value
 {
-    switch (variable) {
+    switch (static_cast<unsigned>(variable)) {
         case NPNVWindowNPObject:
         {
             Frame* frame = core([self webFrame]);

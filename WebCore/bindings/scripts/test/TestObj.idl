@@ -30,7 +30,10 @@
 // This IDL file is for testing the bindings code generator and for tracking
 // changes in its ouput.
 module test {
-    interface TestObj {
+    interface [
+        Constructor(in [Callback] TestCallback testCallback),
+        InterfaceName=TestObject
+    ] TestObj {
         // Attributes
         readonly attribute long            readOnlyIntAttr;
         readonly attribute DOMString       readOnlyStringAttr;
@@ -43,6 +46,22 @@ module test {
         attribute DOMString                stringAttr;
         attribute TestObj                  testObjAttr;
 
+        // Sequence Attributes
+        attribute sequence<ScriptProfile>  sequenceAttr;
+        attribute sequence<int> intSequenceAttr;
+        attribute sequence<short> shortSequenceAttr;
+        attribute sequence<long> longSequenceAttr;
+        attribute sequence<long long> longLongSequenceAttr;
+        attribute sequence<unsigned int> unsignedIntSequenceAttr;
+        attribute sequence<unsigned short> unsignedShortSequenceAttr;
+        attribute sequence<unsigned long> unsignedLongSequenceAttr;
+        attribute sequence<unsigned long long> unsignedLongLongSequenceAttr;
+        attribute sequence<float> floatSequenceAttr;
+        attribute sequence<double> doubleSequenceAttr;
+        attribute sequence<boolean> booleanSequenceAttr;
+        attribute sequence<void> voidSequenceAttr;
+        attribute sequence<Date> dateSequenceAttr;
+
         JS, V8
         // WK_ucfirst, WK_lcfirst exceptional cases.
         attribute TestObj                  XMLObjAttr;
@@ -54,12 +73,10 @@ module test {
         attribute [Reflect] unsigned long reflectedUnsignedIntegralAttr;
         attribute [Reflect] boolean reflectedBooleanAttr;
         attribute [Reflect, URL] DOMString reflectedURLAttr;
-        attribute [Reflect, NonEmpty, URL] DOMString reflectedNonEmptyURLAttr;
         attribute [Reflect=customContentStringAttr] DOMString reflectedStringAttr;
         attribute [Reflect=customContentIntegralAttr] long reflectedCustomIntegralAttr;
         attribute [Reflect=customContentBooleanAttr] boolean reflectedCustomBooleanAttr;
         attribute [Reflect=customContentURLAttr, URL] DOMString reflectedCustomURLAttr;
-        attribute [Reflect=customContentNonEmptyURLAttr, NonEmpty, URL] DOMString reflectedCustomNonEmptyURLAttr;
 
         // Methods
         void    voidMethod();
@@ -69,13 +86,15 @@ module test {
         TestObj objMethod();
         TestObj objMethodWithArgs(in long intArg, in DOMString strArg, in TestObj objArg);
 
-        [RequiresAllArguments] TestObj methodThatRequiresAllArgs(in DOMString strArg, in TestObj objArg);
-        [RequiresAllArguments=Raise] TestObj methodThatRequiresAllArgsAndThrows(in DOMString strArg, in TestObj objArg)
+        void methodWithSequenceArg(in sequence<ScriptProfile> sequenceArg);
+        sequence<ScriptProfile> methodReturningSequence(in long intArg);
+
+        TestObj methodThatRequiresAllArgsAndThrows(in DOMString strArg, in TestObj objArg)
             raises(DOMException);
 
         void serializedValue(in SerializedScriptValue serializedArg);
         void idbKey(in IDBKey key);
-        void optionsObject(in OptionsObject oo, in [Optional] OptionsObject ooo);
+        void optionsObject(in Dictionary oo, in [Optional] Dictionary ooo);
 
         // Exceptions
         void methodWithException() raises(DOMException);
@@ -89,22 +108,14 @@ module test {
         [Custom] void customMethod();
         [Custom] void customMethodWithArgs(in long intArg, in DOMString strArg, in TestObj objArg);
 
-        [CustomArgumentHandling] void customArgsAndException(in log intArg)
-            raises(DOMException);
-
         void addEventListener(in DOMString type, 
                               in EventListener listener, 
-                              in boolean useCapture);
+                              in [Optional] boolean useCapture);
         void removeEventListener(in DOMString type, 
                                  in EventListener listener, 
-                                 in boolean useCapture);
+                                 in [Optional] boolean useCapture);
 
         // 'CallWith' extended attribute
-        [CallWith=DynamicFrame] void withDynamicFrame();
-        [CallWith=DynamicFrame] void withDynamicFrameAndArg(in long intArg);
-        [CallWith=DynamicFrame] void withDynamicFrameAndOptionalArg(in long intArg, in [Optional] long optionalArg);
-        [NeedsUserGestureCheck, CallWith=DynamicFrame] void withDynamicFrameAndUserGesture(in long intArg);
-        [NeedsUserGestureCheck, CallWith=DynamicFrame] void withDynamicFrameAndUserGestureASAD(in long intArg, in [Optional] long optionalArg);
         [CallWith=ScriptState] void withScriptStateVoid();
         [CallWith=ScriptState] TestObj withScriptStateObj();
         [CallWith=ScriptState] void withScriptStateVoidException()
@@ -112,11 +123,31 @@ module test {
         [CallWith=ScriptState] TestObj withScriptStateObjException()
             raises(DOMException);
         [CallWith=ScriptExecutionContext] void withScriptExecutionContext();
+        [CallWith=ScriptExecutionContext|ScriptState] void withScriptExecutionContextAndScriptState();
+        [CallWith=ScriptExecutionContext|ScriptState] TestObj withScriptExecutionContextAndScriptStateObjException()
+            raises(DOMException);
+        [CallWith=  ScriptExecutionContext  |  ScriptState  ] TestObj withScriptExecutionContextAndScriptStateWithSpaces();
+        [CallWith=ScriptArguments|CallStack] void withScriptArgumentsAndCallStack();
+
+        attribute [CallWith=ScriptState] long withScriptStateAttribute;
+        attribute [CallWith=ScriptExecutionContext] TestObj withScriptExecutionContextAttribute;
+        attribute [CallWith=ScriptState] TestObj withScriptStateAttributeRaises
+            getter raises(DOMException);
+        attribute [CallWith=ScriptExecutionContext] TestObj withScriptExecutionContextAttributeRaises
+            getter raises(DOMException);
+        attribute [CallWith=ScriptExecutionContext|ScriptState] TestObj withScriptExecutionContextAndScriptStateAttribute;
+        attribute [CallWith=ScriptExecutionContext|ScriptState] TestObj withScriptExecutionContextAndScriptStateAttributeRaises
+            getter raises(DOMException);
+        attribute [CallWith=  ScriptExecutionContext  |  ScriptState  ] TestObj withScriptExecutionContextAndScriptStateWithSpacesAttribute;
+        attribute [CallWith=ScriptArguments|CallStack] TestObj withScriptArgumentsAndCallStackAttribute;
 
         // 'Optional' extended attribute
         void    methodWithOptionalArg(in [Optional] long opt);
         void    methodWithNonOptionalArgAndOptionalArg(in long nonOpt, in [Optional] long opt);
-        void    methodWithNonOptionalArgAndTwoOptionalArgs(in long nonOpt, in [Optional] long opt1, in long opt2);
+        void    methodWithNonOptionalArgAndTwoOptionalArgs(in long nonOpt, in [Optional] long opt1, in [Optional] long opt2);
+        void    methodWithOptionalString(in [Optional] DOMString str);
+        void    methodWithOptionalStringIsUndefined(in [Optional=DefaultIsUndefined] DOMString str);
+        void    methodWithOptionalStringIsNullString(in [Optional=DefaultIsNullString] DOMString str);
 
 #if defined(TESTING_V8) || defined(TESTING_JS)
         // 'Callback' extended attribute
@@ -125,13 +156,21 @@ module test {
         void    methodWithCallbackAndOptionalArg(in [Callback, Optional] TestCallback callback);
 #endif
 
-        // 'ConvertScriptString' extended attribute
-        readonly attribute [ConvertScriptString] DOMString scriptStringAttr;
-
         // 'Conditional' extended attribute
         attribute [Conditional=Condition1] long conditionalAttr1;
         attribute [Conditional=Condition1&Condition2] long conditionalAttr2;
         attribute [Conditional=Condition1|Condition2] long conditionalAttr3;
+
+        // 'Conditional' extended method
+        [Conditional=Condition1] DOMString conditionalMethod1();
+        [Conditional=Condition1&Condition2] void conditionalMethod2();
+        [Conditional=Condition1|Condition2] void conditionalMethod3();
+
+        attribute [Conditional=Condition1] TestObjectAConstructor conditionalAttr4;
+        attribute [Conditional=Condition1&Condition2] TestObjectBConstructor conditionalAttr5;
+        attribute [Conditional=Condition1|Condition2] TestObjectCConstructor conditionalAttr6;
+
+        [Conditional=Condition1] const unsigned short CONDITIONAL_CONST = 0;
 
 #if defined(TESTING_V8) || defined(TESTING_JS)
         readonly attribute [CachedAttribute] any cachedAttribute1;
@@ -145,19 +184,58 @@ module test {
         void    overloadedMethod(in DOMString strArg);
         void    overloadedMethod(in long intArg);
         void    overloadedMethod(in [Callback] TestCallback callback);
+        void    overloadedMethod(in DOMStringList listArg);
+        void    overloadedMethod(in DOMString[] arrayArg);
 #endif
 
         // Class methods within JavaScript (like what's used for IDBKeyRange).
-        [ClassMethod] void classMethod();
-        [ClassMethod] long classMethodWithOptional(in [Optional] long arg);
+        static void classMethod();
+        static long classMethodWithOptional(in [Optional] long arg);
+        [Custom] static void classMethod2(in long arg);
+
+        // Static method with conditional on overloaded methods
+        [Conditional=Condition1] static void overloadedMethod1(in long arg);
+        [Conditional=Condition1] static void overloadedMethod1(in DOMString type);
 
 #if defined(TESTING_V8)
-        // 'EnabledAtRuntime' methods and attributes.
-        [EnabledAtRuntime] void enabledAtRuntimeMethod1(in int intArg);
-        [EnabledAtRuntime=FeatureName] void enabledAtRuntimeMethod2(in int intArg);
-        attribute [EnabledAtRuntime] long enabledAtRuntimeAttr1;
-        attribute [EnabledAtRuntime=FeatureName] long enabledAtRuntimeAttr2;
+        // 'V8EnabledAtRuntime' methods and attributes.
+        [V8EnabledAtRuntime] void enabledAtRuntimeMethod1(in int intArg);
+        [V8EnabledAtRuntime=FeatureName] void enabledAtRuntimeMethod2(in int intArg);
+        attribute [V8EnabledAtRuntime] long enabledAtRuntimeAttr1;
+        attribute [V8EnabledAtRuntime=FeatureName] long enabledAtRuntimeAttr2;
 #endif
+
+
+#if defined(TESTING_V8)
+        attribute float[]                   floatArray;
+        attribute double[]                  doubleArray;
+#endif
+
+#if defined(TESTING_JS)
+        void methodWithUnsignedLongArray(in unsigned long[] unsignedLongArray);
+#endif
+
+        readonly attribute [CheckSecurityForNode] Document contentDocument;
+        [CheckSecurityForNode] SVGDocument getSVGDocument()
+            raises(DOMException);
+
+        void convert1(in [TreatReturnedNullStringAs=Null] a);
+        void convert2(in [TreatReturnedNullStringAs=Undefined] b);
+        void convert3(in [TreatReturnedNullStringAs=False] c);
+        void convert4(in [TreatNullAs=NullString] d);
+        void convert5(in [TreatNullAs=NullString, TreatUndefinedAs=NullString] e);
+
+        attribute SVGPoint mutablePoint;
+        attribute [Immutable] SVGPoint immutablePoint;
+        SVGPoint mutablePointFunction();
+        [Immutable] SVGPoint immutablePointFunction();
+
+        [ImplementedAs=banana] void orange();
+        attribute [ImplementedAs=blueberry] int strawberry;
+
+        attribute [StrictTypeChecking] float strictFloat;
+        [StrictTypeChecking] bool strictFunction(in DOMString str, in float a, in int b)
+            raises(DOMException);
 
         // ObjectiveC reserved words.
         readonly attribute long      description;
@@ -176,5 +254,6 @@ module test {
         const unsigned short CONST_VALUE_12 = 0x01;
         const unsigned short CONST_VALUE_13 = 0X20;
         const unsigned short CONST_VALUE_14 = 0x1abc;
+        [Reflect=CONST_IMPL] const unsigned short CONST_JAVASCRIPT = 15;
     };
 }

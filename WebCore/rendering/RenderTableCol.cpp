@@ -44,9 +44,21 @@ RenderTableCol::RenderTableCol(Node* node)
     updateFromElement();
 }
 
+void RenderTableCol::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBox::styleDidChange(diff, oldStyle);
+
+    // If border was changed, notify table.
+    if (parent()) {
+        RenderTable* table = this->table();
+        if (table && !table->selfNeedsLayout() && !table->normalChildNeedsLayout() && oldStyle && oldStyle->border() != style()->border())
+            table->invalidateCollapsedBorders();
+    }
+}
+
 void RenderTableCol::updateFromElement()
 {
-    int oldSpan = m_span;
+    unsigned oldSpan = m_span;
     Node* n = node();
     if (n && (n->hasTagName(colTag) || n->hasTagName(colgroupTag))) {
         HTMLTableColElement* tc = static_cast<HTMLTableColElement*>(n);
@@ -69,7 +81,7 @@ bool RenderTableCol::canHaveChildren() const
     return style()->display() == TABLE_COLUMN_GROUP;
 }
 
-IntRect RenderTableCol::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
+LayoutRect RenderTableCol::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const
 {
     // For now, just repaint the whole table.
     // FIXME: Find a better way to do this, e.g., need to repaint all the cells that we
@@ -78,7 +90,7 @@ IntRect RenderTableCol::clippedOverflowRectForRepaint(RenderBoxModelObject* repa
 
     RenderTable* parentTable = table();
     if (!parentTable)
-        return IntRect();
+        return LayoutRect();
     return parentTable->clippedOverflowRectForRepaint(repaintContainer);
 }
 

@@ -8,21 +8,65 @@
   </vendor>
   <product id="libxslt">
     <name>libxslt</name>
-    <version>1.1.23</version>
-    <last-release> Apr  8 2008</last-release>
+    <version>1.1.25</version>
+    <last-release> Sep 17 2009</last-release>
     <info-url>http://xmlsoft.org/XSLT/</info-url>
-    <changes>   - Documentation: fix links for Cygwin DocBook setup (Philippe Bourcier),
-      xsltParseStylesheetDoc doc fix (Jason Viers), fix manpage default
-      maxdepth value 
-   - Bug fixes: python segfault (Daniel Gryniewicz), week-in-year bug fix
-      (Maurice van der Pot), fix python iterator problem (William Brack),
-      avoid garbage collection problems on str:tokenize and str:split
-      and function results (William Brack and Peter Pawlowski) 
-      superfluous re-generation of keys (William Brack), remove superfluous
-      code in xsltExtInitTest (Tony Graham), func:result segfault fix
-      (William Brack), timezone offset problem (Peter Pawlowski),
-   - Portability fixes: old gcrypt support fix (Brent Cowgill), Python
-      portability patch (Stephane Bidoul), VS 2008 fix (Rob Richard) 
+    <changes>   -  Features:
+      Add API versioning and various cleanups (Daniel Veillard),
+      xsl:sort lang support using the locale (Nick Wellnhofer and Roumen Petrov)
+  
+   -  Documentation:
+      Fix the download links for Solaris (Daniel Veillard),
+      Fix makefile and spec file to include doc in rpm (Daniel Veillard)
+  
+   -  Portability:
+      Make sure testThreads is linked with pthreads (Daniel Veillard),
+      Fix potential crash on debug of extensions Solaris (Ben Walton),
+      applied patch from Roumen Petrov for mingw cross compilation problems (Roumen Petrov),
+      patch from Richard Jones to build shared libs with MinGW cross-compiler (Richard Jones),
+      fix include path when compiling with MinGW (Roumen Petrov),
+      portability fixes ( Nick Wellnhofer and Roumen Petrov)
+  
+   -  Bug fixes:
+      Big fixes of pattern compilations (Nick Wellnhofer),
+      Fix uses of xmlAddChild for error handling (Daniel Veillard),
+      Detect deep recusion on function calls (Daniel Veillard),
+      Avoid an error in namespace generation (Martin),
+      Fix importing of encoding from included stylesheets (Nick Wellnhofer),
+      Fix problems with embedded stylesheets and namespaces (Martin),
+      QName parsing fix for patterns (Martin),
+      Crash compiling stylesheet with DTD (Martin),
+      Fix xsl:strip-space with namespace and wildcard (Nick Wellnhofer),
+      Fix a mutex deadlock on unregistered extensions (Nix),
+      567192 xsltproc --output option ignore --xinclude (Joachim Breitner),
+      Fix redundant headers in list (Daniel Veillard),
+      134754 Configure's --with-html-dir related fixes (Julio M. Merino Vidal),
+      305913 a serious problem in extensions reentrancy (Daniel Veillard),
+      Fix an idness issue when building the tree (Daniel Veillard),
+      Fixed indexing error reported by Ron Burk on the mailing list. (William M. Brack),
+      prevent some unchecked pointer accesses (Jake Goulding),
+      fix for CVE-2008-2935 libexslt RC4 encryption/decryption functions Daniel (Daniel Veillard),
+      avoid a quadratic behaviour when hitting duplicates (Daniel Veillard),
+      544829 fixed option --with-debugger (Arun Ragnavan),
+      541965 fixed incorrect argument popping in exsltMathAtan2Function (William M. Brack),
+      fix problem with string check for element-available (Ron Burk),
+      539741 added code to handle literal within an AVT (William M. Brack)
+  
+   -  Improvements:
+      Allow use of EXSLT outside XSLT (Martin),
+      Support Esperanto locale (Nick Wellnhofer),
+      Change how attributes are copied for id and speed (Daniel Veillard),
+      Add API versioning and various cleanups (Daniel Veillard),
+      Adding a test program to check thread reentrancy (Daniel Veillard),
+      big patch from  finishing xsl:sort lang support (Roumen Petrov),
+      add xsl:sort lang support using the locale (Nick Wellnhofer)
+  
+   -  Cleanups:
+      Label xsltProcessOneNode as static (Daniel Veillard),
+      git setup (Daniel Veillard),
+      fixed typo detected by new libxml2 code (William M. Brack),
+      xsltExtFunctionLookup was defined but never implemented (Ralf Junker)
+  
 
 </changes>
   </product>

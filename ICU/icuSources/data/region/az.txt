@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/az.xml
@@ -21,9 +21,7 @@ az{
         014{"Şərq Afrika"}
         015{"Şimal Afrika"}
         017{"Orta Afrika"}
-        018{"018"}
         019{"Amerikalar"}
-        021{"021"}
         029{"Kariyıplar"}
         030{"Şərq Asiya"}
         034{"Cənub Asiya"}
@@ -33,7 +31,6 @@ az{
         054{"Melanesya"}
         057{"Mikronesiya reqionu"}
         061{"Polineziya"}
-        062{"Cənub Orta Asiya"}
         142{"Aziya"}
         143{"Orta Aziya"}
         145{"Qərb Asiya"}
@@ -41,8 +38,7 @@ az{
         151{"Şərq Avropa"}
         154{"Şimal Avropa"}
         155{"Qərb Avropa"}
-        172{"172"}
-        419{"Latın Amerikası və Kariblər"}
+        419{"Latın Amerikası"}
         AD{"Andorra"}
         AE{"Birləşmiş Ərəb Emiratları"}
         AF{"Əfqənistan"}
@@ -293,5 +289,5 @@ az{
         ZW{"Zimbabve"}
         ZZ{"bilinmir"}
     }
-    Version{"2.0.47.53"}
+    Version{"2.0.65.46"}
 }

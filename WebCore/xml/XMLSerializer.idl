@@ -20,8 +20,10 @@
 
 module xpath {
 
-    interface [CanBeConstructed] XMLSerializer {
-        DOMString serializeToString(in Node node)
+    interface [
+        Constructor
+    ] XMLSerializer {
+        DOMString serializeToString(in [Optional=DefaultIsUndefined] Node node)
             raises(DOMException);
     };
 

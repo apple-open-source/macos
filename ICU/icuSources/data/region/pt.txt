@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/pt.xml
@@ -33,7 +33,6 @@ pt{
         054{"Melanésia"}
         057{"Região da Micronésia"}
         061{"Polinésia"}
-        062{"Ásia Centro-Meridional"}
         142{"Ásia"}
         143{"Ásia Central"}
         145{"Ásia Ocidental"}
@@ -41,8 +40,7 @@ pt{
         151{"Europa Oriental"}
         154{"Europa Setentrional"}
         155{"Europa Ocidental"}
-        172{"Comunidade dos Estados Independentes"}
-        419{"América Latina e Caribe"}
+        419{"América Latina"}
         AC{"Ilha de Ascensão"}
         AD{"Andorra"}
         AE{"Emirados Árabes Unidos"}
@@ -98,6 +96,7 @@ pt{
         CS{"Sérvia e Montenegro"}
         CU{"Cuba"}
         CV{"Cabo Verde"}
+        CW{"Curaçau"}
         CX{"Ilhas Natal"}
         CY{"Chipre"}
         CZ{"República Tcheca"}
@@ -189,7 +188,7 @@ pt{
         MC{"Mônaco"}
         MD{"Moldávia"}
         ME{"Montenegro"}
-        MF{"São Martinho"}
+        MF{"Saint-Martin"}
         MG{"Madagascar"}
         MH{"Ilhas Marshall"}
         MK{"Macedônia"}
@@ -259,6 +258,7 @@ pt{
         SR{"Suriname"}
         ST{"São Tomé e Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Síria"}
         SZ{"Suazilândia"}
         TA{"Tristão da Cunha"}
@@ -300,5 +300,5 @@ pt{
         ZW{"Zimbábue"}
         ZZ{"Região desconhecida ou inválida"}
     }
-    Version{"2.0.51.59"}
+    Version{"2.0.67.6"}
 }

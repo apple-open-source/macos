@@ -87,10 +87,8 @@ extern io_object_t        DADiskGetPropertyNotification( DADiskRef disk );
 extern CFDataRef          DADiskGetSerialization( DADiskRef disk );
 extern Boolean            DADiskGetState( DADiskRef disk, DADiskState state );
 extern CFTypeID           DADiskGetTypeID( void );
-extern gid_t              DADiskGetUserEGID( DADiskRef disk );
-extern uid_t              DADiskGetUserEUID( DADiskRef disk );
-extern gid_t              DADiskGetUserRGID( DADiskRef disk );
-extern uid_t              DADiskGetUserRUID( DADiskRef disk );
+extern gid_t              DADiskGetUserGID( DADiskRef disk );
+extern uid_t              DADiskGetUserUID( DADiskRef disk );
 extern void               DADiskInitialize( void );
 extern Boolean            DADiskMatch( DADiskRef disk, CFDictionaryRef match );
 extern void               DADiskSetBusy( DADiskRef disk, CFAbsoluteTime busy );
@@ -106,8 +104,6 @@ extern void               DADiskSetOption( DADiskRef disk, DADiskOption option, 
 extern void               DADiskSetOptions( DADiskRef disk, DADiskOptions options, Boolean value );
 extern void               DADiskSetPropertyNotification( DADiskRef disk, io_object_t notification );
 extern void               DADiskSetState( DADiskRef disk, DADiskState state, Boolean value );
-extern void               DADiskSetUserEGID( DADiskRef disk, gid_t userGID );
-extern void               DADiskSetUserEUID( DADiskRef disk, uid_t userUID );
 
 #ifdef __cplusplus
 }

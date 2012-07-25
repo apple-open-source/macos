@@ -1,1 +1,0 @@
-FreeBSD/memchr.c

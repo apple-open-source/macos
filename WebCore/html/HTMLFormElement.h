@@ -41,15 +41,13 @@ class HTMLInputElement;
 class HTMLFormCollection;
 class TextEncoding;
 
-struct CollectionCache;
-
 class HTMLFormElement : public HTMLElement {
 public:
     static PassRefPtr<HTMLFormElement> create(Document*);
     static PassRefPtr<HTMLFormElement> create(const QualifiedName&, Document*);
     virtual ~HTMLFormElement();
 
-    PassRefPtr<HTMLCollection> elements();
+    HTMLCollection* elements();
     void getNamedElements(const AtomicString&, Vector<RefPtr<Node> >&);
 
     unsigned length() const;
@@ -61,8 +59,7 @@ public:
     String encoding() const { return m_attributes.encodingType(); }
     void setEncoding(const String& value) { setEnctype(value); }
 
-    // FIXME: Rename this function to shouldAutocomplete.
-    bool autoComplete() const;
+    bool shouldAutocomplete() const;
 
     // FIXME: Should rename these two functions to say "form control" or "form-associated element" instead of "form element".
     void registerFormElement(FormAssociatedElement*);
@@ -113,24 +110,28 @@ public:
     CheckedRadioButtons& checkedRadioButtons() { return m_checkedRadioButtons; }
 
     const Vector<FormAssociatedElement*>& associatedElements() const { return m_associatedElements; }
+    
+    void getTextFieldValues(StringPairVector& fieldNamesAndValues) const;
 
 private:
     HTMLFormElement(const QualifiedName&, Document*);
 
-    virtual bool rendererIsNeeded(RenderStyle*);
-    virtual void insertedIntoDocument();
-    virtual void removedFromDocument();
+    virtual bool rendererIsNeeded(const NodeRenderingContext&);
+    virtual InsertionNotificationRequest insertedInto(Node*) OVERRIDE;
+    virtual void didNotifyDescendantInseretions(Node*) OVERRIDE;
+    virtual void removedFrom(Node*) OVERRIDE;
 
     virtual void handleLocalEvents(Event*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
 
     virtual bool isURLAttribute(Attribute*) const;
 
-    virtual void documentDidBecomeActive();
+    virtual void documentDidResumeFromPageCache();
 
-    virtual void willMoveToNewOwnerDocument();
-    virtual void didMoveToNewOwnerDocument();
+    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
+
+    virtual bool shouldRegisterAsNamedItem() const OVERRIDE { return true; }
 
     void submit(Event*, bool activateSubmitButton, bool processingUserGesture, FormSubmissionTrigger);
 
@@ -151,7 +152,7 @@ private:
 
     FormSubmission::Attributes m_attributes;
     OwnPtr<AliasMap> m_elementAliases;
-    OwnPtr<CollectionCache> m_collectionCache;
+    OwnPtr<HTMLFormCollection> m_elementsCollection;
 
     CheckedRadioButtons m_checkedRadioButtons;
 
@@ -168,8 +169,6 @@ private:
 
     bool m_wasMalformed;
     bool m_wasDemoted;
-
-    AtomicString m_name;
 };
 
 } // namespace WebCore

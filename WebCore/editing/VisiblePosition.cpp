@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +34,7 @@
 #include "InlineTextBox.h"
 #include "Logging.h"
 #include "Range.h"
+#include "RenderBlock.h"
 #include "RootInlineBox.h"
 #include "Text.h"
 #include "htmlediting.h"
@@ -69,7 +71,7 @@ VisiblePosition VisiblePosition::next(EditingBoundaryCrossingRule rule) const
     if (rule == CanCrossEditingBoundary)
         return next;
 
-    return honorEditableBoundaryAtOrAfter(next);
+    return honorEditingBoundaryAtOrAfter(next);
 }
 
 VisiblePosition VisiblePosition::previous(EditingBoundaryCrossingRule rule) const
@@ -99,7 +101,7 @@ VisiblePosition VisiblePosition::previous(EditingBoundaryCrossingRule rule) cons
     if (rule == CanCrossEditingBoundary)
         return prev;
     
-    return honorEditableBoundaryAtOrBefore(prev);
+    return honorEditingBoundaryAtOrBefore(prev);
 }
 
 Position VisiblePosition::leftVisuallyDistinctCandidate() const
@@ -123,6 +125,15 @@ Position VisiblePosition::leftVisuallyDistinctCandidate() const
         while (true) {
             if ((renderer->isReplaced() || renderer->isBR()) && offset == box->caretRightmostOffset())
                 return box->isLeftToRightDirection() ? previousVisuallyDistinctCandidate(m_deepPosition) : nextVisuallyDistinctCandidate(m_deepPosition);
+
+            if (!renderer->node()) {
+                box = box->prevLeafChild();
+                if (!box)
+                    return primaryDirection == LTR ? previousVisuallyDistinctCandidate(m_deepPosition) : nextVisuallyDistinctCandidate(m_deepPosition);
+                renderer = box->renderer();
+                offset = box->caretRightmostOffset();
+                continue;
+            }
 
             offset = box->isLeftToRightDirection() ? renderer->previousOffset(offset) : renderer->nextOffset(offset);
 
@@ -191,6 +202,9 @@ Position VisiblePosition::leftVisuallyDistinctCandidate() const
                 continue;
             }
 
+            while (prevBox && !prevBox->renderer()->node())
+                prevBox = prevBox->prevLeafChild();
+
             if (prevBox) {
                 box = prevBox;
                 renderer = box->renderer();
@@ -229,10 +243,12 @@ Position VisiblePosition::leftVisuallyDistinctCandidate() const
             break;
         }
 
-        p = Position(renderer->node(), offset);
+        p = createLegacyEditingPosition(renderer->node(), offset);
 
         if ((p.isCandidate() && p.downstream() != downstreamStart) || p.atStartOfTree() || p.atEndOfTree())
             return p;
+
+        ASSERT(p != m_deepPosition);
     }
 }
 
@@ -250,7 +266,7 @@ VisiblePosition VisiblePosition::left(bool stayInEditableContent) const
         return left;
 
     // FIXME: This may need to do something different from "before".
-    return honorEditableBoundaryAtOrBefore(left);
+    return honorEditingBoundaryAtOrBefore(left);
 }
 
 Position VisiblePosition::rightVisuallyDistinctCandidate() const
@@ -274,6 +290,15 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
         while (true) {
             if ((renderer->isReplaced() || renderer->isBR()) && offset == box->caretLeftmostOffset())
                 return box->isLeftToRightDirection() ? nextVisuallyDistinctCandidate(m_deepPosition) : previousVisuallyDistinctCandidate(m_deepPosition);
+
+            if (!renderer->node()) {
+                box = box->nextLeafChild();
+                if (!box)
+                    return primaryDirection == LTR ? nextVisuallyDistinctCandidate(m_deepPosition) : previousVisuallyDistinctCandidate(m_deepPosition);
+                renderer = box->renderer();
+                offset = box->caretLeftmostOffset();
+                continue;
+            }
 
             offset = box->isLeftToRightDirection() ? renderer->nextOffset(offset) : renderer->previousOffset(offset);
 
@@ -321,6 +346,7 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
                     }
                     break;
                 }
+
                 if (nextBox->bidiLevel() >= level)
                     break;
 
@@ -343,10 +369,14 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
                 continue;
             }
 
+            while (nextBox && !nextBox->renderer()->node())
+                nextBox = nextBox->nextLeafChild();
+
             if (nextBox) {
                 box = nextBox;
                 renderer = box->renderer();
                 offset = box->caretLeftmostOffset();
+
                 if (box->bidiLevel() > level) {
                     do {
                         nextBox = nextBox->nextLeafChild();
@@ -381,10 +411,12 @@ Position VisiblePosition::rightVisuallyDistinctCandidate() const
             break;
         }
 
-        p = Position(renderer->node(), offset);
+        p = createLegacyEditingPosition(renderer->node(), offset);
 
         if ((p.isCandidate() && p.downstream() != downstreamStart) || p.atStartOfTree() || p.atEndOfTree())
             return p;
+
+        ASSERT(p != m_deepPosition);
     }
 }
 
@@ -402,10 +434,10 @@ VisiblePosition VisiblePosition::right(bool stayInEditableContent) const
         return right;
 
     // FIXME: This may need to do something different from "after".
-    return honorEditableBoundaryAtOrAfter(right);
+    return honorEditingBoundaryAtOrAfter(right);
 }
 
-VisiblePosition VisiblePosition::honorEditableBoundaryAtOrBefore(const VisiblePosition &pos) const
+VisiblePosition VisiblePosition::honorEditingBoundaryAtOrBefore(const VisiblePosition &pos) const
 {
     if (pos.isNull())
         return pos;
@@ -431,7 +463,7 @@ VisiblePosition VisiblePosition::honorEditableBoundaryAtOrBefore(const VisiblePo
     return lastEditablePositionBeforePositionInRoot(pos.deepEquivalent(), highestRoot);
 }
 
-VisiblePosition VisiblePosition::honorEditableBoundaryAtOrAfter(const VisiblePosition &pos) const
+VisiblePosition VisiblePosition::honorEditingBoundaryAtOrAfter(const VisiblePosition &pos) const
 {
     if (pos.isNull())
         return pos;
@@ -540,12 +572,19 @@ UChar32 VisiblePosition::characterAfter() const
     // We canonicalize to the first of two equivalent candidates, but the second of the two candidates
     // is the one that will be inside the text node containing the character after this visible position.
     Position pos = m_deepPosition.downstream();
-    Node* node = pos.containerNode();
-    if (!node || !node->isTextNode() || pos.anchorType() == Position::PositionIsAfterAnchor)
+    if (!pos.containerNode() || !pos.containerNode()->isTextNode())
         return 0;
-    ASSERT(pos.anchorType() == Position::PositionIsBeforeAnchor || pos.anchorType() == Position::PositionIsOffsetInAnchor);
-    Text* textNode = static_cast<Text*>(pos.containerNode());
-    unsigned offset = pos.anchorType() == Position::PositionIsOffsetInAnchor ? pos.offsetInContainerNode() : 0;
+    switch (pos.anchorType()) {
+    case Position::PositionIsAfterChildren:
+    case Position::PositionIsAfterAnchor:
+    case Position::PositionIsBeforeAnchor:
+    case Position::PositionIsBeforeChildren:
+        return 0;
+    case Position::PositionIsOffsetInAnchor:
+        break;
+    }
+    unsigned offset = static_cast<unsigned>(pos.offsetInContainerNode());
+    Text* textNode = pos.containerText();
     unsigned length = textNode->length();
     if (offset >= length)
         return 0;
@@ -556,7 +595,7 @@ UChar32 VisiblePosition::characterAfter() const
     return ch;
 }
 
-IntRect VisiblePosition::localCaretRect(RenderObject*& renderer) const
+LayoutRect VisiblePosition::localCaretRect(RenderObject*& renderer) const
 {
     if (m_deepPosition.isNull()) {
         renderer = 0;
@@ -566,7 +605,7 @@ IntRect VisiblePosition::localCaretRect(RenderObject*& renderer) const
     
     renderer = node->renderer();
     if (!renderer)
-        return IntRect();
+        return LayoutRect();
 
     InlineBox* inlineBox;
     int caretOffset;
@@ -581,24 +620,28 @@ IntRect VisiblePosition::localCaretRect(RenderObject*& renderer) const
 IntRect VisiblePosition::absoluteCaretBounds() const
 {
     RenderObject* renderer;
-    IntRect localRect = localCaretRect(renderer);
+    LayoutRect localRect = localCaretRect(renderer);
     if (localRect.isEmpty() || !renderer)
         return IntRect();
 
     return renderer->localToAbsoluteQuad(FloatRect(localRect)).enclosingBoundingBox();
 }
 
-int VisiblePosition::xOffsetForVerticalNavigation() const
+int VisiblePosition::lineDirectionPointForBlockDirectionNavigation() const
 {
     RenderObject* renderer;
-    IntRect localRect = localCaretRect(renderer);
+    LayoutRect localRect = localCaretRect(renderer);
     if (localRect.isEmpty() || !renderer)
         return 0;
 
     // This ignores transforms on purpose, for now. Vertical navigation is done
     // without consulting transforms, so that 'up' in transformed text is 'up'
     // relative to the text, not absolute 'up'.
-    return renderer->localToAbsolute(localRect.location()).x();
+    FloatPoint caretPoint = renderer->localToAbsolute(localRect.location());
+    RenderObject* containingBlock = renderer->containingBlock();
+    if (!containingBlock)
+        containingBlock = renderer; // Just use ourselves to determine the writing mode if we have no containing block.
+    return containingBlock->isHorizontalWritingMode() ? caretPoint.x() : caretPoint.y();
 }
 
 #ifndef NDEBUG
@@ -640,14 +683,12 @@ PassRefPtr<Range> makeRange(const VisiblePosition &start, const VisiblePosition 
 
 VisiblePosition startVisiblePosition(const Range *r, EAffinity affinity)
 {
-    int exception = 0;
-    return VisiblePosition(Position(r->startContainer(exception), r->startOffset(exception), Position::PositionIsOffsetInAnchor), affinity);
+    return VisiblePosition(r->startPosition(), affinity);
 }
 
 VisiblePosition endVisiblePosition(const Range *r, EAffinity affinity)
 {
-    int exception = 0;
-    return VisiblePosition(Position(r->endContainer(exception), r->endOffset(exception), Position::PositionIsOffsetInAnchor), affinity);
+    return VisiblePosition(r->endPosition(), affinity);
 }
 
 bool setStart(Range *r, const VisiblePosition &visiblePosition)

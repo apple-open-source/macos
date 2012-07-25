@@ -30,7 +30,6 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-extensions.html#xsltCheckExtURI">xsltCheckExtURI</a><br />
 <a href="html/libxslt-extensions.html#xsltDebugDumpExtensions">xsltDebugDumpExtensions</a><br />
 <a href="html/libxslt-extensions.html#xsltExtElementLookup">xsltExtElementLookup</a><br />
-<a href="html/libxslt-extensions.html#xsltExtFunctionLookup">xsltExtFunctionLookup</a><br />
 <a href="html/libxslt-extensions.html#xsltExtInitFunction">xsltExtInitFunction</a><br />
 <a href="html/libxslt-extensions.html#xsltExtModuleElementLookup">xsltExtModuleElementLookup</a><br />
 <a href="html/libxslt-extensions.html#xsltExtModuleElementPreComputeLookup">xsltExtModuleElementPreComputeLookup</a><br />
@@ -43,6 +42,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-extensions.html#xsltGetExtInfo">xsltGetExtInfo</a><br />
 <a href="html/libxslt-extensions.html#xsltInitCtxtExts">xsltInitCtxtExts</a><br />
 <a href="html/libxslt-extensions.html#xsltInitElemPreComp">xsltInitElemPreComp</a><br />
+<a href="html/libxslt-extensions.html#xsltInitGlobals">xsltInitGlobals</a><br />
 <a href="html/libxslt-extensions.html#xsltNewElemPreComp">xsltNewElemPreComp</a><br />
 <a href="html/libxslt-extensions.html#xsltPreComputeExtModuleElement">xsltPreComputeExtModuleElement</a><br />
 <a href="html/libxslt-extensions.html#xsltPreComputeFunction">xsltPreComputeFunction</a><br />
@@ -185,6 +185,7 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-transform.html#xsltLocalVariablePush">xsltLocalVariablePush</a><br />
 <a href="html/libxslt-transform.html#xsltNewTransformContext">xsltNewTransformContext</a><br />
 <a href="html/libxslt-transform.html#xsltNumber">xsltNumber</a><br />
+<a href="html/libxslt-transform.html#xsltProcessOneNode">xsltProcessOneNode</a><br />
 <a href="html/libxslt-transform.html#xsltProcessingInstruction">xsltProcessingInstruction</a><br />
 <a href="html/libxslt-transform.html#xsltProfileStylesheet">xsltProfileStylesheet</a><br />
 <a href="html/libxslt-transform.html#xsltRegisterAllElement">xsltRegisterAllElement</a><br />
@@ -227,9 +228,6 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltInternals.html#IS_XSLT_ELEM_FAST">IS_XSLT_ELEM_FAST</a><br />
 <a href="html/libxslt-xsltInternals.html#XML_CAST_FPTR">XML_CAST_FPTR</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_CCTXT">XSLT_CCTXT</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_ELEMENT_CATEGORY_EXTENSION">XSLT_ELEMENT_CATEGORY_EXTENSION</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_ELEMENT_CATEGORY_LRE">XSLT_ELEMENT_CATEGORY_LRE</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_ELEMENT_CATEGORY_XSLT">XSLT_ELEMENT_CATEGORY_XSLT</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_ERROR_SEVERITY_ERROR">XSLT_ERROR_SEVERITY_ERROR</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_ERROR_SEVERITY_WARNING">XSLT_ERROR_SEVERITY_WARNING</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_FAST_IF">XSLT_FAST_IF</a><br />
@@ -285,9 +283,6 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltInternals.html#XSLT_STATE_ERROR">XSLT_STATE_ERROR</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_STATE_OK">XSLT_STATE_OK</a><br />
 <a href="html/libxslt-xsltInternals.html#XSLT_STATE_STOPPED">XSLT_STATE_STOPPED</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_TCTXT_VARIABLE">XSLT_TCTXT_VARIABLE</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_VAR_GLOBAL">XSLT_VAR_GLOBAL</a><br />
-<a href="html/libxslt-xsltInternals.html#XSLT_VAR_IN_SELECT">XSLT_VAR_IN_SELECT</a><br />
 <a href="html/libxslt-xsltInternals.html#_xsltCompilerCtxt">_xsltCompilerCtxt</a><br />
 <a href="html/libxslt-xsltInternals.html#_xsltCompilerNodeInfo">_xsltCompilerNodeInfo</a><br />
 <a href="html/libxslt-xsltInternals.html#_xsltDecimalFormat">_xsltDecimalFormat</a><br />
@@ -492,6 +487,13 @@ A:link, A:visited, A:active { text-decoration: underline }
 <a href="html/libxslt-xsltexports.html#XSLTPUBFUN">XSLTPUBFUN</a><br />
 <a href="html/libxslt-xsltexports.html#XSLTPUBVAR">XSLTPUBVAR</a><br />
 <a href="html/libxslt-xsltexports.html#_REENTRANT">_REENTRANT</a><br />
+</p><h2><a name="xsltlocale" id="xsltlocale">Module xsltlocale</a>:</h2><p><a href="html/libxslt-xsltlocale.html#XSLT_LOCALE_NONE">XSLT_LOCALE_NONE</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltFreeLocale">xsltFreeLocale</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltLocale">xsltLocale</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltLocaleChar">xsltLocaleChar</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltLocaleStrcmp">xsltLocaleStrcmp</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltNewLocale">xsltNewLocale</a><br />
+<a href="html/libxslt-xsltlocale.html#xsltStrxfrm">xsltStrxfrm</a><br />
 </p><h2><a name="xsltutils" id="xsltutils">Module xsltutils</a>:</h2><p><a href="html/libxslt-xsltutils.html#IS_XSLT_ELEM">IS_XSLT_ELEM</a><br />
 <a href="html/libxslt-xsltutils.html#IS_XSLT_NAME">IS_XSLT_NAME</a><br />
 <a href="html/libxslt-xsltutils.html#IS_XSLT_REAL_NODE">IS_XSLT_REAL_NODE</a><br />

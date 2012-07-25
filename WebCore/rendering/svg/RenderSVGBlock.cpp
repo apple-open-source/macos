@@ -26,12 +26,23 @@
 
 #include "RenderSVGResource.h"
 #include "SVGElement.h"
+#include "SVGResourcesCache.h"
 
 namespace WebCore {
 
 RenderSVGBlock::RenderSVGBlock(SVGElement* node) 
     : RenderBlock(node)
 {
+}
+
+LayoutRect RenderSVGBlock::visualOverflowRect() const
+{
+    LayoutRect borderRect = borderBoxRect();
+
+    if (const ShadowData* textShadow = style()->textShadow())
+        textShadow->adjustRectForShadow(borderRect);
+
+    return borderRect;
 }
 
 void RenderSVGBlock::setStyle(PassRefPtr<RenderStyle> style) 
@@ -68,16 +79,16 @@ void RenderSVGBlock::updateBoxModelInfoFromStyle()
     setHasOverflowClip(false);
 }
 
-void RenderSVGBlock::absoluteRects(Vector<IntRect>&, int, int)
+void RenderSVGBlock::absoluteRects(Vector<IntRect>&, const LayoutPoint&) const
 {
     // This code path should never be taken for SVG, as we're assuming useTransforms=true everywhere, absoluteQuads should be used.
     ASSERT_NOT_REACHED();
 }
 
-void RenderSVGBlock::destroy()
+void RenderSVGBlock::willBeDestroyed()
 {
     SVGResourcesCache::clientDestroyed(this);
-    RenderBlock::destroy();
+    RenderBlock::willBeDestroyed();
 }
 
 void RenderSVGBlock::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)

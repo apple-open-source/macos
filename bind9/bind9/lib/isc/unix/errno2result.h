@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2011, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: errno2result.h,v 1.12 2007-06-19 23:47:18 tbox Exp $ */
 
 #ifndef UNIX_ERRNO2RESULT_H
 #define UNIX_ERRNO2RESULT_H 1
@@ -31,10 +31,8 @@
 
 ISC_LANG_BEGINDECLS
 
-#define isc__errno2result(x) isc___errno2result(x, __FILE__, __LINE__)
-
 isc_result_t
-isc___errno2result(int posixerrno, const char *file, unsigned int line);
+isc__errno2result(int posixerrno);
 
 ISC_LANG_ENDDECLS
 

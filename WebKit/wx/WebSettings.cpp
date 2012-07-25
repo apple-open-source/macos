@@ -32,13 +32,15 @@
 #include "PlatformString.h"
 #include "Settings.h"
 
-void wxWebSettings::SetDefaultFixedFontSize(int size)
+namespace WebKit {
+
+void WebSettings::SetDefaultFixedFontSize(int size)
 {
     if (m_settings)
         m_settings->setDefaultFixedFontSize(size);
 }
     
-int wxWebSettings::GetDefaultFixedFontSize() const
+int WebSettings::GetDefaultFixedFontSize() const
 {
     if (m_settings)
         return m_settings->defaultFixedFontSize();
@@ -46,13 +48,13 @@ int wxWebSettings::GetDefaultFixedFontSize() const
     return 0;
 }
     
-void wxWebSettings::SetDefaultFontSize(int size)
+void WebSettings::SetDefaultFontSize(int size)
 {
     if (m_settings)
         m_settings->setDefaultFontSize(size);
 }
 
-int wxWebSettings::GetDefaultFontSize() const
+int WebSettings::GetDefaultFontSize() const
 {
     if (m_settings)
         return m_settings->defaultFontSize();
@@ -60,13 +62,13 @@ int wxWebSettings::GetDefaultFontSize() const
     return 0;
 }
     
-void wxWebSettings::SetMinimumFontSize(int size)
+void WebSettings::SetMinimumFontSize(int size)
 {
     if (m_settings)
         m_settings->setMinimumFontSize(size);
 }
 
-int wxWebSettings::GetMinimumFontSize() const
+int WebSettings::GetMinimumFontSize() const
 {
     if (m_settings)
         return m_settings->minimumFontSize();
@@ -74,13 +76,13 @@ int wxWebSettings::GetMinimumFontSize() const
     return 0;
 }
     
-void wxWebSettings::SetLoadsImagesAutomatically(bool loadAutomatically)
+void WebSettings::SetLoadsImagesAutomatically(bool loadAutomatically)
 {
     if (m_settings)
         m_settings->setLoadsImagesAutomatically(loadAutomatically);
 }
     
-bool wxWebSettings::LoadsImagesAutomatically() const
+bool WebSettings::LoadsImagesAutomatically() const
 {
     if (m_settings)
         return m_settings->loadsImagesAutomatically();
@@ -88,27 +90,27 @@ bool wxWebSettings::LoadsImagesAutomatically() const
     return false;
 }
     
-void wxWebSettings::SetJavaScriptEnabled(bool enabled)
+void WebSettings::SetJavaScriptEnabled(bool enabled)
 {
     if (m_settings)
-        m_settings->setJavaScriptEnabled(enabled);
+        m_settings->setScriptEnabled(enabled);
 }
 
-bool wxWebSettings::IsJavaScriptEnabled() const
+bool WebSettings::IsJavaScriptEnabled() const
 {
     if (m_settings)
-        return m_settings->isJavaScriptEnabled();
+        return m_settings->isScriptEnabled();
         
     return false;
 }
     
-void wxWebSettings::SetLocalStoragePath(const wxString& path)
+void WebSettings::SetLocalStoragePath(const wxString& path)
 {
     if (m_settings)
         m_settings->setLocalStorageDatabasePath(path);
 }
 
-wxString wxWebSettings::GetLocalStoragePath() const
+wxString WebSettings::GetLocalStoragePath() const
 {
     if (m_settings)
         return m_settings->localStorageDatabasePath();
@@ -116,7 +118,7 @@ wxString wxWebSettings::GetLocalStoragePath() const
     return wxEmptyString;
 }
 
-void wxWebSettings::SetEditableLinkBehavior(wxEditableLinkBehavior behavior)
+void WebSettings::SetEditableLinkBehavior(wxEditableLinkBehavior behavior)
 {
     WebCore::EditableLinkBehavior webCoreBehavior;
     if (m_settings) {
@@ -140,7 +142,7 @@ void wxWebSettings::SetEditableLinkBehavior(wxEditableLinkBehavior behavior)
     }
 }
 
-wxEditableLinkBehavior wxWebSettings::GetEditableLinkBehavior() const
+wxEditableLinkBehavior WebSettings::GetEditableLinkBehavior() const
 {
     wxEditableLinkBehavior behavior = wxEditableLinkDefaultBehavior;
     if (m_settings) {
@@ -165,16 +167,60 @@ wxEditableLinkBehavior wxWebSettings::GetEditableLinkBehavior() const
     return behavior;
 }
 
-void wxWebSettings::SetPluginsEnabled(bool enabled)
+void WebSettings::SetPluginsEnabled(bool enabled)
 {
     if (m_settings)
         m_settings->setPluginsEnabled(enabled);
 }  
 
-bool wxWebSettings::ArePluginsEnabled() const
+bool WebSettings::ArePluginsEnabled() const
 {
     if (m_settings)
         return m_settings->arePluginsEnabled();
         
     return false;
+}
+
+void WebSettings::SetPrivateBrowsingEnabled(bool enabled)
+{
+    if (m_settings)
+        m_settings->setPrivateBrowsingEnabled(enabled);
+}
+
+bool WebSettings::PrivateBrowsingEnabled()
+{
+    if (m_settings)
+        m_settings->privateBrowsingEnabled();
+
+    return false;
+}
+
+void WebSettings::SetUsesPageCache(bool enabled)
+{
+    if (m_settings)
+        m_settings->setUsesPageCache(enabled);
+}
+
+bool WebSettings::UsesPageCache()
+{
+    if (m_settings)
+        m_settings->usesPageCache();
+    
+    return false;
+}
+
+void WebSettings::SetOfflineWebApplicationCacheEnabled(bool enabled)
+{
+    if (m_settings)
+        m_settings->setOfflineWebApplicationCacheEnabled(enabled);
+}
+
+bool WebSettings::OfflineWebApplicationCacheEnabled()
+{
+    if (m_settings)
+        m_settings->offlineWebApplicationCacheEnabled();
+    
+    return false;
+}
+    
 }

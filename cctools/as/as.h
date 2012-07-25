@@ -179,7 +179,7 @@ extern cpu_subtype_t archflag_cpusubtype;
 extern char *specific_archflag;
 
 /* TRUE if the .subsections_via_symbols directive was seen */
-int subsections_via_symbols;
+extern int subsections_via_symbols;
 
 /* -I path options for .includes */
 struct directory_stack {

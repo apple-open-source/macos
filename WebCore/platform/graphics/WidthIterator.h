@@ -22,7 +22,9 @@
 #ifndef WidthIterator_h
 #define WidthIterator_h
 
+#include "SVGGlyph.h"
 #include <wtf/HashSet.h>
+#include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
@@ -31,11 +33,12 @@ class Font;
 class GlyphBuffer;
 class SimpleFontData;
 class TextRun;
+struct GlyphData;
 
 struct WidthIterator {
     WidthIterator(const Font*, const TextRun&, HashSet<const SimpleFontData*>* fallbackFonts = 0, bool accountForGlyphBounds = false, bool forTextEmphasis = false);
 
-    void advance(int to, GlyphBuffer* = 0);
+    unsigned advance(int to, GlyphBuffer* = 0);
     bool advanceOneCharacter(float& width, GlyphBuffer* = 0);
 
     float maxGlyphBoundingBoxY() const { ASSERT(m_accountForGlyphBounds); return m_maxGlyphBoundingBoxY; }
@@ -43,19 +46,33 @@ struct WidthIterator {
     float firstGlyphOverflow() const { ASSERT(m_accountForGlyphBounds); return m_firstGlyphOverflow; }
     float lastGlyphOverflow() const { ASSERT(m_accountForGlyphBounds); return m_lastGlyphOverflow; }
 
+    const TextRun& run() const { return m_run; }
+    float runWidthSoFar() const { return m_runWidthSoFar; }
+
+#if ENABLE(SVG_FONTS)
+    String lastGlyphName() const { return m_lastGlyphName; }
+    void setLastGlyphName(const String& name) { m_lastGlyphName = name; }
+    Vector<SVGGlyph::ArabicForm>& arabicForms() { return m_arabicForms; }
+#endif
+
     const Font* m_font;
 
     const TextRun& m_run;
-    int m_end;
 
     unsigned m_currentCharacter;
     float m_runWidthSoFar;
     float m_expansion;
     float m_expansionPerOpportunity;
     bool m_isAfterExpansion;
+    float m_finalRoundingWidth;
+
+#if ENABLE(SVG_FONTS)
+    String m_lastGlyphName;
+    Vector<SVGGlyph::ArabicForm> m_arabicForms;
+#endif
 
 private:
-    UChar32 normalizeVoicingMarks(int currentCharacter);
+    GlyphData glyphDataForCharacter(UChar32, bool mirror, int currentCharacter, unsigned& advanceLength);
 
     HashSet<const SimpleFontData*>* m_fallbackFonts;
     bool m_accountForGlyphBounds;

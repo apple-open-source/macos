@@ -42,7 +42,11 @@
 #include <stdio.h>  // Needed by jpeglib.h for FILE.
 #include <wtf/PassOwnPtr.h>
 
-#if OS(WINCE) || PLATFORM(BREWMP_SIMULATOR)
+#if PLATFORM(CHROMIUM)
+#include "TraceEvent.h"
+#endif
+
+#if OS(WINCE)
 // Remove warning: 'FAR' macro redefinition
 #undef FAR
 
@@ -52,16 +56,40 @@
 #endif
 
 extern "C" {
-
 #include "jpeglib.h"
-
 #if USE(ICCJPEG)
 #include "iccjpeg.h"
 #endif
-
+#include <setjmp.h>
 }
 
-#include <setjmp.h>
+#if CPU(BIG_ENDIAN) || CPU(MIDDLE_ENDIAN)
+#define ASSUME_LITTLE_ENDIAN 0
+#else
+#define ASSUME_LITTLE_ENDIAN 1
+#endif
+
+#if defined(JCS_ALPHA_EXTENSIONS) && ASSUME_LITTLE_ENDIAN
+inline J_DCT_METHOD dctMethod() { return JDCT_IFAST; }
+#define TURBO_JPEG_RGB_SWIZZLE
+#if USE(SKIA) && (!SK_R32_SHIFT && SK_G32_SHIFT == 8 && SK_B32_SHIFT == 16)
+inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_EXT_RGBA; }
+#else
+inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_EXT_BGRA; }
+#endif
+inline bool turboSwizzled(J_COLOR_SPACE colorSpace) { return colorSpace == rgbOutputColorSpace(); }
+#else
+inline J_DCT_METHOD dctMethod() { return JDCT_ISLOW; }
+inline J_COLOR_SPACE rgbOutputColorSpace() { return JCS_RGB; }
+#endif
+
+#if OS(ANDROID)
+inline J_DITHER_MODE ditherMode() { return JDITHER_NONE; }
+inline bool doFancyUpsampling() { return false; }
+#else
+inline J_DITHER_MODE ditherMode() { return JDITHER_FS; }
+inline bool doFancyUpsampling() { return true; }
+#endif
 
 namespace WebCore {
 
@@ -76,14 +104,18 @@ enum jstate {
     JPEG_DECOMPRESS_PROGRESSIVE, // Output progressive pixels
     JPEG_DECOMPRESS_SEQUENTIAL,  // Output sequential pixels
     JPEG_DONE,
-    JPEG_ERROR    
+    JPEG_ERROR
 };
 
 void init_source(j_decompress_ptr jd);
 boolean fill_input_buffer(j_decompress_ptr jd);
 void skip_input_data(j_decompress_ptr jd, long num_bytes);
 void term_source(j_decompress_ptr jd);
+#if PLATFORM(QT)
+void error_exit(j_common_ptr) NO_RETURN;
+#else
 void error_exit(j_common_ptr cinfo);
+#endif
 
 // Implementation of a JPEG src object that understands our state machine
 struct decoder_source_mgr {
@@ -102,8 +134,19 @@ static ColorProfile readColorProfile(jpeg_decompress_struct* info)
     if (!read_icc_profile(info, &profile, &profileLength))
         return ColorProfile();
 
+    // Only accept RGB color profiles from input class devices.
+    bool ignoreProfile = false;
+    char* profileData = reinterpret_cast<char*>(profile);
+    if (profileLength < ImageDecoder::iccColorProfileHeaderLength)
+        ignoreProfile = true;
+    else if (!ImageDecoder::rgbColorProfile(profileData, profileLength))
+        ignoreProfile = true;
+    else if (!ImageDecoder::inputDeviceColorProfile(profileData, profileLength))
+        ignoreProfile = true;
+
     ColorProfile colorProfile;
-    colorProfile.append(reinterpret_cast<char*>(profile), profileLength);
+    if (!ignoreProfile)
+        colorProfile.append(profileData, profileLength);
     free(profile);
     return colorProfile;
 #else
@@ -122,14 +165,14 @@ public:
         , m_samples(0)
     {
         memset(&m_info, 0, sizeof(jpeg_decompress_struct));
- 
+
         // We set up the normal JPEG error routines, then override error_exit.
         m_info.err = jpeg_std_error(&m_err.pub);
         m_err.pub.error_exit = error_exit;
 
         // Allocate and initialize JPEG decompression object.
         jpeg_create_decompress(&m_info);
-  
+
         decoder_source_mgr* src = 0;
         if (!m_info.src) {
             src = (decoder_source_mgr*)fastCalloc(sizeof(decoder_source_mgr), 1);
@@ -149,10 +192,10 @@ public:
         src->pub.term_source = term_source;
         src->decoder = this;
 
-        // Enable these markers for the ICC color profile.
-        // Apparently there are 16 of these markers.  I don't see anywhere in the header with this constant.
-        for (unsigned i = 0; i < 0xF; ++i)
-            jpeg_save_markers(&m_info, JPEG_APP0 + i, 0xFFFF);
+#if USE(ICCJPEG)
+        // Retain ICC color profile markers for color management.
+        setup_read_icc_profile(&m_info);
+#endif
     }
 
     ~JPEGImageReader()
@@ -195,7 +238,7 @@ public:
             skipBytes(m_bytesToSkip);
 
         m_bufferLength = data.size();
-        
+
         // We need to do the setjmp here. Otherwise bad things will happen
         if (setjmp(m_err.setjmp_buffer))
             return m_decoder->setFailed();
@@ -206,29 +249,26 @@ public:
             if (jpeg_read_header(&m_info, true) == JPEG_SUSPENDED)
                 return false; // I/O suspension.
 
-            // Let libjpeg take care of gray->RGB and YCbCr->RGB conversions.
             switch (m_info.jpeg_color_space) {
             case JCS_GRAYSCALE:
-            case JCS_YCbCr:
-                // Grayscale images get "upsampled" by libjpeg.  If we use
-                // their color profile, CoreGraphics will "upsample" them
-                // again, resulting in horizontal distortions.
-                m_decoder->setIgnoreGammaAndColorProfile(true);
-                // Note fall-through!
             case JCS_RGB:
-                m_info.out_color_space = JCS_RGB;
+            case JCS_YCbCr:
+                // libjpeg can convert GRAYSCALE and YCbCr image pixels to RGB.
+                m_info.out_color_space = rgbOutputColorSpace();
+#if defined(TURBO_JPEG_RGB_SWIZZLE)
+                if (m_info.saw_JFIF_marker)
+                    break;
+                // FIXME: Swizzle decoding does not support Adobe transform=0
+                // images (yet), so revert to using JSC_RGB in that case.
+                if (m_info.saw_Adobe_marker && !m_info.Adobe_transform)
+                    m_info.out_color_space = JCS_RGB;
+#endif
                 break;
             case JCS_CMYK:
             case JCS_YCCK:
-                // jpeglib cannot convert these to rgb, but it can convert ycck
-                // to cmyk.
+                // libjpeg can convert YCCK to CMYK, but neither to RGB, so we
+                // manually convert CMKY to RGB.
                 m_info.out_color_space = JCS_CMYK;
-
-                // Same as with grayscale images, we convert CMYK images to RGBA
-                // ones. When we keep the color profiles of these CMYK images,
-                // CoreGraphics will convert their colors again. So, we discard
-                // their color profiles to prevent color corruption.
-                m_decoder->setIgnoreGammaAndColorProfile(true);
                 break;
             default:
                 return m_decoder->setFailed();
@@ -253,8 +293,12 @@ public:
             if (!m_decoder->setSize(m_info.image_width, m_info.image_height))
                 return false;
 
-            if (!m_decoder->ignoresGammaAndColorProfile())
-                m_decoder->setColorProfile(readColorProfile(info()));
+            // Allow color management of the decoded RGBA pixels if possible.
+            if (!m_decoder->ignoresGammaAndColorProfile()) {
+                ColorProfile rgbInputDeviceColorProfile = readColorProfile(info());
+                if (!rgbInputDeviceColorProfile.isEmpty())
+                    m_decoder->setColorProfile(rgbInputDeviceColorProfile);
+            }
 
             if (m_decodingSizeOnly) {
                 // We can stop here.  Reduce our buffer length and available
@@ -269,9 +313,9 @@ public:
             // Set parameters for decompression.
             // FIXME -- Should reset dct_method and dither mode for final pass
             // of progressive JPEG.
-            m_info.dct_method =  JDCT_ISLOW;
-            m_info.dither_mode = JDITHER_FS;
-            m_info.do_fancy_upsampling = true;
+            m_info.dct_method = dctMethod();
+            m_info.dither_mode = ditherMode();
+            m_info.do_fancy_upsampling = doFancyUpsampling();
             m_info.enable_2pass_quant = false;
             m_info.do_block_smoothing = true;
 
@@ -285,10 +329,10 @@ public:
 
         case JPEG_DECOMPRESS_SEQUENTIAL:
             if (m_state == JPEG_DECOMPRESS_SEQUENTIAL) {
-  
+
                 if (!m_decoder->outputScanlines())
                     return false; // I/O suspension.
-  
+
                 // If we've completed image output...
                 ASSERT(m_info.output_scanline == m_info.output_height);
                 m_state = JPEG_DONE;
@@ -465,7 +509,9 @@ bool JPEGImageDecoder::outputScanlines()
         if (!buffer.setSize(scaledSize().width(), scaledSize().height()))
             return setFailed();
         buffer.setStatus(ImageFrame::FramePartial);
-        buffer.setHasAlpha(false);
+        // The buffer is transparent outside the decoded area while the image is
+        // loading. The completed image will be marked fully opaque in jpegComplete().
+        buffer.setHasAlpha(true);
         buffer.setColorProfile(m_colorProfile);
 
         // For JPEGs, the frame always fills the entire image.
@@ -473,6 +519,19 @@ bool JPEGImageDecoder::outputScanlines()
     }
 
     jpeg_decompress_struct* info = m_reader->info();
+
+#if !ENABLE(IMAGE_DECODER_DOWN_SAMPLING) && defined(TURBO_JPEG_RGB_SWIZZLE)
+    if (turboSwizzled(info->out_color_space)) {
+         ASSERT(!m_scaled);
+         while (info->output_scanline < info->output_height) {
+             unsigned char* row = reinterpret_cast<unsigned char*>(buffer.getAddr(0, info->output_scanline));
+             if (jpeg_read_scanlines(info, &row, 1) != 1)
+                  return false;
+         }
+         return true;
+     }
+#endif
+
     JSAMPARRAY samples = m_reader->samples();
 
     while (info->output_scanline < info->output_height) {
@@ -520,11 +579,16 @@ void JPEGImageDecoder::jpegComplete()
 
     // Hand back an appropriately sized buffer, even if the image ended up being
     // empty.
-    m_frameBufferCache[0].setStatus(ImageFrame::FrameComplete);
+    ImageFrame& buffer = m_frameBufferCache[0];
+    buffer.setHasAlpha(false);
+    buffer.setStatus(ImageFrame::FrameComplete);
 }
 
 void JPEGImageDecoder::decode(bool onlySize)
 {
+#if PLATFORM(CHROMIUM)
+    TRACE_EVENT("JPEGImageDecoder::decode", this, 0);
+#endif
     if (failed())
         return;
 

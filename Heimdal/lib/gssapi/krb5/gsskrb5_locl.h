@@ -98,11 +98,14 @@ typedef OM_uint32
  *
  */
 
+struct gss_msg_order;
+
 struct gsskrb5_ctx {
-    struct gsskrb5_crypto gk5c;
-    struct krb5_auth_context_data *auth_context;
-    gss_OID mech;
-    krb5_principal source, target;
+  struct gsskrb5_crypto gk5c;
+  gss_OID mech;
+  struct krb5_auth_context_data *auth_context;
+  struct krb5_auth_context_data *deleg_auth_context;
+  krb5_principal source, target;
 #define IS_DCE_STYLE(ctx) (((ctx)->flags & GSS_C_DCE_STYLE) != 0)
     OM_uint32 flags;
     enum { LOCAL			= 0x001,
@@ -126,18 +129,19 @@ struct gsskrb5_ctx {
     krb5_keyblock *service_keyblock;
     krb5_data fwd_data;
 #ifdef PKINIT
-    krb5_init_creds_context icc;
     hx509_cert cert;
-    krb5_get_init_creds_opt *gic_opt;
 #endif
     krb5_storage *messages;
 
     /* IAKERB */
+    krb5_get_init_creds_opt *gic_opt;
     krb5_init_creds_context asctx;
     krb5_tkt_creds_context tgsctx;
     krb5_data *cookie;
     char *password;
     krb5_realm iakerbrealm;
+    krb5_data friendlyname;
+    krb5_data lkdchostname;
 
 };
 

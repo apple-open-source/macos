@@ -61,7 +61,7 @@ __private_extern__ CFNumberRef			CFNumberRef_1	= NULL;
 
 
 __private_extern__
-CFNumberRef
+CF_RETURNS_RETAINED CFNumberRef
 _copy_number(const char *arg)
 {
 	int	val;
@@ -883,6 +883,7 @@ do_net_update(int argc, char **argv)
 
 				n = CFArrayGetCount(sets);
 				CFRelease(sets);
+				sets = NULL;
 				if (n > 0) {
 					SCPrint(TRUE, stdout, CFSTR("no current set\n"));
 					return;

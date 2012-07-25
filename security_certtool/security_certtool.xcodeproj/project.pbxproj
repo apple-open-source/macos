@@ -11,6 +11,11 @@
 		058B75EA0569475900B395BD /* CertTool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 058B75E70569475900B395BD /* CertTool.cpp */; };
 		058B75EB0569475900B395BD /* CertUI.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 058B75E80569475900B395BD /* CertUI.cpp */; };
 		058B75EC0569475900B395BD /* CertUI.h in Headers */ = {isa = PBXBuildFile; fileRef = 058B75E90569475900B395BD /* CertUI.h */; };
+		1865FCC114725D6400FD79DF /* libsecurity_cdsa_utils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FCC014725D6400FD79DF /* libsecurity_cdsa_utils.a */; };
+		1865FCC314725D8300FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FCC214725D8300FD79DF /* libsecurity_cdsa_utilities.a */; };
+		1865FCC514725DA300FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FCC414725DA300FD79DF /* libsecurity_utilities.a */; };
+		1865FCC714725DBD00FD79DF /* libsecurity_cdsa_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FCC614725DBD00FD79DF /* libsecurity_cdsa_client.a */; };
+		18A25C2D14753A19004F59F8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18A25C2C14753A19004F59F8 /* Security.framework */; };
 		40AFCD7F056EC2ED005EE129 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 058B76F4056948B200B395BD /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
 
@@ -32,13 +37,15 @@
 		058B75E70569475900B395BD /* CertTool.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CertTool.cpp; path = src/CertTool.cpp; sourceTree = "<group>"; };
 		058B75E80569475900B395BD /* CertUI.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = CertUI.cpp; path = src/CertUI.cpp; sourceTree = "<group>"; };
 		058B75E90569475900B395BD /* CertUI.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CertUI.h; path = src/CertUI.h; sourceTree = "<group>"; };
-		058B75F2056947A800B395BD /* security_cdsa_utils.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_utils.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		058B7601056947C200B395BD /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		058B76F4056948B200B395BD /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		058B7736056948F600B395BD /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		058B77D00569493000B395BD /* security_keychain.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_keychain.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		058B78500569496700B395BD /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		058B78A4056949C100B395BD /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		1865FCC014725D6400FD79DF /* libsecurity_cdsa_utils.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utils.a; path = /usr/local/lib/libsecurity_cdsa_utils.a; sourceTree = "<absolute>"; };
+		1865FCC214725D8300FD79DF /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
+		1865FCC414725DA300FD79DF /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		1865FCC614725DBD00FD79DF /* libsecurity_cdsa_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_client.a; path = /usr/local/lib/libsecurity_cdsa_client.a; sourceTree = "<absolute>"; };
+		18A25C28147539CB004F59F8 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18A25C29147539CB004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		18A25C2A147539CB004F59F8 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18A25C2C14753A19004F59F8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = ../../../../../../System/Library/Frameworks/Security.framework; sourceTree = "<group>"; };
 		4CA1FEB6052A3C6D00F22E42 /* certtool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; path = certtool; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -47,6 +54,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18A25C2D14753A19004F59F8 /* Security.framework in Frameworks */,
+				1865FCC714725DBD00FD79DF /* libsecurity_cdsa_client.a in Frameworks */,
+				1865FCC514725DA300FD79DF /* libsecurity_utilities.a in Frameworks */,
+				1865FCC314725D8300FD79DF /* libsecurity_cdsa_utilities.a in Frameworks */,
+				1865FCC114725D6400FD79DF /* libsecurity_cdsa_utils.a in Frameworks */,
 				40AFCD7F056EC2ED005EE129 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -57,20 +69,30 @@
 		058B75EF0569477F00B395BD /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				058B75F2056947A800B395BD /* security_cdsa_utils.framework */,
-				058B7601056947C200B395BD /* Security.framework */,
+				1865FCC014725D6400FD79DF /* libsecurity_cdsa_utils.a */,
+				1865FCC214725D8300FD79DF /* libsecurity_cdsa_utilities.a */,
+				1865FCC414725DA300FD79DF /* libsecurity_utilities.a */,
+				1865FCC614725DBD00FD79DF /* libsecurity_cdsa_client.a */,
 				058B76F4056948B200B395BD /* CoreFoundation.framework */,
-				058B7736056948F600B395BD /* security_cdsa_utilities.framework */,
-				058B77D00569493000B395BD /* security_keychain.framework */,
-				058B78500569496700B395BD /* security_cdsa_client.framework */,
-				058B78A4056949C100B395BD /* security_utilities.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		18A25C27147539CB004F59F8 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18A25C28147539CB004F59F8 /* debug.xcconfig */,
+				18A25C29147539CB004F59F8 /* project.xcconfig */,
+				18A25C2A147539CB004F59F8 /* release.xcconfig */,
+			);
+			path = config;
 			sourceTree = "<group>";
 		};
 		4CA1FEAC052A3C5800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				18A25C2C14753A19004F59F8 /* Security.framework */,
+				18A25C27147539CB004F59F8 /* config */,
 				058B75E70569475900B395BD /* CertTool.cpp */,
 				058B75E80569475900B395BD /* CertUI.cpp */,
 				058B75E90569475900B395BD /* CertUI.h */,
@@ -128,7 +150,11 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD4550987FCE9001272E0 /* Build configuration list for PBXProject "security_certtool" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 4CA1FEAC052A3C5800F22E42;
 			productRefGroup = 4CA1FEB7052A3C6D00F22E42 /* Products */;
 			projectDirPath = "";
@@ -152,150 +178,35 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		C27AD4520987FCE9001272E0 /* Development */ = {
+		C27AD4520987FCE9001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C28147539CB004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-lstdc++\" -pg";
-				PRODUCT_NAME = certtool;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27AD4530987FCE9001272E0 /* Deployment */ = {
+		C27AD4540987FCE9001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C2A147539CB004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-lstdc++\" -pg";
-				PRODUCT_NAME = certtool;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C27AD4540987FCE9001272E0 /* Default */ = {
+		C27AD4560987FCE9001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C29147539CB004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/bin;
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "\"-framework\" \"Security,_debug\" \"-framework\" \"security_cdsa_utils,_debug\" \"-framework\" \"security_cdsa_client,_debug\" \"-framework\" \"security_cdsa_utilities,_debug\" \"-framework\" \"security_utilities,_debug\" \"-lstdc++\"";
-				OTHER_LDFLAGS_normal = "\"-framework\" \"Security\" \"-framework\" \"security_cdsa_utils\" \"-framework\" \"security_cdsa_client\" \"-framework\" \"security_cdsa_utilities\" \"-framework\" \"security_utilities\" \"-lstdc++\"";
-				OTHER_LDFLAGS_profile = "\"-framework\" \"Security,_profile\" \"-framework\" \"security_cdsa_utils,_profile\" \"-framework\" \"security_cdsa_client,_profile\" \"-framework\" \"security_cdsa_utilities,_profile\" \"-framework\" \"security_utilities,_profile\" \"-lstdc++\" -pg";
-				PRODUCT_NAME = certtool;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = Default;
+			name = Debug;
 		};
-		C27AD4560987FCE9001272E0 /* Development */ = {
+		C27AD4580987FCE9001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25C29147539CB004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 			};
-			name = Development;
-		};
-		C27AD4570987FCE9001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Deployment;
-		};
-		C27AD4580987FCE9001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_IDENTITY = "-";
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -303,22 +214,20 @@
 		C27AD4510987FCE9001272E0 /* Build configuration list for PBXNativeTarget "certtool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4520987FCE9001272E0 /* Development */,
-				C27AD4530987FCE9001272E0 /* Deployment */,
-				C27AD4540987FCE9001272E0 /* Default */,
+				C27AD4520987FCE9001272E0 /* Debug */,
+				C27AD4540987FCE9001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD4550987FCE9001272E0 /* Build configuration list for PBXProject "security_certtool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD4560987FCE9001272E0 /* Development */,
-				C27AD4570987FCE9001272E0 /* Deployment */,
-				C27AD4580987FCE9001272E0 /* Default */,
+				C27AD4560987FCE9001272E0 /* Debug */,
+				C27AD4580987FCE9001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

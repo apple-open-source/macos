@@ -37,6 +37,7 @@ namespace WebCore {
 class Document;
 class Element;
 class HTMLElement;
+class HTMLTextFormControlElement;
 class Node;
 class Position;
 class Range;
@@ -53,9 +54,12 @@ class VisibleSelection;
 // Functions returning Node
 
 Node* highestAncestor(Node*);
-Node* highestEditableRoot(const Position&);
-Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
-Node* lowestEditableAncestor(Node*);   
+Node* highestEditableRoot(const Position&, EditableType = ContentIsEditable);
+
+Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*),
+    EditingBoundaryCrossingRule = CannotCrossEditingBoundary, Node* stayWithin = 0);
+Node* highestNodeToRemoveInPruning(Node*);
+Node* lowestEditableAncestor(Node*);
 
 Node* enclosingBlock(Node*, EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 Node* enclosingTableCell(const Position&);
@@ -93,6 +97,7 @@ inline bool canHaveChildrenForEditing(const Node* node)
 
 bool isAtomicNode(const Node*);
 bool isBlock(const Node*);
+bool isInline(const Node*);
 bool isSpecialElement(const Node*);
 bool isTabSpanNode(const Node*);
 bool isTabSpanTextNode(const Node*);
@@ -106,8 +111,8 @@ bool isListItem(Node*);
 bool isNodeRendered(const Node*);
 bool isNodeVisiblyContainedWithin(Node*, const Range*);
 bool isRenderedAsNonInlineTableImageOrHR(const Node*);
-bool isNodeInTextFormControl(Node* node);
-    
+bool areIdenticalElements(const Node*, const Node*);
+bool isNonTableCellHTMLBlockElement(const Node*);
 TextDirection directionOfEnclosingBlock(const Position&);
 
 // -------------------------------------------------------------------------
@@ -147,8 +152,8 @@ int comparePositions(const Position&, const Position&);
 
 // boolean functions on Position
     
-bool isEditablePosition(const Position&);
-bool isRichlyEditablePosition(const Position&);
+bool isEditablePosition(const Position&, EditableType = ContentIsEditable);
+bool isRichlyEditablePosition(const Position&, EditableType = ContentIsEditable);
 bool isFirstVisiblePositionInSpecialElement(const Position&);
 bool isLastVisiblePositionInSpecialElement(const Position&);
 bool lineBreakExistsAtPosition(const Position&);
@@ -158,6 +163,7 @@ bool isAtUnsplittableElement(const Position&);
 // miscellaneous functions on Position
 
 unsigned numEnclosingMailBlockquotes(const Position&);
+void updatePositionForNodeRemoval(Position&, Node*);
 
 // -------------------------------------------------------------------------
 // VisiblePosition
@@ -173,7 +179,9 @@ VisiblePosition visiblePositionAfterNode(Node*);
 bool lineBreakExistsAtVisiblePosition(const VisiblePosition&);
     
 int comparePositions(const VisiblePosition&, const VisiblePosition&);
-int indexForVisiblePosition(const VisiblePosition&);
+
+int indexForVisiblePosition(const VisiblePosition&, RefPtr<Element>& scope);
+VisiblePosition visiblePositionForIndex(int index, Element *scope);
 
 // -------------------------------------------------------------------------
 // Range
@@ -214,7 +222,7 @@ PassRefPtr<Element> createTabSpanElement(Document*, PassRefPtr<Node> tabTextNode
 PassRefPtr<Element> createTabSpanElement(Document*, const String& tabText);
 PassRefPtr<Element> createBlockPlaceholderElement(Document*);
 
-Element* editableRootForPosition(const Position&);
+Element* editableRootForPosition(const Position&, EditableType = ContentIsEditable);
 Element* unsplittableElementForPosition(const Position&);
 
 // Boolean functions on Element
@@ -228,6 +236,8 @@ bool canMergeLists(Element* firstList, Element* secondList);
 // Functions returning VisibleSelection
 VisibleSelection avoidIntersectionWithNode(const VisibleSelection&, Node*);
 VisibleSelection selectionForParagraphIteration(const VisibleSelection&);
+
+Position adjustedSelectionStartForStyleComputation(const VisibleSelection&);
     
 
 // Miscellaneous functions on Text

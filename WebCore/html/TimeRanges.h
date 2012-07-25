@@ -26,14 +26,14 @@
 #ifndef TimeRanges_h
 #define TimeRanges_h
 
-#include "ExceptionCode.h"
-
 #include <algorithm>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
+
+typedef int ExceptionCode;
 
 class TimeRanges : public RefCounted<TimeRanges> {
 public:
@@ -46,7 +46,10 @@ public:
         return adoptRef(new TimeRanges(start, end));
     }
 
-    PassRefPtr<TimeRanges> copy();
+    PassRefPtr<TimeRanges> copy() const;
+    void invert();
+    void intersectWith(const TimeRanges*);
+    void unionWith(const TimeRanges*);
 
     unsigned length() const { return m_ranges.size(); }
     float start(unsigned index, ExceptionCode&) const;

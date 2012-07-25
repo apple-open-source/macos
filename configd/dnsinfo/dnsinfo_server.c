@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,8 +43,10 @@
 
 #include "dnsinfo_server.h"
 #include "dnsinfo_private.h"
+#include <network_information.h>
 
-static	CFDataRef       shared_dns_info		= NULL;
+static	CFDataRef	shared_dns_info		= NULL;
+static  CFDataRef	shared_nwi_state	= NULL;
 
 __private_extern__
 kern_return_t
@@ -54,7 +56,12 @@ _shared_dns_infoGet(mach_port_t server, dnsDataOut_t *dataRef, mach_msg_type_num
 	*dataLen = 0;
 
 	if (shared_dns_info != NULL) {
-		if (!_SCSerializeData(shared_dns_info, (void **)dataRef, (CFIndex *)dataLen)) {
+		CFIndex	len;
+		Boolean	ok;
+
+		ok = _SCSerializeData(shared_dns_info, (void **)dataRef, &len);
+		*dataLen = len;
+		if (!ok) {
 			return KERN_FAILURE;
 		}
 	}
@@ -63,19 +70,21 @@ _shared_dns_infoGet(mach_port_t server, dnsDataOut_t *dataRef, mach_msg_type_num
 }
 
 
-__private_extern__
+static
 kern_return_t
-_shared_dns_infoSet(mach_port_t			server,
-		    dnsData_t			dataRef,
-		    mach_msg_type_number_t	dataLen,
-		    audit_token_t		audit_token)
+_shared_infoSet_common(mach_port_t		server,
+		       dnsData_t		dataRef,
+		       mach_msg_type_number_t	dataLen,
+		       audit_token_t		audit_token,
+		       CFDataRef*		cache,
+		       const char*		notify_key)
 {
 	uid_t		euid		= 0;
-	CFDataRef	new_dns_info    = NULL;
-	const char	*notify_key;
+	CFDataRef	new_info	= NULL;
+	CFDataRef	n_cache		= *cache;
 
 	if ((dataRef != NULL) && (dataLen > 0)) {
-		if (!_SCUnserializeData(&new_dns_info, (void *)dataRef, dataLen)) {
+		if (!_SCUnserializeData(&new_info, (void *)dataRef, dataLen)) {
 			goto error;
 		}
 	}
@@ -93,17 +102,16 @@ _shared_dns_infoSet(mach_port_t			server,
 		goto error;
 	}
 
-	if ((shared_dns_info != NULL) &&
-	    (new_dns_info    != NULL) &&
-	    CFEqual(shared_dns_info, new_dns_info)) {
-		CFRelease(new_dns_info);
+	if ((n_cache != NULL) &&
+	    (new_info != NULL) &&
+	    CFEqual(n_cache, new_info)) {
+		CFRelease(new_info);
 		return KERN_SUCCESS;
 	}
 
-	if (shared_dns_info != NULL) CFRelease(shared_dns_info);
-	shared_dns_info = new_dns_info;
+	if (n_cache != NULL) CFRelease(n_cache);
+	*cache = new_info;
 
-	notify_key = _dns_configuration_notify_key();
 	if (notify_key != NULL) {
 		uint32_t	status;
 
@@ -118,6 +126,62 @@ _shared_dns_infoSet(mach_port_t			server,
 
     error :
 
-	if (new_dns_info != NULL)    CFRelease(new_dns_info);
+	if (new_info != NULL)    CFRelease(new_info);
 	return KERN_FAILURE;
+}
+
+
+__private_extern__
+kern_return_t
+_shared_dns_infoSet(mach_port_t			server,
+		    dnsData_t			dataRef,
+		    mach_msg_type_number_t	dataLen,
+		    audit_token_t		audit_token)
+{
+	const char	*notify_key;
+
+	notify_key = _dns_configuration_notify_key();
+	return _shared_infoSet_common(server, dataRef, dataLen,
+				      audit_token, &shared_dns_info,
+				      notify_key);
+}
+
+
+__private_extern__
+kern_return_t
+_shared_nwi_stateGet(mach_port_t server, dnsDataOut_t *dataRef, mach_msg_type_number_t *dataLen)
+{
+	*dataRef = NULL;
+	*dataLen = 0;
+
+	if (shared_nwi_state != NULL) {
+		CFIndex	len;
+		Boolean	ok;
+
+		ok = _SCSerializeData(shared_nwi_state, (void **)dataRef, &len);
+		*dataLen = len;
+		if (!ok) {
+			return KERN_FAILURE;
+		}
+	}
+
+	return KERN_SUCCESS;
+
+}
+
+
+__private_extern__
+kern_return_t
+_shared_nwi_stateSet(mach_port_t		server,
+		     dnsData_t			dataRef,
+		     mach_msg_type_number_t 	dataLen,
+		     audit_token_t		audit_token)
+{
+	const char      *notify_key;
+
+	notify_key = nwi_state_get_notify_key();
+
+	return _shared_infoSet_common(server, dataRef, dataLen,
+				      audit_token, &shared_nwi_state,
+				      notify_key);
 }

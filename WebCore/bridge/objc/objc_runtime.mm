@@ -76,11 +76,7 @@ NSMethodSignature* ObjcMethod::getMethodSignature() const
 
 ObjcField::ObjcField(Ivar ivar) 
     : _ivar(ivar)
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
     , _name(AdoptCF, CFStringCreateWithCString(0, ivar_getName(_ivar), kCFStringEncodingASCII))
-#else
-    , _name(AdoptCF, CFStringCreateWithCString(0, _ivar->ivar_name, kCFStringEncodingASCII))
-#endif
 {
 }
 
@@ -101,6 +97,10 @@ JSValue ObjcField::valueFromInstance(ExecState* exec, const Instance* instance) 
     @try {
         if (id objcValue = [targetObject valueForKey:(NSString *)_name.get()])
             result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, instance->rootObject());
+        {
+            JSLock lock(SilenceAssertionsOnly);
+            ObjcInstance::moveGlobalExceptionToExecState(exec);
+        }
     } @catch(NSException* localException) {
         JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, [localException reason]);
@@ -129,6 +129,10 @@ void ObjcField::setValueToInstance(ExecState* exec, const Instance* instance, JS
 
     @try {
         [targetObject setValue:value forKey:(NSString *)_name.get()];
+        {
+            JSLock lock(SilenceAssertionsOnly);
+            ObjcInstance::moveGlobalExceptionToExecState(exec);
+        }
     } @catch(NSException* localException) {
         JSLock::lock(SilenceAssertionsOnly);
         throwError(exec, [localException reason]);
@@ -193,6 +197,11 @@ ObjcFallbackObjectImp::ObjcFallbackObjectImp(JSGlobalObject* globalObject, Struc
     , _instance(i)
     , _item(propertyName)
 {
+}
+
+void ObjcFallbackObjectImp::destroy(JSCell* cell)
+{
+    jsCast<ObjcFallbackObjectImp*>(cell)->ObjcFallbackObjectImp::~ObjcFallbackObjectImp();
 }
 
 void ObjcFallbackObjectImp::finishCreation(JSGlobalObject* globalObject)

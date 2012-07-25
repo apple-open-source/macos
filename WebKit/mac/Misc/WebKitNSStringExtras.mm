@@ -94,6 +94,7 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
         Font webCoreFont(FontPlatformData(font, [font pointSize]), ![nsContext isDrawingToScreen], fontSmoothingIsAllowed ? AutoSmoothing : Antialiased);
         TextRun run(buffer.data(), length);
+        run.disableRoundingHacks();
 
         CGFloat red;
         CGFloat green;
@@ -141,6 +142,7 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
         Font webCoreFont(FontPlatformData(font, [font pointSize]), ![[NSGraphicsContext currentContext] isDrawingToScreen]);
         TextRun run(buffer.data(), length);
+        run.disableRoundingHacks();
         return webCoreFont.width(run);
     }
 
@@ -182,7 +184,7 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
 -(BOOL)_webkit_hasCaseInsensitivePrefix:(NSString *)prefix
 {
-    return [self rangeOfString:prefix options:(NSCaseInsensitiveSearch | NSAnchoredSearch)].location != NSNotFound;
+    return hasCaseInsensitivePrefix(self, prefix);
 }
 
 -(BOOL)_webkit_hasCaseInsensitiveSuffix:(NSString *)suffix

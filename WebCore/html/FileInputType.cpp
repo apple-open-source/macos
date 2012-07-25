@@ -22,24 +22,69 @@
 #include "config.h"
 #include "FileInputType.h"
 
+#include "Chrome.h"
 #include "Event.h"
 #include "File.h"
 #include "FileList.h"
 #include "FileSystem.h"
 #include "FormDataList.h"
+#include "Frame.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "Icon.h"
 #include "LocalizedStrings.h"
 #include "RenderFileUploadControl.h"
+#include "ScriptController.h"
+#include "ShadowRoot.h"
+#include "ShadowTree.h"
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
+class UploadButtonElement : public HTMLInputElement {
+public:
+    static PassRefPtr<UploadButtonElement> create(Document*);
+    static PassRefPtr<UploadButtonElement> createForMultiple(Document*);
+
+private:
+    UploadButtonElement(Document*);
+
+    virtual const AtomicString& shadowPseudoId() const;
+};
+
+PassRefPtr<UploadButtonElement> UploadButtonElement::create(Document* document)
+{
+    RefPtr<UploadButtonElement> button = adoptRef(new UploadButtonElement(document));
+    button->setType("button");
+    button->setValue(fileButtonChooseFileLabel());
+    return button.release();
+}
+
+PassRefPtr<UploadButtonElement> UploadButtonElement::createForMultiple(Document* document)
+{
+    RefPtr<UploadButtonElement> button = adoptRef(new UploadButtonElement(document));
+    button->setType("button");
+    button->setValue(fileButtonChooseMultipleFilesLabel());
+    return button.release();
+}
+
+UploadButtonElement::UploadButtonElement(Document* document)
+    : HTMLInputElement(inputTag, document, 0, false)
+{
+}
+
+const AtomicString& UploadButtonElement::shadowPseudoId() const
+{
+    DEFINE_STATIC_LOCAL(AtomicString, pseudoId, ("-webkit-file-upload-button"));
+    return pseudoId;
+}
+
 inline FileInputType::FileInputType(HTMLInputElement* element)
-    : BaseButtonInputType(element)
+    : BaseClickableWithKeyInputType(element)
     , m_fileList(FileList::create())
 {
 }
@@ -52,6 +97,37 @@ PassOwnPtr<InputType> FileInputType::create(HTMLInputElement* element)
 const AtomicString& FileInputType::formControlType() const
 {
     return InputTypeNames::file();
+}
+
+bool FileInputType::saveFormControlState(String& result) const
+{
+    if (m_fileList->isEmpty())
+        return false;
+    result = String();
+    unsigned numFiles = m_fileList->length();
+    for (unsigned i = 0; i < numFiles; ++i) {
+        result.append(m_fileList->item(i)->path());
+        result.append('\1');
+        result.append(m_fileList->item(i)->name());
+        result.append('\0');
+    }
+    return true;
+}
+
+void FileInputType::restoreFormControlState(const String& state)
+{
+    Vector<FileChooserFileInfo> files;
+    Vector<String> paths;
+    state.split('\0', paths);
+    for (unsigned i = 0; i < paths.size(); ++i) {
+        Vector<String> pathAndName;
+        paths[i].split('\1', pathAndName);
+        if (pathAndName.size() > 1)
+            files.append(FileChooserFileInfo(pathAndName[0], pathAndName[1]));
+        else
+            files.append(FileChooserFileInfo(paths[i]));
+    }
+    filesChosen(files);
 }
 
 bool FileInputType::appendFormData(FormDataList& encoding, bool multipart) const
@@ -67,7 +143,7 @@ bool FileInputType::appendFormData(FormDataList& encoding, bool multipart) const
         // submission of file inputs, and Firefox doesn't add "name=" query
         // parameter.
         for (unsigned i = 0; i < numFiles; ++i)
-            encoding.appendData(element()->name(), fileList->item(i)->fileName());
+            encoding.appendData(element()->name(), fileList->item(i)->name());
         return true;
     }
 
@@ -85,7 +161,7 @@ bool FileInputType::appendFormData(FormDataList& encoding, bool multipart) const
 
 bool FileInputType::valueMissing(const String& value) const
 {
-    return value.isEmpty();
+    return element()->required() && value.isEmpty();
 }
 
 String FileInputType::valueMissingText() const
@@ -95,9 +171,25 @@ String FileInputType::valueMissingText() const
 
 void FileInputType::handleDOMActivateEvent(Event* event)
 {
-    if (element()->disabled() || !element()->renderer())
+    if (element()->disabled())
         return;
-    toRenderFileUploadControl(element()->renderer())->click();
+
+    if (!ScriptController::processingUserGesture())
+        return;
+
+    if (Chrome* chrome = this->chrome()) {
+        FileChooserSettings settings;
+        HTMLInputElement* input = element();
+#if ENABLE(DIRECTORY_UPLOAD)
+        settings.allowsDirectoryUpload = input->fastHasAttribute(webkitdirectoryAttr);
+        settings.allowsMultipleFiles = settings.allowsDirectoryUpload || input->fastHasAttribute(multipleAttr);
+#else
+        settings.allowsMultipleFiles = input->fastHasAttribute(multipleAttr);
+#endif
+        settings.acceptMIMETypes = input->acceptMIMETypes();
+        settings.selectedFiles = m_fileList->paths();
+        chrome->runOpenPanel(input->document()->frame(), newFileChooser(settings));
+    }
     event->setDefaultHandled();
 }
 
@@ -148,19 +240,21 @@ bool FileInputType::getTypeSpecificValue(String& value)
     // decided to try to parse the value by looking for backslashes
     // (because that's what Windows file paths use). To be compatible
     // with that code, we make up a fake path for the file.
-    value = "C:\\fakepath\\" + m_fileList->item(0)->fileName();
+    value = "C:\\fakepath\\" + m_fileList->item(0)->name();
     return true;
 }
 
-bool FileInputType::storesValueSeparateFromAttribute()
-{
-    return true;
-}
-
-void FileInputType::setFileList(const Vector<String>& paths)
+void FileInputType::setValue(const String&, bool, TextFieldEventBehavior)
 {
     m_fileList->clear();
-    size_t size = paths.size();
+    m_icon.clear();
+    element()->setNeedsStyleRecalc();
+}
+
+void FileInputType::setFileList(const Vector<FileChooserFileInfo>& files)
+{
+    m_fileList->clear();
+    size_t size = files.size();
 
 #if ENABLE(DIRECTORY_UPLOAD)
     // If a directory is being selected, the UI allows a directory to be chosen
@@ -168,29 +262,166 @@ void FileInputType::setFileList(const Vector<String>& paths)
     // we want to store only the relative paths from that point.
     if (size && element()->fastHasAttribute(webkitdirectoryAttr)) {
         // Find the common root path.
-        String rootPath = directoryName(paths[0]);
+        String rootPath = directoryName(files[0].path);
         for (size_t i = 1; i < size; i++) {
-            while (!paths[i].startsWith(rootPath))
+            while (!files[i].path.startsWith(rootPath))
                 rootPath = directoryName(rootPath);
         }
         rootPath = directoryName(rootPath);
         ASSERT(rootPath.length());
+        int rootLength = rootPath.length();
+        if (rootPath[rootLength - 1] != '\\' && rootPath[rootLength - 1] != '/')
+            rootLength += 1;
         for (size_t i = 0; i < size; i++) {
             // Normalize backslashes to slashes before exposing the relative path to script.
-            String relativePath = paths[i].substring(1 + rootPath.length()).replace('\\', '/');
-            m_fileList->append(File::create(relativePath, paths[i]));
+            String relativePath = files[i].path.substring(rootLength).replace('\\', '/');
+            m_fileList->append(File::createWithRelativePath(files[i].path, relativePath));
         }
         return;
     }
 #endif
 
     for (size_t i = 0; i < size; i++)
-        m_fileList->append(File::create(paths[i]));
+        m_fileList->append(File::createWithName(files[i].path, files[i].displayName));
 }
 
 bool FileInputType::isFileUpload() const
 {
     return true;
+}
+
+void FileInputType::createShadowSubtree()
+{
+    ASSERT(element()->hasShadowRoot());
+    ExceptionCode ec = 0;
+    element()->shadowTree()->oldestShadowRoot()->appendChild(element()->multiple() ? UploadButtonElement::createForMultiple(element()->document()): UploadButtonElement::create(element()->document()), ec);
+}
+
+void FileInputType::multipleAttributeChanged()
+{
+    ASSERT(element()->hasShadowRoot());
+    UploadButtonElement* button = static_cast<UploadButtonElement*>(element()->shadowTree()->oldestShadowRoot()->firstChild());
+    if (button)
+        button->setValue(element()->multiple() ? fileButtonChooseMultipleFilesLabel() : fileButtonChooseFileLabel());
+}
+
+void FileInputType::requestIcon(const Vector<String>& paths)
+{
+    if (!paths.size())
+        return;
+
+    if (Chrome* chrome = this->chrome())
+        chrome->loadIconForFiles(paths, newFileIconLoader());
+}
+
+void FileInputType::filesChosen(const Vector<FileChooserFileInfo>& files)
+{
+    RefPtr<HTMLInputElement> input = element();
+
+    bool pathsChanged = false;
+    if (files.size() != m_fileList->length())
+        pathsChanged = true;
+    else {
+        for (unsigned i = 0; i < files.size(); ++i) {
+            if (files[i].path != m_fileList->item(i)->path()) {
+                pathsChanged = true;
+                break;
+            }
+        }
+    }
+
+    setFileList(files);
+
+    input->setFormControlValueMatchesRenderer(true);
+    input->notifyFormStateChanged();
+    input->setNeedsValidityCheck();
+
+    Vector<String> paths;
+    for (unsigned i = 0; i < files.size(); ++i)
+        paths.append(files[i].path);
+    requestIcon(paths);
+
+    if (input->renderer())
+        input->renderer()->repaint();
+
+    if (pathsChanged) {
+        // This call may cause destruction of this instance.
+        // input instance is safe since it is ref-counted.
+        input->HTMLElement::dispatchChangeEvent();
+    }
+    input->setChangedSinceLastFormControlChangeEvent(false);
+}
+
+#if ENABLE(DIRECTORY_UPLOAD)
+void FileInputType::receiveDropForDirectoryUpload(const Vector<String>& paths)
+{
+    if (Chrome* chrome = this->chrome()) {
+        FileChooserSettings settings;
+        HTMLInputElement* input = element();
+        settings.allowsDirectoryUpload = true;
+        settings.allowsMultipleFiles = true;
+        settings.selectedFiles.append(paths[0]);
+        settings.acceptMIMETypes = input->acceptMIMETypes();
+        chrome->enumerateChosenDirectory(newFileChooser(settings));
+    }
+}
+#endif
+
+void FileInputType::updateRendering(PassRefPtr<Icon> icon)
+{
+    if (m_icon == icon)
+        return;
+
+    m_icon = icon;
+    if (element()->renderer())
+        element()->renderer()->repaint();
+}
+
+void FileInputType::receiveDroppedFiles(const Vector<String>& paths)
+{
+    HTMLInputElement* input = element();
+#if ENABLE(DIRECTORY_UPLOAD)
+    if (input->fastHasAttribute(webkitdirectoryAttr)) {
+        receiveDropForDirectoryUpload(paths);
+        return;
+    }
+#endif
+
+    Vector<FileChooserFileInfo> files;
+    for (unsigned i = 0; i < paths.size(); ++i)
+        files.append(FileChooserFileInfo(paths[i]));
+
+    if (input->fastHasAttribute(multipleAttr))
+        filesChosen(files);
+    else {
+        Vector<FileChooserFileInfo> firstFileOnly;
+        firstFileOnly.append(files[0]);
+        filesChosen(firstFileOnly);
+    }
+}
+
+Icon* FileInputType::icon() const
+{
+    return m_icon.get();
+}
+
+String FileInputType::defaultToolTip() const
+{
+    FileList* fileList = m_fileList.get();
+    unsigned listSize = fileList->length();
+    if (!listSize) {
+        if (element()->multiple())
+            return fileButtonNoFilesSelectedLabel();
+        return fileButtonNoFileSelectedLabel();
+    }
+
+    StringBuilder names;
+    for (size_t i = 0; i < listSize; ++i) {
+        names.append(fileList->item(i)->name());
+        if (i != listSize - 1)
+            names.append('\n');
+    }
+    return names.toString();
 }
 
 } // namespace WebCore

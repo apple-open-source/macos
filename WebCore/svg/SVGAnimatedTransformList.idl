@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGAnimatedTransformList {
+    interface [
+        Conditional=SVG
+    ] SVGAnimatedTransformList {
         readonly attribute SVGTransformList baseVal;
         readonly attribute SVGTransformList animVal;
     };

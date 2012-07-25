@@ -1,13 +1,31 @@
-#include <stdlib.h>
-#include "curl_config.h"
-#include "setup.h"
-
-#include "netrc.h"
+/***************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
 #include "curlcheck.h"
 
-char login[LOGINSIZE];
-char password[PASSWORDSIZE];
-char filename[64];
+#include "netrc.h"
+
+static char login[LOGINSIZE];
+static char password[PASSWORDSIZE];
+static char filename[64];
 
 static CURLcode unit_setup(void)
 {
@@ -23,7 +41,7 @@ static void unit_stop(void)
 UNITTEST_START
   int result;
 
-  static const char* filename1 = "log/netrc";
+  static const char* filename1 = "log/netrc1304";
   memcpy(filename, filename1, strlen(filename1));
 
   /*

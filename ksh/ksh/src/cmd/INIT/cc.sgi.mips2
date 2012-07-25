@@ -2,8 +2,8 @@
 
 HOSTTYPE=sgi.mips2
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 cc=/usr/bin/cc

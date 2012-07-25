@@ -25,35 +25,18 @@
 
 #include "config.h"
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+
 #include "JSConsole.h"
 
 #include "Console.h"
-#include "JSScriptProfile.h"
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
-#include "ScriptProfile.h"
-#include <runtime/JSArray.h>
 #include <wtf/OwnPtr.h>
 
 using namespace JSC;
 
 namespace WebCore {
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-
-typedef Vector<RefPtr<ScriptProfile> > ProfilesArray;
-
-JSValue JSConsole::profiles(ExecState* exec) const
-{
-    const ProfilesArray& profiles = impl()->profiles();
-    MarkedArgumentBuffer list;
-
-    ProfilesArray::const_iterator end = profiles.end();
-    for (ProfilesArray::const_iterator iter = profiles.begin(); iter != end; ++iter)
-        list.append(toJS(exec, globalObject(), iter->get()));
-
-    return constructArray(exec, globalObject(), list);
-}
 
 JSValue JSConsole::profile(ExecState* exec)
 {
@@ -77,6 +60,6 @@ JSValue JSConsole::profileEnd(ExecState* exec)
     return jsUndefined();
 }
 
-#endif
-
 } // namespace WebCore
+
+#endif // ENABLE(JAVASCRIPT_DEBUGGER)

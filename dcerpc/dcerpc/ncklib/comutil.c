@@ -421,6 +421,7 @@ PRIVATE unsigned32 rpc__strcspn
         {
             escaped = true;
             ptr++;
+            count++;
         }
 
         /*
@@ -433,14 +434,7 @@ PRIVATE unsigned32 rpc__strcspn
 
         if (escaped == true)
         {
-            /*
-             * Watch out for multiple '\'
-             */
-            if (*ptr != '\\')
-            {
-                escaped = false;
-            }
-            ptr++;
+            escaped = false;
             continue;
         }
 
@@ -550,7 +544,6 @@ PRIVATE void rpc__strncpy
 **  INPUTS/OUTPUTS:
 **
 **      string          A pointer to the string to be compressed.
-**      boolean32       A flag whether to strip spaces/tabs or not
 **
 **  OUTPUTS:            none
 **
@@ -571,8 +564,7 @@ PRIVATE void rpc__strncpy
 
 PRIVATE unsigned32 rpc__strsqz
 (
-    unsigned_char_t         *string,
-    boolean32               strip_space_tabs
+    unsigned_char_t         *string
 )
 {
     unsigned_char_p_t   ptr1, ptr2;
@@ -613,19 +605,11 @@ PRIVATE unsigned32 rpc__strsqz
             /*
              * if we're not escaped, eliminate spaces and tabs
              */
-            if (strip_space_tabs) {
-                if (*ptr1 != ' ' && *ptr1 != '\t')
-                {
-                    *(ptr2++) = *ptr1;
-                    count++;
-                }
-            }
-            else
+            if (*ptr1 != ' ' && *ptr1 != '\t')
             {
                 *(ptr2++) = *ptr1;
                 count++;
             }
-
         }
     }
 

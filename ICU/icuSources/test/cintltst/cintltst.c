@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2011, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -494,7 +494,7 @@ char *aescstrdup(const UChar* unichars,int32_t length){
     const void *p;
     UErrorCode errorCode = U_ZERO_ERROR;
 #if U_CHARSET_FAMILY==U_EBCDIC_FAMILY
-#   ifdef OS390
+#   if U_PLATFORM == U_PF_OS390
         static const char convName[] = "ibm-1047";
 #   else
         static const char convName[] = "ibm-37";
@@ -692,9 +692,19 @@ U_CFUNC UBool assertEquals(const char* message, const char* expected,
  *--------------------------------------------------------------------
  */
 
-U_CFUNC UBool isICUVersionAtLeast(const UVersionInfo x) {
-    UVersionInfo v;
-    u_getVersion(v);
-    return (uprv_memcmp(v, x, U_MAX_VERSION_LENGTH) >= 0);
+U_CFUNC UBool isICUVersionBefore(int major, int minor, int milli) {
+    UVersionInfo iv;
+    UVersionInfo ov;
+    ov[0] = (uint8_t)major;
+    ov[1] = (uint8_t)minor;
+    ov[2] = (uint8_t)milli;
+    ov[3] = 0;
+    u_getVersion(iv);
+    return uprv_memcmp(iv, ov, U_MAX_VERSION_LENGTH) < 0;
 }
+
+U_CFUNC UBool isICUVersionAtLeast(int major, int minor, int milli) {
+    return !isICUVersionBefore(major, minor, milli);
+}
+
 #endif

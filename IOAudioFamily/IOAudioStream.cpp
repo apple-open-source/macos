@@ -151,7 +151,11 @@ bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStr
 					}
 				}
 				if (passSRCheck) {
-					streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
+					// <rdar://10957396> Only update the tag if required
+					if ( streamFormat->fDriverTag != availableFormats[formatIndex].format.fDriverTag ) {
+						streamFormat->fDriverTag = availableFormats[formatIndex].format.fDriverTag;
+					}
+
 	//				streamFormat->fIsMixable = availableFormats[formatIndex].format.fIsMixable;
 					if (formatDesc) {
 						memcpy(formatDesc, &availableFormats[formatIndex], sizeof(IOAudioStreamFormatDesc));

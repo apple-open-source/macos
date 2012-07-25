@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -34,10 +34,10 @@ namespace WebCore {
 CSSCanvasValue::~CSSCanvasValue()
 {
     if (m_element)
-        m_element->removeObserver(this);
+        m_element->removeObserver(&m_canvasObserver);
 }
 
-String CSSCanvasValue::cssText() const
+String CSSCanvasValue::customCssText() const
 {
     String result = "-webkit-canvas(";
     result += m_name  + ")";
@@ -47,16 +47,16 @@ String CSSCanvasValue::cssText() const
 void CSSCanvasValue::canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect)
 {
     IntRect imageChangeRect = enclosingIntRect(changedRect);
-    RenderObjectSizeCountMap::const_iterator end = m_clients.end();
-    for (RenderObjectSizeCountMap::const_iterator curr = m_clients.begin(); curr != end; ++curr)
-        curr->first->imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
+    RenderObjectSizeCountMap::const_iterator end = clients().end();
+    for (RenderObjectSizeCountMap::const_iterator curr = clients().begin(); curr != end; ++curr)
+        const_cast<RenderObject*>(curr->first)->imageChanged(static_cast<WrappedImagePtr>(this), &imageChangeRect);
 }
 
 void CSSCanvasValue::canvasResized(HTMLCanvasElement*)
 {
-    RenderObjectSizeCountMap::const_iterator end = m_clients.end();
-    for (RenderObjectSizeCountMap::const_iterator curr = m_clients.begin(); curr != end; ++curr)
-        curr->first->imageChanged(static_cast<WrappedImagePtr>(this));
+    RenderObjectSizeCountMap::const_iterator end = clients().end();
+    for (RenderObjectSizeCountMap::const_iterator curr = clients().begin(); curr != end; ++curr)
+        const_cast<RenderObject*>(curr->first)->imageChanged(static_cast<WrappedImagePtr>(this));
 }
 
 void CSSCanvasValue::canvasDestroyed(HTMLCanvasElement* element)
@@ -78,14 +78,14 @@ HTMLCanvasElement* CSSCanvasValue::element(Document* document)
         m_element = document->getCSSCanvasElement(m_name);
         if (!m_element)
             return 0;
-        m_element->addObserver(this);
+        m_element->addObserver(&m_canvasObserver);
     }
     return m_element;
 }
 
 PassRefPtr<Image> CSSCanvasValue::image(RenderObject* renderer, const IntSize& /*size*/)
 {
-    ASSERT(m_clients.contains(renderer));
+    ASSERT(clients().contains(renderer));
     HTMLCanvasElement* elt = element(renderer->document());
     if (!elt || !elt->buffer())
         return 0;

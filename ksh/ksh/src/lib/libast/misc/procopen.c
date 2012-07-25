@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -34,13 +34,20 @@
 #include "proclib.h"
 
 #include <ls.h>
+#include <ast_tty.h>
 
 /*
  * not quite ready for _use_spawnveg 
  */
 
-#if _use_spawnveg && _lib_fork
+#if _use_spawnveg
+#if _lib_fork
 #undef	_use_spawnveg
+#else
+#if _WINIX
+#define _lib_fork	1
+#endif
+#endif
 #endif
 
 #ifndef DEBUG_PROC
@@ -155,6 +162,12 @@ modify(Proc_t* proc, int forked, int op, long arg1, long arg2)
 #if _lib_fork
 	if (forked)
 	{
+		int	i;
+		int	k;
+#ifndef TIOCSCTTY
+		char*	s;
+#endif
+
 		switch (op)
 		{
 		case PROC_fd_dup:
@@ -172,6 +185,29 @@ modify(Proc_t* proc, int forked, int op, long arg1, long arg2)
 				if (op & PROC_FD_CHILD)
 					close(arg1);
 			}
+			break;
+		case PROC_fd_ctty:
+			setsid();
+			for (i = 0; i <= 2; i++)
+				if (arg1 != i)
+					close(i);
+			arg2 = -1;
+#ifdef TIOCSCTTY
+			if (ioctl(arg1, TIOCSCTTY, NiL) < 0)
+				return -1;
+#else
+			if (!(s = ttyname(arg1)))
+				return -1;
+			if ((arg2 = open(s, O_RDWR)) < 0)
+				return -1;
+#endif
+			for (i = 0; i <= 2; i++)
+				if (arg1 != i && arg2 != i && (k = fcntl(arg1, F_DUPFD, i)) != i)
+					return -1;
+			if (arg1 > 2)
+				close(arg1);
+			if (arg2 > 2)
+				close(arg2);
 			break;
 		case PROC_sig_dfl:
 			signal(arg1, SIG_DFL);
@@ -373,6 +409,9 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 	char			path[PATH_MAX];
 	char			env[PATH_MAX + 2];
 	int			pio[2];
+#if _lib_fork
+	int			pop[2];
+#endif
 #if !_pipe_rw && !_lib_socketpair
 	int			poi[2];
 #endif
@@ -387,19 +426,22 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 #endif
 
 #if _lib_fork
-	if (!argv && (flags & PROC_OVERLAY))
+	if (!argv && (flags & (PROC_ORPHAN|PROC_OVERLAY)))
 #else
-	if (!argv)
+	if (!argv || (flags & PROC_ORPHAN))
 #endif
 	{
 		errno = ENOEXEC;
 		return 0;
 	}
 	pio[0] = pio[1] = -1;
+#if _lib_fork
+	pop[0] = pop[1] = -1;
+#endif
 #if !_pipe_rw && !_lib_socketpair
 	poi[0] = poi[1] = -1;
 #endif
-	if (cmd && (!*cmd || !pathpath(path, cmd, NiL, PATH_REGULAR|PATH_EXECUTE)))
+	if (cmd && (!*cmd || !pathpath(cmd, NiL, PATH_REGULAR|PATH_EXECUTE, path, sizeof(path))))
 		goto bad;
 	switch (flags & (PROC_READ|PROC_WRITE))
 	{
@@ -431,7 +473,8 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 		if (!setenviron(NiL))
 			goto bad;
 #if _use_spawnveg
-		newenv = 1;
+		if (!(flags & PROC_ORPHAN))
+			newenv = 1;
 #endif
 	}
 	if (procfd >= 0)
@@ -460,7 +503,7 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 		forked = 1;
 	}
 #if _use_spawnveg
-	else if (argv)
+	else if (argv && !(flags & PROC_ORPHAN))
 		proc->pid = 0;
 #endif
 #if _lib_fork
@@ -488,6 +531,8 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 #endif
 #endif
 		}
+		if ((flags & PROC_ORPHAN) && pipe(pop))
+			goto bad;
 		proc->pid = fork();
 		if (!(flags & PROC_FOREGROUND))
 			sigcritical(0);
@@ -523,12 +568,27 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 #endif
 	if (!proc->pid)
 	{
-		char*		s;
 #if _use_spawnveg
 		char**		oenviron = 0;
 		char*		oenviron0 = 0;
 
 		v = 0;
+#endif
+#if _lib_fork
+		if (flags & PROC_ORPHAN)
+		{
+			if (!(proc->pid = fork()))
+			{
+				close(pop[0]);
+				close(pop[1]);
+			}
+			else
+			{
+				if (proc->pid > 0)
+					write(pop[1], &proc->pid, sizeof(proc->pid));
+				_exit(EXIT_NOEXEC);
+			}
+		}
 #endif
 #if DEBUG_PROC
 		stropt(getenv(PROC_ENV_OPTIONS), options, sizeof(*options), setopt, &debug);
@@ -821,6 +881,13 @@ sfsync(sfstderr);
 		}
 		if (!proc->pid)
 			proc->pid = getpid();
+		else if (flags & PROC_ORPHAN)
+		{
+			while (waitpid(proc->pid, &i, 0) == -1 && errno == EINTR);
+			if (read(pop[0], &proc->pid, sizeof(proc->pid)) != sizeof(proc->pid))
+				goto bad;
+			close(pop[0]);
+		}
 		return proc;
 	}
  bad:
@@ -859,6 +926,10 @@ sfsync(sfstderr);
 		close(pio[0]);
 	if (pio[1] >= 0)
 		close(pio[1]);
+	if (pop[0] >= 0)
+		close(pop[0]);
+	if (pop[1] >= 0)
+		close(pop[1]);
 #if !_pipe_rw && !_lib_socketpair
 	if (poi[0] >= 0)
 		close(poi[0]);

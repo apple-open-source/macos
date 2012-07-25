@@ -40,8 +40,6 @@ WKTypeID WKBundleGetTypeID()
 
 void WKBundleSetClient(WKBundleRef bundleRef, WKBundleClient * wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(bundleRef)->initializeClient(wkClient);
 }
 
@@ -56,6 +54,11 @@ void WKBundlePostSynchronousMessage(WKBundleRef bundleRef, WKStringRef messageNa
     toImpl(bundleRef)->postSynchronousMessage(toImpl(messageNameRef)->string(), toImpl(messageBodyRef), returnData);
     if (returnDataRef)
         *returnDataRef = toAPI(returnData.release().leakRef());
+}
+
+WKConnectionRef WKBundleGetApplicationConnection(WKBundleRef bundleRef)
+{
+    return toAPI(toImpl(bundleRef)->webConnectionToUIProcess());
 }
 
 void WKBundleSetShouldTrackVisitedLinks(WKBundleRef bundleRef, bool shouldTrackVisitedLinks)
@@ -123,9 +126,9 @@ void WKBundleRemoveAllUserContent(WKBundleRef bundleRef, WKBundlePageGroupRef pa
     toImpl(bundleRef)->removeAllUserContent(toImpl(pageGroupRef));
 }
 
-void WKBundleOverrideXSSAuditorEnabledForTestRunner(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+void WKBundleOverrideBoolPreferenceForTestRunner(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, WKStringRef preference, bool enabled)
 {
-    toImpl(bundleRef)->overrideXSSAuditorEnabledForTestRunner(toImpl(pageGroupRef), enabled);
+    toImpl(bundleRef)->overrideBoolPreferenceForTestRunner(toImpl(pageGroupRef), toImpl(preference)->string(), enabled);
 }
 
 void WKBundleSetAllowUniversalAccessFromFileURLs(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
@@ -141,6 +144,36 @@ void WKBundleSetAllowFileAccessFromFileURLs(WKBundleRef bundleRef, WKBundlePageG
 void WKBundleSetFrameFlatteningEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
 {
     toImpl(bundleRef)->setFrameFlatteningEnabled(toImpl(pageGroupRef), enabled);
+}
+
+void WKBundleSetGeolocationPermission(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setGeoLocationPermission(toImpl(pageGroupRef), enabled);
+}
+
+void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setJavaScriptCanAccessClipboard(toImpl(pageGroupRef), enabled);
+}
+
+void WKBundleSetPrivateBrowsingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setPrivateBrowsingEnabled(toImpl(pageGroupRef), enabled);
+}
+
+void WKBundleSetPopupBlockingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setPopupBlockingEnabled(toImpl(pageGroupRef), enabled);
+}
+
+void WKBundleSwitchNetworkLoaderToNewTestingSession(WKBundleRef bundleRef)
+{
+    toImpl(bundleRef)->switchNetworkLoaderToNewTestingSession();
+}
+
+void WKBundleSetAuthorAndUserStylesEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
+{
+    toImpl(bundleRef)->setAuthorAndUserStylesEnabled(toImpl(pageGroupRef), enabled);
 }
 
 void WKBundleAddOriginAccessWhitelistEntry(WKBundleRef bundleRef, WKStringRef sourceOrigin, WKStringRef destinationProtocol, WKStringRef destinationHost, bool allowDestinationSubdomains)
@@ -173,6 +206,16 @@ void WKBundleSetDatabaseQuota(WKBundleRef bundleRef, uint64_t quota)
     toImpl(bundleRef)->setDatabaseQuota(quota);
 }
 
+void WKBundleClearApplicationCache(WKBundleRef bundleRef)
+{
+    toImpl(bundleRef)->clearApplicationCache();
+}
+
+void WKBundleSetAppCacheMaximumSize(WKBundleRef bundleRef, uint64_t size)
+{
+    toImpl(bundleRef)->setAppCacheMaximumSize(size);
+}
+
 int WKBundleNumberOfPages(WKBundleRef bundleRef, WKBundleFrameRef frameRef, double pageWidthInPixels, double pageHeightInPixels)
 {
     return toImpl(bundleRef)->numberOfPages(toImpl(frameRef), pageWidthInPixels, pageHeightInPixels);
@@ -196,4 +239,9 @@ bool WKBundleIsPageBoxVisible(WKBundleRef bundleRef, WKBundleFrameRef frameRef, 
 bool WKBundleIsProcessingUserGesture(WKBundleRef)
 {
     return InjectedBundle::isProcessingUserGesture();
+}
+
+void WKBundleSetPageVisibilityState(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, int state, bool isInitialState)
+{
+    toImpl(bundleRef)->setPageVisibilityState(toImpl(pageGroupRef), state, isInitialState);
 }

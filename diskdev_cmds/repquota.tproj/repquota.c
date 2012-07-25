@@ -137,8 +137,6 @@ main(argc, argv)
         int nfst;
         struct statfs *fst;
 #endif /* __APPLE__ */
-	extern char *optarg;
-	extern int optind;
 	char ch, *qfnp;
 
 	while ((ch = getopt(argc, argv, "aguv")) != EOF) {

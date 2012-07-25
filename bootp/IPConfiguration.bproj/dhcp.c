@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,7 +113,7 @@ typedef struct {
     absolute_time_t	start_secs;
     timer_callout_t *	timer;
     int			try;
-    char		txbuf[DHCP_PACKET_MIN];
+    uint32_t		txbuf[DHCP_PACKET_MIN/sizeof(uint32_t)];
     u_int32_t		xid;
     boolean_t		user_warned;
     int			wait_secs;
@@ -131,7 +131,7 @@ typedef struct {
     absolute_time_t	start_secs;
     timer_callout_t *	timer;
     int			try;
-    char		txbuf[DHCP_PACKET_MIN];
+    uint32_t		txbuf[DHCP_PACKET_MIN/sizeof(uint32_t)];
     u_int32_t		xid;
     boolean_t		user_warned;
     int			wait_secs;
@@ -514,7 +514,7 @@ static void
 inform_set_dhcp_info(Service_inform_t * inform, dhcp_info_t * dhcp_info_p)
 {
     if (inform->saved.pkt_size != 0) {
-	dhcp_info_p->pkt = inform->saved.pkt;
+	dhcp_info_p->pkt = (uint8_t *)inform->saved.pkt;
 	dhcp_info_p->pkt_size = inform->saved.pkt_size;
 	dhcp_info_p->options = &inform->saved.options;
     }
@@ -684,7 +684,8 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	  /* clean-up anything that might have come before */
 	  inform_cancel_pending_events(service_p);
-	  inform->request = make_dhcp_request((struct dhcp *)inform->txbuf, 
+	  /* ALIGN: txbuf is aligned to sizeof(uint32_t) bytes */
+	  inform->request = make_dhcp_request((struct dhcp *)(void *)inform->txbuf, 
 					      sizeof(inform->txbuf),
 					      dhcp_msgtype_inform_e,
 					      if_link_address(if_p), 
@@ -815,6 +816,8 @@ inform_request(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  bcopy(pkt->data, inform->saved.pkt, pkt->size);
 		  inform->saved.pkt_size = pkt->size;
 		  inform->saved.rating = rating;
+		  /* ALIGN: saved.pkt is at least sizeof(uint32_t) aligned, 
+		   * cast ok. */
 		  (void)dhcpol_parse_packet(&inform->saved.options, 
 					    (void *)inform->saved.pkt, 
 					    inform->saved.pkt_size, NULL);
@@ -1117,7 +1120,7 @@ inform_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 static void
 dhcp_set_dhcp_info(Service_dhcp_t * dhcp, dhcp_info_t * dhcp_info_p)
 {
-    dhcp_info_p->pkt = dhcp->saved.pkt;
+    dhcp_info_p->pkt = (uint8_t *)dhcp->saved.pkt;
     dhcp_info_p->pkt_size = dhcp->saved.pkt_size;
     dhcp_info_p->options = &dhcp->saved.options;
     dhcp_info_p->lease_start = dhcp->lease.start;
@@ -1377,6 +1380,7 @@ switch_to_lease(ServiceRef service_p, DHCPLeaseRef lease_p)
     }
     bcopy(lease_p->pkt, dhcp->saved.pkt, dhcp->saved.pkt_size);
     dhcpol_free(&dhcp->saved.options);
+    /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
     (void)dhcpol_parse_packet(&dhcp->saved.options, 
 			      (void *)dhcp->saved.pkt, 
 			      dhcp->saved.pkt_size, NULL);
@@ -1772,7 +1776,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  }
 	  if (dhcp->lease.valid && dhcp->saved.is_dhcp) {
 	      _dhcp_lease_save(service_p, dhcp->lease.start,
-			       dhcp->saved.pkt, dhcp->saved.pkt_size,
+			       (uint8_t *)dhcp->saved.pkt, dhcp->saved.pkt_size,
 			       TRUE);
 	  }
 	  break;
@@ -1836,7 +1840,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  if (service_populate_router_arpinfo(service_p,
 		      &info)) {
 		      dhcp_check_router(service_p, IFEventID_start_e,
-					(void*) &info);
+					(void *)&info);
 		      break;
 		  }
 	      }
@@ -1887,7 +1891,7 @@ dhcp_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  if (service_populate_router_arpinfo(service_p,
 	      &info)) {
 	      dhcp_check_router(service_p, IFEventID_start_e, 
-	          	        (void*) &info);
+	          	        (void *)&info);
 	  }
 	  break;	
       }
@@ -1920,7 +1924,8 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  dhcp_cancel_pending_events(service_p);
 	  
 	  /* form the request */
-	  dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+	  /* ALIGN: txbuf is aligned to at least sizeof(uint32) bytes */
+	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf),
 					    dhcp_msgtype_discover_e,
 					    if_link_address(if_p), 
@@ -2100,6 +2105,7 @@ dhcp_init(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 		  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 		  dhcp->saved.pkt_size = pkt->size;
 		  dhcp->saved.rating = rating;
+		  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 		  (void)dhcpol_parse_packet(&dhcp->saved.options, 
 					    (void *)dhcp->saved.pkt, 
 					    dhcp->saved.pkt_size, NULL);
@@ -2179,7 +2185,8 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  dhcp_cancel_pending_events(service_p);
 
 	  /* form the request */
-	  dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+	  /* ALIGN: txbuf is aligned to at least sizeof(uint32_t) bytes */
+	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf), 
 					    dhcp_msgtype_request_e,
 					    if_link_address(if_p), 
@@ -2377,6 +2384,7 @@ dhcp_init_reboot(ServiceRef service_p, IFEventID_t evid, void * event_data)
 		  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 		  dhcp->saved.pkt_size = pkt->size;
 		  dhcp->saved.rating = rating;
+		  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 		  (void)dhcpol_parse_packet(&dhcp->saved.options, 
 					    (void *)dhcp->saved.pkt, 
 					    dhcp->saved.pkt_size, NULL);
@@ -2444,7 +2452,8 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  dhcp->state = dhcp_cstate_select_e;
 
 	  /* form the request */
-	  dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+	  /* ALIGN: txbuf is uint32_t aligned, cast ok */
+	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf),
 					    dhcp_msgtype_request_e,
 					    if_link_address(if_p), 
@@ -2583,6 +2592,7 @@ dhcp_select(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 	  dhcp->saved.pkt_size = pkt->size;
 	  dhcp->saved.rating = 0;
+	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 	  (void)dhcpol_parse_packet(&dhcp->saved.options, 
 				    (void *)dhcp->saved.pkt, 
 				    dhcp->saved.pkt_size, NULL);
@@ -2621,7 +2631,7 @@ dhcp_check_router(ServiceRef service_p,
 			      (arp_result_func_t *)
 			      dhcp_check_router,
 			      service_p,
-                              (void*) IFEventID_arp_e,
+			      (void *)IFEventID_arp_e,
 			      info_p, 1, TRUE);
 	    break;
 	}
@@ -2826,8 +2836,9 @@ dhcp_arp_router(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	      dhcp->request->dp_xid = htonl(++dhcp->xid);
 	      dhcpol_init(&options);
+	      /* ALIGN: txbuf is uint32_t aligned, cast ok */
 	      (void)dhcpol_parse_packet(&options,
-					(struct dhcp *)dhcp->txbuf, 
+					(struct dhcp *)(void *)dhcp->txbuf, 
 					sizeof(dhcp->txbuf), NULL);
 	      req_ip_p 
 		  = dhcpol_find_with_length(&options,
@@ -2920,7 +2931,7 @@ dhcp_resolve_router_callback(ServiceRef service_p, router_arp_status_t status)
 	dhcp_publish_success(service_p);
 	if (dhcp->saved.is_dhcp) {
 	    _dhcp_lease_save(service_p, dhcp->lease.start,
-			     dhcp->saved.pkt, 
+			     (uint8_t *)dhcp->saved.pkt, 
 			     dhcp->saved.pkt_size,
 			     TRUE);
 	}
@@ -2928,7 +2939,7 @@ dhcp_resolve_router_callback(ServiceRef service_p, router_arp_status_t status)
     case router_arp_status_success_e:
 	if (dhcp->saved.is_dhcp) {
 	    _dhcp_lease_save(service_p, dhcp->lease.start,
-			     dhcp->saved.pkt, 
+			     (uint8_t *)dhcp->saved.pkt, 
 			     dhcp->saved.pkt_size,
 			     dhcp->lease.needs_write);
 	    dhcp->lease.needs_write = FALSE;
@@ -3158,7 +3169,7 @@ dhcp_bound(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	if (dhcp->saved.is_dhcp) {
 	    /* save the lease now since we won't ARP for the router */
 	    _dhcp_lease_save(service_p, dhcp->lease.start,
-			     dhcp->saved.pkt, dhcp->saved.pkt_size,
+			     (uint8_t *)dhcp->saved.pkt, dhcp->saved.pkt_size,
 			     dhcp->lease.needs_write);
 	    dhcp->lease.needs_write = FALSE;
 	}
@@ -3217,7 +3228,8 @@ dhcp_decline(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	  /* decline the address */
 	  dhcp->state = dhcp_cstate_decline_e;
-	  dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+	  /* ALIGN: txbuf is uint32_t aligned, cast ok */
+	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf),
 					    dhcp_msgtype_decline_e,
 					    if_link_address(if_p), 
@@ -3343,7 +3355,8 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 
 	  dhcp->state = dhcp_cstate_renew_e;
 	  my_log(LOG_DEBUG, "DHCP %s: RENEW/REBIND", if_name(if_p));
-	  dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+	  /* ALIGN: txbuf is uint32_t aligned, cast ok */
+	  dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 					    sizeof(dhcp->txbuf),
 					    dhcp_msgtype_request_e,
 					    if_link_address(if_p), 
@@ -3495,6 +3508,7 @@ dhcp_renew_rebind(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  bcopy(pkt->data, dhcp->saved.pkt, pkt->size);
 	  dhcp->saved.pkt_size = pkt->size;
 	  dhcp->saved.rating = 0;
+	  /* ALIGN: saved.pkt is uint32_t aligned, cast ok */
 	  (void)dhcpol_parse_packet(&dhcp->saved.options, 
 				    (void *)dhcp->saved.pkt, 
 				    dhcp->saved.pkt_size, NULL);
@@ -3561,7 +3575,9 @@ dhcp_wait_until_arp_completes(ServiceRef service_p)
 	       strerror(errno));
 	return;
     }
-    sin = (struct sockaddr_inarp *)msg.m_space;
+    /* ALIGN: msg_p->m_space is aligned sufficiently 
+     * to dereference sdl safely */
+    sin = (struct sockaddr_inarp *)(void *)msg.m_space;
     if_index = if_link_index(if_p);
 
 #define N_ARP_GET_TRIES		5
@@ -3571,7 +3587,9 @@ dhcp_wait_until_arp_completes(ServiceRef service_p)
 	if (arp_get(s, &msg, addr_wait, if_index) != ARP_RETURN_SUCCESS) {
 	    goto failed;
 	}
-	sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);
+	/* ALIGN: msg_p->m_space is aligned sufficiently 
+	 * to dereference sdl safely */
+	sdl = (struct sockaddr_dl *)(void *)(sin->sin_len + (char *)sin);
 	if (sdl->sdl_family == AF_LINK && sdl->sdl_alen != 0) {
 	    resolved = TRUE;
 	    break;
@@ -3629,7 +3647,8 @@ dhcp_release(ServiceRef service_p)
     }
 
     /* release the address */
-    dhcp->request = make_dhcp_request((struct dhcp *)dhcp->txbuf, 
+    /* ALIGN: txbuf is aligned to at least sizeof(uint32_t) bytes */
+    dhcp->request = make_dhcp_request((struct dhcp *)(void *)dhcp->txbuf, 
 				      sizeof(dhcp->txbuf),
 				      dhcp_msgtype_release_e,
 				      if_link_address(if_p), 

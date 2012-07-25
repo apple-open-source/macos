@@ -23,10 +23,6 @@
 #ifndef _IONETWORKCONTROLLERPRIVATE_H
 #define _IONETWORKCONTROLLERPRIVATE_H
 
-#ifndef sub_iokit_networking
-#define sub_iokit_networking    err_sub(6)
-#endif
-
 #define kMessageControllerWasEnabled  \
         iokit_family_msg(sub_iokit_networking, 0x110)
 

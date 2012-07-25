@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 44;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -23,7 +23,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4A6CE91814475DC400ABA81C /* cxa_demangle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4A6CE91714475DC000ABA81C /* cxa_demangle.cpp */; };
 		F97DBDB3118B612B00A6927F /* eh_extensions.cc in Sources */ = {isa = PBXBuildFile; fileRef = F97DBDB2118B612B00A6927F /* eh_extensions.cc */; };
+		F9AAC19C138F2A5000FB1742 /* eh_extensions.cc in Sources */ = {isa = PBXBuildFile; fileRef = F97DBDB2118B612B00A6927F /* eh_extensions.cc */; };
 		F9CF992B10D71F0100A7081D /* eh_alloc.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231410D7139300BD9FBD /* eh_alloc.cc */; };
 		F9CF992C10D71F0100A7081D /* eh_catch.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231810D7139300BD9FBD /* eh_catch.cc */; };
 		F9CF992D10D71F0100A7081D /* eh_throw.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231E10D7139300BD9FBD /* eh_throw.cc */; };
@@ -44,7 +46,6 @@
 		F9E951B411B5C28D0031458D /* cxa_guard.cxx in Sources */ = {isa = PBXBuildFile; fileRef = F9E951B311B5C28D0031458D /* cxa_guard.cxx */; };
 		F9E952A011B6EE350031458D /* abort_message.c in Sources */ = {isa = PBXBuildFile; fileRef = F9E9529E11B6EE350031458D /* abort_message.c */; };
 		F9EE0608120B6D21003C267B /* cxa_pure_virtual.cxx in Sources */ = {isa = PBXBuildFile; fileRef = F9D77E301208A2A200C57046 /* cxa_pure_virtual.cxx */; };
-		F9FF233F10D713D900BD9FBD /* cp-demangle.c in Sources */ = {isa = PBXBuildFile; fileRef = F9FF230F10D7139300BD9FBD /* cp-demangle.c */; };
 		F9FF234410D713D900BD9FBD /* eh_alloc.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231410D7139300BD9FBD /* eh_alloc.cc */; };
 		F9FF234510D713D900BD9FBD /* eh_arm.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231510D7139300BD9FBD /* eh_arm.cc */; };
 		F9FF234710D713D900BD9FBD /* eh_call.cc in Sources */ = {isa = PBXBuildFile; fileRef = F9FF231710D7139300BD9FBD /* eh_call.cc */; };
@@ -64,7 +65,7 @@
 /* Begin PBXBuildRule section */
 		F95ED5F1125A5E0000087AAD /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.llvm.clang.1_0;
+			compilerSpec = com.apple.compilers.gcc;
 			fileType = sourcecode.cpp;
 			isEditable = 1;
 			outputFiles = (
@@ -72,7 +73,7 @@
 		};
 		F95ED60B125A5F0200087AAD /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
-			compilerSpec = com.apple.compilers.llvm.clang.1_0;
+			compilerSpec = com.apple.compilers.gcc;
 			fileType = sourcecode.c;
 			isEditable = 1;
 			outputFiles = (
@@ -134,6 +135,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4A6CE91614475DAB00ABA81C /* cxa_demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cxa_demangle.h; sourceTree = "<group>"; };
+		4A6CE91714475DC000ABA81C /* cxa_demangle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cxa_demangle.cpp; sourceTree = "<group>"; };
 		F97DBDB2118B612B00A6927F /* eh_extensions.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = eh_extensions.cc; sourceTree = "<group>"; };
 		F9933E6D11656BD00028E34E /* exception */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = exception; sourceTree = "<group>"; };
 		F9933F7511657A880028E34E /* new */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; fileEncoding = 4; path = new; sourceTree = "<group>"; };
@@ -148,11 +151,9 @@
 		F9E951B311B5C28D0031458D /* cxa_guard.cxx */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cxa_guard.cxx; sourceTree = "<group>"; };
 		F9E9529E11B6EE350031458D /* abort_message.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = abort_message.c; sourceTree = "<group>"; };
 		F9E9529F11B6EE350031458D /* abort_message.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = abort_message.h; sourceTree = "<group>"; };
-		F9E952DA11B6F0530031458D /* libCrashReporterClient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libCrashReporterClient.a; path = /usr/local/lib/libCrashReporterClient.a; sourceTree = "<absolute>"; };
 		F9F70BAB12FCADB90015274C /* libcppabi-armv7.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = "libcppabi-armv7.exp"; sourceTree = "<group>"; };
 		F9FF230010D7139300BD9FBD /* ansidecl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ansidecl.h; sourceTree = "<group>"; };
 		F9FF230110D7139300BD9FBD /* c++config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "c++config.h"; sourceTree = "<group>"; };
-		F9FF230210D7139300BD9FBD /* cp-demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cp-demangle.h"; sourceTree = "<group>"; };
 		F9FF230310D7139300BD9FBD /* cxxabi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cxxabi.h; sourceTree = "<group>"; };
 		F9FF230510D7139300BD9FBD /* demangle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = demangle.h; sourceTree = "<group>"; };
 		F9FF230610D7139300BD9FBD /* gthr-posix.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "gthr-posix.h"; sourceTree = "<group>"; };
@@ -161,7 +162,6 @@
 		F9FF230910D7139300BD9FBD /* os_defines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = os_defines.h; sourceTree = "<group>"; };
 		F9FF230B10D7139300BD9FBD /* unwind-cxx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "unwind-cxx.h"; sourceTree = "<group>"; };
 		F9FF230C10D7139300BD9FBD /* unwind-pe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "unwind-pe.h"; sourceTree = "<group>"; };
-		F9FF230F10D7139300BD9FBD /* cp-demangle.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = "cp-demangle.c"; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		F9FF231010D7139300BD9FBD /* del_op.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = del_op.cc; sourceTree = "<group>"; };
 		F9FF231110D7139300BD9FBD /* del_opnt.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = del_opnt.cc; sourceTree = "<group>"; };
 		F9FF231210D7139300BD9FBD /* del_opv.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = del_opv.cc; sourceTree = "<group>"; };
@@ -230,7 +230,6 @@
 				F9D78073120B563A00C57046 /* exports */,
 				F9FF22FF10D7139300BD9FBD /* include */,
 				F9FF239A10D7180A00BD9FBD /* doc */,
-				F9E952DA11B6F0530031458D /* libCrashReporterClient.a */,
 				F9FF233310D713BB00BD9FBD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -243,7 +242,6 @@
 				F9933E6D11656BD00028E34E /* exception */,
 				F9FF230010D7139300BD9FBD /* ansidecl.h */,
 				F9FF230110D7139300BD9FBD /* c++config.h */,
-				F9FF230210D7139300BD9FBD /* cp-demangle.h */,
 				F9FF230310D7139300BD9FBD /* cxxabi.h */,
 				F9FF230510D7139300BD9FBD /* demangle.h */,
 				F9FF230610D7139300BD9FBD /* gthr-posix.h */,
@@ -260,9 +258,10 @@
 		F9FF230D10D7139300BD9FBD /* src */ = {
 			isa = PBXGroup;
 			children = (
+				4A6CE91714475DC000ABA81C /* cxa_demangle.cpp */,
+				4A6CE91614475DAB00ABA81C /* cxa_demangle.h */,
 				F9E9529E11B6EE350031458D /* abort_message.c */,
 				F9E9529F11B6EE350031458D /* abort_message.h */,
-				F9FF230F10D7139300BD9FBD /* cp-demangle.c */,
 				F9E951B311B5C28D0031458D /* cxa_guard.cxx */,
 				F9D77DA312089A2A00C57046 /* cxa_apple.cxx */,
 				F9D77E301208A2A200C57046 /* cxa_pure_virtual.cxx */,
@@ -386,7 +385,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		F99DCBEC130493D30047F359 /* simulator clean up */ = {
 			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
+			buildActionMask = 8;
 			files = (
 			);
 			inputPaths = (
@@ -394,7 +393,7 @@
 			name = "simulator clean up";
 			outputPaths = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "if [ \"${PLATFORM_NAME}\" == \"iphonesimulator\" ]\nthen\n  rm -rf \"${DSTROOT}/usr\"\nfi\n";
 			showEnvVarsInLog = 0;
@@ -408,6 +407,7 @@
 			files = (
 				F9EE0608120B6D21003C267B /* cxa_pure_virtual.cxx in Sources */,
 				F9CF997C10D7217F00A7081D /* eh_call.cc in Sources */,
+				F9AAC19C138F2A5000FB1742 /* eh_extensions.cc in Sources */,
 				F9CF996410D720E200A7081D /* eh_exception.cc in Sources */,
 				F9CF994710D7200100A7081D /* eh_personality.cc in Sources */,
 				F9CF996910D7212000A7081D /* del_op.cc in Sources */,
@@ -429,7 +429,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F9FF233F10D713D900BD9FBD /* cp-demangle.c in Sources */,
 				F9E951B411B5C28D0031458D /* cxa_guard.cxx in Sources */,
 				F9D77DA412089A2A00C57046 /* cxa_apple.cxx in Sources */,
 				F9D77E311208A2A200C57046 /* cxa_pure_virtual.cxx in Sources */,
@@ -446,6 +445,7 @@
 				F9FF235910D713D900BD9FBD /* tinfo2.cc in Sources */,
 				F9FF235A10D713D900BD9FBD /* vec.cc in Sources */,
 				F9E952A011B6EE350031458D /* abort_message.c in Sources */,
+				4A6CE91814475DC400ABA81C /* cxa_demangle.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -506,6 +506,7 @@
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
 				INSTALL_PATH = /usr/local/lib/dyld;
+				"OTHER_CFLAGS[arch=armv6]" = "-mno-thumb";
 				PREBINDING = NO;
 				PRODUCT_NAME = "c++abi-static";
 				ZERO_LINK = NO;
@@ -555,10 +556,16 @@
 					x86_64,
 					i386,
 				);
+				BASE_ARCH_armv6 = iOS;
+				BASE_ARCH_armv7 = iOS;
+				BASE_ARCH_armv7f = iOS;
+				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_i386 = i386;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libcppabi-$(BASE_ARCH_$(CURRENT_ARCH)).exp";
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -570,15 +577,15 @@
 				INSTALL_PATH_PREFIX = "$(INSTALL_PATH_PREFIX_$(PLATFORM_NAME))";
 				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
 				LD_DYLIB_INSTALL_NAME = "/usr/lib/libc++abi.dylib";
-				LIB_iphoneos = "-lgcc_s.1";
+				LIB_iphoneos = "";
 				LIB_macosx = /usr/local/lib/libCrashReporterClient.a;
 				OTHER_CPLUSPLUSFLAGS = (
 					"-nostdinc++",
 					"$(OTHER_CFLAGS)",
 				);
 				OTHER_LDFLAGS = (
-					"-nodefaultlibs",
 					"-lSystem",
+					"-nodefaultlibs",
 					"$(LIB_$(PLATFORM_NAME))",
 				);
 				PREBINDING = NO;
@@ -596,17 +603,23 @@
 					x86_64,
 					i386,
 				);
+				BASE_ARCH_armv6 = iOS;
+				BASE_ARCH_armv7 = iOS;
+				BASE_ARCH_armv7f = iOS;
+				BASE_ARCH_armv7k = iOS;
+				BASE_ARCH_i386 = i386;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
 				EXECUTABLE_PREFIX = lib;
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libcppabi-$(CURRENT_ARCH).exp";
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exports/libcppabi-$(BASE_ARCH_$(CURRENT_ARCH)).exp";
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_ENABLE_ASM_KEYWORD = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/include";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(INSTALL_PATH_PREFIX)/usr/lib";
@@ -614,15 +627,21 @@
 				INSTALL_PATH_PREFIX_iphonesimulator = "$(SDKROOT)";
 				LD_DYLIB_INSTALL_NAME = "/usr/lib/libc++abi.dylib";
 				LD_GENERATE_MAP_FILE = YES;
-				LIB_iphoneos = "-lgcc_s.1";
+				LIB_iphoneos = "";
 				LIB_macosx = /usr/local/lib/libCrashReporterClient.a;
+				"OTHER_CFLAGS[arch=armv6]" = "-mno-thumb";
 				OTHER_CPLUSPLUSFLAGS = (
 					"-nostdinc++",
 					"$(OTHER_CFLAGS)",
 				);
+				"OTHER_CPLUSPLUSFLAGS[arch=*]" = (
+					"-nostdinc++",
+					"-DNDEBUG",
+					"$(OTHER_CFLAGS)",
+				);
 				OTHER_LDFLAGS = (
-					"-nodefaultlibs",
 					"-lSystem",
+					"-nodefaultlibs",
 					"$(LIB_$(PLATFORM_NAME))",
 				);
 				PREBINDING = NO;

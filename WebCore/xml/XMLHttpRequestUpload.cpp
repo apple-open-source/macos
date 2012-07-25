@@ -41,6 +41,11 @@ XMLHttpRequestUpload::XMLHttpRequestUpload(XMLHttpRequest* xmlHttpRequest)
 {
 }
 
+const AtomicString& XMLHttpRequestUpload::interfaceName() const
+{
+    return eventNames().interfaceForXMLHttpRequestUpload;
+}
+
 ScriptExecutionContext* XMLHttpRequestUpload::scriptExecutionContext() const
 {
     return m_xmlHttpRequest->scriptExecutionContext();
@@ -55,5 +60,15 @@ EventTargetData* XMLHttpRequestUpload::ensureEventTargetData()
 {
     return &m_eventTargetData;
 }
+
+void XMLHttpRequestUpload::dispatchEventAndLoadEnd(PassRefPtr<Event> event)
+{
+    ASSERT(event->type() == eventNames().loadEvent || event->type() == eventNames().abortEvent || event->type() == eventNames().errorEvent || event->type() == eventNames().timeoutEvent);
+
+    dispatchEvent(event);
+    dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().loadendEvent));
+}
+
+
 
 } // namespace WebCore

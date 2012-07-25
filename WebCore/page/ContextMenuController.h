@@ -26,6 +26,8 @@
 #ifndef ContextMenuController_h
 #define ContextMenuController_h
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "HitTestResult.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
@@ -44,8 +46,9 @@ namespace WebCore {
     class ContextMenuController {
         WTF_MAKE_NONCOPYABLE(ContextMenuController); WTF_MAKE_FAST_ALLOCATED;
     public:
-        ContextMenuController(Page*, ContextMenuClient*);
         ~ContextMenuController();
+
+        static PassOwnPtr<ContextMenuController> create(Page*, ContextMenuClient*);
 
         ContextMenuClient* client() const { return m_client; }
 
@@ -64,7 +67,13 @@ namespace WebCore {
         void setHitTestResult(const HitTestResult& result) { m_hitTestResult = result; }
         const HitTestResult& hitTestResult() { return m_hitTestResult; }
 
+#if USE(ACCESSIBILITY_CONTEXT_MENUS)
+        void showContextMenuAt(Frame*, const IntPoint& clickPoint);
+#endif
+
     private:
+        ContextMenuController(Page*, ContextMenuClient*);
+
         PassOwnPtr<ContextMenu> createContextMenu(Event*);
         void showContextMenu(Event*);
         
@@ -78,6 +87,9 @@ namespace WebCore {
         void createAndAppendTextDirectionSubMenu(ContextMenuItem&);
         void createAndAppendSubstitutionsSubMenu(ContextMenuItem&);
         void createAndAppendTransformationsSubMenu(ContextMenuItem&);
+#if PLATFORM(GTK)
+        void createAndAppendUnicodeSubMenu(ContextMenuItem&);
+#endif
 
         Page* m_page;
         ContextMenuClient* m_client;
@@ -88,4 +100,5 @@ namespace WebCore {
 
 }
 
+#endif // ENABLE(CONTEXT_MENUS)
 #endif

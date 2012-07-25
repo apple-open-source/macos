@@ -1,5 +1,5 @@
 /*
- * "$Id: job.h 9778 2011-05-18 02:27:11Z mike $"
+ * "$Id: job.h 7883 2008-08-28 20:38:13Z mike $"
  *
  *   Print job definitions for the CUPS scheduler.
  *
@@ -46,9 +46,13 @@ struct cupsd_job_s			/**** Job request ****/
   int			*compressions;	/* Compression status of each file */
   ipp_attribute_t	*sheets;	/* job-media-sheets-completed */
   time_t		access_time,	/* Last access time */
-			kill_time,	/* When to send SIGKILL */
-			hold_until;	/* Hold expiration date/time */
+			cancel_time,	/* When to cancel/send SIGTERM */
+			file_time,	/* Job file retain time */
+			history_time,	/* Job history retain time */
+			hold_until,	/* Hold expiration date/time */
+			kill_time;	/* When to send SIGKILL */
   ipp_attribute_t	*state;		/* Job state */
+  ipp_attribute_t	*reasons;	/* Job state reasons */
   ipp_attribute_t	*job_sheets;	/* Job sheets (NULL if none) */
   ipp_attribute_t	*printer_message,
 					/* job-printer-state-message */
@@ -76,6 +80,8 @@ struct cupsd_job_s			/**** Job request ****/
   void			*profile;	/* Security profile */
   cups_array_t		*history;	/* Debug log history */
   int			progress;	/* Printing progress */
+  int			num_keywords;	/* Number of PPD keywords */
+  cups_option_t		*keywords;	/* PPD keywords */
 };
 
 typedef struct cupsd_joblog_s		/**** Job log message ****/
@@ -89,18 +95,24 @@ typedef struct cupsd_joblog_s		/**** Job log message ****/
  * Globals...
  */
 
-VAR int			JobHistory	VALUE(1);
+VAR int			JobHistory	VALUE(INT_MAX);
 					/* Preserve job history? */
-VAR int			JobFiles	VALUE(0);
+VAR int			JobFiles	VALUE(86400);
 					/* Preserve job files? */
+VAR time_t		JobHistoryUpdate VALUE(0);
+					/* Time for next job history update */
 VAR int			MaxJobs		VALUE(0),
 					/* Max number of jobs */
 			MaxActiveJobs	VALUE(0),
 					/* Max number of active jobs */
+			MaxHoldTime	VALUE(0),
+					/* Max time for indefinite hold */
 			MaxJobsPerUser	VALUE(0),
 					/* Max jobs per user */
-			MaxJobsPerPrinter VALUE(0);
+			MaxJobsPerPrinter VALUE(0),
 					/* Max jobs per printer */
+			MaxJobTime	VALUE(3 * 60 * 60);
+					/* Max time for a job */
 VAR int			JobAutoPurge	VALUE(0);
 					/* Automatically purge jobs */
 VAR cups_array_t	*Jobs		VALUE(NULL),
@@ -149,16 +161,15 @@ extern void		cupsdSetJobState(cupsd_job_t *job,
 			                 ipp_jstate_t newstate,
 					 cupsd_jobaction_t action,
 					 const char *message, ...)
-#ifdef __GNUC__
-__attribute__ ((__format__ (__printf__, 4, 5)))
-#endif /* __GNUC__ */
-;
+					__attribute__((__format__(__printf__,
+					                          4, 5)));
 extern void		cupsdStopAllJobs(cupsd_jobaction_t action,
 			                 int kill_delay);
 extern int		cupsdTimeoutJob(cupsd_job_t *job);
 extern void		cupsdUnloadCompletedJobs(void);
+extern void		cupsdUpdateJobs(void);
 
 
 /*
- * End of "$Id: job.h 9778 2011-05-18 02:27:11Z mike $".
+ * End of "$Id: job.h 7883 2008-08-28 20:38:13Z mike $".
  */

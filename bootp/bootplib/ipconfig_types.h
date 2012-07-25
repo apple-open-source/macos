@@ -85,7 +85,7 @@ ipconfig_status_string(ipconfig_status_t status)
 	"resource unavailable",
 	"network changed"
     };
-    if (status < 0 || status >= ipconfig_status_last_e)
+    if (status >= ipconfig_status_last_e)
 	return ("<unknown>");
     return (str[status]);
 }

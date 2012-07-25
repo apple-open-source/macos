@@ -302,7 +302,11 @@ dt_aggregate_sym(dtrace_hdl_t *dtp, uint64_t *data)
 	GElf_Sym sym;
 	uint64_t *pc = data;
 
-	if (dtrace_lookup_by_addr(dtp, *pc, &sym, NULL) == 0)
+#if defined(__APPLE__)
+	if (dtrace_lookup_by_addr(dtp, *pc, NULL, 0, &sym, NULL) == 0)
+#else
+        if (dtrace_lookup_by_addr(dtp, *pc, &sym, NULL) == 0)
+#endif
 		*pc = sym.st_value;
 }
 

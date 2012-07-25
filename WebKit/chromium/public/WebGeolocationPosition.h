@@ -26,8 +26,8 @@
 #ifndef WebGeolocationPosition_h
 #define WebGeolocationPosition_h
 
-#include "WebCommon.h"
-#include "WebPrivatePtr.h"
+#include "platform/WebCommon.h"
+#include "platform/WebPrivatePtr.h"
 
 #if WEBKIT_IMPLEMENTATION
 #include <wtf/PassRefPtr.h>
@@ -47,9 +47,9 @@ public:
     WebGeolocationPosition(const WebGeolocationPosition& other) { assign(other); }
     ~WebGeolocationPosition() { reset(); }
 
-    WEBKIT_API void assign(double timestamp, double latitude, double longitude, double accuracy, bool providesAltitude, double altitude, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed);
-    WEBKIT_API void assign(const WebGeolocationPosition&);
-    WEBKIT_API void reset();
+    WEBKIT_EXPORT void assign(double timestamp, double latitude, double longitude, double accuracy, bool providesAltitude, double altitude, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed);
+    WEBKIT_EXPORT void assign(const WebGeolocationPosition&);
+    WEBKIT_EXPORT void reset();
 
 #if WEBKIT_IMPLEMENTATION
     WebGeolocationPosition(WTF::PassRefPtr<WebCore::GeolocationPosition>);

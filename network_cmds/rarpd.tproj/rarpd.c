@@ -129,7 +129,6 @@ main(argc, argv)
 	int     op, pid, devnull, f;
 	char   *ifname, *hostname, *name;
 
-	extern char *optarg;
 	extern int optind, opterr;
 
 	if ((name = strrchr(argv[0], '/')) != NULL)

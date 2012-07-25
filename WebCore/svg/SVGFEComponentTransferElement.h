@@ -34,14 +34,14 @@ public:
 private:
     SVGFEComponentTransferElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
+    // FIXME: svgAttributeChanged missing.
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    // Animated property declarations
-    DECLARE_ANIMATED_STRING(In1, in1)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEComponentTransferElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

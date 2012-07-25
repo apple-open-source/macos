@@ -1,0 +1,20 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2011-10-31</string>
+        <key>OpenSourceProject</key>
+        <string>HTML-Format</string>
+        <key>OpenSourceVersion</key>
+        <string>2.10</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/N/NI/NIGELM/HTML-Format-2.10.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Silence UNIVERSAL->import deprecation warnings</string>
+	</array>
+</dict>

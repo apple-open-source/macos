@@ -46,6 +46,7 @@ class QWebPage;
 namespace WebCore {
 
 class FileChooser;
+class FileIconLoader;
 class FloatRect;
 class Page;
 struct FrameLoadRequest;
@@ -113,16 +114,16 @@ public:
     virtual KeyboardUIMode keyboardUIMode();
     virtual IntRect windowResizerRect() const;
 
-    virtual void invalidateWindow(const IntRect&, bool);
-    virtual void invalidateContentsAndWindow(const IntRect&, bool);
+    virtual void invalidateRootView(const IntRect&, bool);
+    virtual void invalidateContentsAndRootView(const IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
     virtual void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect);
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
     virtual void delegatedScrollRequested(const IntPoint& scrollPoint);
 #endif
 
-    virtual IntPoint screenToWindow(const IntPoint&) const;
-    virtual IntRect windowToScreen(const IntRect&) const;
+    virtual IntPoint screenToRootView(const IntPoint&) const;
+    virtual IntRect rootViewToScreen(const IntRect&) const;
     virtual PlatformPageClient platformPageClient() const;
     virtual void contentsSizeChanged(Frame*, const IntSize&) const;
 
@@ -132,20 +133,11 @@ public:
     virtual void setToolTip(const String&, TextDirection);
 
     virtual void print(Frame*);
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
-    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
-#endif
-#if ENABLE(CONTEXT_MENUS)
-    virtual void showContextMenu() { }
-#endif
-
-#if ENABLE(NOTIFICATIONS)
-    virtual NotificationPresenter* notificationPresenter() const;
-#endif
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
 
 #if USE(ACCELERATED_COMPOSITING)
     // This is a hook for WebCore to tell us what we need to do with the GraphicsLayers.
@@ -156,7 +148,7 @@ public:
 #endif
     virtual bool allowsAcceleratedCompositing() const;
 
-#if ENABLE(TILED_BACKING_STORE)
+#if USE(TILED_BACKING_STORE)
     virtual IntRect visibleRectForTiledBackingStore() const;
 #endif
 
@@ -164,7 +156,7 @@ public:
     virtual void needTouchEvents(bool) { }
 #endif
  
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA) || USE(QTKIT))
     virtual bool supportsFullscreenForNode(const Node*);
     virtual void enterFullscreenForNode(Node*);
     virtual void exitFullscreenForNode(Node*);
@@ -172,30 +164,29 @@ public:
     FullScreenVideoQt* fullScreenVideo();
 #endif
      virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-     virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
+     virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
 
     virtual void formStateDidChange(const Node*) { }
 
     virtual void setCursor(const Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool) { }
 
-    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const { }
-
-    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { }
-    virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
+    virtual void scrollRectIntoView(const LayoutRect) const { }
 
     virtual bool selectItemWritingDirectionIsNatural();
     virtual bool selectItemAlignmentFollowsMenuWritingDirection();
+    virtual bool hasOpenedPopup() const;
     virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
     virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
     virtual void populateVisitedLinks();
 
     PassOwnPtr<QWebSelectMethod> createSelectPopup() const;
 
-    virtual void dispatchViewportDataDidChange(const ViewportArguments&) const;
+    virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const;
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
+    virtual void numTouchEventHandlersChanged(unsigned) { }
 
     QWebPage* m_webPage;
     KURL lastHoverURL;
@@ -207,7 +198,7 @@ public:
     bool menuBarVisible;
     QEventLoop* m_eventLoop;
 
-#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA))
+#if ENABLE(VIDEO) && (USE(GSTREAMER) || USE(QT_MULTIMEDIA) || USE(QTKIT))
     FullScreenVideoQt* m_fullScreenVideo;
 #endif
 

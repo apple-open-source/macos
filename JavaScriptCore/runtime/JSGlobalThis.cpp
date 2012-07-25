@@ -31,6 +31,7 @@
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSGlobalThis);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSGlobalThis);
 
 const ClassInfo JSGlobalThis::s_info = { "JSGlobalThis", &Base::s_info, 0, 0, CREATE_METHOD_TABLE(JSGlobalThis) };
 
@@ -47,9 +48,12 @@ void JSGlobalThis::visitChildren(JSCell* cell, SlotVisitor& visitor)
         visitor.append(&thisObject->m_unwrappedObject);
 }
 
-JSGlobalObject* JSGlobalThis::unwrappedObject()
+void JSGlobalThis::setUnwrappedObject(JSGlobalData& globalData, JSGlobalObject* globalObject)
 {
-    return m_unwrappedObject.get();
+    ASSERT_ARG(globalObject, globalObject);
+    m_unwrappedObject.set(globalData, this, globalObject);
+    setPrototype(globalData, globalObject->prototype());
+    resetInheritorID();
 }
 
 } // namespace JSC

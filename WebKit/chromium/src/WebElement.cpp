@@ -29,15 +29,16 @@
  */
 
 #include "config.h"
+#include "platform/WebRect.h"
 #include "WebElement.h"
+#include "WebDocument.h"
 
 #include "Element.h"
+#include "NamedNodeMap.h"
 #include "RenderBoxModelObject.h"
 #include "RenderObject.h"
-#include "ShadowRoot.h"
 #include <wtf/PassRefPtr.h>
 
-#include "WebNamedNodeMap.h"
 
 using namespace WebCore;
 
@@ -81,39 +82,52 @@ bool WebElement::setAttribute(const WebString& attrName, const WebString& attrVa
     return !exceptionCode;
 }
 
-WebNamedNodeMap WebElement::attributes() const
+unsigned WebElement::attributeCount() const
 {
-    return WebNamedNodeMap(m_private->attributes());
+    if (!constUnwrap<Element>()->hasAttributes())
+        return 0;
+    return constUnwrap<Element>()->attributeCount();
 }
 
-WebString WebElement::innerText() const
+WebString WebElement::attributeLocalName(unsigned index) const
 {
-    return constUnwrap<Element>()->innerText();
+    if (index >= attributeCount())
+        return WebString();
+    return constUnwrap<Element>()->attributeItem(index)->localName();
 }
 
-WebNode WebElement::shadowRoot()
+WebString WebElement::attributeValue(unsigned index) const
 {
-    return PassRefPtr<Node>(static_cast<Node*>(unwrap<Element>()->shadowRoot()));
+    if (index >= attributeCount())
+        return WebString();
+    return constUnwrap<Element>()->attributeItem(index)->value();
 }
 
-WebNode WebElement::ensureShadowRoot()
+WebString WebElement::innerText()
 {
-    return PassRefPtr<Node>(static_cast<Node*>(unwrap<Element>()->ensureShadowRoot()));
-}
-
-void WebElement::removeShadowRoot()
-{
-    unwrap<Element>()->removeShadowRoot();
-}
-
-WebString WebElement::shadowPseudoId() const
-{
-    return WebString(constUnwrap<Element>()->shadowPseudoId().string());
+    return unwrap<Element>()->innerText();
 }
 
 WebString WebElement::computeInheritedLanguage() const
 {
     return WebString(constUnwrap<Element>()->computeInheritedLanguage());
+}
+
+void WebElement::requestFullScreen()
+{
+#if ENABLE(FULLSCREEN_API)
+    unwrap<Element>()->webkitRequestFullScreen(Element::ALLOW_KEYBOARD_INPUT);
+#endif
+}
+
+WebDocument WebElement::document() const
+{
+    return WebDocument(constUnwrap<Element>()->document());
+}
+
+WebRect WebElement::boundsInViewportSpace()
+{
+    return unwrap<Element>()->boundsInRootViewSpace();
 }
 
 WebElement::WebElement(const PassRefPtr<Element>& elem)

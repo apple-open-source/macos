@@ -1,5 +1,5 @@
 #
-# "$Id: mime.types 9871 2011-08-06 06:34:46Z mike $"
+# "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $"
 #
 #   Base MIME types file for CUPS.
 #
@@ -170,5 +170,5 @@ application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 application/octet-stream
 
 #
-# End of "$Id: mime.types 9871 2011-08-06 06:34:46Z mike $".
+# End of "$Id: mime.types 7670 2008-06-17 22:42:08Z mike $".
 #

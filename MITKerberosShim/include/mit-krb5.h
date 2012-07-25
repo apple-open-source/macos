@@ -82,12 +82,13 @@
 #include <win-mac.h>
 #endif
 
-#ifndef KRB5_CONFIG__
 #ifndef KRB5_CALLCONV
 #define KRB5_CALLCONV
-#define KRB5_CALLCONV_C
 #endif /* !KRB5_CALLCONV */
-#endif /* !KRB5_CONFIG__ */
+
+#ifndef KRB5_CALLCONV_C
+#define KRB5_CALLCONV_C
+#endif /* !KRB5_CALLCONV_C */
 
 #include <stdlib.h>
 #include <limits.h>		/* for *_MAX */

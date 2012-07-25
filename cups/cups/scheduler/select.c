@@ -1,5 +1,5 @@
 /*
- * "$Id: select.c 9350 2010-11-04 23:23:25Z mike $"
+ * "$Id: select.c 7720 2008-07-11 22:46:21Z mike $"
  *
  *   Select abstraction functions for the CUPS scheduler.
  *
@@ -33,12 +33,12 @@
 
 #ifdef HAVE_EPOLL
 #  include <sys/epoll.h>
-#  include <sys/poll.h>
+#  include <poll.h>
 #elif defined(HAVE_KQUEUE)
 #  include <sys/event.h>
 #  include <sys/time.h>
 #elif defined(HAVE_POLL)
-#  include <sys/poll.h>
+#  include <poll.h>
 #elif defined(__hpux)
 #  include <sys/time.h>
 #else
@@ -947,5 +947,5 @@ find_fd(int fd)				/* I - File descriptor */
 
 
 /*
- * End of "$Id: select.c 9350 2010-11-04 23:23:25Z mike $".
+ * End of "$Id: select.c 7720 2008-07-11 22:46:21Z mike $".
  */

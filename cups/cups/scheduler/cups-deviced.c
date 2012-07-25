@@ -1,5 +1,5 @@
 /*
- * "$Id: cups-deviced.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: cups-deviced.c 7816 2008-07-30 20:53:31Z mike $"
  *
  *   Device scanning mini-daemon for CUPS.
  *
@@ -806,5 +806,5 @@ start_backend(const char *name,		/* I - Backend to run */
 
 
 /*
- * End of "$Id: cups-deviced.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: cups-deviced.c 7816 2008-07-30 20:53:31Z mike $".
  */

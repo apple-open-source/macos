@@ -24,9 +24,11 @@
 #if ENABLE(SVG)
 #include "RenderSVGInline.h"
 
+#include "RenderSVGInlineText.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGText.h"
 #include "SVGInlineFlowBox.h"
+#include "SVGResourcesCache.h"
 
 namespace WebCore {
     
@@ -67,39 +69,36 @@ FloatRect RenderSVGInline::repaintRectInLocalCoordinates() const
     return FloatRect();
 }
 
-IntRect RenderSVGInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
+LayoutRect RenderSVGInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer) const
 {
     return SVGRenderSupport::clippedOverflowRectForRepaint(this, repaintContainer);
 }
 
-void RenderSVGInline::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
+void RenderSVGInline::computeFloatRectForRepaint(RenderBoxModelObject* repaintContainer, FloatRect& repaintRect, bool fixed) const
 {
-    SVGRenderSupport::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
+    SVGRenderSupport::computeFloatRectForRepaint(this, repaintContainer, repaintRect, fixed);
 }
 
-void RenderSVGInline::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState& transformState) const
+void RenderSVGInline::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool /* useTransforms */, bool /* fixed */, TransformState& transformState, ApplyContainerFlipOrNot, bool* wasFixed) const
 {
-    SVGRenderSupport::mapLocalToContainer(this, repaintContainer, useTransforms, fixed, transformState);
+    SVGRenderSupport::mapLocalToContainer(this, repaintContainer, transformState, wasFixed);
 }
 
-void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads)
+void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
 {
-    RenderObject* object = RenderSVGText::locateRenderSVGTextAncestor(this);
+    const RenderObject* object = RenderSVGText::locateRenderSVGTextAncestor(this);
     if (!object)
         return;
 
     FloatRect textBoundingBox = object->strokeBoundingBox();
     for (InlineFlowBox* box = firstLineBox(); box; box = box->nextLineBox())
-        quads.append(localToAbsoluteQuad(FloatRect(textBoundingBox.x() + box->x(), textBoundingBox.y() + box->y(), box->logicalWidth(), box->logicalHeight())));
+        quads.append(localToAbsoluteQuad(FloatRect(textBoundingBox.x() + box->x(), textBoundingBox.y() + box->y(), box->logicalWidth(), box->logicalHeight()), false, wasFixed));
 }
 
-void RenderSVGInline::destroy()
+void RenderSVGInline::willBeDestroyed()
 {
-    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this))
-        textRenderer->setNeedsPositioningValuesUpdate();
-
     SVGResourcesCache::clientDestroyed(this);
-    RenderInline::destroy();
+    RenderInline::willBeDestroyed();
 }
 
 void RenderSVGInline::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
@@ -121,6 +120,12 @@ void RenderSVGInline::updateFromElement()
     SVGResourcesCache::clientUpdatedFromElement(this, style());
 }
 
+void RenderSVGInline::addChild(RenderObject* child, RenderObject* beforeChild)
+{
+    RenderInline::addChild(child, beforeChild);
+    if (RenderSVGText* textRenderer = RenderSVGText::locateRenderSVGTextAncestor(this))
+        textRenderer->layoutAttributesChanged(child);
+}
 
 }
 

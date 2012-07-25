@@ -44,11 +44,6 @@ PROGS = makerelocs.NEW mtoc.NEW
 
 all:	$(OFILE_DIR) $(SYMROOT) $(PROGS)
 
-vers.c:
-	vers_string -c $(VERS_STRING_FLAGS) cctools_efi > $(OFILE_DIR)/$@
-	echo "const char apple_version[]= " \"`vers_string $(VERS_STRING_FLAGS) -f cctools`\" ";" >> \
-	$(OFILE_DIR)/$@
-
 ifeq "NO" "$(USE_DEPENDENCY_FILE)"
 .c.o:
 	$(CC) $(CFLAGS) $(RC_CFLAGS) -c -o $(OFILE_DIR)/$*.o $<
@@ -59,17 +54,17 @@ else
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
 
-makerelocs.NEW: makerelocs.o vers.o
+makerelocs.NEW: makerelocs.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/makerelocs.private.o \
-		$(OFILE_DIR)/makerelocs.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
+		$(OFILE_DIR)/makerelocs.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/makerelocs.NEW \
 		$(OFILE_DIR)/makerelocs.private.o
 
-mtoc.NEW: mtoc.o vers.o
+mtoc.NEW: mtoc.o
 	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/mtoc.private.o \
-		$(OFILE_DIR)/mtoc.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
+		$(OFILE_DIR)/mtoc.o $(LIBSTUFF)
 	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/mtoc.NEW \
 		$(OFILE_DIR)/mtoc.private.o
 
@@ -80,8 +75,6 @@ clean: shlib_clean
 
 shlib_clean:
 	-rm -f \
-	$(OFILE_DIR)/vers.c \
-	$(OFILE_DIR)/vers.o \
 	$(OFILE_DIR)/makerelocs.o \
 	$(OFILE_DIR)/makerelocs.private.o \
 	$(OFILE_DIR)/mtoc.o \

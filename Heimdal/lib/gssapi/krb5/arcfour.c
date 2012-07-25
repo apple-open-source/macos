@@ -86,7 +86,7 @@ arcfour_mic_key(krb5_context context, krb5_keyblock *key,
     cksum_k5.checksum.data = k5_data;
     cksum_k5.checksum.length = sizeof(k5_data);
 
-    if (key->keytype == KEYTYPE_ARCFOUR_56) {
+    if (key->keytype == KRB5_ENCTYPE_ARCFOUR_HMAC_MD5_56) {
 	char L40[14] = "fortybits";
 
 	memcpy(L40 + 10, T, sizeof(T));
@@ -100,7 +100,7 @@ arcfour_mic_key(krb5_context context, krb5_keyblock *key,
     if (ret)
 	return ret;
 
-    key5.keytype = KEYTYPE_ARCFOUR;
+    key5.keytype = KRB5_ENCTYPE_ARCFOUR_HMAC_MD5;
     key5.keyvalue = cksum_k5.checksum;
 
     cksum_k6.checksum.data = key6_data;
@@ -255,7 +255,7 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
 			   const gss_buffer_t token_buffer,
 			   gss_qop_t * qop_state,
 			   krb5_keyblock *key,
-			   char *type)
+			   const char *type)
 {
     krb5_error_code ret;
     uint32_t seq_number;
@@ -270,7 +270,7 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
     p = token_buffer->value;
     omret = _gsskrb5_verify_header (&p,
 				       token_buffer->length,
-				       (u_char *)type,
+				       type,
 				       GSS_KRB5_MECHANISM);
     if (omret)
 	return omret;
@@ -309,7 +309,7 @@ _gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
 
     {
 	EVP_CIPHER_CTX rc4_key;
-	
+
 	EVP_CIPHER_CTX_init(&rc4_key);
 	EVP_CipherInit_ex(&rc4_key, EVP_rc4(), NULL, (void *)k6_data, NULL, 0);
 	EVP_Cipher(&rc4_key, SND_SEQ, p, 8);
@@ -462,7 +462,7 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
 
     if(conf_req_flag) {
 	EVP_CIPHER_CTX rc4_key;
-	
+
 	EVP_CIPHER_CTX_init(&rc4_key);
 	EVP_CipherInit_ex(&rc4_key, EVP_rc4(), NULL, k6_data, NULL, 1);
 	EVP_Cipher(&rc4_key, p0 + 24, p0 + 24, 8 + datalen);
@@ -481,7 +481,7 @@ _gssapi_wrap_arcfour(OM_uint32 * minor_status,
 
     {
 	EVP_CIPHER_CTX rc4_key;
-	
+
 	EVP_CIPHER_CTX_init(&rc4_key);
 	EVP_CipherInit_ex(&rc4_key, EVP_rc4(), NULL, k6_data, NULL, 1);
 	EVP_Cipher(&rc4_key, p0 + 8, p0 + 8 /* SND_SEQ */, 8);
@@ -581,7 +581,7 @@ OM_uint32 _gssapi_unwrap_arcfour(OM_uint32 *minor_status,
 
     {
 	EVP_CIPHER_CTX rc4_key;
-	
+
 	EVP_CIPHER_CTX_init(&rc4_key);
 	EVP_CipherInit_ex(&rc4_key, EVP_rc4(), NULL, k6_data, NULL, 1);
 	EVP_Cipher(&rc4_key, SND_SEQ, p0 + 8, 8);
@@ -629,7 +629,7 @@ OM_uint32 _gssapi_unwrap_arcfour(OM_uint32 *minor_status,
 
     if(conf_flag) {
 	EVP_CIPHER_CTX rc4_key;
-	
+
 	EVP_CIPHER_CTX_init(&rc4_key);
 	EVP_CipherInit_ex(&rc4_key, EVP_rc4(), NULL, k6_data, NULL, 1);
 	EVP_Cipher(&rc4_key, Confounder, p0 + 24, 8);

@@ -44,9 +44,16 @@
 .Sh SYNOPSIS
 .In string.h
 .Ft int
-.Fn strcmp "const char *s1" "const char *s2"
+.Fo strcmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fc
 .Ft int
-.Fn strncmp "const char *s1" "const char *s2" "size_t len"
+.Fo strncmp
+.Fa "const char *s1"
+.Fa "const char *s2"
+.Fa "size_t n"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn strcmp
@@ -62,7 +69,7 @@ The
 .Fn strncmp
 function
 compares not more than
-.Fa len
+.Fa n
 characters.
 Because
 .Fn strncmp

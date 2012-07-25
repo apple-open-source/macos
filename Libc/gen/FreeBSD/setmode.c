@@ -66,12 +66,15 @@ typedef struct bitcmd {
 #define	CMD2_OBITS	0x08
 #define	CMD2_UBITS	0x10
 
+#define	compress_mode	_sm_compress_mode
+
 static BITCMD	*addcmd(BITCMD *, int, int, int, u_int);
-static void	 compress_mode(BITCMD *);
+__private_extern__ void		compress_mode(BITCMD *);
 #ifdef SETMODE_DEBUG
 static void	 dumpmode(BITCMD *);
 #endif
 
+#ifndef BUILDING_VARIANT
 /*
  * Given the old mode and an array of bitcmd structures, apply the operations
  * described in the bitcmd structures to the old mode, and return the new mode.
@@ -145,6 +148,7 @@ common:			if (set->cmd2 & CMD2_CLR) {
 			return (newmode);
 		}
 }
+#endif /* BUILDING_VARIANT */
 
 #define	ADDCMD(a, b, c, d)						\
 	if (set >= endset) {						\
@@ -163,7 +167,11 @@ common:			if (set->cmd2 & CMD2_CLR) {
 	}								\
 	set = addcmd(set, (a), (b), (c), (d))
 
+#ifndef VARIANT_LEGACY
+#define	STANDARD_BITS	(S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO|S_ISTXT)
+#else /* VARIANT_LEGACY */
 #define	STANDARD_BITS	(S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO)
+#endif /* !VARIANT_LEGACY */
 
 void *
 setmode(const char *p)
@@ -204,12 +212,21 @@ setmode(const char *p)
 	 */
 	if (isdigit((unsigned char)*p)) {
 		perml = strtol(p, &ep, 8);
-		if (*ep || perml < 0 || perml & ~(STANDARD_BITS|S_ISTXT)) {
+#ifndef VARIANT_LEGACY
+		if (*ep || perml < 0 || perml & ~STANDARD_BITS)
+#else /* VARIANT_LEGACY */
+		if (*ep || perml < 0 || perml & ~(STANDARD_BITS|S_ISTXT))
+#endif /* !VARIANT_LEGACY */
+		{
 			free(saveset);
 			return (NULL);
 		}
 		perm = (mode_t)perml;
+#ifndef VARIANT_LEGACY
+		ADDCMD('=', STANDARD_BITS, perm, mask);
+#else /* VARIANT_LEGACY */
 		ADDCMD('=', (STANDARD_BITS|S_ISTXT), perm, mask);
+#endif /* !VARIANT_LEGACY */
 		set->cmd = 0;
 		return (saveset);
 	}
@@ -246,7 +263,9 @@ getop:		if ((op = *p++) != '+' && op != '-' && op != '=') {
 		if (op == '=')
 			equalopdone = 0;
 
+#ifdef VARIANT_LEGACY
 		who &= ~S_ISTXT;
+#endif /* VARIANT_LEGACY */
 		for (perm = 0, permXbits = 0;; ++p) {
 			switch (*p) {
 			case 'r':
@@ -260,7 +279,9 @@ getop:		if ((op = *p++) != '+' && op != '-' && op != '=') {
 			case 't':
 				/* If only "other" bits ignore sticky. */
 				if (!who || who & ~S_IRWXO) {
+#ifdef VARIANT_LEGACY
 					who |= S_ISTXT;
+#endif /* VARIANT_LEGACY */
 					perm |= S_ISTXT;
 				}
 				break;
@@ -390,13 +411,14 @@ dumpmode(BITCMD *set)
 }
 #endif
 
+#ifndef BUILDING_VARIANT
 /*
  * Given an array of bitcmd structures, compress by compacting consecutive
  * '+', '-' and 'X' commands into at most 3 commands, one of each.  The 'u',
  * 'g' and 'o' commands continue to be separate.  They could probably be
  * compacted, but it's not worth the effort.
  */
-static void
+__private_extern__ void
 compress_mode(BITCMD *set)
 {
 	BITCMD *nset;
@@ -444,3 +466,4 @@ compress_mode(BITCMD *set)
 		}
 	}
 }
+#endif /* BUILDING_VARIANT */

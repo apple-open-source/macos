@@ -24,29 +24,30 @@
 #if ENABLE(DETAILS)
 
 #include "DetailsMarkerControl.h"
+#include "HTMLContentElement.h"
 #include "HTMLDetailsElement.h"
 #include "HTMLNames.h"
+#include "KeyboardEvent.h"
 #include "MouseEvent.h"
+#include "NodeRenderingContext.h"
 #include "PlatformMouseEvent.h"
-#include "RenderSummary.h"
-#include "ShadowContentElement.h"
+#include "RenderBlock.h"
 #include "ShadowRoot.h"
+#include "ShadowTree.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-class SummaryContentElement : public ShadowContentElement {
+class SummaryContentElement : public HTMLContentElement {
 public:
     static PassRefPtr<SummaryContentElement> create(Document*);
 
 private:
     SummaryContentElement(Document* document)
-        : ShadowContentElement(document)
+        : HTMLContentElement(HTMLNames::webkitShadowContentTag, document)
     {
     }
-
-    virtual bool shouldInclude(Node*) { return true; }
 };
 
 PassRefPtr<SummaryContentElement> SummaryContentElement::create(Document* document)
@@ -69,19 +70,25 @@ HTMLSummaryElement::HTMLSummaryElement(const QualifiedName& tagName, Document* d
 
 RenderObject* HTMLSummaryElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    return new (arena) RenderSummary(this);
+    return new (arena) RenderBlock(this);
+}
+
+bool HTMLSummaryElement::childShouldCreateRenderer(const NodeRenderingContext& childContext) const
+{
+    return childContext.isOnEncapsulationBoundary() && HTMLElement::childShouldCreateRenderer(childContext);
 }
 
 void HTMLSummaryElement::createShadowSubtree()
 {
-    ExceptionCode ec = 0;
-    ensureShadowRoot()->appendChild(DetailsMarkerControl::create(document()), ec, true);
-    ensureShadowRoot()->appendChild(SummaryContentElement::create(document()), ec, true);
+    ASSERT(!hasShadowRoot());
+    RefPtr<ShadowRoot> root = ShadowRoot::create(this, ShadowRoot::CreatingUserAgentShadowRoot);
+    root->appendChild(DetailsMarkerControl::create(document()), ASSERT_NO_EXCEPTION, true);
+    root->appendChild(SummaryContentElement::create(document()), ASSERT_NO_EXCEPTION, true);
 }
 
 HTMLDetailsElement* HTMLSummaryElement::detailsElement() const
 {
-    Element* mayDetails = toElement(const_cast<HTMLSummaryElement*>(this)->parentNodeForRenderingAndStyle());
+    Node* mayDetails = const_cast<HTMLSummaryElement*>(this)->parentNodeForRenderingAndStyle();
     if (!mayDetails || !mayDetails->hasTagName(detailsTag))
         return 0;
     return static_cast<HTMLDetailsElement*>(mayDetails);
@@ -90,23 +97,65 @@ HTMLDetailsElement* HTMLSummaryElement::detailsElement() const
 bool HTMLSummaryElement::isMainSummary() const
 {
     if (HTMLDetailsElement* details = detailsElement())
-        return details->mainSummary() == this;
-    return 0;
+        return details->findMainSummary() == this;
+
+    return false;
+}
+
+static bool isClickableControl(Node* node)
+{
+    if (!node->isElementNode())
+        return false;
+    Element* element = toElement(node);
+    if (element->isFormControlElement())
+        return true;
+    Element* host = toElement(element->shadowAncestorNode());
+    return host && host->isFormControlElement();
+}
+
+bool HTMLSummaryElement::supportsFocus() const
+{
+    return isMainSummary();
 }
 
 void HTMLSummaryElement::defaultEventHandler(Event* event)
 {
+    if (isMainSummary() && renderer()) {
+        if (event->type() == eventNames().DOMActivateEvent && !isClickableControl(event->target()->toNode())) {
+            if (HTMLDetailsElement* details = detailsElement())
+                details->toggleOpen();
+            event->setDefaultHandled();
+            return;
+        }
+
+        if (event->isKeyboardEvent()) {
+            if (event->type() == eventNames().keydownEvent && static_cast<KeyboardEvent*>(event)->keyIdentifier() == "U+0020") {
+                setActive(true, true);
+                // No setDefaultHandled() - IE dispatches a keypress in this case.
+                return;
+            }
+            if (event->type() == eventNames().keypressEvent) {
+                switch (static_cast<KeyboardEvent*>(event)->charCode()) {
+                case '\r':
+                    dispatchSimulatedClick(event);
+                    event->setDefaultHandled();
+                    return;
+                case ' ':
+                    // Prevent scrolling down the page.
+                    event->setDefaultHandled();
+                    return;
+                }
+            }
+            if (event->type() == eventNames().keyupEvent && static_cast<KeyboardEvent*>(event)->keyIdentifier() == "U+0020") {
+                if (active())
+                    dispatchSimulatedClick(event);
+                event->setDefaultHandled();
+                return;
+            }
+        }
+    }
+
     HTMLElement::defaultEventHandler(event);
-    if (!isMainSummary() || !renderer() || !renderer()->isSummary() || !event->isMouseEvent() || event->type() != eventNames().clickEvent || event->defaultHandled())
-        return;
-
-    MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-    if (mouseEvent->button() != LeftButton)
-        return;
-
-    if (HTMLDetailsElement* details = detailsElement())
-        details->toggleOpen();
-    event->setDefaultHandled();
 }
 
 }

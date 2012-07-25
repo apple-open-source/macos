@@ -52,11 +52,10 @@
 #define DST_TYPE_WALL 4
 #define DST_TYPE_NOTE 5
 
-#define CLOSE_ON_IDLE_SEC 60
+#define CLOSE_ON_IDLE_SEC 300
 
-static asl_msg_t *query = NULL;
-static int reset = RESET_NONE;
-static pthread_mutex_t reset_lock = PTHREAD_MUTEX_INITIALIZER;
+static dispatch_queue_t bsd_out_queue;
+static dispatch_source_t bsd_idle_timer;
 
 struct config_rule
 {
@@ -71,6 +70,7 @@ struct config_rule
 	uint32_t last_hash;
 	uint32_t last_count;
 	time_t last_time;
+	dispatch_source_t dup_timer;
 	char *last_msg;
 	TAILQ_ENTRY(config_rule) entries;
 };
@@ -78,35 +78,6 @@ struct config_rule
 static TAILQ_HEAD(cr, config_rule) bsd_out_rule;
 
 extern uint32_t asl_core_string_hash(const char *s, uint32_t inlen);
-
-int bsd_out_close();
-int bsd_out_network_reset(void);
-static int _parse_config_file(const char *);
-
-static void
-_do_reset(void)
-{
-	pthread_mutex_lock(&reset_lock);
-	if (reset == RESET_NONE)
-	{
-		pthread_mutex_unlock(&reset_lock);
-		return;
-	}
-
-	if (reset == RESET_CONFIG)
-	{
-		bsd_out_close();
-		_parse_config_file(_PATH_SYSLOG_CONF);
-	}
-	else if (reset == RESET_NETWORK)
-	{
-		bsd_out_network_reset();
-	}
-
-	reset = RESET_NONE;
-
-	pthread_mutex_unlock(&reset_lock);
-}
 
 static int
 _level_for_name(const char *name)
@@ -386,7 +357,7 @@ _parse_line(char *s)
 }
 
 static int
-_syslog_send_repeat_msg(struct config_rule *r)
+_bsd_send_repeat_msg(struct config_rule *r)
 {
 	char vt[32], *msg;
 	time_t tick;
@@ -396,6 +367,9 @@ _syslog_send_repeat_msg(struct config_rule *r)
 	if (r->type != DST_TYPE_FILE) return 0;
 	if (r->last_count == 0) return 0;
 
+	/* stop the timer */
+	dispatch_suspend(r->dup_timer);
+
 	tick = time(NULL);
 	memset(vt, 0, sizeof(vt));
 	ctime_r(&tick, vt);
@@ -403,6 +377,7 @@ _syslog_send_repeat_msg(struct config_rule *r)
 
 	msg = NULL;
 	asprintf(&msg, "%s: --- last message repeated %u time%s ---\n", vt + 4, r->last_count, (r->last_count == 1) ? "" : "s");
+	r->last_count = 0;
 	if (msg == NULL) return -1;
 
 	len = strlen(msg);
@@ -435,7 +410,7 @@ _syslog_send_repeat_msg(struct config_rule *r)
 }
 
 static int
-_syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
+_bsd_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 {
 	char *sf, *outmsg;
 	const char *vlevel, *vfacility;
@@ -492,7 +467,6 @@ _syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t n
 		*fwd = sf;
 	}
 
-	outlen = 0;
 	if (r->type == DST_TYPE_SOCK) outlen = strlen(*fwd);
 	else outlen = strlen(*out);
 
@@ -502,7 +476,7 @@ _syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t n
 		 * If current message is NOT a duplicate and r->last_count > 0
 		 * we need to write a "last message was repeated N times" log entry
 		 */
-		if ((r->type == DST_TYPE_FILE) && (is_dup == 0) && (r->last_count > 0)) _syslog_send_repeat_msg(r);
+		if ((r->type == DST_TYPE_FILE) && (is_dup == 0) && (r->last_count > 0)) _bsd_send_repeat_msg(r);
 
 		do_write = 1;
 
@@ -514,7 +488,24 @@ _syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t n
 		 */
 		vfacility = asl_get(msg, ASL_KEY_FACILITY);
 		if ((vfacility != NULL) && (!strcmp(vfacility, FACILITY_KERNEL)) && (r->type == DST_TYPE_CONS)) do_write = 0;
-		if ((do_write == 1) && (r->type == DST_TYPE_FILE) && (is_dup == 1)) do_write = 0;
+		if ((do_write == 1) && (r->type == DST_TYPE_FILE) && (is_dup == 1))
+		{
+			do_write = 0;
+
+			if (r->dup_timer == NULL)
+			{
+				/* create a timer to flush dups on this file */
+				r->dup_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, bsd_out_queue);
+				dispatch_source_set_event_handler(r->dup_timer, ^{ _bsd_send_repeat_msg(r); });
+			}
+
+			if (r->last_count == 0)
+			{
+				/* start the timer */
+				dispatch_source_set_timer(r->dup_timer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * global.bsd_max_dup_time), DISPATCH_TIME_FOREVER, 0);
+				dispatch_resume(r->dup_timer);
+			}
+		}
 
 		if (do_write == 0) status = outlen;
 		else status = write(r->fd, *out, outlen);
@@ -579,9 +570,10 @@ _syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t n
 }
 
 static int
-_syslog_rule_match(aslmsg msg, struct config_rule *r)
+_bsd_rule_match(aslmsg msg, struct config_rule *r)
 {
-	uint32_t i, test, f, pri;
+	uint32_t i, test, f;
+	int32_t pri;
 	const char *val;
 
 	if (msg == NULL) return 0;
@@ -634,37 +626,23 @@ _syslog_rule_match(aslmsg msg, struct config_rule *r)
 	return test;
 }
 
-int
-bsd_out_sendmsg(aslmsg msg, const char *outid)
+static int
+_bsd_match_and_send(aslmsg msg)
 {
 	struct config_rule *r;
 	char *out, *fwd;
-	time_t tick;
-	uint64_t delta;
-
-	if (reset != RESET_NONE) _do_reset();
+	time_t now;
 
 	if (msg == NULL) return -1;
 
 	out = NULL;
 	fwd = NULL;
 
-	tick = time(NULL);
-	global.bsd_flush_time = 0;
+	now = time(NULL);
 
 	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
 	{
-		if (_syslog_rule_match(msg, r) == 1) _syslog_send(msg, r, &out, &fwd, tick);
-		if ((r->type == DST_TYPE_FILE) && (r->last_count > 0))
-		{
-			delta = tick - r->last_time;
-			if (delta < global.bsd_max_dup_time)
-			{
-				delta = global.bsd_max_dup_time - delta;
-				if (global.bsd_flush_time == 0) global.bsd_flush_time = delta;
-				else if (delta < global.bsd_flush_time) global.bsd_flush_time = delta;
-			}
-		}
+		if (_bsd_rule_match(msg, r) == 1) _bsd_send(msg, r, &out, &fwd, now);
 	}
 
 	free(out);
@@ -674,10 +652,26 @@ bsd_out_sendmsg(aslmsg msg, const char *outid)
 }
 
 void
-bsd_close_idle_files(time_t now)
+bsd_out_message(aslmsg msg)
 {
+	if (msg == NULL) return;
+
+	asl_msg_retain((asl_msg_t *)msg);
+
+	dispatch_async(bsd_out_queue, ^{
+		_bsd_match_and_send(msg);
+		asl_msg_release((asl_msg_t *)msg);
+	});
+}
+
+static void
+_bsd_close_idle_files()
+{
+	time_t now;
 	struct config_rule *r;
 	uint64_t delta;
+
+	now = time(NULL);
 
 	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
 	{
@@ -685,45 +679,13 @@ bsd_close_idle_files(time_t now)
 		if (r->type != DST_TYPE_FILE) continue;
 
 		/*
-		 * If the last message repeat count is non-zero, a bsd_flush_duplicates()
+		 * If the last message repeat count is non-zero, a _bsd_flush_duplicates()
 		 * call will occur within 30 seconds.  Don't bother closing the file.
 		 */
 		if (r->last_count > 0) continue;
 
 		delta = now - r->last_time;
 		if (delta > CLOSE_ON_IDLE_SEC) _syslog_dst_close(r);
-	}
-}
-
-void
-bsd_flush_duplicates(time_t now)
-{
-	struct config_rule *r;
-	uint64_t delta;
-
-	global.bsd_flush_time = 0;
-
-	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
-	{
-		if (r->type != DST_TYPE_FILE) continue;
-
-		if (r->last_count > 0)
-		{
-			delta = now - r->last_time;
-			if (delta < global.bsd_max_dup_time)
-			{
-				delta = global.bsd_max_dup_time - delta;
-				if (global.bsd_flush_time == 0) global.bsd_flush_time = delta;
-				else if (delta < global.bsd_flush_time) global.bsd_flush_time = delta;
-			}
-			else
-			{
-				_syslog_dst_open(r);
-				_syslog_send_repeat_msg(r);
-
-				r->last_count = 0;
-			}
-		}
 	}
 }
 
@@ -750,27 +712,28 @@ _parse_config_file(const char *confname)
 int
 bsd_out_init(void)
 {
+	static dispatch_once_t once;
+
 	asldebug("%s: init\n", MY_ID);
 
 	TAILQ_INIT(&bsd_out_rule);
-
-	query = asl_msg_new(ASL_TYPE_QUERY);
-	aslevent_addmatch(query, MY_ID);
-	aslevent_addoutput(bsd_out_sendmsg, MY_ID);
-
 	_parse_config_file(_PATH_SYSLOG_CONF);
+
+	dispatch_once(&once, ^{
+		bsd_out_queue = dispatch_queue_create("BSD Out Queue", NULL);
+
+		/* start a timer to close idle files */
+		bsd_idle_timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, bsd_out_queue);
+		dispatch_source_set_event_handler(bsd_idle_timer, ^{ _bsd_close_idle_files(); });		
+		dispatch_source_set_timer(bsd_idle_timer, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * CLOSE_ON_IDLE_SEC), NSEC_PER_SEC * CLOSE_ON_IDLE_SEC, 0);
+		dispatch_resume(bsd_idle_timer);
+	});
+
 	return 0;
 }
 
-int
-bsd_out_reset(void)
-{
-	reset = global.reset;
-	return 0;
-}
-
-int
-bsd_out_close(void)
+static int
+_bsd_out_close_internal(void)
 {
 	struct config_rule *r, *n;
 	int i;
@@ -780,7 +743,15 @@ bsd_out_close(void)
 	{
 		n = r->entries.tqe_next;
 
-        free(r->dst);
+ 		if (r->dup_timer != NULL)
+		{
+			if (r->last_count > 0) _bsd_send_repeat_msg(r);
+			dispatch_source_cancel(r->dup_timer);
+			dispatch_resume(r->dup_timer);
+			dispatch_release(r->dup_timer);
+		}
+
+		free(r->dst);
 		free(r->addr);
 		free(r->last_msg);
 		free(r->fac_prefix_len);
@@ -796,6 +767,7 @@ bsd_out_close(void)
 			free(r->facility);
 		}
 
+		
 		TAILQ_REMOVE(&bsd_out_rule, r, entries);
 		free(r);
 	}
@@ -804,23 +776,22 @@ bsd_out_close(void)
 }
 
 int
-bsd_out_network_reset(void)
+bsd_out_close(void)
 {
-	struct config_rule *r;
+	dispatch_async(bsd_out_queue, ^{
+		_bsd_out_close_internal();
+	});
 
-	for (r = bsd_out_rule.tqh_first; r != NULL; r = r->entries.tqe_next)
-	{
-		if (r->type == DST_TYPE_SOCK) 
-		{
-			close(r->fd);
-			r->fd = -1;
-			if (r->addr != NULL)
-			{
-				free(r->addr);
-				r->addr = NULL;
-			}
-		}
-	}
+	return 0;
+}
+
+int
+bsd_out_reset(void)
+{
+	dispatch_async(bsd_out_queue, ^{
+		_bsd_out_close_internal();
+		bsd_out_init();
+	});
 
 	return 0;
 }

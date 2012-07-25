@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,7 @@
 #include <sys/errno.h>
 #include <sys/param.h>
 
-__private_extern__ CFDataRef
+__private_extern__ CF_RETURNS_RETAINED CFDataRef
 __SCPSignatureFromStatbuf(const struct stat *statBuf)
 {
 	CFMutableDataRef	signature;
@@ -49,7 +49,10 @@ __SCPSignatureFromStatbuf(const struct stat *statBuf)
 
 	signature = CFDataCreateMutable(NULL, sizeof(SCPSignatureData));
 	CFDataSetLength(signature, sizeof(SCPSignatureData));
-	sig = (SCPSignatureDataRef)CFDataGetBytePtr(signature);
+
+	/* ALIGN: CFDataGetBytePtr aligns to at least 8 bytes */
+	sig = (SCPSignatureDataRef)(void *)CFDataGetBytePtr(signature);
+
 	sig->st_dev       = statBuf->st_dev;
 	sig->st_ino       = statBuf->st_ino;
 	sig->tv_sec       = statBuf->st_mtimespec.tv_sec;
@@ -126,7 +129,7 @@ SCPreferencesGetSignature(SCPreferencesRef prefs)
 }
 
 
-__private_extern__ CFStringRef
+__private_extern__ CF_RETURNS_RETAINED CFStringRef
 _SCPNotificationKey(CFAllocatorRef	allocator,
 		    CFStringRef		prefsID,
 		    int			keyType)

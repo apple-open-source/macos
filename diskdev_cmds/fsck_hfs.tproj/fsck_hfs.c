@@ -40,7 +40,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include <TargetConditionals.h>
+
 #include "fsck_hfs.h"
+#include "fsck_msgnums.h"
 #include "fsck_hfs_msgnums.h"
 
 #include "fsck_debug.h"
@@ -66,6 +69,12 @@ char	preen;			/* just fix normal inconsistencies */
 char	force;			/* force fsck even if clean (preen only) */
 char	quick;			/* quick check returns clean, dirty, or failure */
 char	debug;			/* output debugging info */
+#if	!TARGET_OS_EMBEDDED
+char	embedded = 0;
+#else
+char	embedded = 1;
+#endif
+
 char	hotroot;		/* checking root device */
 char	hotmount;		/* checking read-only mounted device */
 char 	guiControl; 	/* this app should output info for gui control */
@@ -76,7 +85,7 @@ char	modeSetting;	/* set the mode when creating "lost+found" directory */
 char	errorOnExit = 0;	/* Exit on first error */
 int		upgrading;		/* upgrading format */
 int		lostAndFoundMode = 0; /* octal mode used when creating "lost+found" directory */
-uint64_t reqCacheSize;;	/* Cache size requested by the caller (may be specified by the user via -c) */
+uint64_t reqCacheSize;	/* Cache size requested by the caller (may be specified by the user via -c) */
 
 int	fsmodified;		/* 1 => write done to file system */
 int	fsreadfd;		/* file descriptor for reading file system */
@@ -86,7 +95,7 @@ Cache_t fscache;
 /*
  * Variables used to map physical block numbers to file paths
  */
-#define MAX_BLOCKS	24576
+enum { BLOCK_LIST_INCREMENT = 512 };
 int gBlkListEntries = 0;
 u_int64_t *gBlockList = NULL;
 int gFoundBlockEntries = 0;
@@ -117,7 +126,7 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "b:B:c:D:Edfglm:npqrR:uyx")) != EOF) {
+	while ((ch = getopt(argc, argv, "b:B:c:D:e:Edfglm:npqrR:uyx")) != EOF) {
 		switch (ch) {
 		case 'b':
 			gBlockSize = atoi(optarg);
@@ -160,6 +169,15 @@ main(argc, argv)
 			cur_debug_level = strtoul(optarg, NULL, 0);
 			if (cur_debug_level == 0) {
 				(void) fplog (stderr, "%s: invalid debug development argument.  Assuming zero\n", progname);
+			}
+			break;
+
+		case 'e':
+			if (optarg) {
+				if (strcasecmp(optarg, "embedded") == 0)
+					embedded = 1;
+				else if (strcasecmp(optarg, "desktop") == 0)
+					embedded = 0;
 			}
 			break;
 
@@ -493,6 +511,9 @@ checkfilesys(char * filesys)
 	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, context,
 						lostAndFoundMode, canWrite, &fsmodified,
 						lflag, rebuildOptions );
+	if (debug)
+		plog("CheckHFS returned %d, fsmodified = %d\n", result, fsmodified);
+
 	if (!hotmount) {
 		ckfini(1);
 		if (quick) {
@@ -535,14 +556,15 @@ checkfilesys(char * filesys)
 		 * it, unless it is read-write, so we can continue.
 		 */
 		if (!preen)
-			plog("\n***** FILE SYSTEM WAS MODIFIED *****\n");
-		if (flags & MNT_RDONLY) {		
+			fsckPrint(context, fsckVolumeModified);
+		if (flags & MNT_RDONLY) {
 			bzero(&args, sizeof(args));
 			flags |= MNT_UPDATE | MNT_RELOAD;
 			if (debug)
 				fprintf(stderr, "doing update / reload mount for %s now\n", mntonname);
 			if (mount("hfs", mntonname, flags, &args) == 0) {
-				result = 0;
+				if (result != 0)
+					result = EEXIT;
 				goto ExitThisRoutine;
 			} else {
 				//if (debug)
@@ -780,10 +802,11 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] Edfglx m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "usage: %s [-b [size] B [path] c [size] e [mode] Edfglx m [mode] npqruy] special-device\n", progname);
 	(void) fplog(stderr, "  b size = size of physical blocks (in bytes) for -B option\n");
 	(void) fplog(stderr, "  B path = file containing physical block numbers to map to paths\n");
 	(void) fplog(stderr, "  c size = cache size (ex. 512m, 1g)\n");
+	(void) fplog(stderr, "  e mode = emulate 'embedded' or 'desktop'\n");
 	(void) fplog(stderr, "  E = exit on first major error\n");
 	(void) fplog(stderr, "  d = output debugging info\n");
 	(void) fplog(stderr, "  f = force fsck even if clean (preen only) \n");
@@ -807,25 +830,35 @@ getblocklist(const char *filepath)
 {
 	FILE * file;
 	long long block;
-
-	gBlockList = (u_int64_t *) calloc(MAX_BLOCKS, sizeof(u_int64_t));
-
+	size_t blockListCount;	/* Number of elements allocated to gBlockList array */
+	
+	blockListCount = BLOCK_LIST_INCREMENT;
+	gBlockList = (u_int64_t *) malloc(blockListCount * sizeof(u_int64_t));
+	if (gBlockList == NULL)
+		pfatal("Can't allocate memory for block list.\n");
+	
 //	printf("getblocklist: processing blocklist %s...\n", filepath);
 
 	if ((file = fopen(filepath, "r")) == NULL)
 		pfatal("Can't open %s\n", filepath);
 
 	while (fscanf(file, "%lli", &block) > 0) {
+		/* See if we need to grow the gBlockList array. */
+		if (gBlkListEntries == blockListCount) {
+			blockListCount += BLOCK_LIST_INCREMENT;
+			gBlockList = realloc(gBlockList, blockListCount * sizeof(u_int64_t));
+			if (gBlockList == NULL) {
+				pfatal("Can't allocate additional memory for block list.\n");
+			}
+		}
+		
 		gBlockList[gBlkListEntries++] = block;
 	//	printf("%lld\n", block);
 	}
 
-	printf("%d blocks to match:\n", gBlkListEntries);
-	
-//	(void) fclose(file);
+	(void) fclose(file);
 
-	if (gBlockSize == 0)
-		gBlockSize = 512;
+	printf("%d blocks to match:\n", gBlkListEntries);
 	
 	return (0);
 }

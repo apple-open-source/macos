@@ -33,7 +33,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_oid_to_str(OM_uint32 *minor_status, gss_OID oid, gss_buffer_t oid_str)
 {
     int ret;
@@ -66,54 +66,37 @@ gss_oid_to_str(OM_uint32 *minor_status, gss_OID oid, gss_buffer_t oid_str)
     return GSS_S_COMPLETE;
 }
 
-struct {
-    gss_OID oid;
-    const char *name;
-} mechs[] = {
-    { GSS_KRB5_MECHANISM, "Kerberos" },
-    { GSS_KRB5_MECHANISM, "Kerberos 5" },
-    { GSS_KRB5_MECHANISM, "krb5" },
-    { GSS_IAKERB_MECHANISM, "IAKERB" },
-    { GSS_SPNEGO_MECHANISM, "SPNEGO" },
-#ifdef ENABLE_NTLM
-    { GSS_NTLM_MECHANISM, "NTLM" },
-#endif
-#ifdef ENABLE_SCRAM
-    { GSS_SCRAM_MECHANISM, "SCRAM-SHA1" },
-#endif
-#ifdef PKINIT
-    { GSS_PKU2U_MECHANISM, "PKU2U" },
-#endif
-    { GSS_NETLOGON_MECHANISM, "NETLOGON" },
-    { GSS_SASL_DIGEST_MD5_MECHANISM, "SASL digest-md5" },
-    { GSS_SASL_DIGEST_MD5_MECHANISM, "sasl-digest-md5" }
-};
-
-const char *
-gss_oid_to_name(gss_OID oid)
+GSSAPI_LIB_FUNCTION const char * GSSAPI_LIB_CALL
+gss_oid_to_name(gss_const_OID oid)
 {
-    size_t j;
-    for (j = 0; j < sizeof(mechs)/sizeof(mechs[0]); j++)
-	if (gss_oid_equal(oid, mechs[j].oid))
-	    return mechs[j].name;
+    size_t i;
+
+    for (i = 0; _gss_ont_mech[i].oid; i++) {
+	if (gss_oid_equal(oid, _gss_ont_mech[i].oid)) {
+	    if (_gss_ont_mech[i].short_desc)
+		return _gss_ont_mech[i].short_desc;
+	    return _gss_ont_mech[i].name;
+	}
+    }
     return NULL;
 }
 
-gss_OID
+GSSAPI_LIB_FUNCTION gss_const_OID GSSAPI_LIB_CALL
 gss_name_to_oid(const char *name)
 {
     size_t i, partial = (size_t)-1;
 
-    for (i = 0; i < sizeof(mechs)/sizeof(mechs[0]); i++) {
-	if (strcasecmp(name, mechs[i].name) == 0)
-	    return mechs[i].oid;
-	if (strncasecmp(name, mechs[i].name, strlen(name)) == 0) {
+    for (i = 0; _gss_ont_mech[i].oid; i++) {
+	if (strcasecmp(name, _gss_ont_mech[i].short_desc) == 0)
+	    return _gss_ont_mech[i].oid;
+	if (strncasecmp(name, _gss_ont_mech[i].short_desc, strlen(name)) == 0) {
 	    if (partial != (size_t)-1)
 		return NULL;
 	    partial = i;
 	}
     }
     if (partial != (size_t)-1)
-	return mechs[partial].oid;
+	return _gss_ont_mech[partial].oid;
+
     return NULL;
 }

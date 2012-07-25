@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -122,4 +122,5 @@ done
 for i in ""~(N)/dev/non_existent_file
 do	[[ ! $i ]] || err_exit '""~(N)/dev/non_existent_file not null'
 done
-exit $((Errors))
+
+exit $((Errors<125?Errors:125))

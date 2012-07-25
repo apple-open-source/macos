@@ -1,5 +1,6 @@
 #!/bin/sh
 #
+# TODO: update for 10.8
 cd /usr/bin
 rm clusterdb
 rm createdb

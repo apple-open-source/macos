@@ -176,7 +176,7 @@
  /**
 --- include/apr_file_io.h.orig	2007-11-05 19:13:42.000000000 -0800
 +++ include/apr_file_io.h	2009-01-09 00:23:36.000000000 -0800
-@@ -869,7 +869,8 @@
+@@ -870,7 +870,8 @@
   */ 
  APR_DECLARE(apr_status_t) apr_file_info_get(apr_finfo_t *finfo, 
                                              apr_int32_t wanted,
@@ -201,15 +201,15 @@
 --- build-outputs.mk	2010-01-20 23:59:44.000000000 -0800
 +++ build-outputs.mk	2010-11-11 15:10:48.000000000 -0800
 @@ -32,8 +32,12 @@
- file_io/unix/tempdir.lo: file_io/unix/tempdir.c .make.dirs include/apr_allocator.h include/apr_general.h include/apr_errno.h include/apr_env.h include/apr_file_info.h include/apr_user.h include/apr_file_io.h include/apr_strings.h include/apr_want.h include/apr_thread_mutex.h include/apr_inherit.h include/apr_time.h include/apr_pools.h include/apr_tables.h
- file_io/unix/buffer.lo: file_io/unix/buffer.c .make.dirs include/apr_allocator.h include/apr_general.h include/apr_errno.h include/apr_want.h include/apr_thread_mutex.h include/apr_pools.h
- file_io/unix/mktemp.lo: file_io/unix/mktemp.c .make.dirs include/apr_allocator.h include/apr_general.h include/apr_network_io.h include/apr_portable.h include/apr_inherit.h include/apr_file_info.h include/apr_thread_mutex.h include/apr_thread_proc.h include/apr_dso.h include/apr_tables.h include/apr_errno.h include/apr_proc_mutex.h include/apr_user.h include/apr_file_io.h include/apr_strings.h include/apr_want.h include/apr_shm.h include/apr_global_mutex.h include/apr_time.h include/apr_pools.h
+ file_io/unix/readwrite.lo: file_io/unix/readwrite.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_file_info.h include/apr_file_io.h include/apr_general.h include/apr_inherit.h include/apr_network_io.h include/apr_pools.h include/apr_strings.h include/apr_support.h include/apr_tables.h include/apr_thread_mutex.h include/apr_time.h include/apr_user.h include/apr_want.h
+ file_io/unix/seek.lo: file_io/unix/seek.c .make.dirs 
+ file_io/unix/tempdir.lo: file_io/unix/tempdir.c .make.dirs include/apr_allocator.h include/apr_env.h include/apr_errno.h include/apr_file_info.h include/apr_file_io.h include/apr_general.h include/apr_inherit.h include/apr_pools.h include/apr_strings.h include/apr_tables.h include/apr_thread_mutex.h include/apr_time.h include/apr_user.h include/apr_want.h
 +file_io/unix/dir-32-bit-inode.lo: file_io/unix/dir-32-bit-inode.c .make.dirs 
 +file_io/unix/filestat-32-bit-inode.lo: file_io/unix/filestat-32-bit-inode.c .make.dirs 
  
- OBJECTS_file_io_unix = file_io/unix/readwrite.lo file_io/unix/filepath_util.lo file_io/unix/fileacc.lo file_io/unix/filedup.lo file_io/unix/open.lo file_io/unix/copy.lo file_io/unix/seek.lo file_io/unix/dir.lo file_io/unix/filepath.lo file_io/unix/pipe.lo file_io/unix/fullrw.lo file_io/unix/flock.lo file_io/unix/filestat.lo file_io/unix/tempdir.lo file_io/unix/buffer.lo file_io/unix/mktemp.lo
+ OBJECTS_file_io_unix = file_io/unix/buffer.lo file_io/unix/copy.lo file_io/unix/dir.lo file_io/unix/fileacc.lo file_io/unix/filedup.lo file_io/unix/filepath.lo file_io/unix/filepath_util.lo file_io/unix/filestat.lo file_io/unix/flock.lo file_io/unix/fullrw.lo file_io/unix/mktemp.lo file_io/unix/open.lo file_io/unix/pipe.lo file_io/unix/readwrite.lo file_io/unix/seek.lo file_io/unix/tempdir.lo
 +OBJECTS_file_io_unix += file_io/unix/dir-32-bit-inode.lo 
 +OBJECTS_file_io_unix += file_io/unix/filestat-32-bit-inode.lo
  
- locks/unix/thread_cond.lo: locks/unix/thread_cond.c .make.dirs 
- locks/unix/global_mutex.lo: locks/unix/global_mutex.c .make.dirs include/apr_allocator.h include/apr_general.h include/apr_network_io.h include/apr_portable.h include/apr_inherit.h include/apr_file_info.h include/apr_thread_mutex.h include/apr_thread_proc.h include/apr_dso.h include/apr_tables.h include/apr_errno.h include/apr_proc_mutex.h include/apr_user.h include/apr_file_io.h include/apr_strings.h include/apr_want.h include/apr_shm.h include/apr_global_mutex.h include/apr_time.h include/apr_pools.h
+ locks/unix/global_mutex.lo: locks/unix/global_mutex.c .make.dirs include/apr_allocator.h include/apr_dso.h include/apr_errno.h include/apr_file_info.h include/apr_file_io.h include/apr_general.h include/apr_global_mutex.h include/apr_inherit.h include/apr_network_io.h include/apr_pools.h include/apr_portable.h include/apr_proc_mutex.h include/apr_shm.h include/apr_strings.h include/apr_tables.h include/apr_thread_mutex.h include/apr_thread_proc.h include/apr_time.h include/apr_user.h include/apr_want.h
+ locks/unix/proc_mutex.lo: locks/unix/proc_mutex.c .make.dirs include/apr_allocator.h include/apr_errno.h include/apr_general.h include/apr_hash.h include/apr_pools.h include/apr_strings.h include/apr_thread_mutex.h include/apr_want.h

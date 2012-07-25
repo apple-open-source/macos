@@ -33,6 +33,7 @@
 #import <mach-o/nlist.h>
 #import <stuff/bool.h>
 #include "stuff/symbol.h"
+#include "llvm-c/Disassembler.h"
 
 /* Used by otool(1) to stay or switch out of thumb mode */
 extern enum bool in_thumb;
@@ -57,4 +58,13 @@ extern uint32_t arm_disassemble(
     uint32_t ncmds,
     uint32_t sizeofcmds,
     cpu_subtype_t cpu_subtype,
-    enum bool verbose);
+    enum bool verbose,
+    LLVMDisasmContextRef arm_dc,
+    LLVMDisasmContextRef thumb_dc,
+    char *object_addr,
+    uint32_t object_size);
+
+extern LLVMDisasmContextRef create_arm_llvm_disassembler(void);
+extern LLVMDisasmContextRef create_thumb_llvm_disassembler(void);
+extern void delete_arm_llvm_disassembler(LLVMDisasmContextRef dc);
+extern void delete_thumb_llvm_disassembler(LLVMDisasmContextRef dc);

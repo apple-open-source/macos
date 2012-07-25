@@ -38,12 +38,16 @@
 #import "WebLocalizableStringsInternal.h"
 #import "WebNodeHighlighter.h"
 #import "WebUIDelegate.h"
+#import "WebPolicyDelegate.h"
 #import "WebViewInternal.h"
 #import <WebCore/InspectorController.h>
 #import <WebCore/Page.h>
+#import <WebCore/SoftLinking.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKitSystemInterface.h>
 #import <wtf/PassOwnPtr.h>
+
+SOFT_LINK_STAGED_FRAMEWORK_OPTIONAL(WebInspector, PrivateFrameworks, A)
 
 using namespace WebCore;
 
@@ -59,6 +63,7 @@ using namespace WebCore;
     BOOL _destroyingInspectorView;
 }
 - (id)initWithInspectedWebView:(WebView *)webView;
+- (NSString *)inspectorPagePath;
 - (WebView *)webView;
 - (void)attach;
 - (void)detach;
@@ -77,11 +82,13 @@ WebInspectorClient::WebInspectorClient(WebView *webView)
     : m_webView(webView)
     , m_highlighter(AdoptNS, [[WebNodeHighlighter alloc] initWithInspectedWebView:webView])
     , m_frontendPage(0)
+    , m_frontendClient(0)
 {
 }
 
 void WebInspectorClient::inspectorDestroyed()
 {
+    closeInspectorFrontend();
     delete this;
 }
 
@@ -92,19 +99,43 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
 
     m_frontendPage = core([windowController.get() webView]);
     OwnPtr<WebInspectorFrontendClient> frontendClient = adoptPtr(new WebInspectorFrontendClient(m_webView, windowController.get(), inspectorController, m_frontendPage, createFrontendSettings()));
+    m_frontendClient = frontendClient.get();
     RetainPtr<WebInspectorFrontend> webInspectorFrontend(AdoptNS, [[WebInspectorFrontend alloc] initWithFrontendClient:frontendClient.get()]);
     [[m_webView inspector] setFrontend:webInspectorFrontend.get()];
     m_frontendPage->inspectorController()->setInspectorFrontendClient(frontendClient.release());
 }
 
-void WebInspectorClient::highlight(Node* node)
+void WebInspectorClient::closeInspectorFrontend()
 {
-    [m_highlighter.get() highlightNode:kit(node)];
+    if (m_frontendClient)
+        m_frontendClient->disconnectFromBackend();
+}
+
+void WebInspectorClient::bringFrontendToFront()
+{
+    m_frontendClient->bringToFront();
+}
+
+void WebInspectorClient::didResizeMainFrame(Frame*)
+{
+    if (m_frontendClient)
+        m_frontendClient->setDockingUnavailable(!m_frontendClient->canAttachWindow());
+}
+
+void WebInspectorClient::highlight()
+{
+    [m_highlighter.get() highlight];
 }
 
 void WebInspectorClient::hideHighlight()
 {
     [m_highlighter.get() hideHighlight];
+}
+
+void WebInspectorClient::releaseFrontend()
+{
+    m_frontendClient = 0;
+    m_frontendPage = 0;
 }
 
 WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, WebInspectorWindowController* windowController, InspectorController* inspectorController, Page* frontendPage, WTF::PassOwnPtr<Settings> settings)
@@ -134,10 +165,25 @@ void WebInspectorFrontendClient::frontendLoaded()
     setAttachedWindow(attached);
 }
 
+static bool useWebKitWebInspector()
+{
+    // Call the soft link framework function to dlopen it, then [NSBundle bundleWithIdentifier:] will work.
+    WebInspectorLibrary();
+
+    if (![[NSBundle bundleWithIdentifier:@"com.apple.WebInspector"] pathForResource:@"Main" ofType:@"html"])
+        return true;
+
+    if (![[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"inspector" ofType:@"html" inDirectory:@"inspector"])
+        return false;
+
+    return [[NSUserDefaults standardUserDefaults] boolForKey:@"UseWebKitWebInspector"];
+}
+
 String WebInspectorFrontendClient::localizedStringsURL()
 {
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"localizedStrings" ofType:@"js"];
-    if (path)
+    NSBundle *bundle = useWebKitWebInspector() ? [NSBundle bundleWithIdentifier:@"com.apple.WebCore"] : [NSBundle bundleWithIdentifier:@"com.apple.WebInspector"]; 
+    NSString *path = [bundle pathForResource:@"localizedStrings" ofType:@"js"];
+    if ([path length])
         return [[NSURL fileURLWithPath:path] absoluteString];
     return String();
 }
@@ -190,20 +236,6 @@ void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
     updateWindowTitle();
 }
 
-void WebInspectorFrontendClient::saveSessionSetting(const String& key, const String& value)
-{
-    WebInspectorClient* client = [m_windowController.get() inspectorClient];
-    if (client)
-        client->saveSessionSetting(key, value);
-}
-
-void WebInspectorFrontendClient::loadSessionSetting(const String& key, String* value)
-{
-    WebInspectorClient* client = [m_windowController.get() inspectorClient];
-    if (client)
-        client->loadSessionSetting(key, value);
-}
-
 void WebInspectorFrontendClient::updateWindowTitle() const
 {
     NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Web Inspector — %@", "Web Inspector window title"), (NSString *)m_inspectedURL];
@@ -222,35 +254,32 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     // Keep preferences separate from the rest of the client, making sure we are using expected preference values.
 
     WebPreferences *preferences = [[WebPreferences alloc] init];
-    [preferences setAutosaves:NO];
-    [preferences setLoadsImagesAutomatically:YES];
-    [preferences setAuthorAndUserStylesEnabled:YES];
-    [preferences setJavaScriptEnabled:YES];
     [preferences setAllowsAnimatedImages:YES];
-    [preferences setPlugInsEnabled:NO];
+    [preferences setApplicationChromeModeEnabled:YES];
+    [preferences setAuthorAndUserStylesEnabled:YES];
+    [preferences setAutosaves:NO];
+    [preferences setDefaultFixedFontSize:11];
+    [preferences setFixedFontFamily:@"Menlo"];
     [preferences setJavaEnabled:NO];
-    [preferences setUserStyleSheetEnabled:NO];
-    [preferences setTabsToLinks:NO];
+    [preferences setJavaScriptEnabled:YES];
+    [preferences setLoadsImagesAutomatically:YES];
     [preferences setMinimumFontSize:0];
     [preferences setMinimumLogicalFontSize:9];
-#ifndef BUILDING_ON_LEOPARD
-    [preferences setFixedFontFamily:@"Menlo"];
-    [preferences setDefaultFixedFontSize:11];
-#else
-    [preferences setFixedFontFamily:@"Monaco"];
-    [preferences setDefaultFixedFontSize:10];
-#endif
+    [preferences setPlugInsEnabled:NO];
+    [preferences setSuppressesIncrementalRendering:YES];
+    [preferences setTabsToLinks:NO];
+    [preferences setUserStyleSheetEnabled:NO];
 
     _webView = [[WebView alloc] init];
     [_webView setPreferences:preferences];
     [_webView setDrawsBackground:NO];
     [_webView setProhibitsMainFrameScrolling:YES];
     [_webView setUIDelegate:self];
+    [_webView setPolicyDelegate:self];
 
     [preferences release];
 
-    NSString *path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"inspector" ofType:@"html" inDirectory:@"inspector"];
-    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL fileURLWithPath:path]];
+    NSURLRequest *request = [[NSURLRequest alloc] initWithURL:[NSURL fileURLWithPath:[self inspectorPagePath]]];
     [[_webView mainFrame] loadRequest:request];
     [request release];
 
@@ -275,6 +304,20 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
 // MARK: -
 
+- (NSString *)inspectorPagePath
+{
+    NSString *path;
+    if (useWebKitWebInspector())
+        path = [[NSBundle bundleWithIdentifier:@"com.apple.WebCore"] pathForResource:@"inspector" ofType:@"html" inDirectory:@"inspector"];
+    else
+        path = [[NSBundle bundleWithIdentifier:@"com.apple.WebInspector"] pathForResource:@"Main" ofType:@"html"];
+
+    ASSERT([path length]);
+    return path;
+}
+
+// MARK: -
+
 - (WebView *)webView
 {
     return _webView;
@@ -286,18 +329,22 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     if (window)
         return window;
 
+    bool useTexturedWindow = useWebKitWebInspector();
+
     NSUInteger styleMask = (NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask);
 
-    styleMask |= NSTexturedBackgroundWindowMask;
+    if (useTexturedWindow)
+        styleMask |= NSTexturedBackgroundWindowMask;
 
     window = [[NSWindow alloc] initWithContentRect:NSMakeRect(60.0, 200.0, 750.0, 650.0) styleMask:styleMask backing:NSBackingStoreBuffered defer:NO];
     [window setDelegate:self];
     [window setMinSize:NSMakeSize(400.0, 400.0)];
 
-    [window setAutorecalculatesContentBorderThickness:NO forEdge:NSMaxYEdge];
-    [window setContentBorderThickness:55. forEdge:NSMaxYEdge];
-
-    WKNSWindowMakeBottomCornersSquare(window);
+    if (useTexturedWindow) {
+        [window setAutorecalculatesContentBorderThickness:NO forEdge:NSMaxYEdge];
+        [window setContentBorderThickness:55. forEdge:NSMaxYEdge];
+        WKNSWindowMakeBottomCornersSquare(window);
+    }
 
     [self setWindow:window];
     [window release];
@@ -363,6 +410,7 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
         [_webView removeFromSuperview];
         [_inspectedWebView.get() addSubview:_webView positioned:NSWindowBelow relativeTo:(NSView *)frameView];
+        [[_inspectedWebView.get() window] makeFirstResponder:_webView];
 
         [_webView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMaxYMargin)];
         [frameView setAutoresizingMask:(NSViewWidthSizable | NSViewHeightSizable | NSViewMinYMargin)];
@@ -445,6 +493,9 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 
 - (void)destroyInspectorView:(bool)notifyInspectorController
 {
+    [[_inspectedWebView.get() inspector] releaseFrontend];
+    _inspectorClient->releaseFrontend();
+
     if (_destroyingInspectorView)
         return;
     _destroyingInspectorView = YES;
@@ -457,8 +508,6 @@ void WebInspectorFrontendClient::updateWindowTitle() const
     if (notifyInspectorController) {
         if (Page* inspectedPage = [_inspectedWebView.get() page])
             inspectedPage->inspectorController()->disconnectFrontend();
-
-        _inspectorClient->releaseFrontendPage();
     }
 
     [_webView close];
@@ -470,6 +519,30 @@ void WebInspectorFrontendClient::updateWindowTitle() const
 - (NSUInteger)webView:(WebView *)sender dragDestinationActionMaskForDraggingInfo:(id <NSDraggingInfo>)draggingInfo
 {
     return WebDragDestinationActionNone;
+}
+
+// MARK: -
+// MARK: Policy delegate
+
+- (void)webView:(WebView *)webView decidePolicyForNavigationAction:(NSDictionary *)actionInformation request:(NSURLRequest *)request frame:(WebFrame *)frame decisionListener:(id<WebPolicyDecisionListener>)listener
+{
+    // Allow non-main frames to navigate anywhere.
+    if (frame != [webView mainFrame]) {
+        [listener use];
+        return;
+    }
+
+    // Allow loading of the main inspector file.
+    if ([[request URL] isFileURL] && [[[request URL] path] isEqualToString:[self inspectorPagePath]]) {
+        [listener use];
+        return;
+    }
+
+    // Prevent everything else from loading in the inspector's page.
+    [listener ignore];
+
+    // And instead load it in the inspected page.
+    [[_inspectedWebView.get() mainFrame] loadRequest:request];
 }
 
 // MARK: -

@@ -279,12 +279,14 @@ SCBridgeInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 	available = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	excluded  = CFSetCreateMutable  (NULL, 0, &kCFTypeSetCallBacks);
 
+#if	!TARGET_OS_IPHONE
 	// exclude Bond [member] interfaces
 	interfaces = SCBondInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
 		__SCBondInterfaceListCollectMembers(interfaces, excluded);
 		CFRelease(interfaces);
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	// exclude Bridge [member] interfaces
 	interfaces = SCBridgeInterfaceCopyAll(prefs);

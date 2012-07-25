@@ -34,6 +34,8 @@
 #include <string.h>
 #include <unistd.h>
 
+void trimdomain(char *_fullhost, size_t _hostsize);
+
 static int	isDISP(const char *);
 
 /*-
@@ -50,7 +52,7 @@ static int	isDISP(const char *);
  *     trimdomain("abcde.my.domain:0.0", 8)   ->   "abcde.my.domain:0.0"
  */
 void
-trimdomain(char *fullhost, int hostsize)
+trimdomain(char *fullhost, size_t hostsize)
 {
 	static size_t dlen;
 	static int first = 1;
@@ -73,7 +75,7 @@ trimdomain(char *fullhost, int hostsize)
 		return;
 
 	s = fullhost;
-	end = s + hostsize + 1;
+	end = (char *)((uintptr_t)s + hostsize + 1);
 	if ((s = memchr(s, '.', (size_t)(end - s))) != NULL) {
 		if (strncasecmp(s + 1, domain, dlen) == 0) {
 			if (s[dlen + 1] == '\0') {

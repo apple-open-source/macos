@@ -26,7 +26,16 @@
 #include "config.h"
 #include "WebPageProxy.h"
 
+#include "PageClient.h"
+#include "QtNetworkReplyData.h"
+#include "QtPageClient.h"
+#include "qquicknetworkreply_p.h"
+#include "WebPageMessages.h"
+#include "WebProcessProxy.h"
+#include <WebCore/Editor.h>
 #include <WebCore/NotImplemented.h>
+
+using namespace WebCore;
 
 namespace WebKit {
 
@@ -45,5 +54,64 @@ void WebPageProxy::loadRecentSearches(const String&, Vector<String>&)
 {
     notImplemented();
 }
+
+void WebPageProxy::setComposition(const String& text, Vector<CompositionUnderline> underlines, uint64_t selectionStart, uint64_t selectionEnd, uint64_t replacementRangeStart, uint64_t replacementRangeEnd)
+{
+    // FIXME: We need to find out how to proper handle the crashes case.
+    if (!isValid())
+        return;
+
+    process()->send(Messages::WebPage::SetComposition(text, underlines, selectionStart, selectionEnd, replacementRangeStart, replacementRangeEnd), m_pageID);
+}
+
+void WebPageProxy::confirmComposition(const String& compositionString, int64_t selectionStart, int64_t selectionLength)
+{
+    if (!isValid())
+        return;
+
+    process()->send(Messages::WebPage::ConfirmComposition(compositionString, selectionStart, selectionLength), m_pageID);
+}
+
+void WebPageProxy::cancelComposition()
+{
+    if (!isValid())
+        return;
+
+    process()->send(Messages::WebPage::CancelComposition(), m_pageID);
+}
+
+void WebPageProxy::registerApplicationScheme(const String& scheme)
+{
+    process()->send(Messages::WebPage::RegisterApplicationScheme(scheme), m_pageID);
+}
+
+void WebPageProxy::resolveApplicationSchemeRequest(QtNetworkRequestData request)
+{
+    RefPtr<QtRefCountedNetworkRequestData> requestData = adoptRef(new QtRefCountedNetworkRequestData(request));
+    m_applicationSchemeRequests.add(requestData);
+    static_cast<QtPageClient*>(m_pageClient)->handleApplicationSchemeRequest(requestData);
+}
+
+void WebPageProxy::sendApplicationSchemeReply(const QQuickNetworkReply* reply)
+{
+    RefPtr<QtRefCountedNetworkRequestData> requestData = reply->networkRequestData();
+    if (m_applicationSchemeRequests.contains(requestData)) {
+        RefPtr<QtRefCountedNetworkReplyData> replyData = reply->networkReplyData();
+        process()->send(Messages::WebPage::ApplicationSchemeReply(replyData->data()), pageID());
+        m_applicationSchemeRequests.remove(requestData);
+    }
+}
+
+#if PLUGIN_ARCHITECTURE(X11)
+void WebPageProxy::createPluginContainer(uint64_t& windowID)
+{
+    notImplemented();
+}
+
+void WebPageProxy::windowedPluginGeometryDidChange(const WebCore::IntRect& frameRect, const WebCore::IntRect& clipRect, uint64_t windowID)
+{
+    notImplemented();
+}
+#endif
 
 } // namespace WebKit

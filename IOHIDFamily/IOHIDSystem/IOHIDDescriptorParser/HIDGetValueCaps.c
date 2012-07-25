@@ -137,7 +137,7 @@ OSStatus HIDGetSpecificValueCaps(HIDReportType reportType,
 /*
  *	The Collection must be in range
 */
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 /*
  *	Search only the scope of the Collection specified
@@ -255,8 +255,6 @@ OSStatus HIDGetSpecificValueCaps(HIDReportType reportType,
 					  if (ptUsageItem->isRange)
 					  {
 						  iCount = ptUsageItem->usageMaximum - ptUsageItem->usageMinimum;
-						  if (iCount < 0)
-							  iCount = -iCount;
 						  iCount++;		// Range count was off by one.
 					  }
 					  else
@@ -372,7 +370,7 @@ OSStatus HIDGetSpecificValueCapabilities(HIDReportType reportType,
 /*
  *	The Collection must be in range
 */
-	if ((iCollection < 0) || (iCollection >= ptPreparsedData->collectionCount))
+	if (iCollection >= ptPreparsedData->collectionCount)
 		return kHIDBadParameterErr;
 /*
  *	Search only the scope of the Collection specified
@@ -497,8 +495,6 @@ OSStatus HIDGetSpecificValueCapabilities(HIDReportType reportType,
 					  if (ptUsageItem->isRange)
 					  {
 						  iCount = ptUsageItem->usageMaximum - ptUsageItem->usageMinimum;
-						  if (iCount < 0)
-							  iCount = -iCount;
 						  iCount++;		// Range count was off by one.
 					  }
 					  else

@@ -30,6 +30,7 @@
 #include <winsock2.h>
 #include "FontCache.h"
 #include "Font.h"
+#include "HWndDC.h"
 #include "SimpleFontData.h"
 #include "UnicodeRange.h"
 #include <mlang.h>
@@ -189,7 +190,7 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
 {
     UChar character = characters[0];
     SimpleFontData* fontData = 0;
-    HDC hdc = GetDC(0);
+    HWndDC hdc(0);
     HFONT primaryFont = font.primaryFont()->fontDataForCharacter(character)->platformData().hfont();
     HGDIOBJ oldFont = SelectObject(hdc, primaryFont);
     HFONT hfont = 0;
@@ -292,7 +293,6 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
         DeleteObject(hfont);
     }
 
-    ReleaseDC(0, hdc);
     return fontData;
 }
 
@@ -301,20 +301,20 @@ SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
     return 0;
 }
 
-static SimpleFontData* fontDataFromDescriptionAndLogFont(FontCache* fontCache, const FontDescription& fontDescription, const LOGFONT& font, AtomicString& outFontFamilyName)
+SimpleFontData* FontCache::fontDataFromDescriptionAndLogFont(const FontDescription& fontDescription, ShouldRetain shouldRetain, const LOGFONT& font, AtomicString& outFontFamilyName)
 {
     AtomicString familyName = String(font.lfFaceName, wcsnlen(font.lfFaceName, LF_FACESIZE));
-    SimpleFontData* fontData = fontCache->getCachedFontData(fontDescription, familyName);
+    SimpleFontData* fontData = getCachedFontData(fontDescription, familyName, false, shouldRetain);
     if (fontData)
         outFontFamilyName = familyName;
     return fontData;
 }
 
-SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription)
+SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& fontDescription, ShouldRetain shouldRetain)
 {
     DEFINE_STATIC_LOCAL(AtomicString, fallbackFontName, ());
     if (!fallbackFontName.isEmpty())
-        return getCachedFontData(fontDescription, fallbackFontName);
+        return getCachedFontData(fontDescription, fallbackFontName, false, shouldRetain);
 
     // FIXME: Would be even better to somehow get the user's default font here.  For now we'll pick
     // the default that the user would get without changing any prefs.
@@ -331,7 +331,7 @@ SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font
     };
     SimpleFontData* simpleFont;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(fallbackFonts); ++i) {
-        if (simpleFont = getCachedFontData(fontDescription, fallbackFonts[i])) {
+        if (simpleFont = getCachedFontData(fontDescription, fallbackFonts[i]), false, shouldRetain) {
             fallbackFontName = fallbackFonts[i];
             return simpleFont;
         }
@@ -341,7 +341,7 @@ SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font
     if (HFONT defaultGUIFont = static_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT))) {
         LOGFONT defaultGUILogFont;
         GetObject(defaultGUIFont, sizeof(defaultGUILogFont), &defaultGUILogFont);
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, defaultGUILogFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, defaultGUILogFont, fallbackFontName))
             return simpleFont;
     }
 
@@ -349,15 +349,15 @@ SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font
     NONCLIENTMETRICS nonClientMetrics = {0};
     nonClientMetrics.cbSize = sizeof(nonClientMetrics);
     if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(nonClientMetrics), &nonClientMetrics, 0)) {
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, nonClientMetrics.lfMessageFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, nonClientMetrics.lfMessageFont, fallbackFontName))
             return simpleFont;
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, nonClientMetrics.lfMenuFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, nonClientMetrics.lfMenuFont, fallbackFontName))
             return simpleFont;
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, nonClientMetrics.lfStatusFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, nonClientMetrics.lfStatusFont, fallbackFontName))
             return simpleFont;
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, nonClientMetrics.lfCaptionFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, nonClientMetrics.lfCaptionFont, fallbackFontName))
             return simpleFont;
-        if (simpleFont = fontDataFromDescriptionAndLogFont(this, fontDescription, nonClientMetrics.lfSmCaptionFont, fallbackFontName))
+        if (simpleFont = fontDataFromDescriptionAndLogFont(fontDescription, shouldRetain, nonClientMetrics.lfSmCaptionFont, fallbackFontName))
             return simpleFont;
     }
     
@@ -447,7 +447,7 @@ static int CALLBACK matchImprovingEnumProc(CONST LOGFONT* candidate, CONST TEXTM
 
 static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool desiredItalic, int size, bool synthesizeItalic)
 {
-    HDC hdc = GetDC(0);
+    HWndDC hdc(0);
 
     LOGFONT logFont;
     logFont.lfCharSet = DEFAULT_CHARSET;
@@ -458,8 +458,6 @@ static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool 
 
     MatchImprovingProcData matchData(desiredWeight, desiredItalic);
     EnumFontFamiliesEx(hdc, &logFont, matchImprovingEnumProc, reinterpret_cast<LPARAM>(&matchData), 0);
-
-    ReleaseDC(0, hdc);
 
     if (!matchData.m_hasMatched)
         return 0;
@@ -486,13 +484,12 @@ static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool 
     if (!result)
         return 0;
 
-    HDC dc = GetDC(0);
+    HWndDC dc(0);
     SaveDC(dc);
     SelectObject(dc, result);
     WCHAR actualName[LF_FACESIZE];
     GetTextFace(dc, LF_FACESIZE, actualName);
     RestoreDC(dc, -1);
-    ReleaseDC(0, dc);
 
     if (wcsicmp(matchData.m_chosen.lfFaceName, actualName)) {
         DeleteObject(result);
@@ -534,7 +531,7 @@ static int CALLBACK traitsInFamilyEnumProc(CONST LOGFONT* logFont, CONST TEXTMET
 }
 void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigned>& traitsMasks)
 {
-    HDC hdc = GetDC(0);
+    HWndDC hdc(0);
 
     LOGFONT logFont;
     logFont.lfCharSet = DEFAULT_CHARSET;
@@ -546,8 +543,6 @@ void FontCache::getTraitsInFamily(const AtomicString& familyName, Vector<unsigne
     TraitsInFamilyProcData procData(familyName);
     EnumFontFamiliesEx(hdc, &logFont, traitsInFamilyEnumProc, reinterpret_cast<LPARAM>(&procData), 0);
     copyToVector(procData.m_traitsMasks, traitsMasks);
-
-    ReleaseDC(0, hdc);
 }
 
 FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomicString& family)

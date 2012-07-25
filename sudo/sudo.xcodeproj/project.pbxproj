@@ -354,7 +354,6 @@
 				1CE32B9D0F42314700C2C6A0 /* Sources */,
 				1CE32B9E0F42314700C2C6A0 /* Frameworks */,
 				1C9A54E10F4259C5005378C8 /* Install manpages */,
-				1C9A54E60F425AFA005378C8 /* Compress man pages */,
 			);
 			buildRules = (
 			);
@@ -376,7 +375,6 @@
 				1C9A54DA0F425811005378C8 /* Install pam module */,
 				1C9A54CE0F425224005378C8 /* Install Open Source License */,
 				1C9A54DE0F4258F2005378C8 /* Install Open Source Version */,
-				1CE32BAC0F42343700C2C6A0 /* Compress man pages */,
 			);
 			buildRules = (
 			);
@@ -504,37 +502,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "\nusr_sh=\"$DSTROOT/usr/share/man\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -d \"$usr_sh/man8\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 444 \"$SRCROOT/src/visudo.man\" \"$usr_sh/man8/visudo.8\"\n";
-			showEnvVarsInLog = 0;
-		};
-		1C9A54E60F425AFA005378C8 /* Compress man pages */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Compress man pages";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n\nexit 0";
-			showEnvVarsInLog = 0;
-		};
-		1CE32BAC0F42343700C2C6A0 /* Compress man pages */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			comments = "Compress man pages.";
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Compress man pages";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man\n\nexit 0";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

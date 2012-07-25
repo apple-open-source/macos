@@ -156,8 +156,13 @@ recvdata (
 		timeout_tv.tv_sec = 15; 
 	}
 	switch(select(rsock + 1, &recv_fd, 0, 0, &timeout_tv)) {
-		case -1:
 		case 0:
+			if(ENABLED_OPT(NORMALVERBOSE))
+				printf("sntp recvdata: select() reached timeout (%u sec), aborting.\n", 
+				       (unsigned)timeout_tv.tv_sec);
+			return SERVER_UNUSEABLE;
+
+		case -1:
 			return SERVER_UNUSEABLE;
 		default:
 			
@@ -544,8 +549,9 @@ recvpkt (
 	
 	if (pkt_len < 0) {
 		if (ENABLED_OPT(NORMALVERBOSE)) {
-			printf("sntp recvpkt: negative packet length: %d.\n", pkt_len);
+			printf("sntp recvpkt failed: %d.\n", pkt_len);
 		}
+		free(rdata);
 		return pkt_len;
 	}
 	

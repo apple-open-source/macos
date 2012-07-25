@@ -34,7 +34,7 @@ class HTMLMarqueeElement : public HTMLElement, private ActiveDOMObject {
 public:
     static PassRefPtr<HTMLMarqueeElement> create(const QualifiedName&, Document*);
 
-    int minimumDelay() const { return m_minimumDelay; }
+    int minimumDelay() const;
 
     // DOM Functions
 
@@ -53,8 +53,8 @@ public:
 private:
     HTMLMarqueeElement(const QualifiedName&, Document*);
 
-    virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
     // ActiveDOMObject
     virtual bool canSuspend() const;
@@ -62,8 +62,6 @@ private:
     virtual void resume();
 
     RenderMarquee* renderMarquee() const;
-
-    int m_minimumDelay;
 };
 
 } // namespace WebCore

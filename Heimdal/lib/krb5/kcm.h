@@ -75,6 +75,7 @@ typedef enum kcm_operation {
     /* NTLM operations */
     KCM_OP_ADD_NTLM_CRED,
     KCM_OP_HAVE_NTLM_CRED,
+    KCM_OP_ADD_NTLM_CHALLENGE,
     KCM_OP_DO_NTLM_AUTH,
     KCM_OP_GET_NTLM_USER_LIST,
     /* SCRAM */
@@ -102,11 +103,13 @@ typedef enum kcm_operation {
 #define kCCAPICCacheChangedNotification "CCAPICCacheChangedNotification"
 
 
+#define KCM_STATUS_KEY			"kcm-status"
+#define KCM_STATUS_ACQUIRE_START	0
+#define KCM_STATUS_ACQUIRE_SUCCESS	1
+#define KCM_STATUS_ACQUIRE_FAILED	2
+#define KCM_STATUS_ACQUIRE_STOPPED	3
 
 
-#define KCM_NTLM_FLAG_SESSIONKEY 1
-#define KCM_NTLM_FLAG_NTLM2_SESSION 2
-#define KCM_NTLM_FLAG_KEYEX 4
 #define KCM_NTLM_FLAG_AV_GUEST 8
 
 #endif /* __KCM_H__ */

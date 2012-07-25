@@ -1,1 +1,0 @@
-FreeBSD/bcmp.c

@@ -160,7 +160,7 @@ parse_name(const unsigned char *p, size_t len,
 
 
 static void
-gss_error(krb5_context context,
+gss_error(krb5_context lcontext,
 	  gss_OID mech, OM_uint32 type, OM_uint32 error)
 {
     OM_uint32 new_stat;
@@ -175,7 +175,7 @@ gss_error(krb5_context context,
 				  mech,
 				  &msg_ctx,
 				  &status_string);
-	krb5_warnx(context, "%.*s",
+	krb5_warnx(lcontext, "%.*s",
 		   (int)status_string.length,
 		   (char *)status_string.value);
 	gss_release_buffer (&new_stat, &status_string);
@@ -183,11 +183,11 @@ gss_error(krb5_context context,
 }
 
 static void
-gss_print_errors (krb5_context context, 
+gss_print_errors (krb5_context lcontext, 
 		  OM_uint32 maj_stat, OM_uint32 min_stat)
 {
-    gss_error(context, GSS_C_NO_OID, GSS_C_GSS_CODE, maj_stat);
-    gss_error(context, GSS_C_NO_OID, GSS_C_MECH_CODE, min_stat);
+    gss_error(lcontext, GSS_C_NO_OID, GSS_C_GSS_CODE, maj_stat);
+    gss_error(lcontext, GSS_C_NO_OID, GSS_C_MECH_CODE, min_stat);
 }
 
 static int
@@ -242,7 +242,7 @@ collect_fragments(krb5_storage *sp, krb5_storage *msg)
  */
 
 static void
-proc_create_principal(kadm5_server_context *context,
+proc_create_principal(kadm5_server_context *lcontext,
 		      krb5_storage *in,
 		      krb5_storage *out)
 {
@@ -255,23 +255,23 @@ proc_create_principal(kadm5_server_context *context,
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
+    CHECK(_kadm5_xdr_ret_principal_ent(lcontext->context, in, &ent));
     INSIST(ent.principal != NULL);
-    CHECK(krb5_unparse_name(context->context, ent.principal, &princ));
+    CHECK(krb5_unparse_name(lcontext->context, ent.principal, &princ));
     CHECK(krb5_ret_uint32(in, &mask));
     CHECK(_kadm5_xdr_ret_string_xdr(in, &password));
 
     INSIST(ent.principal);
 
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_ADD, ent.principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_ADD, ent.principal);
     if (ret)
 	goto fail;
 
-    ret = kadm5_create_principal(context, &ent, mask, password);
+    ret = kadm5_create_principal(lcontext, &ent, mask, password);
 
  fail:
-    krb5_warn(context->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
+    krb5_warn(lcontext->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
@@ -282,75 +282,78 @@ proc_create_principal(kadm5_server_context *context,
 
 /* get array of salt tuples */
 
-static krb5_enctype *
-parse_enctypes(krb5_context context, krb5_storage *in)
+static krb5_key_salt_tuple *
+parse_ks_tuple(krb5_context lcontext, krb5_storage *in, uint32_t *n_ks_tuple)
 {
-    uint32_t n, num;
-    krb5_enctype *enctypes;
+    krb5_key_salt_tuple *tuples;
+    uint32_t n;
 
-    CHECK(krb5_ret_uint32(in, &num));
-    INSIST(num < 1000);
+    CHECK(krb5_ret_uint32(in, n_ks_tuple));
+    INSIST(*n_ks_tuple < 1000);
 
-    if (num == 0)
+    if (*n_ks_tuple == 0)
 	return NULL;
 
-    enctypes = calloc(num + 1, sizeof(enctypes[0]));
-    INSIST(enctypes != NULL);
+    tuples = calloc(*n_ks_tuple, sizeof(tuples[0]));
+    INSIST(tuples != NULL);
 
-    for (n = 0; n < num; n++) {
+    for (n = 0; n < *n_ks_tuple; n++) {
 	int32_t enctype, salttype;
 	CHECK(krb5_ret_int32(in, &enctype));
-	enctypes[n] = (krb5_enctype)enctype;
 	CHECK(krb5_ret_int32(in, &salttype));
+
+	tuples[n].ks_enctype = (krb5_enctype)enctype;
+	tuples[n].ks_salttype = (krb5_enctype)salttype;
     }
-    enctypes[n] = ENCTYPE_NULL;
-    return enctypes;
+    return tuples;
 }
 
 static void
-proc_create_principal3(kadm5_server_context *context,
+proc_create_principal3(kadm5_server_context *lcontext,
 		       krb5_storage *in,
 		       krb5_storage *out)
 {
-    uint32_t version, mask;
+    uint32_t version, mask, n_ks_tuple;
     kadm5_principal_ent_rec ent;
     krb5_error_code ret;
     char *password, *princ = NULL;
-    krb5_enctype *enctypes = NULL;
+    krb5_key_salt_tuple *ks_tuple;
 
     memset(&ent, 0, sizeof(ent));
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
+    CHECK(_kadm5_xdr_ret_principal_ent(lcontext->context, in, &ent));
     INSIST(ent.principal != NULL);
-    CHECK(krb5_unparse_name(context->context, ent.principal, &princ));
+    CHECK(krb5_unparse_name(lcontext->context, ent.principal, &princ));
     CHECK(krb5_ret_uint32(in, &mask));
-    enctypes = parse_enctypes(context->context, in);
+    ks_tuple = parse_ks_tuple(lcontext->context, in, &n_ks_tuple);
     CHECK(_kadm5_xdr_ret_string_xdr(in, &password));
 
     INSIST(ent.principal);
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_ADD, ent.principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_ADD, ent.principal);
     if (ret)
 	goto fail;
 
-    ret = kadm5_create_principal2(context, &ent, mask, password, enctypes);
+    ret = kadm5_create_principal_2(context, &ent, mask, n_ks_tuple, ks_tuple, password);
 
  fail:
-    krb5_warn(context->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
+    krb5_warn(lcontext->context, ret, "create principal: %s", princ ? princ : "<noprinc>");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
     free(password);
+    kadm5_free_principal_ent(lcontext, &ent);
+
     free(princ);
-    if (enctypes)
-	free(enctypes);
+    if (ks_tuple)
+	free(ks_tuple);
     kadm5_free_principal_ent(context, &ent);
 }
 
 static void
-proc_delete_principal(kadm5_server_context *context,
+proc_delete_principal(kadm5_server_context *lcontext,
 		      krb5_storage *in,
 		      krb5_storage *out)
 {
@@ -361,26 +364,26 @@ proc_delete_principal(kadm5_server_context *context,
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
-    CHECK(krb5_unparse_name(context->context, principal, &princ));
+    CHECK(_kadm5_xdr_ret_principal_xdr(lcontext->context, in, &principal));
+    CHECK(krb5_unparse_name(lcontext->context, principal, &princ));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_DELETE, principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_DELETE, principal);
     if (ret)
 	goto fail;
 
-    ret = kadm5_delete_principal(context, principal);
+    ret = kadm5_delete_principal(lcontext, principal);
 
  fail:
-    krb5_warn(context->context, ret, "delete principal: %s", princ ? princ : "<noprinc>");
+    krb5_warn(lcontext->context, ret, "delete principal: %s", princ ? princ : "<noprinc>");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
     free(princ);
-    krb5_free_principal(context->context, principal);
+    krb5_free_principal(lcontext->context, principal);
 }
 
 static void
-proc_modify_principal(kadm5_server_context *context,
+proc_modify_principal(kadm5_server_context *lcontext,
 		      krb5_storage *in,
 		      krb5_storage *out)
 {
@@ -390,27 +393,27 @@ proc_modify_principal(kadm5_server_context *context,
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_ent(context->context, in, &ent));
+    CHECK(_kadm5_xdr_ret_principal_ent(lcontext->context, in, &ent));
     INSIST(ent.principal != NULL);
     CHECK(krb5_ret_uint32(in, &mask));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_MODIFY,
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_MODIFY,
 				      ent.principal);
     if (ret)
 	goto fail;
 
-    ret = kadm5_modify_principal(context, &ent, mask);
+    ret = kadm5_modify_principal(lcontext, &ent, mask);
 
  fail:
-    krb5_warn(context->context, ret, "modify principal");
+    krb5_warn(lcontext->context, ret, "modify principal");
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
 
-    kadm5_free_principal_ent(context, &ent);
+    kadm5_free_principal_ent(lcontext, &ent);
 }
 
 static void
-proc_get_principal(kadm5_server_context *context,
+proc_get_principal(kadm5_server_context *lcontext,
 		   krb5_storage *in,
 		   krb5_storage *out)
 {
@@ -424,33 +427,33 @@ proc_get_principal(kadm5_server_context *context,
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
-    CHECK(krb5_unparse_name(context->context, principal, &princ));
+    CHECK(_kadm5_xdr_ret_principal_xdr(lcontext->context, in, &principal));
+    CHECK(krb5_unparse_name(lcontext->context, principal, &princ));
     CHECK(krb5_ret_uint32(in, &mask));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_GET, principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_GET, principal);
     if(ret)
 	goto fail;
 
     mask |= KADM5_KVNO | KADM5_PRINCIPAL;
 
-    ret = kadm5_get_principal(context, principal, &ent, mask);
+    ret = kadm5_get_principal(lcontext, principal, &ent, mask);
 
  fail:
-    krb5_warn(context->context, ret, "get principal: %s kvno %d",
+    krb5_warn(lcontext->context, ret, "get principal: %s kvno %d",
 	      princ ? princ : "<unknown>", (int)ent.kvno);
 
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
     CHECK(krb5_store_uint32(out, ret)); /* code */
     if (ret == 0) {
-	CHECK(_kadm5_xdr_store_principal_ent(context->context, out, &ent));
+	CHECK(_kadm5_xdr_store_principal_ent(lcontext->context, out, &ent));
     }
-    krb5_free_principal(context->context, principal);
-    kadm5_free_principal_ent(context, &ent);
+    krb5_free_principal(lcontext->context, principal);
+    kadm5_free_principal_ent(lcontext, &ent);
 }
 
 static void
-proc_chrand_principal_v2(kadm5_server_context *context,
+proc_chrand_principal_v2(kadm5_server_context *lcontext,
 			 krb5_storage *in, 
 			 krb5_storage *out)
 {
@@ -463,18 +466,18 @@ proc_chrand_principal_v2(kadm5_server_context *context,
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
-    CHECK(krb5_unparse_name(context->context, principal, &princ));
+    CHECK(_kadm5_xdr_ret_principal_xdr(lcontext->context, in, &principal));
+    CHECK(krb5_unparse_name(lcontext->context, principal, &princ));
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_CPW, principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_CPW, principal);
     if(ret)
 	goto fail;
 
-    ret = kadm5_randkey_principal(context, principal,
+    ret = kadm5_randkey_principal(lcontext, principal,
 				  &new_keys, &n_keys);
 
  fail:
-    krb5_warn(context->context, ret, "rand key principal v2: %s",
+    krb5_warn(lcontext->context, ret, "rand key principal v2: %s",
 	      princ ? princ : "<unknown>");
 
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
@@ -486,44 +489,44 @@ proc_chrand_principal_v2(kadm5_server_context *context,
 	for(i = 0; i < n_keys; i++){
 	    CHECK(krb5_store_uint32(out, new_keys[i].keytype));
 	    CHECK(_kadm5_xdr_store_data_xdr(out, new_keys[i].keyvalue));
-	    krb5_free_keyblock_contents(context->context, &new_keys[i]);
+	    krb5_free_keyblock_contents(lcontext->context, &new_keys[i]);
 	}
 	free(new_keys);
     }
-    krb5_free_principal(context->context, principal);
+    krb5_free_principal(lcontext->context, principal);
     if (princ)
 	free(princ);
 }
 
 static void
-proc_chrand_principal_v3(kadm5_server_context *context,
+proc_chrand_principal_v3(kadm5_server_context *lcontext,
 			 krb5_storage *in, 
 			 krb5_storage *out)
 {
     krb5_error_code ret;
     krb5_principal principal;
-    uint32_t version, keepold;
+    uint32_t version, keepold, n_ks_tuple;
     krb5_keyblock *new_keys;
-    krb5_enctype *enctypes = NULL;
+    krb5_key_salt_tuple *ks_tuple;
     char *princ = NULL;
     int n_keys;
 
     CHECK(krb5_ret_uint32(in, &version));
     EXPECT_EGT(version, VERSION2);
-    CHECK(_kadm5_xdr_ret_principal_xdr(context->context, in, &principal));
-    CHECK(krb5_unparse_name(context->context, principal, &princ));
+    CHECK(_kadm5_xdr_ret_principal_xdr(lcontext->context, in, &principal));
+    CHECK(krb5_unparse_name(lcontext->context, principal, &princ));
     CHECK(krb5_ret_uint32(in, &keepold));
-    enctypes = parse_enctypes(context->context, in);
+    ks_tuple = parse_ks_tuple(lcontext->context, in, &n_ks_tuple);
 
-    ret = _kadm5_acl_check_permission(context, KADM5_PRIV_CPW, principal);
+    ret = _kadm5_acl_check_permission(lcontext, KADM5_PRIV_CPW, principal);
     if(ret)
 	goto fail;
 
-    ret = kadm5_randkey_principal2(context, principal, enctypes,
-				   &new_keys, &n_keys);
+    ret = kadm5_randkey_principal_3(context, principal, keepold, n_ks_tuple, ks_tuple,
+				    &new_keys, &n_keys);
 
  fail:
-    krb5_warn(context->context, ret, "rand key principal v3: %s",
+    krb5_warn(lcontext->context, ret, "rand key principal v3: %s",
 	      princ ? princ : "<unknown>");
 
     CHECK(krb5_store_uint32(out, VERSION2)); /* api version */
@@ -535,20 +538,20 @@ proc_chrand_principal_v3(kadm5_server_context *context,
 	for(i = 0; i < n_keys; i++){
 	    CHECK(krb5_store_uint32(out, new_keys[i].keytype));
 	    CHECK(_kadm5_xdr_store_data_xdr(out, new_keys[i].keyvalue));
-	    krb5_free_keyblock_contents(context->context, &new_keys[i]);
+	    krb5_free_keyblock_contents(lcontext->context, &new_keys[i]);
 	}
 	free(new_keys);
     }
-    if (enctypes)
-	free(enctypes);
-    krb5_free_principal(context->context, principal);
+    if (ks_tuple)
+	free(ks_tuple);
+    krb5_free_principal(lcontext->context, principal);
     if (princ)
 	free(princ);
 }
 
 
 static void
-proc_init(kadm5_server_context *context,
+proc_init(kadm5_server_context *lcontext,
 	  krb5_storage *in,
 	  krb5_storage *out)
 {
@@ -558,7 +561,7 @@ proc_init(kadm5_server_context *context,
 }
 
 static void
-proc_get_policy(kadm5_server_context *context,
+proc_get_policy(kadm5_server_context *lcontext,
 		krb5_storage *in,
 		krb5_storage *out)
 {
@@ -1148,7 +1151,7 @@ rpcgssapi_reply(struct gctx *gctx, krb5_storage *dreply, krb5_storage *reply)
 
 
 static int
-process_stream(krb5_context context, 
+process_stream(krb5_context lcontext, 
 	       unsigned char *buf, size_t ilen,
 	       krb5_storage *sp)
 {
@@ -1226,14 +1229,14 @@ process_stream(krb5_context context,
 	    if (!last_fragment) {
 		ret = collect_fragments(sp, msg);
 		if (ret == HEIM_ERR_EOF)
-		    krb5_errx(context, 0, "client disconnected");
+		    krb5_errx(lcontext, 0, "client disconnected");
 		INSIST(ret == 0);
 	    }
 	} else {
 
 	    ret = collect_fragments(sp, msg);
 	    if (ret == HEIM_ERR_EOF)
-		krb5_errx(context, 0, "client disconnected");
+		krb5_errx(lcontext, 0, "client disconnected");
 	    INSIST(ret == 0);
 	}
 	krb5_storage_seek(msg, 0, SEEK_SET);
@@ -1266,7 +1269,7 @@ process_stream(krb5_context context,
 		gctx.reply = rpcgssapi_reply;
 		break;
 	    default:
-		krb5_errx(context, 0, "unsupported protocol version: %d", (int)gctx.protocol);
+		krb5_errx(lcontext, 0, "unsupported protocol version: %d", (int)gctx.protocol);
 	    }
 
 	} else {
@@ -1277,7 +1280,6 @@ process_stream(krb5_context context,
 	    gctx.verify_header(&gctx, &chdr, &headercopy);
 
 	gctx.handle_protocol(&gctx, &chdr, msg, dreply);
-
 
 	krb5_data_free(&chdr.cred.data);
 	krb5_data_free(&chdr.verf.data);
@@ -1318,7 +1320,7 @@ process_stream(krb5_context context,
 }
 
 int
-handle_mit(krb5_context context, void *buf, size_t len, krb5_socket_t sock)
+handle_mit(krb5_context lcontext, void *buf, size_t len, krb5_socket_t sock)
 {
     krb5_storage *sp;
 
@@ -1327,7 +1329,7 @@ handle_mit(krb5_context context, void *buf, size_t len, krb5_socket_t sock)
     sp = krb5_storage_from_fd(sock);
     INSIST(sp != NULL);
     
-    process_stream(context, buf, len, sp);
+    process_stream(lcontext, buf, len, sp);
 
     return 0;
 }

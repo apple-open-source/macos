@@ -36,8 +36,8 @@ public:
 
     int cellIndex() const;
 
-    int colSpan() const { return m_colSpan; }
-    int rowSpan() const { return m_rowSpan; }
+    int colSpan() const;
+    int rowSpan() const;
 
     void setCellIndex(int);
 
@@ -53,20 +53,37 @@ public:
 private:
     HTMLTableCellElement(const QualifiedName&, Document*);
 
-    virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
 
-    // used by table cells to share style decls created by the enclosing table.
-    virtual bool canHaveAdditionalAttributeStyleDecls() const { return true; }
-    virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&);
-    
+    virtual StylePropertySet* additionalAttributeStyle() OVERRIDE;
+
     virtual bool isURLAttribute(Attribute*) const;
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
-
-    int m_rowSpan;
-    int m_colSpan;
 };
+
+HTMLTableCellElement* toHTMLTableCellElement(Node* node);
+const HTMLTableCellElement* toHTMLTableCellElement(const Node* node);
+
+// This will catch anyone doing an unnecessary cast.
+void toHTMLTableCellElement(const HTMLTableCellElement*);
+
+#ifdef NDEBUG
+
+// The debug versions of these, with assertions, are not inlined.
+
+inline HTMLTableCellElement* toHTMLTableCellElement(Node* node)
+{
+    return static_cast<HTMLTableCellElement*>(node);
+}
+
+inline const HTMLTableCellElement* toHTMLTableCellElement(const Node* node)
+{
+    return static_cast<const HTMLTableCellElement*>(node);
+}
+#endif
 
 } // namespace
 

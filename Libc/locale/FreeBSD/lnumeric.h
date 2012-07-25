@@ -29,13 +29,15 @@
 #ifndef _LNUMERIC_H_
 #define	_LNUMERIC_H_
 
+#include <xlocale.h>
+
 struct lc_numeric_T {
 	const char	*decimal_point;
 	const char	*thousands_sep;
 	const char	*grouping;
 };
 
-struct lc_numeric_T *__get_current_numeric_locale(void);
-int	__numeric_load_locale(const char *);
+struct lc_numeric_T *__get_current_numeric_locale(locale_t);
+int	__numeric_load_locale(const char *, locale_t);
 
 #endif /* !_LNUMERIC_H_ */

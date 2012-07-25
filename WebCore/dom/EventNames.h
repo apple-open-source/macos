@@ -22,6 +22,8 @@
 #ifndef EventNames_h
 #define EventNames_h
 
+#include "EventInterfaces.h"
+#include "EventTargetInterfaces.h"
 #include "ThreadGlobalData.h"
 #include <wtf/text/AtomicString.h>
 
@@ -34,12 +36,13 @@ namespace WebCore {
     macro(beforecut) \
     macro(beforeload) \
     macro(beforepaste) \
-    macro(beforeprocess) \
     macro(beforeunload) \
     macro(blocked) \
     macro(blur) \
     macro(cached) \
     macro(change) \
+    macro(chargingchange) \
+    macro(chargingtimechange) \
     macro(checking) \
     macro(click) \
     macro(close) \
@@ -54,6 +57,7 @@ namespace WebCore {
     macro(dblclick) \
     macro(devicemotion) \
     macro(deviceorientation) \
+    macro(dischargingtimechange) \
     macro(display) \
     macro(downloading) \
     macro(drag) \
@@ -73,6 +77,7 @@ namespace WebCore {
     macro(keydown) \
     macro(keypress) \
     macro(keyup) \
+    macro(levelchange) \
     macro(load) \
     macro(loadstart) \
     macro(message) \
@@ -106,7 +111,7 @@ namespace WebCore {
     macro(unload) \
     macro(updateready) \
     macro(versionchange) \
-    macro(webkitvisibilitystatechange) \
+    macro(webkitvisibilitychange) \
     macro(write) \
     macro(writeend) \
     macro(writestart) \
@@ -144,8 +149,22 @@ namespace WebCore {
     macro(volumechange) \
     macro(waiting) \
     \
+    macro(addtrack) \
+    macro(cuechange) \
+    macro(enter) \
+    macro(exit) \
+    \
     macro(webkitbeginfullscreen) \
     macro(webkitendfullscreen) \
+    \
+    macro(webkitsourceopen) \
+    macro(webkitsourceended) \
+    macro(webkitsourceclose) \
+    \
+    macro(webkitkeyadded) \
+    macro(webkitkeyerror) \
+    macro(webkitkeymessage) \
+    macro(webkitneedkey) \
     \
     macro(progress) \
     macro(stalled) \
@@ -171,8 +190,21 @@ namespace WebCore {
     macro(loadend) \
     \
     macro(webkitfullscreenchange) \
+    macro(webkitfullscreenerror) \
     \
     macro(webkitspeechchange) \
+    \
+    macro(audiostart) \
+    macro(soundstart) \
+    macro(speechstart) \
+    macro(speechend) \
+    macro(soundend) \
+    macro(audioend) \
+    macro(result) \
+    macro(nomatch) \
+    macro(resultdeleted) \
+    macro(start) \
+    macro(end) \
     \
     macro(webglcontextlost) \
     macro(webglcontextrestored) \
@@ -180,6 +212,20 @@ namespace WebCore {
     \
     macro(audioprocess) \
     \
+    macro(connecting) \
+    macro(addstream) \
+    macro(removestream) \
+    macro(statechange) \
+    \
+    macro(show) \
+    \
+    macro(webkitpointerlocklost) \
+    \
+    macro(webkitRegionLayoutUpdate) \
+    \
+    macro(webkitnetworkinfochange) \
+    \
+
 // end of DOM_EVENT_NAMES_FOR_EACH
 
     class EventNames {
@@ -193,6 +239,16 @@ namespace WebCore {
         #define DOM_EVENT_NAMES_DECLARE(name) AtomicString name##Event;
         DOM_EVENT_NAMES_FOR_EACH(DOM_EVENT_NAMES_DECLARE)
         #undef DOM_EVENT_NAMES_DECLARE
+
+        #define DOM_EVENT_INTERFACE_DECLARE(name) AtomicString interfaceFor##name;
+        DOM_EVENT_INTERFACES_FOR_EACH(DOM_EVENT_INTERFACE_DECLARE)
+        DOM_EVENT_TARGET_INTERFACES_FOR_EACH(DOM_EVENT_INTERFACE_DECLARE)
+        #undef DOM_EVENT_INTERFACE_DECLARE
+
+        inline bool isTouchEventType(const AtomicString& eventType) const
+        {
+            return eventType == touchstartEvent || eventType == touchmoveEvent || eventType == touchendEvent || eventType == touchcancelEvent;
+        }
     };
 
     inline EventNames& eventNames()

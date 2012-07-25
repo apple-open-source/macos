@@ -34,20 +34,13 @@ public:
         return adoptRef(new CSSCharsetRule(parent, encoding));
     }
 
-    virtual ~CSSCharsetRule();
-
     const String& encoding() const { return m_encoding; }
     void setEncoding(const String& encoding, ExceptionCode&) { m_encoding = encoding; }
 
-    virtual String cssText() const;
+    String cssText() const;
 
 private:
     CSSCharsetRule(CSSStyleSheet* parent, const String& encoding);
-
-    virtual bool isCharsetRule() { return true; }
-
-    // from CSSRule
-    virtual unsigned short type() const { return CHARSET_RULE; }
 
     String m_encoding;
 };

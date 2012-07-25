@@ -25,9 +25,13 @@
 
 #include "Attribute.h"
 #include "CSSPropertyNames.h"
+#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
+#include "CSSValueList.h"
+#include "CSSValuePool.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
+#include <wtf/text/StringBuilder.h>
 
 using namespace WTF;
 
@@ -89,7 +93,8 @@ static bool parseFontSize(const String& input, int& size)
     }
 
     // Step 6
-    Vector<UChar, 16> digits;
+    StringBuilder digits;
+    digits.reserveCapacity(16);
     while (position < end) {
         if (!isASCIIDigit(*position))
             break;
@@ -101,7 +106,7 @@ static bool parseFontSize(const String& input, int& size)
         return false;
 
     // Step 8
-    int value = charactersToIntStrict(digits.data(), digits.size());
+    int value = charactersToIntStrict(digits.characters(), digits.length());
 
     // Step 9
     if (mode == RelativePlus)
@@ -119,18 +124,6 @@ static bool parseFontSize(const String& input, int& size)
 
     size = value;
     return true;
-}
-
-bool HTMLFontElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
-{
-    if (attrName == sizeAttr ||
-        attrName == colorAttr ||
-        attrName == faceAttr) {
-        result = eUniversal;
-        return false;
-    }
-    
-    return HTMLElement::mapToEntry(attrName, result);
 }
 
 bool HTMLFontElement::cssValueFromFontSizeNumber(const String& s, int& size)
@@ -168,18 +161,26 @@ bool HTMLFontElement::cssValueFromFontSizeNumber(const String& s, int& size)
     return true;
 }
 
-void HTMLFontElement::parseMappedAttribute(Attribute* attr)
+bool HTMLFontElement::isPresentationAttribute(const QualifiedName& name) const
+{
+    if (name == sizeAttr || name == colorAttr || name == faceAttr)
+        return true;
+    return HTMLElement::isPresentationAttribute(name);
+}
+
+void HTMLFontElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
 {
     if (attr->name() == sizeAttr) {
         int size = 0;
         if (cssValueFromFontSizeNumber(attr->value(), size))
-            addCSSProperty(attr, CSSPropertyFontSize, size);
-    } else if (attr->name() == colorAttr) {
-        addCSSColor(attr, CSSPropertyColor, attr->value());
-    } else if (attr->name() == faceAttr) {
-        addCSSProperty(attr, CSSPropertyFontFamily, attr->value());
+            addPropertyToAttributeStyle(style, CSSPropertyFontSize, size);
+    } else if (attr->name() == colorAttr)
+        addHTMLColorToStyle(style, CSSPropertyColor, attr->value());
+    else if (attr->name() == faceAttr) {
+        if (RefPtr<CSSValueList> fontFaceValue = cssValuePool().createFontFaceValue(attr->value()))
+            style->setProperty(CSSProperty(CSSPropertyFontFamily, fontFaceValue.release()));
     } else
-        HTMLElement::parseMappedAttribute(attr);
+        HTMLElement::collectStyleForAttribute(attr, style);
 }
 
 }

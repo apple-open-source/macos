@@ -48,18 +48,19 @@ enum
 
 enum
 {
-    kHIDDispatchOptionScrollNoAcceleration             = 0x01,
+    kHIDDispatchOptionScrollNoAcceleration      = 0x001,
 
-    kHIDDispatchOptionScrollMomentumAny                = 0x0e,
-    kHIDDispatchOptionScrollMomentumContinue           = 0x02,
-    kHIDDispatchOptionScrollMomentumStart              = 0x04,
-    kHIDDispatchOptionScrollMomentumEnd                = 0x08,
+    kHIDDispatchOptionScrollMomentumAny         = 0x00e,
+    kHIDDispatchOptionScrollMomentumContinue    = 0x002,
+    kHIDDispatchOptionScrollMomentumStart       = 0x004,
+    kHIDDispatchOptionScrollMomentumEnd         = 0x008,
     
-    kHIDDispatchOptionPhaseAny                         = 0xf0,
-    kHIDDispatchOptionPhaseBegan                       = 0x10,
-    kHIDDispatchOptionPhaseChanged                     = 0x20,
-    kHIDDispatchOptionPhaseEnded                       = 0x40,
-    kHIDDispatchOptionPhaseCanceled                    = 0x80,
+    kHIDDispatchOptionPhaseAny                  = 0xff0,
+    kHIDDispatchOptionPhaseBegan                = 0x010,
+    kHIDDispatchOptionPhaseChanged              = 0x020,
+    kHIDDispatchOptionPhaseEnded                = 0x040,
+    kHIDDispatchOptionPhaseCanceled             = 0x080,
+    kHIDDispatchOptionPhaseMayBegin             = 0x800,
 };
 
 enum 

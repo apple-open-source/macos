@@ -3,11 +3,18 @@ lib	select,poll,socket
 lib	htons,htonl sys/types.h sys/socket.h netinet/in.h
 lib	getaddrinfo sys/types.h sys/socket.h netdb.h
 typ	fd_set sys/socket.h sys/select.h
+typ	socklen_t unistd.h sys/socket.h = unsigned int
 tst	pipe_socketpair note{ use socketpair() for peekable pipe() }end execute{
 	#include <ast.h>
 	#include <signal.h>
 	#include <sys/types.h>
 	#include <sys/socket.h>
+	#ifndef SHUT_RD
+	#define SHUT_RD		0
+	#endif
+	#ifndef SHUT_WR
+	#define SHUT_WR		1
+	#endif
 	static void handler(sig)
 	int	sig;
 	{
@@ -24,8 +31,8 @@ tst	pipe_socketpair note{ use socketpair() for peekable pipe() }end execute{
 		close(0);
 		if (pipe(pfd) < 0 ||
 		    socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0 ||
-		    shutdown(sfd[0], 1) < 0 ||
-		    shutdown(sfd[1], 0) < 0)
+		    shutdown(sfd[1], SHUT_RD) < 0 ||
+		    shutdown(sfd[0], SHUT_WR) < 0)
 			return(1);
 		if ((pid = fork()) < 0)
 			return(1);
@@ -50,8 +57,8 @@ tst	pipe_socketpair note{ use socketpair() for peekable pipe() }end execute{
 		close(sfd[0]);
 		signal(SIGPIPE, handler);
 		if (socketpair(AF_UNIX, SOCK_STREAM, 0, sfd) < 0 ||
-		    shutdown(sfd[0], 1) < 0 ||
-		    shutdown(sfd[1], 0) < 0)
+		    shutdown(sfd[1], SHUT_RD) < 0 ||
+		    shutdown(sfd[0], SHUT_WR) < 0)
 			return(1);
 		close(sfd[0]);
 		write(sfd[1], msg, sizeof(msg) - 1);

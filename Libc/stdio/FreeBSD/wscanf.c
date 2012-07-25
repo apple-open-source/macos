@@ -27,6 +27,8 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/stdio/wscanf.c,v 1.1 2002/09/23 12:40:06 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <wchar.h>
@@ -38,7 +40,21 @@ wscanf(const wchar_t * __restrict fmt, ...)
 	int r;
 
 	va_start(ap, fmt);
-	r = vfwscanf(stdin, fmt, ap);
+	r = vfwscanf_l(stdin, __current_locale(), fmt, ap);
+	va_end(ap);
+
+	return (r);
+}
+
+int
+wscanf_l(locale_t loc, const wchar_t * __restrict fmt, ...)
+{
+	va_list ap;
+	int r;
+
+	/* no need to call NORMALIZE_LOCALE(loc) because vfwscanf_l will */
+	va_start(ap, fmt);
+	r = vfwscanf_l(stdin, loc, fmt, ap);
 	va_end(ap);
 
 	return (r);

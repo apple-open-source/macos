@@ -631,7 +631,7 @@ smb_nbst_create(struct smb_vc *vcp)
 {
 	struct nbpcb *nbp;
 
-	MALLOC(nbp, struct nbpcb *, sizeof *nbp, M_NBDATA, M_WAITOK);
+	SMB_MALLOC(nbp, struct nbpcb *, sizeof *nbp, M_NBDATA, M_WAITOK);
 	bzero(nbp, sizeof *nbp);
 	nbp->nbp_timo.tv_sec = SMB_NBTIMO;
 	nbp->nbp_state = NBST_CLOSED;
@@ -652,13 +652,13 @@ smb_nbst_done(struct smb_vc *vcp)
 		return (ENOTCONN);
 	smb_nbst_disconnect(vcp);
 	if (nbp->nbp_laddr)
-		free(nbp->nbp_laddr, M_SONAME);
+		SMB_FREE(nbp->nbp_laddr, M_SONAME);
 	if (nbp->nbp_paddr)
-		free(nbp->nbp_paddr, M_SONAME);
+		SMB_FREE(nbp->nbp_paddr, M_SONAME);
 	/* The vc_tdata is no longer valid */
 	vcp->vc_tdata = NULL;
 	lck_mtx_destroy(&nbp->nbp_lock, nbp_lck_group);
-	free(nbp, M_NBDATA);
+	SMB_FREE(nbp, M_NBDATA);
 	return (0);
 }
 
@@ -718,7 +718,7 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap)
 		if (slen < (int)NB_MINSALEN)
 			return (EINVAL);
 		if (nbp->nbp_paddr) {
-			free(nbp->nbp_paddr, M_SONAME);
+			SMB_FREE(nbp->nbp_paddr, M_SONAME);
 			nbp->nbp_paddr = NULL;
 		}
 		nbp->nbp_paddr = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
@@ -792,6 +792,8 @@ smb_nbst_send(struct smb_vc *vcp, mbuf_t m0)
 		error = ENOTCONN;
 		goto abort;
 	}
+    
+    /* Add in the NetBIOS 4 byte header */
 	if (mbuf_prepend(&m0, 4, MBUF_WAITOK))
 		return (ENOBUFS);
 	nb_sethdr(nbp, m0, NB_SSN_MESSAGE, (uint32_t)(m_fixhdr(m0) - 4));

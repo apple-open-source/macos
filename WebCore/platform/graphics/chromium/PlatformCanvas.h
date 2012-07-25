@@ -31,25 +31,13 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 
-#if USE(CG)
-#include <CoreGraphics/CGColorSpace.h>
-#include <CoreGraphics/CGContext.h>
-#include <wtf/OwnArrayPtr.h>
-#include <wtf/RetainPtr.h>
-#endif
-
-#if USE(SKIA)
 class SkBitmap;
 class SkCanvas;
-#endif
 
 namespace WebCore {
 
 class GraphicsContext;
-
-#if USE(SKIA)
 class PlatformContextSkia;
-#endif
 
 // A 2D buffer of pixels with an associated GraphicsContext.
 class PlatformCanvas {
@@ -65,13 +53,10 @@ public:
         explicit AutoLocker(PlatformCanvas*);
         ~AutoLocker();
 
-        const uint8_t* pixels() const { return m_pixels; }
+        const uint8_t* pixels() const;
     private:
         PlatformCanvas* m_canvas;
-#if USE(SKIA)
         const SkBitmap* m_bitmap;
-#endif
-        uint8_t* m_pixels;
     };
 
     // Scoped lock class to get temporary access to paint into this canvas.
@@ -85,26 +70,24 @@ public:
         ~Painter();
 
         GraphicsContext* context() const { return m_context.get(); }
+        PlatformContextSkia* skiaContext() const { return m_skiaContext.get(); }
     private:
         OwnPtr<GraphicsContext> m_context;
-#if USE(SKIA)
         OwnPtr<PlatformContextSkia> m_skiaContext;
-#elif USE(CG)
-        RetainPtr<CGColorSpaceRef> m_colorSpace;
-        RetainPtr<CGContextRef> m_contextCG;
-#endif
     };
 
     void resize(const IntSize&);
     IntSize size() const { return m_size; }
 
+    void setOpaque(bool);
+    bool opaque() const { return m_opaque; }
+
 private:
-#if USE(SKIA)
+    void createBackingCanvas();
+
     OwnPtr<SkCanvas> m_skiaCanvas;
-#elif USE(CG)
-    OwnArrayPtr<uint8_t> m_pixelData;
-#endif
     IntSize m_size;
+    bool m_opaque;
 };
 
 } // namespace WebCore

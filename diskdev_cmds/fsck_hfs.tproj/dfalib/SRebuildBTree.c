@@ -32,7 +32,7 @@
 */
 
 #define SHOW_ELAPSED_TIMES  0
-#define DEBUG_REBUILD  0
+#define DEBUG_REBUILD  1
 
 extern void MyIndirectLog(const char *);
 
@@ -65,6 +65,7 @@ static OSErr 	WriteMapNodes(  BTreeControlBlock * theBTreeCBPtr,
 static void PrintBTHeaderRec( BTHeaderRec * thePtr );
 static void PrintNodeDescriptor( NodeDescPtr thePtr );
 static void PrintBTreeKey( KeyPtr thePtr, BTreeControlBlock * theBTreeCBPtr );
+static void PrintBTreeData(void *data, UInt32 length);
 static void PrintIndexNodeRec( UInt32 theNodeNum );
 static void PrintLeafNodeRec( HFSPlusCatalogFolder * thePtr );
 #endif 
@@ -310,7 +311,10 @@ OSErr	RebuildBTree( SGlobPtr theSGlobPtr, int FileID )
 						__FUNCTION__, (theSGlobPtr->scanState.recordNum - 1), 
 						theSGlobPtr->scanState.nodeNum );
 				PrintBTreeKey( myCurrentKeyPtr, theSGlobPtr->calculatedCatalogBTCB );
+				PrintBTreeData( myCurrentDataPtr, myDataSize );
 			}
+			if (myErr == btExists)
+				continue;
 #endif
 			if (dskFulErr == myErr)
 			{
@@ -321,7 +325,7 @@ OSErr	RebuildBTree( SGlobPtr theSGlobPtr, int FileID )
 		}
 		numRecords++;
 #if DEBUG_REBUILD
-		if (debug && ((numRecords % 1000) == 0) || printEvery)
+		if (debug && ((numRecords % 1000) == 0))
 			plog("btree file %d:  %u records\n", FileID, numRecords);
 #endif
 	}
@@ -1107,16 +1111,73 @@ static void PrintBTreeKey( KeyPtr thePtr, BTreeControlBlock * theBTreeCBPtr )
 {
 	int		myKeyLength, i;
 	UInt8 *	myPtr = (UInt8 *)thePtr;
-
-	myKeyLength = CalcKeySize( theBTreeCBPtr, thePtr) ;
-	plog( "\n xxxxxxxx BTreeKey xxxxxxxx \n" );
-	plog( "   length %d \n", myKeyLength );
-	for ( i = 0; i < myKeyLength; i++ )
-		plog( "%02X", *(myPtr + i) );
-	plog( "\n" );
+	char	ascii[17];
+	UInt8	byte;
 	
+	ascii[16] = '\0';
+	
+	myKeyLength = CalcKeySize( theBTreeCBPtr, thePtr) ;
+	plog( "\n xxxxxxxx BTreeKey (length %d) xxxxxxxx \n", myKeyLength );
+	for ( i = 0; i < myKeyLength; i++ )
+	{
+		byte = *(myPtr + i);
+		plog( "%02X ", byte );
+		if (byte < 32 || byte > 126)
+			ascii[i & 0xF] = '.';
+		else
+			ascii[i & 0xF] = byte;
+		
+		if ((i & 0xF) == 0xF)
+		{
+			plog("  %s\n", ascii);
+		}
+	}
+	
+	if (i & 0xF)
+	{
+		int j;
+		for (j = i & 0xF; j < 16; ++j)
+			plog("   ");
+		ascii[i & 0xF] = 0;
+		plog("  %s\n", ascii);
+	}
 } /* PrintBTreeKey */
-			
+
+static void PrintBTreeData(void *data, UInt32 length)
+{
+	UInt32	i;
+	UInt8 *	myPtr = (UInt8 *)data;
+	char	ascii[17];
+	UInt8	byte;
+	
+	ascii[16] = '\0';
+
+	plog( "\n xxxxxxxx BTreeData (length %d) xxxxxxxx \n", length );
+	for ( i = 0; i < length; i++ )
+	{
+		byte = *(myPtr + i);
+		plog( "%02X ", byte );
+		if (byte < 32 || byte > 126)
+			ascii[i & 0xF] = '.';
+		else
+			ascii[i & 0xF] = byte;
+		
+		if ((i & 0xF) == 0xF)
+		{
+			plog("  %s\n", ascii);
+		}
+	}
+	
+	if (i & 0xF)
+	{
+		int j;
+		for (j = i & 0xF; j < 16; ++j)
+			plog("   ");
+		ascii[i & 0xF] = 0;
+		plog("  %s\n", ascii);
+	}
+}
+
 static void PrintIndexNodeRec( UInt32 theNodeNum )
 {
 	plog( "\n xxxxxxxx IndexNodeRec xxxxxxxx \n" );

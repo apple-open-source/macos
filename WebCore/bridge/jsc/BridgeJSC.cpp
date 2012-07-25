@@ -54,7 +54,6 @@ Array::~Array()
 
 Instance::Instance(PassRefPtr<RootObject> rootObject)
     : m_rootObject(rootObject)
-    , m_runtimeObject(*WebCore::JSDOMWindowBase::commonJSGlobalData())
 {
     ASSERT(m_rootObject);
 }
@@ -95,7 +94,7 @@ JSObject* Instance::createRuntimeObject(ExecState* exec)
 
     JSLock lock(SilenceAssertionsOnly);
     RuntimeObject* newObject = newRuntimeObject(exec);
-    m_runtimeObject.set(exec->globalData(), newObject, 0);
+    m_runtimeObject = PassWeak<RuntimeObject>(newObject);
     m_rootObject->addRuntimeObject(exec->globalData(), newObject);
     return newObject;
 }

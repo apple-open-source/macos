@@ -1,11 +1,11 @@
 NAME = macholib
-VERSION = 1.3
+VERSION = 1.4.2
 
 include ../Makefile.inc
 
 custompatching:
 	ed - $(DIR)/macholib/MachO.py < MachO.py.ed
-	ex - $(DIR)/macholib/mach_o.py < mach_o.py.ex
+	ed - $(DIR)/macholib/mach_o.py < mach_o.py.ed
 
 postinstall:
 	cp -f MIT.license $(OSL)/$(NAME)-$(VERSION).txt

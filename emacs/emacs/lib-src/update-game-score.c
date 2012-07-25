@@ -368,7 +368,7 @@ read_scores (filename, scores, count)
     return -1;
   scorecount = 0;
   cursize = 16;
-  ret = (struct score_entry *) malloc (sizeof (struct score_entry) * cursize);
+  ret = (struct score_entry *) calloc (sizeof (struct score_entry), cursize);
   if (!ret)
     return -1;
   while ((readval = read_score (f, &ret[scorecount])) == 0)
@@ -384,6 +384,7 @@ read_scores (filename, scores, count)
 	    realloc (ret, (sizeof (struct score_entry) * cursize));
 	  if (!ret)
 	    return -1;
+          memset(&ret[scorecount], 0, sizeof(struct score_entry)*(cursize-scorecount));
 	}
     }
   *count = scorecount;

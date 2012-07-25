@@ -44,6 +44,8 @@ struct sockinet {
 	u_short	si_port;
 };
 
+void trimdomain(char *_fullhost, size_t _hostsize);
+
 int
 realhostname(char *host, size_t hsize, const struct in_addr *ip)
 {

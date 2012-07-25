@@ -49,7 +49,7 @@ Output is written to caller-supplied buffer.
     
 void
     CCAESCmac(const void *key, const uint8_t *data, size_t dataLength, void *macOut)
-__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
+__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_6_0);
 
 #ifdef __cplusplus
 }

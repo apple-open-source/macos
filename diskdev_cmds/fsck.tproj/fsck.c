@@ -667,6 +667,8 @@ int checkfilesys(disk_t *disk, int child) {
 	 * the child fsck process if the fsck_XXX binary exists.
 	 */
 	if (vfstype) {
+		int exitstatus;
+
 		bzero(options, sizeof(options));
 		snprintf(options, sizeof(options), "-%s%s%s%s%s%s",
 				 (preen) ? "p" : "",
@@ -722,15 +724,16 @@ int checkfilesys(disk_t *disk, int child) {
 				
 			default:
 				/* The parent; child is process "pid" */
-				waitpid(pid, &status, 0);
-				if (WIFEXITED(status)) {
-					status = WEXITSTATUS(status);
+				waitpid(pid, &exitstatus, 0);
+				if (WIFEXITED(exitstatus)) {
+					status = WEXITSTATUS(exitstatus);
 				}
 				else {
 					status = 0;
 				}
-				if (WIFSIGNALED(status)) {
-					printf("%s (%s) EXITED WITH SIGNAL %d\n", filesys, vfstype, WTERMSIG(status));
+				if (WIFSIGNALED(exitstatus)) {
+					printf("%s (%s) EXITED WITH SIGNAL %d\n", filesys, vfstype, WTERMSIG(exitstatus));
+					status = 8;
 				}
 				break;
 		}

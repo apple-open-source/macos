@@ -1,4 +1,4 @@
-.TH OTOOL 1 "November 3, 2010" "Apple, Inc."
+.TH OTOOL 1 "March 30, 2012" "Apple, Inc."
 .SH NAME
 otool \- object file displaying tool
 .SH SYNOPSIS
@@ -130,6 +130,14 @@ option.
 .TP
 .B \-X
 Don't print leading addresses or headers with disassembly of sections.
+.TP
+.B \-q
+Use the llvm disassembler when doing disassembly, this is available for the x86
+and arm architectures.
+.B \-Q
+Use
+.IR otool (1)'s
+disassembler when doing disassembly.
 .TP
 .BI \-arch " arch_type"
 Specifies the architecture,

@@ -22,6 +22,7 @@
 #ifndef PopupMenuClient_h
 #define PopupMenuClient_h
 
+#include "LayoutTypes.h"
 #include "PopupMenuStyle.h"
 #include "ScrollTypes.h"
 #include <wtf/Forward.h>
@@ -51,8 +52,8 @@ public:
     virtual PopupMenuStyle menuStyle() const = 0;
     virtual int clientInsetLeft() const = 0;
     virtual int clientInsetRight() const = 0;
-    virtual int clientPaddingLeft() const = 0;
-    virtual int clientPaddingRight() const = 0;
+    virtual LayoutUnit clientPaddingLeft() const = 0;
+    virtual LayoutUnit clientPaddingRight() const = 0;
     virtual int listSize() const = 0;
     virtual int selectedIndex() const = 0;
     virtual void popupDidHide() = 0;
@@ -63,20 +64,18 @@ public:
     virtual bool valueShouldChangeOnHotTrack() const = 0;
     virtual void setTextFromItem(unsigned listIndex) = 0;
 
+    virtual void listBoxSelectItem(int /*listIndex*/, bool /*allowMultiplySelections*/, bool /*shift*/, bool /*fireOnChangeNow*/ = true) { ASSERT_NOT_REACHED(); }
+    virtual bool multiple() const
+    {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+
     virtual FontSelector* fontSelector() const = 0;
     virtual HostWindow* hostWindow() const = 0;
 
     virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize) = 0;
 };
-
-#if ENABLE(NO_LISTBOX_RENDERING)
-class ListPopupMenuClient : public PopupMenuClient {
-public:
-    virtual void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true) = 0;
-    virtual bool multiple() = 0;
-};
-#endif
-
 
 }
 

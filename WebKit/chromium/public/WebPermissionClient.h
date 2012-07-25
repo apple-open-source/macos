@@ -36,6 +36,7 @@ namespace WebKit {
 class WebFrame;
 class WebSecurityOrigin;
 class WebString;
+class WebURL;
 
 class WebPermissionClient {
 public:
@@ -46,7 +47,7 @@ public:
     virtual bool allowFileSystem(WebFrame*) { return true; }
 
     // Controls whether images are allowed for this frame.
-    virtual bool allowImages(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
+    virtual bool allowImage(WebFrame* frame, bool enabledPerSettings, const WebURL& imageURL) { return enabledPerSettings; }
 
     // Controls whether access to Indexed DB are allowed for this frame.
     virtual bool allowIndexedDB(WebFrame*, const WebString& name, const WebSecurityOrigin&) { return true; }
@@ -57,12 +58,26 @@ public:
     // Controls whether scripts are allowed to execute for this frame.
     virtual bool allowScript(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
 
+    // Controls whether scripts loaded from the given URL are allowed to execute for this frame.
+    virtual bool allowScriptFromSource(WebFrame*, bool enabledPerSettings, const WebURL& scriptURL) { return enabledPerSettings; }
+
+    // Controls whether insecrure content is allowed to display for this frame.
+    virtual bool allowDisplayingInsecureContent(WebFrame*, bool enabledPerSettings, const WebSecurityOrigin&, const WebURL&) { return enabledPerSettings; }
+
+    // Controls whether insecrure scripts are allowed to execute for this frame.
+    virtual bool allowRunningInsecureContent(WebFrame*, bool enabledPerSettings, const WebSecurityOrigin&, const WebURL&) { return enabledPerSettings; }
+
     // Controls whether the given script extension should run in a new script
     // context in this frame. If extensionGroup is 0, the script context is the
     // frame's main context. Otherwise, it is a context created by
     // WebFrame::executeScriptInIsolatedWorld with that same extensionGroup
     // value.
     virtual bool allowScriptExtension(WebFrame*, const WebString& extensionName, int extensionGroup) { return true; }
+
+    virtual bool allowScriptExtension(WebFrame* webFrame, const WebString& extensionName, int extensionGroup, int worldId)
+    {
+        return allowScriptExtension(webFrame, extensionName, extensionGroup);
+    }
 
     // Controls whether HTML5 Web Storage is allowed for this frame.
     // If local is true, then this is for local storage, otherwise it's for session storage.

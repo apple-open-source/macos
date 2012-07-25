@@ -49,6 +49,7 @@
 #include <sys/stat.h>
 #include <arpa/inet.h> /* for ntoh{l,s} */
 #include <inttypes.h>  /* for PRIu64 */
+#include <time.h>
 #include <libxml/xmlwriter.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlstring.h>
@@ -64,6 +65,12 @@
 #include "util.h"
 #include "subdoc.h"
 #include "darwinattr.h"
+
+#ifdef __APPLE__
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonDigestSPI.h>
+#include "hash.h"
+#endif
 
 #ifndef O_EXLOCK
 #define O_EXLOCK 0
@@ -191,7 +198,9 @@ xar_t xar_open(const char *file, int32_t flags) {
 	if( !file )
 		file = "-";
 	XAR(ret)->filename = strdup(file);
+#ifndef __APPLE__
 	OpenSSL_add_all_digests();
+#endif // __APPLE__
 	if( flags ) {
 		char *tmp1, *tmp2, *tmp3, *tmp4;
 		tmp1 = tmp2 = strdup(file);
@@ -235,10 +244,17 @@ xar_t xar_open(const char *file, int32_t flags) {
 		xar_opt_set(ret, XAR_OPT_COMPRESSION, XAR_OPT_VAL_GZIP);
 		xar_opt_set(ret, XAR_OPT_FILECKSUM, XAR_OPT_VAL_SHA1);
 	} else {
-		unsigned char toccksum[EVP_MAX_MD_SIZE];
+#ifdef __APPLE__
+        unsigned char toccksum[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
+        unsigned char cval[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
+#else
+        unsigned char toccksum[EVP_MAX_MD_SIZE];
 		unsigned char cval[EVP_MAX_MD_SIZE];
+#endif
 		unsigned int tlen;
+#ifndef __APPLE__
 		const EVP_MD *md;
+#endif // !__APPLE__
 
 		if( strcmp(file, "-") == 0 )
 			XAR(ret)->fd = 0;
@@ -267,13 +283,21 @@ xar_t xar_open(const char *file, int32_t flags) {
 			break;
 		case XAR_CKSUM_SHA1:
 			XAR(ret)->docksum = 1;
+#ifdef __APPLE__
+            XAR(ret)->toc_ctx = digestRef_from_name("sha1", &XAR(ret)->toc_ctx_length);
+#else
 			md = EVP_get_digestbyname("sha1");
 			EVP_DigestInit(&XAR(ret)->toc_ctx, md);
+#endif
 			break;
 		case XAR_CKSUM_MD5:
 			XAR(ret)->docksum = 1;
+#ifdef __APPLE__
+            XAR(ret)->toc_ctx = digestRef_from_name("md5", &XAR(ret)->toc_ctx_length);
+#else
 			md = EVP_get_digestbyname("md5");
 			EVP_DigestInit(&XAR(ret)->toc_ctx, md);
+#endif
 			break;
 		default:
 			fprintf(stderr, "Unknown hashing algorithm, skipping\n");
@@ -327,8 +351,15 @@ xar_t xar_open(const char *file, int32_t flags) {
 			
 		if( !XAR(ret)->docksum )
 			return ret;
-		
+
+#ifdef __APPLE__
+        CCDigestFinal(XAR(ret)->toc_ctx, toccksum);
+        CCDigestDestroy(XAR(ret)->toc_ctx);
+        XAR(ret)->toc_ctx = NULL;
+        tlen = XAR(ret)->toc_ctx_length;
+#else
 		EVP_DigestFinal(&XAR(ret)->toc_ctx, toccksum, &tlen);
+#endif
         
         /* if TOC specifies a location for the checksum, make sure that
          * we read the checksum from there: this is required for an archive
@@ -404,7 +435,11 @@ int xar_close(xar_t x) {
 		long rsize, wsize;
 		z_stream zs;
 		uint64_t ungztoc, gztoc;
+#ifdef __APPLE__
+        unsigned char chkstr[CC_SHA512_DIGEST_LENGTH]; // current biggest digest size  This is what OpenSSL uses
+#else        
 		unsigned char chkstr[EVP_MAX_MD_SIZE];
+#endif
 		int tocfd;
 		char timestr[128];
 		struct tm tmptm;
@@ -415,18 +450,28 @@ int xar_close(xar_t x) {
 		if( !tmpser ) tmpser = XAR_OPT_VAL_SHA1;
 
 		if( (strcmp(tmpser, XAR_OPT_VAL_NONE) != 0) ) {
+#ifndef __APPLE__
 			const EVP_MD *md;
+#endif // __APPLE__
 			xar_prop_set(XAR_FILE(x), "checksum", NULL);
 			if( strcmp(tmpser, XAR_OPT_VAL_SHA1) == 0 ) {
+#ifdef __APPLE__
+                XAR(x)->toc_ctx = digestRef_from_name("sha1", &XAR(x)->toc_ctx_length);
+#else
 				md = EVP_get_digestbyname("sha1");
 				EVP_DigestInit(&XAR(x)->toc_ctx, md);
+#endif
 				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_SHA1);
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_SHA1);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "20");
 			}
 			if( strcmp(tmpser, XAR_OPT_VAL_MD5) == 0 ) {
+#ifdef __APPLE__
+                XAR(x)->toc_ctx = digestRef_from_name("md5", &XAR(x)->toc_ctx_length);
+#else
 				md = EVP_get_digestbyname("md5");
 				EVP_DigestInit(&XAR(x)->toc_ctx, md);
+#endif
 				XAR(x)->header.cksum_alg = htonl(XAR_CKSUM_MD5);
 				xar_attr_set(XAR_FILE(x), "checksum", "style", XAR_OPT_VAL_MD5);
 				xar_prop_set(XAR_FILE(x), "checksum/size", "16");
@@ -524,7 +569,11 @@ int xar_close(xar_t x) {
 					goto CLOSEEND;
 				}
 				if( XAR(x)->docksum )
+#ifdef __APPLE__
+                    CCDigestUpdate(XAR(x)->toc_ctx, ((char*)wbuf)+off, r);
+#else
 					EVP_DigestUpdate(&XAR(x)->toc_ctx, ((char*)wbuf)+off, r);
+#endif // __APPLE__
 				off += r;
 				gztoc += r;
 			} while( off < wbytes );
@@ -540,7 +589,11 @@ int xar_close(xar_t x) {
 		r = write(tocfd, wbuf, wsize - zs.avail_out);
 		gztoc += r;
 		if( XAR(x)->docksum )
+#ifdef __APPLE__
+            CCDigestUpdate(XAR(x)->toc_ctx, wbuf, r);
+#else
 			EVP_DigestUpdate(&XAR(x)->toc_ctx, wbuf, r);
+#endif // __APPLE__
 		
 		deflateEnd(&zs);
 
@@ -583,7 +636,14 @@ int xar_close(xar_t x) {
 			unsigned int l = r;
 			
 			memset(chkstr, 0, sizeof(chkstr));
+#ifdef __APPLE__
+            CCDigestFinal(XAR(x)->toc_ctx, chkstr);
+            CCDigestDestroy(XAR(x)->toc_ctx);
+            XAR(x)->toc_ctx = NULL;
+            l = XAR(x)->toc_ctx_length;
+#else
 			EVP_DigestFinal(&XAR(x)->toc_ctx, chkstr, &l);
+#endif
 			r = l;
 			write(XAR(x)->fd, chkstr, r);
 		}
@@ -1414,7 +1474,11 @@ static int toc_read_callback(void *context, char *buffer, int len) {
 			return ret;
 
 		if ( XAR(x)->docksum )
+#ifdef __APPLE__
+            CCDigestUpdate(XAR(x)->toc_ctx, XAR(x)->readbuf, ret);
+#else
 			EVP_DigestUpdate(&XAR(x)->toc_ctx, XAR(x)->readbuf, ret);
+#endif
 
 		XAR(x)->toc_count += ret;
 		off += ret;

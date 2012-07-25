@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Google Inc. All rights reserved.
+ * Copyright (C) 2011, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,14 +31,20 @@
 #ifndef WebFrameClient_h
 #define WebFrameClient_h
 
-#include "WebCommon.h"
-#include "WebFileSystem.h"
+#include "WebDOMMessageEvent.h"
 #include "WebIconURL.h"
 #include "WebNavigationPolicy.h"
 #include "WebNavigationType.h"
+#include "WebSecurityOrigin.h"
 #include "WebStorageQuotaType.h"
 #include "WebTextDirection.h"
-#include "WebURLError.h"
+#include "platform/WebCommon.h"
+#include "platform/WebFileSystem.h"
+#include "platform/WebURLError.h"
+
+#if WEBKIT_USING_V8
+#include <v8.h>
+#endif
 
 namespace WebKit {
 
@@ -46,21 +52,26 @@ class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
 class WebCookieJar;
 class WebDataSource;
+class WebDOMEvent;
 class WebFormElement;
 class WebFrame;
+class WebIntent;
+class WebIntentRequest;
+class WebIntentServiceInfo;
 class WebMediaPlayer;
 class WebMediaPlayerClient;
 class WebNode;
 class WebPlugin;
-class WebSecurityOrigin;
 class WebSharedWorker;
+class WebSharedWorkerClient;
+class WebSocketStreamHandle;
 class WebStorageQuotaCallbacks;
 class WebString;
 class WebURL;
+class WebURLLoader;
 class WebURLRequest;
 class WebURLResponse;
 class WebWorker;
-class WebWorkerClient;
 struct WebPluginParams;
 struct WebRect;
 struct WebSize;
@@ -72,9 +83,6 @@ public:
 
     // May return null.
     virtual WebPlugin* createPlugin(WebFrame*, const WebPluginParams&) { return 0; }
-
-    // May return null.
-    virtual WebWorker* createWorker(WebFrame*, WebWorkerClient*) { return 0; }
 
     // May return null.
     virtual WebSharedWorker* createSharedWorker(WebFrame*, const WebURL&, const WebString&, unsigned long long) { return 0; }
@@ -89,7 +97,7 @@ public:
     // Services ------------------------------------------------------------
 
     // A frame specific cookie jar.  May return null, in which case
-    // WebKitClient::cookieJar() will be called to access cookies.
+    // WebKitPlatformSupport::cookieJar() will be called to access cookies.
     virtual WebCookieJar* cookieJar(WebFrame*) { return 0; }
 
 
@@ -109,6 +117,8 @@ public:
     // The client should handle the navigation externally.
     virtual void loadURLExternally(
         WebFrame*, const WebURLRequest&, WebNavigationPolicy) { }
+    virtual void loadURLExternally(
+        WebFrame*, const WebURLRequest&, WebNavigationPolicy, const WebString& downloadName) { }
 
 
     // Navigational queries ------------------------------------------------
@@ -195,12 +205,7 @@ public:
     virtual void didCreateDocumentElement(WebFrame*) { }
 
     // The page title is available.
-    // FIXME: remove override once Chrome is updated to new API.
-    virtual void didReceiveTitle(WebFrame*, const WebString& title) { }
-    virtual void didReceiveTitle(WebFrame* frame, const WebString& title, WebTextDirection direction)
-    {
-        didReceiveTitle(frame, title);
-    }
+    virtual void didReceiveTitle(WebFrame* frame, const WebString& title, WebTextDirection direction) { }
 
     // The icon for the page have changed.
     virtual void didChangeIcon(WebFrame*, WebIconURL::Type) { }
@@ -277,24 +282,23 @@ public:
     // spread to other frames in the same origin.
     virtual void didRunInsecureContent(WebFrame*, const WebSecurityOrigin&, const WebURL& insecureURL) { }
 
+    // A reflected XSS was encountered in the page and suppressed.
+    virtual void didDetectXSS(WebFrame*, const WebURL&, bool didBlockEntirePage) { }
 
     // Script notifications ------------------------------------------------
 
     // Script in the page tried to allocate too much memory.
     virtual void didExhaustMemoryAvailableForScript(WebFrame*) { }
 
+#if WEBKIT_USING_V8
     // Notifies that a new script context has been created for this frame.
     // This is similar to didClearWindowObject but only called once per
     // frame context.
-    virtual void didCreateScriptContext(WebFrame*) { }
+    virtual void didCreateScriptContext(WebFrame*, v8::Handle<v8::Context>, int extensionGroup, int worldId) { }
 
-    // Notifies that this frame's script context has been destroyed.
-    virtual void didDestroyScriptContext(WebFrame*) { }
-
-    // Notifies that a garbage-collected context was created - content
-    // scripts.
-    virtual void didCreateIsolatedScriptContext(WebFrame*) { }
-
+    // WebKit is about to release its reference to a v8 context for a frame.
+    virtual void willReleaseScriptContext(WebFrame*, v8::Handle<v8::Context>, int worldId) { }
+#endif
 
     // Geometry notifications ----------------------------------------------
 
@@ -368,6 +372,30 @@ public:
         WebFrame*, WebStorageQuotaType,
         unsigned long long newQuotaInBytes,
         WebStorageQuotaCallbacks*) { }
+
+    // Web Intents ---------------------------------------------------
+
+    // Register a service to handle Web Intents.
+    virtual void registerIntentService(WebFrame*, const WebIntentServiceInfo&) { }
+
+    // Start a Web Intents activity. The callee uses the |WebIntentRequest|
+    // object to coordinate replies to the intent invocation.
+    virtual void dispatchIntent(WebFrame*, const WebIntentRequest&) { }
+
+    // WebSocket -----------------------------------------------------
+
+    // A WebSocket object is going to open new stream connection.
+    virtual void willOpenSocketStream(WebSocketStreamHandle*) { }
+
+    // Messages ------------------------------------------------------
+
+    // Notifies the embedder that a postMessage was issued on this frame, and
+    // gives the embedder a chance to handle it instead of WebKit. Returns true
+    // if the embedder handled it.
+    virtual bool willCheckAndDispatchMessageEvent(
+        WebFrame* source,
+        WebSecurityOrigin target,
+        WebDOMMessageEvent) { return false; }
 
 protected:
     ~WebFrameClient() { }

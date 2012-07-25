@@ -295,7 +295,8 @@ int     smtp_helo(SMTP_STATE *state)
     /*
      * Prepare for disaster.
      */
-    smtp_timeout_setup(state->session->stream, var_smtp_helo_tmout);
+    smtp_stream_setup(state->session->stream, var_smtp_helo_tmout,
+		      var_smtp_rec_deadline);
     if ((except = vstream_setjmp(state->session->stream)) != 0)
 	return (smtp_stream_except(state, except, where));
 
@@ -341,6 +342,7 @@ int     smtp_helo(SMTP_STATE *state)
 	 * is not on by default.
 	 */
 	if (resp->str[strspn(resp->str, "20 *\t\n")] == 0) {
+	    /* Best effort only. Ignore errors. */
 	    if (smtp_pix_bug_maps != 0
 		&& (pix_bug_words =
 		    maps_find(smtp_pix_bug_maps,
@@ -450,6 +452,12 @@ int     smtp_helo(SMTP_STATE *state)
 	    || (ehlo_words = maps_find(smtp_ehlo_dis_maps,
 				       state->session->addr, 0)) == 0)
 	    ehlo_words = var_smtp_ehlo_dis_words;
+	if (smtp_ehlo_dis_maps && smtp_ehlo_dis_maps->error) {
+	    msg_warn("%s: %s map lookup error for %s",
+		     session->state->request->queue_id,
+		     smtp_ehlo_dis_maps->title, state->session->addr);
+	    vstream_longjmp(session->stream, SMTP_ERR_DATA);
+	}
 	discard_mask = ehlo_mask(ehlo_words);
 	if (discard_mask && !(discard_mask & EHLO_MASK_SILENT))
 	    msg_info("discarding EHLO keywords: %s",
@@ -642,7 +650,8 @@ int     smtp_helo(SMTP_STATE *state)
 	    /*
 	     * Prepare for disaster.
 	     */
-	    smtp_timeout_setup(state->session->stream, var_smtp_starttls_tmout);
+	    smtp_stream_setup(state->session->stream, var_smtp_starttls_tmout,
+			      var_smtp_rec_deadline);
 	    if ((except = vstream_setjmp(state->session->stream)) != 0)
 		return (smtp_stream_except(state, except,
 					"receiving the STARTTLS response"));
@@ -783,7 +792,6 @@ static int smtp_start_tls(SMTP_STATE *state)
 	TLS_CLIENT_START(&tls_props,
 			 ctx = smtp_tls_ctx,
 			 stream = session->stream,
-			 log_level = var_smtp_tls_loglevel,
 			 timeout = var_smtp_starttls_tmout,
 			 tls_level = session->tls_level,
 			 nexthop = session->tls_nexthop,
@@ -985,6 +993,11 @@ static void smtp_header_rewrite(void *context, int header_class,
 				   header_info, buf, offset);
 	if (result == 0)
 	    return;
+	if (result == HBC_CHECKS_STAT_ERROR) {
+	    msg_warn("%s: smtp header checks lookup error",
+		     state->request->queue_id);
+	    vstream_longjmp(state->session->stream, SMTP_ERR_DATA);
+	}
 	if (result != STR(buf)) {
 	    vstring_strcpy(buf, result);
 	    myfree(result);
@@ -1082,6 +1095,10 @@ static void smtp_body_rewrite(void *context, int type,
 	result = hbc_body_checks(context, smtp_body_checks, buf, len, offset);
 	if (result == buf) {
 	    smtp_text_out(state, type, buf, len, offset);
+	} else if (result == HBC_CHECKS_STAT_ERROR) {
+	    msg_warn("%s: smtp body checks lookup error",
+		     state->request->queue_id);
+	    vstream_longjmp(state->session->stream, SMTP_ERR_DATA);
 	} else if (result != 0) {
 	    smtp_text_out(state, type, result, strlen(result), offset);
 	    myfree(result);
@@ -1216,8 +1233,8 @@ static int smtp_loop(SMTP_STATE *state, NOCLOBBER int send_state,
 	|| send_state > SMTP_STATE_QUIT)
 	msg_panic("%s: bad sender state %d (receiver state %d)",
 		  myname, send_state, recv_state);
-    smtp_timeout_setup(session->stream,
-		       *xfer_timeouts[send_state]);
+    smtp_stream_setup(session->stream, *xfer_timeouts[send_state],
+		      var_smtp_rec_deadline);
     if ((except = vstream_setjmp(session->stream)) != 0) {
 	msg_warn("smtp_proto: spurious flush before read in send state %d",
 		 send_state);
@@ -1354,6 +1371,7 @@ static int smtp_loop(SMTP_STATE *state, NOCLOBBER int send_state,
 	     */
 #ifdef USE_SASL_AUTH
 	    if (var_smtp_sasl_enable
+		&& var_smtp_dummy_mail_auth
 		&& (session->features & SMTP_FEATURE_AUTH))
 		vstring_strcat(next_command, " AUTH=<>");
 #endif
@@ -1570,8 +1588,8 @@ static int smtp_loop(SMTP_STATE *state, NOCLOBBER int send_state,
 		 */
 #define LOST_CONNECTION_INSIDE_DATA (except == SMTP_ERR_EOF)
 
-		smtp_timeout_setup(session->stream,
-				   *xfer_timeouts[recv_state]);
+		smtp_stream_setup(session->stream, *xfer_timeouts[recv_state],
+				  var_smtp_rec_deadline);
 		if (LOST_CONNECTION_INSIDE_DATA) {
 		    if (vstream_setjmp(session->stream) != 0)
 			RETURN(smtp_stream_except(state, SMTP_ERR_EOF,
@@ -1879,8 +1897,8 @@ static int smtp_loop(SMTP_STATE *state, NOCLOBBER int send_state,
 	 */
 	if (send_state == SMTP_STATE_DOT && nrcpt > 0) {
 
-	    smtp_timeout_setup(session->stream,
-			       var_smtp_data1_tmout);
+	    smtp_stream_setup(session->stream, var_smtp_data1_tmout,
+			      var_smtp_rec_deadline);
 
 	    if ((except = vstream_setjmp(session->stream)) == 0) {
 

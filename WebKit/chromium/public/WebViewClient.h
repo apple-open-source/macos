@@ -38,14 +38,19 @@
 #include "WebFileChooserParams.h"
 #include "WebPageVisibilityState.h"
 #include "WebPopupType.h"
-#include "WebString.h"
 #include "WebTextAffinity.h"
 #include "WebTextDirection.h"
 #include "WebWidgetClient.h"
+#include "platform/WebColor.h"
+#include "platform/WebGraphicsContext3D.h"
+#include "platform/WebString.h"
 
 namespace WebKit {
 
 class WebAccessibilityObject;
+class WebBatteryStatusClient;
+class WebColorChooser;
+class WebColorChooserClient;
 class WebDeviceOrientationClient;
 class WebDragData;
 class WebElement;
@@ -64,15 +69,18 @@ class WebNotificationPresenter;
 class WebRange;
 class WebSpeechInputController;
 class WebSpeechInputListener;
+class WebSpeechRecognizer;
 class WebStorageNamespace;
 class WebURL;
 class WebURLRequest;
+class WebUserMediaClient;
 class WebView;
 class WebWidget;
 struct WebConsoleMessage;
 struct WebContextMenuData;
 struct WebPoint;
 struct WebPopupMenuInfo;
+struct WebSize;
 struct WebWindowFeatures;
 
 // Since a WebView is a WebWidget, a WebViewClient is a WebWidgetClient.
@@ -87,10 +95,13 @@ public:
     // WebStorage specification.
     // The request parameter is only for the client to check if the request
     // could be fulfilled.  The client should not load the request.
+    // The policy parameter indicates how the new view will be displayed in
+    // WebWidgetClient::show.
     virtual WebView* createView(WebFrame* creator,
                                 const WebURLRequest& request,
                                 const WebWindowFeatures& features,
-                                const WebString& name) {
+                                const WebString& name,
+                                WebNavigationPolicy policy) {
         return 0;
     }
 
@@ -103,6 +114,10 @@ public:
 
     // Create a session storage namespace object associated with this WebView.
     virtual WebStorageNamespace* createSessionStorageNamespace(unsigned quota) { return 0; }
+
+    // Creates a graphics context that renders to the client's WebView.
+    virtual WebGraphicsContext3D* createGraphicsContext3D(const WebGraphicsContext3D::Attributes&) { return 0; }
+
 
     // Misc ----------------------------------------------------------------
 
@@ -175,8 +190,14 @@ public:
     // indicating that the default action should be suppressed.
     virtual bool handleCurrentKeyboardEvent() { return false; }
 
-
     // Dialogs -------------------------------------------------------------
+
+    // This method opens the color chooser and returns a new WebColorChooser
+    // instance. If there is a WebColorChooser already from the last time this
+    // was called, it ends the color chooser by calling endChooser, and replaces
+    // it with the new one.
+    virtual WebColorChooser* createColorChooser(WebColorChooserClient*,
+                                                const WebColor&) { return 0; }
 
     // This method returns immediately after showing the dialog. When the
     // dialog is closed, it should call the WebFileChooserCompletion to
@@ -212,9 +233,6 @@ public:
     virtual bool runModalBeforeUnloadDialog(
         WebFrame*, const WebString& message) { return true; }
 
-    virtual bool supportsFullscreen() { return false; }
-    virtual void enterFullscreenForNode(const WebNode&) { }
-    virtual void exitFullscreenForNode(const WebNode&) { }
 
     // UI ------------------------------------------------------------------
 
@@ -226,9 +244,6 @@ public:
 
     // Called when keyboard focus switches to an anchor with the given URL.
     virtual void setKeyboardFocusURL(const WebURL&) { }
-
-    // Called when a tooltip should be shown at the current cursor position.
-    virtual void setToolTipText(const WebString&, WebTextDirection hint) { }
 
     // Shows a context menu with commands relevant to a specific element on
     // the given frame. Additional context data is supplied.
@@ -250,6 +265,15 @@ public:
     // Called when a new node gets focused.
     virtual void focusedNodeChanged(const WebNode&) { }
 
+    virtual void numberOfWheelEventHandlersChanged(unsigned) { }
+    virtual void numberOfTouchEventHandlersChanged(unsigned) { }
+
+    // Indicates two things:
+    //   1) This view may have a new layout now.
+    //   2) Calling layout() is a no-op.
+    // After calling WebWidget::layout(), expect to get this notification
+    // unless the view did not need a layout.
+    virtual void didUpdateLayout() { }
 
     // Session history -----------------------------------------------------
 
@@ -294,11 +318,18 @@ public:
     virtual WebSpeechInputController* speechInputController(
         WebSpeechInputListener*) { return 0; }
 
+    // Access the embedder API for speech recognition services.
+    virtual WebSpeechRecognizer* speechRecognizer() { return 0; }
+
     // Device Orientation --------------------------------------------------
 
     // Access the embedder API for device orientation services.
     virtual WebDeviceOrientationClient* deviceOrientationClient() { return 0; }
 
+    // Battery Status ------------------------------------------------------
+
+    // Access the embedder API for battery status services.
+    virtual WebBatteryStatusClient* batteryStatusClient() { return 0; }
 
     // Zoom ----------------------------------------------------------------
 
@@ -323,6 +354,10 @@ public:
     {
         return WebPageVisibilityStateVisible;
     }
+
+    // Media Streams -------------------------------------------------------
+
+    virtual WebUserMediaClient* userMediaClient() { return 0; }
 
 protected:
     ~WebViewClient() { }

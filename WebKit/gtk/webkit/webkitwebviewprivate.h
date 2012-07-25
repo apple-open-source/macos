@@ -23,29 +23,20 @@
 #ifndef webkitwebviewprivate_h
 #define webkitwebviewprivate_h
 
-#include "DataObjectGtk.h"
+#include "AcceleratedCompositingContext.h"
 #include "FullscreenVideoController.h"
 #include "GtkClickCounter.h"
-#include "GOwnPtr.h"
+#include "GtkDragAndDropHelper.h"
 #include "Page.h"
 #include "ResourceHandle.h"
+#include "WebViewInputMethodFilter.h"
+#include "WidgetBackingStore.h"
 #include <webkit/webkitwebview.h>
+#include <wtf/gobject/GOwnPtr.h>
 
 namespace WebKit {
-
 WebCore::Page* core(WebKitWebView*);
 WebKitWebView* kit(WebCore::Page*);
-
-
-typedef struct DroppingContext_ {
-    WebKitWebView* webView;
-    GdkDragContext* gdkContext;
-    RefPtr<WebCore::DataObjectGtk> dataObject;
-    WebCore::IntPoint lastMotionPosition;
-    int pendingDataRequests;
-    bool dropHappened;
-} DroppingContext;
-
 }
 
 extern "C" {
@@ -54,6 +45,8 @@ extern "C" {
 typedef struct _WebKitWebViewPrivate WebKitWebViewPrivate;
 struct _WebKitWebViewPrivate {
     WebCore::Page* corePage;
+    bool hasNativeWindow;
+    OwnPtr<WebCore::WidgetBackingStore> backingStore;
     GRefPtr<WebKitWebSettings> webSettings;
     GRefPtr<WebKitWebInspector> webInspector;
     GRefPtr<WebKitViewportAttributes> viewportAttributes;
@@ -67,9 +60,10 @@ struct _WebKitWebViewPrivate {
     gint lastPopupYPosition;
 
     HashSet<GtkWidget*> children;
-    GRefPtr<GtkIMContext> imContext;
+    WebKit::WebViewInputMethodFilter imFilter;
 
     gboolean transparent;
+    bool needsResizeOnMap;
 
 #ifndef GTK_API_VERSION_2
     // GtkScrollablePolicy needs to be checked when
@@ -86,9 +80,8 @@ struct _WebKitWebViewPrivate {
     CString iconURI;
 
     gboolean disposing;
-    gboolean usePrimaryForPaste;
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !defined(GST_API_VERSION_1)
     FullscreenVideoController* fullscreenVideoController;
 #endif
 
@@ -101,8 +94,16 @@ struct _WebKitWebViewPrivate {
     WebCore::IntRect tooltipArea;
 
     WebCore::GtkClickCounter clickCounter;
-    HashMap<GdkDragContext*, RefPtr<WebCore::DataObjectGtk> > draggingDataObjects;
-    HashMap<GdkDragContext*, WebKit::DroppingContext*> droppingContexts;
+    WebCore::GtkDragAndDropHelper dragAndDropHelper;
+    bool selfScrolling;
+
+#if USE(ACCELERATED_COMPOSITING)
+    OwnPtr<WebKit::AcceleratedCompositingContext> acceleratedCompositingContext;
+#endif
+
+#if ENABLE(ICONDATABASE)
+    gulong iconLoadedHandler;
+#endif
 };
 
 void webkit_web_view_notify_ready(WebKitWebView*);
@@ -120,12 +121,13 @@ GList* webkit_web_view_get_subresources(WebKitWebView*);
 void webkit_web_view_set_tooltip_text(WebKitWebView*, const char*);
 GtkMenu* webkit_web_view_get_context_menu(WebKitWebView*);
 
-WEBKIT_API gchar* webkit_web_view_get_selected_text(WebKitWebView*);
-bool webkit_web_view_use_primary_for_paste(WebKitWebView*);
-
 void webViewEnterFullscreen(WebKitWebView* webView, WebCore::Node*);
 void webViewExitFullscreen(WebKitWebView* webView);
 
+#if ENABLE(ICONDATABASE)
+void webkitWebViewRegisterForIconNotification(WebKitWebView*, bool shouldRegister);
+void webkitWebViewIconLoaded(WebKitFaviconDatabase*, const char* frameURI, WebKitWebView*);
+#endif
 }
 
 #endif

@@ -63,6 +63,8 @@ enum fsck_msgnum {
     fsckProgress                        = 119,  /* %d */
     fsckTrimming                        = 120,  /* Trimming unused blocks */
     fsckVolumeName                      = 121,	/* The volume name is %s */
+    fsckVolumeModified			= 122,	/* The volume was modified */
+    fsckLimitedRepairs			= 123,	/* Limited repair mode, not all repairs available */
 };
 
 #endif

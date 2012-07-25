@@ -1,11 +1,7 @@
 /* expat_config.h.in.  Generated from configure.in by autoheader.  */
 
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
-#ifdef __BIG_ENDIAN__
-#define BYTEORDER 4321
-#else
-#define BYTEORDER 1234
-#endif
+#undef BYTEORDER
 
 /* Define to 1 if you have the `bcopy' function. */
 #undef HAVE_BCOPY

@@ -49,6 +49,9 @@ static const char rcsid[] =
 
 static int	  skipvfs;
 
+int checkvfsname(const char *, const char **);
+const char **makevfslist(const char *);
+
 int
 checkvfsname(vfsname, vfslist)
 	const char *vfsname;

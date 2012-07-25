@@ -215,6 +215,7 @@ public:
 // Functions to get/set the global icon database.
 IconDatabaseBase& iconDatabase();
 void setGlobalIconDatabase(IconDatabaseBase*);
+bool documentCanHaveIcon(const String&);
 
 } // namespace WebCore
 

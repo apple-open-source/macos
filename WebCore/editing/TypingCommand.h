@@ -26,11 +26,11 @@
 #ifndef TypingCommand_h
 #define TypingCommand_h
 
-#include "CompositeEditCommand.h"
+#include "TextInsertionBaseCommand.h"
 
 namespace WebCore {
 
-class TypingCommand : public CompositeEditCommand {
+class TypingCommand : public TextInsertionBaseCommand {
 public:
     enum ETypingCommand { 
         DeleteSelection,
@@ -65,11 +65,7 @@ public:
     static void insertLineBreak(Document*, Options);
     static void insertParagraphSeparator(Document*, Options);
     static void insertParagraphSeparatorInQuotedContent(Document*);
-    static bool isOpenForMoreTypingCommand(const EditCommand*);
-    static void closeTyping(EditCommand*);
-    
-    bool isOpenForMoreTyping() const { return m_openForMoreTyping; }
-    void closeTyping() { m_openForMoreTyping = false; }
+    static void closeTyping(Frame*);
 
     void insertText(const String &text, bool selectInsertedText);
     void insertTextRunWithoutNewlines(const String &text, bool selectInsertedText);
@@ -96,13 +92,22 @@ private:
 
     bool smartDelete() const { return m_smartDelete; }
     void setSmartDelete(bool smartDelete) { m_smartDelete = smartDelete; }
-    
+    bool isOpenForMoreTyping() const { return m_openForMoreTyping; }
+    void closeTyping() { m_openForMoreTyping = false; }
+
+    static PassRefPtr<TypingCommand> lastTypingCommandIfStillOpenForTyping(Frame*);
+
     virtual void doApply();
     virtual EditAction editingAction() const;
     virtual bool isTypingCommand() const;
     virtual bool preservesTypingStyle() const { return m_preservesTypingStyle; }
-    virtual bool shouldRetainAutocorrectionIndicator() const { return m_shouldRetainAutocorrectionIndicator; }
+    virtual bool shouldRetainAutocorrectionIndicator() const
+    {
+        ASSERT(isTopLevelCommand());
+        return m_shouldRetainAutocorrectionIndicator;
+    }
     virtual void setShouldRetainAutocorrectionIndicator(bool retain) { m_shouldRetainAutocorrectionIndicator = retain; }
+    virtual bool shouldStopCaretBlinking() const { return true; }
     void setShouldPreventSpellChecking(bool prevent) { m_shouldPreventSpellChecking = prevent; }
 
     static void updateSelectionIfDifferentFromCurrentSelection(TypingCommand*, Frame*);

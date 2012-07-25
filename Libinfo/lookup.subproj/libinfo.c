@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 #include <string.h>
 #include <errno.h>
 #include <netdb.h>
+#include <asl.h>
 #include <printerdb.h>
 #include <sys/param.h>
 #include <sys/syscall.h>
@@ -38,6 +39,7 @@
 #include <thread_data.h>
 #include <sys/kauth.h>
 #include "netdb_async.h"
+#include <dispatch/dispatch.h>
 
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
@@ -272,6 +274,24 @@ getpwuid_async_handle_reply(mach_msg_header_t *msg)
 	si_async_handle_reply(msg);
 }
 
+struct passwd *
+getpwuuid(uuid_t uuid)
+{
+	si_item_t *item;
+
+#ifdef CALL_TRACE
+	uuid_string_t uuidstr;
+	uuid_unparse_upper(uuid, uuidstr);
+	fprintf(stderr, "-> %s %s\n", __func__, uuidstr);
+#endif
+
+	item = si_user_byuuid(si_search(), uuid);
+	LI_set_thread_item(CATEGORY_USER + 300, item);
+
+	if (item == NULL) return NULL;
+	return (struct passwd *)((uintptr_t)item + sizeof(si_item_t));
+}
+
 void
 setpwent(void)
 {
@@ -425,6 +445,24 @@ getgruid_async_handle_reply(mach_msg_header_t *msg)
 	si_async_handle_reply(msg);
 }
 
+struct group *
+getgruuid(uuid_t uuid)
+{
+	si_item_t *item;
+
+#ifdef CALL_TRACE
+	uuid_string_t uuidstr;
+	uuid_unparse_upper(uuid, uuidstr);
+	fprintf(stderr, "-> %s %s\n", __func__, uuidstr);
+#endif
+
+	item = si_group_byuuid(si_search(), uuid);
+	LI_set_thread_item(CATEGORY_GROUP + 300, item);
+
+	if (item == NULL) return NULL;
+	return (struct group *)((uintptr_t)item + sizeof(si_item_t));
+}
+
 void
 setgrent(void)
 {
@@ -557,10 +595,42 @@ endnetgrent(void)
 	LI_set_thread_list(CATEGORY_NETGROUP, NULL);
 }
 
+#if DS_AVAILABLE
+static void
+_check_groups(const char *function, int32_t ngroups)
+{
+	static dispatch_once_t once;
+	
+	if (ngroups > 0 && ngroups < NGROUPS_MAX) {
+		return;
+	}
+	
+	/* only log once per process */
+	dispatch_once(&once, ^(void) {
+		const char *proc_name = getprogname();
+		if (strcmp(proc_name, "id") != 0 && strcmp(proc_name, "smbd") != 0 && strcmp(proc_name, "rpcsvchost") != 0) {
+			aslmsg msg = asl_new(ASL_TYPE_MSG);
+			char buffer[256];
+			
+			snprintf(buffer, sizeof(buffer), "%d", (ngroups == 0 ? INT_MAX : ngroups));
+			asl_set(msg, "com.apple.message.value", buffer);
+			
+			asl_set(msg, "com.apple.message.domain", "com.apple.system.libinfo");
+			asl_set(msg, "com.apple.message.result", "noop");
+			asl_set(msg, "com.apple.message.signature", function);
+			
+			asl_log(NULL, msg, ASL_LEVEL_NOTICE, "%s called triggering group enumeration", function);
+			
+			asl_free(msg);
+		}
+	});
+}
+#endif
+
 /* GROUPLIST */
 
 static int
-getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ngroups, int set_thread_data)
+getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ngroups)
 {
 	int i, j, x, g, add, max;
 	si_item_t *item;
@@ -580,34 +650,31 @@ getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ng
 	if (groups == NULL) return 0;
 	if (ngroups == NULL) return 0;
 
-	max = *ngroups;
+	max = (*ngroups);
 	*ngroups = 0;
 	if (max <= 0) return 0;
 
 	groups[0] = basegid;
 	*ngroups = 1;
-
-	item = si_grouplist(si_search(), name);
-	if (set_thread_data != 0) LI_set_thread_item(CATEGORY_GROUPLIST, item);
+	
+	item = si_grouplist(si_search(), name, max);
+	LI_set_thread_item(CATEGORY_GROUPLIST, item);
 	if (item == NULL) return 0;
 
 	gl = (si_grouplist_t *)((uintptr_t)item + sizeof(si_item_t));
 
 	x = 1;
 
-	if (gl->gl_basegid != basegid)
-	{
-		if (x >= max) return -1;
-		groups[x] = gl->gl_basegid;
-		x++;
-		*ngroups = x;
-	}
-
 	for (i = 0; i < gl->gl_count; i++)
 	{
-		g = (int)*(gl->gl_gid[i]);
+		g = gl->gl_gid[i];
 		add = 1;
-		for (j = 0; (j < x) && (add == 1); j++) if (groups[j] == g) add = 0;
+		for (j = 0; j < x; j++) {
+			if (groups[j] == g) {
+				add = 0;
+				break;
+			}
+		}
 		if (add == 0) continue;
 
 		if (x >= max) return -1;
@@ -622,121 +689,100 @@ getgrouplist_internal(const char *name, int basegid, gid_t *groups, uint32_t *ng
 int
 getgrouplist(const char *name, int basegid, int *groups, int *ngroups)
 {
-	return getgrouplist_internal(name, basegid, (gid_t *)groups, (uint32_t *)ngroups, 1);
+#if DS_AVAILABLE
+	_check_groups("getgrouplist", *ngroups);
+#endif
+
+	return getgrouplist_internal(name, basegid, (gid_t *)groups, (uint32_t *)ngroups);
 }
 
-/* XXX to do: async getgrouplist */
-
-static int
-merge_gid(gid_t **list, gid_t g, int32_t *count)
+static void
+merge_gid(gid_t *list, gid_t g, int32_t *count)
 {
+	int32_t cnt;
 	int i;
 
-	if (list == NULL) return -1;
-
-	if (*count == 0)
-	{
-		*list = (gid_t *)calloc(1, sizeof(gid_t));
-		if (list == NULL)
-		{
-			errno = ENOMEM;
-			return -1;
-		}
-
-		(*list)[(*count)++] = g;
-		return 0;
+	cnt = (*count);
+	for (i = 0; i < cnt; i++) {
+		if (list[i] == g) return;
 	}
 
-	for (i = 0; i < *count; i++) if ((*list)[i] == g) return 0;
+	list[cnt] = g;
+	(*count)++;
+}
 
-	*list = (gid_t *)reallocf(*list, (*count + 1) * sizeof(gid_t));
-	(*list)[(*count)++] = g;
-	return 0;
+static int32_t
+_getgrouplist_2_internal(const char *name, gid_t basegid, gid_t **groups)
+{
+	int32_t i, count;
+	si_item_t *item;
+	gid_t *gids;
+	si_grouplist_t *gl;
+
+	item = si_grouplist(si_search(), name, INT_MAX);
+	LI_set_thread_item(CATEGORY_GROUPLIST, item);
+	if (item == NULL) return -1;
+
+	gl = (si_grouplist_t *) ((uintptr_t) item + sizeof(si_item_t));
+	
+	/*
+	 * we can allocate enough up-front, we'll only use what we need
+	 * we add one to the count that was found in case the basegid is not there
+	 */
+	gids = calloc(gl->gl_count + 1, sizeof(gid_t));
+
+	count = 0;
+	merge_gid(gids, basegid, &count);
+	if (gl->gl_gid != NULL) {
+		for (i = 0; i < gl->gl_count; i++) {
+			merge_gid(gids, gl->gl_gid[i], &count);
+		}
+	}
+	
+	(*groups) = gids;
+	
+	return count;
 }
 
 int32_t
 getgrouplist_2(const char *name, gid_t basegid, gid_t **groups)
 {
-	int32_t i, status, count;
-	gid_t g;
-	si_item_t *item;
-	si_grouplist_t *gl;
-
 	/*
 	 * Passes back a gid_t list containing all the users groups (and basegid).
 	 * Caller must free the list.
 	 * Returns the number of gids in the list or -1 on failure.
 	 */
-
+	
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s %d\n", __func__, name, basegid);
 #endif
-
+	
 	if (name == NULL) return 0;
 	if (groups == NULL) return 0;
-
-	item = si_grouplist(si_search(), name);
-	LI_set_thread_item(CATEGORY_GROUPLIST, item);
-	if (item == NULL) return -1;
-
-	gl = (si_grouplist_t *)((uintptr_t)item + sizeof(si_item_t));
-
-	count = 0;
-	*groups = NULL;
-
-	status = merge_gid(groups, basegid, &count);
-	if (status != 0) return status;
-
-	status = merge_gid(groups, gl->gl_basegid, &count);
-	if (status != 0) return status;
-
-	for (i = 0; i < gl->gl_count; i++)
-	{
-		g = (gid_t)*(gl->gl_gid[i]);
-		status = merge_gid(groups, g, &count);
-		if (status != 0) return status;
-	}
-
-	return count;
+	
+#if DS_AVAILABLE
+	_check_groups("getgrouplist_2", INT_MAX);
+#endif
+	
+	return _getgrouplist_2_internal(name, basegid, groups);
 }
 
 int32_t
 getgroupcount(const char *name, gid_t basegid)
 {
-	int32_t i, status, count;
-	gid_t g;
-	si_item_t *item;
-	si_grouplist_t *gl;
+	int32_t count;
 	gid_t *groups;
 
 #ifdef CALL_TRACE
 	fprintf(stderr, "-> %s %s %d\n", __func__, name, basegid);
 #endif
 
-	if (name == NULL) return 0;
+#if DS_AVAILABLE
+	_check_groups("getgroupcount", INT_MAX);
+#endif
 
-	item = si_grouplist(si_search(), name);
-	LI_set_thread_item(CATEGORY_GROUPLIST, item);
-	if (item == NULL) return -1;
-
-	gl = (si_grouplist_t *)((uintptr_t)item + sizeof(si_item_t));
-
-	count = 0;
 	groups = NULL;
-
-	status = merge_gid(&groups, basegid, &count);
-	if (status != 0) return status;
-
-	status = merge_gid(&groups, gl->gl_basegid, &count);
-	if (status != 0) return status;
-
-	for (i = 0; i < gl->gl_count; i++)
-	{
-		g = (gid_t)*(gl->gl_gid[i]);
-		status = merge_gid(&groups, g, &count);
-		if (status != 0) return status;
-	}
-
+	count = _getgrouplist_2_internal(name, basegid, &groups);
 	if (groups != NULL) free(groups);
 
 	return count;
@@ -770,19 +816,19 @@ initgroups(const char *name, int basegid)
 	{
 		p = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));
 		uid = p->pw_uid;
-
 		si_item_release(item);
 	}
 #endif
 
 	ngroups = NGROUPS;
 
-	status = getgrouplist_internal(name, basegid, groups, &ngroups, 0);
 	/*
 	 * Ignore status.
 	 * A failure either means that user belongs to more than NGROUPS groups 
 	 * or no groups at all.
 	 */
+    
+	(void) getgrouplist_internal(name, basegid, groups, &ngroups);
 
 	status = __initgroups(ngroups, groups, uid);
 	if (status < 0) return -1;
@@ -3047,6 +3093,37 @@ getgrgid_r(gid_t gid, struct group *grp, char *buffer, size_t bufsize, struct gr
 }
 
 int
+getgruuid_r(uuid_t uuid, struct group *grp, char *buffer, size_t bufsize, struct group **result)
+{
+	si_item_t *item;
+	struct group *g;
+	int status;
+	
+#ifdef CALL_TRACE
+	uuid_string_t uuidstr;
+	uuid_unparse_upper(uuid, uuidstr);
+	fprintf(stderr, "-> %s %s\n", __func__, uuidstr);
+#endif
+
+	if (result != NULL) *result = NULL;
+
+	if ((grp == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
+	
+	item = si_group_byuuid(si_search(), uuid);
+	if (item == NULL) return 0;
+	
+	g = (struct group *)((uintptr_t)item + sizeof(si_item_t));
+	
+	status = copy_group_r(g, grp, buffer, bufsize);
+	si_item_release(item);
+	
+	if (status != 0) return ERANGE;
+	
+	*result = grp;
+	return 0;
+}
+
+int
 getpwnam_r(const char *name, struct passwd *pw, char *buffer, size_t bufsize, struct passwd **result)
 {
 	si_item_t *item;
@@ -3091,6 +3168,37 @@ getpwuid_r(uid_t uid, struct passwd *pw, char *buffer, size_t bufsize, struct pa
 	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
 
 	item = si_user_byuid(si_search(), uid);
+	if (item == NULL) return 0;
+
+	p = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));
+
+	status = copy_user_r(p, pw, buffer, bufsize);
+	si_item_release(item);
+
+	if (status != 0) return ERANGE;
+
+	*result = pw;
+	return 0;
+}
+
+int
+getpwuuid_r(uuid_t uuid, struct passwd *pw, char *buffer, size_t bufsize, struct passwd **result)
+{
+	si_item_t *item;
+	struct passwd *p;
+	int status;
+
+#ifdef CALL_TRACE
+	uuid_string_t uuidstr;
+	uuid_unparse_upper(uuid, uuidstr);
+	fprintf(stderr, "-> %s %s\n", __func__, uuidstr);
+#endif
+
+	if (result != NULL) *result = NULL;
+
+	if ((pw == NULL) || (buffer == NULL) || (result == NULL) || (bufsize == 0)) return ERANGE;
+
+	item = si_user_byuuid(si_search(), uuid);
 	if (item == NULL) return 0;
 
 	p = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));

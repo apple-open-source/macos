@@ -35,6 +35,7 @@ typedef struct __IOHIDUserDevice * IOHIDUserDeviceRef;
 
 
 typedef IOReturn (*IOHIDUserDeviceReportCallback)(void * refcon, IOHIDReportType type, uint32_t reportID, uint8_t * report, CFIndex reportLength);
+typedef IOReturn (*IOHIDUserDeviceHandleReportAsyncCallback)(void * refcon, IOReturn result);
 
 /*!
 	@function   IOHIDUserDeviceGetTypeID
@@ -106,6 +107,19 @@ void IOHIDUserDeviceRegisterSetReportCallback(IOHIDUserDeviceRef device, IOHIDUs
 */
 CF_EXPORT
 IOReturn IOHIDUserDeviceHandleReport(IOHIDUserDeviceRef device, uint8_t * report, CFIndex reportLength);
+
+/*!
+ @function   IOHIDUserDeviceHandleReportAsync
+ @abstract   Dispatch a report to the IOHIDUserDevice.
+ @param      device Reference to IOHIDUserDevice 
+ @param      report Buffer containing formated report being issued to HID stack
+ @param      reportLength Report buffer length
+ @param      callback Callback to be used (optional)
+ @param      refcon pointer to a reference object of your choosing (optional)
+ @result     Returns kIOReturnSuccess when report is handled successfully.
+ */
+CF_EXPORT
+IOReturn IOHIDUserDeviceHandleReportAsync(IOHIDUserDeviceRef device, uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback callback, void * refcon);
 
 __END_DECLS
 

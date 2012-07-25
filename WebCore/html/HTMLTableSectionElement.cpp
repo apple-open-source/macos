@@ -47,15 +47,11 @@ PassRefPtr<HTMLTableSectionElement> HTMLTableSectionElement::create(const Qualif
     return adoptRef(new HTMLTableSectionElement(tagName, document));
 }
 
-// used by table row groups to share style decls created by the enclosing table.
-void HTMLTableSectionElement::additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>& results)
+StylePropertySet* HTMLTableSectionElement::additionalAttributeStyle()
 {
-    ContainerNode* p = parentNode();
-    while (p && !p->hasTagName(tableTag))
-        p = p->parentNode();
-    if (!p)
-        return;
-    static_cast<HTMLTableElement*>(p)->addSharedGroupDecls(true, results);
+    if (HTMLTableElement* table = findParentTable())
+        return table->additionalGroupStyle(true);
+    return 0;
 }
 
 // these functions are rather slow, since we need to get the row at
@@ -63,7 +59,7 @@ void HTMLTableSectionElement::additionalAttributeStyleDecls(Vector<CSSMutableSty
 PassRefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionCode& ec)
 {
     RefPtr<HTMLTableRowElement> row;
-    RefPtr<HTMLCollection> children = rows();
+    HTMLCollection* children = rows();
     int numRows = children ? (int)children->length() : 0;
     if (index < -1 || index > numRows)
         ec = INDEX_SIZE_ERR; // per the DOM
@@ -85,7 +81,7 @@ PassRefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionC
 
 void HTMLTableSectionElement::deleteRow(int index, ExceptionCode& ec)
 {
-    RefPtr<HTMLCollection> children = rows();
+    HTMLCollection* children = rows();
     int numRows = children ? (int)children->length() : 0;
     if (index == -1)
         index = numRows - 1;
@@ -149,9 +145,9 @@ void HTMLTableSectionElement::setVAlign(const String &value)
     setAttribute(valignAttr, value);
 }
 
-PassRefPtr<HTMLCollection> HTMLTableSectionElement::rows()
+HTMLCollection* HTMLTableSectionElement::rows()
 {
-    return HTMLCollection::create(this, TSectionRows);
+    return ensureCachedHTMLCollection(TSectionRows);
 }
 
 }

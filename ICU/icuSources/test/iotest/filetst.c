@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2004-2010, International Business Machines
+ *   Copyright (C) 2004-2011, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  *   file name:  filetst.c
@@ -910,8 +910,8 @@ static void TestCodepage(void) {
 }
 
 static void TestCodepageFlush(void) {
-#if UCONFIG_NO_LEGACY_CONVERSION
-  log_verbose("Skipping, legacy conversion is disabled.");
+#if UCONFIG_NO_LEGACY_CONVERSION || UCONFIG_NO_FORMATTING
+  log_verbose("Skipping, legacy conversion or formatting is disabled.");
 #else
   UChar utf16String[] = { 0x39, 0x39, 0x39, 0x20, 0x65E0, 0x6CD6, 0x5728, 0x0000 };
   uint8_t inBuf[200];
@@ -920,7 +920,7 @@ static void TestCodepageFlush(void) {
   UFILE *myFile = u_fopen(STANDARD_TEST_FILE, "wb", "en_US_POSIX", enc);
   FILE *myCFile;
   int shift = 0;
-  int i;
+  int32_t i;
 
   if (myFile == NULL) {
     log_err("Can't write test file %s\n", STANDARD_TEST_FILE);
@@ -946,7 +946,7 @@ static void TestCodepageFlush(void) {
     }
 
     /* check if shift in and out */
-    for(i=0;i<inLen;i++) {
+    for(i=0;i<(int32_t)inLen;i++) {
       if(inBuf[i]==0x0E) {  /* SO */
         shift= 1;
       } else if(inBuf[i]==0x0F) { /* SI */

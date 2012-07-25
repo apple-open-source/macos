@@ -28,6 +28,14 @@
 #include "KURL.h"
 #include "PopupMenu.h"
 
+#if ENABLE(INPUT_TYPE_COLOR)
+#include "ColorChooser.h"
+#endif
+
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+#include "NotificationClient.h"
+#endif
+
 typedef struct _Evas_Object Evas_Object;
 
 namespace WebCore {
@@ -72,7 +80,7 @@ public:
     virtual void setMenubarVisible(bool);
     virtual bool menubarVisible();
 
-    virtual void createSelectPopup(PopupMenuClient*, int selected, const IntRect& rect);
+    virtual void createSelectPopup(PopupMenuClient*, int selected, const IntRect&);
     virtual bool destroySelectPopup();
 
     virtual void setResizable(bool);
@@ -81,7 +89,7 @@ public:
                                      unsigned int lineNumber, const String& sourceID);
 
     virtual bool canRunBeforeUnloadConfirmPanel();
-    virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame* frame);
+    virtual bool runBeforeUnloadConfirmPanel(const String& message, Frame*);
 
     virtual void closeWindowSoon();
 
@@ -95,8 +103,8 @@ public:
     virtual IntRect windowResizerRect() const;
 
     virtual void contentsSizeChanged(Frame*, const IntSize&) const;
-    virtual IntPoint screenToWindow(const IntPoint&) const;
-    virtual IntRect windowToScreen(const IntRect&) const;
+    virtual IntPoint screenToRootView(const IntPoint&) const;
+    virtual IntRect rootViewToScreen(const IntRect&) const;
     virtual PlatformPageClient platformPageClient() const;
 
     virtual void scrollbarsModeDidChange() const;
@@ -106,53 +114,70 @@ public:
 
     virtual void print(Frame*);
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     virtual void exceededDatabaseQuota(Frame*, const String&);
 #endif
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
-    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
+#if ENABLE(NOTIFICATIONS) || ENABLE(LEGACY_NOTIFICATIONS)
+    virtual WebCore::NotificationClient* notificationPresenter() const;
 #endif
 
-#if ENABLE(CONTEXT_MENUS)
-    virtual void showContextMenu() { }
-#endif
+    virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*, int64_t totalSpaceNeeded);
 
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool);
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*);
+    virtual void setNeedsOneShotDrawingSynchronization();
+    virtual void scheduleCompositingLayerSync();
+    virtual CompositingTriggerFlags allowedCompositingTriggers() const;
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+    virtual bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard);
+    virtual void enterFullScreenForElement(WebCore::Element*);
+    virtual void exitFullScreenForElement(WebCore::Element*);
+#endif
+
+#if ENABLE(INPUT_TYPE_COLOR)
+    virtual PassOwnPtr<ColorChooser> createColorChooser(ColorChooserClient*, const Color&);
+    virtual void removeColorChooser();
+    virtual void updateColorChooser(const Color&);
+#endif
+
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-    virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
+    virtual void loadIconForFiles(const Vector<String>&, FileIconLoader*);
     virtual void formStateDidChange(const Node*);
 
     virtual void setCursor(const Cursor&);
     virtual void setCursorHiddenUntilMouseMoves(bool);
 
-    virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
+    virtual void scrollRectIntoView(const IntRect&) const { }
 
-    virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-    virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*);
     virtual void cancelGeolocationPermissionForFrame(Frame*, Geolocation*);
 
     virtual void invalidateContents(const IntRect&, bool);
-    virtual void invalidateWindow(const IntRect&, bool);
-    virtual void invalidateContentsAndWindow(const IntRect&, bool);
+    virtual void invalidateRootView(const IntRect&, bool);
+    virtual void invalidateContentsAndRootView(const IntRect&, bool);
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool);
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&);
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*);
     virtual void iconForFiles(const Vector<String, 0u>&, PassRefPtr<FileChooser>);
 
-    virtual void dispatchViewportDataDidChange(const ViewportArguments&) const;
+    virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const;
 
     virtual bool selectItemWritingDirectionIsNatural();
     virtual bool selectItemAlignmentFollowsMenuWritingDirection();
+    virtual bool hasOpenedPopup() const;
     virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
     virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 
     virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
     virtual void numWheelEventHandlersChanged(unsigned) { }
+    virtual void numTouchEventHandlersChanged(unsigned) { }
 
     Evas_Object* m_view;
     KURL m_hoveredLinkURL;

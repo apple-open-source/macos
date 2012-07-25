@@ -18,7 +18,10 @@
  */
 
 module xpath {
-    interface [CanBeConstructed] DOMParser {
-        Document parseFromString(in DOMString str, in DOMString contentType);
+    interface [
+        Constructor
+    ] DOMParser {
+        Document parseFromString(in [Optional=DefaultIsUndefined] DOMString str, 
+                                 in [Optional=DefaultIsUndefined] DOMString contentType);
     };
 }

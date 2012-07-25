@@ -27,8 +27,7 @@
 #include "IndentOutdentCommand.h"
 
 #include "Document.h"
-#include "Element.h"
-#include "HTMLBlockquoteElement.h"
+#include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InsertLineBreakCommand.h"
 #include "InsertListCommand.h"
@@ -51,7 +50,7 @@ static bool isListOrIndentBlockquote(const Node* node)
 }
 
 IndentOutdentCommand::IndentOutdentCommand(Document* document, EIndentType typeOfAction, int marginInPixels)
-    : ApplyBlockElementCommand(document, blockquoteTag, "webkit-indent-blockquote", "margin: 0 0 0 40px; border: none; padding: 0px;")
+    : ApplyBlockElementCommand(document, blockquoteTag, "margin: 0 0 0 40px; border: none; padding: 0px;")
     , m_typeOfAction(typeOfAction)
     , m_marginInPixels(marginInPixels)
 {
@@ -95,24 +94,30 @@ void IndentOutdentCommand::indentIntoBlockquote(const Position& start, const Pos
     Node* nodeToSplitTo;
     if (enclosingCell)
         nodeToSplitTo = enclosingCell;
-    else if (enclosingList(start.deprecatedNode()))
-        nodeToSplitTo = enclosingBlock(start.deprecatedNode());
+    else if (enclosingList(start.containerNode()))
+        nodeToSplitTo = enclosingBlock(start.containerNode());
     else
         nodeToSplitTo = editableRootForPosition(start);
 
     if (!nodeToSplitTo)
         return;
 
-    RefPtr<Node> outerBlock = (start.deprecatedNode() == nodeToSplitTo) ? start.deprecatedNode() : splitTreeToNode(start.deprecatedNode(), nodeToSplitTo);
+    RefPtr<Node> nodeAfterStart = start.computeNodeAfterPosition();
+    RefPtr<Node> outerBlock = (start.containerNode() == nodeToSplitTo) ? start.containerNode() : splitTreeToNode(start.containerNode(), nodeToSplitTo);
 
+    VisiblePosition startOfContents = start;
     if (!targetBlockquote) {
         // Create a new blockquote and insert it as a child of the root editable element. We accomplish
         // this by splitting all parents of the current paragraph up to that point.
         targetBlockquote = createBlockElement();
-        insertNodeBefore(targetBlockquote, outerBlock);
+        if (outerBlock == start.containerNode())
+            insertNodeAt(targetBlockquote, start);
+        else
+            insertNodeBefore(targetBlockquote, outerBlock);
+        startOfContents = positionInParentAfterNode(targetBlockquote.get());
     }
 
-    moveParagraphWithClones(start, end, targetBlockquote.get(), outerBlock.get());
+    moveParagraphWithClones(startOfContents, end, targetBlockquote.get(), outerBlock.get());
 }
 
 void IndentOutdentCommand::outdentParagraph()
@@ -156,8 +161,8 @@ void IndentOutdentCommand::outdentParagraph()
                     splitElement(static_cast<Element*>(splitPointParent), splitPoint);
             }
         }
-        
-        updateLayout();
+
+        document()->updateLayoutIgnorePendingStylesheets();
         visibleStartOfParagraph = VisiblePosition(visibleStartOfParagraph.deepEquivalent());
         visibleEndOfParagraph = VisiblePosition(visibleEndOfParagraph.deepEquivalent());
         if (visibleStartOfParagraph.isNotNull() && !isStartOfParagraph(visibleStartOfParagraph))
@@ -173,7 +178,8 @@ void IndentOutdentCommand::outdentParagraph()
         splitBlockquoteNode = splitTreeToNode(enclosingBlockFlow, enclosingNode, true);
     else {
         // We split the blockquote at where we start outdenting.
-        splitElement(static_cast<Element*>(enclosingNode), visibleStartOfParagraph.deepEquivalent().deprecatedNode());
+        Node* highestInlineNode = highestEnclosingNodeOfType(visibleStartOfParagraph.deepEquivalent(), isInline, CannotCrossEditingBoundary, enclosingBlockFlow);
+        splitElement(static_cast<Element*>(enclosingNode), (highestInlineNode) ? highestInlineNode : visibleStartOfParagraph.deepEquivalent().deprecatedNode());
     }
     RefPtr<Node> placeholder = createBreakElement(document());
     insertNodeBefore(placeholder, splitBlockquoteNode);

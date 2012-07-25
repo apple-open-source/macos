@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1992-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1992-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: date (AT&T Research) 2007-05-21 $\n]"
+"[-?\n@(#)$Id: date (AT&T Research) 2011-01-27 $\n]"
 USAGE_LICENSE
 "[+NAME?date - set/list/convert dates]"
 "[+DESCRIPTION?\bdate\b sets the current date and time (with appropriate"
@@ -89,12 +89,12 @@ USAGE_LICENSE
 "		[+a?abbreviated weekday name]"
 "		[+A?full weekday name]"
 "		[+b?abbreviated month name]"
+"		[+B?full month name]"
 "		[+c?\bctime\b(3) style date without the trailing newline]"
 "		[+C?2-digit century]"
 "		[+d?day of month number]"
 "		[+D?date as \amm/dd/yy\a]"
 "		[+e?blank padded day of month number]"
-"		[+E?unpadded day of month number]"
 "		[+f?locale default override date format]"
 "		[+F?%ISO 8601:2000 standard date format; equivalent to Y-%m-%d]"
 "		[+g?\bls\b(1) \b-l\b recent date with \ahh:mm\a]"
@@ -106,7 +106,7 @@ USAGE_LICENSE
 "		[+j?1-offset Julian date]"
 "		[+J?0-offset Julian date]"
 "		[+k?\bdate\b(1) style date]"
-"		[+K?all numeric date; equivalent to \b%Y-%m-%d+%H:%M:%S\b]"
+"		[+K?all numeric date; equivalent to \b%Y-%m-%d+%H:%M:%S\b; \b%_[EO]]K\b for space separator, %OK adds \b.%N\b, \b%EK\b adds \b%.N%z\b, \b%_EK\b adds \b.%N %z\b]"
 "		[+l?\bls\b(1) \b-l\b date; equivalent to \b%Q/%g/%G/\b]"
 "		[+L?locale default date format]"
 "		[+m?month number]"
@@ -136,7 +136,7 @@ USAGE_LICENSE
 "		[+y?2-digit year (you'll be sorry)]"
 "		[+Y?4-digit year]"
 "		[+z?time zone \aSHHMM\a west of GMT offset where S is"
-"			\b+\b or \b-\b]"
+"			\b+\b or \b-\b, use pad _ for \aSHH:MM\a]"
 "		[+Z?time zone name]"
 "		[+=[=]][-+]]flag?set (default or +) or clear (-) \aflag\a"
 "			for the remainder of \aformat\a, or for the remainder"
@@ -168,8 +168,17 @@ USAGE_LICENSE
 "		[+&?Call the \btmdate\b(3) heuristic parser. This is"
 "			is the default when \b--parse\b is omitted.]"
 "}"
+"[R:rfc-2822?List date and time in RFC 2822 format "
+    "(%a, %-e %h %Y %H:%M:%S %z).]"
+"[T:rfc-3339?List date and time in RFC 3339 format according to "
+    "\atype\a:]:[type]"
+    "{"
+        "[d:date?(%Y-%m-%d)]"
+        "[s:seconds?(%Y-%m-%d %H:%M:%S%_z)]"
+        "[n:ns|nanoseconds?(%Y-%m-%d %H:%M:%S.%N%_z)]"
+    "}"
 "[s:show?Show the date without setting the system time.]"
-"[u:utc|gmt|zulu?Output dates in \acoordinated universal time\a (UTC).]"
+"[u:utc|gmt|zulu|universal?Output dates in \acoordinated universal time\a (UTC).]"
 "[U:unelapsed?Interpret each argument as \bfmtelapsed\b(3) elapsed"
 "	time and list the \bstrelapsed\b(3) 1/\ascale\a seconds.]#[scale]"
 "[z:list-zones?List the known time zone table and exit. The table columns"
@@ -212,7 +221,7 @@ settime(void* context, const char* cmd, Time_t now, int adjust, int network)
 	char*		s;
 	char**		argv;
 	char*		args[5];
-	char		buf[128];
+	char		buf[1024];
 
 	if (!adjust && !network)
 		return tmxsettime(now);
@@ -276,7 +285,7 @@ b_date(int argc, register char** argv, void* context)
 	Time_t		ts;
 	Time_t		te;
 	Time_t		e;
-	char		buf[128];
+	char		buf[1024];
 	Fmt_t*		fmts;
 	Fmt_t		fmt;
 	struct stat	st;
@@ -294,7 +303,6 @@ b_date(int argc, register char** argv, void* context)
 	int		unelapsed = 0;	/* fmtelapsed() => strelapsed	*/
 
 	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
-	setlocale(LC_ALL, "");
 	tm_info.flags = TM_DATESTYLE;
 	fmts = &fmt;
 	fmt.format = "";
@@ -313,7 +321,7 @@ b_date(int argc, register char** argv, void* context)
 			show = 1;
 			continue;
 		case 'e':
-			format = "%#";
+			format = "%s";
 			continue;
 		case 'E':
 			elapsed = 1;
@@ -340,8 +348,25 @@ b_date(int argc, register char** argv, void* context)
 			f->format = opt_info.arg;
 			fmts = f;
 			continue;
+		case 'R':
+			format = "%a, %-e %h %Y %H:%M:%S %z";
+			continue;
 		case 's':
 			show = 1;
+			continue;
+		case 'T':
+			switch (opt_info.num)
+			{
+			case 'd':
+				format = "%Y-%m-%d";
+				continue;
+			case 'n':
+				format = "%Y-%m-%d %H:%M:%S.%N%_z";
+				continue;
+			case 's':
+				format = "%Y-%m-%d %H:%M:%S%_z";
+				continue;
+			}
 			continue;
 		case 'u':
 			tm_info.flags |= TM_UTC;

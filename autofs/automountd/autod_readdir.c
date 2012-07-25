@@ -430,7 +430,7 @@ create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
 		dp->d_type = DT_UNKNOWN;
 #endif
 		dp->d_namlen = namelen;
-		(void) strcpy(dp->d_name, l->name);
+		(void) strlcpy(dp->d_name, l->name, NAME_MAX);
 		outcount += dp->d_reclen;
 		dp = (struct dirent_nonext *)((char *)dp + dp->d_reclen);
 		assert(outcount <= total_bytes_wanted);
@@ -483,6 +483,7 @@ rddir_cache_enter(const char *map, uint_t bucket_size,
     struct rddir_cache **rdcpp)
 {
 	struct rddir_cache *p;
+	int len;
 #if 0
 	assert(RW_LOCK_HELD(&rddir_cache_lock));
 #endif
@@ -498,14 +499,15 @@ rddir_cache_enter(const char *map, uint_t bucket_size,
 	}
 	memset((char *)p, 0, sizeof (*p));
 
-	p->map = malloc(strlen(map) + 1);
+	len = (int) strlen(map) + 1;
+	p->map = malloc(len);
 	if (p->map == NULL) {
 		syslog(LOG_ERR,
 			"rddir_cache_enter: memory allocation failed\n");
 		free(p);
 		return (ENOMEM);
 	}
-	strcpy(p->map, map);
+	strlcpy(p->map, map, len);
 
 	p->bucket_size = bucket_size;
 	/*

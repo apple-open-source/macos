@@ -27,6 +27,7 @@
 #include <webkit/webkitdom.h>
 #include <webkit/webkitdownload.h>
 #include <webkit/webkitenumtypes.h>
+#include <webkit/webkitfavicondatabase.h>
 #include <webkit/webkitgeolocationpolicydecision.h>
 #include <webkit/webkitglobals.h>
 #include <webkit/webkithittestresult.h>
@@ -35,6 +36,7 @@
 #include <webkit/webkitnetworkresponse.h>
 #include <webkit/webkitsecurityorigin.h>
 #include <webkit/webkitsoupauthdialog.h>
+#include <webkit/webkitspellchecker.h>
 #include <webkit/webkitviewportattributes.h>
 #include <webkit/webkitwebbackforwardlist.h>
 #include <webkit/webkitwebdatabase.h>

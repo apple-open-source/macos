@@ -136,8 +136,6 @@ int32_t	OSAtomicDecrement32Barrier( volatile int32_t *__theValue )
             { return OSAtomicAdd32Barrier( -1, __theValue); }
 
 
-#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__)
-
 /*! @abstract Atomically adds two 64-bit values.
     @discussion
 	This function adds the value given by <code>__theAmount</code> to the
@@ -196,9 +194,6 @@ int64_t	OSAtomicDecrement64( volatile int64_t *__theValue )
 __inline static
 int64_t	OSAtomicDecrement64Barrier( volatile int64_t *__theValue )
             { return OSAtomicAdd64Barrier( -1, __theValue); }
-
-
-#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__) */
 
 
 /*! @group Boolean functions (AND, OR, XOR)
@@ -470,8 +465,6 @@ bool	OSAtomicCompareAndSwapLong( long __oldValue, long __newValue, volatile long
 bool	OSAtomicCompareAndSwapLongBarrier( long __oldValue, long __newValue, volatile long *__theValue ) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 
-#if defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__)
-
 /*! @abstract Compare and swap for <code>uint64_t</code> values.
     @discussion
 	This function compares the value in <code>__oldValue</code> to the value
@@ -495,8 +488,6 @@ bool    OSAtomicCompareAndSwap64( int64_t __oldValue, int64_t __newValue, volati
     @result Returns TRUE on a match, FALSE otherwise.
  */
 bool    OSAtomicCompareAndSwap64Barrier( int64_t __oldValue, int64_t __newValue, volatile int64_t *__theValue ) __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_3_2);
-
-#endif  /* defined(__ppc64__) || defined(__i386__) || defined(__x86_64__) || defined(__arm__) */
 
 
 /* Test and set.  They return the original value of the bit, and operate on bit (0x80>>(n&7))

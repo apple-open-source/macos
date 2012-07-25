@@ -417,6 +417,7 @@ AppleFileSystemDriver::start(IOService * provider)
         _notifier = IOService::addMatchingNotification( gIOMatchedNotification, matching,
                                                 &mediaNotificationHandler,
                                                 this, 0 );
+        matching->release();
 
         DEBUG_LOG("%s[%p]::%s finishes TRUE\n", getName(), this, __func__);
 

@@ -30,15 +30,16 @@
 #define JSGlobalData_h
 
 #include "CachedTranscendentalFunction.h"
-#include "Intrinsic.h"
 #include "DateInstanceCache.h"
 #include "ExecutableAllocator.h"
 #include "Heap.h"
-#include "Strong.h"
+#include "Intrinsic.h"
 #include "JITStubs.h"
 #include "JSValue.h"
+#include "LLIntData.h"
 #include "NumericStrings.h"
 #include "SmallStrings.h"
+#include "Strong.h"
 #include "Terminator.h"
 #include "TimeoutChecker.h"
 #include "WeakRandom.h"
@@ -46,6 +47,7 @@
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
+#include <wtf/SimpleStats.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/WTFThreadData.h>
 #if ENABLE(REGEXP_TRACING)
@@ -65,6 +67,7 @@ namespace JSC {
     class JSGlobalObject;
     class JSObject;
     class Keywords;
+    class LLIntOffsetsExtractor;
     class NativeExecutable;
     class ParserArena;
     class RegExpCache;
@@ -105,22 +108,49 @@ namespace JSC {
 
     struct TypedArrayDescriptor {
         TypedArrayDescriptor()
-            : m_vptr(0)
+            : m_classInfo(0)
             , m_storageOffset(0)
             , m_lengthOffset(0)
         {
         }
-        TypedArrayDescriptor(void* vptr, size_t storageOffset, size_t lengthOffset)
-            : m_vptr(vptr)
+        TypedArrayDescriptor(const ClassInfo* classInfo, size_t storageOffset, size_t lengthOffset)
+            : m_classInfo(classInfo)
             , m_storageOffset(storageOffset)
             , m_lengthOffset(lengthOffset)
         {
         }
-        void* m_vptr;
+        const ClassInfo* m_classInfo;
         size_t m_storageOffset;
         size_t m_lengthOffset;
     };
-    
+
+#if ENABLE(DFG_JIT)
+    class ConservativeRoots;
+
+    struct ScratchBuffer {
+        ScratchBuffer()
+            : m_activeLength(0)
+        {
+        }
+
+        static ScratchBuffer* create(size_t size)
+        {
+            ScratchBuffer* result = new (fastMalloc(ScratchBuffer::allocationSize(size))) ScratchBuffer;
+
+            return result;
+        }
+
+        static size_t allocationSize(size_t bufferSize) { return sizeof(size_t) + bufferSize; }
+        void setActiveLength(size_t activeLength) { m_activeLength = activeLength; }
+        size_t activeLength() const { return m_activeLength; };
+        size_t* activeLengthPtr() { return &m_activeLength; };
+        void* dataBuffer() { return m_buffer; }
+
+        size_t m_activeLength;
+        void* m_buffer[0];
+    };
+#endif
+
     class JSGlobalData : public RefCounted<JSGlobalData> {
     public:
         // WebCore has a one-to-one mapping of threads to JSGlobalDatas;
@@ -134,20 +164,22 @@ namespace JSC {
         enum GlobalDataType { Default, APIContextGroup, APIShared };
         
         struct ClientData {
-            virtual ~ClientData() = 0;
+            JS_EXPORT_PRIVATE virtual ~ClientData() = 0;
         };
 
         bool isSharedInstance() { return globalDataType == APIShared; }
         bool usingAPI() { return globalDataType != Default; }
         static bool sharedInstanceExists();
-        static JSGlobalData& sharedInstance();
+        JS_EXPORT_PRIVATE static JSGlobalData& sharedInstance();
 
-        static PassRefPtr<JSGlobalData> create(ThreadStackType, HeapSize = SmallHeap);
-        static PassRefPtr<JSGlobalData> createLeaked(ThreadStackType, HeapSize = SmallHeap);
+        JS_EXPORT_PRIVATE static PassRefPtr<JSGlobalData> create(ThreadStackType, HeapSize = SmallHeap);
+        JS_EXPORT_PRIVATE static PassRefPtr<JSGlobalData> createLeaked(ThreadStackType, HeapSize = SmallHeap);
         static PassRefPtr<JSGlobalData> createContextGroup(ThreadStackType, HeapSize = SmallHeap);
-        ~JSGlobalData();
+        JS_EXPORT_PRIVATE ~JSGlobalData();
 
         void makeUsableFromMultipleThreads() { heap.machineThreads().makeUsableFromMultipleThreads(); }
+
+        Heap heap; // The heap is our first data member to ensure that it's destructed after all the objects that reference it.
 
         GlobalDataType globalDataType;
         ClientData* clientData;
@@ -193,19 +225,13 @@ namespace JSC {
         Strong<Structure> regExpStructure;
         Strong<Structure> structureChainStructure;
 
-        static void storeVPtrs();
-        static JS_EXPORTDATA void* jsFinalObjectVPtr;
-        static JS_EXPORTDATA void* jsArrayVPtr;
-        static JS_EXPORTDATA void* jsByteArrayVPtr;
-        static JS_EXPORTDATA void* jsStringVPtr;
-        static JS_EXPORTDATA void* jsFunctionVPtr;
-
         IdentifierTable* identifierTable;
         CommonIdentifiers* propertyNames;
         const MarkedArgumentBuffer* emptyList; // Lists are supposed to be allocated on the stack to have their elements properly marked, which is not the case here - but this list has nothing to mark.
         SmallStrings smallStrings;
         NumericStrings numericStrings;
         DateInstanceCache dateInstanceCache;
+        WTF::SimpleStats machineCodeBytesPerBytecodeWordForBaselineJIT;
         Vector<CodeBlock*> codeBlocksBeingCompiled;
         void startedCompiling(CodeBlock* codeBlock)
         {
@@ -218,16 +244,34 @@ namespace JSC {
             codeBlocksBeingCompiled.removeLast();
         }
 
+        void setInDefineOwnProperty(bool inDefineOwnProperty)
+        {
+            m_inDefineOwnProperty = inDefineOwnProperty;
+        }
+
+        bool isInDefineOwnProperty()
+        {
+            return m_inDefineOwnProperty;
+        }
+
 #if ENABLE(ASSEMBLER)
         ExecutableAllocator executableAllocator;
 #endif
 
 #if !ENABLE(JIT)
         bool canUseJIT() { return false; } // interpreter only
-#elif !ENABLE(INTERPRETER)
+#elif !ENABLE(CLASSIC_INTERPRETER) && !ENABLE(LLINT)
         bool canUseJIT() { return true; } // jit only
 #else
-        bool canUseJIT() { return m_canUseJIT; }
+        bool canUseJIT() { return m_canUseAssembler; }
+#endif
+
+#if !ENABLE(YARR_JIT)
+        bool canUseRegExpJIT() { return false; } // interpreter only
+#elif !ENABLE(CLASSIC_INTERPRETER) && !ENABLE(LLINT)
+        bool canUseRegExpJIT() { return true; } // jit only
+#else
+        bool canUseRegExpJIT() { return m_canUseAssembler; }
 #endif
 
         OwnPtr<ParserArena> parserArena;
@@ -245,19 +289,26 @@ namespace JSC {
 
         TimeoutChecker timeoutChecker;
         Terminator terminator;
-        Heap heap;
 
         JSValue exception;
-#if ENABLE(JIT)
+
+        const ClassInfo* const jsArrayClassInfo;
+        const ClassInfo* const jsFinalObjectClassInfo;
+
+        LLInt::Data llintData;
+
         ReturnAddressPtr exceptionLocation;
         JSValue hostCallReturnValue;
+        CallFrame* callFrameForThrow;
+        void* targetMachinePCForThrow;
+        Instruction* targetInterpreterPCForThrow;
 #if ENABLE(DFG_JIT)
         uint32_t osrExitIndex;
         void* osrExitJumpDestination;
-        Vector<void*> scratchBuffers;
+        Vector<ScratchBuffer*> scratchBuffers;
         size_t sizeOfLastScratchBuffer;
         
-        void* scratchBufferForSize(size_t size)
+        ScratchBuffer* scratchBufferForSize(size_t size)
         {
             if (!size)
                 return 0;
@@ -268,13 +319,16 @@ namespace JSC {
                 // total memory usage is somewhere around
                 // max(scratch buffer size) * 4.
                 sizeOfLastScratchBuffer = size * 2;
-                
-                scratchBuffers.append(fastMalloc(sizeOfLastScratchBuffer));
+
+                scratchBuffers.append(ScratchBuffer::create(sizeOfLastScratchBuffer));
             }
-            
-            return scratchBuffers.last();
+
+            ScratchBuffer* result = scratchBuffers.last();
+            result->setActiveLength(0);
+            return result;
         }
-#endif
+
+        void gatherConservativeRoots(ConservativeRoots&);
 #endif
 
         HashMap<OpaqueJSClass*, OwnPtr<OpaqueJSClassContextData> > opaqueJSClassData;
@@ -305,25 +359,23 @@ namespace JSC {
 
         CachedTranscendentalFunction<sin> cachedSin;
 
-        void resetDateCache();
+        JS_EXPORT_PRIVATE void resetDateCache();
 
-        void startSampling();
-        void stopSampling();
-        void dumpSampleData(ExecState* exec);
-        void recompileAllJSFunctions();
+        JS_EXPORT_PRIVATE void startSampling();
+        JS_EXPORT_PRIVATE void stopSampling();
+        JS_EXPORT_PRIVATE void dumpSampleData(ExecState* exec);
         RegExpCache* regExpCache() { return m_regExpCache; }
 #if ENABLE(REGEXP_TRACING)
         void addRegExpToTrace(PassRefPtr<RegExp> regExp);
 #endif
-        void dumpRegExpTrace();
-        void clearBuiltinStructures();
+        JS_EXPORT_PRIVATE void dumpRegExpTrace();
 
         bool isCollectorBusy() { return heap.isBusy(); }
-        void releaseExecutableMemory();
+        JS_EXPORT_PRIVATE void releaseExecutableMemory();
 
 #if ENABLE(GC_VALIDATION)
         bool isInitializingObject() const; 
-        void setInitializingObject(bool);
+        void setInitializingObjectClass(const ClassInfo*);
 #endif
 
 #if CPU(X86) && ENABLE(JIT)
@@ -333,15 +385,16 @@ namespace JSC {
 #define registerTypedArrayFunction(type, capitalizedType) \
         void registerTypedArrayDescriptor(const capitalizedType##Array*, const TypedArrayDescriptor& descriptor) \
         { \
-            ASSERT(!m_##type##ArrayDescriptor.m_vptr || m_##type##ArrayDescriptor.m_vptr == descriptor.m_vptr); \
+            ASSERT(!m_##type##ArrayDescriptor.m_classInfo || m_##type##ArrayDescriptor.m_classInfo == descriptor.m_classInfo); \
             m_##type##ArrayDescriptor = descriptor; \
         } \
-        const TypedArrayDescriptor& type##ArrayDescriptor() const { return m_##type##ArrayDescriptor; }
+        const TypedArrayDescriptor& type##ArrayDescriptor() const { ASSERT(m_##type##ArrayDescriptor.m_classInfo); return m_##type##ArrayDescriptor; }
 
         registerTypedArrayFunction(int8, Int8);
         registerTypedArrayFunction(int16, Int16);
         registerTypedArrayFunction(int32, Int32);
         registerTypedArrayFunction(uint8, Uint8);
+        registerTypedArrayFunction(uint8Clamped, Uint8Clamped);
         registerTypedArrayFunction(uint16, Uint16);
         registerTypedArrayFunction(uint32, Uint32);
         registerTypedArrayFunction(float32, Float32);
@@ -349,19 +402,24 @@ namespace JSC {
 #undef registerTypedArrayFunction
 
     private:
+        friend class LLIntOffsetsExtractor;
+        
         JSGlobalData(GlobalDataType, ThreadStackType, HeapSize);
         static JSGlobalData*& sharedInstanceInternal();
         void createNativeThunk();
-#if ENABLE(JIT) && ENABLE(INTERPRETER)
-        bool m_canUseJIT;
+#if ENABLE(ASSEMBLER) && (ENABLE(CLASSIC_INTERPRETER) || ENABLE(LLINT))
+        bool m_canUseAssembler;
 #endif
 #if ENABLE(GC_VALIDATION)
-        bool m_isInitializingObject;
+        const ClassInfo* m_initializingObjectClass;
 #endif
+        bool m_inDefineOwnProperty;
+
         TypedArrayDescriptor m_int8ArrayDescriptor;
         TypedArrayDescriptor m_int16ArrayDescriptor;
         TypedArrayDescriptor m_int32ArrayDescriptor;
         TypedArrayDescriptor m_uint8ArrayDescriptor;
+        TypedArrayDescriptor m_uint8ClampedArrayDescriptor;
         TypedArrayDescriptor m_uint16ArrayDescriptor;
         TypedArrayDescriptor m_uint32ArrayDescriptor;
         TypedArrayDescriptor m_float32ArrayDescriptor;
@@ -371,12 +429,12 @@ namespace JSC {
 #if ENABLE(GC_VALIDATION)
     inline bool JSGlobalData::isInitializingObject() const
     {
-        return m_isInitializingObject;
+        return !!m_initializingObjectClass;
     }
 
-    inline void JSGlobalData::setInitializingObject(bool initializingObject)
+    inline void JSGlobalData::setInitializingObjectClass(const ClassInfo* initializingObjectClass)
     {
-        m_isInitializingObject = initializingObject;
+        m_initializingObjectClass = initializingObjectClass;
     }
 #endif
 

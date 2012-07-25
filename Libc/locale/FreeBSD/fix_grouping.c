@@ -31,7 +31,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/fix_grouping.c,v 1.8 2003/06/26 10:46:16
 #include <limits.h>
 #include <stddef.h>
 
-static const char nogrouping[] = { CHAR_MAX, '\0' };
+static const char nogrouping[] = { '\0' };
+static const char __nogrouping[] = { CHAR_MAX, '\0' };
 
 /*
  * Internal helper used to convert grouping sequences from string
@@ -83,4 +84,15 @@ __fix_locale_grouping_str(const char *str)
 	}
 	*dst = '\0';
 	return str;
+}
+
+/*
+ * internal helpers for SUSv3 compatibility.  Since "nogrouping" needs to
+ * be just an empty string, we provide a routine to substitute __nogrouping
+ * so we don't have to modify code that expects CHAR_MAX.
+ */
+__private_extern__ const char *
+__fix_nogrouping(const char *str)
+{
+	return ((str == NULL || *str == '\0') ? __nogrouping : str);
 }

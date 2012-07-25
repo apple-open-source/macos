@@ -26,8 +26,6 @@
 #ifndef StorageNamespaceImpl_h
 #define StorageNamespaceImpl_h
 
-#if ENABLE(DOM_STORAGE)
-
 #include "PlatformString.h"
 #include "SecurityOriginHash.h"
 #include "StorageArea.h"
@@ -49,7 +47,6 @@ namespace WebCore {
         virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>);
         virtual PassRefPtr<StorageNamespace> copy();
         virtual void close();
-        virtual void unlock();
 
         // Not removing the origin's StorageArea from m_storageAreaMap because
         // we're just deleting the underlying db file. If an item is added immediately
@@ -76,7 +73,5 @@ namespace WebCore {
     };
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageNamespaceImpl_h

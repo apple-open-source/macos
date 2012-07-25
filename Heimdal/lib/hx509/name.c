@@ -35,6 +35,7 @@
 
 #include "hx_locl.h"
 #include <wind.h>
+#include "char_map.h"
 
 /**
  * @page page_name PKIX/X.509 Names
@@ -45,7 +46,7 @@
  * (RDN). Each RDN consists of an unordered list of typed strings. The
  * types are defined by OID and have long and short description. For
  * example id-at-commonName (2.5.4.3) have the long name CommonName
- * and short name CN. The string itself can be of serveral encoding,
+ * and short name CN. The string itself can be of several encoding,
  * UTF8, UTF16, Teltex string, etc. The type limit what encoding
  * should be used.
  *
@@ -83,11 +84,11 @@ static const struct {
 };
 
 static char *
-quote_string(const char *f, size_t len, size_t *rlen)
+quote_string(const char *f, size_t len, int flags, size_t *rlen)
 {
     size_t i, j, tolen;
-    const char *from = f;
-    char *to;
+    const unsigned char *from = (const unsigned char *)f;
+    unsigned char *to;
 
     tolen = len * 3 + 1;
     to = malloc(tolen);
@@ -95,26 +96,29 @@ quote_string(const char *f, size_t len, size_t *rlen)
 	return NULL;
 
     for (i = 0, j = 0; i < len; i++) {
-	if (from[i] == ' ' && i + 1 < len)
-	    to[j++] = from[i];
-	else if (from[i] == ',' || from[i] == '=' || from[i] == '+' ||
-		 from[i] == '<' || from[i] == '>' || from[i] == '#' ||
-		 from[i] == ';' || from[i] == ' ')
-	{
+	unsigned char map = char_map[from[i]] & flags;
+	if (i == 0 && (map & Q_RFC2253_QUOTE_FIRST)) {
 	    to[j++] = '\\';
 	    to[j++] = from[i];
-	} else if (((unsigned char)from[i]) >= 32 && ((unsigned char)from[i]) <= 127) {
+	} else if ((i + 1) == len && (map & Q_RFC2253_QUOTE_LAST)) {
+
+	    to[j++] = '\\';
 	    to[j++] = from[i];
-	} else {
-	    int l = snprintf(&to[j], tolen - j - 1,
+	} else if (map & Q_RFC2253_QUOTE) {
+	    to[j++] = '\\';
+	    to[j++] = from[i];
+	} else if (map & Q_RFC2253_HEX) {
+	    int l = snprintf((char *)&to[j], tolen - j - 1,
 			     "#%02x", (unsigned char)from[i]);
 	    j += l;
+	} else {
+	    to[j++] = from[i];
 	}
     }
     to[j] = '\0';
     assert(j < tolen);
     *rlen = j;
-    return to;
+    return (char *)to;
 }
 
 
@@ -125,7 +129,7 @@ append_string(char **str, size_t *total_len, const char *ss,
     char *s, *qs;
 
     if (quote)
-	qs = quote_string(ss, len, &len);
+	qs = quote_string(ss, len, Q_RFC2253, &len);
     else
 	qs = rk_UNCONST(ss);
 
@@ -159,7 +163,8 @@ oidtostring(const heim_oid *type)
 static int
 stringtooid(const char *name, size_t len, heim_oid *oid)
 {
-    int i, ret;
+    int ret;
+    size_t i;
     char *s;
 
     memset(oid, 0, sizeof(*oid));
@@ -200,31 +205,36 @@ int
 _hx509_Name_to_string(const Name *n, char **str)
 {
     size_t total_len = 0;
-    int i, j, ret;
+    size_t i, j, m;
+    int ret;
 
     *str = strdup("");
     if (*str == NULL)
 	return ENOMEM;
 
-    for (i = n->u.rdnSequence.len - 1 ; i >= 0 ; i--) {
-	int len;
+    for (m = n->u.rdnSequence.len; m > 0; m--) {
+	size_t len;
+	i = m - 1;
 
 	for (j = 0; j < n->u.rdnSequence.val[i].len; j++) {
 	    DirectoryString *ds = &n->u.rdnSequence.val[i].val[j].value;
 	    char *oidname;
 	    char *ss;
-	
+
 	    oidname = oidtostring(&n->u.rdnSequence.val[i].val[j].type);
 
 	    switch(ds->element) {
 	    case choice_DirectoryString_ia5String:
-		ss = ds->u.ia5String;
+		ss = ds->u.ia5String.data;
+		len = ds->u.ia5String.length;
 		break;
 	    case choice_DirectoryString_printableString:
-		ss = ds->u.printableString;
+		ss = ds->u.printableString.data;
+		len = ds->u.printableString.length;
 		break;
 	    case choice_DirectoryString_utf8String:
 		ss = ds->u.utf8String;
+		len = strlen(ss);
 		break;
 	    case choice_DirectoryString_bmpString: {
 	        const uint16_t *bmp = ds->u.bmpString.data;
@@ -234,7 +244,7 @@ _hx509_Name_to_string(const Name *n, char **str)
 		ret = wind_ucs2utf8_length(bmp, bmplen, &k);
 		if (ret)
 		    return ret;
-		
+
 		ss = malloc(k + 1);
 		if (ss == NULL)
 		    _hx509_abort("allocation failure"); /* XXX */
@@ -244,10 +254,12 @@ _hx509_Name_to_string(const Name *n, char **str)
 		    return ret;
 		}
 		ss[k] = '\0';
+		len = k;
 		break;
 	    }
 	    case choice_DirectoryString_teletexString:
 		ss = ds->u.teletexString;
+		len = strlen(ss);
 		break;
 	    case choice_DirectoryString_universalString: {
 	        const uint32_t *uni = ds->u.universalString.data;
@@ -268,6 +280,7 @@ _hx509_Name_to_string(const Name *n, char **str)
 		    return ret;
 		}
 		ss[k] = '\0';
+		len = k;
 		break;
 	    }
 	    default:
@@ -277,10 +290,9 @@ _hx509_Name_to_string(const Name *n, char **str)
 	    append_string(str, &total_len, oidname, strlen(oidname), 0);
 	    free(oidname);
 	    append_string(str, &total_len, "=", 1, 0);
-	    len = strlen(ss);
 	    append_string(str, &total_len, ss, len, 1);
-	    if (ds->element == choice_DirectoryString_universalString ||
-		ds->element == choice_DirectoryString_bmpString)
+	    if (ds->element == choice_DirectoryString_bmpString ||
+		ds->element == choice_DirectoryString_universalString)
 	    {
 		free(ss);
 	    }
@@ -324,7 +336,7 @@ _hx509_Name_to_string(const Name *n, char **str)
 static int
 dsstringprep(const DirectoryString *ds, uint32_t **rname, size_t *rlen)
 {
-    wind_profile_flags flags;
+    wind_profile_flags flags __attribute__((__unused__));
     size_t i, len;
     int ret;
     uint32_t *name;
@@ -335,12 +347,12 @@ dsstringprep(const DirectoryString *ds, uint32_t **rname, size_t *rlen)
     switch(ds->element) {
     case choice_DirectoryString_ia5String:
 	flags = WIND_PROFILE_LDAP;
-	COPYCHARARRAY(ds, ia5String, len, name);
+	COPYVOIDARRAY(ds, ia5String, len, name);
 	break;
     case choice_DirectoryString_printableString:
 	flags = WIND_PROFILE_LDAP;
 	flags |= WIND_PROFILE_LDAP_CASE_EXACT_ATTRIBUTE;
-	COPYCHARARRAY(ds, printableString, len, name);
+	COPYVOIDARRAY(ds, printableString, len, name);
 	break;
     case choice_DirectoryString_teletexString:
 	flags = WIND_PROFILE_LDAP_CASE;
@@ -441,7 +453,8 @@ _hx509_name_ds_cmp(const DirectoryString *ds1,
 int
 _hx509_name_cmp(const Name *n1, const Name *n2, int *c)
 {
-    int ret, i, j;
+    int ret;
+    size_t i, j;
 
     *c = n1->u.rdnSequence.len - n2->u.rdnSequence.len;
     if (*c)
@@ -457,7 +470,7 @@ _hx509_name_cmp(const Name *n1, const Name *n2, int *c)
 				  &n1->u.rdnSequence.val[i].val[j].type);
 	    if (*c)
 		return 0;
-			
+
 	    ret = _hx509_name_ds_cmp(&n1->u.rdnSequence.val[i].val[j].value,
 				     &n2->u.rdnSequence.val[i].val[j].value,
 				     c);
@@ -590,7 +603,7 @@ _hx509_name_modify(hx509_context context,
 		&name->u.rdnSequence.val[0],
 		name->u.rdnSequence.len *
 		sizeof(name->u.rdnSequence.val[0]));
-	
+
 	rdn = &name->u.rdnSequence.val[0];
     }
     rdn->val = malloc(sizeof(rdn->val[0]));
@@ -680,8 +693,8 @@ hx509_parse_name(hx509_context context, const char *str, hx509_name *name)
 				   "missing name before = in %s", p);
 	    goto out;
 	}
-	
-	if ((q - p) > len) {
+
+	if ((size_t)(q - p) > len) {
 	    ret = HX509_PARSING_NAME_FAILED;
 	    hx509_set_error_string(context, 0, ret, " = after , in %s", p);
 	    goto out;
@@ -694,12 +707,12 @@ hx509_parse_name(hx509_context context, const char *str, hx509_name *name)
 				   "unknown type: %.*s", (int)(q - p), p);
 	    goto out;
 	}
-	
+
 	{
 	    size_t pstr_len = len - (q - p) - 1;
 	    const char *pstr = p + (q - p) + 1;
 	    char *r;
-	
+
 	    r = malloc(pstr_len + 1);
 	    if (r == NULL) {
 		der_free_oid(&oid);
@@ -799,7 +812,7 @@ hx509_name_expand(hx509_context context,
 		  hx509_env env)
 {
     Name *n = &name->der_name;
-    int i, j;
+    size_t i, j;
 
     if (env == NULL)
 	return 0;
@@ -1020,19 +1033,21 @@ hx509_general_name_unparse(GeneralName *name, char **str)
 	break;
     }
     case choice_GeneralName_rfc822Name:
-	strpool = rk_strpoolprintf(strpool, "rfc822Name: %s\n",
-				   name->u.rfc822Name);
+	strpool = rk_strpoolprintf(strpool, "rfc822Name: %.*s\n",
+				   (int)name->u.rfc822Name.length,
+				   (char *)name->u.rfc822Name.data);
 	break;
     case choice_GeneralName_dNSName:
-	strpool = rk_strpoolprintf(strpool, "dNSName: %s\n",
-				   name->u.dNSName);
+	strpool = rk_strpoolprintf(strpool, "dNSName: %.*s\n",
+				   (int)name->u.dNSName.length,
+				   (char *)name->u.dNSName.data);
 	break;
     case choice_GeneralName_directoryName: {
 	Name dir;
 	char *s;
 	int ret;
 	memset(&dir, 0, sizeof(dir));
-	dir.element = name->u.directoryName.element;
+	dir.element = (enum Name_enum)name->u.directoryName.element;
 	dir.u.rdnSequence = name->u.directoryName.u.rdnSequence;
 	ret = _hx509_unparse_Name(&dir, &s);
 	if (ret)
@@ -1042,8 +1057,9 @@ hx509_general_name_unparse(GeneralName *name, char **str)
 	break;
     }
     case choice_GeneralName_uniformResourceIdentifier:
-	strpool = rk_strpoolprintf(strpool, "URI: %s",
-				   name->u.uniformResourceIdentifier);
+	strpool = rk_strpoolprintf(strpool, "URI: %.*s",
+				   (int)name->u.uniformResourceIdentifier.length,
+				   (char *)name->u.uniformResourceIdentifier.data);
 	break;
     case choice_GeneralName_iPAddress: {
 	unsigned char *a = name->u.iPAddress.data;

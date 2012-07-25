@@ -22,7 +22,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
-#if __ppc__ || __i386__ ||  __x86_64__
 
 #include <mach/mach_types.h>
 #include <mach/machine.h>
@@ -42,6 +41,8 @@ using namespace libunwind;
 INITIALIZE_DEBUG_PRINT_API
 INITIALIZE_DEBUG_PRINT_UNWINDING
 
+
+#if __ppc__ || __i386__ ||  __x86_64__
 
 // internal object to represent this processes address space
 static LocalAddressSpace sThisAddressSpace;

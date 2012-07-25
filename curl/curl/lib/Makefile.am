@@ -38,7 +38,7 @@ EXTRA_DIST = Makefile.b32 Makefile.m32 Makefile.vc6 $(DSP)                 \
  config-win32ce.h config-os400.h setup-os400.h config-symbian.h		   \
  Makefile.Watcom config-tpf.h $(DOCS) $(VCPROJ) mk-ca-bundle.pl		   \
  mk-ca-bundle.vbs firefox-db2pem.sh $(CMAKE_DIST) config-vxworks.h	   \
- Makefile.vxworks config-vms.h
+ Makefile.vxworks config-vms.h checksrc.pl
 
 CLEANFILES = $(DSP) $(VCPROJ)
 
@@ -46,7 +46,7 @@ lib_LTLIBRARIES = libcurl.la
 LIBCURL_LIBS = @LIBCURL_LIBS@
 
 # This might hold -Werror
-libcurl_la_CFLAGS = $(CFLAGS) @CURL_CFLAG_EXTRAS@
+CFLAGS += @CURL_CFLAG_EXTRAS@
 
 # Specify our include paths here, and do it relative to $(top_srcdir) and
 # $(top_builddir), to ensure that these paths which belong to the library
@@ -106,7 +106,7 @@ endif
 # For the full guide on libcurl ABI rules, see docs/libcurl/ABI
 
 if NO_UNDEFINED
-# The -no-undefined flag is CRUCIAL for this to build fine on Cygwin.
+# The -no-undefined flag is crucial to build fine on some platforms
 UNDEF = -no-undefined
 endif
 
@@ -116,17 +116,21 @@ if MIMPURE
 MIMPURE = -mimpure-text
 endif
 
-LINKFLAGS=$(UNDEF) $(MIMPURE) $(LIBCURL_LIBS)
-
-libcurl_la_LDFLAGS = $(LINKFLAGS) $(VERSIONINFO)
-
-# as unit testing will compile and link everything an extra time, we only
-# do it if debug is enabled
-if CURLDEBUG
-noinst_LTLIBRARIES = libcurlu.la
-libcurlu_la_CFLAGS = -DUNITTESTS
-libcurlu_la_LDFLAGS = -static $(LINKFLAGS)
+if VERSIONED_SYMBOLS
+VERSIONED_SYMBOLS = -Wl,--version-script=libcurl.vers
 endif
+
+libcurl_la_LDFLAGS = $(UNDEF) $(VERSIONINFO) $(MIMPURE) $(VERSIONED_SYMBOLS) $(LIBCURL_LIBS)
+
+# unit testing static library built only along with unit tests
+if BUILD_UNITTESTS
+noinst_LTLIBRARIES = libcurlu.la
+else
+noinst_LTLIBRARIES =
+endif
+
+libcurlu_la_CPPFLAGS = $(AM_CPPFLAGS) -DUNITTESTS
+libcurlu_la_LDFLAGS = -static $(LIBCURL_LIBS)
 
 # Makefile.inc provides the CSOURCES and HHEADERS defines
 include Makefile.inc
@@ -184,3 +188,12 @@ $(VCPROJ): vc8proj.head vc8proj.foot Makefile.am
 	echo "<File RelativePath=\""$$file"\"></File>" $(VCPROJOUT); \
 	done; \
 	cat $(srcdir)/vc8proj.foot $(VCPROJOUT) )
+
+
+checksrc:
+	@@PERL@ $(top_srcdir)/lib/checksrc.pl -D$(top_srcdir)/lib $(CSOURCES) $(HHEADERS)
+
+if CURLDEBUG
+# for debug builds, we scan the sources on all regular make invokes
+all-local: checksrc
+endif

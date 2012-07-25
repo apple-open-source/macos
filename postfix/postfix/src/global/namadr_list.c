@@ -41,12 +41,15 @@
 /*	namadr_list_init() performs initializations. The first
 /*	argument is the bit-wise OR of zero or more of the
 /*	following:
-/* .RS
 /* .IP MATCH_FLAG_PARENT
 /*	The hostname pattern foo.com matches itself and any name below
 /*	the domain foo.com. If this flag is cleared, foo.com matches itself
 /*	only, and .foo.com matches any name below the domain foo.com.
-/* .RE
+/* .IP MATCH_FLAG_RETURN
+/*	Request that namadr_list_match() logs a warning and returns
+/*	zero with list->error set to a non-zero dictionary error
+/*	code, instead of raising a fatal error.
+/* .PP
 /*	Specify MATCH_FLAG_NONE to request none of the above.
 /*	The second argument is a list of patterns, or the absolute
 /*	pathname of a file with patterns.
@@ -91,6 +94,7 @@
 #include <unistd.h>
 #include <vstream.h>
 #include <msg_vstream.h>
+#include <dict.h>
 
 static void usage(char *progname)
 {
@@ -117,12 +121,13 @@ int     main(int argc, char **argv)
     }
     if (argc != optind + 3)
 	usage(argv[0]);
-    list = namadr_list_init(MATCH_FLAG_PARENT, argv[optind]);
+    dict_allow_surrogate = 1;
+    list = namadr_list_init(MATCH_FLAG_PARENT | MATCH_FLAG_RETURN, argv[optind]);
     host = argv[optind + 1];
     addr = argv[optind + 2];
     vstream_printf("%s/%s: %s\n", host, addr,
 		   namadr_list_match(list, host, addr) ?
-		   "YES" : "NO");
+		   "YES" : list->error == 0 ? "NO" : "ERROR");
     vstream_fflush(VSTREAM_OUT);
     namadr_list_free(list);
     return (0);

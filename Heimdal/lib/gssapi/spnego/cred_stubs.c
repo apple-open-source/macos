@@ -32,7 +32,7 @@
 
 #include "spnego_locl.h"
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gss_spnego_export_cred (OM_uint32 *minor_status,
 			 gss_cred_id_t cred_handle,
 			 gss_buffer_t value)
@@ -40,7 +40,7 @@ _gss_spnego_export_cred (OM_uint32 *minor_status,
     return gss_export_cred(minor_status, cred_handle, value);
 }
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gss_spnego_import_cred (OM_uint32 *minor_status,
 			 gss_buffer_t value,
 			 gss_cred_id_t *cred_handle)

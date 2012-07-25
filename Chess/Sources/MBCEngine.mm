@@ -1,13 +1,52 @@
 /*
 	File:		MBCEngine.mm
 	Contains:	An agent representing the sjeng chess engine
-	Version:	1.0
-	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Inc., all rights reserved.
+
+	IMPORTANT: This Apple software is supplied to you by Apple Computer,
+	Inc.  ("Apple") in consideration of your agreement to the following
+	terms, and your use, installation, modification or redistribution of
+	this Apple software constitutes acceptance of these terms.  If you do
+	not agree with these terms, please do not use, install, modify or
+	redistribute this Apple software.
+	
+	In consideration of your agreement to abide by the following terms,
+	and subject to these terms, Apple grants you a personal, non-exclusive
+	license, under Apple's copyrights in this original Apple software (the
+	"Apple Software"), to use, reproduce, modify and redistribute the
+	Apple Software, with or without modifications, in source and/or binary
+	forms; provided that if you redistribute the Apple Software in its
+	entirety and without modifications, you must retain this notice and
+	the following text and disclaimers in all such redistributions of the
+	Apple Software.  Neither the name, trademarks, service marks or logos
+	of Apple Inc. may be used to endorse or promote products
+	derived from the Apple Software without specific prior written
+	permission from Apple.  Except as expressly stated in this notice, no
+	other rights or licenses, express or implied, are granted by Apple
+	herein, including but not limited to any patent rights that may be
+	infringed by your derivative works or by other works in which the
+	Apple Software may be incorporated.
+	
+	The Apple Software is provided by Apple on an "AS IS" basis.  APPLE
+	MAKES NO WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION
+	THE IMPLIED WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND
+	FITNESS FOR A PARTICULAR PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS
+	USE AND OPERATION ALONE OR IN COMBINATION WITH YOUR PRODUCTS.
+	
+	IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT,
+	INCIDENTAL OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+	PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+	PROFITS; OR BUSINESS INTERRUPTION) ARISING IN ANY WAY OUT OF THE USE,
+	REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION OF THE APPLE SOFTWARE,
+	HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT (INCLUDING
+	NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
+	ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #import "MBCEngine.h"
 #import "MBCEngineCommands.h"
 #import "MBCController.h"
+#import "MBCUserDefaults.h"
 
 #include <unistd.h>
 #include <algorithm>
@@ -63,6 +102,52 @@ using std::max;
 	return self;
 }
 
+
+- (void)setLogging:(BOOL)logging
+{
+	if ((fIsLogging = logging) && !fEngineLogFile) {
+		NSFileManager * mgr		= [NSFileManager defaultManager];
+		NSURL *			libLog	= 
+        [[mgr URLForDirectory:NSLibraryDirectory inDomain:NSUserDomainMask 
+            appropriateForURL:nil create:YES error:nil] URLByAppendingPathComponent:@"Logs"];
+		NSString*		logDir	= [libLog path];
+		[mgr createDirectoryAtPath:logDir withIntermediateDirectories:YES attributes:nil error:nil];
+		NSString * log	= [logDir stringByAppendingPathComponent:[NSString stringWithFormat:@"%@ %d.log",
+                           [[NSDate date] descriptionWithCalendarFormat:@"Chess %Y-%m-%d %H%M" timeZone:nil locale:nil],
+                           [fEngineTask processIdentifier]]];
+		creat([log fileSystemRepresentation], 0666);
+		fEngineLogFile = [[NSFileHandle fileHandleForWritingAtPath:log] retain];
+	}
+}
+
+- (BOOL)isLogging
+{
+    return fIsLogging;
+}
+
+- (void) writeLog:(NSString *)text
+{
+	[fEngineLogFile writeData:[text dataUsingEncoding:NSASCIIStringEncoding]];
+}
+
+- (void) logToEngine:(NSString *)text
+{
+	if (fIsLogging) {
+		NSString * decorated =
+        [NSString stringWithFormat:@">>> %@\n", 
+         [[text componentsSeparatedByString:@"\n"] 
+          componentsJoinedByString:@"\n>>> "]];
+		[self writeLog:decorated];
+	} 
+}
+
+- (void) logFromEngine:(NSString *)text
+{
+	if (fIsLogging) {
+		[self writeLog:text];
+	}
+}
+
 - (void) launchEngine:(id)arg
 {
 	[fEngineTask launch];
@@ -81,7 +166,7 @@ using std::max;
 {
 	NSData * data = [string dataUsingEncoding:NSASCIIStringEncoding];
 
-	[[MBCController controller] logToEngine:string];
+	[self logToEngine:string];
 	[fToEngine writeData:data];
 }
 
@@ -92,13 +177,17 @@ using std::max;
 
 - (void) setSearchTime:(int)time
 {
-	fSearchTime = time;
-	if (fSearchTime < 0)
+	if (time < 0)
 		[self writeToEngine:[NSString stringWithFormat:@"sd %d\n", 
-									  4+fSearchTime]];
+									  4+time]];
 	else
 		[self writeToEngine:[NSString stringWithFormat:@"sd 40\nst %d\n", 
-									  fSearchTime]];
+                             [MBCEngine secondsForTime:time]]];
+}
+
++ (int) secondsForTime:(int)time
+{
+    return lround(ldexpf(1.0f, time));
 }
 
 - (MBCMove *) lastPonder
@@ -113,24 +202,28 @@ using std::max;
 
 - (void) runEngine:(id) sender
 {
-    unsigned			cmd;
 	NSAutoreleasePool * pool  = [[NSAutoreleasePool alloc] init];
 
     [[[NSThread currentThread] threadDictionary] 
-		setObject:fFromEngine forKey:@"InputHandle"];
+        setObject:fFromEngine forKey:@"InputHandle"];
+    [[[NSThread currentThread] threadDictionary] 
+        setObject:self forKey:@"Engine"];
 
-    while (cmd = yylex()) {
+    MBCLexerInstance    scanner;
+    MBCLexerInit(&scanner);
+    while (unsigned cmd = MBCLexerScan(scanner)) {
 		[fMove setMsgid:cmd];
 		[fMove sendBeforeDate:[NSDate distantFuture]];
 		[pool release];
 		pool  = [[NSAutoreleasePool alloc] init];
     }
+    MBCLexerDestroy(scanner);
 }
 
 - (void) enableEngineMoves:(BOOL)enable
 {
 	if (enable != fEngineEnabled)
-		if (fEngineEnabled = enable) 
+		if ((fEngineEnabled = enable)) 
 			[fMainRunLoop addPort:fEngineMoves forMode:NSDefaultRunLoopMode];
 		else
 			[fMainRunLoop removePort:fEngineMoves forMode:NSDefaultRunLoopMode];
@@ -144,7 +237,7 @@ using std::max;
 
 	[[NSNotificationCenter defaultCenter] 
 		postNotificationName:MBCTakebackNotification
-		object:nil];		
+		object:fDocument];		
 }
 
 - (void) executeMove:(MBCMove *) move;
@@ -156,7 +249,7 @@ using std::max;
 	fLastEngineMove	= [move retain];
 	[[NSNotificationCenter defaultCenter] 
 		postNotificationName:[self notificationForSide]
-		object:move];		
+     object:fDocument userInfo:(id)move];		
 }
 
 - (void) handlePortMessage:(NSPortMessage *)message
@@ -181,7 +274,7 @@ using std::max;
 		fThinking = false;
 		[[NSNotificationCenter defaultCenter] 
 			postNotificationName:MBCIllegalMoveNotification
-			object:move];
+         object:fDocument userInfo:(id)move];
 		break;
 	case kCmdMoveOK:
 		if (fLastMove) { // Ignore confirmations of game setup moves
@@ -192,7 +285,7 @@ using std::max;
 			[self enableEngineMoves:NO]; 
 			[[NSNotificationCenter defaultCenter] 
 				postNotificationName:[self notificationForSide]
-				object:fLastMove];
+             object:fDocument userInfo:(id)fLastMove];
 			if (fNeedsGo) {
 				fNeedsGo	= false;
 				[self writeToEngine:@"go\n"];
@@ -209,7 +302,7 @@ using std::max;
 	case kCmdDraw:
 		[[NSNotificationCenter defaultCenter] 
 			postNotificationName:MBCGameEndNotification
-			object:move];
+         object:fDocument userInfo:(id)move];
 		break;
 	default:
 		if (fSide == kBothSides) 
@@ -262,7 +355,6 @@ using std::max;
 		// Regular Chess
 		break;
 	}
-	[self setSearchTime:fSearchTime];
 	fTakeback = false;
 }
 
@@ -299,10 +391,29 @@ using std::max;
 	}
 }
 
+- (void) removeChessObservers
+{
+    if (!fHasObservers)
+        return;
+    
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
+    [notificationCenter removeObserver:self name:MBCUncheckedBlackMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCUncheckedWhiteMoveNotification object:nil];
+    [notificationCenter removeObserver:self name:MBCEndMoveNotification object:nil];
+    
+    fHasObservers = NO;
+}
+
+- (void)dealloc
+{
+    [self removeChessObservers];
+    [super dealloc];
+}
+
 - (void) startGame:(MBCVariant)variant playing:(MBCSide)sideToPlay
 {
 	//
-	// <rdar://problem/5844722> Get rid of queued up move notifications
+	// Get rid of queued up move notifications
 	//
 	[self enableEngineMoves:NO];
 	if ([fEngineTask isRunning])
@@ -316,44 +427,45 @@ using std::max;
 		fSetPosition = false;
 	}
 
-	[[NSNotificationCenter defaultCenter] removeObserver:self];
+    [self removeChessObservers];
+    NSNotificationCenter * notificationCenter = [NSNotificationCenter defaultCenter];
 	switch (fSide = sideToPlay) {
 	case kWhiteSide:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCUncheckedBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	case kBothSides:
 		[self writeToEngine:@"go\n"];
 		fThinking = true;
 		break;
 	case kNeitherSide:
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCUncheckedWhiteMoveNotification
-			object:nil];
-		[[NSNotificationCenter defaultCenter] 
+			object:fDocument];
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCUncheckedBlackMoveNotification
-			object:nil];
+			object:fDocument];
 		[self writeToEngine:@"force\n"];
 		fThinking = false;
 		break;
 	default:
 		// Engine plays black
-		[[NSNotificationCenter defaultCenter] 
+		[notificationCenter 
 			addObserver:self
 			selector:@selector(opponentMoved:)
 			name:MBCUncheckedWhiteMoveNotification
-			object:nil];
+			object:fDocument];
 		break;
 	}
 	if (fSide == kWhiteSide || fSide == kBlackSide) 
-		if (fThinking = (fSide != fLastSide)) {
+		if ((fThinking = (fSide != fLastSide))) {
 			fNeedsGo	= false;
 			[self writeToEngine:@"go\n"];
 		}
@@ -362,7 +474,8 @@ using std::max;
 		addObserver:self
 		selector:@selector(moveDone:)
 		name:MBCEndMoveNotification
-		object:nil];
+		object:fDocument];
+    fHasObservers  = YES;
 	fWaitForStart	= true;	// Suppress further moves until start
 	[self enableEngineMoves:YES];
 }
@@ -406,7 +519,7 @@ using std::max;
 	// Got a human move, ask engine to verify it
 	//
 	const char * piece	= " KQBNRP  kqbnrp ";
-	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification object]);
+	MBCMove *    move 	= reinterpret_cast<MBCMove *>([notification userInfo]);
 
 	[fLastMove release];
 	fLastMove	= [move retain];
@@ -460,11 +573,13 @@ int MBCReadInput(char * buf, int max_size)
 	NSFileHandle *	f	=
 		[[[NSThread currentThread] threadDictionary] 
 			objectForKey:@"InputHandle"];
+    MBCEngine * e = 
+        [[[NSThread currentThread] threadDictionary] 
+         objectForKey:@"Engine"];
 
 	ssize_t sz = read([f fileDescriptor], buf, max_size);
 	if (sz > 0)
-		[[MBCController controller] 
-			logFromEngine: [NSString stringWithFormat:@"%.*s", sz, buf]];
+		[e logFromEngine: [NSString stringWithFormat:@"%.*s", sz, buf]];
 	return sz;
 }
 

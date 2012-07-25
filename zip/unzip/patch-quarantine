@@ -1,23 +1,26 @@
---- unix/unix.c	2008-09-16 22:38:21.000000000 -0700
-+++ /var/tmp/unix.c	2008-09-16 23:18:08.000000000 -0700
-@@ -1031,7 +1031,7 @@ static int get_extattribs(__G__ pzt, z_u
- /****************************/
- /* Function close_outfile() */
- /****************************/
--
+--- unix/unix.c.orig	2011-09-19 17:25:09.000000000 -0700
++++ unix/unix.c	2011-09-19 17:26:53.000000000 -0700
+@@ -71,6 +71,8 @@
+ #  endif
+ #endif /* ?DIRENT */
+ 
 +#include <quarantine.h>
- void close_outfile(__G)    /* GRR: change to return PK-style warning level */
-     __GDEF
- {
-@@ -1051,7 +1051,10 @@ void close_outfile(__G)    /* GRR: chang
-     if (fchmod(fileno(G.outfile), 0xffff & G.pInfo->file_attr))
++
+ #ifdef SET_DIR_ATTRIB
+ typedef struct uxdirattr {      /* struct for holding unix style directory */
+     struct uxdirattr *next;     /*  info until can be sorted and set at end */
+@@ -1052,6 +1054,14 @@
          perror("chmod (file attributes) error");
  #endif
--
+ 
 +    qtn_file_t qf = qtn_file_alloc();
-+    qtn_file_init_with_fd(qf, G.zipfd);
-+    qtn_file_apply_to_fd(qf, fileno(G.outfile));
-+    qtn_file_free(qf);
++    if (qf != NULL) {
++        if (qtn_file_init_with_fd(qf, G.zipfd) == 0) {
++            (void)qtn_file_apply_to_fd(qf, fileno(G.outfile));
++        }
++        qtn_file_free(qf);
++    }
++
      fclose(G.outfile);
  
  /*---------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 auth       optional       pam_krb5.so use_kcminit
 auth       optional       pam_ntlm.so try_first_pass
 auth       optional       pam_mount.so try_first_pass
-auth       sufficient     pam_serialnumber.so try_first_pass serverinstall
 auth       required       pam_opendirectory.so try_first_pass
 account    required       pam_nologin.so
 account    required       pam_sacl.so sacl_service=ssh

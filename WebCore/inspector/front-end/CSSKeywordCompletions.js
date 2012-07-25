@@ -28,19 +28,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WebInspector.CSSKeywordCompletions = {
-    forProperty: function(propertyName)
-    {
-        var acceptedKeywords = ["initial"];
-        if (propertyName in this._propertyKeywordMap)
-            acceptedKeywords = acceptedKeywords.concat(this._propertyKeywordMap[propertyName]);
-        if (propertyName in this._colorAwareProperties)
-            acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
-        if (propertyName in WebInspector.StylesSidebarPane.InheritedProperties)
-            acceptedKeywords.push("inherit");
-        return new WebInspector.CSSCompletions(acceptedKeywords, true);
-    }
-};
+WebInspector.CSSKeywordCompletions = {}
+
+WebInspector.CSSKeywordCompletions.forProperty = function(propertyName)
+{
+    var acceptedKeywords = ["initial"];
+    if (propertyName in WebInspector.CSSKeywordCompletions._propertyKeywordMap)
+        acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._propertyKeywordMap[propertyName]);
+    if (propertyName in WebInspector.CSSKeywordCompletions._colorAwareProperties)
+        acceptedKeywords = acceptedKeywords.concat(WebInspector.CSSKeywordCompletions._colors);
+    if (propertyName in WebInspector.CSSKeywordCompletions.InheritedProperties)
+        acceptedKeywords.push("inherit");
+    return new WebInspector.CSSCompletions(acceptedKeywords, true);
+}
+
+WebInspector.CSSKeywordCompletions.isColorAwareProperty = function(propertyName)
+{
+    return WebInspector.CSSKeywordCompletions._colorAwareProperties[propertyName] === true;
+}
+
+WebInspector.CSSKeywordCompletions.colors = function()
+{
+    if (!WebInspector.CSSKeywordCompletions._colorsKeySet)
+        WebInspector.CSSKeywordCompletions._colorsKeySet = WebInspector.CSSKeywordCompletions._colors.keySet();
+    return WebInspector.CSSKeywordCompletions._colorsKeySet;
+}
+
+// Taken from http://www.w3.org/TR/CSS21/propidx.html.
+WebInspector.CSSKeywordCompletions.InheritedProperties = [
+    "azimuth", "border-collapse", "border-spacing", "caption-side", "color", "cursor", "direction", "elevation",
+    "empty-cells", "font-family", "font-size", "font-style", "font-variant", "font-weight", "font", "letter-spacing",
+    "line-height", "list-style-image", "list-style-position", "list-style-type", "list-style", "orphans", "pitch-range",
+    "pitch", "quotes", "richness", "speak-header", "speak-numeral", "speak-punctuation", "speak", "speech-rate", "stress",
+    "text-align", "text-indent", "text-transform", "text-shadow", "visibility", "voice-family", "volume", "white-space", "widows", "word-spacing"
+].keySet();
 
 WebInspector.CSSKeywordCompletions._colors = [
     "aqua", "black", "blue", "fuchsia", "gray", "green", "lime", "maroon", "navy", "olive", "orange", "purple", "red",
@@ -61,13 +82,13 @@ WebInspector.CSSKeywordCompletions._colors = [
     "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue",
     "slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet",
     "wheat", "whitesmoke", "yellowgreen"
-],
+];
 
 WebInspector.CSSKeywordCompletions._colorAwareProperties = [
-    "background", "background-color", "border", "border-color", "border-top", "border-right", "border-bottom",
-    "border-left", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "color",
+    "background", "background-color", "background-image", "border", "border-color", "border-top", "border-right", "border-bottom",
+    "border-left", "border-top-color", "border-right-color", "border-bottom-color", "border-left-color", "box-shadow", "color",
     "outline", "outline-color", "text-line-through", "text-line-through-color", "text-overline", "text-overline-color",
-    "text-shadow", "text-underline", "text-underline-color", "-webkit-text-emphasis", "-webkit-text-emphasis-color"
+    "text-shadow", "text-underline", "text-underline-color", "-webkit-box-shadow", "-webkit-text-emphasis", "-webkit-text-emphasis-color"
 ].keySet();
 
 WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
@@ -434,5 +455,9 @@ WebInspector.CSSKeywordCompletions._propertyKeywordMap = {
     ],
     "-webkit-text-emphasis-style": [
         "circle", "filled", "open", "dot", "double-circle", "triangle", "sesame"
+    ],
+    "-webkit-transform": [
+        "scale", "scaleX", "scaleY", "scale3d", "rotate", "rotateX", "rotateY", "rotateZ", "rotate3d", "skew", "skewX", "skewY", 
+        "translate", "translateX", "translateY", "translateZ", "translate3d", "matrix", "matrix3d", "perspective"
     ]
 }

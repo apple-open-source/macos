@@ -1,0 +1,218 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FCCE17C3135A658F002CEE6D /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
+		FCCE17C4135A658F002CEE6D /* copyfile.h in Headers */ = {isa = PBXBuildFile; fileRef = FCCE17C2135A658F002CEE6D /* copyfile.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcopyfile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		FCCE17C0135A658F002CEE6D /* copyfile.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = copyfile.3; sourceTree = "<group>"; };
+		FCCE17C1135A658F002CEE6D /* copyfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = copyfile.c; sourceTree = "<group>"; };
+		FCCE17C2135A658F002CEE6D /* copyfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = copyfile.h; sourceTree = "<group>"; };
+		FCCE17C5135A659B002CEE6D /* BSD.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = BSD.xcconfig; path = Makefiles/CoreOS/Xcode/BSD.xcconfig; sourceTree = DEVELOPER_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FCCE17B8135A6444002CEE6D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FCCE17AB135A5FFB002CEE6D = {
+			isa = PBXGroup;
+			children = (
+				FCCE17C0135A658F002CEE6D /* copyfile.3 */,
+				FCCE17C1135A658F002CEE6D /* copyfile.c */,
+				FCCE17C2135A658F002CEE6D /* copyfile.h */,
+				FCCE17C5135A659B002CEE6D /* BSD.xcconfig */,
+				FCCE17BC135A6444002CEE6D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FCCE17BC135A6444002CEE6D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		FCCE17B9135A6444002CEE6D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCCE17C4135A658F002CEE6D /* copyfile.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		FCCE17BA135A6444002CEE6D /* copyfile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FCCE17BE135A6444002CEE6D /* Build configuration list for PBXNativeTarget "copyfile" */;
+			buildPhases = (
+				FCCE17B7135A6444002CEE6D /* Sources */,
+				FCCE17B8135A6444002CEE6D /* Frameworks */,
+				FCCE17B9135A6444002CEE6D /* Headers */,
+				FCCE17DF135A70A0002CEE6D /* Run Script */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = copyfile;
+			productName = copyfile;
+			productReference = FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FCCE17AD135A5FFB002CEE6D /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				ORGANIZATIONNAME = "Apple Inc.";
+			};
+			buildConfigurationList = FCCE17B0135A5FFB002CEE6D /* Build configuration list for PBXProject "copyfile" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = FCCE17AB135A5FFB002CEE6D;
+			productRefGroup = FCCE17BC135A6444002CEE6D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FCCE17BA135A6444002CEE6D /* copyfile */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FCCE17DF135A70A0002CEE6D /* Run Script */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Run Script";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_files.sh";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FCCE17B7135A6444002CEE6D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCCE17C3135A658F002CEE6D /* copyfile.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FCCE17B3135A5FFB002CEE6D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = FCCE17C5135A659B002CEE6D /* BSD.xcconfig */;
+			buildSettings = {
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wformat-security",
+					"-Wnested-externs",
+					"-Wno-trigraphs",
+					"-Wredundant-decls",
+					"-Wwrite-strings",
+				);
+			};
+			name = Release;
+		};
+		FCCE17BD135A6444002CEE6D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				EXECUTABLE_PREFIX = lib;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "__DARWIN_NOW_CANCELABLE=1";
+				INSTALL_PATH = /usr/lib/system;
+				OTHER_LDFLAGS = (
+					"-umbrella",
+					System,
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wformat=2",
+					"-Wformat-security",
+					"-Wnested-externs",
+					"-Wno-parentheses",
+					"-Wno-trigraphs",
+					"-Wredundant-decls",
+					"-Wwrite-strings",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FCCE17B0135A5FFB002CEE6D /* Build configuration list for PBXProject "copyfile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCCE17B3135A5FFB002CEE6D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FCCE17BE135A6444002CEE6D /* Build configuration list for PBXNativeTarget "copyfile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FCCE17BD135A6444002CEE6D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FCCE17AD135A5FFB002CEE6D /* Project object */;
+}

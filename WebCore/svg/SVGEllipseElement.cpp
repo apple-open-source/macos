@@ -25,8 +25,10 @@
 
 #include "Attribute.h"
 #include "FloatPoint.h"
+#include "RenderSVGEllipse.h"
 #include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInstance.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 
@@ -39,6 +41,16 @@ DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::rxAttr, Rx, rx)
 DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::ryAttr, Ry, ry)
 DEFINE_ANIMATED_BOOLEAN(SVGEllipseElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGEllipseElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(cx)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(cy)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(rx)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(ry)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGStyledTransformableElement)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGTests)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Document* document)
     : SVGStyledTransformableElement(tagName, document)
     , m_cx(LengthModeWidth)
@@ -47,6 +59,7 @@ inline SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Docume
     , m_ry(LengthModeHeight)
 {
     ASSERT(hasTagName(SVGNames::ellipseTag));
+    registerAnimatedPropertiesForSVGEllipseElement();
 }    
 
 PassRefPtr<SVGEllipseElement> SVGEllipseElement::create(const QualifiedName& tagName, Document* document)
@@ -54,34 +67,52 @@ PassRefPtr<SVGEllipseElement> SVGEllipseElement::create(const QualifiedName& tag
     return adoptRef(new SVGEllipseElement(tagName, document));
 }
 
-void SVGEllipseElement::parseMappedAttribute(Attribute* attr)
+bool SVGEllipseElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::cxAttr)
-        setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));
-    else if (attr->name() == SVGNames::cyAttr)
-        setCyBaseValue(SVGLength(LengthModeHeight, attr->value()));
-    else if (attr->name() == SVGNames::rxAttr) {
-        setRxBaseValue(SVGLength(LengthModeWidth, attr->value()));
-        if (rxBaseValue().value(this) < 0.0)
-            document()->accessSVGExtensions()->reportError("A negative value for ellipse <rx> is not allowed");
-    } else if (attr->name() == SVGNames::ryAttr) {
-        setRyBaseValue(SVGLength(LengthModeHeight, attr->value()));
-        if (ryBaseValue().value(this) < 0.0)
-            document()->accessSVGExtensions()->reportError("A negative value for ellipse <ry> is not allowed");
-    } else {
-        if (SVGTests::parseMappedAttribute(attr))
-            return;
-        if (SVGLangSpace::parseMappedAttribute(attr))
-            return;
-        if (SVGExternalResourcesRequired::parseMappedAttribute(attr))
-            return;
-        SVGStyledTransformableElement::parseMappedAttribute(attr);
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        SVGTests::addSupportedAttributes(supportedAttributes);
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.add(SVGNames::cxAttr);
+        supportedAttributes.add(SVGNames::cyAttr);
+        supportedAttributes.add(SVGNames::rxAttr);
+        supportedAttributes.add(SVGNames::ryAttr);
     }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGEllipseElement::parseAttribute(Attribute* attr)
+{
+    SVGParsingError parseError = NoError;
+
+    if (!isSupportedAttribute(attr->name()))
+        SVGStyledTransformableElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::cxAttr)
+        setCxBaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
+    else if (attr->name() == SVGNames::cyAttr)
+        setCyBaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
+    else if (attr->name() == SVGNames::rxAttr)
+        setRxBaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError, ForbidNegativeLengths));
+    else if (attr->name() == SVGNames::ryAttr)
+        setRyBaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError, ForbidNegativeLengths));
+    else if (SVGTests::parseAttribute(attr)
+             || SVGLangSpace::parseAttribute(attr)
+             || SVGExternalResourcesRequired::parseAttribute(attr)) {
+    } else
+        ASSERT_NOT_REACHED();
+
+    reportAttributeParsingError(parseError, attr);
 }
 
 void SVGEllipseElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGStyledTransformableElement::svgAttributeChanged(attrName);
+    if (!isSupportedAttribute(attrName)) {
+        SVGStyledTransformableElement::svgAttributeChanged(attrName);
+        return;
+    }
+
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
 
     bool isLengthAttribute = attrName == SVGNames::cxAttr
                           || attrName == SVGNames::cyAttr
@@ -94,79 +125,22 @@ void SVGEllipseElement::svgAttributeChanged(const QualifiedName& attrName)
     if (SVGTests::handleAttributeChange(this, attrName))
         return;
 
-    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
+    RenderSVGEllipse* renderer = static_cast<RenderSVGEllipse*>(this->renderer());
     if (!renderer)
         return;
 
     if (isLengthAttribute) {
-        renderer->setNeedsPathUpdate();
+        renderer->setNeedsShapeUpdate();
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
-    if (SVGLangSpace::isKnownAttribute(attrName)
-        || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+    if (SVGLangSpace::isKnownAttribute(attrName) || SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
         RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
-}
-
-void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGStyledTransformableElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeCx();
-        synchronizeCy();
-        synchronizeRx();
-        synchronizeRy();
-        synchronizeExternalResourcesRequired();
-        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
-    if (attrName == SVGNames::cxAttr)
-        synchronizeCx();
-    else if (attrName == SVGNames::cyAttr)
-        synchronizeCy();
-    else if (attrName == SVGNames::rxAttr)
-        synchronizeRx();
-    else if (attrName == SVGNames::ryAttr)
-        synchronizeRy();
-    else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        synchronizeExternalResourcesRequired();
-    else if (SVGTests::isKnownAttribute(attrName))
-        SVGTests::synchronizeProperties(this, attrName);
-}
-
-AttributeToPropertyTypeMap& SVGEllipseElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGEllipseElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);    
-    attributeToPropertyTypeMap.set(SVGNames::cxAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::cyAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::rxAttr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::ryAttr, AnimatedLength);
-}
-
-void SVGEllipseElement::toPathData(Path& path) const
-{
-    ASSERT(path.isEmpty());
-
-    float radiusX = rx().value(this);
-    if (radiusX <= 0)
-        return;
-
-    float radiusY = ry().value(this);
-    if (radiusY <= 0)
-        return;
-
-    path.addEllipse(FloatRect(cx().value(this) - radiusX, cy().value(this) - radiusY, radiusX * 2, radiusY * 2));
+    ASSERT_NOT_REACHED();
 }
  
 bool SVGEllipseElement::selfHasRelativeLengths() const
@@ -175,6 +149,11 @@ bool SVGEllipseElement::selfHasRelativeLengths() const
         || cy().isRelative()
         || rx().isRelative()
         || ry().isRelative();
+}
+
+RenderObject* SVGEllipseElement::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderSVGEllipse(this);
 }
 
 }

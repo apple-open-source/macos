@@ -27,14 +27,15 @@ module events {
 
 #if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
     // Introduced in DOM Level 3:
-    interface CustomEvent : Event {
+    interface [
+        ConstructorTemplate=Event
+    ] CustomEvent : Event {
+        readonly attribute [InitializedByEventConstructor] DOMObject detail;
 
-       readonly attribute DOMObject detail;
-
-       void initCustomEvent(in DOMString typeArg, 
-                            in boolean canBubbleArg, 
-                            in boolean cancelableArg, 
-                            in DOMObject detailArg);
+        void initCustomEvent(in [Optional=DefaultIsUndefined] DOMString typeArg, 
+                             in [Optional=DefaultIsUndefined] boolean canBubbleArg, 
+                             in [Optional=DefaultIsUndefined] boolean cancelableArg, 
+                             in [Optional=DefaultIsUndefined] DOMObject detailArg);
     };
 #endif
 

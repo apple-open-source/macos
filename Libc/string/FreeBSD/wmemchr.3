@@ -39,11 +39,6 @@
 .Dt WMEMCHR 3
 .Os
 .Sh NAME
-.Nm wmemchr ,
-.Nm wmemcmp ,
-.Nm wmemcpy ,
-.Nm wmemmove ,
-.Nm wmemset ,
 .Nm wcpcpy ,
 .Nm wcpncpy ,
 .Nm wcscasecmp ,
@@ -64,22 +59,17 @@
 .Nm wcspbrk ,
 .Nm wcsrchr ,
 .Nm wcsspn ,
-.Nm wcsstr
+.Nm wcsstr ,
+.Nm wmemchr ,
+.Nm wmemcmp ,
+.Nm wmemcpy ,
+.Nm wmemmove ,
+.Nm wmemset
 .Nd wide character string manipulation operations
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In wchar.h
-.Ft wchar_t *
-.Fn wmemchr "const wchar_t *s" "wchar_t c" "size_t n"
-.Ft int
-.Fn wmemcmp "const wchar_t *s1" "const wchar_t *s2" "size_t n"
-.Ft wchar_t *
-.Fn wmemcpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
-.Ft wchar_t *
-.Fn wmemmove "wchar_t *s1" "const wchar_t *s2" "size_t n"
-.Ft wchar_t *
-.Fn wmemset "wchar_t *s" "wchar_t c" "size_t n"
 .Ft wchar_t *
 .Fn wcpcpy "wchar_t *s1" "wchar_t *s2"
 .Ft wchar_t *
@@ -122,6 +112,22 @@
 .Fn wcsspn "const wchar_t *s1" "const wchar_t *s2"
 .Ft wchar_t *
 .Fn wcsstr "const wchar_t * restrict s1" "const wchar_t * restrict s2"
+.Ft wchar_t *
+.Fn wmemchr "const wchar_t *s" "wchar_t c" "size_t n"
+.Ft int
+.Fn wmemcmp "const wchar_t *s1" "const wchar_t *s2" "size_t n"
+.Ft wchar_t *
+.Fn wmemcpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
+.Ft wchar_t *
+.Fn wmemmove "wchar_t *s1" "const wchar_t *s2" "size_t n"
+.Ft wchar_t *
+.Fn wmemset "wchar_t *s" "wchar_t c" "size_t n"
+.In wchar.h
+.In xlocale.h
+.Ft int
+.Fn wcscasecmp_l "const wchar_t *s1" "const wchar_t *s2" "locale_t loc"
+.Ft int
+.Fn wcsncasecmp_l "const wchar_t *s1" "const wchar_t *s2" "size_t n" "locale_t loc"
 .Sh DESCRIPTION
 The functions implement string manipulation operations over wide character
 strings.
@@ -137,6 +143,7 @@ counterpart, such as
 .Xr stpcpy 3 ,
 .Xr stpncpy 3 ,
 .Xr strcasecmp 3 ,
+.Xr strcasecmp_l 3 ,
 .Xr strcat 3 ,
 .Xr strchr 3 ,
 .Xr strcmp 3 ,
@@ -146,6 +153,8 @@ counterpart, such as
 .Xr strlcat 3 ,
 .Xr strlcpy 3 ,
 .Xr strlen 3 ,
+.Xr strncasecmp 3 ,
+.Xr strncasecmp_l 3 ,
 .Xr strncat 3 ,
 .Xr strncmp 3 ,
 .Xr strncpy 3 ,
@@ -153,7 +162,8 @@ counterpart, such as
 .Xr strpbrk 3 ,
 .Xr strrchr 3 ,
 .Xr strspn 3 ,
-.Xr strstr 3
+.Xr strstr 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 These functions conform to
 .St -isoC-99 ,
@@ -161,8 +171,10 @@ with the exception of
 .Fn wcpcpy ,
 .Fn wcpncpy ,
 .Fn wcscasecmp ,
+.Fn wcscasecmp_l ,
 .Fn wcsdup ,
 .Fn wcsncasecmp ,
+.Fn wcsncasecmp_l ,
 and
 .Fn wcsnlen ,
 which conform to

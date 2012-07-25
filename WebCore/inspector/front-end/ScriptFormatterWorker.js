@@ -29,23 +29,122 @@
  */
 
 onmessage = function(event) {
-    var result = {};
-    if (event.data.mimeType === "text/html") {
-        var formatter = new HTMLScriptFormatter();
-        result = formatter.format(event.data.content);
-    } else {
-        result.mapping = { original: [0], formatted: [0] };
-        result.content = formatScript(event.data.content, result.mapping, 0, 0);
-    }
-    postMessage(result);
+    if (!event.data.method)
+        return;
+
+    self[event.data.method](event.data.params);
 };
 
-function formatScript(content, mapping, offset, formattedOffset)
+function format(params)
+{
+    // Default to a 4-space indent.
+    var indentString = params.indentString || "    ";
+    var result = {};
+
+    if (params.mimeType === "text/html") {
+        var formatter = new HTMLScriptFormatter(indentString);
+        result = formatter.format(params.content);
+    } else {
+        result.mapping = { original: [0], formatted: [0] };
+        result.content = formatScript(params.content, result.mapping, 0, 0, indentString);
+    }
+    postMessage(result);
+}
+
+function getChunkCount(totalLength, chunkSize)
+{
+    if (totalLength <= chunkSize)
+        return 1;
+
+    var remainder = totalLength % chunkSize;
+    var partialLength = totalLength - remainder;
+    return (partialLength / chunkSize) + (remainder ? 1 : 0);
+}
+
+function outline(params)
+{
+    const chunkSize = 100000; // characters per data chunk
+    const totalLength = params.content.length;
+    const lines = params.content.split("\n");
+    const chunkCount = getChunkCount(totalLength, chunkSize);
+    var outlineChunk = [];
+    var previousIdentifier = null;
+    var previousToken = null;
+    var previousTokenType = null;
+    var currentChunk = 1;
+    var processedChunkCharacters = 0;
+    var addedFunction = false;
+    var isReadingArguments = false;
+    var argumentsText = "";
+    var currentFunction = null;
+    var scriptTokenizer = new WebInspector.SourceJavaScriptTokenizer();
+    scriptTokenizer.condition = scriptTokenizer.createInitialCondition();
+
+    for (var i = 0; i < lines.length; ++i) {
+        var line = lines[i];
+        var column = 0;
+        scriptTokenizer.line = line;
+        do {
+            var newColumn = scriptTokenizer.nextToken(column);
+            var tokenType = scriptTokenizer.tokenType;
+            var tokenValue = line.substring(column, newColumn);
+            if (tokenType === "javascript-ident") {
+                previousIdentifier = tokenValue;
+                if (tokenValue && previousToken === "function") {
+                    // A named function: "function f...".
+                    currentFunction = { line: i, name: tokenValue };
+                    addedFunction = true;
+                    previousIdentifier = null;
+                }
+            } else if (tokenType === "javascript-keyword") {
+                if (tokenValue === "function") {
+                    if (previousIdentifier && (previousToken === "=" || previousToken === ":")) {
+                        // Anonymous function assigned to an identifier: "...f = function..."
+                        // or "funcName: function...".
+                        currentFunction = { line: i, name: previousIdentifier };
+                        addedFunction = true;
+                        previousIdentifier = null;
+                    }
+                }
+            } else if (tokenValue === "." && previousTokenType === "javascript-ident")
+                previousIdentifier += ".";
+            else if (tokenValue === "(" && addedFunction)
+                isReadingArguments = true;
+            if (isReadingArguments && tokenValue)
+                argumentsText += tokenValue;
+
+            if (tokenValue === ")" && isReadingArguments) {
+                addedFunction = false;
+                isReadingArguments = false;
+                currentFunction.arguments = argumentsText.replace(/,[\r\n\s]*/g, ", ").replace(/([^,])[\r\n\s]+/g, "$1");
+                argumentsText = "";
+                outlineChunk.push(currentFunction);
+            }
+
+            if (tokenValue.trim().length) {
+                // Skip whitespace tokens.
+                previousToken = tokenValue;
+                previousTokenType = tokenType;
+            }
+            processedChunkCharacters += newColumn - column;
+            column = newColumn;
+
+            if (processedChunkCharacters >= chunkSize) {
+                postMessage({ chunk: outlineChunk, id: params.id, total: chunkCount, index: currentChunk++ });
+                outlineChunk = [];
+                processedChunkCharacters = 0;
+            }
+        } while (column < line.length);
+    }
+    postMessage({ chunk: outlineChunk, id: params.id, total: chunkCount, index: chunkCount });
+}
+
+function formatScript(content, mapping, offset, formattedOffset, indentString)
 {
     var formattedContent;
     try {
         var tokenizer = new Tokenizer(content);
-        var builder = new FormattedContentBuilder(tokenizer.content(), mapping, offset, formattedOffset);
+        var builder = new FormattedContentBuilder(tokenizer.content(), mapping, offset, formattedOffset, indentString);
         var formatter = new JavaScriptFormatter(tokenizer, builder);
         formatter.format();
         formattedContent = builder.content();
@@ -56,12 +155,23 @@ function formatScript(content, mapping, offset, formattedOffset)
 }
 
 WebInspector = {};
+
+Array.prototype.keySet = function()
+{
+    var keys = {};
+    for (var i = 0; i < this.length; ++i)
+        keys[this[i]] = true;
+    return keys;
+};
+
 importScripts("SourceTokenizer.js");
 importScripts("SourceHTMLTokenizer.js");
+importScripts("SourceJavaScriptTokenizer.js");
 
-HTMLScriptFormatter = function()
+HTMLScriptFormatter = function(indentString)
 {
     WebInspector.SourceHTMLTokenizer.call(this);
+    this._indentString = indentString;
 }
 
 HTMLScriptFormatter.prototype = {
@@ -94,7 +204,9 @@ HTMLScriptFormatter.prototype = {
             return;
 
         var scriptContent = this._content.substring(this._position, cursor);
-        var formattedScriptContent = formatScript(scriptContent, this._mapping, this._position, this._formattedContent.length);
+        this._mapping.original.push(this._position);
+        this._mapping.formatted.push(this._formattedContent.length);
+        var formattedScriptContent = formatScript(scriptContent, this._mapping, this._position, this._formattedContent.length, this._indentString);
 
         this._formattedContent += formattedScriptContent;
         this._position = cursor;

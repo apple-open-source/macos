@@ -60,7 +60,7 @@ String defaultDetailsSummaryText()
 
 String searchableIndexIntroduction()
 {
-    return String::fromUTF8("_Searchable Index");
+    return String::fromUTF8("This is a searchable index. Enter search keywords: ");
 }
 
 String fileButtonChooseFileLabel()
@@ -68,9 +68,19 @@ String fileButtonChooseFileLabel()
     return String::fromUTF8("Choose File");
 }
 
+String fileButtonChooseMultipleFilesLabel()
+{
+    return String::fromUTF8("Choose Files");
+}
+
 String fileButtonNoFileSelectedLabel()
 {
     return String::fromUTF8("No file selected");
+}
+
+String fileButtonNoFilesSelectedLabel()
+{
+    return String::fromUTF8("No files selected");
 }
 
 String contextMenuItemTagOpenLinkInNewWindow()
@@ -101,6 +111,11 @@ String contextMenuItemTagDownloadImageToDisk()
 String contextMenuItemTagCopyImageToClipboard()
 {
     return String::fromUTF8("Copy Image");
+}
+
+String contextMenuItemTagCopyImageUrlToClipboard()
+{
+    return String::fromUTF8("Copy Image Address");
 }
 
 String contextMenuItemTagOpenVideoInNewWindow()
@@ -364,6 +379,11 @@ String AXDefinitionListDefinitionText()
     return String::fromUTF8("definition");
 }
 
+String AXFooterRoleDescriptionText()
+{
+    return String::fromUTF8("footer");
+}
+
 String AXButtonActionVerb()
 {
     return String::fromUTF8("press");
@@ -538,6 +558,11 @@ String multipleFileUploadText(unsigned numberOfFiles)
 String crashedPluginText()
 {
     return String::fromUTF8("plugin crashed");
+}
+
+String localizedString(const char* key)
+{
+    return String::fromUTF8(key, strlen(key));
 }
 
 }

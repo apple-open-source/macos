@@ -26,12 +26,14 @@
  *  and may be changed from version to version or even be completely removed.
 */
 
-#include <QColor>
-#include <QObject>
-#include <QUrl>
 #if defined(WTF_USE_QT_MULTIMEDIA) && WTF_USE_QT_MULTIMEDIA
 #include <QMediaPlayer>
 #endif
+#include <QtCore/QObject>
+#include <QtCore/QRect>
+#include <QtCore/QUrl>
+#include <QtGui/QColor>
+#include <QtGui/QFont>
 
 class QWebSelectData {
 public:
@@ -59,6 +61,8 @@ public:
 
     virtual void show(const QWebSelectData&) = 0;
     virtual void hide() = 0;
+    virtual void setGeometry(const QRect&) = 0;
+    virtual void setFont(const QFont&) = 0;
 
 Q_SIGNALS:
     void selectItem(int index, bool allowMultiplySelections, bool shift);
@@ -71,7 +75,7 @@ public:
 
     virtual const QString title() const = 0;
     virtual const QString message() const = 0;
-    virtual const QByteArray iconData() const = 0;
+    virtual const QUrl iconUrl() const = 0;
     virtual const QUrl openerPageUrl() const = 0;
 };
 
@@ -134,6 +138,30 @@ public Q_SLOTS:
 };
 #endif
 
+class QWebSpellChecker : public QObject {
+    Q_OBJECT
+public:
+    struct GrammarDetail {
+        int location;
+        int length;
+        QStringList guesses;
+        QString userDescription;
+    };
+
+    virtual bool isContinousSpellCheckingEnabled() const = 0;
+    virtual void toggleContinousSpellChecking() = 0;
+
+    virtual void learnWord(const QString& word) = 0;
+    virtual void ignoreWordInSpellDocument(const QString& word) = 0;
+    virtual void checkSpellingOfString(const QString& word, int* misspellingLocation, int* misspellingLength) = 0;
+    virtual QString autoCorrectSuggestionForMisspelledWord(const QString& word) = 0;
+    virtual void guessesForWord(const QString& word, const QString& context, QStringList& guesses) = 0;
+
+    virtual bool isGrammarCheckingEnabled() = 0;
+    virtual void toggleGrammarChecking() = 0;
+    virtual void checkGrammarOfString(const QString&, QList<GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength) = 0;
+};
+
 class QWebKitPlatformPlugin {
 public:
     virtual ~QWebKitPlatformPlugin() {}
@@ -143,7 +171,8 @@ public:
         Notifications,
         Haptics,
         TouchInteraction,
-        FullScreenVideoPlayer
+        FullScreenVideoPlayer,
+        SpellChecker
     };
 
     virtual bool supportsExtension(Extension) const = 0;
@@ -151,7 +180,7 @@ public:
 };
 
 QT_BEGIN_NAMESPACE
-Q_DECLARE_INTERFACE(QWebKitPlatformPlugin, "com.nokia.Qt.WebKit.PlatformPlugin/1.7");
+Q_DECLARE_INTERFACE(QWebKitPlatformPlugin, "com.nokia.Qt.WebKit.PlatformPlugin/1.9");
 QT_END_NAMESPACE
 
 #endif // QWEBKITPLATFORMPLUGIN_H

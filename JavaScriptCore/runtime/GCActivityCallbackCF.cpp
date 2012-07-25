@@ -45,22 +45,34 @@
 namespace JSC {
 
 struct DefaultGCActivityCallbackPlatformData {
-    static void trigger(CFRunLoopTimerRef, void *info);
+    static void timerDidFire(CFRunLoopTimerRef, void *info);
 
     RetainPtr<CFRunLoopTimerRef> timer;
     RetainPtr<CFRunLoopRef> runLoop;
     CFRunLoopTimerContext context;
+    double delay;
 };
 
+const double gcTimeSlicePerMB = 0.01; // Percentage of CPU time we will spend to reclaim 1 MB
+const double maxGCTimeSlice = 0.05; // The maximum amount of CPU time we want to use for opportunistic timer-triggered collections.
+const double timerSlop = 2.0; // Fudge factor to avoid performance cost of resetting timer.
+const double pagingTimeOut = 0.1; // Time in seconds to allow opportunistic timer to iterate over all blocks to see if the Heap is paged out.
 const CFTimeInterval decade = 60 * 60 * 24 * 365 * 10;
-const CFTimeInterval triggerInterval = 2; // seconds
+const CFTimeInterval hour = 60 * 60;
 
-void DefaultGCActivityCallbackPlatformData::trigger(CFRunLoopTimerRef timer, void *info)
+void DefaultGCActivityCallbackPlatformData::timerDidFire(CFRunLoopTimerRef, void *info)
 {
     Heap* heap = static_cast<Heap*>(info);
     APIEntryShim shim(heap->globalData());
+#if !PLATFORM(IOS)
+    double startTime = WTF::monotonicallyIncreasingTime();
+    if (heap->isPagedOut(startTime + pagingTimeOut)) {
+        heap->activityCallback()->cancel();
+        heap->increaseLastGCLength(pagingTimeOut);
+        return;
+    }
+#endif
     heap->collectAllGarbage();
-    CFRunLoopTimerSetNextFireDate(timer, CFAbsoluteTimeGetCurrent() + decade);
 }
 
 DefaultGCActivityCallback::DefaultGCActivityCallback(Heap* heap)
@@ -77,9 +89,6 @@ DefaultGCActivityCallback::~DefaultGCActivityCallback()
 {
     CFRunLoopRemoveTimer(d->runLoop.get(), d->timer.get(), kCFRunLoopCommonModes);
     CFRunLoopTimerInvalidate(d->timer.get());
-    d->context.info = 0;
-    d->runLoop = 0;
-    d->timer = 0;
 }
 
 void DefaultGCActivityCallback::commonConstructor(Heap* heap, CFRunLoopRef runLoop)
@@ -89,13 +98,41 @@ void DefaultGCActivityCallback::commonConstructor(Heap* heap, CFRunLoopRef runLo
     memset(&d->context, 0, sizeof(CFRunLoopTimerContext));
     d->context.info = heap;
     d->runLoop = runLoop;
-    d->timer.adoptCF(CFRunLoopTimerCreate(0, decade, decade, 0, 0, DefaultGCActivityCallbackPlatformData::trigger, &d->context));
+    d->timer.adoptCF(CFRunLoopTimerCreate(0, decade, decade, 0, 0, DefaultGCActivityCallbackPlatformData::timerDidFire, &d->context));
+    d->delay = decade;
     CFRunLoopAddTimer(d->runLoop.get(), d->timer.get(), kCFRunLoopCommonModes);
 }
 
-void DefaultGCActivityCallback::operator()()
+static void scheduleTimer(DefaultGCActivityCallbackPlatformData* d, double newDelay)
 {
-    CFRunLoopTimerSetNextFireDate(d->timer.get(), CFAbsoluteTimeGetCurrent() + triggerInterval);
+    if (newDelay * timerSlop > d->delay)
+        return;
+    double delta = d->delay - newDelay;
+    d->delay = newDelay;
+    CFRunLoopTimerSetNextFireDate(d->timer.get(), CFRunLoopTimerGetNextFireDate(d->timer.get()) - delta);
+}
+
+static void cancelTimer(DefaultGCActivityCallbackPlatformData* d)
+{
+    d->delay = decade;
+    CFRunLoopTimerSetNextFireDate(d->timer.get(), CFAbsoluteTimeGetCurrent() + decade);
+}
+
+void DefaultGCActivityCallback::didAllocate(size_t bytes)
+{
+    // The first byte allocated in an allocation cycle will report 0 bytes to didAllocate. 
+    // We pretend it's one byte so that we don't ignore this allocation entirely.
+    if (!bytes)
+        bytes = 1;
+    Heap* heap = static_cast<Heap*>(d->context.info);
+    double gcTimeSlice = std::min((static_cast<double>(bytes) / MB) * gcTimeSlicePerMB, maxGCTimeSlice);
+    double newDelay = heap->lastGCLength() / gcTimeSlice;
+    scheduleTimer(d.get(), newDelay);
+}
+
+void DefaultGCActivityCallback::willCollect()
+{
+    cancelTimer(d.get());
 }
 
 void DefaultGCActivityCallback::synchronize()
@@ -105,6 +142,11 @@ void DefaultGCActivityCallback::synchronize()
     CFRunLoopRemoveTimer(d->runLoop.get(), d->timer.get(), kCFRunLoopCommonModes);
     d->runLoop = CFRunLoopGetCurrent();
     CFRunLoopAddTimer(d->runLoop.get(), d->timer.get(), kCFRunLoopCommonModes);
+}
+
+void DefaultGCActivityCallback::cancel()
+{
+    cancelTimer(d.get());
 }
 
 }

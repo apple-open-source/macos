@@ -70,8 +70,8 @@ struct ntlm_buf {
 #define NTLM_TARGET_DOMAIN		0x00010000
 #define NTLM_TARGET_SERVER		0x00020000
 
-#define NTLM_TARGET_SHARE		0x00040000
-#define NTLM_NEG_NTLM2_SESSION		0x00080000
+#define NTLM_TARGET_SHARE		0x00040000 /* mbz */
+#define NTLM_NEG_NTLM2_SESSION		0x00080000 /* EXTENDED_SESSIONSECURITY */
 #define NTLM_NEG_NTLM2			0x00080000
 
 #define NTLM_NEG_IDENTIFY		0x00100000
@@ -95,7 +95,9 @@ struct ntlm_buf {
  * heim_ntlm_free_targetinfo().
  */
 
+/* avflags */
 #define NTLM_TI_AV_FLAG_GUEST		0x00000001
+#define NTLM_TI_AV_FLAG_MIC		0x00000002
 
 struct ntlm_targetinfo {
     char *servername; /**< */
@@ -106,6 +108,7 @@ struct ntlm_targetinfo {
     uint32_t avflags; /**< */
     char *targetname;
     struct ntlm_buf channel_bindings;
+    uint64_t timestamp;
 };
 
 /**
@@ -154,6 +157,8 @@ struct ntlm_type3 {
     size_t mic_offset;
     uint8_t mic[16];
 };
+
+extern time_t heim_ntlm_time_skew;
 
 #include <ntlm_err.h>
 #include <heimntlm-protos.h>

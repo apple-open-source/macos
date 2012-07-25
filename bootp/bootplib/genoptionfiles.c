@@ -343,7 +343,7 @@ main(int argc, char * argv[])
 	    printf("#define %-35s\t\"%s\"\n", 
 		   make_option_define(buf), buf);
 	}
-	printf("#endif _S_DHCP_TAG\n");
+	printf("#endif /* _S_DHCP_TAG */\n");
 	break;
 
     case gen_type:
@@ -374,7 +374,7 @@ main(int argc, char * argv[])
 	       "    const char * name;\n"
 	       "    int		string_list;\n"
 	       "} dhcptype_info_t;\n\n");
-	printf("#endif _S_DHCP_TYPE\n");
+	printf("#endif /* _S_DHCP_TYPE */\n");
 	break;
 
     case gen_table:
@@ -408,7 +408,7 @@ main(int argc, char * argv[])
 		   types[i].string_list);
 	}
 	printf("};\n");
-	printf("#endif _S_DHCP_PARSE_TABLE\n");
+	printf("#endif /* _S_DHCP_PARSE_TABLE */\n");
 	break;
     case gen_mandoc:
 	for (i = 1; i < LAST_TAG; i++) {

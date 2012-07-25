@@ -1,0 +1,20 @@
+//
+//  CommonCrypto_unittest_base.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+//
+
+// This XCCONFIG file defines the development setting for  unit test targets of the
+// CommonCrypto XCode Project
+
+#include "CC_unittest_base.xcconfig"
+
+GCC_OPTIMIZATION_LEVEL = 0
+
+GCC_PREPROCESSOR_DEFINITIONS_PROJECT = DEBUG
+
+COPY_PHASE_STRIP = NO
+
+WARNING_CFLAGS = -Wall

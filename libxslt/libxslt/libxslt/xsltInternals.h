@@ -21,6 +21,7 @@
 #include <libxml/xmlstring.h>
 #include <libxslt/xslt.h>
 #include "xsltexports.h"
+#include "xsltlocale.h"
 #include "numbersInternals.h"
 
 #ifdef __cplusplus
@@ -293,6 +294,11 @@ struct _xsltTemplate {
     int nbCalls;        /* the number of time the template was called */
     unsigned long time; /* the time spent in this template */
     void *params;       /* xsl:param instructions */
+    
+    int              templNr;		/* Nb of templates in the stack */
+    int              templMax;		/* Size of the templtes stack */
+    xsltTemplatePtr *templCalledTab;	/* templates called */
+    int             *templCountTab;  /* .. and how often */
 };
 
 /**
@@ -1045,6 +1051,7 @@ struct _xsltStyleItemSort {
     int      descending;	/* sort */
     const xmlChar *lang;	/* sort */
     int      has_lang;		/* sort */
+    xsltLocale locale;		/* sort */
     const xmlChar *case_order;	/* sort */
     int      lower_first;	/* sort */
 
@@ -1246,10 +1253,6 @@ struct _xsltVarInfo {
     const xmlChar *nsName;
 };
 
-#define XSLT_ELEMENT_CATEGORY_XSLT 0
-#define XSLT_ELEMENT_CATEGORY_EXTENSION 1
-#define XSLT_ELEMENT_CATEGORY_LRE 2
-
 /**
  * xsltCompilerNodeInfo:
  *
@@ -1381,6 +1384,7 @@ struct _xsltStylePreComp {
     int      descending;	/* sort */
     const xmlChar *lang;	/* sort */
     int      has_lang;		/* sort */
+    xsltLocale locale;		/* sort */
     const xmlChar *case_order;	/* sort */
     int      lower_first;	/* sort */
 
@@ -1417,9 +1421,6 @@ struct _xsltStylePreComp {
 #endif /* XSLT_REFACTORED */
 
 
-#define XSLT_VAR_GLOBAL 1<<0
-#define XSLT_VAR_IN_SELECT 1<<1
-#define XSLT_TCTXT_VARIABLE(c) ((xsltStackElemPtr) (c)->contextVariable)
 /*
  * The in-memory structure corresponding to an XSLT Variable
  * or Param.
@@ -1778,6 +1779,7 @@ struct _xsltTransformContext {
                            exits */
     xmlDocPtr localRVTBase;
     int keyInitLevel;   /* Needed to catch recursive keys issues */
+    int funcLevel;      /* Needed to catch recursive functions issues */
 };
 
 /**

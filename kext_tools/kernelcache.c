@@ -3,7 +3,7 @@
  *  kext_tools
  *
  *  Created by Nik Gervae on 2010 10 04.
- *  Copyright 2010 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2010, 2012 Apple Computer, Inc. All rights reserved.
  *
  */
 
@@ -843,7 +843,8 @@ finish:
  *********************************************************************/
 CFDataRef 
 compressPrelinkedSlice(
-    CFDataRef      prelinkImage)
+    CFDataRef      prelinkImage, 
+    Boolean        hasRelocs)
 {
     CFDataRef               result          = NULL;
     CFMutableDataRef        compressedImage = NULL;  // must release
@@ -888,6 +889,7 @@ compressPrelinkedSlice(
 
     kernelHeader = (PrelinkedKernelHeader *) buf;
     bzero(kernelHeader, sizeof(*kernelHeader));
+    kernelHeader->prelinkVersion = OSSwapHostToBigInt32(hasRelocs ? 1 : 0);
 
     /* Fill in the compression information */
 

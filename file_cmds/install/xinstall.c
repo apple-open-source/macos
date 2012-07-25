@@ -64,6 +64,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <sysexits.h>
 #include <utime.h>
+#include <spawn.h>
 
 #ifdef __APPLE__
 #include <copyfile.h>
@@ -107,7 +108,7 @@ main(argc, argv)
 {
 	struct stat from_sb, to_sb;
 	mode_t *set;
-	u_long fset;
+	u_long fset = 0;
 	int ch, no_target;
 	u_int iflags;
 	char *flags, *group, *owner, *to_name;
@@ -721,23 +722,21 @@ void
 strip(to_name)
 	char *to_name;
 {
-	int serrno, status;
-
-	switch (fork()) {
-	case -1:
-		serrno = errno;
-		(void)unlink(to_name);
-		errno = serrno;
-		err(EX_TEMPFAIL, "fork");
-	case 0:
-		execlp("strip", "strip", "-", to_name, NULL);
-		err(EX_OSERR, "exec(strip)");
-	default:
-		if (wait(&status) == -1 || status) {
-			(void)unlink(to_name);
-			exit(EX_SOFTWARE);
-			/* NOTREACHED */
+	pid_t pid;
+	int error;
+	extern char** environ;
+	char *const argv[] = { "xcrun", "strip", "-", to_name, NULL };
+	
+	if (0 == (error = posix_spawnp(&pid, "xcrun", NULL, NULL, argv, environ))) {
+		int status = 0;
+		pid_t child = waitpid(pid, &status, 0);
+		if ((child == -1) || status) {
+			unlink(to_name);
+			errx(EX_SOFTWARE, "child process failed: xcrun strip - %s", to_name);
 		}
+	} else {
+		errno = error;
+		err(EX_OSERR, "xcrun strip - %s", to_name);
 	}
 }
 

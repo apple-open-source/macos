@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,34 +39,43 @@
 #define MAXLINE 4096
 
 static int sock = -1;
+static dispatch_source_t in_src;
+static dispatch_queue_t in_queue;
 
-aslmsg
+void
 bsd_in_acceptmsg(int fd)
 {
 	uint32_t len;
 	int n;
-	char line[MAXLINE + 1];
+	char line[MAXLINE];
 	struct sockaddr_un sun;
+	aslmsg m;
 
 	len = sizeof(struct sockaddr_un);
 	n = recvfrom(fd, line, MAXLINE, 0, (struct sockaddr *)&sun, &len);
 
-	if (n <= 0) return NULL;
+	if (n <= 0) return;
 
 	line[n] = '\0';
 
-	return asl_input_parse(line, n, NULL, SOURCE_BSD_SOCKET);
+	m = asl_input_parse(line, n, NULL, SOURCE_BSD_SOCKET);
+	dispatch_async(global.work_queue, ^{ process_message(m, SOURCE_BSD_SOCKET); });
 }
 
 int
-bsd_in_init(void)
+bsd_in_init()
 {
 	int rbufsize;
 	int len;
 	launch_data_t sockets_dict, fd_array, fd_dict;
+	static dispatch_once_t once;
+	
+	dispatch_once(&once, ^{
+		in_queue = dispatch_queue_create(MY_ID, NULL);
+	});
 
 	asldebug("%s: init\n", MY_ID);
-	if (sock >= 0) return sock;
+	if (sock >= 0) return -1;
 
 	if (global.launch_dict == NULL)
 	{
@@ -128,7 +137,11 @@ bsd_in_init(void)
 		return -1;
 	}
 
-	return aslevent_addfd(SOURCE_BSD_SOCKET, sock, ADDFD_FLAGS_LOCAL, bsd_in_acceptmsg, NULL, NULL);
+	in_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, (uintptr_t)sock, 0, in_queue);
+	dispatch_source_set_event_handler(in_src, ^{ bsd_in_acceptmsg(sock); });
+	
+	dispatch_resume(in_src);
+	return 0;
 }
 
 int
@@ -136,7 +149,10 @@ bsd_in_close(void)
 {
 	if (sock < 0) return 1;
 
-	aslevent_removefd(sock);
+	dispatch_source_cancel(in_src);
+	dispatch_release(in_src);
+	in_src = NULL;
+
 	close(sock);
 	sock = -1;
 

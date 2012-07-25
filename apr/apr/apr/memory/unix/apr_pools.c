@@ -36,9 +36,12 @@
 #endif
 
 #if APR_HAVE_UNISTD_H
-#include <unistd.h>     /* for getpid */
+#include <unistd.h>     /* for getpid and sysconf */
 #endif
 
+#if APR_ALLOCATOR_USES_MMAP
+#include <sys/mman.h>
+#endif
 
 /*
  * Magic numbers
@@ -47,8 +50,15 @@
 #define MIN_ALLOC 8192
 #define MAX_INDEX   20
 
+#if APR_ALLOCATOR_USES_MMAP && defined(_SC_PAGESIZE)
+static unsigned int boundary_index;
+static unsigned int boundary_size;
+#define BOUNDARY_INDEX  boundary_index
+#define BOUNDARY_SIZE   boundary_size
+#else
 #define BOUNDARY_INDEX 12
 #define BOUNDARY_SIZE (1 << BOUNDARY_INDEX)
+#endif
 
 /* 
  * Timing constants for killing subprocesses
@@ -131,7 +141,11 @@ APR_DECLARE(void) apr_allocator_destroy(apr_allocator_t *allocator)
         ref = &allocator->free[index];
         while ((node = *ref) != NULL) {
             *ref = node->next;
+#if APR_ALLOCATOR_USES_MMAP
+            munmap(node, (node->index+1) << BOUNDARY_INDEX);
+#else
             free(node);
+#endif
         }
     }
 
@@ -259,7 +273,7 @@ apr_memnode_t *allocator_alloc(apr_allocator_t *allocator, apr_size_t in_size)
                 allocator->max_index = max_index;
             }
 
-            allocator->current_free_index += node->index;
+            allocator->current_free_index += node->index + 1;
             if (allocator->current_free_index > allocator->max_free_index)
                 allocator->current_free_index = allocator->max_free_index;
 
@@ -299,7 +313,7 @@ apr_memnode_t *allocator_alloc(apr_allocator_t *allocator, apr_size_t in_size)
         if (node) {
             *ref = node->next;
 
-            allocator->current_free_index += node->index;
+            allocator->current_free_index += node->index + 1;
             if (allocator->current_free_index > allocator->max_free_index)
                 allocator->current_free_index = allocator->max_free_index;
 
@@ -323,7 +337,12 @@ apr_memnode_t *allocator_alloc(apr_allocator_t *allocator, apr_size_t in_size)
     /* If we haven't got a suitable node, malloc a new one
      * and initialize it.
      */
+#if APR_ALLOCATOR_USES_MMAP
+    if ((node = mmap(NULL, size, PROT_READ|PROT_WRITE,
+                     MAP_PRIVATE|MAP_ANON, -1, 0)) == MAP_FAILED)
+#else
     if ((node = malloc(size)) == NULL)
+#endif
         return NULL;
 
     node->next = NULL;
@@ -358,7 +377,7 @@ void allocator_free(apr_allocator_t *allocator, apr_memnode_t *node)
         index = node->index;
 
         if (max_free_index != APR_ALLOCATOR_MAX_FREE_UNLIMITED
-            && index > current_free_index) {
+            && index + 1 > current_free_index) {
             node->next = freelist;
             freelist = node;
         }
@@ -371,8 +390,8 @@ void allocator_free(apr_allocator_t *allocator, apr_memnode_t *node)
                 max_index = index;
             }
             allocator->free[index] = node;
-            if (current_free_index >= index)
-                current_free_index -= index;
+            if (current_free_index >= index + 1)
+                current_free_index -= index + 1;
             else
                 current_free_index = 0;
         }
@@ -382,8 +401,8 @@ void allocator_free(apr_allocator_t *allocator, apr_memnode_t *node)
              */
             node->next = allocator->free[0];
             allocator->free[0] = node;
-            if (current_free_index >= index)
-                current_free_index -= index;
+            if (current_free_index >= index + 1)
+                current_free_index -= index + 1;
             else
                 current_free_index = 0;
         }
@@ -400,7 +419,11 @@ void allocator_free(apr_allocator_t *allocator, apr_memnode_t *node)
     while (freelist != NULL) {
         node = freelist;
         freelist = node->next;
+#if APR_ALLOCATOR_USES_MMAP
+        munmap(node, (node->index+1) << BOUNDARY_INDEX);
+#else
         free(node);
+#endif
     }
 }
 
@@ -530,7 +553,6 @@ static apr_file_t *file_stderr = NULL;
  */
 
 static void run_cleanups(cleanup_t **c);
-static void run_child_cleanups(cleanup_t **c);
 static void free_proc_chain(struct process_chain *procs);
 
 #if APR_POOL_DEBUG
@@ -548,6 +570,14 @@ APR_DECLARE(apr_status_t) apr_pool_initialize(void)
 
     if (apr_pools_initialized++)
         return APR_SUCCESS;
+
+#if APR_ALLOCATOR_USES_MMAP && defined(_SC_PAGESIZE)
+    boundary_size = sysconf(_SC_PAGESIZE);
+    boundary_index = 12;
+    while ( (1 << boundary_index) < boundary_size)
+        boundary_index++;
+    boundary_size = (1 << boundary_index);
+#endif
 
     if ((rv = apr_allocator_create(&global_allocator)) != APR_SUCCESS) {
         apr_pools_initialized = 0;
@@ -1335,6 +1365,14 @@ APR_DECLARE(apr_status_t) apr_pool_initialize(void)
 
     if (apr_pools_initialized++)
         return APR_SUCCESS;
+
+#if APR_ALLOCATOR_USES_MMAP && defined(_SC_PAGESIZE)
+    boundary_size = sysconf(_SC_PAGESIZE);
+    boundary_index = 12;
+    while ( (1 << boundary_index) < boundary_size)
+        boundary_index++;
+    boundary_size = (1 << boundary_index);
+#endif
 
     /* Since the debug code works a bit differently then the
      * regular pools code, we ask for a lock here.  The regular
@@ -2310,6 +2348,8 @@ static void run_cleanups(cleanup_t **cref)
     }
 }
 
+#if !defined(WIN32) && !defined(OS2)
+
 static void run_child_cleanups(cleanup_t **cref)
 {
     cleanup_t *c = *cref;
@@ -2331,19 +2371,27 @@ static void cleanup_pool_for_exec(apr_pool_t *p)
 
 APR_DECLARE(void) apr_pool_cleanup_for_exec(void)
 {
-#if !defined(WIN32) && !defined(OS2)
-    /*
-     * Don't need to do anything on NT or OS/2, because I
-     * am actually going to spawn the new process - not
-     * exec it. All handles that are not inheritable, will
-     * be automajically closed. The only problem is with
-     * file handles that are open, but there isn't much
-     * I can do about that (except if the child decides
-     * to go out and close them
-     */
     cleanup_pool_for_exec(global_pool);
-#endif /* !defined(WIN32) && !defined(OS2) */
 }
+
+#else /* !defined(WIN32) && !defined(OS2) */
+
+APR_DECLARE(void) apr_pool_cleanup_for_exec(void)
+{
+    /*
+     * Don't need to do anything on NT or OS/2, because 
+     * these platforms will spawn the new process - not
+     * fork for exec. All handles that are not inheritable,
+     * will be automajically closed. The only problem is
+     * with file handles that are open, but there isn't
+     * much that can be done about that (except if the
+     * child decides to go out and close them, or the
+     * developer quits opening them shared)
+     */
+    return;
+}
+
+#endif /* !defined(WIN32) && !defined(OS2) */
 
 APR_DECLARE_NONSTD(apr_status_t) apr_pool_cleanup_null(void *data)
 {

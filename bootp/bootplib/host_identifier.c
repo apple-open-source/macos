@@ -223,4 +223,4 @@ main(int argc, const char * argv[])
 
     exit(0);
 }
-#endif TESTING
+#endif /* TESTING */

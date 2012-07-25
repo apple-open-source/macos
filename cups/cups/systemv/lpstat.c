@@ -1,5 +1,5 @@
 /*
- * "$Id: lpstat.c 9793 2011-05-20 03:49:49Z mike $"
+ * "$Id: lpstat.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "lpstat" command for CUPS.
  *
@@ -2050,5 +2050,5 @@ show_scheduler(void)
 
 
 /*
- * End of "$Id: lpstat.c 9793 2011-05-20 03:49:49Z mike $".
+ * End of "$Id: lpstat.c 9042 2010-03-24 00:45:34Z mike $".
  */

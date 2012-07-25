@@ -27,8 +27,6 @@
 #if KERNEL
 	#include <libkern/OSByteOrder.h>
 	#include <IOKit/IOMemoryDescriptor.h>
-
-
 #else
 	#include <libkern/OSByteOrder.h>
 #endif

@@ -36,7 +36,7 @@ public:
 
     void clearData(const String&);
     void clearAllData();
-    String getData(const String&, bool&) const;
+    String getData(const String&) const;
     bool setData(const String&, const String&);
 
     HashSet<String> types() const;
@@ -56,6 +56,10 @@ public:
     virtual bool hasData();
 
     virtual void writePlainText(const WTF::String&);
+
+#if ENABLE(DATA_TRANSFER_ITEMS)
+    virtual PassRefPtr<DataTransferItemList> items();
+#endif
 
 private:
     ClipboardEfl(ClipboardAccessPolicy, ClipboardType);

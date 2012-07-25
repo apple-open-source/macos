@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,7 +41,9 @@
 #include <syslog.h>
 
 #include <Security/SecureTransport.h>
+#if !TARGET_OS_EMBEDDED
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#endif
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFData.h>
@@ -64,9 +66,23 @@
 #include "EAPSecurity.h"
 #include "printdata.h"
 #include "myCFUtil.h"
+#include "nbo.h"
 
 /* set a 12-hour session cache timeout */
 #define kEAPTLSSessionCacheTimeoutSeconds	(12 * 60 * 60)
+
+uint32_t
+EAPTLSLengthIncludedPacketGetMessageLength(EAPTLSLengthIncludedPacketRef pkt)
+{
+        return (net_uint32_get(pkt->tls_message_length));
+}
+
+void
+EAPTLSLengthIncludedPacketSetMessageLength(EAPTLSLengthIncludedPacketRef pkt,
+                                           uint32_t length)
+{
+        return (net_uint32_set(pkt->tls_message_length, length));
+}
 
 #ifdef NOTYET
 /*
@@ -638,9 +654,13 @@ EAPTLSPacketCreate2(EAPCode code, int type, u_char identifier, int mtu,
 	}
 	if (first_fragment) {
 	    EAPTLSLengthIncludedPacket * first;
-	    first = (EAPTLSLengthIncludedPacket *)eaptls;
+
+	    /* ALIGN: void * cast OK, 
+	     * we don't expect proper alignment */
+	    first = (EAPTLSLengthIncludedPacket *)(void *)eaptls;
 	    eaptls->flags |= kEAPTLSPacketFlagsLengthIncluded;
-	    *((u_int32_t *)first->tls_message_length) = htonl(buf->length);
+            EAPTLSLengthIncludedPacketSetMessageLength(first, 
+							buf->length);
 	    dest = first->tls_data;
 	}
 	bcopy(buf->data + buf->offset, dest, fraglen);
@@ -1067,7 +1087,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 	syslog(LOG_NOTICE, 
 	       "_EAPTLSCreateSecTrust: "
 	       "SecTrustCreateWithCertificates failed, %s (%d)",
-	       EAPSecurityErrorString(status), status);
+	       EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     trusted_certs = copy_cert_list(properties,
@@ -1078,7 +1098,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 	    syslog(LOG_NOTICE, 
 		   "_EAPTLSCreateSecTrust:"
 		   " SecTrustSetAnchorCertificates failed, %s (%d)",
-		   EAPSecurityErrorString(status), status);
+		   EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
     }
@@ -1195,7 +1215,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	syslog(LOG_NOTICE, 
 	       "EAPTLSVerifyServerCertificateChain: "
 	       "SecTrustEvaluate failed, %s (%d)",
-	       EAPSecurityErrorString(status), status);
+	       EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
     switch (trust_result) {
@@ -1210,7 +1230,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	}
 	/* FALL THROUGH */
     case kSecTrustResultRecoverableTrustFailure:
-    case kSecTrustResultConfirm:
 	if (allow_exceptions) {
 	    client_status = kEAPClientStatusUserInputRequired;
 	    break;
@@ -1575,7 +1594,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	is_recoverable = TRUE;
 	break;
     case kSecTrustResultRecoverableTrustFailure:
-    case kSecTrustResultConfirm:
 	is_recoverable = TRUE;
 	break;
     case kSecTrustResultDeny:
@@ -1917,9 +1935,6 @@ main(int argc, char * argv[])
 	break;
     case kSecTrustResultRecoverableTrustFailure:
 	result_str = "RecoverableTrustFailure";
-	break;
-    case kSecTrustResultConfirm:
-	result_str = "Confirm";
 	break;
     case kSecTrustResultDeny:
 	result_str = "Deny";

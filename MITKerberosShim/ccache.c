@@ -1291,8 +1291,6 @@ cc_initialize(cc_context_t  *out_context,
 {
     LOG_ENTRY();
 
-    mshim_init_context();
-
     update_time(&context_change_time);
 
     if (in_version < ccapi_version_3 || in_version > ccapi_version_7)

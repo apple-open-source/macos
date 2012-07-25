@@ -27,19 +27,27 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/string/wcscasecmp.c,v 1.1 2009/02/28 06:00:58 das Exp $");
 
+#include "xlocale_private.h"
+
 #include <wchar.h>
 #include <wctype.h>
 
 int
-wcscasecmp(const wchar_t *s1, const wchar_t *s2)
+wcscasecmp_l(const wchar_t *s1, const wchar_t *s2, locale_t loc)
 {
 	wchar_t c1, c2;
 
 	for (; *s1; s1++, s2++) {
-		c1 = towlower(*s1);
-		c2 = towlower(*s2);
+		c1 = towlower_l(*s1, loc);
+		c2 = towlower_l(*s2, loc);
 		if (c1 != c2)
 			return ((int)c1 - c2);
 	}
 	return (-*s2);
 }
+
+int
+wcscasecmp(const wchar_t *s1, const wchar_t *s2) {
+	return wcscasecmp_l(s1, s2, __current_locale());
+}
+

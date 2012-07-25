@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/rbnf/sv.xml
@@ -16,7 +16,7 @@ sv{
             "-x: \u2212>>;",
             "0: =#,##0==%%dord-mascabbrev=;",
             "%%dord-mascabbrev:",
-            "0: :e",
+            "0: :e;",
             "%digits-ordinal-neutre:",
             "0: =%digits-ordinal-feminine=;",
             "%digits-ordinal-reale:",

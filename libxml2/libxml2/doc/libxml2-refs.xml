@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 <apirefs name='libxml2'>
   <references>
-    <reference name='ATTRIBUTE_ALLOC_SIZE' href='html/libxml-xmlversion.html#ATTRIBUTE_ALLOC_SIZE'/>
-    <reference name='ATTRIBUTE_PRINTF' href='html/libxml-xmlversion.html#ATTRIBUTE_PRINTF'/>
     <reference name='ATTRIBUTE_UNUSED' href='html/libxml-xmlversion.html#ATTRIBUTE_UNUSED'/>
     <reference name='BAD_CAST' href='html/libxml-xmlstring.html#BAD_CAST'/>
     <reference name='BASE_BUFFER_SIZE' href='html/libxml-tree.html#BASE_BUFFER_SIZE'/>
@@ -23,7 +21,9 @@
     <reference name='HTML_NA' href='html/libxml-HTMLparser.html#HTML_NA'/>
     <reference name='HTML_PARSE_COMPACT' href='html/libxml-HTMLparser.html#HTML_PARSE_COMPACT'/>
     <reference name='HTML_PARSE_NOBLANKS' href='html/libxml-HTMLparser.html#HTML_PARSE_NOBLANKS'/>
+    <reference name='HTML_PARSE_NODEFDTD' href='html/libxml-HTMLparser.html#HTML_PARSE_NODEFDTD'/>
     <reference name='HTML_PARSE_NOERROR' href='html/libxml-HTMLparser.html#HTML_PARSE_NOERROR'/>
+    <reference name='HTML_PARSE_NOIMPLIED' href='html/libxml-HTMLparser.html#HTML_PARSE_NOIMPLIED'/>
     <reference name='HTML_PARSE_NONET' href='html/libxml-HTMLparser.html#HTML_PARSE_NONET'/>
     <reference name='HTML_PARSE_NOWARNING' href='html/libxml-HTMLparser.html#HTML_PARSE_NOWARNING'/>
     <reference name='HTML_PARSE_PEDANTIC' href='html/libxml-HTMLparser.html#HTML_PARSE_PEDANTIC'/>
@@ -34,6 +34,7 @@
     <reference name='HTML_TEXT_NODE' href='html/libxml-HTMLtree.html#HTML_TEXT_NODE'/>
     <reference name='HTML_VALID' href='html/libxml-HTMLparser.html#HTML_VALID'/>
     <reference name='INPUT_CHUNK' href='html/libxml-parserInternals.html#INPUT_CHUNK'/>
+    <reference name='INVALID_SOCKET' href='html/libxml-nanoftp.html#INVALID_SOCKET'/>
     <reference name='IS_ASCII_DIGIT' href='html/libxml-parserInternals.html#IS_ASCII_DIGIT'/>
     <reference name='IS_ASCII_LETTER' href='html/libxml-parserInternals.html#IS_ASCII_LETTER'/>
     <reference name='IS_BASECHAR' href='html/libxml-parserInternals.html#IS_BASECHAR'/>
@@ -53,6 +54,8 @@
     <reference name='IS_LETTER_CH' href='html/libxml-parserInternals.html#IS_LETTER_CH'/>
     <reference name='IS_PUBIDCHAR' href='html/libxml-parserInternals.html#IS_PUBIDCHAR'/>
     <reference name='IS_PUBIDCHAR_CH' href='html/libxml-parserInternals.html#IS_PUBIDCHAR_CH'/>
+    <reference name='LIBXML_ATTR_ALLOC_SIZE' href='html/libxml-xmlversion.html#LIBXML_ATTR_ALLOC_SIZE'/>
+    <reference name='LIBXML_ATTR_FORMAT' href='html/libxml-xmlversion.html#LIBXML_ATTR_FORMAT'/>
     <reference name='LIBXML_AUTOMATA_ENABLED' href='html/libxml-xmlversion.html#LIBXML_AUTOMATA_ENABLED'/>
     <reference name='LIBXML_C14N_ENABLED' href='html/libxml-xmlversion.html#LIBXML_C14N_ENABLED'/>
     <reference name='LIBXML_CATALOG_ENABLED' href='html/libxml-xmlversion.html#LIBXML_CATALOG_ENABLED'/>
@@ -66,6 +69,7 @@
     <reference name='LIBXML_HTML_ENABLED' href='html/libxml-xmlversion.html#LIBXML_HTML_ENABLED'/>
     <reference name='LIBXML_HTTP_ENABLED' href='html/libxml-xmlversion.html#LIBXML_HTTP_ENABLED'/>
     <reference name='LIBXML_ICONV_ENABLED' href='html/libxml-xmlversion.html#LIBXML_ICONV_ENABLED'/>
+    <reference name='LIBXML_ICU_ENABLED' href='html/libxml-xmlversion.html#LIBXML_ICU_ENABLED'/>
     <reference name='LIBXML_ISO8859X_ENABLED' href='html/libxml-xmlversion.html#LIBXML_ISO8859X_ENABLED'/>
     <reference name='LIBXML_LEGACY_ENABLED' href='html/libxml-xmlversion.html#LIBXML_LEGACY_ENABLED'/>
     <reference name='LIBXML_MODULES_ENABLED' href='html/libxml-xmlversion.html#LIBXML_MODULES_ENABLED'/>
@@ -94,6 +98,7 @@
     <reference name='MOVETO_ENDTAG' href='html/libxml-parserInternals.html#MOVETO_ENDTAG'/>
     <reference name='MOVETO_STARTTAG' href='html/libxml-parserInternals.html#MOVETO_STARTTAG'/>
     <reference name='SKIP_EOL' href='html/libxml-parserInternals.html#SKIP_EOL'/>
+    <reference name='SOCKET' href='html/libxml-nanoftp.html#SOCKET'/>
     <reference name='UTF8ToHtml' href='html/libxml-HTMLparser.html#UTF8ToHtml'/>
     <reference name='UTF8Toisolat1' href='html/libxml-encoding.html#UTF8Toisolat1'/>
     <reference name='WITHOUT_TRIO' href='html/libxml-xmlversion.html#WITHOUT_TRIO'/>
@@ -143,8 +148,11 @@
     <reference name='XML_BUFFER_ALLOC_EXACT' href='html/libxml-tree.html#XML_BUFFER_ALLOC_EXACT'/>
     <reference name='XML_BUFFER_ALLOC_IMMUTABLE' href='html/libxml-tree.html#XML_BUFFER_ALLOC_IMMUTABLE'/>
     <reference name='XML_BUFFER_ALLOC_IO' href='html/libxml-tree.html#XML_BUFFER_ALLOC_IO'/>
+    <reference name='XML_C14N_1_0' href='html/libxml-c14n.html#XML_C14N_1_0'/>
+    <reference name='XML_C14N_1_1' href='html/libxml-c14n.html#XML_C14N_1_1'/>
     <reference name='XML_C14N_CREATE_CTXT' href='html/libxml-xmlerror.html#XML_C14N_CREATE_CTXT'/>
     <reference name='XML_C14N_CREATE_STACK' href='html/libxml-xmlerror.html#XML_C14N_CREATE_STACK'/>
+    <reference name='XML_C14N_EXCLUSIVE_1_0' href='html/libxml-c14n.html#XML_C14N_EXCLUSIVE_1_0'/>
     <reference name='XML_C14N_INVALID_NODE' href='html/libxml-xmlerror.html#XML_C14N_INVALID_NODE'/>
     <reference name='XML_C14N_RELATIVE_NAMESPACE' href='html/libxml-xmlerror.html#XML_C14N_RELATIVE_NAMESPACE'/>
     <reference name='XML_C14N_REQUIRES_UTF8' href='html/libxml-xmlerror.html#XML_C14N_REQUIRES_UTF8'/>
@@ -796,6 +804,7 @@
     <reference name='XML_SAVE_NO_EMPTY' href='html/libxml-xmlsave.html#XML_SAVE_NO_EMPTY'/>
     <reference name='XML_SAVE_NO_XHTML' href='html/libxml-xmlsave.html#XML_SAVE_NO_XHTML'/>
     <reference name='XML_SAVE_UNKNOWN_ENCODING' href='html/libxml-xmlerror.html#XML_SAVE_UNKNOWN_ENCODING'/>
+    <reference name='XML_SAVE_WSNONSIG' href='html/libxml-xmlsave.html#XML_SAVE_WSNONSIG'/>
     <reference name='XML_SAVE_XHTML' href='html/libxml-xmlsave.html#XML_SAVE_XHTML'/>
     <reference name='XML_SAX2_MAGIC' href='html/libxml-parser.html#XML_SAX2_MAGIC'/>
     <reference name='XML_SCHEMAP_AG_PROPS_CORRECT' href='html/libxml-xmlerror.html#XML_SCHEMAP_AG_PROPS_CORRECT'/>
@@ -1323,6 +1332,7 @@
     <reference name='XML_WITH_HTML' href='html/libxml-parser.html#XML_WITH_HTML'/>
     <reference name='XML_WITH_HTTP' href='html/libxml-parser.html#XML_WITH_HTTP'/>
     <reference name='XML_WITH_ICONV' href='html/libxml-parser.html#XML_WITH_ICONV'/>
+    <reference name='XML_WITH_ICU' href='html/libxml-parser.html#XML_WITH_ICU'/>
     <reference name='XML_WITH_ISO8859X' href='html/libxml-parser.html#XML_WITH_ISO8859X'/>
     <reference name='XML_WITH_LEGACY' href='html/libxml-parser.html#XML_WITH_LEGACY'/>
     <reference name='XML_WITH_MODULES' href='html/libxml-parser.html#XML_WITH_MODULES'/>
@@ -1433,6 +1443,7 @@
     <reference name='_REENTRANT' href='html/libxml-xmlexports.html#_REENTRANT'/>
     <reference name='_htmlElemDesc' href='html/libxml-HTMLparser.html#_htmlElemDesc'/>
     <reference name='_htmlEntityDesc' href='html/libxml-HTMLparser.html#_htmlEntityDesc'/>
+    <reference name='_uconv_t' href='html/libxml-encoding.html#_uconv_t'/>
     <reference name='_xlinkHandler' href='html/libxml-xlink.html#_xlinkHandler'/>
     <reference name='_xmlAttr' href='html/libxml-tree.html#_xmlAttr'/>
     <reference name='_xmlAttribute' href='html/libxml-tree.html#_xmlAttribute'/>
@@ -1662,6 +1673,7 @@
     <reference name='startElement' href='html/libxml-SAX.html#startElement'/>
     <reference name='startElementNsSAX2Func' href='html/libxml-parser.html#startElementNsSAX2Func'/>
     <reference name='startElementSAXFunc' href='html/libxml-parser.html#startElementSAXFunc'/>
+    <reference name='uconv_t' href='html/libxml-encoding.html#uconv_t'/>
     <reference name='unparsedEntityDecl' href='html/libxml-SAX.html#unparsedEntityDecl'/>
     <reference name='unparsedEntityDeclSAXFunc' href='html/libxml-parser.html#unparsedEntityDeclSAXFunc'/>
     <reference name='valuePop' href='html/libxml-xpathInternals.html#valuePop'/>
@@ -1769,6 +1781,7 @@
     <reference name='xmlC14NDocSaveTo' href='html/libxml-c14n.html#xmlC14NDocSaveTo'/>
     <reference name='xmlC14NExecute' href='html/libxml-c14n.html#xmlC14NExecute'/>
     <reference name='xmlC14NIsVisibleCallback' href='html/libxml-c14n.html#xmlC14NIsVisibleCallback'/>
+    <reference name='xmlC14NMode' href='html/libxml-c14n.html#xmlC14NMode'/>
     <reference name='xmlCanonicPath' href='html/libxml-uri.html#xmlCanonicPath'/>
     <reference name='xmlCatalog' href='html/libxml-catalog.html#xmlCatalog'/>
     <reference name='xmlCatalogAdd' href='html/libxml-catalog.html#xmlCatalogAdd'/>
@@ -2893,6 +2906,7 @@
     <reference name='xmlStrstr' href='html/libxml-xmlstring.html#xmlStrstr'/>
     <reference name='xmlStrsub' href='html/libxml-xmlstring.html#xmlStrsub'/>
     <reference name='xmlStructuredError' href='html/libxml-globals.html#xmlStructuredError'/>
+    <reference name='xmlStructuredErrorContext' href='html/libxml-globals.html#xmlStructuredErrorContext'/>
     <reference name='xmlStructuredErrorFunc' href='html/libxml-xmlerror.html#xmlStructuredErrorFunc'/>
     <reference name='xmlSubstituteEntitiesDefault' href='html/libxml-parser.html#xmlSubstituteEntitiesDefault'/>
     <reference name='xmlSubstituteEntitiesDefaultValue' href='html/libxml-globals.html#xmlSubstituteEntitiesDefaultValue'/>
@@ -3301,6 +3315,7 @@
     <reference name='xmlXIncludeProcessNode' href='html/libxml-xinclude.html#xmlXIncludeProcessNode'/>
     <reference name='xmlXIncludeProcessTree' href='html/libxml-xinclude.html#xmlXIncludeProcessTree'/>
     <reference name='xmlXIncludeProcessTreeFlags' href='html/libxml-xinclude.html#xmlXIncludeProcessTreeFlags'/>
+    <reference name='xmlXIncludeProcessTreeFlagsData' href='html/libxml-xinclude.html#xmlXIncludeProcessTreeFlagsData'/>
     <reference name='xmlXIncludeSetFlags' href='html/libxml-xinclude.html#xmlXIncludeSetFlags'/>
     <reference name='xmlXPathAddValues' href='html/libxml-xpathInternals.html#xmlXPathAddValues'/>
     <reference name='xmlXPathAxis' href='html/libxml-xpath.html#xmlXPathAxis'/>
@@ -3528,8 +3543,6 @@
   </references>
   <alpha>
     <letter name='A'>
-      <ref name='ATTRIBUTE_ALLOC_SIZE'/>
-      <ref name='ATTRIBUTE_PRINTF'/>
       <ref name='ATTRIBUTE_UNUSED'/>
     </letter>
     <letter name='B'>
@@ -3558,7 +3571,9 @@
       <ref name='HTML_NA'/>
       <ref name='HTML_PARSE_COMPACT'/>
       <ref name='HTML_PARSE_NOBLANKS'/>
+      <ref name='HTML_PARSE_NODEFDTD'/>
       <ref name='HTML_PARSE_NOERROR'/>
+      <ref name='HTML_PARSE_NOIMPLIED'/>
       <ref name='HTML_PARSE_NONET'/>
       <ref name='HTML_PARSE_NOWARNING'/>
       <ref name='HTML_PARSE_PEDANTIC'/>
@@ -3571,6 +3586,7 @@
     </letter>
     <letter name='I'>
       <ref name='INPUT_CHUNK'/>
+      <ref name='INVALID_SOCKET'/>
       <ref name='IS_ASCII_DIGIT'/>
       <ref name='IS_ASCII_LETTER'/>
       <ref name='IS_BASECHAR'/>
@@ -3592,6 +3608,8 @@
       <ref name='IS_PUBIDCHAR_CH'/>
     </letter>
     <letter name='L'>
+      <ref name='LIBXML_ATTR_ALLOC_SIZE'/>
+      <ref name='LIBXML_ATTR_FORMAT'/>
       <ref name='LIBXML_AUTOMATA_ENABLED'/>
       <ref name='LIBXML_C14N_ENABLED'/>
       <ref name='LIBXML_CATALOG_ENABLED'/>
@@ -3605,6 +3623,7 @@
       <ref name='LIBXML_HTML_ENABLED'/>
       <ref name='LIBXML_HTTP_ENABLED'/>
       <ref name='LIBXML_ICONV_ENABLED'/>
+      <ref name='LIBXML_ICU_ENABLED'/>
       <ref name='LIBXML_ISO8859X_ENABLED'/>
       <ref name='LIBXML_LEGACY_ENABLED'/>
       <ref name='LIBXML_MODULES_ENABLED'/>
@@ -3637,6 +3656,7 @@
     </letter>
     <letter name='S'>
       <ref name='SKIP_EOL'/>
+      <ref name='SOCKET'/>
     </letter>
     <letter name='U'>
       <ref name='UTF8ToHtml'/>
@@ -3692,8 +3712,11 @@
       <ref name='XML_BUFFER_ALLOC_EXACT'/>
       <ref name='XML_BUFFER_ALLOC_IMMUTABLE'/>
       <ref name='XML_BUFFER_ALLOC_IO'/>
+      <ref name='XML_C14N_1_0'/>
+      <ref name='XML_C14N_1_1'/>
       <ref name='XML_C14N_CREATE_CTXT'/>
       <ref name='XML_C14N_CREATE_STACK'/>
+      <ref name='XML_C14N_EXCLUSIVE_1_0'/>
       <ref name='XML_C14N_INVALID_NODE'/>
       <ref name='XML_C14N_RELATIVE_NAMESPACE'/>
       <ref name='XML_C14N_REQUIRES_UTF8'/>
@@ -4345,6 +4368,7 @@
       <ref name='XML_SAVE_NO_EMPTY'/>
       <ref name='XML_SAVE_NO_XHTML'/>
       <ref name='XML_SAVE_UNKNOWN_ENCODING'/>
+      <ref name='XML_SAVE_WSNONSIG'/>
       <ref name='XML_SAVE_XHTML'/>
       <ref name='XML_SAX2_MAGIC'/>
       <ref name='XML_SCHEMAP_AG_PROPS_CORRECT'/>
@@ -4872,6 +4896,7 @@
       <ref name='XML_WITH_HTML'/>
       <ref name='XML_WITH_HTTP'/>
       <ref name='XML_WITH_ICONV'/>
+      <ref name='XML_WITH_ICU'/>
       <ref name='XML_WITH_ISO8859X'/>
       <ref name='XML_WITH_LEGACY'/>
       <ref name='XML_WITH_MODULES'/>
@@ -4984,6 +5009,7 @@
       <ref name='_REENTRANT'/>
       <ref name='_htmlElemDesc'/>
       <ref name='_htmlEntityDesc'/>
+      <ref name='_uconv_t'/>
       <ref name='_xlinkHandler'/>
       <ref name='_xmlAttr'/>
       <ref name='_xmlAttribute'/>
@@ -5241,6 +5267,7 @@
       <ref name='startElementSAXFunc'/>
     </letter>
     <letter name='u'>
+      <ref name='uconv_t'/>
       <ref name='unparsedEntityDecl'/>
       <ref name='unparsedEntityDeclSAXFunc'/>
     </letter>
@@ -5354,6 +5381,7 @@
       <ref name='xmlC14NDocSaveTo'/>
       <ref name='xmlC14NExecute'/>
       <ref name='xmlC14NIsVisibleCallback'/>
+      <ref name='xmlC14NMode'/>
       <ref name='xmlCanonicPath'/>
       <ref name='xmlCatalog'/>
       <ref name='xmlCatalogAdd'/>
@@ -6478,6 +6506,7 @@
       <ref name='xmlStrstr'/>
       <ref name='xmlStrsub'/>
       <ref name='xmlStructuredError'/>
+      <ref name='xmlStructuredErrorContext'/>
       <ref name='xmlStructuredErrorFunc'/>
       <ref name='xmlSubstituteEntitiesDefault'/>
       <ref name='xmlSubstituteEntitiesDefaultValue'/>
@@ -6886,6 +6915,7 @@
       <ref name='xmlXIncludeProcessNode'/>
       <ref name='xmlXIncludeProcessTree'/>
       <ref name='xmlXIncludeProcessTreeFlags'/>
+      <ref name='xmlXIncludeProcessTreeFlagsData'/>
       <ref name='xmlXIncludeSetFlags'/>
       <ref name='xmlXPathAddValues'/>
       <ref name='xmlXPathAxis'/>
@@ -7113,6 +7143,10 @@
     </letter>
   </alpha>
   <constructors>
+    <type name='SOCKET'>
+      <ref name='xmlNanoFTPGetConnection'/>
+      <ref name='xmlNanoFTPGetSocket'/>
+    </type>
     <type name='const htmlElemDesc *'>
       <ref name='htmlTagLookup'/>
     </type>
@@ -8223,6 +8257,7 @@
       <ref name='xmlReadDoc'/>
       <ref name='xmlReaderForDoc'/>
       <ref name='xmlReaderNewDoc'/>
+      <ref name='xmlRecoverDoc'/>
       <ref name='xmlRegExecCallbacks'/>
       <ref name='xmlRegExecPushString'/>
       <ref name='xmlRegExecPushString2'/>
@@ -8829,6 +8864,7 @@
       <ref name='xmlValidityErrorFunc'/>
       <ref name='xmlValidityWarningFunc'/>
       <ref name='xmlXIncludeProcessFlagsData'/>
+      <ref name='xmlXIncludeProcessTreeFlagsData'/>
       <ref name='xmlXPathFuncLookupFunc'/>
       <ref name='xmlXPathRegisterFuncLookup'/>
       <ref name='xmlXPathRegisterVariableLookup'/>
@@ -9008,11 +9044,9 @@
       <ref name='xmlNewNodeEatName'/>
       <ref name='xmlNewNsPropEatName'/>
       <ref name='xmlParserInputDeallocate'/>
-      <ref name='xmlRecoverDoc'/>
       <ref name='xmlSAX2EntityDecl'/>
       <ref name='xmlStrPrintf'/>
       <ref name='xmlStrVPrintf'/>
-      <ref name='xmlStrcasestr'/>
       <ref name='xmlStrcat'/>
       <ref name='xmlStrncat'/>
       <ref name='xmlXPathWrapString'/>
@@ -9657,6 +9691,7 @@
       <ref name='xmlXIncludeProcessNode'/>
       <ref name='xmlXIncludeProcessTree'/>
       <ref name='xmlXIncludeProcessTreeFlags'/>
+      <ref name='xmlXIncludeProcessTreeFlagsData'/>
       <ref name='xmlXPathCastNodeToNumber'/>
       <ref name='xmlXPathCastNodeToString'/>
       <ref name='xmlXPathCmpNodes'/>
@@ -10608,7 +10643,9 @@
       <ref name='HTML_NA'/>
       <ref name='HTML_PARSE_COMPACT'/>
       <ref name='HTML_PARSE_NOBLANKS'/>
+      <ref name='HTML_PARSE_NODEFDTD'/>
       <ref name='HTML_PARSE_NOERROR'/>
+      <ref name='HTML_PARSE_NOIMPLIED'/>
       <ref name='HTML_PARSE_NONET'/>
       <ref name='HTML_PARSE_NOWARNING'/>
       <ref name='HTML_PARSE_PEDANTIC'/>
@@ -10779,11 +10816,15 @@
       <ref name='xmlSAXVersion'/>
     </file>
     <file name='c14n'>
+      <ref name='XML_C14N_1_0'/>
+      <ref name='XML_C14N_1_1'/>
+      <ref name='XML_C14N_EXCLUSIVE_1_0'/>
       <ref name='xmlC14NDocDumpMemory'/>
       <ref name='xmlC14NDocSave'/>
       <ref name='xmlC14NDocSaveTo'/>
       <ref name='xmlC14NExecute'/>
       <ref name='xmlC14NIsVisibleCallback'/>
+      <ref name='xmlC14NMode'/>
     </file>
     <file name='catalog'>
       <ref name='XML_CATALOGS_NAMESPACE'/>
@@ -10952,8 +10993,10 @@
       <ref name='XML_CHAR_ENCODING_UTF16BE'/>
       <ref name='XML_CHAR_ENCODING_UTF16LE'/>
       <ref name='XML_CHAR_ENCODING_UTF8'/>
+      <ref name='_uconv_t'/>
       <ref name='_xmlCharEncodingHandler'/>
       <ref name='isolat1ToUTF8'/>
+      <ref name='uconv_t'/>
       <ref name='xmlAddEncodingAlias'/>
       <ref name='xmlCharEncCloseFunc'/>
       <ref name='xmlCharEncFirstLine'/>
@@ -11051,6 +11094,7 @@
       <ref name='xmlRegisterNodeFunc'/>
       <ref name='xmlSaveNoEmptyTags'/>
       <ref name='xmlStructuredError'/>
+      <ref name='xmlStructuredErrorContext'/>
       <ref name='xmlSubstituteEntitiesDefaultValue'/>
       <ref name='xmlThrDefBufferAllocScheme'/>
       <ref name='xmlThrDefDefaultBufferSize'/>
@@ -11142,6 +11186,8 @@
       <ref name='xmlListWalker'/>
     </file>
     <file name='nanoftp'>
+      <ref name='INVALID_SOCKET'/>
+      <ref name='SOCKET'/>
       <ref name='ftpDataCallback'/>
       <ref name='ftpListCallback'/>
       <ref name='xmlNanoFTPCheckResponse'/>
@@ -11248,6 +11294,7 @@
       <ref name='XML_WITH_HTML'/>
       <ref name='XML_WITH_HTTP'/>
       <ref name='XML_WITH_ICONV'/>
+      <ref name='XML_WITH_ICU'/>
       <ref name='XML_WITH_ISO8859X'/>
       <ref name='XML_WITH_LEGACY'/>
       <ref name='XML_WITH_MODULES'/>
@@ -12318,6 +12365,7 @@
       <ref name='xmlXIncludeProcessNode'/>
       <ref name='xmlXIncludeProcessTree'/>
       <ref name='xmlXIncludeProcessTreeFlags'/>
+      <ref name='xmlXIncludeProcessTreeFlagsData'/>
       <ref name='xmlXIncludeSetFlags'/>
     </file>
     <file name='xlink'>
@@ -13461,6 +13509,7 @@
       <ref name='XML_SAVE_NO_DECL'/>
       <ref name='XML_SAVE_NO_EMPTY'/>
       <ref name='XML_SAVE_NO_XHTML'/>
+      <ref name='XML_SAVE_WSNONSIG'/>
       <ref name='XML_SAVE_XHTML'/>
       <ref name='xmlSaveClose'/>
       <ref name='xmlSaveCtxt'/>
@@ -13786,10 +13835,10 @@
       <ref name='xmlUCSIsYijingHexagramSymbols'/>
     </file>
     <file name='xmlversion'>
-      <ref name='ATTRIBUTE_ALLOC_SIZE'/>
-      <ref name='ATTRIBUTE_PRINTF'/>
       <ref name='ATTRIBUTE_UNUSED'/>
       <ref name='DEBUG_MEMORY_LOCATION'/>
+      <ref name='LIBXML_ATTR_ALLOC_SIZE'/>
+      <ref name='LIBXML_ATTR_FORMAT'/>
       <ref name='LIBXML_AUTOMATA_ENABLED'/>
       <ref name='LIBXML_C14N_ENABLED'/>
       <ref name='LIBXML_CATALOG_ENABLED'/>
@@ -13802,6 +13851,7 @@
       <ref name='LIBXML_HTML_ENABLED'/>
       <ref name='LIBXML_HTTP_ENABLED'/>
       <ref name='LIBXML_ICONV_ENABLED'/>
+      <ref name='LIBXML_ICU_ENABLED'/>
       <ref name='LIBXML_ISO8859X_ENABLED'/>
       <ref name='LIBXML_LEGACY_ENABLED'/>
       <ref name='LIBXML_MODULES_ENABLED'/>
@@ -15109,6 +15159,9 @@
           <ref name='xmlIsPubidChar'/>
           <ref name='xmlNewGlobalNs'/>
         </word>
+        <word name='DIGIT'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='DOCTYPE'>
           <ref name='xmlParseDocTypeDecl'/>
         </word>
@@ -15757,9 +15810,9 @@
       </letter>
       <letter name='G'>
         <word name='GCC'>
-          <ref name='ATTRIBUTE_ALLOC_SIZE'/>
-          <ref name='ATTRIBUTE_PRINTF'/>
           <ref name='ATTRIBUTE_UNUSED'/>
+          <ref name='LIBXML_ATTR_ALLOC_SIZE'/>
+          <ref name='LIBXML_ATTR_FORMAT'/>
         </word>
         <word name='GEDecl'>
           <ref name='xmlParseEntityDecl'/>
@@ -15919,6 +15972,9 @@
           <ref name='xmlParserInputBufferPush'/>
           <ref name='xmlParserInputBufferRead'/>
         </word>
+        <word name='IANA'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='IDREF'>
           <ref name='xmlParseAttributeType'/>
           <ref name='xmlValidateAttributeDecl'/>
@@ -15956,6 +16012,7 @@
           <ref name='UTF8Toisolat1'/>
           <ref name='XML_CAST_FPTR'/>
           <ref name='isolat1ToUTF8'/>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='ISO-8859-'>
           <ref name='LIBXML_ISO8859X_ENABLED'/>
@@ -16123,6 +16180,9 @@
         <word name='Internal'>
           <ref name='_xmlDOMWrapCtxt'/>
           <ref name='xmlParseMarkupDecl'/>
+        </word>
+        <word name='Irregular'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
       </letter>
     </chunk>
@@ -16555,6 +16615,9 @@
           <ref name='xmlNodeListGetRawString'/>
           <ref name='xmlNodeListGetString'/>
           <ref name='xmlXPathNewNodeSet'/>
+        </word>
+        <word name='NodeInfo'>
+          <ref name='_xmlParserCtxt'/>
         </word>
         <word name='NodeList'>
           <ref name='xmlXPathNodeSetGetLength'/>
@@ -17059,6 +17122,7 @@
           <ref name='IS_BASECHAR'/>
           <ref name='IS_COMBINING'/>
           <ref name='IS_DIGIT'/>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='REC-xml'>
           <ref name='xmlGetCharEncodingName'/>
@@ -17075,6 +17139,7 @@
         </word>
         <word name='RFC'>
           <ref name='xmlBuildURI'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlNodeGetBase'/>
           <ref name='xmlNormalizeURIPath'/>
           <ref name='xmlParseURI'/>
@@ -17615,6 +17680,9 @@
           <ref name='xmlStrdup'/>
           <ref name='xmlTextReaderNormalization'/>
         </word>
+        <word name='Single'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='Sinhala'>
           <ref name='xmlUCSIsSinhala'/>
         </word>
@@ -17979,6 +18047,9 @@
         <word name='USER'>
           <ref name='xmlNanoFTPProxy'/>
         </word>
+        <word name='UTF-16'>
+          <ref name='_uconv_t'/>
+        </word>
         <word name='UTF16'>
           <ref name='xmlCharEncOutFunc'/>
         </word>
@@ -18171,6 +18242,8 @@
           <ref name='xmlTextReaderSchemaValidateCtxt'/>
         </word>
         <word name='WARNING:'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlSchemaGetCanonValue'/>
           <ref name='xmlSchemaNewStringValue'/>
         </word>
@@ -18284,6 +18357,7 @@
           <ref name='xmlXIncludeProcessNode'/>
           <ref name='xmlXIncludeProcessTree'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
           <ref name='xmlXIncludeSetFlags'/>
         </word>
         <word name='XInclude?'>
@@ -18471,6 +18545,8 @@
           <ref name='xmlUCSIsYijingHexagramSymbols'/>
         </word>
       </letter>
+    </chunk>
+    <chunk name='chunk10'>
       <letter name='Z'>
         <word name='ZLIB'>
           <ref name='docbCreateFileParserCtxt'/>
@@ -18498,8 +18574,6 @@
           <ref name='LIBXML_ZLIB_ENABLED'/>
         </word>
       </letter>
-    </chunk>
-    <chunk name='chunk10'>
       <letter name='a'>
         <word name='a-z'>
           <ref name='xmlCheckLanguageID'/>
@@ -18546,6 +18620,10 @@
         </word>
         <word name='absoluteURI'>
           <ref name='xmlParseURI'/>
+        </word>
+        <word name='abstain'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='abstract'>
           <ref name='XML_SCHEMAS_ELEM_ABSTRACT'/>
@@ -18717,6 +18795,7 @@
           <ref name='xmlAddChild'/>
           <ref name='xmlAddNextSibling'/>
           <ref name='xmlAddPrevSibling'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlDOMWrapCloneNode'/>
           <ref name='xmlDocDumpFormatMemory'/>
           <ref name='xmlDocDumpFormatMemoryEnc'/>
@@ -18793,6 +18872,7 @@
         <word name='after'>
           <ref name='UTF8ToHtml'/>
           <ref name='UTF8Toisolat1'/>
+          <ref name='_xmlParserCtxt'/>
           <ref name='docbEncodeEntities'/>
           <ref name='htmlEncodeEntities'/>
           <ref name='isolat1ToUTF8'/>
@@ -18883,8 +18963,8 @@
           <ref name='xmlParserInputDeallocate'/>
         </word>
         <word name='allocator'>
-          <ref name='ATTRIBUTE_ALLOC_SIZE'/>
           <ref name='DEBUG_MEMORY'/>
+          <ref name='LIBXML_ATTR_ALLOC_SIZE'/>
         </word>
         <word name='allocators'>
           <ref name='xmlGcMemGet'/>
@@ -18898,6 +18978,7 @@
           <ref name='htmlAttrAllowed'/>
           <ref name='htmlNodeStatus'/>
           <ref name='xmlAutomataNewAllTrans'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlCheckUTF8'/>
           <ref name='xmlCreatePushParserCtxt'/>
           <ref name='xmlKeepBlanksDefault'/>
@@ -18950,6 +19031,9 @@
           <ref name='xmlNodeSetContentLen'/>
           <ref name='xmlParseURIRaw'/>
           <ref name='xmlTextReaderConstString'/>
+        </word>
+        <word name='alphanumerics'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='already'>
           <ref name='XML_SCHEMAS_ATTRGROUP_GLOBAL'/>
@@ -19062,6 +19146,8 @@
         </word>
         <word name='another'>
           <ref name='xmlCharEncodingOutputFunc'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlInputMatchCallback'/>
           <ref name='xmlOutputMatchCallback'/>
           <ref name='xmlSetGenericErrorFunc'/>
@@ -19083,6 +19169,7 @@
           <ref name='xmlNewEntity'/>
         </word>
         <word name='anyway'>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlRecoverDoc'/>
           <ref name='xmlRecoverFile'/>
           <ref name='xmlRecoverMemory'/>
@@ -19148,6 +19235,8 @@
           <ref name='resolveEntity'/>
           <ref name='resolveEntitySAXFunc'/>
           <ref name='xmlCheckVersion'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlCurrentChar'/>
           <ref name='xmlGetExternalEntityLoader'/>
           <ref name='xmlLineNumbersDefault'/>
@@ -19155,6 +19244,7 @@
           <ref name='xmlSAX2ResolveEntity'/>
           <ref name='xmlSetExternalEntityLoader'/>
           <ref name='xmlXIncludeProcessFlagsData'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
         </word>
         <word name='applications'>
           <ref name='xmlSetGenericErrorFunc'/>
@@ -19338,6 +19428,10 @@
         <word name='autoreference'>
           <ref name='_xmlDoc'/>
         </word>
+        <word name='avoid'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
         <word name='avoiding'>
           <ref name='xmlTextReaderNext'/>
           <ref name='xmlTextReaderNextSibling'/>
@@ -19430,6 +19524,8 @@
           <ref name='htmlInitAutoClose'/>
           <ref name='xmlBuildRelativeURI'/>
           <ref name='xmlCatalogAdd'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlCurrentChar'/>
           <ref name='xmlGcMemSetup'/>
           <ref name='xmlGetLineNo'/>
@@ -19488,6 +19584,7 @@
         </word>
         <word name='below'>
           <ref name='_xmlParserCtxt'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlParseExternalID'/>
         </word>
         <word name='better'>
@@ -19499,6 +19596,7 @@
           <ref name='xmlSAXUserParseMemory'/>
         </word>
         <word name='between'>
+          <ref name='_uconv_t'/>
           <ref name='xmlAutomataNewCountTrans'/>
           <ref name='xmlAutomataNewCountTrans2'/>
           <ref name='xmlAutomataNewOnceTrans'/>
@@ -19557,6 +19655,9 @@
           <ref name='xmlMemDisplay'/>
           <ref name='xmlMemoryDump'/>
         </word>
+        <word name='body'>
+          <ref name='_xmlParserCtxt'/>
+        </word>
         <word name='book1'>
           <ref name='xmlBuildRelativeURI'/>
         </word>
@@ -19611,6 +19712,7 @@
           <ref name='XML_CAST_FPTR'/>
         </word>
         <word name='broken'>
+          <ref name='xmlGetThreadId'/>
           <ref name='xmlParseBalancedChunkMemoryRecover'/>
           <ref name='xmlTextReaderNormalization'/>
         </word>
@@ -19708,6 +19810,12 @@
     </chunk>
     <chunk name='chunk12'>
       <letter name='c'>
+        <word name='c14n'>
+          <ref name='xmlC14NDocDumpMemory'/>
+          <ref name='xmlC14NDocSave'/>
+          <ref name='xmlC14NDocSaveTo'/>
+          <ref name='xmlC14NExecute'/>
+        </word>
         <word name='cache'>
           <ref name='xmlXPathContextSetCache'/>
         </word>
@@ -19728,6 +19836,8 @@
           <ref name='xmlBuildRelativeURI'/>
           <ref name='xmlC14NDocDumpMemory'/>
           <ref name='xmlCheckFilename'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlGetLineNo'/>
           <ref name='xmlTextReaderCurrentDoc'/>
           <ref name='xmlXPathAddValues'/>
@@ -19747,6 +19857,8 @@
         </word>
         <word name='cannot'>
           <ref name='xmlParseAttribute'/>
+          <ref name='xmlTextReaderReadOuterXml'/>
+          <ref name='xmlXPathRegisterNs'/>
         </word>
         <word name='canonic'>
           <ref name='xmlCanonicPath'/>
@@ -20123,6 +20235,9 @@
         <word name='cncerning'>
           <ref name='xmlDebugDumpDocumentHead'/>
         </word>
+        <word name='codes'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='coding'>
           <ref name='xmlSAXDefaultVersion'/>
         </word>
@@ -20254,6 +20369,7 @@
         </word>
         <word name='compatibility'>
           <ref name='LIBXML_LEGACY_ENABLED'/>
+          <ref name='htmlParseElement'/>
           <ref name='xmlChildrenNode'/>
           <ref name='xmlCopyChar'/>
           <ref name='xmlEncodeEntities'/>
@@ -20702,6 +20818,7 @@
           <ref name='xmlCurrentChar'/>
         </word>
         <word name='conversion'>
+          <ref name='_uconv_t'/>
           <ref name='_xmlXPathType'/>
           <ref name='xmlCharEncOutFunc'/>
           <ref name='xmlParseEncodingDecl'/>
@@ -20764,6 +20881,9 @@
           <ref name='xmlXPathBooleanFunction'/>
           <ref name='xmlXPathStringFunction'/>
         </word>
+        <word name='cope'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='copied'>
           <ref name='xmlBufferCreateStatic'/>
           <ref name='xmlCopyDoc'/>
@@ -20810,6 +20930,7 @@
         </word>
         <word name='could'>
           <ref name='xmlByteConsumed'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlDOMWrapAdoptNode'/>
           <ref name='xmlDOMWrapCloneNode'/>
           <ref name='xmlDOMWrapReconcileNamespaces'/>
@@ -20850,6 +20971,10 @@
         </word>
         <word name='cover'>
           <ref name='xmlSearchNs'/>
+        </word>
+        <word name='crash'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='create'>
           <ref name='xmlBufferCreate'/>
@@ -20924,6 +21049,7 @@
         </word>
         <word name='currently'>
           <ref name='XML_SCHEMAS_INCLUDING_CONVERT_NS'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlGcMemGet'/>
           <ref name='xmlMemBlocks'/>
           <ref name='xmlMemGet'/>
@@ -21600,6 +21726,7 @@
           <ref name='xmlDocGetRootElement'/>
           <ref name='xmlDocSetRootElement'/>
           <ref name='xmlNewTextWriterTree'/>
+          <ref name='xmlNodeGetBase'/>
         </word>
         <word name='docs'>
           <ref name='xmlBuildRelativeURI'/>
@@ -21623,9 +21750,11 @@
         <word name='doesn'>
           <ref name='_htmlElemDesc'/>
           <ref name='htmlElementAllowedHere'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlCleanupParser'/>
           <ref name='xmlCreateEntitiesTable'/>
           <ref name='xmlFreeNode'/>
+          <ref name='xmlGetThreadId'/>
           <ref name='xmlInitCharEncodingHandlers'/>
           <ref name='xmlKeepBlanksDefault'/>
           <ref name='xmlNodeListGetRawString'/>
@@ -21691,6 +21820,10 @@
         </word>
         <word name='doublequotes'>
           <ref name='xmlParseQuotedString'/>
+        </word>
+        <word name='doubt'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='down'>
           <ref name='xmlGetBufferAllocationScheme'/>
@@ -22295,6 +22428,10 @@
           <ref name='xmlTextReaderXmlLang'/>
           <ref name='xmlValidateNotationDecl'/>
         </word>
+        <word name='exit'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
         <word name='expand'>
           <ref name='xmlLoadSGMLSuperCatalog'/>
         </word>
@@ -22370,6 +22507,7 @@
         <word name='extended'>
           <ref name='xlinkExtendedLinkFunk'/>
           <ref name='xlinkExtendedLinkSetFunk'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlXPathNodeSetMerge'/>
           <ref name='xmlXPtrLocationSetMerge'/>
         </word>
@@ -22380,12 +22518,16 @@
           <ref name='XML_SCHEMAS_TYPE_BLOCK_EXTENSION'/>
           <ref name='XML_SCHEMAS_TYPE_DERIVATION_METHOD_EXTENSION'/>
           <ref name='XML_SCHEMAS_TYPE_FINAL_EXTENSION'/>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='extensions'>
           <ref name='_xmlSAXHandler'/>
         </word>
         <word name='extent'>
           <ref name='xmlParseBalancedChunkMemoryRecover'/>
+        </word>
+        <word name='extlang'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='extract'>
           <ref name='XML_GET_CONTENT'/>
@@ -22448,6 +22590,7 @@
           <ref name='xmlXIncludeProcessNode'/>
           <ref name='xmlXIncludeProcessTree'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
           <ref name='xmlXPathCompareValues'/>
         </word>
         <word name='fails'>
@@ -22542,6 +22685,7 @@
           <ref name='_xmlError'/>
           <ref name='xmlParseMisc'/>
           <ref name='xmlXIncludeProcessFlagsData'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
           <ref name='xmlXPathOrderDocElems'/>
         </word>
         <word name='fields'>
@@ -22647,10 +22791,6 @@
           <ref name='XML_SCHEMAS_ELEM_CIRCULAR'/>
           <ref name='htmlSetMetaEncoding'/>
           <ref name='initxmlDefaultSAXHandler'/>
-          <ref name='xmlC14NDocDumpMemory'/>
-          <ref name='xmlC14NDocSave'/>
-          <ref name='xmlC14NDocSaveTo'/>
-          <ref name='xmlC14NExecute'/>
           <ref name='xmlSAX2InitDefaultSAXHandler'/>
           <ref name='xmlTextReaderIsValid'/>
         </word>
@@ -22705,6 +22845,9 @@
           <ref name='xmlXPathSubstringFunction'/>
           <ref name='xmlXPathTrailing'/>
           <ref name='xmlXPathTrailingSorted'/>
+        </word>
+        <word name='followed'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='following-sibling'>
           <ref name='xmlXPathNextFollowingSibling'/>
@@ -22942,6 +23085,7 @@
         </word>
         <word name='future'>
           <ref name='_xmlDOMWrapCtxt'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlSchemaValidateFile'/>
         </word>
       </letter>
@@ -23156,6 +23300,10 @@
           <ref name='xmlBufferWriteChar'/>
           <ref name='xmlBufferWriteQuotedString'/>
         </word>
+        <word name='guess'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
       </letter>
       <letter name='h'>
         <word name='had'>
@@ -23218,6 +23366,10 @@
           <ref name='xmlXPathPopNumber'/>
           <ref name='xmlXPathPopString'/>
         </word>
+        <word name='hard'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
         <word name='has-same-nodes'>
           <ref name='xmlXPathHasSameNodes'/>
         </word>
@@ -23228,6 +23380,7 @@
         </word>
         <word name='head'>
           <ref name='XML_SCHEMAS_ELEM_SUBST_GROUP_HEAD'/>
+          <ref name='_xmlParserCtxt'/>
         </word>
         <word name='header'>
           <ref name='xmlNanoHTTPAuthHeader'/>
@@ -23380,6 +23533,7 @@
           <ref name='xmlC14NDocSave'/>
           <ref name='xmlC14NDocSaveTo'/>
           <ref name='xmlC14NExecute'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlGetCharEncodingName'/>
           <ref name='xmlNanoHTTPScanProxy'/>
           <ref name='xmlParserHandlePEReference'/>
@@ -23397,9 +23551,15 @@
     </chunk>
     <chunk name='chunk17'>
       <letter name='i'>
+        <word name='i-xxx'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='iconv'>
           <ref name='LIBXML_ICONV_ENABLED'/>
           <ref name='LIBXML_ISO8859X_ENABLED'/>
+        </word>
+        <word name='icu'>
+          <ref name='LIBXML_ICU_ENABLED'/>
         </word>
         <word name='identify'>
           <ref name='xmlParseAttributeType'/>
@@ -23571,6 +23731,7 @@
           <ref name='xmlXIncludeProcessFlags'/>
           <ref name='xmlXIncludeProcessFlagsData'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
           <ref name='xmlXIncludeSetFlags'/>
         </word>
         <word name='including'>
@@ -23651,8 +23812,8 @@
           <ref name='xmlXPtrNewRange'/>
         </word>
         <word name='indicate'>
-          <ref name='ATTRIBUTE_ALLOC_SIZE'/>
-          <ref name='ATTRIBUTE_PRINTF'/>
+          <ref name='LIBXML_ATTR_ALLOC_SIZE'/>
+          <ref name='LIBXML_ATTR_FORMAT'/>
           <ref name='xmlParseExternalID'/>
           <ref name='xmlParserInputGrow'/>
           <ref name='xmlParserInputRead'/>
@@ -23963,6 +24124,7 @@
           <ref name='xmlParseURIRaw'/>
         </word>
         <word name='integer'>
+          <ref name='xmlGetThreadId'/>
           <ref name='xmlStrcasecmp'/>
           <ref name='xmlStrcmp'/>
           <ref name='xmlStrncasecmp'/>
@@ -24032,6 +24194,9 @@
         </word>
         <word name='interoperability'>
           <ref name='xmlParseElementChildrenContentDecl'/>
+        </word>
+        <word name='interoperable'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='interprestation'>
           <ref name='xmlXPathFunction'/>
@@ -24114,6 +24279,8 @@
           <ref name='namePop'/>
           <ref name='nodePop'/>
           <ref name='valuePop'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlCopyEnumeration'/>
           <ref name='xmlCreateEntitiesTable'/>
           <ref name='xmlCreateEnumeration'/>
@@ -24150,6 +24317,7 @@
           <ref name='_xmlXPathContext'/>
           <ref name='htmlAutoCloseTag'/>
           <ref name='htmlIsAutoClosed'/>
+          <ref name='htmlParseElement'/>
           <ref name='xmlKeepBlanksDefault'/>
           <ref name='xmlXPathOrderDocElems'/>
         </word>
@@ -24209,7 +24377,11 @@
           <ref name='xmlNodeGetLang'/>
           <ref name='xmlXPathLangFunction'/>
         </word>
+        <word name='langtag'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='language'>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlNodeGetLang'/>
           <ref name='xmlNodeSetLang'/>
           <ref name='xmlXPathLangFunction'/>
@@ -24266,6 +24438,10 @@
           <ref name='xmlXPathNodeLeadingSorted'/>
           <ref name='xmlXPathNormalizeFunction'/>
           <ref name='xmlXPathStringFunction'/>
+        </word>
+        <word name='leak'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='least'>
           <ref name='xmlDetectCharEncoding'/>
@@ -24361,6 +24537,8 @@
         </word>
         <word name='libraries'>
           <ref name='LIBXML_MODULE_EXTENSION'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlRelaxNGInitTypes'/>
         </word>
         <word name='library'>
@@ -24406,6 +24584,7 @@
           <ref name='xmlRootNode'/>
         </word>
         <word name='libxml2'>
+          <ref name='xmlCleanupParser'/>
           <ref name='xmlCleanupThreads'/>
           <ref name='xmlFreeMutex'/>
           <ref name='xmlInitThreads'/>
@@ -24422,11 +24601,11 @@
           <ref name='xmlExpCtxtNbCons'/>
         </word>
         <word name='like'>
-          <ref name='ATTRIBUTE_PRINTF'/>
           <ref name='IS_CHAR_CH'/>
           <ref name='IS_DIGIT_CH'/>
           <ref name='IS_EXTENDER_CH'/>
           <ref name='IS_LETTER_CH'/>
+          <ref name='LIBXML_ATTR_FORMAT'/>
           <ref name='LIBXML_DOTTED_VERSION'/>
           <ref name='LIBXML_TREE_ENABLED'/>
           <ref name='xmlCharEncOutFunc'/>
@@ -24438,6 +24617,9 @@
           <ref name='xmlTextReaderNormalization'/>
           <ref name='xmlValidityErrorFunc'/>
           <ref name='xmlValidityWarningFunc'/>
+        </word>
+        <word name='likely'>
+          <ref name='xmlGetThreadId'/>
         </word>
         <word name='limit'>
           <ref name='xmlCharEncFirstLine'/>
@@ -24641,6 +24823,8 @@
           <ref name='xmlCheckFilename'/>
         </word>
         <word name='macro'>
+          <ref name='INVALID_SOCKET'/>
+          <ref name='SOCKET'/>
           <ref name='XML_CAST_FPTR'/>
           <ref name='xmlTextWriterWriteDocType'/>
           <ref name='xmlTextWriterWriteProcessingInstruction'/>
@@ -24696,6 +24880,9 @@
         </word>
         <word name='manages'>
           <ref name='xmlBufferWriteCHAR'/>
+        </word>
+        <word name='mandate'>
+          <ref name='xmlGetThreadId'/>
         </word>
         <word name='manipulated'>
           <ref name='xmlNewRMutex'/>
@@ -24969,6 +25156,10 @@
           <ref name='_xmlParserCtxt'/>
           <ref name='docbCreatePushParserCtxt'/>
           <ref name='htmlCreatePushParserCtxt'/>
+          <ref name='xmlC14NDocDumpMemory'/>
+          <ref name='xmlC14NDocSave'/>
+          <ref name='xmlC14NDocSaveTo'/>
+          <ref name='xmlC14NExecute'/>
           <ref name='xmlCreatePushParserCtxt'/>
           <ref name='xmlGetCompressMode'/>
           <ref name='xmlKeepBlanksDefault'/>
@@ -25073,6 +25264,8 @@
         </word>
         <word name='multithreaded'>
           <ref name='htmlInitAutoClose'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlInitParser'/>
         </word>
         <word name='mutex'>
@@ -25181,32 +25374,6 @@
           <ref name='xmlCheckUTF8'/>
           <ref name='xmlDebugDumpString'/>
         </word>
-        <word name='need'>
-          <ref name='WITH_TRIO'/>
-          <ref name='XML_SCHEMAS_TYPE_FACETSNEEDVALUE'/>
-          <ref name='XML_SCHEMAS_TYPE_NORMVALUENEEDED'/>
-          <ref name='XML_SUBSTITUTE_BOTH'/>
-          <ref name='XML_SUBSTITUTE_NONE'/>
-          <ref name='XML_SUBSTITUTE_PEREF'/>
-          <ref name='XML_SUBSTITUTE_REF'/>
-          <ref name='_xmlDOMWrapCtxt'/>
-          <ref name='xmlCreatePushParserCtxt'/>
-          <ref name='xmlGetNsList'/>
-          <ref name='xmlInitCharEncodingHandlers'/>
-          <ref name='xmlNewDocNode'/>
-          <ref name='xmlNewDocNodeEatName'/>
-          <ref name='xmlNewTextChild'/>
-          <ref name='xmlNodeSetContent'/>
-          <ref name='xmlNodeSetContentLen'/>
-          <ref name='xmlParseEntityRef'/>
-          <ref name='xmlParserHandleReference'/>
-          <ref name='xmlRegExecErrInfo'/>
-          <ref name='xmlRegExecNextValues'/>
-          <ref name='xmlSchemaNewStringValue'/>
-          <ref name='xmlStreamWantsAnyNode'/>
-          <ref name='xmlValidGetValidElements'/>
-          <ref name='xmlXPathNewContext'/>
-        </word>
         <word name='needed'>
           <ref name='_xmlParserCtxt'/>
           <ref name='_xmlXPathContext'/>
@@ -25276,7 +25443,6 @@
           <ref name='xmlHasProp'/>
           <ref name='xmlParseElementChildrenContentDecl'/>
           <ref name='xmlTextReaderReadInnerXml'/>
-          <ref name='xmlTextReaderReadOuterXml'/>
           <ref name='xmlXPathBooleanFunction'/>
           <ref name='xmlXPathCompareValues'/>
         </word>
@@ -25316,6 +25482,9 @@
           <ref name='xmlXPathLocalNameFunction'/>
           <ref name='xmlXPathNamespaceURIFunction'/>
         </word>
+        <word name='nodeInfos'>
+          <ref name='_xmlParserCtxt'/>
+        </word>
         <word name='nodelist'>
           <ref name='xmlParseBalancedChunkMemoryRecover'/>
         </word>
@@ -25336,6 +25505,13 @@
           <ref name='xmlEncodeEntitiesReentrant'/>
           <ref name='xmlNewChild'/>
           <ref name='xmlNewTextChild'/>
+          <ref name='xmlTextReaderBaseUri'/>
+          <ref name='xmlTextReaderLocalName'/>
+          <ref name='xmlTextReaderLocatorBaseURI'/>
+          <ref name='xmlTextReaderName'/>
+          <ref name='xmlTextReaderNamespaceUri'/>
+          <ref name='xmlTextReaderPrefix'/>
+          <ref name='xmlTextReaderXmlLang'/>
           <ref name='xmlXPathParseNCName'/>
         </word>
         <word name='non-CDATA'>
@@ -25358,12 +25534,6 @@
         <word name='non-empty'>
           <ref name='xmlXPathBooleanFunction'/>
         </word>
-        <word name='non-exclusive'>
-          <ref name='xmlC14NDocDumpMemory'/>
-          <ref name='xmlC14NDocSave'/>
-          <ref name='xmlC14NDocSaveTo'/>
-          <ref name='xmlC14NExecute'/>
-        </word>
         <word name='non-final'>
           <ref name='xmlRegExecPushString'/>
           <ref name='xmlRegExecPushString2'/>
@@ -25377,6 +25547,9 @@
         </word>
         <word name='non-null'>
           <ref name='xmlShellPrintNode'/>
+        </word>
+        <word name='non-recursive'>
+          <ref name='_xmlParserCtxt'/>
         </word>
         <word name='non-stateless'>
           <ref name='xmlCharEncOutFunc'/>
@@ -25412,7 +25585,6 @@
           <ref name='xmlSetGenericErrorFunc'/>
           <ref name='xmlSetStructuredErrorFunc'/>
           <ref name='xmlTextReaderReadInnerXml'/>
-          <ref name='xmlTextReaderReadOuterXml'/>
           <ref name='xmlXPathBooleanFunction'/>
         </word>
         <word name='normal'>
@@ -25465,6 +25637,10 @@
         <word name='note'>
           <ref name='xmlCheckUTF8'/>
           <ref name='xmlLoadExternalEntity'/>
+        </word>
+        <word name='notice'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='now'>
           <ref name='XML_CAST_FPTR'/>
@@ -25841,6 +26017,7 @@
           <ref name='xmlC14NDocSave'/>
           <ref name='xmlC14NDocSaveTo'/>
           <ref name='xmlC14NExecute'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlGetCharEncodingName'/>
           <ref name='xmlParserHandlePEReference'/>
           <ref name='xmlParserHandleReference'/>
@@ -26071,6 +26248,7 @@
           <ref name='xmlSetGenericErrorFunc'/>
           <ref name='xmlSetStructuredErrorFunc'/>
           <ref name='xmlXIncludeProcessFlagsData'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
           <ref name='xmlXPathEvalFunc'/>
           <ref name='xmlXPathIntersection'/>
         </word>
@@ -26146,6 +26324,9 @@
         <word name='performed'>
           <ref name='htmlNodeStatus'/>
         </word>
+        <word name='permanently'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='pertain'>
           <ref name='xmlNewDocTextLen'/>
         </word>
@@ -26183,9 +26364,20 @@
           <ref name='xmlStrPrintf'/>
           <ref name='xmlStrVPrintf'/>
         </word>
+        <word name='platforms'>
+          <ref name='xmlGetThreadId'/>
+        </word>
         <word name='plug'>
           <ref name='xmlXPathFuncLookupFunc'/>
           <ref name='xmlXPathVariableLookupFunc'/>
+        </word>
+        <word name='plugin'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
+        <word name='plugins'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='plus'>
           <ref name='UTF8ToHtml'/>
@@ -26227,6 +26419,10 @@
           <ref name='xmlNanoFTPScanProxy'/>
           <ref name='xmlNanoFTPUpdateURL'/>
           <ref name='xmlNanoHTTPScanProxy'/>
+        </word>
+        <word name='portability'>
+          <ref name='INVALID_SOCKET'/>
+          <ref name='SOCKET'/>
         </word>
         <word name='portable'>
           <ref name='xmlXPathIsInf'/>
@@ -26440,6 +26636,7 @@
           <ref name='_xmlEntity'/>
           <ref name='_xmlNode'/>
           <ref name='htmlHandleOmittedElem'/>
+          <ref name='htmlParseElement'/>
           <ref name='xmlAddPrevSibling'/>
           <ref name='xmlCatalogSetDebug'/>
           <ref name='xmlCatalogSetDefaultPrefer'/>
@@ -26478,7 +26675,11 @@
         <word name='private'>
           <ref name='xmlCatalogLocalResolve'/>
           <ref name='xmlCatalogLocalResolveURI'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlRelaxParserSetFlag'/>
+        </word>
+        <word name='privateuse'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='problem'>
           <ref name='xmlParseBalancedChunkMemory'/>
@@ -26664,6 +26865,8 @@
           <ref name='xmlEntityReferenceFunc'/>
         </word>
         <word name='provide'>
+          <ref name='INVALID_SOCKET'/>
+          <ref name='SOCKET'/>
           <ref name='xmlDocDumpFormatMemory'/>
           <ref name='xmlDocDumpFormatMemoryEnc'/>
           <ref name='xmlDocFormatDump'/>
@@ -26706,6 +26909,12 @@
         </word>
         <word name='prune'>
           <ref name='xmlReplaceNode'/>
+        </word>
+        <word name='pthread_t'>
+          <ref name='xmlGetThreadId'/>
+        </word>
+        <word name='pthreads'>
+          <ref name='xmlGetThreadId'/>
         </word>
         <word name='publicID'>
           <ref name='xmlParseExternalID'/>
@@ -27100,10 +27309,14 @@
         <word name='regexps'>
           <ref name='xmlExpParse'/>
         </word>
+        <word name='region'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='register'>
           <ref name='xmlXPathRegisterVariableLookup'/>
         </word>
         <word name='registered'>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlCtxtGetLastError'/>
           <ref name='xmlCtxtResetLastError'/>
           <ref name='xmlFindCharEncodingHandler'/>
@@ -27314,6 +27527,8 @@
         <word name='reports'>
           <ref name='docbCreatePushParserCtxt'/>
           <ref name='htmlCreatePushParserCtxt'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlCreatePushParserCtxt'/>
         </word>
         <word name='repr'>
@@ -27382,6 +27597,7 @@
           <ref name='xmlC14NDocSave'/>
         </word>
         <word name='reserved'>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlNewTextChild'/>
           <ref name='xmlURIEscapeStr'/>
         </word>
@@ -27560,9 +27776,19 @@
         <word name='rewrite'>
           <ref name='xmlTextReaderGetRemainder'/>
         </word>
+        <word name='rfc'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
+        <word name='rfc-editor'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
+        <word name='rfc5646'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='right'>
           <ref name='xmlAutomataNewCounterTrans'/>
           <ref name='xmlCheckFilename'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlExpNewOr'/>
           <ref name='xmlExpNewSeq'/>
           <ref name='xmlParseCharData'/>
@@ -27802,6 +28028,7 @@
         </word>
         <word name='script'>
           <ref name='htmlIsScriptAttribute'/>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='search'>
           <ref name='XML_SCHEMAS_ELEM_CIRCULAR'/>
@@ -27841,6 +28068,9 @@
           <ref name='xmlNamespaceParseQName'/>
           <ref name='xmlScanName'/>
           <ref name='xmlValidateNotationDecl'/>
+        </word>
+        <word name='selected'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='selection'>
           <ref name='LIBXML_PATTERN_ENABLED'/>
@@ -27917,6 +28147,9 @@
           <ref name='xmlShellWrite'/>
           <ref name='xmlValidatePopElement'/>
           <ref name='xmlValidatePushElement'/>
+        </word>
+        <word name='serialized'>
+          <ref name='xmlTextReaderReadOuterXml'/>
         </word>
         <word name='serializing'>
           <ref name='xmlSaveToBuffer'/>
@@ -28021,6 +28254,9 @@
         </word>
         <word name='shorten'>
           <ref name='xmlDebugDumpString'/>
+        </word>
+        <word name='shortest'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='shorthand'>
           <ref name='xmlTextReaderConstPrefix'/>
@@ -28154,6 +28390,9 @@
           <ref name='IS_EXTENDER_CH'/>
           <ref name='IS_PUBIDCHAR_CH'/>
         </word>
+        <word name='singleton'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
         <word name='site1'>
           <ref name='xmlBuildRelativeURI'/>
         </word>
@@ -28185,8 +28424,13 @@
           <ref name='xmlXPathCeilingFunction'/>
         </word>
         <word name='socket'>
+          <ref name='INVALID_SOCKET'/>
           <ref name='xmlCheckFilename'/>
           <ref name='xmlNanoFTPGetSocket'/>
+        </word>
+        <word name='sockets'>
+          <ref name='INVALID_SOCKET'/>
+          <ref name='SOCKET'/>
         </word>
         <word name='software'>
           <ref name='LIBXML_TEST_VERSION'/>
@@ -28202,7 +28446,10 @@
           <ref name='ignorableWhitespace'/>
           <ref name='ignorableWhitespaceSAXFunc'/>
           <ref name='xmlBuildRelativeURI'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlGcMemSetup'/>
+          <ref name='xmlGetThreadId'/>
           <ref name='xmlHandleEntity'/>
           <ref name='xmlMemSetup'/>
           <ref name='xmlParseAttributeType'/>
@@ -28219,8 +28466,12 @@
           <ref name='xmlXIncludeProcessNode'/>
           <ref name='xmlXIncludeProcessTree'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
         </word>
         <word name='sometimes'>
+          <ref name='xmlCheckLanguageID'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlExpExpDerive'/>
         </word>
         <word name='somewhat'>
@@ -28240,6 +28491,9 @@
           <ref name='xmlXPathNodeTrailingSorted'/>
           <ref name='xmlXPathTrailing'/>
           <ref name='xmlXPathTrailingSorted'/>
+        </word>
+        <word name='sounds'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='source'>
           <ref name='_xmlXPathContext'/>
@@ -28342,6 +28596,7 @@
         </word>
         <word name='specification'>
           <ref name='XML_XML_NAMESPACE'/>
+          <ref name='xmlGetThreadId'/>
           <ref name='xmlTextReaderNormalization'/>
         </word>
         <word name='specifications'>
@@ -28516,6 +28771,9 @@
           <ref name='xmlValidateDocumentFinal'/>
         </word>
         <word name='still'>
+          <ref name='xmlCheckLanguageID'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlModuleFree'/>
           <ref name='xmlNoNetExternalEntityLoader'/>
           <ref name='xmlParseNamespace'/>
@@ -28770,6 +29028,7 @@
           <ref name='xmlXIncludeProcessNode'/>
           <ref name='xmlXIncludeProcessTree'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
         </word>
         <word name='substitutions:'>
           <ref name='XML_SCHEMAS_ELEM_BLOCK_RESTRICTION'/>
@@ -28789,6 +29048,12 @@
         </word>
         <word name='substring-before'>
           <ref name='xmlXPathSubstringBeforeFunction'/>
+        </word>
+        <word name='subtag'>
+          <ref name='xmlCheckLanguageID'/>
+        </word>
+        <word name='subtags'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='subtraction'>
           <ref name='xmlXPathSubValues'/>
@@ -28873,6 +29138,9 @@
           <ref name='xmlAutomataNewCountTrans2'/>
           <ref name='xmlAutomataNewOnceTrans'/>
           <ref name='xmlAutomataNewOnceTrans2'/>
+        </word>
+        <word name='sucessors'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='such'>
           <ref name='xmlNewTextChild'/>
@@ -29151,6 +29419,7 @@
         </word>
         <word name='thread'>
           <ref name='LIBXML_THREAD_ENABLED'/>
+          <ref name='xmlCleanupParser'/>
           <ref name='xmlCleanupThreads'/>
           <ref name='xmlGetGlobalState'/>
           <ref name='xmlGetLastError'/>
@@ -29224,6 +29493,7 @@
           <ref name='htmlNodeDumpFileFormat'/>
           <ref name='htmlNodeDumpFormatOutput'/>
           <ref name='htmlNodeDumpOutput'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlCopyDoc'/>
           <ref name='xmlElemDump'/>
           <ref name='xmlFreeNode'/>
@@ -29415,6 +29685,7 @@
           <ref name='xlinkIsLink'/>
           <ref name='xmlCharEncodingInputFunc'/>
           <ref name='xmlCharEncodingOutputFunc'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlFileOpen'/>
           <ref name='xmlKeepBlanksDefault'/>
           <ref name='xmlNanoHTTPFetch'/>
@@ -29477,6 +29748,9 @@
         </word>
         <word name='two-character'>
           <ref name='xmlCurrentChar'/>
+        </word>
+        <word name='txt'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='type:'>
           <ref name='xmlStreamPushNode'/>
@@ -29785,6 +30059,10 @@
         <word name='val1'>
           <ref name='xmlXPtrLocationSetMerge'/>
         </word>
+        <word name='valgrind'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
         <word name='validated'>
           <ref name='xmlCharInRange'/>
           <ref name='xmlSchemaValidateLengthFacet'/>
@@ -29849,7 +30127,11 @@
           <ref name='xmlXPathRegisteredVariablesCleanup'/>
         </word>
         <word name='variant'>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlDetectCharEncoding'/>
+        </word>
+        <word name='variants'>
+          <ref name='xmlCheckLanguageID'/>
         </word>
         <word name='variety'>
           <ref name='XML_SCHEMAS_TYPE_VARIETY_ABSENT'/>
@@ -29860,10 +30142,15 @@
         <word name='various'>
           <ref name='_xmlDOMWrapCtxt'/>
         </word>
+        <word name='versions'>
+          <ref name='htmlParseElement'/>
+        </word>
         <word name='very'>
           <ref name='_htmlElemDesc'/>
           <ref name='_xmlParserInput'/>
           <ref name='xmlCharEncFirstLine'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
         </word>
         <word name='via'>
           <ref name='xmlNanoHTTPFetch'/>
@@ -30008,6 +30295,7 @@
           <ref name='xmlXIncludeProcessNode'/>
           <ref name='xmlXIncludeProcessTree'/>
           <ref name='xmlXIncludeProcessTreeFlags'/>
+          <ref name='xmlXIncludeProcessTreeFlagsData'/>
         </word>
         <word name='wether'>
           <ref name='_xmlNodeSet'/>
@@ -30106,6 +30394,10 @@
           <ref name='XML_SCHEMAS_ANY_STRICT'/>
           <ref name='XML_SCHEMAS_ATTR_USE_PROHIBITED'/>
         </word>
+        <word name='windows'>
+          <ref name='INVALID_SOCKET'/>
+          <ref name='SOCKET'/>
+        </word>
         <word name='with_ns'>
           <ref name='_xmlNodeSet'/>
         </word>
@@ -30146,6 +30438,8 @@
           <ref name='entityDecl'/>
           <ref name='entityDeclSAXFunc'/>
           <ref name='htmlNewDocNoDtD'/>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
           <ref name='xmlNewGlobalNs'/>
           <ref name='xmlParseEntityRef'/>
           <ref name='xmlParsePEReference'/>
@@ -30245,6 +30539,7 @@
           <ref name='xmlC14NDocSave'/>
           <ref name='xmlC14NDocSaveTo'/>
           <ref name='xmlC14NExecute'/>
+          <ref name='xmlCheckLanguageID'/>
           <ref name='xmlGetCharEncodingName'/>
           <ref name='xmlParserHandlePEReference'/>
           <ref name='xmlParserHandleReference'/>
@@ -30499,9 +30794,6 @@
           <ref name='xmlNewTextWriterDoc'/>
           <ref name='xmlNewTextWriterTree'/>
           <ref name='xmlTextReaderCurrentDoc'/>
-        </word>
-        <word name='xmlDocumentGetBase'>
-          <ref name='xmlNodeGetBase'/>
         </word>
         <word name='xmlDtdPtr'>
           <ref name='xmlCopyDtd'/>
@@ -31319,6 +31611,10 @@
           <ref name='xmlSchemaGetBuiltInType'/>
           <ref name='xmlSearchNs'/>
         </word>
+        <word name='your'>
+          <ref name='xmlCleanupParser'/>
+          <ref name='xmlCleanupThreads'/>
+        </word>
       </letter>
       <letter name='z'>
         <word name='zero'>
@@ -31371,8 +31667,8 @@
       <chunk name='chunk6' start='Q' end='R'/>
       <chunk name='chunk7' start='S' end='S'/>
       <chunk name='chunk8' start='T' end='U'/>
-      <chunk name='chunk9' start='V' end='Z'/>
-      <chunk name='chunk10' start='a' end='a'/>
+      <chunk name='chunk9' start='V' end='Y'/>
+      <chunk name='chunk10' start='Z' end='a'/>
       <chunk name='chunk11' start='b' end='b'/>
       <chunk name='chunk12' start='c' end='c'/>
       <chunk name='chunk13' start='d' end='d'/>

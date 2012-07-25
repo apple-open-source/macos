@@ -28,7 +28,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_inquire_mechs_for_name(OM_uint32 *minor_status,
     const gss_name_t input_name,
     gss_OID_set *mech_types)
@@ -52,7 +52,7 @@ gss_inquire_mechs_for_name(OM_uint32 *minor_status,
 	 * name's type is supported by the mechanism. If it is, add
 	 * the mechanism to the set.
 	 */
-	SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+	HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
 		major_status = gss_inquire_names_for_mech(minor_status,
 		    &m->gm_mech_oid, &name_types);
 		if (major_status) {

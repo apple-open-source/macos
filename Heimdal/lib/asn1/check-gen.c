@@ -349,12 +349,14 @@ test_Name (void)
     atv1[0].type.length = sizeof(cmp_CN)/sizeof(cmp_CN[0]);
     atv1[0].type.components = cmp_CN;
     atv1[0].value.element = choice_DirectoryString_printableString;
-    atv1[0].value.u.printableString = "Love";
+    atv1[0].value.u.printableString.data = "Love";
+    atv1[0].value.u.printableString.length = 4;
 
     atv1[1].type.length = sizeof(cmp_L)/sizeof(cmp_L[0]);
     atv1[1].type.components = cmp_L;
     atv1[1].value.element = choice_DirectoryString_printableString;
-    atv1[1].value.u.printableString = "STOCKHOLM";
+    atv1[1].value.u.printableString.data = "STOCKHOLM";
+    atv1[1].value.u.printableString.length = 9;
 
     /* n2 */
     n2.element = choice_Name_rdnSequence;
@@ -366,12 +368,14 @@ test_Name (void)
     atv2[0].type.length = sizeof(cmp_L)/sizeof(cmp_L[0]);
     atv2[0].type.components = cmp_L;
     atv2[0].value.element = choice_DirectoryString_printableString;
-    atv2[0].value.u.printableString = "STOCKHOLM";
+    atv2[0].value.u.printableString.data = "STOCKHOLM";
+    atv2[0].value.u.printableString.length = 9;
 
     atv2[1].type.length = sizeof(cmp_CN)/sizeof(cmp_CN[0]);
     atv2[1].type.components = cmp_CN;
     atv2[1].value.element = choice_DirectoryString_printableString;
-    atv2[1].value.u.printableString = "Love";
+    atv2[1].value.u.printableString.data = "Love";
+    atv2[1].value.u.printableString.length = 4;
 
     /* */
     tests[0].val = &n1;
@@ -1351,6 +1355,33 @@ check_seq_of_size(void)
     return 0;
 }
 
+static int
+check_TESTMechTypeList(void)
+{
+    TESTMechTypeList tl;
+    unsigned oid1[] =  { 1, 2, 840, 48018, 1, 2, 2};
+    unsigned oid2[] =  { 1, 2, 840, 113554, 1, 2, 2};
+    unsigned oid3[] =   { 1, 3, 6, 1, 4, 1, 311, 2, 2, 30};
+    unsigned oid4[] =   { 1, 3, 6, 1, 4, 1, 311, 2, 2, 10};
+    TESTMechType array[] = {{ 7, oid1 },
+                            { 7, oid2 },
+                            { 10, oid3 },
+                            { 10, oid4 }};
+    size_t size, len;
+    void *ptr;
+    int ret;
+
+    tl.len = 4;
+    tl.val = array;
+
+    ASN1_MALLOC_ENCODE(TESTMechTypeList, ptr, len, &tl, &size, ret);
+    if (ret)
+	errx(1, "TESTMechTypeList: %d", ret);
+    if (len != size)
+	abort();
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -1381,6 +1412,8 @@ main(int argc, char **argv)
     ret += check_seq();
     ret += check_seq_of_size();
     ret += test_SignedData();
+
+    ret += check_TESTMechTypeList();
 
     return ret;
 }

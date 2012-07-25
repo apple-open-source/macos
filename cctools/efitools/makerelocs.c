@@ -79,6 +79,10 @@ static int cmp_base_relocs(
 static void usage(
     void);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
+
 /*
  * The makerelocs(1) tool makes a file of PECOFF base relocation entries from a 
  * fully linked Mach-O file compiled with dynamic code gen and relocation

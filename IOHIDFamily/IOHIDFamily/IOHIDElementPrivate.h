@@ -91,7 +91,6 @@ protected:
     OSArray                *_arrayItems;
     OSArray                *_duplicateElements;
     UInt32                 *_oldArraySelectors;
-    OSDictionary           *_properties;
     
     bool                    _isInterruptReportHandler;
     
@@ -111,7 +110,7 @@ protected:
                                 IOHIDElementPrivate * child,
                                 IOHIDElementPrivate * parent);
 
-	void  createProperties();
+	OSDictionary*  createProperties() const;
 
 	virtual IOByteCount		getByteSize();
 	

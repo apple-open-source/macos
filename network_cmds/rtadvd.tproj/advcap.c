@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-/*	$KAME: advcap.c,v 1.5 2001/02/01 09:12:08 jinmei Exp $	*/
+/*	$KAME: advcap.c,v 1.11 2003/05/19 09:46:50 keiichi Exp $	*/
 
 /*
  * Copyright (c) 1983 The Regents of the University of California.
@@ -59,8 +59,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD: src/usr.sbin/rtadvd/advcap.c,v 1.1.2.2 2001/07/03 11:02:13 ume Exp $
  */
 
 /*
@@ -120,15 +118,15 @@ static	char *remotefile;
 
 extern char *conffile;
 
-int tgetent __P((char *, char *));
-int getent __P((char *, char *, char *));
-int tnchktc __P((void));
-int tnamatch __P((char *));
-static char *tskip __P((char *));
-long long tgetnum __P((char *));
-int tgetflag __P((char *));
-char *tgetstr __P((char *, char **));
-static char *tdecode __P((char *, char **));
+int tgetent(char *, char *);
+int getent(char *, char *, char *);
+int tnchktc(void);
+int tnamatch(char *);
+static char *tskip(char *);
+int64_t tgetnum(char *);
+int tgetflag(char *);
+char *tgetstr(char *, char **);
+static char *tdecode(char *, char **);
 
 /*
  * Get an entry for terminal name in buffer bp,
@@ -149,8 +147,8 @@ int
 getent(bp, name, cp)
 	char *bp, *name, *cp;
 {
-	register int c;
-	register int i = 0, cnt = 0;
+	int c;
+	int i = 0, cnt = 0;
 	char ibuf[BUFSIZ];
 	int tf;
 
@@ -168,7 +166,7 @@ getent(bp, name, cp)
 	}
 	if (tf < 0) {
 		syslog(LOG_INFO,
-		       "<%s> open: %s", __FUNCTION__, strerror(errno));
+		       "<%s> open: %s", __func__, strerror(errno));
 		return (-2);
 	}
 	for (;;) {
@@ -190,8 +188,9 @@ getent(bp, name, cp)
 				}
 				break;
 			}
-			if (cp >= bp+BUFSIZ) {
-				write(2,"Remcap entry too long\n", 23);
+			if (cp >= bp + BUFSIZ) {
+				write(STDERR_FILENO, "Remcap entry too long\n",
+				      23);
 				break;
 			} else
 				*cp++ = c;
@@ -218,7 +217,7 @@ getent(bp, name, cp)
 int
 tnchktc()
 {
-	register char *p, *q;
+	char *p, *q;
 	char tcname[16];	/* name of similar terminal */
 	char tcbuf[BUFSIZ];
 	char *holdtbuf = tbuf;
@@ -226,21 +225,21 @@ tnchktc()
 
 	p = tbuf + strlen(tbuf) - 2;	/* before the last colon */
 	while (*--p != ':')
-		if (p<tbuf) {
-			write(2, "Bad remcap entry\n", 18);
+		if (p < tbuf) {
+			write(STDERR_FILENO, "Bad remcap entry\n", 18);
 			return (0);
 		}
 	p++;
 	/* p now points to beginning of last field */
 	if (p[0] != 't' || p[1] != 'c')
 		return (1);
-	strlcpy(tcname, p+3, sizeof(tcname));
+	strlcpy(tcname, p + 3, sizeof tcname);
 	q = tcname;
 	while (*q && *q != ':')
 		q++;
 	*q = 0;
 	if (++hopcount > MAXHOP) {
-		write(2, "Infinite tc= loop\n", 18);
+		write(STDERR_FILENO, "Infinite tc= loop\n", 18);
 		return (0);
 	}
 	if (getent(tcbuf, tcname, remotefile) != 1) {
@@ -252,7 +251,7 @@ tnchktc()
 
 	/* check length before copying string below */
 	if (l > BUFSIZ) {
-		write(2, "Remcap entry too long\n", 23);
+		write(STDERR_FILENO, "Remcap entry too long\n", 23);
 		q[BUFSIZ - (p-holdtbuf)] = 0;
 	}
 	strlcpy(p, q, p-tbuf);
@@ -270,7 +269,7 @@ int
 tnamatch(np)
 	char *np;
 {
-	register char *Np, *Bp;
+	char *Np, *Bp;
 
 	Bp = tbuf;
 	if (*Bp == '#')
@@ -295,7 +294,7 @@ tnamatch(np)
  */
 static char *
 tskip(bp)
-	register char *bp;
+	char *bp;
 {
 	int dquote;
 
@@ -338,13 +337,13 @@ breakbreak:
  * a # character.  If the option is not found we return -1.
  * Note that we handle octal numbers beginning with 0.
  */
-long long
+int64_t
 tgetnum(id)
 	char *id;
 {
-	register long long i;
-	register int base;
-	register char *bp = tbuf;
+	int64_t i;
+	int base;
+	char *bp = tbuf;
 
 	for (;;) {
 		bp = tskip(bp);
@@ -378,7 +377,7 @@ int
 tgetflag(id)
 	char *id;
 {
-	register char *bp = tbuf;
+	char *bp = tbuf;
 
 	for (;;) {
 		bp = tskip(bp);
@@ -406,7 +405,7 @@ char *
 tgetstr(id, area)
 	char *id, **area;
 {
-	register char *bp = tbuf;
+	char *bp = tbuf;
 
 	for (;;) {
 		bp = tskip(bp);
@@ -430,12 +429,12 @@ tgetstr(id, area)
  */
 static char *
 tdecode(str, area)
-	register char *str;
+	char *str;
 	char **area;
 {
-	register char *cp;
-	register int c;
-	register char *dp;
+	char *cp;
+	int c;
+	char *dp;
 	int i;
 	char term;
 

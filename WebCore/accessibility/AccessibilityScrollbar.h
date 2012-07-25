@@ -49,7 +49,7 @@ private:
     virtual bool canSetNumericValue() const { return true; }
 
     virtual bool isAccessibilityScrollbar() const { return true; }
-    virtual IntRect elementRect() const;
+    virtual LayoutRect elementRect() const;
     
     virtual AccessibilityRole roleValue() const { return ScrollBarRole; }
     virtual AccessibilityOrientation orientation() const;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999 - 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,7 +99,8 @@ inetroute_list_init()
 	struct sockaddr * gateway = NULL;
 	struct sockaddr * mask = NULL;
 
-	rtm = (struct rt_msghdr *)next;
+	/* ALIGN: kernel ensures that next will be aligned, cast ok */	
+	rtm = (struct rt_msghdr *)(void *)next;
 	addrs = (void *)(&rtm[1]);
 	if (rtm->rtm_addrs & RTA_DST) {
 	    dst = (struct sockaddr *)addrs;
@@ -117,8 +118,14 @@ inetroute_list_init()
 	    && gateway 
 	    && mask
 	    && !(rtm->rtm_flags & RTF_HOST)) {
-	    struct sockaddr_in * dst_p = (struct sockaddr_in *)dst;
-	    struct sockaddr_in * mask_p = (struct sockaddr_in *)mask;
+	    /* ALIGN: dst aligned, after cast
+	     * dst_p is aligned to fields of dst. */
+	    struct sockaddr_in * dst_p = (struct sockaddr_in *)(void *)dst;
+	
+	    /* ALIGN: mask_p aligned, after cast, mask_p aligned to fields of
+	     * mask. */
+	    struct sockaddr_in * mask_p = (struct sockaddr_in *)(void *)mask;
+
 	    inetroute_t * entry;
 	    if (list_p->count == list_size) {
 		list_size *= 2;
@@ -139,11 +146,13 @@ inetroute_list_init()
 		list_p->def_index = list_p->count;
 	    }
 	    if (gateway->sa_family == AF_LINK) {
-		struct sockaddr_dl * sdl = (struct sockaddr_dl *)gateway;
+		/* ALIGN: gateway aligned.  After cast, 
+		 * sdl fields should be aligned */
+		struct sockaddr_dl * sdl = (struct sockaddr_dl *)(void *)gateway;
 		entry->gateway.link = *sdl;
 	    }
 	    else {
-		struct sockaddr_in * in_p = (struct sockaddr_in *)gateway;
+		struct sockaddr_in * in_p = (struct sockaddr_in *)(void *)gateway;
 		entry->gateway.inet = *in_p;
 	    }
 	    list_p->count++;

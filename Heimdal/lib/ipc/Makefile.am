@@ -2,8 +2,8 @@ include $(top_srcdir)/Makefile.am.common
 
 noinst_LTLIBRARIES = libheim-ipcc.la libheim-ipcs.la
 
-dist_libheim_ipcc_la_SOURCES = client.c common.c
-dist_libheim_ipcs_la_SOURCES = server.c common.c
+dist_libheim_ipcc_la_SOURCES = hi_locl.h heim_ipc_types.h client.c common.c
+dist_libheim_ipcs_la_SOURCES = hi_locl.h heim_ipc_types.h server.c common.c
 
 include_HEADERS = heim-ipc.h
 
@@ -19,7 +19,9 @@ include_HEADERS = heim-ipc.h
 #endif
 
 libheim_ipcc_la_LIBADD = \
-	$(LIB_roken)
+	$(LIB_heimbase) \
+	$(LIB_roken) \
+	$(PTHREAD_LIBADD)
 
 libheim_ipcs_la_LIBADD = $(libheim_ipcc_la_LIBADD)
 
@@ -32,6 +34,8 @@ ts_http_LDADD = $(ts_LDADD)
 tc_LDADD = libheim-ipcc.la $(LIB_roken)
 
 if have_gcd
+
+EXTRA_DIST = heim_ipc.defs heim_ipc_async.defs heim_ipc_reply.defs
 
 heim_ipc.h heim_ipcUser.c heim_ipcServer.c heim_ipcServer.h: heim_ipc.defs
 	mig -header heim_ipc.h -user heim_ipcUser.c -sheader heim_ipcServer.h -server heim_ipcServer.c -I$(srcdir) $(srcdir)/heim_ipc.defs
@@ -59,6 +63,5 @@ CLEANFILES = $(built_ipcc) $(built_ipcs)
 
 $(srcdir)/client.c: $(built_ipcc)
 $(srcdir)/server.c: $(built_ipcs)
-
 
 endif

@@ -26,6 +26,7 @@
 #include "ResourceLoadScheduler.h"
 
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "InspectorInstrumentation.h"
@@ -35,6 +36,7 @@
 #include "ResourceLoader.h"
 #include "ResourceRequest.h"
 #include "SubresourceLoader.h"
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 #define REQUEST_MANAGEMENT_ENABLED 1
@@ -52,7 +54,7 @@ static const unsigned maxRequestsInFlightPerHost = 10000;
 
 ResourceLoadScheduler::HostInformation* ResourceLoadScheduler::hostForURL(const KURL& url, CreateHostPolicy createHostPolicy)
 {
-    if (!url.protocolInHTTPFamily())
+    if (!url.protocolIsInHTTPFamily())
         return m_nonHTTPProtocolHost;
 
     m_hosts.checkConsistency();
@@ -75,7 +77,7 @@ ResourceLoadScheduler* resourceLoadScheduler()
 ResourceLoadScheduler::ResourceLoadScheduler()
     : m_nonHTTPProtocolHost(new HostInformation(String(), maxRequestsInFlightForNonHTTPProtocols))
     , m_requestTimer(this, &ResourceLoadScheduler::requestTimerFired)
-    , m_isSuspendingPendingRequests(false)
+    , m_suspendPendingRequestsCount(0)
     , m_isSerialLoadingEnabled(false)
 {
 #if REQUEST_MANAGEMENT_ENABLED
@@ -83,10 +85,9 @@ ResourceLoadScheduler::ResourceLoadScheduler()
 #endif
 }
 
-PassRefPtr<SubresourceLoader> ResourceLoadScheduler::scheduleSubresourceLoad(Frame* frame, SubresourceLoaderClient* client, const ResourceRequest& request, ResourceLoadPriority priority, SecurityCheckPolicy securityCheck,
-                                                                             bool sendResourceLoadCallbacks, bool shouldContentSniff, const String& optionalOutgoingReferrer, bool shouldBufferData)
+PassRefPtr<SubresourceLoader> ResourceLoadScheduler::scheduleSubresourceLoad(Frame* frame, CachedResource* resource, const ResourceRequest& request, ResourceLoadPriority priority, const ResourceLoaderOptions& options)
 {
-    RefPtr<SubresourceLoader> loader = SubresourceLoader::create(frame, client, request, securityCheck, sendResourceLoadCallbacks, shouldContentSniff, optionalOutgoingReferrer, shouldBufferData);
+    RefPtr<SubresourceLoader> loader = SubresourceLoader::create(frame, resource, request, options);
     if (loader)
         scheduleLoad(loader.get(), priority);
     return loader.release();
@@ -114,11 +115,18 @@ void ResourceLoadScheduler::scheduleLoad(ResourceLoader* resourceLoader, Resourc
 #endif
 
     LOG(ResourceLoading, "ResourceLoadScheduler::load resource %p '%s'", resourceLoader, resourceLoader->url().string().latin1().data());
+
+    // If there's a web archive resource for this URL, we don't need to schedule the load since it will never touch the network.
+    if (resourceLoader->documentLoader()->archiveResourceForURL(resourceLoader->request().url())) {
+        resourceLoader->start();
+        return;
+    }
+
     HostInformation* host = hostForURL(resourceLoader->url(), CreateIfNotFound);    
     bool hadRequests = host->hasRequests();
     host->schedule(resourceLoader, priority);
 
-    if (priority > ResourceLoadPriorityLow || !resourceLoader->url().protocolInHTTPFamily() || (priority == ResourceLoadPriorityLow && !hadRequests)) {
+    if (priority > ResourceLoadPriorityLow || !resourceLoader->url().protocolIsInHTTPFamily() || (priority == ResourceLoadPriorityLow && !hadRequests)) {
         // Try to request important resources immediately.
         servePendingRequests(host, priority);
         return;
@@ -154,8 +162,8 @@ void ResourceLoadScheduler::crossOriginRedirectReceived(ResourceLoader* resource
 
 void ResourceLoadScheduler::servePendingRequests(ResourceLoadPriority minimumPriority)
 {
-    LOG(ResourceLoading, "ResourceLoadScheduler::servePendingRequests. m_isSuspendingPendingRequests=%d", m_isSuspendingPendingRequests); 
-    if (m_isSuspendingPendingRequests)
+    LOG(ResourceLoading, "ResourceLoadScheduler::servePendingRequests. m_suspendPendingRequestsCount=%d", m_suspendPendingRequestsCount); 
+    if (isSuspendingPendingRequests())
         return;
 
     m_requestTimer.stop();
@@ -205,14 +213,15 @@ void ResourceLoadScheduler::servePendingRequests(HostInformation* host, Resource
 
 void ResourceLoadScheduler::suspendPendingRequests()
 {
-    ASSERT(!m_isSuspendingPendingRequests);
-    m_isSuspendingPendingRequests = true;
+    ++m_suspendPendingRequestsCount;
 }
 
 void ResourceLoadScheduler::resumePendingRequests()
 {
-    ASSERT(m_isSuspendingPendingRequests);
-    m_isSuspendingPendingRequests = false;
+    ASSERT(m_suspendPendingRequestsCount);
+    --m_suspendPendingRequestsCount;
+    if (m_suspendPendingRequestsCount)
+        return;
     if (!m_hosts.isEmpty() || m_nonHTTPProtocolHost->hasRequests())
         scheduleServePendingRequests();
 }

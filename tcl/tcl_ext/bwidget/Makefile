@@ -17,7 +17,7 @@ TEApotProject         = Bwidget
 
 Configure             = :
 
-GnuAfterInstall       = install-doc fix-perms
+GnuAfterInstall       = fix-perms
 GnuNoBuild            = YES
 GnuNoInstall          = YES
 GnuNoClean            = YES
@@ -33,7 +33,3 @@ install::
 include ../TEA.make
 
 Version               = $(shell awk '/^package ifneeded/ {print $$4}' "$(Sources)"/pkgIndex.tcl)
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/BWman/*.html "$(DSTROOT)$(TclExtHtmlDir)"

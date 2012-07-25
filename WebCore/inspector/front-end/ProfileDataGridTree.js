@@ -23,6 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.DataGridNode}
+ */
 WebInspector.ProfileDataGridNode = function(profileView, profileNode, owningTree, hasChildren)
 {
     this.profileView = profileView;
@@ -50,7 +54,7 @@ WebInspector.ProfileDataGridNode.prototype = {
     {
         function formatMilliseconds(time)
         {
-            return Number.secondsToString(time / 1000, !Preferences.samplingCPUProfiler);
+            return Number.secondsToString(time / 1000, !Capabilities.samplingCPUProfiler);
         }
 
         var data = {};
@@ -58,18 +62,18 @@ WebInspector.ProfileDataGridNode.prototype = {
         data["function"] = this.functionName;
         data["calls"] = this.numberOfCalls;
 
-        if (this.profileView.showSelfTimeAsPercent)
-            data["self"] = WebInspector.UIString("%.2f%%", this.selfPercent);
+        if (this.profileView.showSelfTimeAsPercent.get())
+            data["self"] = WebInspector.UIString("%.2f%", this.selfPercent);
         else
             data["self"] = formatMilliseconds(this.selfTime);
 
-        if (this.profileView.showTotalTimeAsPercent)
-            data["total"] = WebInspector.UIString("%.2f%%", this.totalPercent);
+        if (this.profileView.showTotalTimeAsPercent.get())
+            data["total"] = WebInspector.UIString("%.2f%", this.totalPercent);
         else
             data["total"] = formatMilliseconds(this.totalTime);
 
-        if (this.profileView.showAverageTimeAsPercent)
-            data["average"] = WebInspector.UIString("%.2f%%", this.averagePercent);
+        if (this.profileView.showAverageTimeAsPercent.get())
+            data["average"] = WebInspector.UIString("%.2f%", this.averagePercent);
         else
             data["average"] = formatMilliseconds(this.averageTime);
 
@@ -96,10 +100,10 @@ WebInspector.ProfileDataGridNode.prototype = {
             cell.addStyleClass("highlight");
 
         if (this.profileNode.url) {
-            var lineNumber;
-            if (this.profileNode.lineNumber > 0)
-                lineNumber = this.profileNode.lineNumber;
-            var urlElement = WebInspector.linkifyResourceAsNode(this.profileNode.url, "scripts", lineNumber, "profile-node-file");
+            // FIXME(62725): profileNode should reference a debugger location.
+            var lineNumber = this.profileNode.lineNumber ? this.profileNode.lineNumber - 1 : 0;
+            var urlElement = this.profileView._linkifier.linkifyLocation(this.profileNode.url, lineNumber, 0, "profile-node-file");
+            urlElement.style.maxWidth = "75%";
             cell.insertBefore(urlElement, cell.firstChild);
         }
 
@@ -207,7 +211,7 @@ WebInspector.ProfileDataGridNode.prototype = {
         return this.parent !== this.dataGrid ? this.parent : this.tree;
     },
 
-    _populate: function(event)
+    _populate: function()
     {
         this._sharedPopulate();
 
@@ -295,6 +299,9 @@ WebInspector.ProfileDataGridNode.prototype = {
 
 WebInspector.ProfileDataGridNode.prototype.__proto__ = WebInspector.DataGridNode.prototype;
 
+/**
+ * @constructor
+ */
 WebInspector.ProfileDataGridTree = function(profileView, profileNode)
 {
     this.tree = this;
@@ -365,7 +372,7 @@ WebInspector.ProfileDataGridTree.propertyComparators = [{}, {}];
 
 WebInspector.ProfileDataGridTree.propertyComparator = function(/*String*/ property, /*Boolean*/ isAscending)
 {
-    var comparator = this.propertyComparators[(isAscending ? 1 : 0)][property];
+    var comparator = WebInspector.ProfileDataGridTree.propertyComparators[(isAscending ? 1 : 0)][property];
 
     if (!comparator) {
         if (isAscending) {
@@ -392,7 +399,7 @@ WebInspector.ProfileDataGridTree.propertyComparator = function(/*String*/ proper
             }
         }
 
-        this.propertyComparators[(isAscending ? 1 : 0)][property] = comparator;
+        WebInspector.ProfileDataGridTree.propertyComparators[(isAscending ? 1 : 0)][property] = comparator;
     }
 
     return comparator;

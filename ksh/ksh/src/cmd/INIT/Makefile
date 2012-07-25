@@ -37,15 +37,16 @@ $(PACKAGEROOT)/lib/package :INSTALLDIR: package.mk CONVERT.mk
 $(LIBDIR)/make :INSTALLDIR: package.mk PROBE.mk TEST.mk WWW.mk \
 	MSGFUN.mk MSGKEY.mk MAPLIB.mk
 
-:TEST: iffe
+:TEST: iffe mamake
 
 cc ld ldd :PACKAGE_INIT: mamake.c proto.c ratz.c release.c
 
 :: RELEASE hosttype.tst p.c hello.c \
+	ar.ibm.risc \
 	cc.specialize cc.pentium4 \
 	ldd.cygwin.i386 \
 	cc.darwin ldd.darwin \
-	cc.hp.pa cc.hp.pa64 ld.hp.pa ldd.hp.pa \
+	cc.hp.ia64 cc.hp.pa cc.hp.pa64 ld.hp.pa ldd.hp.pa \
 	cc.ibm.risc ldd.ibm.risc \
 	cc.linux.ia64-icc \
 	cc.lynxos.i386 cc.lynxos.ppc ldd.lynxos \
@@ -79,10 +80,10 @@ $(BINDIR)/mkdir :INSTALL: mkdir.sh
  */
 
 $(BINDIR)/.paths :INSTALL: (CC.DIALECT)
-	if	test ! -e $(<) -o -w $(<)
+	if	test ! -f $(<) -o -w $(<)
 	then	nl="
 "
-		o=`cat $(<) 2>/dev/null`
+		o=`cat $(<) 2>/dev/null` || :
 		v=
 		n=
 		case $nl$o in
@@ -248,10 +249,12 @@ prototyped.h : $(BINDIR)/proto
 dl :MAPLIB: dl.c
 
 /*
- * requiring -liconv is a botch
+ * requiring these is a botch
  */
 
 iconv :MAPLIB: iconv.c
+
+w :MAPLIB: w.c w2.c
 
 /*
  * miscellaneous -l* checks
@@ -279,6 +282,10 @@ socket :MAPLIB: socket.c nsl.c
  * some <ndbm.h> implementations use -lndbm, others -ldbm, still others -lc
  * this is why unix is starting to look like windows
  * this map allows makefiles to use -ldbm on all systems
+ *
+ * and this just in: sometimes its <gdbm-ndbm.h> and possibly -lgdbm_compat
+ *
+ * at least the -l* buck stops here
  */
 
-dbm gdbm - ndbm - dbm :MAPLIB: gdbm.c gdbm2.c
+dbm db - gdbm_compat - gdbm - ndbm - dbm :MAPLIB: db.c gdbm.c gdbm1.c gdbm2.c

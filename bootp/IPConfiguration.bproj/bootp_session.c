@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -133,6 +133,12 @@ S_open_bootp_socket(uint16_t client_port)
 		   strerror(errno));
 	goto failed;
     }
+#ifdef SO_TC_CTL
+    opt = SO_TC_CTL;
+    /* set traffic class, we don't care if it failed. */
+    (void)setsockopt(sockfd, SOL_SOCKET, SO_TRAFFIC_CLASS, &opt,
+		     sizeof(opt));
+#endif /* SO_TC_CTL */
     return sockfd;
 
  failed:
@@ -440,7 +446,7 @@ bootp_session_free(bootp_session_t * * session_p)
 
 static void
 bootp_session_deliver(bootp_session_t * session, const char * ifname,
-		      char * data, int size)
+		      void * data, int size)
 {
     bootp_receive_data_t	event;
     int 			i;
@@ -521,7 +527,7 @@ bootp_session_read(void * arg1, void * arg2)
     struct iovec 	 	iov;
     struct msghdr 		msg;
     int 			n;
-    char 			receive_buf[2048];
+    uint32_t 			receive_buf[2048/(sizeof(uint32_t))];
     bootp_session_t * 		session = (bootp_session_t *)arg1;
 
     msg.msg_name = (caddr_t)&from;
@@ -536,7 +542,9 @@ bootp_session_read(void * arg1, void * arg2)
     n = recvmsg(FDCalloutGetFD(session->read_fd), &msg, 0);
     if (n > 0) {
 	if (msghdr_copy_ifname(&msg, ifname, sizeof(ifname))) {
-	    bootp_session_deliver(session, ifname, receive_buf, n);
+	    /* ALIGN: receive_buf aligned to uint64_t bytes */
+	    bootp_session_deliver(session, ifname, 
+				  (void *)receive_buf, n);
 	}
     }
     else if (n < 0) {

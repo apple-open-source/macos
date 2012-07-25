@@ -28,16 +28,29 @@
 #include "ResourceHandleInternal.h"
 
 #include "BlobRegistry.h"
-#include "DNS.h"
 #include "Logging.h"
 #include "ResourceHandleClient.h"
 #include "Timer.h"
 #include <algorithm>
+#include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
 static bool shouldForceContentSniffing;
+
+typedef HashMap<AtomicString, ResourceHandle::BuiltinConstructor> BuiltinResourceHandleConstructorMap;
+static BuiltinResourceHandleConstructorMap& builtinResourceHandleConstructorMap()
+{
+    ASSERT(isMainThread());
+    DEFINE_STATIC_LOCAL(BuiltinResourceHandleConstructorMap, map, ());
+    return map;
+}
+
+void ResourceHandle::registerBuiltinConstructor(const AtomicString& protocol, ResourceHandle::BuiltinConstructor constructor)
+{
+    builtinResourceHandleConstructorMap().add(protocol, constructor);
+}
 
 ResourceHandle::ResourceHandle(const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
     : d(adoptPtr(new ResourceHandleInternal(this, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url()))))
@@ -55,13 +68,10 @@ ResourceHandle::ResourceHandle(const ResourceRequest& request, ResourceHandleCli
 
 PassRefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
 {
-#if ENABLE(BLOB)
-    if (request.url().protocolIs("blob")) {
-        PassRefPtr<ResourceHandle> handle = blobRegistry().createResourceHandle(request, client);
-        if (handle)
-            return handle;
-    }
-#endif
+    BuiltinResourceHandleConstructorMap::iterator protocolMapItem = builtinResourceHandleConstructorMap().find(request.url().protocol());
+
+    if (protocolMapItem != builtinResourceHandleConstructorMap().end())
+        return protocolMapItem->second(request, client);
 
     RefPtr<ResourceHandle> newHandle(adoptRef(new ResourceHandle(request, client, defersLoading, shouldContentSniff)));
 
@@ -174,58 +184,9 @@ void ResourceHandle::setDefersLoading(bool defers)
     platformSetDefersLoading(defers);
 }
 
-#if !USE(SOUP)
-void ResourceHandle::prepareForURL(const KURL& url)
-{
-    return prefetchDNS(url.host());
-}
-#endif
-
 void ResourceHandle::cacheMetadata(const ResourceResponse&, const Vector<char>&)
 {
     // Optionally implemented by platform.
 }
-
-#if USE(CFURLSTORAGESESSIONS)
-
-static RetainPtr<CFURLStorageSessionRef>& privateStorageSession()
-{
-    DEFINE_STATIC_LOCAL(RetainPtr<CFURLStorageSessionRef>, storageSession, ());
-    return storageSession;
-}
-
-static String& privateBrowsingStorageSessionIdentifierBase()
-{
-    DEFINE_STATIC_LOCAL(String, base, ());
-    return base;
-}
-
-void ResourceHandle::setPrivateBrowsingEnabled(bool enabled)
-{
-    if (!enabled) {
-        privateStorageSession() = nullptr;
-        return;
-    }
-
-    if (privateStorageSession())
-        return;
-
-    String base = privateBrowsingStorageSessionIdentifierBase().isNull() ? privateBrowsingStorageSessionIdentifierDefaultBase() : privateBrowsingStorageSessionIdentifierBase();
-    RetainPtr<CFStringRef> cfIdentifier(AdoptCF, String::format("%s.PrivateBrowsing", base.utf8().data()).createCFString());
-
-    privateStorageSession() = createPrivateBrowsingStorageSession(cfIdentifier.get());
-}
-
-CFURLStorageSessionRef ResourceHandle::privateBrowsingStorageSession()
-{
-    return privateStorageSession().get();
-}
-
-void ResourceHandle::setPrivateBrowsingStorageSessionIdentifierBase(const String& identifier)
-{
-    privateBrowsingStorageSessionIdentifierBase() = identifier;
-}
-
-#endif // USE(CFURLSTORAGESESSIONS)
 
 } // namespace WebCore

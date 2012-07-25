@@ -34,6 +34,8 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "heimbase.h"
 #include "heimbasepriv.h"
@@ -103,9 +105,6 @@ test_auto_release(void)
     s1 = heim_string_create("hejsan");
     heim_auto_release(s1);
 
-    s1 = heim_string_create_with_static("hejsan");
-    heim_auto_release(s1);
-
     n1 = heim_number_create(1);
     heim_auto_release(n1);
 
@@ -120,6 +119,44 @@ test_auto_release(void)
     return 0;
 }
 
+static int
+test_string(void)
+{
+    heim_string_t s1, s2;
+    const char *string = "hejsan";
+
+    s1 = heim_string_create(string);
+    s2 = heim_string_create(string);
+
+    if (heim_cmp(s1, s2) != 0) {
+	printf("the same string is not the same\n");
+	exit(1);
+    }
+
+    heim_release(s1);
+    heim_release(s2);
+
+    return 0;
+}
+
+static int
+test_error(void)
+{
+    heim_error_t e;
+    heim_string_t s;
+
+    e = heim_error_create(10, "foo: %s", "bar");
+    heim_assert(heim_error_get_code(e) == 10, "error_code != 10");
+
+    s = heim_error_copy_string(e);
+    heim_assert(strcmp(heim_string_get_utf8(s), "foo: bar") == 0, "msg wrong");
+
+    heim_release(s);
+    heim_release(e);
+
+    return 0;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -128,6 +165,8 @@ main(int argc, char **argv)
     res |= test_memory();
     res |= test_dict();
     res |= test_auto_release();
+    res |= test_string();
+    res |= test_error();
 
-    return res;
+    return res ? 1 : 0;
 }

@@ -79,20 +79,20 @@
     with the QtWebKit bridge:
 
     \list
-    \i \bold{Hybrid C++/script}: C++ application code connects a
+    \li \b{Hybrid C++/script}: C++ application code connects a
     signal to a script function. This approach is useful if you have
     a QObject but don't want to expose the object itself to the scripting
     environment. You just want to define how the script responds to a
     signal and leave it up to the C++ side of your application to establish
     the connection between the C++ signal and the JavaScript slot.
 
-    \i \bold{Hybrid script/C++}: A script can connect signals and slots
+    \li \b{Hybrid script/C++}: A script can connect signals and slots
     to establish connections between pre-defined objects that the
     application exposes to the scripting environment. In this scenario,
     the slots themselves are still written in C++, but the definition of
     the connections is fully dynamic (script-defined).
 
-    \i \bold{Purely script-defined}: A script can both define signal
+    \li \b{Purely script-defined}: A script can both define signal
     handler functions (effectively "slots written in JavaScript"),
     \e{and} set up the connections that utilize those handlers. For
     example, a script can define a function that will handle the
@@ -132,7 +132,7 @@
 
     \snippet webkitsnippets/qtwebkit_bridge_snippets.cpp 10
 
-    The call to \c{connect() establishes a connection between the signal
+    The call to \c{connect()} establishes a connection between the signal
     \c{somethingChanged} and the slot \c{function}. Whenever the object
     \c{myObject} emits the signal \c{somethingChanged}, the slot \c{function}
     of the object \c{thisObject} gets called automatically. Let's illustrate
@@ -363,6 +363,7 @@
     by assigning it to an existing \c{<img>} element with \c{assignToHTMLImageElement()}. It can also use the \c{toDataURL()} function,
     which allows using the pixmap as the \c{src} attribute of an image or as a \c{background-image} URL. Note that the \c{toDataURL()}
     function is costly and should be used with caution.
+    It can also use the \c{toImageData()} function to convert the pixmap to a JavaScript \c{ImageData} object.
 
     Example code:
 

@@ -32,7 +32,6 @@
 #define DOMDataStore_h
 
 #include "V8DOMMap.h"
-#include "V8Node.h"
 
 #include <v8.h>
 #include <wtf/HashMap.h>
@@ -65,52 +64,35 @@ namespace WebCore {
     public:
         enum DOMWrapperMapType {
             DOMNodeMap,
+            ActiveDOMNodeMap,
             DOMObjectMap,
             ActiveDOMObjectMap,
-#if ENABLE(SVG)
-            DOMSVGElementInstanceMap
-#endif
         };
 
-        DOMDataStore(DOMData*);
+        DOMDataStore();
         virtual ~DOMDataStore();
 
         // A list of all DOMDataStore objects in the current V8 instance (thread). Normally, each World has a DOMDataStore.
         static DOMDataList& allStores();
-        // Mutex to protect against concurrent access of DOMDataList.
-        static WTF::Mutex& allStoresMutex();
-
-        DOMData* domData() const { return m_domData; }
 
         void* getDOMWrapperMap(DOMWrapperMapType);
 
         DOMNodeMapping& domNodeMap() { return *m_domNodeMap; }
+        DOMNodeMapping& activeDomNodeMap() { return *m_activeDomNodeMap; }
         DOMWrapperMap<void>& domObjectMap() { return *m_domObjectMap; }
         DOMWrapperMap<void>& activeDomObjectMap() { return *m_activeDomObjectMap; }
-#if ENABLE(SVG)
-        DOMWrapperMap<SVGElementInstance>& domSvgElementInstanceMap() { return *m_domSvgElementInstanceMap; }
-#endif
 
         // Need by V8GCController.
         static void weakActiveDOMObjectCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
+        static void weakNodeCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
 
     protected:
-        static void weakNodeCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
         static void weakDOMObjectCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
-#if ENABLE(SVG)
-        static void weakSVGElementInstanceCallback(v8::Persistent<v8::Value> v8Object, void* domObject);
-#endif
-        
+
         DOMNodeMapping* m_domNodeMap;
+        DOMNodeMapping* m_activeDomNodeMap;
         DOMWrapperMap<void>* m_domObjectMap;
         DOMWrapperMap<void>* m_activeDomObjectMap;
-#if ENABLE(SVG)
-        DOMWrapperMap<SVGElementInstance>* m_domSvgElementInstanceMap;
-#endif
-
-    private:
-        // A back-pointer to the DOMData to which we belong.
-        DOMData* m_domData;
     };
 
 } // namespace WebCore

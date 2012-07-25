@@ -28,7 +28,7 @@ GAS_OTHER_SRCS = stuff/bytesex.h stuff/bool.h stuff/rnd.h stuff/errors.h \
 		 stuff/openstep_mach.h opcode/arm.h
 OTHER_SRCS = notes gnu/symseg.h \
 	     stuff/allocate.h stuff/arch.h stuff/execute.h \
-	     stuff/ofile.h stuff/lto.h \
+	     stuff/ofile.h stuff/lto.h stuff/llvm.h \
 	     stuff/hash_string.h stuff/breakout.h stuff/best_arch.h \
 	     stuff/hppa.h stuff/reloc.h stuff/vm_flush_cache.h \
 	     stuff/print.h stuff/version_number.h stuff/crc32.h sys/gmon.h \
@@ -38,7 +38,8 @@ OTHER_SRCS = notes gnu/symseg.h \
 	     stuff/symbol.h stuff/unix_standard_mode.h \
 	     coff/base_relocs.h coff/bytesex.h coff/ms_dos_stub.h \
 	     coff/filehdr.h coff/aouthdr.h coff/scnhdr.h coff/syment.h \
-	     coff/debug_directory.h elf/dwarf2.h $(GAS_OTHER_SRCS)
+	     coff/debug_directory.h elf/dwarf2.h llvm-c/Disassembler.h \
+	     $(GAS_OTHER_SRCS)
 
 ENCUMBERED_SRCS = gnu/a.out.h gnu/exec.h
 
@@ -54,6 +55,8 @@ GAS_MISSING_SRCS = mach/m68k/thread_status.h \
 		   mach/sparc/thread_status.h \
 		   architecture/sparc/reg.h \
 		   mach/arm/thread_status.h \
+		   mach/arm/thread_state.h \
+		   mach/arm/_structs.h \
 		   mach/ppc/thread_status.h \
 		   mach/ppc/_structs.h
 

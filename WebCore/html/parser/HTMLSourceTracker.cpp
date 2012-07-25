@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "HTMLSourceTracker.h"
+#include "HTMLTokenizer.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -32,37 +34,53 @@ HTMLSourceTracker::HTMLSourceTracker()
 {
 }
 
-void HTMLSourceTracker::start(const HTMLInputStream& input, HTMLToken& token)
+void HTMLSourceTracker::start(const HTMLInputStream& input, HTMLTokenizer* tokenizer, HTMLToken& token)
 {
-    m_sourceFromPreviousSegments = token.type() == HTMLToken::Uninitialized ? String() : m_sourceFromPreviousSegments + m_source.toString();
-    m_source = input.current();
-    token.setBaseOffset(input.current().numberOfCharactersConsumed() - m_sourceFromPreviousSegments.length());
+    if (token.type() == HTMLTokenTypes::Uninitialized) {
+        m_previousSource.clear();
+        if (tokenizer->numberOfBufferedCharacters())
+            m_previousSource = tokenizer->bufferedCharacters();
+    } else
+        m_previousSource.append(m_currentSource);
+
+    m_currentSource = input.current();
+    token.setBaseOffset(m_currentSource.numberOfCharactersConsumed() - m_previousSource.length());
 }
 
-void HTMLSourceTracker::end(const HTMLInputStream& input, HTMLToken& token)
+void HTMLSourceTracker::end(const HTMLInputStream& input, HTMLTokenizer* tokenizer, HTMLToken& token)
 {
     m_cachedSourceForToken = String();
+
     // FIXME: This work should really be done by the HTMLTokenizer.
-    token.end(input.current().numberOfCharactersConsumed());
+    token.end(input.current().numberOfCharactersConsumed() - tokenizer->numberOfBufferedCharacters());
 }
 
 String HTMLSourceTracker::sourceForToken(const HTMLToken& token)
 {
-    if (token.type() == HTMLToken::EndOfFile)
+    if (token.type() == HTMLTokenTypes::EndOfFile)
         return String(); // Hides the null character we use to mark the end of file.
 
     if (!m_cachedSourceForToken.isEmpty())
         return m_cachedSourceForToken;
 
     ASSERT(!token.startIndex());
-    UChar* data = 0;
-    int length = token.endIndex() - token.startIndex() - m_sourceFromPreviousSegments.length();
-    String source = String::createUninitialized(length, data);
-    for (int i = 0; i < length; ++i) {
-        data[i] = *m_source;
-        m_source.advance();
+    size_t length = static_cast<size_t>(token.endIndex() - token.startIndex());
+
+    StringBuilder source;
+    source.reserveCapacity(length);
+
+    size_t i = 0;
+    for ( ; i < length && !m_previousSource.isEmpty(); ++i) {
+        source.append(*m_previousSource);
+        m_previousSource.advance();
     }
-    m_cachedSourceForToken = m_sourceFromPreviousSegments + source;
+    for ( ; i < length; ++i) {
+        ASSERT(!m_currentSource.isEmpty());
+        source.append(*m_currentSource);
+        m_currentSource.advance();
+    }
+
+    m_cachedSourceForToken = source.toString();
     return m_cachedSourceForToken;
 }
 

@@ -254,8 +254,8 @@ static int l2tp_send(int ctrlsockfd, u_int8_t* buf, int len, u_int16_t session_i
 
 extern int 		kill_link;
 
-u_int8_t		control_buf[MAX_CNTL_BUFFER_SIZE];
-struct l2tp_header	*control_hdr = (struct l2tp_header *)control_buf;
+u_int8_t		control_buf[MAX_CNTL_BUFFER_SIZE] __attribute__ ((aligned(4)));
+struct l2tp_header	*control_hdr = ALIGNED_CAST(struct l2tp_header *)control_buf;
 
 
 /* -----------------------------------------------------------------------------
@@ -548,15 +548,15 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
     u_int16_t	avp_type;
     u_int16_t	value_len;
     u_int16_t	attr_size;
-    u_int8_t*	value_buf;
+    u_int8_t*	value_buf = NULL;
     int		first_avp = 1;
     int		mandatory_msg = 0;
     int		random_vector_len = 0;
     u_int8_t	random_vector[MAX_RANDOM_VECTOR_SIZE];
     u_int8_t	unhide_buf[MAX_AVP_VALUE_SIZE];
     u_int32_t	avp_bitmap = 0;			/* for checking if all mandatory AVPs are present */
-            
-
+    struct      l2tp_avp_hdr avp_hdr;
+    
     buf += L2TP_CNTL_HDR_SIZE;
     len -= L2TP_CNTL_HDR_SIZE;
     
@@ -565,9 +565,11 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
         */
     while (len > 0) {                
             /* get AVP flags and len */
-            avp_flags = ntohs(((struct l2tp_avp_hdr*)buf)->flags_len);
+            memcpy(&avp_hdr, buf, sizeof(struct l2tp_avp_hdr));      // Wcast-align fix - copy header to aligned struct
+            
+            avp_flags = ntohs(avp_hdr.flags_len);
             avp_len = avp_flags & L2TP_AVP_LEN_MASK;
-            avp_type = ntohs(((struct l2tp_avp_hdr*)buf)->type);
+            avp_type = ntohs(avp_hdr.type);
                             
             /* check the avp length */
             if (avp_len < L2TP_AVP_HDR_SIZE || avp_len > len) {
@@ -575,10 +577,13 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                     return -1;
             }
                                             
-            avp_vendor = ntohs(((struct l2tp_avp_hdr*)buf)->vendor_id);
+            avp_vendor = ntohs(avp_hdr.vendor_id);
 
             /* setup ptr and len for value - inc input buf ptr to next AVP */
-            value_buf = buf + L2TP_AVP_HDR_SIZE;
+            if (value_buf != NULL)
+                free(value_buf);
+            value_buf = malloc(avp_len);                    // Wcast-align fix - copy avp to aligned buffer
+            memcpy(value_buf, buf + L2TP_AVP_HDR_SIZE, avp_len);
             value_len = avp_len - L2TP_AVP_HDR_SIZE;
             buf += avp_len; 			
             len -= avp_len;				
@@ -599,7 +604,7 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             error("L2TP invalid Message Type AVP... AVP type = %d\n", avp_type);
                             return -1;
                     }
-                    msg_type = ntohs(*((u_int16_t*)value_buf));
+                    msg_type = ntohs(*(ALIGNED_CAST(u_int16_t *)value_buf));
                     if (avp_flags & L2TP_AVP_FLAGS_M)
                             mandatory_msg = 1;
                     first_avp = 0;
@@ -629,7 +634,7 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
 				
             switch (avp_type) {
                     case L2TP_AVP_PROTO_VERS:
-                            params->protocol_vers = ntohs(*((u_int16_t*)value_buf));
+                            params->protocol_vers = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
                             if (params->protocol_vers != L2TP_PROTOCOL_VERSION) {
                                     error("L2TP received message for invalid or unknown Protocol Version\n");
                                     return -1;
@@ -650,7 +655,7 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;
                             
                     case L2TP_AVP_FIRMWARE_REV:
-                            params->firmware_rev = ntohs(*((u_int16_t*)value_buf));
+                            params->firmware_rev = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
                             break;
                             
                     case L2TP_AVP_HOST_NAME:
@@ -668,20 +673,20 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;
     
                     case L2TP_AVP_TUNNEL_ID:
-                            if ((params->tunnel_id = ntohs(*((u_int16_t*)value_buf))) == 0) {
+                            if ((params->tunnel_id = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf))) == 0) {
                                     error("L2TP received invalid Assigned Tunnel ID\n");
                                     return -1;
                             }
                             break;
                             
                     case L2TP_AVP_WINDOW_SIZE:
-                            if ((params->window_size = ntohs(*((u_int16_t*)value_buf))) == 0) {
+                            if ((params->window_size = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf))) == 0) {
                                     params->window_size = 4;
                             }
                             break;
                             
                     case L2TP_AVP_SESSION_ID:
-                            if ((params->session_id = ntohs(*((u_int16_t*)value_buf))) == 0) {
+                            if ((params->session_id = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf))) == 0) {
                                     error("L2TP received invalid Assigned Session ID\n");
                                     return -1;
                             }
@@ -698,7 +703,7 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;
 
                     case L2TP_AVP_CALL_SERIAL_NUM:
-                            params->call_serial_num = ntohl(*((u_int32_t*)value_buf));
+                            params->call_serial_num = ntohl(*(ALIGNED_CAST(u_int32_t*)value_buf));
                             break;		
                                                             
                     case L2TP_AVP_BEARER_TYPE:
@@ -794,10 +799,10 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     error("L2TP received Result Code AVP with invalid length\n");
                                     return -1;
                             }
-                            params->result_code = ntohs(*((u_int16_t*)value_buf));
+                            params->result_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
 							value_buf += sizeof(u_int16_t);
                             if (value_len >= sizeof(u_int32_t)) {
-                                    params->error_code = ntohs(*((u_int16_t*)value_buf));
+                                    params->error_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
 									value_buf += sizeof(u_int16_t);
                                     if (value_len -= sizeof(u_int32_t)) {
                                             if (value_len >= sizeof(params->error_message))
@@ -809,23 +814,25 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;	
 
                     case L2TP_AVP_CALL_ERRORS:
-                            if (value_len != 26) {
+                            #define AVP_CALL_ERRORS_SIZE        26
+                            #define AVP_CALL_ERRORS_COUNT       6
+                            
+                            if (value_len != AVP_CALL_ERRORS_SIZE) {
                                     error("L2TP received Call Errors AVP with invalid length\n");
                                     return -1;
                             }
-                            value_buf += sizeof(u_int16_t);	/* increment past reserved field */
-                            params->crc_errors = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
-                            params->framing_errors = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
-                            params->hardware_overruns = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
-                            params->buffer_overruns = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
-                            params->timeout_errors = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
-                            params->alignment_errors = ntohl(*((u_int32_t*)value_buf));
-							value_buf += sizeof(u_int32_t);
+                            {
+                                u_int32_t aligned_values[AVP_CALL_ERRORS_COUNT];
+                                /* copy data to aligned buf leaving off the reserved field */
+                                memcpy(aligned_values, value_buf + sizeof(u_int16_t), AVP_CALL_ERRORS_COUNT * sizeof(u_int32_t));
+                                
+                                params->crc_errors = ntohl(aligned_values[0]);
+                                params->framing_errors = ntohl(aligned_values[1]);
+                                params->hardware_overruns = ntohl(aligned_values[2]);
+                                params->buffer_overruns = ntohl(aligned_values[3]);
+                                params->timeout_errors = ntohl(aligned_values[4]);
+                                params->alignment_errors = ntohl(aligned_values[5]);
+                            }
                             break;
 
 
@@ -834,7 +841,7 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                                     error("L2TP received Cause Code AVP with invalid length\n");
                                     return -1;
                             }
-                            params->cause_code = ntohs(*((u_int16_t*)value_buf));
+                            params->cause_code = ntohs(*(ALIGNED_CAST(u_int16_t*)value_buf));
 							value_buf += sizeof(u_int16_t);
                             params->cause_message = *value_buf++;
                             if (value_len -= (sizeof(u_int16_t) + sizeof(u_int8_t))) {
@@ -858,6 +865,8 @@ int process_pkt_data(u_int8_t* buf, size_t len, u_int16_t* type, struct l2tp_par
                             break;
             }
     }
+    if (value_buf != NULL)
+        free(value_buf);
 
                             
     /*
@@ -1128,13 +1137,13 @@ int prepare_StopCCN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
             avp_size += (sizeof(u_int16_t) + (str_size = strlen((char*)params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
-    *((u_int16_t*)buf) = params->result_code;
+    memcpy(buf, &params->result_code, sizeof(u_int16_t));		// Wcast-align fix - memcpy for unaligned access
 	buf += sizeof(u_int16_t);
     if (params->error_code)
     {
-            *((u_int16_t*)buf) = params->error_code;
+            memcpy(buf, &params->error_code, sizeof(u_int16_t));	// Wcast-align fix - memcpy for unaligned access
 			buf += sizeof(u_int16_t);
-            bcopy(params->error_message, buf, str_size);
+            memcpy(buf, params->error_message, str_size);			// Wcast-align fix - memcpy for unaligned access
             buf += str_size;
     }
     
@@ -1260,13 +1269,13 @@ size_t prepare_CDN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
             avp_size += (sizeof(u_int16_t) + (str_size = strlen((char*)params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
-    *((u_int16_t*)buf) = params->result_code;
+    memcpy(buf, &params->result_code, sizeof(u_int16_t));	// Wcast-align fix - memcpy for unaligned access
 	buf += sizeof(u_int16_t);
     if (params->error_code)
     {
-            *((u_int16_t*)buf) = params->error_code;
+            memcpy(buf, &params->error_code, sizeof(u_int16_t));	// Wcast-align fix - memcpy for unaligned access
 			buf += sizeof(u_int16_t);
-            bcopy(params->error_message, buf, str_size);
+            memcpy(buf, params->error_message, str_size);			// Wcast-align fix - memcpy for unaligned access
             buf += str_size;
     }
     
@@ -1325,15 +1334,20 @@ size_t prepare_WEN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
 ----------------------------------------------------------------------------- */
 int make_avp_hdr(u_int8_t** buf, size_t* len, u_int16_t type, size_t value_size, u_int16_t flags)
 {
+    u_int16_t val;
+    
     if (*len < L2TP_AVP_HDR_SIZE + value_size)
             return -1;
     
     *len -= (L2TP_AVP_HDR_SIZE + value_size);
-    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + value_size) | flags);
+    val = htons((L2TP_AVP_HDR_SIZE + value_size) | flags);
+    memcpy(*buf, &val, sizeof(val));        // Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = 0;
+    val = 0;
+    memcpy(*buf, &val, sizeof(val));		// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = htons(type);
+    val = htons(type);
+    memcpy(*buf, &val, sizeof(val));		// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
     
     return 0;
@@ -1346,17 +1360,23 @@ int make_avp_hdr(u_int8_t** buf, size_t* len, u_int16_t type, size_t value_size,
 ----------------------------------------------------------------------------- */
 int make_avp_short(u_int8_t** buf, size_t* len, u_int16_t type, u_int16_t value, u_int16_t flags)
 {
+    u_int16_t val;
+    
     if (*len < L2TP_AVP_HDR_SIZE + sizeof(u_int16_t))
             return -1;
 
     *len -= (L2TP_AVP_HDR_SIZE + sizeof(u_int16_t));
-    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int16_t)) | flags);
-	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = 0;
-	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = htons(type);
-	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = htons(value);
+    val = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int16_t)) | flags);
+    memcpy(*buf, &val, sizeof(val));        // Wcast-align fix - memcpy for unaligned move
+    *buf += sizeof(u_int16_t);
+    val = 0;
+    memcpy(*buf, &val, sizeof(val));		// Wcast-align fix - memcpy for unaligned move
+    *buf += sizeof(u_int16_t);
+    val = htons(type);
+    memcpy(*buf, &val, sizeof(val));		// Wcast-align fix - memcpy for unaligned move
+    *buf += sizeof(u_int16_t);
+    val = htons(value);
+    memcpy(*buf, &val, sizeof(val));		// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
     
     return 0;
@@ -1369,17 +1389,24 @@ int make_avp_short(u_int8_t** buf, size_t* len, u_int16_t type, u_int16_t value,
 ----------------------------------------------------------------------------- */
 int make_avp_long(u_int8_t** buf, size_t* len, u_int16_t type, u_int32_t value, u_int16_t flags)
 {
+    u_int16_t short_val;
+    u_int32_t long_val;
+    
     if (*len < L2TP_AVP_HDR_SIZE + sizeof(u_int32_t))
             return -1;
     
     *len -= (L2TP_AVP_HDR_SIZE + sizeof(u_int32_t));
-    *((u_int16_t*)(*buf)) = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int32_t)) | flags);
+    short_val = htons((L2TP_AVP_HDR_SIZE + sizeof(u_int32_t)) | flags);
+    memcpy(*buf, &short_val, sizeof(short_val));	// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = 0;
+    short_val = 0;
+    memcpy(*buf, &short_val, sizeof(short_val));	// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int16_t);
-    *((u_int16_t*)(*buf)) = htons(type);
-	*buf += sizeof(u_int16_t);
-    *((u_int32_t*)(*buf)) = htonl(value);
+    short_val = htons(type);
+    memcpy(*buf, &short_val, sizeof(short_val));	// Wcast-align fix - memcpy for unaligned move
+   	*buf += sizeof(u_int16_t);
+    long_val = htonl(value);
+    memcpy(*buf, &long_val, sizeof(long_val));		// Wcast-align fix - memcpy for unaligned move
 	*buf += sizeof(u_int32_t);
     
     return 0;
@@ -1391,7 +1418,7 @@ int l2tp_send(int fd, u_int8_t* buf, int len, u_int16_t session_id, struct socka
 {
     size_t 		result;
     struct sockaddr	addr;
-    struct l2tp_header	*hdr =  (struct l2tp_header *)buf;
+    u_int16_t   tmp;
     
     if (len <= 0) {
         error("L2TP incorrect size when trying to send %s\n", text);
@@ -1399,7 +1426,8 @@ int l2tp_send(int fd, u_int8_t* buf, int len, u_int16_t session_id, struct socka
     }
 
     /* specify the session id to send to. All other fields are taken care of in the extension */
-    hdr->session_id = htons(session_id);
+    tmp = htons(session_id);
+    memcpy(buf + (3 * sizeof(u_int16_t)), &tmp, sizeof(u_int16_t));     // Wcast-align fix - memcpy for unaligned access
 
     /* null address structure */
     bzero(&addr, sizeof(addr));

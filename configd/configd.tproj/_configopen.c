@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -149,8 +149,11 @@ _configopen(mach_port_t			server,
 		}
 	}
 
-	mySession = getSession(server);
-	if ((mySession != NULL) && (mySession->store != NULL)) {
+	/*
+	 * establish the new session
+	 */
+	mySession = addSession(server, openMPCopyDescription);
+	if (mySession == NULL) {
 #ifdef	DEBUG
 		SCLog(TRUE, LOG_DEBUG, CFSTR("_configopen(): session is already open."));
 #endif	/* DEBUG */
@@ -158,10 +161,6 @@ _configopen(mach_port_t			server,
 		goto done;
 	}
 
-	/*
-	 * establish the new session
-	 */
-	mySession = addSession(MACH_PORT_NULL, openMPCopyDescription);
 	*newServer = mySession->key;
 	__MACH_PORT_DEBUG(TRUE, "*** _configopen (after addSession)", *newServer);
 

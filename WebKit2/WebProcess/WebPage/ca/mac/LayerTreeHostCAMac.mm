@@ -26,10 +26,11 @@
 #import "config.h"
 #import "LayerTreeHostCAMac.h"
 
+#import "LayerHostingContext.h"
+#import "WebPage.h"
 #import "WebProcess.h"
 #import <QuartzCore/CATransaction.h>
 #import <WebCore/GraphicsLayer.h>
-#import <WebKitSystemInterface.h>
 
 using namespace WebCore;
 
@@ -48,72 +49,51 @@ PassRefPtr<LayerTreeHostCAMac> LayerTreeHostCAMac::create(WebPage* webPage)
 
 LayerTreeHostCAMac::LayerTreeHostCAMac(WebPage* webPage)
     : LayerTreeHostCA(webPage)
+    , m_layerFlushScheduler(this)
 {
 }
 
 LayerTreeHostCAMac::~LayerTreeHostCAMac()
 {
-    ASSERT(!m_flushPendingLayerChangesRunLoopObserver);
-    ASSERT(!m_remoteLayerClient);
+    ASSERT(!m_layerHostingContext);
 }
 
-void LayerTreeHostCAMac::platformInitialize(LayerTreeContext& layerTreeContext)
+void LayerTreeHostCAMac::platformInitialize()
 {
-    mach_port_t serverPort = WebProcess::shared().compositingRenderServerPort();
-    m_remoteLayerClient = WKCARemoteLayerClientMakeWithServerPort(serverPort);
+    switch (m_webPage->layerHostingMode()) {
+    case LayerHostingModeDefault:
+        m_layerHostingContext = LayerHostingContext::createForPort(WebProcess::shared().compositingRenderServerPort());
+        break;
+#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
+    case LayerHostingModeInWindowServer:
+        m_layerHostingContext = LayerHostingContext::createForWindowServer();        
+        break;
+#endif
+    }
 
-    WKCARemoteLayerClientSetLayer(m_remoteLayerClient.get(), rootLayer()->platformLayer());
-
-    layerTreeContext.contextID = WKCARemoteLayerClientGetClientId(m_remoteLayerClient.get());
+    m_layerHostingContext->setRootLayer(rootLayer()->platformLayer());
+    m_layerTreeContext.contextID = m_layerHostingContext->contextID();
 }
 
 void LayerTreeHostCAMac::scheduleLayerFlush()
 {
-    if (!m_layerFlushSchedulingEnabled)
-        return;
-
-    CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
-    
-    // Make sure we wake up the loop or the observer could be delayed until some other source fires.
-    CFRunLoopWakeUp(currentRunLoop);
-
-    if (m_flushPendingLayerChangesRunLoopObserver)
-        return;
-
-    // Run before the Core Animation commit observer, which has order 2000000.
-    const CFIndex runLoopOrder = 2000000 - 1;
-    CFRunLoopObserverContext context = { 0, this, 0, 0, 0 };
-    m_flushPendingLayerChangesRunLoopObserver.adoptCF(CFRunLoopObserverCreate(0, kCFRunLoopBeforeWaiting | kCFRunLoopExit, true, runLoopOrder, flushPendingLayerChangesRunLoopObserverCallback, &context));
-
-    CFRunLoopAddObserver(currentRunLoop, m_flushPendingLayerChangesRunLoopObserver.get(), kCFRunLoopCommonModes);
+    m_layerFlushScheduler.schedule();
 }
 
 void LayerTreeHostCAMac::setLayerFlushSchedulingEnabled(bool layerFlushingEnabled)
 {
-    if (m_layerFlushSchedulingEnabled == layerFlushingEnabled)
-        return;
-
-    m_layerFlushSchedulingEnabled = layerFlushingEnabled;
-
-    if (m_layerFlushSchedulingEnabled)
-        return;
-
-    if (!m_flushPendingLayerChangesRunLoopObserver)
-        return;
-
-    CFRunLoopObserverInvalidate(m_flushPendingLayerChangesRunLoopObserver.get());
-    m_flushPendingLayerChangesRunLoopObserver = nullptr;
+    if (layerFlushingEnabled)
+        m_layerFlushScheduler.resume();
+    else
+        m_layerFlushScheduler.suspend();
 }
 
 void LayerTreeHostCAMac::invalidate()
 {
-    if (m_flushPendingLayerChangesRunLoopObserver) {
-        CFRunLoopObserverInvalidate(m_flushPendingLayerChangesRunLoopObserver.get());
-        m_flushPendingLayerChangesRunLoopObserver = nullptr;
-    }
+    m_layerFlushScheduler.invalidate();
 
-    WKCARemoteLayerClientInvalidate(m_remoteLayerClient.get());
-    m_remoteLayerClient = nullptr;
+    m_layerHostingContext->invalidate();
+    m_layerHostingContext = nullptr;
 
     LayerTreeHostCA::invalidate();
 }
@@ -146,26 +126,52 @@ void LayerTreeHostCAMac::resumeRendering()
     [[NSNotificationCenter defaultCenter] postNotificationName:@"NSCAViewRenderDidResumeNotification" object:nil userInfo:[NSDictionary dictionaryWithObject:root forKey:@"layer"]];
 }
 
-void LayerTreeHostCAMac::flushPendingLayerChangesRunLoopObserverCallback(CFRunLoopObserverRef, CFRunLoopActivity, void* context)
+bool LayerTreeHostCAMac::flushLayers()
 {
-    LayerTreeHostCAMac* layerTreeHost = static_cast<LayerTreeHostCAMac*>(context);
-
-    ASSERT(layerTreeHost->m_layerFlushSchedulingEnabled);
-
-    // This gets called outside of the normal event loop so wrap in an autorelease pool
-    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    layerTreeHost->performScheduledLayerFlush();
-    [pool drain];
+    performScheduledLayerFlush();
+    return true;
 }
 
 void LayerTreeHostCAMac::didPerformScheduledLayerFlush()
 {
-    // We successfully flushed the pending layer changes, remove the run loop observer.
-    ASSERT(m_flushPendingLayerChangesRunLoopObserver);
-    CFRunLoopObserverInvalidate(m_flushPendingLayerChangesRunLoopObserver.get());
-    m_flushPendingLayerChangesRunLoopObserver = 0;
-
     LayerTreeHostCA::didPerformScheduledLayerFlush();
+}
+
+bool LayerTreeHostCAMac::flushPendingLayerChanges()
+{
+    if (m_layerFlushScheduler.isSuspended())
+        return false;
+
+    return LayerTreeHostCA::flushPendingLayerChanges();
+}
+
+void LayerTreeHostCAMac::setLayerHostingMode(LayerHostingMode layerHostingMode)
+{
+    if (layerHostingMode == m_layerHostingContext->layerHostingMode())
+        return;
+
+    // The mode has changed.
+
+    // First, invalidate the old hosting context.
+    m_layerHostingContext->invalidate();
+    m_layerHostingContext = nullptr;
+
+    // Create a new context and set it up.
+    switch (layerHostingMode) {
+    case LayerHostingModeDefault:
+        m_layerHostingContext = LayerHostingContext::createForPort(WebProcess::shared().compositingRenderServerPort());
+        break;
+#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
+    case LayerHostingModeInWindowServer:
+        m_layerHostingContext = LayerHostingContext::createForWindowServer();        
+        break;
+#endif
+    }
+
+    m_layerHostingContext->setRootLayer(rootLayer()->platformLayer());
+    m_layerTreeContext.contextID = m_layerHostingContext->contextID();
+
+    scheduleLayerFlush();
 }
 
 } // namespace WebKit

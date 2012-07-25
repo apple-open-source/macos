@@ -41,11 +41,13 @@
 namespace WebCore {
 
 class CachedImage;
-class CSSStyleDeclaration;
-class CSSStyleRule;
 class CSSStyleSheet;
+class Document;
 class Frame;
 class Page;
+class RenderObject;
+class StylePropertySet;
+class StyleRule;
 
 // This class is used to serialize a page contents back to text (typically HTML).
 // It serializes all the page frames and retrieves resources such as images and CSS stylesheets.
@@ -75,9 +77,9 @@ private:
     // It also adds any resources included in that stylesheet (including any imported stylesheets and their own resources).
     void serializeCSSStyleSheet(CSSStyleSheet*, const KURL&);
 
-    void addImageToResources(CachedImage*, const KURL&);
-    void retrieveResourcesForCSSDeclaration(CSSStyleDeclaration*);
-    void retrieveResourcesForCSSRule(CSSStyleRule*);
+    void addImageToResources(CachedImage*, RenderObject*, const KURL&);
+    void retrieveResourcesForProperties(const StylePropertySet*, Document*);
+    void retrieveResourcesForRule(StyleRule*, Document*);
 
     Vector<Resource>* m_resources;
     ListHashSet<KURL> m_resourceURLs;

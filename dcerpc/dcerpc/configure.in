@@ -130,15 +130,21 @@ AM_PROG_LIBTOOL
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_SED
-AC_PROG_LEX
-AC_PROG_YACC
 AC_PATH_PROG(GENCAT, gencat, true)
-AC_PATH_PROG(BISON, bison)
-AC_PATH_PROG(XCRUN, xcrun)
+AC_CHECK_PROG(XCRUN, xcrun, [/usr/bin/xcrun], [])
 AC_SUBST(GENCAT)
 AC_OBJEXT
 AC_C_INLINE
 XAC_C_ATTRIBUTE_UNUSED
+
+AC_CHECK_PROGS([FLEX], [flex])
+
+AC_PROG_YACC
+AC_PATH_PROG(BISON, bison)
+case $ac_cv_path_BISON in
+    *bison) ;;
+    *) AC_MSG_ERROR([Could not find bison]) ;;
+esac
 
 AX_CFLAGS_GCC_OPTION(-fno-strict-aliasing)
 
@@ -151,7 +157,13 @@ AX_CFLAGS_GCC_OPTION(-Wstrict-prototypes)
 AX_CFLAGS_GCC_OPTION(-Wpointer-arith)
 AX_CFLAGS_GCC_OPTION(-Wcast-align)
 AX_CFLAGS_GCC_OPTION(-Wwrite-strings)
-AX_CFLAGS_GCC_OPTION(-Wformat=2)
+
+# On Linux with autoconf 2.67, passing options with an embedded '=' gives
+# autoconf a fit and causes it to put variable names like '31078as_VAR'
+# into CFLAGS. Go figure -- jpeach
+case $target_os in
+     darwin*) AX_CFLAGS_GCC_OPTION(-Wformat=2) ;;
+esac
 
 # If we have a gcc that does stack protection, also enable
 # string API function checking.
@@ -254,6 +266,8 @@ AM_CONDITIONAL(TARGET_OS_DARWIN, test x$target_os = xdarwin)
 AC_CHECK_FUNCS(pthread_setugid_np)
 AC_CHECK_HEADERS(sys/kauth.h sys/syscall.h)
 
+AC_CHECK_FUNCS(strlcpy strlcat)
+
 if test x"$localstatedir" = x"/var"; then
     rpccachedir="$localstatedir/lib/likewise"
 else
@@ -342,8 +356,8 @@ AC_CHECK_FUNCS(backtrace backtrace_symbols backtrace_symbols_fd)
 AC_MSG_CHECKING(UUID library and tool requirements)
 AC_MSG_RESULT()
 
-AC_CHECK_HEADERS(sys/sysctl.h)
-AC_CHECK_HEADERS(net/if_arp.h)
+AC_CHECK_HEADERS([uuid/uuid.h], [], [AC_MSG_ERROR([Could not find uuid.h])])
+AC_CHECK_HEADERS([sys/sysctl.h net/if_arp.h])
 AC_CHECK_FUNCS(gettimeofday socket)
 
 #####################################################################
@@ -426,6 +440,8 @@ AX_CHECK_FRAMEWORK(Kerberos, [rpc_have_kerberos_framework=yes], [])
 AC_SUBST(GSSAPI_INCLUDES)
 AC_SUBST(GSSAPI_LDFLAGS)
 AC_SUBST(GSSAPI_LIBS)
+
+AC_CHECK_HEADERS(krb5.h gssapi/gssapi.h gssapi/gssapi_krb5.h gssapi/gssapi_ext.h)
 
 tmp_LDFLAGS="$LDFLAGS"
 LDFLAGS="$GSSAPI_LDFLAGS $LDFLAGS"
@@ -610,16 +626,6 @@ AM_CONDITIONAL(HAVE_LIKEWISE_LWMAPSECURITY,
 	test x${rpc_have_likewise_lwmapsecurity} = xyes)
 
 #####################################################################
-## COMPONENT: dcelib
-
-RPC_LIBUNISTR(CPPFLAGS_unistr, LDFLAGS_unistr, LIB_unistr,
-	AC_MSG_ERROR([cannot find a UNICODE converter]))
-
-AC_SUBST(CPPFLAGS_unistr)
-AC_SUBST(LDFLAGS_unistr)
-AC_SUBST(LIB_unistr)
-
-#####################################################################
 ## COMPONENT: rpcd
 
 AS_AC_EXPAND(SBINDIR, ["${sbindir}"])
@@ -696,6 +702,7 @@ idl_compiler/Makefile
 idl_compiler/sysdep.h
 idl_lib/Makefile
 ncklib/Makefile
+dcelib/Makefile
 ncklib/include/aix5.2.0.0/Makefile
 ncklib/include/linux-gnu/Makefile
 ncklib/include/freebsd6.0/Makefile
@@ -705,7 +712,6 @@ ncklib/include/solaris2.10/Makefile
 ncklib/include/darwin/Makefile
 ncklib/include/hpux11.11/Makefile
 ncklib/include/Makefile
-dcelib/Makefile
 rpcd/Makefile
 rpcd/dcerpcd.reg
 demos/Makefile

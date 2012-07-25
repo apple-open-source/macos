@@ -44,15 +44,23 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/getopt.c,v 1.8 2007/01/09 00:28:10 imp E
 
 #include "libc_private.h"
 
+#ifndef BUILDING_VARIANT
 int	opterr = 1,		/* if error message should be printed */
 	optind = 1,		/* index into parent argv vector */
 	optopt,			/* character checked for validity */
 	optreset;		/* reset getopt */
 char	*optarg;		/* argument associated with option */
+#endif /* !BUILDING_VARIANT */
 
 #define	BADCH	(int)'?'
 #define	BADARG	(int)':'
 #define	EMSG	""
+
+#if __DARWIN_UNIX03
+#define PROGNAME nargv[0]
+#else
+#define PROGNAME _getprogname()
+#endif
 
 /*
  * getopt --
@@ -99,8 +107,8 @@ getopt(nargc, nargv, ostr)
 			++optind;
 		if (opterr && *ostr != ':')
 			(void)fprintf(stderr,
-			    "%s: illegal option -- %c\n", _getprogname(),
-			    optopt);
+			    "%s: illegal option -- %c\n",
+			    PROGNAME, optopt);
 		return (BADCH);
 	}
 
@@ -119,13 +127,19 @@ getopt(nargc, nargv, ostr)
 			optarg = nargv[optind];
 		else {
 			/* option-argument absent */
+#if __DARWIN_UNIX03
+			/* Yes, the standard will put optind past the last
+			   argument */
+			++optind;
+			optarg = NULL;
+#endif /* __DARWIN_UNIX03 */
 			place = EMSG;
 			if (*ostr == ':')
 				return (BADARG);
 			if (opterr)
 				(void)fprintf(stderr,
 				    "%s: option requires an argument -- %c\n",
-				    _getprogname(), optopt);
+				    PROGNAME, optopt);
 			return (BADCH);
 		}
 		place = EMSG;

@@ -33,16 +33,17 @@
 
 #include "gsskrb5_locl.h"
 
-OM_uint32
-_gsskrb5_inquire_context (OM_uint32 * minor_status,
-			  const gss_ctx_id_t context_handle,
-			  gss_name_t * src_name,
-			  gss_name_t * targ_name,
-			  OM_uint32 * lifetime_rec,
-			  gss_OID * mech_type,
-			  OM_uint32 * ctx_flags,
-			  int * locally_initiated,
-			  int * open_context)
+OM_uint32 GSSAPI_CALLCONV _gsskrb5_inquire_context (
+    OM_uint32 * minor_status,
+	const gss_ctx_id_t context_handle,
+	gss_name_t * src_name,
+	gss_name_t * targ_name,
+	OM_uint32 * lifetime_rec,
+	gss_OID * mech_type,
+	OM_uint32 * ctx_flags,
+	int * locally_initiated,
+	int * open_context
+    )
 {
     krb5_context context;
     OM_uint32 ret;

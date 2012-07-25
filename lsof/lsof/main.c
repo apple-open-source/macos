@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.54 2010/07/29 15:59:28 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.55 2011/09/07 19:13:49 abe Exp $";
 #endif
 
 
@@ -154,7 +154,7 @@ main(argc, argv)
  * Create option mask.
  */
 	(void) snpf(options, sizeof(options),
-	    "?a%sbc:D:d:%sf:F:g:hi:%s%slL:%sMnNo:Op:Pr:%ss:S:tT:u:UvVwx:%s%s%s",
+	    "?a%sbc:%sD:d:%sf:F:g:hi:%s%slL:%s%snNo:Op:Pr:%ss:S:tT:u:UvVwx:%s%s%s",
 
 #if	defined(HAS_AFS) && defined(HASAOPT)
 	    "A:",
@@ -167,6 +167,12 @@ main(argc, argv)
 #else	/* !defined(HASNCACHE) */
 	    "",
 #endif	/* defined(HASNCACHE) */
+
+#if	defined(HASEOPT)
+	    "e:",
+#else	/* !defined(HASEOPT) */
+	    "",
+#endif	/* defined(HASEOPT) */
 
 #if	defined(HASKOPT)
 	    "k:",
@@ -185,6 +191,12 @@ main(argc, argv)
 #else	/* !defined(HASMOPT) && !defined(HASMNTSUP) */
 	    "",
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
+
+#if	defined(HASNORPC_H)
+	    "",
+#else	/* !defined(HASNORPC_H) */
+	    "M",
+#endif	/* defined(HASNORPC_H) */
 
 #if	defined(HASPPID)
 	    "R",
@@ -300,6 +312,13 @@ main(argc, argv)
 		Fncache = (GOp == '-') ? 0 : 1;
 		break;
 #endif	/* defined(HASNCACHE) */
+
+#if	defined(HASEOPT)
+	    case 'e':
+		if (enter_efsys(GOv, ((GOp == '+') ? 1 : 0)))
+		    err = 1;
+		break;
+#endif	/* defined(HASEOPT) */
 
 	    case 'd':
 		if (GOp == '+') {
@@ -643,9 +662,12 @@ main(argc, argv)
 		break;
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
+#if	!defined(HASNORPC_H)
 	    case 'M':
 		FportMap = (GOp == '+') ? 1 : 0;
 		break;
+#endif	/* !defined(HASNORPC_H) */
+
 	    case 'n':
 		Fhost = (GOp == '-') ? 0 : 1;
 		break;
@@ -1037,6 +1059,35 @@ main(argc, argv)
 	    (void) fprintf(stderr, "%s: -x must accompany +d or +D\n", Pn);
 	    err++;
 	}
+
+#if	defined(HASEOPT)
+	if (Efsysl) {
+
+	/*
+	 * If there are file systems specified by -e options, check them.
+	 */
+	    efsys_list_t *ep;		/* Efsysl pointer */
+	    struct mounts *mp, *mpw;	/* local mount table pointers */
+
+	    if ((mp = readmnt())) {
+		for (ep = Efsysl; ep; ep = ep->next) {
+		    for (mpw = mp; mpw; mpw = mpw->next) {
+			if (!strcmp(mpw->dir, ep->path)) {
+			    ep->mp = mpw;
+			    break;
+			}
+		    }
+		    if (!ep->mp) {
+			(void) fprintf(stderr,
+			    "%s: \"-e %s\" is not a mounted file system.\n",
+			    Pn, ep->path);
+			err++;
+		    }
+		}
+	    }
+	}
+#endif	/* defined(HASEOPT) */
+
 	if (DChelp || err || Fhelp || fh || version)
 	    usage(err ? 1 : 0, fh, version);
 /*

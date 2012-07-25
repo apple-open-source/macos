@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (c) 2011 Motorola Mobility, Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,13 +34,14 @@
 #include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
 
 OBJC_CLASS NSWindow;
-OBJC_CLASS WebInspectorProxyObjCAdapter;
-OBJC_CLASS WebInspectorWKView;
+OBJC_CLASS WKWebInspectorProxyObjCAdapter;
+OBJC_CLASS WKWebInspectorWKView;
 #endif
 
 #if PLATFORM(WIN)
@@ -48,6 +50,7 @@ OBJC_CLASS WebInspectorWKView;
 
 namespace WebKit {
 
+class WebFrameProxy;
 class WebPageGroup;
 class WebPageProxy;
 struct WebPageCreationParameters;
@@ -77,14 +80,22 @@ public:
     WebPageProxy* page() const { return m_page; }
 
     bool isVisible() const { return m_isVisible; }
+    bool isFront();
+
     void show();
     void close();
     
 #if PLATFORM(MAC)
+    void createInspectorWindow();
+    void updateInspectorWindowTitle() const;
     void inspectedViewFrameDidChange();
+#elif PLATFORM(GTK)
+    void windowDestroyed();
 #endif
 
     void showConsole();
+    void showResources();
+    void showMainResourceForFrame(WebFrameProxy*);
 
     bool isAttached() const { return m_isAttached; }
     void attach();
@@ -103,10 +114,21 @@ public:
 #if ENABLE(INSPECTOR)
     // Implemented in generated WebInspectorProxyMessageReceiver.cpp
     void didReceiveWebInspectorProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*);
-    CoreIPC::SyncReplyMode didReceiveSyncWebInspectorProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, CoreIPC::ArgumentEncoder*);
+    void didReceiveSyncWebInspectorProxyMessage(CoreIPC::Connection*, CoreIPC::MessageID, CoreIPC::ArgumentDecoder*, OwnPtr<CoreIPC::ArgumentEncoder>&);
 #endif
 
     static bool isInspectorPage(WebPageProxy*);
+
+    // Implemented the platform WebInspectorProxy file
+    String inspectorPageURL() const;
+    String inspectorBaseURL() const;
+
+#if ENABLE(INSPECTOR_SERVER)
+    void enableRemoteInspection();
+    void remoteFrontendConnected();
+    void remoteFrontendDisconnected();
+    void dispatchMessageFromRemoteFrontend(const String& message);
+#endif
 
 private:
     WebInspectorProxy(WebPageProxy* page);
@@ -114,23 +136,29 @@ private:
     virtual Type type() const { return APIType; }
 
     WebPageProxy* platformCreateInspectorPage();
-    void platformOpen(bool willOpenAttached);
+    void platformOpen();
     void platformDidClose();
     void platformBringToFront();
+    bool platformIsFront();
     void platformInspectedURLChanged(const String&);
+    unsigned platformInspectedWindowHeight();
     void platformAttach();
     void platformDetach();
     void platformSetAttachedWindowHeight(unsigned);
 
-    // Implemented the platform WebInspectorProxy file
-    String inspectorPageURL() const;
-
     // Called by WebInspectorProxy messages
     void createInspectorPage(uint64_t& inspectorPageID, WebPageCreationParameters&);
-    void didLoadInspectorPage(bool canStartAttached);
+    void didLoadInspectorPage();
     void didClose();
     void bringToFront();
     void inspectedURLChanged(const String&);
+
+#if ENABLE(INSPECTOR_SERVER)
+    void sendMessageToRemoteFrontend(const String& message);
+#endif
+
+    bool canAttach();
+    bool shouldOpenAttached();
 
     static WebPageGroup* inspectorPageGroup();
 
@@ -154,6 +182,9 @@ private:
     static const unsigned initialWindowWidth = 750;
     static const unsigned initialWindowHeight = 650;
 
+    // Keep this in sync with the value in InspectorFrontendClientLocal.
+    static const unsigned minimumAttachedHeight = 250;
+
     WebPageProxy* m_page;
 
     bool m_isVisible;
@@ -163,12 +194,19 @@ private:
     bool m_isProfilingPage;
 
 #if PLATFORM(MAC)
-    RetainPtr<WebInspectorWKView> m_inspectorView;
+    RetainPtr<WKWebInspectorWKView> m_inspectorView;
     RetainPtr<NSWindow> m_inspectorWindow;
-    RetainPtr<WebInspectorProxyObjCAdapter> m_inspectorProxyObjCAdapter;
+    RetainPtr<WKWebInspectorProxyObjCAdapter> m_inspectorProxyObjCAdapter;
+    String m_urlString;
 #elif PLATFORM(WIN)
     HWND m_inspectorWindow;
     RefPtr<WebView> m_inspectorView;
+#elif PLATFORM(GTK)
+    GtkWidget* m_inspectorView;
+    GtkWidget* m_inspectorWindow;
+#endif
+#if ENABLE(INSPECTOR_SERVER)
+    int m_remoteInspectionPageId;
 #endif
 };
 

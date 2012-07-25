@@ -79,7 +79,18 @@ const AtomicString& HTMLButtonElement::formControlType() const
     return emptyAtom;
 }
 
-void HTMLButtonElement::parseMappedAttribute(Attribute* attr)
+bool HTMLButtonElement::isPresentationAttribute(const QualifiedName& name) const
+{
+    if (name == alignAttr) {
+        // Don't map 'align' attribute.  This matches what Firefox and IE do, but not Opera.
+        // See http://bugs.webkit.org/show_bug.cgi?id=12071
+        return false;
+    }
+
+    return HTMLFormControlElement::isPresentationAttribute(name);
+}
+
+void HTMLButtonElement::parseAttribute(Attribute* attr)
 {
     if (attr->name() == typeAttr) {
         if (equalIgnoringCase(attr->value(), "reset"))
@@ -89,11 +100,8 @@ void HTMLButtonElement::parseMappedAttribute(Attribute* attr)
         else
             m_type = SUBMIT;
         setNeedsWillValidateCheck();
-    } else if (attr->name() == alignAttr) {
-        // Don't map 'align' attribute.  This matches what Firefox and IE do, but not Opera.
-        // See http://bugs.webkit.org/show_bug.cgi?id=12071
     } else
-        HTMLFormControlElement::parseMappedAttribute(attr);
+        HTMLFormControlElement::parseAttribute(attr);
 }
 
 void HTMLButtonElement::defaultEventHandler(Event* event)
@@ -162,16 +170,16 @@ bool HTMLButtonElement::appendFormData(FormDataList& formData, bool)
     return true;
 }
 
-void HTMLButtonElement::accessKeyAction(bool sendToAnyElement)
+void HTMLButtonElement::accessKeyAction(bool sendMouseEvents)
 {
     focus();
-    // send the mouse button events iff the caller specified sendToAnyElement
-    dispatchSimulatedClick(0, sendToAnyElement);
+    // Send the mouse button events if the caller specified sendMouseEvents
+    dispatchSimulatedClick(0, sendMouseEvents);
 }
 
 bool HTMLButtonElement::isURLAttribute(Attribute* attr) const
 {
-    return attr->name() == formactionAttr;
+    return attr->name() == formactionAttr || HTMLFormControlElement::isURLAttribute(attr);
 }
 
 String HTMLButtonElement::value() const

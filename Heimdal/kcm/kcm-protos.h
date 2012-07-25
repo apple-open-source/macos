@@ -109,7 +109,7 @@ kcm_ccache_remove_creds_internal (
 	kcm_ccache /*ccache*/);
 
 krb5_error_code
-kcm_ccache_resolve (
+kcm_ccache_resolve_by_name (
 	krb5_context /*context*/,
 	const char */*name*/,
 	kcm_ccache */*ccache*/);
@@ -255,7 +255,10 @@ void
 kcm_session_setup_handler (void);
 
 void
-kcm_update_expire_time (kcm_ccache /*ccache*/);
+kcm_update_renew_time (kcm_ccache /*ccache*/);
+
+void
+kcm_update_expire_time(kcm_ccache, time_t);
 
 krb5_error_code
 kcm_zero_ccache_data (
@@ -266,9 +269,6 @@ krb5_error_code
 kcm_zero_ccache_data_internal (
 	krb5_context /*context*/,
 	kcm_ccache /*cache*/);
-
-void
-kcm_parse_cache_data(krb5_context context, krb5_data *data);
 
 void
 kcm_unparse_cache_data(krb5_context context, krb5_data *data);
@@ -296,6 +296,17 @@ kcm_parse_digest_one(krb5_context context, krb5_storage *sp);
 krb5_error_code
 kcm_unparse_wrap(krb5_storage *sp, char *name, int32_t session, int (^wrapped)(krb5_storage *inner));
 
+krb5_error_code
+kcm_unparse_challenge_all(krb5_context context, krb5_storage *sp);
+
+krb5_error_code
+kcm_parse_ntlm_challenge_one(krb5_context context, krb5_storage *sp);
+
+
+krb5_error_code
+kcm_ccache_update_acquire_status(krb5_context context,
+				 kcm_ccache ccache,
+				 int status, krb5_error_code ret);
 
 #ifdef __cplusplus
 }

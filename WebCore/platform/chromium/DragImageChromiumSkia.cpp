@@ -34,10 +34,11 @@
 #include "Image.h"
 #include "NativeImageSkia.h"
 #include "NotImplemented.h"
-#include "RefPtr.h"
 #include "SkBitmap.h"
 
 #include "skia/ext/image_operations.h"
+
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -91,7 +92,7 @@ DragImageRef dissolveDragImageToFraction(DragImageRef image, float fraction)
     return image;
 }
 
-DragImageRef createDragImageFromImage(Image* image)
+DragImageRef createDragImageFromImage(Image* image, RespectImageOrientationEnum)
 {
     if (!image)
         return 0;
@@ -101,7 +102,7 @@ DragImageRef createDragImageFromImage(Image* image)
         return 0;
 
     SkBitmap* dragImage = new SkBitmap();
-    bitmap->copyTo(dragImage, SkBitmap::kARGB_8888_Config);
+    bitmap->bitmap().copyTo(dragImage, SkBitmap::kARGB_8888_Config);
     return dragImage;
 }
 

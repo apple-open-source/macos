@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
@@ -31,6 +30,7 @@
 #define AccessibilityRenderObject_h
 
 #include "AccessibilityObject.h"
+#include "LayoutTypes.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -73,6 +73,7 @@ public:
     virtual bool isNativeImage() const;
     virtual bool isPasswordField() const;
     virtual bool isNativeTextControl() const;
+    virtual bool isSearchField() const;
     virtual bool isWebArea() const;
     virtual bool isFileUploadButton() const;
     virtual bool isInputImage() const;
@@ -98,16 +99,24 @@ public:
     virtual bool isOffScreen() const;
     virtual bool isPressed() const;
     virtual bool isReadOnly() const;
+    virtual bool isUnvisited() const;
     virtual bool isVisited() const;        
     virtual bool isRequired() const;
     virtual bool isLinked() const;
+    virtual bool hasBoldFont() const;
+    virtual bool hasItalicFont() const;
+    virtual bool hasPlainText() const;
+    virtual bool hasSameFont(RenderObject*) const;
+    virtual bool hasSameFontColor(RenderObject*) const;
+    virtual bool hasSameStyle(RenderObject*) const;
+    virtual bool hasUnderline() const;
 
     virtual bool canSetFocusAttribute() const;
     virtual bool canSetTextRangeAttributes() const;
     virtual bool canSetValueAttribute() const;
     virtual bool canSetExpandedAttribute() const;
 
-    virtual void setAccessibleName(String&);
+    virtual void setAccessibleName(const AtomicString&);
     
     // Provides common logic used by all elements when determining isIgnored.
     AccessibilityObjectInclusion accessibilityIsIgnoredBase() const;
@@ -119,6 +128,7 @@ public:
     virtual float valueForRange() const;
     virtual float maxValueForRange() const;
     virtual float minValueForRange() const;
+    virtual float stepValueForRange() const;
     virtual AccessibilityObject* selectedRadioButton();
     virtual AccessibilityObject* selectedTabItem();
     virtual int layoutCount() const;
@@ -154,10 +164,9 @@ public:
     AccessibilityObject* menuForMenuButton() const;
     AccessibilityObject* menuButtonForMenu() const;
     
-    virtual IntRect boundingBoxRect() const;
-    virtual IntRect elementRect() const;
-    virtual IntSize size() const;
-    virtual IntPoint clickPoint() const;
+    virtual LayoutRect boundingBoxRect() const;
+    virtual LayoutRect elementRect() const;
+    virtual IntPoint clickPoint();
     
     void setRenderer(RenderObject* renderer) { m_renderer = renderer; }
     virtual RenderObject* renderer() const { return m_renderer; }
@@ -192,7 +201,6 @@ public:
     virtual FrameView* documentFrameView() const;
     virtual unsigned hierarchicalLevel() const;
 
-    virtual const AccessibilityChildrenVector& children();
     virtual void clearChildren();
     virtual void updateChildrenIfNecessary();
     
@@ -237,7 +245,7 @@ public:
 
     virtual VisiblePosition visiblePositionForIndex(int) const;
     virtual int indexForVisiblePosition(const VisiblePosition&) const;
-    
+
     virtual PlainTextRange doAXRangeForLine(unsigned) const;
     virtual PlainTextRange doAXRangeForIndex(unsigned) const;
     
@@ -253,11 +261,13 @@ public:
 protected:
     RenderObject* m_renderer;
     AccessibilityRole m_ariaRole;
-    mutable bool m_childrenDirty;
+    bool m_childrenDirty;
     
     void setRenderObject(RenderObject* renderer) { m_renderer = renderer; }
     void ariaLabeledByElements(Vector<Element*>& elements) const;
     bool needsToUpdateChildren() const { return m_childrenDirty; }
+    ScrollableArea* getScrollableAreaIfScrollable() const;
+    void scrollTo(const IntPoint&) const;
     
     virtual bool isDetached() const { return !m_renderer; }
 
@@ -270,22 +280,36 @@ private:
     bool hasTextAlternative() const;
     String positionalDescriptionForMSAA() const;
     PlainTextRange ariaSelectedTextRange() const;
+    Element* rootEditableElementForPosition(const Position&) const;
+    bool nodeIsTextControl(const Node*) const;
+    virtual void setNeedsToUpdateChildren() { m_childrenDirty = true; }
 
     Element* menuElementForMenuButton() const;
     Element* menuItemElementForMenu() const;
     AccessibilityRole determineAccessibilityRole();
     AccessibilityRole determineAriaRoleAttribute() const;
+    AccessibilityRole remapAriaRoleDueToParent(AccessibilityRole) const;
 
     bool isTabItemSelected() const;
+    void alterSliderValue(bool increase);
+    void changeValueByStep(bool increase);
     bool isNativeCheckboxOrRadio() const;
-    IntRect checkboxOrRadioRect() const;
+    LayoutRect checkboxOrRadioRect() const;
     void addRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const;
     AccessibilityObject* internalLinkElement() const;
     AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement*, const IntPoint&) const;
     AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement*) const;
     bool renderObjectIsObservable(RenderObject*) const;
     RenderObject* renderParentObject() const;
-    
+    bool isDescendantOfElementType(const QualifiedName& tagName) const;
+
+    void addTextFieldChildren();
+    void addImageMapChildren();
+    void addAttachmentChildren();
+#if PLATFORM(MAC)
+    void updateAttachmentViewParents();
+#endif
+
     void ariaSelectedRows(AccessibilityChildrenVector&);
     
     bool elementAttributeValue(const QualifiedName&) const;
@@ -303,7 +327,6 @@ private:
     virtual bool ariaLiveRegionBusy() const;    
     
     bool inheritsPresentationalRole() const;
-    void setNeedsToUpdateChildren() const { m_childrenDirty = true; }
     
     mutable AccessibilityRole m_roleForMSAA;
 };

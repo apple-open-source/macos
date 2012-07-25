@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2008 Apple Inc. All rights reserved.
+.\" Copyright (c) 2008,2011 Apple Inc. All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd 2/25/08               \" DATE 
+.Dd 6/30/11               \" DATE 
 .Dt libutil 3      \" Program name and manual section number 
 .Os Mac OS X
 .Sh NAME                 \" Section Header - required - don't modify 
@@ -38,14 +38,20 @@
 .In wipefs.h
 .Ft int
 .Fo wipefs_alloc
-.Fa "int file_desc"
+.Fa "int fd"
 .Fa "size_t block_size"
-.Fa "wipefs_ctx *handlep"
+.Fa "wipefs_ctx *handle"
+.Fc
+.Ft int
+.Fo wipefs_include_blocks
+.Fa "wipefs_ctx handle"
+.Fa "off_t block_offset"
+.Fa "off_t nblocks"
 .Fc
 .Ft int
 .Fo wipefs_except_blocks
 .Fa "wipefs_ctx handle"
-.Fa "off_t blockoff"
+.Fa "off_t block_offset"
 .Fa "off_t nblocks"
 .Fc
 .Ft int
@@ -54,10 +60,20 @@
 .Fc
 .Ft void
 .Fo wipefs_free
-.Fa "wipefs_ctx *handlep"
+.Fa "wipefs_ctx *handle"
 .Fc
 .Sh DESCRIPTION          \" Section Header - required - don't modify
-The wipefs family of functions wipe existing file systems on a volume.  This is usually used by the newfs_* utilities before they create new file systems on the volume, so that the existing file system will not be mounted accidentally after the new file system is created.
+The wipefs family of functions wipe existing file systems on a volume.  A
+.Li DKIOCUNMAP
+ioctl is sent to the device to invalidate all of its content.
+Then zeroes are written to various locations that are used by various file systems to recognize their content and mount their volumes.
+This is usually used by the newfs_* utilities before they create new file systems on the volume, so that the existing file system will not be mounted accidentally after the new file system is created.
+.Pp
+.Sy NOTE:
+These routines do not overwrite all volume structures.
+These routines do not securely erase the previous content.
+They only overwrite enough to make sure that the normal utilities will no longer recognize any file system content.
+It is possible that previous file system content could be recovered by other means.
 .Pp
 The
 .Fn wipefs_alloc
@@ -78,6 +94,15 @@ must be supplied if
 is a regular file.  This function does not write any data to the volume.
 .Pp
 The
+.Fn wipefs_include_blocks
+function tells wipefs to write zeroes in the block range provided, in addition to any other ranges
+it would normally write.  This may be more efficient than if the caller were to write this range
+separately, especially if the block range overlaps or is contiguous with other ranges that wipefs
+will write.  This function does not write any data to the volume.  If this function is called
+multiple times, the union of all the ranges provided will be written by
+.Fn wipefs_wipe .
+.Pp
+The
 .Fn wipefs_except_blocks
 function tells wipefs not to write anything in the block range provided.  This function is used for performance
 optimizations if the caller will write to these blocks.  It is the caller's responsibility to write to these blocks.
@@ -88,8 +113,10 @@ written by
 .Pp
 The
 .Fn wipefs_wipe
-function writes data to the volume to wipe out existing file systems on it.
-.Cm Caution:
+function sends a
+.Li DKIOCUNMAP
+ioctl and then writes data to the volume to wipe out existing file systems on it.
+.Sy CAUTION:
 this function destroys any file system or partition scheme on the volume represented by
 .Fa file_desc .
 If
@@ -112,6 +139,7 @@ to NULL.
 .Sh RETURN VALUES
 The
 .Fn wipefs_alloc ,
+.Fn wipefs_include_blocks ,
 .Fn wipefs_except_blocks
 and
 .Fn wipefs_wipe

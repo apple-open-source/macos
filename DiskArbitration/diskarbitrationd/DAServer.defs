@@ -46,9 +46,9 @@ routine _DAServerDiskGetOptions( _session : mach_port_t;
                                  _disk    : ___caddr_t;
                              out _options : int32_t );
 
-routine _DAServerDiskGetUserRUID( _session : mach_port_t;
-                                  _disk    : ___caddr_t;
-                              out _userUID : ___uid_t );
+routine _DAServerDiskGetUserUID( _session : mach_port_t;
+                                 _disk    : ___caddr_t;
+                             out _userUID : ___uid_t );
 
 routine _DAServerDiskIsClaimed( _session : mach_port_t;
                                 _disk    : ___caddr_t;

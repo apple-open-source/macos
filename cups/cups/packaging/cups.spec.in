@@ -1,5 +1,5 @@
 #
-# "$Id: cups.spec.in 9819 2011-06-10 21:25:02Z mike $"
+# "$Id: cups.spec.in 7718 2008-07-10 23:04:22Z mike $"
 #
 #   RPM "spec" file for CUPS.
 #
@@ -18,21 +18,16 @@
 # Conditional build options (--with name/--without name):
 #
 #   dbus     - Enable/disable DBUS support (default = enable)
-#   dnssd    - Enable/disable DNS-SD support (default = disable)
-#   php      - Enable/disable PHP support (default = enable)
+#   dnssd    - Enable/disable DNS-SD support (default = enable)
 #   static   - Enable/disable static libraries (default = enable)
 
 %{!?_with_dbus: %{!?_without_dbus: %define _with_dbus --with-dbus}}
 %{?_with_dbus: %define _dbus --enable-dbus}
 %{!?_with_dbus: %define _dbus --disable-dbus}
 
-%{!?_with_dnssd: %{!?_without_dnssd: %define _with_dnssd --with-dnssd}}
+%{!?_with_dnssd: %{!?_without_dnssd: %define _without_dnssd --without-dnssd}}
 %{?_with_dnssd: %define _dnssd --enable-dnssd}
 %{!?_with_dnssd: %define _dnssd --disable-dnssd}
-
-%{!?_with_php: %{!?_without_php: %define _with_php --with-php}}
-%{?_with_php: %define _php --with-php}
-%{!?_with_php: %define _php --without-php}
 
 %{!?_with_static: %{!?_without_static: %define _without_static --without-static}}
 %{?_with_static: %define _static --enable-static}
@@ -76,13 +71,6 @@ Summary: CUPS - LPD support
 Group: System Environment/Daemons
 Requires: %{name} = %{epoch}:%{version} xinetd
 
-%if %{?_with_php:1}%{!?_with_php:0}
-%package php
-Summary: CUPS - PHP support
-Group: Development/Languages
-Requires: %{name}-libs = %{epoch}:%{version}
-%endif
-
 %description
 CUPS is the standards-based, open source printing system developed by
 Apple Inc. for OS X and other UNIX®-like operating systems.
@@ -96,17 +84,12 @@ This package provides the CUPS shared libraries.
 %description lpd
 This package provides LPD client support.
 
-%if %{?_with_php:1}%{!?_with_php:0}
-%description php
-This package provides PHP support for CUPS.
-%endif
-
 %prep
 %setup
 
 %build
 CFLAGS="$RPM_OPT_FLAGS" CXXFLAGS="$RPM_OPT_FLAGS" LDFLAGS="$RPM_OPT_FLAGS" \
-    ./configure %{_dbus} %{_dnssd} %{_php} %{_static}
+    ./configure %{_dbus} %{_dnssd} %{_static}
 # If we got this far, all prerequisite libraries must be here.
 make
 
@@ -203,8 +186,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0700,root,root) /usr/lib/cups/backend/ipp
 /usr/lib/cups/backend/ipps
 %attr(0700,root,root) /usr/lib/cups/backend/lpd
-/usr/lib/cups/backend/parallel
-/usr/lib/cups/backend/serial
 /usr/lib/cups/backend/snmp
 /usr/lib/cups/backend/socket
 /usr/lib/cups/backend/usb
@@ -252,10 +233,6 @@ rm -rf $RPM_BUILD_ROOT
 /usr/share/doc/cups/es/*
 %dir /usr/share/doc/cups/eu
 /usr/share/doc/cups/eu/*
-%dir /usr/share/doc/cups/fr
-/usr/share/doc/cups/fr/*
-%dir /usr/share/doc/cups/hu
-/usr/share/doc/cups/hu/*
 %dir /usr/share/doc/cups/id
 /usr/share/doc/cups/id/*
 %dir /usr/share/doc/cups/it
@@ -377,13 +354,7 @@ rm -rf $RPM_BUILD_ROOT
 %dir /usr/share/man/man8
 /usr/share/man/man8/cups-lpd.8.gz
 
-%if %{?_with_php:1}%{!?_with_php:0}
-%files php
-# PHP
-/usr/lib*/php*
-%endif
-
 
 #
-# End of "$Id: cups.spec.in 9819 2011-06-10 21:25:02Z mike $".
+# End of "$Id: cups.spec.in 7718 2008-07-10 23:04:22Z mike $".
 #

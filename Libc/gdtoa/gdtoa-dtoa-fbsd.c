@@ -1,1 +1,0 @@
-FreeBSD/gdtoa-dtoa.c

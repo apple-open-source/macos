@@ -29,7 +29,15 @@
 #include "Event.h"
 
 namespace WebCore {
-    
+
+struct ProgressEventInit : public EventInit {
+    ProgressEventInit();
+
+    bool lengthComputable;
+    unsigned long long loaded;
+    unsigned long long total;
+};
+
 class ProgressEvent : public Event {
 public:
     static PassRefPtr<ProgressEvent> create()
@@ -40,21 +48,23 @@ public:
     {
         return adoptRef(new ProgressEvent(type, lengthComputable, loaded, total));
     }
-
-    void initProgressEvent(const AtomicString& typeArg, bool canBubbleArg, bool cancelableArg,
-        bool lengthComputableArg, unsigned long long loadedArg, unsigned long long totalArg);
+    static PassRefPtr<ProgressEvent> create(const AtomicString& type, const ProgressEventInit& initializer)
+    {
+        return adoptRef(new ProgressEvent(type, initializer));
+    }
 
     bool lengthComputable() const { return m_lengthComputable; }
     unsigned long long loaded() const { return m_loaded; }
     unsigned long long total() const { return m_total; }
 
+    virtual const AtomicString& interfaceName() const;
+
 protected:
     ProgressEvent();
     ProgressEvent(const AtomicString& type, bool lengthComputable, unsigned long long loaded, unsigned long long total);
+    ProgressEvent(const AtomicString&, const ProgressEventInit&);
 
 private:
-    virtual bool isProgressEvent() const { return true; }
-    
     bool m_lengthComputable;
     unsigned long long m_loaded;
     unsigned long long m_total;

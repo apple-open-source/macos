@@ -29,5 +29,4 @@ install-doc:
 	$(_v) TCLLIBPATH="$(TCLLIBPATH)" \
 	        $(Tclsh) $(Sources)/installer.tcl \
                 -nroff-path "$(DSTROOT)/$(TclExtManDir)" \
-                -html-path  "$(DSTROOT)/$(TclExtHtmlDir)" \
                 -no-examples -no-pkgs -no-wait -no-gui -no-apps

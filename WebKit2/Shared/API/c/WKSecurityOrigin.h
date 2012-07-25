@@ -34,11 +34,14 @@ extern "C" {
 
 WK_EXPORT WKTypeID WKSecurityOriginGetTypeID();
 
-WK_EXPORT WKSecurityOriginRef WKSecurityOriginCreateFromIdentifier(WKStringRef identifier);
+WK_EXPORT WKSecurityOriginRef WKSecurityOriginCreateFromString(WKStringRef string);
+WK_EXPORT WKSecurityOriginRef WKSecurityOriginCreateFromDatabaseIdentifier(WKStringRef identifier);
 WK_EXPORT WKSecurityOriginRef WKSecurityOriginCreate(WKStringRef protocol, WKStringRef host, int port);
 
-WK_EXPORT WKStringRef WKSecurityOriginGetProtocol(WKSecurityOriginRef securityOrigin);
-WK_EXPORT WKStringRef WKSecurityOriginGetHost(WKSecurityOriginRef securityOrigin);
+WK_EXPORT WKStringRef WKSecurityOriginCopyDatabaseIdentifier(WKSecurityOriginRef securityOrigin);
+WK_EXPORT WKStringRef WKSecurityOriginCopyToString(WKSecurityOriginRef securityOrigin);
+WK_EXPORT WKStringRef WKSecurityOriginCopyProtocol(WKSecurityOriginRef securityOrigin);
+WK_EXPORT WKStringRef WKSecurityOriginCopyHost(WKSecurityOriginRef securityOrigin);
 WK_EXPORT unsigned short WKSecurityOriginGetPort(WKSecurityOriginRef securityOrigin);
 
 #ifdef __cplusplus

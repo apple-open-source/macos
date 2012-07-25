@@ -232,7 +232,7 @@ read_archive(struct bsdtar *bsdtar, char mode)
 	}
 
 #ifdef HAVE_QUARANTINE
-	if (mode == 'x' && !bsdtar->option_stdout) {
+	if (mode == 'x' && bsdtar->filename != NULL && !bsdtar->option_stdout) {
 		if ((qf = qtn_file_alloc()) != NULL) {
 			int qstatus = qtn_file_init_with_path(qf, bsdtar->filename);
 			if (qstatus != 0) {

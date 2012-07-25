@@ -79,13 +79,14 @@
 #include "DOMUtilitiesPrivate.h"
 #include "DOMWindow.h"
 #include "Document.h"
-#include "DocumentFragment.h" // Only needed for ReplaceSelectionCommand.h :(
 #include "DocumentLoader.h"
 #include "DocumentMarker.h"
 #include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "EventHandler.h"
+#include "EventListenerWrapper.h"
 #include "FocusController.h"
+#include "FontCache.h"
 #include "FormState.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
@@ -103,10 +104,12 @@
 #include "HitTestResult.h"
 #include "IconURL.h"
 #include "InspectorController.h"
+#include "KURL.h"
+#include "Node.h"
 #include "Page.h"
-#include "painting/GraphicsContextBuilder.h"
+#include "PageOverlay.h"
 #include "Performance.h"
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include "PluginDocument.h"
 #include "PrintContext.h"
 #include "RenderFrame.h"
@@ -115,24 +118,28 @@
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
-#include "ReplaceSelectionCommand.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
-#include "SVGDocumentExtensions.h"
-#include "SVGSMILElement.h"
+#include "SchemeRegistry.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "ScrollTypes.h"
 #include "ScrollbarTheme.h"
+#include "SecurityPolicy.h"
 #include "Settings.h"
 #include "SkiaUtils.h"
+#include "SpellChecker.h"
 #include "SubstituteData.h"
 #include "TextAffinity.h"
 #include "TextIterator.h"
+#include "UserGestureIndicator.h"
 #include "WebAnimationControllerImpl.h"
 #include "WebConsoleMessage.h"
+#include "WebDOMEvent.h"
+#include "WebDOMEventListener.h"
 #include "WebDataSourceImpl.h"
+#include "WebDevToolsAgentPrivate.h"
 #include "WebDocument.h"
 #include "WebFindOptions.h"
 #include "WebFormElement.h"
@@ -141,28 +148,25 @@
 #include "WebIconURL.h"
 #include "WebInputElement.h"
 #include "WebNode.h"
-#include "WebPasswordAutocompleteListener.h"
 #include "WebPerformance.h"
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
-#include "WebPoint.h"
 #include "WebRange.h"
-#include "WebRect.h"
 #include "WebScriptSource.h"
 #include "WebSecurityOrigin.h"
-#include "WebSize.h"
-#include "WebURLError.h"
-#include "WebVector.h"
 #include "WebViewImpl.h"
 #include "XPathResult.h"
 #include "markup.h"
+#include "painting/GraphicsContextBuilder.h"
+#include "platform/WebPoint.h"
+#include "platform/WebRect.h"
+#include "platform/WebSize.h"
+#include "platform/WebURLError.h"
+#include "platform/WebVector.h"
 
 #include <algorithm>
+#include <public/Platform.h>
 #include <wtf/CurrentTime.h>
-
-#if OS(UNIX) && !OS(DARWIN)
-#include <gdk/gdk.h>
-#endif
 
 #if USE(V8)
 #include "AsyncFileSystem.h"
@@ -173,7 +177,7 @@
 #include "V8DirectoryEntry.h"
 #include "V8DOMFileSystem.h"
 #include "V8FileEntry.h"
-#include "WebFileSystem.h"
+#include "platform/WebFileSystem.h"
 #endif
 
 using namespace WebCore;
@@ -184,9 +188,6 @@ static int frameCount = 0;
 
 // Key for a StatsCounter tracking how many WebFrames are active.
 static const char* const webFrameActiveCount = "WebFrameActiveCount";
-
-static const char* const osdType = "application/opensearchdescription+xml";
-static const char* const osdRel = "search";
 
 // Backend for contentAsPlainText, this is a recursive function that gets
 // the text for the current frame and all of its subframes. It will append
@@ -257,7 +258,7 @@ static void frameContentAsPlainText(size_t maxChars, Frame* frame,
     for (Frame* curChild = frameTree->firstChild(); curChild; curChild = curChild->tree()->nextSibling()) {
         // Ignore the text of non-visible frames.
         RenderView* contentRenderer = curChild->contentRenderer();
-        RenderPart* ownerRenderer = curChild->ownerRenderer();        
+        RenderPart* ownerRenderer = curChild->ownerRenderer();
         if (!contentRenderer || !contentRenderer->width() || !contentRenderer->height()
             || (contentRenderer->x() + contentRenderer->width() <= 0) || (contentRenderer->y() + contentRenderer->height() <= 0)
             || (ownerRenderer && ownerRenderer->style() && ownerRenderer->style()->visibility() != VISIBLE)) {
@@ -285,6 +286,23 @@ static long long generateFrameIdentifier()
     return ++next;
 }
 
+static WebPluginContainerImpl* pluginContainerFromNode(const WebNode& node)
+{
+    if (node.isNull())
+        return 0;
+
+    const Node* coreNode = node.constUnwrap<Node>();
+    if (coreNode->hasTagName(HTMLNames::objectTag) || coreNode->hasTagName(HTMLNames::embedTag)) {
+        RenderObject* object = coreNode->renderer();
+        if (object && object->isWidget()) {
+            Widget* widget = toRenderWidget(object)->widget();
+            if (widget && widget->isPluginContainer())
+                return static_cast<WebPluginContainerImpl*>(widget);
+        }
+    }
+    return 0;
+}
+
 WebPluginContainerImpl* WebFrameImpl::pluginContainerFromFrame(Frame* frame)
 {
     if (!frame)
@@ -296,7 +314,7 @@ WebPluginContainerImpl* WebFrameImpl::pluginContainerFromFrame(Frame* frame)
 }
 
 // Simple class to override some of PrintContext behavior. Some of the methods
-// made virtual so that they can be overriden by ChromePluginPrintContext.
+// made virtual so that they can be overridden by ChromePluginPrintContext.
 class ChromePrintContext : public PrintContext {
     WTF_MAKE_NONCOPYABLE(ChromePrintContext);
 public:
@@ -305,6 +323,8 @@ public:
         , m_printedPageWidth(0)
     {
     }
+
+    virtual ~ChromePrintContext() { }
 
     virtual void begin(float width, float height)
     {
@@ -346,9 +366,59 @@ public:
         return scale;
     }
 
+    void spoolAllPagesWithBoundaries(GraphicsContext& graphicsContext, const FloatSize& pageSizeInPixels)
+    {
+        if (!m_frame->document() || !m_frame->view() || !m_frame->document()->renderer())
+            return;
+
+        m_frame->document()->updateLayout();
+
+        float pageHeight;
+        computePageRects(FloatRect(FloatPoint(0, 0), pageSizeInPixels), 0, 0, 1, pageHeight);
+
+        const float pageWidth = pageSizeInPixels.width();
+        size_t numPages = pageRects().size();
+        int totalHeight = numPages * (pageSizeInPixels.height() + 1) - 1;
+
+        // Fill the whole background by white.
+        graphicsContext.setFillColor(Color(255, 255, 255), ColorSpaceDeviceRGB);
+        graphicsContext.fillRect(FloatRect(0, 0, pageWidth, totalHeight));
+
+        graphicsContext.save();
+
+        int currentHeight = 0;
+        for (size_t pageIndex = 0; pageIndex < numPages; pageIndex++) {
+            // Draw a line for a page boundary if this isn't the first page.
+            if (pageIndex > 0) {
+                graphicsContext.save();
+                graphicsContext.setStrokeColor(Color(0, 0, 255), ColorSpaceDeviceRGB);
+                graphicsContext.setFillColor(Color(0, 0, 255), ColorSpaceDeviceRGB);
+                graphicsContext.drawLine(IntPoint(0, currentHeight),
+                                         IntPoint(pageWidth, currentHeight));
+                graphicsContext.restore();
+            }
+
+            graphicsContext.save();
+
+            graphicsContext.translate(0, currentHeight);
+#if !OS(UNIX) || OS(DARWIN)
+            // Account for the disabling of scaling in spoolPage. In the context
+            // of spoolAllPagesWithBoundaries the scale HAS NOT been pre-applied.
+            float scale = getPageShrink(pageIndex);
+            graphicsContext.scale(WebCore::FloatSize(scale, scale));
+#endif
+            spoolPage(graphicsContext, pageIndex);
+            graphicsContext.restore();
+
+            currentHeight += pageSizeInPixels.height() + 1;
+        }
+
+        graphicsContext.restore();
+    }
+
     virtual void computePageRects(const FloatRect& printRect, float headerHeight, float footerHeight, float userScaleFactor, float& outPageHeight)
     {
-        return PrintContext::computePageRects(printRect, headerHeight, footerHeight, userScaleFactor, outPageHeight);
+        PrintContext::computePageRects(printRect, headerHeight, footerHeight, userScaleFactor, outPageHeight);
     }
 
     virtual int pageCount() const
@@ -375,6 +445,8 @@ public:
         : ChromePrintContext(frame), m_plugin(plugin), m_pageCount(0), m_printerDPI(printerDPI)
     {
     }
+
+    virtual ~ChromePluginPrintContext() { }
 
     virtual void begin(float width, float height)
     {
@@ -512,49 +584,19 @@ long long WebFrameImpl::identifier() const
     return m_identifier;
 }
 
-WebURL WebFrameImpl::url() const
-{
-    const WebDataSource* ds = dataSource();
-    if (!ds)
-        return WebURL();
-    return ds->request().url();
-}
-
 WebVector<WebIconURL> WebFrameImpl::iconURLs(int iconTypes) const
 {
     FrameLoader* frameLoader = m_frame->loader();
     // The URL to the icon may be in the header. As such, only
     // ask the loader for the icon if it's finished loading.
     if (frameLoader->state() == FrameStateComplete)
-        return frameLoader->iconURLs(iconTypes);
+        return frameLoader->icon()->urlsForTypes(iconTypes);
     return WebVector<WebIconURL>();
 }
 
-WebURL WebFrameImpl::openSearchDescriptionURL() const
+WebReferrerPolicy WebFrameImpl::referrerPolicy() const
 {
-    FrameLoader* frameLoader = m_frame->loader();
-    if (frameLoader->state() == FrameStateComplete
-        && m_frame->document() && m_frame->document()->head()
-        && !m_frame->tree()->parent()) {
-        HTMLHeadElement* head = m_frame->document()->head();
-        if (head) {
-            RefPtr<HTMLCollection> children = head->children();
-            for (Node* child = children->firstItem(); child; child = children->nextItem()) {
-                HTMLLinkElement* linkElement = toHTMLLinkElement(child);
-                if (linkElement
-                    && linkElement->type() == osdType
-                    && linkElement->rel() == osdRel
-                    && !linkElement->href().isEmpty())
-                    return linkElement->href();
-            }
-        }
-    }
-    return WebURL();
-}
-
-WebString WebFrameImpl::encoding() const
-{
-    return frame()->document()->loader()->writer()->encoding();
+    return static_cast<WebReferrerPolicy>(m_frame->document()->referrerPolicy());
 }
 
 WebSize WebFrameImpl::scrollOffset() const
@@ -562,6 +604,24 @@ WebSize WebFrameImpl::scrollOffset() const
     FrameView* view = frameView();
     if (view)
         return view->scrollOffset();
+
+    return WebSize();
+}
+
+WebSize WebFrameImpl::minimumScrollOffset() const
+{
+    FrameView* view = frameView();
+    if (view)
+        return view->minimumScrollPosition() - IntPoint();
+
+    return WebSize();
+}
+
+WebSize WebFrameImpl::maximumScrollOffset() const
+{
+    FrameView* view = frameView();
+    if (view)
+        return view->maximumScrollPosition() - IntPoint();
 
     return WebSize();
 }
@@ -579,8 +639,11 @@ WebSize WebFrameImpl::contentsSize() const
 
 int WebFrameImpl::contentsPreferredWidth() const
 {
-    if (m_frame->document() && m_frame->document()->renderView())
+    if (m_frame->document() && m_frame->document()->renderView()) {
+        FontCachePurgePreventer fontCachePurgePreventer;
+
         return m_frame->document()->renderView()->minPreferredLogicalWidth();
+    }
     return 0;
 }
 
@@ -596,14 +659,19 @@ bool WebFrameImpl::hasVisibleContent() const
     return frame()->view()->visibleWidth() > 0 && frame()->view()->visibleHeight() > 0;
 }
 
+bool WebFrameImpl::hasHorizontalScrollbar() const
+{
+    return m_frame && m_frame->view() && m_frame->view()->horizontalScrollbar();
+}
+
+bool WebFrameImpl::hasVerticalScrollbar() const
+{
+    return m_frame && m_frame->view() && m_frame->view()->verticalScrollbar();
+}
+
 WebView* WebFrameImpl::view() const
 {
     return viewImpl();
-}
-
-void WebFrameImpl::clearOpener()
-{
-    m_frame->loader()->setOpener(0);
 }
 
 WebFrame* WebFrameImpl::opener() const
@@ -612,6 +680,12 @@ WebFrame* WebFrameImpl::opener() const
     if (m_frame)
         opener = m_frame->loader()->opener();
     return fromFrame(opener);
+}
+
+void WebFrameImpl::setOpener(const WebFrame* frame)
+{
+    m_frame->loader()->setOpener(frame ?
+        static_cast<const WebFrameImpl*>(frame)->m_frame : 0);
 }
 
 WebFrame* WebFrameImpl::parent() const
@@ -680,7 +754,7 @@ WebFrame* WebFrameImpl::findChildByExpression(const WebString& xpath) const
         XPathResult::ORDERED_NODE_ITERATOR_TYPE,
         0, // XPathResult object
         ec);
-    if (!xpathResult.get())
+    if (!xpathResult)
         return 0;
 
     Node* node = xpathResult->iterateNext(ec);
@@ -699,24 +773,6 @@ WebDocument WebFrameImpl::document() const
     return WebDocument(m_frame->document());
 }
 
-void WebFrameImpl::forms(WebVector<WebFormElement>& results) const
-{
-    if (!m_frame)
-        return;
-
-    RefPtr<HTMLCollection> forms = m_frame->document()->forms();
-    size_t sourceLength = forms->length();
-    Vector<WebFormElement> temp;
-    temp.reserveCapacity(sourceLength);
-    for (size_t i = 0; i < sourceLength; ++i) {
-        Node* node = forms->item(i);
-        // Strange but true, sometimes node can be 0.
-        if (node && node->isHTMLElement())
-            temp.append(WebFormElement(static_cast<HTMLFormElement*>(node)));
-    }
-    results.assign(temp);
-}
-
 WebAnimationController* WebFrameImpl::animationController()
 {
     return &m_animationController;
@@ -728,21 +784,6 @@ WebPerformance WebFrameImpl::performance() const
         return WebPerformance();
 
     return WebPerformance(m_frame->domWindow()->performance());
-}
-
-WebSecurityOrigin WebFrameImpl::securityOrigin() const
-{
-    if (!m_frame || !m_frame->document())
-        return WebSecurityOrigin();
-
-    return WebSecurityOrigin(m_frame->document()->securityOrigin());
-}
-
-void WebFrameImpl::grantUniversalAccess()
-{
-    ASSERT(m_frame && m_frame->document());
-    if (m_frame && m_frame->document())
-        m_frame->document()->securityOrigin()->grantUniversalAccess();
 }
 
 NPObject* WebFrameImpl::windowObject() const
@@ -769,24 +810,29 @@ void WebFrameImpl::bindToWindowObject(const WebString& name, NPObject* object)
 
 void WebFrameImpl::executeScript(const WebScriptSource& source)
 {
-    TextPosition1 position(WTF::OneBasedNumber::fromOneBasedInt(source.startLine), WTF::OneBasedNumber::base());
+    TextPosition position(OrdinalNumber::fromOneBasedInt(source.startLine), OrdinalNumber::first());
     m_frame->script()->executeScript(
         ScriptSourceCode(source.code, source.url, position));
 }
 
 void WebFrameImpl::executeScriptInIsolatedWorld(
-    int worldId, const WebScriptSource* sourcesIn, unsigned numSources,
+    int worldID, const WebScriptSource* sourcesIn, unsigned numSources,
     int extensionGroup)
 {
     Vector<ScriptSourceCode> sources;
 
     for (unsigned i = 0; i < numSources; ++i) {
-        TextPosition1 position(WTF::OneBasedNumber::fromOneBasedInt(sourcesIn[i].startLine), WTF::OneBasedNumber::base());
+        TextPosition position(OrdinalNumber::fromOneBasedInt(sourcesIn[i].startLine), OrdinalNumber::first());
         sources.append(ScriptSourceCode(
             sourcesIn[i].code, sourcesIn[i].url, position));
     }
 
-    m_frame->script()->evaluateInIsolatedWorld(worldId, sources, extensionGroup);
+    m_frame->script()->evaluateInIsolatedWorld(worldID, sources, extensionGroup, 0);
+}
+
+void WebFrameImpl::setIsolatedWorldSecurityOrigin(int worldID, const WebSecurityOrigin& securityOrigin)
+{
+    m_frame->script()->setIsolatedWorldSecurityOrigin(worldID, securityOrigin.get());
 }
 
 void WebFrameImpl::addMessageToConsole(const WebConsoleMessage& message)
@@ -812,16 +858,14 @@ void WebFrameImpl::addMessageToConsole(const WebConsoleMessage& message)
         return;
     }
 
-    frame()->domWindow()->console()->addMessage(
-        OtherMessageSource, LogMessageType, webCoreMessageLevel, message.text,
-        1, String());
+    frame()->domWindow()->console()->addMessage(OtherMessageSource, LogMessageType, webCoreMessageLevel, message.text);
 }
 
 void WebFrameImpl::collectGarbage()
 {
     if (!m_frame)
         return;
-    if (!m_frame->settings()->isJavaScriptEnabled())
+    if (!m_frame->settings()->isScriptEnabled())
         return;
     // FIXME: Move this to the ScriptController and make it JS neutral.
 #if USE(V8)
@@ -831,13 +875,54 @@ void WebFrameImpl::collectGarbage()
 #endif
 }
 
-#if USE(V8)
-v8::Handle<v8::Value> WebFrameImpl::executeScriptAndReturnValue(
-    const WebScriptSource& source)
+bool WebFrameImpl::checkIfRunInsecureContent(const WebURL& url) const
 {
-    TextPosition1 position(WTF::OneBasedNumber::fromOneBasedInt(source.startLine), WTF::OneBasedNumber::base());
-    return m_frame->script()->executeScript(
-        ScriptSourceCode(source.code, source.url, position)).v8Value();
+    FrameLoader* frameLoader = m_frame->loader();
+    return frameLoader->checkIfRunInsecureContent(m_frame->document()->securityOrigin(), url);
+}
+
+#if USE(V8)
+v8::Handle<v8::Value> WebFrameImpl::executeScriptAndReturnValue(const WebScriptSource& source)
+{
+    // FIXME: This fake user gesture is required to make a bunch of pyauto
+    // tests pass. If this isn't needed in non-test situations, we should
+    // consider removing this code and changing the tests.
+    // http://code.google.com/p/chromium/issues/detail?id=86397
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
+
+    TextPosition position(OrdinalNumber::fromOneBasedInt(source.startLine), OrdinalNumber::first());
+    return m_frame->script()->executeScript(ScriptSourceCode(source.code, source.url, position)).v8Value();
+}
+
+void WebFrameImpl::executeScriptInIsolatedWorld(
+    int worldID, const WebScriptSource* sourcesIn, unsigned numSources,
+    int extensionGroup, WebVector<v8::Local<v8::Value> >* results)
+{
+    Vector<ScriptSourceCode> sources;
+
+    for (unsigned i = 0; i < numSources; ++i) {
+        TextPosition position(OrdinalNumber::fromOneBasedInt(sourcesIn[i].startLine), OrdinalNumber::first());
+        sources.append(ScriptSourceCode(sourcesIn[i].code, sourcesIn[i].url, position));
+    }
+
+    if (results) {
+        Vector<ScriptValue> scriptResults;
+        m_frame->script()->evaluateInIsolatedWorld(worldID, sources, extensionGroup, &scriptResults);
+        WebVector<v8::Local<v8::Value> > v8Results(scriptResults.size());
+        for (unsigned i = 0; i < scriptResults.size(); i++)
+            v8Results[i] = v8::Local<v8::Value>::New(scriptResults[i].v8Value());
+        results->swap(v8Results);
+    } else
+        m_frame->script()->evaluateInIsolatedWorld(worldID, sources, extensionGroup, 0);
+}
+
+// Call the function with the given receiver and arguments, bypassing canExecuteScripts.
+v8::Handle<v8::Value> WebFrameImpl::callFunctionEvenIfScriptDisabled(v8::Handle<v8::Function> function,
+                                                                     v8::Handle<v8::Object> receiver,
+                                                                     int argc,
+                                                                     v8::Handle<v8::Value> argv[])
+{
+    return m_frame->script()->callFunctionEvenIfScriptDisabled(function, receiver, argc, argv).v8Value();
 }
 
 // Returns the V8 context for this frame, or an empty handle if there is none.
@@ -853,7 +938,7 @@ v8::Handle<v8::Value> WebFrameImpl::createFileSystem(WebFileSystem::Type type,
                                                      const WebString& name,
                                                      const WebString& path)
 {
-    return toV8(DOMFileSystem::create(frame()->document(), name, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), path)));
+    return toV8(DOMFileSystem::create(frame()->document(), name, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), KURL(ParsedURLString, path.utf8().data()))));
 }
 
 v8::Handle<v8::Value> WebFrameImpl::createFileEntry(WebFileSystem::Type type,
@@ -862,45 +947,12 @@ v8::Handle<v8::Value> WebFrameImpl::createFileEntry(WebFileSystem::Type type,
                                                     const WebString& filePath,
                                                     bool isDirectory)
 {
-    RefPtr<DOMFileSystemBase> fileSystem = DOMFileSystem::create(frame()->document(), fileSystemName, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), fileSystemPath));
+    RefPtr<DOMFileSystemBase> fileSystem = DOMFileSystem::create(frame()->document(), fileSystemName, AsyncFileSystemChromium::create(static_cast<AsyncFileSystem::Type>(type), KURL(ParsedURLString, fileSystemPath.utf8().data())));
     if (isDirectory)
         return toV8(DirectoryEntry::create(fileSystem, filePath));
     return toV8(FileEntry::create(fileSystem, filePath));
 }
 #endif
-
-bool WebFrameImpl::insertStyleText(
-    const WebString& css, const WebString& id) {
-    Document* document = frame()->document();
-    if (!document)
-        return false;
-    Element* documentElement = document->documentElement();
-    if (!documentElement)
-        return false;
-
-    ExceptionCode err = 0;
-
-    if (!id.isEmpty()) {
-        Element* oldElement = document->getElementById(id);
-        if (oldElement) {
-            Node* parent = oldElement->parentNode();
-            if (!parent)
-                return false;
-            parent->removeChild(oldElement, err);
-        }
-    }
-
-    RefPtr<Element> stylesheet = document->createElement(
-        HTMLNames::styleTag, false);
-    if (!id.isEmpty())
-        stylesheet->setAttribute(HTMLNames::idAttr, id);
-    stylesheet->setTextContent(css, err);
-    ASSERT(!err);
-    Node* first = documentElement->firstChild();
-    bool success = documentElement->insertBefore(stylesheet, first, err);
-    ASSERT(success);
-    return success;
-}
 
 void WebFrameImpl::reload(bool ignoreCache)
 {
@@ -924,19 +976,10 @@ void WebFrameImpl::loadRequest(const WebURLRequest& request)
 void WebFrameImpl::loadHistoryItem(const WebHistoryItem& item)
 {
     RefPtr<HistoryItem> historyItem = PassRefPtr<HistoryItem>(item);
-    ASSERT(historyItem.get());
+    ASSERT(historyItem);
 
-    // If there is no currentItem, which happens when we are navigating in
-    // session history after a crash, we need to manufacture one otherwise WebKit
-    // hoarks. This is probably the wrong thing to do, but it seems to work.
+    m_frame->loader()->prepareForHistoryNavigation();
     RefPtr<HistoryItem> currentItem = m_frame->loader()->history()->currentItem();
-    if (!currentItem) {
-        currentItem = HistoryItem::create();
-        currentItem->setLastVisitWasFailure(true);
-        m_frame->loader()->history()->setCurrentItem(currentItem.get());
-        m_frame->page()->backForward()->setCurrentItem(currentItem.get());
-    }
-
     m_inSameDocumentHistoryLoad = currentItem->shouldDoSameDocumentNavigationTo(historyItem.get());
     m_frame->page()->goToItem(historyItem.get(),
                               FrameLoadTypeIndexedBackForward);
@@ -1031,6 +1074,10 @@ WebHistoryItem WebFrameImpl::previousHistoryItem() const
 
 WebHistoryItem WebFrameImpl::currentHistoryItem() const
 {
+    // We're shutting down.
+    if (!m_frame->loader()->activeDocumentLoader())
+        return WebHistoryItem();
+
     // If we are still loading, then we don't want to clobber the current
     // history item as this could cause us to lose the scroll position and
     // document state.  However, it is OK for new navigations.
@@ -1057,14 +1104,15 @@ bool WebFrameImpl::isViewSourceModeEnabled() const
     return false;
 }
 
-void WebFrameImpl::setReferrerForRequest(
-    WebURLRequest& request, const WebURL& referrerURL) {
+void WebFrameImpl::setReferrerForRequest(WebURLRequest& request, const WebURL& referrerURL)
+{
     String referrer;
     if (referrerURL.isEmpty())
         referrer = m_frame->loader()->outgoingReferrer();
     else
         referrer = referrerURL.spec().utf16();
-    if (SecurityOrigin::shouldHideReferrer(request.url(), referrer))
+    referrer = SecurityPolicy::generateReferrerHeader(m_frame->document()->referrerPolicy(), request.url(), referrer);
+    if (referrer.isEmpty())
         return;
     request.setHTTPHeaderField(WebString::fromUTF8("Referer"), referrer);
 }
@@ -1074,12 +1122,6 @@ void WebFrameImpl::dispatchWillSendRequest(WebURLRequest& request)
     ResourceResponse response;
     m_frame->loader()->client()->dispatchWillSendRequest(
         0, 0, request.toMutableResourceRequest(), response);
-}
-
-// FIXME: Remove this overload when clients have been changed to pass options.
-WebURLLoader* WebFrameImpl::createAssociatedURLLoader()
-{
-    return new AssociatedURLLoader(this);
 }
 
 WebURLLoader* WebFrameImpl::createAssociatedURLLoader(const WebURLLoaderOptions& options)
@@ -1099,7 +1141,7 @@ unsigned WebFrameImpl::unloadListenerCount() const
 
 bool WebFrameImpl::isProcessingUserGesture() const
 {
-    return frame()->loader()->isProcessingUserGesture();
+    return ScriptController::processingUserGesture();
 }
 
 bool WebFrameImpl::willSuppressOpenerInNewFrame() const
@@ -1109,10 +1151,9 @@ bool WebFrameImpl::willSuppressOpenerInNewFrame() const
 
 void WebFrameImpl::replaceSelection(const WebString& text)
 {
-    RefPtr<DocumentFragment> fragment = createFragmentFromText(
-        frame()->selection()->toNormalizedRange().get(), text);
-    applyCommand(ReplaceSelectionCommand::create(
-        frame()->document(), fragment.get(), ReplaceSelectionCommand::SmartReplace | ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting));
+    bool selectReplacement = false;
+    bool smartReplace = true;
+    return frame()->editor()->replaceSelectionWithText(text, selectReplacement, smartReplace);
 }
 
 void WebFrameImpl::insertText(const WebString& text)
@@ -1136,7 +1177,7 @@ void WebFrameImpl::setMarkedText(
 
 void WebFrameImpl::unmarkText()
 {
-    frame()->editor()->confirmCompositionWithoutDisturbingSelection();
+    frame()->editor()->cancelComposition();
 }
 
 bool WebFrameImpl::hasMarkedText() const
@@ -1149,21 +1190,25 @@ WebRange WebFrameImpl::markedRange() const
     return frame()->editor()->compositionRange();
 }
 
+void WebFrameImpl::setSelectionToRange(const WebRange& range)
+{
+    if (frame()->selection()->isContentEditable()) {
+        RefPtr<Range> replacementRange = PassRefPtr<Range>(range);
+        frame()->selection()->setSelection(VisibleSelection(replacementRange.get(), SEL_DEFAULT_AFFINITY));
+    }
+}
+
 bool WebFrameImpl::firstRectForCharacterRange(unsigned location, unsigned length, WebRect& rect) const
 {
     if ((location + length < location) && (location + length))
         length = 0;
 
-    Element* selectionRoot = frame()->selection()->rootEditableElement();
-    Element* scope = selectionRoot ? selectionRoot : frame()->document()->documentElement();
-    RefPtr<Range> range = TextIterator::rangeFromLocationAndLength(scope, location, length);
+    RefPtr<Range> range = TextIterator::rangeFromLocationAndLength(frame()->selection()->rootEditableElementOrDocumentElement(), location, length);
     if (!range)
         return false;
     IntRect intRect = frame()->editor()->firstRectForRange(range.get());
     rect = WebRect(intRect);
-    // When inside an text control, don't adjust the range.
-    if (!selectionRoot)
-        rect = frame()->view()->contentsToWindow(rect);
+    rect = frame()->view()->contentsToWindow(rect);
 
     return true;
 }
@@ -1175,16 +1220,16 @@ size_t WebFrameImpl::characterIndexForPoint(const WebPoint& webPoint) const
 
     IntPoint point = frame()->view()->windowToContents(webPoint);
     HitTestResult result = frame()->eventHandler()->hitTestResultAtPoint(point, false);
-    RefPtr<Range> range = frame()->rangeForPoint(result.point());
-    if (!range.get())
+    RefPtr<Range> range = frame()->rangeForPoint(result.roundedPoint());
+    if (!range)
         return notFound;
 
     size_t location, length;
-    TextIterator::locationAndLengthFromRange(range.get(), location, length);
+    TextIterator::getLocationAndLengthFromRange(frame()->selection()->rootEditableElementOrDocumentElement(), range.get(), location, length);
     return location;
 }
 
-bool WebFrameImpl::executeCommand(const WebString& name)
+bool WebFrameImpl::executeCommand(const WebString& name, const WebNode& node)
 {
     ASSERT(frame());
 
@@ -1204,6 +1249,8 @@ bool WebFrameImpl::executeCommand(const WebString& name)
 
     if (command == "Copy") {
         WebPluginContainerImpl* pluginContainer = pluginContainerFromFrame(frame());
+        if (!pluginContainer)
+            pluginContainer = pluginContainerFromNode(node);
         if (pluginContainer) {
             pluginContainer->copy();
             return true;
@@ -1278,6 +1325,16 @@ bool WebFrameImpl::isContinuousSpellCheckingEnabled() const
     return frame()->editor()->isContinuousSpellCheckingEnabled();
 }
 
+void WebFrameImpl::requestTextChecking(const WebElement& webElem)
+{
+    if (webElem.isNull())
+        return;
+
+    RefPtr<Range> rangeToCheck = rangeOfContents(const_cast<Element*>(webElem.constUnwrap<Element>()));
+
+    frame()->editor()->spellChecker()->requestCheckingFor(SpellCheckRequest::create(TextCheckingTypeSpelling | TextCheckingTypeGrammar, TextCheckingProcessBatch, rangeToCheck, rangeToCheck));
+}
+
 bool WebFrameImpl::hasSelection() const
 {
     WebPluginContainerImpl* pluginContainer = pluginContainerFromFrame(frame());
@@ -1300,7 +1357,7 @@ WebString WebFrameImpl::selectionAsText() const
         return pluginContainer->plugin()->selectionAsText();
 
     RefPtr<Range> range = frame()->selection()->toNormalizedRange();
-    if (!range.get())
+    if (!range)
         return WebString();
 
     String text = range->text();
@@ -1318,10 +1375,10 @@ WebString WebFrameImpl::selectionAsMarkup() const
         return pluginContainer->plugin()->selectionAsMarkup();
 
     RefPtr<Range> range = frame()->selection()->toNormalizedRange();
-    if (!range.get())
+    if (!range)
         return WebString();
 
-    return createMarkup(range.get(), 0);
+    return createMarkup(range.get(), 0, AnnotateForInterchange, false, ResolveNonLocalURLs);
 }
 
 void WebFrameImpl::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
@@ -1351,13 +1408,19 @@ void WebFrameImpl::selectRange(const WebPoint& start, const WebPoint& end)
                                visiblePositionForWindowPoint(end));
 
     if (frame()->selection()->shouldChangeSelection(selection))
-        frame()->selection()->setSelection(selection, CharacterGranularity,
-                                           MakeNonDirectionalSelection);
+        frame()->selection()->setSelection(selection, CharacterGranularity);
+}
+
+void WebFrameImpl::selectRange(const WebRange& webRange)
+{
+    RefPtr<Range> range = static_cast<PassRefPtr<Range> >(webRange);
+    if (range)
+        frame()->selection()->setSelectedRange(range.get(), WebCore::VP_DEFAULT_AFFINITY, false);
 }
 
 VisiblePosition WebFrameImpl::visiblePositionForWindowPoint(const WebPoint& point)
 {
-    HitTestRequest::HitTestRequestType hitType = HitTestRequest::MouseMove;
+    HitTestRequest::HitTestRequestType hitType = HitTestRequest::Move;
     hitType |= HitTestRequest::ReadOnly;
     hitType |= HitTestRequest::Active;
     HitTestRequest request(hitType);
@@ -1391,15 +1454,7 @@ int WebFrameImpl::printBegin(const WebSize& pageSize,
         pluginContainer = pluginContainerFromFrame(frame());
     } else {
         // We only support printing plugin nodes for now.
-        const Node* coreNode = constrainToNode.constUnwrap<Node>();
-        if (coreNode->hasTagName(HTMLNames::objectTag) || coreNode->hasTagName(HTMLNames::embedTag)) {
-            RenderObject* object = coreNode->renderer();
-            if (object && object->isWidget()) {
-                Widget* widget = toRenderWidget(object)->widget();
-                if (widget && widget->isPluginContainer())
-                    pluginContainer =  static_cast<WebPluginContainerImpl*>(widget);
-            }
-        }
+        pluginContainer = pluginContainerFromNode(constrainToNode);
     }
 
     if (pluginContainer && pluginContainer->supportsPaginatedPrint())
@@ -1423,7 +1478,7 @@ int WebFrameImpl::printBegin(const WebSize& pageSize,
 float WebFrameImpl::getPrintPageShrink(int page)
 {
     // Ensure correct state.
-    if (!m_printContext.get() || page < 0) {
+    if (!m_printContext || page < 0) {
         ASSERT_NOT_REACHED();
         return 0;
     }
@@ -1434,7 +1489,7 @@ float WebFrameImpl::getPrintPageShrink(int page)
 float WebFrameImpl::printPage(int page, WebCanvas* canvas)
 {
     // Ensure correct state.
-    if (!m_printContext.get() || page < 0 || !frame() || !frame()->document()) {
+    if (!m_printContext || page < 0 || !frame() || !frame()->document()) {
         ASSERT_NOT_REACHED();
         return 0;
     }
@@ -1450,10 +1505,29 @@ float WebFrameImpl::printPage(int page, WebCanvas* canvas)
 
 void WebFrameImpl::printEnd()
 {
-    ASSERT(m_printContext.get());
-    if (m_printContext.get())
+    ASSERT(m_printContext);
+    if (m_printContext)
         m_printContext->end();
     m_printContext.clear();
+}
+
+bool WebFrameImpl::isPrintScalingDisabledForPlugin(const WebNode& node)
+{
+    WebPluginContainerImpl* pluginContainer = 0;
+    if (node.isNull())
+        pluginContainer = pluginContainerFromFrame(frame());
+    else
+        pluginContainer = pluginContainerFromNode(node);
+
+    if (!pluginContainer || !pluginContainer->supportsPaginatedPrint())
+        return false;
+
+    return pluginContainer->isPrintScalingDisabled();
+}
+
+bool WebFrameImpl::hasCustomPageSizeStyle(int pageIndex)
+{
+    return frame()->document()->styleForPage(pageIndex)->pageSizeType() != PAGE_SIZE_AUTO;
 }
 
 bool WebFrameImpl::isPageBoxVisible(int pageIndex)
@@ -1478,6 +1552,12 @@ void WebFrameImpl::pageSizeAndMarginsInPixels(int pageIndex,
     pageSize = size;
 }
 
+WebString WebFrameImpl::pageProperty(const WebString& propertyName, int pageIndex)
+{
+    ASSERT(m_printContext);
+    return m_printContext->pageProperty(m_frame, propertyName.utf8().data(), pageIndex);
+}
+
 bool WebFrameImpl::find(int identifier,
                         const WebString& searchText,
                         const WebFindOptions& options,
@@ -1486,94 +1566,70 @@ bool WebFrameImpl::find(int identifier,
 {
     WebFrameImpl* mainFrameImpl = viewImpl()->mainFrameImpl();
 
-    if (!options.findNext)
+    if (!options.findNext) {
         frame()->page()->unmarkAllTextMatches();
-    else
-        setMarkerActive(m_activeMatch.get(), false); // Active match is changing.
-
-    // Starts the search from the current selection.
-    bool startInSelection = true;
+        m_activeMatch = 0;
+    } else
+        setMarkerActive(m_activeMatch.get(), false);
 
     // If the user has selected something since the last Find operation we want
     // to start from there. Otherwise, we start searching from where the last Find
     // operation left off (either a Find or a FindNext operation).
     VisibleSelection selection(frame()->selection()->selection());
     bool activeSelection = !selection.isNone();
-    if (!activeSelection && m_activeMatch) {
-        selection = VisibleSelection(m_activeMatch.get());
-        frame()->selection()->setSelection(selection);
+    if (activeSelection) {
+        m_activeMatch = selection.firstRange().get();
+        frame()->selection()->clear();
     }
 
     ASSERT(frame() && frame()->view());
-    bool found = frame()->editor()->findString(
-        searchText, options.forward, options.matchCase, wrapWithinFrame,
-        startInSelection);
-    if (found) {
-        // Store which frame was active. This will come in handy later when we
-        // change the active match ordinal below.
-        WebFrameImpl* oldActiveFrame = mainFrameImpl->m_activeMatchFrame;
-        // Set this frame as the active frame (the one with the active highlight).
-        mainFrameImpl->m_activeMatchFrame = this;
+    const FindOptions findOptions = (options.forward ? 0 : Backwards)
+        | (options.matchCase ? 0 : CaseInsensitive)
+        | (wrapWithinFrame ? WrapAround : 0)
+        | (!options.findNext ? StartInSelection : 0);
+    m_activeMatch = frame()->editor()->findStringAndScrollToVisible(searchText, m_activeMatch.get(), findOptions);
 
-        // We found something, so we can now query the selection for its position.
-        VisibleSelection newSelection(frame()->selection()->selection());
-        IntRect currSelectionRect;
-
-        // If we thought we found something, but it couldn't be selected (perhaps
-        // because it was marked -webkit-user-select: none), we can't set it to
-        // be active but we still continue searching. This matches Safari's
-        // behavior, including some oddities when selectable and un-selectable text
-        // are mixed on a page: see https://bugs.webkit.org/show_bug.cgi?id=19127.
-        if (newSelection.isNone() || (newSelection.start() == newSelection.end()))
-            m_activeMatch = 0;
-        else {
-            m_activeMatch = newSelection.toNormalizedRange();
-            currSelectionRect = m_activeMatch->boundingBox();
-            setMarkerActive(m_activeMatch.get(), true); // Active.
-            // WebKit draws the highlighting for all matches.
-            executeCommand(WebString::fromUTF8("Unselect"));
-        }
-
-        // Make sure no node is focused. See http://crbug.com/38700.
-        frame()->document()->setFocusedNode(0);
-
-        if (!options.findNext || activeSelection) {
-            // This is either a Find operation or a Find-next from a new start point
-            // due to a selection, so we set the flag to ask the scoping effort
-            // to find the active rect for us so we can update the ordinal (n of m).
-            m_locatingActiveRect = true;
-        } else {
-            if (oldActiveFrame != this) {
-                // If the active frame has changed it means that we have a multi-frame
-                // page and we just switch to searching in a new frame. Then we just
-                // want to reset the index.
-                if (options.forward)
-                    m_activeMatchIndex = 0;
-                else
-                    m_activeMatchIndex = m_lastMatchCount - 1;
-            } else {
-                // We are still the active frame, so increment (or decrement) the
-                // |m_activeMatchIndex|, wrapping if needed (on single frame pages).
-                options.forward ? ++m_activeMatchIndex : --m_activeMatchIndex;
-                if (m_activeMatchIndex + 1 > m_lastMatchCount)
-                    m_activeMatchIndex = 0;
-                if (m_activeMatchIndex == -1)
-                    m_activeMatchIndex = m_lastMatchCount - 1;
-            }
-            if (selectionRect) {
-                *selectionRect = frameView()->contentsToWindow(currSelectionRect);
-                reportFindInPageSelection(*selectionRect, m_activeMatchIndex + 1, identifier);
-            }
-        }
-    } else {
-        // Nothing was found in this frame.
-        m_activeMatch = 0;
-
-        // Erase all previous tickmarks and highlighting.
+    if (!m_activeMatch) {
         invalidateArea(InvalidateAll);
+        return false;
     }
 
-    return found;
+    setMarkerActive(m_activeMatch.get(), true);
+    WebFrameImpl* oldActiveFrame = mainFrameImpl->m_currentActiveMatchFrame;
+    mainFrameImpl->m_currentActiveMatchFrame = this;
+
+    // Make sure no node is focused. See http://crbug.com/38700.
+    frame()->document()->setFocusedNode(0);
+
+    if (!options.findNext || activeSelection) {
+        // This is either a Find operation or a Find-next from a new start point
+        // due to a selection, so we set the flag to ask the scoping effort
+        // to find the active rect for us and report it back to the UI.
+        m_locatingActiveRect = true;
+    } else {
+        if (oldActiveFrame != this) {
+            if (options.forward)
+                m_activeMatchIndexInCurrentFrame = 0;
+            else
+                m_activeMatchIndexInCurrentFrame = m_lastMatchCount - 1;
+        } else {
+            if (options.forward)
+                ++m_activeMatchIndexInCurrentFrame;
+            else
+                --m_activeMatchIndexInCurrentFrame;
+
+            if (m_activeMatchIndexInCurrentFrame + 1 > m_lastMatchCount)
+                m_activeMatchIndexInCurrentFrame = 0;
+            if (m_activeMatchIndexInCurrentFrame == -1)
+                m_activeMatchIndexInCurrentFrame = m_lastMatchCount - 1;
+        }
+        if (selectionRect) {
+            *selectionRect = frameView()->contentsToWindow(m_activeMatch->boundingBox());
+            reportFindInPageSelection(*selectionRect, m_activeMatchIndexInCurrentFrame + 1, identifier);
+        }
+    }
+
+    return true;
 }
 
 void WebFrameImpl::stopFinding(bool clearSelection)
@@ -1630,7 +1686,7 @@ void WebFrameImpl::scopeStringMatches(int identifier,
     int originalEndOffset = searchRange->endOffset();
 
     ExceptionCode ec = 0, ec2 = 0;
-    if (m_resumeScopingFromRange.get()) {
+    if (m_resumeScopingFromRange) {
         // This is a continuation of a scoping operation that timed out and didn't
         // complete last time around, so we should start from where we left off.
         searchRange->setStart(m_resumeScopingFromRange->startContainer(),
@@ -1691,17 +1747,17 @@ void WebFrameImpl::scopeStringMatches(int identifier,
             bool foundActiveMatch = false;
             if (m_locatingActiveRect && (activeSelectionRect == resultBounds)) {
                 // We have found the active tickmark frame.
-                mainFrameImpl->m_activeMatchFrame = this;
+                mainFrameImpl->m_currentActiveMatchFrame = this;
                 foundActiveMatch = true;
                 // We also know which tickmark is active now.
-                m_activeMatchIndex = matchCount - 1;
+                m_activeMatchIndexInCurrentFrame = matchCount - 1;
                 // To stop looking for the active tickmark, we set this flag.
                 m_locatingActiveRect = false;
 
                 // Notify browser of new location for the selected rectangle.
                 reportFindInPageSelection(
                     frameView()->contentsToWindow(resultBounds),
-                    m_activeMatchIndex + 1,
+                    m_activeMatchIndexInCurrentFrame + 1,
                     identifier);
             }
 
@@ -1711,7 +1767,7 @@ void WebFrameImpl::scopeStringMatches(int identifier,
         // Set the new start for the search range to be the end of the previous
         // result range. There is no need to use a VisiblePosition here,
         // since findPlainText will use a TextIterator to go over the visible
-        // text nodes. 
+        // text nodes.
         searchRange->setStart(resultRange->endContainer(ec), resultRange->endOffset(ec), ec);
 
         Node* shadowTreeRoot = searchRange->shadowTreeRootNode();
@@ -1770,7 +1826,7 @@ void WebFrameImpl::cancelPendingScopingEffort()
     deleteAllValues(m_deferredScopingWork);
     m_deferredScopingWork.clear();
 
-    m_activeMatchIndex = -1;
+    m_activeMatchIndexInCurrentFrame = -1;
 }
 
 void WebFrameImpl::increaseMatchCount(int count, int identifier)
@@ -1800,6 +1856,39 @@ void WebFrameImpl::resetMatchCount()
     m_framesScopingCount = 0;
 }
 
+void WebFrameImpl::handleIntentResult(int intentIdentifier, const WebString& reply)
+{
+}
+
+void WebFrameImpl::handleIntentFailure(int intentIdentifier, const WebString& reply)
+{
+}
+
+void WebFrameImpl::addEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
+{
+    DOMWindow* window = m_frame->domWindow();
+
+    EventListenerWrapper* listenerWrapper =
+        listener->createEventListenerWrapper(eventType, useCapture, window);
+
+    m_frame->domWindow()->addEventListener(eventType, adoptRef(listenerWrapper), useCapture);
+}
+
+void WebFrameImpl::removeEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
+{
+    DOMWindow* window = m_frame->domWindow();
+
+    EventListenerWrapper* listenerWrapper =
+        listener->getEventListenerWrapper(eventType, useCapture, window);
+    window->removeEventListener(eventType, listenerWrapper, useCapture);
+}
+
+bool WebFrameImpl::dispatchEvent(const WebDOMEvent& event)
+{
+    ASSERT(!event.isNull());
+    return m_frame->domWindow()->dispatchEvent(event);
+}
+
 WebString WebFrameImpl::contentAsText(size_t maxChars) const
 {
     if (!m_frame)
@@ -1815,16 +1904,19 @@ WebString WebFrameImpl::contentAsMarkup() const
     return createFullMarkup(m_frame->document());
 }
 
-WebString WebFrameImpl::renderTreeAsText(bool showDebugInfo) const
+WebString WebFrameImpl::renderTreeAsText(RenderAsTextControls toShow) const
 {
     RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal;
 
-    if (showDebugInfo) {
+    if (toShow & RenderAsTextDebug) {
         behavior |= RenderAsTextShowCompositedLayers
             | RenderAsTextShowAddresses
             | RenderAsTextShowIDAndClass
             | RenderAsTextShowLayerNesting;
     }
+
+    if (toShow & RenderAsTextPrinting)
+        behavior |= RenderAsTextPrintingMode;
 
     return externalRepresentation(m_frame, behavior);
 }
@@ -1861,6 +1953,20 @@ int WebFrameImpl::pageNumberForElementById(const WebString& id,
     return PrintContext::pageNumberForElement(element, pageSize);
 }
 
+void WebFrameImpl::printPagesWithBoundaries(WebCanvas* canvas, const WebSize& pageSizeInPixels)
+{
+    ASSERT(m_printContext.get());
+
+    GraphicsContextBuilder builder(canvas);
+    GraphicsContext& graphicsContext = builder.context();
+#if WEBKIT_USING_SKIA
+    graphicsContext.platformContext()->setPrinting(true);
+#endif
+
+    m_printContext->spoolAllPagesWithBoundaries(graphicsContext,
+        FloatSize(pageSizeInPixels.width, pageSizeInPixels.height));
+}
+
 WebRect WebFrameImpl::selectionBoundsRect() const
 {
     if (hasSelection())
@@ -1874,26 +1980,6 @@ bool WebFrameImpl::selectionStartHasSpellingMarkerFor(int from, int length) cons
     if (!m_frame)
         return false;
     return m_frame->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
-}
-
-bool WebFrameImpl::pauseSVGAnimation(const WebString& animationId, double time, const WebString& elementId)
-{
-#if !ENABLE(SVG)
-    return false;
-#else
-    if (!m_frame)
-        return false;
-
-    Document* document = m_frame->document();
-    if (!document || !document->svgExtensions())
-        return false;
-
-    Node* coreNode = document->getElementById(animationId);
-    if (!coreNode || !SVGSMILElement::isSMILElement(coreNode))
-        return false;
-
-    return document->accessSVGExtensions()->sampleAnimationAtTime(elementId, static_cast<SVGSMILElement*>(coreNode), time);
-#endif
 }
 
 WebString WebFrameImpl::layerTreeAsText(bool showDebugInfo) const
@@ -1913,8 +1999,8 @@ PassRefPtr<WebFrameImpl> WebFrameImpl::create(WebFrameClient* client)
 WebFrameImpl::WebFrameImpl(WebFrameClient* client)
     : m_frameLoaderClient(this)
     , m_client(client)
-    , m_activeMatchFrame(0)
-    , m_activeMatchIndex(-1)
+    , m_currentActiveMatchFrame(0)
+    , m_activeMatchIndexInCurrentFrame(-1)
     , m_locatingActiveRect(false)
     , m_resumeScopingFromRange(0)
     , m_lastMatchCount(-1)
@@ -1926,17 +2012,16 @@ WebFrameImpl::WebFrameImpl(WebFrameClient* client)
     , m_identifier(generateFrameIdentifier())
     , m_inSameDocumentHistoryLoad(false)
 {
-    PlatformBridge::incrementStatsCounter(webFrameActiveCount);
+    WebKit::Platform::current()->incrementStatsCounter(webFrameActiveCount);
     frameCount++;
 }
 
 WebFrameImpl::~WebFrameImpl()
 {
-    PlatformBridge::decrementStatsCounter(webFrameActiveCount);
+    WebKit::Platform::current()->decrementStatsCounter(webFrameActiveCount);
     frameCount--;
 
     cancelPendingScopingEffort();
-    clearPasswordListeners();
 }
 
 void WebFrameImpl::initializeAsMainFrame(WebViewImpl* webViewImpl)
@@ -1998,71 +2083,18 @@ PassRefPtr<Frame> WebFrameImpl::createChildFrame(
     return childFrame.release();
 }
 
-void WebFrameImpl::layout()
-{
-    // layout this frame
-    FrameView* view = m_frame->view();
-    if (view)
-        view->updateLayoutAndStyleIfNeededRecursive();
-}
-
-void WebFrameImpl::paintWithContext(GraphicsContext& gc, const WebRect& rect)
-{
-    IntRect dirtyRect(rect);
-    gc.save();
-    if (m_frame->document() && frameView()) {
-        gc.clip(dirtyRect);
-        frameView()->paint(&gc, dirtyRect);
-        m_frame->page()->inspectorController()->drawNodeHighlight(gc);
-    } else
-        gc.fillRect(dirtyRect, Color::white, ColorSpaceDeviceRGB);
-    gc.restore();
-}
-
-void WebFrameImpl::paint(WebCanvas* canvas, const WebRect& rect)
-{
-    if (rect.isEmpty())
-        return;
-    paintWithContext(GraphicsContextBuilder(canvas).context(), rect);
-}
-
 void WebFrameImpl::createFrameView()
 {
     ASSERT(m_frame); // If m_frame doesn't exist, we probably didn't init properly.
 
-    Page* page = m_frame->page();
-    ASSERT(page);
-    ASSERT(page->mainFrame());
-
-    bool isMainFrame = m_frame == page->mainFrame();
-    if (isMainFrame && m_frame->view())
-        m_frame->view()->setParentVisible(false);
-
-    m_frame->setView(0);
-
     WebViewImpl* webView = viewImpl();
+    bool isMainFrame = webView->mainFrameImpl()->frame() == m_frame;
+    m_frame->createView(webView->size(), Color::white, webView->isTransparent(),  webView->fixedLayoutSize(), isMainFrame ? webView->isFixedLayoutModeEnabled() : 0);
+    if (webView->shouldAutoResize() && isMainFrame)
+        m_frame->view()->enableAutoSizeMode(true, webView->minAutoSize(), webView->maxAutoSize());
 
-    RefPtr<FrameView> view;
-    if (isMainFrame)
-        view = FrameView::create(m_frame, webView->size());
-    else
-        view = FrameView::create(m_frame);
-
-    m_frame->setView(view);
-
-    if (webView->isTransparent())
-        view->setTransparent(true);
-
-    // FIXME: The Mac code has a comment about this possibly being unnecessary.
-    // See installInFrame in WebCoreFrameBridge.mm
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setWidget(view.get());
-
-    if (HTMLFrameOwnerElement* owner = m_frame->ownerElement())
-        view->setCanHaveScrollbars(owner->scrollingMode() != ScrollbarAlwaysOff);
-
-    if (isMainFrame)
-        view->setParentVisible(true);
+    if (isMainFrame && webView->devToolsAgentPrivate())
+        webView->devToolsAgentPrivate()->mainFrameViewCreated(this);
 }
 
 WebFrameImpl* WebFrameImpl::fromFrame(Frame* frame)
@@ -2118,11 +2150,18 @@ void WebFrameImpl::setFindEndstateFocusAndSelection()
         // Try to find the first focusable node up the chain, which will, for
         // example, focus links if we have found text within the link.
         Node* node = m_activeMatch->firstNode();
+        if (node && node->isInShadowTree()) {
+            Node* host = node->shadowAncestorNode();
+            if (host->hasTagName(HTMLNames::inputTag) || host->hasTagName(HTMLNames::textareaTag))
+                node = host;
+        }
         while (node && !node->isFocusable() && node != frame()->document())
             node = node->parentNode();
 
         if (node && node != frame()->document()) {
-            // Found a focusable parent node. Set focus to it.
+            // Found a focusable parent node. Set the active match as the
+            // selection and focus to the focusable node.
+            frame()->selection()->setSelection(m_activeMatch.get());
             frame()->document()->setFocusedNode(node);
             return;
         }
@@ -2165,35 +2204,6 @@ void WebFrameImpl::setCanHaveScrollbars(bool canHaveScrollbars)
     m_frame->view()->setCanHaveScrollbars(canHaveScrollbars);
 }
 
-bool WebFrameImpl::registerPasswordListener(
-    WebInputElement inputElement,
-    WebPasswordAutocompleteListener* listener)
-{
-    RefPtr<HTMLInputElement> element(inputElement.unwrap<HTMLInputElement>());
-    if (!m_passwordListeners.add(element, listener).second) {
-        delete listener;
-        return false;
-    }
-    return true;
-}
-
-void WebFrameImpl::notifiyPasswordListenerOfAutocomplete(
-    const WebInputElement& inputElement)
-{
-    const HTMLInputElement* element = inputElement.constUnwrap<HTMLInputElement>();
-    WebPasswordAutocompleteListener* listener = getPasswordListener(element);
-    // Password listeners need to autocomplete other fields that depend on the
-    // input element with autofill suggestions.
-    if (listener)
-        listener->performInlineAutocomplete(element->value(), false, false);
-}
-
-WebPasswordAutocompleteListener* WebFrameImpl::getPasswordListener(
-    const HTMLInputElement* inputElement)
-{
-    return m_passwordListeners.get(RefPtr<HTMLInputElement>(const_cast<HTMLInputElement*>(inputElement)));
-}
-
 // WebFrameImpl private --------------------------------------------------------
 
 void WebFrameImpl::closing()
@@ -2219,50 +2229,16 @@ void WebFrameImpl::invalidateArea(AreaToInvalidate area)
 
         if ((area & InvalidateScrollbar) == InvalidateScrollbar) {
             // Invalidate the vertical scroll bar region for the view.
-            IntRect scrollBarVert(
-                view->x() + view->visibleWidth(), view->y(),
-                ScrollbarTheme::nativeTheme()->scrollbarThickness(),
-                view->visibleHeight());
-            IntRect frameRect = view->frameRect();
-            scrollBarVert.move(-frameRect.x(), -frameRect.y());
-            view->invalidateRect(scrollBarVert);
+            Scrollbar* scrollbar = view->verticalScrollbar();
+            if (scrollbar)
+                scrollbar->invalidate();
         }
     }
 }
 
 void WebFrameImpl::addMarker(Range* range, bool activeMatch)
 {
-    // Use a TextIterator to visit the potentially multiple nodes the range
-    // covers.
-    TextIterator markedText(range);
-    for (; !markedText.atEnd(); markedText.advance()) {
-        RefPtr<Range> textPiece = markedText.range();
-        int exception = 0;
-
-        DocumentMarker marker = {
-            DocumentMarker::TextMatch,
-            textPiece->startOffset(exception),
-            textPiece->endOffset(exception),
-            "",
-            activeMatch
-        };
-
-        if (marker.endOffset > marker.startOffset) {
-            // Find the node to add a marker to and add it.
-            Node* node = textPiece->startContainer(exception);
-            frame()->document()->markers()->addMarker(node, marker);
-
-            // Rendered rects for markers in WebKit are not populated until each time
-            // the markers are painted. However, we need it to happen sooner, because
-            // the whole purpose of tickmarks on the scrollbar is to show where
-            // matches off-screen are (that haven't been painted yet).
-            Vector<DocumentMarker> markers = frame()->document()->markers()->markersForNode(node);
-            frame()->document()->markers()->setRenderedRectForMarker(
-                textPiece->startContainer(exception),
-                markers[markers.size() - 1],
-                range->boundingBox());
-        }
-    }
+    frame()->document()->markers()->addTextMatchMarker(range, activeMatch);
 }
 
 void WebFrameImpl::setMarkerActive(Range* range, bool active)
@@ -2351,12 +2327,6 @@ void WebFrameImpl::invalidateIfNecessary()
     }
 }
 
-void WebFrameImpl::clearPasswordListeners()
-{
-    deleteAllValues(m_passwordListeners);
-    m_passwordListeners.clear();
-}
-
 void WebFrameImpl::loadJavaScriptURL(const KURL& url)
 {
     // This is copied from ScriptController::executeIfJavaScriptURL.
@@ -2370,6 +2340,12 @@ void WebFrameImpl::loadJavaScriptURL(const KURL& url)
     if (!m_frame->document() || !m_frame->page())
         return;
 
+    RefPtr<Document> ownerDocument(m_frame->document());
+
+    // Protect privileged pages against bookmarklets and other javascript manipulations.
+    if (SchemeRegistry::shouldTreatURLSchemeAsNotAllowingJavascriptURLs(m_frame->document()->url().protocol()))
+        return;
+
     String script = decodeURLEscapeSequences(url.string().substring(strlen("javascript:")));
     ScriptValue result = m_frame->script()->executeScript(script, true);
 
@@ -2378,7 +2354,7 @@ void WebFrameImpl::loadJavaScriptURL(const KURL& url)
         return;
 
     if (!m_frame->navigationScheduler()->locationChangePending())
-        m_frame->document()->loader()->writer()->replaceDocument(scriptResult);
+        m_frame->document()->loader()->writer()->replaceDocument(scriptResult, ownerDocument.get());
 }
 
 } // namespace WebKit

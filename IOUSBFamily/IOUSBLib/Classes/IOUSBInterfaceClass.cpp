@@ -200,8 +200,8 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID)
 #ifdef SUPPORTS_SS_USB
 			 || CFEqual(uuid, kIOUSBInterfaceInterfaceID500)
-			 )
 #endif
+			 )
     {
         *ppv = &fUSBInterface;
         addRef();

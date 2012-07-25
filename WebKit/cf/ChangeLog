@@ -1,3 +1,55 @@
+2011-12-20  Pavel Feldman  <pavel.feldman@gmail.com>
+
+        Web Inspector: reproducible crash after closing web inspector and browser window  (iCab)
+        https://bugs.webkit.org/show_bug.cgi?id=74255
+
+        Reviewed by Yury Semikhatsky.
+
+        * WebCoreSupport/WebInspectorClientCF.cpp:
+        (WebInspectorClient::releaseFrontend):
+
+2011-12-14  Hajime Morrita  <morrita@chromium.org>
+
+        JS_INLINE and WTF_INLINE should be visible from WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=73191
+
+        Reviewed by Kevin Ollivier.
+
+        Removed macro definitions which is now provided by Platform.h
+
+        * WebCoreSupport/WebInspectorClientCF.cpp:
+
+2011-12-02  Hajime Morrita  <morrita@chromium.org>
+
+        Unreviewed, rolling out r101751 and r101775.
+        http://trac.webkit.org/changeset/101751
+        http://trac.webkit.org/changeset/101775
+        https://bugs.webkit.org/show_bug.cgi?id=73191
+
+        breaks Windows build
+
+        * WebCoreSupport/WebInspectorClientCF.cpp:
+
+2011-12-01  Hajime Morrita  <morrita@chromium.org>
+
+        JS_INLINE and WTF_INLINE should be visible from WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=73191
+
+        Reviewed by Kevin Ollivier.
+
+        Removed macro definitions which is now provided by Platform.h
+
+        * WebCoreSupport/WebInspectorClientCF.cpp:
+
+2011-08-03  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Web Inspector: Remove InspectorFrontendHost load/saveSessionSetting
+        https://bugs.webkit.org/show_bug.cgi?id=65582
+
+        Reviewed by Pavel Feldman.
+
+        * WebCoreSupport/WebInspectorClientCF.cpp:
+
 2011-03-15  Kevin Ollivier  <kevino@theolliviers.com>
 
         Reviewed by Darin Adler.

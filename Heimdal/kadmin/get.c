@@ -60,10 +60,12 @@ static struct field_name {
     { "last_failed", KADM5_LAST_FAILED, 0, 0, "Last fail", "Last failed login", 0 },
     { "fail_auth_count", KADM5_FAIL_AUTH_COUNT, 0, 0, "Fail count", "Failed login count", RTBL_ALIGN_RIGHT },
     { "policy", KADM5_POLICY, 0, 0, "Policy", "Policy", 0 },
-    { "keytypes", KADM5_KEY_DATA, 0, KADM5_PRINCIPAL, "Keytypes", "Keytypes", 0 },
+    { "keytypes", KADM5_KEY_DATA, 0, KADM5_PRINCIPAL | KADM5_KVNO, "Keytypes", "Keytypes", 0 },
     { "password", KADM5_TL_DATA, KRB5_TL_PASSWORD, KADM5_KEY_DATA, "Password", "Password", 0 },
     { "pkinit-acl", KADM5_TL_DATA, KRB5_TL_PKINIT_ACL, 0, "PK-INIT ACL", "PK-INIT ACL", 0 },
     { "aliases", KADM5_TL_DATA, KRB5_TL_ALIASES, 0, "Aliases", "Aliases", 0 },
+    { "hist-kvno-diff-clnt", KADM5_TL_DATA, KRB5_TL_HIST_KVNO_DIFF_CLNT, 0, "Clnt hist keys", "Historic keys allowed for client", 0 },
+    { "hist-kvno-diff-svc", KADM5_TL_DATA, KRB5_TL_HIST_KVNO_DIFF_SVC, 0, "Svc hist keys", "Historic keys allowed for service", 0 },
     { NULL }
 };
 
@@ -110,9 +112,9 @@ add_column(struct get_entry_data *data, struct field_name *ff, const char *heade
 static int
 cmp_salt (const krb5_salt *salt, const krb5_key_data *k)
 {
-    if (salt->salttype != k->key_data_type[1])
+    if (salt->salttype != (size_t)k->key_data_type[1])
 	return 1;
-    if (salt->saltvalue.length != k->key_data_length[1])
+    if (salt->saltvalue.length != (size_t)k->key_data_length[1])
 	return 1;
     return memcmp (salt->saltvalue.data, k->key_data_contents[1],
 		   salt->saltvalue.length);
@@ -152,8 +154,11 @@ format_keytype(krb5_key_data *k, krb5_salt *def_salt, char *buf, size_t buf_len)
 		  (char *)k->key_data_contents[1]);
     strlcat(buf, s, buf_len);
     free(s);
-
+    asprintf (&s, "[%d]", k->key_data_kvno);
     strlcat(buf, ")", buf_len);
+
+    strlcat(buf, s, buf_len);
+    free(s);
 }
 
 static void
@@ -171,23 +176,23 @@ format_field(kadm5_principal_ent_t princ, unsigned int field,
     case KADM5_PRINC_EXPIRE_TIME:
 	time_t2str(princ->princ_expire_time, buf, buf_len, !condensed);
 	break;
-	
+
     case KADM5_PW_EXPIRATION:
 	time_t2str(princ->pw_expiration, buf, buf_len, !condensed);
 	break;
-	
+
     case KADM5_LAST_PWD_CHANGE:
 	time_t2str(princ->last_pwd_change, buf, buf_len, !condensed);
 	break;
-	
+
     case KADM5_MAX_LIFE:
 	deltat2str(princ->max_life, buf, buf_len);
 	break;
-	
+
     case KADM5_MAX_RLIFE:
 	deltat2str(princ->max_renewable_life, buf, buf_len);
 	break;
-	
+
     case KADM5_MOD_TIME:
 	time_t2str(princ->mod_date, buf, buf_len, !condensed);
 	break;
@@ -245,7 +250,7 @@ format_field(kadm5_principal_ent_t princ, unsigned int field,
 	krb5_tl_data *tl;
 
 	for (tl = princ->tl_data; tl != NULL; tl = tl->tl_data_next)
-	    if (tl->tl_data_type == subfield)
+	    if ((unsigned)tl->tl_data_type == subfield)
 		break;
 	if (tl == NULL) {
 	    strlcpy(buf, "", buf_len);
@@ -261,7 +266,8 @@ format_field(kadm5_principal_ent_t princ, unsigned int field,
 	case KRB5_TL_PKINIT_ACL: {
 	    HDB_Ext_PKINIT_acl acl;
 	    size_t size;
-	    int i, ret;
+	    int ret;
+	    size_t i;
 
 	    ret = decode_HDB_Ext_PKINIT_acl(tl->tl_data_contents,
 					    tl->tl_data_length,
@@ -293,7 +299,8 @@ format_field(kadm5_principal_ent_t princ, unsigned int field,
 	case KRB5_TL_ALIASES: {
 	    HDB_Ext_Aliases alias;
 	    size_t size;
-	    int i, ret;
+	    int ret;
+	    size_t i;
 
 	    ret = decode_HDB_Ext_Aliases(tl->tl_data_contents,
 					 tl->tl_data_length,
@@ -309,7 +316,7 @@ format_field(kadm5_principal_ent_t princ, unsigned int field,
 		ret = krb5_unparse_name(context, &alias.aliases.val[i], &p);
 		if (ret)
 		    break;
-		if (i < 0)
+		if (i > 0)
 		    strlcat(buf, " ", buf_len);
 		strlcat(buf, p, buf_len);
 		free(p);
@@ -419,9 +426,35 @@ setup_columns(struct get_entry_data *data, const char *column_info)
     return 0;
 }
 
+static int
+do_list_entry(krb5_principal principal, void *data)
+{
+    char buf[1024];
+    krb5_error_code ret;
+
+    ret = krb5_unparse_name_fixed_short(context, principal, buf, sizeof(buf));
+    if (ret != 0)
+        return ret;
+    printf("%s\n", buf);
+    return 0;
+}
+
+static int
+listit(const char *funcname, int argc, char **argv)
+{
+    int i;
+    krb5_error_code ret, saved_ret = 0;
+
+    for (i = 0; i < argc; i++) {
+	ret = foreach_principal(argv[i], do_list_entry, funcname, NULL);
+        if (saved_ret == 0 && ret != 0)
+            saved_ret = ret;
+    }
+    return saved_ret != 0;
+}
+
 #define DEFAULT_COLUMNS_SHORT "principal,princ_expire_time,pw_expiration,last_pwd_change,max_life,max_rlife"
 #define DEFAULT_COLUMNS_LONG "principal,princ_expire_time,pw_expiration,last_pwd_change,max_life,max_rlife,kvno,mkvno,last_success,last_failed,fail_auth_count,mod_time,mod_name,attributes,keytypes,pkinit-acl,aliases"
-#define DEFAULT_COLUMNS_TERSE "principal="
 
 static int
 getit(struct get_options *opt, const char *name, int argc, char **argv)
@@ -439,13 +472,16 @@ getit(struct get_options *opt, const char *name, int argc, char **argv)
     if(opt->long_flag == 0 && opt->short_flag == 0 && opt->terse_flag == 0)
 	opt->short_flag = 1;
 
+    if (opt->terse_flag)
+        return listit(name, argc, argv);
+
     data.table = NULL;
     data.chead = NULL;
     data.ctail = &data.chead;
     data.mask = 0;
     data.extra_mask = 0;
 
-    if(opt->short_flag || opt->terse_flag) {
+    if(opt->short_flag) {
 	data.table = rtbl_create();
 	rtbl_set_separator(data.table, "  ");
 	data.format = print_entry_short;
@@ -454,15 +490,11 @@ getit(struct get_options *opt, const char *name, int argc, char **argv)
     if(opt->column_info_string == NULL) {
 	if(opt->long_flag)
 	    ret = setup_columns(&data, DEFAULT_COLUMNS_LONG);
-	else if(opt->short_flag)
+	else
 	    ret = setup_columns(&data, DEFAULT_COLUMNS_SHORT);
-	else {
-	    ret = setup_columns(&data, DEFAULT_COLUMNS_TERSE);
-	    rtbl_set_flags(data.table, RTBL_HEADER_STYLE_NONE);
-	}
     } else
 	ret = setup_columns(&data, opt->column_info_string);
-	
+
     if(ret != 0) {
 	if(data.table != NULL)
 	    rtbl_destroy(data.table);
@@ -470,7 +502,7 @@ getit(struct get_options *opt, const char *name, int argc, char **argv)
     }
 
     for(i = 0; i < argc; i++)
-	ret = foreach_principal(argv[i], do_get_entry, "get", &data);
+	ret = foreach_principal(argv[i], do_get_entry, name, &data);
 
     if(data.table != NULL) {
 	rtbl_format(data.table, stdout);

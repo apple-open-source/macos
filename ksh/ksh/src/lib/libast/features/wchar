@@ -1,20 +1,53 @@
+iff
 set	prototyped
+set	stdio stdarg.h
+
+cat{
+	#ifndef _AST_WCHAR_H
+	#define _AST_WCHAR_H	1
+}end
+
 lib	mbstowcs,wctomb,wcrtomb,wcslen,wcstombs,wcwidth stdlib.h stdio.h wchar.h
 lib	towlower,towupper stdlib.h stdio.h wchar.h
 typ	mbstate_t stdlib.h stdio.h wchar.h
 nxt	wchar
 
-run{
-cat <<!
+cat{
 	#ifndef _SFSTDIO_H
 	#include <ast_common.h>
 	#include <stdio.h>
 	#endif
+}end
+
+if	tst note{ <wchar.h> requires native <stdio.h> }end nocompile{
+		#define _STDIO_INCLUDED 1
+		#define FILE		void
+		#include <wchar.h>
+		int tst;
+	}end
+	if	tst note{ <stdio.h> defines __va_list for <wchar.h> }end compile{
+			#define _STDIO_INCLUDED 1
+			#define FILE		void
+			#define __va_list	va_list
+			#include <wchar.h>
+			int tst;
+		}end && {
+			#define __va_list va_list
+		}
+	endif
+endif
+
+if	hdr - wctype
+	if	! npt - iswalpha wchar.h {
+			#include <wctype.h> /* <wchar.h> includes <wctype.h> */
+		}
+	endif
+endif
+
+run{
+cat <<!
 	#if _hdr_wchar && defined(_nxt_wchar)
 	#include $_nxt_wchar	/* the native wchar.h */
-	#endif
-	#if _hdr_wctype
-	#include <wctype.h>
 	#endif
 
 	#ifndef WEOF
@@ -107,5 +140,15 @@ cat <<!
 	extern int		wscanf(const wchar_t*, ...);
 
 	#undef	extern
+
+	#else
+
+	/* on some systems <wchar.h> is included multiple times with multiple effects */
+
+	#if _hdr_wchar && defined(_nxt_wchar)
+	#include $_nxt_wchar	/* the native wchar.h */
+	#endif
+
+	#endif
 !
 }end

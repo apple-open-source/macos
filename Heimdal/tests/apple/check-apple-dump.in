@@ -63,7 +63,16 @@ rm -f file
 echo "dump format=od"
 ${kadmin} -r ${realm} -c ${conf} -l dump -d --format=od . || exit 1
 
-test -f "${sf}" || exit 1
+found=0
+for a in *.plist; do
+	if /usr/libexec/PlistBuddy -c 'print KerberosPrincipal' $a 2>&1 | grep 'cifs/LKDC' > /dev/null 2>&1 ; then
+		found=1
+	fi
+done
+if test $found != 1; then
+	echo "cifs@LKDC not found"
+	exit 1
+fi
 
 rm -f *.plist
 
@@ -77,11 +86,20 @@ rm -rf file
 echo "mit-dump-file format=od"
 ${kadmin} -r ${realm} -c ${conf} -l dump -d --mit-dump-file="${confdir}/dumpfile" --format=od . || exit 1
 
-test -f "${sf}" || exit 1
+found=0
+for a in *.plist; do
+	if /usr/libexec/PlistBuddy -c 'print KerberosPrincipal' $a 2>&1 | grep 'cifs/LKDC' > /dev/null 2>&1 ; then
+		found=1
+	fi
+done
+if test $found != 1; then
+	echo "cifs@LKDC not found"
+	exit 1
+fi
 
 rm -f *.plist file
 
 echo "check for database that doesn't exists"
-${kadmin} -r ${realm2} -c ${conf} -l dump file && exit 1
+${kadmin} -r ${realm2} -c ${conf} -l dump file > /dev/null 2>/dev/null && exit 1
 
 exit 0

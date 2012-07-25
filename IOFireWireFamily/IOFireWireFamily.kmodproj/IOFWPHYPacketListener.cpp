@@ -69,7 +69,7 @@ IOFWPHYPacketListener * IOFWPHYPacketListener::createWithController( IOFireWireC
         me = NULL;
     }
 
-	FWKLOG(( "IOFWPHYPacketListener::create() - created new IOFWPHYPacketListener 0x%08lx\n", (UInt32)me ));
+	FWKLOG(( "IOFWPHYPacketListener::create() - created new IOFWPHYPacketListener %p\n", me ));
     
     return me;
 }
@@ -85,7 +85,7 @@ bool IOFWPHYPacketListener::initWithController( IOFireWireController * control )
 	
 	fControl = control;
 
-	FWKLOG(( "IOFWPHYPacketListener::initWithController() - IOFWPHYPacketListener 0x%08lx initialized\n", (UInt32)this  ));
+	FWKLOG(( "IOFWPHYPacketListener::initWithController() - IOFWPHYPacketListener %p initialized\n", this  ));
 
 	return true;
 }
@@ -96,7 +96,7 @@ bool IOFWPHYPacketListener::initWithController( IOFireWireController * control )
 
 void IOFWPHYPacketListener::free()
 {	
-	FWKLOG(( "IOFWPHYPacketListener::free() - freeing IOFWPHYPacketListener 0x%08lx\n", (UInt32)this ));
+	FWKLOG(( "IOFWPHYPacketListener::free() - freeing IOFWPHYPacketListener %p\n", this ));
 
 	OSObject::free();
 }

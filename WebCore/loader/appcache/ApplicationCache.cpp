@@ -26,8 +26,6 @@
 #include "config.h"
 #include "ApplicationCache.h"
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-
 #include "ApplicationCacheGroup.h"
 #include "ApplicationCacheResource.h"
 #include "ApplicationCacheStorage.h"
@@ -119,7 +117,7 @@ ApplicationCacheResource* ApplicationCache::resourceForURL(const String& url)
 
 bool ApplicationCache::requestIsHTTPOrHTTPSGet(const ResourceRequest& request)
 {
-    if (!request.url().protocolInHTTPFamily())
+    if (!request.url().protocolIsInHTTPFamily())
         return false;
     
     if (!equalIgnoringCase(request.httpMethod(), "GET"))
@@ -210,7 +208,7 @@ void ApplicationCache::deleteCacheForOrigin(SecurityOrigin* origin)
 int64_t ApplicationCache::diskUsageForOrigin(SecurityOrigin* origin)
 {
     int64_t usage = 0;
-    cacheStorage().usageForOrigin(origin, usage);
+    cacheStorage().calculateUsageForOrigin(origin, usage);
     return usage;
 }
 
@@ -227,5 +225,3 @@ void ApplicationCache::dump()
 #endif
 
 }
-
-#endif // ENABLE(OFFLINE_WEB_APPLICATIONS)

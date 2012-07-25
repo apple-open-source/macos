@@ -1,0 +1,8 @@
+<dict>
+	<key>application-identifier</key>
+	<string>com.apple.gss.gsstool</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.gss.all</string>
+	</array>
+</dict>

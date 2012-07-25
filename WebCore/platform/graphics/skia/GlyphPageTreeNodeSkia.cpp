@@ -32,18 +32,22 @@
 #include "GlyphPageTreeNode.h"
 
 #include "Font.h"
-#include "HarfbuzzSkia.h"
+#include "HarfBuzzSkia.h"
 #include "SimpleFontData.h"
 
 #include "SkTemplates.h"
 #include "SkPaint.h"
 #include "SkUtils.h"
 
+extern "C" {
+#include "harfbuzz-shaper.h"
+}
+
 namespace WebCore {
 
 static int substituteWithVerticalGlyphs(const SimpleFontData* fontData, uint16_t* glyphs, unsigned bufferLength)
 {
-    HB_FaceRec_* hbFace = fontData->platformData().harfbuzzFace();
+    HB_FaceRec_* hbFace = fontData->platformData().harfbuzzFace()->face();
     if (!hbFace->gsub) {
         // if there is no GSUB table, treat it as not covered
         return 0Xffff;
@@ -92,15 +96,12 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
     }
 
     if (fontData->hasVerticalGlyphs()) {
-        bool lookVariants = false;
         for (unsigned i = 0; i < bufferLength; ++i) {
             if (!Font::isCJKIdeograph(buffer[i])) {
-                lookVariants = true;
-                continue;
+                substituteWithVerticalGlyphs(fontData, glyphs, length);
+                break;
             }
         }
-        if (lookVariants)
-            substituteWithVerticalGlyphs(fontData, glyphs, bufferLength);
     }
 
     unsigned allGlyphs = 0; // track if any of the glyphIDs are non-zero

@@ -49,6 +49,7 @@ typedef struct hx509_crypto_data *hx509_crypto;
 typedef struct hx509_lock_data *hx509_lock;
 typedef struct hx509_name_data *hx509_name;
 typedef struct hx509_private_key *hx509_private_key;
+typedef struct hx509_private_key_ops hx509_private_key_ops;
 typedef struct hx509_validate_ctx_data *hx509_validate_ctx;
 typedef struct hx509_verify_ctx_data *hx509_verify_ctx;
 typedef struct hx509_evaluate_data *hx509_evaluate;
@@ -72,6 +73,18 @@ enum {
     HX509_VALIDATE_F_VALIDATE = 1,
     HX509_VALIDATE_F_VERBOSE = 2
 };
+
+enum {
+    HX509_CRYPTO_PADDING_PKCS7 = 0,
+    HX509_CRYPTO_PADDING_NONE = 1
+};
+
+enum {
+    HX509_KEY_FORMAT_GUESS = 0,
+    HX509_KEY_FORMAT_DER = 1,
+    HX509_KEY_FORMAT_WIN_BACKUPKEY = 2
+};
+typedef uint32_t hx509_key_format_t;
 
 struct hx509_cert_attribute_data {
     heim_oid oid;
@@ -132,6 +145,7 @@ typedef enum {
 /* flags to hx509_cms_envelope_1 */
 #define HX509_CMS_EV_NO_KU_CHECK			0x01
 #define HX509_CMS_EV_ALLOW_WEAK				0x02
+#define HX509_CMS_EV_ID_NAME				0x04
 
 /* flags to hx509_cms_verify_signed */
 #define HX509_CMS_VS_ALLOW_DATA_OID_MISMATCH		0x01
@@ -159,6 +173,8 @@ typedef enum {
 #define HX509_CMS_SIGNATURE_DETACHED			0x01
 #define HX509_CMS_SIGNATURE_ID_NAME			0x02
 #define HX509_CMS_SIGNATURE_NO_SIGNER			0x04
+#define HX509_CMS_SIGNATURE_LEAF_ONLY			0x08
+#define HX509_CMS_SIGNATURE_NO_CERTS			0x10
 
 /* hx509_verify_hostname nametype */
 typedef enum  {

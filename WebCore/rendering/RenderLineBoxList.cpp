@@ -146,24 +146,24 @@ void RenderLineBoxList::dirtyLineBoxes()
         curr->dirtyLineBoxes();
 }
 
-bool RenderLineBoxList::rangeIntersectsRect(RenderBoxModelObject* renderer, int logicalTop, int logicalBottom, const IntRect& rect, int tx, int ty) const
+bool RenderLineBoxList::rangeIntersectsRect(RenderBoxModelObject* renderer, LayoutUnit logicalTop, LayoutUnit logicalBottom, const LayoutRect& rect, const LayoutPoint& offset) const
 {
     RenderBox* block;
     if (renderer->isBox())
         block = toRenderBox(renderer);
     else
         block = renderer->containingBlock();
-    int physicalStart = block->flipForWritingMode(logicalTop);
-    int physicalEnd = block->flipForWritingMode(logicalBottom);
-    int physicalExtent = abs(physicalEnd - physicalStart);
+    LayoutUnit physicalStart = block->flipForWritingMode(logicalTop);
+    LayoutUnit physicalEnd = block->flipForWritingMode(logicalBottom);
+    LayoutUnit physicalExtent = absoluteValue(physicalEnd - physicalStart);
     physicalStart = min(physicalStart, physicalEnd);
     
     if (renderer->style()->isHorizontalWritingMode()) {
-        physicalStart += ty;
+        physicalStart += offset.y();
         if (physicalStart >= rect.maxY() || physicalStart + physicalExtent <= rect.y())
             return false;
     } else {
-        physicalStart += tx;
+        physicalStart += offset.x();
         if (physicalStart >= rect.maxX() || physicalStart + physicalExtent <= rect.x())
             return false;
     }
@@ -171,7 +171,7 @@ bool RenderLineBoxList::rangeIntersectsRect(RenderBoxModelObject* renderer, int 
     return true;
 }
 
-bool RenderLineBoxList::anyLineIntersectsRect(RenderBoxModelObject* renderer, const IntRect& rect, int tx, int ty, bool usePrintRect, int outlineSize) const
+bool RenderLineBoxList::anyLineIntersectsRect(RenderBoxModelObject* renderer, const LayoutRect& rect, const LayoutPoint& offset, bool usePrintRect, LayoutUnit outlineSize) const
 {
     // We can check the first box and last box and avoid painting/hit testing if we don't
     // intersect.  This is a quick short-circuit that we can take to avoid walking any lines.
@@ -179,28 +179,28 @@ bool RenderLineBoxList::anyLineIntersectsRect(RenderBoxModelObject* renderer, co
     // if some line in the middle has a huge overflow, it might actually extend below the last line.
     RootInlineBox* firstRootBox = firstLineBox()->root();
     RootInlineBox* lastRootBox = lastLineBox()->root();
-    int firstLineTop = firstLineBox()->logicalTopVisualOverflow(firstRootBox->lineTop());
+    LayoutUnit firstLineTop = firstLineBox()->logicalTopVisualOverflow(firstRootBox->lineTop());
     if (usePrintRect && !firstLineBox()->parent())
         firstLineTop = min(firstLineTop, firstLineBox()->root()->lineTop());
-    int lastLineBottom = lastLineBox()->logicalBottomVisualOverflow(lastRootBox->lineBottom());
+    LayoutUnit lastLineBottom = lastLineBox()->logicalBottomVisualOverflow(lastRootBox->lineBottom());
     if (usePrintRect && !lastLineBox()->parent())
         lastLineBottom = max(lastLineBottom, lastLineBox()->root()->lineBottom());
-    int logicalTop = firstLineTop - outlineSize;
-    int logicalBottom = outlineSize + lastLineBottom;
+    LayoutUnit logicalTop = firstLineTop - outlineSize;
+    LayoutUnit logicalBottom = outlineSize + lastLineBottom;
     
-    return rangeIntersectsRect(renderer, logicalTop, logicalBottom, rect, tx, ty);
+    return rangeIntersectsRect(renderer, logicalTop, logicalBottom, rect, offset);
 }
 
-bool RenderLineBoxList::lineIntersectsDirtyRect(RenderBoxModelObject* renderer, InlineFlowBox* box, const PaintInfo& paintInfo, int tx, int ty) const
+bool RenderLineBoxList::lineIntersectsDirtyRect(RenderBoxModelObject* renderer, InlineFlowBox* box, const PaintInfo& paintInfo, const LayoutPoint& offset) const
 {
     RootInlineBox* root = box->root();
-    int logicalTop = min(box->logicalTopVisualOverflow(root->lineTop()), root->selectionTop()) - renderer->maximalOutlineSize(paintInfo.phase);
-    int logicalBottom = box->logicalBottomVisualOverflow(root->lineBottom()) + renderer->maximalOutlineSize(paintInfo.phase);
+    LayoutUnit logicalTop = min<LayoutUnit>(box->logicalTopVisualOverflow(root->lineTop()), root->selectionTop()) - renderer->maximalOutlineSize(paintInfo.phase);
+    LayoutUnit logicalBottom = box->logicalBottomVisualOverflow(root->lineBottom()) + renderer->maximalOutlineSize(paintInfo.phase);
     
-    return rangeIntersectsRect(renderer, logicalTop, logicalBottom, paintInfo.rect, tx, ty);
+    return rangeIntersectsRect(renderer, logicalTop, logicalBottom, paintInfo.rect, offset);
 }
 
-void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintInfo, int tx, int ty) const
+void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintInfo, const LayoutPoint& paintOffset) const
 {
     // Only paint during the foreground/selection phases.
     if (paintInfo.phase != PaintPhaseForeground && paintInfo.phase != PaintPhaseSelection && paintInfo.phase != PaintPhaseOutline 
@@ -218,8 +218,8 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintIn
     // NSViews.  Do not add any more code for this.
     RenderView* v = renderer->view();
     bool usePrintRect = !v->printRect().isEmpty();
-    int outlineSize = renderer->maximalOutlineSize(paintInfo.phase);
-    if (!anyLineIntersectsRect(renderer, paintInfo.rect, tx, ty, usePrintRect, outlineSize))
+    LayoutUnit outlineSize = renderer->maximalOutlineSize(paintInfo.phase);
+    if (!anyLineIntersectsRect(renderer, paintInfo.rect, paintOffset, usePrintRect, outlineSize))
         return;
 
     PaintInfo info(paintInfo);
@@ -235,31 +235,31 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintIn
             // for embedded views inside AppKit.  AppKit is incapable of paginating vertical
             // text pages, so we don't have to deal with vertical lines at all here.
             RootInlineBox* root = curr->root();
-            int topForPaginationCheck = curr->logicalTopVisualOverflow(root->lineTop());
-            int bottomForPaginationCheck = curr->logicalLeftVisualOverflow();
+            LayoutUnit topForPaginationCheck = curr->logicalTopVisualOverflow(root->lineTop());
+            LayoutUnit bottomForPaginationCheck = curr->logicalLeftVisualOverflow();
             if (!curr->parent()) {
                 // We're a root box.  Use lineTop and lineBottom as well here.
                 topForPaginationCheck = min(topForPaginationCheck, root->lineTop());
                 bottomForPaginationCheck = max(bottomForPaginationCheck, root->lineBottom());
             }
             if (bottomForPaginationCheck - topForPaginationCheck <= v->printRect().height()) {
-                if (ty + bottomForPaginationCheck > v->printRect().maxY()) {
+                if (paintOffset.y() + bottomForPaginationCheck > v->printRect().maxY()) {
                     if (RootInlineBox* nextRootBox = curr->root()->nextRootBox())
-                        bottomForPaginationCheck = min(bottomForPaginationCheck, min(nextRootBox->logicalTopVisualOverflow(), nextRootBox->lineTop()));
+                        bottomForPaginationCheck = min(bottomForPaginationCheck, min<LayoutUnit>(nextRootBox->logicalTopVisualOverflow(), nextRootBox->lineTop()));
                 }
-                if (ty + bottomForPaginationCheck > v->printRect().maxY()) {
-                    if (ty + topForPaginationCheck < v->truncatedAt())
-                        v->setBestTruncatedAt(ty + topForPaginationCheck, renderer);
+                if (paintOffset.y() + bottomForPaginationCheck > v->printRect().maxY()) {
+                    if (paintOffset.y() + topForPaginationCheck < v->truncatedAt())
+                        v->setBestTruncatedAt(paintOffset.y() + topForPaginationCheck, renderer);
                     // If we were able to truncate, don't paint.
-                    if (ty + topForPaginationCheck >= v->truncatedAt())
+                    if (paintOffset.y() + topForPaginationCheck >= v->truncatedAt())
                         break;
                 }
             }
         }
 
-        if (lineIntersectsDirtyRect(renderer, curr, info, tx, ty)) {
+        if (lineIntersectsDirtyRect(renderer, curr, info, paintOffset)) {
             RootInlineBox* root = curr->root();
-            curr->paint(info, tx, ty, root->lineTop(), root->lineBottom());
+            curr->paint(info, paintOffset, root->lineTop(), root->lineBottom());
         }
     }
 
@@ -267,14 +267,14 @@ void RenderLineBoxList::paint(RenderBoxModelObject* renderer, PaintInfo& paintIn
         ListHashSet<RenderInline*>::iterator end = info.outlineObjects->end();
         for (ListHashSet<RenderInline*>::iterator it = info.outlineObjects->begin(); it != end; ++it) {
             RenderInline* flow = *it;
-            flow->paintOutline(info.context, tx, ty);
+            flow->paintOutline(info.context, paintOffset);
         }
         info.outlineObjects->clear();
     }
 }
 
 
-bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction) const
+bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction) const
 {
     if (hitTestAction != HitTestForeground)
         return false;
@@ -285,14 +285,11 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     if (!firstLineBox())
         return false;
 
-    bool isHorizontal = firstLineBox()->isHorizontal();
-    
-    int logicalPointStart = isHorizontal ? y - result.topPadding() : x - result.leftPadding();
-    int logicalPointEnd = (isHorizontal ? y + result.bottomPadding() : x + result.rightPadding()) + 1;
-    IntRect rect(isHorizontal ? x : logicalPointStart, isHorizontal ? logicalPointStart : y,
-                 isHorizontal ? 1 : logicalPointEnd - logicalPointStart,
-                 isHorizontal ? logicalPointEnd - logicalPointStart : 1);    
-    if (!anyLineIntersectsRect(renderer, rect, tx, ty))
+    LayoutRect rect = firstLineBox()->isHorizontal() ?
+        IntRect(pointInContainer.x(), pointInContainer.y() - result.topPadding(), 1, result.topPadding() + result.bottomPadding() + 1) :
+        IntRect(pointInContainer.x() - result.leftPadding(), pointInContainer.y(), result.rightPadding() + result.leftPadding() + 1, 1);
+
+    if (!anyLineIntersectsRect(renderer, rect, accumulatedOffset))
         return false;
 
     // See if our root lines contain the point.  If so, then we hit test
@@ -300,10 +297,10 @@ bool RenderLineBoxList::hitTest(RenderBoxModelObject* renderer, const HitTestReq
     // based off positions of our first line box or our last line box.
     for (InlineFlowBox* curr = lastLineBox(); curr; curr = curr->prevLineBox()) {
         RootInlineBox* root = curr->root();
-        if (rangeIntersectsRect(renderer, curr->logicalTopVisualOverflow(root->lineTop()), curr->logicalBottomVisualOverflow(root->lineBottom()), rect, tx, ty)) {
-            bool inside = curr->nodeAtPoint(request, result, IntPoint(x, y), tx, ty, root->lineTop(), root->lineBottom());
+        if (rangeIntersectsRect(renderer, curr->logicalTopVisualOverflow(root->lineTop()), curr->logicalBottomVisualOverflow(root->lineBottom()), rect, accumulatedOffset)) {
+            bool inside = curr->nodeAtPoint(request, result, pointInContainer, accumulatedOffset, root->lineTop(), root->lineBottom());
             if (inside) {
-                renderer->updateHitTestResult(result, IntPoint(x - tx, y - ty));
+                renderer->updateHitTestResult(result, pointInContainer - toLayoutSize(accumulatedOffset));
                 return true;
             }
         }
@@ -324,9 +321,9 @@ void RenderLineBoxList::dirtyLinesFromChangedChild(RenderObject* container, Rend
     if (!firstBox) {
         // For an empty inline, go ahead and propagate the check up to our parent, unless the parent
         // is already dirty.
-        if (container->isInline() && !container->parent()->selfNeedsLayout()) {
+        if (container->isInline() && !container->parent()->ancestorLineBoxDirty()) {
             container->parent()->dirtyLinesFromChangedChild(container);
-            container->setNeedsLayout(true); // Mark the container as needing layout to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
+            container->setAncestorLineBoxDirty(); // Mark the container to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
         }
         return;
     }
@@ -364,9 +361,9 @@ void RenderLineBoxList::dirtyLinesFromChangedChild(RenderObject* container, Rend
             // we won't find a previous sibling, but firstBox can be pointing to a following sibling.
             // This isn't good enough, since we won't locate the root line box that encloses the removed
             // <br>. We have to just over-invalidate a bit and go up to our parent.
-            if (!inlineContainer->parent()->selfNeedsLayout()) {
+            if (!inlineContainer->parent()->ancestorLineBoxDirty()) {
                 inlineContainer->parent()->dirtyLinesFromChangedChild(inlineContainer);
-                inlineContainer->setNeedsLayout(true); // Mark the container as needing layout to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
+                inlineContainer->setAncestorLineBoxDirty(); // Mark the container to avoid dirtying the same lines again across multiple destroy() calls of the same subtree.
             }
             return;
         }

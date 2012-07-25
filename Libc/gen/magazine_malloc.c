@@ -81,6 +81,9 @@
 
 #define DEBUG_MADVISE			0
 
+// <rdar://problem/10397726>
+#define RELAXED_INVARIANT_CHECKS 1
+
 #if DEBUG_MALLOC
 #warning DEBUG_MALLOC ENABLED
 # define INLINE
@@ -929,17 +932,17 @@ __private_extern__ uint64_t malloc_entropy[2];
 
 /*********************	VERY LOW LEVEL UTILITIES  ************************/
 
-#if DEBUG_MALLOC || DEBUG_CLIENT
 static void
 szone_sleep(void)
 {
-
-    if (getenv("MallocErrorSleep")) {
+    if (getenv("MallocErrorStop")) {
+	_malloc_printf(ASL_LEVEL_NOTICE, "*** sending SIGSTOP to help debug\n");
+	kill(getpid(), SIGSTOP);
+    } else if (getenv("MallocErrorSleep")) {
 	_malloc_printf(ASL_LEVEL_NOTICE, "*** sleeping to help debug\n");
 	sleep(3600); // to help debug
     }
 }
-#endif
 
 // msg prints after fmt, ...
 static NOINLINE void
@@ -982,11 +985,8 @@ szone_error(szone_t *szone, int is_corruption, const char *msg, const void *ptr,
     malloc_error_break();
 #if DEBUG_MALLOC
     szone_print(szone, 1);
-    szone_sleep();
 #endif
-#if DEBUG_CLIENT
     szone_sleep();
-#endif
     // Call abort() if this is a memory corruption error and the abort on 
     // corruption flag is set, or if any error should abort.
     if ((is_corruption && (szone->debug_flags & SCALABLE_MALLOC_ABORT_ON_CORRUPTION)) ||
@@ -1218,7 +1218,7 @@ _szone_default_reader(task_t task, vm_address_t address, vm_size_t size, void **
 	((((uintptr_t)pthread_self()) >> vm_page_shift) * 2654435761UL) >> (32 - szone->num_tiny_magazines_mask_shift)
 #endif
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__) 
 /*
  * These commpage routines provide fast access to the logical cpu number
  * of the calling processor assuming no pre-emption occurs. 
@@ -2630,6 +2630,9 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
             uintptr_t lo = trunc_page((uintptr_t)original_ptr);
             uintptr_t hi = round_page((uintptr_t)original_ptr + original_size);
 	
+	    tiny_free_list_remove_ptr(szone, tiny_mag_ptr, ptr, msize);
+	    set_tiny_meta_header_in_use(ptr, msize);
+
 	    OSAtomicIncrement32Barrier(&(node->pinned_to_depot));
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, tiny_mag_ptr);
 #if TARGET_OS_EMBEDDED
@@ -2639,6 +2642,9 @@ tiny_free_no_lock(szone_t *szone, magazine_t *tiny_mag_ptr, mag_index_t mag_inde
 #endif
 	    SZONE_MAGAZINE_PTR_LOCK(szone, tiny_mag_ptr);
 	    OSAtomicDecrement32Barrier(&(node->pinned_to_depot));
+
+	    set_tiny_meta_header_free(ptr, msize);
+	    tiny_free_list_add_ptr(szone, tiny_mag_ptr, ptr, msize);
         }
 	
 #if !TARGET_OS_EMBEDDED
@@ -2944,6 +2950,7 @@ tiny_check_region(szone_t *szone, region_t region)
 	    /* move to next block */
 	    ptr += TINY_BYTES_FOR_MSIZE(msize);
 	} else {
+#if !RELAXED_INVARIANT_CHECKS
 	    /*
 	     * Free blocks must have been coalesced, we cannot have a free block following another
 	     * free block.
@@ -2953,6 +2960,7 @@ tiny_check_region(szone_t *szone, region_t region)
 		  ptr, msize);
 		return 0;
 	    }
+#endif // RELAXED_INVARIANT_CHECKS
 	    prev_free = 1;
 	    /*
 	     * Check the integrity of this block's entry in its freelist.
@@ -4426,6 +4434,9 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
             uintptr_t lo = trunc_page((uintptr_t)original_ptr);
             uintptr_t hi = round_page((uintptr_t)original_ptr + original_size);
 
+	    small_free_list_remove_ptr(szone, small_mag_ptr, ptr, msize);
+	    small_meta_header_set_in_use(meta_headers, index, msize);
+
 	    OSAtomicIncrement32Barrier(&(node->pinned_to_depot));
 	    SZONE_MAGAZINE_PTR_UNLOCK(szone, small_mag_ptr);
 #if TARGET_OS_EMBEDDED
@@ -4435,7 +4446,10 @@ small_free_no_lock(szone_t *szone, magazine_t *small_mag_ptr, mag_index_t mag_in
 #endif
 	    SZONE_MAGAZINE_PTR_LOCK(szone, small_mag_ptr);
 	    OSAtomicDecrement32Barrier(&(node->pinned_to_depot));
-        }
+
+	    small_meta_header_set_is_free(meta_headers, index, msize);
+	    small_free_list_add_ptr(szone, small_mag_ptr, ptr, msize);
+	}
 
 #if !TARGET_OS_EMBEDDED
 	if (0 < bytes_used || 0 < node->pinned_to_depot) {
@@ -4709,11 +4723,13 @@ small_check_region(szone_t *szone, region_t region)
 		  ptr, szone->num_small_regions, region_end);
 		return 0;
 	    }
+#if !RELAXED_INVARIANT_CHECKS
 	    if (SMALL_BYTES_FOR_MSIZE(msize) > szone->large_threshold) {
 		malloc_printf("*** invariant broken for %p this small msize=%d - size is too large\n",
 		  ptr, msize_and_free);
 		return 0;
 	    }
+#endif // RELAXED_INVARIANT_CHECKS
 	    ptr += SMALL_BYTES_FOR_MSIZE(msize);
 	    prev_free = 0;
 	} else {
@@ -4725,10 +4741,12 @@ small_check_region(szone_t *szone, region_t region)
 		malloc_printf("*** invariant broken for free block %p this msize=%d\n", ptr, msize);
 		return 0;
 	    }
+#if !RELAXED_INVARIANT_CHECKS
 	    if (prev_free) {
 		malloc_printf("*** invariant broken for %p (2 free in a row)\n", ptr);
 		return 0;
 	    }
+#endif
 	    previous = free_list_unchecksum_ptr(szone, &free_head->previous);
 	    next = free_list_unchecksum_ptr(szone, &free_head->next);
 	    if (previous && !SMALL_PTR_IS_FREE(previous)) {

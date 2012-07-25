@@ -23,7 +23,7 @@
 
 #include "../diskarbitrationd/DAInternal.h"
 
-#include <xpc/xpc.h>
+#include <xpc/private.h>
 #include <ApplicationServices/ApplicationServices.h>
 
 static void __DAAgentMessageCallback( xpc_object_t object );

@@ -39,7 +39,7 @@
  *  DiskArbitration.framework -> -framework DiskArbitration
  *  IOKit.framework -> -framework IOKit
  *  /usr/local/lib/libbless.a -> add -lbless
- * only available on 10.7:
+ * only available on 10.7 (see below for 10.6):
  *  /usr/lib/libCoreStorage.dylib -> -lCoreStorage
  *  /usr/lib/libcsfde.dylib -> -lcsfde
  *  EFILogin.framework -> -framework EFILogin
@@ -47,9 +47,8 @@
  * The 10.7 libraries can be weak-linked if clients need to run
  * on 10.6 (which won't be able to see CoreStorage volumes anyway):
  * Set the "Base SDK" to "Current Mac OS", and set the deployment
- * target to "Mac OS X 10.6".  10.7-only functions will still
- * be available to the target but should be guarded by NULL checks 
- * so they're not called when running on 10.6.
+ * target to "Mac OS X 10.6".  10.7-only functions should fail
+ * cleanly if inadvertantly called on 10.6.
  *
  * Several clients
  * 1. basic "kextcache -u" (Installer, kextd, etc)
@@ -57,16 +56,38 @@
  * 2b. "deactivate Boot!=Root in an Apple_Boot" (Disk Management post-CSFDE)
  * 3a. "custom configure an Apple_Boot to boot off some other volume" (IA)
  * 3b. "keep system Boot!=Root out of the way" (Install Assistant)
- * ---- initial support target ----
- * 4. "complement existing Boot!=Root setup" (ANI5)
+ * 4a. set up booting within a directory in an Apple_Boot (Time Machine)
+ * 4b. set up booting with a temporary directory (ANI5)
+ *
+ * WARNING: libBootRoot is NOT THREAD-SAFE / re-entrant.  It uses
+ * basename(3), dirname(3), relies on internal static storage, and
+ * uses global fchdir() to keep from straying from the target fsys.
+ * Complex multi-threaded programs should probably create a 'brtool'
+ * and call that as a separate process until 10561671 is addressed.
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/kext/OSKextPrivate.h>
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+// these functions
+void tool_log(
+    OSKextRef aKext,
+    OSKextLogSpec logSpec,
+    const char * format,
+    ...);
+void tool_openlog(const char * name);
+// allow clients to configure libBootRoot to send logs to the
+// system logging facility (ASL) as easily as
+//     OSKextSetLogOutputFunction(&tool_log);
+//     tool_openlog(getprogname() [/ myCFBundleID]);
+
+
+// makes getting libBootRoot's logging into ASL as easy as
 
 /*!
  *  @function   BRUpdateBootFiles()
@@ -102,7 +123,7 @@ OSStatus BRUpdateBootFiles(CFURLRef volRoot, Boolean force);
  *
  *  @param  volRoot - volume for which to return helper partitions
  *
- *  @result     CFDictionaryRef or NULL if no supported helpers
+ *  @result     CFArrayRef or NULL if no supported helpers
  *
  *  @discussion
  *      Evaluates the target volume and returns a list of helper
@@ -128,10 +149,9 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *              ?? kPOSIXErrorBase could be used to encode errno ??
  *
  *  @discussion
- *      BRCopyBootfiles() allows the caller to copy boot files from a
- *      source volume to a single target partition.  If any of srcVol's
- *      boot caches are out of date, BRCopyBootfiles() updates them
- *      before copying them to the target partition.
+ *      BRCopyBootFiles() copies appropriate boot cache files from a 
+ *      source volume to a single target partition.  BRCopyBootFiles()
+ *      updates any out of date caches before copying them to the target.
  *
  *      The partition referred to by helperBSDName:
  *          - must contain a valid HFS+ filesystem
@@ -140,14 +160,14 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *      It will be treated as a helper partition: mounted as
  *      necessary and soft-unmounted regardless of success.
  *
- *      Once complete, the helper's filesystem will be blessed so
- *      that it can be option-booted.  If NVRAM needs to point to the
- *      partition before normal invocations of bless(8) would correctly
- *      set it, libbless's new BLSetEFIBootDevice() [9300207] can be
- *      used to point NVRAM at the helper partition.
+ *      Once complete, the helper's filesystem will be blessed such
+ *      that the option-boot picker will show srcVol's label.  If NVRAM
+ *      needs to point to the partition before normal invocations of
+ *      bless(8) would correctly set it, libbless's BLSetEFIBootDevice()
+ *      can be used to point NVRAM at the helper partition.
  *
- *      srcVol cache updates are made with the running system's
- *      kext subsystem.  Behavior will be undefined if a statically-
+ *      Note: srcVol cache updates are made with the running system's
+ *      kext subsystem.  Behavior is be undefined if a statically-
  *      linked BRCopyBootFiles() is called on an older system when
  *      srcVol's caches are out of date and the older system can't
  *      properly update them.
@@ -155,25 +175,84 @@ CFArrayRef BRCopyActiveBootPartitions(CFURLRef volRoot);
  *      If [Boot!=Root has not been disabled and] srcVol and initialRoot
  *      refer to the same volume, its "boot stamps" will be updated to
  *      assure the system's Boot!=Root that everything is "up to date." 
+ *
+ *      BR*Update*BootFiles() can be used on a volume with the force
+ *      argument to get all helper partition(s) back in sync.
 
 [NOT YET: If srcVol and initialRoot are different, BRDisableSystemBootRoot()
  *      should be called on initialRoot so Boot!=Root won't later overwrite
- *      the files copied into the helper partition in question.
- XX need to teach BRCopyBootFiles() to read bootcaches.plist.disabled
- so it can find the FDE metadata after BRDisableSystemBootRoot(initialRoot)!]
+ *      the files copied into the helper partition in question.]
 [XX also need to make it an error if one of two safe modes aren't used:
- 1) srcVol == initialRoot -> system Boot!=Root must be active
- 2) srcVol != initialRoot -> system Boot!=Root must be disabled
-
- *      [In addition to BREnableSystemBootRoot(),] BR*Update*BootFiles()
- *      can be used on a volume with the force argument to get its
- *      helper partition(s) back in sync with normal contents.
- *      
+ 1) srcVol == initialRoot AND helperBSDName == only valid helper
+    -> system Boot!=Root must (should?) be active
+ 2) srcVol != initialRoot OR helperBSDName != any default helper
+    -> system Boot!=Root must be disabled]
  */
+
 OSStatus BRCopyBootFiles(CFURLRef srcVol,
                          CFURLRef initialRoot,
                          CFStringRef helperBSDName,
                          CFDictionaryRef bootPrefOverrides);
+
+/*!
+ *  @function   BRCopyBootFilesToDir
+ *  @abstract   copy up-to-date boot caches to specified partition & directory
+ *
+ *  @param  srcVol - root of volume containing source files and bootcaches.plist
+ *  @param  initialRoot - root of volume to make accessible at boot time
+ *  @param  bootPrefOverrides - [optional] extra info for com.apple.Boot.plist
+ *  @param  targetBSDName - name (like disk0s7) of target partition
+ *  @param  targetDir - optional target directory relative to targetBSDName
+ *  @param  blessSpec - how to bless the boot bits being copied
+ *  @param  pickerLabel - [optional] what the option-picker should show
+ *
+ *  @result     0 if up to date caches were copied
+ *              ?? kPOSIXErrorBase could be used to encode errno ??
+ *
+ *  @discussion
+ *      Similar to BRCopyBootFiles(), BRCopyBootFilesToDir() copies
+ *      appropriate boot cache files from a source OS volume to a
+ *      directory in a helper partition.  Caches are updated if needed,
+ *      possibly using the running system's kext infrastructure.
+ *
+ *      Specifying a target directory will leave the helper partition
+ *      mounted.  Specifying either or a target directory or a non-
+ *      Boot!=Root-compatible blessSpec will skip updating the
+ *      "bootstamps" in the root volume.
+ *      
+ *      CSFDE still requires that the target partition be an Apple_Boot
+ *      following an Apple_CoreStorage.  targetDir cannot be "/"
+ *      (which is reserved for the system).  A subsystem identifier
+ *      (like com.apple.AppleNetInstall.caches) is good practice.
+ *
+ *      BRCopyBootFilesToDir() requires a bless specification.
+ *      Depending on blessSpec, the target files will be "blessed"
+ *      in the filesystem and/or pointed to directly or indirectly
+ *      through efi-boot-* NVRAM variables.  kBRBlessOnce will create
+ *      targetDir under a temporary directory that is cleaned up 
+ *      by BREraseBootFiles() and BRUpdateBootFiles(...force=true).
+ *      See additional details with the BRBlessStyle typedef.  
+ */
+// XX need proper typedef/enum HeaderDoc
+typedef enum {
+    kBRBlessNone      = 0,  // nothing blessed: just copy the files
+                            // (no booting until later blessed)
+    kBRBlessFSDefault = 1,  // fsys: finderinfo[0,1] -> targetDir, boot.efi
+                            // (will show up in option-boot picker)
+    // 2-7 reserved
+// XX these two that manipulte NVRAM aren't implementend yet ...
+    kBRBlessFull    = 0x11, // FSDefault + boot-device->targetPartition
+                            // (system will boot these until changed)
+    kBRBlessOnce    = 0x20  // efi-boot-next -> tmpdir/boot.efi
+                            // (system will boot these files once)
+} BRBlessStyle;
+OSStatus BRCopyBootFilesToDir(CFURLRef srcVol,
+                              CFURLRef initialRoot,
+                              CFDictionaryRef bootPrefOverrides,
+                              CFStringRef targetBSDName,
+                              CFURLRef targetDir,
+                              BRBlessStyle blessSpec,
+                              CFStringRef pickerLabel);
 
 
 /*!
@@ -191,6 +270,7 @@ OSStatus BRCopyBootFiles(CFURLRef srcVol,
  *      BREraseBootFiles() will erase all files previously copied from
  *      srcVolRoot by BRCopyBootFiles().  It will also appropriately
  *      re-activate any Recovery OS present in the helper partition.
+ *      The helper is mounted and soft-unmounted in all cases.
  *
  *      BREraseBootFiles() will allow destruction of an active helper
  *      for srcVol.  It is up to the caller to ensure that the volume

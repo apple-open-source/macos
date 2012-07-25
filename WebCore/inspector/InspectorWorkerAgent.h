@@ -33,40 +33,54 @@
 
 #if ENABLE(WORKERS)
 
+#include "InspectorBaseAgent.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 class InspectorFrontend;
 class InspectorObject;
+class InspectorState;
 class InstrumentingAgents;
+class KURL;
 class WorkerContextProxy;
-class WorkerContextInspectorProxy;
 
 typedef String ErrorString;
 
-class InspectorWorkerAgent {
+class InspectorWorkerAgent : public InspectorBaseAgent<InspectorWorkerAgent>, public InspectorBackendDispatcher::WorkerCommandHandler {
 public:
-    static PassOwnPtr<InspectorWorkerAgent> create(InstrumentingAgents*);
+    static PassOwnPtr<InspectorWorkerAgent> create(InstrumentingAgents*, InspectorState*);
     ~InspectorWorkerAgent();
 
-    void setFrontend(InspectorFrontend*);
-    void clearFrontend();
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void restore();
+    virtual void clearFrontend();
 
     // Called from InspectorInstrumentation
-    void didStartWorkerContext(WorkerContextProxy*);
+    bool shouldPauseDedicatedWorkerOnStart();
+    void didStartWorkerContext(WorkerContextProxy*, const KURL&);
+    void workerContextTerminated(WorkerContextProxy*);
 
     // Called from InspectorBackendDispatcher
-    void sendMessageToWorker(ErrorString*, int workerId, PassRefPtr<InspectorObject> message);
+    virtual void setWorkerInspectionEnabled(ErrorString*, bool value);
+    virtual void connectToWorker(ErrorString*, int workerId);
+    virtual void disconnectFromWorker(ErrorString*, int workerId);
+    virtual void sendMessageToWorker(ErrorString*, int workerId, const RefPtr<InspectorObject>& message);
+    virtual void setAutoconnectToWorkers(ErrorString*, bool value);
 
 private:
-    explicit InspectorWorkerAgent(InstrumentingAgents*);
+    InspectorWorkerAgent(InstrumentingAgents*, InspectorState*);
+    void createWorkerFrontendChannelsForExistingWorkers();
+    void createWorkerFrontendChannel(WorkerContextProxy*, const String& url);
+    void destroyWorkerFrontendChannels();
 
-    InstrumentingAgents* m_instrumentingAgents;
     InspectorFrontend* m_inspectorFrontend;
 
     class WorkerFrontendChannel;
-    HashMap<int, WorkerFrontendChannel*> m_idToChannel;
+    typedef HashMap<int, WorkerFrontendChannel*> WorkerChannels;
+    WorkerChannels m_idToChannel;
+    typedef HashMap<WorkerContextProxy*, String> DedicatedWorkers;
+    DedicatedWorkers m_dedicatedWorkers;
 };
 
 } // namespace WebCore

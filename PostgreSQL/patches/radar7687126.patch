@@ -1,14 +1,14 @@
---- postgresql-9.0.5/src/backend/libpq/auth.c	2011-09-22 15:00:48.000000000 -0700
-+++ postgresql/src/backend/libpq/auth.c	2011-10-19 15:12:25.000000000 -0700
-@@ -28,6 +28,7 @@
+--- postgresql-9.1.1/src/backend/libpq/auth.c	2011-09-22 16:57:57.000000000 -0500
++++ postgresql/src/backend/libpq/auth.c	2011-10-10 13:30:45.000000000 -0500
+@@ -20,6 +20,7 @@
+ #include <netinet/in.h>
  #include <arpa/inet.h>
  #include <unistd.h>
- #include <stddef.h>
 +#include <poll.h>
  
  #include "libpq/auth.h"
  #include "libpq/crypt.h"
-@@ -2634,7 +2635,7 @@
+@@ -2454,7 +2455,7 @@
  	struct addrinfo *serveraddrs;
  	char		portstr[128];
  	ACCEPT_TYPE_ARG3 addrsize;
@@ -17,7 +17,7 @@
  	struct timeval endtime;
  	int			i,
  				r;
-@@ -2801,6 +2802,8 @@
+@@ -2621,10 +2622,11 @@
  	 */
  	gettimeofday(&endtime, NULL);
  	endtime.tv_sec += RADIUS_TIMEOUT;
@@ -26,7 +26,11 @@
  
  	while (true)
  	{
-@@ -2817,13 +2820,10 @@
+-		struct timeval timeout;
+ 		struct timeval now;
+ 		int64		timeoutval;
+ 
+@@ -2637,13 +2639,10 @@
  			closesocket(sock);
  			return STATUS_ERROR;
  		}

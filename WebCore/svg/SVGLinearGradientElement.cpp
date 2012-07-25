@@ -31,6 +31,7 @@
 #include "FloatPoint.h"
 #include "LinearGradientAttributes.h"
 #include "RenderSVGResourceLinearGradient.h"
+#include "SVGElementInstance.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGTransform.h"
@@ -45,6 +46,14 @@ DEFINE_ANIMATED_LENGTH(SVGLinearGradientElement, SVGNames::y1Attr, Y1, y1)
 DEFINE_ANIMATED_LENGTH(SVGLinearGradientElement, SVGNames::x2Attr, X2, x2)
 DEFINE_ANIMATED_LENGTH(SVGLinearGradientElement, SVGNames::y2Attr, Y2, y2)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGLinearGradientElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y1)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x2)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y2)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGradientElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 inline SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName, Document* document)
     : SVGGradientElement(tagName, document)
     , m_x1(LengthModeWidth)
@@ -54,6 +63,7 @@ inline SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& t
 {
     // Spec: If the x2 attribute is not specified, the effect is as if a value of "100%" were specified.
     ASSERT(hasTagName(SVGNames::linearGradientTag));
+    registerAnimatedPropertiesForSVGLinearGradientElement();
 }
 
 PassRefPtr<SVGLinearGradientElement> SVGLinearGradientElement::create(const QualifiedName& tagName, Document* document)
@@ -61,75 +71,51 @@ PassRefPtr<SVGLinearGradientElement> SVGLinearGradientElement::create(const Qual
     return adoptRef(new SVGLinearGradientElement(tagName, document));
 }
 
-void SVGLinearGradientElement::parseMappedAttribute(Attribute* attr)
+bool SVGLinearGradientElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    if (attr->name() == SVGNames::x1Attr)
-        setX1BaseValue(SVGLength(LengthModeWidth, attr->value()));
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, supportedAttributes, ());
+    if (supportedAttributes.isEmpty()) {
+        supportedAttributes.add(SVGNames::x1Attr);
+        supportedAttributes.add(SVGNames::x2Attr);
+        supportedAttributes.add(SVGNames::y1Attr);
+        supportedAttributes.add(SVGNames::y2Attr);
+    }
+    return supportedAttributes.contains<QualifiedName, SVGAttributeHashTranslator>(attrName);
+}
+
+void SVGLinearGradientElement::parseAttribute(Attribute* attr)
+{
+    SVGParsingError parseError = NoError;
+
+    if (!isSupportedAttribute(attr->name()))
+        SVGGradientElement::parseAttribute(attr);
+    else if (attr->name() == SVGNames::x1Attr)
+        setX1BaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
     else if (attr->name() == SVGNames::y1Attr)
-        setY1BaseValue(SVGLength(LengthModeHeight, attr->value()));
+        setY1BaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
     else if (attr->name() == SVGNames::x2Attr)
-        setX2BaseValue(SVGLength(LengthModeWidth, attr->value()));
+        setX2BaseValue(SVGLength::construct(LengthModeWidth, attr->value(), parseError));
     else if (attr->name() == SVGNames::y2Attr)
-        setY2BaseValue(SVGLength(LengthModeHeight, attr->value()));
+        setY2BaseValue(SVGLength::construct(LengthModeHeight, attr->value(), parseError));
     else
-        SVGGradientElement::parseMappedAttribute(attr);
+        ASSERT_NOT_REACHED();
+
+    reportAttributeParsingError(parseError, attr);
 }
 
 void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    SVGGradientElement::svgAttributeChanged(attrName);
-
-    if (attrName == SVGNames::x1Attr
-        || attrName == SVGNames::y1Attr
-        || attrName == SVGNames::x2Attr
-        || attrName == SVGNames::y2Attr) {
-        updateRelativeLengthsInformation();
-
-        RenderObject* object = renderer();
-        if (!object)
-            return;
-
-        object->setNeedsLayout(true);
-    }
-}
-
-void SVGLinearGradientElement::synchronizeProperty(const QualifiedName& attrName)
-{
-    SVGGradientElement::synchronizeProperty(attrName);
-
-    if (attrName == anyQName()) {
-        synchronizeX1();
-        synchronizeY1();
-        synchronizeX2();
-        synchronizeY2();
+    if (!isSupportedAttribute(attrName)) {
+        SVGGradientElement::svgAttributeChanged(attrName);
         return;
     }
 
-    if (attrName == SVGNames::x1Attr)
-        synchronizeX1();
-    else if (attrName == SVGNames::y1Attr)
-        synchronizeY1();
-    else if (attrName == SVGNames::x2Attr)
-        synchronizeX2();
-    else if (attrName == SVGNames::y2Attr)
-        synchronizeY2();
-}
+    SVGElementInstance::InvalidationGuard invalidationGuard(this);
+    
+    updateRelativeLengthsInformation();
 
-AttributeToPropertyTypeMap& SVGLinearGradientElement::attributeToPropertyTypeMap()
-{
-    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
-    return s_attributeToPropertyTypeMap;
-}
-
-void SVGLinearGradientElement::fillAttributeToPropertyTypeMap()
-{
-    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
-
-    SVGGradientElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
-    attributeToPropertyTypeMap.set(SVGNames::x1Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::y1Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::x2Attr, AnimatedLength);
-    attributeToPropertyTypeMap.set(SVGNames::y2Attr, AnimatedLength);
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 RenderObject* SVGLinearGradientElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -137,7 +123,7 @@ RenderObject* SVGLinearGradientElement::createRenderer(RenderArena* arena, Rende
     return new (arena) RenderSVGResourceLinearGradient(this);
 }
 
-void SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttributes& attributes)
+bool SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttributes& attributes)
 {
     HashSet<SVGGradientElement*> processedGradients;
 
@@ -145,11 +131,14 @@ void SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttribute
     SVGGradientElement* current = this;
 
     while (current) {
-        if (!attributes.hasSpreadMethod() && current->hasAttribute(SVGNames::spreadMethodAttr))
-            attributes.setSpreadMethod((GradientSpreadMethod) current->spreadMethod());
+        if (!current->renderer())
+            return false;
 
-        if (!attributes.hasBoundingBoxMode() && current->hasAttribute(SVGNames::gradientUnitsAttr))
-            attributes.setBoundingBoxMode(current->gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
+        if (!attributes.hasSpreadMethod() && current->hasAttribute(SVGNames::spreadMethodAttr))
+            attributes.setSpreadMethod(current->spreadMethod());
+
+        if (!attributes.hasGradientUnits() && current->hasAttribute(SVGNames::gradientUnitsAttr))
+            attributes.setGradientUnits(current->gradientUnits());
 
         if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr)) {
             AffineTransform transform;
@@ -182,7 +171,7 @@ void SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttribute
         processedGradients.add(current);
 
         // Respect xlink:href, take attributes from referenced element
-        Node* refNode = treeScope()->getElementById(SVGURIReference::getTarget(current->href()));
+        Node* refNode = SVGURIReference::targetElementFromIRIString(current->href(), document());
         if (refNode && (refNode->hasTagName(SVGNames::linearGradientTag) || refNode->hasTagName(SVGNames::radialGradientTag))) {
             current = static_cast<SVGGradientElement*>(refNode);
 
@@ -196,18 +185,8 @@ void SVGLinearGradientElement::collectGradientAttributes(LinearGradientAttribute
         } else
             current = 0;
     }
-}
 
-void SVGLinearGradientElement::calculateStartEndPoints(const LinearGradientAttributes& attributes, FloatPoint& startPoint, FloatPoint& endPoint)
-{
-    // Determine gradient start/end points
-    if (attributes.boundingBoxMode()) {
-        startPoint = FloatPoint(attributes.x1().valueAsPercentage(), attributes.y1().valueAsPercentage());
-        endPoint = FloatPoint(attributes.x2().valueAsPercentage(), attributes.y2().valueAsPercentage());
-    } else {
-        startPoint = FloatPoint(attributes.x1().value(this), attributes.y1().value(this));
-        endPoint = FloatPoint(attributes.x2().value(this), attributes.y2().value(this));
-    }
+    return true;
 }
 
 bool SVGLinearGradientElement::selfHasRelativeLengths() const

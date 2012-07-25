@@ -29,17 +29,25 @@
 #if ENABLE(VIDEO)
 #include "MediaControlRootElementChromium.h"
 
+#include "HTMLMediaElement.h"
+#include "HTMLNames.h"
 #include "MediaControlElements.h"
+#include "MouseEvent.h"
 #include "Page.h"
 #include "RenderTheme.h"
+#include "Text.h"
+
+#if ENABLE(VIDEO_TRACK)
+#include "TextTrackCue.h"
+#endif
 
 using namespace std;
 
 namespace WebCore {
 
-MediaControlRootElementChromium::MediaControlRootElementChromium(HTMLMediaElement* mediaElement)
-    : MediaControls(mediaElement)
-    , m_mediaElement(mediaElement)
+MediaControlRootElementChromium::MediaControlRootElementChromium(Document* document)
+    : MediaControls(document)
+    , m_mediaController(0)
     , m_playButton(0)
     , m_currentTimeDisplay(0)
     , m_timeline(0)
@@ -48,41 +56,46 @@ MediaControlRootElementChromium::MediaControlRootElementChromium(HTMLMediaElemen
     , m_volumeSlider(0)
     , m_volumeSliderContainer(0)
     , m_panel(0)
+#if ENABLE(VIDEO_TRACK)
+    , m_textDisplayContainer(0)
+    , m_textTrackDisplay(0)
+#endif
     , m_opaque(true)
+    , m_isMouseOverControls(false)
 {
 }
 
-PassRefPtr<MediaControls> MediaControls::create(HTMLMediaElement* mediaElement)
+PassRefPtr<MediaControls> MediaControls::create(Document* document)
 {
-    return MediaControlRootElementChromium::create(mediaElement);
+    return MediaControlRootElementChromium::create(document);
 }
 
-PassRefPtr<MediaControlRootElementChromium> MediaControlRootElementChromium::create(HTMLMediaElement* mediaElement)
+PassRefPtr<MediaControlRootElementChromium> MediaControlRootElementChromium::create(Document* document)
 {
-    if (!mediaElement->document()->page())
+    if (!document->page())
         return 0;
 
-    RefPtr<MediaControlRootElementChromium> controls = adoptRef(new MediaControlRootElementChromium(mediaElement));
+    RefPtr<MediaControlRootElementChromium> controls = adoptRef(new MediaControlRootElementChromium(document));
 
-    RefPtr<MediaControlPanelElement> panel = MediaControlPanelElement::create(mediaElement);
+    RefPtr<MediaControlPanelElement> panel = MediaControlPanelElement::create(document);
 
     ExceptionCode ec;
 
-    RefPtr<MediaControlPlayButtonElement> playButton = MediaControlPlayButtonElement::create(mediaElement);
+    RefPtr<MediaControlPlayButtonElement> playButton = MediaControlPlayButtonElement::create(document);
     controls->m_playButton = playButton.get();
     panel->appendChild(playButton.release(), ec, true);
     if (ec)
         return 0;
 
-    RefPtr<MediaControlTimelineContainerElement> timelineContainer = MediaControlTimelineContainerElement::create(mediaElement);
+    RefPtr<MediaControlTimelineContainerElement> timelineContainer = MediaControlTimelineContainerElement::create(document);
 
-    RefPtr<MediaControlTimelineElement> timeline = MediaControlTimelineElement::create(mediaElement, controls.get());
+    RefPtr<MediaControlTimelineElement> timeline = MediaControlTimelineElement::create(document, controls.get());
     controls->m_timeline = timeline.get();
     timelineContainer->appendChild(timeline.release(), ec, true);
     if (ec)
         return 0;
 
-    RefPtr<MediaControlCurrentTimeDisplayElement> currentTimeDisplay = MediaControlCurrentTimeDisplayElement::create(mediaElement);
+    RefPtr<MediaControlCurrentTimeDisplayElement> currentTimeDisplay = MediaControlCurrentTimeDisplayElement::create(document);
     controls->m_currentTimeDisplay = currentTimeDisplay.get();
     timelineContainer->appendChild(currentTimeDisplay.release(), ec, true);
     if (ec)
@@ -93,22 +106,28 @@ PassRefPtr<MediaControlRootElementChromium> MediaControlRootElementChromium::cre
     if (ec)
         return 0;
 
-    RefPtr<MediaControlPanelMuteButtonElement> panelMuteButton = MediaControlPanelMuteButtonElement::create(mediaElement, controls.get());
-    controls->m_panelMuteButton = panelMuteButton.get();
-    panel->appendChild(panelMuteButton.release(), ec, true);
-    if (ec)
-        return 0;
+    RefPtr<HTMLDivElement> panelVolumeControlContainer = HTMLDivElement::create(document);
 
-    RefPtr<MediaControlVolumeSliderContainerElement> volumeSliderContainer = MediaControlVolumeSliderContainerElement::create(mediaElement);
+    RefPtr<MediaControlVolumeSliderContainerElement> volumeSliderContainer = MediaControlVolumeSliderContainerElement::create(document);
 
-    RefPtr<MediaControlVolumeSliderElement> slider = MediaControlVolumeSliderElement::create(mediaElement);
+    RefPtr<MediaControlVolumeSliderElement> slider = MediaControlVolumeSliderElement::create(document);
     controls->m_volumeSlider = slider.get();
     volumeSliderContainer->appendChild(slider.release(), ec, true);
     if (ec)
         return 0;
 
     controls->m_volumeSliderContainer = volumeSliderContainer.get();
-    panel->appendChild(volumeSliderContainer.release(), ec, true);
+    panelVolumeControlContainer->appendChild(volumeSliderContainer.release(), ec, true);
+    if (ec)
+        return 0;
+
+    RefPtr<MediaControlPanelMuteButtonElement> panelMuteButton = MediaControlPanelMuteButtonElement::create(document, controls.get());
+    controls->m_panelMuteButton = panelMuteButton.get();
+    panelVolumeControlContainer->appendChild(panelMuteButton.release(), ec, true);
+    if (ec)
+        return 0;
+
+    panel->appendChild(panelVolumeControlContainer, ec, true);
     if (ec)
         return 0;
 
@@ -120,60 +139,55 @@ PassRefPtr<MediaControlRootElementChromium> MediaControlRootElementChromium::cre
     return controls.release();
 }
 
+void MediaControlRootElementChromium::setMediaController(MediaControllerInterface* controller)
+{
+    if (m_mediaController == controller)
+        return;
+    m_mediaController = controller;
+
+    if (m_playButton)
+        m_playButton->setMediaController(controller);
+    if (m_currentTimeDisplay)
+        m_currentTimeDisplay->setMediaController(controller);
+    if (m_timeline)
+        m_timeline->setMediaController(controller);
+    if (m_timelineContainer)
+        m_timelineContainer->setMediaController(controller);
+    if (m_panelMuteButton)
+        m_panelMuteButton->setMediaController(controller);
+    if (m_volumeSlider)
+        m_volumeSlider->setMediaController(controller);
+    if (m_volumeSliderContainer)
+        m_volumeSliderContainer->setMediaController(controller);
+    if (m_panel)
+        m_panel->setMediaController(controller);
+#if ENABLE(VIDEO_TRACK)
+    if (m_textDisplayContainer)
+        m_textDisplayContainer->setMediaController(controller);
+#endif
+    reset();
+}
+
 void MediaControlRootElementChromium::show()
 {
+    m_panel->setIsDisplayed(true);
     m_panel->show();
 }
 
 void MediaControlRootElementChromium::hide()
 {
+    m_panel->setIsDisplayed(false);
     m_panel->hide();
-}
-
-static const String& webkitTransitionString()
-{
-    DEFINE_STATIC_LOCAL(String, s, ("-webkit-transition"));
-    return s;
-}
-
-static const String& opacityString()
-{
-    DEFINE_STATIC_LOCAL(String, s, ("opacity"));
-    return s;
 }
 
 void MediaControlRootElementChromium::makeOpaque()
 {
-    if (m_opaque)
-        return;
-
-    DEFINE_STATIC_LOCAL(String, transitionValue, ());
-    if (transitionValue.isNull())
-        transitionValue = String::format("opacity %.1gs", document()->page()->theme()->mediaControlsFadeInDuration());
-    DEFINE_STATIC_LOCAL(String, opacityValue, ("1"));
-
-    ExceptionCode ec;
-    // FIXME: Make more efficient <http://webkit.org/b/58157>
-    m_panel->style()->setProperty(webkitTransitionString(), transitionValue, ec);
-    m_panel->style()->setProperty(opacityString(), opacityValue, ec);
-    m_opaque = true;
+    m_panel->makeOpaque();
 }
 
 void MediaControlRootElementChromium::makeTransparent()
 {
-    if (!m_opaque)
-        return;
-
-    DEFINE_STATIC_LOCAL(String, transitionValue, ());
-    if (transitionValue.isNull())
-        transitionValue = String::format("opacity %.1gs", document()->page()->theme()->mediaControlsFadeOutDuration());
-    DEFINE_STATIC_LOCAL(String, opacityValue, ("0"));
-
-    ExceptionCode ec;
-    // FIXME: Make more efficient <http://webkit.org/b/58157>
-    m_panel->style()->setProperty(webkitTransitionString(), transitionValue, ec);
-    m_panel->style()->setProperty(opacityString(), opacityValue, ec);
-    m_opaque = false;
+    m_panel->makeTransparent();
 }
 
 void MediaControlRootElementChromium::reset()
@@ -184,16 +198,16 @@ void MediaControlRootElementChromium::reset()
 
     updateStatusDisplay();
 
-    float duration = m_mediaElement->duration();
+    float duration = m_mediaController->duration();
     m_timeline->setDuration(duration);
     m_timelineContainer->show();
-    m_timeline->setPosition(m_mediaElement->currentTime());
+    m_timeline->setPosition(m_mediaController->currentTime());
     updateTimeDisplay();
 
     m_panelMuteButton->show();
 
     if (m_volumeSlider)
-        m_volumeSlider->setVolume(m_mediaElement->volume());
+        m_volumeSlider->setVolume(m_mediaController->volume());
 
     makeOpaque();
 }
@@ -201,28 +215,31 @@ void MediaControlRootElementChromium::reset()
 void MediaControlRootElementChromium::playbackStarted()
 {
     m_playButton->updateDisplayType();
-    m_timeline->setPosition(m_mediaElement->currentTime());
+    m_timeline->setPosition(m_mediaController->currentTime());
     updateTimeDisplay();
 }
 
 void MediaControlRootElementChromium::playbackProgressed()
 {
-    m_timeline->setPosition(m_mediaElement->currentTime());
+    m_timeline->setPosition(m_mediaController->currentTime());
     updateTimeDisplay();
+
+    if (!m_isMouseOverControls && m_mediaController->hasVideo())
+        makeTransparent();
 }
 
 void MediaControlRootElementChromium::playbackStopped()
 {
     m_playButton->updateDisplayType();
-    m_timeline->setPosition(m_mediaElement->currentTime());
+    m_timeline->setPosition(m_mediaController->currentTime());
     updateTimeDisplay();
     makeOpaque();
 }
 
 void MediaControlRootElementChromium::updateTimeDisplay()
 {
-    float now = m_mediaElement->currentTime();
-    float duration = m_mediaElement->duration();
+    float now = m_mediaController->currentTime();
+    float duration = m_mediaController->duration();
 
     Page* page = document()->page();
     if (!page)
@@ -249,9 +266,40 @@ void MediaControlRootElementChromium::updateStatusDisplay()
 {
 }
 
+bool MediaControlRootElementChromium::shouldHideControls()
+{
+    return !m_panel->hovered();
+}
+
 void MediaControlRootElementChromium::loadedMetadata()
 {
     reset();
+}
+
+bool MediaControlRootElementChromium::containsRelatedTarget(Event* event)
+{
+    if (!event->isMouseEvent())
+        return false;
+    EventTarget* relatedTarget = static_cast<MouseEvent*>(event)->relatedTarget();
+    if (!relatedTarget)
+        return false;
+    return contains(relatedTarget->toNode());
+}
+
+void MediaControlRootElementChromium::defaultEventHandler(Event* event)
+{
+    MediaControls::defaultEventHandler(event);
+
+    if (event->type() == eventNames().mouseoverEvent) {
+        if (!containsRelatedTarget(event)) {
+            m_isMouseOverControls = true;
+            if (!m_mediaController->canPlay())
+                makeOpaque();
+        }
+    } else if (event->type() == eventNames().mouseoutEvent) {
+        if (!containsRelatedTarget(event))
+            m_isMouseOverControls = false;
+    }
 }
 
 void MediaControlRootElementChromium::changedClosedCaptionsVisibility()
@@ -265,7 +313,7 @@ void MediaControlRootElementChromium::changedMute()
 
 void MediaControlRootElementChromium::changedVolume()
 {
-    m_volumeSlider->setVolume(m_mediaElement->volume());
+    m_volumeSlider->setVolume(m_mediaController->volume());
 }
 
 void MediaControlRootElementChromium::enteredFullscreen()
@@ -278,16 +326,61 @@ void MediaControlRootElementChromium::exitedFullscreen()
 
 void MediaControlRootElementChromium::showVolumeSlider()
 {
-    if (!m_mediaElement->hasAudio())
+    if (!m_mediaController->hasAudio())
         return;
 
     m_volumeSliderContainer->show();
 }
 
+#if ENABLE(VIDEO_TRACK)
+void MediaControlRootElementChromium::createTextTrackDisplay()
+{
+    if (m_textDisplayContainer)
+        return;
+
+    RefPtr<MediaControlTextTrackContainerElement> textDisplayContainer = MediaControlTextTrackContainerElement::create(document());
+    m_textDisplayContainer = textDisplayContainer.get();
+
+    // Insert it before the first controller element so it always displays behind the controls.
+    ExceptionCode ec;
+    insertBefore(textDisplayContainer.release(), m_panel, ec, true);
+}
+
+void MediaControlRootElementChromium::showTextTrackDisplay()
+{
+    if (!m_textDisplayContainer)
+        createTextTrackDisplay();
+    m_textDisplayContainer->show();
+}
+
+void MediaControlRootElementChromium::hideTextTrackDisplay()
+{
+    if (!m_textDisplayContainer)
+        createTextTrackDisplay();
+    m_textDisplayContainer->hide();
+}
+
+void MediaControlRootElementChromium::updateTextTrackDisplay()
+{
+    if (!m_textDisplayContainer)
+        createTextTrackDisplay();
+
+    m_textDisplayContainer->updateDisplay();
+}
+#endif
+
 const AtomicString& MediaControlRootElementChromium::shadowPseudoId() const
 {
     DEFINE_STATIC_LOCAL(AtomicString, id, ("-webkit-media-controls"));
     return id;
+}
+
+void MediaControlRootElementChromium::bufferingProgressed()
+{
+    // We only need to update buffering progress when paused, during normal
+    // playback playbackProgressed() will take care of it.
+    if (m_mediaController->paused())
+        m_timeline->setPosition(m_mediaController->currentTime());
 }
 
 }

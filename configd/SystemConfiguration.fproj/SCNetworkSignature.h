@@ -25,9 +25,12 @@
 #define _SCNETWORKSIGNATURE_H
 
 #include <Availability.h>
+#include <sys/cdefs.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFArray.h>
 #include <netinet/in.h>
+
+__BEGIN_DECLS
 
 /*!
 	@header SCNetworkSignature
@@ -98,4 +101,7 @@ SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 CFStringRef
 SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
 						   int sock_fd) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+
+__END_DECLS
+
 #endif	/* _SCNETWORKSIGNATURE_H */

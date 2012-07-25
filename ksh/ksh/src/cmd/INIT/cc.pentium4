@@ -2,8 +2,8 @@
 
 HOSTTYPE=linux.pentium4
 
-case $* in
--dumpmachine) echo $HOSTTYPE; exit ;;
+case " $* " in
+*" -dumpmachine "*) echo $HOSTTYPE; exit ;;
 esac
 
 case " $* " in

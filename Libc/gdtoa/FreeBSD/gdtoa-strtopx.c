@@ -29,6 +29,8 @@ THIS SOFTWARE.
 /* Please send bug reports to David M. Gay (dmg at acm dot org,
  * with " at " changed at "@" and " dot " changed to ".").	*/
 
+#include "xlocale_private.h"
+
 #include "gdtoaimp.h"
 
 #undef _0
@@ -53,9 +55,9 @@ THIS SOFTWARE.
 
  int
 #ifdef KR_headers
-strtopx(s, sp, V) CONST char *s; char **sp; void *V;
+strtopx(s, sp, V, loc) CONST char *s; char **sp; void *V; locale_t loc;
 #else
-strtopx(CONST char *s, char **sp, void *V)
+strtopx(CONST char *s, char **sp, void *V, locale_t loc)
 #endif
 {
 	static FPI fpi0 = { 64, 1-16383-64+1, 32766 - 16383 - 64 + 1, 1, SI };
@@ -69,9 +71,12 @@ strtopx(CONST char *s, char **sp, void *V)
 #define fpi &fpi0
 #endif
 
-	k = strtodg(s, sp, fpi, &exp, bits);
+	k = strtodg(s, sp, fpi, &exp, bits, loc);
 	switch(k & STRTOG_Retmask) {
 	  case STRTOG_NoNumber:
+		L[0] = L[1] = L[2] = L[3] = L[4] = 0;
+		return k; // avoid setting sign
+
 	  case STRTOG_Zero:
 		L[0] = L[1] = L[2] = L[3] = L[4] = 0;
 		break;

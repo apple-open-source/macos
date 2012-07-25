@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,7 +77,6 @@
 #define	kSCDSessionKeys	CFSTR("sessionKeys")
 
 
-extern int			storeLocked;
 extern CFMutableDictionaryRef	storeData;
 extern CFMutableDictionaryRef	sessionData;
 extern CFMutableDictionaryRef	patternData;
@@ -86,12 +85,6 @@ extern CFMutableSetRef		deferredRemovals;
 extern CFMutableSetRef		removedSessionKeys;
 extern CFMutableSetRef		needsNotification;
 
-extern CFMutableDictionaryRef	storeData_s;
-extern CFMutableDictionaryRef	patternData_s;
-extern CFMutableSetRef		changedKeys_s;
-extern CFMutableSetRef		deferredRemovals_s;
-extern CFMutableSetRef		removedSessionKeys_s;
-
 
 __BEGIN_DECLS
 
@@ -99,16 +92,10 @@ int
 __SCDynamicStoreOpen			(SCDynamicStoreRef	*store,
 					 CFStringRef		name);
 int
-__SCDynamicStoreClose			(SCDynamicStoreRef	*store,
-					 Boolean		internal);
+__SCDynamicStoreClose			(SCDynamicStoreRef	*store);
 
 int
-__SCDynamicStoreLock			(SCDynamicStoreRef	store,
-					 Boolean		recursive);
-
-int
-__SCDynamicStoreUnlock			(SCDynamicStoreRef	store,
-					 Boolean		recursive);
+__SCDynamicStorePush			(void);
 
 int
 __SCDynamicStoreCopyKeyList		(SCDynamicStoreRef	store,
@@ -119,8 +106,7 @@ __SCDynamicStoreCopyKeyList		(SCDynamicStoreRef	store,
 int
 __SCDynamicStoreAddValue		(SCDynamicStoreRef	store,
 					 CFStringRef		key,
-					 CFDataRef		value,
-					 Boolean		internal);
+					 CFDataRef		value);
 
 int
 __SCDynamicStoreCopyValue		(SCDynamicStoreRef	store,
@@ -150,10 +136,6 @@ int
 __SCDynamicStoreRemoveValue		(SCDynamicStoreRef	store,
 					 CFStringRef		key,
 					 Boolean		internal);
-
-int
-__SCDynamicStoreTouchValue		(SCDynamicStoreRef	store,
-					 CFStringRef		key);
 
 int
 __SCDynamicStoreNotifyValue		(SCDynamicStoreRef	store,
@@ -201,9 +183,6 @@ __SCDynamicStoreNotifySignal		(SCDynamicStoreRef	store,
 
 int
 __SCDynamicStoreNotifyCancel		(SCDynamicStoreRef	store);
-
-void
-_swapLockedStoreData			(void);
 
 void
 _addWatcher				(CFNumberRef		sessionNum,

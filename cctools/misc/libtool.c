@@ -172,7 +172,7 @@ static uint32_t narchs = 0;
 
 struct arch {
     struct arch_flag arch_flag;	/* the identifing info of this architecture */
-    uint32_t size;		/* current working size and final size */
+    uint64_t size;		/* current working size and final size */
 
     /* the table of contents (toc) stuff for this architecture in the library */
     uint32_t  toc_size;	/* total size of the toc including ar_hdr */
@@ -220,6 +220,7 @@ struct member {
     char	  *input_base_name;     /* the base name in the input file */
     uint32_t  input_base_name_size;	/* the size of the base name */
     struct ar_hdr *input_ar_hdr;
+    uint32_t      input_member_offset;  /* if from a thin archive */
 };
 
 static void usage(
@@ -240,7 +241,16 @@ static void add_member(
 static void free_archs(
     void);
 static void create_library(
-    char *output);
+    char *output,
+    struct ofile *ofile);
+static enum byte_sex get_target_byte_sex(
+    struct arch *arch,
+    enum byte_sex host_byte_sex);
+static char *put_toc_member(
+    char *p,
+    struct arch *arch,
+    enum byte_sex host_byte_sex,
+    enum byte_sex target_byte_sex);
 static void create_dynamic_shared_library(
     char *output);
 static void create_dynamic_shared_library_cleanup(
@@ -290,19 +300,19 @@ static void ld_trace(
  * with output_blocks.
  */
 static struct block {
-    uint32_t offset;	/* starting offset of this block */
-    uint32_t size;		/* size of this block */
-    uint32_t written_offset;/* first page offset after starting offset */
-    uint32_t written_size;	/* size of written area from written_offset */
+    uint64_t offset;	/* starting offset of this block */
+    uint64_t size;		/* size of this block */
+    uint64_t written_offset;/* first page offset after starting offset */
+    uint64_t written_size;	/* size of written area from written_offset */
     struct block *next; /* next block in the list */
 } *output_blocks;
 
 static void output_flush(
     char *library,
-    uint32_t library_size,
+    uint64_t library_size,
     int fd,
-    uint32_t offset,
-    uint32_t size);
+    uint64_t offset,
+    uint64_t size);
 static void final_output_flush(
     char *library,
     int fd);
@@ -316,7 +326,7 @@ static uint32_t trnc(
     uint32_t v,
     uint32_t r);
 
-/* apple_version is in vers.c which is created by the Makefile */
+/* apple_version is in vers.c which is created by the libstuff/Makefile */
 extern char apple_version[];
 
 int
@@ -1001,8 +1011,7 @@ char **envp)
 			    cmd_flags.verbose= TRUE;
 			    break;
 			case 'V':
-			    printf("Apple Computer, Inc. version %s\n",
-				   apple_version);
+			    printf("Apple Inc. version %s\n", apple_version);
 			    Vflag = TRUE;
 			    break;
 			case 't':
@@ -1327,11 +1336,11 @@ void)
 			    char resolvedname[MAXPATHLEN];
                 	    if(realpath(ofiles[i].file_name, resolvedname) !=
 			       NULL)
-				ld_trace("[Logging for XBS] Used static archive: "
-					 "%s\n", resolvedname);
+				ld_trace("[Logging for XBS] Used static "
+					 "archive: %s\n", resolvedname);
 			    else
-				ld_trace("[Logging for XBS] Used static archive: "
-					 "%s\n", ofiles[i].file_name);
+				ld_trace("[Logging for XBS] Used static "
+					 "archive: %s\n", ofiles[i].file_name);
 			    ld_trace_archive_printed = TRUE;
 			}
 			/* loop through archive */
@@ -1360,7 +1369,8 @@ void)
 			    }
 			}
 		    }
-		    else if(ofiles[i].arch_type == OFILE_Mach_O){
+		    else if(ofiles[i].arch_type == OFILE_Mach_O ||
+		            ofiles[i].arch_type == OFILE_LLVM_BITCODE){
 			if(cmd_flags.ranlib == TRUE){
 			    error("for architecture: %s file: %s is not an "
 				  "archive (no processing done on this file)",
@@ -1402,8 +1412,9 @@ void)
 		if((flag = ofile_first_member(ofiles + i)) == TRUE){
 		    if(ofiles[i].member_ar_hdr != NULL &&
 		       strncmp(ofiles[i].member_name, SYMDEF,
-			       sizeof(SYMDEF) - 1) == 0)
+			       sizeof(SYMDEF) - 1) == 0){
 			flag = ofile_next_member(ofiles + i);
+		    }
 		    while(flag == TRUE){
 			/* incorrect form: archive with fat object members */
 			if(ofiles[i].member_type == OFILE_FAT){
@@ -1504,7 +1515,7 @@ void)
 		    }
 		}
 		if(errors == 0)
-		    create_library(cmd_flags.files[i]);
+		    create_library(cmd_flags.files[i], ofiles + i);
 		if(cmd_flags.nfiles > 1){
 ranlib_fat_error:
 		    free_archs();
@@ -1514,7 +1525,7 @@ ranlib_fat_error:
 	    errors += previous_errors;
 	}
 	if(cmd_flags.ranlib == FALSE && errors == 0)
-	    create_library(cmd_flags.output);
+	    create_library(cmd_flags.output, NULL);
 
 	/*
 	 * Clean-up of ofiles[] and archs could be done here but since this
@@ -1985,6 +1996,11 @@ struct ofile *ofile)
 	    member->input_ar_hdr = ofile->member_ar_hdr;
 	    member->input_base_name = ofile->member_name;
 	    member->input_base_name_size = ofile->member_name_size;
+	    member->input_member_offset = ofile->member_offset -
+					  sizeof(struct ar_hdr);
+	    if(strncmp(ofile->member_ar_hdr->ar_name, AR_EFMT1,
+	       sizeof(AR_EFMT1) - 1) == 0)
+		member->input_member_offset -= ofile->member_name_size;
 
 	    member->ar_hdr = *(ofile->member_ar_hdr);
 	    member->member_name = ofile->member_name;
@@ -2136,13 +2152,20 @@ void)
  * create_library() creates a library from the data structure pointed to by
  * archs into the specified output file.  Only when more than one architecture
  * is in archs will a fat file be created.
+ *
+ * In the case of cmd_flags.ranlib == TRUE the ofile may not be NULL if it
+ * from a thin archive.  If so and the toc_* fields are set and we may update
+ * the table of contents in place if the new one fits where the old table of
+ * contents was.
  */
 static
 void
 create_library(
-char *output)
+char *output,
+struct ofile *ofile)
 {
-    uint32_t i, j, k, l, library_size, offset, pad, *time_offsets;
+    uint32_t i, j, k, pad, *time_offsets;
+    uint64_t library_size, offset;
     enum byte_sex target_byte_sex;
     char *library, *p, *flush_start;
     kern_return_t r;
@@ -2157,7 +2180,7 @@ char *output)
 #endif
     struct stat stat_buf;
     struct ar_hdr toc_ar_hdr;
-    enum bool some_tocs;
+    enum bool some_tocs, same_toc, different_offsets;
 
 	if(narchs == 0){
 	    if(cmd_flags.ranlib == TRUE){
@@ -2233,6 +2256,143 @@ char *output)
 	 */
 	if(cmd_flags.q == TRUE && some_tocs == FALSE)
 	    exit(EXIT_SUCCESS);
+	
+ 	/* 
+	 * If this is ranlib(1) and we are running in UNIX standard mode and
+	 * the file is not writeable just print and error message and return.
+	 */
+	if(cmd_flags.ranlib == TRUE &&
+	   get_unix_standard_mode() == TRUE &&
+	   access(output, W_OK) == -1){
+	    system_error("file: %s is not writable", output);
+	    return;
+	}
+
+	/*
+	 * If this is ranlib(1) and we have a thin archive that has an existing
+	 * table of contents see if we have enough room to update it in place.
+	 * Actually we check to see that we have the exact same number of
+	 * ranlib structs and string size, as this is the most common case that
+	 * the defined global symbols have not changed when rebuilding and it
+	 * will just be the offset to archive members that will have changed.
+	 */
+	if(cmd_flags.ranlib == TRUE && narchs == 1 &&
+	   ofile != NULL && ofile->toc_addr != NULL &&
+	   ofile->toc_bad == FALSE &&
+	   archs[0].toc_nranlibs == ofile->toc_nranlibs &&
+	   archs[0].toc_strsize == ofile->toc_strsize){
+
+	    /*
+	     * The existing thin archive may not be laid out the same way as
+	     * libtool(1) would do it.  As ar(1) does not know to pad things
+	     * so object files are on their natural alignment.  So check to
+	     * see if the offsets are not the same and if the alignment is OK.
+	     */
+	    different_offsets = FALSE;
+	    for(i = 0; i < archs[0].nmembers; i++){
+		if(archs[0].members[i].input_member_offset !=
+		   archs[0].members[i].offset){
+		    different_offsets = TRUE;
+		    /*
+		     * For now we will allow alignments of 4 bytes offsets even
+		     * though we would produce 8 byte alignments.
+		     */
+		    if(archs[0].members[i].input_member_offset % 4 != 0){
+		        goto fail_to_update_toc_in_place;
+		    }
+		}
+	    }
+
+	    /*
+	     * The time_offsets array records the offsets to the table of
+	     * contents archive header's ar_date fields.  In this case we just
+	     * have one since this is a thin file (non-fat) file.
+	     */
+	    time_offsets = allocate(1 * sizeof(uint32_t));
+	    /*
+	     * Calculate the offset to the archive header's time field for the
+	     * table of contents.
+	     */
+	    time_offsets[0] = SARMAG +
+			 ((char *)&toc_ar_hdr.ar_date - (char *)&toc_ar_hdr);
+
+	    /*
+	     * If we had different member offsets in the input thin archive
+	     * we adjust the ranlib structs ran_off to use them.
+	     */
+	    if(different_offsets == TRUE){
+		same_toc = FALSE;
+		for(i = 0; i < archs[0].toc_nranlibs; i++){
+		    for(j = 0; j < archs[0].nmembers; j++){
+			if(archs[0].members[j].offset == 
+			   archs[0].toc_ranlibs[i].ran_off){
+			    archs[0].toc_ranlibs[i].ran_off = 
+				archs[0].members[j].input_member_offset;
+			    break;
+			}
+		    }
+		}
+	    }
+	    else{
+		/*
+		 * If the new table of contents and the new string table are the
+		 * same as the old then the archive only needs to be "touched"
+		 * and the time field of the toc needs to be updated.
+		 */
+		same_toc = TRUE;
+		for(i = 0; i < archs[0].toc_nranlibs; i++){
+		    if(archs[0].toc_ranlibs[i].ran_un.ran_strx != 
+		       ofile->toc_ranlibs[i].ran_un.ran_strx ||
+		       archs[0].toc_ranlibs[i].ran_off !=
+		       ofile->toc_ranlibs[i].ran_off){
+			same_toc = FALSE;
+			break;
+		    }
+		}
+		if(same_toc == TRUE){
+		    for(i = 0; i < archs[0].toc_strsize; i++){
+			if(archs[0].toc_strings[i] != ofile->toc_strings[i]){
+			    same_toc = FALSE;
+			    break;
+			}
+		    }
+		}
+	    }
+
+	    library_size = SARMAG;
+	    if(same_toc == FALSE)
+		library_size += archs[0].toc_size;
+	    if((r = vm_allocate(mach_task_self(), (vm_address_t *)&library,
+				library_size, TRUE)) != KERN_SUCCESS)
+		mach_fatal(r, "can't vm_allocate() buffer for output file: %s "
+			   "of size %llu", output, library_size);
+
+
+	    /* put in the archive magic string in the buffer */
+	    p = library;
+	    memcpy(p, ARMAG, SARMAG);
+	    p += SARMAG;
+
+	    /* put the table of contents in the buffer if needed */
+	    target_byte_sex = get_target_byte_sex(archs + 0, host_byte_sex);
+	    if(same_toc == FALSE)
+		p = put_toc_member(p, archs+0, host_byte_sex, target_byte_sex);
+
+	    if((fd = open(output, O_WRONLY, 0)) == -1){
+		system_error("can't open output file: %s", output);
+		return;
+	    }
+	    if(write(fd, library, library_size) != (int)library_size){
+		system_error("can't write output file: %s", output);
+		return;
+	    }
+	    if(close(fd) == -1){
+		system_fatal("can't close output file: %s", output);
+		return;
+	    }
+	    goto update_toc_ar_dates;
+	}
+fail_to_update_toc_in_place:
 
 	/*
 	 * This buffer is vm_allocate'ed to make sure all holes are filled with
@@ -2241,22 +2401,14 @@ char *output)
 	if((r = vm_allocate(mach_task_self(), (vm_address_t *)&library,
 			    library_size, TRUE)) != KERN_SUCCESS)
 	    mach_fatal(r, "can't vm_allocate() buffer for output file: %s of "
-		       "size %u", output, library_size);
+		       "size %llu", output, library_size);
 
 	/*
 	 * Create the output file.  The unlink() is done to handle the problem
 	 * when the outputfile is not writable but the directory allows the
 	 * file to be removed (since the file may not be there the return code
-	 * of the unlink() is ignored).  But if this is ranlib(1) and we are
-	 * running in UNIX standard mode and the file is not writeable don't
-	 * do the unlink() just print and error message.
+	 * of the unlink() is ignored).
 	 */
-	if(cmd_flags.ranlib == TRUE &&
-	   get_unix_standard_mode() == TRUE &&
-	   access(output, W_OK) == -1){
-	    system_error("file: %s is not writable", output);
-	    return;
-	}
 	(void)unlink(output);
 	if((fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0666)) == -1){
 	    system_error("can't create output file: %s", output);
@@ -2281,10 +2433,24 @@ char *output)
 	    for(i = 0; i < narchs; i++){
 		fat_arch[i].cputype = archs[i].arch_flag.cputype;
 		fat_arch[i].cpusubtype = archs[i].arch_flag.cpusubtype;
+		if(offset > UINT32_MAX)
+		    error("file too large to create as a fat file because "
+			  "offset field in struct fat_arch is only 32-bits and "
+			  "offset (%llu) to architecture %s exceeds that",
+			  offset, archs[i].arch_flag.name);
 		fat_arch[i].offset = offset;
+		if(archs[i].size > UINT32_MAX)
+		    error("file too large to create as a fat file because "
+			  "size field in struct fat_arch is only 32-bits and "
+			  "size (%llu) of architecture %s exceeds that",
+			  archs[i].size, archs[i].arch_flag.name);
 		fat_arch[i].size = archs[i].size;
 		fat_arch[i].align = 2;
 		offset += archs[i].size;
+	    }
+	    if(errors != 0){
+		(void)unlink(output);
+		return;
 	    }
 #ifdef __LITTLE_ENDIAN__
 	    swap_fat_header(fat_header, BIG_ENDIAN_BYTE_SEX);
@@ -2344,59 +2510,20 @@ char *output)
 	    /*
 	     * Pick the byte sex to write the table of contents in.
 	     */
-	    target_byte_sex = UNKNOWN_BYTE_SEX;
-	    for(j = 0;
-		j < arch->nmembers && target_byte_sex == UNKNOWN_BYTE_SEX;
-		j++){
-		target_byte_sex = arch->members[j].object_byte_sex;
-	    }
-	    if(target_byte_sex == UNKNOWN_BYTE_SEX)
-		target_byte_sex = host_byte_sex;
+	    target_byte_sex = get_target_byte_sex(arch, host_byte_sex);
 
 	    /*
-	     * Put in the table of contents member:
-	     *	the archive header
-	     *  the archive member name (if using a long name)
-	     *	a uint32_t for the number of bytes of the ranlib structs
-	     *	the ranlib structs
-	     *	a uint32_t for the number of bytes of the strings for the
-	     *    ranlibs
-	     *	the strings for the ranlib structs
+	     * Remember the offset to the archive header's time field for this
+	     * arch's table of contents member.
 	     */
 	    time_offsets[i] =
 			 (p - library) +
 			 ((char *)&toc_ar_hdr.ar_date - (char *)&toc_ar_hdr);
-	    memcpy(p, (char *)&arch->toc_ar_hdr, sizeof(struct ar_hdr));
-	    p += sizeof(struct ar_hdr);
 
-	    if(arch->toc_long_name == TRUE){
-		memcpy(p, arch->toc_name, arch->toc_name_size);
-		p += arch->toc_name_size +
-		     (rnd(sizeof(struct ar_hdr), 8) -
-		      sizeof(struct ar_hdr));
-	    }
-
-	    l = arch->toc_nranlibs * sizeof(struct ranlib);
-	    if(target_byte_sex != host_byte_sex)
-		l = SWAP_INT(l);
-	    memcpy(p, (char *)&l, sizeof(uint32_t));
-	    p += sizeof(uint32_t);
-
-	    if(target_byte_sex != host_byte_sex)
-		swap_ranlib(arch->toc_ranlibs, arch->toc_nranlibs,
-			    target_byte_sex);
-	    memcpy(p, (char *)arch->toc_ranlibs,
-		   arch->toc_nranlibs * sizeof(struct ranlib));
-	    p += arch->toc_nranlibs * sizeof(struct ranlib);
-
-	    l = arch->toc_strsize;
-	    if(target_byte_sex != host_byte_sex)
-		l = SWAP_INT(l);
-	    memcpy(p, (char *)&l, sizeof(uint32_t));
-	    p += sizeof(uint32_t);
-
-	    memcpy(p, (char *)arch->toc_strings, arch->toc_strsize);
-	    p += arch->toc_strsize;
+	    /*
+	     * Put in the table of contents member in the output buffer.
+	     */
+	    p = put_toc_member(p, arch, host_byte_sex, target_byte_sex);
 
 	    output_flush(library, library_size, fd, flush_start - library,
 			 p - flush_start);
@@ -2479,6 +2606,7 @@ char *output)
 	    return;
 	}
 
+update_toc_ar_dates:
 	/*
 	 * Now that the library is created on the file system it is written
 	 * to get the time for the file on that file system.
@@ -2544,6 +2672,87 @@ char *output)
 }
 
 /*
+ * get_target_byte_sex() pick the byte sex to write the table of contents in
+ * for the arch.
+ */
+static
+enum byte_sex
+get_target_byte_sex(
+struct arch *arch,
+enum byte_sex host_byte_sex)
+{
+    uint32_t i;
+    enum byte_sex target_byte_sex;
+
+	target_byte_sex = UNKNOWN_BYTE_SEX;
+	for(i = 0;
+	    i < arch->nmembers && target_byte_sex == UNKNOWN_BYTE_SEX;
+	    i++){
+	    target_byte_sex = arch->members[i].object_byte_sex;
+	}
+	if(target_byte_sex == UNKNOWN_BYTE_SEX)
+	    target_byte_sex = host_byte_sex;
+	return(target_byte_sex);
+}
+
+/*
+ * put_toc_member() put the contents member for arch into the buffer p and 
+ * returns the pointer to the buffer after the table of contents.
+ * The table of contents member is:
+ *	the archive header
+ *  the archive member name (if using a long name)
+ *	a uint32_t for the number of bytes of the ranlib structs
+ *	the ranlib structs
+ *	a uint32_t for the number of bytes of the strings for the
+ *    ranlibs
+ *	the strings for the ranlib structs
+ */
+static
+char *
+put_toc_member(
+char *p,
+struct arch *arch,
+enum byte_sex host_byte_sex,
+enum byte_sex target_byte_sex)
+{
+    uint32_t l;
+
+	memcpy(p, (char *)&arch->toc_ar_hdr, sizeof(struct ar_hdr));
+	p += sizeof(struct ar_hdr);
+
+	if(arch->toc_long_name == TRUE){
+	    memcpy(p, arch->toc_name, arch->toc_name_size);
+	    p += arch->toc_name_size +
+		 (rnd(sizeof(struct ar_hdr), 8) -
+		  sizeof(struct ar_hdr));
+	}
+
+	l = arch->toc_nranlibs * sizeof(struct ranlib);
+	if(target_byte_sex != host_byte_sex)
+	    l = SWAP_INT(l);
+	memcpy(p, (char *)&l, sizeof(uint32_t));
+	p += sizeof(uint32_t);
+
+	if(target_byte_sex != host_byte_sex)
+	    swap_ranlib(arch->toc_ranlibs, arch->toc_nranlibs,
+			target_byte_sex);
+	memcpy(p, (char *)arch->toc_ranlibs,
+	       arch->toc_nranlibs * sizeof(struct ranlib));
+	p += arch->toc_nranlibs * sizeof(struct ranlib);
+
+	l = arch->toc_strsize;
+	if(target_byte_sex != host_byte_sex)
+	    l = SWAP_INT(l);
+	memcpy(p, (char *)&l, sizeof(uint32_t));
+	p += sizeof(uint32_t);
+
+	memcpy(p, (char *)arch->toc_strings, arch->toc_strsize);
+	p += arch->toc_strsize;
+
+	return(p);
+}
+
+/*
  * output_flush() takes an offset and a size of part of the output library,
  * known in the comments as the new area, and causes any fully flushed pages to
  * be written to the library file the new area in combination with previous
@@ -2556,12 +2765,12 @@ static
 void
 output_flush(
 char *library,
-uint32_t library_size,
+uint64_t library_size,
 int fd,
-uint32_t offset,
-uint32_t size)
+uint64_t offset,
+uint64_t size)
 { 
-    uint32_t write_offset, write_size, host_pagesize;
+    uint64_t write_offset, write_size, host_pagesize;
     struct block **p, *block, *before, *after;
     kern_return_t r;
 
@@ -2571,14 +2780,15 @@ uint32_t size)
 	    return;
 
 	if(offset + size > library_size)
-	    fatal("internal error: output_flush(offset = %u, size = %u) out "
-		  "of range for library_size = %u", offset, size, library_size);
+	    fatal("internal error: output_flush(offset = %llu, size = %llu) "
+		  "out of range for library_size = %llu", offset, size,
+		  library_size);
 
 #ifdef DEBUG
 	if(cmd_flags.debug & (1 << 2))
 	    print_block_list();
 	if(cmd_flags.debug & (1 << 1))
-	    printf("output_flush(offset = %lu, size %lu)", offset, size);
+	    printf("output_flush(offset = %llu, size %llu)", offset, size);
 #endif /* DEBUG */
 
 	if(size == 0){
@@ -2614,18 +2824,20 @@ uint32_t size)
 	 */
 	if(before != NULL){
 	    if(before->offset + before->size > offset){
-		warning("internal error: output_flush(offset = %u, size = %u)"
-		      " overlaps with flushed block(offset = %u, size = %u)",
-		      offset, size, before->offset, before->size);
+		warning("internal error: output_flush(offset = %llu, size = "
+			"%llu) overlaps with flushed block(offset = %llu, "
+			"size = %llu)", offset, size, before->offset,
+			before->size);
 		printf("calling abort()\n");	
 		abort();
 	    }
 	}
 	if(after != NULL){
 	    if(offset + size > after->offset){
-		warning("internal error: output_flush(offset = %u, size = %u)"
-		      " overlaps with flushed block(offset = %u, size = %u)",
-		      offset, size, after->offset, after->size);
+		warning("internal error: output_flush(offset = %llu, size = "
+			"%llu) overlaps with flushed block(offset = %llu, "
+			"size = %llu)", offset, size, after->offset,
+			after->size);
 		printf("calling abort()\n");	
 		abort();
 	    }
@@ -2756,7 +2968,7 @@ uint32_t size)
 	if(write_size != 0){
 #ifdef DEBUG
 	if((cmd_flags.debug & (1 << 1)) || (cmd_flags.debug & (1 << 0)))
-	    printf(" writing (write_offset = %lu write_size = %lu)\n",
+	    printf(" writing (write_offset = %llu write_size = %llu)\n",
 		   write_offset, write_size);
 #endif /* DEBUG */
 	    lseek(fd, write_offset, L_SET);
@@ -2786,7 +2998,7 @@ char *library,
 int fd)
 { 
     struct block *block;
-    uint32_t write_offset, write_size;
+    uint64_t write_offset, write_size;
     kern_return_t r;
 
 #ifdef DEBUG
@@ -2820,7 +3032,7 @@ int fd)
 	if(write_size != 0){
 #ifdef DEBUG
 	    if((cmd_flags.debug & (1 << 1)) || (cmd_flags.debug & (1 << 1)))
-		printf(" writing (write_offset = %lu write_size = %lu)\n",
+		printf(" writing (write_offset = %llu write_size = %llu)\n",
 		       write_offset, write_size);
 #endif /* DEBUG */
 	    lseek(fd, write_offset, L_SET);
@@ -2850,10 +3062,10 @@ print_block_list(void)
 	while(*p){
 	    block = *p;
 	    printf("block 0x%x\n", (unsigned int)block);
-	    printf("    offset %lu\n", block->offset);
-	    printf("    size %lu\n", block->size);
-	    printf("    written_offset %lu\n", block->written_offset);
-	    printf("    written_size %lu\n", block->written_size);
+	    printf("    offset %llu\n", block->offset);
+	    printf("    size %llu\n", block->size);
+	    printf("    written_offset %llu\n", block->written_offset);
+	    printf("    written_size %llu\n", block->written_size);
 	    printf("    next 0x%x\n", (unsigned int)(block->next));
 	    p = &(block->next);
 	}

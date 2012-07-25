@@ -24,8 +24,6 @@
  */
 
 #include "config.h"
-
-#if ENABLE(XPATH)
 #include "XPathNodeSet.h"
 
 #include "Attr.h"
@@ -215,15 +213,15 @@ void NodeSet::traversalSort() const
         if (!containsAttributeNodes || !n->isElementNode())
             continue;
 
-        NamedNodeMap* attributes = toElement(n)->attributes(true /* read-only */);
-        if (!attributes)
+        Element* element = toElement(n);
+        if (!element->hasAttributes())
             continue;
 
-        unsigned attributeCount = attributes->length();
+        unsigned attributeCount = element->attributeCount();
         for (unsigned i = 0; i < attributeCount; ++i) {
-            Attr* attribute = attributes->attributeItem(i)->attr();
-            if (attribute && nodes.contains(attribute))
-                sortedNodes.append(attribute);
+            RefPtr<Attr> attr = element->attrIfExists(element->attributeItem(i)->name());
+            if (attr && nodes.contains(attr.get()))
+                sortedNodes.append(attr);
         }
     }
 
@@ -264,5 +262,3 @@ Node* NodeSet::anyNode() const
 
 }
 }
-
-#endif // ENABLE(XPATH)

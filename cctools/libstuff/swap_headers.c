@@ -75,6 +75,8 @@ struct load_command *load_commands)
     struct fvmlib_command *fl;
     struct thread_command *ut;
     struct ident_command *id;
+    struct entry_point_command *ep;
+    struct source_version_command *sv;
     struct dylib_command *dl;
     struct sub_framework_command *sub;
     struct sub_umbrella_command *usub;
@@ -961,6 +963,30 @@ check_dylinker_command:
 		    cpusubtype, ut->cmd == LC_UNIXTHREAD ?
 		    "LC_UNIXTHREAD" : "LC_THREAD", i);
 		return(FALSE);
+
+	    case LC_MAIN:
+		ep = (struct entry_point_command *)lc;
+		if((char *)ep + ep->cmdsize >
+		   (char *)load_commands + sizeofcmds){
+		    error("in swap_object_headers(): truncated or malformed "
+			"load commands (cmdsize field of LC_MAIN command %lu "
+			"extends past the end of the load commands)", i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_SOURCE_VERSION:
+		sv = (struct source_version_command *)lc;
+		if((char *)sv + sv->cmdsize >
+		   (char *)load_commands + sizeofcmds){
+		    error("in swap_object_headers(): truncated or malformed "
+			"load commands (cmdsize field of LC_SOURCE_VERSION "
+			"command %lu extends past the end of the load "
+			"commands)", i);
+		    return(FALSE);
+		}
+		break;
+
 	    case LC_IDENT:
 		id = (struct ident_command *)lc;
 		if((char *)id + id->cmdsize >
@@ -1046,6 +1072,26 @@ check_dylinker_command:
 		if(ld->cmdsize != sizeof(struct linkedit_data_command)){
 		    error("in swap_object_headers(): malformed load commands "
 			  "(LC_FUNCTION_STARTS command %lu has incorrect "
+			  "cmdsize", i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_DATA_IN_CODE:
+		ld = (struct linkedit_data_command *)lc;
+		if(ld->cmdsize != sizeof(struct linkedit_data_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_DATA_IN_CODE command %lu has incorrect "
+			  "cmdsize", i);
+		    return(FALSE);
+		}
+		break;
+
+	    case LC_DYLIB_CODE_SIGN_DRS:
+		ld = (struct linkedit_data_command *)lc;
+		if(ld->cmdsize != sizeof(struct linkedit_data_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_DYLIB_CODE_SIGN_DRS command %lu has incorrect "
 			  "cmdsize", i);
 		    return(FALSE);
 		}
@@ -1531,6 +1577,16 @@ check_dylinker_command:
 		}
 		break;
 
+	    case LC_MAIN:
+		ep = (struct entry_point_command *)lc;
+		swap_entry_point_command(ep, target_byte_sex);
+		break;
+
+	    case LC_SOURCE_VERSION:
+		sv = (struct source_version_command *)lc;
+		swap_source_version_command(sv, target_byte_sex);
+		break;
+
 	    case LC_IDENT:
 		id = (struct ident_command *)lc;
 		swap_ident_command(id, target_byte_sex);
@@ -1564,6 +1620,8 @@ check_dylinker_command:
 	    case LC_CODE_SIGNATURE:
 	    case LC_SEGMENT_SPLIT_INFO:
 	    case LC_FUNCTION_STARTS:
+	    case LC_DATA_IN_CODE:
+	    case LC_DYLIB_CODE_SIGN_DRS:
 		ld = (struct linkedit_data_command *)lc;
 		swap_linkedit_data_command(ld, target_byte_sex);
 		break;

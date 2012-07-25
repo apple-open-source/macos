@@ -1,1 +1,0 @@
-FreeBSD/bt_get.c

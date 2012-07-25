@@ -2893,7 +2893,7 @@ sourceroute(struct addrinfo *ai, char *arg, char **cpp, int *lenp, int *protop, 
 	if (cpp == NULL || lenp == NULL)
 		return -1;
 	if (*cpp != NULL) {
-		switch (res->ai_family) {
+		switch (ai->ai_family) {
 		case AF_INET:
 			if (*lenp < 7)
 				return -1;

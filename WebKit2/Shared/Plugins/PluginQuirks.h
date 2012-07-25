@@ -33,7 +33,7 @@ public:
     enum PluginQuirk {
         // Mac specific quirks:
 #if PLUGIN_ARCHITECTURE(MAC)
-        // The plug-in wants the call to getprogame() to return "WebKitPluginHost".
+        // The plug-in wants the call to getprogname() to return "WebKitPluginHost".
         // Adobe Flash Will not handle key down events otherwise.
         PrognameShouldBeWebKitPluginHost,
 
@@ -48,12 +48,6 @@ public:
         // transparent.
         MakeTransparentIfBackgroundAttributeExists,
 
-        // Whether we can short circuit some NPRuntime calls during plug-in initialization.
-        // The Flash plug-in uses NPRuntime to figure out the URL of the frame it is in, as well
-        // as the URL of the main frame. Since we know the exact NPRuntime calls the plug-in makes,
-        // we can return the right values without having to do sync IPC back into the web process.
-        CanShortCircuitSomeNPRuntimeCallsDuringInitialization,
-
         // Whether calling NPP_GetValue with NPPVpluginCoreAnimationLayer returns a retained Core Animation
         // layer or not. According to the NPAPI specifications, plug-in shouldn't return a retained layer but
         // WebKit1 expects a retained plug-in layer. We use this for Flash to avoid leaking OpenGL layers.
@@ -62,6 +56,12 @@ public:
         // Whether NPP_GetValue with NPPVpluginScriptableNPObject returns a non-retained NPObject or not.
         // Versions of Silverlight prior to 4 never retained the returned NPObject.
         ReturnsNonRetainedScriptableNPObject,
+
+        // Whether the plug-in wants parameter names to be lowercase.
+        // <rdar://problem/8440903>: AppleConnect has a bug where it does not
+        // understand the parameter names specified in the <object> element that
+        // embeds its plug-in. 
+        WantsLowercaseParameterNames,
 
         // Whether to append Version/3.2.1 to the user-agent passed to the plugin
         // This is necessary to disable Silverlight's workaround for a Safari 2 leak
@@ -81,6 +81,10 @@ public:
         // NPN_GetValue even when it is a lie.
         RequiresGTKToolKit,
 
+        // Some version 10 releases of Flash run under nspluginwrapper will completely
+        // freeze when sending right click events to them in windowed mode.
+        IgnoreRightClickInWindowlessMode,
+
         // Windows specific quirks:
 #elif PLUGIN_ARCHITECTURE(WIN)
         // Whether NPN_UserAgent should always return a Mozilla user agent.
@@ -88,6 +92,10 @@ public:
         // if we return a Mozilla user agent.
         WantsMozillaUserAgent,
 #endif
+
+        // This isn't really a quirk as much as the opposite of a quirk. By default, we don't send wheel events
+        // to plug-ins unless we know that they handle them correctly. Adobe Reader on Mac handles wheel events correctly.
+        WantsWheelEvents,
 
         NumPluginQuirks
     };

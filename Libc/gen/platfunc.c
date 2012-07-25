@@ -24,10 +24,14 @@
 #if defined(__i386__) || defined(__x86_64__)
 
 #include <stdlib.h>
-#include <platfunc.h>
 #include <machine/cpu_capabilities.h>
+#include "platfunc.h"
 
 #define PLAT_CAP_MASK (kHasMMX | kHasSSE | kHasSSE2 | kHasSSE3 | kCache32 | kCache64 | kCache128 | kFastThreadLocalStorage | kHasSupplementalSSE3 | k64Bit | kHasSSE4_1 | kHasSSE4_2 | kHasAES | kInOrderPipeline | kSlow | kUP)
+
+inline static int __get_cpu_capabilities() {
+	return *((int32_t*)_COMM_PAGE_CPU_CAPABILITIES);
+}
 
 inline static int num_cpus(int capabilities) {
 	return (capabilities & kNumCPUs) >> kNumCPUsShift;
@@ -35,7 +39,7 @@ inline static int num_cpus(int capabilities) {
 
 /* TODO: If 8151810 is fixed (or full support for visibility("internal") is added), change this to visibility("internal") */
 void __attribute__((visibility("hidden"))) *find_platform_function(const platfunc_descriptor *descriptors[]) {
-	int cap = _get_cpu_capabilities(),
+	int cap = __get_cpu_capabilities(),
 	    have_cpus = num_cpus(cap);
 
 	for (int i = 0; descriptors[i] != 0; i++) {

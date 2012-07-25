@@ -28,13 +28,12 @@
 #define DocumentMarkerController_h
 
 #include "DocumentMarker.h"
+#include "LayoutTypes.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class IntPoint;
-class IntRect;
 class Node;
 class Range;
 class RenderedDocumentMarker;
@@ -47,8 +46,12 @@ public:
     ~DocumentMarkerController() { detach(); }
 
     void detach();
-    void addMarker(Range*, DocumentMarker::MarkerType, String description = String());
-    void addMarker(Node*, const DocumentMarker&);
+    void addMarker(Range*, DocumentMarker::MarkerType);
+    void addMarker(Range*, DocumentMarker::MarkerType, const String& description);
+    void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType);
+    void addMarkerToNode(Node*, unsigned startOffset, unsigned length, DocumentMarker::MarkerType, PassRefPtr<DocumentMarkerDetails>);
+    void addTextMatchMarker(Range*, bool activeMatch);
+
     void copyMarkers(Node* srcNode, unsigned startOffset, int length, Node* dstNode, int delta);
     bool hasMarkers(Range*, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
 
@@ -62,15 +65,15 @@ public:
     void removeMarkers(DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
     void removeMarkers(Node*, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
     void repaintMarkers(DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
-    void setRenderedRectForMarker(Node*, const DocumentMarker&, const IntRect&);
-    void invalidateRenderedRectsForMarkersInRect(const IntRect&);
+    void invalidateRenderedRectsForMarkersInRect(const LayoutRect&);
     void shiftMarkers(Node*, unsigned startOffset, int delta);
     void setMarkersActive(Range*, bool);
     void setMarkersActive(Node*, unsigned startOffset, unsigned endOffset, bool);
 
-    DocumentMarker* markerContainingPoint(const IntPoint&, DocumentMarker::MarkerType);
+    DocumentMarker* markerContainingPoint(const LayoutPoint&, DocumentMarker::MarkerType);
+    Vector<DocumentMarker*> markersFor(Node*, DocumentMarker::MarkerTypes = DocumentMarker::AllMarkers());
+    Vector<DocumentMarker*> markersInRange(Range*, DocumentMarker::MarkerTypes);
     Vector<DocumentMarker> markersForNode(Node*);
-    Vector<DocumentMarker> markersInRange(Range*, DocumentMarker::MarkerTypes);
     Vector<IntRect> renderedRectsForMarkers(DocumentMarker::MarkerType);
     void clearDescriptionOnMarkersIntersectingRange(Range*, DocumentMarker::MarkerTypes);
 
@@ -79,6 +82,8 @@ public:
 #endif
 
 private:
+    void addMarker(Node*, const DocumentMarker&);
+
     typedef Vector<RenderedDocumentMarker> MarkerList;
     typedef HashMap<RefPtr<Node>, MarkerList*> MarkerMap;
     bool possiblyHasMarkers(DocumentMarker::MarkerTypes);

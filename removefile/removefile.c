@@ -117,6 +117,9 @@ removefile(const char* path, removefile_state_t state_param, removefile_flags_t 
 		res = -1;
 	}
 
+	if (res == 0) {
+		sync_volume_np(path, SYNC_VOLUME_WAIT | SYNC_VOLUME_FULLSYNC);
+	}
 	// deallocate if allocated locally
 	if (state_param == NULL) {
 		removefile_state_free(state);

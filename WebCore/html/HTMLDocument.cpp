@@ -54,7 +54,6 @@
 #include "HTMLDocument.h"
 
 #include "CSSPropertyNames.h"
-#include "CSSStyleSelector.h"
 #include "CookieJar.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
@@ -74,6 +73,7 @@
 #include "KURL.h"
 #include "Page.h"
 #include "Settings.h"
+#include "StyleResolver.h"
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -138,15 +138,8 @@ void HTMLDocument::setDesignMode(const String& value)
 
 Element* HTMLDocument::activeElement()
 {
-    if (Node* node = focusedNode()) {
-        if (node->isElementNode())
-            return static_cast<Element*>(node);
-    } else if (Page* page = this->page()) {
-        for (Frame* focusedFrame = page->focusController()->focusedFrame(); focusedFrame; focusedFrame = focusedFrame->tree()->parent()) {
-            if (focusedFrame->tree()->parent() == frame())
-                return focusedFrame->ownerElement();
-        }
-    }
+    if (Node* node = treeScope()->focusedNode())
+        return node->isElementNode() ? toElement(node) : body();
     return body();
 }
 

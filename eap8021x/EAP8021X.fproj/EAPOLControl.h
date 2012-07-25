@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -197,6 +197,19 @@ int
 EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
 
 #if ! TARGET_OS_EMBEDDED
+/*
+ * Function: EAPOLControlDidUserCancel
+ *
+ * Purpose:
+ *    Returns whether the user cancelled the last authentication session.
+ *    This helps to avoid bothering the user with multiple dialogues
+ *    when they've already been informed and are aware of what's happenened.
+ *    EAPOLMonitor uses it to avoid prompting the user again if the user
+ *    cancels the authentication over Ethernet.
+ */
+boolean_t
+EAPOLControlDidUserCancel(const char * if_name);
+
 /*
  * Function: EAPOLControlStartSystem
  * Purpose:

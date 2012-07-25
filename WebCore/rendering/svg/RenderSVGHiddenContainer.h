@@ -40,12 +40,11 @@ protected:
 
 private:
     virtual bool isSVGHiddenContainer() const { return true; }
-    virtual bool requiresLayer() const { return false; }
 
-    virtual void paint(PaintInfo&, int parentX, int parentY);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
     
-    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject*) { return IntRect(); }
-    virtual void absoluteQuads(Vector<FloatQuad>&);
+    virtual LayoutRect clippedOverflowRectForRepaint(RenderBoxModelObject*) const { return LayoutRect(); }
+    virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const;
 
     virtual bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction);
 };

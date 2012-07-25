@@ -25,6 +25,103 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.31 release (the cctools-828 release):
+- Back out the change below in relax_immediate() in arm.c that was done as
+  an attempt to fix Radar bug #11215603 as it is causing problems.  Radar bug
+  #11403124.
+
+Changes for the 5.31 release (the cctools-827 release):
+- Fixed relax_immediate() in arm.c to correctly handle a negative immediate
+  to see that it fits in the instruction.  Radar bug #11215603.
+
+Changes for the 5.31 release (the cctools-825 release):
+- Added the -Q flag and tweaked handling the running of clang as the assembler
+  to the driver.  Cleaned up a bit of the code in there.  Radar bug #11139995.
+- Added a missing extern to subsections_via_symbols in as.h, and to 
+  dwarf2_loc_mark_labels in dwarf2dbg.h and to now_subseg in arm.c . Radar bug
+  #11136207.
+
+Changes for the 5.31 release (the cctools-824 release):
+- Added a check in do_neon_ld_st_interleave() in arm.c to check that the size
+  of 64 is only used with VLD1/VST1.  Radar bug #11024563.
+
+Changes for the 5.31 release (the cctools-823 release):
+- Added the -q option to the assembler driver to run clang(1) for x86_64.
+  Basis for Radar bug #9801003.
+
+Changes for the 5.30 release (the cctools-820 release):
+- Removed creating the apple_version.c file from the Makefile and now use the
+  new one created in libstuff.  Radar bug #10596469.
+- Another change to out_debug_info() in dwarf2dbg.c for Radar bug #10466662.
+  For the AT_high_pc, needed to the next symbol with different address or
+  the end of the section.
+
+Changes for the 5.30 release (the cctools-819 release):
+- Changed out_debug_info() in dwarf2dbg.c to check if the previous symbol in
+  the list of subprogram's info has the same address and to not emit it so
+  there aren't subprograms with zero lengths.  Radar bug #10466662.
+- Added AT_prototyped with a value of 0 to the TAG_subprogram when producing
+  dwarf for assembly source and added the TAG_unspecified_parameters after the
+  TAG_subprogram.  The changes are in out_debug_abbrev() and out_debug_info() in
+  dwarf2dbg.c . Radar bug #10537250.
+
+Changes for the 5.30 release (the cctools-816 release):
+- Changed the arm assembler so that for the thumb multiply instructions it
+  checks that either source register is the same as the destination register
+  and uses the 16-bit T1 encoding.  The fix was in arm.c in do_t_mul to change
+  this:
+          || inst.operands[0].reg != inst.operands[2].reg))
+  to this:
+          || (inst.operands[0].reg != inst.operands[2].reg &&
+              inst.operands[0].reg != inst.operands[1].reg)))
+  Radar bug #10433396.
+- Fixed a problem with dwarf generated for assembly source with -g for arm
+  assembly code.  Symbols marked with .thumb_func would have the low bit set
+  for their AT_low_pc value.  The fix was to not use the symbol directly for the
+  expression but to create a temporary symbol without the N_ARM_THUMB_DEF bit
+  set in make_subprogram_for_symbol() in symbols.c . Radar bug #10409052.
+
+Changes for the 5.30 release (the cctools-815 release):
+- Changed the i386 popcnt instructions to not have NoSuf on their entries in
+  i386-opcode.h.  Radar bug #10385539.
+- Added a check in dwarf2_directive_file() in dwarf2dbg.c to see if the -g flag
+  is being used to generate dwarf debug info for assembly code and print
+  an error because the input has .file dwarf directives.  Radar bug #9976587.
+
+Changes for the 5.30 release (the cctools-814 release):
+- Fixed the .incbin directive so it doesn't require the file to be writable.
+  Radar bug #10288224.
+
+Changes for the 5.30 release (the cctools-812 release):
+- Fix the encoding of the arm sev instruction.  Radar bug #10133308.
+
+Changes for the 5.30 release (the cctools-809 release):
+- Changed the assembler driver to no longer look in ../libexec/gcc/darwin paths
+  and to no longer install target assemblers in those paths.  Radar bug
+  #9908131.
+
+Changes for the 5.30 release (the cctools-807 release):
+- Changed cons() in read.c to call dwarf2_emit_insn() to allow instructions
+  that are being assembled with things like .long to trigger and outstanding
+  .loc line number creation.  Radar bug #9811389.
+
+Changes for the 5.29 release (the cctools-806.2 release):
+- Changed so that the target assembler get installed both in ../libexec/as and
+  in ../libexec/gcc/darwin and changed the driver to look in the first path then
+  fall back to the second path.  Radar bug #9661352.
+
+Changes for the 5.29 release (the cctools-800.7 release):
+- Added -gdwarf-2 to be the same as -g and --gwarf2 in main() in as.c .
+  Radar bug #9249853.
+
+Changes for the 5.29 release (the cctools-800.4 release):
+- Added missing support for -arch armv7[fk] for md_begin() in arm.c . Radar
+  bug #9055988.
+
+Changes for the 5.29 release (the cctools-800.3 release):
+- Added support for -arch armv7[fk] for main() in as.c and in s_align() in
+  read.c . Radar bug #8987684.
+
 Changes for the 5.29 release (the cctools-800 release):
 - Fixed the arm VCVT (between half-precision and single-precision) instructions
   encodings.  Had the op bit inverted in the table.  It should have been:
@@ -58,6 +155,10 @@ Changes for the 5.28 release (the cctools-798 release):
     "invalid constant (%x) after fixup"
   to have 0x in front of the hex value.  Radar bug #8772178.
 - Changed do_t_mul() in arm.c .  The problem is that the assembler didn't take
+  into account that the "mul" mnemonic (w/o the 's' suffix) is valid for the
+  16-bit wide encoding when in an IT block.  Radar bug #8755919.
+- Added support for make aarm_test .
+  - Added a arm-check.c that currently only does arm ALU instructions can set
   into account that the "mul" mnemonic (w/o the 's' suffix) is valid for the
   16-bit wide encoding when in an IT block.  Radar bug #8755919.
 - Added support for make aarm_test .

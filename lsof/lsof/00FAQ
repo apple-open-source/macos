@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-July 29, 2010
+September 27, 2011
 ______________________________________________________________________
 
 Table of Contents:
@@ -935,8 +935,8 @@ ______________________________________________________________________
 	The pub/lsof.README file carries the latest port information:
 
 	    AIX 5.[23] and 5.3
-	    FreeBSD 4.9 for x86-based systems
-	    FreeBSD 7.[0123] and 8.0 for AMD64-based systems
+	    FreeBSD 4.9 and 6.4 for x86-based systems
+	    FreeBSD 8.[02] for AMD64-based systems
 	    Linux 2.1.72 and above for x86-based systems
 	    Solaris 9, 10 and 11
 
@@ -7753,26 +7753,17 @@ ______________________________________________________________________
 17.28.1	Why does the compiler complain about lgrp_root on Solaris 9
 	and above?
 
-	When compiling lsof on some older Solaris 9 and above systems,
-	the compiler may report the following error:
+	When compiling lsof 4.84 on later Solaris 9 and 10 systems, the
+	compiler may report the following error:
 
 	  /usr/include/sys/lgrp.h", line ...: identifier redeclared: lgrp_root
 
 	This error results from a conflict between usage of lgrp_root
 	in both <sys/lgrp.h> and <sys/lgrp_user.h> when _KMEMUSER or
-	_KERNEL is #define'd before <sys/lgrp.h> is #include'd.
+	_KERNEL is #define'd before <sys/lgrp.h> is #include'd.  This
+	problem is noted in Sunsolve bug ID 5064229.
 
-	Later versions of Solaris 9 and above don't have the conflict and
-	I don't know a test that can be applied in the Configure script
-	to determine when the conflict will occur.
-
-	There is a work-around in .../dialects/sun/machine.h.  See the
-	comments there about lgrp_root and enable the #include of
-	<sys/lgrp.h> to activate the work-around.
-
-	The work-around is disabled because it causes other problems in
-	Solaris 11, and because it is no longer needed in the versions
-	of Solaris 9 and 10 to which I have access.
+	The work-around is to use lsof revision 4.85 sources.
 
 
 18.0	Lsof Features

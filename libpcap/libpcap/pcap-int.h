@@ -333,6 +333,10 @@ struct pcap {
 	u_int *dlt_list;
 
 	struct pcap_pkthdr pcap_header;	/* This is needed for the pcap_next_ex() to work */
+	
+#ifdef BIOCSEXTHDR
+	int	extendedhdr;
+#endif
 };
 
 /*

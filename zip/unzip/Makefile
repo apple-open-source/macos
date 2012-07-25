@@ -23,7 +23,7 @@ installhdrs:
 clean:
 	rm -rf $(SYMROOT) $(OBJROOT)
 
-install: destroot symbols manpages ossinfo
+install: destroot symbols ossinfo
 
 installsrc:
 	pax -rw . $(SRCROOT)
@@ -35,9 +35,6 @@ destroot: patchsrc unpacksrc
 		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
 		LOC="-Wall -Os -g -mdynamic-no-pic $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
 		CC="$(CC)"  INSTALL="$(INSTALL) -s" DESTDIR=$(DSTROOT)
-
-manpages: destroot
-	$(COMPRESSMANPAGES) /usr/share/man
 
 symbols:
 	$(CP) $(OBJROOT)/$(PROJECT)-$(VERSION)/unzip $(SYMROOT)

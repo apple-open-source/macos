@@ -26,23 +26,21 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit2/WKBase.h>
 
+@class WKBrowsingContextController;
+@class WKBrowsingContextGroup;
+@class WKProcessGroup;
 @class WKViewData;
 
 WK_EXPORT
 @interface WKView : NSView <NSTextInputClient> {
+@private
     WKViewData *_data;
-    unsigned _frameSizeUpdatesDisabledCount;
+    unsigned _unused;
 }
 
-- (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef;
-- (id)initWithFrame:(NSRect)frame contextRef:(WKContextRef)contextRef pageGroupRef:(WKPageGroupRef)pageGroupRef;
+- (id)initWithFrame:(NSRect)frame processGroup:(WKProcessGroup *)processGroup browsingContextGroup:(WKBrowsingContextGroup *)browsingContextGroup;
 
-- (NSPrintOperation *)printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(WKFrameRef)frameRef;
-- (BOOL)canChangeFrameLayout:(WKFrameRef)frameRef;
-
-- (void)setFrame:(NSRect)rect andScrollBy:(NSSize)offset;
-
-@property(readonly) WKPageRef pageRef;
+@property(readonly) WKBrowsingContextController *browsingContextController;
 
 @property BOOL drawsBackground;
 @property BOOL drawsTransparentBackground;

@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1999-2010, International Business Machines
+#   Copyright (C) 1999-2012, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -32,9 +32,6 @@ BUILDDIR := $(BUILDDIR:test\\intltest/../../=)
 # Simplify the path for Windows 98
 BUILDDIR := $(BUILDDIR:TEST\\INTLTEST/../../=)
 
-ifneq ($(top_builddir),$(top_srcdir))
-CPPFLAGS += -I- -I$(top_builddir)/common -I$(srcdir)
-endif
 CPPFLAGS += -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(top_srcdir)/tools/toolutil -I$(top_srcdir)/tools/ctestfw
 DEFS += -D'U_TOPSRCDIR="$(top_srcdir)/"' -D'U_TOPBUILDDIR="$(BUILDDIR)"'
 LIBS = $(LIBCTESTFW) $(LIBICUI18N) $(LIBICUUC) $(LIBICUTOOLUTIL) $(DEFAULT_LIBS) $(LIB_M) $(LIB_THREAD)
@@ -50,6 +47,7 @@ sdtfmtts.o svccoll.o tchcfmt.o	selfmts.o \
 tfsmalls.o tmsgfmt.o trcoll.o tscoll.o tsdate.o tsdcfmsy.o tsdtfmsy.o	\
 tsmthred.o tsnmfmt.o tsputil.o tstnrapi.o tstnorm.o tzbdtest.o		\
 tzregts.o tztest.o ucdtest.o usettest.o ustrtest.o strcase.o transtst.o strtest.o thcoll.o \
+bytestrietest.o ucharstrietest.o \
 itrbbi.o rbbiapts.o rbbitst.o ittrans.o transapi.o cpdtrtst.o \
 testutil.o transrt.o trnserr.o normconf.o sfwdchit.o \
 jamotest.o srchtest.o reptest.o regextst.o \
@@ -57,7 +55,7 @@ itrbnf.o itrbnfrt.o itrbnfp.o ucaconf.o icusvtst.o \
 uobjtest.o idnaref.o idnaconf.o nptrans.o punyref.o testidn.o testidna.o uts46test.o \
 incaltst.o calcasts.o v32test.o uvectest.o textfile.o tokiter.o utxttest.o \
 windttst.o winnmtst.o winutil.o csdetest.o tzrulets.o tzoffloc.o tzfmttst.o ssearch.o dtifmtts.o \
-tufmtts.o itspoof.o simplethread.o bidiconf.o locnmtst.o dcfmtest.o
+tufmtts.o itspoof.o simplethread.o bidiconf.o locnmtst.o dcfmtest.o alphaindextst.o
 
 DEPS = $(OBJECTS:.o=.d)
 
@@ -65,7 +63,8 @@ DEPS = $(OBJECTS:.o=.d)
 
 ## List of phony targets
 .PHONY : all all-local install install-local clean clean-local	\
-distclean distclean-local dist dist-local check check-local xcheck xcheck-local
+distclean distclean-local dist dist-local check check-local xcheck xcheck-local	\
+check-exhaustive check-exhaustive-local
 
 ## Clear suffix list
 .SUFFIXES :
@@ -78,6 +77,7 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 xcheck: all xcheck-local
+check-exhaustive: all check-exhaustive-local
 
 all-local: $(TARGET)
 
@@ -94,6 +94,9 @@ distclean-local: clean-local
 
 check-local: all-local
 	$(INVOKE) ./$(TARGET) $(INTLTEST_OPTS) 
+
+check-exhaustive-local: all-local
+	$(INVOKE) ./$(TARGET) -e
 
 TESTXML=$(top_builddir)/test-$(TARGET).xml
 xcheck-local: all-local

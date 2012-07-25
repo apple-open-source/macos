@@ -56,38 +56,12 @@ getiopolicy_np(int iotype, int scope)
 int
 setiopolicy_np(int iotype, int scope, int policy)
 {
-	int error;
+	/* kernel validates the indiv values, no need to repeat it */
 	struct _iopol_param_t iop_param;
 	
-	if (iotype != IOPOL_TYPE_DISK ||
-		(scope != IOPOL_SCOPE_PROCESS && scope != IOPOL_SCOPE_THREAD)) {
-		errno = EINVAL;
-		error = -1;
-		goto exit;
-	}
-
-	switch (policy) {
-	case IOPOL_DEFAULT:
-	case IOPOL_NORMAL:
-	case IOPOL_THROTTLE:
-	case IOPOL_PASSIVE:
-		break;
-	default:
-		errno = EINVAL;
-		error = -1;
-		goto exit;
-	}
-
 	iop_param.iop_scope = scope;
 	iop_param.iop_iotype = iotype;
 	iop_param.iop_policy = policy;
-	error = __iopolicysys(IOPOL_CMD_SET, &iop_param);
-	if (error != 0) {
-		errno = error;
-		error = -1;
-		goto exit;
-	}
 
-  exit:
-	return error;
+	return( __iopolicysys(IOPOL_CMD_SET, &iop_param));
 }

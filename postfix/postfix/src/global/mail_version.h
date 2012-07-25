@@ -20,8 +20,8 @@
   * Patches change both the patchlevel and the release date. Snapshots have no
   * patchlevel; they change the release date only.
   */
-#define MAIL_RELEASE_DATE	"20110120"
-#define MAIL_VERSION_NUMBER	"2.8.0"
+#define MAIL_RELEASE_DATE	"20120424"
+#define MAIL_VERSION_NUMBER	"2.9.2"
 
 #ifdef SNAPSHOT
 # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
@@ -66,6 +66,29 @@ extern char *var_mail_release;
 
 #define MAIL_VERSION_STAMP_ALLOCATE \
     mail_version_stamp = strdup(VAR_MAIL_VERSION "=" DEF_MAIL_VERSION)
+
+ /*
+  * Mail version string parser, plus support to compare the compile-time
+  * version string of a Postfix program with the run-time version string of a
+  * Postfix shared library. When programs are not updated, they may fail in
+  * erratic ways when linked against a newer run-time library. Of course the
+  * right solution is so-number versioning of the Postfix run-time library.
+  */
+typedef struct {
+    char   *program;			/* postfix */
+    int     major;			/* 2 */
+    int     minor;			/* 9 */
+    int     patch;			/* null */
+    char   *snapshot;			/* 20111209-nonprod */
+} MAIL_VERSION;
+
+extern MAIL_VERSION *mail_version_parse(const char *, const char **);
+extern void mail_version_free(MAIL_VERSION *);
+extern const char *get_mail_version(void);
+extern void check_mail_version(const char *);
+
+#define MAIL_VERSION_CHECK \
+    check_mail_version(DEF_MAIL_VERSION)
 
 /* LICENSE
 /* .ad

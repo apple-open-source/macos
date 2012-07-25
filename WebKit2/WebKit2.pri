@@ -1,99 +1,71 @@
-# WebKit2 - Qt4 build info
+# -------------------------------------------------------------------
+# This file contains shared rules used both when building WebKit2
+# itself, and by targets that use WebKit2.
+#
+# See 'Tools/qmake/README' for an overview of the build system
+# -------------------------------------------------------------------
 
-SOURCE_DIR = $$replace(PWD, /WebKit2, "")
+SOURCE_DIR = $${ROOT_WEBKIT_DIR}/Source/WebKit2
 
-# Use a config-specific target to prevent parallel builds file clashes on Mac
-mac: CONFIG(debug, debug|release): WEBKIT2_TARGET = webkit2d
-else: WEBKIT2_TARGET = webkit2
+WEBKIT2_GENERATED_SOURCES_DIR = $${ROOT_BUILD_DIR}/Source/WebKit2/$${GENERATED_SOURCES_DESTDIR}
 
-# Output in WebKit2/<config>
-CONFIG(debug, debug|release) : WEBKIT2_DESTDIR = debug
-else: WEBKIT2_DESTDIR = release
+INCLUDEPATH += \
+    $$SOURCE_DIR \
+    $$SOURCE_DIR/Platform \
+    $$SOURCE_DIR/Platform/CoreIPC \
+    $$SOURCE_DIR/Platform/qt \
+    $$SOURCE_DIR/Shared \
+    $$SOURCE_DIR/Shared/API/c \
+    $$SOURCE_DIR/Shared/CoreIPCSupport \
+    $$SOURCE_DIR/Shared/Plugins \
+    $$SOURCE_DIR/Shared/Plugins/Netscape \
+    $$SOURCE_DIR/Shared/qt \
+    $$SOURCE_DIR/UIProcess \
+    $$SOURCE_DIR/UIProcess/API/C \
+    $$SOURCE_DIR/UIProcess/API/cpp \
+    $$SOURCE_DIR/UIProcess/API/cpp/qt \
+    $$SOURCE_DIR/UIProcess/API/qt \
+    $$SOURCE_DIR/UIProcess/Authentication \
+    $$SOURCE_DIR/UIProcess/Downloads \
+    $$SOURCE_DIR/UIProcess/InspectorServer \
+    $$SOURCE_DIR/UIProcess/InspectorServer/qt \
+    $$SOURCE_DIR/UIProcess/Launcher \
+    $$SOURCE_DIR/UIProcess/Notifications \
+    $$SOURCE_DIR/UIProcess/Plugins \
+    $$SOURCE_DIR/UIProcess/qt \
+    $$SOURCE_DIR/WebProcess \
+    $$SOURCE_DIR/WebProcess/ApplicationCache \
+    $$SOURCE_DIR/WebProcess/Authentication \
+    $$SOURCE_DIR/WebProcess/Cookies \
+    $$SOURCE_DIR/WebProcess/Cookies/qt \
+    $$SOURCE_DIR/WebProcess/Downloads \
+    $$SOURCE_DIR/WebProcess/Downloads/qt \
+    $$SOURCE_DIR/WebProcess/FullScreen \
+    $$SOURCE_DIR/WebProcess/Geolocation \
+    $$SOURCE_DIR/WebProcess/IconDatabase \
+    $$SOURCE_DIR/WebProcess/InjectedBundle \
+    $$SOURCE_DIR/WebProcess/InjectedBundle/DOM \
+    $$SOURCE_DIR/WebProcess/InjectedBundle/API/c \
+    $$SOURCE_DIR/WebProcess/KeyValueStorage \
+    $$SOURCE_DIR/WebProcess/MediaCache \
+    $$SOURCE_DIR/WebProcess/Notifications \
+    $$SOURCE_DIR/WebProcess/Plugins \
+    $$SOURCE_DIR/WebProcess/Plugins/Netscape \
+    $$SOURCE_DIR/WebProcess/ResourceCache \
+    $$SOURCE_DIR/WebProcess/WebCoreSupport \
+    $$SOURCE_DIR/WebProcess/WebCoreSupport/qt \
+    $$SOURCE_DIR/WebProcess/WebPage \
+    $$SOURCE_DIR/WebProcess/qt \
+    $$SOURCE_DIR/PluginProcess
 
-CONFIG(standalone_package) {
-    isEmpty(WEBKIT2_GENERATED_SOURCES_DIR):WEBKIT2_GENERATED_SOURCES_DIR = $$PWD/generated
-} else {
-    isEmpty(WEBKIT2_GENERATED_SOURCES_DIR):WEBKIT2_GENERATED_SOURCES_DIR = $$OUTPUT_DIR/WebKit2/generated
-}
+# The WebKit2 Qt APIs depend on qwebkitglobal.h, which lives in WebKit
+INCLUDEPATH += $${ROOT_WEBKIT_DIR}/Source/WebKit/qt/Api
 
-WEBKIT2_INCLUDEPATH = \
-    $$SOURCE_DIR/WebKit2 \
-    $$SOURCE_DIR/WebKit2/Platform \
-    $$SOURCE_DIR/WebKit2/Platform/CoreIPC \
-    $$SOURCE_DIR/WebKit2/Platform/qt \
-    $$SOURCE_DIR/WebKit2/Shared \
-    $$SOURCE_DIR/WebKit2/Shared/API/c \
-    $$SOURCE_DIR/WebKit2/Shared/CoreIPCSupport \
-    $$SOURCE_DIR/WebKit2/Shared/Plugins \
-    $$SOURCE_DIR/WebKit2/Shared/Plugins/Netscape \
-    $$SOURCE_DIR/WebKit2/Shared/qt \
-    $$SOURCE_DIR/WebKit2/UIProcess \
-    $$SOURCE_DIR/WebKit2/UIProcess/API/C \
-    $$SOURCE_DIR/WebKit2/UIProcess/API/cpp \
-    $$SOURCE_DIR/WebKit2/UIProcess/API/cpp/qt \
-    $$SOURCE_DIR/WebKit2/UIProcess/API/qt \
-    $$SOURCE_DIR/WebKit2/UIProcess/Authentication \
-    $$SOURCE_DIR/WebKit2/UIProcess/Downloads \
-    $$SOURCE_DIR/WebKit2/UIProcess/Launcher \
-    $$SOURCE_DIR/WebKit2/UIProcess/Plugins \
-    $$SOURCE_DIR/WebKit2/UIProcess/qt \
-    $$SOURCE_DIR/WebKit2/WebProcess \
-    $$SOURCE_DIR/WebKit2/WebProcess/ApplicationCache \
-    $$SOURCE_DIR/WebKit2/WebProcess/Authentication \
-    $$SOURCE_DIR/WebKit2/WebProcess/Cookies \
-    $$SOURCE_DIR/WebKit2/WebProcess/Cookies/qt \
-    $$SOURCE_DIR/WebKit2/WebProcess/Downloads \
-    $$SOURCE_DIR/WebKit2/WebProcess/Downloads/qt \
-    $$SOURCE_DIR/WebKit2/WebProcess/FullScreen \
-    $$SOURCE_DIR/WebKit2/WebProcess/Geolocation \
-    $$SOURCE_DIR/WebKit2/WebProcess/IconDatabase \
-    $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle \
-    $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle/DOM \
-    $$SOURCE_DIR/WebKit2/WebProcess/InjectedBundle/API/c \
-    $$SOURCE_DIR/WebKit2/WebProcess/KeyValueStorage \
-    $$SOURCE_DIR/WebKit2/WebProcess/MediaCache \
-    $$SOURCE_DIR/WebKit2/WebProcess/Plugins \
-    $$SOURCE_DIR/WebKit2/WebProcess/Plugins/Netscape \
-    $$SOURCE_DIR/WebKit2/WebProcess/ResourceCache \
-    $$SOURCE_DIR/WebKit2/WebProcess/WebCoreSupport \
-    $$SOURCE_DIR/WebKit2/WebProcess/WebCoreSupport/qt \
-    $$SOURCE_DIR/WebKit2/WebProcess/WebPage \
-    $$SOURCE_DIR/WebKit2/WebProcess/qt \
-    $$SOURCE_DIR/WebKit2/PluginProcess
+INCLUDEPATH += $${ROOT_WEBKIT_DIR}/Source/WTF/wtf/qt
 
-# On Symbian PREPEND_INCLUDEPATH is the best way to make sure that WebKit headers
-# are included before platform headers.
+INCLUDEPATH += $$WEBKIT2_GENERATED_SOURCES_DIR
 
-symbian {
-    PREPEND_INCLUDEPATH = $$WEBKIT2_INCLUDEPATH $$WEBKIT2_GENERATED_SOURCES_DIR $$PREPEND_INCLUDEPATH
-} else {
-    INCLUDEPATH = $$WEBKIT2_INCLUDEPATH $$WEBKIT2_GENERATED_SOURCES_DIR $$INCLUDEPATH
-}
-
-defineTest(prependWebKit2Lib) {
-    pathToWebKit2Output = $$ARGS/$$WEBKIT2_DESTDIR
-
-    win32-msvc*|wince* {
-        LIBS = -l$$WEBKIT2_TARGET $$LIBS
-        LIBS = -L$$pathToWebKit2Output $$LIBS
-        POST_TARGETDEPS += $${pathToWebKit2Output}$${QMAKE_DIR_SEP}$${WEBKIT2_TARGET}.lib
-    } else:symbian {
-        LIBS = -l$${WEBKIT2_TARGET}.lib $$LIBS
-        QMAKE_LIBDIR += $$pathToWebKit2Output
-        POST_TARGETDEPS += $${pathToWebKit2Output}$${QMAKE_DIR_SEP}$${WEBKIT2_TARGET}.lib
-    } else {
-        QMAKE_LIBDIR = $$pathToWebKit2Output $$QMAKE_LIBDIR
-        LIBS = -l$$WEBKIT2_TARGET $$LIBS
-        POST_TARGETDEPS += $${pathToWebKit2Output}$${QMAKE_DIR_SEP}lib$${WEBKIT2_TARGET}.a
-    }
-
-    # The following line is to prevent qmake from adding webkit2 to libQtWebKit's prl dependencies.
-    CONFIG -= explicitlib
-
-    export(QMAKE_LIBDIR)
-    export(POST_TARGETDEPS)
-    export(CONFIG)
-    export(LIBS)
-
-    return(true)
+linux-*: {
+    # -lrt is required for shm_open and shm_unlink.
+    LIBS += -lrt
 }

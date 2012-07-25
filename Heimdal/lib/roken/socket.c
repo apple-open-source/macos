@@ -233,7 +233,7 @@ socket_set_portrange (rk_socket_t sock, int restr, int af)
 	}
 #endif
 }
-	
+
 /*
  * Enable debug on `sock'.
  */
@@ -324,6 +324,19 @@ socket_to_fd(rk_socket_t sock, int flags)
     return _open_osfhandle((intptr_t) sock, flags);
 #endif
 }
+
+#ifdef HAVE_WINSOCK
+ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
+rk_SOCK_IOCTL(SOCKET s, long cmd, int * argp) {
+    u_long ul = (argp)? *argp : 0;
+    int rv;
+
+    rv = ioctlsocket(s, cmd, &ul);
+    if (argp)
+	*argp = (int) ul;
+    return rv;
+}
+#endif
 
 #ifndef HEIMDAL_SMALLER
 #undef socket

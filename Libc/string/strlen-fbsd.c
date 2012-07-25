@@ -1,1 +1,0 @@
-FreeBSD/strlen.c

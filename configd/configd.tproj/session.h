@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -78,10 +78,12 @@ __BEGIN_DECLS
 
 serverSessionRef	getSession	(mach_port_t	server);
 
+serverSessionRef	tempSession	(mach_port_t	server,
+					 CFStringRef	name,
+					 audit_token_t	auditToken);
+
 serverSessionRef	addSession	(mach_port_t	server,
 					 CFStringRef	(*copyDescription)(const void *info));
-
-void			removeSession	(mach_port_t	server);
 
 void			cleanupSession	(mach_port_t	server);
 

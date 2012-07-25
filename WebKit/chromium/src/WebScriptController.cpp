@@ -35,7 +35,7 @@
 #include "V8DOMMap.h"
 #include "V8Proxy.h"
 
-#include "WebString.h"
+#include "platform/WebString.h"
 
 using namespace WebCore;
 
@@ -48,7 +48,6 @@ void WebScriptController::registerExtension(v8::Extension* extension)
 
 void WebScriptController::enableV8SingleThreadMode()
 {
-    enableStringImplCache();
     enableFasterDOMStoreAccess();
 }
 

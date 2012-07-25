@@ -26,5 +26,7 @@
 	</array>
 	<key>OpenSourceLicenseFile</key>
 	<string>ntp.txt</string>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
 </dict>
 </plist>

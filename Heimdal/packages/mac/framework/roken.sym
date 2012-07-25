@@ -32,6 +32,7 @@ rtbl_add_column_entryv_by_id
 rtbl_create
 rtbl_destroy
 rtbl_format
+rtbl_format_str
 rtbl_get_flags
 rtbl_new_row
 rtbl_set_column_affix_by_id

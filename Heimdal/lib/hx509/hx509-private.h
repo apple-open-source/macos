@@ -44,6 +44,11 @@ _hx509_calculate_path (
 	hx509_path */*path*/);
 
 int
+_hx509_cert_assign_key (
+	hx509_cert /*cert*/,
+	hx509_private_key /*private_key*/);
+
+int
 _hx509_cert_get_eku (
 	hx509_context /*context*/,
 	hx509_cert /*cert*/,
@@ -77,19 +82,6 @@ _hx509_cert_private_key (hx509_cert /*p*/);
 
 int
 _hx509_cert_private_key_exportable (hx509_cert /*p*/);
-
-int
-_hx509_cert_public_encrypt (
-	hx509_context /*context*/,
-	const heim_octet_string */*cleartext*/,
-	const hx509_cert /*p*/,
-	heim_oid */*encryption_oid*/,
-	heim_octet_string */*ciphertext*/);
-
-int
-_hx509_cert_set_key (
-	hx509_cert /*cert*/,
-	hx509_private_key /*private_key*/);
 
 void
 _hx509_cert_set_release (
@@ -184,9 +176,6 @@ _hx509_create_signature_bitstring (
 	AlgorithmIdentifier */*signatureAlgorithm*/,
 	heim_bit_string */*sig*/);
 
-hx509_evaluate
-_hx509_evaluate_alloc (void);
-
 int
 _hx509_expr_eval (
 	hx509_context /*context*/,
@@ -232,9 +221,6 @@ _hx509_generate_private_key_is_ca (
 
 Certificate *
 _hx509_get_cert (hx509_cert /*cert*/);
-
-BIGNUM *
-_hx509_int2BN (const heim_integer */*i*/);
 
 void
 _hx509_ks_dir_register (hx509_context /*context*/);
@@ -311,14 +297,6 @@ _hx509_name_modify (
 	const char */*str*/);
 
 int
-_hx509_parse_private_key (
-	hx509_context /*context*/,
-	const AlgorithmIdentifier */*keyai*/,
-	const void */*data*/,
-	size_t /*len*/,
-	hx509_private_key */*private_key*/);
-
-int
 _hx509_path_append (
 	hx509_context /*context*/,
 	hx509_path */*path*/,
@@ -351,27 +329,14 @@ _hx509_pi_printf (
 	...);
 
 int
-_hx509_private_key2SPKI (
-	hx509_context /*context*/,
-	hx509_private_key /*private_key*/,
-	SubjectPublicKeyInfo */*spki*/);
-
-void
-_hx509_private_key_assign_rsa (
-	hx509_private_key /*key*/,
-	void */*ptr*/);
-
-int
 _hx509_private_key_export (
 	hx509_context /*context*/,
 	const hx509_private_key /*key*/,
+	hx509_key_format_t /*format*/,
 	heim_octet_string */*data*/);
 
 int
 _hx509_private_key_exportable (hx509_private_key /*key*/);
-
-int
-_hx509_private_key_free (hx509_private_key */*key*/);
 
 BIGNUM *
 _hx509_private_key_get_internal (
@@ -380,24 +345,10 @@ _hx509_private_key_get_internal (
 	const char */*type*/);
 
 int
-_hx509_private_key_init (
-	hx509_private_key */*key*/,
-	hx509_private_key_ops */*ops*/,
-	void */*keydata*/);
-
-int
 _hx509_private_key_oid (
 	hx509_context /*context*/,
 	const hx509_private_key /*key*/,
 	heim_oid */*data*/);
-
-int
-_hx509_private_key_private_decrypt (
-	hx509_context /*context*/,
-	const heim_octet_string */*ciphertext*/,
-	const heim_oid */*encryption_oid*/,
-	hx509_private_key /*p*/,
-	heim_octet_string */*cleartext*/);
 
 hx509_private_key
 _hx509_private_key_ref (hx509_private_key /*key*/);
@@ -446,26 +397,6 @@ _hx509_request_add_email (
 	hx509_request /*req*/,
 	const char */*email*/);
 
-void
-_hx509_request_free (hx509_request */*req*/);
-
-int
-_hx509_request_get_SubjectPublicKeyInfo (
-	hx509_context /*context*/,
-	hx509_request /*req*/,
-	SubjectPublicKeyInfo */*key*/);
-
-int
-_hx509_request_get_name (
-	hx509_context /*context*/,
-	hx509_request /*req*/,
-	hx509_name */*name*/);
-
-int
-_hx509_request_init (
-	hx509_context /*context*/,
-	hx509_request */*req*/);
-
 int
 _hx509_request_parse (
 	hx509_context /*context*/,
@@ -479,18 +410,6 @@ _hx509_request_print (
 	FILE */*f*/);
 
 int
-_hx509_request_set_SubjectPublicKeyInfo (
-	hx509_context /*context*/,
-	hx509_request /*req*/,
-	const SubjectPublicKeyInfo */*key*/);
-
-int
-_hx509_request_set_name (
-	hx509_context /*context*/,
-	hx509_request /*req*/,
-	hx509_name /*name*/);
-
-int
 _hx509_request_to_pkcs10 (
 	hx509_context /*context*/,
 	const hx509_request /*req*/,
@@ -501,7 +420,7 @@ hx509_revoke_ctx
 _hx509_revoke_ref (hx509_revoke_ctx /*ctx*/);
 
 void
-_hx509_sel_yyerror (char */*s*/);
+_hx509_sel_yyerror (const char */*s*/);
 
 int
 _hx509_self_signed_valid (
@@ -553,5 +472,15 @@ _hx509_write_file (
 	const char */*fn*/,
 	const void */*data*/,
 	size_t /*length*/);
+
+int
+_hx509_cert_set_key(hx509_cert cert, hx509_private_key private_key);
+
+hx509_evaluate
+_hx509_evaluate_alloc(void);
+
+BIGNUM *
+_hx509_int2BN(const heim_integer *i);
+
 
 #endif /* __hx509_private_h__ */

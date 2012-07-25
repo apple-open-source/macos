@@ -33,4 +33,4 @@
 #define RFC_MAGIC_SIZE			4 /* bytes */
 
 #include "gen_dhcp_tags.h"
-#endif _S_RFC_OPTIONS_H
+#endif /* _S_RFC_OPTIONS_H */

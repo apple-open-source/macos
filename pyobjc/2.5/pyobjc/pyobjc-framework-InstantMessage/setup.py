@@ -1,7 +1,7 @@
 ''' 
 Wrappers for "InstantMessage" framework on MacOSX 10.5 or later. This framework
-allows you to access iChat information, as well as a way to provide an 
-auxilliary video source to iChat Theater.
+allows you to access Messages information, as well as a way to provide an 
+auxilliary video source to Messages Theater.
 
 These wrappers don't include documentation, please check Apple's documention
 for information on how to use this framework and PyObjC's documentation

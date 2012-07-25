@@ -1,0 +1,22 @@
+;;; Copyright (c) 2012 Apple Inc. All rights reserved.
+;;; Sandbox profile for webdav_agent.
+
+(version 1)
+(import "system.sb")
+
+(deny default)
+
+(allow network-outbound
+	(remote tcp "*")
+	(literal "/private/var/run/mDNSResponder"))
+
+(allow system-socket)
+
+(allow file-read-metadata
+	(literal "/private/tmp"))
+
+(allow file*
+	(regex #"^/private/tmp/.webdavUDS\..+"))
+
+(allow file* 
+	(regex #"^/private/tmp/\.webdavcache\..+"))

@@ -48,6 +48,10 @@
 #include <wx/dcgraph.h>
 #include <wx/graphics.h>
 
+#if wxUSE_CAIRO
+#include <cairo.h>
+#endif
+
 #if __WXMAC__
 #include <Carbon/Carbon.h>
 #elif __WXMSW__
@@ -112,6 +116,7 @@ public:
     wxWindowDC* context;
 #endif
     int mswDCStateID;
+    FloatSize currentScale;
     wxRegion gtkCurrentClipRgn;
     wxRegion gtkPaintClipRgn;
 };
@@ -120,7 +125,8 @@ GraphicsContextPlatformPrivate::GraphicsContextPlatformPrivate() :
     context(0),
     mswDCStateID(0),
     gtkCurrentClipRgn(wxRegion()),
-    gtkPaintClipRgn(wxRegion())
+    gtkPaintClipRgn(wxRegion()),
+    currentScale(1.0, 1.0)
 {
 }
 
@@ -216,8 +222,10 @@ void GraphicsContext::drawRect(const IntRect& rect)
     if (paintingDisabled())
         return;
 
+    save();
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
     m_data->context->DrawRectangle(rect.x(), rect.y(), rect.width(), rect.height());
+    restore();
 }
 
 // This is only used to draw borders.
@@ -229,8 +237,10 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     FloatPoint p1 = point1;
     FloatPoint p2 = point2;
     
+    save();
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
     m_data->context->DrawLine(point1.x(), point1.y(), point2.x(), point2.y());
+    restore();
 }
 
 // This method is only used to draw the little circles used in lists.
@@ -239,8 +249,10 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
     if (paintingDisabled())
         return;
 
+    save();
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
     m_data->context->DrawEllipse(rect.x(), rect.y(), rect.width(), rect.height());
+    restore();
 }
 
 void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSpan)
@@ -248,8 +260,10 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     if (paintingDisabled())
         return;
     
+    save();
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
     m_data->context->DrawEllipticArc(rect.x(), rect.y(), rect.width(), rect.height(), startAngle, startAngle + angleSpan);
+    restore();
 }
 
 void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points, bool shouldAntialias)
@@ -260,12 +274,14 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     if (npoints <= 1)
         return;
 
+    save();
     wxPoint* polygon = new wxPoint[npoints];
     for (size_t i = 0; i < npoints; i++)
         polygon[i] = wxPoint(points[i].x(), points[i].y());
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), strokeStyleToWxPenStyle(strokeStyle())));
     m_data->context->DrawPolygon((int)npoints, polygon);
     delete [] polygon;
+    restore();
 }
 
 void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialiased)
@@ -284,13 +300,13 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
     if (paintingDisabled())
         return;
 
-    savePlatformState();
+    save();
 
     m_data->context->SetPen(*wxTRANSPARENT_PEN);
     m_data->context->SetBrush(wxBrush(color));
     m_data->context->DrawRectangle(rect.x(), rect.y(), rect.width(), rect.height());
 
-    restorePlatformState();
+    restore();
 }
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
@@ -342,7 +358,18 @@ void GraphicsContext::clipOut(const IntRect& rect)
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
 
-#ifdef __WXMAC__
+#if wxUSE_CAIRO
+    double x1, y1, x2, y2;
+    cairo_t* cr = (cairo_t*)gc->GetNativeContext();
+    cairo_clip_extents(cr, &x1, &y1, &x2, &y2);
+    cairo_rectangle(cr, x1, y1, x2 - x1, y2 - y1);
+    cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
+    cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
+    cairo_set_fill_rule(cr, CAIRO_FILL_RULE_EVEN_ODD);
+    cairo_clip(cr);
+    cairo_set_fill_rule(cr, savedFillRule);
+
+#elif __WXMAC__
     CGContextRef context = (CGContextRef)gc->GetNativeContext();
 
     CGRect rects[2] = { CGContextGetClipBoundingBox(context), CGRectMake(rect.x(), rect.y(), rect.width(), rect.height()) };
@@ -350,9 +377,8 @@ void GraphicsContext::clipOut(const IntRect& rect)
     CGContextAddRects(context, rects, 2);
     CGContextEOClip(context);
     return;
-#endif
 
-#ifdef __WXMSW__
+#elif __WXMSW__
     Gdiplus::Graphics* g = (Gdiplus::Graphics*)gc->GetNativeContext();
     Gdiplus::Region excludeRegion(Gdiplus::Rect(rect.x(), rect.y(), rect.width(), rect.height()));
     g->ExcludeClip(&excludeRegion);
@@ -374,7 +400,16 @@ void GraphicsContext::clipPath(const Path& path, WindRule clipRule)
     
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
 
-#if __WXMAC__
+#if wxUSE_CAIRO
+    cairo_t* cr = (cairo_t*)gc->GetNativeContext();
+    cairo_path_t* nativePath = (cairo_path_t*)path.platformPath()->GetNativePath();
+
+    cairo_new_path(cr);
+    cairo_append_path(cr, nativePath);
+
+    cairo_set_fill_rule(cr, clipRule == RULE_EVENODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+    cairo_clip(cr);
+#elif __WXMAC__
     CGContextRef context = (CGContextRef)gc->GetNativeContext();   
     CGPathRef nativePath = (CGPathRef)path.platformPath()->GetNativePath(); 
     
@@ -400,18 +435,20 @@ void GraphicsContext::drawLineForText(const FloatPoint& origin, float width, boo
     if (paintingDisabled())
         return;
 
+    save();
     FloatPoint endPoint = origin + FloatSize(width, 0);
     m_data->context->SetPen(wxPen(strokeColor(), strokeThickness(), wxSOLID));
     m_data->context->DrawLine(origin.x(), origin.y(), endPoint.x(), endPoint.y());
+    restore();
 }
 
-void GraphicsContext::drawLineForTextChecking(const FloatPoint& origin, float width, TextCheckingLineStyle style)
+void GraphicsContext::drawLineForDocumentMarker(const FloatPoint& origin, float width, DocumentMarkerLineStyle style)
 {
     switch (style) {
-    case TextCheckingSpellingLineStyle:
+    case DocumentMarkerSpellingLineStyle:
         m_data->context->SetPen(wxPen(*wxRED, 2, wxLONG_DASH));
         break;
-    case TextCheckingGrammarLineStyle:
+    case DocumentMarkerGrammarLineStyle:
         m_data->context->SetPen(wxPen(*wxGREEN, 2, wxLONG_DASH));
         break;
     default:
@@ -440,6 +477,9 @@ void GraphicsContext::canvasClip(const Path& path)
 
 AffineTransform GraphicsContext::getCTM() const
 { 
+    if (paintingDisabled())
+        return AffineTransform();
+
 #if USE(WXGC)
     wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
     if (gc) {
@@ -473,16 +513,20 @@ void GraphicsContext::rotate(float angle)
 }
 
 void GraphicsContext::scale(const FloatSize& scale) 
-{ 
+{
 #if USE(WXGC)
     if (m_data->context) {
         wxGraphicsContext* gc = m_data->context->GetGraphicsContext();
         gc->Scale(scale.width(), scale.height());
+        m_data->currentScale = scale;
     }
 #endif
 }
 
-
+FloatSize GraphicsContext::currentScale()
+{
+    return m_data->currentScale;
+}
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect, RoundingMode)
 {
     FloatRect result;
@@ -624,14 +668,19 @@ void GraphicsContext::clearPlatformShadow()
     notImplemented(); 
 }
 
-void GraphicsContext::beginTransparencyLayer(float) 
+void GraphicsContext::beginPlatformTransparencyLayer(float)
 { 
     notImplemented(); 
 }
 
-void GraphicsContext::endTransparencyLayer() 
+void GraphicsContext::endPlatformTransparencyLayer()
 { 
     notImplemented(); 
+}
+
+bool GraphicsContext::supportsTransparencyLayers()
+{
+    return false;
 }
 
 void GraphicsContext::clearRect(const FloatRect&) 

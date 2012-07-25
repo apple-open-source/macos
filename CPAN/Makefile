@@ -50,7 +50,14 @@ install:
 	    dsymutil $(SYMROOT)/$$b && \
 	    strip -x $$b || exit 1; \
 	done
+	@set -x && \
+	cd $(DSTROOT) && \
+	for b in usr/bin/*; do \
+	    if file $$b | fgrep -q Mach-O; then \
+		rsync -R $$b $(SYMROOT) && \
+		dsymutil $(SYMROOT)/$$b && \
+		strip -x $$b || exit 1; \
+	    fi \
+	done
 	rm -f $(EXTRASARCH)/perllocal.pod
-	find $(EXTRASARCH)/auto -name \*.bundle -print -exec strip -x {} \;
 	find $(EXTRASARCH)/auto -name .packlist -print -delete
-	/Developer/Makefiles/bin/compress-man-pages.pl "$(DSTROOT)/usr/share/man"

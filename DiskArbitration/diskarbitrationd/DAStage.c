@@ -134,7 +134,7 @@ static void __DAStageDispatch( void * info )
                 else
                 {
 ///w:start
-                    if ( gDAConsoleUser == NULL )
+                    if ( gDAConsoleUserList == NULL )
                     {
                         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaTypeKey ) )
                         {
@@ -432,12 +432,6 @@ static void __DAStageDispatch( void * info )
 
         if ( gDAConsoleUser )
         {
-///w:start
-            if ( CFEqual( gDAConsoleUser, CFSTR( "loginwindow" ) ) )
-            {
-                return;
-            }
-///w:stop
             /*
              * Determine whether a unit is unreadable or a volume is unrepairable.
              */
@@ -679,10 +673,10 @@ static void __DAStageMountAuthorization( DADiskRef disk )
         DADiskSetState( disk, kDADiskStateCommandActive, TRUE );
 
         DAAuthorizeWithCallback( NULL,
-                                 kDAAuthorizeOptionForce | kDAAuthorizeOptionInteract,
+                                 _kDAAuthorizeOptionAuthenticateAdministrator,
                                  disk,
                                  ___UID_ROOT,
-                                 ___GID_ADMIN,
+                                 ___GID_WHEEL,
                                  __DAStageMountAuthorizationCallback,
                                  disk,
                                  _kDAAuthorizeRightMount );

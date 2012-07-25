@@ -30,7 +30,6 @@
 #include "AuthenticationClient.h"
 #include "HTTPHeaderMap.h"
 #include "NetworkingContext.h"
-#include "ThreadableLoader.h"
 #include <wtf/OwnPtr.h>
 
 #if USE(SOUP)
@@ -48,18 +47,16 @@ typedef void* LPVOID;
 typedef LPVOID HINTERNET;
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || USE(CFURLSTORAGESESSIONS)
 #include <wtf/RetainPtr.h>
-#ifdef __OBJC__
-@class NSData;
-@class NSError;
-@class NSURLConnection;
-@class WebCoreResourceHandleAsDelegate;
-#else
-class NSData;
-class NSError;
-class NSURLConnection;
-class WebCoreResourceHandleAsDelegate;
+#endif
+
+#if PLATFORM(MAC)
+OBJC_CLASS NSData;
+OBJC_CLASS NSError;
+OBJC_CLASS NSURLConnection;
+OBJC_CLASS WebCoreResourceHandleAsDelegate;
+#ifndef __OBJC__
 typedef struct objc_object *id;
 #endif
 #endif
@@ -91,6 +88,11 @@ class ResourceResponse;
 class SchedulePair;
 class SharedBuffer;
 
+enum StoredCredentials {
+    AllowStoredCredentials,
+    DoNotAllowStoredCredentials
+};
+
 template <typename T> class Timer;
 
 class ResourceHandle : public RefCounted<ResourceHandle>
@@ -102,12 +104,8 @@ public:
     static PassRefPtr<ResourceHandle> create(NetworkingContext*, const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
     static void loadResourceSynchronously(NetworkingContext*, const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data);
 
-    static void prepareForURL(const KURL&);
     static bool willLoadFromCache(ResourceRequest&, Frame*);
     static void cacheMetadata(const ResourceResponse&, const Vector<char>&);
-#if PLATFORM(MAC)
-    static bool didSendBodyDataDelegateExists();
-#endif
 
     virtual ~ResourceHandle();
 
@@ -122,18 +120,18 @@ public:
     virtual void receivedCancellation(const AuthenticationChallenge&);
 #endif
 
-#if PLATFORM(MAC) && !USE(CFNETWORK)
-    void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
+#if PLATFORM(MAC)
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     bool canAuthenticateAgainstProtectionSpace(const ProtectionSpace&);
 #endif
+#if !USE(CFNETWORK)
+    void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
     NSURLConnection *connection() const;
     WebCoreResourceHandleAsDelegate *delegate();
     void releaseDelegate();
     id releaseProxy();
 #endif
 
-#if PLATFORM(MAC)
     void schedule(SchedulePair*);
     void unschedule(SchedulePair*);
 #endif
@@ -151,9 +149,6 @@ public:
     static void setClientCertificate(const String& host, CFDataRef);
 #endif
 
-    PassRefPtr<SharedBuffer> bufferedData();
-    static bool supportsBufferedData();
-
     bool shouldContentSniff() const;
     static bool shouldContentSniffURL(const KURL&);
 
@@ -167,7 +162,7 @@ public:
     static void CALLBACK internetStatusCallback(HINTERNET, DWORD_PTR, DWORD, LPVOID, DWORD);
 #endif
 
-#if PLATFORM(QT) || USE(CURL) || USE(SOUP) || PLATFORM(ANDROID)
+#if PLATFORM(QT) || USE(CURL) || USE(SOUP) || PLATFORM(BLACKBERRY)
     ResourceHandleInternal* getInternal() { return d.get(); }
 #endif
 
@@ -187,6 +182,10 @@ public:
     void setClient(ResourceHandleClient*);
 
     void setDefersLoading(bool);
+
+#if PLATFORM(BLACKBERRY)
+    void pauseLoad(bool);
+#endif
       
     ResourceRequest& firstRequest();
     const String& lastHTTPMethod() const;
@@ -194,14 +193,13 @@ public:
     void fireFailure(Timer<ResourceHandle>*);
 
 #if USE(CFURLSTORAGESESSIONS)
-    static void setPrivateBrowsingEnabled(bool);
-    static CFURLStorageSessionRef privateBrowsingStorageSession();
-    static void setPrivateBrowsingStorageSessionIdentifierBase(const String&);
     static CFURLStorageSessionRef currentStorageSession();
-#if PLATFORM(WIN)
     static void setDefaultStorageSession(CFURLStorageSessionRef);
     static CFURLStorageSessionRef defaultStorageSession();
-#endif // PLATFORM(WIN)
+    static void setPrivateBrowsingEnabled(bool);
+
+    static void setPrivateBrowsingStorageSessionIdentifierBase(const String&);
+    static RetainPtr<CFURLStorageSessionRef> createPrivateBrowsingStorageSession(CFStringRef identifier);
 #endif // USE(CFURLSTORAGESESSIONS)
 
     using RefCounted<ResourceHandle>::ref;
@@ -210,6 +208,13 @@ public:
 #if PLATFORM(MAC) || USE(CFNETWORK)
     static CFStringRef synchronousLoadRunLoopMode();
 #endif
+
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
+    void handleDataArray(CFArrayRef dataArray);
+#endif
+
+    typedef PassRefPtr<ResourceHandle> (*BuiltinConstructor)(const ResourceRequest& request, ResourceHandleClient* client);
+    static void registerBuiltinConstructor(const AtomicString& protocol, BuiltinConstructor);
 
 protected:
     ResourceHandle(const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
@@ -230,15 +235,15 @@ private:
     virtual void refAuthenticationClient() { ref(); }
     virtual void derefAuthenticationClient() { deref(); }
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !USE(CFNETWORK)
     void createNSURLConnection(id delegate, bool shouldUseCredentialStorage, bool shouldContentSniff);
 #elif USE(CF)
     void createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff);
 #endif
 
 #if USE(CFURLSTORAGESESSIONS)
-    static RetainPtr<CFURLStorageSessionRef> createPrivateBrowsingStorageSession(CFStringRef identifier);
     static String privateBrowsingStorageSessionIdentifierDefaultBase();
+    static CFURLStorageSessionRef privateBrowsingStorageSession();
 #endif
 
     friend class ResourceHandleInternal;

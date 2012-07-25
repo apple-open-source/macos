@@ -41,6 +41,7 @@ public:
     void ref() { refFormAssociatedElement(); }
     void deref() { derefFormAssociatedElement(); }
 
+    static HTMLFormElement* findAssociatedForm(const HTMLElement*, HTMLFormElement*);
     HTMLFormElement* form() const { return m_form; }
     ValidityState* validity();
 
@@ -53,22 +54,27 @@ public:
     // Return true for a successful control (see HTML4-17.13.2).
     virtual bool appendFormData(FormDataList&, bool) { return false; }
 
-    virtual void formDestroyed() { m_form = 0; }
+    void formWillBeDestroyed();
 
-    void resetFormOwner(HTMLFormElement*);
+    void resetFormOwner();
+
+    void formRemovedFromTree(const Node* formRoot);
 
 protected:
-    FormAssociatedElement(HTMLFormElement*);
+    FormAssociatedElement();
 
-    void insertedIntoTree();
-    void removedFromTree();
-    void insertedIntoDocument();
-    void removedFromDocument();
-    void willMoveToNewOwnerDocument();
+    void insertedInto(Node*);
+    void removedFrom(Node*);
+    void didMoveToNewDocument(Document* oldDocument);
 
-    void setForm(HTMLFormElement* form) { m_form = form; }
-    void removeFromForm();
+    void setForm(HTMLFormElement*);
     void formAttributeChanged();
+
+    // If you add an override of willChangeForm() or didChangeForm() to a class
+    // derived from this one, you will need to add a call to setForm(0) to the
+    // destructor of that class.
+    virtual void willChangeForm();
+    virtual void didChangeForm();
 
 private:
     virtual const AtomicString& formControlName() const = 0;

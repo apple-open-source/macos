@@ -23,8 +23,13 @@
 
 #include "qwebkitglobal.h"
 #include "qwebpage.h"
+#if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
+#include <QtWidgets/qwidget.h>
+#include <QtWidgets/qicon.h>
+#else
 #include <QtGui/qwidget.h>
 #include <QtGui/qicon.h>
+#endif
 #include <QtGui/qpainter.h>
 #include <QtCore/qurl.h>
 #include <QtNetwork/qnetworkaccessmanager.h>
@@ -61,9 +66,7 @@ public:
     void setPage(QWebPage* page);
 
     void load(const QUrl& url);
-    void load(const QNetworkRequest& request,
-              QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation,
-              const QByteArray &body = QByteArray());
+    void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation, const QByteArray &body = QByteArray());
     void setHtml(const QString& html, const QUrl& baseUrl = QUrl());
     void setContent(const QByteArray& data, const QString& mimeType = QString(), const QUrl& baseUrl = QUrl());
 

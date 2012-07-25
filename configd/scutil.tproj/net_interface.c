@@ -29,11 +29,17 @@
  */
 
 
+#include <TargetConditionals.h>
 #include "scutil.h"
 #include "net.h"
 #include "prefs.h"
 
 #include <SystemConfiguration/LinkConfiguration.h>
+
+
+#if	TARGET_OS_EMBEDDED
+#define	INLINE_PASSWORDS_USE_CFSTRING
+#endif	// TARGET_OS_EMBEDDED
 
 
 #pragma mark -
@@ -119,6 +125,7 @@ _find_interface(int argc, char **argv, int *nArgs)
 		goto done;
 	}
 
+#if	!TARGET_OS_IPHONE
 	else if (strcasecmp(argv[0], "$bond") == 0) {
 		CFStringRef	interfaceType;
 
@@ -148,6 +155,7 @@ _find_interface(int argc, char **argv, int *nArgs)
 		}
 		allowIndex = FALSE;
 	}
+#endif	// !TARGET_OS_IPHONE
 
 	else if (strcasecmp(argv[0], "$bridge") == 0) {
 		CFStringRef	interfaceType;
@@ -924,6 +932,63 @@ show_interfaces(int argc, char **argv)
 /* -------------------- */
 
 
+static int
+__doRank(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	SCNetworkInterfaceRef		interface;
+	CFStringRef			interfaceName;
+	Boolean				ok	= FALSE;
+	SCNetworkServicePrimaryRank	rank	= kSCNetworkServicePrimaryRankDefault;
+	SCDynamicStoreRef		store;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout,
+			CFSTR("%s not specified\n"),
+			description != NULL ? description : "rank");
+		return -1;
+	}
+
+	if (strlen(argv[0]) == 0) {
+		rank = kSCNetworkServicePrimaryRankDefault;
+	} else if ((strcasecmp(argv[0], "First") == 0)) {
+		rank = kSCNetworkServicePrimaryRankFirst;
+	} else if ((strcasecmp(argv[0], "Last") == 0)) {
+		rank = kSCNetworkServicePrimaryRankLast;
+	} else if ((strcasecmp(argv[0], "Never") == 0)) {
+		rank = kSCNetworkServicePrimaryRankNever;
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("invalid rank\n"));
+		return -1;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
+	if (interfaceName == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("no BSD interface\n"));
+		return FALSE;
+	}
+
+	store = SCDynamicStoreCreate(NULL, CFSTR("scutil --net"), NULL, NULL);
+	interface = _SCNetworkInterfaceCopyActive(store, interfaceName);
+	CFRelease(store);
+	if (interface == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("No active interface\n"));
+		return -1;
+	}
+
+	ok = SCNetworkInterfaceSetPrimaryRank(interface, rank);
+	CFRelease(interface);
+	if (!ok) {
+		SCPrint(TRUE, stdout, CFSTR("could not update per-interface rank\n"));
+		return -1;
+	}
+
+	return 1;
+}
+
+
+/* -------------------- */
+
+
 static void
 _replaceOne(const void *key, const void *value, void *context)
 {
@@ -1041,7 +1106,9 @@ static options airportOptions[] = {
 	{ "media"     , NULL, isString     , &kSCPropNetEthernetMediaSubType, NULL, NULL },
 	{ "mediaopt"  , NULL, isStringArray, &kSCPropNetEthernetMediaOptions, NULL, NULL },
 
-	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+	{ "rank"      , NULL, isOther      , NULL                            , __doRank, NULL },
+
+	{ "?"         , NULL, isHelp       , NULL                            , NULL,
 	    "\nAirPort configuration commands\n\n"
 	    " set interface [mtu n] [media type] [mediaopts opts]\n"
 	}
@@ -1131,7 +1198,9 @@ static options ethernetOptions[] = {
 	{ "tso"       , NULL, isOther      , &kSCPropNetEthernetCapabilityTSO   , __doCapability, NULL },
 	{ "txcsum"    , NULL, isOther      , &kSCPropNetEthernetCapabilityTXCSUM, __doCapability, NULL },
 
-	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+	{ "rank"      , NULL, isOther      , NULL                            , __doRank, NULL },
+
+	{ "?"         , NULL, isHelp       , NULL                            , NULL,
 	    "\nEthernet configuration commands\n\n"
 	    " set interface [mtu n] [media type] [mediaopts opts]\n"
 	}
@@ -1180,6 +1249,11 @@ __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int 
 	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecSharedSecretEncryption);
 	if (strlen(argv[0]) > 0) {
 		if (encryptionType == NULL) {
+#ifdef	INLINE_PASSWORDS_USE_CFSTRING
+			CFStringRef		pw;
+
+			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+#else	// INLINE_PASSWORDS_USE_CFSTRING
 			CFIndex			n;
 			CFMutableDataRef	pw;
 			CFStringRef		str;
@@ -1188,10 +1262,12 @@ __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int 
 			n = CFStringGetLength(str);
 			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
 			CFDataSetLength(pw, n * sizeof(UniChar));
+			/* ALIGN: CF aligns to at least >8 bytes */
 			CFStringGetCharacters(str,
 					      CFRangeMake(0, n),
-					      (UniChar *)CFDataGetMutableBytePtr(pw));
+					      (UniChar *)(void *)CFDataGetMutableBytePtr(pw));
 			CFRelease(str);
+#endif	// INLINE_PASSWORDS_USE_CFSTRING
 
 			CFDictionarySetValue(newConfiguration, key, pw);
 			CFRelease(pw);
@@ -1277,6 +1353,11 @@ __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int
 	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecXAuthPasswordEncryption);
 	if (strlen(argv[0]) > 0) {
 		if (encryptionType == NULL) {
+#ifdef	INLINE_PASSWORDS_USE_CFSTRING
+			CFStringRef		pw;
+
+			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+#else	// INLINE_PASSWORDS_USE_CFSTRING
 			CFIndex			n;
 			CFMutableDataRef	pw;
 			CFStringRef		str;
@@ -1285,10 +1366,12 @@ __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int
 			n = CFStringGetLength(str);
 			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
 			CFDataSetLength(pw, n * sizeof(UniChar));
+			/* ALIGN: CF aligns to at least >8 byte boundries */
 			CFStringGetCharacters(str,
 					      CFRangeMake(0, n),
-					      (UniChar *)CFDataGetMutableBytePtr(pw));
+					      (UniChar *)(void *)CFDataGetMutableBytePtr(pw));
 			CFRelease(str);
+#endif	// INLINE_PASSWORDS_USE_CFSTRING
 
 			CFDictionarySetValue(newConfiguration, key, pw);
 			CFRelease(pw);
@@ -1362,7 +1445,7 @@ __doIPSecXAuthPasswordType(CFStringRef key, const char *description, void *info,
 }
 
 
-static CFStringRef
+static CF_RETURNS_RETAINED CFStringRef
 __cleanupDomainName(CFStringRef domain)
 {
 	CFMutableStringRef	newDomain;
@@ -1642,6 +1725,11 @@ __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetPPPAuthPasswordEncryption);
 	if (strlen(argv[0]) > 0) {
 		if (encryptionType == NULL) {
+#ifdef	INLINE_PASSWORDS_USE_CFSTRING
+			CFStringRef		pw;
+
+			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+#else	// INLINE_PASSWORDS_USE_CFSTRING
 			CFIndex			n;
 			CFMutableDataRef	pw;
 			CFStringRef		str;
@@ -1650,10 +1738,12 @@ __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 			n = CFStringGetLength(str);
 			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
 			CFDataSetLength(pw, n * sizeof(UniChar));
+			/* ALIGN: CF aligns to at least >8 byte boundries */
 			CFStringGetCharacters(str,
 					      CFRangeMake(0, n),
-					      (UniChar *)CFDataGetMutableBytePtr(pw));
+					      (UniChar *)(void *)CFDataGetMutableBytePtr(pw));
 			CFRelease(str);
+#endif	// INLINE_PASSWORDS_USE_CFSTRING
 
 			CFDictionarySetValue(newConfiguration, key, pw);
 			CFRelease(pw);
@@ -1992,7 +2082,11 @@ __doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetVPNAuthPasswordEncryption);
 	if (strlen(argv[0]) > 0) {
 		if (encryptionType == NULL) {
-#ifdef	USE_INLINE_CFDATA
+#ifdef	INLINE_PASSWORDS_USE_CFSTRING
+			CFStringRef		pw;
+
+			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+#else	// INLINE_PASSWORDS_USE_CFSTRING
 			CFIndex			n;
 			CFMutableDataRef	pw;
 			CFStringRef		str;
@@ -2003,13 +2097,9 @@ __doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 			CFDataSetLength(pw, n * sizeof(UniChar));
 			CFStringGetCharacters(str,
 					      CFRangeMake(0, n),
-					      (UniChar *)CFDataGetMutableBytePtr(pw));
+					      (UniChar *)(void *)CFDataGetMutableBytePtr(pw));
 			CFRelease(str);
-#else	// USE_INLINE_CFDATA
-			CFStringRef		pw;
-
-			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
-#endif	// USE_INLINE_CFDATA
+#endif	// INLINE_PASSWORDS_USE_CFSTRING
 
 			CFDictionarySetValue(newConfiguration, key, pw);
 			CFRelease(pw);
@@ -2251,7 +2341,7 @@ show_interface(int argc, char **argv)
 
 
 __private_extern__
-CFStringRef
+CF_RETURNS_RETAINED CFStringRef
 _interface_description(SCNetworkInterfaceRef interface)
 {
 	CFMutableStringRef	description;

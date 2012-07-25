@@ -293,4 +293,4 @@ ni_indexforprop(ni_proplist * pl, ni_name name, ni_name value)
 
 }
 
-#endif _S_NETINFO_H
+#endif /* _S_NETINFO_H */

@@ -106,7 +106,8 @@ make_6to4_addr(struct in_addr ip_addr, struct in6_addr * ip6_addr,
     bzero(ip6_addr, sizeof(*ip6_addr));
     addr->prefix[0] = 0x20;
     addr->prefix[1] = 0x02;
-    *((uint32_t *)addr->ipv4_address) = ip_addr.s_addr;
+    bcopy((void *)&ip_addr.s_addr, (void *)&addr->ipv4_address,
+	  sizeof(ip_addr.s_addr));
     if (is_host) {
 	/* for host address, set the network and host values to 1 */
 	addr->net[1] = 0x01;	/* net = 0x0001 */
@@ -171,7 +172,9 @@ stf_reachability_callback(SCNetworkReachabilityRef target,
 	CFDataRef		data = CFArrayGetValueAtIndex(relay_addrs, i);
 	struct sockaddr_in *	sin;
 	
-	sin = (struct sockaddr_in *)CFDataGetBytePtr(data);
+	/* ALIGN: CFDataGetBytePtr returns alignment to at 
+	 * least sizeof(uint64) bytes */	
+	sin = (struct sockaddr_in *)(void *)CFDataGetBytePtr(data);
 	if (sin->sin_family == AF_INET && sin->sin_addr.s_addr != 0) {
 	    struct in6_addr	relay;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,12 @@ _dns_configuration_add_resolver (dns_create_config_t	*_config,
 				 dns_create_resolver_t	_resolver)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 __private_extern__
+void
+_dns_configuration_signature	(dns_create_config_t	*_config,
+				 unsigned char		*signature,
+				 size_t			signature_len)		/*__OSX_AVAILABLE_STARTING(__MAC_10_7+,__IPHONE_5_0)*/;	// signature_len >= CC_SHA1_DIGEST_LENGTH
+
+__private_extern__
 _Bool
 _dns_configuration_store	(dns_create_config_t	*_config)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
@@ -125,6 +131,11 @@ __private_extern__
 void
 _dns_resolver_set_port		(dns_create_resolver_t	*_resolver,
 				 uint16_t		port)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;	// host byte order
+
+__private_extern__
+void
+_dns_resolver_set_reach_flags	(dns_create_resolver_t	*_resolver,
+				 uint32_t		reach_flags)		/*__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0)*/;
 
 __private_extern__
 void

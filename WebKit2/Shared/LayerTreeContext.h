@@ -33,6 +33,13 @@ namespace CoreIPC {
 
 namespace WebKit {
 
+enum LayerHostingMode {
+    LayerHostingModeDefault,
+#if HAVE(LAYER_HOSTING_IN_WINDOW_SERVER)
+    LayerHostingModeInWindowServer
+#endif
+};
+
 class LayerTreeContext {
 public:
     LayerTreeContext();
@@ -47,6 +54,8 @@ public:
     uint32_t contextID;
 #elif PLATFORM(WIN)
     HWND window;
+#elif PLATFORM(QT)
+    uint32_t webLayerID;
 #endif
 };
 

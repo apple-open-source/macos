@@ -35,7 +35,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwln.c,v 1.2 2004/08/06 17:00:09 tjr E
 #include "local.h"
 
 wchar_t *
-fgetwln(FILE * __restrict fp, size_t *lenp)
+fgetwln_l(FILE * __restrict fp, size_t *lenp, locale_t loc)
 {
 	wint_t wc;
 	size_t len;
@@ -44,7 +44,7 @@ fgetwln(FILE * __restrict fp, size_t *lenp)
 	ORIENT(fp, 1);
 
 	len = 0;
-	while ((wc = __fgetwc(fp)) != WEOF) {
+	while ((wc = __fgetwc(fp, loc)) != WEOF) {
 #define	GROW	512
 		if (len * sizeof(wchar_t) >= fp->_lb._size &&
 		    __slbexpand(fp, (len + GROW) * sizeof(wchar_t)))
@@ -64,4 +64,10 @@ error:
 	FUNLOCKFILE(fp);
 	*lenp = 0;
 	return (NULL);
+}
+
+wchar_t *
+fgetwln(FILE * __restrict fp, size_t *lenp)
+{
+	return fgetwln_l(fp, lenp, __current_locale());
 }

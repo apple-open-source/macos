@@ -43,6 +43,7 @@
 namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(JSONObject);
+ASSERT_HAS_TRIVIAL_DESTRUCTOR(JSONObject);
 
 static EncodedJSValue JSC_HOST_CALL JSONProtoFuncParse(ExecState*);
 static EncodedJSValue JSC_HOST_CALL JSONProtoFuncStringify(ExecState*);
@@ -141,7 +142,7 @@ static inline JSValue unwrapBoxedPrimitive(ExecState* exec, JSValue value)
     if (object->inherits(&NumberObject::s_info))
         return jsNumber(object->toNumber(exec));
     if (object->inherits(&StringObject::s_info))
-        return jsString(exec, object->toString(exec));
+        return object->toString(exec);
     if (object->inherits(&BooleanObject::s_info))
         return object->toPrimitive(exec);
     return value;
@@ -222,25 +223,12 @@ Stringifier::Stringifier(ExecState* exec, const Local<Unknown>& replacer, const 
             if (exec->hadException())
                 break;
 
-            UString propertyName;
-            if (name.getString(exec, propertyName)) {
-                m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
-                continue;
-            }
-
-            if (name.isNumber()) {
-                m_arrayReplacerPropertyNames.add(Identifier::from(exec, name.asNumber()));
-                continue;
-            }
-
             if (name.isObject()) {
                 if (!asObject(name)->inherits(&NumberObject::s_info) && !asObject(name)->inherits(&StringObject::s_info))
                     continue;
-                propertyName = name.toString(exec);
-                if (exec->hadException())
-                    break;
-                m_arrayReplacerPropertyNames.add(Identifier(exec, propertyName));
             }
+
+            m_arrayReplacerPropertyNames.add(Identifier(exec, name.toString(exec)->value(exec)));
         }
         return;
     }
@@ -495,7 +483,7 @@ bool Stringifier::Holder::appendNextProperty(Stringifier& stringifier, UStringBu
     // First time through, initialize.
     if (!m_index) {
         if (m_isArray) {
-            m_isJSArray = isJSArray(&exec->globalData(), m_object.get());
+            m_isJSArray = isJSArray(m_object.get());
             m_size = m_object->get(exec, exec->globalData().propertyNames->length).toUInt32(exec);
             builder.append('[');
         } else {
@@ -669,7 +657,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             arrayStartState:
             case ArrayStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(isJSArray(&m_exec->globalData(), asObject(inValue)) || asObject(inValue)->inherits(&JSArray::s_info));
+                ASSERT(isJSArray(asObject(inValue)) || asObject(inValue)->inherits(&JSArray::s_info));
                 if (objectStack.size() + arrayStack.size() > maximumFilterRecursion)
                     return throwError(m_exec, createStackOverflowError(m_exec));
 
@@ -694,7 +682,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     indexStack.removeLast();
                     break;
                 }
-                if (isJSArray(&m_exec->globalData(), array) && array->canGetIndex(index))
+                if (isJSArray(array) && array->canGetIndex(index))
                     inValue = array->getIndex(index);
                 else {
                     PropertySlot slot;
@@ -716,12 +704,8 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                 JSValue filteredValue = callReviver(array, jsString(m_exec, UString::number(indexStack.last())), outValue);
                 if (filteredValue.isUndefined())
                     array->methodTable()->deletePropertyByIndex(array, m_exec, indexStack.last());
-                else {
-                    if (isJSArray(&m_exec->globalData(), array) && array->canSetIndex(indexStack.last()))
-                        array->setIndex(m_exec->globalData(), indexStack.last(), filteredValue);
-                    else
-                        array->methodTable()->putByIndex(array, m_exec, indexStack.last(), filteredValue);
-                }
+                else
+                    array->putDirectIndex(m_exec, indexStack.last(), filteredValue, false);
                 if (m_exec->hadException())
                     return jsNull();
                 indexStack.last()++;
@@ -730,7 +714,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
             objectStartState:
             case ObjectStartState: {
                 ASSERT(inValue.isObject());
-                ASSERT(!isJSArray(&m_exec->globalData(), asObject(inValue)) && !asObject(inValue)->inherits(&JSArray::s_info));
+                ASSERT(!isJSArray(asObject(inValue)) && !asObject(inValue)->inherits(&JSArray::s_info));
                 if (objectStack.size() + arrayStack.size() > maximumFilterRecursion)
                     return throwError(m_exec, createStackOverflowError(m_exec));
 
@@ -797,7 +781,7 @@ NEVER_INLINE JSValue Walker::walk(JSValue unfiltered)
                     break;
                 }
                 JSObject* object = asObject(inValue);
-                if (isJSArray(&m_exec->globalData(), object) || object->inherits(&JSArray::s_info))
+                if (isJSArray(object) || object->inherits(&JSArray::s_info))
                     goto arrayStartState;
                 goto objectStartState;
         }
@@ -824,8 +808,7 @@ EncodedJSValue JSC_HOST_CALL JSONProtoFuncParse(ExecState* exec)
 {
     if (!exec->argumentCount())
         return throwVMError(exec, createError(exec, "JSON.parse requires at least one parameter"));
-    JSValue value = exec->argument(0);
-    UString source = value.toString(exec);
+    UString source = exec->argument(0).toString(exec)->value(exec);
     if (exec->hadException())
         return JSValue::encode(jsNull());
 

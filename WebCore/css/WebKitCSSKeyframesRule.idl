@@ -30,15 +30,15 @@ module css {
 
     // Introduced in DOM Level ?:
     interface [
-        HasIndexGetter
+        IndexedGetter
     ] WebKitCSSKeyframesRule : CSSRule {
 
-        attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString name;
+        attribute [TreatReturnedNullStringAs=Null, TreatNullAs=NullString] DOMString name;
         readonly attribute CSSRuleList cssRules;
         
-        void insertRule(in DOMString rule);
-        void deleteRule(in DOMString key);
-        WebKitCSSKeyframeRule findRule(in DOMString key);
+        void insertRule(in [Optional=DefaultIsUndefined] DOMString rule);
+        void deleteRule(in [Optional=DefaultIsUndefined] DOMString key);
+        WebKitCSSKeyframeRule findRule(in [Optional=DefaultIsUndefined] DOMString key);
     };
 
 }

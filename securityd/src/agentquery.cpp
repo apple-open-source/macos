@@ -339,6 +339,8 @@ QueryKeychainUse::QueryKeychainUse(bool needPass, const Database *db)
 	// (will quietly disable check if db isn't a keychain)
 	if (needPass)
 		mPassphraseCheck = dynamic_cast<const KeychainDatabase *>(db);
+    
+    setTerminateOnSleep(true);
 }
 
 Reason QueryKeychainUse::queryUser (const char *database, const char *description, AclAuthorization action)
@@ -717,13 +719,13 @@ Reason QueryNewPassphrase::accept(CssmManagedData &passphrase, CssmData *oldPass
 // 
 // Get a passphrase for unspecified use
 // 
-Reason QueryGenericPassphrase::operator () (const char *prompt, bool verify, 
+Reason QueryGenericPassphrase::operator () (const CssmData *prompt, bool verify,
                                             string &passphrase)
 {
     return query(prompt, verify, passphrase);
 }
 
-Reason QueryGenericPassphrase::query(const char *prompt, bool verify, 
+Reason QueryGenericPassphrase::query(const CssmData *prompt, bool verify,
                                      string &passphrase)
 {
     Reason reason = SecurityAgent::noReason;
@@ -739,7 +741,7 @@ Reason QueryGenericPassphrase::query(const char *prompt, bool verify,
 #endif
 	
     hints.insert(mClientHints.begin(), mClientHints.end());
-    hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? strlen(prompt) : 0, const_cast<char*>(prompt))));
+    hints.insert(AuthItemRef(AGENT_HINT_CUSTOM_PROMPT, AuthValueOverlay(prompt ? (UInt32)prompt->length() : 0, prompt ? prompt->data() : NULL)));
     // XXX/gh  defined by dmitch but no analogous hint in
     // AuthorizationTagsPriv.h:
     // CSSM_ATTRIBUTE_ALERT_TITLE (optional alert panel title)
@@ -867,6 +869,9 @@ void QueryInvokeMechanism::run(const AuthValueVector &inArguments, AuthItemSet &
 {
     // prepopulate with client hints
 	inHints.insert(mClientHints.begin(), mClientHints.end());
+
+	if (Server::active().inDarkWake())
+		CssmError::throwMe(CSSM_ERRCODE_IN_DARK_WAKE);
 
     setArguments(inArguments);
     setInput(inHints, inContext);

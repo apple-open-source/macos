@@ -28,7 +28,7 @@
 
 #include <sys/appleapiopts.h>
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 #define NSEC_PER_SEC	1000*1000*1000
 #define NSEC_PER_USEC	1000
@@ -41,6 +41,7 @@ ___commpage_gettimeofday:
 	pushq	%r12			// push callee-saved registers we want to use
 	pushq	%r13
 	pushq	%r14
+	subq	$8, %rsp
 	movq	%rsp,%rbp
 	movq	%rdi,%r12		// save ptr to timeval
 	movq	$(_COMM_PAGE_TIME_DATA_START),%r13
@@ -48,7 +49,7 @@ ___commpage_gettimeofday:
 	movl	_GTOD_GENERATION(%r13),%r14d	// get generation (0 if disabled)
 	testl	%r14d,%r14d		// disabled?
 	jz	4f
-	
+
 	call	_mach_absolute_time	// get %rax <- nanotime()
 	
 	movl	_GTOD_SEC_BASE(%r13),%r8d	// get _COMM_PAGE_TIMESTAMP
@@ -71,6 +72,7 @@ ___commpage_gettimeofday:
 	movl	%eax,8(%r12)		// store 32-bit useconds into timeval
 	xorl	%eax,%eax		// return 0 for success
 3:
+	addq	$8, %rsp
 	popq	%r14
 	popq	%r13
 	popq	%r12

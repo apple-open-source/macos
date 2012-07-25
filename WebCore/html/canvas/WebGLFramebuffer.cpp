@@ -29,21 +29,57 @@
 
 #include "WebGLFramebuffer.h"
 
+#include "WebGLContextGroup.h"
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
 
 namespace {
 
-    // This function is only for depth/stencil/depth_stencil attachment.
-    // Currently we assume these attachments are all renderbuffers.
-    GC3Denum getInternalFormat(WebGLObject* buffer)
+    bool isAttachmentComplete(WebGLSharedObject* attachedObject, GC3Denum attachment)
     {
-        ASSERT(buffer && buffer->isRenderbuffer());
-        return (reinterpret_cast<WebGLRenderbuffer*>(buffer))->getInternalFormat();
+        ASSERT(attachedObject && attachedObject->object());
+        ASSERT(attachedObject->isRenderbuffer());
+        WebGLRenderbuffer* buffer = reinterpret_cast<WebGLRenderbuffer*>(attachedObject);
+        switch (attachment) {
+        case GraphicsContext3D::DEPTH_ATTACHMENT:
+            if (buffer->getInternalFormat() != GraphicsContext3D::DEPTH_COMPONENT16)
+                return false;
+            break;
+        case GraphicsContext3D::STENCIL_ATTACHMENT:
+            if (buffer->getInternalFormat() != GraphicsContext3D::STENCIL_INDEX8)
+                return false;
+            break;
+        case GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT:
+            if (buffer->getInternalFormat() != GraphicsContext3D::DEPTH_STENCIL)
+                return false;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            return false;
+        }
+        if (!buffer->getWidth() || !buffer->getHeight())
+            return false;
+        return true;
     }
 
-    bool isUninitialized(WebGLObject* attachedObject)
+    GC3Dsizei getImageWidth(WebGLSharedObject* attachedObject)
+    {
+        ASSERT(attachedObject && attachedObject->object());
+        ASSERT(attachedObject->isRenderbuffer());
+        WebGLRenderbuffer* buffer = reinterpret_cast<WebGLRenderbuffer*>(attachedObject);
+        return buffer->getWidth();
+    }
+
+    GC3Dsizei getImageHeight(WebGLSharedObject* attachedObject)
+    {
+        ASSERT(attachedObject && attachedObject->object());
+        ASSERT(attachedObject->isRenderbuffer());
+        WebGLRenderbuffer* buffer = reinterpret_cast<WebGLRenderbuffer*>(attachedObject);
+        return buffer->getHeight();
+    }
+
+    bool isUninitialized(WebGLSharedObject* attachedObject)
     {
         if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()
             && !(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isInitialized())
@@ -51,19 +87,17 @@ namespace {
         return false;
     }
 
-    void setInitialized(WebGLObject* attachedObject)
+    void setInitialized(WebGLSharedObject* attachedObject)
     {
         if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer())
             (reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->setInitialized();
     }
 
-    bool isValid(WebGLObject* attachedObject)
+    bool isValidRenderbuffer(WebGLSharedObject* attachedObject)
     {
-        if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()) {
-            if (!(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isValid())
-                return false;
-        }
-        return true;
+        if (!attachedObject || !attachedObject->object() || !attachedObject->isRenderbuffer())
+            return false;
+        return static_cast<WebGLRenderbuffer*>(attachedObject)->isValid();
     }
 
 } // anonymous namespace
@@ -74,18 +108,25 @@ PassRefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContext* ctx
 }
 
 WebGLFramebuffer::WebGLFramebuffer(WebGLRenderingContext* ctx)
-    : WebGLObject(ctx)
+    : WebGLContextObject(ctx)
     , m_hasEverBeenBound(false)
     , m_texTarget(0)
     , m_texLevel(-1)
 {
-    setObject(context()->graphicsContext3D()->createFramebuffer());
+    setObject(ctx->graphicsContext3D()->createFramebuffer());
 }
 
-void WebGLFramebuffer::setAttachment(GC3Denum attachment, GC3Denum texTarget, WebGLTexture* texture, GC3Dint level)
+WebGLFramebuffer::~WebGLFramebuffer()
 {
+    deleteObject(0);
+}
+
+void WebGLFramebuffer::setAttachmentForBoundFramebuffer(GC3Denum attachment, GC3Denum texTarget, WebGLTexture* texture, GC3Dint level)
+{
+    ASSERT(isBound());
     if (!object())
         return;
+    removeAttachmentFromBoundFramebuffer(attachment);
     if (texture && !texture->object())
         texture = 0;
     switch (attachment) {
@@ -106,14 +147,19 @@ void WebGLFramebuffer::setAttachment(GC3Denum attachment, GC3Denum texTarget, We
         m_depthStencilAttachment = texture;
         break;
     default:
-        return;
+        ASSERT_NOT_REACHED();
+        break;
     }
+    if (texture)
+        texture->onAttached();
 }
 
-void WebGLFramebuffer::setAttachment(GC3Denum attachment, WebGLRenderbuffer* renderbuffer)
+void WebGLFramebuffer::setAttachmentForBoundFramebuffer(GC3Denum attachment, WebGLRenderbuffer* renderbuffer)
 {
+    ASSERT(isBound());
     if (!object())
         return;
+    removeAttachmentFromBoundFramebuffer(attachment);
     if (renderbuffer && !renderbuffer->object())
         renderbuffer = 0;
     switch (attachment) {
@@ -130,11 +176,14 @@ void WebGLFramebuffer::setAttachment(GC3Denum attachment, WebGLRenderbuffer* ren
         m_depthStencilAttachment = renderbuffer;
         break;
     default:
-        return;
+        ASSERT_NOT_REACHED();
+        break;
     }
+    if (renderbuffer)
+        renderbuffer->onAttached();
 }
 
-WebGLObject* WebGLFramebuffer::getAttachment(GC3Denum attachment) const
+WebGLSharedObject* WebGLFramebuffer::getAttachment(GC3Denum attachment) const
 {
     if (!object())
         return 0;
@@ -148,27 +197,84 @@ WebGLObject* WebGLFramebuffer::getAttachment(GC3Denum attachment) const
     case GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT:
         return m_depthStencilAttachment.get();
     default:
+        ASSERT_NOT_REACHED();
         return 0;
     }
 }
 
-void WebGLFramebuffer::removeAttachment(WebGLObject* attachment)
+void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(GC3Denum attachment)
 {
+    ASSERT(isBound());
     if (!object())
         return;
-    if (attachment == m_colorAttachment.get())
-        m_colorAttachment = 0;
-    else if (attachment == m_depthAttachment.get())
-        m_depthAttachment = 0;
-    else if (attachment == m_stencilAttachment.get())
-        m_stencilAttachment = 0;
-    else if (attachment == m_depthStencilAttachment.get())
-        m_depthStencilAttachment = 0;
-    else
-        return;
+
+    GraphicsContext3D* context3d = context()->graphicsContext3D();
+    switch (attachment) {
+    case GraphicsContext3D::COLOR_ATTACHMENT0:
+        if (m_colorAttachment) {
+            m_colorAttachment->onDetached(context3d);
+            m_colorAttachment = 0;
+            m_texTarget = 0;
+            m_texLevel = -1;
+        }
+        break;
+    case GraphicsContext3D::DEPTH_ATTACHMENT:
+        if (m_depthAttachment) {
+            m_depthAttachment->onDetached(context3d);
+            m_depthAttachment = 0;
+        }
+        break;
+    case GraphicsContext3D::STENCIL_ATTACHMENT:
+        if (m_stencilAttachment) {
+            m_stencilAttachment->onDetached(context3d);
+            m_stencilAttachment = 0;
+        }
+        break;
+    case GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT:
+        if (m_depthStencilAttachment) {
+            m_depthStencilAttachment->onDetached(context3d);
+            m_depthStencilAttachment = 0;
+        }
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+        break;
+    }
 }
 
-GC3Dsizei WebGLFramebuffer::getWidth() const
+void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(WebGLSharedObject* attachment)
+{
+    ASSERT(isBound());
+    if (!object())
+        return;
+    if (!attachment)
+        return;
+
+    GraphicsContext3D* gc3d = context()->graphicsContext3D();
+
+    if (attachment == m_colorAttachment.get()) {
+        if (attachment->isRenderbuffer())
+            gc3d->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::RENDERBUFFER, 0);
+        else
+            gc3d->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, m_texTarget, 0, m_texLevel);
+        removeAttachmentFromBoundFramebuffer(GraphicsContext3D::COLOR_ATTACHMENT0);
+    }
+    if (attachment == m_depthAttachment.get()) {
+        gc3d->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::DEPTH_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, 0);
+        removeAttachmentFromBoundFramebuffer(GraphicsContext3D::DEPTH_ATTACHMENT);
+    }
+    if (attachment == m_stencilAttachment.get()) {
+        gc3d->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::STENCIL_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, 0);
+        removeAttachmentFromBoundFramebuffer(GraphicsContext3D::STENCIL_ATTACHMENT);
+    }
+    if (attachment == m_depthStencilAttachment.get()) {
+        gc3d->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::DEPTH_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, 0);
+        gc3d->framebufferRenderbuffer(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::STENCIL_ATTACHMENT, GraphicsContext3D::RENDERBUFFER, 0);
+        removeAttachmentFromBoundFramebuffer(GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT);
+    }
+}
+
+GC3Dsizei WebGLFramebuffer::getColorBufferWidth() const
 {
     if (!object() || !isColorAttached())
         return 0;
@@ -180,7 +286,7 @@ GC3Dsizei WebGLFramebuffer::getWidth() const
     return 0;
 }
 
-GC3Dsizei WebGLFramebuffer::getHeight() const
+GC3Dsizei WebGLFramebuffer::getColorBufferHeight() const
 {
     if (!object() || !isColorAttached())
         return 0;
@@ -213,50 +319,92 @@ GC3Denum WebGLFramebuffer::getColorBufferFormat() const
     return 0;
 }
 
-bool WebGLFramebuffer::isIncomplete(bool checkInternalFormat) const
+GC3Denum WebGLFramebuffer::checkStatus() const
 {
     unsigned int count = 0;
+    GC3Dsizei width = 0, height = 0;
     if (isDepthAttached()) {
-        if (checkInternalFormat && getInternalFormat(m_depthAttachment.get()) != GraphicsContext3D::DEPTH_COMPONENT16)
-            return true;
+        if (!isAttachmentComplete(m_depthAttachment.get(), GraphicsContext3D::DEPTH_ATTACHMENT))
+            return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+        width = getImageWidth(m_depthAttachment.get());
+        height = getImageHeight(m_depthAttachment.get());
         count++;
     }
     if (isStencilAttached()) {
-        if (checkInternalFormat && getInternalFormat(m_stencilAttachment.get()) != GraphicsContext3D::STENCIL_INDEX8)
-            return true;
+        if (!isAttachmentComplete(m_stencilAttachment.get(), GraphicsContext3D::STENCIL_ATTACHMENT))
+            return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+        if (!count) {
+            width = getImageWidth(m_stencilAttachment.get());
+            height = getImageHeight(m_stencilAttachment.get());
+        } else {
+            if (width != getImageWidth(m_stencilAttachment.get()) || height != getImageHeight(m_stencilAttachment.get()))
+                return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_DIMENSIONS;
+        }
         count++;
     }
     if (isDepthStencilAttached()) {
-        if (checkInternalFormat && getInternalFormat(m_depthStencilAttachment.get()) != GraphicsContext3D::DEPTH_STENCIL)
-            return true;
-        if (!isValid(m_depthStencilAttachment.get()))
-            return true;
+        if (!isAttachmentComplete(m_depthStencilAttachment.get(), GraphicsContext3D::DEPTH_STENCIL_ATTACHMENT))
+            return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+        if (!isValidRenderbuffer(m_depthStencilAttachment.get()))
+            return GraphicsContext3D::FRAMEBUFFER_UNSUPPORTED;
+        if (!count) {
+            width = getImageWidth(m_depthStencilAttachment.get());
+            height = getImageHeight(m_depthStencilAttachment.get());
+        } else {
+            if (width != getImageWidth(m_depthStencilAttachment.get()) || height != getImageHeight(m_depthStencilAttachment.get()))
+                return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_DIMENSIONS;
+        }
         count++;
     }
+    // WebGL specific: no conflicting DEPTH/STENCIL/DEPTH_STENCIL attachments.
     if (count > 1)
-        return true;
-    return false;
+        return GraphicsContext3D::FRAMEBUFFER_UNSUPPORTED;
+    if (isColorAttached()) {
+        // FIXME: if color buffer is texture, is ALPHA, LUMINANCE or LUMINANCE_ALPHA valid?
+        if (!getColorBufferFormat())
+            return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+        if (!count) {
+            if (!getColorBufferWidth() || !getColorBufferHeight())
+                return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
+        } else {
+            if (width != getColorBufferWidth() || height != getColorBufferHeight())
+                return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_DIMENSIONS;
+        }
+    } else {
+        if (!count)
+            return GraphicsContext3D::FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
+    }
+    return GraphicsContext3D::FRAMEBUFFER_COMPLETE;
 }
 
-bool WebGLFramebuffer::onAccess(bool needToInitializeRenderbuffers)
+bool WebGLFramebuffer::onAccess(GraphicsContext3D* context3d, bool needToInitializeRenderbuffers)
 {
-    if (isIncomplete(true))
+    if (checkStatus() != GraphicsContext3D::FRAMEBUFFER_COMPLETE)
         return false;
     if (needToInitializeRenderbuffers)
-        return initializeRenderbuffers();
+        return initializeRenderbuffers(context3d);
     return true;
 }
 
-void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
+bool WebGLFramebuffer::hasStencilBuffer() const
 {
-    context()->graphicsContext3D()->deleteFramebuffer(object);
-    m_colorAttachment = 0;
-    m_depthAttachment = 0;
-    m_stencilAttachment = 0;
-    m_depthStencilAttachment = 0;
+    return isValidRenderbuffer(m_depthStencilAttachment.get()) || isValidRenderbuffer(m_stencilAttachment.get());
 }
 
-bool WebGLFramebuffer::initializeRenderbuffers()
+void WebGLFramebuffer::deleteObjectImpl(GraphicsContext3D* context3d, Platform3DObject object)
+{
+    if (m_colorAttachment)
+        m_colorAttachment->onDetached(context3d);
+    if (m_depthAttachment)
+        m_depthAttachment->onDetached(context3d);
+    if (m_stencilAttachment)
+        m_stencilAttachment->onDetached(context3d);
+    if (m_depthStencilAttachment)
+        m_depthStencilAttachment->onDetached(context3d);
+    context3d->deleteFramebuffer(object);
+}
+
+bool WebGLFramebuffer::initializeRenderbuffers(GraphicsContext3D* g3d)
 {
     ASSERT(object());
     bool initColor = false, initDepth = false, initStencil = false;
@@ -283,7 +431,6 @@ bool WebGLFramebuffer::initializeRenderbuffers()
 
     // We only clear un-initialized renderbuffers when they are ready to be
     // read, i.e., when the framebuffer is complete.
-    GraphicsContext3D* g3d = context()->graphicsContext3D();
     if (g3d->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER) != GraphicsContext3D::FRAMEBUFFER_COMPLETE)
         return false;
 
@@ -350,6 +497,11 @@ bool WebGLFramebuffer::initializeRenderbuffers()
             setInitialized(m_stencilAttachment.get());
     }
     return true;
+}
+
+bool WebGLFramebuffer::isBound() const
+{
+    return (context()->m_framebufferBinding.get() == this);
 }
 
 }

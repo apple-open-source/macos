@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -21,7 +21,7 @@ function err_exit
 {
 	print -u2 -n "\t"
 	print -u2 -r ${Command}[$1]: "${@:2}"
-	let Errors+=1
+	(( Errors++ ))
 }
 alias err_exit='err_exit $LINENO'
 
@@ -79,6 +79,7 @@ x=$(print -r -- "\"$HOME\"")
 if	[[ $x != '"'$HOME'"' ]]
 then	err_exit "nested double quotes failed"
 fi
+unset z
 : ${z="a{b}c"}
 if	[[ $z != 'a{b}c' ]]
 then	err_exit '${z="a{b}c"} not correct'
@@ -212,12 +213,12 @@ fi
 foo=bar
 bar=$(print -r -- ${foo+\\n\ })
 if	[[ $bar != '\n ' ]]
-then	err_exit '${foo+\\n\ } expansion error' 
+then	err_exit '${foo+\\n\ } expansion error'
 fi
 unset bar
 bar=$(print -r -- ${foo+\\n\ $bar})
 if	[[ $bar != '\n ' ]]
-then	err_exit '${foo+\\n\ $bar} expansion error with bar unset' 
+then	err_exit '${foo+\\n\ $bar} expansion error with bar unset'
 fi
 x='\\(..\\)|&\|\|\\&\\|'
 if	[[ $(print -r -- $x) != "$x" ]]
@@ -302,7 +303,7 @@ fi
 ###########################################################
 print foo) ]] || err_exit "command subsitution with long comments broken"
 subject='some/other/words'
-re='(?*)/(?*)/(?*)'
+re='@(?*)/@(?*)/@(?*)'
 [[ ${subject/${re}/\3} != words ]] && err_exit 'string replacement with \3 not working'
 [[ ${subject/${re}/'\3'} != '\3' ]] && err_exit 'string replacement with '"'\3'"' not working'
 [[ ${subject/${re}/"\\3"} != '\3' ]] && err_exit 'string replacement with "\\3" not working'
@@ -326,6 +327,43 @@ string='&foo'
 {
 x=x
 x=${x:-`id | sed 's/^[^(]*(\([^)]*\)).*/\1/'`}
-} 2> /dev/null || err_exit 'skipping over `` failed' 
+} 2> /dev/null || err_exit 'skipping over `` failed'
 [[ $x == x ]] || err_exit 'assignment ${x:=`...`} failed'
-exit $((Errors))
+[[ $($SHELL -c 'print a[') == 'a[' ]] || err_exit "unbalanced '[' in command arg fails"
+$SHELL -c $'false && (( `wc -l /dev/null | nawk \'{print $1}\'` > 2 )) && true;:' 2> /dev/null ||  err_exit 'syntax error with ` in arithmetic expression'
+{ $SHELL  -c '((  1`: "{ }"` ))' ;} 2> /dev/null || err_exit 'problem with ` inside (())'
+varname=foobarx
+x=`print '"\$'${varname}'"'`
+[[ $x == '"$foobarx"' ]] ||  err_exit $'\\$\' not handled correctly inside ``'
+
+copy1=5 copynum=1
+foo="`eval echo "$"{copy$copynum"-0}"`"
+[[ $foo == "$copy1" ]] || err_exit '$"..." not being ignored inside ``'
+
+[[ $($SHELL -c 'set --  ${1+"$@"}; print $#' cmd '') == 1 ]] || err_exit '${1+"$@"} with one empty argument fails'
+[[ $($SHELL -c 'set --  ${1+"$@"}; print $#' cmd foo '') == 2 ]] || err_exit '${1+"$@"} with one non-empty and on empty argument fails'
+[[ $($SHELL -c 'set --  ${1+"$@"}; print $#' cmd "" '') == 2 ]] || err_exit '${1+"$@"} with two empty arguments fails'
+[[ $($SHELL -c 'set --  ${1+"$@"}; print $#' cmd "" '' '') == 3 ]] || err_exit '${1+"$@"} with three empty arguments fails'
+[[ $($SHELL -c 'set --  "$@"; print $#' cmd '') == 1 ]] || err_exit '"$@" with one empty argument fails'
+[[ $($SHELL -c 'set --  "${@:2}"; print $#' cmd '') == 0 ]] || err_exit '"$@" with one empty argument fails'
+[[ $($SHELL -c 'set --  "$@"; print $#' cmd foo '') == 2 ]] || err_exit '"$@" with one non-empty and on empty argument fails'
+[[ $($SHELL -c 'set --  "$@"; print $#' cmd "" '') == 2 ]] || err_exit '"$@" with two empty arguments fails'
+[[ $($SHELL -c 'set --  "$@"; print $#' cmd "" '' '') == 3 ]] || err_exit '"$@" with three empty arguments fails'
+args=('')
+set -- "${args[@]}"
+[[ $# == 1 ]] || err_exit '"${args[@]}"} with one empty argument fails'
+set -- ${1+"${args[@]}"}
+[[ $# == 1 ]] || err_exit '${1+"${args[@]}"} with one empty argument fails'
+args=(foo '')
+set -- "${args[@]}"
+[[ $# == 2 ]] || err_exit '"${args[@]}"} with one non-empty and one empty argument fails'
+set -- ${1+"${args[@]}"}
+[[ $# == 2 ]] || err_exit '${1+"${args[@]}"} with one non-empty and one empty argument fails'
+
+unset ARGS
+set --
+ARGS=("$@")
+set -- "${ARGS[@]}"
+(( $# )) &&  err_exit 'set -- "${ARGS[@]}" for empty array should not produce arguments'
+
+exit $((Errors<125?Errors:125))

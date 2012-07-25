@@ -92,7 +92,8 @@ void in6_addr2net(struct in6_addr *addr, int prefix, struct in6_addr *net);
 int clear_ifaddr6 (char *ifname, struct in6_addr *addr);
 int publish_stateaddr(SCDynamicStoreRef store, CFStringRef serviceID, char *if_name, u_int32_t server, u_int32_t o, 
 					  u_int32_t h, u_int32_t m, int isprimary);
-int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, CFStringRef exceptionlist);
+int publish_proxies(SCDynamicStoreRef store, CFStringRef serviceID, int autodetect, CFStringRef server, int port, int bypasslocal, 
+					CFStringRef exceptionlist, CFArrayRef supp_domains);
 boolean_t set_host_gateway(int cmd, struct sockaddr *host, struct sockaddr *gateway, char *ifname, int isnet);
 int route_gateway(int cmd, struct sockaddr *dest, struct sockaddr *mask, struct sockaddr *gateway, int use_gway_flag, int use_blackhole_flag);
 
@@ -135,5 +136,38 @@ collectEnvironmentVariables (SCDynamicStoreRef storeRef, CFStringRef serviceID);
 
 void
 applyEnvironmentVariables (CFDictionaryRef envVarDict);
+
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
+
+// scnc_stop reasons
+enum {
+	SCNC_STOP_NONE = 0,
+	SCNC_STOP_CTRL_STOP,
+	SCNC_STOP_SYS_SLEEP,
+	SCNC_STOP_USER_LOGOUT,
+	SCNC_STOP_USER_SWITCH,
+	SCNC_STOP_SOCK_DISCONNECT,
+	SCNC_STOP_SOCK_DISCONNECT_NO_CLIENT,
+	SCNC_STOP_PLUGIN_CHANGE,
+	SCNC_STOP_APP_REMOVED,
+	SCNC_STOP_USER_REQ,
+	SCNC_STOP_USER_REQ_NO_CLIENT,
+	SCNC_STOP_TERM_ALL,
+	SCNC_STOP_SERV_DISPOSE,
+};
+
+const char *
+scnc_get_reason_str(int scnc_reason);
+const char *
+ppp_error_to_string (u_int32_t native_ppp_error);
+const char *
+ppp_dev_error_to_string (u_int16_t subtype, u_int32_t native_dev_error);
+const char *
+ipsec_error_to_string (int status);
+const char *
+vpn_error_to_string (u_int32_t status);
+void
+cleanup_dynamicstore(void *serv);
 
 #endif

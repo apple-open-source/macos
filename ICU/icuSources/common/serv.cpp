@@ -1,6 +1,6 @@
 /**
 *******************************************************************************
-* Copyright (C) 2001-2010, International Business Machines Corporation.
+* Copyright (C) 2001-2011, International Business Machines Corporation.
 * All Rights Reserved.
 *******************************************************************************
 */
@@ -120,6 +120,8 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ICUServiceKey)
 ******************************************************************
 */
 
+ICUServiceFactory::~ICUServiceFactory() {}
+
 SimpleFactory::SimpleFactory(UObject* instanceToAdopt, const UnicodeString& id, UBool visible) 
 : _instance(instanceToAdopt), _id(id), _visible(visible)
 {
@@ -187,6 +189,8 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleFactory)
 /*
 ******************************************************************
 */
+
+ServiceListener::~ServiceListener() {}
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ServiceListener)
 
@@ -278,7 +282,7 @@ public:
     DNCache(const Locale& _locale) 
         : cache(), locale(_locale) 
     {
-        // cache.setKeyDeleter(uhash_deleteUnicodeString);
+        // cache.setKeyDeleter(uprv_deleteUObject);
     }
 };
 
@@ -327,28 +331,26 @@ U_CDECL_END
 ******************************************************************
 */
 
+static UMTX lock;
+
 ICUService::ICUService()
 : name()
-, lock(0)
 , timestamp(0)
 , factories(NULL)
 , serviceCache(NULL)
 , idCache(NULL)
 , dnCache(NULL)
 {
-    umtx_init(&lock);
 }
 
 ICUService::ICUService(const UnicodeString& newName) 
 : name(newName)
-, lock(0)
 , timestamp(0)
 , factories(NULL)
 , serviceCache(NULL)
 , idCache(NULL)
 , dnCache(NULL)
 {
-    umtx_init(&lock);
 }
 
 ICUService::~ICUService()
@@ -359,7 +361,6 @@ ICUService::~ICUService()
         delete factories;
         factories = NULL;
     }
-    umtx_destroy(&lock);
 }
 
 UObject* 
@@ -446,7 +447,7 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
         // if factory is not null, we're calling from within the mutex,
         // and since some unix machines don't have reentrant mutexes we
         // need to make sure not to try to lock it again.
-        XMutex mutex(&ncthis->lock, factory != NULL);
+        XMutex mutex(&lock, factory != NULL);
 
         if (serviceCache == NULL) {
             ncthis->serviceCache = new Hashtable(status);
@@ -522,7 +523,7 @@ ICUService::getKey(ICUServiceKey& key, UnicodeString* actualReturn, const ICUSer
             // fallback to the one that succeeded, we want to hit the
             // cache the first time next goaround.
             if (cacheDescriptorList._obj == NULL) {
-                cacheDescriptorList._obj = new UVector(uhash_deleteUnicodeString, NULL, 5, status);
+                cacheDescriptorList._obj = new UVector(uprv_deleteUObject, NULL, 5, status);
                 if (U_FAILURE(status)) {
                     return NULL;
                 }
@@ -612,9 +613,8 @@ ICUService::getVisibleIDs(UVector& result, const UnicodeString* matchID, UErrorC
         return result;
     }
 
-    ICUService * ncthis = (ICUService*)this; // cast away semantic const
     {
-        Mutex mutex(&ncthis->lock);
+        Mutex mutex(&lock);
         const Hashtable* map = getVisibleIDMap(status);
         if (map != NULL) {
             ICUServiceKey* fallbackKey = createKey(matchID, status);
@@ -690,9 +690,8 @@ UnicodeString&
 ICUService::getDisplayName(const UnicodeString& id, UnicodeString& result, const Locale& locale) const 
 {
     {
-        ICUService* ncthis = (ICUService*)this; // cast away semantic const
         UErrorCode status = U_ZERO_ERROR;
-        Mutex mutex(&ncthis->lock);
+        Mutex mutex(&lock);
         const Hashtable* map = getVisibleIDMap(status);
         if (map != NULL) {
             ICUServiceFactory* f = (ICUServiceFactory*)map->get(id);
@@ -744,7 +743,7 @@ ICUService::getDisplayNames(UVector& result,
     result.setDeleter(userv_deleteStringPair);
     if (U_SUCCESS(status)) {
         ICUService* ncthis = (ICUService*)this; // cast away semantic const
-        Mutex mutex(&ncthis->lock);
+        Mutex mutex(&lock);
 
         if (dnCache != NULL && dnCache->locale != locale) {
             delete dnCache;
@@ -753,32 +752,33 @@ ICUService::getDisplayNames(UVector& result,
 
         if (dnCache == NULL) {
             const Hashtable* m = getVisibleIDMap(status);
-            if (m != NULL) {
-                ncthis->dnCache = new DNCache(locale); 
-                if (dnCache == NULL) {
-                    status = U_MEMORY_ALLOCATION_ERROR;
-                    return result;
-                }
+            if (U_FAILURE(status)) {
+                return result;
+            }
+            ncthis->dnCache = new DNCache(locale); 
+            if (dnCache == NULL) {
+                status = U_MEMORY_ALLOCATION_ERROR;
+                return result;
+            }
 
-                int32_t pos = -1;
-                const UHashElement* entry = NULL;
-                while ((entry = m->nextElement(pos)) != NULL) {
-                    const UnicodeString* id = (const UnicodeString*)entry->key.pointer;
-                    ICUServiceFactory* f = (ICUServiceFactory*)entry->value.pointer;
-                    UnicodeString dname;
-                    f->getDisplayName(*id, locale, dname);
-                    if (dname.isBogus()) {
-                        status = U_MEMORY_ALLOCATION_ERROR;
-                    } else {
-                        dnCache->cache.put(dname, (void*)id, status); // share pointer with visibleIDMap
-                        if (U_SUCCESS(status)) {
-                            continue;
-                        }
+            int32_t pos = -1;
+            const UHashElement* entry = NULL;
+            while ((entry = m->nextElement(pos)) != NULL) {
+                const UnicodeString* id = (const UnicodeString*)entry->key.pointer;
+                ICUServiceFactory* f = (ICUServiceFactory*)entry->value.pointer;
+                UnicodeString dname;
+                f->getDisplayName(*id, locale, dname);
+                if (dname.isBogus()) {
+                    status = U_MEMORY_ALLOCATION_ERROR;
+                } else {
+                    dnCache->cache.put(dname, (void*)id, status); // share pointer with visibleIDMap
+                    if (U_SUCCESS(status)) {
+                        continue;
                     }
-                    delete dnCache;
-                    ncthis->dnCache = NULL;
-                    return result;
                 }
+                delete dnCache;
+                ncthis->dnCache = NULL;
+                return result;
             }
         }
     }

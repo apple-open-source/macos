@@ -17,18 +17,17 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "GraphicsContext.h"
 #include <wtf/Noncopyable.h>
 
-#ifdef __OBJC__
-@class NSGraphicsContext;
-#else
-class NSGraphicsContext;
+#if USE(SKIA)
+#include "skia/ext/skia_utils_mac.h"
 #endif
+
+OBJC_CLASS NSGraphicsContext;
 
 namespace WebCore {
 
-class GraphicsContext;
-    
 // This class automatically saves and restores the current NSGraphicsContext for
 // functions which call out into AppKit and rely on the currentContext being set
 class LocalCurrentGraphicsContext {
@@ -36,10 +35,38 @@ class LocalCurrentGraphicsContext {
 public:
     LocalCurrentGraphicsContext(GraphicsContext* graphicsContext);
     ~LocalCurrentGraphicsContext();
-
+    CGContextRef cgContext();
 private:
     GraphicsContext* m_savedGraphicsContext;
     NSGraphicsContext* m_savedNSGraphicsContext;
+#if USE(SKIA)
+    gfx::SkiaBitLocker m_skiaBitLocker;
+#endif
+};
+
+class ContextContainer {
+    WTF_MAKE_NONCOPYABLE(ContextContainer);
+public:
+#if USE(SKIA)
+    ContextContainer(GraphicsContext*);
+    
+    // This synchronizes the CGContext to reflect the current SkCanvas state.
+    // The implementation may not return the same CGContext each time.
+    CGContextRef context() { return m_skiaBitLocker.cgContext(); }
+#else
+    ContextContainer(GraphicsContext* graphicsContext)
+        : m_graphicsContext(graphicsContext->platformContext())
+    {
+    }
+
+    CGContextRef context() { return m_graphicsContext; }
+#endif
+private:
+#if USE(SKIA)
+    gfx::SkiaBitLocker m_skiaBitLocker;
+#else
+    PlatformGraphicsContext* m_graphicsContext;
+#endif
 };
 
 }

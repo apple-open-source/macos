@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,15 +56,22 @@ __BEGIN_DECLS
 	@function CNSetSupportedSSIDs
 	@discussion Provides Captive Network Support with an updated list of
 		SSIDs that this application will perform authentication on.
-		When Captive Network Support would show the Web Sheet for a
-		network with an SSID the application has registered for, it
-		will suppress showing the Web Sheet if the application is
-		still installed.
+
+		Captive Network Support suppresses showing the Web Sheet
+		for a captive Wi-Fi network if that network's SSID is in the
+		specified list.
+
+		On iOS, the registrations persist until the application is
+		removed from the device.
+
+		On MacOSX, the registrations persist as long as the application
+		is running.
+
 	@param ssidArray A CFArray of CFStrings of the SSIDs.
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNSetSupportedSSIDs	(CFArrayRef	ssidArray)		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_0);
+CNSetSupportedSSIDs	(CFArrayRef	ssidArray)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
 
 /*!
 	@function CNMarkPortalOnline
@@ -76,7 +83,7 @@ CNSetSupportedSSIDs	(CFArrayRef	ssidArray)		__OSX_AVAILABLE_STARTING(__MAC_NA,__
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNMarkPortalOnline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_0);
+CNMarkPortalOnline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
 
 /*!
 	@function CNMarkPortalOffline
@@ -86,7 +93,7 @@ CNMarkPortalOnline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_N
 	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 Boolean
-CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_0);
+CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_0);
 
 
 /*!
@@ -97,7 +104,9 @@ CNMarkPortalOffline	(CFStringRef	interfaceName)		__OSX_AVAILABLE_STARTING(__MAC_
 	 You MUST release the returned value.
  */
 CFArrayRef
-CNCopySupportedInterfaces	(void)				__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+CNCopySupportedInterfaces	(void)				__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_4_1);
+
+#if	TARGET_OS_EMBEDDED
 
 /*!
  @constant kCNNetworkInfoKeySSIDData
@@ -138,6 +147,8 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID			__OSX_AVAILABLE_STARTING(__MAC
  */
 CFDictionaryRef
 CNCopyCurrentNetworkInfo	(CFStringRef interfaceName)	__OSX_AVAILABLE_STARTING(__MAC_NA,__IPHONE_4_1);
+
+#endif	// TARGET_OS_EMBEDDED
 
 __END_DECLS
 

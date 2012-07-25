@@ -157,6 +157,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA)
 #define kSMBMntOptionNoNotifcations		0x00000002
 	/*! Mount the volume soft, return time out error durring reconnect. */
 #define kSMBMntOptionSoftMount			0x00000004
+#define kSMBReservedTMMount				0x00000008
 
 /*!
  * @function SMBOpenServerWithMountPoint

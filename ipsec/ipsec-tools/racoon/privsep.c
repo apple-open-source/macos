@@ -512,7 +512,7 @@ privsep_init(void)
 			int pool_size;
 			int port;
 			int inout;
-			struct sockaddr *raddr;
+			struct sockaddr_storage *raddr;
 
 			if (safety_check(combuf, 0) != 0)
 				break;
@@ -524,7 +524,7 @@ privsep_init(void)
 				break;
 
 			memcpy(&port, bufs[0], sizeof(port));
-			raddr = (struct sockaddr *)bufs[1];
+			raddr = (struct sockaddr_storage *)bufs[1];
 
 			bufs[2][combuf->bufs.buflen[2] - 1] = '\0';
 			memcpy(&inout, bufs[3], sizeof(port));
@@ -609,7 +609,7 @@ privsep_init(void)
 		case PRIVSEP_XAUTH_LOGIN_PAM: {
 			int port;
 			int pool_size;
-			struct sockaddr *raddr;
+			struct sockaddr_storage *raddr;
 
 			if (safety_check(combuf, 0) != 0)
 				break;
@@ -624,7 +624,7 @@ privsep_init(void)
 
 			memcpy(&port, bufs[0], sizeof(port));
 			memcpy(&pool_size, bufs[1], sizeof(pool_size));
-			raddr = (struct sockaddr *)bufs[2];
+			raddr = (struct sockaddr_storage *)bufs[2];
 			
 			bufs[3][combuf->bufs.buflen[3] - 1] = '\0';
 			bufs[4][combuf->bufs.buflen[4] - 1] = '\0';
@@ -1001,7 +1001,7 @@ privsep_xauth_login_system(usr, pwd)
 int 
 privsep_accounting_system(port, raddr, usr, inout)
 	int port;
-	struct sockaddr *raddr;
+	struct sockaddr_storage *raddr;
 	char *usr;
 	int inout;
 {
@@ -1238,7 +1238,7 @@ out:
 int 
 privsep_xauth_login_pam(port, raddr, usr, pwd)
 	int port;
-	struct sockaddr *raddr;
+	struct sockaddr_storage *raddr;
 	char *usr;
 	char *pwd;
 {

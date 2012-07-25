@@ -52,6 +52,9 @@ BitmapImage::BitmapImage(ImageObserver* observer)
     , m_repetitionCountStatus(Unknown)
     , m_repetitionsComplete(0)
     , m_desiredFrameStartTime(0)
+    , m_decodedSize(0)
+    , m_decodedPropertiesSize(0)
+    , m_frameCount(0)
     , m_isSolidColor(false)
     , m_checkedForSolidColor(false)
     , m_animationFinished(false)
@@ -59,10 +62,7 @@ BitmapImage::BitmapImage(ImageObserver* observer)
     , m_haveSize(false)
     , m_sizeAvailable(false)
     , m_hasUniformFrameSize(true)
-    , m_decodedSize(0)
-    , m_decodedPropertiesSize(0)
     , m_haveFrameCount(false)
-    , m_frameCount(0)
 {
     initPlatformData();
 }
@@ -72,6 +72,17 @@ BitmapImage::~BitmapImage()
     invalidatePlatformData();
     stopAnimation();
 }
+
+bool BitmapImage::isBitmapImage() const
+{
+    return true;
+}
+
+bool BitmapImage::hasSingleSecurityOrigin() const
+{
+    return true;
+}
+
 
 void BitmapImage::destroyDecodedData(bool destroyAll)
 {
@@ -128,6 +139,7 @@ void BitmapImage::cacheFrame(size_t index)
     if (numFrames == 1 && m_frames[index].m_frame)
         checkForSolidColor();
 
+    m_frames[index].m_orientation = m_source.orientationAtIndex(index);
     m_frames[index].m_haveMetadata = true;
     m_frames[index].m_isComplete = m_source.frameIsCompleteAtIndex(index);
     if (repetitionCount(false) != cAnimationNone)
@@ -171,10 +183,22 @@ IntSize BitmapImage::size() const
 {
     if (m_sizeAvailable && !m_haveSize) {
         m_size = m_source.size();
+        m_sizeRespectingOrientation = m_source.size(RespectImageOrientation);
         m_haveSize = true;
         didDecodeProperties();
     }
     return m_size;
+}
+
+IntSize BitmapImage::sizeRespectingOrientation() const
+{
+    if (m_sizeAvailable && !m_haveSize) {
+        m_size = m_source.size();
+        m_sizeRespectingOrientation = m_source.size(RespectImageOrientation);
+        m_haveSize = true;
+        didDecodeProperties();
+    }
+    return m_sizeRespectingOrientation;
 }
 
 IntSize BitmapImage::currentFrameSize() const
@@ -195,21 +219,39 @@ bool BitmapImage::getHotSpot(IntPoint& hotSpot) const
 
 bool BitmapImage::dataChanged(bool allDataReceived)
 {
-    // Because we're modifying the current frame, clear its (now possibly
-    // inaccurate) metadata as well.
-    destroyMetadataAndNotify((!m_frames.isEmpty() && m_frames[m_frames.size() - 1].clear(true)) ? 1 : 0);
+    // Clear all partially-decoded frames. For most image formats, there is only
+    // one frame, but at least GIF and ICO can have more. With GIFs, the frames
+    // come in order and we ask to decode them in order, waiting to request a
+    // subsequent frame until the prior one is complete. Given that we clear
+    // incomplete frames here, this means there is at most one incomplete frame
+    // (even if we use destroyDecodedData() -- since it doesn't reset the
+    // metadata), and it is after all the complete frames.
+    //
+    // With ICOs, on the other hand, we may ask for arbitrary frames at
+    // different times (e.g. because we're displaying a higher-resolution image
+    // in the content area and using a lower-resolution one for the favicon),
+    // and the frames aren't even guaranteed to appear in the file in the same
+    // order as in the directory, so an arbitrary number of the frames might be
+    // incomplete (if we ask for frames for which we've not yet reached the
+    // start of the frame data), and any or none of them might be the particular
+    // frame affected by appending new data here. Thus we have to clear all the
+    // incomplete frames to be safe.
+    int framesCleared = 0;
+    for (size_t i = 0; i < m_frames.size(); ++i) {
+        // NOTE: Don't call frameIsCompleteAtIndex() here, that will try to
+        // decode any uncached (i.e. never-decoded or
+        // cleared-on-a-previous-pass) frames!
+        if (m_frames[i].m_haveMetadata && !m_frames[i].m_isComplete)
+            framesCleared += (m_frames[i].clear(true) ? 1 : 0);
+    }
+    destroyMetadataAndNotify(framesCleared);
     
     // Feed all the data we've seen so far to the image decoder.
     m_allDataReceived = allDataReceived;
     m_source.setData(data(), allDataReceived);
     
-    // Clear the frame count.
     m_haveFrameCount = false;
-
     m_hasUniformFrameSize = true;
-
-    // Image properties will not be available until the first frame of the file
-    // reaches kCGImageStatusIncomplete.
     return isSizeAvailable();
 }
 
@@ -239,49 +281,74 @@ bool BitmapImage::isSizeAvailable()
     return m_sizeAvailable;
 }
 
-NativeImagePtr BitmapImage::frameAtIndex(size_t index)
+bool BitmapImage::ensureFrameIsCached(size_t index)
 {
     if (index >= frameCount())
-        return 0;
+        return false;
 
     if (index >= m_frames.size() || !m_frames[index].m_frame)
         cacheFrame(index);
+    return true;
+}
 
+NativeImagePtr BitmapImage::frameAtIndex(size_t index)
+{
+    if (!ensureFrameIsCached(index))
+        return 0;
     return m_frames[index].m_frame;
 }
 
 bool BitmapImage::frameIsCompleteAtIndex(size_t index)
 {
-    if (index >= frameCount())
-        return true;
-
-    if (index >= m_frames.size() || !m_frames[index].m_haveMetadata)
-        cacheFrame(index);
-
+    if (!ensureFrameIsCached(index))
+        return true; // Why would an invalid index return true here?
     return m_frames[index].m_isComplete;
 }
 
 float BitmapImage::frameDurationAtIndex(size_t index)
 {
-    if (index >= frameCount())
+    if (!ensureFrameIsCached(index))
         return 0;
-
-    if (index >= m_frames.size() || !m_frames[index].m_haveMetadata)
-        cacheFrame(index);
-
     return m_frames[index].m_duration;
+}
+
+NativeImagePtr BitmapImage::nativeImageForCurrentFrame()
+{
+    return frameAtIndex(currentFrame());
 }
 
 bool BitmapImage::frameHasAlphaAtIndex(size_t index)
 {
-    if (index >= frameCount())
-        return true;
-
-    if (index >= m_frames.size() || !m_frames[index].m_haveMetadata)
-        cacheFrame(index);
-
+    if (!ensureFrameIsCached(index))
+        return true; // Why does an invalid index mean alpha?
     return m_frames[index].m_hasAlpha;
 }
+
+bool BitmapImage::currentFrameHasAlpha()
+{
+    return frameHasAlphaAtIndex(currentFrame());
+}
+
+ImageOrientation BitmapImage::currentFrameOrientation()
+{
+    return frameOrientationAtIndex(currentFrame());
+}
+
+ImageOrientation BitmapImage::frameOrientationAtIndex(size_t index)
+{
+    if (!ensureFrameIsCached(index))
+        return DefaultImageOrientation;
+    return m_frames[index].m_orientation;
+}
+
+#if !ASSERT_DISABLED
+bool BitmapImage::notSolidColor()
+{
+    return size().width() != 1 || size().height() != 1 || frameCount() > 1;
+}
+#endif
+
+
 
 int BitmapImage::repetitionCount(bool imageKnownToBeComplete)
 {
@@ -308,7 +375,7 @@ void BitmapImage::startAnimation(bool catchUpIfNecessary)
         return;
 
     // If we aren't already animating, set now as the animation start time.
-    const double time = currentTime();
+    const double time = monotonicallyIncreasingTime();
     if (!m_desiredFrameStartTime)
         m_desiredFrameStartTime = time;
 
@@ -418,6 +485,13 @@ void BitmapImage::resetAnimation()
     destroyDecodedDataIfNecessary(true);
 }
 
+unsigned BitmapImage::decodedSize() const
+{
+    return m_decodedSize;
+}
+
+
+
 void BitmapImage::advanceAnimation(Timer<BitmapImage>*)
 {
     internalAdvanceAnimation(false);
@@ -465,5 +539,30 @@ bool BitmapImage::internalAdvanceAnimation(bool skippingFrames)
         imageObserver()->animationAdvanced(this);
     return advancedAnimation;
 }
+
+bool BitmapImage::mayFillWithSolidColor()
+{
+    if (!m_checkedForSolidColor && frameCount() > 0) {
+        checkForSolidColor();
+        // WINCE PORT: checkForSolidColor() doesn't set m_checkedForSolidColor until
+        // it gets enough information to make final decision.
+#if !OS(WINCE)
+        ASSERT(m_checkedForSolidColor);
+#endif
+    }
+    return m_isSolidColor && !m_currentFrame;
+}
+
+Color BitmapImage::solidColor() const
+{
+    return m_solidColor;
+}
+
+#if !USE(CG)
+void BitmapImage::draw(GraphicsContext* ctx, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator op, RespectImageOrientationEnum)
+{
+    draw(ctx, dstRect, srcRect, styleColorSpace, op);
+}
+#endif
 
 }

@@ -29,6 +29,47 @@
 
 namespace WebCore {
 
+template<>
+struct SVGPropertyTraits<ComponentTransferType> {
+    static unsigned highestEnumValue() { return FECOMPONENTTRANSFER_TYPE_GAMMA; }
+
+    static String toString(ComponentTransferType type)
+    {
+        switch (type) {
+        case FECOMPONENTTRANSFER_TYPE_UNKNOWN:
+            return emptyString();
+        case FECOMPONENTTRANSFER_TYPE_IDENTITY:
+            return "identity";
+        case FECOMPONENTTRANSFER_TYPE_TABLE:
+            return "table";
+        case FECOMPONENTTRANSFER_TYPE_DISCRETE:
+            return "discrete";
+        case FECOMPONENTTRANSFER_TYPE_LINEAR:
+            return "linear";
+        case FECOMPONENTTRANSFER_TYPE_GAMMA:
+            return "gamma";
+        }
+
+        ASSERT_NOT_REACHED();
+        return emptyString();
+    }
+
+    static ComponentTransferType fromString(const String& value)
+    {
+        if (value == "identity")
+            return FECOMPONENTTRANSFER_TYPE_IDENTITY;
+        if (value == "table")
+            return FECOMPONENTTRANSFER_TYPE_TABLE;
+        if (value == "discrete")
+            return FECOMPONENTTRANSFER_TYPE_DISCRETE;
+        if (value == "linear")
+            return FECOMPONENTTRANSFER_TYPE_LINEAR;
+        if (value == "gamma")
+            return FECOMPONENTTRANSFER_TYPE_GAMMA;
+        return FECOMPONENTTRANSFER_TYPE_UNKNOWN;
+    }
+};
+
 class SVGComponentTransferFunctionElement : public SVGElement {
 public:
     ComponentTransferFunction transferFunction() const;
@@ -36,21 +77,20 @@ public:
 protected:
     SVGComponentTransferFunctionElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
     
 private:
-    // Animated property declarations
-    DECLARE_ANIMATED_ENUMERATION(Type, type)
-    DECLARE_ANIMATED_NUMBER_LIST(TableValues, tableValues)
-    DECLARE_ANIMATED_NUMBER(Slope, slope)
-    DECLARE_ANIMATED_NUMBER(Intercept, intercept)
-    DECLARE_ANIMATED_NUMBER(Amplitude, amplitude)
-    DECLARE_ANIMATED_NUMBER(Exponent, exponent)
-    DECLARE_ANIMATED_NUMBER(Offset, offset)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGComponentTransferFunctionElement)
+        DECLARE_ANIMATED_ENUMERATION(Type, type, ComponentTransferType)
+        DECLARE_ANIMATED_NUMBER_LIST(TableValues, tableValues)
+        DECLARE_ANIMATED_NUMBER(Slope, slope)
+        DECLARE_ANIMATED_NUMBER(Intercept, intercept)
+        DECLARE_ANIMATED_NUMBER(Amplitude, amplitude)
+        DECLARE_ANIMATED_NUMBER(Exponent, exponent)
+        DECLARE_ANIMATED_NUMBER(Offset, offset)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

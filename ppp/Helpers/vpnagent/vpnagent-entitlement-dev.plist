@@ -8,6 +8,7 @@
 	<array>
 		<string>com.apple.identities</string>
 		<string>apple</string>
+		<string>com.apple.certificates</string>
 	</array>
 </dict>
 </plist>

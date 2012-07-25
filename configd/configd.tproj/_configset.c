@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,17 +41,13 @@ __private_extern__
 int
 __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value, Boolean internal)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
-	int				sc_status	= kSCStatusOK;
 	CFDictionaryRef			dict;
 	CFMutableDictionaryRef		newDict;
 	Boolean				newEntry	= FALSE;
+	int				sc_status	= kSCStatusOK;
 	CFStringRef			sessionKey;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	CFStringRef			storeSessionKey;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
@@ -63,15 +59,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	}
 
 	/*
-	 * 1. Ensure that we hold the lock.
-	 */
-	sc_status = __SCDynamicStoreLock(store, TRUE);
-	if (sc_status != kSCStatusOK) {
-		return sc_status;
-	}
-
-	/*
-	 * 2. Grab the current (or establish a new) dictionary for this key.
+	 * Grab the current (or establish a new) dictionary for this key.
 	 */
 
 	dict = CFDictionaryGetValue(storeData, key);
@@ -87,7 +75,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	}
 
 	/*
-	 * 3. Update the dictionary entry to be saved to the store.
+	 * Update the dictionary entry to be saved to the store.
 	 */
 	newEntry = !CFDictionaryContainsKey(newDict, kSCDData);
 	CFDictionarySetValue(newDict, kSCDData, value);
@@ -95,7 +83,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), storePrivate->server);
 
 	/*
-	 * 4. Manage per-session keys.
+	 * Manage per-session keys.
 	 */
 	if (storePrivate->useSessionKeys) {
 		if (newEntry) {
@@ -180,20 +168,20 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	CFRelease(sessionKey);
 
 	/*
-	 * 5. Update the dictionary entry in the store.
+	 * Update the dictionary entry in the store.
 	 */
 
 	CFDictionarySetValue(storeData, key, newDict);
 	CFRelease(newDict);
 
 	/*
-	 * 6. For "new" entries to the store, check the deferred cleanup
-	 *    list. If the key is flagged for removal, remove it from the
-	 *    list since any defined regex's for this key are still defined
-	 *    and valid. If the key is not flagged then iterate over the
-	 *    sessionData dictionary looking for regex keys which match the
-	 *    updated key. If a match is found then we mark those keys as
-	 *    being watched.
+	 * For "new" entries to the store, check the deferred cleanup
+	 * list. If the key is flagged for removal, remove it from the
+	 * list since any defined regex's for this key are still defined
+	 * and valid. If the key is not flagged then iterate over the
+	 * sessionData dictionary looking for regex keys which match the
+	 * updated key. If a match is found then we mark those keys as
+	 * being watched.
 	 */
 
 	if (newEntry) {
@@ -205,17 +193,17 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	}
 
 	/*
-	 * 7. Mark this key as "changed". Any "watchers" will be notified
-	 *    as soon as the lock is released.
+	 * Mark this key as "changed". Any "watchers" will be notified
+	 * as soon as the lock is released.
 	 */
 	CFSetAddValue(changedKeys, key);
 
     done :
 
-	/*
-	 * 8. Release our lock.
-	 */
-	__SCDynamicStoreUnlock(store, TRUE);
+	if (!internal) {
+		/* push changes */
+		__SCDynamicStorePush();
+	}
 
 	return sc_status;
 }
@@ -229,8 +217,8 @@ _configset(mach_port_t			server,
 	   mach_msg_type_number_t	dataLen,
 	   int				oldInstance,
 	   int				*newInstance,
-	   int				*sc_status
-)
+	   int				*sc_status,
+	   audit_token_t		audit_token)
 {
 	CFDataRef		data		= NULL;	/* data (un-serialized) */
 	CFStringRef		key		= NULL;	/* key  (un-serialized) */
@@ -259,7 +247,16 @@ _configset(mach_port_t			server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		mySession = tempSession(server, CFSTR("SCDynamicStoreSetValue"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
+	}
+
+	if (!hasWriteAccess(mySession)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 
@@ -327,12 +324,8 @@ __private_extern__
 int
 __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, CFArrayRef keysToRemove, CFArrayRef keysToNotify)
 {
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
-
-	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
-		return kSCStatusNoStoreSession;	/* you must have an open session to play */
-	}
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
 	if (_configd_trace) {
 		SCTrace(TRUE, _configd_trace,
@@ -341,14 +334,6 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 			keysToSet    ? CFDictionaryGetCount(keysToSet)    : 0,
 			keysToRemove ? CFArrayGetCount     (keysToRemove) : 0,
 			keysToNotify ? CFArrayGetCount     (keysToNotify) : 0);
-	}
-
-	/*
-	 * Ensure that we hold the lock
-	 */
-	sc_status = __SCDynamicStoreLock(store, TRUE);
-	if (sc_status != kSCStatusOK) {
-		return sc_status;
 	}
 
 	/*
@@ -380,8 +365,8 @@ __SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, 
 				     (void *)store);
 	}
 
-	/* Release our lock */
-	__SCDynamicStoreUnlock(store, TRUE);
+	/* push changes */
+	__SCDynamicStorePush();
 
 	return sc_status;
 }
@@ -395,7 +380,8 @@ _configset_m(mach_port_t		server,
 	     mach_msg_type_number_t	removeLen,
 	     xmlData_t			notifyRef,
 	     mach_msg_type_number_t	notifyLen,
-	     int			*sc_status)
+	     int			*sc_status,
+	     audit_token_t		audit_token)
 {
 	CFDictionaryRef		dict		= NULL;		/* key/value dictionary (un-serialized) */
 	serverSessionRef	mySession;
@@ -446,8 +432,16 @@ _configset_m(mach_port_t		server,
 
 	mySession = getSession(server);
 	if (mySession == NULL) {
-		/* you must have an open session to play */
-		*sc_status = kSCStatusNoStoreSession;
+		mySession = tempSession(server, CFSTR("SCDynamicStoreSetMultiple"), audit_token);
+		if (mySession == NULL) {
+			/* you must have an open session to play */
+			*sc_status = kSCStatusNoStoreSession;
+			goto done;
+		}
+	}
+
+	if (!hasWriteAccess(mySession)) {
+		*sc_status = kSCStatusAccessError;
 		goto done;
 	}
 

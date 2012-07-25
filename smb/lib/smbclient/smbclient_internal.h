@@ -39,6 +39,7 @@ extern "C" {
 #define	SMBFS_MNT_DEBUG_ACL_ON	0x0008
 #define SMBFS_MNT_DFS_SHARE		0x0010
 #define SMBFS_MNT_COMPOUND_ON	0x0020
+#define	SMBFS_MNT_TIME_MACHINE	0x0040
 	
 #ifndef KERNEL
 #include <asl.h>	
@@ -46,8 +47,7 @@ extern "C" {
 #include <CoreFoundation/CoreFoundation.h>
 
 /* Once we add more we may want to make this an enum, also my want to make public */
-#define kHasNtwrkSID		0x01
-#define kWorkAroundEMCPanic	0x02
+#define kHasNtwrkSID	0x01
 
 /* These must match the values in dfs.h  */
 #define kReferralList			CFSTR("ReferralList")

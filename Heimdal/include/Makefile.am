@@ -13,7 +13,7 @@ nodist_include_HEADERS = krb5-types.h
 
 noinst_HEADERS = heim_threads.h crypto-headers.h
 
-EXTRA_DIST = krb5-types.cross
+EXTRA_DIST = NTMakefile krb5-types.cross
 
 if !CROSS_COMPILE
 
@@ -29,13 +29,17 @@ endif
 
 CLEANFILES =			\
 	asn1.h			\
+	asn1-common.h		\
 	asn1-template.h		\
 	asn1_err.h		\
 	base64.h		\
 	cms_asn1.h 		\
+	crmf_asn1.h		\
 	com_err.h		\
 	com_right.h		\
+	ccache_plugin.h		\
 	der-protos.h 		\
+	der-private.h 		\
 	der.h			\
 	digest_asn1.h 		\
 	editline.h		\
@@ -47,8 +51,10 @@ CLEANFILES =			\
 	hdb.h			\
 	hdb_asn1.h		\
 	hdb_err.h		\
+	heim-ipc.h		\
 	heim_asn1.h		\
 	heim_err.h		\
+	heimbase.h		\
 	heimntlm-protos.h	\
 	heimntlm.h		\
 	hex.h			\
@@ -70,10 +76,13 @@ CLEANFILES =			\
 	kx509_asn1.h		\
 	kx509_err.h		\
 	locate_plugin.h		\
+	ntlm_err.h		\
+	ocsp_asn1.h		\
 	otp.h			\
 	parse_bytes.h		\
 	parse_time.h		\
 	parse_units.h		\
+	pkcs10_asn1.h		\
 	pkcs12_asn1.h		\
 	pkcs8_asn1.h		\
 	pkcs9_asn1.h		\
@@ -83,8 +92,8 @@ CLEANFILES =			\
 	roken-common.h		\
 	roken.h			\
 	rtbl.h			\
-	sl.h			\
 	send_to_kdc_plugin.h	\
+	sl.h			\
 	test-mem.h		\
 	vers.h			\
 	vis.h			\

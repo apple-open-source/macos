@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1999 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1999 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -19,6 +19,11 @@
 # KIND, either express or implied.
 #
 #***************************************************************************
+
+# All files in the Makefile.vc* series are generated automatically from the
+# one made for MSVC version 6. Alas, if you want to do changes to any of the
+# fiels and send back to the project, edit the version six, make your diff and
+# mail curl-library.
 
 ###########################################################################
 #
@@ -59,11 +64,12 @@
 
 !INCLUDE ..\Makefile.msvc.names
 
-
-
-
 !IFNDEF OPENSSL_PATH
 OPENSSL_PATH   = ../../openssl-0.9.8r
+!ENDIF
+
+!IFNDEF LIBSSH2_PATH
+LIBSSH2_PATH   = ../../libssh2-1.2.8
 !ENDIF
 
 !IFNDEF ZLIB_PATH
@@ -100,8 +106,9 @@ WINDOWS_SDK_PATH = "$(PROGRAMFILES)\Microsoft SDK"
 CCNODBG    = cl.exe /O2 /DNDEBUG
 CCDEBUG    = cl.exe /Od /Gm /Zi /D_DEBUG /RTC1
 CFLAGSSSL  = /DUSE_SSLEAY /I "$(OPENSSL_PATH)/inc32" /I "$(OPENSSL_PATH)/inc32/openssl"
+CFLAGSSSH2 = /DUSE_LIBSSH2 /DCURL_DISABLE_LDAP /DHAVE_LIBSSH2 /DHAVE_LIBSSH2_H /DLIBSSH2_WIN32 /DLIBSSH2_LIBRARY /I "$(LIBSSH2_PATH)/include"
 CFLAGSZLIB = /DHAVE_ZLIB_H /DHAVE_ZLIB /DHAVE_LIBZ /I "$(ZLIB_PATH)"
-CFLAGS     = /I. /I../include /nologo /W3 /EHsc /DWIN32 /FD /c /DBUILDING_LIBCURL
+CFLAGS     = /I. /I../include /nologo /W3 /EHsc /DWIN32 /FD /c /DBUILDING_LIBCURL /D_BIND_TO_CURRENT_VCLIBS_VERSION=1
 CFLAGSLIB  = /DCURL_STATICLIB
 LNKDLL     = link.exe /DLL
 LNKLIB     = link.exe /lib
@@ -217,6 +224,36 @@ LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32dll"
 LNK      = $(LNKLIB) $(WINLIBS) $(SSLLIBS) $(ZLIBLIBSDLL) $(LFLAGSSSL) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
 CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSZLIB) $(CFLAGSLIB)
 CFGSET   = TRUE
+!ENDIF
+
+######################
+# release-ssl-ssh2-zlib
+
+!IF "$(CFG)" == "release-ssl-ssh2-zlib"
+TARGET   = $(LIB_NAME).lib
+DIROBJ   = $(CFG)
+LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
+LFLAGSSSH2 = "/LIBPATH:$(LIBSSH2_PATH)"
+LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
+LNK      = $(LNKLIB) $(LFLAGSSSL) $(LFLAGSSSH2) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
+CC       = $(CCNODBG) $(RTLIB) $(CFLAGSSSL) $(CFLAGSSSH2) $(CFLAGSZLIB) $(CFLAGSLIB)
+CFGSET   = TRUE
+RESOURCE = $(LIBSSH2_PATH)/Release/src/libssh2.lib $(ZLIB_PATH)/zlib.lib
+!ENDIF
+
+######################
+# debug-ssl-ssh2-zlib
+
+!IF "$(CFG)" == "debug-ssl-ssh2-zlib"
+TARGET   = $(LIB_NAME_DEBUG).lib
+DIROBJ   = $(CFG)
+LFLAGSZLIB = "/LIBPATH:$(ZLIB_PATH)"
+LFLAGSSSH2 = "/LIBPATH:$(LIBSSH2_PATH)"
+LFLAGSSSL = "/LIBPATH:$(OPENSSL_PATH)\out32"
+LNK      = $(LNKLIB) $(ZLIBLIBS) $(LFLAGSSSL) $(LFLAGSSSH2) $(LFLAGSZLIB) /out:$(DIROBJ)\$(TARGET)
+CC       = $(CCDEBUG) $(RTLIBD) $(CFLAGSSSL) $(CFLAGSSSH2) $(CFLAGSZLIB) $(CFLAGSLIB)
+CFGSET   = TRUE
+RESOURCE = $(LIBSSH2_PATH)/Release/src/libssh2.lib $(ZLIB_PATH)/zlib.lib
 !ENDIF
 
 ######################
@@ -418,6 +455,7 @@ RESOURCE = $(DIROBJ)\libcurl.res
 !MESSAGE   release-ssl                  - release static library with ssl
 !MESSAGE   release-zlib                 - release static library with zlib
 !MESSAGE   release-ssl-zlib             - release static library with ssl and zlib
+!MESSAGE   release-ssl-ssh2-zlib        - release static library with ssl, ssh2 and zlib
 !MESSAGE   release-ssl-dll              - release static library with dynamic ssl
 !MESSAGE   release-zlib-dll             - release static library with dynamic zlib
 !MESSAGE   release-ssl-dll-zlib-dll     - release static library with dynamic ssl and dynamic zlib
@@ -425,6 +463,7 @@ RESOURCE = $(DIROBJ)\libcurl.res
 !MESSAGE   release-dll-ssl-dll          - release dynamic library with dynamic ssl
 !MESSAGE   release-dll-zlib-dll         - release dynamic library with dynamic zlib
 !MESSAGE   release-dll-ssl-dll-zlib-dll - release dynamic library with dynamic ssl and dynamic zlib
+!MESSAGE   debug-ssl-ssh2-zlib          - debug static library with ssl, ssh2 and zlib
 !MESSAGE   debug                        - debug static library
 !MESSAGE   debug-ssl                    - debug static library with ssl
 !MESSAGE   debug-zlib                   - debug static library with zlib
@@ -457,6 +496,8 @@ clean:
 # A config was provided, so the library can be built.
 #
 X_OBJS= \
+	$(DIROBJ)\asyn-ares.obj \
+	$(DIROBJ)\asyn-thread.obj \
 	$(DIROBJ)\base64.obj \
 	$(DIROBJ)\connect.obj \
 	$(DIROBJ)\content_encoding.obj \
@@ -465,6 +506,10 @@ X_OBJS= \
 	$(DIROBJ)\curl_fnmatch.obj \
 	$(DIROBJ)\curl_gethostname.obj \
 	$(DIROBJ)\curl_memrchr.obj \
+	$(DIROBJ)\curl_ntlm.obj \
+	$(DIROBJ)\curl_ntlm_core.obj \
+	$(DIROBJ)\curl_ntlm_msgs.obj \
+	$(DIROBJ)\curl_ntlm_wb.obj \
 	$(DIROBJ)\curl_rand.obj \
 	$(DIROBJ)\curl_rtmp.obj \
 	$(DIROBJ)\curl_sspi.obj \
@@ -479,22 +524,21 @@ X_OBJS= \
 	$(DIROBJ)\ftp.obj \
 	$(DIROBJ)\getenv.obj \
 	$(DIROBJ)\getinfo.obj \
-	$(DIROBJ)\gtls.obj \
 	$(DIROBJ)\gopher.obj \
+	$(DIROBJ)\gtls.obj \
 	$(DIROBJ)\hash.obj \
 	$(DIROBJ)\hmac.obj \
-	$(DIROBJ)\hostares.obj \
 	$(DIROBJ)\hostasyn.obj \
 	$(DIROBJ)\hostip4.obj \
 	$(DIROBJ)\hostip6.obj \
 	$(DIROBJ)\hostip.obj \
 	$(DIROBJ)\hostsyn.obj \
-	$(DIROBJ)\hostthre.obj \
 	$(DIROBJ)\http_chunks.obj \
 	$(DIROBJ)\http_digest.obj \
 	$(DIROBJ)\http_negotiate.obj \
-	$(DIROBJ)\http_ntlm.obj \
+        $(DIROBJ)\http_negotiate_sspi.obj \
 	$(DIROBJ)\http.obj \
+	$(DIROBJ)\http_proxy.obj \
 	$(DIROBJ)\if2ip.obj \
 	$(DIROBJ)\imap.obj \
 	$(DIROBJ)\inet_ntop.obj \

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -52,7 +52,7 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 	posix_spawnattr_t	attr;
 
 	if (err = posix_spawnattr_init(&attr))
-		goto bad;
+		goto nope;
 	if (pgid)
 	{
 		if (pgid <= 1)
@@ -76,6 +76,8 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 #endif
 	return pid;
  bad:
+	posix_spawnattr_destroy(&attr);
+ nope:
 	errno = err;
 	return -1;
 }
@@ -198,7 +200,9 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 	pid = fork();
 #endif
 	sigcritical(0);
-	if (!pid)
+	if (pid == -1)
+		n = errno;
+	else if (!pid)
 	{
 		if (pgid < 0)
 			setsid();
@@ -230,10 +234,10 @@ spawnveg(const char* path, char* const argv[], char* const envv[], pid_t pgid)
 		n = m;
 	}
 #else
-	if (pid != -1 && err[0] != -1)
+	if (err[0] != -1)
 	{
 		close(err[1]);
-		if (read(err[0], &m, sizeof(m)) == sizeof(m) && m)
+		if (pid != -1 && read(err[0], &m, sizeof(m)) == sizeof(m) && m)
 		{
 			while (waitpid(pid, NiL, 0) == -1 && errno == EINTR);
 			rid = pid = -1;

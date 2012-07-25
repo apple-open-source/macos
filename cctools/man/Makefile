@@ -5,8 +5,9 @@ else
 endif
 
 DYLD_MAN1 = dyld.1
-COMMON_MAN1 = as.1 gprof.1 ld_classic.1 nm.1 otool.1 ranlib.1 segedit.1 size.1 \
-	      strings.1 strip.1 lipo.1 libtool.1 cmpdylib.1 pagestuff.1 \
+OS_MAN1 = strings.1 lipo.1
+COMMON_MAN1 = as.1 gprof.1 nm.1 otool.1 ranlib.1 segedit.1 size.1 \
+	      strip.1 libtool.1 cmpdylib.1 pagestuff.1 \
 	      redo_prebinding.1 nmedit.1 install_name_tool.1 \
 	      codesign_allocate.1 ctf_insert.1
 
@@ -24,18 +25,22 @@ EFI1 = mtoc.1
 DYLD_MANL3 = NSObjectFileImage_priv.3
 MANL3 = libsyminfo.3 redo_prebinding.3
 
-INSTALL_FILES = Makefile $(COMMON_MAN1) $(MAN3) $(MAN5) $(MANL) \
+INSTALL_FILES = Makefile $(OS_MAN1) $(COMMON_MAN1) $(MAN3) $(MAN5) $(MANL) \
 		$(MANL3) $(DYLD_MAN1) $(DYLD_MAN3) $(DYLD_MANL3) $(EFI1) notes
 
 MANDIR = /usr/share/man
 LOCMANDIR = /usr/local/man
 EFIMANDIR = /usr/local/efi/share/man
-DSTDIRS = $(DSTROOT)$(MANDIR)/man1 $(DSTROOT)$(MANDIR)/man3 \
+DSTDIRS_MAN1 = $(DSTROOT)$(MANDIR)/man1
+DSTDIRS = $(DSTROOT)$(MANDIR)/man3 \
 	  $(DSTROOT)$(MANDIR)/man5 $(DSTROOT)$(LOCMANDIR)/man1 \
 	  $(DSTROOT)$(LOCMANDIR)/man3 $(DSTROOT)$(EFIMANDIR)/man1
 
-install: $(DSTDIRS) $(COMMON_MAN1) $(MAN3) $(MAN5) $(MANL) \
-	 $(RC_OS) $(MANL3)
+install_os_tools: $(DSTDIRS_MAN1) $(OS_MAN1)
+	install -c -m 444 $(OS_MAN1) $(DSTROOT)$(MANDIR)/man1
+
+install: $(DSTDIRS) $(DSTDIRS_MAN1) $(COMMON_MAN1) $(MAN3) $(MAN5) $(MANL) \
+	 $(RC_OS) $(MANL3) install_os_tools
 	install -c -m 444 $(COMMON_MAN1) $(DSTROOT)$(MANDIR)/man1
 	if [ $(OLD_DYLD_STUFF) ];					\
 	then								\
@@ -65,7 +70,7 @@ installsrc:
 	gnutar cf - $(INSTALL_FILES) | (cd $(SRCROOT); gnutar xf -)
 	chmod 444 $(SRCROOT)/*
 
-$(DSTDIRS):
+$(DSTDIRS) $(DSTDIRS_MAN1):
 	$(MKDIRS) $@
 
 clean shlib_clean:

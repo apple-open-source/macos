@@ -216,6 +216,12 @@ IODataQueueEnqueue(IODataQueueMemory *dataQueue, void *data, uint32_t dataSize)
         }
     }
 
+    else if ( retVal == kIOReturnOverrun ) {
+        // Send extra data available notification, this will fail and we will
+        // get a send possible notification when the client starts responding
+        (void) _IODataQueueSendDataAvailableNotification(dataQueue);
+    }
+
     return retVal;
 }
 
@@ -223,11 +229,11 @@ IOReturn IODataQueueWaitForAvailableData(IODataQueueMemory *dataQueue, mach_port
 {
     IOReturn kr;
     struct {
-            mach_msg_header_t	msgHdr;
-            OSNotificationHeader	notifyHeader;
-            mach_msg_trailer_t	trailer;
+            mach_msg_header_t msgHdr;
+//            OSNotificationHeader notifyHeader;
+            mach_msg_trailer_t trailer;
     } msg;
-
+    
     if (dataQueue && (notifyPort != MACH_PORT_NULL)) {
         kr = mach_msg(&msg.msgHdr, MACH_RCV_MSG, 0, sizeof(msg), notifyPort, 0, MACH_PORT_NULL);
     } else {

@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -249,6 +249,7 @@ regsub(const regex_t* p, Sfio_t* dp, const char* op, const char* sp, size_t nmat
 		return fatal(p->env->disc, REG_BADPAT, NiL);
 	m = (flags >> 16) & 0x3fff;
 	sre = !!(p->env->flags & REG_SHELL);
+	r = 0;
 	do
 	{
 		if (--m > 0)

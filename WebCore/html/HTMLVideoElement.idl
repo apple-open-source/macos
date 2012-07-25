@@ -26,7 +26,7 @@
 module html {
     interface [
         Conditional=VIDEO,
-        GenerateNativeConverter
+        JSGenerateToNativeObject
     ] HTMLVideoElement : HTMLMediaElement {
         attribute [Reflect] unsigned long width;
         attribute [Reflect] unsigned long height;
@@ -37,20 +37,19 @@ module html {
         readonly attribute boolean webkitSupportsFullscreen;
         readonly attribute boolean webkitDisplayingFullscreen;
 
-        [NeedsUserGestureCheck] void webkitEnterFullscreen() raises (DOMException);
+        void webkitEnterFullscreen() raises (DOMException);
         void webkitExitFullscreen();
-    
-        [NeedsUserGestureCheck] void webkitEnterFullScreen() raises (DOMException);
+
+        // Note the different capitalization of the "S" in FullScreen.
+        void webkitEnterFullScreen() raises (DOMException);
         void webkitExitFullScreen();
 
-#if defined(ENABLE_MEDIA_STATISTICS) && ENABLE_MEDIA_STATISTICS
         // The number of frames that have been decoded and made available for
         // playback.
-        readonly attribute unsigned long webkitDecodedFrameCount;
+        readonly attribute [Conditional=MEDIA_STATISTICS] unsigned long webkitDecodedFrameCount;
 
         // The number of decoded frames that have been dropped by the player
         // for performance reasons during playback.
-        readonly attribute unsigned long webkitDroppedFrameCount;
-#endif
+        readonly attribute [Conditional=MEDIA_STATISTICS] unsigned long webkitDroppedFrameCount;
     };
 }

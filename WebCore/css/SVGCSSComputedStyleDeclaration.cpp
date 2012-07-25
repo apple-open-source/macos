@@ -68,25 +68,25 @@ PassRefPtr<SVGPaint> CSSComputedStyleDeclaration::adjustSVGPaintForCurrentColor(
     return paint.release();
 }
 
-PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getSVGPropertyCSSValue(int propertyID, EUpdateLayout updateLayout) const
+PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getSVGPropertyCSSValue(CSSPropertyID propertyID, EUpdateLayout updateLayout) const
 {
     Node* node = m_node.get();
     if (!node)
         return 0;
-    
+
     // Make sure our layout is up to date before we allow a query on these attributes.
     if (updateLayout)
         node->document()->updateLayout();
-        
+
     RenderStyle* style = node->computedStyle();
     if (!style)
         return 0;
-    
+
     const SVGRenderStyle* svgStyle = style->svgStyle();
     if (!svgStyle)
         return 0;
-    
-    switch (static_cast<CSSPropertyID>(propertyID)) {
+
+    switch (propertyID) {
         case CSSPropertyClipRule:
             return CSSPrimitiveValue::create(svgStyle->clipRule());
         case CSSPropertyFloodOpacity:
@@ -103,8 +103,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getSVGPropertyCSSValue(int pro
             return CSSPrimitiveValue::create(svgStyle->fillRule());
         case CSSPropertyColorRendering:
             return CSSPrimitiveValue::create(svgStyle->colorRendering());
-        case CSSPropertyImageRendering:
-            return CSSPrimitiveValue::create(svgStyle->imageRendering());
         case CSSPropertyShapeRendering:
             return CSSPrimitiveValue::create(svgStyle->shapeRendering());
         case CSSPropertyStrokeLinecap:
@@ -176,6 +174,8 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getSVGPropertyCSSValue(int pro
                 case BS_LENGTH:
                     return SVGLength::toCSSPrimitiveValue(svgStyle->baselineShiftValue());
             }
+            ASSERT_NOT_REACHED();
+            return 0;
         }
         case CSSPropertyGlyphOrientationHorizontal:
             return glyphOrientationToCSSPrimitiveValue(svgStyle->glyphOrientationHorizontal());

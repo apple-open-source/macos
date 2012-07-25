@@ -86,10 +86,10 @@ v8::Handle<v8::Value> V8HTMLCanvasElement::getContextCallback(const v8::Argument
     if (!result)
         return v8::Null();
     if (result->is2d())
-        return toV8(static_cast<CanvasRenderingContext2D*>(result));
+        return toV8(static_cast<CanvasRenderingContext2D*>(result), args.GetIsolate());
 #if ENABLE(WEBGL)
     else if (result->is3d())
-        return toV8(static_cast<WebGLRenderingContext*>(result));
+        return toV8(static_cast<WebGLRenderingContext*>(result), args.GetIsolate());
 #endif
     ASSERT_NOT_REACHED();
     return v8::Null();
@@ -110,7 +110,7 @@ v8::Handle<v8::Value> V8HTMLCanvasElement::toDataURLCallback(const v8::Arguments
     }
 
     String result = canvas->toDataURL(type, qualityPtr, ec);
-    V8Proxy::setDOMException(ec);
+    V8Proxy::setDOMException(ec, args.GetIsolate());
     return v8StringOrUndefined(result);
 }
 

@@ -2,15 +2,17 @@
         <key>OpenSourceProject</key>
         <string>py2app</string>
         <key>OpenSourceVersion</key>
-        <string>0.5.2</string>
+        <string>0.6.3</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>http://undefined.org/python/#py2app</string>
+        <string>http://pypi.python.org/pypi/py2app/0.6.3</string>
         <key>OpenSourceURL</key>
-        <string>https://svn.red-bean.com/pyobjc/tags/pyobjc-2.3.1/py2app</string>
+        <string>http://pypi.python.org/packages/source/p/py2app/py2app-0.6.3.tar.gz#md5=49a9101ff25fb59d1ba733e329bf502e</string>
         <key>OpenSourceImportDate</key>
-        <string>2010-08-24</string>
+        <string>2011-11-14</string>
         <key>OpenSourceLicense</key>
         <string>MIT</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
+        <key>OpenSourceMD5</key>
+        <string>49a9101ff25fb59d1ba733e329bf502e</string>
 </dict>

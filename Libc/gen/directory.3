@@ -163,9 +163,12 @@ The
 .Fn dirfd
 function
 returns the integer file descriptor associated with the named
-.Em directory stream ,
-see
+.Em directory stream 
+on success, see
 .Xr open 2 .
+On failure, \-1 is returned and the global variable
+.Va errno
+is set to indicate the error.
 .Pp
 Sample code which searches a directory for entry ``name'' is:
 .Bd -literal -offset indent

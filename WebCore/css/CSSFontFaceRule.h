@@ -23,43 +23,32 @@
 #define CSSFontFaceRule_h
 
 #include "CSSRule.h"
+#include "PropertySetCSSStyleDeclaration.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class CSSMutableStyleDeclaration;
+class CSSStyleDeclaration;
+class StyleRuleFontFace;
+class StyleRuleCSSStyleDeclaration;
 
 class CSSFontFaceRule : public CSSRule {
 public:
-    static PassRefPtr<CSSFontFaceRule> create()
-    {
-        return adoptRef(new CSSFontFaceRule(0));
-    }
-    static PassRefPtr<CSSFontFaceRule> create(CSSStyleSheet* parent)
-    {
-        return adoptRef(new CSSFontFaceRule(parent));
-    }
+    static PassRefPtr<CSSFontFaceRule> create(StyleRuleFontFace* rule, CSSStyleSheet* sheet) { return adoptRef(new CSSFontFaceRule(rule, sheet)); }
 
-    virtual ~CSSFontFaceRule();
+    ~CSSFontFaceRule();
 
-    CSSMutableStyleDeclaration* style() const { return m_style.get(); }
+    CSSStyleDeclaration* style() const;
 
-    virtual String cssText() const;
-
-    void setDeclaration(PassRefPtr<CSSMutableStyleDeclaration>);
-
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>& urls);
+    String cssText() const;
 
 private:
-    CSSFontFaceRule(CSSStyleSheet* parent);
+    CSSFontFaceRule(StyleRuleFontFace*, CSSStyleSheet* parent);
 
-    virtual bool isFontFaceRule() { return true; }
-
-    // Inherited from CSSRule
-    virtual unsigned short type() const { return FONT_FACE_RULE; }
-
-    RefPtr<CSSMutableStyleDeclaration> m_style;
+    RefPtr<StyleRuleFontFace> m_fontFaceRule;
+    
+    mutable RefPtr<StyleRuleCSSStyleDeclaration> m_propertiesCSSOMWrapper;
 };
 
 } // namespace WebCore

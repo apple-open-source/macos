@@ -31,7 +31,7 @@
 #ifndef WebCache_h
 #define WebCache_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -66,19 +66,24 @@ public:
     };
 
     // Sets the capacities of the resource cache, evicting objects as necessary.
-    WEBKIT_API static void setCapacities(size_t minDeadCapacity,
-                                         size_t maxDeadCapacity,
-                                         size_t capacity);
+    WEBKIT_EXPORT static void setCapacities(size_t minDeadCapacity,
+                                            size_t maxDeadCapacity,
+                                            size_t capacity);
 
     // Clears the cache (as much as possible; some resources may not be
-    // cleared if they are actively referenced).
-    WEBKIT_API static void clear();
+    // cleared if they are actively referenced). Note that this method
+    // only removes resources from live list, w/o releasing cache memory.
+    WEBKIT_EXPORT static void clear();
+
+    // Prunes resource cache. Destroys decoded images data and returns
+    // memory to the system.
+    WEBKIT_EXPORT static void prune();
 
     // Gets the usage statistics from the resource cache.
-    WEBKIT_API static void getUsageStats(UsageStats*);
+    WEBKIT_EXPORT static void getUsageStats(UsageStats*);
 
     // Get usage stats about the resource cache.
-    WEBKIT_API static void getResourceTypeStats(ResourceTypeStats*);
+    WEBKIT_EXPORT static void getResourceTypeStats(ResourceTypeStats*);
 
 private:
     WebCache();  // Not intended to be instanced.

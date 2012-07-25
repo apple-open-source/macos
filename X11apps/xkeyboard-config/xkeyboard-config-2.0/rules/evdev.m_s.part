@@ -1,3 +1,0 @@
-  $evdevkbds    =   +inet(evdev)+inet(%m)
-  applealu_jis  =   +inet(evdev)+macintosh_vndr/jp(alujiskeys)
-  *             =   +inet(evdev)

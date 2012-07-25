@@ -1,3 +1,14 @@
+Changes for the 5.31 release (the cctools-824 release):
+- Changed the Makefile to use platform version of strip via xcrun.  Radar bug
+  #10801469.
+
+Changes for the 5.30 release (the cctools-820 release):
+- Removed the use of vers_string(1) from the Makefile. Radar bug #10596469.
+
+Changes for the 5.27 release (the cctools-800.3 release):
+- Added entries in the ArchInfoTable[] for armv7[fk] to arch.c .  Radar bug
+  #8987684.
+
 Changes for the 5.27 release (the cctools-782 release):
 - Changed the Makefile to build dylibs and place them in /usr/lib/system.
   Radar bug #7733446.

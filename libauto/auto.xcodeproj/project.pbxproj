@@ -826,7 +826,6 @@
 		39B51FF70957B18600E999B7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				EXPORTED_SYMBOLS_FILE = auto_exports;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -837,12 +836,7 @@
 				);
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /usr/lib;
-				OTHER_CPLUSPLUSFLAGS = (
-					"-stdlib=libc++",
-					"$(OTHER_CFLAGS)",
-				);
 				OTHER_LDFLAGS = (
 					"-bind_at_load",
 					"$(OTHER_LDFLAGS)",
@@ -852,7 +846,6 @@
 					"$(OTHER_LDFLAGS)",
 				);
 				PRODUCT_NAME = libauto;
-				VALID_ARCHS = "i386 armv7 armv6 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -864,7 +857,6 @@
 		39B51FF80957B18600E999B7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				EXPORTED_SYMBOLS_FILE = auto_exports;
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
 				GCC_ENABLE_CPP_RTTI = NO;
@@ -872,12 +864,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = NDEBUG;
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /usr/lib;
-				OTHER_CPLUSPLUSFLAGS = (
-					"-stdlib=libc++",
-					"$(OTHER_CFLAGS)",
-				);
 				OTHER_LDFLAGS = (
 					"-bind_at_load",
 					"$(OTHER_LDFLAGS)",
@@ -887,7 +874,6 @@
 					"$(OTHER_LDFLAGS)",
 				);
 				PRODUCT_NAME = libauto;
-				VALID_ARCHS = "i386 armv7 armv6 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -899,10 +885,10 @@
 		39B520070957B18600E999B7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				COPY_PHASE_STRIP = NO;
 				DTRACE_OTHER_FLAGS = "-I ./ -C";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Debug;
@@ -910,10 +896,10 @@
 		39B520080957B18600E999B7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_CXX_LIBRARY = "libc++";
 				COPY_PHASE_STRIP = NO;
 				DTRACE_OTHER_FLAGS = "-I ./ -C";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_VERSION = com.apple.compilers.llvmgcc42;
 			};
 			name = Release;
 		};
@@ -1001,7 +987,6 @@
 				GCC_ENABLE_CPP_RTTI = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib";
 				LD_DYLIB_INSTALL_NAME_mh_dylib = "/usr/lib/$(EXECUTABLE_PATH)";
 				OTHER_LDFLAGS = "-bind_at_load";
@@ -1034,7 +1019,6 @@
 				);
 				GCC_STRICT_ALIASING = YES;
 				GCC_UNROLL_LOOPS = YES;
-				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/lib";
 				LD_DYLIB_INSTALL_NAME_mh_dylib = "/usr/lib/$(EXECUTABLE_PATH)";
 				OTHER_LDFLAGS = "-bind_at_load";
@@ -1075,7 +1059,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				COPY_PHASE_STRIP = NO;
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1131,7 +1114,6 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_VERSION = "";
 				INSTALL_PATH = /usr/local/bin;
 				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;
@@ -1148,7 +1130,6 @@
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				GCC_VERSION = "";
 				INSTALL_PATH = /usr/local/bin;
 				ONLY_ACTIVE_ARCH = YES;
 				PREBINDING = NO;

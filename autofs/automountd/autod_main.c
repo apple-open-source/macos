@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2011 Apple Inc.
+ * Portions Copyright 2007-2012 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_main.c	1.69	05/06/08 SMI"
@@ -45,6 +45,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <locale.h>
+#include <vproc.h>
 #include <assert.h>
 #include <mach/mach.h>
 #include <servers/bootstrap.h>
@@ -91,6 +92,7 @@ static pthread_mutex_t numthreads_lock;
 static pthread_cond_t numthreads_cv;
 static int numthreads;
 static pthread_attr_t attr;	/* To create detached threads */
+static vproc_transaction_t vproc_transaction;
 static time_t timeout = TIMEOUT; /* Seconds to wait before exiting */
 static int bye = 0;		/* Force clean shutdown flag. */
 
@@ -121,12 +123,12 @@ char *automountd_defopts = NULL;
  *		change uids or gids.
  *		set up the current working directory or chroot.
  *		set the session id
- * 		change stdio to /dev/null.
+ *		change stdio to /dev/null.
  *		call setrusage(2)
  *		call setpriority(2)
  *		Ignore SIGTERM.
  *	We are launched on demand
- *		and we catch SIGTERM to exit cleanly.
+ *		and we catch SIGTERM and use vproc_transactions to exit cleanly.
  *
  * In practice daemonizing in the classic unix sense would probably be ok
  * since we get invoked by traffic on a task_special_port, but we will play
@@ -148,7 +150,7 @@ main(argc, argv)
 	char bname[MAXLABEL] = { APPLE_PREFIX };
 	char *myname;
 
-	/* 
+	/*
 	 * If launchd is redirecting these two files they'll be block-
 	 * buffered, as they'll be pipes, or some other such non-tty,
 	 * sending data to launchd. Probably not what you want.
@@ -196,7 +198,7 @@ main(argc, argv)
 		}
 		if ((defval = defread("AUTOMOUNTD_MNTOPTS=")) != NULL
 		    && *defval != '\0') {
-		    	automountd_defopts = strdup(defval);
+			automountd_defopts = strdup(defval);
 			if (automountd_defopts == NULL) {
 				syslog(LOG_ERR, "Memory allocation failed: %m");
 				exit(2);
@@ -272,7 +274,7 @@ main(argc, argv)
 	contset = waitset;
 	sigaddset(&waitset, SIGTERM);
 	pthread_sigmask(SIG_BLOCK, &waitset, NULL);
-	
+
 	/*
 	 * We create most threads as detached threads, so any Mach
 	 * resources they have are reclaimed when they terminate.
@@ -284,7 +286,6 @@ main(argc, argv)
 	(void) pthread_cond_init(&numthreads_cv, NULL);
 	(void) pthread_rwlock_init(&cache_lock, NULL);
 	(void) pthread_rwlock_init(&rddir_cache_lock, NULL);
-	(void) pthread_mutex_init(&gssd_port_lock, NULL);
 
 	/*
 	 * initialize the name services, use NULL arguments to ensure
@@ -384,7 +385,7 @@ main(argc, argv)
 	 */
 	if (ioctl(autofs_fd, AUTOFS_NOTIFYCHANGE, 0) == -1)
 		pr_msg("AUTOFS_NOTIFYCHANGE failed: %m");
-	
+
 	return (EXIT_SUCCESS);
 }
 
@@ -445,7 +446,9 @@ new_worker_thread(void)
 		    strerror(error));
 		numthreads--;
 	}
-out:	
+	if (numthreads == 2)
+		vproc_transaction = vproc_transaction_begin(NULL);
+out:
 	(void) pthread_mutex_unlock(&numthreads_lock);
 }
 
@@ -461,6 +464,8 @@ end_worker_thread(void)
 {
 	(void) pthread_mutex_lock(&numthreads_lock);
 	numthreads--;
+	if (numthreads == 1)
+		vproc_transaction_end(NULL, vproc_transaction);
 	if (numthreads < MAXTHREADS)
 		pthread_cond_signal(&numthreads_cv);
 	(void) pthread_mutex_unlock(&numthreads_lock);
@@ -473,6 +478,10 @@ end_worker_thread(void)
  * body up. Threads blocked in new_worker_thread will see bye is set and exit.
  * We set timeout to SHUTDOWN_TIMEOUT for the timeout thread, so that threads
  * executing dispatch routines have an opportunity to finish.
+ *
+ * If there are no worker threads running, as indicated by vproc_transaction
+ * then launchd will signal with SIGKILL instead of SIGTERM so we'll exit
+ * immediately rather than wait for the shutdown timeout.
  */
 static void*
 shutdown_thread(__unused void *arg)
@@ -501,7 +510,7 @@ shutdown_thread(__unused void *arg)
 	pthread_mutex_lock(&numthreads_lock);
 	bye = 1;
 	/*
- 	 * Wait a little bit for dispatch threads to complete.
+	 * Wait a little bit for dispatch threads to complete.
 	 */
 	timeout = SHUTDOWN_TIMEOUT;
 	/*
@@ -612,7 +621,7 @@ autofs_readdir(__unused mach_port_t server, autofs_pathname rda_map,
 
 	if (trace > 0)
 		trace_prt(1, "READDIR REQUEST   : %s @ %llu\n",
-                rda_map, rda_offset);
+		rda_map, rda_offset);
 
 	*status = do_readdir(rda_map, rda_offset, rda_count, rddir_offset,
 	    rddir_eof, rddir_entries, rddir_entriesCnt);
@@ -668,7 +677,7 @@ autofs_readsubdir(__unused mach_port_t server, autofs_pathname rda_map,
 
 	if (trace > 0)
 		trace_prt(1, "READSUBDIR REQUEST   : name=%s[%s] map=%s @ %llu\n",
-                key, rda_subdir, rda_map, rda_offset);
+		key, rda_subdir, rda_map, rda_offset);
 
 	*status = do_readsubdir(rda_map, key, rda_subdir, rda_mntopts,
 	    rda_parentino, rda_offset, rda_count, rddir_offset, rddir_eof,
@@ -803,7 +812,7 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
     autofs_pathname path, autofs_component name, mach_msg_type_number_t nameCnt,
     autofs_pathname subdir, autofs_opts opts, boolean_t isdirect,
     boolean_t issubtrigger, fsid_t mntpnt_fsid, uint32_t sendereuid,
-    mach_port_t gssd_port, int *mr_type, fsid_t *fsidp, uint32_t *retflags,
+    int32_t asid, int *mr_type, fsid_t *fsidp, uint32_t *retflags,
     byte_buffer *actions, mach_msg_type_number_t *actionsCnt, int *err,
     boolean_t *mr_verbose, security_token_t token)
 {
@@ -821,10 +830,6 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err  = EPERM;
 		*mr_verbose = 0;
@@ -837,10 +842,6 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	 * null-terminated string out of it.
 	 */
 	if (nameCnt < 1 || nameCnt > MAXNAMLEN) {
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err = ENOENT;
 		*mr_verbose = 0;
@@ -849,10 +850,6 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	}
 	key = malloc(nameCnt + 1);
 	if (key == NULL) {
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
 		*mr_type = AUTOFS_DONE;
 		*err = ENOMEM;
 		*mr_verbose = 0;
@@ -873,12 +870,9 @@ autofs_mount(__unused mach_port_t server, autofs_pathname map,
 	}
 
 	status = do_mount1(map, key, subdir, opts, path, isdirect,
-	    issubtrigger, mntpnt_fsid, sendereuid, gssd_port, fsidp,
+	    issubtrigger, mntpnt_fsid, sendereuid, asid, fsidp,
 	    retflags, actions, actionsCnt);
-	/*
-	 * Release the GSSD port send right, as we're done with it.
-	 */
-	mach_port_deallocate(current_task(), gssd_port);
+
 	if (status == 0 && *actionsCnt != 0)
 		*mr_type = AUTOFS_ACTION;
 	else
@@ -1038,7 +1032,7 @@ do_mount_subtrigger(autofs_pathname mntpt, autofs_pathname submntpt,
 kern_return_t
 autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
     autofs_pathname mountpoint, autofs_opts opts, fsid_t mntpnt_fsid,
-    uint32_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t sendereuid, int32_t asid, fsid_t *fsidp,
     uint32_t *retflags, int *err, security_token_t token)
 {
 	int status;
@@ -1054,10 +1048,6 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
 		*err  = EPERM;
 		end_worker_thread();
 		return KERN_SUCCESS;
@@ -1074,12 +1064,7 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 	}
 
 	status = mount_generic(url, "url", opts, 0, mountpoint, FALSE,
-	    TRUE, mntpnt_fsid, sendereuid, gssd_port, fsidp, retflags);
-
-	/*
-	 * Release the GSSD port send right, as we're done with it.
-	 */
-	mach_port_deallocate(current_task(), gssd_port);
+	    TRUE, mntpnt_fsid, sendereuid, asid, fsidp, retflags);
 
 	*err = status;
 
@@ -1101,12 +1086,10 @@ autofs_mount_url(__unused mach_port_t server, autofs_pathname url,
 
 kern_return_t
 autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
-    mach_msg_type_number_t blobCnt, mach_port_t gssd_port,
-    security_token_t token)
+			  mach_msg_type_number_t blobCnt, au_asid_t asid,
+			  security_token_t token)
 {
-	kern_return_t ret;
 	int pipefds[2];
-	mach_port_t saved_gssd_port;
 	int child_pid;
 	int res;
 	uint32_t byte_count;
@@ -1122,10 +1105,6 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 	 * (all messages from the kernel will be from root).
 	 */
 	if (token.val[0] != 0) {
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
 		end_worker_thread();
 		return KERN_SUCCESS;
 	}
@@ -1152,60 +1131,15 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		goto done;
 	}
 
-	/*
-	 * We set the gssd task special port to the one we were handed,
-	 * which is the one for the task that triggered this mount; we
-	 * want the mount to talk to that task's gssd, so it can get
-	 * that task's credentials to do the mount.
-	 *
-	 * XXX - we can't just pass the supplied port to the child; we
-	 * have to save our current GSSD task special port, set that
-	 * port to the specified port, fork, and then set it back in
-	 * the parent after the fork.
-	 *
-	 * The task special port isn't per-thread, so we grab a mutex
-	 * to make sure only one thread is doing anything with the port
-	 * at a time.
-	 */
-	pthread_mutex_lock(&gssd_port_lock);
-	ret = task_get_gssd_port(current_task(), &saved_gssd_port);
-	if (ret != KERN_SUCCESS) {
-		pthread_mutex_unlock(&gssd_port_lock);
-		/*
-		 * Release the GSSD port send right, as we won't be using it.
-		 */
-		mach_port_deallocate(current_task(), gssd_port);
-		syslog(LOG_ERR, "Cannot get gssd port: %s",
-		    mach_error_string(ret));
-		close(pipefds[0]);
-		close(pipefds[1]);
-		goto done;
-	}
-	ret = task_set_gssd_port(current_task(), gssd_port);
-	if (ret != KERN_SUCCESS) {
-		/*
-		 * Release send right on saved_gssd_port, as we
-		 * won't be using it.
-		 */
-		mach_port_deallocate(current_task(), saved_gssd_port);
-		pthread_mutex_unlock(&gssd_port_lock);
-		syslog(LOG_ERR, "Cannot set gssd port: %s",
-		    mach_error_string(ret));
-		close(pipefds[0]);
-		close(pipefds[1]);
-		goto done;
-	}
 
 	switch ((child_pid = fork1())) {
-
 	case -1:
 		/*
-		 * Fork failure.  Close the pipe, clean up the GSSD port,
+		 * Fork failure.  Close the pipe,
 		 * log an error, and quit.
 		 */
 		close(pipefds[0]);
 		close(pipefds[1]);
-		put_back_gssd_port(saved_gssd_port);
 		syslog(LOG_ERR, "Cannot fork: %m");
 		break;
 
@@ -1220,7 +1154,12 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		 * that launchd has made the right thing happen for us,
 		 * and that this is also the right thing for the processes
 		 * we run.
+		 *
+		 * Join the passed in audit session so we will have access to credentials
 		 */
+		if (join_session(asid))
+			_exit(EPERM);
+
 		if (dup2(pipefds[0], 0) == -1) {
 			res = errno;
 			syslog(LOG_ERR, "Cannot dup2: %m");
@@ -1229,7 +1168,7 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		close(pipefds[0]);
 		close(pipefds[1]);
 		(void) execl(SMBREMOUNTSERVER_PATH, SMBREMOUNTSERVER_PATH,
-		    NULL);
+			     NULL);
 		res = errno;
 		syslog(LOG_ERR, "exec %s: %m", SMBREMOUNTSERVER_PATH);
 		_exit(res);
@@ -1248,18 +1187,16 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		 */
 		byte_count = blobCnt;
 		bytes_written = write(pipefds[1], &byte_count,
-		    sizeof byte_count);
+				      sizeof byte_count);
 		if (bytes_written == -1) {
 			syslog(LOG_ERR, "Write of byte count to pipe failed: %m");
 			close(pipefds[1]);
-			put_back_gssd_port(saved_gssd_port);
 			goto done;
 		}
 		if ((size_t)bytes_written != sizeof byte_count) {
 			syslog(LOG_ERR, "Write of byte count to pipe wrote only %zd of %zu bytes",
-			    bytes_written, sizeof byte_count);
+			       bytes_written, sizeof byte_count);
 			close(pipefds[1]);
-			put_back_gssd_port(saved_gssd_port);
 			goto done;
 		}
 
@@ -1270,23 +1207,20 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 		if (bytes_written == -1) {
 			syslog(LOG_ERR, "Write of blob to pipe failed: %m");
 			close(pipefds[1]);
-			put_back_gssd_port(saved_gssd_port);
 			goto done;
 		}
 		if (bytes_written != (ssize_t)byte_count) {
 			syslog(LOG_ERR, "Write of blob to pipe wrote only %zd of %u bytes",
-			    bytes_written, byte_count);
+			       bytes_written, byte_count);
 			close(pipefds[1]);
-			put_back_gssd_port(saved_gssd_port);
 			goto done;
 		}
-		
+
 		/*
 		 * Close the pipe, so the subprocess knows there's nothing
-		 * more to read, and clean up the GSSD port.
+		 * more to read.
 		 */
 		close(pipefds[1]);
-		put_back_gssd_port(saved_gssd_port);
 
 		/*
 		 * Now wait for the child to finish.
@@ -1295,21 +1229,16 @@ autofs_smb_remount_server(__unused mach_port_t server, byte_buffer blob,
 
 		if (WIFSIGNALED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess terminated with %s",
-			    strsignal(WTERMSIG(stat_loc)));
+			       strsignal(WTERMSIG(stat_loc)));
 		} else if (WIFSTOPPED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess stopped with %s",
-			    strsignal(WSTOPSIG(stat_loc)));
+			       strsignal(WSTOPSIG(stat_loc)));
 		} else if (!WIFEXITED(stat_loc)) {
 			syslog(LOG_ERR, "SMBRemountServer subprocess got unknown status 0x%08x",
-			    stat_loc);
+			       stat_loc);
 		}
 		break;
 	}
-
-	/*
-	 * Release the GSSD port send right, as we're done with it.
-	 */
-	mach_port_deallocate(current_task(), gssd_port);
 
 done:
 

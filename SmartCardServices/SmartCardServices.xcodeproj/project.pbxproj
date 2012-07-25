@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -14,17 +14,33 @@
 			);
 			dependencies = (
 				5234B72F0E78286000F02D95 /* PBXTargetDependency */,
-				5234B7310E78286000F02D95 /* PBXTargetDependency */,
-				5234B7330E78286000F02D95 /* PBXTargetDependency */,
-				5234B7350E78286000F02D95 /* PBXTargetDependency */,
 				5234B7390E78286000F02D95 /* PBXTargetDependency */,
 			);
 			name = World;
 			productName = World;
 		};
+		52E9B96414C4BC94004150C6 /* SmartCardServices_Executables */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 52E9B96714C4BC95004150C6 /* Build configuration list for PBXAggregateTarget "SmartCardServices_Executables" */;
+			buildPhases = (
+			);
+			dependencies = (
+				52E9B96E14C4BC9F004150C6 /* PBXTargetDependency */,
+				52E9B96C14C4BC9D004150C6 /* PBXTargetDependency */,
+				52E9B96A14C4BC9A004150C6 /* PBXTargetDependency */,
+				52E9BA2714C4C9B4004150C6 /* PBXTargetDependency */,
+			);
+			name = SmartCardServices_Executables;
+			productName = "World-Executables";
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1865FD0D147273A900FD79DF /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD0C147273A900FD79DF /* libsecurity_utilities.a */; };
+		18A25C0214753029004F59F8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18A25C0114753029004F59F8 /* Security.framework */; };
+		18B965641472F965005A4D2E /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1865FD0C147273A900FD79DF /* libsecurity_utilities.a */; };
+		18B965661472F99B005A4D2E /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965651472F99B005A4D2E /* libsecurityd_client.a */; };
+		18B965681472F9B4005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965671472F9B4005A4D2E /* libsecurity_cdsa_utilities.a */; };
 		521CEA1E1177DE9100A01E25 /* debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA191177DE9100A01E25 /* debug.c */; };
 		521CEA1F1177DE9100A01E25 /* debug.h in Headers */ = {isa = PBXBuildFile; fileRef = 521CEA1A1177DE9100A01E25 /* debug.h */; };
 		521CEA201177DE9100A01E25 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA1B1177DE9100A01E25 /* error.c */; };
@@ -86,8 +102,6 @@
 		5234B6B00E78286000F02D95 /* winscard.c in Sources */ = {isa = PBXBuildFile; fileRef = 52E0D59D0BA7006D008DFDDF /* winscard.c */; };
 		5234B6B20E78286000F02D95 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
 		5234B6B30E78286000F02D95 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADC025428F601B94B21 /* IOKit.framework */; };
-		5234B6B40E78286000F02D95 /* libl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADF0254294101B94B21 /* libl.a */; };
-		5234B6B50E78286000F02D95 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
 		5234B6BF0E78286000F02D95 /* thread_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94A50254242101B94B21 /* thread_generic.h */; };
 		5234B6C00E78286000F02D95 /* pcsclite.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A949E0254242101B94B21 /* pcsclite.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		5234B6C10E78286000F02D95 /* mscdefines.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94CD025424AC01B94B21 /* mscdefines.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -108,7 +122,6 @@
 		5234B6D20E78286000F02D95 /* sys_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A40254242101B94B21 /* sys_unix.c */; };
 		5234B6D30E78286000F02D95 /* tokenparser.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D2025424AC01B94B21 /* tokenparser.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
 		5234B6D50E78286000F02D95 /* winscard_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D4025424AC01B94B21 /* winscard_clnt.c */; };
-		5234B6D80E78286000F02D95 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
 		5234B6D90E78286000F02D95 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
 		5234B6E40E78286000F02D95 /* testpcsc.c in Sources */ = {isa = PBXBuildFile; fileRef = F503CACD025425E601B94B21 /* testpcsc.c */; };
 		5234B6E60E78286000F02D95 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5448E630379F08001B94948 /* PCSC.framework */; };
@@ -124,27 +137,6 @@
 			remoteGlobalIDString = 5234B6BD0E78286000F02D95;
 			remoteInfo = "PCSC (Upgraded)";
 		};
-		5234B7300E78286000F02D95 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5234B67D0E78286000F02D95;
-			remoteInfo = "pcscd (Upgraded)";
-		};
-		5234B7320E78286000F02D95 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5234B6E10E78286000F02D95;
-			remoteInfo = "pcsctest (Upgraded)";
-		};
-		5234B7340E78286000F02D95 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5234B6EE0E78286000F02D95;
-			remoteInfo = "pcsctool (Upgraded)";
-		};
 		5234B7380E78286000F02D95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
@@ -152,9 +144,44 @@
 			remoteGlobalIDString = 5234B7280E78286000F02D95;
 			remoteInfo = "InstallPhase (Copied)";
 		};
+		52E9B96914C4BC9A004150C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5234B67D0E78286000F02D95;
+			remoteInfo = pcscd;
+		};
+		52E9B96B14C4BC9D004150C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5234B6E10E78286000F02D95;
+			remoteInfo = pcsctest;
+		};
+		52E9B96D14C4BC9F004150C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5234B6EE0E78286000F02D95;
+			remoteInfo = pcsctool;
+		};
+		52E9BA2614C4C9B4004150C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5294A4F0090C4CA01CD285A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52E9BA2214C4C8CA004150C6;
+			remoteInfo = "InstallPhase-Executables";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		1865FD0C147273A900FD79DF /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		18A25BF814752AC5004F59F8 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		18A25BF914752AC5004F59F8 /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		18A25BFA14752AC5004F59F8 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18A25C0114753029004F59F8 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		18B965651472F99B005A4D2E /* libsecurityd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_client.a; path = /usr/local/lib/libsecurityd_client.a; sourceTree = "<absolute>"; };
+		18B965671472F9B4005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
 		2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		2CC9ABC806CC03A10048A811 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		4CB55A760592598500B25B27 /* Makefile.installPhase */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Makefile.installPhase; sourceTree = "<group>"; };
@@ -184,9 +211,9 @@
 		528629420A87EA8E004FE8DC /* PCSCDriverBundles.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PCSCDriverBundles.h; path = src/PCSC/PCSCDriverBundles.h; sourceTree = "<group>"; };
 		52D00D1A0A9252350093277A /* reader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reader.h; path = src/PCSC/reader.h; sourceTree = "<group>"; };
 		52D2492C0BA07E1100F9827A /* winscard_msg_srv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = winscard_msg_srv.c; path = src/PCSC/winscard_msg_srv.c; sourceTree = "<group>"; };
-		52D58C080A87FEA000DC3F19 /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
 		52DBCAAE0BB851C8007D06A5 /* PCSC.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = PCSC.exp; path = src/PCSC/PCSC.exp; sourceTree = "<group>"; };
 		52E0D59D0BA7006D008DFDDF /* winscard.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = winscard.c; path = src/PCSC/winscard.c; sourceTree = "<group>"; };
+		52E9BA2114C4C671004150C6 /* Makefile-exec.installPhase */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Makefile-exec.installPhase"; sourceTree = "<group>"; };
 		C2F2094A0662B851001DFD06 /* sys_macosx.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = sys_macosx.cpp; path = src/PCSC/sys_macosx.cpp; sourceTree = "<group>"; };
 		F503CACD025425E601B94B21 /* testpcsc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = testpcsc.c; path = src/PCSC/testpcsc.c; sourceTree = "<group>"; };
 		F503CACE025425E601B94B21 /* muscletest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = muscletest.c; path = src/PCSC/muscletest.c; sourceTree = "<group>"; };
@@ -241,10 +268,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18A25C0214753029004F59F8 /* Security.framework in Frameworks */,
+				18B965681472F9B4005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
+				18B965661472F99B005A4D2E /* libsecurityd_client.a in Frameworks */,
+				1865FD0D147273A900FD79DF /* libsecurity_utilities.a in Frameworks */,
 				5234B6B20E78286000F02D95 /* CoreFoundation.framework in Frameworks */,
 				5234B6B30E78286000F02D95 /* IOKit.framework in Frameworks */,
-				5234B6B40E78286000F02D95 /* libl.a in Frameworks */,
-				5234B6B50E78286000F02D95 /* security_utilities.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,7 +281,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5234B6D80E78286000F02D95 /* security_utilities.framework in Frameworks */,
+				18B965641472F965005A4D2E /* libsecurity_utilities.a in Frameworks */,
 				5234B6D90E78286000F02D95 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -276,10 +305,23 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		18A25BF714752AC5004F59F8 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				18A25BF814752AC5004F59F8 /* debug.xcconfig */,
+				18A25BF914752AC5004F59F8 /* project.xcconfig */,
+				18A25BFA14752AC5004F59F8 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
 		5234B4EF0E7826E200F02D95 /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				52D58C080A87FEA000DC3F19 /* security_utilities.framework */,
+				18A25C0114753029004F59F8 /* Security.framework */,
+				18B965671472F9B4005A4D2E /* libsecurity_cdsa_utilities.a */,
+				18B965651472F99B005A4D2E /* libsecurityd_client.a */,
+				1865FD0C147273A900FD79DF /* libsecurity_utilities.a */,
 				F5448E630379F08001B94948 /* PCSC.framework */,
 				2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */,
 				2CC9ABC806CC03A10048A811 /* IOKit.framework */,
@@ -337,6 +379,7 @@
 		F5294A500090C4CA01CD285A = {
 			isa = PBXGroup;
 			children = (
+				18A25BF714752AC5004F59F8 /* config */,
 				F538896A0397E93B012F6BBF /* InstallPhase */,
 				527CF6040AA51879007589FF /* pcscd */,
 				527CF6240AA51B07007589FF /* tools */,
@@ -412,6 +455,7 @@
 		F538896A0397E93B012F6BBF /* InstallPhase */ = {
 			isa = PBXGroup;
 			children = (
+				52E9BA2114C4C671004150C6 /* Makefile-exec.installPhase */,
 				4CB55A760592598500B25B27 /* Makefile.installPhase */,
 			);
 			name = InstallPhase;
@@ -503,6 +547,20 @@
 			passBuildSettingsInEnvironment = 1;
 			productName = InstallPhase;
 		};
+		52E9BA2214C4C8CA004150C6 /* InstallPhase-Executables */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f Makefile-exec.installPhase $ALL_SETTINGS $ACTION";
+			buildConfigurationList = 52E9BA2314C4C8CA004150C6 /* Build configuration list for PBXLegacyTarget "InstallPhase-Executables" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = "InstallPhase-Executables";
+			passBuildSettingsInEnvironment = 1;
+			productName = InstallPhase;
+		};
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
@@ -586,18 +644,24 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD1FD0987FCDC001272E0 /* Build configuration list for PBXProject "SmartCardServices" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = F5294A500090C4CA01CD285A;
 			productRefGroup = F5294A520090C5DF01CD285A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				5234B66B0E78286000F02D95 /* World */,
+				52E9B96414C4BC94004150C6 /* SmartCardServices_Executables */,
 				5234B67D0E78286000F02D95 /* pcscd */,
 				5234B6BD0E78286000F02D95 /* PCSC */,
 				5234B6E10E78286000F02D95 /* pcsctest */,
 				5234B6EE0E78286000F02D95 /* pcsctool */,
 				5234B7280E78286000F02D95 /* InstallPhase */,
+				52E9BA2214C4C8CA004150C6 /* InstallPhase-Executables */,
 			);
 		};
 /* End PBXProject section */
@@ -692,817 +756,197 @@
 			target = 5234B6BD0E78286000F02D95 /* PCSC */;
 			targetProxy = 5234B72E0E78286000F02D95 /* PBXContainerItemProxy */;
 		};
-		5234B7310E78286000F02D95 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5234B67D0E78286000F02D95 /* pcscd */;
-			targetProxy = 5234B7300E78286000F02D95 /* PBXContainerItemProxy */;
-		};
-		5234B7330E78286000F02D95 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5234B6E10E78286000F02D95 /* pcsctest */;
-			targetProxy = 5234B7320E78286000F02D95 /* PBXContainerItemProxy */;
-		};
-		5234B7350E78286000F02D95 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 5234B6EE0E78286000F02D95 /* pcsctool */;
-			targetProxy = 5234B7340E78286000F02D95 /* PBXContainerItemProxy */;
-		};
 		5234B7390E78286000F02D95 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 5234B7280E78286000F02D95 /* InstallPhase */;
 			targetProxy = 5234B7380E78286000F02D95 /* PBXContainerItemProxy */;
 		};
+		52E9B96A14C4BC9A004150C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5234B67D0E78286000F02D95 /* pcscd */;
+			targetProxy = 52E9B96914C4BC9A004150C6 /* PBXContainerItemProxy */;
+		};
+		52E9B96C14C4BC9D004150C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5234B6E10E78286000F02D95 /* pcsctest */;
+			targetProxy = 52E9B96B14C4BC9D004150C6 /* PBXContainerItemProxy */;
+		};
+		52E9B96E14C4BC9F004150C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5234B6EE0E78286000F02D95 /* pcsctool */;
+			targetProxy = 52E9B96D14C4BC9F004150C6 /* PBXContainerItemProxy */;
+		};
+		52E9BA2714C4C9B4004150C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52E9BA2214C4C8CA004150C6 /* InstallPhase-Executables */;
+			targetProxy = 52E9BA2614C4C9B4004150C6 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		5234B6790E78286000F02D95 /* Development */ = {
+		5234B6790E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B67A0E78286000F02D95 /* Deployment */ = {
+		5234B67C0E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B67B0E78286000F02D95 /* normal with debug */ = {
+		5234B6B70E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF814752AC5004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		5234B67C0E78286000F02D95 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		5234B6B70E78286000F02D95 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					"PCSC_DEBUG=1",
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
 				);
 				INSTALL_PATH = /usr/sbin;
-				ONLY_ACTIVE_ARCH = NO;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B6B80E78286000F02D95 /* Deployment */ = {
+		5234B6BA0E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BFA14752AC5004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					"PCSC_DEBUG=1",
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
 				);
 				INSTALL_PATH = /usr/sbin;
-				ONLY_ACTIVE_ARCH = NO;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B6B90E78286000F02D95 /* normal with debug */ = {
+		5234B6DB0E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF814752AC5004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"PCSC_DEBUG=1",
-					"USE_SYSLOG=1",
-					"USE_DAEMON=1",
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				ONLY_ACTIVE_ARCH = NO;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PREBINDING = NO;
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		5234B6BA0E78286000F02D95 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = (
-					"${BUILT_PRODUCTS_DIR}",
-					/usr/local/SecurityPieces/Components/Security,
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"PCSC_DEBUG=1",
-					"USE_SYSLOG=1",
-					"USE_DAEMON=1",
-				);
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				HEADER_SEARCH_PATHS = (
-					/System/Library/Frameworks/CoreFoundation.framework/Headers,
-					/System/Library/Frameworks/IOKit.framework/Headers/usb,
-					/System/Library/Frameworks/IOKit.framework/Headers,
-				);
-				INSTALL_PATH = /usr/sbin;
-				ONLY_ACTIVE_ARCH = NO;
-				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
-				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_LDXFLAGS = "-dead_strip";
-				OPT_LDXNOPIC = ",_nopic";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework Security -framework securityd_client$(OPT_LDXNOPIC) -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework Security,_profile -framework securityd_client,_profile -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = pcscd;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		5234B6DB0E78286000F02D95 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
+				DYLIB_CURRENT_VERSION = 55105;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_VERSION = A;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					"PCSC_DEBUG=1",
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = PCSC;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B6DC0E78286000F02D95 /* Deployment */ = {
+		5234B6DE0E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BFA14752AC5004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
+				ALWAYS_SEARCH_USER_PATHS = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
+				DYLIB_CURRENT_VERSION = 55105;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_VERSION = A;
 				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
 					"PCSC_DEBUG=1",
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = PCSC;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B6DD0E78286000F02D95 /* normal with debug */ = {
+		5234B6E80E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF814752AC5004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_VERSION = A;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"PCSC_DEBUG=1",
-					"USE_SYSLOG=1",
-					"USE_DAEMON=1",
-				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INFOPLIST_FILE = "Info-PCSC.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PREBINDING = NO;
-				PRODUCT_NAME = PCSC;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
-			name = "normal with debug";
-		};
-		5234B6DE0E78286000F02D95 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					/usr/local/SecurityPieces/Frameworks,
-				);
-				FRAMEWORK_VERSION = A;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"PCSC_DEBUG=1",
-					"USE_SYSLOG=1",
-					"USE_DAEMON=1",
-				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INFOPLIST_FILE = "Info-PCSC.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS)  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = PCSC;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
-			name = Default;
-		};
-		5234B6E80E78286000F02D95 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B6E90E78286000F02D95 /* Deployment */ = {
+		5234B6EB0E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BFA14752AC5004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B6EA0E78286000F02D95 /* normal with debug */ = {
+		5234B6F50E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF814752AC5004F59F8 /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = pcsctest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = "normal with debug";
+			name = Debug;
 		};
-		5234B6EB0E78286000F02D95 /* Default */ = {
+		5234B6F80E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BFA14752AC5004F59F8 /* release.xcconfig */;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctest;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = Default;
+			name = Release;
 		};
-		5234B6F50E78286000F02D95 /* Development */ = {
+		5234B72A0E78286000F02D95 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B6F60E78286000F02D95 /* Deployment */ = {
+		5234B72D0E78286000F02D95 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B6F70E78286000F02D95 /* normal with debug */ = {
+		52E9B96514C4BC95004150C6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/bin;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG  -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = pcsctool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = "normal with debug";
+			name = Debug;
 		};
-		5234B6F80E78286000F02D95 /* Default */ = {
+		52E9B96614C4BC95004150C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 55000;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
-				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = pcsctool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
-			name = Default;
+			name = Release;
 		};
-		5234B72A0E78286000F02D95 /* Development */ = {
+		52E9BA2414C4C8CA004150C6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				PRODUCT_NAME = InstallPhase;
-				ZERO_LINK = YES;
+				PRODUCT_NAME = "InstallPhase copy";
 			};
-			name = Development;
+			name = Debug;
 		};
-		5234B72B0E78286000F02D95 /* Deployment */ = {
+		52E9BA2514C4C8CA004150C6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_NAME = InstallPhase;
-				ZERO_LINK = NO;
+				PRODUCT_NAME = "InstallPhase copy";
 			};
-			name = Deployment;
+			name = Release;
 		};
-		5234B72C0E78286000F02D95 /* normal with debug */ = {
+		C27AD1FE0987FCDC001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF914752AC5004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				OPT_LDFLAGS = "";
-				OPT_LDXFLAGS = "";
-				OPT_LDXNOPIC = "";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -UNDEBUG -fno-inline";
-				PREBINDING = NO;
-				PRODUCT_NAME = InstallPhase;
-				SECTORDER_FLAGS = "";
 			};
-			name = "normal with debug";
+			name = Debug;
 		};
-		5234B72D0E78286000F02D95 /* Default */ = {
+		C27AD2010987FCDC001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A25BF914752AC5004F59F8 /* project.xcconfig */;
 			buildSettings = {
-				PRODUCT_NAME = InstallPhase;
 			};
-			name = Default;
-		};
-		C27AD1FE0987FCDC001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Development;
-		};
-		C27AD1FF0987FCDC001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Deployment;
-		};
-		C27AD2000987FCDC001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = "normal with debug";
-		};
-		C27AD2010987FCDC001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1510,79 +954,82 @@
 		5234B6780E78286000F02D95 /* Build configuration list for PBXAggregateTarget "World" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B6790E78286000F02D95 /* Development */,
-				5234B67A0E78286000F02D95 /* Deployment */,
-				5234B67B0E78286000F02D95 /* normal with debug */,
-				5234B67C0E78286000F02D95 /* Default */,
+				5234B6790E78286000F02D95 /* Debug */,
+				5234B67C0E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		5234B6B60E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcscd" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B6B70E78286000F02D95 /* Development */,
-				5234B6B80E78286000F02D95 /* Deployment */,
-				5234B6B90E78286000F02D95 /* normal with debug */,
-				5234B6BA0E78286000F02D95 /* Default */,
+				5234B6B70E78286000F02D95 /* Debug */,
+				5234B6BA0E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		5234B6DA0E78286000F02D95 /* Build configuration list for PBXNativeTarget "PCSC" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B6DB0E78286000F02D95 /* Development */,
-				5234B6DC0E78286000F02D95 /* Deployment */,
-				5234B6DD0E78286000F02D95 /* normal with debug */,
-				5234B6DE0E78286000F02D95 /* Default */,
+				5234B6DB0E78286000F02D95 /* Debug */,
+				5234B6DE0E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		5234B6E70E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctest" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B6E80E78286000F02D95 /* Development */,
-				5234B6E90E78286000F02D95 /* Deployment */,
-				5234B6EA0E78286000F02D95 /* normal with debug */,
-				5234B6EB0E78286000F02D95 /* Default */,
+				5234B6E80E78286000F02D95 /* Debug */,
+				5234B6EB0E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		5234B6F40E78286000F02D95 /* Build configuration list for PBXNativeTarget "pcsctool" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B6F50E78286000F02D95 /* Development */,
-				5234B6F60E78286000F02D95 /* Deployment */,
-				5234B6F70E78286000F02D95 /* normal with debug */,
-				5234B6F80E78286000F02D95 /* Default */,
+				5234B6F50E78286000F02D95 /* Debug */,
+				5234B6F80E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		5234B7290E78286000F02D95 /* Build configuration list for PBXLegacyTarget "InstallPhase" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				5234B72A0E78286000F02D95 /* Development */,
-				5234B72B0E78286000F02D95 /* Deployment */,
-				5234B72C0E78286000F02D95 /* normal with debug */,
-				5234B72D0E78286000F02D95 /* Default */,
+				5234B72A0E78286000F02D95 /* Debug */,
+				5234B72D0E78286000F02D95 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		52E9B96714C4BC95004150C6 /* Build configuration list for PBXAggregateTarget "SmartCardServices_Executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52E9B96514C4BC95004150C6 /* Debug */,
+				52E9B96614C4BC95004150C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
+		52E9BA2314C4C8CA004150C6 /* Build configuration list for PBXLegacyTarget "InstallPhase-Executables" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52E9BA2414C4C8CA004150C6 /* Debug */,
+				52E9BA2514C4C8CA004150C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		C27AD1FD0987FCDC001272E0 /* Build configuration list for PBXProject "SmartCardServices" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1FE0987FCDC001272E0 /* Development */,
-				C27AD1FF0987FCDC001272E0 /* Deployment */,
-				C27AD2000987FCDC001272E0 /* normal with debug */,
-				C27AD2010987FCDC001272E0 /* Default */,
+				C27AD1FE0987FCDC001272E0 /* Debug */,
+				C27AD2010987FCDC001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

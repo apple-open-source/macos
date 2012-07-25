@@ -32,7 +32,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_set_cred_option (OM_uint32 *minor_status,
 		     gss_cred_id_t *cred_handle,
 		     const gss_OID object,
@@ -50,13 +50,11 @@ gss_set_cred_option (OM_uint32 *minor_status,
 	if (cred == NULL) {
 		struct _gss_mech_switch *m;
 
-		cred = malloc(sizeof(*cred));
+		cred = _gss_mg_alloc_cred();
 		if (cred == NULL)
 		    return GSS_S_FAILURE;
 
-		SLIST_INIT(&cred->gc_mc);
-
-		SLIST_FOREACH(m, &_gss_mechs, gm_link) {
+		HEIM_SLIST_FOREACH(m, &_gss_mechs, gm_link) {
 
 			if (m->gm_mech.gm_set_cred_option == NULL)
 				continue;
@@ -81,7 +79,7 @@ gss_set_cred_option (OM_uint32 *minor_status,
 				continue;
 			}
 			one_ok = 1;
-			SLIST_INSERT_HEAD(&cred->gc_mc, mc, gmc_link);
+			HEIM_SLIST_INSERT_HEAD(&cred->gc_mc, mc, gmc_link);
 		}
 		*cred_handle = (gss_cred_id_t)cred;
 		if (!one_ok) {
@@ -91,15 +89,15 @@ gss_set_cred_option (OM_uint32 *minor_status,
 	} else {
 		gssapi_mech_interface	m;
 
-		SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+		HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 			m = mc->gmc_mech;
-	
+
 			if (m == NULL)
 				return GSS_S_BAD_MECH;
-	
+
 			if (m->gm_set_cred_option == NULL)
 				continue;
-	
+
 			major_status = m->gm_set_cred_option(minor_status,
 			    &mc->gmc_cred, object, value);
 			if (major_status == GSS_S_COMPLETE)

@@ -365,11 +365,17 @@ extern netdissect_options *gndo;
 #define bflag gndo->ndo_bflag 
 #define eflag gndo->ndo_eflag 
 #define fflag gndo->ndo_fflag 
+#ifdef __APPLE__
+#define	kflag gndo->ndo_kflag
+#endif
 #define Kflag gndo->ndo_Kflag 
 #define nflag gndo->ndo_nflag 
 #define Nflag gndo->ndo_Nflag 
 #define Oflag gndo->ndo_Oflag 
 #define pflag gndo->ndo_pflag 
+#ifdef __APPLE__
+#define Pflag gndo->ndo_Pflag
+#endif
 #define qflag gndo->ndo_qflag 
 #define Rflag gndo->ndo_Rflag 
 #define sflag gndo->ndo_sflag 

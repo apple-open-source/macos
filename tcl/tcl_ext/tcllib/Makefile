@@ -26,7 +26,6 @@ Install_Target        = install-libraries
 install-doc:
 	$(_v) $(Tclsh) $(Sources)/installer.tcl \
                 -nroff-path "$(DSTROOT)/$(TclExtManDir)" \
-                -html-path  "$(DSTROOT)/$(TclExtHtmlDir)" \
                 -no-examples -no-pkgs -no-wait -no-gui -no-apps
 
 extract::

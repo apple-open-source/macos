@@ -209,6 +209,7 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
 {
     int 	error = 0;
     u_int16_t	unit;
+    u_int32_t   data_aligned;
     
     //IOLog("ppp_proto_control : so = %p, cmd = %d\n", so, cmd);
 
@@ -216,16 +217,19 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
         case PPPIOCNEWUNIT:
             // this ioctl must be done before connecting the socket
             //IOLog("ppp_proto_control : PPPIOCNEWUNIT\n");
-            unit = *(u_int32_t *)data;
+            memcpy(&data_aligned, data, sizeof(u_int32_t));         // Wcast-align fix - memcpy for unaligned move
+            unit = data_aligned;
             error = ppp_if_attach(&unit);
             if (error)
                 return error;
-            *(u_int32_t *)data = unit;
+            data_aligned = unit;
+            memcpy(data, &data_aligned, sizeof(u_int32_t));         // Wcast-align fix - memcpy for unaligned move
             // no break; PPPIOCNEWUNIT implicitlty attach the client
 
         case PPPIOCATTACH:
             //IOLog("ppp_proto_control : PPPIOCATTACH\n");
-            unit = *(u_int32_t *)data;
+            memcpy(&data_aligned, data, sizeof(u_int32_t));         // Wcast-align fix - memcpy for unaligned move
+            unit = data_aligned;
             error = ppp_if_attachclient(unit, so, (ifnet_t *)&so->so_pcb);
             if (!error)
                 so->so_tpcb = (caddr_t)TYPE_IF;
@@ -233,7 +237,8 @@ int ppp_proto_ioctl(struct socket *so, u_long cmd, caddr_t data,
 
         case PPPIOCATTCHAN:
             //IOLog("ppp_proto_control : PPPIOCATTCHAN\n");
-            unit = *(u_int32_t *)data;
+            memcpy(&data_aligned, data, sizeof(u_int32_t));         // Wcast-align fix - memcpy for unaligned move
+            unit = data_aligned;
             error = ppp_link_attachclient(unit, so, (struct ppp_link **)&so->so_pcb);
             if (!error)
                 so->so_tpcb = (caddr_t)TYPE_LINK;

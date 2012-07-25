@@ -29,6 +29,7 @@
 
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
+#include "WKData.h"
 #include "WebFrame.h"
 #include <WebCore/Frame.h>
 #include <WebCore/FrameView.h>
@@ -44,6 +45,11 @@ WKTypeID WKBundleFrameGetTypeID()
 bool WKBundleFrameIsMainFrame(WKBundleFrameRef frameRef)
 {
     return toImpl(frameRef)->isMainFrame();
+}
+
+WKBundleFrameRef WKBundleFrameGetParentFrame(WKBundleFrameRef frameRef)
+{
+    return toAPI(toImpl(frameRef)->parentFrame());
 }
 
 WKURLRef WKBundleFrameCopyURL(WKBundleFrameRef frameRef)
@@ -81,7 +87,7 @@ WKFrameLoadState WKBundleFrameGetFrameLoadState(WKBundleFrameRef frameRef)
 
 WKArrayRef WKBundleFrameCopyChildFrames(WKBundleFrameRef frameRef)
 {
-    return toAPI(toImpl(frameRef)->childFrames().releaseRef());    
+    return toAPI(toImpl(frameRef)->childFrames().leakRef());    
 }
 
 unsigned WKBundleFrameGetNumberOfActiveAnimations(WKBundleFrameRef frameRef)
@@ -89,9 +95,14 @@ unsigned WKBundleFrameGetNumberOfActiveAnimations(WKBundleFrameRef frameRef)
     return toImpl(frameRef)->numberOfActiveAnimations();
 }
 
-bool WKBundleFramePauseAnimationOnElementWithId(WKBundleFrameRef frameRef, WKStringRef name, WKStringRef elementID, double time)
+bool WKBundleFramePauseAnimationOnElementWithId(WKBundleFrameRef frameRef, WKStringRef animationName, WKStringRef elementID, double time)
 {
-    return toImpl(frameRef)->pauseAnimationOnElementWithId(toImpl(name)->string(), toImpl(elementID)->string(), time);
+    return toImpl(frameRef)->pauseAnimationOnElementWithId(toImpl(animationName)->string(), toImpl(elementID)->string(), time);
+}
+
+bool WKBundleFramePauseTransitionOnElementWithId(WKBundleFrameRef frameRef, WKStringRef propertyName, WKStringRef elementID, double time)
+{
+    return toImpl(frameRef)->pauseTransitionOnElementWithId(toImpl(propertyName)->string(), toImpl(elementID)->string(), time);
 }
 
 void WKBundleFrameSuspendAnimations(WKBundleFrameRef frameRef)
@@ -229,4 +240,25 @@ WKStringRef WKBundleFrameCopyMIMETypeForResourceWithURL(WKBundleFrameRef frameRe
 bool WKBundleFrameContainsAnyFormElements(WKBundleFrameRef frameRef)
 {
     return toImpl(frameRef)->containsAnyFormElements();
+}
+
+void WKBundleFrameSetTextDirection(WKBundleFrameRef frameRef, WKStringRef directionRef)
+{
+    toImpl(frameRef)->setTextDirection(toImpl(directionRef)->string());
+}
+
+WKDataRef WKBundleFrameCopyWebArchive(WKBundleFrameRef frameRef)
+{
+    return WKBundleFrameCopyWebArchiveFilteringSubframes(frameRef, 0, 0);
+}
+
+WKDataRef WKBundleFrameCopyWebArchiveFilteringSubframes(WKBundleFrameRef frameRef, WKBundleFrameFrameFilterCallback frameFilterCallback, void* context)
+{
+#if PLATFORM(MAC) || PLATFORM(WIN)
+    RetainPtr<CFDataRef> data = toImpl(frameRef)->webArchiveData(frameFilterCallback, context);
+    if (data)
+        return WKDataCreate(CFDataGetBytePtr(data.get()), CFDataGetLength(data.get()));
+#endif
+    
+    return 0;
 }

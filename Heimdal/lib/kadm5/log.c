@@ -193,12 +193,12 @@ kadm5_log_flush (kadm5_log_context *log_context,
 {
     krb5_data data;
     size_t len;
-    int ret;
+    ssize_t ret;
 
     krb5_storage_to_data(sp, &data);
     len = data.length;
     ret = write (log_context->log_fd, data.data, len);
-    if (ret != len) {
+    if (ret < 0 || (size_t)ret != len) {
 	krb5_data_free(&data);
 	return errno;
     }
@@ -583,9 +583,10 @@ kadm5_log_replay_modify (kadm5_server_context *context,
 	return ret;
 
     memset(&ent, 0, sizeof(ent));
-    ret = context->db->hdb_fetch(context->context, context->db,
-				 log_ent.entry.principal,
-				 HDB_F_DECRYPT|HDB_F_GET_ANY|HDB_F_ADMIN_DATA, &ent);
+    ret = context->db->hdb_fetch_kvno(context->context, context->db,
+				      log_ent.entry.principal,
+				      HDB_F_DECRYPT|HDB_F_ALL_KVNOS|
+				      HDB_F_GET_ANY|HDB_F_ADMIN_DATA, 0, &ent);
     if (ret)
 	goto out;
     if (mask & KADM5_PRINC_EXPIRE_TIME) {
@@ -696,7 +697,30 @@ kadm5_log_replay_modify (kadm5_server_context *context,
     }
     if (mask & KADM5_KEY_DATA) {
 	size_t num;
-	int i;
+	size_t i;
+
+	/*
+	 * We don't need to do anything about key history here because
+	 * we always log KADM5_TL_DATA when we change keys/passwords, so
+	 * the code below this will handle key history implicitly.
+	 * However, if we had to, the code to handle key history here
+	 * would look like this:
+	 *
+	 * HDB_extension *ext;
+	 * ...
+	 * ext = hdb_find_extension(&log_ent.entry,
+	 *                          choice_HDB_extension_data_hist_keys);
+	 * if (ext);
+	 *    ret = hdb_replace_extension(context->context, &ent.entry, ext);
+	 * else
+	 *    ret = hdb_clear_extension(context->context, &ent.entry,
+	 *                              choice_HDB_extension_data_hist_keys);
+	 *
+	 * Maybe we should do this here anyways, wasteful as it would
+	 * be, as a defensive programming measure?  For now we heim_assert().
+	 */
+	heim_assert((mask & KADM5_TL_DATA),
+		    "Wouldn't log and replay key history");
 
 	for (i = 0; i < ent.entry.keys.len; ++i)
 	    free_Key(&ent.entry.keys.val[i]);
@@ -880,11 +904,14 @@ kadm5_log_previous (krb5_context context,
     ret = krb5_ret_int32 (sp, &tmp);
     if (ret)
 	goto end_of_storage;
-    if (tmp != *ver) {
+    if ((uint32_t)tmp != *ver) {
 	krb5_storage_seek(sp, oldoff, SEEK_SET);
 	krb5_set_error_message(context, KADM5_BAD_DB,
 			       "kadm5_log_previous: log entry "
-			       "have consistency failure, version number wrong");
+			       "have consistency failure, version number wrong "
+			       "(tmp %lu ver %lu)",
+			       (unsigned long)tmp,
+			       (unsigned long)*ver);
 	return KADM5_BAD_DB;
     }
     ret = krb5_ret_int32 (sp, &tmp);
@@ -898,7 +925,7 @@ kadm5_log_previous (krb5_context context,
     ret = krb5_ret_int32 (sp, &tmp);
     if (ret)
 	goto end_of_storage;
-    if (tmp != *len) {
+    if ((uint32_t)tmp != *len) {
 	krb5_storage_seek(sp, oldoff, SEEK_SET);
 	krb5_set_error_message(context, KADM5_BAD_DB,
 			       "kadm5_log_previous: log entry "

@@ -32,14 +32,15 @@
 #define NativeImageSkia_h
 
 #include "SkBitmap.h"
+#include "SkRect.h"
 #include "IntSize.h"
 
 namespace WebCore {
 
 // This object is used as the "native image" in our port. When WebKit uses
-// "NativeImagePtr", it is a pointer to this type. It is an SkBitmap, but also
+// "NativeImagePtr", it is a pointer to this type. It has an SkBitmap, and also
 // stores a cached resized image.
-class NativeImageSkia : public SkBitmap {
+class NativeImageSkia {
 public:
     NativeImageSkia();
     ~NativeImageSkia();
@@ -53,27 +54,61 @@ public:
     // resized version if there is one.
     int decodedSize() const;
 
-    // Sets the data complete flag. This is called by the image decoder when
-    // all data is complete, and used by us to know whether we can cache
-    // resized images.
-    void setDataComplete() { m_isDataComplete = true; }
+    // Sets the immutable flag on the bitmap, indicating that the image data
+    // will not be modified any further. This is called by the image decoder
+    // when all data is complete, used by us to know whether we can cache
+    // resized images, and used by Skia for various optimizations.
+    void setDataComplete() { m_image.setImmutable(); }
 
     // Returns true if the entire image has been decoded.
-    bool isDataComplete() const { return m_isDataComplete; }
+    bool isDataComplete() const { return m_image.isImmutable(); }
+
+    // Get reference to the internal SkBitmap representing this image.
+    const SkBitmap& bitmap() const { return m_image; }
+    SkBitmap& bitmap() { return m_image; }
 
     // We can keep a resized version of the bitmap cached on this object.
     // This function will return true if there is a cached version of the
-    // given image subset with the given dimensions.
-    bool hasResizedBitmap(int width, int height) const;
+    // given image subset with the given dimensions and subsets.
+    bool hasResizedBitmap(const SkIRect& srcSubset, int width, int height) const;
 
-    // This will return an existing resized image, or generate a new one of
-    // the specified size and store it in the cache. Subsetted images can not
-    // be cached unless the subset is the entire bitmap.
-    SkBitmap resizedBitmap(int width, int height) const;
+    // This will return an existing resized image subset, or generate a new one
+    // of the specified size and subsets and possibly cache it.
+    // srcSubset is the subset of the image to resize in image space.
+    SkBitmap resizedBitmap(const SkIRect& srcSubset, int destWidth, int destHeight) const
+    {
+        SkIRect destVisibleSubset = {0, 0, destWidth, destHeight};
+        return resizedBitmap(srcSubset, destWidth, destHeight, destVisibleSubset);
+    }
+
+    // Same as above, but returns a subset of the destination image (ie: the
+    // visible subset). destVisibleSubset is the subset of the resized
+    // (destWidth x destHeight) image.
+    // In other words:
+    // - crop image by srcSubset -> imageSubset.
+    // - resize imageSubset to destWidth x destHeight -> destImage.
+    // - return destImage cropped by destVisibleSubset.
+    SkBitmap resizedBitmap(const SkIRect& srcSubset, int destWidth, int destHeight, const SkIRect& destVisibleSubset) const;
+
+private:
+    // CachedImageInfo is used to uniquely identify cached or requested image
+    // resizes.
+    struct CachedImageInfo {
+        IntSize requestSize;
+        SkIRect srcSubset;
+
+        CachedImageInfo();
+
+        bool isEqual(const SkIRect& otherSrcSubset, int width, int height) const;
+        void set(const SkIRect& otherSrcSubset, int width, int height);
+    };
 
     // Returns true if the given resize operation should either resize the whole
     // image and cache it, or resize just the part it needs and throw the result
     // away.
+    //
+    // Calling this function may increment a request count that can change the
+    // result of subsequent calls.
     //
     // On the one hand, if only a small subset is desired, then we will waste a
     // lot of time resampling the entire thing, so we only want to do exactly
@@ -81,15 +116,13 @@ public:
     // better if we're going to be using it more than once (like a bitmap
     // scrolling on and off the screen. Since we only cache when doing the
     // entire thing, it's best to just do it up front.
-    bool shouldCacheResampling(int destWidth,
+    bool shouldCacheResampling(const SkIRect& srcSubset,
+                               int destWidth,
                                int destHeight,
-                               int destSubsetWidth,
-                               int destSubsetHeight) const;
+                               const SkIRect& destSubset) const;
 
-private:
-    // Set to true when the data is complete. Before the entire image has
-    // loaded, we do not want to cache a resize.
-    bool m_isDataComplete;
+    // The original image.
+    SkBitmap m_image;
 
     // The cached bitmap. This will be empty() if there is no cached image.
     mutable SkBitmap m_resizedImage;
@@ -97,14 +130,17 @@ private:
     // References how many times that the image size has been requested for
     // the last size.
     //
-    // Every time we get a request, if it matches the m_lastRequestSize, we'll
-    // increment the counter, and if not, we'll reset the counter and save the
-    // size.
+    // Every time we get a call to shouldCacheResampling, if it matches the
+    // m_cachedImageInfo, we'll increment the counter, and if not, we'll reset
+    // the counter and save the dimensions.
     //
     // This allows us to see if many requests have been made for the same
     // resized image, we know that we should probably cache it, even if all of
     // those requests individually are small and would not otherwise be cached.
-    mutable IntSize m_lastRequestSize;
+    //
+    // We also track the source and destination subsets for caching partial
+    // image resizes.
+    mutable CachedImageInfo m_cachedImageInfo;
     mutable int m_resizeRequests;
 };
 

@@ -34,6 +34,7 @@
 #include "InspectorInstrumentation.h"
 #include "ScriptArguments.h"
 #include "ScriptCallStack.h"
+#include "ScriptProfile.h"
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
@@ -46,13 +47,31 @@ inline void InspectorInstrumentation::addMessageToConsole(Page* page, MessageSou
 #endif
 }
 
-inline void InspectorInstrumentation::addMessageToConsole(Page* page, MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
+inline void InspectorInstrumentation::addMessageToConsole(Page* page, MessageSource source, MessageType type, MessageLevel level, const String& message, const String& scriptId, unsigned lineNumber)
 {
 #if ENABLE(INSPECTOR)
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
-        addMessageToConsoleImpl(instrumentingAgents, source, type, level, message, lineNumber, sourceID);
+        addMessageToConsoleImpl(instrumentingAgents, source, type, level, message, scriptId, lineNumber);
 #endif
 }
+
+#if ENABLE(WORKERS)
+inline void InspectorInstrumentation::addMessageToConsole(WorkerContext* workerContext, MessageSource source, MessageType type, MessageLevel level, const String& message, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> callStack)
+{
+#if ENABLE(INSPECTOR)
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForWorkerContext(workerContext))
+        addMessageToConsoleImpl(instrumentingAgents, source, type, level, message, arguments, callStack);
+#endif
+}
+
+inline void InspectorInstrumentation::addMessageToConsole(WorkerContext* workerContext, MessageSource source, MessageType type, MessageLevel level, const String& message, const String& scriptId, unsigned lineNumber)
+{
+#if ENABLE(INSPECTOR)
+    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForWorkerContext(workerContext))
+        addMessageToConsoleImpl(instrumentingAgents, source, type, level, message, scriptId, lineNumber);
+#endif
+}
+#endif
 
 inline void InspectorInstrumentation::consoleCount(Page* page, PassRefPtr<ScriptArguments> arguments, PassRefPtr<ScriptCallStack> stack)
 {
@@ -78,12 +97,12 @@ inline void InspectorInstrumentation::stopConsoleTiming(Page* page, const String
 #endif
 }
 
-inline void InspectorInstrumentation::consoleMarkTimeline(Page* page, PassRefPtr<ScriptArguments> arguments)
+inline void InspectorInstrumentation::consoleTimeStamp(Page* page, PassRefPtr<ScriptArguments> arguments)
 {
 #if ENABLE(INSPECTOR)
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForPage(page))
-        consoleMarkTimelineImpl(instrumentingAgents, arguments);
+        consoleTimeStampImpl(instrumentingAgents, arguments);
 #endif
 }
 

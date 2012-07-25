@@ -37,17 +37,25 @@
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
 class InjectedScriptManager;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
 class InspectorDebuggerAgent;
+#endif
 class InspectorBackendDispatcher;
+class InspectorConsoleAgent;
 class InspectorFrontend;
 class InspectorFrontendChannel;
+class InspectorConsoleAgent;
 class InspectorInstrumentation;
+class InspectorProfilerAgent;
 class InspectorRuntimeAgent;
 class InspectorState;
+class InspectorStateClient;
+class InspectorTimelineAgent;
 class InstrumentingAgents;
 class WorkerContext;
 
@@ -58,20 +66,34 @@ public:
     WorkerInspectorController(WorkerContext*);
     ~WorkerInspectorController();
 
-    void connectFrontend(InspectorFrontendChannel*);
+    bool hasFrontend() const { return m_frontend; }
+    void connectFrontend();
     void disconnectFrontend();
+    void restoreInspectorStateFromCookie(const String& inspectorCookie);
     void dispatchMessageFromFrontend(const String&);
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    void resume();
+#endif
 
 private:
+    friend InstrumentingAgents* instrumentationForWorkerContext(WorkerContext*);
+
     WorkerContext* m_workerContext;
+    OwnPtr<InspectorStateClient> m_stateClient;
     OwnPtr<InspectorState> m_state;
     OwnPtr<InstrumentingAgents> m_instrumentingAgents;
     OwnPtr<InjectedScriptManager> m_injectedScriptManager;
+#if ENABLE(JAVASCRIPT_DEBUGGER)
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
+    OwnPtr<InspectorProfilerAgent> m_profilerAgent;
+#endif
     OwnPtr<InspectorRuntimeAgent> m_runtimeAgent;
+    OwnPtr<InspectorConsoleAgent> m_consoleAgent;
+    OwnPtr<InspectorTimelineAgent> m_timelineAgent;
 
+    OwnPtr<InspectorFrontendChannel> m_frontendChannel;
     OwnPtr<InspectorFrontend> m_frontend;
-    OwnPtr<InspectorBackendDispatcher> m_backendDispatcher;
+    RefPtr<InspectorBackendDispatcher> m_backendDispatcher;
 };
 
 }

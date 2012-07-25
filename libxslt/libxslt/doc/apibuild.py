@@ -45,7 +45,8 @@ ignored_words = {
   "ATTRIBUTE_UNUSED": (0, "macro keyword"),
   "LIBEXSLT_PUBLIC": (0, "macro keyword"),
   "X_IN_Y": (5, "macro function builder"),
-  "XSLT_ITEM_COMMON_FIELDS": (0, "Special macro")
+  "XSLT_ITEM_COMMON_FIELDS": (0, "Special macro"),
+  "CALLBACK": (0, "macro keyword"),
 }
 
 def escape(raw):

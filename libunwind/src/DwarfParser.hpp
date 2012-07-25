@@ -1,6 +1,6 @@
 /* -*- mode: C++; c-basic-offset: 4; tab-width: 4 -*-
  *
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -324,7 +324,7 @@ const char* CFI_Parser<A>::parseCIE(A& addressSpace, pint_t cie, CIE_Info* cieIn
 		cieContentEnd = p + cieLength;
 	}
 	if ( cieLength == 0 ) 
-		return false;	
+		return NULL;	
 	// CIE ID is always 0
 	if ( addressSpace.get32(p) != 0 ) 
 		return "CIE ID is not zero";

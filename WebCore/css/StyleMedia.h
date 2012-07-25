@@ -21,12 +21,13 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef StyleMedia_h
 #define StyleMedia_h
 
+#include "DOMWindowProperty.h"
 #include "PlatformString.h"
 #include <wtf/RefCounted.h>
 
@@ -34,24 +35,15 @@ namespace WebCore {
 
 class Frame;
 
-class StyleMedia : public RefCounted<StyleMedia> {
+class StyleMedia : public RefCounted<StyleMedia>, public DOMWindowProperty {
 public:
-    static PassRefPtr<StyleMedia> create(Frame* frame)
-    {
-        return adoptRef(new StyleMedia(frame));
-    }
-
-    Frame* frame() { return m_frame; }
-    void disconnectFrame() { m_frame = 0; }
+    static PassRefPtr<StyleMedia> create(Frame* frame) { return adoptRef(new StyleMedia(frame));}
 
     String type() const;
-
     bool matchMedium(const String&) const;
 
 private:
-    StyleMedia(Frame*);
-
-    Frame* m_frame;
+    explicit StyleMedia(Frame*);
 };
 
 } // namespace

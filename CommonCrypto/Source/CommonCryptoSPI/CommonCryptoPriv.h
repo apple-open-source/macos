@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2012 Apple, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,13 +25,24 @@
  * CommonCryptoPriv.h - private typedefs and defines for ComonCrypto 
  */
  
-#ifndef	_COMMON_CRYPTO_PRIV_H_
-#define _COMMON_CRYPTO_PRIV_H_
+#ifndef	__COMMONCRYPTO_PRIVATE__
+#define __COMMONCRYPTO_PRIVATE__
 
-/*
- * All CommomCrypto-specific mods to the various open source implementations
- * in this package are flagged with this symbol.
- */
-#define _APPLE_COMMON_CRYPTO_
+#include <CommonCrypto/CommonCryptorSPI.h>
+#include <CommonCrypto/CommonDigestSPI.h>
+#include <CommonCrypto/CommonECCryptor.h>
+#include <CommonCrypto/CommonRSACryptor.h>
+#include <CommonCrypto/CommonBigNum.h>
+#include <CommonCrypto/CommonDH.h>
+#include <CommonCrypto/CommonHMacSPI.h>
+#include <CommonCrypto/CommonCMACSPI.h>
+#include <CommonCrypto/CommonRandomSPI.h>
+#include <CommonCrypto/CommonSelfTest.h>
 
-#endif	/* _COMMON_CRYPTO_PRIV_H_ */
+// The following headers will be jettisoned once all internal projects
+// are weaned from them.
+
+#include <CommonCrypto/aes.h>
+#include <CommonCrypto/lionCompat.h>
+
+#endif	/* __COMMONCRYPTO_PRIVATE__ */

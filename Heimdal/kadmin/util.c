@@ -65,7 +65,7 @@ struct units kdb_attrs[] = {
     { "disallow-tgt-based",	KRB5_KDB_DISALLOW_TGT_BASED },
     { "disallow-forwardable",	KRB5_KDB_DISALLOW_FORWARDABLE },
     { "disallow-postdated",	KRB5_KDB_DISALLOW_POSTDATED },
-    { NULL }
+    { NULL, 0 }
 };
 
 /*
@@ -146,6 +146,64 @@ edit_attributes (const char *prompt, krb5_flags *attr, int *mask, int bit)
 }
 
 /*
+ * try to parse the string `resp' into policy in `attr', also
+ * setting the `bit' in `mask' if attributes are given and valid.
+ */
+
+#define VALID_POLICY_NAME_CHARS \
+	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_"
+
+int
+parse_policy (const char *resp, char **policy, int *mask, int bit)
+{
+    if (strcasecmp(resp, "none") == 0) {
+	return 0;
+    } else if (strspn(resp, VALID_POLICY_NAME_CHARS) == strlen(resp) &&
+	*resp != '\0') {
+	
+	*policy = strdup(resp);
+	if (*policy == NULL) {
+	    fprintf (stderr, "Out of memory");
+	    return -1;
+	}
+	if (mask)
+	    *mask |= bit;
+	return 0;
+    } else if(*resp == '?') {
+	fprintf (stderr, "Policy is free string or \"none\" for no policy, "
+		 "by default the \"default\" policy is used\n");
+    } else {
+	fprintf (stderr, "Unable to parse \"%s\"\n", resp);
+    }
+    return -1;
+}
+
+/*
+ * allow the user to edit the attributes in `attr', prompting with `prompt'
+ */
+
+int
+edit_policy (const char *prompt, char **policy, int *mask, int bit)
+{
+    char buf[1024], resp[1024];
+
+    if (mask && (*mask & bit))
+	return 0;
+
+    buf[0] = '\0';
+    strlcpy(buf, "default", sizeof (buf));
+    for (;;) {
+	if(get_response("Policy", buf, resp, sizeof(resp)) != 0)
+	    return 1;
+	if (resp[0] == '\0')
+	    break;
+	if (parse_policy (resp, policy, mask, bit) == 0)
+	    break;
+    }
+    return 0;
+}
+
+/*
  * time_t
  * the special value 0 means ``never''
  */
@@ -188,7 +246,7 @@ str2time_t (const char *str, time_t *t)
     if (str[0] == '+') {
 	str++;
 	*t = parse_time(str, "month");
-	if (t < 0)
+	if (*t < 0)
 	    return -1;
 	*t += time(NULL);
 	return 0;
@@ -391,6 +449,14 @@ set_defaults(kadm5_principal_ent_t ent, int *mask,
 	&& (default_mask & KADM5_ATTRIBUTES)
 	&& !(*mask & KADM5_ATTRIBUTES))
 	ent->attributes = default_ent->attributes & ~KRB5_KDB_DISALLOW_ALL_TIX;
+
+    if (default_ent
+	&& (default_mask & KADM5_POLICY)
+	&& !(*mask & KADM5_POLICY)) {
+	ent->policy = strdup(default_ent->policy);
+	if (ent->policy == NULL)
+	    abort();
+    }
 }
 
 int
@@ -420,6 +486,10 @@ edit_entry(kadm5_principal_ent_t ent, int *mask,
 			KADM5_ATTRIBUTES) != 0)
 	return 1;
 
+    if(edit_policy ("Policy", &ent->policy, mask,
+			KADM5_POLICY) != 0)
+	return 1;
+
     return 0;
 }
 
@@ -430,26 +500,27 @@ edit_entry(kadm5_principal_ent_t ent, int *mask,
  */
 
 int
-set_entry(krb5_context context,
+set_entry(krb5_context contextp,
 	  kadm5_principal_ent_t ent,
 	  int *mask,
 	  const char *max_ticket_life,
 	  const char *max_renewable_life,
 	  const char *expiration,
 	  const char *pw_expiration,
-	  const char *attributes)
+	  const char *attributes,
+	  const char *policy)
 {
     if (max_ticket_life != NULL) {
 	if (parse_deltat (max_ticket_life, &ent->max_life,
 			  mask, KADM5_MAX_LIFE)) {
-	    krb5_warnx (context, "unable to parse `%s'", max_ticket_life);
+	    krb5_warnx (contextp, "unable to parse `%s'", max_ticket_life);
 	    return 1;
 	}
     }
     if (max_renewable_life != NULL) {
 	if (parse_deltat (max_renewable_life, &ent->max_renewable_life,
 			  mask, KADM5_MAX_RLIFE)) {
-	    krb5_warnx (context, "unable to parse `%s'", max_renewable_life);
+	    krb5_warnx (contextp, "unable to parse `%s'", max_renewable_life);
 	    return 1;
 	}
     }
@@ -457,21 +528,28 @@ set_entry(krb5_context context,
     if (expiration) {
 	if (parse_timet (expiration, &ent->princ_expire_time,
 			mask, KADM5_PRINC_EXPIRE_TIME)) {
-	    krb5_warnx (context, "unable to parse `%s'", expiration);
+	    krb5_warnx (contextp, "unable to parse `%s'", expiration);
 	    return 1;
 	}
     }
     if (pw_expiration) {
 	if (parse_timet (pw_expiration, &ent->pw_expiration,
 			 mask, KADM5_PW_EXPIRATION)) {
-	    krb5_warnx (context, "unable to parse `%s'", pw_expiration);
+	    krb5_warnx (contextp, "unable to parse `%s'", pw_expiration);
 	    return 1;
 	}
     }
     if (attributes != NULL) {
 	if (parse_attributes (attributes, &ent->attributes,
 			      mask, KADM5_ATTRIBUTES)) {
-	    krb5_warnx (context, "unable to parse `%s'", attributes);
+	    krb5_warnx (contextp, "unable to parse `%s'", attributes);
+	    return 1;
+	}
+    }
+    if (policy != NULL) {
+	if (parse_policy (policy, &ent->policy,
+			      mask, KADM5_POLICY)) {
+	    krb5_warnx (contextp, "unable to parse `%s'", policy);
 	    return 1;
 	}
     }
@@ -512,8 +590,8 @@ foreach_principal(const char *exp_str,
 		  const char *funcname,
 		  void *data)
 {
-    char **princs;
-    int num_princs;
+    char **princs = NULL;
+    int num_princs = 0;
     int i;
     krb5_error_code saved_ret = 0, ret = 0;
     krb5_principal princ_ent;

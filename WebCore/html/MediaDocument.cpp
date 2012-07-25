@@ -35,11 +35,13 @@
 #include "HTMLEmbedElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLNames.h"
+#include "HTMLSourceElement.h"
 #include "HTMLVideoElement.h"
 #include "KeyboardEvent.h"
 #include "MainResourceLoader.h"
 #include "NodeList.h"
 #include "RawDataDocumentParser.h"
+#include "ScriptController.h"
 
 namespace WebCore {
 
@@ -60,7 +62,7 @@ private:
     {
     }
 
-    virtual void appendBytes(DocumentWriter*, const char*, int, bool);
+    virtual void appendBytes(DocumentWriter*, const char*, size_t);
 
     void createDocumentStructure();
 
@@ -72,40 +74,42 @@ void MediaDocumentParser::createDocumentStructure()
     ExceptionCode ec;
     RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
     document()->appendChild(rootElement, ec);
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    document()->setCSSTarget(rootElement.get());
     static_cast<HTMLHtmlElement*>(rootElement.get())->insertedByParser();
-#endif
 
     if (document()->frame())
         document()->frame()->loader()->dispatchDocumentElementAvailable();
         
     RefPtr<Element> body = document()->createElement(bodyTag, false);
-    body->setAttribute(styleAttr, "background-color: rgb(38,38,38);");
-
     rootElement->appendChild(body, ec);
-        
+
     RefPtr<Element> mediaElement = document()->createElement(videoTag, false);
-        
+
     m_mediaElement = static_cast<HTMLVideoElement*>(mediaElement.get());
     m_mediaElement->setAttribute(controlsAttr, "");
     m_mediaElement->setAttribute(autoplayAttr, "");
-    m_mediaElement->setAttribute(styleAttr, "margin: auto; position: absolute; top: 0; right: 0; bottom: 0; left: 0;");
 
     m_mediaElement->setAttribute(nameAttr, "media");
-    m_mediaElement->setSrc(document()->url());
-    
+
+    RefPtr<Element> sourceElement = document()->createElement(sourceTag, false);
+    HTMLSourceElement* source = static_cast<HTMLSourceElement*>(sourceElement.get());
+    source->setSrc(document()->url());
+
+    if (DocumentLoader* loader = document()->loader())
+        source->setType(loader->responseMIMEType());
+
+    m_mediaElement->appendChild(sourceElement, ec);
     body->appendChild(mediaElement, ec);
 
     Frame* frame = document()->frame();
     if (!frame)
         return;
 
-    frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
+    frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(DoNotBufferData);
 }
 
-void MediaDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
+void MediaDocumentParser::appendBytes(DocumentWriter*, const char*, size_t)
 {
-    ASSERT(!m_mediaElement);
     if (m_mediaElement)
         return;
 
@@ -165,12 +169,12 @@ void MediaDocument::defaultEventHandler(Event* event)
     if (HTMLVideoElement* video = ancestorVideoElement(targetNode)) {
         if (event->type() == eventNames().clickEvent) {
             if (!video->canPlay()) {
-                video->pause(event->fromUserGesture());
+                video->pause();
                 event->setDefaultHandled();
             }
         } else if (event->type() == eventNames().dblclickEvent) {
             if (video->canPlay()) {
-                video->play(event->fromUserGesture());
+                video->play();
                 event->setDefaultHandled();
             }
         }
@@ -185,9 +189,9 @@ void MediaDocument::defaultEventHandler(Event* event)
         if (keyboardEvent->keyIdentifier() == "U+0020") { // space
             if (video->paused()) {
                 if (video->canPlay())
-                    video->play(event->fromUserGesture());
+                    video->play();
             } else
-                video->pause(event->fromUserGesture());
+                video->pause();
             event->setDefaultHandled();
         }
     }

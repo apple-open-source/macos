@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,8 +37,6 @@ __BEGIN_DECLS
 
 void	do_open			(int argc, char **argv);
 void	do_close		(int argc, char **argv);
-void	do_lock			(int argc, char **argv);
-void	do_unlock		(int argc, char **argv);
 
 __END_DECLS
 

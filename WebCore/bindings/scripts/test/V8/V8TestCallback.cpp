@@ -21,15 +21,17 @@
 #include "config.h"
 #include "V8TestCallback.h"
 
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
 
 #include "ScriptExecutionContext.h"
 #include "V8Binding.h"
 #include "V8Class1.h"
 #include "V8Class2.h"
+#include "V8Class8.h"
 #include "V8CustomVoidCallback.h"
 #include "V8DOMStringList.h"
 #include "V8Proxy.h"
+#include "V8ThisClass.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -85,9 +87,10 @@ bool V8TestCallback::callbackWithClass1Param(Class1* class1Param)
 
     v8::Context::Scope scope(v8Context);
 
-    v8::Handle<v8::Value> class1ParamHandle = toV8(class1Param);
+    v8::Handle<v8::Value> class1ParamHandle = toV8(class1Param, 0);
     if (class1ParamHandle.IsEmpty()) {
-        CRASH();
+        if (!isScriptControllerTerminating())
+            CRASH();
         return true;
     }
 
@@ -112,14 +115,16 @@ bool V8TestCallback::callbackWithClass2Param(Class2* class2Param, const String& 
 
     v8::Context::Scope scope(v8Context);
 
-    v8::Handle<v8::Value> class2ParamHandle = toV8(class2Param);
+    v8::Handle<v8::Value> class2ParamHandle = toV8(class2Param, 0);
     if (class2ParamHandle.IsEmpty()) {
-        CRASH();
+        if (!isScriptControllerTerminating())
+            CRASH();
         return true;
     }
-    v8::Handle<v8::Value> strArgHandle = v8String(strArg);
+    v8::Handle<v8::Value> strArgHandle = v8String(strArg, 0);
     if (strArgHandle.IsEmpty()) {
-        CRASH();
+        if (!isScriptControllerTerminating())
+            CRASH();
         return true;
     }
 
@@ -132,7 +137,7 @@ bool V8TestCallback::callbackWithClass2Param(Class2* class2Param, const String& 
     return !invokeCallback(m_callback, 2, argv, callbackReturnValue, scriptExecutionContext());
 }
 
-bool V8TestCallback::callbackWithStringList(PassRefPtr<DOMStringList> listParam)
+bool V8TestCallback::callbackWithStringList(RefPtr<DOMStringList> listParam)
 {
     if (!canInvokeCallback())
         return true;
@@ -145,9 +150,10 @@ bool V8TestCallback::callbackWithStringList(PassRefPtr<DOMStringList> listParam)
 
     v8::Context::Scope scope(v8Context);
 
-    v8::Handle<v8::Value> listParamHandle = toV8(listParam);
+    v8::Handle<v8::Value> listParamHandle = toV8(listParam, 0);
     if (listParamHandle.IsEmpty()) {
-        CRASH();
+        if (!isScriptControllerTerminating())
+            CRASH();
         return true;
     }
 
@@ -159,6 +165,71 @@ bool V8TestCallback::callbackWithStringList(PassRefPtr<DOMStringList> listParam)
     return !invokeCallback(m_callback, 1, argv, callbackReturnValue, scriptExecutionContext());
 }
 
+bool V8TestCallback::callbackWithBoolean(bool boolParam)
+{
+    if (!canInvokeCallback())
+        return true;
+
+    v8::HandleScope handleScope;
+
+    v8::Handle<v8::Context> v8Context = toV8Context(scriptExecutionContext(), m_worldContext);
+    if (v8Context.IsEmpty())
+        return true;
+
+    v8::Context::Scope scope(v8Context);
+
+    v8::Handle<v8::Value> boolParamHandle = v8Boolean(boolParam);
+    if (boolParamHandle.IsEmpty()) {
+        if (!isScriptControllerTerminating())
+            CRASH();
+        return true;
+    }
+
+    v8::Handle<v8::Value> argv[] = {
+        boolParamHandle
+    };
+
+    bool callbackReturnValue = false;
+    return !invokeCallback(m_callback, 1, argv, callbackReturnValue, scriptExecutionContext());
+}
+
+bool V8TestCallback::callbackRequiresThisToPass(Class8* class8Param, ThisClass* thisClassParam)
+{
+    ASSERT(thisClassParam);
+
+    if (!canInvokeCallback())
+        return true;
+
+    v8::HandleScope handleScope;
+
+    v8::Handle<v8::Context> v8Context = toV8Context(scriptExecutionContext(), m_worldContext);
+    if (v8Context.IsEmpty())
+        return true;
+
+    v8::Context::Scope scope(v8Context);
+
+    v8::Handle<v8::Value> class8ParamHandle = toV8(class8Param, 0);
+    if (class8ParamHandle.IsEmpty()) {
+        if (!isScriptControllerTerminating())
+            CRASH();
+        return true;
+    }
+    v8::Handle<v8::Value> thisClassParamHandle = toV8(thisClassParam, 0);
+    if (thisClassParamHandle.IsEmpty()) {
+        if (!isScriptControllerTerminating())
+            CRASH();
+        return true;
+    }
+
+    v8::Handle<v8::Value> argv[] = {
+        class8ParamHandle,
+        thisClassParamHandle
+    };
+
+    bool callbackReturnValue = false;
+    return !invokeCallback(m_callback, v8::Handle<v8::Object>::Cast(thisClassParamHandle), 2, argv, callbackReturnValue, scriptExecutionContext());
+}
+
 } // namespace WebCore
 
-#endif // ENABLE(DATABASE)
+#endif // ENABLE(SQL_DATABASE)

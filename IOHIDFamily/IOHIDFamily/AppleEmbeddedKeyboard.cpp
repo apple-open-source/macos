@@ -30,9 +30,14 @@
 #include "IOLLEvent.h"
 
 #define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
-#define	kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
-#define	kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
+#define kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
+#define kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
 #define kKeyboardUsageMapKey        "KeyboardUsageMap"
+
+#define kDeviceFnFunctionUsageMapKey      "DeviceFnFunctionUsageMap"
+#define kDeviceFnKeyboardUsageMapKey      "DeviceFnKeyboardUsageMap"
+#define kDeviceNumLockKeyboardUsageMapKey "DeviceNumLockKeyboardUsageMap"
+#define kDeviceKeyboardUsageMapKey        "DeviceKeyboardUsageMap"
 
 #define super IOHIDEventDriver
 
@@ -337,27 +342,47 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
     char *          str;
     UInt32          index, value;
     
-#define DECODE_MAP(type,key,bit)                                                    \
-    do {                                                                            \
-        mappingString = OSDynamicCast(OSString,getProperty(key));                   \
-        if (!mappingString) break;                                                  \
-        str = (char *)mappingString->getCStringNoCopy();                            \
-        while ( str && (*str != '\0')) {                                            \
-            index = strtoul(str, &str, 16) & 0xff;                                  \
-            while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
-            value = strtoul(str, &str, 16);                                         \
-            while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
-            _secondaryKeys[index].type##UsagePage   = (value >> 16) & 0xffff;       \
-            _secondaryKeys[index].type##Usage       = value & 0xffff;               \
-            _secondaryKeys[index].bits             |= bit;                          \
-        }                                                                           \
+#define DECODE_MAP(type,key,bit)                                                        \
+    do {                                                                                \
+        OSObject *obj = copyProperty(key);                                              \
+        mappingString = OSDynamicCast(OSString,obj);                                    \
+        if (mappingString) {                                                            \
+            str = (char *)mappingString->getCStringNoCopy();                            \
+            while ( str && (*str != '\0')) {                                            \
+                index = strtoul(str, &str, 16) & 0xff;                                  \
+                while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
+                value = strtoul(str, &str, 16);                                         \
+                while ((*str!='\0')&&((*str < '0')||(*str > '9'))) { str ++; }          \
+                _secondaryKeys[index].type##UsagePage   = (value >> 16) & 0xffff;       \
+                _secondaryKeys[index].type##Usage       = value & 0xffff;               \
+                _secondaryKeys[index].bits             |= bit;                          \
+            }                                                                           \
+        }                                                                               \
+        if (obj) obj->release();                                                        \
     } while (0)
 
-    DECODE_MAP(numLockKeyboard, kNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
-    DECODE_MAP(fnKeyboard, kFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
-    DECODE_MAP(fnFunction, kFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
+    if (getProperty(kDeviceNumLockKeyboardUsageMapKey)) {
+        DECODE_MAP(numLockKeyboard, kDeviceNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
+    }
+    else {
+        DECODE_MAP(numLockKeyboard, kNumLockKeyboardUsageMapKey, kSecondaryKeyNumLockKeyboard);
+    }
+    
+    if (getProperty(kDeviceFnKeyboardUsageMapKey)) {
+        DECODE_MAP(fnKeyboard, kDeviceFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
+    }
+    else {
+        DECODE_MAP(fnKeyboard, kFnKeyboardUsageMapKey, kSecondaryKeyFnKeyboard);
+    }
+    
+    if (getProperty(kDeviceFnFunctionUsageMapKey)) {
+        DECODE_MAP(fnFunction, kDeviceFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
+    }
+    else {
+        DECODE_MAP(fnFunction, kFnFunctionUsageMapKey, kSecondaryKeyFnFunction);
+    }
 
-    if ( getProperty(kNumLockKeyboardUsageMapKey) ) {
+    if ( getProperty(kNumLockKeyboardUsageMapKey) || getProperty(kDeviceNumLockKeyboardUsageMapKey) ) {
         _virtualMouseKeysSupport = TRUE;
          for (index=0; index<255; index++) {
              if ( ( _secondaryKeys[index].bits & kSecondaryKeyFnFunction ) && 
@@ -401,8 +426,18 @@ IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
         parseSecondaries = true;
     }
     
+    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceFnFunctionUsageMapKey)))) {
+        setProperty(kDeviceFnFunctionUsageMapKey, string);
+        parseSecondaries = true;
+    }
+    
     if ((string = OSDynamicCast(OSString, properties->getObject(kFnKeyboardUsageMapKey)))) {
         setProperty(kFnKeyboardUsageMapKey, string);
+        parseSecondaries = true;
+    }
+    
+    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceFnKeyboardUsageMapKey)))) {
+        setProperty(kDeviceFnKeyboardUsageMapKey, string);
         parseSecondaries = true;
     }
     
@@ -410,7 +445,12 @@ IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
         setProperty(kNumLockKeyboardUsageMapKey, string);
         parseSecondaries = true;
     }
-
+    
+    if ((string = OSDynamicCast(OSString, properties->getObject(kDeviceNumLockKeyboardUsageMapKey)))) {
+        setProperty(kDeviceNumLockKeyboardUsageMapKey, string);
+        parseSecondaries = true;
+    }
+    
     if (parseSecondaries) {
         parseSecondaryUsages();
     }

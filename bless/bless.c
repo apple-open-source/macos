@@ -238,6 +238,7 @@ int main (int argc, char * argv[])
 
 
 
+// note that libbless has its own (similar) contextprintf()
 int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) {
     int ret;
     char *out;

@@ -46,7 +46,7 @@
 
 typedef struct {
     macNCtype_t		type;
-    dhcptype_info_t		info;
+    dhcptype_info_t	info;
 } macNCtype_info_t;
 
 static const macNCtype_info_t macNCtype_info_table[] = {

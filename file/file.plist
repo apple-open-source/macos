@@ -27,6 +27,7 @@
 		<string>Archive (ar) format fix (4204136).</string>
 		<string>GNU catalog format fix (4695678).</string>
 		<string>LLVM bitcode magics (6867338).</string>
+		<string>softmagic.c: crash fix from upstream file 5.09</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

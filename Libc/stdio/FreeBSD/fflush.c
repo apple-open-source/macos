@@ -39,6 +39,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fflush.c,v 1.14 2007/01/09 00:28:06 imp E
 #include "namespace.h"
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
@@ -59,8 +60,10 @@ fflush(FILE *fp)
 	FLOCKFILE(fp);
 
 	/*
+	 * 11103146: Conformance change:
+	 * --- Begin History ---
 	 * There is disagreement about the correct behaviour of fflush()
-	 * when passed a file which is not open for reading.  According to
+	 * when passed a file which is not open for writing.  According to
 	 * the ISO C standard, the behaviour is undefined.
 	 * Under linux, such an fflush returns success and has no effect;
 	 * under Windows, such an fflush is documented as behaving instead
@@ -68,10 +71,14 @@ fflush(FILE *fp)
 	 * Given that applications may be written with the expectation of
 	 * either of these two behaviours, the only safe (non-astonishing)
 	 * option is to return EBADF and ask that applications be fixed.
+	 * --- End History ---
+	 * SUSv3 now requires that fflush() returns success on a read-only
+	 * stream.  In addition, the conformance tests will warn if a fflush
+	 * on a read-only stream does not set the file descriptor's file offset
+	 * to the real position.  We won't be fixing the warning at this time.
 	 */
 	if ((fp->_flags & (__SWR | __SRW)) == 0) {
-		errno = EBADF;
-		retval = EOF;
+		retval = 0;
 	} else
 		retval = __sflush(fp);
 	FUNLOCKFILE(fp);
@@ -90,8 +97,7 @@ __fflush(FILE *fp)
 	if (fp == NULL)
 		return (_fwalk(sflush_locked));
 	if ((fp->_flags & (__SWR | __SRW)) == 0) {
-		errno = EBADF;
-		retval = EOF;
+		retval = 0;
 	} else
 		retval = __sflush(fp);
 	return (retval);
@@ -122,6 +128,14 @@ __sflush(FILE *fp)
 	for (; n > 0; n -= t, p += t) {
 		t = _swrite(fp, (char *)p, n);
 		if (t <= 0) {
+			/* 5340694: reset _p and _w on EAGAIN */
+			if (t < 0 && errno == EAGAIN) {
+				if (p > fp->_p) /* some was written */
+					memmove(fp->_p, p, n);
+				fp->_p += n;
+				if (!(fp->_flags & (__SLBF|__SNBF)))
+					fp->_w -= n;
+			}
 			fp->_flags |= __SERR;
 			return (EOF);
 		}

@@ -28,6 +28,7 @@
 #include "YarrPattern.h"
 
 #include "Yarr.h"
+#include "YarrCanonicalizeUCS2.h"
 #include "YarrParser.h"
 #include <wtf/Vector.h>
 
@@ -66,32 +67,43 @@ public:
 
     void putChar(UChar ch)
     {
+        // Handle ascii cases.
         if (ch <= 0x7f) {
             if (m_isCaseInsensitive && isASCIIAlpha(ch)) {
                 addSorted(m_matches, toASCIIUpper(ch));
                 addSorted(m_matches, toASCIILower(ch));
             } else
                 addSorted(m_matches, ch);
-        } else {
-            UChar upper, lower;
-            if (m_isCaseInsensitive && ((upper = Unicode::toUpper(ch)) != (lower = Unicode::toLower(ch)))) {
-                addSorted(m_matchesUnicode, upper);
-                addSorted(m_matchesUnicode, lower);
-            } else
-                addSorted(m_matchesUnicode, ch);
+            return;
         }
+
+        // Simple case, not a case-insensitive match.
+        if (!m_isCaseInsensitive) {
+            addSorted(m_matchesUnicode, ch);
+            return;
+        }
+
+        // Add multiple matches, if necessary.
+        UCS2CanonicalizationRange* info = rangeInfoFor(ch);
+        if (info->type == CanonicalizeUnique)
+            addSorted(m_matchesUnicode, ch);
+        else
+            putUnicodeIgnoreCase(ch, info);
     }
 
-    // returns true if this character has another case, and 'ch' is the upper case form.
-    static inline bool isUnicodeUpper(UChar ch)
+    void putUnicodeIgnoreCase(UChar ch, UCS2CanonicalizationRange* info)
     {
-        return ch != Unicode::toLower(ch);
-    }
-
-    // returns true if this character has another case, and 'ch' is the lower case form.
-    static inline bool isUnicodeLower(UChar ch)
-    {
-        return ch != Unicode::toUpper(ch);
+        ASSERT(m_isCaseInsensitive);
+        ASSERT(ch > 0x7f);
+        ASSERT(ch >= info->begin && ch <= info->end);
+        ASSERT(info->type != CanonicalizeUnique);
+        if (info->type == CanonicalizeSet) {
+            for (uint16_t* set = characterSetInfo[info->value]; (ch = *set); ++set)
+                addSorted(m_matchesUnicode, ch);
+        } else {
+            addSorted(m_matchesUnicode, ch);
+            addSorted(m_matchesUnicode, getCanonicalPair(info, ch));
+        }
     }
 
     void putRange(UChar lo, UChar hi)
@@ -108,48 +120,69 @@ public:
                     addSortedRange(m_ranges, std::max(asciiLo, 'a')+('A'-'a'), std::min(asciiHi, 'z')+('A'-'a'));
             }
         }
-        if (hi >= 0x80) {
-            uint32_t unicodeCurr = std::max(lo, (UChar)0x80);
-            addSortedRange(m_rangesUnicode, unicodeCurr, hi);
-            
-            if (m_isCaseInsensitive) {
-                while (unicodeCurr <= hi) {
-                    // If the upper bound of the range (hi) is 0xffff, the increments to
-                    // unicodeCurr in this loop may take it to 0x10000.  This is fine
-                    // (if so we won't re-enter the loop, since the loop condition above
-                    // will definitely fail) - but this does mean we cannot use a UChar
-                    // to represent unicodeCurr, we must use a 32-bit value instead.
-                    ASSERT(unicodeCurr <= 0xffff);
+        if (hi <= 0x7f)
+            return;
 
-                    if (isUnicodeUpper(unicodeCurr)) {
-                        UChar lowerCaseRangeBegin = Unicode::toLower(unicodeCurr);
-                        UChar lowerCaseRangeEnd = lowerCaseRangeBegin;
-                        while ((++unicodeCurr <= hi) && isUnicodeUpper(unicodeCurr) && (Unicode::toLower(unicodeCurr) == (lowerCaseRangeEnd + 1)))
-                            lowerCaseRangeEnd++;
-                        addSortedRange(m_rangesUnicode, lowerCaseRangeBegin, lowerCaseRangeEnd);
-                    } else if (isUnicodeLower(unicodeCurr)) {
-                        UChar upperCaseRangeBegin = Unicode::toUpper(unicodeCurr);
-                        UChar upperCaseRangeEnd = upperCaseRangeBegin;
-                        while ((++unicodeCurr <= hi) && isUnicodeLower(unicodeCurr) && (Unicode::toUpper(unicodeCurr) == (upperCaseRangeEnd + 1)))
-                            upperCaseRangeEnd++;
-                        addSortedRange(m_rangesUnicode, upperCaseRangeBegin, upperCaseRangeEnd);
-                    } else
-                        ++unicodeCurr;
-                }
+        lo = std::max(lo, (UChar)0x80);
+        addSortedRange(m_rangesUnicode, lo, hi);
+        
+        if (!m_isCaseInsensitive)
+            return;
+
+        UCS2CanonicalizationRange* info = rangeInfoFor(lo);
+        while (true) {
+            // Handle the range [lo .. end]
+            UChar end = std::min<UChar>(info->end, hi);
+
+            switch (info->type) {
+            case CanonicalizeUnique:
+                // Nothing to do - no canonical equivalents.
+                break;
+            case CanonicalizeSet: {
+                UChar ch;
+                for (uint16_t* set = characterSetInfo[info->value]; (ch = *set); ++set)
+                    addSorted(m_matchesUnicode, ch);
+                break;
             }
-        }
+            case CanonicalizeRangeLo:
+                addSortedRange(m_rangesUnicode, lo + info->value, end + info->value);
+                break;
+            case CanonicalizeRangeHi:
+                addSortedRange(m_rangesUnicode, lo - info->value, end - info->value);
+                break;
+            case CanonicalizeAlternatingAligned:
+                // Use addSortedRange since there is likely an abutting range to combine with.
+                if (lo & 1)
+                    addSortedRange(m_rangesUnicode, lo - 1, lo - 1);
+                if (!(end & 1))
+                    addSortedRange(m_rangesUnicode, end + 1, end + 1);
+                break;
+            case CanonicalizeAlternatingUnaligned:
+                // Use addSortedRange since there is likely an abutting range to combine with.
+                if (!(lo & 1))
+                    addSortedRange(m_rangesUnicode, lo - 1, lo - 1);
+                if (end & 1)
+                    addSortedRange(m_rangesUnicode, end + 1, end + 1);
+                break;
+            }
+
+            if (hi == end)
+                return;
+
+            ++info;
+            lo = info->begin;
+        };
+
     }
 
     CharacterClass* charClass()
     {
         CharacterClass* characterClass = new CharacterClass(0);
 
-        characterClass->m_matches.append(m_matches);
-        characterClass->m_ranges.append(m_ranges);
-        characterClass->m_matchesUnicode.append(m_matchesUnicode);
-        characterClass->m_rangesUnicode.append(m_rangesUnicode);
-
-        reset();
+        characterClass->m_matches.swap(m_matches);
+        characterClass->m_ranges.swap(m_ranges);
+        characterClass->m_matchesUnicode.swap(m_matchesUnicode);
+        characterClass->m_rangesUnicode.swap(m_rangesUnicode);
 
         return characterClass;
     }
@@ -282,12 +315,21 @@ public:
     {
         // We handle case-insensitive checking of unicode characters which do have both
         // cases by handling them as if they were defined using a CharacterClass.
-        if (m_pattern.m_ignoreCase && !isASCII(ch) && (Unicode::toUpper(ch) != Unicode::toLower(ch))) {
-            atomCharacterClassBegin();
-            atomCharacterClassAtom(ch);
-            atomCharacterClassEnd();
-        } else
+        if (!m_pattern.m_ignoreCase || isASCII(ch)) {
             m_alternative->m_terms.append(PatternTerm(ch));
+            return;
+        }
+
+        UCS2CanonicalizationRange* info = rangeInfoFor(ch);
+        if (info->type == CanonicalizeUnique) {
+            m_alternative->m_terms.append(PatternTerm(ch));
+            return;
+        }
+
+        m_characterClassConstructor.putUnicodeIgnoreCase(ch, info);
+        CharacterClass* newCharacterClass = m_characterClassConstructor.charClass();
+        m_pattern.m_userCharacterClasses.append(newCharacterClass);
+        m_alternative->m_terms.append(PatternTerm(newCharacterClass, false));
     }
 
     void atomBuiltInCharacterClass(BuiltInCharacterClassID classID, bool invert)
@@ -478,14 +520,23 @@ public:
         ASSERT(term.type > PatternTerm::TypeAssertionWordBoundary);
         ASSERT((term.quantityCount == 1) && (term.quantityType == QuantifierFixedCount));
 
-        // For any assertion with a zero minimum, not matching is valid and has no effect,
-        // remove it.  Otherwise, we need to match as least once, but there is no point
-        // matching more than once, so remove the quantifier.  It is not entirely clear
-        // from the spec whether or not this behavior is correct, but I believe this
-        // matches Firefox. :-/
         if (term.type == PatternTerm::TypeParentheticalAssertion) {
+            // If an assertion is quantified with a minimum count of zero, it can simply be removed.
+            // This arises from the RepeatMatcher behaviour in the spec. Matching an assertion never
+            // results in any input being consumed, however the continuation passed to the assertion
+            // (called in steps, 8c and 9 of the RepeatMatcher definition, ES5.1 15.10.2.5) will
+            // reject all zero length matches (see step 2.1). A match from the continuation of the
+            // expression will still be accepted regardless (via steps 8a and 11) - the upshot of all
+            // this is that matches from the assertion are not required, and won't be accepted anyway,
+            // so no need to ever run it.
             if (!min)
                 m_alternative->removeLastTerm();
+            // We never need to run an assertion more than once. Subsequent interations will be run
+            // with the same start index (since assertions are non-capturing) and the same captures
+            // (per step 4 of RepeatMatcher in ES5.1 15.10.2.5), and as such will always produce the
+            // same result and captures. If the first match succeeds then the subsequent (min - 1)
+            // matches will too. Any additional optional matches will fail (on the same basis as the
+            // minimum zero quantified assertions, above), but this will still result in a match.
             return;
         }
 

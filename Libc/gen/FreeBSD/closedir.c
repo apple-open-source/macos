@@ -55,7 +55,9 @@ closedir(dirp)
 
 	if (__isthreaded)
 		_pthread_mutex_lock(&dirp->dd_lock);
+#if !__DARWIN_UNIX03
 	_seekdir(dirp, dirp->dd_rewind);	/* free seekdir storage */
+#endif /* __DARWIN_UNIX03 */
 	fd = dirp->dd_fd;
 	dirp->dd_fd = -1;
 	dirp->dd_loc = 0;

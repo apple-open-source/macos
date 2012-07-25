@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -36,7 +36,7 @@ USAGE_LICENSE
 	"script.]"
 "[+?Since aliases are processed as the script is read, alias definitions "
 	"whose value requires variable expansion will not work correctly.]"
-"[+?If \b-D\b is specifed, all double quoted strings that are preceded by "
+"[+?If \b-D\b is specified, all double quoted strings that are preceded by "
 	"\b$\b are output.  These are the messages that need to be "
 	"translated to locale specific versions for internationalization.]"
 "[+?If \aoutfile\a is omitted, then the results will be written to "
@@ -95,6 +95,7 @@ int main(int argc, char *argv[])
 		break;
 	}
 	shp = sh_init(argc,argv,(Shinit_f)0);
+	shp->shcomp = 1;
 	argv += opt_info.index;
 	argc -= opt_info.index;
 	if(error_info.errors || argc>2)
@@ -136,7 +137,7 @@ int main(int argc, char *argv[])
 		stakset((char*)0,0);
 		if(t = (Shnode_t*)sh_parse(shp,in,0))
 		{
-			if(t->tre.tretyp==0 && t->com.comnamp && strcmp(nv_name((Namval_t*)t->com.comnamp),"alias")==0)
+			if((t->tre.tretyp&(COMMSK|COMSCAN))==0 && t->com.comnamp && strcmp(nv_name((Namval_t*)t->com.comnamp),"alias")==0)
 				sh_exec(t,0);
 			if(!dflag && sh_tdump(out,t) < 0)
 				errormsg(SH_DICT,ERROR_exit(1),"dump failed");

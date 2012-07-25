@@ -37,13 +37,13 @@
 namespace WebCore {
 
 using namespace HTMLNames;
-    
+
 void CSSSelector::createRareData()
 {
-    if (m_hasRareData) 
+    if (m_hasRareData)
         return;
     // Move the value to the rare data stucture.
-    m_data.m_rareData = new RareData(adoptRef(m_data.m_value));
+    m_data.m_rareData = RareData::create(adoptRef(m_data.m_value)).leakRef();
     m_hasRareData = true;
 }
 
@@ -126,22 +126,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return BEFORE;
     case PseudoAfter:
         return AFTER;
-    case PseudoFileUploadButton:
-        return FILE_UPLOAD_BUTTON;
-    case PseudoInputPlaceholder:
-        return INPUT_PLACEHOLDER;
-#if ENABLE(INPUT_SPEECH)
-    case PseudoInputSpeechButton:
-        return INPUT_SPEECH_BUTTON;
-#endif
-    case PseudoSearchCancelButton:
-        return SEARCH_CANCEL_BUTTON;
-    case PseudoSearchDecoration:
-        return SEARCH_DECORATION;
-    case PseudoSearchResultsDecoration:
-        return SEARCH_RESULTS_DECORATION;
-    case PseudoSearchResultsButton:
-        return SEARCH_RESULTS_BUTTON;
     case PseudoScrollbar:
         return SCROLLBAR;
     case PseudoScrollbarButton:
@@ -156,10 +140,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return SCROLLBAR_TRACK_PIECE;
     case PseudoResizer:
         return RESIZER;
-    case PseudoInnerSpinButton:
-        return INNER_SPIN_BUTTON;
-    case PseudoOuterSpinButton:
-        return OUTER_SPIN_BUTTON;
 #if ENABLE(FULLSCREEN_API)
     case PseudoFullScreen:
         return FULL_SCREEN;
@@ -169,11 +149,6 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return FULL_SCREEN_ANCESTOR;
     case PseudoAnimatingFullScreenTransition:
         return ANIMATING_FULL_SCREEN_TRANSITION;
-#endif
-            
-    case PseudoInputListButton:
-#if ENABLE(DATALIST)
-        return INPUT_LIST_BUTTON;
 #endif
     case PseudoUnknown:
     case PseudoEmpty:
@@ -208,6 +183,7 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
     case PseudoValid:
     case PseudoInvalid:
     case PseudoIndeterminate:
+    case PseudoScope:
     case PseudoTarget:
     case PseudoLang:
     case PseudoNot:
@@ -249,10 +225,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, autofill, ("-webkit-autofill"));
     DEFINE_STATIC_LOCAL(AtomicString, before, ("before"));
     DEFINE_STATIC_LOCAL(AtomicString, checked, ("checked"));
-    DEFINE_STATIC_LOCAL(AtomicString, fileUploadButton, ("-webkit-file-upload-button"));
-#if ENABLE(INPUT_SPEECH)
-    DEFINE_STATIC_LOCAL(AtomicString, inputSpeechButton, ("-webkit-input-speech-button"));
-#endif
     DEFINE_STATIC_LOCAL(AtomicString, defaultString, ("default"));
     DEFINE_STATIC_LOCAL(AtomicString, disabled, ("disabled"));
     DEFINE_STATIC_LOCAL(AtomicString, readOnly, ("read-only"));
@@ -275,11 +247,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, focus, ("focus"));
     DEFINE_STATIC_LOCAL(AtomicString, hover, ("hover"));
     DEFINE_STATIC_LOCAL(AtomicString, indeterminate, ("indeterminate"));
-    DEFINE_STATIC_LOCAL(AtomicString, innerSpinButton, ("-webkit-inner-spin-button"));
-#if ENABLE(DATALIST)
-    DEFINE_STATIC_LOCAL(AtomicString, inputListButton, ("-webkit-input-list-button"));
-#endif
-    DEFINE_STATIC_LOCAL(AtomicString, inputPlaceholder, ("-webkit-input-placeholder"));
     DEFINE_STATIC_LOCAL(AtomicString, lastChild, ("last-child"));
     DEFINE_STATIC_LOCAL(AtomicString, lastOfType, ("last-of-type"));
     DEFINE_STATIC_LOCAL(AtomicString, link, ("link"));
@@ -288,7 +255,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, onlyChild, ("only-child"));
     DEFINE_STATIC_LOCAL(AtomicString, onlyOfType, ("only-of-type"));
     DEFINE_STATIC_LOCAL(AtomicString, optional, ("optional"));
-    DEFINE_STATIC_LOCAL(AtomicString, outerSpinButton, ("-webkit-outer-spin-button"));
     DEFINE_STATIC_LOCAL(AtomicString, required, ("required"));
     DEFINE_STATIC_LOCAL(AtomicString, resizer, ("-webkit-resizer"));
     DEFINE_STATIC_LOCAL(AtomicString, root, ("root"));
@@ -298,11 +264,8 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, scrollbarThumb, ("-webkit-scrollbar-thumb"));
     DEFINE_STATIC_LOCAL(AtomicString, scrollbarTrack, ("-webkit-scrollbar-track"));
     DEFINE_STATIC_LOCAL(AtomicString, scrollbarTrackPiece, ("-webkit-scrollbar-track-piece"));
-    DEFINE_STATIC_LOCAL(AtomicString, searchCancelButton, ("-webkit-search-cancel-button"));
-    DEFINE_STATIC_LOCAL(AtomicString, searchDecoration, ("-webkit-search-decoration"));
-    DEFINE_STATIC_LOCAL(AtomicString, searchResultsDecoration, ("-webkit-search-results-decoration"));
-    DEFINE_STATIC_LOCAL(AtomicString, searchResultsButton, ("-webkit-search-results-button"));
     DEFINE_STATIC_LOCAL(AtomicString, selection, ("selection"));
+    DEFINE_STATIC_LOCAL(AtomicString, scope, ("scope"));
     DEFINE_STATIC_LOCAL(AtomicString, target, ("target"));
     DEFINE_STATIC_LOCAL(AtomicString, visited, ("visited"));
     DEFINE_STATIC_LOCAL(AtomicString, windowInactive, ("window-inactive"));
@@ -339,10 +302,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(autofill.impl(), CSSSelector::PseudoAutofill);
         nameToPseudoType->set(before.impl(), CSSSelector::PseudoBefore);
         nameToPseudoType->set(checked.impl(), CSSSelector::PseudoChecked);
-        nameToPseudoType->set(fileUploadButton.impl(), CSSSelector::PseudoFileUploadButton);
-#if ENABLE(INPUT_SPEECH)
-        nameToPseudoType->set(inputSpeechButton.impl(), CSSSelector::PseudoInputSpeechButton);
-#endif
         nameToPseudoType->set(defaultString.impl(), CSSSelector::PseudoDefault);
         nameToPseudoType->set(disabled.impl(), CSSSelector::PseudoDisabled);
         nameToPseudoType->set(readOnly.impl(), CSSSelector::PseudoReadOnly);
@@ -355,10 +314,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(empty.impl(), CSSSelector::PseudoEmpty);
         nameToPseudoType->set(firstChild.impl(), CSSSelector::PseudoFirstChild);
         nameToPseudoType->set(fullPageMedia.impl(), CSSSelector::PseudoFullPageMedia);
-#if ENABLE(DATALIST)
-        nameToPseudoType->set(inputListButton.impl(), CSSSelector::PseudoInputListButton);
-#endif
-        nameToPseudoType->set(inputPlaceholder.impl(), CSSSelector::PseudoInputPlaceholder);
         nameToPseudoType->set(lastChild.impl(), CSSSelector::PseudoLastChild);
         nameToPseudoType->set(lastOfType.impl(), CSSSelector::PseudoLastOfType);
         nameToPseudoType->set(onlyChild.impl(), CSSSelector::PseudoOnlyChild);
@@ -369,7 +324,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(focus.impl(), CSSSelector::PseudoFocus);
         nameToPseudoType->set(hover.impl(), CSSSelector::PseudoHover);
         nameToPseudoType->set(indeterminate.impl(), CSSSelector::PseudoIndeterminate);
-        nameToPseudoType->set(innerSpinButton.impl(), CSSSelector::PseudoInnerSpinButton);
         nameToPseudoType->set(link.impl(), CSSSelector::PseudoLink);
         nameToPseudoType->set(lang.impl(), CSSSelector::PseudoLang);
         nameToPseudoType->set(notStr.impl(), CSSSelector::PseudoNot);
@@ -377,7 +331,6 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(nthOfType.impl(), CSSSelector::PseudoNthOfType);
         nameToPseudoType->set(nthLastChild.impl(), CSSSelector::PseudoNthLastChild);
         nameToPseudoType->set(nthLastOfType.impl(), CSSSelector::PseudoNthLastOfType);
-        nameToPseudoType->set(outerSpinButton.impl(), CSSSelector::PseudoOuterSpinButton);
         nameToPseudoType->set(root.impl(), CSSSelector::PseudoRoot);
         nameToPseudoType->set(windowInactive.impl(), CSSSelector::PseudoWindowInactive);
         nameToPseudoType->set(decrement.impl(), CSSSelector::PseudoDecrement);
@@ -399,11 +352,8 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(scrollbarTrack.impl(), CSSSelector::PseudoScrollbarTrack);
         nameToPseudoType->set(scrollbarTrackPiece.impl(), CSSSelector::PseudoScrollbarTrackPiece);
         nameToPseudoType->set(cornerPresent.impl(), CSSSelector::PseudoCornerPresent);
-        nameToPseudoType->set(searchCancelButton.impl(), CSSSelector::PseudoSearchCancelButton);
-        nameToPseudoType->set(searchDecoration.impl(), CSSSelector::PseudoSearchDecoration);
-        nameToPseudoType->set(searchResultsDecoration.impl(), CSSSelector::PseudoSearchResultsDecoration);
-        nameToPseudoType->set(searchResultsButton.impl(), CSSSelector::PseudoSearchResultsButton);
         nameToPseudoType->set(selection.impl(), CSSSelector::PseudoSelection);
+        nameToPseudoType->set(scope.impl(), CSSSelector::PseudoScope);
         nameToPseudoType->set(target.impl(), CSSSelector::PseudoTarget);
         nameToPseudoType->set(visited.impl(), CSSSelector::PseudoVisited);
         nameToPseudoType->set(firstPage.impl(), CSSSelector::PseudoFirstPage);
@@ -430,6 +380,11 @@ CSSSelector::PseudoType CSSSelector::parsePseudoType(const AtomicString& name)
     return slot == nameToPseudoType->end() ? PseudoUnknown : slot->second;
 }
 
+bool CSSSelector::isUnknownPseudoType(const AtomicString& name)
+{
+    return parsePseudoType(name) == PseudoUnknown;
+}
+
 void CSSSelector::extractPseudoType() const
 {
     if (m_match != PseudoClass && m_match != PseudoElement && m_match != PagePseudoClass)
@@ -447,14 +402,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoFirstLetter:
     case PseudoFirstLine:
         compat = true;
-    case PseudoFileUploadButton:
-    case PseudoInputListButton:
-    case PseudoInputPlaceholder:
-#if ENABLE(INPUT_SPEECH)
-    case PseudoInputSpeechButton:
-#endif
-    case PseudoInnerSpinButton:
-    case PseudoOuterSpinButton: 
     case PseudoResizer:
     case PseudoScrollbar:
     case PseudoScrollbarCorner:
@@ -462,10 +409,6 @@ void CSSSelector::extractPseudoType() const
     case PseudoScrollbarThumb:
     case PseudoScrollbarTrack:
     case PseudoScrollbarTrackPiece:
-    case PseudoSearchCancelButton:
-    case PseudoSearchDecoration:
-    case PseudoSearchResultsDecoration:
-    case PseudoSearchResultsButton:
     case PseudoSelection:
         element = true;
         break;
@@ -502,6 +445,7 @@ void CSSSelector::extractPseudoType() const
     case PseudoValid:
     case PseudoInvalid:
     case PseudoIndeterminate:
+    case PseudoScope:
     case PseudoTarget:
     case PseudoLang:
     case PseudoNot:
@@ -628,7 +572,7 @@ String CSSSelector::selectorText() const
         } else if (cs->m_match == CSSSelector::PseudoElement) {
             str += "::";
             str += cs->value();
-        } else if (cs->hasAttribute()) {
+        } else if (cs->isAttributeSelector()) {
             str += "[";
             const AtomicString& prefix = cs->attribute().prefix();
             if (!prefix.isNull()) {
@@ -680,6 +624,8 @@ String CSSSelector::selectorText() const
             str = tagHistoryText + " ~ " + str;
         else if (cs->relation() == CSSSelector::Child)
             str = tagHistoryText + " > " + str;
+        else if (cs->relation() == CSSSelector::ShadowDescendant)
+            str = tagHistoryText + str;
         else
             // Descendant
             str = tagHistoryText + " " + str;
@@ -688,33 +634,21 @@ String CSSSelector::selectorText() const
     return str;
 }
 
-const QualifiedName& CSSSelector::attribute() const
-{ 
-    switch (m_match) {
-    case Id:
-        return idAttr;
-    case Class:
-        return classAttr;
-    default:
-        return m_hasRareData ? m_data.m_rareData->m_attribute : anyQName();
-    }
+void CSSSelector::setAttribute(const QualifiedName& value)
+{
+    createRareData();
+    m_data.m_rareData->m_attribute = value;
 }
 
-void CSSSelector::setAttribute(const QualifiedName& value) 
-{ 
-    createRareData(); 
-    m_data.m_rareData->m_attribute = value; 
+void CSSSelector::setArgument(const AtomicString& value)
+{
+    createRareData();
+    m_data.m_rareData->m_argument = value;
 }
-    
-void CSSSelector::setArgument(const AtomicString& value) 
-{ 
-    createRareData(); 
-    m_data.m_rareData->m_argument = value; 
-}
-    
+
 void CSSSelector::setSelectorList(PassOwnPtr<CSSSelectorList> selectorList)
 {
-    createRareData(); 
+    createRareData();
     m_data.m_rareData->m_selectorList = selectorList;
 }
 
@@ -773,15 +707,15 @@ CSSSelector::RareData::~RareData()
     if (m_value)
         m_value->deref();
 }
-    
+
 // a helper function for parsing nth-arguments
 bool CSSSelector::RareData::parseNth()
 {
     String argument = m_argument.lower();
-    
+
     if (argument.isEmpty())
         return false;
-    
+
     m_a = 0;
     m_b = 0;
     if (argument == "odd") {
@@ -802,7 +736,7 @@ bool CSSSelector::RareData::parseNth()
                 m_a = 1; // n == 1n
             else
                 m_a = argument.substring(0, n).toInt();
-            
+
             size_t p = argument.find('+', n);
             if (p != notFound)
                 m_b = argument.substring(p + 1, argument.length() - p - 1).toInt();

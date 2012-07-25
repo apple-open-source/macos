@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2011 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -212,6 +212,15 @@ will fit within 32 bits even though directory cookies are 64 bits in
 NFSv3.  This option may be required with NFS clients that do not
 properly support 64 bit directory cookies.  Use of this option
 may result in sub-optimal performance of the exported file system.
+.Pp
+The
+.Fl manglednames
+option causes the NFS server to guarantee that filenames will fit
+into 255 bytes. For NFSv2 this is always the case. For NFSv3
+specifying this option on an export will cause filenames greater
+than 255 characters from that export be mangled in such a way that
+when the client presents a received mangled name it will refer to
+the same name as the original name on the server.
 .Pp
 .Sm off
 .Fl sec No = Sy mechanism1:mechanism2...

@@ -267,6 +267,9 @@ static void get_seg1addr(
     char *arch_name,
     void *cookie);
 
+/* apple_version is created by the libstuff/Makefile */
+extern char apple_version[];
+char *version = apple_version;
 
 /*
  * The seg_addr_table program.  It takes a file which contains the starting

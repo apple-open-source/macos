@@ -43,7 +43,7 @@
 #include "gen_dhcp_types.h"
 #include "dhcp_options.h"
 
-typedef enum {
+enum {
     /* macNC client request options */
     macNCtag_client_version_e 		= 220,
     macNCtag_client_info_e 		= 221,
@@ -59,13 +59,15 @@ typedef enum {
     macNCtag_MacOS_machine_name_e	= 237,
     macNCtag_shared_system_shadow_file_e = 238,
     macNCtag_private_system_shadow_file_e = 239,
-} macNCtag_t;
+};
+typedef uint32_t macNCtag_t;
 
-typedef enum {
+enum {
     macNCtype_pstring_e		= dhcptype_last_e + 1,
     macNCtype_afp_path_e	= dhcptype_last_e + 2,
     macNCtype_afp_password_e	= dhcptype_last_e + 3,
-} macNCtype_t;
+};
+typedef uint32_t macNCtype_t;
 
 #import "afp.h"
 
@@ -90,4 +92,4 @@ boolean_t
 macNCopt_str_to_type(const char * str, 
 		     int type, void * buf, int * len_p,
 		     dhcpo_err_str_t * err);
-#endif _S_MACNC_OPTIONS_H
+#endif /* _S_MACNC_OPTIONS_H */

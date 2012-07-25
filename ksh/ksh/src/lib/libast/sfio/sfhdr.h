@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -322,6 +322,9 @@
 
 #if _hdr_wchar && _typ_mbstate_t && _lib_wcrtomb && _lib_mbrtowc
 #define _has_multibyte		1	/* Xopen-compliant	*/
+#if _typ___va_list && !defined(__va_list)
+#define __va_list	va_list
+#endif
 #include	<wchar.h>
 #define SFMBCPY(to,fr)		memcpy((to), (fr), sizeof(mbstate_t))
 #define SFMBCLR(mb)		memset((mb), 0,  sizeof(mbstate_t))
@@ -361,22 +364,48 @@
 #define SFMBDCL(mb)
 #endif /* _has_multibyte */
 
+/* dealing with streams that might be accessed concurrently */
 #if vt_threaded
 
-/* initialization */
-#define SFONCE()	(_Sfdone ? 0 : vtonce(_Sfonce,_Sfoncef))
+#define SFMTXdecl(ff,_mf_)	Sfio_t* _mf_ = (ff)
+#define SFMTXbegin(ff,_mf_,rv) \
+	{	if((ff)->_flags&SF_MTSAFE) \
+		{	(_mf_) = (ff); \
+			if(sfmutex((ff), SFMTX_LOCK) != 0) return(rv); \
+			if(_Sfnotify) \
+			{	(*_Sfnotify)((_mf_), SF_MTACCESS, (Void_t*)(&(ff)) ); \
+				if(!(ff)) (ff) = (_mf_); \
+			} \
+		} \
+	}
+#define SFMTXend(ff,_mf_) \
+	{	if((ff)->_flags&SF_MTSAFE) \
+		{	if(_Sfnotify) \
+				(*_Sfnotify)((_mf_), SF_MTACCESS, NIL(Void_t*) ); \
+			sfmutex((ff), SFMTX_UNLOCK); \
+			(ff) = (_mf_); \
+		} \
+	}
 
-/* to lock/unlock a stream on entering and returning from some function */
-#define SFMTXLOCK(f)	 (((f)->flags&SF_MTSAFE) ? sfmutex(f,SFMTX_LOCK) : 0)
-#define SFMTXUNLOCK(f)	 (((f)->flags&SF_MTSAFE) ? sfmutex(f,SFMTX_UNLOCK) : 0)
-#define SFMTXSTART(f,v)  { if(!f || SFMTXLOCK(f) != 0) return(v); }
-#define SFMTXRETURN(f,v) { SFMTXUNLOCK(f); return(v); }
+#define SFONCE()		(_Sfdone ? 0 : vtonce(_Sfonce,_Sfoncef))
 
-/* start and end critical region for a pool */
+#define SFMTXLOCK(f)		(((f)->flags&SF_MTSAFE) ? sfmutex(f,SFMTX_LOCK) : 0)
+#define SFMTXUNLOCK(f)		(((f)->flags&SF_MTSAFE) ? sfmutex(f,SFMTX_UNLOCK) : 0)
+
+#define SFMTXDECL(ff)		SFMTXdecl((ff), _mtxf1_)
+#define SFMTXBEGIN(ff,v) 	{ SFMTXbegin((ff), _mtxf1_, (v) ); }
+#define SFMTXEND(ff)		{ SFMTXend(ff, _mtxf1_); }
+#define SFMTXENTER(ff,v) 	{ if(!(ff)) return(v); SFMTXBEGIN((ff), (v)); }
+#define SFMTXRETURN(ff,v)	{ SFMTXEND(ff); return(v); }
+
+#define SFMTXDECL2(ff)		SFMTXdecl((ff), _mtxf2_)
+#define SFMTXBEGIN2(ff,v) 	{ SFMTXbegin((ff), _mtxf2_, (v) ); }
+#define SFMTXEND2(ff)		{ SFMTXend((ff), _mtxf2_); }
+
 #define POOLMTXLOCK(p)		( vtmtxlock(&(p)->mutex) )
 #define POOLMTXUNLOCK(p)	( vtmtxunlock(&(p)->mutex) )
-#define POOLMTXSTART(p)		{ POOLMTXLOCK(p); }
-#define POOLMTXRETURN(p,v)	{ POOLMTXUNLOCK(p); return(v); }
+#define POOLMTXENTER(p)		{ POOLMTXLOCK(p); }
+#define POOLMTXRETURN(p,rv)	{ POOLMTXUNLOCK(p); return(rv); }
 
 #else /*!vt_threaded*/
 
@@ -387,12 +416,20 @@
 
 #define SFMTXLOCK(f)		/*(0)*/
 #define SFMTXUNLOCK(f)		/*(0)*/
-#define SFMTXSTART(f,v)		{ if(!f) return(v); }
-#define SFMTXRETURN(f,v)	{ return(v); }
+
+#define	SFMTXDECL(ff)		/*(0)*/
+#define SFMTXBEGIN(ff,v) 	/*(0)*/
+#define SFMTXEND(ff)		/*(0)*/
+#define SFMTXENTER(ff,v)	{ if(!(ff)) return(v); }
+#define SFMTXRETURN(ff,v)	{ return(v); }
+
+#define SFMTXDECL2(ff)		/*(0)*/
+#define SFMTXBEGIN2(ff,v) 	/*(0)*/
+#define SFMTXEND2(ff)		/*(0)*/
 
 #define POOLMTXLOCK(p)
 #define POOLMTXUNLOCK(p)
-#define POOLMTXSTART(p)
+#define POOLMTXENTER(p)
 #define POOLMTXRETURN(p,v)	{ return(v); }
 
 #endif /*vt_threaded*/
@@ -547,7 +584,7 @@
 
 #ifndef S_ISFIFO
 #	ifdef S_IFIFO
-#		define S_ISFIFO(m)	(((m)&S_IFIFO) == S_IFIFO)
+#		define S_ISFIFO(m)	(((m)&S_IFMT) == S_IFIFO)
 #	else
 #		define S_ISFIFO(m)	(0)
 #	endif
@@ -769,7 +806,7 @@ typedef struct _sfextern_s
 	struct _sfpool_s	sf_pool;
 	int			(*sf_pmove)_ARG_((Sfio_t*, int));
 	Sfio_t*			(*sf_stack)_ARG_((Sfio_t*, Sfio_t*));
-	void			(*sf_notify)_ARG_((Sfio_t*, int, int));
+	void			(*sf_notify)_ARG_((Sfio_t*, int, void*));
 	int			(*sf_stdsync)_ARG_((Sfio_t*));
 	struct _sfdisc_s	sf_udisc;
 	void			(*sf_cleanup)_ARG_((void));
@@ -799,7 +836,11 @@ typedef struct _sfextern_s
 			 ((n) >= SF_GRAIN && (ssize_t)(n) >= (f)->size/16 ) )
 
 /* number of pages to memory map at a time */
-#define SF_NMAP		4
+#if _ptr_bits >= 64
+#define SF_NMAP		1024
+#else
+#define SF_NMAP		32
+#endif
 
 #ifndef MAP_VARIABLE
 #define MAP_VARIABLE	0
@@ -850,8 +891,7 @@ typedef struct _sfextern_s
 #define GETLOCAL(f,v)	((v) = ((f)->mode&SF_LOCAL), (f)->mode &= ~SF_LOCAL, (v))
 #define SFWRALL(f)	((f)->mode |= SF_RV)
 #define SFISALL(f,v)	((((v) = (f)->mode&SF_RV) ? ((f)->mode &= ~SF_RV) : 0), \
-			 ((v) || (f)->extent < 0 || \
-			  ((f)->flags&(SF_SHARE|SF_APPENDWR|SF_WHOLE)) ) )
+			 ((v) || ((f)->flags&(SF_SHARE|SF_APPENDWR|SF_WHOLE)) ) )
 #define SFSK(f,a,o,d)	(SETLOCAL(f),sfsk(f,(Sfoff_t)a,o,d))
 #define SFRD(f,b,n,d)	(SETLOCAL(f),sfrd(f,(Void_t*)b,n,d))
 #define SFWR(f,b,n,d)	(SETLOCAL(f),sfwr(f,(Void_t*)b,n,d))
@@ -1130,7 +1170,7 @@ extern int		_sfpclose _ARG_((Sfio_t*));
 extern int		_sfexcept _ARG_((Sfio_t*, int, ssize_t, Sfdisc_t*));
 extern Sfrsrv_t*	_sfrsrv _ARG_((Sfio_t*, ssize_t));
 extern int		_sfsetpool _ARG_((Sfio_t*));
-extern char*		_sfcvt _ARG_((Sfdouble_t,char*,size_t,int,int*,int*,int*,int));
+extern char*		_sfcvt _ARG_((Void_t*,char*,size_t,int,int*,int*,int*,int));
 extern char**		_sfgetpath _ARG_((char*));
 
 #if _BLD_sfio && defined(__EXPORT__)

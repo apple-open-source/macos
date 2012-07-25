@@ -1,7 +1,7 @@
 ;; OriginatingProject: files
 ;;
 ;; common rules for various BSD daemons
-;; Copyright (c) 2007-2010 Apple Inc.  All Rights reserved.
+;; Copyright (c) 2007-2011 Apple Inc. All Rights reserved.
 ;;
 ;; WARNING: The sandbox rules in this file currently constitute
 ;; Apple System Private Interface and are subject to change at any time and
@@ -12,47 +12,19 @@
 
 (debug deny)
 
+(import "system.sb")
+
 ;; allow processes to traverse symlinks
 (allow file-read-metadata)
-
-(allow file-read-data file-read-metadata
-  (regex
-    ; Allow reading system dylibs and frameworks
-    #"^/usr/lib/.*\.dylib$"
-    #"^/usr/lib/info/.*\.so$"
-    #"^/System/"
-    #"^/private/var/db/dyld/"
-    #"^(/private)?/etc/hosts\.(allow|deny)$"
-  ))
 
 (allow file-read-data file-write-data
   (regex
     ; Allow files accessed by system dylibs and frameworks
-    #"^/dev/null$"
-    #"^(/private)?/var/run/syslog$"
-    #"^/dev/u?random$"
-    #"^/dev/autofs_nowait$"
-    #"^/dev/dtracehelper$"
     #"/\.CFUserTextEncoding$"
-    #"^(/private)?/etc/localtime$"
     #"^/usr/share/nls/"
     #"^/usr/share/zoneinfo/"
   ))
 
-(allow file-ioctl
-  (regex
-    ; Allow access to dtracehelper by dyld
-    #"^/dev/dtracehelper$"))
-
-(allow mach-lookup
-  (global-name "com.apple.bsd.dirhelper")
-  (global-name "com.apple.system.DirectoryService.libinfo_v1")
-  (global-name "com.apple.system.DirectoryService.membership_v1")
-  (global-name "com.apple.system.logger")
-  (global-name "com.apple.system.notification_center"))
-
 (allow ipc-posix-shm) ; Libnotify
-
-(allow sysctl-read)
 
 (allow signal (target self))

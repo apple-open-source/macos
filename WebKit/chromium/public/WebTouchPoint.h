@@ -31,25 +31,20 @@
 #ifndef WebTouchPoint_h
 #define WebTouchPoint_h
 
-#include "WebCommon.h"
-#include "WebPoint.h"
+#include "platform/WebPoint.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
 class WebTouchPoint {
 public:
-    enum Finger {
-        FingerFirst,
-        FingerSecond,
-        FingerThird
-    };
-
     WebTouchPoint()
-        : id(FingerFirst)
+        : id(0)
         , state(StateUndefined)
         , radiusX(0)
         , radiusY(0)
         , rotationAngle(0)
+        , force(0)
     {
     }
 
@@ -70,6 +65,7 @@ public:
     int radiusX;
     int radiusY;
     float rotationAngle;
+    float force;
 };
 
 } // namespace WebKit

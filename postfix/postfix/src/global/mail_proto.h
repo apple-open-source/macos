@@ -147,9 +147,11 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_TTL		"ttl"
 #define MAIL_ATTR_LABEL		"label"
 #define MAIL_ATTR_PROP		"property"
+#define MAIL_ATTR_FUNC		"function"
 #define MAIL_ATTR_CCERT_SUBJECT	"ccert_subject"
 #define MAIL_ATTR_CCERT_ISSUER	"ccert_issuer"
 #define MAIL_ATTR_CCERT_FINGERPRINT "ccert_fingerprint"
+#define MAIL_ATTR_CCERT_PKEY_FPRINT "ccert_pubkey_fingerprint"
 #define MAIL_ATTR_CRYPTO_PROTOCOL "encryption_protocol"
 #define MAIL_ATTR_CRYPTO_CIPHER	"encryption_cipher"
 #define MAIL_ATTR_CRYPTO_KEYSIZE "encryption_keysize"
@@ -214,6 +216,7 @@ extern char *mail_pathname(const char *, const char *);
 #define XCLIENT_PORT		"PORT"	/* client port */
 #define XCLIENT_PROTO		"PROTO"	/* client protocol */
 #define XCLIENT_HELO		"HELO"	/* client helo */
+#define XCLIENT_LOGIN		"LOGIN"	/* SASL login name */
 
 #define XCLIENT_UNAVAILABLE	"[UNAVAILABLE]"	/* permanently unavailable */
 #define XCLIENT_TEMPORARY	"[TEMPUNAVAIL]"	/* temporarily unavailable */
@@ -256,11 +259,13 @@ extern char *mail_pathname(const char *, const char *);
 #define MAIL_ATTR_PEER_CN	"peer_CN"
 #define MAIL_ATTR_ISSUER_CN	"issuer_CN"
 #define MAIL_ATTR_PEER_FPT	"peer_fingerprint"
+#define MAIL_ATTR_PEER_PKEY_FPT	"peer_pubkey_fingerprint"
 #define MAIL_ATTR_PEER_STATUS	"peer_status"
 #define MAIL_ATTR_CIPHER_PROTOCOL "cipher_protocol"
 #define MAIL_ATTR_CIPHER_NAME	"cipher_name"
 #define MAIL_ATTR_CIPHER_USEBITS "cipher_usebits"
 #define MAIL_ATTR_CIPHER_ALGBITS "cipher_algbits"
+#define MAIL_ATTR_SERVER_ID	"server_id"
 
  /*
   * SMTP reply footer support.

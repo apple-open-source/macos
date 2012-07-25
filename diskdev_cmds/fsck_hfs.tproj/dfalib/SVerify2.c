@@ -41,7 +41,7 @@
 
 //	Prototypes for internal subroutines
 static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb );
-	
+
 
 /*------------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ Output:		lastExtentIndex - In normal case, it is set to the maximum number of
 								0 = no error
 								n = error
 ------------------------------------------------------------------------------*/
-OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentIndex )
+OSErr ChkExtRec ( SGlobPtr GPtr, UInt32 fileID, const void *extents , unsigned int *lastExtentIndex )
 {
 	short		i;
 	Boolean		isHFSPlus;
@@ -94,6 +94,10 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentI
 		{
 			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
+			if (fsckGetVerbosity(GPtr->context) >= kDebugLog) { 
+				plog ("\tCheckExtRecord: id=%u %d:(%u,%u), maxBlocks=%u (startBlock > maxBlocks)\n", 
+						fileID, i, extentStartBlock, extentBlockCount, maxNABlks);
+			}
 			return( E_ExtEnt );
 		}
 		/* Check if end of extent is beyond end of disk */
@@ -101,6 +105,10 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentI
 		{
 			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
+			if (fsckGetVerbosity(GPtr->context) >= kDebugLog) { 
+				plog ("\tCheckExtRecord: id=%u %d:(%u,%u), maxBlocks=%u (blockCount > (maxBlocks - startBlock))\n", 
+						fileID, i, extentStartBlock, extentBlockCount, maxNABlks);
+			}
 			return( E_ExtEnt );
 		}			
 		/* This condition is not checked for standard HFS volumes as it is valid 
@@ -111,6 +119,10 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentI
 		{
 			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
+			if (fsckGetVerbosity(GPtr->context) >= kDebugLog) { 
+				plog ("\tCheckExtRecord: id=%u %d:(%u,%u), (startBlock == 0)\n", 
+						fileID, i, extentStartBlock, extentBlockCount);
+			}
 			return( E_ExtEnt );
 
 		}
@@ -118,6 +130,10 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentI
 		{
 			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
+			if (fsckGetVerbosity(GPtr->context) >= kDebugLog) { 
+				plog ("\tCheckExtRecord: id=%u %d:(%u,%u), (blockCount == 0)\n", 
+						fileID, i, extentStartBlock, extentBlockCount);
+			}
 			return( E_ExtEnt );
 		}	
 		if ( numABlks == 0 )
@@ -126,6 +142,10 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentI
 			{
 				*lastExtentIndex = i;
 				RcdError( GPtr, E_ExtEnt );
+				if (fsckGetVerbosity(GPtr->context) >= kDebugLog) { 
+					plog ("\tCheckExtRecord: id=%u %d:(%u,%u), (blockCount != 0)\n", 
+							fileID, i, extentStartBlock, extentBlockCount);
+				}
 				return( E_ExtEnt );
 			}
 		}
@@ -210,7 +230,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	UInt16			*statusFlag = NULL;
 	UInt32			leafRecords = 0;
 	BTreeControlBlock	*calculatedBTCB	= GetBTreeControlBlock( refNum );
-
+	
 	//	Set up
 	if ( refNum == kCalculatedCatalogRefNum )
 		statusFlag	= &(GPtr->CBTStat);
@@ -365,6 +385,16 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				result	= E_BadNode;
 			}
 			node.buffer = NULL;
+			if (debug)
+			{
+				/* Try to continue checking other nodes.
+				 *
+				 * Decrement the current btree level as we want to access 
+				 * the right sibling index record, if any, of our parent.
+				 */
+				GPtr->BTLevel--;
+				continue;
+			}
 			goto exit;
 		}
 		nodeDescP = node.buffer;
@@ -405,8 +435,14 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				/* we should be able to fix any E_KeyOrd error or any B-Tree key */
 				/* errors with an index node. */
 				if ( E_KeyOrd == result || nodeDescP->kind == kBTIndexNode )
-					goto RebuildBTreeExit;	
-				goto exit;
+				{
+					*statusFlag |= S_RebuildBTree;
+					result = errRebuildBtree;
+				}
+				else
+				{
+					goto exit;
+				}
 			}
 				
 			/* Check backward link of this node */ 
@@ -414,7 +450,13 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			{
 				result = E_SibLk;
 				RcdError( GPtr, E_SibLk );
-				goto RebuildBTreeExit;	
+				if (debug)
+					printf("Node %d's back link is 0x%x; expected 0x%x\n"
+						   "    disk offset = 0x%llx, size = 0x%x\n",
+						   nodeNum, nodeDescP->bLink, tprP->TPRLtSib,
+						   ((Buf_t *)(node.blockHeader))->Offset, ((Buf_t *)(node.blockHeader))->Length);
+				if (!debug)
+					goto RebuildBTreeExit;	
 			}	
 			if ( tprP->TPRRtSib == -1 )
 			{
@@ -427,6 +469,12 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				{				
 					result = E_SibLk;
 					RcdError( GPtr, E_SibLk );
+					if (debug)
+						printf("Node %d's forward link is 0x%x; expected 0x%x\n"
+							   "    disk offset = 0x%llx, size = 0x%x\n",
+							   nodeNum, nodeDescP->fLink, tprP->TPRRtSib,
+							   ((Buf_t *)(node.blockHeader))->Offset, ((Buf_t *)(node.blockHeader))->Length);
+				if (!debug)
 					goto RebuildBTreeExit;	
 				}
 			}
@@ -436,7 +484,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			{
 				result = E_NType;
 				RcdError( GPtr, E_NType );
-				goto exit;
+				if (!debug) goto exit;
 			}	
 			/* Check if the height of this node is correct based on calculated
 			 * tree depth and current btree level of the traversal 
@@ -445,9 +493,17 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			{
 				result = E_NHeight;
 				RcdError( GPtr, E_NHeight );
-				goto RebuildBTreeExit;	
+				if (!debug) goto RebuildBTreeExit;	
 			}
-				
+			
+			if (result && (cur_debug_level & d_dump_node))
+			{
+				plog("Node %u:\n", node.blockNum);
+				HexDump(node.buffer, node.blockSize, TRUE);
+				GPtr->BTLevel--;
+				continue;
+			}
+			
 			/* If we saved the first key in the parent (index) node in past, use it to compare 
 			 * with the key of the first record in the current node.  This check should 
 			 * be performed for all nodes except the root node.
@@ -458,9 +514,19 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				if ( CompareKeys( (BTreeControlBlockPtr)calculatedBTCB, (BTreeKey *)parKey, keyPtr ) != 0 )
 				{
 					if (debug)
+					{
 						plog("Index key doesn't match first node key\n");
+						if (cur_debug_level & d_dump_record)
+						{
+							plog("Found (child; node %u):\n", tprP->TPRNodeN);
+							HexDump(keyPtr, CalcKeySize(calculatedBTCB, keyPtr), FALSE);
+							plog("Expected (parent; node %u):\n", tprP[-1].TPRNodeN);
+							HexDump(parKey, CalcKeySize(calculatedBTCB, (BTreeKey *)parKey), FALSE);
+						}
+					}
 					RcdError( GPtr, E_IKey );
-					goto RebuildBTreeExit;
+					*statusFlag |= S_RebuildBTree;
+					result = errRebuildBtree;
 				}
 			}
 			if ( nodeDescP->kind == kBTIndexNode )
@@ -611,7 +677,9 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	} /* end while */
 
 	calculatedBTCB->leafRecords = leafRecords;
-
+	
+	if (result == noErr && (*statusFlag & S_RebuildBTree))
+		result = errRebuildBtree;
 exit:
 	if (node.buffer != NULL)
 		(void) ReleaseNode(calculatedBTCB, &node);
@@ -1101,10 +1169,17 @@ static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb )
 	SInt16				index;
 	UInt16				dataSize;
 	UInt16				keyLength;
+	UInt16				prevKeyLength = 0;
 	KeyPtr 				keyPtr;
 	UInt8				*dataPtr;
 	KeyPtr				prevkeyP	= nil;
-
+	unsigned			sizeofKeyLength;
+	int					result = noErr;
+	
+	if (btcb->attributes & kBTBigKeysMask)
+		sizeofKeyLength = 2;
+	else
+		sizeofKeyLength = 1;
 
 	if ( nodeP->numRecords == 0 )
 	{
@@ -1152,15 +1227,45 @@ static int BTKeyChk( SGlobPtr GPtr, NodeDescPtr nodeP, BTreeControlBlock *btcb )
 					else
 					{
 						RcdError( GPtr, E_KeyOrd );
-						return( E_KeyOrd );
+						plog("Records %d and %d (0-based); offsets 0x%04X and 0x%04X\n", index-1, index, (long)prevkeyP - (long)nodeP, (long)keyPtr - (long)nodeP);
+						result = E_KeyOrd;
 					}
 				}
 			}
 			prevkeyP = keyPtr;
+			prevKeyLength = keyLength;
 		}
 	}
 
-	return( noErr );
+	if (result == E_KeyOrd)
+	{
+		if (cur_debug_level & d_dump_record)
+		{
+			for (index = 0; index < nodeP->numRecords; ++index)
+			{
+				GetRecordByIndex( (BTreeControlBlock *)btcb, nodeP, (UInt16) index, &keyPtr, &dataPtr, &dataSize );
+	
+				if (btcb->attributes & kBTBigKeysMask)
+					keyLength = keyPtr->length16;
+				else
+					keyLength = keyPtr->length8;
+	
+				plog("Record %d (offset 0x%04X):\n", index, (long)keyPtr - (long)nodeP);
+				HexDump(keyPtr, keyLength + sizeofKeyLength, FALSE);
+				plog("--\n");
+				HexDump(dataPtr, dataSize, FALSE);
+				plog("\n");
+			}
+		}
+		
+		if (cur_debug_level & d_dump_node)
+		{
+			plog("Node:\n");
+			HexDump(nodeP, btcb->nodeSize, TRUE);
+		}
+	}
+	
+	return( result );
 }
 
 

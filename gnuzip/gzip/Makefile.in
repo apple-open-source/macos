@@ -269,7 +269,7 @@ SUBDIRS = lib doc
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -I$(top_srcdir)/lib
 man_MANS = gunzip.1 gzexe.1 gzip.1 \
-  zcat.1 zcmp.1 zdiff.1 zforce.1 zgrep.1 zless.1 zmore.1 znew.1
+  zcat.1 zcmp.1 zdiff.1 zforce.1 zless.1 zmore.1 znew.1
 
 EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
   algorithm.doc amiga/match.a amiga/Makefile.gcc amiga/Makefile.sasc \
@@ -287,7 +287,7 @@ EXTRA_DIST = $(ACINCLUDE_INPUTS) $(man_MANS) \
   zegrep.in zfgrep.in zforce.in zgrep.in zless.in zmore.in znew.in
 
 bin_SCRIPTS = gunzip gzexe zcat zcmp zdiff \
-  zegrep zfgrep zforce zgrep zless zmore znew
+  zforce zless zmore znew
 
 gzip_SOURCES = \
   bits.c crypt.c deflate.c gzip.c inflate.c lzw.c \

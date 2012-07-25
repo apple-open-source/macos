@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Holger Hans Peter Freyther
  * Copyright (C) 2009, 2010 Collabora Ltd.
+ * Copyright (C) 2012 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +27,8 @@
 
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <gdk/gdk.h>
+#include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 
@@ -78,9 +81,14 @@ static void idle_quit_loop_cb(WebKitWebView* web_view, GParamSpec* pspec, gpoint
         g_main_loop_quit(loop);
 }
 
+static gboolean timeout_cb(gpointer data)
+{
+    g_error("Didn't get icon-uri before timing out.");
+    return FALSE;
+}
+
 static void icon_uri_changed_cb(WebKitWebView* web_view, GParamSpec* pspec, gpointer data)
 {
-    gboolean* been_here = (gboolean*)data;
     char* expected_uri;
 
     g_assert_cmpstr(g_param_spec_get_name(pspec), ==, "icon-uri");
@@ -89,7 +97,7 @@ static void icon_uri_changed_cb(WebKitWebView* web_view, GParamSpec* pspec, gpoi
     g_assert_cmpstr(webkit_web_view_get_icon_uri(web_view), ==, expected_uri);
     g_free(expected_uri);
 
-    *been_here = TRUE;
+    g_main_loop_quit(loop);
 }
 
 static void icon_loaded_cb(WebKitWebView* web_view, char* icon_uri, gpointer data)
@@ -106,7 +114,6 @@ static void icon_loaded_cb(WebKitWebView* web_view, char* icon_uri, gpointer dat
 
 static void test_webkit_web_view_icon_uri()
 {
-    gboolean been_to_uri_changed = FALSE;
     gboolean been_to_icon_loaded = FALSE;
     WebKitWebView* view = WEBKIT_WEB_VIEW(webkit_web_view_new());
     g_object_ref_sink(G_OBJECT(view));
@@ -114,16 +121,18 @@ static void test_webkit_web_view_icon_uri()
     loop = g_main_loop_new(NULL, TRUE);
 
     g_object_connect(G_OBJECT(view),
-                     "signal::notify::progress", idle_quit_loop_cb, NULL,
-                     "signal::notify::icon-uri", icon_uri_changed_cb, &been_to_uri_changed,
+                     "signal::notify::icon-uri", icon_uri_changed_cb, NULL,
                      "signal::icon-loaded", icon_loaded_cb, &been_to_icon_loaded,
                      NULL);
 
     webkit_web_view_load_uri(view, base_uri);
 
+    guint timeout_id = g_timeout_add(500, timeout_cb, 0);
+
     g_main_loop_run(loop);
 
-    g_assert(been_to_uri_changed);
+    g_source_remove(timeout_id);
+
     g_assert(been_to_icon_loaded);
 
     g_object_unref(view);
@@ -161,7 +170,7 @@ static void test_webkit_web_view_grab_focus()
 
     loop = g_main_loop_new(NULL, TRUE);
 
-    g_signal_connect(view, "notify::progress", G_CALLBACK (idle_quit_loop_cb), NULL);
+    g_signal_connect(view, "notify::load-status", G_CALLBACK(idle_quit_loop_cb), NULL);
 
     /* Wait for window to show up */
     gtk_widget_show_all(window);
@@ -229,7 +238,7 @@ static void do_test_webkit_web_view_adjustments(gboolean with_page_cache)
     loop = g_main_loop_new(NULL, TRUE);
 
     g_object_connect(G_OBJECT(view),
-                     "signal::notify::progress", idle_quit_loop_cb, NULL,
+                     "signal::notify::load-status", idle_quit_loop_cb, NULL,
                      NULL);
 
     /* Wait for window to show up */
@@ -357,12 +366,151 @@ static void test_webkit_web_view_window_features()
     gtk_widget_destroy(window);
 }    
 
+static void test_webkit_web_view_in_offscreen_window_does_not_crash()
+{
+    loop = g_main_loop_new(NULL, TRUE);
+
+    GtkWidget *window = gtk_offscreen_window_new();
+    GtkWidget *web_view = webkit_web_view_new();
+
+    gtk_container_add(GTK_CONTAINER(window), web_view);
+    gtk_widget_show_all(window);
+    g_signal_connect(web_view, "notify::load-status", G_CALLBACK(idle_quit_loop_cb), NULL);
+    webkit_web_view_load_uri(WEBKIT_WEB_VIEW(web_view), base_uri);
+
+    g_main_loop_run(loop);
+
+    gtk_widget_destroy(window);
+    g_main_loop_unref(loop);
+}
+
+static void test_webkit_web_view_does_not_steal_focus()
+{
+    loop = g_main_loop_new(NULL, TRUE);
+
+    GtkWidget *window = gtk_offscreen_window_new();
+    GtkWidget *webView = webkit_web_view_new();
+    GtkWidget *entry = gtk_entry_new();
+
+#ifdef GTK_API_VERSION_2
+    GtkWidget *box = gtk_hbox_new(FALSE, 0);
+#else
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+#endif
+
+    gtk_container_add(GTK_CONTAINER(box), webView);
+    gtk_container_add(GTK_CONTAINER(box), entry);
+    gtk_container_add(GTK_CONTAINER(window), box);
+    gtk_widget_show_all(window);
+
+    gtk_widget_grab_focus(entry);
+    g_assert(gtk_widget_is_focus(entry));
+
+    g_signal_connect(webView, "notify::load-status", G_CALLBACK(idle_quit_loop_cb), NULL);
+    webkit_web_view_load_html_string(WEBKIT_WEB_VIEW(webView),
+        "<html><body>"
+        "    <input id=\"entry\" type=\"text\"/>"
+        "    <script>"
+        "        document.getElementById(\"entry\").focus();"
+        "    </script>"
+        "</body></html>", "file://");
+
+    g_main_loop_run(loop);
+
+    g_assert(gtk_widget_is_focus(entry));
+
+    gtk_widget_destroy(window);
+    g_main_loop_unref(loop);
+}
+
+static gboolean emitKeyStroke(WebKitWebView* webView)
+{
+    GdkEvent* pressEvent = gdk_event_new(GDK_KEY_PRESS);
+    pressEvent->key.keyval = GDK_KEY_f;
+    GdkWindow* window = gtk_widget_get_window(GTK_WIDGET(webView));
+    pressEvent->key.window = window;
+    g_object_ref(pressEvent->key.window);
+
+#ifndef GTK_API_VERSION_2
+    GdkDeviceManager* manager = gdk_display_get_device_manager(gdk_window_get_display(window));
+    gdk_event_set_device(pressEvent, gdk_device_manager_get_client_pointer(manager));
+#endif
+
+    // When synthesizing an event, an invalid hardware_keycode value
+    // can cause it to be badly processed by Gtk+.
+    GdkKeymapKey* keys;
+    gint n_keys;
+    if (gdk_keymap_get_entries_for_keyval(gdk_keymap_get_default(), GDK_KEY_f, &keys, &n_keys)) {
+        pressEvent->key.hardware_keycode = keys[0].keycode;
+        g_free(keys);
+    }
+
+    GdkEvent* releaseEvent = gdk_event_copy(pressEvent);
+    gtk_main_do_event(pressEvent);
+    gdk_event_free(pressEvent);
+    releaseEvent->key.type = GDK_KEY_RELEASE;
+    gtk_main_do_event(releaseEvent);
+    gdk_event_free(releaseEvent);
+
+    return FALSE;
+}
+
+static gboolean entering_fullscreen_cb(WebKitWebView* webView, GObject* element, gboolean blocked)
+{
+    if (blocked)
+        g_main_loop_quit(loop);
+    else
+        g_timeout_add(200, (GSourceFunc) emitKeyStroke, webView);
+    return blocked;
+}
+
+static gboolean leaving_fullscreen_cb(WebKitWebView* webView, GObject* element, gpointer data)
+{
+    g_main_loop_quit(loop);
+    return FALSE;
+}
+
+static void test_webkit_web_view_fullscreen(gconstpointer blocked)
+{
+    GtkWidget* window;
+    GtkWidget* web_view;
+    WebKitWebSettings *settings;
+
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    web_view = webkit_web_view_new();
+
+    settings = webkit_web_view_get_settings(WEBKIT_WEB_VIEW(web_view));
+    g_object_set(settings, "enable-fullscreen", TRUE, NULL);
+    webkit_web_view_set_settings(WEBKIT_WEB_VIEW(web_view), settings);
+
+    gtk_container_add(GTK_CONTAINER(window), web_view);
+
+    gtk_widget_show_all(window);
+
+    loop = g_main_loop_new(NULL, TRUE);
+
+    g_signal_connect(web_view, "entering-fullscreen", G_CALLBACK(entering_fullscreen_cb), (gpointer) blocked);
+    g_signal_connect(web_view, "leaving-fullscreen", G_CALLBACK(leaving_fullscreen_cb), NULL);
+
+    webkit_web_view_load_string(WEBKIT_WEB_VIEW(web_view), "<html><body>"
+                   "<script>"
+                   "var eventName = 'keypress';"
+                   "document.addEventListener(eventName, function () {"
+                   "    document.documentElement.webkitRequestFullScreen();"
+                   "}, false);"
+                   "</script></body></html>", NULL, NULL, NULL);
+
+    g_timeout_add(100, (GSourceFunc) emitKeyStroke, WEBKIT_WEB_VIEW(web_view));
+    g_main_loop_run(loop);
+
+    gtk_widget_destroy(window);
+}
+
 int main(int argc, char** argv)
 {
     SoupServer* server;
     SoupURI* soup_uri;
 
-    g_thread_init(NULL);
     gtk_test_init(&argc, &argv, NULL);
 
     /* Hopefully make test independent of the path it's called from. */
@@ -385,6 +533,10 @@ int main(int argc, char** argv)
     g_test_add_func("/webkit/webview/destroy", test_webkit_web_view_destroy);
     g_test_add_func("/webkit/webview/grab_focus", test_webkit_web_view_grab_focus);
     g_test_add_func("/webkit/webview/window-features", test_webkit_web_view_window_features);
+    g_test_add_func("/webkit/webview/webview-in-offscreen-window-does-not-crash", test_webkit_web_view_in_offscreen_window_does_not_crash);
+    g_test_add_func("/webkit/webview/webview-does-not-steal-focus", test_webkit_web_view_does_not_steal_focus);
+    g_test_add_data_func("/webkit/webview/fullscreen", GINT_TO_POINTER(FALSE), test_webkit_web_view_fullscreen);
+    g_test_add_data_func("/webkit/webview/fullscreen-blocked", GINT_TO_POINTER(TRUE), test_webkit_web_view_fullscreen);
 
     return g_test_run ();
 }

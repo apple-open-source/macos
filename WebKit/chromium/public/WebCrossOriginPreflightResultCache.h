@@ -31,7 +31,7 @@
 #ifndef WebCrossOriginPreflightResultCache_h
 #define WebCrossOriginPreflightResultCache_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -39,7 +39,7 @@ namespace WebKit {
 class WebCrossOriginPreflightResultCache {
 public:
     // Clears the cache.
-    WEBKIT_API static void clear();
+    WEBKIT_EXPORT static void clear();
 
 private:
     WebCrossOriginPreflightResultCache();  // Not intended to be instanced.

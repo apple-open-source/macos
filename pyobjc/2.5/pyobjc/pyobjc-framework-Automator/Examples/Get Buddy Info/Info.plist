@@ -16,25 +16,25 @@
 	<key>AMApplication</key>
 	<array>
 		<string>Address Book</string>
-		<string>iChat</string>
+		<string>Messages</string>
 	</array>
 	<key>AMCanShowWhenRun</key>
 	<true/>
 	<key>AMCategory</key>
-	<string>iChat</string>
+	<string>Messages</string>
 	<key>AMDefaultParameters</key>
 	<dict/>
 	<key>AMDescription</key>
 	<dict>
 		<key>AMDAlert</key>
-		<string>iChat must be running for this action to work properly.</string>
+		<string>Messages must be running for this action to work properly.</string>
 		<key>AMDNote</key>
 		<string>Information will not be returned for the current user.</string>
 		<key>AMDSummary</key>
 		<string>This action returns the Instant Message information of the people passed from the previous action.</string>
 	</dict>
 	<key>AMIconName</key>
-	<string>iChat</string>
+	<string>Messages</string>
 	<key>AMKeywords</key>
 	<array>
 		<string>Instant</string>

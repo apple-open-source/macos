@@ -332,8 +332,8 @@ test_ntlmv2(void)
 
     struct ntlm_targetinfo ti;
 
-    unsigned char timsg[110] = 
-	"\002\000\024\000N\000U\000T\000C\000R\000A\000C\000K\000E\000R\000\001\000\024\000N\000U\000T\000C\000R\000A\000C\000K\000E\000R\000\004\000\022\000a\000p\000p\000l\000e\000.\000c\000o\000m\000\003\000 \000h\000u\000m\000m\000e\000l\000.\000a\000p\000p\000l\000e\000.\000c\000o\000m\000\000\000\000";
+    unsigned char timsg[114] = 
+	"\002\000\024\000N\000U\000T\000C\000R\000A\000C\000K\000E\000R\000\001\000\024\000N\000U\000T\000C\000R\000A\000C\000K\000E\000R\000\004\000\022\000a\000p\000p\000l\000e\000.\000c\000o\000m\000\003\000 \000h\000u\000m\000m\000e\000l\000.\000a\000p\000p\000l\000e\000.\000c\000o\000m\000\000\000\000\000\000\000\000";
 
 
     data.data = type3;
@@ -555,11 +555,11 @@ usage (int ret)
 int
 main(int argc, char **argv)
 {
-    int ret = 0, optind = 0;
+    int ret = 0, optidx = 0;
 
     setprogname(argv[0]);
 
-    if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optind))
+    if(getarg(args, sizeof(args) / sizeof(args[0]), argc, argv, &optidx))
 	usage(1);
 
     if (help_flag)

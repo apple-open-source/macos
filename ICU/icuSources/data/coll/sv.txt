@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/collation/sv.xml
@@ -10,7 +10,7 @@
  *  ICU <specials> source: <path>/xml/collation/sv.xml
  */
 sv{
-    Version{"2.0.51.25"}
+    Version{"2.0.63.65"}
     collations{
         default{"reformed"}
         reformed{
@@ -22,16 +22,18 @@ sv{
                 "&[before 1]ǀ<å<<<Å<ä<<<Ä<<æ<<<Æ<<ę<<<Ę<ö<<<Ö<<ø<<<Ø<<ő<<<Ő<<œ<<<Œ<"
                 "<ô<<<Ô"
             }
-            Version{"1.9"}
+            Version{"21.0"}
         }
         search{
             Sequence{
                 " [normalization on ][suppressContractions [เ-ไ ເ-ໄ] ]"
-                "&ا<<آ<<أ<<إ"
-                "&و<<ؤ"
-                "&ي<<ئ<<ى"
-                "&ه<<ة"
-                "&[last primary ignorable ]<<׳<<״<<ـ<<ٌ<<ٍ<<َ<<ُ<<ِ<<ّ<<ْ<<ฺ"
+                "&'='<'\u2260'&ا<<<ﺎ<<<ﺍ<<آ<<<ﺂ<<<ﺁ<<أ<<<ﺄ<<<ﺃ<<إ<<<ﺈ<<<ﺇ"
+                "&و<<<ۥ<<<ﻮ<<<ﻭ<<ؤ<<<ﺆ<<<ﺅ"
+                "&ي<<<ۦ<<<ﻳ<<<ﻴ<<<ﻲ<<<ﻱ<<ئ<<<ﺋ<<<ﺌ<<<ﺊ<<<ﺉ<<ى<<<ﯨ<<<ﯩ<<<ﻰ<<<ﻯ"
+                "&ه<<<ﻫ<<<ﻬ<<<ﻪ<<<ﻩ<<ة<<<ﺔ<<<ﺓ"
+                "&[last primary ignorable ]<<׳<<״<<ـ"
+                "<<ะ<<ั<<า<<ำ<<ิ<<ี<<ึ<<ื<<ุ<<ู<<ฺ<<ๅ"
+                "<<ະ<<ັ<<າ<<ຳ<<ິ<<ີ<<ຶ<<ື<<ຸ<<ູ<<ົ<<ຼ<<ຽ"
                 "&ᄀ=ᆨ"
                 "&ᄀᄀ=ᄁ=ᆩ"
                 "&ᄀᄉ=ᆪ"
@@ -80,7 +82,7 @@ sv{
                 "&[before 1]ǀ<å<<<Å<ä<<<Ä<<æ<<<Æ<<ę<<<Ę<ö<<<Ö<<ø<<<Ø<<ő<<<Ő<<œ<<<Œ<"
                 "<ô<<<Ô"
             }
-            Version{"1.9"}
+            Version{"21.0"}
         }
         standard{
             Sequence{
@@ -92,7 +94,7 @@ sv{
                 "&[before 1]ǀ<å<<<Å<ä<<<Ä<<æ<<<Æ<<ę<<<Ę<ö<<<Ö<<ø<<<Ø<<ő<<<Ő<<œ<<<Œ<"
                 "<ô<<<Ô"
             }
-            Version{"1.9"}
+            Version{"21.0"}
         }
     }
 }

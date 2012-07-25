@@ -50,6 +50,7 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <sys/types.h>
 #include <grp.h>
 #include <pwd.h>
+#include <TargetConditionals.h>
 #if !TARGET_OS_EMBEDDED
 #include <membership.h>
 #include <membershipPriv.h>
@@ -74,6 +75,7 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <signal.h>
 #endif
 #include <stdint.h>		/* intmax_t */
+#include <assert.h>
 #ifdef __APPLE__ 
 #include <get_compat.h>
 #else 
@@ -241,10 +243,7 @@ uuid_to_name(uuid_t *uu)
   }
   return name;
  errout:
-	if (0 != mbr_uuid_to_string(*uu, name)) {
-		fprintf(stderr, "Unable to translate qualifier on ACL\n");
-		strcpy(name, "<UNKNOWN>");
-	}
+  uuid_unparse_upper(*uu, name);
   return name;
 #endif	/* !TARGET_OS_EMBEDDED */
 }
@@ -543,7 +542,7 @@ printcol(DISPLAY *dp)
 	 * Have to do random access in the linked list -- build a table
 	 * of pointers.
 	 */
-	if (dp->entries > lastentries) {
+	if ((lastentries == -1) || (dp->entries > lastentries)) {
 		lastentries = dp->entries;
 		if ((array =
 		    realloc(array, dp->entries * sizeof(FTSENT *))) == NULL) {
@@ -573,6 +572,7 @@ printcol(DISPLAY *dp)
 	if (num % numcols)
 		++numrows;
 
+	assert(dp->list);
 	if (dp->list->fts_level != FTS_ROOTLEVEL && (f_longform || f_size))
 		(void)printf("total %qu\n", (u_int64_t)howmany(dp->btotal, blocksize));
 

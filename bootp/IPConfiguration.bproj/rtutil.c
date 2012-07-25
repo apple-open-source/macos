@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -161,7 +161,7 @@ subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask)
     struct sockaddr_in *	addr_p;
     int 			len;
     int				n;
-    char *			ptr;
+    void *			ptr;
     int				pid;
     boolean_t			ret_if_index = 0;
     struct rt_msghdr *		rtm;
@@ -202,7 +202,7 @@ subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask)
     addr_p->sin_addr = netmask;
     ptr += sizeof(*addr_p);
 
-    len = ptr - (char *)&rtmsg;
+    len = (char *)ptr - (char *)&rtmsg;
     rtm->rtm_msglen = len;
     if (write(sockfd, &rtmsg, len) < 0) {
 	int	error = errno;
@@ -231,11 +231,13 @@ subnet_route_if_index(struct in_addr netaddr, struct in_addr netmask)
 	    continue;
 	}
 	info.rti_addrs = rtm->rtm_addrs;
-	if (rt_xaddrs(rtmsg.data, rtmsg.data + n, &info) != 0) {
+	/* ALIGN: rtmsg.data is aligned to sizeof(struct rt_msghdr) */
+	if (rt_xaddrs((const char*)(void *)rtmsg.data, 
+                  (const char*)(void *)rtmsg.data + n, &info) != 0) {
 	    syslog(LOG_DEBUG, "subnet_route_if_index: rt_xaddrs failed");
 	    break;
 	}
-	sdl = (struct sockaddr_dl *)info.rti_info[RTAX_GATEWAY];
+	sdl = (struct sockaddr_dl *)(void *)info.rti_info[RTAX_GATEWAY];
 	if (sdl == NULL || sdl->sdl_family != AF_LINK) {
 	    syslog(LOG_DEBUG,
 		   "subnet_route_if_index: can't get interface name");
@@ -387,7 +389,8 @@ flush_dynamic_routes(int s)
     }
     lim = buf + needed;
     for (next = buf; next < lim; next += rtm->rtm_msglen) {
-	rtm = (struct rt_msghdr *)next;
+	/* ALIGN: assume kernel provides necessary alignment */
+	rtm = (struct rt_msghdr *)(void *)next;
 	sin = (struct sockaddr_in *)(rtm + 1);
 	
 	rtm->rtm_type = RTM_DELETE;

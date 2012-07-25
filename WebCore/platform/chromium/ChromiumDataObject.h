@@ -31,10 +31,9 @@
 #ifndef ChromiumDataObject_h
 #define ChromiumDataObject_h
 
-#include "Clipboard.h"
-#include "KURL.h"
+#include "ChromiumDataObjectItem.h"
 #include "PlatformString.h"
-#include "SharedBuffer.h"
+#include "Supplementable.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -42,79 +41,62 @@
 
 namespace WebCore {
 
+class KURL;
+class SharedBuffer;
+
+typedef int ExceptionCode;
+
 // A data object for holding data that would be in a clipboard or moved
 // during a drag-n-drop operation.  This is the data that WebCore is aware
 // of and is not specific to a platform.
-class ChromiumDataObject : public RefCounted<ChromiumDataObject> {
+class ChromiumDataObject : public RefCounted<ChromiumDataObject>, public Supplementable<ChromiumDataObject> {
 public:
-    static PassRefPtr<ChromiumDataObject> create(Clipboard::ClipboardType clipboardType)
-    {
-        return adoptRef(new ChromiumDataObject(clipboardType));
-    }
+    static PassRefPtr<ChromiumDataObject> createFromPasteboard();
+    static PassRefPtr<ChromiumDataObject> create();
 
-    PassRefPtr<ChromiumDataObject> copy() const
-    {
-        return adoptRef(new ChromiumDataObject(*this));
-    }
+    PassRefPtr<ChromiumDataObject> copy() const;
 
-    void clearData(const String& type);
+    // DataTransferItemList support.
+    size_t length() const;
+    PassRefPtr<ChromiumDataObjectItem> item(unsigned long index);
+    // FIXME: Implement V8DataTransferItemList::indexedPropertyDeleter to get this called.
+    void deleteItem(unsigned long index);
     void clearAll();
+    void add(const String& data, const String& type, ExceptionCode&);
+    void add(PassRefPtr<File>, ScriptExecutionContext*);
+
+    // WebCore helpers.
+    void clearData(const String& type);
     void clearAllExceptFiles();
 
-    bool hasData() const;
-
     HashSet<String> types() const;
-    String getData(const String& type, bool& success);
+    String getData(const String& type) const;
     bool setData(const String& type, const String& data);
 
-    // Special handlers for URL/HTML metadata.
-    String urlTitle() const { return m_urlTitle; }
-    void setUrlTitle(const String& urlTitle) { m_urlTitle = urlTitle; }
-    KURL htmlBaseUrl() const { return m_htmlBaseUrl; }
-    void setHtmlBaseUrl(const KURL& url) { m_htmlBaseUrl = url; }
+    void urlAndTitle(String& url, String* title = 0) const;
+    void setURLAndTitle(const String& url, const String& title);
+    void htmlAndBaseURL(String& html, KURL& baseURL) const;
+    void setHTMLAndBaseURL(const String& html, const KURL& baseURL);
 
-    // Used to handle files being dragged in.
+    // Used for dragging in files from the desktop.
     bool containsFilenames() const;
-    Vector<String> filenames() const { return m_filenames; }
-    void setFilenames(const Vector<String>& filenames) { m_filenames = filenames; }
+    Vector<String> filenames() const;
+    void addFilename(const String& filename, const String& displayName);
 
     // Used to handle files (images) being dragged out.
-    String fileExtension() const { return m_fileExtension; }
-    void setFileExtension(const String& fileExtension) { m_fileExtension = fileExtension; }
-    String fileContentFilename() const { return m_fileContentFilename; }
-    void setFileContentFilename(const String& fileContentFilename) { m_fileContentFilename = fileContentFilename; }
-    PassRefPtr<SharedBuffer> fileContent() const { return m_fileContent; }
-    void setFileContent(PassRefPtr<SharedBuffer> fileContent) { m_fileContent = fileContent; }
+    void addSharedBuffer(const String& name, PassRefPtr<SharedBuffer>);
 
 private:
-    ChromiumDataObject(Clipboard::ClipboardType);
-    ChromiumDataObject(const ChromiumDataObject&);
+    ChromiumDataObject();
+    explicit ChromiumDataObject(const ChromiumDataObject&);
 
-    Clipboard::ClipboardType m_clipboardType;
+    PassRefPtr<ChromiumDataObjectItem> findStringItem(const String& type) const;
+    bool internalAddStringItem(PassRefPtr<ChromiumDataObjectItem>);
+    void internalAddFileItem(PassRefPtr<ChromiumDataObjectItem>);
 
-    String m_urlTitle;
-
-    String m_downloadMetadata;
-
-    String m_fileExtension;
-    Vector<String> m_filenames;
-
-    String m_plainText;
-
-    String m_textHtml;
-    KURL m_htmlBaseUrl;
-
-    String m_fileContentFilename;
-    RefPtr<SharedBuffer> m_fileContent;
-
-    // These two are linked. Setting m_url will set m_uriList to the same
-    // string value; setting m_uriList will cause its contents to be parsed
-    // according to RFC 2483 and the first URL found will be set in m_url.
-    KURL m_url;
-    String m_uriList;
+    Vector<RefPtr<ChromiumDataObjectItem> > m_itemList;
 };
 
 } // namespace WebCore
 
 #endif
-

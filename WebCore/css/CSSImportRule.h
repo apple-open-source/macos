@@ -23,54 +23,85 @@
 #define CSSImportRule_h
 
 #include "CSSRule.h"
-#include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
-#include "MediaList.h"
+#include "CachedStyleSheetClient.h"
 #include "PlatformString.h"
+#include "StyleRule.h"
 
 namespace WebCore {
 
 class CachedCSSStyleSheet;
 class MediaList;
+class MediaQuerySet;
+class StyleSheetInternal;
 
-class CSSImportRule : public CSSRule, private CachedResourceClient {
-    WTF_MAKE_FAST_ALLOCATED;
+class StyleRuleImport : public StyleRuleBase {
 public:
-    static PassRefPtr<CSSImportRule> create(CSSStyleSheet* parent, const String& href, PassRefPtr<MediaList> media)
-    {
-        return adoptRef(new CSSImportRule(parent, href, media));
-    }
+    static PassRefPtr<StyleRuleImport> create(const String& href, PassRefPtr<MediaQuerySet>);
 
-    virtual ~CSSImportRule();
+    ~StyleRuleImport();
+    
+    StyleSheetInternal* parentStyleSheet() const { return m_parentStyleSheet; }
+    void setParentStyleSheet(StyleSheetInternal* sheet) { ASSERT(sheet); m_parentStyleSheet = sheet; }
+    void clearParentStyleSheet() { m_parentStyleSheet = 0; }
 
     String href() const { return m_strHref; }
-    MediaList* media() const { return m_lstMedia.get(); }
-    CSSStyleSheet* styleSheet() const { return m_styleSheet.get(); }
+    StyleSheetInternal* styleSheet() const { return m_styleSheet.get(); }
 
-    virtual String cssText() const;
-
-    // Not part of the CSSOM
     bool isLoading() const;
+    MediaQuerySet* mediaQueries() { return m_mediaQueries.get(); }
 
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>& urls);
+    void requestStyleSheet();
 
 private:
-    CSSImportRule(CSSStyleSheet* parent, const String& href, PassRefPtr<MediaList>);
+    // NOTE: We put the CachedStyleSheetClient in a member instead of inheriting from it
+    // to avoid adding a vptr to StyleRuleImport.
+    class ImportedStyleSheetClient : public CachedStyleSheetClient {
+    public:
+        ImportedStyleSheetClient(StyleRuleImport* ownerRule) : m_ownerRule(ownerRule) { }
+        virtual ~ImportedStyleSheetClient() { }
+        virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet)
+        {
+            m_ownerRule->setCSSStyleSheet(href, baseURL, charset, sheet);
+        }
+    private:
+        StyleRuleImport* m_ownerRule;
+    };
 
-    virtual bool isImportRule() { return true; }
-    virtual void insertedIntoParent();
+    void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet*);
+    friend class ImportedStyleSheetClient;
 
-    // from CSSRule
-    virtual unsigned short type() const { return IMPORT_RULE; }
+    StyleRuleImport(const String& href, PassRefPtr<MediaQuerySet>);
 
-    // from CachedResourceClient
-    virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet*);
+    StyleSheetInternal* m_parentStyleSheet;
 
+    ImportedStyleSheetClient m_styleSheetClient;
     String m_strHref;
-    RefPtr<MediaList> m_lstMedia;
-    RefPtr<CSSStyleSheet> m_styleSheet;
+    RefPtr<MediaQuerySet> m_mediaQueries;
+    RefPtr<StyleSheetInternal> m_styleSheet;
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     bool m_loading;
+};
+
+class CSSImportRule : public CSSRule {
+public:
+    static PassRefPtr<CSSImportRule> create(StyleRuleImport* rule, CSSStyleSheet* sheet) { return adoptRef(new CSSImportRule(rule, sheet)); }
+    
+    ~CSSImportRule();
+
+    String href() const { return m_importRule->href(); }
+    MediaList* media() const;
+    CSSStyleSheet* styleSheet() const;
+    
+    String cssText() const;
+
+private:
+    CSSImportRule(StyleRuleImport*, CSSStyleSheet*);
+
+    RefPtr<StyleRuleImport> m_importRule;
+
+    mutable RefPtr<MediaList> m_mediaCSSOMWrapper;
+    mutable RefPtr<CSSStyleSheet> m_styleSheetCSSOMWrapper;
 };
 
 } // namespace WebCore

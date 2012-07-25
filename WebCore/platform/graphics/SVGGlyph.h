@@ -24,6 +24,7 @@
 #define SVGGlyph_h
 
 #if ENABLE(SVG_FONTS)
+#include "Glyph.h"
 #include "Path.h"
 
 #include <limits>
@@ -50,10 +51,11 @@ struct SVGGlyph {
     };
 
     SVGGlyph()
-        : isValid(false)
+        : isPartOfLigature(false)
         , orientation(Both)
         , arabicForm(None)
         , priority(0)
+        , tableEntry(0)
         , unicodeStringLength(0)
         , horizontalAdvanceX(0)
         , verticalOriginX(0)
@@ -71,9 +73,10 @@ struct SVGGlyph {
 
     bool operator==(const SVGGlyph& other) const
     {
-        return isValid == other.isValid
+        return isPartOfLigature == other.isPartOfLigature
             && orientation == other.orientation
             && arabicForm == other.arabicForm
+            && tableEntry == other.tableEntry
             && unicodeStringLength == other.unicodeStringLength
             && glyphName == other.glyphName
             && horizontalAdvanceX == other.horizontalAdvanceX
@@ -83,11 +86,12 @@ struct SVGGlyph {
             && languages == other.languages;
     }
 
-    bool isValid : 1;
+    bool isPartOfLigature : 1;
 
     unsigned orientation : 2; // Orientation
     unsigned arabicForm : 3; // ArabicForm
     int priority;
+    Glyph tableEntry;
     size_t unicodeStringLength;
     String glyphName;
 

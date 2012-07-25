@@ -83,7 +83,7 @@ void MessagePort::postMessage(PassRefPtr<SerializedScriptValue> message, const M
         for (unsigned int i = 0; i < ports->size(); ++i) {
             MessagePort* dataPort = (*ports)[i].get();
             if (dataPort == this || m_entangledChannel->isConnectedTo(dataPort)) {
-                ec = INVALID_STATE_ERR;
+                ec = DATA_CLONE_ERR;
                 return;
             }
         }
@@ -133,10 +133,10 @@ void MessagePort::start()
 
 void MessagePort::close()
 {
-    m_closed = true;
     if (!isEntangled())
         return;
     m_entangledChannel->close();
+    m_closed = true;
 }
 
 void MessagePort::entangle(PassOwnPtr<MessagePortChannel> remote)
@@ -157,6 +157,11 @@ void MessagePort::contextDestroyed()
     // ScriptExecutionContext::closeMessagePorts() takes care of that.
     ASSERT(m_closed);
     m_scriptExecutionContext = 0;
+}
+
+const AtomicString& MessagePort::interfaceName() const
+{
+    return eventNames().interfaceForMessagePort;
 }
 
 ScriptExecutionContext* MessagePort::scriptExecutionContext() const
@@ -216,7 +221,7 @@ PassOwnPtr<MessagePortChannelArray> MessagePort::disentanglePorts(const MessageP
     for (unsigned int i = 0; i < ports->size(); ++i) {
         MessagePort* port = (*ports)[i].get();
         if (!port || port->isCloned() || portSet.contains(port)) {
-            ec = INVALID_STATE_ERR;
+            ec = DATA_CLONE_ERR;
             return nullptr;
         }
         portSet.add(port);

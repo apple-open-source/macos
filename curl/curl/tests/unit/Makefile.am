@@ -40,7 +40,7 @@ INCLUDES = -I$(top_builddir)/include/curl \
            -I$(top_srcdir)/include        \
            -I$(top_builddir)/lib          \
            -I$(top_srcdir)/lib            \
-	   -I$(top_srcdir)/tests/libtest  \
+           -I$(top_srcdir)/tests/libtest  \
            -I$(top_builddir)/ares         \
            -I$(top_srcdir)/ares
 else
@@ -48,30 +48,21 @@ INCLUDES = -I$(top_builddir)/include/curl \
            -I$(top_builddir)/include      \
            -I$(top_srcdir)/include        \
            -I$(top_builddir)/lib          \
-           -I$(top_srcdir)/lib 		  \
-	   -I$(top_srcdir)/tests/libtest
+           -I$(top_srcdir)/lib            \
+           -I$(top_srcdir)/tests/libtest
 endif
-
-if CURLDEBUG
 
 EXTRA_DIST = Makefile.inc
 
-LDADD = $(top_builddir)/tests/libtest/first.o $(top_builddir)/lib/libcurlu.la \
-	@CURL_LIBS@
+LDADD = $(top_builddir)/lib/libcurlu.la @LDFLAGS@ @LIBCURL_LIBS@ @LIBS@
 DEPENDENCIES = $(top_builddir)/lib/libcurlu.la
+AM_CPPFLAGS = -DUNITTESTS
 
-# Makefile.inc provides the source defines (TESTUTIL, SUPPORTFILES,
-# noinst_PROGRAMS, lib*_SOURCES, and lib*_CFLAGS)
+# Makefile.inc provides neat definitions
 include Makefile.inc
 
-if NO_UNDEFINED
-# The -no-undefined flag is crucial to build fine on some platforms
-UNDEF = -no-undefined
-endif
-
-
+if BUILD_UNITTESTS
+noinst_PROGRAMS = $(UNITPROGS)
 else
-# do nothing if debug was not enabled
-all:
-
+noinst_PROGRAMS =
 endif

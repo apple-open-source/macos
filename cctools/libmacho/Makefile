@@ -36,6 +36,9 @@ endif
 ifneq "" "$(SDKROOT)"
   SDK = -isysroot $(SDKROOT)
   CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+  STRIP = $(shell xcrun -find -sdk ${SDKROOT} strip)
+else
+  STRIP = strip
 endif
 ifeq "clang" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -Wall $(LEGACY) \
@@ -87,7 +90,7 @@ INSTALL_FILES = $(CFILES) $(HFILES) shlib.ofileList dylib.ofileList Makefile \
 
 OBJS = arch.o getsecbyname.o getsegbyname.o get_end.o swap.o \
        hppa_swap.o i386_swap.o m68k_swap.o sparc_swap.o ppc_swap.o \
-       i860_swap.o m88k_swap.o vers.o
+       i860_swap.o m88k_swap.o
 
 ifeq "$(OLD_LIBKLD)" "YES"
 	KLD_OFILES = kld_ofiles
@@ -323,10 +326,6 @@ else
 	md -d -u $(OFILE_DIR)/Makedep $(OFILE_DIR)/$*.d
 endif
 
-vers.c:
-	vers_string -l $(VERS_STRING_FLAGS) libmacho > $(OFILE_DIR)/$@
-	echo "const char *libmacho_version= SGS_VERS;" >> $(OFILE_DIR)/$@
-
 clean:
 	-rm -r -f $(OFILE_DIRS) $(OBJROOT)/static_obj
 
@@ -370,13 +369,13 @@ macos_lib_ofiles_install: all
 	    ranlib $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
 	    install -c -m 555 dtmp_obj/libmacho.dylib			\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
 	    install -c -m 555 dtmp_obj/libmacho_profile.dylib		\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
 	    install -c -m 555 dtmp_obj/libmacho_debug.dylib		\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
 	else								\
 	    install -c -m 444 $(SYMROOT)/libmacho.a			\
 		     $(DSTROOT)$(ARCHIVEDIR)/libmacho.a;		\
@@ -391,13 +390,13 @@ macos_lib_ofiles_install: all
 	    ranlib $(DSTROOT)$(ARCHIVEDIR)/libmacho_static.a;		\
 	    install -c -m 555 $(SYMROOT)/libmacho.dylib			\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho.dylib;		\
 	    install -c -m 555 $(SYMROOT)/libmacho_profile.dylib		\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_profile.dylib;	\
 	    install -c -m 555 $(SYMROOT)/libmacho_debug.dylib	\
 		     $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
-	    strip -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
+	    $(STRIP) -S $(DSTROOT)$(DYLIBDIR)/libmacho_debug.dylib;	\
 	fi
 
 teflon_lib_ofiles_install nextstep_lib_ofiles_install:

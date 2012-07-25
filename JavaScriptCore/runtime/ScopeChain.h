@@ -30,6 +30,7 @@ namespace JSC {
     class JSGlobalData;
     class JSGlobalObject;
     class JSObject;
+    class LLIntOffsetsExtractor;
     class ScopeChainIterator;
     class SlotVisitor;
     
@@ -45,8 +46,6 @@ namespace JSC {
         {
         }
 
-        virtual ~ScopeChainNode();
-
     protected:
         void finishCreation(JSGlobalData* globalData, JSGlobalObject* globalObject)
         {
@@ -59,13 +58,13 @@ namespace JSC {
 
         static ScopeChainNode* create(ExecState* exec, ScopeChainNode* next, JSObject* object, JSGlobalData* globalData, JSGlobalObject* globalObject, JSObject* globalThis)
         {
-            ScopeChainNode* node = new (allocateCell<ScopeChainNode>(*exec->heap())) ScopeChainNode(next, object, globalData, globalObject, globalThis);
+            ScopeChainNode* node = new (NotNull, allocateCell<ScopeChainNode>(*exec->heap())) ScopeChainNode(next, object, globalData, globalObject, globalThis);
             node->finishCreation(globalData, globalObject);
             return node;
         }
         static ScopeChainNode* create(ScopeChainNode* next, JSObject* object, JSGlobalData* globalData, JSGlobalObject* globalObject, JSObject* globalThis)
         {
-            ScopeChainNode* node = new (allocateCell<ScopeChainNode>(globalData->heap)) ScopeChainNode(next, object, globalData, globalObject, globalThis);
+            ScopeChainNode* node = new (NotNull, allocateCell<ScopeChainNode>(globalData->heap)) ScopeChainNode(next, object, globalData, globalObject, globalThis);
             node->finishCreation(globalData, globalObject);
             return node;
         }
@@ -93,6 +92,8 @@ namespace JSC {
         static JS_EXPORTDATA const ClassInfo s_info;
 
     private:
+        friend class LLIntOffsetsExtractor;
+        
         static const unsigned StructureFlags = OverridesVisitChildren;
     };
 

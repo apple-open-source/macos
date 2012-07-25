@@ -34,23 +34,60 @@ static char sccsid[] = "@(#)assert.c	8.1 (Berkeley) 6/4/93";
 __FBSDID("$FreeBSD: src/lib/libc/gen/assert.c,v 1.8 2007/01/09 00:27:53 imp Exp $");
 
 #include <assert.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include "CrashReporterClient.h"
+#include "_simple.h"
 
 void
-__assert(func, file, line, failedexpr)
+__assert_rtn(func, file, line, failedexpr)
 	const char *func, *file;
 	int line;
 	const char *failedexpr;
 {
-	if (func == NULL)
-		(void)fprintf(stderr,
+	if (func == (const char *)-1L) {
+		/* 8462256: special case to replace __eprintf */
+		_simple_dprintf(STDERR_FILENO,
+		     "%s:%u: failed assertion `%s'\n", file, line, failedexpr);
+		if (!CRGetCrashLogMessage()) {
+			_SIMPLE_STRING s = _simple_salloc();
+			if (s) {
+				_simple_sprintf(s,
+				  "%s:%u: failed assertion `%s'\n",
+				  file, line, failedexpr);
+				CRSetCrashLogMessage(_simple_string(s));
+			} else
+				CRSetCrashLogMessage(failedexpr);
+		}
+	} else if (func == NULL) {
+		_simple_dprintf(STDERR_FILENO,
 		     "Assertion failed: (%s), file %s, line %d.\n", failedexpr,
 		     file, line);
-	else
-		(void)fprintf(stderr,
+		if (!CRGetCrashLogMessage()) {
+			_SIMPLE_STRING s = _simple_salloc();
+			if (s) {
+				_simple_sprintf(s,
+				  "Assertion failed: (%s), file %s, line %d.\n",
+				  failedexpr, file, line);
+				CRSetCrashLogMessage(_simple_string(s));
+			} else
+				CRSetCrashLogMessage(failedexpr);
+		}
+	} else {
+		_simple_dprintf(STDERR_FILENO,
 		     "Assertion failed: (%s), function %s, file %s, line %d.\n",
 		     failedexpr, func, file, line);
+		if (!CRGetCrashLogMessage()) {
+			_SIMPLE_STRING s = _simple_salloc();
+			if (s) {
+				_simple_sprintf(s,
+				  "Assertion failed: (%s), function %s, file %s, line %d.\n",
+				  failedexpr, func, file, line);
+				CRSetCrashLogMessage(_simple_string(s));
+			} else
+				CRSetCrashLogMessage(failedexpr);
+		}
+	}
 	abort();
 	/* NOTREACHED */
 }

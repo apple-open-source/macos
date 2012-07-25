@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 CFArrayRef
 SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 {
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	CFDataRef			utfPattern;		/* serialized pattern */
 	xmlData_t			myPatternRef;
@@ -53,11 +53,15 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	CFArrayRef			allKeys;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return NULL;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return NULL;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return NULL;
@@ -80,21 +84,11 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 			    &xmlDataLen,
 			    (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyKeyList configlist(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreCopyKeyList configlist()")) {
+		goto retry;
 	}
 
 	/* clean up */

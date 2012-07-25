@@ -32,26 +32,17 @@
 
 #include "DrawingBuffer.h"
 
+#include "CanvasRenderingContext.h"
 #include "Extensions3DChromium.h"
 #include "GraphicsContext3D.h"
-#include "SharedGraphicsContext3D.h"
+#include "TextureLayerChromium.h"
+#include "cc/CCProxy.h"
+#include "cc/CCTextureUpdater.h"
+#include <algorithm>
 
-#if USE(SKIA)
-#include "GrContext.h"
-#endif
-
-#if USE(ACCELERATED_COMPOSITING)
-#include "Canvas2DLayerChromium.h"
-#endif
+using namespace std;
 
 namespace WebCore {
-
-struct DrawingBufferInternal {
-    unsigned offscreenColorTexture;
-#if USE(ACCELERATED_COMPOSITING)
-    RefPtr<Canvas2DLayerChromium> platformLayer;
-#endif
-};
 
 static unsigned generateColorTexture(GraphicsContext3D* context, const IntSize& size)
 {
@@ -60,142 +51,184 @@ static unsigned generateColorTexture(GraphicsContext3D* context, const IntSize& 
         return 0;
 
     context->bindTexture(GraphicsContext3D::TEXTURE_2D, offscreenColorTexture);
-    context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::NEAREST);
-    context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::NEAREST);
+    context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
+    context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
     context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
     context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
     context->texImage2DResourceSafe(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, size.width(), size.height(), 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE);
-    context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, offscreenColorTexture, 0);
 
     return offscreenColorTexture;
 }
 
-
 DrawingBuffer::DrawingBuffer(GraphicsContext3D* context,
                              const IntSize& size,
                              bool multisampleExtensionSupported,
-                             bool packedDepthStencilExtensionSupported)
-    : m_context(context)
+                             bool packedDepthStencilExtensionSupported,
+                             PreserveDrawingBuffer preserve,
+                             AlphaRequirement alpha)
+    : m_preserveDrawingBuffer(preserve)
+    , m_alpha(alpha)
+    , m_scissorEnabled(false)
+    , m_texture2DBinding(0)
+    , m_framebufferBinding(0)
+    , m_activeTextureUnit(GraphicsContext3D::TEXTURE0)
+    , m_context(context)
     , m_size(-1, -1)
     , m_multisampleExtensionSupported(multisampleExtensionSupported)
     , m_packedDepthStencilExtensionSupported(packedDepthStencilExtensionSupported)
     , m_fbo(0)
     , m_colorBuffer(0)
+    , m_frontColorBuffer(0)
+    , m_separateFrontTexture(m_preserveDrawingBuffer == Preserve || CCProxy::implThread())
     , m_depthStencilBuffer(0)
     , m_depthBuffer(0)
     , m_stencilBuffer(0)
     , m_multisampleFBO(0)
     , m_multisampleColorBuffer(0)
-    , m_internal(adoptPtr(new DrawingBufferInternal))
-#if USE(SKIA)
-    , m_grContext(0)
-#endif
 {
-    if (!m_context->getExtensions()->supports("GL_CHROMIUM_copy_texture_to_parent_texture")) {
-        m_context.clear();
-        return;
-    }
-    m_fbo = context->createFramebuffer();
-    context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_fbo);
-    m_colorBuffer = generateColorTexture(context, size);
-    createSecondaryBuffers();
-    reset(size);
+    initialize(size);
 }
 
 DrawingBuffer::~DrawingBuffer()
 {
-#if USE(ACCELERATED_COMPOSITING)
-    if (m_internal->platformLayer)
-        m_internal->platformLayer->setDrawingBuffer(0);
-#endif
-
     if (!m_context)
         return;
-        
-    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_fbo);
-    m_context->deleteTexture(m_colorBuffer);
 
     clear();
 }
 
-#if USE(ACCELERATED_COMPOSITING)
-void DrawingBuffer::publishToPlatformLayer()
+void DrawingBuffer::initialize(const IntSize& size)
 {
-    if (!m_context)
+    m_fbo = m_context->createFramebuffer();
+
+    if (m_separateFrontTexture)
+        m_frontColorBuffer = generateColorTexture(m_context.get(), size);
+
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_fbo);
+    m_colorBuffer = generateColorTexture(m_context.get(), size);
+    m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, m_colorBuffer, 0);
+    createSecondaryBuffers();
+    if (!reset(size)) {
+        m_context.clear();
         return;
-        
-    if (m_callback)
-        m_callback->willPublish();
+    }
+}
+
+#if USE(ACCELERATED_COMPOSITING)
+void DrawingBuffer::prepareBackBuffer()
+{
+    m_context->makeContextCurrent();
+
     if (multisample())
         commit();
-    unsigned parentTexture = m_internal->platformLayer->textureId();
-    // FIXME: We do the copy in the canvas' (child) context so that it executes in the correct order relative to
-    // other commands in the child context.  This ensures that the parent texture always contains a complete
-    // frame and not some intermediate result.  However, there is no synchronization to ensure that this copy
-    // happens before the compositor draws.  This means we might draw stale frames sometimes.  Ideally this
-    // would insert a fence into the child command stream that the compositor could wait for.
-    m_context->makeContextCurrent();
-#if USE(SKIA)
-    if (m_grContext)
-        m_grContext->flush(0);
-#endif
-    static_cast<Extensions3DChromium*>(m_context->getExtensions())->copyTextureToParentTextureCHROMIUM(m_colorBuffer, parentTexture);
-    m_context->flush();
+
+    if (m_preserveDrawingBuffer == Discard && m_separateFrontTexture) {
+        swap(m_frontColorBuffer, m_colorBuffer);
+        // It appears safe to overwrite the context's framebuffer binding in the Discard case since there will always be a
+        // WebGLRenderingContext::clearIfComposited() call made before the next draw call which restores the framebuffer binding.
+        // If this stops being true at some point, we should track the current framebuffer binding in the DrawingBuffer and restore
+        // it after attaching the new back buffer here.
+        m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_fbo);
+        m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, m_colorBuffer, 0);
+    }
+
+    if (multisample())
+        bind();
+}
+
+bool DrawingBuffer::requiresCopyFromBackToFrontBuffer() const
+{
+    return m_separateFrontTexture && m_preserveDrawingBuffer == Preserve;
+}
+
+unsigned DrawingBuffer::frontColorBuffer() const
+{
+    return m_separateFrontTexture ? m_frontColorBuffer : m_colorBuffer;
 }
 #endif
 
-void DrawingBuffer::didReset()
-{
-#if USE(ACCELERATED_COMPOSITING)
-    if (m_internal->platformLayer)
-        m_internal->platformLayer->setTextureChanged();
-#endif
-}
+class DrawingBufferPrivate : public TextureLayerChromiumClient {
+    WTF_MAKE_NONCOPYABLE(DrawingBufferPrivate);
+public:
+    explicit DrawingBufferPrivate(DrawingBuffer* drawingBuffer)
+        : m_drawingBuffer(drawingBuffer)
+        , m_layer(TextureLayerChromium::create(this))
+    {
+        GraphicsContext3D::Attributes attributes = m_drawingBuffer->graphicsContext3D()->getContextAttributes();
+        m_layer->setOpaque(!attributes.alpha);
+        m_layer->setPremultipliedAlpha(attributes.premultipliedAlpha);
+    }
+
+    virtual ~DrawingBufferPrivate()
+    {
+        m_layer->clearClient();
+    }
+
+    virtual unsigned prepareTexture(CCTextureUpdater& updater) OVERRIDE
+    {
+        m_drawingBuffer->prepareBackBuffer();
+
+        context()->flush();
+        context()->markLayerComposited();
+
+        unsigned textureId = m_drawingBuffer->frontColorBuffer();
+        if (m_drawingBuffer->requiresCopyFromBackToFrontBuffer())
+            updater.appendCopy(m_drawingBuffer->colorBuffer(), textureId, m_drawingBuffer->size());
+
+        return textureId;
+    }
+
+    virtual GraphicsContext3D* context() OVERRIDE
+    {
+        return m_drawingBuffer->graphicsContext3D();
+    }
+
+    LayerChromium* layer() const { return m_layer.get(); }
+
+private:
+    DrawingBuffer* m_drawingBuffer;
+    RefPtr<TextureLayerChromium> m_layer;
+};
 
 #if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* DrawingBuffer::platformLayer()
 {
-    if (!m_internal->platformLayer)
-        m_internal->platformLayer = Canvas2DLayerChromium::create(this, 0);
-    return m_internal->platformLayer.get();
+    if (!m_private)
+        m_private = adoptPtr(new DrawingBufferPrivate(this));
+
+    return m_private->layer();
 }
 #endif
 
-Platform3DObject DrawingBuffer::platformColorBuffer() const
+Platform3DObject DrawingBuffer::framebuffer() const
 {
-    return m_colorBuffer;
+    return m_fbo;
 }
 
-#if USE(SKIA)
-void DrawingBuffer::setGrContext(GrContext* context)
+#if USE(ACCELERATED_COMPOSITING)
+void DrawingBuffer::paintCompositedResultsToCanvas(CanvasRenderingContext* context)
 {
-    // We just take a ptr without referencing it, as we require that we never outlive
-    // the SharedGraphicsContext3D object that is giving us the context.
-    m_grContext = context;
+    if (!m_context->makeContextCurrent() || m_context->getExtensions()->getGraphicsResetStatusARB() != GraphicsContext3D::NO_ERROR)
+        return;
+
+    IntSize framebufferSize = m_context->getInternalFramebufferSize();
+
+    // Since we're using the same context as WebGL, we have to restore any state we change (in this case, just the framebuffer binding).
+    // FIXME: The WebGLRenderingContext tracks the current framebuffer binding, it would be slightly more efficient to use this value
+    // rather than querying it off of the context.
+    GC3Dint previousFramebuffer = 0;
+    m_context->getIntegerv(GraphicsContext3D::FRAMEBUFFER_BINDING, &previousFramebuffer);
+
+    Platform3DObject framebuffer = m_context->createFramebuffer();
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, framebuffer);
+    m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, frontColorBuffer(), 0);
+
+    Extensions3DChromium* extensions = static_cast<Extensions3DChromium*>(m_context->getExtensions());
+    extensions->paintFramebufferToCanvas(framebuffer, framebufferSize.width(), framebufferSize.height(), !m_context->getContextAttributes().premultipliedAlpha, context->canvas()->buffer());
+    m_context->deleteFramebuffer(framebuffer);
+
+    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, previousFramebuffer);
 }
-
-void DrawingBuffer::getGrPlatformSurfaceDesc(GrPlatformSurfaceDesc* desc)
-{
-    desc->fSurfaceType = kTextureRenderTarget_GrPlatformSurfaceType;
-
-    desc->fPlatformTexture = m_colorBuffer;
-    if (multisample()) {
-        desc->fRenderTargetFlags = kIsMultisampled_GrPlatformRenderTargetFlagBit | kGrCanResolve_GrPlatformRenderTargetFlagBit;
-        desc->fPlatformRenderTarget = m_multisampleFBO;
-        desc->fPlatformResolveDestination = m_fbo;
-    } else {
-        desc->fRenderTargetFlags = kNone_GrPlatformRenderTargetFlagBit;
-        desc->fPlatformRenderTarget = m_fbo;
-        desc->fPlatformResolveDestination = 0;
-    }
-
-    desc->fWidth = m_size.width();
-    desc->fHeight = m_size.height();
-    desc->fConfig = kRGBA_8888_GrPixelConfig;
-
-    desc->fStencilBits = (m_depthStencilBuffer || m_stencilBuffer) ? 8 : 0;
-}
-
 #endif
 
 }

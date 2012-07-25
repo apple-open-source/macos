@@ -31,33 +31,37 @@
 #ifndef SerializedScriptValue_h
 #define SerializedScriptValue_h
 
-#include "ArrayBuffer.h"
 #include "ScriptValue.h"
 #include <v8.h>
+#include <wtf/ArrayBuffer.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
 
+class MessagePort;
+
+typedef Vector<RefPtr<MessagePort>, 1> MessagePortArray;
+typedef Vector<RefPtr<WTF::ArrayBuffer>, 1> ArrayBufferArray;
+
 class SerializedScriptValue : public ThreadSafeRefCounted<SerializedScriptValue> {
 public:
-    static void deserializeAndSetProperty(v8::Handle<v8::Object>, const char* propertyName,
-                                          v8::PropertyAttribute, SerializedScriptValue*);
-    static void deserializeAndSetProperty(v8::Handle<v8::Object>, const char* propertyName,
-                                          v8::PropertyAttribute, PassRefPtr<SerializedScriptValue>);
-
     // If a serialization error occurs (e.g., cyclic input value) this
     // function returns an empty representation, schedules a V8 exception to
     // be thrown using v8::ThrowException(), and sets |didThrow|. In this case
     // the caller must not invoke any V8 operations until control returns to
     // V8. When serialization is successful, |didThrow| is false.
-    static PassRefPtr<SerializedScriptValue> create(v8::Handle<v8::Value> value, bool& didThrow);
-    static PassRefPtr<SerializedScriptValue> create(v8::Handle<v8::Value>);
-    static PassRefPtr<SerializedScriptValue> createFromWire(String data);
-    static PassRefPtr<SerializedScriptValue> create(String data);
+    static PassRefPtr<SerializedScriptValue> create(v8::Handle<v8::Value>,
+                                                    MessagePortArray*, ArrayBufferArray*,
+                                                    bool& didThrow, v8::Isolate* = 0);
+    static PassRefPtr<SerializedScriptValue> create(v8::Handle<v8::Value>, v8::Isolate* = 0);
+    static PassRefPtr<SerializedScriptValue> createFromWire(const String& data);
+    static PassRefPtr<SerializedScriptValue> create(const String& data, v8::Isolate* = 0);
     static PassRefPtr<SerializedScriptValue> create();
 
-    static SerializedScriptValue* nullValue();
-    static SerializedScriptValue* undefinedValue();
+    static SerializedScriptValue* nullValue(v8::Isolate* = 0);
+    static PassRefPtr<SerializedScriptValue> undefinedValue(v8::Isolate* = 0);
+    static PassRefPtr<SerializedScriptValue> booleanValue(bool value, v8::Isolate* = 0);
+    static PassRefPtr<SerializedScriptValue> numberValue(double value, v8::Isolate* = 0);
 
     PassRefPtr<SerializedScriptValue> release();
 
@@ -65,7 +69,13 @@ public:
 
     // Deserializes the value (in the current context). Returns a null value in
     // case of failure.
-    v8::Handle<v8::Value> deserialize();
+    v8::Handle<v8::Value> deserialize(MessagePortArray* = 0, v8::Isolate* = 0);
+
+#if ENABLE(INSPECTOR)
+    ScriptValue deserializeForInspector(ScriptState*, v8::Isolate* = 0);
+#endif
+
+    const Vector<String>& blobURLs() const { return m_blobURLs; }
 
 private:
     enum StringDataMode {
@@ -75,13 +85,14 @@ private:
     typedef Vector<WTF::ArrayBufferContents, 1> ArrayBufferContentsArray;
 
     SerializedScriptValue();
-    SerializedScriptValue(v8::Handle<v8::Value>, MessagePortArray*, ArrayBufferArray*, bool& didThrow);
+    SerializedScriptValue(v8::Handle<v8::Value>, MessagePortArray*, ArrayBufferArray*, bool& didThrow, v8::Isolate*);
     explicit SerializedScriptValue(const String& wireData);
 
     static PassOwnPtr<ArrayBufferContentsArray> transferArrayBuffers(ArrayBufferArray&, bool& didThrow);
 
     String m_data;
     OwnPtr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
+    Vector<String> m_blobURLs;
 };
 
 } // namespace WebCore

@@ -114,8 +114,7 @@ static void		 version(void);
 
 /* A basic set of security flags to request from libarchive. */
 #define	SECURITY					\
-	(ARCHIVE_EXTRACT_SECURE_SYMLINKS		\
-	 | ARCHIVE_EXTRACT_SECURE_NODOTDOT)
+	(ARCHIVE_EXTRACT_SECURE_NODOTDOT)
 
 int
 main(int argc, char **argv)

@@ -171,4 +171,4 @@ dl_to_arp_hwtype(int dltype)
     }
     return (type);
 }
-#endif _S_INTERFACES_H
+#endif /* _S_INTERFACES_H */

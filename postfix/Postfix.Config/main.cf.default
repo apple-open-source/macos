@@ -28,7 +28,7 @@
 # See the files in examples/chroot-setup for setting up Postfix chroot
 # environments on different UNIX systems.
 #
-queue_directory = /Library/Server/Mail/Data/spool
+queue_directory = /var/spool/postfix
 
 # The command_directory parameter specifies the location of all
 # postXXX commands.
@@ -45,7 +45,7 @@ daemon_directory = /usr/libexec/postfix
 # data files (caches, random numbers). This directory must be owned
 # by the mail_owner account (see below).
 #
-data_directory = /Library/Server/Mail/Data/mta
+data_directory = /var/lib/postfix
 
 # QUEUE AND PROCESS OWNERSHIP
 #
@@ -664,7 +664,7 @@ smtpd_tls_exclude_ciphers = SSLv2, aNULL, ADH, eNULL
 tls_random_source = dev:/dev/urandom
 
 # (APPLE) Credentials for using URLAUTH with IMAP servers.
-imap_submit_cred_file = /etc/postfix/submit.cred
+imap_submit_cred_file =
 
 # (APPLE) The SACL cache caches the results of Mail Service ACL lookups.
 # Tune these to make the cache more responsive to changes in the SACL.
@@ -674,4 +674,7 @@ use_sacl_cache = yes
 # sacl_cache_negative_expire_time = 1d
 # sacl_cache_disabled_expire_time = 1m
 
+# (APPLE) Reject messages having any MIME body part (attachment, etc.)
+# larger than this number of bytes.  0, the default, means no limit.
+# mime_max_body_size = 0
 #======================================================================

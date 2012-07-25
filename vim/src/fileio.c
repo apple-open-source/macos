@@ -2879,9 +2879,6 @@ check_marks_read()
     curbuf->b_marks_read = TRUE;
 }
 #endif
-#ifdef HAVE_COPYFILE
-    copyfile_state_t	copyfile_state = NULL;
-#endif
 
 #if defined(FEAT_CRYPT) || defined(PROTO)
 /*
@@ -3219,6 +3216,9 @@ buf_write(buf, fname, sfname, start, end, eap, append, forceit,
 #ifdef FEAT_PERSISTENT_UNDO
     int		    write_undo_file = FALSE;
     context_sha256_T sha_ctx;
+#endif
+#ifdef HAVE_COPYFILE
+    copyfile_state_t	copyfile_state = NULL;
 #endif
 
     if (fname == NULL || *fname == NUL)	/* safety check */

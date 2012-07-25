@@ -32,11 +32,21 @@
 #    endif
 #endif
 
-#if (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) >= 30203
-# define KERBEROSLOGIN_DEPRECATED __attribute__((deprecated))
-#else
-# define KERBEROSLOGIN_DEPRECATED
+#ifndef __has_extension
+#define __has_extension(x) 0
 #endif
+
+#ifndef KERBEROSLOGIN_DEPRECATED
+#if __has_extension(attribute_deprecated_with_message)
+#define KERBEROSLOGIN_DEPRECATED(x) __attribute__((deprecated(x)))
+#elif __has_extension(deprecated)
+#define KERBEROSLOGIN_DEPRECATED(x) __attribute__((deprecated))
+#else
+#define KERBEROSLOGIN_DEPRECATED(x)
+#endif
+#endif
+
+
 
 #include <sys/types.h>
 #include <Kerberos/krb5.h>
@@ -202,46 +212,53 @@ typedef struct kim_options_opaque *KLLoginOptions;
 KLStatus KLAcquireTickets (KLPrincipal   inPrincipal,
                            KLPrincipal  *outPrincipal,
                            char        **outCredCacheName) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLAcquireNewTickets (KLPrincipal  inPrincipal,
                               KLPrincipal  *outPrincipal,
                               char        **outCredCacheName) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLAcquireTicketsWithPassword (KLPrincipal      inPrincipal,
                                        KLLoginOptions   inLoginOptions,
                                        const char      *inPassword,
                                        char           **outCredCacheName) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLAcquireNewTicketsWithPassword (KLPrincipal      inPrincipal,
                                           KLLoginOptions   inLoginOptions,
                                           const char      *inPassword,
                                           char           **outCredCacheName) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLSetApplicationOptions (const void *inAppOptions) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 KLStatus KLGetApplicationOptions (void *outAppOptions) 
-    KERBEROSLOGIN_DEPRECATED;
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 
 /* Kerberos Login high-level API */
 KLStatus KLAcquireInitialTickets (KLPrincipal      inPrincipal,
                                   KLLoginOptions   inLoginOptions,
                                   KLPrincipal     *outPrincipal,
-                                  char           **outCredCacheName);
+                                  char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLAcquireNewInitialTickets (KLPrincipal      inPrincipal,
                                      KLLoginOptions   inLoginOptions,
                                      KLPrincipal     *outPrincipal,
-                                     char           **outCredCacheName);
+                                     char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
-KLStatus KLDestroyTickets (KLPrincipal inPrincipal);
 
-KLStatus KLChangePassword (KLPrincipal inPrincipal);
+KLStatus KLDestroyTickets (KLPrincipal inPrincipal)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_destroy_cred)");
+
+
+KLStatus KLChangePassword (KLPrincipal inPrincipal)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 
 /* Kerberos Login dialog low level functions */
@@ -249,12 +266,16 @@ KLStatus KLChangePassword (KLPrincipal inPrincipal);
 KLStatus KLAcquireInitialTicketsWithPassword (KLPrincipal      inPrincipal,
                                               KLLoginOptions   inLoginOptions,
                                               const char      *inPassword,
-                                              char           **outCredCacheName);
+                                              char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
+
 
 KLStatus KLAcquireNewInitialTicketsWithPassword (KLPrincipal      inPrincipal,
                                                  KLLoginOptions   inLoginOptions,
                                                  const char      *inPassword,
-                                                 char           **outCredCacheName);
+                                                 char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
+
 
 KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (KLPrincipal      inPrincipal,
                                                            KLLoginOptions   inLoginOptions,
@@ -263,62 +284,85 @@ KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (KLPrincipal      inPr
                                                            KLBoolean       *outGotV4Credentials,
                                                            KLBoolean       *outGotV5Credentials,
                                                            void            *outV4Credentials,
-                                                           krb5_creds      *outV5Credentials);
+                                                           krb5_creds      *outV5Credentials)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
+
 
 KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
                                              krb5_context    inV5Context,
                                              void           *inV4Credentials,
                                              krb5_creds     *inV5Credentials,
-                                             char          **outCredCacheName);
+                                             char          **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
+
 
 KLStatus KLVerifyInitialTickets (KLPrincipal   inPrincipal,
                                  KLBoolean     inFailIfNoHostKey,
-                                 char        **outCredCacheName);
+                                 char        **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 KLStatus KLVerifyInitialTicketCredentials (void        *inV4Credentials,
                                            krb5_creds  *inV5Credentials,
-                                           KLBoolean    inFailIfNoHostKey);
+                                           KLBoolean    inFailIfNoHostKey)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 KLStatus KLAcquireNewInitialTicketsWithKeytab (KLPrincipal      inPrincipal,
                                                KLLoginOptions   inLoginOptions,
                                                const char      *inKeytabName,
-                                               char           **outCredCacheName);
+                                               char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_acquire_cred)");
 
 KLStatus KLRenewInitialTickets (KLPrincipal      inPrincipal,
                                 KLLoginOptions   inLoginOptions,
                                 KLPrincipal     *outPrincipal,
-                                char           **outCredCacheName);
+                                char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
 KLStatus KLValidateInitialTickets (KLPrincipal      inPrincipal,
                                    KLLoginOptions   inLoginOptions,
-                                   char           **outCredCacheName);
+                                   char           **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_aapl_initial_cred)");
 
-KLStatus KLLastChangedTime (KLTime *outLastChangedTime);
+
+KLStatus KLLastChangedTime (KLTime *outLastChangedTime)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_inquire_cred)");
+
 
 KLStatus KLCacheHasValidTickets (KLPrincipal         inPrincipal,
                                  KLKerberosVersion   inKerberosVersion,
                                  KLBoolean          *outFoundValidTickets,
                                  KLPrincipal        *outPrincipal,
-                                 char              **outCredCacheName);
+                                 char              **outCredCacheName)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_inquire_cred)");
 
 KLStatus KLTicketStartTime (KLPrincipal        inPrincipal,
                             KLKerberosVersion  inKerberosVersion,
-                            KLTime            *outStartTime);
+                            KLTime            *outStartTime)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_inquire_cred)");
+
 
 KLStatus KLTicketExpirationTime (KLPrincipal        inPrincipal,
                                  KLKerberosVersion  inKerberosVersion,
-                                 KLTime            *outExpirationTime);
+                                 KLTime            *outExpirationTime)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead (gss_inquire_cred)");
 
-KLStatus KLSetSystemDefaultCache (KLPrincipal inPrincipal);
+
+KLStatus KLSetSystemDefaultCache (KLPrincipal inPrincipal)
+    KERBEROSLOGIN_DEPRECATED("use gssapi instead");
+
 
 KLStatus KLHandleError (KLStatus           inError,
                         KLDialogIdentifier inDialogIdentifier,
-                        KLBoolean          inShowAlert);
+                        KLBoolean          inShowAlert)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 KLStatus KLGetErrorString (KLStatus   inError,
-                           char     **outErrorString);
+                           char     **outErrorString)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLCancelAllDialogs (void);
+KLStatus KLCancelAllDialogs (void)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 /* Kerberos change password dialog low level functions */
 
@@ -327,121 +371,169 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
                                         const char   *inNewPassword,
                                         KLBoolean    *outRejected,
                                         char        **outRejectionError,
-                                        char        **outRejectionDescription);
+                                        char        **outRejectionDescription)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 /* Application Configuration functions */
 
 KLStatus KLSetIdleCallback (const KLIdleCallback inCallback,
-                            const KLRefCon inRefCon);
+                            const KLRefCon inRefCon)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 KLStatus KLGetIdleCallback (KLIdleCallback* inCallback,
-                            KLRefCon* inRefCon);
+                            KLRefCon* inRefCon)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 /* Library configuration functions */
 
 KLStatus KLGetDefaultLoginOption (const KLDefaultLoginOption  inOption,
                                   void                       *ioBuffer,
-                                  KLSize                     *ioBufferSize);
+                                  KLSize                     *ioBufferSize)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 KLStatus KLSetDefaultLoginOption (const KLDefaultLoginOption  inOption,
                                   const void                 *inBuffer,
-                                  const KLSize                inBufferSize);
+                                  const KLSize                inBufferSize)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 /* Realm configuration functions */
 
 KLStatus KLFindKerberosRealmByName (const char *inRealmName,
-                                    KLIndex    *outIndex);
+                                    KLIndex    *outIndex)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 KLStatus KLGetKerberosRealm (KLIndex   inIndex,
-                             char    **outRealmName);
+                             char    **outRealmName)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 KLStatus KLSetKerberosRealm (KLIndex     inIndex,
-                             const char *inRealmName);
+                             const char *inRealmName)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLRemoveKerberosRealm (KLIndex inIndex);
+
+KLStatus KLRemoveKerberosRealm (KLIndex inIndex)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 KLStatus KLInsertKerberosRealm (KLIndex     inInsertBeforeIndex,
-                                const char *inRealmName);
+                                const char *inRealmName)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLRemoveAllKerberosRealms (void);
+KLStatus KLRemoveAllKerberosRealms (void)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLSize KLCountKerberosRealms (void);
+KLSize KLCountKerberosRealms (void)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLGetKerberosDefaultRealm(KLIndex *outIndex);
+KLStatus KLGetKerberosDefaultRealm(KLIndex *outIndex)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLGetKerberosDefaultRealmByName (char **outRealmName);
+KLStatus KLGetKerberosDefaultRealmByName (char **outRealmName)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLSetKerberosDefaultRealm (KLIndex inIndex);
+KLStatus KLSetKerberosDefaultRealm (KLIndex inIndex)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
-KLStatus KLSetKerberosDefaultRealmByName (const char *inRealm);
+KLStatus KLSetKerberosDefaultRealmByName (const char *inRealm)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
+
 
 /* KLPrincipal functions */
 
 KLStatus KLCreatePrincipalFromTriplet (const char  *inName,
                                        const char  *inInstance,
                                        const char  *inRealm,
-                                       KLPrincipal *outPrincipal);
+                                       KLPrincipal *outPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_import_name");
+
 
 KLStatus KLCreatePrincipalFromString (const char        *inFullPrincipal,
                                       KLKerberosVersion  inKerberosVersion,
-                                      KLPrincipal       *outPrincipal);
+                                      KLPrincipal       *outPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_import_name");
+
 
 KLStatus KLCreatePrincipalFromKerberos5Principal (krb5_principal  inKerberos5Principal,
-                                                  KLPrincipal    *outPrincipal);
+                                                  KLPrincipal    *outPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_import_name");
+
 
 KLStatus KLCreatePrincipalFromPrincipal (KLPrincipal inPrincipal,
-                                         KLPrincipal *outPrincipal);
+                                         KLPrincipal *outPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_import_name");
+
 
 KLStatus KLGetTripletFromPrincipal (KLPrincipal   inPrincipal,
                                     char        **outName,
                                     char        **outInstance,
-                                    char        **outRealm);
+                                    char        **outRealm)
+    KERBEROSLOGIN_DEPRECATED("gss_display_name");
 
 KLStatus KLGetStringFromPrincipal (KLPrincipal         inPrincipal,
                                    KLKerberosVersion   inKerberosVersion,
-                                   char              **outFullPrincipal);
+                                   char              **outFullPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_display_name");
 
 KLStatus KLGetDisplayStringFromPrincipal (KLPrincipal         inPrincipal,
                                           KLKerberosVersion   inKerberosVersion,
-                                          char              **outFullPrincipal);
+                                          char              **outFullPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_display_name");
 
 KLStatus KLComparePrincipal (KLPrincipal  inFirstPrincipal,
                              KLPrincipal  inSecondPrincipal,
-                             KLBoolean   *outAreEquivalent);
+                             KLBoolean   *outAreEquivalent)
+    KERBEROSLOGIN_DEPRECATED("gss_compare_name");
 
-KLStatus KLDisposePrincipal (KLPrincipal inPrincipal);
+KLStatus KLDisposePrincipal (KLPrincipal inPrincipal)
+    KERBEROSLOGIN_DEPRECATED("gss_release_name");
 
 /* KLLoginOptions functions */
 
-KLStatus KLCreateLoginOptions (KLLoginOptions *outOptions);
+KLStatus KLCreateLoginOptions (KLLoginOptions *outOptions)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetTicketLifetime (KLLoginOptions ioOptions,
-                                          KLLifetime     inTicketLifetime);
+                                          KLLifetime     inTicketLifetime)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetForwardable (KLLoginOptions ioOptions,
-                                       KLBoolean      inForwardable);
+                                       KLBoolean      inForwardable)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetProxiable (KLLoginOptions ioOptions,
-                                     KLBoolean      inProxiable);
+                                     KLBoolean      inProxiable)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetRenewableLifetime (KLLoginOptions ioOptions,
-                                             KLLifetime     inRenewableLifetime);
+                                             KLLifetime     inRenewableLifetime)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetAddressless (KLLoginOptions ioOptions,
-                                       KLBoolean      inAddressless);
+                                       KLBoolean      inAddressless)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetTicketStartTime (KLLoginOptions ioOptions,
-                                           KLTime         inStartTime);
+                                           KLTime         inStartTime)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 KLStatus KLLoginOptionsSetServiceName (KLLoginOptions  ioOptions,
-                                       const char     *inServiceName);
+                                       const char     *inServiceName)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
-KLStatus KLDisposeLoginOptions(KLLoginOptions ioOptions);
+KLStatus KLDisposeLoginOptions(KLLoginOptions ioOptions)
+    KERBEROSLOGIN_DEPRECATED("gss_aapl_initial_cred");
 
 
 /* Misc function */
 
-KLStatus KLDisposeString (char *inStringToDispose);
+KLStatus KLDisposeString (char *inStringToDispose)
+    KERBEROSLOGIN_DEPRECATED("no replacement");
 
 #if TARGET_OS_MAC
 #    pragma pack(pop)

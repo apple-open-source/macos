@@ -188,8 +188,8 @@ interface IWebPreferences : IUnknown
     HRESULT cacheModel([out, retval] WebCacheModel* cacheModel);
     HRESULT setCacheModel([in] WebCacheModel cacheModel);
 
-    HRESULT setShouldPaintCustomScrollbars(BOOL shouldPaint);
-    HRESULT shouldPaintCustomScrollbars(BOOL *shouldPaint);
+    HRESULT unused3();
+    HRESULT unused4();
 
     HRESULT setZoomsTextOnly(BOOL zoomsTextOnly);
     HRESULT zoomsTextOnly(BOOL *zoomsTextOnly);
@@ -202,7 +202,16 @@ interface IWebPreferences : IUnknown
 
     HRESULT setAVFoundationEnabled(BOOL avFoundationEnabled);
     HRESULT avFoundationEnabled(BOOL *avFoundationEnabled);
-    
+
     HRESULT pictographFontFamily([out, retval] BSTR* family);
     HRESULT setPictographFontFamily([in] BSTR family);
+
+    HRESULT setShouldDisplaySubtitles(BOOL shouldDisplaySubtitles);
+    HRESULT shouldDisplaySubtitles(BOOL *shouldDisplaySubtitles);
+
+    HRESULT setShouldDisplayCaptions(BOOL shouldDisplayCaptions);
+    HRESULT shouldDisplayCaptions(BOOL *shouldDisplayCaptions);
+
+    HRESULT setShouldDisplayTextDescriptions(BOOL shouldDisplayTextDescriptions);
+    HRESULT shouldDisplayTextDescriptions(BOOL *shouldDisplayTextDescriptions);
 }

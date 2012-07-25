@@ -20,6 +20,7 @@ ASTSA_HDRS = \
 	error.h \
 	hashkey.h \
 	hashpart.h \
+	ip6.h \
 	magicid.h \
 	option.h \
 	optlib.h \
@@ -34,10 +35,14 @@ ASTSA_SRCS = \
 	error.c \
 	fmtbuf.c \
 	fmtip4.c \
+	fmtip6.c \
 	optget.c \
 	sfstr.c \
+	strcopy.c \
+	strdup.c \
 	strmatch.c \
 	strtoip4.c \
+	strtoip6.c \
 	vmalloc.c \
 	dtclose.c \
 	dtdisc.c \
@@ -64,8 +69,9 @@ ASTSA_MANIFEST = \
 
 astsa : ast_sa.h libastsa.a
 
-libastsa.a : ast.o chresc.o error.o fmtbuf.o fmtip4.o optget.o sfstr.o \
-		strmatch.o strtoip4.o vmalloc.o \
+libastsa.a : ast.o chresc.o error.o fmtbuf.o fmtip4.o fmtip6.o optget.o \
+		sfstr.o strcopy.o strdup.o strmatch.o strtoip4.o strtoip6.o \
+		vmalloc.o \
 		dtclose.o dtdisc.o dtextract.o dtflatten.o dthash.o dtlist.o \
 		dtmethod.o dtopen.o dtrenew.o dtrestore.o dtsize.o dtstat.o \
 		dtstrhash.o dttree.o dttreeset.o dtview.o dtwalk.o
@@ -73,3 +79,8 @@ libastsa.a : ast.o chresc.o error.o fmtbuf.o fmtip4.o optget.o sfstr.o \
 
 ast_sa.h : mkast_sa
 	./mkast_sa $(CC) $(CFLAGS) > ast_sa.h
+
+clean :
+	rm -f ast_sa.h *.o *.a
+
+clobber : clean

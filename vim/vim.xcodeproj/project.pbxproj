@@ -73,6 +73,8 @@
 		4CD04E491039DE7E001C87D5 /* os_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04C0310361A30001C87D5 /* os_unix.c */; };
 		4CD04E99103A0215001C87D5 /* libncurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CD04E98103A0215001C87D5 /* libncurses.dylib */; settings = {ATTRIBUTES = (Required, ); }; };
 		4CD04EBA103CB215001C87D5 /* xxd.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04D5710361A31001C87D5 /* xxd.c */; };
+		C9DF38421489D54D001ADB39 /* if_python.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38411489D54D001ADB39 /* if_python.c */; };
+		C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */ = {isa = PBXBuildFile; fileRef = C9DF38431489D5CD001ADB39 /* if_ruby.c */; };
 		FCEA259912357FDB00430E38 /* blowfish.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA259812357FDB00430E38 /* blowfish.c */; };
 		FCEA25A21235809000430E38 /* sha256.c in Sources */ = {isa = PBXBuildFile; fileRef = FCEA25A11235809000430E38 /* sha256.c */; };
 /* End PBXBuildFile section */
@@ -1983,6 +1985,8 @@
 		4CD04E98103A0215001C87D5 /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
 		4CD04EB3103CAFC9001C87D5 /* xxd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xxd; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DD76FB20486AB0100D96B5E /* vim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vim; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9DF38411489D54D001ADB39 /* if_python.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_python.c; path = src/if_python.c; sourceTree = "<group>"; };
+		C9DF38431489D5CD001ADB39 /* if_ruby.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = if_ruby.c; path = src/if_ruby.c; sourceTree = "<group>"; };
 		FCEA259812357FDB00430E38 /* blowfish.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = blowfish.c; path = src/blowfish.c; sourceTree = "<group>"; };
 		FCEA25A11235809000430E38 /* sha256.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sha256.c; path = src/sha256.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -2048,6 +2052,8 @@
 				4CD04BA010361A30001C87D5 /* hashtab.c */,
 				4CD04BA110361A30001C87D5 /* if_cscope.c */,
 				4CD04BA210361A30001C87D5 /* if_cscope.h */,
+				C9DF38411489D54D001ADB39 /* if_python.c */,
+				C9DF38431489D5CD001ADB39 /* if_ruby.c */,
 				4CD04BAF10361A30001C87D5 /* if_xcmdsrv.c */,
 				4CD04BBA10361A30001C87D5 /* integration.c */,
 				4CD04BBB10361A30001C87D5 /* integration.h */,
@@ -4682,6 +4688,8 @@
 				4CD04E491039DE7E001C87D5 /* os_unix.c in Sources */,
 				FCEA259912357FDB00430E38 /* blowfish.c in Sources */,
 				FCEA25A21235809000430E38 /* sha256.c in Sources */,
+				C9DF38421489D54D001ADB39 /* if_python.c in Sources */,
+				C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4704,6 +4712,21 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				EXCLUDED_SOURCE_FILE_NAMES = "";
+				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = (
+					if_python.c,
+					if_ruby.c,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=macosx*]" = (
+					"$(inherited)",
+					FEAT_PYTHON,
+					DYNAMIC_PYTHON,
+					"DYNAMIC_PYTHON_DLL=\"\\\"/System/Library/Frameworks/Python.framework/Python\\\"\"",
+					FEAT_RUBY,
+					DYNAMIC_RUBY,
+					"DYNAMIC_RUBY_DLL=\"\\\"/System/Library/Frameworks/Ruby.framework/Ruby\\\"\"",
+					"DYNAMIC_RUBY_VER=18",
+				);
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = vim;
 				STRIP_INSTALLED_PRODUCT = YES;

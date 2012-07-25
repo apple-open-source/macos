@@ -28,6 +28,7 @@
 #include "CSSValueKeywords.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
+#include "FormDataList.h"
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
@@ -39,12 +40,14 @@
 #include "MIMETypeRegistry.h"
 #include "NodeList.h"
 #include "Page.h"
+#include "PluginViewBase.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderImage.h"
 #include "RenderWidget.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
 #include "Text.h"
+#include "Widget.h"
 
 namespace WebCore {
 
@@ -52,21 +55,15 @@ using namespace HTMLNames;
 
 inline HTMLObjectElement::HTMLObjectElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form, bool createdByParser) 
     : HTMLPlugInImageElement(tagName, document, createdByParser, ShouldNotPreferPlugInsForImages)
-    , FormAssociatedElement(form)
     , m_docNamedItem(true)
     , m_useFallbackContent(false)
 {
     ASSERT(hasTagName(objectTag));
-    if (!this->form())
-        setForm(findFormAncestor());
-    if (this->form())
-        this->form()->registerFormElement(this);
+    setForm(form ? form : findFormAncestor());
 }
 
 inline HTMLObjectElement::~HTMLObjectElement()
 {
-    if (form())
-        form()->removeFormElement(this);
 }
 
 PassRefPtr<HTMLObjectElement> HTMLObjectElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form, bool createdByParser)
@@ -74,15 +71,32 @@ PassRefPtr<HTMLObjectElement> HTMLObjectElement::create(const QualifiedName& tag
     return adoptRef(new HTMLObjectElement(tagName, document, form, createdByParser));
 }
 
-RenderWidget* HTMLObjectElement::renderWidgetForJSBindings() const
+RenderWidget* HTMLObjectElement::renderWidgetForJSBindings()
 {
     document()->updateLayoutIgnorePendingStylesheets();
     return renderPart(); // This will return 0 if the renderer is not a RenderPart.
 }
 
-void HTMLObjectElement::parseMappedAttribute(Attribute* attr)
+bool HTMLObjectElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (attr->name() == typeAttr) {
+    if (name == borderAttr)
+        return true;
+    return HTMLPlugInImageElement::isPresentationAttribute(name);
+}
+
+void HTMLObjectElement::collectStyleForAttribute(Attribute* attr, StylePropertySet* style)
+{
+    if (attr->name() == borderAttr)
+        applyBorderAttributeToStyle(attr, style);
+    else
+        HTMLPlugInImageElement::collectStyleForAttribute(attr, style);
+}
+
+void HTMLObjectElement::parseAttribute(Attribute* attr)
+{
+    if (attr->name() == formAttr)
+        formAttributeChanged();
+    else if (attr->name() == typeAttr) {
         m_serviceType = attr->value().lower();
         size_t pos = m_serviceType.find(";");
         if (pos != notFound)
@@ -109,32 +123,8 @@ void HTMLObjectElement::parseMappedAttribute(Attribute* attr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onbeforeloadAttr)
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
-    else if (attr->name() == nameAttr) {
-        const AtomicString& newName = attr->value();
-        if (isDocNamedItem() && inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-            document->removeNamedItem(m_name);
-            document->addNamedItem(newName);
-        }
-        m_name = newName;
-    } else if (attr->name() == borderAttr) {
-        addCSSLength(attr, CSSPropertyBorderWidth, attr->value().toInt() ? attr->value() : "0");
-        addCSSProperty(attr, CSSPropertyBorderTopStyle, CSSValueSolid);
-        addCSSProperty(attr, CSSPropertyBorderRightStyle, CSSValueSolid);
-        addCSSProperty(attr, CSSPropertyBorderBottomStyle, CSSValueSolid);
-        addCSSProperty(attr, CSSPropertyBorderLeftStyle, CSSValueSolid);
-    } else if (isIdAttributeName(attr->name())) {
-        const AtomicString& newId = attr->value();
-        if (isDocNamedItem() && inDocument() && document()->isHTMLDocument()) {
-            HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-            document->removeExtraNamedItem(m_id);
-            document->addExtraNamedItem(newId);
-        }
-        m_id = newId;
-        // also call superclass
-        HTMLPlugInImageElement::parseMappedAttribute(attr);
-    } else
-        HTMLPlugInImageElement::parseMappedAttribute(attr);
+    else
+        HTMLPlugInImageElement::parseAttribute(attr);
 }
 
 static void mapDataParamToSrc(Vector<String>* paramNames, Vector<String>* paramValues)
@@ -200,10 +190,9 @@ void HTMLObjectElement::parametersForPlugin(Vector<String>& paramNames, Vector<S
     }
     
     // Turn the attributes of the <object> element into arrays, but don't override <param> values.
-    NamedNodeMap* attributes = this->attributes(true);
-    if (attributes) {
-        for (unsigned i = 0; i < attributes->length(); ++i) {
-            Attribute* it = attributes->attributeItem(i);
+    if (hasAttributes()) {
+        for (unsigned i = 0; i < attributeCount(); ++i) {
+            Attribute* it = attributeItem(i);
             const AtomicString& name = it->name().localName();
             if (!uniqueParamNames.contains(name.impl())) {
                 paramNames.append(name.string());
@@ -231,7 +220,7 @@ bool HTMLObjectElement::hasFallbackContent() const
     for (Node* child = firstChild(); child; child = child->nextSibling()) {
         // Ignore whitespace-only text, and <param> tags, any other content is fallback content.
         if (child->isTextNode()) {
-            if (!static_cast<Text*>(child)->containsOnlyWhitespace())
+            if (!toText(child)->containsOnlyWhitespace())
                 return true;
         } else if (!child->hasTagName(paramTag))
             return true;
@@ -287,10 +276,8 @@ bool HTMLObjectElement::hasValidClassId()
 // moved down into HTMLPluginImageElement.cpp
 void HTMLObjectElement::updateWidget(PluginCreationOption pluginCreationOption)
 {
-    ASSERT(!renderEmbeddedObject()->pluginCrashedOrWasMissing());
-    // FIXME: We should ASSERT(needsWidgetUpdate()), but currently
-    // FrameView::updateWidget() calls updateWidget(false) without checking if
-    // the widget actually needs updating!
+    ASSERT(!renderEmbeddedObject()->showsUnavailablePluginIndicator());
+    ASSERT(needsWidgetUpdate());
     setNeedsWidgetUpdate(false);
     // FIXME: This should ASSERT isFinishedParsingChildren() instead.
     if (!isFinishedParsingChildren())
@@ -311,71 +298,47 @@ void HTMLObjectElement::updateWidget(PluginCreationOption pluginCreationOption)
     bool fallbackContent = hasFallbackContent();
     renderEmbeddedObject()->setHasFallbackContent(fallbackContent);
 
-    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(url, serviceType))
+    // FIXME: It's sadness that we have this special case here.
+    //        See http://trac.webkit.org/changeset/25128 and
+    //        plugins/netscape-plugin-setwindow-size.html
+    if (pluginCreationOption == CreateOnlyNonNetscapePlugins && wouldLoadAsNetscapePlugin(url, serviceType)) {
+        // Ensure updateWidget() is called again during layout to create the Netscape plug-in.
+        setNeedsWidgetUpdate(true);
         return;
+    }
 
-    ASSERT(!m_inBeforeLoadEventHandler);
-    m_inBeforeLoadEventHandler = true;
-    bool beforeLoadAllowedLoad = dispatchBeforeLoadEvent(url);
-    m_inBeforeLoadEventHandler = false;
-
-    // beforeload events can modify the DOM, potentially causing
-    // RenderWidget::destroy() to be called.  Ensure we haven't been
-    // destroyed before continuing.
-    // FIXME: Should this render fallback content?
-    if (!renderer())
+    RefPtr<HTMLObjectElement> protect(this); // beforeload and plugin loading can make arbitrary DOM mutations.
+    bool beforeLoadAllowedLoad = guardedDispatchBeforeLoadEvent(url);
+    if (!renderer()) // Do not load the plugin if beforeload removed this element or its renderer.
         return;
 
     SubframeLoader* loader = document()->frame()->loader()->subframeLoader();
-    bool success = beforeLoadAllowedLoad && hasValidClassId() && loader->requestObject(this, url, getAttribute(nameAttr), serviceType, paramNames, paramValues);
-
+    bool success = beforeLoadAllowedLoad && hasValidClassId() && loader->requestObject(this, url, getNameAttribute(), serviceType, paramNames, paramValues);
     if (!success && fallbackContent)
         renderFallbackContent();
 }
 
-bool HTMLObjectElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLObjectElement::rendererIsNeeded(const NodeRenderingContext& context)
 {
     // FIXME: This check should not be needed, detached documents never render!
     Frame* frame = document()->frame();
     if (!frame)
         return false;
 
-    return HTMLPlugInImageElement::rendererIsNeeded(style);
+    return HTMLPlugInImageElement::rendererIsNeeded(context);
 }
 
-void HTMLObjectElement::insertedIntoDocument()
+Node::InsertionNotificationRequest HTMLObjectElement::insertedInto(Node* insertionPoint)
 {
-    HTMLPlugInImageElement::insertedIntoDocument();
-    if (!inDocument())
-        return;
-
-    if (isDocNamedItem() && document()->isHTMLDocument()) {
-        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-        document->addNamedItem(m_name);
-        document->addExtraNamedItem(m_id);
-    }
-
-    FormAssociatedElement::insertedIntoDocument();
+    HTMLPlugInImageElement::insertedInto(insertionPoint);
+    FormAssociatedElement::insertedInto(insertionPoint);
+    return InsertionDone;
 }
 
-void HTMLObjectElement::removedFromDocument()
+void HTMLObjectElement::removedFrom(Node* insertionPoint)
 {
-    if (isDocNamedItem() && document()->isHTMLDocument()) {
-        HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
-        document->removeNamedItem(m_name);
-        document->removeExtraNamedItem(m_id);
-    }
-
-    HTMLPlugInImageElement::removedFromDocument();
-    FormAssociatedElement::removedFromDocument();
-}
-
-void HTMLObjectElement::attributeChanged(Attribute* attr, bool preserveDecls)
-{
-    if (attr->name() == formAttr)
-        formAttributeChanged();
-    else
-        HTMLPlugInImageElement::attributeChanged(attr, preserveDecls);
+    HTMLPlugInImageElement::removedFrom(insertionPoint);
+    FormAssociatedElement::removedFrom(insertionPoint);
 }
 
 void HTMLObjectElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -390,7 +353,7 @@ void HTMLObjectElement::childrenChanged(bool changedByParser, Node* beforeChange
 
 bool HTMLObjectElement::isURLAttribute(Attribute *attr) const
 {
-    return (attr->name() == dataAttr || (attr->name() == usemapAttr && attr->value().string()[0] != '#'));
+    return attr->name() == dataAttr || (attr->name() == usemapAttr && attr->value().string()[0] != '#') || HTMLPlugInImageElement::isURLAttribute(attr);
 }
 
 const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
@@ -411,9 +374,8 @@ void HTMLObjectElement::renderFallbackContent()
         m_serviceType = m_imageLoader->image()->response().mimeType();
         if (!isImageType()) {
             // If we don't think we have an image type anymore, then clear the image from the loader.
-            m_imageLoader->setImage(0);        
-            detach();
-            attach();
+            m_imageLoader->setImage(0);
+            reattach();
             return;
         }
     }
@@ -466,7 +428,7 @@ void HTMLObjectElement::updateDocNamedItem()
             if (isRecognizedTagName(element->tagQName()) && !element->hasTagName(paramTag))
                 isNamedItem = false;
         } else if (child->isTextNode()) {
-            if (!static_cast<Text*>(child)->containsOnlyWhitespace())
+            if (!toText(child)->containsOnlyWhitespace())
                 isNamedItem = false;
         } else
             isNamedItem = false;
@@ -475,11 +437,11 @@ void HTMLObjectElement::updateDocNamedItem()
     if (isNamedItem != wasNamedItem && document()->isHTMLDocument()) {
         HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
         if (isNamedItem) {
-            document->addNamedItem(m_name);
-            document->addExtraNamedItem(m_id);
+            document->addNamedItem(getNameAttribute());
+            document->addExtraNamedItem(getIdAttribute());
         } else {
-            document->removeNamedItem(m_name);
-            document->removeExtraNamedItem(m_id);
+            document->removeNamedItem(getNameAttribute());
+            document->removeExtraNamedItem(getIdAttribute());
         }
     }
     m_docNamedItem = isNamedItem;
@@ -492,7 +454,7 @@ bool HTMLObjectElement::containsJavaApplet() const
         
     for (Element* child = firstElementChild(); child; child = child->nextElementSibling()) {
         if (child->hasTagName(paramTag)
-                && equalIgnoringCase(child->getAttribute(nameAttr), "type")
+                && equalIgnoringCase(child->getNameAttribute(), "type")
                 && MIMETypeRegistry::isJavaAppletMIMEType(child->getAttribute(valueAttr).string()))
             return true;
         if (child->hasTagName(objectTag)
@@ -514,42 +476,52 @@ void HTMLObjectElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) con
     // FIXME: Passing a string that starts with "#" to the completeURL function does
     // not seem like it would work. The image element has similar but not identical code.
     const AtomicString& useMap = getAttribute(usemapAttr);
-    if (useMap.startsWith("#"))
+    if (useMap.startsWith('#'))
         addSubresourceURL(urls, document()->completeURL(useMap));
 }
 
-void HTMLObjectElement::willMoveToNewOwnerDocument()
+void HTMLObjectElement::didMoveToNewDocument(Document* oldDocument)
 {
-    FormAssociatedElement::willMoveToNewOwnerDocument();
-    HTMLPlugInImageElement::willMoveToNewOwnerDocument();
+    FormAssociatedElement::didMoveToNewDocument(oldDocument);
+    HTMLPlugInImageElement::didMoveToNewDocument(oldDocument);
 }
 
-void HTMLObjectElement::insertedIntoTree(bool deep)
+bool HTMLObjectElement::appendFormData(FormDataList& encoding, bool)
 {
-    FormAssociatedElement::insertedIntoTree();
-    HTMLPlugInImageElement::insertedIntoTree(deep);
-}
+    if (name().isEmpty())
+        return false;
 
-void HTMLObjectElement::removedFromTree(bool deep)
-{
-    FormAssociatedElement::removedFromTree();
-    HTMLPlugInImageElement::removedFromTree(deep);
-}
-
-bool HTMLObjectElement::appendFormData(FormDataList&, bool)
-{
-    // FIXME: Implements this function.
-    return false;
+    Widget* widget = pluginWidget();
+    if (!widget || !widget->isPluginViewBase())
+        return false;
+    String value;
+    if (!static_cast<PluginViewBase*>(widget)->getFormValue(value))
+        return false;
+    encoding.appendData(name(), value);
+    return true;
 }
 
 const AtomicString& HTMLObjectElement::formControlName() const
 {
-    return m_name.isNull() ? emptyAtom : m_name;
+    const AtomicString& name = getNameAttribute();
+    return name.isNull() ? emptyAtom : name;
 }
 
 HTMLFormElement* HTMLObjectElement::virtualForm() const
 {
     return FormAssociatedElement::form();
 }
+
+#if ENABLE(MICRODATA)
+String HTMLObjectElement::itemValueText() const
+{
+    return getURLAttribute(dataAttr);
+}
+
+void HTMLObjectElement::setItemValueText(const String& value, ExceptionCode&)
+{
+    setAttribute(dataAttr, value);
+}
+#endif
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2012 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,7 +31,7 @@
 #define BytecodeGenerator_h
 
 #include "CodeBlock.h"
-#include "HashTraits.h"
+#include <wtf/HashTraits.h>
 #include "Instruction.h"
 #include "Label.h"
 #include "LabelScope.h"
@@ -47,6 +47,7 @@
 namespace JSC {
 
     class Identifier;
+    class Label;
     class ScopeChainNode;
 
     class CallArguments {
@@ -69,8 +70,13 @@ namespace JSC {
     };
 
     struct FinallyContext {
-        Label* finallyAddr;
-        RegisterID* retAddrDst;
+        StatementNode* finallyBlock;
+        unsigned scopeContextStackSize;
+        unsigned switchContextStackSize;
+        unsigned forInContextStackSize;
+        unsigned labelScopesSize;
+        int finallyDepth;
+        int dynamicScopeDepth;
     };
 
     struct ControlFlowContext {
@@ -124,9 +130,9 @@ namespace JSC {
         RegisterID* constRegisterFor(const Identifier&);
 
         // Searches the scope chain in an attempt to  statically locate the requested
-        // property.  Returns false if for any reason the property cannot be safely
-        // optimised at all.  Otherwise it will return the index and depth of the
-        // VariableObject that defines the property.  If the property cannot be found
+        // property. Returns false if for any reason the property cannot be safely
+        // optimised at all. Otherwise it will return the index and depth of the
+        // VariableObject that defines the property. If the property cannot be found
         // statically, depth will contain the depth of the scope chain where dynamic
         // lookup must begin.
         bool findScopedProperty(const Identifier&, int& index, size_t& depth, bool forWriting, bool& includesDynamicScopes, JSObject*& globalObject);
@@ -330,8 +336,7 @@ namespace JSC {
         RegisterID* emitPutByVal(RegisterID* base, RegisterID* property, RegisterID* value);
         RegisterID* emitDeleteByVal(RegisterID* dst, RegisterID* base, RegisterID* property);
         RegisterID* emitPutByIndex(RegisterID* base, unsigned index, RegisterID* value);
-        RegisterID* emitPutGetter(RegisterID* base, const Identifier& property, RegisterID* value);
-        RegisterID* emitPutSetter(RegisterID* base, const Identifier& property, RegisterID* value);
+        void emitPutGetterSetter(RegisterID* base, const Identifier& property, RegisterID* getter, RegisterID* setter);
 
         RegisterID* emitCall(RegisterID* dst, RegisterID* func, CallArguments&, unsigned divot, unsigned startOffset, unsigned endOffset);
         RegisterID* emitCallEval(RegisterID* dst, RegisterID* func, CallArguments&, unsigned divot, unsigned startOffset, unsigned endOffset);
@@ -353,9 +358,6 @@ namespace JSC {
         PassRefPtr<Label> emitJumpIfNotFunctionCall(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpIfNotFunctionApply(RegisterID* cond, Label* target);
         PassRefPtr<Label> emitJumpScopes(Label* target, int targetScopeDepth);
-
-        PassRefPtr<Label> emitJumpSubroutine(RegisterID* retAddrDst, Label*);
-        void emitSubroutineReturn(RegisterID* retAddrSrc);
 
         RegisterID* emitGetPropertyNames(RegisterID* dst, RegisterID* base, RegisterID* i, RegisterID* size, Label* breakTarget);
         RegisterID* emitNextPropertyName(RegisterID* dst, RegisterID* base, RegisterID* i, RegisterID* size, RegisterID* iter, Label* target);
@@ -379,7 +381,7 @@ namespace JSC {
         int scopeDepth() { return m_dynamicScopeDepth + m_finallyDepth; }
         bool hasFinaliser() { return m_finallyDepth != 0; }
 
-        void pushFinallyContext(Label* target, RegisterID* returnAddrDst);
+        void pushFinallyContext(StatementNode* finallyBlock);
         void popFinallyContext();
 
         void pushOptimisedForIn(RegisterID* expectedBase, RegisterID* iter, RegisterID* index, RegisterID* propertyRegister)
@@ -408,7 +410,10 @@ namespace JSC {
         ScopeChainNode* scopeChain() const { return m_scopeChain.get(); }
 
     private:
+        friend class Label;
+        
         void emitOpcode(OpcodeID);
+        ValueProfile* emitProfiledOpcode(OpcodeID);
         void retrieveLastBinaryOp(int& dstIndex, int& src1Index, int& src2Index);
         void retrieveLastUnaryOp(int& dstIndex, int& srcIndex);
         ALWAYS_INLINE void rewindBinaryOp();
@@ -466,12 +471,12 @@ namespace JSC {
         
         FunctionExecutable* makeFunction(ExecState* exec, FunctionBodyNode* body)
         {
-            return FunctionExecutable::create(exec, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
+            return FunctionExecutable::create(exec, body->ident(), body->inferredName(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
 
         FunctionExecutable* makeFunction(JSGlobalData* globalData, FunctionBodyNode* body)
         {
-            return FunctionExecutable::create(*globalData, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
+            return FunctionExecutable::create(*globalData, body->ident(), body->inferredName(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
 
         JSString* addStringConstant(const Identifier&);
@@ -486,7 +491,7 @@ namespace JSC {
 
         RegisterID* emitInitLazyRegister(RegisterID*);
 
-        Vector<Instruction>& instructions() { return m_codeBlock->instructions(); }
+        Vector<Instruction>& instructions() { return m_instructions; }
         SymbolTable& symbolTable() { return *m_symbolTable; }
 
         bool shouldOptimizeLocals()
@@ -519,6 +524,8 @@ namespace JSC {
         void createArgumentsIfNecessary();
         void createActivationIfNecessary();
         RegisterID* createLazyRegisterIfNecessary(RegisterID*);
+        
+        Vector<Instruction> m_instructions;
 
         bool m_shouldEmitDebugHooks;
         bool m_shouldEmitProfileHooks;

@@ -33,7 +33,7 @@
 
 namespace WebCore {
 
-    class DataTransferItems;
+    class DataTransferItemList;
     class DragData;
     class FileList;
     class Frame;
@@ -46,6 +46,7 @@ namespace WebCore {
             CopyAndPaste,
             DragAndDrop,
         };
+        
         static PassRefPtr<Clipboard> create(ClipboardAccessPolicy, DragData*, Frame*);
 
         virtual ~Clipboard() { }
@@ -61,7 +62,7 @@ namespace WebCore {
     
         virtual void clearData(const String& type) = 0;
         virtual void clearAllData() = 0;
-        virtual String getData(const String& type, bool& success) const = 0;
+        virtual String getData(const String& type) const = 0;
         virtual bool setData(const String& type, const String& data) = 0;
     
         // extensions beyond IE's API
@@ -92,10 +93,12 @@ namespace WebCore {
         void setSourceOperation(DragOperation);
         void setDestinationOperation(DragOperation);
         
+        bool hasDropZoneType(const String&);
+        
         void setDragHasStarted() { m_dragStarted = true; }
 
 #if ENABLE(DATA_TRANSFER_ITEMS)
-        virtual PassRefPtr<DataTransferItems> items() = 0;
+        virtual PassRefPtr<DataTransferItemList> items() = 0;
 #endif
         
     protected:
@@ -104,6 +107,9 @@ namespace WebCore {
         bool dragStarted() const { return m_dragStarted; }
         
     private:
+        bool hasFileOfType(const String&) const;
+        bool hasStringOfType(const String&) const;
+        
         ClipboardAccessPolicy m_policy;
         String m_dropEffect;
         String m_effectAllowed;
@@ -116,6 +122,9 @@ namespace WebCore {
         RefPtr<Node> m_dragImageElement;
     };
 
+    DragOperation convertDropZoneOperationToDragOperation(const String& dragOperation);
+    String convertDragOperationToDropZoneOperation(DragOperation);
+    
 } // namespace WebCore
 
 #endif // Clipboard_h

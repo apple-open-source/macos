@@ -605,22 +605,11 @@ LIBOBJS
 UNINSTALL_LANGUAGES
 INSTALL_LANGUAGES
 PYTHON
-PHPDIR
-PHPCONFIG
 PHP
 PHPCGI
 PERL
 JAVA
-PDFTOPS
-DEFAULT_PDFTOPS
-CUPS_GHOSTSCRIPT
-CUPS_PDFTOPS
 CUPS_WEBIF
-FONTS
-TEXTTOPS
-DEFAULT_TEXTTOPS
-DEFAULT_BANNERTOPS
-BANNERTOPS
 DEFAULT_IPP_PORT
 CUPS_SNMP_COMMUNITY
 CUPS_SNMP_ADDRESS
@@ -631,17 +620,14 @@ CUPS_PRIMARY_SYSTEM_GROUP
 CUPS_SYSTEM_GROUPS
 CUPS_GROUP
 CUPS_USER
-CUPS_USE_NETWORK_DEFAULT
-CUPS_IMPLICIT_CLASSES
 CUPS_DEFAULT_SHARED
-CUPS_BROWSE_SHORT_NAMES
-CUPS_BROWSE_REMOTE_PROTOCOLS
 CUPS_BROWSE_LOCAL_PROTOCOLS
 CUPS_BROWSING
 CUPS_ACCESS_LOG_LEVEL
 CUPS_LOG_LEVEL
 CUPS_FATAL_ERRORS
 CUPS_LOG_FILE_PERM
+CUPS_CUPSD_FILE_PERM
 CUPS_CONFIG_FILE_PERM
 CUPS_BUNDLEDIR
 LANGUAGES
@@ -662,29 +648,14 @@ IPPALIASES
 LIBGCRYPTCONFIG
 LIBGNUTLSCONFIG
 PTHREAD_FLAGS
-LIBLDAP
+CUPS_DEFAULT_GSSSERVICENAME
 KRB5CONFIG
 LIBGSSAPI
-LIBSLP
 CUPS_LISTEN_DOMAINSOCKET
 CUPS_DEFAULT_DOMAINSOCKET
-EXPORT_LIBZ
-EXPORT_LIBTIFF
-EXPORT_LIBPNG
-EXPORT_LIBJPEG
-INSTALL_GZIP
-LIBZ
-LIBTIFF
-LIBPNG
-LIBJPEG
-IMGFILTERS
-DEFAULT_IMAGEFILTERS
-PHPOPTIONS
 RELROFLAGS
 PIEFLAGS
 CXXLIBS
-ARCH64FLAGS
-ARCH32FLAGS
 LDARCHFLAGS
 ARCHFLAGS
 UNITTESTS
@@ -697,31 +668,17 @@ DSOLIBS
 LINKCUPSIMAGE
 LINKCUPS
 EXTLINKCUPSIMAGE
-EXTLINKCUPSDRIVER
 EXTLINKCUPS
 LIBCUPSSTATIC
 LIBCUPSPPDC
 LIBCUPSMIME
 LIBCUPSIMAGE
-LIBCUPSDRIVER
 LIBCUPSCGI
 LIBCUPSBASE
 LIBCUPS
-DSO64FLAGS
-DSO32FLAGS
 DSOFLAGS
 DSOXX
 DSO
-UNINSTALL64
-LIB64DIR
-LIB64CUPSIMAGE
-LIB64CUPS
-INSTALL64
-UNINSTALL32
-LIB32DIR
-LIB32CUPSIMAGE
-LIB32CUPS
-INSTALL32
 MAN8DIR
 MAN8EXT
 MAN7EXT
@@ -752,7 +709,6 @@ INITDIR
 PRIVATEINCLUDE
 privateinclude
 BUILDDIRS
-LEGACY_BACKENDS
 INSTALLXPC
 CUPS_SYSTEM_AUTHKEY
 CUPS_DEFAULT_PRINTOPERATOR_AUTH
@@ -762,8 +718,11 @@ DBUSDIR
 SERVERLIBS
 BACKLIBS
 ARFLAGS
+LIBZ
+INSTALL_GZIP
 LIBWRAP
 LIBUSB
+LIBMXML
 EGREP
 GREP
 LIBPAPER
@@ -779,7 +738,6 @@ RM
 MV
 LN
 LD
-HTMLDOC
 GZIP
 CHMOD
 AR
@@ -867,8 +825,6 @@ with_menudir
 with_docdir
 with_fontpath
 with_logdir
-enable_32bit
-enable_64bit
 enable_shared
 enable_libtool_unsupported
 with_optim
@@ -878,22 +834,10 @@ enable_debug_printfs
 enable_unit_tests
 with_archflags
 with_ldarchflags
-with_arch32flags
-with_arch64flags
 enable_relro
-enable_image
-enable_jpeg
-enable_png
-enable_tiff
 with_domainsocket
-enable_slp
-with_openslp_libs
-with_openslp_includes
 enable_gssapi
 with_gssservicename
-enable_ldap
-with_ldap_libs
-with_ldap_includes
 enable_threads
 enable_ssl
 enable_cdsassl
@@ -904,6 +848,7 @@ with_openssl_includes
 enable_pam
 with_pam_module
 enable_largefile
+enable_avahi
 enable_dnssd
 with_dnssd_libs
 with_dnssd_includes
@@ -911,17 +856,14 @@ enable_launchd
 with_languages
 with_bundledir
 with_config_file_perm
+with_cupsd_file_perm
 with_log_file_perm
 with_fatal_errors
 with_log_level
 with_access_log_level
 enable_browsing
 with_local_protocols
-with_remote_protocols
-enable_browse_short
 enable_default_shared
-enable_implicit
-enable_use_network_default
 with_cups_user
 with_cups_group
 with_system_groups
@@ -933,10 +875,7 @@ enable_raw_printing
 with_snmp_address
 with_snmp_community
 with_ipp_port
-enable_bannertops
-enable_texttops
 enable_webif
-with_pdftops
 with_java
 with_perl
 with_php
@@ -1570,8 +1509,6 @@ Optional Features:
   --enable-tcp-wrappers   use libwrap for TCP wrappers support
   --enable-acl            build with POSIX ACL support
   --enable-dbus           build with DBUS support
-  --enable-32bit          generate 32-bit libraries on 32/64-bit systems
-  --enable-64bit          generate 64-bit libraries on 32/64-bit systems
   --disable-shared        do not create shared libraries
   --enable-libtool-unsupported
                           build with libtool (UNSUPPORTED!)
@@ -1580,13 +1517,7 @@ Optional Features:
   --enable-debug-printfs  build with CUPS_DEBUG_LOG support
   --enable-unit-tests     build and run unit tests
   --enable-relro          build with the GCC relro option
-  --enable-image          always build the image filters
-  --disable-jpeg          disable JPEG support
-  --disable-png           disable PNG support
-  --disable-tiff          disable TIFF support
-  --disable-slp           disable SLP support
   --disable-gssapi        disable GSSAPI support
-  --disable-ldap          disable LDAP support
   --disable-threads       disable multi-threading support
   --disable-ssl           disable SSL/TLS support
   --enable-cdsassl        use CDSA for SSL/TLS support, default=first
@@ -1594,21 +1525,14 @@ Optional Features:
   --enable-openssl        use OpenSSL for SSL/TLS support, default=third
   --disable-pam           disable PAM support
   --disable-largefile     omit support for large files
-  --disable-dnssd         disable DNS Service Discovery support
+  --disable-avahi         disable DNS Service Discovery support using Avahi
+  --disable-dnssd         disable DNS Service Discovery support using mDNSResponder
   --disable-launchd       disable launchd support
   --disable-browsing      disable Browsing by default
-  --disable-browse-short-names
-			  disable BrowseShortNames by default
   --disable-default-shared
 			  disable DefaultShared by default
-  --disable-implicit-classes
-                          disable ImplicitClasses by default
-  --enable-use-network-default
-                          set UseNetworkDefault to Yes by default
   --disable-raw-printing  do not allow raw printing by default
-  --enable-bannertops     always build the banner filter
-  --enable-texttops       always build the text filter
-  --enable-webif          enable the web interface by default, default=no for Mac OS X
+  --enable-webif          enable the web interface by default, default=no for OS X
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1638,28 +1562,22 @@ Optional Packages:
   --with-optim            set optimization flags
   --with-archflags        set default architecture flags
   --with-ldarchflags      set program architecture flags
-  --with-arch32flags      set 32-bit architecture flags
-  --with-arch64flags      set 64-bit architecture flags
   --with-domainsocket     set unix domain socket name
-  --with-openslp-libs     set directory for OpenSLP library
-  --with-openslp-includes set directory for OpenSLP includes
   --with-gssservicename   set default gss service name
-  --with-ldap-libs        set directory for LDAP library
-  --with-ldap-includes    set directory for LDAP includes
   --with-openssl-libs     set directory for OpenSSL library
   --with-openssl-includes set directory for OpenSSL includes
   --with-pam-module       specify the PAM module to use
   --with-dnssd-libs       set directory for DNS Service Discovery library
   --with-dnssd-includes   set directory for DNS Service Discovery includes
   --with-languages        set installed languages, default=all
-  --with-bundledir     set Mac OS X localization bundle directory
+  --with-bundledir        set OS X localization bundle directory
   --with-config-file-perm set default ConfigFilePerm value, default=0640
+  --with-cupsd-file-perm  set default cupsd permissions, default=0500
   --with-log-file-perm    set default LogFilePerm value, default=0644
   --with-fatal-errors     set default FatalErrors value, default=config
   --with-log-level        set default LogLevel value, default=warn
   --with-access-log-level set default AccessLogLevel value, default=actions
-  --with-local-protocols  set default BrowseLocalProtocols, default="CUPS"
-  --with-remote-protocols set default BrowseRemoteProtocols, default="CUPS"
+  --with-local-protocols  set default BrowseLocalProtocols, default=""
   --with-cups-user        set default user for CUPS
   --with-cups-group       set default group for CUPS
   --with-system-groups    set default system groups for CUPS
@@ -1670,7 +1588,6 @@ Optional Packages:
   --with-snmp-address     set SNMP query address, default=auto
   --with-snmp-community   set SNMP community, default=public
   --with-ipp-port         set port number for IPP, default=631
-  --with-pdftops          set pdftops filter (gs,/path/to/gs,pdftops,/path/to/pdftops,none), default=pdftops
   --with-java             set Java interpreter for web interfaces
   --with-perl             set Perl interpreter for web interfaces
   --with-php              set PHP interpreter for web interfaces
@@ -2587,11 +2504,11 @@ esac
 ac_config_headers="$ac_config_headers config.h"
 
 
-CUPS_VERSION="1.5.4"
+CUPS_VERSION="1.6svn"
 CUPS_REVISION=""
-#if test -z "$CUPS_REVISION" -a -d .svn; then
-#	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[[a-zA-Z]]*//g'`"
-#fi
+if test -z "$CUPS_REVISION" -a -d .svn; then
+	CUPS_REVISION="-r`svnversion . | awk -F: '{print $NF}' | sed -e '1,$s/[a-zA-Z]*//g'`"
+fi
 CUPS_BUILD="cups-$CUPS_VERSION"
 
 
@@ -4056,46 +3973,6 @@ $as_echo "no" >&6; }
 fi
 
 
-# Extract the first word of "htmldoc", so it can be a program name with args.
-set dummy htmldoc; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_HTMLDOC+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $HTMLDOC in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_HTMLDOC="$HTMLDOC" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_HTMLDOC="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-HTMLDOC=$ac_cv_path_HTMLDOC
-if test -n "$HTMLDOC"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HTMLDOC" >&5
-$as_echo "$HTMLDOC" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
 # Extract the first word of "ld", so it can be a program name with args.
 set dummy ld; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -4453,9 +4330,9 @@ fi
 
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing fmod" >&5
-$as_echo_n "checking for library containing fmod... " >&6; }
-if ${ac_cv_search_fmod+:} false; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing abs" >&5
+$as_echo_n "checking for library containing abs... " >&6; }
+if ${ac_cv_search_abs+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_func_search_save_LIBS=$LIBS
@@ -4468,11 +4345,11 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char fmod ();
+char abs ();
 int
 main ()
 {
-return fmod ();
+return abs ();
   ;
   return 0;
 }
@@ -4485,27 +4362,28 @@ for ac_lib in '' m; do
     LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
   fi
   if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_search_fmod=$ac_res
+  ac_cv_search_abs=$ac_res
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext
-  if ${ac_cv_search_fmod+:} false; then :
+  if ${ac_cv_search_abs+:} false; then :
   break
 fi
 done
-if ${ac_cv_search_fmod+:} false; then :
+if ${ac_cv_search_abs+:} false; then :
 
 else
-  ac_cv_search_fmod=no
+  ac_cv_search_abs=no
 fi
 rm conftest.$ac_ext
 LIBS=$ac_func_search_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_fmod" >&5
-$as_echo "$ac_cv_search_fmod" >&6; }
-ac_res=$ac_cv_search_fmod
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_abs" >&5
+$as_echo "$ac_cv_search_abs" >&6; }
+ac_res=$ac_cv_search_abs
 if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+  $as_echo "#define HAVE_ABS 1" >>confdefs.h
 
 fi
 
@@ -4560,6 +4438,62 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_crypt" >&5
 $as_echo "$ac_cv_search_crypt" >&6; }
 ac_res=$ac_cv_search_crypt
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing fmod" >&5
+$as_echo_n "checking for library containing fmod... " >&6; }
+if ${ac_cv_search_fmod+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char fmod ();
+int
+main ()
+{
+return fmod ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' m; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_fmod=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_fmod+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_fmod+:} false; then :
+
+else
+  ac_cv_search_fmod=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_fmod" >&5
+$as_echo "$ac_cv_search_fmod" >&6; }
+ac_res=$ac_cv_search_fmod
 if test "$ac_res" != no; then :
   test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
@@ -5011,6 +4945,13 @@ fi
 done
 
 
+ac_fn_c_check_header_mongrel "$LINENO" "stdlib.h" "ac_cv_header_stdlib_h" "$ac_includes_default"
+if test "x$ac_cv_header_stdlib_h" = xyes; then :
+  $as_echo "#define HAVE_STDLIB_H 1" >>confdefs.h
+
+fi
+
+
 ac_fn_c_check_header_mongrel "$LINENO" "crypt.h" "ac_cv_header_crypt_h" "$ac_includes_default"
 if test "x$ac_cv_header_crypt_h" = xyes; then :
   $as_echo "#define HAVE_CRYPT_H 1" >>confdefs.h
@@ -5160,6 +5101,74 @@ fi
 
 	LIBS="$SAVELIBS"
 fi
+
+
+
+LIBMXML=""
+ac_fn_c_check_header_mongrel "$LINENO" "mxml.h" "ac_cv_header_mxml_h" "$ac_includes_default"
+if test "x$ac_cv_header_mxml_h" = xyes; then :
+  SAVELIBS="$LIBS"
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing mmxlNewElement" >&5
+$as_echo_n "checking for library containing mmxlNewElement... " >&6; }
+if ${ac_cv_search_mmxlNewElement+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char mmxlNewElement ();
+int
+main ()
+{
+return mmxlNewElement ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' mxml; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_mmxlNewElement=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_mmxlNewElement+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_mmxlNewElement+:} false; then :
+
+else
+  ac_cv_search_mmxlNewElement=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_mmxlNewElement" >&5
+$as_echo "$ac_cv_search_mmxlNewElement" >&6; }
+ac_res=$ac_cv_search_mmxlNewElement
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+  $as_echo "#define HAVE_MXML_H 1" >>confdefs.h
+
+		LIBMXML="-lmxml"
+fi
+
+	LIBS="$SAVELIBS"
+fi
+
 
 
 
@@ -5478,6 +5487,62 @@ fi
 
 fi
 
+INSTALL_GZIP=""
+LIBZ=""
+ac_fn_c_check_header_mongrel "$LINENO" "zlib.h" "ac_cv_header_zlib_h" "$ac_includes_default"
+if test "x$ac_cv_header_zlib_h" = xyes; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for gzgets in -lz" >&5
+$as_echo_n "checking for gzgets in -lz... " >&6; }
+if ${ac_cv_lib_z_gzgets+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lz  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char gzgets ();
+int
+main ()
+{
+return gzgets ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_z_gzgets=yes
+else
+  ac_cv_lib_z_gzgets=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_z_gzgets" >&5
+$as_echo "$ac_cv_lib_z_gzgets" >&6; }
+if test "x$ac_cv_lib_z_gzgets" = xyes; then :
+  $as_echo "#define HAVE_LIBZ 1" >>confdefs.h
+
+	LIBZ="-lz"
+	LIBS="$LIBS -lz"
+	if test "x$GZIP" != z; then
+		INSTALL_GZIP="-z"
+	fi
+fi
+
+fi
+
+
+
+
+
 case $uname in
         Darwin* | *BSD*)
                 ARFLAGS="-rcv"
@@ -5618,11 +5683,9 @@ fi
 CUPS_DEFAULT_PRINTOPERATOR_AUTH="@SYSTEM"
 CUPS_SYSTEM_AUTHKEY=""
 INSTALLXPC=""
-LEGACY_BACKENDS="parallel"
 
 case $uname in
         Darwin*)
-		LEGACY_BACKENDS=""
                 BACKLIBS="$BACKLIBS -framework IOKit"
                 SERVERLIBS="$SERVERLIBS -framework IOKit -weak_framework ApplicationServices"
                 LIBS="-framework SystemConfiguration -framework CoreFoundation -framework Security $LIBS"
@@ -5674,21 +5737,6 @@ _ACEOF
 fi
 done
 
-
-				SAVELIBS="$LIBS"
-		LIBS="$LIBS -framework ApplicationServices"
-		for ac_func in ColorSyncRegisterDevice
-do :
-  ac_fn_c_check_func "$LINENO" "ColorSyncRegisterDevice" "ac_cv_func_ColorSyncRegisterDevice"
-if test "x$ac_cv_func_ColorSyncRegisterDevice" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_COLORSYNCREGISTERDEVICE 1
-_ACEOF
-
-fi
-done
-
-		LIBS="$SAVELIBS"
 
 				ac_fn_c_check_header_mongrel "$LINENO" "membership.h" "ac_cv_header_membership_h" "$ac_includes_default"
 if test "x$ac_cv_header_membership_h" = xyes; then :
@@ -5835,6 +5883,13 @@ if test "x$ac_cv_header_xpc_xpc_h" = xyes; then :
 fi
 
 
+		ac_fn_c_check_header_mongrel "$LINENO" "xpc/private.h" "ac_cv_header_xpc_private_h" "$ac_includes_default"
+if test "x$ac_cv_header_xpc_private_h" = xyes; then :
+  $as_echo "#define HAVE_XPC_PRIVATE_H 1" >>confdefs.h
+
+fi
+
+
                 ;;
 esac
 
@@ -5842,7 +5897,6 @@ esac
 cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_PRINTOPERATOR_AUTH "$CUPS_DEFAULT_PRINTOPERATOR_AUTH"
 _ACEOF
-
 
 
 
@@ -5858,7 +5912,7 @@ fi
 
 case "$COMPONENTS" in
 	all)
-		BUILDDIRS="filter backend berkeley cgi-bin driver monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
+		BUILDDIRS="filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
 		;;
 
 	core)
@@ -6419,7 +6473,7 @@ _ACEOF
 # Transient run-time state
 case "$uname" in
 	Darwin*)
-		# Darwin (Mac OS X)
+		# Darwin (OS X)
 		CUPS_STATEDIR="$CUPS_SERVERROOT"
 		;;
 	*)
@@ -6488,7 +6542,7 @@ case "$uname" in
 		MAN8DIR=1m
 		;;
 	Linux* | GNU* | Darwin*)
-		# Linux, GNU Hurd, and Mac OS X
+		# Linux, GNU Hurd, and OS X
 		MAN1EXT=1.gz
 		MAN5EXT=5.gz
 		MAN7EXT=7.gz
@@ -6514,137 +6568,6 @@ esac
 
 
 
-# Check whether --enable-32bit was given.
-if test "${enable_32bit+set}" = set; then :
-  enableval=$enable_32bit;
-fi
-
-
-INSTALL32=""
-LIB32CUPS=""
-LIB32CUPSIMAGE=""
-LIB32DIR=""
-UNINSTALL32=""
-
-
-
-
-
-
-
-# Check whether --enable-64bit was given.
-if test "${enable_64bit+set}" = set; then :
-  enableval=$enable_64bit;
-fi
-
-
-INSTALL64=""
-LIB64CUPS=""
-LIB64CUPSIMAGE=""
-LIB64DIR=""
-UNINSTALL64=""
-
-
-
-
-
-
-
-case "$uname" in
-	HP-UX*)
-		if test "x$enable_32bit" = xyes; then
-			# Build 32-bit libraries, 64-bit base...
-			INSTALL32="install32bit"
-			LIB32CUPS="32bit/libcups.so.2"
-			LIB32CUPSIMAGE="32bit/libcupsimage.so.2"
-			LIB32DIR="$exec_prefix/lib"
-			if test -d /usr/lib/hpux32; then
-				LIB32DIR="${LIB32DIR}/hpux32"
-			fi
-			UNINSTALL32="uninstall32bit"
-		fi
-
-		if test "x$enable_64bit" = xyes; then
-			# Build 64-bit libraries, 32-bit base...
-			INSTALL64="install64bit"
-			LIB64CUPS="64bit/libcups.so.2"
-			LIB64CUPSIMAGE="64bit/libcupsimage.so.2"
-			LIB64DIR="$exec_prefix/lib"
-			if test -d /usr/lib/hpux64; then
-				LIB64DIR="${LIB64DIR}/hpux64"
-			fi
-			UNINSTALL64="uninstall64bit"
-		fi
-		;;
-
-	IRIX)
-		if test "x$enable_32bit" = xyes; then
-			INSTALL32="install32bit"
-			LIB32CUPS="32bit/libcups.so.2"
-			LIB32CUPSIMAGE="32bit/libcupsimage.so.2"
-			LIB32DIR="$prefix/lib32"
-			UNINSTALL32="uninstall32bit"
-		fi
-
-		if test "x$enable_64bit" = xyes; then
-			# Build 64-bit libraries, 32-bit base...
-			INSTALL64="install64bit"
-			LIB64CUPS="64bit/libcups.so.2"
-			LIB64CUPSIMAGE="64bit/libcupsimage.so.2"
-			LIB64DIR="$prefix/lib64"
-			UNINSTALL64="uninstall64bit"
-		fi
-		;;
-
-	Linux*)
-		if test "x$enable_32bit" = xyes; then
-			# Build 32-bit libraries, 64-bit base...
-			INSTALL32="install32bit"
-			LIB32CUPS="32bit/libcups.so.2"
-			LIB32CUPSIMAGE="32bit/libcupsimage.so.2"
-			LIB32DIR="$exec_prefix/lib"
-			if test -d /usr/lib32; then
-				LIB32DIR="${LIB32DIR}32"
-			fi
-			UNINSTALL32="uninstall32bit"
-		fi
-
-		if test "x$enable_64bit" = xyes; then
-			# Build 64-bit libraries, 32-bit base...
-			INSTALL64="install64bit"
-			LIB64CUPS="64bit/libcups.so.2"
-			LIB64CUPSIMAGE="64bit/libcupsimage.so.2"
-			LIB64DIR="$exec_prefix/lib"
-			if test -d /usr/lib64; then
-				LIB64DIR="${LIB64DIR}64"
-			fi
-			UNINSTALL64="uninstall64bit"
-		fi
-		;;
-
-	SunOS*)
-		if test "x$enable_32bit" = xyes; then
-			# Build 32-bit libraries, 64-bit base...
-			INSTALL32="install32bit"
-			LIB32CUPS="32bit/libcups.so.2"
-			LIB32CUPSIMAGE="32bit/libcupsimage.so.2"
-			LIB32DIR="$exec_prefix/lib/32"
-			UNINSTALL32="uninstall32bit"
-		fi
-
-		if test "x$enable_64bit" = xyes; then
-			# Build 64-bit libraries, 32-bit base...
-			INSTALL64="install64bit"
-			LIB64CUPS="64bit/libcups.so.2"
-			LIB64CUPSIMAGE="64bit/libcupsimage.so.2"
-			LIB64DIR="$exec_prefix/lib/64"
-			UNINSTALL64="uninstall64bit"
-		fi
-		;;
-esac
-
-
-
 PICFLAG=1
 DSOFLAGS="${DSOFLAGS:=}"
 
@@ -6663,7 +6586,6 @@ if test x$enable_shared != xno; then
 		SunOS*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6674,7 +6596,6 @@ if test x$enable_shared != xno; then
 		UNIX_S*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6687,7 +6608,6 @@ if test x$enable_shared != xno; then
 				ia64)
 					LIBCUPS="lib$cupsbase.so.2"
 					LIBCUPSCGI="libcupscgi.so.1"
-					LIBCUPSDRIVER="libcupsdriver.so.1"
 					LIBCUPSIMAGE="libcupsimage.so.2"
 					LIBCUPSMIME="libcupsmime.so.1"
 					LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6698,7 +6618,6 @@ if test x$enable_shared != xno; then
 				*)
 					LIBCUPS="lib$cupsbase.sl.2"
 					LIBCUPSCGI="libcupscgi.sl.1"
-					LIBCUPSDRIVER="libcupsdriver.sl.1"
 					LIBCUPSIMAGE="libcupsimage.sl.2"
 					LIBCUPSMIME="libcupsmime.sl.1"
 					LIBCUPSPPDC="libcupsppdc.sl.1"
@@ -6711,7 +6630,6 @@ if test x$enable_shared != xno; then
 		IRIX)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6722,7 +6640,6 @@ if test x$enable_shared != xno; then
 		OSF1* | Linux | GNU | *BSD*)
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6733,7 +6650,6 @@ if test x$enable_shared != xno; then
 		Darwin*)
 			LIBCUPS="lib$cupsbase.2.dylib"
 			LIBCUPSCGI="libcupscgi.1.dylib"
-			LIBCUPSDRIVER="libcupsdriver.1.dylib"
 			LIBCUPSIMAGE="libcupsimage.2.dylib"
 			LIBCUPSMIME="libcupsmime.1.dylib"
 			LIBCUPSPPDC="libcupsppdc.1.dylib"
@@ -6745,7 +6661,6 @@ if test x$enable_shared != xno; then
 			LIBCUPS="lib${cupsbase}_s.a"
 			LIBCUPSBASE="${cupsbase}_s"
 			LIBCUPSCGI="libcupscgi_s.a"
-			LIBCUPSDRIVER="libcupsdriver_s.a"
 			LIBCUPSIMAGE="libcupsimage_s.a"
 			LIBCUPSMIME="libcupsmime_s.a"
 			LIBCUPSPPDC="libcupsppdc_s.a"
@@ -6758,7 +6673,6 @@ if test x$enable_shared != xno; then
 			echo "         option with compiler."
 			LIBCUPS="lib$cupsbase.so.2"
 			LIBCUPSCGI="libcupscgi.so.1"
-			LIBCUPSDRIVER="libcupsdriver.so.1"
 			LIBCUPSIMAGE="libcupsimage.so.2"
 			LIBCUPSMIME="libcupsmime.so.1"
 			LIBCUPSPPDC="libcupsppdc.so.1"
@@ -6771,21 +6685,12 @@ else
 	PICFLAG=0
 	LIBCUPS="lib$cupsbase.a"
 	LIBCUPSCGI="libcupscgi.a"
-	LIBCUPSDRIVER="libcupsdriver.a"
 	LIBCUPSIMAGE="libcupsimage.a"
 	LIBCUPSMIME="libcupsmime.a"
 	LIBCUPSPPDC="libcupsppdc.a"
 	DSO=":"
 	DSOXX=":"
 fi
-
-# 32-bit and 64-bit libraries need variations of the standard
-# DSOFLAGS...
-DSO32FLAGS="$DSOFLAGS"
-DSO64FLAGS="$DSOFLAGS"
-
-
-
 
 
 
@@ -6803,7 +6708,6 @@ if test x$enable_shared = xno; then
 	LINKCUPSIMAGE="../filter/libcupsimage.a"
 
 	EXTLINKCUPS="-lcups"
-	EXTLINKCUPSDRIVER="-lcupsdriver"
 	EXTLINKCUPSIMAGE="-lcupsimage"
 else
 	if test $uname = AIX; then
@@ -6811,18 +6715,15 @@ else
 		LINKCUPSIMAGE="-lcupsimage_s"
 
 		EXTLINKCUPS="-lcups_s"
-		EXTLINKCUPSDRIVER="-lcupsdriver_s"
 		EXTLINKCUPSIMAGE="-lcupsimage_s"
 	else
 		LINKCUPS="-l${cupsbase}"
 		LINKCUPSIMAGE="-lcupsimage"
 
 		EXTLINKCUPS="-lcups"
-		EXTLINKCUPSDRIVER="-lcupsdriver"
 		EXTLINKCUPSIMAGE="-lcupsimage"
 	fi
 fi
-
 
 
 
@@ -6836,7 +6737,7 @@ if test "$DSO" != ":"; then
 	# rather than to the executables.  This makes things smaller if you
 	# are using any static libraries, and it also allows us to distribute
 	# a single DSO rather than a bunch...
-	DSOLIBS="\$(LIBTIFF) \$(LIBPNG) \$(LIBJPEG) \$(LIBZ)"
+	DSOLIBS="\$(LIBZ)"
 	IMGLIBS=""
 
 	# Tell the run-time linkers where to find a DSO.  Some platforms
@@ -6848,13 +6749,9 @@ if test "$DSO" != ":"; then
 			case "$uarch" in
 				ia64)
 					DSOFLAGS="-Wl,+s,+b,$libdir $DSOFLAGS"
-					DSO32FLAGS="-Wl,+s,+b,$LIB32DIR $DSO32FLAGS"
-					DSO64FLAGS="-Wl,+s,+b,$LIB64DIR $DSO64FLAGS"
 					;;
 				*)
                 			DSOFLAGS="+s +b $libdir $DSOFLAGS"
-                			DSO32FLAGS="+s +b $LIB32DIR $DSO32FLAGS"
-                			DSO64FLAGS="+s +b $LIB64DIR $DSO64FLAGS"
 					;;
 			esac
                 	LDFLAGS="$LDFLAGS -Wl,+s,+b,$libdir"
@@ -6864,8 +6761,6 @@ if test "$DSO" != ":"; then
                 	# Solaris...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-R$libdir $DSOFLAGS"
-				DSO32FLAGS="-R$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-R$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -R$libdir"
 				EXPORT_LDFLAGS="-R$libdir"
 			fi
@@ -6874,8 +6769,6 @@ if test "$DSO" != ":"; then
                         # *BSD...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-Wl,-R$libdir $DSOFLAGS"
-				DSO32FLAGS="-Wl,-R$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-Wl,-R$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -Wl,-R$libdir"
 				EXPORT_LDFLAGS="-Wl,-R$libdir"
 			fi
@@ -6884,8 +6777,6 @@ if test "$DSO" != ":"; then
                         # IRIX, Linux, and HURD...
 			if test $exec_prefix != /usr; then
 				DSOFLAGS="-Wl,-rpath,$libdir $DSOFLAGS"
-				DSO32FLAGS="-Wl,-rpath,$LIB32DIR $DSO32FLAGS"
-				DSO64FLAGS="-Wl,-rpath,$LIB64DIR $DSO64FLAGS"
 				LDFLAGS="$LDFLAGS -Wl,-rpath,$libdir"
 				EXPORT_LDFLAGS="-Wl,-rpath,$libdir"
 			fi
@@ -6893,7 +6784,7 @@ if test "$DSO" != ":"; then
 	esac
 else
 	DSOLIBS=""
-	IMGLIBS="\$(LIBTIFF) \$(LIBPNG) \$(LIBJPEG) \$(LIBZ)"
+	IMGLIBS="\$(LIBZ)"
 fi
 
 
@@ -7003,8 +6894,8 @@ fi
 
 if test -z "$with_ldarchflags"; then
 	if test "$uname" = Darwin; then
-		# Only create 32-bit programs by default
-		LDARCHFLAGS="`echo $ARCHFLAGS | sed -e '1,$s/-arch x86_64//' -e '1,$s/-arch ppc64//'`"
+		# Only create Intel programs by default
+		LDARCHFLAGS="`echo $ARCHFLAGS | sed -e '1,$s/-arch ppc64//'`"
 	else
 		LDARCHFLAGS="$ARCHFLAGS"
 	fi
@@ -7013,24 +6904,6 @@ else
 fi
 
 
-
-
-
-# Check whether --with-arch32flags was given.
-if test "${with_arch32flags+set}" = set; then :
-  withval=$with_arch32flags;
-fi
-
-ARCH32FLAGS=""
-
-
-
-# Check whether --with-arch64flags was given.
-if test "${with_arch64flags+set}" = set; then :
-  withval=$with_arch64flags;
-fi
-
-ARCH64FLAGS=""
 
 
 # Check whether --enable-relro was given.
@@ -7046,9 +6919,6 @@ PIEFLAGS=""
 
 
 RELROFLAGS=""
-
-
-PHPOPTIONS=""
 
 
 if test -n "$GCC"; then
@@ -7140,7 +7010,6 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 		# Additional warning options for development testing...
 		if test -d .svn; then
 			OPTIM="-Wshadow -Werror $OPTIM"
-			PHPOPTIONS="-Wno-shadow"
 		else
 			{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if GCC supports -Wno-tautological-compare" >&5
 $as_echo_n "checking if GCC supports -Wno-tautological-compare... " >&6; }
@@ -7180,153 +7049,11 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 			CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
 			;;
 
-		HP-UX*)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-milp32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-mlp64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-mlp64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-milp32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
-		IRIX)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-n32 -mips3"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-64 -mips4"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-64 -mips4"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-n32 -mips3"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
 		Linux*)
 			# The -z relro option is provided by the Linux linker command to
 			# make relocatable data read-only.
 			if test x$enable_relro = xyes; then
 				RELROFLAGS="-Wl,-z,relro"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-m32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-m64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-m64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-m32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
-			;;
-
-		SunOS*)
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-m32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-m64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-m64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-m32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 	esac
@@ -7356,40 +7083,6 @@ else
 			if test $PICFLAG = 1; then
 				OPTIM="+z $OPTIM"
 			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="+DD32"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="+DD64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="+DD64"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="+DD32"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
-			fi
 			;;
         	IRIX)
 			if test -z "$OPTIM"; then
@@ -7402,40 +7095,6 @@ else
 
 			if test "x$with_optim" = x; then
 				OPTIM="-fullwarn -woff 1183,1209,1349,1506,3201 $OPTIM"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Build 32-bit libraries, 64-bit base...
-				if test -z "$with_arch32flags"; then
-					ARCH32FLAGS="-n32 -mips3"
-				else
-					ARCH32FLAGS="$with_arch32flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-64 -mips4"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			fi
-
-			if test "x$enable_64bit" = xyes; then
-				# Build 64-bit libraries, 32-bit base...
-				if test -z "$with_arch64flags"; then
-					ARCH64FLAGS="-64 -mips4"
-				else
-					ARCH64FLAGS="$with_arch64flags"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-n32 -mips3"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 		OSF*)
@@ -7460,47 +7119,6 @@ else
 
 			if test $PICFLAG = 1; then
 				OPTIM="-KPIC $OPTIM"
-			fi
-
-			if test "x$enable_32bit" = xyes; then
-				# Compiling on a Solaris system, build 64-bit
-				# binaries with separate 32-bit libraries...
-				ARCH32FLAGS="-xarch=generic"
-
-				if test "x$with_optim" = x; then
-					# Suppress all of Sun's questionable
-					# warning messages, and default to
-					# 64-bit compiles of everything else...
-					OPTIM="-w $OPTIM"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch64flags"; then
-						ARCHFLAGS="-xarch=generic64"
-					else
-						ARCHFLAGS="$with_arch64flags"
-					fi
-				fi
-			else
-				if test "x$enable_64bit" = xyes; then
-					# Build 64-bit libraries...
-					ARCH64FLAGS="-xarch=generic64"
-				fi
-
-				if test "x$with_optim" = x; then
-					# Suppress all of Sun's questionable
-					# warning messages, and default to
-					# 32-bit compiles of everything else...
-					OPTIM="-w $OPTIM"
-				fi
-
-				if test -z "$with_archflags"; then
-					if test -z "$with_arch32flags"; then
-						ARCHFLAGS="-xarch=generic"
-					else
-						ARCHFLAGS="$with_arch32flags"
-					fi
-				fi
 			fi
 			;;
 		UNIX_SVR*)
@@ -7557,352 +7175,6 @@ case $uname in
 		OPTIM="$OPTIM -D_XOPEN_SOURCE=500 -D_XOPEN_SOURCE_EXTENDED -D_OSF_SOURCE"
 		;;
 esac
-
-
-
-
-# Check whether --enable-image was given.
-if test "${enable_image+set}" = set; then :
-  enableval=$enable_image;
-fi
-
-
-DEFAULT_IMAGEFILTERS="#"
-IMGFILTERS=""
-if test "x$enable_image" != xno; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to build image filters" >&5
-$as_echo_n "checking whether to build image filters... " >&6; }
-        if test "x$enable_image" = xyes -o $uname != Darwin; then
-		IMGFILTERS="imagetops imagetoraster"
-		DEFAULT_IMAGEFILTERS=""
-                { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-        else
-                { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-        fi
-fi
-
-
-
-
-# Check whether --enable-jpeg was given.
-if test "${enable_jpeg+set}" = set; then :
-  enableval=$enable_jpeg;
-fi
-
-# Check whether --enable-png was given.
-if test "${enable_png+set}" = set; then :
-  enableval=$enable_png;
-fi
-
-# Check whether --enable-tiff was given.
-if test "${enable_tiff+set}" = set; then :
-  enableval=$enable_tiff;
-fi
-
-
-LIBJPEG=""
-LIBPNG=""
-LIBTIFF=""
-LIBZ=""
-
-
-
-
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing pow" >&5
-$as_echo_n "checking for library containing pow... " >&6; }
-if ${ac_cv_search_pow+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_func_search_save_LIBS=$LIBS
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char pow ();
-int
-main ()
-{
-return pow ();
-  ;
-  return 0;
-}
-_ACEOF
-for ac_lib in '' m; do
-  if test -z "$ac_lib"; then
-    ac_res="none required"
-  else
-    ac_res=-l$ac_lib
-    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
-  fi
-  if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_search_pow=$ac_res
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext
-  if ${ac_cv_search_pow+:} false; then :
-  break
-fi
-done
-if ${ac_cv_search_pow+:} false; then :
-
-else
-  ac_cv_search_pow=no
-fi
-rm conftest.$ac_ext
-LIBS=$ac_func_search_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_pow" >&5
-$as_echo "$ac_cv_search_pow" >&6; }
-ac_res=$ac_cv_search_pow
-if test "$ac_res" != no; then :
-  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
-
-fi
-
-
-SAVELIBS="$LIBS"
-
-if test x$enable_jpeg != xno; then
-    ac_fn_c_check_header_mongrel "$LINENO" "jpeglib.h" "ac_cv_header_jpeglib_h" "$ac_includes_default"
-if test "x$ac_cv_header_jpeglib_h" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for jpeg_destroy_decompress in -ljpeg" >&5
-$as_echo_n "checking for jpeg_destroy_decompress in -ljpeg... " >&6; }
-if ${ac_cv_lib_jpeg_jpeg_destroy_decompress+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ljpeg  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char jpeg_destroy_decompress ();
-int
-main ()
-{
-return jpeg_destroy_decompress ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_jpeg_jpeg_destroy_decompress=yes
-else
-  ac_cv_lib_jpeg_jpeg_destroy_decompress=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_jpeg_jpeg_destroy_decompress" >&5
-$as_echo "$ac_cv_lib_jpeg_jpeg_destroy_decompress" >&6; }
-if test "x$ac_cv_lib_jpeg_jpeg_destroy_decompress" = xyes; then :
-  $as_echo "#define HAVE_LIBJPEG 1" >>confdefs.h
-
-	    LIBJPEG="-ljpeg"
-	    LIBS="$LIBS -ljpeg"
-fi
-
-fi
-
-
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: JPEG support disabled with --disable-jpeg." >&5
-$as_echo "$as_me: JPEG support disabled with --disable-jpeg." >&6;}
-fi
-
-INSTALL_GZIP=""
-ac_fn_c_check_header_mongrel "$LINENO" "zlib.h" "ac_cv_header_zlib_h" "$ac_includes_default"
-if test "x$ac_cv_header_zlib_h" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for gzgets in -lz" >&5
-$as_echo_n "checking for gzgets in -lz... " >&6; }
-if ${ac_cv_lib_z_gzgets+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lz  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char gzgets ();
-int
-main ()
-{
-return gzgets ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_z_gzgets=yes
-else
-  ac_cv_lib_z_gzgets=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_z_gzgets" >&5
-$as_echo "$ac_cv_lib_z_gzgets" >&6; }
-if test "x$ac_cv_lib_z_gzgets" = xyes; then :
-  $as_echo "#define HAVE_LIBZ 1" >>confdefs.h
-
-	LIBZ="-lz"
-	LIBS="$LIBS -lz"
-	if test "x$GZIP" != x; then
-		INSTALL_GZIP="-z"
-	fi
-fi
-
-fi
-
-
-
-
-if test x$enable_png != xno; then
-    ac_fn_c_check_header_mongrel "$LINENO" "png.h" "ac_cv_header_png_h" "$ac_includes_default"
-if test "x$ac_cv_header_png_h" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for png_create_read_struct in -lpng" >&5
-$as_echo_n "checking for png_create_read_struct in -lpng... " >&6; }
-if ${ac_cv_lib_png_png_create_read_struct+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpng  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char png_create_read_struct ();
-int
-main ()
-{
-return png_create_read_struct ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_png_png_create_read_struct=yes
-else
-  ac_cv_lib_png_png_create_read_struct=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_png_png_create_read_struct" >&5
-$as_echo "$ac_cv_lib_png_png_create_read_struct" >&6; }
-if test "x$ac_cv_lib_png_png_create_read_struct" = xyes; then :
-  $as_echo "#define HAVE_LIBPNG 1" >>confdefs.h
-
-	    LIBPNG="-lpng"
-fi
-
-fi
-
-
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: PNG support disabled with --disable-png." >&5
-$as_echo "$as_me: PNG support disabled with --disable-png." >&6;}
-fi
-
-if test x$enable_tiff != xno; then
-    ac_fn_c_check_header_mongrel "$LINENO" "tiff.h" "ac_cv_header_tiff_h" "$ac_includes_default"
-if test "x$ac_cv_header_tiff_h" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for TIFFReadScanline in -ltiff" >&5
-$as_echo_n "checking for TIFFReadScanline in -ltiff... " >&6; }
-if ${ac_cv_lib_tiff_TIFFReadScanline+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltiff  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char TIFFReadScanline ();
-int
-main ()
-{
-return TIFFReadScanline ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_tiff_TIFFReadScanline=yes
-else
-  ac_cv_lib_tiff_TIFFReadScanline=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_tiff_TIFFReadScanline" >&5
-$as_echo "$ac_cv_lib_tiff_TIFFReadScanline" >&6; }
-if test "x$ac_cv_lib_tiff_TIFFReadScanline" = xyes; then :
-  $as_echo "#define HAVE_LIBTIFF 1" >>confdefs.h
-
-	LIBTIFF="-ltiff"
-fi
-
-fi
-
-
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: TIFF support disabled with --disable-tiff." >&5
-$as_echo "$as_me: TIFF support disabled with --disable-tiff." >&6;}
-fi
-
-LIBS="$SAVELIBS"
-
-EXPORT_LIBJPEG="$LIBJPEG"
-EXPORT_LIBPNG="$LIBPNG"
-EXPORT_LIBTIFF="$LIBTIFF"
-EXPORT_LIBZ="$LIBZ"
-
-
-
-
-
-
-ac_fn_c_check_header_mongrel "$LINENO" "stdlib.h" "ac_cv_header_stdlib_h" "$ac_includes_default"
-if test "x$ac_cv_header_stdlib_h" = xyes; then :
-  $as_echo "#define HAVE_STDLIB_H 1" >>confdefs.h
-
-fi
-
 
 
 
@@ -8582,83 +7854,6 @@ fi
 
 
 
-# Check whether --enable-slp was given.
-if test "${enable_slp+set}" = set; then :
-  enableval=$enable_slp;
-fi
-
-
-# Check whether --with-openslp-libs was given.
-if test "${with_openslp_libs+set}" = set; then :
-  withval=$with_openslp_libs; LDFLAGS="-L$withval $LDFLAGS"
-    DSOFLAGS="-L$withval $DSOFLAGS"
-fi
-
-
-# Check whether --with-openslp-includes was given.
-if test "${with_openslp_includes+set}" = set; then :
-  withval=$with_openslp_includes; CFLAGS="-I$withval $CFLAGS"
-    CPPFLAGS="-I$withval $CPPFLAGS"
-fi
-
-
-LIBSLP=""
-
-if test x$enable_slp != xno; then
-    ac_fn_c_check_header_mongrel "$LINENO" "slp.h" "ac_cv_header_slp_h" "$ac_includes_default"
-if test "x$ac_cv_header_slp_h" = xyes; then :
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SLPOpen in -lslp" >&5
-$as_echo_n "checking for SLPOpen in -lslp... " >&6; }
-if ${ac_cv_lib_slp_SLPOpen+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lslp  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char SLPOpen ();
-int
-main ()
-{
-return SLPOpen ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_slp_SLPOpen=yes
-else
-  ac_cv_lib_slp_SLPOpen=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_slp_SLPOpen" >&5
-$as_echo "$ac_cv_lib_slp_SLPOpen" >&6; }
-if test "x$ac_cv_lib_slp_SLPOpen" = xyes; then :
-  $as_echo "#define HAVE_LIBSLP 1" >>confdefs.h
-
-	    LIBSLP="-lslp"
-fi
-
-fi
-
-
-fi
-
-
-
-
-
-
 # Check whether --enable-gssapi was given.
 if test "${enable_gssapi+set}" = set; then :
   enableval=$enable_gssapi;
@@ -8712,7 +7907,7 @@ fi
 	if test "x$KRB5CONFIG" != x; then
 		case "$uname" in
 			Darwin)
-				# Mac OS X weak-links to the Kerberos framework...
+				# OS X weak-links to the Kerberos framework...
 				LIBGSSAPI="-weak_framework Kerberos"
 				{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for GSS framework" >&5
 $as_echo_n "checking for GSS framework... " >&6; }
@@ -9080,267 +8275,10 @@ else
 	CUPS_DEFAULT_GSSSERVICENAME=""
 fi
 
+
 cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_GSSSERVICENAME "$CUPS_DEFAULT_GSSSERVICENAME"
 _ACEOF
-
-
-
-
-# Check whether --enable-ldap was given.
-if test "${enable_ldap+set}" = set; then :
-  enableval=$enable_ldap;
-fi
-
-
-# Check whether --with-ldap-libs was given.
-if test "${with_ldap_libs+set}" = set; then :
-  withval=$with_ldap_libs; LDFLAGS="-L$withval $LDFLAGS"
-    DSOFLAGS="-L$withval $DSOFLAGS"
-fi
-
-
-# Check whether --with-ldap-includes was given.
-if test "${with_ldap_includes+set}" = set; then :
-  withval=$with_ldap_includes; CFLAGS="-I$withval $CFLAGS"
-    CPPFLAGS="-I$withval $CPPFLAGS"
-fi
-
-
-LIBLDAP=""
-
-if test x$enable_ldap != xno; then
-    ac_fn_c_check_header_mongrel "$LINENO" "ldap.h" "ac_cv_header_ldap_h" "$ac_includes_default"
-if test "x$ac_cv_header_ldap_h" = xyes; then :
-
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ldap_initialize in -lldap" >&5
-$as_echo_n "checking for ldap_initialize in -lldap... " >&6; }
-if ${ac_cv_lib_ldap_ldap_initialize+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lldap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char ldap_initialize ();
-int
-main ()
-{
-return ldap_initialize ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ldap_ldap_initialize=yes
-else
-  ac_cv_lib_ldap_ldap_initialize=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ldap_ldap_initialize" >&5
-$as_echo "$ac_cv_lib_ldap_ldap_initialize" >&6; }
-if test "x$ac_cv_lib_ldap_ldap_initialize" = xyes; then :
-  $as_echo "#define HAVE_LDAP 1" >>confdefs.h
-
-	    $as_echo "#define HAVE_OPENLDAP 1" >>confdefs.h
-
-	    LIBLDAP="-lldap"
-	    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ldap_start_tls in -lldap" >&5
-$as_echo_n "checking for ldap_start_tls in -lldap... " >&6; }
-if ${ac_cv_lib_ldap_ldap_start_tls+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lldap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char ldap_start_tls ();
-int
-main ()
-{
-return ldap_start_tls ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ldap_ldap_start_tls=yes
-else
-  ac_cv_lib_ldap_ldap_start_tls=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ldap_ldap_start_tls" >&5
-$as_echo "$ac_cv_lib_ldap_ldap_start_tls" >&6; }
-if test "x$ac_cv_lib_ldap_ldap_start_tls" = xyes; then :
-  $as_echo "#define HAVE_LDAP_SSL 1" >>confdefs.h
-
-fi
-
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ldap_init in -lldap" >&5
-$as_echo_n "checking for ldap_init in -lldap... " >&6; }
-if ${ac_cv_lib_ldap_ldap_init+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lldap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char ldap_init ();
-int
-main ()
-{
-return ldap_init ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ldap_ldap_init=yes
-else
-  ac_cv_lib_ldap_ldap_init=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ldap_ldap_init" >&5
-$as_echo "$ac_cv_lib_ldap_ldap_init" >&6; }
-if test "x$ac_cv_lib_ldap_ldap_init" = xyes; then :
-  $as_echo "#define HAVE_LDAP 1" >>confdefs.h
-
-		$as_echo "#define HAVE_MOZILLA_LDAP 1" >>confdefs.h
-
-		LIBLDAP="-lldap"
-		ac_fn_c_check_header_compile "$LINENO" "ldap_ssl.h" "ac_cv_header_ldap_ssl_h" "#include <ldap.h>
-"
-if test "x$ac_cv_header_ldap_ssl_h" = xyes; then :
-  $as_echo "#define HAVE_LDAP_SSL_H 1" >>confdefs.h
-
-fi
-
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ldapssl_init in -lldap" >&5
-$as_echo_n "checking for ldapssl_init in -lldap... " >&6; }
-if ${ac_cv_lib_ldap_ldapssl_init+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lldap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char ldapssl_init ();
-int
-main ()
-{
-return ldapssl_init ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ldap_ldapssl_init=yes
-else
-  ac_cv_lib_ldap_ldapssl_init=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ldap_ldapssl_init" >&5
-$as_echo "$ac_cv_lib_ldap_ldapssl_init" >&6; }
-if test "x$ac_cv_lib_ldap_ldapssl_init" = xyes; then :
-  $as_echo "#define HAVE_LDAP_SSL 1" >>confdefs.h
-
-fi
-
-fi
-
-
-fi
-
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ldap_set_rebind_proc in -lldap" >&5
-$as_echo_n "checking for ldap_set_rebind_proc in -lldap... " >&6; }
-if ${ac_cv_lib_ldap_ldap_set_rebind_proc+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lldap  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char ldap_set_rebind_proc ();
-int
-main ()
-{
-return ldap_set_rebind_proc ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ldap_ldap_set_rebind_proc=yes
-else
-  ac_cv_lib_ldap_ldap_set_rebind_proc=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ldap_ldap_set_rebind_proc" >&5
-$as_echo "$ac_cv_lib_ldap_ldap_set_rebind_proc" >&6; }
-if test "x$ac_cv_lib_ldap_ldap_set_rebind_proc" = xyes; then :
-  $as_echo "#define HAVE_LDAP_REBIND_PROC 1" >>confdefs.h
-
-fi
-
-
-fi
-
-
-fi
-
-
 
 
 
@@ -10020,7 +8958,7 @@ fi
 
 	case "$uname" in
 		Darwin*)
-			# Darwin/Mac OS X
+			# Darwin/OS X
 			if test "x$with_pam_module" != x; then
 				PAMFILE="pam.$with_pam_module"
 			elif test -f /usr/lib/pam/pam_opendirectory.so.2; then
@@ -10315,6 +9253,11 @@ fi
 
 
 
+# Check whether --enable-avahi was given.
+if test "${enable_avahi+set}" = set; then :
+  enableval=$enable_avahi;
+fi
+
 # Check whether --enable-dnssd was given.
 if test "${enable_dnssd+set}" = set; then :
   enableval=$enable_dnssd;
@@ -10338,7 +9281,24 @@ fi
 DNSSDLIBS=""
 DNSSD_BACKEND=""
 
-if test x$enable_dnssd != xno; then
+if test "x$PKGCONFIG" != x -a x$enable_avahi != xno; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Avahi" >&5
+$as_echo_n "checking for Avahi... " >&6; }
+	if $PKGCONFIG --exists avahi-client; then
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+		CFLAGS="$CFLAGS `$PKGCONFIG --cflags avahi-client`"
+		DNSSDLIBS="`$PKGCONFIG --libs avahi-client`"
+		DNSSD_BACKEND="dnssd"
+		$as_echo "#define HAVE_AVAHI 1" >>confdefs.h
+
+	else
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	fi
+fi
+
+if test "x$DNSSD_BACKEND" = x -a x$enable_dnssd != xno; then
 	ac_fn_c_check_header_mongrel "$LINENO" "dns_sd.h" "ac_cv_header_dns_sd_h" "$ac_includes_default"
 if test "x$ac_cv_header_dns_sd_h" = xyes; then :
 
@@ -10346,10 +9306,6 @@ if test "x$ac_cv_header_dns_sd_h" = xyes; then :
 			Darwin*)
 				# Darwin and MacOS X...
 				$as_echo "#define HAVE_DNSSD 1" >>confdefs.h
-
-				$as_echo "#define HAVE_COREFOUNDATION 1" >>confdefs.h
-
-				$as_echo "#define HAVE_SYSTEMCONFIGURATION 1" >>confdefs.h
 
 				DNSSDLIBS="-framework CoreFoundation -framework SystemConfiguration"
 				DNSSD_BACKEND="dnssd"
@@ -10443,7 +9399,7 @@ fi
 
 
 
-LANGUAGES="`ls -1 locale/cups_*.po | sed -e '1,$s/locale\/cups_//' -e '1,$s/\.po//' | tr '\n' ' '`"
+LANGUAGES="`ls -1 locale/cups_*.po 2>/dev/null | sed -e '1,$s/locale\/cups_//' -e '1,$s/\.po//' | tr '\n' ' '`"
 
 
 # Check whether --with-languages was given.
@@ -10499,6 +9455,16 @@ _ACEOF
 
 
 
+# Check whether --with-cupsd_file_perm was given.
+if test "${with_cupsd_file_perm+set}" = set; then :
+  withval=$with_cupsd_file_perm; CUPS_CUPSD_FILE_PERM="$withval"
+else
+  CUPS_CUPSD_FILE_PERM="500"
+fi
+
+
+
+
 # Check whether --with-log_file_perm was given.
 if test "${with_log_file_perm+set}" = set; then :
   withval=$with_log_file_perm; CUPS_LOG_FILE_PERM="$withval"
@@ -10524,7 +9490,6 @@ fi
 cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_FATAL_ERRORS "$CUPS_FATAL_ERRORS"
 _ACEOF
-
 
 
 
@@ -10586,10 +9551,10 @@ fi
 
 if test x$with_local_protocols != xno; then
 	if test "x$default_local_protocols" = "xdefault"; then
-		if test "x$DNSSDLIBS" != "x"; then
-		CUPS_BROWSE_LOCAL_PROTOCOLS="CUPS dnssd"
-	else
-		CUPS_BROWSE_LOCAL_PROTOCOLS="CUPS"
+		if test "x$DNSSD_BACKEND" != "x"; then
+			CUPS_BROWSE_LOCAL_PROTOCOLS="dnssd"
+		else
+			CUPS_BROWSE_LOCAL_PROTOCOLS=""
 		fi
 	else
 		CUPS_BROWSE_LOCAL_PROTOCOLS="$default_local_protocols"
@@ -10602,55 +9567,6 @@ fi
 cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_BROWSE_LOCAL_PROTOCOLS "$CUPS_BROWSE_LOCAL_PROTOCOLS"
 _ACEOF
-
-
-
-# Check whether --with-remote_protocols was given.
-if test "${with_remote_protocols+set}" = set; then :
-  withval=$with_remote_protocols; default_remote_protocols="$withval"
-else
-  default_remote_protocols="default"
-fi
-
-
-if test x$with_remote_protocols != xno; then
-	if test "x$default_remote_protocols" = "xdefault"; then
-		if test "$uname" = "Darwin" -a $uversion -ge 90; then
-			CUPS_BROWSE_REMOTE_PROTOCOLS=""
-		else
-			CUPS_BROWSE_REMOTE_PROTOCOLS="CUPS"
-		fi
-	else
-		CUPS_BROWSE_REMOTE_PROTOCOLS="$default_remote_protocols"
-	fi
-else
-	CUPS_BROWSE_REMOTE_PROTOCOLS=""
-fi
-
-
-cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_BROWSE_REMOTE_PROTOCOLS "$CUPS_BROWSE_REMOTE_PROTOCOLS"
-_ACEOF
-
-
-# Check whether --enable-browse_short was given.
-if test "${enable_browse_short+set}" = set; then :
-  enableval=$enable_browse_short;
-fi
-
-if test "x$enable_browse_short" = xno; then
-	CUPS_BROWSE_SHORT_NAMES="No"
-	cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_BROWSE_SHORT_NAMES 0
-_ACEOF
-
-else
-	CUPS_BROWSE_SHORT_NAMES="Yes"
-	cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_BROWSE_SHORT_NAMES 1
-_ACEOF
-
-fi
 
 
 # Check whether --enable-default_shared was given.
@@ -10668,60 +9584,6 @@ else
 	CUPS_DEFAULT_SHARED="Yes"
 	cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_DEFAULT_SHARED 1
-_ACEOF
-
-fi
-
-
-# Check whether --enable-implicit was given.
-if test "${enable_implicit+set}" = set; then :
-  enableval=$enable_implicit;
-fi
-
-if test "x$enable_implicit" = xno; then
-	CUPS_IMPLICIT_CLASSES="No"
-	cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_IMPLICIT_CLASSES 0
-_ACEOF
-
-else
-	CUPS_IMPLICIT_CLASSES="Yes"
-	cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_IMPLICIT_CLASSES 1
-_ACEOF
-
-fi
-
-
-# Check whether --enable-use_network_default was given.
-if test "${enable_use_network_default+set}" = set; then :
-  enableval=$enable_use_network_default;
-fi
-
-if test "x$enable_use_network_default" != xno; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to use network default printers" >&5
-$as_echo_n "checking whether to use network default printers... " >&6; }
-	if test "x$enable_use_network_default" = xyes -o $uname != Darwin; then
-		CUPS_USE_NETWORK_DEFAULT="Yes"
-		cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_USE_NETWORK_DEFAULT 1
-_ACEOF
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-	else
-		CUPS_USE_NETWORK_DEFAULT="No"
-		cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_USE_NETWORK_DEFAULT 0
-_ACEOF
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-	fi
-else
-	CUPS_USE_NETWORK_DEFAULT="No"
-	cat >>confdefs.h <<_ACEOF
-#define CUPS_DEFAULT_USE_NETWORK_DEFAULT 0
 _ACEOF
 
 fi
@@ -11053,58 +9915,6 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-# Check whether --enable-bannertops was given.
-if test "${enable_bannertops+set}" = set; then :
-  enableval=$enable_bannertops;
-fi
-
-# Check whether --enable-texttops was given.
-if test "${enable_texttops+set}" = set; then :
-  enableval=$enable_texttops;
-fi
-
-
-if test "x$enable_bannertops" = xno; then
-	BANNERTOPS=""
-	DEFAULT_BANNERTOPS="#"
-elif test "x$enable_bannertops" = xyes; then
-	BANNERTOPS="bannertops"
-	DEFAULT_BANNERTOPS=""
-elif test $uname = Darwin; then
-	BANNERTOPS=""
-	DEFAULT_BANNERTOPS="#"
-else
-	BANNERTOPS="bannertops"
-	DEFAULT_BANNERTOPS=""
-fi
-
-if test "x$enable_texttops" = xno; then
-	TEXTTOPS=""
-	DEFAULT_TEXTTOPS="#"
-elif test "x$enable_texttops" = xyes; then
-	TEXTTOPS="texttops"
-	DEFAULT_TEXTTOPS=""
-elif test $uname = Darwin; then
-	TEXTTOPS=""
-	DEFAULT_TEXTTOPS="#"
-else
-	TEXTTOPS="texttops"
-	DEFAULT_TEXTTOPS=""
-fi
-
-
-
-
-
-
-if test "x$BANNERTOPS" = x -a "x$TEXTTOPS" = x; then
-	FONTS=""
-else
-	FONTS="fonts"
-fi
-
-
-
 # Check whether --enable-webif was given.
 if test "${enable_webif+set}" = set; then :
   enableval=$enable_webif;
@@ -11134,284 +9944,6 @@ esac
 cat >>confdefs.h <<_ACEOF
 #define CUPS_DEFAULT_WEBIF $CUPS_DEFAULT_WEBIF
 _ACEOF
-
-
-
-
-
-# Check whether --with-pdftops was given.
-if test "${with_pdftops+set}" = set; then :
-  withval=$with_pdftops;
-fi
-
-
-PDFTOPS=""
-CUPS_PDFTOPS=""
-CUPS_GHOSTSCRIPT=""
-
-case "x$with_pdftops" in
-	x) # Default/auto
-	if test $uname != Darwin; then
-		# Extract the first word of "pdftops", so it can be a program name with args.
-set dummy pdftops; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_CUPS_PDFTOPS+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $CUPS_PDFTOPS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_CUPS_PDFTOPS="$CUPS_PDFTOPS" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_CUPS_PDFTOPS="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-CUPS_PDFTOPS=$ac_cv_path_CUPS_PDFTOPS
-if test -n "$CUPS_PDFTOPS"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUPS_PDFTOPS" >&5
-$as_echo "$CUPS_PDFTOPS" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-		if test "x$CUPS_PDFTOPS" != x; then
-			$as_echo "#define HAVE_PDFTOPS 1" >>confdefs.h
-
-			PDFTOPS="pdftops"
-		else
-			# Extract the first word of "gs", so it can be a program name with args.
-set dummy gs; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_CUPS_GHOSTSCRIPT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $CUPS_GHOSTSCRIPT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_CUPS_GHOSTSCRIPT="$CUPS_GHOSTSCRIPT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_CUPS_GHOSTSCRIPT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-CUPS_GHOSTSCRIPT=$ac_cv_path_CUPS_GHOSTSCRIPT
-if test -n "$CUPS_GHOSTSCRIPT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUPS_GHOSTSCRIPT" >&5
-$as_echo "$CUPS_GHOSTSCRIPT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-			if test "x$CUPS_GHOSTSCRIPT" != x; then
-				$as_echo "#define HAVE_GHOSTSCRIPT 1" >>confdefs.h
-
-				PDFTOPS="pdftops"
-			fi
-		fi
-	fi
-	;;
-
-	xgs)
-	# Extract the first word of "gs", so it can be a program name with args.
-set dummy gs; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_CUPS_GHOSTSCRIPT+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $CUPS_GHOSTSCRIPT in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_CUPS_GHOSTSCRIPT="$CUPS_GHOSTSCRIPT" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_CUPS_GHOSTSCRIPT="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-CUPS_GHOSTSCRIPT=$ac_cv_path_CUPS_GHOSTSCRIPT
-if test -n "$CUPS_GHOSTSCRIPT"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUPS_GHOSTSCRIPT" >&5
-$as_echo "$CUPS_GHOSTSCRIPT" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-	if test "x$CUPS_GHOSTSCRIPT" != x; then
-		$as_echo "#define HAVE_GHOSTSCRIPT 1" >>confdefs.h
-
-		PDFTOPS="pdftops"
-	else
-		as_fn_error $? "Unable to find gs program!" "$LINENO" 5
-		exit 1
-	fi
-	;;
-
-	x/*/gs) # Use /path/to/gs without any check:
-	CUPS_GHOSTSCRIPT="$with_pdftops"
-	$as_echo "#define HAVE_GHOSTSCRIPT 1" >>confdefs.h
-
-	PDFTOPS="pdftops"
-	;;
-
-	xpdftops)
-	# Extract the first word of "pdftops", so it can be a program name with args.
-set dummy pdftops; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_CUPS_PDFTOPS+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $CUPS_PDFTOPS in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_CUPS_PDFTOPS="$CUPS_PDFTOPS" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_CUPS_PDFTOPS="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-CUPS_PDFTOPS=$ac_cv_path_CUPS_PDFTOPS
-if test -n "$CUPS_PDFTOPS"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUPS_PDFTOPS" >&5
-$as_echo "$CUPS_PDFTOPS" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-	if test "x$CUPS_PDFTOPS" != x; then
-		$as_echo "#define HAVE_PDFTOPS 1" >>confdefs.h
-
-		PDFTOPS="pdftops"
-	else
-		as_fn_error $? "Unable to find pdftops program!" "$LINENO" 5
-		exit 1
-	fi
-	;;
-
-	x/*/pdftops) # Use /path/to/pdftops without any check:
-	CUPS_PDFTOPS="$with_pdftops"
-	$as_echo "#define HAVE_PDFTOPS 1" >>confdefs.h
-
-	PDFTOPS="pdftops"
-	;;
-
-	xnone) # Make no pdftops filter if with_pdftops=none:
-	;;
-
-	*) # Invalid with_pdftops value:
-	as_fn_error $? "Invalid with_pdftops value!" "$LINENO" 5
-	exit 1
-	;;
-esac
-
-if test "x$CUPS_PDFTOPS" != x; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether pdftops supports -origpagesizes" >&5
-$as_echo_n "checking whether pdftops supports -origpagesizes... " >&6; }
-	if ($CUPS_PDFTOPS -h 2>&1 | grep -q -- -origpagesizes); then
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		$as_echo "#define HAVE_PDFTOPS_WITH_ORIGPAGESIZES 1" >>confdefs.h
-
-	else
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-	fi
-
-	DEFAULT_PDFTOPS=""
-elif test "x$CUPS_GHOSTSCRIPT" != x; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether gs supports the ps2write device" >&5
-$as_echo_n "checking whether gs supports the ps2write device... " >&6; }
-	if ($CUPS_GHOSTSCRIPT -h 2>&1 | grep -q ps2write); then
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		$as_echo "#define HAVE_GHOSTSCRIPT_PS2WRITE 1" >>confdefs.h
-
-	else
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-	fi
-
-	DEFAULT_PDFTOPS=""
-else
-	DEFAULT_PDFTOPS="#"
-fi
-
-cat >>confdefs.h <<_ACEOF
-#define CUPS_PDFTOPS "$CUPS_PDFTOPS"
-_ACEOF
-
-cat >>confdefs.h <<_ACEOF
-#define CUPS_GHOSTSCRIPT "$CUPS_GHOSTSCRIPT"
-_ACEOF
-
-
 
 
 
@@ -11651,56 +10183,6 @@ else
 
 fi
 
-PHPDIR=""
-if test "x$CUPS_PHP" != xno; then
-	# Extract the first word of "php-config", so it can be a program name with args.
-set dummy php-config; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_path_PHPCONFIG+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  case $PHPCONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PHPCONFIG="$PHPCONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_path_PHPCONFIG="$as_dir/$ac_word$ac_exec_ext"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  ;;
-esac
-fi
-PHPCONFIG=$ac_cv_path_PHPCONFIG
-if test -n "$PHPCONFIG"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PHPCONFIG" >&5
-$as_echo "$PHPCONFIG" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-
-	if test "x$PHPCONFIG" != x; then
-		PHPDIR="scripting/php"
-	fi
-fi
-
-
-
 
 # Check whether --with-python was given.
 if test "${with_python+set}" = set; then :
@@ -11789,7 +10271,7 @@ fi
 
 
 
-ac_config_files="$ac_config_files Makedefs conf/cupsd.conf conf/mime.convs conf/pam.std conf/snmp.conf cups-config data/testprint desktop/cups.desktop doc/help/ref-cupsd-conf.html doc/help/standard.html doc/index.html man/client.conf.man man/cups-deviced.man man/cups-driverd.man man/cups-lpd.man man/cupsaddsmb.man man/cupsd.conf.man man/cupsd.man man/lpoptions.man scheduler/cups-lpd.xinetd scheduler/cups.sh scheduler/cups.xml scheduler/org.cups.cups-lpd.plist templates/header.tmpl packaging/cups.list $LANGFILES"
+ac_config_files="$ac_config_files Makedefs conf/cupsd.conf conf/mime.convs conf/pam.std conf/snmp.conf cups-config data/testprint desktop/cups.desktop doc/help/ref-cupsd-conf.html doc/help/standard.html doc/index.html man/client.conf.man man/cups-deviced.man man/cups-driverd.man man/cups-lpd.man man/cups-snmp.man man/cupsaddsmb.man man/cupsd.conf.man man/cupsd.man man/lpoptions.man scheduler/cups-lpd.xinetd scheduler/cups.sh scheduler/cups.xml scheduler/org.cups.cups-lpd.plist templates/header.tmpl packaging/cups.list $LANGFILES"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -12509,6 +10991,7 @@ do
     "man/cups-deviced.man") CONFIG_FILES="$CONFIG_FILES man/cups-deviced.man" ;;
     "man/cups-driverd.man") CONFIG_FILES="$CONFIG_FILES man/cups-driverd.man" ;;
     "man/cups-lpd.man") CONFIG_FILES="$CONFIG_FILES man/cups-lpd.man" ;;
+    "man/cups-snmp.man") CONFIG_FILES="$CONFIG_FILES man/cups-snmp.man" ;;
     "man/cupsaddsmb.man") CONFIG_FILES="$CONFIG_FILES man/cupsaddsmb.man" ;;
     "man/cupsd.conf.man") CONFIG_FILES="$CONFIG_FILES man/cupsd.conf.man" ;;
     "man/cupsd.man") CONFIG_FILES="$CONFIG_FILES man/cupsd.man" ;;

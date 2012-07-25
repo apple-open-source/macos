@@ -25,11 +25,10 @@
 
 module events {
 
-    interface PageTransitionEvent : Event {
-
-        readonly attribute boolean persisted;
-
-        void initPageTransitionEvent(in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in boolean persisted);
+    interface [
+        ConstructorTemplate=Event
+    ] PageTransitionEvent : Event {
+        readonly attribute [InitializedByEventConstructor] boolean persisted;
     };
 
 }

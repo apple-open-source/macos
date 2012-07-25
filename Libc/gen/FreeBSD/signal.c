@@ -43,10 +43,13 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/signal.c,v 1.4 2007/01/09 00:27:55 imp Exp 
 
 sigset_t _sigintr;		/* shared with siginterrupt */
 
-sig_t
-signal(s, a)
+extern int _sigaction_nobind (int sig, const struct sigaction *nsv, struct sigaction *osv);
+
+static sig_t
+signal__(s, a, bind)
 	int s;
 	sig_t a;
+	int bind;
 {
 	struct sigaction sa, osa;
 
@@ -55,7 +58,34 @@ signal(s, a)
 	sa.sa_flags = 0;
 	if (!sigismember(&_sigintr, s))
 		sa.sa_flags |= SA_RESTART;
+#if defined(__DYNAMIC__)
+	if (bind) {
+#endif /* __DYNAMIC__ */
 	if (_sigaction(s, &sa, &osa) < 0)
 		return (SIG_ERR);
+#if defined(__DYNAMIC__)
+	} else {
+	    if (_sigaction_nobind(s, &sa, &osa) < 0)
+		return (SIG_ERR);
+	}
+#endif /* __DYNAMIC__ */
 	return (osa.sa_handler);
 }
+
+sig_t
+signal(s, a)
+        int s;
+        sig_t a;
+{
+    return signal__(s, a, 1);
+}
+
+#if defined(__DYNAMIC__)
+sig_t
+_signal_nobind(s, a)
+        int s;
+        sig_t a;
+{
+    return signal__(s, a, 0);
+}
+#endif /* __DYNAMIC__ */

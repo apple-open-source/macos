@@ -26,7 +26,7 @@
 #ifndef WebGLProgram_h
 #define WebGLProgram_h
 
-#include "WebGLObject.h"
+#include "WebGLSharedObject.h"
 
 #include "WebGLShader.h"
 
@@ -36,29 +36,27 @@
 
 namespace WebCore {
 
-class WebGLProgram : public WebGLObject {
+class WebGLProgram : public WebGLSharedObject {
 public:
-    virtual ~WebGLProgram() { deleteObject(); }
+    virtual ~WebGLProgram();
 
     static PassRefPtr<WebGLProgram> create(WebGLRenderingContext*);
 
-    // cacheActiveAttribLocation() is only called once after linkProgram()
-    // succeeds.
-    bool cacheActiveAttribLocations();
-    unsigned numActiveAttribLocations() const;
-    GC3Dint getActiveAttribLocation(GC3Duint index) const;
+    unsigned numActiveAttribLocations();
+    GC3Dint getActiveAttribLocation(GC3Duint index);
 
-    bool isUsingVertexAttrib0() const;
+    bool isUsingVertexAttrib0();
 
-    bool getLinkStatus() const { return m_linkStatus; }
-    void setLinkStatus(bool status) { m_linkStatus = status; }
+    bool getLinkStatus();
+    void setLinkStatus(bool);
 
     unsigned getLinkCount() const { return m_linkCount; }
 
     // This is to be called everytime after the program is successfully linked.
     // We don't deal with integer overflow here, assuming in reality a program
     // will never be linked so many times.
-    void increaseLinkCount() { ++m_linkCount; }
+    // Also, we invalidate the cached program info.
+    void increaseLinkCount();
 
     WebGLShader* getAttachedShader(GC3Denum);
     bool attachShader(WebGLShader*);
@@ -67,10 +65,13 @@ public:
 protected:
     WebGLProgram(WebGLRenderingContext*);
 
-    virtual void deleteObjectImpl(Platform3DObject);
+    virtual void deleteObjectImpl(GraphicsContext3D*, Platform3DObject);
 
 private:
     virtual bool isProgram() const { return true; }
+
+    void cacheActiveAttribLocations(GraphicsContext3D*);
+    void cacheInfoIfNeeded();
 
     Vector<GC3Dint> m_activeAttribLocations;
 
@@ -82,6 +83,8 @@ private:
 
     RefPtr<WebGLShader> m_vertexShader;
     RefPtr<WebGLShader> m_fragmentShader;
+
+    bool m_infoValid;
 };
 
 } // namespace WebCore

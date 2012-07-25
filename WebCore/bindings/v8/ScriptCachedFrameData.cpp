@@ -26,7 +26,7 @@
 #include "config.h"
 #include "ScriptCachedFrameData.h"
 
-#if PLATFORM(ANDROID) || PLATFORM(QT)
+#if PLATFORM(QT)
 // FIXME: the right guard should be ENABLE(PAGE_CACHE). Replace with the right guard, once
 // https://bugs.webkit.org/show_bug.cgi?id=35061 is fixed.
 
@@ -59,6 +59,9 @@ void ScriptCachedFrameData::restore(Frame* frame)
     if (m_context.get().IsEmpty())
         return;
 
+    if (!frame || !frame->script()->canExecuteScripts(NotAboutToExecuteScript))
+        return;
+
     v8::HandleScope handleScope;
     v8::Context::Scope contextScope(m_context.get());
 
@@ -76,4 +79,4 @@ void ScriptCachedFrameData::clear()
 
 } // namespace WebCore
 
-#endif // PLATFORM(ANDROID) || PLATFORM(QT)
+#endif // PLATFORM(QT)

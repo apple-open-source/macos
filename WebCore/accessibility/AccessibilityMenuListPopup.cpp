@@ -62,6 +62,11 @@ bool AccessibilityMenuListPopup::isEnabled() const
     return m_parent->isEnabled();
 }
 
+bool AccessibilityMenuListPopup::accessibilityIsIgnored() const
+{
+    return accessibilityPlatformIncludesObject() != IgnoreObject;
+}
+
 AccessibilityMenuListOption* AccessibilityMenuListPopup::menuListOptionAccessibilityObject(HTMLElement* element) const
 {
     if (!element || !element->hasTagName(optionTag))
@@ -96,21 +101,20 @@ void AccessibilityMenuListPopup::addChildren()
 
     m_haveChildren = true;
 
-    ASSERT(selectNode->hasTagName(selectTag));
-
-    const Vector<Element*>& listItems = static_cast<HTMLSelectElement*>(selectNode)->listItems();
+    const Vector<HTMLElement*>& listItems = toHTMLSelectElement(selectNode)->listItems();
     unsigned length = listItems.size();
     for (unsigned i = 0; i < length; i++) {
-        AccessibilityMenuListOption* option = menuListOptionAccessibilityObject(toHTMLElement(listItems[i]));
+        AccessibilityMenuListOption* option = menuListOptionAccessibilityObject(listItems[i]);
         if (option) {
             option->setParent(this);
             m_children.append(option);
         }
     }
 }
+
 void AccessibilityMenuListPopup::childrenChanged()
 {
-    AXObjectCache* cache = axObjectCache(); 
+    AXObjectCache* cache = axObjectCache();
     for (size_t i = m_children.size(); i > 0 ; --i) {
         AccessibilityObject* child = m_children[i - 1].get();
         if (child->actionElement() && !child->actionElement()->attached()) {
@@ -118,11 +122,10 @@ void AccessibilityMenuListPopup::childrenChanged()
             cache->remove(child->axObjectID());
         }
     }
-
-    m_children.clear(); 
+    
+    m_children.clear();
     m_haveChildren = false;
     addChildren();
-
 }
 
 void AccessibilityMenuListPopup::didUpdateActiveOption(int optionIndex)
@@ -130,7 +133,7 @@ void AccessibilityMenuListPopup::didUpdateActiveOption(int optionIndex)
     ASSERT_ARG(optionIndex, optionIndex >= 0);
     ASSERT_ARG(optionIndex, optionIndex < static_cast<int>(m_children.size()));
 
-    AXObjectCache* cache = axObjectCache(); 
+    AXObjectCache* cache = axObjectCache();
     RefPtr<AccessibilityObject> child = m_children[optionIndex].get();
 
     cache->postNotification(child.get(), document(), AXObjectCache::AXFocusedUIElementChanged, true, PostSynchronously);

@@ -57,7 +57,7 @@ krb5_DES_AFS3_CMU_string_to_key (krb5_data pw,
 				 DES_cblock *key)
 {
     char  password[8+1];	/* crypt is limited to 8 chars anyway */
-    int   i;
+    size_t   i;
 
     for(i = 0; i < 8; i++) {
 	char c = ((i < pw.length) ? ((char*)pw.data)[i] : 0) ^
@@ -94,7 +94,7 @@ krb5_DES_AFS3_Transarc_string_to_key (krb5_data pw,
     memcpy(password, pw.data, min(pw.length, sizeof(password)));
     if(pw.length < sizeof(password)) {
 	int len = min(cell.length, sizeof(password) - pw.length);
-	int i;
+	size_t i;
 
 	memcpy(password + pw.length, cell.data, len);
 	for (i = pw.length; i < pw.length + len; ++i)
@@ -139,7 +139,7 @@ static void
 DES_string_to_key_int(unsigned char *data, size_t length, DES_cblock *key)
 {
     DES_key_schedule schedule;
-    int i;
+    size_t i;
     int reverse = 0;
     unsigned char *p;
 
@@ -226,4 +226,5 @@ struct salt_type _krb5_des_salt[] = {
 #endif
     { 0 }
 };
+
 #endif /* HEIM_KRB5_DES */

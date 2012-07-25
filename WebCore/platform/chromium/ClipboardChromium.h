@@ -30,35 +30,58 @@
 #ifndef ClipboardChromium_h
 #define ClipboardChromium_h
 
+#include "CachedImage.h"
+#include "ChromiumDataObject.h"
 #include "Clipboard.h"
-
-#include "CachedResourceClient.h"
+#include "DataTransferItem.h"
 
 namespace WebCore {
 
     class CachedImage;
-    class ChromiumDataObject;
+    class ChromiumDataObjectItem;
+    class ClipboardChromium;
     class Frame;
     class IntPoint;
 
-    class ClipboardChromium : public Clipboard, public CachedResourceClient {
+    // A wrapper class that invalidates a DataTransferItem when the associated Clipboard object goes out of scope.
+    class DataTransferItemPolicyWrapper : public DataTransferItem {
+    public:
+        static PassRefPtr<DataTransferItemPolicyWrapper> create(PassRefPtr<ClipboardChromium>, PassRefPtr<ChromiumDataObjectItem>);
+        virtual ~DataTransferItemPolicyWrapper();
+
+        virtual String kind() const OVERRIDE;
+        virtual String type() const OVERRIDE;
+        virtual void getAsString(PassRefPtr<StringCallback>) const OVERRIDE;
+        virtual PassRefPtr<Blob> getAsFile() const OVERRIDE;
+
+        ClipboardChromium* clipboard() { return m_clipboard.get(); }
+        ChromiumDataObjectItem* dataObjectItem() { return m_item.get(); }
+
+    private:
+        DataTransferItemPolicyWrapper(PassRefPtr<ClipboardChromium>, PassRefPtr<ChromiumDataObjectItem>);
+
+        RefPtr<ClipboardChromium> m_clipboard;
+        RefPtr<ChromiumDataObjectItem> m_item;
+    };
+
+    class ClipboardChromium : public Clipboard, public CachedImageClient {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        ~ClipboardChromium() {}
+        ~ClipboardChromium();
 
         static PassRefPtr<ClipboardChromium> create(
             ClipboardType, PassRefPtr<ChromiumDataObject>, ClipboardAccessPolicy, Frame*);
 
-        // Returns the file name (not including the extension). This removes any
-        // invalid file system characters as well as making sure the
-        // path + extension is not bigger than allowed by the file system.
-        // This may change the file extension in dataObject.
-        static String validateFileName(const String& title, ChromiumDataObject* dataObject);
+        // Validates a filename (without the extension) and the extension. This removes any invalid
+        // file system characters as well as making sure the path + extension is not bigger than
+        // allowed by the file system.
+        static void validateFilename(String& name, String& extension);
 
         virtual void clearData(const String& type);
         void clearAllData();
-        String getData(const String& type, bool& success) const;
+        String getData(const String& type) const;
         bool setData(const String& type, const String& data);
+        bool platformClipboardChanged() const;
 
         // extensions beyond IE's API
         virtual HashSet<String> types() const;
@@ -81,8 +104,9 @@ namespace WebCore {
         virtual bool hasData();
 
 #if ENABLE(DATA_TRANSFER_ITEMS)
-        virtual PassRefPtr<DataTransferItems> items();
+        virtual PassRefPtr<DataTransferItemList> items();
 #endif
+        Frame* frame() const { return m_frame; }
 
     private:
         ClipboardChromium(ClipboardType, PassRefPtr<ChromiumDataObject>, ClipboardAccessPolicy, Frame*);

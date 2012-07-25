@@ -2,6 +2,7 @@ include $(top_srcdir)/Makefile.am.common
 
 noinst_DATA = \
 	krb5.conf \
+	krb5-hdb-mitdb.conf.in \
 	krb5-weak.conf \
 	krb5-pkinit.conf \
 	krb5-pkinit-win.conf \
@@ -14,7 +15,9 @@ SCRIPT_TESTS = \
 	check-delegation \
 	check-des \
 	check-digest \
+	check-fast \
 	check-kadmin \
+	check-hdb-mitdb \
 	check-kdc \
 	check-kdc-weak \
 	check-keys \
@@ -65,6 +68,16 @@ check-des: check-des.in Makefile krb5.conf
 	$(do_subst) < $(srcdir)/check-des.in > check-des.tmp
 	chmod +x check-des.tmp
 	mv check-des.tmp check-des
+
+check-fast: check-fast.in Makefile
+	$(do_subst) < $(srcdir)/check-fast.in > check-fast.tmp
+	chmod +x check-fast.tmp
+	mv check-fast.tmp check-fast
+
+check-hdb-mitdb: check-hdb-mitdb.in Makefile krb5-hdb-mitdb.conf
+	$(do_subst) < $(srcdir)/check-hdb-mitdb.in > check-hdb-mitdb.tmp
+	chmod +x check-hdb-mitdb.tmp
+	mv check-hdb-mitdb.tmp check-hdb-mitdb
 
 check-kdc: check-kdc.in Makefile
 	$(do_subst) < $(srcdir)/check-kdc.in > check-kdc.tmp
@@ -122,6 +135,13 @@ krb5.conf: krb5.conf.in Makefile
 	   -e 's,[@]dk[@],,g' \
 	   -e 's,[@]kdc[@],,g' < $(srcdir)/krb5.conf.in > krb5.conf.tmp
 	mv krb5.conf.tmp krb5.conf
+
+krb5-hdb-mitdb.conf: krb5-hdb-mitdb.conf.in Makefile
+	$(do_subst) \
+	   -e 's,[@]WEAK[@],false,g' \
+	   -e 's,[@]dk[@],,g' \
+	   -e 's,[@]kdc[@],,g' < $(srcdir)/krb5-hdb-mitdb.conf.in > krb5-hdb-mitdb.conf.tmp
+	mv krb5-hdb-mitdb.conf.tmp krb5-hdb-mitdb.conf
 
 krb5-weak.conf: krb5.conf.in Makefile
 	$(do_subst) \
@@ -192,12 +212,14 @@ CLEANFILES= \
 	test-rc-file.rc
 
 EXTRA_DIST = \
+	NTMakefile \
 	check-cc.in \
 	check-delegation.in \
 	check-des.in \
 	check-digest.in \
 	check-iprop.in \
 	check-kadmin.in \
+	check-hdb-mitdb.in \
 	check-kdc.in \
 	check-kdc-weak.in \
 	check-keys.in \

@@ -31,13 +31,9 @@
 
 #if USE(CFNETWORK)
 typedef struct _CFURLResponse* CFURLResponseRef;
-#else
-#ifdef __OBJC__
-@class NSURLResponse;
-#else
-class NSURLResponse;
 #endif
-#endif
+
+OBJC_CLASS NSURLResponse;
 
 namespace WebCore {
 
@@ -55,8 +51,11 @@ public:
     {
         m_isNull = !cfResponse;
     }
+#if PLATFORM(MAC)
+    ResourceResponse(NSURLResponse *);
+#endif
 #else
-    ResourceResponse(NSURLResponse* nsResponse)
+    ResourceResponse(NSURLResponse *nsResponse)
         : m_nsResponse(nsResponse)
         , m_initLevel(Uninitialized)
     {
@@ -84,7 +83,8 @@ public:
 
 #if USE(CFNETWORK)
     CFURLResponseRef cfURLResponse() const;
-#else
+#endif
+#if PLATFORM(MAC)
     NSURLResponse *nsURLResponse() const;
 #endif
 
@@ -94,12 +94,16 @@ private:
     void platformLazyInit(InitLevel);
     PassOwnPtr<CrossThreadResourceResponseData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceResponseData> data) const { return data; }
     void doPlatformAdopt(PassOwnPtr<CrossThreadResourceResponseData>) { }
+#if PLATFORM(MAC)
+    void initNSURLResponse() const;
+#endif
 
     static bool platformCompare(const ResourceResponse& a, const ResourceResponse& b);
 
 #if USE(CFNETWORK)
     mutable RetainPtr<CFURLResponseRef> m_cfResponse;
-#else
+#endif
+#if PLATFORM(MAC)
     mutable RetainPtr<NSURLResponse> m_nsResponse;
 #endif
     InitLevel m_initLevel;

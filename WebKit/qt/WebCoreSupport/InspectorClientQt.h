@@ -32,10 +32,10 @@
 
 #include "InspectorClient.h"
 #include "InspectorFrontendClientLocal.h"
-#include "OwnPtr.h"
-#include "PassOwnPtr.h"
 #include <QtCore/QString>
 #include <wtf/Forward.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 class QWebPage;
 class QWebView;
@@ -43,9 +43,7 @@ class QWebView;
 namespace WebCore {
 class InspectorFrontendClientQt;
 class InspectorServerRequestHandlerQt;
-class Node;
 class Page;
-class RemoteFrontendChannel;
 
 class InspectorClientQt : public InspectorClient {
 public:
@@ -54,15 +52,17 @@ public:
     virtual void inspectorDestroyed();
 
     virtual void openInspectorFrontend(WebCore::InspectorController*);
+    virtual void closeInspectorFrontend();
+    virtual void bringFrontendToFront();
 
-    virtual void highlight(Node*);
+    virtual void highlight();
     virtual void hideHighlight();
 
     virtual bool sendMessageToFrontend(const String&);
 
     void releaseFrontendPage();
 
-    void attachAndReplaceRemoteFrontend(RemoteFrontendChannel *channel);
+    void attachAndReplaceRemoteFrontend(InspectorServerRequestHandlerQt *channel);
     void detachRemoteFrontend();
 
 private:
@@ -70,6 +70,7 @@ private:
     QWebPage* m_frontendWebPage;
     InspectorFrontendClientQt* m_frontendClient;
     bool m_remoteInspector;
+    InspectorServerRequestHandlerQt* m_remoteFrontEndChannel;
 
     friend class InspectorServerRequestHandlerQt;
 };
@@ -87,7 +88,6 @@ public:
 
     virtual void bringToFront();
     virtual void closeWindow();
-    virtual void disconnectFromBackend();
 
     virtual void attachWindow();
     virtual void detachWindow();

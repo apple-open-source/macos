@@ -300,7 +300,7 @@ uninitialized_data:
     to ADB and back to HID.
  */
 IOReturn
-IOHIDSecurePromptClient::postKeyGated(void * p1, void * p2, void * p3, void * p4)
+IOHIDSecurePromptClient::postKeyGated(void * p1, void * p2, void *, void *)
 {
     UInt32 key = (uintptr_t)p1;
     bool down = (uintptr_t)p2;
@@ -908,7 +908,7 @@ IOHIDSecurePromptClient::identifier()
 
 /******************************************************************************/
 IOReturn
-IOHIDSecurePromptClient::compareClientMethod(void * p1, void * p2, void * p3, void * p4, void * p5, void * p6 )
+IOHIDSecurePromptClient::compareClientMethod(void * p1, void *, void *, void *, void *, void *)
 {
     // We deviate from our idiom above because we do not wish to hold both
     // gates at the same time. Probably would not cause a problem, but it is possible,
@@ -1103,8 +1103,7 @@ out_of_memory:
 
 /******************************************************************************/
 IOReturn
-IOHIDSecurePromptClient::getInsertionPointMethod(void * p1, void * p2, void * p3,
-                                                 void * p4, void * p5, void * p6 )
+IOHIDSecurePromptClient::getInsertionPointMethod(void * p1, void *, void *, void *, void *, void *)
 {
     require(valid() && p1, uninitialized_data);
     

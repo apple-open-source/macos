@@ -1,4 +1,4 @@
-# $OpenLDAP: pkg/ldap/contrib/slapd-modules/nops/Makefile,v 1.1.2.4 2009/04/27 23:35:48 quanah Exp $
+# $OpenLDAP$
 CPPFLAGS+=-I../../../include -I../../../servers/slapd 
 CPPFLAGS+=-DSLAPD_OVER_NOPS=SLAPD_MOD_DYNAMIC
 LIBS=-L$(PREFIX)/lib -lldap_r -llber -lcrypto

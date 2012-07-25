@@ -1,6 +1,0 @@
-! $Xorg: Clock-col.ad,v 1.3 2000/08/17 19:53:59 cpqbld Exp $
-Clock*Background:	grey
-Clock*BorderColor:	light blue
-Clock*hour:		yellow
-Clock*jewel:		yellow
-Clock*minute:	yellow

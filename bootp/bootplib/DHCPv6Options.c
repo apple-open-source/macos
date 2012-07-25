@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -385,12 +385,15 @@ DHCPv6OptionListFPrintLevel(FILE * file, DHCPv6OptionListRef options, int level)
 	    break;
 	case kDHCPv6OptionTypeUInt16: {
 	    int		j;
-	    uint16_t *	scan;	
+	    void *	scan;	
 
-	    scan = (uint16_t *)option_data;
+	    scan = (void *)option_data;
 	    fprintf(file, ": ");
-	    for (j = 0; j < option_len / sizeof(*scan); j++, scan++) {
-		uint16_t	val = ntohs(*scan);
+	    for (j = 0; j < option_len / sizeof(uint16_t); 
+		j++, scan += sizeof(uint16_t)) {
+		uint16_t	val;
+	
+		val = net_uint16_get(scan);
 
 		if (option_code == kDHCPv6OPTION_ORO) {
 		    fprintf(file, "%s%s (%d)", (j == 0) ? "" : ", ", 
@@ -405,23 +408,26 @@ DHCPv6OptionListFPrintLevel(FILE * file, DHCPv6OptionListRef options, int level)
 	}
 	case kDHCPv6OptionTypeUInt32: {
 	    int		j;
-	    uint32_t *	scan;
+	    void *	scan;
 
-	    scan = (uint32_t *)option_data;
+	    scan = (void *)option_data;
 	    fprintf(file, ": ");
-	    for (j = 0; j < option_len / sizeof(*scan); j++, scan++) {
-		fprintf(file, "%s%d", (j == 0) ? "" : ", ", ntohl(*scan));
+	    for (j = 0; j < option_len / sizeof(uint32_t); 
+		j++, scan += sizeof(uint32_t)) {
+		fprintf(file, "%s%d", (j == 0) ? "" : ", ", 
+			net_uint32_get(scan));
 	    }
 	    fprintf(file, "\n");
 	    break;
 	}
 	case kDHCPv6OptionTypeIPv6Address: {
 	    int				j;
-	    const struct in6_addr *	scan;
+	    void *			scan;
 	    char 			ntopbuf[INET6_ADDRSTRLEN];
 
-	    scan = (struct in6_addr *)option_data;
-	    for (j = 0; j < option_len / sizeof(*scan); j++, scan++) {
+	    scan = (void *)option_data;
+	    for (j = 0; j < option_len / sizeof(struct in6_addr); 
+		 j++, scan += sizeof(struct in6_addr)) {
 		fprintf(file, " %s\n", 
 		       inet_ntop(AF_INET6, scan, ntopbuf, sizeof(ntopbuf)));
 	    }

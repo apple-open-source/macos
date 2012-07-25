@@ -1,7 +1,7 @@
 /*
 *  Copyright (C) 1999-2002 Harri Porten (porten@kde.org)
 *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
-*  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+*  Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2012 Apple Inc. All rights reserved.
 *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
 *  Copyright (C) 2007 Maks Orlovich
 *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
@@ -236,27 +236,79 @@ RegisterID* PropertyListNode::emitBytecode(BytecodeGenerator& generator, Registe
     
     generator.emitNewObject(newObj.get());
     
-    for (PropertyListNode* p = this; p; p = p->m_next) {
-        RegisterID* value = generator.emitNode(p->m_node->m_assign);
-        
-        switch (p->m_node->m_type) {
-            case PropertyNode::Constant: {
-                generator.emitDirectPutById(newObj.get(), p->m_node->name(), value);
-                break;
+    // Fast case: this loop just handles regular value properties.
+    PropertyListNode* p = this;
+    for (; p && p->m_node->m_type == PropertyNode::Constant; p = p->m_next)
+        generator.emitDirectPutById(newObj.get(), p->m_node->name(), generator.emitNode(p->m_node->m_assign));
+
+    // Were there any get/set properties?
+    if (p) {
+        typedef std::pair<PropertyNode*, PropertyNode*> GetterSetterPair;
+        typedef HashMap<StringImpl*, GetterSetterPair> GetterSetterMap;
+        GetterSetterMap map;
+
+        // Build a map, pairing get/set values together.
+        for (PropertyListNode* q = p; q; q = q->m_next) {
+            PropertyNode* node = q->m_node;
+            if (node->m_type == PropertyNode::Constant)
+                continue;
+
+            GetterSetterPair pair(node, static_cast<PropertyNode*>(0));
+            GetterSetterMap::AddResult result = map.add(node->name().impl(), pair);
+            if (!result.isNewEntry)
+                result.iterator->second.second = node;
+        }
+
+        // Iterate over the remaining properties in the list.
+        for (; p; p = p->m_next) {
+            PropertyNode* node = p->m_node;
+            RegisterID* value = generator.emitNode(node->m_assign);
+
+            // Handle regular values.
+            if (node->m_type == PropertyNode::Constant) {
+                generator.emitDirectPutById(newObj.get(), node->name(), value);
+                continue;
             }
-            case PropertyNode::Getter: {
-                generator.emitPutGetter(newObj.get(), p->m_node->name(), value);
-                break;
+
+            // This is a get/set property, find its entry in the map.
+            ASSERT(node->m_type == PropertyNode::Getter || node->m_type == PropertyNode::Setter);
+            GetterSetterMap::iterator it = map.find(node->name().impl());
+            ASSERT(it != map.end());
+            GetterSetterPair& pair = it->second;
+
+            // Was this already generated as a part of its partner?
+            if (pair.second == node)
+                continue;
+    
+            // Generate the paired node now.
+            RefPtr<RegisterID> getterReg;
+            RefPtr<RegisterID> setterReg;
+
+            if (node->m_type == PropertyNode::Getter) {
+                getterReg = value;
+                if (pair.second) {
+                    ASSERT(pair.second->m_type == PropertyNode::Setter);
+                    setterReg = generator.emitNode(pair.second->m_assign);
+                } else {
+                    setterReg = generator.newTemporary();
+                    generator.emitLoad(setterReg.get(), jsUndefined());
+                }
+            } else {
+                ASSERT(node->m_type == PropertyNode::Setter);
+                setterReg = value;
+                if (pair.second) {
+                    ASSERT(pair.second->m_type == PropertyNode::Getter);
+                    getterReg = generator.emitNode(pair.second->m_assign);
+                } else {
+                    getterReg = generator.newTemporary();
+                    generator.emitLoad(getterReg.get(), jsUndefined());
+                }
             }
-            case PropertyNode::Setter: {
-                generator.emitPutSetter(newObj.get(), p->m_node->name(), value);
-                break;
-            }
-            default:
-                ASSERT_NOT_REACHED();
+
+            generator.emitPutGetterSetter(newObj.get(), node->name(), getterReg.get(), setterReg.get());
         }
     }
-    
+
     return generator.moveToDestinationIfNeeded(dst, newObj.get());
 }
 
@@ -822,7 +874,15 @@ RegisterID* UnaryOpNode::emitBytecode(BytecodeGenerator& generator, RegisterID* 
     return generator.emitUnaryOp(opcodeID(), generator.finalDestination(dst), src);
 }
 
-
+// ------------------------------ BitwiseNotNode -----------------------------------
+ 
+RegisterID* BitwiseNotNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
+{
+    RefPtr<RegisterID> src2 = generator.emitLoad(generator.newTemporary(), jsNumber(-1));
+    RegisterID* src1 = generator.emitNode(m_expr);
+    return generator.emitBinaryOp(op_bitxor, generator.finalDestination(dst, src1), src1, src2.get(), OperandTypes(m_expr->resultDescriptor(), ResultType::numberTypeIsInt32()));
+}
+ 
 // ------------------------------ LogicalNotNode -----------------------------------
 
 void LogicalNotNode::emitBytecodeInConditionContext(BytecodeGenerator& generator, Label* trueTarget, Label* falseTarget, bool fallThroughMeansTrue)
@@ -1151,10 +1211,9 @@ static ALWAYS_INLINE RegisterID* emitReadModifyAssignment(BytecodeGenerator& gen
 RegisterID* ReadModifyResolveNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
     if (RegisterID* local = generator.registerFor(m_ident)) {
-        if (generator.isLocalConstant(m_ident)) {
+        if (generator.isLocalConstant(m_ident))
             return emitReadModifyAssignment(generator, generator.finalDestination(dst), local, m_right, m_operator, OperandTypes(ResultType::unknownType(), m_right->resultDescriptor()));
-        }
-        
+
         if (generator.leftHandSideNeedsCopy(m_rightHasAssignments, m_right->isPure(generator))) {
             RefPtr<RegisterID> result = generator.newTemporary();
             generator.emitMove(result.get(), local);
@@ -1685,7 +1744,7 @@ RegisterID* ReturnNode::emitBytecode(BytecodeGenerator& generator, RegisterID* d
     RefPtr<RegisterID> returnRegister;
     if (generator.scopeDepth()) {
         RefPtr<Label> l0 = generator.newLabel();
-        if (generator.hasFinaliser() && !r0->isTemporary()) {
+        if (generator.hasFinaliser()) {
             returnRegister = generator.emitMove(generator.newTemporary(), r0);
             r0 = returnRegister.get();
         }
@@ -1915,13 +1974,8 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
     generator.emitDebugHook(WillExecuteStatement, firstLine(), lastLine());
 
     RefPtr<Label> tryStartLabel = generator.newLabel();
-    RefPtr<Label> finallyStart;
-    RefPtr<RegisterID> finallyReturnAddr;
-    if (m_finallyBlock) {
-        finallyStart = generator.newLabel();
-        finallyReturnAddr = generator.newTemporary();
-        generator.pushFinallyContext(finallyStart.get(), finallyReturnAddr.get());
-    }
+    if (m_finallyBlock)
+        generator.pushFinallyContext(m_finallyBlock);
 
     generator.emitLabel(tryStartLabel.get());
     generator.emitNode(dst, m_tryBlock);
@@ -1935,13 +1989,7 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
         // Uncaught exception path: the catch block.
         RefPtr<Label> here = generator.emitLabel(generator.newLabel().get());
         RefPtr<RegisterID> exceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), here.get());
-        if (m_catchHasEval) {
-            RefPtr<RegisterID> dynamicScopeObject = generator.emitNewObject(generator.newTemporary());
-            generator.emitPutById(dynamicScopeObject.get(), m_exceptionIdent, exceptionRegister.get());
-            generator.emitMove(exceptionRegister.get(), dynamicScopeObject.get());
-            generator.emitPushScope(exceptionRegister.get());
-        } else
-            generator.emitPushNewScope(exceptionRegister.get(), m_exceptionIdent, exceptionRegister.get());
+        generator.emitPushNewScope(exceptionRegister.get(), m_exceptionIdent, exceptionRegister.get());
         generator.emitNode(dst, m_catchBlock);
         generator.emitPopScope();
         generator.emitLabel(catchEndLabel.get());
@@ -1949,27 +1997,18 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 
     if (m_finallyBlock) {
         generator.popFinallyContext();
-        // there may be important registers live at the time we jump
-        // to a finally block (such as for a return or throw) so we
-        // ref the highest register ever used as a conservative
-        // approach to not clobbering anything important
-        RefPtr<RegisterID> highestUsedRegister = generator.highestUsedRegister();
+
         RefPtr<Label> finallyEndLabel = generator.newLabel();
 
-        // Normal path: invoke the finally block, then jump over it.
-        generator.emitJumpSubroutine(finallyReturnAddr.get(), finallyStart.get());
+        // Normal path: run the finally code, and jump to the end.
+        generator.emitNode(dst, m_finallyBlock);
         generator.emitJump(finallyEndLabel.get());
 
         // Uncaught exception path: invoke the finally block, then re-throw the exception.
         RefPtr<Label> here = generator.emitLabel(generator.newLabel().get());
         RefPtr<RegisterID> tempExceptionRegister = generator.emitCatch(generator.newTemporary(), tryStartLabel.get(), here.get());
-        generator.emitJumpSubroutine(finallyReturnAddr.get(), finallyStart.get());
-        generator.emitThrow(tempExceptionRegister.get());
-
-        // The finally block.
-        generator.emitLabel(finallyStart.get());
         generator.emitNode(dst, m_finallyBlock);
-        generator.emitSubroutineReturn(finallyReturnAddr.get());
+        generator.emitThrow(tempExceptionRegister.get());
 
         generator.emitLabel(finallyEndLabel.get());
     }
@@ -1981,8 +2020,8 @@ RegisterID* TryNode::emitBytecode(BytecodeGenerator& generator, RegisterID* dst)
 
 inline void ScopeNode::emitStatementsBytecode(BytecodeGenerator& generator, RegisterID* dst)
 {
-    if (m_data->m_statements)
-        m_data->m_statements->emitBytecode(generator, dst);
+    if (m_statements)
+        m_statements->emitBytecode(generator, dst);
 }
 
 // ------------------------------ ProgramNode -----------------------------

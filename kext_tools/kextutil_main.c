@@ -787,30 +787,24 @@ checkArgs(KextutilArgs * toolArgs)
         goto finish;
     }
 
-    if (!toolArgs->kernelURL && !toolArgs->doLoad) {
-        if (!toolArgs->archInfo || kernelArchInfo == toolArgs->archInfo) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "No kernel file specified; using running kernel for linking.");
-        } else if (!toolArgs->kernelURL) {
-            CFURLRef scratchURL = CFURLCreateFromFileSystemRepresentation(
+    /* <rdar://problem/10678221> */
+    /* If no explicit kernel image was provided by the user, default it */
+    /* to the /mach_kernel currently being used to run the system */
+    if (!toolArgs->kernelURL) {
+        CFURLRef scratchURL = CFURLCreateFromFileSystemRepresentation(
                 kCFAllocatorDefault,
                 (const UInt8 *)kDefaultKernel, strlen(kDefaultKernel), TRUE);
-            if (!scratchURL) {
-                OSKextLogStringError(/* kext */ NULL);
-                result = EX_OSERR;
-                goto finish;
-            }
-            toolArgs->kernelURL = scratchURL;
-
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "No kernel file specified and "
-                "current arch %s doesn't match running kernel %s; using %s.",
-                toolArgs->archInfo->name,
-                kernelArchInfo->name,
-                kDefaultKernel);
+        if (!scratchURL) {
+            OSKextLogStringError(/* kext */ NULL);
+            result = EX_OSERR;
+            goto finish;
         }
+        toolArgs->kernelURL = scratchURL;
+        
+        OSKextLog(/* kext */ NULL,
+                  kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                  "No kernel file specified, using '%s' ",
+                  kDefaultKernel);
     }
 
     if (toolArgs->kernelURL) {
@@ -2331,7 +2325,7 @@ void usage(UsageLevel usageLevel)
         "(for symbol generation)\n",
         kOptNameUseKernelAddresses, kOptUseKernelAddresses);
     fprintf(stderr, "-%s <kernelFile> (-%c):\n"
-        "        link against <kernelFile> (default is running kernel)\n",
+        "        link against <kernelFile> (default is /mach_kernel)\n",
         kOptNameKernel, kOptKernel);
     fprintf(stderr, "\n");
 

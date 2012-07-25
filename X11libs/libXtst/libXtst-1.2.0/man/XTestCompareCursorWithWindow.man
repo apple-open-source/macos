@@ -1,1 +1,0 @@
-.so man__libmansuffix__/XTestQueryExtension.__libmansuffix__

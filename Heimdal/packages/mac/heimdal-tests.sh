@@ -14,13 +14,14 @@ frame_echo() {
 run_test() {
     name=$1
     shift
+    frame_echo "[BEGIN] $name"
     "$@"
     res=$?
     if [ "$res" = 0 ]; then
-	frame_echo "PASS: $name"
+	frame_echo "[PASS] $name"
 	pass=$(expr $pass + 1)
     else
-	frame_echo "FAIL: $name"
+	frame_echo "[FAIL] $name"
 	fail="$fail $name"
     fi
     count=$(expr $count + 1)
@@ -72,7 +73,7 @@ for a in test-principal heimdal-test-cc ; do
 done
 
 # check/kdc
-for a in check-kdc check-kpasswdd ; do
+for a in check-kdc check-fast check-kpasswdd ; do
     run_test $a /usr/local/libexec/heimdal/tests/kdc/$a
 done
 
@@ -109,9 +110,18 @@ else
 fi
 
 # check apple non root
-for a in check-apple-ad check-apple-dump check-apple-mitdump ; do
+for a in check-apple-ad check-apple-dump check-apple-mitdump  ; do
     run_test $a /usr/local/libexec/heimdal/tests/apple/$a
 done
+for a in test_export ; do
+    path="/usr/local/libexec/heimdal/bin/$a"
+    for arch in i386 x86_64 ; do
+        if file $path | grep $arch  > /dev/null ; then
+	    run_test "$a-$arch" arch "-$arch" "$path"
+	fi
+    done
+done
+
 
 if sudo -n true ; then
     sudo defaults delete /Library/Preferences/org.h5l.hx509 AllowHX509Validation
@@ -125,10 +135,21 @@ defaults delete /Library/Preferences/org.h5l.hx509 AllowHX509Validation
 (cd $HOME/$crashlogs && ls -1 ) > $crashusernew
 (cd $crashlogs && ls -1 ) > $crashsystemnew
 
-check_crash system $crashsystemold $crashsystemnew
-check_crash user $crashuserold $crashusernew
+# but only if we are not running under raft, since raft handles that
+if [ X"${VERSIONER_RAFT_VERSION}" == "X" ]; then
+    check_crash system $crashsystemold $crashsystemnew
+    check_crash user $crashuserold $crashusernew
+fi
 
-rm $crashusernew $crashuserold $crashsystemnew $crashsystemold
+rm -f $crashusernew $crashuserold $crashsystemnew $crashsystemold
+
+# make sure MallocStackLoggingNoCompact is off
+if sudo -n true ; then
+        sudo launchctl unsetenv MallocStackLoggingNoCompact
+        sudo launchctl unsetenv MallocErrorAbort
+fi
+launchctl unsetenv MallocStackLoggingNoCompact
+launchctl unsetenv MallocErrorAbort
 
 if expr "$count" = "$pass" > /dev/null; then
     frame_echo "All tests passed"

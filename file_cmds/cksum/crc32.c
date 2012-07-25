@@ -101,7 +101,7 @@ int
 crc32(int fd, uint32_t *cval, off_t *clen)
 {
     uint32_t lcrc = ~0;
-    int nr ;
+    ssize_t nr;
     off_t len ;
     char buf[BUFSIZ], *p ;
 	

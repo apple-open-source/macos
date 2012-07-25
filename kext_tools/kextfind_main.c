@@ -610,7 +610,7 @@ finish:
 
 /*******************************************************************************
 *******************************************************************************/
-ExitStatus checkArgs(QueryContext * toolArgs)
+ExitStatus checkArgs(QueryContext * toolArgs __unused)
 {
     ExitStatus result = EX_USAGE;
 

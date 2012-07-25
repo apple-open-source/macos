@@ -4,6 +4,8 @@
 
 #import <CommonCrypto/CommonDigest.h>
 
+#include <err.h>
+
 static CFStringRef kerberosKDC = CFSTR("KerberosKDC");
 static CFStringRef rootName = CFSTR("/Local/Default");
 static CFStringRef realName = CFSTR("dsAttrTypeStandard:RealName");

@@ -28,7 +28,7 @@
 
 #include "mech_locl.h"
 
-static struct _gss_mechanism_cred *
+struct _gss_mechanism_cred *
 _gss_copy_cred(struct _gss_mechanism_cred *mc)
 {
 	struct _gss_mechanism_cred *new_mc;
@@ -70,7 +70,7 @@ _gss_copy_cred(struct _gss_mechanism_cred *mc)
 	return (new_mc);
 }
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_add_cred(OM_uint32 *minor_status,
     const gss_cred_id_t input_cred_handle,
     const gss_name_t desired_name,
@@ -101,12 +101,11 @@ gss_add_cred(OM_uint32 *minor_status,
 	if (actual_mechs)
 	    *actual_mechs = GSS_C_NO_OID_SET;
 
-	new_cred = malloc(sizeof(struct _gss_cred));
+	new_cred = _gss_mg_alloc_cred();
 	if (!new_cred) {
 		*minor_status = ENOMEM;
 		return (GSS_S_FAILURE);
 	}
-	SLIST_INIT(&new_cred->gc_mc);
 
 	/*
 	 * We go through all the mc attached to the input_cred_handle
@@ -116,7 +115,7 @@ gss_add_cred(OM_uint32 *minor_status,
 	 */
 	target_mc = NULL;
 	if (cred) {
-		SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+		HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 			if (gss_oid_equal(mc->gmc_mech_oid, desired_mech)) {
 				target_mc = mc;
 				break;
@@ -128,7 +127,7 @@ gss_add_cred(OM_uint32 *minor_status,
 				*minor_status = ENOMEM;
 				return (GSS_S_FAILURE);
 			}
-			SLIST_INSERT_HEAD(&new_cred->gc_mc, copy_mc, gmc_link);
+			HEIM_SLIST_INSERT_HEAD(&new_cred->gc_mc, copy_mc, gmc_link);
 		}
 	}
 
@@ -190,7 +189,7 @@ gss_add_cred(OM_uint32 *minor_status,
 		free(mc);
 		return (major_status);
 	}
-	SLIST_INSERT_HEAD(&new_cred->gc_mc, mc, gmc_link);
+	HEIM_SLIST_INSERT_HEAD(&new_cred->gc_mc, mc, gmc_link);
 	*output_cred_handle = (gss_cred_id_t) new_cred;
 
 	return (GSS_S_COMPLETE);

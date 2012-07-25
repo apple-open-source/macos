@@ -20,7 +20,6 @@
 #   Boston, MA 02110-1301, USA.
 
 use strict;
-use Switch;
 use File::Basename;
 
 my $outdir = $ARGV[0];
@@ -28,26 +27,14 @@ shift;
 my $option = basename($ARGV[0],".gperf");
 
 
-switch ($option) {
-
-case "DocTypeStrings" {
-
-    my $docTypeStringsGenerated    = "$outdir/DocTypeStrings.cpp";
-    my $docTypeStringsGperf        = $ARGV[0];
-    shift;
-
-    system("gperf --key-positions=\"*\" -s 2 $docTypeStringsGperf > $docTypeStringsGenerated") == 0 || die "calling gperf failed: $?";
-
-} # case "DocTypeStrings"
-
-case "ColorData" {
+if ($option eq "ColorData") {
 
     my $colorDataGenerated         = "$outdir/ColorData.cpp";
     my $colorDataGperf             = $ARGV[0];
     shift;
 
-    system("gperf --key-positions=\"*\" -D -s 2 $colorDataGperf > $colorDataGenerated") == 0 || die "calling gperf failed: $?";
+    system("gperf --key-positions=\"*\" -D -s 2 $colorDataGperf --output-file=$colorDataGenerated") == 0 || die "calling gperf failed: $?";
 
-} # case "ColorData"
-
-} # switch ($option)
+} else {
+    die "Unknown option.";
+}

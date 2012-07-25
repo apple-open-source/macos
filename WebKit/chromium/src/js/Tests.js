@@ -177,7 +177,7 @@ TestSuite.prototype.showPanel = function(panelName)
     var toolbar = document.getElementById("toolbar");
     var button = toolbar.getElementsByClassName(panelName)[0];
     button.click();
-    this.assertEquals(WebInspector.panels[panelName], WebInspector.currentPanel);
+    this.assertEquals(WebInspector.panels[panelName], WebInspector.inspectorView.currentPanel());
 };
 
 
@@ -252,16 +252,16 @@ TestSuite.prototype.testShowScriptsTab = function()
 TestSuite.prototype.testScriptsTabIsPopulatedOnInspectedPageRefresh = function()
 {
     var test = this;
-    this.assertEquals(WebInspector.panels.elements, WebInspector.currentPanel, "Elements panel should be current one.");
+    this.assertEquals(WebInspector.panels.elements, WebInspector.inspectorView.currentPanel(), "Elements panel should be current one.");
 
-    this.addSniffer(WebInspector.panels.scripts, "reset", waitUntilScriptIsParsed);
+    WebInspector.debuggerPresentationModel.addEventListener(WebInspector.DebuggerPresentationModel.Events.DebuggerReset, waitUntilScriptIsParsed);
 
     // Reload inspected page. It will reset the debugger agent.
-    test.evaluateInConsole_(
-        "window.location.reload(true);",
-        function(resultText) {});
+    test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
 
-    function waitUntilScriptIsParsed() {
+    function waitUntilScriptIsParsed()
+    {
+        WebInspector.debuggerPresentationModel.removeEventListener(WebInspector.DebuggerPresentationModel.Events.DebuggerReset, waitUntilScriptIsParsed);
         test.showPanel("scripts");
         test._waitUntilScriptsAreParsed(["debugger_test_page.html"],
             function() {
@@ -308,7 +308,6 @@ TestSuite.prototype.testNoScriptDuplicatesOnPanelSwitch = function()
 
     this.showPanel("scripts");
 
-
     function switchToElementsTab() {
         test.showPanel("elements");
         setTimeout(switchToScriptsTab, 0);
@@ -320,19 +319,17 @@ TestSuite.prototype.testNoScriptDuplicatesOnPanelSwitch = function()
     }
 
     function checkScriptsPanel() {
-        test.assertTrue(!!WebInspector.panels.scripts.visibleView, "No visible script view.");
         test.assertTrue(test._scriptsAreParsed(["debugger_test_page.html"]), "Some scripts are missing.");
         checkNoDuplicates();
         test.releaseControl();
     }
 
     function checkNoDuplicates() {
-        var scriptSelect = document.getElementById("scripts-files");
-        var options = scriptSelect.options;
-        for (var i = 0; i < options.length; i++) {
-            var scriptName = options[i].text;
-            for (var j = i + 1; j < options.length; j++)
-                test.assertTrue(scriptName !== options[j].text, "Found script duplicates: " + test.optionsToString_(options));
+        var uiSourceCodes = test.nonAnonymousUISourceCodes_();
+        for (var i = 0; i < uiSourceCodes.length; i++) {
+            var scriptName = uiSourceCodes[i].fileName;
+            for (var j = i + 1; j < uiSourceCodes.length; j++)
+                test.assertTrue(scriptName !== uiSourceCodes[j].fileName, "Found script duplicates: " + test.uiSourceCodesToString_(uiSourceCodes));
         }
     }
 
@@ -354,40 +351,12 @@ TestSuite.prototype.testNoScriptDuplicatesOnPanelSwitch = function()
 TestSuite.prototype.testPauseWhenLoadingDevTools = function()
 {
     this.showPanel("scripts");
-    var test = this;
-
-    var expectations = {
-            functionsOnStack: ["callDebugger"],
-            lineNumber: 8,
-            lineText: "  debugger;"
-        };
-
 
     // Script execution can already be paused.
-    if (WebInspector.currentPanel.paused) {
-        var callFrame = WebInspector.currentPanel._presentationModel.selectedCallFrame;
-        this.assertEquals(expectations.functionsOnStack[0], callFrame.functionName);
-        var callbackInvoked = false;
-        this._checkSourceFrameWhenLoaded(expectations, function() {
-                callbackInvoked = true;
-                if (test.controlTaken_)
-                    test.releaseControl();
-            });
-        if (!callbackInvoked) {
-            test.takeControl();
-        }
+    if (WebInspector.debuggerModel.debuggerPausedDetails)
         return;
-    }
 
-    this._waitForScriptPause(
-        {
-            functionsOnStack: ["callDebugger"],
-            lineNumber: 8,
-            lineText: "  debugger;"
-        },
-        function() {
-            test.releaseControl();
-        });
+    this._waitForScriptPause(this.releaseControl.bind(this));
     this.takeControl();
 };
 
@@ -397,19 +366,16 @@ TestSuite.prototype.testPauseWhenLoadingDevTools = function()
 TestSuite.prototype.testPauseWhenScriptIsRunning = function()
 {
     this.showPanel("scripts");
-    var test = this;
 
-    test.evaluateInConsole_(
+    this.evaluateInConsole_(
         'setTimeout("handleClick()" , 0)',
-        function(resultText) {
-          test.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
-          testScriptPauseAfterDelay();
-        });
+        didEvaluateInConsole.bind(this));
 
-    // Wait for some time to make sure that inspected page is running the
-    // infinite loop.
-    function testScriptPauseAfterDelay() {
-        setTimeout(testScriptPause, 300);
+    function didEvaluateInConsole(resultText) {
+        this.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
+        // Wait for some time to make sure that inspected page is running the
+        // infinite loop.
+        setTimeout(testScriptPause.bind(this), 300);
     }
 
     function testScriptPause() {
@@ -417,15 +383,7 @@ TestSuite.prototype.testPauseWhenScriptIsRunning = function()
         // pause it and wait for the result.
         WebInspector.panels.scripts.pauseButton.click();
 
-        test._waitForScriptPause(
-            {
-                functionsOnStack: ["handleClick", ""],
-                lineNumber: 5,
-                lineText: "  while(true) {"
-            },
-            function() {
-                test.releaseControl();
-            });
+        this._waitForScriptPause(this.releaseControl.bind(this));
     }
 
     this.takeControl();
@@ -446,7 +404,7 @@ TestSuite.prototype.testNetworkSize = function()
         test.releaseControl();
     }
     
-    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishResource", finishResource);
+    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
@@ -469,7 +427,7 @@ TestSuite.prototype.testNetworkSyncSize = function()
         test.releaseControl();
     }
     
-    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishResource", finishResource);
+    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Send synchronous XHR to sniff network events
     test.evaluateInConsole_("var xhr = new XMLHttpRequest(); xhr.open(\"GET\", \"chunked\", false); xhr.send(null);", function() {});
@@ -493,7 +451,7 @@ TestSuite.prototype.testNetworkRawHeadersText = function()
         test.releaseControl();
     }
     
-    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishResource", finishResource);
+    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
 
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
@@ -527,7 +485,7 @@ TestSuite.prototype.testNetworkTiming = function()
         test.releaseControl();
     }
     
-    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishResource", finishResource);
+    this.addSniffer(WebInspector.NetworkDispatcher.prototype, "_finishNetworkRequest", finishResource);
     
     // Reload inspected page to sniff network events
     test.evaluateInConsole_("window.location.reload(true);", function(resultText) {});
@@ -536,71 +494,163 @@ TestSuite.prototype.testNetworkTiming = function()
 };
 
 
+TestSuite.prototype.testConsoleOnNavigateBack = function()
+{
+    if (WebInspector.console.messages.length === 1)
+        firstConsoleMessageReceived.call(this);
+    else
+        WebInspector.console.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, firstConsoleMessageReceived, this);
+
+    function firstConsoleMessageReceived() {
+        this.evaluateInConsole_("clickLink();", didClickLink.bind(this));
+    }
+
+    function didClickLink() {
+        // Check that there are no new messages(command is not a message).
+        this.assertEquals(1, WebInspector.console.messages.length);
+        this.assertEquals(1, WebInspector.console.messages[0].totalRepeatCount);
+        this.evaluateInConsole_("history.back();", didNavigateBack.bind(this));
+    }
+
+    function didNavigateBack()
+    {
+        // Make sure navigation completed and possible console messages were pushed.
+        this.evaluateInConsole_("void 0;", didCompleteNavigation.bind(this));
+    }
+
+    function didCompleteNavigation() {
+        this.assertEquals(1, WebInspector.console.messages.length);
+        this.assertEquals(1, WebInspector.console.messages[0].totalRepeatCount);
+        this.releaseControl();
+    }
+
+    this.takeControl();
+};
+
+
+TestSuite.prototype.testReattachAfterCrash = function()
+{
+    this.evaluateInConsole_("1+1;", this.releaseControl.bind(this));
+    this.takeControl();
+};
+
+
+TestSuite.prototype.testSharedWorker = function()
+{
+    function didEvaluateInConsole(resultText) {
+        this.assertEquals("2011", resultText);
+        this.releaseControl();
+    }
+    this.evaluateInConsole_("globalVar", didEvaluateInConsole.bind(this));
+    this.takeControl();
+};
+
+
+TestSuite.prototype.testPauseInSharedWorkerInitialization = function()
+{
+    if (WebInspector.debuggerModel.debuggerPausedDetails)
+        return;
+    this._waitForScriptPause(this.releaseControl.bind(this));
+    this.takeControl();
+};
+
+
+TestSuite.prototype.waitForTestResultsInConsole = function()
+{
+    var messages = WebInspector.console.messages;
+    for (var i = 0; i < messages.length; ++i) {
+        var text = messages[i].text;
+        if (text === "PASS")
+            return;
+        else if (/^FAIL/.test(text))
+            this.fail(text); // This will throw.
+    }
+    // Neitwer PASS nor FAIL, so wait for more messages.
+    function onConsoleMessage(event)
+    {
+        var text = event.data.text;
+        if (text === "PASS")
+            this.releaseControl();
+        else if (/^FAIL/.test(text))
+            this.fail(text);
+    }
+
+    WebInspector.console.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, onConsoleMessage, this);
+    this.takeControl();
+};
+
+TestSuite.prototype.checkLogAndErrorMessages = function()
+{
+    var messages = WebInspector.console.messages;
+
+    var matchesCount = 0;
+    function validMessage(message)
+    {
+        if (message.text === "log" && message.level === WebInspector.ConsoleMessage.MessageLevel.Log) {
+            ++matchesCount;
+            return true;
+        }
+
+        if (message.text === "error" && message.level === WebInspector.ConsoleMessage.MessageLevel.Error) {
+            ++matchesCount;
+            return true;
+        }
+        return false;
+    }
+
+    for (var i = 0; i < messages.length; ++i) {
+        if (validMessage(messages[i]))
+            continue;
+        this.fail(messages[i].text + ":" + messages[i].level); // This will throw.
+    }
+
+    if (matchesCount === 2)
+        return;
+
+    // Wait for more messages.
+    function onConsoleMessage(event)
+    {
+        var message = event.data;
+        if (validMessage(message)) {
+            if (matchesCount === 2) {
+                this.releaseControl();
+                return;
+            }
+        } else
+            this.fail(message.text + ":" + messages[i].level);
+    }
+
+    WebInspector.console.addEventListener(WebInspector.ConsoleModel.Events.MessageAdded, onConsoleMessage, this);
+    this.takeControl();
+};
+
 /**
- * Serializes options collection to string.
- * @param {HTMLOptionsCollection} options
+ * Serializes array of uiSourceCodes to string.
+ * @param {Array.<WebInspectorUISourceCode>} uiSourceCodes
  * @return {string}
  */
-TestSuite.prototype.optionsToString_ = function(options)
+TestSuite.prototype.uiSourceCodesToString_ = function(uiSourceCodes)
 {
     var names = [];
-    for (var i = 0; i < options.length; i++)
-        names.push('"' + options[i].text + '"');
+    for (var i = 0; i < uiSourceCodes.length; i++)
+        names.push('"' + uiSourceCodes[i].fileName + '"');
     return names.join(",");
 };
 
 
 /**
- * Ensures that main HTML resource is selected in Scripts panel and that its
- * source frame is setup. Invokes the callback when the condition is satisfied.
- * @param {HTMLOptionsCollection} options
- * @param {function(WebInspector.SourceView,string)} callback
+ * Returns all loaded non anonymous uiSourceCodes.
+ * @return {Array.<WebInspectorUISourceCode>}
  */
-TestSuite.prototype.showMainPageScriptSource_ = function(scriptName, callback)
+TestSuite.prototype.nonAnonymousUISourceCodes_ = function()
 {
-    var test = this;
-
-    var scriptSelect = document.getElementById("scripts-files");
-    var options = scriptSelect.options;
-
-    test.assertTrue(options.length, "Scripts list is empty");
-
-    // Select page's script if it's not current option.
-    var scriptResource;
-    if (options[scriptSelect.selectedIndex].text === scriptName)
-        scriptResource = options[scriptSelect.selectedIndex].representedObject;
-    else {
-        var pageScriptIndex = -1;
-        for (var i = 0; i < options.length; i++) {
-            if (options[i].text === scriptName) {
-                pageScriptIndex = i;
-                break;
-            }
-        }
-        test.assertTrue(-1 !== pageScriptIndex, "Script with url " + scriptName + " not found among " + test.optionsToString_(options));
-        scriptResource = options[pageScriptIndex].representedObject;
-
-        // Current panel is "Scripts".
-        WebInspector.currentPanel._showScriptOrResource(scriptResource);
-        test.assertEquals(pageScriptIndex, scriptSelect.selectedIndex, "Unexpected selected option index.");
+    function filterOutAnonymous(uiSourceCode)
+    {
+        return !!uiSourceCode.url;
     }
 
-    test.assertTrue(scriptResource instanceof WebInspector.Resource,
-                    "Unexpected resource class.");
-    test.assertTrue(!!scriptResource.url, "Resource URL is null.");
-    test.assertTrue(scriptResource.url.search(scriptName + "$") !== -1, "Main HTML resource should be selected.");
-
-    var scriptsPanel = WebInspector.panels.scripts;
-
-    var view = scriptsPanel.visibleView;
-    test.assertTrue(view instanceof WebInspector.SourceView);
-
-    if (!view.sourceFrame._loaded) {
-        test.addSniffer(view, "_sourceFrameSetupFinished", function(event) {
-            callback(view, scriptResource.url);
-        });
-    } else
-        callback(view, scriptResource.url);
+    var uiSourceCodes = WebInspector.panels.scripts._presentationModel.uiSourceCodes();
+    return uiSourceCodes.filter(filterOutAnonymous);
 };
 
 
@@ -613,27 +663,14 @@ TestSuite.prototype.showMainPageScriptSource_ = function(scriptName, callback)
 TestSuite.prototype.evaluateInConsole_ = function(code, callback)
 {
     WebInspector.showConsole();
-    WebInspector.console.prompt.text = code;
-    WebInspector.console.promptElement.dispatchEvent( TestSuite.createKeyEvent("Enter"));
+    WebInspector.consoleView.prompt.text = code;
+    WebInspector.consoleView.promptElement.dispatchEvent(TestSuite.createKeyEvent("Enter"));
 
-    this.addSniffer(WebInspector.ConsoleView.prototype, "addMessage",
+    this.addSniffer(WebInspector.ConsoleView.prototype, "_appendConsoleMessage",
         function(commandResult) {
             callback(commandResult.toMessageElement().textContent);
         });
 };
-
-
-/**
- * Checks current execution line against expectations.
- * @param {WebInspector.SourceFrame} sourceFrame
- * @param {number} lineNumber Expected line number
- * @param {string} lineContent Expected line text
- */
-TestSuite.prototype._checkExecutionLine = function(sourceFrame, lineNumber, lineContent)
-{
-    this.assertEquals(lineNumber, sourceFrame._executionLineNumber + 1, "Unexpected execution line number.");
-    this.assertEquals(lineContent, sourceFrame._textModel.line(lineNumber - 1), "Unexpected execution line text.");
-}
 
 
 /**
@@ -646,14 +683,12 @@ TestSuite.prototype._checkExecutionLine = function(sourceFrame, lineNumber, line
  */
 TestSuite.prototype._scriptsAreParsed = function(expected)
 {
-    var scriptSelect = document.getElementById("scripts-files");
-    var options = scriptSelect.options;
-
+    var uiSourceCodes = this.nonAnonymousUISourceCodes_();
     // Check that at least all the expected scripts are present.
     var missing = expected.slice(0);
-    for (var i = 0 ; i < options.length; i++) {
-        for (var j = 0; j < missing.length; j++) {
-            if (options[i].text.search(missing[j]) !== -1) {
+    for (var i = 0; i < uiSourceCodes.length; ++i) {
+        for (var j = 0; j < missing.length; ++j) {
+            if (uiSourceCodes[i].parsedURL.lastPathComponent.search(missing[j]) !== -1) {
                 missing.splice(j, 1);
                 break;
             }
@@ -665,54 +700,15 @@ TestSuite.prototype._scriptsAreParsed = function(expected)
 
 /**
  * Waits for script pause, checks expectations, and invokes the callback.
- * @param {Object} expectations  Dictionary of expectations
  * @param {function():void} callback
  */
-TestSuite.prototype._waitForScriptPause = function(expectations, callback)
+TestSuite.prototype._waitForScriptPause = function(callback)
 {
-    var test = this;
-    // Wait until script is paused.
-    test.addSniffer(
-        WebInspector.debuggerModel,
-        "_pausedScript",
-        function(details) {
-            var callFrames = details.callFrames;
-            var functionsOnStack = [];
-            for (var i = 0; i < callFrames.length; i++)
-                functionsOnStack.push(callFrames[i].functionName);
-
-            test.assertEquals(expectations.functionsOnStack.join(","), functionsOnStack.join(","), "Unexpected stack.");
-
-            // Check that execution line where the script is paused is
-            // expected one.
-            test._checkSourceFrameWhenLoaded(expectations, callback);
-        });
-};
-
-
-/**
- * Waits for current source frame to load, checks expectations, and invokes
- * the callback.
- * @param {Object} expectations  Dictionary of expectations
- * @param {function():void} callback
- */
-TestSuite.prototype._checkSourceFrameWhenLoaded = function(expectations, callback)
-{
-    var test = this;
-
-    var frame = WebInspector.currentPanel.visibleView;
-
-    if (frame._textViewer)
-        checkExecLine();
-    else {
-        setTimeout(function() {
-            test._checkSourceFrameWhenLoaded(expectations, callback);
-        }, 100);
-    }
-    function checkExecLine() {
-        test._checkExecutionLine(frame, expectations.lineNumber, expectations.lineText);
+    function pauseListener(event) {
+        WebInspector.debuggerModel.removeEventListener(WebInspector.DebuggerModel.Events.DebuggerPaused, pauseListener, this);
         callback();
     }
+    WebInspector.debuggerModel.addEventListener(WebInspector.DebuggerModel.Events.DebuggerPaused, pauseListener, this);
 };
 
 
@@ -749,7 +745,7 @@ TestSuite.prototype._waitUntilScriptsAreParsed = function(expectedScripts, callb
         if (test._scriptsAreParsed(expectedScripts))
             callback();
         else
-            test.addSniffer(WebInspector.panels.scripts, "_addOptionToFilesSelect", waitForAllScripts);
+            test.addSniffer(WebInspector.panels.scripts, "_addUISourceCode", waitForAllScripts);
     }
 
     waitForAllScripts();
@@ -809,17 +805,10 @@ function runTests()
         new TestSuite().runTest(name);
 }
 
-var oldShowElementsPanel = WebInspector.showElementsPanel;
-WebInspector.showElementsPanel = function()
+var oldLoadCompleted = InspectorFrontendAPI.loadCompleted;
+InspectorFrontendAPI.loadCompleted = function()
 {
-    oldShowElementsPanel.call(this);
-    runTests();
-}
-
-var oldShowPanel = WebInspector.showPanel;
-WebInspector.showPanel = function(name)
-{
-    oldShowPanel.call(this, name);
+    oldLoadCompleted.call(InspectorFrontendAPI);
     runTests();
 }
 

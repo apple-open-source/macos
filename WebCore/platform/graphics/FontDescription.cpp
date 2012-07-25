@@ -32,6 +32,18 @@
 
 namespace WebCore {
 
+struct SameSizeAsFontDescription {
+    FontFamily familyList;
+    void* settings;
+    RefPtr<FontFeatureSettings> m_featureSettings;
+    float sizes[2];
+    // FXIME: Make them fit into one word.
+    uint32_t bitfields;
+    uint32_t bitfields2 : 8;
+};
+
+COMPILE_ASSERT(sizeof(FontDescription) == sizeof(SameSizeAsFontDescription), FontDescription_should_stay_small);
+
 FontWeight FontDescription::lighterWeight(void) const
 {
     // FIXME: Should actually return the CSS weight corresponding to next lightest
@@ -96,6 +108,13 @@ FontTraitsMask FontDescription::traitsMask() const
             | (m_smallCaps ? FontVariantSmallCapsMask : FontVariantNormalMask)
             | (FontWeight100Mask << (m_weight - FontWeight100)));
     
+}
+
+FontDescription FontDescription::makeNormalFeatureSettings() const
+{
+    FontDescription normalDescription(*this);
+    normalDescription.setFeatureSettings(0);
+    return normalDescription;
 }
 
 } // namespace WebCore

@@ -47,7 +47,7 @@ static HashMap<const Widget*, RenderWidget*>& widgetRendererMap()
     return *staticWidgetRendererMap;
 }
 
-static size_t widgetHierarchyUpdateSuspendCount;
+static unsigned widgetHierarchyUpdateSuspendCount;
 
 typedef HashMap<RefPtr<Widget>, FrameView*> WidgetToParentMap;
 
@@ -108,47 +108,24 @@ RenderWidget::RenderWidget(Node* node)
     view()->addWidget(this);
 }
 
-void RenderWidget::destroy()
+void RenderWidget::willBeDestroyed()
 {
-    // We can't call the base class's destroy because we don't
-    // want to unconditionally delete ourselves (we're ref-counted).
-    // So the code below includes copied and pasted contents of
-    // both RenderBox::destroy() and RenderObject::destroy().
-    // Fix originally made for <rdar://problem/4228818>.
-
-    animation()->cancelAnimations(this);
-
     if (RenderView* v = view())
         v->removeWidget(this);
-
     
     if (AXObjectCache::accessibilityEnabled()) {
         document()->axObjectCache()->childrenChanged(this->parent());
         document()->axObjectCache()->remove(this);
     }
 
-    if (!documentBeingDestroyed() && parent()) 
-        parent()->dirtyLinesFromChangedChild(this);
-
-    remove();
-
-    if (m_hasCounterNodeMap)
-        RenderCounter::destroyCounterNodes(this);
-
     setWidget(0);
 
-    // removes from override size map
-    if (hasOverrideSize())
-        setOverrideSize(-1);
+    RenderReplaced::willBeDestroyed();
+}
 
-    if (style() && (style()->logicalHeight().isPercent() || style()->logicalMinHeight().isPercent() || style()->logicalMaxHeight().isPercent()))
-        RenderBlock::removePercentHeightDescendant(this);
-
-    if (hasLayer()) {
-        layer()->clearClipRects();
-        setHasLayer(false);
-        destroyLayer();
-    }
+void RenderWidget::destroy()
+{
+    willBeDestroyed();
 
     // Grab the arena from node()->document()->renderArena() before clearing the node pointer.
     // Clear the node before deref-ing, as this may be deleted when deref is called.
@@ -163,12 +140,20 @@ RenderWidget::~RenderWidget()
     clearWidget();
 }
 
-bool RenderWidget::setWidgetGeometry(const IntRect& frame, const IntSize& boundsSize)
+// Widgets are always placed on integer boundaries, so rounding the size is actually
+// the desired behavior. This function is here because it's otherwise seldom what we
+// want to do with a LayoutRect.
+static inline IntRect roundedIntRect(const LayoutRect& rect)
+{
+    return IntRect(roundedIntPoint(rect.location()), roundedIntSize(rect.size()));
+}
+
+bool RenderWidget::setWidgetGeometry(const LayoutRect& frame)
 {
     if (!node())
         return false;
 
-    IntRect clipRect = enclosingLayer()->childrenClipRect();
+    IntRect clipRect = roundedIntRect(enclosingLayer()->childrenClipRect());
     bool clipChanged = m_clipRect != clipRect;
     bool boundsChanged = m_widget->frameRect() != frame;
 
@@ -179,9 +164,7 @@ bool RenderWidget::setWidgetGeometry(const IntRect& frame, const IntSize& bounds
 
     RenderWidgetProtector protector(this);
     RefPtr<Node> protectedNode(node());
-    m_widget->setFrameRect(frame);
-    if (m_widget) // setFrameRect can run arbitrary script, which might clear m_widget.
-        m_widget->setBoundsSize(boundsSize);
+    m_widget->setFrameRect(roundedIntRect(frame));
     
 #if USE(ACCELERATED_COMPOSITING)
     if (hasLayer() && layer()->isComposited())
@@ -191,19 +174,19 @@ bool RenderWidget::setWidgetGeometry(const IntRect& frame, const IntSize& bounds
     return boundsChanged;
 }
 
-bool RenderWidget::updateWidgetGeometry() 
-{ 
-    IntRect contentBox = contentBoxRect(); 
-     if (!m_widget->transformsAffectFrameRect()) 
-         return setWidgetGeometry(absoluteContentBox(), contentBox.size()); 
-      
-     IntRect absoluteContentBox = IntRect(localToAbsoluteQuad(FloatQuad(contentBox)).boundingBox()); 
-     if (m_widget->isFrameView()) { 
-         contentBox.setLocation(absoluteContentBox.location()); 
-         return setWidgetGeometry(contentBox, contentBox.size()); 
-     } 
-      
-     return setWidgetGeometry(absoluteContentBox, contentBox.size()); 
+bool RenderWidget::updateWidgetGeometry()
+{
+    IntRect contentBox = pixelSnappedIntRect(contentBoxRect());
+    if (!m_widget->transformsAffectFrameRect())
+        return setWidgetGeometry(absoluteContentBox());
+
+    IntRect absoluteContentBox(localToAbsoluteQuad(FloatQuad(contentBox)).boundingBox());
+    if (m_widget->isFrameView()) {
+        contentBox.setLocation(absoluteContentBox.location());
+        return setWidgetGeometry(contentBox);
+    }
+
+    return setWidgetGeometry(absoluteContentBox);
 }
 
 void RenderWidget::setWidget(PassRefPtr<Widget> widget)
@@ -223,9 +206,9 @@ void RenderWidget::setWidget(PassRefPtr<Widget> widget)
         // widget immediately, but we have to have really been fully constructed (with a non-null
         // style pointer).
         if (style()) {
-            if (!needsLayout()) 
+            if (!needsLayout())
                 updateWidgetGeometry();
-                
+
             if (style()->visibility() != VISIBLE)
                 m_widget->hide();
             else {
@@ -255,75 +238,68 @@ void RenderWidget::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     }
 }
 
-void RenderWidget::showSubstituteImage(PassRefPtr<Image> prpImage)
-{
-    m_substituteImage = prpImage;
-    repaint();
-}
-
 void RenderWidget::notifyWidget(WidgetNotification notification)
 {
     if (m_widget)
         m_widget->notifyWidget(notification);
 }
 
-void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
+void RenderWidget::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (!shouldPaint(paintInfo, tx, ty))
+    if (!shouldPaint(paintInfo, paintOffset))
         return;
 
-    tx += x();
-    ty += y();
+    LayoutPoint adjustedPaintOffset = paintOffset + location();
 
     if (hasBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection))
-        paintBoxDecorations(paintInfo, tx, ty);
+        paintBoxDecorations(paintInfo, adjustedPaintOffset);
 
     if (paintInfo.phase == PaintPhaseMask) {
-        paintMask(paintInfo, IntSize(tx, ty));
+        paintMask(paintInfo, adjustedPaintOffset);
         return;
     }
 
-    if (!m_frameView || paintInfo.phase != PaintPhaseForeground || style()->visibility() != VISIBLE)
+    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && hasOutline())
+        paintOutline(paintInfo.context, LayoutRect(adjustedPaintOffset, size()));
+
+    if (!m_frameView || paintInfo.phase != PaintPhaseForeground)
         return;
 
 #if PLATFORM(MAC)
     if (style()->highlight() != nullAtom && !paintInfo.context->paintingDisabled())
-        paintCustomHighlight(tx - x(), ty - y(), style()->highlight(), true);
+        paintCustomHighlight(paintOffset, style()->highlight(), true);
 #endif
 
     if (style()->hasBorderRadius()) {
-        IntRect borderRect = IntRect(tx, ty, width(), height());
+        LayoutRect borderRect = LayoutRect(adjustedPaintOffset, size());
 
         if (borderRect.isEmpty())
             return;
 
         // Push a clip if we have a border radius, since we want to round the foreground content that gets painted.
         paintInfo.context->save();
-        paintInfo.context->addRoundedRectClip(style()->getRoundedBorderFor(borderRect));
+        paintInfo.context->addRoundedRectClip(style()->getRoundedBorderFor(borderRect, view()));
     }
 
     if (m_widget) {
         // Tell the widget to paint now.  This is the only time the widget is allowed
         // to paint itself.  That way it will composite properly with z-indexed layers.
-        if (m_substituteImage)
-            paintInfo.context->drawImage(m_substituteImage.get(), style()->colorSpace(), m_widget->frameRect());
-        else {
-            IntPoint widgetLocation = m_widget->frameRect().location();
-            IntPoint paintLocation(tx + borderLeft() + paddingLeft(), ty + borderTop() + paddingTop());
-            IntRect paintRect = paintInfo.rect;
+        IntPoint widgetLocation = m_widget->frameRect().location();
+        IntPoint paintLocation(roundToInt(adjustedPaintOffset.x() + borderLeft() + paddingLeft()),
+            roundToInt(adjustedPaintOffset.y() + borderTop() + paddingTop()));
+        IntRect paintRect = paintInfo.rect;
 
-            IntSize paintOffset = paintLocation - widgetLocation;
-            // When painting widgets into compositing layers, tx and ty are relative to the enclosing compositing layer,
-            // not the root. In this case, shift the CTM and adjust the paintRect to be root-relative to fix plug-in drawing.
-            if (!paintOffset.isZero()) {
-                paintInfo.context->translate(paintOffset);
-                paintRect.move(-paintOffset);
-            }
-            m_widget->paint(paintInfo.context, paintRect);
-
-            if (!paintOffset.isZero())
-                paintInfo.context->translate(-paintOffset);
+        IntSize widgetPaintOffset = paintLocation - widgetLocation;
+        // When painting widgets into compositing layers, tx and ty are relative to the enclosing compositing layer,
+        // not the root. In this case, shift the CTM and adjust the paintRect to be root-relative to fix plug-in drawing.
+        if (!widgetPaintOffset.isZero()) {
+            paintInfo.context->translate(widgetPaintOffset);
+            paintRect.move(-widgetPaintOffset);
         }
+        m_widget->paint(paintInfo.context, paintRect);
+
+        if (!widgetPaintOffset.isZero())
+            paintInfo.context->translate(-widgetPaintOffset);
 
         if (m_widget->isFrameView()) {
             FrameView* frameView = static_cast<FrameView*>(m_widget.get());
@@ -341,7 +317,7 @@ void RenderWidget::paint(PaintInfo& paintInfo, int tx, int ty)
     // Paint a partially transparent wash over selected widgets.
     if (isSelected() && !document()->printing()) {
         // FIXME: selectionRect() is in absolute, not painting coordinates.
-        paintInfo.context->fillRect(selectionRect(), selectionBackgroundColor(), style()->colorSpace());
+        paintInfo.context->fillRect(pixelSnappedIntRect(selectionRect()), selectionBackgroundColor(), style()->colorSpace());
     }
 }
 
@@ -363,7 +339,8 @@ void RenderWidget::updateWidgetPosition()
     if (!m_widget || !node()) // Check the node in case destroy() has been called.
         return;
 
-    bool boundsChanged = updateWidgetGeometry();     
+    bool boundsChanged = updateWidgetGeometry();
+    
     // if the frame bounds got changed, or if view needs layout (possibly indicating
     // content size is wrong) we have to do a layout to set the right widget size
     if (m_widget && m_widget->isFrameView()) {
@@ -391,11 +368,11 @@ IntRect RenderWidget::windowClipRect() const
 
 void RenderWidget::setSelectionState(SelectionState state)
 {
-    if (selectionState() != state) {
-        RenderReplaced::setSelectionState(state);
-        if (m_widget)
-            m_widget->setIsSelected(isSelected());
-    }
+    // The selection state for our containing block hierarchy is updated by the base class call.
+    RenderReplaced::setSelectionState(state);
+
+    if (m_widget)
+        m_widget->setIsSelected(isSelected());
 }
 
 void RenderWidget::clearWidget()
@@ -408,15 +385,24 @@ RenderWidget* RenderWidget::find(const Widget* widget)
     return widgetRendererMap().get(widget);
 }
 
-bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const IntPoint& pointInContainer, int tx, int ty, HitTestAction action)
+bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction action)
 {
     bool hadResult = result.innerNode();
-    bool inside = RenderReplaced::nodeAtPoint(request, result, pointInContainer, tx, ty, action);
+    bool inside = RenderReplaced::nodeAtPoint(request, result, pointInContainer, accumulatedOffset, action);
     
     // Check to see if we are really over the widget itself (and not just in the border/padding area).
     if ((inside || result.isRectBasedTest()) && !hadResult && result.innerNode() == node())
         result.setIsOverWidget(contentBoxRect().contains(result.localPoint()));
     return inside;
+}
+
+CursorDirective RenderWidget::getCursor(const LayoutPoint& point, Cursor& cursor) const
+{
+    if (widget() && widget()->isPluginViewBase()) {
+        // A plug-in is responsible for setting the cursor when the pointer is over it.
+        return DoNotSetCursor;
+    }
+    return RenderReplaced::getCursor(point, cursor);
 }
 
 } // namespace WebCore

@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/cy.xml
@@ -19,7 +19,7 @@ cy{
     LocaleScript{
         "Latn",
     }
-    Version{"2.0.49.19"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             DateTimePatterns{
@@ -39,14 +39,15 @@ cy{
             }
             availableFormats{
                 MEd{"E, d/M"}
-                MMMEd{"E d MMM"}
-                MMMMd{"d MMMM"}
-                MMdd{"dd/MM"}
+                MMMEd{"E, d MMM"}
+                MMMd{"d MMM"}
                 Md{"d/M"}
-                yMEd{"EEE, d/M/yyyy"}
-                yyMMM{"MMM yy"}
-                yyyyMM{"MM/yyyy"}
-                yyyyMMMM{"MMMM y"}
+                yM{"M/y"}
+                yMEd{"E, d/M/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, d MMM y"}
+                yMMMd{"d MMM y"}
+                yMd{"d/M/y"}
             }
             dayNames{
                 format{
@@ -107,12 +108,6 @@ cy{
             fields{
                 day{
                     dn{"Dydd"}
-                    relative{
-                        "-2"{"Echdoe"}
-                        "-3"{"Dridiau yn ôl"}
-                        "2"{"Drennydd"}
-                        "3"{"Ymhen tridiau"}
-                    }
                 }
                 dayperiod{
                     dn{"AM/PM"}
@@ -146,14 +141,6 @@ cy{
                 }
             }
             intervalFormats{
-                Hm{
-                    H{"HH:mm-HH:mm"}
-                    m{"HH:mm-HH:mm"}
-                }
-                Hmv{
-                    H{"HH:mm-HH:mm v"}
-                    m{"HH:mm-HH:mm v"}
-                }
                 M{
                     M{"M-M"}
                 }

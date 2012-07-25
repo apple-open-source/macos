@@ -37,37 +37,57 @@
 .Dt WCSCOLL 3
 .Os
 .Sh NAME
-.Nm wcscoll
+.Nm wcscoll ,
+.Nm wcscoll_l
 .Nd compare wide strings according to current collation
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In wchar.h
 .Ft int
-.Fn wcscoll "const wchar_t *s1" "const wchar_t *s2"
+.Fo wcscoll
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fc
+.In wchar.h
+.In xlocale.h
+.Ft int
+.Fo wcscoll_l
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn wcscoll
 function compares the null-terminated strings
-.Fa s1
+.Fa ws1
 and
-.Fa s2
-according to the current locale collation order.
+.Fa ws2 ,
+according to the current locale's collation order.
 In the
 .Dq Li C
 locale,
 .Fn wcscoll
 is equivalent to
 .Fn wcscmp .
+.Pp
+Although the
+.Fn wcscoll
+function uses the current locale, the
+.Fn wcscoll_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn wcscoll
 function
 returns an integer greater than, equal to, or less than 0,
 if
-.Fa s1
+.Fa ws1
 is greater than, equal to, or less than
-.Fa s2 .
+.Fa ws2 .
 .Pp
 No return value is reserved to indicate errors;
 callers should set
@@ -91,7 +111,8 @@ Cannot allocate enough memory for temporary buffers.
 .Xr setlocale 3 ,
 .Xr strcoll 3 ,
 .Xr wcscmp 3 ,
-.Xr wcsxfrm 3
+.Xr wcsxfrm 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn wcscoll

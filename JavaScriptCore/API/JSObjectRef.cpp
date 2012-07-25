@@ -124,7 +124,7 @@ JSObjectRef JSObjectMakeFunction(JSContextRef ctx, JSStringRef name, unsigned pa
         args.append(jsString(exec, parameterNames[i]->ustring()));
     args.append(jsString(exec, body->ustring()));
 
-    JSObject* result = constructFunction(exec, exec->lexicalGlobalObject(), args, nameID, sourceURL->ustring(), startingLineNumber);
+    JSObject* result = constructFunction(exec, exec->lexicalGlobalObject(), args, nameID, sourceURL->ustring(), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber::first()));
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -274,7 +274,7 @@ void JSObjectSetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef prope
     JSValue jsValue = toJS(exec, value);
 
     if (attributes && !jsObject->hasProperty(exec, name))
-        jsObject->methodTable()->putWithAttributes(jsObject, exec, name, jsValue, attributes);
+        jsObject->methodTable()->putDirectVirtual(jsObject, exec, name, jsValue, attributes);
     else {
         PutPropertySlot slot;
         jsObject->methodTable()->put(jsObject, exec, name, jsValue, slot);
@@ -312,7 +312,7 @@ void JSObjectSetPropertyAtIndex(JSContextRef ctx, JSObjectRef object, unsigned p
     JSObject* jsObject = toJS(object);
     JSValue jsValue = toJS(exec, value);
     
-    jsObject->methodTable()->putByIndex(jsObject, exec, propertyIndex, jsValue);
+    jsObject->methodTable()->putByIndex(jsObject, exec, propertyIndex, jsValue, false);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -341,9 +341,9 @@ void* JSObjectGetPrivate(JSObjectRef object)
     JSObject* jsObject = toJS(object);
     
     if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info))
-        return static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivate();
+        return jsCast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivate();
     if (jsObject->inherits(&JSCallbackObject<JSNonFinalObject>::s_info))
-        return static_cast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->getPrivate();
+        return jsCast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->getPrivate();
     
     return 0;
 }
@@ -353,11 +353,11 @@ bool JSObjectSetPrivate(JSObjectRef object, void* data)
     JSObject* jsObject = toJS(object);
     
     if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivate(data);
+        jsCast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivate(data);
         return true;
     }
     if (jsObject->inherits(&JSCallbackObject<JSNonFinalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->setPrivate(data);
+        jsCast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->setPrivate(data);
         return true;
     }
         
@@ -372,9 +372,9 @@ JSValueRef JSObjectGetPrivateProperty(JSContextRef ctx, JSObjectRef object, JSSt
     JSValue result;
     Identifier name(propertyName->identifier(&exec->globalData()));
     if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info))
-        result = static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivateProperty(name);
+        result = jsCast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivateProperty(name);
     else if (jsObject->inherits(&JSCallbackObject<JSNonFinalObject>::s_info))
-        result = static_cast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->getPrivateProperty(name);
+        result = jsCast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->getPrivateProperty(name);
     return toRef(exec, result);
 }
 
@@ -386,11 +386,11 @@ bool JSObjectSetPrivateProperty(JSContextRef ctx, JSObjectRef object, JSStringRe
     JSValue jsValue = value ? toJS(exec, value) : JSValue();
     Identifier name(propertyName->identifier(&exec->globalData()));
     if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
+        jsCast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
         return true;
     }
     if (jsObject->inherits(&JSCallbackObject<JSNonFinalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
+        jsCast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
         return true;
     }
     return false;
@@ -403,11 +403,11 @@ bool JSObjectDeletePrivateProperty(JSContextRef ctx, JSObjectRef object, JSStrin
     JSObject* jsObject = toJS(object);
     Identifier name(propertyName->identifier(&exec->globalData()));
     if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->deletePrivateProperty(name);
+        jsCast<JSCallbackObject<JSGlobalObject>*>(jsObject)->deletePrivateProperty(name);
         return true;
     }
     if (jsObject->inherits(&JSCallbackObject<JSNonFinalObject>::s_info)) {
-        static_cast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->deletePrivateProperty(name);
+        jsCast<JSCallbackObject<JSNonFinalObject>*>(jsObject)->deletePrivateProperty(name);
         return true;
     }
     return false;

@@ -738,7 +738,6 @@ __ZN20WebFrameLoaderClient18makeRepresentationEPN7WebCore14DocumentLoaderE
 -[WebDataSource(WebFileInternal) _setRepresentation:]
 -[WebHTMLRepresentation setDataSource:]
 __Z26WKNotifyHistoryItemChangedPN7WebCore11HistoryItemE
-__ZNK20WebFrameLoaderClient29dispatchDidAddBackForwardItemEPN7WebCore11HistoryItemE
 __ZN20WebFrameLoaderClient19updateGlobalHistoryEv
 -[WebView(WebPendingPublic) historyDelegate]
 __ZN20WebFrameLoaderClient32updateGlobalHistoryRedirectLinksEv
@@ -770,7 +769,6 @@ __Z21CallFrameLoadDelegatePFP11objc_objectS0_P13objc_selectorzEP7WebViewS2_S0_S0
 __ZN20WebFrameLoaderClient29dispatchDidFinishDocumentLoadEv
 -[WebFrame(WebPrivate) _pendingFrameUnloadEventCount]
 __ZN20WebFrameLoaderClient29dispatchDidHandleOnloadEventsEv
-__ZN20WebFrameLoaderClient27dispatchDidLoadMainResourceEPN7WebCore14DocumentLoaderE
 __ZN20WebFrameLoaderClient21dispatchDidFinishLoadEv
 -[WebView(WebPrivate) _didFinishLoadForFrame:]
 -[WebView(WebPrivate) _didChangeBackForwardKeys]
@@ -1220,7 +1218,6 @@ _WKCreateAXTextMarkerRange
 -[WebFrame(WebPrivate) _pauseAnimation:onNode:atTime:]
 _WKExecutableWasLinkedOnOrBeforeSnowLeopard
 +[WebCoreStatistics garbageCollectJavaScriptObjects]
-__ZNK20WebFrameLoaderClient32dispatchDidRemoveBackForwardItemEPN7WebCore11HistoryItemE
 __ZNK7WebCore12ChromeClient29dispatchViewportDataDidChangeERKNS_17ViewportArgumentsE
 -[WebView(WebPrivate) setFrameSize:]
 -[WebFrame(WebKitDebug) renderTreeAsExternalRepresentationForPrinting:]
@@ -1693,8 +1690,6 @@ __ZThn8_N15WebEditorClient17getGuessesForWordERKN3WTF6StringES3_RNS0_6VectorIS1_
 __ZN15WebEditorClient17getGuessesForWordERKN3WTF6StringES3_RNS0_6VectorIS1_Lm0EEE
 __ZN3WTF6VectorINS_6StringELm0EE14shrinkCapacityEm
 __ZN15WebEditorClient34updateSpellingUIWithMisspelledWordERKN3WTF6StringE
--[WebFrame(WebPrivate) hasSpellingMarker:length:]
--[WebFrame(WebPrivate) hasGrammarMarker:length:]
 __ZThn8_N15WebEditorClient23requestCheckingOfStringEPN7WebCore12SpellCheckerEijRKN3WTF6StringE
 __ZN15WebEditorClient23requestCheckingOfStringEPN7WebCore12SpellCheckerEijRKN3WTF6StringE
 ___copy_helper_block_1
@@ -1756,7 +1751,6 @@ __ZN3WTF9HashTableIjSt4pairIjPN6WebKit23NetscapePluginHostProxyEENS_18PairFirstE
 -[WebView(WebPendingPublic) zoomPageIn:]
 __ZNK20WebFrameLoaderClient21shouldGoToHistoryItemEPN7WebCore11HistoryItemE
 -[WebDefaultPolicyDelegate webView:shouldGoToHistoryItem:]
-__ZNK20WebFrameLoaderClient33dispatchDidChangeBackForwardIndexEv
 -[WebView(WebPendingPublic) zoomPageOut:]
 -[WebView _zoomOut:isTextOnly:]
 -[WebFrame(WebKitDebug) counterValueForElement:]
@@ -1818,7 +1812,6 @@ __ZN15WebChromeClient4showEv
 __ZN15WebChromeClient15closeWindowSoonEv
 -[WebView(WebIBActions) stopLoading:]
 -[WebView(WebPrivate) _closeWindow]
--[WebView(WebViewPrivateNodesFromRect) _nodesFromRect:forDocument:x:y:top:right:bottom:left:ignoreClipping:]
 __ZN20WebFrameLoaderClient38dispatchDecidePolicyForNewWindowActionEMN7WebCore13PolicyCheckerEFvNS0_12PolicyActionEERKNS0_16NavigationActionERKNS0_15ResourceRequestEN3WTF10PassRefPtrINS0_9FormStateEEERKNSB_6StringE
 -[WebDefaultPolicyDelegate webView:decidePolicyForNewWindowAction:request:newFrameName:decisionListener:]
 __ZN20WebFrameLoaderClient18dispatchCreatePageERKN7WebCore16NavigationActionE
@@ -2311,7 +2304,6 @@ __ZN3WTF6VectorINS_6RefPtrIN7WebCore14SecurityOriginEEELm0EED1Ev
 -[WebStorageManager syncLocalStorage]
 -[WebStorageManager deleteOrigin:]
 -[WebStorageManager diskUsageForOrigin:]
--[WebFrame(WebPrivate) _pauseSVGAnimation:onSMILNode:atTime:]
 __ZN3WTF6RefPtrIN7WebCore7ArchiveEED1Ev
 __ZN3WTF10RefCountedIN7WebCore7ArchiveEE5derefEv
 -[WebDataSource webArchive]

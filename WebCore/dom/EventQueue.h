@@ -27,45 +27,21 @@
 #ifndef EventQueue_h
 #define EventQueue_h
 
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-#include <wtf/ListHashSet.h>
-#include <wtf/OwnPtr.h>
-#include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
 class Event;
-class EventQueueTimer;
-class Node;
-class ScriptExecutionContext;
 
-class EventQueue : public RefCounted<EventQueue> {
+class EventQueue {
 public:
-    enum ScrollEventTargetType {
-        ScrollEventDocumentTarget,
-        ScrollEventElementTarget
-    };
-
-    static PassRefPtr<EventQueue> create(ScriptExecutionContext*);
-    ~EventQueue();
-
-    void enqueueEvent(PassRefPtr<Event>);
-    void enqueueOrDispatchScrollEvent(PassRefPtr<Node>, ScrollEventTargetType);
-    bool cancelEvent(Event*);
-    void cancelQueuedEvents();
-
-private:
-    explicit EventQueue(ScriptExecutionContext*);
-
-    void pendingEventTimerFired();
-    void dispatchEvent(PassRefPtr<Event>);
-
-    OwnPtr<EventQueueTimer> m_pendingEventTimer;
-    ListHashSet<RefPtr<Event> > m_queuedEvents;
-    HashSet<Node*> m_nodesWithQueuedScrollEvents;
-    
-    friend class EventQueueTimer;    
+    virtual ~EventQueue() { }
+    virtual bool enqueueEvent(PassRefPtr<Event>) = 0;
+    virtual bool cancelEvent(Event*) = 0;
+    // The accumulated and all the future events will be discarded, no events will be dispatched anymore.
+    virtual void close() = 0;
 };
 
 }

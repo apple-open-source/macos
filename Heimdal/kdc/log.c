@@ -35,6 +35,10 @@
 
 #include "kdc_locl.h"
 
+#ifndef DEFAULT_KDC_LOG_DEST
+#define DEFAULT_KDC_LOG_DEST "FILE:" KDC_LOG_DIR "/" KDC_LOG_FILE
+#endif
+
 void
 kdc_openlog(krb5_context context,
 	    const char *service,
@@ -50,10 +54,10 @@ kdc_openlog(krb5_context context,
 	    krb5_addlog_dest(context, config->logf, *p);
 	krb5_config_free_strings(s);
     }else {
-	char *s;
-	asprintf(&s, "0-1/FILE:%s/%s", KDC_LOG_DIR, KDC_LOG_FILE);
-	krb5_addlog_dest(context, config->logf, s);
-	free(s);
+	char *ss = NULL;
+	asprintf(&ss, "0-1/%s", DEFAULT_KDC_LOG_DEST);
+	krb5_addlog_dest(context, config->logf, ss);
+	free(ss);
     }
     krb5_set_warn_dest(context, config->logf);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <net/ethernet.h>
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <net/if_media.h>
@@ -58,6 +59,7 @@
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 #include <dnsinfo.h>
+#include <network_information.h>
 #include <notify.h>
 #if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 #include <utmpx.h>
@@ -211,8 +213,11 @@ KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef add
 {
 	int			so		= CFSocketGetNative(s);
 	int			status;
-	char			buf[1024];
-	struct kern_event_msg	*ev_msg		= (struct kern_event_msg *)&buf[0];
+	union {
+		char			bytes[1024];
+		struct kern_event_msg	ev_msg1;	// first kernel event
+	} buf;
+	struct kern_event_msg	*ev_msg		= &buf.ev_msg1;
 	int			offset		= 0;
 
 	status = recv(so, &buf, sizeof(buf), 0);
@@ -435,7 +440,7 @@ KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef add
 				break;
 		}
 		offset += ev_msg->total_size;
-		ev_msg = (struct kern_event_msg *)&buf[offset];
+		ev_msg = (struct kern_event_msg *)(void *)&buf.bytes[offset];
 	}
 
 	return;
@@ -689,72 +694,216 @@ static void
 NetworkChange_notification(SCDynamicStoreRef store, CFArrayRef changedKeys, void *context)
 {
 	CFIndex			i;
-	CFIndex			n;
-	CFMutableStringRef	str	= CFStringCreateMutable(NULL, 0);
+	CFIndex			nk;
+	CFMutableStringRef	str;
 
+	str = CFStringCreateMutable(NULL, 0);
 	CFStringAppendFormat(str,
 			     NULL,
 			     CFSTR("%s SCDynamicStore \"network\" notification"),
 			     elapsed());
 
-	n = CFArrayGetCount(changedKeys);
-	for (i = 0; i < n; i++) {
+	nk = CFArrayGetCount(changedKeys);
+	for (i = 0; i < nk; i++) {
+		CFArrayRef	components;
 		CFStringRef	key;
+		CFIndex		nc;
 
 		key = CFArrayGetValueAtIndex(changedKeys, i);
-		if (CFStringHasSuffix(key, kSCEntNetLink)) {
-			CFDictionaryRef	dict;
-			const char	*val	= "?";
 
-			dict = SCDynamicStoreCopyValue(store, key);
-			if (dict != NULL) {
-				CFBooleanRef	link;
-
-				link = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
-				if (link != NULL) {
-					val = CFBooleanGetValue(link) ? "up" : "down";
-				}
-
-				CFRelease(dict);
-			}
-			CFStringAppendFormat(str, NULL, CFSTR("\n%@ (%s)"), key, val);
-		} else if (CFStringHasSuffix(key, kSCEntNetIPv4) ||
-			   CFStringHasSuffix(key, kSCEntNetIPv6) ||
-			   CFStringHasSuffix(key, kSCEntNetDNS)) {
-			CFDictionaryRef	dict;
-
-			dict = SCDynamicStoreCopyValue(store, key);
-			if (dict != NULL) {
-				CFStringRef	val;
-
-				val = _SCCopyDescription(dict, NULL);
-				CFStringAppendFormat(str, NULL, CFSTR("\n%@ : %@"), key, val);
-				CFRelease(val);
-				CFRelease(dict);
-			} else {
-				CFStringAppendFormat(str, NULL, CFSTR("\n%@ : removed"), key);
-			}
-		} else if (CFStringHasSuffix(key, CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix))) {
-			CFNumberRef	num;
-
-			num = SCDynamicStoreCopyValue(store, key);
-			if (num != NULL) {
-				IOPMSystemPowerStateCapabilities	capabilities;
-
-				if (isA_CFNumber(num) &&
-				    CFNumberGetValue(num, kCFNumberSInt32Type, &capabilities)) {
-					CFStringAppendFormat(str, NULL, CFSTR("\n%@ (0x%x)"), key, capabilities);
-				}
-
-				CFRelease(num);
-			}
-		} else {
+		components = CFStringCreateArrayBySeparatingStrings(NULL, key, CFSTR("/"));
+		if (components == NULL) {
 			CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
+			continue;
 		}
+
+		nc = CFArrayGetCount(components);
+		switch (nc) {
+			case 5 : {
+				CFStringRef	entity_id;
+
+				entity_id  = CFArrayGetValueAtIndex(components, 4);
+				if (CFEqual(entity_id, kSCEntNetLink)) {
+					CFDictionaryRef	dict;
+					const char	*val	= "?";
+
+					dict = SCDynamicStoreCopyValue(store, key);
+					if (dict != NULL) {
+						CFBooleanRef	link;
+
+						link = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
+						if (link != NULL) {
+							val = CFBooleanGetValue(link) ? "up" : "down";
+						}
+
+						CFRelease(dict);
+					}
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@ (%s)"), key, val);
+				} else if (CFEqual(entity_id, kSCEntNetIPv4) ||
+					   CFEqual(entity_id, kSCEntNetIPv6) ||
+					   CFEqual(entity_id, kSCEntNetDNS)) {
+					CFDictionaryRef	dict;
+
+					dict = SCDynamicStoreCopyValue(store, key);
+					if (dict != NULL) {
+						CFStringRef	val;
+
+						val = _SCCopyDescription(dict, NULL);
+						CFStringAppendFormat(str, NULL, CFSTR("\n%@ : %@"), key, val);
+						CFRelease(val);
+						CFRelease(dict);
+					} else {
+						CFStringAppendFormat(str, NULL, CFSTR("\n%@ : removed"), key);
+					}
+				} else if (CFEqual(entity_id, kSCEntNetAirPort)) {
+					CFDictionaryRef	dict;
+
+					dict = SCDynamicStoreCopyValue(store, key);
+					if (dict != NULL) {
+						CFStringRef	ssid_str;
+
+						ssid_str = CFDictionaryGetValue(dict, CFSTR("SSID_STR"));
+						if (ssid_str != NULL) {
+							CFDataRef	bssid;
+
+							bssid = CFDictionaryGetValue(dict, CFSTR("BSSID"));
+							CFStringAppendFormat(str, NULL, CFSTR("\n%@ : SSID: %@ BSSID: %s"),
+									     key,
+									     ssid_str,
+									     (bssid != NULL) ? ether_ntoa((struct ether_addr *)CFDataGetBytePtr(bssid)) : "<unknown>");
+						} else {
+							CFStringAppendFormat(str, NULL, CFSTR("\n%@ : no SSID"), key);
+						}
+						CFRelease(dict);
+					} else {
+						CFStringAppendFormat(str, NULL, CFSTR("\n%@ : removed"), key);
+					}
+				} else if (CFEqual(entity_id, kSCEntNetService)) {
+					CFDictionaryRef	dict;
+					CFStringRef	rank	= kSCNetworkServicePrimaryRankDefault;
+
+					dict = SCDynamicStoreCopyValue(store, key);
+					if ((dict == NULL) ||
+					    !CFDictionaryGetValueIfPresent(dict,
+									   kSCPropNetServicePrimaryRank,
+									   (const void **)&rank)) {
+						rank = kSCNetworkServicePrimaryRankDefault;
+					}
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@ : Rank = %@"), key, rank);
+					if (dict != NULL) CFRelease(dict);
+				} else {
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
+				}
+				break;
+			}
+
+			case 4 : {
+				static CFStringRef	rank_setup_prefix	= NULL;
+				static CFStringRef	rank_state_prefix	= NULL;
+
+				if (rank_setup_prefix == NULL) {
+					rank_setup_prefix = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+													kSCDynamicStoreDomainSetup,
+													CFSTR(""),
+													NULL);
+					rank_state_prefix = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
+													kSCDynamicStoreDomainState,
+													CFSTR(""),
+													NULL);
+				}
+
+				if (CFStringHasPrefix(key, rank_setup_prefix) ||
+				    CFStringHasPrefix(key, rank_state_prefix)) {
+					CFDictionaryRef	dict;
+					CFStringRef	rank	= kSCNetworkServicePrimaryRankDefault;
+
+					dict = SCDynamicStoreCopyValue(store, key);
+					if ((dict == NULL) ||
+					    !CFDictionaryGetValueIfPresent(dict,
+									   kSCPropNetServicePrimaryRank,
+									   (const void **)&rank)) {
+						rank = kSCNetworkServicePrimaryRankDefault;
+					}
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@ : Rank = %@"), key, rank);
+					if (dict != NULL) CFRelease(dict);
+				} else {
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
+				}
+				break;
+			}
+
+			case 2 :
+				if (CFEqual(CFArrayGetValueAtIndex(components, 1),
+					    CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix))) {
+					CFNumberRef	num;
+
+					num = SCDynamicStoreCopyValue(store, key);
+					if (num != NULL) {
+						IOPMSystemPowerStateCapabilities	capabilities;
+
+						if (isA_CFNumber(num) &&
+						    CFNumberGetValue(num, kCFNumberSInt32Type, &capabilities)) {
+							CFStringAppendFormat(str, NULL, CFSTR("\n%@ (0x%x)"), key, capabilities);
+						}
+
+						CFRelease(num);
+					}
+				} else {
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
+				}
+				break;
+
+			default :
+				CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
+				break;
+		}
+
+		CFRelease(components);
 	}
 
 	SCLOG(NULL, log_msg, ~ASL_LEVEL_INFO, CFSTR("%@"), str);
 	CFRelease(str);
+	return;
+}
+
+
+static void
+add_NetworkChange_keys(CFMutableArrayRef	keys,
+		       CFMutableArrayRef	patterns,
+		       CFStringRef		entity,
+		       Boolean			doGlobal,
+		       Boolean			doService,
+		       Boolean			doInterface)
+{
+	CFStringRef	key;
+	CFStringRef	pattern;
+
+	if (doGlobal) {
+		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainSetup, entity);
+		CFArrayAppendValue(keys, key);
+		CFRelease(key);
+
+		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, entity);
+		CFArrayAppendValue(keys, key);
+		CFRelease(key);
+	}
+
+	if (doService) {
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainSetup, kSCCompAnyRegex, entity);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+
+		pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, entity);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+	}
+
+	if (doInterface) {
+		pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, entity);
+		CFArrayAppendValue(patterns, pattern);
+		CFRelease(pattern);
+	}
+
 	return;
 }
 
@@ -766,7 +915,6 @@ add_NetworkChange_notification()
 	CFStringRef		key;
 	CFMutableArrayRef	keys;
 	Boolean			ok;
-	CFStringRef		pattern;
 	CFMutableArrayRef	patterns;
 	SCDynamicStoreRef	store;
 	CFRunLoopSourceRef	rls;
@@ -788,67 +936,31 @@ add_NetworkChange_notification()
 
 	// IPv4
 
-	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
-
-	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetIPv4, TRUE, TRUE, TRUE);
 
 	// IPv6
 
-	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv6);
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
-
-	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetIPv6, TRUE, TRUE, TRUE);
 
 	// PPP, VPN
 
-	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetPPP);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetPPP);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetVPN);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetVPN);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetPPP,   FALSE, TRUE, TRUE);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetVPN,   FALSE, TRUE, TRUE);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetL2TP,  FALSE, TRUE, TRUE);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetPPTP,  FALSE, TRUE, TRUE);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetIPSec, FALSE, TRUE, TRUE);
 
 	// Link
 
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetLink);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetLink, FALSE, FALSE, TRUE);
 
 	// AirPort (e.g. BSSID)
 
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetAirPort);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetAirPort, FALSE, FALSE, TRUE);
 
 	// DNS
 
-	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetDNS);
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
+	add_NetworkChange_keys(keys, patterns, kSCEntNetDNS, TRUE, TRUE, TRUE);
 
 	dns_key = CFStringCreateWithCString(NULL,
 					    dns_configuration_notify_key(),
@@ -864,6 +976,11 @@ add_NetworkChange_notification()
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
+	// Rank
+
+	add_NetworkChange_keys(keys, patterns, NULL, FALSE, TRUE, FALSE);		// per-service
+	add_NetworkChange_keys(keys, patterns, kSCEntNetService, FALSE, FALSE, TRUE);	// per-interface
+
 	// ComputerName, LocalHostName
 
 	key = SCDynamicStoreKeyCreateComputerName(NULL);
@@ -874,11 +991,16 @@ add_NetworkChange_notification()
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
+	// Power Management
+
 	key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@%@"),
 				      kSCDynamicStoreDomainState,
 				      CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix));
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
+
+
+	// Setup monitoring
 
 	ok = SCDynamicStoreSetNotificationKeys(store, keys, patterns);
 	CFRelease(keys);
@@ -1311,6 +1433,60 @@ add_dnsinfo_notification()
 	}
 
 	mp = _SC_CFMachPortCreateWithPort("Logger/dns_configuration", notify_port, dnsinfo_notification, NULL);
+	if (mp == NULL) {
+		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
+		(void)notify_cancel(notify_token);
+		return;
+	}
+
+	rls = CFMachPortCreateRunLoopSource(NULL, mp, -1);
+	if (rls == NULL) {
+		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("SCDynamicStoreCreateRunLoopSource() failed"));
+		CFRelease(mp);
+		(void)notify_cancel(notify_token);
+		return;
+	}
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	CFRelease(rls);
+
+	CFRelease(mp);
+	return;
+}
+
+
+#pragma mark -
+#pragma mark Network Information Events
+
+
+static void
+nwi_notification(CFMachPortRef port, void *msg, CFIndex size, void *info)
+{
+	SCLOG(NULL, log_msg, ~ASL_LEVEL_INFO,
+	      CFSTR("%s network_information notification"),
+	      elapsed());
+
+	return;
+}
+
+
+static void
+add_nwi_notification()
+{
+	const char		*key;
+	CFMachPortRef		mp;
+	mach_port_t		notify_port;
+	int			notify_token;
+	CFRunLoopSourceRef	rls;
+	uint32_t		status;
+
+	key = nwi_state_get_notify_key();
+	status = notify_register_mach_port(key, &notify_port, 0, &notify_token);
+	if (status != NOTIFY_STATUS_OK) {
+		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("notify_register_mach_port() failed"));
+		return;
+	}
+
+	mp = _SC_CFMachPortCreateWithPort("Logger/nwi", notify_port, nwi_notification, NULL);
 	if (mp == NULL) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
 		(void)notify_cancel(notify_token);
@@ -1790,6 +1966,10 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_NETWORK_KERNEL_EVENTS"))) {
 		add_KernelEvent_notification();
+	}
+
+	if (log_all || bValFromDictionary(config, CFSTR("LOG_NETWORK_INFORMATION"))) {
+		add_nwi_notification();
 	}
 
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_NOTIFY_DNS_CONFIGURATION"))) {

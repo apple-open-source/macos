@@ -1137,7 +1137,7 @@ open_socket(dest)
 	    *sep = ':';
 	    return -1;
 	}
-	host = *(u_int32_t *)(hent->h_addr_list[0]);
+    memcpy(&host, hent->h_addr_list[0], sizeof(u_int32_t));     // Wcast-align fix - using memcpy for unknown alignment
     }
     *sep = ':';
 

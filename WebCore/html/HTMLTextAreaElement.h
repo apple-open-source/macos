@@ -24,7 +24,7 @@
 #ifndef HTMLTextAreaElement_h
 #define HTMLTextAreaElement_h
 
-#include "HTMLFormControlElement.h"
+#include "HTMLTextFormControlElement.h"
 
 namespace WebCore {
 
@@ -51,19 +51,19 @@ public:
     bool tooLong(const String&, NeedsToCheckDirtyFlag) const;
     bool isValidValue(const String&) const;
     
+    virtual HTMLElement* innerTextElement() const;
+
     void rendererWillBeDestroyed();
-    
+
     void setCols(int);
     void setRows(int);
-
-    bool lastChangeWasUserEdit() const;
-
-    void cacheSelection(int s, int e) { m_cachedSelectionStart = s; m_cachedSelectionEnd = e; };
 
 private:
     HTMLTextAreaElement(const QualifiedName&, Document*, HTMLFormElement*);
 
     enum WrapMethod { NoWrap, SoftWrap, HardWrap };
+
+    void createShadowSubtree();
 
     void handleBeforeTextInsertedEvent(BeforeTextInsertedEvent*) const;
     static String sanitizeUserInputValue(const String&, unsigned maxLength);
@@ -72,16 +72,19 @@ private:
     void setValueCommon(const String&);
 
     virtual bool supportsPlaceholder() const { return true; }
+    virtual HTMLElement* placeholderElement() const;
+    virtual void updatePlaceholderText();
     virtual bool isEmptyValue() const { return value().isEmpty(); }
-    virtual int cachedSelectionStart() const { return m_cachedSelectionStart; }
-    virtual int cachedSelectionEnd() const { return m_cachedSelectionEnd; }
 
     virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
     virtual bool isRequiredFormControl() const { return required(); }
 
     virtual void defaultEventHandler(Event*);
+    
+    virtual void subtreeHasChanged();
 
     virtual bool isEnumeratable() const { return true; }
+    virtual bool supportLabels() const OVERRIDE { return true; }
 
     virtual const AtomicString& formControlType() const;
 
@@ -91,7 +94,9 @@ private:
     virtual bool isTextFormControl() const { return true; }
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-    virtual void parseMappedAttribute(Attribute*);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
+    virtual bool isPresentationAttribute(const QualifiedName&) const OVERRIDE;
+    virtual void collectStyleForAttribute(Attribute*, StylePropertySet*) OVERRIDE;
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual bool appendFormData(FormDataList&, bool);
     virtual void reset();
@@ -99,17 +104,17 @@ private:
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual void updateFocusAppearance(bool restorePreviousSelection);
 
-    virtual void accessKeyAction(bool sendToAnyElement);
+    virtual void accessKeyAction(bool sendMouseEvents);
 
-    virtual bool shouldUseInputMethod() const;
+    virtual bool shouldUseInputMethod();
 
     int m_rows;
     int m_cols;
     WrapMethod m_wrap;
+    RefPtr<HTMLElement> m_placeholder;
     mutable String m_value;
-    int m_cachedSelectionStart;
-    int m_cachedSelectionEnd;
     mutable bool m_isDirty;
+    mutable bool m_wasModifiedByUser;
 };
 
 } //namespace

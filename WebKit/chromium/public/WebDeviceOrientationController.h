@@ -26,7 +26,7 @@
 #ifndef WebDeviceOrientationController_h
 #define WebDeviceOrientationController_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebCore { class DeviceOrientationController; }
 
@@ -41,7 +41,7 @@ public:
     {
     }
 
-    WEBKIT_API void didChangeDeviceOrientation(const WebDeviceOrientation&);
+    WEBKIT_EXPORT void didChangeDeviceOrientation(const WebDeviceOrientation&);
 
 #if WEBKIT_IMPLEMENTATION
     WebCore::DeviceOrientationController* controller() const;

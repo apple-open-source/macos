@@ -28,9 +28,9 @@
 
 #include "config.h"
 
-#include "InspectorDatabaseAgent.h"
+#if ENABLE(INSPECTOR) && ENABLE(SQL_DATABASE)
 
-#if ENABLE(INSPECTOR) && ENABLE(DATABASE)
+#include "InspectorDatabaseAgent.h"
 
 #include "Database.h"
 #include "ExceptionCode.h"
@@ -103,19 +103,19 @@ public:
 
         SQLResultSetRowList* rowList = resultSet->rows();
 
-        RefPtr<InspectorArray> columnNames = InspectorArray::create();
+        RefPtr<TypeBuilder::Array<String> > columnNames = TypeBuilder::Array<String>::create();
         const Vector<String>& columns = rowList->columnNames();
         for (size_t i = 0; i < columns.size(); ++i)
-            columnNames->pushString(columns[i]);
+            columnNames->addItem(columns[i]);
 
-        RefPtr<InspectorArray> values = InspectorArray::create();
+        RefPtr<TypeBuilder::Array<InspectorValue> > values = TypeBuilder::Array<InspectorValue>::create();
         const Vector<SQLValue>& data = rowList->values();
         for (size_t i = 0; i < data.size(); ++i) {
             const SQLValue& value = rowList->values()[i];
             switch (value.type()) {
-                case SQLValue::StringValue: values->pushString(value.string()); break;
-                case SQLValue::NumberValue: values->pushNumber(value.number()); break;
-                case SQLValue::NullValue: values->pushValue(InspectorValue::null()); break;
+            case SQLValue::StringValue: values->addItem(InspectorString::create(value.string())); break;
+            case SQLValue::NumberValue: values->addItem(InspectorBasicValue::create(value.number())); break;
+            case SQLValue::NullValue: values->addItem(InspectorValue::null()); break;
             }
         }
         m_frontendProvider->frontend()->sqlTransactionSucceeded(m_transactionId, columnNames, values);
@@ -243,8 +243,7 @@ void InspectorDatabaseAgent::clearResources()
 }
 
 InspectorDatabaseAgent::InspectorDatabaseAgent(InstrumentingAgents* instrumentingAgents, InspectorState* state)
-    : m_instrumentingAgents(instrumentingAgents)
-    , m_inspectorState(state)
+    : InspectorBaseAgent<InspectorDatabaseAgent>("Database", instrumentingAgents, state)
     , m_enabled(false)
 {
     m_instrumentingAgents->setInspectorDatabaseAgent(this);
@@ -272,7 +271,7 @@ void InspectorDatabaseAgent::enable(ErrorString*)
     if (m_enabled)
         return;
     m_enabled = true;
-    m_inspectorState->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
+    m_state->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
 
     DatabaseResourcesMap::iterator databasesEnd = m_resources.end();
     for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != databasesEnd; ++it)
@@ -284,31 +283,33 @@ void InspectorDatabaseAgent::disable(ErrorString*)
     if (!m_enabled)
         return;
     m_enabled = false;
-    m_inspectorState->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
+    m_state->setBoolean(DatabaseAgentState::databaseAgentEnabled, m_enabled);
 }
 
 void InspectorDatabaseAgent::restore()
 {
-    m_enabled =  m_inspectorState->getBoolean(DatabaseAgentState::databaseAgentEnabled);
+    m_enabled =  m_state->getBoolean(DatabaseAgentState::databaseAgentEnabled);
 }
 
-void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString* error, int databaseId, RefPtr<InspectorArray>* names)
+void InspectorDatabaseAgent::getDatabaseTableNames(ErrorString* error, const String& databaseId, RefPtr<TypeBuilder::Array<String> >& names)
 {
     if (!m_enabled) {
         *error = "Database agent is not enabled";
         return;
     }
 
+    names = TypeBuilder::Array<String>::create();
+
     Database* database = databaseForId(databaseId);
     if (database) {
         Vector<String> tableNames = database->tableNames();
         unsigned length = tableNames.size();
         for (unsigned i = 0; i < length; ++i)
-            (*names)->pushString(tableNames[i]);
+            names->addItem(tableNames[i]);
     }
 }
 
-void InspectorDatabaseAgent::executeSQL(ErrorString* error, int databaseId, const String& query, bool* success, int* transactionId)
+void InspectorDatabaseAgent::executeSQL(ErrorString* error, const String& databaseId, const String& query, bool* success, int* transactionId)
 {
     if (!m_enabled) {
         *error = "Database agent is not enabled";
@@ -329,13 +330,13 @@ void InspectorDatabaseAgent::executeSQL(ErrorString* error, int databaseId, cons
     *success = true;
 }
 
-int InspectorDatabaseAgent::databaseId(Database* database)
+String InspectorDatabaseAgent::databaseId(Database* database)
 {
     for (DatabaseResourcesMap::iterator it = m_resources.begin(); it != m_resources.end(); ++it) {
         if (it->second->database() == database)
             return it->first;
     }
-    return 0;
+    return String();
 }
 
 InspectorDatabaseResource* InspectorDatabaseAgent::findByFileName(const String& fileName)
@@ -347,7 +348,7 @@ InspectorDatabaseResource* InspectorDatabaseAgent::findByFileName(const String& 
     return 0;
 }
 
-Database* InspectorDatabaseAgent::databaseForId(int databaseId)
+Database* InspectorDatabaseAgent::databaseForId(const String& databaseId)
 {
     DatabaseResourcesMap::iterator it = m_resources.find(databaseId);
     if (it == m_resources.end())
@@ -357,4 +358,4 @@ Database* InspectorDatabaseAgent::databaseForId(int databaseId)
 
 } // namespace WebCore
 
-#endif // ENABLE(INSPECTOR) && ENABLE(DATABASE)
+#endif // ENABLE(INSPECTOR) && ENABLE(SQL_DATABASE)

@@ -38,38 +38,4 @@
 
 #include <gssapi.h>
 
-GSSAPI_CPP_START
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_ntlm_mechanism_oid_desc;
-#define GSS_NTLM_MECHANISM (&__gss_ntlm_mechanism_oid_desc)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_nt_ntlm_oid_desc;
-#define GSS_C_NT_NTLM (&__gss_c_nt_ntlm_oid_desc)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_ntlm_get_session_key_x_oid_desc;
-#define GSS_NTLM_GET_SESSION_KEY_X (&__gss_ntlm_get_session_key_x_oid_desc)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_guest_oid_desc;
-#define GSS_C_NTLM_GUEST (&__gss_c_ntlm_guest_oid_desc)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_v1;
-#define GSS_C_NTLM_V1 (&__gss_c_ntlm_v1)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_force_v1;
-#define GSS_C_NTLM_FORCE_V1 (&__gss_c_ntlm_force_v1)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_v2;
-#define GSS_C_NTLM_V2 (&__gss_c_ntlm_v2)
-    
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_session_key;
-#define GSS_C_NTLM_SESSION_KEY (&__gss_c_ntlm_session_key)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_support_channelbindings;
-#define GSS_C_NTLM_SUPPORT_CHANNELBINDINGS (&__gss_c_ntlm_support_channelbindings)
-
-extern GSSAPI_LIB_VARIABLE gss_OID_desc __gss_c_ntlm_support_lm2;
-#define GSS_C_NTLM_SUPPORT_LM2 (&__gss_c_ntlm_support_lm2)
-
-GSSAPI_CPP_END
-
 #endif /* GSSAPI_NTLM_H_ */

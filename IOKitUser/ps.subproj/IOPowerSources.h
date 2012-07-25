@@ -238,6 +238,18 @@ CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob);
  */
 CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps);
 
+/*! @function    IOPSGetProvidingPowerSourceType
+ *
+ *  @abstract    Indicates the power source the computer is currently drawing from.
+ *
+ *  @discussion  Determines which power source is providing power.
+ *
+ *  @param       snapshot The CFTypeRef returned by IOPSCopyPowerSourcesInfo()
+ *
+ *  @result      One of: CFSTR(kIOPMACPowerKey), CFSTR(kIOPMBatteryPowerKey), CFSTR(kIOPMUPSPowerKey)
+ */
+CFStringRef     IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
+
 /*! @function   IOPSNotificationCreateRunLoopSource
  *  
  *  @abstract   Returns a CFRunLoopSourceRef that notifies the caller when power source

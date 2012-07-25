@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -94,7 +94,7 @@ struct bpb710 {
 	u_int32_t	bpbBigFATsecs;	/* like bpbFATsecs for FAT32 */
 	u_int16_t	bpbExtFlags;	/* extended flags: */
 #define	FATNUM		0xf		/* mask for numbering active FAT */
-#define	FATMIRROR	0x80		/* FAT is mirrored (like it always was) */
+#define	FATMIRROR	0x80		/* 0 == FAT is mirrored (like it always was) */
 	u_int16_t	bpbFSVers;	/* filesystem version */
 #define	FSVERS		0		/* currently only 0 is understood */
 	u_int32_t	bpbRootClust;	/* start cluster for root directory */

@@ -26,12 +26,23 @@
 #ifndef AbstractMacroAssembler_h
 #define AbstractMacroAssembler_h
 
+#include "AssemblerBuffer.h"
 #include "CodeLocation.h"
 #include "MacroAssemblerCodeRef.h"
+#include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/UnusedParam.h>
 
 #if ENABLE(ASSEMBLER)
+
+
+#if PLATFORM(QT)
+#define ENABLE_JIT_CONSTANT_BLINDING 0
+#endif
+
+#ifndef ENABLE_JIT_CONSTANT_BLINDING
+#define ENABLE_JIT_CONSTANT_BLINDING 1
+#endif
 
 namespace JSC {
 
@@ -186,11 +197,19 @@ public:
         const void* m_value;
     };
 
-    struct ImmPtr : public TrustedImmPtr {
+    struct ImmPtr : 
+#if ENABLE(JIT_CONSTANT_BLINDING)
+        private TrustedImmPtr 
+#else
+        public TrustedImmPtr
+#endif
+    {
         explicit ImmPtr(const void* value)
             : TrustedImmPtr(value)
         {
         }
+
+        TrustedImmPtr asTrustedImmPtr() { return *this; }
     };
 
     // TrustedImm32:
@@ -232,7 +251,13 @@ public:
     };
 
 
-    struct Imm32 : public TrustedImm32 {
+    struct Imm32 : 
+#if ENABLE(JIT_CONSTANT_BLINDING)
+        private TrustedImm32 
+#else
+        public TrustedImm32
+#endif
+    {
         explicit Imm32(int32_t value)
             : TrustedImm32(value)
         {
@@ -243,6 +268,8 @@ public:
         {
         }
 #endif
+        const TrustedImm32& asTrustedImm32() const { return *this; }
+
     };
     
     // Section 2: MacroAssembler code buffer handles
@@ -424,6 +451,12 @@ public:
             , m_condition(condition)
         {
         }
+#elif CPU(SH4)
+        Jump(AssemblerLabel jmp, SH4Assembler::JumpType type = SH4Assembler::JumpFar)
+            : m_label(jmp)
+            , m_type(type)
+        {
+        }
 #else
         Jump(AssemblerLabel jmp)    
             : m_label(jmp)
@@ -435,6 +468,8 @@ public:
         {
 #if CPU(ARM_THUMB2)
             masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type, m_condition);
+#elif CPU(SH4)
+            masm->m_assembler.linkJump(m_label, masm->m_assembler.label(), m_type);
 #else
             masm->m_assembler.linkJump(m_label, masm->m_assembler.label());
 #endif
@@ -457,6 +492,24 @@ public:
         ARMv7Assembler::JumpType m_type;
         ARMv7Assembler::Condition m_condition;
 #endif
+#if CPU(SH4)
+        SH4Assembler::JumpType m_type;
+#endif
+    };
+
+    struct PatchableJump {
+        PatchableJump()
+        {
+        }
+
+        explicit PatchableJump(Jump jump)
+            : m_jump(jump)
+        {
+        }
+
+        operator Jump&() { return m_jump; }
+
+        Jump m_jump;
     };
 
     // JumpList:
@@ -525,7 +578,7 @@ public:
     }
 
     template<typename T, typename U>
-    ptrdiff_t differenceBetween(T from, U to)
+    static ptrdiff_t differenceBetween(T from, U to)
     {
         return AssemblerType::getDifferenceBetweenLabels(from.m_label, to.m_label);
     }
@@ -535,15 +588,28 @@ public:
         return reinterpret_cast<ptrdiff_t>(b.executableAddress()) - reinterpret_cast<ptrdiff_t>(a.executableAddress());
     }
 
-    void beginUninterruptedSequence() { }
-    void endUninterruptedSequence() { }
-
-#ifndef NDEBUG
     unsigned debugOffset() { return m_assembler.debugOffset(); }
-#endif
 
 protected:
+    AbstractMacroAssembler()
+        : m_randomSource(cryptographicallyRandomNumber())
+    {
+    }
+
     AssemblerType m_assembler;
+    
+    uint32_t random()
+    {
+        return m_randomSource.getUint32();
+    }
+
+    WeakRandom m_randomSource;
+
+#if ENABLE(JIT_CONSTANT_BLINDING)
+    static bool scratchRegisterForBlinding() { return false; }
+    static bool shouldBlindForSpecificArch(uint32_t) { return true; }
+    static bool shouldBlindForSpecificArch(uint64_t) { return true; }
+#endif
 
     friend class LinkBuffer;
     friend class RepatchBuffer;

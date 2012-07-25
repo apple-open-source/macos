@@ -37,7 +37,7 @@
 #include <QString>
 #elif USE(GLIB_UNICODE)
 #include <glib.h>
-#include "GOwnPtr.h"
+#include <wtf/gobject/GOwnPtr.h>
 #endif
 #include <wtf/text/CString.h>
 #include <wtf/OwnPtr.h>
@@ -127,10 +127,6 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     return newTextCodec(*this)->encode(UTF16Normalized.get(), UTF16Length, handling);
 #elif OS(WINCE)
     // normalization will be done by Windows CE API
-    OwnPtr<TextCodec> textCodec = newTextCodec(*this);
-    return textCodec.get() ? textCodec->encode(characters, length, handling) : CString();
-#elif USE(BREWMP_UNICODE)
-    // FIXME: not sure if Brew MP normalizes the input string automatically
     OwnPtr<TextCodec> textCodec = newTextCodec(*this);
     return textCodec.get() ? textCodec->encode(characters, length, handling) : CString();
 #endif

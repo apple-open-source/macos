@@ -110,16 +110,19 @@ static void restore_params __P((void));
 static void save_params __P((void));
 static void saverestore_params __P((int));
 static void cleanup_pidfile __P((void));
+#if 0 // <rdar://problem/9286626>
 int launchedbylaunchd __P((void));
+#endif
 
 pid_t racoon_pid = 0;
+int   launchdlaunched = 0;
 int print_pid = 1;	/* for racoon only */
 char  logFileStr[MAXPATHLEN+1];
 
 void
 usage()
 {
-	printf("usage: racoon [-BdFvs%s] %s[-f (file)] [-l (file)] [-p (port)]\n",
+	printf("usage: racoon [-BdDFvs%s] %s[-f (file)] [-l (file)] [-p (port)]\n",
 #ifdef INET6
 		"46",
 #else
@@ -134,6 +137,7 @@ usage()
 	printf("   -B: install SA to the kernel from the file "
 		"specified by the configuration file.\n");
 	printf("   -d: debug level, more -d will generate more debug message.\n");
+	printf("   -D: started by LaunchD (implies daemon mode).\n");
 	printf("   -C: dump parsed config file.\n");
 	printf("   -L: include location in debug messages\n");
 	printf("   -F: run in foreground, do not become daemon.\n");
@@ -266,7 +270,7 @@ skip:
 
 	ploginit();
 
-	plog(LLV_INFO, LOCATION, NULL, "***** racoon started: pid=%d  started by: %d\n", getpid(), getppid());
+	plog(LLV_INFO, LOCATION, NULL, "***** racoon started: pid=%d  started by: %d, launchdlaunched %d\n", getpid(), getppid(), launchdlaunched);
 	plog(LLV_INFO, LOCATION, NULL, "%s\n", version);
 #ifdef HAVE_OPENSSL
 	plog(LLV_INFO, LOCATION, NULL, "@(#)"
@@ -344,7 +348,7 @@ skip:
 	if (f_foreground)
 		close(0);
 	else {
-		if ( !exec_done && launchedbylaunchd() ){
+		if ( !exec_done && launchdlaunched ){
 			plog(LLV_INFO, LOCATION, NULL,
 				 "racoon launched by launchd.\n");
 			exec_done = 1;
@@ -411,23 +415,14 @@ skip:
 	exit(0);
 }
 
-
+#if 0 // <rdar://problem/9286626>
 int
 launchedbylaunchd(){
-	int             launchdlaunched = 1;
 	launch_data_t checkin_response = NULL;
-	launch_data_t checkin_request = NULL;
-	
-	/* check in with launchd */
-	if ((checkin_request = launch_data_new_string(LAUNCH_KEY_CHECKIN)) == NULL) {
+
+	if ((checkin_response = launch_socket_service_check_in()) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			 "launch_data_new_string fails.\n");
-		launchdlaunched = 0;
-		goto done;
-	}
-	if ((checkin_response = launch_msg(checkin_request)) == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "launch_msg fails.\n");
+			 "launch_socket_service_check_in fails.\n");
 		launchdlaunched = 0;
 		goto done;
 	}
@@ -437,15 +432,14 @@ launchedbylaunchd(){
 		launchdlaunched = 0;
 		goto done;
 	}
-	
+	launchdlaunched = 1;
 done:
 	/* clean up before we leave */
-	if ( checkin_request )
-		launch_data_free(checkin_request);
 	if ( checkin_response )
 		launch_data_free(checkin_response);
 	return launchdlaunched;
 }
+#endif
 
 static void
 cleanup_pidfile()
@@ -491,7 +485,7 @@ parse(ac, av)
 	plogset("/tmp/racoon.log");
 #endif
 
-	while ((c = getopt(ac, av, "dLFp:P:a:f:l:vsZBCx"
+	while ((c = getopt(ac, av, "dDLFp:P:a:f:l:vsZBCx"
 #ifdef YYDEBUG
 			"y"
 #endif
@@ -503,10 +497,21 @@ parse(ac, av)
 		case 'd':
 			loglevel++;
 			break;
+		case 'D':
+			if (f_foreground) {
+				fprintf(stderr, "-D and -F are mutually exclusive\n");
+				exit(1);
+			}
+			launchdlaunched = 1;
+			break;
 		case 'L':
 			print_location = 1;
 			break;
 		case 'F':
+			if (launchdlaunched) {
+				fprintf(stderr, "-D and -F are mutually exclusive\n");
+				exit(1);
+			}
 			printf("Foreground mode.\n");
 			f_foreground = 1;
 			break;

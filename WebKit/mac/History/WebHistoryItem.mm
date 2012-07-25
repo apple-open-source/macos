@@ -48,12 +48,13 @@
 #import <WebCore/KURL.h>
 #import <WebCore/PageCache.h>
 #import <WebCore/PlatformString.h>
+#import <WebCore/RunLoop.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Assertions.h>
+#import <wtf/MainThread.h>
 #import <wtf/StdLibExtras.h>
-#import <wtf/Threading.h>
 
 // Private keys used in the WebHistoryItem's dictionary representation.
 // see 3245793 for explanation of "lastVisitedDate"
@@ -97,6 +98,7 @@ void WKNotifyHistoryItemChanged(HistoryItem*)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
+    WebCore::RunLoop::initializeMainRunLoop();
     WebCoreObjCFinalizeOnMainThread(self);
 }
 
@@ -141,11 +143,9 @@ void WKNotifyHistoryItemChanged(HistoryItem*)
 - (id)copyWithZone:(NSZone *)zone
 {
     WebCoreThreadViolationCheckRoundOne();
-    WebHistoryItem *copy = (WebHistoryItem *)NSCopyObject(self, 0, zone);
-    RefPtr<HistoryItem> item = core(_private)->copy();
-    copy->_private = kitPrivate(item.get());
-    historyItemWrappers().set(item.release().releaseRef(), copy);
-    
+    WebHistoryItem *copy = [[[self class] alloc] initWithWebCoreHistoryItem:core(_private)->copy()];
+    historyItemWrappers().set(core(copy->_private), copy);
+
     return copy;
 }
 
@@ -307,7 +307,7 @@ static WebWindowWatcher *_windowWatcher = nil;
     
     self = [super init];
     
-    _private = kitPrivate(item.releaseRef());
+    _private = kitPrivate(item.leakRef());
     ASSERT(!historyItemWrappers().get(core(_private)));
     historyItemWrappers().set(core(_private), self);
     return self;

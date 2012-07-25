@@ -246,7 +246,7 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool pr
     UNUSED_PARAM(printing);
 }
 
-void GraphicsContext::drawLineForTextChecking(const IntPoint& origin, int width, TextCheckingLineStyle style)
+void GraphicsContext::drawLineForDocumentMarker(const IntPoint& origin, int width, DocumentMarkerLineStyle style)
 {
     if (paintingDisabled())
         return;
@@ -285,7 +285,7 @@ void GraphicsContext::clearPlatformShadow()
     notImplemented();
 }
 
-void GraphicsContext::beginTransparencyLayer(float opacity)
+void GraphicsContext::beginPlatformTransparencyLayer(float opacity)
 {
     if (paintingDisabled())
         return;
@@ -294,12 +294,17 @@ void GraphicsContext::beginTransparencyLayer(float opacity)
     UNUSED_PARAM(opacity);
 }
 
-void GraphicsContext::endTransparencyLayer()
+void GraphicsContext::endPlatformTransparencyLayer()
 {
     if (paintingDisabled())
         return;
 
     notImplemented();
+}
+
+bool GraphicsContext::supportsTransparencyLayers()
+{
+    return false;
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)

@@ -74,13 +74,21 @@ and
 .Pp
 The
 .Fn va_start
-macro initializes
-.Fa ap
-for subsequent use by
+macro must be called first, and it initializes
+.Fa ap ,
+which can be passed to
 .Fn va_arg
-and
+for each argument to be processed.
+Calling
+.Fn va_end
+signals that there are no further arguments, and causes
+.Fa ap
+to be invalidated.
+Note that each call to
+.Fn va_start
+must be matched by a call to
 .Fn va_end ,
-and must be called first.
+from within the same function.
 .Pp
 The parameter
 .Fa last
@@ -91,10 +99,6 @@ Because the address of this parameter is used in the
 .Fn va_start
 macro, it should not be declared as a register variable, or as a
 function or an array type.
-.Pp
-The
-.Fn va_start
-macro returns no value.
 .Pp
 The
 .Fn va_arg
@@ -136,34 +140,38 @@ arguments.
 .Pp
 The
 .Fn va_copy
-macro copies a variable argument list, previously initialized by
-.Fn va_start ,
-from
-.Fa src
-to
-.Fa dest .
-The state is preserved such that it is equivalent to calling
-.Fn va_start
-with the same second argument used with
+macro copies the state of the variable argument list, 
 .Fa src ,
-and calling
+previously initialized by
+.Fn va_start ,
+to the variable argument list,
+.Fa dest ,
+which must not have been previously initialized by
+.Fn va_start ,
+without an intervening call to
+.Fn va_end .
+The state preserved in
+.Fa dest
+is equivalent to calling
+.Fn va_start
+and
 .Fn va_arg
-the same number of times as called with
+on
+.Fa dest
+in the same way as was used on
 .Fa src .
-.Pp
-The
-.Fn va_copy
-macro returns no value.
-.Pp
-The
+The copied variable argument list can subsequently be passed to
+.Fn va_arg ,
+and must finally be passed to
 .Fn va_end
-macro handles a normal return from the function whose variable argument
-list was initialized by
-.Fn va_start .
+when through with it.
 .Pp
-The
-.Fn va_end
-macro returns no value.
+After a variable argument list is invalidated by
+.Fn va_end ,
+it can be reinitialized with
+.Fn va_start
+or made a copy of another variable argument list with
+.Fn va_copy .
 .Sh EXAMPLES
 The function
 .Em foo
@@ -172,11 +180,12 @@ associated with each format character based on the type.
 .Bd -literal -offset indent
 void foo(char *fmt, ...)
 {
-	va_list ap;
+	va_list ap, ap2;
 	int d;
 	char c, *s;
 
 	va_start(ap, fmt);
+	va_copy(ap2, ap);
 	while (*fmt)
 		switch(*fmt++) {
 		case 's':			/* string */
@@ -194,6 +203,10 @@ void foo(char *fmt, ...)
 			break;
 		}
 	va_end(ap);
+	...
+	/* use ap2 to iterate over the arguments again */
+	...
+	va_end(ap2);
 }
 .Ed
 .Sh COMPATIBILITY

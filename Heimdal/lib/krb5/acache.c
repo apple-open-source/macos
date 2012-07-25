@@ -43,8 +43,8 @@
 
 static HEIMDAL_MUTEX acc_mutex = HEIMDAL_MUTEX_INITIALIZER;
 static cc_initialize_func init_func;
-static void (*set_target_uid)(uid_t);
-static void (*clear_target)(void);
+static void (KRB5_CALLCONV *set_target_uid)(uid_t);
+static void (KRB5_CALLCONV *clear_target)(void);
 
 #ifdef HAVE_DLOPEN
 static void *cc_handle;
@@ -56,7 +56,7 @@ typedef struct krb5_acc {
     cc_ccache_t ccache;
 } krb5_acc;
 
-static krb5_error_code acc_close(krb5_context, krb5_ccache);
+static krb5_error_code KRB5_CALLCONV acc_close(krb5_context, krb5_ccache);
 
 #define ACACHE(X) ((krb5_acc *)(X)->data.data)
 
@@ -78,7 +78,7 @@ static const struct {
 static krb5_error_code
 translate_cc_error(krb5_context context, cc_int32 error)
 {
-    int i;
+    size_t i;
     krb5_clear_error_message(context);
     for(i = 0; i < sizeof(cc_errors)/sizeof(cc_errors[0]); i++)
 	if (cc_errors[i].error == error)
@@ -144,8 +144,10 @@ init_ccapi(krb5_context context)
     }
 
     init_func = (cc_initialize_func)dlsym(cc_handle, "cc_initialize");
-    set_target_uid = dlsym(cc_handle, "krb5_ipc_client_set_target_uid");
-    clear_target = dlsym(cc_handle, "krb5_ipc_client_clear_target");
+    set_target_uid = (void (KRB5_CALLCONV *)(uid_t))
+	dlsym(cc_handle, "krb5_ipc_client_set_target_uid");
+    clear_target = (void (KRB5_CALLCONV *)(void))
+	dlsym(cc_handle, "krb5_ipc_client_clear_target");
     HEIMDAL_MUTEX_unlock(&acc_mutex);
     if (init_func == NULL) {
 	if (context)
@@ -170,14 +172,16 @@ void
 _heim_krb5_ipc_client_set_target_uid(uid_t uid)
 {
     init_ccapi(NULL);
-    (*set_target_uid)(uid);
+    if (set_target_uid != NULL)
+        (*set_target_uid)(uid);
 }
 
 void
 _heim_krb5_ipc_client_clear_target(void)
 {
     init_ccapi(NULL);
-    (*clear_target)();
+    if (clear_target != NULL)
+        (*clear_target)();
 }
 
 static krb5_error_code
@@ -255,7 +259,7 @@ make_cred_from_ccred(krb5_context context,
 	if (cred->addresses.val == NULL)
 	    goto nomem;
 	cred->addresses.len = i;
-	
+
 	for (i = 0; i < cred->addresses.len; i++) {
 	    cred->addresses.val[i].addr_type = incred->addresses[i]->type;
 	    ret = krb5_data_copy(&cred->addresses.val[i].address,
@@ -333,7 +337,7 @@ make_ccred_from_cred(krb5_context context,
 		     cc_credentials_v5_t *cred)
 {
     krb5_error_code ret;
-    int i;
+    size_t i;
 
     memset(cred, 0, sizeof(*cred));
 
@@ -449,7 +453,7 @@ get_cc_name(krb5_acc *a)
 }
 
 
-static const char*
+static const char* KRB5_CALLCONV
 acc_get_name(krb5_context context,
 	     krb5_ccache id)
 {
@@ -486,7 +490,7 @@ acc_get_name(krb5_context context,
     return a->cache_name;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_alloc(krb5_context context, krb5_ccache *id)
 {
     krb5_error_code ret;
@@ -516,7 +520,7 @@ acc_alloc(krb5_context context, krb5_ccache *id)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_resolve(krb5_context context, krb5_ccache *id, const char *res)
 {
     krb5_error_code ret;
@@ -542,7 +546,7 @@ acc_resolve(krb5_context context, krb5_ccache *id, const char *res)
 	error = (*a->ccache->func->get_kdc_time_offset)(a->ccache,
 							cc_credentials_v5,
 							&offset);
-	if (error == 0) 
+	if (error == 0)
 	    context->kdc_sec_offset = offset;
 
     } else if (error == ccErrCCacheNotFound) {
@@ -556,7 +560,7 @@ acc_resolve(krb5_context context, krb5_ccache *id, const char *res)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_gen_new(krb5_context context, krb5_ccache *id)
 {
     krb5_error_code ret;
@@ -574,7 +578,7 @@ acc_gen_new(krb5_context context, krb5_ccache *id)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_initialize(krb5_context context,
 	       krb5_ccache id,
 	       krb5_principal primary_principal)
@@ -628,7 +632,7 @@ acc_initialize(krb5_context context,
     return translate_cc_error(context, error);
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_close(krb5_context context,
 	  krb5_ccache id)
 {
@@ -650,7 +654,7 @@ acc_close(krb5_context context,
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_destroy(krb5_context context,
 	    krb5_ccache id)
 {
@@ -668,7 +672,7 @@ acc_destroy(krb5_context context,
     return translate_cc_error(context, error);
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_store_cred(krb5_context context,
 	       krb5_ccache id,
 	       krb5_creds *creds)
@@ -703,7 +707,7 @@ acc_store_cred(krb5_context context,
     return ret;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_principal(krb5_context context,
 		  krb5_ccache id,
 		  krb5_principal *principal)
@@ -731,7 +735,7 @@ acc_get_principal(krb5_context context,
     return ret;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_first (krb5_context context,
 	       krb5_ccache id,
 	       krb5_cc_cursor *cursor)
@@ -756,7 +760,7 @@ acc_get_first (krb5_context context,
 }
 
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_next (krb5_context context,
 	      krb5_ccache id,
 	      krb5_cc_cursor *cursor,
@@ -783,7 +787,7 @@ acc_get_next (krb5_context context,
     return ret;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_end_get (krb5_context context,
 	     krb5_ccache id,
 	     krb5_cc_cursor *cursor)
@@ -793,7 +797,7 @@ acc_end_get (krb5_context context,
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_remove_cred(krb5_context context,
 		krb5_ccache id,
 		krb5_flags which,
@@ -869,7 +873,7 @@ acc_remove_cred(krb5_context context,
     return ret;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_set_flags(krb5_context context,
 	      krb5_ccache id,
 	      krb5_flags flags)
@@ -877,19 +881,19 @@ acc_set_flags(krb5_context context,
     return 0;
 }
 
-static int
+static int KRB5_CALLCONV
 acc_get_version(krb5_context context,
 		krb5_ccache id)
 {
     return 0;
 }
-		
+
 struct cache_iter {
     cc_context_t context;
     cc_ccache_iterator_t iter;
 };
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
 {
     struct cache_iter *iter;
@@ -923,7 +927,7 @@ acc_get_cache_first(krb5_context context, krb5_cc_cursor *cursor)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
 {
     struct cache_iter *iter = cursor;
@@ -957,11 +961,11 @@ acc_get_cache_next(krb5_context context, krb5_cc_cursor cursor, krb5_ccache *id)
 	acc_close(context, *id);
 	*id = NULL;
 	return translate_cc_error(context, error);
-    }	
+    }
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_end_cache_get(krb5_context context, krb5_cc_cursor cursor)
 {
     struct cache_iter *iter = cursor;
@@ -974,7 +978,7 @@ acc_end_cache_get(krb5_context context, krb5_cc_cursor cursor)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
 {
     krb5_acc *afrom = ACACHE(from);
@@ -1006,7 +1010,7 @@ acc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     return translate_cc_error(context, error);
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_get_default_name(krb5_context context, char **str)
 {
     krb5_error_code ret;
@@ -1027,7 +1031,7 @@ acc_get_default_name(krb5_context context, char **str)
 	(*cc->func->release)(cc);
 	return translate_cc_error(context, error);
     }
-	
+
     error = asprintf(str, "API:%s", name->data);
     (*name->func->release)(name);
     (*cc->func->release)(cc);
@@ -1039,7 +1043,7 @@ acc_get_default_name(krb5_context context, char **str)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_set_default(krb5_context context, krb5_ccache id)
 {
     krb5_acc *a = ACACHE(id);
@@ -1058,7 +1062,7 @@ acc_set_default(krb5_context context, krb5_ccache id)
     return 0;
 }
 
-static krb5_error_code
+static krb5_error_code KRB5_CALLCONV
 acc_lastchange(krb5_context context, krb5_ccache id, krb5_timestamp *mtime)
 {
     krb5_acc *a = ACACHE(id);
@@ -1110,7 +1114,9 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_acc_ops = {
     acc_move,
     acc_get_default_name,
     acc_set_default,
-    acc_lastchange
+    acc_lastchange,
+    NULL,
+    NULL,
 };
 
 #endif

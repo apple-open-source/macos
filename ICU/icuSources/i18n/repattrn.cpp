@@ -3,7 +3,7 @@
 //
 /*
 ***************************************************************************
-*   Copyright (C) 2002-2010 International Business Machines Corporation   *
+*   Copyright (C) 2002-2012 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 */
@@ -30,9 +30,6 @@ U_NAMESPACE_BEGIN
 //
 //--------------------------------------------------------------------------
 RegexPattern::RegexPattern() {
-    UErrorCode status = U_ZERO_ERROR;
-    u_init(&status);
-
     // Init all of this instances data.
     init();
 }
@@ -288,7 +285,7 @@ RegexPattern::compile(const UnicodeString &regex,
         return NULL;
     }
     
-    if ((flags & (UREGEX_CANON_EQ | UREGEX_LITERAL)) != 0) {
+    if ((flags & UREGEX_CANON_EQ) != 0) {
         status = U_REGEX_UNIMPLEMENTED;
         return NULL;
     }
@@ -339,7 +336,7 @@ RegexPattern::compile(UText                *regex,
         return NULL;
     }
 
-    if ((flags & (UREGEX_CANON_EQ | UREGEX_LITERAL)) != 0) {
+    if ((flags & UREGEX_CANON_EQ) != 0) {
         status = U_REGEX_UNIMPLEMENTED;
         return NULL;
     }
@@ -442,31 +439,6 @@ RegexMatcher *RegexPattern::matcher(const UnicodeString &input,
     return retMatcher;
 }
 
-//
-//   matcher, UText mode
-//
-RegexMatcher *RegexPattern::matcher(UText               *input,
-                                    PatternIsUTextFlag  /*flag*/,
-                                    UErrorCode          &status)  const {
-    RegexMatcher    *retMatcher = matcher(status);
-    if (retMatcher != NULL) {
-        retMatcher->fDeferredStatus = status;
-        retMatcher->reset(input);
-    }
-    return retMatcher;
-}
-
-#if 0
-RegexMatcher *RegexPattern::matcher(const UChar * /*input*/,
-                                    UErrorCode          &status)  const
-{
-    /* This should never get called. The API with UnicodeString should be called instead. */
-    if (U_SUCCESS(status)) {
-        status = U_UNSUPPORTED_ERROR;
-    }
-    return NULL;
-}
-#endif
 
 //---------------------------------------------------------------------
 //
@@ -531,13 +503,16 @@ UBool U_EXPORT2 RegexPattern::matches(UText                *regex,
 
     if (U_FAILURE(status)) {return FALSE;}
 
-    UBool         retVal;
+    UBool         retVal  = FALSE;
     RegexPattern *pat     = NULL;
     RegexMatcher *matcher = NULL;
 
     pat     = RegexPattern::compile(regex, 0, pe, status);
-    matcher = pat->matcher(input, PATTERN_IS_UTEXT, status);
-    retVal  = matcher->matches(status);
+    matcher = pat->matcher(status);
+    if (U_SUCCESS(status)) {
+        matcher->reset(input);
+        retVal  = matcher->matches(status);
+    }
 
     delete matcher;
     delete pat;

@@ -982,7 +982,7 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	    free(S->NAME);								\
 	    S->NAME = NULL;								\
 	}										\
-	if ((S->NAME = strdup(NAME)) == NULL)						\
+	if ((NAME) && (S->NAME = strdup(NAME)) == NULL)					\
 	    return -1;									\
     }											\
   } while (0)
@@ -998,6 +998,10 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
     /*
      * Get a copy of the source file's security settings
      */
+    if (s->original_fsec) {
+	filesec_free(s->original_fsec);
+	s->original_fsec = NULL;
+    }
     if ((s->original_fsec = filesec_init()) == NULL)
 	goto error_exit;
 
@@ -1277,6 +1281,10 @@ copyfile_state_t copyfile_state_alloc(void)
     {
 	s->src_fd = -2;
 	s->dst_fd = -2;
+	if (s->fsec) {
+	    filesec_free(s->fsec);
+	    s->fsec = NULL;
+	}
 	s->fsec = filesec_init();
     } else
 	errno = ENOMEM;
@@ -2219,6 +2227,11 @@ static int copyfile_xattr(copyfile_state_t s)
 
     for (name = namebuf; name <= end; name += strlen(name) + 1)
     {
+	if (s->xattr_name) {
+		free(s->xattr_name);
+		s->xattr_name = NULL;
+	}
+
 	/* If the quarantine information shows up as an EA, we skip over it */
 	if (strncmp(name, XATTR_QUARANTINE_NAME, end - name) == 0)
 	    continue;
@@ -2275,10 +2288,6 @@ static int copyfile_xattr(copyfile_state_t s)
 	}
 #endif
 
-	if (s->xattr_name) {
-		free(s->xattr_name);
-		s->xattr_name = NULL;
-	}
 	s->xattr_name = strdup(name);
 	
 	if (s->statuscb) {
@@ -3156,6 +3165,10 @@ acl_done:
 			s->xattr_name = strdup((char*)entry->name);
 			s->totalCopied = 0;
 			rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+			if (s->xattr_name) {
+				free(s->xattr_name);
+				s->xattr_name = NULL;
+			}
 			if (rv == COPYFILE_QUIT) {
 				s->err = ECANCELED;
 				error = -1;
@@ -3481,6 +3494,7 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
 	s->xattr_name = (char*)XATTR_RESOURCEFORK_NAME;
 
 	rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+	s->xattr_name = NULL;
 	if (rv == COPYFILE_SKIP) {
 		ret = 0;
 		goto done;
@@ -3772,6 +3786,7 @@ static int copyfile_pack(copyfile_state_t s)
 		int rv;
 		s->xattr_name = (char*)XATTR_FINDERINFO_NAME;
 		rv = (*s->statuscb)(COPYFILE_COPY_XATTR, COPYFILE_START, s, s->src, s->dst, s->ctx);
+		s->xattr_name = NULL;
 		if (rv == COPYFILE_QUIT)
 		{
 		    s->xattr_name = NULL;

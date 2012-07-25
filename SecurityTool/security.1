@@ -554,6 +554,8 @@ Match label string
 Match service string
 .It Fl g
 Display the password for the item found
+.It Fl w
+Display the password(only) for the item found
 .El
 .El
 .It
@@ -660,6 +662,8 @@ Match server string
 Match authenticationType (four-character code)
 .It Fl g
 Display the password for the item found
+.It Fl w
+Display the password(only) for the item found
 .El
 .El
 .It
@@ -1234,7 +1238,7 @@ Certificate to verify, in DER or PEM format. Can be specified more than once; le
 .It Fl r Ar rootCertFile
 Root certificate, in DER or PEM format. Can be specified more than once. If not specified, the system anchor certificates are used. If one root certificate is specified, and zero (non-root) certificates are specified, the root certificate is verified against itself. 
 .It Fl p Ar policy
-Specify verification policy (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap). Default is basic.
+Specify verification policy (ssl, smime, codeSign, IPSec, iChat, basic, swUpdate, pkgSign, pkinitClient, pkinitServer, eap, appleID, macappstore, timestamping). Default is basic.
 .It Fl k Ar keychain
 Keychain to search for intermediate certs. Can be specified multiple times. Default is the current user's keychain search list.
 .It Fl n

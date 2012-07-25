@@ -31,7 +31,8 @@
 #ifndef WebSecurityPolicy_h
 #define WebSecurityPolicy_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
+#include "platform/WebReferrerPolicy.h"
 
 namespace WebKit {
 
@@ -43,35 +44,52 @@ public:
     // Registers a URL scheme to be treated as a local scheme (i.e., with the
     // same security rules as those applied to "file" URLs). This means that
     // normal pages cannot link to or access URLs of this scheme.
-    WEBKIT_API static void registerURLSchemeAsLocal(const WebString&);
+    WEBKIT_EXPORT static void registerURLSchemeAsLocal(const WebString&);
 
     // Registers a URL scheme to be treated as a noAccess scheme. This means
     // that pages loaded with this URL scheme cannot access pages loaded with
     // any other URL scheme.
-    WEBKIT_API static void registerURLSchemeAsNoAccess(const WebString&);
+    WEBKIT_EXPORT static void registerURLSchemeAsNoAccess(const WebString&);
 
     // Registers a URL scheme to be treated as display-isolated. This means
     // that pages cannot display these URLs unless they are from the same
     // scheme. For example, pages in other origin cannot create iframes or
     // hyperlinks to URLs with the scheme.
-    WEBKIT_API static void registerURLSchemeAsDisplayIsolated(const WebString&);
+    WEBKIT_EXPORT static void registerURLSchemeAsDisplayIsolated(const WebString&);
 
     // Registers a URL scheme to not generate mixed content warnings when
     // included by an HTTPS page.
-    WEBKIT_API static void registerURLSchemeAsSecure(const WebString&);
+    WEBKIT_EXPORT static void registerURLSchemeAsSecure(const WebString&);
+
+    // Registers a non-HTTP URL scheme which can be sent CORS requests. 
+    WEBKIT_EXPORT static void registerURLSchemeAsCORSEnabled(const WebString&);
+
+    // Registers a URL scheme as strictly empty documents, allowing them to
+    // commit synchronously.
+    WEBKIT_EXPORT static void registerURLSchemeAsEmptyDocument(const WebString&);
 
     // Support for whitelisting access to origins beyond the same-origin policy.
-    WEBKIT_API static void addOriginAccessWhitelistEntry(
+    WEBKIT_EXPORT static void addOriginAccessWhitelistEntry(
         const WebURL& sourceOrigin, const WebString& destinationProtocol,
         const WebString& destinationHost, bool allowDestinationSubdomains);
-    WEBKIT_API static void removeOriginAccessWhitelistEntry(
+    WEBKIT_EXPORT static void removeOriginAccessWhitelistEntry(
         const WebURL& sourceOrigin, const WebString& destinationProtocol,
         const WebString& destinationHost, bool allowDestinationSubdomains);
-    WEBKIT_API static void resetOriginAccessWhitelists();
+    WEBKIT_EXPORT static void resetOriginAccessWhitelists();
 
     // Returns whether the url should be allowed to see the referrer
     // based on their respective protocols.
-    WEBKIT_API static bool shouldHideReferrer(const WebURL& url, const WebString& referrer);
+    // FIXME: remove this function once the chromium side has landed.
+    WEBKIT_EXPORT static bool shouldHideReferrer(const WebURL&, const WebString& referrer);
+
+    // Returns the referrer modified according to the referrer policy for a
+    // navigation to a given URL. If the referrer returned is empty, the
+    // referrer header should be omitted.
+    WEBKIT_EXPORT static WebString generateReferrerHeader(WebReferrerPolicy, const WebURL&, const WebString& referrer);
+
+    // Registers an URL scheme to not allow manipulation of the loaded page
+    // by bookmarklets or javascript: URLs typed in the omnibox.
+    WEBKIT_EXPORT static void registerURLSchemeAsNotAllowingJavascriptURLs(const WebString&);
 
 private:
     WebSecurityPolicy();

@@ -38,6 +38,7 @@
 #include "JSDOMWindowCustom.h"
 #include "JSDOMWindowShell.h"
 #include "JSHTMLCollection.h"
+#include "JSMainThreadExecState.h"
 #include "SegmentedString.h"
 #include "DocumentParser.h"
 #include <runtime/Error.h>
@@ -58,11 +59,10 @@ bool JSHTMLDocument::canGetItemsForName(ExecState*, HTMLDocument* document, cons
 
 JSValue JSHTMLDocument::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSHTMLDocument* thisObj = static_cast<JSHTMLDocument*>(asObject(slotBase));
+    JSHTMLDocument* thisObj = jsCast<JSHTMLDocument*>(asObject(slotBase));
     HTMLDocument* document = static_cast<HTMLDocument*>(thisObj->impl());
 
-    String name = identifierToString(propertyName);
-    RefPtr<HTMLCollection> collection = document->documentNamedItems(name);
+    HTMLCollection* collection = document->documentNamedItems(identifierToAtomicString(propertyName));
 
     unsigned length = collection->length();
     if (!length)
@@ -78,7 +78,7 @@ JSValue JSHTMLDocument::nameGetter(ExecState* exec, JSValue slotBase, const Iden
         return toJS(exec, thisObj->globalObject(), node);
     } 
 
-    return toJS(exec, thisObj->globalObject(), collection.get());
+    return toJS(exec, thisObj->globalObject(), collection);
 }
 
 // Custom attributes
@@ -90,7 +90,7 @@ JSValue JSHTMLDocument::all(ExecState* exec) const
     if (v)
         return v;
 
-    return toJS(exec, globalObject(), static_cast<HTMLDocument*>(impl())->all().get());
+    return toJS(exec, globalObject(), static_cast<HTMLDocument*>(impl())->all());
 }
 
 void JSHTMLDocument::setAll(ExecState* exec, JSValue value)
@@ -114,7 +114,7 @@ JSValue JSHTMLDocument::open(ExecState* exec)
                 CallType callType = ::getCallData(function, callData);
                 if (callType == CallTypeNone)
                     return throwTypeError(exec);
-                return JSC::call(exec, function, callType, callData, wrapper, ArgList(exec));
+                return JSMainThreadExecState::call(exec, function, callType, callData, wrapper, ArgList(exec));
             }
         }
         return jsUndefined();
@@ -137,14 +137,14 @@ static inline void documentWrite(ExecState* exec, HTMLDocument* document, Newlin
 
     size_t size = exec->argumentCount();
 
-    UString firstString = exec->argument(0).toString(exec);
+    UString firstString = exec->argument(0).toString(exec)->value(exec);
     SegmentedString segmentedString = ustringToString(firstString);
     if (size != 1) {
         if (!size)
             segmentedString.clear();
         else {
             for (size_t i = 1; i < size; ++i) {
-                UString subsequentString = exec->argument(i).toString(exec);
+                UString subsequentString = exec->argument(i).toString(exec)->value(exec);
                 segmentedString.append(SegmentedString(ustringToString(subsequentString)));
             }
         }

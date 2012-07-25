@@ -25,11 +25,9 @@
 #include "config.h"
 #include "SubresourceLoader.h"
 
-#include "SubresourceLoaderClient.h"
-
 namespace WebCore {
 
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
 void SubresourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 {
     // Reference the object in this method since the additional processing can do
@@ -38,13 +36,16 @@ void SubresourceLoader::didReceiveDataArray(CFArrayRef dataArray)
 
     ResourceLoader::didReceiveDataArray(dataArray);
 
+    if (errorLoadingResource())
+        return;
+
     // A subresource loader does not load multipart sections progressively.
     // So don't deliver any data to the loader yet.
-    if (!m_loadingMultipartContent && m_client) {
+    if (!m_loadingMultipartContent) {
         CFIndex arrayCount = CFArrayGetCount(dataArray);
         for (CFIndex i = 0; i < arrayCount; ++i)  {
             CFDataRef data = reinterpret_cast<CFDataRef>(CFArrayGetValueAtIndex(dataArray, i));
-            m_client->didReceiveData(this, reinterpret_cast<const char *>(CFDataGetBytePtr(data)), static_cast<int>(CFDataGetLength(data)));
+            sendDataToResource(reinterpret_cast<const char *>(CFDataGetBytePtr(data)), static_cast<int>(CFDataGetLength(data)));
         }
     }
 }

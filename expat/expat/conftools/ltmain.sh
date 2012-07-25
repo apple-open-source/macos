@@ -6196,7 +6196,7 @@ relink_command=\"$relink_command\""
 
       # Do each command in the postinstall commands.
       cmds=$old_postinstall_cmds
-      save_ifs="$IFS"; IFS=':'
+      save_ifs="$IFS"; IFS='~'
       for cmd in $cmds; do
 	IFS="$save_ifs"
 	eval cmd=\"$cmd\"

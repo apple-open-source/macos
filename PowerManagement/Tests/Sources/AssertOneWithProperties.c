@@ -58,9 +58,8 @@ int main()
     }
     
     
-    val =           kIOPMAssertionLevelOn;
-    keys[0] =       kIOPMAssertionTypeApplePushServiceTask;
-    vals[0] =       CFNumberCreate(0, kCFNumberIntType, &val);
+    keys[0] =       kIOPMAssertionTypeKey;
+    vals[0] =       kIOPMAssertionTypePreventUserIdleSystemSleep;
     
     keys[1] =       kIOPMAssertionHumanReadableReasonKey;
     vals[1] =       CFSTR("I did this because I had to.");
@@ -70,7 +69,7 @@ int main()
     vals[2] =       CFNumberCreate(0, kCFNumberIntType, &val);
     
     keys[3] =       kIOPMAssertionLocalizationBundlePathKey;
-    vals[3] =       CFSTR("com.apple.powermanagement");
+    vals[3] =       CFSTR("/System/Library/CoreServices/powerd.bundle");
     
     _props = CFDictionaryCreate(0, (const void **)keys, (const void **)vals, 4, 
                                 &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);

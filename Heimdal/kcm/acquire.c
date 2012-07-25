@@ -68,7 +68,7 @@ kcm_ccache_acquire(krb5_context context,
 		ccache->name);
 	return KRB5_FCC_INTERNAL;
     }
-	
+
     /* Fake up an internal ccache */
     kcm_internal_ccache(context, ccache, &ccdata);
 

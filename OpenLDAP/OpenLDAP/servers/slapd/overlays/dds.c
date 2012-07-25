@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/dds.c,v 1.7.2.16 2010/04/15 19:59:56 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2005-2010 The OpenLDAP Foundation.
+ * Copyright 2005-2011 The OpenLDAP Foundation.
  * Portions Copyright 2005-2006 SysNet s.n.c.
  * All rights reserved.
  *
@@ -156,7 +156,7 @@ dds_expire( void *ctx, dds_info_t *di )
 	op->ors_slimit = SLAP_NO_LIMIT;
 	op->ors_attrs = slap_anlist_no_attrs;
 
-	expire = slap_get_time() + di->di_tolerance;
+	expire = slap_get_time() - di->di_tolerance;
 	ts.bv_val = tsbuf;
 	ts.bv_len = sizeof( tsbuf );
 	slap_timestamp( &expire, &ts );
@@ -587,6 +587,7 @@ dds_op_modify( Operation *op, SlapReply *rs )
 
 			switch ( mod->sml_op ) {
 			case LDAP_MOD_DELETE:
+			case SLAP_MOD_SOFTDEL: /* FIXME? */
 				if ( mod->sml_values != NULL ) {
 					if ( BER_BVISEMPTY( &bv_entryTtl ) 
 						|| !bvmatch( &bv_entryTtl, &mod->sml_values[ 0 ] ) )
@@ -611,8 +612,9 @@ dds_op_modify( Operation *op, SlapReply *rs )
 				entryTtl = -1;
 				/* fallthru */
 
-			case SLAP_MOD_SOFTADD: /* FIXME? */
 			case LDAP_MOD_ADD:
+			case SLAP_MOD_SOFTADD: /* FIXME? */
+			case SLAP_MOD_ADD_IF_NOT_PRESENT: /* FIXME? */
 				assert( mod->sml_values != NULL );
 				assert( BER_BVISNULL( &mod->sml_values[ 1 ] ) );
 

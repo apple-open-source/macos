@@ -58,6 +58,11 @@
     @constant kIOHIDEventTypeCompass
     @constant kIOHIDEventTypeZoomToggle
     @constant kIOHIDEventTypeDockSwipe
+    @constant kIOHIDEventTypePower
+    @constant kIOHIDEventTypeBrightness
+    @constant kIOHIDEventTypeFluidTouchGesture
+    @constant kIOHIDEventTypeBoundaryScroll
+    @constant kIOHIDEventTypeReset
 
 */
 enum {
@@ -87,6 +92,11 @@ enum {
     kIOHIDEventTypeZoomToggle,
     kIOHIDEventTypeDockSwipe, // just like kIOHIDEventTypeNavigationSwipe, but intended for consumption by Dock
     kIOHIDEventTypeSymbolicHotKey,
+    kIOHIDEventTypePower,                   // 25
+    kIOHIDEventTypeBrightness,
+    kIOHIDEventTypeFluidTouchGesture, // This will eventually superseed Navagation and Dock swipes
+    kIOHIDEventTypeBoundaryScroll,
+    kIOHIDEventTypeReset,
 };
 typedef uint32_t IOHIDEventType;
 
@@ -210,12 +220,8 @@ enum {
     kIOHIDEventFieldGyroX = IOHIDEventFieldBase(kIOHIDEventTypeGyro),
     kIOHIDEventFieldGyroY,
     kIOHIDEventFieldGyroZ, 
-	kIOHIDEventFieldGyroType,
-	kIOHIDEventFieldGyroSubType,
-	kIOHIDEventFieldGyroQuaternionX,
-	kIOHIDEventFieldGyroQuaternionY,
-	kIOHIDEventFieldGyroQuaternionZ,
-	kIOHIDEventFieldGyroQuaternionW
+    kIOHIDEventFieldGyroType,
+    kIOHIDEventFieldGyroSubType,
 };
 
 typedef IOHIDMotionType IOHIDCompassType ;
@@ -293,6 +299,7 @@ enum {
     kIOHIDEventFieldSwipeProgress,
     kIOHIDEventFieldSwipePositionX,
     kIOHIDEventFieldSwipePositionY,
+    kIOHIDEventFieldSwipeFlavor,
 };
 
 enum {
@@ -301,6 +308,7 @@ enum {
     kIOHIDEventFieldNavigationSwipeProgress,
     kIOHIDEventFieldNavigationSwipePositionX,
     kIOHIDEventFieldNavigationSwipePositionY,
+    kIOHIDEventFieldNavagationSwipeFlavor,
 };
 
 enum {
@@ -309,6 +317,25 @@ enum {
     kIOHIDEventFieldDockSwipeProgress,
     kIOHIDEventFieldDockSwipePositionX,
     kIOHIDEventFieldDockSwipePositionY,
+    kIOHIDEventFieldDockSwipeFlavor,
+};
+
+enum {
+    kIOHIDEventFieldFluidTouchGestureMask = IOHIDEventFieldBase(kIOHIDEventTypeFluidTouchGesture),
+    kIOHIDEventFieldFluidTouchGestureMotion,
+    kIOHIDEventFieldFluidTouchGestureProgress,
+    kIOHIDEventFieldFluidTouchGesturePositionX,
+    kIOHIDEventFieldFluidTouchGesturePositionY,
+    kIOHIDEventFieldFluidTouchGestureFlavor,
+};
+
+enum {
+    kIOHIDEventFieldBoundaryScrollMask = IOHIDEventFieldBase(kIOHIDEventTypeBoundaryScroll),
+    kIOHIDEventFieldBoundaryScrollMotion,
+    kIOHIDEventFieldBoundaryScrollProgress,
+    kIOHIDEventFieldBoundaryScrollPositionX,
+    kIOHIDEventFieldBoundaryScrollPositionY,
+    kIOHIDEventFieldBoundaryScrollFlavor,
 };
 
 enum {
@@ -319,6 +346,42 @@ enum {
 enum {
     kIOHIDEventFieldSymbolicHotKeyValue = IOHIDEventFieldBase(kIOHIDEventTypeSymbolicHotKey),
     kIOHIDEventFieldSymbolicHotKeyIsCGSEvent,
+};
+
+/*!
+ @typedef IOHIDPowerType
+ @abstract Type of Power event triggered.
+ @discussion
+ @constant kIOHIDPowerTypePower
+ @constant kIOHIDPowerTypeCurrent
+ @constant kIOHIDPowerTypeVoltage
+ */
+enum {
+    kIOHIDPowerTypePower    = 0,
+    kIOHIDPowerTypeCurrent  = 1,
+	kIOHIDPowerTypeVoltage  = 2
+};
+typedef uint32_t IOHIDPowerType;
+
+/*!
+ @typedef IOHIDPowerSubType
+ @abstract Reserved
+ @discussion
+ @constant kIOHIDPowerSubTypeNormal
+ */
+enum {
+    kIOHIDPowerSubTypeNormal = 0
+};
+typedef uint32_t IOHIDPowerSubType;
+
+enum {
+    kIOHIDEventFieldPowerMeasurement = IOHIDEventFieldBase(kIOHIDEventTypePower),
+    kIOHIDEventFieldPowerType,
+    kIOHIDEventFieldPowerSubType,
+};
+
+enum {
+    kIOHIDEventFieldBrightnessLevel = IOHIDEventFieldBase(kIOHIDEventTypeBrightness),
 };
 
 typedef uint32_t IOHIDEventField;
@@ -333,6 +396,7 @@ typedef uint32_t IOHIDEventField;
     @constant kIOHIDSwipeRight
 */
 enum {
+    kIOHIDSwipeNone             = 0x00000000,
     kIOHIDSwipeUp               = 0x00000001,
     kIOHIDSwipeDown             = 0x00000002,
     kIOHIDSwipeLeft             = 0x00000004,
@@ -353,6 +417,15 @@ typedef uint32_t IOHIDSwipeMask;
     @constant kIOHIDGestureMotionScale
     @constant kIOHIDGestureMotionRotate
     @constant kIOHIDGestureMotionTap
+    @constant kIOHIDGestureMotionDoubleTap
+    @constant kIOHIDGestureMotionFromLeftEdge
+    @constant kIOHIDGestureMotionOffLeftEdge
+    @constant kIOHIDGestureMotionFromRightEdge
+    @constant kIOHIDGestureMotionOffRightEdge
+    @constant kIOHIDGestureMotionFromTopEdge
+    @constant kIOHIDGestureMotionOffTopEdge
+    @constant kIOHIDGestureMotionFromBottomEdge
+    @constant kIOHIDGestureMotionOffBottomEdge
 */
 enum {
     kIOHIDGestureMotionNone,
@@ -362,8 +435,38 @@ enum {
     kIOHIDGestureMotionRotate,
     kIOHIDGestureMotionTap,
     kIOHIDGestureMotionDoubleTap,
+    kIOHIDGestureMotionFromLeftEdge,
+    kIOHIDGestureMotionOffLeftEdge,
+    kIOHIDGestureMotionFromRightEdge,
+    kIOHIDGestureMotionOffRightEdge,
+    kIOHIDGestureMotionFromTopEdge,
+    kIOHIDGestureMotionOffTopEdge,
+    kIOHIDGestureMotionFromBottomEdge,
+    kIOHIDGestureMotionOffBottomEdge,
 };
-typedef uint32_t IOHIDGestureMotion;
+typedef uint16_t IOHIDGestureMotion;
+
+/*!
+    @typedef IOHIDGestureFlavor
+    @abstract 
+    @constant kIOHIDGestureFlavorNone
+    @constant kIOHIDGestureFlavorNotificationCenterPrimary
+    @constant kIOHIDGestureFlavorNotificationCenterSecondary
+    @constant kIOHIDGestureFlavorDockPrimary
+    @constant kIOHIDGestureFlavorDockSecondary
+    @constant kIOHIDGestureFlavorNavagationPrimary
+    @constant kIOHIDGestureFlavorNavagationSecondary
+*/
+enum {
+    kIOHIDGestureFlavorNone,
+    kIOHIDGestureFlavorNotificationCenterPrimary,
+    kIOHIDGestureFlavorNotificationCenterSecondary,
+    kIOHIDGestureFlavorDockPrimary,
+    kIOHIDGestureFlavorDockSecondary,
+    kIOHIDGestureFlavorNavagationPrimary,
+    kIOHIDGestureFlavorNavagationSecondary,
+};
+typedef uint16_t IOHIDGestureFlavor;
 
 /*!
     @typedef IOHIDProximityDetectionMask
@@ -378,6 +481,7 @@ typedef uint32_t IOHIDGestureMotion;
     @constant kIOHIDProximityDetectionReceiver
     @constant kIOHIDProximityDetectionSmallObjectsHovering
     @constant kIOHIDProximityDetectionReceiverCrude
+    @constant kIOHIDProximityDetectionReceiverMonitoring
 */
 enum {
     kIOHIDProximityDetectionLargeBodyContact                = 0x0001,
@@ -388,7 +492,8 @@ enum {
     kIOHIDProximityDetectionFingerTouch                     = 0x0020,
     kIOHIDProximityDetectionReceiver                        = 0x0040,
     kIOHIDProximityDetectionSmallObjectsHovering            = 0x0080,
-    kIOHIDProximityDetectionReceiverCrude                   = 0x0100
+    kIOHIDProximityDetectionReceiverCrude                   = 0x0100,
+    kIOHIDProximityDetectionReceiverMonitoring              = 0x0200
 };
 typedef uint32_t IOHIDProximityDetectionMask;
 
@@ -458,13 +563,14 @@ enum {
 typedef uint32_t IOHIDEventOptionBits;
 
 enum {
-    kIOHIDEventPhaseUndefined                               = 0x0,
-    kIOHIDEventPhaseBegan                                   = 0x1,
-    kIOHIDEventPhaseChanged                                 = 0x2,
-    kIOHIDEventPhaseEnded                                   = 0x4,
-    kIOHIDEventPhaseCancelled                               = 0x8,
-    kIOHIDEventEventPhaseMask                               = 0xF,
-    kIOHIDEventEventOptionPhaseShift                        = 28,
+    kIOHIDEventPhaseUndefined                               = 0x00,
+    kIOHIDEventPhaseBegan                                   = 0x01,
+    kIOHIDEventPhaseChanged                                 = 0x02,
+    kIOHIDEventPhaseEnded                                   = 0x04,
+    kIOHIDEventPhaseCancelled                               = 0x08,
+    kIOHIDEventPhaseMayBegin                                = 0x80,
+    kIOHIDEventEventPhaseMask                               = 0xFF,
+    kIOHIDEventEventOptionPhaseShift                        = 24,
 };
 typedef uint16_t IOHIDEventPhaseBits;
 

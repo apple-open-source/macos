@@ -21,11 +21,10 @@
 #ifndef WebKitDOMTestSerializedScriptValueInterface_h
 #define WebKitDOMTestSerializedScriptValueInterface_h
 
-#include "webkit/webkitdomdefines.h"
 #include <glib-object.h>
+#include <webkit/WebKitDOMObject.h>
 #include <webkit/webkitdefines.h>
-#include "webkit/WebKitDOMObject.h"
-
+#include <webkit/webkitdomdefines.h>
 
 G_BEGIN_DECLS
 #define WEBKIT_TYPE_DOM_TEST_SERIALIZED_SCRIPT_VALUE_INTERFACE            (webkit_dom_test_serialized_script_value_interface_get_type())
@@ -46,8 +45,103 @@ struct _WebKitDOMTestSerializedScriptValueInterfaceClass {
 WEBKIT_API GType
 webkit_dom_test_serialized_script_value_interface_get_type (void);
 
+/**
+ * webkit_dom_test_serialized_script_value_interface_accept_transfer_list:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ * @data: A #WebKitDOMSerializedScriptValue
+ * @transferList: A #WebKitDOMArray
+ *
+ * Returns:
+ *
+**/
+WEBKIT_API void
+webkit_dom_test_serialized_script_value_interface_accept_transfer_list(WebKitDOMTestSerializedScriptValueInterface* self, WebKitDOMSerializedScriptValue* data, WebKitDOMArray* transferList);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_multi_transfer_list:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ * @first: A #WebKitDOMSerializedScriptValue
+ * @tx: A #WebKitDOMArray
+ * @second: A #WebKitDOMSerializedScriptValue
+ * @txx: A #WebKitDOMArray
+ *
+ * Returns:
+ *
+**/
+WEBKIT_API void
+webkit_dom_test_serialized_script_value_interface_multi_transfer_list(WebKitDOMTestSerializedScriptValueInterface* self, WebKitDOMSerializedScriptValue* first, WebKitDOMArray* tx, WebKitDOMSerializedScriptValue* second, WebKitDOMArray* txx);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_get_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ *
+ * Returns: (transfer none):
+ *
+**/
 WEBKIT_API WebKitDOMSerializedScriptValue*
 webkit_dom_test_serialized_script_value_interface_get_value(WebKitDOMTestSerializedScriptValueInterface* self);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_set_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ * @value: A #WebKitDOMSerializedScriptValue
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API void
+webkit_dom_test_serialized_script_value_interface_set_value(WebKitDOMTestSerializedScriptValueInterface* self, WebKitDOMSerializedScriptValue* value);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_get_readonly_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API WebKitDOMSerializedScriptValue*
+webkit_dom_test_serialized_script_value_interface_get_readonly_value(WebKitDOMTestSerializedScriptValueInterface* self);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_get_cached_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API WebKitDOMSerializedScriptValue*
+webkit_dom_test_serialized_script_value_interface_get_cached_value(WebKitDOMTestSerializedScriptValueInterface* self);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_set_cached_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ * @value: A #WebKitDOMSerializedScriptValue
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API void
+webkit_dom_test_serialized_script_value_interface_set_cached_value(WebKitDOMTestSerializedScriptValueInterface* self, WebKitDOMSerializedScriptValue* value);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_get_ports:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API WebKitDOMMessagePortArray*
+webkit_dom_test_serialized_script_value_interface_get_ports(WebKitDOMTestSerializedScriptValueInterface* self);
+
+/**
+ * webkit_dom_test_serialized_script_value_interface_get_cached_readonly_value:
+ * @self: A #WebKitDOMTestSerializedScriptValueInterface
+ *
+ * Returns: (transfer none):
+ *
+**/
+WEBKIT_API WebKitDOMSerializedScriptValue*
+webkit_dom_test_serialized_script_value_interface_get_cached_readonly_value(WebKitDOMTestSerializedScriptValueInterface* self);
 
 G_END_DECLS
 

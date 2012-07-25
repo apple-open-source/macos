@@ -31,13 +31,13 @@
 #ifndef WebNetworkStateNotifier_h
 #define WebNetworkStateNotifier_h
 
-#include "WebCommon.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
 class WebNetworkStateNotifier {
 public:
-    WEBKIT_API static void setOnLine(bool);
+    WEBKIT_EXPORT static void setOnLine(bool);
 
 private:
     WebNetworkStateNotifier();

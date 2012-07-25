@@ -57,4 +57,4 @@ typedef struct {
     int		string_list;
 } dhcptype_info_t;
 
-#endif _S_DHCP_TYPE
+#endif /* _S_DHCP_TYPE */

@@ -91,7 +91,7 @@ CFTypeID IOHIDTransactionElementGetTypeID(void)
     return __kIOHIDTransactionElementTypeID;
 }
 
-IOHIDTransactionElementRef IOHIDTransactionElementCreate(CFAllocatorRef allocator, IOHIDElementRef element, IOOptionBits options)
+IOHIDTransactionElementRef IOHIDTransactionElementCreate(CFAllocatorRef allocator, IOHIDElementRef element, IOOptionBits options __unused)
 {
     if ( !element )
         return NULL;

@@ -31,8 +31,11 @@
 #include "config.h"
 #include "SSLKeyGenerator.h"
 
-#include "PlatformBridge.h"
 #include "PlatformString.h"
+
+#include <public/Platform.h>
+#include <public/WebString.h>
+#include <public/WebURL.h>
 
 namespace WebCore {
 
@@ -47,13 +50,11 @@ void getSupportedKeySizes(Vector<String>& sizes)
     sizes[1] = keygenMenuMediumGradeKeySize();
 }
 
-String signedPublicKeyAndChallengeString(unsigned keySizeIndex,
-                                         const String& challengeString,
-                                         const KURL& url)
+String signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const KURL& url)
 {
-    return PlatformBridge::signedPublicKeyAndChallengeString(keySizeIndex,
-                                                             challengeString,
-                                                             url);
+    return WebKit::Platform::current()->signedPublicKeyAndChallengeString(keySizeIndex,
+                                                                          WebKit::WebString(challengeString),
+                                                                          WebKit::WebURL(url));
 }
 
 } // namespace WebCore

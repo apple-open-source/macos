@@ -1,0 +1,84 @@
+----------------------------------------------------------------------------------------------------------------------
+READ ME: OPEN AL - OSX IMPLEMENTATION USING THE 3DMIXER AUDIOUNIT
+----------------------------------------------------------------------------------------------------------------------
+
+This Read Me should accompany the 3DMixer implementation of OpenAL (Open Audio Library). 
+
+CoreAudio Version requirements
+-----------------------
+It is recommended that this implementation is run on MAC OS X SnowLeopard (10.6) or later. Certain features may not be
+supported on older OS versions.
+
+Xcode Version requirements
+--------------------
+If Xcode 4.3 or later is installed, the CoreAudio Utility Classes must be installed at /Library/Developer
+The CoreAudio Utility Classes can be obtained from the Mac OS X Developer Library located at the url https://developer.apple.com
+
+If the Xcode version is older than 4.3, the path to the PublicUtility folder in the OpenAL Xcode project file should be changed to
+/Developer/Extras/CoreAudio/PublicUtility
+
+----------------------------------------------------------------------------------------------------------------------
+OpenAL Extensions:
+----------------------------------------------------------------------------------------------------------------------
+
+This implementation has the following OpenAL extensions. More information on usage and setting specifics can be found in the 
+MacOSX_OALExtensions.h header file.
+
+***** ALC_EXT_MAC_OSX
+The 'Apple Mac OSX Extension' contains various support for controlling aspects of Apple's OpenAL implementation that are specific to the platform.
+The extension provides settings for:
+
+	Rendering Quality 	- 	The Rendering Quality setting enables the application to specify from a number of available stereo/multi-channel 
+					rendering algorithms.
+	Channel Count 		- 	Apple's OpenAL implementation will render to stereo or multi-channel audio hardware based on the users system setup. 
+					This setting can be used to force stereo rendering on a multi speaker audio system.
+	Maximum Buses 		- 	This sets a maximum number of buses allocated by the system's 3DMixer AudioUnit, which provides the spatialized mixing of OpenAL
+	Output Rate 		- 	Allows the application to optimize audio mixing performance based on the sampling rate of its audio assets (files)
+
+***** ALC_MAC_OSX_CONVERT_DATA_UPON_LOADING
+This extension allows the caller to tell OpenAL to preconvert to the native CoreAudio format, the audio data passed to the 
+library with the alBufferData() call. Preconverting the audio data, reduces CPU usage by removing an audio data conversion 
+(per source) at render time at the expense of a larger memory footprint.
+
+***** AL_EXT_STATIC_BUFFER
+This extension provides a means for the caller to avoid the overhead associated with the alBufferData call which performs a physical copy 
+of the data provided by the caller to internal buffers. When using the AL_EXT_STATIC_BUFFER extension, OpenAL's internal buffers use 
+the data pointer provided by the caller for all data access.
+
+Note: It is important that the caller does NOT free these buffers until OpenAL returns from alDeleteBuffers() without returning an error.
+
+***** ALC_EXT_ASA
+The ASA (Apple Spatial Audio) extension currently provides three main effects: reverb, occlusion and obstruction.
+
+	Reverb:		A reverb effect with multiple presets and quality settings. Post EQ settings available for additional tonal control.
+
+	Occlusion:	An effect that applies a low pass filter to an OpenAL source object for simulating objects 
+			in different 'spaces' from the listener (post EQ, causing send to reverb to also be filtered)
+
+	Obstruction:	An effect that applies a low pass filter to an OpenAL source object for simulating objects being 'obstructed' 
+			from the listener (pre-EQ, allowing high frequencies of source object to remain in the reverb)
+
+**** ALC_EXT_ASA_ROGER_BEEP
+This extension allows use of the Roger Beep effect to simulate effects such as Walkie Talkie noise. Effect is activated when
+the source audio data falls below a specified db threshold for a specified time.
+
+**** ALC_EXT_ASA_DISTORTION
+This extension applies a distortion effect to a specified OpenAL source object. Different settings can be used to specify the style and 
+degree of distortion applied.
+
+**** AL_EXT_float32
+The AL_EXT_float32 extension provides support for 32-bit float audio data (mono/stereo).
+
+**** AL_EXT_SOURCE_NOTIFICATIONS
+This extension provides an alternative to the OpenAL polling mechanism used for obtaining state about Source and Buffer objects. The caller subscribes to
+the notification scheme by providing a callback function for the desired notification type. When a notification is received, the caller should then proceed
+to get the current state using the native OpenAL api calls.
+
+The available notification types are
+
+	AL_SOURCE_STATE		- there is a change in the source's state
+	AL_BUFFERS_PROCESSED	- there is a change in the number of buffers processed
+	AL_QUEUE_HAS_LOOPED 	- the buffer queue has looped (if looping is enabled)
+
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------------------------

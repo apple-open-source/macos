@@ -66,7 +66,7 @@ static void __DARequestAuthorize( DARequestRef        request,
                                   const char *        right )
 {
     DAAuthorizeWithCallback( NULL,
-                             kDAAuthorizeOptionForce | kDAAuthorizeOptionInteract,
+                             _kDAAuthorizeOptionAuthenticateAdministrator,
                              DARequestGetDisk( request ),
                              DARequestGetUserUID( request ),
                              DARequestGetUserGID( request ),
@@ -460,18 +460,15 @@ static void __DARequestEjectApprovalCallback( CFTypeRef response, void * context
 {
     DARequestRef request = context;
 
-    if ( DARequestGetUserUID( request ) )
-    {
-        DARequestSetDissenter( request, response );
-    }
+    DARequestSetDissenter( request, response );
 ///w:start
-    if ( response )
-    {
-        if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
-        {
-            DARequestSetDissenter( request, response );
-        }
-    }
+//  if ( response )
+//  {
+//      if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
+//      {
+//          DARequestSetDissenter( request, response );
+//      }
+//  }
 ///w:stop
 
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
@@ -802,30 +799,27 @@ static void __DARequestMountApprovalCallback( CFTypeRef response, void * context
 {
     DARequestRef request = context;
 
-    if ( DARequestGetUserUID( request ) )
-    {
-        DARequestSetDissenter( request, response );
-    }
+    DARequestSetDissenter( request, response );
 ///w:start
-    if ( response )
-    {
-        if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
-        {
-            DARequestSetDissenter( request, response );
-        }
-
-        if ( DADissenterGetStatus( response ) == 0xF8DAFF02 )
-        {
-            DARequestSetDissenter( request, response );
-        }
-
-        if ( DADissenterGetStatus( response ) == 0xF8DAFF03 )
-        {
-            DARequestSetDissenter( request, response );
-        }
-    }
+//  if ( response )
+//  {
+//      if ( DADissenterGetStatus( response ) == 0xF8DAFF01 )
+//      {
+//          DARequestSetDissenter( request, response );
+//      }
+//
+//      if ( DADissenterGetStatus( response ) == 0xF8DAFF02 )
+//      {
+//          DARequestSetDissenter( request, response );
+//      }
+//
+//      if ( DADissenterGetStatus( response ) == 0xF8DAFF03 )
+//      {
+//          DARequestSetDissenter( request, response );
+//      }
+//  }
 ///w:stop
-    
+
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
 
     DAStageSignal( );
@@ -1138,6 +1132,17 @@ static Boolean __DARequestUnmount( DARequestRef request )
         {
             status = kDAReturnNotMounted;
         }
+        else
+        {
+            CFURLRef mountpoint;
+
+            mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+            if ( CFEqual( CFURLGetString( mountpoint ), CFSTR( "file://localhost/" ) ) )
+            {
+                status = kDAReturnBusy;
+            }
+        }
 
         if ( status )
         {
@@ -1373,7 +1378,7 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
 {
     DARequestRef request = context;
 
-    if ( DARequestGetUserUID( request ) )
+    if ( response )
     {
         DADiskUnmountOptions options;
 
@@ -1393,7 +1398,7 @@ static void __DARequestUnmountApprovalCallback( CFTypeRef response, void * conte
         }
     }
 ///w:stop
-    
+
     DADiskSetState( DARequestGetDisk( request ), kDADiskStateCommandActive, FALSE );
 
     DAStageSignal( );

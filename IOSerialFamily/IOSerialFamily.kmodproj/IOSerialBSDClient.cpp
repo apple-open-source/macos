@@ -168,13 +168,14 @@ OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 # define IOSERIAL_DEBUG_BLOCK     (1<<7)
 # define IOSERIAL_DEBUG_SLEEP     (1<<8)
 # define IOSERIAL_DEBUG_DCDTRD    (1<<9)
+# define IOSERIAL_DEBUG_MULTI	  (1<<10)
 
 # define IOSERIAL_DEBUG_ERROR       (1<<15)
 # define IOSERIAL_DEBUG_ALWAYS      (1<<16)
 
 #ifdef DEBUG
 
-# define IOSERIAL_DEBUG (IOSERIAL_DEBUG_ERROR | IOSERIAL_DEBUG_DCDTRD)
+#define IOSERIAL_DEBUG (IOSERIAL_DEBUG_ERROR | IOSERIAL_DEBUG_MULTI )
 
 #else
 // production debug output should be minimal
@@ -228,6 +229,7 @@ private:
     unsigned int fLastMinor;
     IOSerialBSDClient **fClients;
     OSDictionary *fNames;
+	IOLock * fFunnelLock;
 
 public:
     IOSerialBSDClientGlobals();
@@ -241,6 +243,8 @@ public:
     const OSSymbol *getUniqueTTYSuffix
         (const OSSymbol *inName, const OSSymbol *suffix, dev_t dev);
     void releaseUniqueTTYSuffix(const OSSymbol *inName, const OSSymbol *suffix);
+	void takefFunnelLock();
+	void releasefFunnelLock();
 };
 
 // Create an instance of the IOSerialBSDClientGlobals
@@ -404,14 +408,14 @@ termios64to32(struct user_termios *in, struct termios32 *out)
 
 bool IOSerialBSDClientGlobals::isValid()
 {
-    return (fClients && fNames && fMajor != (unsigned int) -1);
+    return (fFunnelLock && fClients && fNames && fMajor != (unsigned int) -1);
 }
 
 #define OSSYM(str) OSSymbol::withCStringNoCopy(str)
 IOSerialBSDClientGlobals::IOSerialBSDClientGlobals()
 {
 #if JLOG
-	kprintf("IOSerialBSDClientGlobals::IOSerialBSDClientGlobals\n");
+	debug(MULTI,"init");
 #endif
     gIOSerialBSDServiceValue = OSSYM(kIOSerialBSDServiceValue);
     gIOSerialBSDTypeKey      = OSSYM(kIOSerialBSDTypeKey);
@@ -435,6 +439,7 @@ IOSerialBSDClientGlobals::IOSerialBSDClientGlobals()
         fMajor = cdevsw_add(-1, &IOSerialBSDClient::devsw);
         cdevsw_setkqueueok(fMajor, &IOSerialBSDClient::devsw, 0);
     }
+	fFunnelLock = IOLockAlloc();
     if (!isValid())
         IOLog("IOSerialBSDClient didn't initialize");
 }
@@ -461,14 +466,21 @@ IOSerialBSDClientGlobals::~IOSerialBSDClientGlobals()
         cdevsw_remove(fMajor, &IOSerialBSDClient::devsw);
     if (fClients)
         IOFree(fClients, fLastMinor * sizeof(fClients[0]));
+	if (fFunnelLock) {
+		IOLockFree(fFunnelLock);
+	}
 }
 
+void IOSerialBSDClientGlobals::takefFunnelLock() {
+	IOLockLock(fFunnelLock);
+}
+void IOSerialBSDClientGlobals::releasefFunnelLock() {
+	IOLockUnlock(fFunnelLock);
+}
 dev_t IOSerialBSDClientGlobals::assign_dev_t()
 {
     unsigned int i;
-#if JLOG
-    kprintf("IOSerialBSDClientGlobals::assign_dev_t\n");
-#endif
+    debug(MULTI,"begin");
 	for (i = 0; i < fLastMinor && fClients[i]; i++)
         ;
 
@@ -479,9 +491,10 @@ dev_t IOSerialBSDClientGlobals::assign_dev_t()
 
         newClients = (IOSerialBSDClient **)
                     IOMalloc(newLastMinor * sizeof(fClients[0]));
-        if (!newClients)
-            return (dev_t) -1;
-
+        if (!newClients) {
+            debug(MULTI,"end not normal");
+			return (dev_t) -1;
+		}
         bzero(&newClients[fLastMinor], 4 * sizeof(fClients[0]));
         bcopy(fClients, newClients, fLastMinor * sizeof(fClients[0]));
         IOFree(fClients, fLastMinor * sizeof(fClients[0]));
@@ -491,17 +504,14 @@ dev_t IOSerialBSDClientGlobals::assign_dev_t()
 
     dev_t dev = makedev(fMajor, i << TTY_NUM_FLAGS);
     fClients[i] = (IOSerialBSDClient *) -1;
-
+    debug(MULTI,"end normal");
     return dev;
 }
 
 bool IOSerialBSDClientGlobals::
 registerTTY(dev_t dev, IOSerialBSDClient *client)
 {
-#if JLOG
-    kprintf("IOSerialBSDClientGlobals::registerTTY\n");
-#endif
-	
+    debug(MULTI,"begin");
     bool ret = false;
     unsigned int i = TTY_UNIT(dev);
 
@@ -513,7 +523,7 @@ registerTTY(dev_t dev, IOSerialBSDClient *client)
             ret = true;
         }
     }
-
+	debug(MULTI,"end");
     return ret;
 }
 
@@ -522,22 +532,15 @@ registerTTY(dev_t dev, IOSerialBSDClient *client)
 // explicitly.
 IOSerialBSDClient *IOSerialBSDClientGlobals::getClient(dev_t dev)
 {
-#if JLOG
-    kprintf("IOSerialBSDClientGlobals::getClient\n");
-#endif	
+    //debug(MULTI,"begin");
     return fClients[TTY_UNIT(dev)];
 }
 
 const OSSymbol *IOSerialBSDClientGlobals::
 getUniqueTTYSuffix(const OSSymbol *inName, const OSSymbol *suffix, dev_t dev)
 {
-
-    OSSet *suffixSet = 0;
-#if JLOG
-    kprintf("IOSerialBSDClientGlobals::getUniqueTTYSuffix\n");
-#endif
-	
-    
+    OSSet *suffixSet = 0;	
+    debug(MULTI,"begin");
     do {
         // Do we have this name already registered?
         suffixSet = (OSSet *) fNames->getObject(inName);
@@ -583,7 +586,7 @@ getUniqueTTYSuffix(const OSSymbol *inName, const OSSymbol *suffix, dev_t dev)
         if (suffix)
             suffix->release();	// Release the creation reference
     } while(false);
-
+	debug(MULTI,"end");
     return suffix;
 }
 
@@ -591,14 +594,12 @@ void IOSerialBSDClientGlobals::
 releaseUniqueTTYSuffix(const OSSymbol *inName, const OSSymbol *suffix)
 {
     OSSet *suffixSet;
-#if JLOG
-    kprintf("IOSerialBSDClientGlobals::releaseUniqueTTYSuffix\n");
-#endif
-	
-
+    debug(MULTI,"begin");
     suffixSet = (OSSet *) fNames->getObject(inName);
     if (suffixSet)
         suffixSet->removeObject((OSObject *) suffix);
+	
+	debug(MULTI,"end");
 }
 
 bool IOSerialBSDClient::
@@ -609,10 +610,7 @@ createDevNodes()
     OSString *deviceKey = 0, *calloutName = 0, *dialinName = 0;
     void *calloutNode = 0, *dialinNode = 0;
     const OSSymbol *nubName, *suffix;
-#if JLOG
-    kprintf("IOSerialBSDClient::createDevNodes\n");
-#endif
-	
+    debug(MULTI,"begin");
 
     // Convert the provider's base name to an OSSymbol if necessary
     nubName = (const OSSymbol *) fProvider->getProperty(gIOTTYBaseNameKey);
@@ -621,12 +619,16 @@ createDevNodes()
             nubName = OSSymbol::withString((OSString *) nubName);
         else
             nubName = OSSymbol::withCString("");
-        if (!nubName)
+        if (!nubName) {
+			debug(MULTI,"no Nub for basename");
             return false;
+		}
         ret = fProvider->setProperty(gIOTTYBaseNameKey, (OSObject *) nubName);
         nubName->release();
-        if (!ret)
+        if (!ret) {
+			debug(MULTI,"no Nub for basename SET");
             return false;
+		}
     }
 
     // Convert the provider's suffix to an OSSymbol if necessary
@@ -636,17 +638,23 @@ createDevNodes()
             suffix = OSSymbol::withString((OSString *) suffix);
         else
             suffix = OSSymbol::withCString("");
-        if (!suffix)
+        if (!suffix) {
+			debug(MULTI,"no suffix");
             return false;
+		}
         ret = fProvider->setProperty(gIOTTYSuffixKey, (OSObject *) suffix);
         suffix->release();
-        if (!ret)
+        if (!ret) {
+			debug(MULTI,"no suffix SET");
             return false;
+		}
     }
 
     suffix = sBSDGlobals.getUniqueTTYSuffix(nubName, suffix, fBaseDev);
-    if (!suffix)
+    if (!suffix) {
+		debug(MULTI,"no UniqueTTYSuffix");
         return false;
+	}
 	
     setProperty(gIOTTYSuffixKey,   (OSObject *) suffix);
     fProvider->setProperty(gIOTTYSuffixKey,   (OSObject *) suffix);
@@ -725,7 +733,7 @@ createDevNodes()
         devfs_remove(dialinNode);
     if (calloutNode)
         devfs_remove(calloutNode);
-
+	debug(MULTI,"finish");
     return ret;
 }
 
@@ -737,9 +745,7 @@ setBaseTypeForDev()
     static const char *streamTypeNames[] = {
         "IOSerialStream", "IORS232SerialStream", "IOModemSerialStream", 0
     };
-#if JLOG
-    kprintf("IOSerialBSDClient::setBaseTypeForDev\n");
-#endif
+    debug(MULTI,"begin");
 	
 
     // Walk through the provider super class chain looking for an
@@ -762,19 +768,19 @@ setBaseTypeForDev()
                     ret = setProperty(gIOSerialBSDTypeKey, (OSObject *) name);
                     name->release();
                 }
+				debug(MULTI,"finish normal");
                 return ret;
             }
         }
     }
+	debug(MULTI,"finish error");
     return false;
 }
 
 bool IOSerialBSDClient::
 start(IOService *provider)
 {
-#if JLOG
-    kprintf("IOSerialBSDClient::start\n");
-#endif
+    debug(MULTI,"begin");
 	
 	fBaseDev = -1;
     if (!super::start(provider))
@@ -782,6 +788,8 @@ start(IOService *provider)
 
     if (!sBSDGlobals.isValid())
         return false;
+	
+	sBSDGlobals.takefFunnelLock();
 
     fProvider = OSDynamicCast(IOSerialStreamSync, provider);
     if (!fProvider)
@@ -798,7 +806,7 @@ start(IOService *provider)
 	fIoctlLock = IOLockAlloc();
 	if (!fIoctlLock)
 		return false;
-	
+		
 	fisBlueTooth = false;
 	fPreemptInProgress = false;
 	fDCDThreadCall = 0;
@@ -830,26 +838,30 @@ start(IOService *provider)
         = fSessions[TTY_DIALIN_INDEX].fInitTerm;
 
     do {
-        fBaseDev = sBSDGlobals.assign_dev_t();
-        if ((dev_t) -1 == fBaseDev)
+		
+		fBaseDev = sBSDGlobals.assign_dev_t();
+        if ((dev_t) -1 == fBaseDev) {
             break;
-
-        if (!createDevNodes())
+		}
+        if (!createDevNodes()) {
+           break;
+		}
+        if (!setBaseTypeForDev()) {
+           break;
+		}
+        if (!sBSDGlobals.registerTTY(fBaseDev, this)) {
             break;
-
-        if (!setBaseTypeForDev())
-            break;
-
-        if (!sBSDGlobals.registerTTY(fBaseDev, this))
-            break;
-
+		}
         // Let userland know that this serial port exists
         registerService();
+		debug(MULTI," finished");
+		sBSDGlobals.releasefFunnelLock();
         return true;
     } while (0);
-
     // Failure path
-    cleanupResources();
+    debug(MULTI," Cleanup Resources");
+    sBSDGlobals.releasefFunnelLock();
+	cleanupResources();
     return false;
 }
 
@@ -938,12 +950,12 @@ matchPropertyTable(OSDictionary *table)
 
 void IOSerialBSDClient::free()
 {
-    {
+    
 #if JLOG
 		kprintf("IOSerialBSDClient::free\n");
 #endif
-		
-	if ((dev_t) -1 != fBaseDev)
+	sBSDGlobals.takefFunnelLock();
+	if ((dev_t) -1 != fBaseDev) {
 	    sBSDGlobals.registerTTY(fBaseDev, 0);
     }
 
@@ -962,7 +974,7 @@ void IOSerialBSDClient::free()
 	
 	if (fIoctlLock)
 		IOLockFree(fIoctlLock);
-	
+		
 	if (fDCDThreadCall) {
 		debug(DCDTRD, "DCDThread is freed in free");
 		thread_call_cancel(fDCDThreadCall);
@@ -970,7 +982,7 @@ void IOSerialBSDClient::free()
 		fDCDThreadCall = 0;
 		fDCDTimerDue = false;
 	}
-
+	sBSDGlobals.releasefFunnelLock();
     super::free();
 }
 
@@ -1105,8 +1117,9 @@ iossopen(dev_t dev, int flags, int devtype, struct proc *p)
 #if JLOG	
 	kprintf("IOSerialBSDClient::iossopen\n");
 #endif
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
-
+	sBSDGlobals.releasefFunnelLock();
     if (!me || me->isInactive())
         return ENXIO;
 
@@ -1129,9 +1142,9 @@ iossclose(dev_t dev, int flags, int devtype, struct proc *p)
 #if JLOG	
 	kprintf("IOSerialBSDClient::iossclose enter\n");
 #endif
-
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
-
+	sBSDGlobals.releasefFunnelLock();
     if (!me)
         return ENXIO;
 
@@ -1164,8 +1177,9 @@ iossread(dev_t dev, struct uio *uio, int ioflag)
 #if JLOG	
 	kprintf("IOSerialBSDClient::iossread\n");
 #endif
-
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+	sBSDGlobals.releasefFunnelLock();
     int error;
 
     assert(me);
@@ -1195,7 +1209,9 @@ iossread(dev_t dev, struct uio *uio, int ioflag)
 int IOSerialBSDClient::
 iosswrite(dev_t dev, struct uio *uio, int ioflag)
 {
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+	sBSDGlobals.releasefFunnelLock();
     int error;
 	
 #if JLOG
@@ -1220,7 +1236,9 @@ iosswrite(dev_t dev, struct uio *uio, int ioflag)
 int IOSerialBSDClient::
 iossselect(dev_t dev, int which, void *wql, struct proc *p)
 {
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+	sBSDGlobals.releasefFunnelLock();
     int error;
 	
 #if JLOG	
@@ -1271,7 +1289,9 @@ int IOSerialBSDClient::
 iossioctl(dev_t dev, u_long cmd, caddr_t data, int fflag,				// XXX64
                          struct proc *p)
 {
+	sBSDGlobals.takefFunnelLock();
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
+	sBSDGlobals.releasefFunnelLock();
     int error = 0;
 	
     debug(FLOW, "begin");
@@ -3195,9 +3215,11 @@ cleanupResources()
 #endif
     // Remove our device name from the devfs
     if ((dev_t) -1 != fBaseDev) {
+	sBSDGlobals.takefFunnelLock();
 	sBSDGlobals.releaseUniqueTTYSuffix(
 		(const OSSymbol *) getProperty(gIOTTYBaseNameKey),
 		(const OSSymbol *) getProperty(gIOTTYSuffixKey));
+	sBSDGlobals.releasefFunnelLock();
     }
 
     if (fSessions[TTY_CALLOUT_INDEX].fCDevNode)

@@ -25,14 +25,24 @@
 
 /* Chromium default media controls */
 
+body:-webkit-full-page-media {
+    background-color: rgb(0, 0, 0);
+}
+
 audio {
     width: 300px;
     height: 32px;
 }
 
+audio:-webkit-full-page-media, video:-webkit-full-page-media {
+    max-height: 100%;
+    max-width: 100%;
+}
+
 audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
     -webkit-user-select: none;
-    position: absolute;
+    -webkit-box-pack: end;
+    position: relative;
     overflow: visible;
     bottom: 0;
     width: 100%;
@@ -45,9 +55,13 @@ video:-webkit-full-page-media::-webkit-media-controls-panel {
     bottom: 0px;
 }
 
+audio::-webkit-media-controls-panel, video::-webkit-media-controls-panel {
+    -webkit-box-align: end;
+}
+
 audio::-webkit-media-controls-mute-button, video::-webkit-media-controls-mute-button {
     -webkit-appearance: media-mute-button;
-    position: absolute;
+    position: relative;
     top: auto;
     bottom: 0;
     right: 0;
@@ -102,10 +116,6 @@ audio::-webkit-media-controls-current-time-display, video::-webkit-media-control
     overflow: hidden;
     cursor: default;
 
-    position: absolute;
-    top: 6px;
-    right: 0;
-
     line-height: 21px;
     height: 20px;
     width: 58px;
@@ -130,13 +140,8 @@ audio::-webkit-media-controls-timeline, video::-webkit-media-controls-timeline {
     box-sizing: border-box;
     -webkit-box-flex: 1;
 
-    position: absolute;
-    top: 7px;
-    left: 6px;
-    right: 64px;
-
     padding: 0px;
-    margin: 0px;
+    margin: 0px 6px;
     height: 18px;
 
     border-color: rgba(255, 255, 255, 0.2);
@@ -149,7 +154,7 @@ audio::-webkit-media-controls-timeline, video::-webkit-media-controls-timeline {
 
 audio::-webkit-media-controls-volume-slider-container, video::-webkit-media-controls-volume-slider-container {
     -webkit-appearance: media-volume-slider-container;
-    position: absolute;
+    position: relative;
 
     width: 34px;
     height: 100px;

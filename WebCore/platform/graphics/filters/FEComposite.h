@@ -59,15 +59,23 @@ public:
     float k4() const;
     bool setK4(float);
 
-    virtual void apply();
+    virtual void correctFilterResultIfNeeded() OVERRIDE;
+
+    virtual void platformApplySoftware();
     virtual void dump();
     
     virtual void determineAbsolutePaintRect();
 
     virtual TextStream& externalRepresentation(TextStream&, int indention) const;
 
+protected:
+    virtual bool requiresValidPreMultipliedPixels() OVERRIDE { return m_type != FECOMPOSITE_OPERATOR_ARITHMETIC; }
+
 private:
     FEComposite(Filter*, const CompositeOperationType&, float, float, float, float);
+
+    inline void platformArithmeticSoftware(Uint8ClampedArray* source, Uint8ClampedArray* destination, float k1, float k2, float k3, float k4);
+    inline void platformArithmeticNeon(unsigned char* source, unsigned  char* destination, unsigned pixelArrayLength, float* kArray);
 
     CompositeOperationType m_type;
     float m_k1;

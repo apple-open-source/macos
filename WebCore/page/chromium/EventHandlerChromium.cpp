@@ -58,7 +58,7 @@ bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& m
     // greyed out even though we're clicking on the selection.  This looks
     // really strange (having the whole frame be greyed out), so we deselect the
     // selection.
-    IntPoint p = m_frame->view()->windowToContents(mev.event().pos());
+    IntPoint p = m_frame->view()->windowToContents(mev.event().position());
     if (m_frame->selection()->contains(p)) {
         VisiblePosition visiblePos(
             targetNode(mev)->renderer()->positionForPoint(mev.localPoint()));
@@ -85,7 +85,7 @@ bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults&
     return true;
 }
 
-bool EventHandler::passWheelEventToWidget(PlatformWheelEvent& wheelEvent, Widget* widget)
+bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& wheelEvent, Widget* widget)
 {
     // We can sometimes get a null widget!  EventHandlerMac handles a null
     // widget by returning false, so we do the same.
@@ -128,7 +128,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
-    RefPtr<ChromiumDataObject> dataObject = ChromiumDataObject::create(Clipboard::DragAndDrop);
+    RefPtr<ChromiumDataObject> dataObject = ChromiumDataObject::create();
     return ClipboardChromium::create(Clipboard::DragAndDrop, dataObject.get(), ClipboardWritable, m_frame);
 }
 
@@ -148,9 +148,9 @@ bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
 unsigned EventHandler::accessKeyModifiers()
 {
 #if OS(DARWIN)
-    return PlatformKeyboardEvent::CtrlKey | PlatformKeyboardEvent::AltKey;
+    return PlatformEvent::CtrlKey | PlatformEvent::AltKey;
 #else
-    return PlatformKeyboardEvent::AltKey;
+    return PlatformEvent::AltKey;
 #endif
 }
 

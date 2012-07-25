@@ -28,31 +28,22 @@ namespace WebCore {
 
 class RenderTextControlMultiLine : public RenderTextControl {
 public:
-    RenderTextControlMultiLine(Node*, bool);
+    RenderTextControlMultiLine(Node*);
     virtual ~RenderTextControlMultiLine();
-
-    void forwardEvent(Event*);
 
 private:
     virtual bool isTextArea() const { return true; }
 
-    virtual void subtreeHasChanged();
-
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
     virtual float getAvgCharWidth(AtomicString family);
-    virtual int preferredContentWidth(float charWidth) const;
-    virtual void adjustControlHeightBasedOnLineHeight(int lineHeight);
-    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
-
-    virtual void updateFromElement();
-    virtual void cacheSelection(int start, int end);
+    virtual LayoutUnit preferredContentWidth(float charWidth) const;
+    virtual LayoutUnit computeControlHeight(LayoutUnit lineHeight, LayoutUnit nonContentHeight) const OVERRIDE;
+    virtual LayoutUnit baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
     virtual RenderStyle* textBaseStyle() const;
     virtual PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle) const;
-    virtual int textBlockInsetLeft() const;
-    virtual int textBlockInsetRight() const;
-    virtual int textBlockInsetTop() const;
+    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren);
 };
 
 inline RenderTextControlMultiLine* toRenderTextControlMultiLine(RenderObject* object)

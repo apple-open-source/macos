@@ -29,11 +29,11 @@
 #include "IntPoint.h"
 #include <wtf/Vector.h>
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 typedef struct CGRect CGRect;
 #endif
 
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
+#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN)) || (PLATFORM(QT) && USE(QTKIT))
 #ifdef NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES
 typedef struct CGRect NSRect;
 #else
@@ -50,14 +50,19 @@ QT_END_NAMESPACE
 #elif PLATFORM(GTK)
 #ifdef GTK_API_VERSION_2
 typedef struct _GdkRectangle GdkRectangle;
-#else
-typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
-typedef cairo_rectangle_int_t GdkRectangle;
 #endif
-#elif PLATFORM(HAIKU)
-class BRect;
 #elif PLATFORM(EFL)
 typedef struct _Eina_Rectangle Eina_Rectangle;
+#elif PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace Platform {
+class IntRect;
+}
+}
+#endif
+
+#if USE(CAIRO)
+typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
 #endif
 
 #if PLATFORM(WX)
@@ -72,6 +77,7 @@ struct SkIRect;
 namespace WebCore {
 
 class FloatRect;
+class FractionalLayoutRect;
 
 class IntRect {
 public:
@@ -81,7 +87,8 @@ public:
     IntRect(int x, int y, int width, int height)
         : m_location(IntPoint(x, y)), m_size(IntSize(width, height)) { }
 
-    explicit IntRect(const FloatRect& rect); // don't do this implicitly since it's lossy
+    explicit IntRect(const FloatRect&); // don't do this implicitly since it's lossy
+    explicit IntRect(const FractionalLayoutRect&); // don't do this implicitly since it's lossy
         
     IntPoint location() const { return m_location; }
     IntSize size() const { return m_size; }
@@ -96,6 +103,17 @@ public:
     int width() const { return m_size.width(); }
     int height() const { return m_size.height(); }
 
+    // FIXME: These methods are here only to ease the transition to sub-pixel layout. They should
+    // be removed when we close http://webkit.org/b/60318
+    int pixelSnappedX() const { return m_location.x(); }
+    int pixelSnappedY() const { return m_location.y(); }
+    int pixelSnappedMaxX() const { return x() + width(); }
+    int pixelSnappedMaxY() const { return y() + height(); }
+    int pixelSnappedWidth() const { return m_size.width(); }
+    int pixelSnappedHeight() const { return m_size.height(); }
+    IntPoint pixelSnappedLocation() const { return location(); }
+    IntSize pixelSnappedSize() const { return size(); }
+
     void setX(int x) { m_location.setX(x); }
     void setY(int y) { m_location.setY(y); }
     void setWidth(int width) { m_size.setWidth(width); }
@@ -107,7 +125,7 @@ public:
     // center point.
     IntPoint center() const { return IntPoint(x() + width() / 2, y() + height() / 2); }
 
-    void move(const IntSize& size) { m_location += size; }
+    void move(const IntSize& size) { m_location += size; } 
     void moveBy(const IntPoint& offset) { m_location.move(offset.x(), offset.y()); }
     void move(int dx, int dy) { m_location.move(dx, dy); } 
 
@@ -170,6 +188,11 @@ public:
     void inflate(int d) { inflateX(d); inflateY(d); }
     void scale(float s);
 
+    IntSize differenceToPoint(const IntPoint&) const;
+    IntSize differenceFromCenterLineToPoint(const IntPoint&) const;
+    int distanceSquaredToPoint(const IntPoint& p) const { return differenceToPoint(p).diagonalLengthSquared(); }
+    int distanceSquaredFromCenterLineToPoint(const IntPoint& p) const { return differenceFromCenterLineToPoint(p).diagonalLengthSquared(); }
+
     IntRect transposedRect() const { return IntRect(m_location.transposedPoint(), m_size.transposedSize()); }
 
 #if PLATFORM(WX)
@@ -184,17 +207,21 @@ public:
     IntRect(const QRect&);
     operator QRect() const;
 #elif PLATFORM(GTK)
+#ifdef GTK_API_VERSION_2
     IntRect(const GdkRectangle&);
     operator GdkRectangle() const;
-#elif PLATFORM(HAIKU)
-    explicit IntRect(const BRect&);
-    operator BRect() const;
+#endif
 #elif PLATFORM(EFL)
     explicit IntRect(const Eina_Rectangle&);
     operator Eina_Rectangle() const;
 #endif
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if USE(CAIRO)
+    IntRect(const cairo_rectangle_int_t&);
+    operator cairo_rectangle_int_t() const;
+#endif
+
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
     operator CGRect() const;
 #endif
 
@@ -205,8 +232,13 @@ public:
 #endif
 
 #if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)) \
-        || (PLATFORM(CHROMIUM) && OS(DARWIN))
+        || (PLATFORM(CHROMIUM) && OS(DARWIN))  || (PLATFORM(QT) && USE(QTKIT))
     operator NSRect() const;
+#endif
+
+#if PLATFORM(BLACKBERRY)
+    IntRect(const BlackBerry::Platform::IntRect&);
+    operator BlackBerry::Platform::IntRect() const;
 #endif
 
 private:
@@ -240,12 +272,19 @@ inline bool operator!=(const IntRect& a, const IntRect& b)
     return a.location() != b.location() || a.size() != b.size();
 }
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+// FIXME: This method is here only to ease the transition to sub-pixel layout. It should
+// be removed when we close http://webkit.org/b/60318
+inline IntRect enclosingIntRect(const IntRect& rect)
+{
+    return rect;
+}
+
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 IntRect enclosingIntRect(const CGRect&);
 #endif
 
 #if (PLATFORM(MAC) && !defined(NSGEOMETRY_TYPES_SAME_AS_CGGEOMETRY_TYPES)) \
-        || (PLATFORM(CHROMIUM) && OS(DARWIN))
+        || (PLATFORM(CHROMIUM) && OS(DARWIN)) || (PLATFORM(QT) && USE(QTKIT))
 IntRect enclosingIntRect(const NSRect&);
 #endif
 

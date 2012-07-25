@@ -42,7 +42,7 @@ struct _gss_iter {
     HEIMDAL_MUTEX mutex;
     unsigned int count;
     void *userctx;
-    void (*iter)(void *, gss_OID, gss_cred_id_t);
+    void (*iter)(void *, gss_const_OID, gss_cred_id_t);
 };
 
 static void
@@ -67,11 +67,9 @@ iterate(void *cctx, gss_OID mech, gss_cred_id_t cred)
 	struct _gss_mechanism_cred *mc;
 	struct _gss_cred *c;
 
-	c = malloc(sizeof(struct _gss_cred));
+	c = _gss_mg_alloc_cred();
 	if (!c)
 	    return;
-
-	SLIST_INIT(&c->gc_mc);
 
 	mc = malloc(sizeof(struct _gss_mechanism_cred));
 	if (!mc) {
@@ -82,7 +80,7 @@ iterate(void *cctx, gss_OID mech, gss_cred_id_t cred)
 	mc->gmc_mech = __gss_get_mechanism(mech);
 	mc->gmc_mech_oid = mech;
 	mc->gmc_cred = cred;
-	SLIST_INSERT_HEAD(&c->gc_mc, mc, gmc_link);
+	HEIM_SLIST_INSERT_HEAD(&c->gc_mc, mc, gmc_link);
 
 	ctx->iter(ctx->userctx, mech, (gss_cred_id_t)c);
     } else {
@@ -109,9 +107,9 @@ iterate(void *cctx, gss_OID mech, gss_cred_id_t cred)
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_iter_creds_f(OM_uint32 *min_stat,
 		 OM_uint32 flags,
-		 gss_OID mech,
+		 gss_const_OID mech,
 		 void * userctx,
-		 void (*useriter)(void *, gss_OID, gss_cred_id_t))
+		 void (*useriter)(void *, gss_iter_OID, gss_cred_id_t))
 {
     struct _gss_iter *ctx;
     gss_OID_set mechs;
@@ -170,9 +168,9 @@ gss_iter_creds_f(OM_uint32 *min_stat,
 #include <Block.h>
 
 static void
-useriter_block(void *ctx, gss_OID mech, gss_cred_id_t cred)
+useriter_block(void *ctx, gss_const_OID mech, gss_cred_id_t cred)
 {
-    void (^u)(gss_OID, gss_cred_id_t) = ctx;
+    void (^u)(gss_const_OID, gss_cred_id_t) = ctx;
 
     u(mech, cred);
 
@@ -196,10 +194,10 @@ useriter_block(void *ctx, gss_OID mech, gss_cred_id_t cred)
 OM_uint32 GSSAPI_LIB_FUNCTION
 gss_iter_creds(OM_uint32 *min_stat,
 	       OM_uint32 flags,
-	       gss_OID mech,
-	       void (^useriter)(gss_OID, gss_cred_id_t))
+	       gss_const_OID mech,
+	       void (^useriter)(gss_iter_OID, gss_cred_id_t))
 {
-    void (^u)(gss_OID, gss_cred_id_t) = (void (^)(gss_OID, gss_cred_id_t))Block_copy(useriter);
+    void (^u)(gss_const_OID, gss_cred_id_t) = (void (^)(gss_const_OID, gss_cred_id_t))Block_copy(useriter);
 
     return gss_iter_creds_f(min_stat, flags, mech, u, useriter_block);
 }

@@ -27,9 +27,10 @@
 
 #include "GradientAttributes.h"
 #include "GraphicsContext.h"
+#include "RenderSVGShape.h"
 #include "RenderSVGText.h"
-#include "SVGImageBufferTools.h"
 #include "SVGRenderSupport.h"
+#include "SVGRenderingContext.h"
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
@@ -43,22 +44,9 @@ RenderSVGResourceGradient::RenderSVGResourceGradient(SVGGradientElement* node)
 {
 }
 
-RenderSVGResourceGradient::~RenderSVGResourceGradient()
-{
-    if (m_gradient.isEmpty())
-        return;
-
-    deleteAllValues(m_gradient);
-    m_gradient.clear();
-}
-
 void RenderSVGResourceGradient::removeAllClientsFromCache(bool markForInvalidation)
 {
-    if (!m_gradient.isEmpty()) {
-        deleteAllValues(m_gradient);
-        m_gradient.clear();
-    }
-
+    m_gradientMap.clear();
     m_shouldCollectGradientAttributes = true;
     markAllClientsForInvalidation(markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
@@ -66,10 +54,7 @@ void RenderSVGResourceGradient::removeAllClientsFromCache(bool markForInvalidati
 void RenderSVGResourceGradient::removeClientFromCache(RenderObject* client, bool markForInvalidation)
 {
     ASSERT(client);
-
-    if (m_gradient.contains(client))
-        delete m_gradient.take(client);
-
+    m_gradientMap.remove(client);
     markClientForInvalidation(client, markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
@@ -83,23 +68,15 @@ static inline bool createMaskAndSwapContextForTextGradient(GraphicsContext*& con
     ASSERT(textRootBlock);
 
     AffineTransform absoluteTransform;
-    SVGImageBufferTools::calculateTransformationToOutermostSVGCoordinateSystem(textRootBlock, absoluteTransform);
+    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(textRootBlock, absoluteTransform);
 
-    FloatRect absoluteTargetRect = absoluteTransform.mapRect(textRootBlock->repaintRectInLocalCoordinates());
-    FloatRect clampedAbsoluteTargetRect = SVGImageBufferTools::clampedAbsoluteTargetRectForRenderer(textRootBlock, absoluteTargetRect);
-    if (clampedAbsoluteTargetRect.isEmpty())
-        return false;
-
+    FloatRect repaintRect = textRootBlock->repaintRectInLocalCoordinates();
     OwnPtr<ImageBuffer> maskImage;
-    if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, maskImage, ColorSpaceDeviceRGB))
+    if (!SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, maskImage, ColorSpaceDeviceRGB, Unaccelerated))
         return false;
 
     GraphicsContext* maskImageContext = maskImage->context();
     ASSERT(maskImageContext);
-
-    maskImageContext->translate(-clampedAbsoluteTargetRect.x(), -clampedAbsoluteTargetRect.y());
-    maskImageContext->concatCTM(absoluteTransform);
-
     ASSERT(maskImage);
     savedContext = context;
     context = maskImageContext;
@@ -117,15 +94,11 @@ static inline AffineTransform clipToTextMask(GraphicsContext* context,
     RenderObject* textRootBlock = RenderSVGText::locateRenderSVGTextAncestor(object);
     ASSERT(textRootBlock);
 
-    targetRect = textRootBlock->repaintRectInLocalCoordinates();
-
     AffineTransform absoluteTransform;
-    SVGImageBufferTools::calculateTransformationToOutermostSVGCoordinateSystem(textRootBlock, absoluteTransform);
+    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(textRootBlock, absoluteTransform);
 
-    FloatRect absoluteTargetRect = absoluteTransform.mapRect(targetRect);
-    FloatRect clampedAbsoluteTargetRect = SVGImageBufferTools::clampedAbsoluteTargetRectForRenderer(textRootBlock, absoluteTargetRect);
-
-    SVGImageBufferTools::clipToImageBuffer(context, absoluteTransform, clampedAbsoluteTargetRect, imageBuffer);
+    targetRect = textRootBlock->repaintRectInLocalCoordinates();
+    SVGRenderingContext::clipToImageBuffer(context, absoluteTransform, targetRect, imageBuffer, false);
 
     AffineTransform matrix;
     if (boundingBoxMode) {
@@ -155,33 +128,35 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
 
     if (m_shouldCollectGradientAttributes) {
         gradientElement->updateAnimatedSVGAttribute(anyQName());
-        collectGradientAttributes(gradientElement);
+        if (!collectGradientAttributes(gradientElement))
+            return false;
+
         m_shouldCollectGradientAttributes = false;
     }
 
     // Spec: When the geometry of the applicable element has no width or height and objectBoundingBox is specified,
     // then the given effect (e.g. a gradient or a filter) will be ignored.
     FloatRect objectBoundingBox = object->objectBoundingBox();
-    if (boundingBoxMode() && objectBoundingBox.isEmpty())
+    if (gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX && objectBoundingBox.isEmpty())
         return false;
 
-    if (!m_gradient.contains(object))
-        m_gradient.set(object, new GradientData);
+    OwnPtr<GradientData>& gradientData = m_gradientMap.add(object, nullptr).iterator->second;
+    if (!gradientData)
+        gradientData = adoptPtr(new GradientData);
 
-    GradientData* gradientData = m_gradient.get(object);
     bool isPaintingText = resourceMode & ApplyToTextMode;
 
     // Create gradient object
     if (!gradientData->gradient) {
-        buildGradient(gradientData, gradientElement);
+        buildGradient(gradientData.get());
 
         // CG platforms will handle the gradient space transform for text after applying the
         // resource, so don't apply it here. For non-CG platforms, we want the text bounding
         // box applied to the gradient space transform now, so the gradient shader can use it.
 #if USE(CG)
-        if (boundingBoxMode() && !objectBoundingBox.isEmpty() && !isPaintingText) {
+        if (gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX && !objectBoundingBox.isEmpty() && !isPaintingText) {
 #else
-        if (boundingBoxMode() && !objectBoundingBox.isEmpty()) {
+        if (gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX && !objectBoundingBox.isEmpty()) {
 #endif
             gradientData->userspaceTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
             gradientData->userspaceTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
@@ -229,7 +204,7 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
     return true;
 }
 
-void RenderSVGResourceGradient::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode, const Path* path)
+void RenderSVGResourceGradient::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode, const Path* path, const RenderSVGShape* shape)
 {
     ASSERT(context);
     ASSERT(resourceMode != ApplyToDefaultMode);
@@ -237,9 +212,8 @@ void RenderSVGResourceGradient::postApplyResource(RenderObject* object, Graphics
     if (resourceMode & ApplyToTextMode) {
 #if USE(CG)
         // CG requires special handling for gradient on text
-        if (m_savedContext && m_gradient.contains(object)) {
-            GradientData* gradientData = m_gradient.get(object);
-
+        GradientData* gradientData;
+        if (m_savedContext && (gradientData = m_gradientMap.get(object))) {
             // Restore on-screen drawing context
             context = m_savedContext;
             m_savedContext = 0;
@@ -248,7 +222,7 @@ void RenderSVGResourceGradient::postApplyResource(RenderObject* object, Graphics
             calculateGradientTransform(gradientTransform);
 
             FloatRect targetRect;
-            gradientData->gradient->setGradientSpaceTransform(clipToTextMask(context, m_imageBuffer, targetRect, object, boundingBoxMode(), gradientTransform));
+            gradientData->gradient->setGradientSpaceTransform(clipToTextMask(context, m_imageBuffer, targetRect, object, gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX, gradientTransform));
             context->setFillGradient(gradientData->gradient);
 
             context->fillRect(targetRect);
@@ -257,11 +231,19 @@ void RenderSVGResourceGradient::postApplyResource(RenderObject* object, Graphics
 #else
         UNUSED_PARAM(object);
 #endif
-    } else if (path) {
-        if (resourceMode & ApplyToFillMode)
-            context->fillPath(*path);
-        else if (resourceMode & ApplyToStrokeMode)
-            context->strokePath(*path);
+    } else {
+        if (resourceMode & ApplyToFillMode) {
+            if (path)
+                context->fillPath(*path);
+            else if (shape)
+                shape->fillShape(context);
+        }
+        if (resourceMode & ApplyToStrokeMode) {
+            if (path)
+                context->strokePath(*path);
+            else if (shape)
+                shape->strokeShape(context);
+        }
     }
 
     context->restore();
@@ -274,6 +256,22 @@ void RenderSVGResourceGradient::addStops(GradientData* gradientData, const Vecto
     const Vector<Gradient::ColorStop>::const_iterator end = stops.end();
     for (Vector<Gradient::ColorStop>::const_iterator it = stops.begin(); it != end; ++it)
         gradientData->gradient->addColorStop(*it);
+}
+
+GradientSpreadMethod RenderSVGResourceGradient::platformSpreadMethodFromSVGType(SVGSpreadMethodType method) const
+{
+    switch (method) {
+    case SVGSpreadMethodUnknown:
+    case SVGSpreadMethodPad:
+        return SpreadMethodPad;
+    case SVGSpreadMethodReflect:
+        return SpreadMethodReflect;
+    case SVGSpreadMethodRepeat:
+        return SpreadMethodRepeat;
+    }
+
+    ASSERT_NOT_REACHED();
+    return SpreadMethodPad;
 }
 
 }

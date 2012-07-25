@@ -31,20 +31,17 @@
 
 #if !USE(CFNETWORK)
 
-#include "FormData.h"
+#include <wtf/Forward.h>
 
+@class NSInputStream;
 @class NSMutableURLRequest;
 
 namespace WebCore {
 
     class FormData;
-    class ResourceHandle;
 
     void setHTTPBody(NSMutableURLRequest *, PassRefPtr<FormData>);
     FormData* httpBodyFromStream(NSInputStream *);
-
-    void associateStreamWithResourceHandle(NSInputStream *, ResourceHandle*);
-    void disassociateStreamWithResourceHandle(NSInputStream *);
 
 } // namespace WebCore
 

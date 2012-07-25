@@ -42,7 +42,7 @@ public:
         return !(*this == o);
     }
     
-    void apply(const IntSize& sz, TransformationMatrix& t) const
+    void apply(const FloatSize& sz, TransformationMatrix& t) const
     {
         for (unsigned i = 0; i < m_operations.size(); ++i)
             m_operations[i]->apply(t, sz);
@@ -57,6 +57,8 @@ public:
                 return true;
         return false;
     }
+    
+    bool operationsMatch(const TransformOperations&) const;
     
     void clear()
     {

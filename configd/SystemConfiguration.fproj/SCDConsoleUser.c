@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,18 +86,6 @@ SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
 	CFStringRef		consoleUser	= NULL;
 	CFDictionaryRef		dict		= NULL;
 	CFStringRef		key;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyConsoleUser"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			return NULL;
-		}
-		tempSession = TRUE;
-	}
 
 	key  = SCDynamicStoreKeyCreateConsoleUser(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -142,7 +130,6 @@ SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
 
     done :
 
-	if (tempSession)	CFRelease(store);
 	if (dict)		CFRelease(dict);
 	return consoleUser;
 }
@@ -154,18 +141,6 @@ SCDynamicStoreCopyConsoleInformation(SCDynamicStoreRef store)
 	CFDictionaryRef		dict		= NULL;
 	CFArrayRef		info		= NULL;
 	CFStringRef		key;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreCopyConsoleUser"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			return NULL;
-		}
-		tempSession = TRUE;
-	}
 
 	key  = SCDynamicStoreKeyCreateConsoleUser(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);
@@ -186,7 +161,6 @@ SCDynamicStoreCopyConsoleInformation(SCDynamicStoreRef store)
 
     done :
 
-	if (tempSession)	CFRelease(store);
 	if (dict)		CFRelease(dict);
 	return info;
 }
@@ -203,18 +177,6 @@ SCDynamicStoreSetConsoleInformation(SCDynamicStoreRef	store,
 	CFMutableDictionaryRef	dict		= NULL;
 	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
 	Boolean			ok		= FALSE;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreSetConsoleUser"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			goto done;
-		}
-		tempSession = TRUE;
-	}
 
 	if ((user == NULL) && (sessions == NULL)) {
 		ok = SCDynamicStoreRemoveValue(store, key);
@@ -252,7 +214,6 @@ SCDynamicStoreSetConsoleInformation(SCDynamicStoreRef	store,
 
 	if (dict)		CFRelease(dict);
 	if (key)		CFRelease(key);
-	if (tempSession)	CFRelease(store);
 	return ok;
 }
 
@@ -268,18 +229,6 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
 	CFNumberRef		num;
 	Boolean			ok		= FALSE;
-	Boolean			tempSession	= FALSE;
-
-	if (store == NULL) {
-		store = SCDynamicStoreCreate(NULL,
-					     CFSTR("SCDynamicStoreSetConsoleUser"),
-					     NULL,
-					     NULL);
-		if (store == NULL) {
-			goto done;
-		}
-		tempSession = TRUE;
-	}
 
 	if (user == NULL) {
 		ok = SCDynamicStoreRemoveValue(store, key);
@@ -309,6 +258,5 @@ SCDynamicStoreSetConsoleUser(SCDynamicStoreRef	store,
 
 	if (dict)		CFRelease(dict);
 	if (key)		CFRelease(key);
-	if (tempSession)	CFRelease(store);
 	return ok;
 }

@@ -44,14 +44,17 @@
 
 namespace WebCore {
 
-WrapperTypeInfo V8HTMLImageElementConstructor::info = { V8HTMLImageElementConstructor::GetTemplate, 0, 0 };
+WrapperTypeInfo V8HTMLImageElementConstructor::info = { V8HTMLImageElementConstructor::GetTemplate, 0, 0, 0 };
 
 static v8::Handle<v8::Value> v8HTMLImageElementConstructorCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.HTMLImageElement.Contructor");
 
     if (!args.IsConstructCall())
-        return throwError("DOM object constructor cannot be called as a function.");
+        return throwError("DOM object constructor cannot be called as a function.", V8Proxy::TypeError);
+
+    if (ConstructorMode::current() == ConstructorMode::WrapExistingObject)
+        return args.Holder();
 
     Frame* frame = V8Proxy::retrieveFrameForCurrentContext();
     if (!frame)
@@ -66,7 +69,7 @@ static v8::Handle<v8::Value> v8HTMLImageElementConstructorCallback(const v8::Arg
     // FIXME: The correct way to do this would be to make HTMLImageElement derive from
     // ActiveDOMObject and use its interface to keep its wrapper alive. Then we would
     // remove this code and the special case in isObservableThroughDOM.
-    toV8(document);
+    toV8(document, args.GetIsolate());
 
     int width;
     int height;
@@ -83,8 +86,7 @@ static v8::Handle<v8::Value> v8HTMLImageElementConstructorCallback(const v8::Arg
 
     RefPtr<HTMLImageElement> image = HTMLImageElement::createForJSConstructor(document, optionalWidth, optionalHeight);
     V8DOMWrapper::setDOMWrapper(args.Holder(), &V8HTMLImageElementConstructor::info, image.get());
-    image->ref();
-    V8DOMWrapper::setJSWrapperForDOMNode(image.get(), v8::Persistent<v8::Object>::New(args.Holder()));
+    V8DOMWrapper::setJSWrapperForDOMNode(image.release(), v8::Persistent<v8::Object>::New(args.Holder()));
     return args.Holder();
 }
 

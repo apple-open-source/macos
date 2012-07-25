@@ -2,6 +2,7 @@
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2002, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Andreas Kling (kling@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,15 +31,17 @@ namespace WebCore {
 
 typedef int ExceptionCode;
 
-enum CSSRuleFilter {
-    AllCSSRules,
-    SameOriginCSSRulesOnly
-}; 
-
-class CSSRule : public StyleBase {
+class CSSRule : public RefCounted<CSSRule> {
 public:
-    // FIXME: Change name to Type.
-    enum CSSRuleType {
+    // Override RefCounted's deref() to ensure operator delete is called on
+    // the appropriate subclass type.
+    void deref()
+    {
+        if (derefBase())
+            destroy();
+    }
+
+    enum Type {
         UNKNOWN_RULE,
         STYLE_RULE,
         CHARSET_RULE,
@@ -46,30 +49,88 @@ public:
         MEDIA_RULE,
         FONT_FACE_RULE,
         PAGE_RULE,
-        // 7 used to be VARIABLES_RULE
-        WEBKIT_KEYFRAMES_RULE = 8,
-        WEBKIT_KEYFRAME_RULE
+        // 7 was VARIABLES_RULE; we now match other browsers with 7 as
+        // KEYFRAMES_RULE:
+        // <https://bugs.webkit.org/show_bug.cgi?id=71293>.
+        WEBKIT_KEYFRAMES_RULE,
+        WEBKIT_KEYFRAME_RULE,
+#if ENABLE(CSS_REGIONS)
+        WEBKIT_REGION_RULE = 10
+#endif
     };
 
-    // FIXME: Change to return CSSRuleType.
-    virtual unsigned short type() const = 0;
+    Type type() const { return static_cast<Type>(m_type); }
 
-    CSSStyleSheet* parentStyleSheet() const;
-    CSSRule* parentRule() const;
+    bool isCharsetRule() const { return type() == CHARSET_RULE; }
+    bool isFontFaceRule() const { return type() == FONT_FACE_RULE; }
+    bool isKeyframeRule() const { return type() == WEBKIT_KEYFRAME_RULE; }
+    bool isKeyframesRule() const { return type() == WEBKIT_KEYFRAMES_RULE; }
+    bool isMediaRule() const { return type() == MEDIA_RULE; }
+    bool isPageRule() const { return type() == PAGE_RULE; }
+    bool isStyleRule() const { return type() == STYLE_RULE; }
+    bool isImportRule() const { return type() == IMPORT_RULE; }
 
-    virtual String cssText() const = 0;
+#if ENABLE(CSS_REGIONS)
+    bool isRegionRule() const { return type() == WEBKIT_REGION_RULE; }
+#endif
+
+    void setParentStyleSheet(CSSStyleSheet* styleSheet)
+    {
+        m_parentIsRule = false;
+        m_parentStyleSheet = styleSheet;
+    }
+
+    void setParentRule(CSSRule* rule)
+    {
+        m_parentIsRule = true;
+        m_parentRule = rule;
+    }
+
+    CSSStyleSheet* parentStyleSheet() const
+    {
+        if (m_parentIsRule)
+            return m_parentRule ? m_parentRule->parentStyleSheet() : 0;
+        return m_parentStyleSheet;
+    }
+
+    CSSRule* parentRule() const { return m_parentIsRule ? m_parentRule : 0; }
+
+    String cssText() const;
     void setCssText(const String&, ExceptionCode&);
 
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&) { }
-
 protected:
-    CSSRule(CSSStyleSheet* parent)
-        : StyleBase(parent)
+    CSSRule(CSSStyleSheet* parent, Type type)
+        : m_hasCachedSelectorText(false)
+        , m_parentIsRule(false)
+        , m_type(type)
+        , m_parentStyleSheet(parent)
     {
     }
 
+    // NOTE: This class is non-virtual for memory and performance reasons.
+    // Don't go making it virtual again unless you know exactly what you're doing!
+
+    ~CSSRule() { }
+
+    bool hasCachedSelectorText() const { return m_hasCachedSelectorText; }
+    void setHasCachedSelectorText(bool hasCachedSelectorText) const { m_hasCachedSelectorText = hasCachedSelectorText; }
+
+    const CSSParserContext& parserContext() const 
+    {
+        CSSStyleSheet* styleSheet = parentStyleSheet();
+        return styleSheet ? styleSheet->internal()->parserContext() : strictCSSParserContext();
+    }
+
 private:
-    virtual bool isRule() { return true; }
+    mutable unsigned m_hasCachedSelectorText : 1;
+    unsigned m_parentIsRule : 1;
+    unsigned m_type : 4;
+    union {
+        CSSRule* m_parentRule;
+        CSSStyleSheet* m_parentStyleSheet;
+    };
+
+    void destroy();
 };
 
 } // namespace WebCore

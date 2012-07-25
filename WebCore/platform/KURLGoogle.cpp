@@ -130,7 +130,7 @@ static inline bool isSchemeFirstChar(char c)
 
 static inline bool isSchemeChar(char c)
 {
-    return isSchemeFirstChar(c) || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '*';
+    return isSchemeFirstChar(c) || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '+';
 }
 
 bool isValidProtocol(const String& protocol)
@@ -174,6 +174,35 @@ KURLGooglePrivate::KURLGooglePrivate(WTF::HashTableDeletedValueType)
 {
 }
  
+KURLGooglePrivate::KURLGooglePrivate(const KURLGooglePrivate& o)
+    : m_isValid(o.m_isValid)
+    , m_protocolIsInHTTPFamily(o.m_protocolIsInHTTPFamily)
+    , m_parsed(o.m_parsed)
+    , m_utf8(o.m_utf8)
+    , m_utf8IsASCII(o.m_utf8IsASCII)
+    , m_stringIsValid(o.m_stringIsValid)
+    , m_string(o.m_string)
+{
+    if (o.m_innerURL.get())
+        m_innerURL = adoptPtr(new KURL(o.m_innerURL->copy()));
+}
+
+KURLGooglePrivate& KURLGooglePrivate::operator=(const KURLGooglePrivate& o)
+{
+    m_isValid = o.m_isValid;
+    m_protocolIsInHTTPFamily = o.m_protocolIsInHTTPFamily;
+    m_parsed = o.m_parsed;
+    m_utf8 = o.m_utf8;
+    m_utf8IsASCII = o.m_utf8IsASCII;
+    m_stringIsValid = o.m_stringIsValid;
+    m_string = o.m_string;
+    if (o.m_innerURL.get())
+        m_innerURL = adoptPtr(new KURL(o.m_innerURL->copy()));
+    else
+        m_innerURL.clear();
+    return *this;
+}
+
 // Setters for the data. Using the ASCII version when you know the
 // data is ASCII will be slightly more efficient. The UTF-8 version
 // will always be correct if the caller is unsure.
@@ -197,6 +226,7 @@ void KURLGooglePrivate::setUtf8(const CString& str)
     m_utf8 = str;
     m_stringIsValid = false;
     initProtocolIsInHTTPFamily();
+    initInnerURL();
 }
 
 void KURLGooglePrivate::setAscii(const CString& str)
@@ -205,6 +235,7 @@ void KURLGooglePrivate::setAscii(const CString& str)
     m_utf8IsASCII = true;
     m_stringIsValid = false;
     initProtocolIsInHTTPFamily();
+    initInnerURL();
 }
 
 void KURLGooglePrivate::init(const KURL& base,
@@ -258,6 +289,21 @@ void KURLGooglePrivate::init(const KURL& base, const CHAR* rel, int relLength,
     }
 }
 
+void KURLGooglePrivate::initInnerURL()
+{
+    if (!m_isValid) {
+        m_innerURL.clear();
+        return;
+    }
+    url_parse::Parsed* innerParsed = m_parsed.inner_parsed();
+    if (innerParsed)
+        m_innerURL = adoptPtr(new KURL(
+            ParsedURLString,
+            String(m_utf8.data() + innerParsed->scheme.begin, innerParsed->Length() - innerParsed->scheme.begin)));
+    else
+        m_innerURL.clear();
+}
+
 void KURLGooglePrivate::initProtocolIsInHTTPFamily()
 {
     if (!m_isValid) {
@@ -284,6 +330,11 @@ void KURLGooglePrivate::copyTo(KURLGooglePrivate* dest) const
     dest->m_utf8 = CString(m_utf8.data(), m_utf8.length());
     dest->m_utf8IsASCII = m_utf8IsASCII;
     dest->m_stringIsValid = false;
+    dest->m_string = String(); // Clear the invalid string to avoid cross thread ref counting.
+    if (m_innerURL)
+        dest->m_innerURL = adoptPtr(new KURL(m_innerURL->copy()));
+    else
+        dest->m_innerURL.clear();
 }
 
 String KURLGooglePrivate::componentString(const url_parse::Component& comp) const
@@ -339,22 +390,6 @@ const String& KURLGooglePrivate::string() const
 }
 
 // KURL ------------------------------------------------------------------------
-
-// Creates with null-terminated string input representing an absolute URL.
-// WebCore generally calls this only with hardcoded strings, so the input is
-// ASCII. We treat it as UTF-8 just in case.
-KURL::KURL(ParsedURLStringTag, const char *url)
-{
-    // FIXME The Mac code checks for beginning with a slash and converts it to
-    // file: URL. We will want to add this as well once we can compile on a
-    // system like that.
-    m_url.init(KURL(), url, strlen(url), 0);
-
-    // The one-argument constructors should never generate a null string.
-    // This is a funny quirk of KURL.cpp (probably a bug) which we preserve.
-    if (m_url.utf8String().isNull())
-        m_url.setAscii(CString("", 0));
-}
 
 // Initializes with a string representing an absolute URL. No encoding
 // information is specified. This generally happens when a KURL is converted
@@ -543,34 +578,6 @@ bool KURL::hasFragmentIdentifier() const
     return m_url.m_parsed.ref.len >= 0;
 }
 
-void KURL::copyParsedQueryTo(ParsedURLParameters& parameters) const
-{
-    String query = m_url.componentString(m_url.m_parsed.query);
-    const UChar* pos = query.characters();
-    const UChar* end = query.characters() + query.length();
-    while (pos < end) {
-        const UChar* parameterStart = pos;
-        while (pos < end && *pos != '&')
-            ++pos;
-        const UChar* parameterEnd = pos;
-        if (pos < end) {
-            ASSERT(*pos == '&');
-            ++pos;
-        }
-        if (parameterStart == parameterEnd)
-            continue;
-        const UChar* nameStart = parameterStart;
-        const UChar* equalSign = parameterStart;
-        while (equalSign < parameterEnd && *equalSign != '=')
-            ++equalSign;
-        if (equalSign == nameStart)
-            continue;
-        String name(nameStart, equalSign - nameStart);
-        String value = equalSign == parameterEnd ? String() : String(equalSign + 1, parameterEnd - equalSign - 1);
-        parameters.set(name, value);
-    }
-}
-
 String KURL::baseAsString() const
 {
     // FIXME: There is probably a more efficient way to do this?
@@ -593,7 +600,6 @@ String KURL::query() const
 
 String KURL::path() const
 {
-    // Note: KURL.cpp unescapes here.
     return m_url.componentString(m_url.m_parsed.path);
 }
 
@@ -670,16 +676,12 @@ void KURL::setPort(unsigned short i)
 {
     KURLGooglePrivate::Replacements replacements;
     String portStr;
-    if (i) {
-        portStr = String::number(i);
-        replacements.SetPort(
-            reinterpret_cast<const url_parse::UTF16Char*>(portStr.characters()),
-            url_parse::Component(0, portStr.length()));
 
-    } else {
-        // Clear any existing port when it is set to 0.
-        replacements.ClearPort();
-    }
+    portStr = String::number(i);
+    replacements.SetPort(
+        reinterpret_cast<const url_parse::UTF16Char*>(portStr.characters()),
+        url_parse::Component(0, portStr.length()));
+
     m_url.replaceComponents(replacements);
 }
 
@@ -769,16 +771,6 @@ void KURL::setPath(const String& path)
     m_url.replaceComponents(replacements);
 }
 
-// On Mac, this just seems to return the same URL, but with "/foo/bar" for
-// file: URLs instead of file:///foo/bar. We don't bother with any of this,
-// at least for now.
-String KURL::prettyURL() const
-{
-    if (!m_url.m_isValid)
-        return String();
-    return m_url.string();
-}
-
 String decodeURLEscapeSequences(const String& str)
 {
     return decodeURLEscapeSequences(str, UTF8Encoding());
@@ -834,15 +826,6 @@ bool KURL::protocolIs(const char* protocol) const
         protocol);
 }
 
-// This is called to escape a URL string. It is only used externally when
-// constructing mailto: links to set the query section. Since our query setter
-// will automatically do the correct escaping, this function does not have to
-// do any work.
-//
-// There is a possibility that a future caller may use this function in other
-// ways, and may expect to get a valid URL string. The dangerous thing we want
-// to protect against here is accidentally getting '\0' characters in a string
-// that is not supposed to have them. Therefore, we escape these characters.
 String encodeWithURLEscapeSequences(const String& notEncodedString)
 {
     CString utf8 = UTF8Encoding().encode(
@@ -851,15 +834,15 @@ String encodeWithURLEscapeSequences(const String& notEncodedString)
         URLEncodedEntitiesForUnencodables);
     const char* input = utf8.data();
     int inputLength = utf8.length();
+    url_canon::RawCanonOutputT<char> buffer;
+    if (buffer.length() < inputLength * 3)
+        buffer.Resize(inputLength * 3);
 
-    Vector<char, 2048> buffer;
-    for (int i = 0; i < inputLength; i++) {
-        if (!input[i])
-            buffer.append("%00", 3);
-        else
-            buffer.append(input[i]);
-    }
-    return String(buffer.data(), buffer.size());
+    url_util::EncodeURIComponent(input, inputLength, &buffer);
+    String escaped(buffer.data(), buffer.length());
+    // Unescape '/'; it's safe and much prettier.
+    escaped.replace("%2F", "/");
+    return escaped;
 }
 
 bool KURL::isHierarchical() const

@@ -248,6 +248,64 @@ proc_setthreadname(void * buffer, int buffersize)
 		return(0);
 }
 
+int
+proc_track_dirty(pid_t pid, uint32_t flags)
+{
+	if (__proc_info(8, pid, PROC_DIRTYCONTROL_TRACK, flags, NULL, 0) == -1) {
+		return errno;
+	}
+		
+	return 0;
+}
+
+int
+proc_set_dirty(pid_t pid, bool dirty)
+{
+	if (__proc_info(8, pid, PROC_DIRTYCONTROL_SET, dirty, NULL, 0) == -1) {
+		return errno;		
+	}
+
+	return 0;
+}
+
+int
+proc_get_dirty(pid_t pid, uint32_t *flags)
+{
+	int retval;
+	
+	if (!flags) {
+		return EINVAL;
+	}
+	
+	retval = __proc_info(8, pid, PROC_DIRTYCONTROL_GET, 0, NULL, 0);
+	if (retval == -1) {
+		return errno;		
+	}
+	
+	*flags = retval;
+
+	return 0;
+}
+
+int
+proc_terminate(pid_t pid, int *sig)
+{
+	int retval;
+	
+	if (!sig) {
+		return EINVAL;
+	}
+	
+	retval = __proc_info(7, pid, 0, 0, NULL, 0);
+	if (retval == -1) {
+		return errno;		
+	}
+	
+	*sig = retval;
+	
+	return 0;
+}
+
 #if TARGET_OS_EMBEDDED
 
 int 
@@ -403,6 +461,30 @@ proc_set_owner_vmpressure(void)
 	if ((retval = __proc_info(5, getpid(), PROC_SELFSET_VMRSRCOWNER, (uint64_t)0, NULL, 0)) == -1)
 		return(errno);
 		
+	return(0);
+}
+
+/* mark yourself to delay idle sleep on disk IO */
+int 
+proc_set_delayidlesleep(void)
+{
+	int retval;
+
+	if ((retval = __proc_info(5, getpid(), PROC_SELFSET_DELAYIDLESLEEP, (uint64_t)1, NULL, 0)) == -1)
+		return(errno);
+
+	return(0);
+}
+
+/* Reset yourself to delay idle sleep on disk IO, if already set */
+int 
+proc_clear_delayidlesleep(void)
+{
+	int retval;
+
+	if ((retval = __proc_info(5, getpid(), PROC_SELFSET_DELAYIDLESLEEP, (uint64_t)0, NULL, 0)) == -1)
+		return(errno);
+
 	return(0);
 }
 

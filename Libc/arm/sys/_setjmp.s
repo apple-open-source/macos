@@ -34,8 +34,6 @@
 
 ENTRY_POINT(__setjmp)
 	stmia	r0!, { r4-r8, r10-r11, sp, lr }
-#ifdef _ARM_ARCH_6
-	fstmiax	r0, { d8-d15 }
-#endif
+	vstmia	r0, { d8-d15 }
 	mov	r0, #0
 	bx	lr

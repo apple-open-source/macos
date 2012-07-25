@@ -23,13 +23,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {TreeElement}
+ */
 WebInspector.SidebarSectionTreeElement = function(title, representedObject, hasChildren)
 {
     TreeElement.call(this, title.escapeHTML(), representedObject || {}, hasChildren);
+    this.expand();
 }
 
 WebInspector.SidebarSectionTreeElement.prototype = {
     selectable: false,
+
+    collapse: function()
+    {
+        // Should not collapse as it is not selectable.
+    },
 
     get smallChildren()
     {
@@ -63,9 +73,16 @@ WebInspector.SidebarSectionTreeElement.prototype = {
 
 WebInspector.SidebarSectionTreeElement.prototype.__proto__ = TreeElement.prototype;
 
+/**
+ * @constructor
+ * @extends {TreeElement}
+ * @param {string=} subtitle
+ * @param {Object=} representedObject
+ * @param {boolean=} hasChildren
+ */
 WebInspector.SidebarTreeElement = function(className, title, subtitle, representedObject, hasChildren)
 {
-    TreeElement.call(this, "", representedObject || {}, hasChildren);
+    TreeElement.call(this, "", representedObject, hasChildren);
 
     if (hasChildren) {
         this.disclosureButton = document.createElement("button");
@@ -151,6 +168,14 @@ WebInspector.SidebarTreeElement.prototype = {
 
         this._bubbleText = x;
         this.bubbleElement.textContent = x;
+    },
+
+    set wait(x)
+    {
+        if (x)
+            this._listItemNode.addStyleClass("wait");
+        else
+            this._listItemNode.removeStyleClass("wait");
     },
 
     refreshTitles: function()

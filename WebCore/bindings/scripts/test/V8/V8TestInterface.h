@@ -26,50 +26,52 @@
 #include "TestInterface.h"
 #include "V8DOMWrapper.h"
 #include "WrapperTypeInfo.h"
-#include <wtf/text/StringHash.h>
 #include <v8.h>
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 class V8TestInterface {
-
 public:
-    static bool HasInstance(v8::Handle<v8::Value> value);
+    static const bool hasDependentLifetime = true;
+    static bool HasInstance(v8::Handle<v8::Value>);
     static v8::Persistent<v8::FunctionTemplate> GetRawTemplate();
     static v8::Persistent<v8::FunctionTemplate> GetTemplate();
     static TestInterface* toNative(v8::Handle<v8::Object> object)
     {
         return reinterpret_cast<TestInterface*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
     }
-    inline static v8::Handle<v8::Object> wrap(TestInterface*);
+    inline static v8::Handle<v8::Object> wrap(TestInterface*, v8::Isolate* = 0);
     static void derefObject(void*);
     static WrapperTypeInfo info;
-    static v8::Handle<v8::Value> constructorCallback(const v8::Arguments& args);
+    static ActiveDOMObject* toActiveDOMObject(v8::Handle<v8::Object>);
+    static v8::Handle<v8::Value> constructorCallback(const v8::Arguments&);
+    static v8::Handle<v8::Value> namedPropertySetter(v8::Local<v8::String>, v8::Local<v8::Value>, const v8::AccessorInfo&);
     static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + 0;
 private:
-    static v8::Handle<v8::Object> wrapSlow(TestInterface*);
+    static v8::Handle<v8::Object> wrapSlow(PassRefPtr<TestInterface>, v8::Isolate*);
 };
 
-
-v8::Handle<v8::Object> V8TestInterface::wrap(TestInterface* impl)
+v8::Handle<v8::Object> V8TestInterface::wrap(TestInterface* impl, v8::Isolate* isolate)
 {
-        v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
+        v8::Handle<v8::Object> wrapper = getActiveDOMObjectMap().get(impl);
         if (!wrapper.IsEmpty())
             return wrapper;
-    return V8TestInterface::wrapSlow(impl);
+    return V8TestInterface::wrapSlow(impl, isolate);
 }
 
-inline v8::Handle<v8::Value> toV8(TestInterface* impl)
+inline v8::Handle<v8::Value> toV8(TestInterface* impl, v8::Isolate* isolate = 0)
 {
     if (!impl)
         return v8::Null();
-    return V8TestInterface::wrap(impl);
+    return V8TestInterface::wrap(impl, isolate);
 }
-inline v8::Handle<v8::Value> toV8(PassRefPtr< TestInterface > impl)
+inline v8::Handle<v8::Value> toV8(PassRefPtr< TestInterface > impl, v8::Isolate* isolate = 0)
 {
-    return toV8(impl.get());
+    return toV8(impl.get(), isolate);
 }
+
 }
 
 #endif // V8TestInterface_h

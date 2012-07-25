@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2010, International Business Machines Corporation and
+ * Copyright (c) 1997-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -55,6 +55,7 @@ DateFormatRegressionTest::runIndexedTest( int32_t index, UBool exec, const char*
         CASE(24,Test714)
         CASE(25,Test1684)
         CASE(26,Test5554)
+        CASE(27,Test9237)
         default: name = ""; break;
     }
 }
@@ -362,9 +363,8 @@ void DateFormatRegressionTest::Test4060212(void)
         errln((UnicodeString) "Fail: Got " + cal->get(UCAL_DAY_OF_YEAR, status) +
                             " Want 40");
 
-#if 0
     // this is an odd usage of "ddd" and it doesn't
-    // work now that date values are range checked.
+    // work now that date values are range checked per #3579.
     logln("Using yyyy-ddd.hh:mm:ss");
     delete formatter;
     formatter = NULL;
@@ -379,7 +379,6 @@ void DateFormatRegressionTest::Test4060212(void)
     if ((cal->get(UCAL_DAY_OF_YEAR, status) != 40) || failure(status, "cal->get"))
         errln((UnicodeString) "Fail: Got " + cal->get(UCAL_DAY_OF_YEAR, status) +
                             " Want 40");
-#endif
 
     delete formatter;
     delete fmt;
@@ -401,8 +400,8 @@ void DateFormatRegressionTest::Test4061287(void)
     }
     failure(status, "new SimpleDateFormat");
     //try {
-    logln(UnicodeString("") + df->parse("30/02/1971", status));  
-    failure(status, "df->parse(\"30/02/1971\")");
+    logln(UnicodeString("") + df->parse("35/01/1971", status));  
+    failure(status, "df->parse(\"35/01/1971\")");
     //logln(df.parse("35/01/1971").toString());
     //}
     /*catch (ParseException e) {
@@ -412,7 +411,7 @@ void DateFormatRegressionTest::Test4061287(void)
     df->setLenient(FALSE);
     UBool ok = FALSE;
     //try {
-    logln(UnicodeString("") + df->parse("30/02/1971", status));
+    logln(UnicodeString("") + df->parse("35/01/1971", status));
     if(U_FAILURE(status))
         ok = TRUE;
     //logln(df.parse("35/01/1971").toString());
@@ -1461,6 +1460,40 @@ void DateFormatRegressionTest::Test5554(void)
     errln("\nError: Newfoundland Z of Jan 14, 2007 gave '" + result + "', expected '" + correct + "'");
   }
   delete sdf;
+}
+
+void DateFormatRegressionTest::Test9237(void)
+{
+    UErrorCode status = U_ZERO_ERROR;
+    UnicodeString pattern("VVVV");
+
+    SimpleDateFormat fmt(pattern, status);  // default locale
+    SimpleDateFormat fmtDE(pattern, Locale("de_DE"), status);
+    if (U_FAILURE(status)) {
+        dataerrln("Error constructing SimpleDateFormat");
+        return;
+    }
+
+    // copy constructor
+    SimpleDateFormat fmtCopyDE(fmtDE);
+    UnicodeString resDE, resCopyDE;
+
+    fmtDE.format(0.0, resDE);
+    fmtCopyDE.format(0.0, resCopyDE);
+
+    if (resDE != resCopyDE) {
+        errln(UnicodeString("Error: different result by the copied instance - org:") + resDE + " copy:" + resCopyDE);
+    }
+
+    // test for assignment operator
+    fmt = fmtDE;
+
+    UnicodeString resAssigned;
+    fmt.format(0.0, resAssigned);
+
+    if (resDE != resAssigned) {
+        errln(UnicodeString("Error: different results by the assigned instance - org:") + resDE + " assigned:" + resAssigned);
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

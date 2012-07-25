@@ -37,34 +37,47 @@
 .Dt WCSXFRM 3
 .Os
 .Sh NAME
-.Nm wcsxfrm
+.Nm wcsxfrm ,
+.Nm wcsxfrm_l
 .Nd transform a wide string under locale
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In wchar.h
 .Ft size_t
-.Fn wcsxfrm "wchar_t * restrict dst" "const wchar_t * restrict src" "size_t n"
+.Fo wcsxfrm
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fa "size_t n"
+.Fc
+.In wchar.h
+.In xlocale.h
+.Ft size_t
+.Fo wcsxfrm_l
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fa "size_t n"
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn wcsxfrm
 function transforms a null-terminated wide character string pointed to by
-.Fa src
-according to the current locale collation order
-then copies the transformed string
-into
-.Fa dst .
+.Fa ws2 ,
+according to the current locale's collation order,
+then copies the transformed string into
+.Fa ws1 .
 No more than
 .Fa n
 wide characters are copied into
-.Fa dst ,
-including the terminating null character added.
+.Fa ws1 ,
+including the terminating null character.
 If
 .Fa n
 is set to 0
 (it helps to determine an actual size needed
 for transformation),
-.Fa dst
+.Fa ws1
 is permitted to be a
 .Dv NULL
 pointer.
@@ -76,6 +89,14 @@ after
 is equivalent to comparing
 two original strings with
 .Fn wcscoll .
+.Pp
+Although the
+.Fn wcsxfrm
+function uses the current locale, the
+.Fn wcsxfrm_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 Upon successful completion,
 .Fn wcsxfrm
@@ -84,13 +105,14 @@ the terminating null character.
 If this value is
 .Fa n
 or more, the contents of
-.Fa dst
+.Fa ws1
 are indeterminate.
 .Sh SEE ALSO
 .Xr setlocale 3 ,
 .Xr strxfrm 3 ,
 .Xr wcscmp 3 ,
-.Xr wcscoll 3
+.Xr wcscoll 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn wcsxfrm
@@ -116,7 +138,7 @@ always equivalent to comparison with
 .Fn wcscoll ;
 .Fn wcsxfrm
 only stores information about primary collation weights into
-.Fa dst ,
+.Fa ws1 ,
 whereas
 .Fn wcscoll
 compares characters using both primary and secondary weights.

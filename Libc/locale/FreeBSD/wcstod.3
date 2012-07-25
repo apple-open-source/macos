@@ -28,40 +28,57 @@
 .Dt WCSTOD 3
 .Os
 .Sh NAME
-.Nm wcstof ,
 .Nm wcstod ,
+.Nm wcstof ,
 .Nm wcstold
 .Nd convert string to
-.Vt float , double
+.Vt float ,
+.Vt double ,
 or
 .Vt "long double"
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In wchar.h
-.Ft float
-.Fn wcstof "const wchar_t * restrict nptr" "wchar_t ** restrict endptr"
-.Ft "long double"
-.Fn wcstold "const wchar_t * restrict nptr" "wchar_t ** restrict endptr"
 .Ft double
-.Fn wcstod "const wchar_t * restrict nptr" "wchar_t ** restrict endptr"
+.Fo wcstod
+.Fa "const wchar_t *restrict nptr"
+.Fa "wchar_t **restrict endptr"
+.Fc
+.Ft float
+.Fo wcstof
+.Fa "const wchar_t *restrict nptr"
+.Fa "wchar_t **restrict endptr"
+.Fc
+.Ft "long double"
+.Fo wcstold
+.Fa "const wchar_t *restrict nptr"
+.Fa "wchar_t **restrict endptr"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn wcstof ,
-.Fn wcstod
+.Fn wcstod ,
 and
 .Fn wcstold
 functions are the wide-character versions of the
 .Fn strtof ,
-.Fn strtod
+.Fn strtod ,
 and
 .Fn strtold
 functions.
 Refer to
 .Xr strtod 3
 for details.
+.Pp
+Extended locale versions of these functions are documented in
+.Xr wcstod_l 3 .
+See
+.Xr xlocale 3
+for more information.
 .Sh SEE ALSO
 .Xr strtod 3 ,
+.Xr wcstod_l 3 ,
 .Xr wcstol 3
 .Sh STANDARDS
 The

@@ -33,7 +33,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_store_cred(OM_uint32         *minor_status,
 	       gss_cred_id_t     input_cred_handle,
 	       gss_cred_usage_t  cred_usage,
@@ -53,7 +53,7 @@ gss_store_cred(OM_uint32         *minor_status,
 	*elements_stored = NULL;
     if (cred_usage_stored)
 	*cred_usage_stored = 0;
-	
+
     if (cred == NULL)
 	return GSS_S_NO_CONTEXT;
 
@@ -63,7 +63,7 @@ gss_store_cred(OM_uint32         *minor_status,
 	    return maj;
     }
 
-    SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
+    HEIM_SLIST_FOREACH(mc, &cred->gc_mc, gmc_link) {
 	gssapi_mech_interface m = mc->gmc_mech;
 
 	if (m == NULL || m->gm_store_cred == NULL)

@@ -29,8 +29,6 @@
 */
 
 #include "config.h"
-
-#if ENABLE(DOM_STORAGE)
 #include "V8Storage.h"
 
 #include "Storage.h"
@@ -60,7 +58,7 @@ static v8::Handle<v8::Value> storageGetter(v8::Local<v8::String> v8Name, const v
     Storage* storage = V8Storage::toNative(info.Holder());
     String name = toWebCoreString(v8Name);
 
-    if (storage->contains(name) && name != "length")
+    if (name != "length" && storage->contains(name))
         return v8String(storage->getItem(name));
 
     return notHandledByInterceptor();
@@ -76,6 +74,8 @@ v8::Handle<v8::Value> V8Storage::indexedPropertyGetter(uint32_t index, const v8:
 v8::Handle<v8::Value> V8Storage::namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
 {
     INC_STATS("DOM.Storage.NamedPropertyGetter");
+    if (!info.Holder()->GetRealNamedPropertyInPrototypeChain(name).IsEmpty())
+        return notHandledByInterceptor();
     return storageGetter(name, info);
 }
 
@@ -86,7 +86,7 @@ v8::Handle<v8::Integer> V8Storage::namedPropertyQuery(v8::Local<v8::String> v8Na
     Storage* storage = V8Storage::toNative(info.Holder());
     String name = toWebCoreString(v8Name);
 
-    if (storage->contains(name) && name != "length")
+    if (name != "length" && storage->contains(name))
         return v8::Integer::New(v8::None);
 
     return v8::Handle<v8::Integer>();
@@ -102,8 +102,7 @@ static v8::Handle<v8::Value> storageSetter(v8::Local<v8::String> v8Name, v8::Loc
     if (name == "length")
         return v8Value;
 
-    v8::Handle<v8::Value> prototypeValue = info.Holder()->GetRealNamedPropertyInPrototypeChain(v8Name);
-    if (!prototypeValue.IsEmpty())
+    if (!info.Holder()->GetRealNamedPropertyInPrototypeChain(v8Name).IsEmpty())
         return notHandledByInterceptor();
 
     ExceptionCode ec = 0;
@@ -154,5 +153,3 @@ v8::Handle<v8::Boolean> V8Storage::namedPropertyDeleter(v8::Local<v8::String> na
 }
 
 } // namespace WebCore
-
-#endif

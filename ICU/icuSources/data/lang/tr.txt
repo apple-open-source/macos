@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/tr.xml
@@ -527,6 +527,9 @@ tr{
         zxx{"Dilbilim içeriği yok"}
         zza{"Zazaca"}
     }
+    LanguagesShort{
+        az{"Azeri"}
+    }
     Scripts{
         Arab{"Arap"}
         Armi{"İmparatorluk Aramicesi"}
@@ -583,7 +586,6 @@ tr{
         Khar{"Kharoshthi"}
         Khmr{"Khmer"}
         Knda{"Kannada"}
-        Kore{"Kore"}
         Kthi{"Kaithi"}
         Lana{"Lanna"}
         Laoo{"Lao Dili"}
@@ -597,7 +599,6 @@ tr{
         Lyci{"Likya"}
         Lydi{"Lidya"}
         Mand{"Manden"}
-        Mani{"Mani"}
         Maya{"Maya Hiyeroglifleri"}
         Mero{"Meroitik"}
         Mlym{"Malayalam"}
@@ -659,6 +660,10 @@ tr{
         Zyyy{"Ortak"}
         Zzzz{"Bilinmeyen Betik"}
     }
+    Scripts%stand-alone{
+        Hans{"Basitleştirilmiş Han"}
+        Hant{"Geleneksel Han"}
+    }
     Types{
         calendar{
             buddhist{"Budist Takvimi"}
@@ -678,10 +683,10 @@ tr{
         collation{
             big5han{"Geleneksel Çince Sıralaması - Big5"}
             dictionary{"Sözlük Sıralama Düzeni"}
-            direct{"Düz Sıralama"}
             ducet{"Saptanmış Unicode Sıralaması"}
             gb2312han{"Basitleştirilmiş Çince Sıralaması - GB2312"}
             phonebook{"Telefon Defteri Sıralaması"}
+            phonetic{"Fonetik Sıralama"}
             pinyin{"Basitleştirilmiş Çince Pinyin Sıralaması"}
             reformed{"Yeni Sıralama Düzeni"}
             search{"Genel Amaçlı Arama"}
@@ -762,7 +767,7 @@ tr{
         VALENCIA{"Valensiyaca"}
         WADEGILE{"Wade-Giles (Latin Alfabesinde Yazımı)"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
     codePatterns{
         language{"Dil: {0}"}
         script{"Alfabe: {0}"}

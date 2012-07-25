@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2010, 2011, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,24 +21,21 @@
 #ifndef SpaceSplitString_h
 #define SpaceSplitString_h
 
-#include <wtf/OwnPtr.h>
-#include <wtf/PassOwnPtr.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-    class SpaceSplitStringData {
-        WTF_MAKE_NONCOPYABLE(SpaceSplitStringData); WTF_MAKE_FAST_ALLOCATED;
+    class SpaceSplitStringData : public RefCounted<SpaceSplitStringData> {
     public:
-        SpaceSplitStringData(const String& string, bool shouldFoldCase)
-            : m_string(string), m_shouldFoldCase(shouldFoldCase), m_createdVector(false)
-        {
-        }
+        static PassRefPtr<SpaceSplitStringData> create(const AtomicString&);
+        static PassRefPtr<SpaceSplitStringData> createUnique(const SpaceSplitStringData&);
+
+        ~SpaceSplitStringData();
 
         bool contains(const AtomicString& string)
         {
-            ensureVector();
             size_t size = m_vector.size();
             for (size_t i = 0; i < size; ++i) {
                 if (m_vector[i] == string)
@@ -52,26 +49,25 @@ namespace WebCore {
         void add(const AtomicString&);
         void remove(const AtomicString&);
 
-        size_t size() { ensureVector(); return m_vector.size(); }
-        const AtomicString& operator[](size_t i) { ensureVector(); ASSERT(i < size()); return m_vector[i]; }
+        size_t size() const { return m_vector.size(); }
+        const AtomicString& operator[](size_t i) { ASSERT(i < size()); return m_vector[i]; }
 
     private:
-        void ensureVector() { if (!m_createdVector) createVector(); }
-        void createVector();
+        SpaceSplitStringData(const AtomicString&);
+        SpaceSplitStringData(const SpaceSplitStringData&);
 
-        typedef Vector<AtomicString, 8> StringVector;
-        String m_string;
-        StringVector m_vector;
-        bool m_shouldFoldCase;
-        bool m_createdVector;
+        void createVector(const String&);
+
+        AtomicString m_keyString;
+        Vector<AtomicString, 4> m_vector;
     };
 
     class SpaceSplitString {
     public:
         SpaceSplitString() { }
-        SpaceSplitString(const String& string, bool shouldFoldCase) : m_data(adoptPtr(new SpaceSplitStringData(string, shouldFoldCase))) { }
+        SpaceSplitString(const AtomicString& string, bool shouldFoldCase) { set(string, shouldFoldCase); }
 
-        void set(const String& string, bool shouldFoldCase) { m_data = adoptPtr(new SpaceSplitStringData(string, shouldFoldCase)); }
+        void set(const AtomicString&, bool shouldFoldCase);
         void clear() { m_data.clear(); }
 
         bool contains(const AtomicString& string) const { return m_data && m_data->contains(string); }
@@ -84,7 +80,13 @@ namespace WebCore {
         const AtomicString& operator[](size_t i) const { ASSERT(i < size()); return (*m_data)[i]; }
 
     private:
-        OwnPtr<SpaceSplitStringData> m_data;
+        void ensureUnique()
+        {
+            if (m_data && !m_data->hasOneRef())
+                m_data = SpaceSplitStringData::createUnique(*m_data);
+        }
+
+        RefPtr<SpaceSplitStringData> m_data;
     };
 
 } // namespace WebCore

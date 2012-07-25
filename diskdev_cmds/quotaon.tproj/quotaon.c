@@ -118,8 +118,6 @@ int main(argc, argv)
 	int nfst;
 	struct statfs *fst;
 #endif /* __APPLE__ */
-	extern char *optarg;
-	extern int optind;
 
 	whoami = rindex(*argv, '/') + 1;
 	if (whoami == (char *)1)

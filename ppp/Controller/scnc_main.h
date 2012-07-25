@@ -65,6 +65,7 @@ enum {
     FLAG_ALERTERRORS = 0x40,	/* error alerts are enabled */
     FLAG_ALERTPASSWORDS = 0x80,	/* passwords alerts are enabled */
    // FLAG_STARTING = 0x100	/* pppd is started, and hasn't yet updated the phase */
+    FLAG_DARKWAKE = 0x100,   /* system is in dark wake */
 	FLAG_FIRSTDIAL = 0x200, /* is it the first autodial attempt after major event */
 	FLAG_ONDEMAND = 0x400, /* is the connection currently in on-demand mode */
 	FLAG_USECERTIFICATE = 0x800, /* is the connection using cert authentication ? */
@@ -92,6 +93,11 @@ enum {
 };
 #endif
 
+enum {
+    PLUGIN_UPDATE_DOWNLOAD_COMPLETE    = 0x01,
+    PLUGIN_UPDATE_INSTALL_COMPLETE      = 0x02,
+    PLUGIN_UPDATE_FINISHED              = 0x03
+};
 
 #define MDNS_NAT_MAPPING_MAX	4 // num of mappings per service
 
@@ -257,7 +263,7 @@ struct service {
 	CFStringRef        connection_nap;
 #if !TARGET_OS_EMBEDDED
 	void              *connection_nap_monitor;
-#endif;
+#endif
 	CFDictionaryRef    environmentVars;
 
     // list of clients for this service. used to arbitrate connection/disconnection
@@ -327,7 +333,7 @@ int check_interface_captive_and_not_ready(SCDynamicStoreRef dynamicStoreRef, cha
 
 void user_notification_callback(CFUserNotificationRef userNotification, CFOptionFlags responseFlags);
 
-int scnc_stop(struct service *serv, void *client, int signal);
+int scnc_stop(struct service *serv, void *client, int signal, int scnc_reason);
 int scnc_start(struct service *serv, CFDictionaryRef options, void *client, int autoclose, uid_t uid, gid_t gid, int pid, mach_port_t bootstrap);
 int scnc_getstatus(struct service *serv);
 int scnc_copyextendedstatus(struct service *serv, void **reply, u_int16_t *replylen);

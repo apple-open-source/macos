@@ -34,6 +34,25 @@
 			<string>IOResources</string>
 			<key>IOResourceMatch</key>
 			<string>IOBSD</string>
+			<key>HIDScrollCountBootDefault</key>
+			<dict>
+				<key>HIDScrollCountMaxTimeDeltaBetween</key>
+				<integer>600</integer>
+				<key>HIDScrollCountMaxTimeDeltaToSustain</key>
+				<integer>250</integer>
+				<key>HIDScrollCountMinDeltaToStart</key>
+				<integer>30</integer>
+				<key>HIDScrollCountMinDeltaToSustain</key>
+				<integer>20</integer>
+				<key>HIDScrollCountIgnoreMomentumScrolls</key>
+				<true/>
+				<key>HIDScrollCountMouseCanReset</key>
+				<true/>
+				<key>HIDScrollCountMax</key>
+				<integer>2000</integer>
+				<key>HIDScrollCountAccelerationFactor</key>
+				<integer>163840</integer>
+			</dict>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>

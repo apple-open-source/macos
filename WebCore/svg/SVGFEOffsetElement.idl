@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG&FILTERS] SVGFEOffsetElement : SVGElement,
+    interface [
+        Conditional=SVG&FILTERS
+    ] SVGFEOffsetElement : SVGElement,
                                                      SVGFilterPrimitiveStandardAttributes {
         readonly attribute SVGAnimatedString in1;
         readonly attribute SVGAnimatedNumber dx;

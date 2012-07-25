@@ -35,18 +35,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <System/sys/fsctl.h>
-
 #include "removefile.h"
 #include "removefile_priv.h"
-
-static void
-sync_volume(const char *path) {
-	int full_sync = 0;	// xxx - Make it (FSCTL_SYNC_FULLSYNC | FSCTL_SYNC_WAIT) ?
-
-	(void)fsctl(path, FSCTL_SYNC_VOLUME, &full_sync, 0);
-	return;
-}
 
 static int empty_directory(const char *path) {
   DIR *dp;
@@ -111,7 +101,9 @@ __removefile_rename_unlink(const char *path, removefile_state_t state) {
   if (rename(path, new_name) == -1)
     return -1;
 
-  sync_volume(new_name);
+  if ((state->unlink_flags & REMOVEFILE_RECURSIVE) == 0) {
+    sync_volume_np(new_name, 0);
+  }
 
   if (lstat(new_name, &statbuf) == -1) {
 	errno = ENOENT;

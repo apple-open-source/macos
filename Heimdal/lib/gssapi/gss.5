@@ -60,18 +60,38 @@ Common options are:
 .It NTLM 'Force NTLMv1'
 Force client to use NTLMv1
 .It NTLM NTLMv1
-Enable support for NTLMv1
+Enable support for NTLMv1 in both client and server
 .It NTLM NTLMv2
-Enable support for NTLMv2
+Enable support for NTLMv2 in both client and server
 .It NTLM 'NTLM session key'
-Enable support for NTLMv2 session key even if one of the backends doesn't support it, like SnowLeopard OD servers.
+Require backends to support for NTLMv2 session key, Lion and earlier
+dont support this.  Session keys is required for NTLM MIC that stops
+reflection attacks.
+.It NTLM 'AllowedHosts'
+What hosts that NTLM is allowed to be used for. When there a host that
+is not on the list, NTLM will not be used. File globbing is used when
+matching and it's case insensitive.  When there is no configuration,
+all hosts are allowed.
+.Bd -literal
+defaults write com.apple.GSS.NTLM AllowedHosts -array host.local '*.my.domain'
+.Ed
 .El
+.Sh NTLM options
+If you want to disable NTLM support completely in both the acceptor
+(server) and initiator (client), you need disable both NTLMv1 and
+NTLMv2, and set their values to boolean false or 0.
+.Bd -literal
+defaults write com.apple.GSS.NTLM NTLMv1 -bool false
+defaults write com.apple.GSS.NTLM NTLMv2 -bool false
+.Ed
 .Sh APPLE MAC OS X
-You can use the defaults write command to change the options, for simple boolean options, use this:
+You can use the defaults write command to change the options, for
+simple boolean options, use this:
 .D1 defaults write com.apple.GSS.NTLM NTLMv1 -bool false
 .Pp
 You can also turn on debugging (output in syslog) using:
 .D1 defaults write com.apple.GSS DebugLevel -int 10
+.D1 open -a Console
 .Sh SEE ALSO
 .Xr defaults 1 ,
 .Xr gss_mo 3 ,

@@ -37,4 +37,4 @@ __private_extern__ void PSLowPowerPSChange(CFTypeRef);
 
 __private_extern__ void PSLowPowerPrefsHaveChanged(void);
 
-#endif _PSLowPower_h_
+#endif //_PSLowPower_h_

@@ -21,9 +21,9 @@
 module html {
 
     interface HTMLAnchorElement : HTMLElement {
-        attribute [Reflect] DOMString accessKey;
         attribute [Reflect] DOMString charset;
         attribute [Reflect] DOMString coords;
+        attribute [Conditional=DOWNLOAD_ATTRIBUTE, Reflect] DOMString download;
         attribute [Reflect, URL] DOMString href;
         attribute [Reflect] DOMString hreflang;
         attribute [Reflect] DOMString name;
@@ -35,6 +35,10 @@ module html {
         attribute [Reflect] DOMString type;
 
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
+        attribute [Reflect] DOMString accessKey;
+#endif
+
+#if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         readonly attribute DOMString hash;
         readonly attribute DOMString host;
         readonly attribute DOMString hostname;
@@ -43,23 +47,21 @@ module html {
         readonly attribute DOMString protocol;
         readonly attribute DOMString search;
 #else
-        attribute [ConvertNullToNullString] DOMString hash;
-        attribute [ConvertNullToNullString] DOMString host;
-        attribute [ConvertNullToNullString] DOMString hostname;
-        attribute [ConvertNullToNullString] DOMString pathname;
-        attribute [ConvertNullToNullString] DOMString port;
-        attribute [ConvertNullToNullString] DOMString protocol;
-        attribute [ConvertNullToNullString] DOMString search;
+        attribute [TreatNullAs=NullString] DOMString hash;
+        attribute [TreatNullAs=NullString] DOMString host;
+        attribute [TreatNullAs=NullString] DOMString hostname;
+        attribute [TreatNullAs=NullString] DOMString pathname;
+        attribute [TreatNullAs=NullString] DOMString port;
+        attribute [TreatNullAs=NullString] DOMString protocol;
+        attribute [TreatNullAs=NullString] DOMString search;
 
-        readonly attribute [ConvertNullToNullString] DOMString origin;
+        readonly attribute [TreatNullAs=NullString] DOMString origin;
 #endif
-
-        DOMString getParameter(in DOMString name);
 
         readonly attribute DOMString text;
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-        [DontEnum] DOMString toString();
+        [NotEnumerable] DOMString toString();
 #endif
 
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C

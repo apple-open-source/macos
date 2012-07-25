@@ -1,1 +1,0 @@
-.so man__libmansuffix__/Xcomposite.__libmansuffix__

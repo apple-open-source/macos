@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ko.xml
@@ -61,7 +61,7 @@ ko{
             }
         }
     }
-    Version{"2.0.49.58"}
+    Version{"2.0.66.10"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -80,7 +80,7 @@ ko{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"d일 EEE"}
+                EEEEd{"d일 EEEE"}
                 Ed{"d일 (E)"}
                 Gy{"G y년"}
                 H{"H시"}
@@ -88,6 +88,7 @@ ko{
                 Hm{"HH:mm"}
                 Hms{"H시 m분 s초"}
                 M{"M월"}
+                MEEEEd{"M. d. EEEE"}
                 MEd{"M. d. (E)"}
                 MMM{"LLL"}
                 MMMEd{"MMM d일 (E)"}
@@ -102,14 +103,15 @@ ko{
                 ms{"mm:ss"}
                 y{"G y년"}
                 yM{"G y. M."}
-                yMEd{"G y. M. d. EEE"}
+                yMEd{"G y. M. d. (E)"}
                 yMMM{"G y년 MMM"}
-                yMMMEd{"G y년 MMM d일 EEE"}
+                yMMMEEEEd{"G y년 MMM d일 EEEE"}
+                yMMMEd{"G y년 MMM d일 (E)"}
                 yMMMd{"G y년 MMM d일"}
                 yMd{"G y. M. d."}
                 yQ{"G y년 Q분기"}
                 yQQQ{"G y년 QQQ"}
-                yyMM{"G YY. M."}
+                yyMM{"G yy. M."}
                 yyMMM{"G y년 MMM"}
                 yyQ{"G y년 Q분기"}
                 yyyyMM{"G y. MM"}
@@ -119,7 +121,7 @@ ko{
                     "불기",
                 }
             }
-             intervalFormats{
+            intervalFormats{
                 M{
                     M{"M월 ~ M월"}
                 }
@@ -203,7 +205,119 @@ ko{
                     y{"G yy. M. d. ~ yy. M. d."}
                 }
             }
-       }
+        }
+        chinese{
+            DateTimePatterns{
+                "a h시 m분 s초 zzzz",
+                "a h시 m분 s초 z",
+                "a h:mm:ss",
+                "a h:mm",
+                "U년 M월 d일 EEEE",
+                "U년 M월 d일",
+                "y. M. d.",
+                "y. M. d.",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                EEEEd{"d일 EEEE"}
+                Ed{"d일 (E)"}
+                H{"H시"}
+                Hms{"H시 m분 s초"}
+                M{"M월"}
+                MEEEEd{"M. d. EEEE"}
+                MEd{"M. d. (E)"}
+                MMM{"LLL"}
+                MMMEd{"MMM d일 (E)"}
+                MMMd{"MMM d일"}
+                Md{"M. d."}
+                d{"d일"}
+                h{"a h시"}
+                hm{"a h:mm"}
+                hms{"a h:mm:ss"}
+                y{"U년"}
+                yM{"U. M."}
+                yMEd{"U. M. d. (E)"}
+                yMMM{"U년 MMM"}
+                yMMMEEEEd{"U년 MMM d일 EEEE"}
+                yMMMEd{"U년 MMM d일 (E)"}
+                yMMMd{"U년 MMM d일"}
+                yMd{"U. M. d."}
+                yQ{"U년 Q분기"}
+                yQQQ{"U년 QQQ"}
+            }
+            cyclicNameSets{
+                years{
+                    format{
+                        abbreviated{
+                            "갑자",
+                            "을축",
+                            "병인",
+                            "정묘",
+                            "무진",
+                            "기사",
+                            "경오",
+                            "신미",
+                            "임신",
+                            "계유",
+                            "갑술",
+                            "을해",
+                            "병자",
+                            "정축",
+                            "무인",
+                            "기묘",
+                            "경진",
+                            "신사",
+                            "임오",
+                            "계미",
+                            "갑신",
+                            "을유",
+                            "병술",
+                            "정해",
+                            "무자",
+                            "기축",
+                            "경인",
+                            "신묘",
+                            "임진",
+                            "계사",
+                            "갑오",
+                            "을미",
+                            "병신",
+                            "정유",
+                            "무술",
+                            "기해",
+                            "경자",
+                            "신축",
+                            "임인",
+                            "계묘",
+                            "갑진",
+                            "을사",
+                            "병오",
+                            "정미",
+                            "무신",
+                            "기유",
+                            "경술",
+                            "신해",
+                            "임자",
+                            "계축",
+                            "갑인",
+                            "을묘",
+                            "병진",
+                            "정사",
+                            "무오",
+                            "기미",
+                            "경신",
+                            "신유",
+                            "임술",
+                            "계해",
+                        }
+                    }
+                }
+            }
+        }
         gregorian{
             AmPmMarkers{
                 "오전",
@@ -225,13 +339,14 @@ ko{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"d일 EEE"}
+                EEEEd{"d일 EEEE"}
                 Ed{"d일 (E)"}
                 H{"H시"}
                 HHmmss{"HH:mm:ss"}
                 Hm{"HH:mm"}
                 Hms{"H시 m분 s초"}
                 M{"M월"}
+                MEEEEd{"M. d. EEEE"}
                 MEd{"M. d. (E)"}
                 MMM{"LLL"}
                 MMMEd{"MMM d일 (E)"}
@@ -246,14 +361,15 @@ ko{
                 ms{"mm:ss"}
                 y{"y년"}
                 yM{"y. M."}
-                yMEd{"y. M. d. EEE"}
+                yMEd{"y. M. d. (E)"}
                 yMMM{"y년 MMM"}
-                yMMMEd{"y년 MMM d일 EEE"}
+                yMMMEEEEd{"y년 MMM d일 EEEE"}
+                yMMMEd{"y년 MMM d일 (E)"}
                 yMMMd{"y년 MMM d일"}
                 yMd{"y. M. d."}
                 yQ{"y년 Q분기"}
                 yQQQ{"y년 QQQ"}
-                yyMM{"YY. M."}
+                yyMM{"yy. M."}
                 yyMMM{"yy년 MMM"}
                 yyQ{"yy년 Q분기"}
                 yyyyMM{"yyyy. MM"}
@@ -307,11 +423,9 @@ ko{
                     relative{
                         "-1"{"어제"}
                         "-2"{"그저께"}
-                        "-3"{"그끄제"}
                         "0"{"오늘"}
                         "1"{"내일"}
                         "2"{"모레"}
-                        "3"{"3일후"}
                     }
                 }
                 dayperiod{
@@ -328,37 +442,70 @@ ko{
                 }
                 month{
                     dn{"월"}
+                    relative{
+                        "-1"{"지난달"}
+                        "0"{"이번 달"}
+                        "1"{"다음 달"}
+                    }
                 }
                 second{
                     dn{"초"}
                 }
                 week{
                     dn{"주"}
+                    relative{
+                        "-1"{"지난주"}
+                        "0"{"이번 주"}
+                        "1"{"다음 주"}
+                    }
                 }
                 weekday{
                     dn{"요일"}
                 }
                 year{
                     dn{"년"}
+                    relative{
+                        "-1"{"지난해"}
+                        "0"{"올해"}
+                        "1"{"내년"}
+                    }
                 }
                 zone{
                     dn{"시간대"}
                 }
             }
             intervalFormats{
+                H{
+                    H{"HH ~ HH시"}
+                    a{"HH시 ~ HH시"}
+                }
+                Hm{
+                    H{"HH:mm ~ HH:mm"}
+                    a{"HH:mm ~ HH:mm"}
+                    m{"HH:mm ~ HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm ~ HH:mm v"}
+                    a{"HH:mm ~ HH:mm v"}
+                    m{"HH:mm ~ HH:mm v"}
+                }
+                Hv{
+                    H{"HH ~ HH시 v"}
+                    a{"HH시 ~ HH시 v"}
+                }
                 M{
                     M{"M월 ~ M월"}
                 }
                 MEd{
-                    M{"M. d E ~ M. d E"}
-                    d{"M. d E ~ M. d E"}
+                    M{"M. d (E) ~ M. d (E)"}
+                    d{"M. d (E) ~ M. d (E)"}
                 }
                 MMM{
                     M{"MMM ~ MMM"}
                 }
                 MMMEd{
-                    M{"M월 d일 E ~ M월 d일 E"}
-                    d{"M월 d일 E ~ d일 E"}
+                    M{"M월 d일 (E) ~ M월 d일 (E)"}
+                    d{"M월 d일 (E) ~ d일 (E)"}
                 }
                 MMMM{
                     M{"LLLL-LLLL"}
@@ -401,18 +548,23 @@ ko{
                     y{"yyyy. M ~ yyyy. M"}
                 }
                 yMEd{
-                    M{"yy. M. d. E ~ yy. M. d. E"}
-                    d{"yy. M. d. E ~ yy. M. d. E"}
-                    y{"yy. M. d. E ~ yy. M. d. E"}
+                    M{"yy. M. d. (E) ~ yy. M. d. (E)"}
+                    d{"yy. M. d. (E) ~ yy. M. d. (E)"}
+                    y{"yy. M. d. (E) ~ yy. M. d. (E)"}
                 }
                 yMMM{
                     M{"y년 M월~M월"}
                     y{"y년 M월 ~ y년 M월"}
                 }
+                yMMMEEEEd{
+                    M{"y년 M월 d일 EEEE ~ M월 d일 EEEE"}
+                    d{"y년 M월 d일 EEEE ~ d일 EEEE"}
+                    y{"y년 M월 d일 EEEE ~ y년 M월 d일 EEEE"}
+                }
                 yMMMEd{
-                    M{"y년 M월 d일 E ~ M월 d일 E"}
-                    d{"y년 M월 d일 E ~ d일 E"}
-                    y{"y년 M월 d일 E ~ y년 M월 d일 E"}
+                    M{"y년 M월 d일 (E) ~ M월 d일 (E)"}
+                    d{"y년 M월 d일 (E) ~ d일 (E)"}
+                    y{"y년 M월 d일 (E) ~ y년 M월 d일 (E)"}
                 }
                 yMMMM{
                     M{"y년 MM월 ~ MM월"}
@@ -471,6 +623,12 @@ ko{
                         "3분기",
                         "4분기",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
                     wide{
                         "제 1/4분기",
                         "제 2/4분기",
@@ -497,6 +655,7 @@ ko{
                 "{1} {0}",
             }
             availableFormats{
+                EEEEd{"d일 EEEE"}
                 EEEd{"d일 EEE"}
                 Ed{"d일 (E)"}
                 Gy{"G yy년"}
@@ -505,6 +664,7 @@ ko{
                 Hm{"HH:mm"}
                 Hms{"H시 m분 s초"}
                 M{"M월"}
+                MEEEEd{"M. d. EEEE"}
                 MEd{"M. d. (E)"}
                 MMM{"LLL"}
                 MMMEd{"MMM d일 (E)"}
@@ -518,7 +678,7 @@ ko{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"G yy년"}
-                yyMM{"G YY. M."}
+                yyMM{"G yy. M."}
                 yyMMM{"G yy년 MMM"}
                 yyQ{"G y년 Q분기"}
                 yyyy{"G yy년"}
@@ -531,66 +691,6 @@ ko{
                 yyyyMd{"G y. M. d."}
                 yyyyQ{"G y년 Q분기"}
                 yyyyQQQ{"G y년 QQQ"}
-            }
-            eras{
-                abbreviated{
-                    "AH",
-                }
-                narrow:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
-                wide:alias{"/LOCALE/calendar/islamic/eras/abbreviated"}
-            }
-            monthNames{
-                default{"format"}
-                format{
-                    abbreviated{
-                        "Muh.",
-                        "Saf.",
-                        "Rab. I",
-                        "Rab. II",
-                        "Jum. I",
-                        "Jum. II",
-                        "Raj.",
-                        "Sha.",
-                        "Ram.",
-                        "Shaw.",
-                        "Dhuʻl-Q.",
-                        "Dhuʻl-H.",
-                    }
-                    default{"wide"}
-                    narrow:alias{"/LOCALE/calendar/islamic/monthNames/stand-alone/narrow"}
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiʻ I",
-                        "Rabiʻ II",
-                        "Jumada I",
-                        "Jumada II",
-                        "Rajab",
-                        "Shaʻban",
-                        "Ramadan",
-                        "Shawwal",
-                        "Dhuʻl-Qiʻdah",
-                        "Dhuʻl-Hijjah",
-                    }
-                }
-                stand-alone{
-                    abbreviated:alias{"/LOCALE/calendar/islamic/monthNames/format/abbreviated"}
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                    }
-                    wide:alias{"/LOCALE/calendar/islamic/monthNames/format/wide"}
-                }
             }
         }
         japanese{
@@ -610,7 +710,7 @@ ko{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"d일 EEE"}
+                EEEEd{"d일 EEEE"}
                 Ed{"d일 (E)"}
                 Gy{"G yy년"}
                 H{"H시"}
@@ -618,6 +718,7 @@ ko{
                 Hm{"HH:mm"}
                 Hms{"H시 m분 s초"}
                 M{"M월"}
+                MEEEEd{"M. d. EEEE"}
                 MEd{"M. d. (E)"}
                 MMM{"LLL"}
                 MMMEd{"MMM d일 (E)"}
@@ -631,15 +732,16 @@ ko{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"G yy년"}
-                yyMM{"G YY. M."}
+                yyMM{"G yy. M."}
                 yyMMM{"G yy년 MMM"}
                 yyQ{"G yy년 Q분기"}
                 yyyy{"G yy년"}
                 yyyyM{"G y. M."}
-                yyyyMEd{"G y. M. d. EEE"}
+                yyyyMEd{"G y. M. d. (E)"}
                 yyyyMM{"G y. MM"}
                 yyyyMMM{"G y년 MMM"}
-                yyyyMMMEd{"G y년 MMM d일 EEE"}
+                yyyyMMMEEEEd{"G y년 MMM d일 EEEE"}
+                yyyyMMMEd{"G y년 MMM d일 (E)"}
                 yyyyMMMd{"G yy년 MMM d일"}
                 yyyyMd{"G y. M. d."}
                 yyyyQ{"G yy년 Q분기"}
@@ -885,7 +987,7 @@ ko{
                     "헤이세이",
                 }
             }
-             intervalFormats{
+            intervalFormats{
                 M{
                     M{"M월 ~ M월"}
                 }
@@ -987,7 +1089,7 @@ ko{
                 "{1} {0}",
             }
             availableFormats{
-                EEEd{"d일 EEE"}
+                EEEEd{"d일 EEEE"}
                 Ed{"d일 (E)"}
                 Gy{"G yy년"}
                 H{"H시"}
@@ -995,6 +1097,7 @@ ko{
                 Hm{"HH:mm"}
                 Hms{"H시 m분 s초"}
                 M{"M월"}
+                MEEEEd{"M. d. EEEE"}
                 MEd{"M. d. (E)"}
                 MMM{"LLL"}
                 MMMEd{"MMM d일 (E)"}
@@ -1008,15 +1111,16 @@ ko{
                 mmss{"mm:ss"}
                 ms{"mm:ss"}
                 y{"G yy년"}
-                yyMM{"G YY. M."}
+                yyMM{"G yy. M."}
                 yyMMM{"G yy년 MMM"}
                 yyQ{"G y년 Q분기"}
                 yyyy{"G yy년"}
                 yyyyM{"G y. M."}
-                yyyyMEd{"G y. M. d. EEE"}
+                yyyyMEd{"G y. M. d. (E)"}
                 yyyyMM{"G y. MM"}
                 yyyyMMM{"G y년 MMM"}
-                yyyyMMMEd{"G y년 MMM d일 EEE"}
+                yyyyMMMEEEEd{"G y년 MMM d일 EEEE"}
+                yyyyMMMEd{"G y년 MMM d일 (E)"}
                 yyyyMMMd{"G yy년 MMM d일"}
                 yyyyMd{"G y. M. d."}
                 yyyyQ{"G y년 Q분기"}
@@ -1028,7 +1132,7 @@ ko{
                     "중화민국",
                 }
             }
-             intervalFormats{
+            intervalFormats{
                 M{
                     M{"M월 ~ M월"}
                 }
@@ -1115,36 +1219,113 @@ ko{
         }
     }
     delimiters{
-        alternateQuotationEnd{"”"}
-        alternateQuotationStart{"“"}
-        quotationEnd{"’"}
-        quotationStart{"‘"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
+    }
+    listPattern{
+        standard{
+            2{"{0} 및 {1}"}
+            end{"{0} 및 {1}"}
+        }
     }
     measurementSystemNames{
-        US{"US"}
+        UK{"영국"}
+        US{"미국"}
         metric{"미터법"}
     }
     units{
         day{
             other{"{0}일"}
         }
+        day-future{
+            0{"0일 후"}
+            1{"1일 후"}
+            other{"{0}일 후"}
+        }
+        day-past{
+            0{"0일 전"}
+            1{"1일 전"}
+            other{"{0}일 전"}
+        }
         hour{
             other{"{0}시간"}
+        }
+        hour-future{
+            0{"0시간 후"}
+            1{"1시간 후"}
+            other{"{0}시간 후"}
+        }
+        hour-past{
+            0{"0시간 전"}
+            1{"1시간 전"}
+            other{"{0}시간 전"}
         }
         minute{
             other{"{0}분"}
         }
+        minute-future{
+            0{"0분 후"}
+            1{"1분 후"}
+            other{"{0}분 후"}
+        }
+        minute-past{
+            0{"0분 전"}
+            1{"1분 전"}
+            other{"{0}분 전"}
+        }
         month{
             other{"{0}개월"}
+        }
+        month-future{
+            0{"0개월 후"}
+            1{"1개월 후"}
+            other{"{0}개월 후"}
+        }
+        month-past{
+            0{"0개월 전"}
+            1{"1개월 전"}
+            other{"{0}개월 전"}
         }
         second{
             other{"{0}초"}
         }
+        second-future{
+            0{"0초 후"}
+            1{"1초 후"}
+            other{"{0}초 후"}
+        }
+        second-past{
+            0{"0초 전"}
+            1{"1초 전"}
+            other{"{0}초 전"}
+        }
         week{
             other{"{0}주"}
         }
+        week-future{
+            0{"0주 후"}
+            1{"1주 후"}
+            other{"{0}주 후"}
+        }
+        week-past{
+            0{"0주 전"}
+            1{"1주 전"}
+            other{"{0}주 전"}
+        }
         year{
             other{"{0}년"}
+        }
+        year-future{
+            0{"0년 후"}
+            1{"1년 후"}
+            other{"{0}년 후"}
+        }
+        year-past{
+            0{"0년 전"}
+            1{"1년 전"}
+            other{"{0}년 전"}
         }
     }
     unitsShort{

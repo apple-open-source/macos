@@ -1,0 +1,54 @@
+// 
+// sa_reply.defs - SecurityAgent-side Mach RPC interface to Server.
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem secagentreply 1200;
+serverprefix sa_reply_server_;
+userprefix sa_reply_client_;
+
+import <security_agent_client/sa_types.h>;
+
+//
+// Data types
+//
+type OSStatus = int32;
+type AuthorizationResult = int32;
+
+type Data = array [] of char;
+
+type AuthorizationItemSetBlob = Data
+	ctype: AuthorizationItemSetPtr;
+type AuthorizationItemSetPtr = unsigned32;
+type AuthorizationValueVectorBlob = Data
+	ctype: AuthorizationValueVectorPtr;
+type AuthorizationValueVectorPtr = unsigned32;
+
+
+#define BLOB(name,type)	name: type##Blob; name##Base: type##Ptr
+
+//
+// Staged SecurityAgent reply protocol
+//
+simpleroutine didCreate(requestport instanceReplyPort: mach_port_t;
+	instanceRequestPort: mach_port_make_send_t); // give client send rights to mechanism request port
+
+simpleroutine setResult(requestport instanceReplyPort: mach_port_t;
+	status: AuthorizationResult;
+	BLOB(hintsIn,AuthorizationItemSet);
+	BLOB(contextIn,AuthorizationItemSet));
+
+simpleroutine requestInterrupt(requestport instanceReplyPort: mach_port_t);
+
+simpleroutine didDeactivate(requestport instanceReplyPort: mach_port_t);
+
+simpleroutine reportError(requestport instanceReplyPort: mach_port_t;
+	status: OSStatus);
+    
+simpleroutine didStartTx(clientReplyPort: mach_port_move_send_once_t; 
+    result: kern_return_t);
+    
+// in case we decide to support true synchronous agent client IPCs, this 
+// keeps sa_reply routine #s at parity with sa_request routine #s
+skip;   // client: txEnd

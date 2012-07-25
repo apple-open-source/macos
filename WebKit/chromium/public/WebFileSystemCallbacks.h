@@ -28,17 +28,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef   WebFileSystemCallbacks_h
-#define   WebFileSystemCallbacks_h
+#ifndef WebFileSystemCallbacks_h
+#define WebFileSystemCallbacks_h
 
 #include "WebFileError.h"
 #include "WebFileSystemEntry.h"
-#include "WebVector.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
 class WebString;
+class WebURL;
 struct WebFileInfo;
+
+// Temporary hack to ease a 4-phase Chromium/WebKit commit.
+#define WEBFILESYSTEMCALLBACKS_USE_URL_NOT_STRING 1
 
 class WebFileSystemCallbacks {
 public:
@@ -57,8 +61,8 @@ public:
     virtual void didReadDirectory(const WebVector<WebFileSystemEntry>&, bool hasMore) = 0;
 
     // Callback for WebFrameClient::openFileSystem. Called with a name and
-    // root path for the FileSystem when the request is accepted.
-    virtual void didOpenFileSystem(const WebString& name, const WebString& rootPath) = 0;
+    // root URL for the FileSystem when the request is accepted.
+    virtual void didOpenFileSystem(const WebString& name, const WebURL& rootURL) = 0;
 
     // Called with an error code when a requested operation hasn't been
     // completed.

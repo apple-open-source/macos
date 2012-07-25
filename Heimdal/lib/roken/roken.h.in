@@ -43,18 +43,26 @@
 
 #ifndef ROKEN_LIB_FUNCTION
 #ifdef _WIN32
-#define ROKEN_LIB_FUNCTION
-#define ROKEN_LIB_CALL     __cdecl
+#  define ROKEN_LIB_CALL     __cdecl
+#  ifdef ROKEN_LIB_DYNAMIC
+#    define ROKEN_LIB_FUNCTION __declspec(dllimport)
+#    define ROKEN_LIB_VARIABLE __declspec(dllimport)
+#  else
+#    define ROKEN_LIB_FUNCTION
+#    define ROKEN_LIB_VARIABLE
+#  endif
 #else
 #define ROKEN_LIB_FUNCTION
 #define ROKEN_LIB_CALL
+#define ROKEN_LIB_VARIABLE
 #endif
 #endif
 
 #ifdef HAVE_WINSOCK
 /* Declarations for Microsoft Windows */
 
-#include<ws2tcpip.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 
 /*
  * error codes for inet_ntop/inet_pton 
@@ -68,11 +76,25 @@ typedef SOCKET rk_socket_t;
 #define rk_IS_BAD_SOCKET(s) ((s) == INVALID_SOCKET)
 #define rk_IS_SOCKET_ERROR(rv) ((rv) == SOCKET_ERROR)
 #define rk_SOCK_ERRNO WSAGetLastError()
-#define rk_SOCK_IOCTL(s,c,a) ioctlsocket((s),(c),(a))
 
-#define ETIMEDOUT               WSAETIMEDOUT
-#define EWOULDBLOCK             WSAEWOULDBLOCK
-#define ENOTSOCK		WSAENOTSOCK
+ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL rk_SOCK_IOCTL(SOCKET s, long cmd, int * argp);
+
+/* Microsoft VC 2010 POSIX definitions */
+#ifndef ENOTSOCK
+#define ENOTSOCK		128
+#endif
+#ifndef ENOTSUP
+#define ENOTSUP                 129
+#endif
+#ifndef EOVERFLOW
+#define EOVERFLOW               132
+#endif
+#ifndef ETIMEDOUT
+#define ETIMEDOUT               138
+#endif
+#ifndef EWOULDBLOCK
+#define EWOULDBLOCK             140
+#endif
 
 #define rk_SOCK_INIT() rk_WSAStartup()
 #define rk_SOCK_EXIT() rk_WSACleanup()
@@ -94,6 +116,10 @@ typedef int rk_socket_t;
 #define rk_SOCK_INIT() 0
 #define rk_SOCK_EXIT() do { } while(0)
 
+#endif
+
+#ifndef IN_LOOPBACKNET
+#define IN_LOOPBACKNET 127
 #endif
 
 #ifdef _MSC_VER
@@ -123,6 +149,32 @@ typedef uint64_t           u_int64_t;
 
 #define UNREACHABLE(x) x
 #define UNUSED_ARGUMENT(x) ((void) x)
+
+#define RETSIGTYPE void
+
+#define VOID_RETSIGTYPE 1
+
+#ifdef VOID_RETSIGTYPE
+#define SIGRETURN(x) return
+#else
+#define SIGRETURN(x) return (RETSIGTYPE)(x)
+#endif
+
+#ifndef CPP_ONLY
+
+typedef int pid_t;
+
+typedef unsigned int gid_t;
+
+typedef unsigned int uid_t;
+
+typedef unsigned short mode_t;
+
+#endif
+
+#ifndef __cplusplus
+#define inline __inline
+#endif
 
 #else
 
@@ -214,10 +266,6 @@ struct sockaddr_dl;
 #include <time.h>
 #endif
 
-#ifdef HAVE_WS2TCPIP_H
-#include <ws2tcpip.h>
-#endif
-
 #ifdef HAVE_PATHS_H
 #include <paths.h>
 #endif
@@ -231,12 +279,18 @@ struct sockaddr_dl;
 #endif
 
 #ifndef HAVE_SSIZE_T
+#ifndef SSIZE_T_DEFINED
+#ifdef ssize_t
+#undef ssize_t
+#endif
 #ifdef _WIN64
 typedef __int64 ssize_t;
 #else
 typedef int ssize_t;
 #endif
-#endif
+#define SSIZE_T_DEFINED
+#endif  /* SSIZE_T_DEFINED */
+#endif  /* HAVE_SSIZE_T */
 
 #include <roken-common.h>
 
@@ -314,6 +368,32 @@ rk_vsnprintf (char *str, size_t sz, const char *format, va_list args);
 */
 
 #endif  /* _MSC_VER */
+
+#ifdef HAVE_WINSOCK
+
+/* While we are at it, define WinSock specific scatter gather socket
+   I/O. */
+
+#define iovec    _WSABUF
+#define iov_base buf
+#define iov_len  len
+
+struct msghdr {
+    void           *msg_name;
+    socklen_t       msg_namelen;
+    struct iovec   *msg_iov;
+    size_t          msg_iovlen;
+    void           *msg_control;
+    socklen_t       msg_controllen;
+    int             msg_flags;
+};
+
+#define sendmsg sendmsg_w32
+
+ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
+sendmsg_w32(rk_socket_t s, const struct msghdr * msg, int flags);
+
+#endif	/* HAVE_WINSOCK */
 
 #ifndef HAVE_PUTENV
 #define putenv rk_putenv
@@ -485,7 +565,6 @@ int ROKEN_LIB_FUNCTION rk_strerror_r(int, char *, size_t);
 #endif
 /* This causes a fatal error under Psoriasis */
 #ifndef SunOS
-const char * ROKEN_LIB_FUNCTION hstrerror(int);
 ROKEN_LIB_FUNCTION const char * ROKEN_LIB_CALL hstrerror(int);
 #endif
 #endif
@@ -563,6 +642,12 @@ ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL initgroups(const char *, gid_t);
 #ifndef HAVE_FCHOWN
 #define fchown rk_fchown
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL fchown(int, uid_t, gid_t);
+#endif
+
+#ifdef RENAME_DOES_NOT_UNLINK
+ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL rk_rename(const char *, const char *);
+#else
+#define rk_rename(__rk_rn_from,__rk_rn_to) rename(__rk_rn_from,__rk_rn_to)
 #endif
 
 #if !defined(HAVE_DAEMON) || defined(NEED_DAEMON_PROTO)
@@ -686,28 +771,28 @@ ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
     issuid(void);
 
-#ifndef HAVE_STRUCT_WINSIZE
-struct winsize {
-	unsigned short ws_row, ws_col;
-	unsigned short ws_xpixel, ws_ypixel;
-};
-#endif
-
-ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL get_window_size(int fd, struct winsize *);
-
 #ifndef HAVE_VSYSLOG
 #define vsyslog rk_vsyslog
 ROKEN_LIB_FUNCTION void ROKEN_LIB_CALL vsyslog(int, const char *, va_list);
 #endif
 
+#ifndef HAVE_GETOPT
+#define getopt rk_getopt
+#define optarg rk_optarg
+#define optind rk_optind
+#define opterr rk_opterr
+ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
+getopt(int nargc, char * const *nargv, const char *ostr);
+#endif
+
 #if !HAVE_DECL_OPTARG
-extern char *optarg;
+ROKEN_LIB_VARIABLE extern char *optarg;
 #endif
 #if !HAVE_DECL_OPTIND
-extern int optind;
+ROKEN_LIB_VARIABLE extern int optind;
 #endif
 #if !HAVE_DECL_OPTERR
-extern int opterr;
+ROKEN_LIB_VARIABLE extern int opterr;
 #endif
 
 #ifndef HAVE_GETIPNODEBYNAME
@@ -826,32 +911,6 @@ ROKEN_LIB_FUNCTION const char * ROKEN_LIB_CALL
 gai_strerror(int);
 #endif
 
-#ifdef HAVE_WINSOCK
-
-/* While we are at it, define WinSock specific scatter gather socket
-   I/O. */
-
-#define iovec    _WSABUF
-#define iov_base buf
-#define iov_len  len
-
-struct msghdr {
-    void           *msg_name;
-    socklen_t       msg_namelen;
-    struct iovec   *msg_iov;
-    size_t          msg_iovlen;
-    void           *msg_control;
-    socklen_t       msg_controllen;
-    int             msg_flags;
-};
-
-#define sendmsg sendmsg_w32
-
-ROKEN_LIB_FUNCTION ssize_t ROKEN_LIB_CALL
-sendmsg_w32(rk_socket_t s, const struct msghdr * msg, int flags);
-
-#endif
-
 #ifdef NO_SLEEP
 
 ROKEN_LIB_FUNCTION unsigned int ROKEN_LIB_CALL
@@ -883,6 +942,7 @@ strptime (const char *, const char *, struct tm *);
 #endif
 
 #ifndef HAVE_GETTIMEOFDAY
+#define gettimeofday rk_gettimeofday
 ROKEN_LIB_FUNCTION int ROKEN_LIB_CALL
 gettimeofday (struct timeval *, void *);
 #endif
@@ -1049,8 +1109,20 @@ rk_qsort(void *, size_t, size_t, int (*)(const void *, const void *));
 #define rk_random() rand()
 #endif
 
+#ifndef HAVE_TDELETE
+#define tdelete(a,b,c) rk_tdelete(a,b,c)
+#endif
+#ifndef HAVE_TFIND
+#define tfind(a,b,c) rk_tfind(a,b,c)
+#endif
+#ifndef HAVE_TSEARCH
+#define tsearch(a,b,c) rk_tsearch(a,b,c)
+#endif
+#ifndef HAVE_TWALK
+#define twalk(a,b) rk_twalk(a,b)
+#endif
 
-#if defined(__linux__) && defined(SOCK_CLOEXEC) && !defined(SOCKET_WRAPPER_REPLACE) 
+#if defined(__linux__) && defined(SOCK_CLOEXEC) && !defined(SOCKET_WRAPPER_REPLACE) && !defined(__SOCKET_WRAPPER_H__)
 #undef socket
 #define socket(_fam,_type,_prot) rk_socket(_fam,_type,_prot)
 int ROKEN_LIB_FUNCTION rk_socket(int, int, int);

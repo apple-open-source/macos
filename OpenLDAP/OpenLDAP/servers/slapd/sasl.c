@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/sasl.c,v 1.239.2.23 2010/04/15 18:41:32 quanah Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,10 @@
 #include <ldap_log.h>
 
 #include "slap.h"
+#define __COREFOUNDATION_CFFILESECURITY__
+#include <CoreFoundation/CoreFoundation.h>
+#include "applehelpers.h"
+#include <membership.h>
 
 #ifdef ENABLE_REWRITE
 #include <rewrite.h>
@@ -85,7 +89,7 @@ char *slap_sasl_auxprops;
 #ifdef HAVE_CYRUS_SASL
 
 /* Just use our internal auxprop by default */
-static int
+int
 slap_sasl_getopt(
 	void *context,
 	const char *plugin_name,
@@ -600,10 +604,17 @@ sasl_authdata_lookup( Operation *op, SlapReply *rs )
 	}
 	for ( i = 0; sl->list[i].name; i++ ) {
 		bool desdecode = 0;
+		const char *findattr = sl->list[i].name+1;
+
+		// Requests for cmusaslsecretDIGEST-MD5 mapped to cmusaslsecretDIGEST-UMD5
+		if ( !strncmp( sl->list[i].name, "*cmusaslsecretDIGEST-MD5", 23 ) ) {
+			findattr = "cmusaslsecretDIGEST-UMD5";
+		}
+
 		if ( !strncmp( sl->list[i].name, "*cmusasl", 8) ) {
 			ad = NULL;
 			text = NULL;
-			rc = slap_str2ad(sl->list[i].name+1, &ad, &text);
+			rc = slap_str2ad(findattr, &ad, &text);
 			if (rc != LDAP_SUCCESS) {
 				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed\n", __PRETTY_FUNCTION__, 0, 0);
 				return 0;
@@ -777,8 +788,11 @@ pws_auxprop_lookup(
 	cb2.sc_private = &sl;
 	op.o_callback = &cb2;
 
-	char *save_bv_val = op.o_conn->c_listener->sl_url.bv_val;
-	ber_len_t save_bv_len = op.o_conn->c_listener->sl_url.bv_len;
+	char *save_bv_val = NULL;
+	ber_len_t save_bv_len = 0;
+	if(!op.o_conn) op.o_conn = conn;
+	save_bv_val = op.o_conn->c_listener->sl_url.bv_val;
+	save_bv_len = op.o_conn->c_listener->sl_url.bv_len;
 	op.o_conn->c_listener->sl_url.bv_val = strdup("ldapi://%2Fvar%2Frun%2Fldapi");
 	op.o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
 	op.o_hdr = conn->c_sasl_bindop->o_hdr;
@@ -796,9 +810,11 @@ pws_auxprop_lookup(
 	free(op.o_req_ndn.bv_val);
 	op.o_req_ndn.bv_val = save_ndn_bv_val;
 	op.o_req_ndn.bv_len = save_ndn_bv_len;
-	free(op.o_conn->c_listener->sl_url.bv_val);
-	op.o_conn->c_listener->sl_url.bv_val = save_bv_val;
-	op.o_conn->c_listener->sl_url.bv_len = save_bv_len;
+	if(save_bv_val) {
+		free(op.o_conn->c_listener->sl_url.bv_val);
+		op.o_conn->c_listener->sl_url.bv_val = save_bv_val;
+		op.o_conn->c_listener->sl_url.bv_len = save_bv_len;
+	}
 }
 
 static sasl_auxprop_plug_t pws_auxprop_plugin = {
@@ -811,7 +827,7 @@ static sasl_auxprop_plug_t pws_auxprop_plugin = {
 	NULL
 };
 
-static int
+int
 pws_auxprop_init(
 	const sasl_utils_t *utils,
 	int max_version,
@@ -837,7 +853,7 @@ pws_auxprop_init(
  * buffer is constrained to 256 characters, and our DNs could be
  * much longer (SLAP_LDAPDN_MAXLEN, currently set to 8192)
  */
-static int
+int
 slap_sasl_canonicalize(
 	sasl_conn_t *sconn,
 	void *context,
@@ -868,7 +884,7 @@ slap_sasl_canonicalize(
 		sasl_krb5_authdata *pdata = NULL;
 		int prop_rc = sasl_getprop(sconn, SASL_KRB5_AUTHDATA, (SASL_CONST void **)&pdata);
 		if (pdata && pdata->structID == SASL_KRB5_AUTH_DATA_SIG && pdata->realm) {
-			user_realm = pdata->realm;
+			user_realm = (const char *)pdata->realm;
 		}
 		Debug(LDAP_DEBUG_TRACE, "slap_sasl_canonicalize [%d]sasl_getprop REALM(%s)\n", prop_rc, user_realm, 0);
 	}
@@ -966,7 +982,7 @@ done:
 	return SASL_OK;
 }
 
-static int
+int
 slap_sasl_authorize(
 	sasl_conn_t *sconn,
 	void *context,
@@ -1817,6 +1833,29 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 
 	if ( sc == SASL_OK ) {
 		sasl_ssf_t *ssf = NULL;
+		CFDictionaryRef poldict = odusers_copy_effectiveuserpoldict(&op->o_conn->c_sasl_dn);
+		if(!poldict) {
+			Debug(LDAP_DEBUG_ANY, "%s: could not retrieve effective policy for: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
+			BER_BVZERO( &op->o_conn->c_sasl_dn );
+			rs->sr_text = "Could not verify policy";
+			rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+			send_ldap_result( op, rs );
+			goto out;
+		}
+
+		if(odusers_isdisabled(poldict)) {
+			Debug(LDAP_DEBUG_ANY, "%s: User is disabled: %s\n", __PRETTY_FUNCTION__, op->o_conn->c_sasl_dn.bv_val, 0);
+			CFRelease(poldict);
+			BER_BVZERO( &op->o_conn->c_sasl_dn );
+			rs->sr_text = "Policy violation";
+			rs->sr_err = LDAP_CONSTRAINT_VIOLATION;
+			send_ldap_result( op, rs );
+			goto out;
+		}
+
+		odusers_successful_auth(&op->o_conn->c_sasl_dn, poldict);
+
+		CFRelease(poldict);
 
 		ber_dupbv_x( &op->orb_edn, &op->o_conn->c_sasl_dn, op->o_tmpmemctx );
 		BER_BVZERO( &op->o_conn->c_sasl_dn );
@@ -1872,11 +1911,38 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 		send_ldap_sasl( op, rs );
 
 	} else {
+		/* At this point, we don't know why the failure happened, what callbacks
+		 * got called, or what c_sasl_* data has been populated, so we can't
+		 * rely on any temporary variables.  Retrieve the auth context used.
+		 */
+		struct propctx *props = sasl_auxprop_getctx( ctx );
+		struct propval auxvals[ SLAP_SASL_PROP_COUNT ] = { { 0 } };
+		struct berval dn;
+		prop_getnames( props, slap_propnames, auxvals );
+		if(auxvals[SLAP_SASL_PROP_AUTHC].values) {
+			ber_str2bv(auxvals[SLAP_SASL_PROP_AUTHC].values[0], 0, 0, &dn);
+		} else if(BER_BVISEMPTY(&op->o_conn->c_sasl_authz_dn)) {
+			dn = op->o_conn->c_sasl_authz_dn;
+		} else if(BER_BVISEMPTY(&op->o_conn->c_sasl_dn)) {
+			dn = op->o_conn->c_sasl_dn;
+		} else {
+			dn = op->o_req_ndn;
+		}
+
+		// The dn won't exist if the user is authenticating
+		// over GSSAPI with a principal that doesn't exist.
+		if(!BER_BVISEMPTY(&dn)) {
+			if(odusers_increment_failedlogin(&dn) != 0) { 
+				Debug(LDAP_DEBUG_ANY, "%s: Error to increment failed login count for %s", __PRETTY_FUNCTION__, dn.bv_val, 0);
+			}
+		}
 		BER_BVZERO( &op->o_conn->c_sasl_dn );
 		rs->sr_text = sasl_errdetail( ctx );
 		rs->sr_err = slap_sasl_err2ldap( sc ),
 		send_ldap_result( op, rs );
 	}
+
+out:
 
 	Debug(LDAP_DEBUG_TRACE, "<== slap_sasl_bind: rc=%d\n", rs->sr_err, 0, 0);
 
@@ -1892,7 +1958,7 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 		/* EXTERNAL */
 
 		if( op->orb_cred.bv_len ) {
-			rs->sr_text = "proxy authorization not support";
+			rs->sr_text = "proxy authorization not supported";
 			rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
 			send_ldap_result( op, rs );
 

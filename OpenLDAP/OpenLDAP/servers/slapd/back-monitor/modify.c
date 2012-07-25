@@ -1,8 +1,8 @@
 /* modify.c - monitor backend modify routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/modify.c,v 1.24.2.6 2010/04/13 20:23:33 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2010 The OpenLDAP Foundation.
+ * Copyright 2001-2011 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *

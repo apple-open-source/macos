@@ -126,6 +126,7 @@ __SCPreferencesAccess			(SCPreferencesRef	prefs);
 Boolean
 __SCPreferencesAddSession		(SCPreferencesRef       prefs);
 
+CF_RETURNS_RETAINED
 CFDataRef
 __SCPSignatureFromStatbuf		(const struct stat	*statBuf);
 
@@ -134,6 +135,7 @@ __SCPreferencesPath			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,
 					 Boolean		useNewPrefs);
 
+CF_RETURNS_RETAINED
 CFStringRef
 _SCPNotificationKey			(CFAllocatorRef		allocator,
 					 CFStringRef		prefsID,

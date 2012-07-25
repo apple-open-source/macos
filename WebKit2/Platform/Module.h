@@ -41,6 +41,10 @@
 typedef struct _GModule GModule;
 #endif
 
+#if PLATFORM(EFL)
+#include <Eina.h>
+#endif
+
 namespace WebKit {
 
 class Module {
@@ -53,6 +57,10 @@ public:
     // Note: On Mac this leaks the CFBundle to avoid crashes when a bundle is unloaded and there are
     // live Objective-C objects whose methods come from that bundle.
     void unload();
+
+#if PLATFORM(MAC)
+    String bundleIdentifier() const;
+#endif
 
     template<typename FunctionType> FunctionType functionPointer(const char* functionName) const;
 
@@ -79,6 +87,8 @@ private:
     QLibrary m_lib;
 #elif PLATFORM(GTK)
     GModule* m_handle;
+#elif PLATFORM(EFL)
+    OwnPtr<Eina_Module> m_module;
 #endif
 };
 

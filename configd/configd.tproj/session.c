@@ -41,11 +41,15 @@
 
 
 /* information maintained for each active session */
-static serverSessionRef	*sessions = NULL;
-static int		nSessions = 0;
+static serverSessionRef	*sessions	= NULL;
+static int		nSessions	= 0;	/* # of allocated sessions */
+static int		lastSession	= -1;	/* # of last used session */
 
 /* CFMachPortInvalidation runloop */
 static CFRunLoopRef	sessionRunLoop	= NULL;
+
+/* temp session */
+static serverSessionRef	temp_session	= NULL;
 
 
 static void
@@ -73,22 +77,61 @@ getSession(mach_port_t server)
 		return NULL;
 	}
 
-	for (i = 0; i < nSessions; i++) {
+	/* look for matching session (note: slot 0 is the "server" port) */
+	for (i = 1; i <= lastSession; i++) {
 		serverSessionRef	thisSession = sessions[i];
 
 		if (thisSession == NULL) {
 			/* found an empty slot, skip it */
 			continue;
-		} else if (thisSession->key == server) {
-			return thisSession;	/* we've seen this server before */
-		} else if (thisSession->store &&
-			   (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+		}
+
+		if (thisSession->key == server) {
+			/* we've seen this server before */
+			return thisSession;
+		}
+
+		if ((thisSession->store != NULL) &&
+		    (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+			/* we've seen this task port before */
 			return thisSession;
 		}
 	}
 
 	/* no sessions available */
 	return NULL;
+}
+
+
+__private_extern__
+serverSessionRef
+tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
+{
+	static dispatch_once_t		once;
+	SCDynamicStorePrivateRef	storePrivate;
+
+	if (sessions[0]->key != server) {
+		// if not SCDynamicStore "server" port
+		return NULL;
+	}
+
+	dispatch_once(&once, ^{
+		temp_session = sessions[0];	/* use "server" session */
+		(void) __SCDynamicStoreOpen(&temp_session->store, NULL);
+	});
+
+	/* save audit token */
+	temp_session->auditToken        = auditToken;
+	temp_session->callerEUID        = -1;		/* not "root" */
+	temp_session->callerRootAccess  = UNKNOWN;
+	temp_session->callerWriteAccess = UNKNOWN;
+
+	/* save name */
+	storePrivate = (SCDynamicStorePrivateRef)temp_session->store;
+	if (storePrivate->name != NULL) CFRelease(storePrivate->name);
+	storePrivate->name = CFRetain(name);
+
+	return temp_session;
 }
 
 
@@ -106,26 +149,58 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 	}
 
 	if (nSessions <= 0) {
-		/* new session (actually, the first) found */
-		sessions = malloc(sizeof(serverSessionRef));
-		n = 0;
-		nSessions = 1;
+		/* if first session (the "server" port) */
+		n = 0;		/* use slot "0" */
+		lastSession = 0;	/* last used slot */
+
+		nSessions = 64;
+		sessions = malloc(nSessions * sizeof(serverSessionRef));
 	} else {
 		int	i;
 
-		for (i = 0; i < nSessions; i++) {
-			if (sessions[i] == NULL) {
-				/* found an empty slot, use it */
-				n = i;
-				break;
+		/* check to see if we already have an open session (note: slot 0 is the "server" port) */
+		for (i = 1; i <= lastSession; i++) {
+			serverSessionRef	thisSession = sessions[i];
+
+			if (thisSession == NULL) {
+				/* found an empty slot */
+				if (n < 0) {
+					/* keep track of the first [empty] slot */
+					n = i;
+				}
+
+				/* and keep looking for a matching session */
+				continue;
+			}
+
+			if (thisSession->key == server) {
+				/* we've seen this server before */
+				return NULL;
+			}
+
+			if ((thisSession->store != NULL) &&
+				   (((SCDynamicStorePrivateRef)thisSession->store)->notifySignalTask == server)) {
+				/* we've seen this task port before */
+				return NULL;
 			}
 		}
-		/* new session identified */
+
+		/* add a new session */
 		if (n < 0) {
-			/* no empty slots, add one to the list */
-			n = nSessions++;
-			sessions = reallocf(sessions, ((nSessions) * sizeof(serverSessionRef)));
+			/* if no empty slots */
+			n = ++lastSession;
+			if (lastSession >= nSessions) {
+				/* expand the session list */
+				nSessions *= 2;
+				sessions = reallocf(sessions, (nSessions * sizeof(serverSessionRef)));
+			}
 		}
+
+		// create mach port for SCDynamicStore client
+		mp = MACH_PORT_NULL;
+		(void) mach_port_allocate(mach_task_self(),
+					  MACH_PORT_RIGHT_RECEIVE,
+					  &mp);
 	}
 
 	// allocate a new session for this server
@@ -133,15 +208,8 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 	bzero(sessions[n], sizeof(serverSession));
 
 	// create server port
-	context.info		= sessions[n];
-	context.copyDescription	= copyDescription;
-
-	if (server == MACH_PORT_NULL) {
-		// create mach port for SCDynamicStore client
-		(void) mach_port_allocate(mach_task_self(),
-					  MACH_PORT_RIGHT_RECEIVE,
-					  &mp);
-	}
+	context.info		 = sessions[n];
+	context.copyDescription = copyDescription;
 
 	//
 	// Note: we create the CFMachPort *before* we insert a send
@@ -160,7 +228,7 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 	CFMachPortSetInvalidationCallBack(sessions[n]->serverPort,
 					  CFMachPortInvalidateSessionCallback);
 
-	if (server == MACH_PORT_NULL) {
+	if (n > 0) {
 		// insert send right that will be moved to the client
 		(void) mach_port_insert_right(mach_task_self(),
 					      mp,
@@ -181,51 +249,20 @@ addSession(mach_port_t server, CFStringRef (*copyDescription)(const void *info))
 
 __private_extern__
 void
-removeSession(mach_port_t server)
-{
-	int			i;
-	serverSessionRef	thisSession;
-	CFStringRef		sessionKey;
-
-	for (i = 0; i < nSessions; i++) {
-		thisSession = sessions[i];
-
-		if (thisSession == NULL) {
-			/* found an empty slot, skip it */
-			continue;
-		} else if (thisSession->key == server) {
-			/*
-			 * We don't need any remaining information in the
-			 * sessionData dictionary, remove it.
-			 */
-			sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), server);
-			CFDictionaryRemoveValue(sessionData, sessionKey);
-			CFRelease(sessionKey);
-
-			/*
-			 * Lastly, get rid of the per-session structure.
-			 */
-			free(thisSession);
-			sessions[i] = NULL;
-
-			return;
-		}
-	}
-
-	return;
-}
-
-
-__private_extern__
-void
 cleanupSession(mach_port_t server)
 {
 	int		i;
 
-	for (i = 0; i < nSessions; i++) {
+	for (i = 1; i <= lastSession; i++) {
+		CFStringRef		sessionKey;
 		serverSessionRef	thisSession = sessions[i];
 
-		if ((thisSession != NULL) && (thisSession->key == server)) {
+		if (thisSession == NULL) {
+			/* found an empty slot, skip it */
+			continue;
+		}
+
+		if (thisSession->key == server) {
 			/*
 			 * session entry still exists.
 			 */
@@ -235,25 +272,11 @@ cleanupSession(mach_port_t server)
 			}
 
 			/*
-			 * Ensure that any changes made while we held the "lock"
-			 * are discarded.
-			 */
-			if ((storeLocked > 0) &&
-			    ((SCDynamicStorePrivateRef)thisSession->store)->locked) {
-				/*
-				 * swap store and associated data which, after
-				 * being closed, will result in the restoration
-				 * of the original pre-"locked" data.
-				 */
-				_swapLockedStoreData();
-			}
-
-			/*
 			 * Close any open connections including cancelling any outstanding
 			 * notification requests and releasing any locks.
 			 */
 			__MACH_PORT_DEBUG(TRUE, "*** cleanupSession", server);
-			(void) __SCDynamicStoreClose(&thisSession->store, TRUE);
+			(void) __SCDynamicStoreClose(&thisSession->store);
 			__MACH_PORT_DEBUG(TRUE, "*** cleanupSession (after __SCDynamicStoreClose)", server);
 
 			/*
@@ -262,9 +285,27 @@ cleanupSession(mach_port_t server)
 			(void) mach_port_mod_refs(mach_task_self(), server, MACH_PORT_RIGHT_RECEIVE, -1);
 
 			/*
-			 * Lastly, remove the session entry.
+			 * We don't need any remaining information in the
+			 * sessionData dictionary, remove it.
 			 */
-			removeSession(server);
+			sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), server);
+			CFDictionaryRemoveValue(sessionData, sessionKey);
+			CFRelease(sessionKey);
+
+			/*
+			 * get rid of the per-session structure.
+			 */
+			free(thisSession);
+			sessions[i] = NULL;
+
+			if (i == lastSession) {
+				/* we are removing the last session, update last used slot */
+				while (--lastSession > 0) {
+					if (sessions[lastSession] != NULL) {
+						break;
+					}
+				}
+			}
 
 			return;
 		}
@@ -283,7 +324,7 @@ listSessions(FILE *f)
 	int	i;
 
 	SCPrint(TRUE, f, CFSTR("Current sessions :\n"));
-	for (i = 0; i < nSessions; i++) {
+	for (i = 0; i <= lastSession; i++) {
 		serverSessionRef	thisSession = sessions[i];
 
 		if (thisSession == NULL) {

@@ -27,10 +27,15 @@
  */
 
 #include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 #include <errno.h>
 #include <unistd.h>
 #include "atomicio.h"
+
+extern int use_flowadv;
+extern int wait_for_flowadv(int fd);
 
 /*
  * ensure all of data on socket comes through. f==read || f==vwrite
@@ -51,6 +56,8 @@ atomicio(f, fd, _s, n)
 		switch (res) {
 		case -1:
 			if (errno == EINTR || errno == EAGAIN)
+				continue;
+			if (errno == ENOBUFS && use_flowadv && wait_for_flowadv(fd) == 0)
 				continue;
 			return 0;
 		case 0:

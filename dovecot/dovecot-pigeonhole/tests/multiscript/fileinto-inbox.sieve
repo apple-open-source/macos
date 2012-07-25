@@ -1,4 +1,0 @@
-require "fileinto";
-
-fileinto "INBOX";
-

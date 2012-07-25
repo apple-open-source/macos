@@ -41,9 +41,14 @@
 
 namespace WebCore {
 
-DedicatedWorkerContext::DedicatedWorkerContext(const KURL& url, const String& userAgent, DedicatedWorkerThread* thread)
-    : WorkerContext(url, userAgent, thread)
+DedicatedWorkerContext::DedicatedWorkerContext(const KURL& url, const String& userAgent, DedicatedWorkerThread* thread, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType contentSecurityPolicyType)
+    : WorkerContext(url, userAgent, thread, contentSecurityPolicy, contentSecurityPolicyType)
 {
+}
+
+const AtomicString& DedicatedWorkerContext::interfaceName() const
+{
+    return eventNames().interfaceForDedicatedWorkerContext;
 }
 
 // FIXME: remove this when we update the ObjC bindings (bug #28774).

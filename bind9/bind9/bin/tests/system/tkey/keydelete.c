@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2009, 2010, 2012  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009-2011  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id$ */
+/* $Id: keydelete.c,v 1.18 2011-01-11 23:47:13 tbox Exp $ */
 
 #include <config.h>
 
@@ -247,6 +247,8 @@ main(int argc, char **argv) {
 	isc_socket_detach(&sock);
 	isc_socketmgr_destroy(&socketmgr);
 	isc_timermgr_destroy(&timermgr);
+
+	dns_tsigkeyring_detach(&ring);
 
 	dns_tsigkey_detach(&tsigkey);
 

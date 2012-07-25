@@ -28,8 +28,10 @@
 #import "WebPluginDatabase.h"
 #import "WebPluginPackage.h"
 #import <WebCore/BlockExceptions.h>
+#import <WebCore/Color.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageGroup.h>
+#import <WebCore/PlatformPasteboard.h>
 
 using namespace WebCore;
 
@@ -58,6 +60,11 @@ VisitedLinkStrategy* WebPlatformStrategies::createVisitedLinkStrategy()
     return this;
 }
 
+PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
+{
+    return this;
+}
+
 void WebPlatformStrategies::notifyCookiesChanged()
 {
 }
@@ -81,7 +88,7 @@ void WebPlatformStrategies::getPluginInfo(const WebCore::Page*, Vector<WebCore::
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash)
+bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash, const KURL&, const AtomicString&)
 {
     return page->group().isLinkVisited(hash);
 }
@@ -89,4 +96,74 @@ bool WebPlatformStrategies::isLinkVisited(Page* page, LinkHash hash)
 void WebPlatformStrategies::addVisitedLink(Page* page, LinkHash hash)
 {
     return page->group().addVisitedLinkHash(hash);
+}
+
+void WebPlatformStrategies::getTypes(Vector<String>& types, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).getTypes(types);
+}
+
+PassRefPtr<WebCore::SharedBuffer> WebPlatformStrategies::bufferForType(const String& pasteboardType, const String& pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).bufferForType(pasteboardType);
+}
+
+void WebPlatformStrategies::getPathnamesForType(Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).getPathnamesForType(pathnames, pasteboardType);
+}
+
+String WebPlatformStrategies::stringForType(const String& pasteboardType, const String& pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).stringForType(pasteboardType);
+}
+
+void WebPlatformStrategies::copy(const String& fromPasteboard, const String& toPasteboard)
+{
+    PlatformPasteboard(toPasteboard).copy(fromPasteboard);
+}
+
+int WebPlatformStrategies::changeCount(const String &pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).changeCount();
+}
+
+String WebPlatformStrategies::uniqueName()
+{
+    return PlatformPasteboard::uniqueName();
+}
+
+Color WebPlatformStrategies::color(const String& pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).color();    
+}
+
+KURL WebPlatformStrategies::url(const String& pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).url();
+}
+
+void WebPlatformStrategies::addTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).addTypes(pasteboardTypes);
+}
+
+void WebPlatformStrategies::setTypes(const Vector<String>& pasteboardTypes, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).setTypes(pasteboardTypes);
+}
+
+void WebPlatformStrategies::setBufferForType(PassRefPtr<SharedBuffer> buffer, const String& pasteboardType, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).setBufferForType(buffer, pasteboardType);
+}
+
+void WebPlatformStrategies::setPathnamesForType(const Vector<String>& pathnames, const String& pasteboardType, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).setPathnamesForType(pathnames, pasteboardType);
+}
+
+void WebPlatformStrategies::setStringForType(const String& string, const String& pasteboardType, const String& pasteboardName)
+{
+    PlatformPasteboard(pasteboardName).setStringForType(string, pasteboardType);    
 }

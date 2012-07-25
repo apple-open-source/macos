@@ -59,8 +59,6 @@ void read_rcfile (void)
       TTSize = 300000;
       ECacheSize = 200000;
       PBSize = 200000;
-      EGTBCacheSize = 0;
-      strcpy(EGTBDir, "TB");
       
       cfg_devscale = 1;
       cfg_scalefac = 1.0f;

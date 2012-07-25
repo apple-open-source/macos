@@ -27,6 +27,7 @@
 #include "webkitenumtypes.h"
 #include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
+#include "webkitnetworkresponse.h"
 #include "webkitwebresourceprivate.h"
 #include <glib.h>
 #include <glib/gi18n-lib.h>
@@ -45,13 +46,24 @@
 using namespace WebCore;
 
 enum {
-    PROP_0,
+    // Resource loading
+    RESPONSE_RECEIVED,
+    LOAD_FINISHED,
+    CONTENT_LENGTH_RECEIVED,
+    LOAD_FAILED,
 
+    LAST_SIGNAL
+};
+
+enum {
+    PROP_0,
     PROP_URI,
     PROP_MIME_TYPE,
     PROP_ENCODING,
     PROP_FRAME_NAME
 };
+
+static guint webkit_web_resource_signals[LAST_SIGNAL] = { 0, };
 
 G_DEFINE_TYPE(WebKitWebResource, webkit_web_resource, G_TYPE_OBJECT);
 
@@ -101,14 +113,87 @@ static void webkit_web_resource_finalize(GObject* object)
     G_OBJECT_CLASS(webkit_web_resource_parent_class)->finalize(object);
 }
 
-static void webkit_web_resource_class_init(WebKitWebResourceClass* klass)
+static void webkit_web_resource_class_init(WebKitWebResourceClass* webResourceClass)
 {
-    GObjectClass* gobject_class = G_OBJECT_CLASS(klass);
+    GObjectClass* gobject_class = G_OBJECT_CLASS(webResourceClass);
 
     gobject_class->dispose = webkit_web_resource_dispose;
     gobject_class->finalize = webkit_web_resource_finalize;
     gobject_class->get_property = webkit_web_resource_get_property;
     gobject_class->set_property = webkit_web_resource_set_property;
+
+    /**
+     * WebKitWebResource::response-received:
+     * @web_resource: the #WebKitWebResource being loaded
+     * @response: the #WebKitNetworkResponse that was received
+     *
+     * Emitted when the response is received from the server.
+     *
+     * Since: 1.7.5
+     */
+    webkit_web_resource_signals[RESPONSE_RECEIVED] = g_signal_new("response-received",
+            G_TYPE_FROM_CLASS(webResourceClass),
+            G_SIGNAL_RUN_LAST,
+            0,
+            0, 0,
+            g_cclosure_marshal_VOID__OBJECT,
+            G_TYPE_NONE, 1,
+            WEBKIT_TYPE_NETWORK_RESPONSE);
+
+    /**
+     * WebKitWebResource::load-failed:
+     * @web_resource: the #WebKitWebResource that was loaded
+     * @error: the #GError that was triggered
+     *
+     * Invoked when the @web_resource failed to load
+     *
+     * Since: 1.7.5
+     */
+    webkit_web_resource_signals[LOAD_FAILED] = g_signal_new("load-failed",
+            G_TYPE_FROM_CLASS(webResourceClass),
+            G_SIGNAL_RUN_LAST,
+            0,
+            0, 0,
+            g_cclosure_marshal_VOID__POINTER,
+            G_TYPE_NONE, 1,
+            G_TYPE_POINTER);
+
+    /**
+     * WebKitWebResource::load-finished:
+     * @web_resource: the #WebKitWebResource being loaded
+     *
+     * Emitted when all the data for the resource was loaded
+     *
+     * Since: 1.7.5
+     */
+    webkit_web_resource_signals[LOAD_FINISHED] = g_signal_new("load-finished",
+            G_TYPE_FROM_CLASS(webResourceClass),
+            G_SIGNAL_RUN_LAST,
+            0,
+            0, 0,
+            g_cclosure_marshal_VOID__VOID,
+            G_TYPE_NONE, 0);
+
+    /**
+     * WebKitWebResource::content-length-received:
+     * @web_resource: the #WebKitWebResource that was loaded
+     * @length_received: the amount of data received since the last signal emission
+     *
+     * Emitted when new resource data has been received. The
+     * @length_received variable stores the amount of bytes received
+     * since the last time this signal was emitted. This is useful to
+     * provide progress information about the resource load operation.
+     *
+     * Since: 1.7.5
+     */
+    webkit_web_resource_signals[CONTENT_LENGTH_RECEIVED] = g_signal_new("content-length-received",
+            G_TYPE_FROM_CLASS(webResourceClass),
+            G_SIGNAL_RUN_LAST,
+            0,
+            0, 0,
+            g_cclosure_marshal_VOID__INT,
+            G_TYPE_NONE, 1,
+            G_TYPE_INT);
 
     /**
      * WebKitWebResource:uri:
@@ -122,7 +207,7 @@ static void webkit_web_resource_class_init(WebKitWebResourceClass* klass)
                                     g_param_spec_string(
                                     "uri",
                                     _("URI"),
-                                    _("The uri of the resource"),
+                                    _("The URI of the resource"),
                                     NULL,
                                     (GParamFlags)(WEBKIT_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY)));
     /**
@@ -223,7 +308,7 @@ WebKitWebResource* webkit_web_resource_new_with_core_resource(PassRefPtr<Archive
 {
     WebKitWebResource* webResource = WEBKIT_WEB_RESOURCE(g_object_new(WEBKIT_TYPE_WEB_RESOURCE, NULL));
     WebKitWebResourcePrivate* priv = webResource->priv;
-    priv->resource = resource.releaseRef();
+    priv->resource = resource.leakRef();
 
     return webResource;
 }
@@ -237,14 +322,14 @@ void webkit_web_resource_init_with_core_resource(WebKitWebResource* webResource,
     if (priv->resource)
         priv->resource->deref();
 
-    priv->resource = resource.releaseRef();
+    priv->resource = resource.leakRef();
 }
 
 /**
  * webkit_web_resource_new:
  * @data: the data to initialize the #WebKitWebResource
  * @size: the length of @data
- * @uri: the uri of the #WebKitWebResource
+ * @uri: the URI of the #WebKitWebResource
  * @mime_type: the MIME type of the #WebKitWebResource
  * @encoding: the text encoding name of the #WebKitWebResource
  * @frame_name: the frame name of the #WebKitWebResource
@@ -312,7 +397,7 @@ GString* webkit_web_resource_get_data(WebKitWebResource* webResource)
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_resource_get_uri(WebKitWebResource* webResource)
+const gchar* webkit_web_resource_get_uri(WebKitWebResource* webResource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_RESOURCE(webResource), NULL);
 
@@ -340,7 +425,7 @@ G_CONST_RETURN gchar* webkit_web_resource_get_uri(WebKitWebResource* webResource
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_resource_get_mime_type(WebKitWebResource* webResource)
+const gchar* webkit_web_resource_get_mime_type(WebKitWebResource* webResource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_RESOURCE(webResource), NULL);
 
@@ -362,7 +447,7 @@ G_CONST_RETURN gchar* webkit_web_resource_get_mime_type(WebKitWebResource* webRe
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_resource_get_encoding(WebKitWebResource* webResource)
+const gchar* webkit_web_resource_get_encoding(WebKitWebResource* webResource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_RESOURCE(webResource), NULL);
 
@@ -384,7 +469,7 @@ G_CONST_RETURN gchar* webkit_web_resource_get_encoding(WebKitWebResource* webRes
  *
  * Since: 1.1.14
  */
-G_CONST_RETURN gchar* webkit_web_resource_get_frame_name(WebKitWebResource* webResource)
+const gchar* webkit_web_resource_get_frame_name(WebKitWebResource* webResource)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_RESOURCE(webResource), NULL);
 

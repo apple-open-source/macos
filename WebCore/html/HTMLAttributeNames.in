@@ -82,6 +82,7 @@ content
 contenteditable
 controls
 coords
+crossorigin
 data
 datetime
 declare
@@ -89,8 +90,11 @@ default
 defer
 dir
 direction
+dirname
 disabled
+download
 draggable
+webkitdropzone
 enctype
 end
 event
@@ -118,6 +122,11 @@ id
 incremental
 indeterminate
 ismap
+itemid
+itemprop
+itemref
+itemscope
+itemtype
 keytype
 kind
 label
@@ -140,9 +149,11 @@ max
 maxlength
 mayscript
 media
+mediagroup
 method
 min
 multiple
+muted
 name
 nohref
 noresize
@@ -155,7 +166,6 @@ onbeforecopy
 onbeforecut
 onbeforeload
 onbeforepaste
-onbeforeprocess
 onbeforeunload
 onblur
 oncanplay
@@ -236,6 +246,11 @@ onwebkitanimationend
 onwebkitbeginfullscreen
 onwebkitendfullscreen
 onwebkitfullscreenchange
+onwebkitfullscreenerror
+onwebkitkeyadded
+onwebkitkeyerror
+onwebkitkeymessage
+onwebkitneedkey
 onwebkittransitionend
 open
 optimum
@@ -256,6 +271,7 @@ rel
 required
 results
 rev
+reversed
 role
 rows
 rowspan
@@ -263,12 +279,16 @@ rules
 sandbox
 scheme
 scope
+scoped
 scrollamount
 scrolldelay
 scrolling
+seamless
+select
 selected
 shape
 size
+sizes
 sortable
 sortdirection
 span
@@ -276,6 +296,7 @@ x-webkit-speech
 x-webkit-grammar
 spellcheck
 src
+srcdoc
 srclang
 standby
 start
@@ -289,6 +310,7 @@ text
 title
 top
 topmargin
+translate
 truespeed
 type
 usemap

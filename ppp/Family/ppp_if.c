@@ -523,6 +523,7 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
     int 		error = ENOMEM;
 	struct timespec tv;
 	struct		ifnet_stat_increment_param statsinc;
+    u_int16_t   aligned_short;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
@@ -660,8 +661,13 @@ int ppp_if_input(ifnet_t ifp, mbuf_t m, u_int16_t proto, u_int16_t hdrlen)
             return ENOMEM;
         }
         p = mbuf_data(m);
-        *(u_int16_t *)p = htons(0xFF03);
-        *(u_int16_t *)(p + 2) = htons(proto);
+        // Wcast-align fix for unaligned move
+        aligned_short = htons(0xFF03);
+        *p++ = *((u_int8_t *)&aligned_short);
+        *p++ = *(((u_int8_t *)&aligned_short) + 1);
+        aligned_short = htons(proto);
+        *p++ = *((u_int8_t *)&aligned_short);
+        *p++ = *(((u_int8_t *)&aligned_short) + 1);
         (*wan->bpf_input)(ifp, m);
         mbuf_adj(m, 4);
     }
@@ -688,7 +694,10 @@ reject:
 		return ENOMEM;
 	}
 	p = mbuf_data(m);
-	*(u_int16_t *)p = htons(proto);
+    // Wcast-align fix for unaligned move
+    aligned_short = htons(proto);
+    *p++ = *((u_int8_t *)&aligned_short);
+    *p++ = *(((u_int8_t *)&aligned_short) + 1);
     ppp_proto_input(wan->host, m);
     return 0;
     
@@ -1144,6 +1153,8 @@ errno_t ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
 						)
 
 {
+    u_int16_t aligned_type;
+    
 	struct		ifnet_stat_increment_param statsinc;
 	
     if (mbuf_prepend(m0, 2, MBUF_DONTWAIT) != 0) {
@@ -1160,7 +1171,11 @@ errno_t ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
 #endif /* KPI_INTERFACE_EMBEDDED */
 	
     // place protocol number at the beginning of the mbuf
-    *(u_int16_t*)mbuf_data(*m0) = htons(*(u_int16_t *)ppp_type);
+    // Wcast-align fix - memcpy for unaligned moves
+    memcpy(&aligned_type, ppp_type, sizeof(aligned_type));
+    aligned_type = htons(aligned_type);
+    memcpy(mbuf_data(*m0), &aligned_type, sizeof(aligned_type));
+    
     
     return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2012 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,35 +37,42 @@
 #include "ContextMenuController.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "EventHandler.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
-#include "HistoryItem.h"
-#include "HitTestResult.h"
+#include "HTMLFormElement.h"
+#include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInImageElement.h"
+
+#include "HistoryItem.h"
+#include "HitTestResult.h"
 #include "KURL.h"
 #include "MediaError.h"
 #include "Page.h"
 #include "PlatformString.h"
 #include "RenderWidget.h"
+#include "Settings.h"
 #include "TextBreakIterator.h"
 #include "Widget.h"
 
 #include "WebContextMenuData.h"
 #include "WebDataSourceImpl.h"
+#include "WebFormElement.h"
 #include "WebFrameImpl.h"
 #include "WebMenuItemInfo.h"
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
-#include "WebPoint.h"
+#include "platform/WebPoint.h"
+#include "WebSearchableFormData.h"
 #include "WebSpellCheckClient.h"
-#include "WebString.h"
-#include "WebURL.h"
-#include "WebURLResponse.h"
-#include "WebVector.h"
+#include "platform/WebString.h"
+#include "platform/WebURL.h"
+#include "platform/WebURLResponse.h"
+#include "platform/WebVector.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
 
@@ -153,7 +160,7 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
     Frame* selectedFrame = r.innerNonSharedNode()->document()->frame();
 
     WebContextMenuData data;
-    data.mousePosition = selectedFrame->view()->contentsToWindow(r.point());
+    data.mousePosition = selectedFrame->view()->contentsToWindow(r.roundedPoint());
 
     // Compute edit flags.
     data.editFlags = WebContextMenuData::CanDoNone;
@@ -229,6 +236,10 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
                 HTMLPlugInImageElement* pluginElement = static_cast<HTMLPlugInImageElement*>(r.innerNonSharedNode());
                 data.srcURL = pluginElement->document()->completeURL(pluginElement->url());
                 data.mediaFlags |= WebContextMenuData::MediaCanSave;
+
+                // Add context menu commands that are supported by the plugin.
+                if (plugin->plugin()->canRotateView())
+                    data.mediaFlags |= WebContextMenuData::MediaCanRotate;
             }
         }
     }
@@ -238,7 +249,8 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
 
     // If it's not a link, an image, a media element, or an image/media link,
     // show a selection menu or a more generic page menu.
-    data.frameEncoding = selectedFrame->document()->loader()->writer()->encoding();
+    if (selectedFrame->document()->loader())
+        data.frameEncoding = selectedFrame->document()->encoding();
 
     // Send the frame and page URLs in any case.
     data.pageURL = urlFromFrame(m_webView->mainFrameImpl()->frame());
@@ -249,12 +261,38 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
             data.frameHistoryItem = WebHistoryItem(historyItem);
     }
 
-    if (r.isSelected())
-        data.selectedText = selectedFrame->editor()->selectedText().stripWhiteSpace();
+    if (r.isSelected()) {
+        if (!r.innerNonSharedNode()->hasTagName(HTMLNames::inputTag) || !static_cast<HTMLInputElement*>(r.innerNonSharedNode())->isPasswordField())
+            data.selectedText = selectedFrame->editor()->selectedText().stripWhiteSpace();
+    }
 
     if (r.isContentEditable()) {
         data.isEditable = true;
-        if (m_webView->focusedWebCoreFrame()->editor()->isContinuousSpellCheckingEnabled()) {
+#if ENABLE(INPUT_SPEECH)
+        if (r.innerNonSharedNode()->hasTagName(HTMLNames::inputTag)) {
+            data.isSpeechInputEnabled = 
+                static_cast<HTMLInputElement*>(r.innerNonSharedNode())->isSpeechEnabled();
+        }  
+#endif
+        // When Chrome enables asynchronous spellchecking, its spellchecker adds spelling markers to misspelled
+        // words and attaches suggestions to these markers in the background. Therefore, when a user right-clicks
+        // a mouse on a word, Chrome just needs to find a spelling marker on the word instread of spellchecking it.
+        if (selectedFrame->settings() && selectedFrame->settings()->asynchronousSpellCheckingEnabled()) {
+            RefPtr<Range> range = selectedFrame->selection()->toNormalizedRange();
+            Vector<DocumentMarker*> markers = selectedFrame->document()->markers()->markersInRange(range.get(), DocumentMarker::Spelling);
+            if (!markers.isEmpty()) {
+                Vector<String> suggestions;
+                for (size_t i = 0; i < markers.size(); ++i) {
+                    if (!markers[i]->description().isEmpty()) {
+                        Vector<String> descriptions;
+                        markers[i]->description().split('\n', descriptions);
+                        suggestions.append(descriptions);
+                    }
+                }
+                data.dictionarySuggestions = suggestions;
+                data.misspelledWord = selectMisspelledWord(defaultMenu, selectedFrame);
+            }
+        } else if (m_webView->focusedWebCoreFrame()->editor()->isContinuousSpellCheckingEnabled()) {
             data.isSpellCheckingEnabled = true;
             // Spellchecking might be enabled for the field, but could be disabled on the node.
             if (m_webView->focusedWebCoreFrame()->editor()->isSpellCheckingEnabledInFocusedNode()) {
@@ -267,6 +305,15 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
                     if (!misspelledLength)
                         data.misspelledWord.reset();
                 }
+            }
+        }
+        HTMLFormElement* form = selectedFrame->selection()->currentForm();
+        if (form && form->checkValidity() && r.innerNonSharedNode()->hasTagName(HTMLNames::inputTag)) {
+            HTMLInputElement* selectedElement = static_cast<HTMLInputElement*>(r.innerNonSharedNode());
+            if (selectedElement) {
+                WebSearchableFormData ws = WebSearchableFormData(WebFormElement(form), WebInputElement(selectedElement));
+                if (ws.url().isValid())
+                    data.keywordURL = ws.url();
             }
         }
     }
@@ -283,6 +330,8 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
     WebDataSource* ds = WebDataSourceImpl::fromDocumentLoader(dl);
     if (ds)
         data.securityInfo = ds->response().securityInfo();
+
+    data.referrerPolicy = static_cast<WebReferrerPolicy>(selectedFrame->document()->referrerPolicy());
 
     // Filter out custom menu elements and add them into the data.
     populateCustomMenuItems(defaultMenu, &data);

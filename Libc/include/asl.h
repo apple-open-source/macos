@@ -49,10 +49,6 @@ typedef struct __aslresponse *aslresponse;
  * the prototypes of asl_log and asl_vlog correctly.
  * The "-p" option to headerdoc2html is required.
  */
-#ifndef __DARWIN_LDBL_COMPAT2
-/*! @parseOnly */
-#define __DARWIN_LDBL_COMPAT2(a)
-#endif
 #ifndef __printflike
 /*! @parseOnly */
 #define __printflike(a,b)
@@ -170,7 +166,42 @@ typedef struct __aslresponse *aslresponse;
 #define ASL_OPT_NO_REMOTE   0x00000004
 /*! @/defineblock */
 
+/*! @defineblock File Descriptor Types
+ * Instructions on how to treat the file descriptor in asl_log_descriptor().
+ */
+#define ASL_LOG_DESCRIPTOR_READ  1
+#define ASL_LOG_DESCRIPTOR_WRITE 2
+
+/*!
+ * ASL_PREFILTER_LOG is a macro similar to asl_log(), but it first checks
+ * if the message will simply be ignored due to local filter settings.
+ * This prevents the variable argument list from being evaluated.
+ * Note that the message may still be processed if it will be written
+ * to a file or stderr.
+ *
+ * @param asl
+ *    (input) An ASL client handle
+ * @param msg
+ *    (input) An aslmsg (default attributes will be supplied if msg is NULL)
+ * @param level
+ *    (input) Log level (ASL_LEVEL_DEBUG to ASL_LEVEL_EMERG)
+ * @param format
+ *    (input) A printf() - style format string followed by a list of arguments
+ */
+#define ASL_PREFILTER_LOG(asl, msg, level, format, ...) \
+	do { \
+		aslclient _asl = (asl); \
+		aslmsg _msg = (msg); \
+		uint32_t _asl_eval = _asl_evaluate_send(_asl, _msg, (level)); \
+		if (_asl_eval != 0) _asl_lib_log(_asl, _asl_eval, _msg, (format), ## __VA_ARGS__); \
+	} while (0)
+
 __BEGIN_DECLS
+
+/* ASL Library SPI - do not call directly */
+int _asl_lib_log(aslclient asl, uint32_t eval, aslmsg msg, const char *format, ...) __printflike(4, 5);
+
+uint32_t _asl_evaluate_send(aslclient asl, aslmsg msg, int level);
 
 /*!
  * Initialize a connection to the ASL server.
@@ -217,11 +248,11 @@ void asl_close(aslclient asl);
  *
  * @param asl
  *    (input) An ASL client handle
- * @param fd
+ * @param descriptor
  *    (input) A file descriptor
  * @result Returns 0 on success, non-zero on failure
 */
-int asl_add_log_file(aslclient asl, int fd);
+int asl_add_log_file(aslclient asl, int descriptor);
 
 /*!
  * Stop writing log messages to the given file descriptor.
@@ -229,11 +260,11 @@ int asl_add_log_file(aslclient asl, int fd);
  *
  * @param asl
  *    (input) An ASL client handle
- * @param fd
+ * @param descriptor
  *    (input) A file descriptor
  * @result Returns 0 on success, non-zero on failure
  */
-int asl_remove_log_file(aslclient asl, int fd);
+int asl_remove_log_file(aslclient asl, int descriptor);
 
 /*!
  * Set a filter for messages being sent to the server.
@@ -324,11 +355,7 @@ const char *asl_get(aslmsg msg, const char *key);
  *    (input) A printf() - style format string followed by a list of arguments
  * @result Returns 0 for success, non-zero for failure
  */
-#ifdef __DARWIN_LDBL_COMPAT2
-int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __DARWIN_LDBL_COMPAT2(asl_log) __printflike(4, 5);
-#else
 int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __printflike(4, 5);
-#endif
 
 /*!
  * Log a message with a particular log level.
@@ -346,11 +373,7 @@ int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __pri
  *    (input) A va_list containing the values for the format string
  * @result Returns 0 for success, non-zero for failure
  */
-#ifdef __DARWIN_LDBL_COMPAT2
-int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __DARWIN_LDBL_COMPAT2(asl_vlog) __printflike(4, 0);
-#else
 int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __printflike(4, 0);
-#endif
 
 /*!
  * Log a message.
@@ -424,7 +447,7 @@ void aslresponse_free(aslresponse r);
  * The log entry will include any keys and values found in msg, and it will include the title
  * and Uniform Type Identifier specified.  If NULL is supplied as a value for the uti parameter,
  * the type "public.data" is used.  Console.app will display a hyperlink to the file.
- * Output parameter out_fd will contain a readable and writable file descriptor for the new
+ * Output parameter out_descriptor will contain a readable and writable file descriptor for the new
  * auxiliary file. 
  *
  * By default, the file will be world-readable.  If the message contains a ReadUID and/or a
@@ -441,11 +464,11 @@ void aslresponse_free(aslresponse r);
  *    (input) A title string for the file
  * @param uti
  *    (input) Uniform Type Identifier for the file
- * @param out_fd
+ * @param out_descriptor
  *    (output) A writable file descriptor
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_create_auxiliary_file(aslmsg msg, const char *title, const char *uti, int *out_fd)
+int asl_create_auxiliary_file(aslmsg msg, const char *title, const char *uti, int *out_descriptor)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 
 /*!
@@ -453,11 +476,11 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
  * syslogd will log the message provided to asl_create_auxiliary_file() when this routine
  * is called.
  *
- * @param fd
+ * @param descriptor
  *    (input) The file descriptor
  * @result Returns 0 for success, non-zero for failure
  */
-int asl_close_auxiliary_file(int fd)
+int asl_close_auxiliary_file(int descriptor)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
 
 /*!
@@ -494,7 +517,7 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
  * Note that per-message read access controls (ReadUID and ReadGID) and message expire
  * times (ASLExpireTime) keys have no effect for messages written to this file.
  *
- * @param fd
+ * @param descriptor
  *    (input) A file descriptor
  * @param ident
  *    (input) Sender name
@@ -502,8 +525,53 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
  *    (input) Facility name
  * @result An aslclient
  */
-aslclient asl_open_from_file(int fd, const char *ident, const char *facility)
+aslclient asl_open_from_file(int descriptor, const char *ident, const char *facility)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0);
+
+/*!
+ * This API provides functionality to use file descriptors to send logging
+ * data to ASL.
+ *
+ * asl is retained by ASL and must still be closed by the caller by calling
+ * asl_close() if the caller loses reference to it.  msg is copied by ASL and
+ * similarly must still be freed by the caller by calling asl_free() if the
+ * caller loses reference to it.  Any changes made to it after calling
+ * asl_log_descriptor() are not applicable to the message used. descriptor
+ * is treated differentlty based on the value of fd_type.
+ *
+ * If fd_type is ASL_LOG_DESCRIPTOR_READ, the descriptor must be open for read
+ * access.  ASL uses GCD to read from the descriptor as data becomes available.
+ * These data are line buffered and passed to asl_log.  When EOF is read, the
+ * descriptor is closed.
+ *
+ * Example:
+ * asl_log_descriptor(c, m, ASL_LEVEL_NOTICE, STDIN_FILENO, ASL_LOG_DESCRIPTOR_READ);
+ *
+ * If fd_type is ASL_LOG_DESCRIPTOR_WRITE, the descriptor is closed and a new
+ * writable descriptor is created with the same fileno.  Any data written to
+ * this new descriptor are line buffered and passed to asl_log.  When EOF is
+ * sent, no further data are read.  The caller is responsible for closing the
+ * new descriptor.  One common use for this API is to redirect writes to stdout
+ * or stderr to ASL by passing STDOUT_FILENO or STDERR_FILENO as descriptor.
+ *
+ * Example:
+ * asl_log_descriptor(c, m, ASL_LEVEL_NOTICE, STDOUT_FILENO, ASL_LOG_DESCRIPTOR_WRITE);
+ * asl_log_descriptor(c, m, ASL_LEVEL_ERR, STDERR_FILENO, ASL_LOG_DESCRIPTOR_WRITE);
+ *
+ * @param asl
+ *    (input) An ASL client handle
+ * @param msg
+ *    (input) An aslmsg (default attributes will be supplied if msg is NULL)
+ * @param level
+ *    (input) Log level (ASL_LEVEL_DEBUG to ASL_LEVEL_EMERG)
+ * @param descriptor
+ *    (input) An open file descriptor to read from
+ * @param fd_type
+ *    (input) Either ASL_LOG_DESCRIPTOR_READ or ASL_LOG_DESCRIPTOR_WRITE
+ * @result Returns 0 for success, non-zero for failure
+ */
+int asl_log_descriptor(aslclient asl, aslmsg msg, int level, int descriptor, uint32_t fd_type)
+__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_5_1);
 
 __END_DECLS
 

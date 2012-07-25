@@ -52,7 +52,7 @@ protected:
     CFMachPortRef                       _asyncCFMachPort;
 
     CFRunLoopSourceRef                  _asyncEventSource;
-
+    
     CFMutableDictionaryRef              _serviceProperties;
     CFMutableDictionaryRef              _dynamicServiceProperties;
     CFMutableDictionaryRef              _servicePreferences;

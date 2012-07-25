@@ -37,7 +37,7 @@
 #include "JSGlobalObject.h"
 #include "UString.h"
 #include "WriteBarrier.h"
-#include "dtoa.h"
+#include <wtf/dtoa.h>
 #include <wtf/Threading.h>
 #include <wtf/dtoa/cached-powers.h>
 
@@ -57,8 +57,7 @@ static void initializeThreadingOnce()
 #if ENABLE(WRITE_BARRIER_PROFILING)
     WriteBarrierCounters::initialize();
 #endif
-    JSGlobalData::storeVPtrs();
-#if ENABLE(JIT) && ENABLE(ASSEMBLER)
+#if ENABLE(ASSEMBLER)
     ExecutableAllocator::initializeAllocator();
 #endif
     RegisterFile::initializeThreading();

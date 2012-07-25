@@ -37,6 +37,8 @@
 
 #include "LKDCHelper-main.h"
 #include "LKDCHelper.h"
+#include "lookupDSLocalKDC.h"
+#include "utils.h"
 
 /* MIG Generated file */
 #include "LKDCHelperMessageServer.h"

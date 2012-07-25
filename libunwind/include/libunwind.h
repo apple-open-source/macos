@@ -1,6 +1,6 @@
 /* -*- mode: C; c-basic-offset: 4; -*- 
  *
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,21 +86,23 @@ typedef struct unw_proc_info_t unw_proc_info_t;
 extern "C" {
 #endif
 
-extern int         unw_getcontext(unw_context_t*)                               __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_init_local(unw_cursor_t*, unw_context_t*)                __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_step(unw_cursor_t*)                                      __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_get_reg(unw_cursor_t*, unw_regnum_t, unw_word_t*)        __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_get_fpreg(unw_cursor_t*, unw_regnum_t, unw_fpreg_t*)     __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_set_reg(unw_cursor_t*, unw_regnum_t, unw_word_t)         __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_set_fpreg(unw_cursor_t*, unw_regnum_t, unw_fpreg_t)      __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_resume(unw_cursor_t*)                                    __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
+#if !__arm__
+extern int         unw_getcontext(unw_context_t*)                               __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_init_local(unw_cursor_t*, unw_context_t*)                __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_step(unw_cursor_t*)                                      __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_get_reg(unw_cursor_t*, unw_regnum_t, unw_word_t*)        __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_get_fpreg(unw_cursor_t*, unw_regnum_t, unw_fpreg_t*)     __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_set_reg(unw_cursor_t*, unw_regnum_t, unw_word_t)         __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_set_fpreg(unw_cursor_t*, unw_regnum_t, unw_fpreg_t)      __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_resume(unw_cursor_t*)                                    __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
 
-extern const char* unw_regname(unw_cursor_t*, unw_regnum_t)                     __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_get_proc_info(unw_cursor_t*, unw_proc_info_t*)           __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_is_fpreg(unw_cursor_t*, unw_regnum_t)                    __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_is_signal_frame(unw_cursor_t*)                           __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
-extern int         unw_get_proc_name(unw_cursor_t*, char*, size_t, unw_word_t*) __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_NA);
+extern const char* unw_regname(unw_cursor_t*, unw_regnum_t)                     __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_get_proc_info(unw_cursor_t*, unw_proc_info_t*)           __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_is_fpreg(unw_cursor_t*, unw_regnum_t)                    __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_is_signal_frame(unw_cursor_t*)                           __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
+extern int         unw_get_proc_name(unw_cursor_t*, char*, size_t, unw_word_t*) __OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_5_0);
 //extern int       unw_get_save_loc(unw_cursor_t*, int, unw_save_loc_t*);
+#endif
 
 
 #if UNW_REMOTE

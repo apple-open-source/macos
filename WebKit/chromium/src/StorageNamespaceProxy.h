@@ -26,8 +26,6 @@
 #ifndef StorageNamespaceProxy_h
 #define StorageNamespaceProxy_h
 
-#if ENABLE(DOM_STORAGE)
-
 #include "StorageArea.h"
 #include "StorageNamespace.h"
 
@@ -41,13 +39,13 @@ public:
     virtual ~StorageNamespaceProxy();
     virtual PassRefPtr<StorageArea> storageArea(PassRefPtr<SecurityOrigin>);
     virtual PassRefPtr<StorageNamespace> copy();
+
     virtual void close();
-    virtual void unlock();
-    
     virtual void clearOriginForDeletion(SecurityOrigin*);
     virtual void clearAllOriginsForDeletion();
-    
     virtual void sync();
+
+    bool isSameNamespace(const WebKit::WebStorageNamespace&);
 
 private:
     OwnPtr<WebKit::WebStorageNamespace> m_storageNamespace;
@@ -55,7 +53,5 @@ private:
 };
 
 } // namespace WebCore
-
-#endif // ENABLE(DOM_STORAGE)
 
 #endif // StorageNamespaceProxy_h

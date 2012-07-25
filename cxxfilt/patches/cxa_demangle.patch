@@ -1,0 +1,48 @@
+diff -upr libiberty/cp-demangle.c libiberty/cp-demangle.c
+--- libiberty/cp-demangle.c	2011-11-03 12:47:15.000000000 -0400
++++ libiberty/cp-demangle.c	2011-11-03 13:23:28.000000000 -0400
+@@ -4172,12 +4172,12 @@ __gcclibcxx_demangle_callback (const cha
+    mangled name, return a buffer allocated with malloc holding the
+    demangled name.  Otherwise, return NULL.  */
+ 
++extern char *__cxa_demangle (const char *, char *, size_t *, int *);
++
+ char *
+ cplus_demangle_v3 (const char *mangled, int options)
+ {
+-  size_t alc;
+-
+-  return d_demangle (mangled, options, &alc);
++  return __cxa_demangle(mangled, 0, 0, 0);
+ }
+ 
+ int
+--- binutils/strings.c	2006-09-26 12:45:25.000000000 -0400
++++ binutils/strings.c	2012-03-23 12:20:23.000000000 -0400
+@@ -597,7 +597,7 @@ print_strings (const char *filename, FIL
+ 	  case 8:
+ #if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)
+ 	    if (sizeof (start) > sizeof (long))
+-	      printf ("%7Lo ", (unsigned long long) start);
++	      printf ("%7llo ", (unsigned long long) start);
+ 	    else
+ #else
+ # if !BFD_HOST_64BIT_LONG
+@@ -612,7 +612,7 @@ print_strings (const char *filename, FIL
+ 	  case 10:
+ #if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)
+ 	    if (sizeof (start) > sizeof (long))
+-	      printf ("%7Ld ", (unsigned long long) start);
++	      printf ("%7lld ", (unsigned long long) start);
+ 	    else
+ #else
+ # if !BFD_HOST_64BIT_LONG
+@@ -627,7 +627,7 @@ print_strings (const char *filename, FIL
+ 	  case 16:
+ #if __STDC_VERSION__ >= 199901L || (defined(__GNUC__) && __GNUC__ >= 2)
+ 	    if (sizeof (start) > sizeof (long))
+-	      printf ("%7Lx ", (unsigned long long) start);
++	      printf ("%7llx ", (unsigned long long) start);
+ 	    else
+ #else
+ # if !BFD_HOST_64BIT_LONG

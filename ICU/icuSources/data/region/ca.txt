@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ca.xml
@@ -33,7 +33,6 @@ ca{
         054{"Melanèsia"}
         057{"Regió de la Micronèsia"}
         061{"Polinèsia"}
-        062{"Àsia Sud-central"}
         142{"Àsia"}
         143{"Àsia Central"}
         145{"Àsia Occidental"}
@@ -41,8 +40,7 @@ ca{
         151{"Europa Oriental"}
         154{"Europa septentrional"}
         155{"Europa Occidental"}
-        172{"Comunitat d'Estats Independents"}
-        419{"Amèrica Llatina i Carib"}
+        419{"Amèrica Llatina"}
         AC{"Illa de l'Ascensió"}
         AD{"Andorra"}
         AE{"Unió dels Emirats Àrabs"}
@@ -98,6 +96,7 @@ ca{
         CS{"Sèrbia i Montenegro"}
         CU{"Cuba"}
         CV{"Cap Verd"}
+        CW{"Curaçao"}
         CX{"Illa Christmas"}
         CY{"Xipre"}
         CZ{"República Txeca"}
@@ -259,6 +258,7 @@ ca{
         SR{"Surinam"}
         ST{"São Tomé i Príncipe"}
         SV{"El Salvador"}
+        SX{"Sint Maarten"}
         SY{"Síria"}
         SZ{"Swazilàndia"}
         TA{"Tristão da Cunha"}
@@ -300,5 +300,5 @@ ca{
         ZW{"Zimbabwe"}
         ZZ{"Regió desconeguda o no vàlida"}
     }
-    Version{"2.0.50.94"}
+    Version{"2.0.65.46"}
 }

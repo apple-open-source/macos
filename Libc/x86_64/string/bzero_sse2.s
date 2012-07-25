@@ -27,7 +27,7 @@
  */
 
 #include <machine/cpu_capabilities.h>
-#include <platfunc.h>
+#include "platfunc.h"
 
 /*
  * Bzero, tuned for Pentium-M class processors with SSE2

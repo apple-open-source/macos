@@ -40,7 +40,6 @@
 #include <WebCore/IntRect.h>
 #include <WebCore/JSNode.h>
 #include <WebCore/Node.h>
-#include <WebCore/ShadowRoot.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
@@ -68,12 +67,12 @@ PassRefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::getOrCreate(Node*
     if (!node)
         return 0;
 
-    std::pair<DOMHandleCache::iterator, bool> result = domHandleCache().add(node, 0);
-    if (!result.second)
-        return PassRefPtr<InjectedBundleNodeHandle>(result.first->second);
+    DOMHandleCache::AddResult result = domHandleCache().add(node, 0);
+    if (!result.isNewEntry)
+        return PassRefPtr<InjectedBundleNodeHandle>(result.iterator->second);
 
     RefPtr<InjectedBundleNodeHandle> nodeHandle = InjectedBundleNodeHandle::create(node);
-    result.first->second = nodeHandle.get();
+    result.iterator->second = nodeHandle.get();
     return nodeHandle.release();
 }
 
@@ -110,12 +109,12 @@ IntRect InjectedBundleNodeHandle::elementBounds() const
     if (!m_node->isElementNode())
         return IntRect();
 
-    return static_cast<Element*>(m_node.get())->boundsInWindowSpace();
+    return static_cast<Element*>(m_node.get())->boundsInRootViewSpace();
 }
     
 IntRect InjectedBundleNodeHandle::renderRect(bool* isReplaced) const
 {
-    return m_node.get()->renderRect(isReplaced);
+    return m_node.get()->pixelSnappedRenderRect(isReplaced);
 }
 
 void InjectedBundleNodeHandle::setHTMLInputElementValueForUser(const String& value)
@@ -164,38 +163,6 @@ PassRefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::htmlTableCellElem
         return 0;
 
     return getOrCreate(static_cast<HTMLTableCellElement*>(m_node.get())->cellAbove());
-}
-
-PassRefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::elementShadowRoot()
-{
-    if (!m_node->isElementNode())
-        return 0;
-
-    return getOrCreate(static_cast<Element*>(m_node.get())->shadowRoot());
-}
-
-PassRefPtr<InjectedBundleNodeHandle> InjectedBundleNodeHandle::elementEnsureShadowRoot()
-{
-    if (!m_node->isElementNode())
-        return 0;
-
-    return getOrCreate(static_cast<Element*>(m_node.get())->ensureShadowRoot());
-}
-
-void InjectedBundleNodeHandle::elementRemoveShadowRoot()
-{
-    if (!m_node->isElementNode())
-        return;
-
-    static_cast<Element*>(m_node.get())->removeShadowRoot();
-}
-
-String InjectedBundleNodeHandle::elementShadowPseudoId()
-{
-    if (!m_node->isElementNode())
-        return String();
-
-    return static_cast<Element*>(m_node.get())->shadowPseudoId();
 }
 
 PassRefPtr<WebFrame> InjectedBundleNodeHandle::documentFrame()

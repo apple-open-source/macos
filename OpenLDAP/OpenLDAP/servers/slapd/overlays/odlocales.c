@@ -17,6 +17,8 @@
 #include "ldif.h"
 #include "config.h"
 
+static const char* defaultLocaleName = "DefaultLocale";
+
 
 static slap_overinst odlocales;
 
@@ -53,10 +55,10 @@ static int odloc_count_attr_cb(
 	const char	*text = NULL;
 	rc = slap_str2ad( "apple-group-realname", &ad, &text );
 	someVal = attr_find(rs->sr_un.sru_search.r_entry->e_attrs, ad);
-        if (someVal != NULL) {
-            uc->lname = someVal->a_vals->bv_val;
-            uc->count++;
-        }
+    if (someVal != NULL) {
+        uc->lname = someVal->a_vals->bv_val;
+        uc->count++;
+    }
 	
 	return(0);
 }
@@ -81,29 +83,38 @@ static int odloc_cloud_attr_cb(
 	const char	*text = NULL;
 	rc = slap_str2ad( "apple-dns-domain", &ad, &text );
 	someVal = attr_find(rs->sr_un.sru_search.r_entry->e_attrs, ad);
-        if (someVal != NULL) {
-            uc->lname = someVal->a_vals->bv_val;
-            uc->count++;
-        }
+    if (someVal != NULL) {
+        uc->lname = someVal->a_vals->bv_val;
+        uc->count++;
+    }
 	
 	return(0);
 }
 
 
 static char* odlocale_record_search(
-						Operation *op,
-						Operation *nop,
-						char *key,
-						struct berval *searchbase
-						)
+                                    Operation *op,
+                                    char *key,
+                                    struct berval *searchbase
+                                    )
 {
 	slap_overinst *on = (slap_overinst *) op->o_bd->bd_info;
 	SlapReply nrs = { REP_RESULT };
 	slap_callback cb = { NULL, NULL, NULL, NULL }; /* XXX */
 	odloc_res uq = { NULL, 0 };
 	int rc;
+    Operation *nop = NULL;
+    OperationBuffer opbuf = {0};
 	
-	nop->ors_filter = str2filter(key);
+    memset(&opbuf, 0, sizeof(opbuf));
+	nop = (Operation*)&opbuf;
+	nop->o_hdr = &opbuf.ob_hdr;
+	nop->o_controls = opbuf.ob_controls;
+	operation_fake_init(op->o_conn, (Operation*)&opbuf, ldap_pvt_thread_pool_context(), 0);
+	nop = &opbuf.ob_op;
+	nop->o_dn = nop->o_ndn = op->o_bd->be_rootndn;
+    
+    nop->ors_filter = str2filter(key);
 	ber_str2bv(key, 0, 0, &nop->ors_filterstr);
 	if (strstr(key, "(cn=locales)")){
 		cb.sc_response	= (slap_response*)odloc_cloud_attr_cb;
@@ -111,6 +122,7 @@ static char* odlocale_record_search(
 		cb.sc_response	= (slap_response*)odloc_count_attr_cb;
 	}	
 	cb.sc_private	= &uq;
+    
 	nop->o_callback	= &cb;
 	nop->o_tag	= LDAP_REQ_SEARCH;
 	nop->ors_scope	= LDAP_SCOPE_SUBTREE;
@@ -125,12 +137,12 @@ static char* odlocale_record_search(
 	
 	nop->o_req_dn	= *searchbase;
 	nop->o_req_ndn	= *searchbase;
-	nop->o_ndn = op->o_bd->be_rootndn;
 	
 	nop->o_bd = on->on_info->oi_origdb;
 	rc = nop->o_bd->be_search(nop, &nrs);
-	
-
+	if(nop->ors_filter)
+        filter_free( nop->ors_filter );
+    
 	if ((rc == LDAP_SUCCESS) && (uq.count !=0)){
 		return(uq.lname);
 	}else{
@@ -144,41 +156,40 @@ static char* odlocale_record_search(
 
 
 static char* get_locales(Operation *op,
-					   Operation *nop,
-					   char *myip,
-					   struct berval *searchbase){
-
+                         char *myip,
+                         struct berval *searchbase){
+    
 	char *mySite = NULL;
 	in_addr_t   y;
-		int         c;
+    int         c;
 	char        ipOut[16];
 	char        NetObj[100];
 	char *localeName = NULL;
-			
+    
 	in_addr_t x;
 	inet_aton(myip, &x);
-		
+    
 	for ( c=32; c > 0 && localeName == NULL; c--){
-			
+        
 		const char      *attrs[2];
 		y = (ntohl(x) >> (32-c)) << (32-c);
-			
+        
 		unsigned int        tempAddr = htonl( y );
 		unsigned char *X = (unsigned char *)&tempAddr;
-			
+        
 		snprintf( ipOut, sizeof(ipOut), "%i.%i.%i.%i", (int)X[0], (int)X[1], (int)X[2], (int)X[3]);
 		snprintf( NetObj, sizeof(NetObj), "(apple-locale-subnets=%s/%i)", ipOut, c );
-				
-		localeName = odlocale_record_search(op,nop,NetObj,searchbase);
-		}
-
+        
+		localeName = odlocale_record_search(op,NetObj,searchbase);
+	}
+    
 	if (localeName != NULL) {
 		Debug( LDAP_DEBUG_TRACE, "found locale %s \n", localeName, 0, 0 );
 		return localeName;
-	}	else {
-		return "DefaultLocale";
+	} else {
+		return defaultLocaleName;
 	}
-		
+    
 }
 
 static int odlocales_response( Operation *op, SlapReply *rs )
@@ -187,14 +198,13 @@ static int odlocales_response( Operation *op, SlapReply *rs )
 		return SLAP_CB_CONTINUE;
 	}
 	if (strstr(op->oq_search.rs_attrs->an_name.bv_val, "netlogon") == NULL) {
-			return SLAP_CB_CONTINUE;
+        return SLAP_CB_CONTINUE;
 	}
 	
 	char *theLocale;
 	int rc = 0;
 	Debug( LDAP_DEBUG_TRACE, "OD Locale search called by client %s \n", op->o_hdr->oh_conn->c_peer_name.bv_val, 0, 0 );
-	Operation nop = *op;
-	
+    
 	// get the baseDN
 	struct berval searchbase;
 	Attribute *bDN = NULL;
@@ -202,32 +212,45 @@ static int odlocales_response( Operation *op, SlapReply *rs )
 	const char	*text = NULL;
 	rc = slap_str2ad( "namingContexts", &ad, &text );
 	bDN = attr_find(rs->sr_un.sru_search.r_entry->e_attrs, ad);
-    if(!bDN || !bDN->a_vals->bv_val)
+    if(!bDN || !bDN->a_vals->bv_val) {
         return SLAP_CB_CONTINUE;
+    }
+    
     char *baseDN = bDN->a_vals->bv_val;
 	
 	ber_str2bv( baseDN, 0, 0, &searchbase );
 	
 	// Get the locale domain name from locales config record
 	char *theCloud;
-	theCloud = odlocale_record_search(op,&nop,"(cn=locales)",&searchbase);
-
+	theCloud = odlocale_record_search(op,"(cn=locales)",&searchbase);
+    
 	
 	// get the IP of the client to search for
 	char *clientIP = strtok ( op->o_hdr->oh_conn->c_peer_name.bv_val, ":=" );
 	clientIP = strtok ( NULL,":=");
 	
 	//Look up the locale.  If no locale is found, it will return "DefaultLocale"
-	theLocale = get_locales(op,&nop,clientIP,&searchbase);
+	theLocale = get_locales(op,clientIP,&searchbase);
 	
 	// build the response
-	char test_entry[512];
-	rs->sr_err = LDAP_SUCCESS;
 	
-	//add new attributes to return here...
-	snprintf( test_entry, sizeof(test_entry), "dn: \nClientSiteName: %s\nDNSDomainName: %s\nDNSForestName: %s\n", theLocale, theCloud,theCloud);
-	Entry *new = str2entry2( test_entry, 0 );
-	rs->sr_un.sru_search.r_entry = new;
+	// If the locale is the default locale, just return that.  If it's
+	// something other than the default, return both that locale and the
+	// default locale.
+    char* entry = NULL;
+    if (strncmp(theLocale, defaultLocaleName, strlen(defaultLocaleName)) == 0) {
+        asprintf(&entry, "dn: \nClientSiteName: %s\nDNSDomainName: %s\nDNSForestName: %s\n", theLocale, theCloud,theCloud);
+    }
+    else {
+        asprintf(&entry, "dn: \nClientSiteName: %s\nClientSiteName: %s\nDNSDomainName: %s\nDNSForestName: %s\n", theLocale, defaultLocaleName, theCloud,theCloud);
+    }
+    
+    if (entry) {
+        rs->sr_err = LDAP_SUCCESS;
+        rs->sr_un.sru_search.r_entry = str2entry2(entry, 0);
+        free(entry);
+        entry = NULL;
+    }
 	
 	//make sure we return all attributes, otherwise, it'll return none!
 	rs->sr_attrs = slap_anlist_all_attributes;
@@ -241,17 +264,17 @@ static int odlocales_response( Operation *op, SlapReply *rs )
 // currently not used
 static int
 odlocales_db_config(
-				BackendDB	*be,
-				const char	*fname,
-				int		lineno,
-				int		argc,
-				char		**argv )
+                    BackendDB	*be,
+                    const char	*fname,
+                    int		lineno,
+                    int		argc,
+                    char		**argv )
 {
 	
 	if ( strcasecmp( argv[ 0 ], "odlocales-base" ) == 0 ) {
-	Debug( LDAP_DEBUG_TRACE, "OD Locale search base configured as: %s \n", argv[ 1 ], 0, 0 );
-
-	
+        Debug( LDAP_DEBUG_TRACE, "OD Locale search base configured as: %s \n", argv[ 1 ], 0, 0 );
+        
+        
 		return 0;
 		
 	}

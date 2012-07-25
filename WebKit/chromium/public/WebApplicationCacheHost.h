@@ -31,9 +31,9 @@
 #ifndef WebApplicationCacheHost_h
 #define WebApplicationCacheHost_h
 
-#include "WebCommon.h"
-#include "WebURL.h"
-#include "WebVector.h"
+#include "platform/WebCommon.h"
+#include "platform/WebURL.h"
+#include "platform/WebVector.h"
 
 namespace WebKit {
 
@@ -74,10 +74,8 @@ public:
     virtual ~WebApplicationCacheHost() { }
 
     // Called for every request made within the context.
-    virtual void willStartMainResourceRequest(WebURLRequest& r, const WebFrame*) { willStartMainResourceRequest(r); }
+    virtual void willStartMainResourceRequest(WebURLRequest& r, const WebFrame*) { }
     virtual void willStartSubResourceRequest(WebURLRequest&) { }
-
-    virtual void willStartMainResourceRequest(WebURLRequest&) { } // DEPRECATED, remove after derived classes have caught up.
 
     // One or the other selectCache methods is called after having parsed the <html> tag.
     // The latter returns false if the current document has been identified as a "foreign"
@@ -121,4 +119,3 @@ public:
 }  // namespace WebKit
 
 #endif  // WebApplicationCacheHost_h
-

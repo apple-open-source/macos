@@ -36,6 +36,14 @@
 
 using namespace WebKit;
 
+extern "C" {
+// For binary compatibility with Safari 5.1. Should be removed eventually.
+WK_EXPORT void _WKContextSetAdditionalPluginsDirectory(WKContextRef context, WKStringRef pluginsDirectory);
+WK_EXPORT void _WKContextRegisterURLSchemeAsEmptyDocument(WKContextRef context, WKStringRef urlScheme);
+WK_EXPORT void _WKContextSetAlwaysUsesComplexTextCodePath(WKContextRef context, bool alwaysUseComplexTextCodePath);
+WK_EXPORT void _WKContextSetHTTPPipeliningEnabled(WKContextRef context, bool enabled);
+}
+
 WKTypeID WKContextGetTypeID()
 {
     return toAPI(WebContext::APIType);
@@ -44,13 +52,13 @@ WKTypeID WKContextGetTypeID()
 WKContextRef WKContextCreate()
 {
     RefPtr<WebContext> context = WebContext::create(String());
-    return toAPI(context.release().releaseRef());
+    return toAPI(context.release().leakRef());
 }
 
 WKContextRef WKContextCreateWithInjectedBundlePath(WKStringRef pathRef)
 {
     RefPtr<WebContext> context = WebContext::create(toImpl(pathRef)->string());
-    return toAPI(context.release().releaseRef());
+    return toAPI(context.release().leakRef());
 }
 
 WKContextRef WKContextGetSharedProcessContext()
@@ -65,23 +73,22 @@ WKContextRef WKContextGetSharedThreadContext()
 
 void WKContextSetInjectedBundleClient(WKContextRef contextRef, const WKContextInjectedBundleClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(contextRef)->initializeInjectedBundleClient(wkClient);
 }
 
 void WKContextSetHistoryClient(WKContextRef contextRef, const WKContextHistoryClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(contextRef)->initializeHistoryClient(wkClient);
 }
 
 void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownloadClient* wkClient)
 {
-    if (wkClient && wkClient->version)
-        return;
     toImpl(contextRef)->initializeDownloadClient(wkClient);
+}
+
+void WKContextSetConnectionClient(WKContextRef contextRef, const WKContextConnectionClient* wkClient)
+{
+    toImpl(contextRef)->initializeConnectionClient(wkClient);
 }
 
 WKDownloadRef WKContextDownloadURLRequest(WKContextRef contextRef, const WKURLRequestRef requestRef)
@@ -123,17 +130,22 @@ WKCacheModel WKContextGetCacheModel(WKContextRef contextRef)
     return toAPI(toImpl(contextRef)->cacheModel());
 }
 
-void _WKContextSetAlwaysUsesComplexTextCodePath(WKContextRef contextRef, bool alwaysUseComplexTextCodePath)
+void WKContextSetAlwaysUsesComplexTextCodePath(WKContextRef contextRef, bool alwaysUseComplexTextCodePath)
 {
     toImpl(contextRef)->setAlwaysUsesComplexTextCodePath(alwaysUseComplexTextCodePath);
 }
 
-void _WKContextSetAdditionalPluginsDirectory(WKContextRef contextRef, WKStringRef pluginsDirectory)
+void WKContextSetShouldUseFontSmoothing(WKContextRef contextRef, bool useFontSmoothing)
+{
+    toImpl(contextRef)->setShouldUseFontSmoothing(useFontSmoothing);
+}
+
+void WKContextSetAdditionalPluginsDirectory(WKContextRef contextRef, WKStringRef pluginsDirectory)
 {
     toImpl(contextRef)->setAdditionalPluginsDirectory(toImpl(pluginsDirectory)->string());
 }
 
-void _WKContextRegisterURLSchemeAsEmptyDocument(WKContextRef contextRef, WKStringRef urlScheme)
+void WKContextRegisterURLSchemeAsEmptyDocument(WKContextRef contextRef, WKStringRef urlScheme)
 {
     toImpl(contextRef)->registerURLSchemeAsEmptyDocument(toImpl(urlScheme)->string());
 }
@@ -183,6 +195,11 @@ WKMediaCacheManagerRef WKContextGetMediaCacheManager(WKContextRef contextRef)
     return toAPI(toImpl(contextRef)->mediaCacheManagerProxy());
 }
 
+WKNotificationManagerRef WKContextGetNotificationManager(WKContextRef contextRef)
+{
+    return toAPI(toImpl(contextRef)->notificationManagerProxy());
+}
+
 WKPluginSiteDataManagerRef WKContextGetPluginSiteDataManager(WKContextRef contextRef)
 {
     return toAPI(toImpl(contextRef)->pluginSiteDataManager());
@@ -228,7 +245,7 @@ void WKContextEnableProcessTermination(WKContextRef contextRef)
     toImpl(contextRef)->enableProcessTermination();
 }
 
-void _WKContextSetHTTPPipeliningEnabled(WKContextRef contextRef, bool enabled)
+void WKContextSetHTTPPipeliningEnabled(WKContextRef contextRef, bool enabled)
 {
     toImpl(contextRef)->setHTTPPipeliningEnabled(enabled);
 }
@@ -248,3 +265,23 @@ void WKContextGarbageCollectJavaScriptObjects(WKContextRef contextRef)
     toImpl(contextRef)->garbageCollectJavaScriptObjects();
 }
 
+// Deprecated functions.
+void _WKContextSetAdditionalPluginsDirectory(WKContextRef context, WKStringRef pluginsDirectory)
+{
+    WKContextSetAdditionalPluginsDirectory(context, pluginsDirectory);
+}
+
+void _WKContextRegisterURLSchemeAsEmptyDocument(WKContextRef context, WKStringRef urlScheme)
+{
+    WKContextRegisterURLSchemeAsEmptyDocument(context, urlScheme);
+}
+
+void _WKContextSetAlwaysUsesComplexTextCodePath(WKContextRef context, bool alwaysUseComplexTextCodePath)
+{
+    WKContextSetAlwaysUsesComplexTextCodePath(context, alwaysUseComplexTextCodePath);
+}
+
+void _WKContextSetHTTPPipeliningEnabled(WKContextRef context, bool enabled)
+{
+    WKContextSetHTTPPipeliningEnabled(context, enabled);
+}

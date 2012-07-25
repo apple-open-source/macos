@@ -24,8 +24,12 @@
 
 #include "WebDOMTestSerializedScriptValueInterface.h"
 
+#include "Array.h"
+#include "MessagePortArray.h"
 #include "SerializedScriptValue.h"
 #include "TestSerializedScriptValueInterface.h"
+#include "WebDOMArray.h"
+#include "WebDOMMessagePortArray.h"
 #include "WebExceptionHandler.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
@@ -66,7 +70,7 @@ WebDOMTestSerializedScriptValueInterface& WebDOMTestSerializedScriptValueInterfa
 
 WebCore::TestSerializedScriptValueInterface* WebDOMTestSerializedScriptValueInterface::impl() const
 {
-    return m_impl ? m_impl->impl.get() : 0;
+    return m_impl ? WTF::getPtr(m_impl->impl) : 0;
 }
 
 WebDOMTestSerializedScriptValueInterface::~WebDOMTestSerializedScriptValueInterface()
@@ -81,6 +85,70 @@ WebDOMString WebDOMTestSerializedScriptValueInterface::value() const
         return WebDOMString();
 
     return impl()->value()->toString();
+}
+
+void WebDOMTestSerializedScriptValueInterface::setValue(const WebDOMString& newValue)
+{
+    if (!impl())
+        return;
+
+    impl()->setValue(WebCore::SerializedScriptValue::create(WTF::String(newValue)));
+}
+
+WebDOMString WebDOMTestSerializedScriptValueInterface::readonlyValue() const
+{
+    if (!impl())
+        return WebDOMString();
+
+    return impl()->readonlyValue()->toString();
+}
+
+WebDOMString WebDOMTestSerializedScriptValueInterface::cachedValue() const
+{
+    if (!impl())
+        return WebDOMString();
+
+    return impl()->cachedValue()->toString();
+}
+
+void WebDOMTestSerializedScriptValueInterface::setCachedValue(const WebDOMString& newCachedValue)
+{
+    if (!impl())
+        return;
+
+    impl()->setCachedValue(WebCore::SerializedScriptValue::create(WTF::String(newCachedValue)));
+}
+
+WebDOMMessagePortArray WebDOMTestSerializedScriptValueInterface::ports() const
+{
+    if (!impl())
+        return WebDOMMessagePortArray();
+
+    return toWebKit(WTF::getPtr(impl()->ports()));
+}
+
+WebDOMString WebDOMTestSerializedScriptValueInterface::cachedReadonlyValue() const
+{
+    if (!impl())
+        return WebDOMString();
+
+    return impl()->cachedReadonlyValue()->toString();
+}
+
+void WebDOMTestSerializedScriptValueInterface::acceptTransferList(const WebDOMString& data, const WebDOMArray& transferList)
+{
+    if (!impl())
+        return;
+
+    impl()->acceptTransferList(WebCore::SerializedScriptValue::create(WTF::String(data)), toWebCore(transferList));
+}
+
+void WebDOMTestSerializedScriptValueInterface::multiTransferList(const WebDOMString& first, const WebDOMArray& tx, const WebDOMString& second, const WebDOMArray& txx)
+{
+    if (!impl())
+        return;
+
+    impl()->multiTransferList(WebCore::SerializedScriptValue::create(WTF::String(first)), toWebCore(tx), WebCore::SerializedScriptValue::create(WTF::String(second)), toWebCore(txx));
 }
 
 WebCore::TestSerializedScriptValueInterface* toWebCore(const WebDOMTestSerializedScriptValueInterface& wrapper)

@@ -26,23 +26,26 @@
 #ifndef ContentSecurityPolicy_h
 #define ContentSecurityPolicy_h
 
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class CSPDirective;
-class Document;
+class CSPDirectiveList;
+class ScriptExecutionContext;
 class KURL;
 
-class ContentSecurityPolicy : public RefCounted<ContentSecurityPolicy> {
+class ContentSecurityPolicy {
 public:
-    static PassRefPtr<ContentSecurityPolicy> create(Document* document)
+    static PassOwnPtr<ContentSecurityPolicy> create(ScriptExecutionContext* scriptExecutionContext)
     {
-        return adoptRef(new ContentSecurityPolicy(document));
+        return adoptPtr(new ContentSecurityPolicy(scriptExecutionContext));
     }
     ~ContentSecurityPolicy();
+
+    void copyStateFrom(const ContentSecurityPolicy*);
 
     enum HeaderType {
         ReportOnly,
@@ -50,6 +53,9 @@ public:
     };
 
     void didReceiveHeader(const String&, HeaderType);
+
+    const String& header() const;
+    HeaderType headerType() const;
 
     bool allowJavaScriptURLs() const;
     bool allowInlineEventHandlers() const;
@@ -64,40 +70,16 @@ public:
     bool allowStyleFromSource(const KURL&) const;
     bool allowFontFromSource(const KURL&) const;
     bool allowMediaFromSource(const KURL&) const;
+    bool allowConnectFromSource(const KURL&) const;
+
+    void setOverrideAllowInlineStyle(bool);
 
 private:
-    explicit ContentSecurityPolicy(Document*);
+    explicit ContentSecurityPolicy(ScriptExecutionContext*);
 
-    void parse(const String&);
-    bool parseDirective(const UChar* begin, const UChar* end, String& name, String& value);
-    void parseReportURI(const String&);
-    void addDirective(const String& name, const String& value);
-
-    PassOwnPtr<CSPDirective> createCSPDirective(const String& name, const String& value);
-
-    CSPDirective* operativeDirective(CSPDirective*) const;
-    void reportViolation(const String& directiveText, const String& consoleMessage) const;
-    bool checkEval(CSPDirective*) const;
-
-    bool checkInlineAndReportViolation(CSPDirective*, const String& consoleMessage) const;
-    bool checkEvalAndReportViolation(CSPDirective*, const String& consoleMessage) const;
-    bool checkSourceAndReportViolation(CSPDirective*, const KURL&, const String& type) const;
-
-    bool denyIfEnforcingPolicy() const { return m_reportOnly; }
-
-    bool m_havePolicy;
-    Document* m_document;
-
-    bool m_reportOnly;
-    OwnPtr<CSPDirective> m_defaultSrc;
-    OwnPtr<CSPDirective> m_scriptSrc;
-    OwnPtr<CSPDirective> m_objectSrc;
-    OwnPtr<CSPDirective> m_frameSrc;
-    OwnPtr<CSPDirective> m_imgSrc;
-    OwnPtr<CSPDirective> m_styleSrc;
-    OwnPtr<CSPDirective> m_fontSrc;
-    OwnPtr<CSPDirective> m_mediaSrc;
-    Vector<KURL> m_reportURLs;
+    ScriptExecutionContext* m_scriptExecutionContext;
+    bool m_overrideInlineStyleAllowed;
+    OwnPtr<CSPDirectiveList> m_policy;
 };
 
 }

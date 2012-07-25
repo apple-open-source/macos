@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2005, 2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,10 +34,23 @@
 
 __BEGIN_DECLS
 
-void	interface_detaching	(const char *if_name);
-void	link_add		(const char *if_name);
-void	link_remove		(const char *if_name);
-void	link_update_status	(const char *if_name, boolean_t attach);
+__private_extern__
+void	interface_detaching		(const char *if_name);
+
+__private_extern__
+void	interface_update_idle_state	(const char *if_name);
+
+__private_extern__
+void	interface_update_quality_metric	(const char *if_name, int quality);
+
+__private_extern__
+void	link_add			(const char *if_name);
+
+__private_extern__
+void	link_remove			(const char *if_name);
+
+__private_extern__
+void	link_update_status		(const char *if_name, boolean_t attach);
 
 __END_DECLS
 

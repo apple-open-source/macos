@@ -130,7 +130,8 @@ heim_array_append_value(heim_array_t array, heim_object_t object)
 
 void
 heim_array_iterate_f(heim_array_t array,
-		     void *ctx, heim_array_iterator_f_t fn)
+		     void *ctx,
+		     heim_array_iterator_f_t fn)
 {
     int stop = 0;
     size_t n;
@@ -214,6 +215,7 @@ heim_array_delete_value(heim_array_t array, size_t idx)
     heim_release(obj);
 }
 
+#ifdef __BLOCKS__
 /**
  * Get value at idx
  *
@@ -222,7 +224,7 @@ heim_array_delete_value(heim_array_t array, size_t idx)
  */
 
 void
-heim_array_filter(heim_array_t array, bool (^block)(heim_object_t))
+heim_array_filter(heim_array_t array, int (^block)(heim_object_t))
 {
     size_t n = 0;
 
@@ -234,3 +236,5 @@ heim_array_filter(heim_array_t array, bool (^block)(heim_object_t))
 	}
     }
 }
+
+#endif /* __BLOCKS__ */

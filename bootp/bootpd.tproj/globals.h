@@ -40,4 +40,4 @@ extern char *		testing_control;
 extern char *		transmit_buffer;
 extern bool		use_open_directory;
 extern int		verbose;
-#endif _S_GLOBALS_H
+#endif /* _S_GLOBALS_H */

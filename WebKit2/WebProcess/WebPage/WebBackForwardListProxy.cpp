@@ -34,6 +34,7 @@
 #include "WebProcess.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/HistoryItem.h>
+#include <WebCore/PageCache.h>
 #include <wtf/HashMap.h>
 
 using namespace WebCore;
@@ -88,8 +89,7 @@ static void updateBackForwardItem(uint64_t itemID, HistoryItem* item)
     EncoderAdapter encoder;
     item->encodeBackForwardTree(encoder);
 
-    WebProcess::shared().connection()->send(Messages::WebProcessProxy::AddBackForwardItem(itemID,
-        item->originalURLString(), item->urlString(), item->title(), encoder.data()), 0);
+    WebProcess::shared().connection()->send(Messages::WebProcessProxy::AddBackForwardItem(itemID, item->originalURLString(), item->urlString(), item->title(), encoder.dataReference()), 0);
 }
 
 void WebBackForwardListProxy::addItemFromUIProcess(uint64_t itemID, PassRefPtr<WebCore::HistoryItem> prpItem)
@@ -129,6 +129,9 @@ void WebBackForwardListProxy::removeItem(uint64_t itemID)
     IDToHistoryItemMap::iterator it = idToHistoryItemMap().find(itemID);
     if (it == idToHistoryItemMap().end())
         return;
+        
+    WebCore::pageCache()->remove(it->second.get());
+
     historyItemToIDMap().remove(it->second);
     idToHistoryItemMap().remove(it);
 }
@@ -152,6 +155,8 @@ void WebBackForwardListProxy::addItem(PassRefPtr<HistoryItem> prpItem)
 
     ASSERT(!idToHistoryItemMap().contains(itemID));
 
+    m_associatedItemIDs.add(itemID);
+
     historyItemToIDMap().set(item, itemID);
     idToHistoryItemMap().set(itemID, item);
 
@@ -164,7 +169,9 @@ void WebBackForwardListProxy::goToItem(HistoryItem* item)
     if (!m_page)
         return;
 
-    m_page->send(Messages::WebPageProxy::BackForwardGoToItem(historyItemToIDMap().get(item)));
+    SandboxExtension::Handle sandboxExtensionHandle;
+    m_page->sendSync(Messages::WebPageProxy::BackForwardGoToItem(historyItemToIDMap().get(item)), Messages::WebPageProxy::BackForwardGoToItem::Reply(sandboxExtensionHandle));
+    m_page->sandboxExtensionTracker().beginLoad(m_page->mainWebFrame(), sandboxExtensionHandle);
 }
 
 HistoryItem* WebBackForwardListProxy::itemAtIndex(int itemIndex)
@@ -208,6 +215,12 @@ int WebBackForwardListProxy::forwardListCount()
 
 void WebBackForwardListProxy::close()
 {
+    HashSet<uint64_t>::iterator end = m_associatedItemIDs.end();
+    for (HashSet<uint64_t>::iterator i = m_associatedItemIDs.begin(); i != end; ++i)
+        WebCore::pageCache()->remove(itemForID(*i));
+
+    m_associatedItemIDs.clear();
+
     m_page = 0;
 }
 

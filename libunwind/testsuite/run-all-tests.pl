@@ -47,12 +47,12 @@ while ( <FILE> ) {
 				# don't try to build ppc tests
 			}
 			elsif ( $file =~ /^(.+)\.cxx/ ) {
-				#printf "g++ $file $options $headerPath -o /tmp/run-all-tests.a.out\n";
-				$exit = system("g++ $file $options $headerPath -o /tmp/run-all-tests.a.out");
+				#printf "c++ $file $options $headerPath -o /tmp/run-all-tests.a.out\n";
+				$exit = system("c++ $file $options $headerPath -o /tmp/run-all-tests.a.out");
 			}
 			else {
-				#printf "gcc $file $options $headerPath -o /tmp/run-all-tests.a.out\n";
-				$exit = system("gcc $file $options $headerPath -o /tmp/run-all-tests.a.out");
+				#printf "cc $file $options $headerPath -o /tmp/run-all-tests.a.out\n";
+				$exit = system("cc $file $options $headerPath -o /tmp/run-all-tests.a.out");
 			}
 			if ( $ppc && ($useLocalDylib || !$canRunPPC) ) {
 				#printf "SKIP $file $options\n";

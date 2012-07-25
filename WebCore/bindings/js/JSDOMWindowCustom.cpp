@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,14 +26,15 @@
 #include "HTMLDocument.h"
 #include "History.h"
 #include "JSArrayBuffer.h"
-#include "JSAudioConstructor.h"
 #include "JSDataView.h"
 #include "JSEvent.h"
 #include "JSEventListener.h"
 #include "JSEventSource.h"
 #include "JSFloat32Array.h"
 #include "JSFloat64Array.h"
+#include "JSHTMLAudioElement.h"
 #include "JSHTMLCollection.h"
+#include "JSHTMLOptionElement.h"
 #include "JSHistory.h"
 #include "JSImageConstructor.h"
 #include "JSInt16Array.h"
@@ -41,13 +43,12 @@
 #include "JSLocation.h"
 #include "JSMessageChannel.h"
 #include "JSMessagePortCustom.h"
-#include "JSOptionConstructor.h"
 #include "JSUint16Array.h"
 #include "JSUint32Array.h"
 #include "JSUint8Array.h"
+#include "JSUint8ClampedArray.h"
 #include "JSWebKitCSSMatrix.h"
 #include "JSWebKitPoint.h"
-#include "JSWorker.h"
 #include "JSXMLHttpRequest.h"
 #include "JSXSLTProcessor.h"
 #include "Location.h"
@@ -56,6 +57,10 @@
 #include "Settings.h"
 #include "SharedWorkerRepository.h"
 #include <runtime/JSFunction.h>
+
+#if ENABLE(WORKERS)
+#include "JSWorker.h"
+#endif
 
 #if ENABLE(SHARED_WORKERS)
 #include "JSSharedWorker.h"
@@ -94,27 +99,27 @@ JSValue nonCachingStaticFunctionGetter(ExecState* exec, JSValue, const Identifie
 
 static JSValue childFrameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->child(identifierToAtomicString(propertyName))->domWindow());
+    return toJS(exec, jsCast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->scopedChild(identifierToAtomicString(propertyName))->domWindow());
 }
 
 static JSValue indexGetter(ExecState* exec, JSValue slotBase, unsigned index)
 {
-    return toJS(exec, static_cast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->child(index)->domWindow());
+    return toJS(exec, jsCast<JSDOMWindow*>(asObject(slotBase))->impl()->frame()->tree()->scopedChild(index)->domWindow());
 }
 
 static JSValue namedItemGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSDOMWindowBase* thisObj = static_cast<JSDOMWindow*>(asObject(slotBase));
+    JSDOMWindowBase* thisObj = jsCast<JSDOMWindow*>(asObject(slotBase));
     Document* document = thisObj->impl()->frame()->document();
 
     ASSERT(thisObj->allowsAccessFrom(exec));
     ASSERT(document);
     ASSERT(document->isHTMLDocument());
 
-    RefPtr<HTMLCollection> collection = document->windowNamedItems(identifierToString(propertyName));
+    HTMLCollection* collection = document->windowNamedItems(identifierToAtomicString(propertyName));
     if (collection->length() == 1)
         return toJS(exec, thisObj, collection->firstItem());
-    return toJS(exec, thisObj, collection.get());
+    return toJS(exec, thisObj, collection);
 }
 
 bool JSDOMWindow::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -215,7 +220,7 @@ bool JSDOMWindow::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identi
     // naming frames things that conflict with window properties that
     // are in Moz but not IE. Since we have some of these, we have to do
     // it the Moz way.
-    if (thisObject->impl()->frame()->tree()->child(identifierToAtomicString(propertyName))) {
+    if (thisObject->impl()->frame()->tree()->scopedChild(identifierToAtomicString(propertyName))) {
         slot.setCustom(thisObject, childFrameGetter);
         return true;
     }
@@ -239,7 +244,7 @@ bool JSDOMWindow::getOwnPropertySlot(JSCell* cell, ExecState* exec, const Identi
     // allow window[1] or parent[1] etc. (#56983)
     bool ok;
     unsigned i = propertyName.toArrayIndex(ok);
-    if (ok && i < thisObject->impl()->frame()->tree()->childCount()) {
+    if (ok && i < thisObject->impl()->frame()->tree()->scopedChildCount()) {
         slot.setCustomIndex(thisObject, i, indexGetter);
         return true;
     }
@@ -305,7 +310,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, co
     // naming frames things that conflict with window properties that
     // are in Moz but not IE. Since we have some of these, we have to do
     // it the Moz way.
-    if (thisObject->impl()->frame()->tree()->child(identifierToAtomicString(propertyName))) {
+    if (thisObject->impl()->frame()->tree()->scopedChild(identifierToAtomicString(propertyName))) {
         PropertySlot slot;
         slot.setCustom(thisObject, childFrameGetter);
         descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
@@ -314,7 +319,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(JSObject* object, ExecState* exec, co
     
     bool ok;
     unsigned i = propertyName.toArrayIndex(ok);
-    if (ok && i < thisObject->impl()->frame()->tree()->childCount()) {
+    if (ok && i < thisObject->impl()->frame()->tree()->scopedChildCount()) {
         PropertySlot slot;
         slot.setCustomIndex(thisObject, i, indexGetter);
         descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
@@ -383,35 +388,17 @@ void JSDOMWindow::getOwnPropertyNames(JSObject* object, ExecState* exec, Propert
     Base::getOwnPropertyNames(thisObject, exec, propertyNames, mode);
 }
 
-void JSDOMWindow::defineGetter(JSObject* object, ExecState* exec, const Identifier& propertyName, JSObject* getterFunction, unsigned attributes)
-{
-    JSDOMWindow* thisObject = jsCast<JSDOMWindow*>(object);
-    // Only allow defining getters by frames in the same origin.
-    if (!thisObject->allowsAccessFrom(exec))
-        return;
-
-    // Don't allow shadowing location using defineGetter.
-    if (propertyName == "location")
-        return;
-
-    Base::defineGetter(thisObject, exec, propertyName, getterFunction, attributes);
-}
-
-void JSDOMWindow::defineSetter(JSObject* object, ExecState* exec, const Identifier& propertyName, JSObject* setterFunction, unsigned attributes)
-{
-    JSDOMWindow* thisObject = jsCast<JSDOMWindow*>(object);
-    // Only allow defining setters by frames in the same origin.
-    if (!thisObject->allowsAccessFrom(exec))
-        return;
-    Base::defineSetter(thisObject, exec, propertyName, setterFunction, attributes);
-}
-
 bool JSDOMWindow::defineOwnProperty(JSC::JSObject* object, JSC::ExecState* exec, const JSC::Identifier& propertyName, JSC::PropertyDescriptor& descriptor, bool shouldThrow)
 {
     JSDOMWindow* thisObject = jsCast<JSDOMWindow*>(object);
     // Only allow defining properties in this way by frames in the same origin, as it allows setters to be introduced.
     if (!thisObject->allowsAccessFrom(exec))
         return false;
+
+    // Don't allow shadowing location using accessor properties.
+    if (descriptor.isAccessorDescriptor() && propertyName == "location")
+        return false;
+
     return Base::defineOwnProperty(thisObject, exec, propertyName, descriptor, shouldThrow);
 }
 
@@ -433,11 +420,12 @@ void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
     }
 #endif
 
-    UString locationString = value.toString(exec);
+    UString locationString = value.toString(exec)->value(exec);
     if (exec->hadException())
         return;
 
-    impl()->setLocation(ustringToString(locationString), activeDOMWindow(exec), firstDOMWindow(exec));
+    if (Location* location = impl()->location())
+        location->setHref(ustringToString(locationString), activeDOMWindow(exec), firstDOMWindow(exec));
 }
 
 JSValue JSDOMWindow::event(ExecState* exec) const
@@ -448,13 +436,6 @@ JSValue JSDOMWindow::event(ExecState* exec) const
     return toJS(exec, const_cast<JSDOMWindow*>(this), event);
 }
 
-#if ENABLE(EVENTSOURCE)
-JSValue JSDOMWindow::eventSource(ExecState* exec) const
-{
-    return getDOMConstructor<JSEventSourceConstructor>(exec, this);
-}
-#endif
-
 JSValue JSDOMWindow::image(ExecState* exec) const
 {
     return getDOMConstructor<JSImageConstructor>(exec, this);
@@ -462,7 +443,7 @@ JSValue JSDOMWindow::image(ExecState* exec) const
 
 JSValue JSDOMWindow::option(ExecState* exec) const
 {
-    return getDOMConstructor<JSOptionConstructor>(exec, this);
+    return getDOMConstructor<JSHTMLOptionElementNamedConstructor>(exec, this);
 }
 
 #if ENABLE(VIDEO)
@@ -470,93 +451,7 @@ JSValue JSDOMWindow::audio(ExecState* exec) const
 {
     if (!MediaPlayer::isAvailable())
         return jsUndefined();
-    return getDOMConstructor<JSAudioConstructor>(exec, this);
-}
-#endif
-
-JSValue JSDOMWindow::webKitPoint(ExecState* exec) const
-{
-    return getDOMConstructor<JSWebKitPointConstructor>(exec, this);
-}
-
-JSValue JSDOMWindow::webKitCSSMatrix(ExecState* exec) const
-{
-    return getDOMConstructor<JSWebKitCSSMatrixConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::arrayBuffer(ExecState* exec) const
-{
-    return getDOMConstructor<JSArrayBufferConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::int8Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSInt8ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::uint8Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSUint8ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::int32Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSInt32ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::uint32Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSUint32ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::int16Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSInt16ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::uint16Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSUint16ArrayConstructor>(exec, this);
-}
- 
-JSValue JSDOMWindow::float32Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSFloat32ArrayConstructor>(exec, this);
-}
-
-JSValue JSDOMWindow::float64Array(ExecState* exec) const
-{
-    return getDOMConstructor<JSFloat64ArrayConstructor>(exec, this);
-}
-
-JSValue JSDOMWindow::dataView(ExecState* exec) const
-{
-    return getDOMConstructor<JSDataViewConstructor>(exec, this);
-}
-
-JSValue JSDOMWindow::xmlHttpRequest(ExecState* exec) const
-{
-    return getDOMConstructor<JSXMLHttpRequestConstructor>(exec, this);
-}
-
-#if ENABLE(XSLT)
-JSValue JSDOMWindow::xsltProcessor(ExecState* exec) const
-{
-    return getDOMConstructor<JSXSLTProcessorConstructor>(exec, this);
-}
-#endif
-
-#if ENABLE(CHANNEL_MESSAGING)
-JSValue JSDOMWindow::messageChannel(ExecState* exec) const
-{
-    return getDOMConstructor<JSMessageChannelConstructor>(exec, this);
-}
-#endif
-
-#if ENABLE(WORKERS)
-JSValue JSDOMWindow::worker(ExecState* exec) const
-{
-    return getDOMConstructor<JSWorkerConstructor>(exec, this);
+    return getDOMConstructor<JSHTMLAudioElementNamedConstructor>(exec, this);
 }
 #endif
 
@@ -569,26 +464,6 @@ JSValue JSDOMWindow::sharedWorker(ExecState* exec) const
 }
 #endif
 
-#if ENABLE(WEB_AUDIO)
-JSValue JSDOMWindow::webkitAudioContext(ExecState* exec) const
-{
-    return getDOMConstructor<JSAudioContextConstructor>(exec, this);
-}
-#endif
-
-#if ENABLE(WEB_SOCKETS)
-JSValue JSDOMWindow::webSocket(ExecState* exec) const
-{
-    Frame* frame = impl()->frame();
-    if (!frame)
-        return jsUndefined();
-    Settings* settings = frame->settings();
-    if (!settings)
-        return jsUndefined();
-    return getDOMConstructor<JSWebSocketConstructor>(exec, this);
-}
-#endif
-
 // Custom functions
 
 JSValue JSDOMWindow::open(ExecState* exec)
@@ -596,7 +471,7 @@ JSValue JSDOMWindow::open(ExecState* exec)
     String urlString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
     if (exec->hadException())
         return jsUndefined();
-    AtomicString frameName = exec->argument(1).isUndefinedOrNull() ? "_blank" : ustringToAtomicString(exec->argument(1).toString(exec));
+    AtomicString frameName = exec->argument(1).isUndefinedOrNull() ? "_blank" : ustringToAtomicString(exec->argument(1).toString(exec)->value(exec));
     if (exec->hadException())
         return jsUndefined();
     String windowFeaturesString = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
@@ -613,7 +488,6 @@ class DialogHandler {
 public:
     explicit DialogHandler(ExecState* exec)
         : m_exec(exec)
-        , m_globalObject(0)
     {
     }
 
@@ -622,25 +496,27 @@ public:
 
 private:
     ExecState* m_exec;
-    JSDOMWindow* m_globalObject;
+    RefPtr<Frame> m_frame;
 };
 
 inline void DialogHandler::dialogCreated(DOMWindow* dialog)
 {
+    m_frame = dialog->frame();
     // FIXME: This looks like a leak between the normal world and an isolated
     //        world if dialogArguments comes from an isolated world.
-    m_globalObject = toJSDOMWindow(dialog->frame(), normalWorld(m_exec->globalData()));
+    JSDOMWindow* globalObject = toJSDOMWindow(m_frame.get(), normalWorld(m_exec->globalData()));
     if (JSValue dialogArguments = m_exec->argument(1))
-        m_globalObject->putDirect(m_exec->globalData(), Identifier(m_exec, "dialogArguments"), dialogArguments);
+        globalObject->putDirect(m_exec->globalData(), Identifier(m_exec, "dialogArguments"), dialogArguments);
 }
 
 inline JSValue DialogHandler::returnValue() const
 {
-    if (!m_globalObject)
+    JSDOMWindow* globalObject = toJSDOMWindow(m_frame.get(), normalWorld(m_exec->globalData()));
+    if (!globalObject)
         return jsUndefined();
     Identifier identifier(m_exec, "returnValue");
     PropertySlot slot;
-    if (!JSGlobalObject::getOwnPropertySlot(m_globalObject, m_exec, identifier, slot))
+    if (!JSGlobalObject::getOwnPropertySlot(globalObject, m_exec, identifier, slot))
         return jsUndefined();
     return slot.getValue(m_exec, identifier);
 }
@@ -666,28 +542,55 @@ JSValue JSDOMWindow::showModalDialog(ExecState* exec)
     return handler.returnValue();
 }
 
-JSValue JSDOMWindow::postMessage(ExecState* exec)
+static JSValue handlePostMessage(DOMWindow* impl, ExecState* exec, bool doTransfer)
 {
-    PassRefPtr<SerializedScriptValue> message = SerializedScriptValue::create(exec, exec->argument(0));
-
-    if (exec->hadException())
-        return jsUndefined();
-
     MessagePortArray messagePorts;
-    if (exec->argumentCount() > 2)
-        fillMessagePortArray(exec, exec->argument(1), messagePorts);
+    ArrayBufferArray arrayBuffers;
+
+    // This function has variable arguments and can be:
+    // Per current spec:
+    //   postMessage(message, targetOrigin)
+    //   postMessage(message, targetOrigin, {sequence of transferrables})
+    // Legacy non-standard implementations in webkit allowed:
+    //   postMessage(message, {sequence of transferrables}, targetOrigin);
+    int targetOriginArgIndex = 1;
+    if (exec->argumentCount() > 2) {
+        int transferablesArgIndex = 2;
+        if (exec->argument(2).isString()) {
+            targetOriginArgIndex = 2;
+            transferablesArgIndex = 1;
+        }
+        fillMessagePortArray(exec, exec->argument(transferablesArgIndex), messagePorts, arrayBuffers);
+    }
     if (exec->hadException())
         return jsUndefined();
 
-    String targetOrigin = valueToStringWithUndefinedOrNullCheck(exec, exec->argument((exec->argumentCount() == 2) ? 1 : 2));
+    RefPtr<SerializedScriptValue> message = SerializedScriptValue::create(exec, exec->argument(0),
+                                                                         doTransfer ? &messagePorts : 0,
+                                                                         doTransfer ? &arrayBuffers : 0);
+
+    if (exec->hadException())
+        return jsUndefined();
+
+    String targetOrigin = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(targetOriginArgIndex));
     if (exec->hadException())
         return jsUndefined();
 
     ExceptionCode ec = 0;
-    impl()->postMessage(message, &messagePorts, targetOrigin, activeDOMWindow(exec), ec);
+    impl->postMessage(message.release(), &messagePorts, targetOrigin, activeDOMWindow(exec), ec);
     setDOMException(exec, ec);
 
     return jsUndefined();
+}
+
+JSValue JSDOMWindow::postMessage(ExecState* exec)
+{
+    return handlePostMessage(impl(), exec, false);
+}
+
+JSValue JSDOMWindow::webkitPostMessage(ExecState* exec)
+{
+    return handlePostMessage(impl(), exec, true);
 }
 
 JSValue JSDOMWindow::setTimeout(ExecState* exec)
@@ -737,7 +640,7 @@ JSValue JSDOMWindow::addEventListener(ExecState* exec)
     if (!listener.isObject())
         return jsUndefined();
 
-    impl()->addEventListener(ustringToAtomicString(exec->argument(0).toString(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)), exec->argument(2).toBoolean(exec));
+    impl()->addEventListener(ustringToAtomicString(exec->argument(0).toString(exec)->value(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)), exec->argument(2).toBoolean(exec));
     return jsUndefined();
 }
 
@@ -751,7 +654,7 @@ JSValue JSDOMWindow::removeEventListener(ExecState* exec)
     if (!listener.isObject())
         return jsUndefined();
 
-    impl()->removeEventListener(ustringToAtomicString(exec->argument(0).toString(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)).get(), exec->argument(2).toBoolean(exec));
+    impl()->removeEventListener(ustringToAtomicString(exec->argument(0).toString(exec)->value(exec)), JSEventListener::create(asObject(listener), this, false, currentWorld(exec)).get(), exec->argument(2).toBoolean(exec));
     return jsUndefined();
 }
 
@@ -761,9 +664,9 @@ DOMWindow* toDOMWindow(JSValue value)
         return 0;
     JSObject* object = asObject(value);
     if (object->inherits(&JSDOMWindow::s_info))
-        return static_cast<JSDOMWindow*>(object)->impl();
+        return jsCast<JSDOMWindow*>(object)->impl();
     if (object->inherits(&JSDOMWindowShell::s_info))
-        return static_cast<JSDOMWindowShell*>(object)->impl();
+        return jsCast<JSDOMWindowShell*>(object)->impl();
     return 0;
 }
 

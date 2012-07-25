@@ -23,6 +23,11 @@
 
 #include "IOHIDFamilyPrivate.h"
 
+#if !TARGET_OS_EMBEDDED
+#include "IOHIDSystem.h"
+#endif
+
+
 #define kHIDTransport1ScoreIncrement    1000
 #define kHIDTransport2ScoreIncrement    2000
 #define kHIDDeviceUsageScoreBase        1100
@@ -198,3 +203,15 @@ bool MatchPropertyTable(IOService * owner, OSDictionary * table, SInt32 * score)
 
     return match;
 }
+
+void IOHIDSystemActivityTickle(SInt32 nxEventType, IOService *sender)
+{
+#if !TARGET_OS_EMBEDDED
+    IOHIDSystem *ioSys = IOHIDSystem::instance();
+    if (ioSys) {
+        intptr_t event = nxEventType;
+        ioSys->message(kIOHIDSystemActivityTickle, sender, (void*)event);
+    }
+#endif
+}
+

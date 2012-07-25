@@ -95,6 +95,23 @@ DHCPInfoGetOptionData		(CFDictionaryRef	info,
 CFDateRef
 DHCPInfoGetLeaseStartTime	(CFDictionaryRef	info)		__OSX_AVAILABLE_STARTING(__MAC_10_1,__IPHONE_2_0/*SPI*/);
 
+
+/*!
+	@function DHCPInfoGetLeaseExpirationTime
+	@discussion Returns a CFDateRef corresponding to the lease expiration time,
+		if present.
+	@param info The non-NULL DHCP information dictionary returned by
+		calling SCDynamicStoreCopyDHCPInfo.
+	@result Returns a non-NULL CFDateRef if the DHCP lease has an expiration;
+		NULL if the lease is infinite i.e. has no expiration, or the
+		configuration method is not DHCP. An infinite lease can be determined
+		by a non-NULL lease start time (see DHCPInfoGetLeaseStartTime above).
+	 
+		The return value must NOT be released.
+*/
+CFDateRef
+DHCPInfoGetLeaseExpirationTime	(CFDictionaryRef	info)		__OSX_AVAILABLE_STARTING(__MAC_10_8,__IPHONE_NA);
+
 __END_DECLS
 
 #endif	/* USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS */

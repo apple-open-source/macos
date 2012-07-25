@@ -25,14 +25,71 @@
 #include <string.h>
 #include <stdlib.h>
 #include <err.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "util.h"
 
+static char *
+findRealDevice(char *dev) {
+	struct dirent *dp;
+	DIR *dir;
+	struct stat sbuf;
+	ino_t mine;
+	char *dName;
+	char *retval = NULL;
+	
+	if (stat(dev, &sbuf) == -1) {
+		warn("cannot stat device file %s", dev);
+		return NULL;
+	}
+	if (sbuf.st_nlink == 1) {   // assume this is the real device
+		return strdup(dev);
+	}
+#define BEGINS(x, y) (!strncmp((x), (y), sizeof((y))))
+	if (BEGINS(dev, "/dev/rdisk") || BEGINS(dev, "rdisk") ||
+		BEGINS(dev, "/dev/disk") || BEGINS(dev, "disk")) {
+		return strdup(dev);
+	}
+	
+	if (BEGINS(dev, "/dev/")) {
+		dName = dev + 4;
+	} else {
+		dName = dev;
+	}
+
+#undef BEGINS
+	mine = sbuf.st_ino;
+	
+	dir = opendir("/dev");
+	while (dp = readdir(dir)) {
+		char *tmp = dp->d_name;
+		char dbuf[6 + strlen(tmp)];
+		memcpy(dbuf, "/dev/", 6);
+		memcpy(dbuf + 5, tmp, sizeof(dbuf) - 5);
+		if (!strcmp(dbuf, dName))
+			continue;
+		if (dp->d_fileno == mine) {
+			retval = strdup(dbuf);
+			break;
+		}
+	}
+	closedir(dir);
+	return retval;
+}
+
 void
 doStatus(const char *dev) {
+	char *realDev = findRealDevice((char*)dev);
 	printf("Device %s\n", dev);
+	if (realDev) {
+		printf("\tReal device is %s\n", realDev);
+	} else {
+		realDev = (char*)dev;
+	}
 	// XXX -- need to ensure this is an AppleLabel partition
 	if (IsAppleLabel(dev) != 1) {
 		printf("\t* * * NOT A VALID LABEL * * *\n");

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2004-2010, International Business Machines Corporation and
+ * Copyright (c) 2004-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -90,12 +90,30 @@ static void test_assert_string(const char *expected, const UChar *actual, UBool 
 #define TEST_ASSERT_STRING(expected, actual, nulTerm) test_assert_string(expected, actual, nulTerm, __FILE__, __LINE__)
              
 
+static UBool equals_utf8_utext(const char *utf8, UText *utext) {
+    int32_t u8i = 0;
+    UChar32 u8c = 0;
+    UChar32 utc = 0;
+    UBool   stringsEqual = TRUE;
+    utext_setNativeIndex(utext, 0);
+    for (;;) {
+        U8_NEXT_UNSAFE(utf8, u8i, u8c);
+        utc = utext_next32(utext);
+        if (u8c == 0 && utc == U_SENTINEL) {
+            break;
+        }
+        if (u8c != utc || u8c == 0) {
+            stringsEqual = FALSE;
+            break;
+        }
+    }
+    return stringsEqual;
+}
+
+
 static void test_assert_utext(const char *expected, UText *actual, const char *file, int line) {
-    UErrorCode status = U_ZERO_ERROR;
-    UText expectedText = UTEXT_INITIALIZER;
-    utext_openUTF8(&expectedText, expected, -1, &status);
     utext_setNativeIndex(actual, 0);
-    if (utext_compare(&expectedText, -1, actual, -1) != 0) {
+    if (!equals_utf8_utext(expected, actual)) {
         UChar32 c;
         log_err("Failure at file %s, line %d, expected \"%s\", got \"", file, line, expected);
         c = utext_next32From(actual, 0);
@@ -109,16 +127,37 @@ static void test_assert_utext(const char *expected, UText *actual, const char *f
         }
         log_err("\"\n");
     }
-    utext_close(&expectedText);
 }
 
+/*
+ * TEST_ASSERT_UTEXT(const char *expected, const UText *actual)
+ *     Note:  Expected is a UTF-8 encoded string, _not_ the system code page.
+ */
 #define TEST_ASSERT_UTEXT(expected, actual) test_assert_utext(expected, actual, __FILE__, __LINE__)
 
+static UBool testUTextEqual(UText *uta, UText *utb) {
+    UChar32 ca = 0;
+    UChar32 cb = 0;
+    utext_setNativeIndex(uta, 0);
+    utext_setNativeIndex(utb, 0);
+    do {
+        ca = utext_next32(uta);
+        cb = utext_next32(utb);
+        if (ca != cb) {
+            break;
+        }
+    } while (ca != U_SENTINEL);
+    return ca == cb;
+}
+
+    
 
 
 static void TestRegexCAPI(void);
 static void TestBug4315(void);
 static void TestUTextAPI(void);
+static void TestRefreshInput(void);
+static void TestBug8421(void);
 
 void addURegexTest(TestNode** root);
 
@@ -127,6 +166,8 @@ void addURegexTest(TestNode** root)
     addTest(root, &TestRegexCAPI, "regex/TestRegexCAPI");
     addTest(root, &TestBug4315,   "regex/TestBug4315");
     addTest(root, &TestUTextAPI,  "regex/TestUTextAPI");
+    addTest(root, &TestRefreshInput, "regex/TestRefreshInput");
+    addTest(root, &TestBug8421,   "regex/TestBug8421");
 }
 
 /*
@@ -174,7 +215,7 @@ static void TestRegexCAPI(void) {
     /* Open with all flag values set */
     status = U_ZERO_ERROR;
     re = uregex_open(pat, -1, 
-        UREGEX_CASE_INSENSITIVE | UREGEX_COMMENTS | UREGEX_DOTALL | UREGEX_MULTILINE | UREGEX_UWORD,
+        UREGEX_CASE_INSENSITIVE | UREGEX_COMMENTS | UREGEX_DOTALL | UREGEX_MULTILINE | UREGEX_UWORD | UREGEX_LITERAL,
         0, &status);
     TEST_ASSERT_SUCCESS(status);
     uregex_close(re);
@@ -187,7 +228,7 @@ static void TestRegexCAPI(void) {
 
     /* Open with an unimplemented flag */
     status = U_ZERO_ERROR;
-    re = uregex_open(pat, -1, UREGEX_LITERAL, 0, &status);
+    re = uregex_open(pat, -1, UREGEX_CANON_EQ, 0, &status);
     TEST_ASSERT(status == U_REGEX_UNIMPLEMENTED);
     uregex_close(re);
 
@@ -1221,15 +1262,16 @@ static void TestRegexCAPI(void) {
 
             /* The TEST_ASSERT_SUCCESS call above should change too... */
             if(U_SUCCESS(status)) {
-                TEST_ASSERT(numFields == 4);
+                TEST_ASSERT(numFields == 5);
                 TEST_ASSERT_STRING("first ",  fields[0], TRUE);
                 TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
                 TEST_ASSERT_STRING(" second", fields[2], TRUE);
                 TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
-                TEST_ASSERT(fields[4] == NULL);
+                TEST_ASSERT_STRING("",        fields[4], TRUE);
+                TEST_ASSERT(fields[5] == NULL);
                 TEST_ASSERT(fields[8] == NULL);
                 TEST_ASSERT(!memcmp(&fields[9],&minus1,sizeof(UChar*)));
-                spaceNeeded = strlen("first .tag-a. second.tag-b.");  /* "." at NUL positions */
+                spaceNeeded = strlen("first .tag-a. second.tag-b..");  /* "." at NUL positions */
                 TEST_ASSERT(spaceNeeded == requiredCapacity);
             }
         }
@@ -1573,7 +1615,7 @@ static void TestUTextAPI(void) {
         TEST_ASSERT(resultText != &text1);
         utext_setNativeIndex(resultText, 0);
         utext_setNativeIndex(&text1, 0);
-        TEST_ASSERT(utext_compare(resultText, -1, &text1, -1) == 0);
+        TEST_ASSERT(testUTextEqual(resultText, &text1));
         utext_close(resultText);
         
         result = uregex_getText(re, &textLength, &status); /* flattens UText into buffer */
@@ -1583,7 +1625,7 @@ static void TestUTextAPI(void) {
         TEST_ASSERT(resultText != &text1);
         utext_setNativeIndex(resultText, 0);
         utext_setNativeIndex(&text1, 0);
-        TEST_ASSERT(utext_compare(resultText, -1, &text1, -1) == 0);
+        TEST_ASSERT(testUTextEqual(resultText, &text1));
         utext_close(resultText);
 
         /* Then set a UChar * */
@@ -1592,7 +1634,7 @@ static void TestUTextAPI(void) {
         TEST_ASSERT_SUCCESS(status);
         utext_setNativeIndex(resultText, 0);
         utext_setNativeIndex(&text2, 0);
-        TEST_ASSERT(utext_compare(resultText, -1, &text2, -1) == 0);
+        TEST_ASSERT(testUTextEqual(resultText, &text2));
         utext_close(resultText);
         result = uregex_getText(re, &textLength, &status);
         TEST_ASSERT(textLength == 7);
@@ -1752,7 +1794,7 @@ static void TestUTextAPI(void) {
             nativeIndex = utext_getNativeIndex(actual);
             /*  Following returns U_INDEX_OUTOFBOUNDS_ERROR... looks like a bug in ucstrFuncs UTextFuncs [utext.cpp]  */
             /*  len16 = utext_extract(actual, nativeIndex, nativeIndex + group_len, NULL, 0, &shallowStatus);  */
-            len16 = group_len;
+            len16 = (int32_t)group_len;
             
             groupChars = (UChar *)malloc(sizeof(UChar)*(len16+1));
             utext_extract(actual, nativeIndex, nativeIndex + group_len, groupChars, len16+1, &shallowStatus);
@@ -2130,13 +2172,15 @@ static void TestUTextAPI(void) {
                 const char str_taga[] = { 0x74, 0x61, 0x67, 0x2d, 0x61, 0x00 }; /* tag-a */
                 const char str_second[] = { 0x20, 0x73, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x00 }; /*  second */
                 const char str_tagb[] = { 0x74, 0x61, 0x67, 0x2d, 0x62, 0x00 }; /* tag-b */
+                const char str_empty[] = { 0x00 };
 
-                TEST_ASSERT(numFields == 4);
+                TEST_ASSERT(numFields == 5);
                 TEST_ASSERT_UTEXT(str_first,  fields[0]);
                 TEST_ASSERT_UTEXT(str_taga,   fields[1]);
                 TEST_ASSERT_UTEXT(str_second, fields[2]);
                 TEST_ASSERT_UTEXT(str_tagb,   fields[3]);
-                TEST_ASSERT(fields[4] == NULL);
+                TEST_ASSERT_UTEXT(str_empty,  fields[4]);
+                TEST_ASSERT(fields[5] == NULL);
                 TEST_ASSERT(fields[8] == NULL);
                 TEST_ASSERT(fields[9] == &patternText);
             }
@@ -2150,4 +2194,76 @@ static void TestUTextAPI(void) {
     utext_close(&patternText);
 }
 
+
+static void TestRefreshInput(void) {
+    /*
+     *  RefreshInput changes out the input of a URegularExpression without
+     *    changing anything else in the match state.  Used with Java JNI,
+     *    when Java moves the underlying string storage.   This test
+     *    runs a find() loop, moving the text after the first match.
+     *    The right number of matches should still be found.
+     */
+    UChar testStr[]  = {0x41, 0x20, 0x42, 0x20, 0x43, 0x0};  /* = "A B C"  */
+    UChar movedStr[] = {   0,    0,    0,    0,    0,   0};
+    UErrorCode status = U_ZERO_ERROR;
+    URegularExpression *re;
+    UText ut1 = UTEXT_INITIALIZER;
+    UText ut2 = UTEXT_INITIALIZER;
+    
+    re = uregex_openC("[ABC]", 0, 0, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    utext_openUChars(&ut1, testStr, -1, &status);
+    TEST_ASSERT_SUCCESS(status);
+    uregex_setUText(re, &ut1, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    /* Find the first match "A" in the original string */
+    TEST_ASSERT(uregex_findNext(re, &status));
+    TEST_ASSERT(uregex_start(re, 0, &status) == 0);
+    
+    /* Move the string, kill the original string.  */
+    u_strcpy(movedStr, testStr);
+    u_memset(testStr, 0, u_strlen(testStr));
+    utext_openUChars(&ut2, movedStr, -1, &status);
+    TEST_ASSERT_SUCCESS(status);
+    uregex_refreshUText(re, &ut2, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    /* Find the following two matches, now working in the moved string. */
+    TEST_ASSERT(uregex_findNext(re, &status));
+    TEST_ASSERT(uregex_start(re, 0, &status) == 2);
+    TEST_ASSERT(uregex_findNext(re, &status));
+    TEST_ASSERT(uregex_start(re, 0, &status) == 4);
+    TEST_ASSERT(FALSE == uregex_findNext(re, &status));
+
+    uregex_close(re);
+}
+
+
+static void TestBug8421(void) {
+    /* Bug 8421:  setTimeLimit on a regular expresssion before setting text to be matched
+     *             was failing. 
+     */
+    URegularExpression *re;
+    UErrorCode status = U_ZERO_ERROR;
+    int32_t  limit = -1;
+
+    re = uregex_openC("abc", 0, 0, &status);
+    TEST_ASSERT_SUCCESS(status);
+
+    limit = uregex_getTimeLimit(re, &status);
+    TEST_ASSERT_SUCCESS(status);
+    TEST_ASSERT(limit == 0);
+
+    uregex_setTimeLimit(re, 100, &status);
+    TEST_ASSERT_SUCCESS(status);
+    limit = uregex_getTimeLimit(re, &status);
+    TEST_ASSERT_SUCCESS(status);
+    TEST_ASSERT(limit == 100);
+
+    uregex_close(re);
+}
+
+    
 #endif   /*  !UCONFIG_NO_REGULAR_EXPRESSIONS */

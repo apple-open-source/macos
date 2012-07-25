@@ -67,7 +67,7 @@ dnssec_getcert(id)
 	int namelen;
 	int error;
 
-	id_b = (struct ipsecdoi_id_b *)id->v;
+	id_b = ALIGNED_CAST(struct ipsecdoi_id_b *)id->v;
 
 	namelen = id->l - sizeof(*id_b);
 	name = racoon_malloc(namelen + 1);

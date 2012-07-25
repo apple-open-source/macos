@@ -1,5 +1,5 @@
 /* 
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,68 +23,59 @@
 
 /* 
  * CommonCryptorPriv.h - interface between CommonCryptor and operation- and
- *						 algorithm-specific service providers. 
+ *           algorithm-specific service providers. 
  */
 
-#ifndef	_CC_COMMON_CRYPTOR_PRIV_
-#define	_CC_COMMON_CRYPTOR_PRIV_
+#ifndef _CC_COMMON_CRYPTOR_PRIV_
+#define _CC_COMMON_CRYPTOR_PRIV_
 
 #include "CommonCryptor.h"
 #include "CommonCryptorSPI.h"
-#include "tomcrypt.h"
-#include "rc4.h"
-#include "pkcs7pad.h"
+#include <dispatch/dispatch.h>
+#include "corecryptoSymmetricBridge.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
     
-static enum {
-    ccStreaming		= 0x00000001,
-    ccStreamMode	= 0x00000002,
-    ccBlockMode		= 0x00000004
-};
-typedef uint32_t CCBufStrat;
+    /* Byte-Size Constants */
+#define CCMAXBUFFERSIZE 128             /* RC2/RC5 Max blocksize */
+#define DEFAULT_CRYPTOR_MALLOC 4096
+#define CC_STREAMKEYSCHED  2048
+#define CC_MODEKEYSCHED  2048
+#define CC_MAXBLOCKSIZE  128
     
-#define CCMAXBUFFERSIZE 128
-#define CCMAXCONTEXTSIZE 1032
-    
-static uint32_t ccMaxCipherBlockSize = CCMAXBUFFERSIZE; // rc2/rc5 max blocksize
-static uint32_t ccDefaultRounds = 0;
-
 typedef struct _CCCryptor {
-    char					buffptr[CCMAXBUFFERSIZE];
-    char			 		iv[CCMAXBUFFERSIZE];
+    uint8_t        buffptr[32];
+    uint32_t        bufferPos;
+    uint32_t        bytesProcessed;
+    uint32_t        cipherBlocksize;
+
+    CCAlgorithm     cipher;
+    CCMode          mode;
+    CCOperation     op;        /* kCCEncrypt, kCCDecrypt, or kCCBoth */
     
-    CCOperation				op;         // kCCEncrypt, kCCDecrypt, or kCCBoth
-    CCAlgorithm				cipher;     // encryption algorithm
-    CCMode					mode;       // one of pre-defined modes
-    mode_descriptor_ptr		modeptr;
-    CCBufStrat				bufStrat;
-    CCPadding				padding;    // padding to use 0 (default) or kCCOptionPKCS7Padding
-    int32_t					ltcAlgIndex;    // LibTomCrypt cipher index
-    uint32_t				blocksize;
-    uint32_t				bufferPos;
-    uint32_t				bytesProcessed;
-    mode_context			*ctx;       // largest size context in use
-    void*					mallocAddress;  // if Not NULL, we mallocd this and must free it in CCCryptorRelease()
-    uint32_t                modeContext[CCMAXCONTEXTSIZE/4];
+    corecryptoMode  symMode[2];
+    cc2CCModeDescriptor *modeDesc;
+    modeCtx         ctx[2];
+    cc2CCPaddingDescriptor *padptr;
 } CCCryptor;
-static uint32_t cryptorSize = sizeof(struct _CCCryptor);
     
-    
+
 typedef struct _CCCompat {
     uint32_t			weMallocd;
     CCCryptor			*cryptor;
 } CCCompatCryptor;
-    
+
     
 #define CCCRYPTOR_SIZE  sizeof(struct _CCCryptor)
 #define kCCContextSizeGENERIC (sizeof(CCCompatCryptor))
 
-    
+
+    corecryptoMode getCipherMode(CCAlgorithm cipher, CCMode mode, CCOperation direction);
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif	/* _CC_COMMON_CRYPTOR_PRIV_ */
+#endif  /* _CC_COMMON_CRYPTOR_PRIV_ */

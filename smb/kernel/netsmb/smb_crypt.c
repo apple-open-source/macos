@@ -85,10 +85,10 @@ smb_E(const u_char *key, u_char *data, u_char *dest)
 	kk[5] = key[4] << 3 | (key[5] >> 5 & 0xfe);
 	kk[6] = key[5] << 2 | (key[6] >> 6 & 0xfe);
 	kk[7] = key[6] << 1;
-	ksp = malloc(sizeof(des_key_schedule), M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC(ksp, des_key_schedule *, sizeof(des_key_schedule), M_SMBTEMP, M_WAITOK);
 	des_set_key((des_cblock*)kk, *ksp);
 	des_ecb_encrypt((des_cblock*)data, (des_cblock*)dest, *ksp, 1);
-	free(ksp, M_SMBTEMP);
+	SMB_FREE(ksp, M_SMBTEMP);
 }
 
 /*
@@ -98,7 +98,7 @@ int smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 {
 	u_char *p, *P14, *S21;
 
-	p = malloc(14 + 21, M_SMBTEMP, M_WAITOK);
+    SMB_MALLOC(p, u_char *, 14+21, M_SMBTEMP, M_WAITOK);
 	bzero(p, 14 + 21);
 	P14 = p;
 	S21 = p + 14;
@@ -112,8 +112,8 @@ int smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 	smb_E(S21, C8, RN);
 	smb_E(S21 + 7, C8, RN + 8);
 	smb_E(S21 + 14, C8, RN + 16);
-	free(p, M_SMBTEMP);
-	return 0;
+	SMB_FREE(p, M_SMBTEMP);
+	return 24; /* return the len */
 }
 
 /*
@@ -131,7 +131,14 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
 	
 	bzero(ntlmHash, ntlmHash_len);
 	len = strnlen((char *)passwd, SMB_MAXPASSWORDLEN + 1);
-	unicode_passwd = malloc(len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
+    
+    if (len == 0) {
+        /* Empty password, but we still need to allocate a buffer to */
+        /* encrypt two NULL bytes so we can compute the NTLM hash correctly. */
+        len = 1;
+    }
+    
+    SMB_MALLOC(unicode_passwd, uint16_t *, len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
 	if (unicode_passwd == NULL)	/* Should never happen, but better safe than sorry */
 		return;
 	len = smb_strtouni(unicode_passwd, (char *)passwd, len, UTF_PRECOMPOSED);
@@ -139,7 +146,7 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
 	MD4Init(&md4);
 	MD4Update(&md4, (uint8_t *)unicode_passwd, (unsigned int)len);
 	MD4Final(ntlmHash, &md4);
-	free(unicode_passwd, M_SMBTEMP);
+	SMB_FREE(unicode_passwd, M_SMBTEMP);
 #ifdef SSNDEBUG
 	smb_hexdump(__FUNCTION__, "ntlmHash = ", ntlmHash, 16);
 #endif // SSNDEBUG
@@ -149,7 +156,7 @@ static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHa
  * Compute an NTLM response given the Unicode password (as an ASCII string,
  * not a Unicode string!) and a challenge.
  */
-int smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN)
+void smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 {
 	u_char S21[SMB_NTLM_LEN];
 
@@ -158,200 +165,6 @@ int smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN)
 	smb_E(S21, C8, RN);
 	smb_E(S21 + 7, C8, RN + 8);
 	smb_E(S21 + 14, C8, RN + 16);
-	return 0;
-}
-
-static void HMACT64(const u_char *key, size_t key_len, const u_char *data, 
-					size_t data_len, u_char *digest)
-{
-	MD5_CTX context;
-	u_char k_ipad[64];	/* inner padding - key XORd with ipad */
-	u_char k_opad[64];	/* outer padding - key XORd with opad */
-	int i;
-
-	/* if key is longer than 64 bytes use only the first 64 bytes */
-	if (key_len > 64)
-		key_len = 64;
-
-	/*
-	 * The HMAC-MD5 (and HMACT64) transform looks like:
-	 *
-	 * MD5(K XOR opad, MD5(K XOR ipad, data))
-	 *
-	 * where K is an n byte key
-	 * ipad is the byte 0x36 repeated 64 times
-	 * opad is the byte 0x5c repeated 64 times
-	 * and data is the data being protected.
-	 */
-
-	/* start out by storing key in pads */
-	bzero(k_ipad, sizeof k_ipad);
-	bzero(k_opad, sizeof k_opad);
-	bcopy(key, k_ipad, key_len);
-	bcopy(key, k_opad, key_len);
-
-	/* XOR key with ipad and opad values */
-	for (i = 0; i < 64; i++) {
-		k_ipad[i] ^= 0x36;
-		k_opad[i] ^= 0x5c;
-	}
-
-	/*
-	 * perform inner MD5
-	 */
-	MD5Init(&context);			/* init context for 1st pass */
-	MD5Update(&context, k_ipad, 64);	/* start with inner pad */
-	MD5Update(&context, data, (unsigned int)data_len);	/* then data of datagram */
-	MD5Final(digest, &context);		/* finish up 1st pass */
-
-	/*
-	 * perform outer MD5
-	 */
-	MD5Init(&context);			/* init context for 2nd pass */
-	MD5Update(&context, k_opad, 64);	/* start with outer pad */
-	MD5Update(&context, digest, 16);	/* then results of 1st hash */
-	MD5Final(digest, &context);		/* finish up 2nd pass */
-}
-
-/*
- * smb_ntlmv2hash
- *
- * Compute the NTLMv2 hash given the user's password, name and the domain.
- *
- *	1. The NTLM password hash is obtained, this is the MD4 digest of the Unicode mixed-case password.
- *	2. The Unicode uppercase username is concatenated with the Unicode authentication
- *		domain name. Note that this calculation always uses the Unicode representation, 
- *		even if OEM encoding has been negotiated; also note that the username is converted 
- *		to uppercase, while the authentication domain is case-sensitive. The HMAC-MD5 message authentication code 
- *		algorithm (described in RFC 2104) is applied to this value using the 16-byte NTLM hash 
- *		as the key. This results in a 16-byte value - the NTLMv2 hash.
- *
- * NOTE:
- *		Need to figure out if domain should be the user selected domain or what was 
- *		obtain from the domain/server name specified in the Target Name field of
- *		the Type 3 message. The spec says to use Target Name, but from my test that 
- *		is not correct?
- *
- *
- */
-void smb_ntlmv2hash(uint8_t *ntlmv2Hash, const void * domain, const void * user,
-					const void * password)
-{
-	uint8_t ntlmHash[SMB_NTLM_LEN];
-	uint16_t *UserDomainUTF16 = NULL;
-	char *UserDomain = NULL;
-	size_t len;
-	
-	DBG_ASSERT(domain);
-	DBG_ASSERT(user);
-	DBG_ASSERT(password);
-	/* Get the NTLM Hash */
-	smb_ntlmhash(password, ntlmHash, sizeof(ntlmHash));
-	
-	len = strnlen(user, SMB_MAXUSERNAMELEN + 1) + strnlen(domain, SMB_MAXNetBIOSNAMELEN + 1);
-	UserDomain = malloc(len + 1, M_SMBTEMP, M_WAITOK);
-	if (UserDomain == NULL)	/* Should never happen, but better safe than sorry */
-		goto done;
-	strlcpy(UserDomain, user, len + 1);
-	strncat(UserDomain, domain, SMB_MAXNetBIOSNAMELEN + 1);
-	SMBDEBUG("UserDomain = %s\n", UserDomain);
-	
-	UserDomainUTF16 = malloc(len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
-	if (UserDomainUTF16 == NULL)	/* Should never happen, but better safe than sorry */
-		goto done;
-	len = smb_strtouni(UserDomainUTF16, UserDomain, len, UTF_PRECOMPOSED);
-	
-	HMACT64(ntlmHash, SMB_NTLMV2_LEN, (const u_char *)UserDomainUTF16, len, ntlmv2Hash);
-#ifdef SSNDEBUG
-	smb_hexdump(__FUNCTION__, "ntlmv2Hash = ", ntlmv2Hash, SMB_NTLMV2_LEN);
-#endif // SSNDEBUG
-done:
-	if (UserDomain)
-		free(UserDomain, M_SMBTEMP);
-	if (UserDomainUTF16)
-		free(UserDomainUTF16, M_SMBTEMP);
-}
-
-/*
- * smb_lmv2_response
- *
- * Compute the LMv2 response, derived from the NTLMv2 hash, the server challenge,
- * and the client nonce.
- */
-void *smb_lmv2_response(void *ntlmv2Hash, uint64_t server_nonce, uint64_t client_nonce, size_t *lmv2_len)
-{
-	void *lmv2;
-	uint64_t nonce[2];
-	
-	nonce[0] = server_nonce;
-	nonce[1] = client_nonce;
-	*lmv2_len = SMB_NTLMV2_LEN + sizeof(nonce);
-	lmv2 = malloc(*lmv2_len, M_SMBTEMP, M_WAITOK);
-	if (lmv2 == NULL)
-		return NULL;
-	HMACT64(ntlmv2Hash, SMB_NTLMV2_LEN, (const u_char *)&nonce, sizeof(nonce), lmv2);
-	bcopy(&client_nonce, (uint8_t *)lmv2 + SMB_NTLMV2_LEN, sizeof(client_nonce));
-#ifdef SSNDEBUG
-	smb_hexdump(__FUNCTION__, "lmv2 = ", lmv2, (int32_t)*lmv2_len);
-#endif // SSNDEBUG
-	*lmv2_len = SMB_LMV2_LEN;	/* We only send the first 24 bytes */ 
-	return lmv2;
-}
-
-/*
- * smb_ntlmv2_response
- *
- * Compute the LMv2 response, derived from the NTLMv2 hash, the server challenge,
- * and the client nonce.
- */
-void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, uint64_t server_nonce)
-{
-	uint8_t *blob = ntlmv2;
-	size_t blob_len = ntlmv2_len;
-	
-	blob += 8;
-	blob_len -= 8;
-	bcopy((char *)&server_nonce, blob, sizeof(server_nonce));
-	HMACT64(ntlmv2Hash, SMB_NTLMV2_LEN, blob, blob_len, ntlmv2);
-}
-
-/*
- * make_ntlmv2_blob
- */
-uint8_t *make_ntlmv2_blob(uint64_t client_nonce, void *target_info, uint16_t target_len, size_t *blob_len)
-{
-	uint8_t *blob = NULL;
-	struct ntlmv2_blobhdr *blobhdr;
-	struct timespec now;
-	uint64_t timestamp;
-	u_char *target_offset;
-	
-	/* We always make the buffer big enough to hold the HMAC */
-	*blob_len = SMB_NTLMV2_LEN + sizeof(struct ntlmv2_blobhdr) + target_len;
-	blob = malloc(*blob_len, M_SMBTEMP, M_WAITOK);
-	if (blob == NULL) {
-		*blob_len = 0;
-		return NULL;
-	}
-	
-	bzero(blob, *blob_len);
-	/* Skip pass the HMAC */
-	blobhdr = (struct ntlmv2_blobhdr *)(blob + SMB_NTLMV2_LEN);
-	blobhdr->header = htolel(0x00000101);
-	nanotime(&now);
-	smb_time_local2NT(&now, &timestamp, 0);
-	blobhdr->timestamp = htoleq(timestamp);
-	blobhdr->client_nonce = client_nonce;
-	
-	target_offset = (uint8_t *)&blobhdr->unknown1 + sizeof(blobhdr->unknown1);
-	if (target_info)
-		memcpy(target_offset, (void *)target_info, target_len);
-
-#ifdef SSNDEBUG
-	smb_hexdump(__FUNCTION__, "ntlmv2 blob = ", blob, (int32_t)*blob_len);
-#endif // SSNDEBUG
-	return (blob);
-	
 }
 
 /*
@@ -361,130 +174,10 @@ uint8_t *make_ntlmv2_blob(uint64_t client_nonce, void *target_info, uint16_t tar
 void smb_reset_sig(struct smb_vc *vcp)
 {
 	if (vcp->vc_mackey != NULL)
-		free(vcp->vc_mackey, M_SMBTEMP);
+		SMB_FREE(vcp->vc_mackey, M_SMBTEMP);
 	vcp->vc_mackey = NULL;
 	vcp->vc_mackeylen = 0;
 	vcp->vc_seqno = 0;
-}
-
-/*
- * Calculate NTLMv2 message authentication code (MAC) key for virtual circuit.
- *
- * The NTLMv2 User Session Key
- * 
- * Used when the NTLMv2 response is sent. Calculation of this key is very 
- * similar to the LMv2 User Session Key:
- * 
- * 1. The NTLMv2 hash is obtained (as calculated previously).
- * 2. The NTLMv2 "blob" is obtained (as used in the NTLMv2 response).
- * 3. The challenge from the Type 2 message is concatenated with the blob. The 
- *	  HMAC-MD5 message authentication code algorithm is applied to this value 
- *    using the NTLMv2 hash as the key, resulting in a 16-byte output value.
- * 4. The HMAC-MD5 algorithm is applied to this value, again using the NTLMv2 
- *	  hash as the key. The resulting 16-byte value is the NTLMv2 User Session 
- *    Key.
- *
- * The NTLMv2 User Session Key is quite similar cryptographically to the LMv2 
- * User Session Key. It can be stated as the HMAC-MD5 digest of the first 16 
- * bytes of the NTLMv2 response (using the NTLMv2 hash as the key).
- */
-void smb_calcv2mackey(struct smb_vc *vcp, void *ntlmv2Hash, void *ntlmv2, 
-					  void *resp, size_t resplen)
-{
-	if (!(vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
-		return;
-	
-	SMBDEBUG("(fyi) packet signing with ntlmv2\n");
-
-	smb_reset_sig(vcp);
-	
-	vcp->vc_mackeylen = (uint32_t)(16 + resplen);
-	vcp->vc_mackey = malloc(vcp->vc_mackeylen, M_SMBTEMP, M_WAITOK);
-	/* Should never happen, but better safe than sorry */
-	if (vcp->vc_mackey == NULL) {
-		SMBDEBUG("malloc of vc_mackey failed?\n");
-		return;
-	}
-	/* session key uses only 1st 16 bytes of ntlmv2 blob */
-	HMACT64(ntlmv2Hash, 16, ntlmv2, (size_t)16, vcp->vc_mackey);
-	
-	/* If we have a response concatenation it on to user session key */	
-	if (resp)
-		bcopy(resp, vcp->vc_mackey + 16, (int)resplen);
-#if SSNDEBUG
-	smb_hexdump(__FUNCTION__, "setting vc_mackey = ", vcp->vc_mackey, vcp->vc_mackeylen);
-#endif
-	/* 
-	 * Windows expects the sequence number to restart once we get a signing
-	 * key. They expect this to happen once the client creates a authorization
-	 * token blob to send to the server. This was we can validate the servers
-	 * response. When doing Kerberos and now NTLMSSP we don't get the signing
-	 * key until after the gss mech has completed. Not sure how to really 
-	 * fix this issue, but for now we just reset the sequence number as if
-	 * we had the key when the last round went out.
-	 */
-	vcp->vc_seqno = 2;
-}
-
-/*
- * Calculate NTLM message authentication code (MAC) key for virtual circuit.
- *
- * The NTLM User Session Key
- * 
- * This variant is used when the client sends the NTLM response. 
- * The calculation of the key is fairly straightforward:
- * 
- *	1. The NTLM hash is obtained (the MD4 digest of the Unicode mixed-case password, calculated previously).
- *	2. The MD4 message-digest algorithm is applied to the NTLM hash, resulting in a 16-byte value. This is 
- *		the NTLM User Session Key.
- *
- * The NTLM User Session Key is much improved over the LM User Session Key. The password space is larger 
- * (it is case-sensitive, rather than converting the password to uppercase); additionally, all password 
- * characters have input in the key generation. However, it is still only changed when the user changes 
- * his or her password; this makes offline attacks much easier.
- */      
-void smb_calcmackey(struct smb_vc *vcp,  void *resp, size_t resplen)
-{       
-	MD4_CTX md4;
-	u_char S16[16];
-
-	if (!(vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
-		return;
-	
-	SMBDEBUG("(fyi) packet signing with ntlm(v1)\n");
-
-	smb_reset_sig(vcp);
-
-	vcp->vc_mackeylen = (uint32_t)(16 + resplen);
-	vcp->vc_mackey = malloc(vcp->vc_mackeylen, M_SMBTEMP, M_WAITOK);
-		/* Should never happen, but better safe than sorry */
-	if (vcp->vc_mackey == NULL) {
-		SMBDEBUG("malloc of vc_mackey failed?\n");
-		return;
-	}
-	/* Calculate session key: MD4(MD4(U(PN))) */
-	smb_ntlmhash((const uint8_t *)smb_vc_getpass(vcp), (uint8_t *)S16, sizeof(S16));
-	MD4Init(&md4);
-	MD4Update(&md4, S16, 16);
-	MD4Final(vcp->vc_mackey, &md4);
-	/* If we have a response concatenation it on to user session key */	
-	if (resp)
-		bcopy(resp, vcp->vc_mackey+16, resplen);
-	
-#if SSNDEBUG
-	smb_hexdump(__FUNCTION__, "setting vc_mackey = ", vcp->vc_mackey, vcp->vc_mackeylen);
-#endif
-	/* 
-	 * Windows expects the sequence number to restart once we get a signing
-	 * key. They expect this to happen once the client creates a authorization
-	 * token blob to send to the server. This was we can validate the servers
-	 * response. When doing Kerberos and now NTLMSSP we don't get the signing
-	 * key until after the gss mech has completed. Not sure how to really 
-	 * fix this issue, but for now we just reset the sequence number as if
-	 * we had the key when the last round went out.
-	 */
-	vcp->vc_seqno = 2;
-	return;
 }
 
 /* 

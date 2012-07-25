@@ -97,13 +97,17 @@
 #ifndef PD_BUILD
 
 void rpc_dce_svc_printf (
-                         const char* file,
-                         unsigned int line,
-                         const char *format,
-                         unsigned32 dbg_switch,
-                         unsigned32 sev_action_flags,
-                         unsigned32 error_code,
-                         ... );
+     const char* file,
+     unsigned int line,
+     const char *format,
+     unsigned32 dbg_switch,
+     unsigned32 sev_action_flags,
+     unsigned32 error_code,
+     ... )
+#if __GNUC__
+__attribute__((__format__ (__printf__, 3, 7)))
+#endif
+;
 
 typedef enum {
     svc_c_sev_fatal     = 0x00000001,

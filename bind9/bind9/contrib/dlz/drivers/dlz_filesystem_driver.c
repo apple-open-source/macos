@@ -260,7 +260,7 @@ create_path(const char *zone, const char *host, const char *client,
 	if ((host != NULL) && (is_safe(host) != ISC_TRUE) )
 		return (ISC_R_FAILURE);
 
-	/* if host was passed, verify that it is safe */
+	/* if client was passed, verify that it is safe */
 	if ((client != NULL) && (is_safe(client) != ISC_TRUE) )
 		return (ISC_R_FAILURE);
 
@@ -996,7 +996,14 @@ static dns_sdlzmethods_t dlz_fs_methods = {
 	fs_lookup,
 	NULL,
 	fs_allnodes,
-	fs_allowzonexfr
+	fs_allowzonexfr,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
 };
 
 /*%

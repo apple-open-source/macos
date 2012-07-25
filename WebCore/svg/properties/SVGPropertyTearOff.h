@@ -47,9 +47,8 @@ public:
     }
 
     PropertyType& propertyReference() { return *m_value; }
-    SVGAnimatedProperty* animatedProperty() const { return m_animatedProperty.get(); }
+    SVGAnimatedProperty* animatedProperty() const { return m_animatedProperty; }
 
-    // Used only by the list tear offs!
     void setValue(PropertyType& value)
     {
         if (m_valueIsCopy)
@@ -58,13 +57,19 @@ public:
         m_value = &value;
     }
 
-    void setAnimatedProperty(SVGAnimatedProperty* animatedProperty) { m_animatedProperty = animatedProperty; }
+    void setAnimatedProperty(SVGAnimatedProperty* animatedProperty)
+    {
+        m_animatedProperty = animatedProperty;
+
+        if (m_animatedProperty)
+            m_contextElement = m_animatedProperty->contextElement();
+    }
 
     SVGElement* contextElement() const
     {
         if (!m_animatedProperty || m_valueIsCopy)
             return 0;
-        return m_animatedProperty->contextElement();
+        return m_contextElement.get();
     }
 
     void detachWrapper()
@@ -100,8 +105,11 @@ protected:
         , m_value(&value)
         , m_valueIsCopy(false)
     {
-        // Using operator & is completly fine, as SVGAnimatedProperty owns this reference,
+        // Using operator & is completely fine, as SVGAnimatedProperty owns this reference,
         // and we're guaranteed to live as long as SVGAnimatedProperty does.
+
+        if (m_animatedProperty)
+            m_contextElement = m_animatedProperty->contextElement();
     }
 
     SVGPropertyTearOff(const PropertyType& initialValue)
@@ -118,7 +126,8 @@ protected:
             delete m_value;
     }
 
-    RefPtr<SVGAnimatedProperty> m_animatedProperty;
+    RefPtr<SVGElement> m_contextElement;
+    SVGAnimatedProperty* m_animatedProperty;
     SVGPropertyRole m_role;
     PropertyType* m_value;
     bool m_valueIsCopy : 1;

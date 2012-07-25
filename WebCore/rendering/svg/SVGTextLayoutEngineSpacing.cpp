@@ -23,10 +23,15 @@
 #include "SVGTextLayoutEngineSpacing.h"
 
 #include "Font.h"
+#include "SVGLengthContext.h"
 #include "SVGRenderStyle.h"
 
 #if ENABLE(SVG_FONTS)
+#include "SVGFontData.h"
 #include "SVGFontElement.h"
+#include "SVGFontFaceElement.h"
+#else
+#include <wtf/UnusedParam.h>
 #endif
 
 namespace WebCore {
@@ -40,13 +45,24 @@ SVGTextLayoutEngineSpacing::SVGTextLayoutEngineSpacing(const Font& font)
 float SVGTextLayoutEngineSpacing::calculateSVGKerning(bool isVerticalText, const SVGTextMetrics::Glyph& currentGlyph)
 {
 #if ENABLE(SVG_FONTS)
-    if (!m_font.isSVGFont()) {
+    const SimpleFontData* fontData = m_font.primaryFont();
+    if (!fontData->isSVGFont()) {
         m_lastGlyph.isValid = false;
         return 0;
     }
 
-    SVGFontElement* svgFont = m_font.svgFont();
-    ASSERT(svgFont);
+    ASSERT(fontData->isCustomFont());
+    ASSERT(fontData->isSVGFont());
+
+    const SVGFontData* svgFontData = static_cast<const SVGFontData*>(fontData->fontData());
+    SVGFontFaceElement* svgFontFace = svgFontData->svgFontFaceElement();
+    ASSERT(svgFontFace);
+
+    SVGFontElement* svgFont = svgFontFace->associatedFontElement();
+    if (!svgFont) {
+        m_lastGlyph.isValid = false;
+        return 0;
+    }
 
     float kerning = 0;
     if (m_lastGlyph.isValid) {
@@ -67,14 +83,16 @@ float SVGTextLayoutEngineSpacing::calculateSVGKerning(bool isVerticalText, const
 #endif
 }
 
-float SVGTextLayoutEngineSpacing::calculateCSSKerningAndSpacing(const SVGRenderStyle* style, SVGElement* lengthContext, const UChar* currentCharacter)
+float SVGTextLayoutEngineSpacing::calculateCSSKerningAndSpacing(const SVGRenderStyle* style, SVGElement* contextElement, const UChar* currentCharacter)
 {
     float kerning = 0;
     SVGLength kerningLength = style->kerning();
     if (kerningLength.unitType() == LengthTypePercentage)
         kerning = kerningLength.valueAsPercentage() * m_font.pixelSize();
-    else
+    else {
+        SVGLengthContext lengthContext(contextElement);
         kerning = kerningLength.value(lengthContext);
+    }
 
     const UChar* lastCharacter = m_lastCharacter;
     m_lastCharacter = currentCharacter;

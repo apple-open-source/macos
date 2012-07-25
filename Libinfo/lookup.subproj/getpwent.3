@@ -28,7 +28,7 @@
 .\"     From: @(#)getpwent.3	8.2 (Berkeley) 12/11/93
 .\" $FreeBSD: src/lib/libc/gen/getpwent.3,v 1.30 2007/01/09 00:27:54 imp Exp $
 .\"
-.Dd April 16, 2003
+.Dd October 26, 2011
 .Dt GETPWENT 3
 .Os
 .Sh NAME
@@ -38,6 +38,8 @@
 .Nm getpwnam_r ,
 .Nm getpwuid ,
 .Nm getpwuid_r ,
+.Nm getpwuuid ,
+.Nm getpwuuid_r ,
 .Nm setpassent ,
 .Nm setpwent ,
 .Nm endpwent
@@ -47,6 +49,7 @@
 .Sh SYNOPSIS
 .In sys/types.h
 .In pwd.h
+.In uuid/uuid.h
 .Ft struct passwd *
 .Fn getpwent void
 .\".Ft int
@@ -60,6 +63,10 @@
 .Ft int
 .Fn getpwuid_r "uid_t uid" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
 .Ft int
+.Fn getpwuuid "uuid_t uuid"
+.Ft int
+.Fn getpwuuid_r "uuid_t uuid" "struct passwd *pwd" "char *buffer" "size_t bufsize" "struct passwd **result"
+.Ft int
 .Fn setpassent "int stayopen"
 .Ft void
 .Fn setpwent void
@@ -69,12 +76,12 @@
 These functions
 .\"operate on the password database file
 obtain information from
-.Xr DirectoryService 8 ,
+.Xr opendirectoryd 8 ,
 including records in
-.Pa /etc/passwd
+.Pa /etc/master.passwd
 which is described
 in
-.Xr passwd 5 .
+.Xr master.passwd 5 .
 Each entry in the database is defined by the structure
 .Vt passwd
 found in the include
@@ -97,16 +104,28 @@ struct passwd {
 .Ed
 .Pp
 The functions
-.Fn getpwnam
+.Fn getpwnam ,
+.Fn getpwuid ,
 and
-.Fn getpwuid
-search the password database for the given login name or user uid,
+.Fn getpwuuid
+search the password database for the given login name, user uid, or user uuid
 respectively, always returning the first one encountered.
+.Pp
+Note that the password file
+.Pa /etc/master.passwd
+does not contain user UUIDs.
+The UUID for a user may be found using
+.Fn mbr_uid_to_uuid .
 .Pp
 On Mac OS X, these routines are thread-safe and return a pointer to a
 thread-specific data structure.  The contents of this data
 structure are automatically released by subsequent calls to
 any of these routines on the same thread, or when the thread exits.
+These routines are therefore unsuitable for use in libraries or frameworks,
+from where they may overwrite the per-thread data that the calling
+application expects to find as a result of its own calls to these
+routines. Library and framework code should use the alternative reentrant 
+variants detailed below.
 .Pp
 The
 .Fn getpwent
@@ -115,30 +134,31 @@ sequentially reads the password database and is intended for programs
 that wish to process the complete list of users.
 .Pp
 The functions
-.\".Fn getpwent_r ,
-.\".Fn getpwnam_r ,
-.Fn getpwnam_r
+.Fn getpwnam_r ,
+.Fn getpwuid_r ,
 and
-.Fn getpwuid_r
-are thread-safe versions of
-.\".Fn getpwent ,
-.\".Fn getpwnam ,
-.Fn getpwnam
-and
+.Fn getpwuuid_r
+are alternative versions of
+.Fn getpwnam ,
 .Fn getpwuid ,
-respectively.
-The caller must provide storage for the results of the search in
-the
-.Fa pwd ,
-.Fa buffer ,
-.Fa bufsize ,
 and
-.Fa result
-arguments.
-When these functions are successful, the
+.Fn getpwuuid
+respectively.
+They store the results of their search in the caller-provided
+.Fa pwd 
+structure, which additionally contains pointers to strings that are 
+stored in the caller-provided 
+.Fa buffer
+of size
+.Fa bufsize .
+(The maximum required
+.Fa bufsize
+can be obtained by passing the _SC_GETPW_R_SIZE_MAX constant to the
+.Xr sysconf 3
+call. See example code below.) When these functions are successful, the
 .Fa pwd
-argument will be filled-in, and a pointer to that argument will be
-stored in
+argument will be filled in, and a pointer to that argument will be
+stored in the caller-provided
 .Fa result .
 If an entry is not found or an error occurs,
 .Fa result
@@ -188,7 +208,7 @@ by returning a structure whose password field points to the string
 .Ql ******** .
 Legacy crypt passwords are still returned for user records created on
 earlier versions of Mac OS X whose
-.Xr DirectoryService 8
+.Xr opendirectoryd 8
 .Dt AuthenticationAuthority
 attribute contains the value
 .Ql ;basic; .
@@ -196,8 +216,9 @@ attribute contains the value
 The functions
 .Fn getpwent ,
 .Fn getpwnam ,
+.Fn getpwuid ,
 and
-.Fn getpwuid
+.Fn getpwuuid
 return a valid pointer to a passwd structure on success
 or
 .Dv NULL
@@ -210,11 +231,10 @@ Note that programs must explicitly set
 to zero before calling any of these functions if they need to
 distinguish between a non-existent entry and an error.
 The functions
-.\".Fn getpwent_r ,
-.\".Fn getpwnam_r ,
-.Fn getpwnam_r
+.Fn getpwnam_r ,
+.Fn getpwuid_r ,
 and
-.Fn getpwuid_r
+.Fn getpwuuid_r
 return 0 if no error occurred, or an error number to indicate failure.
 It is not an error if a matching entry is not found.
 (Thus, if
@@ -232,6 +252,27 @@ and
 .Fn setpwent
 functions
 have no return value.
+.Sh EXAMPLES
+To print the current user's home directory without depending on per-thread storage:
+.Bd -literal -offset indent
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <pwd.h>
+
+int bufsize;
+
+if ((bufsize = sysconf(_SC_GETPW_R_SIZE_MAX)) == -1)
+    abort();
+
+char buffer[bufsize];
+struct passwd pwd, *result = NULL;
+if (getpwuid_r(getuid(), &pwd, buffer, bufsize, &result) != 0 || !result)
+    abort();
+
+printf("%s\\n", pwd.pw_dir);
+.Ed
 .Sh FILES
 .Bl -tag -width /etc/master.passwd -compact
 .\".It Pa /etc/pwd.db
@@ -272,7 +313,8 @@ The caller should retry with a larger buffer.
 .Xr passwd 5 ,
 .\".Xr pwd_mkdb 8 ,
 .\".Xr vipw 8 ,
-.Xr DirectoryService 8 ,
+.Xr mbr_uid_to_uuid 3, 
+.Xr opendirectoryd 8 ,
 .Xr yp 8
 .Sh STANDARDS
 The
@@ -308,12 +350,18 @@ and
 .Fn getpwuid_r
 functions appeared in
 .Fx 5.1 .
+The functions
+.Fn getpwuuid
+and
+.Fn getpwuuid_r
+appeared in Mac OS X 10.8.
 .Sh BUGS
 The functions
 .Fn getpwent ,
 .Fn getpwnam ,
-and
 .Fn getpwuid ,
+and
+.Fn getpwuuid ,
 .\"leave their results in an internal static object and return
 leave their results in an internal thread-specific memory and return
 a pointer to that object.

@@ -9,7 +9,7 @@
 */
 
 // rdar://problem/8389489 rdar://problem/8389489 need Block layout accessor
-// TEST_CONFIG GC=1
+// TEST_CONFIG MEM=gc
 // TEST_CFLAGS -framework Foundation
 // TEST_DISABLED
 

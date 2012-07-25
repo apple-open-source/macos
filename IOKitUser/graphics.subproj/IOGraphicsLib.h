@@ -346,14 +346,20 @@ IOFBGetDefaultDisplayMode( io_connect_t connect,
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 struct IOFBMessageCallbacks {
-    IOReturn (*WillPowerOff)    (void * callbackRef, void * notificationID);
-    IOReturn (*DidPowerOn)      (void * callbackRef, void * notificationID);
-    IOReturn (*ConnectionChange)(void * callbackRef, void * notificationID);
+    IOReturn (*WillPowerOff)          (void * callbackRef, void * notificationID);
+    IOReturn (*DidPowerOn)            (void * callbackRef, void * notificationID);
+    IOReturn (*ConnectionChange)      (void * callbackRef, void * notificationID);
+    IOReturn (*WillPowerOffWithImages)(void * callbackRef, void * notificationID,
+				       uint32_t            imageCount,
+				       mach_vm_address_t * buffers,
+				       mach_vm_size_t *    bufferSizes);
 };
 typedef struct IOFBMessageCallbacks IOFBMessageCallbacks;
 
+#define IOFBMESSAGECALLBACKSVERSIONCURRENT 	2
 enum {
-    IOFBMessageCallbacksVersion = 1
+    kIOFBMessageCallbacksVersionCurrent = IOFBMESSAGECALLBACKSVERSIONCURRENT,
+    IOFBMessageCallbacksVersion         = kIOFBMessageCallbacksVersionCurrent,
 };
 
 mach_port_t

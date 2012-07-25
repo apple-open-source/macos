@@ -35,24 +35,25 @@
 #include "npruntime_priv.h"
 
 #if USE(V8)
+#include <wtf/ArrayBufferView.h>
+#include "DOMWindow.h"
 #include "NPV8Object.h"  // for PrivateIdentifier
 #include "Range.h"
+#include "V8ArrayBuffer.h"
+#include "V8ArrayBufferView.h"
 #include "V8BindingState.h"
 #include "V8DOMWrapper.h"
 #include "V8Element.h"
 #include "V8NPUtils.h"
-#include "V8Node.h"
 #include "V8Proxy.h"
 #include "V8Range.h"
 #elif USE(JSC)
 #include "bridge/c/c_utility.h"
 #endif
+#include "WebArrayBuffer.h"
+#include "platform/WebArrayBufferView.h"
 #include "WebElement.h"
 #include "WebRange.h"
-
-#if USE(JAVASCRIPTCORE_BINDINGS)
-using JSC::Bindings::PrivateIdentifier;
-#endif
 
 using namespace WebCore;
 
@@ -235,6 +236,36 @@ static bool getElementImpl(NPObject* object, WebElement* webElement)
     return true;
 }
 
+static bool getArrayBufferImpl(NPObject* object, WebArrayBuffer* arrayBuffer)
+{
+    if (!object || (object->_class != npScriptObjectClass))
+        return false;
+
+    V8NPObject* v8NPObject = reinterpret_cast<V8NPObject*>(object);
+    v8::Handle<v8::Object> v8Object(v8NPObject->v8Object);
+    ArrayBuffer* native = V8ArrayBuffer::HasInstance(v8Object) ? V8ArrayBuffer::toNative(v8Object) : 0;
+    if (!native)
+        return false;
+
+    *arrayBuffer = WebArrayBuffer(native);
+    return true;
+}
+
+static bool getArrayBufferViewImpl(NPObject* object, WebArrayBufferView* arrayBufferView)
+{
+    if (!object || (object->_class != npScriptObjectClass))
+        return false;
+
+    V8NPObject* v8NPObject = reinterpret_cast<V8NPObject*>(object);
+    v8::Handle<v8::Object> v8Object(v8NPObject->v8Object);
+    ArrayBufferView* native = V8ArrayBufferView::HasInstance(v8Object) ? V8ArrayBufferView::toNative(v8Object) : 0;
+    if (!native)
+        return false;
+
+    *arrayBufferView = WebArrayBufferView(native);
+    return true;
+}
+
 static NPObject* makeIntArrayImpl(const WebVector<int>& data)
 {
     v8::HandleScope handleScope;
@@ -242,7 +273,7 @@ static NPObject* makeIntArrayImpl(const WebVector<int>& data)
     for (size_t i = 0; i < data.size(); ++i)
         result->Set(i, v8::Number::New(data[i]));
 
-    WebCore::DOMWindow* window = WebCore::V8Proxy::retrieveWindow(WebCore::V8Proxy::currentContext());
+    DOMWindow* window = V8Proxy::retrieveWindow(V8Proxy::currentContext());
     return npCreateV8ScriptObject(0, result, window);
 }
 
@@ -253,17 +284,7 @@ static NPObject* makeStringArrayImpl(const WebVector<WebString>& data)
     for (size_t i = 0; i < data.size(); ++i)
         result->Set(i, data[i].data() ? v8::String::New(reinterpret_cast<const uint16_t*>((data[i].data())), data[i].length()) : v8::String::New(""));
 
-    WebCore::DOMWindow* window = WebCore::V8Proxy::retrieveWindow(WebCore::V8Proxy::currentContext());
-    return npCreateV8ScriptObject(0, result, window);
-}
-
-static NPObject* makeNodeImpl(WebNode data)
-{
-    v8::HandleScope handleScope;
-    if (data.isNull())
-        return 0;
-    v8::Handle<v8::Object> result = V8Node::wrap(data.unwrap<Node>());
-    WebCore::DOMWindow* window = WebCore::V8Proxy::retrieveWindow(WebCore::V8Proxy::currentContext());
+    DOMWindow* window = V8Proxy::retrieveWindow(V8Proxy::currentContext());
     return npCreateV8ScriptObject(0, result, window);
 }
 
@@ -273,6 +294,26 @@ bool WebBindings::getRange(NPObject* range, WebRange* webRange)
 {
 #if USE(V8)
     return getRangeImpl(range, webRange);
+#else
+    // Not supported on other ports (JSC, etc).
+    return false;
+#endif
+}
+
+bool WebBindings::getArrayBuffer(NPObject* arrayBuffer, WebArrayBuffer* webArrayBuffer)
+{
+#if USE(V8)
+    return getArrayBufferImpl(arrayBuffer, webArrayBuffer);
+#else
+    // Not supported on other ports (JSC, etc).
+    return false;
+#endif
+}
+
+bool WebBindings::getArrayBufferView(NPObject* arrayBufferView, WebArrayBufferView* webArrayBufferView)
+{
+#if USE(V8)
+    return getArrayBufferViewImpl(arrayBufferView, webArrayBufferView);
 #else
     // Not supported on other ports (JSC, etc).
     return false;
@@ -309,16 +350,6 @@ NPObject* WebBindings::makeStringArray(const WebVector<WebString>& data)
 #endif
 }
 
-NPObject* WebBindings::makeNode(const WebNode& data)
-{
-#if USE(V8)
-    return makeNodeImpl(data);
-#else
-    // Not supported on other ports (JSC, etc.).
-    return 0;
-#endif
-}
-
 void WebBindings::pushExceptionHandler(ExceptionHandler handler, void* data)
 {
     WebCore::pushExceptionHandler(handler, data);
@@ -328,5 +359,26 @@ void WebBindings::popExceptionHandler()
 {
     WebCore::popExceptionHandler();
 }
+
+#if WEBKIT_USING_V8
+void WebBindings::toNPVariant(v8::Local<v8::Value> object, NPObject* root, NPVariant* result)
+{
+    WebCore::convertV8ObjectToNPVariant(object, root, result);
+}
+
+v8::Handle<v8::Value> WebBindings::toV8Value(const NPVariant* variant)
+{
+    if (variant->type == NPVariantType_Object) {
+        NPObject* object = NPVARIANT_TO_OBJECT(*variant);
+        if (object->_class != npScriptObjectClass)
+            return v8::Undefined();
+        V8NPObject* v8Object = reinterpret_cast<V8NPObject*>(object);
+        return convertNPVariantToV8Object(variant, v8Object->rootObject->frame()->script()->windowScriptNPObject());
+    }
+    // Safe to pass 0 since we have checked the script object class to make sure the
+    // argument is a primitive v8 type.
+    return convertNPVariantToV8Object(variant, 0);
+}
+#endif
 
 } // namespace WebKit

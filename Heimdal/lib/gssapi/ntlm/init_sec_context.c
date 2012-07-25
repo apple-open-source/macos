@@ -32,9 +32,51 @@
  */
 
 #include "ntlm.h"
+#include <fnmatch.h>
+
+static int
+validate_hostname(ntlm_name name)
+{
+    CFArrayRef array;
+    CFStringRef el;
+    CFIndex n, max;
+    char *str;
+    int res = 0;
+
+    if (name->domain == NULL)
+	return 0;
+
+    array = _gss_mg_copy_key(CFSTR("com.apple.GSS.NTLM"), CFSTR("AllowedHosts"));
+    if (array == NULL)
+	return 1;
+
+    if (CFGetTypeID(array) != CFArrayGetTypeID()) {
+	_gss_mg_log(1, "NTLM: invalid type of AllowedHosts");
+	CFRelease(array);
+	return 0;
+    }
+
+    max = CFArrayGetCount(array);
+
+    for (n = 0, res = 0; n < max && !res; n++) {
+	el = CFArrayGetValueAtIndex(array, n);
+	if (el == NULL || CFGetTypeID(el) != CFStringGetTypeID())
+	    continue;
+	str = rk_cfstring2cstring(el);
+	if (str == NULL)
+	    continue;
+	res = (fnmatch(str, name->domain, FNM_CASEFOLD) == 0);
+	free(str);
+    }
+
+    CFRelease(array);
+
+    return res;
+}
+
 
 static OM_uint32
-_gss_copy_cred(OM_uint32 * minor, ntlm_cred from, ntlm_cred *to)
+_gss_ntlm_copy_cred(OM_uint32 * minor, ntlm_cred from, ntlm_cred *to)
 {
     return _gss_ntlm_duplicate_name(minor, (gss_name_t)from, (gss_name_t *)to);
 }
@@ -69,6 +111,17 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
     if (name == NULL)
 	return GSS_S_BAD_NAME;
     
+    /*
+     * Check that NTLM is enabled before going forward
+     */
+
+    if (!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V1, NULL) &&
+	!gss_mo_get(GSS_NTLM_MECHANISM, GSS_C_NTLM_V2, NULL))
+    {
+	*minor_status = 0;
+	return GSS_S_UNAVAILABLE;
+    }
+
     ctx = (ntlm_ctx) *context_handle;
 
     if (actual_mech_type)
@@ -82,6 +135,12 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	uint32_t flags = 0;
 	int ret;
 	
+	if (!validate_hostname(name))
+	    return gss_mg_set_error_string(GSS_NTLM_MECHANISM, GSS_S_FAILURE,
+					   (*minor_status = EAUTH),
+					   "Not allowed to use NTLM to host %s",
+					   name->domain ? name->domain : "???");
+
 	ctx = calloc(1, sizeof(*ctx));
 	if (ctx == NULL) {
 	    *minor_status = ENOMEM;
@@ -90,9 +149,11 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	}
 	*context_handle = (gss_ctx_id_t) ctx;
 	
+	ctx->status |= STATUS_CLIENT;
+
 	if (initiator_cred_handle != GSS_C_NO_CREDENTIAL) {
 	    ntlm_cred cred = (ntlm_cred) initiator_cred_handle;
-	    major = _gss_copy_cred(minor_status, cred, &ctx->client);
+	    major = _gss_ntlm_copy_cred(minor_status, cred, &ctx->client);
 	} else {
 	    ctx->client = calloc(1, sizeof(*ctx->client));
 	    ctx->client->user = strdup("");
@@ -105,6 +166,21 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
 	    return major;
 	}
+
+	major = _gss_ntlm_duplicate_name(minor_status, (gss_name_t)name, &ctx->targetname);
+	if (major) {
+	    OM_uint32 junk;
+	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
+	    return major;
+	}
+
+	ret = asprintf(&ctx->clientsuppliedtargetname, "%s/%s", name->user, name->domain);
+	if (ret < 0 || ctx->clientsuppliedtargetname == NULL) {
+	    OM_uint32 junk;
+	    _gss_ntlm_delete_sec_context(&junk, context_handle, NULL);
+	    return major;
+	}
+
 	flags |= NTLM_NEG_UNICODE;
 	flags |= NTLM_NEG_NTLM;
 	flags |= NTLM_NEG_TARGET;
@@ -137,6 +213,7 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    flags |= NTLM_NEG_NTLM2_SESSION;
 	    flags |= NTLM_ENC_128;
 	    flags |= NTLM_NEG_KEYEX;
+	    flags |= NTLM_NEG_TARGET_INFO;
 	}
 	
 	memset(&type1, 0, sizeof(type1));
@@ -144,8 +221,8 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	type1.flags = flags;
 	type1.domain = NULL;
 	type1.hostname = NULL;
-	type1.os[0] = 0;
-	type1.os[1] = 0;
+	type1.os[0] = 0x0601b01d;
+	type1.os[1] = 0x0000000f;
 	
 	ret = heim_ntlm_encode_type1(&type1, &data);
 	if (ret) {
@@ -269,6 +346,10 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    ret = krb5_store_data(request, cb);
 	if (ret == 0)
 	    ret = krb5_store_data(request, ctx->type1);
+	if (ret == 0)
+	    ret = krb5_store_stringz(request, ctx->clientsuppliedtargetname);
+	if (ret == 0)
+	    ret = krb5_store_uint32(request, ctx->flags);
 	
 	if (ret == 0)
 	    ret = krb5_kcm_call(context, request, &response, &response_data);
@@ -290,6 +371,8 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 	    ret = krb5_ret_string(response, &ruser);
 	if (ret == 0)
 	    ret = krb5_ret_string(response, &rdomain);
+	if (ret == 0)
+	    ret = krb5_ret_uint32(response, &ctx->flags);
 	if (ret)
 	    ret = KRB5_CC_IO;
 	
@@ -321,7 +404,16 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
 
 	output_token->length = data.length;
 	output_token->value = data.data;
+
     }
+
+    ctx->status |= STATUS_OPEN;
+
+    /*
+     * Now that we have a session key, let setup crypto layer
+     */
+
+    _gss_ntlm_set_keys(ctx);
 
     if (ret_flags)
 	*ret_flags = ctx->gssflags;
@@ -329,7 +421,7 @@ _gss_ntlm_init_sec_context(OM_uint32 * minor_status,
     if (time_rec)
 	*time_rec = GSS_C_INDEFINITE;
 
-    ctx->status |= STATUS_OPEN;
+
 
     return GSS_S_COMPLETE;
 }

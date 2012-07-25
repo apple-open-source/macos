@@ -40,21 +40,35 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/tmpnam.c,v 1.6 2007/01/09 00:28:07 imp Ex
 
 #include <stdio.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <stdlib.h>
 
 __warn_references(tmpnam,
     "warning: tmpnam() possibly used unsafely; consider using mkstemp()");
 
 extern char *_mktemp(char *);
 
+static char *tmpnam_buf = NULL;
+static pthread_once_t tmpnam_buf_control = PTHREAD_ONCE_INIT;
+
+static void tmpnam_buf_allocate(void)
+{
+	tmpnam_buf = malloc(L_tmpnam);
+}
+
 char *
 tmpnam(s)
 	char *s;
 {
 	static u_long tmpcount;
-	static char buf[L_tmpnam];
 
-	if (s == NULL)
-		s = buf;
+	if (s == NULL) {
+		if (pthread_once(&tmpnam_buf_control, tmpnam_buf_allocate)
+			|| !tmpnam_buf) {
+			return NULL;
+		}
+		s = tmpnam_buf;
+	}
 	(void)snprintf(s, L_tmpnam, "%stmp.%lu.XXXXXX", P_tmpdir, tmpcount);
 	++tmpcount;
 	return (_mktemp(s));

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,7 @@ cache_SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 				 CFRangeMake(0, CFArrayGetCount(cached_removals)),
 				 key)) {
 		// if we have "removed" the key
+		_SCErrorSet(kSCStatusNoKey);
 		return NULL;
 	}
 

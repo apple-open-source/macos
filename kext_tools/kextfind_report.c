@@ -37,7 +37,7 @@
 *******************************************************************************/
 Boolean reportParseProperty(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
     void * user_data,
@@ -67,11 +67,11 @@ finish:
 *******************************************************************************/
 Boolean reportParseShorthand(
     CFMutableDictionaryRef element,
-    int argc,
-    char * const argv[],
+    int argc __unused,
+    char * const argv[] __unused,
     uint32_t * num_used,
-    void * user_data,
-    QEQueryError * error)
+    void * user_data __unused,
+    QEQueryError * error __unused)
 {
     Boolean result = false;
     CFStringRef predicate = QEQueryElementGetPredicate(element);
@@ -188,11 +188,11 @@ finish:
 *******************************************************************************/
 Boolean reportParseFlag(
     CFMutableDictionaryRef element,
-    int argc,
-    char * const argv[],
+    int argc __unused,
+    char * const argv[] __unused,
     uint32_t * num_used,
     void * user_data,
-    QEQueryError * error)
+    QEQueryError * error __unused)
 {
     Boolean result = false;
     CFStringRef flag = QEQueryElementGetPredicate(element);
@@ -556,7 +556,7 @@ finish:
 *******************************************************************************/
 Boolean reportParseCommand(
     CFMutableDictionaryRef element,
-    int argc,
+    int argc __unused,
     char * const argv[],
     uint32_t * num_used,
     void * user_data,

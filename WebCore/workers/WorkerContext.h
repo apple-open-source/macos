@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -29,10 +29,12 @@
 
 #if ENABLE(WORKERS)
 
+#include "ContentSecurityPolicy.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "ScriptExecutionContext.h"
+#include "WorkerEventQueue.h"
 #include "WorkerScriptController.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
@@ -45,16 +47,7 @@
 namespace WebCore {
 
     class Blob;
-    class DOMFileSystemSync;
     class DOMURL;
-    class Database;
-    class DatabaseCallback;
-    class DatabaseSync;
-    class EntryCallback;
-    class EntrySync;
-    class ErrorCallback;
-    class FileSystemCallback;
-    class NotificationCenter;
     class ScheduledAction;
     class WorkerInspectorController;
     class WorkerLocation;
@@ -77,8 +70,13 @@ namespace WebCore {
 
         virtual String userAgent(const KURL&) const;
 
+        virtual void disableEval();
+
         WorkerScriptController* script() { return m_script.get(); }
         void clearScript() { m_script.clear(); }
+#if ENABLE(INSPECTOR)
+        void clearInspector();
+#endif
 
         WorkerThread* thread() const { return m_thread; }
 
@@ -104,40 +102,11 @@ namespace WebCore {
         void clearInterval(int timeoutId);
 
         // ScriptExecutionContext
-        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
+        virtual WorkerEventQueue* eventQueue() const;
 
-#if ENABLE(NOTIFICATIONS)
-        NotificationCenter* webkitNotifications() const;
-#endif
-
-#if ENABLE(DATABASE)
-        // HTML 5 client-side database
-        PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
-        PassRefPtr<DatabaseSync> openDatabaseSync(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
-
-        // Not implemented yet.
-        virtual bool allowDatabaseAccess() const { return true; }
-        // Not implemented for real yet.
-        virtual void databaseExceededQuota(const String&);
-#endif
         virtual bool isContextThread() const;
         virtual bool isJSExecutionForbidden() const;
 
-#if ENABLE(BLOB)
-        DOMURL* webkitURL() const;
-#endif
-
-#if ENABLE(FILE_SYSTEM)
-        enum FileSystemType {
-            TEMPORARY,
-            PERSISTENT,
-            EXTERNAL,
-        };
-        void webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback>);
-        PassRefPtr<DOMFileSystemSync> webkitRequestFileSystemSync(int type, long long size, ExceptionCode&);
-        void webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback>);
-        PassRefPtr<EntrySync> webkitResolveLocalFileSystemSyncURL(const String& url, ExceptionCode&);
-#endif
 #if ENABLE(INSPECTOR)
         WorkerInspectorController* workerInspectorController() { return m_workerInspectorController.get(); }
 #endif
@@ -168,7 +137,10 @@ namespace WebCore {
         void notifyObserversOfStop();
 
     protected:
-        WorkerContext(const KURL&, const String&, WorkerThread*);
+        WorkerContext(const KURL&, const String&, WorkerThread*, const String& contentSecurityPolicy, ContentSecurityPolicy::HeaderType);
+
+        virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, PassRefPtr<ScriptCallStack>);
+        void addMessageToWorkerConsole(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>);
 
     private:
         virtual void refScriptExecutionContext() { ref(); }
@@ -182,8 +154,9 @@ namespace WebCore {
         virtual const KURL& virtualURL() const;
         virtual KURL virtualCompleteURL(const String&) const;
 
+        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, PassRefPtr<ScriptCallStack>);
+
         virtual EventTarget* errorEventTarget();
-        virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
 
         KURL m_url;
         String m_userAgent;
@@ -194,9 +167,6 @@ namespace WebCore {
         OwnPtr<WorkerScriptController> m_script;
         WorkerThread* m_thread;
 
-#if ENABLE_NOTIFICATIONS
-        mutable RefPtr<NotificationCenter> m_notifications;
-#endif
 #if ENABLE(BLOB)
         mutable RefPtr<DOMURL> m_domURL;
 #endif
@@ -207,6 +177,8 @@ namespace WebCore {
         EventTargetData m_eventTargetData;
 
         HashSet<Observer*> m_workerObservers;
+
+        OwnPtr<WorkerEventQueue> m_eventQueue;
     };
 
 } // namespace WebCore

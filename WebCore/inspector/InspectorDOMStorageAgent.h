@@ -29,6 +29,7 @@
 #ifndef InspectorDOMStorageAgent_h
 #define InspectorDOMStorageAgent_h
 
+#include "InspectorBaseAgent.h"
 #include "PlatformString.h"
 #include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
@@ -46,7 +47,7 @@ class StorageArea;
 
 typedef String ErrorString;
 
-class InspectorDOMStorageAgent {
+class InspectorDOMStorageAgent : public InspectorBaseAgent<InspectorDOMStorageAgent>, public InspectorBackendDispatcher::DOMStorageCommandHandler {
 public:
     static PassOwnPtr<InspectorDOMStorageAgent> create(InstrumentingAgents* instrumentingAgents, InspectorState* state)
     {
@@ -54,21 +55,21 @@ public:
     }
     ~InspectorDOMStorageAgent();
 
-    void setFrontend(InspectorFrontend*);
-    void clearFrontend();
-
-    void clearResources();
+    virtual void setFrontend(InspectorFrontend*);
+    virtual void clearFrontend();
     void restore();
 
+    void clearResources();
+
     // Called from the front-end.
-    void enable(ErrorString*);
-    void disable(ErrorString*);
-    void getDOMStorageEntries(ErrorString*, int storageId, RefPtr<InspectorArray>* entries);
-    void setDOMStorageItem(ErrorString*, int storageId, const String& key, const String& value, bool* success);
-    void removeDOMStorageItem(ErrorString*, int storageId, const String& key, bool* success);
+    virtual void enable(ErrorString*);
+    virtual void disable(ErrorString*);
+    virtual void getDOMStorageEntries(ErrorString*, const String& storageId, RefPtr<TypeBuilder::Array<TypeBuilder::Array<String> > >& entries);
+    virtual void setDOMStorageItem(ErrorString*, const String& storageId, const String& key, const String& value, bool* success);
+    virtual void removeDOMStorageItem(ErrorString*, const String& storageId, const String& key, bool* success);
 
     // Called from the injected script.
-    int storageId(Storage*);
+    String storageId(Storage*);
 
     // Called from InspectorInstrumentation
     void didUseDOMStorage(StorageArea*, bool isLocalStorage, Frame*);
@@ -76,11 +77,9 @@ public:
 private:
     InspectorDOMStorageAgent(InstrumentingAgents*, InspectorState*);
 
-    InspectorDOMStorageResource* getDOMStorageResourceForId(int storageId);
+    InspectorDOMStorageResource* getDOMStorageResourceForId(const String& storageId);
 
-    InstrumentingAgents* m_instrumentingAgents;
-    InspectorState* m_inspectorState;
-    typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
+    typedef HashMap<String, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
     DOMStorageResourcesMap m_resources;
     InspectorFrontend* m_frontend;
     bool m_enabled;

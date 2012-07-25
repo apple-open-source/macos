@@ -22,6 +22,7 @@
 #define CSSParserValues_h
 
 #include "CSSSelector.h"
+#include "CSSValueList.h"
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -56,8 +57,8 @@ struct CSSParserValue {
         Q_EMS    = 0x100002
     };
     int unit;
-    
-    
+
+
     PassRefPtr<CSSValue> createCSSValue();
 };
 
@@ -69,7 +70,7 @@ public:
     {
     }
     ~CSSParserValueList();
-    
+
     void addValue(const CSSParserValue&);
     void insertValueAt(unsigned, const CSSParserValue&);
     void deleteValueAt(unsigned);
@@ -87,7 +88,7 @@ public:
     }
 
     CSSParserValue* valueAt(unsigned i) { return i < m_values.size() ? &m_values[i] : 0; }
-        
+
     void clear() { m_values.clear(); }
 
 private:
@@ -109,7 +110,7 @@ public:
     ~CSSParserSelector();
 
     PassOwnPtr<CSSSelector> releaseSelector() { return m_selector.release(); }
-    
+
     void setTag(const QualifiedName& value) { m_selector->setTag(value); }
     void setValue(const AtomicString& value) { m_selector->setValue(value); }
     void setAttribute(const QualifiedName& value) { m_selector->setAttribute(value); }

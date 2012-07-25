@@ -26,8 +26,6 @@
 #include "config.h"
 #include "SQLiteStatement.h"
 
-#if ENABLE(DATABASE)
-
 #include "Logging.h"
 #include "SQLValue.h"
 #include <sqlite3.h>
@@ -96,8 +94,6 @@ int SQLiteStatement::prepare()
 
 int SQLiteStatement::step()
 {
-    ASSERT(m_isPrepared);
-
     MutexLocker databaseLock(m_database.databaseMutex());
     if (m_database.isInterrupted())
         return SQLITE_INTERRUPT;
@@ -289,6 +285,17 @@ bool SQLiteStatement::isColumnNull(int col)
     return sqlite3_column_type(m_statement, col) == SQLITE_NULL;
 }
 
+bool SQLiteStatement::isColumnDeclaredAsBlob(int col)
+{
+    ASSERT(col >= 0);
+    if (!m_statement) {
+        if (prepare() != SQLITE_OK)
+            return false;
+    }
+
+    return equalIgnoringCase(String("BLOB"), String(reinterpret_cast<const UChar*>(sqlite3_column_decltype16(m_statement, col))));
+}
+
 String SQLiteStatement::getColumnName(int col)
 {
     ASSERT(col >= 0);
@@ -336,7 +343,7 @@ String SQLiteStatement::getColumnText(int col)
             return String();
     if (columnCount() <= col)
         return String();
-    return String(reinterpret_cast<const UChar*>(sqlite3_column_text16(m_statement, col)));
+    return String(reinterpret_cast<const UChar*>(sqlite3_column_text16(m_statement, col)), sqlite3_column_bytes16(m_statement, col) / sizeof(UChar));
 }
     
 double SQLiteStatement::getColumnDouble(int col)
@@ -536,5 +543,3 @@ bool SQLiteStatement::isExpired()
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(DATABASE)

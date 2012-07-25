@@ -168,6 +168,8 @@ typestring(int type)
 			return kfsckDamageinfo;
 		case fsckMsgProgress:
 			return kfsckProgress;
+		case fsckMsgNotice:
+			return kfsckInformation;
 		default:
 			return kfsckUnknown;
 	}
@@ -703,7 +705,8 @@ fsckPrintToString(fsck_message_t *m, va_list ap)
 {
 	char *retval = NULL;
 	char *tmpstr = NULL;
-	char *astr = "";
+	char *astr = "";	// String at beginning
+	char *pstr = "";	// String at end
 
 	/* No progress messages required in traditional output */
 	if (m->type == fsckMsgProgress) {
@@ -722,10 +725,13 @@ fsckPrintToString(fsck_message_t *m, va_list ap)
 		case fsckMsgInfo:
 			astr = "   ";
 			break;
+		case fsckMsgNotice:
+			pstr = astr = " *****";
+			break;
 	}
 	vasprintf(&tmpstr, m->msg, ap);
 	if (tmpstr) {
-		asprintf(&retval, "%s%s\n", astr, tmpstr);
+		asprintf(&retval, "%s%s%s\n", astr, tmpstr, pstr);
 		free(tmpstr);
 	}
 	return retval;
@@ -853,6 +859,7 @@ fsckPrintGUI(struct context *ctx, fsck_message_t *m, va_list ap)
 		case fsckMsgInfo:
 		case fsckMsgRepair:
 		case fsckMsgSuccess:
+		case fsckMsgNotice:
 			t = 'S'; break;
 		case fsckMsgError:
 		case fsckMsgFail:

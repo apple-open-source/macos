@@ -36,17 +36,19 @@ public:
     RenderEmbeddedObject(Element*);
     virtual ~RenderEmbeddedObject();
 
-    bool pluginCrashedOrWasMissing() const;
-    
-    void setShowsMissingPluginIndicator();
-    void setShowsCrashedPluginIndicator();
-    bool showsMissingPluginIndicator() const { return m_showsMissingPluginIndicator; }
+    enum PluginUnavailabilityReason {
+        PluginMissing,
+        PluginCrashed,
+        InsecurePluginVersion
+    };
+    void setPluginUnavailabilityReason(PluginUnavailabilityReason);
+    bool showsUnavailablePluginIndicator() const;
 
     // FIXME: This belongs on HTMLObjectElement.
     bool hasFallbackContent() const { return m_hasFallbackContent; }
     void setHasFallbackContent(bool hasFallbackContent) { m_hasFallbackContent = hasFallbackContent; }
 
-    void handleMissingPluginIndicatorEvent(Event*);
+    void handleUnavailablePluginIndicatorEvent(Event*);
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual bool allowsAcceleratedCompositing() const;
@@ -56,8 +58,9 @@ private:
     virtual const char* renderName() const { return "RenderEmbeddedObject"; }
     virtual bool isEmbeddedObject() const { return true; }
 
-    virtual void paintReplaced(PaintInfo&, int, int);
-    virtual void paint(PaintInfo& paintInfo, int, int);
+    virtual void paintReplaced(PaintInfo&, const LayoutPoint&);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
+    virtual CursorDirective getCursor(const LayoutPoint&, Cursor&) const;
 
 #if USE(ACCELERATED_COMPOSITING)
     virtual bool requiresLayer() const;
@@ -66,20 +69,23 @@ private:
     virtual void layout();
     virtual void viewCleared();
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
     virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier, Node** stopNode);
     virtual bool logicalScroll(ScrollLogicalDirection, ScrollGranularity, float multiplier, Node** stopNode);
 
-    void setMissingPluginIndicatorIsPressed(bool);
-    bool isInMissingPluginIndicator(MouseEvent*);
-    bool getReplacementTextGeometry(int tx, int ty, FloatRect& contentRect, Path&, FloatRect& replacementTextRect, Font&, TextRun&, float& textWidth);
+    void setUnavailablePluginIndicatorIsPressed(bool);
+    bool isInUnavailablePluginIndicator(MouseEvent*) const;
+    bool isInUnavailablePluginIndicator(const LayoutPoint&) const;
+    bool getReplacementTextGeometry(const LayoutPoint& accumulatedOffset, FloatRect& contentRect, Path&, FloatRect& replacementTextRect, Font&, TextRun&, float& textWidth) const;
 
-    String m_replacementText;
     bool m_hasFallbackContent; // FIXME: This belongs on HTMLObjectElement.
-    bool m_showsMissingPluginIndicator;
-    bool m_missingPluginIndicatorIsPressed;
-    bool m_mouseDownWasInMissingPluginIndicator;
+
+    bool m_showsUnavailablePluginIndicator;
+    PluginUnavailabilityReason m_pluginUnavailabilityReason;
+    String m_unavailablePluginReplacementText;
+    bool m_unavailablePluginIndicatorIsPressed;
+    bool m_mouseDownWasInUnavailablePluginIndicator;
 };
 
 inline RenderEmbeddedObject* toRenderEmbeddedObject(RenderObject* object)

@@ -28,19 +28,22 @@
 #ifndef WebKitWebViewBasePrivate_h
 #define WebKitWebViewBasePrivate_h
 
+#include "WebKitPrivate.h"
 #include "WebKitWebViewBase.h"
 #include "WebPageProxy.h"
 
 using namespace WebKit;
 
-G_BEGIN_DECLS
-
 WebKitWebViewBase* webkitWebViewBaseCreate(WebContext*, WebPageGroup*);
-
 GtkIMContext* webkitWebViewBaseGetIMContext(WebKitWebViewBase*);
-
 WebPageProxy* webkitWebViewBaseGetPage(WebKitWebViewBase*);
-
-G_END_DECLS
+void webkitWebViewBaseCreateWebPage(WebKitWebViewBase*, WKContextRef, WKPageGroupRef);
+void webkitWebViewBaseSetTooltipText(WebKitWebViewBase*, const char*);
+void webkitWebViewBaseForwardNextKeyEvent(WebKitWebViewBase*);
+void webkitWebViewBaseStartDrag(WebKitWebViewBase*, const WebCore::DragData&, PassRefPtr<ShareableBitmap> dragImage);
+void webkitWebViewBaseChildMoveResize(WebKitWebViewBase*, GtkWidget*, const WebCore::IntRect&);
+void webkitWebViewBaseEnterFullScreen(WebKitWebViewBase*);
+void webkitWebViewBaseExitFullScreen(WebKitWebViewBase*);
+void webkitWebViewBaseInitializeFullScreenClient(WebKitWebViewBase*, const WKFullScreenClientGtk*);
 
 #endif // WebKitWebViewBasePrivate_h

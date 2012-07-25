@@ -1,8 +1,8 @@
 /* extended.c - bdb backend extended routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/extended.c,v 1.18.2.5 2010/04/13 20:23:24 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2010 The OpenLDAP Foundation.
+ * Copyright 2000-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -49,6 +49,6 @@ bdb_extended( Operation *op, SlapReply *rs )
 	}
 
 	rs->sr_text = "not supported within naming context";
-	return LDAP_UNWILLING_TO_PERFORM;
+	return rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
 }
 

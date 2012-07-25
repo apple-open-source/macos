@@ -60,7 +60,7 @@ static int
 hkscs2001_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
 {
   unsigned char c1 = s[0];
-  if ((c1 == 0x8c)) {
+  if (c1 == 0x8c) {
     if (n >= 2) {
       unsigned char c2 = s[1];
       if ((c2 >= 0x40 && c2 < 0x7f) || (c2 >= 0xa1 && c2 < 0xff)) {

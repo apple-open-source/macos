@@ -62,7 +62,7 @@
 #include <smbfs/smbfs_subr.h>
 #include <smbclient/smbclient_internal.h>
 #include "smbfs_security.h"
-#include <smbfs/triggers.h>
+#include <Triggers/triggers.h>
 
 #include <sys/buf.h>
 
@@ -132,8 +132,6 @@ SYSCTL_DECL(_net_smb);
 SYSCTL_NODE(_net_smb, OID_AUTO, fs, CTLFLAG_RW, 0, "SMB/CIFS file system");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, version, CTLFLAG_RD, &smbfs_version, 0, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, loglevel, CTLFLAG_RW,  &smbfs_loglevel, 0, "");
-SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_ntlmssp, CTLFLAG_RW, &smbfs_kern_ntlmssp, 0, "");
-SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_deprecatePreXPServers, CTLFLAG_RW, &smbfs_deprecatePreXPServers, 1, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_deadtimer, CTLFLAG_RW, &smbfs_deadtimer, DEAD_TIMEOUT, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_hard_deadtimer, CTLFLAG_RW, &smbfs_hard_deadtimer, HARD_DEAD_TIMER, "");
 SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_soft_deadtimer, CTLFLAG_RW, &smbfs_trigger_deadtimer, TRIGGER_DEAD_TIMEOUT, "");
@@ -141,8 +139,6 @@ SYSCTL_INT(_net_smb_fs, OID_AUTO, kern_soft_deadtimer, CTLFLAG_RW, &smbfs_trigge
 extern struct sysctl_oid sysctl__net_smb;
 extern struct sysctl_oid sysctl__net_smb_fs_version;
 extern struct sysctl_oid sysctl__net_smb_fs_loglevel;
-extern struct sysctl_oid sysctl__net_smb_fs_kern_ntlmssp;
-extern struct sysctl_oid sysctl__net_smb_fs_kern_deprecatePreXPServers;
 extern struct sysctl_oid sysctl__net_smb_fs_kern_deadtimer;
 extern struct sysctl_oid sysctl__net_smb_fs_kern_hard_deadtimer;
 extern struct sysctl_oid sysctl__net_smb_fs_kern_soft_deadtimer;
@@ -150,6 +146,10 @@ extern struct sysctl_oid sysctl__net_smb_fs_tcpsndbuf;
 extern struct sysctl_oid sysctl__net_smb_fs_tcprcvbuf;
 
 MALLOC_DEFINE(M_SMBFSHASH, "SMBFS hash", "SMBFS hash table");
+
+#ifndef VFS_CTL_DISC
+#define VFS_CTL_DISC	0x00010008	/* Server is disconnected */
+#endif
 
 static void 
 smbfs_lock_init()
@@ -271,8 +271,9 @@ isServerInSameDomian(struct smb_share *share, struct smbmount *smp)
 	if (SSTOVC(share)->vc_flags & SMBV_NETWORK_SID) {
 		/* See if the VC network SID is known by Directory Service */
 		if ((smp->sm_args.altflags & SMBFS_MNT_DEBUG_ACL_ON) ||
+			(smp->sm_args.altflags & SMBFS_MNT_TIME_MACHINE) ||
 			(smbfs_is_sid_known(&SSTOVC(share)->vc_ntwrk_sid))) {
-			MALLOC(smp->ntwrk_sids, ntsid_t *, sizeof(ntsid_t), M_TEMP, M_WAITOK);
+			SMB_MALLOC(smp->ntwrk_sids, ntsid_t *, sizeof(ntsid_t), M_TEMP, M_WAITOK);
 			memcpy(smp->ntwrk_sids, &SSTOVC(share)->vc_ntwrk_sid, sizeof(ntsid_t));
 			smp->ntwrk_sids_cnt = 1;
 			return;
@@ -323,7 +324,7 @@ smbfs_down(struct smb_share *share, int timeToNotify)
 					 share->ss_name);
 			if (SMBRemountServer(&(vfs_statfs(smp->sm_mp))->f_fsid, 
 								 sizeof(vfs_statfs(smp->sm_mp)->f_fsid),
-								 SSTOVC(share)->vc_gss.gss_mp)) {
+								 SSTOVC(share)->vc_gss.gss_asid)) {
 				/* Something went wrong try again next time */
 				SMBERROR("Something went wrong with remounting %s/%s\n", 
 						 SSTOVC(share)->vc_srvname, share->ss_name);
@@ -597,7 +598,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		goto bad;
 	}
 	
-	MALLOC(args, struct smb_mount_args *, sizeof(*args), M_SMBFSDATA, 
+	SMB_MALLOC(args, struct smb_mount_args *, sizeof(*args), M_SMBFSDATA, 
 		   M_WAITOK | M_ZERO);
 	if (!args) {
 		SMBDEBUG("Couldn't malloc the mount arguments!");
@@ -643,7 +644,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		goto bad;
 	}
 	
-	MALLOC(smp, struct smbmount*, sizeof(*smp), M_SMBFSDATA, M_WAITOK | M_ZERO);
+	SMB_MALLOC(smp, struct smbmount*, sizeof(*smp), M_SMBFSDATA, M_WAITOK | M_ZERO);
 	if (smp == NULL) {
 		SMBDEBUG("Couldn't malloc the smb mount structure!");
 		error = ENOMEM;
@@ -682,7 +683,6 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	} else {
 		smp->sm_args.volume_name = NULL;
 	}
-	
 	/*
 	 * This call should be done from mount() in vfs layer. Not sure why each 
 	 * file system has to do it here, but go ahead and make an internal call to 
@@ -701,7 +701,7 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	}
 	/* Now get the mounted volumes unique id */
 	smp->sm_args.unique_id_len = args->unique_id_len;
-	MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
+	SMB_MALLOC(smp->sm_args.unique_id, unsigned char *, smp->sm_args.unique_id_len, 
 		   M_SMBFSDATA, M_WAITOK);
 	if (smp->sm_args.unique_id) {
 		bcopy(args->unique_id, smp->sm_args.unique_id, smp->sm_args.unique_id_len);
@@ -709,7 +709,11 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 		smp->sm_args.unique_id_len = 0;
 	}
 	SMB_FREE(args, M_SMBFSDATA);	/* Done with the args free them */
-	
+
+    if (smp->sm_args.altflags & SMBFS_MNT_TIME_MACHINE) {
+        SMBWARNING("%s mounted using tm flag\n",  vfs_statfs(mp)->f_mntfromname);
+    }
+
 	vfs_getnewfsid(mp);
 	
 	/*
@@ -821,8 +825,8 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 								  sizeof(SMB_STREAMS_OFF) - 1, NULL, context) == 0)) {
 			share->ss_attributes &= ~FILE_NAMED_STREAMS;
 		} else if (! UNIX_SERVER(SSTOVC(share)) && 
-				   (smbfs_smb_qstreaminfo(share, VTOSMB(vp), context, NULL, NULL, 
-										  SFM_DESKTOP_NAME, NULL) == 0)) {
+				   (smbfs_smb_qstreaminfo(share, VTOSMB(vp), NULL, NULL,
+                                          SFM_DESKTOP_NAME, NULL, context) == 0)) {
 			/* 
 			 * We would like to know if this is a SFM Volume, we skip this 
 			 * check for unix servers. 
@@ -887,18 +891,15 @@ smbfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t con
 	if (SSTOVC(share)->throttle_info) {
 		throttle_info_mount_ref(mp, SSTOVC(share)->throttle_info);
 	}
-	if (VC_CAPS(SSTOVC(share)) & SMB_CAP_NT_SMBS) {
-		smbfs_notify_change_create_thread(smp);
-		if (smp->sm_args.altflags & SMBFS_MNT_COMPOUND_ON) {
-			vfs_setcompoundopen(mp);
-		}
-		else {
-			SMBWARNING("compound off in preferences\n");
-		}
+	
+    smbfs_notify_change_create_thread(smp);
+    if (smp->sm_args.altflags & SMBFS_MNT_COMPOUND_ON) {
+        vfs_setcompoundopen(mp);
+    }
+    else {
+        SMBWARNING("compound off in preferences\n");
+    }
 
-	} else {
-		SMBWARNING("Server doesn't support Notify Change or Compound VNOP Open\n");
-	}
 	mount_cnt++;
 	return (0);
 bad:
@@ -912,7 +913,7 @@ bad:
 		vfs_setfsprivate(mp, (void *)0);
 		/* Was malloced by hashinit */
 		if (smp->sm_hash)
-			FREE(smp->sm_hash, M_SMBFSHASH);
+			SMB_FREE(smp->sm_hash, M_SMBFSHASH);
 		lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
 		lck_mtx_destroy(&smp->sm_statfslock, smbfs_mutex_group);
 		lck_mtx_destroy(&smp->sm_renamelock, smbfs_mutex_group);
@@ -984,7 +985,7 @@ smbfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	vfs_setfsprivate(mp, (void *)0);
 
 	if (smp->sm_hash) {
-		free(smp->sm_hash, M_SMBFSHASH);
+		SMB_FREE(smp->sm_hash, M_SMBFSHASH);
 		smp->sm_hash = (void *)0xDEAD5AB0;
 	}
 	lck_mtx_free(smp->sm_hashlock, hash_lck_grp);
@@ -1222,8 +1223,7 @@ smbfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, vfs_context_t context
 		if (share->ss_attributes & FILE_NAMED_STREAMS)
 			cap->capabilities[VOL_CAPABILITIES_INTERFACES] |= VOL_CAP_INT_NAMEDSTREAMS | VOL_CAP_INT_EXTENDED_ATTR;			
 		
-		if (((VC_CAPS(SSTOVC(share)) & SMB_CAP_NT_SMBS) != SMB_CAP_NT_SMBS) ||
-			(SSTOVC(share)->vc_maxmux < SMB_NOTIFY_MIN_MUX)) {
+		if ((SSTOVC(share)->vc_maxmux < SMB_NOTIFY_MIN_MUX)) {
 			SMBWARNING("Notifications are not support on %s volume\n",
 					   (smp->sm_args.volume_name) ? smp->sm_args.volume_name : "");		
 		} else if ((smp->sm_args.altflags & SMBFS_MNT_NOTIFY_OFF) == SMBFS_MNT_NOTIFY_OFF) {
@@ -1655,6 +1655,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 		case SMBFS_SYSCTL_REMOUNT:
 		case VFS_CTL_QUERY:
 		case VFS_CTL_SADDR:
+        case VFS_CTL_DISC:
 		{
 			boolean_t is_64_bit = vfs_context_is64bit(context);
 			union union_vfsidctl vc;
@@ -1709,7 +1710,7 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 			len += 1; /* Slash */
 			len += strnlen(share->ss_name, SMB_MAXSHARENAMELEN);
 			len += 1; /* null byte */
-			MALLOC(serverShareStr, char *, len, M_TEMP, M_WAITOK | M_ZERO);
+			SMB_MALLOC(serverShareStr, char *, len, M_TEMP, M_WAITOK | M_ZERO);
 			strlcpy(serverShareStr, SSTOVC(share)->vc_srvname, len);
 			strlcat(serverShareStr, "/", len);
 			strlcat(serverShareStr, share->ss_name, len);
@@ -1752,26 +1753,32 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 			SMBDEBUG("vq.vq_flags = 0x%x\n", vq.vq_flags);
 			error = SYSCTL_OUT(req, &vq, sizeof(vq));
 			break;
+            
 		case VFS_CTL_SADDR:
 			if (smp->sm_args.altflags & SMBFS_MNT_DFS_SHARE) {
 				/* Never let them unmount a dfs share */
 				error = ENOTSUP;
-			} else {
+			} 
+            else {
 				struct sockaddr_storage storage;
 				struct sockaddr *saddr;
 				size_t len;
 				
 				memset(&storage, 0, sizeof(storage));
+
 				/* Get a reference on the share */
 				share = smb_get_share_with_reference(smp);
 			
 				if (SSTOVC(share)->vc_saddr->sa_family == AF_NETBIOS) {
 					/* NetBIOS sockaddr get the real IPv4 sockaddr */
-					saddr = (struct sockaddr *)&((struct sockaddr_nb *)SSTOVC(share)->vc_saddr)->snb_addrin;
-				} else {
+					saddr = (struct sockaddr *) 
+                        &((struct sockaddr_nb *) SSTOVC(share)->vc_saddr)->snb_addrin;
+				} 
+                else {
 					/* IPv4 or IPv6 sockaddr */
 					saddr = SSTOVC(share)->vc_saddr;
 				}
+                
 				/* Just to be safe, make sure we have a safe length */
 				len = (saddr->sa_len > sizeof(storage)) ? sizeof(storage) : saddr->sa_len;
 				memcpy(&storage, saddr, len);
@@ -1779,6 +1786,46 @@ smbfs_sysctl(int * name, unsigned namelen, user_addr_t oldp, size_t * oldlenp,
 				error = SYSCTL_OUT(req, &storage, len);
 			}
 			break;
+            
+        case VFS_CTL_DISC:
+			if (smp->sm_args.altflags & SMBFS_MNT_DFS_SHARE) {
+				/* Never let them unmount a dfs share */
+				error = ENOTSUP;
+			} 
+            else {
+                /* 
+                 * Server is not responding. KEA will now request an unmount.
+                 * If there are no files opened for write AND there are no files
+                 * sitting in UBC with dirty data, then return 0 and signal KEA 
+                 * to unmount us right now.  KEA will not display this share in
+                 * the dialog since we should be unmounting immediately.
+                 * Otherwise, return EBUSY and let the dialog be displayed so 
+                 * the user can decide what to do
+                 */
+                error = 0;  /* assume can be immediately unmounted */
+
+				/* Get a reference on the share */
+				share = smb_get_share_with_reference(smp);
+                
+                if (!vfs_isrdonly(mp)) {
+                    /* only check for "busy" files if not read only */
+                    lck_mtx_lock(&share->ss_shlock);
+                    
+                    error = smbfs_IObusy(smp);
+                    SMBDEBUG("VFS_CTL_DISC - smbfs_IObusy returned %d\n", error);
+                   
+                    lck_mtx_unlock(&share->ss_shlock);	
+                }
+                if (error != EBUSY) {
+                    SMBDEBUG("VFS_CTL_DISC unmounting\n");
+                    /* ok to immediately be unmounted */
+					share->ss_dead(share);
+                }
+                
+				smb_share_rele(share, context);
+            }
+            
+            break;
 	    default:
 			error = ENOTSUP;
 			break;
@@ -1860,9 +1907,6 @@ int smbfs_module_start(kmod_info_t *ki, void *data)
 	sysctl_register_oid(&sysctl__net_smb_fs_version);
 	sysctl_register_oid(&sysctl__net_smb_fs_loglevel);
 
-	sysctl_register_oid(&sysctl__net_smb_fs_kern_ntlmssp);
-	sysctl_register_oid(&sysctl__net_smb_fs_kern_deprecatePreXPServers);
-
 	sysctl_register_oid(&sysctl__net_smb_fs_kern_deadtimer);
 	sysctl_register_oid(&sysctl__net_smb_fs_kern_hard_deadtimer);
 	sysctl_register_oid(&sysctl__net_smb_fs_kern_soft_deadtimer);
@@ -1908,9 +1952,6 @@ int smbfs_module_stop(kmod_info_t *ki, void *data)
 
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcpsndbuf);
 	sysctl_unregister_oid(&sysctl__net_smb_fs_tcprcvbuf);
-
-	sysctl_unregister_oid(&sysctl__net_smb_fs_kern_ntlmssp);
-	sysctl_unregister_oid(&sysctl__net_smb_fs_kern_deprecatePreXPServers);
 	
 	sysctl_unregister_oid(&sysctl__net_smb_fs_kern_deadtimer);
 	sysctl_unregister_oid(&sysctl__net_smb_fs_kern_hard_deadtimer);

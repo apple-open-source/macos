@@ -92,8 +92,8 @@ interface IWebPreferencesPrivate : IUnknown
     // Used by DumpRenderTree.
     HRESULT setPreferenceForTest([in] BSTR key, [in] BSTR value);
 
-    HRESULT setPluginAllowedRunTime([in] UINT allowedRunTime);
-    HRESULT pluginAllowedRunTime([out, retval] UINT* allowedRunTime);
+    HRESULT unused1();
+    HRESULT unused2();
 
     HRESULT setAcceleratedCompositingEnabled([in] BOOL);
     HRESULT acceleratedCompositingEnabled([out, retval] BOOL*);
@@ -127,4 +127,19 @@ interface IWebPreferencesPrivate : IUnknown
 
     HRESULT setFullScreenEnabled([in] BOOL enabled);
     HRESULT isFullScreenEnabled([out, retval] BOOL* enabled);
+
+    HRESULT setHixie76WebSocketProtocolEnabled([in] BOOL enabled);
+    HRESULT hixie76WebSocketProtocolEnabled([out, retval] BOOL* enabled);
+
+    HRESULT setMediaPlaybackRequiresUserGesture([in] BOOL);
+    HRESULT mediaPlaybackRequiresUserGesture([out, retval] BOOL*);
+
+    HRESULT setMediaPlaybackAllowsInline([in] BOOL);
+    HRESULT mediaPlaybackAllowsInline([out, retval] BOOL*);
+
+    HRESULT setShowsToolTipOverTruncatedText([in] BOOL);
+    HRESULT showsToolTipOverTruncatedText([out, retval] BOOL*);
+
+    HRESULT setShouldInvertColors([in] BOOL);
+    HRESULT shouldInvertColors([out, retval] BOOL*);
 }

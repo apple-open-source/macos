@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,10 +25,12 @@
 #include <strings.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #include "dnsinfo_create.h"
 #include "dnsinfo_private.h"
 #include "shared_dns_info.h"
+#include "network_information_priv.h"
 
 
 #define ROUNDUP(a, size) \
@@ -92,7 +94,8 @@ config_add_attribute(dns_create_config_t	*_config,
 
 	// add attribute [header]
 
-	header = (dns_attribute_t *)&config->attribute[oldLen];
+	/* ALIGN: _dns_config_buf_t is int aligned */
+	header = (dns_attribute_t *)(void *)&config->attribute[oldLen];
 	header->type   = htonl(attribute_type);
 	header->length = htonl(newLen);
 
@@ -146,6 +149,61 @@ _dns_configuration_add_resolver(dns_create_config_t     *_config,
 				     sizeof(_dns_resolver_buf_t) + ntohl(resolver->n_attribute),
 				     (void *)resolver,
 				     padding);
+	}
+
+	return;
+}
+
+_Bool
+_nwi_state_store(nwi_state* state)
+{
+	mach_port_t		server;
+	kern_return_t		status;
+	dnsDataOut_t		dataRef	= (dnsDataOut_t) state;
+	mach_msg_type_number_t	dataLen	= state->size;
+
+	server = _dns_configuration_server_port();
+	if (server == MACH_PORT_NULL) {
+		return FALSE;
+	}
+
+	status = shared_nwi_stateSet(server, dataRef, dataLen);
+
+	(void) mach_port_deallocate(mach_task_self(), server);
+
+	if (status != KERN_SUCCESS) {
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+
+void
+_dns_configuration_signature(dns_create_config_t	*_config,
+			     unsigned char		*signature,
+			     size_t			signature_len)
+{
+	bzero(signature, signature_len);
+
+	if (_config != NULL) {
+		_dns_config_buf_t	*config	= (_dns_config_buf_t *)*_config;
+
+		if (config != NULL) {
+			CC_SHA1_CTX	ctx;
+			unsigned char	*sha1;
+			unsigned char	sha1_buf[CC_SHA1_DIGEST_LENGTH];
+
+			sha1 = (signature_len >= CC_SHA1_DIGEST_LENGTH) ? signature : sha1_buf;
+			CC_SHA1_Init(&ctx);
+			CC_SHA1_Update(&ctx,
+				       config,
+				       sizeof(_dns_config_buf_t) + ntohl(config->n_attribute));
+			CC_SHA1_Final(sha1, &ctx);
+			if (sha1 != signature) {
+				bcopy(sha1, signature, signature_len);
+			}
+		}
 	}
 
 	return;
@@ -238,7 +296,8 @@ _dns_resolver_add_attribute(dns_create_resolver_t	*_resolver,
 
 	// add attribute [header]
 
-	header = (dns_attribute_t *)&resolver->attribute[oldLen];
+	/* ALIGN: _dns_config_buf_t is int aligned */
+	header = (dns_attribute_t *)(void *)&resolver->attribute[oldLen];
 	header->type   = htonl(attribute_type);
 	header->length = htonl(newLen);
 
@@ -272,6 +331,17 @@ _dns_resolver_add_search(dns_create_resolver_t *_resolver, const char *search)
 
 	resolver->resolver.n_search = htonl(ntohl(resolver->resolver.n_search) + 1);
 	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SEARCH, strlen(search) + 1, (void *)search);
+	return;
+}
+
+
+void
+_dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr)
+{
+	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
+
+	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
+	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, sizeof(dns_sortaddr_t), (void *)sortaddr);
 	return;
 }
 
@@ -333,12 +403,11 @@ _dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
 
 
 void
-_dns_resolver_add_sortaddr(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr)
+_dns_resolver_set_reach_flags(dns_create_resolver_t *_resolver, uint32_t reach_flags)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 
-	resolver->resolver.n_sortaddr = htonl(ntohl(resolver->resolver.n_sortaddr) + 1);
-	_dns_resolver_add_attribute(_resolver, RESOLVER_ATTRIBUTE_SORTADDR, sizeof(dns_sortaddr_t), (void *)sortaddr);
+	resolver->resolver.reach_flags = htonl(reach_flags);
 	return;
 }
 

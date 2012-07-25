@@ -1,9 +1,0 @@
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-libdir=@libdir@
-includedir=@includedir@
- 
-Name: DRI2Proto
-Description: DRI2 extension headers
-Version: @PACKAGE_VERSION@
-Cflags: -I${includedir}

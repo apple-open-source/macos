@@ -31,10 +31,20 @@
 #include "config.h"
 #include "ColorInputType.h"
 
+#include "CSSPropertyNames.h"
+#include "Chrome.h"
 #include "Color.h"
+#include "HTMLDivElement.h"
 #include "HTMLInputElement.h"
+#include "MouseEvent.h"
+#include "ScriptController.h"
+#include "ShadowRoot.h"
+#include "ShadowTree.h"
+
 #include <wtf/PassOwnPtr.h>
 #include <wtf/text/WTFString.h>
+
+#if ENABLE(INPUT_TYPE_COLOR)
 
 namespace WebCore {
 
@@ -57,26 +67,19 @@ PassOwnPtr<InputType> ColorInputType::create(HTMLInputElement* element)
     return adoptPtr(new ColorInputType(element));
 }
 
+ColorInputType::~ColorInputType()
+{
+    endColorChooser();
+}
+
+bool ColorInputType::isColorControl() const
+{
+    return true;
+}
+
 const AtomicString& ColorInputType::formControlType() const
 {
     return InputTypeNames::color();
-}
-
-bool ColorInputType::typeMismatchFor(const String& value) const
-{
-    // FIXME: Should not accept an empty value. Remove it when we implement value
-    // sanitization for type=color.
-    if (value.isEmpty())
-        return false;
-    return !isValidColorString(value);
-}
-
-bool ColorInputType::typeMismatch() const
-{
-    // FIXME: Should return false. We don't implement value sanitization for
-    // type=color yet.
-    String value = element()->value();
-    return !value.isEmpty() && !isValidColorString(value);
 }
 
 bool ColorInputType::supportsRequired() const
@@ -84,4 +87,114 @@ bool ColorInputType::supportsRequired() const
     return false;
 }
 
+String ColorInputType::fallbackValue() const
+{
+    return String("#000000");
+}
+
+String ColorInputType::sanitizeValue(const String& proposedValue) const
+{
+    if (!isValidColorString(proposedValue))
+        return fallbackValue();
+
+    return proposedValue.lower();
+}
+
+Color ColorInputType::valueAsColor() const
+{
+    return Color(element()->value());
+}
+
+void ColorInputType::createShadowSubtree()
+{
+    ASSERT(element()->hasShadowRoot());
+
+    Document* document = element()->document();
+    RefPtr<HTMLDivElement> wrapperElement = HTMLDivElement::create(document);
+    wrapperElement->setShadowPseudoId("-webkit-color-swatch-wrapper");
+    RefPtr<HTMLDivElement> colorSwatch = HTMLDivElement::create(document);
+    colorSwatch->setShadowPseudoId("-webkit-color-swatch");
+    ExceptionCode ec = 0;
+    wrapperElement->appendChild(colorSwatch.release(), ec);
+    ASSERT(!ec);
+    element()->shadowTree()->oldestShadowRoot()->appendChild(wrapperElement.release(), ec);
+    ASSERT(!ec);
+    
+    updateColorSwatch();
+}
+
+void ColorInputType::setValue(const String& value, bool valueChanged, TextFieldEventBehavior eventBehavior)
+{
+    InputType::setValue(value, valueChanged, eventBehavior);
+
+    if (!valueChanged)
+        return;
+
+    updateColorSwatch();
+    if (m_chooser)
+        m_chooser->setSelectedColor(valueAsColor());
+}
+
+void ColorInputType::handleDOMActivateEvent(Event* event)
+{
+    if (element()->disabled() || element()->readOnly() || !element()->renderer())
+        return;
+
+    if (!ScriptController::processingUserGesture())
+        return;
+
+    Chrome* chrome = this->chrome();
+    if (chrome && !m_chooser)
+        m_chooser = chrome->createColorChooser(this, valueAsColor());
+
+    event->setDefaultHandled();
+}
+
+void ColorInputType::detach()
+{
+    endColorChooser();
+}
+
+bool ColorInputType::shouldRespectListAttribute()
+{
+    return InputType::themeSupportsDataListUI(this);
+}
+
+void ColorInputType::didChooseColor(const Color& color)
+{
+    if (element()->disabled() || element()->readOnly() || color == valueAsColor())
+        return;
+    element()->setValueFromRenderer(color.serialized());
+    updateColorSwatch();
+    element()->dispatchFormControlChangeEvent();
+}
+
+void ColorInputType::didEndChooser()
+{
+    m_chooser.clear();
+}
+
+void ColorInputType::endColorChooser()
+{
+    if (m_chooser)
+        m_chooser->endChooser();
+}
+
+void ColorInputType::updateColorSwatch()
+{
+    HTMLElement* colorSwatch = shadowColorSwatch();
+    if (!colorSwatch)
+        return;
+
+    colorSwatch->setInlineStyleProperty(CSSPropertyBackgroundColor, element()->value(), false);
+}
+
+HTMLElement* ColorInputType::shadowColorSwatch() const
+{
+    ShadowRoot* shadow = element()->shadowTree()->oldestShadowRoot();
+    return shadow ? toHTMLElement(shadow->firstChild()->firstChild()) : 0;
+}
+
 } // namespace WebCore
+
+#endif // ENABLE(INPUT_TYPE_COLOR)

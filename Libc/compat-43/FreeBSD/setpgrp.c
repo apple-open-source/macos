@@ -36,8 +36,13 @@ __FBSDID("$FreeBSD: src/lib/libc/compat-43/setpgrp.c,v 1.5 2007/01/09 00:27:49 i
 #include <sys/types.h>
 #include <unistd.h>
 
-int
-setpgrp(pid_t pid, pid_t pgid)
+/* UNIX03 only */
+pid_t
+setpgrp(void)
 {
-	return(setpgid(pid, pgid));
+	pid_t pgid = getpgrp();
+	pid_t pid = getpid();
+	if (pgid != pid)
+	    setpgid(pid, pid);
+	return pid;
 }

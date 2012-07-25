@@ -121,10 +121,10 @@ extern char *localeexpand __P((char *, int, int, int, int *));
 /* Declarations for functions defined in list.c. */
 extern void list_walk __P((GENERIC_LIST *, sh_glist_func_t *));
 extern void wlist_walk __P((WORD_LIST *, sh_icpfunc_t *));
-extern GENERIC_LIST *list_reverse ();
-extern int list_length ();
-extern GENERIC_LIST *list_append ();
-extern GENERIC_LIST *list_remove ();
+extern GENERIC_LIST *list_reverse (GENERIC_LIST *);
+extern int list_length (GENERIC_LIST*);
+extern GENERIC_LIST *list_append (GENERIC_LIST*, GENERIC_LIST*);
+extern GENERIC_LIST *list_remove (GENERIC_LIST**, Function*, char**);
 
 /* Declarations for functions defined in stringlib.c */
 extern int find_string_in_alist __P((char *, STRING_INT_ALIST *, int));

@@ -1,5 +1,5 @@
 /*
- * "$Id: pwg-media.c 3724 2012-03-07 17:32:32Z msweet $"
+ * "$Id: pwg-media.c 3810 2012-05-04 23:39:14Z msweet $"
  *
  *   PWG media name API implementation for CUPS.
  *
@@ -15,17 +15,6 @@
  *
  * Contents:
  *
- *   _pwgGenerateSize()   - Generate a PWG size keyword.
- *   _pwgInitSize()       - Initialize a PWG size using IPP job template
- *                          attributes.
- *   _pwgMediaForLegacy() - Find a PWG media size by ISO/IPP legacy name.
- *   _pwgMediaForPPD()    - Find a PWG media size by Adobe PPD name.
- *   _pwgMediaForPWG()    - Find a PWG media size by 5101.1 self-describing
- *                          name.
- *   _pwgMediaForSize()   - Get the PWG media name for a given size.
- *   pwg_compare_legacy() - Compare two sizes using the legacy names.
- *   pwg_compare_ppd()    - Compare two sizes using the PPD names.
- *   pwg_compare_pwg()    - Compare two sizes using the PWG names.
  */
 
 /*
@@ -66,7 +55,7 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_IN("na_number-9_3.875x8.875in", "na-number-9-envelope", "Env9", 3.875, 8.875),
   _PWG_MEDIA_IN("na_index-4x6_4x6in", NULL, "4x6", 4, 6),
   _PWG_MEDIA_IN("na_number-10_4.125x9.5in", "na-number-10-envelope", "Env10", 4.125, 9.5),
-  _PWG_MEDIA_IN("na_a2_4.375x5.75in", NULL, NULL, 4.375, 5.75),
+  _PWG_MEDIA_IN("na_a2_4.375x5.75in", NULL, "EnvA2", 4.375, 5.75),
   _PWG_MEDIA_IN("na_number-11_4.5x10.375in", NULL, "Env11", 4.5, 10.375),
   _PWG_MEDIA_IN("na_number-12_4.75x11in", NULL, "Env12", 4.75, 11),
   _PWG_MEDIA_IN("na_5x7_5x7in", NULL, "5x7", 5, 7),
@@ -204,6 +193,7 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_MM("jpn_chou4_90x205mm", NULL, "EnvChou4", 90, 205),
   _PWG_MEDIA_MM("jpn_hagaki_100x148mm", NULL, "Postcard", 100, 148),
   _PWG_MEDIA_MM("jpn_you4_105x235mm", NULL, "EnvYou4", 105, 235),
+  _PWG_MEDIA_MM("jpn_you6_98x190mm", NULL, "EnvYou6", 98, 190),
   _PWG_MEDIA_MM("jpn_chou2_111.1x146mm", NULL, NULL, 111.1, 146),
   _PWG_MEDIA_MM("jpn_chou3_120x235mm", NULL, "EnvChou3", 120, 235),
   _PWG_MEDIA_MM("jpn_oufuku_148x200mm", NULL, "DoublePostcardRotated", 148, 200),
@@ -230,7 +220,7 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_IN("oe_photo-l_3.5x5in", NULL, "3.5x5", 3.5, 5),
 
   /* Other Metric Standard Sheet Media Sizes */
-  _PWG_MEDIA_MM("om_small-photo_100x150mm", NULL, NULL, 100, 150),
+  _PWG_MEDIA_MM("om_small-photo_100x150mm", NULL, "om_small-photo", 100, 150),
   _PWG_MEDIA_MM("om_italian_110x230mm", NULL, "EnvItalian", 110, 230),
   _PWG_MEDIA_MM("om_postfix_114x229mm", NULL, NULL, 114, 229),
   _PWG_MEDIA_MM("om_large-photo_200x300", NULL, "om_large-photo", 200, 300),
@@ -238,6 +228,83 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_MM("om_folio-sp_215x315mm", NULL, "FolioSP", 215, 315),
   _PWG_MEDIA_MM("om_invite_220x220mm", NULL, "EnvInvite", 220, 220)
 };
+
+
+/*
+ * '_pwgFormatInches()' - Convert and format PWG units as inches.
+ */
+
+char *					/* O - String */
+_pwgFormatInches(char   *buf,		/* I - Buffer */
+                 size_t bufsize,	/* I - Size of buffer */
+                 int    val)		/* I - Value in hundredths of millimeters */
+{
+  int	thousandths,			/* Thousandths of inches */
+	integer,			/* Integer portion */
+	fraction;			/* Fractional portion */
+
+
+ /*
+  * Convert hundredths of millimeters to thousandths of inches and round to
+  * the nearest thousandth.
+  */
+
+  thousandths = (val * 1000 + 1270) / 2540;
+  integer     = thousandths / 1000;
+  fraction    = thousandths % 1000;
+
+ /*
+  * Format as a pair of integers (avoids locale stuff), avoiding trailing
+  * zeros...
+  */
+
+  if (fraction == 0)
+    snprintf(buf, bufsize, "%d", integer);
+  else if (fraction % 10)
+    snprintf(buf, bufsize, "%d.%03d", integer, fraction);
+  else if (fraction % 100)
+    snprintf(buf, bufsize, "%d.%02d", integer, fraction / 10);
+  else
+    snprintf(buf, bufsize, "%d.%01d", integer, fraction / 100);
+
+  return (buf);
+}
+
+
+/*
+ * '_pwgFormatMillimeters()' - Convert and format PWG units as millimeters.
+ */
+
+char *					/* O - String */
+_pwgFormatMillimeters(char   *buf,	/* I - Buffer */
+                      size_t bufsize,	/* I - Size of buffer */
+                      int    val)	/* I - Value in hundredths of millimeters */
+{
+  int	integer,			/* Integer portion */
+	fraction;			/* Fractional portion */
+
+
+ /*
+  * Convert hundredths of millimeters to integer and fractional portions.
+  */
+
+  integer     = val / 100;
+  fraction    = val % 100;
+
+ /*
+  * Format as a pair of integers (avoids locale stuff), avoiding trailing
+  * zeros...
+  */
+
+  if (fraction == 0)
+    snprintf(buf, bufsize, "%d", integer);
+  else if (fraction % 10)
+    snprintf(buf, bufsize, "%d.%02d", integer, fraction);
+  else
+    snprintf(buf, bufsize, "%d.%01d", integer, fraction / 10);
+
+  return (buf);
+}
 
 
 /*
@@ -252,15 +319,12 @@ _pwgGenerateSize(char       *keyword,	/* I - Keyword buffer */
 		 int        width,	/* I - Width of page in 2540ths */
 		 int        length)	/* I - Length of page in 2540ths */
 {
-  struct lconv	*loc;			/* Locale conversion data */
-  double	uwidth,			/* Width in inches or millimeters */
-		ulength;		/* Height in inches or millimeters */
   const char	*units;			/* Units to report */
   char		usize[12 + 1 + 12 + 3],	/* Unit size: NNNNNNNNNNNNxNNNNNNNNNNNNuu */
 		*uptr;			/* Pointer into unit size */
+  char		*(*format)(char *, size_t, int);
+					/* Formatting function */
 
-
-  loc = localeconv();
 
   if ((width % 635) == 0 && (length % 635) == 0)
   {
@@ -268,9 +332,8 @@ _pwgGenerateSize(char       *keyword,	/* I - Keyword buffer */
     * Use inches since the size is a multiple of 1/4 inch.
     */
 
-    uwidth  = width / 2540.0;
-    ulength = length / 2540.0;
     units   = "in";
+    format  = _pwgFormatInches;
 
     if (!prefix)
       prefix = "oe";
@@ -281,26 +344,25 @@ _pwgGenerateSize(char       *keyword,	/* I - Keyword buffer */
     * Use millimeters since the size is not a multiple of 1/4 inch.
     */
 
-    uwidth  = width * 0.01;
-    ulength = length * 0.01;
     units   = "mm";
+    format  = _pwgFormatMillimeters;
 
     if (!prefix)
       prefix = "om";
   }
 
   uptr = usize;
-  _cupsStrFormatd(uptr, uptr + 12, uwidth, loc);
+  (*format)(uptr, sizeof(usize) - (uptr - usize), width);
   uptr += strlen(uptr);
   *uptr++ = 'x';
-  _cupsStrFormatd(uptr, uptr + 12, ulength, loc);
+  (*format)(uptr, sizeof(usize) - (uptr - usize), length);
   uptr += strlen(uptr);
 
  /*
   * Safe because usize can hold up to 12 + 1 + 12 + 4 bytes.
   */
 
-  strcpy(uptr, units);
+  memcpy(uptr, units, 3);
 
   if (!name)
     name = usize;
@@ -760,8 +822,11 @@ _pwgMediaForSize(int width,		/* I - Width in 2540ths */
 		 int length)		/* I - Length in 2540ths */
 {
   int		i;			/* Looping var */
-  _pwg_media_t	*media;			/* Current media */
-  int		dw, dl;			/* Difference in width and length */
+  _pwg_media_t	*media,			/* Current media */
+		*best_media = NULL;	/* Best match */
+  int		dw, dl,			/* Difference in width and length */
+		best_dw = 999,		/* Best difference in width and length */
+		best_dl = 999;
   _cups_globals_t *cg = _cupsGlobals();	/* Global data */
 
 
@@ -786,12 +851,24 @@ _pwgMediaForSize(int width,		/* I - Width in 2540ths */
     * is just about 176/2540ths...
     */
 
-    dw = media->width - width;
-    dl = media->length - length;
+    dw = abs(media->width - width);
+    dl = abs(media->length - length);
 
-    if (dw > -176 && dw < 176 && dl > -176 && dl < 176)
+    if (!dw && !dl)
       return (media);
+    else if (dw < 176 && dl < 176)
+    {
+      if (dw <= best_dw && dl <= best_dl)
+      {
+        best_media = media;
+        best_dw    = dw;
+        best_dl    = dl;
+      }
+    }
   }
+
+  if (best_media)
+    return (best_media);
 
  /*
   * Not a standard size; convert it to a PWG custom name of the form:
@@ -847,5 +924,5 @@ pwg_compare_pwg(_pwg_media_t *a,	/* I - First size */
 
 
 /*
- * End of "$Id: pwg-media.c 3724 2012-03-07 17:32:32Z msweet $".
+ * End of "$Id: pwg-media.c 3810 2012-05-04 23:39:14Z msweet $".
  */

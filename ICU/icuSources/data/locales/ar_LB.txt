@@ -1,28 +1,15 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ar_LB.xml
 // *
 // ***************************************************************************
 ar_LB{
-    Version{"2.0.50.20"}
+    Version{"2.0.56.95"}
     calendar{
         gregorian{
-            dayNames{
-                format{
-                    abbreviated{
-                        "الأحد",
-                        "الاثنين",
-                        "الثلاثاء",
-                        "الأربعاء",
-                        "الخميس",
-                        "الجمعة",
-                        "السبت",
-                    }
-                }
-            }
             monthNames{
                 format{
                     wide{

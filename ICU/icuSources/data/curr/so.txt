@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/so.xml
@@ -12,11 +12,11 @@
 so{
     Currencies{
         DJF{
-            "Fdj",
+            "DJF",
             "Faran Jabbuuti",
         }
         ETB{
-            "Br",
+            "ETB",
             "Birta Itoobbiya",
         }
         EUR{
@@ -24,15 +24,15 @@ so{
             "Yuuroo",
         }
         SAR{
-            "SR",
+            "SAR",
             "Riyaalka Sacuudiga",
         }
         SOS{
-            "Ssh",
+            "SOS",
             "Shilin soomaali",
         }
         TZS{
-            "TSh",
+            "TZS",
             "Shilin Tansaani",
         }
         USD{
@@ -40,5 +40,5 @@ so{
             "Doollar maraykan",
         }
     }
-    Version{"2.0.47.68"}
+    Version{"2.0.65.46"}
 }

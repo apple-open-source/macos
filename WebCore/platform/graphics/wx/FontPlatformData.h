@@ -32,11 +32,11 @@
 #include "FontDescription.h"
 #include "FontWidthVariant.h"
 #include "FontOrientation.h"
-#include "StringImpl.h"
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringImpl.h>
 
 #include <wx/defs.h>
 #include <wx/font.h>
@@ -166,15 +166,14 @@ public:
     void cacheNSFont();
 #endif
 
-    float m_size;
-
 #ifndef NDEBUG
     String description() const;
 #endif
 
 private:
-    WTF::RefPtr<FontHolder> m_font;
     FontState m_fontState;
+    WTF::RefPtr<FontHolder> m_font;
+    float m_size;
 #if OS(DARWIN)
     NSFont* m_nsFont;
 #endif

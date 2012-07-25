@@ -573,4 +573,4 @@ enum {
 #define DHCPTAG_252                        	"252"
 #define DHCPTAG_253                        	"253"
 #define DHCPTAG_254                        	"254"
-#endif _S_DHCP_TAG
+#endif /* _S_DHCP_TAG */

@@ -57,6 +57,11 @@ mshim_log_entry(const char *func, ...);
 int
 mshim_failure(const char *func, int error, const char *subsystem);
 
+krb5_context mshim_ctx(void);
+
+#define milcontext mshim_ctx()
+
+
 
 /* this might not work, lets try it out, if anyone uses krb5_build_principal_va we are smoked */
 struct comb_principal {

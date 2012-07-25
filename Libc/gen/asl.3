@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2010 Apple Inc.
+.\" Copyright (c) 2005-2011 Apple Inc.
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd March 3, 2010
+.Dd October 1, 2011
 .Dt asl 3
 .Os "Mac OS X"
 .Sh NAME
@@ -39,6 +39,7 @@
 .Nm asl_key ,
 .Nm asl_log ,
 .Nm asl_log_auxiliary_location ,
+.Nm asl_log_descriptor ,
 .Nm asl_new ,
 .Nm asl_open ,
 .Nm asl_open_from_file ,
@@ -59,7 +60,7 @@
 .Ft int
 .Fo asl_add_log_file
 .Fa "aslclient asl"
-.Fa "int fd"
+.Fa "int descriptor"
 .Fc
 .Ft void
 .Fo asl_close
@@ -67,14 +68,14 @@
 .Fc
 .Ft void
 .Fo asl_close_auxiliary_file
-.Fa "int fd"
+.Fa "int descriptor"
 .Fc
 .Ft void
 .Fo asl_create_auxiliary_file
 .Fa "aslmsg msg"
 .Fa "const char *title"
 .Fa "const char *uti"
-.Fa "int *out_fd"
+.Fa "int *out_descriptor"
 .Fc
 .Ft void
 .Fo asl_free
@@ -105,6 +106,14 @@
 .Fa "const char *uti"
 .Fa "const char *url"
 .Fc
+.Ft int
+.Fo asl_log_descriptor
+.Fa "aslclient asl"
+.Fa "aslmsg msg"
+.Fa "int level"
+.Fa "int descriptor"
+.Fa "uint32_t fd_type"
+.Fc
 .Ft aslmsg
 .Fo asl_new
 .Fa "uint32_t type"
@@ -117,14 +126,14 @@
 .Fc
 .Ft aslclient
 .Fo asl_open_from_file
-.Fa "int fd"
+.Fa "int descriptor"
 .Fa "const char *ident"
 .Fa "const char *facility"
 .Fc
 .Ft int
 .Fo asl_remove_log_file
 .Fa "aslclient asl"
-.Fa "int fd"
+.Fa "int descriptor"
 .Fc
 .Ft aslresponse
 .Fo asl_search
@@ -220,10 +229,10 @@ and releases its associated resources.
 .Pp
 .Fo asl_add_log_file
 .Fa asl
-.Fa fd  
+.Fa descriptor  
 .Fc
 adds the file descriptor
-.Ar fd
+.Ar descriptor
 to the a set of file descriptors associated with the client handle
 .Ar asl .
 Each log message sent by that client handle is also written to these file descriptors.
@@ -231,7 +240,7 @@ Returns 0 on success, non-zero on failure.
 .Pp
 .Fo asl_remove_log_file
 .Fa asl
-.Fa fd  
+.Fa descriptor  
 .Fc
 removes a file descriptor from the set of file descriptors associated with a client handle.
 Returns 0 on success, non-zero on failure.
@@ -349,6 +358,17 @@ The format may also contain
 which will be substituted with the string value corresponding to the current
 .Em errno .
 .Pp
+The ASL_PREFILTER_LOG(asl, msg, level, format, ...) macro may be used in
+place of
+.Fn asl_log .
+The macro avoids processing the variable argument list in those cases where
+the message would be filtered out due to filter settings, would not be
+written to a log file associated with the aslclient, or would not be
+written to stderr.
+The macro may provide a performance benefit for some applications.
+Details on filter setting, additional log files, and aslclient options
+are described below in this manual.
+.Pp
 .Fo asl_vlog
 .Fa asl
 .Fa msg
@@ -371,6 +391,50 @@ exceopt the value for ASL_KEY_MESSAGE is taken from
 rather than being constructed using a
 .Fn printf
 style syntax.
+.Pp
+.Fo asl_log_descriptor
+.Fa asl
+.Fa msg
+.Fa level
+.Fa descriptor
+.Fa fd_type
+.Fc
+provides functionality to use file descriptors to send logging data to ASL.
+.Ar asl
+is retained by ASL and must still be closed by the caller by calling
+.Fn asl_close
+if the caller loses reference to it.
+.Ar msg
+is copied by ASL and similarly must still be freed by the caller by calling
+.Fn asl_free
+if the caller loses reference to it.  Any changes made to it after calling
+.Fn asl_log_descriptor()
+are not applicable to the message used.
+.Ar descriptor is treated differentlty based on the value of
+.Ar fd_type .
+.Pp
+If
+.Ar fd_type
+is ASL_LOG_DESCRIPTOR_READ, the descriptor must be open for read access.  ASL
+uses
+.Xr dispatch 2
+to read from the descriptor as data becomes available.  These data are line
+buffered and passed to
+.Fn asl_log .
+When EOF is read, ASL will
+.Xr close 2
+.Ar descriptor ..
+.Pp
+If
+.Ar fd_type
+is ASL_LOG_DESCRIPTOR_WRITE, the descriptor is closed and a new writable
+descriptor is created with the same fileno.  Any data written to this new
+descriptor are line buffered and passed to
+.Fn asl_log .
+When EOF is sent, no further data are read.  The caller is responsible for
+closing the new descriptor.  One common use for this API is to redirect writes
+to stdout or stderr to ASL by passing STDOUT_FILENO or STDERR_FILENO as
+.Ar descriptor .
 .Pp
 .Fo asl_search
 .Fa asl
@@ -408,7 +472,7 @@ and all of its associated resources.
 .Fa msg
 .Fa title
 .Fa uti
-.Fa out_fd
+.Fa out_descriptor
 .Fc
 Creates an auxiliary file that may be used by the client to save arbitrary data.
 When the file is closed using
@@ -440,10 +504,10 @@ By default, messages (and auxiliary files) are world-readable.
 Access may be limited by setting values for the ReadUID and ReadGID keys.
 .Pp
 .Fo asl_close_auxiliary_file
-.Fa fd
+.Fa descriptor
 .Fc
 closes the file descriptor
-.Ar fd 
+.Ar descriptor 
 previously returned by a call to
 .Fn asl_create_auxiliary_file .
 .Pp
@@ -471,12 +535,12 @@ the life-cycle of this file must be managed by some external system.
 The file will not be removed when the corresponding log message expired from the ASL data store.
 .Pp
 .Fo asl_open_from_file
-.Fa fd
+.Fa descriptor
 .Fa facility
 .Fa opts
 .Fc
 creates a client handle for an open file descriptor
-.Fa fd .
+.Fa descriptor .
 This routine may be used in conjunction with
 .Fo asl_create_auxiliary_file
 .Fc 

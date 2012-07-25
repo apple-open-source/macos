@@ -17,13 +17,18 @@ ec=0
 
 rm -f leaks-log > /dev/null
 
-if [ "$(uname -s)" = "Darwin" ] ; then
+if [ "$(uname -s)" = "Darwin" ]; then
     echo "leaks check on $name ($pid)"
-    leaks $pid > leaks-log 2>&1 || \
+    leaks -exclude __CFInitialize $pid > leaks-log 2>&1 || \
         { echo "leaks failed: $?"; cat leaks-log; exit 1; }
 
-    grep -e "Process .*: 0 leaks for 0 total leaked bytes" leaks-log > /dev/null || \
-	{ echo "Potentional memory leak in $name" ; ec=1; }
+    perl -e 'my $excluded = 0; my $num = -1; while (<>) {
+if (/Process \d+: (\d+) leaks? for \d+ total leaked bytes?/) { $num = $1;}
+if (/(\d+) leaks? excluded/) { $excluded = $1;}
+}
+exit 1 if ($num != 0 && $num != $excluded);
+exit 0;' leaks-log || \
+	{ echo "Memory leak in $name" ; echo ""; cat leaks-log; ec=1; }
 
     if grep -e '1 leak for' leaks-log > /dev/null && grep -e "Leak.*environ.*__CF_USER_TEXT_ENCODING" leaks-log > /dev/null ; then
 	echo "just running into rdar://problem/8764394"

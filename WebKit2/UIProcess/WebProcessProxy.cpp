@@ -34,15 +34,19 @@
 #include "WebBackForwardListItem.h"
 #include "WebContext.h"
 #include "WebNavigationDataStore.h"
+#include "WebNotificationManagerProxy.h"
 #include "WebPageProxy.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxyMessages.h"
 #include <WebCore/KURL.h>
+#include <stdio.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
 using namespace WebCore;
 using namespace std;
+
+#define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromWebProcess(url), connection())
 
 namespace WebKit {
 
@@ -66,6 +70,7 @@ PassRefPtr<WebProcessProxy> WebProcessProxy::create(PassRefPtr<WebContext> conte
 WebProcessProxy::WebProcessProxy(PassRefPtr<WebContext> context)
     : m_responsivenessTimer(this)
     , m_context(context)
+    , m_mayHaveUniversalFileReadSandboxExtension(false)
 {
     connect();
 }
@@ -112,6 +117,7 @@ void WebProcessProxy::connect()
 void WebProcessProxy::disconnect()
 {
     if (m_connection) {
+        m_connection->connection()->removeQueueClient(this);
         m_connection->invalidate();
         m_connection = nullptr;
     }
@@ -141,7 +147,7 @@ bool WebProcessProxy::sendMessage(CoreIPC::MessageID messageID, PassOwnPtr<CoreI
     if (!m_connection)
         return false;
 
-    return m_connection->sendMessage(messageID, arguments, messageSendFlags);
+    return connection()->sendMessage(messageID, arguments, messageSendFlags);
 }
 
 bool WebProcessProxy::isLaunching() const
@@ -199,20 +205,83 @@ void WebProcessProxy::registerNewWebBackForwardListItem(WebBackForwardListItem* 
     m_backForwardListItemMap.set(item->itemID(), item);
 }
 
+void WebProcessProxy::assumeReadAccessToBaseURL(const String& urlString)
+{
+    KURL url(KURL(), urlString);
+    if (!url.isLocalFile())
+        return;
+
+    // There's a chance that urlString does not point to a directory.
+    // Get url's base URL to add to m_localPathsWithAssumedReadAccess.
+    KURL baseURL(KURL(), url.baseAsString());
+    
+    // Client loads an alternate string. This doesn't grant universal file read, but the web process is assumed
+    // to have read access to this directory already.
+    m_localPathsWithAssumedReadAccess.add(baseURL.fileSystemPath());
+}
+
+bool WebProcessProxy::checkURLReceivedFromWebProcess(const String& urlString)
+{
+    return checkURLReceivedFromWebProcess(KURL(KURL(), urlString));
+}
+
+bool WebProcessProxy::checkURLReceivedFromWebProcess(const KURL& url)
+{
+    // FIXME: Consider checking that the URL is valid. Currently, WebProcess sends invalid URLs in many cases, but it probably doesn't have good reasons to do that.
+
+    // Any other non-file URL is OK.
+    if (!url.isLocalFile())
+        return true;
+
+    // Any file URL is also OK if we've loaded a file URL through API before, granting universal read access.
+    if (m_mayHaveUniversalFileReadSandboxExtension)
+        return true;
+
+    // If we loaded a string with a file base URL before, loading resources from that subdirectory is fine.
+    // There are no ".." components, because all URLs received from WebProcess are parsed with KURL, which removes those.
+    String path = url.fileSystemPath();
+    for (HashSet<String>::const_iterator iter = m_localPathsWithAssumedReadAccess.begin(); iter != m_localPathsWithAssumedReadAccess.end(); ++iter) {
+        if (path.startsWith(*iter))
+            return true;
+    }
+
+    // Items in back/forward list have been already checked.
+    // One case where we don't have sandbox extensions for file URLs in b/f list is if the list has been reinstated after a crash or a browser restart.
+    for (WebBackForwardListItemMap::iterator iter = m_backForwardListItemMap.begin(), end = m_backForwardListItemMap.end(); iter != end; ++iter) {
+        if (KURL(KURL(), iter->second->url()).fileSystemPath() == path)
+            return true;
+        if (KURL(KURL(), iter->second->originalURL()).fileSystemPath() == path)
+            return true;
+    }
+
+    // A Web process that was never asked to load a file URL should not ever ask us to do anything with a file URL.
+    WTFLogAlways("Received an unexpected URL from the web process: '%s'\n", url.string().utf8().data());
+    return false;
+}
+
+#if !PLATFORM(MAC)
+bool WebProcessProxy::fullKeyboardAccessEnabled()
+{
+    return false;
+}
+#endif
+
 void WebProcessProxy::addBackForwardItem(uint64_t itemID, const String& originalURL, const String& url, const String& title, const CoreIPC::DataReference& backForwardData)
 {
-    std::pair<WebBackForwardListItemMap::iterator, bool> result = m_backForwardListItemMap.add(itemID, 0);
-    if (result.second) {
-        // New item.
-        result.first->second = WebBackForwardListItem::create(originalURL, url, title, backForwardData.data(), backForwardData.size(), itemID);
+    MESSAGE_CHECK_URL(originalURL);
+    MESSAGE_CHECK_URL(url);
+
+    WebBackForwardListItemMap::AddResult result = m_backForwardListItemMap.add(itemID, 0);
+    if (result.isNewEntry) {
+        result.iterator->second = WebBackForwardListItem::create(originalURL, url, title, backForwardData.data(), backForwardData.size(), itemID);
         return;
     }
 
     // Update existing item.
-    result.first->second->setOriginalURL(originalURL);
-    result.first->second->setURL(url);
-    result.first->second->setTitle(title);
-    result.first->second->setBackForwardData(backForwardData.data(), backForwardData.size());
+    result.iterator->second->setOriginalURL(originalURL);
+    result.iterator->second->setURL(url);
+    result.iterator->second->setTitle(title);
+    result.iterator->second->setBackForwardData(backForwardData.data(), backForwardData.size());
 }
 
 #if ENABLE(PLUGIN_PROCESS)
@@ -244,6 +313,10 @@ void WebProcessProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC
         || messageID.is<CoreIPC::MessageClassWebIconDatabase>()
         || messageID.is<CoreIPC::MessageClassWebKeyValueStorageManagerProxy>()
         || messageID.is<CoreIPC::MessageClassWebMediaCacheManagerProxy>()
+        || messageID.is<CoreIPC::MessageClassWebNotificationManagerProxy>()
+#if USE(SOUP)
+        || messageID.is<CoreIPC::MessageClassWebSoupRequestManagerProxy>()
+#endif
         || messageID.is<CoreIPC::MessageClassWebResourceCacheManagerProxy>()) {
         m_context->didReceiveMessage(connection, messageID, arguments);
         return;
@@ -260,25 +333,34 @@ void WebProcessProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC
     pageProxy->didReceiveMessage(connection, messageID, arguments);
 }
 
-CoreIPC::SyncReplyMode WebProcessProxy::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, CoreIPC::ArgumentEncoder* reply)
+void WebProcessProxy::didReceiveSyncMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, OwnPtr<CoreIPC::ArgumentEncoder>& reply)
 {
-    if (messageID.is<CoreIPC::MessageClassWebProcessProxy>())
-        return didReceiveSyncWebProcessProxyMessage(connection, messageID, arguments, reply);
+    if (messageID.is<CoreIPC::MessageClassWebProcessProxy>()) {
+        didReceiveSyncWebProcessProxyMessage(connection, messageID, arguments, reply);
+        return;
+    }
 
     if (messageID.is<CoreIPC::MessageClassWebContext>() || messageID.is<CoreIPC::MessageClassWebContextLegacy>() 
-        || messageID.is<CoreIPC::MessageClassDownloadProxy>() || messageID.is<CoreIPC::MessageClassWebIconDatabase>())
-        return m_context->didReceiveSyncMessage(connection, messageID, arguments, reply);
+        || messageID.is<CoreIPC::MessageClassDownloadProxy>() || messageID.is<CoreIPC::MessageClassWebIconDatabase>()) {
+        m_context->didReceiveSyncMessage(connection, messageID, arguments, reply);
+        return;
+    }
 
     uint64_t pageID = arguments->destinationID();
     if (!pageID)
-        return CoreIPC::AutomaticReply;
+        return;
     
     WebPageProxy* pageProxy = webPage(pageID);
     if (!pageProxy)
-        return CoreIPC::AutomaticReply;
+        return;
     
     pageProxy->didReceiveSyncMessage(connection, messageID, arguments, reply);
-    return CoreIPC::AutomaticReply;
+}
+
+void WebProcessProxy::didReceiveMessageOnConnectionWorkQueue(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments, bool& didHandleMessage)
+{
+    if (messageID.is<CoreIPC::MessageClassWebProcessProxy>())
+        didReceiveWebProcessProxyMessageOnConnectionWorkQueue(connection, messageID, arguments, didHandleMessage);
 }
 
 void WebProcessProxy::didClose(CoreIPC::Connection*)
@@ -298,18 +380,10 @@ void WebProcessProxy::didClose(CoreIPC::Connection*)
 
 void WebProcessProxy::didReceiveInvalidMessage(CoreIPC::Connection*, CoreIPC::MessageID messageID)
 {
-    // This fprintf is intentionally left because this function should 
-    // only be hit in the case of a misbehaving web process.
-    fprintf(stderr, "Receive an invalid message from the web process with message ID %x\n", messageID.toInt());
+    WTFLogAlways("Received an invalid message from the web process with message ID %x\n", messageID.toInt());
 
-    // We received an invalid message from the web process, invalidate our connection and kill it.
-    m_connection->invalidate();
-
+    // Terminate the WebProcesses.
     terminate();
-
-    // Since we've invalidated the connection we'll never get a Connection::Client::didClose
-    // callback so we'll explicitly call it here instead.
-    didClose(m_connection.get());
 }
 
 void WebProcessProxy::syncMessageSendTimedOut(CoreIPC::Connection*)
@@ -322,6 +396,14 @@ void WebProcessProxy::didBecomeUnresponsive(ResponsivenessTimer*)
     copyValuesToVector(m_pageMap, pages);
     for (size_t i = 0, size = pages.size(); i < size; ++i)
         pages[i]->processDidBecomeUnresponsive();
+}
+
+void WebProcessProxy::interactionOccurredWhileUnresponsive(ResponsivenessTimer*)
+{
+    Vector<RefPtr<WebPageProxy> > pages;
+    copyValuesToVector(m_pageMap, pages);
+    for (size_t i = 0, size = pages.size(); i < size; ++i)
+        pages[i]->interactionOccurredWhileProcessUnresponsive();
 }
 
 void WebProcessProxy::didBecomeResponsive(ResponsivenessTimer*)
@@ -346,19 +428,14 @@ void WebProcessProxy::didFinishLaunching(CoreIPC::Connection::Identifier connect
 {
     ASSERT(!m_connection);
     
-    m_connection = CoreIPC::Connection::createServerConnection(connectionIdentifier, this, RunLoop::main());
-#if PLATFORM(MAC)
-    m_connection->setShouldCloseConnectionOnMachExceptions();
-#elif PLATFORM(QT) || PLATFORM(GTK)
-    m_connection->setShouldCloseConnectionOnProcessTermination(processIdentifier());
-#endif
+    m_connection = WebConnectionToWebProcess::create(this, connectionIdentifier, RunLoop::main());
+    m_connection->connection()->addQueueClient(this);
+    m_connection->connection()->open();
 
-    m_connection->open();
-    
     for (size_t i = 0; i < m_pendingMessages.size(); ++i) {
         CoreIPC::Connection::OutgoingMessage& outgoingMessage = m_pendingMessages[i].first;
         unsigned messageSendFlags = m_pendingMessages[i].second;
-        m_connection->sendMessage(outgoingMessage.messageID(), adoptPtr(outgoingMessage.arguments()), messageSendFlags);
+        connection()->sendMessage(outgoingMessage.messageID(), adoptPtr(outgoingMessage.arguments()), messageSendFlags);
     }
 
     m_pendingMessages.clear();

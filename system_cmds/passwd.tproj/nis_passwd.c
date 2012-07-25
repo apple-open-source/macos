@@ -56,6 +56,9 @@
  * SUCH DAMAGE.
  */
 
+#include "passwd.h"
+
+#ifdef INFO_NIS
 
 /* update a user's password in NIS. This was based on the Sun implementation
  * we used in NEXTSTEP, although I've added some stuff from OpenBSD. And
@@ -84,6 +87,7 @@ extern int getrpcport(char *, int, int, int);
 extern void getpasswd(char *, int, int, int, int, char *, char **, char**, char **);
 
 static struct passwd *ypgetpwnam(char *name, char *domain);
+static struct passwd *interpret(struct passwd *pwent, char *line);
 
 int nis_passwd(char *uname, char *domain)
 {	
@@ -190,7 +194,7 @@ pwskip(register char *p)
 	return (p);
 }
 
-struct passwd *
+static struct passwd *
 interpret(struct passwd *pwent, char *line)
 {
 	register char	*p = line;
@@ -239,7 +243,7 @@ ypgetpwnam(char *nam, char *domain)
 	int reason, vallen;
 	static char *__yplin = NULL;
 
-	reason = yp_match(domain, "passwd.byname", nam, strlen(nam),
+	reason = yp_match(domain, "passwd.byname", nam, (int)strlen(nam),
 	    &val, &vallen);
 	switch(reason) {
 	case 0:
@@ -257,3 +261,5 @@ ypgetpwnam(char *nam, char *domain)
 
 	return(interpret(&pwent, __yplin));
 }
+
+#endif /* INFO_NIS */

@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -25,6 +25,12 @@ function err_exit
 }
 alias err_exit='err_exit $LINENO'
 
+Command=${0##*/}
+integer Errors=0
+
+tmp=$(mktemp -dt) || { err_exit mktemp -dt failed; exit 1; }
+trap "cd /; rm -rf $tmp" EXIT
+
 function fun
 {
 	integer i
@@ -34,8 +40,6 @@ function fun
 	done
 }
 
-Command=${0##*/}
-integer Errors=0
 set -A x zero one two three four 'five six'
 if	[[ $x != zero ]]
 then	err_exit '$x is not element 0'
@@ -155,7 +159,6 @@ fi
 if	(( s[$y] != 4 ))
 then	err_exit '(( s[$y] != 4 ))'
 fi
-unset y
 set -A y 2 4 6
 typeset -i y
 z=${y[@]}
@@ -269,7 +272,7 @@ fi
 	export foo
 	typeset -i foo
 	[[ $($SHELL -c "print $foo") == 143 ]]'
-) 2> /dev/null || 
+) 2> /dev/null ||
 		err_exit 'exporting associative array not exporting 0-th element'
 unset foo
 typeset -A foo
@@ -284,7 +287,7 @@ for i in one three four five
 do	: ${foo[$i]}
 done
 if	[[ ${!foo[@]} != two ]]
-then	err_exit 'Error in subscript names'
+then	err_exit 'error in subscript names'
 fi
 unset x
 x=( 1 2 3)
@@ -330,24 +333,25 @@ bam[foo]=value
 [[ $bam == value ]] && err_exit 'unset associative array element error'
 : only first element of an array can be exported
 unset bam
-trap 'rm -f /tmp/sharr$$' EXIT
-print 'print ${var[0]} ${var[1]}' > /tmp/sharr$$
-chmod +x /tmp/sharr$$
-[[ $($SHELL -c "var=(foo bar);export var;/tmp/sharr$$") == foo ]] || err_exit 'export array not exporting just first element'
+print 'print ${var[0]} ${var[1]}' > $tmp/script
+chmod +x $tmp/script
+[[ $($SHELL -c "var=(foo bar);export var;$tmp/script") == foo ]] || err_exit 'export array not exporting just first element'
+
 unset foo
-set -o allexport
+set --allexport
 foo=one
 foo[1]=two
 foo[0]=three
-[[ $foo == three ]] || err_exit 'export all not working with arrays'
-cat > /tmp/sharr$$ <<- \!
+[[ $foo == three ]] || err_exit '--allexport not working with arrays'
+set --noallexport
+unset foo
+
+cat > $tmp/script <<- \!
 	typeset -A foo
 	print foo${foo[abc]}
 !
-# 04-05-24 bug fix
-unset foo
-[[ $($SHELL -c "typeset -A foo;/tmp/sharr$$")  == foo ]] 2> /dev/null || err_exit 'empty associative arrays not being cleared correctly before scripts'
-[[ $($SHELL -c "typeset -A foo;foo[abc]=abc;/tmp/sharr$$") == foo ]] 2> /dev/null || err_exit 'associative arrays not being cleared correctly before scripts'
+[[ $($SHELL -c "typeset -A foo;$tmp/script")  == foo ]] 2> /dev/null || err_exit 'empty associative arrays not being cleared correctly before scripts'
+[[ $($SHELL -c "typeset -A foo;foo[abc]=abc;$tmp/script") == foo ]] 2> /dev/null || err_exit 'associative arrays not being cleared correctly before scripts'
 unset foo
 foo=(one two)
 [[ ${foo[@]:1} == two ]] || err_exit '${foo[@]:1} == two'
@@ -376,14 +380,19 @@ foo=bar
 set -- "${foo[@]:1}"
 (( $# == 0 )) || err_exit '${foo[@]:1} should not have any values'
 unset bar
+exp=4
 : ${_foo[bar=4]}
-(( bar == 4 )) || err_exit 'subscript of unset variable not evaluated'
+(( bar == 4 )) || err_exit "subscript of unset variable not evaluated -- expected '4', got '$got'"
+unset bar
+: ${_foo[bar=$exp]}
+(( bar == $exp )) || err_exit "subscript of unset variable not evaluated -- expected '$exp', got '$got'"
 unset foo bar
 foo[5]=4
 bar[4]=3
 bar[0]=foo
 foo[0]=bam
 foo[4]=5
+[[ ${!foo[2+2]} == 'foo[4]' ]] || err_exit '${!var[sub]} should be var[sub]'
 [[ ${bar[${foo[5]}]} == 3 ]] || err_exit  'array subscript cannot be an array instance'
 [[ $bar[4] == 3 ]] || err_exit '$bar[x] != ${bar[x]} inside [[ ]]'
 (( $bar[4] == 3  )) || err_exit '$bar[x] != ${bar[x]} inside (( ))'
@@ -406,7 +415,7 @@ x=${bar[$foo[5]]}
 	test_array[3]=4
 	print "val=${test_array[3]}"
 ++EOF+++
-) == val=4 ]] 2> /dev/null || err_exit 'after reading array[j] and assign array[j] fails' 
+) == val=4 ]] 2> /dev/null || err_exit 'after reading array[j] and assign array[j] fails'
 [[ $($SHELL <<- \+++EOF+++
 	pastebin=( typeset -a form)
 	pastebin.form+=( name="name"   data="clueless" )
@@ -422,10 +431,135 @@ typeset -a foo=([1]=ok [2]=no)
 [[ $foo[bar] == ok ]] || err_exit 'typeset -a not working for simple assignment'
 unset foo
 typeset -a foo=([1]=(x=ok) [2]=(x=no))
+[[ $(typeset | grep 'foo$') == *index* ]] || err_exit 'typeset -a not creating an indexed array'
+foo+=([5]=good)
+[[ $(typeset | grep 'foo$') == *index* ]] || err_exit 'append to indexed array not preserving array type'
 unset foo
 typeset -A foo=([1]=ok [2]=no)
 [[ $foo[bar] == ok ]] && err_exit 'typeset -A not working for simple assignment'
 unset foo
 typeset -A foo=([1]=(x=ok) [2]=(x=no))
 [[ ${foo[bar].x} == ok ]] && err_exit 'typeset -A not working for compound assignment'
-exit $((Errors))
+[[ $($SHELL -c 'typeset -a foo;typeset | grep "foo$"'  2> /dev/null) == *index* ]] || err_exit 'typeset fails for indexed array with no elements'
+xxxxx=(one)
+[[ $(typeset | grep xxxxx$) == *'indexed array'* ]] || err_exit 'array of one element not an indexed array'
+unset foo
+foo[1]=(x=3 y=4)
+{ [[ ${!foo[1].*} == 'foo[1].x foo[1].y' ]] ;} 2> /dev/null || err_exit '${!foo[sub].*} not expanding correctly'
+unset x
+x=( typeset -a foo=( [0]="a" [1]="b" [2]="c" ))
+[[  ${@x.foo} == 'typeset -a'* ]] || err_exit 'x.foo is not an indexed array'
+x=( typeset -A foo=( [0]="a" [1]="b" [2]="c" ))
+[[  ${@x.foo} == 'typeset -A'* ]] || err_exit 'x.foo is not an associative array'
+$SHELL -c $'x=(foo\n\tbar\nbam\n)' 2> /dev/null || err_exit 'compound array assignment with new-lines not working'
+$SHELL -c $'x=(foo\n\tbar:\nbam\n)' 2> /dev/null || err_exit 'compound array assignment with labels not working'
+$SHELL -c $'x=(foo\n\tdone\nbam\n)' 2> /dev/null || err_exit 'compound array assignment with reserved words not working'
+[[ $($SHELL -c 'typeset -A A; print $(( A[foo].bar ))' 2> /dev/null) == 0 ]] || err_exit 'unset variable not evaluating to 0'
+unset a
+typeset -A a
+a[a].z=1
+a[z].z=2
+unset a[a]
+[[ ${!a[@]} == z ]] || err_exit '"unset a[a]" unsets entire array'
+unset a
+a=([x]=1 [y]=2 [z]=(foo=3 bar=4))
+eval "b=$(printf "%B\n" a)"
+eval "c=$(printf "%#B\n" a)"
+[[ ${a[*]} == "${b[*]}" ]] || err_exit 'printf %B not preserving values for arrays'
+[[ ${a[*]} == "${c[*]}" ]] || err_exit 'printf %#B not preserving values for arrays'
+unset a
+a=(zero one two three four)
+a[6]=six
+[[ ${a[-1]} == six ]] || err_exit 'a[-1] should be six'
+[[ ${a[-3]} == four ]] || err_exit 'a[-3] should be four'
+[[ ${a[-3..-1]} == 'four six' ]] || err_exit "a[-3,-1] should be 'four six'"
+
+FILTER=(typeset scope)
+FILTER[0].scope=include
+FILTER[1].scope=exclude
+[[ ${#FILTER[@]} == 2 ]] ||  err_exit "FILTER array should have two elements not ${#FILTER[@]}"
+
+unset x
+function x.get
+{
+	print sub=${.sh.subscript}
+}
+x[2]=
+z=$(: ${x[1]} )
+[[ $z == sub=1 ]] || err_exit 'get function not invoked for index array'
+
+unset x
+typeset -A x
+function x.get
+{
+	print sub=${.sh.subscript}
+}
+x[2]=
+z=$(: ${x[1]} )
+[[ $z == sub=1 ]] || err_exit 'get function not invoked for associative array'
+
+unset y
+i=1
+a=(11 22)
+typeset -m y=a[i]
+[[ $y == 22 ]] || err_exit 'typeset -m for index array not working'
+[[ ${a[i]} || ${a[0]} != 11 ]] && err_exit 'typeset -m for index array not deleting element'
+
+unset y
+a=([0]=11 [1]=22)
+typeset -m y=a[$i]
+[[ $y == 22 ]] || err_exit 'typeset -m for associative array not working'
+[[ ${a[$i]} || ${a[0]} != 11 ]] && err_exit 'typeset -m for associative array not deleting element'
+unset x a j
+
+typeset -a a=( [0]="aa" [1]="bb" [2]="cc" )
+typeset -m 'j=a[0]'
+typeset -m 'a[0]=a[1]'
+typeset -m 'a[1]=j'
+[[ ${a[@]} == 'bb aa cc' ]] || err_exit 'moving index array elements not working'
+unset a j
+
+typeset -A a=( [0]="aa" [1]="bb" [2]="cc" )
+typeset -m 'j=a[0]'
+typeset -m 'a[0]=a[1]'
+typeset -m 'a[1]=j'
+[[ ${a[@]} == 'bb aa cc' ]] || err_exit 'moving associative array elements not working'
+unset a j
+
+z=(a b c)
+unset x
+typeset -m x[1]=z
+[[ ${x[1][@]} == 'a b c' ]] || err_exit 'moving indexed array to index array element not working'
+
+unset x z
+z=([0]=a [1]=b [2]=c)
+typeset -m x[1]=z
+[[ ${x[1][@]} == 'a b c' ]] || err_exit 'moving associative array to index array element not working'
+
+{
+typeset -a arr=(
+	float
+)
+} 2> /dev/null
+[[ ${arr[0]} == float ]] || err_exit 'typeset -a should not expand alias for float'
+unset arr
+
+{
+typeset -r -a arr=(
+	float
+)
+} 2> /dev/null
+[[ ${arr[0]} == float ]] || err_exit 'typeset -r -a should not expand alias for float'
+{
+typeset -a arr2=(
+	typeset +r
+)
+} 2> /dev/null
+[[ ${arr2[0]} == typeset ]] || err_exit 'typeset -a should not process declarations'
+unset arr2
+
+$SHELL 2> /dev/null -c $'typeset -a arr=(\nfor)' || err_exit 'typeset -a should allow reserved words as first argument'
+
+$SHELL 2> /dev/null -c $'typeset -r -a arr=(\nfor)' || err_exit 'typeset -r -a should allow reserved words as first argument'
+
+exit $((Errors<125?Errors:125))

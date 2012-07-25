@@ -23,12 +23,11 @@
 
 #include "CSSPrimitiveValue.h"
 #include "CSSFunctionValue.h"
-#include "CSSQuirkPrimitiveValue.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
 
 namespace WebCore {
-        
+
 using namespace WTF;
 
 CSSParserValueList::~CSSParserValueList()
@@ -51,7 +50,7 @@ void CSSParserValueList::insertValueAt(unsigned i, const CSSParserValue& v)
 }
 
 void CSSParserValueList::deleteValueAt(unsigned i)
-{ 
+{
     m_values.remove(i);
 }
 
@@ -83,10 +82,10 @@ PassRefPtr<CSSValue> CSSParserValue::createCSSValue()
     else if (unit >= CSSPrimitiveValue::CSS_TURN && unit <= CSSPrimitiveValue::CSS_REMS) // CSS3 Values and Units
         parsedValue = CSSPrimitiveValue::create(fValue, (CSSPrimitiveValue::UnitTypes)unit);
     else if (unit >= CSSParserValue::Q_EMS)
-        parsedValue = CSSQuirkPrimitiveValue::create(fValue, CSSPrimitiveValue::CSS_EMS);
+        parsedValue = CSSPrimitiveValue::createAllowingMarginQuirk(fValue, CSSPrimitiveValue::CSS_EMS);
     return parsedValue;
 }
-    
+
 CSSParserSelector::CSSParserSelector()
     : m_selector(adoptPtr(fastNew<CSSSelector>()))
 {
@@ -96,16 +95,15 @@ CSSParserSelector::~CSSParserSelector()
 {
     if (!m_tagHistory)
         return;
-    Vector<CSSParserSelector*, 16> toDelete;
-    CSSParserSelector* selector = m_tagHistory.leakPtr();
+    Vector<OwnPtr<CSSParserSelector>, 16> toDelete;
+    OwnPtr<CSSParserSelector> selector = m_tagHistory.release();
     while (true) {
-        toDelete.append(selector);
-        CSSParserSelector* next = selector->m_tagHistory.leakPtr();
+        OwnPtr<CSSParserSelector> next = selector->m_tagHistory.release();
+        toDelete.append(selector.release());
         if (!next)
             break;
-        selector = next;
+        selector = next.release();
     }
-    deleteAllValues(toDelete);
 }
 
 void CSSParserSelector::adoptSelectorVector(Vector<OwnPtr<CSSParserSelector> >& selectorVector)

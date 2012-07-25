@@ -20,9 +20,9 @@
 
 #include "config.h"
 #include "AccessibilityObject.h"
+
 #include "RenderObject.h"
 #include "RenderText.h"
-
 #include <glib-object.h>
 
 #if HAVE(ACCESSIBILITY)
@@ -61,10 +61,6 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (role == CellRole || role == TableRole)
         return IncludeObject;
 
-    // We at some point might have a need to expose a table row; but it's not standard Gtk+.
-    if (role == RowRole)
-        return IgnoreObject;
-
     // The object containing the text should implement AtkText itself.
     if (role == StaticTextRole)
         return IgnoreObject;
@@ -75,6 +71,11 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
 
     // Bullets/numbers for list items shouldn't be exposed as AtkObjects.
     if (role == ListMarkerRole)
+        return IgnoreObject;
+
+    // Never expose an unknown object, since AT's won't know what to
+    // do with them. This is what is done on the Mac as well.
+    if (role == UnknownRole)
         return IgnoreObject;
 
     return DefaultBehavior;

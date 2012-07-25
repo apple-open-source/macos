@@ -33,27 +33,25 @@ class SVGLinearGradientElement : public SVGGradientElement {
 public:
     static PassRefPtr<SVGLinearGradientElement> create(const QualifiedName&, Document*);
 
-    void collectGradientAttributes(LinearGradientAttributes&);
-    void calculateStartEndPoints(const LinearGradientAttributes&, FloatPoint& startPoint, FloatPoint& endPoint);
+    bool collectGradientAttributes(LinearGradientAttributes&);
 
 private:
     SVGLinearGradientElement(const QualifiedName&, Document*);
 
-    virtual void parseMappedAttribute(Attribute*);
+    bool isSupportedAttribute(const QualifiedName&);
+    virtual void parseAttribute(Attribute*) OVERRIDE;
     virtual void svgAttributeChanged(const QualifiedName&);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual void fillAttributeToPropertyTypeMap();
-    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
     virtual bool selfHasRelativeLengths() const;
 
-    // Animated property declarations
-    DECLARE_ANIMATED_LENGTH(X1, x1)
-    DECLARE_ANIMATED_LENGTH(Y1, y1)
-    DECLARE_ANIMATED_LENGTH(X2, x2)
-    DECLARE_ANIMATED_LENGTH(Y2, y2)
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGLinearGradientElement)
+        DECLARE_ANIMATED_LENGTH(X1, x1)
+        DECLARE_ANIMATED_LENGTH(Y1, y1)
+        DECLARE_ANIMATED_LENGTH(X2, x2)
+        DECLARE_ANIMATED_LENGTH(Y2, y2)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

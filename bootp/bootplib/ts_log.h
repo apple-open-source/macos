@@ -32,4 +32,4 @@
 void ts_log_init(int verbose);
 void ts_log(int priority, const char * message, ...);
 
-#endif _S_TS_LOG_H
+#endif /* _S_TS_LOG_H */

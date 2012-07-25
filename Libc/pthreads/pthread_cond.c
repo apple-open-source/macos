@@ -58,7 +58,6 @@
 #define PLOCKSTAT_MUTEX_RELEASE(x, y)
 #endif /* PLOCKSTAT */
 
-extern int __semwait_signal(int, int, int, int, int64_t, int32_t);
 extern int _pthread_cond_init(pthread_cond_t *, const pthread_condattr_t *, int);
 extern int __unix_conforming;
 extern int usenew_mtximpl;
@@ -266,7 +265,7 @@ retry:
 			oldval64 |= lcntval;
 			newval64 = oldval64;
 
-			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 				goto retry;
 			cond->sig = _PTHREAD_NO_SIG;
 			ret = 0;
@@ -295,7 +294,8 @@ pthread_cond_broadcast(pthread_cond_t *ocond)
 	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint32_t * pmtx = NULL;
 	uint32_t nlval, ulval;
-	int needclearpre = 0, retry_count = 0;
+	int needclearpre = 0, retry_count = 0, uretry_count = 0;
+	int ucountreset = 0;
 
 	/* to provide backwards compat for apps using united condtn vars */
 	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
@@ -339,7 +339,7 @@ retry:
 		oldval64 |= lcntval;
 		newval64 = oldval64;
 
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 			goto retry;
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, 0xf1f1f1f1, 0);
@@ -348,7 +348,8 @@ retry:
 		return(0);
 	}
 
-	if (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK)) || is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+	/* validate to eliminate spurious values, race snapshots */
+	if (is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
 		/* since ucntval may be newer, just redo */
 		retry_count++;
 		if (retry_count > 8192) {
@@ -357,7 +358,26 @@ retry:
 			sched_yield();
 			goto retry;
 		}
-        }
+	} else if (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+		/* since ucntval may be newer, just redo */
+		uretry_count++;
+		if (uretry_count > 8192) {
+			/*
+			 * U value if not used for a while can go out of sync
+			 * set this to S value and try one more time.
+			 */
+			if (ucountreset != 0)
+				return(EAGAIN);
+			else
+			if (OSAtomicCompareAndSwap32Barrier(ucntval, (scntval & PTHRW_COUNT_MASK), (volatile int32_t *)c_useqcnt) == TRUE) {
+				/* now the U is reset to S value */
+				ucountreset = 1;	
+				uretry_count = 0;
+			} 
+		}
+		sched_yield();
+		goto retry;
+	}
 
 	if (is_seqlower(ucntval & PTHRW_COUNT_MASK, scntval & PTHRW_COUNT_MASK) != 0) {
 		/* If U < S, set U = S+diff due to intr's TO, etc */
@@ -374,7 +394,7 @@ retry:
 
 	/* set U = L */
 	ulval = (lcntval & PTHRW_COUNT_MASK);
-	if (OSAtomicCompareAndSwap32(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
+	if (OSAtomicCompareAndSwap32Barrier(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
 		goto retry;
 	}
 
@@ -430,7 +450,7 @@ retry2:
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, 0x25, nlval, scntval, updateval, 0);
 #endif
 
-			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 				goto retry2;
 
 			/* if L == S, then reset associated mutex */
@@ -467,8 +487,8 @@ pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
 	uint32_t nlval, ulval=0;
 	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint64_t oldval64, newval64, mugen, cvlsgen, mtid = 0;
-	int needclearpre = 0, retry_count = 0;
-	int error;
+	int needclearpre = 0, retry_count = 0, uretry_count = 0;
+	int error, ucountreset = 0;
 
 	/* to provide backwards compat for apps using united condtn vars */
 
@@ -511,7 +531,7 @@ retry:
 		oldval64 |= lcntval;
 		newval64 = oldval64;
 
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 			goto retry;
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, 0xf1f1f1f1, 0);
@@ -520,16 +540,38 @@ retry:
 		return(0);
 	}
 
-	if (((thread == 0) && (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK)))) || is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
-		/* since ucntval may be newer, just redo */
-		retry_count++;
-		if (retry_count > 8192) {
-			return(EAGAIN);
-		} else {
+	if (thread == 0) {
+		/* validate to eliminate spurious values, race snapshots */
+		if (is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+			/* since ucntval may be newer, just redo */
+			retry_count++;
+			if (retry_count > 8192) {
+				return(EAGAIN);
+			} else {
+				sched_yield();
+				goto retry;
+			}
+        	} else if (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+			/* since ucntval may be newer, just redo */
+			uretry_count++;
+			if (uretry_count > 8192) {
+				/*
+				 * U value if not used for a while can go out of sync
+				 * set this to S value and try one more time.
+				 */
+				if (ucountreset != 0)
+					return(EAGAIN);
+				else
+				if (OSAtomicCompareAndSwap32Barrier(ucntval, (scntval & PTHRW_COUNT_MASK), (volatile int32_t *)c_useqcnt) == TRUE) {
+					/* now the U is reset to S value */
+					ucountreset = 1;	
+					uretry_count = 0;
+				} 
+			}
 			sched_yield();
 			goto retry;
 		}
-        }
+	} /* thread == 0 ) */
 
 	if (thread == 0) {
 		/* 
@@ -547,7 +589,7 @@ retry:
 			ulval = (ucntval & PTHRW_COUNT_MASK) + PTHRW_INC;
 		}
 
-		if (OSAtomicCompareAndSwap32(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
+		if (OSAtomicCompareAndSwap32Barrier(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
 			goto retry;
 		}
 	} 
@@ -602,7 +644,7 @@ retry2:
 (void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, 0x25, nlval, ulval, updateval, 0);
 #endif
 
-			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 				goto retry2;
 
 			/* if L == S, then reset associated mutex */
@@ -768,7 +810,7 @@ retry:
 	newval64 = (((uint64_t)ulval) << 32);
 	newval64 |= nlval;
 
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 		goto retry;
 
 	cond->busy = mutex;
@@ -798,6 +840,7 @@ retry:
 	if (isconforming) {
 		pthread_cleanup_push(cond_cleanup, (void *)cond);
 		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
+		_pthread_testcancel(pthread_self(), isconforming);
 		pthread_cleanup_pop(0);
 	} else {
 		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
@@ -937,7 +980,7 @@ retry:
 		oldval64 = (((uint64_t)scntval) << 32);
 		oldval64 |= lcntval;
 		newval64 = oldval64;
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+		if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 			goto retry;
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
@@ -973,7 +1016,7 @@ retry:
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_NONE, (uint32_t)cond, 0xffff, nlval, ulval, 0);
 #endif
-	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+	if (OSAtomicCompareAndSwap64Barrier(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 		goto retry;
 
 #if _KSYN_TRACE_

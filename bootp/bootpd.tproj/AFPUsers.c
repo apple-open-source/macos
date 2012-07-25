@@ -57,6 +57,59 @@ my_log(int priority, const char *message, ...);
 #define	BSDPD_CREATOR		"bsdpd"
 #define MAX_RETRY		5
 
+#define CHARSET_LOWERCASE		"abcdefghijklmnopqrstuvwxyz"
+#define CHARSET_LOWERCASE_LENGTH	(sizeof(CHARSET_LOWERCASE) - 1)
+#define CHARSET_UPPERCASE		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#define CHARSET_UPPERCASE_LENGTH	(sizeof(CHARSET_UPPERCASE) - 1)
+#define CHARSET_NUMBERS			"0123456789"
+#define CHARSET_NUMBERS_LENGTH		(sizeof(CHARSET_NUMBERS) - 1)
+#define CHARSET_SYMBOLS			"-,./[]\\;'!@#%&*()_{}:\"?"
+#define CHARSET_SYMBOLS_LENGTH		(sizeof(CHARSET_SYMBOLS) - 1)
+
+struct charset_info {
+    const char *	charset; 
+    int 		length;
+};
+
+static void
+generate_random_password(char * passwd, size_t passwd_len)
+{
+    static const struct charset_info charsets[] = {
+       	{ CHARSET_LOWERCASE, CHARSET_LOWERCASE_LENGTH },
+       	{ CHARSET_UPPERCASE, CHARSET_UPPERCASE_LENGTH },
+       	{ CHARSET_NUMBERS, CHARSET_NUMBERS_LENGTH },
+       	{ CHARSET_SYMBOLS, CHARSET_SYMBOLS_LENGTH },
+    };
+    size_t 	charsets_size = sizeof(charsets) / sizeof(charsets[0]);
+    int 	idx;
+    uint32_t	used;
+
+    memset(passwd, 0, passwd_len);
+    used = 0;
+
+    for (idx = 0; idx < (passwd_len - 1); idx++) {
+       	int 			charsetidx = (int)(arc4random() % charsets_size);
+       	const struct charset_info *	info;
+
+	if (idx >= (passwd_len - charsets_size)) {
+	    /* 
+	     * Nearly finished generating the password. Make sure that we
+	     * have picked at least one character from each charset.
+	     */
+	    size_t count = 0; 
+	    while ((used & (1 << charsetidx)) != 0 && count < charsets_size) {
+	       	count++;
+	       	if (++charsetidx >= charsets_size) {
+		    charsetidx = 0;
+	       	}
+	    }
+       	}
+       	info = charsets + charsetidx;
+       	used |= (1 << charsetidx);
+       	passwd[idx] = info->charset[arc4random() % info->length];
+    }
+}
+
 static uid_t
 uid_from_odrecord(ODRecordRef record)
 {
@@ -394,13 +447,13 @@ AFPUser_set_random_password(AFPUserRef user,
 	printf("No need to change the password %d < %d\n",
 	       (int)CFDateGetTimeIntervalSinceDate(now, last_set),
 	       AFPUSER_PASSWORD_CHANGE_INTERVAL);
-#endif TEST_AFPUSERS
+#endif /* TEST_AFPUSERS */
 	(void)_SC_cfstring_to_cstring(pw, passwd, passwd_len,
 				      kCFStringEncodingASCII);
 	CFDictionarySetValue(user, kAFPUserDatePasswordLastSet, now);
     }
     else {
-	snprintf(passwd, passwd_len, "%08x", arc4random());
+	generate_random_password(passwd, passwd_len);
 
 	record = (ODRecordRef)CFDictionaryGetValue(user, kAFPUserODRecord);
 	pw = CFStringCreateWithCString(NULL, passwd, kCFStringEncodingASCII);
@@ -582,4 +635,4 @@ my_log(int priority, const char *message, ...)
     return;
 }
 
-#endif TEST_AFPUSERS
+#endif /* TEST_AFPUSERS */

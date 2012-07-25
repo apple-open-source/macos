@@ -88,6 +88,10 @@
 #define ovbcopy bcopy
 #endif
 
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
+
+
 void
 sl_compress_init(comp, max_state)
 	struct slcompress *comp;
@@ -504,7 +508,7 @@ sl_uncompress_tcp_core(buf, buflen, total_len, type, comp, hdrp, hlenp)
 	switch (type) {
 
 	case TYPE_UNCOMPRESSED_TCP:
-		ip = (struct ip *) buf;
+		ip = (struct ip *)(void*) buf;  // Wcast-align fix (void*) - used only to access 1 byte or less
 		if (ip->ip_p >= MAX_STATES)
 			goto bad;
 		cs = &comp->rstate[comp->last_recv = ip->ip_p];
@@ -517,7 +521,7 @@ sl_uncompress_tcp_core(buf, buflen, total_len, type, comp, hdrp, hlenp)
 		hlen = ip->ip_hl << 2;
 		if (hlen + sizeof(struct tcphdr) > buflen)
 			goto bad;
-		hlen += ((struct tcphdr *)&((char *)ip)[hlen])->th_off << 2;
+		hlen += ((struct tcphdr *)(void*)&((char *)ip)[hlen])->th_off << 2; // Wcast-align fix (void*) - used for access to 4 bits
 		if (hlen > MAX_HDR || hlen > buflen)
 			goto bad;
 		BCOPY(ip, &cs->cs_ip, hlen);
@@ -556,7 +560,7 @@ sl_uncompress_tcp_core(buf, buflen, total_len, type, comp, hdrp, hlenp)
 	}
 	cs = &comp->rstate[comp->last_recv];
 	hlen = cs->cs_ip.ip_hl << 2;
-	th = (struct tcphdr *)&((u_char *)&cs->cs_ip)[hlen];
+	th = ALIGNED_CAST(struct tcphdr *)&((u_char *)&cs->cs_ip)[hlen];
 	th->th_sum = htons((*cp << 8) | cp[1]);
 	cp += 2;
 	if (changes & TCP_PUSH_BIT)

@@ -53,6 +53,7 @@ OSDefineMetaClassAndStructors(AppleSmartBatteryManager, IOService)
 
 bool AppleSmartBatteryManager::start(IOService *provider)
 {
+    bool        ret_bool;
     IOCommandGate * gate;
     IOWorkLoop *    wl;
 
@@ -86,9 +87,9 @@ bool AppleSmartBatteryManager::start(IOService *provider)
 
     if(!fBattery) return false;
     
-    fBattery->attach(this);
+    ret_bool = fBattery->attach(this);
 
-    fBattery->start(this);
+    ret_bool = fBattery->start(this);
 
     // Command gate for SmartBatteryManager
     fManagerGate = IOCommandGate::commandGate(this);
@@ -662,7 +663,7 @@ void BattLog(const char *fmt, ...)
     vsnprintf(buf, sizeof(buf), fmt, listp);
     va_end(listp);
 
-    IOLog("BattLog: %s", buf);
+    kprintf("BattLog: %s", buf);
     
     return;
 #endif

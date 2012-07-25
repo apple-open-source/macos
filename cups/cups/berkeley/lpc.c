@@ -1,5 +1,5 @@
 /*
- * "$Id: lpc.c 9384 2010-11-22 07:06:39Z mike $"
+ * "$Id: lpc.c 9042 2010-03-24 00:45:34Z mike $"
  *
  *   "lpc" command for CUPS.
  *
@@ -446,5 +446,5 @@ show_status(http_t     *http,		/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpc.c 9384 2010-11-22 07:06:39Z mike $".
+ * End of "$Id: lpc.c 9042 2010-03-24 00:45:34Z mike $".
  */

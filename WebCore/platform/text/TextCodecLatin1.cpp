@@ -32,6 +32,8 @@
 #include <wtf/text/StringBuffer.h>
 #include <wtf/PassOwnPtr.h>
 
+using namespace WTF;
+
 namespace WebCore {
 
 static const UChar table[256] = {
@@ -133,7 +135,7 @@ String TextCodecLatin1::decode(const char* bytes, size_t length, bool, bool, boo
                 while (source < alignedEnd) {
                     MachineWord chunk = *reinterpret_cast_ptr<const MachineWord*>(source);
 
-                    if (!isAllASCII(chunk))
+                    if (!isAllASCII<LChar>(chunk))
                         goto useLookupTable;
 
                     copyASCIIMachineWord(destination, source);

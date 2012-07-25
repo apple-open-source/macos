@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -45,6 +45,12 @@ static int	N_reclaim;	/* # of bestreclaim calls		*/
 #undef	VM_TRUST		/* always check for locking, etc.s	*/
 #define	VM_TRUST	0
 #endif /*DEBUG*/
+
+#if _BLD_posix
+#define logmsg(d,a ...)	logsrc(d,__FILE__,__LINE__,a)
+
+extern int	logsrc(int, const char*, int, const char*, ...);
+#endif /*_BLD_posix*/
 
 #define COMPACT		8	/* factor to decide when to compact	*/
 
@@ -421,6 +427,13 @@ int		c;
 
 			if(ISPFREE(size))	/* backward merge */
 			{	fp = LAST(fp);
+#if _BLD_posix
+				if (fp < (Block_t*)0x00120000)
+				{
+					logmsg(0, "bestreclaim fp=%p", fp);
+					ASSERT(!fp);
+				}
+#endif
 				s = SIZE(fp); /**/ASSERT(!(s&BITS));
 				REMOVE(vd,fp,INDEX(s),t,bestsearch);
 				size = (size&~BITS) + s + sizeof(Head_t);
@@ -429,6 +442,13 @@ int		c;
 
 			for(;;)	/* forward merge */
 			{	np = (Block_t*)((Vmuchar_t*)fp+size+sizeof(Head_t));
+#if _BLD_posix
+				if (np < (Block_t*)0x00120000)
+				{
+					logmsg(0, "bestreclaim np=%p", np);
+					ASSERT(!np);
+				}
+#endif
 				s = SIZE(np);	/**/ASSERT(s > 0);
 				if(!ISBUSY(s))
 				{	/**/ASSERT((s&BITS) == 0);
@@ -641,55 +661,8 @@ reg size_t	size;	/* desired block size		*/
 	reg int		local, inuse;
 	size_t		orgsize = 0;
 
-	if(!(_Vmassert & VM_init))
-	{	char	*chk = getenv("VMCHECK");
-		_Vmassert = VM_init;
-		if(chk)
-		{	int	set = 1;
-			for(;; set ? (_Vmassert |= n) : (_Vmassert &= ~n))
-			{
-				switch (*chk++)
-				{
-				case 0:
-					break;
-				case '-':
-				case '!':
-					set = 0;
-					n = 0;
-					continue;
-				case '+':
-					set = 1;
-					n = 0;
-					continue;
-				case '1':
-					n = VM_check;
-					continue;
-				case '2':
-					n = VM_abort;
-					continue;
-				case '3':
-					n = VM_check|VM_abort;
-					continue;
-				case 'a':
-				case 'A':
-					n = VM_abort;
-					continue;
-				case 'c':
-				case 'C':
-					n = VM_check;
-					continue;
-				case 'r':
-				case 'R':
-					n = VM_region;
-					continue;
-				default:
-					n = 0;
-					continue;
-				}
-				break;
-			}
-		}
-	}
+	VMOPTIONS();
+
 	/**/COUNT(N_alloc);
 
 	SETINUSE(vd, inuse);
@@ -881,7 +854,7 @@ Void_t*		data;
 	reg int		local, inuse;
 
 #ifdef DEBUG
-	if((local = (int)data) >= 0 && local <= 0xf)
+	if((local = (int)integralof(data)) >= 0 && local <= 0xf)
 	{	int	vmassert = _Vmassert;
 		_Vmassert = local ? local : vmassert ? vmassert : (VM_check|VM_abort);
 		_vmbestcheck(vd, NIL(Block_t*));
@@ -1273,6 +1246,78 @@ typedef struct _mmapdisc_s
 #endif
 #define BRK_FAILED	((Void_t*)(-1))
 
+/* make sure that allocated memory are addressable */
+
+#if _PACKAGE_ast
+#include	<sig.h>
+#else
+#include	<signal.h>
+typedef void	(*Sig_handler_t)(int);
+#endif
+
+static int	Gotsegv = 0;
+
+#if __STD_C
+static void sigsegv(int sig)
+#else
+static void sigsegv(sig)
+int	sig;
+#endif
+{
+	if(sig == SIGSEGV)
+		Gotsegv = 1;
+}
+
+/*
+ * okaddr() is required for systems that overcommit brk()/mmap() allocations
+ * by returning ok when even though the pages that cover the allocation
+ * haven't been committed to the process yet -- linux does this and it
+ * works most of the time, but when it fails its insidious because it
+ * manifests as random core dumps under system load, although it can
+ * also happen under normal load but during a spike of allocation requests
+ *
+ * overcommit is costly to iffe out, so we resort to cursed system specific
+ * predefined macro guards to detect systems that we know 100% do not overcommit
+ *
+ * sunos only overcommits for mmap(MAP_NORESERVE) allocations (vmalloc doesn't use that)
+ */
+
+#if defined(__SunOS)
+
+#define okaddr(a,n)	0
+
+#else
+
+#if __STD_C
+static int okaddr(Void_t* addr, size_t nsize)
+#else
+static int okaddr(addr, nsize)
+Void_t*	addr;
+size_t	nsize;
+#endif
+{
+	Sig_handler_t	segv;
+	int		rv;
+
+	Gotsegv = 0; /* catch segment fault */
+	segv = signal(SIGSEGV, sigsegv);
+
+	if(Gotsegv == 0)
+		rv = *((char*)addr);
+	if(Gotsegv == 0)
+		rv += *(((char*)addr)+nsize-1);
+	if(Gotsegv == 0)
+		rv = rv == 0 ? 0 : 1;
+	else	rv = -1;
+
+	signal(SIGSEGV, segv); /* restore signal catcher */
+	Gotsegv = 0;
+
+	return rv;
+}
+
+#endif
+
 /* A discipline to get raw memory using sbrk/VirtualAlloc/mmap */
 #if __STD_C
 static Void_t* sbrkmem(Vmalloc_t* vm, Void_t* caddr,
@@ -1313,81 +1358,90 @@ Vmdisc_t*	disc;	/* discipline structure			*/
 	{
 
 #if _mem_sbrk	/* try using sbrk() and brk() */
+		if(!(_Vmassert & VM_mmap))
 		{
 			addr = (Vmuchar_t*)sbrk(0); /* old break value */
 			if(addr && addr != (Vmuchar_t*)BRK_FAILED )
+			{
+				if((addr+nsize) < addr)
+					return NIL(Void_t*);
 				if(brk(addr+nsize) == 0 ) 
-					return addr;
+				{	if(okaddr(addr,nsize) >= 0)
+						return addr;
+					(void)brk(addr); /* release reserved address */
+				}
+			}
 		}
 #endif /* _mem_sbrk */
 
 #if _mem_mmap_anon /* anonymous mmap */
-		{
-			addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
-                                        	MAP_ANON|MAP_PRIVATE, -1, 0);
-			if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+		addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
+                                        MAP_ANON|MAP_PRIVATE, -1, 0);
+		if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+		{	if(okaddr(addr,nsize) >= 0)
 				return addr;
+			(void)munmap((char*)addr, nsize); /* release reserved address */
 		}
 #endif /* _mem_mmap_anon */
 
 #if _mem_mmap_zero /* mmap from /dev/zero */
-		{
-			if(mmdc->fd < 0)
-			{	int	fd;
-				if(mmdc->fd != -1)
-					return NIL(Void_t*);
-				if((fd = open("/dev/zero", O_RDONLY)) < 0 )
-				{	mmdc->fd = -2;
-					return NIL(Void_t*);
-				}
-				if(fd >= OPEN_PRIVATE || (mmdc->fd = dup2(fd,OPEN_PRIVATE)) < 0 )
-					mmdc->fd = fd;
-				else	close(fd);
-#ifdef FD_CLOEXEC
-				fcntl(mmdc->fd, F_SETFD, FD_CLOEXEC);
-#endif
+		if(mmdc->fd < 0)
+		{	int	fd;
+			if(mmdc->fd != -1)
+				return NIL(Void_t*);
+			if((fd = open("/dev/zero", O_RDONLY)) < 0 )
+			{	mmdc->fd = -2;
+				return NIL(Void_t*);
 			}
-			addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
-						MAP_PRIVATE, mmdc->fd, mmdc->offset);
-			if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+			if(fd >= OPEN_PRIVATE || (mmdc->fd = dup2(fd,OPEN_PRIVATE)) < 0 )
+				mmdc->fd = fd;
+			else	close(fd);
+#ifdef FD_CLOEXEC
+			fcntl(mmdc->fd, F_SETFD, FD_CLOEXEC);
+#endif
+		}
+		addr = (Vmuchar_t*)mmap(0, nsize, PROT_READ|PROT_WRITE,
+					MAP_PRIVATE, mmdc->fd, mmdc->offset);
+		if(addr && addr != (Vmuchar_t*)MAP_FAILED)
+		{	if(okaddr(addr, nsize) >= 0)
 			{	mmdc->offset += nsize;
 				return addr;
 			}
+			(void)munmap((char*)addr, nsize); /* release reserved address */
 		}
 #endif /* _mem_mmap_zero */
 
 		return NIL(Void_t*);
 	}
 	else
-	{	addr = caddr; /* in case !_mem_sbrk */
+	{
 
 #if _mem_sbrk
-		{
-			addr = (Vmuchar_t*)sbrk(0);
-			if(!addr || addr == (Vmuchar_t*)BRK_FAILED)
-				addr = caddr;
-			else if(((Vmuchar_t*)caddr+csize) == addr) /* in sbrk-space */
-			{	if(nsize > csize)
-					addr += nsize-csize;
-				else	addr -= csize-nsize;
-				return brk(addr) == 0 ? caddr : NIL(Void_t*);
-			}
+		addr = (Vmuchar_t*)sbrk(0);
+		if(!addr || addr == (Vmuchar_t*)BRK_FAILED)
+			addr = caddr;
+		else if(((Vmuchar_t*)caddr+csize) == addr) /* in sbrk-space */
+		{	if(nsize <= csize)
+				addr -= csize-nsize;
+			else if((addr += nsize-csize) < (Vmuchar_t*)caddr)
+				return NIL(Void_t*); /* wrapped around address */
+			else	return brk(addr) == 0 ? caddr : NIL(Void_t*);
 		}
+#else
+		addr = caddr;
 #endif /* _mem_sbrk */
 
 #if _mem_mmap_zero || _mem_mmap_anon
-		{
-			if(((Vmuchar_t*)caddr+csize) > addr) /* in mmap-space */
-				if(nsize == 0 && munmap(caddr,csize) == 0)
-					return caddr;
-		}
+		if(((Vmuchar_t*)caddr+csize) > addr) /* in mmap-space */
+			if(nsize == 0 && munmap(caddr,csize) == 0)
+				return caddr;
 #endif /* _mem_mmap_zero || _mem_mmap_anon */
 
 		return NIL(Void_t*);
 	}
 #endif /*_done_sbrkmem*/
 
-#if !_done_sbrkmem /* use native malloc/free as a last resource */
+#if !_done_sbrkmem /* use native malloc/free as a last resort */
 	/**/ASSERT(_std_malloc); /* _std_malloc should be well-defined */
 	NOTUSED(vm);
 	NOTUSED(disc);

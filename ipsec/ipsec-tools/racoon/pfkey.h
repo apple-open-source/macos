@@ -75,6 +75,6 @@ extern int pfkey_convertfromipsecdoi __P(( u_int, u_int, u_int,
 	u_int *, u_int *, u_int *, u_int *, u_int *));
 extern u_int32_t pk_getseq __P((void));
 extern const char *sadbsecas2str
-	__P((struct sockaddr *, struct sockaddr *, int, u_int32_t, int));
+	__P((struct sockaddr_storage *, struct sockaddr_storage *, int, u_int32_t, int));
 
 #endif /* _PFKEY_H */

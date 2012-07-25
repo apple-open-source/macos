@@ -74,17 +74,20 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
     mach_port_t			au_session = MACH_PORT_NULL;
     CFDataRef			data = NULL;
     if_name_t			if_name;
+    boolean_t			need_deallocate;
     mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
-    mach_port_t 		unpriv_bootstrap_port = MACH_PORT_NULL;
-    
-    status = bootstrap_unprivileged(bootstrap_port, &unpriv_bootstrap_port);
+
+    status = mach_port_mod_refs(mach_task_self(), bootstrap_port,
+				MACH_PORT_RIGHT_SEND, 1);
     if (status != KERN_SUCCESS) {
-	mach_error("bootstrap_unprivileged failed", status);
+	need_deallocate = FALSE;
+	mach_error("mach_port_mod_refs failed", status);
 	result = ENXIO;
 	goto done;
     }
+    need_deallocate = TRUE;
     au_session = audit_session_self();
     if (au_session == MACH_PORT_NULL) {
 	perror("audit_session_port");
@@ -109,7 +112,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 				   if_name, 
 				   (xmlDataOut_t)CFDataGetBytePtr(data),
 				   CFDataGetLength(data),
-				   unpriv_bootstrap_port,
+				   bootstrap_port,
 				   au_session,
 				   &result);
     if (status != KERN_SUCCESS) {
@@ -120,9 +123,14 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
     if (result != 0) {
 	fprintf(stderr, "eapolcontroller_start: result is %d\n", result);
     }
+
  done:
-    if (unpriv_bootstrap_port != MACH_PORT_NULL) {
-	mach_port_deallocate(mach_task_self(), unpriv_bootstrap_port);
+    if (need_deallocate) {
+	(void)mach_port_mod_refs(mach_task_self(), bootstrap_port,
+				 MACH_PORT_RIGHT_SEND, -1);
+    }
+    if (au_session != MACH_PORT_NULL) {
+	(void)mach_port_deallocate(mach_task_self(), au_session);
     }
     my_CFRelease(&data);
     return (result);

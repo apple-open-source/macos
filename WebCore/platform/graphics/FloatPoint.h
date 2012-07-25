@@ -31,7 +31,15 @@
 #include "IntPoint.h"
 #include <wtf/MathExtras.h>
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+#if PLATFORM(BLACKBERRY)
+namespace BlackBerry {
+namespace Platform {
+class FloatPoint;
+}
+}
+#endif
+
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
 typedef struct CGPoint CGPoint;
 #endif
 
@@ -50,10 +58,6 @@ class QPointF;
 QT_END_NAMESPACE
 #endif
 
-#if PLATFORM(HAIKU)
-class BPoint;
-#endif
-
 #if USE(SKIA)
 struct SkPoint;
 #endif
@@ -63,13 +67,16 @@ namespace WebCore {
 class AffineTransform;
 class TransformationMatrix;
 class IntPoint;
+class IntSize;
+class FractionalLayoutPoint;
+class FractionalLayoutSize;
 
 class FloatPoint {
 public:
     FloatPoint() : m_x(0), m_y(0) { }
     FloatPoint(float x, float y) : m_x(x), m_y(y) { }
     FloatPoint(const IntPoint&);
-
+    FloatPoint(const FractionalLayoutPoint&);
 
     static FloatPoint zero() { return FloatPoint(); }
 
@@ -90,6 +97,28 @@ public:
         m_x += dx;
         m_y += dy;
     }
+    void move(const IntSize& a)
+    {
+        m_x += a.width();
+        m_y += a.height();
+    }
+    void move(const FractionalLayoutSize&);
+    void move(const FloatSize& a)
+    {
+        m_x += a.width();
+        m_y += a.height();
+    }
+    void moveBy(const IntPoint& a)
+    {
+        m_x += a.x();
+        m_y += a.y();
+    }
+    void moveBy(const FractionalLayoutPoint&);
+    void moveBy(const FloatPoint& a)
+    {
+        m_x += a.x();
+        m_y += a.y();
+    }
     void scale(float sx, float sy)
     {
         m_x *= sx;
@@ -109,7 +138,17 @@ public:
         return m_x * m_x + m_y * m_y;
     }
 
-#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
+    FloatPoint expandedTo(const FloatPoint& other) const
+    {
+        return FloatPoint(std::max(m_x, other.m_x), std::max(m_y, other.m_y));
+    }
+
+    FloatPoint transposedPoint() const
+    {
+        return FloatPoint(m_y, m_x);
+    }
+
+#if USE(CG) || USE(SKIA_ON_MAC_CHROMIUM)
     FloatPoint(const CGPoint&);
     operator CGPoint() const;
 #endif
@@ -125,9 +164,9 @@ public:
     operator QPointF() const;
 #endif
 
-#if PLATFORM(HAIKU)
-    FloatPoint(const BPoint&);
-    operator BPoint() const;
+#if PLATFORM(BLACKBERRY)
+    FloatPoint(const BlackBerry::Platform::FloatPoint&);
+    operator BlackBerry::Platform::FloatPoint() const;
 #endif
 
 #if USE(SKIA)
@@ -181,6 +220,11 @@ inline FloatPoint operator-(const FloatPoint& a, const FloatSize& b)
     return FloatPoint(a.x() - b.width(), a.y() - b.height());
 }
 
+inline FloatPoint operator-(const FloatPoint& a)
+{
+    return FloatPoint(-a.x(), -a.y());
+}
+
 inline bool operator==(const FloatPoint& a, const FloatPoint& b)
 {
     return a.x() == b.x() && a.y() == b.y();
@@ -205,6 +249,11 @@ inline IntPoint roundedIntPoint(const FloatPoint& p)
 inline IntPoint flooredIntPoint(const FloatPoint& p)
 {
     return IntPoint(static_cast<int>(p.x()), static_cast<int>(p.y()));
+}
+
+inline IntSize flooredIntSize(const FloatPoint& p)
+{
+    return IntSize(static_cast<int>(p.x()), static_cast<int>(p.y()));
 }
 
 float findSlope(const FloatPoint& p1, const FloatPoint& p2, float& c);

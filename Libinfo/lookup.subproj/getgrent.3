@@ -28,7 +28,7 @@
 .\"     From: @(#)getgrent.3	8.2 (Berkeley) 4/19/94
 .\" $FreeBSD: src/lib/libc/gen/getgrent.3,v 1.28 2007/01/09 00:27:53 imp Exp $
 .\"
-.Dd April 16, 2003
+.Dd October 26, 2011
 .Dt GETGRENT 3
 .Os
 .Sh NAME
@@ -38,6 +38,8 @@
 .Nm getgrnam_r ,
 .Nm getgrgid ,
 .Nm getgrgid_r ,
+.Nm getgruuid ,
+.Nm getgruuid_r ,
 .Nm setgroupent ,
 .Nm setgrent ,
 .Nm endgrent
@@ -46,6 +48,7 @@
 .Lb libc
 .Sh SYNOPSIS
 .In grp.h
+.In uuid/uuid.h
 .Ft struct group *
 .Fn getgrent void
 .\".Ft int
@@ -59,6 +62,10 @@
 .Ft int
 .Fn getgrgid_r "gid_t gid" "struct group *grp" "char *buffer" "size_t bufsize" "struct group **result"
 .Ft int
+.Fn getgruuid "uuid_t uuid"
+.Ft int
+.Fn getgruuid_r "uuid_t uuid" "struct group *grp" "char *buffer" "size_t bufsize" "struct group **result"
+.Ft int
 .Fn setgroupent "int stayopen"
 .Ft void
 .Fn setgrent void
@@ -67,7 +74,7 @@
 .Sh DESCRIPTION
 .\"These functions operate on the group database file
 These functions obtain information from
-.Xr DirectoryService 8 ,
+.Xr opendirectoryd 8 ,
 including records in
 .Pa /etc/group
 which is described
@@ -88,21 +95,35 @@ struct group {
 .Ed
 .Pp
 The functions
-.Fn getgrnam
+.Fn getgrnam ,
+.Fn getgrgid ,
 and
-.Fn getgrgid
+.Fn getgruuid
 search the group database for the given group name pointed to by
-.Fa name
-or the group id pointed to by
+.Fa name ,
+the group id given by
 .Fa gid ,
+or the UUID given by
+.Fa uuid 
 respectively, returning the first one encountered.
 Identical group
-names or group gids may result in undefined behavior.
+names, group gids, or uuids may result in undefined behavior.
+.Pp
+Note that the groups file
+.Pa /etc/group
+does not contain group UUIDs.
+The UUID for a group may be found using
+.Fn mbr_gid_to_uuid .
 .Pp
 On Mac OS X, these routines are thread-safe and return a pointer to a
 thread-specific data structure.  The contents of this data
 structure are automatically released by subsequent calls to
 any of these routines on the same thread, or when the thread exits.
+These routines are therefore unsuitable for use in libraries or frameworks,
+from where they may overwrite the per-thread data that the calling
+application expects to find as a result of its own calls to these
+routines. Library and framework code should use the alternative reentrant 
+variants detailed below.
 .Pp
 The
 .Fn getgrent
@@ -111,17 +132,15 @@ sequentially reads the group database and is intended for programs
 that wish to step through the complete list of groups.
 .Pp
 The functions
-.\".Fn getgrent_r ,
-.\".Fn getgrnam_r ,
-.Fn getgrnam_r
+.Fn getgrnam_r , 
+.Fn getgrgid_r ,
 and
-.Fn getgrgid_r
-are thread-safe versions of
-.\".Fn getgrent ,
-.\".Fn getgrnam ,
-.Fn getgrnam
-and
+.Fn getgruuid_r
+are alternative versions of
+.Fn getgrnam ,
 .Fn getgrgid ,
+and
+.Fn getgruuid
 respectively.
 The caller must provide storage for the results of the search in
 the
@@ -186,11 +205,10 @@ Note that programs must explicitly set
 to zero before calling any of these functions if they need to
 distinguish between a non-existent entry and an error.
 The functions
-.\".Fn getgrent_r ,
-.\".Fn getgrnam_r ,
-.Fn getgrnam_r
+.Fn getgrnam_r ,
+.Fn getgrgid_r ,
 and
-.Fn getgrgid_r
+.Fn getgruuid_r
 return 0 if no error occurred, or an error number to indicate failure.
 It is not an error if a matching entry is not found.
 (Thus, if
@@ -216,13 +234,13 @@ group database file
 .Sh COMPATIBILITY
 The historic function
 .Fn setgrfile ,
-which allowed the specification of alternate password databases, has
+which allowed the specification of alternate group databases, has
 been deprecated and is no longer available.
 .Sh SEE ALSO
 .Xr getpwent 3 ,
 .Xr group 5 ,
-.\".Xr nsswitch.conf 5 ,
-.Xr DirectoryService 8 ,
+.Xr mbr_gid_to_uuid 3, 
+.Xr opendirectory 8 ,
 .Xr yp 8
 .Sh STANDARDS
 The
@@ -265,11 +283,17 @@ and
 .Fn getgrgid_r
 appeared in
 .Fx 5.1 .
+The functions
+.Fn getgruuid
+and
+.Fn getgruuid_r
+appeared in Mac OS X 10.8.
 .Sh BUGS
 The functions
 .Fn getgrent ,
 .Fn getgrnam ,
 .Fn getgrgid ,
+.Fn getgruuid ,
 .Fn setgroupent
 and
 .Fn setgrent
@@ -278,21 +302,3 @@ a pointer to that object.
 Subsequent calls to
 the same function
 will modify the same object.
-.\".Pp
-.\"The functions
-.\".Fn getgrent ,
-.\".Fn getgrent_r ,
-.\".Fn endgrent ,
-.\".Fn setgroupent ,
-.\"and
-.\".Fn setgrent
-.\"are fairly useless in a networked environment and should be
-.\"avoided, if possible.
-.\"The
-.\".Fn getgrent
-.\"and
-.\".Fn getgrent_r
-.\"functions
-.\"make no attempt to suppress duplicate information if multiple
-.\"sources are specified in
-.\".Xr nsswitch.conf 5 .

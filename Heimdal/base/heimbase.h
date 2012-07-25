@@ -48,9 +48,36 @@ typedef heim_object_t heim_null_t;
 #define HEIM_BASE_ONCE_INIT 0
 typedef long heim_base_once_t; /* XXX arch dependant */
 
+#if !defined(__has_extension)
+#define __has_extension(x) 0
+#endif
+
+#define HEIM_REQUIRE_GNUC(m,n,p) \
+    (((__GNUC__ * 10000) + (__GNUC_MINOR__ * 100) + __GNUC_PATCHLEVEL__) >= \
+     (((m) * 10000) + ((n) * 100) + (p)))
+
+
+#if __has_extension(__builtin_expect) || HEIM_REQUIRE_GNUC(3,0,0)
+#define heim_builtin_expect(_op,_res) __builtin_expect(_op,_res)
+#else
+#define heim_builtin_expect(_op,_res) (_op)
+#endif
 
 void *	heim_retain(heim_object_t);
 void	heim_release(heim_object_t);
+
+/*
+ *
+ */
+
+typedef void (*heim_type_dealloc)(void *);
+
+void *
+heim_alloc(size_t size, const char *name, heim_type_dealloc dealloc);
+
+/*
+ *
+ */
 
 heim_tid_t
 heim_get_tid(heim_object_t object);
@@ -82,15 +109,6 @@ heim_warn_blocking(const char *apiname, heim_base_once_t *once);
 
 #define HEIM_WARN_BLOCKING(name, var) \
 { static heim_base_once_t var = HEIM_BASE_ONCE_INIT; heim_warn_blocking(name, &var); }
-
-/* 
- * alloc allocates a plain memory object
- */
-
-typedef void (*heim_type_dealloc)(void *);
-
-void *
-heim_alloc(size_t size, const char *name, heim_type_dealloc dealloc);
 
 /*
  *
@@ -141,7 +159,7 @@ heim_object_t
 	heim_array_copy_value(heim_array_t, size_t);
 void	heim_array_delete_value(heim_array_t, size_t);
 #ifdef __BLOCKS__
-void	heim_array_filter(heim_array_t, bool (^)(heim_object_t));
+void	heim_array_filter(heim_array_t, int (^)(heim_object_t));
 #endif
 
 /*
@@ -153,7 +171,7 @@ typedef struct heim_dict_data *heim_dict_t;
 heim_dict_t heim_dict_create(size_t size);
 heim_tid_t heim_dict_get_type_id(void);
 
-typedef void (*heim_dict_iterator_f_t)(heim_object_t, heim_object_t, heim_object_t, void *);
+typedef void (*heim_dict_iterator_f_t)(heim_dict_t, heim_object_t, heim_object_t, void *);
 
 int	heim_dict_add_value(heim_dict_t, heim_object_t, heim_object_t);
 void	heim_dict_iterate_f(heim_dict_t, heim_dict_iterator_f_t, void *);
@@ -172,7 +190,6 @@ void	heim_dict_delete_key(heim_dict_t, heim_object_t);
 typedef struct heim_string_data *heim_string_t;
 
 heim_string_t heim_string_create(const char *);
-heim_string_t heim_string_create_with_static(const char *);
 heim_tid_t heim_string_get_type_id(void);
 const char * heim_string_get_utf8(heim_string_t);
 
@@ -195,5 +212,23 @@ typedef struct heim_auto_release * heim_auto_release_t;
 heim_auto_release_t heim_auto_release_create(void);
 void heim_auto_release_drain(heim_auto_release_t);
 void heim_auto_release(heim_object_t);
+
+/*
+ *
+ */
+
+typedef struct heim_error * heim_error_t;
+
+heim_error_t	heim_error_create(int, const char *, ...)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 3));
+
+heim_error_t	heim_error_createv(int, const char *, va_list)
+    HEIMDAL_PRINTF_ATTRIBUTE((printf, 2, 0));
+
+heim_string_t heim_error_copy_string(heim_error_t error);
+int heim_error_get_code(heim_error_t);
+
+heim_error_t
+heim_error_append(heim_error_t top, heim_error_t append);
 
 #endif /* HEIM_BASE_H */

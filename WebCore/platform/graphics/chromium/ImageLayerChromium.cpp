@@ -34,22 +34,113 @@
 
 #include "ImageLayerChromium.h"
 
-#include "cc/CCLayerImpl.h"
 #include "Image.h"
-#include "LayerRendererChromium.h"
-#include "LayerTexture.h"
+#include "LayerTextureSubImage.h"
+#include "LayerTextureUpdater.h"
+#include "ManagedTexture.h"
+#include "PlatformColor.h"
+#include "cc/CCLayerImpl.h"
+#include "cc/CCLayerTreeHost.h"
 
 namespace WebCore {
 
-PassRefPtr<ImageLayerChromium> ImageLayerChromium::create(GraphicsLayerChromium* owner)
+class ImageLayerTextureUpdater : public LayerTextureUpdater {
+public:
+    class Texture : public LayerTextureUpdater::Texture {
+    public:
+        Texture(ImageLayerTextureUpdater* textureUpdater, PassOwnPtr<ManagedTexture> texture)
+            : LayerTextureUpdater::Texture(texture)
+            , m_textureUpdater(textureUpdater)
+        {
+        }
+
+        virtual void updateRect(GraphicsContext3D* context, TextureAllocator* allocator, const IntRect& sourceRect, const IntRect& destRect)
+        {
+            textureUpdater()->updateTextureRect(context, allocator, texture(), sourceRect, destRect);
+        }
+
+    private:
+        ImageLayerTextureUpdater* textureUpdater() { return m_textureUpdater; }
+
+        ImageLayerTextureUpdater* m_textureUpdater;
+    };
+
+    static PassRefPtr<ImageLayerTextureUpdater> create(bool useMapTexSubImage)
+    {
+        return adoptRef(new ImageLayerTextureUpdater(useMapTexSubImage));
+    }
+
+    virtual ~ImageLayerTextureUpdater() { }
+
+    virtual PassOwnPtr<LayerTextureUpdater::Texture> createTexture(TextureManager* manager)
+    {
+        return adoptPtr(new Texture(this, ManagedTexture::create(manager)));
+    }
+
+    virtual SampledTexelFormat sampledTexelFormat(GC3Denum textureFormat)
+    {
+        return PlatformColor::sameComponentOrder(textureFormat) ?
+                LayerTextureUpdater::SampledTexelFormatRGBA : LayerTextureUpdater::SampledTexelFormatBGRA;
+    }
+
+    virtual void updateLayerRect(const IntRect& contentRect, const IntSize& tileSize, int /* borderTexels */, float /* contentsScale */, IntRect* /* resultingOpaqueRect */)
+    {
+        m_texSubImage.setSubImageSize(tileSize);
+    }
+
+    virtual void updateTextureRect(GraphicsContext3D* context, TextureAllocator* allocator, ManagedTexture* texture, const IntRect& sourceRect, const IntRect& destRect)
+    {
+        texture->bindTexture(context, allocator);
+
+        // Source rect should never go outside the image pixels, even if this
+        // is requested because the texture extends outside the image.
+        IntRect clippedSourceRect = sourceRect;
+        clippedSourceRect.intersect(imageRect());
+
+        IntRect clippedDestRect = destRect;
+        clippedDestRect.move(clippedSourceRect.location() - sourceRect.location());
+        clippedDestRect.setSize(clippedSourceRect.size());
+
+        m_texSubImage.upload(m_image.pixels(), imageRect(), clippedSourceRect, clippedDestRect, texture->format(), context);
+    }
+
+    void updateFromImage(NativeImagePtr nativeImage)
+    {
+        m_image.updateFromImage(nativeImage);
+    }
+
+    IntSize imageSize() const
+    {
+        return m_image.size();
+    }
+
+private:
+    explicit ImageLayerTextureUpdater(bool useMapTexSubImage)
+        : m_texSubImage(useMapTexSubImage)
+    {
+    }
+
+    IntRect imageRect() const
+    {
+        return IntRect(IntPoint::zero(), m_image.size());
+    }
+
+    PlatformImage m_image;
+    LayerTextureSubImage m_texSubImage;
+};
+
+PassRefPtr<ImageLayerChromium> ImageLayerChromium::create()
 {
-    return adoptRef(new ImageLayerChromium(owner));
+    return adoptRef(new ImageLayerChromium());
 }
 
-ImageLayerChromium::ImageLayerChromium(GraphicsLayerChromium* owner)
-    : ContentLayerChromium(owner)
+ImageLayerChromium::ImageLayerChromium()
+    : TiledLayerChromium()
     , m_imageForCurrentFrame(0)
-    , m_contents(0)
+{
+}
+
+ImageLayerChromium::~ImageLayerChromium()
 {
 }
 
@@ -64,53 +155,54 @@ void ImageLayerChromium::setContents(Image* contents)
 
     m_contents = contents;
     m_imageForCurrentFrame = m_contents->nativeImageForCurrentFrame();
-    m_dirtyRect = IntRect(IntPoint(0, 0), bounds());
     setNeedsDisplay();
 }
 
-void ImageLayerChromium::paintContentsIfDirty(const IntRect&)
+void ImageLayerChromium::update(CCTextureUpdater& updater, const CCOcclusionTracker* occlusion)
 {
-    ASSERT(layerRenderer());
-
-    if (!m_dirtyRect.isEmpty()) {
-        m_decodedImage.updateFromImage(m_contents->nativeImageForCurrentFrame());
-        updateLayerSize(m_decodedImage.size());
-        IntRect paintRect(IntPoint(0, 0), m_decodedImage.size());
-        if (!m_dirtyRect.isEmpty()) {
-            m_tiler->invalidateRect(paintRect);
-            m_dirtyRect = IntRect();
-        }
+    createTextureUpdaterIfNeeded();
+    if (m_needsDisplay) {
+        m_textureUpdater->updateFromImage(m_contents->nativeImageForCurrentFrame());
+        updateTileSizeAndTilingOption();
+        invalidateRect(IntRect(IntPoint(), contentBounds()));
+        m_needsDisplay = false;
     }
+
+    updateLayerRect(updater, visibleLayerRect(), occlusion);
 }
 
-void ImageLayerChromium::updateCompositorResources()
+void ImageLayerChromium::createTextureUpdaterIfNeeded()
 {
-    IntRect paintRect(IntPoint(0, 0), m_decodedImage.size());
-    m_tiler->updateFromPixels(paintRect, paintRect, m_decodedImage.pixels());
+    if (m_textureUpdater)
+        return;
+
+    m_textureUpdater = ImageLayerTextureUpdater::create(layerTreeHost()->layerRendererCapabilities().usingMapSub);
+    GC3Denum textureFormat = layerTreeHost()->layerRendererCapabilities().bestTextureFormat;
+    setTextureFormat(textureFormat);
+    setSampledTexelFormat(textureUpdater()->sampledTexelFormat(textureFormat));
 }
 
-IntRect ImageLayerChromium::layerBounds() const
+LayerTextureUpdater* ImageLayerChromium::textureUpdater() const
 {
-    return IntRect(IntPoint(0, 0), m_decodedImage.size());
+    return m_textureUpdater.get();
 }
 
-TransformationMatrix ImageLayerChromium::tilingTransform()
+IntSize ImageLayerChromium::contentBounds() const
 {
-    // Tiler draws from the upper left corner. The draw transform
-    // specifies the middle of the layer.
-    TransformationMatrix transform = ccLayerImpl()->drawTransform();
-    const IntRect sourceRect = layerBounds();
-    const IntSize destSize = bounds();
+    if (!m_contents)
+        return IntSize();
+    return m_contents->size();
+}
 
-    transform.translate(-destSize.width() / 2.0, -destSize.height() / 2.0);
+bool ImageLayerChromium::drawsContent() const
+{
+    return m_contents && TiledLayerChromium::drawsContent();
+}
 
-    // Tiler also draws at the original content size, so rescale the original
-    // image dimensions to the bounds that it is meant to be drawn at.
-    float scaleX = destSize.width() / static_cast<float>(sourceRect.size().width());
-    float scaleY = destSize.height() / static_cast<float>(sourceRect.size().height());
-    transform.scale3d(scaleX, scaleY, 1.0f);
-
-    return transform;
+bool ImageLayerChromium::needsContentsScale() const
+{
+    // Contents scale is not need for image layer because this can be done in compositor more efficiently.
+    return false;
 }
 
 }

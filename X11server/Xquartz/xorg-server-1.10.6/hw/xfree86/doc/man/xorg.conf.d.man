@@ -1,1 +1,0 @@
-.so man__filemansuffix__/xorg.conf.__filemansuffix__

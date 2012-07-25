@@ -535,9 +535,18 @@ typedef struct dtrace_syminfo {
 extern int dtrace_lookup_by_name(dtrace_hdl_t *, const char *, const char *,
     GElf_Sym *, dtrace_syminfo_t *);
 
+#if !defined (__APPLE__)
 extern int dtrace_lookup_by_addr(dtrace_hdl_t *, GElf_Addr addr,
     GElf_Sym *, dtrace_syminfo_t *);
-
+#else
+extern int dtrace_lookup_by_addr(dtrace_hdl_t *dtp,
+                                 GElf_Addr addr, 
+                                 char *aux_sym_name_buffer,	/* auxilary storage buffer for the symbol name */
+                                 size_t aux_bufsize,		/* size of sym_name_buffer */
+                                 GElf_Sym *symp,
+                                 dtrace_syminfo_t *sip);
+#endif
+        
 typedef struct dtrace_typeinfo {
 	const char *dtt_object;			/* object containing type */
 	ctf_file_t *dtt_ctfp;			/* CTF container handle */

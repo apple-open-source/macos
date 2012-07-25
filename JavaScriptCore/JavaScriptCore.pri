@@ -1,99 +1,47 @@
-# JavaScriptCore - Qt4 build info
+# -------------------------------------------------------------------
+# This file contains shared rules used both when building
+# JavaScriptCore itself, and by targets that use JavaScriptCore.
+#
+# See 'Tools/qmake/README' for an overview of the build system
+# -------------------------------------------------------------------
 
-VPATH += $$PWD
+SOURCE_DIR = $${ROOT_WEBKIT_DIR}/Source/JavaScriptCore
 
-# Use a config-specific target to prevent parallel builds file clashes on Mac
-mac: CONFIG(debug, debug|release): JAVASCRIPTCORE_TARGET = jscored
-else: JAVASCRIPTCORE_TARGET = jscore
+JAVASCRIPTCORE_GENERATED_SOURCES_DIR = $${ROOT_BUILD_DIR}/Source/JavaScriptCore/$${GENERATED_SOURCES_DESTDIR}
 
-# Output in JavaScriptCore/<config>
-CONFIG(debug, debug|release) : JAVASCRIPTCORE_DESTDIR = debug
-else: JAVASCRIPTCORE_DESTDIR = release
+INCLUDEPATH += \
+    $$SOURCE_DIR \
+    $$SOURCE_DIR/.. \
+    $$SOURCE_DIR/../WTF \
+    $$SOURCE_DIR/assembler \
+    $$SOURCE_DIR/bytecode \
+    $$SOURCE_DIR/bytecompiler \
+    $$SOURCE_DIR/heap \
+    $$SOURCE_DIR/dfg \
+    $$SOURCE_DIR/debugger \
+    $$SOURCE_DIR/interpreter \
+    $$SOURCE_DIR/jit \
+    $$SOURCE_DIR/llint \
+    $$SOURCE_DIR/parser \
+    $$SOURCE_DIR/profiler \
+    $$SOURCE_DIR/runtime \
+    $$SOURCE_DIR/tools \
+    $$SOURCE_DIR/yarr \
+    $$SOURCE_DIR/API \
+    $$SOURCE_DIR/ForwardingHeaders \
+    $$JAVASCRIPTCORE_GENERATED_SOURCES_DIR
 
-isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = $$OUTPUT_DIR/JavaScriptCore/generated
+win32-* {
+    LIBS += -lwinmm
 
-JAVASCRIPTCORE_INCLUDEPATH = \
-    $$PWD \
-    $$PWD/.. \
-    $$PWD/../ThirdParty \
-    $$PWD/assembler \
-    $$PWD/bytecode \
-    $$PWD/bytecompiler \
-    $$PWD/heap \
-    $$PWD/dfg \
-    $$PWD/debugger \
-    $$PWD/interpreter \
-    $$PWD/jit \
-    $$PWD/parser \
-    $$PWD/profiler \
-    $$PWD/runtime \
-    $$PWD/wtf \
-    $$PWD/wtf/gobject \
-    $$PWD/wtf/qt \
-    $$PWD/wtf/unicode \
-    $$PWD/yarr \
-    $$PWD/API \
-    $$PWD/ForwardingHeaders \
-    $$JSC_GENERATED_SOURCES_DIR
-
-INCLUDEPATH = $$JAVASCRIPTCORE_INCLUDEPATH $$INCLUDEPATH
-
-win32-g++* {
-    LIBS += -lpthreadGC2
-} else:win32-msvc* {
-    LIBS += -lpthreadVC2
-}
-
-win32-*: DEFINES += _HAS_TR1=0
-
-DEFINES += BUILDING_JavaScriptCore BUILDING_WTF
-
-contains(CONFIG, use_system_icu) {
-    DEFINES += WTF_USE_ICU_UNICODE=1
-    DEFINES -= WTF_USE_QT4_UNICODE
-    LIBS += -licuuc -licui18n
-} else {
-    DEFINES += WTF_USE_QT4_UNICODE=1
-    DEFINES -= WTF_USE_ICU_UNICODE
+    win32-g++* {
+        LIBS += -lpthreadGC2
+    } else:win32-msvc* {
+        LIBS += -lpthreadVC2
+    }
 }
 
 wince* {
     INCLUDEPATH += $$QT_SOURCE_TREE/src/3rdparty/ce-compat
-    INCLUDEPATH += $$PWD/../JavaScriptCore/os-win32
+    INCLUDEPATH += $$SOURCE_DIR/os-win32
 }
-
-
-defineTest(prependJavaScriptCoreLib) {
-    # Argument is the relative path to JavaScriptCore.pro's qmake output
-    pathToJavaScriptCoreOutput = $$ARGS/$$JAVASCRIPTCORE_DESTDIR
-
-    win32-msvc*|wince*|win32-icc {
-        LIBS = -l$$JAVASCRIPTCORE_TARGET $$LIBS
-        LIBS = -L$$pathToJavaScriptCoreOutput $$LIBS
-        POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}$${JAVASCRIPTCORE_TARGET}.lib
-    } else {
-        # Make sure jscore will be early in the list of libraries to workaround a bug in MinGW
-        # that can't resolve symbols from QtCore if libjscore comes after.
-        QMAKE_LIBDIR = $$pathToJavaScriptCoreOutput $$QMAKE_LIBDIR
-        LIBS = -l$$JAVASCRIPTCORE_TARGET $$LIBS
-        POST_TARGETDEPS += $${pathToJavaScriptCoreOutput}$${QMAKE_DIR_SEP}lib$${JAVASCRIPTCORE_TARGET}.a
-    }
-
-    win32-* {
-        LIBS += -lwinmm
-    }
-
-    # The following line is to prevent qmake from adding jscore to libQtWebKit's prl dependencies.
-    # The compromise we have to accept by disabling explicitlib is to drop support to link QtWebKit
-    # statically in applications (which isn't used often because, among other things, of licensing obstacles).
-    CONFIG -= explicitlib
-    CONFIG -= staticlib
-
-    export(QMAKE_LIBDIR)
-    export(LIBS)
-    export(POST_TARGETDEPS)
-    export(CONFIG)
-
-    return(true)
-}
-

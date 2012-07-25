@@ -167,15 +167,27 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       */
       __ostream_type& 
       operator<<(long __n)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__n); }
+#endif
       
       __ostream_type& 
       operator<<(unsigned long __n)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__n); }	
+#endif
 
       __ostream_type& 
       operator<<(bool __n)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__n); }
+#endif
 
       __ostream_type& 
       operator<<(short __n);
@@ -193,25 +205,41 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       __ostream_type& 
       operator<<(unsigned int __n)
-      {
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
+     {
 	// _GLIBCXX_RESOLVE_LIB_DEFECTS
 	// 117. basic_ostream uses nonexistent num_put member functions.
 	return _M_insert(static_cast<unsigned long>(__n));
       }
+#endif
 
 #ifdef _GLIBCXX_USE_LONG_LONG
       __ostream_type& 
       operator<<(long long __n)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__n); }
-
-      __ostream_type& 
-      operator<<(unsigned long long __n)
-      { return _M_insert(__n); }	
 #endif
 
       __ostream_type& 
+      operator<<(unsigned long long __n)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
+      { return _M_insert(__n); }	
+#endif 
+#endif // _GLIBCXX_USE_LONG_LONG
+
+      __ostream_type& 
       operator<<(double __f)
-      { return _M_insert(__f); }
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
+     { return _M_insert(__f); }
+#endif
 
       __ostream_type& 
       operator<<(float __f)
@@ -223,11 +251,19 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       __ostream_type& 
       operator<<(long double __f)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__f); }
+#endif
 
       __ostream_type& 
       operator<<(const void* __p)
+#if __TARGETING_4_0_DYLIB
+      ; // basic_ostream::_M_insert() not exported from libstdc++.6.0.4 dylib
+#else
       { return _M_insert(__p); }
+#endif
 
       /**
        *  @brief  Extracting from another streambuf.
@@ -448,7 +484,33 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
    *  If @a c is of type @c char and the character type of the stream is not
    *  @c char, the character is widened before insertion.
   */
+#if __TARGETING_4_0_DYLIB
   template<typename _CharT, typename _Traits>
+    basic_ostream<_CharT, _Traits>&
+    operator<<(basic_ostream<_CharT, _Traits>& __out, _CharT __c);
+
+  template<typename _CharT, typename _Traits>
+    basic_ostream<_CharT, _Traits>&
+    operator<<(basic_ostream<_CharT, _Traits>& __out, char __c)
+    { return (__out << __out.widen(__c)); }
+
+  // Specialization
+  template <class _Traits> 
+    basic_ostream<char, _Traits>&
+    operator<<(basic_ostream<char, _Traits>& __out, char __c);
+
+  // Signed and unsigned
+  template<class _Traits>
+    basic_ostream<char, _Traits>&
+    operator<<(basic_ostream<char, _Traits>& __out, signed char __c)
+    { return (__out << static_cast<char>(__c)); }
+  
+  template<class _Traits>
+    basic_ostream<char, _Traits>&
+    operator<<(basic_ostream<char, _Traits>& __out, unsigned char __c)
+    { return (__out << static_cast<char>(__c)); }
+#else
+ template<typename _CharT, typename _Traits>
     inline basic_ostream<_CharT, _Traits>&
     operator<<(basic_ostream<_CharT, _Traits>& __out, _CharT __c)
     { return __ostream_insert(__out, &__c, 1); }
@@ -474,6 +536,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     inline basic_ostream<char, _Traits>&
     operator<<(basic_ostream<char, _Traits>& __out, unsigned char __c)
     { return (__out << static_cast<char>(__c)); }
+#endif
   //@}
   
   //@{

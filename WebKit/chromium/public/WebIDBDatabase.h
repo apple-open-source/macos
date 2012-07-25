@@ -26,9 +26,10 @@
 #ifndef WebIDBDatabase_h
 #define WebIDBDatabase_h
 
-#include "WebCommon.h"
 #include "WebDOMStringList.h"
 #include "WebExceptionCode.h"
+#include "WebIDBKeyPath.h"
+#include "platform/WebCommon.h"
 
 namespace WebKit {
 
@@ -58,7 +59,13 @@ public:
         WEBKIT_ASSERT_NOT_REACHED();
         return WebDOMStringList();
     }
-    virtual WebIDBObjectStore* createObjectStore(const WebString& name, const WebString& keyPath, bool autoIncrement, const WebIDBTransaction&, WebExceptionCode&)
+    // FIXME: Remove WebString keyPath overload once callers are updated.
+    // http://webkit.org/b/84207
+    virtual WebIDBObjectStore* createObjectStore(const WebString& name, const WebString& keyPath, bool autoIncrement, const WebIDBTransaction& transaction, WebExceptionCode& ec)
+    {
+        return createObjectStore(name, WebIDBKeyPath(keyPath), autoIncrement, transaction, ec);
+    }
+    virtual WebIDBObjectStore* createObjectStore(const WebString&, const WebIDBKeyPath&, bool, const WebIDBTransaction&, WebExceptionCode&)
     {
         WEBKIT_ASSERT_NOT_REACHED();
         return 0;
@@ -68,12 +75,8 @@ public:
     // Transfers ownership of the WebIDBTransaction to the caller.
     virtual WebIDBTransaction* transaction(const WebDOMStringList& names, unsigned short mode, WebExceptionCode& ec)
     {
-        return transaction(names, mode, 0, ec);
-    }
-    // FIXME: Remove.
-    virtual WebIDBTransaction* transaction(const WebDOMStringList& names, unsigned short mode, unsigned long, WebExceptionCode& ec)
-    {
-        return transaction(names, mode, ec);
+        WEBKIT_ASSERT_NOT_REACHED();
+        return 0;
     }
     virtual void close() { WEBKIT_ASSERT_NOT_REACHED(); }
 

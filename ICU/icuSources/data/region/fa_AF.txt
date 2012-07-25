@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/fa_AF.xml
@@ -9,7 +9,6 @@
 fa_AF{
     Countries{
         AD{"اندورا"}
-        AE{"امارات متحدهٔ عربی"}
         AG{"انتیگوا و باربودا"}
         AL{"البانیا"}
         AO{"انگولا"}
@@ -33,7 +32,6 @@ fa_AF{
         CR{"کاستریکا"}
         CU{"کیوبا"}
         DK{"دنمارک"}
-        EC{"اکوادور"}
         EE{"استونیا"}
         ER{"اریتریا"}
         ES{"هسپانیه"}
@@ -98,12 +96,11 @@ fa_AF{
         SV{"السلوادور"}
         TJ{"تاجکستان"}
         UA{"اکراین"}
-        US{"ایالات متحدهٔ امریکا"}
         UY{"یوروگوای"}
         VC{"سنت وینسنت و گرینادین"}
         VE{"ونزویلا"}
         WS{"ساموآ"}
         ZW{"زیمبابوی"}
     }
-    Version{"2.0.47.53"}
+    Version{"2.0.65.46"}
 }

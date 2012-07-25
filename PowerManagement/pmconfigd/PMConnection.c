@@ -35,7 +35,9 @@
 #include <mach/mach.h>
 #include <mach/message.h>
 #include <notify.h>
+#include <bsm/libbsm.h>
 #include <IOKit/pwr_mgt/IOPM.h>
+#include <libproc.h>
 
 #include "PrivateLib.h"
 #include "PMConnection.h"
@@ -43,11 +45,29 @@
 #include "RepeatingAutoWake.h"
 #include "PMAssertions.h"
 #include "PMStore.h"
+#include "SystemLoad.h"
 #if !TARGET_OS_EMBEDDED
 #include "TTYKeepAwake.h"
+#include "PMSettings.h"
 #endif
 
 /************************************************************************************/
+
+// Bits for gPowerState
+#define kSleepState              0x01          
+#define kDarkWakeState           0x02
+#define kDarkWakeForBTState      0x04
+#define kDarkWakeForSSState      0x08
+#define kDarkWakeForMntceState   0x10
+#define kDarkWakeForServerState  0x20
+#define kFullWakeState           0x40
+
+#define kPowerStateMask  (kSleepState|kDarkWakeState|kDarkWakeForBTState| \
+            kDarkWakeForSSState|kDarkWakeForMntceState|kDarkWakeForServerState|kFullWakeState)
+
+#ifndef kIOPMMaintenanceScheduleImmediate
+#define kIOPMMaintenanceScheduleImmediate               "MaintenanceImmediate"
+#endif
 
 /* Bookkeeping data types */
 
@@ -61,15 +81,41 @@ enum {
     _kOnStateBits = 0xFFFF
 };
 
+/* Array indices & for PMChooseScheduledEvent */
+enum {
+    kChooseFullWake         = 0,
+    kChooseMaintenance      = 1,
+    kChooseSleepServiceWake = 2,
+    kChooseTimerPlugin      = 3,
+    kChooseDWBTInterval     = 4,
+    kChooseWakeTypeCount    = 5
+};
+
+enum {
+    kSilentRunningOff = 0,
+    kSilentRunningOn  = 1
+};
 
 static int const kMaxConnectionIDCount = 1000*1000*1000;
 static int const kConnectionOffset = 1000;
 static double const  kPMConnectionNotifyTimeoutDefault = 25.0;
+#if !TARGET_OS_EMBEDDED
+static int kPMSleepDurationForBT = (30*60); // Defaults to 30 mins
+#if LOG_SLEEPSERVICES
+static int                      gNotifySleepServiceToken = 0;
+#endif
+#endif
+// gWakeForDWBTInterval - When set, a maintenance wake is scheduled
+// when system is going to sleep from S0 (value is in seconds)
+static int                      gWakeForDWBTInterval = 0;
+
+// gPowerState - Tracks various wake types the system is currently in
+// by setting appropriate bits. 
+static uint32_t                 gPowerState;
 
 static io_service_t             rootDomainService = IO_OBJECT_NULL;
 
 extern CFMachPortRef            pmServerMachPort;
-extern int                      gLastChosenWakeType;
 
 /************************************************************************************/
 /************************************************************************************/
@@ -126,7 +172,9 @@ typedef struct {
     CFAbsoluteTime          repliedWhen;
     CFAbsoluteTime          notifiedWhen;
     CFAbsoluteTime          maintenanceRequested;
+    CFAbsoluteTime          timerPluginRequested;
     CFAbsoluteTime          sleepServiceRequested;
+    CFStringRef             clientInfoString;
     int                     sleepServiceCapTimeoutMS;
     int                     notificationType;
     bool                    replied;
@@ -140,6 +188,14 @@ typedef struct {
 
 /* Internal methods */
 
+
+#define VALID_DATE(x) (x!=0.0)
+/* 
+ * PMScheduleWakeEventChooseBest
+ *
+ * Expected to be called ONCE at each system sleep by PMConnection.c.
+ * Compares maintenance, sleepservice, and autowake requests, and schedules the earliest event with the RTC.
+ */
 static IOReturn createConnectionWithID(
                     PMConnection **);
 
@@ -161,6 +217,8 @@ static void _sendMachMessage(
 
 static void checkResponses(PMResponseWrangler *wrangler);
 
+static void     PMScheduleWakeEventChooseBest(CFAbsoluteTime *pick);
+
 static void responsesTimedOut(CFRunLoopTimerRef timer, void * info);
 
 static void cleanupConnection(PMConnection *reap);
@@ -169,11 +227,19 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap);
 
 static void setSystemSleepStateTracking(IOPMSystemPowerStateCapabilities);
 
+#if !TARGET_OS_EMBEDDED
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms);
+#endif
 
+/* Hide SleepServices code for public OS seeds. 
+ * We plan to re-enable this code for shipment.
+ * ETB 1/24/12
+ */
+
+#if LOG_SLEEPSERVICES
 static void logASLMessageSleepServiceBegins(long withCapTime);
-
-static void logASLMessageSleepServiceTerminated(void);
+__private_extern__ void logASLMessageSleepServiceTerminated(int forcedTimeoutCnt);
+#endif
 
 static void PMConnectionPowerCallBack(
     void            *port,
@@ -184,6 +250,7 @@ static void PMConnectionPowerCallBack(
 __private_extern__ void ClockSleepWakeNotification(IOPMSystemPowerStateCapabilities b, 
                                                    IOPMSystemPowerStateCapabilities c);
 
+bool smcSilentRunningSupport( );
 
 
 /************************************************************************************/
@@ -219,9 +286,17 @@ static PMResponseWrangler *     gLastResponseWrangler = NULL;
 
 SleepServiceStruct              gSleepService;
 
+uint32_t                        gDebugFlags = 0;
+
+uint32_t                        gCurrentSilentRunningState = kSilentRunningOff;
+
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
+
+#define IS_DARK_CAPABILITIES(x) \
+                    (BIT_IS_SET(x, kIOPMSystemCapabilityCPU) \
+                    && BIT_IS_NOT_SET(x, kIOPMSystemCapabilityGraphics|kIOPMSystemCapabilityAudio))
 
 #define SYSTEM_WILL_WAKE(x) \
                     ( BIT_IS_SET(capArgs->changeFlags, kIOPMSystemCapabilityWillChange) \
@@ -230,14 +305,17 @@ SleepServiceStruct              gSleepService;
 #define SYSTEM_DID_WAKE(x) \
                     ( BIT_IS_SET(capArgs->changeFlags, kIOPMSystemCapabilityDidChange)  \
                         && (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU) \
-                        || IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics) ) \
-                    )
+                        || IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics) ) )
 
-#define SYSTEM_WILL_SLEEP(x) \
+#define SYSTEM_WILL_SLEEP_TO_S0(x) \
                     ((CAPABILITY_BIT_CHANGED(x->fromCapabilities, x->toCapabilities, kIOPMSystemCapabilityCPU)) \
                     && BIT_IS_SET(x->changeFlags, kIOPMSystemCapabilityWillChange) \
                     && BIT_IS_NOT_SET(x->toCapabilities, kIOPMSystemCapabilityCPU))
 
+#define SYSTEM_WILL_SLEEP_TO_S0DARK(x) \
+                    ((CHANGED_CAP_BITS(x->fromCapabilities, x->toCapabilities) == (kIOPMSystemCapabilityGraphics|kIOPMSystemCapabilityAudio)) \
+                    && BIT_IS_SET(x->changeFlags, kIOPMSystemCapabilityWillChange) \
+                    && BIT_IS_NOT_SET(x->toCapabilities, kIOPMSystemCapabilityGraphics|kIOPMSystemCapabilityAudio))
 /************************************************************************************/
 /************************************************************************************/
 /************************************************************************************/
@@ -531,10 +609,8 @@ kern_return_t _io_pm_connection_acknowledge_event
     
     // Check options dictionary
     CFDictionaryRef     ackOptionsDict = NULL;
-    CFDateRef           maintenanceDate = NULL;
-    CFDateRef           sleepServiceDate = NULL;
+    CFDateRef           requestDate = NULL;
     CFNumberRef         sleepServiceCapTimer = NULL;
-    int                 typeOfWake = 0;
     
     if (!(foundResponse = _io_pm_acknowledge_event_findOutstandingResponseForToken(connection, messageToken))) {
         *return_code = kIOReturnNotFound;
@@ -543,8 +619,6 @@ kern_return_t _io_pm_connection_acknowledge_event
     
     foundResponse->repliedWhen = CFAbsoluteTimeGetCurrent();
     foundResponse->replied = true;
-    
-    typeOfWake = foundResponse->notificationType;
     
     // Log if response time exceeds kAppResponseLogThresholdMS.
     timeIntervalMS = (int)((foundResponse->repliedWhen - foundResponse->notifiedWhen) * 1000);
@@ -556,34 +630,76 @@ kern_return_t _io_pm_connection_acknowledge_event
         
         CFRelease(timeIntervalNumber);
     }
+    else if (gDebugFlags & kIOPMDebugLogCallbacks)
+    {
+        logASLMessageApplicationResponse(kAppResponseLogSourcePMConnection, connection->callerName,
+                                         CFSTR(kMsgTracerDomainAppResponse), 0, foundResponse->notificationType);
+    }
     
     // Unpack the passed-in options data structure
     if ((ackOptionsDict = _io_pm_connection_acknowledge_event_unpack_payload(options_ptr, options_len)))
     {
-        /*
-         * Caller requests a dark wake / maintenance wake
-         */
-        if ((maintenanceDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAcknowledgmentOptionWakeDate))))
-        {
-            foundResponse->maintenanceRequested = CFDateGetAbsoluteTime(maintenanceDate);
+        
+        foundResponse->clientInfoString = CFDictionaryGetValue(ackOptionsDict, kIOPMAckClientInfoKey);
+        if (foundResponse->clientInfoString) {
+            CFRetain(foundResponse->clientInfoString);
         }
         
         /*
-         * Caller requests a sleep service wake.
-         * We expect that sleepserviced is the only process able to make this call.
+         * Caller requests a maintenance wake
+         *
+         * kIOPMAckWakeDate
+         *      - Schedules on AC only
+         * kIOPMAckNetworkMaintenanceWakeDate
+         *      - Schedules on AC only
          */
-        if ((sleepServiceDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAcknowledgementOptionSleepServiceDate))))
+        requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckWakeDate));
+        if (!requestDate) {
+            requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckNetworkMaintenanceWakeDate));
+        }
+                
+        if (requestDate 
+            && (kACPowered == _getPowerSource()))
         {
-           foundResponse->sleepServiceRequested = CFDateGetAbsoluteTime(sleepServiceDate);
+            foundResponse->maintenanceRequested = CFDateGetAbsoluteTime(requestDate);
+        }
+        
+        /* kIOPMAckTimerPluginWakeDate
+         *      - Timer plugin uses this to schedule DWBT timed work.
+         *      - Schedules on AC only
+         *      - Schedules on SilentRunning machines only
+         */
+        requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckTimerPluginWakeDate));
+        
+        if (requestDate && _DWBT_allowed()) 
+        {
+            foundResponse->timerPluginRequested = CFDateGetAbsoluteTime(requestDate);
+            if (foundResponse->timerPluginRequested < (CFAbsoluteTimeGetCurrent() + kPMSleepDurationForBT) )
+                foundResponse->timerPluginRequested = (CFAbsoluteTimeGetCurrent() + kPMSleepDurationForBT);
+        }
+        
+        /* kIOPMAckSleepServiceDate
+         *      - SleepServiceD uses this to schedule SleepService work.
+         *      - Schedules on AC & Battery
+         *      - Schedules on SilentRunning machines only
+         */
+        requestDate = isA_CFDate(CFDictionaryGetValue(ackOptionsDict, kIOPMAckSleepServiceDate));
+        
+        if (requestDate && _SS_allowed())
+        {
+            foundResponse->sleepServiceRequested = CFDateGetAbsoluteTime(requestDate);
         }
         
         /*
-         * Caller specifies a maximum amount of time that the system should stay awake when it wakes for SleepServices.
+         * Caller specifies a maximum amount of time that the system should stay awake 
+         * when it wakes for SleepServices.
+         *       - SleepServiceD calls this. Nobody else.
          */
-        if ((sleepServiceCapTimer = isA_CFNumber(CFDictionaryGetValue(ackOptionsDict, kIOPMAcknowledgeOptionSleepServiceCapTimeout))))
+        sleepServiceCapTimer = isA_CFNumber(CFDictionaryGetValue(ackOptionsDict,
+                                                                 kIOPMAcknowledgeOptionSleepServiceCapTimeout));
+        if ( (sleepServiceCapTimer) && _SS_allowed() )
         {
             CFNumberGetValue(sleepServiceCapTimer, kCFNumberIntType, &foundResponse->sleepServiceCapTimeoutMS);
-            
             scheduleSleepServiceCapTimerEnforcer(foundResponse->sleepServiceCapTimeoutMS);
         }
         
@@ -615,6 +731,79 @@ kern_return_t _io_pm_connection_copy_status
 {
     return KERN_SUCCESS;
 }
+
+kern_return_t _io_pm_set_debug_flags(
+        mach_port_t     server,
+        audit_token_t   token,
+        uint32_t    newFlags,
+        uint32_t    *oldFlags,
+        int         *return_code )
+{
+    pid_t               callerPID = -1;
+    uid_t               callerUID = -1;
+    gid_t               callerGID = -1;
+
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);    
+    if ( !(callerIsRoot(callerUID) || callerIsAdmin(callerUID, callerGID) ))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
+
+    if (oldFlags) 
+        *oldFlags = gDebugFlags;
+    gDebugFlags = newFlags;
+
+    *return_code = kIOReturnSuccess;
+
+exit:
+
+
+    return KERN_SUCCESS;
+}
+
+kern_return_t _io_pm_set_bt_wake_interval
+(
+    mach_port_t server,
+    audit_token_t   token,
+    uint32_t    newInterval,
+    uint32_t    *oldInterval,
+    int         *return_code
+)
+{
+#if !TARGET_OS_EMBEDDED
+    pid_t               callerPID = -1;
+    uid_t               callerUID = -1;
+    gid_t               callerGID = -1;
+
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);    
+    if ( !(callerIsRoot(callerUID) || callerIsAdmin(callerUID, callerGID) ))
+    {
+        *return_code = kIOReturnNotPrivileged;
+        goto exit;
+    }
+
+    if (oldInterval)
+       *oldInterval = kPMSleepDurationForBT;
+    kPMSleepDurationForBT = newInterval;
+    if ( newInterval ) {
+       /*
+        * Backdoor to enable SR Capability to allow others
+        * to play  with this Background tasks.
+        */
+       _Set_SR_override(kPMSROverrideEnable);
+    }
+    else {
+       _Set_SR_override(kPMSROverrideDisable);
+    }
+#endif
+
+    *return_code = kIOReturnSuccess;
+
+exit:
+    return KERN_SUCCESS;
+}
+
 
 
 /************************************************************************************/
@@ -731,7 +920,12 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap)
         {
             for (i=0; i<responseCount; i++) 
             {
-                free((PMResponse *)CFArrayGetValueAtIndex(reap->awaitingResponses, i));
+                PMResponse  *purgeMe = (PMResponse *)CFArrayGetValueAtIndex(reap->awaitingResponses, i);
+                
+                if (purgeMe->clientInfoString)
+                    CFRelease(purgeMe->clientInfoString);
+                
+                free(purgeMe);
             }
         }
         CFRelease(reap->awaitingResponses);
@@ -888,77 +1082,55 @@ kern_return_t _io_pm_get_uuid(
             }
         }
     }
-    
     out_uuid[0] = '\0';
     *return_code = kIOReturnNotFound;
     return KERN_SUCCESS;
 }
 
+kern_return_t _io_pm_set_sleepservice_wake_time_cap(
+    mach_port_t         server __unused,
+    audit_token_t       token,
+    int                 cap_ms,
+    int                 *return_code)
+{
+#if !TARGET_OS_EMBEDDED
+    pid_t               callerPID = -1;
+    uid_t               callerUID = -1;
+    gid_t               callerGID = -1;
+
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);    
+    if ( !callerIsRoot(callerUID) )
+    {
+        *return_code = kIOReturnNotPrivileged;
+        return KERN_SUCCESS;
+    }
+
+    if (gSleepService.capTime == 0 ||
+          !isA_SleepSrvcWake() )
+    {
+        *return_code = kIOReturnError;
+        return KERN_SUCCESS;
+    }
+    gSleepService.capTime = cap_ms;
+   setSleepServicesTimeCap(cap_ms);
+#endif
+   *return_code = kIOReturnSuccess;
+   return KERN_SUCCESS;
+}
+
+#if !TARGET_OS_EMBEDDED
 static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms) 
 {
-    uint64_t ns_offset = (uint64_t)cap_ms * 1000ULL * 1000ULL;  // ms to ns
+    CFMutableDictionaryRef assertionDescription = NULL;
     
-   
-    asl_log(NULL, NULL, ASL_LEVEL_ERR, "SleepService: Woke for a SleepServices Wake. cap=%d ms\n", cap_ms);
-    
-
     gSleepService.capTime = (long)cap_ms;
     
-    if (gSleepService.capTimerEnforcer) {
-        /* Unexpected case: 
-         *
-         * SleepServiceD sets a SleepService cap timer via IOPMConnectionAcknowledge, but we already 
-         * tracking one via gSleepService.capTimerEnforcer from a previous SleepService cap timer 
-         * IOPMConnectionAcknowledgement.
-         */
-        dispatch_source_cancel(gSleepService.capTimerEnforcer);
-    }
-    
-    gSleepService.capTimerEnforcer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
-    
-    if (!gSleepService.capTimerEnforcer) {
-        return;
-    }
-    
-    dispatch_source_set_timer(gSleepService.capTimerEnforcer, dispatch_time(DISPATCH_TIME_NOW, ns_offset), 0, 0);
-    
-    dispatch_source_set_cancel_handler(gSleepService.capTimerEnforcer, 
-       ^{
-           /* The system is only in a SleepService wake when powerd has an outstanding SleepServicesCapTimer.
-            *
-            * We are cancelling the timer. We have turned off ApplePuhServiceTask assertions, or there are no
-            * ApplePushServiceTask assertions. We will either go back to sleep immediately, or stay awake in 
-            * DarkWake or FullWake if other assertions keep the system up.
-            */
-           logASLMessageSleepServiceTerminated();
-           
-           
-           if (gSleepService.notifyToken) {
-               notify_set_state(gSleepService.notifyToken, 0);
-               notify_post(kIOPMSleepServiceActiveNotifyName);
-           }
-           
-           dispatch_release(gSleepService.capTimerEnforcer);
-           gSleepService.capTimerEnforcer = NULL;
-       });
-
-    dispatch_source_set_event_handler(gSleepService.capTimerEnforcer, 
-        ^{
-            /* SleepServiceD's specified cap timer expired. At this point we no longer honor
-             * kIOPMAssertionTypeApplePushServiceTask assertions.
-             */            
-            PMAssertions_TurnOffAssertions_ApplePushServiceTask();
-            dispatch_source_cancel(gSleepService.capTimerEnforcer);
-        });
-
-    dispatch_resume(gSleepService.capTimerEnforcer);
-
+    setSleepServicesTimeCap(cap_ms);
     /*
      * Publish a SleepService UUID
      */
     
     if (gSleepService.uuid) {
-        // Unexpected case. We are setting a new UUID, so this UUID should already be free'd and NULL'd.
         CFRelease(gSleepService.uuid);
     }
     CFUUIDRef   ssuuid = NULL;
@@ -968,6 +1140,18 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
         CFRelease(ssuuid);
     }
     
+    gPowerState |= kDarkWakeForSSState;
+    configAssertionType(kPushServiceTaskIndex, false);
+    assertionDescription = _IOPMAssertionDescriptionCreate(
+                    kIOPMAssertionTypeApplePushServiceTask,
+                    CFSTR("Powerd - Wait for client pushService assertions"), 
+                    NULL, NULL, NULL,
+                    10, kIOPMAssertionTimeoutActionRelease);
+
+    InternalCreateAssertion(assertionDescription, NULL);
+
+    CFRelease(assertionDescription);
+
     /*
      * Publish SleepService notify state under "com.apple.powermanagement.sleepservices"
      */
@@ -992,16 +1176,28 @@ static void scheduleSleepServiceCapTimerEnforcer(uint32_t cap_ms)
      *  Announce to ASL & MessageTracer
      */
     logASLMessageSleepServiceBegins(gSleepService.capTime);
-}
 
 
-__private_extern__ void cancelSleepService(void)
-{
-    if (gSleepService.capTimerEnforcer) {
-        dispatch_source_cancel(gSleepService.capTimerEnforcer);
+    if (!gNotifySleepServiceToken) {
+        int status;
+        status = notify_register_check(kIOPMSleepServiceActiveNotifyName, &gNotifySleepServiceToken);
+        
+        if (NOTIFY_STATUS_OK != status) {
+            gNotifySleepServiceToken = 0;            
+        }
+    }
+    
+    if (gNotifySleepServiceToken) 
+    {
+        /* Interested clients will know that PM is in a SleepServices wake, as dictated by SleepServiceD */
+        notify_set_state(gNotifySleepServiceToken, kIOPMSleepServiceActiveNotifyBit);
+        notify_post(kIOPMSleepServiceActiveNotifyName);
     }
 }
+#endif
 
+
+#if LOG_SLEEPSERVICES
 
 /*****************************************************************************/
 /* LOG ASL MESSAGE SLEEPSERVICE - Begins */
@@ -1010,9 +1206,7 @@ __private_extern__ void cancelSleepService(void)
 static void logASLMessageSleepServiceBegins(long withCapTime)
 {
     aslmsg      beginMsg;
-    char        strUUID[100];
-    char        strUUID2[100];
-    char        valStr[30];
+    char        strbuf[125];
     
     beginMsg = asl_new(ASL_TYPE_MSG);
     
@@ -1020,28 +1214,30 @@ static void logASLMessageSleepServiceBegins(long withCapTime)
     
     /* com.apple.message.uuid = <SleepWake UUID>
      */
-    if (_getUUIDString(strUUID, sizeof(strUUID))) {
-        asl_set(beginMsg, kMsgTracerUUIDKey, strUUID);
+    if (_getUUIDString(strbuf, sizeof(strbuf))) {
+        asl_set(beginMsg, kMsgTracerUUIDKey, strbuf);
     }
     
     /* com.apple.message.uuid2 = <SleepServices UUID>
      */
     if (gSleepService.uuid
-        && CFStringGetCString(gSleepService.uuid, strUUID2, sizeof(strUUID2), kCFStringEncodingUTF8))
+        && CFStringGetCString(gSleepService.uuid, strbuf, sizeof(strbuf), kCFStringEncodingUTF8))
     {
-        asl_set(beginMsg, kMsgTracerUUID2Key, strUUID2);
+        asl_set(beginMsg, kMsgTracerUUID2Key, strbuf);
     }
-        
-    snprintf(valStr, sizeof(valStr), "%ld", withCapTime);
-    asl_set(beginMsg, kMsgTracerValueKey, valStr);
     
-    asl_set(beginMsg, ASL_KEY_MSG, "SleepService: window begins.");
- 
+    snprintf(strbuf, sizeof(strbuf), "%ld", withCapTime);
+    asl_set(beginMsg, kMsgTracerValueKey, strbuf);
+    
+    snprintf(strbuf, sizeof(strbuf), "SleepService: window begins with cap time=%ld secs", withCapTime/1000);
+    asl_set(beginMsg, ASL_KEY_MSG, strbuf);
+    
     //   If you set kPMASLMessageKey == kPMASLMessageLogValue, then "pmset -g log" will pick 
     //   this message up display.
     asl_set(beginMsg, kPMASLMessageKey, kPMASLMessageLogValue);
     asl_set(beginMsg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
-
+    
+    asl_set(beginMsg, ASL_KEY_FACILITY, "internal");
     asl_send(NULL, beginMsg);
     asl_free(beginMsg);
 }
@@ -1050,13 +1246,19 @@ static void logASLMessageSleepServiceBegins(long withCapTime)
 /* LOG ASL MESSAGE SLEEPSERVICE - Terminated*/
 /*****************************************************************************/
 
-static void logASLMessageSleepServiceTerminated(void)
+__private_extern__ void logASLMessageSleepServiceTerminated(int forcedTimeoutCnt)
 {
     aslmsg      endMsg;
     char        strUUID[100];
     char        strUUID2[100];
     char        valStr[30];
     
+    if ( (gPowerState & kDarkWakeForSSState) == 0)
+       return;
+
+    gPowerState &= ~kDarkWakeForSSState;
+    configAssertionType(kPushServiceTaskIndex, false);
+
     endMsg = asl_new(ASL_TYPE_MSG);
     
     asl_set(endMsg, kMsgTracerDomainKey, kMsgTracerDomainSleepServiceTerminated);
@@ -1077,7 +1279,7 @@ static void logASLMessageSleepServiceTerminated(void)
     
     /* value = # of clients whose assertions had to be timed out.
      */
-    snprintf(valStr, sizeof(valStr), "%d", gSleepService.pushAssertionsWereTimedOutCount);
+    snprintf(valStr, sizeof(valStr), "%d", forcedTimeoutCnt);
     asl_set(endMsg, kMsgTracerValueKey, valStr);
         
 
@@ -1085,7 +1287,7 @@ static void logASLMessageSleepServiceTerminated(void)
 
     /* Signature for how many clients timed out
      */    
-    if (gSleepService.pushAssertionsWereTimedOutCount == 0)
+    if (forcedTimeoutCnt == 0)
     {
         asl_set(endMsg, kMsgTracerSignatureKey, kMsgTracerSigSleepServiceExitClean);
     } else {
@@ -1097,6 +1299,7 @@ static void logASLMessageSleepServiceTerminated(void)
     asl_set(endMsg, kPMASLMessageKey, kPMASLMessageLogValue);
     asl_set(endMsg, ASL_KEY_LEVEL, ASL_STRING_NOTICE);
     
+    asl_set(endMsg, ASL_KEY_FACILITY, "internal");
     asl_send(NULL, endMsg);
     asl_free(endMsg);
     
@@ -1121,6 +1324,41 @@ static void logASLMessageSleepServiceTerminated(void)
     }
 */
 }
+#endif
+
+/*****************************************************************************/
+/* Getters for System State */
+/*****************************************************************************/
+__private_extern__ bool isA_DarkWakeState()
+{
+   if (gPowerState & kDarkWakeState)
+      return true;
+
+   return false;
+
+}
+__private_extern__ bool isA_BTMtnceWake()
+{
+
+   if (gPowerState & kDarkWakeForBTState)
+      return true;
+
+   return false;
+}
+
+__private_extern__ void set_SleepSrvcWake()
+{
+   gPowerState |= kDarkWakeForSSState;
+}
+__private_extern__ bool isA_SleepSrvcWake()
+{
+
+   if (gPowerState & kDarkWakeForSSState)
+      return true;
+
+   return false;
+}
+
 
 /*****************************************************************************/
 /* PMConnectionPowerCallBack */
@@ -1137,8 +1375,12 @@ static void PMConnectionPowerCallBack(
 {
     PMResponseWrangler                      *responseController = NULL;
     IOPMSystemPowerStateCapabilities        deliverCapabilityBits = 0;
-    const struct IOPMSystemCapabilityChangeParameters *capArgs;
-
+    const struct        IOPMSystemCapabilityChangeParameters *capArgs;
+#if !TARGET_OS_EMBEDDED
+    static bool         scheduleWakeForBT = true;
+    CFStringRef         wakeType = NULL;
+#endif
+    
     if (PMConnectionPowerCallBack_HandleSleepForSSH(inMessageType, messageData) ||
             (kIOMessageSystemCapabilityChange != inMessageType) ) 
     {
@@ -1147,61 +1389,121 @@ static void PMConnectionPowerCallBack(
 
     capArgs = (const struct IOPMSystemCapabilityChangeParameters *)messageData;
 
-
-    AutoWakeCapabilitiesNotification(capArgs->fromCapabilities, capArgs->toCapabilities);    
-
+    AutoWakeCapabilitiesNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
     ClockSleepWakeNotification(capArgs->fromCapabilities, capArgs->toCapabilities);
-    
 
+    if (IS_DARK_CAPABILITIES(capArgs->fromCapabilities)
+        && !IS_DARK_CAPABILITIES(capArgs->toCapabilities))
+    {
+        /* MessageTracer only records assertion events that occurred during DarkWake. 
+         * This cues MT2 to stop logging assertions.
+         */
+        mt2DarkWakeEnded();
+    }
     
-    if (SYSTEM_WILL_SLEEP(capArgs))
+    if (SYSTEM_WILL_SLEEP_TO_S0(capArgs))
     {
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(0);
         notify_post(kIOPMSystemPowerStateNotify);
 
-        responseController = connectionFireNotification(_kSleepStateBits, (long)capArgs->notifyRef);
-
-        if (!responseController) {
-            // We have zero clients. Acknowledge immediately.            
-
-            PMScheduleWakeEventChooseBest( 0, 0, getEarliestRequestAutoWake());
-            IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
+#if !TARGET_OS_EMBEDDED
+        if (scheduleWakeForBT) {
+          enableAssertionType(kBackgroundTaskIndex);
+          scheduleWakeForBT = false;
         }
+#endif
+        // Clear gPowerState and set it to kSleepState
+        // We will clear kDarkWakeForSSState bit later when the SS session is closed.
+        gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+        gPowerState |= kSleepState;
+
+       if (isA_SleepSrvcWake()) {
+           gSleepService.capTime = 0;
+           setSleepServicesTimeCap(0);
+       }
 
         /* We must acknowledge this sleep event within 30 second timeout, 
          *      once clients ack via IOPMConnectionAcknowledgeEvent().
          * Our processing will pick-up again in our handler
          *      _io_pm_connection_acknowledge_event
          */
-        logASLMessageSleep(kMsgTracerSigSuccess, NULL, NULL);
+        logASLMessageSleep(kMsgTracerSigSuccess, NULL, NULL, kIsS0Sleep);
         logASLMessageKernelApplicationResponses();
+
+        responseController = connectionFireNotification(_kSleepStateBits, (long)capArgs->notifyRef);
+
+        if (!responseController) {
+            // We have zero clients. Acknowledge immediately.            
+
+            PMScheduleWakeEventChooseBest(NULL);
+            IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
+        }
+
+
         return;
-/*        
-    } else if (SYSTEM_WILL_WAKE(capArgs))
+#if !TARGET_OS_EMBEDDED
+    } else if (SYSTEM_WILL_SLEEP_TO_S0DARK(capArgs))
     {
-        gThisIsSleepServicesWake = (wakeReasonWas(CFSTR("RTC")) && 
-                        (gLastChosenWakeType == kChooseSleepServiceWake)) ? true : false;
-*/
+
+       if (_DWBT_allowed() && checkForActivesByType(kBackgroundTaskIndex)) {
+          disableAssertionType(kBackgroundTaskIndex);
+          scheduleWakeForBT = true;
+          gWakeForDWBTInterval = kPMSleepDurationForBT;
+       }
+       /* 
+        * This notification is issued before every sleep. Log to asl only if
+        * there are assertion that can prevent system from going into S0
+        */
+       if (systemBlockedInS0Dark()) {
+          logASLMessageSleep(kMsgTracerSigSuccess, NULL, NULL, kIsDarkWake);
+       }
+
+        // Clear gPowerState and set it to kDarkWakeState
+        // We will clear kDarkWakeForSSState bit later when the SS session is closed.
+       gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+       gPowerState |= kDarkWakeState;
+       if (isA_SleepSrvcWake()) {
+           setSleepServicesTimeCap(0);
+           gSleepService.capTime = 0;
+       }
+#endif
     } else if (SYSTEM_DID_WAKE(capArgs))
     {
-        
-       if (gSleepService.uuid) {
-           CFRelease(gSleepService.uuid);
-           gSleepService.uuid = NULL;
+       // On a SilentRunningMachine, the assumption is that every wake is
+       // Silent until powerd unclamps SilentRunning or unforeseen thermal
+       // constraints arise
+       if(smcSilentRunningSupport() )
+           gCurrentSilentRunningState = kSilentRunningOn;
+
+       //If system is sleep services wake, cancel the sleep services
+       if (isA_SleepSrvcWake()) {
+           setSleepServicesTimeCap(0);
+           gSleepService.capTime = 0;
        }
         if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics))
         {
             // e.g. System has powered into full wake
-            deliverCapabilityBits = 
+            // Unclamp SilentRunning ASAP
+            _unclamp_silent_running();
+
+            deliverCapabilityBits =
                     kIOPMSystemPowerStateCapabilityCPU
                     | kIOPMSystemPowerStateCapabilityDisk 
                     | kIOPMSystemPowerStateCapabilityNetwork
                     | kIOPMSystemPowerStateCapabilityAudio 
                     | kIOPMSystemPowerStateCapabilityVideo;
 
-            logASLMessageWake(kMsgTracerSigSuccess, NULL,  NULL, kIsFullWake);
-            
+            if (BIT_IS_SET(capArgs->fromCapabilities, kIOPMSystemCapabilityCPU)) {
+               logASLMessageWake(kMsgTracerSigSuccess, NULL,  NULL, kIsDarkToFullWake);
+            } else {
+               logASLMessageWake(kMsgTracerSigSuccess, NULL,  NULL, kIsFullWake);
+                mt2RecordWakeEvent(kWakeStateFull);
+            }
+
+            // kDarkWakeForSSState bit is removed when the SS session is closed.
+            gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+            gPowerState |= kFullWakeState;
         } else if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))
         {
             // e.g. System has moved into dark wake
@@ -1211,8 +1513,28 @@ static void PMConnectionPowerCallBack(
                     | kIOPMSystemPowerStateCapabilityNetwork;
             
             logASLMessageWake(kMsgTracerSigSuccess, NULL,  NULL, kIsDarkWake);
+            mt2RecordWakeEvent(kWakeStateDark);
+
+            // kDarkWakeForSSState bit is removed when the SS session is closed.
+            gPowerState &= ~(kPowerStateMask ^ kDarkWakeForSSState);
+            gPowerState |= kDarkWakeState;
             
             _ProxyAssertions(capArgs);
+#if !TARGET_OS_EMBEDDED
+
+           wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
+           if (isA_CFString(wakeType) && CFEqual(wakeType, kIOPMRootDomainWakeTypeMaintenance) && 
+                        ( _getPowerSource() != kBatteryPowered)) {
+              gWakeForDWBTInterval = 0;
+              gPowerState |= kDarkWakeForMntceState|kDarkWakeForBTState;
+
+              /* Log all background task assertions once again */
+              CFRunLoopPerformBlock(_getPMRunLoop(), kCFRunLoopDefaultMode, 
+                         ^{ logASLAssertionTypeSummary(kBackgroundTaskIndex); });
+              CFRunLoopWakeUp(_getPMRunLoop());
+           }
+           if (wakeType) CFRelease(wakeType);
+#endif
         } 
         // Send an async notify out - clients include SCNetworkReachability API's; no ack expected
         setSystemSleepStateTracking(deliverCapabilityBits);
@@ -1220,7 +1542,6 @@ static void PMConnectionPowerCallBack(
         notify_post(kIOPMSystemPowerStateNotify);
 
         responseController = connectionFireNotification(deliverCapabilityBits, (long)capArgs->notifyRef);
-
     
         /* We must acknowledge this sleep event within 30 second timeout, 
          *      once clients ack via IOPMConnectionAcknowledgeEvent().
@@ -1231,6 +1552,9 @@ static void PMConnectionPowerCallBack(
             // We have zero clients. Acknowledge immediately.            
             IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
         }
+#if !TARGET_OS_EMBEDDED
+        SystemLoadSystemPowerStateHasChanged( );
+#endif
         return;
     }
 
@@ -1306,8 +1630,7 @@ static PMResponseWrangler *connectionFireNotification(
         goto exit;
     }
     responseWrangler->notificationType = interestBitsNotify;
-    responseWrangler->awaitResponsesTimeoutSeconds = 
-                            (int)kPMConnectionNotifyTimeoutDefault;
+    responseWrangler->awaitResponsesTimeoutSeconds = (int)kPMConnectionNotifyTimeoutDefault;
     responseWrangler->kernelAcknowledgementID = kernelAcknowledgementID;
 
     
@@ -1360,6 +1683,9 @@ static PMResponseWrangler *connectionFireNotification(
 
         CFArrayAppendValue(responseWrangler->awaitingResponses, awaitThis);
 
+        if (gDebugFlags & kIOPMDebugLogCallbacks)
+           logASLMessageAppNotify(awaitThis->connection->callerName, interestBitsNotify );
+         
     }
 
     // TODO: Set off a timer to fire in xx30xx seconds 
@@ -1498,12 +1824,39 @@ static void _sendMachMessage(
     return;
 }
 
-static CFStringRef copyCFStringForRequestedWakeup(CFStringRef describeType, CFAbsoluteTime requestedTime, PMResponse *responder)
+static void describeWakeEvent(
+    PMConnection            *inConnection,
+    CFMutableStringRef      allWakeEvents,
+    CFStringRef             describeType, 
+    CFAbsoluteTime          requestedTime,
+    CFStringRef             clientInfoString)
 {
-    return CFStringCreateWithFormat(0, 0, CFSTR("[pid=%d request=%@ inDelta=%lf] "),
-                        (responder ? (responder->connection ? responder->connection->callerPID : -1): -2), 
-                        describeType,
-                        requestedTime - CFAbsoluteTimeGetCurrent());
+    CFStringRef             descriptionString = NULL;
+    char                    name[32];
+    pid_t                   use_pid = 0;
+    
+    if (!allWakeEvents)
+        return;                    
+    
+    use_pid = inConnection ? inConnection->callerPID : 0;
+    if (0 == use_pid) {
+        use_pid = getpid();
+    }
+    
+    if ((0 == use_pid) 
+        || !proc_name(use_pid, name, sizeof(name))) {
+        name[0] = '\0';
+    }
+    
+    descriptionString = CFStringCreateWithFormat(0, 0, CFSTR("[proc=%s request=%@ inDelta=%.0f%@%@] "),
+                        name, describeType,
+                        (requestedTime - CFAbsoluteTimeGetCurrent()),
+                        clientInfoString ? CFSTR(" info="):CFSTR(""),
+                        clientInfoString ? clientInfoString:CFSTR(""));
+    if (descriptionString) {
+        CFStringAppend(allWakeEvents, descriptionString);
+        CFRelease(descriptionString);
+    }
 }
 
 #pragma mark -
@@ -1511,18 +1864,24 @@ static CFStringRef copyCFStringForRequestedWakeup(CFStringRef describeType, CFAb
 
 static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
 {
-    int             i = 0;
-    int             responsesCount          = 0;
-    bool            complete                = true;
-    PMResponse      *oneResponse            = NULL;
-    CFAbsoluteTime  earliestRequest_Maint   = 0.0;
-    CFAbsoluteTime  earliestRequest_SS      = 0.0;
-    CFMutableStringRef allWakeEventsString = NULL;
+    int                     i = 0;
+    int                     responsesCount          = 0;
+    bool                    complete                = true;
+    PMResponse              *oneResponse            = NULL;
+    CFMutableStringRef      allWakeEventsString     = NULL;
+    CFAbsoluteTime          pick[kChooseWakeTypeCount];
+
+    bzero(pick, sizeof(pick));
     
     if (PMDebugEnabled(kLogWakeEvents)) {
         allWakeEventsString = CFStringCreateMutable(0, 0);
     }
     
+    if (_DWBT_allowed() && gWakeForDWBTInterval) {
+        describeWakeEvent(NULL, 
+                          allWakeEventsString, CFSTR("BTIntervalWaitToDarkWake"), 
+                          gWakeForDWBTInterval + CFAbsoluteTimeGetCurrent(), NULL);
+    }
     responsesCount = CFArrayGetCount(wrangler->awaitingResponses);    
     
     for (i=0; i<responsesCount; i++)
@@ -1534,38 +1893,46 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
             break;
         }
         
-        if (allWakeEventsString)
+        if (VALID_DATE(oneResponse->maintenanceRequested)) 
         {
-            if (VALID_DATE(oneResponse->maintenanceRequested)) {
-                CFStringRef descriptionString = NULL;
-                descriptionString = copyCFStringForRequestedWakeup(CFSTR("Maintenance"), oneResponse->maintenanceRequested, oneResponse);
-                if (descriptionString) {
-                    CFStringAppend(allWakeEventsString, descriptionString);
-                    CFRelease(descriptionString);
-                }
-            }
-            if (VALID_DATE(oneResponse->sleepServiceRequested)) {
-                CFStringRef descriptionString = NULL;
-                descriptionString = copyCFStringForRequestedWakeup(CFSTR("SleepService"), oneResponse->sleepServiceRequested, oneResponse);
-                if (descriptionString) {
-                    CFStringAppend(allWakeEventsString, descriptionString);
-                    CFRelease(descriptionString);
-                }
-            }
+            describeWakeEvent(oneResponse->connection, 
+                              allWakeEventsString, CFSTR("Maintenance"), 
+                              oneResponse->maintenanceRequested, 
+                              oneResponse->clientInfoString);
+
+        }
+        if (VALID_DATE(oneResponse->sleepServiceRequested)) 
+        {
+            describeWakeEvent(oneResponse->connection, 
+                              allWakeEventsString, CFSTR("SleepService"), 
+                              oneResponse->sleepServiceRequested,
+                              oneResponse->clientInfoString);
+        }
+        if (VALID_DATE(oneResponse->timerPluginRequested))
+        {
+            describeWakeEvent(oneResponse->connection, 
+                              allWakeEventsString, CFSTR("TimerPlugin"), 
+                              oneResponse->timerPluginRequested,
+                              oneResponse->clientInfoString);
         }
         
-        if (!VALID_DATE(earliestRequest_Maint)
-            || (VALID_DATE(oneResponse->maintenanceRequested) && (oneResponse->maintenanceRequested < earliestRequest_Maint)))
+        if (!VALID_DATE(pick[kChooseMaintenance])
+            || (VALID_DATE(oneResponse->maintenanceRequested) && (oneResponse->maintenanceRequested < pick[kChooseMaintenance])))
         {
-            earliestRequest_Maint = oneResponse->maintenanceRequested;
+            pick[kChooseMaintenance] = oneResponse->maintenanceRequested;
         }
         
-        if (!VALID_DATE(earliestRequest_SS)
-            || (VALID_DATE(oneResponse->sleepServiceRequested) && (oneResponse->sleepServiceRequested < earliestRequest_SS)))
+        if (!VALID_DATE(pick[kChooseSleepServiceWake])
+            || (VALID_DATE(oneResponse->sleepServiceRequested) && (oneResponse->sleepServiceRequested < pick[kChooseSleepServiceWake])))
         {
-            earliestRequest_SS = oneResponse->sleepServiceRequested;
+            pick[kChooseSleepServiceWake] = oneResponse->sleepServiceRequested;
         }
-        
+
+        if (!VALID_DATE(pick[kChooseTimerPlugin])
+            || (VALID_DATE(oneResponse->timerPluginRequested) && (oneResponse->timerPluginRequested < pick[kChooseTimerPlugin])))
+        {
+            pick[kChooseTimerPlugin] = oneResponse->timerPluginRequested;
+        }
     }
     
     if (!complete) {
@@ -1578,16 +1945,9 @@ static bool checkResponses_ScheduleWakeEvents(PMResponseWrangler *wrangler)
     {
         // Only schedule wakeup events if we're going to sleep.
 
-        //asl_log(0, 0, ASL_LEVEL_ERR, "CHOOSE after all acks on sleep event (type=0x%02x)", wrangler->notificationType);
-
-        PMScheduleWakeEventChooseBest( earliestRequest_Maint,
-                                       earliestRequest_SS,
-                                       getEarliestRequestAutoWake());
+        logASLMessagePMConnectionScheduledWakeEvents(allWakeEventsString);        
         
-        if (VALID_DATE(earliestRequest_SS) || VALID_DATE(earliestRequest_Maint))
-        {
-            logASLMessagePMConnectionScheduledWakeEvents(allWakeEventsString);        
-        }
+        PMScheduleWakeEventChooseBest(pick);
     } 
     
 exit:
@@ -1621,7 +1981,112 @@ static void checkResponses(PMResponseWrangler *wrangler)
     
     return;
 }
+            
+            
+/* PMScheduleWakeEventChooseBest
+* Handles the decision-making leading up to system sleep time, about which
+* wake event we want to schedule with the RTC.
+*
+* The system might have several clients requesting a Maintenance wake...
+* Or a SleepServices wake...
+* And it might have a few IOPMSchedulePowerEvent() requests to power the system
+* over an RTC wake.
+*
+* This code identifies the first upcoming event, among those options, and
+* schedules it with the RTC.
+*/
 
+#define IS_EARLIEST_EVENT(x, y, z) (VALID_DATE(x) && ((y==0.0)||(x<y)) && ((z==0.0)||(x<z)))
+
+static bool pickEarliestEvent(CFAbsoluteTime *inArray, int *outIndex, CFAbsoluteTime *outTime)
+{
+    int                 i = 0;
+    CFAbsoluteTime      lowest = kCFAbsoluteTimeIntervalSince1904;
+
+    if (outIndex) *outIndex = 0;
+    if (outTime) *outTime = 0.0;
+    
+    if (!inArray || !outIndex || !outTime)
+        return false;
+    
+    for (i=0; i<kChooseWakeTypeCount; i++) 
+    {
+        if ((0.0 != inArray[i]) && (inArray[i] < lowest)) {
+            *outIndex = i;
+            *outTime = lowest = inArray[i];
+        }
+    }
+    
+    return (0.0 != *outTime);
+}
+            
+            
+__private_extern__ void PMScheduleWakeEventChooseBest(CFAbsoluteTime *pickWakeEvent)
+{
+    CFStringRef     scheduleWakeType                    = NULL;
+    CFAbsoluteTime  scheduleTime                        = 0.0;
+    CFAbsoluteTime  dummy[kChooseWakeTypeCount];
+    int             idx;
+    
+    if (!pickWakeEvent) {
+        bzero(dummy, sizeof(dummy));
+        pickWakeEvent = dummy;
+    }
+    
+    pickWakeEvent[kChooseFullWake]          = getEarliestRequestAutoWake();
+    if (_DWBT_allowed() && gWakeForDWBTInterval) {
+        pickWakeEvent[kChooseDWBTInterval]      = CFAbsoluteTimeGetCurrent() + gWakeForDWBTInterval;
+    }
+ 
+    if (!pickEarliestEvent(pickWakeEvent, &idx, &scheduleTime))
+    {
+        // Nothing to schedule. bail.
+        return;
+    }
+    
+    // INVARIANT: At least one of the WakeTimes we're evaluating has a valid date
+    if ((kChooseMaintenance == idx) || (kChooseDWBTInterval == idx) 
+            || (kChooseTimerPlugin == idx))
+    {
+        scheduleWakeType = CFSTR(kIOPMMaintenanceScheduleImmediate);
+    } else if (kChooseFullWake == idx)
+    {
+        scheduleWakeType = CFSTR(kIOPMAutoWakeScheduleImmediate);
+    } else  if (kChooseSleepServiceWake == idx)
+    {
+        scheduleWakeType = CFSTR(kIOPMSleepServiceScheduleImmediate);
+    }
+
+    if (VALID_DATE(scheduleTime) && scheduleWakeType)
+    {
+        CFDateRef theChosenDate = NULL;
+
+        if ((theChosenDate = CFDateCreate(0, scheduleTime)))
+        {
+            /* Tell the RTC when PM wants to be woken up */
+            IOPMSchedulePowerEvent(theChosenDate, NULL, scheduleWakeType);            
+            CFRelease(theChosenDate);
+            
+        }
+        
+        if (PMDebugEnabled(kLogWakeEvents)) 
+        {
+            /* Record to pmset -g log the event that we chose */
+            CFMutableStringRef      finalPublish = CFStringCreateMutable(0, 0);
+            if (finalPublish)
+            {
+                CFStringAppend(finalPublish, scheduleWakeType);
+                CFStringAppendFormat(finalPublish, NULL, CFSTR(" inDelta=%.2lf"), (scheduleTime - CFAbsoluteTimeGetCurrent()));
+                logASLMessageExecutedWakeupEvent(finalPublish);
+                CFRelease(finalPublish);
+            }
+        }
+    }
+
+    return ;
+}
+            
+            
 /*****************************************************************************/
 /*****************************************************************************/
 
@@ -1709,4 +2174,41 @@ static PMConnection *connectionForID(uint32_t findMe)
     }
 }
 
+// Unclamps machine from SilentRunning if the machine is currently clamped.
+// Does so by going through rootDomain's setProperties implementation.
+// RootDomain informs all interested drivers (including AppleSMC) that
+// SilentRunning has been turned off
+__private_extern__ IOReturn _unclamp_silent_running(void)
+{
+    // Nothing to do. It's already unclamped
+    if(gCurrentSilentRunningState == kSilentRunningOff)
+        return kIOReturnSuccess;
 
+    // Nothing to do. SMC doesn't support SR
+    if(!smcSilentRunningSupport())
+        return kIOReturnUnsupported;
+
+    int newSRCap = kSilentRunningOff;
+    CFNumberRef num = CFNumberCreate(0, kCFNumberIntType, &newSRCap);
+    if (num)
+    {
+        if(rootDomainService)
+        {
+            IORegistryEntrySetCFProperty(rootDomainService,
+                                         CFSTR(kIOPMSilentRunningKey),
+                                         num);
+            gCurrentSilentRunningState = kSilentRunningOff;
+        }
+        else
+        {
+            CFRelease(num);
+            return kIOReturnInternalError;
+        }
+        CFRelease(num);
+        return kIOReturnSuccess;
+    }
+    else
+    {
+        return kIOReturnInternalError;
+    }
+}

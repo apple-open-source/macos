@@ -110,14 +110,13 @@ _gssapi_encapsulate (
 	const gss_OID mech );
 
 OM_uint32
-_gssapi_get_mic_arcfour (
-	OM_uint32 * /*minor_status*/,
-	const gsskrb5_ctx /*context_handle*/,
-	krb5_context /*context*/,
-	gss_qop_t /*qop_req*/,
-	const gss_buffer_t /*message_buffer*/,
-	gss_buffer_t /*message_token*/,
-	krb5_keyblock */*key*/);
+_gssapi_get_mic_arcfour(OM_uint32 * minor_status,
+			const gsskrb5_ctx context_handle,
+			krb5_context context,
+			gss_qop_t qop_req,
+			const gss_buffer_t message_buffer,
+			gss_buffer_t message_token,
+			krb5_keyblock *key);
 
 void *
 _gssapi_make_mech_header (
@@ -203,15 +202,14 @@ _gssapi_verify_mech_header (
 	gss_OID /*mech*/);
 
 OM_uint32
-_gssapi_verify_mic_arcfour (
-	OM_uint32 * /*minor_status*/,
-	const gsskrb5_ctx /*context_handle*/,
-	krb5_context /*context*/,
-	const gss_buffer_t /*message_buffer*/,
-	const gss_buffer_t /*token_buffer*/,
-	gss_qop_t * /*qop_state*/,
-	krb5_keyblock */*key*/,
-	char */*type*/);
+_gssapi_verify_mic_arcfour(OM_uint32 * minor_status,
+			   const gsskrb5_ctx context_handle,
+			   krb5_context context,
+			   const gss_buffer_t message_buffer,
+			   const gss_buffer_t token_buffer,
+			   gss_qop_t * qop_state,
+			   krb5_keyblock *key,
+			   const char *type);
 
 OM_uint32
 _gssapi_verify_mic_cfx (
@@ -491,7 +489,7 @@ OM_uint32
 _gsskrb5_import_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*input_name_buffer*/,
-	const gss_OID /*input_name_type*/,
+	gss_const_OID /*input_name_type*/,
 	gss_name_t * output_name );
 
 OM_uint32
@@ -571,7 +569,7 @@ _gsskrb5_inquire_mechs_for_name (
 OM_uint32
 _gsskrb5_inquire_names_for_mech (
 	OM_uint32 * /*minor_status*/,
-	const gss_OID /*mechanism*/,
+	gss_const_OID /*mechanism*/,
 	gss_OID_set * /*name_types*/);
 
 OM_uint32
@@ -625,7 +623,7 @@ _gsskrb5_pseudo_random (
 	gss_buffer_t /*prf_out*/);
 
 OM_uint32
-_gsskrb5_register_acceptor_identity (const char */*identity*/);
+_gsskrb5_register_acceptor_identity(OM_uint32 *min_stat, const char *identity);
 
 OM_uint32
 _gsskrb5_release_buffer (
@@ -709,14 +707,15 @@ _gsskrb5_verify_mic (
 	gss_qop_t * qop_state );
 
 OM_uint32
-_gsskrb5_verify_mic_internal (
-	OM_uint32 * /*minor_status*/,
-	const gsskrb5_ctx /*ctx*/,
-	krb5_context /*context*/,
-	const gss_buffer_t /*message_buffer*/,
-	const gss_buffer_t /*token_buffer*/,
-	gss_qop_t * /*qop_state*/,
-	char * type );
+_gsskrb5_verify_mic_internal
+           (OM_uint32 * minor_status,
+            const gsskrb5_ctx ctx,
+	    krb5_context context,
+            const gss_buffer_t message_buffer,
+            const gss_buffer_t token_buffer,
+            gss_qop_t * qop_state,
+	    const char * type
+	    );
 
 OM_uint32
 _gsskrb5_wrap (
@@ -814,7 +813,7 @@ OM_uint32
 _gsspku2u_import_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*input_name_buffer*/,
-	const gss_OID /*input_name_type*/,
+	gss_const_OID /*input_name_type*/,
 	gss_name_t * output_name );
 
 OM_uint32
@@ -825,7 +824,7 @@ _gsspku2u_indicate_mechs (
 OM_uint32
 _gsspku2u_inquire_names_for_mech (
 	OM_uint32 * /*minor_status*/,
-	const gss_OID /*mechanism*/,
+	gss_const_OID /*mechanism*/,
 	gss_OID_set * /*name_types*/);
 
 krb5_error_code
@@ -858,16 +857,6 @@ _gssiakerb_acquire_cred(OM_uint32 * minor_status,
 			OM_uint32 * time_rec);
 
 OM_uint32
-_gss_iakerb_acquire_cred_ex(gss_status_id_t status,
-			    const gss_name_t desired_name,
-			    OM_uint32 flags,
-			    OM_uint32 time_req,
-			    gss_cred_usage_t cred_usage,
-			    gss_auth_identity_t identity,
-			    void *ctx,
-			    void (*complete)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, OM_uint32));
-
-OM_uint32
 _gssiakerb_export_name(OM_uint32  * minor_status,
 		       const gss_name_t input_name,
 		       gss_buffer_t exported_name);
@@ -893,12 +882,12 @@ _gss_iakerb_iter_creds_f(OM_uint32 flags,
 OM_uint32
 _gssiakerb_import_name(OM_uint32 * minor_status,
 		       const gss_buffer_t input_name_buffer,
-		       const gss_OID input_name_type,
+		       gss_const_OID input_name_type,
 		       gss_name_t * output_name);
 
 OM_uint32
 _gssiakerb_inquire_names_for_mech (OM_uint32 * minor_status,
-				   const gss_OID mechanism,
+				   gss_const_OID mechanism,
 				   gss_OID_set * name_types);
 void
 _gss_iakerb_iter_creds_f(OM_uint32 flags,
@@ -920,5 +909,44 @@ _gsskrb5_iakerb_parse_header(OM_uint32 *minor_status,
 			     const gss_buffer_t input_token,
 			     krb5_data *data);
 
+
+OM_uint32
+_gss_iakerb_acquire_cred_ext(OM_uint32 * minor_status,
+			     const gss_name_t desired_name,
+			     gss_const_OID credential_type,
+			     const void *credential_data,
+			     OM_uint32 time_req,
+			     gss_const_OID desired_mech,
+			     gss_cred_usage_t cred_usage,
+			     gss_cred_id_t * output_cred_handle);
+
+OM_uint32 GSSAPI_CALLCONV _gss_krb5_acquire_cred_ext
+(OM_uint32 * minor_status,
+ const gss_name_t desired_name,
+ gss_const_OID credential_type,
+ const void *credential_data,
+ OM_uint32 time_req,
+ gss_const_OID desired_mech,
+ gss_cred_usage_t cred_usage,
+ gss_cred_id_t * output_cred_handle
+ );
+
+OM_uint32 GSSAPI_CALLCONV
+_gsskrb5_pname_to_uid(OM_uint32 *minor_status,
+                      const gss_name_t pname,
+                      const gss_OID mech_type,
+                      uid_t *uidp);
+
+OM_uint32 GSSAPI_CALLCONV
+_gsskrb5_authorize_localname(OM_uint32 *minor_status,
+                             const gss_name_t input_name,
+                             gss_const_buffer_t user_name,
+                             gss_const_OID user_name_type);
+
+OM_uint32
+_gsskrb5_appl_change_password(OM_uint32 *minor_status,
+			      gss_name_t name,
+			      const char *oldpw,
+			      const char *newpw);
 
 #endif /* __gsskrb5_private_h__ */

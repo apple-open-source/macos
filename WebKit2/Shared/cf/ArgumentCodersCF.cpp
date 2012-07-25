@@ -31,6 +31,10 @@
 #include "DataReference.h"
 #include <wtf/Vector.h>
 
+#if PLATFORM(MAC)
+#import <Foundation/Foundation.h>
+#endif
+
 namespace CoreIPC {
 
 CFTypeRef tokenNullTypeRef()
@@ -291,7 +295,7 @@ void encode(ArgumentEncoder* encoder, CFDataRef data)
     CFIndex length = CFDataGetLength(data);
     const UInt8* bytePtr = CFDataGetBytePtr(data);
 
-    encoder->encodeBytes(bytePtr, length);
+    encoder->encodeVariableLengthByteArray(CoreIPC::DataReference(bytePtr, length));
 }
 
 bool decode(ArgumentDecoder* decoder, RetainPtr<CFDataRef>& result)
@@ -363,7 +367,7 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFDictionaryRef>& result)
         CFDictionarySetValue(dictionary.get(), key.get(), value.get());
     }
 
-    result.adoptCF(dictionary.releaseRef());
+    result.adoptCF(dictionary.leakRef());
     return true;
 }
 
@@ -376,7 +380,7 @@ void encode(ArgumentEncoder* encoder, CFNumberRef number)
     ASSERT_UNUSED(result, result);
 
     encoder->encodeEnum(numberType);
-    encoder->encodeBytes(buffer.data(), buffer.size());
+    encoder->encodeVariableLengthByteArray(buffer);
 }
 
 static size_t sizeForNumberType(CFNumberType numberType)
@@ -464,7 +468,7 @@ void encode(ArgumentEncoder* encoder, CFStringRef string)
     ASSERT(numConvertedBytes == length);
 
     encoder->encodeEnum(encoding);
-    encoder->encodeBytes(buffer.data(), bufferLength);
+    encoder->encodeVariableLengthByteArray(buffer);
 }
 
 bool decode(ArgumentDecoder* decoder, RetainPtr<CFStringRef>& result)
@@ -513,6 +517,16 @@ bool decode(ArgumentDecoder* decoder, RetainPtr<CFURLRef>& result)
     if (!decode(decoder, string))
         return false;
 
+#if PLATFORM(MAC)
+    // FIXME: Move this to ArgumentCodersCFMac.mm and change this file back to be C++
+    // instead of Objective-C++.
+    if (!CFStringGetLength(string.get())) {
+        // CFURL can't hold an empty URL, unlike NSURL.
+        result = reinterpret_cast<CFURLRef>([NSURL URLWithString:@""]);
+        return true;
+    }
+#endif
+                    
     CFURLRef url = CFURLCreateWithString(0, string.get(), baseURL.get());
     if (!url)
         return false;

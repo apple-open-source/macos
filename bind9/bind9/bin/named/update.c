@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: update.c,v 1.176.4.16 2011/11/03 02:56:17 each Exp $ */
+/* $Id: update.c,v 1.186.16.5 2011-03-25 23:53:52 each Exp $ */
 
 #include <config.h>
 
@@ -46,6 +46,7 @@
 #include <dns/rdatatype.h>
 #include <dns/soa.h>
 #include <dns/ssu.h>
+#include <dns/tsig.h>
 #include <dns/view.h>
 #include <dns/zone.h>
 #include <dns/zt.h>
@@ -851,6 +852,9 @@ typedef struct {
 
 	/* The ssu table to check against. */
 	dns_ssutable_t *table;
+
+	/* the key used for TKEY requests */
+	dst_key_t *key;
 } ssu_check_t;
 
 static isc_result_t
@@ -867,14 +871,14 @@ ssu_checkrule(void *data, dns_rdataset_t *rrset) {
 		return (ISC_R_SUCCESS);
 	result = dns_ssutable_checkrules(ssuinfo->table, ssuinfo->signer,
 					 ssuinfo->name, ssuinfo->tcpaddr,
-					 rrset->type);
+					 rrset->type, ssuinfo->key);
 	return (result == ISC_TRUE ? ISC_R_SUCCESS : ISC_R_FAILURE);
 }
 
 static isc_boolean_t
 ssu_checkall(dns_db_t *db, dns_dbversion_t *ver, dns_name_t *name,
 	     dns_ssutable_t *ssutable, dns_name_t *signer,
-	     isc_netaddr_t *tcpaddr)
+	     isc_netaddr_t *tcpaddr, dst_key_t *key)
 {
 	isc_result_t result;
 	ssu_check_t ssuinfo;
@@ -883,6 +887,7 @@ ssu_checkall(dns_db_t *db, dns_dbversion_t *ver, dns_name_t *name,
 	ssuinfo.table = ssutable;
 	ssuinfo.signer = signer;
 	ssuinfo.tcpaddr = tcpaddr;
+	ssuinfo.key = key;
 	result = foreach_rrset(db, ver, name, ssu_checkrule, &ssuinfo);
 	return (ISC_TF(result == ISC_R_SUCCESS));
 }
@@ -1500,6 +1505,8 @@ check_soa_increment(dns_db_t *db, dns_dbversion_t *ver,
 /*
  * Incremental updating of NSECs and RRSIGs.
  */
+
+#define MAXZONEKEYS 32	/*%< Maximum number of zone keys supported. */
 
 /*%
  * We abuse the dns_diff_t type to represent a set of domain names
@@ -2124,7 +2131,7 @@ update_signatures(ns_client_t *client, dns_zone_t *zone, dns_db_t *db,
 	dns_diff_t nsec_diff;
 	dns_diff_t nsec_mindiff;
 	isc_boolean_t flag, build_nsec, build_nsec3;
-	dst_key_t *zone_keys[DNS_MAXZONEKEYS];
+	dst_key_t *zone_keys[MAXZONEKEYS];
 	unsigned int nkeys = 0;
 	unsigned int i;
 	isc_stdtime_t now, inception, expire;
@@ -2147,7 +2154,7 @@ update_signatures(ns_client_t *client, dns_zone_t *zone, dns_db_t *db,
 	dns_diff_init(client->mctx, &nsec_mindiff);
 
 	result = find_zone_keys(zone, db, newver, client->mctx,
-				DNS_MAXZONEKEYS, zone_keys, &nkeys);
+				MAXZONEKEYS, zone_keys, &nkeys);
 	if (result != ISC_R_SUCCESS) {
 		update_log(client, zone, ISC_LOG_ERROR,
 			   "could not get zone keys for secure dynamic update");
@@ -2717,6 +2724,7 @@ ns_update_start(ns_client_t *client, isc_result_t sigresult) {
 
 	switch(dns_zone_gettype(zone)) {
 	case dns_zone_master:
+	case dns_zone_dlz:
 		/*
 		 * We can now fail due to a bad signature as we now know
 		 * that we are the master.
@@ -3810,6 +3818,7 @@ update_action(isc_task_t *task, isc_event_t *event) {
 
 		if (ssutable != NULL) {
 			isc_netaddr_t *tcpaddr, netaddr;
+			dst_key_t *tsigkey = NULL;
 			/*
 			 * If this is a TCP connection then pass the
 			 * address of the client through for tcp-self
@@ -3822,16 +3831,22 @@ update_action(isc_task_t *task, isc_event_t *event) {
 				tcpaddr = &netaddr;
 			} else
 				tcpaddr = NULL;
+
+			if (client->message->tsigkey != NULL)
+				tsigkey = client->message->tsigkey->key;
+
 			if (rdata.type != dns_rdatatype_any) {
 				if (!dns_ssutable_checkrules(ssutable,
 							     client->signer,
 							     name, tcpaddr,
-							     rdata.type))
+							     rdata.type,
+							     tsigkey))
 					FAILC(DNS_R_REFUSED,
 					      "rejected by secure update");
 			} else {
 				if (!ssu_checkall(db, ver, name, ssutable,
-						  client->signer, tcpaddr))
+						  client->signer, tcpaddr,
+						  tsigkey))
 					FAILC(DNS_R_REFUSED,
 					      "rejected by secure update");
 			}
@@ -4457,12 +4472,6 @@ send_forward_event(ns_client_t *client, dns_zone_t *zone) {
 	update_event_t *event = NULL;
 	isc_task_t *zonetask = NULL;
 	ns_client_t *evclient;
-
-	/*
-	 * This may take some time so replace this client.
-	 */
-	if (!client->mortal && (client->attributes & NS_CLIENTATTR_TCP) == 0)
-		CHECK(ns_client_replace(client));
 
 	event = (update_event_t *)
 		isc_event_allocate(client->mctx, client, DNS_EVENT_UPDATE,

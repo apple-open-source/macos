@@ -20,11 +20,14 @@
 
 #ifndef GStreamerGWorld_h
 #define GStreamerGWorld_h
-#if USE(GSTREAMER)
+#if ENABLE(VIDEO) && USE(GSTREAMER) && !defined(GST_API_VERSION_1)
+
+#include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
+#include <wtf/gobject/GOwnPtr.h>
 
 #include "PlatformVideoWindow.h"
-#include "RefCounted.h"
-#include "RefPtr.h"
+
 #include <glib.h>
 
 typedef struct _GstElement GstElement;
@@ -51,6 +54,8 @@ public:
     bool enterFullscreen();
     void exitFullscreen();
 
+    bool isFullscreen() const { return m_dynamicPadName; }
+
     void setWindowOverlay(GstMessage* message);
     PlatformVideoWindow* platformVideoWindow() const { return m_videoWindow.get(); }
 
@@ -58,9 +63,9 @@ private:
     GStreamerGWorld(GstElement*);
     GstElement* m_pipeline;
     RefPtr<PlatformVideoWindow> m_videoWindow;
-    gchar* m_dynamicPadName;
+    GOwnPtr<gchar> m_dynamicPadName;
 };
 
 }
-#endif // USE(GSTREAMER)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER) && !defined(GST_API_VERSION_1)
 #endif

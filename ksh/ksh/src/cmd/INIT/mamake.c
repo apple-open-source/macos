@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*                     Copyright (c) 1994-2007 AT&T                     *
+*                     Copyright (c) 1994-2011 AT&T                     *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                               by AT&T                                *
@@ -25,7 +25,7 @@
  * coded for portability
  */
 
-static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2007-02-26 $\0\n";
+static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2009-05-05 $\0\n";
 
 #if _PACKAGE_ast
 
@@ -33,7 +33,7 @@ static char id[] = "\n@(#)$Id: mamake (AT&T Research) 2007-02-26 $\0\n";
 #include <error.h>
 
 static const char usage[] =
-"[-?\n@(#)$Id: mamake (AT&T Research) 2007-02-26 $\n]"
+"[-?\n@(#)$Id: mamake (AT&T Research) 2009-05-05 $\n]"
 USAGE_LICENSE
 "[+NAME?mamake - make abstract machine make]"
 "[+DESCRIPTION?\bmamake\b reads \amake abstract machine\a target and"
@@ -104,6 +104,7 @@ USAGE_LICENSE
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #if !_PACKAGE_ast && defined(__STDC__)
 #include <stdlib.h>
@@ -771,26 +772,32 @@ substitute(Buf_t* buf, register char* s)
 	register char*	t;
 	register char*	v;
 	register char*	q;
+	register char*	b;
 	register int	c;
 	register int	n;
 	int		a = 0;
+	int		i;
 
 	while (c = *s++)
 	{
 		if (c == '$' && *s == '{')
 		{
-			for (n = *(t = ++s) == '-' ? 0 : '-'; (c = *s) && c != '?' && c != '+' && c != n && c != ':' && c != '=' && c != '[' && c != '}'; s++);
+			b = s - 1;
+			i = 1;
+			for (n = *(t = ++s) == '-' ? 0 : '-'; (c = *s) && c != '?' && c != '+' && c != n && c != ':' && c != '=' && c != '[' && c != '}'; s++)
+				if (!isalnum(c) && c != '_')
+					i = 0;
 			*s = 0;
 			if (c == '[')
 			{
-				append(buf, t - 2);
+				append(buf, b);
 				*s = c;
 				continue;
 			}
 			v = (char*)search(state.vars, t, NiL);
 			if ((c == ':' || c == '=') && (!v || c == ':' && !*v))
 			{
-				append(buf, t - 2);
+				append(buf, b);
 				*s = c;
 				continue;
 			}
@@ -872,6 +879,14 @@ substitute(Buf_t* buf, register char* s)
 					}
 					else
 						substitute(buf, v);
+				}
+				else if (i)
+				{
+					c = *s;
+					*s = 0;
+					append(buf, b);
+					*s = c;
+					continue;
 				}
 				break;
 			}

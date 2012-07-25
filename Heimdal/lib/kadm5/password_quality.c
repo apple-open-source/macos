@@ -95,8 +95,8 @@ char_class_passwd_quality (krb5_context context,
 	"1234567890",
 	"!@#$%^&*()/?<>,.{[]}\\|'~`\" "
     };
-    int i, counter = 0, req_classes;
-    size_t len;
+    int counter = 0, req_classes;
+    size_t i, len;
     char *pw;
 
     req_classes = krb5_config_get_int_default(context, NULL, 3,
@@ -148,7 +148,7 @@ external_passwd_quality (krb5_context context,
     char reply[1024];
     FILE *in = NULL, *out = NULL, *error = NULL;
 
-    if (memchr(pwd->data, pwd->length, '\n') != NULL) {
+    if (memchr(pwd->data, '\n', pwd->length) != NULL) {
 	snprintf(message, length, "password contains newline, "
 		 "not valid for external test");
 	return 1;
@@ -234,7 +234,7 @@ struct kadm5_pw_policy_check_func builtin_funcs[] = {
     { "minimum-length", min_length_passwd_quality },
     { "character-class", char_class_passwd_quality },
     { "external-check", external_passwd_quality },
-    { NULL }
+    { NULL, NULL }
 };
 struct kadm5_pw_policy_verifier builtin_verifier = {
     "builtin",
@@ -291,7 +291,7 @@ kadm5_setup_passwd_quality_check(krb5_context context,
 	krb5_warnx(context, "failed to open `%s'", check_library);
 	return;
     }
-    version = dlsym(handle, "version");
+    version = (int *) dlsym(handle, "version");
     if(version == NULL) {
 	krb5_warnx(context,
 		   "didn't find `version' symbol in `%s'", check_library);
@@ -331,7 +331,7 @@ add_verifier(krb5_context context, const char *check_library)
 	krb5_warnx(context, "failed to open `%s'", check_library);
 	return ENOENT;
     }
-    v = dlsym(handle, "kadm5_password_verifier");
+    v = (struct kadm5_pw_policy_verifier *) dlsym(handle, "kadm5_password_verifier");
     if(v == NULL) {
 	krb5_warnx(context,
 		   "didn't find `kadm5_password_verifier' symbol "
@@ -386,10 +386,10 @@ kadm5_add_passwd_quality_verifier(krb5_context context,
 				      "password_quality",
 				      "policy_libraries",
 				      NULL);
-	if(tmp == NULL)
+	if(tmp == NULL || *tmp == NULL)
 	    return 0;
 
-	while(tmp) {
+	while (*tmp) {
 	    ret = add_verifier(context, *tmp);
 	    if (ret)
 		return ret;
@@ -432,7 +432,7 @@ find_func(krb5_context context, const char *name)
 	if (module && strcmp(module, verifiers[i]->name) != 0)
 	    continue;
 	for (f = verifiers[i]->funcs; f->name ; f++)
-	    if (strcmp(name, f->name) == 0) {
+	    if (strcmp(func, f->name) == 0) {
 		if (module)
 		    free(module);
 		return f;
@@ -507,7 +507,7 @@ kadm5_check_password_quality (krb5_context context,
 	if (msg)
 	    krb5_set_error_message(context, 0, "(old) password policy "
 				   "failed with %s", msg);
-	
+
     }
     return msg;
 }

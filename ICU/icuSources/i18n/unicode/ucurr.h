@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2010, International Business Machines
+* Copyright (c) 2002-2012, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -243,6 +243,38 @@ typedef enum UCurrCurrencyType {
 U_STABLE UEnumeration * U_EXPORT2
 ucurr_openISOCurrencies(uint32_t currType, UErrorCode *pErrorCode);
 
+/**
+  * Queries if the given ISO 4217 3-letter code is available on the specified date range. 
+  * 
+  * Note: For checking availability of a currency on a specific date, specify the date on both 'from' and 'to' 
+  * 
+  * When 'from' is U_DATE_MIN and 'to' is U_DATE_MAX, this method checks if the specified currency is available any time. 
+  * If 'from' and 'to' are same UDate value, this method checks if the specified currency is available on that date.
+  * 
+  * @param isoCode 
+  *            The ISO 4217 3-letter code. 
+  * 
+  * @param from 
+  *            The lower bound of the date range, inclusive. When 'from' is U_DATE_MIN, check the availability 
+  *            of the currency any date before 'to' 
+  * 
+  * @param to 
+  *            The upper bound of the date range, inclusive. When 'to' is U_DATE_MAX, check the availability of 
+  *            the currency any date after 'from' 
+  * 
+  * @param errorCode 
+  *            ICU error code 
+   * 
+  * @return TRUE if the given ISO 4217 3-letter code is supported on the specified date range. 
+  * 
+  * @stable ICU 4.8 
+  */ 
+U_DRAFT UBool U_EXPORT2
+ucurr_isAvailable(const UChar* isoCode, 
+             UDate from, 
+             UDate to, 
+             UErrorCode* errorCode);
+
 /** 
  * Finds the number of valid currency codes for the
  * given locale and date.
@@ -310,6 +342,20 @@ ucurr_getKeywordValuesForLocale(const char* key,
                                 const char* locale,
                                 UBool commonlyUsed,
                                 UErrorCode* status);
+
+#ifndef U_HIDE_DRAFT_API
+/**
+ * Returns the ISO 4217 numeric code for the currency.
+ * <p>Note: If the ISO 4217 numeric code is not assigned for the currency or
+ * the currency is unknown, this function returns 0.
+ *
+ * @param currency null-terminated 3-letter ISO 4217 code
+ * @return The ISO 4217 numeric code of the currency
+ * @draft ICU 49
+ */
+U_DRAFT int32_t U_EXPORT2
+ucurr_getNumericCode(const UChar* currency);
+#endif  /* U_HIDE_DRAFT_API */
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

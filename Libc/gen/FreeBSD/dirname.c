@@ -25,6 +25,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/dirname.c,v 1.8 2008/11/03 05:19:45 delphij
 #include <string.h>
 #include <sys/param.h>
 
+#if __DARWIN_UNIX03
+#define const /**/
+#endif
+
 char *
 dirname(const char *path)
 {

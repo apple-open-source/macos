@@ -117,6 +117,8 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 
 #define NORMAL_MODIFIER_MASK (NX_COMMANDMASK | NX_CONTROLMASK | NX_SHIFTMASK | NX_ALTERNATEMASK)
 
+#define EV_MAX_SCREENS 32
+
 static inline unsigned AbsoluteTimeToTick( AbsoluteTime * ts )
 {
     UInt64	nano;
@@ -201,7 +203,7 @@ static inline UInt32 ShouldConsumeHIDEvent(AbsoluteTime ts, AbsoluteTime deadlin
 #define TICKLE_DISPLAY(event) \
 { \
     if (!evStateChanging && displayManager) { \
-        IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, event, __LINE__, 0, 0); \
+        IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, event, __LINE__, displayState, 0); \
         if (!DISPLAY_IS_ENABLED) kprintf("IOHIDSystem tickle when screen off for event %d at line %d\n", event, __LINE__); \
         displayManager->activityTickle(IOHID_DEBUG_CODE(event)); \
     } \
@@ -284,14 +286,14 @@ static void CalculateEventCountsForService(CachedMouseEventStruct *mouseStruct)
         if ( mouseStruct->service ) {
             IORegistryEntry *senderEntry = OSDynamicCast(IORegistryEntry, mouseStruct->service);
             if (senderEntry) {
-                OSObject *reportInterval_obj = senderEntry->getProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively| kIORegistryIterateParents);
-                OSNumber *reportInterval_us = OSDynamicCast(OSNumber, reportInterval_obj);
-                if (reportInterval_us) {
+                OSNumber *reportInterval_us = (OSNumber*)senderEntry->copyProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively| kIORegistryIterateParents);
+                if (OSDynamicCast(OSNumber, reportInterval_us)) {
                     mouseStruct->reportInterval_ns = reportInterval_us->unsigned64BitValue() * 1000;
                 }
                 else {
                     IOLog("No interval found for %s. Using %lld\n", senderEntry->getLocation(), mouseStruct->reportInterval_ns);
                 }
+                OSSafeReleaseNULL(reportInterval_us);
             }
         }
     }
@@ -495,6 +497,7 @@ static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *serv
             // Or, first item in the list is not a keyboard
             !((tempSystemInfo = OSDynamicCast(OSDictionary, systemInfo->getObject(0))) && (number = OSDynamicCast(OSNumber,tempSystemInfo->getObject(kIOHIDKindKey))) && (number->unsigned32BitValue() == kHIKeyboardDevice)) ||
             // Or, if the keyboard is Apple and the first item in the list is not built-in
+            // vtn3: potentially unsafe, but a pain to fix. leave it for now.
             ((number = OSDynamicCast(OSNumber, hiDevice->getProperty(kIOHIDVendorIDKey))) && (number->unsigned32BitValue() == kIOUSBVendorIDAppleComputer) && (tempSystemInfo->getObject("built-in") != kOSBooleanTrue)) ) )
     {
         systemInfo->setObject(0, deviceInfo);
@@ -628,13 +631,51 @@ struct IOHIDSystem::ExpansionData
     // The goal of the cursorHelper is to isolate all of the cursor
     // calculations and updates into one class.
     IOHIDSystemCursorHelper cursorHelper;
-    UInt32                  delayedScrollPhase;
     UInt32                  delayedScrollMomentum;
+    UInt8                   scDirection;
+    UInt8                   scIgnoreMomentum;
+    UInt8                   scMouseCanReset;
+    UInt8                   scIncrementedThisPhrase;
+    UInt16                  scCount;
+    UInt16                  scCountMax;
+    IOFixed64               scAccelerationFactor;
+    UInt64                  scMinDeltaSqToStart;
+    UInt64                  scMinDeltaSqToSustain;
+    UInt64                  scLastScrollEndTime;
+    UInt64                  scLastScrollSustainTime;
+    UInt64                  scMaxTimeDeltaBetween;
+    UInt64                  scMaxTimeDeltaToSustain;
+    IOFixedPoint64          scLastScrollLocation;
+    OSDictionary            *devicePhaseState;
 };
 
 #define _cursorHelper           (_privateData->cursorHelper)
-#define _delayedScrollPhase     (_privateData->delayedScrollPhase)
+#define _devicePhaseState       (_privateData->devicePhaseState)
 #define _delayedScrollMomentum  (_privateData->delayedScrollMomentum)
+#define _scCount                    (_privateData->scCount)
+#define _scCountMax                 (_privateData->scCountMax)
+#define _scDirection                (_privateData->scDirection)
+#define _scIgnoreMomentum           (_privateData->scIgnoreMomentum)
+#define _scIncrementedThisPhrase    (_privateData->scIncrementedThisPhrase)
+#define _scMouseCanReset            (_privateData->scMouseCanReset)
+#define _scMinDeltaSqToStart        (_privateData->scMinDeltaSqToStart)
+#define _scMinDeltaSqToSustain      (_privateData->scMinDeltaSqToSustain)
+#define _scLastScrollEndTime        (_privateData->scLastScrollEndTime)
+#define _scLastScrollSustainTime    (_privateData->scLastScrollSustainTime)
+#define _scMaxTimeDeltaBetween      (_privateData->scMaxTimeDeltaBetween)
+#define _scMaxTimeDeltaToSustain    (_privateData->scMaxTimeDeltaToSustain)
+#define _scLastScrollLocation       (_privateData->scLastScrollLocation)
+#define _scAccelerationFactor       (_privateData->scAccelerationFactor)
+
+enum {
+    kScrollDirectionInvalid = 0,
+    kScrollDirectionXPositive,
+    kScrollDirectionXNegative,
+    kScrollDirectionYPositive,
+    kScrollDirectionYNegative,
+    kScrollDirectionZPositive,
+    kScrollDirectionZNegative,
+};
 
 #define _cursorLog(ts)      do { \
                                 if (evg != 0) \
@@ -660,6 +701,8 @@ IOHIDSystem * IOHIDSystem::instance()
   return evInstance;
 }
 
+#define kDefaultMinimumDelta    0x1ffffffff
+
 bool IOHIDSystem::init(OSDictionary * properties)
 {
     if (!super::init(properties))
@@ -673,6 +716,11 @@ bool IOHIDSystem::init(OSDictionary * properties)
     if (!_cursorHelper.init())
         return false;
     _cursorLogTimed();
+    
+    // hard defaults. these exist just to keep the state machine sane.
+    _scMinDeltaSqToStart = _scMinDeltaSqToSustain = kDefaultMinimumDelta;
+    _scAccelerationFactor.fromIntFloor(5);
+    _scCountMax = 2000;
 
     /*
      * Initialize minimal state.
@@ -745,6 +793,8 @@ bool IOHIDSystem::start(IOService * provider)
 
     do {
         if (!super::start(provider))  break;
+        
+        _setScrollCountParameters();
 
         evInstance = this;
 
@@ -754,8 +804,9 @@ bool IOHIDSystem::start(IOService * provider)
         _cursorHelper.updateScreenLocation(NULL, NULL);
         _cursorLogTimed();
 
-        evScreenSize = sizeof(EvScreen) * 32;
+        evScreenSize = sizeof(EvScreen) * EV_MAX_SCREENS;
         evScreen = (void *) IOMalloc(evScreenSize);
+        bzero(evScreen, evScreenSize);
         savedParameters = OSDictionary::withCapacity(4);
 
         if (!evScreen || !savedParameters)  break;
@@ -1277,43 +1328,38 @@ IOReturn IOHIDSystem::evCloseGated(void)
 void IOHIDSystem::evDispatch(
                /* command */ EvCmd evcmd)
 {
-    IOGPoint p;
-
-    if( !eventsOpen)
-	return;
-
+    if( !eventsOpen || (evcmd == EVLEVEL) || (evcmd == EVNOP))
+        return;
+    
     for( int i = 0; i < screens; i++ ) {
-
-        EvScreen *esp = &((EvScreen*)evScreen)[i];
-
-        if ( esp->instance )
-        {
-            p.x = evg->screenCursorFixed.x / 256;	// Copy from shmem.
-            p.y = evg->screenCursorFixed.y / 256;
-
-            bool onscreen = (0 != (cursorScreens & (1 << i)));
-
-            switch ( evcmd )
-            {
-                case EVMOVE:
-                    if (onscreen)
+        bool onscreen = (0 != (cursorScreens & (1 << i)));
+        
+        if (onscreen) {
+            EvScreen *esp = &((EvScreen*)evScreen)[i];
+            
+            if ( esp->instance ) {
+                IOGPoint p;
+                p.x = evg->screenCursorFixed.x / 256;	// Copy from shmem.
+                p.y = evg->screenCursorFixed.y / 256;
+                
+                switch ( evcmd )
+                {
+                    case EVMOVE:
                         esp->instance->moveCursor(&p, evg->frame);
-                    break;
-
-                case EVSHOW:
-                    if (onscreen)
+                        break;
+                        
+                    case EVSHOW:
                         esp->instance->showCursor(&p, evg->frame);
-                    break;
-
-                case EVHIDE:
-                    if (onscreen)
+                        break;
+                        
+                    case EVHIDE:
                         esp->instance->hideCursor();
-                    break;
-
-                case EVLEVEL:
-                case EVNOP:
-                    /* lets keep that compiler happy */
-                    break;
+                        break;
+                        
+                    default:
+                        // should never happen
+                        break;
+                }
             }
         }
     }
@@ -1399,110 +1445,332 @@ void IOHIDSystem::_resetMouseParameters(void)
         }
 }
 
-/*
- * Methods exported by the EventDriver.
- *
- *	The screenRegister protocol is used by frame buffer drivers to register
- *	themselves with the Event Driver.  These methods are called in response
- *	to a registerSelf or unregisterSelf message received from the Event
- *	Driver.
- */
-
-int IOHIDSystem::registerScreen(IOGraphicsDevice * io_gd,
-                                IOGBounds * boundsPtr,
-                                IOGBounds * virtualBoundsPtr)
+////////////////////////////////////////////////////////////////////////////
+int 
+IOHIDSystem::registerScreen(IOGraphicsDevice * io_gd,
+                            IOGBounds * boundsPtr,
+                            IOGBounds * virtualBoundsPtr)
 {
-    if( (false == eventsOpen) || (0 == boundsPtr) || (0 == virtualBoundsPtr) )
-    {
-        return -1;
+    int result = -1;
+    
+    // If we are not open for business, fail silently
+    if (eventsOpen) {
+        // for this version of the call, these must all be supplied
+        if (!io_gd || !boundsPtr || !virtualBoundsPtr) {
+            IOLog("%s invalid call %p %p %p\n", __PRETTY_FUNCTION__, io_gd, boundsPtr, virtualBoundsPtr);
+        }
+        else {
+            UInt32 index;
+            IOReturn ret = workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doRegisterScreen, 
+                                               this, io_gd, boundsPtr, virtualBoundsPtr, &index);
+            if (ret == kIOReturnSuccess) {
+                result = SCREENTOKEN + index;
+            }
+            else {
+                IOLog("%s failed %08x\n", __PRETTY_FUNCTION__, ret);
+            }
+        }
     }
-
-    workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doRegisterScreen, this, io_gd, boundsPtr, virtualBoundsPtr);
-
-    return(SCREENTOKEN + screens);
+    return result;
 }
 
-IOReturn IOHIDSystem::doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bounds, IOGBounds *virtualBounds, void *arg3 __unused)
+////////////////////////////////////////////////////////////////////////////
+IOReturn
+IOHIDSystem::extRegisterVirtualDisplay(void* token_ptr,void*,void*,void*,void*,void*)
 {
-    self->registerScreenGated(io_gd, bounds, virtualBounds);
-
-    return kIOReturnSuccess;
+    IOReturn result = kIOReturnSuccess;
+    if (!token_ptr) {
+        result = kIOReturnBadArgument;
+    }
+    else {
+        SInt32 index;
+        UInt64 *token = (UInt64 *)token_ptr;
+        result = workLoop->runAction((IOWorkLoop::Action)&IOHIDSystem::doRegisterScreen, 
+                                     this, NULL, NULL, NULL, &index);
+        if (index > 0)
+            *token = SCREENTOKEN + index;
+        else
+            *token = 0;
+    }
+    return result;
 }
 
-void IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *boundsPtr, IOGBounds *virtualBoundsPtr)
+////////////////////////////////////////////////////////////////////////////
+IOReturn 
+IOHIDSystem::doRegisterScreen(IOHIDSystem *self, 
+                              IOGraphicsDevice *io_gd, 
+                              IOGBounds *bounds, 
+                              IOGBounds *virtualBounds, 
+                              void *index)
 {
-    EvScreen *esp;
-    OSNumber *num;
+    return self->registerScreenGated(io_gd, bounds, virtualBounds, (SInt32*)index);
+}
 
+////////////////////////////////////////////////////////////////////////////
+//#define LOG_SCREEN_REGISTRATION
+#ifdef LOG_SCREEN_REGISTRATION
+#warning LOG_SCREEN_REGISTRATION is defined
+#define log_screen_reg(fmt, args...)  kprintf(fmt, args)
+#else
+#define log_screen_reg(fmt, args...)
+#endif
+
+//#define LOG_SCROLL_STATE
+#ifdef LOG_SCROLL_STATE
+#   define log_scroll_state(s, ...)     kprintf(">>> %s:%d " s, "IOHIDSystem", __LINE__, __VA_ARGS__)
+#   define log_scroll_state_b(s, ...)   kprintf(">>> %s:%d " s, "IOHIDSystem", __LINE__, __VA_ARGS__)
+#else
+#   define log_scroll_state(s, ...)
+#   define log_scroll_state_b(s, ...)
+#endif
+
+////////////////////////////////////////////////////////////////////////////
+IOReturn 
+IOHIDSystem::registerScreenGated(IOGraphicsDevice *io_gd, 
+                                 IOGBounds *boundsPtr, 
+                                 IOGBounds *virtualBoundsPtr, 
+                                 SInt32 *index)
+{
+    EvScreen *screen_ptr = NULL;
+    OSNumber *num = NULL;
+    IOReturn result = kIOReturnSuccess;
+    *index = -1;
+    
     if ( lastShmemPtr == (void *)0 )
         lastShmemPtr = evs;
-
+    
     /* shmemSize and bounds already set */
-    esp = &((EvScreen*)evScreen)[screens];
-    esp->instance = io_gd;
-    esp->displayBounds = boundsPtr;
-    esp->desktopBounds = virtualBoundsPtr;
-    // Update our idea of workSpace bounds
-    if ( boundsPtr->minx < workSpace.minx )
-        workSpace.minx = boundsPtr->minx;
-    if ( boundsPtr->miny < workSpace.miny )
-        workSpace.miny = boundsPtr->miny;
-    if ( boundsPtr->maxx < workSpace.maxx )
-        workSpace.maxx = boundsPtr->maxx;
-    if ( esp->displayBounds->maxy < workSpace.maxy )
-        workSpace.maxy = boundsPtr->maxy;
+    log_screen_reg(">>> %s %p %p %p\n", __func__, io_gd, boundsPtr, virtualBoundsPtr);
+    
+    // locate next available screen
+    for (int i = 0; (i < EV_MAX_SCREENS) && (screen_ptr == NULL); i++) {
+        screen_ptr = &((EvScreen*)evScreen)[i];
 
-    if( (num = OSDynamicCast(OSNumber, io_gd->getProperty(kIOFBWaitCursorFramesKey)))
-       && (num->unsigned32BitValue() > maxWaitCursorFrame)) {
-        firstWaitCursorFrame = 0;
-        maxWaitCursorFrame   = num->unsigned32BitValue();
-        evg->lastFrame	     = maxWaitCursorFrame;
+        if (io_gd && (screen_ptr->instance == io_gd)) {
+            log_screen_reg(">>> %s refound at index %d\n", __func__, i);
+            *index = i;
+        }
+        else if (screen_ptr->instance || screen_ptr->displayBounds || screen_ptr->desktopBounds) {
+            screen_ptr = NULL;
+        }
+        else {
+            log_screen_reg(">>> %s new index at %d\n", __func__, i);
+            *index = i;
+        }
     }
-    if( (num = OSDynamicCast(OSNumber, io_gd->getProperty(kIOFBWaitCursorPeriodKey)))) {
-        clock_interval_to_absolutetime_interval(num->unsigned32BitValue(), kNanosecondScale,
-                                                &waitFrameRate);
+    
+    if (!screen_ptr) {
+        log_screen_reg(">>> %s no space found\n", __func__);
+        result = kIOReturnNoResources;
+    }
+    else if (io_gd && boundsPtr && virtualBoundsPtr) {
+        // called by video driver. they maintain their own bounds.
+        screen_ptr->instance = io_gd;
+        screen_ptr->displayBounds = boundsPtr;
+        screen_ptr->desktopBounds = virtualBoundsPtr;
+        
+        // Update our idea of workSpace bounds
+        if ( boundsPtr->minx < workSpace.minx )
+            workSpace.minx = boundsPtr->minx;
+        if ( boundsPtr->miny < workSpace.miny )
+            workSpace.miny = boundsPtr->miny;
+        if ( boundsPtr->maxx < workSpace.maxx )
+            workSpace.maxx = boundsPtr->maxx;
+        if ( screen_ptr->displayBounds->maxy < workSpace.maxy )
+            workSpace.maxy = boundsPtr->maxy;
+        
+        // perform other bookkeeping
+        num = (OSNumber*)io_gd->copyProperty(kIOFBWaitCursorFramesKey);
+        if(OSDynamicCast(OSNumber, num) &&
+           (num->unsigned32BitValue() > maxWaitCursorFrame)) {
+            firstWaitCursorFrame = 0;
+            maxWaitCursorFrame   = num->unsigned32BitValue();
+            evg->lastFrame	     = maxWaitCursorFrame;
+        }
+        OSSafeReleaseNULL(num);
+        num = (OSNumber*)io_gd->copyProperty(kIOFBWaitCursorPeriodKey);
+        if( OSDynamicCast(OSNumber, num) ) {
+            clock_interval_to_absolutetime_interval(num->unsigned32BitValue(), kNanosecondScale, &waitFrameRate);
+        }
+        OSSafeReleaseNULL(num);
+    }
+    else if (!io_gd && !boundsPtr && !virtualBoundsPtr) {
+        // called by window server. we maintain the bounds.
+        screen_ptr->displayBounds = (IOGBounds*)IOMalloc(sizeof(IOGBounds) * 2);
+        screen_ptr->desktopBounds = screen_ptr->displayBounds + 1;
+        
+        // default the bounds to lala land
+        screen_ptr->displayBounds->minx = screen_ptr->desktopBounds->minx = screen_ptr->displayBounds->miny = screen_ptr->desktopBounds->miny = -30001;
+        screen_ptr->displayBounds->maxx = screen_ptr->desktopBounds->maxx = screen_ptr->displayBounds->maxy = screen_ptr->desktopBounds->maxy = -30000;
+    }
+    else {
+        result = kIOReturnBadArgument;
+    }
+    
+    if (result == kIOReturnSuccess) {
+        if (*index >= screens) {
+            screens = 1 + *index;
+        }
     }
 
-    screens++;
+    return result;
 }
 
-
-void IOHIDSystem::unregisterScreen(int index) {
-
-    cmdGate->runAction((IOCommandGate::Action)doUnregisterScreen, (void *)index);
-
+////////////////////////////////////////////////////////////////////////////
+void IOHIDSystem::unregisterScreen(int token) {
+    uintptr_t index = token - SCREENTOKEN;
+    if (index < EV_MAX_SCREENS) {
+        IOReturn ret = cmdGate->runAction((IOCommandGate::Action)doUnregisterScreen, (void *)index);
+        if (ret != kIOReturnSuccess) {
+            IOLog("%s recieved %08x for token %d.\n", __PRETTY_FUNCTION__, ret, token);
+        }
+    }
+    else {
+        IOLog("%s called with invalid token %d.\n", __PRETTY_FUNCTION__, token);
+    }
 }
 
-IOReturn IOHIDSystem::doUnregisterScreen (IOHIDSystem *self, void * arg0)
+////////////////////////////////////////////////////////////////////////////
+IOReturn
+IOHIDSystem::extUnregisterVirtualDisplay(void* token_ptr,void*,void*,void*,void*,void*)
+{
+    IOReturn result = kIOReturnSuccess;
+    uintptr_t token = (uintptr_t)token_ptr;
+    uintptr_t index = token - SCREENTOKEN;
+    if (index < EV_MAX_SCREENS) {
+        result = cmdGate->runAction((IOCommandGate::Action)doUnregisterScreen, (void *)index);
+    }
+    else {
+        IOLog("%s called with invalid token %d.\n", __PRETTY_FUNCTION__, (int)token);
+        result = kIOReturnBadArgument;
+    }
+
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////
+IOReturn IOHIDSystem::doUnregisterScreen (IOHIDSystem *self, void * arg0, void *arg1)
                         /* IOCommandGate::Action */
 {
-    int index = (uintptr_t) arg0;
+    uintptr_t index = (uintptr_t) arg0;
+    uintptr_t internal = (uintptr_t) arg1;
 
-    self->unregisterScreenGated(index);
-
-    return kIOReturnSuccess;
+    return self->unregisterScreenGated(index, internal);
 }
 
-void IOHIDSystem::unregisterScreenGated(int index)
+////////////////////////////////////////////////////////////////////////////
+IOReturn IOHIDSystem::unregisterScreenGated(int index, bool internal)
 {
-
-    index -= SCREENTOKEN;
-
-    if ( eventsOpen == false || index < 0 || index >= screens )
-	return;
-
-    hideCursor();
-
-    // clear the state for the screen
-    ((EvScreen*)evScreen)[index].instance = 0;
-    // Put the cursor someplace reasonable if it was on the destroyed screen
-    cursorScreens &= ~(1 << index);
-    // This will jump the cursor back on screen
-    setCursorPosition((IOGPoint *)&evg->cursorLoc, true);
-
-    showCursor();
+    IOReturn result = kIOReturnSuccess;
+    
+    if ( eventsOpen == false || index >= screens ) {
+        result = kIOReturnNoResources;
+    }
+    else {        
+        EvScreen *screen_ptr = ((EvScreen*)evScreen)+index;
+        
+        if (!screen_ptr->displayBounds) {
+            IOLog("%s called with invalid index %d\n", __PRETTY_FUNCTION__, index);
+            result = kIOReturnBadArgument;
+        }
+        else if (internal && !screen_ptr->instance) {
+            IOLog("%s called internally on an external device %d\n", __PRETTY_FUNCTION__, index);
+            result = kIOReturnNoDevice;
+        }
+        else if (!internal && screen_ptr->instance) {
+            IOLog("%s called externally on an internal device %d\n", __PRETTY_FUNCTION__, index);
+            result = kIOReturnNotPermitted;
+        }
+        else {
+            hideCursor();
+            
+            if (!screen_ptr->instance) {
+                // dispose our memory
+                if (screen_ptr->displayBounds) {
+                    IOFree(screen_ptr->displayBounds, sizeof(IOGBounds) * 2);
+                }
+            }
+            
+            // clear the variables
+            screen_ptr->instance = NULL;
+            screen_ptr->desktopBounds = NULL;
+            screen_ptr->displayBounds = NULL;
+            
+            // Put the cursor someplace reasonable if it was on the destroyed screen
+            cursorScreens &= ~(1 << index);
+            // This will jump the cursor back on screen
+            setCursorPosition((IOGPoint *)&evg->cursorLoc, true);
+            
+            showCursor();
+        }
+    }
+    
+    return result;
 }
 
+////////////////////////////////////////////////////////////////////////////
+IOReturn
+IOHIDSystem::extSetVirtualDisplayBounds(void* token_ptr,void* minx,void* maxx,void* miny,void* maxy,void*)
+{
+    IOReturn result = kIOReturnSuccess;
+    uintptr_t token = (uintptr_t)token_ptr;
+    uintptr_t index = token - SCREENTOKEN;
+    if (index < EV_MAX_SCREENS) {
+        IOGBounds tempBounds = { (uintptr_t) minx, (uintptr_t) maxx, (uintptr_t) miny, (uintptr_t) maxy };
+        result = cmdGate->runAction((IOCommandGate::Action)doSetDisplayBounds, (void*) index, (void*) &tempBounds);
+    }
+    else {
+        IOLog("%s called with invalid token %d.\n", __PRETTY_FUNCTION__, (int)token);
+        result = kIOReturnBadArgument;
+    }
+    
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////
+IOReturn
+IOHIDSystem::doSetDisplayBounds (IOHIDSystem *self, void * arg0, void * arg1)
+{
+    uintptr_t index = (uintptr_t) arg0;
+    IOGBounds *tempBounds = (IOGBounds*) arg1;
+    
+    return self->setDisplayBoundsGated(index, tempBounds);
+}
+
+////////////////////////////////////////////////////////////////////////////
+IOReturn
+IOHIDSystem::setDisplayBoundsGated (UInt32 index, IOGBounds *tempBounds)
+{
+    IOReturn result = kIOReturnSuccess;
+    if ( eventsOpen == false || index >= (UInt32)screens ) {
+        result = kIOReturnNoResources;
+    }
+    else {        
+        EvScreen *screen_ptr = ((EvScreen*)evScreen)+index;
+        
+        if (screen_ptr->instance) {
+            IOLog("%s called on an internal device %d\n", __PRETTY_FUNCTION__, (int)index);
+            result = kIOReturnNotPermitted;
+        }
+        else if (!screen_ptr->displayBounds || !screen_ptr->desktopBounds) {
+            IOLog("%s called with invalid index %d\n", __PRETTY_FUNCTION__, (int)index);
+            result = kIOReturnBadArgument;
+        }
+        else {
+            // looks good
+            hideCursor();
+            *(screen_ptr->displayBounds) = *(screen_ptr->desktopBounds) = *tempBounds;
+            // Put the cursor someplace reasonable if it was on the moved screen
+            cursorScreens &= ~(1 << index);
+            // This will jump the cursor back on screen
+            setCursorPosition((IOGPoint *)&evg->cursorLoc, true);
+            showCursor();
+        }
+    }
+    return result;
+}
+
+////////////////////////////////////////////////////////////////////////////
 /* Member of EventClient protocol
  *
  * Absolute position input devices and some specialized output devices
@@ -1799,7 +2067,7 @@ void IOHIDSystem::setStackShotPort(mach_port_t port)
         },
         0                                           // UInt32               flavor
     };
-
+    
 	if ( stackShotMsg ) {
         IOFree(stackShotMsg, sizeof(_stackShotMessage));
         stackShotMsg = NULL;
@@ -2071,7 +2339,7 @@ void IOHIDSystem::sendStackShotMessage(UInt32 flavor)
                     break;
             }
         }
-	}
+    }
 }
 
 /*
@@ -2278,7 +2546,7 @@ bool IOHIDSystem::resetCursor()
     /* Get mask of screens on which the cursor is present */
     EvScreen *screen = (EvScreen *)evScreen;
     for (int i = 0; i < screens; i++ ) {
-        if (!screen[i].instance)
+        if (!screen[i].desktopBounds)
             continue;
         if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
             continue;
@@ -2311,7 +2579,7 @@ bool IOHIDSystem::resetCursor()
 
         /* regenerate mask for new position */
         for (int i = 0; i < screens; i++ ) {
-            if (!screen[i].instance)
+            if (!screen[i].desktopBounds)
                 continue;
             if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                 continue;
@@ -2423,7 +2691,7 @@ int IOHIDSystem::pointToScreen(IOGPoint * p)
     int i;
     EvScreen *screen = (EvScreen *)evScreen;
     for (i=screens; --i != -1; ) {
-        if ((screen[i].instance != 0)
+        if ((screen[i].desktopBounds != 0)
             && (p->x >= screen[i].desktopBounds->minx)
             && (p->x < screen[i].desktopBounds->maxx)
             && (p->y >= screen[i].desktopBounds->miny)
@@ -2440,7 +2708,7 @@ int IOHIDSystem::pointToScreen(IOGPoint * p)
 //
 inline void IOHIDSystem::showCursor()
 {
-        evDispatch(/* command */ EVSHOW);
+    evDispatch(/* command */ EVSHOW);
 }
 inline void IOHIDSystem::hideCursor()
 {
@@ -2564,28 +2832,44 @@ bool IOHIDSystem::registerEventSource(IOService * source)
 
     return success;
 }
-
+ 
 IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
 				void * argument)
 {
-  IOReturn     status = kIOReturnSuccess;
-
-  switch (type)
-  {
-    case kIOMessageServiceIsTerminated:
-#ifdef DEBUG
-      kprintf("detachEventSource:%s\n", provider->getName());
-#endif
-      provider->close( this );
-    case kIOMessageServiceWasClosed:
-      break;
-
-    default:
-      status = super::message(type, provider, argument);
-      break;
-  }
-
-  return status;
+	IOReturn     status = kIOReturnSuccess;
+	
+	switch (type)
+    {
+        case kIOMessageServiceIsTerminated:
+            provider->close( this );
+        case kIOMessageServiceWasClosed:
+            break;
+            
+        case kIOHIDSystemActivityTickle: {
+            intptr_t nxEvent = (intptr_t) argument;
+            if ((nxEvent >= 0) && (nxEvent <= NX_LASTEVENT)) {
+                if (!evStateChanging && displayManager) {
+                    IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, nxEvent, __LINE__, displayState, provider);
+                    if (DISPLAY_IS_ENABLED || (NX_WAKEMASK & EventCodeMask(nxEvent))) {
+                        if (!DISPLAY_IS_ENABLED)
+                            kprintf("IOHIDSystem tickle when screen off for event %ld\n", nxEvent);
+                        displayManager->activityTickle(IOHID_DEBUG_CODE(nxEvent));
+                    }
+                }
+            }
+            else {
+                IOLog("kIOHIDSystemActivityTickle message for unsupported event %ld sent from %08llx\n",
+                      nxEvent, provider ? provider->getRegistryEntryID() : 0);
+            }
+            break;
+        }
+            
+        default:
+            status = super::message(type, provider, argument);
+            break;
+    }
+	
+	return status;
 }
 
 //
@@ -2751,8 +3035,9 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx_I, int dy_I, Abs
     }
 
 #if WAKE_DISPLAY_ON_MOVEMENT
+	// always tickle on movement
     if (buttons || movementEvent) {
-        TICKLE_DISPLAY(NX_MOUSEMOVED);
+        TICKLE_DISPLAY(movementEvent ? NX_MOUSEMOVED : NX_LMOUSEDOWN);
     }
 
     if (!DISPLAY_IS_ENABLED || ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline)) {
@@ -3216,6 +3501,12 @@ IOReturn IOHIDSystem::doScrollWheelEvent(IOHIDSystem *self, void * args)
     return kIOReturnSuccess;
 }
 
+#if 0
+#   define log_event_phase(s, ...)     kprintf("%s:%d " s, __FILE__, __LINE__, __VA_ARGS__)
+#else
+#   define log_event_phase(s, ...)
+#endif
+
 void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                                         short	deltaAxis2,
                                         short	deltaAxis3,
@@ -3230,7 +3521,11 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
                                         OSObject * sender)
 {
     NXEventData wheelData;
-
+    bool        moved = (deltaAxis1 || pointDeltaAxis1 ||
+                         deltaAxis2 || pointDeltaAxis2 ||
+                         deltaAxis3 || pointDeltaAxis3);
+    UInt32      momentum = (options & kScrollTypeMomentumAny);
+    
     if (!eventsOpen)
         return;
 
@@ -3247,74 +3542,151 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
         return;
     }
 #endif
-    bool        moved = (deltaAxis1 || pointDeltaAxis1 ||
-                         deltaAxis2 || pointDeltaAxis2 ||
-                         deltaAxis3 || pointDeltaAxis3);
+    
+    /***********************************************************************************************
+    BEGIN PHASE SUPPRESSION STATE MACHINE
+        Quiet: (start)
+            on May Begin:
+                post May Begin
+                goto Suspended
+            on Began:
+                if moved
+                    post Begin
+                    goto Begun
+                else
+                    post May Begin
+                    goto Suspended
+            on Continue:
+            on Ended:
+            on Canceled:
+                log and post?
+                
+        Suspended:
+            on Began:
+            on Continue:
+                if moved:
+                    post Begin
+                    goto Begun
+            on Ended:
+            on Canceled:
+                post Canceled
+                goto Quiet
+            on May Begin:
+                log and post?
+                
 
+        Begun:
+            on Ended 
+            on Canceled:
+                post Ended or Cancelled
+                goto Quiet
+            on Continue:
+                post Continue
+            on Began:
+            on May Begin:
+                log and post?
+    
+     */
     UInt32      phase = (options & kScrollTypeOptionPhaseAny);
-    switch (phase) {
-        case kScrollTypeOptionPhaseBegan:
-            if (!moved) {
-                // suppress the began until we get a changed with movement
-                _delayedScrollPhase = phase;
-                phase = 0;
-                options &= ~kScrollTypeOptionPhaseAny;
-            }
-            else {
-                // clear state and let go
-                _delayedScrollPhase = 0;
-            }
-            break;
-
-        case kScrollTypeOptionPhaseChanged:
-            if (_delayedScrollPhase) {
-                // we suppressed a began
-                options &= ~kScrollTypeOptionPhaseAny;
-                if (!moved) {
-                    // continue suppressing it
-                    phase = 0;
-                }
-                else {
-                    // make this the began
-                    phase = _delayedScrollPhase;
-                    options |= phase;
-                    // clear the state
-                    _delayedScrollPhase = 0;
-                }
-            }
-            else {
-                if (!moved) {
-                    // if there is momentum, we will allow this event to go through
-                    // without changing it. if there isn't, it will get suppressed below.
-                    phase = 0;
-                }
-            }
-            break;
-
-        case kScrollTypeOptionPhaseEnded:
-        case kScrollTypeOptionPhaseCanceled:
-            if (_delayedScrollPhase) {
-                // we have a suppressed began. the whole scroll needs to be suppressed.
-                options &= ~kScrollTypeOptionPhaseAny;
-                phase = 0;
-                _delayedScrollPhase = 0;
-            }
-            else {
-                // do nothing
-            }
-
-            break;
-
-        case 0:
-            // no phase. do nothing.
-            break;
-
-        default:
-            IOLog("IOHIDSystem::scrollWheelEventGated called with unknown phase state: %08x\n", (unsigned)phase);
-            break;
+    UInt32      oldDelayedPhase = 0;
+    UInt32      newDelayedPhase = 0;
+    if (_devicePhaseState && _devicePhaseState->getObject((OSSymbol*)sender)) {
+        newDelayedPhase = oldDelayedPhase = ((OSNumber*)_devicePhaseState->getObject((OSSymbol*)sender))->unsigned32BitValue();
     }
+    // phaseAnnotation = |32 supplied phase |24 original state |16 new state |8 empty |
+    UInt32      phaseAnnotation = (phase << 16) | (oldDelayedPhase << 8);
+    
+    switch (oldDelayedPhase) {
+        default: // quiet
+            switch (phase) {
+                case kScrollTypeOptionPhaseMayBegin:
+                    newDelayedPhase = kScrollTypeOptionPhaseMayBegin;
+                    break;
+                case kScrollTypeOptionPhaseBegan:
+                    if (moved) {
+                        newDelayedPhase = kScrollTypeOptionPhaseBegan;
+                    }
+                    else {
+                        newDelayedPhase = kScrollTypeOptionPhaseMayBegin;
+                        options &= ~kScrollTypeOptionPhaseAny;
+                        options |= kScrollTypeOptionPhaseMayBegin;
+                        phase = kScrollTypeOptionPhaseMayBegin;
+                    }
+                    break;
+                case kScrollTypeOptionPhaseChanged:
+                case kScrollTypeOptionPhaseEnded:
+                case kScrollTypeOptionPhaseCanceled:
+                    log_event_phase("unexpected phase (%04x) state (%04x) combination\n", phase, oldDelayedPhase);
+                    break;
+            }
+            break;
 
-    UInt32      momentum = (options & kScrollTypeMomentumAny);
+        case kScrollTypeOptionPhaseMayBegin: // suspended
+            switch (phase) {
+                case kScrollTypeOptionPhaseMayBegin:
+                case kScrollTypeOptionPhaseBegan:
+                case kScrollTypeOptionPhaseChanged:
+                    if (moved) {
+                        newDelayedPhase = kScrollTypeOptionPhaseBegan;
+                        options &= ~kScrollTypeOptionPhaseAny;
+                        options |= kScrollTypeOptionPhaseBegan;
+                        phase = kScrollTypeOptionPhaseBegan;
+                    }
+                    else {
+                        options &= ~kScrollTypeOptionPhaseAny;
+                        phase = 0;
+                    }
+                    break;
+                case kScrollTypeOptionPhaseEnded:
+                case kScrollTypeOptionPhaseCanceled:
+                    newDelayedPhase = 0;
+                    options &= ~kScrollTypeOptionPhaseAny;
+                    options |= kScrollTypeOptionPhaseCanceled;
+                    phase = kScrollTypeOptionPhaseCanceled;
+                    break;
+            }
+            break;
+            
+        case kScrollTypeOptionPhaseBegan: // Begun
+            switch (phase) {
+                case kScrollTypeOptionPhaseMayBegin:
+                case kScrollTypeOptionPhaseBegan:
+                    log_event_phase("unexpected phase (%04x) state (%04x) combination\n", phase, oldDelayedPhase);
+                    break;
+                case kScrollTypeOptionPhaseChanged:
+                    break;
+                case kScrollTypeOptionPhaseEnded:
+                case kScrollTypeOptionPhaseCanceled:
+                    newDelayedPhase = 0;
+                    break;
+            }
+            break;            
+    }
+    phaseAnnotation |= phase | (newDelayedPhase >> 8);
+    if (oldDelayedPhase != newDelayedPhase) {
+        log_event_phase("updating phase from %04x to %04x for %p\n", oldDelayedPhase, newDelayedPhase, sender);
+        if (newDelayedPhase) {
+            if (!_devicePhaseState)
+                _devicePhaseState = OSDictionary::withCapacity(0);
+            if (_devicePhaseState) {
+                OSNumber *newDelayedPhaseNumber = OSNumber::withNumber(newDelayedPhase, 32);
+                _devicePhaseState->setObject((OSSymbol*)sender, newDelayedPhaseNumber);
+                newDelayedPhaseNumber->release();
+            }
+            else {
+                IOLog("%s unable to create _devicePhaseState dictionary\n", __func__);
+            }
+        }
+        else {
+            if (_devicePhaseState) {
+                _devicePhaseState->removeObject((OSSymbol*)sender);
+            }
+        }
+    }
+    /*
+     END PHASE SUPPRESSION STATE MACHINE
+     **********************************************************************************************/
+
     switch (momentum) {
         case kScrollTypeMomentumStart:
             if (!moved) {
@@ -3372,12 +3744,176 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
             break;
 
         default:
-            IOLog("IOHIDSystem::scrollWheelEventGated called with unknown momentum state: %08x\n", (unsigned)momentum);
+            kprintf("IOHIDSystem::scrollWheelEventGated called with unknown momentum state: %08x\n", (unsigned)momentum);
             break;
     }
 
-    if (!moved && !momentum && !phase)
-            return;
+    /***********************************************************************************************
+     BEGIN SCROLL COUNT STATE MACHINE
+     */
+    UInt32 phase_momentum = options & (_scIgnoreMomentum ? kScrollTypeOptionPhaseAny : (kScrollTypeOptionPhaseAny | kScrollTypeMomentumAny));
+    if (phase_momentum) {
+        UInt64  axis1squared = (pointDeltaAxis1 * pointDeltaAxis1);
+        UInt64  axis2squared = (pointDeltaAxis2 * pointDeltaAxis2);
+        UInt64  axis3squared = (pointDeltaAxis3 * pointDeltaAxis3);
+        UInt64  scrollMagnitudeSquared = axis1squared + axis2squared + axis3squared;
+        UInt8   newDirection = kScrollDirectionInvalid;
+        bool    checkSustain = false;
+
+        if ((axis1squared > axis2squared) && (axis1squared > axis3squared)) {
+            if (pointDeltaAxis1 > 0) {
+                newDirection = kScrollDirectionXPositive;
+            }
+            else if (pointDeltaAxis1 < 0) {
+                newDirection = kScrollDirectionXNegative;
+            }
+        }
+        else if ((axis2squared > axis1squared) && (axis2squared > axis3squared)) {
+            if (pointDeltaAxis2 > 0) {
+                newDirection = kScrollDirectionYPositive;
+            }
+            else if (pointDeltaAxis2 < 0) {
+                newDirection = kScrollDirectionYNegative;
+            }
+        }
+        else if ((axis3squared > axis1squared) && (axis3squared > axis2squared)) {
+            if (pointDeltaAxis3 > 0) {
+                newDirection = kScrollDirectionZPositive;
+            }
+            else if (pointDeltaAxis3 < 0) {
+                newDirection = kScrollDirectionZNegative;
+            }
+        }
+        if ((newDirection != kScrollDirectionInvalid) && (newDirection != _scDirection)) {
+            if (_scCount) {
+                log_scroll_state("Resetting _scCount on change from %d to %d\n", _scDirection, newDirection);
+                _scCount = 0;
+            }
+            _scDirection = newDirection;
+        }
+        
+        if (_scCount && _scMouseCanReset) {
+            IOFixedPoint64 thresh = IOFixedPoint64().fromIntFloor(clickSpaceThresh.x, clickSpaceThresh.y);
+            IOFixedPoint64 min = _scLastScrollLocation - thresh;
+            IOFixedPoint64 max = _scLastScrollLocation + thresh;
+            IOFixedPoint64 location = _privateData->cursorHelper.desktopLocation();
+            if ( (location > max) || (location < min) ) {
+                log_scroll_state("Resetting _scCount on mouse move [%d, %d] vs [%d, %d]\n",
+                                 location.xValue().as32(), location.yValue().as32(),
+                                 _scLastScrollLocation.xValue().as32(), _scLastScrollLocation.yValue().as32());
+                _scCount = 0;
+            }
+        }
+
+        switch (phase_momentum) {
+            case kScrollTypeOptionPhaseBegan: {
+                if (_scCount > 0) {
+                    if ((_scLastScrollEndTime + _scMaxTimeDeltaBetween) > ts) {
+                        if (!_scIncrementedThisPhrase) {
+                            log_scroll_state("Incrementing _scCount: %lld\n", ts);
+                            _scCount++;
+                            _scIncrementedThisPhrase = 1;
+                        }
+                        _scLastScrollSustainTime = ts;
+                    }
+                    else {
+                        _scCount = 0;
+                        log_scroll_state("Resetting _scCount due to delay: %lld + %lld < %lld\n", _scLastScrollEndTime, _scMaxTimeDeltaBetween, ts);
+                    }
+                }
+                break;
+            }
+            case kScrollTypeOptionPhaseChanged: {
+                if (_scCount == 0) {
+                    if (scrollMagnitudeSquared >= _scMinDeltaSqToStart) {
+                        log_scroll_state("_scCount to 1 on %lld > %lld\n", scrollMagnitudeSquared, _scMinDeltaSqToStart);
+                        _scCount = 1;
+                        _scLastScrollSustainTime = ts;
+                    }
+                }
+                else {
+                    if (_scCount > 2) {
+                        IOFixed64 temp;
+                        temp.fromIntFloor(llsqrt(scrollMagnitudeSquared));
+                        temp /= _scAccelerationFactor;
+                        _scCount += temp.as32();
+                        log_scroll_state("_scCount to %d on (llsqrt(%lld) * 65536 / %lld)\n", _scCount, scrollMagnitudeSquared, _scAccelerationFactor.asFixed64());
+                        if (_scCount > _scCountMax) {
+                            _scCount = _scCountMax;
+                        }
+                    }
+                    checkSustain = true;
+                }
+                break;
+            }
+            case kScrollTypeOptionPhaseEnded: {
+                if (_scCount > 0) {
+                    _scLastScrollEndTime = ts;
+                    _scIncrementedThisPhrase = 0;
+                }
+                break;
+            }
+            case kScrollTypeOptionPhaseCanceled: {
+                log_scroll_state("Resetting _scCount cancelled: %lld\n", ts);
+                _scIncrementedThisPhrase = false;
+                _scCount = 0;
+                break;
+            }
+            case kScrollTypeOptionPhaseMayBegin: {
+                if (_scCount > 0) {
+                    if (((_scLastScrollEndTime + _scMaxTimeDeltaBetween) > ts) && !_scIncrementedThisPhrase) {
+                        log_scroll_state("Incrementing _scCount: %lld\n", ts);
+                        _scCount++;
+                        _scIncrementedThisPhrase = 1;
+                        _scLastScrollSustainTime = ts;
+                    }
+                    else {
+                        log_scroll_state("Resetting _scCount due to delay: %lld + %lld < %lld\n", _scLastScrollEndTime, _scMaxTimeDeltaBetween, ts);
+                        _scCount = 0;
+                        _scIncrementedThisPhrase = 0;
+                    }
+                }
+                break;
+            }
+            case kScrollTypeMomentumStart: {
+                // do nothing
+                break;
+            }
+            case kScrollTypeMomentumContinue: {
+                checkSustain = true;
+                break;
+            }
+            case kScrollTypeMomentumEnd: {
+                if (_scCount > 0) {
+                    _scLastScrollEndTime = ts;
+                    _scIncrementedThisPhrase = 0;
+                }
+                break;
+            }
+        }
+        
+        if (checkSustain) {
+            if (scrollMagnitudeSquared > _scMinDeltaSqToSustain) {
+                _scLastScrollSustainTime = ts;
+            }
+            else if (_scLastScrollSustainTime + _scMaxTimeDeltaToSustain < ts) {
+                log_scroll_state("Resetting _scCount due to sustain delay: %lld + %lld < %lld\n", _scLastScrollSustainTime, _scMaxTimeDeltaToSustain, ts);
+                _scCount = 0;
+            }
+        }
+        _scLastScrollLocation = _privateData->cursorHelper.desktopLocation();
+    }
+    /*
+     END SCROLL COUNT STATE MACHINE
+     **********************************************************************************************/
+    
+    if (!moved && !momentum && !phase) {
+        log_event_phase("annotation %08x suppressed\n", phaseAnnotation);
+        return;
+    }
+    else {
+        log_event_phase("annotation %08x posted with %08x\n", phaseAnnotation, options);
+    }
 
     TICKLE_DISPLAY(NX_SCROLLWHEELMOVED);
 
@@ -3393,8 +3929,15 @@ void IOHIDSystem::scrollWheelEventGated(short	deltaAxis1,
     wheelData.scrollWheel.pointDeltaAxis3 = pointDeltaAxis3;
     wheelData.scrollWheel.reserved1       = (UInt16)options & (kScrollTypeContinuous | kScrollTypeMomentumAny | kScrollTypeOptionPhaseAny);
     updateScrollEventForSender(sender, &wheelData);
-	if (momentum)
-		wheelData.scrollWheel.reserved8[2]    = IOHIDevice::GenerateKey(sender);
+    
+    if (options & (kScrollTypeMomentumAny | kScrollTypeOptionPhaseAny)) {
+        wheelData.scrollWheel.reserved8[0]  = phaseAnnotation;
+        wheelData.scrollWheel.reserved8[1]  = _scCount;
+        log_scroll_state("posting scroll: (%d, %d, %d) %d %d, %lld %lld, %lld\n",
+                         pointDeltaAxis1, pointDeltaAxis2, pointDeltaAxis3, _scCount, _scDirection,
+                         _scLastScrollEndTime, _scLastScrollSustainTime, ts);
+        wheelData.scrollWheel.reserved8[2]  = IOHIDevice::GenerateKey(sender);
+    }
 
     postEvent(             (options & kScrollTypeZoom) ? NX_ZOOM : NX_SCROLLWHEELMOVED,
             /* at */       &_cursorHelper.desktopLocation(),
@@ -4321,6 +4864,11 @@ void IOHIDSystem::_setButtonState(int buttons,
     // Once again check if new button state differs
     if (evg->buttons == buttons)
         return;
+    
+    if (_scMouseCanReset && _scCount) {
+        log_scroll_state("Resetting _scCount due to click: %lld\n", ts);
+        _scCount = 0;
+    }
 
     // Magic uber-mouse buttons changed event so we can get all of the buttons...
     NXEventData evData;
@@ -4360,8 +4908,6 @@ void IOHIDSystem::_setButtonState(int buttons,
         (NULL != (cachedMouseEvent = GetCachedMouseEventForService(cachedButtonStates, sender)))) {
 		if (evData.mouse.subType != NX_SUBTYPE_MOUSE_TOUCH)
 	        evData.mouse.subType = cachedMouseEvent->subType;
-        evData.mouse.subx = (cachedMouseEvent->pointerFractionX >> 8) & 0xff;
-        evData.mouse.suby = (cachedMouseEvent->pointerFractionY >> 8) & 0xff;
         evData.mouse.pressure = cachedMouseEvent->lastPressure;
 
         if (cachedMouseEvent->subType == NX_SUBTYPE_TABLET_POINT) {
@@ -4371,6 +4917,8 @@ void IOHIDSystem::_setButtonState(int buttons,
             bcopy(&(cachedMouseEvent->proximityData), &(evData.mouse.tablet.proximity), sizeof(NXTabletProximityData));
         }
     }
+    evData.mouse.subx = _cursorHelper.desktopLocation().xValue().fraction() >> 8;
+    evData.mouse.suby = _cursorHelper.desktopLocation().yValue().fraction() >> 8;
 
     if ((evg->buttons & EV_LB) != (buttons & EV_LB)) {
         if (buttons & EV_LB) {
@@ -4468,7 +5016,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
     // cleared before returning or the system will be wedged.
 
     needSetCursorPosition = false;    // We WILL succeed
-
+    
     if (cursorCoupled || external)
     {
         UInt32 newScreens = 0;
@@ -4481,7 +5029,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
         else {
             /* Get mask of screens on which the cursor is present */
             for (int i = 0; i < screens; i++ ) {
-                if (!screen[i].instance)
+                if (!screen[i].desktopBounds)
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
@@ -4501,7 +5049,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
             uint64_t    distance;
             uint64_t    bestDistance = -1ULL;
             for (int i = 0; i < screens; i++ ) {
-                if (!screen[i].instance)
+                if (!screen[i].desktopBounds)
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
@@ -4521,7 +5069,7 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
 
             /* regenerate mask for new position */
             for (int i = 0; i < screens; i++ ) {
-                if (!screen[i].instance)
+                if (!screen[i].desktopBounds)
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
@@ -4841,7 +5389,7 @@ IOReturn IOHIDSystem::doSetCursorEnable(IOHIDSystem *self, void * arg0)
 IOReturn IOHIDSystem::setCursorEnableGated(void* p1)
 {
     bool 		enable = (bool)p1;
-
+    
     if ( eventsOpen == false )
         return kIOReturnNotOpen;
 
@@ -5010,7 +5558,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
         if (!cursorPinned) {
             /* Get mask of screens on which the cursor is present */
             for (int i = 0; i < screens; i++ ) {
-                if (!screen[i].instance)
+                if (!screen[i].desktopBounds)
                     continue;
                 if ((screen[i].desktopBounds->maxx - screen[i].desktopBounds->minx) < 128)
                     continue;
@@ -5595,10 +6143,14 @@ OSDictionary * IOHIDSystem::createFilteredParamPropertiesForService(IOService * 
 
     OSDictionary * deviceParameters = NULL;
 
-    if ( OSDynamicCast(IOHIDevice, service) )
-        deviceParameters = OSDynamicCast(OSDictionary, service->getProperty(kIOHIDParametersKey));
-    else if ( OSDynamicCast( IOHIDEventService, service ) )
-        deviceParameters = OSDynamicCast(OSDictionary, service->getProperty(kIOHIDEventServicePropertiesKey));
+    if ( OSDynamicCast(IOHIDevice, service) ) {
+        deviceParameters = (OSDictionary*)service->copyProperty(kIOHIDParametersKey);
+    }
+    else if ( OSDynamicCast( IOHIDEventService, service ) ) {
+        deviceParameters = (OSDictionary*)service->copyProperty(kIOHIDEventServicePropertiesKey);
+    }
+    if (!OSDynamicCast(OSDictionary, deviceParameters))
+        OSSafeReleaseNULL(deviceParameters);
 
     OSCollectionIterator * iterator = OSCollectionIterator::withCollection(dict);
     if ( iterator ) {
@@ -5607,8 +6159,8 @@ OSDictionary * IOHIDSystem::createFilteredParamPropertiesForService(IOService * 
         	OSSymbol * key = NULL;
             while ((key = (OSSymbol*)iterator->getNextObject()) != NULL) {
                 if ( !deviceParameters || !deviceParameters->getObject(key) ) {
-               validParameters->setObject(key, dict->getObject(key));
-        }
+                    validParameters->setObject(key, dict->getObject(key));
+                }
             }
             if (iterator->isValid()) {
                 done = true;
@@ -5666,6 +6218,14 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
         UInt64	nano = number->unsigned64BitValue();
         nanoseconds_to_absolutetime(nano, &clickTimeThresh);
     }
+    
+    // check the reset before setting the other parameters
+    if (dict->getObject(kIOHIDScrollCountResetKey)) {
+        _setScrollCountParameters();
+    }
+    
+    _setScrollCountParameters(dict);
+    
     if( (array = OSDynamicCast( OSArray,
 		dict->getObject(kIOHIDClickSpaceKey)))) {
 
@@ -5731,6 +6291,96 @@ IOReturn IOHIDSystem::setParamPropertiesPreGated( OSDictionary * dict, OSIterato
         *pOpenIter = getOpenProviderIterator();
 
     return kIOReturnSuccess;
+}
+
+void IOHIDSystem::_setScrollCountParameters(OSDictionary *newSettings)
+{
+    if (!newSettings) {
+        newSettings = (OSDictionary*)copyProperty(kIOHIDScrollCountBootDefaultKey);
+        if (!OSDynamicCast(OSDictionary, newSettings)) {
+            newSettings->release();
+            newSettings = NULL;
+        }
+    }
+    else {
+        newSettings->retain();
+    }
+    
+    if (newSettings) {
+        OSNumber *number = NULL;
+        OSBoolean *boolean = NULL;
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountMinDeltaToStartKey))))
+        {
+            _scMinDeltaSqToStart = number->unsigned64BitValue();
+            _scMinDeltaSqToStart *= _scMinDeltaSqToStart;
+            if (_scMinDeltaSqToSustain == kDefaultMinimumDelta)
+                _scMinDeltaSqToSustain = _scMinDeltaSqToStart;
+            setProperty(kIOHIDScrollCountMinDeltaToStartKey, number);
+        }
+        
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountMinDeltaToSustainKey))))
+        {
+            _scMinDeltaSqToSustain = number->unsigned64BitValue();
+            _scMinDeltaSqToSustain *= _scMinDeltaSqToSustain;
+            if (_scMinDeltaSqToStart == kDefaultMinimumDelta)
+                _scMinDeltaSqToStart = _scMinDeltaSqToSustain;
+            setProperty(kIOHIDScrollCountMinDeltaToSustainKey, number);
+        }
+        
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountMaxTimeDeltaBetweenKey))))
+        {
+            UInt64 valueInMs = number->unsigned64BitValue();
+            nanoseconds_to_absolutetime(valueInMs * kMillisecondScale, &_scMaxTimeDeltaBetween);
+            if (!_scMaxTimeDeltaToSustain)
+                _scMaxTimeDeltaToSustain = _scMaxTimeDeltaBetween;
+            setProperty(kIOHIDScrollCountMaxTimeDeltaBetweenKey, number);
+        }
+        
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountMaxTimeDeltaToSustainKey))))
+        {
+            UInt64 valueInMs = number->unsigned64BitValue();
+            nanoseconds_to_absolutetime(valueInMs * kMillisecondScale, &_scMaxTimeDeltaToSustain);
+            if (!_scMaxTimeDeltaBetween)
+                _scMaxTimeDeltaBetween = _scMaxTimeDeltaToSustain;
+            setProperty(kIOHIDScrollCountMaxTimeDeltaToSustainKey, number);
+        }
+        
+        if((boolean = OSDynamicCast(OSBoolean, newSettings->getObject(kIOHIDScrollCountIgnoreMomentumScrollsKey))))
+        {
+            _scIgnoreMomentum = (boolean == kOSBooleanTrue);
+            setProperty(kIOHIDScrollCountIgnoreMomentumScrollsKey, boolean);
+        }
+        
+        if((boolean = OSDynamicCast(OSBoolean, newSettings->getObject(kIOHIDScrollCountMouseCanResetKey))))
+        {
+            _scMouseCanReset = (boolean == kOSBooleanTrue);
+            setProperty(kIOHIDScrollCountMouseCanResetKey, boolean);
+        }
+        
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountMaxKey))))
+        {
+            _scCountMax = number->unsigned16BitValue();
+            setProperty(kIOHIDScrollCountMaxKey, number);
+        }
+        
+        if((number = OSDynamicCast(OSNumber, newSettings->getObject(kIOHIDScrollCountAccelerationFactorKey))))
+        {
+            if (number->unsigned32BitValue() > 0) {
+                _scAccelerationFactor.fromFixed(number->unsigned32BitValue());
+                setProperty(kIOHIDScrollCountAccelerationFactorKey, number);
+            }
+        }
+        
+        if((boolean = OSDynamicCast(OSBoolean, newSettings->getObject(kIOHIDScrollCountZeroKey))))
+        {
+            if (boolean == kOSBooleanTrue) {
+                log_scroll_state("Resetting _scCount on kIOHIDScrollCountZeroKey%s\n", "");
+                _scCount = 0;
+            }
+        }
+        
+        newSettings->release();
+    }
 }
 
 IOReturn IOHIDSystem::doSetParamPropertiesPost(IOHIDSystem *self, void * arg0)

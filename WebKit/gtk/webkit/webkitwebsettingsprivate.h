@@ -24,14 +24,70 @@
 #define webkitwebsettingsprivate_h
 
 #include "webkitwebsettings.h"
+#include <wtf/text/CString.h>
 
 extern "C" {
 
+struct _WebKitWebSettingsPrivate {
+    CString defaultEncoding;
+    CString cursiveFontFamily;
+    CString defaultFontFamily;
+    CString fantasyFontFamily;
+    CString monospaceFontFamily;
+    CString sansSerifFontFamily;
+    CString serifFontFamily;
+    guint defaultFontSize;
+    guint defaultMonospaceFontSize;
+    guint minimumFontSize;
+    guint minimumLogicalFontSize;
+    gboolean enforce96DPI;
+    gboolean autoLoadImages;
+    gboolean autoShrinkImages;
+    gboolean printBackgrounds;
+    gboolean enableScripts;
+    gboolean enablePlugins;
+    gboolean resizableTextAreas;
+    CString userStylesheetURI;
+    gfloat zoomStep;
+    gboolean enableDeveloperExtras;
+    gboolean enablePrivateBrowsing;
+    gboolean enableSpellChecking;
+    CString spellCheckingLanguages;
+    gboolean enableCaretBrowsing;
+    gboolean enableHTML5Database;
+    gboolean enableHTML5LocalStorage;
+    CString html5LocalStorageDatabasePath;
+    gboolean enableXSSAuditor;
+    gboolean enableSpatialNavigation;
+    gboolean enableFrameFlattening;
+    CString userAgent;
+    gboolean javascriptCanOpenWindowsAutomatically;
+    gboolean javascriptCanAccessClipboard;
+    gboolean enableOfflineWebApplicationCache;
+    WebKitEditingBehavior editingBehavior;
+    gboolean enableUniversalAccessFromFileURIs;
+    gboolean enableFileAccessFromFileURIs;
+    gboolean enableDOMPaste;
+    gboolean tabKeyCyclesThroughElements;
+    gboolean enableDefaultContextMenu;
+    gboolean enableSiteSpecificQuirks;
+    gboolean enablePageCache;
+    gboolean autoResizeWindow;
+    gboolean enableJavaApplet;
+    gboolean enableHyperlinkAuditing;
+    gboolean enableFullscreen;
+    gboolean enableDNSPrefetching;
+    gboolean enableWebgl;
+    gboolean enableWebAudio;
+    gboolean enableAcceleratedCompositing;
+    gboolean enableSmoothScrolling;
+};
+
 WEBKIT_API void webkit_web_settings_add_extra_plugin_directory(WebKitWebView*, const gchar* directory);
 
-GSList* webkitWebViewGetEnchantDicts(WebKitWebView*);
+WEBKIT_API char* webkitWebSettingsUserAgentForURI(WebKitWebSettings*, const gchar* uri);
 
-WTF::String webkitUserAgent();
+GSList* webkitWebViewGetEnchantDicts(WebKitWebView*);
 
 }
 

@@ -1,6 +1,6 @@
 
 /********************************************************************
- * Copyright (c) 1997-2010, International Business Machines
+ * Copyright (c) 1997-2011, International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************/
  
@@ -36,6 +36,8 @@ public:
      * Test the call which retrieves the available IDs.
      */
     virtual void TestGetAvailableIDs913(void);
+
+    virtual void TestGetAvailableIDsNew(void);
 
     /**
      * Generic API testing for API coverage.
@@ -89,8 +91,11 @@ public:
     void TestFebruary(void);
 
     void TestCanonicalID(void);
-    
+
     virtual void TestDisplayNamesMeta();
+
+    void TestGetRegion(void);
+    void TestGetUnknown();
 
     static const UDate INTERVAL;
 
@@ -103,6 +108,9 @@ private:
     // when year/rule are changed.
     static const int32_t REFERENCE_YEAR;
     static const char *REFERENCE_DATA_VERSION;
+
+    void checkContainsAll(StringEnumeration *s1, const char *name1,
+        StringEnumeration *s2, const char *name2);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

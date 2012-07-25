@@ -123,6 +123,14 @@ void WebLoaderClient::didFirstVisuallyNonEmptyLayoutForFrame(WebPageProxy* page,
     m_client.didFirstVisuallyNonEmptyLayoutForFrame(toAPI(page), toAPI(frame), toAPI(userData), m_client.clientInfo);
 }
 
+void WebLoaderClient::didNewFirstVisuallyNonEmptyLayout(WebPageProxy* page, APIObject* userData)
+{
+    if (!m_client.didNewFirstVisuallyNonEmptyLayout)
+        return;
+
+    m_client.didNewFirstVisuallyNonEmptyLayout(toAPI(page), toAPI(userData), m_client.clientInfo);
+}
+
 void WebLoaderClient::didRemoveFrameFromHierarchy(WebPageProxy* page, WebFrameProxy* frame, APIObject* userData)
 {
     if (!m_client.didRemoveFrameFromHierarchy)
@@ -145,6 +153,14 @@ void WebLoaderClient::didRunInsecureContentForFrame(WebPageProxy* page, WebFrame
         return;
 
     m_client.didRunInsecureContentForFrame(toAPI(page), toAPI(frame), toAPI(userData), m_client.clientInfo);
+}
+
+void WebLoaderClient::didDetectXSSForFrame(WebPageProxy* page, WebFrameProxy* frame, APIObject* userData)
+{
+    if (!m_client.didDetectXSSForFrame)
+        return;
+
+    m_client.didDetectXSSForFrame(toAPI(page), toAPI(frame), toAPI(userData), m_client.clientInfo);
 }
 
 bool WebLoaderClient::canAuthenticateAgainstProtectionSpaceInFrame(WebPageProxy* page, WebFrameProxy* frame, WebProtectionSpace* protectionSpace)
@@ -195,6 +211,14 @@ void WebLoaderClient::processDidBecomeUnresponsive(WebPageProxy* page)
     m_client.processDidBecomeUnresponsive(toAPI(page), m_client.clientInfo);
 }
 
+void WebLoaderClient::interactionOccurredWhileProcessUnresponsive(WebPageProxy* page)
+{
+    if (!m_client.interactionOccurredWhileProcessUnresponsive)
+        return;
+
+    m_client.interactionOccurredWhileProcessUnresponsive(toAPI(page), m_client.clientInfo);
+}
+
 void WebLoaderClient::processDidBecomeResponsive(WebPageProxy* page)
 {
     if (!m_client.processDidBecomeResponsive)
@@ -225,18 +249,38 @@ void WebLoaderClient::didChangeBackForwardList(WebPageProxy* page, WebBackForwar
 
 bool WebLoaderClient::shouldGoToBackForwardListItem(WebPageProxy* page, WebBackForwardListItem* item)
 {
-    if (!m_client.shouldGoToBackForwardListItem)
+    // We should only even considering sending the shouldGoToBackForwardListItem() client callback
+    // for version 0 clients. Later versioned clients should get willGoToBackForwardListItem() instead,
+    // but due to XPC race conditions this one might have been called instead.
+    if (m_client.version > 0 || !m_client.shouldGoToBackForwardListItem)
         return true;
-    
+
     return m_client.shouldGoToBackForwardListItem(toAPI(page), toAPI(item), m_client.clientInfo);
+}
+
+void WebLoaderClient::willGoToBackForwardListItem(WebPageProxy* page, WebBackForwardListItem* item, APIObject* userData)
+{
+    if (m_client.willGoToBackForwardListItem)
+        m_client.willGoToBackForwardListItem(toAPI(page), toAPI(item), toAPI(userData), m_client.clientInfo);
 }
 
 void WebLoaderClient::didFailToInitializePlugin(WebPageProxy* page, const String& mimeType)
 {
-    if (!m_client.didFailToInitializePlugin)
+    if (m_client.didFailToInitializePlugin_deprecatedForUseWithV0)
+        m_client.didFailToInitializePlugin_deprecatedForUseWithV0(toAPI(page), toAPI(mimeType.impl()), m_client.clientInfo);
+
+    if (!m_client.pluginDidFail)
         return;
 
-    m_client.didFailToInitializePlugin(toAPI(page), toAPI(mimeType.impl()), m_client.clientInfo);
+    m_client.pluginDidFail(toAPI(page), kWKErrorCodeCannotLoadPlugIn, toAPI(mimeType.impl()), 0, 0, m_client.clientInfo);
+}
+
+void WebLoaderClient::didBlockInsecurePluginVersion(WebPageProxy* page, const String& mimeType, const String& pluginIdentifier, const String& pluginVersion)
+{
+    if (!m_client.pluginDidFail)
+        return;
+
+    m_client.pluginDidFail(toAPI(page), kWKErrorCodeInsecurePlugInVersion, toAPI(mimeType.impl()), toAPI(pluginIdentifier.impl()), toAPI(pluginVersion.impl()), m_client.clientInfo);
 }
 
 } // namespace WebKit

@@ -43,16 +43,17 @@
  * Kerberos mechanism.
  */
 gss_OID_desc _gss_spnego_mskrb_mechanism_oid_desc =
-	{9, (void *)"\x2a\x86\x48\x82\xf7\x12\x01\x02\x02"};
+    {9, rk_UNCONST("\x2a\x86\x48\x82\xf7\x12\x01\x02\x02")};
 
 gss_OID_desc _gss_spnego_krb5_mechanism_oid_desc =
-	{9, (void *)"\x2a\x86\x48\x86\xf7\x12\x01\x02\x02"};
+    {9, rk_UNCONST("\x2a\x86\x48\x86\xf7\x12\x01\x02\x02")};
 
 /*
  * Allocate a SPNEGO context handle
  */
-OM_uint32 _gss_spnego_alloc_sec_context (OM_uint32 * minor_status,
-					 gss_ctx_id_t *context_handle)
+OM_uint32 GSSAPI_CALLCONV
+_gss_spnego_alloc_sec_context (OM_uint32 * minor_status,
+			       gss_ctx_id_t *context_handle)
 {
     gssspnego_ctx ctx;
 
@@ -62,26 +63,20 @@ OM_uint32 _gss_spnego_alloc_sec_context (OM_uint32 * minor_status,
 	return GSS_S_FAILURE;
     }
 
-    ctx->initiator_mech_types.len = 0;
-    ctx->initiator_mech_types.val = NULL;
+    ctx->NegTokenInit_mech_types.value = NULL;
+    ctx->NegTokenInit_mech_types.length = 0;
     ctx->preferred_mech_type = GSS_C_NO_OID;
     ctx->selected_mech_type = GSS_C_NO_OID;
     ctx->negotiated_mech_type = GSS_C_NO_OID;
     ctx->negotiated_ctx_id = GSS_C_NO_CONTEXT;
 
-    /*
-     * Cache these so we can return them before returning
-     * GSS_S_COMPLETE, even if the mechanism has itself
-     * completed earlier
-     */
-    ctx->mech_flags = 0;
-    ctx->mech_time_rec = 0;
     ctx->mech_src_name = GSS_C_NO_NAME;
 
-    ctx->open = 0;
-    ctx->local = 0;
-    ctx->require_mic = 0;
-    ctx->verified_mic = 0;
+    ctx->flags.open = 0;
+    ctx->flags.local = 0;
+    ctx->flags.peer_require_mic = 0;
+    ctx->flags.require_mic = 0;
+    ctx->flags.verified_mic = 0;
 
     HEIMDAL_MUTEX_init(&ctx->ctx_id_mutex);
 
@@ -94,7 +89,7 @@ OM_uint32 _gss_spnego_alloc_sec_context (OM_uint32 * minor_status,
  * Free a SPNEGO context handle. The caller must have acquired
  * the lock before this is called.
  */
-OM_uint32 _gss_spnego_internal_delete_sec_context
+OM_uint32 GSSAPI_CALLCONV _gss_spnego_internal_delete_sec_context
            (OM_uint32 *minor_status,
             gss_ctx_id_t *context_handle,
             gss_buffer_t output_token
@@ -121,8 +116,8 @@ OM_uint32 _gss_spnego_internal_delete_sec_context
 	return GSS_S_NO_CONTEXT;
     }
 
-    if (ctx->initiator_mech_types.val != NULL)
-	free_MechTypeList(&ctx->initiator_mech_types);
+    if (ctx->NegTokenInit_mech_types.value)
+	free(ctx->NegTokenInit_mech_types.value);
 
     gss_release_oid(&minor, &ctx->preferred_mech_type);
     ctx->negotiated_mech_type = GSS_C_NO_OID;
@@ -136,7 +131,7 @@ OM_uint32 _gss_spnego_internal_delete_sec_context
     if (ctx->negotiated_ctx_id != GSS_C_NO_CONTEXT) {
 	ret = gss_delete_sec_context(minor_status,
 				     &ctx->negotiated_ctx_id,
-				     output_token);
+				     NULL);
 	ctx->negotiated_ctx_id = GSS_C_NO_CONTEXT;
     } else {
 	ret = GSS_S_COMPLETE;
@@ -148,6 +143,19 @@ OM_uint32 _gss_spnego_internal_delete_sec_context
     free(ctx);
 
     return ret;
+}
+
+void
+_gss_spnego_fixup_ntlm(gssspnego_ctx ctx)
+{
+    if (gss_oid_equal(ctx->negotiated_mech_type, GSS_NTLM_MECHANISM)) {
+	gss_buffer_set_t buffer_set = GSS_C_NO_BUFFER_SET;
+	OM_uint32 junk;
+	gss_inquire_sec_context_by_oid(&junk, ctx->negotiated_ctx_id,
+				       GSS_C_NTLM_RESET_KEYS,
+				       &buffer_set);
+	gss_release_buffer_set(&junk, &buffer_set);
+    }
 }
 
 /*
@@ -166,8 +174,12 @@ _gss_spnego_require_mechlist_mic(gssspnego_ctx ctx)
     require_mic = 1;
 
     /* Acceptor requested it: mandatory to honour */
-    if (ctx->require_mic)
+    if (ctx->flags.peer_require_mic)
 	return 1;
+
+    /* Protocol can't handle mechListMIC (HTTP Negotiate) */
+    if (ctx->flags.protocol_require_no_mic)
+	return 0;
 
     /*
      * Check whether peer indicated implicit support for updated SPNEGO
@@ -180,13 +192,22 @@ _gss_spnego_require_mechlist_mic(gssspnego_ctx ctx)
 	gss_release_buffer_set(&minor, &buffer_set);
     }
 
+    /*
+     * Don't require mic for NTLM because
+     *  - Windows servers to have negTokenResp.negResult set for the acceptor to send the mic.
+     *  - SnowLeopard smb server can't handle it
+     * So if we are the initiator and using NTLM, don't send the acceptor status.
+     */
+    if (ctx->flags.local && gss_oid_equal(ctx->negotiated_mech_type, GSS_NTLM_MECHANISM))
+	require_mic = 0;
+
     /* Safe-to-omit MIC rules follow */
 
     if (gss_oid_equal(ctx->negotiated_mech_type, ctx->preferred_mech_type)) {
-	require_mic = 0;
+	ctx->flags.safe_omit = 1;
     } else if (gss_oid_equal(ctx->negotiated_mech_type, &_gss_spnego_krb5_mechanism_oid_desc) &&
 	       gss_oid_equal(ctx->preferred_mech_type, &_gss_spnego_mskrb_mechanism_oid_desc)) {
-	require_mic = 0;
+	ctx->flags.safe_omit = 1;
     }
 
     return require_mic;
@@ -222,7 +243,7 @@ add_mech_type(gss_OID mech_type,
 }
 
 
-OM_uint32
+OM_uint32 GSSAPI_CALLCONV
 _gss_spnego_indicate_mechtypelist (OM_uint32 *minor_status,
 				   gss_name_t target_name,
 				   OM_uint32 (*func)(void *, gss_name_t, const gss_cred_id_t, gss_OID),
@@ -235,7 +256,8 @@ _gss_spnego_indicate_mechtypelist (OM_uint32 *minor_status,
     gss_OID_set supported_mechs = GSS_C_NO_OID_SET;
     gss_OID first_mech = GSS_C_NO_OID;
     OM_uint32 ret, junk;
-    int i, present = 0;
+    int present = 0;
+    size_t i;
 
     mechtypelist->len = 0;
     mechtypelist->val = NULL;
@@ -328,4 +350,44 @@ _gss_spnego_indicate_mechtypelist (OM_uint32 *minor_status,
     gss_release_oid_set(minor_status, &supported_mechs);
 
     return ret;
+}
+
+/*
+ *
+ */
+
+OM_uint32
+_gss_spnego_verify_mechtypes_mic(OM_uint32 *minor_status,
+				 gssspnego_ctx ctx,
+				 heim_octet_string *mic)
+{
+    gss_buffer_desc mic_buf;
+    OM_uint32 major_status;
+
+    if (ctx->flags.verified_mic) {
+	/* This doesn't make sense, we've already verified it? */
+	*minor_status = 0;
+	return GSS_S_DUPLICATE_TOKEN;
+    }
+
+    mic_buf.length = mic->length;
+    mic_buf.value  = mic->data;
+
+    major_status = gss_verify_mic(minor_status,
+				  ctx->negotiated_ctx_id,
+				  &ctx->NegTokenInit_mech_types,
+				  &mic_buf,
+				  NULL);
+    if (major_status == GSS_S_UNAVAILABLE) {
+	_gss_mg_log(10, "mech doesn't support MIC, allowing anyway");	
+    } else if (major_status) {
+	return gss_mg_set_error_string(GSS_SPNEGO_MECHANISM,
+				       GSS_S_DEFECTIVE_TOKEN, *minor_status,
+				       "SPNEGO peer sent invalid mechListMIC");
+    }
+    ctx->flags.verified_mic = 1;
+
+    *minor_status = 0;
+
+    return GSS_S_COMPLETE;
 }

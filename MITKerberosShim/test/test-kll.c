@@ -53,7 +53,7 @@ main(int argc, char **argv)
     printf("test NULL argument\n");
     ret = KLCreatePrincipalFromString(NULL, kerberosVersion_V5, &princ);
     if (ret == 0)
-	errx(1, "KLCreatePrincipalFromString", ret);
+	errx(1, "KLCreatePrincipalFromString: %d", ret);
 
     printf("create principal\n");
     ret = KLCreatePrincipalFromString(argv[1],
@@ -88,11 +88,11 @@ main(int argc, char **argv)
     printf("test callbacks\n");
     ret = KLGetIdleCallback(&idlecall, &refcon);
     if (ret != klNoErr)
-	errx(1, "KLGetIdleCallback", ret);
+	errx(1, "KLGetIdleCallback: %d", ret);
 
     ret = KLSetIdleCallback(NULL, refcon);
     if (ret != klNoErr)
-	errx(1, "KLSetIdleCallback", ret);
+	errx(1, "KLSetIdleCallback: %d", ret);
 
 
     return 0;

@@ -1,0 +1,11 @@
+--- php-5.3.8/configure	2011-11-29 16:42:55.000000000 -0600
++++ php/configure	2011-11-29 17:25:50.000000000 -0600
+@@ -106768,7 +106768,7 @@
+   if { (eval echo configure:106769: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
+     for file in conftest.*; do
+       case $file in
+-      *.c | *.o | *.obj) ;;
++      *.c | *.o | *.obj | *.dSYM) ;;
+       *) ac_cv_exeext=`echo $file | sed -e s/conftest//` ;;
+       esac
+     done

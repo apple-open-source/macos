@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -33,7 +33,7 @@ using namespace std;
 
 namespace WebCore {
 
-String CSSReflectValue::cssText() const
+String CSSReflectValue::customCssText() const
 {
     String result;
     switch (m_direction) {
@@ -52,14 +52,14 @@ String CSSReflectValue::cssText() const
         default:
             break;
     }
-    
+
     result += m_offset->cssText() + " ";
     if (m_mask)
         result += m_mask->cssText();
     return result;
 }
 
-void CSSReflectValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const CSSStyleSheet* styleSheet)
+void CSSReflectValue::addSubresourceStyleURLs(ListHashSet<KURL>& urls, const StyleSheetInternal* styleSheet)
 {
     if (m_mask)
         m_mask->addSubresourceStyleURLs(urls, styleSheet);

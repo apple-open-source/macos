@@ -32,12 +32,11 @@
 #include "IntRect.h"
 #include "RenderSVGResource.h"
 #include "SVGElement.h"
-#include "SVGImageBufferTools.h"
 #include "SVGMaskElement.h"
+#include "SVGRenderingContext.h"
 #include "SVGStyledElement.h"
 #include "SVGUnitTypes.h"
 
-#include <wtf/ByteArray.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
@@ -86,44 +85,42 @@ bool RenderSVGResourceMasker::applyResource(RenderObject* object, RenderStyle*, 
     ASSERT(context);
     ASSERT_UNUSED(resourceMode, resourceMode == ApplyToDefaultMode);
 
-    if (!m_masker.contains(object))
+    bool missingMaskerData = !m_masker.contains(object);
+    if (missingMaskerData)
         m_masker.set(object, new MaskerData);
 
     MaskerData* maskerData = m_masker.get(object);
 
     AffineTransform absoluteTransform;
-    SVGImageBufferTools::calculateTransformationToOutermostSVGCoordinateSystem(object, absoluteTransform);
+    SVGRenderingContext::calculateTransformationToOutermostSVGCoordinateSystem(object, absoluteTransform);
 
-    FloatRect absoluteTargetRect = absoluteTransform.mapRect(object->repaintRectInLocalCoordinates());
-    FloatRect clampedAbsoluteTargetRect = SVGImageBufferTools::clampedAbsoluteTargetRectForRenderer(object, absoluteTargetRect);
+    FloatRect repaintRect = object->repaintRectInLocalCoordinates();
 
-    if (!maskerData->maskImage && !clampedAbsoluteTargetRect.isEmpty()) {
+    if (!maskerData->maskImage && !repaintRect.isEmpty()) {
         SVGMaskElement* maskElement = static_cast<SVGMaskElement*>(node());
         if (!maskElement)
             return false;
 
-        if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, maskerData->maskImage, ColorSpaceLinearRGB))
+        ASSERT(style());
+        const SVGRenderStyle* svgStyle = style()->svgStyle();
+        ASSERT(svgStyle);
+        ColorSpace colorSpace = svgStyle->colorInterpolation() == CI_LINEARRGB ? ColorSpaceLinearRGB : ColorSpaceDeviceRGB;
+        if (!SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, maskerData->maskImage, colorSpace, Unaccelerated))
             return false;
 
-        GraphicsContext* maskImageContext = maskerData->maskImage->context();
-        ASSERT(maskImageContext);
-
-        // The save/restore pair is needed for clipToImageBuffer - it doesn't work without it on non-Cg platforms.
-        maskImageContext->save();
-        maskImageContext->translate(-clampedAbsoluteTargetRect.x(), -clampedAbsoluteTargetRect.y());
-        maskImageContext->concatCTM(absoluteTransform);
-
-        drawContentIntoMaskImage(maskerData, maskElement, object);
+        if (!drawContentIntoMaskImage(maskerData, colorSpace, maskElement, object)) {
+            maskerData->maskImage.clear();
+        }
     }
 
     if (!maskerData->maskImage)
         return false;
 
-    SVGImageBufferTools::clipToImageBuffer(context, absoluteTransform, clampedAbsoluteTargetRect, maskerData->maskImage);
+    SVGRenderingContext::clipToImageBuffer(context, absoluteTransform, repaintRect, maskerData->maskImage, missingMaskerData);
     return true;
 }
 
-void RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, const SVGMaskElement* maskElement, RenderObject* object)
+bool RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, ColorSpace colorSpace, const SVGMaskElement* maskElement, RenderObject* object)
 {
     GraphicsContext* maskImageContext = maskerData->maskImage->context();
     ASSERT(maskImageContext);
@@ -142,36 +139,23 @@ void RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, c
         RenderObject* renderer = node->renderer();
         if (!node->isSVGElement() || !static_cast<SVGElement*>(node)->isStyled() || !renderer)
             continue;
+        if (renderer->needsLayout())
+            return false;
         RenderStyle* style = renderer->style();
         if (!style || style->display() == NONE || style->visibility() != VISIBLE)
             continue;
-        SVGImageBufferTools::renderSubtreeToImageBuffer(maskerData->maskImage.get(), renderer, maskContentTransformation);
+        SVGRenderingContext::renderSubtreeToImageBuffer(maskerData->maskImage.get(), renderer, maskContentTransformation);
     }
 
-    maskImageContext->restore();
-
 #if !USE(CG)
-    maskerData->maskImage->transformColorSpace(ColorSpaceDeviceRGB, ColorSpaceLinearRGB);
+    maskerData->maskImage->transformColorSpace(ColorSpaceDeviceRGB, colorSpace);
+#else
+    UNUSED_PARAM(colorSpace);
 #endif
 
     // Create the luminance mask.
-    IntRect maskImageRect(IntPoint(), maskerData->maskImage->size());
-    RefPtr<ByteArray> srcPixelArray = maskerData->maskImage->getUnmultipliedImageData(maskImageRect);
-
-    unsigned pixelArrayLength = srcPixelArray->length();
-    for (unsigned pixelOffset = 0; pixelOffset < pixelArrayLength; pixelOffset += 4) {
-        unsigned char a = srcPixelArray->get(pixelOffset + 3);
-        if (!a)
-            continue;
-        unsigned char r = srcPixelArray->get(pixelOffset);
-        unsigned char g = srcPixelArray->get(pixelOffset + 1);
-        unsigned char b = srcPixelArray->get(pixelOffset + 2);
-
-        double luma = (r * 0.2125 + g * 0.7154 + b * 0.0721) * ((double)a / 255.0);
-        srcPixelArray->set(pixelOffset + 3, luma);
-    }
-
-    maskerData->maskImage->putUnmultipliedImageData(srcPixelArray.get(), maskImageRect.size(), maskImageRect, IntPoint());
+    maskerData->maskImage->convertToLuminanceMask();
+    return true;
 }
 
 void RenderSVGResourceMasker::calculateMaskContentRepaintRect()
@@ -193,7 +177,7 @@ FloatRect RenderSVGResourceMasker::resourceBoundingBox(RenderObject* object)
     ASSERT(maskElement);
 
     FloatRect objectBoundingBox = object->objectBoundingBox();
-    FloatRect maskBoundaries = maskElement->maskBoundingBox(objectBoundingBox);
+    FloatRect maskBoundaries = SVGLengthContext::resolveRectangle<SVGMaskElement>(maskElement, maskElement->maskUnits(), objectBoundingBox);
 
     // Resource was not layouted yet. Give back clipping rect of the mask.
     if (selfNeedsLayout())

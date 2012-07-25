@@ -115,6 +115,8 @@ CCRandomCopyBytes(CCRandomRef, void *, size_t);
  *
  */
 
+#ifndef HAVE_CCDESISWEAKKEY
+
 #define CCDesIsWeakKey hc_CCDesIsWeakKey
 #define CCDesSetOddParity hc_CCDesSetOddParity
 #define CCDesCBCCksum hc_CCDesCBCCksum
@@ -129,6 +131,8 @@ uint32_t
 CCDesCBCCksum(void *input, void *output,
 	      size_t length, void *key, size_t keylen,
 	      void *ivec);
+
+#endif
 
 HCCC_CPP_END
 

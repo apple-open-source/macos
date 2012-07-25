@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000,2005-2007,2010-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -106,6 +106,7 @@ struct fat_cache_block {
 	uint8_t *		buffer;
 	uint32_t		length;	/* Size of this block, in bytes */
 };
+enum { FAT_CHUNK_MAX = 0x7FFFFFFF };
 
 static uint8_t *fat_cache_buffers;
 static struct fat_cache_block *fat_cache;
@@ -203,7 +204,7 @@ int fat_init(int fs, struct bootblock *boot)
 	for (i=0; i<gNumCacheBlocks; ++i)
 	{
 		fat_cache[i].dirty = 0;
-		fat_cache[i].chunk = -1;
+		fat_cache[i].chunk = FAT_CHUNK_MAX;
 		fat_cache[i].buffer = fat_cache_buffers + i * FAT_CHUNK_SIZE;
 		if (i != gNumCacheBlocks-1)
 			fat_cache[i].next = &fat_cache[i+1];
@@ -399,7 +400,8 @@ fat_cache_find(uint32_t offset)
 	 */
 	if (found != fat_cache_mru)
 	{
-		prev->next = found->next;
+		if (prev)
+			prev->next = found->next;
 		found->next = fat_cache_mru;
 		fat_cache_mru = found;
 	}
@@ -583,7 +585,7 @@ static int fat16_set(cl_t cluster, cl_t value)
 	
 	/* Store the value. */
 	*p++ = (uint8_t) value;
-	*p++ = (uint8_t) (value >> 8);
+	*p   = (uint8_t) (value >> 8);
 	
 	/* Update the use map. */
 	if (value == CLUST_FREE)
@@ -621,7 +623,7 @@ static int fat12_set(cl_t cluster, cl_t value)
 	else
 		value |= (p[1] & 0xF0) << 8;
 	*p++ = (uint8_t) value;
-	*p++ = (uint8_t) (value >> 8);
+	*p   = (uint8_t) (value >> 8);
 	
 	/* Update the use map. */
 	if (value == CLUST_FREE)

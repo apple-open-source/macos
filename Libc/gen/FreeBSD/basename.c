@@ -39,6 +39,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/basename.c,v 1.7 2002/12/30 01:41:14 marcel
 #include <string.h>
 #include <sys/param.h>
 
+#if __DARWIN_UNIX03
+#define const /**/
+#endif
+
 char *
 basename(path)
 	const char *path;

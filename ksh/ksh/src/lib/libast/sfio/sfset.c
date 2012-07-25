@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -27,24 +27,35 @@
 */
 
 #if __STD_C
-int sfset(reg Sfio_t* f, reg int flags, reg int set)
+int sfset(Sfio_t* f, int flags, int set)
 #else
 int sfset(f,flags,set)
-reg Sfio_t*	f;
-reg int		flags;
-reg int		set;
+Sfio_t*		f;
+int		flags;
+int		set;
 #endif
 {
-	reg int	oflags;
+	reg int	oflags, tflags, rv;
+	SFMTXDECL(f);
 
-	SFMTXSTART(f,0);
+	SFMTXENTER(f,0);
 
 	if(flags == 0 && set == 0)
 		SFMTXRETURN(f, (f->flags&SF_FLAGS));
 
-	if((oflags = (f->mode&SF_RDWR)) != (int)f->mode && _sfmode(f,oflags,0) < 0)
-		SFMTXRETURN(f, 0);
-
+	if((oflags = (f->mode&SF_RDWR)) != (int)f->mode)
+	{	/* avoid sfsetbuf() isatty() call if user sets (SF_LINE|SF_WCWIDTH) */
+		if(set && (flags & (SF_LINE|SF_WCWIDTH)) && !(f->flags & (SF_LINE|SF_WCWIDTH)))
+		{	tflags = (SF_LINE|SF_WCWIDTH);
+			f->flags |= tflags;
+		}
+		else	tflags = 0;
+		rv = _sfmode(f,oflags,0);
+		if(tflags)
+			f->flags &= ~tflags;
+		if(rv < 0)
+			SFMTXRETURN(f, 0);
+	}
 	if(flags == 0)
 		SFMTXRETURN(f, (f->flags&SF_FLAGS));
 

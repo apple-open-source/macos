@@ -31,9 +31,10 @@
 WebInspector = {};
 WebInspector.UIString = function(s) { return s; };
 
-importScripts("BinarySearch.js");
 importScripts("HeapSnapshot.js");
+importScripts("HeapSnapshotLoader.js");
 importScripts("HeapSnapshotWorkerDispatcher.js");
+importScripts("utilities.js");
 
 function postMessageWrapper(message)
 {

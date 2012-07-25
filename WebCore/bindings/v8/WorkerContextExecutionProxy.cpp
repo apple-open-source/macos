@@ -37,13 +37,17 @@
 
 #include "DedicatedWorkerContext.h"
 #include "Event.h"
+#include "SafeAllocation.h"
 #include "ScriptCallStack.h"
 #include "SharedWorker.h"
 #include "SharedWorkerContext.h"
 #include "V8Binding.h"
+#include "V8BindingPerContextData.h"
 #include "V8DOMMap.h"
+#include "V8DOMWindowShell.h"
 #include "V8DedicatedWorkerContext.h"
 #include "V8Proxy.h"
+#include "V8RecursionScope.h"
 #include "V8SharedWorkerContext.h"
 #include "Worker.h"
 #include "WorkerContext.h"
@@ -81,9 +85,8 @@ static void v8MessageHandler(v8::Handle<v8::Message> message, v8::Handle<v8::Val
 
 WorkerContextExecutionProxy::WorkerContextExecutionProxy(WorkerContext* workerContext)
     : m_workerContext(workerContext)
-    , m_recursion(0)
 {
-    initV8IfNeeded();
+    initIsolate();
 }
 
 WorkerContextExecutionProxy::~WorkerContextExecutionProxy()
@@ -101,6 +104,8 @@ void WorkerContextExecutionProxy::dispose()
     }
     m_events.clear();
 
+    m_perContextData.clear();
+
     // Dispose the context.
     if (!m_context.IsEmpty()) {
         m_context.Dispose();
@@ -108,23 +113,21 @@ void WorkerContextExecutionProxy::dispose()
     }
 }
 
-void WorkerContextExecutionProxy::initV8IfNeeded()
+void WorkerContextExecutionProxy::initIsolate()
 {
-    static bool v8Initialized = false;
-
-    if (v8Initialized)
-        return;
-
     // Tell V8 not to call the default OOM handler, binding code will handle it.
     v8::V8::IgnoreOutOfMemoryException();
     v8::V8::SetFatalErrorHandler(reportFatalErrorInV8);
+
+    v8::V8::SetGlobalGCPrologueCallback(&V8GCController::gcPrologue);
+    v8::V8::SetGlobalGCEpilogueCallback(&V8GCController::gcEpilogue);
 
     v8::ResourceConstraints resource_constraints;
     uint32_t here;
     resource_constraints.set_stack_limit(&here - kWorkerMaxStackSize / sizeof(uint32_t*));
     v8::SetResourceConstraints(&resource_constraints);
 
-    v8Initialized = true;
+    V8BindingPerIsolateData::ensureInitialized(v8::Isolate::GetCurrent());
 }
 
 bool WorkerContextExecutionProxy::initContextIfNeeded()
@@ -150,6 +153,12 @@ bool WorkerContextExecutionProxy::initContextIfNeeded()
 
     v8::Context::Scope scope(context);
 
+    m_perContextData = V8BindingPerContextData::create(m_context);
+    if (!m_perContextData->init()) {
+        dispose();
+        return false;
+    }
+
     // Set DebugId for the new context.
     context->SetData(v8::String::New("worker"));
 
@@ -159,7 +168,7 @@ bool WorkerContextExecutionProxy::initContextIfNeeded()
     if (!m_workerContext->isDedicatedWorkerContext())
         contextType = &V8SharedWorkerContext::info;
 #endif
-    v8::Handle<v8::Function> workerContextConstructor = V8DOMWrapper::getConstructorForContext(contextType, context);
+    v8::Handle<v8::Function> workerContextConstructor = m_perContextData->constructorForType(contextType);
     v8::Local<v8::Object> jsWorkerContext = SafeAllocation::newInstance(workerContextConstructor);
     // Bail out if allocation failed.
     if (jsWorkerContext.IsEmpty()) {
@@ -170,12 +179,12 @@ bool WorkerContextExecutionProxy::initContextIfNeeded()
     // Wrap the object.
     V8DOMWrapper::setDOMWrapper(jsWorkerContext, contextType, m_workerContext);
 
-    V8DOMWrapper::setJSWrapperForDOMObject(m_workerContext, v8::Persistent<v8::Object>::New(jsWorkerContext));
-    m_workerContext->ref();
+    V8DOMWrapper::setJSWrapperForDOMObject(PassRefPtr<WorkerContext>(m_workerContext), v8::Persistent<v8::Object>::New(jsWorkerContext));
 
     // Insert the object instance as the prototype of the shadow object.
     v8::Handle<v8::Object> globalObject = v8::Handle<v8::Object>::Cast(m_context->Global()->GetPrototype());
     globalObject->SetPrototype(jsWorkerContext);
+
     return true;
 }
 
@@ -188,7 +197,7 @@ bool WorkerContextExecutionProxy::forgetV8EventObject(Event* event)
     return false;
 }
 
-ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, const TextPosition0& scriptStartPosition, WorkerContextExecutionState* state)
+ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, const TextPosition& scriptStartPosition, WorkerContextExecutionState* state)
 {
     v8::HandleScope hs;
 
@@ -235,9 +244,9 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
         return v8::Local<v8::Value>();
 
     // Compute the source string and prevent against infinite recursion.
-    if (m_recursion >= kMaxRecursionDepth) {
+    if (V8RecursionScope::recursionLevel() >= kMaxRecursionDepth) {
         v8::Local<v8::String> code = v8ExternalString("throw RangeError('Recursion too deep')");
-        script = V8Proxy::compileScript(code, "", TextPosition0::minimumPosition());
+        script = V8Proxy::compileScript(code, "", TextPosition::minimumPosition());
     }
 
     if (V8Proxy::handleOutOfMemory())
@@ -249,9 +258,8 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
     // Run the script and keep track of the current recursion depth.
     v8::Local<v8::Value> result;
     {
-        m_recursion++;
+        V8RecursionScope recursionScope(m_workerContext);
         result = script->Run();
-        m_recursion--;
     }
 
     // Handle V8 internal error situation (Out-of-memory).

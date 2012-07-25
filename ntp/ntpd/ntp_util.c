@@ -5,7 +5,6 @@
 # include <config.h>
 #endif
 
-#include <TargetConfig.h>
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_unixtime.h"

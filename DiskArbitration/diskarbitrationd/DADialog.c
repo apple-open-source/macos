@@ -29,7 +29,7 @@
 
 #include <sysexits.h>
 #include <unistd.h>
-#include <xpc/xpc.h>
+#include <xpc/private.h>
 #include <CoreFoundation/CFUserNotificationPriv.h>
 
 static const CFStringRef __kDADialogContextDiskKey   = CFSTR( "DADialogDisk" );
@@ -220,12 +220,9 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
             CFDictionarySetValue( description, kCFUserNotificationLocalizationURLKey,    gDABundlePath                         );
             CFDictionarySetValue( description, kCFUserNotificationOtherButtonTitleKey,   __kDADialogTextDeviceUnreadableIgnore );
 
-            if ( gDAConsoleUser )
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
             {
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
-                {
-                    CFDictionarySetValue( description, kCFUserNotificationAlternateButtonTitleKey, __kDADialogTextDeviceUnreadableInitialize );
-                }
+                CFDictionarySetValue( description, kCFUserNotificationAlternateButtonTitleKey, __kDADialogTextDeviceUnreadableInitialize );
             }
 
             notification = CFUserNotificationCreate( kCFAllocatorDefault, 0, kCFUserNotificationCautionAlertLevel, NULL, description );

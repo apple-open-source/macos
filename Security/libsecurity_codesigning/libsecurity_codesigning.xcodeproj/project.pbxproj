@@ -1,0 +1,1326 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		C26AC0EB143BCF01001C98CE /* SystemPolicy */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C26AC0EC143BCF01001C98CE /* Build configuration list for PBXAggregateTarget "SystemPolicy" */;
+			buildPhases = (
+				C26AC0F0143BCF18001C98CE /* ShellScript */,
+				C26AC0F4143BD1C4001C98CE /* CopyFiles */,
+				C2F24DFE14BCBBF200309FCD /* ShellScript */,
+				C2578CB11579627200D4FE48 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = SystemPolicy;
+			productName = SystemPolicy;
+		};
+		C26AC7090DAEB3A7005BFB40 /* DTrace */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C26AC70D0DAEB3C6005BFB40 /* Build configuration list for PBXAggregateTarget "DTrace" */;
+			buildPhases = (
+				C26AC7080DAEB3A7005BFB40 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = DTrace;
+			productName = DTrace;
+		};
+		C2D383B80A23A8C4005C63A2 /* Requirements Language */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C2D383C00A23A8E3005C63A2 /* Build configuration list for PBXAggregateTarget "Requirements Language" */;
+			buildPhases = (
+				C2D383B70A23A8C4005C63A2 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = "Requirements Language";
+			productName = "Requirements Language";
+		};
+		C2E2873F0B5D8F8F009336A0 /* Everything */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C2E287470B5D8FD8009336A0 /* Build configuration list for PBXAggregateTarget "Everything" */;
+			buildPhases = (
+			);
+			dependencies = (
+				C2E287410B5D8F97009336A0 /* PBXTargetDependency */,
+				C250F6C50B5EF4E40076098F /* PBXTargetDependency */,
+				C2E287430B5D8F9A009336A0 /* PBXTargetDependency */,
+				C26AC0F2143BD02B001C98CE /* PBXTargetDependency */,
+			);
+			name = Everything;
+			productName = Everything;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		18B965861472FBF6005A4D2E /* reqdumper.h in Headers */ = {isa = PBXBuildFile; fileRef = C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965871472FC5B005A4D2E /* requirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383360A237F47005C63A2 /* requirement.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965881472FC5B005A4D2E /* reqmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFC20A2F820500D1B02B /* reqmaker.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965891472FC5B005A4D2E /* reqreader.h in Headers */ = {isa = PBXBuildFile; fileRef = C2093AA70BB0948000EB8599 /* reqreader.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B9658A1472FC5B005A4D2E /* reqinterp.h in Headers */ = {isa = PBXBuildFile; fileRef = C2C1DFBA0A2F80EB00D1B02B /* reqinterp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B9658B1472FC5B005A4D2E /* reqparser.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383340A237F47005C63A2 /* reqparser.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B9658C1472FC9E005A4D2E /* codedirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383170A237F47005C63A2 /* codedirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965941472FE27005A4D2E /* renum.h in Headers */ = {isa = PBXBuildFile; fileRef = C2EF100F0A49BD89005A44BB /* renum.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965951472FE30005A4D2E /* cdbuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383150A237F47005C63A2 /* cdbuilder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2093AA80BB0948000EB8599 /* reqreader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2093AA60BB0948000EB8599 /* reqreader.cpp */; };
+		C211070A158C1082001D7F76 /* gkmerge in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2110704158BF5C8001D7F76 /* gkmerge */; };
+		C21CFC5F0A250D1C006CD5B1 /* reqdumper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */; };
+		C21EA3DD0AD2F81300E6E31C /* SecCodeSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */; };
+		C21EA3E30AD2FA0900E6E31C /* CodeSigner.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C21EA3E10AD2FA0900E6E31C /* CodeSigner.cpp */; };
+		C22463610B86210100626F1B /* antlrplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2CC31130B85254F005FA59D /* antlrplugin.cpp */; };
+		C2256BDD158BC0F200F72211 /* gkhandmake in CopyFiles */ = {isa = PBXBuildFile; fileRef = C278A19B158AB2C300FA6767 /* gkhandmake */; };
+		C2256BDE158BC0F200F72211 /* gklist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C278A19C158AB2C300FA6767 /* gklist */; };
+		C236E3D70AD59446000F5140 /* signer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D50AD59446000F5140 /* signer.cpp */; };
+		C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C236E3D90AD595C2000F5140 /* signerutils.cpp */; };
+		C24EABAB1421432800C16AA9 /* policydb.h in Headers */ = {isa = PBXBuildFile; fileRef = C24EABAA1421432800C16AA9 /* policydb.h */; };
+		C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C24EABAC1421433700C16AA9 /* policydb.cpp */; };
+		C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; };
+		C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */; };
+		C26763D714FD9EBE00A46EDF /* drmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C26763D514FD9EBE00A46EDF /* drmaker.cpp */; };
+		C26763D814FD9EBE00A46EDF /* drmaker.h in Headers */ = {isa = PBXBuildFile; fileRef = C26763D614FD9EBE00A46EDF /* drmaker.h */; };
+		C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */ = {isa = PBXBuildFile; fileRef = C26AC0F3143BD1B3001C98CE /* SystemPolicy */; };
+		C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */ = {isa = PBXBuildFile; fileRef = C26B45C00B8A9C00003C0ACA /* ucspc */; };
+		C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF62F0E5B376B00F640A0 /* CodeSigning.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383180A237F47005C63A2 /* CodeSigning.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6300E5B376B00F640A0 /* CSCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831C0A237F47005C63A2 /* CSCommon.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6310E5B376B00F640A0 /* CSCommonPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6320E5B376B00F640A0 /* SecCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D3831E0A237F47005C63A2 /* SecCode.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6330E5B376B00F640A0 /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6340E5B376B00F640A0 /* SecStaticCode.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383220A237F47005C63A2 /* SecStaticCode.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6350E5B376B00F640A0 /* SecStaticCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6360E5B376B00F640A0 /* SecRequirement.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383260A237F47005C63A2 /* SecRequirement.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6370E5B376B00F640A0 /* SecRequirementPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6380E5B376B00F640A0 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF6390E5B376B00F640A0 /* SecCodeHost.h in Headers */ = {isa = PBXBuildFile; fileRef = C2D383190A237F47005C63A2 /* SecCodeHost.h */; settings = {ATTRIBUTES = (); }; };
+		C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C250F6C20B5EF1910076098F /* SecIntegrity.h */; settings = {ATTRIBUTES = (); }; };
+		C273606E1433F09000A9A5FF /* SecAssessment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C273606C1433F09000A9A5FF /* SecAssessment.cpp */; };
+		C273606F1433F09000A9A5FF /* SecAssessment.h in Headers */ = {isa = PBXBuildFile; fileRef = C273606D1433F09000A9A5FF /* SecAssessment.h */; settings = {ATTRIBUTES = (); }; };
+		C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360D41436866C00A9A5FF /* xpcengine.cpp */; };
+		C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28342E40E366E6800E54360 /* csdatabase.cpp */; };
+		C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C28342EB0E36719D00E54360 /* detachedrep.cpp */; };
+		C29CDE2A1583F46F00A42059 /* gkclear in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2578CC215798D0F00D4FE48 /* gkclear */; };
+		C29CDE2B1583F46F00A42059 /* gkgenerate in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2578CC315798D0F00D4FE48 /* gkgenerate */; };
+		C29CDE2C1583F46F00A42059 /* gkrecord in CopyFiles */ = {isa = PBXBuildFile; fileRef = C2578CC415798D0F00D4FE48 /* gkrecord */; };
+		C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A436130F2133B2007A41A6 /* slcrep.cpp */; };
+		C2A436160F2133B2007A41A6 /* slcrep.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A436140F2133B2007A41A6 /* slcrep.h */; };
+		C2A976AA0B8A2E36008B4EA0 /* csutilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */; };
+		C2BC1F350B580DA7003EC9DC /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */; };
+		C2BD519C0A9392FD000FE43D /* machorep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD519A0A9392FD000FE43D /* machorep.cpp */; };
+		C2BD60FA0AC863FC0057FD3D /* csgeneric.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD60F80AC863FC0057FD3D /* csgeneric.cpp */; };
+		C2C1DF140A2E3D7200D1B02B /* requirement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383350A237F47005C63A2 /* requirement.cpp */; };
+		C2C1DFBB0A2F80EB00D1B02B /* reqinterp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1DFB90A2F80EB00D1B02B /* reqinterp.cpp */; };
+		C2C1DFC30A2F820500D1B02B /* reqmaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C1DFC10A2F820500D1B02B /* reqmaker.cpp */; };
+		C2C3BC5F0BA1D6FE00E869D1 /* cfmdiskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BC5D0BA1D6FE00E869D1 /* cfmdiskrep.cpp */; };
+		C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */; };
+		C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */; };
+		C2CC310F0B852424005FA59D /* SecIntegrityLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2CC310E0B852424005FA59D /* SecIntegrityLib.c */; };
+		C2D3833C0A237F47005C63A2 /* bundlediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383120A237F47005C63A2 /* bundlediskrep.cpp */; };
+		C2D3833E0A237F47005C63A2 /* cdbuilder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383140A237F47005C63A2 /* cdbuilder.cpp */; };
+		C2D383400A237F47005C63A2 /* codedirectory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383160A237F47005C63A2 /* codedirectory.cpp */; };
+		C2D383440A237F47005C63A2 /* cs.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831A0A237F47005C63A2 /* cs.cpp */; };
+		C2D383470A237F47005C63A2 /* SecCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831D0A237F47005C63A2 /* SecCode.cpp */; };
+		C2D383490A237F47005C63A2 /* cskernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3831F0A237F47005C63A2 /* cskernel.cpp */; };
+		C2D3834B0A237F47005C63A2 /* SecStaticCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383210A237F47005C63A2 /* SecStaticCode.cpp */; };
+		C2D3834D0A237F47005C63A2 /* csprocess.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383230A237F47005C63A2 /* csprocess.cpp */; };
+		C2D3834F0A237F47005C63A2 /* SecRequirement.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383250A237F47005C63A2 /* SecRequirement.cpp */; };
+		C2D383510A237F47005C63A2 /* diskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383270A237F47005C63A2 /* diskrep.cpp */; };
+		C2D383550A237F47005C63A2 /* filediskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3832B0A237F47005C63A2 /* filediskrep.cpp */; };
+		C2D383570A237F47005C63A2 /* Code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3832D0A237F47005C63A2 /* Code.cpp */; };
+		C2D383590A237F47005C63A2 /* kerneldiskrep.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D3832F0A237F47005C63A2 /* kerneldiskrep.cpp */; };
+		C2D3835B0A237F47005C63A2 /* StaticCode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383310A237F47005C63A2 /* StaticCode.cpp */; };
+		C2D3835D0A237F47005C63A2 /* reqparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383330A237F47005C63A2 /* reqparser.cpp */; };
+		C2D383610A237F47005C63A2 /* Requirements.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2D383370A237F47005C63A2 /* Requirements.cpp */; };
+		C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2353410145F1B110073F964 /* xar++.cpp */; };
+		C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27360201432A61900A9A5FF /* policyengine.cpp */; };
+		C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */ = {isa = PBXBuildFile; fileRef = C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */; };
+		C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2E911E00ADEBE3200275CB2 /* resources.cpp */; };
+		C2EF10100A49BD89005A44BB /* renum.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2EF100E0A49BD89005A44BB /* renum.cpp */; };
+		C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F4439814C626D4000A01E6 /* quarantine++.cpp */; };
+		C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F4439914C626D4000A01E6 /* quarantine++.h */; };
+		C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F6566C0BCBFB250078779E /* cserror.cpp */; };
+		EB68B111150DAEEA00B4013D /* RequirementLexer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */; };
+		EB68B112150DAEEA00B4013D /* RequirementParser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = EB68B10D150DAEBB00B4013D /* RequirementParser.cpp */; };
+		EB68B133150DB04400B4013D /* RequirementKeywords.h in Headers */ = {isa = PBXBuildFile; fileRef = EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */; };
+		EB68B134150DB04400B4013D /* RequirementLexer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = EB68B10C150DAEBB00B4013D /* RequirementLexer.hpp */; };
+		EB68B135150DB04400B4013D /* RequirementParser.hpp in Headers */ = {isa = PBXBuildFile; fileRef = EB68B10E150DAEBB00B4013D /* RequirementParser.hpp */; };
+		FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */ = {isa = PBXBuildFile; fileRef = FEB30C9210DAC89D00557BA2 /* SecTask.c */; };
+		FEB30CA410DAC97400557BA2 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FEB30C9410DAC8A500557BA2 /* SecTask.h */; settings = {ATTRIBUTES = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		182BB504146F2823000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FEBE052A3C8100F22E42;
+			remoteInfo = libsecurityd_client;
+		};
+		182BB506146F2823000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = 4CA1FECD052A44A100F22E42;
+			remoteInfo = libsecurityd_server;
+		};
+		182BB508146F2823000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */;
+			proxyType = 2;
+			remoteGlobalIDString = C2A788730B7AA65B00CFF85C;
+			remoteInfo = ucspc;
+		};
+		182BB50E146F28F6000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C09A2920557240300FED7A3;
+			remoteInfo = libsecurityd_generate;
+		};
+		182BB510146F292B000BF1F3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C26AC0EB143BCF01001C98CE;
+			remoteInfo = SystemPolicy;
+		};
+		1844617C146E9A5200B12992 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C26AC7090DAEB3A7005BFB40;
+			remoteInfo = DTrace;
+		};
+		C250F6C40B5EF4E40076098F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C2BC1F250B580D3A003EC9DC;
+			remoteInfo = libintegrity;
+		};
+		C26AC0F1143BD02B001C98CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C26AC0EB143BCF01001C98CE;
+			remoteInfo = SystemPolicy;
+		};
+		C2E287400B5D8F97009336A0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_codesigning;
+		};
+		C2E287420B5D8F9A009336A0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C2BC1F2E0B580D4B003EC9DC;
+			remoteInfo = libcodehost;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		C2578CB11579627200D4FE48 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				C211070A158C1082001D7F76 /* gkmerge in CopyFiles */,
+				C2256BDD158BC0F200F72211 /* gkhandmake in CopyFiles */,
+				C2256BDE158BC0F200F72211 /* gklist in CopyFiles */,
+				C29CDE2A1583F46F00A42059 /* gkclear in CopyFiles */,
+				C29CDE2B1583F46F00A42059 /* gkgenerate in CopyFiles */,
+				C29CDE2C1583F46F00A42059 /* gkrecord in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		C26AC0F4143BD1C4001C98CE /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = private/var/db;
+			dstSubfolderSpec = 0;
+			files = (
+				C26AC0F5143BD1C8001C98CE /* SystemPolicy in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = libsecurityd.xcodeproj; path = ../libsecurityd/libsecurityd.xcodeproj; sourceTree = "<group>"; };
+		1844619F146E9AD100B12992 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		184461A0146E9AD100B12992 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		184461A1146E9AD100B12992 /* lib.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = lib.xcconfig; sourceTree = "<group>"; };
+		184461A2146E9AD100B12992 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libsecurity_codesigning.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2093AA60BB0948000EB8599 /* reqreader.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqreader.cpp; sourceTree = "<group>"; };
+		C2093AA70BB0948000EB8599 /* reqreader.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqreader.h; sourceTree = "<group>"; };
+		C2110704158BF5C8001D7F76 /* gkmerge */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = gkmerge; path = gke/gkmerge; sourceTree = SOURCE_ROOT; };
+		C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqdumper.cpp; sourceTree = "<group>"; };
+		C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqdumper.h; sourceTree = "<group>"; };
+		C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecCodeSigner.cpp; sourceTree = "<group>"; };
+		C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeSigner.h; sourceTree = "<group>"; };
+		C21EA3E10AD2FA0900E6E31C /* CodeSigner.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CodeSigner.cpp; sourceTree = "<group>"; };
+		C21EA3E20AD2FA0900E6E31C /* CodeSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CodeSigner.h; sourceTree = "<group>"; };
+		C235340E145F1B050073F964 /* xar++.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "xar++.h"; sourceTree = "<group>"; };
+		C2353410145F1B110073F964 /* xar++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "xar++.cpp"; sourceTree = "<group>"; };
+		C236E3D50AD59446000F5140 /* signer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = signer.cpp; sourceTree = "<group>"; };
+		C236E3D60AD59446000F5140 /* signer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signer.h; sourceTree = "<group>"; };
+		C236E3D90AD595C2000F5140 /* signerutils.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = signerutils.cpp; sourceTree = "<group>"; };
+		C236E3DA0AD595C2000F5140 /* signerutils.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = signerutils.h; sourceTree = "<group>"; };
+		C24EABAA1421432800C16AA9 /* policydb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policydb.h; sourceTree = "<group>"; };
+		C24EABAC1421433700C16AA9 /* policydb.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = policydb.cpp; sourceTree = "<group>"; };
+		C250F6C20B5EF1910076098F /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
+		C250F6C60B5EF5B50076098F /* SecIntegrity.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecIntegrity.cpp; sourceTree = "<group>"; };
+		C2578CC215798D0F00D4FE48 /* gkclear */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkclear; path = gke/gkclear; sourceTree = SOURCE_ROOT; };
+		C2578CC315798D0F00D4FE48 /* gkgenerate */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkgenerate; path = gke/gkgenerate; sourceTree = SOURCE_ROOT; };
+		C2578CC415798D0F00D4FE48 /* gkrecord */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkrecord; path = gke/gkrecord; sourceTree = SOURCE_ROOT; };
+		C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = sigblob.cpp; sourceTree = "<group>"; };
+		C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sigblob.h; sourceTree = "<group>"; };
+		C26763D514FD9EBE00A46EDF /* drmaker.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = drmaker.cpp; sourceTree = "<group>"; };
+		C26763D614FD9EBE00A46EDF /* drmaker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = drmaker.h; sourceTree = "<group>"; };
+		C26AC0F3143BD1B3001C98CE /* SystemPolicy */ = {isa = PBXFileReference; lastKnownFileType = text; name = SystemPolicy; path = cstemp/SystemPolicy; sourceTree = BUILT_PRODUCTS_DIR; };
+		C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = security_codesigning.d; sourceTree = "<group>"; };
+		C26B45C00B8A9C00003C0ACA /* ucspc */ = {isa = PBXFileReference; lastKnownFileType = text; name = ucspc; path = cstemp/ucspc; sourceTree = BUILT_PRODUCTS_DIR; };
+		C27249D2143237CD0058B552 /* syspolicy.sql */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = syspolicy.sql; sourceTree = "<group>"; };
+		C273601D1432A60B00A9A5FF /* policyengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = policyengine.h; sourceTree = "<group>"; };
+		C27360201432A61900A9A5FF /* policyengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = policyengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C273606C1433F09000A9A5FF /* SecAssessment.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = SecAssessment.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C273606D1433F09000A9A5FF /* SecAssessment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = SecAssessment.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		C27360D41436866C00A9A5FF /* xpcengine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; lineEnding = 0; path = xpcengine.cpp; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.cpp; };
+		C27360D71436868600A9A5FF /* xpcengine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xpcengine.h; sourceTree = "<group>"; };
+		C278A19B158AB2C300FA6767 /* gkhandmake */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gkhandmake; path = gke/gkhandmake; sourceTree = SOURCE_ROOT; };
+		C278A19C158AB2C300FA6767 /* gklist */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = gklist; path = gke/gklist; sourceTree = SOURCE_ROOT; };
+		C28342E40E366E6800E54360 /* csdatabase.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = csdatabase.cpp; sourceTree = "<group>"; };
+		C28342E50E366E6800E54360 /* csdatabase.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = csdatabase.h; sourceTree = "<group>"; };
+		C28342EB0E36719D00E54360 /* detachedrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = detachedrep.cpp; sourceTree = "<group>"; };
+		C28342EC0E36719D00E54360 /* detachedrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = detachedrep.h; sourceTree = "<group>"; };
+		C293E2C21554653700F3E396 /* sp-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "sp-watch.d"; path = "dtrace/sp-watch.d"; sourceTree = SOURCE_ROOT; };
+		C2A436130F2133B2007A41A6 /* slcrep.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = slcrep.cpp; sourceTree = "<group>"; };
+		C2A436140F2133B2007A41A6 /* slcrep.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = slcrep.h; sourceTree = "<group>"; };
+		C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csutilities.cpp; sourceTree = "<group>"; };
+		C2A976A90B8A2E36008B4EA0 /* csutilities.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = csutilities.h; sourceTree = "<group>"; };
+		C2BC1F260B580D3A003EC9DC /* libintegrity.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libintegrity.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BC1F2F0B580D4B003EC9DC /* libcodehost.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcodehost.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeHostLib.h; sourceTree = "<group>"; };
+		C2BD519A0A9392FD000FE43D /* machorep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = machorep.cpp; sourceTree = "<group>"; };
+		C2BD519B0A9392FD000FE43D /* machorep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = machorep.h; sourceTree = "<group>"; };
+		C2BD60F80AC863FC0057FD3D /* csgeneric.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csgeneric.cpp; sourceTree = "<group>"; };
+		C2BD60F90AC863FC0057FD3D /* csgeneric.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = csgeneric.h; sourceTree = "<group>"; };
+		C2C1DF8F0A2E4A2700D1B02B /* requirements.grammar */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = requirements.grammar; sourceTree = SOURCE_ROOT; };
+		C2C1DFB90A2F80EB00D1B02B /* reqinterp.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqinterp.cpp; sourceTree = "<group>"; };
+		C2C1DFBA0A2F80EB00D1B02B /* reqinterp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqinterp.h; sourceTree = "<group>"; };
+		C2C1DFC10A2F820500D1B02B /* reqmaker.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqmaker.cpp; sourceTree = "<group>"; };
+		C2C1DFC20A2F820500D1B02B /* reqmaker.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqmaker.h; sourceTree = "<group>"; };
+		C2C3BC5D0BA1D6FE00E869D1 /* cfmdiskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cfmdiskrep.cpp; sourceTree = "<group>"; };
+		C2C3BC5E0BA1D6FE00E869D1 /* cfmdiskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cfmdiskrep.h; sourceTree = "<group>"; };
+		C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = singlediskrep.cpp; sourceTree = "<group>"; };
+		C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = singlediskrep.h; sourceTree = "<group>"; };
+		C2C4F4EE0E0980C700137848 /* codesigning_dtrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = codesigning_dtrace.h; path = cstemp/codesigning_dtrace.h; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecCodeHost.cpp; sourceTree = "<group>"; };
+		C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = CoreFoundation.framework; sourceTree = "<group>"; };
+		C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrityLib.h; sourceTree = "<group>"; };
+		C2CC310E0B852424005FA59D /* SecIntegrityLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecIntegrityLib.c; sourceTree = "<group>"; };
+		C2CC31130B85254F005FA59D /* antlrplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = antlrplugin.cpp; path = lib/antlrplugin.cpp; sourceTree = "<group>"; };
+		C2CC31140B85254F005FA59D /* antlrplugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = antlrplugin.h; path = lib/antlrplugin.h; sourceTree = "<group>"; };
+		C2D383120A237F47005C63A2 /* bundlediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = bundlediskrep.cpp; sourceTree = "<group>"; };
+		C2D383130A237F47005C63A2 /* bundlediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bundlediskrep.h; sourceTree = "<group>"; };
+		C2D383140A237F47005C63A2 /* cdbuilder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cdbuilder.cpp; sourceTree = "<group>"; };
+		C2D383150A237F47005C63A2 /* cdbuilder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cdbuilder.h; sourceTree = "<group>"; };
+		C2D383160A237F47005C63A2 /* codedirectory.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = codedirectory.cpp; sourceTree = "<group>"; };
+		C2D383170A237F47005C63A2 /* codedirectory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = codedirectory.h; sourceTree = "<group>"; };
+		C2D383180A237F47005C63A2 /* CodeSigning.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CodeSigning.h; sourceTree = "<group>"; };
+		C2D383190A237F47005C63A2 /* SecCodeHost.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeHost.h; sourceTree = "<group>"; };
+		C2D3831A0A237F47005C63A2 /* cs.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cs.cpp; sourceTree = "<group>"; };
+		C2D3831B0A237F47005C63A2 /* cs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cs.h; sourceTree = "<group>"; };
+		C2D3831C0A237F47005C63A2 /* CSCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSCommon.h; sourceTree = "<group>"; };
+		C2D3831D0A237F47005C63A2 /* SecCode.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecCode.cpp; sourceTree = "<group>"; };
+		C2D3831E0A237F47005C63A2 /* SecCode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCode.h; sourceTree = "<group>"; };
+		C2D3831F0A237F47005C63A2 /* cskernel.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cskernel.cpp; sourceTree = "<group>"; };
+		C2D383200A237F47005C63A2 /* cskernel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cskernel.h; sourceTree = "<group>"; };
+		C2D383210A237F47005C63A2 /* SecStaticCode.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecStaticCode.cpp; sourceTree = "<group>"; };
+		C2D383220A237F47005C63A2 /* SecStaticCode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecStaticCode.h; sourceTree = "<group>"; };
+		C2D383230A237F47005C63A2 /* csprocess.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csprocess.cpp; sourceTree = "<group>"; };
+		C2D383240A237F47005C63A2 /* csprocess.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = csprocess.h; sourceTree = "<group>"; };
+		C2D383250A237F47005C63A2 /* SecRequirement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SecRequirement.cpp; sourceTree = "<group>"; };
+		C2D383260A237F47005C63A2 /* SecRequirement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecRequirement.h; sourceTree = "<group>"; };
+		C2D383270A237F47005C63A2 /* diskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = diskrep.cpp; sourceTree = "<group>"; };
+		C2D383280A237F47005C63A2 /* diskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = diskrep.h; sourceTree = "<group>"; };
+		C2D3832B0A237F47005C63A2 /* filediskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = filediskrep.cpp; sourceTree = "<group>"; };
+		C2D3832C0A237F47005C63A2 /* filediskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = filediskrep.h; sourceTree = "<group>"; };
+		C2D3832D0A237F47005C63A2 /* Code.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Code.cpp; sourceTree = "<group>"; };
+		C2D3832E0A237F47005C63A2 /* Code.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Code.h; sourceTree = "<group>"; };
+		C2D3832F0A237F47005C63A2 /* kerneldiskrep.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = kerneldiskrep.cpp; sourceTree = "<group>"; };
+		C2D383300A237F47005C63A2 /* kerneldiskrep.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kerneldiskrep.h; sourceTree = "<group>"; };
+		C2D383310A237F47005C63A2 /* StaticCode.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = StaticCode.cpp; sourceTree = "<group>"; };
+		C2D383320A237F47005C63A2 /* StaticCode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = StaticCode.h; sourceTree = "<group>"; };
+		C2D383330A237F47005C63A2 /* reqparser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = reqparser.cpp; sourceTree = "<group>"; };
+		C2D383340A237F47005C63A2 /* reqparser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = reqparser.h; sourceTree = "<group>"; };
+		C2D383350A237F47005C63A2 /* requirement.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = requirement.cpp; sourceTree = "<group>"; };
+		C2D383360A237F47005C63A2 /* requirement.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = requirement.h; sourceTree = "<group>"; };
+		C2D383370A237F47005C63A2 /* Requirements.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Requirements.cpp; sourceTree = "<group>"; };
+		C2D383380A237F47005C63A2 /* Requirements.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Requirements.h; sourceTree = "<group>"; };
+		C2D383390A237F47005C63A2 /* security_codesigning.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_codesigning.exp; sourceTree = "<group>"; };
+		C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CSCommonPriv.h; sourceTree = "<group>"; };
+		C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SecCodeHostLib.c; sourceTree = "<group>"; };
+		C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCodePriv.h; sourceTree = "<group>"; };
+		C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRequirementPriv.h; sourceTree = "<group>"; };
+		C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecStaticCodePriv.h; sourceTree = "<group>"; };
+		C2E911E00ADEBE3200275CB2 /* resources.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = resources.cpp; sourceTree = "<group>"; };
+		C2E911E10ADEBE3200275CB2 /* resources.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = resources.h; sourceTree = "<group>"; };
+		C2EF100E0A49BD89005A44BB /* renum.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = renum.cpp; sourceTree = "<group>"; };
+		C2EF100F0A49BD89005A44BB /* renum.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = renum.h; sourceTree = "<group>"; };
+		C2F4439814C626D4000A01E6 /* quarantine++.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "quarantine++.cpp"; sourceTree = "<group>"; };
+		C2F4439914C626D4000A01E6 /* quarantine++.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "quarantine++.h"; sourceTree = "<group>"; };
+		C2F6071B107D575700A83618 /* codesign-watch.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "codesign-watch.d"; path = "dtrace/codesign-watch.d"; sourceTree = SOURCE_ROOT; };
+		C2F6566C0BCBFB250078779E /* cserror.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cserror.cpp; sourceTree = "<group>"; };
+		C2F6566D0BCBFB250078779E /* cserror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cserror.h; sourceTree = "<group>"; };
+		EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RequirementKeywords.h; sourceTree = "<group>"; };
+		EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RequirementLexer.cpp; sourceTree = "<group>"; };
+		EB68B10C150DAEBB00B4013D /* RequirementLexer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RequirementLexer.hpp; sourceTree = "<group>"; };
+		EB68B10D150DAEBB00B4013D /* RequirementParser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RequirementParser.cpp; sourceTree = "<group>"; };
+		EB68B10E150DAEBB00B4013D /* RequirementParser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RequirementParser.hpp; sourceTree = "<group>"; };
+		EB68B10F150DAEBB00B4013D /* RequirementParserTokenTypes.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = RequirementParserTokenTypes.hpp; sourceTree = "<group>"; };
+		EB68B110150DAEBB00B4013D /* RequirementParserTokenTypes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RequirementParserTokenTypes.txt; sourceTree = "<group>"; };
+		FEB30C9210DAC89D00557BA2 /* SecTask.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SecTask.c; sourceTree = "<group>"; };
+		FEB30C9410DAC8A500557BA2 /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTask.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F240B580D3A003EC9DC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F2D0B580D4B003EC9DC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C26B45C10B8A9C0A003C0ACA /* ucspc in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		182BB4FD146F2823000BF1F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				182BB505146F2823000BF1F3 /* libsecurityd_client.a */,
+				182BB507146F2823000BF1F3 /* libsecurityd_server.a */,
+				182BB509146F2823000BF1F3 /* ucspc.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1844619E146E9AD100B12992 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				1844619F146E9AD100B12992 /* base.xcconfig */,
+				184461A0146E9AD100B12992 /* debug.xcconfig */,
+				184461A1146E9AD100B12992 /* lib.xcconfig */,
+				184461A2146E9AD100B12992 /* release.xcconfig */,
+			);
+			name = config;
+			path = ../config;
+			sourceTree = "<group>";
+		};
+		4C308388053237100028A8C6 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C2C1DF5F0A2E457E00D1B02B /* API */,
+				C2C1DF600A2E458D00D1B02B /* API Objects */,
+				C216C72D0AD59B22003B07D4 /* Signing Operations */,
+				C2C1DF630A2E45BF00D1B02B /* Code Directory */,
+				C2C1DF620A2E45B600D1B02B /* Requirements */,
+				C2C1DF640A2E45F500D1B02B /* Code Classes */,
+				C2C1DF610A2E459E00D1B02B /* Disk Representations */,
+				C2BC1F370B580DAE003EC9DC /* Static Support */,
+				C26AC6FF0DAEB2D0005BFB40 /* DTrace */,
+				C293E2B915543F0800F3E396 /* gke */,
+				C2CCF0360A3F524B0085795A /* Local Utilities */,
+				C2CC31160B852554005FA59D /* Security Plugins */,
+				FEB30C9110DAC6C400557BA2 /* Entitlements */,
+				C24EABA914213FAF00C16AA9 /* System Policy */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */,
+				4C308388053237100028A8C6 /* lib */,
+				1844619E146E9AD100B12992 /* config */,
+				C2D383F90A23A9D9005C63A2 /* cstemp */,
+				C2CC30EF0B8519CF005FA59D /* Frameworks */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */,
+				C2BC1F260B580D3A003EC9DC /* libintegrity.a */,
+				C2BC1F2F0B580D4B003EC9DC /* libcodehost.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C216C72D0AD59B22003B07D4 /* Signing Operations */ = {
+			isa = PBXGroup;
+			children = (
+				C236E3D60AD59446000F5140 /* signer.h */,
+				C236E3D50AD59446000F5140 /* signer.cpp */,
+				C236E3DA0AD595C2000F5140 /* signerutils.h */,
+				C236E3D90AD595C2000F5140 /* signerutils.cpp */,
+			);
+			name = "Signing Operations";
+			sourceTree = "<group>";
+		};
+		C24EABA914213FAF00C16AA9 /* System Policy */ = {
+			isa = PBXGroup;
+			children = (
+				C273606D1433F09000A9A5FF /* SecAssessment.h */,
+				C273606C1433F09000A9A5FF /* SecAssessment.cpp */,
+				C24EABAA1421432800C16AA9 /* policydb.h */,
+				C24EABAC1421433700C16AA9 /* policydb.cpp */,
+				C273601D1432A60B00A9A5FF /* policyengine.h */,
+				C27360201432A61900A9A5FF /* policyengine.cpp */,
+				C27360D71436868600A9A5FF /* xpcengine.h */,
+				C27360D41436866C00A9A5FF /* xpcengine.cpp */,
+				C27249D2143237CD0058B552 /* syspolicy.sql */,
+			);
+			name = "System Policy";
+			sourceTree = "<group>";
+		};
+		C26AC6FF0DAEB2D0005BFB40 /* DTrace */ = {
+			isa = PBXGroup;
+			children = (
+				C293E2C21554653700F3E396 /* sp-watch.d */,
+				C26AC6FD0DAEB2C4005BFB40 /* security_codesigning.d */,
+				C2F6071B107D575700A83618 /* codesign-watch.d */,
+			);
+			name = DTrace;
+			sourceTree = "<group>";
+		};
+		C293E2B915543F0800F3E396 /* gke */ = {
+			isa = PBXGroup;
+			children = (
+				C2110704158BF5C8001D7F76 /* gkmerge */,
+				C278A19B158AB2C300FA6767 /* gkhandmake */,
+				C278A19C158AB2C300FA6767 /* gklist */,
+				C2578CC215798D0F00D4FE48 /* gkclear */,
+				C2578CC315798D0F00D4FE48 /* gkgenerate */,
+				C2578CC415798D0F00D4FE48 /* gkrecord */,
+			);
+			name = gke;
+			path = whitelist;
+			sourceTree = SOURCE_ROOT;
+		};
+		C2BC1F370B580DAE003EC9DC /* Static Support */ = {
+			isa = PBXGroup;
+			children = (
+				C2CC31040B8523AD005FA59D /* SecIntegrityLib.h */,
+				C2CC310E0B852424005FA59D /* SecIntegrityLib.c */,
+				C2BC1F340B580DA7003EC9DC /* SecCodeHostLib.h */,
+				C2E2873C0B5D8D80009336A0 /* SecCodeHostLib.c */,
+			);
+			name = "Static Support";
+			sourceTree = "<group>";
+		};
+		C2C1DF5F0A2E457E00D1B02B /* API */ = {
+			isa = PBXGroup;
+			children = (
+				C2D383180A237F47005C63A2 /* CodeSigning.h */,
+				C2D3831C0A237F47005C63A2 /* CSCommon.h */,
+				C2D50CDF0E155A4F0059A195 /* CSCommonPriv.h */,
+				C2D3831E0A237F47005C63A2 /* SecCode.h */,
+				C2E8AF240DE25CA7000F6D3B /* SecCodePriv.h */,
+				C2D3831D0A237F47005C63A2 /* SecCode.cpp */,
+				C2D383220A237F47005C63A2 /* SecStaticCode.h */,
+				C2E8AF260DE25CA7000F6D3B /* SecStaticCodePriv.h */,
+				C2D383210A237F47005C63A2 /* SecStaticCode.cpp */,
+				C2D383260A237F47005C63A2 /* SecRequirement.h */,
+				C2E8AF250DE25CA7000F6D3B /* SecRequirementPriv.h */,
+				C2D383250A237F47005C63A2 /* SecRequirement.cpp */,
+				C21EA3DC0AD2F81300E6E31C /* SecCodeSigner.h */,
+				C21EA3DB0AD2F81300E6E31C /* SecCodeSigner.cpp */,
+				C2D383190A237F47005C63A2 /* SecCodeHost.h */,
+				C2C931B30AB8BA1200F83950 /* SecCodeHost.cpp */,
+				C250F6C20B5EF1910076098F /* SecIntegrity.h */,
+				C250F6C60B5EF5B50076098F /* SecIntegrity.cpp */,
+				C2D383390A237F47005C63A2 /* security_codesigning.exp */,
+			);
+			name = API;
+			sourceTree = "<group>";
+		};
+		C2C1DF600A2E458D00D1B02B /* API Objects */ = {
+			isa = PBXGroup;
+			children = (
+				C2D3831B0A237F47005C63A2 /* cs.h */,
+				C2D3831A0A237F47005C63A2 /* cs.cpp */,
+				C2D3832E0A237F47005C63A2 /* Code.h */,
+				C2D3832D0A237F47005C63A2 /* Code.cpp */,
+				C2D383320A237F47005C63A2 /* StaticCode.h */,
+				C2D383310A237F47005C63A2 /* StaticCode.cpp */,
+				C2D383380A237F47005C63A2 /* Requirements.h */,
+				C2D383370A237F47005C63A2 /* Requirements.cpp */,
+				C21EA3E20AD2FA0900E6E31C /* CodeSigner.h */,
+				C21EA3E10AD2FA0900E6E31C /* CodeSigner.cpp */,
+			);
+			name = "API Objects";
+			sourceTree = "<group>";
+		};
+		C2C1DF610A2E459E00D1B02B /* Disk Representations */ = {
+			isa = PBXGroup;
+			children = (
+				C2D383280A237F47005C63A2 /* diskrep.h */,
+				C2D383270A237F47005C63A2 /* diskrep.cpp */,
+				C2D3832C0A237F47005C63A2 /* filediskrep.h */,
+				C2D3832B0A237F47005C63A2 /* filediskrep.cpp */,
+				C2D383130A237F47005C63A2 /* bundlediskrep.h */,
+				C2D383120A237F47005C63A2 /* bundlediskrep.cpp */,
+				C2D383300A237F47005C63A2 /* kerneldiskrep.h */,
+				C2D3832F0A237F47005C63A2 /* kerneldiskrep.cpp */,
+				C2C3BC5E0BA1D6FE00E869D1 /* cfmdiskrep.h */,
+				C2C3BC5D0BA1D6FE00E869D1 /* cfmdiskrep.cpp */,
+				C2BD519B0A9392FD000FE43D /* machorep.h */,
+				C2BD519A0A9392FD000FE43D /* machorep.cpp */,
+				C2A436140F2133B2007A41A6 /* slcrep.h */,
+				C2A436130F2133B2007A41A6 /* slcrep.cpp */,
+				C2C3BCD20BA1E47E00E869D1 /* singlediskrep.h */,
+				C2C3BCD10BA1E47E00E869D1 /* singlediskrep.cpp */,
+				C28342EC0E36719D00E54360 /* detachedrep.h */,
+				C28342EB0E36719D00E54360 /* detachedrep.cpp */,
+			);
+			name = "Disk Representations";
+			sourceTree = "<group>";
+		};
+		C2C1DF620A2E45B600D1B02B /* Requirements */ = {
+			isa = PBXGroup;
+			children = (
+				C2C1DF8F0A2E4A2700D1B02B /* requirements.grammar */,
+				EB68B10A150DAEBB00B4013D /* RequirementKeywords.h */,
+				EB68B10B150DAEBB00B4013D /* RequirementLexer.cpp */,
+				EB68B10C150DAEBB00B4013D /* RequirementLexer.hpp */,
+				EB68B10D150DAEBB00B4013D /* RequirementParser.cpp */,
+				EB68B10E150DAEBB00B4013D /* RequirementParser.hpp */,
+				EB68B10F150DAEBB00B4013D /* RequirementParserTokenTypes.hpp */,
+				EB68B110150DAEBB00B4013D /* RequirementParserTokenTypes.txt */,
+				C2D383360A237F47005C63A2 /* requirement.h */,
+				C2D383350A237F47005C63A2 /* requirement.cpp */,
+				C2C1DFC20A2F820500D1B02B /* reqmaker.h */,
+				C2C1DFC10A2F820500D1B02B /* reqmaker.cpp */,
+				C2093AA70BB0948000EB8599 /* reqreader.h */,
+				C2093AA60BB0948000EB8599 /* reqreader.cpp */,
+				C2C1DFBA0A2F80EB00D1B02B /* reqinterp.h */,
+				C2C1DFB90A2F80EB00D1B02B /* reqinterp.cpp */,
+				C2D383340A237F47005C63A2 /* reqparser.h */,
+				C2D383330A237F47005C63A2 /* reqparser.cpp */,
+				C21CFC5E0A250D1C006CD5B1 /* reqdumper.h */,
+				C21CFC5D0A250D1C006CD5B1 /* reqdumper.cpp */,
+				C26763D614FD9EBE00A46EDF /* drmaker.h */,
+				C26763D514FD9EBE00A46EDF /* drmaker.cpp */,
+			);
+			name = Requirements;
+			sourceTree = "<group>";
+		};
+		C2C1DF630A2E45BF00D1B02B /* Code Directory */ = {
+			isa = PBXGroup;
+			children = (
+				C2D383170A237F47005C63A2 /* codedirectory.h */,
+				C2D383160A237F47005C63A2 /* codedirectory.cpp */,
+				C2D383150A237F47005C63A2 /* cdbuilder.h */,
+				C2D383140A237F47005C63A2 /* cdbuilder.cpp */,
+			);
+			name = "Code Directory";
+			sourceTree = "<group>";
+		};
+		C2C1DF640A2E45F500D1B02B /* Code Classes */ = {
+			isa = PBXGroup;
+			children = (
+				C2D383200A237F47005C63A2 /* cskernel.h */,
+				C2D3831F0A237F47005C63A2 /* cskernel.cpp */,
+				C2D383240A237F47005C63A2 /* csprocess.h */,
+				C2D383230A237F47005C63A2 /* csprocess.cpp */,
+				C2BD60F90AC863FC0057FD3D /* csgeneric.h */,
+				C2BD60F80AC863FC0057FD3D /* csgeneric.cpp */,
+			);
+			name = "Code Classes";
+			sourceTree = "<group>";
+		};
+		C2CC30EF0B8519CF005FA59D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C2CC30A00B8519CC005FA59D /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
+			path = /System/Library/Frameworks;
+			sourceTree = "<absolute>";
+		};
+		C2CC31160B852554005FA59D /* Security Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				C2CC31140B85254F005FA59D /* antlrplugin.h */,
+				C2CC31130B85254F005FA59D /* antlrplugin.cpp */,
+			);
+			name = "Security Plugins";
+			path = ..;
+			sourceTree = "<group>";
+		};
+		C2CCF0360A3F524B0085795A /* Local Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				C28342E50E366E6800E54360 /* csdatabase.h */,
+				C28342E40E366E6800E54360 /* csdatabase.cpp */,
+				C2F6566D0BCBFB250078779E /* cserror.h */,
+				C2F6566C0BCBFB250078779E /* cserror.cpp */,
+				C2E911E10ADEBE3200275CB2 /* resources.h */,
+				C2E911E00ADEBE3200275CB2 /* resources.cpp */,
+				C259DFD50AD6D9BA00C9ACC6 /* sigblob.h */,
+				C259DFD40AD6D9BA00C9ACC6 /* sigblob.cpp */,
+				C2EF100F0A49BD89005A44BB /* renum.h */,
+				C2EF100E0A49BD89005A44BB /* renum.cpp */,
+				C2A976A90B8A2E36008B4EA0 /* csutilities.h */,
+				C2A976A80B8A2E36008B4EA0 /* csutilities.cpp */,
+				C235340E145F1B050073F964 /* xar++.h */,
+				C2353410145F1B110073F964 /* xar++.cpp */,
+				C2F4439914C626D4000A01E6 /* quarantine++.h */,
+				C2F4439814C626D4000A01E6 /* quarantine++.cpp */,
+			);
+			name = "Local Utilities";
+			sourceTree = "<group>";
+		};
+		C2D383F90A23A9D9005C63A2 /* cstemp */ = {
+			isa = PBXGroup;
+			children = (
+				C2C4F4EE0E0980C700137848 /* codesigning_dtrace.h */,
+				C26AC0F3143BD1B3001C98CE /* SystemPolicy */,
+				C26B45C00B8A9C00003C0ACA /* ucspc */,
+			);
+			path = cstemp;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		FEB30C9110DAC6C400557BA2 /* Entitlements */ = {
+			isa = PBXGroup;
+			children = (
+				FEB30C9410DAC8A500557BA2 /* SecTask.h */,
+				FEB30C9210DAC89D00557BA2 /* SecTask.c */,
+			);
+			name = Entitlements;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4CA1FEB9052A3C8100F22E42 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18B965861472FBF6005A4D2E /* reqdumper.h in Headers */,
+				18B965871472FC5B005A4D2E /* requirement.h in Headers */,
+				18B965881472FC5B005A4D2E /* reqmaker.h in Headers */,
+				18B965891472FC5B005A4D2E /* reqreader.h in Headers */,
+				18B9658A1472FC5B005A4D2E /* reqinterp.h in Headers */,
+				18B9658B1472FC5B005A4D2E /* reqparser.h in Headers */,
+				18B9658C1472FC9E005A4D2E /* codedirectory.h in Headers */,
+				18B965951472FE30005A4D2E /* cdbuilder.h in Headers */,
+				18B965941472FE27005A4D2E /* renum.h in Headers */,
+				EB68B133150DB04400B4013D /* RequirementKeywords.h in Headers */,
+				EB68B134150DB04400B4013D /* RequirementLexer.hpp in Headers */,
+				EB68B135150DB04400B4013D /* RequirementParser.hpp in Headers */,
+				FEB30CA410DAC97400557BA2 /* SecTask.h in Headers */,
+				C26FF6310E5B376B00F640A0 /* CSCommonPriv.h in Headers */,
+				C26FF6330E5B376B00F640A0 /* SecCodePriv.h in Headers */,
+				C26FF6350E5B376B00F640A0 /* SecStaticCodePriv.h in Headers */,
+				C26FF6370E5B376B00F640A0 /* SecRequirementPriv.h in Headers */,
+				C26FF6380E5B376B00F640A0 /* SecCodeSigner.h in Headers */,
+				C26FF63A0E5B376B00F640A0 /* SecIntegrity.h in Headers */,
+				C26FF62D0E5B375A00F640A0 /* SecIntegrityLib.h in Headers */,
+				C26FF62E0E5B375A00F640A0 /* SecCodeHostLib.h in Headers */,
+				C273606F1433F09000A9A5FF /* SecAssessment.h in Headers */,
+				C26FF62F0E5B376B00F640A0 /* CodeSigning.h in Headers */,
+				C26FF6300E5B376B00F640A0 /* CSCommon.h in Headers */,
+				C26FF6320E5B376B00F640A0 /* SecCode.h in Headers */,
+				C26FF6340E5B376B00F640A0 /* SecStaticCode.h in Headers */,
+				C26FF6360E5B376B00F640A0 /* SecRequirement.h in Headers */,
+				C26FF6390E5B376B00F640A0 /* SecCodeHost.h in Headers */,
+				C2A436160F2133B2007A41A6 /* slcrep.h in Headers */,
+				C24EABAB1421432800C16AA9 /* policydb.h in Headers */,
+				C2F4439B14C626D4000A01E6 /* quarantine++.h in Headers */,
+				C26763D814FD9EBE00A46EDF /* drmaker.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F220B580D3A003EC9DC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C250F6C30B5EF1910076098F /* SecIntegrity.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F2B0B580D4B003EC9DC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2BC1F350B580DA7003EC9DC /* SecCodeHostLib.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_codesigning */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C263E67509A2971B000043F1 /* Build configuration list for PBXNativeTarget "libsecurity_codesigning" */;
+			buildPhases = (
+				4CA1FEB9052A3C8100F22E42 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				1865FFD5147517A300FD79DF /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				182BB50F146F28F6000BF1F3 /* PBXTargetDependency */,
+				1844617D146E9A5200B12992 /* PBXTargetDependency */,
+				182BB511146F292B000BF1F3 /* PBXTargetDependency */,
+			);
+			name = libsecurity_codesigning;
+			productName = libsecurity_codesigning;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* libsecurity_codesigning.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		C2BC1F250B580D3A003EC9DC /* libintegrity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2BC1F270B580D3F003EC9DC /* Build configuration list for PBXNativeTarget "libintegrity" */;
+			buildPhases = (
+				C2BC1F220B580D3A003EC9DC /* Headers */,
+				C2BC1F230B580D3A003EC9DC /* Sources */,
+				C2BC1F240B580D3A003EC9DC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libintegrity;
+			productName = libintegrity;
+			productReference = C2BC1F260B580D3A003EC9DC /* libintegrity.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		C2BC1F2E0B580D4B003EC9DC /* libcodehost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2BC1F300B580D69003EC9DC /* Build configuration list for PBXNativeTarget "libcodehost" */;
+			buildPhases = (
+				C26B45C30B8A9C1A003C0ACA /* Prepare ucspc */,
+				C2BC1F2B0B580D4B003EC9DC /* Headers */,
+				C2BC1F2C0B580D4B003EC9DC /* Sources */,
+				C2BC1F2D0B580D4B003EC9DC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libcodehost;
+			productName = libcodehost;
+			productReference = C2BC1F2F0B580D4B003EC9DC /* libcodehost.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
+			buildConfigurationList = C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_codesigning" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 182BB4FD146F2823000BF1F3 /* Products */;
+					ProjectRef = 182BB4FC146F2823000BF1F3 /* libsecurityd.xcodeproj */;
+				},
+			);
+			projectRoot = "";
+			targets = (
+				C2E2873F0B5D8F8F009336A0 /* Everything */,
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_codesigning */,
+				C2D383B80A23A8C4005C63A2 /* Requirements Language */,
+				C2BC1F250B580D3A003EC9DC /* libintegrity */,
+				C2BC1F2E0B580D4B003EC9DC /* libcodehost */,
+				C26AC7090DAEB3A7005BFB40 /* DTrace */,
+				C26AC0EB143BCF01001C98CE /* SystemPolicy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXReferenceProxy section */
+		182BB505146F2823000BF1F3 /* libsecurityd_client.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurityd_client.a;
+			remoteRef = 182BB504146F2823000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		182BB507146F2823000BF1F3 /* libsecurityd_server.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = libsecurityd_server.a;
+			remoteRef = 182BB506146F2823000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		182BB509146F2823000BF1F3 /* ucspc.a */ = {
+			isa = PBXReferenceProxy;
+			fileType = archive.ar;
+			path = ucspc.a;
+			remoteRef = 182BB508146F2823000BF1F3 /* PBXContainerItemProxy */;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXReferenceProxy section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1865FFD5147517A300FD79DF /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
+		};
+		C26AC0F0143BCF18001C98CE /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/lib/syspolicy.sql",
+			);
+			outputPaths = (
+				"$(TEMPDIR)/SystemPolicy",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"\nrm -f \"$SCRIPT_OUTPUT_FILE_0\"\nsqlite3 \"$SCRIPT_OUTPUT_FILE_0\" <<END\n.read \"$SCRIPT_INPUT_FILE_0\"\nEND\n";
+			showEnvVarsInLog = 0;
+		};
+		C26AC7080DAEB3A7005BFB40 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/lib/security_codesigning.d",
+			);
+			outputPaths = (
+				"$(TEMPDIR)/codesigning_dtrace.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p $TEMPDIR\n/usr/sbin/dtrace -h -C -s $PROJECT_DIR/lib/security_codesigning.d -o $TEMPDIR/codesigning_dtrace.h\n";
+			showEnvVarsInLog = 0;
+		};
+		C26B45C30B8A9C1A003C0ACA /* Prepare ucspc */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Prepare ucspc";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "cstemp=\"${BUILT_PRODUCTS_DIR}/cstemp\"\nif [ -r \"${BUILT_PRODUCTS_DIR}/ucspc\" ]; then\t# local build case\n\tcp \"${BUILT_PRODUCTS_DIR}/ucspc\" \"$cstemp\"\nelse\t\t\t\t\t\t\t\t\t\t# buildit build case\n\tcp \"/usr/local/SecurityPieces/Frameworks/ucspc.framework/Versions/A/ucspc\" \"$cstemp\"\nfi\n";
+		};
+		C2D383B70A23A8C4005C63A2 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/requirements.grammar",
+			);
+			outputPaths = (
+				"$(SRCROOT)/lib/RequirementLexer.hpp",
+				"$(SRCROOT)/lib/RequirementLexer.cpp",
+				"$(SRCROOT)/lib/RequirementParser.hpp",
+				"$(SRCROOT)/lib/RequirementKeywords.h",
+				"$(SRCROOT)/lib/RequirementParser.cpp",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "antlr=/usr/local/bin/antlr.jar\nDEBUG=\"\"\nmkdir -p $SRCROOT/lib\nrm -f $SRCROOT/lib/Requirement{Parser,Lexer}*\njava -cp \"$antlr\" antlr.Tool -o $SRCROOT/lib $DEBUG requirements.grammar\nsed -n 's/^.*=\\(\".*\"\\)=.*$/        \\1,/p' $SRCROOT/lib/RequirementParserTokenTypes.txt >$SRCROOT/lib/RequirementKeywords.h\n";
+		};
+		C2F24DFE14BCBBF200309FCD /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+				"$(TEMPDIR)/SystemPolicy",
+			);
+			outputPaths = (
+				"$(DSTROOT)/private/var/db/.SystemPolicy-default",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nchmod 444 \"$SCRIPT_OUTPUT_FILE_0\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2D3833C0A237F47005C63A2 /* bundlediskrep.cpp in Sources */,
+				C2D3833E0A237F47005C63A2 /* cdbuilder.cpp in Sources */,
+				C2D383400A237F47005C63A2 /* codedirectory.cpp in Sources */,
+				C2D383440A237F47005C63A2 /* cs.cpp in Sources */,
+				C2D383470A237F47005C63A2 /* SecCode.cpp in Sources */,
+				C2D383490A237F47005C63A2 /* cskernel.cpp in Sources */,
+				C2D3834B0A237F47005C63A2 /* SecStaticCode.cpp in Sources */,
+				C2D3834D0A237F47005C63A2 /* csprocess.cpp in Sources */,
+				C2D3834F0A237F47005C63A2 /* SecRequirement.cpp in Sources */,
+				C2D383510A237F47005C63A2 /* diskrep.cpp in Sources */,
+				C2D383550A237F47005C63A2 /* filediskrep.cpp in Sources */,
+				C2D383570A237F47005C63A2 /* Code.cpp in Sources */,
+				C2D383590A237F47005C63A2 /* kerneldiskrep.cpp in Sources */,
+				C2D3835B0A237F47005C63A2 /* StaticCode.cpp in Sources */,
+				C2D3835D0A237F47005C63A2 /* reqparser.cpp in Sources */,
+				C2C1DF140A2E3D7200D1B02B /* requirement.cpp in Sources */,
+				C2D383610A237F47005C63A2 /* Requirements.cpp in Sources */,
+				C21CFC5F0A250D1C006CD5B1 /* reqdumper.cpp in Sources */,
+				C2C1DFBB0A2F80EB00D1B02B /* reqinterp.cpp in Sources */,
+				C2C1DFC30A2F820500D1B02B /* reqmaker.cpp in Sources */,
+				C22463610B86210100626F1B /* antlrplugin.cpp in Sources */,
+				C2EF10100A49BD89005A44BB /* renum.cpp in Sources */,
+				C2BD519C0A9392FD000FE43D /* machorep.cpp in Sources */,
+				C2C931B40AB8BA1200F83950 /* SecCodeHost.cpp in Sources */,
+				C2BD60FA0AC863FC0057FD3D /* csgeneric.cpp in Sources */,
+				C21EA3DD0AD2F81300E6E31C /* SecCodeSigner.cpp in Sources */,
+				C21EA3E30AD2FA0900E6E31C /* CodeSigner.cpp in Sources */,
+				C236E3D70AD59446000F5140 /* signer.cpp in Sources */,
+				C236E3DB0AD595C2000F5140 /* signerutils.cpp in Sources */,
+				C259DFD60AD6D9BA00C9ACC6 /* sigblob.cpp in Sources */,
+				C2E911E20ADEBE3200275CB2 /* resources.cpp in Sources */,
+				C2A976AA0B8A2E36008B4EA0 /* csutilities.cpp in Sources */,
+				C2C3BC5F0BA1D6FE00E869D1 /* cfmdiskrep.cpp in Sources */,
+				C2C3BCD30BA1E47E00E869D1 /* singlediskrep.cpp in Sources */,
+				C2093AA80BB0948000EB8599 /* reqreader.cpp in Sources */,
+				C2F6566E0BCBFB250078779E /* cserror.cpp in Sources */,
+				C28342E70E366E6800E54360 /* csdatabase.cpp in Sources */,
+				C28342EE0E36719D00E54360 /* detachedrep.cpp in Sources */,
+				C2A436150F2133B2007A41A6 /* slcrep.cpp in Sources */,
+				FEB30C9310DAC89D00557BA2 /* SecTask.c in Sources */,
+				C24EABAD1421433700C16AA9 /* policydb.cpp in Sources */,
+				C273606E1433F09000A9A5FF /* SecAssessment.cpp in Sources */,
+				C27360D51436866D00A9A5FF /* xpcengine.cpp in Sources */,
+				C2DC2DCA145F594000AD2A3A /* xar++.cpp in Sources */,
+				C2DC2DCB145F5CD000AD2A3A /* policyengine.cpp in Sources */,
+				C2F4439A14C626D4000A01E6 /* quarantine++.cpp in Sources */,
+				C26763D714FD9EBE00A46EDF /* drmaker.cpp in Sources */,
+				EB68B111150DAEEA00B4013D /* RequirementLexer.cpp in Sources */,
+				EB68B112150DAEEA00B4013D /* RequirementParser.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F230B580D3A003EC9DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2CC310F0B852424005FA59D /* SecIntegrityLib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C2BC1F2C0B580D4B003EC9DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2E2873D0B5D8D80009336A0 /* SecCodeHostLib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		182BB50F146F28F6000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = libsecurityd_generate;
+			targetProxy = 182BB50E146F28F6000BF1F3 /* PBXContainerItemProxy */;
+		};
+		182BB511146F292B000BF1F3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C26AC0EB143BCF01001C98CE /* SystemPolicy */;
+			targetProxy = 182BB510146F292B000BF1F3 /* PBXContainerItemProxy */;
+		};
+		1844617D146E9A5200B12992 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C26AC7090DAEB3A7005BFB40 /* DTrace */;
+			targetProxy = 1844617C146E9A5200B12992 /* PBXContainerItemProxy */;
+		};
+		C250F6C50B5EF4E40076098F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C2BC1F250B580D3A003EC9DC /* libintegrity */;
+			targetProxy = C250F6C40B5EF4E40076098F /* PBXContainerItemProxy */;
+		};
+		C26AC0F2143BD02B001C98CE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C26AC0EB143BCF01001C98CE /* SystemPolicy */;
+			targetProxy = C26AC0F1143BD02B001C98CE /* PBXContainerItemProxy */;
+		};
+		C2E287410B5D8F97009336A0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_codesigning */;
+			targetProxy = C2E287400B5D8F97009336A0 /* PBXContainerItemProxy */;
+		};
+		C2E287430B5D8F9A009336A0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C2BC1F2E0B580D4B003EC9DC /* libcodehost */;
+			targetProxy = C2E287420B5D8F9A009336A0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C263E67609A2971B000043F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A0146E9AD100B12992 /* debug.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_codesigning;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C263E67809A2971B000043F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A2146E9AD100B12992 /* release.xcconfig */;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
+				);
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_codesigning;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C263E67A09A2971B000043F1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
+			buildSettings = {
+				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
+			};
+			name = Debug;
+		};
+		C263E67C09A2971B000043F1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A1146E9AD100B12992 /* lib.xcconfig */;
+			buildSettings = {
+				TEMPDIR = "$(BUILT_PRODUCTS_DIR)/cstemp";
+			};
+			name = Release;
+		};
+		C26AC0ED143BCF01001C98CE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C26AC0EF143BCF01001C98CE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C26AC70A0DAEB3A8005BFB40 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C26AC70C0DAEB3A8005BFB40 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C2BC1F280B580D3F003EC9DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A0146E9AD100B12992 /* debug.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C2BC1F2A0B580D3F003EC9DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A2146E9AD100B12992 /* release.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C2BC1F310B580D69003EC9DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A0146E9AD100B12992 /* debug.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		C2BC1F330B580D69003EC9DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 184461A2146E9AD100B12992 /* release.xcconfig */;
+			buildSettings = {
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		C2D383C10A23A8E3005C63A2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C2D383C30A23A8E3005C63A2 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		C2E287480B5D8FD8009336A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		C2E2874A0B5D8FD8009336A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C263E67509A2971B000043F1 /* Build configuration list for PBXNativeTarget "libsecurity_codesigning" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C263E67609A2971B000043F1 /* Debug */,
+				C263E67809A2971B000043F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C263E67909A2971B000043F1 /* Build configuration list for PBXProject "libsecurity_codesigning" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C263E67A09A2971B000043F1 /* Debug */,
+				C263E67C09A2971B000043F1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C26AC0EC143BCF01001C98CE /* Build configuration list for PBXAggregateTarget "SystemPolicy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C26AC0ED143BCF01001C98CE /* Debug */,
+				C26AC0EF143BCF01001C98CE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C26AC70D0DAEB3C6005BFB40 /* Build configuration list for PBXAggregateTarget "DTrace" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C26AC70A0DAEB3A8005BFB40 /* Debug */,
+				C26AC70C0DAEB3A8005BFB40 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2BC1F270B580D3F003EC9DC /* Build configuration list for PBXNativeTarget "libintegrity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2BC1F280B580D3F003EC9DC /* Debug */,
+				C2BC1F2A0B580D3F003EC9DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2BC1F300B580D69003EC9DC /* Build configuration list for PBXNativeTarget "libcodehost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2BC1F310B580D69003EC9DC /* Debug */,
+				C2BC1F330B580D69003EC9DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2D383C00A23A8E3005C63A2 /* Build configuration list for PBXAggregateTarget "Requirements Language" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2D383C10A23A8E3005C63A2 /* Debug */,
+				C2D383C30A23A8E3005C63A2 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2E287470B5D8FD8009336A0 /* Build configuration list for PBXAggregateTarget "Everything" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C2E287480B5D8FD8009336A0 /* Debug */,
+				C2E2874A0B5D8FD8009336A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

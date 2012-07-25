@@ -109,7 +109,7 @@ OSStatus HIDGetReportLength(HIDReportType reportType,
 	// (Would come into play if we had input report 3, but searched for ouput report 3
 	// that didn't exist.)
 
-	if ((reportID == 0) && (dataLength > 0) || dataLength > 1)
+	if (((reportID == 0) && (dataLength > 0)) || dataLength > 1)
 	{
 		iStatus = noErr;
 	}

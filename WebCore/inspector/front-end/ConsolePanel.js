@@ -26,11 +26,17 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ * @extends {WebInspector.Panel}
+ */
 WebInspector.ConsolePanel = function()
 {
     WebInspector.Panel.call(this, "console");
-    WebInspector.console.addEventListener(WebInspector.ConsoleView.Events.EntryAdded, this._consoleMessageAdded, this);
-    WebInspector.console.addEventListener(WebInspector.ConsoleView.Events.ConsoleCleared, this._consoleCleared, this);
+
+    WebInspector.consoleView.addEventListener(WebInspector.ConsoleView.Events.EntryAdded, this._consoleMessageAdded, this);
+    WebInspector.consoleView.addEventListener(WebInspector.ConsoleView.Events.ConsoleCleared, this._consoleCleared, this);
+    this._view = WebInspector.consoleView;
 }
 
 WebInspector.ConsolePanel.prototype = {
@@ -39,49 +45,28 @@ WebInspector.ConsolePanel.prototype = {
         return WebInspector.UIString("Console");
     },
 
-    show: function()
+    get statusBarItems()
     {
-        WebInspector.Panel.prototype.show.call(this);
-
-        this._previousConsoleState = WebInspector.drawer.state;
-        WebInspector.drawer.enterPanelMode();
-        WebInspector.showConsole();
-
-        // Move the scope bar to the top of the messages, like the resources filter.
-        var scopeBar = document.getElementById("console-filter");
-        var consoleMessages = document.getElementById("console-messages");
-
-        scopeBar.parentNode.removeChild(scopeBar);
-        document.getElementById("console-view").insertBefore(scopeBar, consoleMessages);
-
-        // Update styles, and give console-messages a top margin so it doesn't overwrite the scope bar.
-        scopeBar.addStyleClass("console-filter-top");
-        scopeBar.removeStyleClass("status-bar-item");
-
-        consoleMessages.addStyleClass("console-filter-top");
+        return this._view.statusBarItems;
     },
 
-    hide: function()
+    wasShown: function()
     {
-        WebInspector.Panel.prototype.hide.call(this);
+        WebInspector.Panel.prototype.wasShown.call(this);
+        if (WebInspector.drawer.visible) {
+            WebInspector.drawer.hide(WebInspector.Drawer.AnimationType.Immediately);
+            this._drawerWasVisible = true;
+        }
+        this._view.show(this.element);
+    },
 
-        if (this._previousConsoleState === WebInspector.Drawer.State.Hidden)
-            WebInspector.drawer.immediatelyExitPanelMode();
-        else
-            WebInspector.drawer.exitPanelMode();
-        delete this._previousConsoleState;
-
-        // Move the scope bar back to the bottom bar, next to Clear Console.
-        var scopeBar = document.getElementById("console-filter");
-
-        scopeBar.parentNode.removeChild(scopeBar);
-        document.getElementById("other-drawer-status-bar-items").appendChild(scopeBar);
-
-        // Update styles, and remove the top margin on console-messages.
-        scopeBar.removeStyleClass("console-filter-top");
-        scopeBar.addStyleClass("status-bar-item");
-
-        document.getElementById("console-messages").removeStyleClass("console-filter-top");
+    willHide: function()
+    {
+        if (this._drawerWasVisible) {
+            WebInspector.drawer.show(this._view, WebInspector.Drawer.AnimationType.Immediately);
+            delete this._drawerWasVisible;
+        }
+        WebInspector.Panel.prototype.willHide.call(this);
     },
 
     searchCanceled: function()
@@ -95,10 +80,10 @@ WebInspector.ConsolePanel.prototype = {
     {
         WebInspector.searchController.updateSearchMatchesCount(0, this);
         this.searchCanceled();
-        this._searchRegex = createSearchRegex(query, "g");
+        this._searchRegex = createPlainTextSearchRegex(query, "gi");
 
         this._searchResults = [];
-        var messages = WebInspector.console.messages;
+        var messages = WebInspector.consoleView.messages;
         for (var i = 0; i < messages.length; i++) {
             if (messages[i].matchesRegex(this._searchRegex)) {
                 this._searchResults.push(messages[i]);
@@ -147,7 +132,7 @@ WebInspector.ConsolePanel.prototype = {
 
     _consoleMessageAdded: function(event)
     {
-        if (!this._searchRegex || !this.visible)
+        if (!this._searchRegex || !this.isShowing())
             return;
         var message = event.data;
         this._searchRegex.lastIndex = 0;
@@ -163,7 +148,7 @@ WebInspector.ConsolePanel.prototype = {
             return;
         this._clearCurrentSearchResultHighlight();
         this._searchResults.length = 0;
-        if (this.visible)
+        if (this.isShowing())
             WebInspector.searchController.updateSearchMatchesCount(0, this);
     }
 }

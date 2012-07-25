@@ -20,18 +20,21 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CSSFontFaceSrcValue_h
 #define CSSFontFaceSrcValue_h
 
 #include "CSSValue.h"
+#include "CachedResourceHandle.h"
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
+class CachedFont;
+class Document;
 class SVGFontFaceElement;
 
 class CSSFontFaceSrcValue : public CSSValue {
@@ -44,8 +47,6 @@ public:
     {
         return adoptRef(new CSSFontFaceSrcValue(resource, true));
     }
-
-    virtual ~CSSFontFaceSrcValue();
 
     const String& resource() const { return m_resource; }
     const String& format() const { return m_format; }
@@ -62,13 +63,16 @@ public:
     void setSVGFontFaceElement(SVGFontFaceElement* element) { m_svgFontFaceElement = element; }
 #endif
 
-    virtual String cssText() const;
+    String customCssText() const;
 
-    virtual void addSubresourceStyleURLs(ListHashSet<KURL>&, const CSSStyleSheet*);
+    void addSubresourceStyleURLs(ListHashSet<KURL>&, const StyleSheetInternal*);
+
+    CachedFont* cachedFont(Document*);
 
 private:
     CSSFontFaceSrcValue(const String& resource, bool local)
-        : m_resource(resource)
+        : CSSValue(FontFaceSrcClass)
+        , m_resource(resource)
         , m_isLocal(local)
 #if ENABLE(SVG_FONTS)
         , m_svgFontFaceElement(0)
@@ -79,6 +83,8 @@ private:
     String m_resource;
     String m_format;
     bool m_isLocal;
+
+    CachedResourceHandle<CachedFont> m_cachedFont;
 
 #if ENABLE(SVG_FONTS)
     SVGFontFaceElement* m_svgFontFaceElement;

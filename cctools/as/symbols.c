@@ -658,7 +658,15 @@ symbolS *symbolP)
 	    i->name++;
 	i->file_number = dwarf2_file_number;
 	i->line_number = logical_input_line;
-	i->symbol = symbolP;
+	/*
+	 * We can't used the symbolP directly as it may have the N_ARM_THUMB_DEF
+	 * bit set.  And that will cause the AT_high_pc and AT_low_pc values to
+	 * have the low bit set after relocation producing bad dwarf.  So we
+	 * create a temporary symbol that will not have the N_ARM_THUMB_DEF bit
+	 * set.
+	 */
+	i->symbol = symbol_temp_new(symbolP->sy_other, symbolP->sy_value,
+				    symbolP->sy_frag);
 	i->next = NULL;
 	if(dwarf2_subprograms_info == NULL){
 	    dwarf2_subprograms_info = i;

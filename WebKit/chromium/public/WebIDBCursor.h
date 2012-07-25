@@ -26,12 +26,12 @@
 #ifndef WebIDBCursor_h
 #define WebIDBCursor_h
 
-#include "WebCommon.h"
 #include "WebExceptionCode.h"
 #include "WebIDBCallbacks.h"
 #include "WebIDBKey.h"
-#include "WebSerializedScriptValue.h"
-#include "WebString.h"
+#include "platform/WebCommon.h"
+#include "platform/WebSerializedScriptValue.h"
+#include "platform/WebString.h"
 
 namespace WebKit {
 
@@ -55,29 +55,19 @@ public:
         WEBKIT_ASSERT_NOT_REACHED();
         return WebIDBKey::createInvalid();
     }
-    // FIXME: Remove the following 2 methods and uncomment third after roll.
     virtual WebSerializedScriptValue value() const
     {
-        WebSerializedScriptValue serializedScriptValue;
-        WebIDBKey key;
-        value(serializedScriptValue, key);
-        return serializedScriptValue;        
+        WEBKIT_ASSERT_NOT_REACHED();
+        return WebSerializedScriptValue();
     }
-    virtual void value(WebSerializedScriptValue& serializedScriptValue, WebIDBKey& key) const
-    {
-        serializedScriptValue = value();
-    }
-    // virtual WebSerializedScriptValue value() const
-    // {
-    //     WEBKIT_ASSERT_NOT_REACHED();
-    //     return WebSerializedScriptValue();
-    // }
 
     virtual void update(const WebSerializedScriptValue&, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void advance(unsigned long, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void continueFunction(const WebIDBKey&, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
-    // FIXME: Remove after WK roll.
-    virtual void remove(WebIDBCallbacks* callbacks, WebExceptionCode& ec) { deleteFunction(callbacks, ec); }
-    virtual void deleteFunction(WebIDBCallbacks* callbacks, WebExceptionCode& ec) { remove(callbacks, ec); }
+    virtual void deleteFunction(WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void prefetchContinue(int numberToFetch, WebIDBCallbacks*, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void prefetchReset(int usedPrefetches, int unusedPrefetches) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void postSuccessHandlerCallback() { } // Only used in frontend.
 
 protected:
     WebIDBCursor() { }

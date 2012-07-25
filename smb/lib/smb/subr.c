@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,15 +36,15 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <IOKit/kext/KextManager.h>
 
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
 
 #include <smbfs/smbfs.h>
-#include <load_smbfs.h>
-#include "smbfs_load_kext.h"
 
+#define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
 void smb_ctx_hexdump(const char *func, const char *s, unsigned char *buf, size_t inlen)
 {
@@ -145,26 +145,17 @@ void LogToMessageTracer(const char *domain, const char *signature,
 int smb_load_library()
 {
 	struct vfsconf vfc;
-	int error = 0;
-	static mach_port_t mp = MACH_PORT_NULL;
+	kern_return_t status;
 	
 	setlocale(LC_CTYPE, "");
-	if (getvfsbyname(SMBFS_VFSNAME, &vfc) == 0)
-			return 0;	/* Already loaded and they are not changing the encoding */		
-	
-	if (!mp) {
-		error = bootstrap_look_up(bootstrap_port, (char *)SMBFS_LOAD_KEXT_BOOTSTRAP_NAME, &mp);
-		if (error != KERN_SUCCESS) {
-			smb_log_info("%s: bootstrap_look_up: %s", 
-						 ASL_LEVEL_DEBUG, __FUNCTION__, bootstrap_strerror(error));
-			return error;
-		}
+	if (getvfsbyname(SMBFS_VFSNAME, &vfc) != 0) {
+		/* Need to load the kext */
+		status = KextManagerLoadKextWithIdentifier(CFSTR("com.apple.filesystems.smbfs") ,NULL);
+        if (status != KERN_SUCCESS) {
+			smb_log_info("Loading com.apple.filesystems.smbfs status = %d", 
+						 ASL_LEVEL_ERR, status);
+			return EIO;
+        }
 	}
-		
-	error = load_kext(mp, (string_t)SMBFS_VFSNAME);
-	if (error != KERN_SUCCESS)
-		smb_log_info("%s: load_kext: %s", 
-					 ASL_LEVEL_DEBUG, __FUNCTION__, bootstrap_strerror(error));
-	
-	return error;
+	return 0;
 }

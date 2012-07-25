@@ -66,7 +66,7 @@ find_KRB5SignedPath(krb5_context context,
     AuthorizationData child;
     krb5_error_code ret;
     int pos;
-	
+
     if (ad == NULL || ad->len == 0)
 	return KRB5KDC_ERR_PADATA_TYPE_NOSUPP;
 
@@ -115,7 +115,7 @@ _kdc_add_KRB5SignedPath(krb5_context context,
     KRB5SignedPath sp;
     krb5_data data;
     krb5_crypto crypto = NULL;
-    size_t size;
+    size_t size = 0;
 
     if (server && principals) {
 	ret = add_Principals(principals, server);
@@ -125,12 +125,12 @@ _kdc_add_KRB5SignedPath(krb5_context context,
 
     {
 	KRB5SignedPathData spd;
-	
+
 	spd.client = client;
 	spd.authtime = tkt->authtime;
 	spd.delegated = principals;
 	spd.method_data = NULL;
-	
+
 	ASN1_MALLOC_ENCODE(KRB5SignedPathData, data.data, data.length,
 			   &spd, &size, ret);
 	if (ret)
@@ -205,7 +205,7 @@ check_KRB5SignedPath(krb5_context context,
     if (ret == 0) {
 	KRB5SignedPathData spd;
 	KRB5SignedPath sp;
-	size_t size;
+	size_t size = 0;
 
 	ret = decode_KRB5SignedPath(data.data, data.length, &sp, NULL);
 	krb5_data_free(&data);
@@ -281,10 +281,14 @@ static krb5_error_code
 check_PAC(krb5_context context,
 	  krb5_kdc_configuration *config,
 	  const krb5_principal client_principal,
+	  const krb5_principal delegated_proxy_principal,
 	  hdb_entry_ex *client,
 	  hdb_entry_ex *server,
-	  const EncryptionKey *server_key,
-	  const EncryptionKey *krbtgt_key,
+	  hdb_entry_ex *krbtgt,
+	  const EncryptionKey *server_check_key,
+	  const EncryptionKey *krbtgt_check_key,
+	  const EncryptionKey *server_sign_key,
+	  const EncryptionKey *krbtgt_sign_key,
 	  EncTicketPart *tkt,
 	  krb5_data *rspac,
 	  int *signedpath)
@@ -328,14 +332,15 @@ check_PAC(krb5_context context,
 
 		ret = krb5_pac_verify(context, pac, tkt->authtime,
 				      client_principal,
-				      krbtgt_key, NULL);
+				      server_check_key, krbtgt_check_key);
 		if (ret) {
 		    krb5_pac_free(context, pac);
 		    return ret;
 		}
 
 		ret = _kdc_pac_verify(context, client_principal,
-				      client, server, &pac, &signed_pac);
+				      delegated_proxy_principal,
+				      client, server, krbtgt, &pac, &signed_pac);
 		if (ret) {
 		    krb5_pac_free(context, pac);
 		    return ret;
@@ -351,10 +356,10 @@ check_PAC(krb5_context context,
 		    *signedpath = 1;
 		    ret = _krb5_pac_sign(context, pac, tkt->authtime,
 					 client_principal,
-					 server_key, krbtgt_key, rspac);
+					 server_sign_key, krbtgt_sign_key, rspac);
 		}
 		krb5_pac_free(context, pac);
-		
+
 		return ret;
 	    }
 	}
@@ -373,7 +378,7 @@ check_tgs_flags(krb5_context context,
 		KDC_REQ_BODY *b, const EncTicketPart *tgt, EncTicketPart *et)
 {
     KDCOptions f = b->kdc_options;
-	
+
     if(f.validate){
 	if(!tgt->flags.invalid || tgt->starttime == NULL){
 	    kdc_log(context, config, 0,
@@ -412,7 +417,7 @@ check_tgs_flags(krb5_context context,
     }
     if(tgt->flags.forwarded)
 	et->flags.forwarded = 1;
-	
+
     if(f.proxiable){
 	if(!tgt->flags.proxiable){
 	    kdc_log(context, config, 0,
@@ -482,7 +487,7 @@ check_tgs_flags(krb5_context context,
 	et->endtime = *et->starttime + old_life;
 	if (et->renew_till != NULL)
 	    et->endtime = min(*et->renew_till, et->endtime);
-    }	
+    }
 
 #if 0
     /* checks for excess flags */
@@ -496,7 +501,7 @@ check_tgs_flags(krb5_context context,
 }
 
 /*
- *
+ * Determine if constrained delegation is allowed from this client to this server
  */
 
 static krb5_error_code
@@ -504,30 +509,44 @@ check_constrained_delegation(krb5_context context,
 			     krb5_kdc_configuration *config,
 			     HDB *clientdb,
 			     hdb_entry_ex *client,
-			     krb5_const_principal server)
+			     hdb_entry_ex *server,
+			     krb5_const_principal target)
 {
     const HDB_Ext_Constrained_delegation_acl *acl;
     krb5_error_code ret;
-    int i;
+    size_t i;
 
-    /* if client delegates to itself, that ok */
-    if (krb5_principal_compare(context, client->entry.principal, server) == TRUE)
-	return 0;
+    /*
+     * constrained_delegation (S4U2Proxy) only works within
+     * the same realm. We use the already canonicalized version
+     * of the principals here, while "target" is the principal
+     * provided by the client.
+     */
+    if(!krb5_realm_compare(context, client->entry.principal, server->entry.principal)) {
+	ret = KRB5KDC_ERR_BADOPTION;
+	kdc_log(context, config, 0,
+	    "Bad request for constrained delegation");
+	return ret;
+    }
 
     if (clientdb->hdb_check_constrained_delegation) {
-	ret = clientdb->hdb_check_constrained_delegation(context, clientdb, client, server);
+	ret = clientdb->hdb_check_constrained_delegation(context, clientdb, client, target);
 	if (ret == 0)
 	    return 0;
     } else {
+	/* if client delegates to itself, that ok */
+	if (krb5_principal_compare(context, client->entry.principal, server->entry.principal) == TRUE)
+	    return 0;
+
 	ret = hdb_entry_get_ConstrainedDelegACL(&client->entry, &acl);
 	if (ret) {
 	    krb5_clear_error_message(context);
 	    return ret;
 	}
-	
+
 	if (acl) {
 	    for (i = 0; i < acl->len; i++) {
-		if (krb5_principal_compare(context, server, &acl->val[i]) == TRUE)
+		if (krb5_principal_compare(context, target, &acl->val[i]) == TRUE)
 		    return 0;
 	    }
 	}
@@ -535,6 +554,36 @@ check_constrained_delegation(krb5_context context,
     }
     kdc_log(context, config, 0,
 	    "Bad request for constrained delegation");
+    return ret;
+}
+
+/*
+ * Determine if s4u2self is allowed from this client to this server
+ *
+ * For example, regardless of the principal being impersonated, if the
+ * 'client' and 'server' are the same, then it's safe.
+ */
+
+static krb5_error_code
+check_s4u2self(krb5_context context,
+	       krb5_kdc_configuration *config,
+	       HDB *clientdb,
+	       hdb_entry_ex *client,
+	       krb5_const_principal server)
+{
+    krb5_error_code ret;
+
+    /* if client does a s4u2self to itself, that ok */
+    if (krb5_principal_compare(context, client->entry.principal, server) == TRUE)
+	return 0;
+
+    if (clientdb->hdb_check_s4u2self) {
+	ret = clientdb->hdb_check_s4u2self(context, clientdb, client, server);
+	if (ret == 0)
+	    return 0;
+    } else {
+	ret = KRB5KDC_ERR_BADOPTION;
+    }
     return ret;
 }
 
@@ -576,7 +625,7 @@ fix_transited_encoding(krb5_context context,
     krb5_error_code ret = 0;
     char **realms, **tmp;
     unsigned int num_realms;
-    int i;
+    size_t i;
 
     switch (tr->tr_type) {
     case DOMAIN_X500_COMPRESS:
@@ -792,7 +841,7 @@ tgs_make_reply(krb5_context context,
 	    renew = min(renew, *server->entry.max_renew);
 	*et.renew_till = et.authtime + renew;
     }
-	
+
     if(et.renew_till){
 	*et.renew_till = min(*et.renew_till, *tgt->renew_till);
 	*et.starttime = min(*et.starttime, *et.renew_till);
@@ -826,7 +875,7 @@ tgs_make_reply(krb5_context context,
 	if (ret)
 	    goto out;
     }
-	
+
     if (auth_data) {
 	unsigned int i = 0;
 
@@ -866,9 +915,9 @@ tgs_make_reply(krb5_context context,
     ret = krb5_copy_keyblock_contents(context, sessionkey, &et.key);
     if (ret)
 	goto out;
-    et.crealm = tgt->crealm;
+    et.crealm = tgt_name->realm;
     et.cname = tgt_name->name;
-	
+
     ek.key = et.key;
     /* MIT must have at least one last_req */
     ek.last_req.len = 1;
@@ -936,7 +985,7 @@ tgs_make_reply(krb5_context context,
        CAST session key. Should the DES3 etype be added to the
        etype list, even if we don't want a session key with
        DES3? */
-    ret = _kdc_encode_reply(context, config,
+    ret = _kdc_encode_reply(context, config, NULL, 0,
 			    &rep, &et, &ek, et.key.keytype,
 			    kvno,
 			    serverkey, 0, replykey, rk_is_subkey,
@@ -970,7 +1019,7 @@ tgs_check_authenticator(krb5_context context,
 			krb5_keyblock *key)
 {
     krb5_authenticator auth;
-    size_t len;
+    size_t len = 0;
     unsigned char *buf;
     size_t buf_size;
     krb5_error_code ret;
@@ -997,7 +1046,7 @@ tgs_check_authenticator(krb5_context context,
 	ret =  KRB5KRB_AP_ERR_INAPP_CKSUM;
 	goto out;
     }
-		
+
     /* XXX should not re-encode this */
     ASN1_MALLOC_ENCODE(KDC_REQ_BODY, buf, buf_size, b, &len, ret);
     if(ret){
@@ -1056,7 +1105,7 @@ find_rpath(krb5_context context, Realm crealm, Realm srealm)
 						   NULL);
     return new_realm;
 }
-	
+
 
 static krb5_boolean
 need_referral(krb5_context context, krb5_kdc_configuration *config,
@@ -1097,6 +1146,7 @@ tgs_parse_request(krb5_context context,
 		  krb5_keyblock **replykey,
 		  int *rk_is_subkey)
 {
+    static char failed[] = "<unparse_name failed>";
     krb5_ap_req ap_req;
     krb5_error_code ret;
     krb5_principal princ;
@@ -1134,14 +1184,25 @@ tgs_parse_request(krb5_context context,
 				       ap_req.ticket.sname,
 				       ap_req.ticket.realm);
 
-    ret = _kdc_db_fetch(context, config, princ, HDB_F_GET_KRBTGT, NULL, krbtgt);
+    ret = _kdc_db_fetch(context, config, princ, HDB_F_GET_KRBTGT, ap_req.ticket.enc_part.kvno, NULL, krbtgt);
 
-    if(ret) {
+    if(ret == HDB_ERR_NOT_FOUND_HERE) {
+	char *p;
+	ret = krb5_unparse_name(context, princ, &p);
+	if (ret != 0)
+	    p = failed;
+	krb5_free_principal(context, princ);
+	kdc_log(context, config, 5, "Ticket-granting ticket account %s does not have secrets at this KDC, need to proxy", p);
+	if (ret == 0)
+	    free(p);
+	ret = HDB_ERR_NOT_FOUND_HERE;
+	goto out;
+    } else if(ret){
 	const char *msg = krb5_get_error_message(context, ret);
 	char *p;
 	ret = krb5_unparse_name(context, princ, &p);
 	if (ret != 0)
-	    p = "<unparse_name failed>";
+	    p = failed;
 	krb5_free_principal(context, princ);
 	kdc_log(context, config, 0,
 		"Ticket-granting ticket not found in database: %s", msg);
@@ -1159,7 +1220,7 @@ tgs_parse_request(krb5_context context,
 	ret = krb5_unparse_name (context, princ, &p);
 	krb5_free_principal(context, princ);
 	if (ret != 0)
-	    p = "<unparse_name failed>";
+	    p = failed;
 	kdc_log(context, config, 0,
 		"Ticket kvno = %d, DB kvno = %d (%s)",
 		*ap_req.ticket.enc_part.kvno,
@@ -1204,7 +1265,7 @@ tgs_parse_request(krb5_context context,
 			      &ap_req_options,
 			      ticket,
 			      KRB5_KU_TGS_REQ_AUTH);
-			
+
     krb5_free_principal(context, princ);
     if(ret) {
 	const char *msg = krb5_get_error_message(context, ret);
@@ -1334,12 +1395,12 @@ build_server_referral(krb5_context context,
 		      const PrincipalName *true_principal_name,
 		      const PrincipalName *requested_principal,
 		      krb5_data *outdata)
-{		
+{
     PA_ServerReferralData ref;
     krb5_error_code ret;
     EncryptedData ed;
     krb5_data data;
-    size_t size;
+    size_t size = 0;
 
     memset(&ref, 0, sizeof(ref));
 
@@ -1419,11 +1480,11 @@ tgs_build_reply(krb5_context context,
 		const struct sockaddr *from_addr)
 {
     krb5_error_code ret;
-    krb5_principal cp = NULL, sp = NULL;
-    krb5_principal client_principal = NULL;
-    char *spn = NULL, *cpn = NULL;
-    hdb_entry_ex *server = NULL, *client = NULL;
-    HDB *clientdb;
+    krb5_principal cp = NULL, sp = NULL, rsp = NULL, tp = NULL, dp = NULL;
+    krb5_principal krbtgt_principal = NULL;
+    char *spn = NULL, *cpn = NULL, *tpn = NULL, *dpn = NULL;
+    hdb_entry_ex *server = NULL, *client = NULL, *s4u2self_impersonated_client = NULL;
+    HDB *clientdb, *s4u2self_impersonated_clientdb;
     krb5_realm ref_realm = NULL;
     EncTicketPart *tgt = &ticket->ticket;
     krb5_principals spp = NULL;
@@ -1431,6 +1492,8 @@ tgs_build_reply(krb5_context context,
     krb5_keyblock sessionkey;
     krb5_kvno kvno;
     krb5_data rspac;
+
+    hdb_entry_ex *krbtgt_out = NULL;
 
     METHOD_DATA enc_pa_data;
 
@@ -1441,7 +1504,10 @@ tgs_build_reply(krb5_context context,
     char opt_str[128];
     int signedpath = 0;
 
-    Key *tkey;
+    Key *tkey_check;
+    Key *tkey_sign;
+    Key *tkey_krbtgt_check = NULL;
+    int flags = HDB_F_FOR_TGS_REQ;
 
     memset(&sessionkey, 0, sizeof(sessionkey));
     memset(&adtkt, 0, sizeof(adtkt));
@@ -1451,12 +1517,17 @@ tgs_build_reply(krb5_context context,
     s = b->sname;
     r = b->realm;
 
+    /* 
+     * Always to do CANON, see comment below about returned server principal (rsp).
+     */
+    flags |= HDB_F_CANON;
+
     if(b->kdc_options.enc_tkt_in_skey){
 	Ticket *t;
 	hdb_entry_ex *uu;
 	krb5_principal p;
 	Key *uukey;
-	
+
 	if(b->additional_tickets == NULL ||
 	   b->additional_tickets->len == 0){
 	    ret = KRB5KDC_ERR_BADOPTION; /* ? */
@@ -1473,7 +1544,7 @@ tgs_build_reply(krb5_context context,
 	}
 	_krb5_principalname2krb5_principal(context, &p, t->sname, t->realm);
 	ret = _kdc_db_fetch(context, config, p,
-			    HDB_F_GET_CLIENT|HDB_F_GET_SERVER,
+			    HDB_F_GET_KRBTGT, t->enc_part.kvno,
 			    NULL, &uu);
 	krb5_free_principal(context, p);
 	if(ret){
@@ -1502,7 +1573,7 @@ tgs_build_reply(krb5_context context,
     }
 
     _krb5_principalname2krb5_principal(context, &sp, *s, r);
-    ret = krb5_unparse_name(context, sp, &spn);	
+    ret = krb5_unparse_name(context, sp, &spn);
     if (ret)
 	goto out;
     _krb5_principalname2krb5_principal(context, &cp, tgt->cname, tgt->crealm);
@@ -1525,10 +1596,13 @@ tgs_build_reply(krb5_context context,
      */
 
 server_lookup:
-    ret = _kdc_db_fetch(context, config, sp, HDB_F_GET_SERVER | HDB_F_CANON,
-			NULL, &server);
+    ret = _kdc_db_fetch(context, config, sp, HDB_F_GET_SERVER | flags,
+			NULL, NULL, &server);
 
-    if(ret){
+    if(ret == HDB_ERR_NOT_FOUND_HERE) {
+	kdc_log(context, config, 5, "target %s does not have secrets at this KDC, need to proxy", sp);
+	goto out;
+    } else if(ret){
 	const char *new_rlm, *msg;
 	Realm req_rlm;
 	krb5_realm *realms;
@@ -1544,7 +1618,7 @@ server_lookup:
 		    free(spn);
 		    krb5_make_principal(context, &sp, r,
 					KRB5_TGS_NAME, new_rlm, NULL);
-		    ret = krb5_unparse_name(context, sp, &spn);	
+		    ret = krb5_unparse_name(context, sp, &spn);
 		    if (ret)
 			goto out;
 
@@ -1586,33 +1660,17 @@ server_lookup:
 	goto out;
     }
 
-    ret = _kdc_db_fetch(context, config, cp, HDB_F_GET_CLIENT,
-			&clientdb, &client);
-    if(ret) {
-	const char *krbtgt_realm, *msg;
+    /* the name returned to the client depend on what was asked for,
+     * return canonical name if kdc_options.canonicalize was set, the
+     * client wants the true name of the principal, if not it just
+     * wants the name its asked for.
+     */
 
-	/*
-	 * If the client belongs to the same realm as our krbtgt, it
-	 * should exist in the local database.
-	 *
-	 */
+    if (b->kdc_options.canonicalize)
+	rsp = server->entry.principal;
+    else
+	rsp = sp;
 
-	krbtgt_realm =
-	    krb5_principal_get_comp_string(context,
-					   krbtgt->entry.principal, 1);
-
-	if(strcmp(krb5_principal_get_realm(context, cp), krbtgt_realm) == 0) {
-	    if (ret == HDB_ERR_NOENTRY)
-		ret = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;
-	    kdc_log(context, config, 1, "Client no longer in database: %s",
-		    cpn);
-	    goto out;
-	}
-	
-	msg = krb5_get_error_message(context, ret);
-	kdc_log(context, config, 1, "Client not found in database: %s", msg);
-	krb5_free_error_message(context, msg);
-    }
 
     /*
      * Select enctype, return key and kvno.
@@ -1622,7 +1680,7 @@ server_lookup:
 	krb5_enctype etype;
 
 	if(b->kdc_options.enc_tkt_in_skey) {
-	    int i;
+	    size_t i;
 	    ekey = &adtkt.key;
 	    for(i = 0; i < b->etype.len; i++)
 		if (b->etype.val[i] == adtkt.key.keytype)
@@ -1638,9 +1696,11 @@ server_lookup:
 	    kvno = 0;
 	} else {
 	    Key *skey;
-	
-	    ret = _kdc_find_etype(context, server,
-				  b->etype.val, b->etype.len, &skey);
+
+	    ret = _kdc_find_etype(context,
+				  config->tgs_use_strongest_session_key, FALSE,
+				  server, b->etype.val, b->etype.len, NULL,
+				  &skey);
 	    if(ret) {
 		kdc_log(context, config, 0,
 			"Server (%s) has no support for etypes", spn);
@@ -1650,7 +1710,7 @@ server_lookup:
 	    etype = skey->key.keytype;
 	    kvno = server->entry.kvno;
 	}
-	
+
 	ret = krb5_generate_random_keyblock(context, etype, &sessionkey);
 	if (ret)
 	    goto out;
@@ -1662,35 +1722,132 @@ server_lookup:
      * backward.
      */
 
-    if (strcmp(krb5_principal_get_realm(context, sp),
-	       krb5_principal_get_comp_string(context,
-					      krbtgt->entry.principal,
-					      1)) != 0) {
-	char *tpn;
-	ret = krb5_unparse_name(context, krbtgt->entry.principal, &tpn);
-	kdc_log(context, config, 0,
-		"Request with wrong krbtgt: %s",
-		(ret == 0) ? tpn : "<unknown>");
-	if(ret == 0)
-	    free(tpn);
-	ret = KRB5KRB_AP_ERR_NOT_US;
-	goto out;
-    }
-
     /*
      * Validate authoriation data
      */
 
     ret = hdb_enctype2key(context, &krbtgt->entry,
-			  krbtgt_etype, &tkey);
+			  krbtgt_etype, &tkey_check);
     if(ret) {
 	kdc_log(context, config, 0,
 		    "Failed to find key for krbtgt PAC check");
 	goto out;
     }
 
-    ret = check_PAC(context, config, cp,
-		    client, server, ekey, &tkey->key,
+    /* 
+     * Now refetch the primary krbtgt, and get the current kvno (the
+     * sign check may have been on an old kvno, and the server may
+     * have been an incoming trust)
+     */
+    
+    {
+	const char *remote_realm = 
+	    krb5_principal_get_comp_string(context, krbtgt->entry.principal, 1);
+
+	ret = krb5_make_principal(context,
+				  &krbtgt_principal,
+				  remote_realm,
+				  KRB5_TGS_NAME,
+				  remote_realm,
+				  NULL);
+	if(ret) {
+	    kdc_log(context, config, 0,
+		    "Failed to generate krbtgt principal");
+	    goto out;
+	}
+    }
+
+    ret = _kdc_db_fetch(context, config, krbtgt_principal, HDB_F_GET_KRBTGT, NULL, NULL, &krbtgt_out);
+    krb5_free_principal(context, krbtgt_principal);
+    if (ret) {
+	krb5_error_code ret2;
+	char *ktpn, *ktpn2;
+	ret = krb5_unparse_name(context, krbtgt->entry.principal, &ktpn);
+	ret2 = krb5_unparse_name(context, krbtgt_principal, &ktpn2);
+	kdc_log(context, config, 0,
+		"Request with wrong krbtgt: %s, %s not found in our database",
+		(ret == 0) ? ktpn : "<unknown>", (ret2 == 0) ? ktpn2 : "<unknown>");
+	if(ret == 0)
+	    free(ktpn);
+	if(ret2 == 0)
+	    free(ktpn2);
+	ret = KRB5KRB_AP_ERR_NOT_US;
+	goto out;
+    }
+
+    /* 
+     * The first realm is the realm of the service, the second is
+     * krbtgt/<this>/@REALM component of the krbtgt DN the request was
+     * encrypted to.  The redirection via the krbtgt_out entry allows
+     * the DB to possibly correct the case of the realm (Samba4 does
+     * this) before the strcmp() 
+     */
+    if (strcmp(krb5_principal_get_realm(context, server->entry.principal),
+	       krb5_principal_get_realm(context, krbtgt_out->entry.principal)) != 0) {
+	char *ktpn;
+	ret = krb5_unparse_name(context, krbtgt_out->entry.principal, &ktpn);
+	kdc_log(context, config, 0,
+		"Request with wrong krbtgt: %s",
+		(ret == 0) ? ktpn : "<unknown>");
+	if(ret == 0)
+	    free(ktpn);
+	ret = KRB5KRB_AP_ERR_NOT_US;
+	goto out;
+    }
+
+    ret = hdb_enctype2key(context, &krbtgt_out->entry,
+			  krbtgt_etype, &tkey_sign);
+    if(ret) {
+	kdc_log(context, config, 0,
+		    "Failed to find key for krbtgt PAC signature");
+	goto out;
+    }
+
+    /* 
+     * Check if we would know the krbtgt key for the PAC.  We would
+     * only know this if the krbtgt principal was the same (ie, in our
+     * realm, regardless of KVNO) 
+     */
+    
+    if (krb5_principal_compare(context, krbtgt_out->entry.principal, krbtgt->entry.principal))
+	tkey_krbtgt_check = tkey_check;
+
+
+    ret = _kdc_db_fetch(context, config, cp, HDB_F_GET_CLIENT | flags,
+			NULL, &clientdb, &client);
+    if(ret == HDB_ERR_NOT_FOUND_HERE) {
+	/* This is OK, we are just trying to find out if they have
+	 * been disabled or deleted in the meantime, missing secrets
+	 * is OK */
+    } else if(ret){
+	const char *krbtgt_realm, *msg;
+
+	/*
+	 * If the client belongs to the same realm as our krbtgt, it
+	 * should exist in the local database.
+	 *
+	 */
+
+	krbtgt_realm = krb5_principal_get_realm(context, krbtgt_out->entry.principal);
+
+	if(strcmp(krb5_principal_get_realm(context, cp), krbtgt_realm) == 0) {
+	    if (ret == HDB_ERR_NOENTRY)
+		ret = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;
+	    kdc_log(context, config, 1, "Client no longer in database: %s",
+		    cpn);
+	    goto out;
+	}
+
+	msg = krb5_get_error_message(context, ret);
+	kdc_log(context, config, 1, "Client not found in database: %s", msg);
+	krb5_free_error_message(context, msg);
+    }
+
+    ret = check_PAC(context, config, cp, NULL,
+		    client, server, krbtgt,
+		    &tkey_check->key,
+		    tkey_krbtgt_check ? &tkey_krbtgt_check->key : NULL,
+		    ekey, &tkey_sign->key,
 		    tgt, &rspac, &signedpath);
     if (ret) {
 	const char *msg = krb5_get_error_message(context, ret);
@@ -1722,7 +1879,9 @@ server_lookup:
      * Process request
      */
 
-    client_principal = cp;
+    /* by default the tgt principal matches the client principal */
+    tp = cp;
+    tpn = cpn;
 
     if (client) {
 	const PA_DATA *sdata;
@@ -1733,7 +1892,6 @@ server_lookup:
 	    krb5_crypto crypto;
 	    krb5_data datack;
 	    PA_S4U2Self self;
-	    char *selfcpn = NULL;
 	    const char *str;
 
 	    ret = decode_PA_S4U2Self(sdata->padata_value.data,
@@ -1776,28 +1934,71 @@ server_lookup:
 	    }
 
 	    ret = _krb5_principalname2krb5_principal(context,
-						     &client_principal,
+						     &tp,
 						     self.name,
 						     self.realm);
 	    free_PA_S4U2Self(&self);
 	    if (ret)
 		goto out;
 
-	    ret = krb5_unparse_name(context, client_principal, &selfcpn);	
+	    ret = krb5_unparse_name(context, tp, &tpn);
 	    if (ret)
 		goto out;
+
+	    /* If we were about to put a PAC into the ticket, we better fix it to be the right PAC */
+	    if(rspac.data) {
+		krb5_pac p = NULL;
+		krb5_data_free(&rspac);
+		ret = _kdc_db_fetch(context, config, tp, HDB_F_GET_CLIENT | flags,
+				    NULL, &s4u2self_impersonated_clientdb, &s4u2self_impersonated_client);
+		if (ret) {
+		    const char *msg;
+
+		    /*
+		     * If the client belongs to the same realm as our krbtgt, it
+		     * should exist in the local database.
+		     *
+		     */
+
+		    if (ret == HDB_ERR_NOENTRY)
+			ret = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;
+		    msg = krb5_get_error_message(context, ret);
+		    kdc_log(context, config, 1,
+			    "S2U4Self principal to impersonate %s not found in database: %s",
+			    tpn, msg);
+		    krb5_free_error_message(context, msg);
+		    goto out;
+		}
+		ret = _kdc_pac_generate(context, s4u2self_impersonated_client, &p);
+		if (ret) {
+		    kdc_log(context, config, 0, "PAC generation failed for -- %s",
+			    tpn);
+		    goto out;
+		}
+		if (p != NULL) {
+		    ret = _krb5_pac_sign(context, p, ticket->ticket.authtime,
+					 s4u2self_impersonated_client->entry.principal,
+					 ekey, &tkey_sign->key,
+					 &rspac);
+		    krb5_pac_free(context, p);
+		    if (ret) {
+			kdc_log(context, config, 0, "PAC signing failed for -- %s",
+				tpn);
+			goto out;
+		    }
+		}
+	    }
 
 	    /*
 	     * Check that service doing the impersonating is
 	     * requesting a ticket to it-self.
 	     */
-	    if (krb5_principal_compare(context, cp, sp) != TRUE) {
+	    ret = check_s4u2self(context, config, clientdb, client, sp);
+	    if (ret) {
 		kdc_log(context, config, 0, "S4U2Self: %s is not allowed "
-			"to impersonate some other user "
+			"to impersonate to service "
 			"(tried for user %s to service %s)",
-			cpn, selfcpn, spn);
-		free(selfcpn);
-		ret = KRB5KDC_ERR_BADOPTION; /* ? */
+			cpn, tpn, spn);
 		goto out;
 	    }
 
@@ -1813,8 +2014,7 @@ server_lookup:
 		str = "";
 	    }
 	    kdc_log(context, config, 0, "s4u2self %s impersonating %s to "
-		    "service %s %s", cpn, selfcpn, spn, str);
-	    free(selfcpn);
+		    "service %s %s", cpn, tpn, spn, str);
 	}
     }
 
@@ -1830,7 +2030,6 @@ server_lookup:
 	int ad_signedpath = 0;
 	Key *clientkey;
 	Ticket *t;
-	char *str;
 
 	/*
 	 * Require that the KDC have issued the service's krbtgt (not
@@ -1861,38 +2060,72 @@ server_lookup:
 	    goto out;
 	}
 
-	/* check that ticket is valid */
-	if (adtkt.flags.forwardable == 0) {
-	    kdc_log(context, config, 0,
-		    "Missing forwardable flag on ticket for "
-		    "constrained delegation from %s to %s ", cpn, spn);
-	    ret = KRB5KDC_ERR_BADOPTION;
-	    goto out;
-	}
-
-	ret = check_constrained_delegation(context, config, clientdb, 
-					   client, sp);
-	if (ret) {
-	    kdc_log(context, config, 0,
-		    "constrained delegation from %s to %s not allowed",
-		    cpn, spn);
-	    goto out;
-	}
-
 	ret = _krb5_principalname2krb5_principal(context,
-						 &client_principal,
+						 &tp,
 						 adtkt.cname,
 						 adtkt.crealm);
 	if (ret)
 	    goto out;
 
-	ret = krb5_unparse_name(context, client_principal, &str);
+	ret = krb5_unparse_name(context, tp, &tpn);
 	if (ret)
 	    goto out;
 
-	ret = verify_flags(context, config, &adtkt, str);
+	ret = _krb5_principalname2krb5_principal(context,
+						 &dp,
+						 t->sname,
+						 t->realm);
+	if (ret)
+	    goto out;
+
+	ret = krb5_unparse_name(context, dp, &dpn);
+	if (ret)
+	    goto out;
+
+	/* check that ticket is valid */
+	if (adtkt.flags.forwardable == 0) {
+	    kdc_log(context, config, 0,
+		    "Missing forwardable flag on ticket for "
+		    "constrained delegation from %s (%s) as %s to %s ",
+		    cpn, dpn, tpn, spn);
+	    ret = KRB5KDC_ERR_BADOPTION;
+	    goto out;
+	}
+
+	ret = check_constrained_delegation(context, config, clientdb,
+					   client, server, sp);
 	if (ret) {
-	    free(str);
+	    kdc_log(context, config, 0,
+		    "constrained delegation from %s (%s) as %s to %s not allowed",
+		    cpn, dpn, tpn, spn);
+	    goto out;
+	}
+
+	ret = verify_flags(context, config, &adtkt, tpn);
+	if (ret) {
+	    goto out;
+	}
+
+	krb5_data_free(&rspac);
+
+	/*
+	 * generate the PAC for the user.
+	 *
+	 * TODO: pass in t->sname and t->realm and build
+	 * a S4U_DELEGATION_INFO blob to the PAC.
+	 */
+	ret = check_PAC(context, config, tp, dp,
+			client, server, krbtgt,
+			&clientkey->key, &tkey_check->key,
+			ekey, &tkey_sign->key,
+			&adtkt, &rspac, &ad_signedpath);
+	if (ret) {
+	    const char *msg = krb5_get_error_message(context, ret);
+	    kdc_log(context, config, 0,
+		    "Verify delegated PAC failed to %s for client"
+		    "%s (%s) as %s from %s with %s",
+		    spn, cpn, dpn, tpn, from, msg);
+	    krb5_free_error_message(context, msg);
 	    goto out;
 	}
 
@@ -1906,23 +2139,29 @@ server_lookup:
 				   &adtkt,
 				   NULL,
 				   &ad_signedpath);
-	if (ret == 0 && !ad_signedpath)
-	    ret = KRB5KDC_ERR_BADOPTION;
 	if (ret) {
 	    const char *msg = krb5_get_error_message(context, ret);
 	    kdc_log(context, config, 0,
 		    "KRB5SignedPath check from service %s failed "
-		    "for delegation to %s for client %s "
+		    "for delegation to %s for client %s (%s)"
 		    "from %s failed with %s",
-		    spn, str, cpn, from, msg);
+		    spn, tpn, dpn, cpn, from, msg);
 	    krb5_free_error_message(context, msg);
-	    free(str);
+	    goto out;
+	}
+
+	if (!ad_signedpath) {
+	    ret = KRB5KDC_ERR_BADOPTION;
+	    kdc_log(context, config, 0,
+		    "Ticket not signed with PAC nor SignedPath service %s failed "
+		    "for delegation to %s for client %s (%s)"
+		    "from %s",
+		    spn, tpn, dpn, cpn, from);
 	    goto out;
 	}
 
 	kdc_log(context, config, 0, "constrained delegation for %s "
-		"from %s to %s", str, cpn, spn);
-	free(str);
+		"from %s (%s) to %s", tpn, cpn, dpn, spn);
     }
 
     /*
@@ -1951,7 +2190,7 @@ server_lookup:
 	kdc_log(context, config, 0, "Request from wrong address");
 	goto out;
     }
-	
+
     /*
      * If this is an referral, add server referral data to the
      * auth_data reply .
@@ -1993,7 +2232,7 @@ server_lookup:
     ret = tgs_make_reply(context,
 			 config,
 			 b,
-			 client_principal,
+			 tp,
 			 tgt,
 			 replykey,
 			 rk_is_subkey,
@@ -2002,33 +2241,43 @@ server_lookup:
 			 kvno,
 			 *auth_data,
 			 server,
-			 sp,
+			 rsp,
 			 spn,
 			 client,
 			 cp,
-			 krbtgt,
+			 krbtgt_out,
 			 krbtgt_etype,
 			 spp,
 			 &rspac,
 			 &enc_pa_data,
 			 e_text,
 			 reply);
-	
+
 out:
+    if (tpn != cpn)
+	    free(tpn);
     free(spn);
     free(cpn);
-	
+    if (dpn)
+	free(dpn);
+
     krb5_data_free(&rspac);
     krb5_free_keyblock_contents(context, &sessionkey);
+    if(krbtgt_out)
+	_kdc_free_ent(context, krbtgt_out);
     if(server)
 	_kdc_free_ent(context, server);
     if(client)
 	_kdc_free_ent(context, client);
+    if(s4u2self_impersonated_client)
+	_kdc_free_ent(context, s4u2self_impersonated_client);
 
-    if (client_principal && client_principal != cp)
-	krb5_free_principal(context, client_principal);
+    if (tp && tp != cp)
+	krb5_free_principal(context, tp);
     if (cp)
 	krb5_free_principal(context, cp);
+    if (dp)
+	krb5_free_principal(context, dp);
     if (sp)
 	krb5_free_principal(context, sp);
     if (ref_realm)
@@ -2055,8 +2304,8 @@ _kdc_tgs_rep(krb5_context context,
 {
     AuthorizationData *auth_data = NULL;
     krb5_error_code ret;
-    int i = 0;
     const PA_DATA *tgs_req;
+    int i;
 
     hdb_entry_ex *krbtgt = NULL;
     krb5_ticket *ticket = NULL;
@@ -2075,11 +2324,12 @@ _kdc_tgs_rep(krb5_context context,
 	goto out;
     }
 
+    i = 0;
     tgs_req = _kdc_find_padata(req, &i, KRB5_PADATA_TGS_REQ);
 
     if(tgs_req == NULL){
 	ret = KRB5KDC_ERR_PADATA_TYPE_NOSUPP;
-	
+
 	kdc_log(context, config, 0,
 		"TGS-REQ from %s without PA-TGS-REQ", from);
 	goto out;
@@ -2095,11 +2345,24 @@ _kdc_tgs_rep(krb5_context context,
 			    &auth_data,
 			    &replykey,
 			    &rk_is_subkey);
+    if (ret == HDB_ERR_NOT_FOUND_HERE) {
+	/* kdc_log() is called in tgs_parse_request() */
+	goto out;
+    }
     if (ret) {
 	kdc_log(context, config, 0,
 		"Failed parsing TGS-REQ from %s", from);
 	goto out;
     }
+    
+    {
+	const PA_DATA *pa;
+	i = 0;
+	pa = _kdc_find_padata(req, &i, KRB5_PADATA_FX_FAST);
+	if (pa)
+	    kdc_log(context, config, 10, "Got TGS FAST request"); 
+    }
+
 
     ret = tgs_build_reply(context,
 			  config,
@@ -2130,16 +2393,22 @@ _kdc_tgs_rep(krb5_context context,
 out:
     if (replykey)
 	krb5_free_keyblock(context, replykey);
-    if(ret && data->data == NULL){
-	krb5_mk_error(context,
-		      ret,
-		      NULL,
-		      NULL,
-		      NULL,
-		      NULL,
-		      csec,
-		      cusec,
-		      data);
+
+    if(ret && ret != HDB_ERR_NOT_FOUND_HERE && data->data == NULL){
+	/* XXX add fast wrapping on the error */
+	METHOD_DATA error_method = { 0, NULL };
+	
+
+	kdc_log(context, config, 10, "tgs-req: sending error: %d to client", ret);
+	ret = _kdc_fast_mk_error(context, NULL,
+				 &error_method,
+				 NULL,
+				 NULL,
+				 ret, NULL,
+				 NULL, NULL,
+				 csec, cusec,
+				 data);
+	free_METHOD_DATA(&error_method);
     }
     free(csec);
     free(cusec);
@@ -2153,5 +2422,5 @@ out:
 	free(auth_data);
     }
 
-    return 0;
+    return ret;
 }

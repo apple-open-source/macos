@@ -41,6 +41,7 @@
 #include "ProgressTracker.h"
 #include "ResourceHandle.h"
 #include "SecurityOrigin.h"
+#include "SecurityPolicy.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/UnusedParam.h>
 #include <wtf/text/CString.h>
@@ -55,13 +56,16 @@ void PingLoader::loadImage(Frame* frame, const KURL& url)
     }
 
     ResourceRequest request(url);
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
     request.setTargetType(ResourceRequest::TargetIsImage);
+#endif
     request.setHTTPHeaderField("Cache-Control", "max-age=0");
-    if (!SecurityOrigin::shouldHideReferrer(request.url(), frame->loader()->outgoingReferrer()))
-        request.setHTTPReferrer(frame->loader()->outgoingReferrer());
+    String referrer = SecurityPolicy::generateReferrerHeader(frame->document()->referrerPolicy(), request.url(), frame->loader()->outgoingReferrer());
+    if (!referrer.isEmpty())
+        request.setHTTPReferrer(referrer);
     frame->loader()->addExtraFieldsToSubresourceRequest(request);
     OwnPtr<PingLoader> pingLoader = adoptPtr(new PingLoader(frame, request));
-    
+
     // Leak the ping loader, since it will kill itself as soon as it receives a response.
     PingLoader* leakedPingLoader = pingLoader.leakPtr();
     UNUSED_PARAM(leakedPingLoader);
@@ -71,7 +75,9 @@ void PingLoader::loadImage(Frame* frame, const KURL& url)
 void PingLoader::sendPing(Frame* frame, const KURL& pingURL, const KURL& destinationURL)
 {
     ResourceRequest request(pingURL);
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
     request.setTargetType(ResourceRequest::TargetIsSubresource);
+#endif
     request.setHTTPMethod("POST");
     request.setHTTPContentType("text/ping");
     request.setHTTPBody(FormData::create("PING"));
@@ -82,12 +88,16 @@ void PingLoader::sendPing(Frame* frame, const KURL& pingURL, const KURL& destina
     RefPtr<SecurityOrigin> pingOrigin = SecurityOrigin::create(pingURL);
     FrameLoader::addHTTPOriginIfNeeded(request, sourceOrigin->toString());
     request.setHTTPHeaderField("Ping-To", destinationURL);
-    if (sourceOrigin->isSameSchemeHostPort(pingOrigin.get()))
-        request.setHTTPHeaderField("Ping-From", frame->document()->url());
-    else if (!SecurityOrigin::shouldHideReferrer(pingURL, frame->loader()->outgoingReferrer()))
-        request.setHTTPReferrer(frame->loader()->outgoingReferrer());
+    if (!SecurityPolicy::shouldHideReferrer(pingURL, frame->loader()->outgoingReferrer())) {
+      request.setHTTPHeaderField("Ping-From", frame->document()->url());
+      if (!sourceOrigin->isSameSchemeHostPort(pingOrigin.get())) {
+          String referrer = SecurityPolicy::generateReferrerHeader(frame->document()->referrerPolicy(), pingURL, frame->loader()->outgoingReferrer());
+          if (!referrer.isEmpty())
+              request.setHTTPReferrer(referrer);
+      }
+    }
     OwnPtr<PingLoader> pingLoader = adoptPtr(new PingLoader(frame, request));
-    
+
     // Leak the ping loader, since it will kill itself as soon as it receives a response.
     PingLoader* leakedPingLoader = pingLoader.leakPtr();
     UNUSED_PARAM(leakedPingLoader);
@@ -96,14 +106,17 @@ void PingLoader::sendPing(Frame* frame, const KURL& pingURL, const KURL& destina
 void PingLoader::reportContentSecurityPolicyViolation(Frame* frame, const KURL& reportURL, PassRefPtr<FormData> report)
 {
     ResourceRequest request(reportURL);
+#if PLATFORM(CHROMIUM) || PLATFORM(BLACKBERRY)
     request.setTargetType(ResourceRequest::TargetIsSubresource);
+#endif
     request.setHTTPMethod("POST");
     request.setHTTPContentType("application/x-www-form-urlencoded");
     request.setHTTPBody(report);
     frame->loader()->addExtraFieldsToSubresourceRequest(request);
 
-    if (!SecurityOrigin::shouldHideReferrer(reportURL, frame->loader()->outgoingReferrer()))
-        request.setHTTPReferrer(frame->loader()->outgoingReferrer());
+    String referrer = SecurityPolicy::generateReferrerHeader(frame->document()->referrerPolicy(), reportURL, frame->loader()->outgoingReferrer());
+    if (!referrer.isEmpty())
+        request.setHTTPReferrer(referrer);
     OwnPtr<PingLoader> pingLoader = adoptPtr(new PingLoader(frame, request));
 
     // Leak the ping loader, since it will kill itself as soon as it receives a response.
@@ -115,6 +128,11 @@ PingLoader::PingLoader(Frame* frame, ResourceRequest& request)
     : m_timeout(this, &PingLoader::timeout)
 {
     unsigned long identifier = frame->page()->progress()->createUniqueIdentifier();
+    // FIXME: Why activeDocumentLoader? I would have expected documentLoader().
+    // Itseems like the PingLoader should be associated with the current
+    // Document in the Frame, but the activeDocumentLoader will be associated
+    // with the provisional DocumentLoader if there is a provisional
+    // DocumentLoader.
     m_shouldUseCredentialStorage = frame->loader()->client()->shouldUseCredentialStorage(frame->loader()->activeDocumentLoader(), identifier);
     m_handle = ResourceHandle::create(frame->loader()->networkingContext(), request, this, false, false);
 
@@ -127,7 +145,8 @@ PingLoader::PingLoader(Frame* frame, ResourceRequest& request)
 
 PingLoader::~PingLoader()
 {
-    m_handle->cancel();
+    if (m_handle)
+        m_handle->cancel();
 }
 
 }

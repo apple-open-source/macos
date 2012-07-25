@@ -29,10 +29,12 @@
 #include "CoreIPCMessageKinds.h"
 #include "MachPort.h"
 #include "MachUtilities.h"
-#include "RunLoop.h"
+#include <WebCore/RunLoop.h>
+#include <mach/mach_error.h>
 #include <mach/vm_map.h>
 
 using namespace std;
+using namespace WebCore;
 
 namespace CoreIPC {
 
@@ -104,11 +106,11 @@ bool Connection::open()
     setMachPortQueueLength(m_receivePort, MACH_PORT_QLIMIT_LARGE);
 
     // Register the data available handler.
-    m_connectionQueue.registerMachPortEventHandler(m_receivePort, WorkQueue::MachPortDataAvailable, WorkItem::create(this, &Connection::receiveSourceEventHandler));
+    m_connectionQueue.registerMachPortEventHandler(m_receivePort, WorkQueue::MachPortDataAvailable, bind(&Connection::receiveSourceEventHandler, this));
 
     // If we have an exception port, register the data available handler and send over the port to the other end.
     if (m_exceptionPort) {
-        m_connectionQueue.registerMachPortEventHandler(m_exceptionPort, WorkQueue::MachPortDataAvailable, WorkItem::create(this, &Connection::exceptionSourceEventHandler));
+        m_connectionQueue.registerMachPortEventHandler(m_exceptionPort, WorkQueue::MachPortDataAvailable, bind(&Connection::exceptionSourceEventHandler, this));
 
         deprecatedSend(CoreIPCMessage::SetExceptionPort, 0, MachPort(m_exceptionPort, MACH_MSG_TYPE_MAKE_SEND));
     }
@@ -225,7 +227,7 @@ bool Connection::sendOutgoingMessage(MessageID messageID, PassOwnPtr<ArgumentEnc
 
 void Connection::initializeDeadNameSource()
 {
-    m_connectionQueue.registerMachPortEventHandler(m_sendPort, WorkQueue::MachPortDeadNameNotification, WorkItem::create(this, &Connection::connectionDidClose));
+    m_connectionQueue.registerMachPortEventHandler(m_sendPort, WorkQueue::MachPortDeadNameNotification, bind(&Connection::connectionDidClose, this));
 }
 
 static PassOwnPtr<ArgumentDecoder> createArgumentDecoder(mach_msg_header_t* header)
@@ -404,7 +406,7 @@ void Connection::exceptionSourceEventHandler()
     // Now send along the message.
     kern_return_t kr = mach_msg(header, MACH_SEND_MSG, header->msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     if (kr != KERN_SUCCESS) {
-        LOG_ERROR("Failed to send message to real exception port, error %x", kr);
+        LOG_ERROR("Failed to send message to real exception port. %s (%x)", mach_error_string(kr), kr);
         ASSERT_NOT_REACHED();
     }
 

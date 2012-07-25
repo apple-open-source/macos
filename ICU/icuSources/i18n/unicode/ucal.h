@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- * Copyright (C) 1996-2011, International Business Machines Corporation and
+ * Copyright (C) 1996-2012, International Business Machines Corporation and
  * others. All Rights Reserved.
  *******************************************************************************
  */
@@ -139,6 +139,12 @@
  *
  * @stable ICU 2.0
  */
+
+/**
+ * The time zone ID reserved for unknown time zone.
+ * @stable ICU 4.8
+ */
+#define UCAL_UNKNOWN_ZONE_ID "Etc/Unknown"
 
 /** A calendar.
  *  For usage in C programs.
@@ -516,6 +522,53 @@ enum UCalendarAMPMs {
 typedef enum UCalendarAMPMs UCalendarAMPMs;
 
 /**
+ * System time zone type constants used by filtering zones
+ * in ucal_openTimeZoneIDEnumeration.
+ * @see ucal_openTimeZoneIDEnumeration
+ * @stable ICU 4.8
+ */
+enum USystemTimeZoneType {
+    /**
+     * Any system zones.
+     * @stable ICU 4.8
+     */
+    UCAL_ZONE_TYPE_ANY,
+    /**
+     * Canonical system zones.
+     * @stable ICU 4.8
+     */
+    UCAL_ZONE_TYPE_CANONICAL,
+    /**
+     * Canonical system zones associated with actual locations.
+     * @stable ICU 4.8
+     */
+    UCAL_ZONE_TYPE_CANONICAL_LOCATION
+};
+
+/** @stable ICU 4.8 */
+typedef enum USystemTimeZoneType USystemTimeZoneType;
+
+/** 
+ * Create an enumeration over system time zone IDs with the given
+ * filter conditions. 
+ * @param zoneType  The system time zone type.
+ * @param region    The ISO 3166 two-letter country code or UN M.49
+ *                  three-digit area code.  When NULL, no filtering
+ *                  done by region. 
+ * @param rawOffset An offset from GMT in milliseconds, ignoring the
+ *                  effect of daylight savings time, if any. When NULL,
+ *                  no filtering done by zone offset.
+ * @param ec        A pointer to an UErrorCode to receive any errors
+ * @return  an enumeration object that the caller must dispose of
+ *          using enum_close(), or NULL upon failure. In case of failure,
+ *          *ec will indicate the error.
+ * @stable ICU 4.8
+ */ 
+U_DRAFT UEnumeration* U_EXPORT2
+ucal_openTimeZoneIDEnumeration(USystemTimeZoneType zoneType, const char* region,
+                                const int32_t* rawOffset, UErrorCode* ec);
+
+/**
  * Create an enumeration over all time zones.
  *
  * @param ec input/output error code
@@ -612,10 +665,10 @@ ucal_getNow(void);
  * A UCalendar may be used to convert a millisecond value to a year,
  * month, and day.
  * <p>
- * Note: When unknown TimeZone ID is specified, the UCalendar returned
- * by the function is initialized with GMT ("Etc/GMT") without any
- * errors/warnings.  If you want to check if a TimeZone ID is valid,
- * use ucal_getCanonicalTimeZoneID prior to this function.
+ * Note: When unknown TimeZone ID is specified or if the TimeZone ID specified is "Etc/Unknown",
+ * the UCalendar returned by the function is initialized with GMT zone with TimeZone ID
+ * <code>UCAL_UNKNOWN_ZONE_ID</code> ("Etc/Unknown") without any errors/warnings.  If you want
+ * to check if a TimeZone ID is valid prior to this function, use <code>ucal_getCanonicalTimeZoneID</code>.
  * 
  * @param zoneID The desired TimeZone ID.  If 0, use the default time zone.
  * @param len The length of zoneID, or -1 if null-terminated.
@@ -627,6 +680,7 @@ ucal_getNow(void);
  * and then pass the locale to ucal_open with UCAL_DEFAULT as the type.
  * @param status A pointer to an UErrorCode to receive any errors
  * @return A pointer to a UCalendar, or 0 if an error occurred.
+ * @see #UCAL_UNKNOWN_ZONE_ID
  * @stable ICU 2.0
  */
 U_STABLE UCalendar* U_EXPORT2 
@@ -793,16 +847,73 @@ ucal_getGregorianChange(const UCalendar *cal, UErrorCode *pErrorCode);
  * @stable ICU 2.0
  */
 enum UCalendarAttribute {
-    /** Lenient parsing */
+  /**
+   * Lenient parsing
+   * @stable ICU 2.0
+   */
   UCAL_LENIENT,
-  /** First day of week */
+  /**
+   * First day of week
+   * @stable ICU 2.0
+   */
   UCAL_FIRST_DAY_OF_WEEK,
-  /** Minimum number of days in first week */
+  /**
+   * Minimum number of days in first week
+   * @stable ICU 2.0
+   */
   UCAL_MINIMAL_DAYS_IN_FIRST_WEEK
+#ifndef U_HIDE_DRAFT_API
+  ,
+  /**
+   * The behavior for handling wall time repeating multiple times
+   * at negative time zone offset transitions
+   * @draft ICU 49
+   */
+  UCAL_REPEATED_WALL_TIME,
+  /**
+   * The behavior for handling skipped wall time at positive time
+   * zone offset transitions.
+   * @draft ICU 49
+   */
+  UCAL_SKIPPED_WALL_TIME
+#endif  /* U_HIDE_DRAFT_API */
 };
 
 /** @stable ICU 2.0 */
 typedef enum UCalendarAttribute UCalendarAttribute;
+
+/**
+ * Options for handling ambiguous wall time at time zone
+ * offset transitions.
+ * @draft ICU 49
+ */
+enum UCalendarWallTimeOption {
+    /**
+     * An ambiguous wall time to be interpreted as the latest.
+     * This option is valid for UCAL_REPEATED_WALL_TIME and
+     * UCAL_SKIPPED_WALL_TIME.
+     * @draft ICU 49
+     */
+    UCAL_WALLTIME_LAST
+#ifndef U_HIDE_DRAFT_API
+    ,
+    /**
+     * An ambiguous wall time to be interpreted as the earliest.
+     * This option is valid for UCAL_REPEATED_WALL_TIME and
+     * UCAL_SKIPPED_WALL_TIME.
+     * @draft ICU 49
+     */
+    UCAL_WALLTIME_FIRST,
+    /**
+     * An ambiguous wall time to be interpreted as the next valid
+     * wall time. This option is valid for UCAL_SKIPPED_WALL_TIME.
+     * @draft ICU 49
+     */
+    UCAL_WALLTIME_NEXT_VALID
+#endif  /* U_HIDE_DRAFT_API */
+};
+/** @draft ICU 49 */
+typedef enum UCalendarWallTimeOption UCalendarWallTimeOption;
 
 /**
  * Get a numeric attribute associated with a UCalendar.
@@ -810,7 +921,7 @@ typedef enum UCalendarAttribute UCalendarAttribute;
  * of days in the first week of the month.
  * @param cal The UCalendar to query.
  * @param attr The desired attribute; one of UCAL_LENIENT, UCAL_FIRST_DAY_OF_WEEK,
- * or UCAL_MINIMAL_DAYS_IN_FIRST_WEEK
+ * UCAL_MINIMAL_DAYS_IN_FIRST_WEEK, UCAL_REPEATED_WALL_TIME or UCAL_SKIPPED_WALL_TIME
  * @return The value of attr.
  * @see ucal_setAttribute
  * @stable ICU 2.0
@@ -825,7 +936,7 @@ ucal_getAttribute(const UCalendar*    cal,
  * of days in the first week of the month.
  * @param cal The UCalendar to set.
  * @param attr The desired attribute; one of UCAL_LENIENT, UCAL_FIRST_DAY_OF_WEEK,
- * or UCAL_MINIMAL_DAYS_IN_FIRST_WEEK
+ * UCAL_MINIMAL_DAYS_IN_FIRST_WEEK, UCAL_REPEATED_WALL_TIME or UCAL_SKIPPED_WALL_TIME
  * @param newValue The new value of attr.
  * @see ucal_getAttribute
  * @stable ICU 2.0
@@ -1301,14 +1412,13 @@ ucal_isWeekend(const UCalendar *cal, UDate date, UErrorCode *status);
  * UCAL_MILLISECOND, UCAL_ZONE_OFFSET, UCAL_DST_OFFSET.
  * @param status A pointer to an UErrorCode to receive any errors
  * @return The date difference for the specified field.
- * @internal ICU 4.8 technology preview
+ * @stable ICU 4.8
  */
-U_INTERNAL int32_t U_EXPORT2 
+U_DRAFT int32_t U_EXPORT2 
 ucal_getFieldDifference(UCalendar* cal,
                         UDate target,
                         UCalendarDateFields field,
                         UErrorCode* status);
-
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

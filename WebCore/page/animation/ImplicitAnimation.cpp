@@ -29,18 +29,17 @@
 #include "config.h"
 
 #include "AnimationControllerPrivate.h"
+#include "CSSPropertyAnimation.h"
 #include "CompositeAnimation.h"
-#include "CSSPropertyNames.h"
 #include "EventNames.h"
 #include "ImplicitAnimation.h"
 #include "KeyframeAnimation.h"
-#include "RenderLayer.h"
-#include "RenderLayerBacking.h"
+#include "RenderBoxModelObject.h"
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
-ImplicitAnimation::ImplicitAnimation(const Animation* transition, int animatingProperty, RenderObject* renderer, CompositeAnimation* compAnim, RenderStyle* fromStyle)
+ImplicitAnimation::ImplicitAnimation(const Animation* transition, CSSPropertyID animatingProperty, RenderObject* renderer, CompositeAnimation* compAnim, RenderStyle* fromStyle)
     : AnimationBase(transition, renderer, compAnim)
     , m_transitionProperty(transition->property())
     , m_animatingProperty(animatingProperty)
@@ -48,7 +47,7 @@ ImplicitAnimation::ImplicitAnimation(const Animation* transition, int animatingP
     , m_active(true)
     , m_fromStyle(fromStyle)
 {
-    ASSERT(animatingProperty != cAnimateAll);
+    ASSERT(animatingProperty != CSSPropertyInvalid);
 }
 
 ImplicitAnimation::~ImplicitAnimation()
@@ -79,7 +78,7 @@ void ImplicitAnimation::animate(CompositeAnimation*, RenderObject*, const Render
     if (!animatedStyle)
         animatedStyle = RenderStyle::clone(targetStyle);
 
-    bool needsAnim = blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
+    bool needsAnim = CSSPropertyAnimation::blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
     // FIXME: we also need to detect cases where we have to software animate for other reasons,
     // such as a child using inheriting the transform. https://bugs.webkit.org/show_bug.cgi?id=23902
     if (needsAnim)
@@ -103,17 +102,14 @@ void ImplicitAnimation::getAnimatedStyle(RefPtr<RenderStyle>& animatedStyle)
     if (!animatedStyle)
         animatedStyle = RenderStyle::clone(m_toStyle.get());
 
-    blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
+    CSSPropertyAnimation::blendProperties(this, m_animatingProperty, animatedStyle.get(), m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
 }
 
 bool ImplicitAnimation::startAnimation(double timeOffset)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_object && m_object->hasLayer()) {
-        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
-        if (layer->isComposited())
-            return layer->backing()->startTransition(timeOffset, m_animatingProperty, m_fromStyle.get(), m_toStyle.get());
-    }
+    if (m_object && m_object->isComposited())
+        return toRenderBoxModelObject(m_object)->startTransition(timeOffset, m_animatingProperty, m_fromStyle.get(), m_toStyle.get());
 #else
     UNUSED_PARAM(timeOffset);
 #endif
@@ -126,11 +122,8 @@ void ImplicitAnimation::pauseAnimation(double timeOffset)
         return;
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_object->hasLayer()) {
-        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
-        if (layer->isComposited())
-            layer->backing()->transitionPaused(timeOffset, m_animatingProperty);
-    }
+    if (m_object->isComposited())
+        toRenderBoxModelObject(m_object)->transitionPaused(timeOffset, m_animatingProperty);
 #else
     UNUSED_PARAM(timeOffset);
 #endif
@@ -142,11 +135,8 @@ void ImplicitAnimation::pauseAnimation(double timeOffset)
 void ImplicitAnimation::endAnimation()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_object && m_object->hasLayer()) {
-        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
-        if (layer->isComposited())
-            layer->backing()->transitionFinished(m_animatingProperty);
-    }
+    if (m_object && m_object->isComposited())
+        toRenderBoxModelObject(m_object)->transitionFinished(m_animatingProperty);
 #endif
 }
 
@@ -171,9 +161,7 @@ bool ImplicitAnimation::sendTransitionEvent(const AtomicString& eventType, doubl
         Document::ListenerType listenerType = Document::TRANSITIONEND_LISTENER;
 
         if (shouldSendEventForListener(listenerType)) {
-            String propertyName;
-            if (m_animatingProperty != cAnimateAll)
-                propertyName = getPropertyName(static_cast<CSSPropertyID>(m_animatingProperty));
+            String propertyName = getPropertyName(m_animatingProperty);
                 
             // Dispatch the event
             RefPtr<Element> element = 0;
@@ -211,6 +199,9 @@ void ImplicitAnimation::reset(RenderStyle* to)
         
     // set the transform animation list
     validateTransformFunctionList();
+#if ENABLE(CSS_FILTERS)
+    checkForMatchingFilterFunctionLists();
+#endif
 }
 
 void ImplicitAnimation::setOverridden(bool b)
@@ -222,21 +213,21 @@ void ImplicitAnimation::setOverridden(bool b)
     updateStateMachine(m_overridden ? AnimationStateInputPauseOverride : AnimationStateInputResumeOverride, -1);
 }
 
-bool ImplicitAnimation::affectsProperty(int property) const
+bool ImplicitAnimation::affectsProperty(CSSPropertyID property) const
 {
     return (m_animatingProperty == property);
 }
 
-bool ImplicitAnimation::isTargetPropertyEqual(int prop, const RenderStyle* targetStyle)
+bool ImplicitAnimation::isTargetPropertyEqual(CSSPropertyID prop, const RenderStyle* targetStyle)
 {
     // We can get here for a transition that has not started yet. This would make m_toStyle unset and null. 
     // So we check that here (see <https://bugs.webkit.org/show_bug.cgi?id=26706>)
     if (!m_toStyle)
         return false;
-    return propertiesEqual(prop, m_toStyle.get(), targetStyle);
+    return CSSPropertyAnimation::propertiesEqual(prop, m_toStyle.get(), targetStyle);
 }
 
-void ImplicitAnimation::blendPropertyValueInStyle(int prop, RenderStyle* currentStyle)
+void ImplicitAnimation::blendPropertyValueInStyle(CSSPropertyID prop, RenderStyle* currentStyle)
 {
     // We should never add a transition with a 0 duration and delay. But if we ever did
     // it would have a null toStyle. So just in case, let's check that here. (See
@@ -244,7 +235,7 @@ void ImplicitAnimation::blendPropertyValueInStyle(int prop, RenderStyle* current
     if (!m_toStyle)
         return;
         
-    blendProperties(this, prop, currentStyle, m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
+    CSSPropertyAnimation::blendProperties(this, prop, currentStyle, m_fromStyle.get(), m_toStyle.get(), progress(1, 0, 0));
 }
 
 void ImplicitAnimation::validateTransformFunctionList()
@@ -263,25 +254,39 @@ void ImplicitAnimation::validateTransformFunctionList()
     if (val->operations().isEmpty())
         return;
         
-    // See if the keyframes are valid
-    if (val != toVal) {
-        // A list of length 0 matches anything
-        if (!toVal->operations().isEmpty()) {
-            // If the sizes of the function lists don't match, the lists don't match
-            if (val->operations().size() != toVal->operations().size())
-                return;
-        
-            // If the types of each function are not the same, the lists don't match
-            for (size_t j = 0; j < val->operations().size(); ++j) {
-                if (!val->operations()[j]->isSameType(*toVal->operations()[j]))
-                    return;
-            }
-        }
-    }
+    // An emtpy transform list matches anything.
+    if (val != toVal && !toVal->operations().isEmpty() && !val->operationsMatch(*toVal))
+        return;
 
-    // Keyframes are valid
+    // Transform lists match.
     m_transformFunctionListValid = true;
 }
+
+#if ENABLE(CSS_FILTERS)
+void ImplicitAnimation::checkForMatchingFilterFunctionLists()
+{
+    m_filterFunctionListsMatch = false;
+    
+    if (!m_fromStyle || !m_toStyle)
+        return;
+        
+    const FilterOperations* val = &m_fromStyle->filter();
+    const FilterOperations* toVal = &m_toStyle->filter();
+
+    if (val->operations().isEmpty())
+        val = toVal;
+
+    if (val->operations().isEmpty())
+        return;
+        
+    // An emtpy filter list matches anything.
+    if (val != toVal && !toVal->operations().isEmpty() && !val->operationsMatch(*toVal))
+        return;
+
+    // Filter lists match.
+    m_filterFunctionListsMatch = true;
+}
+#endif
 
 double ImplicitAnimation::timeToNextService()
 {
@@ -292,7 +297,7 @@ double ImplicitAnimation::timeToNextService()
         
     // A return value of 0 means we need service. But if this is an accelerated animation we 
     // only need service at the end of the transition.
-    if (animationOfPropertyIsAccelerated(m_animatingProperty) && isAccelerated()) {
+    if (CSSPropertyAnimation::animationOfPropertyIsAccelerated(m_animatingProperty) && isAccelerated()) {
         bool isLooping;
         getTimeToNextEvent(t, isLooping);
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2005, 2006, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #define ResourceLoader_h
 
 #include "ResourceHandleClient.h"
+#include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 
@@ -56,6 +57,7 @@ namespace WebCore {
 
         FrameLoader* frameLoader() const;
         DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
+        const ResourceRequest& originalRequest() const { return m_originalRequest; }
         
         virtual void cancel(const ResourceError&);
         ResourceError cancelledError();
@@ -64,7 +66,6 @@ namespace WebCore {
         
         virtual void setDefersLoading(bool);
 
-        void setIdentifier(unsigned long identifier) { m_identifier = identifier; }
         unsigned long identifier() const { return m_identifier; }
 
         virtual void releaseResources();
@@ -82,7 +83,7 @@ namespace WebCore {
         void willStopBufferingData(const char*, int);
         virtual void didFinishLoading(double finishTime);
         virtual void didFail(const ResourceError&);
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
         virtual void didReceiveDataArray(CFArrayRef dataArray);
 #endif
 
@@ -108,7 +109,7 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage(ResourceHandle*) { return shouldUseCredentialStorage(); }
         virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didReceiveAuthenticationChallenge(challenge); } 
         virtual void didCancelAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge& challenge) { didCancelAuthenticationChallenge(challenge); } 
-#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+#if HAVE(NETWORK_CFDATA_ARRAY_CALLBACK)
         virtual void didReceiveDataArray(ResourceHandle*, CFArrayRef dataArray);
 #endif
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
@@ -127,24 +128,26 @@ namespace WebCore {
         // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
         virtual bool shouldCacheResponse(ResourceHandle*, CFCachedURLResponseRef);
 #endif
+#if PLATFORM(CHROMIUM)
+        virtual void didDownloadData(ResourceHandle*, int);
+        virtual void didDownloadData(int);
+#endif
 #if ENABLE(BLOB)
         virtual AsyncFileStream* createAsyncFileStream(FileStreamClient*);
 #endif
 
         const KURL& url() const { return m_request.url(); } 
         ResourceHandle* handle() const { return m_handle.get(); }
-        bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
+        bool sendResourceLoadCallbacks() const { return m_options.sendLoadCallbacks; }
 
         bool reachedTerminalState() const { return m_reachedTerminalState; }
 
-        void setShouldBufferData(bool shouldBufferData);
+        void setShouldBufferData(DataBufferingPolicy);
 
     protected:
-        ResourceLoader(Frame*, bool sendResourceLoadCallbacks, bool shouldContentSniff);
+        ResourceLoader(Frame*, ResourceLoaderOptions);
 
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
         friend class ApplicationCacheHost;  // for access to request()
-#endif
         friend class ResourceLoadScheduler; // for access to start()
         // start() actually sends the load to the network (unless the load is being 
         // deferred) and should only be called by ResourceLoadScheduler or setDefersLoading().
@@ -166,6 +169,7 @@ namespace WebCore {
         virtual void didCancel(const ResourceError&) = 0;
 
         ResourceRequest m_request;
+        ResourceRequest m_originalRequest; // Before redirects.
         RefPtr<SharedBuffer> m_resourceData;
         
         unsigned long m_identifier;
@@ -173,14 +177,17 @@ namespace WebCore {
         bool m_reachedTerminalState;
         bool m_calledWillCancel;
         bool m_cancelled;
-        bool m_calledDidFinishLoad;
+        bool m_notifiedLoadComplete;
 
-        bool m_sendResourceLoadCallbacks;
-        bool m_shouldContentSniff;
-        bool m_shouldBufferData;
         bool m_defersLoading;
         ResourceRequest m_deferredRequest;
+        ResourceLoaderOptions m_options;
     };
+
+inline const ResourceResponse& ResourceLoader::response() const
+{
+    return m_response;
+}
 
 }
 

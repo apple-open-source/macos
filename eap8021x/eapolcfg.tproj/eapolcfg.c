@@ -46,6 +46,7 @@
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPUtil.h>
 #include <EAP8021X/EAPOLClientConfiguration.h>
+#include <EAP8021X/EAPOLClientConfigurationPrivate.h>
 #include <EAP8021X/EAPOLControl.h>
 #include <EAP8021X/EAPClientProperties.h>
 #include <EAP8021X/EAPCertificateUtil.h>

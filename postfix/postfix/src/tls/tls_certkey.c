@@ -84,14 +84,16 @@
 
 typedef struct
 {
-        int             len;
-        char    key[ FILENAME_MAX ];
-        int             reserved;
+	int		len;
+	char	key[ FILENAME_MAX ];
+	int		reserved;
 } CallbackUserData;
 
 int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in_user_data );
 
 static CallbackUserData *s_user_data = NULL;
+
+static const char cert_admin_path[] = "/Applications/Server.app/Contents/ServerRoot/usr/sbin/certadmin";
 #endif
 
 /* TLS library. */
@@ -114,8 +116,7 @@ int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in
 	CallbackUserData   *cb_data	= (CallbackUserData *)in_user_data;
 
 	if ( (cb_data == NULL) || strlen( cb_data->key ) == 0 ||
-		 (cb_data->len >= FILENAME_MAX) || (cb_data->len == 0) || !in_buf )
-	{
+		 (cb_data->len >= FILENAME_MAX) || (cb_data->len == 0) || !in_buf ) {
 		msg_error("invalid arguments in callback" );
 		return( 0 );
 	}
@@ -125,8 +126,7 @@ int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in
 
 	/* fork the child */
 	pid_t pid = fork();
-	if ( pid == 0 )
-	{
+	if ( pid == 0 ) {
 		/* child: exec certadmin tool */
 		close(0);
 		close(1);
@@ -134,27 +134,24 @@ int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in
 		dup2( fd[1], 1 );
 
 		/* set up the args list */
-		args[ 0 ] = "/usr/sbin/certadmin";
+		args[ 0 ] = cert_admin_path;
 		args[ 1 ] = "--get-private-key-passphrase";
 		args[ 2 ] = cb_data->key;
 		args[ 3 ] = NULL;
 
 		/* get the passphrase */
-		execv("/usr/sbin/certadmin", args);
-
-		exit( 0 );
-	}
-	else if ( pid > 0 )
-	{
+		execv(cert_admin_path, args);
+		exit( 1 );
+	} else if ( pid > 0 ) {
 		/* parent: wait for the child to terminate */
 		wait( &status );
 		if ( !NORMAL_EXIT_STATUS(status) ) {
 			if ( WIFEXITED(status) )
-				msg_warn("command /usr/sbin/certadmin exit status %d",
-					WEXITSTATUS(status) );
+				msg_warn("command: %s exit status %d",
+					cert_admin_path, WEXITSTATUS(status) );
 			if ( WIFSIGNALED(status) )
-				msg_warn("command /usr/sbin/certadmin killed by signal %d",
-					WTERMSIG(status) );
+				msg_warn("command: %s killed by signal %d",
+					cert_admin_path, WTERMSIG(status) );
 
 			return( 0 );
 		}
@@ -162,15 +159,13 @@ int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in
 		/* parent: read passphrase */
 		len = 0;
 		buf = malloc( in_size );
-		if ( buf == NULL )
-		{
+		if ( buf == NULL ) {
 			msg_error( "memory allocation error" );
 			return( 0 );
 		}
 
 		len = read( fd[0], buf, in_size);
-		if ( len != 0 )
-		{
+		if ( len != 0 ) {
 			/* copy passphrase into buffer & strip off /n */
 			strncpy( in_buf, buf, len - 1 );
 			in_buf[ len - 1 ] = '\0';
@@ -178,7 +173,6 @@ int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in
 	}
 
 	return( strlen(in_buf ) );
-
 } /* apple_password_callback */
 
 #endif
@@ -232,33 +226,25 @@ static int set_cert_stuff(SSL_CTX *ctx, const char *cert_type,
     }
 
 #ifdef __APPLE_OS_X_SERVER__
-	if ( strlen( key_file ) < FILENAME_MAX )
-	{
-		if ( s_user_data == NULL )
-		{
-			s_user_data = malloc( sizeof(CallbackUserData) );
-			if ( s_user_data != NULL )
-			{
-				memset( s_user_data, 0, sizeof(CallbackUserData) );
+	struct stat st;
+	if ( stat(cert_admin_path, &st) == 0 ) {
+		if ( strlen( key_file ) < FILENAME_MAX ) {
+			if ( s_user_data == NULL ) {
+				s_user_data = malloc( sizeof(CallbackUserData) );
+				if ( s_user_data != NULL )
+					memset( s_user_data, 0, sizeof(CallbackUserData) );
 			}
-		}
 
-		if ( s_user_data != NULL )
-		{
-			snprintf( s_user_data->key, FILENAME_MAX, "%s", key_file );
-			s_user_data->len = strlen( s_user_data->key );
+			if ( s_user_data != NULL ) {
+				snprintf( s_user_data->key, FILENAME_MAX, "%s", key_file );
+				s_user_data->len = strlen( s_user_data->key );
 
-			SSL_CTX_set_default_passwd_cb_userdata( ctx, (void *)s_user_data );
-			SSL_CTX_set_default_passwd_cb( ctx, &apple_password_callback );
-		}
-		else
-		{
-			msg_info( "Could not allocate memory for custom callback: %s", key_file );
-		}
-	}
-	else
-	{
-		msg_info( "Key file path too big for custom callback: %s", key_file );
+				SSL_CTX_set_default_passwd_cb_userdata( ctx, (void *)s_user_data );
+				SSL_CTX_set_default_passwd_cb( ctx, &apple_password_callback );
+			} else
+				msg_info( "Could not allocate memory for custom callback: %s", key_file );
+		} else
+			msg_info( "Key file path too big for custom callback: %s", key_file );
 	}
 #endif
 

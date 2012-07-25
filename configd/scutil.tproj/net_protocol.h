@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,16 +36,18 @@
 __BEGIN_DECLS
 
 CFComparisonResult	_compare_protocols	(const void *val1, const void *val2, void *context);
+
+CF_RETURNS_RETAINED
 CFStringRef		_protocol_description	(SCNetworkProtocolRef protocol, Boolean skipEmpty);
 
-void	create_protocol		(int argc, char **argv);
-void	disable_protocol	(int argc, char **argv);
-void	enable_protocol		(int argc, char **argv);
-void	remove_protocol		(int argc, char **argv);
-void	select_protocol		(int argc, char **argv);
-void	set_protocol		(int argc, char **argv);
-void	show_protocol		(int argc, char **argv);
-void	show_protocols		(int argc, char **argv);
+void			create_protocol		(int argc, char **argv);
+void			disable_protocol	(int argc, char **argv);
+void			enable_protocol		(int argc, char **argv);
+void			remove_protocol		(int argc, char **argv);
+void			select_protocol		(int argc, char **argv);
+void			set_protocol		(int argc, char **argv);
+void			show_protocol		(int argc, char **argv);
+void			show_protocols		(int argc, char **argv);
 
 __END_DECLS
 

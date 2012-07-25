@@ -32,9 +32,9 @@
 #include "WebDataSourceImpl.h"
 
 #include "ApplicationCacheHostInternal.h"
-#include "WebURL.h"
-#include "WebURLError.h"
-#include "WebVector.h"
+#include "platform/WebURL.h"
+#include "platform/WebURLError.h"
+#include "platform/WebVector.h"
 
 using namespace WebCore;
 
@@ -121,16 +121,17 @@ void WebDataSourceImpl::setExtraData(ExtraData* extraData)
 
 WebApplicationCacheHost* WebDataSourceImpl::applicationCacheHost()
 {
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     return ApplicationCacheHostInternal::toWebApplicationCacheHost(DocumentLoader::applicationCacheHost());
-#else
-    return 0;
-#endif
 }
 
 void WebDataSourceImpl::setDeferMainResourceDataLoad(bool defer)
 {
     DocumentLoader::setDeferMainResourceDataLoad(defer);
+}
+
+void WebDataSourceImpl::setNavigationStartTime(double navigationStart)
+{
+    timing()->setNavigationStart(navigationStart);
 }
 
 WebNavigationType WebDataSourceImpl::toWebNavigationType(NavigationType type)

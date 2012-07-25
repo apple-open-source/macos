@@ -43,6 +43,15 @@ RCSID("$Id$")
 #include <sys/stat.h>
 #endif
 
+#ifdef HAVE_OPENSSL_OCSP_H
+#include <openssl/ocsp.h>
+#endif
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+#endif
+
 static CONF_PARSER cache_config[] = {
 	{ "enable", PW_TYPE_BOOLEAN,
 	  offsetof(EAP_TLS_CONF, session_cache_enable), NULL, "no" },
@@ -62,6 +71,18 @@ static CONF_PARSER verify_config[] = {
 	  offsetof(EAP_TLS_CONF, verify_client_cert_cmd), NULL, NULL},
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
+
+#ifdef HAVE_OPENSSL_OCSP_H
+static CONF_PARSER ocsp_config[] = {
+	{ "enable", PW_TYPE_BOOLEAN,
+	  offsetof(EAP_TLS_CONF, ocsp_enable), NULL, "no"},
+	{ "override_cert_url", PW_TYPE_BOOLEAN,
+	  offsetof(EAP_TLS_CONF, ocsp_override_url), NULL, "no"},
+	{ "url", PW_TYPE_STRING_PTR,
+	  offsetof(EAP_TLS_CONF, ocsp_url), NULL, NULL },
+ 	{ NULL, -1, 0, NULL, NULL }           /* end the list */
+};
+#endif
 
 static CONF_PARSER module_config[] = {
 	{ "rsa_key_exchange", PW_TYPE_BOOLEAN,
@@ -96,6 +117,8 @@ static CONF_PARSER module_config[] = {
 	  offsetof(EAP_TLS_CONF, include_length), NULL, "yes" },
 	{ "check_crl", PW_TYPE_BOOLEAN,
 	  offsetof(EAP_TLS_CONF, check_crl), NULL, "no"},
+	{ "allow_expired_crl", PW_TYPE_BOOLEAN,
+	  offsetof(EAP_TLS_CONF, allow_expired_crl), NULL, NULL},
 	{ "check_cert_cn", PW_TYPE_STRING_PTR,
 	  offsetof(EAP_TLS_CONF, check_cert_cn), NULL, NULL},
 	{ "cipher_list", PW_TYPE_STRING_PTR,
@@ -105,12 +128,168 @@ static CONF_PARSER module_config[] = {
 	{ "make_cert_command", PW_TYPE_STRING_PTR,
 	  offsetof(EAP_TLS_CONF, make_cert_command), NULL, NULL},
 
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
+	{ "ecdh_curve", PW_TYPE_STRING_PTR,
+	  offsetof(EAP_TLS_CONF, ecdh_curve), NULL, "prime256v1"},
+#endif
+#endif
+
 	{ "cache", PW_TYPE_SUBSECTION, 0, NULL, (const void *) cache_config },
 
 	{ "verify", PW_TYPE_SUBSECTION, 0, NULL, (const void *) verify_config },
 
+#ifdef HAVE_OPENSSL_OCSP_H
+	{ "ocsp", PW_TYPE_SUBSECTION, 0, NULL, (const void *) ocsp_config },
+#endif
+
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
+
+#ifdef __APPLE__
+static char *get_private_key_password_from_keychain(const char *certificate_file, const char *private_key_file)
+{
+        CFDataRef       cert_file_data   = NULL;
+        CFArrayRef      sec_items        = NULL;
+        CFDataRef       cert_data        = NULL;
+        SecTransformRef transform        = NULL;
+        CFDataRef       digest           = NULL;
+        int             digest_len       = 0;
+        char            *hex_digest      = NULL;
+        void            *password_bytes  = NULL;
+        char            *password        = NULL;
+
+        DEBUG2("rlm_eap_tls: retrieving password from keychain for private key file %s", private_key_file);
+
+        /* Read the certificate data. */
+        uint8_t cert_file_buf[2048];
+        int fd = open(certificate_file, O_RDONLY);
+        if (fd < 0) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to open certificate file - %s", certificate_file);
+                goto out;
+        }
+
+        ssize_t bytes_read = 0;
+        if ((bytes_read = read(fd, cert_file_buf, sizeof(cert_file_buf))) < 0) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to read certificate file - %s", certificate_file);
+                goto out;
+        }
+
+        cert_file_data = CFDataCreate(kCFAllocatorDefault, cert_file_buf, bytes_read);
+        if (cert_file_data == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to create CFDataRef with contents of certificate file");
+                goto out;
+        }
+
+        /* Convert the certificate data into a SecCertificateRef. */
+        SecItemImport(cert_file_data, NULL, NULL, NULL, 0, NULL, NULL, &sec_items);
+        if (sec_items == NULL || CFArrayGetCount(sec_items) != 1) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to certificate CFData into SecItems");
+                goto out;
+        }
+
+        SecCertificateRef sec_cert = (SecCertificateRef)CFArrayGetValueAtIndex(sec_items, 0);
+        if (sec_cert == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to extract SecCertificateRef from SecItems");
+                goto out;
+        }
+
+        /* Calculate the SHA1 hash of the certificate data.  The SHA1 hash is
+         * the name under which the password is stored in the keychain.
+         */
+	cert_data = SecCertificateCopyData(sec_cert);
+        if (!cert_data || CFDataGetLength(cert_data) == 0) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to extract certificate data from SecCertificateRef");
+                goto out;
+        }
+        
+        transform = SecDigestTransformCreate(kSecDigestSHA1, 0, NULL);
+        if (transform == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to create SecTransformRef");
+                goto out;
+        }
+
+        SecTransformSetAttribute(transform, kSecTransformInputAttributeName, cert_data, NULL);
+        digest = SecTransformExecute(transform, NULL);
+        if (digest == NULL || ((digest_len = CFDataGetLength(digest)) == 0)) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to calculate the SHA1 hash of the certificate");
+                goto out;
+        }
+
+        /* Convert the SHA1 hash into a hex string. */
+        hex_digest = calloc(2 * digest_len + 1, sizeof(*hex_digest));
+        if (hex_digest == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to allocate memory for the hex version of the certificate's SHA1 hash");
+                goto out;
+        }
+
+        const unsigned char* digest_p = CFDataGetBytePtr(digest);
+        if (digest_p == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to get pointer to transform data");
+                goto out;
+        }
+
+        for (int i = 0;  i < digest_len; i++) {
+                sprintf(&hex_digest[2*i], "%02X", digest_p[i]);
+        }
+
+        DEBUG2("rlm_eap_tls: keychain item name for private key password is %s", hex_digest);
+
+        /* Find the passphrase in the system keychain. */
+        SecKeychainSetUserInteractionAllowed(false);
+
+        const char* keychain_service_name = "Mac OS X Server certificate management";
+        uint32_t password_len = 0;
+        SecKeychainFindGenericPassword(NULL, strlen(keychain_service_name), keychain_service_name,
+                                       strlen(hex_digest), hex_digest, &password_len, &password_bytes, NULL);
+        if (password_bytes == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to find private key password in keychain");
+                goto out;
+        }
+
+        /* Convert the keychain's passphrase into a C-string that can be returned. */
+        password = calloc(password_len + 1, sizeof(*password));
+        if (password == NULL) {
+                radlog(L_ERR, "rlm_eap_tls: Unable to allocate memory for the private key password");
+        }
+        
+        memcpy(password, password_bytes, password_len);
+
+ out:
+        if (password_bytes) {
+                memset(password_bytes, 0, password_len);
+		SecKeychainItemFreeContent(NULL, password_bytes);
+        }
+
+        if (hex_digest) {
+                free(hex_digest);
+        }
+
+        if (digest) {
+                CFRelease(digest);
+        }
+
+        if (transform) {
+                CFRelease(transform);
+        }
+
+        if (cert_data) {
+                CFRelease(cert_data);
+        }
+
+        if (sec_items) {
+                CFRelease(sec_items);
+        }
+
+        if (cert_file_data) {
+                CFRelease(cert_file_data);
+        }
+
+        close(fd);
+
+        return password;
+}
+#endif /* __APPLE__ */
 
 
 /*
@@ -143,7 +322,6 @@ static int load_dh_params(SSL_CTX *ctx, char *file)
 	DH_free(dh);
 	return 0;
 }
-
 
 /*
  *	Generate ephemeral RSA keys.
@@ -223,6 +401,169 @@ static SSL_SESSION *cbtls_get_session(UNUSED SSL *s,
 	return NULL;
 }
 
+#ifdef HAVE_OPENSSL_OCSP_H
+/*
+ * This function extracts the OCSP Responder URL 
+ * from an existing x509 certificate.
+ */
+static int ocsp_parse_cert_url(X509 *cert, char **phost, char **pport,
+			       char **ppath, int *pssl)
+{
+	int i;
+	
+	AUTHORITY_INFO_ACCESS *aia;
+	ACCESS_DESCRIPTION *ad;
+	
+	aia = X509_get_ext_d2i(cert, NID_info_access, NULL, NULL);
+
+	for (i = 0; i < sk_ACCESS_DESCRIPTION_num(aia); i++) {
+		ad = sk_ACCESS_DESCRIPTION_value(aia, 0);
+		if (OBJ_obj2nid(ad->method) == NID_ad_OCSP) {
+			if (ad->location->type == GEN_URI) {
+				if(OCSP_parse_url(ad->location->d.ia5->data, 
+					phost, pport, ppath, pssl))
+					return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+/*
+ * This function sends a OCSP request to a defined OCSP responder
+ * and checks the OCSP response for correctness.
+ */
+
+/* Maximum leeway in validity period: default 5 minutes */
+#define MAX_VALIDITY_PERIOD     (5 * 60)
+
+static int ocsp_check(X509_STORE *store, X509 *issuer_cert, X509 *client_cert,
+		      EAP_TLS_CONF *conf)
+{
+	OCSP_CERTID *certid;
+	OCSP_REQUEST *req;
+	OCSP_RESPONSE *resp;
+	OCSP_BASICRESP *bresp = NULL;
+	char *host = NULL;
+	char *port = NULL;
+	char *path = NULL;
+	int use_ssl = -1;
+	long nsec = MAX_VALIDITY_PERIOD, maxage = -1;
+	BIO *cbio, *bio_out;
+	int ocsp_ok = 0;
+	int status ;
+	ASN1_GENERALIZEDTIME *rev, *thisupd, *nextupd;
+	int reason;
+
+	/* 
+	 * Create OCSP Request 
+	 */
+	certid = OCSP_cert_to_id(NULL, client_cert, issuer_cert);
+	req = OCSP_REQUEST_new();
+	OCSP_request_add0_id(req, certid);
+	OCSP_request_add1_nonce(req, NULL, 8);
+	
+	/* 
+	 * Send OCSP Request and get OCSP Response
+	 */
+
+	/* Get OCSP responder URL */ 
+	if(conf->ocsp_override_url) {
+		OCSP_parse_url(conf->ocsp_url, &host, &port, &path, &use_ssl);
+	}
+	else {
+		ocsp_parse_cert_url(client_cert, &host, &port, &path, &use_ssl);
+	}
+	
+	DEBUG2("[ocsp] --> Responder URL = http://%s:%s%s", host, port, path);
+
+	/* Setup BIO socket to OCSP responder */
+	cbio = BIO_new_connect(host);
+
+	bio_out = BIO_new_fp(stdout, BIO_NOCLOSE);
+
+	BIO_set_conn_port(cbio, port);
+	BIO_do_connect(cbio);
+
+	/* Send OCSP request and wait for response */
+	resp = OCSP_sendreq_bio(cbio, path, req);
+	if(resp==0) {
+		radlog(L_ERR, "Error: Couldn't get OCSP response");
+		goto ocsp_end;
+	}
+
+	/* Verify OCSP response status */
+	status = OCSP_response_status(resp);
+	DEBUG2("[ocsp] --> Response status: %s",OCSP_response_status_str(status));
+	if(status != OCSP_RESPONSE_STATUS_SUCCESSFUL) {
+		radlog(L_ERR, "Error: OCSP response status: %s", OCSP_response_status_str(status));
+		goto ocsp_end;
+	}
+	bresp = OCSP_response_get1_basic(resp);
+	if(OCSP_check_nonce(req, bresp)!=1) {
+		radlog(L_ERR, "Error: OCSP response has wrong nonce value");
+		goto ocsp_end;
+	}
+	if(OCSP_basic_verify(bresp, NULL, store, 0)!=1){
+		radlog(L_ERR, "Error: Couldn't verify OCSP basic response");
+		goto ocsp_end;
+	}
+	/*	Verify OCSP cert status */
+	if(!OCSP_resp_find_status(bresp, certid, &status, &reason,
+				                      &rev, &thisupd, &nextupd)) {
+		radlog(L_ERR, "ERROR: No Status found.\n");
+		goto ocsp_end;
+	}
+
+	if (!OCSP_check_validity(thisupd, nextupd, nsec, maxage)) {
+		BIO_puts(bio_out, "WARNING: Status times invalid.\n");
+		ERR_print_errors(bio_out);
+		goto ocsp_end;
+	}
+	BIO_puts(bio_out, "\tThis Update: ");
+        ASN1_GENERALIZEDTIME_print(bio_out, thisupd);
+        BIO_puts(bio_out, "\n");
+	BIO_puts(bio_out, "\tNext Update: ");
+        ASN1_GENERALIZEDTIME_print(bio_out, nextupd);
+        BIO_puts(bio_out, "\n");
+
+	switch (status) {
+	case V_OCSP_CERTSTATUS_GOOD:
+		DEBUG2("[oscp] --> Cert status: good");
+		ocsp_ok = 1; 
+		break;
+
+	default:
+		/* REVOKED / UNKNOWN */
+		DEBUG2("[ocsp] --> Cert status: %s",OCSP_cert_status_str(status));
+                if (reason != -1)
+			DEBUG2("[ocsp] --> Reason: %s", OCSP_crl_reason_str(reason));
+                BIO_puts(bio_out, "\tRevocation Time: ");
+                ASN1_GENERALIZEDTIME_print(bio_out, rev);
+                BIO_puts(bio_out, "\n"); 
+		break;
+	}
+
+ocsp_end:
+	/* Free OCSP Stuff */
+	OCSP_REQUEST_free(req);
+	OCSP_RESPONSE_free(resp);
+	free(host);
+	free(port);
+	free(path);
+	BIO_free_all(cbio);
+	OCSP_BASICRESP_free(bresp);
+
+	if (ocsp_ok) {
+		DEBUG2("[ocsp] --> Certificate is valid!");
+	} else {
+		DEBUG2("[ocsp] --> Certificate has been expired/revoked!");
+	}
+
+	return ocsp_ok;
+}
+#endif	/* HAVE_OPENSSL_OCSP_H */
+
 /*
  *	For creating certificate attributes.
  */
@@ -274,6 +615,7 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	char buf[64];
 	EAP_HANDLER *handler = NULL;
 	X509 *client_cert;
+	X509 *issuer_cert;
 	SSL *ssl;
 	int err, depth, lookup;
 	EAP_TLS_CONF *conf;
@@ -281,6 +623,9 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	REQUEST *request;
 	ASN1_INTEGER *sn = NULL;
 	ASN1_TIME *asn_time = NULL;
+#ifdef HAVE_OPENSSL_OCSP_H
+	X509_STORE *ocsp_store = NULL;
+#endif
 
 	client_cert = X509_STORE_CTX_get_current_cert(ctx);
 	err = X509_STORE_CTX_get_error(ctx);
@@ -302,6 +647,10 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 	handler = (EAP_HANDLER *)SSL_get_ex_data(ssl, 0);
 	request = handler->request;
 	conf = (EAP_TLS_CONF *)SSL_get_ex_data(ssl, 1);
+#ifdef HAVE_OPENSSL_OCSP_H
+	ocsp_store = (X509_STORE *)SSL_get_ex_data(ssl, 2);
+#endif
+
 
 	/*
 	 *	Get the Serial Number
@@ -369,6 +718,16 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 			pairmake(cert_attr_names[EAPTLS_CN][lookup], common_name, T_OP_SET));
 	}
 
+	/*
+	 *	If the CRL has expired, that might still be OK.
+	 */
+	if (!my_ok &&
+	    (conf->allow_expired_crl) &&
+	    (err == X509_V_ERR_CRL_HAS_EXPIRED)) {
+		my_ok = 1;
+		X509_STORE_CTX_set_error( ctx, 0 );
+	}
+
 	if (!my_ok) {
 		const char *p = X509_verify_cert_error_string(err);
 		radlog(L_ERR,"--> verify error:num=%d:%s\n",err, p);
@@ -434,19 +793,31 @@ static int cbtls_verify(int ok, X509_STORE_CTX *ctx)
 			}
 		} /* check_cert_cn */
 
+#ifdef HAVE_OPENSSL_OCSP_H
+		if (my_ok && conf->ocsp_enable){
+			RDEBUG2("--> Starting OCSP Request");
+			if(X509_STORE_CTX_get1_issuer(&issuer_cert, ctx, client_cert)!=1) {
+				radlog(L_ERR, "Error: Couldn't get issuer_cert for %s", common_name);
+			}
+			my_ok = ocsp_check(ocsp_store, issuer_cert, client_cert, conf);
+		}
+#endif
+
 		while (conf->verify_client_cert_cmd) {
 			char filename[256];
+			int fd;
 			FILE *fp;
 
 			snprintf(filename, sizeof(filename), "%s/%s.client.XXXXXXXX",
 				 conf->verify_tmp_dir, progname);
-			if (mkstemp(filename) < 0) {
+			fd = mkstemp(filename);
+			if (fd < 0) {
 				RDEBUG("Failed creating file in %s: %s",
 				       conf->verify_tmp_dir, strerror(errno));
 				break;				       
 			}
 
-			fp = fopen(filename, "w");
+			fp = fdopen(fd, "w");
 			if (!fp) {
 				RDEBUG("Failed opening file %s: %s",
 				       filename, strerror(errno));
@@ -515,6 +886,67 @@ static void eaptls_session_free(UNUSED void *parent, void *data_ptr,
 	pairfree(&vp);
 }
 
+#ifdef HAVE_OPENSSL_OCSP_H
+/*
+ * 	Create Global X509 revocation store and use it to verify
+ * 	OCSP responses
+ *
+ * 	- Load the trusted CAs
+ * 	- Load the trusted issuer certificates
+ */
+static X509_STORE *init_revocation_store(EAP_TLS_CONF *conf)
+{
+	X509_STORE *store = NULL;
+	
+	store = X509_STORE_new();
+
+	/* Load the CAs we trust */
+        if (conf->ca_file || conf->ca_path)
+		if(!X509_STORE_load_locations(store, conf->ca_file, conf->ca_path)) {
+			radlog(L_ERR, "rlm_eap: X509_STORE error %s", ERR_error_string(ERR_get_error(), NULL));
+			radlog(L_ERR, "rlm_eap_tls: Error reading Trusted root CA list %s",conf->ca_file );
+			return NULL;
+		}
+
+#ifdef X509_V_FLAG_CRL_CHECK
+	if (conf->check_crl) 
+		X509_STORE_set_flags(store, X509_V_FLAG_CRL_CHECK);
+#endif
+	return store;
+}
+#endif	/* HAVE_OPENSSL_OCSP_H */
+
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
+static int set_ecdh_curve(SSL_CTX *ctx, const char *ecdh_curve)
+{
+	int      nid; 
+	EC_KEY  *ecdh; 
+
+	if (!ecdh_curve || !*ecdh_curve) return 0;
+
+	nid = OBJ_sn2nid(ecdh_curve); 
+	if (!nid) { 
+		radlog(L_ERR, "Unknown ecdh_curve \"%s\"", ecdh_curve);
+		return -1;
+	}
+
+	ecdh = EC_KEY_new_by_curve_name(nid); 
+	if (!ecdh) { 
+		radlog(L_ERR, "Unable to create new curve \"%s\"", ecdh_curve);
+		return -1;
+	} 
+
+	SSL_CTX_set_tmp_ecdh(ctx, ecdh); 
+
+	SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE); 
+
+	EC_KEY_free(ecdh);
+
+	return 0;
+}
+#endif
+#endif
 
 /*
  *	Create Global context SSL and use it in every new session
@@ -566,45 +998,15 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	if (conf->private_key_password) {
 #ifdef __APPLE__
 		/*
-		 * We don't want to put the private key password in eap.conf, so  check
+		 * We don't want to put the private key password in eap.conf, so check
 		 * for our special string which indicates we should get the password
-		 * programmatically. 
+		 * from the keychain.
 		 */
 		const char* special_string = "Apple:UseCertAdmin";
-		if (strncmp(conf->private_key_password,
-					special_string,
-					strlen(special_string)) == 0)
+		if (strncmp(conf->private_key_password, special_string, strlen(special_string)) == 0)
 		{
-			char cmd[256];
-			const long max_password_len = 128;
-			snprintf(cmd, sizeof(cmd) - 1,
-					 "/usr/sbin/certadmin --get-private-key-passphrase \"%s\"",
-					 conf->private_key_file);
-
-			DEBUG2("rlm_eap: Getting private key passphrase using command \"%s\"", cmd);
-
-			FILE* cmd_pipe = popen(cmd, "r");
-			if (!cmd_pipe) {
-				radlog(L_ERR, "rlm_eap: %s command failed.	Unable to get private_key_password", cmd);
-				radlog(L_ERR, "rlm_eap: Error reading private_key_file %s", conf->private_key_file);
-				return NULL;
-			}
-
 			free(conf->private_key_password);
-			conf->private_key_password = malloc(max_password_len * sizeof(char));
-			if (!conf->private_key_password) {
-				radlog(L_ERR, "rlm_eap: Can't malloc space for private_key_password");
-				radlog(L_ERR, "rlm_eap: Error reading private_key_file %s", conf->private_key_file);
-				pclose(cmd_pipe);
-				return NULL;
-			}
-
-			fgets(conf->private_key_password, max_password_len, cmd_pipe);
-			pclose(cmd_pipe);
-
-			/* Get rid of newline at end of password. */
-			conf->private_key_password[strlen(conf->private_key_password) - 1] = '\0';
-			DEBUG2("rlm_eap:  Password from command = \"%s\"", conf->private_key_password);
+                        conf->private_key_password = get_private_key_password_from_keychain(conf->certificate_file, conf->private_key_file);
 		}
 #endif
 		SSL_CTX_set_default_passwd_cb_userdata(ctx, conf->private_key_password);
@@ -676,6 +1078,11 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 */
    	ctx_options |= SSL_OP_SINGLE_DH_USE;
 
+#ifndef __APPLE__
+        /* Don't enable SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS as it allows the
+         * BEAST MITM attack.
+         */
+
 	/*
 	 *	SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS to work around issues
 	 *	in Windows Vista client.
@@ -683,6 +1090,7 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 *	http://www.nabble.com/(RADIATOR)-Radiator-Version-3.16-released-t2600070.html
 	 */
    	ctx_options |= SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS;
+#endif
 
 	SSL_CTX_set_options(ctx, ctx_options);
 
@@ -691,6 +1099,17 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 	 *	SSL_CTX_set_tmp_rsa_callback(ctx, cbtls_rsa);
 	 *	SSL_CTX_set_tmp_dh_callback(ctx, cbtls_dh);
 	 */
+
+	/*
+	 *	Set eliptical curve crypto configuration.
+	 */
+#if OPENSSL_VERSION_NUMBER >= 0x0090800fL
+#ifndef OPENSSL_NO_ECDH
+	if (set_ecdh_curve(ctx, conf->ecdh_curve) < 0) {
+		return NULL;
+	}
+#endif
+#endif
 
 	/*
 	 *	set the message callback to identify the type of
@@ -817,6 +1236,11 @@ static SSL_CTX *init_tls_ctx(EAP_TLS_CONF *conf)
 							  NULL, NULL, NULL);
 	}
 
+	if (eaptls_store_idx < 0) {
+		eaptls_store_idx = SSL_get_ex_new_index(0, "eaptls_store_idx",
+							  NULL, NULL, NULL);
+	}
+
 	if (eaptls_session_idx < 0) {
 		eaptls_session_idx = SSL_get_ex_new_index(0, "eaptls_session_idx",
 							  NULL, NULL,
@@ -846,6 +1270,11 @@ static int eaptls_detach(void *arg)
 
 	if (inst->ctx) SSL_CTX_free(inst->ctx);
 	inst->ctx = NULL;
+
+#ifdef HAVE_OPENSSL_OCSP_H
+	if (inst->store) X509_STORE_free(inst->store);
+	inst->store = NULL;
+#endif
 
 	free(inst);
 
@@ -945,6 +1374,19 @@ static int eaptls_attach(CONF_SECTION *cs, void **instance)
 		return -1;
 	}
 
+#ifdef HAVE_OPENSSL_OCSP_H
+	/*
+	 * 	Initialize OCSP Revocation Store
+	 */
+	if (conf->ocsp_enable) {
+		inst->store = init_revocation_store(conf);
+		if (inst->store == NULL) {
+			eaptls_detach(inst);
+		  return -1;
+		}
+	}
+#endif /*HAVE_OPENSSL_OCSP_H*/
+
 	if (load_dh_params(inst->ctx, conf->dh_file) < 0) {
 		eaptls_detach(inst);
 		return -1;
@@ -956,8 +1398,6 @@ static int eaptls_attach(CONF_SECTION *cs, void **instance)
         }
 
 	if (conf->verify_tmp_dir) {
-		char filename[256];
-
 		if (chmod(conf->verify_tmp_dir, S_IRWXU) < 0) {
 			radlog(L_ERR, "rlm_eap_tls: Failed changing permissions on %s: %s", conf->verify_tmp_dir, strerror(errno));
 			eaptls_detach(inst);
@@ -1076,6 +1516,9 @@ static int eaptls_initiate(void *type_arg, EAP_HANDLER *handler)
 	 */
 	SSL_set_ex_data(ssn->ssl, 0, (void *)handler);
 	SSL_set_ex_data(ssn->ssl, 1, (void *)inst->conf);
+#ifdef HAVE_OPENSSL_OCSP_H
+	SSL_set_ex_data(ssn->ssl, 2, (void *)inst->store);
+#endif
 
 	ssn->length_flag = inst->conf->include_length;
 

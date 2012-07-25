@@ -1,9 +1,9 @@
 /*
- * "$Id: versioning.h 2347 2010-07-14 07:14:06Z msweet $"
+ * "$Id: versioning.h 3796 2012-04-23 22:54:48Z msweet $"
  *
  *   API versioning definitions for CUPS.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2012 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -20,11 +20,11 @@
 /*
  * This header defines several constants - _CUPS_DEPRECATED,
  * _CUPS_API_1_1, _CUPS_API_1_1_19, _CUPS_API_1_1_20, _CUPS_API_1_1_21,
- * _CUPS_API_1_2, _CUPS_API_1_3, _CUPS_API_1_4, _CUPS_API_1_5 - which add
- * compiler-specific attributes that flag functions that are deprecated or added
- * in particular releases.
+ * _CUPS_API_1_2, _CUPS_API_1_3, _CUPS_API_1_4, _CUPS_API_1_5, _CUPS_API_1_6 -
+ * which add compiler-specific attributes that flag functions that are
+ * deprecated or added in particular releases.
  *
- * On Mac OS X, the _CUPS_API_* constants are defined based on the values of
+ * On OS X, the _CUPS_API_* constants are defined based on the values of
  * the MAC_OS_X_VERSION_MIN_ALLOWED and MAC_OS_X_VERSION_MAX_ALLOWED constants
  * provided by the compiler.
  */
@@ -46,6 +46,9 @@
 #    ifndef AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
 #      define AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER __attribute__((unavailable))
 #    endif /* !AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER */
+#    ifndef AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER
+#      define AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER __attribute__((unavailable))
+#    endif /* !AVAILABLE_MAC_OS_X_VERSION_10_8_AND_LATER */
 #    define _CUPS_API_1_1_19 AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER
 #    define _CUPS_API_1_1_20 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER
 #    define _CUPS_API_1_1_21 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER
@@ -53,6 +56,7 @@
 #    define _CUPS_API_1_3 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER
 #    define _CUPS_API_1_4 AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER
 #    define _CUPS_API_1_5 AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER
+#    define _CUPS_API_1_6
 #  else
 #    define _CUPS_API_1_1_19
 #    define _CUPS_API_1_1_20
@@ -61,6 +65,7 @@
 #    define _CUPS_API_1_3
 #    define _CUPS_API_1_4
 #    define _CUPS_API_1_5
+#    define _CUPS_API_1_6
 #  endif /* __APPLE__ && !_CUPS_SOURCE */
 
 /*
@@ -68,11 +73,11 @@
  * a warning at compile-time.
  */
 
-#  if defined(__GNUC__) && __GNUC__ > 2
+#  if defined(__GNUC__) && __GNUC__ > 2 && !defined(_CUPS_SOURCE)
 #    define _CUPS_DEPRECATED __attribute__ ((__deprecated__))
 #  else
 #    define _CUPS_DEPRECATED
-#  endif /* __GNUC__ && __GNUC__ > 2 */
+#  endif /* __GNUC__ && __GNUC__ > 2 && !_CUPS_SOURCE */
 
 #  ifndef __GNUC__
 #    define __attribute__(x)
@@ -81,5 +86,5 @@
 #endif /* !_CUPS_VERSIONING_H_ */
 
 /*
- * End of "$Id: versioning.h 2347 2010-07-14 07:14:06Z msweet $".
+ * End of "$Id: versioning.h 3796 2012-04-23 22:54:48Z msweet $".
  */

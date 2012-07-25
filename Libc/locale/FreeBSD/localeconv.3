@@ -36,14 +36,22 @@
 .Dt LOCALECONV 3
 .Os
 .Sh NAME
-.Nm localeconv
+.Nm localeconv ,
+.Nm localeconv_l
 .Nd natural language formatting for C
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In locale.h
 .Ft struct lconv *
-.Fn localeconv "void"
+.Fo localeconv
+.Fa "void"
+.Fc
+.In xlocale.h
+.Ft struct lconv *
+.Fo localeconv_l
+.Fa "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn localeconv
@@ -197,6 +205,14 @@ a value that is not in the current locale.
 A
 .Dv CHAR_MAX
 result similarly denotes an unavailable value.
+.Pp
+While the
+.Fn localeconv
+function uses the current locale, the
+.Fn localeconv_l
+function may be passed a locale directly. See
+.Xr xlocale 3
+for more information.
 .Sh RETURN VALUES
 The
 .Fn localeconv
@@ -209,7 +225,8 @@ or
 No errors are defined.
 .Sh SEE ALSO
 .Xr setlocale 3 ,
-.Xr strfmon 3
+.Xr strfmon 3 ,
+.Xr xlocale 3
 .Sh STANDARDS
 The
 .Fn localeconv

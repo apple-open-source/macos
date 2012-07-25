@@ -769,6 +769,7 @@ kern_return_t _io_ups_send_command(
             if (upsDataRef && upsDataRef->upsPlugInInterface)
                 res = (*upsDataRef->upsPlugInInterface)->sendCommand(upsDataRef->upsPlugInInterface, command);
         }
+        CFRelease(command);
     }
 
     return res;

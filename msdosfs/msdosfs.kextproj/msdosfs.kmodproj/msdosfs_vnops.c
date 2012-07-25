@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -97,6 +97,7 @@
 #include "denode.h"
 #include "msdosfsmount.h"
 #include "fat.h"
+#include "msdosfs_kdebug.h"
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -264,12 +265,15 @@ int msdosfs_vnop_create(struct vnop_create_args *ap)
 	vfs_context_t context = ap->a_context;
 	struct vnode_attr *vap = ap->a_vap;
 	struct denode ndirent;
-	struct denode *dep;
+	struct denode *dep = NULL;
 	struct timespec ts;
 	int error;
-	uint32_t offset;		/* byte offset in directory for new entry */
-	uint32_t long_count;	/* number of long name entries needed */
-
+	uint32_t offset = 0;		/* byte offset in directory for new entry */
+	uint32_t long_count = 0;	/* number of long name entries needed */
+	int needs_generation;
+	
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_CREATE|DBG_FUNC_START, pdep->de_pmp, pdep, 0, 0, 0);
+	
 	lck_mtx_lock(pdep->de_lock);
 
 	/*
@@ -297,7 +301,8 @@ int msdosfs_vnop_create(struct vnop_create_args *ap)
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = msdosfs_findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	bzero(&ndirent, sizeof(ndirent));
+	error = msdosfs_findslots(pdep, cnp, ndirent.de_Name, &needs_generation, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
@@ -309,9 +314,9 @@ int msdosfs_vnop_create(struct vnop_create_args *ap)
 	 * On FAT32, we can grow the root directory, and de_StartCluster
 	 * will be the actual cluster number of the root directory.
 	 */
-	if (pdep->de_StartCluster == MSDOSFSROOT
-	    && offset >= pdep->de_FileSize)
+	if (pdep->de_StartCluster == MSDOSFSROOT && offset >= pdep->de_FileSize)
 	{
+        printf("msdosfs_vnop_create: Cannot grow the root directory on FAT12 or FAT16; returning ENOSPC.\n");
 		error = ENOSPC;
 		goto exit;
 	}
@@ -323,8 +328,7 @@ int msdosfs_vnop_create(struct vnop_create_args *ap)
 	 * all files on a volume have a constant mode).  The immutable
 	 * flag is used to set DOS's read-only attribute.
 	 */
-	bzero(&ndirent, sizeof(ndirent));
-	error = msdosfs_uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(pdep, ndirent.de_Name, needs_generation ? offset - long_count * sizeof(struct dosdirentry) : 1, context);
 	if (error)
 	{
 		if (DEBUG) panic("msdosfs_vnop_create: msdosfs_uniqdosname returned %d\n", error);
@@ -372,6 +376,7 @@ int msdosfs_vnop_create(struct vnop_create_args *ap)
 exit:
 	msdosfs_meta_flush(pdep->de_pmp, FALSE);
 	lck_mtx_unlock(pdep->de_lock);
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_CREATE|DBG_FUNC_END, error, dep, offset, long_count, 0);
 	return error;
 }
 
@@ -410,6 +415,7 @@ int msdosfs_vnop_close(struct vnop_close_args *ap)
 	vnode_t vp = ap->a_vp;
 	struct denode *dep = VTODE(vp);
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_CLOSE|DBG_FUNC_START, dep, 0, 0, 0, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	cluster_push(vp, IO_CLOSE);
@@ -417,6 +423,7 @@ int msdosfs_vnop_close(struct vnop_close_args *ap)
 	msdosfs_meta_flush(dep->de_pmp, FALSE);
 
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_CLOSE|DBG_FUNC_END, 0, 0, 0, 0, 0);
 	
 	return 0;
 }
@@ -433,6 +440,7 @@ int msdosfs_vnop_getattr(struct vnop_getattr_args *ap)
 	struct msdosfsmount *pmp = dep->de_pmp;
 	struct vnode_attr *vap = ap->a_vap;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_GETATTR|DBG_FUNC_START, dep, vap->va_active, 0, 0, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	VATTR_RETURN(vap, va_rdev, 0);
@@ -489,6 +497,7 @@ int msdosfs_vnop_getattr(struct vnop_getattr_args *ap)
 	VATTR_RETURN(vap, va_gen, 0);
 	
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_GETATTR|DBG_FUNC_END, 0, vap->va_supported, 0, 0, 0);
 	
 	return 0;
 }
@@ -504,6 +513,7 @@ int msdosfs_vnop_setattr(struct vnop_setattr_args *ap)
 	struct vnode_attr *vap = ap->a_vap;
 	int error = 0;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_SETATTR|DBG_FUNC_START, dep, vap->va_active, vap->va_data_size, vap->va_flags, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	if (VATTR_IS_ACTIVE(vap, va_data_size)) {
@@ -596,6 +606,7 @@ int msdosfs_vnop_setattr(struct vnop_setattr_args *ap)
 
 exit:
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_SETATTR|DBG_FUNC_END, error, vap->va_supported, 0, 0, 0);
 	return error;
 }
 
@@ -629,6 +640,8 @@ int msdosfs_vnop_read(struct vnop_read_args *ap)
 
 	lck_mtx_lock(dep->de_lock);
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READ|DBG_FUNC_START, dep, uio_offset(uio), uio_resid(uio), dep->de_FileSize, 0);
+
 	if (vnode_isreg(vp)) {
 		error = cluster_read(vp, uio, (off_t)dep->de_FileSize, ap->a_ioflag);
 		if (error == 0 && (vfs_flags(pmp->pm_mountp) & (MNT_RDONLY | MNT_NOATIME)) == 0)
@@ -682,6 +695,7 @@ int msdosfs_vnop_read(struct vnop_read_args *ap)
 		} while (error == 0 && uio_resid(uio) > 0 && n != 0);
 	}
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READ|DBG_FUNC_END, error, uio_offset(uio), uio_resid(uio), dep->de_FileSize, 0);	
 	lck_mtx_unlock(dep->de_lock);
 	
 	return error;
@@ -725,6 +739,7 @@ int msdosfs_vnop_write(struct vnop_write_args *ap)
 	}
 	
 	lck_mtx_lock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_WRITE|DBG_FUNC_START, dep, uio_offset(uio), uio_resid(uio), dep->de_FileSize, 0);
 	
 	/*
 	 * Remember some values in case the write fails.
@@ -772,9 +787,19 @@ int msdosfs_vnop_write(struct vnop_write_args *ap)
         count = de_clcount(pmp, offset + original_resid) -
         		de_clcount(pmp, original_size);
 		if ((ioflag & IO_UNIT) && (count > pmp->pm_freeclustercount))
+		{
+			/*
+			 * WARNING!
+			 * We just accessed pmp->pm_freeclustercount without taking the pm_fat_lock.
+			 * Perhaps we should pass a flag to msdosfs_extendfile and let it do the check.
+			 */
 			error = ENOSPC;
+			KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_WRITE, error, count, pmp->pm_freeclustercount, 0, 0);
+		}
         else
+		{
 			error = msdosfs_extendfile(dep, count);
+		}
         if (error &&  (error != ENOSPC || (ioflag & IO_UNIT)))
             goto errexit;
 		filesize = offset + original_resid;
@@ -828,6 +853,7 @@ errexit:
 	msdosfs_meta_flush(pmp, (ioflag & IO_SYNC));
 
 exit:
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_WRITE|DBG_FUNC_END, error, uio_offset(uio), uio_resid(uio), dep->de_FileSize, 0);
 	lck_mtx_unlock(dep->de_lock);
 	return error;
 }
@@ -857,9 +883,11 @@ int msdosfs_vnop_pagein(struct vnop_pagein_args *ap)
 	struct denode *dep = VTODE(vp);
 	int error;
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PAGEIN|DBG_FUNC_START, dep, ap->a_f_offset, ap->a_size, dep->de_FileSize, 0);
 	error = cluster_pagein(vp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset,
 				ap->a_size, (off_t)dep->de_FileSize,
 				ap->a_flags);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PAGEIN|DBG_FUNC_END, error, 0, 0, 0, 0);
 	
 	return error;
 }
@@ -889,11 +917,13 @@ int msdosfs_vnop_pageout(struct vnop_pageout_args *ap)
 	struct denode *dep = VTODE(vp);
 	int error;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PAGEOUT|DBG_FUNC_START, dep, ap->a_f_offset, ap->a_size, dep->de_FileSize, 0);
 	error = cluster_pageout(vp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset,
 				ap->a_size, (off_t)dep->de_FileSize,
 				ap->a_flags);
 	if (!error)
 		dep->de_flag |= DE_UPDATE;
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PAGEOUT|DBG_FUNC_END, error, 0, 0, 0, 0);
 	
 	return error;
 }
@@ -954,6 +984,8 @@ int msdosfs_vnop_fsync(struct vnop_fsync_args *ap)
 	if (dep == NULL)
 		return 0;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_FSYNC|DBG_FUNC_START, dep, 0, 0, 0, 0);
+
 	lck_mtx_lock(dep->de_lock);
 
 	/* sync dirty buffers associated with this vnode */
@@ -975,6 +1007,8 @@ int msdosfs_vnop_fsync(struct vnop_fsync_args *ap)
 
 	lck_mtx_unlock(dep->de_lock);
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_FSYNC|DBG_FUNC_END, error, 0, 0, 0, 0);
+
 	return error;
 }
 
@@ -996,6 +1030,8 @@ int msdosfs_vnop_remove(struct vnop_remove_args *ap)
     struct denode *ddep = VTODE(dvp);
     int error;
 	uint32_t cluster, offset;
+	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_REMOVE|DBG_FUNC_START, ddep, dep, 0, 0, 0);
 	
 	msdosfs_lock_two(ddep, dep);
 	
@@ -1057,6 +1093,7 @@ int msdosfs_vnop_remove(struct vnop_remove_args *ap)
 exit:
 	lck_mtx_unlock(ddep->de_lock);
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_REMOVE|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -1159,6 +1196,7 @@ int msdosfs_vnop_rename(struct vnop_rename_args *ap)
 	u_char toname[SHORT_NAME_LEN], oldname[SHORT_NAME_LEN];
 	uint32_t to_diroffset;
 	uint32_t to_long_count;
+    int needs_generation;
 	u_int32_t from_offset;
 	u_int8_t new_deLowerCase;	/* deLowerCase corresponding to toname */
 	int doingdirectory = 0, newparent = 0;
@@ -1178,6 +1216,8 @@ int msdosfs_vnop_rename(struct vnop_rename_args *ap)
 	fdep = VTODE(fvp);
 	tddep = VTODE(tdvp);
 	tdep = tvp ? VTODE(tvp) : NULL;
+
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RENAME|DBG_FUNC_START, fddep, fdep, tddep, tdep, 0);
 	
 	msdosfs_lock_four(fddep, fdep, tddep, tdep);
 	
@@ -1310,9 +1350,24 @@ int msdosfs_vnop_rename(struct vnop_rename_args *ap)
 	/*
 	 * Figure out where to put the new directory entry.
 	 */
-	error = msdosfs_findslots(tddep, tcnp, &new_deLowerCase, &to_diroffset, &to_long_count, context);
+	error = msdosfs_findslots(tddep, tcnp, toname, &needs_generation, &new_deLowerCase, &to_diroffset, &to_long_count, context);
 	if (error)
 		goto exit;
+
+	/*
+	 * If this is the root directory and there is no space left we
+	 * can't do anything.  This is because the root directory can not
+	 * change size.  (FAT12 and FAT16 only)
+	 *
+	 * On FAT32, we can grow the root directory, and de_StartCluster
+	 * will be the actual cluster number of the root directory.
+	 */
+	if (tddep->de_StartCluster == MSDOSFSROOT && to_diroffset >= tddep->de_FileSize)
+	{
+        printf("msdosfs_vnop_rename: Cannot grow the root directory on FAT12 or FAT16; returning ENOSPC.\n");
+		error = ENOSPC;
+		goto exit;
+	}
 
 	if (fdep->de_Attributes & ATTR_DIRECTORY)
 		doingdirectory = 1;
@@ -1336,7 +1391,7 @@ int msdosfs_vnop_rename(struct vnop_rename_args *ap)
 	/* Remember the offset of fdep within fddep. */
 	from_offset = fdep->de_diroffset;
 
-	if (tvp != NULL) {
+	if (tvp != NULL && tdep != NULL) {
 		uint32_t dest_offset;	/* Of the pre-existing entry being removed */
 		
 		/*
@@ -1383,7 +1438,7 @@ int msdosfs_vnop_rename(struct vnop_rename_args *ap)
 	}
 	else
 	{
-        error = msdosfs_uniqdosname(tddep, tcnp, toname, &new_deLowerCase, context);
+        error = msdosfs_uniqdosname(tddep, toname, needs_generation ? to_diroffset - to_long_count * sizeof(struct dosdirentry) : 1, context);
         /*¥ What if we get an error and we already deleted the target? */
         if (error)
 		{
@@ -1498,7 +1553,9 @@ exit:
 	if (doingdirectory && newparent)
 		lck_mtx_unlock(pmp->pm_rename_lock);
 	msdosfs_unlock_four(fddep, fdep, tddep, tdep);
-	
+
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RENAME|DBG_FUNC_END, error, 0, 0, 0, 0);
+
 	return error;
 
 }
@@ -1554,7 +1611,10 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	char *bdata;
 	uint32_t offset;
 	uint32_t long_count;
-
+	int needs_generation;
+	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_MKDIR|DBG_FUNC_START, pdep, 0, 0, 0, 0);
+	
 	lck_mtx_lock(pdep->de_lock);
 	
 	/*
@@ -1582,18 +1642,22 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = msdosfs_findslots(pdep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	bzero(&ndirent, sizeof(ndirent));
+	error = msdosfs_findslots(pdep, cnp, ndirent.de_Name, &needs_generation, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
 	/*
 	 * If this is the root directory and there is no space left we
 	 * can't do anything.  This is because the root directory can not
-	 * change size.
+	 * change size.  (FAT12 and FAT16 only)
+	 *
+	 * On FAT32, we can grow the root directory, and de_StartCluster
+	 * will be the actual cluster number of the root directory.
 	 */
-	if (pdep->de_StartCluster == MSDOSFSROOT
-		&& offset >= pdep->de_FileSize)
+	if (pdep->de_StartCluster == MSDOSFSROOT && offset >= pdep->de_FileSize)
 	{
+        printf("msdosfs_vnop_mkdir: Cannot grow the root directory on FAT12 or FAT16; returning ENOSPC.\n");
 		error = ENOSPC;
 		goto exit;
 	}
@@ -1605,7 +1669,6 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	if (error)
 		goto exit;
 
-	bzero(&ndirent, sizeof(ndirent));
 	ndirent.de_pmp = pmp;
 	ndirent.de_flag = DE_ACCESS | DE_CREATE | DE_UPDATE;
 	getnanotime(&ts);
@@ -1654,7 +1717,7 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	 * cluster.  This will be written to an empty slot in the parent
 	 * directory.
 	 */
-	error = msdosfs_uniqdosname(pdep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(pdep, ndirent.de_Name, needs_generation ? offset - long_count * sizeof(struct dosdirentry) : 1, context);
 	if (error)
 		goto exit;
 
@@ -1675,7 +1738,7 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 	{
 		if (DEBUG)
 			panic("msodsfs_mkdir: msdosfs_createde failed\n");
-		msdosfs_clusterfree(pmp, newcluster, NULL);
+		msdosfs_freeclusterchain(pmp, newcluster);
 	}
 	else
 	{
@@ -1686,6 +1749,7 @@ int msdosfs_vnop_mkdir(struct vnop_mkdir_args *ap)
 exit:
 	msdosfs_meta_flush(pmp, FALSE);
 	lck_mtx_unlock(pdep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_MKDIR|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -1717,6 +1781,7 @@ int msdosfs_vnop_rmdir(struct vnop_rmdir_args *ap)
 	ip = VTODE(vp);
 	dp = VTODE(dvp);
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RMDIR|DBG_FUNC_START, dp, ip, 0, 0, 0);
 	msdosfs_lock_two(dp, ip);
 	
 	/*
@@ -1769,7 +1834,6 @@ int msdosfs_vnop_rmdir(struct vnop_rmdir_args *ap)
 	 *  the current directory and thus be
 	 *  non-empty.)
 	 */
-	error = 0;
 	if (!msdosfs_dosdirempty(ip, context)) {
 		error = ENOTEMPTY;
 		goto exit;
@@ -1818,6 +1882,7 @@ flush_exit:
 exit:
 	lck_mtx_unlock(dp->de_lock);
 	lck_mtx_unlock(ip->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_RMDIR|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -1869,7 +1934,7 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 	off_t long_name_offset;	/* Offset to start of long name */
 	int chksum = -1;
 	u_int16_t ucfn[WIN_MAXLEN + 1];
-	u_int16_t unichars;
+	u_int16_t unichars = 0;
 	size_t outbytes;
 	char *bdata;
 	union msdosfs_dirbuf buf;
@@ -1877,6 +1942,8 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 	size_t max_name;
 	ssize_t buf_reclen;
 	uint8_t buf_type;
+	int eofflag = 0;
+	int numdirent = 0;
 	
 	if (ap->a_numdirent)
 		*ap->a_numdirent = 0;
@@ -1919,6 +1986,7 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 	if (offset & (sizeof(struct dosdirentry) - 1))
 		return EINVAL;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READDIR|DBG_FUNC_START, dep, uio_offset(uio), uio_resid(uio), ap->a_flags, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	/*
@@ -1952,8 +2020,7 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 			error = uiomove((caddr_t) &buf, buf_reclen, uio);
 			if (error)
 				goto out;
-			if (ap->a_numdirent)
-				++(*ap->a_numdirent);
+			++numdirent;
 			offset += sizeof(struct dosdirentry);
 		}
 	}
@@ -1962,8 +2029,7 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 		dir_cluster = de_cluster(pmp, offset - bias);
 		entry_offset = (offset - bias) & pmp->pm_crbomask;
 		if (dep->de_FileSize <= (offset - bias)) {
-			if (ap->a_eofflag)
-				*ap->a_eofflag = 1;	/* Hit end of directory */
+			eofflag = 1;	/* Hit end of directory */
 			break;
 		}
 		error = msdosfs_pcbmap(dep, dir_cluster, 1, &bn, &cn, &blsize);
@@ -2093,8 +2159,7 @@ int msdosfs_vnop_readdir(struct vnop_readdir_args *ap)
 				goto out;
 			}
 			chksum = -1;
-			if (ap->a_numdirent)
-				++(*ap->a_numdirent);
+			++numdirent;
 		}
 		buf_brelse(bp);
 	}
@@ -2106,6 +2171,11 @@ out:
 	uio_setoffset(uio, offset);
 exit:
 	lck_mtx_unlock(dep->de_lock);
+	if (ap->a_eofflag)
+		*ap->a_eofflag = eofflag;
+	if (ap->a_numdirent)
+		*ap->a_numdirent = numdirent;
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READDIR|DBG_FUNC_END, error, uio_offset(uio), numdirent, eofflag, 0);
 	return error;
 }
 
@@ -2120,7 +2190,9 @@ int msdosfs_vnop_blktooff(struct vnop_blktooff_args *ap)
 	if (ap->a_vp == NULL)
 		return EINVAL;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_BLKTOOFF|DBG_FUNC_START, ap->a_lblkno, 0, 0, 0, 0);
 	*ap->a_offset = ap->a_lblkno * PAGE_SIZE_64;
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_BLKTOOFF|DBG_FUNC_END, 0, *ap->a_offset, 0, 0, 0);
 
 	return 0;
 }
@@ -2136,7 +2208,9 @@ int msdosfs_vnop_offtoblk(struct vnop_offtoblk_args *ap)
 	if (ap->a_vp == NULL)
 		return EINVAL;
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_OFFTOBLK|DBG_FUNC_START, ap->a_offset, 0, 0, 0, 0);
 	*ap->a_lblkno = ap->a_offset / PAGE_SIZE_64;
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_OFFTOBLK|DBG_FUNC_END, 0, *ap->a_lblkno, 0, 0, 0);
 	
 	return 0;
 }
@@ -2178,6 +2252,7 @@ int msdosfs_vnop_blockmap(struct vnop_blockmap_args *ap)
 	if (ap->a_bpn == NULL)
 		return 0;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_BLOCKMAP|DBG_FUNC_START, dep, ap->a_foffset, ap->a_size, 0, 0);
     if (ap->a_size == 0)
         panic("msdosfs_vnop_blockmap: a_size == 0");
 
@@ -2204,6 +2279,7 @@ int msdosfs_vnop_blockmap(struct vnop_blockmap_args *ap)
 	if (ap->a_poff)
 		*(int *)ap->a_poff = 0;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_BLOCKMAP|DBG_FUNC_END, error, bn, runsize, 0, 0);
 	return error;
 }
 
@@ -2223,7 +2299,9 @@ int msdosfs_vnop_strategy(struct vnop_strategy_args *ap)
 	struct denode *dep = VTODE(vp);
 	int error;
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_STRATEGY|DBG_FUNC_START, dep, buf_lblkno(bp), buf_resid(bp), buf_flags(bp), 0);
 	error = buf_strategy(dep->de_devvp, ap);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_STRATEGY|DBG_FUNC_END, error, buf_error(bp), buf_resid(bp), buf_flags(bp), 0);
 	return error;
 }
 
@@ -2235,35 +2313,40 @@ int msdosfs_vnop_pathconf(struct vnop_pathconf_args *ap)
 		vfs_context_t a_context;
 	} */
 {
+	int error = 0;
+	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PATHCONF|DBG_FUNC_START, ap->a_name, 0, 0, 0, 0);
 	switch (ap->a_name) {
 	case _PC_LINK_MAX:
 		*ap->a_retval = 1;
-		return 0;
+		break;
 	case _PC_NAME_MAX:
 		*ap->a_retval = WIN_MAXLEN;
-		return 0;
+		break;
 	case _PC_PATH_MAX:
 		*ap->a_retval = PATH_MAX;
-		return 0;
+		break;
 	case _PC_CHOWN_RESTRICTED:
 		*ap->a_retval = 1;
-		return 0;
+		break;
 	case _PC_NO_TRUNC:
 		*ap->a_retval = 0;
-		return 0;
+		break;
 	case _PC_CASE_SENSITIVE:
 		*ap->a_retval = 0;
-		return 0;
+		break;
 	case _PC_CASE_PRESERVING:
 		*ap->a_retval = 1;
-		return 0;
+		break;
 	case _PC_FILESIZEBITS:
 		*ap->a_retval = 32;
-		return 0;
+		break;
 	default:
-		return EINVAL;
+		error = EINVAL;
+		break;
 	}
-	/* NOTREACHED */
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_PATHCONF|DBG_FUNC_END, error, *ap->a_retval, 0, 0, 0);
+	return error;
 }
 
 
@@ -2456,7 +2539,9 @@ int msdosfs_vnop_symlink(struct vnop_symlink_args *ap)
 	struct timespec ts;
 	uint32_t offset;
 	uint32_t long_count;
-
+	int needs_generation;
+	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_SYMLINK|DBG_FUNC_START, dep, 0, 0, 0, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	/*
@@ -2484,7 +2569,8 @@ int msdosfs_vnop_symlink(struct vnop_symlink_args *ap)
 	/*
 	 * Find space in the directory to place the new name.
 	 */
-	error = msdosfs_findslots(dep, cnp, &ndirent.de_LowerCase, &offset, &long_count, context);
+	bzero(&ndirent, sizeof(ndirent));
+	error = msdosfs_findslots(dep, cnp, ndirent.de_Name, &needs_generation, &ndirent.de_LowerCase, &offset, &long_count, context);
 	if (error)
 		goto exit;
 
@@ -2496,9 +2582,9 @@ int msdosfs_vnop_symlink(struct vnop_symlink_args *ap)
 	 * On FAT32, we can grow the root directory, and de_StartCluster
 	 * will be the actual cluster number of the root directory.
 	 */
-	if (dep->de_StartCluster == MSDOSFSROOT
-	    && offset >= dep->de_FileSize)
+	if (dep->de_StartCluster == MSDOSFSROOT && offset >= dep->de_FileSize)
 	{
+        printf("msdosfs_vnop_symlink: Cannot grow the root directory on FAT12 or FAT16; returning ENOSPC.\n");
 		error = ENOSPC;
 		goto exit;
 	}
@@ -2565,8 +2651,7 @@ int msdosfs_vnop_symlink(struct vnop_symlink_args *ap)
 	}
 
 	/* Start setting up new directory entry */
-	bzero(&ndirent, sizeof(ndirent));
-	error = msdosfs_uniqdosname(dep, cnp, ndirent.de_Name, &ndirent.de_LowerCase, context);
+	error = msdosfs_uniqdosname(dep, ndirent.de_Name, needs_generation ? offset - long_count * sizeof(struct dosdirentry) : 1, context);
 	if (error)
 	{
 		if (DEBUG) panic("msdosfs_vnop_symlink: msdosfs_uniqdosname returned %d\n", error);
@@ -2620,6 +2705,7 @@ exit:
 
 	msdosfs_meta_flush(pmp, FALSE);
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_SYMLINK|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -2641,6 +2727,7 @@ int msdosfs_vnop_readlink(struct vnop_readlink_args *ap)
 	if (vnode_vtype(vp) != VLNK)
 		return EINVAL;
 
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READLINK|DBG_FUNC_START, dep, 0, 0, 0, 0);
 	lck_mtx_lock(dep->de_lock);
 	
 	if (dep->de_refcnt <= 0)
@@ -2673,6 +2760,7 @@ exit:
         buf_brelse(bp);
 
 	lck_mtx_unlock(dep->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_READLINK|DBG_FUNC_END, error, 0, 0, 0, 0);
 	
 	return error;
 }
@@ -2690,6 +2778,7 @@ int msdosfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 	int error;
 	vnode_t vp = ap->a_vp;
 	
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_IOCTL|DBG_FUNC_START, VTODE(vp), ap->a_command, 0, 0, 0);
 	switch(ap->a_command) {
 		case F_FULLFSYNC: 
 		{
@@ -2723,6 +2812,7 @@ int msdosfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 	}/* switch(ap->a_command) */
 	
 exit:
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_IOCTL|DBG_FUNC_START, error, 0, 0, 0, 0);
 	return error;
 }
 

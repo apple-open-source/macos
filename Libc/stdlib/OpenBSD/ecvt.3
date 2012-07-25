@@ -31,9 +31,9 @@ string
 .Sh SYNOPSIS
 .Fd #include <stdlib.h>
 .Ft char *
-.Fn ecvt "double value" "int ndigit" "int *decpt" "int *sign"
+.Fn ecvt "double value" "int ndigit" "int * restrict decpt" "int * restrict sign"
 .Ft char *
-.Fn fcvt "double value" "int ndigit" "int *decpt" "int *sign"
+.Fn fcvt "double value" "int ndigit" "int * restrict decpt" "int * restrict sign"
 .Ft char *
 .Fn gcvt "double value" "int ndigit" "char *buf"
 .Sh DESCRIPTION

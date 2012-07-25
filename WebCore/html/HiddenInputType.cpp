@@ -32,6 +32,7 @@
 #include "config.h"
 #include "HiddenInputType.h"
 
+#include "FormDataList.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include <wtf/PassOwnPtr.h>
@@ -56,7 +57,7 @@ bool HiddenInputType::saveFormControlState(String& result) const
     return true;
 }
 
-void HiddenInputType::restoreFormControlState(const String& string) const
+void HiddenInputType::restoreFormControlState(const String& string)
 {
     element()->setAttribute(valueAttr, string);
 }
@@ -86,9 +87,23 @@ bool HiddenInputType::storesValueSeparateFromAttribute()
     return false;
 }
 
+void HiddenInputType::setValue(const String& sanitizedValue, bool, TextFieldEventBehavior)
+{
+    element()->setAttribute(valueAttr, sanitizedValue);
+}
+
 bool HiddenInputType::isHiddenType() const
 {
     return true;
+}
+
+bool HiddenInputType::appendFormData(FormDataList& encoding, bool isMultipartForm) const
+{
+    if (equalIgnoringCase(element()->name(), "_charset_")) {
+        encoding.appendData(element()->name(), String(encoding.encoding().name()));
+        return true;
+    }
+    return InputType::appendFormData(encoding, isMultipartForm);
 }
 
 bool HiddenInputType::shouldRespectHeightAndWidthAttributes()

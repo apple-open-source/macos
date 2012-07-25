@@ -31,25 +31,28 @@
 #include "PluginProcessCreationParameters.h"
 #include "PluginProcessManager.h"
 #include "PluginProcessMessages.h"
-#include "RunLoop.h"
 #include "WebContext.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPluginSiteDataManager.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
+#include <WebCore/NotImplemented.h>
+#include <WebCore/RunLoop.h>
 
 #if PLATFORM(MAC)
 #include "MachPort.h"
 #endif
 
+using namespace WebCore;
+
 namespace WebKit {
 
-PassOwnPtr<PluginProcessProxy> PluginProcessProxy::create(PluginProcessManager* PluginProcessManager, const PluginInfoStore::Plugin& pluginInfo)
+PassRefPtr<PluginProcessProxy> PluginProcessProxy::create(PluginProcessManager* PluginProcessManager, const PluginModuleInfo& pluginInfo)
 {
-    return adoptPtr(new PluginProcessProxy(PluginProcessManager, pluginInfo));
+    return adoptRef(new PluginProcessProxy(PluginProcessManager, pluginInfo));
 }
 
-PluginProcessProxy::PluginProcessProxy(PluginProcessManager* PluginProcessManager, const PluginInfoStore::Plugin& pluginInfo)
+PluginProcessProxy::PluginProcessProxy(PluginProcessManager* PluginProcessManager, const PluginModuleInfo& pluginInfo)
     : m_pluginProcessManager(PluginProcessManager)
     , m_pluginInfo(pluginInfo)
     , m_numPendingConnectionRequests(0)
@@ -134,10 +137,11 @@ void PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch()
         RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
 #if PLATFORM(MAC)
-        reply->send(CoreIPC::MachPort(0, MACH_MSG_TYPE_MOVE_SEND));
+        reply->send(CoreIPC::Attachment(0, MACH_MSG_TYPE_MOVE_SEND));
+#elif USE(UNIX_DOMAIN_SOCKETS)
+        reply->send(CoreIPC::Attachment());
 #else
-        // FIXME: Implement.
-        ASSERT_NOT_REACHED();
+        notImplemented();
 #endif
     }
 
@@ -147,9 +151,8 @@ void PluginProcessProxy::pluginProcessCrashedOrFailedToLaunch()
     while (!m_pendingClearSiteDataReplies.isEmpty())
         didClearSiteData(m_pendingClearSiteDataReplies.begin()->first);
 
-    // Tell the plug-in process manager to forget about this plug-in process proxy.
+    // Tell the plug-in process manager to forget about this plug-in process proxy. This may cause us to be deleted.
     m_pluginProcessManager->removePluginProcessProxy(this);
-    delete this;
 }
 
 void PluginProcessProxy::didReceiveMessage(CoreIPC::Connection* connection, CoreIPC::MessageID messageID, CoreIPC::ArgumentDecoder* arguments)
@@ -225,17 +228,21 @@ void PluginProcessProxy::didFinishLaunching(ProcessLauncher*, CoreIPC::Connectio
     m_numPendingConnectionRequests = 0;
 }
 
-#if PLATFORM(MAC)
-void PluginProcessProxy::didCreateWebProcessConnection(const CoreIPC::MachPort& machPort)
+void PluginProcessProxy::didCreateWebProcessConnection(const CoreIPC::Attachment& connectionIdentifier)
 {
     ASSERT(!m_pendingConnectionReplies.isEmpty());
 
     // Grab the first pending connection reply.
     RefPtr<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> reply = m_pendingConnectionReplies.takeFirst();
 
-    reply->send(CoreIPC::MachPort(machPort.port(), MACH_MSG_TYPE_MOVE_SEND));
-}
+#if PLATFORM(MAC)
+    reply->send(CoreIPC::Attachment(connectionIdentifier.port(), MACH_MSG_TYPE_MOVE_SEND));
+#elif USE(UNIX_DOMAIN_SOCKETS)
+    reply->send(connectionIdentifier);
+#else
+    notImplemented();
 #endif
+}
 
 void PluginProcessProxy::didGetSitesWithData(const Vector<String>& sites, uint64_t callbackID)
 {

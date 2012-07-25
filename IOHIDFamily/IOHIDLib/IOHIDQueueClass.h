@@ -136,9 +136,17 @@ public:
 
     virtual HRESULT     queryInterface(REFIID iid, void **ppv);
     virtual IOReturn    createAsyncEventSource(CFRunLoopSourceRef * pSource);
-    virtual IOReturn    addElement (IOHIDElementCookie cookie, uint32_t flags);
+    virtual IOReturn    addElement (IOHIDElementCookie cookie, 
+                                    uint32_t flags);
+    virtual IOReturn    addElement (IOHIDElementRef element, 
+                                    IOOptionBits options = 0);
     virtual IOReturn    removeElement (IOHIDElementCookie cookie);
+    virtual IOReturn    removeElement (IOHIDElementRef element, 
+                                       IOOptionBits options = 0);
     virtual Boolean     hasElement (IOHIDElementCookie cookie);
+    virtual IOReturn    hasElement (IOHIDElementRef element, 
+                                    Boolean * pValue, 
+                                    IOOptionBits options = 0);
     virtual IOReturn    getNextEvent (IOHIDEventStruct * event, AbsoluteTime maxTime, uint32_t timeoutMS);
     virtual IOReturn    getEventCallout (IOHIDCallbackFunction * pCallback, void ** pTarget, void ** pRefcon);
     virtual IOReturn    setEventCallout (IOHIDCallbackFunction callback, void * target, void * refcon);

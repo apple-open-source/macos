@@ -50,7 +50,7 @@ extern void pfkey_sadump_withports __P((struct sadb_msg *));
 extern void pfkey_spdump __P((struct sadb_msg *));
 extern void pfkey_spdump_withports __P((struct sadb_msg *));
 
-struct sockaddr;
+struct sockaddr_storage;
 struct sadb_alg;
 
 /* Accomodate different prototypes in <netinet6/ipsec.h> */
@@ -85,45 +85,45 @@ char *ipsec_dump_policy __P((ipsec_policy_t, __ipsec_const char *));
 
 u_int pfkey_set_softrate __P((u_int, u_int));
 u_int pfkey_get_softrate __P((u_int));
-int pfkey_send_getspi __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int32_t, u_int32_t));
-int pfkey_send_update __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
+int pfkey_send_getspi __P((int, u_int, u_int, struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int32_t, u_int32_t, u_int32_t, u_int32_t));
+int pfkey_send_update __P((int, u_int, u_int, struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
 	u_int64_t, u_int64_t, u_int32_t, u_int16_t));
-int pfkey_send_add __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
+int pfkey_send_add __P((int, u_int, u_int, struct sockaddr_storage *,
+	struct sockaddr_storage *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
 	u_int64_t, u_int64_t, u_int32_t, u_int16_t));
 
 int pfkey_send_delete __P((int, u_int, u_int,
-	struct sockaddr *, struct sockaddr *, u_int32_t));
+	struct sockaddr_storage *, struct sockaddr_storage *, u_int32_t));
 int pfkey_send_delete_all __P((int, u_int, u_int,
-	struct sockaddr *, struct sockaddr *));
+	struct sockaddr_storage *, struct sockaddr_storage *));
 int pfkey_send_get __P((int, u_int, u_int,
-	struct sockaddr *, struct sockaddr *, u_int32_t));
+	struct sockaddr_storage *, struct sockaddr_storage *, u_int32_t));
 int pfkey_send_register __P((int, u_int));
 int pfkey_recv_register __P((int));
 int pfkey_set_supported __P((struct sadb_msg *, int));
 int pfkey_send_flush __P((int, u_int));
 int pfkey_send_dump __P((int, u_int));
 int pfkey_send_promisc_toggle __P((int, int));
-int pfkey_send_spdadd __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, caddr_t, int, u_int32_t));
-int pfkey_send_spdadd2 __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, u_int64_t, u_int64_t,
+int pfkey_send_spdadd __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, caddr_t, int, u_int32_t));
+int pfkey_send_spdadd2 __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, u_int64_t, u_int64_t,
 	caddr_t, int, u_int32_t));
-int pfkey_send_spdupdate __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, caddr_t, int, u_int32_t));
-int pfkey_send_spdupdate2 __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, u_int64_t, u_int64_t,
+int pfkey_send_spdupdate __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, caddr_t, int, u_int32_t));
+int pfkey_send_spdupdate2 __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, u_int64_t, u_int64_t,
 	caddr_t, int, u_int32_t));
-int pfkey_send_spddelete __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, caddr_t, int, u_int32_t));
+int pfkey_send_spddelete __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, caddr_t, int, u_int32_t));
 int pfkey_send_spddelete2 __P((int, u_int32_t));
 int pfkey_send_spdget __P((int, u_int32_t));
-int pfkey_send_spdsetidx __P((int, struct sockaddr *, u_int,
-	struct sockaddr *, u_int, u_int, caddr_t, int, u_int32_t));
+int pfkey_send_spdsetidx __P((int, struct sockaddr_storage *, u_int,
+	struct sockaddr_storage *, u_int, u_int, caddr_t, int, u_int32_t));
 int pfkey_send_spdflush __P((int));
 int pfkey_send_spddump __P((int));
 

@@ -19,6 +19,9 @@ EXTRA_DIST = 						\
     test-16.1-2.out test-16.1-2.xml test-16.1-2.xsl	\
     test-2.3-1.out test-2.3-1.xml test-2.3-1.xsl	\
     test-2.3-2.out test-2.3-2.xml test-2.3-2.xsl	\
+    test-3.4-1.out test-3.4-1.xml test-3.4-1.xsl	\
+    test-3.4-2.out test-3.4-2.xml test-3.4-2.xsl	\
+    test-3.4-3.out test-3.4-3.xml test-3.4-3.xsl	\
     test-2.5-1.out test-2.5-1.xml test-2.5-1.xsl test-2.5-1.err	\
     test-2.6.2-1.out test-2.6.2-1.xml test-2.6.2-1.xsl	\
     test-5.2-1.out test-5.2-1.xml test-5.2-1.xsl	\
@@ -39,6 +42,9 @@ EXTRA_DIST = 						\
     test-5.2-16.out test-5.2-16.xml test-5.2-16.xsl	\
     test-5.2-17.out test-5.2-17.xml test-5.2-17.xsl	\
     test-5.2-18.out test-5.2-18.xml test-5.2-18.xsl	\
+    test-5.2-19.out test-5.2-19.xml test-5.2-19.xsl	\
+    test-5.2-20.out test-5.2-20.xml test-5.2-20.xsl	\
+    test-5.2-21.out test-5.2-21.xml test-5.2-21.xsl	\
     test-5.3.out test-5.3.xml test-5.3.xsl		\
     test-5.4-1.out test-5.4-1.xml test-5.4-1.xsl	\
     test-5.4-2.out test-5.4-2.xml test-5.4-2.xsl	\
@@ -59,6 +65,7 @@ EXTRA_DIST = 						\
     test-7.6.1-2.out test-7.6.1-2.xml test-7.6.1-2.xsl	\
     test-7.6.1-3.out test-7.6.1-3.xml test-7.6.1-3.xsl	\
     test-7.6.2-1.out test-7.6.2-1.xml test-7.6.2-1.xsl	\
+    test-7.6.2-2.out test-7.6.2-2.xml test-7.6.2-2.xsl	\
     test-7.7-1.out test-7.7-1.xml test-7.7-1.xsl	\
     test-7.7-2.out test-7.7-2.xml test-7.7-2.xsl	\
     test-7.7-3.out test-7.7-3.xml test-7.7-3.xsl	\
@@ -69,7 +76,8 @@ EXTRA_DIST = 						\
     test-9.1-2.out test-9.1-2.xml test-9.1-2.xsl	\
     test-9.2-1.xsl					\
     stand-2.7-1.dtd stand-2.7-1.stand.out stand-2.7-1.xsl \
-    stand-2.7-1.out  stand-2.7-1.xml
+    stand-2.7-1.out stand-2.7-1.xml			\
+    stand-2.7-2.xml stand-2.7-3.xml
 
 
 all:

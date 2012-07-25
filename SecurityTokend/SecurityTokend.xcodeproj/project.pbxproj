@@ -3,25 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
-/* Begin PBXAggregateTarget section */
-		C230BC9806B706EE0034901C /* World */ = {
-			isa = PBXAggregateTarget;
-			buildConfigurationList = C27AD1A90987FCDB001272E0 /* Build configuration list for PBXAggregateTarget "World" */;
-			buildPhases = (
-			);
-			dependencies = (
-				C230BC9A06B706F30034901C /* PBXTargetDependency */,
-				C230BC9C06B706F60034901C /* PBXTargetDependency */,
-			);
-			name = World;
-			productName = World;
-		};
-/* End PBXAggregateTarget section */
-
 /* Begin PBXBuildFile section */
+		18B9659B147300AF005A4D2E /* tdclient.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAC26FF069DD074002EB81D /* tdclient.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		18B965A41473124F005A4D2E /* libsecurity_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965A31473124F005A4D2E /* libsecurity_utilities.a */; };
+		18B965A614731276005A4D2E /* libsecurityd_client.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965A514731276005A4D2E /* libsecurityd_client.a */; };
+		18B965AA147312A3005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 18B965A9147312A3005A4D2E /* libsecurity_cdsa_utilities.a */; };
 		4C720FD806CC44540016CA88 /* tdtransit.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C720FD706CC44540016CA88 /* tdtransit.h */; };
 		4CAC271F069DD236002EB81D /* tdclient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAC26FE069DD074002EB81D /* tdclient.cpp */; };
 		4CAC2737069DD309002EB81D /* tokendClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAC2734069DD309002EB81D /* tokendClient.cpp */; };
@@ -31,7 +20,6 @@
 		4CC46A3506A4AD9E00027192 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CC46A3406A4AD9E00027192 /* CoreFoundation.framework */; };
 		4CC46A4306A4AE2000027192 /* tdtransit.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CAC2700069DD074002EB81D /* tdtransit.cpp */; };
 		C20D962406D5A400000AEB0D /* tokend.h in Headers */ = {isa = PBXBuildFile; fileRef = C20D962306D5A400000AEB0D /* tokend.h */; };
-		C230BBDC06B6EB490034901C /* tdclient.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAC26FF069DD074002EB81D /* tdclient.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C282709E06B73F8D00BE171E /* server.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C282709C06B73F8D00BE171E /* server.cpp */; };
 		C282709F06B73F8D00BE171E /* server.h in Headers */ = {isa = PBXBuildFile; fileRef = C282709D06B73F8D00BE171E /* server.h */; settings = {ATTRIBUTES = (); }; };
 		C2871EF606CC20A3009ACFA5 /* tdclient.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CAC26FF069DD074002EB81D /* tdclient.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -43,46 +31,30 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		4C09A2930557241D00FED7A3 /* PBXContainerItemProxy */ = {
+		18B9659C147300D4005A4D2E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4C09A2920557240300FED7A3;
 			remoteInfo = "generate mig";
 		};
-		4C608E2606A4A8A100F1CEDD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C09A2920557240300FED7A3;
-			remoteInfo = "generate mig";
-		};
-		4CAC271B069DD1DB002EB81D /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C5635320540A58200DCF0C8;
-			remoteInfo = security_tokend_client;
-		};
-		C230BC9906B706F30034901C /* PBXContainerItemProxy */ = {
+		18B9659E147300DD005A4D2E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 4CAC2710069DD183002EB81D;
 			remoteInfo = libsecurity_tokend_client;
 		};
-		C230BC9B06B706F60034901C /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C58E38F0540C0DD00B89535;
-			remoteInfo = SecurityTokend;
-		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		1865FF881474F5B600FD79DF /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		1865FF891474F5B600FD79DF /* project.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = project.xcconfig; sourceTree = "<group>"; };
+		1865FF8A1474F5B600FD79DF /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+		18B965A31473124F005A4D2E /* libsecurity_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_utilities.a; path = /usr/local/lib/libsecurity_utilities.a; sourceTree = "<absolute>"; };
+		18B965A514731276005A4D2E /* libsecurityd_client.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurityd_client.a; path = /usr/local/lib/libsecurityd_client.a; sourceTree = "<absolute>"; };
+		18B965A9147312A3005A4D2E /* libsecurity_cdsa_utilities.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsecurity_cdsa_utilities.a; path = /usr/local/lib/libsecurity_cdsa_utilities.a; sourceTree = "<absolute>"; };
 		4C24BEF7055724C300C95CD3 /* mig.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mig.mk; sourceTree = "<group>"; };
-		4C5635330540A58200DCF0C8 /* security_tokend_client.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_tokend_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C58E3900540C0DD00B89535 /* SecurityTokend.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = SecurityTokend.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C720FD706CC44540016CA88 /* tdtransit.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tdtransit.h; path = lib/tdtransit.h; sourceTree = "<group>"; };
 		4CAC26FE069DD074002EB81D /* tdclient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tdclient.cpp; path = lib/tdclient.cpp; sourceTree = "<group>"; };
@@ -90,7 +62,7 @@
 		4CAC2700069DD074002EB81D /* tdtransit.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tdtransit.cpp; path = lib/tdtransit.cpp; sourceTree = "<group>"; };
 		4CAC2702069DD074002EB81D /* tokend_types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tokend_types.h; path = lib/tokend_types.h; sourceTree = SOURCE_ROOT; };
 		4CAC2708069DD094002EB81D /* tokend.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; path = tokend.defs; sourceTree = "<group>"; };
-		4CAC2718069DD183002EB81D /* security_tokend_client */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = security_tokend_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CAC2718069DD183002EB81D /* libsecurity_tokend_client.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libsecurity_tokend_client.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CAC2734069DD309002EB81D /* tokendClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokendClient.cpp; sourceTree = "<group>"; };
 		4CAC2735069DD309002EB81D /* tokendServer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokendServer.cpp; sourceTree = "<group>"; };
 		4CC46A1506A4AC0200027192 /* SecTokend.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = SecTokend.cpp; path = lib/SecTokend.cpp; sourceTree = "<group>"; };
@@ -111,6 +83,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18B965AA147312A3005A4D2E /* libsecurity_cdsa_utilities.a in Frameworks */,
+				18B965A614731276005A4D2E /* libsecurityd_client.a in Frameworks */,
+				18B965A41473124F005A4D2E /* libsecurity_utilities.a in Frameworks */,
 				4CC46A3506A4AD9E00027192 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -125,9 +100,20 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1865FF871474F5B600FD79DF /* config */ = {
+			isa = PBXGroup;
+			children = (
+				1865FF881474F5B600FD79DF /* debug.xcconfig */,
+				1865FF891474F5B600FD79DF /* project.xcconfig */,
+				1865FF8A1474F5B600FD79DF /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				1865FF871474F5B600FD79DF /* config */,
 				C2A593CE052E3A8400AF1EE3 /* lib */,
 				C2F8ED8F07A6E842008FA709 /* intl */,
 				C2A5941F052E3F2100AF1EE3 /* mig */,
@@ -140,9 +126,8 @@
 		4CA1FEBF052A3C8100F22E42 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				4C5635330540A58200DCF0C8 /* security_tokend_client.framework */,
 				4C58E3900540C0DD00B89535 /* SecurityTokend.framework */,
-				4CAC2718069DD183002EB81D /* security_tokend_client */,
+				4CAC2718069DD183002EB81D /* libsecurity_tokend_client.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,6 +145,9 @@
 		4CC46A3306A4AD6F00027192 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				18B965A9147312A3005A4D2E /* libsecurity_cdsa_utilities.a */,
+				18B965A514731276005A4D2E /* libsecurityd_client.a */,
+				18B965A31473124F005A4D2E /* libsecurity_utilities.a */,
 				4CC46A3406A4AD9E00027192 /* CoreFoundation.framework */,
 			);
 			name = Frameworks;
@@ -229,14 +217,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
-		4C56352D0540A58200DCF0C8 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				C230BBDC06B6EB490034901C /* tdclient.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		4C58E38A0540C0DD00B89535 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -255,6 +235,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				18B9659B147300AF005A4D2E /* tdclient.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -278,23 +259,6 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
-		4C5635320540A58200DCF0C8 /* security_tokend_client */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = C27AD19A0987FCDB001272E0 /* Build configuration list for PBXNativeTarget "security_tokend_client" */;
-			buildPhases = (
-				4C56352D0540A58200DCF0C8 /* Headers */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				4C09A2940557241D00FED7A3 /* PBXTargetDependency */,
-			);
-			name = security_tokend_client;
-			productInstallPath = /usr/local/SecurityPieces/Components/securityd;
-			productName = securityd;
-			productReference = 4C5635330540A58200DCF0C8 /* security_tokend_client.framework */;
-			productType = "com.apple.product-type.framework";
-		};
 		4C58E38F0540C0DD00B89535 /* SecurityTokend */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C27AD1A40987FCDB001272E0 /* Build configuration list for PBXNativeTarget "SecurityTokend" */;
@@ -303,12 +267,11 @@
 				C2F8ED8507A6E7F5008FA709 /* Resources */,
 				4C608E2206A4A82A00F1CEDD /* Sources */,
 				4C608E2306A4A83400F1CEDD /* Frameworks */,
-				4C77DA8E06DD0B9400139C22 /* ShellScript */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				4C608E2706A4A8A100F1CEDD /* PBXTargetDependency */,
+				18B9659F147300DD005A4D2E /* PBXTargetDependency */,
 			);
 			name = SecurityTokend;
 			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
@@ -323,18 +286,17 @@
 				4CAC2713069DD183002EB81D /* Headers */,
 				4CAC2714069DD183002EB81D /* Sources */,
 				4CAC2715069DD183002EB81D /* Frameworks */,
-				4CAC2716069DD183002EB81D /* ShellScript */,
-				4CAC2717069DD183002EB81D /* ShellScript */,
+				1865FFC214750EEE00FD79DF /* ShellScript */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				4CAC271C069DD1DB002EB81D /* PBXTargetDependency */,
+				18B9659D147300D4005A4D2E /* PBXTargetDependency */,
 			);
 			name = libsecurity_tokend_client;
 			productInstallPath = /usr/local/lib;
 			productName = libsecurityd;
-			productReference = 4CAC2718069DD183002EB81D /* security_tokend_client */;
+			productReference = 4CAC2718069DD183002EB81D /* libsecurity_tokend_client.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
@@ -344,16 +306,18 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD1AE0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTokend" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C230BC9806B706EE0034901C /* World */,
-				4CAC2710069DD183002EB81D /* libsecurity_tokend_client */,
-				4C5635320540A58200DCF0C8 /* security_tokend_client */,
 				4C58E38F0540C0DD00B89535 /* SecurityTokend */,
+				4CAC2710069DD183002EB81D /* libsecurity_tokend_client */,
 				4C09A2920557240300FED7A3 /* generate mig */,
 			);
 		};
@@ -371,7 +335,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		4C77DA8E06DD0B9400139C22 /* ShellScript */ = {
+		1865FFC214750EEE00FD79DF /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -382,33 +346,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p \"${SYMROOT}/${PRODUCT_NAME}.framework\"\nfor variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}.framework/${PRODUCT_NAME}${postfix}\"\ndone\n";
-		};
-		4CAC2716069DD183002EB81D /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tditto -V \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}${postfix}\" \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
-		};
-		4CAC2717069DD183002EB81D /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/sh;
-			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/securityd/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Components/securityd/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Components/securityd/${PRODUCT_NAME}.framework\"\ndone";
+			shellScript = "nmedit -p \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"\nranlib \"${BUILT_PRODUCTS_DIR}/${FULL_PRODUCT_NAME}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -438,30 +376,15 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		4C09A2940557241D00FED7A3 /* PBXTargetDependency */ = {
+		18B9659D147300D4005A4D2E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4C09A2920557240300FED7A3 /* generate mig */;
-			targetProxy = 4C09A2930557241D00FED7A3 /* PBXContainerItemProxy */;
+			targetProxy = 18B9659C147300D4005A4D2E /* PBXContainerItemProxy */;
 		};
-		4C608E2706A4A8A100F1CEDD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C09A2920557240300FED7A3 /* generate mig */;
-			targetProxy = 4C608E2606A4A8A100F1CEDD /* PBXContainerItemProxy */;
-		};
-		4CAC271C069DD1DB002EB81D /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C5635320540A58200DCF0C8 /* security_tokend_client */;
-			targetProxy = 4CAC271B069DD1DB002EB81D /* PBXContainerItemProxy */;
-		};
-		C230BC9A06B706F30034901C /* PBXTargetDependency */ = {
+		18B9659F147300DD005A4D2E /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4CAC2710069DD183002EB81D /* libsecurity_tokend_client */;
-			targetProxy = C230BC9906B706F30034901C /* PBXContainerItemProxy */;
-		};
-		C230BC9C06B706F60034901C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C58E38F0540C0DD00B89535 /* SecurityTokend */;
-			targetProxy = C230BC9B06B706F60034901C /* PBXContainerItemProxy */;
+			targetProxy = 18B9659E147300DD005A4D2E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -477,562 +400,93 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		C27AD1960987FCDB001272E0 /* Development */ = {
+		C27AD1960987FCDB001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = debug;
-				MIGFLAGS = "-F$(BUILT_PRODUCTS_DIR) -F/usr/local/SecurityPieces/Frameworks";
-				PRODUCT_NAME = "generate mig";
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27AD1970987FCDB001272E0 /* Deployment */ = {
+		C27AD1990987FCDB001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MIGFLAGS = "-F$(BUILT_PRODUCTS_DIR) -F/usr/local/SecurityPieces/Frameworks";
-				PRODUCT_NAME = "generate mig";
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C27AD1980987FCDB001272E0 /* normal with debug */ = {
+		C27AD1A00987FCDB001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				MIGFLAGS = "-F$(BUILT_PRODUCTS_DIR) -F/usr/local/SecurityPieces/Frameworks";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				PRODUCT_NAME = "generate mig";
-			};
-			name = "normal with debug";
-		};
-		C27AD1990987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				MIGFLAGS = "-F$(BUILT_PRODUCTS_DIR) -F/usr/local/SecurityPieces/Frameworks";
-				PRODUCT_NAME = "generate mig";
-			};
-			name = Default;
-		};
-		C27AD19B0987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Info-security_tokend_client.plist";
-				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
-				PRODUCT_NAME = security_tokend_client;
-				WRAPPER_EXTENSION = framework;
-			};
-			name = Development;
-		};
-		C27AD19C0987FCDB001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF881474F5B600FD79DF /* debug.xcconfig */;
 			buildSettings = {
 				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Info-security_tokend_client.plist";
-				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
-				PRODUCT_NAME = security_tokend_client;
-				WRAPPER_EXTENSION = framework;
-			};
-			name = Deployment;
-		};
-		C27AD19D0987FCDB001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Info-security_tokend_client.plist";
-				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				PRODUCT_NAME = security_tokend_client;
-				WRAPPER_EXTENSION = framework;
-			};
-			name = "normal with debug";
-		};
-		C27AD19E0987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_VERSION = A;
-				INFOPLIST_FILE = "Info-security_tokend_client.plist";
-				INSTALL_PATH = /usr/local/SecurityPieces/Components/securityd;
-				PRODUCT_NAME = security_tokend_client;
-				WRAPPER_EXTENSION = framework;
-			};
-			name = Default;
-		};
-		C27AD1A00987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(SRCROOT)",
 				);
-				LIBRARY_STYLE = STATIC;
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "";
-				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = security_tokend_client;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_tokend_client;
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27AD1A10987FCDB001272E0 /* Deployment */ = {
+		C27AD1A30987FCDB001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF8A1474F5B600FD79DF /* release.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					nopic,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+					"$(SRCROOT)",
 				);
-				LIBRARY_STYLE = STATIC;
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "";
-				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = security_tokend_client;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/security_tokend_client;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C27AD1A20987FCDB001272E0 /* normal with debug */ = {
+		C27AD1A50987FCDB001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF881474F5B600FD79DF /* debug.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-				);
-				LIBRARY_STYLE = STATIC;
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "";
-				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = security_tokend_client;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		C27AD1A30987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					nopic,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-				);
-				LIBRARY_STYLE = STATIC;
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "";
-				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
-				PRODUCT_NAME = security_tokend_client;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		C27AD1A50987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
+				DYLIB_CURRENT_VERSION = 55105;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
 				INFOPLIST_FILE = "Info-SecurityTokend.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "-framework PCSC,_debug -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -framework PCSC -framework Security -framework securityd_client -framework security_cdsa_client -framework security_cdsa_utilities -framework security_utilities";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg -framework PCSC,_profile -framework Security,_profile -framework securityd_client -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = SecurityTokend;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
 			};
-			name = Development;
+			name = Debug;
 		};
-		C27AD1A60987FCDB001272E0 /* Deployment */ = {
+		C27AD1A80987FCDB001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF8A1474F5B600FD79DF /* release.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
+				DYLIB_CURRENT_VERSION = 55105;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				FRAMEWORK_VERSION = A;
 				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
 					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
 				INFOPLIST_FILE = "Info-SecurityTokend.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "-framework PCSC,_debug -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -framework PCSC -framework Security -framework securityd_client -framework security_cdsa_client -framework security_cdsa_utilities -framework security_utilities";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg -framework PCSC,_profile -framework Security,_profile -framework securityd_client -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = SecurityTokend;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
 			};
-			name = Deployment;
+			name = Release;
 		};
-		C27AD1A70987FCDB001272E0 /* normal with debug */ = {
+		C27AD1AF0987FCDB001272E0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF891474F5B600FD79DF /* project.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55000;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-				);
-				INFOPLIST_FILE = "Info-SecurityTokend.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "-framework PCSC,_debug -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -framework PCSC -framework Security -framework securityd_client -framework security_cdsa_client -framework security_cdsa_utilities -framework security_utilities";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg -framework PCSC,_profile -framework Security,_profile -framework securityd_client -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = SecurityTokend;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
 			};
-			name = "normal with debug";
+			name = Debug;
 		};
-		C27AD1A80987FCDB001272E0 /* Default */ = {
+		C27AD1B20987FCDB001272E0 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1865FF891474F5B600FD79DF /* project.xcconfig */;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-				);
-				CURRENT_PROJECT_VERSION = 55000;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55000;
-				EXECUTABLE_PREFIX = "";
-				EXECUTABLE_SUFFIX = "";
-				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
-				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
-				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = (
-					"$(BUILT_PRODUCTS_DIR)/derived_src",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
-					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
-				);
-				INFOPLIST_FILE = "Info-SecurityTokend.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
-				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_LDFLAGS = "-dead_strip";
-				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
-				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
-				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
-				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
-				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
-				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
-				OTHER_LDFLAGS_debug = "-framework PCSC,_debug -framework Security,_debug -framework securityd_client,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -framework PCSC -framework Security -framework securityd_client -framework security_cdsa_client -framework security_cdsa_utilities -framework security_utilities";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg -framework PCSC,_profile -framework Security,_profile -framework securityd_client -framework security_cdsa_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
-				PRODUCT_NAME = SecurityTokend;
-				VERSIONING_SYSTEM = "apple-generic";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
 			};
-			name = Default;
-		};
-		C27AD1AA0987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = debug;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Development;
-		};
-		C27AD1AB0987FCDB001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Deployment;
-		};
-		C27AD1AC0987FCDB001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_VARIANTS = normal;
-				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
-				OTHER_CFLAGS = "";
-				OTHER_CFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_CPLUSPLUSFLAGS_normal = "$(OTHER_CFLAGS) -O0 -fno-inline";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = "normal with debug";
-		};
-		C27AD1AD0987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = World;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
-		C27AD1AF0987FCDB001272E0 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Development;
-		};
-		C27AD1B00987FCDB001272E0 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Deployment;
-		};
-		C27AD1B10987FCDB001272E0 /* normal with debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = "normal with debug";
-		};
-		C27AD1B20987FCDB001272E0 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
-				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -1040,68 +494,38 @@
 		C27AD1950987FCDB001272E0 /* Build configuration list for PBXLegacyTarget "generate mig" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1960987FCDB001272E0 /* Development */,
-				C27AD1970987FCDB001272E0 /* Deployment */,
-				C27AD1980987FCDB001272E0 /* normal with debug */,
-				C27AD1990987FCDB001272E0 /* Default */,
+				C27AD1960987FCDB001272E0 /* Debug */,
+				C27AD1990987FCDB001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD19A0987FCDB001272E0 /* Build configuration list for PBXNativeTarget "security_tokend_client" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD19B0987FCDB001272E0 /* Development */,
-				C27AD19C0987FCDB001272E0 /* Deployment */,
-				C27AD19D0987FCDB001272E0 /* normal with debug */,
-				C27AD19E0987FCDB001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD19F0987FCDB001272E0 /* Build configuration list for PBXNativeTarget "libsecurity_tokend_client" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1A00987FCDB001272E0 /* Development */,
-				C27AD1A10987FCDB001272E0 /* Deployment */,
-				C27AD1A20987FCDB001272E0 /* normal with debug */,
-				C27AD1A30987FCDB001272E0 /* Default */,
+				C27AD1A00987FCDB001272E0 /* Debug */,
+				C27AD1A30987FCDB001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD1A40987FCDB001272E0 /* Build configuration list for PBXNativeTarget "SecurityTokend" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1A50987FCDB001272E0 /* Development */,
-				C27AD1A60987FCDB001272E0 /* Deployment */,
-				C27AD1A70987FCDB001272E0 /* normal with debug */,
-				C27AD1A80987FCDB001272E0 /* Default */,
+				C27AD1A50987FCDB001272E0 /* Debug */,
+				C27AD1A80987FCDB001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
-		C27AD1A90987FCDB001272E0 /* Build configuration list for PBXAggregateTarget "World" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C27AD1AA0987FCDB001272E0 /* Development */,
-				C27AD1AB0987FCDB001272E0 /* Deployment */,
-				C27AD1AC0987FCDB001272E0 /* normal with debug */,
-				C27AD1AD0987FCDB001272E0 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		C27AD1AE0987FCDB001272E0 /* Build configuration list for PBXProject "SecurityTokend" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C27AD1AF0987FCDB001272E0 /* Development */,
-				C27AD1B00987FCDB001272E0 /* Deployment */,
-				C27AD1B10987FCDB001272E0 /* normal with debug */,
-				C27AD1B20987FCDB001272E0 /* Default */,
+				C27AD1AF0987FCDB001272E0 /* Debug */,
+				C27AD1B20987FCDB001272E0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

@@ -24,11 +24,11 @@
 #include "config.h"
 #include "EditorClientWinCE.h"
 
-#include "EditCommand.h"
 #include "Frame.h"
 #include "KeyboardEvent.h"
 #include "NotImplemented.h"
 #include "PlatformKeyboardEvent.h"
+#include "UndoStep.h"
 #include "Settings.h"
 
 using namespace WebCore;
@@ -102,7 +102,7 @@ bool EditorClientWinCE::shouldChangeSelectedRange(Range*, Range*, EAffinity, boo
     return true;
 }
 
-bool EditorClientWinCE::shouldApplyStyle(WebCore::CSSStyleDeclaration*, WebCore::Range*)
+bool EditorClientWinCE::shouldApplyStyle(WebCore::StylePropertySet*, WebCore::Range*)
 {
     notImplemented();
     return true;
@@ -124,7 +124,7 @@ void EditorClientWinCE::respondToChangedContents()
     notImplemented();
 }
 
-void EditorClientWinCE::respondToChangedSelection()
+void EditorClientWinCE::respondToChangedSelection(WebCore::Frame*)
 {
     notImplemented();
 }
@@ -144,12 +144,12 @@ void EditorClientWinCE::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-void EditorClientWinCE::registerCommandForUndo(WTF::PassRefPtr<WebCore::EditCommand> command)
+void EditorClientWinCE::registerUndoStep(WTF::PassRefPtr<WebCore::UndoStep>)
 {
     notImplemented();
 }
 
-void EditorClientWinCE::registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand> command)
+void EditorClientWinCE::registerRedoStep(WTF::PassRefPtr<WebCore::UndoStep>)
 {
     notImplemented();
 }
@@ -359,32 +359,32 @@ bool EditorClientWinCE::handleEditingKeyboardEvent(KeyboardEvent* event)
             frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
                     DirectionLeft,
                     keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
-                    true);
+                    UserTriggered);
             return true;
         case VK_RIGHT:
             frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
                     DirectionRight,
                     keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
-                    true);
+                    UserTriggered);
             return true;
         case VK_UP:
             frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
                     DirectionBackward,
                     keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
-                    true);
+                    UserTriggered);
             return true;
         case VK_DOWN:
             frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
                     DirectionForward,
                     keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
-                    true);
+                    UserTriggered);
             return true;
         }
     }
 
     Editor::Command command = frame->editor()->command(interpretKeyEvent(event));
 
-    if (keyEvent->type() == PlatformKeyboardEvent::RawKeyDown) {
+    if (keyEvent->type() == PlatformEvent::RawKeyDown) {
         // WebKit doesn't have enough information about mode to decide how commands that just insert text if executed via Editor should be treated,
         // so we leave it upon WebCore to either handle them immediately (e.g. Tab that changes focus) or let a keypress event be generated
         // (e.g. Tab that inserts a Tab character, or Enter).

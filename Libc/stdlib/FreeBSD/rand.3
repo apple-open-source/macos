@@ -37,22 +37,30 @@
 .Os
 .Sh NAME
 .Nm rand ,
+.Nm rand_r ,
 .Nm srand ,
-.Nm sranddev ,
-.Nm rand_r
+.Nm sranddev
 .Nd bad random number generator
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In stdlib.h
-.Ft void
-.Fn srand "unsigned seed"
-.Ft void
-.Fn sranddev void
 .Ft int
-.Fn rand void
+.Fo rand
+.Fa void
+.Fc
 .Ft int
-.Fn rand_r "unsigned *ctx"
+.Fo rand_r
+.Fa "unsigned *seed"
+.Fc
+.Ft void
+.Fo srand
+.Fa "unsigned seed"
+.Fc
+.Ft void
+.Fo sranddev
+.Fa void
+.Fc
 .Sh DESCRIPTION
 .Bf -symbolic
 These interfaces are obsoleted by
@@ -85,7 +93,7 @@ seeded with a value of 1.
 .Pp
 The
 .Fn sranddev
-function initializes a seed using the
+function initializes a seed, using the
 .Xr random 4
 random number device which returns good random numbers.
 However, the
@@ -98,7 +106,7 @@ function
 provides the same functionality as
 .Fn rand .
 A pointer to the context value
-.Fa ctx
+.Fa seed
 must be supplied by the caller.
 .Sh SEE ALSO
 .Xr random 3 ,

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,8 +45,8 @@ typedef struct objc_object* id;
 #include <QDataStream>
 #endif
 
-#if PLATFORM(ANDROID)
-#include "AndroidWebHistoryBridge.h"
+#if PLATFORM(BLACKBERRY)
+#include "HistoryItemViewState.h"
 #endif
 
 namespace WebCore {
@@ -203,9 +204,8 @@ public:
     QDataStream& saveState(QDataStream& out, int version) const;
 #endif
 
-#if PLATFORM(ANDROID)
-    void setBridge(AndroidWebHistoryBridge* bridge);
-    AndroidWebHistoryBridge* bridge() const;
+#if PLATFORM(BLACKBERRY)
+    HistoryItemViewState& viewState() { return m_viewState; }
 #endif
 
 #ifndef NDEBUG
@@ -216,8 +216,6 @@ public:
     void adoptVisitCounts(Vector<int>& dailyCounts, Vector<int>& weeklyCounts);
     const Vector<int>& dailyVisitCounts() const { return m_dailyVisitCounts; }
     const Vector<int>& weeklyVisitCounts() const { return m_weeklyVisitCounts; }
-
-    void markForFullStyleRecalc();
 
 private:
     HistoryItem();
@@ -298,10 +296,9 @@ private:
     QVariant m_userData;
 #endif
 
-#if PLATFORM(ANDROID)
-    RefPtr<AndroidWebHistoryBridge> m_bridge;
+#if PLATFORM(BLACKBERRY)
+    HistoryItemViewState m_viewState;
 #endif
-
 }; //class HistoryItem
 
 } //namespace WebCore

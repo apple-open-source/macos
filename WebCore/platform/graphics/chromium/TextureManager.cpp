@@ -29,22 +29,122 @@
 #include "TextureManager.h"
 
 #include "LayerRendererChromium.h"
+#include "ManagedTexture.h"
+
+using namespace std;
 
 namespace WebCore {
 
-static size_t memoryUseBytes(IntSize size, unsigned textureFormat)
+
+namespace {
+size_t memoryLimitBytes(size_t viewportMultiplier, const IntSize& viewportSize, size_t minMegabytes, size_t maxMegabytes)
 {
-    // FIXME: This assumes all textures are 4 bytes/pixel, like RGBA.
-    return size.width() * size.height() * 4;
+    if (!viewportMultiplier)
+        return maxMegabytes * 1024 * 1024;
+    if (viewportSize.isEmpty())
+        return minMegabytes * 1024 * 1024;
+    return max(minMegabytes * 1024 * 1024, min(maxMegabytes * 1024 * 1024, viewportMultiplier * TextureManager::memoryUseBytes(viewportSize, GraphicsContext3D::RGBA)));
+}
 }
 
-TextureManager::TextureManager(GraphicsContext3D* context, size_t memoryLimitBytes, int maxTextureSize)
-    : m_context(context)
-    , m_memoryLimitBytes(memoryLimitBytes)
+size_t TextureManager::highLimitBytes(const IntSize& viewportSize)
+{
+    size_t viewportMultiplier, minMegabytes, maxMegabytes;
+#if OS(ANDROID)
+    viewportMultiplier = 16;
+    minMegabytes = 32;
+    maxMegabytes = 64;
+#else
+    viewportMultiplier = 0;
+    minMegabytes = 0;
+    maxMegabytes = 128;
+#endif
+    return memoryLimitBytes(viewportMultiplier, viewportSize, minMegabytes, maxMegabytes);
+}
+
+size_t TextureManager::reclaimLimitBytes(const IntSize& viewportSize)
+{
+    size_t viewportMultiplier, minMegabytes, maxMegabytes;
+#if OS(ANDROID)
+    viewportMultiplier = 8;
+    minMegabytes = 16;
+    maxMegabytes = 32;
+#else
+    viewportMultiplier = 0;
+    minMegabytes = 0;
+    maxMegabytes = 64;
+#endif
+    return memoryLimitBytes(viewportMultiplier, viewportSize, minMegabytes, maxMegabytes);
+}
+
+size_t TextureManager::memoryUseBytes(const IntSize& size, GC3Denum textureFormat)
+{
+    // FIXME: This assumes all textures are 1 byte/component.
+    const GC3Denum type = GraphicsContext3D::UNSIGNED_BYTE;
+    unsigned int componentsPerPixel = 4;
+    unsigned int bytesPerComponent = 1;
+    if (!GraphicsContext3D::computeFormatAndTypeParameters(textureFormat, type, &componentsPerPixel, &bytesPerComponent))
+        ASSERT_NOT_REACHED();
+
+    return size.width() * size.height() * componentsPerPixel * bytesPerComponent;
+}
+
+
+TextureManager::TextureManager(size_t maxMemoryLimitBytes, size_t preferredMemoryLimitBytes, int maxTextureSize)
+    : m_maxMemoryLimitBytes(maxMemoryLimitBytes)
+    , m_preferredMemoryLimitBytes(preferredMemoryLimitBytes)
     , m_memoryUseBytes(0)
     , m_maxTextureSize(maxTextureSize)
     , m_nextToken(1)
 {
+}
+
+TextureManager::~TextureManager()
+{
+    for (HashSet<ManagedTexture*>::iterator it = m_registeredTextures.begin(); it != m_registeredTextures.end(); ++it)
+        (*it)->clearManager();
+}
+
+void TextureManager::setMemoryAllocationLimitBytes(size_t memoryLimitBytes)
+{
+    setMaxMemoryLimitBytes(memoryLimitBytes);
+#if defined(OS_ANDROID)
+    // On android, we are setting the preferred memory limit to half of our
+    // maximum allocation, because we would like to stay significantly below
+    // the absolute memory limit whenever we can. Specifically, by limitting
+    // prepainting only to the halfway memory mark.
+    setPreferredMemoryLimitBytes(memoryLimitBytes / 2);
+#else
+    setPreferredMemoryLimitBytes(memoryLimitBytes);
+#endif
+}
+
+void TextureManager::setMaxMemoryLimitBytes(size_t memoryLimitBytes)
+{
+    reduceMemoryToLimit(memoryLimitBytes);
+    ASSERT(currentMemoryUseBytes() <= memoryLimitBytes);
+    m_maxMemoryLimitBytes = memoryLimitBytes;
+}
+
+void TextureManager::setPreferredMemoryLimitBytes(size_t memoryLimitBytes)
+{
+    m_preferredMemoryLimitBytes = memoryLimitBytes;
+}
+
+void TextureManager::registerTexture(ManagedTexture* texture)
+{
+    ASSERT(texture);
+    ASSERT(!m_registeredTextures.contains(texture));
+
+    m_registeredTextures.add(texture);
+}
+
+void TextureManager::unregisterTexture(ManagedTexture* texture)
+{
+    ASSERT(texture);
+    ASSERT(m_registeredTextures.contains(texture));
+
+    m_registeredTextures.remove(texture);
 }
 
 TextureToken TextureManager::getToken()
@@ -61,13 +161,7 @@ void TextureManager::releaseToken(TextureToken token)
 
 bool TextureManager::hasTexture(TextureToken token)
 {
-    if (m_textures.contains(token)) {
-        // If someone asks about a texture put it at the end of the LRU list.
-        m_textureLRUSet.remove(token);
-        m_textureLRUSet.add(token);
-        return true;
-    }
-    return false;
+    return m_textures.contains(token);
 }
 
 bool TextureManager::isProtected(TextureToken token)
@@ -78,10 +172,19 @@ bool TextureManager::isProtected(TextureToken token)
 void TextureManager::protectTexture(TextureToken token)
 {
     ASSERT(hasTexture(token));
-    ASSERT(!m_textures.get(token).isProtected);
     TextureInfo info = m_textures.take(token);
     info.isProtected = true;
     m_textures.add(token, info);
+    // If someone protects a texture, put it at the end of the LRU list.
+    m_textureLRUSet.remove(token);
+    m_textureLRUSet.add(token);
+}
+
+void TextureManager::unprotectTexture(TextureToken token)
+{
+    TextureMap::iterator it = m_textures.find(token);
+    if (it != m_textures.end())
+        it->second.isProtected = false;
 }
 
 void TextureManager::unprotectAllTextures()
@@ -90,7 +193,13 @@ void TextureManager::unprotectAllTextures()
         it->second.isProtected = false;
 }
 
-bool TextureManager::reduceMemoryToLimit(size_t limit)
+void TextureManager::evictTexture(TextureToken token, TextureInfo info)
+{
+    TRACE_EVENT("TextureManager::evictTexture", this, 0);
+    removeTexture(token, info);
+}
+
+void TextureManager::reduceMemoryToLimit(size_t limit)
 {
     while (m_memoryUseBytes > limit) {
         ASSERT(!m_textureLRUSet.isEmpty());
@@ -100,14 +209,13 @@ bool TextureManager::reduceMemoryToLimit(size_t limit)
             TextureInfo info = m_textures.get(token);
             if (info.isProtected)
                 continue;
-            removeTexture(token, info);
+            evictTexture(token, info);
             foundCandidate = true;
             break;
         }
         if (!foundCandidate)
-            return false;
+            return;
     }
-    return true;
 }
 
 void TextureManager::addTexture(TextureToken token, TextureInfo info)
@@ -119,6 +227,28 @@ void TextureManager::addTexture(TextureToken token, TextureInfo info)
     m_textureLRUSet.add(token);
 }
 
+void TextureManager::deleteEvictedTextures(TextureAllocator* allocator)
+{
+    if (allocator) {
+        for (size_t i = 0; i < m_evictedTextures.size(); ++i) {
+            if (m_evictedTextures[i].textureId) {
+#ifndef NDEBUG
+                ASSERT(m_evictedTextures[i].allocator == allocator);
+#endif
+                allocator->deleteTexture(m_evictedTextures[i].textureId, m_evictedTextures[i].size, m_evictedTextures[i].format);
+            }
+        }
+    }
+    m_evictedTextures.clear();
+}
+
+void TextureManager::evictAndDeleteAllTextures(TextureAllocator* allocator)
+{
+    unprotectAllTextures();
+    reduceMemoryToLimit(0);
+    deleteEvictedTextures(allocator);
+}
+
 void TextureManager::removeTexture(TextureToken token, TextureInfo info)
 {
     ASSERT(m_textureLRUSet.contains(token));
@@ -127,13 +257,35 @@ void TextureManager::removeTexture(TextureToken token, TextureInfo info)
     m_textures.remove(token);
     ASSERT(m_textureLRUSet.contains(token));
     m_textureLRUSet.remove(token);
-    GLC(m_context.get(), m_context->deleteTexture(info.textureId));
+    EvictionEntry entry;
+    entry.textureId = info.textureId;
+    entry.size = info.size;
+    entry.format = info.format;
+#ifndef NDEBUG
+    entry.allocator = info.allocator;
+#endif
+    m_evictedTextures.append(entry);
 }
 
-unsigned TextureManager::requestTexture(TextureToken token, IntSize size, unsigned format, bool* newTexture)
+unsigned TextureManager::allocateTexture(TextureAllocator* allocator, TextureToken token)
+{
+    TextureMap::iterator it = m_textures.find(token);
+    ASSERT(it != m_textures.end());
+    TextureInfo* info = &it.get()->second;
+    ASSERT(info->isProtected);
+
+    unsigned textureId = allocator->createTexture(info->size, info->format);
+    info->textureId = textureId;
+#ifndef NDEBUG
+    info->allocator = allocator;
+#endif
+    return textureId;
+}
+
+bool TextureManager::requestTexture(TextureToken token, IntSize size, unsigned format)
 {
     if (size.width() > m_maxTextureSize || size.height() > m_maxTextureSize)
-        return 0;
+        return false;
 
     TextureMap::iterator it = m_textures.find(token);
     if (it != m_textures.end()) {
@@ -142,26 +294,23 @@ unsigned TextureManager::requestTexture(TextureToken token, IntSize size, unsign
     }
 
     size_t memoryRequiredBytes = memoryUseBytes(size, format);
-    if (memoryRequiredBytes > m_memoryLimitBytes || !reduceMemoryToLimit(m_memoryLimitBytes - memoryRequiredBytes))
-        return 0;
+    if (memoryRequiredBytes > m_maxMemoryLimitBytes)
+        return false;
 
-    unsigned textureId;
-    GLC(m_context.get(), textureId = m_context->createTexture());
-    GLC(m_context.get(), m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, textureId));
-    // Do basic linear filtering on resize.
-    GLC(m_context.get(), m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR));
-    GLC(m_context.get(), m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR));
-    // NPOT textures in GL ES only work when the wrap mode is set to GraphicsContext3D::CLAMP_TO_EDGE.
-    GLC(m_context.get(), m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE));
-    GLC(m_context.get(), m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE));
-    GLC(m_context.get(), m_context->texImage2DResourceSafe(GraphicsContext3D::TEXTURE_2D, 0, format, size.width(), size.height(), 0, format, GraphicsContext3D::UNSIGNED_BYTE));
+    reduceMemoryToLimit(m_maxMemoryLimitBytes - memoryRequiredBytes);
+    if (m_memoryUseBytes + memoryRequiredBytes > m_maxMemoryLimitBytes)
+        return false;
+
     TextureInfo info;
     info.size = size;
     info.format = format;
-    info.textureId = textureId;
+    info.textureId = 0;
     info.isProtected = true;
+#ifndef NDEBUG
+    info.allocator = 0;
+#endif
     addTexture(token, info);
-    return textureId;
+    return true;
 }
 
 }

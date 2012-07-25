@@ -1059,6 +1059,7 @@ int pa_parse_neg_add_cmpltr(s)
   return cmpltr;
 }
 
+#if 0
 static int
 is_same_frag(frag1P,frag2P)
      fragS *frag1P;
@@ -1078,5 +1079,6 @@ is_same_frag(frag1P,frag2P)
   else
     return (FALSE);
 }
+#endif
 
 /* end hppa-aux.c */

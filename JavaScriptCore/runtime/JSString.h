@@ -32,6 +32,8 @@
 namespace JSC {
 
     class JSString;
+    class JSRopeString;
+    class LLIntOffsetsExtractor;
 
     JSString* jsEmptyString(JSGlobalData*);
     JSString* jsEmptyString(ExecState*);
@@ -57,52 +59,19 @@ namespace JSC {
     JSString* jsOwnedString(JSGlobalData*, const UString&); 
     JSString* jsOwnedString(ExecState*, const UString&); 
 
-    JSString* jsStringBuilder(JSGlobalData*);
+    JSRopeString* jsStringBuilder(JSGlobalData*);
 
-    class JS_EXPORTCLASS JSString : public JSCell {
+    class JSString : public JSCell {
     public:
         friend class JIT;
         friend class JSGlobalData;
         friend class SpecializedThunkJIT;
+        friend class JSRopeString;
         friend struct ThunkHelpers;
-        friend JSString* jsStringBuilder(JSGlobalData*);
 
         typedef JSCell Base;
 
-        class RopeBuilder {
-        public:
-            RopeBuilder(JSGlobalData& globalData)
-                : m_globalData(globalData)
-                , m_jsString(jsStringBuilder(&globalData))
-                , m_index(0)
-            {
-            }
-
-            void append(JSString* jsString)
-            {
-                if (m_index == JSString::s_maxInternalRopeLength)
-                    expand();
-                m_jsString->m_fibers[m_index++].set(m_globalData, m_jsString, jsString);
-                m_jsString->m_length += jsString->m_length;
-                m_jsString->m_is8Bit = m_jsString->m_is8Bit && jsString->m_is8Bit;
-            }
-
-            JSString* release()
-            {
-                JSString* tmp = m_jsString;
-                m_jsString = 0;
-                return tmp;
-            }
-
-            unsigned length() { return m_jsString->m_length; }
-
-        private:
-            void expand();
-
-            JSGlobalData& m_globalData;
-            JSString* m_jsString;
-            size_t m_index;
-        };
+        static void destroy(JSCell*);
 
     private:
         JSString(JSGlobalData& globalData, PassRefPtr<StringImpl> value)
@@ -114,13 +83,6 @@ namespace JSC {
         JSString(JSGlobalData& globalData)
             : JSCell(globalData, globalData.stringStructure.get())
         {
-        }
-
-        void finishCreation(JSGlobalData& globalData)
-        {
-            Base::finishCreation(globalData);
-            m_length = 0;
-            m_is8Bit = true;
         }
 
         void finishCreation(JSGlobalData& globalData, size_t length)
@@ -140,6 +102,132 @@ namespace JSC {
             Heap::heap(this)->reportExtraMemoryCost(cost);
         }
 
+    protected:
+        void finishCreation(JSGlobalData& globalData)
+        {
+            Base::finishCreation(globalData);
+            m_length = 0;
+            m_is8Bit = true;
+        }
+        
+    public:
+        static JSString* create(JSGlobalData& globalData, PassRefPtr<StringImpl> value)
+        {
+            ASSERT(value);
+            size_t length = value->length();
+            size_t cost = value->cost();
+            JSString* newString = new (NotNull, allocateCell<JSString>(globalData.heap)) JSString(globalData, value);
+            newString->finishCreation(globalData, length, cost);
+            return newString;
+        }
+        static JSString* createHasOtherOwner(JSGlobalData& globalData, PassRefPtr<StringImpl> value)
+        {
+            ASSERT(value);
+            size_t length = value->length();
+            JSString* newString = new (NotNull, allocateCell<JSString>(globalData.heap)) JSString(globalData, value);
+            newString->finishCreation(globalData, length);
+            return newString;
+        }
+
+        const UString& value(ExecState*) const;
+        const UString& tryGetValue() const;
+        unsigned length() { return m_length; }
+
+        JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
+        JS_EXPORT_PRIVATE bool toBoolean(ExecState*) const;
+        bool getPrimitiveNumber(ExecState*, double& number, JSValue&) const;
+        JSObject* toObject(ExecState*, JSGlobalObject*) const;
+        double toNumber(ExecState*) const;
+        
+        bool getStringPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
+        bool getStringPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
+        bool getStringPropertyDescriptor(ExecState*, const Identifier& propertyName, PropertyDescriptor&);
+
+        bool canGetIndex(unsigned i) { return i < m_length; }
+        JSString* getIndex(ExecState*, unsigned);
+
+        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue proto)
+        {
+            return Structure::create(globalData, globalObject, proto, TypeInfo(StringType, OverridesGetOwnPropertySlot), &s_info);
+        }
+
+        static size_t offsetOfLength() { return OBJECT_OFFSETOF(JSString, m_length); }
+        static size_t offsetOfValue() { return OBJECT_OFFSETOF(JSString, m_value); }
+
+        static JS_EXPORTDATA const ClassInfo s_info;
+
+        static void visitChildren(JSCell*, SlotVisitor&);
+
+    protected:
+        bool isRope() const { return m_value.isNull(); }
+        bool is8Bit() const { return m_is8Bit; }
+
+        // A string is represented either by a UString or a rope of fibers.
+        bool m_is8Bit : 1;
+        unsigned m_length;
+        mutable UString m_value;
+
+    private:
+        friend class LLIntOffsetsExtractor;
+        
+        static JSObject* toThisObject(JSCell*, ExecState*);
+
+        // Actually getPropertySlot, not getOwnPropertySlot (see JSCell).
+        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier& propertyName, PropertySlot&);
+        static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
+
+        UString& string() { ASSERT(!isRope()); return m_value; }
+
+        friend JSValue jsString(ExecState*, JSString*, JSString*);
+        friend JSString* jsSubstring(ExecState*, JSString*, unsigned offset, unsigned length);
+    };
+
+    class JSRopeString : public JSString {
+        friend class JSString;
+
+        friend JSRopeString* jsStringBuilder(JSGlobalData*);
+
+        class RopeBuilder {
+        public:
+            RopeBuilder(JSGlobalData& globalData)
+            : m_globalData(globalData)
+            , m_jsString(jsStringBuilder(&globalData))
+            , m_index(0)
+            {
+            }
+
+            void append(JSString* jsString)
+            {
+                if (m_index == JSRopeString::s_maxInternalRopeLength)
+                    expand();
+                m_jsString->m_fibers[m_index++].set(m_globalData, m_jsString, jsString);
+                m_jsString->m_length += jsString->m_length;
+                m_jsString->m_is8Bit = m_jsString->m_is8Bit && jsString->m_is8Bit;
+            }
+
+            JSRopeString* release()
+            {
+                JSRopeString* tmp = m_jsString;
+                m_jsString = 0;
+                return tmp;
+            }
+
+            unsigned length() { return m_jsString->m_length; }
+
+        private:
+            void expand();
+            
+            JSGlobalData& m_globalData;
+            JSRopeString* m_jsString;
+            size_t m_index;
+        };
+        
+    private:
+        JSRopeString(JSGlobalData& globalData)
+            : JSString(globalData)
+        {
+        }
+
         void finishCreation(JSGlobalData& globalData, JSString* s1, JSString* s2)
         {
             Base::finishCreation(globalData);
@@ -148,7 +236,7 @@ namespace JSC {
             m_fibers[0].set(globalData, this, s1);
             m_fibers[1].set(globalData, this, s2);
         }
-
+        
         void finishCreation(JSGlobalData& globalData, JSString* s1, JSString* s2, JSString* s3)
         {
             Base::finishCreation(globalData);
@@ -159,140 +247,56 @@ namespace JSC {
             m_fibers[2].set(globalData, this, s3);
         }
 
-        static JSString* createNull(JSGlobalData& globalData)
+        void finishCreation(JSGlobalData& globalData)
         {
-            JSString* newString = new (allocateCell<JSString>(globalData.heap)) JSString(globalData);
+            JSString::finishCreation(globalData);
+        }
+
+        static JSRopeString* createNull(JSGlobalData& globalData)
+        {
+            JSRopeString* newString = new (NotNull, allocateCell<JSRopeString>(globalData.heap)) JSRopeString(globalData);
             newString->finishCreation(globalData);
             return newString;
         }
 
     public:
-        static JSString* create(JSGlobalData& globalData, PassRefPtr<StringImpl> value)
-        {
-            ASSERT(value);
-            size_t length = value->length();
-            size_t cost = value->cost();
-            JSString* newString = new (allocateCell<JSString>(globalData.heap)) JSString(globalData, value);
-            newString->finishCreation(globalData, length, cost);
-            return newString;
-        }
         static JSString* create(JSGlobalData& globalData, JSString* s1, JSString* s2)
         {
-            JSString* newString = new (allocateCell<JSString>(globalData.heap)) JSString(globalData);
+            JSRopeString* newString = new (NotNull, allocateCell<JSRopeString>(globalData.heap)) JSRopeString(globalData);
             newString->finishCreation(globalData, s1, s2);
             return newString;
         }
         static JSString* create(JSGlobalData& globalData, JSString* s1, JSString* s2, JSString* s3)
         {
-            JSString* newString = new (allocateCell<JSString>(globalData.heap)) JSString(globalData);
+            JSRopeString* newString = new (NotNull, allocateCell<JSRopeString>(globalData.heap)) JSRopeString(globalData);
             newString->finishCreation(globalData, s1, s2, s3);
             return newString;
         }
-        static JSString* createHasOtherOwner(JSGlobalData& globalData, PassRefPtr<StringImpl> value)
-        {
-            ASSERT(value);
-            size_t length = value->length();
-            JSString* newString = new (allocateCell<JSString>(globalData.heap)) JSString(globalData, value);
-            newString->finishCreation(globalData, length);
-            return newString;
-        }
 
-        virtual ~JSString();
-
-        const UString& value(ExecState* exec) const
-        {
-            if (isRope())
-                resolveRope(exec);
-            return m_value;
-        }
-        const UString& tryGetValue() const
-        {
-            if (isRope())
-                resolveRope(0);
-            return m_value;
-        }
-        unsigned length() { return m_length; }
-
-        JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
-        bool toBoolean(ExecState*) const;
-        bool getPrimitiveNumber(ExecState*, double& number, JSValue&) const;
-        JSObject* toObject(ExecState*, JSGlobalObject*) const;
-        UString toString(ExecState*) const;
-        double toNumber(ExecState*) const;
-        
-        bool getStringPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
-        bool getStringPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
-        bool getStringPropertyDescriptor(ExecState*, const Identifier& propertyName, PropertyDescriptor&);
-
-        bool canGetIndex(unsigned i) { return i < m_length; }
-        JSString* getIndex(ExecState*, unsigned);
-        JSString* getIndexSlowCase(ExecState*, unsigned);
-
-        JSValue replaceCharacter(ExecState*, UChar, const UString& replacement);
-
-        static Structure* createStructure(JSGlobalData& globalData, JSGlobalObject* globalObject, JSValue proto)
-        {
-            return Structure::create(globalData, globalObject, proto, TypeInfo(StringType, OverridesGetOwnPropertySlot), &s_info);
-        }
-
-        static size_t offsetOfLength() { return OBJECT_OFFSETOF(JSString, m_length); }
-        static size_t offsetOfValue() { return OBJECT_OFFSETOF(JSString, m_value); }
-
-        static const ClassInfo s_info;
-
-        static void visitChildren(JSCell*, SlotVisitor&);
+        void visitFibers(SlotVisitor&);
 
     private:
-        JSString(VPtrStealingHackType) 
-            : JSCell(VPtrStealingHack)
-        {
-        }
+        friend JSValue jsString(ExecState*, Register*, unsigned);
+        friend JSValue jsStringFromArguments(ExecState*, JSValue);
 
-        void resolveRope(ExecState*) const;
+        JS_EXPORT_PRIVATE void resolveRope(ExecState*) const;
         void resolveRopeSlowCase8(LChar*) const;
         void resolveRopeSlowCase(UChar*) const;
         void outOfMemory(ExecState*) const;
-
-        static JSObject* toThisObject(JSCell*, ExecState*);
-
-        // Actually getPropertySlot, not getOwnPropertySlot (see JSCell).
-        static bool getOwnPropertySlot(JSCell*, ExecState*, const Identifier& propertyName, PropertySlot&);
-        static bool getOwnPropertySlotByIndex(JSCell*, ExecState*, unsigned propertyName, PropertySlot&);
+        
+        JSString* getIndexSlowCase(ExecState*, unsigned);
 
         static const unsigned s_maxInternalRopeLength = 3;
-
-        // A string is represented either by a UString or a rope of fibers.
-        bool m_is8Bit : 1;
-        unsigned m_length;
-        mutable UString m_value;
+        
         mutable FixedArray<WriteBarrier<JSString>, s_maxInternalRopeLength> m_fibers;
-
-        bool isRope() const { return m_value.isNull(); }
-        bool is8Bit() const { return m_is8Bit; }
-        UString& string() { ASSERT(!isRope()); return m_value; }
-
-        friend JSValue jsString(ExecState*, JSString*, JSString*);
-        friend JSValue jsString(ExecState*, Register*, unsigned count);
-        friend JSValue jsStringFromArguments(ExecState*, JSValue thisValue);
-        friend JSString* jsSubstring(ExecState*, JSString*, unsigned offset, unsigned length);
     };
 
     JSString* asString(JSValue);
 
-    // When an object is created from a different DLL, MSVC changes vptr to a "local" one right after invoking a constructor,
-    // see <http://groups.google.com/group/microsoft.public.vc.language/msg/55cdcefeaf770212>.
-    // This breaks isJSString(), and we don't need that hack anyway, so we change vptr back to primary one.
-    // The below function must be called by any inline function that invokes a JSString constructor.
-#if COMPILER(MSVC) && !defined(BUILDING_JavaScriptCore)
-    inline JSString* fixupVPtr(JSGlobalData* globalData, JSString* string) { string->setVPtr(globalData->jsStringVPtr); return string; }
-#else
-    inline JSString* fixupVPtr(JSGlobalData*, JSString* string) { return string; }
-#endif
-
     inline JSString* asString(JSValue value)
     {
         ASSERT(value.asCell()->isString());
-        return static_cast<JSString*>(value.asCell());
+        return jsCast<JSString*>(value.asCell());
     }
 
     inline JSString* jsEmptyString(JSGlobalData* globalData)
@@ -300,21 +304,21 @@ namespace JSC {
         return globalData->smallStrings.emptyString(globalData);
     }
 
-    inline JSString* jsSingleCharacterString(JSGlobalData* globalData, UChar c)
+    ALWAYS_INLINE JSString* jsSingleCharacterString(JSGlobalData* globalData, UChar c)
     {
         if (c <= maxSingleCharacterString)
             return globalData->smallStrings.singleCharacterString(globalData, c);
-        return fixupVPtr(globalData, JSString::create(*globalData, UString(&c, 1).impl()));
+        return JSString::create(*globalData, UString(&c, 1).impl());
     }
 
-    inline JSString* jsSingleCharacterSubstring(ExecState* exec, const UString& s, unsigned offset)
+    ALWAYS_INLINE JSString* jsSingleCharacterSubstring(ExecState* exec, const UString& s, unsigned offset)
     {
         JSGlobalData* globalData = &exec->globalData();
         ASSERT(offset < static_cast<unsigned>(s.length()));
         UChar c = s[offset];
         if (c <= maxSingleCharacterString)
             return globalData->smallStrings.singleCharacterString(globalData, c);
-        return fixupVPtr(globalData, JSString::create(*globalData, StringImpl::create(s.impl(), offset, 1)));
+        return JSString::create(*globalData, StringImpl::create(s.impl(), offset, 1));
     }
 
     inline JSString* jsNontrivialString(JSGlobalData* globalData, const char* s)
@@ -322,20 +326,34 @@ namespace JSC {
         ASSERT(s);
         ASSERT(s[0]);
         ASSERT(s[1]);
-        return fixupVPtr(globalData, JSString::create(*globalData, UString(s).impl()));
+        return JSString::create(*globalData, UString(s).impl());
     }
 
     inline JSString* jsNontrivialString(JSGlobalData* globalData, const UString& s)
     {
         ASSERT(s.length() > 1);
-        return fixupVPtr(globalData, JSString::create(*globalData, s.impl()));
+        return JSString::create(*globalData, s.impl());
+    }
+
+    inline const UString& JSString::value(ExecState* exec) const
+    {
+        if (isRope())
+            static_cast<const JSRopeString*>(this)->resolveRope(exec);
+        return m_value;
+    }
+
+    inline const UString& JSString::tryGetValue() const
+    {
+        if (isRope())
+            static_cast<const JSRopeString*>(this)->resolveRope(0);
+        return m_value;
     }
 
     inline JSString* JSString::getIndex(ExecState* exec, unsigned i)
     {
         ASSERT(canGetIndex(i));
         if (isRope())
-            return getIndexSlowCase(exec, i);
+            return static_cast<JSRopeString*>(this)->getIndexSlowCase(exec, i);
         ASSERT(i < m_value.length());
         return jsSingleCharacterSubstring(exec, m_value, i);
     }
@@ -350,7 +368,7 @@ namespace JSC {
             if (c <= maxSingleCharacterString)
                 return globalData->smallStrings.singleCharacterString(globalData, c);
         }
-        return fixupVPtr(globalData, JSString::create(*globalData, s.impl()));
+        return JSString::create(*globalData, s.impl());
     }
 
     inline JSString* jsSubstring(ExecState* exec, JSString* s, unsigned offset, unsigned length)
@@ -376,7 +394,7 @@ namespace JSC {
             if (c <= maxSingleCharacterString)
                 return globalData->smallStrings.singleCharacterString(globalData, c);
         }
-        return fixupVPtr(globalData, JSString::createHasOtherOwner(*globalData, StringImpl::create8(s.impl(), offset, length)));
+        return JSString::createHasOtherOwner(*globalData, StringImpl::create8(s.impl(), offset, length));
     }
 
     inline JSString* jsSubstring(JSGlobalData* globalData, const UString& s, unsigned offset, unsigned length)
@@ -391,7 +409,7 @@ namespace JSC {
             if (c <= maxSingleCharacterString)
                 return globalData->smallStrings.singleCharacterString(globalData, c);
         }
-        return fixupVPtr(globalData, JSString::createHasOtherOwner(*globalData, StringImpl::create(s.impl(), offset, length)));
+        return JSString::createHasOtherOwner(*globalData, StringImpl::create(s.impl(), offset, length));
     }
 
     inline JSString* jsOwnedString(JSGlobalData* globalData, const UString& s)
@@ -404,12 +422,12 @@ namespace JSC {
             if (c <= maxSingleCharacterString)
                 return globalData->smallStrings.singleCharacterString(globalData, c);
         }
-        return fixupVPtr(globalData, JSString::createHasOtherOwner(*globalData, s.impl()));
+        return JSString::createHasOtherOwner(*globalData, s.impl());
     }
 
-    inline JSString* jsStringBuilder(JSGlobalData* globalData)
+    inline JSRopeString* jsStringBuilder(JSGlobalData* globalData)
     {
-        return fixupVPtr(globalData, JSString::createNull(*globalData));
+        return JSRopeString::createNull(*globalData);
     }
 
     inline JSString* jsEmptyString(ExecState* exec) { return jsEmptyString(&exec->globalData()); }
@@ -448,7 +466,7 @@ namespace JSC {
         return false;
     }
 
-    inline bool isJSString(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsStringVPtr; }
+    inline bool isJSString(JSValue v) { return v.isCell() && v.asCell()->classInfo() == &JSString::s_info; }
 
     inline bool JSCell::toBoolean(ExecState* exec) const
     {
@@ -470,24 +488,44 @@ namespace JSC {
         return isTrue(); // false, null, and undefined all convert to false.
     }
 
-    inline UString JSValue::toString(ExecState* exec) const
+    inline JSString* JSValue::toString(ExecState* exec) const
+    {
+        if (isString())
+            return jsCast<JSString*>(asCell());
+        return toStringSlowCase(exec);
+    }
+
+    inline UString JSValue::toUString(ExecState* exec) const
     {
         if (isString())
             return static_cast<JSString*>(asCell())->value(exec);
-        if (isInt32())
-            return exec->globalData().numericStrings.add(asInt32());
-        if (isDouble())
-            return exec->globalData().numericStrings.add(asDouble());
-        if (isTrue())
-            return "true";
-        if (isFalse())
-            return "false";
-        if (isNull())
-            return "null";
-        if (isUndefined())
-            return "undefined";
-        ASSERT(isCell());
-        return asCell()->toString(exec);
+        return toUStringSlowCase(exec);
+    }
+
+    ALWAYS_INLINE UString inlineJSValueNotStringtoUString(const JSValue& value, ExecState* exec)
+    {
+        JSGlobalData& globalData = exec->globalData();
+        if (value.isInt32())
+            return globalData.numericStrings.add(value.asInt32());
+        if (value.isDouble())
+            return globalData.numericStrings.add(value.asDouble());
+        if (value.isTrue())
+            return globalData.propertyNames->trueKeyword.ustring();
+        if (value.isFalse())
+            return globalData.propertyNames->falseKeyword.ustring();
+        if (value.isNull())
+            return globalData.propertyNames->nullKeyword.ustring();
+        if (value.isUndefined())
+            return globalData.propertyNames->undefinedKeyword.ustring();
+        return value.toString(exec)->value(exec);
+    }
+
+    ALWAYS_INLINE UString JSValue::toUStringInline(ExecState* exec) const
+    {
+        if (isString())
+            return static_cast<JSString*>(asCell())->value(exec);
+
+        return inlineJSValueNotStringtoUString(*this, exec);
     }
 
 } // namespace JSC

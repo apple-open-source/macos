@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -26,21 +26,23 @@
 #include	"FEATURE/dynamic"
 #include	"shtable.h"
 
-#define	SYSLOGIN	(sh.bltin_cmds)
-#define SYSEXEC		(sh.bltin_cmds+1)
-#define SYSSET		(sh.bltin_cmds+2)
-#define SYSTRUE		(sh.bltin_cmds+4)
-#define SYSCOMMAND	(sh.bltin_cmds+5)
-#define SYSCD		(sh.bltin_cmds+6)
-#define SYSBREAK	(sh.bltin_cmds+7)
-#define SYSCONT		(sh.bltin_cmds+8)
-#define SYSTYPESET	(sh.bltin_cmds+9)
-#define SYSTEST		(sh.bltin_cmds+10)
-#define SYSBRACKET	(sh.bltin_cmds+11)
-#define SYSLET		(sh.bltin_cmds+12)
-#define SYSEXPORT	(sh.bltin_cmds+13)
+#define	SYSLOGIN	(shgd->bltin_cmds)
+#define SYSEXEC		(shgd->bltin_cmds+1)
+#define SYSSET		(shgd->bltin_cmds+2)
+#define SYSTRUE		(shgd->bltin_cmds+4)
+#define SYSCOMMAND	(shgd->bltin_cmds+5)
+#define SYSCD		(shgd->bltin_cmds+6)
+#define SYSBREAK	(shgd->bltin_cmds+7)
+#define SYSCONT		(shgd->bltin_cmds+8)
+#define SYSTYPESET	(shgd->bltin_cmds+9)
+#define SYSTEST		(shgd->bltin_cmds+10)
+#define SYSBRACKET	(shgd->bltin_cmds+11)
+#define SYSLET		(shgd->bltin_cmds+12)
+#define SYSEXPORT	(shgd->bltin_cmds+13)
+#define SYSDOT		(shgd->bltin_cmds+14)
+#define SYSRETURN	(shgd->bltin_cmds+15)
 #if SHOPT_BASH
-#   define SYSLOCAL	(sh.bltin_cmds+14)
+#   define SYSLOCAL	(shgd->bltin_cmds+16)
 #else
 #   define SYSLOCAL	0
 #endif
@@ -54,6 +56,7 @@
 extern int b_alias(int, char*[],void*);
 extern int b_break(int, char*[],void*);
 extern int b_dot_cmd(int, char*[],void*);
+extern int b_enum(int, char*[],void*);
 extern int b_exec(int, char*[],void*);
 extern int b_eval(int, char*[],void*);
 extern int b_return(int, char*[],void*);
@@ -121,9 +124,9 @@ extern const char	e_badbase[];
 extern const char	e_overlimit[];
 
 extern const char	e_eneedsarg[];
+extern const char	e_oneoperand[];
 extern const char	e_toodeep[];
 extern const char	e_badname[];
-extern const char	e_badwrite[];
 extern const char	e_badsyntax[];
 #ifdef _cmd_universe
     extern const char	e_nouniverse[];

@@ -23,7 +23,7 @@
 #define SVGColor_h
 
 #if ENABLE(SVG)
-#include "CSSMutableValue.h"
+#include "CSSValue.h"
 #include "Color.h"
 #include <wtf/PassRefPtr.h>
 
@@ -31,7 +31,7 @@ namespace WebCore {
 
 class RGBColor;
 
-class SVGColor : public CSSMutableValue {
+class SVGColor : public CSSValue {
 public:
     enum SVGColorType {
         SVG_COLORTYPE_UNKNOWN = 0,
@@ -69,18 +69,23 @@ public:
     void setRGBColorICCColor(const String& rgbColor, const String& iccColor, ExceptionCode&);
     void setColor(unsigned short colorType, const String& rgbColor, const String& iccColor, ExceptionCode&);
 
+    String customCssText() const;
+
+    ~SVGColor() { }
+    
+    PassRefPtr<SVGColor> cloneForCSSOM() const;
+
 protected:
     friend class CSSComputedStyleDeclaration;
 
-    SVGColor(const SVGColorType&);
-    virtual ~SVGColor() { }
-    virtual String cssText() const;
+    SVGColor(ClassType, const SVGColorType&);
+    SVGColor(ClassType, const SVGColor& cloneFrom);
 
     void setColor(const Color& color) { m_color = color; }
     void setColorType(const SVGColorType& type) { m_colorType = type; }
 
 private:
-    virtual bool isSVGColor() const { return true; }
+    SVGColor(const SVGColorType&);
 
     Color m_color;
     SVGColorType m_colorType;

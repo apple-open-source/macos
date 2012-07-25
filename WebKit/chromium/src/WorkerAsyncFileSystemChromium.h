@@ -31,15 +31,16 @@
 #ifndef WorkerAsyncFileSystemChromium_h
 #define WorkerAsyncFileSystemChromium_h
 
-#if ENABLE(FILE_SYSTEM)
+#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
 
-#include "AsyncFileSystem.h"
+#include "AsyncFileSystemChromium.h"
 #include "PlatformString.h"
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebKit {
 class WebFileSystem;
+class WebURL;
 class WebWorkerBase;
 class WorkerFileSystemCallbacksBridge;
 }
@@ -50,11 +51,11 @@ class AsyncFileSystemCallbacks;
 class ScriptExecutionContext;
 class WorkerContext;
 
-class WorkerAsyncFileSystemChromium : public AsyncFileSystem {
+class WorkerAsyncFileSystemChromium : public AsyncFileSystemChromium {
 public:
-    static PassOwnPtr<AsyncFileSystem> create(ScriptExecutionContext* context, AsyncFileSystem::Type type, const String& rootPath, bool synchronous)
+    static PassOwnPtr<AsyncFileSystem> create(ScriptExecutionContext* context, AsyncFileSystem::Type type, const WebKit::WebURL& rootURL, bool synchronous)
     {
-        return adoptPtr(new WorkerAsyncFileSystemChromium(context, type, rootPath, synchronous));
+        return adoptPtr(new WorkerAsyncFileSystemChromium(context, type, rootURL, synchronous));
     }
 
     virtual ~WorkerAsyncFileSystemChromium();
@@ -73,14 +74,14 @@ public:
     virtual void directoryExists(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
     virtual void readDirectory(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
     virtual void createWriter(AsyncFileWriterClient* client, const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
+    virtual void createSnapshotFileAndReadMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>);
 
 private:
-    WorkerAsyncFileSystemChromium(ScriptExecutionContext*, AsyncFileSystem::Type, const String& rootPath, bool synchronous);
+    WorkerAsyncFileSystemChromium(ScriptExecutionContext*, AsyncFileSystem::Type, const WebKit::WebURL& rootURL, bool synchronous);
 
     PassRefPtr<WebKit::WorkerFileSystemCallbacksBridge> createWorkerFileSystemCallbacksBridge(PassOwnPtr<AsyncFileSystemCallbacks>);
 
     ScriptExecutionContext* m_scriptExecutionContext;
-    WebKit::WebFileSystem* m_webFileSystem;
     WebKit::WebWorkerBase* m_worker;
     WorkerContext* m_workerContext;
     RefPtr<WebKit::WorkerFileSystemCallbacksBridge> m_bridgeForCurrentOperation;

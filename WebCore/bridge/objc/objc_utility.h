@@ -32,11 +32,7 @@
 #include <runtime/Error.h>
 #include <runtime/JSObject.h>
 
-#ifdef __OBJC__
-@class NSString;
-#else
-class NSString;
-#endif
+OBJC_CLASS NSString;
 
 namespace JSC {
 namespace Bindings {
@@ -77,8 +73,6 @@ ObjcValue convertValueToObjcValue(ExecState*, JSValue, ObjcValueType);
 JSValue convertNSStringToString(ExecState* exec, NSString *nsstring);
 JSValue convertObjcValueToValue(ExecState*, void* buffer, ObjcValueType, RootObject*);
 ObjcValueType objcValueTypeForType(const char *type);
-
-bool convertJSMethodNameToObjc(const char *JSName, char *buffer, size_t bufferSize);
 
 JSObject *throwError(ExecState *, NSString *message);
 

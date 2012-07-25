@@ -1,3 +1,29 @@
+.\" Copyright (c) 2012 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. The rights granted to you under the License
+.\" may not be used to create, or enable the creation or redistribution of,
+.\" unlawful or unlicensed copies of an Apple operating system, or to
+.\" circumvent, violate, or enable the circumvention or violation of, any
+.\" terms of an Apple operating system software license agreement.
+.\" 
+.\" Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this file.
+.\"
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+.\"
 .\" Copyright (c) 1983, 1990, 1992, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -50,7 +76,8 @@
 .Nm
 .Fl i | I Ar interface
 .Op Fl w Ar wait
-.Op Fl abdgRt
+.Op Fl c Ar queue
+.Op Fl abdgqRt
 .Nm
 .Fl s Op Fl s
 .Op Fl f Ar address_family | Fl p Ar protocol
@@ -95,7 +122,7 @@ The options have the following meaning:
 .Bl -tag -width flag
 .It Fl A
 With the default display, show the address of any protocol control blocks associated with
-sockets; used for debugging.
+sockets and the flow hash; used for debugging.
 .It Fl a
 With the default display, show the state of all sockets; normally sockets used by server
 processes are not shown. With the routing table display (option
@@ -107,6 +134,11 @@ parent route); normally these routes are not shown.
 With the interface display (option
 .Fl i ,
 as described below), show the number of bytes in and out.
+.It Fl c Ar queue
+With the queue statistics (option
+.Fl q ,
+as described below), show only those for the specified
+.Ar queue .
 .It Fl d
 With either interface display (option
 .Fl i
@@ -196,6 +228,18 @@ is used to show bridging statistics.  A null response typically means that there
 no interesting numbers to report.  The program will complain if
 .Ar protocol
 is unknown or if there is no statistics routine for it.
+.It Fl q
+Show network interface send queue statistics.  By default all queues are displayed, unless
+specified with
+.Fl c .
+This option requires specifying an interface with
+.Fl I
+option.  More detailed information about the queues, which includes their queueing algorithm related statistics, can be obtained by using
+.Fl qq
+or
+.Fl q
+.Fl q
+option.
 .It Fl r
 Show the routing tables.  Use with
 .Fl a
@@ -224,6 +268,11 @@ overflow.
 Show network interface or protocol statistics at intervals of
 .Ar wait
 seconds.
+.It Fl x
+Show extended link-layer reachability information in addition to that shown by
+the
+.Fl R
+flag.
 .El
 .Pp
 .\"-------------------------------------------------------------------------------
@@ -328,10 +377,12 @@ L	RTF_LLINFO	Valid protocol to link address translation
 M	RTF_MODIFIED	Modified dynamically (by redirect)
 m	RTF_MULTICAST	The route represents a multicast address
 R	RTF_REJECT	Host or net unreachable
+r	RTF_ROUTER	Host is a default router
 S	RTF_STATIC	Manually added
 U	RTF_UP		Route usable
 W	RTF_WASCLONED	Route was generated as a result of cloning
 X	RTF_XRESOLVE	External daemon translates proto to link address
+Y	RTF_PROXY	Proxying; cloned routes will not be scoped
 .El
 .Pp
 Direct routes are created for each interface attached to the local host;
@@ -343,7 +394,9 @@ obtain a route while sending to the same destination.  The use field
 provides a count of the number of packets sent using that route.  The
 interface entry indicates the network interface utilized for the route.
 A route which is marked with the RTF_IFSCOPE flag is instantiated for
-the corresponding interface.
+the corresponding interface.  A cloning route which is marked with the
+RTF_PROXY flag will not generate new routes that are associated
+with its interface scope.
 .Pp
 When
 .Nm netstat

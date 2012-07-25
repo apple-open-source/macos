@@ -29,6 +29,7 @@
 #define RenderThemeChromiumSkia_h
 
 #include "RenderTheme.h"
+#include "RenderThemeChromiumCommon.h"
 
 namespace WebCore {
 
@@ -51,6 +52,8 @@ class RenderThemeChromiumSkia : public RenderTheme {
         // A method asking if the theme is able to draw the focus ring.
         virtual bool supportsFocusRing(const RenderStyle*) const;
 
+        virtual bool supportsDataListUI(const AtomicString& type) const OVERRIDE;
+
         // The platform selection color.
         virtual Color platformActiveSelectionBackgroundColor() const;
         virtual Color platformInactiveSelectionBackgroundColor() const;
@@ -70,28 +73,28 @@ class RenderThemeChromiumSkia : public RenderTheme {
 
         virtual void setRadioSize(RenderStyle*) const;
 
-        virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
 
         virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustSearchFieldStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustSearchFieldCancelButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustSearchFieldDecorationStyle(StyleResolver*, RenderStyle*, Element*) const;
 
-        virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustSearchFieldResultsDecorationStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustSearchFieldResultsButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
 
         virtual bool paintMediaControlsBackground(RenderObject*, const PaintInfo&, const IntRect&);
         virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
         virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
-        virtual void adjustSliderThumbSize(RenderObject*) const;
+        virtual void adjustSliderThumbSize(RenderStyle*) const;
         virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
         virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
         virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
@@ -106,8 +109,8 @@ class RenderThemeChromiumSkia : public RenderTheme {
         // In short, we either go down the MenuList code path or the MenuListButton
         // codepath. We never go down both. And in both cases, they render the
         // entire menulist.
-        virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+        virtual void adjustMenuListStyle(StyleResolver*, RenderStyle*, Element*) const;
+        virtual void adjustMenuListButtonStyle(StyleResolver*, RenderStyle*, Element*) const;
         virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
 
 #if ENABLE(PROGRESS_TAG)
@@ -151,11 +154,14 @@ class RenderThemeChromiumSkia : public RenderTheme {
         IntRect progressValueRectFor(RenderProgress*, const IntRect&) const;
 #endif
 
-    private:
-        int menuListInternalPadding(RenderStyle*, int paddingType) const;
-        bool paintMediaButtonInternal(GraphicsContext*, const IntRect&, Image*);
-        IntRect convertToPaintingRect(RenderObject* inputRenderer, const RenderObject* partRenderer, IntRect partRect, const IntRect& localOffset) const;
-    };
+private:
+    virtual Color disabledTextColor(const Color& textColor, const Color&) const OVERRIDE { return textColor; }
+    virtual bool shouldShowPlaceholderWhenFocused() const OVERRIDE;
+
+    int menuListInternalPadding(RenderStyle*, int paddingType) const;
+    bool paintMediaButtonInternal(GraphicsContext*, const IntRect&, Image*);
+    IntRect convertToPaintingRect(RenderObject* inputRenderer, const RenderObject* partRenderer, LayoutRect partRect, const IntRect& localOffset) const;
+};
 
 } // namespace WebCore
 

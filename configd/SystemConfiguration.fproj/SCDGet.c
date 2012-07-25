@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,7 +45,7 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 			   CFArrayRef		keys,
 			   CFArrayRef		patterns)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	CFDataRef			xmlKeys		= NULL;	/* keys (XML serialized) */
 	xmlData_t			myKeysRef	= NULL;	/* keys (serialized) */
@@ -60,11 +60,15 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	int				sc_status;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return NULL;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return NULL;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return NULL;	/* you must have an open session to play */
@@ -99,21 +103,11 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 			     &xmlDictLen,
 			     (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyMultiple configget_m(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreCopyMultiple configget_m()")) {
+		goto retry;
 	}
 
 	/* clean up */
@@ -144,7 +138,7 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 CFPropertyListRef
 SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 {
-	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	CFDataRef			utfKey;			/* key (XML serialized) */
 	xmlData_t			myKeyRef;		/* key (serialized) */
@@ -156,11 +150,15 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	int				sc_status;
 
 	if (store == NULL) {
-		/* sorry, you must provide a session */
-		_SCErrorSet(kSCStatusNoStoreSession);
-		return NULL;
+		store = __SCDynamicStoreNullSession();
+		if (store == NULL) {
+			/* sorry, you must provide a session */
+			_SCErrorSet(kSCStatusNoStoreSession);
+			return NULL;
+		}
 	}
 
+	storePrivate = (SCDynamicStorePrivateRef)store;
 	if (storePrivate->server == MACH_PORT_NULL) {
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return NULL;	/* you must have an open session to play */
@@ -183,21 +181,11 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 			   &newInstance,
 			   (int *)&sc_status);
 
-	if (status != KERN_SUCCESS) {
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			/* the server's gone and our session port's dead, remove the dead name right */
-			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
-		} else {
-			/* we got an unexpected error, leave the [session] port alone */
-			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyValue configget(): %s"), mach_error_string(status));
-		}
-		storePrivate->server = MACH_PORT_NULL;
-		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
-			if (__SCDynamicStoreReconnect(store)) {
-				goto retry;
-			}
-		}
-		sc_status = status;
+	if (__SCDynamicStoreCheckRetryAndHandleError(store,
+						     status,
+						     &sc_status,
+						     "SCDynamicStoreCopyValue configget()")) {
+		goto retry;
 	}
 
 	/* clean up */

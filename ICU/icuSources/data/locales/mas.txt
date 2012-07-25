@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2010 International Business Machines
+// * Copyright (C) 2012 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/mas.xml
@@ -12,8 +12,8 @@
 mas{
     AuxExemplarCharacters{"[f q v x z]"}
     ExemplarCharacters{
-        "[\u0301 \u0300 \u0302 a á à â ā b c d e é è ê ē ɛ g h i í ì î ī ɨ j k l m n "
-        "{ny} ŋ o ó ò ô ō ɔ p r {rr} s {sh} t u ú ù û ū ʉ w {wu} y {yi}]"
+        "[a á à â ā b c d e é è ê ē ɛ g h i í ì î ī ɨ j k l m n {ny} ŋ o ó ò ô ō ɔ p "
+        "r {rr} s {sh} t u ú ù û ū ʉ {ʉ\u0301} w {wu} y {yi}]"
     }
     ExemplarCharactersIndex{"[A B C D E Ɛ G H I Ɨ J K L M N Ŋ O Ɔ P R S T U Ʉ W Y]"}
     LocaleScript{
@@ -26,7 +26,7 @@ mas{
             }
         }
     }
-    Version{"2.0.46.85"}
+    Version{"2.0.65.46"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -64,9 +64,9 @@ mas{
                 ms{"mm:ss"}
                 y{"y"}
                 yM{"M/y"}
-                yMEd{"EEE, M/d/y"}
+                yMEd{"E, M/d/y"}
                 yMMM{"MMM y"}
-                yMMMEd{"EEE, MMM d, y"}
+                yMMMEd{"E, MMM d, y"}
                 yMMMM{"MMMM y"}
                 yQ{"Q y"}
                 yQQQ{"QQQ y"}
@@ -205,10 +205,10 @@ mas{
         }
     }
     delimiters{
-        alternateQuotationEnd{"“"}
-        alternateQuotationStart{"”"}
-        quotationEnd{"'"}
-        quotationStart{"'"}
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
     }
     measurementSystemNames{
         metric{"Metric"}

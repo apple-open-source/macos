@@ -29,12 +29,12 @@
 #include "UString.h"
 #include "WeakGCMap.h"
 #include <wtf/HashFunctions.h>
-#include <wtf/HashTraits.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace JSC {
 
+class JSCell;
 class Structure;
 
 class StructureTransitionTable {
@@ -55,22 +55,6 @@ class StructureTransitionTable {
         static const bool safeToCompareToEmptyOrDeleted = true;
     };
 
-    struct HashTraits {
-        typedef WTF::HashTraits<RefPtr<StringImpl> > FirstTraits;
-        typedef WTF::GenericHashTraits<unsigned> SecondTraits;
-        typedef std::pair<FirstTraits::TraitType, SecondTraits::TraitType > TraitType;
-
-        static const bool emptyValueIsZero = FirstTraits::emptyValueIsZero && SecondTraits::emptyValueIsZero;
-        static TraitType emptyValue() { return std::make_pair(FirstTraits::emptyValue(), SecondTraits::emptyValue()); }
-
-        static const bool needsDestruction = FirstTraits::needsDestruction || SecondTraits::needsDestruction;
-
-        static const int minimumTableSize = FirstTraits::minimumTableSize;
-
-        static void constructDeletedValue(TraitType& slot) { FirstTraits::constructDeletedValue(slot.first); }
-        static bool isDeletedValue(const TraitType& value) { return FirstTraits::isDeletedValue(value.first); }
-    };
-
     struct WeakGCMapFinalizerCallback {
         static void* finalizerContextFor(Hash::Key)
         {
@@ -83,7 +67,7 @@ class StructureTransitionTable {
         }
     };
 
-    typedef WeakGCMap<Hash::Key, Structure, WeakGCMapFinalizerCallback, Hash, HashTraits> TransitionMap;
+    typedef WeakGCMap<Hash::Key, Structure, WeakGCMapFinalizerCallback, Hash> TransitionMap;
 
     static Hash::Key keyForWeakGCMapFinalizer(void* context, Structure*);
 
@@ -100,10 +84,10 @@ public:
             return;
         }
 
-        HandleSlot slot = this->slot();
-        if (!slot)
+        WeakImpl* impl = this->weakImpl();
+        if (!impl)
             return;
-        HandleHeap::heapFor(slot)->deallocate(slot);
+        WeakSet::deallocate(impl);
     }
 
     inline void add(JSGlobalData&, Structure*);
@@ -122,18 +106,18 @@ private:
         return reinterpret_cast<TransitionMap*>(m_data);
     }
 
-    HandleSlot slot() const
+    WeakImpl* weakImpl() const
     {
         ASSERT(isUsingSingleSlot());
-        return reinterpret_cast<HandleSlot>(m_data & ~UsingSingleSlotFlag);
+        return reinterpret_cast<WeakImpl*>(m_data & ~UsingSingleSlotFlag);
     }
 
     void setMap(TransitionMap* map)
     {
         ASSERT(isUsingSingleSlot());
         
-        if (HandleSlot slot = this->slot())
-            HandleHeap::heapFor(slot)->deallocate(slot);
+        if (WeakImpl* impl = this->weakImpl())
+            WeakSet::deallocate(impl);
 
         // This implicitly clears the flag that indicates we're using a single transition
         m_data = reinterpret_cast<intptr_t>(map);
@@ -144,24 +128,20 @@ private:
     Structure* singleTransition() const
     {
         ASSERT(isUsingSingleSlot());
-        if (HandleSlot slot = this->slot()) {
-            if (*slot)
-                return reinterpret_cast<Structure*>(slot->asCell());
+        if (WeakImpl* impl = this->weakImpl()) {
+            if (impl->state() == WeakImpl::Live)
+                return reinterpret_cast<Structure*>(impl->jsValue().asCell());
         }
         return 0;
     }
     
-    void setSingleTransition(JSGlobalData& globalData, Structure* structure)
+    void setSingleTransition(JSGlobalData&, Structure* structure)
     {
         ASSERT(isUsingSingleSlot());
-        HandleSlot slot = this->slot();
-        if (!slot) {
-            slot = globalData.heap.handleHeap()->allocate();
-            HandleHeap::heapFor(slot)->makeWeak(slot, 0, 0);
-            m_data = reinterpret_cast<intptr_t>(slot) | UsingSingleSlotFlag;
-        }
-        HandleHeap::heapFor(slot)->writeBarrier(slot, reinterpret_cast<JSCell*>(structure));
-        *slot = reinterpret_cast<JSCell*>(structure);
+        if (WeakImpl* impl = this->weakImpl())
+            WeakSet::deallocate(impl);
+        WeakImpl* impl = WeakSet::allocate(reinterpret_cast<JSCell*>(structure));
+        m_data = reinterpret_cast<intptr_t>(impl) | UsingSingleSlotFlag;
     }
 
     intptr_t m_data;

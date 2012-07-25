@@ -31,16 +31,16 @@
 module html {
     interface [
         Conditional=BLOB,
-        CanBeConstructed,
-        NoStaticTables
+        Constructor,
+        JSNoStaticTables
     ] FileReaderSync {
         [CallWith=ScriptExecutionContext] ArrayBuffer readAsArrayBuffer(in Blob blob)
             raises(FileException);
-        [CallWith=ScriptExecutionContext, ConvertScriptString] DOMString readAsBinaryString(in Blob blob)
+        [CallWith=ScriptExecutionContext] DOMString readAsBinaryString(in Blob blob)
             raises(FileException);
-        [CallWith=ScriptExecutionContext, ConvertScriptString] DOMString readAsText(in Blob blob, in [Optional] DOMString encoding)
+        [CallWith=ScriptExecutionContext] DOMString readAsText(in Blob blob, in [Optional] DOMString encoding)
             raises(FileException);
-        [CallWith=ScriptExecutionContext, ConvertScriptString] DOMString readAsDataURL(in Blob blob)
+        [CallWith=ScriptExecutionContext] DOMString readAsDataURL(in Blob blob)
             raises(FileException);
     };
 }

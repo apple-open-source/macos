@@ -29,36 +29,48 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/**
+ * @constructor
+ */
 WebInspector.SearchController = function()
 {
     this.element = document.getElementById("search");
     this._matchesElement = document.getElementById("search-results-matches");
     this._toolbarLabelElement = document.getElementById("search-toolbar-label");
+    this._searchControlBoxElement = document.getElementById("toolbar-search-navigation-control");
 
     this.element.addEventListener("search", this._onSearch.bind(this), false); // when the search is emptied
     this.element.addEventListener("mousedown", this._onSearchFieldManualFocus.bind(this), false); // when the search field is manually selected
     this.element.addEventListener("keydown", this._onKeyDown.bind(this), true);
+   
+    this._populateSearchNavigationButtons();
 }
 
 WebInspector.SearchController.prototype = {
     updateSearchMatchesCount: function(matches, panel)
     {
         if (!panel)
-            panel = WebInspector.currentPanel;
+            panel = WebInspector.inspectorView.currentPanel();
 
         panel.currentSearchMatches = matches;
 
-        if (panel === WebInspector.currentPanel)
-            this._updateSearchMatchesCount(WebInspector.currentPanel.currentQuery && matches);
+        if (panel === WebInspector.inspectorView.currentPanel())
+            this._updateSearchMatchesCountAndCurrentMatchIndex(WebInspector.inspectorView.currentPanel().currentQuery && matches);
+    },
+
+    updateCurrentMatchIndex: function(currentMatchIndex, panel)
+    {
+        if (panel === WebInspector.inspectorView.currentPanel())
+            this._updateSearchMatchesCountAndCurrentMatchIndex(panel.currentSearchMatches, currentMatchIndex);
     },
 
     updateSearchLabel: function()
     {
-        var panelName = WebInspector.currentPanel && WebInspector.currentPanel.toolbarItemLabel;
+        var panelName = WebInspector.inspectorView.currentPanel() && WebInspector.inspectorView.currentPanel().toolbarItemLabel;
         if (!panelName)
             return;
         var newLabel = WebInspector.UIString("Search %s", panelName);
-        if (WebInspector.attached)
+        if (WebInspector.isCompactMode())
             this.element.setAttribute("placeholder", newLabel);
         else {
             this.element.removeAttribute("placeholder");
@@ -69,6 +81,11 @@ WebInspector.SearchController.prototype = {
     cancelSearch: function()
     {
         this.element.value = "";
+        this._performSearch("");
+    },
+
+    disableSearchUntilExplicitAction: function(event)
+    {
         this._performSearch("");
     },
 
@@ -98,7 +115,7 @@ WebInspector.SearchController.prototype = {
                 break;
 
             case "U+0047": // G key
-                var currentPanel = WebInspector.currentPanel;
+                var currentPanel = WebInspector.inspectorView.currentPanel();
 
                 if (isMac && event.metaKey && !event.ctrlKey && !event.altKey) {
                     if (event.shiftKey) {
@@ -118,12 +135,12 @@ WebInspector.SearchController.prototype = {
 
         if (!this._currentQuery)
             return;
-         
-        panel = WebInspector.currentPanel;
+
+        var panel = WebInspector.inspectorView.currentPanel();
         if (panel.performSearch) {
             function performPanelSearch()
             {
-                this._updateSearchMatchesCount();
+                this._updateSearchMatchesCountAndCurrentMatchIndex();
 
                 panel.currentQuery = this._currentQuery;
                 panel.performSearch(this._currentQuery);
@@ -133,24 +150,53 @@ WebInspector.SearchController.prototype = {
             setTimeout(performPanelSearch.bind(this), 0);
         } else {
             // Update to show Not found for panels that can't be searched.
-            this._updateSearchMatchesCount();
+            this._updateSearchMatchesCountAndCurrentMatchIndex();
         }
     },
 
-    _updateSearchMatchesCount: function(matches)
+    _updateSearchNavigationButtonState: function(visible)
+    {
+        if (visible) {
+            this._searchNavigationNext.removeStyleClass("hidden");
+            this._searchNavigationPrev.removeStyleClass("hidden");
+        } else {
+            this._searchNavigationNext.addStyleClass("hidden");
+            this._searchNavigationPrev.addStyleClass("hidden");
+        }
+    },
+
+    /**
+     * @param {?number=} matches
+     * @param {number=} currentMatchIndex
+     */
+    _updateSearchMatchesCountAndCurrentMatchIndex: function(matches, currentMatchIndex)
     {
         if (matches == null) {
             this._matchesElement.addStyleClass("hidden");
+            // Make Search Nav key non-accessible when there is no active search.
+            this._updateSearchNavigationButtonState(false); 
             return;
         }
 
         if (matches) {
-            if (matches === 1)
-                var matchesString = WebInspector.UIString("1 match");
-            else
-                var matchesString = WebInspector.UIString("%d matches", matches);
-        } else
+            if (matches === 1) {
+                if (currentMatchIndex === 0)
+                    var matchesString = WebInspector.UIString("1 of 1 match");
+                else
+                    var matchesString = WebInspector.UIString("1 match");
+            } else {
+                if (typeof currentMatchIndex === "number")
+                    var matchesString = WebInspector.UIString("%d of %d matches", currentMatchIndex + 1, matches);
+                else
+                    var matchesString = WebInspector.UIString("%d matches", matches);
+                // Make search nav key accessible when there are more than 1 search results found.    
+                this._updateSearchNavigationButtonState(true);
+            }
+        } else {
             var matchesString = WebInspector.UIString("Not Found");
+            // Make search nav key non-accessible when there is no match found.
+            this._updateSearchNavigationButtonState(false);
+        }
 
         this._matchesElement.removeStyleClass("hidden");
         this._matchesElement.textContent = matchesString;
@@ -165,7 +211,7 @@ WebInspector.SearchController.prototype = {
 
     _onSearchFieldManualFocus: function(event)
     {
-        WebInspector.currentFocusElement = event.target;
+        WebInspector.setCurrentFocusElement(event.target);
     },
 
     _onKeyDown: function(event)
@@ -175,15 +221,15 @@ WebInspector.SearchController.prototype = {
             // If focus belongs here and text is empty - nothing to do, return unhandled.
             // When search was selected manually and is currently blank, we'd like Esc stay unhandled
             // and hit console drawer handler.
-            if (event.target.value === "" && this.currentFocusElement === this.previousFocusElement)
+            if (event.target.value === "")
                 return;
-            event.preventDefault();
-            event.stopPropagation();
 
-            this.cancelSearch(event);
-            WebInspector.currentFocusElement = WebInspector.previousFocusElement;
-            if (WebInspector.currentFocusElement === event.target)
-                WebInspector.currentFocusElement.currentFocusElement.select();
+            event.consume(true);
+
+            this.cancelSearch();
+            WebInspector.setCurrentFocusElement(WebInspector.previousFocusElement());
+            if (WebInspector.currentFocusElement() === event.target)
+                WebInspector.currentFocusElement().select();
             return false;
         }
 
@@ -209,6 +255,23 @@ WebInspector.SearchController.prototype = {
         this._performSearch(event.target.value, forceSearch, event.shiftKey, false);
     },
 
+    _onNextButtonSearch: function(event)
+    {
+        // Simulate next search on search-navigation-button click.
+        this._performSearch(this.element.value, true, false, false);
+    },
+
+    _onPrevButtonSearch: function(event)
+    {
+        // Simulate previous search on search-navigation-button click.
+        this._performSearch(this.element.value, true, true, false);
+    },
+
+    /**
+     * @param {boolean=} forceSearch
+     * @param {boolean=} isBackwardSearch
+     * @param {boolean=} repeatSearch
+     */
     _performSearch: function(query, forceSearch, isBackwardSearch, repeatSearch)
     {
         var isShortSearch = (query.length < 3);
@@ -238,12 +301,12 @@ WebInspector.SearchController.prototype = {
                     panel.searchCanceled();
             }
 
-            this._updateSearchMatchesCount();
+            this._updateSearchMatchesCountAndCurrentMatchIndex();
 
             return;
         }
 
-        var currentPanel = WebInspector.currentPanel;
+        var currentPanel = WebInspector.inspectorView.currentPanel();
         if (!repeatSearch && query === currentPanel.currentQuery && currentPanel.currentQuery === this._currentQuery) {
             // When this is the same query and a forced search, jump to the next
             // search result for a good user experience.
@@ -258,12 +321,55 @@ WebInspector.SearchController.prototype = {
 
         this._currentQuery = query;
 
-        this._updateSearchMatchesCount();
+        this._updateSearchMatchesCountAndCurrentMatchIndex();
 
         if (!currentPanel.performSearch)
             return;
 
         currentPanel.currentQuery = query;
         currentPanel.performSearch(query);
+    },
+
+    /**
+     * @param {string=} direction
+     */ 
+    _createSearchNavigationButton: function(direction) 
+    {
+        var searchNavigationControlElement = document.createElement("div");
+        var searchNavigationIconElement = document.createElement("div");
+        
+        searchNavigationControlElement.className = "toolbar-search-navigation-label hidden";
+        
+        switch (direction) {
+        case "prev":
+            var searchTitle = WebInspector.UIString("Search Previous");
+            searchNavigationIconElement.className = "toolbar-search-navigation-icon-prev";
+            this._searchNavigationPrev = searchNavigationControlElement;
+            this._searchNavigationPrev.addEventListener("mousedown", this._onPrevButtonSearch.bind(this), false);
+            break;
+             
+        case "next":
+            var searchTitle = WebInspector.UIString("Search Next");
+            searchNavigationIconElement.className = "toolbar-search-navigation-icon-next";
+            this._searchNavigationNext = searchNavigationControlElement;
+            this._searchNavigationNext.addEventListener("mousedown", this._onNextButtonSearch.bind(this), false); 
+            break;
+        }
+
+        searchNavigationControlElement.setAttribute("title" , searchTitle);
+        searchNavigationControlElement.appendChild(searchNavigationIconElement);  
+        this._searchControlBoxElement.appendChild(searchNavigationControlElement);
+    },
+
+    _populateSearchNavigationButtons: function() 
+    {
+        // Lazily adding search navigation keys to dom.
+        this._createSearchNavigationButton("prev");
+        this._createSearchNavigationButton("next");
     }
 }
+
+/**
+ * @type {?WebInspector.SearchController}
+ */
+WebInspector.searchController = null;

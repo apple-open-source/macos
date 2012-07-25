@@ -17,13 +17,12 @@
  * Boston, MA 02110-1301, USA.
  *
 */
+
 #ifndef HitTestResult_h
 #define HitTestResult_h
 
 #include "FloatRect.h"
-#include "IntPoint.h"
-#include "IntRect.h"
-#include "IntSize.h"
+#include "LayoutTypes.h"
 #include "TextDirection.h"
 #include <wtf/Forward.h>
 #include <wtf/ListHashSet.h>
@@ -38,37 +37,45 @@ class Frame;
 class HTMLMediaElement;
 #endif
 class Image;
-class IntRect;
 class KURL;
 class Node;
+class RenderRegion;
 class Scrollbar;
+
+enum ShadowContentFilterPolicy { DoNotAllowShadowContent, AllowShadowContent };
 
 class HitTestResult {
 public:
     typedef ListHashSet<RefPtr<Node> > NodeSet;
 
     HitTestResult();
-    HitTestResult(const IntPoint&);
+    HitTestResult(const LayoutPoint&);
     // Pass non-negative padding values to perform a rect-based hit test.
-    HitTestResult(const IntPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
+    HitTestResult(const LayoutPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding, ShadowContentFilterPolicy);
     HitTestResult(const HitTestResult&);
     ~HitTestResult();
     HitTestResult& operator=(const HitTestResult&);
 
     Node* innerNode() const { return m_innerNode.get(); }
     Node* innerNonSharedNode() const { return m_innerNonSharedNode.get(); }
-    IntPoint point() const { return m_point; }
-    IntPoint localPoint() const { return m_localPoint; }
+    LayoutPoint point() const { return m_point; }
+    IntPoint roundedPoint() const { return roundedIntPoint(m_point); }
+    LayoutPoint localPoint() const { return m_localPoint; }
     Element* URLElement() const { return m_innerURLElement.get(); }
     Scrollbar* scrollbar() const { return m_scrollbar.get(); }
     bool isOverWidget() const { return m_isOverWidget; }
 
+    RenderRegion* region() const { return m_region; }
+    void setRegion(RenderRegion* region) { m_region = region; }
+
     void setToNonShadowAncestor();
+
+    ShadowContentFilterPolicy shadowContentFilterPolicy() const { return m_shadowContentFilterPolicy; }
 
     void setInnerNode(Node*);
     void setInnerNonSharedNode(Node*);
-    void setPoint(const IntPoint& p) { m_point = p; }
-    void setLocalPoint(const IntPoint& p) { m_localPoint = p; }
+    void setPoint(const LayoutPoint& p) { m_point = p; }
+    void setLocalPoint(const LayoutPoint& p) { m_localPoint = p; }
     void setURLElement(Element*);
     void setScrollbar(Scrollbar*);
     void setIsOverWidget(bool b) { m_isOverWidget = b; }
@@ -78,6 +85,7 @@ public:
     String spellingToolTip(TextDirection&) const;
     String replacedString() const;
     String title(TextDirection&) const;
+    String innerTextIfTruncated(TextDirection&) const;
     String altDisplayString() const;
     String titleDisplayString() const;
     Image* image() const;
@@ -104,9 +112,8 @@ public:
 
     // Rect-based hit test related methods.
     bool isRectBasedTest() const { return m_isRectBased; }
-    IntRect rectForPoint(int x, int y) const;
-    IntRect rectForPoint(const IntPoint&) const;
-    static IntRect rectForPoint(const IntPoint&, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
+    IntRect rectForPoint(const LayoutPoint&) const;
+    static IntRect rectForPoint(const LayoutPoint&, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
     int topPadding() const { return m_topPadding; }
     int rightPadding() const { return m_rightPadding; }
     int bottomPadding() const { return m_bottomPadding; }
@@ -114,14 +121,16 @@ public:
 
     // Returns true if it is rect-based hit test and needs to continue until the rect is fully
     // enclosed by the boundaries of a node.
-    bool addNodeToRectBasedTestResult(Node*, int x, int y, const IntRect& = IntRect());
-    bool addNodeToRectBasedTestResult(Node*, int x, int y, const FloatRect&);
+    bool addNodeToRectBasedTestResult(Node*, const LayoutPoint& pointInContainer, const IntRect& = IntRect());
+    bool addNodeToRectBasedTestResult(Node*, const LayoutPoint& pointInContainer, const FloatRect&);
     void append(const HitTestResult&);
 
     // If m_rectBasedTestResult is 0 then set it to a new NodeSet. Return *m_rectBasedTestResult. Lazy allocation makes
     // sense because the NodeSet is seldom necessary, and it's somewhat expensive to allocate and initialize. This method does
     // the same thing as mutableRectBasedTestResult(), but here the return value is const.
     const NodeSet& rectBasedTestResult() const;
+
+    Vector<String> dictationAlternatives() const;
 
 private:
     NodeSet& mutableRectBasedTestResult(); // See above.
@@ -132,9 +141,9 @@ private:
 
     RefPtr<Node> m_innerNode;
     RefPtr<Node> m_innerNonSharedNode;
-    IntPoint m_point;
-    IntPoint m_localPoint; // A point in the local coordinate space of m_innerNonSharedNode's renderer.  Allows us to efficiently
-                           // determine where inside the renderer we hit on subsequent operations.
+    LayoutPoint m_point;
+    LayoutPoint m_localPoint; // A point in the local coordinate space of m_innerNonSharedNode's renderer. Allows us to efficiently
+                              // determine where inside the renderer we hit on subsequent operations.
     RefPtr<Element> m_innerURLElement;
     RefPtr<Scrollbar> m_scrollbar;
     bool m_isOverWidget; // Returns true if we are over a widget (and not in the border/padding area of a RenderWidget for example).
@@ -143,20 +152,19 @@ private:
     int m_rightPadding;
     int m_bottomPadding;
     int m_leftPadding;
+    ShadowContentFilterPolicy m_shadowContentFilterPolicy;
+    
+    RenderRegion* m_region; // The region we're inside.
+
     mutable OwnPtr<NodeSet> m_rectBasedTestResult;
 };
-
-inline IntRect HitTestResult::rectForPoint(int x, int y) const
-{
-    return rectForPoint(IntPoint(x, y), m_topPadding, m_rightPadding, m_bottomPadding, m_leftPadding);
-}
 
 // Formula:
 // x = p.x() - rightPadding
 // y = p.y() - topPadding
 // width = leftPadding + rightPadding + 1
 // height = topPadding + bottomPadding + 1
-inline IntRect HitTestResult::rectForPoint(const IntPoint& point) const
+inline IntRect HitTestResult::rectForPoint(const LayoutPoint& point) const
 {
     return rectForPoint(point, m_topPadding, m_rightPadding, m_bottomPadding, m_leftPadding);
 }

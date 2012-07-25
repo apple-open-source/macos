@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -64,6 +64,9 @@
 		7275874612384F0200FAFEDE /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9C62A80A6729630012D63F /* CoreFoundation.framework */; };
 		7275874D12384F2400FAFEDE /* smbremountserver.c in Sources */ = {isa = PBXBuildFile; fileRef = 7275874C12384F2400FAFEDE /* smbremountserver.c */; };
 		805A516C11DD711200BA6619 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 805A516B11DD711200BA6619 /* IOKit.framework */; };
+		80A86957144F88030007668B /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80A86956144F88030007668B /* oncrpc.framework */; };
+		80A86959144F8CF70007668B /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80A86956144F88030007668B /* oncrpc.framework */; };
+		80A8695A144F8D0A0007668B /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 80A86956144F88030007668B /* oncrpc.framework */; };
 		80B0F8D60BDEBD29005FB7AC /* auto_master.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 80B0F8D50BDEBCBE005FB7AC /* auto_master.5 */; };
 		80DDE5DD12EE5E89000A3287 /* autofs.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 80DDE5D112EE5B35000A3287 /* autofs.plist */; };
 		80DDE5E412EE6076000A3287 /* autofs.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 80DDE5D212EE5B74000A3287 /* autofs.txt */; };
@@ -71,6 +74,7 @@
 		C10DA70705E2C9FB000E258E /* auto_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA69D05E2C6FD000E258E /* auto_vfsops.c */; };
 		C10DA70805E2C9FB000E258E /* auto_subr.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA69F05E2C6FD000E258E /* auto_subr.c */; };
 		C10DA71105E2C9FB000E258E /* mount_autofs.c in Sources */ = {isa = PBXBuildFile; fileRef = C10DA6BA05E2C766000E258E /* mount_autofs.c */; };
+		D63CA2971479C524003EC201 /* triggers.h in Headers */ = {isa = PBXBuildFile; fileRef = EBB195661097F33500A3265E /* triggers.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		EB0024CF0977617E002F9164 /* autofs_prot.defs in Sources */ = {isa = PBXBuildFile; fileRef = EB0024CE0977617E002F9164 /* autofs_prot.defs */; };
 		EB0024E1097764A6002F9164 /* autofs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0024E0097764A6002F9164 /* autofs_types.h */; };
 		EB114EF911192BFA00951F96 /* autofs_types.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0024E0097764A6002F9164 /* autofs_types.h */; };
@@ -445,6 +449,7 @@
 		727586E812384EDB00FAFEDE /* smbremountserver */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = smbremountserver; sourceTree = BUILT_PRODUCTS_DIR; };
 		7275874C12384F2400FAFEDE /* smbremountserver.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; name = smbremountserver.c; path = smbremountserver/smbremountserver.c; sourceTree = "<group>"; tabWidth = 8; };
 		805A516B11DD711200BA6619 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		80A86956144F88030007668B /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = ../../../../../System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = "<group>"; };
 		80B0F8D50BDEBCBE005FB7AC /* auto_master.5 */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 4; indentWidth = 8; name = auto_master.5; path = files/auto_master.5; sourceTree = "<group>"; tabWidth = 8; };
 		80DDE5CF12EE5AD0000A3287 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		80DDE5D112EE5B35000A3287 /* autofs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = autofs.plist; path = files/autofs.plist; sourceTree = "<group>"; };
@@ -581,6 +586,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80A86957144F88030007668B /* oncrpc.framework in Frameworks */,
 				EB9E6A531166CA7B00F9953E /* OpenDirectory.framework in Frameworks */,
 				EB6B63AE0F86D69400E0E310 /* CoreFoundation.framework in Frameworks */,
 				EB6B63D10F86D69D00E0E310 /* SystemConfiguration.framework in Frameworks */,
@@ -600,6 +606,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80A8695A144F8D0A0007668B /* oncrpc.framework in Frameworks */,
 				EB9E6A541166CA7B00F9953E /* OpenDirectory.framework in Frameworks */,
 				EB9F8EA70F86D72C0055F3E7 /* CoreFoundation.framework in Frameworks */,
 				EB9F8EA80F86D7320055F3E7 /* SystemConfiguration.framework in Frameworks */,
@@ -617,6 +624,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				80A86959144F8CF70007668B /* oncrpc.framework in Frameworks */,
 				EB9C62F10A6729630012D63F /* CoreFoundation.framework in Frameworks */,
 				EBA5DF5611A76016009C1B71 /* OpenDirectory.framework in Frameworks */,
 				805A516C11DD711200BA6619 /* IOKit.framework in Frameworks */,
@@ -637,6 +645,7 @@
 		C10DA65705E2C60D000E258E = {
 			isa = PBXGroup;
 			children = (
+				80A86956144F88030007668B /* oncrpc.framework */,
 				80DDE5CF12EE5AD0000A3287 /* APPLE_LICENSE */,
 				C10DA69605E2C6FD000E258E /* autofs_kext */,
 				C1CC68AD05E2CEA800D0D4A3 /* autofs.kext */,
@@ -901,6 +910,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D63CA2971479C524003EC201 /* triggers.h in Headers */,
 				EB19A8FE1119293500D15184 /* autofs_defs.h in Headers */,
 				EB114EF911192BFA00951F96 /* autofs_types.h in Headers */,
 			);
@@ -1123,8 +1133,11 @@
 /* Begin PBXProject section */
 		C10DA65B05E2C60D000E258E /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0440;
+			};
 			buildConfigurationList = EB0024B809776024002F9164 /* Build configuration list for PBXProject "autofs" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -1407,7 +1420,6 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1433,7 +1445,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = smbremountserver;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1458,7 +1469,6 @@
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1483,7 +1493,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = smbremountserver;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1505,7 +1514,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = autofs_kext/autofs.exp;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1536,7 +1544,6 @@
 					"-D__MigKernelSpecificCode",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = NO;
 				PRODUCT_NAME = autofs;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1560,7 +1567,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = autofs_kext/autofs.exp;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1590,7 +1596,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = NO;
 				PRODUCT_NAME = autofs;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1790,7 +1795,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = mount_url;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1837,7 +1841,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = mount_url;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1856,7 +1859,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1882,7 +1884,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = dumpammap;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1902,7 +1903,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1927,7 +1927,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = dumpammap;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1947,7 +1946,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -1974,7 +1972,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = dumpfstab;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -1994,7 +1991,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2020,7 +2016,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = dumpfstab;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2040,8 +2035,10 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -2068,7 +2065,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = automountd;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2088,8 +2084,10 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2115,7 +2113,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = automountd;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2136,7 +2133,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2162,7 +2158,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = od_user_homes;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2182,7 +2177,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2206,7 +2200,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = od_user_homes;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2233,7 +2226,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = watch_for_automounts;
 				ZERO_LINK = NO;
 			};
@@ -2244,6 +2236,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -2270,7 +2267,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = automount;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2288,6 +2284,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2313,7 +2314,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "-lutil";
-				PREBINDING = YES;
 				PRODUCT_NAME = automount;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2334,7 +2334,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2361,7 +2360,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = checktrigger;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2381,7 +2379,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2407,7 +2404,6 @@
 					"-D_DARWIN_USE_64_BIT_INODE",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = YES;
 				PRODUCT_NAME = checktrigger;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2424,6 +2420,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2450,7 +2451,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = autofsd;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2466,6 +2466,11 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2491,7 +2496,6 @@
 					"-D__MigTypeCheck=1",
 				);
 				OTHER_LDFLAGS = "";
-				PREBINDING = YES;
 				PRODUCT_NAME = autofsd;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2512,7 +2516,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = triggers_kext/triggers.exp;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
@@ -2544,7 +2547,7 @@
 					"-D__MigKernelSpecificCode",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = NO;
+				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
 				PRODUCT_NAME = triggers;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (
@@ -2566,7 +2569,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				EXPORTED_SYMBOLS_FILE = triggers_kext/triggers.exp;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -2597,7 +2599,7 @@
 					"-D__MigKernelSpecificCode",
 					"-D__MigTypeCheck=1",
 				);
-				PREBINDING = NO;
+				PRIVATE_HEADERS_FOLDER_PATH = /System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders/Triggers;
 				PRODUCT_NAME = triggers;
 				VALID_ARCHS = "i386 x86_64";
 				WARNING_CFLAGS = (

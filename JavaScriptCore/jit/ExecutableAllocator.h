@@ -25,6 +25,7 @@
 
 #ifndef ExecutableAllocator_h
 #define ExecutableAllocator_h
+#include "JITCompilationEffort.h"
 #include <stddef.h> // for ptrdiff_t
 #include <limits>
 #include <wtf/Assertions.h>
@@ -89,17 +90,22 @@ inline size_t roundUpAllocationSize(size_t request, size_t granularity)
 
 }
 
-#if ENABLE(JIT) && ENABLE(ASSEMBLER)
-
 namespace JSC {
 
 typedef WTF::MetaAllocatorHandle ExecutableMemoryHandle;
+
+#if ENABLE(ASSEMBLER)
+
+#if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
+class DemandExecutableAllocator;
+#endif
 
 class ExecutableAllocator {
     enum ProtectionSetting { Writable, Executable };
 
 public:
     ExecutableAllocator(JSGlobalData&);
+    ~ExecutableAllocator();
     
     static void initializeAllocator();
 
@@ -107,13 +113,15 @@ public:
 
     static bool underMemoryPressure();
     
+    static double memoryPressureMultiplier(size_t addedMemoryUsage);
+    
 #if ENABLE(META_ALLOCATOR_PROFILE)
     static void dumpProfile();
 #else
     static void dumpProfile() { }
 #endif
 
-    PassRefPtr<ExecutableMemoryHandle> allocate(JSGlobalData&, size_t sizeInBytes);
+    PassRefPtr<ExecutableMemoryHandle> allocate(JSGlobalData&, size_t sizeInBytes, void* ownerUID, JITCompilationEffort);
 
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
     static void makeWritable(void* start, size_t size)
@@ -129,7 +137,6 @@ public:
     static void makeWritable(void*, size_t) {}
     static void makeExecutable(void*, size_t) {}
 #endif
-
 
 #if CPU(X86) || CPU(X86_64)
     static void cacheFlush(void*, size_t)
@@ -187,18 +194,24 @@ public:
 #elif CPU(ARM_TRADITIONAL) && OS(LINUX) && COMPILER(GCC)
     static void cacheFlush(void* code, size_t size)
     {
-        asm volatile (
-            "push    {r7}\n"
-            "mov     r0, %0\n"
-            "mov     r1, %1\n"
-            "mov     r7, #0xf0000\n"
-            "add     r7, r7, #0x2\n"
-            "mov     r2, #0x0\n"
-            "svc     0x0\n"
-            "pop     {r7}\n"
-            :
-            : "r" (code), "r" (reinterpret_cast<char*>(code) + size)
-            : "r0", "r1", "r2");
+        uintptr_t currentPage = reinterpret_cast<uintptr_t>(code) & ~(pageSize() - 1);
+        uintptr_t lastPage = (reinterpret_cast<uintptr_t>(code) + size) & ~(pageSize() - 1);
+
+        do {
+            asm volatile (
+                "push    {r7}\n"
+                "mov     r0, %0\n"
+                "mov     r1, %1\n"
+                "mov     r7, #0xf0000\n"
+                "add     r7, r7, #0x2\n"
+                "mov     r2, #0x0\n"
+                "svc     0x0\n"
+                "pop     {r7}\n"
+                :
+                : "r" (currentPage), "r" (currentPage + pageSize())
+                : "r0", "r1", "r2");
+            currentPage += pageSize();
+        } while (lastPage >= currentPage);
     }
 #elif OS(WINCE)
     static void cacheFlush(void* code, size_t size)
@@ -233,11 +246,17 @@ private:
 
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
     static void reprotectRegion(void*, size_t, ProtectionSetting);
+#if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
+    // We create a MetaAllocator for each JS global object.
+    OwnPtr<DemandExecutableAllocator> m_allocator;
+    DemandExecutableAllocator* allocator() { return m_allocator.get(); }
 #endif
+#endif
+
 };
 
-} // namespace JSC
-
 #endif // ENABLE(JIT) && ENABLE(ASSEMBLER)
+
+} // namespace JSC
 
 #endif // !defined(ExecutableAllocator)

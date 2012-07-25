@@ -37,16 +37,17 @@ _gss_scram_acquire_cred (
 	gss_OID_set * /*actual_mechs*/,
 	OM_uint32 * /*time_rec*/);
 
+
 OM_uint32
-_gss_scram_acquire_cred_ex (
-	gss_status_id_t /*status*/,
-	const gss_name_t /*desired_name*/,
-	OM_uint32 /*flags*/,
-	OM_uint32 /*time_req*/,
-	gss_cred_usage_t /*cred_usage*/,
-	gss_auth_identity_t /*identity*/,
-	void */*ctx*/,
-	void (*/*complete*/)(void *, OM_uint32, gss_status_id_t, gss_cred_id_t, OM_uint32));
+_gss_scram_acquire_cred_ext(OM_uint32 * minor_status,
+			    const gss_name_t desired_name,
+			    gss_const_OID credential_type,
+			    const void *credential_data,
+			    OM_uint32 time_req,
+			    gss_const_OID desired_mech,
+			    gss_cred_usage_t cred_usage,
+			    gss_cred_id_t * output_cred_handle);
+
 
 OM_uint32
 _gss_scram_add_cred (
@@ -152,7 +153,7 @@ OM_uint32
 _gss_scram_import_name (
 	OM_uint32 * /*minor_status*/,
 	const gss_buffer_t /*input_name_buffer*/,
-	const gss_OID /*input_name_type*/,
+	gss_const_OID /*input_name_type*/,
 	gss_name_t * output_name );
 
 OM_uint32
@@ -222,7 +223,7 @@ _gss_scram_inquire_mechs_for_name (
 OM_uint32
 _gss_scram_inquire_names_for_mech (
 	 OM_uint32 * /*minor_status*/,
-	const gss_OID /*mechanism*/,
+	gss_const_OID /*mechanism*/,
 	gss_OID_set * name_types );
 
 OM_uint32

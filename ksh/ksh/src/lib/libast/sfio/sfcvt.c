@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -19,7 +19,7 @@
 *                   Phong Vo <kpv@research.att.com>                    *
 *                                                                      *
 ***********************************************************************/
-#if _PACKAGE_ast && __STDC__
+#if __STDC__
 #include	"FEATURE/isoc99"
 #endif
 #include	"sfhdr.h"
@@ -32,9 +32,9 @@
 static char		*lc_inf = "inf", *uc_inf = "INF";
 static char		*lc_nan = "nan", *uc_nan = "NAN";
 static char		*Zero = "0";
-#define SF_INF		((_Sfi = 3), strncpy(buf, (format & SFFMT_UPPER) ? uc_inf : lc_inf, size))
-#define SF_NAN		((_Sfi = 3), strncpy(buf, (format & SFFMT_UPPER) ? uc_nan : lc_nan, size))
-#define SF_ZERO		((_Sfi = 1), strncpy(buf, Zero, size))
+#define SF_INF		((_Sfi = 3), strlcpy(buf, (format & SFFMT_UPPER) ? uc_inf : lc_inf, size), buf)
+#define SF_NAN		((_Sfi = 3), strlcpy(buf, (format & SFFMT_UPPER) ? uc_nan : lc_nan, size), buf)
+#define SF_ZERO		((_Sfi = 1), strlcpy(buf, Zero, size), buf)
 #define SF_INTPART	(SF_IDIGITS/2)
 
 #if ! _lib_isnan
@@ -71,12 +71,38 @@ static int neg0d(double f)
 }
 #endif
 
+#if ULONG_DIG && ULONG_DIG < (DBL_DIG-1)
+#define CVT_LDBL_INT	long
+#define CVT_LDBL_MAXINT	LONG_MAX
+#else
+#if UINT_DIG && UINT_DIG < (DBL_DIG-1)
+#define CVT_LDBL_INT	int
+#define CVT_LDBL_MAXINT	INT_MAX
+#else
+#define CVT_LDBL_INT	long
+#define CVT_LDBL_MAXINT	SF_MAXLONG
+#endif
+#endif
+
+#if ULONG_DIG && ULONG_DIG < (DBL_DIG-1)
+#define CVT_DBL_INT	long
+#define CVT_DBL_MAXINT	LONG_MAX
+#else
+#if UINT_DIG && UINT_DIG < (DBL_DIG-1)
+#define CVT_DBL_INT	int
+#define CVT_DBL_MAXINT	INT_MAX
+#else
+#define CVT_DBL_INT	long
+#define CVT_DBL_MAXINT	SF_MAXLONG
+#endif
+#endif
+
 #if __STD_C
-char* _sfcvt(Sfdouble_t dv, char* buf, size_t size, int n_digit,
+char* _sfcvt(Void_t* vp, char* buf, size_t size, int n_digit,
 		int* decpt, int* sign, int* len, int format)
 #else
-char* _sfcvt(dv,buf,size,n_digit,decpt,sign,len,format)
-Sfdouble_t	dv;		/* value to convert		*/
+char* _sfcvt(vp,buf,size,n_digit,decpt,sign,len,format)
+Void_t*		vp;		/* pointer to value to convert	*/
 char*		buf;		/* conversion goes here		*/
 size_t		size;		/* size of buf			*/
 int		n_digit;	/* number of digits wanted	*/
@@ -88,7 +114,8 @@ int		format;		/* conversion format		*/
 {
 	reg char		*sp;
 	reg long		n, v;
-	reg char		*ep, *b, *endsp;
+	reg char		*ep, *b, *endsp, *t;
+	int			x;
 	_ast_flt_unsigned_max_t	m;
 
 	static char		lx[] = "0123456789abcdef";
@@ -96,18 +123,32 @@ int		format;		/* conversion format		*/
 
 	*sign = *decpt = 0;
 
-	if(isnanl(dv))
-		return SF_NAN;
-#if _lib_isinf
-	if (n = isinf(dv))
-	{	if (n < 0)
-			*sign = 1;
-		return SF_INF;
-	}
-#endif
 #if !_ast_fltmax_double
 	if(format&SFFMT_LDOUBLE)
-	{	Sfdouble_t	f = dv;
+	{	Sfdouble_t	f = *(Sfdouble_t*)vp;
+
+		if(isnanl(f))
+		{	
+#if _lib_signbit
+			if (signbit(f))
+#else
+			if (f < 0)
+#endif
+				*sign = 1;
+			return SF_NAN;
+		}
+#if _lib_isinf
+		if (n = isinf(f))
+		{	
+#if _lib_signbit
+			if (signbit(f))
+#else
+			if (n < 0 || f < 0)
+#endif
+				*sign = 1;
+			return SF_INF;
+		}
+#endif
 # if _c99_in_the_wild
 #  if _lib_signbit
 		if (signbit(f))
@@ -153,7 +194,6 @@ int		format;		/* conversion format		*/
 
 		if(format & SFFMT_AFORMAT)
 		{	Sfdouble_t	g;
-			int		x;
 			b = sp = buf;
 			ep = (format & SFFMT_UPPER) ? ux : lx;
 			if(n_digit <= 0 || n_digit >= (size - 9))
@@ -170,9 +210,7 @@ int		format;		/* conversion format		*/
 				while ((x -= 4) >= 0)
 				{	*sp++ = ep[(m >> x) & 0xf];
 					if (sp >= endsp)
-					{	ep = sp + 1;
-						goto done;
-					}
+						goto around;
 				}
 				f -= m;
 				f = ldexpl(f, 8 * sizeof(m));
@@ -180,7 +218,7 @@ int		format;		/* conversion format		*/
 		}
 
 		n = 0;
-		if(f >= (Sfdouble_t)SF_MAXLONG)
+		if(f >= (Sfdouble_t)CVT_LDBL_MAXINT)
 		{	/* scale to a small enough number to fit an int */
 			v = SF_MAXEXP10-1;
 			do
@@ -192,16 +230,30 @@ int		format;		/* conversion format		*/
 					if((n += (1<<v)) >= SF_IDIGITS)
 						return SF_INF;
 				}
-			} while(f >= (Sfdouble_t)SF_MAXLONG);
+			} while(f >= (Sfdouble_t)CVT_LDBL_MAXINT);
+		}
+		else if(f > 0.0 && f < 0.1)
+		{	/* scale to avoid excessive multiply by 10 below */
+			v = SF_MAXEXP10-1;
+			do
+			{	if(f <= _Sfneg10[v])
+				{	f *= _Sfpos10[v];
+					if((n += (1<<v)) >= SF_IDIGITS)
+						return SF_INF;
+				}
+				else if (--v < 0)
+					break;
+			} while(f < 0.1);
+			n = -n;
 		}
 		*decpt = (int)n;
 
 		b = sp = buf + SF_INTPART;
-		if((v = (long)f) != 0)
+		if((v = (CVT_LDBL_INT)f) != 0)
 		{	/* translate the integer part */
 			f -= (Sfdouble_t)v;
 
-			sfucvt(v,sp,n,ep,long,ulong);
+			sfucvt(v,sp,n,ep,CVT_LDBL_INT,unsigned CVT_LDBL_INT);
 
 			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
@@ -251,11 +303,26 @@ int		format;		/* conversion format		*/
 		}
 	} else
 #endif
-	{	double	f = (double)dv;
+	{	double	f = *(double*)vp;
 
+		if(isnan(f))
+		{	
+#if _lib_signbit
+			if (signbit(f))
+#else
+			if (f < 0)
+#endif
+				*sign = 1;
+			return SF_NAN;
+		}
 #if _lib_isinf
 		if (n = isinf(f))
-		{	if (n < 0)
+		{	
+#if _lib_signbit
+			if (signbit(f))
+#else
+			if (n < 0 || f < 0)
+#endif
 				*sign = 1;
 			return SF_INF;
 		}
@@ -300,13 +367,12 @@ int		format;		/* conversion format		*/
 			return SF_INF;
 
 		if(format & SFFMT_AFORMAT)
-		{	double	g;
-			int	x;
+		{	double		g;
 			b = sp = buf;
 			ep = (format & SFFMT_UPPER) ? ux : lx;
 			if(n_digit <= 0 || n_digit >= (size - 9))
 				n_digit = size - 9;
-			endsp = sp + n_digit;
+			endsp = sp + n_digit + 1;
 
 			g = frexp(f, &x);
 			*decpt = x;
@@ -318,16 +384,14 @@ int		format;		/* conversion format		*/
 				while ((x -= 4) >= 0)
 				{	*sp++ = ep[(m >> x) & 0xf];
 					if (sp >= endsp)
-					{	ep = sp + 1;
-						goto done;
-					}
+						goto around;
 				}
 				f -= m;
 				f = ldexp(f, 8 * sizeof(m));
 			}
 		}
 		n = 0;
-		if(f >= (double)SF_MAXLONG)
+		if(f >= (double)CVT_DBL_MAXINT)
 		{	/* scale to a small enough number to fit an int */
 			v = SF_MAXEXP10-1;
 			do
@@ -338,16 +402,30 @@ int		format;		/* conversion format		*/
 					if((n += (1<<v)) >= SF_IDIGITS)
 						return SF_INF;
 				}
-			} while(f >= (double)SF_MAXLONG);
+			} while(f >= (double)CVT_DBL_MAXINT);
+		}
+		else if(f > 0.0 && f < 1e-8)
+		{	/* scale to avoid excessive multiply by 10 below */
+			v = SF_MAXEXP10-1;
+			do
+			{	if(f <= _Sfneg10[v])
+				{	f *= _Sfpos10[v];
+					if((n += (1<<v)) >= SF_IDIGITS)
+						return SF_INF;
+				}
+				else if(--v < 0)
+					break;
+			} while(f < 0.1);
+			n = -n;
 		}
 		*decpt = (int)n;
 
 		b = sp = buf + SF_INTPART;
-		if((v = (long)f) != 0)
+		if((v = (CVT_DBL_INT)f) != 0)
 		{	/* translate the integer part */
 			f -= (double)v;
 
-			sfucvt(v,sp,n,ep,long,ulong);
+			sfucvt(v,sp,n,ep,CVT_DBL_INT,unsigned CVT_DBL_INT);
 
 			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
@@ -392,6 +470,7 @@ int		format;		/* conversion format		*/
 				}
 				else /* n == 10 */
 				{	do { *sp++ = '9'; } while(sp < ep);
+					break;
 				}
 			}
 		}
@@ -419,9 +498,35 @@ int		format;		/* conversion format		*/
 		}
 	}
 
-done:
+ done:
 	*--ep = '\0';
 	if(len)
 		*len = ep-b;
 	return b;
+ around:
+	if (((m >> x) & 0xf) >= 8)
+	{	t = sp - 1;
+		for (;;)
+		{	if (--t <= b)
+			{	(*decpt)++;
+				break;
+			}
+			switch (*t)
+			{
+			case 'f':
+			case 'F':
+				*t = '0';
+				continue;
+			case '9':
+				*t = ep[10];
+				break;
+			default:
+				(*t)++;
+				break;
+			}
+			break;
+		}
+	}
+	ep = sp + 1;
+	goto done;
 }

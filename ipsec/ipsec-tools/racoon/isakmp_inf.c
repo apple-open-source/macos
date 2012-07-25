@@ -122,7 +122,7 @@ static int isakmp_info_recv_r_u_ack __P((struct ph1handle *,
 static int isakmp_info_recv_lb __P((struct ph1handle *, struct isakmp_pl_lb *lb, int));
 #endif
 
-static void purge_isakmp_spi __P((int, isakmp_index *, size_t));
+//static void purge_isakmp_spi __P((int, isakmp_index *, size_t));
 static void info_recv_initialcontact __P((struct ph1handle *));
 
 static int
@@ -198,7 +198,7 @@ isakmp_info_recv(iph1, msg0)
 	int error = -1;
 	struct isakmp *isakmp;
 	struct isakmp_gen *gen;
-	struct isakmp_parse_t *pa, *pap;
+    struct isakmp_parse_t *pa;
 	void *p;
 	vchar_t *hash, *payload;
 	struct isakmp_gen *nd;
@@ -373,7 +373,7 @@ isakmp_info_recv(iph1, msg0)
 	}
 
 	error = 0;
-	for (pa = (struct isakmp_parse_t *)pbuf->v; pa->type; pa++) {
+	for (pa = ALIGNED_CAST(struct isakmp_parse_t *)pbuf->v; pa->type; pa++) {    // Wcast-align fix (void*) - aligned buffer of aligned (unpacked) structs
 		switch (pa->type) {
 		case ISAKMP_NPTYPE_HASH:
 			/* Handled above */
@@ -438,7 +438,6 @@ isakmp_info_recv_n(iph1, notify, msgid, encrypted)
 	int encrypted;
 {
 	u_int type;
-	vchar_t *pbuf;
 	vchar_t *ndata;
 	char *nraw;
 	size_t l;
@@ -569,7 +568,7 @@ isakmp_info_vpncontrol_notify_ike_failed (struct ph1handle *iph1,
 	u_int32_t fail_reason;
 
 	/* notify the API that we have received the delete */
-	if (iph1->remote->sa_family == AF_INET)
+	if (iph1->remote->ss_family == AF_INET)
 		address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
 	else
 		address = 0;
@@ -626,10 +625,7 @@ isakmp_info_recv_d(iph1, delete, msgid, encrypted)
 	int encrypted;
 {
 	int tlen, num_spi;
-	vchar_t *pbuf;
-	int protected = 0;
 	struct ph1handle *del_ph1;
-	struct ph2handle *iph2;
 	union {
 		u_int32_t spi32;
 		u_int16_t spi16[2];
@@ -725,7 +721,7 @@ isakmp_info_recv_d(iph1, delete, msgid, encrypted)
 		EVT_PUSH(iph1->local, iph1->remote, 
 		    EVTT_PEER_DELETE, NULL);
 		purge_ipsec_spi(iph1->remote, delete->proto_id,
-		    (u_int32_t *)(delete + 1), num_spi);
+		    ALIGNED_CAST(u_int32_t *)(delete + 1), num_spi);     // Wcast-align fix (void*) - delete payload is aligned
 		break;
 
 	case IPSECDOI_PROTO_IPCOMP:
@@ -922,7 +918,7 @@ isakmp_info_send_d2(iph2)
 int
 isakmp_info_send_nx(isakmp, remote, local, type, data)
 	struct isakmp *isakmp;
-	struct sockaddr *remote, *local;
+	struct sockaddr_storage *remote, *local;
 	int type;
 	vchar_t *data;
 {
@@ -1176,7 +1172,7 @@ isakmp_info_send_n2(iph2, type, data)
 	n->proto_id = pr->proto_id;		/* IPSEC AH/ESP/whatever*/
 	n->spi_size = pr->spisize;
 	n->type = htons(type);
-	*(u_int32_t *)(n + 1) = pr->spi;
+    memcpy(n + 1, &pr->spi, sizeof(u_int32_t));         // Wcast-align fix - copy instead of assign
 	if (data)
 		memcpy((caddr_t)(n + 1) + pr->spisize, data->v, data->l);
 
@@ -1225,21 +1221,21 @@ isakmp_info_send_common(iph1, payload, np, flags)
 		goto end;
 	}
 
-	iph2->dst = dupsaddr(iph1->remote);
+	iph2->dst = dupsaddr((struct sockaddr *)iph1->remote);
 	if (iph2->dst == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to duplicate remote address");
 		delph2(iph2);
 		goto end;
 	}
-	iph2->src = dupsaddr(iph1->local);
+	iph2->src = dupsaddr((struct sockaddr *)iph1->local);
 	if (iph2->src == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			 "failed to duplicate local address");
 		delph2(iph2);
 		goto end;
 	}
-	switch (iph1->remote->sa_family) {
+	switch (iph1->remote->ss_family) {
 	case AF_INET:
 #if (!defined(ENABLE_NATT)) || (defined(BROKEN_NATT))
 		((struct sockaddr_in *)iph2->dst)->sin_port = 0;
@@ -1256,7 +1252,7 @@ isakmp_info_send_common(iph1, payload, np, flags)
 #endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid family: %d\n", iph1->remote->sa_family);
+			"invalid family: %d\n", iph1->remote->ss_family);
 		delph2(iph2);
 		goto end;
 	}
@@ -1445,7 +1441,7 @@ isakmp_add_pl_n(buf0, np_p, type, pr, data)
 	n->proto_id = pr->proto_id;		/* IPSEC AH/ESP/whatever*/
 	n->spi_size = pr->spisize;
 	n->type = htons(type);
-	*(u_int32_t *)(n + 1) = pr->spi;	/* XXX */
+    memcpy(n + 1, &pr->spi, sizeof(u_int32_t));			// Wcast-align fix - copy instead of assign with cast
 	if (data)
 		memcpy((caddr_t)(n + 1) + pr->spisize, data->v, data->l);
 
@@ -1455,6 +1451,7 @@ isakmp_add_pl_n(buf0, np_p, type, pr, data)
 	return buf;
 }
 
+#if 0
 static void
 purge_isakmp_spi(proto, spi, n)
 	int proto;
@@ -1481,12 +1478,12 @@ purge_isakmp_spi(proto, spi, n)
 		iph1->sce = sched_new(1, isakmp_ph1delete_stub, iph1);
 	}
 }
-
+#endif
 
 
 void
 purge_ipsec_spi(dst0, proto, spi, n)
-	struct sockaddr *dst0;
+	struct sockaddr_storage *dst0;
 	int proto;
 	u_int32_t *spi;	/*network byteorder*/
 	size_t n;
@@ -1495,7 +1492,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 	struct sadb_msg *msg, *next, *end;
 	struct sadb_sa *sa;
 	struct sadb_lifetime *lt;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	struct ph2handle *iph2;
 	u_int64_t created;
 	size_t i;
@@ -1503,7 +1500,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 
 	plog(LLV_DEBUG2, LOCATION, NULL,
 		 "purge_ipsec_spi:\n");
-	plog(LLV_DEBUG2, LOCATION, NULL, "dst0: %s\n", saddr2str(dst0));
+	plog(LLV_DEBUG2, LOCATION, NULL, "dst0: %s\n", saddr2str((struct sockaddr *)dst0));
 	plog(LLV_DEBUG2, LOCATION, NULL, "SPI: %08X\n", ntohl(spi[0]));
 	plog(LLV_DEBUG2, LOCATION, NULL, "num SPI: %d\n", n);
 
@@ -1514,13 +1511,13 @@ purge_ipsec_spi(dst0, proto, spi, n)
 		return;
 	}
 
-	msg = (struct sadb_msg *)buf->v;
-	end = (struct sadb_msg *)(buf->v + buf->l);
+	msg = ALIGNED_CAST(struct sadb_msg *)buf->v;
+	end = ALIGNED_CAST(struct sadb_msg *)(buf->v + buf->l);
 
 	while (msg < end) {
 		if ((msg->sadb_msg_len << 3) < sizeof(*msg))
 			break;
-		next = (struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
+		next = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
 		if (msg->sadb_msg_type != SADB_DUMP) {
 			msg = next;
 			continue;
@@ -1533,16 +1530,16 @@ purge_ipsec_spi(dst0, proto, spi, n)
 			continue;
 		}
 
-		sa = (struct sadb_sa *)(mhp[SADB_EXT_SA]);
+		sa = ALIGNED_CAST(struct sadb_sa *)(mhp[SADB_EXT_SA]);       // Wcast-align fix (void*) - buffer of pointers to aligned structs
 		if (!sa
 		 || !mhp[SADB_EXT_ADDRESS_SRC]
 		 || !mhp[SADB_EXT_ADDRESS_DST]) {
 			msg = next;
 			continue;
 		}
-		src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-		dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
-		lt = (struct sadb_lifetime*)mhp[SADB_EXT_LIFETIME_HARD];
+		src =  ALIGNED_CAST(struct sockaddr_storage*)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);     // Wcast-align fix (void*) - buffer of pointers to aligned structs
+		dst = ALIGNED_CAST(struct sockaddr_storage*)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+		lt = ALIGNED_CAST(struct sadb_lifetime*)mhp[SADB_EXT_LIFETIME_HARD];
 		if(lt != NULL)
 			created = lt->sadb_lifetime_addtime;
 		else
@@ -1553,8 +1550,8 @@ purge_ipsec_spi(dst0, proto, spi, n)
 			msg = next;
 			continue;
 		}
-		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str(src));
-		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str(dst));
+		plog(LLV_DEBUG2, LOCATION, NULL, "src: %s\n", saddr2str((struct sockaddr *)src));
+		plog(LLV_DEBUG2, LOCATION, NULL, "dst: %s\n", saddr2str((struct sockaddr *)dst));
 
 
 
@@ -1563,7 +1560,7 @@ purge_ipsec_spi(dst0, proto, spi, n)
 		/* don't delete inbound SAs at the moment */
 		/* XXX should we remove SAs with opposite direction as well? */
 		if (CMPSADDR2(dst0, dst)) {
-			plog(LLV_DEBUG2, LOCATION, NULL, "skipped dst: %s\n", saddr2str(dst));
+			plog(LLV_DEBUG2, LOCATION, NULL, "skipped dst: %s\n", saddr2str((struct sockaddr *)dst));
 			msg = next;
 			continue;
 		}
@@ -1620,7 +1617,7 @@ info_recv_initialcontact(iph1)
 	vchar_t *buf = NULL;
 	struct sadb_msg *msg, *next, *end;
 	struct sadb_sa *sa;
-	struct sockaddr *src, *dst;
+	struct sockaddr_storage *src, *dst;
 	caddr_t mhp[SADB_EXT_MAX + 1];
 	int proto_id, i;
 	struct ph2handle *iph2;
@@ -1693,13 +1690,13 @@ info_recv_initialcontact(iph1)
 		return;
 	}
 
-	msg = (struct sadb_msg *)buf->v;
-	end = (struct sadb_msg *)(buf->v + buf->l);
+	msg = ALIGNED_CAST(struct sadb_msg *)buf->v;
+	end = ALIGNED_CAST(struct sadb_msg *)(buf->v + buf->l);
 
 	while (msg < end) {
 		if ((msg->sadb_msg_len << 3) < sizeof(*msg))
 			break;
-		next = (struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
+		next = ALIGNED_CAST(struct sadb_msg *)((caddr_t)msg + (msg->sadb_msg_len << 3));
 		if (msg->sadb_msg_type != SADB_DUMP) {
 			msg = next;
 			continue;
@@ -1718,9 +1715,9 @@ info_recv_initialcontact(iph1)
 			msg = next;
 			continue;
 		}
-		sa = (struct sadb_sa *)mhp[SADB_EXT_SA];
-		src = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
-		dst = PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
+		sa = ALIGNED_CAST(struct sadb_sa *)mhp[SADB_EXT_SA];                 // Wcast-align fix (void*) - buffer of pointers to aligned structs
+		src = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_SRC]);
+		dst = ALIGNED_CAST(struct sockaddr_storage *)PFKEY_ADDR_SADDR(mhp[SADB_EXT_ADDRESS_DST]);
 
 		if (sa->sadb_sa_state != SADB_SASTATE_MATURE
 		 && sa->sadb_sa_state != SADB_SASTATE_DYING) {
@@ -1912,7 +1909,7 @@ isakmp_info_recv_lb(iph1, n, encrypted)
 			"LOAD-BALANCE notification ignored - we are not the initiator.\n");
 		return 0;
 	}
-	if (iph1->remote->sa_family != AF_INET) {
+	if (iph1->remote->ss_family != AF_INET) {
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"LOAD-BALANCE notification ignored - only supported for IPv4.\n");
 		return 0;
@@ -2100,7 +2097,7 @@ isakmp_info_send_r_u(arg)
 								CONSTSTR("maxed-out of DPD requests without receiving an ack"));
 
 		EVT_PUSH(iph1->local, iph1->remote, EVTT_DPD_TIMEOUT, NULL);
-		if (iph1->remote->sa_family == AF_INET)
+		if (iph1->remote->ss_family == AF_INET)
 			address = ((struct sockaddr_in *)iph1->remote)->sin_addr.s_addr;
 		else
 			address = 0;

@@ -29,14 +29,13 @@
 #include "config.h"
 #include "PredictedType.h"
 
-#include "JSByteArray.h"
+#include "JSArray.h"
 #include "JSFunction.h"
 #include "ValueProfile.h"
 #include <wtf/BoundsCheckedPointer.h>
 
 namespace JSC {
 
-#ifndef NDEBUG
 const char* predictionToString(PredictedType value)
 {
     if (value == PredictNone)
@@ -68,11 +67,6 @@ const char* predictionToString(PredictedType value)
     else
         isTop = false;
     
-    if (value & PredictByteArray)
-        ptr.strcat("Bytearray");
-    else
-        isTop = false;
-    
     if (value & PredictInt8Array)
         ptr.strcat("Int8array");
     else
@@ -90,6 +84,11 @@ const char* predictionToString(PredictedType value)
     
     if (value & PredictUint8Array)
         ptr.strcat("Uint8array");
+    else
+        isTop = false;
+
+    if (value & PredictUint8ClampedArray)
+        ptr.strcat("Uint8clampedarray");
     else
         isTop = false;
     
@@ -128,8 +127,13 @@ const char* predictionToString(PredictedType value)
     else
         isTop = false;
     
-    if (value & PredictDouble)
-        ptr.strcat("Double");
+    if (value & PredictDoubleReal)
+        ptr.strcat("Doublereal");
+    else
+        isTop = false;
+    
+    if (value & PredictDoubleNaN)
+        ptr.strcat("Doublenan");
     else
         isTop = false;
     
@@ -143,14 +147,61 @@ const char* predictionToString(PredictedType value)
     else
         isTop = false;
     
-    if (isTop)
-        return "Top";
+    if (isTop) {
+        ptr = description;
+        ptr.strcat("Top");
+    }
+    
+    if (value & PredictEmpty)
+        ptr.strcat("Empty");
     
     *ptr++ = 0;
     
     return description;
 }
-#endif
+
+const char* predictionToAbbreviatedString(PredictedType prediction)
+{
+    if (isFinalObjectPrediction(prediction))
+        return "<Final>";
+    if (isArrayPrediction(prediction))
+        return "<Array>";
+    if (isStringPrediction(prediction))
+        return "<String>";
+    if (isFunctionPrediction(prediction))
+        return "<Function>";
+    if (isInt8ArrayPrediction(prediction))
+        return "<Int8array>";
+    if (isInt16ArrayPrediction(prediction))
+        return "<Int16array>";
+    if (isInt32ArrayPrediction(prediction))
+        return "<Int32array>";
+    if (isUint8ArrayPrediction(prediction))
+        return "<Uint8array>";
+    if (isUint16ArrayPrediction(prediction))
+        return "<Uint16array>";
+    if (isUint32ArrayPrediction(prediction))
+        return "<Uint32array>";
+    if (isFloat32ArrayPrediction(prediction))
+        return "<Float32array>";
+    if (isFloat64ArrayPrediction(prediction))
+        return "<Float64array>";
+    if (isObjectPrediction(prediction))
+        return "<Object>";
+    if (isCellPrediction(prediction))
+        return "<Cell>";
+    if (isInt32Prediction(prediction))
+        return "<Int32>";
+    if (isDoublePrediction(prediction))
+        return "<Double>";
+    if (isNumberPrediction(prediction))
+        return "<Number>";
+    if (isBooleanPrediction(prediction))
+        return "<Boolean>";
+    if (isOtherPrediction(prediction))
+        return "<Other>";
+    return "";
+}
 
 PredictedType predictionFromClassInfo(const ClassInfo* classInfo)
 {
@@ -166,8 +217,6 @@ PredictedType predictionFromClassInfo(const ClassInfo* classInfo)
     if (classInfo->isSubClassOf(&JSFunction::s_info))
         return PredictFunction;
 
-    if (classInfo->isSubClassOf(&JSByteArray::s_info))
-        return PredictByteArray;
     
     if (classInfo->typedArrayStorageType != TypedArrayNone) {
         switch (classInfo->typedArrayStorageType) {
@@ -179,6 +228,8 @@ PredictedType predictionFromClassInfo(const ClassInfo* classInfo)
             return PredictInt32Array;
         case TypedArrayUint8:
             return PredictUint8Array;
+        case TypedArrayUint8Clamped:
+            return PredictUint8ClampedArray;
         case TypedArrayUint16:
             return PredictUint16Array;
         case TypedArrayUint32:
@@ -210,10 +261,16 @@ PredictedType predictionFromCell(JSCell* cell)
 
 PredictedType predictionFromValue(JSValue value)
 {
+    if (value.isEmpty())
+        return PredictEmpty;
     if (value.isInt32())
         return PredictInt32;
-    if (value.isDouble())
-        return PredictDouble;
+    if (value.isDouble()) {
+        double number = value.asNumber();
+        if (number == number)
+            return PredictDoubleReal;
+        return PredictDoubleNaN;
+    }
     if (value.isCell())
         return predictionFromCell(value.asCell());
     if (value.isBoolean())

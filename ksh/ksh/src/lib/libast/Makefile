@@ -10,7 +10,7 @@ ID = ast
 
 HOSTTYPE == "$(CC.HOSTTYPE)"
 
-CCFLAGS = $(CC.OPTIMIZE) $(CC.DLL)
+CCFLAGS = $(CC.SUFFIX.DEBUG:+$(CC.DEBUG)) $(CC.OPTIMIZE) $(CC.DLL)
 
 IFFEFLAGS = -v -X ast -X std
 
@@ -28,35 +28,35 @@ DEBUG ==
 __OBSOLETE__ == $("6 months ago":@F=%(%Y0101)T)
 
 HEADERSRC = ast.h ast_dir.h ast_getopt.h ast_std.h \
-	ast_namval.h ast_version.h ast_windows.h \
+	ast_namval.h ast_windows.h \
 	ccode.h cdt.h cmdarg.h debug.h dt.h error.h find.h ftw.h ftwalk.h \
-	fts.h fs3d.h getopt.h glob.h hash.h hashkey.h hashpart.h lc.h \
-	ls.h magic.h mc.h mime.h mnt.h modecanon.h modex.h namval.h \
+	fts.h fs3d.h getopt.h glob.h hash.h hashkey.h hashpart.h ip6.h \
+	lc.h ls.h magic.h mc.h mime.h mnt.h modecanon.h modex.h namval.h \
 	option.h proc.h re_comp.h recfmt.h regex.h regexp.h \
-	sfio.h sfio_s.h sfio_t.h sfdisc.h \
+	sfio.h sfio_s.h sfio_t.h sfdisc.h shcmd.h \
 	stack.h stak.h stk.h swap.h tar.h times.h tm.h tok.h \
 	usage.h vdb.h vecargs.h vmalloc.h wait.h wordexp.h \
 	bytesex.h endian.h fnmatch.h magicid.h fnv.h \
 	$(HEADERSTD)
 
 HEADERGEN = align.h preroot.h sig.h tmx.h tv.h \
-	$(ID)_botch.h $(ID)_ccode.h $(ID)_fcntl.h $(ID)_float.h $(ID)_fs.h \
-	$(ID)_lib.h $(ID)_map.h $(ID)_mmap.h $(ID)_mode.h $(ID)_param.h \
-	$(ID)_sys.h $(ID)_time.h $(ID)_time.h $(ID)_tty.h $(ID)_types.h \
-	$(ID)_vfork.h $(ID)_wait.h $(ID)_limits.h $(ID)_standards.h \
+	$(ID)_api.h $(ID)_botch.h $(ID)_ccode.h $(ID)_fcntl.h $(ID)_float.h \
+	$(ID)_fs.h $(ID)_lib.h $(ID)_map.h $(ID)_mmap.h $(ID)_mode.h $(ID)_ndbm.h \
+	$(ID)_param.h $(ID)_sys.h $(ID)_time.h $(ID)_time.h $(ID)_tty.h \
+	$(ID)_vfork.h $(ID)_wait.h $(ID)_limits.h $(ID)_standards.h $(ID)_sizeof.h \
 	$(HEADERSTD:/^/$(ID)_/)
 
 HEADEREXP = $(ID)_common.h
 
 HEADEROPT = fmtmsg.h libgen.h syslog.h
 
-HEADERSTD = dirent.h iconv.h nl_types.h stdio.h wchar.h
+HEADERSTD = dirent.h iconv.h nl_types.h stdio.h wchar.h wctype.h
 
 $(ID) 5.4 :LIBRARY: README RELEASE \
 	LIBAST.3 ast.3 astsa.3 cdt.3 chr.3 compat.3 error.3 find.3 fmt.3 \
-	fmtls.3 fs3d.3 ftwalk.3 getcwd.3 hash.3 iblocks.3 int.3 \
+	fmtls.3 fs3d.3 ftwalk.3 getcwd.3 hash.3 iblocks.3 int.3 ip6.3 \
 	magic.3 mem.3 mime.3 modecanon.3 optget.3 path.3 preroot.3 \
-	proc.3 re.3 setenviron.3 sfdisc.3 sfio.3 sig.3 spawnveg.3 \
+	proc.3 re.3 regex.3 setenviron.3 sfdisc.3 sfio.3 sig.3 spawnveg.3 \
 	stak.3 stk.3 strcopy.3 strdup.3 strelapsed.3 strerror.3 stresc.3 \
 	streval.3 strgid.3 strmatch.3 stropt.3 strperm.3 strsignal.3 \
 	strsort.3 strtape.3 strton.3 struid.3 swap.3 tab.3 tm.3 tmx.3  \
@@ -73,40 +73,44 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	chresc.c chrtoi.c streval.c strexpr.c strmatch.c strcopy.c \
 	modelib.h modei.c modex.c strmode.c \
 	strlcat.c strlcpy.c strlook.c strncopy.c strsearch.c strpsearch.c \
-	stresc.c stropt.c strtape.c tok.c tokline.c tokscan.c \
+	stresc.c stropt.c strtape.c strpcmp.c strnpcmp.c strvcmp.c strnvcmp.c \
+	tok.c tokline.c tokscan.c \
 	pathaccess.c pathcat.c pathcanon.c pathcheck.c pathpath.c \
 	pathexists.c pathfind.c pathkey.c pathprobe.c pathrepl.c \
 	pathnative.c pathposix.c pathtemp.c pathtmp.c pathstat.c \
 	pathgetlink.c pathsetlink.c pathbin.c pathshell.c pathcd.c \
-	fs3d.c ftwalk.c ftwflags.c fts.c setenviron.c \
+	pathprog.c \
+	fs3d.c ftwalk.c ftwflags.c fts.c \
+	astintercept.c conformance.c getenv.c setenviron.c \
 	optget.c optjoin.c optesc.c optctx.c strsort.c struniq.c \
-	magic.c mime.c mimetype.c signal.c systrace.c \
+	magic.c mime.c mimetype.c signal.c sigflag.c systrace.c \
 	error.c errorf.c errormsg.c errorx.c \
 	localeconv.c setlocale.c translate.c \
 	catopen.c iconv.c lc.c lctab.c mc.c \
 	base64.c recfmt.c recstr.c reclen.c fmtrec.c \
 	fmtbase.c fmtbuf.c fmtclock.c fmtdev.c fmtelapsed.c fmterror.c \
-	fmtesc.c fmtfmt.c fmtfs.c fmtident.c fmtip4.c fmtls.c fmtmatch.c \
-	fmtmode.c fmtnum.c fmtperm.c fmtre.c fmttime.c fmtuid.c fmtgid.c \
-	fmtsignal.c fmtscale.c fmttmx.c fmttv.c fmtversion.c \
-	strelapsed.c strperm.c struid.c strgid.c strtoip4.c stack.c stk.c \
+	fmtesc.c fmtfmt.c fmtfs.c fmtident.c fmtint.c fmtip4.c fmtip6.c fmtls.c \
+	fmtmatch.c fmtmode.c fmtnum.c fmtperm.c fmtre.c fmttime.c fmtuid.c \
+	fmtgid.c fmtsignal.c fmtscale.c fmttmx.c fmttv.c fmtversion.c \
+	strelapsed.c strperm.c struid.c strgid.c \
+	strtoip4.c strtoip6.c stack.c stk.c \
 	swapget.c swapmem.c swapop.c swapput.c \
 	sigdata.c sigcrit.c sigunblock.c \
 	proclib.h procopen.c procclose.c procrun.c procfree.c \
 	tmdate.c tmequiv.c tmfix.c tmfmt.c tmform.c tmgoff.c tminit.c \
 	tmleap.c tmlex.c tmlocale.c tmmake.c tmpoff.c tmscan.c \
 	tmsleep.c tmtime.c tmtype.c tmweek.c tmword.c tmzone.c \
-	tmxdate.c tmxfmt.c tmxgettime.c tmxleap.c tmxmake.c \
+	tmxdate.c tmxduration.c tmxfmt.c tmxgettime.c tmxleap.c tmxmake.c \
 	tmxscan.c tmxsettime.c tmxsleep.c tmxtime.c tmxtouch.c \
 	tvcmp.c tvgettime.c tvsettime.c tvsleep.c tvtouch.c \
 	cmdarg.c vecargs.c vecfile.c vecfree.c vecload.c vecstring.c \
-	univlib.h univdata.c touch.c mnt.c \
+	univlib.h univdata.c touch.c mnt.c debug.c \
 	memccpy.c memchr.c memcmp.c memcpy.c memdup.c memmove.c memset.c \
 	mkdir.c mkfifo.c mknod.c rmdir.c remove.c rename.c link.c unlink.c \
 	strdup.c strchr.c strrchr.c strstr.c \
 	strtod.c strtold.c \
 	strtol.c strtoll.c strtoul.c strtoull.c strton.c strtonll.c \
-	strntod.c strntold.c \
+	strntod.c strntold.c strnton.c strntonll.c \
 	strntol.c strntoll.c strntoul.c strntoull.c \
 	strcasecmp.c strncasecmp.c strerror.c \
 	mktemp.c tmpnam.c fsync.c \
@@ -127,7 +131,7 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	sfdcdio.c sfdcdos.c sfdcfilter.c sfdcseekable.c \
 	sfdcslow.c sfdcsubstr.c sfdctee.c sfdcunion.c \
 	sfdcmore.c sfdcprefix.c \
-	wc.c \
+	wc.c wc2utf8.c \
 	/* standards */ \
 	basename.c closelog.c dirname.c fmtmsglib.c fnmatch.c ftw.c \
 	getdate.c getsubopt.c glob.c nftw.c openlog.c re_comp.c \
@@ -153,7 +157,7 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	sfputu.c sfrd.c sfread.c sfreserve.c sfscanf.c sfseek.c sfset.c \
 	sfsetbuf.c sfsetfd.c sfsize.c sfsk.c sfstack.c sfstrtod.c sfsync.c \
 	sfswap.c sftable.c sftell.c sftmp.c sfungetc.c sfvprintf.c \
-	sfvscanf.c sfwr.c sfwrite.c sfpurge.c sfraise.c \
+	sfvscanf.c sfwr.c sfwrite.c sfpurge.c sfraise.c sfwalk.c \
 	sfgetm.c sfmutex.c sfputm.c sfresize.c \
 	_sfclrerr.c _sfeof.c _sferror.c _sffileno.c \
 	_sfopen.c _sfstacked.c _sfvalue.c \
@@ -165,6 +169,7 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	fgetc.c fgetpos.c fgets.c fileno.c fopen.c fprintf.c \
 	fpurge.c fputc.c fputs.c fread.c freopen.c fscanf.c \
 	fseek.c fseeko.c fsetpos.c ftell.c ftello.c fwrite.c \
+	flockfile.c ftrylockfile.c funlockfile.c \
 	getc.c getchar.c getw.c pclose.c popen.c printf.c \
 	putc.c putchar.c puts.c putw.c rewind.c scanf.c \
 	setbuf.c setbuffer.c setlinebuf.c setvbuf.c \
@@ -182,7 +187,7 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	fputws.c getwchar.c ungetwc.c vwprintf.c \
 	fwide.c putwc.c vfwprintf.c vwscanf.c \
 	/* stdio extensions */ \
-	stdio_c99.c stdio_gnu.c \
+	stdio_c99.c fcloseall.c fmemopen.c getdelim.c getline.c \
 	/* math */ \
 	frexp.c frexpl.c \
 	/* ast */ \
@@ -201,7 +206,7 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 	log__L.c rand48.c random.c rcmd.c rint.c support.c \
 	/* obsolete */ \
 	sfstrtmp.c spawn.c \
-	-liconv /* this *has* to be wrong */
+	-liconv -lw /* these should be pulled in by -lc */
 
 /*
  * man is stdio.h problematic
@@ -214,16 +219,21 @@ $(ID) 5.4 :LIBRARY: README RELEASE \
 .MAKEINIT : .AST.INIT
 .AST.INIT : .MAKE
 	CCFLAGS += -D_BLD_ast
+	ast_version.h : -IGNORE
+	(_AST_VERSION) : -PARAMETER
 
-parameter	(_BLD_ast) (_AST_VERSION) ast_version.h
+parameter	(_BLD_ast)
 virtual		ast/stdio.h
 
+		:NOPROTECT: sfprintf.c sfvprintf.c sfscanf.c sfvscanf.c
+
 		:NOOPTIMIZE: spawnveg.c
-"sol*.*"	:NOOPTIMIZE: sfrd.c sfvprintf.c
+"ibm.risc"	:NOOPTIMIZE: regcomp.c
+"sol?.*"	:NOOPTIMIZE: sfrd.c sfvprintf.c tmxfmt.c
 "win32*"	:NOOPTIMIZE: fastfind.c mc.c
 
 /*
- * NOTE: sun4 runtime link botches ro data so advertized sig_info is rw
+ * NOTE: sun4 runtime link botches ro data so advertised sig_info is rw
  */
 
 :READONLY: conftab.c lctab.c modedata.c /*sftable.c*/ \
@@ -320,7 +330,8 @@ FEATURE/common : .SCAN.IGNORE
 
 .check.hdr : .IGNORE .VIRTUAL \
 		FEATURE/standards - FEATURE/lib - FEATURE/common - FEATURE/param - \
-		ast_map.h - ast_limits.h - ast_stdio.h ast_nl_types.h - ast_wchar.h
+		ast_map.h - ast_limits.h - ast_stdio.h ast_nl_types.h - \
+		ast_wchar.h ast_wctype.h
 	: clean up obsolete headers :
 	$(RM) -rf $(HEADERSTD) ast_hdr.h ast_types.h ast_unistd.h iffeio.h \
 		$(INCLUDEDIR)/limits.h $(INCLUDEDIR)/unistd.h \
@@ -384,7 +395,7 @@ PAXFILTER = ;*.[ch];$(PROTO) $(PROTOFLAGS) -c "" -p
 ast_sa.h : .DONTCARE
 
 astsa.tgz : $$("astsa/astsa.manifest":T=F:T=I:/[[:space:]][[:space:]]*/ /G:C,^,astsa/,)
-	$(PAX) $(PAXFLAGS) -wvf $(<) -x $(<:/.*\.//) -s ',.*/,,' -A $(PAXFILTER:@Q) $(*)
+	$(PAX) $(PAXFLAGS) -wf $(<) -x $(<:/.*\.//) -s ',.*/,,' -A $(PAXFILTER:@Q) $(*)
 
 /* libmini.a is a bootstrap dll for uwin cc -D_BLD_ast that exports part of ast */
 

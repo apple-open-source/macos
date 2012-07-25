@@ -1,6 +1,9 @@
 ;; OriginatingProject: ipsec
 (version 1)
 (deny default)
+
+(import "system.sb")
+
 (allow system-socket sysctl-read sysctl-write)
 
 (allow ipc-posix* (ipc-posix-name "com.apple.securityd"))
@@ -97,7 +100,5 @@
 (allow mach-lookup
        (global-name "com.apple.securityd")
        (global-name "com.apple.bsd.dirhelper")
-       (global-name "com.apple.system.DirectoryService.libinfo_v1")
-       (global-name "com.apple.system.DirectoryService.membership_v1")
        (global-name "com.apple.system.logger")
        (global-name "com.apple.system.notification_center"))

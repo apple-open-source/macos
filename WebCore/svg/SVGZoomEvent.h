@@ -45,10 +45,10 @@ public:
 
     FloatPoint newTranslate() const;
 
+    virtual const AtomicString& interfaceName() const;
+
 private:
     SVGZoomEvent();
-
-    virtual bool isSVGZoomEvent() const;
 
     float m_newScale;
     float m_previousScale;

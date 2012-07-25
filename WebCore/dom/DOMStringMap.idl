@@ -26,11 +26,12 @@
 module core {
 
     interface [
-        GenerateIsReachable=ImplElementRoot,
-        HasNameGetter,
+        JSGenerateIsReachable=ImplElementRoot,
+        NamedGetter,
         CustomDeleteProperty,
-        CustomGetPropertyNames,
-        DelegatingPutFunction,
+        CustomEnumerateProperty,
+        CustomNamedSetter,
+        V8CustomToJSObject
     ] DOMStringMap {
     };
 

@@ -44,14 +44,13 @@ extern int local_flag;
 #ifdef __APPLE__
 
 static krb5_error_code
-od_dump_entry(krb5_context context, HDB *db, hdb_entry_ex *entry, void *data)
+od_dump_entry(krb5_context kcontext, HDB *db, hdb_entry_ex *entry, void *data)
 {
     CFErrorRef error = NULL;
     CFDictionaryRef dict;
-    krb5_error_code ret;
-    CFStringRef fn;
+    CFStringRef fn, uuidstr;
+    CFUUIDRef uuid;
     CFURLRef url;
-    char *name, *p;
 
     dict = HeimODDumpHdbEntry(&entry->entry, &error);
     if (dict == NULL) {
@@ -60,27 +59,30 @@ od_dump_entry(krb5_context context, HDB *db, hdb_entry_ex *entry, void *data)
 	return 0;
     }
 
-    ret = krb5_unparse_name(context, entry->entry.principal, &name);
-    if (ret) {
-	krb5_warn(context, ret, "krb5_unparse_name");
-	return ret;
+    uuid = CFUUIDCreate(NULL);
+    if (uuid == NULL) {
+	krb5_warnx(kcontext, "out of memory");
+	return 0;
+    }
+    
+    uuidstr = CFUUIDCreateString(NULL, uuid);
+    CFRelease(uuid);
+    if (uuidstr == NULL) {
+	krb5_warnx(kcontext, "out of memory");
+	return 0;
     }
 
-    for (p = name; *p; p++)
-	if (*p == '/')
-	    *p = '%';
-
-    fn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s/%s.plist"), (char *)data, name);
-    krb5_xfree(name);
+    fn = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s/%@.plist"), (char *)data, uuidstr);
+    CFRelease(uuidstr);
     if (fn == NULL) {
-	krb5_warnx(context, "out of memory");
+	krb5_warnx(kcontext, "out of memory");
 	return 0;
     }
 
     url = CFURLCreateWithFileSystemPath(NULL, fn,  kCFURLPOSIXPathStyle, false);
     CFRelease(fn);
     if (url == NULL) {
-	krb5_warnx(context, "out of memory");
+	krb5_warnx(kcontext, "out of memory");
 	return 0;
     }
 
@@ -88,7 +90,7 @@ od_dump_entry(krb5_context context, HDB *db, hdb_entry_ex *entry, void *data)
     CFRelease(dict);
     if (xmldata == NULL) {
 	CFRelease(url);
-	krb5_warnx(context, "out of memory");
+	krb5_warnx(kcontext, "out of memory");
 	return 0;
     }
 

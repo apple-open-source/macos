@@ -105,7 +105,7 @@ struct ByteTerm {
     unsigned frameLocation;
     bool m_capture : 1;
     bool m_invert : 1;
-    int inputPosition;
+    unsigned inputPosition;
 
     ByteTerm(UChar ch, int inputPos, unsigned frameLocation, Checked<unsigned> quantityCount, QuantifierType quantityType)
         : frameLocation(frameLocation)
@@ -374,6 +374,11 @@ private:
     Vector<ByteDisjunction*> m_allParenthesesInfo;
     Vector<CharacterClass*> m_userCharacterClasses;
 };
+
+JS_EXPORT_PRIVATE PassOwnPtr<BytecodePattern> byteCompile(YarrPattern&, BumpPointerAllocator*);
+JS_EXPORT_PRIVATE unsigned interpret(BytecodePattern*, const UString& input, unsigned start, unsigned* output);
+unsigned interpret(BytecodePattern*, const LChar* input, unsigned length, unsigned start, unsigned* output);
+unsigned interpret(BytecodePattern*, const UChar* input, unsigned length, unsigned start, unsigned* output);
 
 } } // namespace JSC::Yarr
 

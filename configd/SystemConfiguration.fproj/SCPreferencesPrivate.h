@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007-2009, 2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011, 2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,8 @@
 
 #define kSCPreferencesOptionRemoveWhenEmpty	CFSTR("remove-when-empty")	// CFBooleanRef
 
+#define kSCPreferencesWriteAuthorizationRight	"system.services.systemconfiguration.network"
+
 /*!
 	@enum SCPreferencesKeyType
 	@discussion Used with the SCDynamicStoreKeyCreatePreferences() function
@@ -55,6 +57,19 @@ typedef	int32_t	SCPreferencesKeyType;
 
 
 __BEGIN_DECLS
+
+/*!
+	@const kSCPreferencesUseEntitlementAuthorization
+	@discussion An authorization value that can be passed to
+		the SCPreferencesCreateWithAuthorization API (or
+		the SCPreferencesCreateWithOptions SPI) to indicate
+		that the entitlements of the current process should
+		be used for authorization purposes.
+
+		This value can ONLY be used with the SCPreferences
+		APIs.
+ */
+extern const AuthorizationRef	kSCPreferencesUseEntitlementAuthorization;
 
 /*!
 	@function SCDynamicStoreKeyCreatePreferences

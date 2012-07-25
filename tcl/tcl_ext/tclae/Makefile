@@ -18,7 +18,7 @@ SvnUrl                = https://$(Project).svn.sourceforge.net/svnroot/$(Project
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
 
-GnuAfterInstall       = strip install-doc fix-perms
+GnuAfterInstall       = strip fix-perms
 GnuNoBuild            = YES
 
 # include TEA Tcl extension build support
@@ -29,7 +29,3 @@ TclExtDir             = tclAE
 build::
 	@echo "Building $(Project)..."
 	$(_v) $(Environment) $(MAKE) -C $(BuildDirectory)
-
-install-doc:
-	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)"
-	$(_v) $(INSTALL_FILE) "$(Sources)"/doc/*.{html,css,png} "$(DSTROOT)/$(TclExtHtmlDir)"

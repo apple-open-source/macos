@@ -1,7 +1,7 @@
 ########################################################################
 #                                                                      #
 #               This software is part of the ast package               #
-#          Copyright (c) 1982-2007 AT&T Intellectual Property          #
+#          Copyright (c) 1982-2011 AT&T Intellectual Property          #
 #                      and is licensed under the                       #
 #                  Common Public License, Version 1.0                  #
 #                    by AT&T Intellectual Property                     #
@@ -81,7 +81,6 @@ function check
 
 check a
 
-exit
 unset a
 typeset -A a
 for	((i=0; i < 4; i++ ))
@@ -121,4 +120,93 @@ unset a b c d
 [[ ${b-set} ]] || err_exit "b is set after unset"
 [[ ${c-set} ]] || err_exit "c is set after unset"
 [[ ${d-set} ]] || err_exit "c is set after unset"
-exit $((Errors))
+
+$SHELL 2> /dev/null <<\+++ ||  err_exit 'input of 3 dimensional array not working'
+typeset x=(
+	( (g G) (h H) (i I) )
+	( (d D) (e E) (f F) )
+	( (a A) (b B) (c C) )
+)
+[[ ${x[0][0][0]} == g ]] || err_exit '${x[0][0][0]} == G'
+[[ ${x[1][1][0]} == e ]] || err_exit '${x[1][1][0]} == e'
+[[ ${x[1][1][1]} == E ]] || err_exit '${x[2][2][1]} == C'
+[[ ${x[0][2][1]} == I ]] || err_exit '${x[0][2][1]} == I'
++++
+
+typeset -a -si x=( [0]=(1 2 3) [1]=(4 5 6) [2]=(7 8 9) )
+[[ ${x[1][1]} == 5 ]] || err_exit 'changing two dimensional indexed array to short integer failed'
+unset x
+typeset -A -si x=( [0]=(1 2 3) [1]=(4 5 6) [2]=(7 8 9) )
+[[ ${x[1][2]} == 6 ]] || err_exit 'changing two dimensional associative array to short integer failed'
+
+unset ar x y
+integer -a ar
+integer i x y
+for (( i=0 ; i < 100 ; i++ ))
+do	(( ar[y][x++]=i ))
+	(( x > 9 )) && (( y++ , x=0 ))
+done
+[[ ${#ar[0][*]} == 10 ]] || err_exit "\${#ar[0][*]} is '${#ar[0][*]}', should be 10"
+[[ ${#ar[*]} == 10 ]] || err_exit  "\${#ar[*]} is '${#ar[*]}', should be 10"
+[[ ${ar[5][5]} == 55 ]] || err_exit "ar[5][5] is '${ar[5][5]}', should be 55"
+
+unset ar
+integer -a ar
+x=0 y=0
+for (( i=0 ; i < 81 ; i++ ))
+do	nameref ar_y=ar[$y]
+	(( ar_y[x++]=i ))
+	(( x > 8 )) && (( y++ , x=0 ))
+	typeset +n ar_y
+done
+[[ ${#ar[0][*]} == 9 ]] || err_exit "\${#ar[0][*]} is '${#ar[0][*]}', should be 9"
+[[ ${#ar[*]} == 9 ]] || err_exit  "\${#ar[*]} is '${#ar[*]}', should be 9"
+[[ ${ar[4][4]} == 40 ]] || err_exit "ar[4][4] is '${ar[4][4]}', should be 40"
+
+$SHELL 2> /dev/null -c 'compound c;float -a c.ar;(( c.ar[2][3][3] = 5))' || 'multi-dimensional arrays in arithemtic expressions not working'
+
+expected='typeset -a -l -E c.ar=([2]=([3]=([3]=5) ) )'
+unset c
+float c.ar
+c.ar[2][3][3]=5
+[[ $(typeset -p c.ar) == "$expected" ]] || err_exit "c.ar[2][3][3]=5;typeset -c c.ar expands to $(typeset -p c.ar)"
+
+unset values
+float -a values=( [1][3]=90 [1][4]=89 )
+function fx
+{
+	nameref arg=$1
+	[[ ${arg[0..5]} == '90 89' ]] || err_exit '${arg[0..5]} not correct where arg is a nameref to values[1]'
+}
+fx values[1]
+
+function test_short_integer
+{
+        compound out=( typeset stdout stderr ; integer res )
+	compound -r -a tests=(
+		( cmd='integer -s -r -a x=( 1 2 3 ) ; print "${x[2]}"' stdoutpattern='3' )
+		( cmd='integer -s -r -A x=( [0]=1 [1]=2 [2]=3 ) ; print "${x[2]}"' stdoutpattern='3' )
+		# 2D integer arrays: the following two tests crash for both "integer -s" and "integer"
+		( cmd='integer    -r -a x=( [0]=( [0]=1 [1]=2 [2]=3 ) [1]=( [0]=4 [1]=5 [2]=6 ) [2]=( [0]=7 [1]=8 [2]=9 ) ) ; print "${x[1][1]}"' stdoutpattern='5' )
+		( cmd='integer -s -r -a x=( [0]=( [0]=1 [1]=2 [2]=3 ) [1]=( [0]=4 [1]=5 [2]=6 ) [2]=( [0]=7 [1]=8 [2]=9 ) ) ; print "${x[1][1]}"' stdoutpattern='5' )
+   	)
+	typeset testname
+	integer i
+
+	for (( i=0 ; i < ${#tests[@]} ; i++ )) ; do
+		nameref tst=tests[i]
+		testname="${0}/${i}"
+
+		out.stderr="${ { out.stdout="${ ${SHELL} -o nounset -o errexit -c "${tst.cmd}" ; (( out.res=$? )) ; }" ; } 2>&1 ; }"
+
+	        [[ "${out.stdout}" == ${tst.stdoutpattern}      ]] || err_exit "${testname}: Expected stdout to match $(printf '%q\n' "${tst.stdoutpattern}"), got $(printf '%q\n' "${out.stdout}")"
+       		[[ "${out.stderr}" == ''			]] || err_exit "${testname}: Expected empty stderr, got $(printf '%q\n' "${out.stderr}")"
+		(( out.res == 0 )) || err_exit "${testname}: Unexpected exit code ${out.res}"
+	done
+	
+	return 0
+}
+# run tests
+test_short_integer
+
+exit $((Errors<125?Errors:125))

@@ -85,7 +85,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = FC4F2187104D8EB100613382 /* files */;
+			remoteGlobalIDString = FC4F2187104D8EB100613382;
 			remoteInfo = files;
 		};
 		FCDA87F1104CFCF800143464 /* PBXContainerItemProxy */ = {
@@ -248,7 +248,6 @@
 			isa = PBXGroup;
 			children = (
 				08FB7795FE84155DC02AAC07 /* Source */,
-				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = gnudiff;
@@ -273,13 +272,6 @@
 				FCDA87EC104CFCE000143464 /* sdiff */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		C6A0FF2B0290797F04C91782 /* Documentation */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Documentation;
 			sourceTree = "<group>";
 		};
 		FCDA879F104CFB3600143464 /* lib */ = {
@@ -438,7 +430,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gnudiff" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* gnudiff */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -466,7 +462,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "# exit immediately on failure\nset -e\n\nMANDIR=/usr/share/man\nINFODIR=/usr/share/info\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/cmp.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/diff.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/diff3.1 \"$DSTROOT\"/\"$MANDIR\"/man1\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/man/sdiff.1 \"$DSTROOT\"/\"$MANDIR\"/man1\n\n/Developer/Makefiles/bin/compress-man-pages.pl \"$DSTROOT\"/\"$MANDIR\"\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$INFODIR\"\ninstall -c -o root -g wheel -m 0644 \"$PROJECT_DIR\"/diffutils/doc/diff.info \"$DSTROOT\"/\"$INFODIR\"\n\n\n# Install open source information\n\nOSV=/usr/local/OpenSourceVersions\nOSL=/usr/local/OpenSourceLicenses\n\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$OSV\"\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/gnudiff.plist \"$DSTROOT\"/\"$OSV\"\ninstall -d -o root -g wheel -m 0755 \"$DSTROOT\"/\"$OSL\"\ninstall -c -o root -g wheel -m 0444 \"$PROJECT_DIR\"/diffutils/COPYING \"$DSTROOT\"/\"$OSL\"/gnudiff.txt\n";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install_files.sh";
+			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 

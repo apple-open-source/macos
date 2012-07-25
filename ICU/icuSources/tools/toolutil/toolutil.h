@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2010, International Business Machines
+*   Copyright (C) 1999-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -21,7 +21,8 @@
 
 #include "unicode/utypes.h"
 
-#ifdef XP_CPLUSPLUS
+
+#ifdef __cplusplus
 
 #include "unicode/errorcode.h"
 
@@ -83,7 +84,7 @@ findBasename(const char *filename);
  * If successful, copies the directory name into the output buffer along with
  * a terminating NULL. 
  *
- * If there isn't a directory name in the path, it returns the current directory string ('.').
+ * If there isn't a directory name in the path, it returns an empty string.
  * @param path the full pathname to inspect. 
  * @param buffer the output buffer
  * @param bufLen the output buffer length

@@ -97,7 +97,7 @@ static void resolve_prot(apr_finfo_t *finfo, apr_int32_t wanted, PACL dacl)
      * there is no reason for os_level testing here.
      */
     if ((wanted & APR_FINFO_WPROT) && !worldid) {
-        SID_IDENTIFIER_AUTHORITY SIDAuth = SECURITY_WORLD_SID_AUTHORITY;
+        SID_IDENTIFIER_AUTHORITY SIDAuth = {SECURITY_WORLD_SID_AUTHORITY};
         if (AllocateAndInitializeSid(&SIDAuth, 1, SECURITY_WORLD_RID,
                                      0, 0, 0, 0, 0, 0, 0, &worldid))
             atexit(free_world);
@@ -268,7 +268,7 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
                                  ((wanted & APR_FINFO_PROT) ? &dacl : NULL),
                                  NULL, &pdesc);
         else
-            return APR_INCOMPLETE;
+            return APR_INCOMPLETE; /* should not occur */
         if (rv == ERROR_SUCCESS)
             apr_pool_cleanup_register(finfo->pool, pdesc, free_localheap, 
                                  apr_pool_cleanup_null);
@@ -319,6 +319,8 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
                 sizelo = GetCompressedFileSizeW((apr_wchar_t*)ufile, &sizehi);
             else if (whatfile == MORE_OF_FSPEC)
                 sizelo = GetCompressedFileSizeA((char*)ufile, &sizehi);
+            else
+                return APR_EGENERAL; /* should not occur */
         
             if (sizelo != INVALID_FILE_SIZE || GetLastError() == NO_ERROR) {
 #if APR_HAS_LARGE_FILES
@@ -439,7 +441,7 @@ APR_DECLARE(apr_status_t) apr_file_info_get(apr_finfo_t *finfo, apr_int32_t want
          * don't need to take chances while the handle is already open.
          */
         DWORD FileType;
-        if (FileType = GetFileType(thefile->filehand)) {
+        if ((FileType = GetFileType(thefile->filehand))) {
             if (FileType == FILE_TYPE_CHAR) {
                 finfo->filetype = APR_CHR;
             }
@@ -532,8 +534,8 @@ APR_DECLARE(apr_status_t) apr_stat(apr_finfo_t *finfo, const char *fname,
                 wanted &= ~finfo->valid;
         }
 
-        if (rv = utf8_to_unicode_path(wfname, sizeof(wfname) 
-                                            / sizeof(apr_wchar_t), fname))
+        if ((rv = utf8_to_unicode_path(wfname, sizeof(wfname) 
+                                            / sizeof(apr_wchar_t), fname)))
             return rv;
         if (!(wanted & APR_FINFO_NAME)) {
             if (!GetFileAttributesExW(wfname, GetFileExInfoStandard, 
@@ -718,9 +720,9 @@ APR_DECLARE(apr_status_t) apr_file_attrs_set(const char *fname,
 #if APR_HAS_UNICODE_FS
     IF_WIN_OS_IS_UNICODE
     {
-        if (rv = utf8_to_unicode_path(wfname,
-                                      sizeof(wfname) / sizeof(wfname[0]),
-                                      fname))
+        if ((rv = utf8_to_unicode_path(wfname,
+                                       sizeof(wfname) / sizeof(wfname[0]),
+                                       fname)))
             return rv;
         flags = GetFileAttributesW(wfname);
     }
@@ -779,7 +781,7 @@ APR_DECLARE(apr_status_t) apr_file_mtime_set(const char *fname,
     apr_status_t rv;
 
     rv = apr_file_open(&thefile, fname,
-                       APR_READ | APR_WRITEATTRS,
+                       APR_FOPEN_READ | APR_WRITEATTRS,
                        APR_OS_DEFAULT, pool);
     if (!rv)
     {

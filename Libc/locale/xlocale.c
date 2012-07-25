@@ -29,7 +29,7 @@
 
 #define NMBSTATET	10
 #define C_LOCALE_INITIALIZER	{	\
-	0, NULL,			\
+	0, XPERMANENT,			\
 	{}, {}, {}, {}, {},		\
 	{}, {}, {}, {}, {},		\
 	LOCK_INITIALIZER,		\

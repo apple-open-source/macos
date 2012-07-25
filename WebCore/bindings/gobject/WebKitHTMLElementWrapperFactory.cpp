@@ -41,7 +41,6 @@
 #include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBaseFontElement.h"
-#include "HTMLBlockquoteElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLButtonElement.h"
 #include "HTMLCanvasElement.h"
@@ -61,7 +60,6 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
-#include "HTMLIsIndexElement.h"
 #include "HTMLKeygenElement.h"
 #include "HTMLLIElement.h"
 #include "HTMLLabelElement.h"
@@ -101,7 +99,6 @@
 #include "webkit/WebKitDOMHTMLBRElementPrivate.h"
 #include "webkit/WebKitDOMHTMLBaseElementPrivate.h"
 #include "webkit/WebKitDOMHTMLBaseFontElementPrivate.h"
-#include "webkit/WebKitDOMHTMLBlockquoteElementPrivate.h"
 #include "webkit/WebKitDOMHTMLBodyElementPrivate.h"
 #include "webkit/WebKitDOMHTMLButtonElementPrivate.h"
 #include "webkit/WebKitDOMHTMLCanvasElementPrivate.h"
@@ -122,7 +119,6 @@
 #include "webkit/WebKitDOMHTMLIFrameElementPrivate.h"
 #include "webkit/WebKitDOMHTMLImageElementPrivate.h"
 #include "webkit/WebKitDOMHTMLInputElementPrivate.h"
-#include "webkit/WebKitDOMHTMLIsIndexElementPrivate.h"
 #include "webkit/WebKitDOMHTMLKeygenElementPrivate.h"
 #include "webkit/WebKitDOMHTMLLIElementPrivate.h"
 #include "webkit/WebKitDOMHTMLLabelElementPrivate.h"
@@ -160,6 +156,14 @@
 #include "webkit/WebKitDOMHTMLVideoElementPrivate.h"
 #endif
 
+#if ENABLE(VIDEO_TRACK)
+#include "webkit/WebKitDOMTextTrackCueListPrivate.h"
+#include "webkit/WebKitDOMTextTrackCuePrivate.h"
+#include "webkit/WebKitDOMTextTrackListPrivate.h"
+#include "webkit/WebKitDOMTextTrackPrivate.h"
+#include "webkit/WebKitDOMTrackEventPrivate.h"
+#endif
+ 
 #include <wtf/text/CString.h>
 
 namespace WebKit {
@@ -204,11 +208,6 @@ static gpointer createBaseWrapper(PassRefPtr<HTMLElement> element)
 static gpointer createBaseFontWrapper(PassRefPtr<HTMLElement> element)
 {
     return wrapHTMLBaseFontElement(static_cast<HTMLBaseFontElement*>(element.get()));
-}
-
-static gpointer createBlockquoteWrapper(PassRefPtr<HTMLElement> element)
-{
-    return wrapHTMLBlockquoteElement(static_cast<HTMLBlockquoteElement*>(element.get()));
 }
 
 static gpointer createBodyWrapper(PassRefPtr<HTMLElement> element)
@@ -324,11 +323,6 @@ static gpointer createImageWrapper(PassRefPtr<HTMLElement> element)
 static gpointer createInputWrapper(PassRefPtr<HTMLElement> element)
 {
     return wrapHTMLInputElement(static_cast<HTMLInputElement*>(element.get()));
-}
-
-static gpointer createIsIndexWrapper(PassRefPtr<HTMLElement> element)
-{
-    return wrapHTMLIsIndexElement(static_cast<HTMLIsIndexElement*>(element.get()));
 }
 
 static gpointer createKeygenWrapper(PassRefPtr<HTMLElement> element)
@@ -479,7 +473,7 @@ gpointer createHTMLElementWrapper(PassRefPtr<WebCore::HTMLElement> element)
        map.set(areaTag.localName().impl(), createAreaWrapper);
        map.set(baseTag.localName().impl(), createBaseWrapper);
        map.set(basefontTag.localName().impl(), createBaseFontWrapper);
-       map.set(blockquoteTag.localName().impl(), createBlockquoteWrapper);
+       map.set(blockquoteTag.localName().impl(), createQuoteWrapper);
        map.set(bodyTag.localName().impl(), createBodyWrapper);
        map.set(brTag.localName().impl(), createBRWrapper);
        map.set(buttonTag.localName().impl(), createButtonWrapper);
@@ -503,7 +497,6 @@ gpointer createHTMLElementWrapper(PassRefPtr<WebCore::HTMLElement> element)
        map.set(iframeTag.localName().impl(), createIFrameWrapper);
        map.set(imgTag.localName().impl(), createImageWrapper);
        map.set(inputTag.localName().impl(), createInputWrapper);
-       map.set(isindexTag.localName().impl(), createIsIndexWrapper);
        map.set(labelTag.localName().impl(), createLabelWrapper);
        map.set(legendTag.localName().impl(), createLegendWrapper);
        map.set(liTag.localName().impl(), createLIWrapper);

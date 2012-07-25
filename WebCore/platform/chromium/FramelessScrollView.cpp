@@ -57,10 +57,16 @@ bool FramelessScrollView::isActive() const
     return true;
 }
 
+ScrollableArea* FramelessScrollView::enclosingScrollableArea() const
+{
+    // FIXME: Look for an ancestor scrollable area that can be scrolled.
+    return 0;
+}
+
 void FramelessScrollView::invalidateRect(const IntRect& rect)
 {
     if (HostWindow* h = hostWindow())
-        h->invalidateContentsAndWindow(rect, false /*immediate*/);
+        h->invalidateContentsAndRootView(rect, false /*immediate*/);
 }
 
 HostWindow* FramelessScrollView::hostWindow() const

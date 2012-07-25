@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1985-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1985-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -36,8 +36,9 @@
 #undef	regmatch_t
 
 #include <ast_common.h>
+#include <ast_wchar.h>
 
-#define REG_VERSION	20030916L
+#define REG_VERSION	20100930L
 
 /* regcomp flags */
 
@@ -65,11 +66,14 @@
 #define REG_MULTIREF	0x00100000	/* multiple digit backrefs	*/
 #define REG_MUSTDELIM	0x08000000	/* all delimiters required	*/
 #define REG_DELIMITED	0x10000000	/* pattern[0] is delimiter	*/
-#define REG_SHELL_GROUP	0x20000000	/* (|&) inside [@|&](...) only	*/
+#define REG_CLASS_ESCAPE 0x80000000	/* \ escapes in [...]		*/
 
 #define REG_SHELL_DOT	0x00200000	/* explicit leading . match	*/
 #define REG_SHELL_ESCAPED 0x00400000	/* \ not special		*/
+#define REG_SHELL_GROUP	0x20000000	/* (|&) inside [@|&](...) only	*/
 #define REG_SHELL_PATH	0x00800000	/* explicit / match		*/
+
+#define REG_REGEXP	0x40000000	/* <regexp.h> compatibility	*/
 
 /* regexec flags */
 
@@ -114,7 +118,7 @@
 #define REG_BADBR	10		/* invalid {...} digits		*/
 #define REG_ERANGE	11		/* invalid [...] range endpoint	*/
 #define REG_ESPACE	12		/* out of space			*/
-#define REG_BADRPT	13		/* unary op not preceeded by re	*/
+#define REG_BADRPT	13		/* unary op not preceded by re	*/
 #define REG_ENULL	14		/* empty subexpr in pattern	*/
 #define REG_ECOUNT	15		/* re component count overflow	*/
 #define REG_BADESC	16		/* invalid \char escape		*/
@@ -127,7 +131,7 @@ struct regex_s; typedef struct regex_s regex_t;
 struct regdisc_s; typedef struct regdisc_s regdisc_t;
 
 typedef int (*regclass_t)(int);
-typedef int32_t regflags_t;
+typedef uint32_t regflags_t;
 typedef int regoff_t;
 typedef int (*regerror_t)(const regex_t*, regdisc_t*, int, ...);
 typedef void* (*regcomp_t)(const regex_t*, const char*, size_t, regdisc_t*);
@@ -167,10 +171,11 @@ struct regdisc_s
 
 typedef struct regstat_s
 {
-	regflags_t	re_flags;	/* REG_LEFT|REG_RIGHT		*/
+	regflags_t	re_flags;	/* REG_*			*/
 	ssize_t		re_min;		/* min anchored match length	*/
 	ssize_t		re_max;		/* max anchored match length	*/
 	ssize_t		re_record;	/* regrexec() match length	*/
+	regflags_t	re_info;	/* REG_* info			*/
 } regstat_t;
 
 struct regex_s
@@ -210,7 +215,7 @@ extern void	regfree(regex_t*);
 
 extern regclass_t regclass(const char*, char**);
 extern int	regaddclass(const char*, regclass_t);
-extern int	regcollate(const char*, char**, char*, int);
+extern int	regcollate(const char*, char**, char*, size_t, wchar_t*);
 extern int	regcomb(regex_t*, regex_t*);
 extern size_t	regdecomp(regex_t*, regflags_t, char*, size_t);
 extern int	regdup(regex_t*, regex_t*);

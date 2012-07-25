@@ -9,16 +9,6 @@
  #   undef  WCONTINUED
  #   define WCONTINUED	0
  #   undef  WIFCONTINUED
-@@ -598,6 +598,9 @@ static void job_reset(register struct pr
- 	/* save the terminal state for current job */
- #ifdef SIGTSTP
- 	job_fgrp(pw,tcgetpgrp(job.fd));
-+#ifdef SIGTTOU
-+	signal(SIGTTOU, SIG_IGN);
-+#endif	/* SIGTTOU */
- 	if(tcsetpgrp(job.fd,sh.pid) !=0)
- 		return;
- #endif	/* SIGTSTP */
 @@ -1440,7 +1443,7 @@ static struct process *job_unpost(regist
  	if(pw)
  		return(pw);

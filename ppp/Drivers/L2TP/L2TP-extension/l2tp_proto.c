@@ -48,6 +48,8 @@
 /* -----------------------------------------------------------------------------
 Definitions
 ----------------------------------------------------------------------------- */
+/* Wcast-align fix - cast away alignment warning when buffer is aligned */
+#define ALIGNED_CAST(type)	(type)(void *) 
 
 
 /* -----------------------------------------------------------------------------
@@ -367,7 +369,7 @@ int l2tp_detach(struct socket *so)
     //IOLog("l2tp_detach, so = %p, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
 
     if (so->so_tpcb) {
-        l2tp_wan_detach((struct ppp_link *)so->so_tpcb);
+        l2tp_wan_detach(ALIGNED_CAST(struct ppp_link *)so->so_tpcb);            
         so->so_tpcb = 0;
     }
     if (so->so_pcb) {
@@ -385,6 +387,7 @@ int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
                   struct ifnet *ifp, struct proc *p)
 {
     int 		error = 0;
+    u_int32_t 	aligned_data;
 
     //IOLog("l2tp_control : so = %p, cmd = %d\n", so, cmd);
 	
@@ -395,19 +398,20 @@ int l2tp_control(struct socket *so, u_long cmd, caddr_t data,
             //IOLog("l2tp_control : PPPIOCGCHAN\n");
             if (!so->so_tpcb)
                 return EINVAL;// not attached
-            *(u_int32_t *)data = ((struct ppp_link *)so->so_tpcb)->lk_index;
+            aligned_data = (ALIGNED_CAST(struct ppp_link *)so->so_tpcb)->lk_index;      // Wcast-align fix - we malloc so->so_tpcb - lk_index is u_int16_t being copied to u_int32_t
+            memcpy(data, &aligned_data, sizeof(u_int32_t));                             // Wcast-align fix - memcpy for unaligned move
             break;
 	case PPPIOCATTACH:
             //IOLog("l2tp_control : PPPIOCATTACH\n");
            if (so->so_tpcb)
                 return EINVAL;// already attached
-            error = l2tp_wan_attach(so->so_pcb, (struct ppp_link **)&so->so_tpcb);
+            error = l2tp_wan_attach(so->so_pcb, ALIGNED_CAST(struct ppp_link **)&so->so_tpcb);  // Wcast-align fix - we malloc so->so_tpcb
             break;
 	case PPPIOCDETACH:
             //IOLog("l2tp_control : PPPIOCDETACH\n");
             if (!so->so_tpcb)
                 return EINVAL;// already detached
-            l2tp_wan_detach((struct ppp_link *)so->so_tpcb);
+            l2tp_wan_detach(ALIGNED_CAST(struct ppp_link *)so->so_tpcb);                        // Wcast-align fix - we malloc so->so_tpcb
             so->so_tpcb = 0;
             break;
         default:
@@ -456,7 +460,7 @@ int l2tp_input(void *data, mbuf_t m, struct sockaddr *from, int more)
 
     if (so->so_tpcb) {
         // we are hooked to ppp
-	return l2tp_wan_input((struct ppp_link *)so->so_tpcb, m);
+	return l2tp_wan_input(ALIGNED_CAST(struct ppp_link *)so->so_tpcb, m);   // Wcast-align fix - we malloc so->so_tpcb
     }
     
     if (m) {
@@ -489,13 +493,13 @@ void l2tp_event(void *data, u_int32_t event, void *msg)
     if (so->so_tpcb) {
         switch (event) {
             case L2TP_EVT_XMIT_FULL:
-                l2tp_wan_xmit_full((struct ppp_link *)so->so_tpcb);
+                l2tp_wan_xmit_full(ALIGNED_CAST(struct ppp_link *)so->so_tpcb);     // Wcast-align fix - we malloc so->so_tpcb
                 break;
             case L2TP_EVT_XMIT_OK:
-                l2tp_wan_xmit_ok((struct ppp_link *)so->so_tpcb);
+                l2tp_wan_xmit_ok(ALIGNED_CAST(struct ppp_link *)so->so_tpcb);
                 break;
             case L2TP_EVT_INPUTERROR:
-                l2tp_wan_input_error((struct ppp_link *)so->so_tpcb);
+                l2tp_wan_input_error(ALIGNED_CAST(struct ppp_link *)so->so_tpcb);
                 break;
         }
     }

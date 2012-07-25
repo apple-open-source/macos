@@ -272,9 +272,9 @@ void IOHIDEventQueue::removeElement( IOHIDElementPrivate * element )
         
     _elementSet->removeObject( element );
     
-    if ( iterator = OSCollectionIterator::withCollection(_elementSet) )
+    if ( NULL != (iterator = OSCollectionIterator::withCollection(_elementSet)) )
     {
-        while ( temp = (IOHIDElementPrivate *)iterator->getNextObject() )
+        while ( NULL != (temp = (IOHIDElementPrivate *)iterator->getNextObject()) )
         {
             size = temp->getElementValueSize() + sizeof(void *);
             

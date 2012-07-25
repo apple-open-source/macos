@@ -936,6 +936,8 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 // actually print nothing yet -- we print out when we are rebuilding the trees
 			} else {
 				fsckPrint(GPtr->context, fsckRepairingVolume);
+				if (embedded == 1 && debug == 0)
+					fsckPrint(GPtr->context, fsckLimitedRepairs);
 			}
 			result = RepairVolume( GPtr );
 			break;

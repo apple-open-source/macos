@@ -28,7 +28,7 @@
 
 #include "mech_locl.h"
 
-OM_uint32 GSSAPI_LIB_FUNCTION
+GSSAPI_LIB_FUNCTION OM_uint32 GSSAPI_LIB_CALL
 gss_wrap_size_limit(OM_uint32 *minor_status,
     const gss_ctx_id_t context_handle,
     int conf_req_flag,
@@ -38,7 +38,7 @@ gss_wrap_size_limit(OM_uint32 *minor_status,
 {
 	struct _gss_context *ctx = (struct _gss_context *) context_handle;
 	gssapi_mech_interface m;
-	
+
 	*max_input_size = 0;
 	if (ctx == NULL) {
 	    *minor_status = 0;

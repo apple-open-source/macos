@@ -25,7 +25,9 @@
 
 module svg {
 
-    interface [Conditional=SVG] SVGLineElement : SVGElement,
+    interface [
+        Conditional=SVG
+    ] SVGLineElement : SVGElement,
                                                  SVGTests,
                                                  SVGLangSpace,
                                                  SVGExternalResourcesRequired,

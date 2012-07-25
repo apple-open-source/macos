@@ -231,6 +231,18 @@ struct object *object)
 		object->output_func_start_info_data_size = 
 		    object->func_starts_info_cmd->datasize;
 	    }
+	    if(object->data_in_code_cmd != NULL){
+		object->output_data_in_code_info_data = 
+		(object->object_addr + object->data_in_code_cmd->dataoff);
+		object->output_data_in_code_info_data_size = 
+		    object->data_in_code_cmd->datasize;
+	    }
+	    if(object->code_sign_drs_cmd != NULL){
+		object->output_code_sign_drs_info_data = 
+		(object->object_addr + object->code_sign_drs_cmd->dataoff);
+		object->output_code_sign_drs_info_data_size = 
+		    object->code_sign_drs_cmd->datasize;
+	    }
 	    object->output_ext_relocs = (struct relocation_info *)
 		(object->object_addr + object->dyst->extreloff);
 	    object->output_tocs =
@@ -276,6 +288,12 @@ struct object *object)
 	    if(object->func_starts_info_cmd != NULL)
 		object->input_sym_info_size +=
 		    object->func_starts_info_cmd->datasize;
+	    if(object->data_in_code_cmd != NULL)
+		object->input_sym_info_size +=
+		    object->data_in_code_cmd->datasize;
+	    if(object->code_sign_drs_cmd != NULL)
+		object->input_sym_info_size +=
+		    object->code_sign_drs_cmd->datasize;
 	    if(object->mh != NULL){
 		object->input_sym_info_size +=
 		    object->dyst->nmodtab *

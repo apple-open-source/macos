@@ -33,6 +33,8 @@
 #include "DynamicsCompressorKernel.h"
 #include "ZeroPole.h"
 
+#include <wtf/OwnArrayPtr.h>
+
 namespace WebCore {
 
 class AudioBus;
@@ -46,7 +48,8 @@ class DynamicsCompressor {
 public:
     enum {
         ParamThreshold,
-        ParamHeadroom,
+        ParamKnee,
+        ParamRatio,
         ParamAttack,
         ParamRelease,
         ParamPreDelay,
@@ -59,40 +62,49 @@ public:
         ParamFilterStageRatio,
         ParamFilterAnchor,
         ParamEffectBlend,
+        ParamReduction,
         ParamLast
     };
 
-    DynamicsCompressor(bool isStereo, double sampleRate);
+    DynamicsCompressor(float sampleRate, unsigned numberOfChannels);
 
-    void process(AudioBus* sourceBus, AudioBus* destinationBus, unsigned framesToProcess);
+    void process(const AudioBus* sourceBus, AudioBus* destinationBus, unsigned framesToProcess);
     void reset();
+    void setNumberOfChannels(unsigned);
 
-    double parameterValue(unsigned parameterID);
+    void setParameterValue(unsigned parameterID, float value);
+    float parameterValue(unsigned parameterID);
 
-    bool isStereo() const { return m_isStereo; }
-    double sampleRate() const { return m_sampleRate; }
-    double nyquist() const { return 0.5 * m_sampleRate; }
+    float sampleRate() const { return m_sampleRate; }
+    float nyquist() const { return m_sampleRate / 2; }
+
+    double tailTime() const { return 0; }
+    double latencyTime() const { return m_compressor.latencyFrames() / static_cast<double>(sampleRate()); }
 
 protected:
+    unsigned m_numberOfChannels;
+
     // m_parameters holds the tweakable compressor parameters.
-    // FIXME: expose some of the most important ones (such as threshold, attack, release)
-    // as DynamicsCompressorNode attributes.
-    double m_parameters[ParamLast];
+    float m_parameters[ParamLast];
     void initializeParameters();
 
-    bool m_isStereo;
-    double m_sampleRate;
+    float m_sampleRate;
 
     // Emphasis filter controls.
     float m_lastFilterStageRatio;
     float m_lastAnchor;
     float m_lastFilterStageGain;
 
-    // Emphasis filters.
-    ZeroPole m_preFilter[4];
-    ZeroPole m_preFilterR[4];
-    ZeroPole m_postFilter[4];
-    ZeroPole m_postFilterR[4];
+    typedef struct {
+        ZeroPole filters[4];
+    } ZeroPoleFilterPack4;
+
+    // Per-channel emphasis filters.
+    Vector<OwnPtr<ZeroPoleFilterPack4> > m_preFilterPacks;
+    Vector<OwnPtr<ZeroPoleFilterPack4> > m_postFilterPacks;
+
+    OwnArrayPtr<const float*> m_sourceChannels;
+    OwnArrayPtr<float*> m_destinationChannels;
 
     void setEmphasisStageParameters(unsigned stageIndex, float gain, float normalizedFrequency /* 0 -> 1 */);
     void setEmphasisParameters(float gain, float anchorFreq, float filterStageRatio);

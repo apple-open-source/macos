@@ -8,7 +8,7 @@ filter:    erb
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en-us">
 <head>
    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-   <title>dcerpc.org - <%= @page.title %></title>
+   <title>www.dcerpc.org - <%= @page.title %></title>
    <meta name="author" content="<%= @page.author %>" />
 
    <!--- Blueprint CSS Framework -->
@@ -42,7 +42,7 @@ filter:    erb
 
    <div id="header" class="column prepend-2 append-2 span-<%=columns['max']%> first last">
      <a style="text-decoration: none;" href="/">
-     <p class="title">dcerpc.org</p>
+     <p class="title">www.dcerpc.org</p>
      </a>
    </div>
 
@@ -69,9 +69,9 @@ filter:    erb
      <em>
 DCE/RPC is an open source software project
 made available primarily under a BSD license
-(<a href="http://dcerpc.org/source.html">full license text</a>).
+(<a href="http://www.dcerpc.org/source.html">full license text</a>).
 Hosting provided by
-<a href="http://macosforge.org">Mac OS Forge</a>.
+<a href="http://www.macosforge.org">Mac OS Forge</a>.
 Use of this site is subject to the
 <a href="
 http://www.macosforge.org/terms/">Mac OS Forge Terms of Use</a>.

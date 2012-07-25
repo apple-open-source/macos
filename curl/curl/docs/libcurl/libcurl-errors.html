@@ -1,6 +1,8 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+ "http://www.w3.org/TR/html4/loose.dtd">
 <html><head>
 <title>libcurl-errors man page</title>
-<meta name="generator" content="roffit 0.7">
+<meta name="generator" content="roffit">
 <STYLE type="text/css">
 P.level0 {
  padding-left: 2em;
@@ -53,9 +55,11 @@ p.roffit {
 <p class="level0"><a name="CURLEUNSUPPORTEDPROTOCOL"></a><span class="nroffip">CURLE_UNSUPPORTED_PROTOCOL (1)</span> 
 <p class="level1">The URL you passed to libcurl used a protocol that this libcurl does not support. The support might be a compile-time option that you didn't use, it can be a misspelled protocol string or just a protocol libcurl has no code for. 
 <p class="level0"><a name="CURLEFAILEDINIT"></a><span class="nroffip">CURLE_FAILED_INIT (2)</span> 
-<p class="level1">Very early initialization code failed. This is likely to be an internal error or problem. 
+<p class="level1">Very early initialization code failed. This is likely to be an internal error or problem, or a resource problem where something fundamental couldn't get done at init time. 
 <p class="level0"><a name="CURLEURLMALFORMAT"></a><span class="nroffip">CURLE_URL_MALFORMAT (3)</span> 
 <p class="level1">The URL was not properly formatted. 
+<p class="level0"><a name="CURLENOTBUILTIN"></a><span class="nroffip">CURLE_NOT_BUILT_IN (4)</span> 
+<p class="level1">A requested feature, protocol or option was not found built-in in this libcurl due to a build-time decision. This means that a feature or option was not enabled or explicitly disabled when libcurl was built and in order to get it to function you have to get a rebuilt libcurl. 
 <p class="level0"><a name="CURLECOULDNTRESOLVEPROXY"></a><span class="nroffip">CURLE_COULDNT_RESOLVE_PROXY (5)</span> 
 <p class="level1">Couldn't resolve proxy. The given proxy host could not be resolved. 
 <p class="level0"><a name="CURLECOULDNTRESOLVEHOST"></a><span class="nroffip">CURLE_COULDNT_RESOLVE_HOST (6)</span> 
@@ -66,8 +70,12 @@ p.roffit {
 <p class="level1">After connecting to a FTP server, libcurl expects to get a certain reply back. This error code implies that it got a strange or bad reply. The given remote server is probably not an OK FTP server. 
 <p class="level0"><a name="CURLEREMOTEACCESSDENIED"></a><span class="nroffip">CURLE_REMOTE_ACCESS_DENIED (9)</span> 
 <p class="level1">We were denied access to the resource given in the URL.  For FTP, this occurs while trying to change to the remote directory. 
+<p class="level0"><a name="CURLEFTPACCEPTFAILED"></a><span class="nroffip">CURLE_FTP_ACCEPT_FAILED (10)</span> 
+<p class="level1">While waiting for the server to connect back when an active FTP session is used, an error code was sent over the control connection or similar. 
 <p class="level0"><a name="CURLEFTPWEIRDPASSREPLY"></a><span class="nroffip">CURLE_FTP_WEIRD_PASS_REPLY (11)</span> 
 <p class="level1">After having sent the FTP password to the server, libcurl expects a proper reply. This error code indicates that an unexpected code was returned. 
+<p class="level0"><a name="CURLEFTPACCEPTTIMEOUT"></a><span class="nroffip">CURLE_FTP_ACCEPT_TIMEOUT (12)</span> 
+<p class="level1">During an active FTP session while waiting for the server to connect, the <span Class="emphasis">CURLOPT_ACCEPTTIMOUT_MS</span> (or the internal default) timeout expired. 
 <p class="level0"><a name="CURLEFTPWEIRDPASVREPLY"></a><span class="nroffip">CURLE_FTP_WEIRD_PASV_REPLY (13)</span> 
 <p class="level1">libcurl failed to get a sensible result back from the server as a response to either a PASV or a EPSV command. The server is flawed. 
 <p class="level0"><a name="CURLEFTPWEIRD227FORMAT"></a><span class="nroffip">CURLE_FTP_WEIRD_227_FORMAT (14)</span> 
@@ -124,8 +132,8 @@ p.roffit {
 <p class="level1">Interface error. A specified outgoing interface could not be used. Set which interface to use for outgoing connections' source IP address with CURLOPT_INTERFACE. 
 <p class="level0"><a name="CURLETOOMANYREDIRECTS"></a><span class="nroffip">CURLE_TOO_MANY_REDIRECTS (47)</span> 
 <p class="level1">Too many redirects. When following redirects, libcurl hit the maximum amount. Set your limit with CURLOPT_MAXREDIRS. 
-<p class="level0"><a name="CURLEUNKNOWNTELNETOPTION"></a><span class="nroffip">CURLE_UNKNOWN_TELNET_OPTION (48)</span> 
-<p class="level1">An option set with CURLOPT_TELNETOPTIONS was not recognized/known. Refer to the appropriate documentation. 
+<p class="level0"><a name="CURLEUNKNOWNOPTION"></a><span class="nroffip">CURLE_UNKNOWN_OPTION (48)</span> 
+<p class="level1">An option passed to libcurl is not recognized/known. Refer to the appropriate documentation. This is most likely a problem in the program that uses libcurl. The error buffer might contain more specific information about which exact option it concerns. 
 <p class="level0"><a name="CURLETELNETOPTIONSYNTAX"></a><span class="nroffip">CURLE_TELNET_OPTION_SYNTAX (49)</span> 
 <p class="level1">A telnet option string was Illegally formatted. 
 <p class="level0"><a name="CURLEPEERFAILEDVERIFICATION"></a><span class="nroffip">CURLE_PEER_FAILED_VERIFICATION (51)</span> 
@@ -231,6 +239,8 @@ p.roffit {
 <p class="level0"><a name="CURLSHEINVALID"></a><span class="nroffip">CURLSHE_INVALID (3)</span> 
 <p class="level1">An invalid share object was passed to the function. 
 <p class="level0"><a name="CURLSHENOMEM"></a><span class="nroffip">CURLSHE_NOMEM (4)</span> 
-<p class="level1">Not enough memory was available. (Added in 7.12.0) <p class="roffit">
+<p class="level1">Not enough memory was available. (Added in 7.12.0) 
+<p class="level0"><a name="CURLSHENOTBUILTIN"></a><span class="nroffip">CURLSHE_NOT_BUILT_IN (5)</span> 
+<p class="level1">The requsted sharing could not be done because the library you use don't have that particular feature enabled. (Added in 7.23.0) <p class="roffit">
  This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
 </body></html>

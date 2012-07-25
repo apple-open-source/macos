@@ -27,10 +27,6 @@
 #include "urldata.h"
 #include "getinfo.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
 #include "curl_memory.h"
 #include "sslgen.h"
 #include "connect.h" /* Curl_getconnectinfo() */
@@ -50,6 +46,7 @@ CURLcode Curl_initinfo(struct SessionHandle *data)
 
   pro->t_nslookup = 0;
   pro->t_connect = 0;
+  pro->t_appconnect = 0;
   pro->t_pretransfer = 0;
   pro->t_starttransfer = 0;
   pro->timespent = 0;
@@ -260,7 +257,7 @@ CURLcode Curl_getinfo(struct SessionHandle *data, CURLINFO info, ...)
     *param_slistp = ptr.to_slist;
     break;
   case CURLINFO_CONDITION_UNMET:
-    /* return if the condition prevented the document to get transfered */
+    /* return if the condition prevented the document to get transferred */
     *param_longp = data->info.timecond;
     break;
   case CURLINFO_RTSP_SESSION_ID:

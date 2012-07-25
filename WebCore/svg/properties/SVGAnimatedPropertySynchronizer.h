@@ -27,28 +27,30 @@ namespace WebCore {
 
 // Helper template used for synchronizing SVG <-> XML properties
 template<bool isDerivedFromSVGElement>
-struct SVGAnimatedPropertySynchronizer {
-    static void synchronize(SVGElement*, const QualifiedName&, const AtomicString&);
-};
+struct SVGAnimatedPropertySynchronizer;
 
 template<>
 struct SVGAnimatedPropertySynchronizer<true> {
     static void synchronize(SVGElement* ownerElement, const QualifiedName& attrName, const AtomicString& value)
     {
-        NamedNodeMap* namedAttrMap = ownerElement->attributes(false); 
-        Attribute* old = namedAttrMap->getAttributeItem(attrName);
-        if (old && value.isNull()) 
-            namedAttrMap->removeAttribute(old->name()); 
-        else if (!old && !value.isNull()) 
-            namedAttrMap->addAttribute(ownerElement->createAttribute(attrName, value));
-        else if (old && !value.isNull()) 
-            old->setValue(value); 
+        // If the attribute already exists on the element, we change the
+        // Attribute directly to avoid a call to Element::attributeChanged
+        // that could cause the SVGElement to erroneously reset its properties.
+        // svg/dom/SVGStringList-basics.xhtml exercises this behavior.
+        ElementAttributeData* attributeData = ownerElement->ensureUpdatedAttributeData();
+        Attribute* old = attributeData->getAttributeItem(attrName);
+        if (old && value.isNull())
+            attributeData->removeAttribute(old->name(), ownerElement);
+        else if (!old && !value.isNull())
+            attributeData->addAttribute(Attribute(attrName, value), ownerElement);
+        else if (old && !value.isNull())
+            old->setValue(value);
     }
 };
 
 template<>
 struct SVGAnimatedPropertySynchronizer<false> {
-    static void synchronize(SVGElement*, const QualifiedName&, const AtomicString&)
+    static void synchronize(void*, const QualifiedName&, const AtomicString&)
     {
         // no-op, for types not inheriting from Element, thus nothing to synchronize
     }

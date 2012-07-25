@@ -53,13 +53,12 @@ install:
 	#--03/10/11 Commented out due to <rdar://problem/9078413> remove Sites folder from default user template
 	
 	
-	# Make sure that the Stacks.pdf and About Downloads.pdf are not executable
-	#chmod 600 $(DESTINATION)"/English.lproj/Documents/About Stacks.pdf" $(DESTINATION)"/English.lproj/Downloads/About Downloads.pdf"
-	chmod 600 $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf/Contents/Info.plist" $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf/Contents/Resources/English.lproj/About Stacks.pdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Info.plist" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Resources/English.lproj/About Downloads.pdf" 
+	# Make sure that the About Downloads.pdf are not executable
+	chmod 600 $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Info.plist" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Resources/English.lproj/About Downloads.pdf" 
 	
 	# remove the "everyone deny delete ACL: rdar://problem/7907271
 	# need to remove the "everyone deny delete ACL from the package: rdar://problem/9389888
-	chmod -R -N $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
+	chmod -R -N $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
 
 	chmod 700 $(DESTINATION) # We need to set /System/Library/User Template to 700
 	chown root:admin $(DESTINATION) # Set the Owner
@@ -67,15 +66,11 @@ install:
 	ls -ald $(DESTINATION)
 	echo "##################################"
 
-	# Set the "hide extension" attribute bit of the About Stacks.pdf and About Downloads.pdf files
-	/Developer/Tools/SetFile -a "E" $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
+	# Set the "hide extension" attribute bit of the About Downloads.pdf files
+	/usr/bin/SetFile -a "E" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
 
 	# Make the ~/Library folder hidden in Finder (<rdar://problem/7889093> ~/Library should be hidden in the Finder)
-	/Developer/Tools/SetFile -a "V" $(DESTINATION)"/Non_localized/Library"
-
-# Set Symbolic Links
-	ln -s "/Library/Application Support/Apple/iChat Icons/" $(DESTINATION)"/English.lproj/Pictures/iChat Icons"
-      #	ln -s ../.. $(DESTINATION)"/English.lproj/Library/Favorites/Home"
+	/usr/bin/SetFile -a "V" $(DESTINATION)"/Non_localized/Library"
 
 	rm $(DSTROOT)$(SYSTEM_LIBRARY_DIR)/User\ Template/makefile*
 

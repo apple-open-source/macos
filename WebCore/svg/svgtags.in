@@ -1,22 +1,19 @@
 namespace="SVG"
 namespaceURI="http://www.w3.org/2000/svg"
 guardFactoryWith="ENABLE(SVG)"
+fallbackInterfaceName="SVGElement"
 
 a
 #if ENABLE_SVG_FONTS
 altGlyph
-#endif
-#if 0
 altGlyphDef
 altGlyphItem
 #endif
-#if ENABLE_SVG_ANIMATION
 animate
 animateColor
-animateMotion JSInterfaceName=SVGElement
+animateMotion
 animateTransform
 set
-#endif
 circle
 clipPath
 #if 0
@@ -62,18 +59,12 @@ font_face_name
 font_face_src
 font_face_uri
 #endif
-#if ENABLE_SVG_FOREIGN_OBJECT
 foreignObject
-#endif
 g
 #if ENABLE_SVG_FONTS
 glyph
-#endif
-#if 0
 glyphRef
-#endif
-#if ENABLE_SVG_FONTS
-hkern interfaceName=SVGHKernElement, JSInterfaceName=SVGElement
+hkern interfaceName=SVGHKernElement
 #endif
 image
 line
@@ -84,7 +75,7 @@ metadata
 #if ENABLE_SVG_FONTS
 missing_glyph
 #endif
-mpath interfaceName=SVGMPathElement, JSInterfaceName=SVGElement
+mpath interfaceName=SVGMPathElement
 path
 pattern
 polygon
@@ -102,6 +93,8 @@ textPath
 title
 tref interfaceName=SVGTRefElement
 tspan interfaceName=SVGTSpanElement
-use
+use constructorNeedsCreatedByParser
 view
+#if ENABLE_SVG_FONTS
 vkern interfaceName=SVGVKernElement
+#endif

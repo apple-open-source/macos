@@ -90,7 +90,7 @@ private:
     {
     }
 
-    virtual void appendBytes(DocumentWriter*, const char*, int, bool);
+    virtual void appendBytes(DocumentWriter*, const char*, size_t);
     virtual void finish();
 };
 
@@ -106,7 +106,7 @@ private:
     }
 
     virtual ~ImageDocumentElement();
-    virtual void willMoveToNewOwnerDocument();
+    virtual void didMoveToNewDocument(Document* oldDocument) OVERRIDE;
 
     ImageDocument* m_imageDocument;
 };
@@ -124,11 +124,11 @@ static float pageZoomFactor(const Document* document)
     return frame ? frame->pageZoomFactor() : 1;
 }
 
-void ImageDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
+void ImageDocumentParser::appendBytes(DocumentWriter*, const char*, size_t)
 {
     Frame* frame = document()->frame();
     Settings* settings = frame->settings();
-    if (!frame->loader()->client()->allowImages(!settings || settings->areImagesEnabled()))
+    if (!frame->loader()->client()->allowImage(!settings || settings->areImagesEnabled(), document()->url()))
         return;
 
     CachedImage* cachedImage = document()->cachedImage();
@@ -155,7 +155,7 @@ void ImageDocumentParser::finish()
 
         // Report the natural image size in the page title, regardless of zoom
         // level.
-        IntSize size = cachedImage->imageSize(1.0f);
+        IntSize size = cachedImage->imageSizeForRenderer(document()->imageElement()->renderer(), 1.0f);
         if (size.width()) {
             // Compute the title, we use the decoded filename of the resource, falling
             // back on the (decoded) hostname if there is no path.
@@ -195,9 +195,7 @@ void ImageDocument::createDocumentStructure()
     
     RefPtr<Element> rootElement = Document::createElement(htmlTag, false);
     appendChild(rootElement, ec);
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
     static_cast<HTMLHtmlElement*>(rootElement.get())->insertedByParser();
-#endif
 
     if (frame() && frame()->loader())
         frame()->loader()->dispatchDocumentElementAvailable();
@@ -235,8 +233,8 @@ float ImageDocument::scale() const
     if (!view)
         return 1;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(pageZoomFactor(this));
-    IntSize windowSize = IntSize(view->width(), view->height());
+    LayoutSize imageSize = m_imageElement->cachedImage()->imageSizeForRenderer(m_imageElement->renderer(), pageZoomFactor(this));
+    LayoutSize windowSize = LayoutSize(view->width(), view->height());
     
     float widthScale = (float)windowSize.width() / imageSize.width();
     float heightScale = (float)windowSize.height() / imageSize.height();
@@ -249,14 +247,13 @@ void ImageDocument::resizeImageToFit()
     if (!m_imageElement)
         return;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(pageZoomFactor(this));
+    LayoutSize imageSize = m_imageElement->cachedImage()->imageSizeForRenderer(m_imageElement->renderer(), pageZoomFactor(this));
 
     float scale = this->scale();
     m_imageElement->setWidth(static_cast<int>(imageSize.width() * scale));
     m_imageElement->setHeight(static_cast<int>(imageSize.height() * scale));
     
-    ExceptionCode ec;
-    m_imageElement->style()->setProperty("cursor", "-webkit-zoom-in", ec);
+    m_imageElement->setInlineStyleProperty(CSSPropertyCursor, "-webkit-zoom-in", false);
 }
 
 void ImageDocument::imageClicked(int x, int y)
@@ -289,7 +286,7 @@ void ImageDocument::imageUpdated()
     if (m_imageSizeIsKnown)
         return;
 
-    if (m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).isEmpty())
+    if (m_imageElement->cachedImage()->imageSizeForRenderer(m_imageElement->renderer(), pageZoomFactor(this)).isEmpty())
         return;
     
     m_imageSizeIsKnown = true;
@@ -305,14 +302,14 @@ void ImageDocument::restoreImageSize()
     if (!m_imageElement || !m_imageSizeIsKnown)
         return;
     
-    m_imageElement->setWidth(m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).width());
-    m_imageElement->setHeight(m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).height());
+    LayoutSize imageSize = m_imageElement->cachedImage()->imageSizeForRenderer(m_imageElement->renderer(), pageZoomFactor(this));
+    m_imageElement->setWidth(imageSize.width());
+    m_imageElement->setHeight(imageSize.height());
     
-    ExceptionCode ec;
     if (imageFitsInWindow())
-        m_imageElement->style()->removeProperty("cursor", ec);
+        m_imageElement->removeInlineStyleProperty(CSSPropertyCursor);
     else
-        m_imageElement->style()->setProperty("cursor", "-webkit-zoom-out", ec);
+        m_imageElement->setInlineStyleProperty(CSSPropertyCursor, "-webkit-zoom-out", false);
         
     m_didShrinkImage = false;
 }
@@ -326,8 +323,8 @@ bool ImageDocument::imageFitsInWindow() const
     if (!view)
         return true;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(pageZoomFactor(this));
-    IntSize windowSize = IntSize(view->width(), view->height());
+    LayoutSize imageSize = m_imageElement->cachedImage()->imageSizeForRenderer(m_imageElement->renderer(), pageZoomFactor(this));
+    LayoutSize windowSize = LayoutSize(view->width(), view->height());
     
     return imageSize.width() <= windowSize.width() && imageSize.height() <= windowSize.height();    
 }
@@ -342,12 +339,10 @@ void ImageDocument::windowSizeChanged()
     // If the image has been explicitly zoomed in, restore the cursor if the image fits
     // and set it to a zoom out cursor if the image doesn't fit
     if (!m_shouldShrinkImage) {
-        ExceptionCode ec;
-        
         if (fitsInWindow)
-            m_imageElement->style()->removeProperty("cursor", ec);
+            m_imageElement->removeInlineStyleProperty(CSSPropertyCursor);
         else
-            m_imageElement->style()->setProperty("cursor", "-webkit-zoom-out", ec);
+            m_imageElement->setInlineStyleProperty(CSSPropertyCursor, "-webkit-zoom-out", false);
         return;
     }
     
@@ -408,13 +403,13 @@ ImageDocumentElement::~ImageDocumentElement()
         m_imageDocument->disconnectImageElement();
 }
 
-void ImageDocumentElement::willMoveToNewOwnerDocument()
+void ImageDocumentElement::didMoveToNewDocument(Document* oldDocument)
 {
     if (m_imageDocument) {
         m_imageDocument->disconnectImageElement();
         m_imageDocument = 0;
     }
-    HTMLImageElement::willMoveToNewOwnerDocument();
+    HTMLImageElement::didMoveToNewDocument(oldDocument);
 }
 
 }

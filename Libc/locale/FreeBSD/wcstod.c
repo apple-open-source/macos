@@ -27,9 +27,31 @@
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
 
+#include "xlocale_private.h"
+
 #include <stdlib.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <_simple.h>
+
+/*
+ * __wcs_end_offset calculates the offset to the end within the wide character
+ * string, assuming numbers and letters are single bytes in multibyte
+ * representation, get the actual decimal string for localeconv_l.  If the
+ * decimal point was within the string, compensate for the fact that the
+ * (possible more than one byte) decimal point one takes one wide character.
+ */
+__private_extern__ size_t
+__wcs_end_offset(const char * __restrict buf, const char * __restrict end, locale_t loc)
+{
+	const char *decimalpoint = localeconv_l(loc)->decimal_point;
+	size_t n = end - buf;
+	char *p;
+
+	if ((p = strnstr(buf, decimalpoint, n)) != NULL)
+		n -= strlen(decimalpoint) - 1;
+	return n;
+}
 
 /*
  * Convert a string to a double-precision number.
@@ -38,45 +60,48 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstod.c,v 1.4 2004/04/07 09:47:56 tjr E
  * have to duplicate the code of strtod() here, we convert the supplied
  * wide character string to multibyte and call strtod() on the result.
  * This assumes that the multibyte encoding is compatible with ASCII
- * for at least the digits, radix character and letters.
+ * for at least the digits and letters.  The radix character can be more
+ * than one byte.
  */
+
 double
-wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
+wcstod_l(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr,
+    locale_t loc)
 {
 	static const mbstate_t initial;
 	mbstate_t mbs;
 	double val;
 	char *buf, *end;
-	const wchar_t *wcp;
 	size_t len;
+	locale_t ctype;
+	_SIMPLE_STRING b;
+	char mb[MB_CUR_MAX + 1];
+	const wchar_t *nptr0 = nptr;
+	const wchar_t *first;
 
-	while (iswspace(*nptr))
+	NORMALIZE_LOCALE(loc);
+	ctype = __numeric_ctype(loc);
+
+	while (iswspace_l(*nptr, ctype))
 		nptr++;
 
-	/*
-	 * Convert the supplied numeric wide char. string to multibyte.
-	 *
-	 * We could attempt to find the end of the numeric portion of the
-	 * wide char. string to avoid converting unneeded characters but
-	 * choose not to bother; optimising the uncommon case where
-	 * the input string contains a lot of text after the number
-	 * duplicates a lot of strtod()'s functionality and slows down the
-	 * most common cases.
-	 */
-	wcp = nptr;
-	mbs = initial;
-	if ((len = wcsrtombs(NULL, &wcp, 0, &mbs)) == (size_t)-1) {
-		if (endptr != NULL)
-			*endptr = (wchar_t *)nptr;
+	if ((b = _simple_salloc()) == NULL)
 		return (0.0);
+
+	first = nptr;
+	mbs = initial;
+	while (*nptr && (len = wcrtomb_l(mb, *nptr, &mbs, ctype)) != (size_t)-1) {
+		mb[len] = 0;
+		if (_simple_sappend(b, mb) < 0) { /* no memory */
+			_simple_sfree(b);
+			return (0.0);
+		}
+		nptr++;
 	}
-	if ((buf = malloc(len + 1)) == NULL)
-		return (0.0);
-	mbs = initial;
-	wcsrtombs(buf, &wcp, len + 1, &mbs);
 
 	/* Let strtod() do most of the work for us. */
-	val = strtod(buf, &end);
+	buf = _simple_string(b);
+	val = strtod_l(buf, &end, loc);
 
 	/*
 	 * We only know where the number ended in the _multibyte_
@@ -86,9 +111,15 @@ wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
 	 */
 	if (endptr != NULL)
 		/* XXX Assume each wide char is one byte. */
-		*endptr = (wchar_t *)nptr + (end - buf);
+		*endptr = (end == buf) ? (wchar_t *)nptr0 : ((wchar_t *)first + __wcs_end_offset(buf, end, loc));
 
-	free(buf);
+	_simple_sfree(b);
 
 	return (val);
+}
+
+double
+wcstod(const wchar_t * __restrict nptr, wchar_t ** __restrict endptr)
+{
+	return wcstod_l(nptr, endptr, __current_locale());
 }

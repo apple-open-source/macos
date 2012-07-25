@@ -21,6 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/IOHibernatePrivate.h>
 
 #if 0
 
@@ -403,6 +404,9 @@ struct IOFBConnect
     Boolean                     didPowerOff;
 
     struct IOAccelConnectStruct * transformSurface;
+
+    mach_vm_address_t           imageBuffers[kIOPreviewImageCount];
+    mach_vm_size_t		imageSizes[kIOPreviewImageCount];
 
     const IOFBMessageCallbacks * clientCallbacks;
     void *                       clientCallbackRef;

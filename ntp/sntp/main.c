@@ -54,7 +54,7 @@ sntp_main (
 	struct addrinfo *ai;
 	int resc;
 	int kodc;
-	int ow_ret;
+	int ow_ret = -1;
 	char *hostname;
 
 	optct = optionProcess(&sntpOptions, argc, argv);

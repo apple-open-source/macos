@@ -12,10 +12,6 @@ fi
 chmod +x ${DSTROOT}/usr/bin/bzdiff
 ln -s bzdiff ${DSTROOT}/usr/bin/bzcmp
 
-chmod +x ${DSTROOT}/usr/bin/bzgrep
-ln -s bzgrep ${DSTROOT}/usr/bin/bzegrep
-ln -s bzgrep ${DSTROOT}/usr/bin/bzfgrep
-
 chmod +x ${DSTROOT}/usr/bin/bzmore
 ln -s bzmore ${DSTROOT}/usr/bin/bzless
 

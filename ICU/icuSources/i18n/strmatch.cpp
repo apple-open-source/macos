@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001-2004, International Business Machines Corporation
+*   Copyright (c) 2001-2011, International Business Machines Corporation
 *   and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -16,10 +16,9 @@
 #include "rbt_data.h"
 #include "util.h"
 #include "unicode/uniset.h"
+#include "unicode/utf16.h"
 
 U_NAMESPACE_BEGIN
-
-static const UChar EMPTY[] = { 0 }; // empty string: ""
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringMatcher)
 
@@ -196,7 +195,7 @@ UBool StringMatcher::matchesIndexValue(uint8_t v) const {
  */
 void StringMatcher::addMatchSetTo(UnicodeSet& toUnionTo) const {
     UChar32 ch;
-    for (int32_t i=0; i<pattern.length(); i+=UTF_CHAR_LENGTH(ch)) {
+    for (int32_t i=0; i<pattern.length(); i+=U16_LENGTH(ch)) {
         ch = pattern.char32At(i);
         const UnicodeMatcher* matcher = data->lookupMatcher(ch);
         if (matcher == NULL) {
@@ -228,7 +227,7 @@ int32_t StringMatcher::replace(Replaceable& text,
         }
     }
     
-    text.handleReplaceBetween(start, limit, EMPTY); // delete original text
+    text.handleReplaceBetween(start, limit, UnicodeString()); // delete original text
     
     return outLen;
 }
@@ -278,8 +277,8 @@ void StringMatcher::setData(const TransliterationRuleData* d) {
         if (f != NULL) {
             f->setData(data);
         }
-        i += UTF_CHAR_LENGTH(c);
-    }    
+        i += U16_LENGTH(c);
+    }
 }
 
 U_NAMESPACE_END

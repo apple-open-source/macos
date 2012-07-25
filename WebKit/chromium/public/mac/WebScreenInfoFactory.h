@@ -31,7 +31,7 @@
 #ifndef WebScreenInfoFactory_h
 #define WebScreenInfoFactory_h
 
-#include "../WebCommon.h"
+#include "../platform/WebCommon.h"
 
 #ifdef __OBJC__
 @class NSView;
@@ -45,7 +45,7 @@ struct WebScreenInfo;
 
 class WebScreenInfoFactory {
 public:
-    WEBKIT_API static WebScreenInfo screenInfo(NSView*);
+    WEBKIT_EXPORT static WebScreenInfo screenInfo(NSView*);
 };
 
 } // namespace WebKit

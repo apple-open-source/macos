@@ -46,7 +46,7 @@ template <class Parent>
 inline JSCallbackObject<Parent>* JSCallbackObject<Parent>::asCallbackObject(JSValue value)
 {
     ASSERT(asObject(value)->inherits(&s_info));
-    return static_cast<JSCallbackObject*>(asObject(value));
+    return jsCast<JSCallbackObject*>(asObject(value));
 }
 
 template <class Parent>
@@ -80,7 +80,7 @@ void JSCallbackObject<Parent>::finishCreation(JSGlobalData& globalData)
     ASSERT(Parent::inherits(&s_info));
     ASSERT(Parent::isGlobalObject());
     Base::finishCreation(globalData);
-    init(static_cast<JSGlobalObject*>(this)->globalExec());
+    init(jsCast<JSGlobalObject*>(this)->globalExec());
 }
 
 template <class Parent>
@@ -102,14 +102,11 @@ void JSCallbackObject<Parent>::init(ExecState* exec)
         initialize(toRef(exec), toRef(this));
     }
 
-    bool needsFinalizer = false;
-    for (JSClassRef jsClassPtr = classRef(); jsClassPtr && !needsFinalizer; jsClassPtr = jsClassPtr->parentClass)
-        needsFinalizer = jsClassPtr->finalize;
-    if (needsFinalizer) {
-        HandleSlot slot = exec->globalData().heap.handleHeap()->allocate();
-        HandleHeap::heapFor(slot)->makeWeak(slot, m_callbackObjectData.get(), classRef());
-        HandleHeap::heapFor(slot)->writeBarrier(slot, this);
-        *slot = this;
+    for (JSClassRef jsClassPtr = classRef(); jsClassPtr; jsClassPtr = jsClassPtr->parentClass) {
+        if (jsClassPtr->finalize) {
+            WeakSet::allocate(this, m_callbackObjectData.get(), classRef());
+            break;
+        }
     }
 }
 
@@ -357,7 +354,7 @@ EncodedJSValue JSCallbackObject<Parent>::construct(ExecState* exec)
     JSContextRef execRef = toRef(exec);
     JSObjectRef constructorRef = toRef(constructor);
     
-    for (JSClassRef jsClass = static_cast<JSCallbackObject<Parent>*>(constructor)->classRef(); jsClass; jsClass = jsClass->parentClass) {
+    for (JSClassRef jsClass = jsCast<JSCallbackObject<Parent>*>(constructor)->classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (JSObjectCallAsConstructorCallback callAsConstructor = jsClass->callAsConstructor) {
             int argumentCount = static_cast<int>(exec->argumentCount());
             Vector<JSValueRef, 16> arguments(argumentCount);
@@ -423,7 +420,7 @@ EncodedJSValue JSCallbackObject<Parent>::call(ExecState* exec)
     JSObjectRef functionRef = toRef(exec->callee());
     JSObjectRef thisObjRef = toRef(exec->hostThisValue().toThisObject(exec));
     
-    for (JSClassRef jsClass = static_cast<JSCallbackObject<Parent>*>(toJS(functionRef))->classRef(); jsClass; jsClass = jsClass->parentClass) {
+    for (JSClassRef jsClass = jsCast<JSCallbackObject<Parent>*>(toJS(functionRef))->classRef(); jsClass; jsClass = jsClass->parentClass) {
         if (JSObjectCallAsFunctionCallback callAsFunction = jsClass->callAsFunction) {
             int argumentCount = static_cast<int>(exec->argumentCount());
             Vector<JSValueRef, 16> arguments(argumentCount);

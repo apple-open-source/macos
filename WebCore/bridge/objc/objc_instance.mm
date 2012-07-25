@@ -53,6 +53,11 @@ static NSString *s_exception;
 static JSGlobalObject* s_exceptionEnvironment; // No need to protect this value, since we just use it for a pointer comparison.
 static NSMapTable *s_instanceWrapperCache;
 
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif    
+
 static NSMapTable *createInstanceWrapperCache()
 {
     // NSMapTable with zeroing weak pointers is the recommended way to build caches like this under garbage collection.
@@ -60,6 +65,10 @@ static NSMapTable *createInstanceWrapperCache()
     NSPointerFunctionsOptions valueOptions = NSPointerFunctionsOpaqueMemory | NSPointerFunctionsOpaquePersonality;
     return [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
 }
+
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
 RuntimeObject* ObjcInstance::newRuntimeObject(ExecState* exec)
 {
@@ -130,13 +139,12 @@ ObjcInstance::~ObjcInstance()
 
 static NSAutoreleasePool* allocateAutoReleasePool()
 {
-#if defined(OBJC_API_VERSION) && OBJC_API_VERSION >= 2
     // If GC is enabled an autorelease pool is unnecessary, and the
     // pool cannot be protected from GC so may be collected leading
     // to a crash when we try to drain the release pool.
     if (objc_collectingEnabled())
         return nil;
-#endif
+
     return [[NSAutoreleasePool alloc] init];
 }
 
@@ -162,7 +170,7 @@ Bindings::Class* ObjcInstance::getClass() const
     if (!_instance)
         return 0;
     if (!_class)
-        _class = ObjcClass::classForIsA(_instance->isa);
+        _class = ObjcClass::classForIsA(object_getClass(_instance.get()));
     return static_cast<Bindings::Class*>(_class);
 }
 
@@ -178,7 +186,7 @@ public:
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
         // We need to pass in the right global object for "i".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<ObjCRuntimeMethod>(exec);
-        ObjCRuntimeMethod* method = new (allocateCell<ObjCRuntimeMethod>(*exec->heap())) ObjCRuntimeMethod(globalObject, domStructure, list);
+        ObjCRuntimeMethod* method = new (NotNull, allocateCell<ObjCRuntimeMethod>(*exec->heap())) ObjCRuntimeMethod(globalObject, domStructure, list);
         method->finishCreation(exec->globalData(), name);
         return method;
     }
@@ -307,7 +315,7 @@ JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method)
                     // the assert above should have fired in the impossible case
                     // of an invalid type anyway).
                     fprintf(stderr, "%s: invalid type (%d)\n", __PRETTY_FUNCTION__, (int)objcValueType);
-                    ASSERT(false);
+                    ASSERT_NOT_REACHED();
             }
         }
     }

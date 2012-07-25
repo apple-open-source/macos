@@ -59,7 +59,7 @@
 #include "WebWorkersPrivate.h"
 #include <JavaScriptCore/InitializeThreading.h>
 #include <WebCore/SoftLinking.h>
-#include <wtf/Threading.h>
+#include <wtf/MainThread.h>
 
 // WebKitClassFactory ---------------------------------------------------------
 #if USE(SAFARI_THEME)
@@ -130,15 +130,15 @@ ULONG STDMETHODCALLTYPE WebKitClassFactory::Release(void)
 
 // FIXME: Remove these functions once all createInstance() functions return COMPtr.
 template <typename T>
-static T* releaseRefFromCreateInstance(T* object)
+static T* leakRefFromCreateInstance(T* object)
 {
     return object;
 }
 
 template <typename T>
-static T* releaseRefFromCreateInstance(COMPtr<T> object)
+static T* leakRefFromCreateInstance(COMPtr<T> object)
 {
-    return object.releaseRef();
+    return object.leakRef();
 }
 
 // IClassFactory --------------------------------------------------------------
@@ -153,7 +153,7 @@ HRESULT STDMETHODCALLTYPE WebKitClassFactory::CreateInstance(IUnknown* pUnkOuter
 
 #define INITIALIZE_IF_CLASS(cls) \
     if (IsEqualGUID(m_targetClass, CLSID_##cls)) \
-        unknown = static_cast<I##cls*>(releaseRefFromCreateInstance(cls::createInstance())); \
+        unknown = static_cast<I##cls*>(leakRefFromCreateInstance(cls::createInstance())); \
     else \
     // end of macro
 

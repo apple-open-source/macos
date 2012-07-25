@@ -69,6 +69,19 @@ extern "C" {
 #define CCACHE_API
 #endif
 
+#ifndef __has_extension
+#define __has_extension(x) 0
+#endif
+
+#ifndef cc_deprecated
+#if __has_extension(attribute_deprecated_with_message)
+#define cc_deprecated(x)    __attribute__((deprecated(x)));
+#else
+#define cc_deprecated(x)    __attribute__((deprecated));
+#endif
+#endif /* cc_deprecated */
+
+
 /*!
  * \mainpage Credentials Cache API (CCAPI) Documentation
  *
@@ -1455,7 +1468,8 @@ struct cc_credentials_iterator_f {
 CCACHE_API cc_int32 cc_initialize (cc_context_t  *out_context,
                                    cc_int32       in_version,
                                    cc_int32      *out_supported_version,
-                                   char const   **out_vendor);
+                                   char const   **out_vendor)
+    cc_deprecated("use gss_iter_creds instead");
 	
 
 /*! \defgroup helper_macros CCAPI Function Helper Macros

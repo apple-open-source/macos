@@ -194,13 +194,13 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
         if (result == errAuthorizationSuccess)
         {
             outRights.insert(*it);
-            Syslog::info("Succeeded authorizing right '%s' by client '%s' [%d] for authorization created by '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid());
+            Syslog::info("Succeeded authorizing right '%s' by client '%s' [%d] for authorization created by '%s' [%d] (%X,%d)", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid(), uint32_t(flags), auth.operatesAsLeastPrivileged());
         } 
         else if (result == errAuthorizationDenied || result == errAuthorizationInteractionNotAllowed) 
         {
             if (result == errAuthorizationDenied)
             {
-                 Syslog::notice("Failed to authorize right '%s' by client '%s' [%d] for authorization created by '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid());
+                 secdebug("autheval", "Failed to authorize right '%s' by client '%s' [%d] for authorization created by '%s' [%d] (%X,%d)", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid(), uint32_t(flags), auth.operatesAsLeastPrivileged());
             }
 
             // add creator pid to authorization token

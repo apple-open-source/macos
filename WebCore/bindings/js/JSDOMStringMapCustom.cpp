@@ -42,7 +42,7 @@ bool JSDOMStringMap::canGetItemsForName(ExecState*, DOMStringMap* impl, const Id
 
 JSValue JSDOMStringMap::nameGetter(ExecState* exec, JSValue slotBase, const Identifier& propertyName)
 {
-    JSDOMStringMap* thisObj = static_cast<JSDOMStringMap*>(asObject(slotBase));
+    JSDOMStringMap* thisObj = jsCast<JSDOMStringMap*>(asObject(slotBase));
     return jsString(exec, thisObj->impl()->item(identifierToAtomicString(propertyName)));
 }
 
@@ -72,26 +72,13 @@ bool JSDOMStringMap::deleteProperty(JSCell* cell, ExecState* exec, const Identif
 
 bool JSDOMStringMap::putDelegate(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot&)
 {
-    // Only perform the custom put if the object doesn't have a native property by this name.
-    // Since hasProperty() would end up calling canGetItemsForName() and be fooled, we need to check
-    // the native property slots manually.
-    PropertySlot slot;
-    if (getStaticValueSlot<JSDOMStringMap, Base>(exec, s_info.propHashTable(exec), this, propertyName, slot))
-        return false;
-        
-    JSValue prototype = this->prototype();
-    if (prototype.isObject() && asObject(prototype)->hasProperty(exec, propertyName))
-        return false;
-    
-    String stringValue = ustringToString(value.toString(exec));
+    String stringValue = ustringToString(value.toString(exec)->value(exec));
     if (exec->hadException())
-        return true;
-    
+        return false;
     ExceptionCode ec = 0;
     impl()->setItem(identifierToString(propertyName), stringValue, ec);
     setDOMException(exec, ec);
-
-    return true;
+    return !ec;
 }
 
 } // namespace WebCore

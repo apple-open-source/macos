@@ -77,6 +77,8 @@
 
 #include <dtrace.h>
 
+#include <System/sys/kas_info.h>
+
 #endif /* __APPLE__ */
 
 #include <dt_strtab.h>
@@ -281,9 +283,10 @@ dt_module_symgelf32(const Elf32_Sym *src, GElf_Sym *dst)
 static GElf_Sym *
 dt_module_symgelf64(const Elf64_Sym *src, GElf_Sym *dst)
 {
-	if (dst != NULL)
+	if (dst != NULL) {
 		bcopy(src, dst, sizeof (GElf_Sym));
-
+        }
+        
 	return (dst);
 }
 
@@ -323,7 +326,7 @@ dt_module_symname64(dt_module_t *dmp, const char *name,
 {
 	const Elf64_Sym *symtab = dmp->dm_symtab.cts_data;
 	const char *strtab = dmp->dm_strtab.cts_data;
-
+        
 	const Elf64_Sym *sym;
 	const dt_sym_t *dsp;
 	uint_t i, h;
@@ -461,7 +464,6 @@ dt_module_syminit_macho(dt_module_t *dmp)
 	const char *base = (const char *)dmp->dm_strtab.cts_data;
 	uint_t i, n = dmp->dm_nsymelems;
 	uint_t asrsv = 0;
-	char *tmp;
 
 	for (i = 0; i < n; i++, sym++) {
 		const char *name = base + sym->n_un.n_strx;
@@ -528,6 +530,29 @@ dt_module_symsort_macho(dt_module_t *dmp)
 	dt_module_strtab = NULL;
 }
 
+static uint64_t
+dt_module_slide()
+{
+        static bool initialized = FALSE;
+        static pthread_mutex_t guard = PTHREAD_MUTEX_INITIALIZER;
+        static uint64_t kernel_slide = 0;
+        
+        if (!initialized) {
+                pthread_mutex_lock(&guard);
+                if (!initialized) {
+                        initialized = TRUE;
+                        
+                        size_t size = sizeof(kernel_slide);
+                        
+                        if (kas_info(KAS_INFO_KERNEL_TEXT_SLIDE_SELECTOR, &kernel_slide, &size) != KERN_SUCCESS)
+                                kernel_slide = 0;
+                }
+                pthread_mutex_unlock(&guard);
+        }
+        
+        return kernel_slide;
+}
+
 static GElf_Sym *
 dt_module_symname_macho(dt_module_t *dmp, const char *name,
     GElf_Sym *symp, uint_t *idp)
@@ -548,7 +573,6 @@ dt_module_symname_macho(dt_module_t *dmp, const char *name,
 		dsp = &dmp->dm_symchains[i];
 		sym = symtab + dsp->ds_symid;
 		const char *sname = strtab + sym->n_un.n_strx;
-		char *tmp;
 
 		if ('_' == sname[0])
 			sname++; // Lop off omnipresent underscore
@@ -561,7 +585,7 @@ dt_module_symname_macho(dt_module_t *dmp, const char *name,
 			symp->st_info = STT_NOTYPE; 
 			symp->st_other = 0;
 			symp->st_shndx = sym->n_sect;
-			symp->st_value = sym->n_value;
+			symp->st_value = sym->n_value + dt_module_slide();
 			symp->st_size = 0;
 			
 			if (sym->n_type & N_STAB) { /* Detect C++ methods */
@@ -618,7 +642,7 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 
 	i = addr < asmap[hi]->n_value ? lo : hi;
 	sym = asmap[i];
-	v = sym->n_value;
+	v = sym->n_value + dt_module_slide();
 
 	/*
 	 * If the previous entry has the same value, improve our choice.  The
@@ -636,7 +660,6 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 	 */
 	if (sym->n_value <= addr) {
 		const char *name = strtab + sym->n_un.n_strx;
-		char *tmp;
 
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore
@@ -694,7 +717,6 @@ dt_module_syminit_macho_64(dt_module_t *dmp)
 	const char *base = (const char *)dmp->dm_strtab.cts_data;
 	uint_t i, n = dmp->dm_nsymelems;
 	uint_t asrsv = 0;
-	char *tmp;
 
 	for (i = 0; i < n; i++, sym++) {
 		const char *name = base + sym->n_un.n_strx;
@@ -781,7 +803,6 @@ dt_module_symname_macho_64(dt_module_t *dmp, const char *name,
 		dsp = &dmp->dm_symchains[i];
 		sym = symtab + dsp->ds_symid;
 		const char *sname = strtab + sym->n_un.n_strx;
-		char *tmp;
 
 		if ('_' == sname[0])
 			sname++; // Lop off omnipresent underscore
@@ -794,7 +815,7 @@ dt_module_symname_macho_64(dt_module_t *dmp, const char *name,
 			symp->st_info = STT_NOTYPE; 
 			symp->st_other = 0;
 			symp->st_shndx = sym->n_sect;
-			symp->st_value = sym->n_value;
+			symp->st_value = sym->n_value + dt_module_slide();
 			symp->st_size = 0;
 			
 			if (sym->n_type & N_STAB) { /* Detect C++ methods */
@@ -869,7 +890,6 @@ dt_module_symaddr_macho_64(dt_module_t *dmp, GElf_Addr addr,
 	 */
 	if (sym->n_value <= addr) {
 		const char *name = strtab + sym->n_un.n_strx;
-		char *tmp;
 
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore
@@ -878,7 +898,7 @@ dt_module_symaddr_macho_64(dt_module_t *dmp, GElf_Addr addr,
 		symp->st_info = STT_NOTYPE;
 		symp->st_other = 0;
 		symp->st_shndx = sym->n_sect;
-		symp->st_value = sym->n_value;
+		symp->st_value = sym->n_value + dt_module_slide();
 		symp->st_size = 0;
 
 		if (sym->n_type & N_STAB) { /* Detect C++ methods */

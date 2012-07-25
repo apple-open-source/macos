@@ -7,7 +7,7 @@
      Corporation, Norman Walsh and the Organization for the Advancement
      of Structured Information Standards (OASIS).
 
-     $Id: dbpoolx.mod,v 1.1 2001/02/24 16:51:28 veillard Exp $
+     $Id$
 
      Permission to use, copy, modify and distribute the DocBook XML DTD
      and its accompanying documentation for any purpose and without fee

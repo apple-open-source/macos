@@ -35,14 +35,26 @@
 
 namespace WebKit {
 class WebFrameImpl;
+struct WebSize;
 
 class WebDevToolsAgentPrivate : public WebDevToolsAgent {
 public:
-    // Notifications from FrameLoaderClientImpl:
 
-    // The window object for the frame has been cleared of any extra properties
-    // that may have been set by script from the previously loaded document.
-    virtual void didClearWindowObject(WebFrameImpl*) = 0;
+    // Notification from FrameLoaderClientImpl:
+    // New context has been created for a given world in given frame. Any
+    // processing hat needs to happen before the first script is evaluated
+    // in this context should be done here.
+    virtual void didCreateScriptContext(WebFrameImpl*, int worldId) = 0;
+
+    // A new FrameView has been created for the specified WebFrame using
+    // the Frame::createView() call.
+    virtual void mainFrameViewCreated(WebFrameImpl*) = 0;
+
+    // Returns true if the device metrics override mode is enabled.
+    virtual bool metricsOverridden() = 0;
+
+    // WebViewImpl has been resized.
+    virtual void webViewResized() = 0;
 };
 
 } // namespace WebKit

@@ -42,11 +42,15 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOMediaBSDClient.h>
+///w:start
+#if !TARGET_OS_EMBEDDED
+#include <IOKit/pwr_mgt/RootDomain.h>
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOMediaBSDClient, IOService)
 
-const SInt32 kMajor              = 14;
 const UInt32 kMinorsAddCountBits = 6;
 const UInt32 kMinorsAddCountMask = (1 << kMinorsAddCountBits) - 1;
 const UInt32 kMinorsAddCount     = (1 << kMinorsAddCountBits);
@@ -65,6 +69,7 @@ extern "C"
     int  dkclose(dev_t dev, int flags, int devtype, proc_t proc);
     int  dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
     int  dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
+    int  dkioctl_cdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc);
     int  dkopen(dev_t dev, int flags, int devtype, proc_t proc);
     int  dkread(dev_t dev, uio_t uio, int flags);
     int  dksize(dev_t dev);    
@@ -89,7 +94,7 @@ struct cdevsw cdevswFunctions =
     /* d_close    */ dkclose,
     /* d_read     */ dkread,
     /* d_write    */ dkwrite,
-    /* d_ioctl    */ dkioctl,
+    /* d_ioctl    */ dkioctl_cdev,
     /* d_stop     */ eno_stop,
     /* d_reset    */ eno_reset,
     /* d_ttys     */ 0,
@@ -175,6 +180,9 @@ struct MinorSlot
     void *             cdevNode;      // (character device's devfs node)
     UInt32             cdevOpen;      // (character device's open count)
     IOStorageAccess    cdevOpenLevel; // (character device's open level)
+#if TARGET_OS_EMBEDDED
+    IOStorageOptions   cdevOptions;
+#endif /* TARGET_OS_EMBEDDED */
 };
 
 class MinorTable
@@ -219,17 +227,26 @@ public:
     bool        hasReferencesToAnchorID(UInt32 anchorID, bool excludeOrphans);
 };
 
+const UInt32 kInvalidMajorID = (UInt32) (-1);
+
 class IOMediaBSDClientGlobals
 {
 protected:
     AnchorTable * _anchors;           // (table of anchors)
     MinorTable *  _minors;            // (table of minors)
 
-    UInt32        _bdevswInstalled:1; // (are bdevsw functions installed?)
-    UInt32        _cdevswInstalled:1; // (are cdevsw functions installed?)
+    UInt32        _majorID;           // (major ID)
 
     IOLock *      _openLock;          // (lock for opens, closes)
     IOLock *      _stateLock;         // (lock for state, tables)
+///w:start
+#if !TARGET_OS_EMBEDDED
+    thread_call_t         _assertionCall;
+    IOPMDriverAssertionID _assertionID;
+    IOLock *              _assertionLock;
+    AbsoluteTime          _assertionTime;
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 
 public:
     IOMediaBSDClientGlobals();
@@ -239,6 +256,8 @@ public:
     MinorTable *  getMinors();
     MinorSlot *   getMinor(UInt32 minorID);
 
+    UInt32        getMajorID();
+
     bool          isValid();
 
     void          lockOpen();
@@ -246,6 +265,20 @@ public:
 
     void          lockState();
     void          unlockState();
+///w:start
+#if !TARGET_OS_EMBEDDED
+    thread_call_t         getAssertionCall();
+
+    IOPMDriverAssertionID getAssertionID();
+    void                  setAssertionID(IOPMDriverAssertionID assertionID);
+
+    AbsoluteTime          getAssertionTime();
+    void                  setAssertionTime(AbsoluteTime assertionTime);
+
+    void                  lockAssertion();
+    void                  unlockAssertion();
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 };
 
 static IOMediaBSDClientGlobals gIOMediaBSDClientGlobals;
@@ -466,6 +499,7 @@ bool IOMediaBSDClient::createNodes(IOMedia * media)
     AnchorTable * anchors   = gIOMediaBSDClientGlobals.getAnchors();
     UInt32        anchorID;
     bool          anchorNew = false;
+    UInt32        majorID   = gIOMediaBSDClientGlobals.getMajorID();
     MinorTable *  minors    = gIOMediaBSDClientGlobals.getMinors();
     UInt32        minorID;
     char *        slicePath = 0;
@@ -544,7 +578,7 @@ bool IOMediaBSDClient::createNodes(IOMedia * media)
 
     media->setProperty(kIOBSDNameKey,  minors->getMinor(minorID)->name);
     media->setProperty(kIOBSDUnitKey,  anchorID, 32);           // ("BSD Unit" )
-    media->setProperty(kIOBSDMajorKey, kMajor,   32);           // ("BSD Major")
+    media->setProperty(kIOBSDMajorKey, majorID,  32);           // ("BSD Major")
     media->setProperty(kIOBSDMinorKey, minorID,  32);           // ("BSD Minor")
 
     //
@@ -1020,6 +1054,9 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
     {
         minor->cdevOpen      = 0;
         minor->cdevOpenLevel = kIOStorageAccessNone;
+#if TARGET_OS_EMBEDDED
+        minor->cdevOptions   = 0;
+#endif /* TARGET_OS_EMBEDDED */
     }
 
     levelOut = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
@@ -1732,33 +1769,6 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
-        case DKIOCDISCARD:                                     // (dk_discard_t)
-        {
-            //
-            // This ioctl asks that the media object delete unused data.
-            //
-
-            IOStorageExtent extent;
-            dk_discard_t *  request;
-            IOReturn        status;
-
-            request = (dk_discard_t *) data;
-
-            if ( DKIOC_IS_RESERVED(data, 0xFFFF0000) )  { error = EINVAL;  break; }
-
-            // Delete unused data from the media.
-
-            extent.byteStart = request->offset;
-            extent.byteCount = request->length;
-
-            status = minor->media->unmap( /* client       */ minor->client,
-                                          /* extents      */ &extent,
-                                          /* extentsCount */ 1 );
-
-            error = minor->media->errnoFromReturn(status);
-
-        } break;
-
         case DKIOCUNMAP:                                         // (dk_unmap_t)
         {
             //
@@ -2166,6 +2176,46 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     return error;                                       // (return error status)
 }
 
+int dkioctl_cdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
+{
+    //
+    // dkioctl_cdev performs operations other than a read or write, specific to
+    // the character device.
+    //
+
+    int         error = 0;
+    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
+
+    if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
+
+    //
+    // Process the ioctl.
+    //
+
+    switch ( cmd )
+    {
+#if TARGET_OS_EMBEDDED
+        case _DKIOCSETSTATIC:                                          // (void)
+        {
+            minor->cdevOptions |= kIOStorageOptionIsStatic;
+
+        } break;
+#endif /* TARGET_OS_EMBEDDED */
+
+        default:
+        {
+            //
+            // Call the common ioctl handler for all other ioctls.
+            //
+
+            error = dkioctl(dev, cmd, data, flags, proc);
+
+        } break;
+    }
+
+    return error;                                       // (return error status)
+}
+
 int dksize(dev_t dev)
 {
     //
@@ -2351,12 +2401,34 @@ inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
 
         attributes.bufattr = buf_attr(bp);
 
-        attributes.options |= (flags & B_FUA         ) ? kIOStorageOptionForceUnitAccess : 0;
-        attributes.options |= (flags & B_ENCRYPTED_IO) ? kIOStorageOptionIsEncrypted     : 0;
+        attributes.options |= (flags & B_FUA          ) ? kIOStorageOptionForceUnitAccess : 0;
+        attributes.options |= (flags & B_ENCRYPTED_IO ) ? kIOStorageOptionIsEncrypted     : 0;
+        attributes.options |= (flags & B_STATICCONTENT) ? kIOStorageOptionIsStatic        : 0;
     }
+#if TARGET_OS_EMBEDDED
+    else
+    {
+        dev_t       dev = ((dio_t)dkr)->dev;
+        MinorSlot * minor;
+
+        minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
+
+        attributes.options |= minor->cdevOptions;
+    }
+#endif /* TARGET_OS_EMBEDDED */
 
     return attributes;
 }
+///w:start
+#if !TARGET_OS_EMBEDDED
+inline bool DKR_DELAY_IDLE_SLEEP(dkr_t dkr, dkrtype_t dkrtype)
+{
+    return (dkrtype == DKRTYPE_BUF)
+           ? bufattr_delayidlesleep(buf_attr((buf_t)dkr))
+           : false;
+}
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 
 int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 {
@@ -2481,6 +2553,43 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     DKR_SET_DRIVER_DATA(dkr, dkrtype, buffer);
 
+///w:start
+#if !TARGET_OS_EMBEDDED
+    if ( DKR_DELAY_IDLE_SLEEP(dkr, dkrtype) )
+    {
+        IOPMDriverAssertionID assertionID;
+        AbsoluteTime          assertionTime;
+
+        gIOMediaBSDClientGlobals.lockAssertion();
+
+        clock_interval_to_deadline(60, NSEC_PER_SEC, &assertionTime);
+
+        gIOMediaBSDClientGlobals.setAssertionTime(assertionTime);
+
+        assertionID = gIOMediaBSDClientGlobals.getAssertionID();
+
+        if ( assertionID == kIOPMUndefinedDriverAssertionID )
+        {
+            assertionID = IOService::getPMRootDomain()->createPMAssertion(
+                    /* type        */ kIOPMDriverAssertionReservedBit7,
+                    /* level       */ kIOPMDriverAssertionLevelOn,
+                    /* service     */ minor->client,
+                    /* description */ "com.apple.iokit.IOStorageFamily" );
+
+            if ( assertionID != kIOPMUndefinedDriverAssertionID )
+            {
+                gIOMediaBSDClientGlobals.setAssertionID(assertionID);
+
+                thread_call_enter_delayed(
+                        /* call        */ gIOMediaBSDClientGlobals.getAssertionCall(),
+                        /* deadline    */ assertionTime );
+            }
+        }
+
+        gIOMediaBSDClientGlobals.unlockAssertion();
+    }
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
         IOStorageCompletion completion;
@@ -2586,6 +2695,37 @@ void dkreadwritecompletion( void *   target,
         DKR_SET_BYTE_COUNT(dkr, dkrtype, actualByteCount);   // (set byte count)
     }
 }
+///w:start
+#if !TARGET_OS_EMBEDDED
+void dkreadwriteassertion(thread_call_param_t param0, thread_call_param_t param1)
+{
+    AbsoluteTime assertionTime;
+
+    gIOMediaBSDClientGlobals.lockAssertion();
+
+    assertionTime = gIOMediaBSDClientGlobals.getAssertionTime();
+
+    if ( __OSAbsoluteTime(assertionTime) < mach_absolute_time() )
+    {
+        IOPMDriverAssertionID assertionID;
+
+        assertionID = gIOMediaBSDClientGlobals.getAssertionID();
+
+        IOService::getPMRootDomain()->releasePMAssertion(assertionID);
+
+        gIOMediaBSDClientGlobals.setAssertionID(kIOPMUndefinedDriverAssertionID);
+    }
+    else
+    {
+        thread_call_enter_delayed(
+                /* call        */ gIOMediaBSDClientGlobals.getAssertionCall(),
+                /* deadline    */ assertionTime );
+    }
+
+    gIOMediaBSDClientGlobals.unlockAssertion();
+}
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 
 // =============================================================================
 // AnchorTable Class
@@ -2907,6 +3047,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
 
     void *       bdevNode;
     void *       cdevNode;
+    UInt32       majorID = gIOMediaBSDClientGlobals.getMajorID();
     UInt32       minorID;
     char *       minorName;
     UInt32       minorNameSize;
@@ -2947,7 +3088,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
 
     // Create a block and character device node in BSD for this media.
 
-    bdevNode = devfs_make_node( /* dev        */ makedev(kMajor, minorID),
+    bdevNode = devfs_make_node( /* dev        */ makedev(majorID, minorID),
                                 /* type       */ DEVFS_BLOCK, 
                                 /* owner      */ UID_ROOT,
                                 /* group      */ GID_OPERATOR,
@@ -2956,7 +3097,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
 
-    cdevNode = devfs_make_node( /* dev        */ makedev(kMajor, minorID),
+    cdevNode = devfs_make_node( /* dev        */ makedev(majorID, minorID),
                                 /* type       */ DEVFS_CHAR, 
                                 /* owner      */ UID_ROOT,
                                 /* group      */ GID_OPERATOR,
@@ -2997,6 +3138,9 @@ UInt32 MinorTable::insert( IOMedia *          media,
     _table[minorID].cdevNode      = cdevNode;
     _table[minorID].cdevOpen      = 0;
     _table[minorID].cdevOpenLevel = kIOStorageAccessNone;
+#if TARGET_OS_EMBEDDED
+    _table[minorID].cdevOptions   = 0;
+#endif /* TARGET_OS_EMBEDDED */
 
     _table[minorID].client->retain();              // (retain client)
     _table[minorID].media->retain();               // (retain media)
@@ -3221,20 +3365,64 @@ bool MinorTable::isObsolete(UInt32 minorID)
 // =============================================================================
 // IOMediaBSDClientGlobals Class
 
+static int devsw_add(int index, struct bdevsw * bsw, struct cdevsw * csw)
+{
+    for ( index = bdevsw_isfree(index); index != -1; index++, index = bdevsw_isfree(-index) )
+    {
+        int bdevsw_index;
+
+        bdevsw_index = bdevsw_add(index, bsw);
+
+        if (bdevsw_index == index)
+        {
+            int cdevsw_index;
+
+            cdevsw_index = cdevsw_add_with_bdev(index, csw, index);
+
+            if (cdevsw_index == index)
+            {
+                break;
+            }
+
+            bdevsw_remove(bdevsw_index, bsw);
+        }
+    }
+
+    return index;
+}
+
+static int devsw_remove(int index, struct bdevsw * bsw, struct cdevsw * csw)
+{
+    index = bdevsw_remove(index, bsw);
+
+    if (index != -1)
+    {
+        index = cdevsw_remove(index, csw);
+    }
+
+    return index;
+}
+
 IOMediaBSDClientGlobals::IOMediaBSDClientGlobals()
 {
     //
     // Initialize the minimal global state.
     //
 
-    _anchors         = new AnchorTable();
-    _minors          = new MinorTable();
+    _anchors   = new AnchorTable();
+    _minors    = new MinorTable();
 
-    _bdevswInstalled = (bdevsw_add(kMajor, &bdevswFunctions) == kMajor);
-    _cdevswInstalled = (cdevsw_add(kMajor, &cdevswFunctions) == kMajor);
+    _majorID   = devsw_add(-1, &bdevswFunctions, &cdevswFunctions);
 
-    _openLock        = IOLockAlloc();
-    _stateLock       = IOLockAlloc();
+    _openLock  = IOLockAlloc();
+    _stateLock = IOLockAlloc();
+///w:start
+#if !TARGET_OS_EMBEDDED
+    _assertionCall = thread_call_allocate(dkreadwriteassertion, NULL);
+    _assertionID   = kIOPMUndefinedDriverAssertionID;
+    _assertionLock = IOLockAlloc();
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
 }
 
 IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
@@ -3243,14 +3431,19 @@ IOMediaBSDClientGlobals::~IOMediaBSDClientGlobals()
     // Free all of the outstanding global resources.
     //
 
-    if ( _openLock )         IOLockFree(_openLock);
-    if ( _stateLock )        IOLockFree(_stateLock);
+///w:start
+#if !TARGET_OS_EMBEDDED
+    if ( _assertionCall )               thread_call_free(_assertionCall);
+    if ( _assertionLock )               IOLockFree(_assertionLock);
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
+    if ( _openLock )                    IOLockFree(_openLock);
+    if ( _stateLock )                   IOLockFree(_stateLock);
 
-    if ( _cdevswInstalled )  cdevsw_remove(kMajor, &cdevswFunctions); 
-    if ( _bdevswInstalled )  bdevsw_remove(kMajor, &bdevswFunctions);
+    if ( _majorID != kInvalidMajorID )  devsw_remove(_majorID, &bdevswFunctions, &cdevswFunctions);
 
-    if ( _minors )           delete _minors;
-    if ( _anchors )          delete _anchors;
+    if ( _minors )                      delete _minors;
+    if ( _anchors )                     delete _anchors;
 }
 
 AnchorTable * IOMediaBSDClientGlobals::getAnchors()
@@ -3280,18 +3473,32 @@ MinorSlot * IOMediaBSDClientGlobals::getMinor(UInt32 minorID)
     return _minors->getMinor(minorID);
 }
 
+UInt32 IOMediaBSDClientGlobals::getMajorID()
+{
+    //
+    // Obtain the major ID.
+    //
+
+    return _majorID;
+}
+
 bool IOMediaBSDClientGlobals::isValid()
 {
     //
     // Determine whether the minimal global state has been initialized.
     //
 
-    return ( _anchors         ) &&
-           ( _minors          ) &&
-           ( _bdevswInstalled ) &&
-           ( _cdevswInstalled ) &&
-           ( _openLock        ) &&
-           ( _stateLock       );
+    return ( _anchors                    ) &&
+           ( _minors                     ) &&
+           ( _majorID != kInvalidMajorID ) &&
+///w:start
+#if !TARGET_OS_EMBEDDED
+           ( _assertionCall              ) &&
+           ( _assertionLock              ) &&
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop
+           ( _openLock                   ) &&
+           ( _stateLock                  );
 }
 
 void IOMediaBSDClientGlobals::lockOpen()
@@ -3329,3 +3536,41 @@ void IOMediaBSDClientGlobals::unlockState()
 
     IOLockUnlock(_stateLock);
 }
+///w:start
+#if !TARGET_OS_EMBEDDED
+thread_call_t IOMediaBSDClientGlobals::getAssertionCall()
+{
+    return _assertionCall;
+}
+
+IOPMDriverAssertionID IOMediaBSDClientGlobals::getAssertionID()
+{
+    return _assertionID;
+}
+
+void IOMediaBSDClientGlobals::setAssertionID(IOPMDriverAssertionID assertionID)
+{
+    _assertionID = assertionID;
+}
+
+AbsoluteTime IOMediaBSDClientGlobals::getAssertionTime()
+{
+    return _assertionTime;
+}
+
+void IOMediaBSDClientGlobals::setAssertionTime(AbsoluteTime assertionTime)
+{
+    _assertionTime = assertionTime;
+}
+
+void IOMediaBSDClientGlobals::lockAssertion()
+{
+    IOLockLock(_assertionLock);
+}
+
+void IOMediaBSDClientGlobals::unlockAssertion()
+{
+    IOLockUnlock(_assertionLock);
+}
+#endif /* !TARGET_OS_EMBEDDED */
+///w:stop

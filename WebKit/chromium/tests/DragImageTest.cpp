@@ -30,11 +30,12 @@
 
 #include "config.h"
 
-#include <gtest/gtest.h>
-
 #include "DragImage.h"
+
 #include "Image.h"
 #include "NativeImageSkia.h"
+#include <gtest/gtest.h>
+#include <wtf/PassOwnPtr.h>
 
 using namespace WebCore;
 
@@ -52,15 +53,10 @@ public:
         : Image(0)
         , m_size(size)
     {
-        m_nativeImage = new NativeImageSkia();
-        m_nativeImage->setConfig(SkBitmap::kARGB_8888_Config,
-                                 size.width(), size.height(), 0);
-        m_nativeImage->allocPixels();
-    }
-
-    virtual ~TestImage()
-    {
-        delete m_nativeImage;
+        m_nativeImage = adoptPtr(new NativeImageSkia());
+        m_nativeImage->bitmap().setConfig(SkBitmap::kARGB_8888_Config,
+                                          size.width(), size.height(), 0);
+        m_nativeImage->bitmap().allocPixels();
     }
 
     virtual IntSize size() const
@@ -73,7 +69,7 @@ public:
         if (m_size.isZero())
             return 0;
 
-        return m_nativeImage;
+        return m_nativeImage.get();
     }
 
     // Stub implementations of pure virtual Image functions.
@@ -96,7 +92,7 @@ private:
 
     IntSize m_size;
 
-    NativeImagePtr m_nativeImage;
+    OwnPtr<NativeImagePtr> m_nativeImage;
 };
 
 TEST(DragImageTest, NullHandling)
@@ -143,8 +139,8 @@ TEST(DragImageTest, CreateDragImage)
         RefPtr<TestImage> testImage(TestImage::create(IntSize(1, 1)));
         DragImageRef dragImage = createDragImageFromImage(testImage.get());
         ASSERT_TRUE(dragImage);
-        SkAutoLockPixels lock1(*dragImage), lock2(*(testImage->nativeImageForCurrentFrame()));
-        EXPECT_NE(dragImage->getPixels(), testImage->nativeImageForCurrentFrame()->getPixels());
+        SkAutoLockPixels lock1(*dragImage), lock2(testImage->nativeImageForCurrentFrame()->bitmap());
+        EXPECT_NE(dragImage->getPixels(), testImage->nativeImageForCurrentFrame()->bitmap().getPixels());
     }
 }
 

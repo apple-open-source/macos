@@ -70,32 +70,60 @@
 
 #include <gssapi_mech.h>
 
+//XXX #include <heimbase.h>
+
 #include "spnego_asn1.h"
 #include "utils.h"
 #include <der.h>
 
+#include <heimbase.h>
+
 #define ALLOC(X, N) (X) = calloc((N), sizeof(*(X)))
 
-typedef struct {
-	MechTypeList		initiator_mech_types;
-	gss_OID			preferred_mech_type;
-	gss_OID			selected_mech_type;
-	gss_OID			negotiated_mech_type;
-	gss_ctx_id_t		negotiated_ctx_id;
-	OM_uint32		mech_flags;
-	OM_uint32		mech_time_rec;
-	gss_name_t		mech_src_name;
+typedef struct gssspnego_ctx_d *gssspnego_ctx;
+
+typedef OM_uint32
+(*gssspnego_initiator_state)(OM_uint32 * minor_status,
+			     gss_cred_id_t cred,
+			     gssspnego_ctx ctx,
+			     gss_name_t name,
+			     const gss_OID mech_type,
+			     OM_uint32 req_flags,
+			     OM_uint32 time_req,
+			     const gss_channel_bindings_t input_chan_bindings,
+			     const gss_buffer_t input_token,
+			     gss_buffer_t output_token,
+			     OM_uint32 * ret_flags,
+			     OM_uint32 * time_rec);
+
+
+struct gssspnego_ctx_d {
+    gss_buffer_desc	NegTokenInit_mech_types;
+    gss_OID		preferred_mech_type;
+    gss_OID		selected_mech_type;
+    gss_OID		negotiated_mech_type;
+    gss_ctx_id_t	negotiated_ctx_id;
+    OM_uint32		mech_flags;
+    OM_uint32		mech_time_rec;
+    gss_name_t		mech_src_name;
+    struct spnego_flags {
 	unsigned int		open : 1;
 	unsigned int		local : 1;
 	unsigned int		require_mic : 1;
+	unsigned int		peer_require_mic : 1;
+    	unsigned int		protocol_require_no_mic : 1;
+	unsigned int		sent_mic : 1;
 	unsigned int		verified_mic : 1;
+	unsigned int		safe_omit : 1;
 	unsigned int		maybe_open : 1;
 	unsigned int		seen_supported_mech : 1;
-	HEIMDAL_MUTEX		ctx_id_mutex;
+    } flags;
+    HEIMDAL_MUTEX		ctx_id_mutex;
 
-	gss_name_t		target_name;
-
-} *gssspnego_ctx;
+    gss_name_t		target_name;
+    
+    gssspnego_initiator_state initiator_state;
+};
 
 typedef struct {
 	gss_OID_desc		type;

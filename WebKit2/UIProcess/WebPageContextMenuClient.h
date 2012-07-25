@@ -26,7 +26,10 @@
 #ifndef WebPageContextMenuClient_h
 #define WebPageContextMenuClient_h
 
+#if ENABLE(CONTEXT_MENUS)
+
 #include "APIClient.h"
+#include "WebHitTestResult.h"
 #include "WKPage.h"
 #include <wtf/Vector.h>
 
@@ -36,12 +39,14 @@ class APIObject;
 class WebContextMenuItemData;
 class WebPageProxy;
 
-class WebPageContextMenuClient : public APIClient<WKPageContextMenuClient> {
+class WebPageContextMenuClient : public APIClient<WKPageContextMenuClient, kWKPageContextMenuClientCurrentVersion> {
 public:
-    bool getContextMenuFromProposedMenu(WebPageProxy*, const Vector<WebContextMenuItemData>& proposedMenu, Vector<WebContextMenuItemData>& customMenu, APIObject* userData);
+    bool getContextMenuFromProposedMenu(WebPageProxy*, const Vector<WebContextMenuItemData>& proposedMenu, Vector<WebContextMenuItemData>& customMenu, const WebHitTestResult::Data&, APIObject* userData);
     void customContextMenuItemSelected(WebPageProxy*, const WebContextMenuItemData&);
+    void contextMenuDismissed(WebPageProxy*);
 };
 
 } // namespace WebKit
 
+#endif // ENABLE(CONTEXT_MENUS)
 #endif // WebPageContextMenuClient_h

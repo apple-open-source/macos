@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -50,6 +50,7 @@ const char e_histopen[]		= "history file cannot open";
 const char e_option[]		= "%s: bad option(s)";
 const char e_toomany[]		= "open file limit exceeded";
 const char e_argtype[]		= "invalid argument of type %c";
+const char e_oneoperand[]	= "one operand expected";
 const char e_formspec[]		= "%c: unknown format specifier";
 const char e_badregexp[]	= "%s: invalid regular expression";
 const char e_number[]		= "%s: bad number";
@@ -85,6 +86,7 @@ const char e_access[]		= "permission denied";
 #endif /* _cmd_universe */
 const char e_direct[]		= "bad directory";
 const char e_file[]		= "%s: bad file unit number";
+const char e_redirect[]		= "redirection failed";
 const char e_trap[]		= "%s: bad trap";
 const char e_readonly[]		= "%s: is read only";
 const char e_badfield[]		= "%d: negative field size";
@@ -93,17 +95,29 @@ const char e_badname[]		= "%s: invalid name";
 const char e_varname[]		= "%s: invalid variable name";
 const char e_badfun[]		= "%s: invalid function name";
 const char e_aliname[]		= "%s: invalid alias name";
-const char e_badexport[]	= "%s: invalid export name";
+const char e_badexport[]	= "%s: only simple variables can be exported";
 const char e_badref[]		= "%s: reference variable cannot be an array";
+const char e_badsubscript[]	= "%c: invalid subscript in assignment";
 const char e_noarray[]		= "%s: cannot be an array";
+const char e_badappend[]	= "%s: invalid append to associative array";
 const char e_noref[]		= "%s: no reference name";
+const char e_nounattr[]		= "cannot unset attribute C or A or a";
 const char e_selfref[]		= "%s: invalid self reference";
+const char e_globalref[]	= "%s: global reference cannot refer to local variable";
 const char e_noalias[]		= "%s: alias not found\n";
 const char e_format[]		= "%s: bad format";
 const char e_redef[]		= "%s: type cannot be redefined";
+const char e_required[]		= "%s: is a required element of %s";
 const char e_badtformat[]	= "%c: bad format character in time format";
 const char e_nolabels[]		= "%s: label not implemented";
 const char e_notimp[]		= "%s: not implemented";
+const char e_notelem[]		= "%.*s: is not an element of %s";
+const char e_notenum[]		= "%s: not an enumeration type";
+const char e_unknowntype[]	= "%.*s: unknown type";
+const char e_unknownmap[]	= "%s: unknown mapping name";
+const char e_mapchararg[]	= "-M requires argument when operands are specified";
+const char e_subcomvar[]	= "%s: compound assignment requires sub-variable name";
+const char e_badtypedef[]	= "%s: type definition requires compound assignment";
 const char e_nosupport[]	= "not supported";
 const char e_badrange[]		= "%d-%d: invalid range";
 const char e_eneedsarg[]	= "-e - requires single argument";
@@ -112,10 +126,12 @@ const char e_loop[]		= "%s: would cause loop";
 const char e_overlimit[]	= "%s: limit exceeded";
 const char e_badsyntax[]	= "incorrect syntax";
 const char e_badwrite[]		= "write to %d failed";
+const char e_staticfun[]	= "%s: defined as a static function in type %s and cannot be redefined";
 const char e_on	[]		= "on";
 const char e_off[]		= "off";
 const char is_reserved[]	= " is a keyword";
 const char is_builtin[]		= " is a shell builtin";
+const char is_spcbuiltin[]	= " is a special shell builtin";
 const char is_builtver[]	= "is a shell builtin version of";
 const char is_alias[]		= "%s is an alias for ";
 const char is_xalias[]		= "%s is an exported alias for ";
@@ -137,7 +153,11 @@ const char is_ufunction[]	= " is an undefined function";
     const char e_jobsrunning[]	= "You have running jobs";
     const char e_no_job[]	= "no such job";
     const char e_no_proc[]	= "no such process";
-    const char e_jobusage[]	= "%s: Arguments must be %%job or process ids";
+#   if SHOPT_COSHELL
+        const char e_jobusage[]	= "%s: Arguments must be %%job, process ids, or job pool names";
+#   else
+        const char e_jobusage[]	= "%s: Arguments must be %%job or process ids";
+#   endif /* SHOPT_COSHELL */
 #endif /* JOBS */
 const char e_coredump[]		= "(coredump)";
 const char e_alphanum[]		= "[_[:alpha:]]*([_[:alnum:]])";
@@ -154,6 +174,8 @@ const char e_signo[]		= "Signal %d";
 /* string constants */
 const char e_heading[]		= "Current option settings";
 const char e_sptbnl[]		= " \t\n";
+const char e_tolower[]		= "tolower";
+const char e_toupper[]		= "toupper";
 const char e_defpath[]		= "/bin:/usr/bin:";
 const char e_defedit[]		= "/bin/ed";
 const char e_unknown []		= "<command unknown>";
@@ -186,3 +208,4 @@ const char e_dot[]		= ".";
 const char e_envmarker[]	= "A__z";
 const char e_timeformat[]	= "\nreal\t%2lR\nuser\t%2lU\nsys\t%2lS";
 const char e_dict[]		= "libshell";
+const char e_funload[]		= "function, built-in or type definition for %s not found in %s";

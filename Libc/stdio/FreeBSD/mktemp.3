@@ -32,6 +32,9 @@
 .Dt MKTEMP 3
 .Os
 .Sh NAME
+.Nm mkdtemp ,
+.Nm mkstemp ,
+.Nm mkstemps ,
 .Nm mktemp
 .Nd make temporary file name (unique)
 .Sh LIBRARY
@@ -39,13 +42,23 @@
 .Sh SYNOPSIS
 .In unistd.h
 .Ft char *
-.Fn mktemp "char *template"
+.Fo mkdtemp
+.Fa "char *template"
+.Fc
 .Ft int
-.Fn mkstemp "char *template"
+.Fo mkstemps
+.Fa "char *template"
+.Fa "int suffixlen"
+.Fc
+.In stdlib.h
 .Ft int
-.Fn mkstemps "char *template" "int suffixlen"
+.Fo mkstemp
+.Fa "char *template"
+.Fc
 .Ft char *
-.Fn mkdtemp "char *template"
+.Fo mktemp
+.Fa "char *template"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn mktemp
@@ -133,7 +146,7 @@ The pathname portion of the template is not an existing directory.
 .Pp
 The
 .Fn mkstemp ,
-.Fn mkstemps
+.Fn mkstemps ,
 and
 .Fn mkdtemp
 functions
@@ -167,7 +180,7 @@ A common problem that results in a core dump is that the programmer
 passes in a read-only string to
 .Fn mktemp ,
 .Fn mkstemp ,
-.Fn mkstemps
+.Fn mkstemps ,
 or
 .Fn mkdtemp .
 This is common with programs that were developed before
@@ -186,12 +199,19 @@ so that it will store string constants in a writable segment of memory.
 See
 .Xr gcc 1
 for more information.
+.Sh LEGACY SYNOPSIS
+.Fd #include <unistd.h>
+.Pp
+The include file
+.In unistd.h
+is necessary and sufficient for all functions.
 .Sh SEE ALSO
 .Xr chmod 2 ,
 .Xr getpid 2 ,
 .Xr mkdir 2 ,
 .Xr open 2 ,
-.Xr stat 2
+.Xr stat 2 ,
+.Xr compat 5
 .Sh HISTORY
 A
 .Fn mktemp
@@ -242,10 +262,3 @@ and the return status of the call should be tested for failure.
 This will ensure that the program does not continue blindly
 in the event that an attacker has already created the file
 with the intention of manipulating or reading its contents.
-.Pp
-The implementation of these functions calls
-.Xr arc4random 3 ,
-which is not reentrant.
-You must provide your own locking around this and other consumers of the
-.Xr arc4random 3
-API.

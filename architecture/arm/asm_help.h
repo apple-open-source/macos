@@ -28,6 +28,8 @@
 
 #ifdef	__ASSEMBLER__
 
+#if defined(__arm__)
+
 #define ALIGN						\
 	.align	2
 

@@ -28,7 +28,13 @@
 	<false/>
 	<key>MBCSpeakMoves</key>
 	<true/>
-	<key>NSWindow Frame MBCMainWindowFrame</key>
-	<string>5 268 640 605 0 0 1440 878 </string>
+	<key>MBCNewGamePlayers</key>
+	<integer>1</integer>
+	<key>MBCNewGameVariant</key>
+	<integer>0</integer>
+	<key>MBCNewGameSides</key>
+	<integer>2</integer>
+	<key>MBCShowGameLog</key>
+	<false/>
 </dict>
 </plist>

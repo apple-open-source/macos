@@ -1,8 +1,8 @@
 /* cr.c - content rule routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/cr.c,v 1.22.2.5 2010/04/13 20:23:13 kurt Exp $ */
+/* $OpenLDAP$ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2010 The OpenLDAP Foundation.
+ * Copyright 1998-2011 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -120,15 +120,14 @@ cr_insert(
 	struct cindexrec	*cir;
 	char			**names;
 
+	assert( scr != NULL );
+
 	if ( scr->scr_oid ) {
 		cir = (struct cindexrec *)
 			ch_calloc( 1, sizeof(struct cindexrec) );
 		cir->cir_name.bv_val = scr->scr_oid;
 		cir->cir_name.bv_len = strlen( scr->scr_oid );
 		cir->cir_cr = scr;
-
-		assert( cir->cir_name.bv_val != NULL );
-		assert( cir->cir_cr != NULL );
 
 		if ( avl_insert( &cr_index, (caddr_t) cir,
 		                 cr_index_cmp, avl_dup_error ) )
@@ -149,9 +148,6 @@ cr_insert(
 			cir->cir_name.bv_val = *names;
 			cir->cir_name.bv_len = strlen( *names );
 			cir->cir_cr = scr;
-
-			assert( cir->cir_name.bv_val != NULL );
-			assert( cir->cir_cr != NULL );
 
 			if ( avl_insert( &cr_index, (caddr_t) cir,
 			                 cr_index_cmp, avl_dup_error ) )

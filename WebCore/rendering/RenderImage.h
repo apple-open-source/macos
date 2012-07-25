@@ -53,16 +53,22 @@ public:
 
     void highQualityRepaintTimerFired(Timer<RenderImage>*);
 
+    void setIsGeneratedContent(bool generated = true) { m_isGeneratedContent = generated; }
+
+    bool isGeneratedContent() const { return m_isGeneratedContent; }
+
 protected:
+    virtual bool needsPreferredWidthsRecalculation() const;
+    virtual RenderBox* embeddedContentBox() const;
+    virtual void computeIntrinsicRatioInformation(FloatSize& intrinsicSize, double& intrinsicRatio, bool& isPercentageIntrinsicSize) const;
+
     virtual void styleDidChange(StyleDifference, const RenderStyle*);
 
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-    virtual void paintIntoRect(GraphicsContext*, const IntRect&);
-    virtual void paint(PaintInfo&, int tx, int ty);
-
-    bool isLogicalWidthSpecified() const;
-    bool isLogicalHeightSpecified() const;
+    virtual void paintIntoRect(GraphicsContext*, const LayoutRect&);
+    virtual void paint(PaintInfo&, const LayoutPoint&);
+    virtual void layout();
 
     virtual void intrinsicSizeChanged()
     {
@@ -76,21 +82,18 @@ private:
     virtual bool isImage() const { return true; }
     virtual bool isRenderImage() const { return true; }
 
-    virtual void paintReplaced(PaintInfo&, int tx, int ty);
+    virtual void paintReplaced(PaintInfo&, const LayoutPoint&);
+
+    virtual bool backgroundIsObscured() const;
 
     virtual int minimumReplacedHeight() const;
 
     virtual void notifyFinished(CachedResource*);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
-
-    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
-    virtual int computeReplacedLogicalHeight() const;
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const LayoutPoint& pointInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
     IntSize imageSizeForError(CachedImage*) const;
     void imageDimensionsChanged(bool imageSizeChanged, const IntRect* = 0);
-
-    int calcAspectRatioLogicalWidth() const;
-    int calcAspectRatioLogicalHeight() const;
+    bool updateIntrinsicSizeIfNeeded(const IntSize&, bool imageSizeChanged);
 
     void paintAreaElementFocusRing(PaintInfo&);
 
@@ -98,6 +101,8 @@ private:
     String m_altText;
     OwnPtr<RenderImageResource> m_imageResource;
     bool m_needsToSetSizeForAltText;
+    bool m_didIncrementVisuallyNonEmptyPixelCount;
+    bool m_isGeneratedContent;
 
     friend class RenderImageScaleObserver;
 };

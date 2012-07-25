@@ -1,7 +1,7 @@
 /***********************************************************************
 *                                                                      *
 *               This software is part of the ast package               *
-*          Copyright (c) 1982-2007 AT&T Intellectual Property          *
+*          Copyright (c) 1982-2011 AT&T Intellectual Property          *
 *                      and is licensed under the                       *
 *                  Common Public License, Version 1.0                  *
 *                    by AT&T Intellectual Property                     *
@@ -47,8 +47,13 @@ typedef struct
 }
 Shopt_t;
 
-typedef void	(*Shinit_f)(int);
-typedef int	(*Shwait_f)(int, long, int);
+typedef struct Shell_s Shell_t;
+
+typedef void	(*Shinit_f)(Shell_t*, int);
+#ifndef SH_wait_f_defined
+    typedef int	(*Shwait_f)(int, long, int);
+#   define SH_wait_f_defined
+#endif
 
 union Shnode_u;
 typedef union Shnode_u Shnode_t;
@@ -114,6 +119,7 @@ typedef struct sh_scope
 	char		**argv;
 	char		*cmdname;
 	char		*filename;
+	char		*funname;
 	int		lineno;
 	Dt_t		*var_tree;
 	struct sh_scope	*self;
@@ -123,7 +129,7 @@ typedef struct sh_scope
  * Saves the state of the shell
  */
 
-typedef struct sh_static
+struct Shell_s
 {
 	Shopt_t		options;	/* set -o options */
 	Dt_t		*var_tree;	/* for shell variables */
@@ -134,11 +140,12 @@ typedef struct sh_static
 	int		inlineno;	/* line number of current input file */
 	int		exitval;	/* most recent exit value */
 	unsigned char	trapnote;	/* set when trap/signal is pending */
-	char		subshell;	/* set for virtual subshell */
+	char		shcomp;		/* set when runing shcomp */
+	short		subshell;	/* set for virtual subshell */
 #ifdef _SH_PRIVATE
 	_SH_PRIVATE
 #endif /* _SH_PRIVATE */
-} Shell_t;
+};
 
 /* flags for sh_parse */
 #define SH_NL		1	/* Treat new-lines as ; */
@@ -152,6 +159,8 @@ typedef struct sh_static
 
 /* symbolic value for sh_fdnotify */
 #define SH_FDCLOSE	(-1)
+
+#undef getenv			/* -lshell provides its own */
 
 #if defined(__EXPORT__) && defined(_DLL)
 #   ifdef _BLD_shell
@@ -170,7 +179,7 @@ extern int 		sh_trap(const char*,int);
 extern int 		sh_fun(Namval_t*,Namval_t*, char*[]);
 extern int 		sh_funscope(int,char*[],int(*)(void*),void*,int);
 extern Sfio_t		*sh_iogetiop(int,int);
-extern int		sh_main(int, char*[], void(*)(int));
+extern int		sh_main(int, char*[], Shinit_f);
 extern int		sh_run(int, char*[]);
 extern void		sh_menu(Sfio_t*, int, char*[]);
 extern Namval_t		*sh_addbuiltin(const char*, int(*)(int, char*[],void*), void*);

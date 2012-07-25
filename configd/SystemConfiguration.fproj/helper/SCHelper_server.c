@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2012 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,8 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <Security/Security.h>
+#include <Security/SecTask.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -48,8 +50,6 @@
 #pragma mark SCHelper session managment
 
 
-#if	TARGET_OS_IPHONE
-
 //
 // entitlement used to control write access to a given "prefsID"
 //
@@ -59,9 +59,6 @@
 // entitlement used to allow limited [VPN configuration] write access to the "preferences.plist"
 //
 #define kSCVPNFilterEntitlementName	CFSTR("com.apple.networking.vpn.configuration")
-
-#endif	// TARGET_OS_IPHONE
-
 
 typedef	enum { NO = 0, YES, UNKNOWN } lazyBoolean;
 
@@ -77,6 +74,7 @@ typedef struct {
 
 	// authorization
 	AuthorizationRef	authorization;
+	Boolean			use_entitlement;
 
 	// session mach port
 	mach_port_t		port;
@@ -94,11 +92,17 @@ typedef struct {
 	// preferences
 	SCPreferencesRef	prefs;
 
+	/* backtraces */
+	CFMutableSetRef		backtraces;
+
 } SCHelperSessionPrivate, *SCHelperSessionPrivateRef;
 
 
 static CFStringRef	__SCHelperSessionCopyDescription	(CFTypeRef cf);
 static void		__SCHelperSessionDeallocate		(CFTypeRef cf);
+
+
+static void		__SCHelperSessionLogBacktrace		(const void *value, void *context);
 
 
 static CFTypeID		__kSCHelperSessionTypeID	= _kCFRuntimeNotATypeID;
@@ -112,6 +116,18 @@ static pthread_mutex_t	sessions_lock			= PTHREAD_MUTEX_INITIALIZER;
 
 
 #pragma mark -
+#pragma mark Helper session management
+
+
+#if !TARGET_OS_IPHONE
+static Boolean
+ __SCHelperSessionUseEntitlement(SCHelperSessionRef session)
+{
+	SCHelperSessionPrivateRef       sessionPrivate  = (SCHelperSessionPrivateRef)session;
+
+	return sessionPrivate->use_entitlement;
+}
+#endif //!TARGET_OS_IPHONE
 
 
 static AuthorizationRef
@@ -131,13 +147,23 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 
 	pthread_mutex_lock(&sessionPrivate->lock);
 
-#if	!TARGET_OS_IPHONE
 	if (sessionPrivate->authorization != NULL) {
-		AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
-//		AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
-		sessionPrivate->authorization = NULL;
+#if !TARGET_OS_IPHONE
+		if (!__SCHelperSessionUseEntitlement(session)) {
+			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDefaults);
+//			AuthorizationFree(sessionPrivate->authorization, kAuthorizationFlagDestroyRights);
+			sessionPrivate->authorization = NULL;
+		} else {
+#endif //!TARGET_OS_IPHONE
+			CFRelease(sessionPrivate->authorization);
+			sessionPrivate->authorization = NULL;
+#if !TARGET_OS_IPHONE
+		}
+#endif //!TARGET_OS_IPHONE
+		sessionPrivate->use_entitlement = FALSE;
 	}
 
+#if !TARGET_OS_IPHONE
 	if (isA_CFData(authorizationData)) {
 		AuthorizationExternalForm	extForm;
 
@@ -155,17 +181,13 @@ __SCHelperSessionSetAuthorization(SCHelperSessionRef session, CFTypeRef authoriz
 				ok = FALSE;
 			}
 		}
-	}
-#else	// !TARGET_OS_IPHONE
-	if (sessionPrivate->authorization != NULL) {
-		CFRelease(sessionPrivate->authorization);
-		sessionPrivate->authorization = NULL;
-	}
+	} else
+#endif //!TARGET_OS_IPHONE
 
 	if (isA_CFString(authorizationData)) {
 		sessionPrivate->authorization = (void *)CFRetain(authorizationData);
+		sessionPrivate->use_entitlement = TRUE;
 	}
-#endif	// !TARGET_OS_IPHONE
 
 	pthread_mutex_unlock(&sessionPrivate->lock);
 
@@ -300,6 +322,7 @@ __SCHelperSessionLog(const void *value, void *context)
 {
 	SCHelperSessionRef		session		= (SCHelperSessionRef)value;
 	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+	FILE				**logFile	= (FILE **)context;
 
 	pthread_mutex_lock(&sessionPrivate->lock);
 
@@ -313,6 +336,19 @@ __SCHelperSessionLog(const void *value, void *context)
 		      prefsPrivate->name,
 		      prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
 		      prefsPrivate->locked ? ", locked" : "");
+
+		if ((sessionPrivate->backtraces != NULL) &&
+		    (CFSetGetCount(sessionPrivate->backtraces) > 0)) {
+			// log/report all collected backtraces
+			CFSetApplyFunction(sessionPrivate->backtraces,
+					   __SCHelperSessionLogBacktrace,
+					   (void *)logFile);
+
+			// to ensure that we don't log the same backtraces multiple
+			// times we remove any reported traces
+			CFRelease(sessionPrivate->backtraces);
+			sessionPrivate->backtraces = NULL;
+		}
 	}
 
 	pthread_mutex_unlock(&sessionPrivate->lock);
@@ -380,6 +416,9 @@ __SCHelperSessionDeallocate(CFTypeRef cf)
 	__SCHelperSessionSetPreferences  (session, NULL);
 	__SCHelperSessionSetVPNFilter    (session, NULL);
 	pthread_mutex_destroy(&sessionPrivate->lock);
+	if (sessionPrivate->backtraces != NULL) {
+		CFRelease(sessionPrivate->backtraces);
+	}
 
 	// we no longer need/want to track this session
 	CFSetRemoveValue(sessions, sessionPrivate);
@@ -427,11 +466,13 @@ __SCHelperSessionCreate(CFAllocatorRef allocator)
 		return NULL;
 	}
 	sessionPrivate->authorization		= NULL;
+	sessionPrivate->use_entitlement		= FALSE;
 	sessionPrivate->port			= MACH_PORT_NULL;
 	sessionPrivate->mp			= NULL;
 	sessionPrivate->callerWriteAccess	= UNKNOWN;
 	sessionPrivate->vpnFilter		= NULL;
 	sessionPrivate->prefs			= NULL;
+	sessionPrivate->backtraces		= NULL;
 
 	// keep track this session
 	pthread_mutex_lock(&sessions_lock);
@@ -487,6 +528,84 @@ __SCHelperSessionFindWithPort(mach_port_t port)
 
 
 #pragma mark -
+#pragma mark Session backtrace logging
+
+
+static void
+__SCHelperSessionAddBacktrace(SCHelperSessionRef session, CFStringRef backtrace, const char * command)
+{
+	CFStringRef			logEntry;
+	SCPreferencesRef		prefs;
+	SCPreferencesPrivateRef		prefsPrivate;
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+
+	prefs = __SCHelperSessionGetPreferences((SCHelperSessionRef)sessionPrivate);
+	if (prefs == NULL) {
+		// if no prefs
+		return;
+	}
+	prefsPrivate = (SCPreferencesPrivateRef)prefs;
+
+	logEntry = CFStringCreateWithFormat(NULL, NULL,
+					    CFSTR("%@ [%s]: %s\n\n%@"),
+					    prefsPrivate->name,
+					    prefsPrivate->newPath ? prefsPrivate->newPath : prefsPrivate->path,
+					    command,
+					    backtrace);
+
+	pthread_mutex_lock(&sessionPrivate->lock);
+
+	if (sessionPrivate->backtraces == NULL) {
+		sessionPrivate->backtraces = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	}
+	CFSetSetValue(sessionPrivate->backtraces, logEntry);
+
+	pthread_mutex_unlock(&sessionPrivate->lock);
+
+	CFRelease(logEntry);
+	return;
+}
+
+
+static void
+__SCHelperSessionLogBacktrace(const void *value, void *context)
+{
+	CFSetRef	backtrace	= (CFSetRef)value;
+	FILE		**logFile	= (FILE **)context;
+
+	if (*logFile == NULL) {
+		char		path[PATH_MAX];
+		struct tm	tm_now;
+		struct timeval	tv_now;
+
+		(void)gettimeofday(&tv_now, NULL);
+		(void)localtime_r(&tv_now.tv_sec, &tm_now);
+
+		snprintf(path,
+			 sizeof(path),
+			 "/Library/Logs/CrashReporter/SCHelper-%4d-%02d-%02d-%02d%02d%02d.log",
+			 tm_now.tm_year + 1900,
+			 tm_now.tm_mon + 1,
+			 tm_now.tm_mday,
+			 tm_now.tm_hour,
+			 tm_now.tm_min,
+			 tm_now.tm_sec);
+
+		*logFile = fopen(path, "a");
+		if (*logFile == NULL) {
+			// if log file could not be created
+			return;
+		}
+
+		SCLog(TRUE, LOG_INFO, CFSTR("created backtrace log: %s"), path);
+	}
+
+	SCPrint(TRUE, *logFile, CFSTR("%@\n"), backtrace);
+	return;
+}
+
+
+#pragma mark -
 #pragma mark Helpers
 
 
@@ -506,37 +625,46 @@ do_Exit(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status
 
 /*
  * AUTHORIZE
- *   (in)  data   = AuthorizationExternalForm
+ *   (in)  data   = authorizationDict (in 2 flavors)
+ *		    kSCHelperAuthAuthorization - use provided AuthorizationExternalForm
+ *		    kSCHelperAuthCallerInfo    - use entitlement
  *   (out) status = OSStatus
  *   (out) reply  = N/A
  */
 static Boolean
 do_Auth(SCHelperSessionRef session, void *info, CFDataRef data, uint32_t *status, CFDataRef *reply)
 {
-	Boolean	ok;
+	CFDictionaryRef	authorizationDict;
+#if !TARGET_OS_IPHONE
+	CFDataRef	authorizationData	= NULL;
+#endif
+	Boolean		ok			= FALSE;
 
-#if	!TARGET_OS_IPHONE
-
-	ok = __SCHelperSessionSetAuthorization(session, data);
-
-#else	//!TARGET_OS_IPHONE
-
-	CFStringRef	authorizationInfo	= NULL;
-
-	if ((data != NULL) && !_SCUnserializeString(&authorizationInfo, data, NULL, 0)) {
+	if (_SCUnserialize((CFPropertyListRef*)&authorizationDict, data, NULL, 0) == FALSE) {
 		return FALSE;
 	}
 
-	if (!isA_CFString(authorizationInfo)) {
-		if (authorizationInfo != NULL) CFRelease(authorizationInfo);
+	if (isA_CFDictionary(authorizationDict) == FALSE) {
+		CFRelease(authorizationDict);
 		return FALSE;
 	}
 
-	ok = __SCHelperSessionSetAuthorization(session, authorizationInfo);
-	if (authorizationInfo != NULL) CFRelease(authorizationInfo);
+#if !TARGET_OS_IPHONE
+	authorizationData = CFDictionaryGetValue(authorizationDict, kSCHelperAuthAuthorization);
+	if (authorizationData != NULL && isA_CFData(authorizationData)) {
+		ok = __SCHelperSessionSetAuthorization(session, authorizationData);
+	} else
+#endif
+	{
+		CFStringRef authorizationInfo;
 
-#endif	// !TARGET_OS_IPHONE
+		authorizationInfo = CFDictionaryGetValue(authorizationDict, kSCHelperAuthCallerInfo);
+		if (authorizationInfo != NULL && isA_CFString(authorizationInfo)) {
+			ok = __SCHelperSessionSetAuthorization(session, authorizationInfo);
+		}
+	}
 
+	CFRelease(authorizationDict);
 	*status = ok ? 0 : 1;
 	return TRUE;
 }
@@ -749,24 +877,32 @@ do_interface_refresh(SCHelperSessionRef session, void *info, CFDataRef data, uin
 	Boolean		ok	= FALSE;
 
 	if ((data != NULL) && !_SCUnserializeString(&ifName, data, NULL, 0)) {
+		*status = kSCStatusInvalidArgument;
 		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
 		return FALSE;
 	}
 
-	if (ifName != NULL) {
-		if (isA_CFString(ifName)) {
-			ok = _SCNetworkInterfaceForceConfigurationRefresh(ifName);
-			if (!ok) {
-				*status = SCError();
-			}
-		}
-
-		CFRelease(ifName);
+	if (ifName == NULL) {
+		*status = kSCStatusInvalidArgument;
+		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
+		return FALSE;
 	}
 
-	if (!ok) {
+	if (isA_CFString(ifName)) {
+		ok = _SCNetworkInterfaceForceConfigurationRefresh(ifName);
+		if (!ok) {
+			*status = SCError();
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("interface \"%@\" not refreshed: %s"),
+			      ifName,
+			      SCErrorString(*status));
+		}
+	} else {
+		*status = kSCStatusInvalidArgument;
 		SCLog(TRUE, LOG_ERR, CFSTR("interface name not valid"));
 	}
+
+	CFRelease(ifName);
 
 	return ok;
 }
@@ -1211,11 +1347,6 @@ do_prefs_Synchronize(SCHelperSessionRef session, void *info, CFDataRef data, uin
 #pragma mark Process commands
 
 
-#if	TARGET_OS_IPHONE
-
-#include <Security/Security.h>
-#include <Security/SecTask.h>
-
 static CFStringRef
 sessionName(SCHelperSessionRef session)
 {
@@ -1273,52 +1404,50 @@ copyEntitlement(SCHelperSessionRef session, CFStringRef entitlement)
 	return value;
 }
 
-#endif	// TARGET_OS_IPHONE
-
-
-
 
 static Boolean
 hasAuthorization(SCHelperSessionRef session)
 {
-	AuthorizationRef	authorization	= __SCHelperSessionGetAuthorization(session);
+	AuthorizationRef		authorization	= __SCHelperSessionGetAuthorization(session);
+	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
 
 	if (authorization == NULL) {
 		return FALSE;
 	}
 
-#if	!TARGET_OS_IPHONE
-	AuthorizationFlags	flags;
-	AuthorizationItem	items[1];
-	AuthorizationRights	rights;
-	OSStatus		status;
+#if !TARGET_OS_IPHONE
+	if (!__SCHelperSessionUseEntitlement(session)) {
+		AuthorizationFlags	flags;
+		AuthorizationItem	items[1];
+		AuthorizationRights	rights;
+		OSStatus		status;
 
-	items[0].name        = "system.preferences";
-	items[0].value       = NULL;
-	items[0].valueLength = 0;
-	items[0].flags       = 0;
+		items[0].name        = kSCPreferencesWriteAuthorizationRight;
+		items[0].value       = NULL;
+		items[0].valueLength = 0;
+		items[0].flags       = 0;
 
-	rights.count = sizeof(items) / sizeof(items[0]);
-	rights.items = items;
+		rights.count = sizeof(items) / sizeof(items[0]);
+		rights.items = items;
 
-	flags = kAuthorizationFlagDefaults;
-	flags |= kAuthorizationFlagExtendRights;
-	flags |= kAuthorizationFlagInteractionAllowed;
-//	flags |= kAuthorizationFlagPartialRights;
-//	flags |= kAuthorizationFlagPreAuthorize;
+		flags = kAuthorizationFlagDefaults;
+		flags |= kAuthorizationFlagExtendRights;
+		flags |= kAuthorizationFlagInteractionAllowed;
+//		flags |= kAuthorizationFlagPartialRights;
+//		flags |= kAuthorizationFlagPreAuthorize;
 
-	status = AuthorizationCopyRights(authorization,
-					 &rights,
-					 kAuthorizationEmptyEnvironment,
-					 flags,
-					 NULL);
-	if (status != errAuthorizationSuccess) {
-		return FALSE;
+		status = AuthorizationCopyRights(authorization,
+						 &rights,
+						 kAuthorizationEmptyEnvironment,
+						 flags,
+						 NULL);
+		if (status != errAuthorizationSuccess) {
+			return FALSE;
+		}
+
+		return TRUE;
 	}
-
-	return TRUE;
-#else	// !TARGET_OS_IPHONE
-	SCHelperSessionPrivateRef	sessionPrivate	= (SCHelperSessionPrivateRef)session;
+#endif // !TARGET_OS_IPHONE
 
 	if (sessionPrivate->callerWriteAccess == UNKNOWN) {
 		CFArrayRef		entitlement;
@@ -1393,7 +1522,6 @@ hasAuthorization(SCHelperSessionRef session)
 	}
 
 	return (sessionPrivate->callerWriteAccess == YES) ? TRUE : FALSE;
-#endif	// TARGET_OS_IPHONE
 }
 
 
@@ -1799,13 +1927,16 @@ _helperexec(mach_port_t			server,
 	    uint32_t			msgID,
 	    xmlData_t			dataRef,	/* raw XML bytes */
 	    mach_msg_type_number_t	dataLen,
+	    xmlData_t			traceRef,	/* raw XML bytes */
+	    mach_msg_type_number_t	traceLen,
 	    uint32_t			*status,
 	    xmlDataOut_t		*replyRef,	/* raw XML bytes */
 	    mach_msg_type_number_t	*replyLen)
 {
-	CFDataRef			data	= NULL;
+	CFStringRef			backtrace	= NULL;
+	CFDataRef			data		= NULL;
 	int				i;
-	CFDataRef			reply	= NULL;
+	CFDataRef			reply		= NULL;
 	SCHelperSessionRef		session;
 
 	*status   = kSCStatusOK;
@@ -1815,8 +1946,17 @@ _helperexec(mach_port_t			server,
 	if ((dataRef != NULL) && (dataLen > 0)) {
 		if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
 			*status = SCError();
-			return KERN_SUCCESS;
 		}
+	}
+
+	if ((traceRef != NULL) && (traceLen > 0)) {
+		if (!_SCUnserializeString(&backtrace, NULL, (void *)traceRef, traceLen)) {
+			*status = SCError();
+		}
+	}
+
+	if (*status != kSCStatusOK) {
+		goto done;
 	}
 
 	session = __SCHelperSessionFindWithPort(server);
@@ -1847,6 +1987,9 @@ _helperexec(mach_port_t			server,
 	}
 
 	if (*status == kSCStatusOK) {
+		if (backtrace != NULL) {
+			__SCHelperSessionAddBacktrace(session, backtrace, helpers[i].commandName);
+		}
 		(*helpers[i].func)(session, helpers[i].info, data, status, &reply);
 	}
 
@@ -1861,7 +2004,10 @@ _helperexec(mach_port_t			server,
 
 		/* serialize the data */
 		if (reply != NULL) {
-			ok = _SCSerializeData(reply, (void **)replyRef, (CFIndex *)replyLen);
+			CFIndex		len;
+
+			ok = _SCSerializeData(reply, (void **)replyRef, &len);
+			*replyLen = len;
 			CFRelease(reply);
 			reply = NULL;
 			if (!ok) {
@@ -1874,6 +2020,7 @@ _helperexec(mach_port_t			server,
     done :
 
 	if (data  != NULL) CFRelease(data);
+	if (backtrace != NULL) CFRelease(backtrace);
 	if (reply != NULL) CFRelease(reply);
 	return KERN_SUCCESS;
 }
@@ -1971,7 +2118,7 @@ main(int argc, char **argv)
 	launch_data_t		l_reply;
 	launch_data_type_t	l_type;
 	int			n_listeners	= 0;
-	extern int		optind;
+//	extern int		optind;
 	int			opt;
 	int			opti;
 
@@ -2058,9 +2205,15 @@ main(int argc, char **argv)
 
 		if (!done && (idle >= (2 * 60 / 15))) {
 			if (gen_reported != gen_current) {
+				FILE	*logFile	= NULL;
+
 				SCLog(TRUE, LOG_NOTICE, CFSTR("active (but IDLE) sessions"));
-				CFSetApplyFunction(sessions, __SCHelperSessionLog, NULL);
+				CFSetApplyFunction(sessions, __SCHelperSessionLog, (void *)&logFile);
 				gen_reported = gen_current;
+
+				if (logFile != NULL) {
+					(void) fclose(logFile);
+				}
 			}
 			idle = 0;
 		}

@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2005-2010, International Business Machines
+ *   Copyright (C) 2005-2012, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -904,7 +904,6 @@ static char *printOrders(char *buffer, OrderList &list)
 
 void SSearchTest::offsetTest()
 {
-    static const UVersionInfo icu47 = { 4, 7, 0, 0 };
     const char *test[] = {
         // The sequence \u0FB3\u0F71\u0F71\u0F80 contains a discontiguous
         // contraction (\u0FB3\u0F71\u0F80) logically followed by \u0F71.
@@ -981,7 +980,7 @@ void SSearchTest::offsetTest()
     col->setAttribute(UCOL_NORMALIZATION_MODE, UCOL_ON, status);
 
     for(int32_t i = 0; i < testCount; i += 1) {
-        if (!isICUVersionAtLeast(icu47) && i>=4 && i<=6) {
+        if (!isICUVersionAtLeast(50, 0) && i>=4 && i<=6) {
             continue; // timebomb until ticket #8080 is resolved
         }
         UnicodeString ts = CharsToUnicodeString(test[i]);
@@ -1641,7 +1640,7 @@ const char *cPattern = "maketh houndes ete hem";
     TEST_ASSERT_M(refMatchPos == icuMatchPos, "strstr and icu give different match positions.");
 
     int32_t i;
-    int32_t j=0;
+    // int32_t j=0;
 
     // Try loopcounts around 100000 to some millions, depending on the operation,
     //   to get runtimes of at least several seconds.
@@ -1663,7 +1662,7 @@ const char *cPattern = "maketh houndes ete hem";
          //j = (j + i)%5;
     }
 
-    printf("%ld, %d\n", pm-longishText, j);
+    //printf("%ld, %d\n", pm-longishText, j);
 #ifdef TEST_BOYER_MOORE
     CollData::close(data);
 #endif
@@ -2010,10 +2009,20 @@ static UBool simpleSearch(UCollator *coll, const UnicodeString &target, int32_t 
             // that's after the last CE in the match, use that index
             // as the end of the match.
             if (minLimit < maxLimit) {
-                int32_t nba = ubrk_following(charBreakIterator, minLimit);
+                // When the last CE's low index is same with its high index, the CE is likely
+                // a part of expansion. In this case, the index is located just after the
+                // character corresponding to the CEs compared above. If the index is right
+                // at the break boundary, move the position to the next boundary will result
+                // incorrect match length when there are ignorable characters exist between
+                // the position and the next character produces CE(s). See ticket#8482.
+                if (minLimit == targetOrders.getHighOffset(i + patternSize - 1) && ubrk_isBoundary(charBreakIterator, minLimit)) {
+                    mend = minLimit;
+                } else {
+                    int32_t nba = ubrk_following(charBreakIterator, minLimit);
 
-                if (nba >= targetOrders.getHighOffset(i + patternSize - 1)) {
-                    mend = nba;
+                    if (nba >= targetOrders.getHighOffset(i + patternSize - 1)) {
+                        mend = nba;
+                    }
                 }
             }
 
@@ -2332,7 +2341,6 @@ void SSearchTest::monkeyTest(char *params)
 
 void SSearchTest::bmMonkeyTest(char *params)
 {
-    static const UVersionInfo icu47 = { 4, 7, 0, 0 }; // for timebomb
     static const UChar skipChars[] = { 0x0E40, 0x0E41, 0x0E42, 0x0E43, 0x0E44, 0xAAB5, 0xAAB6, 0xAAB9, 0xAABB, 0xAABC, 0 }; // for timebomb
     // ook!
     UErrorCode status = U_ZERO_ERROR;
@@ -2438,7 +2446,7 @@ void SSearchTest::bmMonkeyTest(char *params)
             generateTestCase(coll, monkeys, monkeyCount, prefix,  altPrefix);
             generateTestCase(coll, monkeys, monkeyCount, suffix,  altSuffix);
             
-            if (!isICUVersionAtLeast(icu47) && skipSet->containsSome(pattern)) {
+            if (!isICUVersionAtLeast(50, 0) && skipSet->containsSome(pattern)) {
                 continue; // timebomb until ticket #8080 is resolved
             }
 

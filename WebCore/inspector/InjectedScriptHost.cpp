@@ -29,9 +29,10 @@
  */
 
 #include "config.h"
-#include "InjectedScriptHost.h"
 
 #if ENABLE(INSPECTOR)
+
+#include "InjectedScriptHost.h"
 
 #include "Element.h"
 #include "Frame.h"
@@ -41,18 +42,16 @@
 #include "InspectorAgent.h"
 #include "InspectorClient.h"
 #include "InspectorConsoleAgent.h"
+#include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDatabaseAgent.h"
 #include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "Pasteboard.h"
-
-#if ENABLE(DATABASE)
-#include "Database.h"
-#endif
-
-#if ENABLE(DOM_STORAGE)
 #include "Storage.h"
+
+#if ENABLE(SQL_DATABASE)
+#include "Database.h"
 #endif
 
 #include "markup.h"
@@ -72,15 +71,14 @@ PassRefPtr<InjectedScriptHost> InjectedScriptHost::create()
 InjectedScriptHost::InjectedScriptHost()
     : m_inspectorAgent(0)
     , m_consoleAgent(0)
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     , m_databaseAgent(0)
 #endif
-#if ENABLE(DOM_STORAGE)
     , m_domStorageAgent(0)
-#endif
-    , m_frontend(0)
+    , m_domAgent(0)
     , m_lastWorkerId(1 << 31) // Distinguish ids of fake workers from real ones, to minimize the chances they overlap.
 {
+    m_defaultInspectableObject = adoptPtr(new InspectableObject());
 }
 
 InjectedScriptHost::~InjectedScriptHost()
@@ -91,38 +89,32 @@ void InjectedScriptHost::disconnect()
 {
     m_inspectorAgent = 0;
     m_consoleAgent = 0;
-#if ENABLE(DATABASE)
+#if ENABLE(SQL_DATABASE)
     m_databaseAgent = 0;
 #endif
-#if ENABLE(DOM_STORAGE)
     m_domStorageAgent = 0;
-#endif
-    m_frontend = 0;
-}
-
-void InjectedScriptHost::addInspectedNode(Node* node)
-{
-    m_inspectedNodes.prepend(node);
-    while (m_inspectedNodes.size() > 5)
-        m_inspectedNodes.removeLast();
-}
-
-void InjectedScriptHost::clearInspectedNodes()
-{
-    m_inspectedNodes.clear();
+    m_domAgent = 0;
 }
 
 void InjectedScriptHost::inspectImpl(PassRefPtr<InspectorValue> object, PassRefPtr<InspectorValue> hints)
 {
-    if (m_frontend)
-        m_frontend->inspector()->inspect(object->asObject(), hints->asObject());
+    if (m_inspectorAgent) {
+        RefPtr<TypeBuilder::Runtime::RemoteObject> remoteObject = TypeBuilder::Runtime::RemoteObject::runtimeCast(object);
+        m_inspectorAgent->inspect(remoteObject, hints->asObject());
+    }
+}
+
+void InjectedScriptHost::getEventListenersImpl(Node* node, Vector<EventListenerInfo>& listenersArray)
+{
+    if (m_domAgent)
+        m_domAgent->getEventListeners(node, listenersArray, false);
 }
 
 void InjectedScriptHost::clearConsoleMessages()
 {
     if (m_consoleAgent) {
         ErrorString error;
-        m_consoleAgent->clearConsoleMessages(&error);
+        m_consoleAgent->clearMessages(&error);
     }
 }
 
@@ -131,30 +123,45 @@ void InjectedScriptHost::copyText(const String& text)
     Pasteboard::generalPasteboard()->writePlainText(text);
 }
 
-Node* InjectedScriptHost::inspectedNode(unsigned int num)
+ScriptValue InjectedScriptHost::InspectableObject::get(ScriptState*)
 {
-    if (num < m_inspectedNodes.size())
-        return m_inspectedNodes[num].get();
-    return 0;
+    return ScriptValue();
+};
+
+void InjectedScriptHost::addInspectedObject(PassOwnPtr<InjectedScriptHost::InspectableObject> object)
+{
+    m_inspectedObjects.prepend(object);
+    while (m_inspectedObjects.size() > 5)
+        m_inspectedObjects.removeLast();
 }
 
-#if ENABLE(DATABASE)
-int InjectedScriptHost::databaseIdImpl(Database* database)
+void InjectedScriptHost::clearInspectedObjects()
+{
+    m_inspectedObjects.clear();
+}
+
+InjectedScriptHost::InspectableObject* InjectedScriptHost::inspectedObject(unsigned int num)
+{
+    if (num >= m_inspectedObjects.size())
+        return m_defaultInspectableObject.get();
+    return m_inspectedObjects[num].get();
+}
+
+#if ENABLE(SQL_DATABASE)
+String InjectedScriptHost::databaseIdImpl(Database* database)
 {
     if (m_databaseAgent)
         return m_databaseAgent->databaseId(database);
-    return 0;
+    return String();
 }
 #endif
 
-#if ENABLE(DOM_STORAGE)
-int InjectedScriptHost::storageIdImpl(Storage* storage)
+String InjectedScriptHost::storageIdImpl(Storage* storage)
 {
     if (m_domStorageAgent)
         return m_domStorageAgent->storageId(storage);
-    return 0;
+    return String();
 }
-#endif
 
 #if ENABLE(WORKERS)
 long InjectedScriptHost::nextWorkerId()

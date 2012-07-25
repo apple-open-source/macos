@@ -144,7 +144,6 @@ main(int argc, char *argv[])
 	struct stat stbuf;
 	struct statfs statfsbuf, *mntbuf;
 	struct maxwidths maxwidths;
-	const char *fstype;
 	char *mntpt, **vfslist;
 	long mntsize;
 	int ch, i, rv, tflag = 0, kludge_tflag = 0;
@@ -156,9 +155,8 @@ main(int argc, char *argv[])
 		  *not* expect a string after -t (we provide -T in both cases
 		  to cover the old use of -t) */
 		options = "abgHhiklmnPtT:";
+		iflag = 1;
 	}
-
-	fstype = "hfs";
 
 	vfslist = NULL;
 	while ((ch = getopt(argc, argv, options)) != -1)
@@ -231,7 +229,6 @@ main(int argc, char *argv[])
 					errx(1, "-l and -%c are mutually exclusive.", ch);
 			}
 			tflag++;
-			fstype = optarg;
 			vfslist = makevfslist(optarg);
 			break;
 		case '?':
@@ -246,9 +243,7 @@ main(int argc, char *argv[])
 	  This makes the Lexmark printer installer happy (PR-3918471) */
 	if (tflag == 0 && kludge_tflag && *argv && stat(*argv, &stbuf) < 0
 	  && errno == ENOENT) {
-	    tflag = 1;
-	    fstype = *argv++;
-	    vfslist = makevfslist(fstype);
+	    vfslist = makevfslist(*argv++);
 	}
 
 	mntsize = getmntinfo(&mntbuf, MNT_NOWAIT);
@@ -443,28 +438,28 @@ prtstat(struct statfs *sfsp, struct maxwidths *mwp)
 	char * avail_str;
 
 	if (++timesthrough == 1) {
-		mwp->mntfrom = imax(mwp->mntfrom, strlen("Filesystem"));
+		mwp->mntfrom = imax(mwp->mntfrom, (int)strlen("Filesystem"));
 		if (hflag) {
 			header = "  Size";
-			mwp->total = mwp->used = mwp->avail = strlen(header);
+			mwp->total = mwp->used = mwp->avail = (int)strlen(header);
 		} else {
 			header = getbsize(&headerlen, &blocksize);
 			mwp->total = imax(mwp->total, headerlen);
 		}
-		mwp->used = imax(mwp->used, strlen("Used"));
+		mwp->used = imax(mwp->used, (int)strlen("Used"));
 		if (COMPAT_MODE("bin/df", "unix2003") && !hflag) {
 			avail_str = "Available";
 		} else {
 			avail_str = "Avail";
 		}
-		mwp->avail = imax(mwp->avail, strlen(avail_str));
+		mwp->avail = imax(mwp->avail, (int)strlen(avail_str));
 
 		(void)printf("%-*s %*s %*s %*s Capacity", mwp->mntfrom,
 		    "Filesystem", mwp->total, header, mwp->used, "Used",
 		    mwp->avail, avail_str);
 		if (iflag) {
-			mwp->iused = imax(mwp->iused, strlen("  iused"));
-			mwp->ifree = imax(mwp->ifree, strlen("ifree"));
+			mwp->iused = imax(mwp->iused, (int)strlen("  iused"));
+			mwp->ifree = imax(mwp->ifree, (int)strlen("ifree"));
 			(void)printf(" %*s %*s %%iused", mwp->iused - 2,
 			    "iused", mwp->ifree, "ifree");
 		}
@@ -524,7 +519,7 @@ update_maxwidths(struct maxwidths *mwp, struct statfs *sfsp)
 	if (blocksize == 0)
 		getbsize(&dummy, &blocksize);
 
-	mwp->mntfrom = imax(mwp->mntfrom, strlen(sfsp->f_mntfromname));
+	mwp->mntfrom = imax(mwp->mntfrom, (int)strlen(sfsp->f_mntfromname));
 	mwp->total = imax(mwp->total, longwidth(fsbtoblk(sfsp->f_blocks,
 							 sfsp->f_bsize, blocksize, sfsp->f_mntonname)));
 	if (sfsp->f_blocks >= sfsp->f_bfree)

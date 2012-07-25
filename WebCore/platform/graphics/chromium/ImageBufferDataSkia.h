@@ -34,12 +34,19 @@
 
 namespace WebCore {
 
+#if USE(ACCELERATED_COMPOSITING)
+class Canvas2DLayerChromium;
+#endif
+
 class ImageBufferData {
 public:
     ImageBufferData(const IntSize&);
 
     OwnPtr<SkCanvas> m_canvas;
     PlatformContextSkia m_platformContext;
+#if USE(ACCELERATED_COMPOSITING)
+    RefPtr<Canvas2DLayerChromium> m_platformLayer;
+#endif
 };
 
 } // namespace WebCore

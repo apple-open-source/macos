@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -84,6 +84,7 @@
 #include "denode.h"
 #include "msdosfsmount.h"
 #include "fat.h"
+#include "msdosfs_kdebug.h"
 
 #ifndef DEBUG
 #define DEBUG 0
@@ -208,15 +209,17 @@ int msdosfs_lookup_name(
 	buf_t bp;
 	daddr64_t bn;
 	int frcn;			/* file relative cluster (within parent directory) */
-	uint32_t cluster;		/* physical cluster containing directory entry */
+	uint32_t cluster=0;		/* physical cluster containing directory entry */
 	unsigned blkoff;			/* offset within directory block */
-	unsigned diroff;			/* offset from start of directory */
+	unsigned diroff=0;			/* offset from start of directory */
 	uint32_t blsize;		/* size of one directory block */
 	u_int16_t ucfn[WIN_MAXLEN];
 	u_char shortname[SHORT_NAME_LEN];
 	size_t unichars;	/* number of UTF-16 characters in original name */
 	int try_short_name;	/* If true, compare short names */
 	
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_LOOKUP_NAME|DBG_FUNC_START, dep->de_pmp, dep, 0, 0, 0);
+
 	dirp = NULL;
 	chksum = -1;
 		
@@ -348,6 +351,7 @@ int msdosfs_lookup_name(
 	}	/* for (frcn = 0; error == 0; frcn++) */
 
 exit:
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_LOOKUP_NAME|DBG_FUNC_END, error, cluster, diroff, 0, 0);
 	return error;
 }
 
@@ -394,6 +398,11 @@ int msdosfs_vnop_lookup(struct vnop_lookup_args *ap)
 	int isadir;			/* non-zero if found dosdirentry is a directory */
 	struct dosdirentry direntry;
 	
+	/*
+	 * TODO: What should we log here?  pmp, pdp, flags, nameiop?
+	 */
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_LOOKUP|DBG_FUNC_START, VTODE(dvp), flags, nameiop, 0, 0);
+
 	*vpp = NULL;	/* In case we return an error */
 	
 	error = cache_lookup(dvp, vpp, cnp);
@@ -404,6 +413,8 @@ int msdosfs_vnop_lookup(struct vnop_lookup_args *ap)
 		if (error == -1)	/* Positive entry? */
 			error = 0;		/* Yes.  Caller expects no error */
 		
+		/* TODO: Should log that we found something via cache_lookup. */
+		KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_LOOKUP|DBG_FUNC_END, error, 0, 0, 0, 0);
 		return error;
 	}
 
@@ -548,6 +559,7 @@ foundroot:
 
 exit:
 	lck_mtx_unlock(pdp->de_lock);
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_VNOP_LOOKUP|DBG_FUNC_END, error, 0, 0, 0, 0);
 	return error;
 }
 
@@ -578,6 +590,8 @@ int msdosfs_createde(
 	daddr64_t bn;
 	uint32_t blsize;
 
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_CREATEDE|DBG_FUNC_START, ddep, offset, long_count, 0, 0);
+
 	/*
 	 * If no space left in the directory then allocate another cluster
 	 * and chain it onto the end of the file.  There is one exception
@@ -593,7 +607,7 @@ int msdosfs_createde(
         error = msdosfs_extendfile(ddep, dirclust);
         if (error) {
             (void)msdosfs_detrunc(ddep, ddep->de_FileSize, 0, context);
-            return error;
+            goto done;
         }
 
         /*
@@ -610,11 +624,11 @@ int msdosfs_createde(
 	error = msdosfs_pcbmap(ddep, de_cluster(pmp, offset), 1,
 		       &bn, &dirclust, &blsize);
 	if (error)
-		return error;
+		goto done;
 	diroffset = offset;
 	if ((error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp)) != 0) {
 		buf_brelse(bp);
-		return error;
+		goto done;
 	}
 	ndep = bptoep(pmp, bp, offset);
 
@@ -660,20 +674,20 @@ int msdosfs_createde(
 			if (!(offset & pmp->pm_crbomask)) {
 				error = (int)buf_bdwrite(bp);
 				if (error)
-					return error;
+					goto done;
 
 				offset -= sizeof(struct dosdirentry);
 				error = msdosfs_pcbmap(ddep,
 							de_cluster(pmp, offset), 1,
 							&bn, 0, &blsize);
 				if (error)
-					return error;
+					goto done;
 
 				error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize,
 					      vfs_context_ucred(context), &bp);
 				if (error) {
 					buf_brelse(bp);
-					return error;
+					goto done;
 				}
 				ndep = bptoep(pmp, bp, offset);
 			} else {
@@ -695,7 +709,7 @@ int msdosfs_createde(
 
 	error = (int)buf_bdwrite(bp);
 	if (error)
-		return error;
+		goto done;
 
     ddep->de_flag |= DE_UPDATE;
     
@@ -704,7 +718,10 @@ int msdosfs_createde(
 	 */
 	if (depp)
 		error = msdosfs_deget(pmp, dirclust, diroffset, DETOV(ddep), cnp, depp, context);
-	
+
+done:
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_CREATEDE|DBG_FUNC_END, error, depp ? (uintptr_t)*depp : 0, 0, 0, 0);
+
 	return error;
 }
 
@@ -1011,112 +1028,167 @@ int msdosfs_removede(struct denode *pdep, uint32_t offset, vfs_context_t context
 }
 
 /*
- * Create a unique DOS name in dvp
+ * Scan the directory given by "dep" and determine whether it contains a DOS
+ * (8.3-style) short name equal to "short_name".  If not, then return 0.
+ * If the short name already exists in the directory, return EEXIST.  If
+ * there is any other error reading the directory, return that error.
  */
-int msdosfs_uniqdosname(
+int msdosfs_scan_dir_for_short_name(
 	struct denode *dep,
-	struct componentname *cnp,
-	u_char *cp,
-	u_int8_t *lower_case,
+	u_char short_name[SHORT_NAME_LEN],
 	vfs_context_t context)
 {
-	struct msdosfsmount *pmp = dep->de_pmp;
+	daddr64_t bn;
 	struct dosdirentry *dentp;
-	int gen;
+	struct buf *bp = NULL;
+	char *bdata;
 	uint32_t blsize;
 	uint32_t cn;
-	daddr64_t bn;
-	struct buf *bp;
 	int error;
-	u_int16_t ucfn[WIN_MAXLEN];
-	size_t unichars;
-	char *bdata;
 	
-	/*
-	 * Decode component name into Unicode
-	 */
-	(void) utf8_decodestr((u_int8_t*)cnp->cn_nameptr, cnp->cn_namelen, ucfn,
-				&unichars, sizeof(ucfn), 0, UTF_PRECOMPOSED);
-	unichars /= 2; /* bytes to chars */
-	
-	for (gen = 1;; gen++) {
-		/*
-		 * Generate DOS name with generation number
-		 */
-		if (!msdosfs_unicode2dosfn(ucfn, cp, unichars, gen, lower_case))
-			return gen == 1 ? ENAMETOOLONG : EEXIST;
-
-		/* This function calls msdosfs_unicode2dosfn to get short name for given
-	 	 * file name and does not use long names any further.  Therefore 
-		 * we do not call mac2sfmfn to convert Mac Unicode to SFM Unicode 
-	 	 */
-		 
-		/*
-		 * Now look for a dir entry with this exact name
-		 */
-		for (cn = error = 0; !error; cn++) {
-			if ((error = msdosfs_pcbmap(dep, cn, 1, &bn, NULL, &blsize)) != 0) {
-				if (error == E2BIG)	/* EOF reached and not found */
-					return 0;
-				return error;
-			}
-			error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
-			if (error) {
-				buf_brelse(bp);
-				return error;
-			}
-			bdata = (char *)buf_dataptr(bp);
-
-			for (dentp = (struct dosdirentry *)bdata;
-			     (char *)dentp < bdata + blsize;
-			     dentp++) {
-				if (dentp->deName[0] == SLOT_EMPTY) {
-					/*
-					 * Last used entry and not found
-					 */
-					buf_brelse(bp);
-					return 0;
-				}
-				/*
-				 * Ignore volume labels and Win95 entries
-				 */
-				if (dentp->deAttributes & ATTR_VOLUME)
-					continue;
-				if (!bcmp(dentp->deName, cp, SHORT_NAME_LEN)) {
-					error = EEXIST;
-					break;
-				}
-			}
-			buf_brelse(bp);
+	for (cn = error = 0; !error; cn++) {
+		if ((error = msdosfs_pcbmap(dep, cn, 1, &bn, NULL, &blsize)) != 0) {
+			if (error == E2BIG)	/* EOF reached and not found */
+				error = 0;
+			break;
 		}
+		error = (int)buf_meta_bread(dep->de_pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
+		if (error) {
+			break;
+		}
+		bdata = (char *)buf_dataptr(bp);
+
+		for (dentp = (struct dosdirentry *)bdata; (char *)dentp < bdata + blsize; dentp++) {
+			if (dentp->deName[0] == SLOT_EMPTY) {
+				/*
+				 * Last used entry and not found.  Note: error == 0 here.
+				 */
+				break;
+			}
+			/*
+			 * Ignore volume labels and Win95 entries
+			 */
+			if (dentp->deAttributes & ATTR_VOLUME)
+				continue;
+			if (!bcmp(dentp->deName, short_name, SHORT_NAME_LEN)) {
+				error = EEXIST;
+				break;
+			}
+		}
+		buf_brelse(bp);
+		bp = NULL;
 	}
+	if (bp)
+		buf_brelse(bp);
+	
+	return error;
 }
 
 /*
- * Find room in a directory to create the entries for a given name.
+ * Determine a DOS (8.3-style) short name that is unique within the directory given
+ * by "dep".  The short_name parameter is both input and output; on input, it is
+ * the short name derived from the Unicode name (as produced by msdosfs_unicode_to_dos_name);
+ * on output, it is the unique short name (which may contain a generation number).
+ * The dir_offset parameter is the offset (in bytes, a multiple of 32) from the start
+ * of the directory to the first long name entry (used as a hint to derive a
+ * likely unique generation number), or 1 if no generation number should be used.
+ */
+int msdosfs_uniqdosname(struct denode *dep,
+                        u_char short_name[SHORT_NAME_LEN],
+                        uint32_t dir_offset,
+                        vfs_context_t context)
+{
+	int generation;
+	int error;
+	enum { SIMPLE_GENERATION_LIMIT = 6 };
+	
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_UNIQDOSNAME|DBG_FUNC_START, dep->de_pmp, dep, 0, 0, 0);
+    
+    if (dir_offset == 1)
+    {
+        /*
+         * dir_offset == 1 means the short name is case-insensitively equal to
+         * the long name, so don't use a generation number.
+         */
+        error = msdosfs_scan_dir_for_short_name(dep, short_name, context);
+    }
+    else
+	{
+		/* Try a few simple (small) generation numbers first. */
+		for (error = EEXIST, generation = 1;
+			 error == EEXIST && generation < SIMPLE_GENERATION_LIMIT;
+			 ++generation)
+		{
+			error = msdosfs_apply_generation_to_short_name(short_name, generation);
+			if (!error)
+				error = msdosfs_scan_dir_for_short_name(dep, short_name, context);
+		}
+		if (error == 0)
+			goto done;
+		
+		/*
+		 * We've had too many collisions, so use a generation number based on dir_offset,
+		 * that is likely to be unique in the directory.
+		 */
+		generation = SIMPLE_GENERATION_LIMIT + (dir_offset / sizeof(struct dosdirentry));
+		KERNEL_DEBUG_CONSTANT(MSDOSFS_UNIQDOSNAME, dep->de_pmp, dep, generation, 0, 0);
+        
+		for (error = EEXIST; error == EEXIST && generation < 1000000; ++generation)
+		{
+			error = msdosfs_apply_generation_to_short_name(short_name, generation);
+			if (!error)
+				error = msdosfs_scan_dir_for_short_name(dep, short_name, context);
+		}
+	}
+    
+done:
+	KERNEL_DEBUG_CONSTANT(MSDOSFS_UNIQDOSNAME|DBG_FUNC_END, error, 0, 0, 0, 0);
+    
+	return error;
+}
+
+/*
+ * Find room in a directory to create the entries for a given name.  It also returns
+ * the short name (without any generation number that may be needed), whether the
+ * short name needs a generation number, and the lower case flags.
  *
  * Inputs:
  *	dep			directory to search for free/unused entries
  *	cnp			the name to be created (used to determine number of slots needed).
  *
  * Outputs:
+ *	short_name	The derived short name, without any generation number
+ *	needs_generation
+ *				Returns non-zero if the short name needs a generation number inserted
  *	lower_case	The case ("NT") flags for the new name
- *	offset		Byte offset from start of directory where short name enty goes
+ *	offset		Byte offset from start of directory where short name (last entry) goes
  *	long_count	Number of entries needed for long name entries
+ *
+ * Result:
+ *	0
+ *				The outputs are valid.  Note: the resulting offset may be beyond the
+ *				end of the directory; if so, it is the caller's responsibility to try
+ *				to grow the directory.
+ *	ENAMETOOLONG
+ *				The name provided is illegal.
+ *	other errno
+ *				An error reading the directory.
  */
 int msdosfs_findslots(
 	struct denode *dep,
 	struct componentname *cnp,
-	u_int8_t *lower_case,
+	uint8_t short_name[SHORT_NAME_LEN],
+	int *needs_generation,
+	uint8_t *lower_case,
 	uint32_t *offset,
 	uint32_t *long_count,
 	vfs_context_t context)
 {
-	int error;
-	u_char dosfilename[12];
+	int error = 0;
 	u_int16_t ucfn[WIN_MAXLEN];
 	size_t unichars;
 	int wincnt=0;	/* Number of consecutive entries needed for long name + dir entry */
+	int short_name_kind;
 	int slotcount;	/* Number of consecutive entries found so far */
 	uint32_t diroff;	/* Byte offset of entry from start of directory */
 	unsigned blkoff;	/* Byte offset of entry from start of block */
@@ -1125,13 +1197,20 @@ int msdosfs_findslots(
 	uint32_t blsize;	/* Size of directory cluster, in bytes */
 	struct dosdirentry *entry;
 	struct msdosfsmount *pmp;
-	struct buf *bp;
+	struct buf *bp = NULL;
 	char *bdata;
 
 	pmp = dep->de_pmp;
 
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_FINDSLOTS|DBG_FUNC_START, pmp, dep, 0, 0, 0);
+
 	/*
 	 * Decode name into UCS-2 (Unicode)
+	 *
+	 * This function does not generate the on-disk Unicode name; it just cares
+	 * about the length of the Unicode name.  It assumes that the Services For
+	 * Macintosh conversions do not change the Unicode name length.  Therefore,
+	 * we don't pass the flag for Services For Macintosh conversions here.
 	 */
 	(void) utf8_decodestr((u_int8_t*)cnp->cn_nameptr, cnp->cn_namelen, ucfn, &unichars,
 							sizeof(ucfn), 0, UTF_PRECOMPOSED);
@@ -1140,14 +1219,16 @@ int msdosfs_findslots(
 	/*
 	 * Determine the number of consecutive directory entries we'll need.
 	 */
-	switch (msdosfs_unicode2dosfn(ucfn, dosfilename, unichars, 0, lower_case)) {
+	short_name_kind = msdosfs_unicode_to_dos_name(ucfn, unichars, short_name, lower_case);
+	switch (short_name_kind) {
 	case 0:
 			/*
 			 * The name is syntactically invalid.  Normally, we'd return EINVAL,
 			 * but ENAMETOOLONG makes it clear that the name is the problem (and
 			 * allows Carbon to return a more meaningful error).
 			 */
-			return (ENAMETOOLONG);
+			error = ENAMETOOLONG;
+			goto done;
 	case 1:
 			/*
 			 * The name is already a short, DOS name, so no long name entries needed.
@@ -1156,14 +1237,12 @@ int msdosfs_findslots(
 			break;
 	case 2:
 	case 3:
+			/*
+			 * The name needs long name entries.  The +1 is for the short name entry.
+			 */
 			wincnt = msdosfs_winSlotCnt(ucfn, unichars) + 1;
 			break;
 	}
-
-	/* This function calls msdosfs_unicode2dosfn to get short name for given
-	 * file name and does not use long names any further.  Therefore
-	 * we do not call mac2sfmfn to convert Mac Unicode to SFM Unicode 
-	 */
 
 	/*
 	 * Look for some consecutive unused directory entries.
@@ -1176,13 +1255,19 @@ int msdosfs_findslots(
 		error = msdosfs_pcbmap(dep, frcn, 1, &bn, NULL, &blsize);
 		if (error) {
 			if (error == E2BIG)
+			{
+				/* E2BIG means we hit the end of directory, which is OK here. */
+				error = 0;
 				break;
-			return (error);
+			}
+			else
+			{
+				goto done;
+			}
 		}
 		error = (int)buf_meta_bread(pmp->pm_devvp, bn, blsize, vfs_context_ucred(context), &bp);
 		if (error) {
-			buf_brelse(bp);
-			return (error);
+			goto done;
 		}
 		bdata = (char *)buf_dataptr(bp);
 	
@@ -1232,11 +1317,15 @@ found:
 		*offset = diroff + sizeof(struct dosdirentry) * (wincnt - slotcount - 1);
 	}
 	*long_count = wincnt - 1;
-
+	*needs_generation = (short_name_kind == 3);
+	
+done:
 	if (bp)
 		buf_brelse(bp);
-
-	return 0;
+	
+    KERNEL_DEBUG_CONSTANT(MSDOSFS_FINDSLOTS|DBG_FUNC_END, error, *lower_case, *offset, *long_count, 0);
+	
+	return error;
 }
 
 

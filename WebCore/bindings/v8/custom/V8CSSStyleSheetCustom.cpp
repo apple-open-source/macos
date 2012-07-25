@@ -36,15 +36,15 @@
 
 namespace WebCore {
 
-v8::Handle<v8::Value> toV8(CSSStyleSheet* impl)
+v8::Handle<v8::Value> toV8(CSSStyleSheet* impl, v8::Isolate* isolate)
 {
     if (!impl)
         return v8::Null();
-    v8::Handle<v8::Object> wrapper = V8CSSStyleSheet::wrap(impl);
+    v8::Handle<v8::Object> wrapper = V8CSSStyleSheet::wrap(impl, isolate);
     // Add a hidden reference from stylesheet object to its owner node.
     Node* ownerNode = impl->ownerNode();
     if (ownerNode && !wrapper.IsEmpty())
-        V8DOMWrapper::setHiddenReference(wrapper, toV8(ownerNode));
+        V8DOMWrapper::setNamedHiddenReference(wrapper, "ownerNode", toV8(ownerNode, isolate));
     return wrapper;
 }
 

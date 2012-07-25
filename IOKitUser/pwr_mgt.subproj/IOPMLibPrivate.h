@@ -179,6 +179,29 @@ __BEGIN_DECLS
  */
 #define kIOPMAssertionTypeApplePushServiceTask        CFSTR("ApplePushServiceTask")
 
+/*! 
+ * @constant    kIOPMAssertionTypeBackgroundTask
+ *
+ * @discussion  This assertion should be created and held by applications while performing
+ *              any system maintenance tasks, e.g. work not initiated by a user.
+ *
+ *              Example: Periodic system data backups, spotlight indexing etc.
+ *
+ *              Behavior of this assertion on Systems that support Silent Running: 
+ *               On AC: Prevents sytem sleep. If system is idle or if user requests sleep(by 
+ *                      lid close or by selecting sleep from apple menu), system runs with display 
+ *                      off in silent running mode. Holding this assertion during darkwake results 
+ *                      in extending dark wake in silent running mode.
+ *               On Battery: This assertion is not honoured.
+ *
+ *              Behavior on Systems that don't support Silent Running:
+ *               On AC: Prevents system idle sleep. Display may get turned off. If user requests
+ *                      sleep(by lid close or apple menu sleep), then system goes into sleep.
+ *                      If the assertion is held during dark wake, it is not honored.
+ *               On Battery: This assertion is not honoured.
+ *
+ */
+#define kIOPMAssertionTypeBackgroundTask            CFSTR("BackgroundTask")
 
 /*! A caller should assert kIOPMAssertionTypeDenySystemSleep to keep the
  * system on (in dark wake mode) when it would otherwise go to sleep.
@@ -318,6 +341,17 @@ __BEGIN_DECLS
  */
 #define kIOPMAssertionsChangedNotifyString          "com.apple.system.powermanagement.assertions"
 
+/*! 
+ * @define          kIOPMAssertionTimeoutActionKillProcess
+ *
+ * @discussion      When a timeout expires with this action, Power Management will log the timeout event,
+ *                  and will kill the process that created the assertion. Signal SIGTERM is issued to 
+ *                  that process.
+ */
+#define kIOPMAssertionTimeoutActionKillProcess      CFSTR("TimeoutActionKillProcess")
+
+
+
 /*! @function IOPMAssertionSetTimeout
  *  @abstract Set a timeout for the given assertion.
  *  @discussion When the timeout fires, the assertion will be logged and a general notification
@@ -399,12 +433,20 @@ CFStringRef IOPMAssertionCreateAggregateAssertionKey(void);
 #define kIOPMTTYSPreventSleepKey                        "TTYSPreventSleep"
 // units - CFNumber 0/1
 #define kIOPMGPUSwitchKey                               "GPUSwitch"
-// Restart on Kernel panic - CFNumber in seconds
+// units - CFNumber 0/1
+#define kIOPMDarkWakeBackgroundTaskKey                  "DarkWakeBackgroundTasks"
+// units - CFNumber 0/1
+#define kIOPMSilentRunningKey                           "SilentRunning"
+// units - CFNumber 0/1
+#define kIOPMSleepServicesKey                           "SleepServices"
+
+// Restart on Kernel panic
+// Deprecated in 10.8. Do not use.
 #define kIOPMRestartOnKernelPanicKey                    "RestartAfterKernelPanic"
-// units - CFBoolean
-// kIOPMDeepSleepEnabledKey defined in xnu/iokit/IOKit/pwr_mgt/IOPM.h
-// units - CFNumber in seconds
-// kIOPMDeepSleepDelayKey defined in xnu/iokit/IOKit/pwr_mgt/IOPM.h
+
+// See xnu/iokit/IOKit/pwr_mgt/IOPM.h for other PM Settings keys:
+//  kIOPMDeepSleepEnabledKey 
+//  kIOPMDeepSleepDelayKey 
 
 /*!
  * kIOPMPrioritizeNetworkReachabilityOverSleepKey
@@ -954,6 +996,32 @@ bool IOPMGetUUID(int whichUUID, char *putTheUUIDHere, int sizeOfBuffer);
  */
 CFStringRef IOPMSleepWakeCopyUUID(void);
 
+/*
+ * IOPMSetSleepServicesWakeTimeCap
+ *
+ * Only SleepServicesD should call this SPI. If you are not writing code for
+ * SleepServicesD, do not call this SPI.
+ *
+ * This SPI allows changing the Sleep services wake duration time cap. 
+ * On receiving this request, powerd ignores the existing time cap and
+ * sets the time cap to specified duration starting from point when
+ * the request is received.
+ *
+ * The initial sleep services time cap still need to be sent to powerd 
+ * thru the IOPMConnectionAcknowledgeEventWithOptions() API. This SPI
+ * IOPMSetSleepServicesWakeTimeCap() should be used only to change the
+ * existing time cap.
+ *
+ * The request is ignored if issued when there is no existing time cap
+ * already set or if issued when system is not in sleep services wake.
+ *
+ * @param cap
+ * This specifies the new cap time in milliseconds.
+ *
+ *  @result
+ *  Returns kIOReturnSuccess if new time cap is set successfully.
+ */
+IOReturn IOPMSetSleepServicesWakeTimeCap(CFTimeInterval cap);
 // Poweranagement's 1-byte status code
 #define kIOPMSleepWakeFailureKey            "PMFailurePhase"
 
@@ -981,11 +1049,11 @@ CFStringRef IOPMSleepWakeCopyUUID(void);
 
 
 /*
- * For use by LoginWindow only.
- * facility - Pass CFSTR(kIOPMLoginWindowSecurityDebugKey) for the facility
- * data - Pass a pointer to a variable containing one byte of data.
- * dataCount - Pass the integer 1.
- */
+√ä* For use by LoginWindow only.
+√ä* facility - Pass CFSTR(kIOPMLoginWindowSecurityDebugKey) for the facility
+√ä* data - Pass a pointer to a variable containing one byte of data.
+√ä* dataCount - Pass the integer 1.
+√ä*/
 IOReturn IOPMDebugTracePoint(
         CFStringRef     facility, 
         uint8_t         *data, 
@@ -993,20 +1061,20 @@ IOReturn IOPMDebugTracePoint(
 
 
 /*
- * Returns data describing the sleep failure (if any) that occured prior to the system booting.
- *
- * This routine will return the same CFDictionary over the lifetime of a given boot - it does not return
- * dynamic information after each sleep/wake. It only returns information pertaining to the last
- * failed sleep/wake before booting up.
- * 
- * If NULL, then the last sleep/wake was successful, or we were unable to determine whether
- * there was a problem.
- * If non-NULL, Caller must release the returned dictionary.
- *
- * kIOPMSleepWakeFailureLoginKey points to a CFNumber containing LW's 8-bit code.
- * kIOPMSleepWakeFailureUUIDKey points to a CFStringRef containing the UUID associated with the failed sleep.
- * kIOPMSleepWakeFailureDateKey points to the CFDate that the failed sleep was initiated.
- */
+√ä* Returns data describing the sleep failure (if any) that occured prior to the system booting.
+√ä*
+√ä* This routine will return the same CFDictionary over the lifetime of a given boot - it does not return
+√ä* dynamic information after each sleep/wake. It only returns information pertaining to the last
+√ä* failed sleep/wake√äbefore booting up.
+√ä*√ä
+√ä* If NULL, then the last sleep/wake was successful, or we were unable to determine whether
+√ä* there was a problem.
+√ä* If non-NULL, Caller must release the returned dictionary.
+√ä*
+√ä* kIOPMSleepWakeFailureLoginKey points to a CFNumber containing LW's 8-bit code.
+√ä* kIOPMSleepWakeFailureUUIDKey points to a CFStringRef containing the UUID associated with the failed sleep.
+√ä* kIOPMSleepWakeFailureDateKey points to the CFDate that the failed sleep was initiated.
+√ä*/
 CFDictionaryRef IOPMCopySleepWakeFailure(void);
 
 
@@ -1367,7 +1435,60 @@ typedef void (*IOPMEventHandlerType)(
 /*****************************************************************************/
 /*****************************************************************************/
 
+/*! kIOPMAckNetworkMaintenanceWakeDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions. Caller
+ *  should push a CFDate value to match this key.
+ *
+ *  System network daemons should populate this option to specify the
+ *  next wakeup date.
+ *  Passing this "Date" option lets a caller request a maintenance wake
+ *  from the system at a later date. If possible, the system will wake
+ *  to the requested power state at the requested time.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ *  *** Limitation
+ *  This acknowledgement argument may only be successfully used with
+ *  the requirements bitfield 
+ *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ * 
+ */
+#define kIOPMAckNetworkMaintenanceWakeDate    CFSTR("NetworkMaintenanceWakeDate")
+
+/*! kIOPMAckTimerPluginWakeDate
+ *
+ *  This string can be used as a key in the 'options' dictionary
+ *  argument to IOPMConnectionAcknowledgeEventWithOptions. 
+ *  - Caller should set a CFDate value to match this key.
+ *  - Caller should set the kIOPMAcknowledgmentOptionSystemCapabilityRequirements key too.
+ *
+ *  The System timer plugin should populate this option to specify the next wakeup
+ *  date.
+ *
+ *  Passing this "Date" option lets a caller request a maintenance wake
+ *  from the system at a later date. If possible, the system will wake
+ *  to the requested power state at the requested time.
+ *
+ *  This acknowledgement option is only valid when the system is transitioning into a
+ *  sleep state i.e. entering a state with 0 capabilities. 
+ *
+ *  *** Limitation
+ *  This acknowledgement argument may only be successfully used with
+ *  the requirements bitfield 
+ *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
+ * 
+ */
+#define kIOPMAckTimerPluginWakeDate    CFSTR("TimerPluginWakeDate")
+
+
 /*! kIOPMAcknowledgmentOptionDate
+ *
+ *  Callers should prefer to use a more specific key instead of this key:
+ *      kIOPMAckNetworkMaintenanceWakeDate
+ *      kIOPMAckSleepTimerWakeDate
  *
  *  This string can be used as a key in the 'options' dictionary
  *  argument to IOPMConnectionAcknowledgeEventWithOptions.
@@ -1385,7 +1506,8 @@ typedef void (*IOPMEventHandlerType)(
  *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
  * 
  */
-#define kIOPMAcknowledgmentOptionWakeDate    CFSTR("WakeDate")
+#define kIOPMAcknowledgmentOptionWakeDate           CFSTR("WakeDate")
+#define kIOPMAckWakeDate                            kIOPMAcknowledgmentOptionWakeDate
 
 /*! kIOPMAcknowledgmentOptionSystemCapabilityRequirements
  *
@@ -1409,7 +1531,8 @@ typedef void (*IOPMEventHandlerType)(
  *      kIOPMSystemPowerStateCapabilityDisk | kIOPMSystemPowerStateCapabilityNetwork
  * 
  */
-#define kIOPMAcknowledgmentOptionSystemCapabilityRequirements    CFSTR("Requirements")
+#define kIOPMAcknowledgmentOptionSystemCapabilityRequirements   CFSTR("Requirements")
+#define kIOPMAckSystemCapabilityRequirements                    kIOPMAcknowledgmentOptionSystemCapabilityRequirements
 
 /*!
  * @constant kIOPMAcknowledgementOptionSleepServiceDate
@@ -1430,9 +1553,10 @@ typedef void (*IOPMEventHandlerType)(
  *
  */
 #define kIOPMAcknowledgementOptionSleepServiceDate              CFSTR("SleepServiceDate")
+#define kIOPMAckSleepServiceDate                                kIOPMAcknowledgementOptionSleepServiceDate
 
 /*!
- * @constant kIOPMAcknowledgementOptionSleepServiceCapTimeout
+ * @constant kIOPMAckSleepServiceCapTimeout
  *
  *  This string can be used as a key in the 'options' dictionary
  *  argument to IOPMConnectionAcknowledgeEventWithOptions, or as
@@ -1451,8 +1575,22 @@ typedef void (*IOPMEventHandlerType)(
  *  sleep state i.e. entering a state with 0 capabilities. 
  *
  */
-
 #define kIOPMAcknowledgeOptionSleepServiceCapTimeout            CFSTR("SleepServiceTimeout")
+#define kIOPMAckSleepServiceCapTimeout                          kIOPMAcknowledgeOptionSleepServiceCapTimeout
+
+/*
+ * @constant kIOPMAckClientInfo
+ *
+ * Optional key for IOPMConnectionAcknoweledgeEventWithOptions() dictionary.
+ *
+ * The caller may set this key to a CFString with a reason or cause for this 
+ * DarkWake request.
+ *
+ * The string should be a reason, process name, pid, or strings that's useful 
+ * for debugging. The value will be logged into "pmset -g log" along with
+ * the name of the calling process.
+ */
+#define kIOPMAckClientInfoKey                                   CFSTR("ClientInfo")
 
 /*****************************************************************************/
 /*****************************************************************************/
@@ -1645,6 +1783,14 @@ IOReturn IOPMConnectionAcknowledgeEventWithOptions(
  */
 
 bool IOPMGetSleepServicesActive(void);
+
+
+#define kIOPMDebugEnableAssertionLogging    0x1
+#define kIOPMDebugLogAssertionSynchronous   0x2
+#define kIOPMDebugLogCallbacks              0x4
+
+IOReturn IOPMSetDebugFlags(uint32_t newFlags, uint32_t *oldFlags);
+IOReturn IOPMSetBTWakeInterval(uint32_t newInterval, uint32_t *oldInterval);
 
 
 __END_DECLS

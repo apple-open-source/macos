@@ -46,6 +46,7 @@
 #include <sys/wait.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <bsm/audit.h>
 
 #include "automount.h"
 #include "nfs.h"
@@ -57,13 +58,11 @@
 
 static void free_action_list(action_list *);
 static int unmount_mntpnt(fsid_t, struct mnttab *);
-static int fork_exec(char *, char **, uid_t, mach_port_t);
+static int fork_exec(char *, char **, uid_t, au_asid_t);
 static void remove_browse_options(char *);
 static int inherit_options(const char *, char **);
 
 #define ROUND_UP(a, b)	((((a) + (b) - 1)/(b)) * (b))
-
-pthread_mutex_t gssd_port_lock;
 
 static uint32_t
 countstring(char *string)
@@ -116,7 +115,7 @@ int
 do_mount1(const autofs_pathname mapname, const char *key,
     const autofs_pathname subdir, const autofs_opts mapopts,
     const autofs_pathname path, boolean_t isdirect, boolean_t issubtrigger,
-    fsid_t mntpnt_fsid, uid_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    fsid_t mntpnt_fsid, uid_t sendereuid, au_asid_t asid, fsid_t *fsidp,
     uint32_t *retflags, byte_buffer *actions,
     mach_msg_type_number_t *actionsCnt)
 {
@@ -218,7 +217,7 @@ retry:
 		while (mntpnt[len] == '/')
 			mntpnt[len--] = '\0';
 
-		(void) strcpy(spec_mntpnt, mntpnt);
+		(void) strlcpy(spec_mntpnt, mntpnt, sizeof(spec_mntpnt));
 
 		if (isrestricted &&
 		    inherit_options(mapopts, &me->map_mntopts) != 0) {
@@ -231,7 +230,7 @@ retry:
 			remove_browse_options(me->map_mntopts);
 			err =
 			    mount_nfs(me, spec_mntpnt, private, isdirect,
-			        mntpnt_fsid, gssd_port, fsidp, retflags);
+				mntpnt_fsid, asid, fsidp, retflags);
 			/*
 			 * We must retry if we don't have access to the
 			 * root file system and there are other
@@ -310,7 +309,7 @@ retry:
 			err = mount_generic(me->map_fs->mfs_dir,
 					    me->map_fstype, me->map_mntopts, 0,
 					    spec_mntpnt, isdirect, FALSE,
-					    mntpnt_fsid, sendereuid, gssd_port,
+					    mntpnt_fsid, sendereuid, asid,
 					    fsidp, retflags);
 		}
 	}
@@ -401,7 +400,7 @@ struct attr_buffer {
 int
 mount_generic(char *special, char *fstype, char *opts, int nfsvers,
     char *mntpnt, boolean_t isdirect, boolean_t usenetauth, fsid_t mntpnt_fsid,
-    uid_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    uid_t sendereuid, au_asid_t asid, fsid_t *fsidp,
     uint32_t *retflags)
 {
 	struct stat stbuf;
@@ -629,7 +628,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	newargv[i++] = mntpnt;
 	newargv[i] = NULL;
 
-	res = fork_exec(fstype, newargv, sendereuid, gssd_port);
+	res = fork_exec(fstype, newargv, sendereuid, asid);
 	if (res == 0) {
 		res = get_triggered_mount_info(mntpnt, mntpnt_fsid,
 		    fsidp, retflags);
@@ -646,31 +645,6 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	if (mapped_opts != NULL)
 		free(mapped_opts);
 	return (res);
-}
-
-/*
- * Put the specified port back as the GSSD task special port, release
- * the GSSD port mutex (as we're done mucking with our GSSD special
- * port), and log a message if that fails or release the port if it
- * succeeds.
- */
-void
-put_back_gssd_port(mach_port_t saved_gssd_port)
-{
-	kern_return_t ret;
-
-	ret = task_set_gssd_port(current_task(), saved_gssd_port);
-	pthread_mutex_unlock(&gssd_port_lock);
-	if (ret != KERN_SUCCESS) {
-		syslog(LOG_ERR, "Cannot restore gssd port: %s",
-		    mach_error_string(ret));
-	} else {
-		/*
-		 * We no longer need the send right for the GSSD port, so
-		 * release it.
-		 */
-		mach_port_deallocate(current_task(), saved_gssd_port);
-	}
 }
 
 int
@@ -726,17 +700,45 @@ get_triggered_mount_info(const char *mntpnt, fsid_t mntpnt_fsid,
 	return 0;
 }
 
+/*
+ * Given an audit session id, Try and join that session
+ * Return 0 on success else -1
+ */
+int
+join_session(au_asid_t asid)
+{
+	int err;
+	au_asid_t asid2;
+	mach_port_name_t session_port;
+
+	err = audit_session_port(asid, &session_port);
+	if (err) {
+		syslog(LOG_ERR, "Could not get audit session port %d for %m", asid);
+		return (-1);
+	}
+	asid2 = audit_session_join(session_port);
+	(void) mach_port_deallocate(current_task(), session_port);
+
+	if (asid2 < 0) {
+		syslog(LOG_ERR, "Could not join audit session %d", asid);
+		return (-1);
+	}
+
+	if (asid2 != asid) {
+		syslog(LOG_ERR, "Joined session %d but wound up in session %d", asid, asid2);
+		return (-1);
+	}
+	return (0);
+}
 #define CFENVFORMATSTRING "0x%X:0:0"
 
 static int
-fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
+fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 {
 	char *path;
 	volatile int path_is_allocated;
 	struct stat stbuf;
 	int i;
-	kern_return_t ret;
-	mach_port_t saved_gssd_port;
 	char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; /* Extra bytes for expansion of %X uid field */
 	int child_pid;
 	int stat_loc;
@@ -781,50 +783,11 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 
 	newargv[0] = path;
 
-	/*
-	 * We set the gssd task special port to the one we were handed,
-	 * which is the one for the task that triggered this mount; we
-	 * want the mount to talk to that task's gssd, so it can get
-	 * that task's credentials to do the mount.
-	 *
-	 * XXX - we can't just pass the supplied port to the child; we
-	 * have to save our current GSSD task special port, set that
-	 * port to the specified port, fork, and then set it back in
-	 * the parent after the fork.
-	 *
-	 * The task special port isn't per-thread, so we grab a mutex
-	 * to make sure only one thread is doing anything with the port
-	 * at a time.
-	 */
-	pthread_mutex_lock(&gssd_port_lock);
-	ret = task_get_gssd_port(current_task(), &saved_gssd_port);
-	if (ret != KERN_SUCCESS) {
-		pthread_mutex_unlock(&gssd_port_lock);
-		syslog(LOG_ERR, "Cannot get gssd port: %s",
-		    mach_error_string(ret));
-		res = EIO;
-		goto done;
-	}
-	ret = task_set_gssd_port(current_task(), gssd_port);
-	if (ret != KERN_SUCCESS) {
-		/*
-		 * Release send right on saved_gssd_port, as we
-		 * won't be using it.
-		 */
-		mach_port_deallocate(current_task(), saved_gssd_port);
-		pthread_mutex_unlock(&gssd_port_lock);
-		syslog(LOG_ERR, "Cannot set gssd port: %s",
-		    mach_error_string(ret));
-		res = EIO;
-		goto done;
-	}
 	switch ((child_pid = fork1())) {
 	case -1:
 		/*
-		 * Fork failure.  Clean up the GSSD port, log
-		 * an error, and quit.
+		 * Fork failure. Log an error, and quit.
 		 */
-		put_back_gssd_port(saved_gssd_port);
 		res = errno;
 		syslog(LOG_ERR, "Cannot fork: %m");
 		goto done;
@@ -832,6 +795,12 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 		/*
 		 * Child.
 		 *
+		 * We need to join the right audit session
+		 */
+		if (join_session(asid))
+			_exit(EPERM);
+
+		/*
 		 * We leave most of our environment as it is; we assume
 		 * that launchd has made the right thing happen for us,
 		 * and that this is also the right thing for the processes
@@ -853,7 +822,7 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 			_exit(res);
 		}
 
-		/* 
+		/*
 		 * Create a new environment with a definition of
 		 * __CF_USER_TEXT_ENCODING to work around CF's interest
 		 * in the user's home directory.  We're a child of the
@@ -880,11 +849,6 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 		/*
 		 * Parent.
 		 *
-		 * Clean up the GSSD port.
-		 */
-		put_back_gssd_port(saved_gssd_port);
-
-		/*
 		 * Now wait for the child to finish.
 		 */
 		(void) waitpid(child_pid, &stat_loc, WUNTRACED);
@@ -1038,28 +1002,18 @@ remove_browse_options(char *opts)
 	CHECK_STRCPY(buf, opts, sizeof buf);
 	pb = buf;
 
-	/*
-	 * "new" is as big as "buf", and we're not copying anything
-	 * to "new" that's not in "buf", so the "strcat()" calls are
-	 * safe.
-	 */
 	while ((p = (char *)strtok_r(pb, ",", &placeholder)) != NULL) {
 		pb = NULL;
 		if (strcmp(p, "nobrowse") != 0 &&
 		    strcmp(p, "browse") != 0 &&
 		    strcmp(p, MNTOPT_RESTRICT) != 0) {
 			if (new[0] != '\0')
-				(void) strcat(new, ",");
-			(void) strcat(new, p);
+				(void) strlcat(new, ",", sizeof(new));
+			(void) strlcat(new, p, sizeof(new));
 		}
 	}
 
-	/*
-	 * The string copied to "buf" was "opts", and we copied nothing
-	 * to "new" that wasn't in "buf", so "new" is no bigger than "opts",
-	 * and this copy is safe.
-	 */
-	(void) strcpy(opts, new);
+	(void) strlcpy(opts, new, AUTOFS_MAXOPTSLEN);
 }
 
 /*
